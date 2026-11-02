@@ -64,7 +64,7 @@ artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한�
 | 입력창 상태 | 항상 mount되는 `ComposerInputController` 로컬 `DraftSnapshot` | — | revision, text, selectionStart/End, composing |
 | UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | DebugPanel 펼침 여부 |
 
-세션 주의 표시는 `sessionsStore.unseenAttention`이 목록 엔티티와 분리해 세션별 마지막 사유(`completed`·`awaiting-response`)를 보관한다. `chatStore`가 정확히 라우팅한 `turn.ended`와 `permission.requested`를 각각 `subscribeTurnEnd`·`subscribeResponseRequest`로 알리며, app의 `subscribeSessionAttention`이 sessions 액션에 연결한다. 항상 마운트되는 `RootGate`의 `useSessionAttentionSubscription`이 구독 수명을 소유하므로 로그인 게이트 동안에도 주의 표시와 생성 중 집합이 갱신된다. `useSessionCompletion`은 실제 라우트와 draft 상태에서 계산한 열람 세션만 전달하고, 메인 셸 정리 때 `null`로 비운다. 게이트 동안 완료·응답 요청은 열람 없음으로 처리하며 재통과 뒤 현재 경로 세션을 열면 확인 처리한다. 생성 중 집합(`generatingSessionIds`)은 chat 엔트리의 `inflight`·응답 요청에서 파생해 app이 투영하며 행 아이콘에서 주의 표시보다 앞선다. 주의 표시는 현재 열린 세션에 만들지 않으며, 열기에서 확인 처리하고 목록 재조회에 유지한다. 삭제는 표시를 정리하며 앱 재시작 후에는 복원하지 않는다. 중간 메시지·오류·중단·삭제된 세션의 늦은 신호는 새 완료 표시를 만들지 않고, 세션 ID가 없거나 미확정 draft로 폴백한 요청은 새 응답 대기 표시를 만들지 않는다.
+세션 주의 표시는 `sessionsStore.unseenAttention`이 목록 엔티티와 분리해 세션별 마지막 사유(`completed`·`awaiting-response`)를 보관한다. `chatStore`가 정확히 라우팅한 `turn.ended`와 `permission.requested`를 각각 `subscribeTurnEnd`·`subscribeResponseRequest`로 알리며, app의 `subscribeSessionAttention`이 sessions 액션에 연결한다. 항상 마운트되는 `RootGate`의 `useSessionAttentionSubscription`이 구독 수명을 소유하므로 로그인 게이트 동안에도 주의 표시와 생성 중 집합이 갱신된다. `useSessionCompletion`은 실제 라우트와 draft 상태에서 계산한 열람 세션만 전달하고, 메인 셸 정리 때 `null`로 비운다. 게이트 동안 완료·응답 요청은 열람 없음으로 처리하며 재통과 뒤 현재 경로 세션을 열면 확인 처리한다. 생성 중 집합(`generatingSessionIds`)은 chat 엔트리의 `inflight`·응답 요청에서 파생해 app이 투영하며 행 오른쪽 상태 칸에서 주의 표시보다 앞선다. 주의 표시는 현재 열린 세션에 만들지 않으며, 열기에서 확인 처리하고 목록 재조회에 유지한다. 삭제는 표시를 정리하며 앱 재시작 후에는 복원하지 않는다. 중간 메시지·오류·중단·삭제된 세션의 늦은 신호는 새 완료 표시를 만들지 않고, 세션 ID가 없거나 미확정 draft로 폴백한 요청은 새 응답 대기 표시를 만들지 않는다.
 
 ### 1.2 chat store 구조 (실제 정의 요약)
 
@@ -173,7 +173,7 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 
 ## 2. 멀티세션 UI 동작
 
-> **현재 상태**: main 은 세션별 `SessionRuntime`(../backend/runtime-ipc.md §1)으로 서로 다른 세션의 동시 턴을 돌리고, renderer 는 `sessions: Record` store(§1.2)로 비활성 세션 턴을 백그라운드 누적한다. 사이드바 세션 행은 생성 중(회전) · 완료 · 응답 대기를 아이콘으로 알린다(§1.1 `unseenAttention`·`generatingSessionIds`, rendering.md "채팅 행" 단락 — 0249·0254).
+> **현재 상태**: main 은 세션별 `SessionRuntime`(../backend/runtime-ipc.md §1)으로 서로 다른 세션의 동시 턴을 돌리고, renderer 는 `sessions: Record` store(§1.2)로 비활성 세션 턴을 백그라운드 누적한다. 사이드바 세션 행은 생성 중을 오른쪽 회색 원호로, 비열람 완료·응답 대기를 파란 공으로 알린다(§1.1 `unseenAttention`·`generatingSessionIds`, rendering.md "채팅 행" 단락 — 0249·0254).
 
 ### 2.1 설계 결정
 
@@ -183,7 +183,7 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 | 이벤트 출처 식별 | 모든 `NormalizedEvent` 가 `sessionId` 를 갖고 store 가 키 라우팅한다(GLOSSARY NormalizedEvent) | `app/src/shared/ipc.ts` |
 | IPC 1채널 | `orca:chat:event` 하나 — Electron `webContents.send` 가 ordered + lossless 를 보장하므로 별도 메시지큐를 두지 않는다 | — |
 | 세션 전환 수단 | 사이드바 목록(고정됨 · 프로젝트 · 최근 대화, §1.6) — 세션 탭 UI 는 두지 않았다 | `app/Sidebar.tsx` · `features/sessions/` |
-| 비활성 세션 알림 | 행 아이콘 — 생성 중 회전(0254) · 완료/응답 대기 굵은 파란 아이콘(0249), 세션을 열면 해제 | `sessionsStore.unseenAttention` |
+| 비활성 세션 알림 | 오른쪽 상태 칸 — 생성 중 회색 원호 · 비열람 완료/응답 대기 파란 공, 주의 표시는 세션을 열면 해제 | `sessionsStore.unseenAttention` |
 
 ### 2.2 동시 스트리밍
 

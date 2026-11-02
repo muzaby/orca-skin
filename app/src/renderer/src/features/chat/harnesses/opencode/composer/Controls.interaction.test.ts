@@ -79,8 +79,14 @@ describe('OpenCode composer selection', () => {
         expect(heading.children[0].textContent).toBe('harness.agent')
         expect(heading.children[1].querySelector('[data-agent-loading]')).toBe(spinner)
         expect(spinner.props['aria-hidden']).toBe('true')
+        const svg = spinner.querySelector('[viewBox]')!
+        expect(svg.props.width).toBe(12)
+        expect(svg.props.height).toBe(12)
+        expect(svg.querySelector('[d]')!.props.d).toBe(
+          'M480-880a400 400 0 1 1-400 400h80a320 320 0 1 0 320-320v-80Z'
+        )
         expect(String(spinner.querySelector('[viewBox]')?.props.className).split(' ')).toEqual(
-          expect.arrayContaining(['animate-spin', 'motion-reduce:animate-none'])
+          expect.arrayContaining(['text-ink3', 'animate-spin', 'motion-reduce:animate-none'])
         )
       }
       expect(dom.query('[role="menu"]')?.textContent).toBe('harness.agentbuild')

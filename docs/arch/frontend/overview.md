@@ -78,7 +78,7 @@
 | 엔진 & 모델 화면 (`/agent`) | Phase 4 | ✅ CRUD 활성 (0021·0090) | `AgentEnvironmentView` + provider CRUD(`EngineFormModal` 단일 화면 + 선택 하네스의 native 설정 불러오기, 0090) |
 | 플러그인 카탈로그 — 스킬 탭 토글 · 연결(Auth) 상세 | Phase 4 | ✅ 완료 (0181·0236·0238) | 스킬 on/off 는 `Settings.skillEnabled`, 연결 상세는 `ProviderDetail` + 인증 액션(`ProviderAuthActions`). 도구 권한은 승인 UI와 권한 모드 메뉴가 담당(ux-domains.md §1.6) |
 | 메시지 가상 스크롤 | Phase 4 | ✅ 완료 (0102) | `features/chat/hooks/useTranscriptVirtualizer.ts` — `@tanstack/react-virtual` 기반 transcript 가상화 |
-| 멀티세션 UI (nav 세션 행 상태 아이콘 · 주의 표시) | Phase 4 | ✅ 완료 (0249·0254) | 다른 세션의 생성 중(회전) · 완료 · 응답 대기를 행 아이콘으로 표시 — `sessionsStore.unseenAttention`·`generatingSessionIds`(state.md §1.1·§2). 세션 탭 UI 는 두지 않았다(사이드바 목록이 전환 수단) |
+| 멀티세션 UI (nav 세션 행 오른쪽 상태 칸 · 주의 표시) | Phase 4 | ✅ 완료 (0249·0254) | 생성 중은 오른쪽 회색 원호, 비열람 완료·응답 대기는 파란 공으로 표시하며 왼쪽 종류 아이콘은 고정 — `sessionsStore.unseenAttention`·`generatingSessionIds`(state.md §1.1·§2). 세션 탭 UI 는 두지 않았다(사이드바 목록이 전환 수단) |
 | 키보드 단축키 (Cmd/Ctrl+N 등) | Future | ❌ 미구현 | OQ 추가 후보 |
 | 네트워크 단절 배너 | Future | ❌ 미구현 | — |
 | ARIA / 스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |

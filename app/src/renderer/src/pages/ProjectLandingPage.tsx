@@ -48,6 +48,7 @@ export function ProjectLandingPage({
     projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
   )
   const projectsLoading = useProjectsState((s) => s.loading)
+  const projects = useProjectsState((s) => s.list)
   const sessionActions = useSessionActions({
     deleteFallbackProjectId: projectId,
     redirectAfterActiveDelete: `/projects/${projectId}`
@@ -116,6 +117,7 @@ export function ProjectLandingPage({
                 onManagePlugins={() => navigate('/plugins')}
                 flush
                 showLandingCwdPanel
+                landingProjects={{ items: projects, loading: projectsLoading }}
               />
               <ProjectSessionsPanel
                 agentAppearance={agentUiPolicy}

@@ -65,7 +65,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
 | [shared/ui/ConfirmDialogHost.tsx](../../../app/src/renderer/src/shared/ui/ConfirmDialogHost.tsx) — `ConfirmDialogHost` | 전역 확인 요청을 Modal·ModalActions로 표시한다. feature별 확인창 복제를 피한다. 취소 버튼·Esc·배경 클릭과 다른 요청에 의한 교체는 요청의 선택 `onCancel`로 알린다. |
 | [shared/ui/CopyIconButton.tsx](../../../app/src/renderer/src/shared/ui/CopyIconButton.tsx) — `CopyIconButton` | 복사·완료 피드백·tooltip을 재사용하며 아이콘 크기를 인접 액션과 맞춘다. |
-| [shared/ui/DotsSpinner.tsx](../../../app/src/renderer/src/shared/ui/DotsSpinner.tsx) — `DotsSpinner` | 기존 dot-wave 크기 옵션·타이밍을 사용한다. 소비처에서 dot 애니메이션을 재구현하지 않는다. |
+| [shared/ui/ArcSpinner.tsx](../../../app/src/renderer/src/shared/ui/ArcSpinner.tsx) — `ArcSpinner` | 세션 행과 OpenCode 에이전트 팝업이 같은 회색 원호를 공유한다. `Icon spinner`·12px·`text-ink3`·`animate-spin`·`motion-reduce:animate-none`을 유지한다. |
 | [shared/ui/ErrorToastHost.tsx](../../../app/src/renderer/src/shared/ui/ErrorToastHost.tsx) — `ErrorToastHost` | toast 역할 토큰·설명·닫기·동작 영역·축소 모션을 유지한다. |
 | [shared/ui/FloatingPanel.tsx](../../../app/src/renderer/src/shared/ui/FloatingPanel.tsx) — `FloatingPanel`, `PanelSection`, `PanelButton`, `PanelToggle`, `PanelRadio`, `PanelSelect`, `PanelSlider` | 개발 패널 전용 floating-panel 토큰·드래그·접기를 사용한다. 제품 modal보다 높은 z를 일반화하지 않는다. |
 | [shared/ui/Histogram.tsx](../../../app/src/renderer/src/shared/ui/Histogram.tsx) — `Histogram` | stage 배경 위 RGB 채널 분포. 현재 생성 샘플을 실제 센서 데이터처럼 설명하지 않는다. |
@@ -83,7 +83,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/ResizableSidePane.tsx](../../../app/src/renderer/src/shared/ui/ResizableSidePane.tsx) — `ResizableSidePane` | pane 단위 폭·확대·복원·키보드/포인터 리사이즈와 iframe 경계 처리를 재사용한다. |
 | [shared/ui/SidebarSection.tsx](../../../app/src/renderer/src/shared/ui/SidebarSection.tsx) — `CollapsibleSection` | 구획 제목·우측 동작·접힘·본문 여백을 sidebar 패턴으로 통일한다. |
 | [shared/ui/SparkSpinner.tsx](../../../app/src/renderer/src/shared/ui/SparkSpinner.tsx) — `SparkSpinner` | 원본 artwork·spinner 고정색·진행 애니메이션을 사용하고 테마별 재색칠하지 않는다. |
-| [shared/ui/Status.tsx](../../../app/src/renderer/src/shared/ui/Status.tsx) — `Dot` | 의미 tone에 visible/accessibility label·tooltip을 함께 둔다. 연결 상태 공은 수동 표시이며 활성 스위치와 구분한다. |
+| [shared/ui/Status.tsx](../../../app/src/renderer/src/shared/ui/Status.tsx) — `Dot` | 의미 tone에 visible/accessibility label·tooltip을 함께 둔다. 연결 상태 공은 수동 표시이며 활성 스위치와 구분한다. `blue` tone은 `bg-selected ring-selected/20`이며 세션 완료·응답 대기에 사용한다. |
 | [shared/ui/Toggle.tsx](../../../app/src/renderer/src/shared/ui/Toggle.tsx) — `Toggle`, `ToggleIndicator` | Toggle은 on·label API와 switch ARIA를 제공한다. 메뉴의 ToggleIndicator는 손잡이 transform·배경색200ms 전환을 사용하며 reduced motion에서는 전환하지 않는다. 선택 blue·off border-strong과 흰색 원형 손잡이를 유지한다. busy spinner는 손잡이 안에 표시하고 축소 모션에서는 회전을 멈춘다. 접근성 이름·checked/busy·중복 입력 방지는 바깥 메뉴 버튼이 맡는다. |
 | [shared/ui/TooltipHost.tsx](../../../app/src/renderer/src/shared/ui/TooltipHost.tsx) — `TooltipHost` | title 기반 tooltip을 루트에서 표시한다. feature별 title host를 추가하지 않는다. |
 | [shared/ui/UsageCircle.tsx](../../../app/src/renderer/src/shared/ui/UsageCircle.tsx) — `UsageCircle` | 사용량 ratio·공통 tone·숫자 피드백을 유지하고 Meter와 다른 임계값을 만들지 않는다. |
@@ -105,7 +105,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/ChatView.tsx](../../../app/src/renderer/src/features/chat/components/ChatView.tsx) — `ChatView` | 세션별 채팅·타일 조립. 배경·테마를 세션마다 새로 정의하지 않는다. |
 | [features/chat/components/Composer.tsx](../../../app/src/renderer/src/features/chat/components/Composer.tsx) — `ComposerPanelStackView`, `Composer` | 공통 입력 controller와 하네스 표면 조립. 전환 시 초안·첨부·IME를 보존한다. |
 | [features/chat/components/CwdButton.tsx](../../../app/src/renderer/src/features/chat/components/CwdButton.tsx) — `CwdButton` | 작업 경로 진입 버튼의 축약·전체 경로 확인·키보드 이름을 유지한다. |
-| [features/chat/components/LandingProjectPicker.tsx](../../../app/src/renderer/src/features/chat/components/LandingProjectPicker.tsx) — `LandingProjectPicker` | `/new`의 양 하네스에서 프로젝트 검색·폴더 목록·선택 강조와 체크·추가 버튼을 표시한다. Popover·MenuItem·Nav 폴더 Icon을 재사용하고 검색 초점·닫기 복귀·긴 이름 말줄임을 유지한다. |
+| [features/chat/components/LandingProjectPicker.tsx](../../../app/src/renderer/src/features/chat/components/LandingProjectPicker.tsx) — `LandingProjectPicker` | `/new`와 프로젝트 랜딩의 양 하네스에서 프로젝트 검색·폴더 목록·선택 강조와 체크·추가 버튼을 표시한다. Popover·MenuItem·Nav 폴더 Icon을 재사용하고 검색 초점·닫기 복귀·긴 이름 말줄임을 유지한다. |
 | [features/chat/components/CwdPanel.tsx](../../../app/src/renderer/src/features/chat/components/CwdPanel.tsx) — `CwdPanel` | 작업 경로·추가 디렉터리 선택. 경로는 mono·긴 값은 안전한 줄바꿈. |
 | [features/chat/components/Landing.tsx](../../../app/src/renderer/src/features/chat/components/Landing.tsx) — `Landing` | 새 대화의 브랜드·읽기 열·입력 위계. 하네스별 브랜드 슬롯을 사용한다. |
 | [features/chat/components/LandingHeader.tsx](../../../app/src/renderer/src/features/chat/components/LandingHeader.tsx) — `LandingHeader` | 새 대화와 프로젝트에서 현재 하네스의 기존 헤더를 선택한다. Claude 모드 문구와 OpenCode 브랜드를 재사용하고 Composer 수명을 유지한다. |
@@ -113,7 +113,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/StatusLine.tsx](../../../app/src/renderer/src/features/chat/components/StatusLine.tsx) — `StatusLine` | 진행 아이콘·상태 문구·경과값을 같은 작은 행에 정렬한다. |
 | [features/chat/components/UsagePanel.tsx](../../../app/src/renderer/src/features/chat/components/UsagePanel.tsx) — `UsagePanel` | 기간·비용·컨텍스트·설정 진입을 같은 공통 meter·숫자 표기로 표시한다. |
 | [features/chat/components/composer/GitRow.tsx](../../../app/src/renderer/src/features/chat/components/composer/GitRow.tsx) — `GitRowView`, `GitRow` | composer 상단 Git 문맥. branch·변경량·worktree 조작을 같은 작은 행에 정렬한다. |
-| [features/chat/components/composer/ModelMenu.tsx](../../../app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx) — `ModelMenu` | 모델·provider 선택은 하네스 정책과 MenuItem 위계를 따르고 긴 이름을 처리한다. Claude/OpenCode 그룹 제목 왼쪽에 명시 브랜드 색의 HarnessLogo를 표시한다. |
+| [features/chat/components/composer/ModelMenu.tsx](../../../app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx) — `ModelMenu` | 모델·provider 선택은 하네스 정책과 MenuItem 위계를 따르고 긴 이름을 처리한다. Claude/OpenCode 그룹 제목 왼쪽에 명시 브랜드 색의 HarnessLogo를 표시한다. 플러그인 런타임 행을 포함해 Claude → OpenCode → 그 밖 순서(`app/src/shared/harness.ts`의 `orderAgentEnvironments`)이며 같은 하네스 안 입력 순서를 유지한다. |
 | [features/chat/components/markdown/StreamingMarkdown.tsx](../../../app/src/renderer/src/features/chat/components/markdown/StreamingMarkdown.tsx) — `StreamingMarkdown` | 완료 Markdown과 같은 폭·활자·코드 스타일. 토큰 도착 때 전체 본문을 불필요하게 재배치하지 않는다. |
 | [features/chat/components/rightpanel/RightPanel.tsx](../../../app/src/renderer/src/features/chat/components/rightpanel/RightPanel.tsx) — `RightPanel` | 하네스별 패널 진입 조립. 상세·확대·숨김 상태에서 수명과 초점을 유지하며 주입된 프로젝트 이름을 타일 헤더로 전달한다. |
 | [features/chat/components/transcript/AssistantMessage.tsx](../../../app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx) — `AssistantMessage`, `AssistantSegment` | 응답의 본문·메타·액션과 하네스별 renderer 선택을 유지한다. |
@@ -324,7 +324,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [features/backend/harnesses/claude/components/AuthExpiredModal.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/AuthExpiredModal.tsx) — `AuthExpiredModal` | 인증 만료 안내·재로그인 다음 동작을 전역 modal 슬롯 규약에 맞춘다. |
 | [features/backend/harnesses/claude/components/InstallerDialog.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/InstallerDialog.tsx) — `InstallerDialog` | 설치 진행·로그·명령 복사·실패 복구를 같은 dialog 안에 배치한다. |
-| [features/engine/common/components/AgentEnvironmentView.tsx](../../../app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx) — `AgentEnvironmentView` | 엔진/모델 목록·추가·설정 진입을 카탈로그/상세 위계로 표시한다. 카드는 Claude → OpenCode → 그 밖 순서(`lib/agentOrder.ts`, 같은 하네스 안은 입력 순서)다. 추가 메뉴의 Claude/OpenCode 라벨 왼쪽에는 각 공식 컬러 마크를 정렬한다. |
+| [features/engine/common/components/AgentEnvironmentView.tsx](../../../app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx) — `AgentEnvironmentView` | 엔진/모델 목록·추가·설정 진입을 카탈로그/상세 위계로 표시한다. 카드는 Claude → OpenCode → 그 밖 순서(`app/src/shared/harness.ts`의 `orderAgentEnvironments`, 같은 하네스 안은 입력 순서)다. 추가 메뉴의 Claude/OpenCode 라벨 왼쪽에는 각 공식 컬러 마크를 정렬한다. |
 | [features/engine/common/components/EngineCard.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineCard.tsx) — `EngineCard` | 제목 왼쪽에 지원 하네스의 공식 컬러 로고를 배치하며 엔진명·하네스·연결 상태·모델·동작의 위계를 유지한다. |
 | [features/engine/common/components/EngineFormModal.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineFormModal.tsx) — `EngineFormModal` | 단일 화면 엔진 폼. Modal 입력·label·인증/불러오기·저장 상태를 재사용한다. |
 | [features/engine/common/components/EngineModelList.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineModelList.tsx) — `EngineModelList` | 모델명·선택·메타를 같은 행 높이와 정렬로 표시한다. |
@@ -354,7 +354,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | [features/sessions/components/ProjectSessionsPanel.tsx](../../../app/src/renderer/src/features/sessions/components/ProjectSessionsPanel.tsx) — `ProjectSessionsPanel` | 프로젝트 세션의 검색/정렬·행·빈 상태를 공통 SessionRow 패턴으로 표시한다. |
 | [features/sessions/components/SearchModal.tsx](../../../app/src/renderer/src/features/sessions/components/SearchModal.tsx) — `SearchModal` | 검색 입력·그룹·후보 선택·키보드·focus trap/복귀를 전역 modal 규약에 맞춘다. |
 | [features/sessions/components/SessionList.tsx](../../../app/src/renderer/src/features/sessions/components/SessionList.tsx) — `SessionListView`, `SessionList` | 세션 구획·정렬·스크롤·빈 상태와 활성 행을 유지한다. |
-| [features/sessions/components/SessionRow.tsx](../../../app/src/renderer/src/features/sessions/components/SessionRow.tsx) — `SessionRow` | 활성/hover·상태 점·rename·kebab을 유지하고 group/session으로 형제 hover를 격리한다. |
+| [features/sessions/components/SessionRow.tsx](../../../app/src/renderer/src/features/sessions/components/SessionRow.tsx) — `SessionRow` | 왼쪽 종류 아이콘은 고정하고 오른쪽 상태 칸에 회색 원호·파란 공을 표시한다. hover·메뉴 열림에는 케밥이 대신하며 rename에는 상태 칸을 유지한다. nav의 group/session과 catalog의 group/catalog-row로 hover를 격리한다. |
 
 ## 인증·설정·사용량
 

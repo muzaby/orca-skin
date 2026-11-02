@@ -49,3 +49,15 @@ it('passes saved harness preferences to adapters live', () => {
   expect(captured.claude!()).toMatchObject({ instructions: 'c', outputStyle: 'Proactive' })
   expect(captured.opencode!()).toMatchObject({ instructions: 'o', autoApprovePermissions: false })
 })
+
+it('0293 passes the default OpenCode auto-approve before any preference is saved', () => {
+  const settings = new SettingsStore('test', { store: {} })
+  createAdapterRegistry({
+    dataDirectory: 'unused',
+    preferences: (id) => settings.getAll().harnesses?.[id],
+    fetchImpl: vi.fn()
+  })
+  expect(captured.opencode!()).toMatchObject({ autoApprovePermissions: true })
+  settings.patch({ harnesses: { opencode: { autoApprovePermissions: false } } })
+  expect(captured.opencode!()).toMatchObject({ autoApprovePermissions: false })
+})

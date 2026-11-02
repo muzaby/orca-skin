@@ -5,6 +5,7 @@ import { Popover } from '../../../../../shared/ui/Popover'
 import { chatActions, useChatSession } from '../../../store/chatStore'
 import { MenuItem, MenuTitle } from '../../../../../shared/ui/MenuItem'
 import { Icon } from '../../../../../shared/ui/Icon'
+import { ArcSpinner } from '../../../../../shared/ui/ArcSpinner'
 import { OpenCodeIcon } from '../Icon'
 import type { ComposerControlProps } from '../../contracts'
 import { modelKey } from '../../../components/composer/modelSelection'
@@ -155,11 +156,7 @@ function OpenCodeSelect({
             afterLabel={
               loading ? (
                 <span data-agent-loading aria-hidden="true">
-                  <Icon
-                    name="spinner"
-                    size={12}
-                    className="animate-spin motion-reduce:animate-none"
-                  />
+                  <ArcSpinner />
                 </span>
               ) : undefined
             }

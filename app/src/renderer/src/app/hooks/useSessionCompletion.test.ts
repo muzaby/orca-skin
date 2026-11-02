@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
+import { ArcSpinner } from '../../shared/ui/ArcSpinner'
 import { SessionRow } from '../../features/sessions/components/SessionRow'
 import type { NormalizedEvent, PermissionAction, SessionListItem } from '../../../../shared/ipc'
 let unsubscribe: () => void
@@ -121,7 +122,7 @@ function icon(sessionId = row.id, isActive = false): ReturnType<typeof load> {
 
 describe('0254 생성 중 스피너', () => {
   const state = (active = false, id = 's'): string | undefined =>
-    icon(id, active)('[data-context="session-agent-kind"]').attr('data-state')
+    icon(id, active)('[data-context="session-status"]').attr('data-state') ?? 'default'
   const resolve = (): void =>
     ingestChatEvent({
       type: 'permission.resolved',
@@ -137,25 +138,52 @@ describe('0254 생성 중 스피너', () => {
     return request(action, 's')
   }
 
-  it('projects optimistic send and delta activity to warning dots including viewed rows', () => {
+  it('0293 projects optimistic send and delta activity to the arc spinner including viewed rows', () => {
     installChatStoreHarness({ inflight: false })
+    const before = icon()('[data-context="session-agent-kind"]').toString()
     expect(state()).toBe('default')
     expect(chatActions.send('hello')).toBe(true)
     expect(state()).toBe('in-progress')
     sessionsActions.setViewedSession('s')
     const $ = icon('s', true)
-    const agent = $('[data-context="session-agent-kind"]')
-    expect(agent.attr('data-state')).toBe('in-progress')
-    expect(agent.attr('role')).toBe('img')
-    expect(agent.attr('aria-label')).toBe('코드 · 답변 생성 중')
-    expect(agent.hasClass('text-warn')).toBe(true)
-    expect($('[data-session-id]').hasClass('text-warn')).toBe(false)
-    expect(agent.find('svg')).toHaveLength(0)
-    expect(agent.find('[data-spinner="dots"] > span')).toHaveLength(3)
+    const status = $('[data-context="session-status"]')
+    expect(status.attr('data-state')).toBe('in-progress')
+    expect(status.attr('role')).toBe('img')
+    expect(status.attr('aria-label')).toBe('답변 생성 중')
+    expect(status.find('svg').attr('width')).toBe('12')
+    expect(status.find('svg').attr('height')).toBe('12')
+    expect(status.find('svg').attr('class')?.split(' ').sort()).toEqual(
+      ['text-ink3', 'animate-spin', 'motion-reduce:animate-none'].sort()
+    )
+    expect(status.find('path').attr('d')).toBe(
+      load(renderToStaticMarkup(createElement(ArcSpinner)))('path').attr('d')
+    )
+    expect($('[data-context="session-agent-kind"]').toString()).toBe(before)
     ingestChatEvent({ type: 'telemetry', sessionId: 's' })
     ingestChatEvent({ type: 'message.delta', sessionId: 's', delta: { text: 'answer' } })
     flushRaf()
     expect(state(true)).toBe('in-progress')
+  })
+  it('0293 keeps the agent icon identical across the viewed state sequence', () => {
+    sessionsActions.setViewedSession('s')
+    const before = icon('s', true)('[data-context="session-agent-kind"]').toString()
+    const states = [state(true)]
+    for (const event of [
+      ask(requestActions[0]),
+      {
+        type: 'permission.resolved',
+        sessionId: 's',
+        approvalId: 'a',
+        resolution: { behavior: 'deny' }
+      },
+      { type: 'telemetry', sessionId: 's' },
+      { type: 'turn.ended', sessionId: 's' }
+    ] as NormalizedEvent[]) {
+      ingestChatEvent(event)
+      states.push(state(true))
+      expect(icon('s', true)('[data-context="session-agent-kind"]').toString()).toBe(before)
+    }
+    expect(states).toEqual(['in-progress', 'default', 'in-progress', 'default', 'default'])
   })
 
   for (const active of [false, true]) {
@@ -287,17 +315,21 @@ describe('0254 생성 중 스피너', () => {
 })
 
 describe('0249 response attention across app features', () => {
-  it.each(requestActions)('$kind uses the same blue icon as completion', (action) => {
+  it.each(requestActions)('$kind uses the same blue ball as completion', (action) => {
     ingestChatEvent(request(action, 's'))
     expect(useSessionsStore.getState().unseenAttention.get('s')).toBe('awaiting-response')
-    const awaiting = icon()('[data-context="session-agent-kind"]')
+    const awaiting = icon()('[data-context="session-status"]')
     expect(awaiting.attr('data-state')).toBe('awaiting-response')
-    expect(awaiting.hasClass('text-selected')).toBe(true)
-    expect(awaiting.attr('class')).toContain('[&_svg]:[stroke-width:40]')
+    expect(awaiting.find('.bg-selected').length === 1).toBe(true)
+    expect(awaiting.find('svg')).toHaveLength(0)
     ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
-    const completed = icon()('[data-context="session-agent-kind"]')
+    const completed = icon()('[data-context="session-status"]')
     expect(completed.attr('data-state')).toBe('unseen-complete')
-    expect(completed.attr('class')).toBe(awaiting.attr('class'))
+    expect(completed.find('.bg-selected').attr('class')).toBe(
+      awaiting.find('.bg-selected').attr('class')
+    )
+    expect(completed.attr('aria-label')).toBe('답변 완료')
+    expect(awaiting.attr('aria-label')).toBe('응답 대기')
   })
   it('viewed requests stay unmarked and opening acknowledges a request permanently', () => {
     sessionsActions.setViewedSession('s')
@@ -309,7 +341,9 @@ describe('0249 response attention across app features', () => {
     sessionsActions.setViewedSession('s')
     sessionsActions.setViewedSession(null)
     expect(marked()).toBe(false)
-    expect(icon()('[data-context="session-agent-kind"]').attr('data-state')).toBe('default')
+    expect(icon()('[data-context="session-status"]').attr('data-state') ?? 'default').toBe(
+      'default'
+    )
   })
   it('unknown, absent, mismatched, pending-fallback, deleted and unsubscribed requests are ignored', () => {
     ingestChatEvent(request(requestActions[0], 'unknown'))
@@ -362,7 +396,7 @@ describe('0255 attention and generation while the login gate is shown', () => {
     expect(chatActions.send('overnight')).toBe(true)
     expect(useSessionsStore.getState().generatingSessionIds).toEqual(new Set(['s']))
     sessionsActions.setViewedSession('s')
-    expect(icon('s', true)('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+    expect(icon('s', true)('[data-context="session-status"]').attr('data-state') ?? 'default').toBe(
       'in-progress'
     )
     sessionsActions.setViewedSession(null)
@@ -370,10 +404,10 @@ describe('0255 attention and generation while the login gate is shown', () => {
     ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
     expect(useSessionsStore.getState().generatingSessionIds.size).toBe(0)
     expect(useSessionsStore.getState().unseenAttention.get('s')).toBe('completed')
-    expect(icon()('[data-context="session-agent-kind"]').attr('data-state')).toBe('unseen-complete')
+    expect(icon()('[data-context="session-status"]').attr('data-state')).toBe('unseen-complete')
     sessionsActions.setViewedSession('s')
     expect(marked()).toBe(false)
-    expect(icon('s', true)('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+    expect(icon('s', true)('[data-context="session-status"]').attr('data-state') ?? 'default').toBe(
       'default'
     )
   })
@@ -384,12 +418,12 @@ describe('0255 attention and generation while the login gate is shown', () => {
     ingestChatEvent(request(action, 's'))
     expect(useSessionsStore.getState().unseenAttention.get('s')).toBe('awaiting-response')
     expect(useSessionsStore.getState().generatingSessionIds.size).toBe(0)
-    expect(icon()('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+    expect(icon()('[data-context="session-status"]').attr('data-state') ?? 'default').toBe(
       'awaiting-response'
     )
     sessionsActions.setViewedSession('s')
     expect(marked()).toBe(false)
-    expect(icon('s', true)('[data-context="session-agent-kind"]').attr('data-state')).toBe(
+    expect(icon('s', true)('[data-context="session-status"]').attr('data-state') ?? 'default').toBe(
       'default'
     )
   })
@@ -423,10 +457,10 @@ describe('0249 ΔV3.1 — draft 승격 뒤 승인 주의 표시', () => {
       ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
       expect(useSessionsStore.getState().unseenAttention.get('promoted')).toBe('awaiting-response')
       expect(useSessionsStore.getState().unseenAttention.has('s')).toBe(false)
-      const awaiting = icon('promoted')('[data-context="session-agent-kind"]')
+      const awaiting = icon('promoted')('[data-context="session-status"]')
       expect(awaiting.attr('data-state')).toBe('awaiting-response')
-      expect(awaiting.hasClass('text-selected')).toBe(true)
-      expect(awaiting.attr('class')).toContain('[&_svg]:[stroke-width:40]')
+      expect(awaiting.find('.bg-selected').length === 1).toBe(true)
+      expect(awaiting.find('svg')).toHaveLength(0)
       const attention = useSessionsStore.getState().unseenAttention
       ingestChatEvent({
         type: 'session.updated',
@@ -438,9 +472,9 @@ describe('0249 ΔV3.1 — draft 승격 뒤 승인 주의 표시', () => {
       sessionsActions.setViewedSession(null)
       ingestChatEvent({ type: 'session.updated', sessionId: 'promoted', patch: {} })
       expect(useSessionsStore.getState().unseenAttention.size).toBe(0)
-      expect(icon('promoted')('[data-context="session-agent-kind"]').attr('data-state')).toBe(
-        'default'
-      )
+      expect(
+        icon('promoted')('[data-context="session-status"]').attr('data-state') ?? 'default'
+      ).toBe('default')
     }
   )
 

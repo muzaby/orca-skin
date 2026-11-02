@@ -1,4 +1,8 @@
-import { CLAUDE_OUTPUT_STYLES, DEFAULT_CLAUDE_OUTPUT_STYLE } from './harness'
+import {
+  CLAUDE_OUTPUT_STYLES,
+  DEFAULT_CLAUDE_OUTPUT_STYLE,
+  DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS
+} from './harness'
 // zod 스키마 — main 프로세스의 IPC 입력 검증 전용.
 // preload (sandbox=true) 에서는 절대 import 하지 말 것: zod 가 require 되어 sandbox 가 거부한다.
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
@@ -718,8 +722,11 @@ const HarnessSettingsSchema = z.object({
       .default(DEFAULT_CLAUDE_OUTPUT_STYLE)
   }).optional(),
   opencode: HarnessPreferencesSchema.extend({
-    autoApprovePermissions: z.boolean().catch(false).default(false)
-  }).optional()
+    autoApprovePermissions: z
+      .boolean()
+      .catch(DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS)
+      .default(DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS)
+  }).prefault({})
 })
 
 const NativeExtensionChoicesSchema = z.object({
@@ -738,7 +745,7 @@ export const SetGlobalNativeResourceSchema = GlobalNativeResourceTargetSchema.ex
 })
 
 export const SettingsSchema = z.object({
-  harnesses: HarnessSettingsSchema.default({}),
+  harnesses: HarnessSettingsSchema.prefault({}),
   theme: z.enum(['white', 'dark']).catch('white').default('white'),
   // 대화 내용 텍스트 크기 · 대화 기록 너비(0256). 손상 값은 부팅을 막지 않고 'medium' 으로 복구.
   transcriptTextSize: z.enum(TRANSCRIPT_TEXT_SIZES).catch('medium').default('medium'),

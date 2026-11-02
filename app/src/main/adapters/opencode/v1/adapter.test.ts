@@ -1,3 +1,5 @@
+import { SettingsStore } from '../../../infra/settings-store'
+vi.mock('electron-store', () => ({ default: class {} }))
 import type { Event } from '@opencode-ai/sdk/v2'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -1172,6 +1174,89 @@ it('reads the auto-accept preference per request including child sessions', asyn
   )
   expect(replies).toEqual([
     ['/permission/manual/reply', { reply: 'reject' }],
+    ['/permission/child-auto/reply', { reply: 'once' }],
+    ['/permission/manual-again/reply', { reply: 'reject' }]
+  ])
+})
+
+it('0293 auto-approves with a fresh settings store and asks after an explicit off', async () => {
+  const store = new SettingsStore('test', { store: {} })
+  const preferences = vi.fn(() => store.getAll().harnesses!.opencode!)
+  const f = fixture(undefined, preferences)
+  const permission = (id: string, sessionID = 's1'): void =>
+    f.emit(
+      event('permission.asked', {
+        id,
+        sessionID,
+        permission: 'bash',
+        patterns: ['*'],
+        always: [],
+        metadata: {}
+      })
+    )
+  let promptId = ''
+  f.onPrompt = (body) => {
+    promptId = body.messageID as string
+    f.emit(event('message.updated', { sessionID: 's1', info: assistantMessage('s1', promptId) }))
+    f.emit(
+      event('message.part.updated', {
+        sessionID: 's1',
+        time: 1,
+        part: editTool({
+          tool: 'task',
+          callID: 'task-1',
+          state: {
+            status: 'running',
+            input: {},
+            metadata: { sessionId: 'child' },
+            time: { start: 1 }
+          }
+        })
+      })
+    )
+    permission('root-auto')
+  }
+  f.onReply = (path) => {
+    if (path.includes('/root-auto/')) {
+      permission('child-auto', 'child')
+    } else if (path.includes('/child-auto/')) {
+      store.patch({ harnesses: { opencode: { autoApprovePermissions: false } } })
+      permission('manual-again')
+    } else {
+      f.emit(
+        event('message.part.updated', {
+          sessionID: 's1',
+          time: 2,
+          part: editTool({
+            tool: 'task',
+            callID: 'task-1',
+            state: {
+              status: 'completed',
+              input: {},
+              metadata: { sessionId: 'child' },
+              title: 'Done',
+              output: 'done',
+              time: { start: 1, end: 2 }
+            }
+          })
+        })
+      )
+      finish(f, promptId)
+    }
+  }
+  const approve = vi.fn<NonNullable<TurnRequest['requestApproval']>>(async () => ({
+    behavior: 'deny'
+  }))
+  await collect(f.adapter, request({ requestApproval: approve }))
+  expect(approve).toHaveBeenCalledTimes(1)
+  expect(preferences).toHaveBeenCalledTimes(3)
+  const replies = await Promise.all(
+    f.requests
+      .filter((req) => new URL(req.url).pathname.endsWith('/reply'))
+      .map(async (req) => [new URL(req.url).pathname, await req.json()])
+  )
+  expect(replies).toEqual([
+    ['/permission/root-auto/reply', { reply: 'once' }],
     ['/permission/child-auto/reply', { reply: 'once' }],
     ['/permission/manual-again/reply', { reply: 'reject' }]
   ])

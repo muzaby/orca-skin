@@ -8,6 +8,7 @@ import { PinnedSectionView } from './PinnedSection'
 import { PinnedProjectChildren, PinnedProjectsSectionView } from './PinnedProjectsSection'
 import { SessionListView } from './SessionList'
 import { ProjectSessionsPanel } from './ProjectSessionsPanel'
+import { ArcSpinner } from '../../../shared/ui/ArcSpinner'
 import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useSessionsStore } from '../store/sessionsStore'
 import { projectNavActions, useProjectNavStore } from '../store/projectNavStore'
@@ -300,25 +301,61 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     ]
   ]
 
-  it.each(renderers)('0254 %s uses a warning spinner in the correct box', (name, render) => {
-    snapshot.generatingSessionIds = new Set(['work', 'code'])
-    const $ = load(
-      render([session('work', '문서 작업', { agentKind: 'work' }), session('code', '코딩 대화')])
-    )
-    for (const id of ['work', 'code']) {
-      const row = $(`[data-session-id="${id}"]`)
-      const icon = row.find('[data-context="session-agent-kind"]')
-      const spinner = icon.find('[data-spinner="dots"]')
-      expect(icon.attr('data-state')).toBe('in-progress')
-      expect(icon.hasClass('text-warn')).toBe(true)
-      expect(row.hasClass('text-warn')).toBe(false)
-      expect(row.find('span.text-warn')).toHaveLength(1)
-      expect(icon.find('svg')).toHaveLength(0)
-      expect(spinner).toHaveLength(1)
-      expect(spinner.children()).toHaveLength(3)
-      expect(spinner.hasClass(name === 'project panel' ? 'h-5' : 'h-[14px]')).toBe(true)
+  it.each(renderers)(
+    '0293 %s keeps the agent icon fixed and puts status in the right slot',
+    (name, render) => {
+      snapshot.generatingSessionIds = new Set(['work'])
+      snapshot.unseenAttention = new Map([
+        ['code', 'completed'],
+        ['wait', 'awaiting-response']
+      ])
+      const $ = load(
+        render([
+          session('work', '문서 작업', { agentKind: 'work' }),
+          session('code', '코딩 대화'),
+          session('wait', '응답'),
+          session('idle', '유휴')
+        ])
+      )
+      const arc = load(renderToStaticMarkup(createElement(ArcSpinner)))('svg')
+      for (const [id, state, label] of [
+        ['work', 'in-progress', '답변 생성 중'],
+        ['code', 'unseen-complete', '답변 완료'],
+        ['wait', 'awaiting-response', '응답 대기'],
+        ['idle', 'default', '']
+      ]) {
+        const row = $(`[data-session-id="${id}"]`)
+        const icon = row.find('[data-context="session-agent-kind"]')
+        expect(icon.attr('class')).toBe('inline-flex shrink-0')
+        expect(icon.attr('data-state')).toBeUndefined()
+        expect(icon.attr('aria-label')).toBe(id === 'work' ? '작업' : '코드')
+        expect(icon.find('svg')).toHaveLength(1)
+        expect(icon.find('path').attr('d')).toBe(id === 'work' ? CHECKLIST_PATH : TERMINAL_2_PATH)
+        const status = row.find('[data-context="session-status"]')
+        expect(status).toHaveLength(state === 'default' ? 0 : 1)
+        if (state === 'default') continue
+        expect(status.attr('data-state')).toBe(state)
+        expect(status.attr('role')).toBe('img')
+        expect(status.attr('aria-label')).toBe(label)
+        expect(status.hasClass('h-5')).toBe(true)
+        expect(status.hasClass('w-5')).toBe(true)
+        expect(status.hasClass('group-hover/session:hidden')).toBe(
+          name !== 'project panel' && name !== 'draft'
+        )
+        expect(status.hasClass('group-hover/catalog-row:hidden')).toBe(name === 'project panel')
+        if (state === 'in-progress') {
+          expect(status.find('svg')).toHaveLength(1)
+          for (const attr of ['width', 'height', 'class'])
+            expect(status.find('svg').attr(attr)).toBe(arc.attr(attr))
+          expect(status.find('path').attr('d')).toBe(arc.find('path').attr('d'))
+        } else {
+          expect(status.find('svg')).toHaveLength(0)
+          expect(status.find('span.bg-selected')).toHaveLength(1)
+          expect(status.find('span.bg-selected').hasClass('ring-selected/20')).toBe(true)
+        }
+      }
     }
-  })
+  )
 
   it.each(renderers)('%s uses official left icons without a right mode label', (_name, render) => {
     const items = [
@@ -341,38 +378,28 @@ describe('r5 모든 채팅 구획의 모드 아이콘과 완료 색', () => {
     }
   })
 
-  it('only the non-viewed completed icon uses selected blue; an open row restores the normal color', () => {
+  it('only non-viewed attention has a blue ball; opening it preserves the kind icon', () => {
     snapshot.unseenAttention = new Map([['work', 'completed']])
     const item = session('work', '읽지 않은 작업', { agentKind: 'work' })
-    const hidden = load(
-      renderToStaticMarkup(
-        createElement(SessionRow, {
-          appearance: resolveAppearance(item.agentKind),
-          session: item,
-          isActive: false
-        })
+    const render = (isActive: boolean): ReturnType<typeof load> =>
+      load(
+        renderToStaticMarkup(
+          createElement(SessionRow, {
+            appearance: resolveAppearance(item.agentKind),
+            session: item,
+            isActive
+          })
+        )
       )
+    const hidden = render(false),
+      open = render(true)
+    expect(hidden('[data-context="session-status"]').attr('data-state')).toBe('unseen-complete')
+    expect(open('[data-context="session-status"]')).toHaveLength(0)
+    expect(hidden('[data-context="session-agent-kind"]').toString()).toBe(
+      open('[data-context="session-agent-kind"]').toString()
     )
-    const icon = hidden('[data-context="session-agent-kind"]')
-    expect(icon.attr('data-state')).toBe('unseen-complete')
-    expect(icon.hasClass('text-selected')).toBe(true)
-    expect(icon.attr('class')).toContain('[&_svg]:[stroke-width:40]')
-    expect(hidden('.text-selected')).toHaveLength(1)
-    expect(hidden('[data-session-id]').hasClass('text-selected')).toBe(false)
-
-    const open = load(
-      renderToStaticMarkup(
-        createElement(SessionRow, {
-          appearance: resolveAppearance(item.agentKind),
-          session: item,
-          isActive: true
-        })
-      )
-    )
-    expect(open('[data-context="session-agent-kind"]').attr('data-state')).toBe('default')
-    expect(open('.text-selected')).toHaveLength(0)
-    expect(open('[data-context="session-agent-kind"]').attr('class')).not.toContain('stroke-width')
-    expect(open('[data-session-id]').text()).toBe('읽지 않은 작업')
+    snapshot.generatingSessionIds = new Set(['work'])
+    expect(render(true)('[data-context="session-status"]').attr('data-state')).toBe('in-progress')
   })
 
   it('legacy sessions without a kind retain the Code icon', () => {

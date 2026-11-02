@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react'
-import { HARNESS_CAPABILITIES, HARNESS_IDS, isBackend } from '../../../../../../shared/harness'
+import {
+  HARNESS_CAPABILITIES,
+  HARNESS_IDS,
+  isBackend,
+  orderAgentEnvironments
+} from '../../../../../../shared/harness'
 import type { AgentEnvironment, Backend } from '../../../../../../shared/ipc'
 import { uiMessageText, useI18n } from '../../../../shared/i18n'
 import { Button } from '../../../../shared/ui/Button'
 import { HarnessLogo } from '../../../../shared/ui/HarnessLogo'
 import { Popover } from '../../../../shared/ui/Popover'
 import { useEngines } from '../hooks/useEngines'
-import { orderAgentEnvironments } from '../lib/agentOrder'
 import type { EngineCardProps } from './EngineCard'
 import type { EngineFormModalProps } from './EngineFormModal'
 

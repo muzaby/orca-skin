@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   CLAUDE_OUTPUT_STYLES,
   DEFAULT_CLAUDE_OUTPUT_STYLE,
+  DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS,
   type ClaudeOutputStyle
 } from '../../../../../shared/harness'
 import type { Backend } from '../../../../../shared/ipc'
@@ -80,7 +81,7 @@ export function GeneralTab({
 
   // 계정 지침 — 저장값(saved) vs 편집 중(draft). draft≠saved 면 저장 버튼 노출.
   const [outputStyle, setOutputStyle] = useState<ClaudeOutputStyle>(DEFAULT_CLAUDE_OUTPUT_STYLE)
-  const [autoApprove, setAutoApprove] = useState(false)
+  const [autoApprove, setAutoApprove] = useState<boolean>(DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS)
   const [harnessLoaded, setHarnessLoaded] = useState(false)
   const [savingHarness, setSavingHarness] = useState(false)
   const savingRef = useRef(false)
@@ -93,7 +94,9 @@ export function GeneralTab({
       .then((s) => {
         if (cancelled) return
         setOutputStyle(s.harnesses?.claude?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE)
-        setAutoApprove(s.harnesses?.opencode?.autoApprovePermissions ?? false)
+        setAutoApprove(
+          s.harnesses?.opencode?.autoApprovePermissions ?? DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS
+        )
         setHarnessLoaded(true)
         setSaved(s.accountInstructions)
         setDraft(s.accountInstructions)
@@ -125,7 +128,10 @@ export function GeneralTab({
     try {
       const next = await settingsApi.set(patch)
       setOutputStyle(next.harnesses?.claude?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE)
-      setAutoApprove(next.harnesses?.opencode?.autoApprovePermissions ?? false)
+      setAutoApprove(
+        next.harnesses?.opencode?.autoApprovePermissions ??
+          DEFAULT_OPENCODE_AUTO_APPROVE_PERMISSIONS
+      )
     } catch (error) {
       reportError({
         event: 'settings.harness.save-failed',
