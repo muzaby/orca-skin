@@ -260,11 +260,12 @@ export class OpenCodeDiscoveryCache {
             )
             if (this.observers.get(key) !== observer) return
             if (observer.dependencies !== dependencies) {
+              // Keep the reload's manifest, but still report changes seen by this pass.
               this.pollRequested = true
-              return
+            } else if (changed) {
+              observer.dependencies = next
             }
             if (!changed) return
-            observer.dependencies = next
             const entry = this.entries.get(key)
             if (entry) {
               entry.epoch++
