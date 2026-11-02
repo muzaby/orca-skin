@@ -8,14 +8,16 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | verify/RETURN_TO_PLAN (r1) — PLAN_GAP D10·D11 · 못 잡음 21, ΔV2 설계 대기([verify](verify.md)) |
+| 상태 | READY (ΔV2 · r2 구현 대기) — r1 verify RETURN_TO_PLAN([verify](verify.md))의 PLAN_GAP D10·D11을 ΔV2로 닫음 |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
-| 이번 V revision | `ΔV1` — 버전 확인 실측 반영 정정(2026-11-02) |
-| 유효 V | `V1 + ΔV1` — ΔV1 절이 충돌하는 V1 행을 대체 |
-| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입 |
+| 이번 V revision | `ΔV2` — r1 verify RETURN_TO_PLAN 정정(2026-11-02). 직전 `ΔV1` — 버전 확인 실측 반영 정정 |
+| 유효 V | `V1 + ΔV1 + ΔV2` — 뒤 revision 절이 충돌하는 앞 행을 대체 |
+| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입. ΔV2 기준: ΔV1 설계 `3c50653`(`main` 조상) · r1 구현 `c9d212b`·r1 verify `104034e`(둘 다 commit, 브랜치 `ccr-84491548-x3d7lw` — `main` 미병합) |
 
 > **ΔV1(2026-11-02)**: D-005·D-008을 D-014·D-015가, AC2~AC6을 AC2′~AC6′가, §10 EP-02·EP-04 전부와 EP-05 #1-8·#15·EP-03 #1을 아래 ΔV1 절이 대체한다. 그 밖의 V1 행은 그대로 유효하다.
+>
+> **ΔV2(2026-11-02, r1 verify RETURN_TO_PLAN)**: D-016~D-018을 더하고, AC4′·AC5′·AC7을 AC4″·AC5″·AC7′가, EP-03·EP-04′ 전부를 EP-03″·EP-04″가 대체한다. EP-05에 #16·#17을 더하고 EP-02′ #1·EP-05 #9·#14·EP-05′ #15·EP-08 #2·EP-10 #1의 직접 oracle을 정정한다 — 정본은 아래 ΔV2 절.
 
 ## 0. 작성 경로
 
@@ -66,11 +68,16 @@
 | D-013 | 신규 의존성 없음. shiki는 같은 패키지의 세분 진입점(`shiki/core`·`shiki/engine/javascript`·`shiki/langs/*.mjs`·`shiki/themes/*.mjs`)만 쓴다 | `app/AGENTS.md` 의존성 정책 · exports 실측(§8) | 설계자 | ACTIVE | — |
 | D-014 | OpenCode 설치·버전 확인은 부팅 안에 둔다 — renderer `main-ready` 때 결과가 정해져 있다. 순차 단계 대신 `start()` 초입에 시작해 나머지 부팅 단계와 동시에 돌리고 `bootReport.finish()` 직전에 합류한다. 시간 초과 상한 15초와 그 처리는 현행 그대로다. `orca:backend:list`의 `installed`·`version`은 유지하고 `usable`·`unavailableReason`만 덧붙인다 | 확인은 사용자 실측 3초 이내 — 사용자 시나리오를 바꿀 근거가 없다 | "Version 확인은 오래걸리는 작업이 아니다. 15초 상한값 설정으로 유저시나리오를 변경하려는 시도를 너가 하지 않았나" → "그대로 plan 정정하라" | ACTIVE | D-005 대체 |
 | D-015 | 가용성 SSOT는 registry 설치 캐시(하네스별 `installed`·`version`·`usable`·`unavailableReason`·실행 파일 identity)다. 화면에 `checking` 상태는 없다. 재확인은 ① 실행 파일 경로 설정 변경 ② "다시 확인" ③ `missing`·`failed` 상태의 창 포커스 — identity(경로+stat, 프로세스 없음)가 마지막 확인과 다를 때만 버전 확인 1회. 재확인 중에는 직전 상태를 유지하고 결과가 바뀔 때만 방송한다 | 앱 실행 중 OpenCode를 설치하면 재시작 없이 쓰던 현행 동작을 게이트가 깨지 않게 한다 | 위 사용자 턴 · V1 D-008 ①④ 승계 | ACTIVE | D-008 대체 |
+| D-016 | OpenCode 사용 불가(미설치·미지원 버전·확인 실패)로 새 대화가 Claude로 자동 전환된 동안, 사용자가 모델 메뉴에서 직접 고른 모델은 `lastBackend`에 저장한다. 자동 전환과 자동 기본 모델 선택은 저장하지 않는다 | 사용자 선택이 다음 새 대화의 기본을 정한다 — 0292 이전 동작과 같다 | 2026-11-02 질의 [D11-1] "저장함"(질문: 메뉴에서 'Claude Opus'를 직접 골라 대화하면 '마지막 하네스=Claude'로 저장할까요?) | ACTIVE | D-007 범위 보완 — D-007(자동 전환은 덮어쓰지 않음)은 ACTIVE 유지 |
+| D-017 | 같은 실행 중 OpenCode가 다시 사용 가능해져도(설치 뒤 포커스·"다시 확인") 이번 실행 동안 새로 여는 빈 대화는 Claude로 시작한다. 메뉴에서 OpenCode 모델을 직접 고르면 그때부터 OpenCode이고, 다음 실행은 `lastBackend`를 따른다. 메뉴 선택 저장은 D-016을 따른다 | 실행 중 기본 하네스가 바뀌지 않는다 — 현재 구현 | 2026-11-02 질의 [D11-2] "이번 실행은 Claude" | ACTIVE | — |
+| D-018 | registry는 하네스 이름으로 분기하지 않는다 — 각 adapter가 `isInstalled()`에 `usable`을 싣고(Claude는 항상 `true`), 없으면 `installed`로 읽는다 | §16 "구체 하네스 비의존" · `src/main/AGENTS.md` 공통 계층 원칙 · "Claude의 경우 bin이 앱에 동봉되어 있어 지금 다루고 있는 문제와 무관한다" · r1 verify N2(`registry.ts:40`) | 설계자 | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴 신규 결정: D-001~D-013. OPEN 0. 대체된 외부 결정 없음.
 - ΔV1(2026-11-02): D-005 → D-014, D-008 → D-015 SUPERSEDED. 원인은 설계자가 `--version` 실행 시간을 재지 않고 시간 초과 상한 15초(`server.ts:165`)를 비용처럼 제시한 것이다(§8 정정). 사용자 실측은 생성·종료 포함 3초 이내다.
+- ΔV2(2026-11-02): r1 verify가 D-007의 명시 선택 범위를 PLAN_GAP(D11)으로 올렸다. 사용자에게 미설치·미지원·확인 실패를 시나리오로 설명한 뒤 질의해 D-016·D-017을 받았다. [D11-2] 선택지 설명의 "선택을 저장하지 않는다"는 자동 선택에 한정해 읽는다 — 메뉴 선택 저장은 [D11-1]이 정했다. D-018은 verify N2에 대한 설계자 결정이다.
+- ΔV2 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-016·D-017 ↔ AC7′ · D-018 ↔ AC6′(Claude 행 불변)·EP-05 #16·#17 · D-015 ↔ AC4″ · D-014 ↔ AC5″. D-007은 AC7′의 자동 전환 미저장으로 유지된다.
 - ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-014 ↔ AC2′·AC3′·AC5′(`installed` 유지) · D-015 ↔ AC4′·AC6′ · D-006 ↔ AC7(EP-03 #1′)·AC8·AC9. SUPERSEDED D-005·D-008을 요구하는 유효 AC 없음(AC2~AC6은 대체됨). D-003·D-004·D-007·D-009~D-013 대응은 V1 대조 줄과 같다.
 - raw에 대한 설계자 정정: 1라운드 질의의 "OpenCode raw는 읽히지 않는다"는 부정확했다. 보관 행(`payload_json`)은 세션 열기마다 통째로 읽힌다. 다만 그중 `raw` 필드를 실제로 쓰는 코드는 Claude 이어붙이기 빠른 경로 하나다(§8). 사용자는 이 정정을 받은 뒤 D-009를 골랐다.
 - (V1 — 아래 D-005·D-008 관련 대응은 ΔV1 대조가 대체) **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-003 ↔ AC1(회귀 gate)·AC7(보관 대화 표시 유지)·AC13(같은 DOM)·AC17(이어가기 동일). D-004 ↔ AC10. D-005 ↔ AC2·AC3·AC5. D-006 ↔ AC6·AC7·AC8·AC9(Claude 행은 AC6·AC8에서 불변 단언). D-007 ↔ AC7(`lastBackend` 미기록). D-008 ↔ AC4·AC12. D-009 ↔ AC15·AC16·AC17(raw를 지우라는 AC 없음). D-010 ↔ 0225 경로를 바꾸는 AC 없음(§16). D-012 ↔ AC9(`HostHarnessPort` 시그니처 불변)·AC18(이벤트 상한 미도입). D-013 ↔ AC12(새 패키지 0).
@@ -110,6 +117,8 @@
 | 실행 파일 경로 설정 변경 · "다시 확인" | 재확인 — 진행 중에는 직전 상태 유지(ΔV1) | 결과대로 노출/비노출 |
 | OpenCode 세션 열기, 사용 불가 | 보관 대화 로드는 지금과 같음 | 대화는 보이고 입력창 자리에 "OpenCode가 설치되어 있지 않습니다" + 다시 확인 |
 | 엔진&모델 페이지 추가 메뉴, 사용 불가 | OpenCode 항목 비활성 + 사유 | Claude 항목은 그대로 |
+| 사용 불가로 Claude 폴백 중 모델 메뉴에서 모델 선택 | 사용자 선택은 `lastBackend`에 저장, 자동 전환·자동 기본 모델 선택은 저장 안 함(ΔV2, D-016) | 다음 새 대화가 마지막으로 고른 하네스로 시작 |
+| 같은 실행 중 OpenCode가 다시 사용 가능 | 이번 실행의 새 대화 기본은 Claude 유지, 메뉴에서 OpenCode를 고르면 그때부터 OpenCode(ΔV2, D-017) | 모델 메뉴·기존 OpenCode 대화 입력창은 바로 돌아옴. 새 대화 기본은 다음 실행부터 `lastBackend` |
 | 세션 열기(기존 보관 행에 raw 포함) | raw를 별도 열로 1회 분리 후 `messages`만 파싱 | 같은 대화가 더 빨리 뜬다 |
 | OpenCode 스트리밍 | 확정된 교환은 커밋 때 1회 투영, 진행 중 교환만 프레임마다 투영 | 같은 화면 |
 | 설정 > 사용량 탭 | 차트 모듈을 탭 표시 때 로드(같은 높이 자리 유지) | 같은 차트 — 최초 표시에 한 프레임 이상 늦을 수 있음 |
@@ -194,6 +203,7 @@
 | MD-04 / UT-04 | MD/UT | 정규화 JSON SSOT · AC22 | NEW | 0290 verify N1 |
 
 - ΔV1: R-02·R-03·SD-01·AR-01과 VP-02~VP-05는 CHANGED — 정본은 ΔV1 절. 나머지 노드·pair는 V1 그대로 유효(REQUIRED).
+- ΔV2: R-03·SD-01·AR-01(VP-03·VP-04·VP-05) CHANGED, VP-02·VP-08·VP-10은 oracle 정정 — 정본은 ΔV2 절. VP-01·06·07·09·11은 r1 verify PASS 좌표 그대로(REQUIRED).
 
 ### Pair registry
 
@@ -308,6 +318,153 @@
 | 7 | `bootstrap.ts:887` 웜업 `installed` | `registry.settled('opencode')`의 `usable`. 건너뛰면 `attempted`를 세우지 않고 `usable` 전환 때 `update()` | `warmup.test.ts` 신규: `usable:false` → prepare 0 · 전환 → 1 |
 | 8 | `misc.ts:36` `backend:list` | 기존 키 + `usable`·`unavailableReason` | AC5′ 테스트 |
 | 15 | `bootstrap.ts:1247` 전역 감시 | 부팅에서 `usable`이면 지금과 같은 시점에 생성(추가 방송 없음), `usable:false`면 생성 안 함. 부팅 뒤 `usable` 전환 때 생성 + revision 1회, 사용 불가 전환 때 close | `bootstrap.native-history.test.ts` 신규: 부팅 `usable` → 생성 1·방송 0 · `missing` → 생성 0 · 전환 → 생성 1·방송 1 |
+
+## ΔV2 — r1 verify RETURN_TO_PLAN 정정 (2026-11-02)
+
+**수정 필요.** r1 verify([`verify.md`](verify.md))는 동작 결함 0·gate 전부 PASS였지만 PLAN_GAP 2(D10·D11)와 고장 못 잡음 21을 냈다. ΔV2는 D11을 사용자 결정(D-016·D-017)으로 닫고, VP-04·VP-03 목록을 path 전체 검색으로 다시 고정하고, 못 잡음이 남은 자리의 직접 oracle을 구별 입력·production 진입으로 정정한다. Part I은 D-016·D-017 두 상태 전이만 더한다.
+
+| 발견 | 근거 | 정정 |
+|---|---|---|
+| D10 — VP-04 목록이 방송 → preload → renderer store를 담지 않고 검색이 `registry.ts` 한정·해법 이름 술어 | verify §13 D10 · X33·X68·X05 전체 스위트 green | EP-04″(16자리) — `scan/sites-dv2.sh` S04′ |
+| D11 — D-007이 폴백 중 명시 선택의 `lastBackend` 저장을 정하지 않음 | verify §13 D11 · 메뉴 `onPick`(`Composer.tsx:434-441`)에 명시 표식 없음 | D-016·D-017 · AC7′ · EP-03″ #5·#6 |
+| VP-03 입력·소비 자리(재시드 구독·대기 요청·사유) 미잠금 | X02·X15·X63·X13·X62 | EP-03″(17자리) — S03′ |
+| 못 잡음 자리의 oracle — 단위 좌표가 production 배선을 실행 구간 밖에 두거나 사유가 기본값 `missing`뿐 | verify §5 좌표 실행 구간·운반 값 | 각 EP 표 oracle 열 + 등록 변이 |
+| `adapters/common/registry.ts:40` 하네스 이름 분기 | verify N2 · §16 | D-018 · EP-05″ #16·#17 |
+| plan 서술·수치 | verify N1(§17) · N4(S02a 목표 3) | §17 정정(본문) · S02a 목표는 S04′가 대체 |
+
+### ΔV2 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 등록 변이(자리) |
+|---|---|---|---|
+| R-03 / VP-03 | CHANGED / REQUIRED | AC7 → AC7′ · EP-03(10) → EP-03″(17) | 이관 R03a(#2)·R03b(#7)·R03c(#16) · X02(#4)·X15(#7)·X63(#9)·X13(#15)·X62(#16) · 신규 U1(#6)·U2(#5) |
+| SD-01 / VP-04 | CHANGED / REQUIRED | AC4′ → AC4″ · EP-04′(5) → EP-04″(16) | 이관 R04b(#5)·R04a(#6) · X54·X55·X59(#2)·X04(#6)·X41(#8)·X33(#10)·X68(#14)·X05(#15)·X12·X56(#16) |
+| AR-01 / VP-05 | CHANGED / REQUIRED | AC5′ → AC5″ · EP-05′ + V1 #9~#14 유지, #9·#14·#15 oracle 정정, #16·#17 신규 | V1 소비자별 게이트 제거 유지 · X64(#9)·X35(#14)·X36(#15) · 신규 U3(#16)·U4(#17) |
+| R-02 / VP-02 | CHANGED(oracle) / REQUIRED | EP-02′ #1 oracle 정정 | 기존 2종 + X03(#1) |
+| MD-01 / VP-08 | CHANGED(oracle) / REQUIRED | EP-08 #2 oracle·판정 SSOT 정정 | 기존 2종 + X01(#2) |
+| MD-03 / VP-10 | CHANGED(oracle) / REQUIRED | EP-10 #1 oracle 정정 | 기존 + X27(#1) |
+| VP-01·06·07·09·11 | INHERITED / REQUIRED 그대로 | r1 verify PASS — 좌표는 `verify.md §5` | V1·ΔV1 그대로 |
+
+- `SUPERSEDED` 이관: AC4′·AC5′·AC7 → AC4″·AC5″·AC7′. EP-04′ #1·#3 등록 변이 → EP-04″ #5·#6, EP-03 #1·#4·#9 등록 변이 → EP-03″ #2·#7·#16. 폐기 0.
+- 유효 pair는 VP-01~VP-11 전부 REQUIRED, AC 23개다.
+- 등록 변이 정의: X·R·N은 [`verify-evidence/r1/mutations.json`](verify-evidence/r1/mutations.json)(`mutate.mjs`로 재실행), U1~U4는 아래 표. r1의 못 잡음 21·동치 4는 다음 verify가 전부 다시 실행한다.
+
+| ID | 자리 | 종류 | 바꾼 내용 |
+|---|---|---|---|
+| U1 | `Composer.tsx` 모델 메뉴 `onPick` | 제거 | `{ userPick: true }` 옵션 삭제 |
+| U2 | `chatStore.ts` `automaticFallback` | 제거 | `!options?.userPick` 항 삭제 |
+| U3 | `registry.ts` usable 판정 | 다른 값 | `backend === 'claude' \|\|` 분기 복원 |
+| U4 | `claude/adapter.ts` `isInstalled()` | 제거 | 반환의 `usable: true` 삭제 |
+
+### 대체 AC (ΔV2)
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| SD-01 | ST-01 / AC4″ | AC4′ + 바뀐 상태가 main 방송 → preload → renderer 가용성 store에 반영된다. 초기 `backend:list`가 도는 동안 도착한 push는 목록 값보다 이긴다 | EP-04″ #1~#16 좌표 — 특히 #2·#6·#8·#10·#14·#15·#16 신규 | 재확인 3트리거 → registry → bootstrap 리스너 → `send.ts` → preload → `harnessApi` → store |
+| AR-01 | IT-01 / AC5″ | AC5′ + main이 바뀐 상태를 모든 살아 있는 renderer에 `orca:harness:availability` 채널로 보낸다 | AC5′ 좌표 + EP-04″ #10 | `broadcastHarnessAvailability` → `webContents.send` |
+| R-03 | AT-03 / AC7′ | 사용 불가면 OpenCode 컴포저 비노출 — 새 대화·프로젝트 랜딩은 Claude, 기존 OpenCode 세션은 안내+다시 확인(진행 중 턴·대기 요청 동안은 Composer 유지). 자동 전환·자동 기본 모델 선택은 `lastBackend`를 쓰지 않고, 모델 메뉴에서 사용자가 고른 모델은 쓴다(D-016). 같은 실행 중 다시 사용 가능해져도 새 대화는 Claude이고 메뉴에서 OpenCode를 고르면 그때부터 OpenCode다(D-017) | EP-03″ #1~#17 좌표 — 특히 #4·#5·#6·#7·#9 신규 | boot steps·store push → `ChatProvider` → chatStore → Landing·ProjectLanding·ChatTile·ModelMenu |
+
+- AC 게이트 재확인: 세 행 모두 행동 단언(호출 수·채널·store 값·설정 쓰기 수)과 production 진입을 가진다. AC7′의 `N회` sink는 `settingsApi.set({lastBackend})` 1곳(`chatStore.ts:1897`)이고 호출자는 `setModel` 하나다.
+
+### ΔV2 §10
+
+자리 검색은 [`scan/sites-dv2.sh`](scan/sites-dv2.sh)(S04′·S03′·S05e)이고 N은 r1 HEAD `c9d212b` 실측이다(`104034e`와 코드 동일). 표본 확인으로 `bootstrap.ts:553·557`(일일 게이트 wake 구독)은 S04′에서 뺐다.
+
+| pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 → N / 목표 | 직접 oracle | 실패 의미 |
+|---|---|---|---|---|---|---|
+| VP-04 | D-015 재확인 → 변화 때만 방송 → renderer store 반영 | `AdapterRegistry` → `harnessAvailabilityStore` | EP-04″ (16) | S04′ 45 = EP-04″ 38줄 + VP-02 귀속 2(`bootstrap.ts:474`·`misc.ts:109`) + VP-05 귀속 5(`isInstalled()` 생산·포트 5줄) / 45 이상 — 늘면 차집합을 `[구현자 기입]`에 | EP-04″ 표 | 설치 후 미반영 · 불필요 spawn · 중복 방송 · 늦은 목록이 새 상태를 덮음 |
+| VP-03 | D-006·D-007·D-016·D-017 노출·폴백·기록 | 가용성 store + `supported` + chatStore 폴백 표식 | EP-03″ (17) | S03′ 32 / 32 이상(#5·#6 옵션 자리는 같은 줄) | EP-03″ 표 | 실패할 OpenCode 화면 노출 · 사용자 선택 유실·오기록 |
+| VP-05 | 판정 1벌 · 공통 계층 하네스 이름 분기 없음(D-018) | registry + adapter `isInstalled().usable` | ΔV1 15 + #16·#17 = 17 | S05a 6 / 6 · S05e 1 / 0 | EP-05″ 표 | 판정 사본 · 공통 계층의 하네스 선택 |
+
+- ΔV2 이후 강제 지점 분모: VP-02 4 · VP-03 17 · VP-04 16 · VP-05 17 · VP-06 16 · VP-07 4 · VP-08 8 · VP-09 6 · VP-10 5 · VP-11 2 = **95**(r1 75에서 VP-03 +7 · VP-04 +11 · VP-05 +2). 다른 V1·ΔV1 검색은 `evidence/r1-final-sites.txt` 그대로다.
+
+### EP-04″ — 재확인 · 방송 · renderer 반영 (16, EP-04′ 대체)
+
+oracle 열의 "신규"는 구현자가 만들 테스트다. 진입점은 production 함수·조립이고, 운반 값은 기본값(`missing`)·형제와 구별한다(`docs/handoff/AGENTS.md §공통 V`).
+
+| # | 자리 (S04′ 줄) | 규칙 | 직접 oracle 좌표 |
+|---|---|---|---|
+| 1 | `settings-reactions.ts:26,27,34,42` | 경로 값이 바뀐 `harnesses` patch만 재확인 | PATH(기존) |
+| 2 | `bootstrap.ts:720,721,722` | 초기 경로를 설정에서 받고, 경로 변경 반응이 `refreshInstallState('opencode')`를 부른다 | 신규 — 실제 `Bootstrap.start()` 뒤 실제 설정 store patch: 시작 전 경로 `/initial` → 같은 값 patch 0 · `/next` patch → refresh 1(인자 `'opencode'`) · 다른 키 patch 0 (X54·X55·X59 red) |
+| 3 | `misc.ts:42,43` | 수동 재확인이 요청 하네스를 refresh하고 결과를 돌려준다 | INSTALL(기존) · X31 |
+| 4 | `bootstrap.ts:247,918,969` | focus 리스너 등록·호출·해제 | BOOT(기존) · N01 |
+| 5 | `registry.ts:21,37` | identity가 같으면 진행 중 refresh에 합류 · 결과가 바뀔 때만 listener | JOIN(기존) · R04b·X21 |
+| 6 | `registry.ts:79,91` | focus는 `missing`·`failed`만, identity가 다를 때만 refresh | FOCUS(기존) + 신규 케이스 — `failed` 결과 뒤 identity 변경 → refresh 1 · 같은 identity → 0 (X04 red) · R04a |
+| 7 | `registry.ts:95` | listener 등록·해제 | RESUME(기존) |
+| 8 | `server.ts:170` · `opencode/v1/adapter.ts:72` | OpenCode identity = 실행 파일 경로 + stat, 없으면 `undefined` | 신규 — 실제 `OpenCodeServerPool`·`OpenCodeAdapter`: 임시 파일 A → a · 같은 경로 내용 교체(크기 다름) → a′≠a · 경로 설정 B → b≠a · 없는 경로 → `undefined` (X41 red) |
+| 9 | `bootstrap.ts:910,912` | 리스너가 바뀐 상태를 방송 | RESUME(기존) · N02 |
+| 10 | `send.ts:26,27` | 채널 `orca:harness:availability`, 살아 있는 webContents 전부 | 신규 — `electron` mock(`getAllWebContents` = 살아 있는 fake 2 + 파괴된 fake 1)에 `unsupported` 상태 방송 → 살아 있는 fake마다 `send('orca:harness:availability', 같은 객체)` 1 · 파괴된 fake 0 (X33 red) |
+| 11 | `preload/index.ts:191,192` | recheck invoke 채널 | `preload/harness.test.ts`(기존) · X43 |
+| 12 | `preload/index.ts:193,196,198` | push 구독·해제 채널 | `preload/harness.test.ts`(기존) · X42 |
+| 13 | `shared/api/ipc.ts:157,159` | renderer `harnessApi`가 preload를 그대로 부른다 | 신규 — #14·#16 테스트가 `window.orca.harness` stub 위에서 실제 `harnessApi`를 실행 |
+| 14 | `harnessAvailabilityStore.ts:15,19,20` | push 1건 → store `byId[id]` 교체 | 신규 — stub가 받은 handler로 OpenCode `{usable:false, unavailableReason:'unsupported'}` push → store 값 같음, 이어 `{usable:true, version}` push → usable (X68 red) |
+| 15 | `harnessAvailabilityStore.ts:23,28` · `backendStore.ts:31,33` | 초기 seed. 목록 호출 중 도착한 push가 seed보다 이긴다 | SEED(기존 4사유) + 신규 경합 — `backendApi.list` deferred 동안 push(usable) → list가 `missing`으로 resolve → store usable 유지 (X05 red) |
+| 16 | `HarnessUnavailableNotice.tsx:29` | "다시 확인" 클릭 → 그 세션 하네스로 recheck 1회, 응답 전 버튼 비활성 | 신규 — fake DOM에 Notice(backend `opencode`) 렌더 · 클릭 → `window.orca.harness.recheck('opencode')` 1 · 응답 전 disabled · 응답 뒤 활성 (X12·X56 red) |
+
+- 검산: 4+3+2+3+2+2+1+2+2+2+2+3+2+3+4+1 = 38줄 = S04′ 45 − VP-02 2 − VP-05 5.
+
+### EP-03″ — renderer 노출 · 폴백 · 기록 (17, EP-03 대체)
+
+| # | 자리 (S03′ 줄) | 규칙 | 직접 oracle 좌표 |
+|---|---|---|---|
+| 1 | `app/boot/steps.ts:68` | `backend` 단계 뒤 시드 | SEED(기존) · N07 |
+| 2 | `chatStore.ts:221,224,225,227` | 사용 불가 `lastBackend` OpenCode → Claude 시드 + 폴백 표식 | SEED · DRAFT 둘째 케이스(기존) · R03a |
+| 3 | `chatStore.ts:184,187,188,191` | 사용 불가 전환 때 세션 없는 OpenCode 칸 재시드 + 표식 | DRAFT(기존) · X16·X61 |
+| 4 | `ChatProvider.tsx:11,12` | 마운트 1회 + store 변화마다 재시드 | 신규 — 실제 `ChatProvider` 마운트 뒤 store에 OpenCode `missing` 반영 → 빈 OpenCode 칸 backend `claude` (X02 red) |
+| 5 | `chatStore.ts:1894,1895,1897` | 폴백 중 자동 선택은 저장 안 함, `userPick` 선택은 저장(D-016). 복귀 뒤에도 표식 유지(D-017) | 신규 — 폴백 중: 자동 기본 모델 선택 → `settingsApi.set` 0 · 메뉴 선택 → `{lastBackend:'claude'}` 1. store usable 복귀 뒤: 새 칸 backend `claude` · 자동 선택 0 · 메뉴 OpenCode 선택 → `{lastBackend:'opencode'}` 1 (X17·U2 red) |
+| 6 | `Composer.tsx:434` | 모델 메뉴 `onPick`이 `setModel(…, { userPick: true })` | 신규 — 실제 Composer 렌더에서 ModelMenu 선택 → 폴백 중 `settingsApi.set({lastBackend:'claude'})` 1 (U1 red) |
+| 7 | `ChatTile.tsx:65` | 사용 불가 + 유휴 + 대기 요청 없음 → 안내 | NOTICE(기존) + 신규 — inflight 거짓 + `pendingAsks`·`pendingToolApprovals`·`pendingPlanReview` 각각 1 → Composer 유지 (X15 red) · R03b·X14 |
+| 8 | `ChatTile.tsx:165` | 그 밖에는 Composer | NOTICE(기존) |
+| 9 | `HarnessUnavailableNotice.tsx:21` | 사유별 문구 | 신규 — `unsupported`·`failed` 각각 ko 문구 (X63 red) |
+| 10 | `Landing.tsx:27` | 재시드된 빈 칸의 Composer | DRAFT(기존) |
+| 11 | `ProjectLandingPage.tsx:112` | 프로젝트 빈 칸 동일 | DRAFT 프로젝트 케이스(기존) |
+| 12 | `ModelMenu.tsx:31` | `supported`만 노출 | MENU(기존) |
+| 13 | `modelSelection.ts:27` | 미지원 행 건너뜀 | SELECT(기존) |
+| 14 | `Composer.tsx:335` | 메뉴 노출 조건 | COMPOSER(기존) |
+| 15 | `EngineCard.tsx:34,37,38` | 사유별 배지 | CARD(기존) + 신규 `unsupported`·`failed` 문구 (X13 red) |
+| 16 | `AgentEnvironmentView.tsx:31,96,105` | 추가 항목 비활성 + 사유 툴팁 | ADD(기존) + 신규 `unsupported`·`failed` 툴팁 (X62 red) · R03c |
+| 17 | `agentStore.ts:22,43,94` | 가용성 push마다 `agent:list` 재조회 | AGENT(기존) · N04 |
+
+- 검산: 1+4+4+2+3+1+1+1+1+1+1+1+1+1+3+3+3 = 32줄 = S03′.
+
+### EP-05″ — VP-05 정정·추가 (ΔV1 EP-05′ + V1 #9~#14 유지)
+
+| # | 자리 | 규칙 | 직접 oracle 좌표 |
+|---|---|---|---|
+| 9′ | `misc.ts:59-61` | 사용 불가 행의 `unavailable` = registry 사유 | ROWS + 신규 `unsupported`·`failed` 사유 (X64 red) |
+| 14′ | `bootstrap.ts:910-917` 리스너 | OpenCode 상태 변화마다 컴포저 준비 무효화 1 · 웜업 갱신 · 감시 갱신(`initial=false`) | 신규 — 감시 갱신을 mock하지 않은 실제 리스너: missing → usable → `composerPreparation.invalidate` 1 · 전역 감시 생성 + `orca:extensions:opencode-plugins-changed` 1(revision 1) · 같은 상태 재확인 → 무효화·방송 0 · usable → missing → 무효화 1·감시 close (X35·X36 red) |
+| 15′ | `bootstrap.ts:1076-1104` | (#14′와 같은 테스트가 늦은 활성화 방송을 실제 리스너 경로로 단언) | WATCH(기존) + #14′ |
+| 16 | `registry.ts:40` | `usable = info.usable ?? info.installed` — 하네스 이름 분기 없음(D-018) | 신규 — registry 단위: id `claude`·`{installed:false}`(usable 없음) → 사용 불가 `missing` · id `opencode`·`{installed:true}` → usable · `{installed:false, usable:true}` → usable (U3 red). gate: S05e 0 |
+| 17 | `claude/adapter.ts:374-381` | Claude `isInstalled()`는 두 경로 모두 `usable: true`(SDK 동봉) | 신규 — 실제 `ClaudeAdapter.isInstalled()`: package.json 성공·실패 각각 `usable: true` + registry 경유 Claude usable (U4 red). CLAUDE 테스트는 실제 adapter 경유로 바꾼다 |
+
+### EP-02′·EP-08·EP-10 oracle 정정
+
+| pair · 자리 | 정정한 직접 oracle | 등록 변이 |
+|---|---|---|
+| VP-02 · EP-02′ #1 | BOOT에 단언 추가 — `bootstrap.start()` 호출 직후, 어떤 await보다 먼저 `refreshInstallState` 1회 | X03 |
+| VP-08 · EP-08 #2 | `copyable`은 `partsText`와 같은 파트 술어 1벌(`lib/parts`)에서 파생한다. GOLD는 meta 행마다 `copyable === (turnCopyText(turn) !== '')`를 단언하고(버리지 않음) 공백 텍스트·child(`parentToolRunId`) 텍스트만 있는 턴 fixture를 더한다. Timeline 렌더: 그 턴의 복사 버튼 0, 본문 있는 턴 1 | X01 |
+| VP-10 · EP-10 #1 | `sdk.test.ts` — 첫 import 거절 → 두 번째 `loadClaudeSdk()`가 새 import로 성공(factory 2회) | X27 |
+
+### ΔV2 구현 지시
+
+| 대상 | 변경 |
+|---|---|
+| `chatStore.ts:1872-1904` `setModel` | 옵션에 `userPick?: boolean`. `automaticFallback = unavailableLandingFallback && selected.backend === 'claude' && !options?.explicitHarness && !options?.userPick`. 표식 해제 규칙은 그대로 |
+| `Composer.tsx:434-441` | 모델 메뉴 `onPick` → `setModel(…, { userPick: true })`. 자동 선택 effect(`:193-212`)는 옵션 없음 |
+| `explicitHarness` | 재사용하지 않는다 — 리듀서 `harnessExplicitlySelected`가 Composer 모델 폴백 제한(`Composer.tsx:138-139`)을 바꾸기 때문이다 |
+| D-017 | 코드 변경 없음 — 복귀 때 `applyHarnessAvailability`가 조기 return하고 `landingBackend`·표식을 유지하는 현재 동작을 EP-03″ #5로 잠근다 |
+| `registry.ts:40` · `claude/adapter.ts:374-381` | D-018 — 분기 제거, Claude 두 반환에 `usable: true` |
+| `lib/parts.ts` · `projection.ts:126-130` | `partsText`와 `copyable`이 같은 파트 술어 1벌을 쓴다 |
+| `harnessAvailabilityStore.ts:30` | 참조 0인 `useHarnessAvailable` 삭제(verify N3) |
+
+- 테스트 파일 위치는 구현자 재량이다. 각 좌표는 `[구현자 기입] 강제 지점 전수`에 `파일:케이스명`으로 적고, `scan/sites-dv2.sh` 재측정 차집합을 함께 적는다.
+
+### ΔV2 self-review
+
+- D-016·D-017(사용자)·D-018(설계자)을 Ledger에 ACTIVE로 남겼고 D-007은 보완 관계로 ACTIVE 유지다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모에 적었다(충돌 0).
+- AC4″·AC5″·AC7′는 행동 단언·검증 수단·도달 경로를 다시 갖는다. AC 총수 23.
+- VP-04·VP-03 목록은 술어를 계약 주어(가용성 상태·재확인 트리거 / renderer 노출·폴백·기록)로, 범위를 path 파일 전부로 둔 검색의 출력에서 고정했다. 표본 확인으로 일일 게이트 focus 줄 2개를 뺐다.
+- r1 못 잡음 21건은 자리별 등록 변이로 귀속했다 — VP-02 1 · VP-03 5 · VP-04 10 · VP-05 3 · VP-08 1 · VP-10 1 = 21.
+- 사람 실기는 §19 그대로다(시각·실제 설치본 3건).
 
 ---
 
@@ -720,7 +877,7 @@ isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바�
 | OpenCode activity snapshots 지문화(0290 A14 후반) | 같은 길이 출력 변화를 놓칠 수 있음 |
 | renderer i18n 두 언어 동시 번들 | 97KB · 언어 전환 즉시성 유지 |
 
-- 되돌리기 어려운 결정: `raw_json` 열 추가(마이그레이션) — 열만 더하고 지우지 않으므로 구버전 앱이 같은 DB를 열어도 읽기가 깨지지 않는다(구버전은 새 열을 무시하고, 분리된 행의 payload에서 raw만 없다 → 빠른 경로 대신 전체 파싱).
+- 되돌리기 어려운 결정: `raw_json` 열 추가(마이그레이션) — 열만 더하고 지우지 않는다. ~~구버전 앱이 같은 DB를 열어도 읽기가 깨지지 않는다~~ **ΔV2 정정**: 구버전 앱은 모르는 마이그레이션이 적용된 DB를 `DbSchemaTooNewError`로 거절한다(`migrate.ts:167-168`, 기존 다운그레이드 보호 그대로 — r1 verify N1).
 - 신규 의존성: 없음(D-013).
 
 ## 18. 영향 받는 파일 / 문서
@@ -748,6 +905,7 @@ isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바�
 - 사람 실기는 시각·실환경 3건뿐이다. 순수 로직은 테스트로 내렸다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0(§3 갱신 메모).
 - 산출물 문장 규칙: 판정 먼저·표 위주. 수치는 §8·§14에만 둔다.
+- ΔV2 self-review: 아래 ΔV2 절 끝 참조.
 - ΔV1 self-review: SUPERSEDED D-005·D-008과 대체 D-014·D-015를 Ledger에 남겼다. 대체 AC2′~AC6′는 AC 게이트(행동 단언·검증 수단·도달 경로)를 다시 통과했다. 바뀐 pair VP-02~VP-05의 자리 목록은 `feaca09`에서 `scan/sites.sh`(S05d 추가)로 다시 열거했고, 바뀌지 않은 V1 검색 18개의 N은 `feaca09`에서도 같다.
 
 ---
