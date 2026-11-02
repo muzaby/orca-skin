@@ -1,0 +1,52 @@
+{
+ "HEAD": {
+  "discovery-cache.read-stat-order.verify.test.ts": {
+   "status": "passed",
+   "message": ""
+  },
+  "discovery-cache.reload-during-poll.verify.test.ts": {
+   "status": "failed",
+   "message": "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+  }
+ },
+ "HEAD+Z01": {
+  "discovery-cache.read-stat-order.verify.test.ts": {
+   "status": "failed",
+   "message": "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+  },
+  "discovery-cache.reload-during-poll.verify.test.ts": {
+   "status": "failed",
+   "message": "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+  }
+ },
+ "HEAD+Z03": {
+  "discovery-cache.read-stat-order.verify.test.ts": {
+   "status": "passed",
+   "message": ""
+  },
+  "discovery-cache.reload-during-poll.verify.test.ts": {
+   "status": "passed",
+   "message": ""
+  }
+ },
+ "r1@0eb7dc2": {
+  "discovery-cache.read-stat-order.verify.test.ts": {
+   "status": "failed",
+   "message": "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+  },
+  "discovery-cache.reload-during-poll.verify.test.ts": {
+   "status": "passed",
+   "message": ""
+  }
+ },
+ "pre-0290@a2e8464": {
+  "discovery-cache.read-stat-order.verify.test.ts": {
+   "status": "passed",
+   "message": ""
+  },
+  "discovery-cache.reload-during-poll.verify.test.ts": {
+   "status": "passed",
+   "message": ""
+  }
+ }
+}
