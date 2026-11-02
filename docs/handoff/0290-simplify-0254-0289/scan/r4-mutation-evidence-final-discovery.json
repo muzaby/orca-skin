@@ -1,0 +1,301 @@
+[
+ {
+  "id": "R2I F1-D1-loaded-baseline",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts"
+  ],
+  "total": 3,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tnotifies once about a dependency changed before-hold without a later edit",
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tnotifies once about a dependency changed during-load without a later edit"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "R2I D1-pending-scope-check",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts"
+  ],
+  "total": 7,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.test.ts\trechecks a newly held scope when its startup check overlaps another scope probe"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Z01 VP07-4-probe-stat-after-load",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an edit made after the content read but before dependency registration"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Z02 VP07-4-poll-join-flag",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.test.ts\trechecks a newly held scope when its startup check overlaps another scope probe"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Z03 VP07-4-stale-manifest-guard",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: newer-value",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: new-file"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Z12 VP07-4-startup-check-consumer",
+  "file": "src/main/infra/config/fingerprint-watch.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tnotifies once about a dependency changed before-hold without a later edit",
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tnotifies once about a dependency changed during-load without a later edit"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "C1 D7-early-return-restore",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: same-value",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: newer-value",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: new-file",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\treports one edit once when a reload reads it after-edit and finishes during-pass"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "F3 repro@HEAD",
+  "file": null,
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.reload-during-poll.verify.test.ts"
+  ],
+  "total": 1,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "GREEN"
+ },
+ {
+  "id": "F3 repro+D7-revert",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.reload-during-poll.verify.test.ts"
+  ],
+  "total": 1,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.reload-during-poll.verify.test.ts\tVERIFY: a held scope is notified when its in-flight poll sees a change that a concurrent reload also reads"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "F4 repro@HEAD",
+  "file": null,
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.stale-reload-during-poll.verify.test.ts"
+  ],
+  "total": 1,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "GREEN"
+ },
+ {
+  "id": "X06 VP07-4-force-reuse-ignores-fingerprint",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tnotifies once about a dependency changed before-hold without a later edit",
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tnotifies once about a dependency changed during-load without a later edit",
+   "app/src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts\tcontrol: notifies a holder about a dependency change made after hold",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an edit made after the content read but before dependency registration",
+   "app/src/main/adapters/opencode/v1/discovery-cache.test.ts\tholds file watches without starting recurring content probes and refreshes on an external change",
+   "app/src/main/adapters/opencode/v1/discovery-cache.test.ts\trechecks a newly held scope when its startup check overlaps another scope probe",
+   "app/src/main/adapters/opencode/v1/discovery-cache.test.ts\ttracks missing candidates, ancestor git boundaries, custom files and environment layouts"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "X07 VP07-4-reload-rewatch-removed",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tre-watches the dependency file a reload switched to and reports its edit through the watcher"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "C2 D8-adopt-loop-removed",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\treports one edit once when a reload reads it before-edit and finishes during-pass"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "F4 repro+D8-revert",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.stale-reload-during-poll.verify.test.ts"
+  ],
+  "total": 1,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.stale-reload-during-poll.verify.test.ts\tnotifies once when a reload that read the old content finishes during the poll pass"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "C3 D8-adopt-newer-too",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: newer-value"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ }
+]

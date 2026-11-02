@@ -262,6 +262,19 @@ export class OpenCodeDiscoveryCache {
             if (observer.dependencies !== dependencies) {
               // Keep the reload's manifest, but still report changes seen by this pass.
               this.pollRequested = true
+              // A reload that read the version this pass reports adopts the pass result, so the
+              // same change is not reported again; newer or different dependencies stay as loaded.
+              if (changed)
+                for (const [id, current] of observer.dependencies) {
+                  const before = dependencies.get(id)
+                  const seen = next.get(id)
+                  if (before && seen && current.signature === before.signature)
+                    observer.dependencies.set(id, {
+                      ...current,
+                      signature: seen.signature,
+                      fingerprint: seen.fingerprint
+                    })
+                }
             } else if (changed) {
               observer.dependencies = next
             }
