@@ -1,0 +1,30 @@
+## S1 — 공통 모듈이 이동한 하네스 모듈을 import (harness/ownership)
+  ../opencode/warmup → harness/ownership errors: 1
+  restored: app/src/main/app/harnesses/common/contracts.ts
+  ../opencode/mcp-reconcile → harness/ownership errors: 1
+  restored: app/src/main/app/harnesses/common/contracts.ts
+  ../opencode/global-watch → harness/ownership errors: 1
+  restored: app/src/main/app/harnesses/common/contracts.ts
+  ../opencode/prepared-mcp-resources → harness/ownership errors: 1
+  restored: app/src/main/app/harnesses/common/contracts.ts
+  ../claude/processes → harness/ownership errors: 1
+  restored: app/src/main/app/harnesses/common/contracts.ts
+## S2 — 삭제한 partsStructured export 복원 (dead-exports 스캐너)
+  restored: app/src/renderer/src/features/chat/lib/parts.ts
+  head dead 33 test-only 45 | S2 dead 34
+  S2 new rows: [('app/src/renderer/src/features/chat/lib/parts.ts', 'partsStructured', 'dead')]
+## S3 — 고아 IPC 토큰 복원 (VP-04 0건 스윕, 기록 명령 그대로)
+  before: 0
+  with token: 1
+  restored: app/src/renderer/src/shared/api/ipc.ts
+## AC2 — dead/test-only (name,kind) 집합: head − baseline
+  header head: ['file', 'name', 'kind', 'own'] ... baseline: ['file', 'name', 'kind', 'own']
+  head dead 33 test-only 45
+  new (name,kind,category) not in baseline: []
+## AC3 — i18n
+present=0
+  --absent exit=0
+keys=1171 unreferenced=56
+  unreferenced: 56
+  new vs baseline: 
+app tree: ''
