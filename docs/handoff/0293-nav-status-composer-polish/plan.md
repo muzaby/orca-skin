@@ -64,7 +64,7 @@
 | D-009 | 상태 칸 접근성 이름 = 생성 중 '답변 생성 중' · 비열람 완료 '답변 완료' · 응답 대기 '응답 대기'(en 대응) | 아이콘이 상태를 더 이상 말하지 않는다. 공은 같은 시각이라 이름이 둘을 가른다 | 추론 | ACTIVE | 0254 D-010 대체 |
 | D-010 | 점 스피너 `DotsSpinner`와 `dot-wave` 토큰을 제거한다 | 소비처가 SessionRow 하나다(§8 F-09) | 추론 | ACTIVE | — |
 | D-011 | 모델 팝업 그룹 순서 = Claude → OpenCode → 그 밖, 같은 하네스 안 입력 순서 유지, 플러그인 런타임 행 포함. 엔진&모델 카드와 같은 함수를 쓴다 | 요구 B · 0291 D-018 규칙 공유 | 요구 B | ACTIVE | — |
-| D-012 | 정렬은 팝업 표시에만 적용한다 — agent store·`agent:list` 순서·기본 모델 선택은 그대로다 | 요구는 팝업 정렬이다. 기본 선택은 입력 순서 첫 행이다(`modelSelection.ts:22-39`) | 추론 | ACTIVE | — |
+| D-012 | 정렬은 팝업 표시에만 적용한다 — agent store·`agent:list` 순서·기본 모델 선택은 그대로다 | 요구는 팝업 정렬이다. 기본 선택은 현재 하네스의 첫 행이고(`modelSelection.ts:22-39`) 새 대화는 늘 하네스가 정해져 있어(기본 Claude, `chatStore.ts:182-187`) 정렬해도 결과가 같다 — 목록 원본을 바꿀 이유가 없다 | 추론 | ACTIVE | — |
 | D-013 | OpenCode '권한 자동 수락'의 기본값 = 켬. 응답은 `once`, 질문은 계속 묻고, 이미 뜬 카드는 그대로다 | 요구 C · 0285 D-011의 나머지 유지 | 요구 C | ACTIVE | 0285 D-011 "기본 off" 부분 대체 |
 | D-014 | 저장된 명시 값(켬/끔)은 유지한다. 손상 값은 기본값(켬)이다. 일괄 마이그레이션은 하지 않는다 | 저장된 opencode 값의 renderer writer는 토글 하나다(`GeneralTab.tsx:316`, 0285 plan:247 "renderer 쓰기 0") — 저장된 끔은 사용자가 고른 값이다 | 추론 | ACTIVE | 0285 §10 "손상 → false" 대체 |
 | D-015 | 프로젝트 랜딩 composer의 cwd 버튼 = 새 대화와 같은 프로젝트 팝업(검색·폴더 프로젝트 목록·프로젝트 추가) | 요구 D | 요구 D | ACTIVE | 0287 §6 비범위 "프로젝트 상세 랜딩의 기존 버튼" 해제 |
@@ -90,7 +90,7 @@
 | B — 원인 | `mergeAgentEnvironments`가 런타임 행을 settings 행 뒤에 붙인다. settings 행은 디렉터리 이름순이라 우연히 claude→opencode다 | `models.ts:112-118` · `settings.ts:200-235` |
 | B — 이미 충족하는가 | 엔진&모델 카드만 정렬한다. 팝업은 입력 순서다 | `AgentEnvironmentView.tsx:119` · `ModelMenu.tsx:28-41` |
 | B — 더 작은 해법 | 같은 함수를 팝업에 적용한다. 함수가 `features/engine`에 있어 chat이 import할 수 없으므로 `src/shared/harness.ts`로 옮긴다(복붙 금지) | renderer AGENTS 4-layer · `ChatTitleBar.tsx:2`가 이미 `shared/harness` import |
-| B — producer/store 정렬 | 택하지 않는다. 기본 모델 선택이 입력 순서 첫 행이라 결과가 바뀔 수 있다(D-012) | `modelSelection.ts:22-39` |
+| B — producer/store 정렬 | 택하지 않는다 — 필요 없다. 기본 선택은 현재 하네스로 먼저 거르고, 그 하네스에 모델이 없을 때만 남은 다른 하네스 첫 행으로 넘어간다. 같은 하네스 안 순서는 정렬 전후 같아 결과가 같다(D-012) | `modelSelection.ts:22-39`·`:79-85` · `chatStore.ts:182-187`·`:249-257` · 팝업은 새 대화에서 전 그룹 표시 `Composer.tsx:432` |
 | C — 기본값의 자리 | 소비자(`=== true`)를 fail-open으로 바꾸면 preferences 없는 adapter 테스트가 전부 자동 승인으로 뒤집히고 포트 의미가 바뀐다. 스키마가 opencode 값을 물질화하면 production은 늘 명시 boolean을 받고 포트는 fail-closed로 남는다 | `channel.ts:393-399` · `bootstrap.ts:216` |
 | C — 기존 사용자 | 저장된 끔은 토글로만 생긴다 → 유지(D-014). 일괄 켬은 명시 선택을 지우는 one-way라 택하지 않는다 | `rg -n "opencode: \{" app/src/renderer/src --glob '!*.test.*'` 8행 중 설정 patch는 `GeneralTab.tsx:316` 1행 |
 | D — 원인 | 프로젝트 랜딩은 `showLandingCwdPanel`만 켜고 `landingProjects`를 넘기지 않아 `CwdButton`이 렌더된다 | `ProjectLandingPage.tsx:111-119` · `CwdPanel.tsx:48-65` |
