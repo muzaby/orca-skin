@@ -816,3 +816,413 @@ OpenCode 연결: configuredOpenCodeResources(load) → servers.acquire(spawn) �
 - AC: ✅ 21 · ⚠️ 0 · ❌ 2(AC1·AC12).
 - 운영 gate: 전부 green(환경 분리 포함).
 - 다음 단계: 구현자가 D6·D7을 닫는다. 다음 verify는 이번 `못 잡음` 3행(Z01·Z03·F3)·`동치` 1행(Z16)과 `잡음` 행을 다시 실행한다.
+
+---
+
+# r3 재검증 (2026-11-02)
+
+> r1·r2 본문(위)은 그대로 둔다. 재현 자료는 [`verify-evidence/r3/`](verify-evidence/r3/) — 변이 정의 생성기·정의·결과 JSON, 재현 테스트 2개(C·D), 버전 매트릭스 러너와 결과, 정적 재측정 로그, 표 생성기. 변이 러너는 r2의 [`mutate-r2.py`](verify-evidence/r2/mutate-r2.py)를 그대로 썼다.
+
+## r3 메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-11-02 |
+| 대상 커밋/range | `16acb8c..dc9f29b` — r3 구현 `feaca09`(코드·테스트) · `dc9f29b`(문서만, app 트리 = `feaca09`). 사이의 `64047af`·`3c50653`은 0292 문서 |
+| 구현 전 plan 기준 | `16acb8c`(r2 verify) — 규범부 = `46b3784`(PR 해시 `a2e8464`) V1+ΔV1 |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1` |
+| 라운드 | 3 (verify 3회째) |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | 아니오 — 구현 Codex(D-017), 검증 Claude. 구현 보고 밖 축 3건(재현 C=F4 · X06 · X07+재현 D)을 §r3-4에 넣었다 |
+
+## r3-0. 기준선 / plan 변경 확인
+
+- **판정: 기준선 성립, 규범 변경 0.** `16acb8c..dc9f29b`의 plan diff는 hunk 1개(`@@ -1091,6 +1091,157 @@`) — `## r3 구현 보완` 절 151줄 추가뿐이다.
+- `[검증자 기입] 파생 이슈` 표는 r3에서 바뀌지 않았다 — D6·D7 상태 칸 `open (r2 verify)` 그대로.
+- Decision·Product/UX·AC·V node/pair·§10 변경: 없음. 채점 기준은 V1+ΔV1 규범 행 원문(r1·r2와 같다).
+- 좌표: plan 메타·이전 verify·INDEX가 적은 `ae103f3`·`a2e8464`·`291b721`…`4d308eb`·`0eb7dc2`·`0fa04db`·`c6070f4`는 PR 브랜치 커밋이고, `main`에는 rebase 병합된 다른 해시로 있다 — 대응표는 §r3-11.
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | 규범부 변경 0 — r1 판정 유지 |
+| §10 자리 목록(기록 검색 재실행 차집합) | 유효 | [`ep-search.sh`](verify-evidence/ep-search.sh) 47줄을 `16acb8c`·HEAD 트리에서 재실행 — 두 출력 diff 0, 구현자 [`r3-ep-search.txt`](scan/r3-ep-search.txt)와도 같다 |
+| r3 수정·D8·D9 자리의 목록 귀속 | 유효 | `discovery-cache.ts:164`·`:262-274` 모두 VP-07 ④ 고정 자리(hold 동안 의존 파일 stat 변화로 probe 구동) 안 |
+| 선택 적대 증거·운영 gate | 유효 | r1 판정 유지 |
+
+- root PLAN_GAP: 없음. D8·D9는 VP-07 계약("지문 변화마다 콜백 1회", 실패 의미 "중복 방송·누락")·AC12 안에서 구현자가 R3-03(새 의존 파일 보존)과 함께 맞출 수 있다 — 서로 모순된 기준이 아니다.
+
+## r3-1. Product & UX / ACTIVE Decision
+
+| Decision / 요구 | 기대 결과 | r3 판정 |
+|---|---|---|
+| D-003 관측 동작 보존 | 화면·대화 흐름 불변 | 충족 — D7 해소(설정 변경 뒤 서버 retire 1회). D8의 두 번째 통보는 소비자 콜백이 멱등이라 관측 차이를 찾지 못했다(§r3-2) |
+| VP-07 ④ · AC12 "변경마다 1회" | holder 통보 1회 | **위반(D8)** — 편집 전 내용을 읽은 재로드가 진행 중 poll pass와 겹치면 2회 · **미잠금(D9)** — 재로드 뒤 감시 재설정 edge |
+| D-005·D-006·D-007·D-008·D-012·D-015·D-016 | r1·r2 판정 | 유지 — r3 app diff는 2파일(`discovery-cache.ts` · 신규 `discovery-cache.poll-race.test.ts`) |
+
+```text
+설정 편집 ─┬ hold 감시(FingerprintWatch) → poll pass → holder 통보 → server.retire · instances.retire
+           └ 전역/프로젝트 감시 dirty → invalidate() → run() 재로드 → observer manifest 교체 + watch(key) 재설정
+편집 전 내용을 읽은 재로드가 pass 도중 끝나면: pass 1 통보(r3 분기) → pollRequested → pass 2가 낡은 manifest와 pass 1 probe를 비교해 다시 통보(D8)
+```
+
+## r3-2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| D7 수정이 진행 중 pass가 본 변경을 통보하는가 | 성립 | `discovery-cache.ts:262-274` — manifest가 바뀌어도 `changed`면 통보. 재현 B HEAD green 3/3, D7 되돌림 red 3/3 |
+| 새 manifest를 지키는 선택이 다른 실패 모드를 만들었는가 | **결함 D8** | 보존한 manifest가 편집 전 내용이면 다음 pass가 같은 변경을 다시 센다. 재현 C HEAD 통보 2회(3/3) · r2·r1·`a2e8464` 1회 |
+| D6 순서 불변식이 잠겼는가 | 성립·잠김 | Z01 잡음 1/49(R3-01) · 재현 A HEAD green 3/3·Z01 red 3/3 |
+| 재로드가 의존 파일을 바꾼 뒤의 감시 | 성립 · **미잠금(D9)** | `:164` `this.watch(key)` 삭제(X07)에 discovery 10파일 49케이스 green. 재현 D(실제 감시) HEAD green·X07 red 3/3 |
+| D8의 production 트리거 | 실재 | D7과 같은 `invalidate()` 호출자(`bootstrap.ts:1250` 전역 감시 dirty · `project-settings.ts:43` 프로젝트 정책 dirty) + 다중 파일 load 도중 같은 파일의 연속 저장 |
+| D8의 사용자 영향 | 미발견 | 콜백 `session-context.ts:508-512` 세 문장이 멱등 — `server.ts:218-220` 가드 · `session-context.ts:510` 가드 · `instance-lifecycle.ts:153-157` 플래그. 남는 것은 entry 재무효화·추가 pass |
+| false success | 없음 | 새 오류 경로 없음 — 실패는 기존 `failed → poll` |
+| poll 반복 worst-case | 유한 | manifest 교체마다 `pollRequested` 1회 — 재로드 수가 상한(r2와 같음) |
+
+### D8 — 편집 전 내용을 읽은 재로드가 진행 중 poll pass와 겹치면 holder에 2회 통보한다
+
+- 재현 C: [`discovery-cache.stale-reload-during-poll.verify.test.ts`](verify-evidence/r3/repro/discovery-cache.stale-reload-during-poll.verify.test.ts) — 재로드가 `a`(편집 전)를 읽고 멈춤 → `a` 편집 → poll pass가 새 `a` 읽기에서 대기 → 재로드 완료 → pass 재개 → 통보 1회 기대.
+- 관측([`repro-matrix-r3.json`](verify-evidence/r3/repro-matrix-r3.json), 변형마다 3회): HEAD `expected "vi.fn()" to be called once, but got 2 times` 3/3, 실패 위치는 `await polling` 직후 단언(92행) — 겹친 poll 한 번 안에서 2회다.
+- 대조: r2 `68b886b`·r1 `6eb0409`·`a2e8464`(0290 전)·HEAD+Z03 모두 green — r3 수정이 만든 순서다.
+- 메커니즘: pass 1이 바뀐 manifest(`a` 편집 전 서명)를 보존한 채 통보하고 `pollRequested`(`:262-274`) → pass 2가 그 manifest를 pass 1 probe(`:41-47` 같은 지문 재사용)와 비교해 다시 통보(`:265-274`).
+- 기존 스위트: r3 poll-race 4케이스는 재로드가 같은·더 최신·다른 파일을 읽는 순서만 다룬다 — 편집 전 내용을 읽는 형제 순서가 없다.
+
+### D9 — 재로드가 바꾼 의존 파일로 감시를 다시 거는 edge가 잠기지 않는다
+
+- 변이 X07: `run()`의 `this.watch(key)`(`discovery-cache.ts:164`) 삭제 → discovery 10파일 49케이스 전부 green.
+- 재현 D: [`discovery-cache.reload-rewatch.verify.test.ts`](verify-evidence/r3/repro/discovery-cache.reload-rewatch.verify.test.ts) — hold 뒤 재로드가 다른 파일에 의존 → 그 파일 편집 → 실제 `watchFile`·타이머로 4초 안 통보 1회. HEAD·r2·r1·`a2e8464` green 3/3, HEAD+X07 red 3/3.
+- R3-03 `new-file`이 이 edge를 닫지 못하는 이유: `watchFile`을 mock하고 `poll()`을 직접 불러, 새 파일 편집 → 감시 → poll edge가 실행 구간 밖이다(`discovery-cache.poll-race.test.ts:7-11`·`:98`).
+- 이 edge는 r1부터 있었다(`6eb0409` `discovery-cache.ts:156`) — r1·r2 verify가 시도하지 않은 축이다. 0290 전 코드는 1초 주기 poll이 manifest를 직접 돌아 같은 동작을 냈다.
+
+## r3-3. 역방향 탐색
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 16acb8c..dc9f29b` — 대상 1파일.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 1a·1b 미사용 export | 없음 | 스크립트 출력 `(없음)` |
+| 2 `OpenCodeDiscoveryCache` 테스트 전용 | 정상 | `test+local` — 파일 안 소비 `discovery-cache.ts:302`(r2와 같음) |
+| 3 형제 정책 비대칭 | 없음 | 스크립트 출력 `(없음)` |
+| 구현자 정적 민감도(N3) | 해소 | [`r3-static-sensitivity.json`](scan/r3-static-sensitivity.json) `after`가 실제 `ipc.ts:374`·`mcp-config.ts:6` — 검증자 S2·S3 재측정과 같은 방향 |
+
+## r3-4. 기존 테스트 / semantic 검증
+
+- **직전 `못 잡음` 3행 재실행: 3/3 잡음.** Z01 1/49(R3-01) · Z03 r3 형태 2/49(R3-03) · F3(재현 B HEAD green·D7 되돌림 red).
+- **직전 `동치` 1행: Z16 동치 유지** 0/53 — 근거는 §r2-4와 같고 `adapter.ts` 등 해당 파일 r3 diff 0.
+- **이전 라운드 `잡음` 재실행(덮개 회귀): 130/130 잡음 — red→green 0.** M 107 · R2I 5 · Z 13 · F1·F2 · S1~S3.
+- **D7 인용 변이 C1(r2 조기 반환 복원): 잡음 3/49** — R3-02·R3-03 세 갈래.
+- **검증자 축 3건: 잡음 1(X06 7/49) · 못 잡음 2(X07 · F4).**
+- 구현자 보고 대조: [`r3-mutation-evidence.json`](scan/r3-mutation-evidence.json) 134 ID = CAUGHT 130 · GREEN 3 · EQUIVALENT 1 — 보고 문장(결함 131 = red 130 + 동치 1, 정상 재현 3)과 같다.
+- 형제 갈래: r3 분기(manifest 바뀜 = 보존+통보 ↔ 그대로 = 교체+통보)는 Z03(바뀐 갈래도 교체 — 맞바꿈)·C1(바뀐 갈래 통보 제거)이 각각 red.
+
+**고장 이력** — r3에서 시도한 고장 전부. `범위` = 실행한 테스트 파일 수, `이번 결과` = 무변이 실패 22건(Node ABI, [`clean-failed-ids-node.txt`](verify-evidence/r3/clean-failed-ids-node.txt) — r2와 같은 집합)을 뺀 실패 케이스/실행 케이스. 정의는 [`r3-verify-mutations.json`](verify-evidence/r3/r3-verify-mutations.json)([생성기](verify-evidence/r3/build-r3-mutations.py)), 결과·전체 실패명은 [`r3-mutation-rerun.json`](verify-evidence/r3/r3-mutation-rerun.json), 정적은 [`static-r3.log`](verify-evidence/r3/static-r3.log)(환경: Linux · Node ABI better-sqlite3 · Electron 바이너리).
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 범위 | 직전 결과 | 이번 결과 | 잡은 테스트 | 귀속 |
+|---|---|---|---|---|---|---|---|---|
+| M001 VP02-interval | `renderer/src/features/skills/hooks/useNativeMcpCatalog.ts:92` | 호출 대체 | `window.addEventListener('focus', focus) → setInterval(() => void refresh(), 5000)⏎    w` | 1파일 | 잡음 | 잡음 1/11 | useNativeMcpCatalog.test.ts — refreshes on backend push and focus, coa | VP-02 등록(구현 목록) |
+| M002 VP02-subscribe | `renderer/src/features/skills/hooks/useNativeMcpCatalog.ts:87` | 제거 | `void refreshBackend(backend) → void backend` | 1파일 | 잡음 | 잡음 1/11 | useNativeMcpCatalog.test.ts — refreshes on backend push and focus, coa | VP-02 등록(구현 목록) |
+| M003 VP07-comparison | `main/infra/config/fingerprint-watch.ts:85` | 제거 | `this.closed \|\| next === this.fingerprint → this.closed` | 2파일 | 잡음 | 잡음 2/5 | fingerprint-watch.test.ts — compares a supplied consumer baseline on | VP-07 등록(구현 목록) |
+| M004 VP09-BOM | `main/infra/config/json-file.ts:15` | 제거 | `text.replace(/^\uFEFF/, '') → text` | 6파일 | 잡음 | 잡음 5/33 | native-config-boundaries.test.ts — carries BOM JSON through configured Clau | VP-09 등록(구현 목록) |
+| M005 VP09-missing-async | `main/infra/config/json-file.ts:40` | 고정값 | `text = await readFile(path, 'utf8')⏎  } catch → text = await readFile(path, 'utf8')⏎  } catch` | 6파일 | 잡음 | 잡음 15/33 | native-config-boundaries.test.ts — carries BOM JSON through configured Clau | VP-09 등록(구현 목록) |
+| M006 VP09-git | `main/adapters/common/git-root.ts:7` | 고정값 | `yield current → yield current⏎    return` | 4파일 | 잡음 | 잡음 4/20 | native-config-boundaries.test.ts — finds the Git root through the Claude pr | VP-09 등록(구현 목록) |
+| M007 VP10-membership | `main/adapters/opencode/v1/adapter.ts:203` | 뒤집기 | `return active(item.managedSource, current) → return !active(item.managedSource, current)` | 1파일 | 잡음 | 잡음 1/26 | adapter.test.ts — projects disabled global MCP overrides a | VP-10 등록(구현 목록) |
+| M008 VP10-choices | `main/adapters/opencode/v1/adapter.ts:174` | 뒤집기 | `[id, active(identity, current)] → [id, !active(identity, current)]` | 1파일 | 잡음 | 잡음 1/26 | adapter.test.ts — projects disabled global MCP overrides a | VP-10 등록(구현 목록) |
+| M009 VP11-double-config | `main/adapters/opencode/v1/channel.ts:492` | 제거 | `openCodeNativePlugins(client, req.cwd, env, s → openCodeNativePlugins(client, req.cwd, env, s` | 1파일 | 잡음 | 잡음 1/1 | channel.native-resources.test.ts — shares one configuration read between pl | VP-11 등록(구현 목록) |
+| M010 VP11-serial | `main/adapters/opencode/v1/native-resources.ts:27` | 뒤집기 | `client.app.skills({ directory }, options), → await client.app.skills({ directory }, option` | 1파일 | 잡음 | 잡음 1/6 | native-resources.test.ts — OpenCode native resources > starts skill | VP-11 등록(구현 목록) |
+| M011 VP15-client-first | `main/adapters/opencode/v1/native-history.ts:185` | 뒤집기 | `let probeFailed = false → await deps.client(request)⏎    let probeFaile` | 1파일 | 잡음 | 잡음 4/35 | native-history.test.ts — skips SDK messages only when the committ | VP-15 등록(구현 목록) |
+| M012 VP16-targets | `main/app/project-resource-sync.ts:179` | 제거 | `void this.apply(entry, runtimeTargets) → void this.apply(entry)` | 1파일 | 잡음 | 잡음 1/17 | project-resource-sync.test.ts — captures runtime targets once per stable | VP-16 등록(구현 목록) |
+| M013 VP16-list | `main/app/handlers/skills.ts:46` | 호출 대체 | `listing ?? refresh() → refresh()` | 1파일 | 잡음 | 잡음 5/16 | skills.test.ts — catalog skill target IPC > orca:skills:a | VP-16 등록(구현 목록) |
+| M014 VP16-parse | `main/adapters/claude/project-settings.ts:18` | 고정값 | `if (cached?.fingerprint === fingerprint) retu → if (false) return cached!.value` | 1파일 | 잡음 | 잡음 1/5 | project-settings.test.ts — parses shared native state once per file | VP-16 등록(구현 목록) |
+| M015 VP16-candidate | `main/adapters/claude/native-history.ts:167` | 다른 값 | `offset (\+=\|\+) 16 → offset $1 1` | 1파일 | 잡음 | 잡음 1/16 | native-history.test.ts — Claude native history reads > bounds con | VP-16 등록(구현 목록) |
+| M016 VP16-hash | `main/adapters/claude/native-history.ts:100` | 호출 대체 | `prefixRevision = hash.copy().digest('hex') → prefixRevision = createHash('sha256').update(` | 1파일 | 잡음 | 잡음 1/16 | native-history.test.ts — commits UTF-8 byte checkpoints, reuses c | VP-16 등록(구현 목록) |
+| M017 VP16-skill-path | `main/app/skill-catalog.ts:66` | 호출 대체 | `path: await realpath(skill.skillPath).catch(( → path: await realpath(skill.skillPath).then(()` | 1파일 | 잡음 | 잡음 1/1 | skill-catalog.test.ts — assembles the real catalog from lock, ha | VP-16 등록(구현 목록) |
+| M018 VP16-event-cap | `main/adapters/opencode/v1/map.ts:94` | 다른 값 | `if (event.id) this.seenEvents.add(event.id) → if (event.id) this.seenEvents.add(event.id)⏎ ` | 1파일 | 잡음 | 잡음 1/1 | map.replay.test.ts — ignores an old text delta replay after m | VP-16 등록(구현 목록) |
+| M019 VP16-roots | `main/adapters/opencode/v1/native-resources.ts:62` | 호출 대체 | `skillRoots ??= openCodeSkillRoots(directory,  → skillRoots = openCodeSkillRoots(directory, en` | 1파일 | 잡음 | 잡음 1/6 | native-resources.test.ts — OpenCode native resources > classifies o | VP-16 등록(구현 목록) |
+| M020 VP16-SSE | `main/adapters/opencode/v1/session-context.ts:383` | 호출 대체 | `subscriber.directory !== directory → nativePathKey(subscriber.directory) !== direc` | 1파일 | 잡음 | 잡음 1/15 | session-context.test.ts — OpenCode server context with the install | VP-16 등록(구현 목록) |
+| M021 VP16-peek | `main/features/extensions/common/mcp/managed-source.ts:77` | 다른 값 | `peek: () => current → peek: () => ({ ...current, users: structuredC` | 1파일 | 잡음 | 잡음 1/2 | managed-source.test.ts — peeks at membership without cloning and  | VP-16 등록(구현 목록) |
+| M022 VP17-memo | `renderer/src/features/chat/harnesses/opencode/rightpanel/tiles.tsx:28` | 빈 값 | `let model = inputs.get(backgroundKey) → let model = undefined as ReturnType<typeof se` | 1파일 | 잡음 | 잡음 1/1 | tiles.memo.test.ts — shares one projection across four compon | VP-17 등록(구현 목록) |
+| M023 VP18-canonical-harness-config | `main/adapters/common/harness-config.ts:72` | 호출 대체 | `canonicalJson( → JSON.stringify(` | 1파일 | 잡음 | 잡음 7/54 | harness-config.test.ts — env 우선순위 (AC15) > options.env 를 만들지 않는 턴 | VP-18 등록(구현 목록) |
+| M024 VP18-canonical-background-task-queries | `main/infra/db/background-task-queries.ts:13` | 호출 대체 | `canonicalJson( → JSON.stringify(` | 1파일 | 잡음 | 잡음 1/1 | background-journal-key.test.ts — preserves persisted journal keys across  | VP-18 등록(구현 목록) |
+| M025 VP18-canonical-composer-catalog | `main/app/composer-catalog.ts:46` | 호출 대체 | `canonicalJson( → JSON.stringify(` | 1파일 | 잡음 | 잡음 1/8 | composer-catalog.test.ts — shares preparation identity for reordere | VP-18 등록(구현 목록) |
+| M026 VP18-variant-settings | `main/adapters/opencode/v1/settings.ts:84` | 호출 대체 | `enabledVariantNames\(([^()]+)\) → Object.keys($1 ?? {})` | 1파일 | 잡음 | 잡음 2/5 | settings.test.ts — OpenCode native model catalogs > uses na | VP-18 등록(구현 목록) |
+| M027 VP18-variant-model-listing | `main/adapters/opencode/v1/model-listing.ts:29` | 호출 대체 | `enabledVariantNames\(([^()]+)\) → Object.keys($1 ?? {})` | 1파일 | 잡음 | 잡음 1/6 | model-listing.test.ts — parseOpenCodeModelListing (0291 MD-02) > | VP-18 등록(구현 목록) |
+| M028 VP18-variant-composer-catalog | `main/adapters/opencode/v1/composer-catalog.ts:42` | 호출 대체 | `enabledVariantNames\(([^()]+)\) → Object.keys($1 ?? {})` | 1파일 | 잡음 | 잡음 1/2 | composer-catalog.test.ts — reads plugin-resolved primary agents and | VP-18 등록(구현 목록) |
+| M029 VP18-version | `main/adapters/opencode/v1/server.ts:165` | 다른 값 | `['--version'] → ['-v']` | 1파일 | 잡음 | 잡음 1/1 | server.cli.test.ts — probes the installed version through the | VP-18 등록(구현 목록) |
+| M030 VP18-db-path | `main/adapters/opencode/v1/server.ts:425` | 다른 값 | `['db', 'path'] → ['db', 'wrong']` | 1파일 | 잡음 | 잡음 1/1 | server.database-path.test.ts — OpenCode native database path (0262 EP56 | VP-18 등록(구현 목록) |
+| M031 VP18-auth-plugin | `main/features/auth/runtime.ts:268` | 맞바꿈 | `snapshot: () => loginFreeSnapshot(authId) → snapshot: () => (connections.has(authId) ? al` | 1파일 | 잡음 | 잡음 6/26 | login-free.test.ts — 로그인 프리 런타임 — lifecycle 분리 (0248 AC4·AC8· | VP-18 등록(구현 목록) |
+| M032 VP18-auth-runtime | `main/features/auth/runtime.ts:317` | 맞바꿈 | `return loginFreeSnapshot(authId) → return (connections.has(authId) ? alwaysConne` | 1파일 | 잡음 | 잡음 2/26 | login-free.test.ts — 로그인 프리 호스트 연결 — 런타임 경유 (0291) > snapshot | VP-18 등록(구현 목록) |
+| M033 VP18-connection-list | `main/app/connection-views.ts:86` | 다른 값 | `providerConnectionInfo(snapshot.connection) → ({ ...providerConnectionInfo(snapshot.connect` | 1파일 | 잡음 | 잡음 1/12 | connection-views.test.ts — host connection (0291) > carries connect | VP-18 등록(구현 목록) |
+| M034 VP18-connection-handler | `main/app/handlers/providers.ts:83` | 다른 값 | `return providerConnectionInfo(status) → return { ...providerConnectionInfo(status), m` | 1파일 | 잡음 | 잡음 1/4 | providers.test.ts — registerConnectionHandlers > connect는 최종 | VP-18 등록(구현 목록) |
+| M035 VP18-skill-order | `renderer/src/features/chat/lib/attachMenuModel.ts:100` | 뒤집기 | `skillGroups.unshift(next) → skillGroups.push(next)` | 1파일 | 잡음 | 잡음 1/20 | attachMenuModel.test.ts — buildAttachMenu > merges groups that sha | VP-18 등록(구현 목록) |
+| M036 VP19-bootstrap-opencode | `main/app/bootstrap.ts:1257` | 빈 값 | `broadcastExtensionsChanged({ backend: 'openco → undefined` | 1파일 | 잡음 | 잡음 1/22 | bootstrap.native-history.test.ts — broadcasts each OpenCode plugin revision | VP-19 등록(구현 목록) |
+| M037 VP19-bootstrap-claude | `main/app/bootstrap.ts:1275` | 빈 값 | `broadcastExtensionsChanged({ backend: 'claude → undefined` | 1파일 | 잡음 | 잡음 5/22 | bootstrap.native-history.test.ts — broadcasts Claude true config / installe | VP-19 등록(구현 목록) |
+| M038 VP19-preload | `preload/index.ts:281` | 빈 값 | `subscribe(CHANNELS.extensionsChanged, handler → (() => undefined)` | 1파일 | 잡음 | 잡음 1/29 | index.test.ts — forwards backend extension changes throu | VP-19 등록(구현 목록) |
+| M039 VP19-api | `renderer/src/shared/api/ipc.ts:238` | 빈 값 | `globalThis.window?.orca?.session?.onExtension → undefined` | 1파일 | 잡음 | 잡음 1/29 | index.test.ts — forwards backend extension changes throu | VP-19 등록(구현 목록) |
+| M040 VP15-whole-delete | `main/infra/db/native-history-queries.ts:88` | 고정값 | `AND native_id NOT IN (SELECT value FROM json_ → AND length(?) >= 0` | 1파일 | 잡음 | 잡음 1/15 | native-history.db.test.ts — native history with the migrated SQLite  | VP-15 등록(구현 목록) |
+| M041 VP16-identity | `main/adapters/opencode/v1/server-profile.ts:51` | 호출 대체 | `profileComponents(executableIdentity, cwd, en → profileComponents(openCodeExecutableIdentity(` | 1파일 | 잡음 | 잡음 1/1 | server-profile.test.ts — computes executable identity once and de | VP-16 등록(구현 목록) |
+| M042 VP16-defaults | `main/adapters/claude/plugin-catalog.ts:26` | 호출 대체 | `const defaults = pluginDefaults(readObject(jo → readClaudePluginCatalog(process.cwd(), native` | 1파일 | 잡음 | 잡음 1/8 | plugin-catalog.test.ts — native plugin catalog > reads defaults f | VP-16 등록(구현 목록) |
+| M043 VP12-mark | `renderer/src/shared/ui/HarnessLogo.tsx:16` | 뒤집기 | `backend === 'claude' ? ( → backend !== 'claude' ? (` | 1파일 | 잡음 | 잡음 2/2 | HarnessLogo.render.test.ts — preserves claude artwork and default or  | VP-12 등록(구현 목록) |
+| M044 VP12-color | `renderer/src/shared/ui/HarnessLogo.tsx:14` | 맞바꿈 | `backend === 'claude' ? 'text-spinner' : 'text → backend === 'claude' ? 'text-oc-ink' : 'text-` | 1파일 | 잡음 | 잡음 2/2 | HarnessLogo.render.test.ts — preserves claude artwork and default or  | VP-12 등록(구현 목록) |
+| M045 VP12-engine | `renderer/src/features/engine/common/components/EngineCard.tsx:30` | 맞바꿈 | `backend={agent.adapter} → backend={agent.adapter === 'claude' ? 'openco` | 1파일 | 잡음 | 잡음 2/3 | EngineCard.render.test.ts — preserves the claude card label and edit | VP-12 등록(구현 목록) |
+| M046 VP12-engine-menu | `renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:101` | 맞바꿈 | `backend={engine} → backend={engine === 'claude' ? 'opencode' : '` | 1파일 | 잡음 | 잡음 1/1 | AgentEnvironmentView.interaction.test.ts — selects Claude or OpenCode before openin | VP-12 등록(구현 목록) |
+| M047 VP12-source-claude | `renderer/src/features/skills/components/customize/SourceHeading.tsx:20` | 맞바꿈 | `backend="claude" → backend="opencode"` | 1파일 | 잡음 | 잡음 1/2 | SourceHeading.render.test.ts — preserves the native:claude source mark  | VP-12 등록(구현 목록) |
+| M048 VP12-source-opencode | `renderer/src/features/skills/components/customize/SourceHeading.tsx:22` | 맞바꿈 | `backend="opencode" → backend="claude"` | 1파일 | 잡음 | 잡음 1/2 | SourceHeading.render.test.ts — preserves the native:opencode source mar | VP-12 등록(구현 목록) |
+| M049 VP12-agent-toggle | `renderer/src/features/chat/components/AgentModeToggle.tsx:57` | 맞바꿈 | `backend="claude" → backend="opencode"` | 1파일 | 잡음 | 잡음 2/5 | AgentModeToggle.test.ts — actual draft mode toggle > places the wo | VP-12 등록(구현 목록) |
+| M050 VP12-model-menu | `renderer/src/features/chat/components/composer/ModelMenu.tsx:46` | 맞바꿈 | `backend={agent.adapter} → backend={agent.adapter === 'claude' ? 'openco` | 1파일 | 잡음 | 잡음 2/9 | modelMenu0215.render.test.ts — preserves the claude provider heading br | VP-12 등록(구현 목록) |
+| M051 VP12-composer-icon | `renderer/src/features/chat/harnesses/registries/composer.ts:20` | 맞바꿈 | `backend: sourceBackend → backend: sourceBackend === 'claude' ? 'openco` | 1파일 | 잡음 | 잡음 2/3 | brand-surfaces.test.ts — carries each source brand through the cl | VP-12 등록(구현 목록) |
+| M052 VP12-sidebar | `renderer/src/app/SidebarUserButton.tsx:137` | 맞바꿈 | `backend={backend} → backend={backend === 'claude' ? 'opencode' : ` | 1파일 | 잡음 | 잡음 1/1 | SidebarUserButton.brand.test.ts — passes each settings brand with the orig | VP-12 등록(구현 목록) |
+| M053 VP13-claude-variant | `renderer/src/features/chat/harnesses/claude/surfaces.ts:11` | 맞바꿈 | `variant: 'outlined' → variant: 'flat'` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for defau | VP-13 등록(구현 목록) |
+| M054 VP13-claude-chipVariant | `renderer/src/features/chat/harnesses/claude/surfaces.ts:12` | 맞바꿈 | `chipVariant: 'segment' → chipVariant: 'flat'` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for defau | VP-13 등록(구현 목록) |
+| M055 VP13-claude-showChevron | `renderer/src/features/chat/harnesses/claude/surfaces.ts:13` | 맞바꿈 | `showChevron: false → showChevron: true` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for defau | VP-13 등록(구현 목록) |
+| M056 VP13-claude-trailingDivider | `renderer/src/features/chat/harnesses/claude/surfaces.ts:14` | 맞바꿈 | `trailingDivider: true → trailingDivider: false` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for defau | VP-13 등록(구현 목록) |
+| M057 VP13-claude-contextRow | `renderer/src/features/chat/harnesses/claude/surfaces.ts:15` | 맞바꿈 | `contextRow: landingFrame.contextRow → contextRow: ''` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for defau | VP-13 등록(구현 목록) |
+| M058 VP13-claude-chipGroup | `renderer/src/features/chat/harnesses/claude/surfaces.ts:16` | 맞바꿈 | `chipGroup: chipGroupSurface → chipGroup: 'inline-flex h-7 max-w-full items-` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for defau | VP-13 등록(구현 목록) |
+| M059 VP13-claude-landing | `renderer/src/features/chat/harnesses/claude/landing/presentation.ts:6` | 맞바꿈 | `contextLayout: 'inline' → contextLayout: 'below'` | 1파일 | 잡음 | 잡음 1/3 | brand-surfaces.test.ts — keeps the context location in the landin | VP-13 등록(구현 목록) |
+| M060 VP13-opencode-variant | `renderer/src/features/chat/harnesses/opencode/surfaces.ts:9` | 맞바꿈 | `variant: 'flat' → variant: 'outlined'` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for openc | VP-13 등록(구현 목록) |
+| M061 VP13-opencode-chipVariant | `renderer/src/features/chat/harnesses/opencode/surfaces.ts:10` | 맞바꿈 | `chipVariant: 'flat' → chipVariant: 'segment'` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for openc | VP-13 등록(구현 목록) |
+| M062 VP13-opencode-showChevron | `renderer/src/features/chat/harnesses/opencode/surfaces.ts:11` | 맞바꿈 | `showChevron: true → showChevron: false` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for openc | VP-13 등록(구현 목록) |
+| M063 VP13-opencode-trailingDivider | `renderer/src/features/chat/harnesses/opencode/surfaces.ts:12` | 맞바꿈 | `trailingDivider: false → trailingDivider: true` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for openc | VP-13 등록(구현 목록) |
+| M064 VP13-opencode-contextRow | `renderer/src/features/chat/harnesses/opencode/surfaces.ts:13` | 다른 값 | `contextRow: '' → contextRow: 'gap-g3'` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for openc | VP-13 등록(구현 목록) |
+| M065 VP13-opencode-chipGroup | `renderer/src/features/chat/harnesses/opencode/surfaces.ts:14` | 다른 값 | `chipGroup: 'inline-flex h-7 max-w-full items- → chipGroup: 'border'` | 1파일 | 잡음 | 잡음 1/2 | CwdPanel.surface.test.ts — preserves every rendered class for openc | VP-13 등록(구현 목록) |
+| M066 VP13-opencode-landing | `renderer/src/features/chat/harnesses/opencode/landing/presentation.ts:6` | 맞바꿈 | `contextLayout: 'below' → contextLayout: 'inline'` | 1파일 | 잡음 | 잡음 1/3 | brand-surfaces.test.ts — keeps the context location in the landin | VP-13 등록(구현 목록) |
+| M067 VP13-seed-kind | `renderer/src/features/chat/store/chatStore.ts:200` | 뒤집기 | `supportsAgentKind(landingBackend, entry.sessi → !supportsAgentKind(landingBackend, entry.sess` | 1파일 | 잡음 | 잡음 2/12 | chatStore.harness.test.ts — remembered harness and request routing > | VP-13 등록(구현 목록) |
+| M068 VP13-fresh-kind | `renderer/src/features/chat/store/chatStore.ts:255` | 뒤집기 | `!supportsAgentKind(landingBackend, landingAge → supportsAgentKind(landingBackend, landingAgen` | 1파일 | 잡음 | 잡음 2/12 | chatStore.harness.test.ts — remembered harness and request routing > | VP-13 등록(구현 목록) |
+| M069 VP13-handoff | `renderer/src/features/chat/store/chatStore.ts:1566` | 제거 | `sessionBusy\(src\) \\|\\|\s*src\.loadingSessi → sessionBusy(src) \|\| src.loadingSession \|\|` | 2파일 | 잡음 | 잡음 4/70 | chatStore.harness.test.ts — remembered harness and request routing > | VP-13 등록(구현 목록) |
+| M070 VP13-open-subagent | `renderer/src/features/chat/store/chatStore.ts:2108` | 맞바꿈 | `.subagentTile === 'task' → .subagentTile === 'subagent'` | 2파일 | 잡음 | 잡음 1/9 | chatStore.panelTiles.test.ts — OpenCode independent panel state > keeps | VP-13 등록(구현 목록) |
+| M071 VP13-reducer-subagent | `renderer/src/features/chat/reducer/chatReducer.ts:1996` | 맞바꿈 | `HARNESS_CAPABILITIES[state.backend ?? 'claude → HARNESS_CAPABILITIES[state.backend === 'claud` | 2파일 | 잡음 | 잡음 1/40 | chatReducer.harness.test.ts — harness identity and panel enforcement > | VP-13 등록(구현 목록) |
+| M072 VP13-permissions | `renderer/src/features/chat/reducer/chatReducer.ts:1653` | 뒤집기 | `HARNESS_CAPABILITIES[backend].permissionModes → !HARNESS_CAPABILITIES[backend].permissionMode` | 2파일 | 잡음 | 잡음 2/37 | chatReducer.harness.test.ts — harness identity and panel enforcement > | VP-13 등록(구현 목록) |
+| M073 VP13-composer-frame | `renderer/src/features/chat/components/Composer.tsx:234` | 뒤집기 | `contextLayout === 'below' && contextBelow ? l → contextLayout !== 'below' && contextBelow ? l` | 1파일 | 잡음 | 잡음 1/5 | NewChatLandingPage.harness.test.ts — shares the landing frame and hero slot a | VP-13 등록(구현 목록) |
+| M074 VP13-composer-inline | `renderer/src/features/chat/components/Composer.tsx:255` | 뒤집기 | `showLandingCwdPanel && !(contextLayout === 'b → showLandingCwdPanel && (contextLayout === 'be` | 1파일 | 잡음 | 잡음 1/5 | NewChatLandingPage.harness.test.ts — new conversation harness layout > render | VP-13 등록(구현 목록) |
+| M075 VP13-composer-below | `renderer/src/features/chat/components/Composer.tsx:407` | 뒤집기 | `showLandingCwdPanel && contextLayout === 'bel → showLandingCwdPanel && contextLayout !== 'bel` | 1파일 | 잡음 | 잡음 3/5 | NewChatLandingPage.harness.test.ts — new conversation harness layout > render | VP-13 등록(구현 목록) |
+| M076 VP13-landing-forward | `renderer/src/features/chat/components/Landing.tsx:27` | 다른 값 | `{...presentation.composer} → {...presentation.composer} contextLayout='inl` | 1파일 | 잡음 | 잡음 2/5 | NewChatLandingPage.harness.test.ts — new conversation harness layout > render | VP-13 등록(구현 목록) |
+| M077 VP12-label-copy | `renderer/src/features/chat/components/ChatTitleBar.tsx:115` | 맞바꿈 | `HARNESS_CAPABILITIES[conversationBackend ?? ' → HARNESS_CAPABILITIES[conversationBackend === ` | 1파일 | 잡음 | 잡음 2/3 | ChatTitleBar.copy.test.ts — copies the claude conversation with its  | VP-12 등록(구현 목록) |
+| M078 VP12-label-engine | `renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:102` | 맞바꿈 | `HARNESS_CAPABILITIES[engine].shortLabel → HARNESS_CAPABILITIES[engine === 'claude' ? 'o` | 1파일 | 잡음 | 잡음 1/1 | AgentEnvironmentView.interaction.test.ts — selects Claude or OpenCode before openin | VP-12 등록(구현 목록) |
+| M079 VP12-label-source | `shared/extension-sources.ts:6` | 맞바꿈 | `HARNESS_CAPABILITIES[backend].shortLabel → HARNESS_CAPABILITIES[backend === 'claude' ? '` | 2파일 | 잡음 | 잡음 5/25 | attachMenuModel.test.ts — buildAttachMenu > merges groups that sha | VP-12 등록(구현 목록) |
+| M080 VP12-plan-hint-claude | `renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts:15` | 맞바꿈 | `selectHintKey: harnessCatalog('claude') → selectHintKey: harnessCatalog('opencode')` | 1파일 | 잡음 | 잡음 2/9 | plan0215.render.test.ts — PlanTileContent — 본문 미해소 표시 (AT-03 · D-0 | VP-12 등록(구현 목록) |
+| M081 VP12-plan-hint-opencode | `renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts:20` | 맞바꿈 | `selectHintKey: harnessCatalog('opencode') → selectHintKey: harnessCatalog('claude')` | 1파일 | 잡음 | 잡음 2/9 | plan0215.render.test.ts — PlanTileContent — 본문 미해소 표시 (AT-03 · D-0 | VP-12 등록(구현 목록) |
+| M082 R-VP09-missing-sync-all | `main/infra/config/json-file.ts:28` | 고정값 | `if ((error as NodeJS.ErrnoException).code === → if (false) return {}` | 6파일 | 잡음 | 잡음 22/33 | native-config-boundaries.test.ts — carries BOM JSON through configured Clau | VP-09 등록 재지정 |
+| M083 R-VP09-missing-sync-only | `main/infra/config/json-file.ts:28` | 고정값 | `if ((error as NodeJS.ErrnoException).code === → if (false) return {}` | 6파일 | 잡음 | 잡음 12/33 | native-config-boundaries.test.ts — carries BOM JSON through synchronous and | VP-09 등록 재지정 |
+| M084 R-VP18-plugin-order-native | `renderer/src/features/chat/lib/attachMenuModel.ts:182` | 뒤집기 | `pluginItems.push( → pluginItems.unshift(` | 2파일 | 잡음 | 잡음 4/35 | attachMenuModel.test.ts — buildAttachMenu > puts the Orcinus orca  | VP-18 등록 재지정 |
+| M085 R-VP13-fork-only | `renderer/src/features/chat/store/chatStore.ts:1513` | 뒤집기 | `!HARNESS_CAPABILITIES[src.backend ?? 'claude' → HARNESS_CAPABILITIES[src.backend ?? 'claude']` | 2파일 | 잡음 | 잡음 6/70 | chatStore.harness.test.ts — remembered harness and request routing > | VP-13 등록 재지정 |
+| M086 R-VP12-plan-claude-desc | `renderer/src/features/chat/harnesses/claude/rightpanel/tileRegistry.ts:14` | 맞바꿈 | `harnessCatalog('claude') → harnessCatalog('opencode')` | 1파일 | 잡음 | 잡음 1/9 | plan0215.render.test.ts — PlanTileContent — 본문 미해소 표시 (AT-03 · D-0 | VP-12 등록 재지정 |
+| M087 R-VP12-plan-opencode-desc | `renderer/src/features/chat/harnesses/opencode/rightpanel/tileRegistry.ts:19` | 맞바꿈 | `harnessCatalog('opencode') → harnessCatalog('claude')` | 1파일 | 잡음 | 잡음 1/9 | plan0215.render.test.ts — PlanTileContent — 본문 미해소 표시 (AT-03 · D-0 | VP-12 등록 재지정 |
+| M088 Y01-VP07-revision-sibling | `main/app/harnesses/opencode/global-watch.ts:29` | 고정값 | `if (current !== previous) { → if (true) {` | 2파일 | 잡음 | 잡음 1/25 | bootstrap.native-history.test.ts — broadcasts each OpenCode plugin revision | VP-07 재량(검증자 축) |
+| M089 Y02-VP19-claude-close | `main/app/bootstrap.ts:945` | 제거 | `this.claudeGlobalWatch?.close() → ∅` | 1파일 | 잡음 | 잡음 5/22 | bootstrap.native-history.test.ts — broadcasts Claude true config / installe | VP-19 재량(검증자 축) |
+| M090 Y03-VP07-claude-settings-file | `main/app/bootstrap.ts:1269` | 제거 | `nativeClaude.settings, → ∅` | 1파일 | 잡음 | 잡음 1/22 | bootstrap.native-history.test.ts — broadcasts Claude global changes only on | VP-07 재량(검증자 축) |
+| M091 Y04-VP07-claude-installed-file | `main/app/bootstrap.ts:1270` | 제거 | `join(nativeClaude.root, 'plugins', 'installed → ∅` | 1파일 | 잡음 | 잡음 2/22 | bootstrap.native-history.test.ts — broadcasts Claude true config / installe | VP-07 재량(검증자 축) |
+| M092 Y05-VP07-claude-state-path-swap | `main/app/bootstrap.ts:1272` | 맞바꿈 | `? join(nativeClaude.root, '.claude.json')⏎    → ? join(homedir(), '.claude.json')⏎          :` | 1파일 | 잡음 | 잡음 4/22 | bootstrap.native-history.test.ts — broadcasts Claude true config / installe | VP-07 재량(검증자 축) |
+| M093 Y06-VP02-toggle-pending | `renderer/src/features/skills/hooks/useNativeMcpCatalog.ts:147` | 제거 | `if (pending.current.has(backend)) void refres → ∅` | 1파일 | 잡음 | 잡음 1/11 | useNativeMcpCatalog.test.ts — refreshes on backend push and focus, coa | VP-02 재량(검증자 축) |
+| M094 Y07-VP15-cold-recovery-bypass | `main/app/chat-turn/native-session.ts:46` | 제거 | `recovery && !recovery.accepted ? undefined :  → readNativeHistoryPrevious(db, request.session` | 1파일 | 잡음 | 잡음 1/12 | native-session.test.ts — native retention recovery through the mi | VP-15 재량(검증자 축) |
+| M095 Y08-VP15-handler-snapshot | `main/app/handlers/session.ts:95` | 빈 값 | `sync.snapshot → undefined` | 1파일 | 잡음 | 잡음 1/11 | session.load.test.ts — session load IPC refreshes native histor | VP-15 재량(검증자 축) |
+| M096 Y09-VP16-skills-generation | `main/app/bootstrap.ts:296` | 제거 | `if (revision === this.skillsRevision) this.sk → this.skillsCache = skills` | 1파일 | 잡음 | 잡음 1/22 | bootstrap.native-history.test.ts — keeps the newer skill scan in the cache  | VP-16 재량(검증자 축) |
+| M097 Y10-VP16-author-joins-stale | `main/app/handlers/skills.ts:49` | 호출 대체 | `await writeAuthoredSkill(req)⏎    await ctx.d → await writeAuthoredSkill(req)⏎    await ctx.d` | 1파일 | 잡음 | 잡음 1/16 | skills.test.ts — catalog skill target IPC > orca:skills:a | VP-16 재량(검증자 축) |
+| M098 Y10b-VP16-upload-joins-stale | `main/app/handlers/skills.ts:57` | 호출 대체 | `return refresh() → return listing ?? refresh()` | 1파일 | 잡음 | 잡음 1/16 | skills.test.ts — catalog skill target IPC > orca:skills:u | VP-16 재량(검증자 축) |
+| M099 Y10c-VP16-setEnabled-joins-stale | `main/app/handlers/skills.ts:76` | 호출 대체 | `return refresh() → return listing ?? refresh()` | 1파일 | 잡음 | 잡음 2/16 | skills.test.ts — catalog skill target IPC > orca:skills:s | VP-16 재량(검증자 축) |
+| M100 Y10d-VP16-remove-joins-stale | `main/app/handlers/skills.ts:97` | 호출 대체 | `return refresh() → return listing ?? refresh()` | 1파일 | 잡음 | 잡음 1/16 | skills.test.ts — catalog skill target IPC > orca:skills:r | VP-16 재량(검증자 축) |
+| M101 Y11-VP11-async-project-root | `main/adapters/claude/plugin-catalog.ts:321` | 호출 대체 | `const projectRoot = await claudeLocalSettings → const projectRoot = resolve(cwd)` | 3파일 | 잡음 | 잡음 1/16 | plugin-catalog.test.ts — native plugin catalog > keeps nested cwd | VP-11 재량(검증자 축) |
+| M102 Y12-VP10-binding-project | `main/app/session-binding.ts:10` | 고정값 | `current.project_id === expected.project_id → true` | 5파일 | 잡음 | 잡음 1/49 | bootstrap.native-history.test.ts — reads native configuration through the r | VP-10 재량(검증자 축) |
+| M103 Y13-VP04-serialize | `main/app/project-resource-sync.ts:72` | 제거 | `(this.mutations.get(key) ?? Promise.resolve() → Promise.resolve()` | 1파일 | 잡음 | 잡음 7/17 | project-resource-sync.test.ts — holds watcher broadcasts behind an in-fl | VP-04 재량(검증자 축) |
+| M104 Y14-VP10-dispose-report | `main/adapters/opencode/v1/adapter.ts:223` | 제거 | `releasing ??= lease.release().catch(reportDis → releasing ??= lease.release().catch(() => und` | 2파일 | 잡음 | 잡음 1/53 | adapter.persistent.test.ts — OpenCode persistent SDK channel > report | VP-10 재량(검증자 축) |
+| M105 Y15-VP17-reduced-motion | `renderer/src/shared/hooks/useReducedMotion.ts:12` | 뒤집기 | `setReduced(query.matches) → setReduced(!query.matches)` | 1파일 | 잡음 | 잡음 1/1 | useReducedMotion.test.ts — reads the motion preference, follows cha | VP-17 재량(검증자 축) |
+| M106 Y16-VP14-row-remove | `renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx:101` | 고정값 | `disabled={rows.length <= 1} → disabled={false}` | 1파일 | 잡음 | 잡음 1/10 | ProviderForm.interaction.test.ts — OpenCode provider form through productio | VP-14 재량(검증자 축) |
+| M107 Y17-VP09-flag-array | `main/adapters/claude/plugin-flag.ts:4` | 제거 | `value === true \|\| Array.isArray(value) \|\| → value === true \|\| isRecord(value)` | 3파일 | 잡음 | 잡음 1/27 | project-reconciliation.test.ts — projects native plugin flag undefined du | VP-09 재량(검증자 축) |
+| S1 VP06-ownership | `main/app/harnesses/common/contracts.ts:43` | 다른 값 | 공통 모듈에 이동 모듈 5종 import를 하나씩 추가 | eslint 1파일 | 잡음 | 잡음 5/5 — 각 `harness/ownership` error 1 | `harness/ownership` | VP-06 등록 |
+| S2 VP08-dead | `renderer/src/features/chat/lib/parts.ts` 끝 | 다른 값 | 삭제한 `partsStructured` export 복원 | 스캐너 | 잡음 | 잡음 dead 33→34, 신규 행 1 | `scan/dead-exports.cjs` | VP-08 등록 |
+| S3 VP04-sweep | `renderer/src/shared/api/ipc.ts` 끝 | 다른 값 | `openNativePlugin` 토큰 복원 | rg | 잡음 | 잡음 0→1 | VP-04 기록 검색(G) | VP-04 등록 |
+| F1 D1-hold-race | `main/adapters/opencode/v1/discovery-cache.ts:229` | 회귀 재현 | r1 재현 V1·V2를 HEAD에서 실행 + D1 수정(`initialFingerprint`) 되돌림 | 1파일 | 잡음 | 잡음 — HEAD green 2/2 · 되돌림 red 1/2 | discovery-cache.hold-race.verify.test.ts — V1: notifies a holder about a dependency | VP-07 ④ · D1 |
+| F2 D2-scroll-race | `renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx:171` | 회귀 재현 | r1 재현을 HEAD에서 실행 + 가드 되돌림 | 1파일 | 잡음 | 잡음 — HEAD green 1/1 · 되돌림 red 1/1 | ScrollController.restore-race.verify.test.ts — VERIFY: keeps a user scroll that lands w | VP-14 #3 · D2 |
+| R2I F1-D1-loaded-baseline | `main/adapters/opencode/v1/discovery-cache.ts:229` | 제거 | `initialFingerprint: JSON.stringify(dependenci → ∅` | 1파일 | 잡음 | 잡음 2/3 | discovery-cache.hold-race.test.ts — notifies once about a dependency changed | D1 인용(구현자 정의) |
+| R2I F2-D2-scroll-order | `renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx:171` | 제거 | `captureFrame.current === null && state.anchor → state.anchor` | 1파일 | 잡음 | 잡음 1/2 | ScrollController.restore-race.test.ts — preserves the latest user scroll with re | D2 인용(구현자 정의) |
+| R2I D1-project-baseline-order | `main/app/project-resource-sync.ts:208` | 호출 대체 | `await entry.watching → void entry.watching` | 1파일 | 잡음 | 잡음 1/1 | project-resource-sync.initialization.test.ts — establishes the watcher baseline before  | D1 보완 oracle(구현자 정의) |
+| R2I D1-startup-check | `main/infra/config/fingerprint-watch.ts:70` | 제거 | `if (deps.initialFingerprint !== undefined) sc → ∅` | 1파일 | 잡음 | 잡음 1/2 | fingerprint-watch.test.ts — compares a supplied consumer baseline on | D1 보완 oracle(구현자 정의) |
+| R2I D1-pending-scope-check | `main/adapters/opencode/v1/discovery-cache.ts:276` | 고정값 | `} while (this.pollRequested) → } while (false)` | 1파일 | 잡음 | 잡음 1/7 | discovery-cache.test.ts — rechecks a newly held scope when its sta | D1 보완 oracle(구현자 정의) |
+| Z01 VP07-4-probe-stat-after-load | `main/adapters/opencode/v1/discovery-cache.ts:53` | 뒤집기 | `(value) => ({ value, signature: hash(describe → async (value) => ({ value, signature: hash(de` | 10파일 | 못 잡음 | 잡음 1/49 | discovery-cache.poll-race.test.ts — notifies an edit made after the content  | VP-07 ④ 재량(검증자 축) |
+| Z02 VP07-4-poll-join-flag | `main/adapters/opencode/v1/discovery-cache.ts:243` | 제거 | `poll(): Promise<void> {⏎    this.pollRequeste → poll(): Promise<void> {` | 10파일 | 잡음 | 잡음 1/49 | discovery-cache.test.ts — rechecks a newly held scope when its sta | VP-07 ④ 재량(검증자 축) |
+| Z03 VP07-4-stale-manifest-guard | `main/adapters/opencode/v1/discovery-cache.ts:265` | 제거 | `} else if (changed) {⏎ observer.dependencies = next⏎ } → }⏎ if (changed) observer.dependencies = next`(r3 형태) | 10파일 | 못 잡음 | 잡음 2/49 | discovery-cache.poll-race.test.ts — notifies an overlapping reload once and  | VP-07 ④ 재량(검증자 축) |
+| Z04 VP07-2-ready-collect | `main/app/project-resource-sync.ts:173` | 제거 | `ready.push(watcher.ready) → ∅` | 7파일 | 잡음 | 잡음 1/47 | project-resource-sync.initialization.test.ts — establishes the watcher baseline before  | VP-07 ② 재량(검증자 축) |
+| Z05 VP07-2-ready-early | `main/infra/config/fingerprint-watch.ts:53` | 호출 대체 | `this.ready = this.tail = ( → this.ready = Promise.resolve(); this.tail = (` | 7파일 | 잡음 | 잡음 1/47 | project-resource-sync.initialization.test.ts — establishes the watcher baseline before  | VP-07 ② 재량(검증자 축) |
+| Z06 VP14-3-guard-flip | `renderer/src/features/chat/harnesses/opencode/transcript/ScrollController.tsx:171` | 뒤집기 | `captureFrame.current === null && state.anchor → captureFrame.current !== null && state.anchor` | 4파일 | 잡음 | 잡음 2/9 | ScrollController.restore-race.test.ts — preserves the latest user scroll with re | VP-14 #3 재량(형제 맞바꿈) |
+| Z07 VP07-3-default-state-arm | `main/app/bootstrap.ts:1273` | 다른 값 | `: join(homedir(), '.claude.json') → : join(nativeClaude.root, '.claude.json')` | 1파일 | 잡음 | 잡음 2/22 | bootstrap.native-history.test.ts — broadcasts Claude false config / install | VP-07 ③ 재량(M092 형제 갈래) |
+| Z08 VP16-2-flight-identity | `main/app/handlers/skills.ts:41` | 제거 | `if (listing === task) listing = undefined → listing = undefined` | 2파일 | 잡음 | 잡음 4/38 | skills.test.ts — catalog skill target IPC > orca:skills:a | VP-16 #2 재량(검증자 축) |
+| Z09 VP16-2-author-scan-before-deploy | `main/app/handlers/skills.ts:49` | 뒤집기 | `await writeAuthoredSkill(req)⏎    await ctx.d → await writeAuthoredSkill(req)⏎    const scan ` | 1파일 | 잡음 | 잡음 1/16 | skills.test.ts — catalog skill target IPC > orca:skills:a | VP-16 #2 재량(검증자 축) |
+| Z10 VP11-3-platform-flip | `main/adapters/claude/project-path.ts:9` | 뒤집기 | `process.platform === 'win32' ? resolve(cwd) : → process.platform !== 'win32' ? resolve(cwd) :` | 8파일 | 잡음 | 잡음 3/51 | plugin-catalog.test.ts — native plugin catalog > keeps nested cwd | VP-11 #3·VP-09 재량(형제 맞바꿈) |
+| Z11 VP11-3-sync-root-cwd | `main/adapters/claude/project-path.ts:13` | 고정값 | `localSettingsRoot(cwd, () => claudePluginProj → localSettingsRoot(cwd, () => resolve(cwd))` | 8파일 | 잡음 | 잡음 2/51 | plugin-catalog.test.ts — native plugin catalog > keeps nested cwd | VP-11 #3·VP-09 재량(검증자 축) |
+| Z12 VP07-4-startup-check-consumer | `main/infra/config/fingerprint-watch.ts:70` | 제거 | `if (deps.initialFingerprint !== undefined) sc → ∅` | 10파일 | 잡음 | 잡음 2/49 | discovery-cache.hold-race.test.ts — notifies once about a dependency changed | VP-07 ④ 재량(소비자 좌표) |
+| Z14 VP10-9-binding-cwd | `main/app/session-binding.ts:9` | 고정값 | `current.cwd === expected.cwd → true` | 5파일 | 잡음 | 잡음 1/49 | bootstrap.native-history.test.ts — reads native configuration through the r | VP-10 #9 재량(형제 항) |
+| Z15 VP10-9-binding-backend | `main/app/session-binding.ts:8` | 고정값 | `current.backend === expected.backend → true` | 5파일 | 잡음 | 잡음 1/49 | bootstrap.native-history.test.ts — reads native configuration through the r | VP-10 #9 재량(형제 항) |
+| Z16 VP10-5-release-once | `main/adapters/opencode/v1/adapter.ts:223` | 뒤집기 | `releasing ??= lease.release().catch(reportDis → releasing = lease.release().catch(reportDispo` | 2파일 | 동치 | 동치 0/53 — 근거 §r2-4, `adapter.ts` r3 diff 0 | — | VP-10 #5-6 재량(검증자 축) |
+| Z17 VP11-3-async-helper-root | `main/adapters/claude/project-path.ts:17` | 고정값 | `async () => (await gitRootLineage(cwd)).root → async () => resolve(cwd)` | 8파일 | 잡음 | 잡음 1/51 | plugin-catalog.test.ts — native plugin catalog > keeps nested cwd | VP-11 #3 재량(M101 SSOT 안) |
+| F3 D7-reload-during-poll | `main/adapters/opencode/v1/discovery-cache.ts:262` | 회귀 재현 | poll pass 읽기 대기 중 `invalidate()`+`run()` 재로드 | 1파일 | 못 잡음 | 잡음 — 재현 B HEAD green 1/1 · D7 되돌림 red 1/1 | discovery-cache.reload-during-poll.verify.test.ts — VERIFY: a held scope is notified when it | VP-07 ④ · D-003 |
+| C1 D7-early-return-restore | `main/adapters/opencode/v1/discovery-cache.ts:263` | 제거 | `this.pollRequested = true` 뒤 `return` 복원(r2 조기 반환) | 10파일 | 신규 | 잡음 3/49 | discovery-cache.poll-race.test.ts — notifies an overlapping reload once and  | D7 인용 변이 |
+| X06 VP07-4-force-reuse-ignores-fingerprint | `main/adapters/opencode/v1/discovery-cache.ts:44` | 고정값 | `cached.fingerprint === fingerprint && → true &&` | 10파일 | 신규 | 잡음 7/49 | discovery-cache.hold-race.test.ts — notifies once about a dependency changed | VP-07 ④ 재량(검증자 축 — D6 계약의 다른 지점) |
+| X07 VP07-4-reload-rewatch-removed | `main/adapters/opencode/v1/discovery-cache.ts:164` | 제거 | `run()` 재로드 뒤 `this.watch(key)` 삭제 | 10파일 | 신규 | **못 잡음** 0/49 — 재현 D HEAD green 3/3 · X07 red 3/3 | — | VP-07 ④ 재량(검증자 축 — R3-03 운반 edge) |
+| F4 D8-stale-reload-during-poll | `main/adapters/opencode/v1/discovery-cache.ts:262-274` | 회귀 재현 | 재로드가 편집 전 `a`를 읽고 poll pass 대기 중 완료 → pass 재개 | 1파일 | 신규 | **못 잡음** — 기존 스위트 green, 재현 C HEAD red 1/1(통보 2회) · r2·r1·`a2e8464` green | 재현 C(검증자 축) | VP-07 ④ · AC12 |
+
+- 검산: 시도 138 = r2 이력 재실행 134(M 107 · S 3 · F1·F2 2 · R2I 5 · Z 16 · F3 1) + D7 인용 1(C1) + 검증자 축 3(X06 · X07 · F4). 잡음 135 · 못 잡음 2(X07 · F4) · 동치 1(Z16).
+- 재현 A(Z01 근거)·재현 D(X07 근거)는 고장 행이 아니라 해당 행의 근거다 — [`repro-matrix-r3.json`](verify-evidence/r3/repro-matrix-r3.json): A는 HEAD green·Z01 red, D는 HEAD green·X07 red(각 3/3).
+- 소거 변이 잔여물: 판정은 assertion 실패만 셌다 — typecheck 잔여물이 red 근거가 된 행 없음.
+- `N회` 관측 주체: holder 콜백 `vi.fn` 호출 수(재현 B·C·D, R3-01~03).
+
+## r3-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-08 | MD↔UT | REQUIRED | PASS | 검색 47줄 목표값 · S2 · dead/test-only 33/45 신규 0 · i18n present 0·미참조 56 신규 0 | 29/29 |
+| VP-09 | MD↔UT | REQUIRED | PASS | M004~M006·M082·M083·M107·Z10·Z11 잡음 | 14/14 |
+| VP-10 | MD↔UT | REQUIRED | PASS | M007·M008·M102·M104·Z14·Z15 잡음 · Z16 동치 | 11/11 |
+| VP-11 | MD↔UT | REQUIRED | PASS | M009·M010·M101·Z10·Z11·Z17 잡음 · `skill-catalog.test.ts` green | 4/4 |
+| VP-12 | MD↔UT | REQUIRED | PASS | M043~M052·M077~M081·M086·M087 잡음 17 | 15/15 |
+| VP-13 | MD↔UT | REQUIRED | PASS | M053~M076·M085 잡음 25 | 29/29 |
+| VP-14 | MD↔UT | REQUIRED | PASS | M106 · F2 · R2I F2 · Z06 잡음 | 3/3 |
+| VP-15 | MD↔UT | REQUIRED | PASS | M011·M040·M094·M095 잡음 · DB 스위트 Node ABI green(`native-history.db` 15/15 · `session.load` 11/11) | 6/6 |
+| VP-16 | MD↔UT | REQUIRED | PASS | M012~M021·M041·M042·M096~M100·Z08·Z09 잡음 | 11/11 |
+| VP-17 | MD↔UT | REQUIRED | PASS | M022·M105 잡음 | 4/4 |
+| VP-18 | MD↔UT | REQUIRED | PASS | M023~M035·M084 잡음 14 · journal golden green | 19/19 |
+| VP-04 | AR↔IT | REQUIRED | PASS | 사슬 검색 0 · S3 0→1 · M103 잡음 7 | 19/19 |
+| VP-05 | AR↔IT | REQUIRED | PASS | 구 조립 0 · Linux 기준선 red 6케이스의 판정 환경 Windows CI run `41378268434`(head `feaca09`) Test 단계 success | 3/3 |
+| VP-06 | AR↔IT | REQUIRED | PASS | 구 경로 0 · S1 5/5 | 5/5 |
+| VP-07 | AR↔IT | REQUIRED | **PAIR_FAIL** | ①② M003·M088·R2I D1-project·Z04·Z05 · ③ M090~M092·Z07 · ④ D6·D7 해소(Z01·Z03·C1·F3·X06·Z02·Z12·F1·R2I 2) — **F4 통보 2회(D8) · X07 못 잡음(D9)** | 3/4 |
+| VP-19 | SD↔ST | REQUIRED | PASS | M036~M039·M089 · Claude 입력 항 M090~M092·Z07 | 6/6 |
+| VP-02 | R↔AT | REQUIRED | PASS | M001·M002·M093 잡음 | 3/3 |
+| VP-03 | R↔AT | REQUIRED | PASS | legacy 0 · `native-history.test.ts` missing·probe 케이스 green — r3 diff 밖 | 2/2 |
+| VP-01 | R↔AT | REGRESSION | PASS | gate 전부 green(§r3-9) · D-003 관측 반례 0 — D8은 멱등 소비자의 내부 콜백 횟수, D9는 HEAD 동작은 맞고(재현 D green) 잠금만 없다 | 0(집계) |
+
+- root `PAIR_FAIL`: VP-07(D8·D9). 종속 `BLOCKED_BY`: 없음 — VP-01은 gate와 D-003 관측 목록으로 독립 판정했다.
+- 실행 범위: r2 root VP-07 · 종속이던 VP-01 · r3 diff가 닿은 VP-07 ④ 재판정. 나머지 17 pair는 r2 좌표(O-02~O-19)를 실제 실행 집합(vitest ② 895파일)에서 확인하고 해당 r2 `잡음` 행 130건을 전부 재실행했다.
+- 좌표의 실행 구간: R3-01~03(`discovery-cache.poll-race.test.ts`)은 `watchFile`을 mock하고 `poll()`을 직접 불러 감시 → poll edge 밖이다 — 그 edge의 기존 좌표는 실제 감시를 쓰는 `discovery-cache.test.ts`·`hold-race.test.ts`이며 재로드 뒤 재설정(`:164`)은 어느 좌표에도 없다(D9).
+
+### AT / AC 세부와 합계
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 | ✅ | gate 전부 green · D7 해소 · D8·D9는 D-003 관측 목록 밖(소비자 멱등 · HEAD 동작 정상) |
+| AC2 | ✅ | dead 33·test-only 45, 신규 `(name,kind,category)` 0 · S2 |
+| AC3 | ✅ | `--absent` present 0, 미참조 56, 신규 0, CSS 토큰 0 |
+| AC4 | ✅ | 사슬 검색 0 · session-resources 4파일 · doc-inventory OK |
+| AC5 | ✅ | M103 잡음 7 |
+| AC6 | ✅ | legacy 0 · 404→missing green |
+| AC7 | ✅ | VP-09 변이 6 + Z10·Z11 잡음 |
+| AC8 | ✅ | VP-10 변이 4 + Z14·Z15 잡음, Z16 동치 |
+| AC9 | ✅ | 구 조립 0 · Windows CI green |
+| AC10 | ✅ | M009·M010·M101·Z10·Z11·Z17 잡음 |
+| AC11 | ✅ | M001·M002·M093 잡음 |
+| AC12 | ❌ | D6·D7 해소, 그러나 겹친 재로드에서 holder 통보 2회(D8) · 재로드 뒤 감시 재설정 미잠금(D9) |
+| AC13 | ✅ | 구 파일 0 · S1 5/5 |
+| AC14 | ✅ | 마크·색 맞바꿈 잡음 |
+| AC15 | ✅ | 표시명 맞바꿈 잡음 |
+| AC16 | ✅ | cwd 슬롯 12변이 잡음 |
+| AC17 | ✅ | capability 7자리 잡음 |
+| AC18 | ✅ | F2·R2I F2·Z06·M106 잡음 |
+| AC19 | ✅ | doc-inventory generated/prose/links OK, r3 문서 변경은 handoff만 |
+| AC20 | ✅ | VP-15 변이 4 · DB 스위트 Node ABI green |
+| AC21 | ✅ | CRUD 4경로 M097~M100 · Z08·Z09 잡음 |
+| AC22 | ✅ | M022·M105 |
+| AC23 | ✅ | VP-18 변이 14 · journal golden green |
+
+- 합계 재측정: ✅ 22 · ⚠️ 0 · ❌ 1 = 23. 자기보고 23/23 ✅ — 불일치(AC12).
+- 사본 대조: plan r3 구현 보고 `✅ 23` ↔ `dc9f29b` trailer `Criteria-Met: 23/23` ↔ INDEX 비고 `AC 23/23` — 세 사본은 서로 일치. `feaca09` trailer `1/23`·`Status: partial`은 CI 전 사본이다.
+
+### pair별 plan §10 강제 지점 분모
+
+| Pair | §10 자리 목록 | 자리별 확인 | 목록 밖 발견 | 결과 |
+|---|---|---|---|---|
+| VP-07 | ① global watch ② project sync ③ Claude 전역 감시 ④ discovery hold (4) | ①②③ r2 좌표 잡음 · ④ D6(Z01)·D7(Z03·C1·F3) 닫힘, **F4 통보 2회 · X07 못 잡음** | 없음 — D8·D9 모두 ④ 안 | PAIR_FAIL(④) |
+| 그 밖 18 pair | §10·ΔV1 표 그대로(합 187 중 VP-07 4) | §r3-5 표 | 없음 | PASS |
+
+## r3-6. 외부 포트 / 문서 계약
+
+- 변경 없음 — r3 diff에 IPC·문서 계약 변경 0(app 2파일, docs는 handoff만).
+
+## r3-7. 숫자 / 음성 기준 / 상한 재측정
+
+| 항목 | r2 HEAD(`16acb8c`) | r3 HEAD(`dc9f29b`) |
+|---|---|---|
+| §10 기록 검색 47줄 | 목표값 | 같은 값(diff 0) — `watchFile(` 1 · discovery `setInterval(` 0 · 고아 사슬 0 · prepare 16 |
+| dead / test-only | 33 / 45 | 33 / 45 |
+| i18n 키 / 미참조 | 1171 / 56 | 1171 / 56 |
+| vitest 파일 / 케이스(Node ABI) | 894 / 8,300 | 895 / 8,304 — r3 신규 1파일·4케이스 전부 green |
+| vitest 실패 ID(Electron ABI) | 340 | 340 — 집합 동일(신규 0 · 사라짐 0) |
+
+## r3-8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+| 항목 | 기계 검증한 범위 | 남은 사람 실기 |
+|---|---|---|
+| D8 겹친 재로드 | `fs/promises` mock·`Date.now` 고정으로 결정적 재현(재현 C, 3/3) | 없음 |
+| D9 감시 재설정 | 실제 `watchFile`·타이머로 재현(재현 D, 3/3) | 없음 |
+
+## r3-9. 게이트 재실행
+
+- 환경: Linux · `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`(postinstall `[sqlite-abi] electron: rebuilt`). 이후 `npm rebuild better-sqlite3`(Node ABI)·`node node_modules/electron/install.js` — 저장소 밖 `node_modules`만 바꿨다.
+- typecheck: `npm run typecheck` 3구성(node·web·test) exit 0, `error TS` 0.
+- eslint(무수정 `./node_modules/.bin/eslint ./src ./scripts -f json`): 1,979파일 0 error · warning 2(`Timeline.tsx:49`·`useTranscriptVirtualizer.ts:22`, r1·r2와 같음).
+- scripts·repo gate: `node --test scripts/*.test.mjs` 144/144 · doc-inventory `--check` generated/prose/links OK · migrations sync OK · test-budgets 16 suites OK.
+- vitest ① 기준선 환경(Electron ABI): 895파일 · 8,180케이스(통과 7,774 · 실패 311 · 건너뜀 95) · 실패 ID 340 — r2 [`failed-ids-electron-abi.txt`](verify-evidence/r2/failed-ids-electron-abi.txt)와 집합 동일. 기준선 338 대비 신규 7 = ABI 2 + Windows 전용 5(r1·r2와 같다).
+- vitest ② Node ABI + Electron 바이너리: 895파일 · 8,304케이스(통과 8,273 · 실패 22 · 건너뜀 9) — 실패 22 = r2 무변이 집합과 동일, 기준선 대비 신규 5 = Windows 전용 5.
+- CI: run `41378268434` push `main` head `feaca09` windows-latest `gate` 전 단계 success. 로그 끝 scripts 144/144 관측. vitest 집계 줄은 로그 아카이브 호스트가 egress 403이라 못 봤다(r2와 같은 한계).
+- 게이트가 트리를 바꿨는가: 없음 — 각 단계 뒤 `git status --short -- app` 빈 출력. 변이 러너·정적 스크립트·재현 매트릭스 모두 끝에서 `''`.
+- 잔여물: `verify-evidence/r3/`(커밋 대상) 외 없음 — 재현 테스트는 실행 때만 app에 복사하고 지웠다.
+
+## r3-10. 검증 책임 분리
+
+| 항목 | 결과 |
+|---|---|
+| lint/typecheck/자동 테스트·변이·재현 | 에이전트 수행(§r3-4·§r3-9) |
+| 제품 의도 / Open Question | 해당 없음 — D8 기대값은 VP-07·AC12 "1회", D9는 기존 동작(재현 D green)의 잠금 |
+| PR merge | 사람 |
+
+## r3-11. Repository operation checks
+
+- AGENTS.md 변경: 없음(r3 diff 0).
+- trailer: `feaca09` 6키(`Agent: codex`·`Status: partial`·`Criteria-Met: 1/23`·`Criteria-Pending`·`Verified-By: pending`), `dc9f29b` 5키(`Status: implemented`·`Criteria-Met: 23/23`·`Verified-By: pending`) — `git log -1 --format='%(trailers:only=true)'` 파싱 확인, 허용값.
+- `[구현자 기입]` r3 7필드: 설계 리뷰·강제 지점 전수(19 pair·§10 수·`남긴 곳`)·잠금(분모 검산)·Product/UX·놓친 잠재 문제·구현 보고·Review Signals 전부 존재.
+- INDEX: `impl/IMPL_DONE`·다음 주체 `Claude`·`(r3 구현 — 검증자 기입)` — 실제 상태와 일치, 비고 4줄. 이번 턴에 좌표를 기입한다.
+- **좌표 교정**: 이전 INDEX 좌표 7개는 PR 브랜치에만 있다(`refs/pull/520·522/head`로만 해석, `main`의 조상 아님). `main`은 rebase 병합 커밋이다 — 아래 대응으로 INDEX를 고쳤고 모든 `main` 해시는 `git cat-file -t` = commit.
+
+| 역할 | PR 해시 | `main` 해시 |
+|---|---|---|
+| V1 설계 · ΔV1 설계 | `ae103f3` · `a2e8464` | `e6aab6b` · `46b3784` |
+| r1 구현 19커밋 · CI head | `291b721`…`4d308eb` · `00bb2a9` | `9c09b5a`…`e222e53`(`46b3784..e222e53` 19) · `127a579` |
+| r1 verify · r2 구현 · r2 문서 · r2 verify | `0eb7dc2` · `0fa04db` · `c6070f4` · `14b251d` | `6eb0409` · `68b886b` · `87939ac` · `16acb8c` |
+| r3 구현 · r3 문서 | — | `feaca09` · `dc9f29b` |
+
+- plan 메타의 `기준 V … ae103f3c`는 규범 행이라 검증자가 고치지 않는다 — `main`의 `e6aab6b`와 같은 커밋 메시지·내용이다.
+
+## r3-12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 |
+|---|---|
+| "PLAN_GAP 없음" · "설계 대비 명시적 차이: 없음" | 타당 — 규범부 diff 0 |
+| 놓친 잠재 문제 R3-01a "가드를 지우면 옛 결과가 새 목록을 덮음" | 타당(Z03 잡음) — 그러나 보존한 새 목록이 편집 전 내용일 때의 중복(D8)은 다루지 않았다 |
+| Product/UX "늦은 결과가 새 상태를 덮는가 — 옛 pass는 새 manifest를 보존" | 보존은 성립, 보존한 manifest가 낡았을 때 재통보(D8) |
+| R3-03 "최신 파일 후속 편집 1회" | 단언은 직접 `poll()` 기준 — production의 감시 재설정 edge는 실행 구간 밖(D9) |
+| N3 보완 | 타당 — 실제 트리 경로로 기록 |
+
+## r3-13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D6 | probe stat → 내용 읽기 순서 미잠금 | VP-07 ④ | 해소 | Z01 잡음 1/49(R3-01) · 재현 A HEAD green·Z01 red |
+| D7 | 겹친 재로드 시 통보 0회 | VP-07 ④ · D-003 | 해소 | 재현 B HEAD green·D7 되돌림 red · C1 잡음 3 · Z03 잡음 2 |
+| D8 | 편집 전 내용을 읽은 재로드가 진행 중 poll pass와 겹치면 holder 통보 2회 — r2·r1·`a2e8464` 1회 | VP-07 ④ · AC12(실패 의미 "중복") | BLOCKING (PAIR_FAIL) | 구현 — 한 변경을 한 번 통보하면서 R3-03·재현 B를 함께 지킨다. 재현 C를 회귀 테스트로 둔다 |
+| D9 | 재로드 뒤 감시 재설정(`discovery-cache.ts:164`)이 어떤 테스트에도 잠기지 않음 — X07 49케이스 green | VP-07 ④ · AC12 | BLOCKING (PAIR_FAIL) | 구현 — 실제 감시 경로로 새 의존 파일 편집 → 통보를 단언(재현 D 형태) |
+| N1·N2 | r1 기록 | 비귀속 | NON_BLOCKING | 유지 |
+| N3 | 구현자 정적 민감도가 임시 probe 파일만 검사 | VP-04·VP-08 증거 품질 | 해소 | r3 기록이 실제 `ipc.ts`·`mcp-config.ts` · 검증자 S2·S3와 일치 |
+
+## r3-14. Review Signals — 사실만
+
+- 이전 라운드와 유사 증상: D8·D9는 r1 D1·r2 D7과 같은 자리(VP-07 ④)·같은 경쟁(설정 편집 ↔ 재로드 ↔ poll)이다. r1·r2는 통보 누락, r3 D8은 통보 중복.
+- 관련 plan 지침: VP-07 실패 의미 "중복 방송·누락", AC12 "변경마다 방송 1회".
+- 검증 측 사실: r2 D7 대응 방향은 "새 manifest는 덮지 않되 통보 유지(구 코드와 같은 1회)"였고 재현 B(재로드가 새 내용을 읽음)만 들었다 — 편집 전 내용을 읽는 형제 순서와 재로드 뒤 감시 재설정은 r1·r2 verify도 시도하지 않았다.
+- 반복 환경 한계: CI 로그 아카이브 호스트 egress 403(r2와 같음).
+- 커밋 좌표: rebase 병합으로 r1·r2 verify가 적은 PR 해시 전부가 `main`에 없다.
+
+## r3-15. 결론
+
+- 상태: **FAIL** — 다음 주체 Claude(`handoff-review`), 라운드 4. verify **3회째** `FAIL`이라 r4 착수 전 review 1회가 의무다(`docs/handoff/AGENTS.md §라운드`). review 뒤 Codex r4(D-017).
+- pair: REQUIRED/REGRESSION 19 중 PASS 18 · root PAIR_FAIL 1(VP-07) · BLOCKED_BY 0. PLAN_GAP 0.
+- ACTIVE Decision: D-003 충족, VP-07 ④ 계약(1회) 위반(D8)·미잠금(D9).
+- AC: ✅ 22 · ⚠️ 0 · ❌ 1(AC12).
+- 운영 gate: 전부 green(환경 분리 포함).
+- 다음 단계: 구현자가 D8·D9를 닫는다. 다음 verify는 이번 `못 잡음` 2행(X07·F4)·`동치` 1행(Z16)과 `잡음` 행을 다시 실행한다.
