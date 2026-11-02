@@ -1,0 +1,62 @@
+[
+ {
+  "id": "C2 D8-adopt-loop-removed",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\treports one edit once when a reload reads it before-edit and finishes during-pass"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "F4 repro+D8-revert",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.stale-reload-during-poll.verify.test.ts"
+  ],
+  "total": 1,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.stale-reload-during-poll.verify.test.ts\tnotifies once when a reload that read the old content finishes during the poll pass"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "C3 D8-adopt-newer-too",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: newer-value"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ }
+]

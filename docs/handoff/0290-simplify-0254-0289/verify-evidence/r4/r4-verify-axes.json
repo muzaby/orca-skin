@@ -1,0 +1,149 @@
+[
+ {
+  "id": "Y1 VP07-4-adopt-compare-fingerprint",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "current.signature === before.signature",
+   "to": "current.fingerprint === before.fingerprint"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "다른 값 — 채택 판정을 서명 대신 지문으로"
+ },
+ {
+  "id": "Y2 VP07-4-adopt-drop-fingerprint",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "                      signature: seen.signature,\n                      fingerprint: seen.fingerprint\n",
+   "to": "                      signature: seen.signature\n"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "제거 — 채택이 지문을 옮기지 않음"
+ },
+ {
+  "id": "Y3 VP07-4-adopt-seen-is-before",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "const seen = next.get(id)",
+   "to": "const seen = dependencies.get(id)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "호출 대체 — pass 관측 대신 옛 manifest"
+ },
+ {
+  "id": "Y4 VP07-4-adopt-guard-removed",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "              if (changed)\n                for (const [id, current]",
+   "to": "              for (const [id, current]"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "제거 — changed 가드 없이 채택"
+ },
+ {
+  "id": "Y5 VP07-4-reload-keeps-old-observer-manifest",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "            observer.dependencies = new Map(manifest)\n            this.watch(key)",
+   "to": "            observer.dependencies = new Map(observer.dependencies)\n            this.watch(key)"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "다른 값 — 재로드가 observer manifest를 바꾸지 않음(X07의 형제 지점)"
+ },
+ {
+  "id": "Y6 VP07-4-watch-first-file-only",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "      files: [...new Set(dependencies.map((dependency) => dependency.path))],",
+   "to": "      files: [...new Set(dependencies.map((dependency) => dependency.path))].slice(0, 1),"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "제거 — 첫 의존 파일만 감시"
+ },
+ {
+  "id": "Y7 VP07-4-reload-branch-no-repoll",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "              // Keep the reload's manifest, but still report changes seen by this pass.\n              this.pollRequested = true\n",
+   "to": "              // Keep the reload's manifest, but still report changes seen by this pass.\n"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "note": "제거 — 재로드 갈래의 재poll 요청"
+ }
+]

@@ -1,0 +1,52 @@
+[
+ {
+  "id": "S@HEAD",
+  "file": null,
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "GREEN"
+ },
+ {
+  "id": "Y1+siblings",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts\tI: a touch before the stale reload does not turn one edit into two notifications"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Y2+siblings",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ },
+ {
+  "id": "Y4+siblings",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ }
+]

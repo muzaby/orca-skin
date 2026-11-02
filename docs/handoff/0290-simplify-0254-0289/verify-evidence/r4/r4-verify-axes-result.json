@@ -1,0 +1,161 @@
+[
+ {
+  "id": "Y1 VP07-4-adopt-compare-fingerprint",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ },
+ {
+  "id": "Y2 VP07-4-adopt-drop-fingerprint",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ },
+ {
+  "id": "Y3 VP07-4-adopt-seen-is-before",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\treports one edit once when a reload reads it before-edit and finishes during-pass",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tre-watches the dependency file a reload switched to and reports its edit through the watcher"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Y4 VP07-4-adopt-guard-removed",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ },
+ {
+  "id": "Y5 VP07-4-reload-keeps-old-observer-manifest",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: newer-value",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tnotifies an overlapping reload once and keeps its latest dependencies: new-file",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\treports one edit once when a reload reads it after-edit and finishes before-pass",
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tre-watches the dependency file a reload switched to and reports its edit through the watcher"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Y6 VP07-4-watch-first-file-only",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tre-watches the dependency file a reload switched to and reports its edit through the watcher"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ },
+ {
+  "id": "Y7 VP07-4-reload-branch-no-repoll",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.hold-race.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.test.ts",
+   "src/main/adapters/opencode/v1/session-context.test.ts",
+   "src/main/adapters/opencode/v1/configured-resources.test.ts",
+   "src/main/adapters/opencode/v1/global-plugins.test.ts",
+   "src/main/adapters/opencode/v1/project-settings.test.ts",
+   "src/main/adapters/opencode/v1/mcp-connection.test.ts",
+   "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+   "src/main/app/managed-mcp-lifecycle.test.ts",
+   "src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts"
+  ],
+  "total": 56,
+  "failed": [
+   "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tre-watches the dependency file a reload switched to and reports its edit through the watcher"
+  ],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "CAUGHT"
+ }
+]
