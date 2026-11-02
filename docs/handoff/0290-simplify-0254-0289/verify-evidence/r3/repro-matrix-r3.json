@@ -1,0 +1,354 @@
+{
+ "HEAD(r3)": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "HEAD+D7-revert": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "HEAD+Z03": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "HEAD+Z01": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "HEAD+X07": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  }
+ },
+ "r2@68b886b": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "r1@6eb0409": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "pre-0290@a2e8464": {
+  "F1-hold-race": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "A-read-stat-order": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "B-reload-during-poll(F3)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "C-stale-reload-during-poll": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "D-reload-rewatch": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ }
+}
