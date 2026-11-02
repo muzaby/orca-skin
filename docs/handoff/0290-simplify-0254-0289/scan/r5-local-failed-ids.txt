@@ -1,0 +1,59 @@
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	exposes runtime-native watch files and applies external project choices only after idle reconciliation
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	pins deployed MCP files for same-cwd peers and reloads until the final owner closes
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	reconciles plugin choices through the actual adapter while preserving provider flags
+app/src/main/adapters/claude/adapter.native-plugins.test.ts	reports a reconciled plugin revision as applied but not a later external edit
+app/src/main/adapters/claude/native-resources.test.ts	applies session-only inline flags and reloads actual plugin state while preserving sibling flags
+app/src/main/adapters/claude/native-resources.test.ts	commits a plugin choice only after verified reload and restores flags and commands when persistence fails
+app/src/main/adapters/claude/native-resources.test.ts	waits for durable persistence and serializes subsequent plugin mutations
+app/src/main/adapters/claude/project-reconciliation.test.ts	projects native plugin flag false during external reconciliation
+app/src/main/adapters/claude/project-reconciliation.test.ts	shows external selection with actual status immediately, waits for idle, and never saves it back
+app/src/main/adapters/common/git-root.test.ts	finds the nearest Git ancestor through three nested directories and falls back to cwd
+app/src/main/adapters/opencode/v1/adapter.instances.test.ts	Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition
+app/src/main/adapters/opencode/v1/adapter.instances.test.ts	Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup
+app/src/main/adapters/opencode/v1/adapter.persistent.test.ts	exposes native resources from the live channel client and its directory without mutations
+app/src/main/adapters/opencode/v1/adapter.test.ts	OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime
+app/src/main/app/bootstrap.native-history.test.ts	applies nav plugin choices to draft and stored-session commands and resources
+app/src/main/app/composer-catalog.test.ts	does not start a native server after caller cancellation or session scope change during preparation
+app/src/main/app/composer-catalog.test.ts	prepares draft and saved directory with the same production settings and env resolution as turns
+app/src/main/app/composer-catalog.test.ts	preserves the acquire failure stage through the registered catalog handler
+app/src/main/app/composer-catalog.test.ts	preserves the configuration failure stage through the registered catalog handler
+app/src/main/app/composer-catalog.test.ts	returns prepared plugin and agent parts through IPC before blocked MCP/models without a session
+app/src/main/app/composer-catalog.test.ts	wires the public handler through the production resolver and returns its shutdown cleanup
+app/src/main/app/composer-preparation-service.test.ts	shares targets across catalog resources and warmup through the production assembly
+app/src/main/app/handlers/session-resources.claude-assembly.test.ts	reconciles external plugin selections and publishes the final state through the real watcher
+app/src/main/app/project-resource-sync.test.ts	detects real file creation and atomic replacement without starting a runtime, and closes its watcher
+app/src/main/features/chat/attachments.test.ts	attachment files and text normalization > copies file and clipboard input into the product Temp child without touching the source
+app/src/main/features/chat/attachments.test.ts	attachment files and text normalization > passes the saved UTF-8 file path to the CLI and preserves BOM bytes (AC22)
+app/src/main/features/chat/attachments.test.ts	attachment files and text normalization > rejects binary-like text
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > CLI mentions read the saved bytes of C# notes.md from dialog and drop without renaming display views (0245 D1)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > CLI mentions read the saved bytes of a#b#c.md from dialog and drop without renaming display views (0245 D1)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > CLI mentions read the saved bytes of issue#12.md from dialog and drop without renaming display views (0245 D1)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > CLI mentions read the saved bytes of lines#L2-4.txt from dialog and drop without renaming display views (0245 D1)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > bounds actual file bytes regardless of the advertised size and rejects malformed clipboard data
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > preserves text beyond 24,000 characters and 256KB in the saved file (AC22)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > rejects unsupported text extensions before passing a path to the CLI (AC22)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > sanitizes stored names so quoted CLI mentions have no embedded quotes (AC21)
+app/src/main/features/chat/attachments.test.ts	normalizeAttachments > stores dialog, drop and clipboard bytes at unique paths while preserving display views and model data
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > displayName 이 없으면 username 으로 폴백한다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > download 경로 밖 img 는 첨부 후보가 아니다 — 실패로 새지 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > download 링크가 실패하면 data 경로로 재시도한다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > download 링크가 없으면 data 경로로 받고 그 URL 을 남긴다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > download 링크를 먼저 쓰고 data 경로는 두드리지 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > includeAttachments:false 면 첨부 목록도 조회하지 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > manifest 에 참조 밖 첨부를 기록한다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 두 다운로드 경로가 모두 실패해도 페이지 저장은 완료된다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 멘션 userkey 를 표시 이름으로 치환한다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 받은 id 들을 Markdown 으로 저장하고 경로·미리보기를 반환한다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 본문 URL 의 옛 version 을 따르지 않고 현재 첨부를 받는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 본문이 참조한 첨부가 목록에 없으면 실패로 남긴다 — 조용히 넘기지 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 본문이 참조한 첨부만 바이너리+XSRF 로 내려받는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 사용자 조회가 실패해도 자리표시자를 흘리지 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 중복 id 는 한 번만 처리한다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 진단용 목록 조회가 실패해도 페이지 저장은 완료된다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 참조 밖 첨부는 받지 않고 이름만 남긴다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 참조가 없어도 첨부 목록을 조회해 진단으로 남긴다 — 받지는 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 첨부 하나가 실패해도 페이지 저장은 완료된다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 취소·크기 초과는 다음 다운로드 좌표로 재시도하지 않는다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 페이지 하나가 실패해도 나머지는 돌려준다
+app/src/main/features/plugins/confluence/connector.test.ts	ConfluenceConnector — pages > 한 번에 처리할 개수에 상한을 두고 남은 id 를 돌려준다

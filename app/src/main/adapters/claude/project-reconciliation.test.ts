@@ -18,6 +18,8 @@ beforeEach(() => {
   plugin = join(temp, 'plugin')
   for (const path of [join(cwd, '.claude'), join(root, 'plugins'), join(plugin, '.claude-plugin')])
     mkdirSync(path, { recursive: true })
+  // Keep the fixture's project boundary independent of ancestors of tmpdir().
+  mkdirSync(join(cwd, '.git'))
   json(join(plugin, '.claude-plugin/plugin.json'), { name: 'p' })
   json(join(root, 'settings.json'), { enabledPlugins: { 'p@m': true } })
   json(join(root, 'plugins/installed_plugins.json'), {

@@ -1,0 +1,38 @@
+[
+ {
+  "id": "EQ HEAD siblings",
+  "file": null,
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "GREEN"
+ },
+ {
+  "id": "Y2 VP07-4-adopt-drop-fingerprint",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ },
+ {
+  "id": "Y4 VP07-4-adopt-guard-removed",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "total": 5,
+  "failed": [],
+  "cleanFailed": [],
+  "collection": [],
+  "result": "MISSED"
+ }
+]
