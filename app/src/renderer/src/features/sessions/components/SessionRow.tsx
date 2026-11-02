@@ -1,7 +1,8 @@
 import { memo, useRef, useState } from 'react'
 import { useSessionsState } from '../store/sessionsStore'
-import { navIconState } from '../lib/navIconState'
-import { DotsSpinner } from '../../../shared/ui/DotsSpinner'
+import { navIconState, type NavIconState } from '../lib/navIconState'
+import { ArcSpinner } from '../../../shared/ui/ArcSpinner'
+import { Dot } from '../../../shared/ui/Status'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
@@ -13,6 +14,12 @@ import { useI18n } from '../../../shared/i18n'
 import type { SessionListItem } from '../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { MessageKey } from '../../../shared/i18n'
+
+const STATUS_LABEL: Record<Exclude<NavIconState, 'default'>, MessageKey> = {
+  'in-progress': 'sessions.status.generating',
+  'unseen-complete': 'sessions.status.completed',
+  'awaiting-response': 'sessions.status.awaitingResponse'
+}
 
 export interface SessionAgentAppearance {
   readonly navIcon: IconName
@@ -61,24 +68,14 @@ export const SessionRow = memo(function SessionRow({
   const attention = useSessionsState((state) => state.unseenAttention.get(session.id))
   const generating = useSessionsState((state) => state.generatingSessionIds.has(session.id))
   const iconState = navIconState({ generating, attention, isActive })
-  const unseen = iconState === 'unseen-complete' || iconState === 'awaiting-response'
   const modeIcon = (
     <span
       role="img"
-      aria-label={
-        iconState === 'in-progress'
-          ? tr('sessions.generating', { agent: tr(appearance.label) })
-          : tr(appearance.label)
-      }
+      aria-label={tr(appearance.label)}
       data-context="session-agent-kind"
-      data-state={iconState}
-      className={`inline-flex shrink-0 ${iconState === 'in-progress' ? 'text-warn' : unseen ? 'text-selected [&_svg]:stroke-current [&_svg]:[stroke-linejoin:round] [&_svg]:[stroke-width:40]' : ''}`}
+      className="inline-flex shrink-0"
     >
-      {iconState === 'in-progress' ? (
-        <DotsSpinner size={variant === 'catalog' ? 20 : 14} />
-      ) : (
-        <Icon name={appearance.navIcon} size={variant === 'catalog' ? 20 : 14} />
-      )}
+      <Icon name={appearance.navIcon} size={variant === 'catalog' ? 20 : 14} />
     </span>
   )
 
@@ -90,6 +87,23 @@ export const SessionRow = memo(function SessionRow({
   // 메뉴 항목이 하나도 없으면(이름변경 불가 + 삭제 핸들러 없음 — 활성 '새 대화' draft 행)
   // kebab 자체를 렌더하지 않는다(0065). 고정 토글이 있으면 메뉴를 노출한다.
   const hasMenu = renameable || onDelete != null || onTogglePin != null
+  const statusSlot = (hide: string): React.JSX.Element | null =>
+    iconState === 'default' || (hasMenu && menuOpen) ? null : (
+      <span
+        role="img"
+        aria-label={tr(STATUS_LABEL[iconState])}
+        data-context="session-status"
+        data-state={iconState}
+        className={`grid h-5 w-5 shrink-0 place-items-center ${hide}`}
+      >
+        {iconState === 'in-progress' ? <ArcSpinner /> : <Dot tone="blue" />}
+      </span>
+    )
+  const statusHide = hasMenu
+    ? variant === 'catalog'
+      ? 'group-hover/catalog-row:hidden'
+      : 'group-hover/session:hidden'
+    : ''
 
   const startRename = (): void => {
     setMenuOpen(false)
@@ -128,6 +142,7 @@ export const SessionRow = memo(function SessionRow({
           ariaLabel={tr('sessions.renameAria')}
           autoSize
         />
+        {statusSlot('ml-auto')}
       </Root>
     )
   }
@@ -214,7 +229,12 @@ export const SessionRow = memo(function SessionRow({
           </span>
         }
         openProps={{ onClick: () => onSelect?.(session.id) }}
-        actions={actions}
+        actions={
+          <>
+            {statusSlot(statusHide)}
+            {actions}
+          </>
+        }
       />
     )
   }
@@ -235,6 +255,7 @@ export const SessionRow = memo(function SessionRow({
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>
+      {statusSlot(statusHide)}
       {actions}
     </div>
   )

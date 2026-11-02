@@ -232,10 +232,33 @@ it('defaults absent or damaged harness preferences and rejects damaged patches',
   )
   expect(store.getAll().harnesses).toMatchObject({
     claude: { outputStyle: 'Concise' },
-    opencode: { autoApprovePermissions: false }
+    opencode: { autoApprovePermissions: true }
   })
   expect(() => store.patch({ harnesses: { claude: { outputStyle: 'damaged' } } })).toThrow()
   expect(() =>
     store.patch({ harnesses: { opencode: { autoApprovePermissions: 'true' } } })
   ).toThrow()
+})
+
+it('0293 turns OpenCode auto-approve on by default while keeping saved choices', () => {
+  for (const harnesses of [
+    undefined,
+    { claude: { outputStyle: 'Learning', instructions: 'sibling' } },
+    { opencode: { instructions: 'keep' } },
+    { opencode: { autoApprovePermissions: 'true' } },
+    { opencode: { autoApprovePermissions: false } },
+    { opencode: { autoApprovePermissions: true } }
+  ]) {
+    const backend = countingBackend(harnesses ? { harnesses } : {})
+    const store = new SettingsStore('test', backend)
+    const expected = harnesses?.opencode?.autoApprovePermissions !== false
+    expect(store.getAll().harnesses?.opencode?.autoApprovePermissions).toBe(expected)
+    expect(
+      (backend.store.harnesses as { opencode: { autoApprovePermissions: boolean } }).opencode
+        .autoApprovePermissions
+    ).toBe(expected)
+    if (harnesses?.claude) expect(store.getAll().harnesses?.claude).toMatchObject(harnesses.claude)
+    if (harnesses?.opencode?.instructions)
+      expect(store.getAll().harnesses?.opencode?.instructions).toBe('keep')
+  }
 })

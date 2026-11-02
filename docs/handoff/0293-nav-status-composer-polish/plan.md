@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-02 |
 | 매핑 | 기준 커밋 `origin/main@8e5cefa`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `claude/nav-session-items-ui-g26zhn` |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1, 독립 검증 대기) |
 | V mode | `Baseline V` |
 | 기준 V | `none`. 기존 동작은 `INHERITED` 회귀 노드로만 참조한다 — 출처는 `origin/main@8e5cefa`의 0249·0254·0285·0287·0291 plan |
 | 이번 V revision | `V1` |
@@ -648,81 +648,210 @@ D  projects store → ProjectLandingPage → Composer → CwdPanel → LandingPr
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: V1 D-001~D-016 유지. VP-01~VP-19(REQUIRED), VP-20~VP-25(REGRESSION)와 §19 gate를 작업 목록으로 수행했다.
+- 이견 / 현실성 문제: `adapter.test.ts:subscribes before sending, scopes the turn and leaves admission to the runtime`은 Linux에서 `C:/work`를 절대 경로로 비교해 실패한다. 변경 전 HEAD의 원본 테스트로 같은 expected/received를 재현했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 상태 판정·주의 수명·`agent:list`·기본 모델 선택·channel의 `=== true`는 변경하지 않았다(`git diff` 해당 production 파일 0행).
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
-|---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+**닫음: 고유 자리 79/79.** Q-EP01~Q-EP13 재실행 뒤 운반 자리와 선언·import·줄바꿈을 구분해 고정 목록과 양방향 차집합을 계산했다: `missing=[]`, `extra=[]`.
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초 라운드)
+| EP | 검색 출력 → 자리 분류 | 대조 / 관측 |
+|---|---|---|
+| EP-01 | 4행 → 정의·rename·catalog·nav 4자리 | `SessionRow.tsx:75,136,225,254`; 차집합 ∅ |
+| EP-02 | modeIcon 소비 3행 ↔ statusSlot 소비 3자리 | rename `:145`, catalog `:234`, nav `:258`; 차집합 ∅ |
+| EP-03 | union 1행의 4값 → default 제외 표시 3값 | `STATUS_LABEL` 키 = in-progress·unseen-complete·awaiting-response; 차집합 ∅ |
+| EP-04 | 8행 → hide 2·menuOpen guard·hasMenu guard 4자리 | 나머지 state 선언·kebab open/reveal·Popover open은 기존 배선; 차집합 ∅ |
+| EP-05 | 3행 → 원자 정의 1·소비 2 | `ArcSpinner.tsx:5`, `SessionRow.tsx:99`, `Controls.tsx:159`; 차집합 ∅ |
+| EP-06 | 4행 → blue 정의·행 소비 2자리 | `DOT_TONE` 선언·범용 lookup 제외; blue = bg-selected·ring-selected/20; 차집합 ∅ |
+| EP-07 | HEAD 원본 18행 → 현재 0행 | 원본 18자리 집합 − 제거 확인 집합 = ∅; 원자·테스트 삭제 및 토큰 제거 |
+| EP-08 | Q 출력 5행 + status 리소스·삭제 대상 직접 대조 → 10자리 | ko/en 각 3키·STATUS_LABEL 1·옛 리소스/소비 3 제거; 차집합 ∅ |
+| EP-09 | 5행 → 정의 1·호출 2 | import 2 제외; 이전 engine 파일 없음; 차집합 ∅ |
+| EP-10 | 11행 → catch·default·초기·로드·저장 5자리 | import 2·필드 선언·writer·patch 제외, 저장 fallback 2행은 1자리; 차집합 ∅ |
+| EP-11 | 6행 → 물질화 2·읽기 3자리 | HarnessSettingsSchema 선언 제외; bootstrap·module·channel 읽기 포함; 차집합 ∅ |
+| EP-12 | 16행 → 공급 2·중계 1·Composer 2·CwdPanel 2 = 7자리 | 선언·조건·플래그 9행 제외; 차집합 ∅ |
+| EP-13 | 기존 표지 검색 3행 + 고정 문서 줄 12자리 직접 대조 | IPC 665·overview 81·catalog 68/86/108/116/327/357·state 67/176/186·rendering 71; 차집합 ∅ |
+
+자리별 oracle 약칭은 §11 T-01~T-16의 파일·테스트명을 따른다. `B-01`은 추가로 실행한 `main/app/bootstrap.harness.test.ts:initializes its actual adapter registry with user data, live preferences and Chromium fetch`다. B-01은 실제 Bootstrap의 getter를 실행하며 T-11은 실제 OpenCode module의 getter를 실행하고 adapter 생성자 경계에서 관측한다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+| VP-01 | 종류 고정 | EP-01(4) | 4/4 | 정의·nav·catalog=T-01; rename=T-03; 열람=T-02 | work Checklist / code Terminal 2, class 동일·상태 속성 없음 | 없음 |
+| VP-02 | 상태 내용·이름 | EP-02(3) · EP-03(3) · EP-08(10) | 16/16 | rename=T-03; nav/catalog·3상태·번역=T-01; child=T-02; i18n=T-06 | 회색 원호·파란 공; 생성/완료/응답 대기 이름 구별; ko/en 키 파리티 | 없음 |
+| VP-03 | hover·메뉴 교체 | EP-04(4) | 4/4 | nav·catalog·메뉴 없음=T-01; 열림/닫힘=T-03 | scope별 hide class; open 상태 칸 0·닫힘 후 in-progress | 없음 |
+| VP-04 | 팝업 순서 | EP-09(3) | 3/3 | 정의=T-07; ModelMenu=T-08; 엔진 호출=T-09 | claude settings·runtime → opencode → legacy, 입력 순서 유지 | 없음 |
+| VP-05 | 화면 기본값 | EP-10(5) | 5/5 | catch/default=T-10; 초기·로드·저장=T-13 | 초기 true, 저장 false, unparsed 응답 fallback true | 없음 |
+| VP-06 | 프로젝트 팝업 | EP-12(7) | 7/7 | 새 대화·Landing·Composer 2·CwdPanel 2=T-15; 프로젝트 공급=T-14 | claude inline·opencode below, A 체크·검색·추가 | 없음 |
+| VP-07 | 시각·실환경 | 0 + 사람 실기 | 기계 자리 없음 | 사람 실기(§19) 미실행 | Linux 환경; white/dark·Windows 감속·실배포 확인 대기 | §19 사람 실기 |
+| VP-08 | 상태 전이 | EP-02(3) · EP-03(3) | 6/6 | 3분기=T-01/T-03; 이벤트 열=T-02 | 비열람 [진행,대기,진행,대기,완료], 열람 [진행,없음,진행,없음,없음] | 없음 |
+| VP-09 | 물질화·자동 수락 | EP-11(5) | 5/5 | 물질화 2=T-10/T-12; bootstrap=B-01; module=T-11; channel=T-12 | 새 store root·child once / 명시 false 뒤 requestApproval 1회 | 없음 |
+| VP-10 | 초안 → 첫 전송 | EP-12(7) | 7/7 | 새 대화 중계 6=T-15; 프로젝트 공급·실전송=T-14 | B 선택 → pendingProjectId=a-id·cwd=D:/Beta·navigate 0·전송 B | 없음 |
+| VP-11 | 3분기 조립 | EP-01(4) · EP-02(3) · EP-04(4) | 11/11 | 정의·nav·catalog=T-01; rename·메뉴=T-03 | 5 사이트·rename에서 같은 종류/상태, draft는 hover hide 없음 | 없음 |
+| VP-12 | 원자·공·제거·i18n | EP-05(3) · EP-06(2) · EP-07(18) · EP-08(10) | 33/33 | 원자 정의=T-04; 소비=T-01/T-05; blue 정의/소비=T-01; 제거=gate:Q-EP07; i18n=T-06 | 원호 12px·동일 path/class, blue 공, 옛 흔적 0, ko/en 새 키 | 없음 |
+| VP-13 | 정렬 SSOT | EP-09(3) | 3/3 | 정의=T-07; 팝업=T-08; 엔진=T-09; gate:Q-EP09 | 두 화면 Claude→OpenCode→legacy, 기존 함수 파일 없음 | 없음 |
+| VP-14 | 기본값 → 화면 | EP-10(5) · EP-11(5) | 10/10 | catch/default·물질화=T-10; 화면 3=T-13; 읽기=B-01/T-11/T-12 | 없음·claude만·instructions만·손상=true; 명시 false 보존 | 없음 |
+| VP-15 | 랜딩 조립 | EP-12(7) | 7/7 | NewChat 공급·Landing·Composer 2·CwdPanel 2=T-15; Project 공급=T-14; 플래그=T-16 | 두 하네스 실제 composer, 선택 cwd·projectId와 첫 전송 일치 | 없음 |
+| VP-16 | 문서 현재 상태 | EP-13(12) | 12/12 | gate:Q-EP13 + 고정 12줄 문장 대조; gate:check-doc-inventory --check | 기본 true·오른쪽 상태·ArcSpinner·정렬 경로·picker 범위 | 없음 |
+| VP-17 | 정렬 순위 | EP-09(3) | 3/3 | 정의=T-07; 호출=T-08/T-09 | oc-1·legacy·cl-1·oc-2·cl-2 → cl-1·cl-2·oc-1·oc-2·legacy | 없음 |
+| VP-18 | 설정 읽기 기본값 | EP-10(5) · EP-11(5) | 10/10 | catch/default·물질화=T-10; UI=T-13; 읽기=B-01/T-11/T-12 | raw에도 true 저장·형제 보존·손상 patch 거부 | 없음 |
+| VP-19 | 원호 출력 | EP-05(3) | 3/3 | 정의=T-04; 두 소비=T-01/T-05 | width/height=12, 원호 path·text-ink3·spin·motion-reduce 일치 | 없음 |
+| VP-20 | 0254 생성 중 회귀 | 0 (기존 판정 코드 무변경) | 0/0 | useSessionCompletion.test.ts:0254 생성 중 스피너 전 케이스; chatStore.generating.test.ts; responseProgress.test.ts | 기존 판정/투영 기대값 유지; mutation M-A9는 9케이스 red | 없음 |
+| VP-21 | 0249·0255 주의 수명 | 0 (기존 판정 코드 무변경) | 0/0 | useSessionCompletion.test.ts:0249 response attention across app features / 0255 / 0249 ΔV3.1; sessionsStore.completion.test.ts | 승인 3종·child·게이트·draft 승격·열기 해제 유지 | 없음 |
+| VP-22 | navIconState 회귀 | 0 (기존 판정 코드 무변경) | 0/0 | navIconState.test.ts | 12조합 우선순위 green; production 함수 diff 0 | 없음 |
+| VP-23 | 엔진 순서 회귀 | EP-09(3) | 3/3 | 정의=T-07; 엔진=T-09; 팝업=T-08 | 기존 orders engine cards Claude, OpenCode, then others green | 없음 |
+| VP-24 | 0287 팝업·로딩 회귀 | EP-05(3) · EP-12(7) | 10/10 | 원자=T-04; 두 소비=T-01/T-05; 랜딩 7=T-14/T-15/T-16 | 기존 heading 둘째 자식 원호 위치·/new 팝업 흐름 유지 | 없음 |
+| VP-25 | 0285 권한 의미 회귀 | 0 (기존 판정 코드 무변경) | 0/0 | adapter.test.ts:reads the auto-accept preference per request including child sessions / handles only the exact native settled permission: $id/$tag/auto=$auto / auto-accepts permissions once while enabled and still asks questions | once·질문 카드·요청마다 최신 값·기존 카드 settlement 유지 | 없음 |
+
+- §10 자리 목록 밖에서 본 운반 자리: 새 production 자리 없음. EP-11의 Bootstrap getter를 T-11만으로 닫지 않고 B-01을 실행 집합에 더해 실제 호출부를 확인했다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초 라운드).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-01의 자리별 좌표 | M-A1·A2: 모두 red (아래 잠금 표) |
+| VP-02 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-02의 자리별 좌표 | M-A3·A5: 모두 red (아래 잠금 표) |
+| VP-03 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-03의 자리별 좌표 | M-A6·A7·A8: 모두 red (아래 잠금 표) |
+| VP-04 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-04의 자리별 좌표 | M-B1·B3: 모두 red (아래 잠금 표) |
+| VP-05 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-05의 자리별 좌표 | M-C4·C5: 모두 red (아래 잠금 표) |
+| VP-06 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-06의 자리별 좌표 | M-D1: 모두 red (아래 잠금 표) |
+| VP-07 | REQUIRED | SELF_BLOCKED | 위 강제 지점 표 VP-07의 자리별 좌표 | not selected — 사람 실기 |
+| VP-08 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-08의 자리별 좌표 | M-A9: 모두 red (아래 잠금 표) |
+| VP-09 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-09의 자리별 좌표 | M-C1·C2: 모두 red (아래 잠금 표) |
+| VP-10 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-10의 자리별 좌표 | M-D2·D3: 모두 red (아래 잠금 표) |
+| VP-11 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-11의 자리별 좌표 | M-A10a·A10b: 모두 red (아래 잠금 표) |
+| VP-12 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-12의 자리별 좌표 | M-A11·A12·Q-EP07 감도: 모두 red (아래 잠금 표) |
+| VP-13 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-13의 자리별 좌표 | not selected — 두 소비 행동 oracle |
+| VP-14 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-14의 자리별 좌표 | M-C3: 모두 red (아래 잠금 표) |
+| VP-15 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-15의 자리별 좌표 | M-D1 공유: 모두 red (아래 잠금 표) |
+| VP-16 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-16의 자리별 좌표 | not selected — 문서 대조 |
+| VP-17 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-17의 자리별 좌표 | M-B2: 모두 red (아래 잠금 표) |
+| VP-18 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-18의 자리별 좌표 | M-C1·C2·C3 공유: 모두 red (아래 잠금 표) |
+| VP-19 | REQUIRED | SELF_PASS | 위 강제 지점 표 VP-19의 자리별 좌표 | not selected — 직접 속성 단언 |
+| VP-20 | REGRESSION | SELF_PASS | 위 강제 지점 표 VP-20의 자리별 좌표 | not selected — 기존 행동 oracle |
+| VP-21 | REGRESSION | SELF_PASS | 위 강제 지점 표 VP-21의 자리별 좌표 | not selected — 기존 행동 oracle |
+| VP-22 | REGRESSION | SELF_PASS | 위 강제 지점 표 VP-22의 자리별 좌표 | not selected — 기존 행동 oracle |
+| VP-23 | REGRESSION | SELF_PASS | 위 강제 지점 표 VP-23의 자리별 좌표 | not selected — 기존 행동 oracle |
+| VP-24 | REGRESSION | SELF_PASS | 위 강제 지점 표 VP-24의 자리별 좌표 | not selected — 기존 행동 oracle |
+| VP-25 | REGRESSION | SELF_PASS | 위 강제 지점 표 VP-25의 자리별 좌표 | not selected — 기존 행동 oracle |
+
+- 자기확인 합계: `SELF_PASS 24 · SELF_BLOCKED 1(사람 실기) = 25 pair`. 독립 verify 결과는 pending이다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+등록된 변이는 하나씩 적용해 관련 테스트를 실행하고 매번 원본을 복원했다. 아래 실패 수는 실제 `Tests N failed` 출력이다. 전체 복원 뒤 최종 관련 스위트 717건이 통과했다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M-A1: 완료 왼쪽 text-selected 복원 | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 recent keeps the agent icon fixed and puts status in the right slot` — 6건 red | 잡음 |
+| M-A2: 생성 중 왼쪽 ArcSpinner | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 recent keeps the agent icon fixed and puts status in the right slot` — 5건 red | 잡음 |
+| M-A3: 상태 원호↔공 | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 recent keeps the agent icon fixed and puts status in the right slot` — 5건 red | 잡음 |
+| M-A5: 완료↔대기 이름 | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 recent keeps the agent icon fixed and puts status in the right slot` — 5건 red | 잡음 |
+| M-A6: nav↔catalog hover class | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 recent keeps the agent icon fixed and puts status in the right slot` — 4건 red | 잡음 |
+| M-A7: menuOpen guard 제거 | V1 선택 증거 | 최초 | `features/sessions/components/SessionRow.interaction.test.ts:0293 opening the kebab menu hides the status slot until it closes (nav)` — 2건 red | 잡음 |
+| M-A8: 메뉴 없는 행도 hover hide | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 draft keeps the agent icon fixed and puts status in the right slot` — 1건 red | 잡음 |
+| M-A9: 생성 중보다 retained attention 우선 | V1 선택 증거 | 최초 | `app/hooks/useSessionCompletion.test.ts:'tool_approval' suspends generation and resumes after resolution; active=false` — 9건 red | 잡음 |
+| M-A10a: rename statusSlot 제거 | V1 선택 증거 | 최초 | `features/sessions/components/SessionRow.interaction.test.ts:0293 rename keeps the status slot and drops the kebab (nav)` — 2건 red | 잡음 |
+| M-A10b: catalog statusSlot 제거 | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 project panel keeps the agent icon fixed and puts status in the right slot` — 1건 red | 잡음 |
+| M-A11: SessionRow 인라인 spinner 14px | V1 선택 증거 | 최초 | `features/sessions/components/navSections.render.test.ts:0293 recent keeps the agent icon fixed and puts status in the right slot` — 5건 red | 잡음 |
+| M-A12: Controls 인라인 spinner 14px | V1 선택 증거 | 최초 | `features/chat/harnesses/opencode/composer/Controls.interaction.test.ts:shows only real agents and a heading spinner only while loading` — 1건 red | 잡음 |
+| M-B1: ModelMenu 정렬 호출 제거 | V1 선택 증거 | 최초 | `features/chat/components/composer/modelMenu0215.render.test.ts:0293 orders provider groups Claude, OpenCode, then others with plugin runtime rows` — 1건 red | 잡음 |
+| M-B2: adapter 문자열 사전순 | V1 선택 증거 | 최초 | `shared/harness.test.ts:0293 orderAgentEnvironments ranks claude, opencode, then unknown adapters and keeps order within a harness` — 1건 red | 잡음 |
+| M-B3: 입력 배열 제자리 정렬 | V1 선택 증거 | 최초 | `shared/harness.test.ts:0293 orderAgentEnvironments ranks claude, opencode, then unknown adapters and keeps order within a harness` — 1건 red | 잡음 |
+| M-C1: harnesses default로 복귀 | V1 선택 증거 | 최초 | `main/infra/settings-store.test.ts:0293 turns OpenCode auto-approve on by default while keeping saved choices` — 2건 red | 잡음 |
+| M-C2: opencode optional로 복귀 | V1 선택 증거 | 최초 | `main/infra/settings-store.test.ts:0293 turns OpenCode auto-approve on by default while keeping saved choices` — 2건 red | 잡음 |
+| M-C3: 손상 값 catch(false) | V1 선택 증거 | 최초 | `main/infra/settings-store.test.ts:defaults absent or damaged harness preferences and rejects damaged patches` — 2건 red | 잡음 |
+| M-C4: 초기 useState(false) | V1 선택 증거 | 최초 | `features/settings/components/generalTab.interaction.test.ts:0293 shows a saved off choice and falls back to the default without OpenCode preferences` — 2건 red | 잡음 |
+| M-C5: 로드 fallback false | V1 선택 증거 | 최초 | `features/settings/components/generalTab.interaction.test.ts:0293 shows a saved off choice and falls back to the default without OpenCode preferences` — 1건 red | 잡음 |
+| M-D1: ProjectLandingPage 공급 제거 | V1 선택 증거 | 최초 | `pages/ProjectLandingPage.project-picker.test.ts:0293 project landing opens the project popup with the current project checked (claude)` — 7건 red | 잡음 |
+| M-D2: 선택 때 navigate 호출 | V1 선택 증거 | 최초 | `pages/ProjectLandingPage.project-picker.test.ts:0293 selecting another project changes only the draft and the first send targets it (claude)` — 2건 red | 잡음 |
+| M-D3: 추가 폴더 projectId를 A로 고정 | V1 선택 증거 | 최초 | `pages/ProjectLandingPage.project-picker.test.ts:0293 adding a folder follows the new chat rule (/selected)` — 2건 red | 잡음 |
+| Q-EP07-sensitivity: 삭제 대상 원자 파일 잔존 | V1 선택 증거 | 최초 | `gate:Q-EP07` — 잔존 파일 1행 검출 | 잡음 |
+| N-AUDIT-missing: 프로젝트 공급 제거 | 새 자리 대조 장치의 음성 대조 | 최초 | EP-12 expected 7·found 6·missing=[project-page], exit 1 | 잡음 |
+| N-AUDIT-extra: 원호 소비 형제 파일 추가 | 새 자리 대조 장치의 양성 대조 | 최초 | EP-05 expected 3·found 4·extra=[shared/ui/AuditProbe.tsx], exit 1 | 잡음 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K = 표 행 T`
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 24(등록 변이 23 + Q-EP07 잔존 감도 1) · 인용 변이 0 · 새 oracle 2(자리 대조 missing/extra) = 표 행 26`. 미실행 선택 증거 집합 = ∅.
+- **덮개 회귀**: 최초 라운드라 이전 고장 이력 없음. DotsSpinner 테스트를 ArcSpinner 속성 테스트로 교체했으며 판정·주의 수명 테스트의 상태 기대 열은 유지했다(T-02·VP-20~VP-25).
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — STATUS_LABEL → tr → role=img 이름 3개. T-01의 한국어 이름·T-06 ko/en 파리티 green | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 순수 정렬 함수만 shared로 이동했다. lifecycle/cleanup 변수 없음; T-07~T-09 green | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. 메뉴 열림/닫힘=T-03, 대화상자 취소=T-14, 저장 실패=T-13 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 토글 저장 실패는 saveFailed 보고·이전 값 유지(T-13). 기존 폴더 선택 오류 보고는 T-15 유지 | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 기존 picker의 draft target·mounted 검사를 유지. T-15의 new-draft/send/unmount/취소 케이스 green | 없음 |
+
+- 재사용: `ArcSpinner`가 공통 `Icon`·기존 motion 유틸을 사용하고 `Dot` blue·KebabButton·Popover·MenuItem·LandingProjectPicker를 재사용한다. 테마 토큰은 `text-ink3`·`bg-selected`·`ring-selected/20`이다.
+- 기계 관측: 5 사이트의 상태별 markup·고정 칸·scope class, 메뉴 열기→Escape/바깥 클릭→복귀, 프로젝트 팝업 검색 초점·선택·첫 전송을 실행했다. 실제 white/dark 대비·좁은 pane의 제목 폭·Windows 감속·실 CLI/폐쇄망 배포 행은 AC22 미확인이다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | Linux에서 Windows cwd를 POSIX resolve한 기존 어댑터 테스트 실패 | 기준선으로 분리, 현재 구현 범위 확대 없음 | HEAD 원본 테스트 재실행도 expected C:/work / received /workspace/orca-skin/app/C:/work |
+| 2 | `T-11` 단독으로는 Bootstrap getter 호출부를 실행하지 않는다 | 기존 B-01을 추가 실행해 EP-11의 3 읽기 자리까지 닫음 | bootstrap.harness.test.ts의 actual adapter registry 케이스 green |
+| 3 | fake DOM에 input.select가 없어 실제 RenameInput mount 실패 | 테스트 안에서 FakeNode.prototype.select만 보완하고 정리, production primitive는 유지 | T-03 nav·catalog rename 2케이스 green |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- 제품·production 메커니즘 차이 없음. 검증은 B-01·기존 chatStore.generating/responseProgress를 §19 집합에 추가하고, 기존 Linux 경로 테스트 1건만 음성 이름 필터로 분리했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — production 메커니즘 대체 없음 | AC7·11, 기존 수명 회귀 green |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 정렬은 사본·원호는 무상태 원자 | AC9·12·13, M-A11/A12/B3 red |
+| 재진입 | 해당 없음 — picker·토글 수명 무변경 | AC16·18·19, T-13/T-14/T-15 green |
+| 다른 무효화 축 | 해당 없음 — 새로운 cache·invalidation 없음 | AC14·15, 새 store·live getter·false patch green |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님) | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 오른쪽 상태 칸·ArcSpinner/blue Dot·i18n·옛 점 토큰 제거; 공유 정렬·ModelMenu; 스키마/GeneralTab 기본값; ProjectLandingPage 공급; 테스트·현재 문서·본 보고/보드 (`git diff --stat`) |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; §19 vitest + B-01·chatStore.generating·responseProgress, `-t '^(?!.*subscribes before sending)'`; Q-EP01~13; `node scripts/check-doc-inventory.mjs --check`; `git diff --check`; 커밋 후 trailer 파싱 |
+| **관측한 게이트 산출**(exit code 아님) | lint 0 error·기존 TanStack 경고 2(미변경 Timeline/useTranscriptVirtualizer); typecheck node/web/test 3종 오류 0; vitest **114파일·717 passed·1 skipped(기준선)**; doc inventory generated/prose/links OK; whitespace 오류 0 |
+| V-pair 자기확인 | SELF_PASS 24 · SELF_BLOCKED 1(AC22 실기) · 독립 검증 pending |
+| 강제 지점 전수 | 고유 79/79, 13 EP의 missing/extra 집합 각각 ∅; 선택 적대 증거 24 + 새 자리 대조 음성/양성 2 모두 검출 |
+| **AC 자기보고**(`Criteria-Met`) | **21/22**, 아래 AC별 관측 표 참조. AC22만 사람 실기 대기 |
+| **합계 검산** | `✅ 21 · ⚠️ 1 · ❌ 0 = 총 22`; pair `24+1=25`; 고유 자리 `4+3+3+4+3+2+18+10+3+5+5+7+12=79` |
+| 블로커 / 역질문 | 구현 블로커 없음. AC22 실기·Claude 독립 검증 대기 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기판정 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | T-01 5사이트×4상태의 고정 class/SVG·종류 이름; T-02 열람; T-03 rename green |
+| AC2 | ✅ | T-01/T-02 in-progress 원호 width/height 12·path·회색/spin/reduce class green |
+| AC3 | ✅ | T-01 완료/대기 공·이름·없음, T-02 승인 3종·child 및 열람 시 소거 green |
+| AC4 | ✅ | T-01 nav/catalog scope·메뉴 없는 draft hide 없음, M-A6 4건·M-A8 1건 red |
+| AC5 | ✅ | T-03 nav/catalog 메뉴 3항목·열림 상태 칸 0·Escape/바깥 클릭 복귀·고정 콜백 green |
+| AC6 | ✅ | T-03 nav/catalog 입력·statusSlot·ml-auto·케밥 0, M-A10a 2건 red |
+| AC7 | ✅ | T-02 non-viewed/viewed 상태 열 일치, viewed 종류 markup 불변, M-A9 9건 red |
+| AC8 | ✅ | Q-EP07 현재 0행·원본 18행 제거; Q-EP05 원자 1·소비 2; 잔존 음성 대조 1행 검출 |
+| AC9 | ✅ | T-05 heading 둘째 자식 원호 위치·12px/path/class·비로딩 소거, M-A12 1건 red |
+| AC10 | ✅ | T-06 ko/en 리프 키·빈 문자열·보간 파리티 green; STATUS_LABEL 3키·옛 키 부재 대조 |
+| AC11 | ✅ | VP-20~VP-22의 기존 생성·주의 수명·게이트·draft 승격·12조합 테스트 green |
+| AC12 | ✅ | T-08 settings/runtime/unknown 그룹·항목 8·opencode 필터·입력 순서 보존; M-B1/B3 red |
+| AC13 | ✅ | Q-EP09 정의 1·호출 2, 이전 파일 없음; T-07/T-08/T-09 green |
+| AC14 | ✅ | T-10 부재/claude만/instructions만/손상 문자열/명시 false/true와 raw·형제 보존 green |
+| AC15 | ✅ | T-11/T-12 새 store root·child once, false patch 뒤 수동 1회; 기존 question 카드 테스트 green |
+| AC16 | ✅ | T-13 초기 true·저장 false·실패 시 유지·저장된 off·부재 로드/저장 fallback true green |
+| AC17 | ✅ | T-14 claude/opencode picker 1·A 체크·검색·추가·대화상자 미호출, M-D1 7건 red |
+| AC18 | ✅ | T-14 B 선택 뒤 초안/cwd·navigate 0·팝업 닫힘·chat:send B 소속, M-D2 2건 red |
+| AC19 | ✅ | T-14 새 폴더=null 프로젝트·기등록=B·취소=A, T-15 기존 /new green; M-D3 2건 red |
+| AC20 | ✅ | 문서 고정 12자리 새 문장 대조·차집합 ∅; inventory generated/prose/links OK |
+| AC21 | ✅ | 최종 vitest 114/114파일·717 pass; lint 오류0·typecheck 3종·inventory OK; 커밋 후 Agent/Handoff/Status/Criteria-Met/Criteria-Pending/Verified-By 6키 파싱 확인 |
+| AC22 | ⚠️ | Linux 도구 환경에서 Windows 시각·감속·폐쇄망 배포·새 프로필 CLI 실기 미실행(§19) |
+
+- AC 검산: 위 표의 `✅` ID 집합 = AC1~AC21, `⚠️` = AC22. 전체 AC1~AC22와 판정 행의 차집합 = ∅; `21 + 1 + 0 = 22`.
+- 상태 사본: plan 메타 `IMPL_DONE (r1, 독립 검증 대기)` ↔ INDEX 0293 `impl/IMPL_DONE`, 다음 `Claude`, 라운드 `1`, 대상 `(r1 구현 — 검증자 기입)`를 함께 갱신하고 다시 읽어 확인한다. 커밋 trailer는 `Status: implemented`, `Criteria-Met: 21/22`, `Verified-By: pending`이다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — 최초 r1.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 이전 구현 지적 없음. V1 등록 변이 23개·잔존 스윕 감도 1개 모두 검출했다.
+- 반복해서 부딪히는 환경 한계: Windows cwd의 Linux 경로 해석 차이 1건은 원본 테스트에서도 재현. Windows 시각/실환경 실기는 미실행.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

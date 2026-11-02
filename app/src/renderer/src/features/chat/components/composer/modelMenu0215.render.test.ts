@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
@@ -155,4 +156,34 @@ describe('ModeMenu — haiku 선택 시 자동 제외 (AT-11)', () => {
     const html = renderModes(models, selection('claude-sonnet-4-6', 'sonnet'))
     expect(html).toContain('Claude가 권한 결정을 처리합니다')
   })
+})
+
+it('0293 orders provider groups Claude, OpenCode, then others with plugin runtime rows', () => {
+  const agents: AgentEnvironment[] = [
+    agent(BOTH),
+    { ...agent(BOTH), key: 'opencode-local', adapter: 'opencode' },
+    { ...agent(BOTH), key: 'legacy-x', adapter: 'legacy' },
+    { ...agent(BOTH), key: 'claude-plugin', source: 'runtime', readOnly: true }
+  ]
+  const before = [...agents]
+  const render = (sessionBackend: string | null): ReturnType<typeof load> =>
+    load(
+      renderToStaticMarkup(
+        createElement(ModelMenu, { agents, sessionBackend, selection: null, onPick: vi.fn() })
+      )
+    )
+  const all = render(null)
+  expect(
+    all('span.uppercase')
+      .map((_, e) => all(e).text())
+      .get()
+  ).toEqual(['claude-anthropic', 'claude-plugin', 'opencode-local', 'legacy-x'])
+  expect(all('[role="menuitemradio"]')).toHaveLength(8)
+  expect(agents).toEqual(before)
+  const filtered = render('opencode')
+  expect(
+    filtered('span.uppercase')
+      .map((_, e) => filtered(e).text())
+      .get()
+  ).toEqual(['opencode-local'])
 })

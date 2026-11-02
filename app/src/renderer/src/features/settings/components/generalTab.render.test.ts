@@ -84,7 +84,7 @@ it('shows Claude and OpenCode groups after updates with defaults', () => {
     'Claude가 응답을 구성하는 방식입니다. 진행 중인 세션에도 다음 메시지부터 적용됩니다.'
   )
   expect(html).toContain('권한 요청이 자동으로 승인됩니다.')
-  expect(html).toContain('aria-checked="false" aria-label="권한 자동 수락"')
+  expect(html).toContain('aria-checked="true" aria-label="권한 자동 수락"')
 })
 
 import { i18n } from '../../../shared/i18n'

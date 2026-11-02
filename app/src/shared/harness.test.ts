@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { HARNESS_CAPABILITIES, supportsAgentKind } from './harness'
+import { HARNESS_CAPABILITIES, supportsAgentKind, orderAgentEnvironments } from './harness'
 
 it('keeps display names and behavior capabilities distinct for each harness', () => {
   expect(HARNESS_CAPABILITIES.claude).toEqual({
@@ -23,4 +23,23 @@ it('keeps display names and behavior capabilities distinct for each harness', ()
   expect(supportsAgentKind('claude', 'work')).toBe(true)
   expect(supportsAgentKind('opencode', 'work')).toBe(false)
   expect(supportsAgentKind('opencode', 'code')).toBe(true)
+})
+
+it('0293 orderAgentEnvironments ranks claude, opencode, then unknown adapters and keeps order within a harness', () => {
+  const agents = [
+    { key: 'oc-1', adapter: 'opencode' },
+    { key: 'legacy', adapter: 'legacy' },
+    { key: 'cl-1', adapter: 'claude' },
+    { key: 'oc-2', adapter: 'opencode' },
+    { key: 'cl-2', adapter: 'claude' }
+  ]
+  const before = [...agents]
+  expect(orderAgentEnvironments(agents).map((a) => a.key)).toEqual([
+    'cl-1',
+    'cl-2',
+    'oc-1',
+    'oc-2',
+    'legacy'
+  ])
+  expect(agents).toEqual(before)
 })

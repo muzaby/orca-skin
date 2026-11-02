@@ -1,6 +1,7 @@
-export type StatusTone = 'green' | 'amber' | 'red' | 'slate'
+export type StatusTone = 'green' | 'amber' | 'red' | 'slate' | 'blue'
 
 const DOT_TONE: Record<StatusTone, string> = {
+  blue: 'bg-selected ring-selected/20',
   green: 'bg-good ring-good/20',
   amber: 'bg-warn ring-warn/20',
   red: 'bg-bad ring-bad/20',

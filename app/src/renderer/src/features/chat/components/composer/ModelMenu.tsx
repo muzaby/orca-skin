@@ -1,4 +1,5 @@
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
+import { orderAgentEnvironments } from '../../../../../../shared/harness'
 import { Icon } from '../../../../shared/ui/Icon'
 
 import { useI18n } from '../../../../shared/i18n'
@@ -25,8 +26,10 @@ export function ModelMenu({
   onPick
 }: ModelMenuProps): React.JSX.Element {
   const { tr } = useI18n()
-  const visible = agents.filter(
-    (agent) => agent.supported && (!sessionBackend || agent.adapter === sessionBackend)
+  const visible = orderAgentEnvironments(
+    agents.filter(
+      (agent) => agent.supported && (!sessionBackend || agent.adapter === sessionBackend)
+    )
   )
   if (visible.length === 0) {
     return (

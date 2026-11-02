@@ -72,13 +72,34 @@ it('saves only the chosen harness field', async () => {
   dom.click(dom.query('[aria-label="권한 자동 수락"]')!)
   await settle()
   expect(service.set).toHaveBeenLastCalledWith({
-    harnesses: { opencode: { autoApprovePermissions: true } }
+    harnesses: { opencode: { autoApprovePermissions: false } }
   })
-  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(true)
+  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(false)
   expect(dom.query('[aria-label="출력 스타일"]')!.props.value).toBe('Proactive')
   service.set.mockRejectedValueOnce(new Error('disk failure'))
   dom.click(dom.query('[aria-label="권한 자동 수락"]')!)
   await settle()
-  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(true)
+  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(false)
   expect(service.report).toHaveBeenCalledWith(expect.objectContaining({ title: 'saveFailed' }))
+})
+
+it('0293 shows a saved off choice and falls back to the default without OpenCode preferences', async () => {
+  service.get.mockResolvedValue(
+    SettingsSchema.parse({ harnesses: { opencode: { autoApprovePermissions: false } } })
+  )
+  dom = installFakeDom({ innerWidth: 1000, innerHeight: 800 })
+  dom.render(createElement(GeneralTab))
+  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(true)
+  await settle()
+  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(false)
+  service.set.mockResolvedValue({ ...SettingsSchema.parse({}), harnesses: {} })
+  dom.click(dom.query('[aria-label="권한 자동 수락"]')!)
+  await settle()
+  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(true)
+  dom.unmount()
+  service.get.mockResolvedValue({ ...SettingsSchema.parse({}), harnesses: {} })
+  dom = installFakeDom({ innerWidth: 1000, innerHeight: 800 })
+  dom.render(createElement(GeneralTab))
+  await settle()
+  expect(dom.query('[aria-label="권한 자동 수락"]')!.props['aria-checked']).toBe(true)
 })
