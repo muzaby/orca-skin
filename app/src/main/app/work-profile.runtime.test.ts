@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from '../adapters/claude/sdk'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -249,3 +250,6 @@ it('preserves Work background notifications as provider events without asking fo
     live.close()
   }
 })
+
+// Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
+await loadClaudeSdk()

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFile, rm } from 'node:fs/promises'
 import { ClaudeAdapter } from './adapter'
@@ -69,3 +70,6 @@ describe('ClaudeAdapter native history port', () => {
     expect(close).toHaveBeenCalledOnce()
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

@@ -21,7 +21,7 @@ it('skips unavailable CLI and leaves an explicit foreground retry available', as
   await vi.waitFor(() => expect(installed).toHaveBeenCalledOnce())
   warmup.update()
   expect(acquire).not.toHaveBeenCalled()
-  expect(installed).toHaveBeenCalledOnce()
+  expect(installed).toHaveBeenCalledTimes(2)
   warmup.close()
   service.close()
 })
@@ -85,5 +85,37 @@ it('uses the foreground cwd fallback and releases failed warmup for an explicit 
     warmup.close()
     service.close()
     await rm(cwd, { recursive: true, force: true })
+  }
+})
+
+it('does not consume its one warmup attempt while unavailable and prepares after installation', async () => {
+  const resolve = vi.fn(async () => ({
+    key: 'same',
+    acquire: async () => ({
+      generation: 'g',
+      signal: new AbortController().signal,
+      read: async () => [],
+      release: async () => {}
+    })
+  }))
+  const service = new ComposerPreparationService(resolve as never)
+  let available = false
+  const warmup = new OpenCodeWarmup({
+    service,
+    allowed: () => true,
+    settings: () => ({ lastBackend: 'opencode', lastCwd: null }),
+    cwd: () => process.cwd(),
+    installed: async () => ({ installed: available })
+  })
+  try {
+    warmup.update()
+    for (let i = 0; i < 20; i++) await Promise.resolve()
+    expect(resolve).not.toHaveBeenCalled()
+    available = true
+    warmup.update()
+    await vi.waitFor(() => expect(resolve).toHaveBeenCalledOnce())
+  } finally {
+    warmup.close()
+    service.close()
   }
 })

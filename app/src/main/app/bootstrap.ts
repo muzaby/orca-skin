@@ -1,3 +1,5 @@
+import { broadcastHarnessAvailability } from '../infra/ipc/send'
+import { loadClaudeSdk } from '../adapters/claude/sdk'
 import { homedir } from 'node:os'
 import { claudeNativePaths } from '../adapters/claude/native-paths'
 import {
@@ -239,7 +241,10 @@ export class Bootstrap {
   private openCodeMcpReconcile?: OpenCodeMcpReconcile
   private composerPreparation?: ComposerPreparationService
   private openCodeWarmup?: OpenCodeWarmup
+  private openCodePluginsRevision = 0
   private openCodeGlobalWatch?: OpenCodeGlobalWatch
+  private stopAvailability?: () => void
+  private readonly onHarnessFocus = (): void => this.registry.focusRecheck()
   private claudeGlobalWatch?: FingerprintWatch
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
@@ -462,6 +467,13 @@ export class Bootstrap {
         throw new Error(`데이터 이관에 실패했습니다 — 앱을 다시 실행해 주세요. ${detail}`)
       }
     )
+    if (this.stopped) return
+    const installation = this.bootReport.step(
+      'adapter-registry',
+      { critical: true, label: '어댑터 설치 상태 갱신' },
+      () => this.registry.refreshInstallState()
+    )
+    void installation.catch(() => undefined)
     const secretStore = new SecretStore()
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
@@ -668,6 +680,7 @@ export class Bootstrap {
       reconcile: reconcileRuntimeModelSnapshot
     })
     const runtimeModelCatalog = createRuntimeModelCatalog({
+      availability: (id) => this.registry.availability(id as import('../../shared/ipc').Backend),
       parseModels: parseHarnessRuntimeModels,
       contributions: RUNTIME_MODEL_CONTRIBUTIONS,
       runtime: harnessRuntime,
@@ -701,7 +714,14 @@ export class Bootstrap {
       cost.recompute()
     )
     // 설정이 파생 상태(게이트 판정·사용량 뷰)의 입력인 자리들 — 배선은 한 모듈이 갖는다.
-    registerSettingsReactions(this.settings, { pushConnectionState, cost })
+    registerSettingsReactions(this.settings, {
+      pushConnectionState,
+      cost,
+      openCodeExecutablePath: this.settings.getAll().harnesses?.opencode?.executablePath,
+      recheckOpenCode: () => {
+        if (!this.stopped) void this.registry.refreshInstallState('opencode').catch(() => undefined)
+      }
+    })
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
     // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
     // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
@@ -760,11 +780,6 @@ export class Bootstrap {
       harnessPluginRoots,
       runtimeTools,
       this.managedMcp.source
-    )
-    await this.bootReport.step(
-      'adapter-registry',
-      { critical: true, label: '어댑터 설치 상태 갱신' },
-      () => this.registry.refreshInstallState()
     )
     this.defaultCwd = app.getPath('desktop')
     await this.bootReport.step('workspace', { critical: false, label: '기본 작업공간 보장' }, () =>
@@ -847,7 +862,9 @@ export class Bootstrap {
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
     )
+    await installation
     this.bootReport.finish()
+    void loadClaudeSdk().catch(() => undefined)
 
     const ctx: RouterContext = {
       db,
@@ -880,13 +897,25 @@ export class Bootstrap {
     this.register(ctx)
     this.openCodeWarmup = new OpenCodeWarmup({
       service: this.composerPreparation!,
-      allowed: () => !this.stopped && gate.state().passed && !resuming(),
+      allowed: () =>
+        !this.stopped &&
+        this.registry.availability('opencode').usable &&
+        gate.state().passed &&
+        !resuming(),
       settings: () => this.settings.getAll(),
       cwd: () => ctx.getCwd(),
-      installed: async () =>
-        (await ctx.registry.get('opencode')?.isInstalled()) ?? { installed: false }
+      installed: async () => ({ installed: (await ctx.registry.settled('opencode')).usable })
     })
     this.openCodeWarmup.update()
+    this.stopAvailability = this.registry.onAvailabilityChange((state) => {
+      if (this.stopped) return
+      broadcastHarnessAvailability(state)
+      if (state.id !== 'opencode') return
+      this.composerPreparation?.invalidate()
+      this.openCodeWarmup?.update()
+      this.updateOpenCodeGlobalWatch(ctx, false)
+    })
+    app.on('browser-window-focus', this.onHarnessFocus)
   }
 
   restartGateState(): RestartGateState {
@@ -937,6 +966,8 @@ export class Bootstrap {
   shutdown(): void {
     if (this.stopped) return
     this.stopped = true
+    app.removeListener('browser-window-focus', this.onHarnessFocus)
+    this.stopAvailability?.()
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
@@ -1042,6 +1073,36 @@ export class Bootstrap {
     )
   }
 
+  private updateOpenCodeGlobalWatch(ctx: RouterContext, initial: boolean): void {
+    if (!ctx.registry.availability('opencode').usable || this.stopped) {
+      this.openCodeGlobalWatch?.close()
+      this.openCodeGlobalWatch = undefined
+      return
+    }
+    if (this.openCodeGlobalWatch) return
+    if (!initial) invalidateOpenCodeDiscovery()
+    this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
+      files: openCodeGlobalConfigFiles(),
+      fingerprint: openCodeGlobalPluginFingerprint,
+      dirty: invalidateOpenCodeDiscovery,
+      changed: () => {
+        ctx.registry.get('opencode')?.extensionsChanged?.()
+        this.composerPreparation?.invalidate()
+        this.preparedMcpResources?.invalidate()
+        broadcastOpenCodePluginsChanged({ revision: ++this.openCodePluginsRevision })
+      },
+      extensionsChanged: () => broadcastExtensionsChanged({ backend: 'opencode' }),
+      failed: (error) =>
+        reportError({
+          event: 'opencode.plugins.watch-failed',
+          scope: 'engine',
+          title: 'saveFailed',
+          error
+        })
+    })
+    if (!initial) broadcastOpenCodePluginsChanged({ revision: ++this.openCodePluginsRevision })
+  }
+
   private register(ctx: RouterContext): void {
     this.registerArtifacts(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
@@ -1054,7 +1115,10 @@ export class Bootstrap {
       capPolicy: new BoundedRuntimeCapPolicy(),
       capacity: 5
     }))
-    supervisor.subscribeLeases(() => this.updateStateChanged())
+    supervisor.subscribeLeases(() => {
+      this.updateStateChanged()
+      this.projectResourceSync?.leasesChanged()
+    })
     const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
     const persistence = this.registerTurnEvents(ctx, bus)
 
@@ -1075,7 +1139,11 @@ export class Bootstrap {
           return sessionForeground(lease, transport)
         }
       },
-      emit: broadcastChatEvent
+      emit: (event) => {
+        broadcastChatEvent(event)
+        this.projectResourceSync?.activityChanged()
+        ctx.registry.get('opencode')?.resourceActivityChanged?.()
+      }
     }))
     // dev 분기는 여기 한 곳에서만 준다 — `paths.ts` 는 순수 함수로 남아 두 값을 다 단위 테스트한다.
     const worktrees = new WorktreeService(ctx.db, managedWorktreesDir(import.meta.env.DEV))
@@ -1244,25 +1312,7 @@ export class Bootstrap {
     registerUpdateHandlers(ctx)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
-    this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
-      files: openCodeGlobalConfigFiles(),
-      fingerprint: openCodeGlobalPluginFingerprint,
-      dirty: invalidateOpenCodeDiscovery,
-      changed: (revision) => {
-        ctx.registry.get('opencode')?.extensionsChanged?.()
-        this.composerPreparation?.invalidate()
-        this.preparedMcpResources?.invalidate()
-        broadcastOpenCodePluginsChanged({ revision })
-      },
-      extensionsChanged: () => broadcastExtensionsChanged({ backend: 'opencode' }),
-      failed: (error) =>
-        reportError({
-          event: 'opencode.plugins.watch-failed',
-          scope: 'engine',
-          title: 'saveFailed',
-          error
-        })
-    })
+    this.updateOpenCodeGlobalWatch(ctx, true)
     const nativeClaude = claudeNativePaths()
     this.claudeGlobalWatch = new FingerprintWatch({
       files: [

@@ -2,7 +2,7 @@
 // 차트 + 모델별 내역. 데이터는 main 의 turn_usage/turn_model_usage 집계(costUsageStats).
 // 주기적 실행 설정 그룹(0099)은 0112 에서 제거 — main 스케줄러/tweak 스키마는 유지된다.
 
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import type { UsageStatsModel, UsageStatsRange } from '../../../../../shared/ipc'
 import {
   WEEKLY_AGGREGATION_THRESHOLD_DAYS,
@@ -16,7 +16,9 @@ import { useI18n } from '../../../shared/i18n'
 import { useUsageStats } from '../hooks/useUsageStats'
 import { fmtUsd, formatTokens } from '../lib/usageFormat'
 import { SettingsGroup } from './parts'
-import { TokensPerDayChart } from './TokensPerDayChart'
+const TokensPerDayChart = lazy(() =>
+  import('./TokensPerDayChart').then((module) => ({ default: module.TokensPerDayChart }))
+)
 
 // 기간 탭 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 tr() 해석.
 const RANGES = [
@@ -162,7 +164,17 @@ export function UsageTab(): React.JSX.Element {
           </div>
 
           <SettingsGroup title={tr('settings.usage.dailyTokens')}>
-            <TokensPerDayChart days={series} ariaLabel={tr('settings.usage.chartAria')} />
+            <Suspense
+              fallback={
+                <div
+                  className="h-[180px] w-full"
+                  aria-busy="true"
+                  aria-label={tr('settings.usage.chartAria')}
+                />
+              }
+            >
+              <TokensPerDayChart days={series} ariaLabel={tr('settings.usage.chartAria')} />
+            </Suspense>
             {weekly && <p className="text-[11.5px] text-ink3">{tr('settings.usage.weeklyNote')}</p>}
           </SettingsGroup>
 

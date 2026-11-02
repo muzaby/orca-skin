@@ -27,7 +27,13 @@ const fixture = vi.hoisted(() => ({
   }
 }))
 vi.mock('electron', () => ({
-  app: { getVersion: () => 'test', getPath: () => fixture.root, getAppPath: () => fixture.root },
+  app: {
+    on: vi.fn(),
+    removeListener: vi.fn(),
+    getVersion: () => 'test',
+    getPath: () => fixture.root,
+    getAppPath: () => fixture.root
+  },
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: { handle: vi.fn() },
   net: {},
@@ -107,14 +113,13 @@ vi.mock('./deployment/harness-runtime', () => ({
   RUNTIME_MODEL_CONTRIBUTIONS: [],
   createRuntimeConfigAugmenters: () => ({})
 }))
-vi.mock('./harnesses/registry', async (original) => ({
-  ...(await original<typeof import('./harnesses/registry')>()),
-  createAdapterRegistry: () => ({
-    get: () => fixture.adapter,
-    refreshInstallState: async () => {},
-    close: () => fixture.adapter?.close?.()
-  })
-}))
+vi.mock('./harnesses/registry', async (original) => {
+  const { AdapterRegistry } = await import('../adapters/common/registry')
+  return {
+    ...(await original<typeof import('./harnesses/registry')>()),
+    createAdapterRegistry: () => new AdapterRegistry(fixture.adapter ? [fixture.adapter] : [], null)
+  }
+})
 
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { BootReportRecorder } from './boot-report'
@@ -400,4 +405,99 @@ it('does not warm a different last backend and closes a pending warmup from Boot
   fixture.change()
   models.resolve()
   expect(requests.some((path) => path.startsWith('/session'))).toBe(false)
+})
+
+it('overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener', async () => {
+  const bootstrap = boot()
+  const owned = bootstrap as unknown as {
+    registry: import('../adapters/common/registry').AdapterRegistry
+    bootReport: BootReportRecorder
+  }
+  const gate = Promise.withResolvers<void>()
+  const refresh = vi.spyOn(owned.registry, 'refreshInstallState').mockReturnValue(gate.promise)
+  const finish = vi.spyOn(owned.bootReport, 'finish')
+  let complete = false
+  const started = bootstrap.start().then(() => {
+    complete = true
+  })
+  await vi.waitFor(() =>
+    expect(owned.bootReport.getReport().steps.some((step) => step.id === 'db-init')).toBe(true)
+  )
+  expect(refresh).toHaveBeenCalledOnce()
+  await vi.waitFor(() =>
+    expect(vi.mocked(owned.bootReport.step).mock.calls.some(([id]) => id === 'skill-scan')).toBe(
+      true
+    )
+  )
+  await new Promise<void>((resolve) => setImmediate(resolve))
+  expect(finish).not.toHaveBeenCalled()
+  expect(complete).toBe(false)
+  gate.resolve()
+  await started
+  expect(complete).toBe(true)
+  expect(
+    owned.bootReport.getReport().steps.filter((step) => step.id === 'adapter-registry')
+  ).toHaveLength(1)
+  const { app } = await import('electron')
+  const focus = vi.spyOn(owned.registry, 'focusRecheck')
+  const registration = (
+    vi.mocked(app.on).mock.calls as unknown as Array<[string, () => void]>
+  ).findLast(([event]) => event === 'browser-window-focus')!
+  const callback = registration[1]
+  callback()
+  expect(focus).toHaveBeenCalledOnce()
+  bootstrap.shutdown()
+  expect(app.removeListener).toHaveBeenCalledWith('browser-window-focus', callback)
+})
+it('finishes boot before the SDK prefetch settles', async () => {
+  const sdk = await import('../adapters/claude/sdk')
+  const pending = Promise.withResolvers<Awaited<ReturnType<typeof sdk.loadClaudeSdk>>>()
+  const prefetch = vi.spyOn(sdk, 'loadClaudeSdk').mockReturnValue(pending.promise)
+  const bootstrap = boot()
+  await bootstrap.start()
+  expect(prefetch).toHaveBeenCalledOnce()
+  const report = (bootstrap as unknown as { bootReport: BootReportRecorder }).bootReport.getReport()
+  expect(report.status).toBe('ok')
+})
+
+it('rethrows a failed concurrent installation check at the join and keeps the critical boot report', async () => {
+  const bootstrap = boot()
+  const owned = bootstrap as unknown as {
+    registry: import('../adapters/common/registry').AdapterRegistry
+    bootReport: BootReportRecorder
+  }
+  const error = new Error('fixture installation failed')
+  vi.spyOn(owned.registry, 'refreshInstallState').mockRejectedValue(error)
+  await expect(bootstrap.start()).rejects.toBe(error)
+  expect(
+    owned.bootReport.getReport().steps.find((step) => step.id === 'adapter-registry')
+  ).toMatchObject({ status: 'failed', critical: true })
+})
+
+it('broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription', async () => {
+  const installed = vi
+    .spyOn(fixture.adapter!, 'isInstalled')
+    .mockResolvedValue({ installed: false, usable: false, reason: 'missing' })
+  const sends = await import('../infra/ipc/send')
+  const broadcast = vi.spyOn(sends, 'broadcastHarnessAvailability')
+  const bootstrap = boot()
+  const owned = bootstrap as unknown as {
+    registry: import('../adapters/common/registry').AdapterRegistry
+    updateOpenCodeGlobalWatch(ctx: RouterContext, initial: boolean): void
+  }
+  const watch = vi.spyOn(owned, 'updateOpenCodeGlobalWatch').mockImplementation(() => {})
+  await bootstrap.start()
+  expect(resolveTarget).not.toHaveBeenCalled()
+  installed.mockResolvedValue({ installed: true, usable: true, version: '1.19' })
+  await owned.registry.refreshInstallState('opencode')
+  expect(broadcast).toHaveBeenCalledExactlyOnceWith({
+    id: 'opencode',
+    installed: true,
+    usable: true,
+    version: '1.19'
+  })
+  expect(watch).toHaveBeenCalledOnce()
+  await vi.waitFor(() => expect(resolveTarget).toHaveBeenCalledOnce())
+  await owned.registry.refreshInstallState('opencode')
+  expect(broadcast).toHaveBeenCalledOnce()
 })

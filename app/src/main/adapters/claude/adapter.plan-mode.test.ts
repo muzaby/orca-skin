@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -349,3 +350,6 @@ describe('0249 plan mode callback and handler paths', () => {
     expect(f.events.filter((e) => e.type === 'session.updated')).toHaveLength(1)
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

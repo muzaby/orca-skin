@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // 0249 VP-11′ — production 어댑터의 hooks와 canUseTool을 포획해 같은 셀의 배선을 확인한다.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -251,3 +252,6 @@ describe('0249 VP-11′·VP-10 — 어댑터 파일 출처 배선과 수명', ()
     expect(planOf(first.actions)).toBe('# 첫 세션')
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

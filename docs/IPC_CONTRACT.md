@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `extensions`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 도메인: `harness`, `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `extensions`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -86,7 +86,9 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 
 | 채널                | 방향         | 페이로드 | 응답                                                                                                                                               | 설명                                                                                                                                                                |
 | ------------------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `orca:backend:list` | R→M (invoke) | —        | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string; capabilities?: ProviderDescriptor }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드 + 능력 서술자(`capabilities`, computed-on-the-fly — provider-runtime.md §4/§15). 신규 채널 아님(기존 페이로드 비파괴 확장). |
+| `orca:backend:list` | R→M (invoke) | —        | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string; usable: boolean; unavailableReason?: HarnessUnavailableReason; capabilities?: ProviderDescriptor }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드 + 능력 서술자(`capabilities`, computed-on-the-fly — provider-runtime.md §4/§15). 신규 채널 아님(기존 페이로드 비파괴 확장). |
+| `orca:harness:availability` | M→R (push) | — | `HarnessAvailability` = `{ id; installed; version?; usable; unavailableReason? }` | registry 판정이 바뀔 때만 방송. 사유는 `missing`·`unsupported`·`failed`이며 사용 가능하면 사유를 생략한다. |
+| `orca:harness:recheck` | R→M (invoke) | `{ backend: Backend }` | `HarnessAvailability` | 선택한 하네스를 재확인한다. 진행 중 확인은 합류하며 결과 변경은 availability push로 전달한다. |
 
 > `orca:backend:select`는 노출하지 않는다. 하네스 선택은 모델 선택 후 `chat:send.backend`로 전달하며, 기존 세션은 DB backend가 정본이다.
 
@@ -94,7 +96,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 
 | 채널              | 방향         | 페이로드 | 응답                 | 설명                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------------- | ------------ | -------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `orca:agent:list` | R→M (invoke) | —        | `AgentEnvironment[]` | settings provider와 인증된 runtime model catalog를 합쳐 반환한다. `AgentEnvironment.source='settings'\|'runtime'`, runtime 항목은 `readOnly:true`다. `models`는 `{ alias, model, isCustom, oneMillionContext, isDefault }`이며 custom은 `alias='custom'`, `model`은 원문 self다. secret 값 필드는 없다. |
+| `orca:agent:list` | R→M (invoke) | —        | `AgentEnvironment[]` | settings provider와 인증된 runtime model catalog를 합쳐 반환한다. 사용 불가 하네스는 `supported:false`와 `unavailable?: HarnessUnavailableReason`을 가지며 native catalog 조회를 시작하지 않는다. `AgentEnvironment.source='settings'\|'runtime'`, runtime 항목은 `readOnly:true`다. `models`는 `{ alias, model, isCustom, oneMillionContext, isDefault }`이며 custom은 `alias='custom'`, `model`은 원문 self다. secret 값 필드는 없다. |
 
 ### 2.2-c Engine (handoff 0021)
 

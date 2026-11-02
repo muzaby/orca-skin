@@ -1,3 +1,4 @@
+import { useHarnessAvailabilityStore } from '../../../../shared/stores/harnessAvailabilityStore'
 import { useEffect, useRef, useState, type ComponentType } from 'react'
 import {
   HARNESS_CAPABILITIES,
@@ -27,6 +28,7 @@ export function AgentEnvironmentView({
   Form: ComponentType<EngineFormModalProps>
 }): React.JSX.Element {
   const { tr } = useI18n()
+  const availability = useHarnessAvailabilityStore((state) => state.byId)
   const { agents, state, refresh, add, update, remove, read } = useEngines()
   const [modal, setModal] = useState<ModalState>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -96,7 +98,14 @@ export function AgentEnvironmentView({
               key={engine}
               type="button"
               role="menuitem"
-              className="flex w-full cursor-pointer items-center gap-g5 rounded-r4 border-0 bg-transparent px-p5 py-p3 text-left text-footnote text-ink hover:bg-fill-uncontained-hover"
+              disabled={!availability[engine].usable}
+              aria-disabled={!availability[engine].usable}
+              title={
+                !availability[engine].usable
+                  ? tr(`harnessUnavailable.${availability[engine].unavailableReason ?? 'failed'}`)
+                  : undefined
+              }
+              className="disabled:cursor-default disabled:opacity-40 flex w-full cursor-pointer items-center gap-g5 rounded-r4 border-0 bg-transparent px-p5 py-p3 text-left text-footnote text-ink hover:bg-fill-uncontained-hover"
               onClick={() => {
                 setMenuOpen(false)
                 setModal({ mode: 'add', engine })

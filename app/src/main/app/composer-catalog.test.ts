@@ -132,7 +132,10 @@ function fixture(): {
     })
   )
   const ctx = {
-    registry: { get: () => adapter },
+    registry: {
+      availability: () => ({ id: 'opencode', installed: true, usable: true }),
+      get: () => adapter
+    },
     harnessSettings: { list: () => entries },
     harnessRuntime: { resolve },
     runtimeModelCatalog: { merge: (value: unknown) => value, isReadOnly: () => false },

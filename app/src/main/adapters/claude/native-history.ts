@@ -213,17 +213,18 @@ export async function readClaudeNativeHistory(
       Number.isSafeInteger(offset) &&
       offset > 0 &&
       offset < snapshot.bytes.length &&
-      snapshot.prefixRevision === cursor.revision &&
-      Array.isArray(previous.snapshot.raw)
+      snapshot.prefixRevision === cursor.revision
+    const raw = append ? (previous?.raw?.() ?? previous?.snapshot.raw) : undefined
     // Prefix bytes are verified, but already parsed records are reused only for a proven append.
-    const entries = append
-      ? [
-          ...(previous.snapshot.raw as ClaudeHistoryEntry[]),
-          ...parseEntries(
-            new TextDecoder('utf-8', { fatal: true }).decode(snapshot.bytes.subarray(offset))
-          )
-        ]
-      : parseEntries(new TextDecoder('utf-8', { fatal: true }).decode(snapshot.bytes))
+    const entries =
+      append && Array.isArray(raw)
+        ? [
+            ...(raw as ClaudeHistoryEntry[]),
+            ...parseEntries(
+              new TextDecoder('utf-8', { fatal: true }).decode(snapshot.bytes.subarray(offset))
+            )
+          ]
+        : parseEntries(new TextDecoder('utf-8', { fatal: true }).decode(snapshot.bytes))
     const identities = entries.filter((entry) => typeof entry.sessionId === 'string')
     if (identities.some((entry) => entry.sessionId !== req.sessionId) || identities.length === 0)
       return {

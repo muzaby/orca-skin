@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import installedSdk from '../../../../node_modules/@anthropic-ai/claude-agent-sdk/package.json'
 
@@ -280,3 +281,6 @@ describe('0231 Claude provider lane', () => {
     expect(closed).toHaveBeenCalledTimes(1)
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

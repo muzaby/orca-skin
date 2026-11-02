@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
@@ -50,7 +51,9 @@ describe('adaptRuntimeTools', () => {
   beforeEach(() => createSdkMcpServer.mockClear())
 
   it('서버 식별자를 하나로 사용한다', () => {
-    expect(adaptRuntimeTools(snapshot)).toEqual({ mcpServers: { records: { sdkName: 'records' } } })
+    expect(adaptRuntimeTools(createSdkMcpServer as never, snapshot)).toEqual({
+      mcpServers: { records: { sdkName: 'records' } }
+    })
     expect(createSdkMcpServer).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'records',
@@ -68,8 +71,13 @@ describe('adaptRuntimeTools', () => {
   })
 
   it('빈 스냅샷은 빈 옵션을 반환한다', () => {
-    expect(adaptRuntimeTools()).toEqual({})
-    expect(adaptRuntimeTools({ revision: 0, servers: new Map() })).toEqual({})
+    expect(adaptRuntimeTools(createSdkMcpServer as never)).toEqual({})
+    expect(
+      adaptRuntimeTools(createSdkMcpServer as never, { revision: 0, servers: new Map() })
+    ).toEqual({})
     expect(createSdkMcpServer).not.toHaveBeenCalled()
   })
 })
+
+// Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
+await loadClaudeSdk()

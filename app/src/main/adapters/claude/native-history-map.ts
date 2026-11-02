@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import type { SDKMessage, SessionMessage, SessionStoreEntry } from '@anthropic-ai/claude-agent-sdk'
 import type { AppMessagePart, NormalizedEvent } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
@@ -13,7 +14,7 @@ export async function selectClaudeHistory(
   cwd: string,
   entries: ClaudeHistoryEntry[]
 ): Promise<ClaudeHistoryEntry[]> {
-  const { getSessionMessages } = await import('@anthropic-ai/claude-agent-sdk')
+  const { getSessionMessages } = await loadClaudeSdk()
   const byId = new Map<string, ClaudeHistoryEntry>()
   for (const entry of entries) {
     if (typeof entry.uuid === 'string') byId.set(entry.uuid, entry)

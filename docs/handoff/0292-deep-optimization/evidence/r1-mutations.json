@@ -1,0 +1,818 @@
+[
+  {
+    "id": "VP02-sequential",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 9,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 9,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP02-no-join",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 9,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 9,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP03-no-seed-fallback",
+    "source": "app/src/renderer/src/features/chat/store/chatStore.ts",
+    "red": {
+      "exit": 1,
+      "tests": 2,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "seeds Claude for an unavailable lastBackend and keeps ready OpenCode selections"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 2,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP03-swapped-harness",
+    "source": "app/src/renderer/src/features/chat/components/ChatTile.tsx",
+    "red": {
+      "exit": 1,
+      "tests": 4,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 4,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP03-add-enabled",
+    "source": "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+    "red": {
+      "exit": 1,
+      "tests": 2,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "disables OpenCode additions with an accessible reason and keeps Claude additions usable"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 2,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP04-focus-without-identity",
+    "source": "app/src/main/adapters/common/registry.ts",
+    "red": {
+      "exit": 1,
+      "tests": 6,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "registry availability SSOT focus probes only a changed missing/failed identity, never a ready/unsupported installation"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 6,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP04-duplicate-broadcast",
+    "source": "app/src/main/adapters/common/registry.ts",
+    "red": {
+      "exit": 1,
+      "tests": 6,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "registry availability SSOT joins concurrent refresh/settled consumers, retains previous state and emits only changes"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 6,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP05-host-direct-probe",
+    "source": "app/src/main/app/harness-host.ts",
+    "red": {
+      "exit": 1,
+      "tests": 3,
+      "failed": 2,
+      "passed": 1,
+      "assertions": [
+        "createHostHarnessPort (0291 AR-02) installed reads the settled registry state and missing harnesses are not installed",
+        "blocks model probes for an installed unsupported CLI without changing installed semantics"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 3,
+      "failed": 0,
+      "passed": 3,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP05-warmup-no-gate",
+    "source": "app/src/main/app/harnesses/opencode/warmup.ts",
+    "red": {
+      "exit": 1,
+      "tests": 3,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "does not consume its one warmup attempt while unavailable and prepares after installation"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 3,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP05-settings-no-gate",
+    "source": "app/src/main/app/handlers/misc.ts",
+    "red": {
+      "exit": 1,
+      "tests": 4,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "gates settings and runtime OpenCode rows and preserves Claude without starting unavailable catalogs"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 4,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP05-runtime-no-gate",
+    "source": "app/src/main/features/harnesses/common/runtime-catalog.ts",
+    "red": {
+      "exit": 1,
+      "tests": 25,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "updates cached runtime row availability in both directions without refetching models"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 25,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP05-preparation-no-gate",
+    "source": "app/src/main/app/composer-catalog.ts",
+    "red": {
+      "exit": 1,
+      "tests": 3,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "rejects unavailable OpenCode preparation before resolving or acquiring a native server"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 3,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP05-watch-no-gate",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 24,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "starts OpenCode global observation only when usable and sends one increasing revision for each later activation"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 24,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP06-raw-rejoined",
+    "source": "app/src/main/features/history/native-sync.ts",
+    "red": {
+      "exit": 1,
+      "tests": 14,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "writes lean display payload while preserving raw separately and reads raw only on demand"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 14,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP06-load-before-split",
+    "source": "app/src/main/app/handlers/session.ts",
+    "red": {
+      "exit": 1,
+      "tests": 12,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "splits legacy raw before the handler loads messages and leaves the next refresh usable"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 12,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP08-no-head-memo",
+    "source": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx",
+    "red": {
+      "exit": 1,
+      "tests": 1,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "projects the committed head once and the live tail six times without computing copy text"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 1,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP08-eager-copy",
+    "source": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+    "red": {
+      "exit": 1,
+      "tests": 1,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "projects the committed head once and the live tail six times without computing copy text"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 1,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP09-project-interval",
+    "source": "app/src/main/app/project-resource-sync.ts",
+    "red": {
+      "exit": 1,
+      "tests": 19,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "has no idle timer or target scans, and activity/lease signals each tick once"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 19,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP09-mcp-interval",
+    "source": "app/src/main/app/harnesses/opencode/mcp-reconcile.ts",
+    "red": {
+      "exit": 1,
+      "tests": 1,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "has no timer until dirty and stops retrying once idle peers are reconciled"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 1,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP09-log-interval",
+    "source": "app/src/main/infra/log/file-transport.ts",
+    "red": {
+      "exit": 1,
+      "tests": 8,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "arms flush only for buffered writes and clears the timer on explicit flush and close"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 8,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP09-no-project-activity-signal",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 24,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "forwards each activity and lease change to project sync and the OpenCode admission signal"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 24,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP09-no-adapter-activity-signal",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 24,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "forwards each activity and lease change to project sync and the OpenCode admission signal"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 24,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP09-no-lease-signal",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 24,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "forwards each activity and lease change to project sync and the OpenCode admission signal"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 24,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP11-project-json",
+    "source": "app/src/main/adapters/claude/project-settings.ts",
+    "red": {
+      "exit": 1,
+      "tests": 2,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "keeps project revisions independent of nested object key order while detecting changed values"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 2,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP11-background-json",
+    "source": "app/src/main/adapters/claude/background.ts",
+    "red": {
+      "exit": 1,
+      "tests": 2,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "deduplicates a provider message whose only change is nested object insertion order"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 2,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "VP07-no-minify",
+    "source": "app/electron.vite.config.ts",
+    "red": {
+      "entryChunk": "index.js",
+      "entryBytes": 2701316,
+      "entryLines": 69240,
+      "entryMinified": false,
+      "maxLineLength": 2629,
+      "sourceMap": true,
+      "familyBytes": {
+        "recharts": 0,
+        "shiki": 0
+      },
+      "assetCount": 21,
+      "rendererAssetBytes": 6534804,
+      "sdkRequire": 0
+    },
+    "assertion": "entryMinified=false",
+    "caught": true,
+    "bytesRestored": true
+  },
+  {
+    "id": "VP07-static-chart",
+    "source": "app/src/renderer/src/features/settings/components/UsageTab.tsx",
+    "red": {
+      "entryChunk": "index.js",
+      "entryBytes": 1653306,
+      "entryLines": 161,
+      "entryMinified": true,
+      "maxLineLength": 173756,
+      "sourceMap": true,
+      "familyBytes": {
+        "recharts": 363005,
+        "shiki": 0
+      },
+      "assetCount": 20,
+      "rendererAssetBytes": 4455397,
+      "sdkRequire": 0
+    },
+    "assertion": "recharts>0",
+    "caught": true,
+    "bytesRestored": true
+  },
+  {
+    "id": "VP07-static-shiki",
+    "source": "app/src/renderer/src/shared/ui/markdown/syntax.ts",
+    "red": {
+      "entryChunk": "index.js",
+      "entryBytes": 1458567,
+      "entryLines": 254,
+      "entryMinified": true,
+      "maxLineLength": 173757,
+      "sourceMap": true,
+      "familyBytes": {
+        "recharts": 0,
+        "shiki": 166807
+      },
+      "assetCount": 278,
+      "rendererAssetBytes": 12464319,
+      "sdkRequire": 0
+    },
+    "assertion": "shiki>0",
+    "caught": true,
+    "bytesRestored": true
+  },
+  {
+    "id": "VP10-static-sdk",
+    "source": "app/src/main/adapters/claude/adapter.ts",
+    "red": {
+      "entryChunk": "index.js",
+      "entryBytes": 1283491,
+      "entryLines": 107,
+      "entryMinified": true,
+      "maxLineLength": 173756,
+      "sourceMap": true,
+      "familyBytes": {
+        "recharts": 0,
+        "shiki": 0
+      },
+      "assetCount": 21,
+      "rendererAssetBytes": 4451233,
+      "sdkRequire": 1
+    },
+    "assertion": "sdkRequire>0",
+    "caught": true,
+    "bytesRestored": true
+  },
+  {
+    "id": "N01-focus-wiring",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 9,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 9,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N02-availability-broadcast",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 9,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 9,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N03-warmup-resume",
+    "source": "app/src/main/app/bootstrap.ts",
+    "red": {
+      "exit": 1,
+      "tests": 9,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 9,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N04-default-agent-subscription",
+    "source": "app/src/renderer/src/shared/stores/agentStore.ts",
+    "red": {
+      "exit": 1,
+      "tests": 5,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "wires the production agent store to the harness API and refreshes changed availability once"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 5,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N05-sdk-memo",
+    "source": "app/src/main/adapters/claude/sdk.ts",
+    "red": {
+      "exit": 1,
+      "tests": 2,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "shares one cold import across consumers and first-use controls"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 2,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N06-eager-raw",
+    "source": "app/src/main/adapters/claude/native-history.ts",
+    "red": {
+      "exit": 1,
+      "tests": 17,
+      "failed": 1,
+      "passed": 0,
+      "assertions": [
+        "reads separated raw only for a proven append and keeps the full-parse result unchanged"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 17,
+      "failed": 0,
+      "passed": 1,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N07-backend-before-seed",
+    "source": "app/src/renderer/src/app/boot/steps.ts",
+    "red": {
+      "exit": 1,
+      "tests": 4,
+      "failed": 1,
+      "passed": 3,
+      "assertions": [
+        "initializes backend availability before seeding the remembered OpenCode draft (undefined), without writing settings"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 4,
+      "failed": 0,
+      "passed": 4,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  },
+  {
+    "id": "N08-claude-gated-by-cli",
+    "source": "app/src/main/adapters/common/registry.ts",
+    "red": {
+      "exit": 1,
+      "tests": 8,
+      "failed": 2,
+      "passed": 0,
+      "assertions": [
+        "registry availability SSOT keeps Claude usable independently of its CLI installed flag (false)",
+        "registry availability SSOT keeps Claude usable independently of its CLI installed flag (true)"
+      ]
+    },
+    "restored": {
+      "exit": 0,
+      "tests": 8,
+      "failed": 0,
+      "passed": 2,
+      "assertions": []
+    },
+    "bytesRestored": true,
+    "caught": true
+  }
+]

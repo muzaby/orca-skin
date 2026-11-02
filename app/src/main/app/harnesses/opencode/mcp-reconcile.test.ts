@@ -125,7 +125,10 @@ beforeEach(async () => {
       },
       implementations: []
     },
-    registry: { add: () => {}, remove: () => {} }
+    registry: {
+      add: () => {},
+      remove: () => {}
+    }
   })
   managed = createManagedMcp(mcp, [plugin])
   const control = extensionControl({
@@ -159,7 +162,10 @@ beforeEach(async () => {
     changed: async () => {}
   })
   const ctx = {
-    registry: { get: () => f.adapter },
+    registry: {
+      availability: () => ({ id: 'opencode', installed: true, usable: true }),
+      get: () => f.adapter
+    },
     db: { getSessionById: () => undefined },
     getCwd: () => cwd,
     harnessSettings: {

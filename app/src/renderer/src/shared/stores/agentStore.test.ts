@@ -5,10 +5,37 @@ vi.mock('zustand', async () => {
   const { createStore } = await import('zustand/vanilla')
   return { create: createStore }
 })
-vi.mock('../api/ipc', () => ({ agentApi: { list: vi.fn() }, providerApi: { onState: vi.fn() } }))
+vi.mock('../api/ipc', () => ({
+  agentApi: { list: vi.fn() },
+  providerApi: { onState: vi.fn() },
+  harnessApi: { onAvailability: vi.fn() }
+}))
 vi.mock('../errors', () => ({ reportError: vi.fn() }))
 
 const { createAgentStore } = await import('./agentStore')
+
+it('wires the production agent store to the harness API and refreshes changed availability once', async () => {
+  const { agentApi, harnessApi } = await import('../api/ipc')
+  const { useAgentStore } = await import('./agentStore')
+  let push!: () => void
+  const stop = vi.fn()
+  vi.mocked(agentApi.list).mockResolvedValue([env('initial')])
+  vi.mocked(harnessApi.onAvailability).mockImplementation((listener) => {
+    push = () =>
+      listener({ id: 'opencode', installed: false, usable: false, unavailableReason: 'failed' })
+    return stop
+  })
+  await useAgentStore.getState().ensureLoaded()
+  expect(harnessApi.onAvailability).toHaveBeenCalledOnce()
+  vi.mocked(agentApi.list)
+    .mockClear()
+    .mockResolvedValue([env('after-change')])
+  push()
+  await vi.waitFor(() => expect(useAgentStore.getState().agents[0]?.key).toBe('after-change'))
+  expect(agentApi.list).toHaveBeenCalledOnce()
+  useAgentStore.getState().dispose()
+  expect(stop).toHaveBeenCalledOnce()
+})
 
 function env(key: string): AgentEnvironment {
   return { key, adapter: 'opencode', models: [], supported: true }
@@ -61,4 +88,27 @@ describe('agentStore (0291 D-021)', () => {
     expect(subscribe).toHaveBeenCalledTimes(1)
     expect(unsubscribe).not.toHaveBeenCalled()
   })
+})
+
+it('refreshes once per availability event and unsubscribes on disposal', async () => {
+  const list = vi.fn(async () => []),
+    stop = vi.fn()
+  let push!: () => void
+  const store = createAgentStore({
+    list,
+    subscribe: () => undefined,
+    subscribeAvailability: (handler) => {
+      push = handler
+      return stop
+    }
+  })
+  await store.getState().ensureLoaded()
+  list.mockClear()
+  push()
+  await Promise.resolve()
+  expect(list).toHaveBeenCalledOnce()
+  store.getState().dispose()
+  expect(stop).toHaveBeenCalledOnce()
+  push()
+  expect(list).toHaveBeenCalledOnce()
 })

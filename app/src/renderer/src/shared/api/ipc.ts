@@ -153,6 +153,14 @@ export const backendApi = {
   list: (): Promise<BackendListResult> => window.orca.backend.list()
 }
 
+export const harnessApi = {
+  recheck: (backend: import('../../../../shared/ipc').Backend) =>
+    window.orca.harness.recheck(backend),
+  onAvailability: (
+    handler: (state: import('../../../../shared/ipc').HarnessAvailability) => void
+  ) => window.orca.harness.onAvailability(handler)
+}
+
 export const agentApi = {
   list: (): Promise<AgentEnvironment[]> => window.orca.agent.list()
 }

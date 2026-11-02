@@ -57,6 +57,10 @@ export function createRuntimeModelCatalog(input: {
   runtime: HarnessRuntimeConfigService
   snapshotOf: (authId: AuthId) => AuthSnapshot
   onChange?: () => void
+  availability?: (harnessId: string) => {
+    usable: boolean
+    unavailableReason?: import('../../../../shared/ipc').HarnessUnavailableReason
+  }
   parseModels: (config: HarnessRuntimeConfig) => ParsedModel[]
 }): RuntimeModelCatalog {
   // 배포 선언은 catalog 수명 동안 불변이다. 소유권은 로딩된 모델 cache와 별개로 유지한다.
@@ -122,7 +126,11 @@ export function createRuntimeModelCatalog(input: {
                 ? undefined
                 : toAgentEnvironment(
                     { ...contribution, models },
-                    { supported: true, source: 'runtime', readOnly: true }
+                    {
+                      supported: input.availability?.(contribution.harnessId).usable ?? true,
+                      source: 'runtime',
+                      readOnly: true
+                    }
                   )
             const key = canonicalAgentKey(contribution.key)
             const previous = entries.get(key)
@@ -147,7 +155,18 @@ export function createRuntimeModelCatalog(input: {
   }
 
   const list = (): AgentEnvironment[] =>
-    [...entries.values()].sort((a, b) => a.key.localeCompare(b.key))
+    [...entries.values()]
+      .map((entry) => {
+        const state = input.availability?.(entry.adapter)
+        return state
+          ? {
+              ...entry,
+              supported: state.usable,
+              ...(!state.usable ? { unavailable: state.unavailableReason } : {})
+            }
+          : entry
+      })
+      .sort((a, b) => a.key.localeCompare(b.key))
   const isReadOnly = (key: string): boolean => ownedKeys.has(canonicalAgentKey(key))
 
   return {

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // EP-08 4번째 좌표 — `TurnRequest.cwd` 가 SDK 옵션 `cwd` 로 그대로 간다.
 //
 // 앞의 세 좌표(준비 결과 → TurnContext → TurnRequest)는 `app/chat-turn` 에서 잠긴다.
@@ -54,3 +55,6 @@ describe('ClaudeAdapter — TurnRequest.cwd 가 SDK 옵션 cwd 다 (AC5)', () =>
     expect(optionsFor('/source/repo').cwd).toBe('/source/repo')
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

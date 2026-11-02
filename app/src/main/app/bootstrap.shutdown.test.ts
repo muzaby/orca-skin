@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { stripCommentsAndStrings } from '../infra/source-scan'
 
 vi.mock('electron', () => ({
-  app: { getVersion: () => 'test' },
+  app: { on: vi.fn(), removeListener: vi.fn(), getVersion: () => 'test' },
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: {},
   net: {},

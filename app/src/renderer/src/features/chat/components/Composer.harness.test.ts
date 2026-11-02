@@ -117,4 +117,32 @@ describe('harness composer surface', () => {
     expect(load(locked)('[role="menuitemradio"]')).toHaveLength(1)
     expect(locked).not.toContain('claude/model')
   })
+  it('omits unavailable OpenCode models while preserving Claude menu items', () => {
+    const agents: AgentEnvironment[] = ['opencode', 'claude'].map((adapter) => ({
+      key: `${adapter}-local`,
+      adapter,
+      supported: adapter === 'claude',
+      ...(adapter === 'opencode' ? { unavailable: 'missing' as const } : {}),
+      models: [
+        {
+          alias: adapter,
+          model: `${adapter}/model`,
+          isCustom: true,
+          isDefault: true,
+          oneMillionContext: false
+        }
+      ]
+    }))
+    const html = renderToStaticMarkup(
+      createElement(ModelMenu, {
+        agents,
+        sessionBackend: null,
+        selection: null,
+        onPick: () => {}
+      })
+    )
+    expect(load(html)('[role="menuitemradio"]')).toHaveLength(1)
+    expect(html).toContain('claude/model')
+    expect(html).not.toContain('opencode/model')
+  })
 })

@@ -173,7 +173,10 @@ function boot(host: HostHarnessPort): BootedApp {
   }
   registerMiscHandlers({
     registry: {
-      list: () => [{ id: 'claude' }, { id: 'opencode' }],
+      list: () => [
+        { id: 'claude', installed: true, usable: true },
+        { id: 'opencode', installed: true, usable: true }
+      ],
       get: (id: string) => (id === 'opencode' ? adapter : null)
     },
     harnessSettings: settings,

@@ -7,7 +7,7 @@ import type {
   BackgroundTaskPatch,
   ProviderMessageEvent
 } from '../../../shared/background-task'
-import { asString, ifPresent, isRecord } from '../../../shared/obj'
+import { asString, ifPresent, isRecord, canonicalJson } from '../../../shared/obj'
 
 type RecordValue = Record<string, unknown>
 const finite = (value: unknown): number | undefined =>
@@ -16,16 +16,6 @@ const bool = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined
 const present = <T extends object>(value: T): T =>
   Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T
-
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`
-  if (isRecord(value))
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${stable(value[key])}`)
-      .join(',')}}`
-  return JSON.stringify(value) ?? 'null'
-}
 
 /** One query/process owns the correlation and replay-deduplication boundary. */
 export class ClaudeBackgroundMapper {
@@ -46,7 +36,7 @@ export class ClaudeBackgroundMapper {
     const msg = isRecord(raw) ? raw : {}
     const uuid = asString(msg.uuid)
     if (uuid) {
-      const key = `${uuid}:${createHash('sha256').update(stable(raw)).digest('hex')}`
+      const key = `${uuid}:${createHash('sha256').update(canonicalJson(raw)).digest('hex')}`
       if (this.seen.has(key)) return undefined
       this.seen.add(key)
     }

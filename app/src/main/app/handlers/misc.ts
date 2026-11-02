@@ -9,6 +9,7 @@ import {
   DebugMockPatchSchema,
   NotifyShowSchema,
   StartInstallSchema,
+  HarnessRecheckSchema,
   type AgentEnvironment,
   type BackendListResult,
   type DebugMockState
@@ -38,10 +39,16 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
     return { backends, ...(active ? { active } : {}) }
   })
 
+  handle(CHANNELS.harnessRecheck, HarnessRecheckSchema, 'reject', async ({ backend }) => {
+    await ctx.registry.refreshInstallState(backend)
+    return ctx.registry.availability(backend)
+  })
+
   // 원천 = sources/settings/<adapter>/ 트리 (handoff 0014 — 구 orca.json agents[] 대체).
   // 페이로드 shape(AgentEnvironment)는 0010 과 동일 유지 — renderer ModelMenu 변경 0.
   handlePlain(CHANNELS.agentList, async (): Promise<AgentEnvironment[]> => {
-    const supported = ctx.registry.list().map((adapter) => adapter.id)
+    const availability = ctx.registry.list()
+    const supported = availability.filter((adapter) => adapter.usable).map((adapter) => adapter.id)
     const entries = ctx.harnessSettings
       .adapters()
       .flatMap((adapter) => ctx.harnessSettings.list(adapter))
@@ -49,6 +56,10 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
     const merged = ctx.runtimeModelCatalog?.merge(settings) ?? settings
     return Promise.all(
       merged.map(async (entry) => {
+        const state = availability.find((item) => item.id === entry.adapter)
+        if (state && !state.usable)
+          return { ...entry, supported: false, unavailable: state.unavailableReason }
+
         const adapter = ctx.registry.get(entry.adapter as import('../../../shared/ipc').Backend)
         if (!adapter?.catalog) return entry
         try {
@@ -95,7 +106,7 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
     for await (const st of adapter.install()) {
       sendInstallStatus(event.sender, st)
     }
-    await ctx.registry.refreshInstallState()
+    await ctx.registry.refreshInstallState(req.backend)
   })
 
   // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,

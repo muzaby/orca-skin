@@ -1,3 +1,17 @@
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { createStore } = await import('zustand/vanilla')
+  const bind = (init: import('zustand').StateCreator<unknown>): unknown => {
+    const store = createStore(init)
+    return Object.assign((select: (state: unknown) => unknown) => select(store.getState()), store)
+  }
+  return {
+    ...actual,
+    create: (init?: import('zustand').StateCreator<unknown>) => (init ? bind(init) : bind)
+  }
+})
+import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
+import { beforeEach } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
@@ -7,14 +21,30 @@ import { useScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
 
 const fixture = vi.hoisted(() => ({
   backend: 'claude' as 'claude' | 'opencode',
-  agentKind: 'code' as 'code' | 'work'
+  agentKind: 'code' as 'code' | 'work',
+  inflight: false
+}))
+vi.mock('react', async (original) => ({
+  ...(await original<typeof import('react')>()),
+  default: {
+    ...(await original<typeof import('react')>()),
+    useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot()
+  },
+  useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot()
 }))
 vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (state: typeof initialChatState) => unknown) =>
     select({ ...initialChatState, backend: fixture.backend, agentKind: fixture.agentKind }),
   useChatStore: (select: (state: unknown) => unknown) =>
     select({ activeKey: 's', draftRestore: null }),
-  useChatResponding: () => false,
+  useChatResponding: () => fixture.inflight,
+  useChatActivity: () => ({
+    foreground: 'idle',
+    backgroundTaskCount: 0,
+    queuedCount: 0,
+    residualCount: 0,
+    deliveryPendingCount: 0
+  }),
   useLiveText: () => '',
   useLiveReasoning: () => '',
   usePendingSteer: () => [],
@@ -96,4 +126,35 @@ describe('harness transcript background', () => {
       expect(useScrollAnchor).toHaveBeenCalledTimes(backend === 'claude' ? 1 : 0)
     }
   )
+})
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)
+
+it('shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion', () => {
+  fixture.backend = 'opencode'
+  fixture.agentKind = 'code'
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: {
+      ...byId,
+      opencode: { id: 'opencode', installed: false, usable: false, unavailableReason: 'missing' }
+    }
+  }))
+  const render = (): ReturnType<typeof load> =>
+    load(
+      renderToStaticMarkup(createElement(ChatTile, { backendLabel: 'OpenCode', canAbort: true }))
+    )
+  fixture.inflight = true
+  expect(render()('[data-composer-probe]')).toHaveLength(1)
+  fixture.inflight = false
+  const $ = render()
+  expect($('[data-composer-probe]')).toHaveLength(0)
+  expect($('textarea')).toHaveLength(0)
+  expect($.text()).toContain('OpenCode가 설치되어 있지 않습니다')
+  expect($('button').text()).toContain('다시 확인')
+  fixture.backend = 'claude'
+  expect(render()('[data-composer-probe]')).toHaveLength(1)
 })

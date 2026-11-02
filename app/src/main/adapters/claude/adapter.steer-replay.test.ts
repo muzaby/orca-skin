@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { describe, it, expect, vi } from 'vitest'
 
 const { queryMock } = vi.hoisted(() => ({
@@ -49,3 +50,6 @@ describe('ClaudeAdapter — steer echo replay 플래그 (0060 D5)', () => {
     expect(call?.options.extraArgs).toMatchObject({ 'replay-user-messages': null })
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

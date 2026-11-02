@@ -1,3 +1,4 @@
+import { canonicalJson } from '../../../shared/obj'
 import { createHash } from 'node:crypto'
 import { statSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -122,20 +123,8 @@ export function readClaudeProjectSettings(
 }
 
 // Hashes never expose server URLs, arguments or credentials to renderer/logs.
-const canonical = (value: unknown): unknown =>
-  Array.isArray(value)
-    ? value.map(canonical)
-    : isRecord(value)
-      ? Object.fromEntries(
-          Object.keys(value)
-            .sort()
-            .map((key) => [key, canonical(value[key])])
-        )
-      : value
 const digest = (value: unknown): string =>
-  createHash('sha256')
-    .update(JSON.stringify(canonical(value)))
-    .digest('hex')
+  createHash('sha256').update(canonicalJson(value)).digest('hex')
 
 /** The revision a settings value would have if the files contained exactly it. */
 export function claudeProjectSettingsRevision(

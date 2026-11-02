@@ -1,3 +1,5 @@
+import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
+import { beforeEach } from 'vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
 import { draftSelection } from '../components/composer/modelSelection'
@@ -156,3 +158,9 @@ describe('remembered harness and request routing', () => {
     expect(draftSelection([{ ...agents[0], models: [] }], 'claude', false)).toBeNull()
   })
 })
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)

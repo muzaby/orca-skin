@@ -1,3 +1,4 @@
+import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk'
 // Opt-in actual SDK/CLI evaluation. Ordinary tests never call a model.
 // This composes the production publisher, MCP adapter, mapper, runtime and writer;
 // it does not exercise the Electron renderer or the whole ClaudeAdapter query configuration.
@@ -95,7 +96,7 @@ it.skipIf(process.env.ORCA_ARTIFACT_LIVE !== '1')(
             permissionMode: 'acceptEdits',
             abortController: controller,
             systemPrompt: { type: 'preset', preset: 'claude_code' },
-            ...adaptRuntimeTools(tools, request.runtimeToolContext),
+            ...adaptRuntimeTools(createSdkMcpServer, tools, request.runtimeToolContext),
             canUseTool: async (name, input) => {
               if (name === 'mcp__orca_artifacts__publish_artifact')
                 return { behavior: 'allow', updatedInput: input }

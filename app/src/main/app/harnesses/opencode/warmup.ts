@@ -25,8 +25,7 @@ export class OpenCodeWarmup {
       void this.deps.service.owners('warmup').release(-1, this.owner)
       return
     }
-    if (this.attempted || this.deps.settings().lastBackend !== 'opencode') return
-    this.attempted = true
+    if (this.attempted || this.controller || this.deps.settings().lastBackend !== 'opencode') return
     const controller = (this.controller = new AbortController())
     void this.prepare(controller.signal).catch(() => {
       getLogger()
@@ -44,6 +43,7 @@ export class OpenCodeWarmup {
       const cwd = await resolveLandingCwd(this.deps.settings().lastCwd, this.deps.cwd())
       signal.throwIfAborted()
       if (!this.deps.allowed()) return
+      this.attempted = true
       const scope = {
         backend: 'opencode' as const,
         sessionId: null,
@@ -58,6 +58,7 @@ export class OpenCodeWarmup {
         )
       )
     } finally {
+      if (this.controller?.signal === signal) this.controller = undefined
       await owners.release(-1, this.owner)
     }
   }

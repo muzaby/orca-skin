@@ -133,7 +133,7 @@ describe('native history with the migrated SQLite archive', () => {
 
     expect(await sync(value)).toMatchObject({ status: 'ready' })
     expect(queries.nativeHistory.get('session')).toEqual({
-      payload_json: JSON.stringify(value),
+      payload_json: JSON.stringify({ ...value, raw: undefined }),
       cursor_json: null,
       local_frontier: frontier,
       synced_at: expect.any(Number)
@@ -155,7 +155,9 @@ describe('native history with the migrated SQLite archive', () => {
 
     // Re-running the production migration runner must not replace the archived snapshot.
     applyMigrations(db)
-    expect(queries.nativeHistory.get('session')?.payload_json).toBe(JSON.stringify(value))
+    expect(queries.nativeHistory.get('session')?.payload_json).toBe(
+      JSON.stringify({ ...value, raw: undefined })
+    )
     expect(db.pragma('foreign_key_check')).toEqual([])
   })
 
@@ -466,7 +468,9 @@ it('stores per-session cursors atomically, restores them through a new query own
       db: reopened,
       isBusy: () => false,
       read: async (previous) => {
-        expect(previous).toEqual({ snapshot: value, cursor })
+        expect(previous?.snapshot).toEqual({ ...value, raw: undefined })
+        expect(previous?.cursor).toEqual(cursor)
+        expect(previous?.raw?.()).toEqual(value.raw)
         return { status: 'unchanged' }
       }
     })
@@ -502,7 +506,8 @@ it('upgrades a cursorless archive on its first native read', async () => {
     isBusy: () => false,
     read: async (previous) => {
       expect(previous?.cursor).toBeUndefined()
-      expect(previous?.snapshot).toEqual(value)
+      expect(previous?.snapshot).toEqual({ ...value, raw: undefined })
+      expect(previous?.raw?.()).toEqual(value.raw)
       return {
         status: 'ready',
         snapshot: value,
@@ -615,6 +620,10 @@ it('commits the OpenCode reader result and checkpoint through the common transac
     await refreshNativeHistory('session', { db: queries, isBusy: () => false, read })
   ).toMatchObject({ status: 'ready' })
   expect(transcriptText()).toEqual(['external question', 'external answer'])
+  expect(JSON.parse(queries.nativeHistory.raw('session')!)).toEqual({
+    session: source,
+    messages: body
+  })
   expect(JSON.parse(queries.nativeHistory.get('session')!.cursor_json!).checkpoint).toMatchObject({
     sequence: 4,
     digest: 'native-projection'
@@ -622,4 +631,31 @@ it('commits the OpenCode reader result and checkpoint through the common transac
   expect(await refreshNativeHistory('session', { db: queries, isBusy: () => false, read })).toEqual(
     { status: 'unchanged' }
   )
+})
+
+it.each(
+  [[{ uuid: 'raw-original' }], { nested: [1, true] }, 'raw-text', 42, false, null].map((raw) => [
+    raw
+  ])
+)('atomically splits a legacy raw value once and keeps display reads lean: %j', async (raw) => {
+  const value = { ...snapshot([native('raw-message', 'display remains')]), raw }
+  const before = queries.nativeHistory.observe('session')
+  queries.nativeHistory.replace({
+    sessionId: 'session',
+    payloadJson: JSON.stringify(value),
+    frontier: before.frontier,
+    expectedVersion: before.version,
+    messages: [],
+    now: 1
+  })
+  // Recreate a legacy row, whose new column has not been populated yet.
+  db.prepare('UPDATE native_history_snapshots SET raw_json=NULL WHERE session_id=?').run('session')
+  expect(queries.nativeHistory.compactLegacyRaw('session')).toBe(1)
+  expect(JSON.parse(queries.nativeHistory.raw('session')!)).toEqual(raw)
+  expect(JSON.parse(queries.nativeHistory.get('session')!.payload_json)).not.toHaveProperty('raw')
+  expect(queries.nativeHistory.get('session')).not.toHaveProperty('raw_json')
+  expect(queries.nativeHistory.compactLegacyRaw('session')).toBe(0)
+  expect(transcriptText()).toContain('display remains')
+  expect(await sync(value)).toMatchObject({ status: 'ready' })
+  expect(JSON.parse(queries.nativeHistory.raw('session')!)).toEqual(raw)
 })

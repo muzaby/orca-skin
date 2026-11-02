@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // 0215 VP-03 (AR-01 ↔ IT · §10 EP-01) — **배선**을 본다.
 //
 // `makeCanUseTool` 단위 테스트는 provider 를 자기가 주입하므로 `claude.ts` 가 그것을 실제로
@@ -78,3 +79,6 @@ describe('ClaudeAdapter — 계획 서술 배선 (AT-01 · VP-03)', () => {
     expect(seen[0]).toMatchObject({ kind: 'plan_review', request: { plan: '' } })
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

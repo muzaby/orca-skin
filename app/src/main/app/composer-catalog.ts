@@ -13,6 +13,8 @@ export async function resolveComposerPreparation(
   scope: ComposerCatalogScope,
   signal: AbortSignal
 ): Promise<ComposerPreparationTarget> {
+  if (scope.backend === 'opencode' && !ctx.registry.availability(scope.backend).usable)
+    throw new ComposerCatalogError('unavailable', new Error('OpenCode를 사용할 수 없습니다.'))
   const adapter = ctx.registry.get(scope.backend)
   if (!adapter?.prepareComposer) throw new Error('Composer preparation unavailable')
   const prepare = adapter.prepareComposer.bind(adapter)

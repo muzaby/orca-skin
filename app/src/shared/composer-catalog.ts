@@ -27,7 +27,7 @@ export type ComposerCatalogResult =
   | { part: ComposerCatalogPart; status: 'cancelled' }
   | { part: ComposerCatalogPart; status: 'error'; failure: ComposerCatalogFailure }
 export interface ComposerCatalogFailure {
-  stage: 'configuration' | 'acquire' | 'owner' | ComposerCatalogPart
+  stage: 'unavailable' | 'configuration' | 'acquire' | 'owner' | ComposerCatalogPart
   reason: 'timeout' | 'aborted' | 'network' | 'http' | 'unavailable'
   httpStatus?: number
 }

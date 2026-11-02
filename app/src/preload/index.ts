@@ -36,6 +36,7 @@ import {
   type AuthorSkillRequest,
   type Backend,
   type BackendListResult,
+  type HarnessAvailability,
   type BootReport,
   type CancelSteer,
   type ConcurrencyEvent,
@@ -185,6 +186,18 @@ const orca = {
   },
   backend: {
     list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList)
+  },
+  harness: {
+    recheck: (backend: Backend): Promise<HarnessAvailability> =>
+      ipcRenderer.invoke(CHANNELS.harnessRecheck, { backend }),
+    onAvailability: (handler: (state: HarnessAvailability) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, state: HarnessAvailability): void =>
+        handler(state)
+      ipcRenderer.on(CHANNELS.harnessAvailability, listener)
+      return () => {
+        ipcRenderer.removeListener(CHANNELS.harnessAvailability, listener)
+      }
+    }
   },
   agent: {
     list: (): Promise<AgentEnvironment[]> => ipcRenderer.invoke(CHANNELS.agentList)

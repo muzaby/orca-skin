@@ -17,6 +17,7 @@ interface Attempt {
 
 /** Independent additive connections; choice changes and submissions share admission. */
 export class OpenCodeMcpControl {
+  private readonly activityWaiters = new Set<() => void>()
   private activated = false
   private activation?: Promise<void>
   private readFlight?: Promise<NativeResource[]>
@@ -45,6 +46,32 @@ export class OpenCodeMcpControl {
     void this.startup.catch(() => undefined)
   }
 
+  resourceActivityChanged(): void {
+    for (const wake of [...this.activityWaiters]) wake()
+  }
+  private waitForActivity(signal: AbortSignal, timeout: number): Promise<void> {
+    signal.throwIfAborted()
+    return new Promise((resolve, reject) => {
+      const cleanup = (): void => {
+        clearTimeout(timer)
+        this.activityWaiters.delete(wake)
+        signal.removeEventListener('abort', abort)
+      }
+      const wake = (): void => {
+        cleanup()
+        resolve()
+      }
+      const abort = (): void => {
+        cleanup()
+        reject(signal.reason)
+      }
+      const timer = setTimeout(wake, timeout)
+      timer.unref?.()
+      this.activityWaiters.add(wake)
+      signal.addEventListener('abort', abort, { once: true })
+      if (signal.aborted) abort()
+    })
+  }
   connected(id: string): boolean {
     return this.actual.get(id)?.status === 'connected'
   }
@@ -159,7 +186,7 @@ export class OpenCodeMcpControl {
       this.run(async () => {
         for (;;) {
           while (!this.safe(true)) {
-            await this.waitBounded([], combined, 20)
+            await this.waitForActivity(combined, 500)
           }
           combined.throwIfAborted()
           await waitForOpenCode(this.apply(), combined)

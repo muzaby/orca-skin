@@ -1,3 +1,5 @@
+import { useHarnessAvailabilityStore } from '../../shared/stores/harnessAvailabilityStore'
+import { beforeEach } from 'vitest'
 import { afterEach, expect, it, vi } from 'vitest'
 import { defaultBootDependencies } from './steps'
 import { settingsApi } from '../../shared/api/ipc'
@@ -33,3 +35,9 @@ it('keeps the loaded session harness when boot restores a different last selecti
   await defaultBootDependencies.applyLandingAgentKind()
   expect(getActiveChatSession()).toMatchObject({ backend: 'claude', agentKind: 'work' })
 })
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)

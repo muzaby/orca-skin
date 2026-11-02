@@ -7,7 +7,7 @@ export interface NativeHistoryRequest {
   cwd: string
   env?: Record<string, string>
   providerSettings?: ResolvedHarnessSettings
-  previous?: { snapshot: NativeHistorySnapshot; cursor?: NativeHistoryCursor }
+  previous?: { snapshot: NativeHistorySnapshot; cursor?: NativeHistoryCursor; raw?: () => unknown }
 }
 
 export interface NativeHistoryMessage extends LoadedMessage {
@@ -22,7 +22,7 @@ export interface NativeHistorySnapshot {
   sourceKey: string
   revision: string
   messages: NativeHistoryMessage[]
-  /** Main-process archive only; never included in a renderer DTO. */
+  /** Adapter output only; persisted separately from display payload. never included in a renderer DTO. */
   raw?: unknown
 }
 

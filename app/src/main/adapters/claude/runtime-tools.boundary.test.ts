@@ -1,3 +1,4 @@
+import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk'
 import { describe, expect, it } from 'vitest'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -42,6 +43,7 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
       return { content: [] }
     }
     const adapted = adaptRuntimeTools(
+      createSdkMcpServer,
       {
         revision: 1,
         servers: new Map([
@@ -106,7 +108,7 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
         ]
       ])
     }
-    const adapted = adaptRuntimeTools(snapshot, context) as {
+    const adapted = adaptRuntimeTools(createSdkMcpServer, snapshot, context) as {
       mcpServers: Record<string, { instance: { connect(t: unknown): Promise<void> } }>
     }
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()

@@ -46,3 +46,22 @@ it('does not assign a supported harness brand to an unknown adapter', () => {
   expect($('svg[viewBox="0 0 248 248"],svg[viewBox="0 0 16 20"]')).toHaveLength(0)
   expect($.text()).toContain('external')
 })
+
+it('displays the installation reason instead of the generic unsupported badge', () => {
+  const $ = load(
+    renderToStaticMarkup(
+      createElement(EngineCard, {
+        agent: {
+          key: 'opencode/fixture',
+          adapter: 'opencode',
+          models: [],
+          supported: false,
+          unavailable: 'missing'
+        },
+        onEdit: vi.fn(),
+        onDelete: vi.fn()
+      })
+    )
+  )
+  expect($.text()).toContain('OpenCode가 설치되어 있지 않습니다')
+})

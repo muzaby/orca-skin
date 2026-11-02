@@ -676,3 +676,38 @@ it.each([false, true])(
     expect(secondAction).toHaveBeenCalledOnce()
   }
 )
+
+it('has no idle timer or target scans, and activity/lease signals each tick once', async () => {
+  vi.useFakeTimers()
+  const targets = vi.fn(() => [])
+  const service = new ProjectResourceSync({
+    targets,
+    resolve: () => undefined,
+    policy: () => undefined,
+    idle: () => true,
+    read: async () => ({ state: 'connected', items: [] }),
+    emit: () => {}
+  })
+  services.push(service)
+  expect(vi.getTimerCount()).toBe(0)
+  await vi.advanceTimersByTimeAsync(10000)
+  expect(targets).not.toHaveBeenCalled()
+  service.activityChanged()
+  expect(targets).toHaveBeenCalledOnce()
+  service.leasesChanged()
+  expect(targets).toHaveBeenCalledTimes(2)
+  expect(vi.getTimerCount()).toBe(0)
+})
+it('retries only pending project application and disarms once peers become idle', async () => {
+  vi.useFakeTimers()
+  const f = fixture()
+  f.busy(true)
+  f.service.tick()
+  await flush()
+  expect(vi.getTimerCount()).toBe(1)
+  f.busy(false)
+  await vi.advanceTimersByTimeAsync(500)
+  await flush()
+  expect(f.runtime.reconcileNativeResources).toHaveBeenCalled()
+  expect(vi.getTimerCount()).toBe(0)
+})

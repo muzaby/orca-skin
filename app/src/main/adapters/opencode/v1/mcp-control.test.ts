@@ -86,3 +86,53 @@ it('applies restored choices once per new directory and preserves project overri
     await rm(root, { recursive: true, force: true })
   }
 })
+
+it('wakes unsafe admission immediately on activity signals and cleans up aborted waits', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orca-activity-admission-'))
+  const controller = new AbortController()
+  const client = {
+    mcp: {
+      status: async () => ({ data: {} }),
+      connect: async () => ({}),
+      disconnect: async () => ({})
+    }
+  } as unknown as OpencodeClient
+  let idle = false
+  const control = new OpenCodeMcpControl(
+    client,
+    root,
+    { global: () => ({}) } as never,
+    controller.signal,
+    undefined,
+    undefined,
+    () => idle
+  )
+  const action = vi.fn(async () => 'sent')
+  try {
+    control.activate()
+    await control.pending()
+    vi.useFakeTimers()
+    const pending = control.submit(controller.signal, action)
+    for (let i = 0; i < 30; i++) await Promise.resolve()
+    expect(action).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(1)
+    idle = true
+    control.resourceActivityChanged()
+    expect(await pending).toBe('sent')
+    expect(action).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+    idle = false
+    const abort = new AbortController()
+    const rejected = control.submit(abort.signal, action)
+    const assertion = expect(rejected).rejects.toMatchObject({ name: 'AbortError' })
+    for (let i = 0; i < 30; i++) await Promise.resolve()
+    abort.abort()
+    await assertion
+    expect(action).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  } finally {
+    vi.useRealTimers()
+    controller.abort()
+    await rm(root, { recursive: true, force: true })
+  }
+})

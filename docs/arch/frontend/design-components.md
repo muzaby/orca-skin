@@ -64,7 +64,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/CatalogSearch.tsx](../../../app/src/renderer/src/shared/ui/CatalogSearch.tsx) — `CatalogSearch` | 검색 열기·입력·닫기·초점 복귀를 공통 형태로 유지한다. |
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
 | [shared/ui/ConfirmDialogHost.tsx](../../../app/src/renderer/src/shared/ui/ConfirmDialogHost.tsx) — `ConfirmDialogHost` | 전역 확인 요청을 Modal·ModalActions로 표시한다. feature별 확인창 복제를 피한다. 취소 버튼·Esc·배경 클릭과 다른 요청에 의한 교체는 요청의 선택 `onCancel`로 알린다. |
-| [shared/ui/CopyIconButton.tsx](../../../app/src/renderer/src/shared/ui/CopyIconButton.tsx) — `CopyIconButton` | 복사·완료 피드백·tooltip을 재사용하며 아이콘 크기를 인접 액션과 맞춘다. |
+| [shared/ui/CopyIconButton.tsx](../../../app/src/renderer/src/shared/ui/CopyIconButton.tsx) — `CopyIconButton` | 복사·완료 피드백·tooltip을 재사용하며 아이콘 크기를 인접 액션과 맞춘다. 복사 텍스트는 문자열 또는 클릭 시 계산하는 함수로 받는다. |
 | [shared/ui/ArcSpinner.tsx](../../../app/src/renderer/src/shared/ui/ArcSpinner.tsx) — `ArcSpinner` | 세션 행과 OpenCode 에이전트 팝업이 같은 회색 원호를 공유한다. `Icon spinner`·12px·`text-ink3`·`animate-spin`·`motion-reduce:animate-none`을 유지한다. |
 | [shared/ui/ErrorToastHost.tsx](../../../app/src/renderer/src/shared/ui/ErrorToastHost.tsx) — `ErrorToastHost` | toast 역할 토큰·설명·닫기·동작 영역·축소 모션을 유지한다. |
 | [shared/ui/FloatingPanel.tsx](../../../app/src/renderer/src/shared/ui/FloatingPanel.tsx) — `FloatingPanel`, `PanelSection`, `PanelButton`, `PanelToggle`, `PanelRadio`, `PanelSelect`, `PanelSlider` | 개발 패널 전용 floating-panel 토큰·드래그·접기를 사용한다. 제품 modal보다 높은 z를 일반화하지 않는다. |
@@ -101,6 +101,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [features/chat/components/ArtifactCard.tsx](../../../app/src/renderer/src/features/chat/components/ArtifactCard.tsx) — `ArtifactCard` | 산출물 카드의 공통 진입점. 파일 제목·종류·상태·보기 동작의 위계를 유지한다. |
 | [features/chat/components/AutomaticFeedDebugSection.tsx](../../../app/src/renderer/src/features/chat/components/AutomaticFeedDebugSection.tsx) — `AutomaticFeedDebugSection` | 자동 피드 개발 제어. 실제 transcript의 제품 상태 표시와 구분한다. |
 | [features/chat/components/ChatTile.tsx](../../../app/src/renderer/src/features/chat/components/ChatTile.tsx) — `ChatTile` | 제목·transcript·composer·패널의 조립과 읽기 열을 보존한다. |
+| [features/chat/components/HarnessUnavailableNotice.tsx](../../../app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx) — `HarnessUnavailableNotice` | 사용 불가 하네스의 입력 자리에 사유와 재확인을 ReadingColumn·Button으로 표시한다. 진행 중 턴의 중단·요청 제어는 유지하며 유휴 전이 뒤 안내로 바꾼다. |
 | [features/chat/components/ChatTitleBar.tsx](../../../app/src/renderer/src/features/chat/components/ChatTitleBar.tsx) — `ChatTitleBar` | 폴더 아이콘→제목·rename·우측 도구 배치. 텍스트 truncation과 메뉴 클릭 영역을 보존한다. |
 | [features/chat/components/ChatView.tsx](../../../app/src/renderer/src/features/chat/components/ChatView.tsx) — `ChatView` | 세션별 채팅·타일 조립. 배경·테마를 세션마다 새로 정의하지 않는다. |
 | [features/chat/components/Composer.tsx](../../../app/src/renderer/src/features/chat/components/Composer.tsx) — `ComposerPanelStackView`, `Composer` | 공통 입력 controller와 하네스 표면 조립. 전환 시 초안·첨부·IME를 보존한다. |

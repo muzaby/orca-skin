@@ -119,6 +119,16 @@ it('still falls back from an unavailable remembered harness in an ordinary draft
   expect(dom.query('[data-model-label]')?.textContent).toContain('claude')
 })
 
+it('selects the supported Claude model when unavailable OpenCode models are present', () => {
+  catalog.agents = [
+    { ...agent('opencode'), supported: false, unavailable: 'missing' },
+    agent('claude')
+  ]
+  render()
+  expect(getActiveChatSession()).toMatchObject({ backend: 'claude', providerKey: 'claude-local' })
+  expect(dom.query('[data-model-label]')?.textContent).toContain('claude')
+})
+
 it('shows each loaded session model instead of the provider default, across navigation and a fresh renderer store', async () => {
   const { useChatStore } = await import('../store/chatStore')
   const { initialChatState } = await import('../reducer/chatReducer')

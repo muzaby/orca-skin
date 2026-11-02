@@ -66,7 +66,10 @@ it('shares targets across catalog resources and warmup through the production as
     }
   })
   const ctx = {
-    registry: { get: () => adapter },
+    registry: {
+      availability: () => ({ id: 'opencode', installed: true, usable: true }),
+      get: () => adapter
+    },
     db: { getSessionById: vi.fn() },
     getCwd: () => 'C:/same',
     harnessSettings: {
@@ -212,4 +215,37 @@ it('cancels only the leaving waiter and releases a late shared acquisition once'
   expect(release).not.toHaveBeenCalled()
   await owners.release(2, 'same')
   await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
+})
+
+it('rejects unavailable OpenCode preparation before resolving or acquiring a native server', async () => {
+  const get = vi.fn()
+  const prepared = createComposerPreparation({
+    registry: {
+      availability: () => ({
+        id: 'opencode',
+        installed: false,
+        usable: false,
+        unavailableReason: 'missing'
+      }),
+      get
+    }
+  } as never)
+  try {
+    await expect(
+      prepared.service.acquire(
+        {
+          backend: 'opencode',
+          sessionId: null,
+          cwd: process.cwd(),
+          projectId: null,
+          providerKey: null,
+          agentKind: 'code'
+        },
+        new AbortController().signal
+      )
+    ).rejects.toMatchObject({ failure: { stage: 'unavailable', reason: 'unavailable' } })
+    expect(get).not.toHaveBeenCalled()
+  } finally {
+    prepared.close()
+  }
 })

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // AC38 (0215 ΔV4 · EP-29) — 해석된 실행 파일 경로가 **두 query() 호출 모두**에 실린다.
 //
 // 해석기 자체는 claude-executable.test.ts 가 잠근다. 여기서 보는 것은 배선이다: 한쪽 스프레드가
@@ -447,3 +448,6 @@ describe('allowDangerouslySkipPermissions (0261 AC3 · EP-01)', () => {
     expect(optionsOfFirstCall()).not.toHaveProperty('allowDangerouslySkipPermissions')
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

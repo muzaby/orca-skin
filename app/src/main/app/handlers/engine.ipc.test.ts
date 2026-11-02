@@ -109,7 +109,10 @@ beforeEach(() => {
   })
   registerMiscHandlers({
     registry: {
-      list: () => [{ id: 'claude' }, { id: 'opencode' }],
+      list: () => [
+        { id: 'claude', installed: true, usable: true },
+        { id: 'opencode', installed: true, usable: true }
+      ],
       get: (backend: Backend) => (backend === 'claude' ? claude : opencode)
     },
     harnessSettings: settings,

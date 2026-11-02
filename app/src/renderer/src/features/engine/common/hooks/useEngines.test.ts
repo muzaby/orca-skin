@@ -32,7 +32,8 @@ vi.mock('zustand', async () => {
 vi.mock('../../../../shared/api/ipc', () => ({
   engineApi: { add: api.add, update: api.update, delete: api.remove, read: vi.fn() },
   agentApi: { list: api.list },
-  providerApi: { onState: api.onState }
+  providerApi: { onState: api.onState },
+  harnessApi: { onAvailability: vi.fn() }
 }))
 vi.mock('../../../../shared/errors', () => ({ reportError: vi.fn() }))
 

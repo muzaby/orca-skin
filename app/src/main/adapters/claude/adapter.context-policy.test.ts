@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
@@ -182,3 +183,6 @@ describe('0245 AC21 — three actual query input paths', () => {
     })
   }
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

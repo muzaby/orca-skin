@@ -1,4 +1,4 @@
-import { createHighlighter, createJavaScriptRegexEngine, type Highlighter } from 'shiki'
+import type { HighlighterCore } from 'shiki/core'
 
 const LANGUAGES = [
   'typescript',
@@ -14,15 +14,33 @@ const LANGUAGES = [
   'markdown'
 ] as const
 
-// Markdown과 diff가 같은 인스턴스를 공유한다. 첫 표시 때만 문법·테마를 로드한다.
-let highlighterPromise: Promise<Highlighter> | null = null
-export function getHighlighter(): Promise<Highlighter> {
-  highlighterPromise ??= createHighlighter({
-    // Electron의 script-src 'self'를 유지하면서 WASM 컴파일 없이 강조한다.
-    engine: createJavaScriptRegexEngine(),
-    themes: ['github-light', 'github-dark'],
-    langs: [...LANGUAGES]
-  })
+// Markdown and diff share only the grammars and themes this app displays.
+let highlighterPromise: Promise<HighlighterCore> | null = null
+export function getHighlighter(): Promise<HighlighterCore> {
+  highlighterPromise ??= (async () => {
+    const [core, engine, light, dark, ...languages] = await Promise.all([
+      import('shiki/core'),
+      import('shiki/engine/javascript'),
+      import('shiki/themes/github-light.mjs'),
+      import('shiki/themes/github-dark.mjs'),
+      import('shiki/langs/typescript.mjs'),
+      import('shiki/langs/javascript.mjs'),
+      import('shiki/langs/tsx.mjs'),
+      import('shiki/langs/jsx.mjs'),
+      import('shiki/langs/python.mjs'),
+      import('shiki/langs/bash.mjs'),
+      import('shiki/langs/json.mjs'),
+      import('shiki/langs/yaml.mjs'),
+      import('shiki/langs/html.mjs'),
+      import('shiki/langs/css.mjs'),
+      import('shiki/langs/markdown.mjs')
+    ])
+    return core.createHighlighterCore({
+      engine: engine.createJavaScriptRegexEngine(),
+      themes: [light.default, dark.default],
+      langs: languages.map((language) => language.default)
+    })
+  })()
   return highlighterPromise
 }
 

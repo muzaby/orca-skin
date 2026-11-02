@@ -316,6 +316,46 @@ it('commits UTF-8 byte checkpoints, reuses complete prefixes and defers partial 
   expect(next.snapshot.messages.at(-1)?.parts).toEqual([{ type: 'text', text: '응답' }])
 })
 
+it('reads separated raw only for a proven append and keeps the full-parse result unchanged', async () => {
+  const f = await fixture()
+  const req = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }
+  const first = await readClaudeNativeHistory(req)
+  if (first.status !== 'ready' || !first.cursor) throw new Error('checkpoint required')
+  const { raw: originalRaw, ...lean } = first.snapshot
+  const raw = vi.fn(() => originalRaw)
+  const previous = { snapshot: lean, cursor: first.cursor, raw }
+  expect(await readClaudeNativeHistory({ ...req, previous })).toEqual({ status: 'unchanged' })
+  expect(raw).not.toHaveBeenCalled()
+  await fs.appendFile(
+    f.file,
+    [
+      historyEntry('u-lazy', 'assistant-1', 'user', 'lazy question'),
+      historyEntry('a-lazy', 'u-lazy', 'assistant', [{ type: 'text', text: 'lazy answer' }])
+    ]
+      .map((entry) => JSON.stringify({ cwd: f.cwd, ...entry }))
+      .join('\n') + '\n'
+  )
+  const full = await readClaudeNativeHistory({ ...req, previous: { snapshot: lean, raw } })
+  expect(raw).not.toHaveBeenCalled()
+  const appended = await readClaudeNativeHistory({ ...req, previous })
+  expect(raw).toHaveBeenCalledOnce()
+  expect(appended).toEqual(full)
+  raw.mockClear()
+  for (const change of [
+    { identity: 'different-file' },
+    { newline: false },
+    { offset: 0 },
+    { projectionVersion: -1 }
+  ]) {
+    const invalid = {
+      ...previous,
+      cursor: { ...first.cursor, checkpoint: { ...first.cursor.checkpoint, ...change } }
+    }
+    expect(await readClaudeNativeHistory({ ...req, previous: invalid })).toEqual(full)
+  }
+  expect(raw).not.toHaveBeenCalled()
+})
+
 it.each(['rewrite', 'truncate', 'replace', 'prefix-and-append'] as const)(
   'invalidates stale JSONL offsets after %s',
   async (kind) => {

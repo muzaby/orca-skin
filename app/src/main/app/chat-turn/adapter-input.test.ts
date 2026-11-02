@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from '../../adapters/claude/sdk'
 // 0250 IT-02 — 실제 held 큐·main 요청 조립·runtime·Claude SDK 입력 사이의 배선을 본다.
 // 테스트는 app 레이어에 두어 어댑터가 app/features를 참조하지 않도록 한다.
 import { describe, expect, it, vi } from 'vitest'
@@ -116,3 +117,6 @@ describe('0250 IT-02 — 도구 경계 입력 무주입', () => {
     expect(heldIds).toEqual(['first-id', 'second-id'])
   })
 })
+
+// Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
+await loadClaudeSdk()

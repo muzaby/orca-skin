@@ -5,7 +5,7 @@ import { chatActions, useChatSession } from '../../../store/chatStore'
 import { useTranscriptRuntime } from './TranscriptRuntime'
 
 interface MessageMetaProps {
-  text: string
+  text: string | (() => string)
   createdAt: number
   align: 'left' | 'right'
   // 에이전트 턴에만 true — 분기(fork) 아이콘 노출(0064). 물질화된 세션에서만 실제 렌더된다.

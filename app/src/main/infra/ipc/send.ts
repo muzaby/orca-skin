@@ -6,6 +6,7 @@ import { webContents, type WebContents } from 'electron'
 import {
   CHANNELS,
   type ConcurrencyEvent,
+  type HarnessAvailability,
   type InstallStatus,
   type NormalizedEvent,
   type ProviderPlatformState,
@@ -21,6 +22,10 @@ import type {
   OpenCodePluginsChanged
 } from '../../../shared/native-resources'
 import { wireLog } from './wire-log'
+
+export function broadcastHarnessAvailability(state: HarnessAvailability): void {
+  broadcast(CHANNELS.harnessAvailability, state)
+}
 
 export function broadcastExtensionsChanged(event: ExtensionsChanged): void {
   broadcast(CHANNELS.extensionsChanged, event)

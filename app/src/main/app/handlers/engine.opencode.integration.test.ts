@@ -118,7 +118,10 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       runtimeModelCatalog
     })
     registerMiscHandlers({
-      registry: { list: () => [{ id: 'opencode' }], get: () => adapter },
+      registry: {
+        list: () => [{ id: 'opencode', installed: true, usable: true }],
+        get: () => adapter
+      },
       harnessSettings: settings,
       harnessRuntime: runtime,
       runtimeModelCatalog,

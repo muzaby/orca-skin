@@ -37,12 +37,14 @@ export class FileTransport implements LogTransport {
   private readonly maxFiles: number
   private readonly onInternalError: (message: string) => void
 
+  private readonly interval: number
   private buffer: string[] = []
   private currentBytes = 0
   private disabled = false
-  private timer: ReturnType<typeof setInterval> | null = null
+  private timer: ReturnType<typeof setTimeout> | null = null
 
   constructor(options: FileTransportOptions) {
+    this.interval = options.flushIntervalMs ?? DEFAULT_FLUSH_MS
     this.dir = options.dir
     this.baseName = options.baseName ?? DEFAULT_BASE
     this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES
@@ -52,12 +54,6 @@ export class FileTransport implements LogTransport {
       mkdirSync(this.dir, { recursive: true })
       // 재실행 시 기존 파일에 이어쓴다 — 크기를 이어받아 로테이션 연속성 보장(AC4).
       this.currentBytes = existsSync(this.basePath()) ? statSync(this.basePath()).size : 0
-      const interval = options.flushIntervalMs ?? DEFAULT_FLUSH_MS
-      if (interval > 0) {
-        this.timer = setInterval(() => this.flushSync(), interval)
-        // 타이머가 프로세스 종료를 붙잡지 않도록 — 종료 flush 는 close() 가 보장.
-        this.timer.unref?.()
-      }
     } catch (err) {
       this.disable(`init failed: ${message(err)}`)
     }
@@ -66,9 +62,15 @@ export class FileTransport implements LogTransport {
   write(line: string): void {
     if (this.disabled) return
     this.buffer.push(line)
+    if (!this.timer && this.interval > 0) {
+      this.timer = setTimeout(() => this.flushSync(), this.interval)
+      this.timer.unref?.()
+    }
   }
 
   flushSync(): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
     if (this.disabled || this.buffer.length === 0) return
     const chunk = this.buffer.join('\n') + '\n'
     this.buffer = []
@@ -83,7 +85,7 @@ export class FileTransport implements LogTransport {
 
   close(): void {
     if (this.timer) {
-      clearInterval(this.timer)
+      clearTimeout(this.timer)
       this.timer = null
     }
     this.flushSync()
@@ -126,7 +128,7 @@ export class FileTransport implements LogTransport {
     this.disabled = true
     this.buffer = []
     if (this.timer) {
-      clearInterval(this.timer)
+      clearTimeout(this.timer)
       this.timer = null
     }
     this.onInternalError(`file transport disabled: ${reason}`)
