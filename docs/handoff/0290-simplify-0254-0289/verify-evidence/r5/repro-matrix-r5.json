@@ -1,0 +1,1062 @@
+{
+ "HEAD(r4)": {
+  "discovery-cache.poll-race.test.ts :: checks the reloaded dependencies before an unchanged overlapping pass settles": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an edit made after the content read but before dependency registration": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: new-file": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: newer-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: same-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: re-watches the dependency file a reload switched to and reports its edit through the watcher": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: E: a stale reload during the pass, then a second edit, notifies once per edit": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: G: an edit to the file a paused reload reads later notifies once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: H: a stale reload on one of two keys sharing the file notifies each holder once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: I: a touch before the stale reload does not turn one edit into two notifications": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: J: a second hold after the adoption re-arms without a spurious notification": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.reload-rewatch.verify.test.ts :: notifies an edit to the dependency file a reload switched to": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.stale-reload-during-poll.verify.test.ts :: notifies once when a reload that read the old content finishes during the poll pass": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "HEAD+C2": {
+  "discovery-cache.poll-race.test.ts :: checks the reloaded dependencies before an unchanged overlapping pass settles": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an edit made after the content read but before dependency registration": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: new-file": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: newer-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: same-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: re-watches the dependency file a reload switched to and reports its edit through the watcher": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: E: a stale reload during the pass, then a second edit, notifies once per edit": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: G: an edit to the file a paused reload reads later notifies once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: H: a stale reload on one of two keys sharing the file notifies each holder once": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: I: a touch before the stale reload does not turn one edit into two notifications": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: J: a second hold after the adoption re-arms without a spurious notification": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected [ 2, +0 ] to deeply equal [ 1, +0 ]"
+   ]
+  },
+  "discovery-cache.reload-rewatch.verify.test.ts :: notifies an edit to the dependency file a reload switched to": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.stale-reload-during-poll.verify.test.ts :: notifies once when a reload that read the old content finishes during the poll pass": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  }
+ },
+ "r3@feaca09": {
+  "discovery-cache.poll-race.test.ts :: checks the reloaded dependencies before an unchanged overlapping pass settles": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an edit made after the content read but before dependency registration": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: new-file": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: newer-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: same-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: re-watches the dependency file a reload switched to and reports its edit through the watcher": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: E: a stale reload during the pass, then a second edit, notifies once per edit": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: G: an edit to the file a paused reload reads later notifies once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: H: a stale reload on one of two keys sharing the file notifies each holder once": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: I: a touch before the stale reload does not turn one edit into two notifications": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: J: a second hold after the adoption re-arms without a spurious notification": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected [ 2, +0 ] to deeply equal [ 1, +0 ]"
+   ]
+  },
+  "discovery-cache.reload-rewatch.verify.test.ts :: notifies an edit to the dependency file a reload switched to": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.stale-reload-during-poll.verify.test.ts :: notifies once when a reload that read the old content finishes during the poll pass": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  }
+ },
+ "r2@68b886b": {
+  "discovery-cache.poll-race.test.ts :: checks the reloaded dependencies before an unchanged overlapping pass settles": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an edit made after the content read but before dependency registration": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: new-file": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: newer-value": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: same-value": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: re-watches the dependency file a reload switched to and reports its edit through the watcher": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: E: a stale reload during the pass, then a second edit, notifies once per edit": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: G: an edit to the file a paused reload reads later notifies once": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called 1 times, but got 0 times"
+   ]
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: H: a stale reload on one of two keys sharing the file notifies each holder once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: I: a touch before the stale reload does not turn one edit into two notifications": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: J: a second hold after the adoption re-arms without a spurious notification": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.reload-rewatch.verify.test.ts :: notifies an edit to the dependency file a reload switched to": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.stale-reload-during-poll.verify.test.ts :: notifies once when a reload that read the old content finishes during the poll pass": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ },
+ "pre-0290@a2e8464": {
+  "discovery-cache.poll-race.test.ts :: checks the reloaded dependencies before an unchanged overlapping pass settles": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an edit made after the content read but before dependency registration": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 0 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: new-file": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: newer-value": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected \"vi.fn()\" to be called once, but got 2 times"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: notifies an overlapping reload once and keeps its latest dependencies: same-value": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: re-watches the dependency file a reload switched to and reports its edit through the watcher": {
+   "statuses": [
+    "failed",
+    "failed",
+    "failed"
+   ],
+   "messages": [
+    "AssertionError: expected undefined to be type of 'function'"
+   ]
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'after-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'after-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'before-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: false)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.poll-race.test.ts :: reports one edit once when a reload reads it 'before-edit' and finishes 'during-pass' (touch: true)": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: E: a stale reload during the pass, then a second edit, notifies once per edit": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: G: an edit to the file a paused reload reads later notifies once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: H: a stale reload on one of two keys sharing the file notifies each holder once": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: I: a touch before the stale reload does not turn one edit into two notifications": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.r4-siblings.verify.test.ts :: J: a second hold after the adoption re-arms without a spurious notification": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.reload-rewatch.verify.test.ts :: notifies an edit to the dependency file a reload switched to": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  },
+  "discovery-cache.stale-reload-during-poll.verify.test.ts :: notifies once when a reload that read the old content finishes during the poll pass": {
+   "statuses": [
+    "passed",
+    "passed",
+    "passed"
+   ],
+   "messages": []
+  }
+ }
+}
