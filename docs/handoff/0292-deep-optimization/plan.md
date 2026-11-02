@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | IMPL_DONE (r1 · Windows CI 대기) |
+| 상태 | verify/RETURN_TO_PLAN (r1) — PLAN_GAP D10·D11 · 못 잡음 21, ΔV2 설계 대기([verify](verify.md)) |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV1` — 버전 확인 실측 반영 정정(2026-11-02) |
@@ -1066,4 +1066,19 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | 확인 시작이 `start()` 첫 await(`bootstrap.ts:609`) 전이라는 위치를 아무 테스트도 잠그지 않는다 — 시작을 `workspace` 단계 앞으로 옮긴 X03이 전체 스위트 green | VP-02 · EP-02′ #1 · AC2′ | `start()` 호출 직후·첫 await 전에 `refreshInstallState` 1회를 단언(X03 red) | BLOCKING (PAIR_FAIL) | open |
+| D2 | store 변화 → `applyHarnessAvailability` 구독(`ChatProvider.tsx:12`)이 잠기지 않는다 — DRAFT는 함수를 직접 부른다(X02) | VP-03 · EP-03 #2·#3 · AC7 | 가용성 push(또는 store 갱신)만으로 빈 OpenCode 칸이 Claude로 재시드되는지 단언 | BLOCKING (PAIR_FAIL) | open |
+| D3 | Notice의 "다시 확인" 클릭 → `harness:recheck(backend)`(X12·X56), pending 요청 중 Composer 유지(X15), 사유별 문구(X63)가 잠기지 않는다 | VP-03 · EP-03 #4 · AC7 | 클릭 1회 → `recheck('opencode')` 1회, `pendingAsks`·승인·plan review 각각 Composer 유지, `unsupported`·`failed` 문구를 단언 | BLOCKING (PAIR_FAIL) | open |
+| D4 | EngineCard 배지(X13)·추가 메뉴 툴팁(X62) 사유가 기본값 `missing`으로만 검증된다 | VP-03 · EP-03 #8·#9 · AC8 | 기본값과 다른 `unsupported`·`failed` 입력으로 문구·툴팁을 단언 | BLOCKING (PAIR_FAIL) | open |
+| D5 | `failed` 상태의 focus 재확인(X04)과 OpenCode `executableIdentity` 생산자(`server.ts:172`, X41)가 잠기지 않는다 | VP-04 · EP-04′ #3 · AC4′ | `failed` + identity 변경 → refresh 1, 실제 server pool identity가 실행 파일 교체·경로 변경에 따라 달라지는지 단언 | BLOCKING (PAIR_FAIL) | open |
+| D6 | 경로 변경 재확인의 bootstrap 배선(`bootstrap.ts:717-724`) — 호출(X54)·harness id(X55)·초기 경로(X59) — 이 잠기지 않는다. PATH는 `registerSettingsReactions` 단위다 | VP-04 · EP-04′ #5 · AC4′ | 실제 Bootstrap 조립에서 경로 patch → `refreshInstallState('opencode')` 1, 같은 경로 patch → 0 | BLOCKING (PAIR_FAIL) | open |
+| D7 | `agent:list` 사유 항(X64), 가용성 리스너의 `composerPreparation.invalidate()`(X35)·`updateOpenCodeGlobalWatch(ctx, false)` 인자(X36)가 잠기지 않는다. RESUME은 감시 갱신을 mock한다 | VP-05 · EP-05 #9·#14 · EP-05′ #15 · AC6′·AC9 | 기본값과 다른 사유로 행을 단언, 전환 때 준비 무효화와 늦은 활성화 revision 방송 1을 실제 리스너 경로로 단언(무효화가 의도가 아니면 제거 근거를 적는다) | BLOCKING (PAIR_FAIL) | open |
+| D8 | meta `copyable`이 잠기지 않는다 — GOLD는 `copyable`을 버리고 비교한다(X01). 판정이 `turnCopyText` 빈 문자열 규칙을 재구현해 `parentToolRunId: ''`에서 갈린다 | VP-08 · EP-08 #2 · AC13 · D-003 | 복사할 텍스트가 없는 턴에 복사 버튼 0을 단언하고 판정을 같은 규칙 1벌에서 파생 | BLOCKING (PAIR_FAIL) | open |
+| D9 | SDK import 실패 뒤 `pending` 해제(재시도)가 잠기지 않는다(X27) — 구현 보고 "만료" 축의 근거로 든 시험에 없다 | VP-10 · EP-10 #1 · AC21 | 첫 import 거절 → 두 번째 `loadClaudeSdk()`가 새 import를 시도해 성공함을 단언 | BLOCKING (PAIR_FAIL) | open |
+| D10 | VP-04 목록이 path의 방송 채널(`send.ts:27`, X33)·renderer store push 적용(`harnessAvailabilityStore.ts:20`, X68)·초기 목록 fence(`:28`, X05)를 담지 않고 검색이 `registry.ts` 한정·해법 이름 술어다 — 세 고장 모두 전체 스위트 green | VP-04(·VP-03 입력) · AC4′·AC5′·AC7 | 설계자가 VP-04(또는 VP-03 입력) 목록을 방송 → preload → store 적용 → 소비자 재조회까지 한 번에 고정하고 검색 범위를 path 파일로 넓힌다. 고장 3건은 다음 구현이 잠근다 | PLAN_GAP | open |
+| D11 | D-007 범위 미정 — 폴백 중 모델 메뉴의 명시 Claude 선택이 `lastBackend`를 기록하는가. production은 기록하지 않고(`Composer.tsx:435-441`이 `explicitHarness`를 넘기지 않음) DRAFT의 기록 단언은 production 호출자 0인 옵션을 쓴다 | VP-03 · D-007·D-003 · AC7 | 설계자가 사용자에게 묻고 D-007·AC7·EP-03 #2를 정정한 뒤 테스트를 production 경로로 맞춘다 | PLAN_GAP | open |
+| N1 | §17 "구버전 앱이 같은 DB를 열어도 읽기가 깨지지 않는다"가 기존 `DbSchemaTooNewError` 거절(`migrate.ts:167-168`)과 다르다(구현 보고 #6 확인) | plan 서술 | §17 문장 정정 | NON_BLOCKING | open |
+| N2 | `adapters/common/registry.ts:40`이 `backend === 'claude'`로 분기한다 — §16 "구체 하네스 비의존"과 다르다(동작은 CLAUDE 테스트로 잠김) | 비귀속 | adapter가 `usable`을 내거나 `info.usable ?? true`로 하네스 이름 분기 제거 | NON_BLOCKING | open |
+| N3 | 죽은 export `useHarnessAvailable`(`harnessAvailabilityStore.ts:30`) · production 호출 0인 `projectTimeline`(`projection.ts:61`)·`agentStore.dispose` | 비귀속 | 정리 후보 | NON_BLOCKING | open |
+| N4 | ΔV1 §10 VP-02 목표 "S02a 3 / 3"이 EP-04′ #3·#5의 새 호출자와 맞지 않는다(HEAD 6) | plan 수치 | D10 정정 때 함께 | NON_BLOCKING | open |
+| N5 | runtime 행 가용성 게이트(`runtime-catalog.ts:130,164-165`)가 `agent:list` 게이트(`misc.ts:59-61`)와 이중이다 — X57·X65 동치 | 비귀속 | 기록 | NON_BLOCKING | open |
