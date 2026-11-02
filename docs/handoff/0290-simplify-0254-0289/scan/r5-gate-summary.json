@@ -60,7 +60,26 @@
     "searchDelta": []
   },
   "ci": {
-    "state": "pending",
-    "pullRequest": 523
+    "state": "completed",
+    "conclusion": "success",
+    "headSha": "046c80eba22c4a953adb35cdc4f9fd9ebdace5c8",
+    "runId": 41408758721,
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/41408758721",
+    "pullRequest": 523,
+    "jobId": 125156710959,
+    "vitest": {
+      "files": 895,
+      "passedFiles": 892,
+      "skippedFiles": 3,
+      "tests": 8318,
+      "passed": 8315,
+      "skipped": 3,
+      "failed": 0
+    },
+    "scripts": {
+      "tests": 144,
+      "passed": 144,
+      "failed": 0
+    }
   }
 }
