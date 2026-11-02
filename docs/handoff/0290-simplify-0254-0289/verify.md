@@ -1442,3 +1442,140 @@ OpenCode 연결: configuredOpenCodeResources(load) → servers.acquire(spawn) �
 - AC: ✅ 22 · ⚠️ 0 · ❌ 1(AC12).
 - 운영 gate: 전부 green(Linux 로컬 + Windows CI).
 - 다음 단계: 구현자가 D10을 닫는다. 다음 verify는 `못 잡음` Y1 · `동치` Y2·Y4·Z16과 이번 `잡음` 행을 다시 실행한다.
+
+---
+
+# r5 재검증 (2026-11-02)
+
+> r1~r4 본문(위)은 그대로 둔다. 재현 자료는 [`verify-evidence/r5/`](verify-evidence/r5/) — 변이 정의 164행·결과, 무변이 실패 ID, 버전 매트릭스 결과, §10 검색 출력. 러너는 [`mutate-r2.py`](verify-evidence/r2/mutate-r2.py)·[`repro-matrix-r4.py`](verify-evidence/r4/repro-matrix-r4.py) 그대로다.
+
+## r5 메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-11-02 |
+| 대상 커밋/range | `9e77792..3b26b45` — r5 구현 `046c80e`(테스트 2파일 + plan·INDEX·증거) · `3b26b45`(CI 기록, 문서만 — app 트리 = `046c80e`). production diff 0 |
+| 구현 전 plan 기준 | `9e77792`(r4 verify) — 규범부 = `46b3784` V1+ΔV1 |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1` |
+| 라운드 | 5 (verify 5회째) |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 아니오 — 구현 Codex(D-017), 검증 Claude. 원격 `origin/ccr-fb7b0aa8-2aha7d`로 rebase(fast-forward) 뒤 검증 |
+
+## r5-0. 기준선 / plan 변경 확인
+
+- **판정: 기준선 성립, 규범 변경 0.** plan diff는 `## r5 구현 보완` 절 146줄 추가뿐이다(`[검증자 기입]` 표 변경 0).
+- §10 기록 검색: [`ep-search-r5.txt`](verify-evidence/r5/ep-search-r5.txt) 47행이 r4 출력과 diff 0. 고정 187자리 유지.
+- PLAN_GAP: 없음.
+
+## r5-1. Product & UX / ACTIVE Decision
+
+| Decision / 요구 | r5 판정 |
+|---|---|
+| D-003 관측 동작 보존 | 충족 — production 코드가 r4와 같고, 12순서(touch 유무 × 6) 기대값이 `a2e8464` 코드에서도 12/12 green([매트릭스](verify-evidence/r5/repro-matrix-r5.json)) |
+| VP-07 ④ · AC12 "변경마다 1회" | 충족·잠김 — D10 Y1 잡음 3/3 |
+| 그 밖 ACTIVE Decision | r4 판정 유지 — app diff는 테스트 2파일 |
+
+## r5-2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 새 단언이 production 경로를 지나는가 | 성립 | R5-01은 실제 `discoveryReadFile`·`utimes`·`poll()`, R5-02는 `watchFile` 인자 listener → `FingerprintWatch` → `poll()`, R5-03은 보류된 pass + 재로드 → 재검사 요청 |
+| R5-03이 0290 전 코드와 갈리는 이유 | 기대 범위 안 | `a2e8464`는 1초 주기 poll이라 즉시 재검사가 없어 0회 — r3 감시 설계의 재검사 edge(`discovery-cache.ts:264`)를 잠그는 기제 단언이고 HEAD green 3/3 |
+| `setImmediate` 200회 → `vi.waitFor` | 성립 | X07·Y6·Y7 각 3회 반복 모두 잡음 — 대기 시간 의존 제거 |
+| `project-reconciliation` fixture `.git` 추가가 루트 판정 잠금을 약화하는가 | 아니오 | 같은 파일을 포함한 Z10·Z11·Z17(루트 판정 변이) 잡음 유지 · M107 잡음 |
+| false success | 없음 | production diff 0 |
+
+## r5-3. 역방향 탐색
+
+- `scan-surface.sh 9e77792..046c80e`: `변경된 소스 파일이 없습니다` — 변경은 테스트 파일뿐이다.
+
+## r5-4. 고장 이력 재실행
+
+[`r5-mutation-rerun.json`](verify-evidence/r5/r5-mutation-rerun.json) — 정의 152행(r3 이력 138 + r4 구현자 인용 3 + r4 검증자 축 Y1~Y7 + 형제 재현 4) + 반복 12행(X07·Y1·Y3·Y5·Y6·Y7 × 2) = 164. CAUGHT 154 · GREEN 5(재현 @HEAD) · MISSED 5(동치 행).
+
+| 행 | r4 | r5 | 판정 |
+|---|---|---|---|
+| r3·r4 `잡음` 전 행 | CAUGHT | CAUGHT | 덮개 회귀 0 |
+| Y1 서명 → 지문 비교 (r4 `못 잡음`) | MISSED 0/56 | **CAUGHT 1/63 ×3** | D10 닫힘 — `reports one edit once … before-edit … during-pass (touch: true)` |
+| X07 · Y6 · Y7 | CAUGHT | CAUGHT ×3 | R5-02(X07·Y6) · R5-03(Y7) |
+| Y2 · Y4 (r4 `동치`) | MISSED 0/56 | MISSED 0/63 · 형제 재현 5/5 green | 동치 유지 — r4 근거(`:229` 기준선만 소비) 그대로, 해당 줄 diff 0 |
+| Z16 (`동치`) | MISSED 0/53 | MISSED 0/53 | 동치 유지 |
+| 재현 F1~F4 · 형제 E·G·H·I·J @HEAD | GREEN | GREEN | 유지 |
+
+- 새로 시도한 고장: 없음 — production diff 0이라 새 자리가 없고, 새 단언의 민감도는 Y1·X07·Y6·Y7·M107이 직접 잰다.
+
+## r5-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-08~VP-18 (11) | MD↔UT | REQUIRED | PASS | r3 좌표 · 해당 이력 행 CAUGHT · Z16 동치 | r3 값 |
+| VP-04·VP-05·VP-06 | AR↔IT | REQUIRED | PASS | 이력 행 CAUGHT · Windows CI `41408758721` success | r3 값 |
+| VP-07 | AR↔IT | REQUIRED | PASS | ①②③ 이력 행 CAUGHT · ④ R5-01~03 — C2·C3·Y1·Y3·Y5~Y7·X07 잡음, Y2·Y4 동치 | 4/4 |
+| VP-19 | SD↔ST | REQUIRED | PASS | 이력 행 CAUGHT | 6/6 |
+| VP-02·VP-03 | R↔AT | REQUIRED | PASS | 이력 행 CAUGHT | 3/3 · 2/2 |
+| VP-01 | R↔AT | REGRESSION | PASS | 로컬 gate green · Windows CI `41408758721`(head `046c80e`) 전 단계 success · D-003 순서 반례 0 | 0(집계) |
+
+- root `PAIR_FAIL` 0 · `BLOCKED_BY` 0 · PASS 19/19.
+- §10 분모: 187/187 — 목록 밖 발견 0.
+
+### AT / AC 합계
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 | ✅ | 구현자 ⚠️(CI 대기)였던 항목 — CI `41408758721` Test 단계 success 관측으로 닫음 |
+| AC2~AC11 · AC13~AC23 | ✅ | r4 근거 유지 · 해당 이력 행 CAUGHT |
+| AC12 | ✅ | D10 닫힘(Y1 잡음) · D8·D9 유지 |
+
+- 합계: ✅ 23 · ⚠️ 0 · ❌ 0 = 23 — 자기보고와 일치.
+- 사본 대조: plan r5 보고 `✅23`(`3b26b45`가 CI 뒤 갱신) ↔ `3b26b45` trailer `Criteria-Met: 23/23` ↔ INDEX 비고(같은 커밋) — 일치. `046c80e` trailer `22/23`·`partial`은 CI 전 사본이다.
+
+## r5-6. 외부 포트 / 문서 계약
+
+- 변경 없음.
+
+## r5-7. 숫자 재측정
+
+| 항목 | r4 HEAD(`7f81b46`) | r5 HEAD(`046c80e`) |
+|---|---|---|
+| vitest 파일 / 케이스(Node ABI) | 895 / 8,311 | 895 / 8,318 — 통과 8,287 · 실패 22 · 건너뜀 9 |
+| vitest 실패 ID | 22 | 22 — r4 집합과 diff 0 |
+| discovery 10파일 케이스 | 56 | 63 |
+
+- 구현자 보고의 "기존 실패 59"는 구현자 환경(상위 `/tmp/.git` 등) 값이다. 이 환경엔 `/tmp/.git`이 없고 실패 집합은 r3 이래 22로 같다.
+
+## r5-8. 사람 실기
+
+- 남은 사람 실기 없음. r1 §8의 스트리밍 중 휠 스크롤 확인은 "선택"으로 남아 있다.
+
+## r5-9. 게이트 재실행
+
+- typecheck 3구성 `error TS` 0 · eslint 1,979파일 0 error · warning 2(기존) · scripts 144/144 · doc-inventory generated/prose/links OK.
+- vitest 전체 무변이: §r5-7.
+- CI: run `41408758721`(PR #523, head `046c80e`) windows-latest `gate` 전 단계 success.
+- 트리 변경: 없음 — 러너 끝 `git status --short -- app` 빈 출력. 매트릭스는 별도 worktree에서 돌리고 제거했다.
+
+## r5-10. Repository operation checks
+
+- trailer: `046c80e` 6키(`Status: partial`·`Criteria-Met: 22/23`·`Criteria-Pending`…) · `3b26b45` 5키(`Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 23/23`·`Verified-By: pending`) — 둘 다 파싱 확인, 허용값.
+- `[구현자 기입]` r5 7필드 전부 존재 — 강제 지점 표는 19 pair 전부와 `남긴 곳`을 담는다.
+- INDEX: `impl/IMPL_DONE`·다음 주체 `Claude`·`(r5 구현 — 검증자 기입)` — 실제 상태와 일치.
+- 좌표: r3 verify 이후 커밋(`97271b8`·`ca89d34`·`7f81b46`·`9e77792`·`046c80e`·`3b26b45`)은 PR #523 브랜치에만 있고 `origin/main`(`dc9f29b`)의 조상이 아니다. archive 행은 자리표시자를 유지하고 PR 해시는 이 절에만 둔다.
+
+## r5-11. Finding disposition
+
+| # | finding | disposition | 후속 |
+|---|---|---|---|
+| D10 | 채택 판정 항 미잠금 | 해소 | Y1 잡음 3/3 |
+| D8·D9 | r4 해소 | 해소 유지 | F4 GREEN · X07 잡음 |
+| N1·N2 | r1 기록 | NON_BLOCKING | 유지 |
+
+## r5-12. Review Signals — 사실만
+
+- D1·D7·D8·D10이 모두 VP-07 ④ 경쟁 자리였다. 이번 라운드는 테스트만 바꿔 닫혔다.
+- 반복 환경 차이: 구현자 환경의 상위 `/tmp/.git`이 fixture 판정을 바꿨다(R5-B) — 이 환경에서는 재현되지 않는다.
+
+## r5-13. 결론
+
+- 상태: **PASS** — pair 19/19 PASS · PLAN_GAP 0 · AC ✅23 · 운영 gate 전부 green · 고장 이력 `못 잡음` 0(동치 3).
+- 남은 것: NON_BLOCKING N1·N2 · `main` 병합 뒤 좌표 교정. 보드 행을 archive로 옮긴다.
