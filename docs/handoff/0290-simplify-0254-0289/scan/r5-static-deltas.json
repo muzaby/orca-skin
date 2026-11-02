@@ -1,0 +1,13 @@
+{
+  "deadCategories": {
+    "used": 2971,
+    "test+local": 233,
+    "local-only": 303,
+    "dead": 33,
+    "test-only": 45
+  },
+  "newDeadOrTestOnly": [],
+  "i18nUnreferenced": 56,
+  "newI18n": [],
+  "deletedKeysStillPresent": []
+}

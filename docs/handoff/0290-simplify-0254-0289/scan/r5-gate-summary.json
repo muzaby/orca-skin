@@ -1,0 +1,66 @@
+{
+  "sourceBaseline": "9e777922",
+  "environment": {
+    "platform": "linux",
+    "node": "v24.19.0",
+    "sqlite": "Node ABI; rebuilt with workspace npm cache"
+  },
+  "vitest": {
+    "baseline": {
+      "files": 895,
+      "tests": 8311,
+      "failed": 66,
+      "skipped": 9
+    },
+    "final": {
+      "files": 895,
+      "tests": 8318,
+      "passed": 8250,
+      "failed": 59,
+      "skipped": 9
+    },
+    "newFailedIds": [],
+    "resolvedFailedIds": [
+      "app/src/main/adapters/claude/project-reconciliation.test.ts\tacknowledges only its own persisted change and leaves external edits pending",
+      "app/src/main/adapters/claude/project-reconciliation.test.ts\tdefers approval to normal reclamation without an SDK mutation",
+      "app/src/main/adapters/claude/project-reconciliation.test.ts\tdefers definition to normal reclamation without an SDK mutation",
+      "app/src/main/adapters/claude/project-reconciliation.test.ts\tdefers plugin-mcp to normal reclamation without an SDK mutation",
+      "app/src/main/adapters/claude/project-reconciliation.test.ts\tdefers unknown-plugin to normal reclamation without an SDK mutation",
+      "app/src/main/adapters/claude/project-reconciliation.test.ts\tisolates project approvals from user MCP and detects revision changes before any SDK call",
+      "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts\tre-watches the dependency file a reload switched to and reports its edit through the watcher"
+    ]
+  },
+  "typecheck": {
+    "configurations": 3,
+    "errors": 0
+  },
+  "eslint": {
+    "files": 1979,
+    "errors": 0,
+    "warnings": 2
+  },
+  "scripts": {
+    "tests": 144,
+    "passed": 144
+  },
+  "staticSensitivity": {
+    "cases": 12,
+    "detected": 12
+  },
+  "mutation": {
+    "definitions": 148,
+    "caught": 141,
+    "equivalent": 3,
+    "normalRepros": 4,
+    "unclassified": []
+  },
+  "enforcementSites": {
+    "total": 187,
+    "searchRows": 47,
+    "searchDelta": []
+  },
+  "ci": {
+    "state": "pending",
+    "pullRequest": 523
+  }
+}

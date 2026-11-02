@@ -1324,6 +1324,152 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 ---
 
+---
+
+## r5 구현 보완
+
+### [구현자 기입] 설계 리뷰
+
+- 판정: V1+ΔV1 유지, PLAN_GAP 0. D10은 VP-07 ④·AC12의 테스트 공백이며 제품 코드 변경 없이 보완했다.
+- 불변식: 내용 불변 touch와 겹친 재로드의 순서가 달라도 실제 편집은 한 번만 통보하고, 새 의존 파일 목록과 후속 편집을 보존한다.
+- 전수 순서: 읽기 전/후 × 완료 전/도중/뒤 × touch 유무 12개. 0290 전 `46b3784`와 기대값 12/12 동일([R5-01](implementation-evidence-r5.md#변경과-직접-관측)).
+- 이견 / 현실성: 없음. ACTIVE Decision·AC·V·§10·공개 계약·의존성 변경 0. D-017에 따라 단독 수행했다.
+
+### [구현자 기입] 강제 지점 전수 (§10 대조)
+
+직접 좌표는 [r3 O-02~O-19](implementation-evidence-r3.md#상속-자리별-직접-좌표), 이번 보완 좌표는 [R5-01~04](implementation-evidence-r5.md#변경과-직접-관측)다. 아래 모든 기존 oracle 파일을 이번 전체 Vitest 실행 집합에서 다시 확인했다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---:|---:|---|---|---|
+| VP-01 | 기존 동작 집계 | 0 | 0 | O-01 · 전체 gate/고장 재실행 | 신규 실패 ID ∅·CI 대기 | AC1 Windows CI |
+| VP-02 | push·focus | 3 | 3 | O-02 · 전체 gate/고장 재실행 | backend별 push·busy/lock·해제 | 없음 |
+| VP-03 | native missing | 2 | 2 | O-03 · 전체 gate/고장 재실행 | 404·probe 실패 구별 | 없음 |
+| VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04 · 전체 gate/고장 재실행 | 삭제 검색 0·직렬 큐 | 없음 |
+| VP-05 | production 조립 | 3 | 3 | O-05 · 전체 gate/고장 재실행 | 실제 preparation 조립 | 없음 |
+| VP-06 | 하네스 소유권 | 5 | 5 | O-06 · 전체 gate/고장 재실행 | 이동 경계 5/5 검출 | 없음 |
+| VP-07 | 감시·변화 통보 | 4 | 4 | O-07 · R5-01~03 · 전체 gate/고장 재실행 | ①②③ O-07/O-19; ④ touch 12순서·새 의존 파일·후속 편집 | 없음 |
+| VP-08 | 미사용 제거 | 29 | 29 | O-08 · 전체 gate/고장 재실행 | 삭제·dead/i18n 집합·정적 민감도 | 없음 |
+| VP-09 | JSON·Git·플래그·spec | 14 | 14 | O-09 · R5-04 · 전체 gate/고장 재실행 | BOM·Git 3소비자·R5-04 배열 플래그 | 없음 |
+| VP-10 | 연결·조립 | 11 | 11 | O-10 · 전체 gate/고장 재실행 | scope·revision·dispose·options | 없음 |
+| VP-11 | 자원 조회 효율 | 4 | 4 | O-11 · 전체 gate/고장 재실행 | 호출 횟수·병렬·동기/비동기 결과 | 없음 |
+| VP-12 | 브랜드·이름 | 15 | 15 | O-12 · 전체 gate/고장 재실행 | SVG·톤·표시명·계획 문구 | 없음 |
+| VP-13 | 슬롯·capability | 29 | 29 | O-13 · 전체 gate/고장 재실행 | cwd 클래스·배치·continuity·permission | 없음 |
+| VP-14 | 행 편집·스크롤 | 3 | 3 | O-14 · 전체 gate/고장 재실행 | 행 CRUD·프레임 순서 | 없음 |
+| VP-15 | 이력 읽기·쓰기 | 6 | 6 | O-15 · 전체 gate/고장 재실행 | probe·parse·rowid·rollback | 없음 |
+| VP-16 | main 반복 제거 | 11 | 11 | O-16 · 전체 gate/고장 재실행 | CRUD 4경로·반복 횟수·이벤트 중복 방지 | 없음 |
+| VP-17 | renderer 파생 | 4 | 4 | O-17 · 전체 gate/고장 재실행 | 공유 memo·stale·media | 없음 |
+| VP-18 | 0291 정리 | 19 | 19 | O-18 · 전체 gate/고장 재실행 | canonical·variant·CLI·wire·순서 | 없음 |
+| VP-19 | push 수명주기 | 6 | 6 | O-19 · 전체 gate/고장 재실행 | 공용/전용 방송·해제 | 없음 |
+
+- 분모 검산: 고정 187자리, 자리 검색 47행 r4↔r5 차집합 ∅. 기존 삭제·소비 좌표는 이번 gate에 포함됐고 VP-07 4/4를 새 사례로 보강했다.
+- 직전 못 잡음 Y1은 잡음 1/63, 동치 Y2·Y4·Z16은 재실행 및 코드 근거로 동치 유지다. 목록 밖 신규 운반 자리 0.
+
+**V-pair 자기확인**
+
+| Pair | Requiredness | 자기 상태 | 직접 좌표 | 적대 증거 / 남은 곳 |
+|---|---|---|---|---|
+| VP-01 | REGRESSION | SELF_BLOCKED | O-01 | Windows CI 대기 |
+| VP-02 | REQUIRED | SELF_PASS | O-02 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-03 | REQUIRED | SELF_PASS | O-03 | 직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | O-04 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-05 | REQUIRED | SELF_PASS | O-05 | 직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | O-06 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-07 | REQUIRED | SELF_PASS | O-07 · R5-01~03 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-08 | REQUIRED | SELF_PASS | O-08 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-09 | REQUIRED | SELF_PASS | O-09 · R5-04 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-10 | REQUIRED | SELF_PASS | O-10 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-11 | REQUIRED | SELF_PASS | O-11 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-12 | REQUIRED | SELF_PASS | O-12 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-13 | REQUIRED | SELF_PASS | O-13 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-14 | REQUIRED | SELF_PASS | O-14 | 직접 oracle |
+| VP-15 | REQUIRED | SELF_PASS | O-15 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-16 | REQUIRED | SELF_PASS | O-16 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-17 | REQUIRED | SELF_PASS | O-17 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-18 | REQUIRED | SELF_PASS | O-18 | 선택 증거·이력 재실행, 아래 잠금 표 |
+| VP-19 | REQUIRED | SELF_PASS | O-19 | 선택 증거·이력 재실행, 아래 잠금 표 |
+
+### [구현자 기입] 이번 라운드 수정의 잠금
+
+| 출처 / 주장 | 분모 | 결함 방식 · 재현 좌표 | 관측 | 복원 확인 |
+|---|---:|---|---|---|
+| r4 실행 정의·인용·고장 이력 | 148 | 기존 141 + 검증자 Y1~Y7 7, [결과](scan/r5-mutation-evidence.json) | 잡음 141·동치 3·정상 재현 green 4 | production 바이트 복원 |
+| D10 인용 Y1(위 집합 안) | 1 | 서명 비교→지문 비교, R5-01 | touch+before-edit/during-pass 1실패/63 | 정상 poll-race 18/18 |
+| 기존 감시 잠금 재확인(위 집합 안) | 3 | X07 재감시 삭제·Y6 첫 파일만 감시·Y7 재검사 요청 삭제 | R5-02·03에서 각각 1실패 | 정상 18/18 |
+| Claude 플래그 M107(위 집합 안) | 1 | 배열 활성 항 제거 | R5-04 1실패 | 기존 Linux 2실패와 분리 |
+| 정적 선택 증거·실패-ID oracle | 12 | 실제 파일 복원 검색·분류·소유권·실패 ID | 12/12 검출([결과](scan/r5-static-sensitivity.json)) | 원래 바이트 복원 |
+
+- 분모 검산: 선택 증거 98 + 추가 인용·이력 58 + 새 구조 oracle 0 = 고장 156(실행 144+정적 12). 정상 재현 4는 별도다.
+- 고장 156 = 잡음 153 + 동치 3. 정의↔최종 결과 누락·초과·중복 차집합 ∅, 미분류 ID ∅. Y6·Y7의 보완 전 green은 [중간 기록](scan/r5-mutation-attempts.json)에 보존했다.
+
+### [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태 / 실패 경로 | 없음 — app production diff 0 | 없음 |
+| 늦은 결과가 새 상태를 덮는가 | 최신/다른 파일·후속 편집 관측 유지 | R3-03·R5-01~03 |
+| 종료·재진입·공유 수명 | 기존 release·watch close·두 holder 재현 유지 | Z16·Y2·Y4 및 E/G/H/I/J |
+| 시각·선택 | renderer diff 0 | 없음 |
+
+### [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D10 | 같은 내용·다른 지문을 기존 fixture가 구별하지 못함 | 6순서 각각 touch 유무·후속 편집을 단언 | Y1 1실패/63 |
+| R5-A | setImmediate 200회가 fs 완료 전 끝나 이전 Y6·Y7 검출을 흔듦 | 결과 대기 + 두 번째 파일 감시·새 manifest 재검사 사례 | X07·Y6·Y7 각 1실패 |
+| R5-B | 상위 `/tmp/.git` 때문에 Claude fixture의 cwd 설정이 가려짐 | fixture cwd에 Git 경계 명시 | M107 잡음, 기존 실패 6개 해소 |
+
+설계 대비 명시적 차이: 없음. production 재배치·새 저장소·실패 경로를 만들지 않았다. 테스트의 fs 완료 대기·프로젝트 경계만 명시했다.
+
+### [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | discovery poll-race·Claude reconciliation 테스트 2파일, plan·INDEX·r5 증거. production 변경 0 |
+| 실행 명령 | [r5 재현](implementation-evidence-r5.md#재현) 및 기존 mutation runner |
+| 관측한 게이트 산출 | 타입 3구성 오류 0·lint 1,979파일 error 0/기존 warning 2·scripts 144/144·문서/budget/migration OK. Vitest 895파일 8,318케이스·기존 실패 59·신규 ID ∅ |
+| V-pair 자기확인 | SELF_PASS 18·SELF_BLOCKED 1(VP-01 Windows CI) / 19 |
+| 강제 지점 전수 | 187/187·검색 차집합 ∅; 집계 CI는 별도 |
+| AC 자기보고 | 아래 ✅22·⚠️1·❌0; Windows CI 대기 |
+| 합계 검산 | ✅22·⚠️1·❌0 = 총 23 |
+| 블로커 / 역질문 | 로컬 신규 실패·PLAN_GAP 없음. CI 확인 후 인계 기록 갱신 |
+| 대상 커밋 | `(r5 구현 — 좌표는 INDEX)` |
+
+| AC | 자기확인 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ⚠️ | 신규 실패 ID ∅·Windows CI 대기 |
+| AC2 | ✅ | 삭제 검색·dead/test-only 집합·정적 검출 |
+| AC3 | ✅ | 삭제 i18n present 0·미참조 집합·CSS 0 |
+| AC4 | ✅ | 고아 사슬 0·세션 리소스 응답/직렬화 |
+| AC5 | ✅ | 동일 key deferred 직렬화·실패 후 큐 진행 |
+| AC6 | ✅ | 404 missing·probe 실패 분기 |
+| AC7 | ✅ | BOM/Git/플래그/spec, M107 1실패 |
+| AC8 | ✅ | scope/revision/options·dispose 이력 검출 |
+| AC9 | ✅ | 구 조립 0·production preparation 실행 |
+| AC10 | ✅ | config 1회·병렬·spawn/메뉴 경로 |
+| AC11 | ✅ | push/focus·busy/lock·unmount |
+| AC12 | ✅ | R5-01 12순서·R5-02 두 파일·R5-03 재검사, Y1/X07/Y6/Y7 각 1실패 |
+| AC13 | ✅ | 이동 경계 5/5 검출·옛 파일 부재 |
+| AC14 | ✅ | SVG/톤·계획 타일 소비·shim 부재 |
+| AC15 | ✅ | 표시명·clipboard·엔진 소비 |
+| AC16 | ✅ | cwd 클래스·랜딩/Composer 배치 |
+| AC17 | ✅ | capability 소비·연속성/권한 이력 검출 |
+| AC18 | ✅ | 행 편집·scroll 프레임 순서 |
+| AC19 | ✅ | inventory generated/prose/links OK |
+| AC20 | ✅ | client/parse/rowid/FTS/rollback·이력 변이 검출 |
+| AC21 | ✅ | CRUD 4경로·호출 횟수·중복 방지 |
+| AC22 | ✅ | 공유 모델·stale·media 변화 |
+| AC23 | ✅ | canonical/variant/CLI/wire/Orca 순서·이력 검출 |
+
+검산: 현재 AC 23행 = ✅22 + ⚠️1 + ❌0. 구현 trailer `Criteria-Met: 22/23`·`Criteria-Pending: AC1 Windows CI`와 맞췄다.
+
+### [구현자 기입] Review Signals — 사실만
+
+- 현재 라운드·impl 턴 r5, verify FAIL 4회 뒤 구현이다. r3 뒤 round 39 review가 있으며 이번 턴의 review 의무 임계는 아니다.
+- D10은 기존 VP-07 ④·AC12의 값 구별 누락이다. 이번에는 내용이 같고 지문이 다른 입력을 모든 6순서에 넣었다.
+- 이전 잡음 Y6·Y7의 실패가 대기 시간에 기대던 점을 재실행에서 확인하고, 두 변이의 실제 경로를 직접 단언했다.
+- 반복 환경 한계는 Linux 경로 fixture·상위 Git 경계·홈 쓰기 제약이다. 새 플랫폼 조건이나 테스트 skip은 넣지 않았다.
+- 지침·failure corpus·verify.md는 수정하지 않았다. SELF_PASS는 독립 verify PASS가 아니다.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |

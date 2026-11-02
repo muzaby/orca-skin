@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, realpath, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { watchFile } from 'node:fs'
@@ -109,17 +109,24 @@ it.each(['same-value', 'newer-value', 'new-file'] as const)(
 // Every relative order of a reload (reads `a` before/after the edit, finishes before/during/after the
 // poll pass that sees the edit). Expected counts are what the pre-0290 discovery code produced for the
 // same test: one edit reaches the holder once, except a reload that already read the edit before any
-// pass, whose manifest has no change left to report.
-it.each([
-  ['before-edit', 'before-pass', 1],
-  ['before-edit', 'during-pass', 1],
-  ['before-edit', 'after-pass', 1],
-  ['after-edit', 'before-pass', 0],
-  ['after-edit', 'during-pass', 1],
-  ['after-edit', 'after-pass', 1]
-] as const)(
-  'reports one edit once when a reload reads it %s and finishes %s',
-  async (reads, finishes, expected) => {
+// pass, whose manifest has no change left to report. A touch changes the reload's fingerprint without
+// changing its content: adoption must compare content signatures, not stat fingerprints (0290 D10).
+it.each(
+  (
+    [
+      ['before-edit', 'before-pass', 1],
+      ['before-edit', 'during-pass', 1],
+      ['before-edit', 'after-pass', 1],
+      ['after-edit', 'before-pass', 0],
+      ['after-edit', 'during-pass', 1],
+      ['after-edit', 'after-pass', 1]
+    ] as const
+  ).flatMap(([reads, finishes, expected]) =>
+    [false, true].map((touch) => ({ reads, finishes, expected, touch }))
+  )
+)(
+  'reports one edit once when a reload reads it $reads and finishes $finishes (touch: $touch)',
+  async ({ reads, finishes, expected, touch }) => {
     const cache = new OpenCodeDiscoveryCache()
     const a = join(root, 'opencode.json')
     const b = join(root, 'tui.json')
@@ -138,6 +145,10 @@ it.each([
     await cache.run(key, load)
     const changed = vi.fn()
     releases.push(cache.hold(key, changed))
+    if (touch) {
+      const later = new Date(now + 5000)
+      await utimes(a, later, later)
+    }
     const gate = Promise.withResolvers<void>()
     let reloading: Promise<string[]> | undefined
     const startReload = async (): Promise<void> => {
@@ -186,6 +197,13 @@ it.each([
     await cache.poll()
     expect(changed).toHaveBeenCalledTimes(expected)
     expect(await cache.run(key, load)).toEqual(['a1', 'b0'])
+    await writeFile(a, 'a2')
+    now += 1001
+    await cache.poll()
+    expect(changed).toHaveBeenCalledTimes(expected + 1)
+    await cache.poll()
+    expect(changed).toHaveBeenCalledTimes(expected + 1)
+    expect(await cache.run(key, load)).toEqual(['a2', 'b0'])
   }
 )
 
@@ -197,12 +215,16 @@ it('re-watches the dependency file a reload switched to and reports its edit thr
   await writeFile(second, 'second')
   let target = first
   const key = cache.key('configured', root, {})
-  await cache.run(key, () => discoveryReadFile(target))
+  const load = async (): Promise<string> => {
+    await discoveryReadFile(first)
+    return discoveryReadFile(target)
+  }
+  await cache.run(key, load)
   const changed = vi.fn()
   releases.push(cache.hold(key, changed))
   target = second
   cache.invalidate()
-  expect(await cache.run(key, () => discoveryReadFile(target))).toBe('second')
+  expect(await cache.run(key, load)).toBe('second')
   // The production trigger is the stat watcher on the current dependency file, not a direct poll.
   // watchFile(file, options, listener) — the overload the watcher uses.
   const call = (vi.mocked(watchFile).mock.calls as unknown as unknown[][]).findLast(
@@ -216,7 +238,39 @@ it('re-watches the dependency file a reload switched to and reports its edit thr
   now += 1001
   listener!()
   await vi.advanceTimersByTimeAsync(200)
-  for (let i = 0; i < 200 && changed.mock.calls.length === 0; i++)
-    await new Promise((done) => setImmediate(done))
+  await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce())
+})
+
+it('checks the reloaded dependencies before an unchanged overlapping pass settles', async () => {
+  const cache = new OpenCodeDiscoveryCache()
+  const first = join(root, 'opencode.json')
+  const second = join(root, 'instructions.md')
+  await writeFile(first, 'unchanged')
+  await writeFile(second, 'second')
+  const key = cache.key('configured', root, {})
+  await cache.run(key, () => discoveryReadFile(first))
+  const changed = vi.fn()
+  releases.push(cache.hold(key, changed))
+  now += 1001
+  const entered = Promise.withResolvers<void>()
+  const slow = Promise.withResolvers<string>()
+  vi.mocked(readFile).mockImplementationOnce(() => {
+    entered.resolve()
+    return slow.promise
+  })
+  const polling = cache.poll()
+  try {
+    await entered.promise
+    cache.invalidate()
+    expect(await cache.run(key, () => discoveryReadFile(second))).toBe('second')
+    await writeFile(second, 'second edited')
+    now += 1001
+  } finally {
+    slow.resolve('unchanged')
+    await polling
+  }
   expect(changed).toHaveBeenCalledOnce()
+  await cache.poll()
+  expect(changed).toHaveBeenCalledOnce()
+  expect(await cache.run(key, () => discoveryReadFile(second))).toBe('second edited')
 })
