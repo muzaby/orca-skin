@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-02 |
 | 매핑 | 기준 커밋 `origin/main@8e5cefa`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `claude/nav-session-items-ui-g26zhn` |
-| 상태 | IMPL_DONE (r1, 독립 검증 대기) |
+| 상태 | verify/PASS (r1 · 기계 범위) — AC22 사람 실기 대기 |
 | V mode | `Baseline V` |
 | 기준 V | `none`. 기존 동작은 `INHERITED` 회귀 노드로만 참조한다 — 출처는 `origin/main@8e5cefa`의 0249·0254·0285·0287·0291 plan |
 | 이번 V revision | `V1` |
