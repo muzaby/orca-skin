@@ -1244,6 +1244,86 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 ---
 
+## r4 구현 보완
+
+> 구현 주체: Claude(사용자 `/handoff-impl 290` 요청). 이 handoff의 r3 검증자와 같은 에이전트다 — 다음 verify는 구현 보고 밖 축을 최소 하나 넣어야 한다(`docs/handoff/AGENTS.md §단계별 절차 3`).
+
+### [구현자 기입] 설계 리뷰
+
+- 판정: V1+ΔV1 유지. D8·D9는 VP-07 ④·AC12 안의 중복 통보·미잠금이며 PLAN_GAP 0.
+- 불변식: **한 변경은 holder에 한 번 통보한다 — 통보한 pass의 관측은 보존한 manifest에도 반영하되, 재로드가 읽은 더 최신·다른 의존은 덮지 않는다.** 감시는 항상 현재 manifest의 파일을 본다.
+- 전수 범위(경쟁의 형제 = 순서, impl §5-2): 재로드가 `a`를 읽는 시점(편집 전·후) × 끝나는 시점(pass 전·도중·뒤) 6순서. 기대값은 0290 전 코드 `a2e8464`로 같은 테스트를 돌려 얻었다(6/6 green).
+- 이견 / 현실성: 없음. 제품 동작·Decision·AC·§10·의존성 변경 0.
+
+### [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07 | 감시 1벌·변화마다 1회 | 4(①~④) | 4 | ①~③ r3 좌표 유지(M003·M088·R2I D1-project·Z04·Z05·M090~M092·Z07 잡음) · ④ `discovery-cache.poll-race.test.ts` `reports one edit once when a reload reads it %s and finishes %s` 6케이스 · `re-watches the dependency file a reload switched to and reports its edit through the watcher` | 재로드 읽기 시점 2 × 완료 시점 3, 기대 1·1·1·0·1·1(`a2e8464` 동일) · 새 의존 파일 경로를 잡은 `watchFile` 콜백 → 100ms 확인 → 통보 1 | 없음 |
+| 그 밖 18 pair | r3 좌표 유지 | 183 | 183 | r3 verify §r3-5 좌표, 이번 변이 재실행 잡음 유지(아래 잠금 표) | r4 diff는 `discovery-cache.ts` 1자리 | 없음 |
+
+- 분모 검산: 고정 187자리 = VP-07 4 + 그 밖 183. §10 기록 검색은 r4 diff가 검색 대상 토큰을 바꾸지 않아 r3 값 그대로(`watchFile(` 1 · discovery `setInterval(` 0).
+- 직전 `못 잡음` X07·F4: 둘 다 잡음(아래). `동치` Z16: 동치 유지 0/53 — 해당 파일 r4 diff 0.
+
+**V-pair 자기확인**
+
+| Pair | Requiredness | 자기 상태 | 직접 좌표 | 적대 증거 / 남은 곳 |
+|---|---|---|---|---|
+| VP-07 | REQUIRED | SELF_PASS | 위 표 ④ 좌표 7케이스 + r3 ①~③ | C2·C3·X07·F4 되돌림 잡음 |
+| VP-01 | REGRESSION | SELF_PASS | 전체 vitest 실패 ID = 무변이 22 | — |
+| 그 밖 17 | REQUIRED | SELF_PASS | r3 verify §r3-5 좌표 | 해당 변이 잡음 유지 |
+
+### [구현자 기입] 이번 라운드 수정의 잠금
+
+| 출처 / 주장 | 분모 | 결함 방식 · 재현 좌표 | 관측 | 복원 확인 |
+|---|---|---|---|---|
+| r3 verify 이력 재실행 | 138 | [`r3-verify-mutations.json`](verify-evidence/r3/r3-verify-mutations.json) 그대로 | 잡음 134 · 동치 1(Z16) · green 재현 F1~F4 4행(F4 HEAD green이 D8 해소) · X07 잡음 1/56 | 바이트 복원(러너 끝 상태 = 구현 diff만) |
+| D8 인용 | 2 | C2 보존 manifest 갱신 제거 · F4 재현 C + 같은 되돌림 | C2 잡음 1/56 · F4 되돌림 red 1/1 | 동일 |
+| 새 분기 형제 갈래 | 1 | C3 조건 `current.signature === before.signature` → `true`(더 최신 재로드 값까지 덮음) | 잡음 1/56(R3-03 newer-value) | 동일 |
+| 동치 후보 제거 | 1 | C4 `seen.signature !== before.signature` → `true`가 0/56 — 같은 서명의 지문만 갱신해 통보가 바뀌지 않는다 | 절 자체를 코드에서 지워 단순화, 최종 코드로 discovery 15행 재실행 전부 잡음([final](scan/r4-mutation-evidence-final-discovery.json)) | 동일 |
+
+- 검산: 선택 증거 0(새 pair 없음) · 인용 변이 2(C2·F4) + 직전 못 잡음 2(X07·F4 HEAD) · 새 oracle 0(행동 테스트만) · 형제 1(C3) · 이력 재실행 138 — [정의](scan/r4-mutation-definitions.json) 141행 = 결과 141행([evidence](scan/r4-mutation-evidence.json)) — C4는 정의에서 뺐고 기록은 위 행.
+
+### [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태 | 없음 | 없음 |
+| 실패가 화면에서 무엇으로 보이는가 | 설정 편집 뒤 서버 retire 1회 — 순서와 무관 | 6순서 테스트 |
+| 늦은 결과가 새 상태를 덮는가 | 더 최신·다른 파일 재로드는 보존(C3 잡음) | R3-03 |
+
+### [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D8 | 보존한 재로드 manifest가 편집 전 내용이면 다음 pass가 같은 변경을 다시 셈 | pass가 비교한 옛 서명과 같은 항목만 pass 결과로 갱신(`discovery-cache.ts:265-276`) | 6순서 중 `before-edit/during-pass`, r3 코드 2회 → r4 1회 |
+| D9 | 재로드 뒤 감시 재설정 미잠금 | 실제 `watchFile` 콜백 경로 테스트 | X07 잡음 1/56 |
+| 순서 `after-edit/before-pass` | 재로드가 먼저 편집을 읽으면 holder 통보 0회 | 변경 없음 — 0290 전 코드도 0회(D-003 기준선) | 6순서 표 |
+
+설계 대비 명시적 차이: 없음.
+
+### [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/adapters/opencode/v1/discovery-cache.ts`(+13) · `discovery-cache.poll-race.test.ts`(+116, 7케이스) |
+| 관측한 게이트 산출 | typecheck 3구성 `error TS` 0 · eslint(무수정) 1,979파일 0 error · warning 2(기존 `Timeline.tsx:49`·`useTranscriptVirtualizer.ts:22`) · vitest Node ABI 895파일 8,311케이스 실패 22 = 무변이 집합(신규 0·사라짐 0) · discovery 10파일 56/56 |
+| 환경 | Linux · Node ABI better-sqlite3 · Electron 바이너리. app 밖 scripts·문서 변경 0이라 scripts·doc-inventory는 r3 값(144/144·OK) 유지 |
+| V-pair 자기확인 | SELF_PASS 19 / 유효 19 |
+| 강제 지점 전수 | 187/187 |
+| 합계 검산 | ✅ 23 · ⚠️ 0 · ❌ 0 = 23 (r3 verify ❌ AC12 → D8·D9 닫음) |
+| 블로커 / PLAN_GAP | 0 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+### [구현자 기입] Review Signals — 사실만
+
+- 라운드 4, impl 턴 r4. review round 39 뒤 첫 구현.
+- 같은 축: r1 D1·r2 D7·r3 D8 모두 VP-07 ④ 경쟁. 이번엔 순서 6개를 열거해 변경 전 코드 기대값과 맞췄다.
+- 구현자 = r3 검증자(같은 에이전트) — 독립성은 다음 verify의 보고 밖 축이 보완해야 한다.
+- 환경 한계: CI 로그 egress 403(이전과 같음). 이번 턴은 push 뒤 CI를 기다리지 않았다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
