@@ -13,9 +13,9 @@
 | Scripts | 144/144 성공 |
 | 정적 운영 gate | inventory generated/prose/links OK; migration sync·append-only OK; test budget 16 suites OK |
 | 변이 | 실행 112/112 assertion red 및 복원 후 green; 정적 12/12 검출 |
-| Windows CI | 대기 |
+| Windows CI | [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41363264661) 성공: Vitest 891파일·8297케이스 성공, 3파일·3케이스 skip; scripts 144/144; 타입·lint·문서·migration·budget 성공. 로컬 Electron build 성공 |
 
-명령은 r1 증거의 재현 명령과 같다. 전체 Vitest는 clean worktree에서 --maxWorkers=2 --reporter=json으로 실행했고, 원본 트리에서 한 번에 한 변이만 적용·검출·바이트 복원·같은 테스트 재실행했다. Node ABI 상태에서 모든 DB 테스트/변이를 마쳤다. 실행 요약은 [r2-gate-summary.json](scan/r2-gate-summary.json)이다.
+명령은 r1 증거의 재현 명령과 같다. 전체 Vitest는 clean worktree에서 --maxWorkers=2 --reporter=json으로 실행했고, 원본 트리에서 한 번에 한 변이만 적용·검출·바이트 복원·같은 테스트 재실행했다. Node ABI 상태에서 모든 DB 테스트/변이를 마친 뒤 npm run build를 실행했다. 빌드의 prebuild가 Electron ABI로 전환했고 main·preload·renderer 번들이 모두 생성됐다. 현재 로컬 바이너리는 Electron ABI다. 실행 요약은 [r2-gate-summary.json](scan/r2-gate-summary.json)이다.
 
 전체 검사 중 registry 1케이스는 28.8초, 파일 재실행에서는 27.7초 뒤 STACK_TRACE_ERROR로 실패했다. 기존 예산은 20초이며, 해당 케이스만 실행했을 때 코드·예산 변경 없이 16.374초에 통과했다. 호스트 부하에 따른 시간 예산 초과로 분리했다. 변이 실행 중 json-file.ts 복원 쓰기가 Windows UNKNOWN 오류로 한 번 중단됐다. clean worktree 원본으로 바이트를 복구하고 완료 ID부터 재개했다. 이 실패를 검출 성공으로 세지 않았다.
 
@@ -37,7 +37,7 @@
 
 | 좌표 | 자리 | 직접 oracle / 구별 입력과 관측 |
 |---|---|---|
-| O-01 | VP-01 집계 | 아래 r2 gate 표. 전체 실행과 실패 파일 재실행을 함께 판정하며 CI는 대기 중이다. |
+| O-01 | VP-01 집계 | 아래 r2 gate 표. 전체 실행과 실패 파일 재실행 및 Windows CI 성공을 함께 판정했다. |
 | O-02 | VP-02 #1~3 | `renderer/src/features/skills/hooks/useNativeMcpCatalog.test.ts:refreshes on backend push and focus, coalesces busy and locked pushes and stops after unmount` — 30초 추가 조회 0, backend 구별 push, focus, busy/lock 합류, 해제 후 0. |
 | O-03 | VP-03 #1~2 | `main/adapters/opencode/v1/native-history.test.ts`의 missing·probe failure 케이스와 §10 legacy 검색 0. SDK 404는 missing, probe 실패+SDK 성공은 unavailable, 이전 source 불일치에는 SDK 조회. |
 | O-04 | VP-04 #1~7·9~19 | §10 고아 IPC 검색: production 0·계약 문서 0. `main/app/handlers/session-resources{,.sync,.cancellation,.claude-assembly}.test.ts` 전 케이스로 남은 자원 응답·취소·스코프·Claude 조립을 실행. |
@@ -90,4 +90,4 @@ Y12는 첫 Windows 실행에서 49/49 green으로 남았다. 기존 verify CAUGH
 
 ## 환경과 다음 단계
 
-로컬 CLI 통합은 수정 전 0eb7dc27의 별도 worktree에서도 이번 턴에 실행해 1/1 동일 실패(connected 자원 0/6)를 재현했다. 최종 실패 ID 집합에서 이 기준선 ID를 뺀 신규 차집합은 0이다. 테스트를 삭제하거나 skip 조건을 바꾸지 않았다. Windows CI 완료 뒤 AC1·VP-01을 갱신한다. D1~D5 closed는 구현자 자기확인이며 다음 단계는 Claude의 독립 verify다. 제품 선택·공개 계약·새 의존성 변경은 없다.
+로컬 CLI 통합은 수정 전 0eb7dc27의 별도 worktree에서도 이번 턴에 실행해 1/1 동일 실패(connected 자원 0/6)를 재현했다. 최종 실패 ID 집합에서 이 기준선 ID를 뺀 신규 차집합은 0이다. 테스트를 삭제하거나 skip 조건을 바꾸지 않았다. Windows CI 성공으로 AC1·VP-01을 닫았다. D1~D5 closed는 구현자 자기확인이며 다음 단계는 Claude의 독립 verify다. 제품 선택·공개 계약·새 의존성 변경은 없다.

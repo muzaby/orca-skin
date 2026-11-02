@@ -176,5 +176,24 @@
     ],
     "missingIds": [],
     "extraIds": []
+  },
+  "build": {
+    "command": "npm run build",
+    "result": "success",
+    "artifacts": [
+      "main",
+      "preload",
+      "renderer"
+    ],
+    "currentAbi": "Electron"
+  },
+  "ci": {
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/41363264661",
+    "conclusion": "success",
+    "passedFiles": 891,
+    "skippedFiles": 3,
+    "passedTests": 8297,
+    "skippedTests": 3,
+    "scriptTests": 144
   }
 }
