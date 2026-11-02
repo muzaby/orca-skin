@@ -1226,3 +1226,219 @@ OpenCode 연결: configuredOpenCodeResources(load) → servers.acquire(spawn) �
 - AC: ✅ 22 · ⚠️ 0 · ❌ 1(AC12).
 - 운영 gate: 전부 green(환경 분리 포함).
 - 다음 단계: 구현자가 D8·D9를 닫는다. 다음 verify는 이번 `못 잡음` 2행(X07·F4)·`동치` 1행(Z16)과 `잡음` 행을 다시 실행한다.
+
+---
+
+# r4 재검증 (2026-11-02)
+
+> r1~r3 본문(위)은 그대로 둔다. 재현 자료는 [`verify-evidence/r4/`](verify-evidence/r4/) — 형제 순서 재현 테스트([`r4-siblings`](verify-evidence/r4/repro/discovery-cache.r4-siblings.verify.test.ts) E·G·H·I·J), 버전 매트릭스 러너·결과, 변이 정의·결과 JSON, 무변이 실패 ID, §10 검색 출력. 변이 러너는 r2의 [`mutate-r2.py`](verify-evidence/r2/mutate-r2.py) 그대로다.
+
+## r4 메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-11-02 |
+| 대상 커밋/range | `97271b8..7f81b46` — r4 구현 `7f81b46`(app 2파일 + plan·INDEX·scan). 사이의 `ca89d34`는 handoff-review round 39(지침만) |
+| 구현 전 plan 기준 | `97271b8`(r3 verify) — 규범부 = `46b3784` V1+ΔV1 |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1` |
+| 라운드 | 4 (verify 4회째) |
+| 상태 | **FAIL** |
+| 자기 검증 여부 | **예** — 구현 Claude(사용자 `/handoff-impl 290`), 검증 Claude. 보고 밖 축: 변이 Y1~Y7(보고는 C2~C4·X07·F4만 명명) · 형제 순서 E·G·H·I·J(보고는 `a` 편집 6순서만) |
+
+## r4-0. 기준선 / plan 변경 확인
+
+- **판정: 기준선 성립, 규범 변경 0.** `97271b8..7f81b46`의 plan diff는 hunk 1개(`@@ -1244,6 +1244,86 @@`) — `## r4 구현 보완` 절 80줄 추가뿐이다.
+- Decision·Product/UX·AC·V node/pair·§10 변경 없음. 채점 기준은 V1+ΔV1 규범 행 원문(r1~r3와 같다).
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | 규범부 변경 0 |
+| §10 자리 목록(기록 검색 재실행 차집합) | 유효 | [`ep-search.sh`](verify-evidence/ep-search.sh) HEAD 출력 47행([`ep-search-r4.txt`](verify-evidence/r4/ep-search-r4.txt))이 구현자 [`r3-ep-search.txt`](scan/r3-ep-search.txt)와 diff 0 |
+| r4 수정·D10 자리의 목록 귀속 | 유효 | `discovery-cache.ts:262-280` 채택 루프는 VP-07 ④(hold 동안 의존 파일 변화로 probe 구동) 안 |
+
+- root PLAN_GAP: 없음. D10은 VP-07 "변화마다 1회"·AC12 안에서 회귀 테스트 추가로 닫힌다.
+
+## r4-1. Product & UX / ACTIVE Decision
+
+| Decision / 요구 | 기대 결과 | r4 판정 |
+|---|---|---|
+| D-003 관측 동작 보존 | 화면·대화 흐름 불변 | 충족 — 겹친 재로드 형제 순서 11개(구현 6 + 검증 5) 모두 HEAD 통보 수 = `a2e8464` |
+| VP-07 ④ · AC12 "변경마다 1회" | holder 통보 1회 | 동작 충족 · **미잠금(D10)** — 채택 판정 항(내용 서명)을 바꾼 Y1이 스위트 green |
+| 그 밖 ACTIVE Decision | r3 판정 | 유지 — r4 app diff는 `discovery-cache.ts`(+13)·`discovery-cache.poll-race.test.ts`(+116)뿐 |
+
+## r4-2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| D8 수정이 중복 통보를 없앴는가 | 성립 | 재현 C HEAD green 3/3 · C2(채택 루프 제거) red 3/3 — [`repro-matrix-r4.json`](verify-evidence/r4/repro-matrix-r4.json) |
+| 채택이 더 최신·다른 의존을 덮는가 | 아니오 | 조건 `current.signature === before.signature`(`:271`) — C3(`true`) 잡음 1/56(R3-03 newer-value) |
+| 채택이 다른 실패 모드를 만들었는가 | 발견 0 | 형제 E(두 번째 편집 2회)·G(`b` 편집)·H(두 key 공유 파일)·I(touch 뒤)·J(채택 뒤 두 번째 hold) 전부 HEAD = `a2e8464` 기대값 3/3 |
+| 채택이 observer manifest 밖을 바꾸는가 | 아니오 | 대상 Map은 `run()`(`:163`)·`hold()`(`:205`)가 만든 observer 사본 — entry manifest와 공유 없음 |
+| 채택 판정 항이 잠겼는가 | **미잠금(D10)** | Y1(서명 → 지문 비교) discovery 10파일 56케이스 green, 재현 I red(통보 2회) |
+| 채택된 지문 항 | 동치 | Y2(지문 미이관)·Y4(`changed` 가드 제거) — observer 지문은 `watch()` 기준선(`:229`)에서만 읽히고 불일치는 poll 1회만 낳으며 poll은 서명으로 판정한다. 재현 J green(두 holder 통보 [1,0]→[2,1]) |
+| false success · worst-case | 없음 · 유한 | 새 오류 경로 0 · 루프 반복 = observer 의존 수 |
+
+### D10 — 채택 판정 항(내용 서명)이 잠기지 않는다
+
+- 변이 Y1: `discovery-cache.ts:271` `current.signature === before.signature` → `current.fingerprint === before.fingerprint` — discovery 10파일 56케이스 전부 green([결과](verify-evidence/r4/r4-verify-axes-result.json)).
+- 재현 I: 내용을 바꾸지 않는 touch(`utimes`) 뒤 D8 순서(재로드가 편집 전 읽기 → pass 도중 완료). HEAD 통보 1회 · `a2e8464`·r2 1회 · Y1 2회([결과](verify-evidence/r4/r4-sibling-mutations-result.json)) · r3·C2 2회.
+- 메커니즘: touch로 재로드 지문 ≠ hold 기준 지문 → 지문 비교는 채택하지 않음 → 다음 pass가 편집 전 서명과 다시 비교해 재통보(D8과 같은 결과).
+- 기존 스위트: r4 6순서 테스트는 재로드와 기준선의 지문이 항상 같아 서명·지문 판정을 가르지 못한다.
+
+## r4-3. 역방향 탐색
+
+`bash .agents/skills/handoff-verify/scripts/scan-surface.sh 97271b89..7f81b460` — 대상 1파일.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| 1a·1b 미사용 export | 없음 | 출력 `(없음)` |
+| 2 `OpenCodeDiscoveryCache` 테스트 전용 | 정상 | 파일 안 소비 `discovery-cache.ts:315` `openCodeDiscovery`(r2·r3와 같다) |
+| 3 형제 정책 비대칭 | 없음 | 출력 `(없음)` |
+| 새 테스트의 production 진입 | 성립 | 재감시 테스트는 `watchFile` mock 인자에서 실제 listener를 꺼내 `FingerprintWatch` → `poll()` 경로를 실행 — X07·Y5·Y6 잡음 |
+
+## r4-4. 기존 테스트 / semantic 검증 — 고장 이력
+
+### 직전 이력 재실행 (r3 138행)
+
+[`r4-rerun-r3history.json`](verify-evidence/r4/r4-rerun-r3history.json) — CAUGHT 133 · GREEN 4(F1~F4 repro@HEAD) · MISSED 1(Z16).
+
+| 행 | r3 | r4 | 판정 |
+|---|---|---|---|
+| r3 `잡음` 132행 | CAUGHT | CAUGHT 132 | 덮개 회귀 0 |
+| X07 재로드 재감시 제거 (r3 `못 잡음`) | MISSED 0/49 | **CAUGHT 1/56** | D9 닫힘 |
+| F4 재현 C @HEAD (r3 red) | RED | **GREEN** | D8 닫힘 |
+| F1~F3 재현 @HEAD | GREEN | GREEN | 유지 |
+| Z16 release 1회 (r3 `동치`) | MISSED 0/53 | MISSED 0/53 | 동치 유지 — `adapter.ts` r4 diff 0, r1 근거 그대로 |
+
+### 이번 라운드 고장 (구현자 인용 + 검증자 축)
+
+| ID | 파일:줄 | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 |
+|---|---|---|---|---|---|
+| C2 | `discovery-cache.ts:265-277` | 제거 | 채택 루프 삭제 | 잡음 1/56 | `poll-race` before-edit/during-pass |
+| F4-revert | 같은 자리 | 제거 | 재현 C + C2 | 잡음 1/1 | 재현 C |
+| C3 | `:271` | 고정값 | 조건 → `true` | 잡음 1/56 | R3-03 newer-value |
+| Y1 | `:271` | 다른 값 | 서명 비교 → 지문 비교 | **못 잡음** 0/56 · 재현 I red | 없음 (D10) |
+| Y2 | `:275` | 제거 | 채택에서 `fingerprint` 항 삭제 | 동치 0/56 · 재현 J green | — |
+| Y3 | `:270` | 호출 대체 | `next.get` → `dependencies.get` | 잡음 2/56 | `poll-race` before-edit/during-pass · 재감시 테스트 |
+| Y4 | `:267` | 제거 | `if (changed)` 가드 삭제 | 동치 0/56 · 재현 J green | — |
+| Y5 | `:163` | 다른 값 | 재로드가 observer manifest를 옛 것으로 유지(X07 형제 지점) | 잡음 4/56 | `poll-race` newer-value·new-file·after-edit/before-pass·재감시 |
+| Y6 | `:228` | 제거 | 감시 파일을 첫 의존만 | 잡음 1/56 | `poll-race` 재감시 테스트 |
+| Y7 | `:264` | 제거 | 재로드 갈래 재poll 요청 삭제 | 잡음 1/56 | `poll-race` 재감시 테스트 |
+
+- 분모: r3 이력 138 + 구현자 인용 3(C2·F4-revert·C3) + 검증자 축 7(Y1~Y7) = 148. 재현 매트릭스 5변형 × 16케이스 × 3회는 별도([`repro-matrix-r4.json`](verify-evidence/r4/repro-matrix-r4.json)).
+- 동치 근거(Y2·Y4): observer `fingerprint`는 `watch()`의 `initialFingerprint`(`:229`)로만 소비되고, 기준선 불일치는 시작 확인의 `poll()` 1회로 끝나며 그 poll은 `signature`로 통보를 판정한다(`:257`). 재현 J(채택 뒤 두 번째 hold → 500ms 진행 → poll → 다음 편집)가 Y2·Y4에서 HEAD와 같은 [1,0]·[2,1].
+- C4(구현자가 정의에서 뺀 동치 후보)는 코드에서 절이 사라져 재실행 대상이 없다.
+
+## r4-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-08~VP-18 (11) | MD↔UT | REQUIRED | PASS | r3 좌표 · 해당 r3 `잡음` 행 재실행 전부 CAUGHT · Z16 동치 유지 | r3 값 그대로 |
+| VP-04·VP-05·VP-06 | AR↔IT | REQUIRED | PASS | r3 좌표 · 해당 행 CAUGHT · Windows CI run `41403052602`(head `7f81b46`) gate success | r3 값 그대로 |
+| VP-07 | AR↔IT | REQUIRED | **PAIR_FAIL** | ①②③ r3 좌표 행 CAUGHT · ④ D8(C2·F4)·D9(X07·Y5·Y6) 닫힘 — **Y1 못 잡음(D10)** | 3/4 |
+| VP-19 | SD↔ST | REQUIRED | PASS | r3 행 CAUGHT | 6/6 |
+| VP-02·VP-03 | R↔AT | REQUIRED | PASS | r3 행 CAUGHT | 3/3 · 2/2 |
+| VP-01 | R↔AT | REGRESSION | PASS | gate 전부 green · D-003 형제 순서 11개 HEAD = `a2e8464` · D10은 HEAD 동작 정상(재현 I green), 잠금만 없다 | 0(집계) |
+
+- root `PAIR_FAIL`: VP-07(D10). 종속 `BLOCKED_BY`: 없음.
+- 실행 범위: VP-07 ④ 재판정 + r3 이력 138행 전부(나머지 17 pair 좌표를 실제 실행 집합에서 재확인).
+- 좌표 실행 구간: r4 6순서 테스트는 `poll()` 직접 호출, 재감시 테스트는 `watchFile` listener → `FingerprintWatch` → `poll()`까지 production — D9 edge가 구간 안이다.
+
+### AT / AC 세부와 합계
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1~AC11 · AC13~AC23 | ✅ | r3 근거 유지 · 해당 r3 변이 행 재실행 전부 CAUGHT · r4 diff 밖 |
+| AC12 | ❌ | D8·D9 닫힘, 그러나 채택 판정 항 미잠금(D10) — 동작은 맞고 Y1이 green |
+
+- 합계 재측정: ✅ 22 · ⚠️ 0 · ❌ 1 = 23. 자기보고 23/23 — 불일치(AC12).
+- 사본 대조: plan r4 보고 `✅ 23` ↔ `7f81b46` trailer `Criteria-Met: 23/23` ↔ INDEX 비고 `AC 23/23` — 세 사본 일치.
+
+### pair별 plan §10 강제 지점 분모
+
+| Pair | §10 자리 목록 | 자리별 확인 | 목록 밖 발견 | 결과 |
+|---|---|---|---|---|
+| VP-07 | ①~④ (4) | ①②③ r3 행 CAUGHT · ④ C2·C3·Y3·Y5~Y7·X07 잡음, **Y1 못 잡음** | 없음 — D10은 ④ 안 | PAIR_FAIL(④) |
+| 그 밖 18 pair | 합 187 중 183 | §r4-5 표 | 없음 | PASS |
+
+## r4-6. 외부 포트 / 문서 계약
+
+- 변경 없음 — r4 diff에 IPC·문서 계약 변경 0.
+
+## r4-7. 숫자 / 음성 기준 / 상한 재측정
+
+| 항목 | r3 HEAD(`dc9f29b`) | r4 HEAD(`7f81b46`) |
+|---|---|---|
+| §10 기록 검색 47행 | 목표값 | diff 0 |
+| vitest 파일 / 케이스(Node ABI) | 895 / 8,304 | 895 / 8,311 — 통과 8,280 · 실패 22 · 건너뜀 9 |
+| vitest 실패 ID | 22 | 22 — r3 [`clean-failed-ids-node.txt`](verify-evidence/r3/clean-failed-ids-node.txt)와 집합 동일 |
+| discovery 10파일 케이스 | 49 | 56 (+7 = r4 신규) |
+
+## r4-8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+| 항목 | 기계 검증한 범위 | 남은 사람 실기 |
+|---|---|---|
+| D10 touch + 겹친 재로드 | `utimes`·`fs/promises` mock·`Date.now` 고정으로 결정적 재현(재현 I, 3/3) | 없음 |
+
+## r4-9. 게이트 재실행
+
+- 환경: Linux · Node ABI better-sqlite3 · Electron 바이너리(r3와 같은 `node_modules`).
+- typecheck: `npm run typecheck` 3구성 `error TS` 0.
+- eslint(무수정 `-f json`): 1,979파일 0 error · warning 2(`Timeline.tsx:49`·`useTranscriptVirtualizer.ts:22`, 기존).
+- scripts·repo gate: `node --test scripts/*.test.mjs` 144/144 · doc-inventory `--check` generated/prose/links OK.
+- vitest 전체(무변이): 895파일 · 8,311케이스 · 실패 22 = r3 무변이 집합(신규 0 · 사라짐 0).
+- CI: run `41403052602`(PR #523, head `7f81b46`) windows-latest `gate` 전 단계 success — Lint·Typecheck·Test·doc/migration/test-budget guard.
+- 게이트가 트리를 바꿨는가: 없음 — 변이 러너·매트릭스 끝 `git status --short -- app` 빈 출력. 검증자 실험은 별도 worktree에서 돌리고 제거했다.
+
+## r4-10. 검증 책임 분리
+
+| 항목 | 결과 |
+|---|---|
+| lint/typecheck/자동 테스트·변이·재현 | 에이전트 수행(§r4-4·§r4-9) |
+| 제품 의도 / Open Question | 해당 없음 — D10 기대값은 VP-07·AC12 "1회", HEAD 동작은 이미 맞다 |
+| PR merge | 사람 |
+
+## r4-11. Repository operation checks
+
+- AGENTS.md 변경: 없음.
+- trailer: `7f81b46` 7키(`Agent: claude`·`Handoff`·`Status: implemented`·`Criteria-Met: 23/23`·`Verified-By: pending`·`Co-Authored-By`·`Claude-Session`) — `%(trailers:only=true)` 파싱 확인, 허용값.
+- `[구현자 기입]` r4 7필드: 설계 리뷰·강제 지점 전수(VP-07 4 + 183 · `남긴 곳`)·잠금(분모 검산 141)·Product/UX·놓친 잠재 문제·구현 보고·Review Signals 전부 존재.
+- INDEX: `impl/IMPL_DONE`·다음 주체 `Claude`·자리표시자 2개 — 실제 상태와 일치, 비고 4줄.
+- **좌표**: r3 verify `97271b8` · review `ca89d34` · r4 `7f81b46`은 이 PR 브랜치(PR #523)에만 있고 `origin/main`(`dc9f29b`)의 조상이 아니다 — `git merge-base --is-ancestor` 실패. rebase 병합 뒤 해시가 바뀌므로 INDEX에는 자리표시자를 유지하고 PR 해시는 여기만 둔다.
+
+## r4-12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 |
+|---|---|
+| "6순서 기대값 = `a2e8464`" | 타당 — 매트릭스에서 6순서 `a2e8464` green 3/3 재현 |
+| C4 "동치 후보 제거, 절 삭제로 단순화" | 타당 — 그러나 남은 조건의 판정 항(서명/지문)은 잠기지 않았다(D10) |
+| 순서 `after-edit/before-pass` 0회 | 타당 — `a2e8464`도 0회, D-003 기준 |
+| "PLAN_GAP 0 · 설계 대비 차이 없음" | 타당 — 규범부 diff 0 |
+
+## r4-13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D8 | 겹친 재로드 중복 통보 | VP-07 ④ · AC12 | 해소 | F4 GREEN · C2·F4-revert 잡음 · 형제 E·H·I·J HEAD = `a2e8464` |
+| D9 | 재로드 뒤 재감시 미잠금 | VP-07 ④ · AC12 | 해소 | X07 잡음 1/56 · 형제 지점 Y5·Y6 잡음 |
+| D10 | 채택 판정 항(내용 서명) 미잠금 — Y1 못 잡음, 재현 I에서 통보 2회 | VP-07 ④ · AC12 | BLOCKING (PAIR_FAIL) | 구현 — 재현 I 형태(touch 뒤 D8 순서 통보 1회)를 회귀 테스트로 둔다 |
+| N1·N2 | r1 기록 | 비귀속 | NON_BLOCKING | 유지 |
+
+## r4-14. Review Signals — 사실만
+
+- 이전 라운드와 유사 증상: D10은 r1 D1·r2 D7·r3 D8·D9와 같은 자리(VP-07 ④)다. 이번엔 동작 결함이 아니라 새 조건 항의 잠금 누락.
+- 관련 plan 지침: VP-07 실패 의미 "중복 방송", AC12 "변경마다 1회".
+- 구현자=검증자(같은 에이전트): 보고 밖 축 Y1~Y7·형제 5순서 중 Y1만 결함을 드러냈다 — 보고가 명명한 변이(C2·C3·X07·F4)는 전부 red였다.
+- 반복 환경 한계: 없음 — 이번 CI는 job 단계 결과를 API로 확인했다.
+
+## r4-15. 결론
+
+- 상태: **FAIL** — 다음 주체 구현자, 라운드 5. verify 4회째라 review 의무 없음(3·6회째만).
+- pair: REQUIRED/REGRESSION 19 중 PASS 18 · root PAIR_FAIL 1(VP-07) · BLOCKED_BY 0. PLAN_GAP 0.
+- ACTIVE Decision: D-003 충족 · VP-07 ④ 동작 충족, 잠금 1항 누락(D10).
+- AC: ✅ 22 · ⚠️ 0 · ❌ 1(AC12).
+- 운영 gate: 전부 green(Linux 로컬 + Windows CI).
+- 다음 단계: 구현자가 D10을 닫는다. 다음 verify는 `못 잡음` Y1 · `동치` Y2·Y4·Z16과 이번 `잡음` 행을 다시 실행한다.

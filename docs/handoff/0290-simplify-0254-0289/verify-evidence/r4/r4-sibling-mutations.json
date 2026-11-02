@@ -1,0 +1,70 @@
+[
+ {
+  "id": "S@HEAD",
+  "file": null,
+  "replacement": null,
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/r4/repro/discovery-cache.r4-siblings.verify.test.ts",
+    "dst": "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+   }
+  ]
+ },
+ {
+  "id": "Y1+siblings",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "current.signature === before.signature",
+   "to": "current.fingerprint === before.fingerprint"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "note": "\ub2e4\ub978 \uac12 \u2014 \ucc44\ud0dd \ud310\uc815\uc744 \uc11c\uba85 \ub300\uc2e0 \uc9c0\ubb38\uc73c\ub85c",
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/r4/repro/discovery-cache.r4-siblings.verify.test.ts",
+    "dst": "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+   }
+  ]
+ },
+ {
+  "id": "Y2+siblings",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "                      signature: seen.signature,\n                      fingerprint: seen.fingerprint\n",
+   "to": "                      signature: seen.signature\n"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "note": "\uc81c\uac70 \u2014 \ucc44\ud0dd\uc774 \uc9c0\ubb38\uc744 \uc62e\uae30\uc9c0 \uc54a\uc74c",
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/r4/repro/discovery-cache.r4-siblings.verify.test.ts",
+    "dst": "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+   }
+  ]
+ },
+ {
+  "id": "Y4+siblings",
+  "file": "src/main/adapters/opencode/v1/discovery-cache.ts",
+  "replacement": {
+   "from": "              if (changed)\n                for (const [id, current]",
+   "to": "              for (const [id, current]"
+  },
+  "tests": [
+   "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+  ],
+  "note": "\uc81c\uac70 \u2014 changed \uac00\ub4dc \uc5c6\uc774 \ucc44\ud0dd",
+  "extraFiles": [
+   {
+    "src": "docs/handoff/0290-simplify-0254-0289/verify-evidence/r4/repro/discovery-cache.r4-siblings.verify.test.ts",
+    "dst": "src/main/adapters/opencode/v1/discovery-cache.r4-siblings.verify.test.ts"
+   }
+  ]
+ }
+]
