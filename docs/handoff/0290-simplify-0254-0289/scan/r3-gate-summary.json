@@ -1,0 +1,179 @@
+{
+  "scope": "r3 implementation self-check",
+  "ci": {
+    "runId": 41378268434,
+    "jobId": 125063214066,
+    "conclusion": "success",
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/41378268434",
+    "summaryLines": [
+      "2026-11-02T02:38:56.4869220Z  ↓ src/main/app/managed-mcp.cli.integration.test.ts (1 test | 1 skipped)",
+      "2026-11-02T02:42:56.3365969Z  ✓ src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts (4 tests) 53ms",
+      "2026-11-02T02:45:22.9456072Z  Test Files  892 passed | 3 skipped (895)",
+      "2026-11-02T02:45:22.9516993Z       Tests  8301 passed | 3 skipped (8304)",
+      "2026-11-02T02:45:41.4157212Z # tests 144",
+      "2026-11-02T02:45:41.4157566Z # pass 144",
+      "2026-11-02T02:45:41.4157739Z # fail 0"
+    ],
+    "summary": "Vitest 892파일·8,301케이스 성공, 3파일·3케이스 skip; scripts 144/144; 타입·lint·문서·migration·budget 성공",
+    "headSha": "feaca092e1fd05f4616b9976d169272b619a0db7",
+    "vitest": {
+      "filesPassed": 892,
+      "filesSkipped": 3,
+      "passed": 8301,
+      "skipped": 3,
+      "total": 8304
+    },
+    "skippedCli": "managed-mcp.cli.integration.test.ts — CI에서 기존 환경 조건으로 skip"
+  },
+  "sources": [
+    {
+      "file": "app/src/main/adapters/opencode/v1/discovery-cache.ts",
+      "lfNormalizedSha256": "aa4a59904a5533c6f1effa2da1c441cc9a107bb150fc03e7b24cfe81e24056e7",
+      "committedCurrentGateCheckoutEqual": true
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/discovery-cache.poll-race.test.ts",
+      "lfNormalizedSha256": "5e21c63581eebf46ae235a69d34415f7e64b22cb9417c10a5dbe6cca9e84cae2",
+      "committedCurrentGateCheckoutEqual": true
+    }
+  ],
+  "localSummary": "895파일·8,304케이스에서 8,294 성공·8 실패·2 skip. 시간 예산 초과 7건은 코드·예산 변경 없이 해당 테스트명으로 재실행해 7/7 성공. CLI connected 자원 0/6 실패 1건은 수정 전 64047af9 코드에서도 같은 테스트명·assertion으로 재현했다. 잔여 실패−기준선 차집합 0; CI에서는 기존 조건으로 CLI가 skip됐다.",
+  "localGates": {
+    "lint": 0,
+    "docs": 0,
+    "budgets": 0,
+    "scripts": 0,
+    "migrations": 0,
+    "typecheck": 0
+  },
+  "scripts": {
+    "passed": 144,
+    "failed": 0,
+    "suites": 16
+  },
+  "lint": {
+    "errors": 0,
+    "existingWarnings": 2,
+    "rule": "react-hooks/incompatible-library"
+  },
+  "full": {
+    "files": 895,
+    "total": 8304,
+    "passed": 8294,
+    "failed": 8,
+    "skipped": 2,
+    "failures": [
+      {
+        "file": "src/main/error-report.registry.test.ts",
+        "test": "main report site registry detects a third publisher file",
+        "durationMs": 23288.47,
+        "error": "Error: STACK_TRACE_ERROR"
+      },
+      {
+        "file": "src/main/app/managed-mcp.cli.integration.test.ts",
+        "test": "advertises and calls managed MCP through the supported CLI",
+        "durationMs": 16506.7553,
+        "error": "AssertionError: expected [] to have a length of 6 but got +0"
+      },
+      {
+        "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+        "test": "runtime model Auth composition seam wires the verified-reconcile sink wherever it builds the resume batch",
+        "durationMs": 27341.564399999996,
+        "error": "Error: STACK_TRACE_ERROR"
+      },
+      {
+        "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+        "test": "runtime model Auth composition seam builds the shared reader and bridge sink from the real factories",
+        "durationMs": 20895.2394,
+        "error": "Error: STACK_TRACE_ERROR"
+      },
+      {
+        "file": "src/renderer/src/shared/ui/sparkCss.test.ts",
+        "test": "spark — 241슬롯 인코딩이 저장소에서 사라졌다 옛 프레임 모델의 심볼이 소스 전수에서 0건이다",
+        "durationMs": 31694.568799999997,
+        "error": "Error: STACK_TRACE_ERROR"
+      },
+      {
+        "file": "src/renderer/src/shared/ui/sparkCss.test.ts",
+        "test": "spark 성능 — 아트워크를 바꿔도 런타임 비용이 늘지 않는다 원본 asset 과 그 파서가 프로덕션 그래프에 0건이다",
+        "durationMs": 31462.7298,
+        "error": "Error: STACK_TRACE_ERROR"
+      },
+      {
+        "file": "src/renderer/src/features/chat/components/statusLine.render.test.ts",
+        "test": "StatusLine — Claude 세 표면이 같은 스피너를 받는다 JSX 렌더 지점 2 곳과 SparkSpinner 소비자 1 곳이 전수다",
+        "durationMs": 30205.8489,
+        "error": "Error: STACK_TRACE_ERROR"
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/common/composer/gitQueryOwner.test.ts",
+        "test": "git 조회 소유자 (EP-13 · EP-18 · EP-19) 목록·본문 소유자는 하나이며 상태는 메뉴의 명시적 조회도 허용한다",
+        "durationMs": 20036.1381,
+        "error": "Error: STACK_TRACE_ERROR"
+      }
+    ]
+  },
+  "retry": {
+    "passed": 7,
+    "failed": 0,
+    "command": "node node_modules/vitest/vitest.mjs run <5 failed files> --testNamePattern <7 exact failed names> --maxWorkers=1 --reporter=json",
+    "unchangedCodeAndBudgets": true,
+    "passedTests": [
+      {
+        "file": "src/main/error-report.registry.test.ts",
+        "test": "main report site registry detects a third publisher file",
+        "durationMs": 10731.2731,
+        "error": ""
+      },
+      {
+        "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+        "test": "runtime model Auth composition seam wires the verified-reconcile sink wherever it builds the resume batch",
+        "durationMs": 5277.0821,
+        "error": ""
+      },
+      {
+        "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+        "test": "runtime model Auth composition seam builds the shared reader and bridge sink from the real factories",
+        "durationMs": 4744.095,
+        "error": ""
+      },
+      {
+        "file": "src/renderer/src/shared/ui/sparkCss.test.ts",
+        "test": "spark — 241슬롯 인코딩이 저장소에서 사라졌다 옛 프레임 모델의 심볼이 소스 전수에서 0건이다",
+        "durationMs": 9860.8122,
+        "error": ""
+      },
+      {
+        "file": "src/renderer/src/shared/ui/sparkCss.test.ts",
+        "test": "spark 성능 — 아트워크를 바꿔도 런타임 비용이 늘지 않는다 원본 asset 과 그 파서가 프로덕션 그래프에 0건이다",
+        "durationMs": 4882.896999999999,
+        "error": ""
+      },
+      {
+        "file": "src/renderer/src/features/chat/components/statusLine.render.test.ts",
+        "test": "StatusLine — Claude 세 표면이 같은 스피너를 받는다 JSX 렌더 지점 2 곳과 SparkSpinner 소비자 1 곳이 전수다",
+        "durationMs": 9013.7561,
+        "error": ""
+      },
+      {
+        "file": "src/renderer/src/features/chat/harnesses/common/composer/gitQueryOwner.test.ts",
+        "test": "git 조회 소유자 (EP-13 · EP-18 · EP-19) 목록·본문 소유자는 하나이며 상태는 메뉴의 명시적 조회도 허용한다",
+        "durationMs": 7789.2534,
+        "error": ""
+      }
+    ]
+  },
+  "baseline": {
+    "commit": "64047af9",
+    "productionRestoredAfterComparison": true,
+    "failures": [
+      {
+        "file": "src/main/app/managed-mcp.cli.integration.test.ts",
+        "test": "advertises and calls managed MCP through the supported CLI",
+        "durationMs": 17856.376,
+        "error": "AssertionError: expected [] to have a length of 6 but got +0"
+      }
+    ]
+  },
+  "newFailureIds": []
+}

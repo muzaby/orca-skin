@@ -1093,6 +1093,157 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 ---
 
+## r3 구현 보완
+
+### [구현자 기입] 설계 리뷰
+
+- 판정: V1+ΔV1을 유지한다. r2 verify D6·D7은 VP-07 ④ 및 D-003 안의 순서 oracle 누락·통보 회귀이며 PLAN_GAP은 없다.
+- 불변식: 소비한 내용 뒤의 편집을 감시 기준선에 흡수하지 않는다. 진행 중 검사가 본 변경은 통보하고, 동시 재로드가 만든 더 최신 의존 파일 목록은 덮지 않는다.
+- 전수 범위: `dependency()`의 file·realpath·stat은 같은 probe 순서를 공유한다. `run()`의 observer manifest 교체와 `poll()` publication을 대조했고, 무효화 조립은 bootstrap 전역 감시·프로젝트 정책 두 경로를 유지했다.
+- 이견 / 현실성 문제: 없음. 제품 동작·Decision·AC·§10·의존성 변경 0. N1·N2는 기존 NON_BLOCKING 기록을 유지하며, N3의 실제 트리 검사 근거를 보완했다.
+
+### [구현자 기입] 강제 지점 전수 (§10 대조)
+
+자리별 직접 좌표는 [r3 구현 증거](implementation-evidence-r3.md)의 O-01~O-19·R3-01~03이다. 기존 좌표는 이번 전체 gate의 실행 집합에서 확인했고, VP-07 ④를 새 경쟁 조건으로 보강했다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 기존 동작 | 0(집계) | 0 | 전체 gate·실패 ID 차집합 | R3-01·02·03 및 CI 전체 gate | 없음 |
+| VP-02 | push·focus | 3 | 3 | O-02·전체 Vitest | backend별 push·busy·lock·해제 | 없음 |
+| VP-03 | native missing | 2 | 2 | O-03·legacy 검색 | 404와 probe 실패 구별 | 없음 |
+| VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04·0건 검색 | mutation queue 및 늦은 watcher 결과 | 없음 |
+| VP-05 | production 조립 | 3 | 3 | O-05·구 조립 검색 | 실제 조립의 configuration/acquire·취소 | 없음 |
+| VP-06 | 하네스 소유권 | 5 | 5 | O-06·경계 lint | 이동 경로와 ownership | 없음 |
+| VP-07 | 공통 감시 | 4 | 4 | O-07·R2-01·R2-03·R3-01~03 | 읽기 직후 편집·동시 재로드 통보·최신 manifest 보존 | 없음 |
+| VP-08 | 미사용 제거 | 29 | 29 | O-08·검색·스캔 차집합 | 삭제·신규 미사용 집합 | 없음 |
+| VP-09 | JSON·Git·flag·spec | 14 | 14 | O-09·R2-05 | BOM·Git 상향 탐색·플랫폼 분기 | 없음 |
+| VP-10 | 연결·조립 | 11 | 11 | O-10·R2-06·07 | revision·scope·dispose·필수 인자 | 없음 |
+| VP-11 | 자원 조회 효율 | 4 | 4 | O-11·R2-05 | 비동기 메뉴·동기 spawn의 중첩 cwd 결과 | 없음 |
+| VP-12 | 브랜드·이름 | 15 | 15 | O-12·전체 Vitest | SVG·톤·표시명·locale별 계획 문구 | 없음 |
+| VP-13 | 슬롯·capability | 29 | 29 | O-13·전체 Vitest | cwd 클래스·랜딩 순서·연속성·권한 | 없음 |
+| VP-14 | 행 편집·스크롤 | 3 | 3 | O-14·R2-02 | 두 rAF 순서·후속 높이 변화·프레임당 1회 | 없음 |
+| VP-15 | 이력 읽기·쓰기 | 6 | 6 | O-15·전체 Vitest | probe·snapshot·rowid·FTS·rollback | 없음 |
+| VP-16 | 반복 제거 | 11 | 11 | O-16·R2-04 | CRUD 4경로 새 스캔·이전 완료가 새 flight를 지우지 않음 | 없음 |
+| VP-17 | renderer 파생 | 4 | 4 | O-17·전체 Vitest | 공유 memo·stale·감속 모션 | 없음 |
+| VP-18 | 0291 정리 | 19 | 19 | O-18·전체 Vitest | canonical·variant·CLI·snapshot·wire·순서 | 없음 |
+| VP-19 | push 수명주기 | 6 | 6 | O-19·R2-03 | 공용/전용 방송 구별·shutdown·preload·API·hook | 없음 |
+
+- 분모 검산: 고정 187자리·대응 187자리. §10 검색 47행의 r2↔r3 차집합 0; 삭제 목표·새 dead/test-only·i18n 차집합 0([검색](scan/r3-ep-search.txt), [집합](scan/r3-static-deltas.json)).
+- 직전 못 잡음 Z01·Z03·F3 및 동치 Z16의 실행 누락 차집합 0. Z01·Z03은 red, F3는 정상 코드 green·조기 반환 복원 red, Z16은 동치 유지다.
+
+**V-pair 자기확인**
+
+| Pair | Requiredness | 자기 상태 | 직접 좌표 | 적대 증거 / 남은 곳 |
+|---|---|---|---|---|
+| VP-01 | REGRESSION | SELF_PASS | O-01 | 전체 Windows CI·직접 oracle |
+| VP-02 | REQUIRED | SELF_PASS | O-02 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-03 | REQUIRED | SELF_PASS | O-03 | 전체 Windows CI·직접 oracle |
+| VP-04 | REQUIRED | SELF_PASS | O-04 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-05 | REQUIRED | SELF_PASS | O-05 | 전체 Windows CI·직접 oracle |
+| VP-06 | REQUIRED | SELF_PASS | O-06 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-07 | REQUIRED | SELF_PASS | O-07·R3-01~03 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-08 | REQUIRED | SELF_PASS | O-08 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-09 | REQUIRED | SELF_PASS | O-09 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-10 | REQUIRED | SELF_PASS | O-10 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-11 | REQUIRED | SELF_PASS | O-11 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-12 | REQUIRED | SELF_PASS | O-12 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-13 | REQUIRED | SELF_PASS | O-13 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-14 | REQUIRED | SELF_PASS | O-14 | 전체 Windows CI·직접 oracle |
+| VP-15 | REQUIRED | SELF_PASS | O-15 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-16 | REQUIRED | SELF_PASS | O-16 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-17 | REQUIRED | SELF_PASS | O-17 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-18 | REQUIRED | SELF_PASS | O-18 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+| VP-19 | REQUIRED | SELF_PASS | O-19 | 선택 증거 및 이전 고장 재실행 — 아래 잠금 표 |
+
+### [구현자 기입] 이번 라운드 수정의 잠금
+
+| 출처 / 주장 | 분모 | 결함 방식 · 재현 좌표 | 관측 | 복원 확인 |
+|---|---|---|---|---|
+| r1 선택·인용 이력 M001~M107 | 107 | [정의](scan/r3-mutation-definitions.json)의 자리별 기존 교체식. M101은 추출된 동일 경로에 재지정 | 107/107 assertion red | 바이트 복원·같은 테스트 집합 green |
+| r2 구현자 정의 R2I | 5 | loaded baseline·scroll guard·project await·startup·pending pass | 5/5 assertion red | 같은 테스트 집합 green |
+| r2 검증자 정의 Z01~Z17(Z13 없음) | 16 | 읽기 뒤 stat·manifest 덮어쓰기·형제 갈래·release 등 | 15 red·Z16 동치 | 같은 테스트 집합 green |
+| D1·D2 인용 되돌림 | 2 | F1·F2 원본 재현에 수정 제거 | 2/2 assertion red | 원본 재현 green |
+| D7 인용 회귀 | 1 | manifest 변경 시 조기 반환 복원 | 새 경쟁 조건 3케이스 red | 4/4 green |
+| 정적 선택 증거·이전 oracle | 12 | IPC·심볼·CSS는 실제 파일에 복원 후 기록 명령; dead scanner 실제 선언 복원 추가 | 12/12 검출 | 파일 바이트 복원 |
+
+- 실행 검산: 결함 주입 131 = red 130 + 동치 1; 정상 코드 재현 F1·F2·F3 3건을 더해 실행 기록 134행이다. 정적 기록 12행은 별도다.
+- 분모 검산: r1 선택 증거를 재지정한 98(M001~M087 실행 87·정적 11) + 추가 인용/과거 고장 45(M088~M107 20·R2I 5·Z 16·F1/F2 되돌림 2·D7 되돌림 1·기존 실패-ID scanner 1) + 중복을 뺀 새 oracle 0 = 결함 표 143행. 정상 재현 3행은 결함 수에 합산하지 않는다.
+- [실행 관측](scan/r3-mutation-evidence.json)의 정의 ID 누락·초과·중복 차집합 0. 이전 잡음의 green 전환 0이며, 같은 무변이 테스트 집합의 이미 얻은 green은 캐시해 재사용했다.
+- N3 보완: 실제 `ipc.ts`·`mcp-config.ts`·`tokens.css`에 결함을 심어 각각 0→1을 관측했다. [정적 기록](scan/r3-static-sensitivity.json)의 `before`·`after`에 실제 경로가 남는다.
+
+### [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 문구·상태의 소비자 | 신규 문구·상태 없음 | 없음 |
+| 실패 경로와 Part I 상태표 | 외부 설정 변경 알림·기존 관측 동작 보존 행 | R3-01~03 |
+| 무반응으로 보이는 실패 | 동시 재로드 때도 holder 통보 1회, 기존 서버 retire 콜백 유지 | F3 원본 재현 green |
+| 늦은 결과가 새 상태를 덮는가 | 옛 pass는 새 manifest를 보존. 다른 파일로 옮긴 뒤 옛 파일 편집 0회·현재 파일 편집 1회 | R3-03 |
+| 종료·재진입·공유 수명 | 기존 observer 동일성·release·pending pass 유지 | O-07 및 R2I·Z02·Z12 |
+| 시각·선택 보존 | renderer production 변경 0 | 전체 CI 회귀 |
+
+### [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D6 | 이전 during-load 테스트는 dependency 등록 뒤만 편집 | readFile가 읽은 직후·반환 전에 실제 파일 편집 | R3-01; Z01 red 1 |
+| D7 | manifest 가드가 통보까지 반환 | manifest publication만 가드, 변경 통보·entry 무효화 유지 | R3-02; 원본 F3 green; 되돌림 red 3 |
+| R3-01a | 가드를 지우면 옛 검사 결과가 새 의존 파일 목록을 덮음 | 같은 값·더 최신 값·다른 파일 세 갈래 후 후속 편집을 단언 | R3-03; Z03 red 2 |
+| N3 | 정적 검사가 임시 probe 파일만 봄 | 실제 production 파일과 §10 검색 명령으로 보강 | 정적 0→1·바이트 복원 |
+
+설계 대비 명시적 차이: 없음. 만료는 probe TTL 유지, 공유는 scope별 observer와 전역 probe 캐시 유지, 재진입은 pending pass 재검사 유지, 무효화는 epoch 및 close 가드 유지다. 새 저장소·공개 계약·의존성은 없다.
+
+### [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `discovery-cache.ts`의 stale manifest 처리와 신규 `discovery-cache.poll-race.test.ts` 4케이스; plan·INDEX·구현 증거 |
+| 실행 명령 | [r3 구현 증거](implementation-evidence-r3.md) 및 [결함 정의](scan/r3-mutation-definitions.json) |
+| 관측한 게이트 산출 | 타입 3구성·lint 0 error/기존 warning 2·scripts 144/144·문서·migration·budget 성공. 전체 Windows CI 결과는 r3 증거 문서 |
+| V-pair 자기확인 | SELF_PASS 19·SELF_BLOCKED 0 / 유효 19 |
+| 강제 지점 전수 | 187/187·자리 검색 47행 차집합 0 |
+| AC 자기보고 | 아래 표 23/23; 독립 verify 판정은 다음 주체 몫 |
+| 합계 검산 | ✅ 23 · ⚠️ 0 · ❌ 0 = 총 23 |
+| 블로커 / 역질문 | 미해결 구현 블로커 0·PLAN_GAP 0. N1·N2 기존 비차단 기록 유지 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+| AC | 자기확인 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | r3 Windows CI 전체 gate 성공; 로컬 결과·환경 분리는 r3 증거 문서 |
+| AC2 | ✅ | O-08 삭제 목표 잔여 0·신규 dead/test-only 차집합 0 |
+| AC3 | ✅ | 삭제 i18n present 0·신규 미참조 차집합 0·CSS 토큰 0 |
+| AC4 | ✅ | IPC 사슬 검색 0·O-04 응답 테스트 성공 |
+| AC5 | ✅ | 같은 key deferred 직렬화·실패 후 큐 진행 2케이스 |
+| AC6 | ✅ | O-03 SDK 404 missing·이관 경로 검색 0 |
+| AC7 | ✅ | O-09 BOM·Git·flag/spec 실행; R2-05 중첩 cwd 플랫폼 분기 동일 |
+| AC8 | ✅ | O-10 lifecycle·revision·options; R2-06 세 소비 경로의 binding 필드 구별, R2-07 release 실패 경고 1회·비공개 오류 비노출 |
+| AC9 | ✅ | 구 catalog 조립 0·production preparation으로 handler 테스트 실행 |
+| AC10 | ✅ | O-11 반복 횟수/동시성; R2-05 win32/linux 동기·비동기 결과 동일, 루트 변이 1실패 |
+| AC11 | ✅ | O-02/O-19 push·focus·busy/lock·unmount 결과 단언 |
+| AC12 | ✅ | R3-01~03 읽기 순서·재로드 통보 1회·최신 의존 파일 후속 변경 1회; Z01·Z03 및 r2 조기 반환 복원 red |
+| AC13 | ✅ | 구 파일 5개 부재·공통 소유권 위반 5/5 red |
+| AC14 | ✅ | 마크 렌더 정본 2분기·shim/PlanTile 5파일 부재·O-12 렌더 |
+| AC15 | ✅ | shortLabel 삼항 0·clipboard 3케이스·엔진/표 테스트 |
+| AC16 | ✅ | cwd 클래스 스냅샷 4개 동일·실제 랜딩 DOM 배치 보존 |
+| AC17 | ✅ | 7개 능력 소비 변이 red·보존한 UI 이름 분기 3개 |
+| AC18 | ✅ | O-14 모델/헤더 편집·프레임당 측정; R2-02 두 프레임 순서 모두 240 유지, 후속 높이 변경 시 300 |
+| AC19 | ✅ | inventory generated/prose/links OK. 공개 계약·문구·컴포넌트 구조 변경 없음 |
+| AC20 | ✅ | client 0·parse 1·previous 전달·DB rowid/FTS/rollback·2변이 red |
+| AC21 | ✅ | O-16 11자리 기존 테스트; R2-04 CRUD 4경로 새 스캔·오래된 flight 완료 뒤 최신 결과 유지 |
+| AC22 | ✅ | 네 소비자 계산 1회·참조 변경 갱신·catalog stale·media cleanup |
+| AC23 | ✅ | O-18 19자리·14변이 red·기존 연결 종단 테스트 성공 |
+
+합계 검산: 현재 AC 23행을 다시 세어 ✅ 23 · ⚠️ 0 · ❌ 0 = 23. 최종 trailer Criteria-Met 23/23은 이 표의 합계다.
+
+### [구현자 기입] Review Signals — 사실만
+
+- 현재 라운드·impl 턴: r3. verify 실패는 2회이므로 3회 실패 뒤 review 임계에 아직 해당하지 않는다. D-017에 따라 단독 수행했다.
+- 같은 축: r1 D1·r2 D7 모두 설정 편집 후 holder 통보 누락이다. r2의 manifest 가드는 새 상태 보존만 보았고 변경 통보를 관측하지 않았다.
+- 기존 AC12·VP-07 ④·D-003이 이 계약을 이미 요구했다. r3는 같은 값뿐 아니라 서로 다른 값·파일로 재로드해 통보와 manifest를 따로 단언한다.
+- 환경 한계와 게이트 결과는 r3 증거에 기록했다. 지침·failure corpus·verify.md는 수정하지 않았고, SELF_PASS는 독립 PASS가 아니다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |

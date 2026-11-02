@@ -1,0 +1,66 @@
+[
+  {
+    "id": "VP04-ipc-sweep",
+    "before": "",
+    "after": "app/src\\renderer\\src\\shared\\api\\ipc.ts:374:export const openNativePlugin = undefined",
+    "bytesRestored": true
+  },
+  {
+    "id": "VP08-symbol-sweep",
+    "before": "",
+    "after": "app/src\\main\\adapters\\claude\\mcp-config.ts:6:export type ClaudeMcp = {command: string}",
+    "bytesRestored": true
+  },
+  {
+    "id": "VP08-token-sweep",
+    "before": "",
+    "after": "332::root { --color-oc-bubble: red; }",
+    "bytesRestored": true
+  },
+  {
+    "id": "VP08-dead-target-classification",
+    "status": "RED",
+    "observation": "Restored ClaudeMcp=dead; test alias=test-only; production import=used (3/3).",
+    "realTree": "partsStructured restored in parts.ts: dead; bytes restored"
+  },
+  {
+    "id": "VP08-i18n-absent",
+    "status": "RED",
+    "observation": "Restored engine.form.harness => present=1, exit 1."
+  },
+  {
+    "id": "VP08-i18n-new-unused",
+    "status": "RED",
+    "observation": "New unused key appears in set difference."
+  },
+  {
+    "id": "VP01-failed-id-windows",
+    "status": "RED",
+    "observation": "Injected case failure and collection failure are both extracted with repository-relative Windows paths."
+  },
+  {
+    "id": "VP06-opencode/warmup",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-opencode/mcp-reconcile",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-opencode/global-watch",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-opencode/prepared-mcp-resources",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  },
+  {
+    "id": "VP06-claude/processes",
+    "status": "RED",
+    "observation": "Common module importing moved implementation => harness/ownership error."
+  }
+]
