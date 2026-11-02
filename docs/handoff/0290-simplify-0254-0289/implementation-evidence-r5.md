@@ -52,9 +52,9 @@ D10 보완 완료, 독립 검증 대기다. 제품 코드는 바꾸지 않고 V1
 | Vitest | baseline 895파일·8,311케이스·실패 66 → 최종 895파일·8,318케이스·성공 8,250·실패 59·skip 9. 신규 실패 ID ∅·해소 7 |
 | 실패 분리 | [기준선](scan/r5-baseline-failed-ids.txt)과 [최종](scan/r5-local-failed-ids.txt) 보존. 남은 실패는 Windows 경로 fixture·상위 `/tmp/.git`·홈 디렉터리 쓰기 제약 등 변경 전 동일 ID |
 | scripts / repo | 144/144, inventory generated/prose/links OK, test-budget OK, migration sync/no-copies OK(로컬 v 태그 부재로 append-only 비교 생략) |
-| Windows CI | 대기 — PR #523의 이번 구현 커밋 CI를 확인한 뒤 갱신 |
+| Windows CI | [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41408758721) 성공 — PR #523, Vitest 892파일·8,315케이스 성공, 3파일·3케이스 skip; scripts 144/144; Lint·Typecheck·문서/migration/budget success |
 
-초기 SQLite Electron ABI 실행의 실패는 정상 기준선으로 쓰지 않았다. Node ABI 전환 후 같은 checkout·명령·경로에서 변경 전후를 측정했고, 격리 checkout에는 테스트 2파일만 복사했다.
+초기 SQLite Electron ABI 실행의 실패는 정상 기준선으로 쓰지 않았다. Node ABI 전환 후 같은 격리 checkout·경로에서 변경 전후를 측정했다(기준선 maxWorkers=4, 최종 2). 해당 checkout에는 테스트 2파일만 복사했고 assertion 실패 ID로 비교했다.
 
 ## 재현
 

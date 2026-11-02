@@ -1341,7 +1341,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---:|---:|---|---|---|
-| VP-01 | 기존 동작 집계 | 0 | 0 | O-01 · 전체 gate/고장 재실행 | 신규 실패 ID ∅·CI 대기 | AC1 Windows CI |
+| VP-01 | 기존 동작 집계 | 0 | 0 | O-01 · 전체 gate/고장 재실행 | 신규 실패 ID ∅·Windows CI gate success | 없음 |
 | VP-02 | push·focus | 3 | 3 | O-02 · 전체 gate/고장 재실행 | backend별 push·busy/lock·해제 | 없음 |
 | VP-03 | native missing | 2 | 2 | O-03 · 전체 gate/고장 재실행 | 404·probe 실패 구별 | 없음 |
 | VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04 · 전체 gate/고장 재실행 | 삭제 검색 0·직렬 큐 | 없음 |
@@ -1368,7 +1368,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | Pair | Requiredness | 자기 상태 | 직접 좌표 | 적대 증거 / 남은 곳 |
 |---|---|---|---|---|
-| VP-01 | REGRESSION | SELF_BLOCKED | O-01 | Windows CI 대기 |
+| VP-01 | REGRESSION | SELF_PASS | O-01 | [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41408758721) gate success |
 | VP-02 | REQUIRED | SELF_PASS | O-02 | 선택 증거·이력 재실행, 아래 잠금 표 |
 | VP-03 | REQUIRED | SELF_PASS | O-03 | 직접 oracle |
 | VP-04 | REQUIRED | SELF_PASS | O-04 | 선택 증거·이력 재실행, 아래 잠금 표 |
@@ -1427,16 +1427,16 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | 변경 파일 | discovery poll-race·Claude reconciliation 테스트 2파일, plan·INDEX·r5 증거. production 변경 0 |
 | 실행 명령 | [r5 재현](implementation-evidence-r5.md#재현) 및 기존 mutation runner |
 | 관측한 게이트 산출 | 타입 3구성 오류 0·lint 1,979파일 error 0/기존 warning 2·scripts 144/144·문서/budget/migration OK. Vitest 895파일 8,318케이스·기존 실패 59·신규 ID ∅ |
-| V-pair 자기확인 | SELF_PASS 18·SELF_BLOCKED 1(VP-01 Windows CI) / 19 |
+| V-pair 자기확인 | SELF_PASS 19·SELF_BLOCKED 0 / 19 |
 | 강제 지점 전수 | 187/187·검색 차집합 ∅; 집계 CI는 별도 |
-| AC 자기보고 | 아래 ✅22·⚠️1·❌0; Windows CI 대기 |
-| 합계 검산 | ✅22·⚠️1·❌0 = 총 23 |
-| 블로커 / 역질문 | 로컬 신규 실패·PLAN_GAP 없음. CI 확인 후 인계 기록 갱신 |
+| AC 자기보고 | 아래 ✅23·⚠️0·❌0; Windows CI gate success |
+| 합계 검산 | ✅23·⚠️0·❌0 = 총 23 |
+| 블로커 / 역질문 | 로컬 신규 실패·PLAN_GAP 없음. Windows CI 성공; 다음은 독립 verify |
 | 대상 커밋 | `(r5 구현 — 좌표는 INDEX)` |
 
 | AC | 자기확인 | 이번 턴 관측 |
 |---|---|---|
-| AC1 | ⚠️ | 신규 실패 ID ∅·Windows CI 대기 |
+| AC1 | ✅ | 신규 실패 ID ∅·[Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41408758721) gate 전 단계 success |
 | AC2 | ✅ | 삭제 검색·dead/test-only 집합·정적 검출 |
 | AC3 | ✅ | 삭제 i18n present 0·미참조 집합·CSS 0 |
 | AC4 | ✅ | 고아 사슬 0·세션 리소스 응답/직렬화 |
@@ -1460,7 +1460,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | AC22 | ✅ | 공유 모델·stale·media 변화 |
 | AC23 | ✅ | canonical/variant/CLI/wire/Orca 순서·이력 검출 |
 
-검산: 현재 AC 23행 = ✅22 + ⚠️1 + ❌0. 구현 trailer `Criteria-Met: 22/23`·`Criteria-Pending: AC1 Windows CI`와 맞췄다.
+검산: 현재 AC 23행 = ✅23 + ⚠️0 + ❌0. 최종 구현 trailer `Criteria-Met: 23/23`과 맞췄다.
 
 ### [구현자 기입] Review Signals — 사실만
 
