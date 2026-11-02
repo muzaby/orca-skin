@@ -47,6 +47,8 @@ export const CHANNELS = {
   // 첫 스텝이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝을 시작한다.
   bootWhenReady: 'orca:boot:whenReady',
   backendList: 'orca:backend:list',
+  harnessAvailability: 'orca:harness:availability',
+  harnessRecheck: 'orca:harness:recheck',
   agentList: 'orca:agent:list',
   installStart: 'orca:install:start',
   installStatus: 'orca:install:status',
@@ -334,6 +336,7 @@ export interface AgentEnvironment {
   provider?: string
   models: AgentModelView[]
   supported: boolean
+  unavailable?: HarnessUnavailableReason
   source?: 'settings' | 'runtime'
   readOnly?: boolean
   agents?: { name: string; description?: string }[]
@@ -1051,14 +1054,17 @@ export interface ProviderDescriptor {
   cancellation: CancellationCapability
 }
 
+export type HarnessUnavailableReason = 'missing' | 'unsupported' | 'failed'
+export interface HarnessAvailability {
+  id: Backend
+  installed: boolean
+  version?: string
+  usable: boolean
+  unavailableReason?: HarnessUnavailableReason
+}
+
 export interface BackendListResult {
-  // capabilities = 해당 백엔드의 능력 서술자(없으면 미탐지). optional 이라 비파괴 확장.
-  backends: {
-    id: Backend
-    installed: boolean
-    version?: string
-    capabilities?: ProviderDescriptor
-  }[]
+  backends: (HarnessAvailability & { capabilities?: ProviderDescriptor })[]
   active?: Backend
 }
 

@@ -1,3 +1,4 @@
+import { isRecord } from '../../shared/obj'
 // 설정 변경 → 파생 상태 재방송 (0187).
 //
 // ── 왜 IPC 핸들러가 아닌가 ───────────────────────────────────────────────────
@@ -22,13 +23,25 @@ export interface SettingsReactionDeps {
   pushConnectionState?: () => void
   // 사용량 뷰의 소유자.
   cost: { recordAndBroadcast(): void }
+  recheckOpenCode?: () => void
+  openCodeExecutablePath?: string
 }
 
 export function registerSettingsReactions(
   settings: SettingsPatchSource,
   deps: SettingsReactionDeps
 ): void {
-  settings.onPatch((_next, changedKeys) => {
+  let previousPath = deps.openCodeExecutablePath
+  settings.onPatch((next, changedKeys) => {
+    if (changedKeys.includes('harnesses')) {
+      const harnesses = isRecord(next) && isRecord(next.harnesses) ? next.harnesses : {}
+      const opencode = isRecord(harnesses.opencode) ? harnesses.opencode : {}
+      const path = typeof opencode.executablePath === 'string' ? opencode.executablePath : undefined
+      if (path !== previousPath) {
+        previousPath = path
+        deps.recheckOpenCode?.()
+      }
+    }
     // 게이트 우회(dev)는 **게이트 판정의 입력**이다 — 설정만 바꾸고 끝내면 화면이 재시작
     // 전까지 옛 판정에 머문다(0181).
     if (changedKeys.includes('authBypass')) deps.pushConnectionState?.()

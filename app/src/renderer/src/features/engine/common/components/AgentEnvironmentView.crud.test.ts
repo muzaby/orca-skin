@@ -1,3 +1,4 @@
+import { useHarnessAvailabilityStore } from '../../../../shared/stores/harnessAvailabilityStore'
 import { createElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
@@ -140,7 +141,8 @@ beforeEach(() => {
     orca: {
       agent: { list },
       engine: { read, update, delete: remove, add },
-      provider: { onState: () => () => {} }
+      provider: { onState: () => () => {} },
+      harness: { onAvailability: () => () => {} }
     }
   })
   useAgentStore.setState({ agents: [], loaded: false, loading: false, error: null })
@@ -377,3 +379,9 @@ it('keeps the selected editor and its draft on save failure and retries the same
   expect(editor()).toBeUndefined()
   expect(list).toHaveBeenCalledTimes(2)
 })
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)

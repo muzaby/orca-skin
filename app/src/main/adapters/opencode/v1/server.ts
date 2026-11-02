@@ -167,13 +167,40 @@ export class OpenCodeServerPool {
     return output.trim().slice(0, 100)
   }
 
-  async installed(): Promise<{ installed: boolean; binPath?: string; version?: string }> {
+  executableIdentity(): string | undefined {
     try {
-      const binPath = this.executable()
-      const version = await this.readVersion(binPath)
-      return { installed: true, binPath, version }
+      return openCodeExecutableIdentity(this.executable())
     } catch {
-      return { installed: false }
+      return undefined
+    }
+  }
+
+  async installed(): Promise<{
+    installed: boolean
+    binPath?: string
+    version?: string
+    usable: boolean
+    reason?: 'missing' | 'unsupported' | 'failed'
+  }> {
+    if (this.stopped) return { installed: false, usable: false, reason: 'failed' }
+    let binPath: string
+    try {
+      binPath = this.executable()
+    } catch {
+      return { installed: false, usable: false, reason: 'missing' }
+    }
+    try {
+      const version = await this.readVersion(binPath)
+      const usable = isSupportedOpenCodeCliVersion(version)
+      return {
+        installed: true,
+        binPath,
+        version,
+        usable,
+        ...(!usable ? { reason: 'unsupported' as const } : {})
+      }
+    } catch {
+      return { installed: false, usable: false, reason: 'failed' }
     }
   }
 

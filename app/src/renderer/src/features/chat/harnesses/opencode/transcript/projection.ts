@@ -1,39 +1,79 @@
 import type { Message } from '../../../reducer/chatReducer'
 import { messageSegments, partsArtifacts, type MessageSegment } from '../../../lib/parts'
-import {
-  groupExchanges,
-  turnCopyText,
-  type Turn,
-  type TranscriptProjectionOptions
-} from '../../../lib/turns'
+import { groupExchanges, type Turn, type TranscriptProjectionOptions } from '../../../lib/turns'
 import { groupTools } from './toolGrouping'
 import { toolKind } from '../toolPresentation'
 
 type RowContent =
   | { kind: 'user'; turn: Turn }
   | { kind: 'segment'; segment: MessageSegment; streaming: boolean }
-  | { kind: 'meta'; text: string; createdAt: number }
+  | { kind: 'meta'; turn: Turn; copyable: boolean; createdAt: number }
   | { kind: 'artifacts'; artifacts: ReturnType<typeof partsArtifacts> }
   | { kind: 'incomplete' }
 
 export type TimelineRow = RowContent & { key: string; gap: 0 | 8 | 16 | 24 }
 
-// The turn prefix does not depend on its array position: prepending history and
-// committing a streamed assistant message leave existing DOM keys intact.
+type ExchangeEntry = { exchange: ReturnType<typeof groupExchanges>[number]; prefix: string }
+export interface TimelineHead {
+  rows: TimelineRow[]
+  tail: ExchangeEntry[]
+  index: Map<string, number>
+}
+
+/** Group committed messages once, preserving duplicate timestamp keys across the split. */
+export function projectTimelineHead(
+  messages: Message[],
+  options: TranscriptProjectionOptions = {}
+): TimelineHead {
+  const occurrences = new Map<string, number>()
+  const entries = groupExchanges(messages, options).map((exchange) => {
+    const first = exchange.turns[0].messages[0]
+    const base = `${first.role}:${first.createdAt}`
+    const occurrence = occurrences.get(base) ?? 0
+    occurrences.set(base, occurrence + 1)
+    return { exchange, prefix: occurrence ? `${base}:occurrence:${occurrence}` : base }
+  })
+  const rows = projectEntries(entries.slice(0, -1), { text: '', reasoning: '', pending: false })
+  return {
+    rows,
+    tail: entries.slice(-1),
+    index: new Map(rows.map((row, index) => [row.key, index]))
+  }
+}
+
+export function projectTimelineTail(
+  head: TimelineHead,
+  live: { text: string; reasoning: string; pending: boolean }
+): TimelineRow[] {
+  const previous = head.rows.at(-1)
+  const rows = projectEntries(head.tail, live, previous ? [previous] : [])
+  return previous ? rows.slice(1) : rows
+}
+
+export function timelineRowIndex(head: TimelineHead, tail: TimelineRow[], key?: string): number {
+  if (key === undefined) return -1
+  const index = head.index.get(key)
+  if (index !== undefined) return index
+  for (let i = 0; i < tail.length; i++) if (tail[i].key === key) return head.rows.length + i
+  return -1
+}
+
 export function projectTimeline(
   messages: Message[],
   live: { text: string; reasoning: string; pending: boolean },
   options: TranscriptProjectionOptions = {}
 ): TimelineRow[] {
-  const rows: TimelineRow[] = []
-  const occurrences = new Map<string, number>()
-  const exchanges = groupExchanges(messages, options)
-  for (const [exchangeIndex, exchange] of exchanges.entries()) {
-    const first = exchange.turns[0].messages[0]
-    const base = `${first.role}:${first.createdAt}`
-    const occurrence = occurrences.get(base) ?? 0
-    occurrences.set(base, occurrence + 1)
-    const prefix = occurrence ? `${base}:occurrence:${occurrence}` : base
+  const head = projectTimelineHead(messages, options)
+  return [...head.rows, ...projectTimelineTail(head, live)]
+}
+
+function projectEntries(
+  exchanges: ExchangeEntry[],
+  live: { text: string; reasoning: string; pending: boolean },
+  initial: TimelineRow[] = []
+): TimelineRow[] {
+  const rows: TimelineRow[] = [...initial]
+  for (const [exchangeIndex, { exchange, prefix }] of exchanges.entries()) {
     const active = exchangeIndex === exchanges.length - 1 && live.pending
     const user = exchange.turns.find((turn) => turn.role === 'user')
     if (user)
@@ -82,7 +122,12 @@ export function projectTimeline(
     if (assistant && !active)
       rows.push({
         kind: 'meta',
-        text: turnCopyText(assistant),
+        turn: assistant,
+        copyable: assistant.messages.some((message) =>
+          message.parts.some(
+            (part) => part.type === 'text' && !part.parentToolRunId && part.text.trim() !== ''
+          )
+        ),
         createdAt: assistant.messages.at(-1)!.createdAt,
         key: `${prefix}:meta`,
         gap: 16

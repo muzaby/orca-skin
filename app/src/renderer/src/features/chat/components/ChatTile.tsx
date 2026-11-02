@@ -1,3 +1,5 @@
+import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
+import { HarnessUnavailableNotice } from './HarnessUnavailableNotice'
 import { useCallback, useState } from 'react'
 import { ChatTitleBar } from './ChatTitleBar'
 import { LineageBanner } from './transcript/LineageBanner'
@@ -60,6 +62,16 @@ export function ChatTile({
   const sessionId = useChatSession((s) => s.sessionId)
   const sendCount = useChatSession((s) => s.sendCount)
   const inflight = useChatResponding()
+  const availability = useHarnessAvailabilityStore((state) =>
+    backend ? state.byId[backend] : null
+  )
+  const pendingRequest = useChatSession(
+    (state) =>
+      state.pendingAsks.length > 0 ||
+      state.pendingToolApprovals.length > 0 ||
+      !!state.pendingPlanReview
+  )
+  const unavailable = !!availability && !availability.usable && !inflight && !pendingRequest
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
   const pendingSteer = usePendingSteer()
@@ -147,20 +159,24 @@ export function ChatTile({
               </>
             )}
           </HarnessScrollController>
-          <Composer
-            showGitRow={policy.composer.showGitRow}
-            backendLabel={backendLabel}
-            canAbort={canAbort}
-            showScrollToBottom={scrollControls?.key === activeKey && scrollControls.showJump}
-            onScrollToBottom={
-              scrollControls?.key === activeKey ? scrollControls.scrollToBottom : undefined
-            }
-            usageLimits={usageLimits}
-            onOpenUsageSettings={onOpenUsageSettings}
-            onManagePlugins={onManagePlugins}
-            initialDraft={initialDraft}
-            restoredDraft={storeRestore}
-          />
+          {unavailable && backend && availability ? (
+            <HarnessUnavailableNotice backend={backend} availability={availability} />
+          ) : (
+            <Composer
+              showGitRow={policy.composer.showGitRow}
+              backendLabel={backendLabel}
+              canAbort={canAbort}
+              showScrollToBottom={scrollControls?.key === activeKey && scrollControls.showJump}
+              onScrollToBottom={
+                scrollControls?.key === activeKey ? scrollControls.scrollToBottom : undefined
+              }
+              usageLimits={usageLimits}
+              onOpenUsageSettings={onOpenUsageSettings}
+              onManagePlugins={onManagePlugins}
+              initialDraft={initialDraft}
+              restoredDraft={storeRestore}
+            />
+          )}
         </div>
 
         <RightPanel

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from '../../adapters/claude/sdk'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -124,3 +125,6 @@ it('reconciles external plugin selections and publishes the final state through 
     live.close()
   }
 }, 20000)
+
+// Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
+await loadClaudeSdk()

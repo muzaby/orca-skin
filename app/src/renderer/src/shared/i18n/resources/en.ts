@@ -6,6 +6,12 @@ import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/produc
 import type { ko } from './ko'
 
 export const en: typeof ko = {
+  harnessUnavailable: {
+    missing: 'OpenCode is not installed',
+    unsupported: 'This OpenCode version is unsupported',
+    failed: 'Could not verify the OpenCode installation',
+    recheck: 'Check again'
+  },
   background: {
     rejected: 'Rejected',
     cancelled: 'Cancelled',

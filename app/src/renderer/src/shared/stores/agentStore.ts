@@ -1,7 +1,7 @@
 import { reportError } from '../errors'
 import { create, type StoreApi, type UseBoundStore } from 'zustand'
 import type { AgentEnvironment } from '../../../../shared/ipc'
-import { agentApi, providerApi } from '../api/ipc'
+import { agentApi, providerApi, harnessApi } from '../api/ipc'
 import type { UiMessage } from '../i18n'
 
 interface AgentStoreState {
@@ -12,12 +12,14 @@ interface AgentStoreState {
   loaded: boolean
   refresh: () => Promise<AgentEnvironment[]>
   ensureLoaded: () => Promise<AgentEnvironment[]>
+  dispose: () => void
 }
 
 export interface AgentStoreDeps {
   list: () => Promise<AgentEnvironment[]>
   // provider 상태 push 구독. 해제 함수는 쓰지 않는다 — 앱 수명 동안 유지한다.
   subscribe: (handler: () => void) => unknown
+  subscribeAvailability?: (handler: () => void) => unknown
 }
 
 // **카탈로그 무효화 규칙은 store 의 것이다** — provider 상태 push 는 자동 등록/회수된 런타임
@@ -30,13 +32,25 @@ export interface AgentStoreDeps {
 export function createAgentStore(deps: AgentStoreDeps): UseBoundStore<StoreApi<AgentStoreState>> {
   let subscribed = false
   let seq = 0
+  const cleanups: Array<() => void> = []
   return create<AgentStoreState>((set, get) => {
     const ensureSubscribed = (): void => {
       if (subscribed) return
       subscribed = true
-      deps.subscribe(() => void get().refresh())
+      const refresh = (): void => {
+        if (subscribed) void get().refresh()
+      }
+      for (const subscribe of [deps.subscribe, deps.subscribeAvailability]) {
+        const cleanup = subscribe?.(refresh)
+        if (typeof cleanup === 'function') cleanups.push(() => cleanup())
+      }
     }
     return {
+      dispose: () => {
+        subscribed = false
+        seq++
+        for (const cleanup of cleanups.splice(0)) cleanup()
+      },
       agents: [],
       loading: false,
       error: null,
@@ -76,7 +90,8 @@ export function createAgentStore(deps: AgentStoreDeps): UseBoundStore<StoreApi<A
 
 export const useAgentStore = createAgentStore({
   list: () => agentApi.list(),
-  subscribe: (handler) => providerApi.onState(handler)
+  subscribe: (handler) => providerApi.onState(handler),
+  subscribeAvailability: (handler) => harnessApi.onAvailability(handler)
 })
 
 export const refreshAgents = (): Promise<AgentEnvironment[]> => useAgentStore.getState().refresh()

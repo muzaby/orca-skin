@@ -27,7 +27,12 @@ const fixture = vi.hoisted(() => ({
 }))
 
 vi.mock('electron', () => ({
-  app: { getVersion: () => 'test', getPath: () => fixture.userData },
+  app: {
+    on: vi.fn(),
+    removeListener: vi.fn(),
+    getVersion: () => 'test',
+    getPath: () => fixture.userData
+  },
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: {},
   net: {},

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { nativePluginId } from './configured-resources'
 // 0212 r3 — **어댑터 → SDK 제어 홉의 인자 충실도**(AC25 production path 의 마지막 화살표).
 //
@@ -175,3 +176,6 @@ it('wires native status, loaded plugins, injected exclusions and read-only MCP g
     messages.length = 0
   }
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import type { Options, SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -437,3 +438,6 @@ it('reports a reconciled plugin revision as applied but not a later external edi
     live.close()
   }
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

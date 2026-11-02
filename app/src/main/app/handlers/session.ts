@@ -66,6 +66,7 @@ export function registerSessionHandlers(
     LoadSessionRequestSchema,
     { fallback: null },
     (req): LoadedSession | null => {
+      ctx.db.nativeHistory.compactLegacyRaw(req.sessionId)
       const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
       return (
         session && {

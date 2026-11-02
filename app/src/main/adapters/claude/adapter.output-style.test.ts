@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 
 const { queryMock, applyFlagSettings, calls } = vi.hoisted(() => {
@@ -134,3 +135,6 @@ describe('Claude output style', () => {
     expect(calls).toEqual(['apply', 'push'])
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

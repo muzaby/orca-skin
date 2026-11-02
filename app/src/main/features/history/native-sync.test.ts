@@ -5,6 +5,7 @@ import type {
 } from '../../adapters/common/native-history'
 import type { DbQueries } from '../../infra/db'
 import {
+  readNativeHistoryPrevious,
   refreshNativeHistory,
   validNativeSnapshot,
   type NativeSyncDependencies
@@ -157,4 +158,23 @@ it('rejects a cursor from a different source or revision before committing anyth
     expect((await refreshNativeHistory('s', f.deps)).status).toBe('unavailable')
     expect(f.replace).not.toHaveBeenCalled()
   }
+})
+
+it('writes lean display payload while preserving raw separately and reads raw only on demand', async () => {
+  const f = fixture(),
+    raw = [{ uuid: 'native-raw', message: { text: 'original' } }]
+  f.snapshot.raw = raw
+  await refreshNativeHistory('s', f.deps)
+  const input = (f.replace.mock.calls[0] as unknown as [Record<string, string>])[0]
+  expect(JSON.parse(input.payloadJson)).not.toHaveProperty('raw')
+  expect(JSON.parse(input.rawJson)).toEqual(raw)
+  const lazy = vi.fn(() => input.rawJson)
+  const db = {
+    nativeHistory: { get: () => ({ payload_json: input.payloadJson }), raw: lazy }
+  } as unknown as DbQueries
+  const previous = readNativeHistoryPrevious(db, 's')!
+  expect(lazy).not.toHaveBeenCalled()
+  expect(previous.snapshot.messages).toEqual(f.snapshot.messages)
+  expect(previous.raw?.()).toEqual(raw)
+  expect(lazy).toHaveBeenCalledOnce()
 })

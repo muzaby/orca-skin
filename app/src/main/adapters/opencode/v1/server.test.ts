@@ -47,6 +47,7 @@ function setup(
     timeoutMs?: number
     version?: string
     readVersion?: (executable: string) => Promise<string>
+    executable?: () => string
   } = {}
 ): {
   pool: OpenCodeServerPool
@@ -79,7 +80,7 @@ function setup(
   const pool = new OpenCodeServerPool({
     dataDirectory,
     preferences: () => preferences,
-    executable: () => preferences.executablePath,
+    executable: options.executable ?? (() => preferences.executablePath),
     readVersion,
     allocatePort: async () => 49123,
     spawnProcess: spawnProcess as unknown as typeof spawn,
@@ -399,10 +400,45 @@ describe('owned OpenCode server lifecycle', () => {
     await expect(pool.installed()).resolves.toEqual({
       installed: true,
       binPath: preferences.executablePath,
-      version: 'opencode v2.0.28'
+      version: 'opencode v2.0.28',
+      usable: false,
+      reason: 'unsupported'
     })
     expect(readVersion).toHaveBeenCalledWith(preferences.executablePath)
     expect(spawnProcess).not.toHaveBeenCalled()
+  })
+  it('does not probe a missing executable and distinguishes failed and usable checks without starting servers', async () => {
+    const missing = setup({
+      executable: () => {
+        throw new Error('missing fixture executable')
+      }
+    })
+    await expect(missing.pool.installed()).resolves.toEqual({
+      installed: false,
+      usable: false,
+      reason: 'missing'
+    })
+    expect(missing.readVersion).not.toHaveBeenCalled()
+    expect(missing.spawnProcess).not.toHaveBeenCalled()
+    const failed = setup({
+      readVersion: async () => {
+        throw new Error('fixture timeout')
+      }
+    })
+    await expect(failed.pool.installed()).resolves.toEqual({
+      installed: false,
+      usable: false,
+      reason: 'failed'
+    })
+    expect(failed.readVersion).toHaveBeenCalledOnce()
+    expect(failed.spawnProcess).not.toHaveBeenCalled()
+    const ready = setup()
+    await expect(ready.pool.installed()).resolves.toMatchObject({
+      installed: true,
+      usable: true,
+      version: '1.19.0'
+    })
+    expect(ready.spawnProcess).not.toHaveBeenCalled()
   })
 
   it('retries after replacing an unsupported executable', async () => {

@@ -1,0 +1,220 @@
+{
+  "precedingFullRun": {
+    "passed": 8346,
+    "failed": 25,
+    "newFailures": 2,
+    "repair": "raw container expectation and syntax wall-clock cutoff; related 22 cases passed"
+  },
+  "upstreamIntegration": "0293 main included; one component-document conflict resolved",
+  "runtime": {
+    "node": "22.22.1",
+    "electron": "39.8.10",
+    "abi": "140",
+    "mode": "ELECTRON_RUN_AS_NODE=1"
+  },
+  "baseline": {
+    "files": 895,
+    "passed": 8286,
+    "failed": 23,
+    "failedFiles": 10
+  },
+  "final": {
+    "files": 908,
+    "passed": 8365,
+    "failed": 24,
+    "failedFiles": 11
+  },
+  "fullRunNewFailureIds": [
+    "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+  ],
+  "rechecks": [
+    {
+      "attempt": 1,
+      "files": 1,
+      "passed": 24,
+      "failed": 0,
+      "caseIds": [
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > applies OpenCode MCP toggles without confirmation or closing any runtime",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > asks before closing busy Claude sessions and closes every Claude process only after confirmation",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > closes every idle Claude process on a Claude plugin toggle without confirmation and leaves OpenCode running",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > keeps closing Claude processes after one close fails and reports it once with the dedicated title",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > keeps every Claude process when the Claude plugin choice cannot be saved",
+        "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude false config / installed file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude false config / state file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude global changes only on the common channel and closes both watchers on shutdown",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude true config / installed file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude true config / state file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts each OpenCode plugin revision after retiring servers without an owner",
+        "app/src/main/app/bootstrap.native-history.test.ts\tcarries catalog changes through the real bootstrap registry into every new SDK query",
+        "app/src/main/app/bootstrap.native-history.test.ts\tforwards each activity and lease change to project sync and the OpenCode admission signal",
+        "app/src/main/app/bootstrap.native-history.test.ts\tkeeps the newer skill scan in the cache when a pre-mutation scan finishes late",
+        "app/src/main/app/bootstrap.native-history.test.ts\tnative history bootstrap callbacks > forwards context and all native refresh runtime callbacks from the actual bootstrap registration",
+        "app/src/main/app/bootstrap.native-history.test.ts\tnative history bootstrap callbacks > preserves background snapshots while disposing the same session runtime and activity",
+        "app/src/main/app/bootstrap.native-history.test.ts\tobserves external project settings through real bootstrap and waits for peer activity before reconciliation",
+        "app/src/main/app/bootstrap.native-history.test.ts\treads native configuration through the registered module using stored backend and cwd",
+        "app/src/main/app/bootstrap.native-history.test.ts\trefreshes the bootstrap skill cache with native catalog sources and preserves Orca enablement",
+        "app/src/main/app/bootstrap.native-history.test.ts\tregisters the global catalog and ignores legacy persisted defaults",
+        "app/src/main/app/bootstrap.native-history.test.ts\trestores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories",
+        "app/src/main/app/bootstrap.native-history.test.ts\tstarts OpenCode global observation only when usable and sends one increasing revision for each later activation",
+        "app/src/main/app/bootstrap.native-history.test.ts\twires native resource lookups to the current supervisor runtime"
+      ]
+    },
+    {
+      "attempt": 2,
+      "files": 1,
+      "passed": 24,
+      "failed": 0,
+      "caseIds": [
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > applies OpenCode MCP toggles without confirmation or closing any runtime",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > asks before closing busy Claude sessions and closes every Claude process only after confirmation",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > closes every idle Claude process on a Claude plugin toggle without confirmation and leaves OpenCode running",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > keeps closing Claude processes after one close fails and reports it once with the dedicated title",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > keeps every Claude process when the Claude plugin choice cannot be saved",
+        "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude false config / installed file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude false config / state file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude global changes only on the common channel and closes both watchers on shutdown",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude true config / installed file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude true config / state file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts each OpenCode plugin revision after retiring servers without an owner",
+        "app/src/main/app/bootstrap.native-history.test.ts\tcarries catalog changes through the real bootstrap registry into every new SDK query",
+        "app/src/main/app/bootstrap.native-history.test.ts\tforwards each activity and lease change to project sync and the OpenCode admission signal",
+        "app/src/main/app/bootstrap.native-history.test.ts\tkeeps the newer skill scan in the cache when a pre-mutation scan finishes late",
+        "app/src/main/app/bootstrap.native-history.test.ts\tnative history bootstrap callbacks > forwards context and all native refresh runtime callbacks from the actual bootstrap registration",
+        "app/src/main/app/bootstrap.native-history.test.ts\tnative history bootstrap callbacks > preserves background snapshots while disposing the same session runtime and activity",
+        "app/src/main/app/bootstrap.native-history.test.ts\tobserves external project settings through real bootstrap and waits for peer activity before reconciliation",
+        "app/src/main/app/bootstrap.native-history.test.ts\treads native configuration through the registered module using stored backend and cwd",
+        "app/src/main/app/bootstrap.native-history.test.ts\trefreshes the bootstrap skill cache with native catalog sources and preserves Orca enablement",
+        "app/src/main/app/bootstrap.native-history.test.ts\tregisters the global catalog and ignores legacy persisted defaults",
+        "app/src/main/app/bootstrap.native-history.test.ts\trestores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories",
+        "app/src/main/app/bootstrap.native-history.test.ts\tstarts OpenCode global observation only when usable and sends one increasing revision for each later activation",
+        "app/src/main/app/bootstrap.native-history.test.ts\twires native resource lookups to the current supervisor runtime"
+      ]
+    },
+    {
+      "attempt": 3,
+      "files": 1,
+      "passed": 24,
+      "failed": 0,
+      "caseIds": [
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > applies OpenCode MCP toggles without confirmation or closing any runtime",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > asks before closing busy Claude sessions and closes every Claude process only after confirmation",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > closes every idle Claude process on a Claude plugin toggle without confirmation and leaves OpenCode running",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > keeps closing Claude processes after one close fails and reports it once with the dedicated title",
+        "app/src/main/app/bootstrap.native-history.test.ts\tClaude plugin toggle closes running Claude processes > keeps every Claude process when the Claude plugin choice cannot be saved",
+        "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude false config / installed file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude false config / state file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude global changes only on the common channel and closes both watchers on shutdown",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude true config / installed file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude true config / state file changes through the configured native paths",
+        "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts each OpenCode plugin revision after retiring servers without an owner",
+        "app/src/main/app/bootstrap.native-history.test.ts\tcarries catalog changes through the real bootstrap registry into every new SDK query",
+        "app/src/main/app/bootstrap.native-history.test.ts\tforwards each activity and lease change to project sync and the OpenCode admission signal",
+        "app/src/main/app/bootstrap.native-history.test.ts\tkeeps the newer skill scan in the cache when a pre-mutation scan finishes late",
+        "app/src/main/app/bootstrap.native-history.test.ts\tnative history bootstrap callbacks > forwards context and all native refresh runtime callbacks from the actual bootstrap registration",
+        "app/src/main/app/bootstrap.native-history.test.ts\tnative history bootstrap callbacks > preserves background snapshots while disposing the same session runtime and activity",
+        "app/src/main/app/bootstrap.native-history.test.ts\tobserves external project settings through real bootstrap and waits for peer activity before reconciliation",
+        "app/src/main/app/bootstrap.native-history.test.ts\treads native configuration through the registered module using stored backend and cwd",
+        "app/src/main/app/bootstrap.native-history.test.ts\trefreshes the bootstrap skill cache with native catalog sources and preserves Orca enablement",
+        "app/src/main/app/bootstrap.native-history.test.ts\tregisters the global catalog and ignores legacy persisted defaults",
+        "app/src/main/app/bootstrap.native-history.test.ts\trestores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories",
+        "app/src/main/app/bootstrap.native-history.test.ts\tstarts OpenCode global observation only when usable and sends one increasing revision for each later activation",
+        "app/src/main/app/bootstrap.native-history.test.ts\twires native resource lookups to the current supervisor runtime"
+      ]
+    }
+  ],
+  "remainingFailuresAfterRecheck": 23,
+  "newFailureIds": [],
+  "resolvedFailureIds": [],
+  "oracleCaseCounts": {
+    "BOOT": 1,
+    "JOIN": 1,
+    "INSTALL": 1,
+    "SEED": 4,
+    "DRAFT": 1,
+    "NOTICE": 1,
+    "MENU": 1,
+    "SELECT": 1,
+    "COMPOSER": 1,
+    "CARD": 1,
+    "ADD": 1,
+    "AGENT": 1,
+    "FOCUS": 1,
+    "PATH": 1,
+    "HOST": 1,
+    "WARM": 1,
+    "ROWS": 1,
+    "CACHE": 1,
+    "PREP": 1,
+    "RESUME": 1,
+    "WATCH": 1,
+    "RAW": 6,
+    "WRITE": 1,
+    "LOAD": 1,
+    "APPEND": 1,
+    "OCARCHIVE": 1,
+    "RECOVER": 1,
+    "CHART": 1,
+    "SYNTAX": 1,
+    "GOLD": 3,
+    "MEMO": 1,
+    "COPY": 1,
+    "INDEX": 1,
+    "TIMER": 1,
+    "MCP": 1,
+    "LOG": 1,
+    "ADMIT": 1,
+    "SIGNALS": 1,
+    "SDK": 1,
+    "TOOLS": 1,
+    "PREFETCH": 1,
+    "CANON": 1,
+    "DEDUPE": 1,
+    "MAP": 1,
+    "CLAUDE": 2
+  },
+  "typecheck": {
+    "configurations": 3,
+    "errors": 0
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 2,
+    "newWarnings": 0
+  },
+  "scripts": {
+    "tests": 144,
+    "passed": 144,
+    "failed": 0
+  },
+  "migration": {
+    "main": 34,
+    "mail": 1,
+    "sync": true,
+    "noCopies": true,
+    "appendOnly": "passed since v0.3.1; existing migration files unchanged"
+  },
+  "testBudget": {
+    "realGitSuites": 16,
+    "passed": true
+  },
+  "docs": {
+    "generated": true,
+    "prose": true,
+    "links": true,
+    "channels": 117
+  },
+  "windowsCI": {
+    "status": "pending",
+    "reason": "GitHub CLI reports GH_TOKEN invalid; connector has no dispatch tool"
+  },
+  "manualWindows": "pending",
+  "mutation": {
+    "selected": 29,
+    "newOracleSensitivity": 8,
+    "caught": 37,
+    "restored": 37
+  }
+}

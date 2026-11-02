@@ -469,3 +469,23 @@ describe('runtime catalog — ANTHROPIC_MODEL 편입 (AT-07 · D-006)', () => {
     expect(catalog.list()[0].models.map((m) => m.model)).toEqual(['corp-model'])
   })
 })
+
+it('updates cached runtime row availability in both directions without refetching models', async () => {
+  let usable = false
+  const resolve = vi.fn(async () => config(['claude-sonnet-4-6']))
+  const catalog = createRuntimeModelCatalog({
+    parseModels: parseRuntimeModels,
+    contributions: [contribution],
+    snapshotOf: () => valid(),
+    runtime: { resolve, cached: vi.fn(), invalidate: vi.fn() },
+    availability: () => ({ usable, ...(!usable ? { unavailableReason: 'missing' as const } : {}) })
+  })
+  await catalog.reconcile('gate', valid())
+  expect(catalog.list()[0]).toMatchObject({ supported: false, unavailable: 'missing' })
+  usable = true
+  expect(catalog.merge([])[0]).toMatchObject({ supported: true })
+  expect(catalog.list()[0]).not.toHaveProperty('unavailable')
+  usable = false
+  expect(catalog.list()[0]).toMatchObject({ supported: false, unavailable: 'missing' })
+  expect(resolve).toHaveBeenCalledOnce()
+})

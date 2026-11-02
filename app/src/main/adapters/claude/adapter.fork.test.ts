@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // 0064 continuity — TurnRequest.forkFrom 이 SDK query 옵션(resume+forkSession)으로
 // 어댑트되는지 배선 단위 검증(claude.effort.test.ts 패턴).
 import { describe, it, expect, vi } from 'vitest'
@@ -168,3 +169,6 @@ describe('ClaudeAdapter — handoff 도착 턴 (0127)', () => {
     expect(usage?.cacheReadTokens).toBe(150_000)
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

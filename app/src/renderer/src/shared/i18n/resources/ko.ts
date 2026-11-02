@@ -6,6 +6,12 @@ import type { AppErrorTitle } from '../../../../../shared/app-error'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
 
 export const ko = {
+  harnessUnavailable: {
+    missing: 'OpenCode가 설치되어 있지 않습니다',
+    unsupported: '지원하지 않는 OpenCode 버전입니다',
+    failed: 'OpenCode 설치 상태를 확인하지 못했습니다',
+    recheck: '다시 확인'
+  },
   background: {
     rejected: '거부됨',
     cancelled: '취소됨',

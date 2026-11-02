@@ -6,7 +6,7 @@ import type { GovernedLiveTurn } from '../../../contracts/ports'
 
 /** The adapter observes executing channels; the app supplies queue/background activity. */
 export class OpenCodeMcpReconcile {
-  private readonly timer: ReturnType<typeof setInterval>
+  private timer?: ReturnType<typeof setTimeout>
   private flight?: Promise<void>
   private dirty = false
   private closed = false
@@ -30,10 +30,6 @@ export class OpenCodeMcpReconcile {
             : projectResourcesIdle(activity, runtime)
         )
     )
-    this.timer = setInterval(() => {
-      if (this.dirty) void this.apply()
-    }, 500)
-    this.timer.unref?.()
   }
   changed(): void {
     this.revision++
@@ -43,6 +39,8 @@ export class OpenCodeMcpReconcile {
   private apply(): Promise<void> {
     if (this.closed) return Promise.resolve()
     if (this.flight) return this.flight
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = undefined
     const revision = this.revision
     const task = (async () => {
       try {
@@ -60,12 +58,19 @@ export class OpenCodeMcpReconcile {
       }
     })().finally(() => {
       if (this.flight === task) this.flight = undefined
+      if (this.dirty && !this.closed) {
+        this.timer = setTimeout(() => {
+          this.timer = undefined
+          void this.apply()
+        }, 500)
+        this.timer.unref?.()
+      }
     })
     this.flight = task
     return task
   }
   close(): void {
     this.closed = true
-    clearInterval(this.timer)
+    if (this.timer) clearTimeout(this.timer)
   }
 }

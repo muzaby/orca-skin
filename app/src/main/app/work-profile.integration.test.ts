@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from '../adapters/claude/sdk'
 import { expect, it, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
@@ -151,3 +152,6 @@ it('composes Work only into the SDK header while retaining Code execution, tools
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
+await loadClaudeSdk()

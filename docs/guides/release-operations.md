@@ -123,3 +123,11 @@ Orcinus orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 �
 | 같은 태그 재실행 시 업로드 충돌 | 기존 release에 동명 자산이 남아 있음 — 실패 버전 번호를 재사용하지 말고 다음 patch 버전으로 전진 |
 | 구버전 설치 후 앱이 안 뜸 | `DB_SCHEMA_TOO_NEW` 다운그레이드 가드 — 위 클라이언트측 롤백 3단계(DB 백업 복원) 수행 |
 | CI 에서 better-sqlite3 로드 실패 | `ensure-sqlite-abi.mjs` 훅 순서 전제(`npm ci`→test→build) 위반 여부 확인 — `npx electron-builder` 직접 호출 금지 |
+
+## 압축된 renderer 스택 복원
+
+1. 오류가 난 설치본의 버전과 소스 커밋을 확인하고 같은 태그 또는 커밋을 별도 작업 트리에 연다.
+2. 해당 잠금 파일로 의존성을 설치한 뒤 `app`에서 `./node_modules/.bin/electron-vite build --sourcemap --outDir <진단 출력 경로>`를 실행한다.
+3. renderer의 대응 청크와 `.map`을 함께 사용하여 스택의 생성 코드 줄·열을 원본 소스로 매핑한다. 청크 파일명이 다르면 동일 소스·잠금 파일·빌드 환경인지 먼저 확인한다.
+
+소스맵은 진단 산출물로 보관하고 사용자 로그와 함께 공개 게시하지 않는다. main·preload의 빌드 압축 정책은 변경하지 않는다.

@@ -101,6 +101,7 @@ export function createBootSteps(deps: BootDependencies = defaultBootDependencies
         }
       }
     },
+    { id: 'backend', mandatory: false, run: deps.initBackend },
     {
       id: 'landing-target',
       mandatory: true,
@@ -112,7 +113,6 @@ export function createBootSteps(deps: BootDependencies = defaultBootDependencies
         return { landingTarget: lastSessionId ? `/chat/${lastSessionId}` : '/new' }
       }
     },
-    { id: 'backend', mandatory: false, run: deps.initBackend },
     { id: 'sessions', mandatory: false, run: deps.initSessions },
     {
       id: 'projects-cost',

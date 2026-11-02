@@ -1,3 +1,4 @@
+import { useHarnessAvailabilityStore } from '../shared/stores/harnessAvailabilityStore'
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -124,3 +125,9 @@ describe('new chat direct entry', () => {
     expect(getActiveChatSession().backend).toBe('opencode')
   })
 })
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)

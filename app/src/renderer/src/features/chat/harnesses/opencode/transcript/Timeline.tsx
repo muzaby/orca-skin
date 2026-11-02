@@ -1,3 +1,4 @@
+import { turnCopyText } from '../../../lib/turns'
 import { memo, useMemo } from 'react'
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
@@ -14,7 +15,12 @@ import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import type { TranscriptTimelineProps } from '../../contracts'
 import { OpenCodeAssistantSegment } from './AssistantSegment'
 import { OpenCodeText } from './Text'
-import { projectTimeline, type TimelineRow } from './projection'
+import {
+  projectTimelineHead,
+  projectTimelineTail,
+  timelineRowIndex,
+  type TimelineRow
+} from './projection'
 import { useTimelineScroll } from './scrollContext'
 import { TimelineDisclosureContext, TimelineViewState, useTimelineMarkdownMode } from './viewState'
 
@@ -30,21 +36,23 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
   const scroll = useTimelineScroll()
   const fallbackState = useMemo(() => new TimelineViewState(), [])
   const state = scroll?.state ?? fallbackState
-  const rows = useMemo(
-    () =>
-      projectTimeline(
-        props.messages,
-        {
-          text: props.inflight ? liveText : '',
-          reasoning: props.inflight ? liveReasoning : '',
-          pending: props.inflight
-        },
-        { showAutomaticFeeds: props.showAutomaticFeeds }
-      ),
-    [props.messages, props.inflight, props.showAutomaticFeeds, liveText, liveReasoning]
+  const head = useMemo(
+    () => projectTimelineHead(props.messages, { showAutomaticFeeds: props.showAutomaticFeeds }),
+    [props.messages, props.showAutomaticFeeds]
   )
+  const tail = useMemo(
+    () =>
+      projectTimelineTail(head, {
+        text: props.inflight ? liveText : '',
+        reasoning: props.inflight ? liveReasoning : '',
+        pending: props.inflight
+      }),
+    [head, props.inflight, liveText, liveReasoning]
+  )
+  const rows = useMemo(() => [...head.rows, ...tail], [head, tail])
+  const rowIndex = (key?: string): number => timelineRowIndex(head, tail, key)
   const selectionIndexes = (scroll?.retained ?? [])
-    .map((key) => rows.findIndex((row) => row.key === key))
+    .map((key) => rowIndex(key))
     .filter((index) => index >= 0)
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -56,13 +64,13 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
     rangeExtractor: (range) => {
       const indexes = defaultRangeExtractor(range)
       const retain = (scroll?.retained ?? [])
-        .map((key) => rows.findIndex((row) => row.key === key))
+        .map((key) => rowIndex(key))
         .filter((index) => index >= 0)
       if (retain.length) {
         for (let index = Math.min(...retain); index <= Math.max(...retain); index++)
           indexes.push(index)
       }
-      const anchor = rows.findIndex((row) => row.key === state.anchor?.key)
+      const anchor = rowIndex(state.anchor?.key)
       if (anchor >= 0) indexes.push(anchor)
       return [...new Set(indexes)].sort((a, b) => a - b)
     },
@@ -163,7 +171,13 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
       if (row.segment.kind === 'reasoning') return null
       return <OpenCodeAssistantSegment segment={row.segment} transcriptPolicy={policy} />
     case 'meta':
-      return <MessageMeta text={row.text} createdAt={row.createdAt} align="left" />
+      return (
+        <MessageMeta
+          text={row.copyable ? () => turnCopyText(row.turn) : ''}
+          createdAt={row.createdAt}
+          align="left"
+        />
+      )
     case 'artifacts':
       return <ArtifactCards artifacts={row.artifacts} />
     case 'incomplete':

@@ -413,3 +413,31 @@ it('returns DB body and backend without starting the slow native reader', async 
   void callbacks.get(CHANNELS.sessionRefresh)!({ sessionId: 's1' })
   expect(refresh).toHaveBeenCalledExactlyOnceWith('s1')
 })
+
+it('splits legacy raw before the handler loads messages and leaves the next refresh usable', async () => {
+  session()
+  const value: NativeHistorySnapshot = {
+    sessionId: 's1',
+    cwd: '/w',
+    sourceKey: 'legacy',
+    revision: 'one',
+    messages: [],
+    raw: [{ uuid: 'preserved' }]
+  }
+  db.prepare(
+    'INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at) VALUES (?,?,0,1)'
+  ).run('s1', JSON.stringify(value))
+  const compact = vi.spyOn(queries.nativeHistory, 'compactLegacyRaw')
+  const get = vi.spyOn(queries.nativeHistory, 'get')
+  await load('s1')
+  expect(compact).toHaveBeenCalledWith('s1')
+  expect(compact.mock.invocationCallOrder[0]).toBeLessThan(get.mock.invocationCallOrder[0])
+  expect(JSON.parse(queries.nativeHistory.raw('s1')!)).toEqual(value.raw)
+  expect(
+    await refreshNativeHistory('s1', {
+      db: queries,
+      isBusy: () => false,
+      read: async () => ({ status: 'unchanged' })
+    })
+  ).toEqual({ status: 'unchanged' })
+})

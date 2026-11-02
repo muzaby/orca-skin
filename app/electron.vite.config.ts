@@ -33,6 +33,7 @@ export default defineConfig({
   },
   preload: {},
   renderer: {
+    build: { minify: 'esbuild' },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion)
     },

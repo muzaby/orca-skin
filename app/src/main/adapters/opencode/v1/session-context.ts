@@ -407,6 +407,10 @@ class ServerContext {
     this.close(error)
   }
 
+  resourceActivityChanged(): void {
+    for (const scope of this.instances.values())
+      this.directories.get(scope)?.mcpControl?.resourceActivityChanged()
+  }
   async reconcileConnections(): Promise<void> {
     await Promise.all(
       this.instances.values().map(async (scope) => {
@@ -441,6 +445,9 @@ export class OpenCodeSessionContexts {
   private idle: (cwd: string, beforeSubmit: boolean) => boolean = () => true
   configureResourceActivity(idle: typeof this.idle): void {
     this.idle = idle
+  }
+  resourceActivityChanged(): void {
+    for (const context of this.owned) context.resourceActivityChanged()
   }
   async reconcileConnections(): Promise<void> {
     await Promise.all([...this.owned].map((context) => context.reconcileConnections()))

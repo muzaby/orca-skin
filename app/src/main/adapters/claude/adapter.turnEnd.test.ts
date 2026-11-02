@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // 0211 라운드 5 — D25·D26 / VP-72 · §10 EP-46 ①②.
 //
 // `turn-end-hook.test.ts` 는 **팩토리**(`makeTurnEndHook`)만 잰다. 그래서 어댑터가 그 조각을
@@ -610,3 +611,6 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
     expect(h.queryMock).toHaveBeenCalledTimes(1)
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

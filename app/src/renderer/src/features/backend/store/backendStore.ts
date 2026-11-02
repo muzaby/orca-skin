@@ -1,3 +1,7 @@
+import {
+  subscribeHarnessAvailability,
+  seedHarnessAvailability
+} from '../../../shared/stores/harnessAvailabilityStore'
 // Zustand backend store — 구 BackendProvider(Context)의 전환(handoff 0013, chat 0008 선례).
 // 설치 상태·활성 백엔드·능력 서술자 + 인스톨러 모달 가시성. selector 구독이라 installerOpen
 // 토글이 서브트리 전체를 깨우지 않는다.
@@ -24,7 +28,9 @@ const { setState } = useBackendStore
 
 export async function initBackend(): Promise<void> {
   try {
+    const generation = subscribeHarnessAvailability()
     const result = await backendApi.list()
+    seedHarnessAvailability(result.backends, generation)
     setState({ list: result.backends, active: result.active ?? null, loading: false })
   } catch (error) {
     setState({ loading: false })

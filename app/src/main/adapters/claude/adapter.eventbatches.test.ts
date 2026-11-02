@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // 0165 AC5 — **한 SDK 메시지 = 한 배치**. 정규화가 한 메시지에서 여러 이벤트를 만들 때
 // (`result` → `[telemetry, error]`) 그 묶음이 쪼개지면 SessionRuntime 이 첫 terminal 에서 프레임을
 // 닫고 나머지가 프레임 밖으로 새어 **다음 턴에 귀속**된다(보고 ①).
@@ -92,3 +93,6 @@ describe('ClaudeAdapter — provider 메시지 원자 배치 (AC5)', () => {
     )
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from './sdk'
 // D-006 — `extraDirs` 는 SDK 옵션 `additionalDirectories` 와 workspace 가드 훅에 **같은 배열**로
 // 도달해야 한다. 두 스코프가 갈라지면 가드가 무의미해진다(옵션은 넓은데 가드는 좁거나 그 반대).
 //
@@ -184,3 +185,6 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
     })
   })
 })
+
+// Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
+await loadClaudeSdk()

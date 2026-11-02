@@ -76,6 +76,7 @@ export interface CompleteRequest {
 }
 
 export interface SessionAdapter {
+  resourceActivityChanged?(): void
   configureResourceActivity?(idle: (cwd: string, beforeSubmit: boolean) => boolean): void
   reconcileConnections?(): Promise<void>
   restartRevision?(
@@ -105,7 +106,14 @@ export interface SessionAdapter {
   // 이 백엔드가 *지원하는* 능력 서술자 (capabilities/types.ts). UI 의 사전 게이팅·지표 소비자가
   // 읽는다. computed-on-the-fly — DB 영속 없이 매 backend:list 응답에 부착된다(§4/§15).
   describe(): ProviderDescriptor
-  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>
+  executableIdentity?(): string | undefined
+  isInstalled(): Promise<{
+    installed: boolean
+    version?: string
+    binPath?: string
+    usable?: boolean
+    reason?: import('../../../shared/ipc').HarnessUnavailableReason
+  }>
   // 호스트 하네스 CLI 로 provider 의 모델 목록을 읽는다(0291). 호스트 설정을 그대로 쓴다.
   listProviderModels?(
     provider: string,

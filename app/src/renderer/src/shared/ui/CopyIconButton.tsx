@@ -4,7 +4,7 @@ import { Button } from './Button'
 import { useI18n } from '../i18n'
 
 export interface CopyIconButtonProps {
-  text: string
+  text: string | (() => string)
   title?: string
   /** Extra classes appended to the underlying Button (sizing/spacing tweaks). */
   className?: string
@@ -18,7 +18,7 @@ export function CopyIconButton({ text, title, className }: CopyIconButtonProps):
   const [copied, setCopied] = useState(false)
   const onClick = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(typeof text === 'function' ? text() : text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch (error) {

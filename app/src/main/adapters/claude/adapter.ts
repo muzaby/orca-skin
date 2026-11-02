@@ -1,3 +1,4 @@
+import { deferClaudeQuery, loadClaudeSdk } from './sdk'
 import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
 import { claudeNativeResources } from './native-resources'
@@ -10,12 +11,11 @@ import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project
 // CLI spawn 방식은 폐기 (Phase 3, 2026-05-18) — 외부 계약은 TRD §7.1,
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
 
-import {
-  query,
-  type CanUseTool,
-  type Options,
-  type PermissionResult,
-  type SDKMessage
+import type {
+  CanUseTool,
+  Options,
+  PermissionResult,
+  SDKMessage
 } from '@anthropic-ai/claude-agent-sdk'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { readFileSync } from 'node:fs'
@@ -422,6 +422,7 @@ export class ClaudeAdapter implements SessionAdapter {
 
     try {
       const chunks: string[] = []
+      const { query } = await loadClaudeSdk()
       for await (const msg of query({ prompt: req.prompt, options })) {
         const text = assistantText(msg)
         if (text) chunks.push(text)
@@ -640,136 +641,144 @@ export class ClaudeAdapter implements SessionAdapter {
       declared: await readDeclaredPlanFile(input, plansDir, readForPlan)
     })
 
-    const handle = query({
-      prompt: input.stream,
-      options: {
-        // fork/handoff(0064) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id
-        // 를 발급한다(원본 불변). 새 id 는 init(session.updated)에서 ctx 로 흡수된다.
-        ...(req.recovery?.freshStart
-          ? { sessionId: sessionId ?? undefined }
-          : { resume: req.forkFrom ?? sessionId ?? undefined }),
-        ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
-        includePartialMessages: true,
-        agentProgressSummaries: true,
-        perTaskStopAffordance: true,
-        // steer echo 의 전제 조건(0060 D5). CLI 는 mid-turn drain 한 큐 커맨드(steer)를
-        // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=orca
-        // batch uuid) 메시지로 output 스트림에 되돌린다 — 기본 off 라 echo 가 아예 안 와서
-        // D1 커밋 신호가 영영 발화하지 않았다(v0.3.143 바이너리 직렬화 게이트 실측:
-        // `replayUserMessages: h=!1` + `h && attachment.type==="queued_command"` 분기).
-        // SDK Options 에 1급 필드가 없어 extraArgs(값 null = bare flag)로 넘긴다.
-        // 부작용인 턴 첫 프롬프트 replay echo 는 coordinator 의 매칭 실패 무시로 흡수된다.
-        extraArgs: { 'replay-user-messages': null },
-        // 서브에이전트(Task) child 의 text/thinking 블록도 forward 받는다 — 기본은 tool_use/
-        // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).
-        forwardSubagentText: true,
-        cwd,
-        // 작업 폴더 밖 파일툴 write 스코프를 넓히지 않도록 SDK 내장 스코프에도 동일 배열을 반영(가드 훅과 짝).
-        additionalDirectories,
-        abortController,
-        // claude 실행 파일 경로(앱 동봉 번들 단일 출처). undefined 면 생략해 SDK 기본 해석.
-        ...claudeExecutableOption,
-        ...adaptSystemPrompt(extensions.systemPromptAppend),
-        // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — user 소스 배제로 끊긴
-        // ~/.claude/skills 를 dist/claude/plugins/claude(정션/심링크)로 보전한다.
-        ...adaptPlugins(extensions.pluginRoots, nativePlugins.roots),
-        ...adaptSkills(extensions.skills, nativePlugins.skills),
-        // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
-        // settingSources 는 ['project','local'] 로 명시해 user 소스를 배제한다(handoff 0117 —
-        // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
-        // ~/.claude/settings.json 개입 없이 적용된다.
-        // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
-        ...adaptExecutionConfig(
-          nativePlugins.installations.length
-            ? {
-                ...settings,
-                enabledPlugins: {
-                  ...(settings?.enabledPlugins as Record<string, unknown>),
-                  ...nativePluginFlags
+    const handle = deferClaudeQuery((sdk) =>
+      sdk.query({
+        prompt: input.stream,
+        options: {
+          // fork/handoff(0064) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id
+          // 를 발급한다(원본 불변). 새 id 는 init(session.updated)에서 ctx 로 흡수된다.
+          ...(req.recovery?.freshStart
+            ? { sessionId: sessionId ?? undefined }
+            : { resume: req.forkFrom ?? sessionId ?? undefined }),
+          ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
+          includePartialMessages: true,
+          agentProgressSummaries: true,
+          perTaskStopAffordance: true,
+          // steer echo 의 전제 조건(0060 D5). CLI 는 mid-turn drain 한 큐 커맨드(steer)를
+          // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=orca
+          // batch uuid) 메시지로 output 스트림에 되돌린다 — 기본 off 라 echo 가 아예 안 와서
+          // D1 커밋 신호가 영영 발화하지 않았다(v0.3.143 바이너리 직렬화 게이트 실측:
+          // `replayUserMessages: h=!1` + `h && attachment.type==="queued_command"` 분기).
+          // SDK Options 에 1급 필드가 없어 extraArgs(값 null = bare flag)로 넘긴다.
+          // 부작용인 턴 첫 프롬프트 replay echo 는 coordinator 의 매칭 실패 무시로 흡수된다.
+          extraArgs: { 'replay-user-messages': null },
+          // 서브에이전트(Task) child 의 text/thinking 블록도 forward 받는다 — 기본은 tool_use/
+          // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).
+          forwardSubagentText: true,
+          cwd,
+          // 작업 폴더 밖 파일툴 write 스코프를 넓히지 않도록 SDK 내장 스코프에도 동일 배열을 반영(가드 훅과 짝).
+          additionalDirectories,
+          abortController,
+          // claude 실행 파일 경로(앱 동봉 번들 단일 출처). undefined 면 생략해 SDK 기본 해석.
+          ...claudeExecutableOption,
+          ...adaptSystemPrompt(extensions.systemPromptAppend),
+          // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — user 소스 배제로 끊긴
+          // ~/.claude/skills 를 dist/claude/plugins/claude(정션/심링크)로 보전한다.
+          ...adaptPlugins(extensions.pluginRoots, nativePlugins.roots),
+          ...adaptSkills(extensions.skills, nativePlugins.skills),
+          // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
+          // settingSources 는 ['project','local'] 로 명시해 user 소스를 배제한다(handoff 0117 —
+          // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
+          // ~/.claude/settings.json 개입 없이 적용된다.
+          // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
+          ...adaptExecutionConfig(
+            nativePlugins.installations.length
+              ? {
+                  ...settings,
+                  enabledPlugins: {
+                    ...(settings?.enabledPlugins as Record<string, unknown>),
+                    ...nativePluginFlags
+                  }
                 }
-              }
-            : settings,
-          env,
-          getTemporaryFilesPath()
-        ),
-        disallowedTools: ['WebSearch'],
-        ...adaptRuntimeTools(extensions.runtimeTools, req.runtimeToolContext),
-        // hooks = 중립 정규화 훅 + 어댑터 내부 훅 병합 위에
-        // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
-        ...withPostCompactHook(
-          mergeHooks(
-            adaptHooks(extensions.hooks),
-            makePlanFileHook(planFileCell, plansDir),
-            makeOutputFilesHook(
-              extensions.outputFiles,
-              req.runtimeToolContext,
-              (artifact, toolRunId, signal, scope) => {
-                capturedOutputs.push({
-                  event: {
-                    type: 'output.captured',
-                    sessionId: ctx.sessionId,
-                    artifact,
-                    ...(toolRunId ? { toolRunId } : {})
-                  },
-                  signal,
-                  responseScope: scope
-                })
-              },
-              () => (responseOpen ? responseScope : undefined)
-            ),
-            makeInputReceiptHook((input) => {
-              if (!responseOpen) {
-                responseOpen = true
-                responseScope++
-              }
-              receipts.prompt(input)
-            }),
-            // 턴 종료(Stop) — git 변경 목록 싱크의 유일한 계기다(0211 ΔV6 D-115, §10 EP-46 ①).
-            makeTurnEndHook((input) => {
-              const schedules = readClaudeSessionSchedules(input)
-              if (schedules !== undefined) {
-                scheduleSnapshots.push(schedules)
-              }
-              turnEndSignals += 1
-            }),
-            // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
-            // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
-            makeWorkspaceGuardHook(cwd, additionalDirectories, nativePaths.root)
+              : settings,
+            env,
+            getTemporaryFilesPath()
           ),
-          (summary) => compactSummaries.push(summary)
-        ),
-        // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
-        // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
-        // 자동 통과 동작을 유지한다.
-        ...(requestApproval
-          ? {
-              canUseTool: makeCanUseTool(requestApproval, {
-                getMainApprovalSignal: req.getMainApprovalSignal,
-                providerGeneration: backgroundMapper.generation,
-                runtimeApprovalToolNames: runtimeToolApprovalNames,
-                ...(req.planApprovalMode ? { planApprovalMode: req.planApprovalMode } : {}),
-                // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
-                // 입력에 싣지 않는 모델에서 우측 패널이 다시 빈다.
-                getPlanNarrative: () => ctx.lastAssistantText,
-                getPlanFiles,
-                ...(isSubagentBlocked ? { isSubagentBlocked } : {})
-              })
-            }
-          : {}),
-        // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
-        // 시작 모드를 명시할 때 bypass 가용성도 함께 연다(0261 D-001·D-004) — CLI 는 이 플래그(또는
-        // bypass 시작) 없이 spawn 한 채널의 라이브 `setPermissionMode('bypassPermissions')` 를 거부한다.
-        // 가용성일 뿐 시작 모드는 위 명시값이고, `disableBypassPermissionsMode` 정책은 계속 전환을 막는다.
-        ...(permissionMode
-          ? {
-              permissionMode: toClaudePermissionMode(permissionMode),
-              allowDangerouslySkipPermissions: true
-            }
-          : {}),
-        ...(executionModel ? { model: executionModel } : {}),
-        ...(effort ? { effort } : {})
-      }
-    })
+          disallowedTools: ['WebSearch'],
+          ...(extensions.runtimeTools?.servers.size
+            ? adaptRuntimeTools(
+                sdk.createSdkMcpServer,
+                extensions.runtimeTools,
+                req.runtimeToolContext
+              )
+            : {}),
+          // hooks = 중립 정규화 훅 + 어댑터 내부 훅 병합 위에
+          // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
+          ...withPostCompactHook(
+            mergeHooks(
+              adaptHooks(extensions.hooks),
+              makePlanFileHook(planFileCell, plansDir),
+              makeOutputFilesHook(
+                extensions.outputFiles,
+                req.runtimeToolContext,
+                (artifact, toolRunId, signal, scope) => {
+                  capturedOutputs.push({
+                    event: {
+                      type: 'output.captured',
+                      sessionId: ctx.sessionId,
+                      artifact,
+                      ...(toolRunId ? { toolRunId } : {})
+                    },
+                    signal,
+                    responseScope: scope
+                  })
+                },
+                () => (responseOpen ? responseScope : undefined)
+              ),
+              makeInputReceiptHook((input) => {
+                if (!responseOpen) {
+                  responseOpen = true
+                  responseScope++
+                }
+                receipts.prompt(input)
+              }),
+              // 턴 종료(Stop) — git 변경 목록 싱크의 유일한 계기다(0211 ΔV6 D-115, §10 EP-46 ①).
+              makeTurnEndHook((input) => {
+                const schedules = readClaudeSessionSchedules(input)
+                if (schedules !== undefined) {
+                  scheduleSnapshots.push(schedules)
+                }
+                turnEndSignals += 1
+              }),
+              // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
+              // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
+              makeWorkspaceGuardHook(cwd, additionalDirectories, nativePaths.root)
+            ),
+            (summary) => compactSummaries.push(summary)
+          ),
+          // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
+          // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
+          // 자동 통과 동작을 유지한다.
+          ...(requestApproval
+            ? {
+                canUseTool: makeCanUseTool(requestApproval, {
+                  getMainApprovalSignal: req.getMainApprovalSignal,
+                  providerGeneration: backgroundMapper.generation,
+                  runtimeApprovalToolNames: runtimeToolApprovalNames,
+                  ...(req.planApprovalMode ? { planApprovalMode: req.planApprovalMode } : {}),
+                  // 매퍼가 쓰는 **같은 ctx** 를 읽는다(0215 EP-01) — 이 인자를 빼면 계획을
+                  // 입력에 싣지 않는 모델에서 우측 패널이 다시 빈다.
+                  getPlanNarrative: () => ctx.lastAssistantText,
+                  getPlanFiles,
+                  ...(isSubagentBlocked ? { isSubagentBlocked } : {})
+                })
+              }
+            : {}),
+          // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
+          // 시작 모드를 명시할 때 bypass 가용성도 함께 연다(0261 D-001·D-004) — CLI 는 이 플래그(또는
+          // bypass 시작) 없이 spawn 한 채널의 라이브 `setPermissionMode('bypassPermissions')` 를 거부한다.
+          // 가용성일 뿐 시작 모드는 위 명시값이고, `disableBypassPermissionsMode` 정책은 계속 전환을 막는다.
+          ...(permissionMode
+            ? {
+                permissionMode: toClaudePermissionMode(permissionMode),
+                allowDangerouslySkipPermissions: true
+              }
+            : {}),
+          ...(executionModel ? { model: executionModel } : {}),
+          ...(effort ? { effort } : {})
+        }
+      })
+    )
 
     let closed = false
     const close = (): void => {

@@ -1,0 +1,466 @@
+[
+  {
+    "messages": [
+      {
+        "role": "user",
+        "createdAt": 1,
+        "parts": [
+          {
+            "type": "text",
+            "text": "question"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "createdAt": 2,
+        "parts": [
+          {
+            "type": "text",
+            "text": "answer"
+          },
+          {
+            "type": "artifact",
+            "artifact": {
+              "publicationId": "p",
+              "artifactFileId": "f",
+              "title": "Report",
+              "filename": "report.md",
+              "kind": "markdown",
+              "category": "file",
+              "sizeBytes": 10,
+              "publishedAt": 2
+            }
+          },
+          {
+            "type": "tool_call",
+            "toolRunId": "t1",
+            "toolName": "Bash",
+            "args": {
+              "command": "pwd"
+            }
+          },
+          {
+            "type": "tool_result",
+            "toolRunId": "t1",
+            "result": {
+              "output": "workspace"
+            },
+            "isError": false
+          }
+        ]
+      }
+    ],
+    "live": {
+      "text": "",
+      "reasoning": "",
+      "pending": false
+    },
+    "rows": [
+      {
+        "kind": "user",
+        "turn": {
+          "role": "user",
+          "messages": [
+            {
+              "role": "user",
+              "createdAt": 1,
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "question"
+                }
+              ]
+            }
+          ],
+          "startIndex": 0
+        },
+        "key": "user:1:user",
+        "gap": 0
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "text",
+          "text": "answer"
+        },
+        "key": "user:1:0:text",
+        "streaming": false,
+        "gap": 16
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "tools",
+          "calls": [
+            {
+              "toolUseId": "t1",
+              "name": "Bash",
+              "input": {
+                "command": "pwd"
+              },
+              "result": {
+                "output": {
+                  "output": "workspace"
+                },
+                "isError": false
+              }
+            }
+          ]
+        },
+        "key": "user:1:tool:t1",
+        "streaming": false,
+        "gap": 16
+      },
+      {
+        "kind": "artifacts",
+        "artifacts": [
+          {
+            "publicationId": "p",
+            "artifactFileId": "f",
+            "title": "Report",
+            "filename": "report.md",
+            "kind": "markdown",
+            "category": "file",
+            "sizeBytes": 10,
+            "publishedAt": 2
+          }
+        ],
+        "key": "user:1:artifacts",
+        "gap": 16
+      },
+      {
+        "kind": "meta",
+        "text": "answer",
+        "createdAt": 2,
+        "key": "user:1:meta",
+        "gap": 16
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "createdAt": 1,
+        "parts": [
+          {
+            "type": "text",
+            "text": "question"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "createdAt": 2,
+        "parts": [
+          {
+            "type": "text",
+            "text": "answer"
+          },
+          {
+            "type": "artifact",
+            "artifact": {
+              "publicationId": "p",
+              "artifactFileId": "f",
+              "title": "Report",
+              "filename": "report.md",
+              "kind": "markdown",
+              "category": "file",
+              "sizeBytes": 10,
+              "publishedAt": 2
+            }
+          },
+          {
+            "type": "tool_call",
+            "toolRunId": "t1",
+            "toolName": "Bash",
+            "args": {
+              "command": "pwd"
+            }
+          },
+          {
+            "type": "tool_result",
+            "toolRunId": "t1",
+            "result": {
+              "output": "workspace"
+            },
+            "isError": false
+          }
+        ],
+        "incomplete": true
+      }
+    ],
+    "live": {
+      "text": "",
+      "reasoning": "",
+      "pending": false
+    },
+    "rows": [
+      {
+        "kind": "user",
+        "turn": {
+          "role": "user",
+          "messages": [
+            {
+              "role": "user",
+              "createdAt": 1,
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "question"
+                }
+              ]
+            }
+          ],
+          "startIndex": 0
+        },
+        "key": "user:1:user",
+        "gap": 0
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "text",
+          "text": "answer"
+        },
+        "key": "user:1:0:text",
+        "streaming": false,
+        "gap": 16
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "tools",
+          "calls": [
+            {
+              "toolUseId": "t1",
+              "name": "Bash",
+              "input": {
+                "command": "pwd"
+              },
+              "result": {
+                "output": {
+                  "output": "workspace"
+                },
+                "isError": false
+              }
+            }
+          ]
+        },
+        "key": "user:1:tool:t1",
+        "streaming": false,
+        "gap": 16
+      },
+      {
+        "kind": "artifacts",
+        "artifacts": [
+          {
+            "publicationId": "p",
+            "artifactFileId": "f",
+            "title": "Report",
+            "filename": "report.md",
+            "kind": "markdown",
+            "category": "file",
+            "sizeBytes": 10,
+            "publishedAt": 2
+          }
+        ],
+        "key": "user:1:artifacts",
+        "gap": 16
+      },
+      {
+        "kind": "incomplete",
+        "key": "user:1:incomplete",
+        "gap": 16
+      },
+      {
+        "kind": "meta",
+        "text": "answer",
+        "createdAt": 2,
+        "key": "user:1:meta",
+        "gap": 16
+      }
+    ]
+  },
+  {
+    "messages": [
+      {
+        "role": "user",
+        "createdAt": 1,
+        "parts": [
+          {
+            "type": "text",
+            "text": "question"
+          }
+        ]
+      },
+      {
+        "role": "assistant",
+        "createdAt": 2,
+        "parts": [
+          {
+            "type": "text",
+            "text": "answer"
+          },
+          {
+            "type": "artifact",
+            "artifact": {
+              "publicationId": "p",
+              "artifactFileId": "f",
+              "title": "Report",
+              "filename": "report.md",
+              "kind": "markdown",
+              "category": "file",
+              "sizeBytes": 10,
+              "publishedAt": 2
+            }
+          },
+          {
+            "type": "tool_call",
+            "toolRunId": "t1",
+            "toolName": "Bash",
+            "args": {
+              "command": "pwd"
+            }
+          },
+          {
+            "type": "tool_result",
+            "toolRunId": "t1",
+            "result": {
+              "output": "workspace"
+            },
+            "isError": false
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "createdAt": 3,
+        "parts": [
+          {
+            "type": "text",
+            "text": "question"
+          }
+        ]
+      }
+    ],
+    "live": {
+      "text": "live output",
+      "reasoning": "thinking",
+      "pending": true
+    },
+    "rows": [
+      {
+        "kind": "user",
+        "turn": {
+          "role": "user",
+          "messages": [
+            {
+              "role": "user",
+              "createdAt": 1,
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "question"
+                }
+              ]
+            }
+          ],
+          "startIndex": 0
+        },
+        "key": "user:1:user",
+        "gap": 0
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "text",
+          "text": "answer"
+        },
+        "key": "user:1:0:text",
+        "streaming": false,
+        "gap": 16
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "tools",
+          "calls": [
+            {
+              "toolUseId": "t1",
+              "name": "Bash",
+              "input": {
+                "command": "pwd"
+              },
+              "result": {
+                "output": {
+                  "output": "workspace"
+                },
+                "isError": false
+              }
+            }
+          ]
+        },
+        "key": "user:1:tool:t1",
+        "streaming": false,
+        "gap": 16
+      },
+      {
+        "kind": "artifacts",
+        "artifacts": [
+          {
+            "publicationId": "p",
+            "artifactFileId": "f",
+            "title": "Report",
+            "filename": "report.md",
+            "kind": "markdown",
+            "category": "file",
+            "sizeBytes": 10,
+            "publishedAt": 2
+          }
+        ],
+        "key": "user:1:artifacts",
+        "gap": 16
+      },
+      {
+        "kind": "meta",
+        "text": "answer",
+        "createdAt": 2,
+        "key": "user:1:meta",
+        "gap": 16
+      },
+      {
+        "kind": "user",
+        "turn": {
+          "role": "user",
+          "messages": [
+            {
+              "role": "user",
+              "createdAt": 3,
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "question"
+                }
+              ]
+            }
+          ],
+          "startIndex": 2
+        },
+        "key": "user:3:user",
+        "gap": 24
+      },
+      {
+        "kind": "segment",
+        "segment": {
+          "kind": "text",
+          "text": "live output"
+        },
+        "key": "user:3:1:text",
+        "streaming": true,
+        "gap": 16
+      }
+    ]
+  }
+]

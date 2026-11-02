@@ -69,6 +69,10 @@ export class OpenCodeAdapter implements SessionAdapter {
   describe(): typeof OPENCODE_DESCRIPTOR {
     return OPENCODE_DESCRIPTOR
   }
+  executableIdentity(): string | undefined {
+    return this.servers.executableIdentity?.()
+  }
+
   isInstalled(): ReturnType<OpenCodeServer['installed']> {
     return this.servers.installed()
   }
@@ -93,6 +97,9 @@ export class OpenCodeAdapter implements SessionAdapter {
 
   restartRevision(snapshot: ManagedMcpSnapshot | undefined): number | undefined {
     return snapshot?.definitionRevision ?? snapshot?.revision
+  }
+  resourceActivityChanged(): void {
+    this.contexts.resourceActivityChanged()
   }
   configureResourceActivity(idle: (cwd: string, beforeSubmit: boolean) => boolean): void {
     this.contexts.configureResourceActivity(idle)

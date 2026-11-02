@@ -1,12 +1,32 @@
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { createStore } = await import('zustand/vanilla')
+  const { fakeHooks } = await import('../../../../shared/ui/renderHarness.testfixture')
+  const bind = (init: import('zustand').StateCreator<unknown>): unknown => {
+    const store = createStore(init)
+    return Object.assign(
+      (select: (state: unknown) => unknown) =>
+        fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())),
+      store
+    )
+  }
+  return {
+    ...actual,
+    create: (init?: import('zustand').StateCreator<unknown>) => (init ? bind(init) : bind)
+  }
+})
+import { useHarnessAvailabilityStore } from '../../../../shared/stores/harnessAvailabilityStore'
+import { beforeEach } from 'vitest'
 import { createElement, type ReactNode } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeNode } from '../../../../shared/ui/renderHarness.testfixture'
 import { AgentEnvironmentView } from '../../components/AgentEnvironmentView'
 
-vi.mock('react', async (original) => ({
-  ...(await original<typeof import('react')>()),
-  ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks
-}))
+vi.mock('react', async (original) => {
+  const actual = await original<typeof import('react')>()
+  const { fakeHooks } = await import('../../../../shared/ui/renderHarness.testfixture')
+  return { ...actual, ...fakeHooks, default: { ...actual, ...fakeHooks } }
+})
 vi.mock(
   'react-dom',
   async () => (await import('../../../../shared/ui/renderHarness.testfixture')).fakeReactDom
@@ -66,4 +86,33 @@ it('selects Claude or OpenCode before opening their production forms and closes 
   expect(dom.body.textContent).toContain('engine.form.importButton')
   expect(dom.body.textContent).not.toContain('engine.openCode.id')
   expect(nodes(dom.body).filter((node) => node.tag === 'select')).toHaveLength(0)
+})
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)
+
+it('disables OpenCode additions with an accessible reason and keeps Claude additions usable', () => {
+  vi.useFakeTimers()
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: {
+      ...byId,
+      opencode: { id: 'opencode', installed: false, usable: false, unavailableReason: 'missing' }
+    }
+  }))
+  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  cleanup = () => dom.unmount()
+  dom.render(createElement(AgentEnvironmentView))
+  const button = (text: string): FakeNode =>
+    nodes(dom.body).find((node) => node.tag === 'button' && node.textContent === text)!
+  dom.click(button('engine.addEngine'))
+  expect(button('OpenCode').props.disabled).toBe(true)
+  expect(button('OpenCode').props['aria-disabled']).toBe(true)
+  expect(button('OpenCode').props.title).toBe('harnessUnavailable.missing')
+  dom.click(button('OpenCode'))
+  expect(dom.body.textContent).not.toContain('engine.form.titleAdd')
+  dom.click(button('Claude'))
+  expect(dom.body.textContent).toContain('engine.form.titleAdd')
 })

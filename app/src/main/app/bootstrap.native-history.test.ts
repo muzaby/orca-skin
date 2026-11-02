@@ -1,3 +1,4 @@
+import { loadClaudeSdk } from '../adapters/claude/sdk'
 import { errorReportHub } from '../infra/error-report'
 import { extensionControl } from './extension-control'
 // 0265 — 실제 Bootstrap.register가 session handler에 넘긴 콜백을 실행한다.
@@ -74,7 +75,12 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
 }))
 
 vi.mock('electron', () => ({
-  app: { getVersion: () => 'test', getPath: () => 'C:/fixture/user-data' },
+  app: {
+    on: vi.fn(),
+    removeListener: vi.fn(),
+    getVersion: () => 'test',
+    getPath: () => 'C:/fixture/user-data'
+  },
   BrowserWindow: { getAllWindows: () => [] },
   webContents: {
     getAllWebContents: () => [
@@ -313,7 +319,19 @@ function register(realBootstrap?: Bootstrap): {
   bootstrap.registerArtifacts = vi.fn()
   bootstrap.registerTurnEvents = () =>
     ({ forgetProviderSession: forget }) as unknown as HistoryWriter
-  const ctx = { db: {}, registry: bootstrap.registry ?? { get: () => undefined } } as RouterContext
+  if (bootstrap.registry)
+    vi.spyOn(bootstrap.registry, 'availability').mockImplementation((id) => ({
+      id,
+      installed: true,
+      usable: true
+    }))
+  const ctx = {
+    db: {},
+    registry: bootstrap.registry ?? {
+      get: () => undefined,
+      availability: () => ({ usable: false })
+    }
+  } as RouterContext
   expect(() => bootstrap.register(ctx)).toThrow(fixture.stop)
   if (bootstrap.openCodeGlobalWatch) watches.push(bootstrap.openCodeGlobalWatch)
   if (bootstrap.claudeGlobalWatch) watches.push(bootstrap.claudeGlobalWatch)
@@ -1232,4 +1250,82 @@ describe('Claude plugin toggle closes running Claude processes', () => {
       activity.dispose()
     }
   })
+})
+
+// Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
+await loadClaudeSdk()
+
+it('starts OpenCode global observation only when usable and sends one increasing revision for each later activation', async () => {
+  const bootstrap = new Bootstrap(() => true)
+  const owned = bootstrap as unknown as {
+    registry: AdapterRegistry
+    openCodeGlobalWatch?: OpenCodeGlobalWatch
+    updateOpenCodeGlobalWatch(ctx: RouterContext, initial: boolean): void
+  }
+  let usable = false
+  vi.spyOn(owned.registry, 'availability').mockImplementation((id) => ({
+    id,
+    installed: usable,
+    usable,
+    ...(!usable ? { unavailableReason: 'missing' as const } : {})
+  }))
+  const ctx = { registry: owned.registry } as RouterContext
+  try {
+    owned.updateOpenCodeGlobalWatch(ctx, true)
+    expect(owned.openCodeGlobalWatch).toBeUndefined()
+    usable = true
+    owned.updateOpenCodeGlobalWatch(ctx, true)
+    expect(owned.openCodeGlobalWatch).toBeDefined()
+    await owned.openCodeGlobalWatch!.ready
+    expect(
+      fixture.broadcasts.mock.calls.filter(
+        ([channel]) => channel === 'orca:extensions:opencode-plugins-changed'
+      )
+    ).toHaveLength(0)
+    const revisions: number[] = []
+    for (let i = 0; i < 2; i++) {
+      const close = vi.spyOn(owned.openCodeGlobalWatch!, 'close')
+      usable = false
+      owned.updateOpenCodeGlobalWatch(ctx, false)
+      expect(close).toHaveBeenCalledOnce()
+      expect(owned.openCodeGlobalWatch).toBeUndefined()
+      fixture.broadcasts.mockClear()
+      usable = true
+      owned.updateOpenCodeGlobalWatch(ctx, false)
+      const sent = fixture.broadcasts.mock.calls.filter(
+        ([channel]) => channel === 'orca:extensions:opencode-plugins-changed'
+      )
+      expect(sent).toHaveLength(1)
+      revisions.push((sent[0][1] as { revision: number }).revision)
+      await owned.openCodeGlobalWatch!.ready
+    }
+    expect(revisions).toEqual([1, 2])
+  } finally {
+    bootstrap.shutdown()
+  }
+})
+
+it('forwards each activity and lease change to project sync and the OpenCode admission signal', async () => {
+  const bootstrap = new Bootstrap(() => true)
+  const { activity, supervisor, registry } = register(bootstrap)
+  const project = fixture.projectSync!
+  const activityTick = vi.spyOn(project, 'activityChanged'),
+    leaseTick = vi.spyOn(project, 'leasesChanged')
+  const signal = vi.spyOn(registry!.get('opencode')!, 'resourceActivityChanged')
+  try {
+    activity.setTransport('signal-session', 'listening')
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+    expect(activityTick).toHaveBeenCalledOnce()
+    expect(signal).toHaveBeenCalledOnce()
+    supervisor.acquireChain({
+      backend: 'opencode',
+      logicalKey: 'session:signal-lease',
+      sessionId: 'signal-lease',
+      owner: {} as Electron.WebContents,
+      requestedProviderKey: null
+    })
+    expect(leaseTick).toHaveBeenCalledOnce()
+  } finally {
+    bootstrap.shutdown()
+  }
 })

@@ -1,3 +1,22 @@
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { createStore } = await import('zustand/vanilla')
+  const { fakeHooks } = await import('../../../shared/ui/renderHarness.testfixture')
+  const bind = (init: import('zustand').StateCreator<unknown>): unknown => {
+    const store = createStore(init)
+    return Object.assign(
+      (select: (state: unknown) => unknown) =>
+        fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())),
+      store
+    )
+  }
+  return {
+    ...actual,
+    create: (init?: import('zustand').StateCreator<unknown>) => (init ? bind(init) : bind)
+  }
+})
+import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
+import { beforeEach } from 'vitest'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../shared/ui/renderHarness.testfixture'
@@ -18,10 +37,11 @@ const fixture = vi.hoisted(() => ({
     anchored: false
   }
 }))
-vi.mock('react', async (original) => ({
-  ...(await original<typeof import('react')>()),
-  ...(await import('../../../shared/ui/renderHarness.testfixture')).fakeHooks
-}))
+vi.mock('react', async (original) => {
+  const actual = await original<typeof import('react')>()
+  const { fakeHooks } = await import('../../../shared/ui/renderHarness.testfixture')
+  return { ...actual, ...fakeHooks, default: { ...actual, ...fakeHooks } }
+})
 vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (state: typeof initialChatState) => unknown) =>
     select({ ...initialChatState, backend: fixture.backend, sessionId: fixture.key }),
@@ -100,3 +120,9 @@ describe('ChatTile Composer identity', () => {
     }
   })
 })
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)

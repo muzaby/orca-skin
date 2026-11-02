@@ -4,6 +4,12 @@
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [overview.md](./overview.md), [adapter-design 흡수], [../../claude-code-spec.md](../../claude-code-spec.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
+## 설치와 가용성
+
+`adapters/common/registry.ts`의 설치 캐시가 하네스 가용성의 정본이다. `installed`·`version`에 `usable`·`unavailableReason`을 더하며 실행 파일 identity에 따라 확인을 합류한다. 부팅에서는 다른 단계와 동시에 확인한 뒤 완료 직전에 합류하고, 실행 파일 경로 변경·명시 재확인·missing/failed 상태의 포커스에서 identity가 바뀐 경우에 갱신한다.
+
+OpenCode 웜업·로그인 프리 모델 조회·전역 감시·컴포저 준비는 registry의 사용 가능 판정을 소비한다. 사용 불가인 기존 세션도 보관 대화를 표시하고 진행 중 턴의 제어를 유지한다. Claude SDK는 `adapters/claude/sdk.ts`에서 첫 사용에 동적 로드하고, 부팅 완료 뒤 같은 로드를 미리 시작한다.
+
 ## 1. Backend Adapter 추상화
 
 > ⚠️ **"LLM Provider" 가 아니다.** Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK (Claude Code SDK, opencode 등) 를 래핑한다. 용어는 [GLOSSARY.md](../../GLOSSARY.md) §3 참조.

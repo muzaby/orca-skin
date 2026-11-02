@@ -1,3 +1,17 @@
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { createStore } = await import('zustand/vanilla')
+  const bind = (init: import('zustand').StateCreator<unknown>): unknown => {
+    const store = createStore(init)
+    return Object.assign((select: (state: unknown) => unknown) => select(store.getState()), store)
+  }
+  return {
+    ...actual,
+    create: (init?: import('zustand').StateCreator<unknown>) => (init ? bind(init) : bind)
+  }
+})
+import { useHarnessAvailabilityStore } from '../../../../shared/stores/harnessAvailabilityStore'
+import { beforeEach } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
@@ -59,3 +73,9 @@ it('orders engine cards Claude, OpenCode, then others', () => {
     view.agents = []
   }
 })
+
+beforeEach(() =>
+  useHarnessAvailabilityStore.setState(({ byId }) => ({
+    byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+  }))
+)

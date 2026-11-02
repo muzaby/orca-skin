@@ -43,6 +43,8 @@ export class NativeHistoryQueries {
     acceptRecovery: Database.Statement
     observe: Database.Statement
     get: Database.Statement
+    raw: Database.Statement
+    compactLegacyRaw: Database.Statement
     bind: Database.Statement
     bindings: Database.Statement
     replace: Database.Statement
@@ -74,6 +76,11 @@ export class NativeHistoryQueries {
       get: db.prepare(
         'SELECT payload_json, cursor_json, local_frontier, synced_at FROM native_history_snapshots WHERE session_id = ?'
       ),
+      raw: db.prepare('SELECT raw_json FROM native_history_snapshots WHERE session_id = ?'),
+      compactLegacyRaw: db.prepare(`UPDATE native_history_snapshots
+        SET raw_json = COALESCE(payload_json -> '$.raw', 'null'),
+            payload_json = json_remove(payload_json, '$.raw')
+        WHERE session_id = ? AND raw_json IS NULL`),
       bind: db.prepare(
         'INSERT OR IGNORE INTO native_message_bindings (message_id, native_message_id) VALUES (?, ?)'
       ),
@@ -81,9 +88,9 @@ export class NativeHistoryQueries {
       FROM native_message_bindings b JOIN messages m ON m.id = b.message_id
       WHERE m.session_id = ? ORDER BY m.idx`),
       replace:
-        db.prepare(`INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at, cursor_json)
-        VALUES (?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
-        payload_json=excluded.payload_json, local_frontier=excluded.local_frontier, synced_at=excluded.synced_at, cursor_json=excluded.cursor_json`),
+        db.prepare(`INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at, cursor_json, raw_json)
+        VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
+        payload_json=excluded.payload_json, local_frontier=excluded.local_frontier, synced_at=excluded.synced_at, cursor_json=excluded.cursor_json, raw_json=excluded.raw_json`),
       deleteMissing: db.prepare(
         "DELETE FROM native_history_messages WHERE session_id = ? AND native_id NOT LIKE 'orca-recovery:%' AND native_id NOT IN (SELECT value FROM json_each(?))"
       ),
@@ -159,6 +166,14 @@ export class NativeHistoryQueries {
     return this.statements.get.get(sessionId) as NativeSnapshotRow | undefined
   }
 
+  raw(sessionId: string): string | null | undefined {
+    return (this.statements.raw.get(sessionId) as { raw_json: string | null } | undefined)?.raw_json
+  }
+
+  compactLegacyRaw(sessionId: string): number {
+    return this.statements.compactLegacyRaw.run(sessionId).changes
+  }
+
   bind(messageId: number, nativeMessageId: string): void {
     this.statements.bind.run(messageId, nativeMessageId)
   }
@@ -170,6 +185,7 @@ export class NativeHistoryQueries {
   replace(input: {
     sessionId: string
     payloadJson: string
+    rawJson?: string
     cursorJson?: string
     frontier: number
     expectedVersion: number
@@ -184,7 +200,8 @@ export class NativeHistoryQueries {
         input.payloadJson,
         input.frontier,
         input.now,
-        input.cursorJson ?? null
+        input.cursorJson ?? null,
+        input.rawJson ?? 'null'
       )
       this.statements.deleteMissing.run(
         input.sessionId,

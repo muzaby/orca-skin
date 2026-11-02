@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1 · Windows CI 대기) |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV1` — 버전 확인 실측 반영 정정(2026-11-02) |
@@ -759,78 +759,306 @@ isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바�
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: 유지 — V1+ΔV1의 11 REQUIRED pair·75자리·23 AC를 기준으로 구현했다. `scan/sites.sh` 착수/완료 원문은 `evidence/r1-entry-sites.txt`·`r1-final-sites.txt`에 보관했다.
+- 이견 / 현실성 문제: 기술 세부만 조정 — SQL JSON 원형 보존·동기 Query 포트·설정 patch 키·head memo 의존성은 아래 차이 표에 적었다. Part I의 노출·설정 보존·raw 보관 결과는 유지했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음 — 진행 중 Composer 교체 의심은 Part I의 진행 턴 유지 규칙으로 해소했다. Decision·AC·V·§10 규범 행은 수정하지 않았다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며, 이번 전체 vitest 실행 집합에 포함했다. `gate:*` 명령과 실제 산출은 구현 보고 표에 적었다.
+
+| 별칭 | 파일 | 케이스명 |
+|---|---|---|
+| BOOT | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener` |
+| JOIN | `app/src/main/adapters/common/registry.availability.test.ts` | `joins concurrent refresh/settled consumers, retains previous state and emits only changes` |
+| INSTALL | `app/src/main/app/handlers/misc-split.test.ts` | `preserves backend keys, rechecks the requested harness and refreshes after the install stream` |
+| SEED | `app/src/renderer/src/app/boot/steps.availability.test.ts` | `initializes backend availability before seeding the remembered OpenCode draft` |
+| DRAFT | `app/src/renderer/src/features/chat/store/chatStore.availability.test.ts` | `falls back main/project drafts including explicit OpenCode selection while preserving stored sessions and preferences` |
+| NOTICE | `app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts` | `shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion` |
+| MENU | `app/src/renderer/src/features/chat/components/Composer.harness.test.ts` | `omits unavailable OpenCode models while preserving Claude menu items` |
+| SELECT | `app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts` | `skips unsupported OpenCode rows when choosing a default model` |
+| COMPOSER | `app/src/renderer/src/features/chat/components/Composer.selection.test.ts` | `selects the supported Claude model when unavailable OpenCode models are present` |
+| CARD | `app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts` | `displays the installation reason instead of the generic unsupported badge` |
+| ADD | `app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts` | `disables OpenCode additions with an accessible reason and keeps Claude additions usable` |
+| AGENT | `app/src/renderer/src/shared/stores/agentStore.test.ts` | `wires the production agent store to the harness API and refreshes changed availability once` |
+| FOCUS | `app/src/main/adapters/common/registry.availability.test.ts` | `focus probes only a changed missing/failed identity, never a ready/unsupported installation` |
+| PATH | `app/src/main/app/settings-reactions.test.ts` | `rechecks only an executablePath change inside the actual top-level harnesses patch` |
+| HOST | `app/src/main/app/harness-host.test.ts` | `installed reads the settled registry state and missing harnesses are not installed` |
+| WARM | `app/src/main/app/harnesses/opencode/warmup.test.ts` | `does not consume its one warmup attempt while unavailable and prepares after installation` |
+| ROWS | `app/src/main/app/handlers/misc.runtime-catalog.test.ts` | `gates settings and runtime OpenCode rows and preserves Claude without starting unavailable catalogs` |
+| CACHE | `app/src/main/features/harnesses/common/runtime-catalog.test.ts` | `updates cached runtime row availability in both directions without refetching models` |
+| PREP | `app/src/main/app/composer-preparation-service.test.ts` | `rejects unavailable OpenCode preparation before resolving or acquiring a native server` |
+| RESUME | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription` |
+| WATCH | `app/src/main/app/bootstrap.native-history.test.ts` | `starts OpenCode global observation only when usable and sends one increasing revision for each later activation` |
+| RAW | `app/src/main/features/history/native-history.db.test.ts` | `atomically splits a legacy raw value once and keeps display reads lean` |
+| WRITE | `app/src/main/features/history/native-sync.test.ts` | `writes lean display payload while preserving raw separately and reads raw only on demand` |
+| LOAD | `app/src/main/app/handlers/session.load.test.ts` | `splits legacy raw before the handler loads messages and leaves the next refresh usable` |
+| APPEND | `app/src/main/adapters/claude/native-history.test.ts` | `reads separated raw only for a proven append and keeps the full-parse result unchanged` |
+| OCARCHIVE | `app/src/main/features/history/native-history.db.test.ts` | `commits the OpenCode reader result and checkpoint through the common transaction` |
+| RECOVER | `app/src/main/app/chat-turn/native-session.test.ts` | `displays and recovers a separated snapshot after the native source is deleted without reading raw` |
+| CHART | `app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts` | `reserves the original chart height while loading, then renders the same accessible chart` |
+| SYNTAX | `app/src/renderer/src/shared/ui/markdown/syntax.test.ts` | `preserves the original grammar/theme output for all supported languages and memoizes the shared highlighter` |
+| GOLD | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts` | `matches original keys, gaps, tools, artifacts and incomplete rows` |
+| MEMO | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts` | `projects the committed head once and the live tail six times without computing copy text` |
+| COPY | `app/src/renderer/src/shared/ui/CopyIconButton.lazy.test.ts` | `computes copy text only on click and forwards the exact string to the clipboard` |
+| INDEX | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts` | `keeps head rows and indexed positions stable as only the live tail changes, without eager copy text` |
+| TIMER | `app/src/main/app/project-resource-sync.test.ts` | `has no idle timer or target scans, and activity/lease signals each tick once` |
+| MCP | `app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts` | `has no timer until dirty and stops retrying once idle peers are reconciled` |
+| LOG | `app/src/main/infra/log/file-transport.test.ts` | `arms flush only for buffered writes and clears the timer on explicit flush and close` |
+| ADMIT | `app/src/main/adapters/opencode/v1/mcp-control.test.ts` | `wakes unsafe admission immediately on activity signals and cleans up aborted waits` |
+| SIGNALS | `app/src/main/app/bootstrap.native-history.test.ts` | `forwards each activity and lease change to project sync and the OpenCode admission signal` |
+| SDK | `app/src/main/adapters/claude/sdk.test.ts` | `shares one cold import across consumers and first-use controls` |
+| TOOLS | `app/src/main/adapters/claude/runtime-tools.test.ts` | `서버 식별자를 하나로 사용한다` |
+| PREFETCH | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `finishes boot before the SDK prefetch settles` |
+| CANON | `app/src/main/adapters/claude/canonical-consumers.test.ts` | `keeps project revisions independent of nested object key order while detecting changed values` |
+| DEDUPE | `app/src/main/adapters/claude/canonical-consumers.test.ts` | `deduplicates a provider message whose only change is nested object insertion order` |
+| MAP | `app/src/main/adapters/claude/native-history-map.test.ts` | `keeps text/thinking/tools in one assistant response and never makes a tool-result user bubble` |
+| CLAUDE | `app/src/main/adapters/common/registry.availability.test.ts` | `keeps Claude usable independently of its CLI installed flag` |
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-02 | start 초입 확인 | EP-02′ #1 start 초입 확인 | 1/1 | BOOT — deferred 중 db-init 실행 | 확인 미완/DB 완료 | 없음 |
+| VP-02 | finish 직전 합류 | EP-02′ #2 finish 직전 합류 | 1/1 | BOOT — start 미완 → resolve 뒤 완료 | 미완/완료 분리 | 없음 |
+| VP-02 | refresh 합류 | EP-02′ #3 refresh 합류 | 1/1 | JOIN — 동시 refresh 2+settled → probe 1 | missing → 1.18.27 | 없음 |
+| VP-02 | 설치 종료 refresh | EP-02′ #4 설치 종료 refresh | 1/1 | INSTALL — install 종료 뒤 refresh(opencode) 1 | backend opencode | 없음 |
+| VP-03 | boot 시드 | EP-03 #1 boot 시드 | 1/1 | SEED — 4 상태 × backend 시드·설정 쓰기 0 | missing/unsupported/failed/usable | 없음 |
+| VP-03 | Landing draft 재시드 | EP-03 #2 Landing draft 재시드 | 1/1 | DRAFT — 빈 OpenCode → Claude·자동 모델 설정 쓰기 0 | draft/saved/Claude 구별 | 없음 |
+| VP-03 | ProjectLanding draft 재시드 | EP-03 #3 ProjectLanding draft 재시드 | 1/1 | DRAFT — 프로젝트 draft → Claude | pendingProjectId=project | 없음 |
+| VP-03 | ChatTile composer | EP-03 #4 ChatTile composer | 1/1 | NOTICE — idle 안내·active controls·Claude 유지 | OpenCode/Claude 맞바꿈 검출 | 없음 |
+| VP-03 | ModelMenu supported | EP-03 #5 ModelMenu supported | 1/1 | MENU — Claude 항목 1·OpenCode 0 | supported true/false | 없음 |
+| VP-03 | modelSelection | EP-03 #6 modelSelection | 1/1 | SELECT — Claude 선택·OpenCode 고정 시 null | OpenCode 먼저, Claude 뒤 | 없음 |
+| VP-03 | Composer 메뉴 조건 | EP-03 #7 Composer 메뉴 조건 | 1/1 | COMPOSER — 미지원 OpenCode 대신 Claude 모델 선택 | 서로 다른 model/provider | 없음 |
+| VP-03 | EngineCard 사유 배지 | EP-03 #8 EngineCard 사유 배지 | 1/1 | CARD — missing 문구·정상 카드 기존 표시 | missing/사유 없음 | 없음 |
+| VP-03 | AgentEnvironmentView 추가 | EP-03 #9 AgentEnvironmentView 추가 | 1/1 | ADD — OpenCode disabled·Claude modal 가능 | 하네스별 disabled 구별 | 없음 |
+| VP-03 | agentStore push 구독 | EP-03 #10 agentStore push 구독 | 1/1 | AGENT — 실제 API push 1 → 재조회 1·dispose 해제 | initial → after-change | 없음 |
+| VP-04 | 변화만 통지 | EP-04′ #1 변화만 통지 | 1/1 | JOIN — 같은 결과 재확인 emit 증가 0 | missing → ready | 없음 |
+| VP-04 | 진행 중 직전 상태 | EP-04′ #2 진행 중 직전 상태 | 1/1 | JOIN — deferred 동안 missing 유지 | 직전 missing/다음 ready | 없음 |
+| VP-04 | focus identity | EP-04′ #3 focus identity | 1/1 | FOCUS — 동일 identity probe 0·변경 시 1 | bin:1/bin:2·ready/unsupported | 없음 |
+| VP-04 | focus 등록·해제 | EP-04′ #4 focus 등록·해제 | 1/1 | BOOT — callback 호출 1·shutdown removeListener | browser-window-focus | 없음 |
+| VP-04 | 설정 경로·수동 recheck | EP-04′ #5 설정 경로·수동 recheck | 1/1 | PATH + INSTALL — 경로 변경만 1·IPC backend 인자 유지 | top-level harnesses/다른 키 | 없음 |
+| VP-05 | 설치 캐시 정의 | EP-05′ #1 설치 캐시 정의 | 1/1 | JOIN + CLAUDE — OpenCode usable 결과·Claude 설치 독립성 | Claude installed false/true 모두 usable true | 없음 |
+| VP-05 | 설치 확인 입력 | EP-05′ #2 설치 확인 입력 | 1/1 | JOIN — 동시 수요 추가 probe 0 | 동시 refresh/settled | 없음 |
+| VP-05 | 결과 캐시 쓰기 | EP-05′ #3 결과 캐시 쓰기 | 1/1 | JOIN — ready installed/version 보존 | installed=true/version=1.18.27 | 없음 |
+| VP-05 | list/availability 읽기 | EP-05′ #4 list/availability 읽기 | 1/1 | JOIN — settled payload 키·값 동등 | missing 사유/ready 버전 | 없음 |
+| VP-05 | Host 주석·직접 probe 제거 | EP-05′ #5 Host 주석·직접 probe 제거 | 1/1 | gate:S05d — app isInstalled 직접 호출·언급 0 | scan/sites.sh 원문 | 없음 |
+| VP-05 | Host installed | EP-05′ #6 Host installed | 1/1 | HOST — 직접 probe 0·settled 값 반환 | installed false/true+버전 | 없음 |
+| VP-05 | warmup installed gate | EP-05′ #7 warmup installed gate | 1/1 | WARM — 미설치 prepare 0·설치 후 1 | attempt 미소비 | 없음 |
+| VP-05 | backend:list | EP-05′ #8 backend:list | 1/1 | INSTALL — 기존 installed/version·추가 usable/사유 | Claude 3.0/OpenCode missing | 없음 |
+| VP-05 | agent:list settings | EP-05 #9 agent:list settings | 1/1 | ROWS — 미지원 false+사유·Claude 유지 | settings/runtime 별도 fixture | 없음 |
+| VP-05 | models.ts supported | EP-05 #10 models.ts supported | 1/1 | ROWS — 동일 handler의 실제 toAgentEnvironments 실행 | OpenCode false/Claude true | 없음 |
+| VP-05 | runtime-catalog supported | EP-05 #11 runtime-catalog supported | 1/1 | CACHE + ROWS — 캐시 행 false↔true 갱신 | 설치 후 모델 재조회 없음 | 없음 |
+| VP-05 | composer preparation | EP-05 #12 composer preparation | 1/1 | PREP — unavailable stage·get/acquire 0 | OpenCode missing | 없음 |
+| VP-05 | auth.connectAll Host edge | EP-05 #13 auth.connectAll Host edge | 1/1 | HOST — Host listModels unavailable probe 0 | login-free 기존 전 케이스 실행 | 없음 |
+| VP-05 | warmup 생성·재개 배선 | EP-05 #14 warmup 생성·재개 배선 | 1/1 | RESUME — missing 건너뜀·registry 변화 뒤 준비 1 | real registry subscription | 없음 |
+| VP-05 | global watch 생성·정리 | EP-05′ #15 global watch 생성·정리 | 1/1 | WATCH — 부팅 방송 0·늦은 활성화 방송 1·revision 증가 | usable/missing/재활성화 | 없음 |
+| VP-06 | 0034 raw_json 열 | EP-06 #1 0034 raw_json 열 | 1/1 | RAW + gate:migration — 새 열 왕복·migration sync 통과 | 과거 migration 무수정 | 없음 |
+| VP-06 | replace SQL | EP-06 #2 replace SQL | 1/1 | RAW — raw_json 저장·lean payload | raw 6종 JSON | 없음 |
+| VP-06 | replace 입력 타입 | EP-06 #3 replace 입력 타입 | 1/1 | RAW — rawJson 인자 수용 | raw-text/false/null | 없음 |
+| VP-06 | replace 실행 | EP-06 #4 replace 실행 | 1/1 | RAW — raw_json 읽기 값 동등 | object/array/number | 없음 |
+| VP-06 | get SELECT | EP-06 #5 get SELECT | 1/1 | RAW — raw_json 반환 키 없음 | display payload만 조회 | 없음 |
+| VP-06 | row 타입 | EP-06 #6 row 타입 | 1/1 | gate:typecheck — node/web/test 3구성 오류 0 | SELECT 형상 유지 | 없음 |
+| VP-06 | raw(sessionId) | EP-06 #7 raw(sessionId) | 1/1 | RAW — JSON 값 왕복 | 6종 원형 보존 | 없음 |
+| VP-06 | compactLegacyRaw | EP-06 #8 compactLegacyRaw | 1/1 | RAW — 분리 changes 1 → 0·표시 동일 | array/object/string/number/bool/null | 없음 |
+| VP-06 | native-sync writer | EP-06 #9 native-sync writer | 1/1 | WRITE — payload raw 키 없음·rawJson 별도 | 비어 있지 않은 raw sentinel | 없음 |
+| VP-06 | previous lazy raw | EP-06 #10 previous lazy raw | 1/1 | WRITE — 조회 전 0·요청 후 1 | legacy 내장 raw도 지원 | 없음 |
+| VP-06 | reader messages | EP-06 #11 reader messages | 1/1 | RAW + RECOVER — 분리 뒤 본문 동일·복구 prompt 유지 | display remains/retained source question | 없음 |
+| VP-06 | session:load 순서 | EP-06 #12 session:load 순서 | 1/1 | LOAD — compact → load·다음 refresh busy 아님 | 호출 순서 로그 | 없음 |
+| VP-06 | previous.raw 포트 | EP-06 #13 previous.raw 포트 | 1/1 | APPEND — lazy raw 함수로 append 동치 | raw가 없는 lean snapshot | 없음 |
+| VP-06 | Claude append 조건 | EP-06 #14 Claude append 조건 | 1/1 | APPEND — unchanged·조건 거짓 raw 0 | identity/newline/offset/projectionVersion | 없음 |
+| VP-06 | Claude raw 사용 | EP-06 #15 Claude raw 사용 | 1/1 | APPEND — 검증된 append raw 1·전체 파싱과 동등 | 추가 user/assistant 둘 | 없음 |
+| VP-06 | OpenCode/Claude raw 생산 | EP-06 #16 OpenCode/Claude raw 생산 | 1/1 | OCARCHIVE + APPEND — OpenCode raw={session,messages}·Claude 원형 재사용 | 두 생산자 분리 검증 | 없음 |
+| VP-07 | renderer minify | EP-07 #1 renderer minify | 1/1 | gate:bundle — entryMinified=true·1,283,482B | 압축 제거 결함 검출 | 없음 |
+| VP-07 | UsageTab lazy/Suspense | EP-07 #2 UsageTab lazy/Suspense | 1/1 | CHART + gate:bundle — recharts 진입 0B·자리→차트 | 동일 높이 180px | 없음 |
+| VP-07 | TokensPerDayChart | EP-07 #3 TokensPerDayChart | 1/1 | CHART — 같은 접근성 차트 표시 | 차트 구현 무변경 | 없음 |
+| VP-07 | syntax segmented import | EP-07 #4 syntax segmented import | 1/1 | SYNTAX + gate:bundle — shiki 진입 0B·자산 21 | 11언어×2테마 기존 출력 동등 | 없음 |
+| VP-08 | projection head/tail | EP-08 #1 projection head/tail | 1/1 | GOLD — 원본 생성 golden 3종 동등 | 도구/산출물/미완료 | 없음 |
+| VP-08 | meta lazy copy | EP-08 #2 meta lazy copy | 1/1 | MEMO + COPY — 렌더 계산 0·클릭 문자열 동일 | 두 문단 개행 보존 | 없음 |
+| VP-08 | live text 구독 | EP-08 #3 live text 구독 | 1/1 | MEMO — live 5회 변경 tail 6회 | text 길이 1..5 | 없음 |
+| VP-08 | live reasoning 구독 | EP-08 #4 live reasoning 구독 | 1/1 | MEMO — tail 인자에 live reasoning 갱신값 전달 | text=12345/reasoning=thought 12345 | 없음 |
+| VP-08 | head memo | EP-08 #5 head memo | 1/1 | MEMO — head 1·tail 6 | messages 동일 identity | 없음 |
+| VP-08 | 보존 행 lookup | EP-08 #6 보존 행 lookup | 1/1 | INDEX — 모든 row key 인덱스 일치 | head/tail/missing 구별 | 없음 |
+| VP-08 | 앵커 lookup | EP-08 #7 앵커 lookup | 1/1 | INDEX — 누락 key=-1 | 기존 selection 스위트 함께 실행 | 없음 |
+| VP-08 | 선택 행 lookup | EP-08 #8 선택 행 lookup | 1/1 | INDEX — 선택 완료→해제 기존 동작 유지 | Timeline.selection.test.ts 1케이스 | 없음 |
+| VP-09 | project sync timer | EP-09 #1 project sync timer | 1/1 | TIMER — 10s idle targets 0·신호마다 tick 1 | pending 재시도 뒤 timer 0 | 없음 |
+| VP-09 | MCP reconcile timer | EP-09 #2 MCP reconcile timer | 1/1 | MCP — idle 0·dirty busy 재시도·완료 0 | close 타이머 해제 | 없음 |
+| VP-09 | file log timer | EP-09 #3 file log timer | 1/1 | LOG — 첫 write에만 timer·flush/close 0 | 버퍼 0/비어 있지 않음 | 없음 |
+| VP-09 | MCP admission wait | EP-09 #4 MCP admission wait | 1/1 | ADMIT — 시간 진행 없이 신호로 수행·abort reject | 500ms 상한 유지 | 없음 |
+| VP-09 | activity broadcast 배선 | EP-09 #5 activity broadcast 배선 | 1/1 | SIGNALS — 방송 1 → project/adapter 신호 각각 1 | 서로 다른 spy | 없음 |
+| VP-09 | lease 배선 | EP-09 #6 lease 배선 | 1/1 | SIGNALS — lease 이벤트 → leasesChanged 1 | activity와 별도 spy | 없음 |
+| VP-10 | SDK memo loader | EP-10 #1 SDK memo loader | 1/1 | SDK — 동시 promise 동일·factory 1 | cold import gate | 없음 |
+| VP-10 | adapter query | EP-10 #2 adapter query | 1/1 | gate:bundle + SDK — SDK 정적 require 0·warm mock 호환 | cold control sentinel-model | 없음 |
+| VP-10 | runtime-tools factory | EP-10 #3 runtime-tools factory | 1/1 | TOOLS — 주입 함수·handler 결과 기존 동작 | 서버명 records | 없음 |
+| VP-10 | native-history-map | EP-10 #4 native-history-map | 1/1 | MAP — 기존 SDK history mock 스위트 실행 | 동일 native 메시지 | 없음 |
+| VP-10 | bootstrap prefetch | EP-10 #5 bootstrap prefetch | 1/1 | PREFETCH — finish 뒤 loader 1·미완 promise 비대기 | prefetch deferred | 없음 |
+| VP-11 | project-settings canonical | EP-11 #1 project-settings canonical | 1/1 | CANON — 키 순서 변경 revision 동일·값 변경 다름 | 중첩 키 순서/값 구별 | 없음 |
+| VP-11 | background canonical | EP-11 #2 background canonical | 1/1 | DEDUPE — 같은 uuid·키 순서만 변경한 두 번째 무시 | nested object | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: …
+- §10 자리 목록 대조: 유효 분모 `4+10+5+15+16+4+8+6+5+2=75`, 위 표 75행이다. `evidence/r1-enforcement.json`의 `(pair, slot)` 집합과 §10 고정 목록의 차집합은 양방향 0행이다.
+- §10 자리 목록 밖에서 본 운반 자리: renderer 초기 `backend:list`와 push 경합은 generation fence로 유지하고, runtime 카탈로그 캐시의 `supported`는 조회 시 가용성을 다시 읽는다. 부팅 뒤 가용성 방송·웜업 재개·focus 배선은 RESUME·BOOT·AGENT로 실행했다.
+- 통합 기준: 작업 중 공유 main에 착지한 0293을 fast-forward로 포함했다. 문서 충돌 1곳은 ArcSpinner와 지연 복사 설명을 함께 보존했고, 통합 상태에서 정적 검사·번들·전체 vitest를 다시 실행했다.
+- 검색 수치 차이: S02a는 새 recheck 트리거를 포함해 3→6이고, S10b 텍스트 검색 4건 중 3건은 `typeof import` 타입이다. 실제 동적 import 식은 loader의 1곳이며 정적 SDK require는 빌드 0, 정적 import 복원 결함에서는 1이었다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음 — r1 최초 구현이다. 이번 `합류 제거` 초기 시험의 미검출은 BOOT의 마지막 단계·finish 단언을 보강한 뒤 red 1/복구 green 1로 재실행했다.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_BLOCKED | gate:vitest·typecheck·eslint·scripts·migration·docs | 집계 — Windows CI 미실행 |
+| VP-02 | REQUIRED | SELF_PASS | BOOT·JOIN·INSTALL | 순차 await·합류 제거 각 red 1 |
+| VP-03 | REQUIRED | SELF_PASS | SEED·DRAFT·NOTICE·MENU·SELECT·COMPOSER·CARD·ADD·AGENT | 폴백·하네스 맞바꿈·disabled 뒤집기 각 red 1 |
+| VP-04 | REQUIRED | SELF_PASS | JOIN·FOCUS·PATH·BOOT·INSTALL | identity·변화 비교 제거 각 red 1 |
+| VP-05 | REQUIRED | SELF_PASS | CLAUDE·HOST·WARM·ROWS·CACHE·PREP·RESUME·WATCH | 소비자 게이트 6자리 red, 복구 green |
+| VP-06 | REQUIRED | SELF_PASS | RAW·WRITE·LOAD·APPEND·OCARCHIVE·RECOVER | raw 재합류·분리 순서 변경 각 red 1 |
+| VP-07 | REQUIRED | SELF_PASS | gate:bundle·CHART·SYNTAX | 비압축·차트/강조 정적 import 복원 각 gate red |
+| VP-08 | REQUIRED | SELF_PASS | GOLD·MEMO·COPY·INDEX·Timeline.selection.test.ts | memo 제거·즉시 복사 계산 각 red 1 |
+| VP-09 | REQUIRED | SELF_PASS | TIMER·MCP·LOG·ADMIT·SIGNALS | interval 3·배선 3 결함 모두 red |
+| VP-10 | REQUIRED | SELF_PASS | SDK·TOOLS·MAP·PREFETCH·gate:bundle | SDK 정적 import 복원 require 1 |
+| VP-11 | REQUIRED | SELF_PASS | CANON·DEDUPE | JSON.stringify 복원 두 자리 각 red 1 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+각 결함은 원문 바이트를 보관한 뒤 한 자리씩 심고, `finally`에서 복구했다. 테스트 결함은 같은 oracle의 복구 green을 확인했고, 번들 결함은 마지막 복구 빌드에서 모든 기준을 재확인했다. 실행 결과는 `evidence/r1-mutations.json`이다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| `VP02-sequential` — `app/src/main/app/bootstrap.ts` | 선택 증거 | 해당 없음(r1) | overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 1 | red 1 → 복구 green 1 |
+| `VP02-no-join` — `app/src/main/app/bootstrap.ts` | 선택 증거 | 해당 없음(r1) | overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 1 | red 1 → 복구 green 1 |
+| `VP03-no-seed-fallback` — `app/src/renderer/src/features/chat/store/chatStore.ts` | 선택 증거 | 해당 없음(r1) | seeds Claude for an unavailable lastBackend and keeps ready OpenCode selections / 1 | red 1 → 복구 green 1 |
+| `VP03-swapped-harness` — `app/src/renderer/src/features/chat/components/ChatTile.tsx` | 선택 증거 | 해당 없음(r1) | shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion / 1 | red 1 → 복구 green 1 |
+| `VP03-add-enabled` — `app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx` | 선택 증거 | 해당 없음(r1) | disables OpenCode additions with an accessible reason and keeps Claude additions usable / 1 | red 1 → 복구 green 1 |
+| `VP04-focus-without-identity` — `app/src/main/adapters/common/registry.ts` | 선택 증거 | 해당 없음(r1) | registry availability SSOT focus probes only a changed missing/failed identity, never a ready/unsupported installation / 1 | red 1 → 복구 green 1 |
+| `VP04-duplicate-broadcast` — `app/src/main/adapters/common/registry.ts` | 선택 증거 | 해당 없음(r1) | registry availability SSOT joins concurrent refresh/settled consumers, retains previous state and emits only changes / 1 | red 1 → 복구 green 1 |
+| `VP05-host-direct-probe` — `app/src/main/app/harness-host.ts` | 선택 증거 | 해당 없음(r1) | createHostHarnessPort (0291 AR-02) installed reads the settled registry state and missing harnesses are not installed · blocks model probes for an installed unsupported CLI without changing installed semantics / 2 | red 2 → 복구 green 3 |
+| `VP05-warmup-no-gate` — `app/src/main/app/harnesses/opencode/warmup.ts` | 선택 증거 | 해당 없음(r1) | does not consume its one warmup attempt while unavailable and prepares after installation / 1 | red 1 → 복구 green 1 |
+| `VP05-settings-no-gate` — `app/src/main/app/handlers/misc.ts` | 선택 증거 | 해당 없음(r1) | gates settings and runtime OpenCode rows and preserves Claude without starting unavailable catalogs / 1 | red 1 → 복구 green 1 |
+| `VP05-runtime-no-gate` — `app/src/main/features/harnesses/common/runtime-catalog.ts` | 선택 증거 | 해당 없음(r1) | updates cached runtime row availability in both directions without refetching models / 1 | red 1 → 복구 green 1 |
+| `VP05-preparation-no-gate` — `app/src/main/app/composer-catalog.ts` | 선택 증거 | 해당 없음(r1) | rejects unavailable OpenCode preparation before resolving or acquiring a native server / 1 | red 1 → 복구 green 1 |
+| `VP05-watch-no-gate` — `app/src/main/app/bootstrap.ts` | 선택 증거 | 해당 없음(r1) | starts OpenCode global observation only when usable and sends one increasing revision for each later activation / 1 | red 1 → 복구 green 1 |
+| `VP06-raw-rejoined` — `app/src/main/features/history/native-sync.ts` | 선택 증거 | 해당 없음(r1) | writes lean display payload while preserving raw separately and reads raw only on demand / 1 | red 1 → 복구 green 1 |
+| `VP06-load-before-split` — `app/src/main/app/handlers/session.ts` | 선택 증거 | 해당 없음(r1) | splits legacy raw before the handler loads messages and leaves the next refresh usable / 1 | red 1 → 복구 green 1 |
+| `VP08-no-head-memo` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx` | 선택 증거 | 해당 없음(r1) | projects the committed head once and the live tail six times without computing copy text / 1 | red 1 → 복구 green 1 |
+| `VP08-eager-copy` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts` | 선택 증거 | 해당 없음(r1) | projects the committed head once and the live tail six times without computing copy text / 1 | red 1 → 복구 green 1 |
+| `VP09-project-interval` — `app/src/main/app/project-resource-sync.ts` | 선택 증거 | 해당 없음(r1) | has no idle timer or target scans, and activity/lease signals each tick once / 1 | red 1 → 복구 green 1 |
+| `VP09-mcp-interval` — `app/src/main/app/harnesses/opencode/mcp-reconcile.ts` | 선택 증거 | 해당 없음(r1) | has no timer until dirty and stops retrying once idle peers are reconciled / 1 | red 1 → 복구 green 1 |
+| `VP09-log-interval` — `app/src/main/infra/log/file-transport.ts` | 선택 증거 | 해당 없음(r1) | arms flush only for buffered writes and clears the timer on explicit flush and close / 1 | red 1 → 복구 green 1 |
+| `VP09-no-project-activity-signal` — `app/src/main/app/bootstrap.ts` | 선택 증거 | 해당 없음(r1) | forwards each activity and lease change to project sync and the OpenCode admission signal / 1 | red 1 → 복구 green 1 |
+| `VP09-no-adapter-activity-signal` — `app/src/main/app/bootstrap.ts` | 선택 증거 | 해당 없음(r1) | forwards each activity and lease change to project sync and the OpenCode admission signal / 1 | red 1 → 복구 green 1 |
+| `VP09-no-lease-signal` — `app/src/main/app/bootstrap.ts` | 선택 증거 | 해당 없음(r1) | forwards each activity and lease change to project sync and the OpenCode admission signal / 1 | red 1 → 복구 green 1 |
+| `VP11-project-json` — `app/src/main/adapters/claude/project-settings.ts` | 선택 증거 | 해당 없음(r1) | keeps project revisions independent of nested object key order while detecting changed values / 1 | red 1 → 복구 green 1 |
+| `VP11-background-json` — `app/src/main/adapters/claude/background.ts` | 선택 증거 | 해당 없음(r1) | deduplicates a provider message whose only change is nested object insertion order / 1 | red 1 → 복구 green 1 |
+| `VP07-no-minify` — `app/electron.vite.config.ts` | 선택 증거 | 해당 없음(r1) | gate:bundle entryMinified=false | gate red → 최종 복구 build green |
+| `VP07-static-chart` — `app/src/renderer/src/features/settings/components/UsageTab.tsx` | 선택 증거 | 해당 없음(r1) | gate:bundle recharts=363005B | gate red → 최종 복구 build green |
+| `VP07-static-shiki` — `app/src/renderer/src/shared/ui/markdown/syntax.ts` | 선택 증거 | 해당 없음(r1) | gate:bundle shiki=166807B | gate red → 최종 복구 build green |
+| `VP10-static-sdk` — `app/src/main/adapters/claude/adapter.ts` | 선택 증거 | 해당 없음(r1) | gate:bundle sdkRequire=1 | gate red → 최종 복구 build green |
+| `N01-focus-wiring` — `app/src/main/app/bootstrap.ts` | 새 oracle 민감도 | 해당 없음(r1) | overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 1 | red 1 → 복구 green 1 |
+| `N02-availability-broadcast` — `app/src/main/app/bootstrap.ts` | 새 oracle 민감도 | 해당 없음(r1) | broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1 | red 1 → 복구 green 1 |
+| `N03-warmup-resume` — `app/src/main/app/bootstrap.ts` | 새 oracle 민감도 | 해당 없음(r1) | broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1 | red 1 → 복구 green 1 |
+| `N04-default-agent-subscription` — `app/src/renderer/src/shared/stores/agentStore.ts` | 새 oracle 민감도 | 해당 없음(r1) | wires the production agent store to the harness API and refreshes changed availability once / 1 | red 1 → 복구 green 1 |
+| `N05-sdk-memo` — `app/src/main/adapters/claude/sdk.ts` | 새 oracle 민감도 | 해당 없음(r1) | shares one cold import across consumers and first-use controls / 1 | red 1 → 복구 green 1 |
+| `N06-eager-raw` — `app/src/main/adapters/claude/native-history.ts` | 새 oracle 민감도 | 해당 없음(r1) | reads separated raw only for a proven append and keeps the full-parse result unchanged / 1 | red 1 → 복구 green 1 |
+| `N07-backend-before-seed` — `app/src/renderer/src/app/boot/steps.ts` | 새 oracle 민감도 | 해당 없음(r1) | initializes backend availability before seeding the remembered OpenCode draft (undefined), without writing settings / 1 | red 1 → 복구 green 4 |
+| `N08-claude-gated-by-cli` — `app/src/main/adapters/common/registry.ts` | 새 oracle 민감도 | 해당 없음(r1) | registry availability SSOT keeps Claude usable independently of its CLI installed flag (false) · registry availability SSOT keeps Claude usable independently of its CLI installed flag (true) / 2 | red 2 → 복구 green 2 |
 
-- 분모 검산: …
-- 덮개 회귀: …
+- 분모 검산: 선택 증거 29 · 인용 변이 0 · 중복 제외 새 oracle 8 = 표 37행. 선택 증거와 같은 자리의 새 0건·배선 oracle은 그 29행에 함께 귀속했다.
+- 덮개 회귀: 해당 없음 — 이전 verify 장치 교체는 없다. 초기 합류 oracle 보강 후 순차 await와 합류 제거 두 결함을 모두 재실행했다.
+- 그 밖의 직접 행동 oracle: 해당 없음 — 추가 임의 변이를 요구하지 않는다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 유지 — 미설치·미지원·확인 실패 사유를 Notice·EngineCard·추가 메뉴가 소비한다(NOTICE·CARD·ADD) | Windows 설치본 시각 확인 대기 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 유지 — focus listener·global watch·수요 timer를 shutdown/close에서 해제한다(BOOT·WATCH·TIMER·MCP·LOG) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 일치 — 사용 불가 기존 세션은 안내, 새 빈 draft는 Claude, 진행 중인 요청·승인은 유지한다(NOTICE·DRAFT) | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 유지 — 다시 확인 버튼은 recheck IPC를 호출하고, 비활성 추가 항목에 사유·aria-disabled를 표시한다(NOTICE·INSTALL·ADD) | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 방지 — registry identity·agentStore seq·availability generation이 오래된 결과를 버린다 | registry stale-result·agentStore out-of-order 기존/신규 테스트 실행 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | `json_extract`는 string·boolean raw의 JSON 표현을 잃는다 | 선조치 — `payload_json -> '$.raw'`로 JSON 표현을 보존하고 null을 COALESCE한다 | RAW 6형식 왕복·두 번째 compact 0 |
+| 2 | 자동 Claude 모델 선택이 폴백 직후 lastBackend를 덮어쓸 수 있다 | 선조치 — 자동 폴백 flag를 유지하고 명시 선택만 기록한다 | DRAFT 자동 설정 쓰기 0·explicit 쓰기 1 |
+| 3 | warm Query를 proxy로 감싸면 선택 메서드 존재 여부·동기 시점이 바뀐다 | 선조치 — 이미 로드됐으면 원래 Query를 직접 반환, cold 경로만 대기 proxy 사용 | SDK cold control·close 시험과 기존 SDK mock 파일 실행 |
+| 4 | runtime 캐시 행이 설치 후에도 supported:false로 남을 수 있다 | 선조치 — list 시 registry usable을 재평가한다 | CACHE false↔true·모델 재조회 증가 0 |
+| 5 | 새 global watch가 revision을 1로 재시작하면 renderer가 변화를 놓칠 수 있다 | 선조치 — Bootstrap이 활성화 사이에도 단조 revision을 소유한다 | WATCH 재활성화 때 revision 증가 |
+| 6 | 구버전 앱이 새 migration DB를 연다는 §17의 설명은 기존 unknown-migration guard와 다르다 | 보고만 — 기존 downgrade 보호 정책을 바꾸지 않았다 | `app/src/main/infra/db/migrate.ts` unknown migration 거절·기존 migrate 테스트 |
+| 8 | 통합 전체 실행에서 기존 bootstrap 설정 케이스가 일시 실패했다 | 보고만 — 같은 코드 파일 재실행 3회 각각 24/24, 원인 미확정 | `evidence/r1-full-electron-failed-ids.txt`·`r1-rechecks.json` |
+| 7 | Windows CI와 실제 설치본 동작은 Linux 단위 검사로 확정할 수 없다 | 보고만 — AC1을 ⚠️로 유지한다 | `gh auth status`: GH_TOKEN invalid · Windows CI 실행 도구 없음 |
+
+최종 계약 대조에서 Claude가 CLI 설치 판정 때문에 차단되는 누락을 선조치했다. CLAUDE의 설치 true/false 두 케이스는 이전 조건 복원에서 red 2, 수정 복구에서 green 2였다.
+
+첫 전체 실행은 8346 pass/25 fail이었다. 새 2건 중 raw oracle은 배열 대신 기존 `{session,messages}` 원형으로 정정했고, 강조 oracle은 단독 22케이스 통과를 확인한 뒤 wall-clock 토큰화 제한을 동치 검사에서 제외했다. production 변경 없이 관련 22케이스를 다시 통과한 다음 전체 실행을 반복했다.
 
 ### 설계 대비 명시적 차이
 
-- …
+- 기술 조정 — SQL은 JSON 원형을 보존하는 `->` 연산자를 썼다. `APPEND`·`RAW`가 값·지연 조건을 다시 단언한다.
+- 기술 조정 — `LiveTurn` 동기 포트는 유지하고 cold Query만 지연 생성했다. SDK 로드 실패는 pending을 비워 다음 수요가 재시도한다.
+- 기술 조정 — settings patch의 실제 키는 top-level `harnesses`다. 이전 executablePath와 비교해 경로 변경 때만 재확인한다(PATH).
+- 기술 조정 — 확정 head는 inflight를 읽지 않아 memo 의존성에서 제외했다. 완료/선택 보존은 GOLD·Timeline.selection 테스트로 확인했다.
+- 테스트 조정 — SYNTAX는 양쪽에 `tokenizeTimeLimit:0`을 적용해 부하 의존 500ms cutoff와 문법 동치를 분리했다. 제품의 기본 시간 제한은 바꾸지 않았다.
+- 커밋 조정 — 공유 bootstrap·포트·IPC 타입이 함께 바뀌므로 WP별 중간 비정합 스냅샷 대신 하나의 구현 커밋으로 인계한다. 작업 범위는 WP-7→1→2→3→4→5→6→8 전부다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | import 거절 promise가 영구 고착될 수 있음 | loader catch에서 pending 해제·AC21 cold import/close 시험 |
+| 공유 | 여러 소비자가 SDK import·가용성 상태를 중복 생성할 수 있음 | AC3′·AC21 / EP-02′ #3·EP-10 #1 — JOIN·SDK 동일 promise/확인 1회 |
+| 재진입 | SDK import 전 close·설치 중 재확인·이전 watch 정리가 새 요청을 오염시킬 수 있음 | AC4′·AC9·AC21 — SDK close·registry stale identity·WATCH 재활성화 시험 |
+| 다른 무효화 축 | 실행 파일 설정·runtime 캐시·push 뒤 오래된 최초 목록의 갱신 축이 다름 | AC4′·AC6′·AC7 — PATH·CACHE·SEED·agentStore seq 시험 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | WP 8묶음의 production·테스트·문서. `evidence/r1-enforcement.json`에 75자리와 oracle 대응을 보관했다. |
+| 실행 명령 | `gate:vitest`: `ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron ./node_modules/vitest/vitest.mjs run --reporter=json --outputFile=<report>`; 모든 app 명령은 `cd app`. |
+| 관측한 게이트 산출 | typecheck 3구성 오류 0; eslint 오류 0/기존 warning 2.<br>vitest 908파일·8365 pass/24 fail, 기준선 8286 pass/23 fail 대비 파일 재확인 24케이스×3회 green 뒤 새 실패 ID 0; scripts 144/144.<br>migration sync·no-copies·v0.3.1 append-only, budget 16, docs generated/prose/links; bundle 1,283,482B·21자산·SDK require 0. 세부 `evidence/r1-gates.json`. |
+| V-pair 자기확인 | SELF_PASS 10 · SELF_BLOCKED 1(VP-01 Windows CI). 독립 verify 판정은 하지 않았다. |
+| 강제 지점 전수 | 고정 목록 75·보고 75·양방향 차집합 0. 자리별 표의 oracle은 전체 실행 결과와 대조했다. |
+| AC 자기보고 | 아래 23행. AC1은 Windows CI와 전체 실행의 일시 실패 1건 기록이 남았다. |
+| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 총 23. Criteria-Met 22/23. |
+| 블로커 / 역질문 | PLAN_GAP 없음. Windows CI·설치본 사람 실기 대기. 질문 없음. |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+`gate:typecheck = npm run typecheck`; `gate:eslint = ./node_modules/.bin/eslint ./src ./scripts`(무수정); `gate:scripts = node --test scripts/*.test.mjs`; `gate:migration = node scripts/check-migrations-appendonly.mjs`; `gate:docs = node scripts/check-doc-inventory.mjs --check`; `gate:budget = node scripts/check-test-budgets.mjs`.
+`gate:bundle = ./node_modules/.bin/electron-vite build --sourcemap --outDir <t>` + `node ../docs/handoff/0292-deep-optimization/scan/bundle-measure.mjs <t>` + main SDK require 개수. `gate:S05d`는 같은 디렉터리의 `scan/sites.sh` S05d 결과다.
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ⚠️ | vitest 908파일·8365 pass/24 fail, 기준선 8286 pass/23 fail 대비 파일 재확인 24케이스×3회 green 뒤 새 실패 ID 0 · Windows CI 미실행 |
+| AC2′ | ✅ | BOOT: deferred 중 DB 실행·finish 0·resolve 뒤 완료; 두 등록 변이 red |
+| AC3′ | ✅ | JOIN·server 동시 version 기존 케이스: 동시 수요 1회 합류 |
+| AC4′ | ✅ | FOCUS·PATH·JOIN·BOOT: identity 조건·직전 값·통지·정리 |
+| AC5′ | ✅ | INSTALL·preload/harness.test.ts: 기존 키+가산 키·push·recheck |
+| AC6′ | ✅ | ROWS·CACHE·AGENT: settings/runtime usable 및 변화 재조회 1 |
+| AC7 | ✅ | SEED 4상태·DRAFT 프로젝트/새 칸·NOTICE·MENU·SELECT·COMPOSER |
+| AC8 | ✅ | ADD·CARD: disabled·사유·Claude 항목 유지 |
+| AC9 | ✅ | HOST·WARM·PREP·WATCH·RESUME: 미사용 0·가용성 전환 재개 |
+| AC10 | ✅ | entryMinified=true·1,283,482B ≤ 1,500,000 |
+| AC11 | ✅ | recharts entry 0B·CHART 자리→같은 차트 |
+| AC12 | ✅ | shiki entry 0B·자산 21 ≤ 60·SYNTAX 11×2 동등·package/lock diff 0 |
+| AC13 | ✅ | GOLD 3종·MEMO head 1/tail 6/copy 0·COPY 클릭 문자열 |
+| AC14 | ✅ | INDEX 각 row key·missing=-1·기존 Timeline.selection 1케이스 |
+| AC15 | ✅ | RAW·WRITE: 새 raw_json·payload raw 키 없음 |
+| AC16 | ✅ | RAW changes 1→0·LOAD 분리→로드·refresh busy 아님 |
+| AC17 | ✅ | APPEND raw 0/1·전체 파싱 동치·OCARCHIVE raw 보존·RECOVER 원본 삭제 복구 |
+| AC18 | ✅ | TIMER 10s idle targets 0·대기 재시도·신호 tick |
+| AC19 | ✅ | MCP dirty timer만·ADMIT 신호 진행/abort |
+| AC20 | ✅ | LOG write 전 0·write 후 flush·close/flushSync |
+| AC21 | ✅ | SDK memo/cold close·MAP·TOOLS·PREFETCH 비대기·빌드 require 0 |
+| AC22 | ✅ | CANON revision 동등/값 변화·DEDUPE 순서만 변경 무시 |
+| AC23 | ✅ | gate:docs generated/prose/links 통과·IPC 2채널·raw_json·Notice·스택 복원 문서 존재 |
+
+합계 검산: 유효 AC 23행을 다시 세어 ✅ 22 · ⚠️ 1 · ❌ 0 = 23. 상태 사본: plan `IMPL_DONE (r1 · Windows CI 대기)` / INDEX `impl·IMPL_DONE`·다음 Claude·구현 좌표 자리표시자.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- …
+- Claude 제외 조건(D-006·AC6′)은 기존 fixture가 설치 true만 주어 드러나지 않았다. 설치 false와 명시적 usable false를 구별 값으로 추가했다.
+- r1 최초 구현이며 이전 verify 라운드는 없다. 이번 같은 턴의 합류 oracle 미검출은 `finish` 경계 단언 보강으로 바로 재검출했다.
+- plan EP-02′ #2는 합류를 명시했다. 초기 테스트는 DB 초기화 직후만 보아 뒤의 await들이 만든 지연과 실제 join을 구별하지 못했다.
+- 제약 환경은 Node 24와 설치 SQLite의 Electron ABI 차이다. 기존 Electron을 Node 모드로 실행해 DB를 포함한 동일 기준선·완료 검사를 수행했고 ABI 재빌드는 하지 않았다.
+- 통합 전체 실행의 일시 실패 1건은 동일 코드 파일 재실행 3회에서 재현되지 않았다. 원인을 확정하지 않았고 원문 실패 ID와 재확인 결과를 함께 보관했다.
+- GitHub CLI 인증 실패로 Windows CI를 실행하지 못했다. 작업 브랜치 push와 독립 검증 인계를 수행하며 PR은 생성하지 않는다.
 
 ---
 

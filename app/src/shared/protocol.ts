@@ -279,6 +279,7 @@ export const SetPermissionModeSchema = z.object({
   mode: NormalizedPermissionModeSchema
 })
 
+export const HarnessRecheckSchema = z.object({ backend: BackendSchema })
 export const StartInstallSchema = z.object({ backend: BackendSchema })
 export const UpdateInstallResultSchema = z.object({
   ok: z.boolean(),

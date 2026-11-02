@@ -28,7 +28,15 @@ export function readNativeHistoryPrevious(
     candidate.revision === snapshot.revision
       ? candidate
       : undefined
-  return { snapshot, cursor }
+  return {
+    snapshot,
+    cursor,
+    raw: () => {
+      if ('raw' in snapshot) return snapshot.raw
+      const raw = db.nativeHistory.raw(sessionId)
+      return raw ? JSON.parse(raw) : undefined
+    }
+  }
 }
 
 export interface NativeSyncDependencies {
@@ -111,9 +119,11 @@ export async function refreshNativeHistory(
         message: '이 대화의 하네스 저장 경로가 변경되었습니다. 기존 원본을 확인해 주세요.'
       }
     }
+    const { raw, ...lean } = result.snapshot
     const saved = deps.db.nativeHistory.replace({
       sessionId,
-      payloadJson: JSON.stringify(result.snapshot),
+      payloadJson: JSON.stringify(lean),
+      rawJson: JSON.stringify(raw ?? null),
       cursorJson: result.cursor ? JSON.stringify(result.cursor) : undefined,
       frontier: before.frontier,
       expectedVersion: before.version,

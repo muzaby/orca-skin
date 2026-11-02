@@ -84,6 +84,49 @@ beforeEach(() => {
 afterEach(() => db.close())
 
 describe('native retention recovery through the migrated archive', () => {
+  it('displays and recovers a separated snapshot after the native source is deleted without reading raw', async () => {
+    const value = native([{ id: 'retained', text: 'retained source question' }])
+    if (value.status !== 'ready') throw new Error('snapshot required')
+    await refreshNativeHistory(request.sessionId, {
+      db: queries,
+      isBusy: () => false,
+      read: async () => ({
+        ...value,
+        snapshot: {
+          ...value.snapshot,
+          sessionId: request.sessionId,
+          raw: [{ original: 'retained raw' }]
+        }
+      })
+    })
+    expect(
+      JSON.parse(queries.nativeHistory.get(request.sessionId)!.payload_json)
+    ).not.toHaveProperty('raw')
+    expect(JSON.parse(queries.nativeHistory.raw(request.sessionId)!)).toEqual([
+      { original: 'retained raw' }
+    ])
+    const displayed = texts()
+    expect(displayed).toContain('retained source question')
+    const raw = vi.spyOn(queries.nativeHistory, 'raw')
+    const result = await prepareNativeSession(
+      {
+        readHistory: async () => missing,
+        recoverSession: async () => ({ sessionId: 'replacement', freshStart: false })
+      },
+      request,
+      queries,
+      cwd
+    )
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        nativeSessionId: 'replacement',
+        recoveryHistory: expect.stringContaining('retained source question')
+      }
+    })
+    expect(texts()).toEqual(displayed)
+    expect(raw).not.toHaveBeenCalled()
+  })
   it('passes a stored snapshot and matching cursor on cold resume, but bypasses them for unsettled recovery', async () => {
     const value = native([{ id: 'existing', text: 'archive' }])
     if (value.status !== 'ready') throw new Error('snapshot required')
@@ -101,7 +144,10 @@ describe('native retention recovery through the migrated archive', () => {
     })
     const readHistory = vi.fn(async (): Promise<NativeHistoryResult> => ({ status: 'unchanged' }))
     expect((await prepareNativeSession({ readHistory }, request, queries, cwd)).ok).toBe(true)
-    expect(readHistory).toHaveBeenLastCalledWith({ ...request, previous: { snapshot, cursor } })
+    expect(readHistory).toHaveBeenLastCalledWith({
+      ...request,
+      previous: { snapshot: { ...snapshot, raw: undefined }, cursor, raw: expect.any(Function) }
+    })
     db.prepare(
       `INSERT INTO native_session_recovery (session_id,native_id,archive_json,local_frontier,fresh_start) VALUES (?,?,'[]',0,0)`
     ).run(request.sessionId, 'replacement')

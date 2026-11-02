@@ -114,8 +114,8 @@ export function installNativeFixture(): void {
   useBackendStore.setState({
     active: 'opencode',
     list: [
-      { id: 'opencode', installed: true },
-      { id: 'claude', installed: true }
+      { id: 'opencode', installed: true, usable: true },
+      { id: 'claude', installed: true, usable: true }
     ],
     loading: false
   })

@@ -1,0 +1,15 @@
+{
+  "entryChunk": "index.js",
+  "entryBytes": 1283482,
+  "entryLines": 107,
+  "entryMinified": true,
+  "maxLineLength": 174100,
+  "sourceMap": true,
+  "familyBytes": {
+    "recharts": 0,
+    "shiki": 0
+  },
+  "assetCount": 21,
+  "rendererAssetBytes": 4450911,
+  "sdkRequire": 0
+}

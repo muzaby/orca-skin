@@ -51,7 +51,7 @@ export function projectResourcesIdle(
 export class ProjectResourceSync {
   private readonly owners = new Map<string, Owner>()
   private readonly entries = new Map<string, Entry>()
-  private readonly timer: ReturnType<typeof setInterval>
+  private timer?: ReturnType<typeof setTimeout>
   private closed = false
   private readonly mutations = new Map<string, Promise<unknown>>()
   constructor(
@@ -64,10 +64,7 @@ export class ProjectResourceSync {
       emit(sessionId: string, value: NativeResources): void
       watch?: (file: string, changed: () => void) => () => void
     }
-  ) {
-    this.timer = setInterval(() => this.tick(), 500)
-    this.timer.unref?.()
-  }
+  ) {}
   async run<T>(key: string, action: () => Promise<T>): Promise<T> {
     const task = (this.mutations.get(key) ?? Promise.resolve()).catch(() => undefined).then(action)
     this.mutations.set(key, task)
@@ -122,6 +119,33 @@ export class ProjectResourceSync {
       configurationPending: true,
       ...(entry.failed ? { partial: true } : {}),
       items: value.items.map((item) => ({ ...item, canToggle: false }))
+    }
+  }
+  activityChanged(): void {
+    this.tick()
+  }
+  leasesChanged(): void {
+    this.tick()
+  }
+  private schedulePending(targets?: ProjectResourceTarget[]): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = undefined
+    if (this.closed || !this.entries.size) return
+    const currentTargets = targets ?? this.deps.targets()
+    const pending = [...this.entries.values()].some((entry) => {
+      if (!entry.configuration || entry.failed || entry.reading || entry.applying) return false
+      const revision = entry.configuration.revision
+      return this.peers(entry, false, currentTargets).some(
+        ({ runtime }) =>
+          !this.appliedTo(entry, runtime!, revision) && entry.restart.get(runtime!) !== revision
+      )
+    })
+    if (pending) {
+      this.timer = setTimeout(() => {
+        this.timer = undefined
+        this.tick()
+      }, 500)
+      this.timer.unref?.()
     }
   }
   tick(): void {
@@ -184,6 +208,7 @@ export class ProjectResourceSync {
         entry.version++
         for (const stop of entry.stop) stop()
       }
+    this.schedulePending(runtimeTargets)
   }
   private policy(target: ProjectResourceTarget): ProjectResourcePolicy | undefined {
     return target.runtime?.projectResourcePolicy?.() ?? this.deps.policy(target.backend)
@@ -229,7 +254,7 @@ export class ProjectResourceSync {
     } finally {
       entry.reading = undefined
     }
-    void this.apply(entry)
+    void this.apply(entry).finally(() => this.schedulePending())
   }
   private peers(
     entry: Entry,
@@ -282,6 +307,7 @@ export class ProjectResourceSync {
       await this.emit(entry)
     } finally {
       entry.applying = false
+      this.schedulePending()
     }
   }
   /** Reconciled here, or already applied by the runtime itself (its own persisted toggle). */
@@ -350,7 +376,7 @@ export class ProjectResourceSync {
   }
   close(): void {
     this.closed = true
-    clearInterval(this.timer)
+    if (this.timer) clearTimeout(this.timer)
     for (const entry of this.entries.values()) for (const stop of entry.stop) stop()
     this.entries.clear()
     this.owners.clear()

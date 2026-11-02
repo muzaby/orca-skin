@@ -84,3 +84,28 @@ describe('전역 월 한도 반영 (0186)', () => {
     expect(recordAndBroadcast).not.toHaveBeenCalled()
   })
 })
+
+it('rechecks only an executablePath change inside the actual top-level harnesses patch', () => {
+  let notify!: (next: unknown, changed: readonly string[]) => void
+  const recheck = vi.fn()
+  registerSettingsReactions(
+    {
+      onPatch: (listener) => {
+        notify = listener
+      }
+    },
+    {
+      cost: { recordAndBroadcast: vi.fn() },
+      openCodeExecutablePath: '/old',
+      recheckOpenCode: recheck
+    }
+  )
+  notify({ harnesses: { opencode: { executablePath: '/old', theme: 'dark' } } }, ['harnesses'])
+  expect(recheck).not.toHaveBeenCalled()
+  notify({ harnesses: { opencode: { executablePath: '/new' } } }, ['harnesses'])
+  expect(recheck).toHaveBeenCalledOnce()
+  notify({ harnesses: { opencode: { executablePath: '/new' } } }, ['theme'])
+  expect(recheck).toHaveBeenCalledOnce()
+  notify({ harnesses: { opencode: {} } }, ['harnesses'])
+  expect(recheck).toHaveBeenCalledTimes(2)
+})

@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -100,4 +101,29 @@ describe('FileTransport', () => {
     expect(t.isDisabled).toBe(true)
     expect(failures.length).toBeGreaterThan(0)
   })
+})
+
+it('arms flush only for buffered writes and clears the timer on explicit flush and close', async () => {
+  vi.useFakeTimers()
+  const dir = mkdtempSync(join(tmpdir(), 'orca-demand-log-'))
+  const transport = new FileTransport({ dir })
+  try {
+    expect(vi.getTimerCount()).toBe(0)
+    transport.write('one')
+    expect(vi.getTimerCount()).toBe(1)
+    await vi.advanceTimersByTimeAsync(500)
+    expect(readFileSync(transport.filePath, 'utf8')).toBe('one\n')
+    expect(vi.getTimerCount()).toBe(0)
+    transport.write('two')
+    transport.flushSync()
+    expect(vi.getTimerCount()).toBe(0)
+    transport.write('three')
+    transport.close()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(readFileSync(transport.filePath, 'utf8')).toBe('one\ntwo\nthree\n')
+  } finally {
+    transport.close()
+    rmSync(dir, { recursive: true, force: true })
+    vi.useRealTimers()
+  }
 })

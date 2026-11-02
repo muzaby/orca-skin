@@ -23,7 +23,14 @@ export interface OpenCodeServer {
     /** Stop new acquisitions from joining this generation; existing owners remain alive. */
     retire?: () => void
   }>
-  installed(): Promise<{ installed: boolean; binPath?: string; version?: string }>
+  executableIdentity?(): string | undefined
+  installed(): Promise<{
+    installed: boolean
+    binPath?: string
+    version?: string
+    usable?: boolean
+    reason?: import('../../../shared/ipc').HarnessUnavailableReason
+  }>
   databasePath?(
     config: Record<string, unknown>,
     env?: Record<string, string>,
