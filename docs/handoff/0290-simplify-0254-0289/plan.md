@@ -950,11 +950,11 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 ### [구현자 기입] 강제 지점 전수 (§10 대조)
 
-자리별 좌표의 정본은 [r2 구현 증거](implementation-evidence-r2.md)다. O-01~O-19는 r1 문서의 자리별 목록을 현재 실행 집합에서 다시 대조한 좌표이고, R2-01~R2-05는 이번 보완의 직접 관측이다.
+자리별 좌표의 정본은 [r2 구현 증거](implementation-evidence-r2.md)다. O-01~O-19는 r1 문서의 자리별 목록을 현재 실행 집합에서 다시 대조한 좌표이고, R2-01~R2-07은 이번 보완의 직접 관측이다.
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-01 | 기존 동작 | 0(집계) | 0 | 전체 gate·실패 ID 차집합 | R2-01·02 회귀 반례 해소 | CI 대기 |
+| VP-01 | 기존 동작 | 0(집계) | 0 | 전체 gate·실패 ID 차집합 | R2-01·02 회귀 반례 해소 | 없음 |
 | VP-02 | push·focus | 3 | 3 | O-02·전체 Vitest | backend별 push·busy·lock·해제 | 없음 |
 | VP-03 | native missing | 2 | 2 | O-03·legacy 검색 | 404와 probe 실패 구별 | 없음 |
 | VP-04 | 고아 사슬·직렬화 | 19 | 19 | O-04·0건 검색 | mutation queue 및 늦은 watcher 결과 | 없음 |
@@ -981,7 +981,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 
 | Pair | Requiredness | 자기 상태 | 직접 좌표 | 적대 증거 / 남은 곳 |
 |---|---|---|---|---|
-| VP-01 | REGRESSION | SELF_BLOCKED | O-01 | CI 대기; 로컬 CLI 기존 실패 분리 |
+| VP-01 | REGRESSION | SELF_PASS | O-01 | [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41363264661) 성공; 로컬 CLI 기존 실패 분리 |
 | VP-02 | REQUIRED | SELF_PASS | O-02 | 실행 변이 3·정적 0 검출 |
 | VP-03 | REQUIRED | SELF_PASS | O-03 | 해당 없음 — 직접 oracle |
 | VP-04 | REQUIRED | SELF_PASS | O-04 | 실행 변이 1·정적 1 검출 |
@@ -990,7 +990,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | VP-07 | REQUIRED | SELF_PASS | O-07·R2-01·03 | 실행 변이 9·정적 0 검출 |
 | VP-08 | REQUIRED | SELF_PASS | O-08 | 실행 변이 0·정적 5 검출 |
 | VP-09 | REQUIRED | SELF_PASS | O-09·R2-05 | 실행 변이 6·정적 0 검출 |
-| VP-10 | REQUIRED | SELF_PASS | O-10·R2-06 | 실행 변이 4·정적 0 검출 |
+| VP-10 | REQUIRED | SELF_PASS | O-10·R2-06·07 | 실행 변이 4·정적 0 검출 |
 | VP-11 | REQUIRED | SELF_PASS | O-11·R2-05 | 실행 변이 3·정적 0 검출 |
 | VP-12 | REQUIRED | SELF_PASS | O-12 | 실행 변이 17·정적 0 검출 |
 | VP-13 | REQUIRED | SELF_PASS | O-13 | 실행 변이 25·정적 0 검출 |
@@ -1046,17 +1046,17 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 |---|---|
 | 변경 파일 | 감시·discovery·프로젝트 감시·스크롤 복원·Claude 경로 정책 및 회귀 테스트. 신규 의존성 0 |
 | 실행 명령 | [r2 구현 증거](implementation-evidence-r2.md)의 재현 명령과 [변이별 정의·결과](scan/r2-mutation-evidence.json) |
-| 관측한 게이트 산출 | 타입 3구성 통과; lint 0오류·기존 경고 2(수정 파일 재검사 포함); Vitest 894파일 8,299케이스 중 8,295 통과·2 실패·2 skip → registry 재실행 성공, 로컬 CLI 기존 실패 1건만 남음; scripts 144/144; inventory·migration·budget 통과; CI 대기 |
-| V-pair 자기확인 | 19 중 SELF_PASS 18 · SELF_BLOCKED 1(VP-01, CI 대기) |
+| 관측한 게이트 산출 | [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41363264661) 성공: Vitest 891파일·8297케이스 성공, 3파일·3케이스 skip; scripts 144/144; 타입·lint·문서·migration·budget 성공. 로컬 Electron build 성공. 로컬 전체 실행의 환경 실패와 재실행은 증거 문서에 분리 |
+| V-pair 자기확인 | 19 중 SELF_PASS 19 · SELF_BLOCKED 0 |
 | 강제 지점 전수 | 187자리의 직접 좌표 및 검색 차집합은 r2 증거에 기록 |
-| AC 자기보고 | ✅ 22 · ⚠️ 1 · ❌ 0 = 23; Criteria-Met 22/23 |
-| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 23; Criteria-Met 22/23 |
-| 블로커 / 역질문 | 코드 보완 미해결 0; Windows CI 확인 대기; PLAN_GAP 없음 |
+| AC 자기보고 | ✅ 23 · ⚠️ 0 · ❌ 0 = 23; Criteria-Met 23/23 |
+| 합계 검산 | ✅ 23 · ⚠️ 0 · ❌ 0 = 23; Criteria-Met 23/23 |
+| 블로커 / 역질문 | 코드 보완 미해결 0; PLAN_GAP 없음. 다음은 독립 verify |
 | 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
 
 | AC | 자기확인 | 이번 턴 관측 |
 |---|---|---|
-| AC1 | ⚠️ | 전체 실행·재실행 후 신규 행동 실패 없음. Windows CI 대기, 로컬 CLI 기존 자원 0/6 분리 |
+| AC1 | ✅ | [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41363264661) 전체 gate 성공·로컬 build 성공·기준선 대비 신규 실패 ID 0 |
 | AC2 | ✅ | O-08 삭제 목표 잔여 0·신규 dead/test-only 차집합 0 |
 | AC3 | ✅ | 삭제 i18n present 0·신규 미참조 차집합 0·CSS 토큰 0 |
 | AC4 | ✅ | IPC 사슬 검색 0·O-04 응답 테스트 성공 |
@@ -1080,7 +1080,7 @@ renderer(registry 슬롯·capability) ─ sessionApi ─ preload ─ CHANNELS �
 | AC22 | ✅ | 네 소비자 계산 1회·참조 변경 갱신·catalog stale·media cleanup |
 | AC23 | ✅ | O-18 19자리·14변이 red·기존 연결 종단 테스트 성공 |
 
-합계 검산: ✅ 22 · ⚠️ 1 · ❌ 0 = 총 23. 유효 AC 분모 23 유지. CI 완료 전 Criteria-Met은 22/23이다.
+합계 검산: ✅ 23 · ⚠️ 0 · ❌ 0 = 총 23. 유효 AC 분모 23 유지. 표를 다시 센 뒤 Criteria-Met 23/23을 기입했다.
 
 ### [구현자 기입] Review Signals — 사실만
 
