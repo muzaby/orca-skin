@@ -3006,3 +3006,62 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 
 - 재량 고장은 사람·세션마다 다르다. 표준 종류와 이력이 그 차이를 기록할 뿐 없애지는 않는다.
 - 고장 내 보기 스크립트는 아직 저장소에 없다(세션 임시 폴더). 같은 시험을 다른 세션이 그대로 재현하려면 별도 결정이 필요하다.
+
+---
+
+# review round 39 — 0290 (verify 3회째 FAIL): 경쟁 결함의 형제 순서와 병합 뒤 좌표
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0290 verify 3회째 `FAIL`(r3, `97271b8`) 뒤 r4 착수 전 의무 review. 사용자 `/handoff-review 290` 후 질의에서 **APPLY** 선택(2026-11-02).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 경쟁 결함을 지적된 순서 하나로 고쳐 형제 순서에서 반대 실패가 열렸다 | 0290 r1 D1 → r2 D7(통보 0) → r3 D8(통보 2), 세 순서 모두 `a2e8464` 1회 | **A** — impl §5-2 "형제 연산·같은 `await`"는 공간 축만 셌다. 순서 분모·변경 전 기대값 규칙 추가(P61) |
+| 2 | verify가 PR 브랜치에서 확인한 좌표가 rebase 병합 뒤 `main`에 없다 | 0290 r1·r2 좌표 9개 | **A** — P47 규칙의 "공유 브랜치"가 병합 대상을 정하지 않았다. `main` 조상 확인 추가(P47 보강) |
+| 3 | 재로드 뒤 감시 재설정 edge(D9)가 r1부터 미잠금 | 0290 r3 X07 | **B** — 실행 구간 규칙(P55)이 이미 막는다. R3-03은 `watchFile` mock·직접 `poll()`로 그 edge 밖이었다. 지침 변경 없음 |
+| 4 | CI 로그 아카이브 egress 403으로 vitest 집계 미관측 | 0290 r2·r3 | **E** — Test 단계 conclusion으로 판정, 한계 기록 유지 |
+
+## Tier
+
+**Tier 1.** impl·verify의 evidence 요구(순서 분모·형제 순서 재현)와 repository operation 판정 기준(좌표 = `main` 조상)이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `97271b8`. 바뀐 기존 줄 4개 전부 **REPLACE(강화)** — 변경 전 문장이 새 줄에 그대로 들어 있다(토큰 대조 4/4, 다른 토큰은 `-t`로 확인` → `-t` + main 조상 확인` 뿐). DELETE 0 · MOVE 0.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §INDEX 운영 좌표 규칙 | KEEP + 추가 | 새 bullet "공유 브랜치는 병합 대상 `main`" |
+| AGENTS §단계별 절차 2 재구현 bullet | REPLACE | 기존 문장 + 경쟁 순서 절 |
+| AGENTS §단계별 절차 3 좌표 기입 | REPLACE | `main` 조상 확인 추가 · 형제 순서 재현 bullet 신설 |
+| impl §5-2 | KEEP + 추가 | 경쟁 순서 문단·사례 |
+| verify §4 · §9 | KEEP + 추가 | 형제 순서 bullet · 이전 라운드 좌표 재확인 |
+| verify.template §11 | REPLACE | 좌표 확인 칸에 `main` 조상 |
+| 명령·gate·reference | 없음 | inbound `N`/`M/M` 대상 없음 — 이동·삭제 0 |
+
+## 6-B Historical Failure Regression
+
+- **61 P 전수**(P1~P61) · 변경 후 COVERED 60 / PARTIAL 1(P60, round 38 사용자 결정 유지) / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0이라 round 38에서 COVERED였던 59개는 그대로다.
+- P47: 강화 — 확인 브랜치가 병합 대상이어야 한다는 조건 추가. P61: 신규, impl §5-2·verify §4가 실패 **전에** 발동한다(재구현 턴의 불변식 단계·verify의 적대 축 단계).
+- P25·P55: 불변 — 순서 분모와 별개로 관측 지점·실행 구간을 판정한다.
+
+### V/lifecycle replay
+
+| anchor | 변경 전 | 변경 후 | 방향 |
+|---|---|---|---|
+| 0290 r2(`68b886b`) D7 | r3 FAIL로만 발견 | r2 구현이 순서(재로드가 편집 전/후 읽음 × 완료 도중/뒤)를 열거해 0회를 스스로 봄 | 거짓 PASS 0 |
+| 0290 r3 D8 | verify 검증자 축으로 발견 | 구현 단계에서 `a2e8464` 대조로 2회를 봄 · verify 형제 순서 하한도 같은 축 | 거짓 PASS 0 |
+| 0290 r3 D9 | `PAIR_FAIL` | `PAIR_FAIL`(불변) | FAIL inflation 0 |
+| 0188 원자성 5라운드 | impl §5 사례 | 공간 축 규칙 그대로 | 불변 |
+
+새 규칙은 disposition을 추가하지 않는다 — 형제 순서에서 나온 결함은 기존 자리 표로 간다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 경쟁 순서: AGENTS §단계별 절차 2 = impl §5-2, AGENTS §단계별 절차 3 = verify §4. 좌표: AGENTS §INDEX 운영(정의) = §단계별 절차 3 = verify §9 = verify.template §11. plan §5-A·plan.template·root AGENTS의 "공유 브랜치"는 같은 정의를 상속한다.
+- `node scripts/check-doc-inventory.mjs --check`(app/) links ok · `git diff --check` 0.
+
+## 남은 한계
+
+- 순서 열거의 완결성은 행위자 식별에 달려 있다 — 세 번째 행위자(다른 scope의 hold 등)를 놓치면 분모가 좁다. 변경 전 코드 대조가 기대값만 주고 분모를 주지는 않는다.
