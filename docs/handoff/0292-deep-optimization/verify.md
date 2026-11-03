@@ -808,3 +808,435 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh c958f83..24d91a6   # 
 - AC: ✅ 20 · ⚠️ 3(AC7″·AC8·AC13) · ❌ 0 = 23.
 - 운영 gate: 전부 PASS(Windows CI 포함).
 - 다음: 설계자가 D14를 ΔV4로 정한다(필요하면 사용자 질의). 이어 구현자가 D12·D13·D14를 잠근다. 다음 verify는 이 이력의 못 잡음 2·동치 8을 다시 실행한다.
+
+---
+
+# r3 재검증 (2026-11-03)
+
+> r1·r2 본문(위)은 그대로 둔다. 재현 자료는 [`verify-evidence/r3/`](verify-evidence/r3/) — 고장 정의·결과([`mutations.json`](verify-evidence/r3/mutations.json)), 기준선 차감 러너([`mutate.mjs`](verify-evidence/r3/mutate.mjs)), HEAD 안정 실패 ID([`head-failed-ids.txt`](verify-evidence/r3/head-failed-ids.txt)), 재현 테스트([`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts)).
+
+## r3 메타
+
+| 항목 | 값 |
+|---|---|
+| 판정 | **FAIL (ΔV4 r3)** — 운영 gate lint error 1 · Windows CI red(D15) · PAIR_FAIL 2(VP-01 · VP-03 D16) · 고장 못 잡음 2 · PLAN_GAP 0 |
+| 검증자 | Claude Code |
+| 일자 | 2026-11-03 |
+| 대상 커밋/range | `b5c0e9e..c5c6f39` — r3 구현 `c5c6f39`(테스트 4파일·증거·plan·INDEX). PR #529(`ccr-d3f0312d-rr9r2c`) 브랜치 좌표, `origin/main` 미병합 |
+| 구현 전 plan 기준 | `b5c0e9e`(ΔV4 설계 — app 트리 = r2 `981056f`, `git diff --stat 24d91a6 b5c0e9e -- app` 0줄) |
+| V mode / 유효 V | `Delta V` / `V1@64047af + ΔV1@3c50653 + ΔV2@cc75cf8 + ΔV3@c958f83 + ΔV4@b5c0e9e` |
+| 라운드 | 3 (이 handoff의 verify 3회째) |
+| 상태 | FAIL |
+| 자기 검증 여부 | 아니오 — ΔV4 설계·검증은 Claude(같은 세션 URL, `/clear` 뒤 새 맥락), 구현은 Codex. 구현자가 다르므로 자기검증 분모 규칙은 해당 없고, 보고에 없는 독립 축 7건(W01~W07)은 재량으로 넣었다 |
+
+## r3-0. 기준선 / plan 변경 확인
+
+- **판정: 기준선 성립, 규범 변경 0.** 설계 커밋 `b5c0e9e`(ΔV4)와 구현 커밋 `c5c6f39`가 분리돼 있다.
+- 구현 커밋의 plan diff는 hunk 2개 — 메타 `상태` 1행(`@@ -8,7`)과 `[구현자 기입] … (r3)` 절 신설(`@@ -1883,3 +1883,450`). 삭제 행은 메타 1행뿐이다.
+- Decision·Part I·AC·V node/pair·§10 변경 0. 채점 기준은 `b5c0e9e`의 V1+ΔV1~ΔV4 규범 행 원문이다.
+- production diff 0 — `git diff --stat b5c0e9e c5c6f39 -- app` = 테스트 4파일(+143·−4, 삭제 4줄은 import 3·N9 케이스명 1).
+
+### Plan validity
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·상속 기준 | 유효 | ΔV4가 D-021(사용자 질의 [D14] 답)·AC7‴·EP-03⁗·EP-08 #2 oracle 정정을 명시 |
+| NEW/CHANGED ↔ 같은 레벨 REQUIRED pair | 유효 | CHANGED VP-03(AT) · oracle 정정 VP-08(UT) · INHERITED 9 pair 전부 REQUIRED |
+| `SUPERSEDED` 이관 | 유효 | AC7″ → AC7‴ · EP-03‴ 등록 변이 18종 → EP-03⁗ 같은 번호 · 폐기 0 |
+| §10 자리 목록(기록 검색 재실행 차집합) | 유효 | S03‴ HEAD 43줄 = plan 43 = `evidence/r3-sites-dv4.txt`(diff 0) · EP-03⁗ 19항목 43줄 검산 일치 |
+| 그 밖의 기록 검색 | 유효 | S04′ 45 · S03′ 26 · S05e 0 = `evidence/r3-sites-dv2.txt` · S03″ 37 = r2 · V1/ΔV1 19검색 N = `r1-final-sites.txt`(집합 동일, 정렬 순서만 다름) |
+| D-021 path의 목록 밖 입력 자리 | 유효(잠김) | `steps.ts:104` `mandatory:false`·`harnessAvailabilityStore.ts:7` 기본값은 S03‴ 술어 밖이다. 둘을 깨는 W01·W02가 DEGRADED 2케이스로 잡혀 목록 고정이 필요한 운반 자리 공백은 없다 |
+| 선택 적대 증거 | 유효 | 등록 V12(#2)·V26(#15) — 자리·종류 명시 · r2 이력 135 재실행 의무 |
+| 현재 변경 운영 gate | 유효 | §7-A 9종 |
+
+## r3-1. Product & UX / ACTIVE Decision
+
+| Decision / 요구 | production path(HEAD) | 판정 |
+|---|---|---|
+| D-021 목록 미수신 부팅도 자동 전환 기록 | `steps.ts:104` 선택 `backend` 단계(`initBackend` `backendStore.ts:29-38` 거절·10초 초과 → degraded) → store 기본값 opencode `missing`(`harnessAvailabilityStore.ts:7`) → `landing-target` `steps.ts:109-111` → `applyLandingAgentKind` `:66-69` → `seedLandingBackend` `chatStore.ts:221-222` → helper `:1868-1870` → `settingsApi.set` | 충족 — DEGRADED 거절·10초 초과 · U5·W01·W02 잡음 |
+| D-019·D-020 마지막 백엔드·이어가기 제외 | r2 경로 그대로(production diff 0) | 충족 — U5~U9·V05·V06·V08·V10·V14·V24·V25·V33·V34 잡음 |
+| D-006 엔진 카드 배지 | `EngineCard.tsx:34-40` — 미지원 행만 배지, 사유 있으면 사유 문구·없으면 일반 문구 | 지원 행 배지 0은 잠김(V26 잡음). **사유 없는 미지원 행의 일반 문구는 미잠금(D16)** |
+| D-003 다중 메시지 턴 복사 버튼 | `projection.ts:131` `copyable` → `Timeline.tsx:176` → `MessageMeta` | 충족 — MULTICOPY · V12·W05·W06·W07 잡음 |
+| D-014·D-015·D-018·D-009 등 | r2 경로 그대로 | 충족 — r2 잡음 125 재실행 전부 잡음 |
+
+```text
+부팅 backend 단계 ─┬ 목록 수신 → seedHarnessAvailability → store(사유) ─┐
+                  └ 거절·10초 초과 → degraded, store 기본값 missing 유지 ─┤
+landing-target → applyLandingAgentKind → seedLandingBackend(lastBackend) ←┘
+   lastBackend 'opencode' ∧ !usable → rememberLandingBackend('claude') → settingsApi.set({lastBackend:'claude'}) 1회
+```
+
+## r3-2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 실환경 실패 방식 | 변경 없음 | production diff 0 — D-021은 r2 동작을 규칙으로 고정했다 |
+| false success | **있음 — 구현 보고(D15)** | `evidence/r3-gates.json` `eslint {errors:0}`·INDEX 비고 "lint 통과" ↔ 무수정 eslint `steps.availability.test.ts:111:31` error 1 · CI #959 Lint 실패. 같은 파일 `initialAttempts`가 "typecheck가 잡은 반환 주석을 지웠다"고 적는다 — 그 수정 뒤 eslint를 다시 돌리지 않았다 |
+| partial failure·rollback | 해당 없음 | production 변경 0 |
+| A 대신 B 구현 | 없음 | ΔV4 구현 지시 6행(production 무변경·미수신·지원 카드·다중 메시지·N9 이름·좌표) 그대로 |
+| 증상만 제거 | 없음 | 새 단언은 기존 단언을 지우지 않고 더했다(diff 삭제 4줄 = import·케이스명) |
+| 최적화가 잃은 관측 | 해당 없음 | 성능 장치 무변경 · 번들 수치 r2와 같음 |
+| 출력·요청 상한 | 유지 | DEGRADED가 새 대화·프로젝트 생성 뒤 `lastBackend` 쓰기 1을 단언 |
+| 구현자 주장 vs 증거 | 불일치 2 | lint(위) · "새 브랜치는 PR CI 자동 실행 대상 아님" ↔ PR #529는 r2 verify 커밋부터 열려 있었고(run #957 `029655f` 05:27) r3 push 뒤 run #959가 Lint에서 실패했다. 그 밖 좌표 67별칭·74패턴 실재·HEAD 통과, S03‴ 43 동일 |
+
+## r3-3. 역방향 탐색
+
+```bash
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh b5c0e9e..c5c6f39   # 변경된 소스 파일 0
+```
+
+| 후보 | 판정 | 귀속 / 근거 |
+|---|---|---|
+| production 미사용 export·test-only symbol | 해당 없음 | production diff 0. 새 테스트가 부르는 `BOOT_TIMING_POLICY`(`steps.ts:148` 기본 인자)·`projectTimelineHead/Tail`(`Timeline.tsx:40,45`)·`EngineCard` 래퍼(`features/engine/components/AgentEnvironmentView.tsx:2`)는 production 소비자가 있다 |
+| 동명 로컬 재구현 | 없음 | DEGRADED는 `createBootSteps({...defaultBootDependencies})` — 대체는 main 준비·리포트·세션·프로젝트·사용량 5개뿐이고 시드 분기를 가르는 `initBackend`·`applyLandingAgentKind`·`getLastSessionId`는 production이다 |
+| 형제 슬롯 계약 | **미잠금 1(D16)** | `EngineCard.tsx:37-39` 사유 슬롯 ↔ 일반 문구 슬롯 — 일반 문구 `미지원 adapter`는 지원 행의 부정 단언에만 나온다(`rg '미지원 adapter' --glob '*.test.*'` 1줄) |
+| 생산자 ↔ 소비자 | 도달 가능 | 사유 없는 미지원 행은 `agent:list`가 등록 백엔드 밖 adapter 설정 행에 낸다(`misc.ts:55` `toAgentEnvironments` → `:59-61`은 registry 상태가 있을 때만 사유를 싣는다) |
+| 같은 규칙 중복 | 없음 | `copyable` ↔ `turnCopyText` 술어 1벌 유지(`parts.ts:56-64`) |
+
+## r3-4. 기존 테스트 / semantic 검증
+
+- 구현자 좌표 67별칭·74패턴이 HEAD 전체 실행 JSON에 전부 실재한다. 1차 실행에서 CHART(`UsageTab.chart.test.ts`) 1건이 실패했고 단독 3/3·2차 전체 실행에서 통과했다(N10).
+- 새 좌표의 실행 구간·운반 값:
+
+| 좌표 | 진입 → 관측 | 운반 값 구별 | 판정 |
+|---|---|---|---|
+| DEGRADED `steps.availability.test.ts` 'persists the Claude fallback once … rejected / timed out' | 실제 `runBootSteps(createBootSteps({...defaultBootDependencies}))` → `settingsApi.set` 호출·chat store 칸 | `lastBackend:'opencode'`(기본 `claude`·`null`과 구별) · 거절·10초 초과 두 입력 · 쓰기 정확히 1(0·2와 구별) | EP-03⁗ #1·#2를 닫는다 — U5·V05·V10·V21·V34·R03a·W01·W02 잡음 |
+| CARD 'preserves the %s card label …' 보강 | `EngineCard` 래퍼 → 공통 카드 렌더 → 문자열 | `supported:true` × Claude·OpenCode(기존 3사유 케이스는 `false`) | #15 `:34`는 닫는다(V26 잡음). `:37-39` 일반 문구 슬롯은 입력에 사유 없는 미지원 행이 없어 닫지 않는다(W03·W04 못 잡음) |
+| MULTICOPY golden·Timeline | production `projectTimeline`/`projectTimelineHead·Tail` → meta 행 → `OpenCodeTimelineRow` 버튼 수 | 2메시지 턴 × 본문 위치 2종 + 본문 없음 · `meta.turn.messages`가 두 메시지를 한 턴으로 묶었음을 양성 대조 | EP-08 #2를 닫는다 — V12·W05·W06·W07 잡음 |
+
+- 선택 적대 증거 재측정: r2 이력 135(잡음 125·동치 8·못 잡음 2 — 폐기 X17·N08은 재실행 안 함, `retired`) + 독립 축 7(W01~W07) = **142**. 일반 hunk 자동 확장 0.
+- **이전 라운드 대조**: r2 잡음 125 → 잡음 125(덮개 회귀 0) · r2 못 잡음 2(V12·V26) → 잡음 2 · r2 동치 8 → 동치 8.
+- 등록 변이 V12·V26은 plan이 자리를 적었다(`projection.ts:131`·`EngineCard.tsx:34`) — 그 자리에 심었다.
+- 형제 슬롯 맞바꿈·다른 값: 메시지 순서(W05 마지막만·W06 첫째만 — 각각 반대 순서 케이스가 잡음) · 배지 슬롯(W03 사유 선택 고정·W04 일반 키 교체 — 못 잡음).
+- 실행 방식: 각 고장을 심고 `mutate.mjs <id> --each`(항목 `suite`, Electron Node 모드) → 새 실패 0이면 `--related` → 그래도 0이면 `--full`(W03·W04 단독 · 동치 조합 E = X07·X50·X57·X65 · 조합 V = V01·V07·V09·V16, 넷 다 913파일·8442케이스 새 실패 0). 번들 4건은 고장별 `electron-vite build --sourcemap` + `scan/bundle-measure.mjs`. 매 실행 뒤 `git status --porcelain -- app` 깨끗.
+- 기준선 ID: HEAD 1차 전체 실행 실패 24 − 부하 의존 CHART 1 = 23 — r2 HEAD 23과 같은 ID(`head-failed-ids.txt`). CHART를 빼서 X24(`UsageTab.tsx` 높이)가 가려지지 않는다(X24 잡음).
+- 소거 변이 잔여물: vitest는 타입·lint를 보지 않는다 — 판정에 섞이지 않았다.
+- W03·W04 관측 가능성: 재현 테스트(사유 없는 미지원 `external`·`opencode` 행 → `미지원 adapter` 포함·사유 문구 0)가 HEAD 2/2 통과, W03에서 배지가 원시 키 `harnessUnavailable.undefined`, W04에서 external 카드가 "OpenCode 설치 상태를 확인하지 못했습니다"로 2/2 실패 — 동치가 아니다.
+
+**고장 이력** — 142건 = 잡음 132 · 동치 8 · 못 잡음 2. 범위 `suite`는 항목의 테스트 파일, `related`는 `vitest related`, `full`은 전체 스위트, `bundle`은 번들 gate다.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 범위 | 직전 결과 | 이번 결과 | 잡은 테스트 / 동치 근거 | 귀속 |
+|---|---|---|---|---|---|---|---|---|
+| R02a | `main/app/bootstrap.ts:476` | 뒤집기 | 합류 대신 시작 직후 `await installation`(순차 대기) | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | VP-02 등록 #1 |
+| R02b | `main/app/bootstrap.ts:865` | 제거 | `finish()` 앞 `await installation` 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 2 | VP-02 등록 #2 |
+| R03b | `renderer/src/features/chat/components/ChatTile.tsx:66` | 맞바꿈 | 가용성 조회 하네스 claude↔opencode | suite | 잡음 | 잡음 | `ChatTile.harness.test.ts` · 1 | VP-03 등록 #4 |
+| R03c | `renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:101` | 뒤집기 | 추가 항목 `disabled` 조건 반전 | suite | 잡음 | 잡음 | `AgentEnvironmentView.crud.test.ts` · 6 | VP-03 등록 #9 |
+| R04a | `main/adapters/common/registry.ts:89` | 제거 | focus identity 비교 삭제 | suite | 잡음 | 잡음 | `registry.availability.test.ts` · 2 | VP-04 등록 #3 |
+| R04b | `main/adapters/common/registry.ts:50` | 제거 | 변화 비교 삭제(매번 통지) | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 3 | VP-04 등록 #1 |
+| R05-6 | `main/app/harness-host.ts:16` | 호출 대체 | Host `installed`가 `adapter.isInstalled()` 직접 호출 | suite | 잡음 | 잡음 | `harness-host.test.ts` · 2 | VP-05 등록 #6 |
+| R05-7 | `main/app/harnesses/opencode/warmup.ts:41` | 제거 | 웜업 `installed` 게이트 삭제 | suite | 잡음 | 잡음 | `warmup.test.ts` · 2 | VP-05 등록 #7 |
+| R05-9 | `main/app/handlers/misc.ts:51` | 제거 | agent:list usable 필터·행 게이트 삭제 | suite | 잡음 | 잡음 | `misc.runtime-catalog.test.ts` · 3 | VP-05 등록 #9 |
+| R05-11 | `main/features/harnesses/common/runtime-catalog.ts:130` | 고정값 | runtime 행 `supported: true` | suite | 잡음 | 잡음 | `runtime-catalog.test.ts` · 1 | VP-05 등록 #11 |
+| R05-12 | `main/app/composer-catalog.ts:16` | 제거 | 컴포저 준비 unavailable 게이트 삭제 | suite | 잡음 | 잡음 | `composer-preparation-service.test.ts` · 1 | VP-05 등록 #12 |
+| R05-15 | `main/app/bootstrap.ts:1077` | 제거 | 전역 감시 usable 조건 삭제 | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 1 | VP-05 등록 #15 |
+| R06a | `main/features/history/native-sync.ts:125` | 호출 대체 | payload에 raw 재합류(`JSON.stringify(result.snapshot)`) | suite | 잡음 | 잡음 | `native-session.test.ts` · 4 | VP-06 등록 #9 |
+| R06b | `main/app/handlers/session.ts:69` | 뒤집기 | load 뒤 분리 | suite | 잡음 | 잡음 | `session.load.test.ts` · 1 | VP-06 등록 #12 |
+| R08a | `renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:39` | 제거 | head `useMemo` 삭제 | suite | 잡음 | 잡음 | `Timeline.memo.test.ts` · 1 | VP-08 등록 #5 |
+| R08b | `renderer/src/features/chat/harnesses/opencode/transcript/projection.ts:8` | 호출 대체 | meta 투영 중 `turnCopyText` 즉시 계산 | suite | 잡음 | 잡음 | `Timeline.memo.test.ts` · 2 | VP-08 등록 #2 |
+| R09-1 | `main/app/project-resource-sync.ts:55` | 호출 대체 | 500ms 상시 interval 복원 | suite | 잡음 | 잡음 | `project-resource-sync.test.ts` · 2 | VP-09 등록 #1 |
+| R09-2 | `main/app/harnesses/opencode/mcp-reconcile.ts:13` | 호출 대체 | 500ms 상시 interval 복원 | suite | 잡음 | 잡음 | `mcp-reconcile.timer.test.ts` · 1 | VP-09 등록 #2 |
+| R09-3 | `main/infra/log/file-transport.ts:56` | 호출 대체 | 상시 flush interval 복원 | suite | 잡음 | 잡음 | `file-transport.test.ts` · 1 | VP-09 등록 #3 |
+| R09-5a | `main/app/bootstrap.ts:1144` | 제거 | activity → `projectResourceSync.activityChanged` 삭제 | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 1 | VP-09 등록 #5 |
+| R09-5b | `main/app/bootstrap.ts:1145` | 제거 | activity → adapter `resourceActivityChanged` 삭제 | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 1 | VP-09 등록 #5 |
+| R09-6 | `main/app/bootstrap.ts:1120` | 제거 | lease → `leasesChanged` 삭제 | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 1 | VP-09 등록 #6 |
+| R11a | `main/adapters/claude/project-settings.ts:127` | 호출 대체 | `canonicalJson` → `JSON.stringify` | suite | 잡음 | 잡음 | `canonical-consumers.test.ts` · 1 | VP-11 등록 #1 |
+| R11b | `main/adapters/claude/background.ts:39` | 호출 대체 | `canonicalJson` → `JSON.stringify` | suite | 잡음 | 잡음 | `canonical-consumers.test.ts` · 1 | VP-11 등록 #2 |
+| N01 | `main/app/bootstrap.ts:918` | 제거 | focus 리스너 등록 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 구현자 새 oracle |
+| N02 | `main/app/bootstrap.ts:912` | 제거 | 가용성 방송 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 구현자 새 oracle |
+| N03 | `main/app/bootstrap.ts:914` | 제거 | 리스너의 웜업 재개 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 구현자 새 oracle |
+| N04 | `renderer/src/shared/stores/agentStore.ts:93` | 제거 | agentStore 가용성 구독 삭제 | suite | 잡음 | 잡음 | `agentStore.test.ts` · 1 | 구현자 새 oracle |
+| N05 | `main/adapters/claude/sdk.ts:8` | 제거 | loader memo(`??=` → `=`) | suite | 잡음 | 잡음 | `sdk.test.ts` · 1 | 구현자 새 oracle |
+| N06 | `main/adapters/claude/native-history.ts:217` | 뒤집기 | raw를 append 판정 전에 즉시 읽기 | suite | 잡음 | 잡음 | `native-history.test.ts` · 1 | 구현자 새 oracle |
+| N07 | `renderer/src/app/boot/steps.ts:104` | 뒤집기 | `backend` 단계를 landing 뒤로 | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 1 | 구현자 새 oracle |
+| X01 | `renderer/features/chat/harnesses/opencode/transcript/projection.ts:126` | 고정값 | `copyable: true | suite | 못 잡음 | 잡음 | `Timeline.memo.test.ts` · 4 | 재량 — EP-08 #2 |
+| X02 | `renderer/src/features/chat/providers/ChatProvider.tsx:12` | 제거 | store → `applyHarnessAvailability` 구독 삭제 | suite | 잡음 | 잡음 | `ChatProvider.availability.test.ts` · 1 | 재량 — EP-03 #2·#3 |
+| X03 | `main/app/bootstrap.ts:471` | 뒤집기 | 확인 시작을 첫 await(`:609`) 뒤 `workspace` 앞으로 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-02′ #1 |
+| X04 | `main/adapters/common/registry.ts:82` | 제거 | focus 대상에서 `failed` 제외 | suite | 잡음 | 잡음 | `registry.availability.test.ts` · 1 | 재량 — EP-04′ #3 |
+| X05 | `renderer/src/shared/stores/harnessAvailabilityStore.ts:28` | 제거 | 초기 목록 seed의 generation fence 삭제 | suite | 잡음 | 잡음 | `harnessAvailability.test.ts` · 1 | 재량 — 목록 밖(VP-04 path) |
+| X06 | `main/infra/db/native-history-queries.ts:81` | 호출 대체 | `->` → `json_extract` | suite | 잡음 | 잡음 | `native-history.db.test.ts` · 2 | 재량 — EP-06 #8 |
+| X07 | `main/features/history/native-sync.ts:35` | 제거 | legacy 내장 raw 분기 삭제 | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — legacy 행 `raw()` undefined → `claude/native-history.ts:217`이 `?? previous.snapshot.raw`로 같은 값 · 조합 E 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-06 #10 |
+| X08 | `main/adapters/claude/native-history.ts:217` | 제거 | lazy `previous.raw()` 무시 | suite | 잡음 | 잡음 | `native-history.test.ts` · 1 | 재량 — EP-06 #14 |
+| X10 | `main/app/settings-reactions.ts:40` | 고정값 | 경로 비교 `true` | suite | 잡음 | 잡음 | `settings-reactions.test.ts` · 1 | 재량 — EP-04′ #5 |
+| X12 | `renderer/src/features/chat/components/HarnessUnavailableNotice.tsx:29` | 다른 값 | Notice 재확인 대상 `claude` | suite | 잡음 | 잡음 | `HarnessUnavailableNotice.test.ts` · 2 | 재량 — EP-03 #4 |
+| X13 | `renderer/src/features/engine/common/components/EngineCard.tsx:38` | 고정값 | EngineCard 사유 `missing` 고정 | suite | 잡음 | 잡음 | `EngineCard.render.test.ts` · 2 | 재량 — EP-03 #8 |
+| X14 | `renderer/src/features/chat/components/ChatTile.tsx:74` | 제거 | ChatTile `!inflight` 보호 삭제 | suite | 잡음 | 잡음 | `ChatTile.harness.test.ts` · 1 | 재량 — EP-03 #4 |
+| X15 | `renderer/src/features/chat/components/ChatTile.tsx:74` | 제거 | ChatTile pending 요청 보호 삭제 | suite | 잡음 | 잡음 | `ChatTile.harness.test.ts` · 3 | 재량 — EP-03 #4 |
+| X16 | `renderer/src/features/chat/store/chatStore.ts:193` | 제거 | 재시드 대상에서 저장 세션 제외 조건 삭제 | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | 재량 — EP-03 #2 |
+| X19 | `main/app/project-resource-sync.ts:143` | 고정값 | 대기 적용 재시도 무장 `false` | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 2 | 재량 — EP-09 #1 |
+| X20 | `main/app/harnesses/opencode/mcp-reconcile.ts:61` | 고정값 | dirty 재시도 무장 `false` | suite | 잡음 | 잡음 | `mcp-reconcile.timer.test.ts` · 1 | 재량 — EP-09 #2 |
+| X21 | `main/adapters/common/registry.ts:33` | 제거 | refresh 합류 삭제 | suite | 잡음 | 잡음 | `registry.availability.test.ts` · 1 | 재량 — EP-02′ #3 |
+| X22 | `renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:52` | 맞바꿈 | rows 연결 head↔tail | suite | 잡음 | 잡음 | `TranscriptView.harness.test.ts` · 1 | 재량 — EP-08 #6~#8 |
+| X23 | `renderer/src/features/chat/harnesses/opencode/transcript/projection.ts:54` | 제거 | tail 투영의 직전 행 seed 삭제 | suite | 잡음 | 잡음 | `projection.golden.test.ts` · 2 | 재량 — EP-08 #1 |
+| X24 | `renderer/src/features/settings/components/UsageTab.tsx:170` | 다른 값 | fallback 높이 120px | suite | 잡음 | 잡음 | `UsageTab.chart.test.ts` · 1 | 재량 — EP-07 #2 |
+| X25 | `renderer/src/shared/ui/markdown/syntax.ts:35` | 제거 | markdown 문법 import 삭제 | suite | 잡음 | 잡음 | `syntax.test.ts` · 1 | 재량 — EP-07 #4 |
+| X26 | `main/adapters/claude/sdk.ts:41` | 제거 | warm 경로 직접 반환 삭제 | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 3 | 재량 — EP-10 #2 |
+| X27 | `main/adapters/claude/sdk.ts:14` | 제거 | import 실패 시 `pending` 해제 삭제 | suite | 잡음 | 잡음 | `sdk.test.ts` · 1 | 재량 — EP-10 #1 |
+| X29 | `main/app/harness-host.ts:27` | 제거 | Host 모델 조회 usable 게이트 삭제 | suite | 잡음 | 잡음 | `harness-host.test.ts` · 1 | 재량 — EP-05 #13 |
+| X30 | `main/features/harnesses/common/runtime-catalog.ts:165` | 제거 | runtime 행 `unavailable` 삭제 | suite | 잡음 | 잡음 | `runtime-catalog.test.ts` · 1 | 재량 — EP-05 #11 |
+| X31 | `main/app/handlers/misc.ts:43` | 제거 | recheck 핸들러 refresh 삭제 | suite | 잡음 | 잡음 | `misc-split.test.ts` · 1 | 재량 — EP-04′ #5 |
+| X33 | `main/infra/ipc/send.ts:27` | 맞바꿈 | 방송 채널 → `extensionsChanged` | suite | 잡음 | 잡음 | `send.availability.test.ts` · 1 | 재량 — 목록 밖(VP-04 path) |
+| X35 | `main/app/bootstrap.ts:914` | 제거 | 리스너의 `composerPreparation.invalidate()` 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-05 #14 |
+| X36 | `main/app/bootstrap.ts:915` | 뒤집기 | 리스너 `updateOpenCodeGlobalWatch(ctx, true)` | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-05′ #15 |
+| X38 | `main/app/handlers/session.ts:69` | 제거 | `session:load`의 분리 호출 삭제 | suite | 잡음 | 잡음 | `session.load.test.ts` · 1 | 재량 — EP-06 #12 |
+| X40 | `main/adapters/opencode/v1/server.ts:194` | 고정값 | `usable = true`(미지원 버전도 사용 가능) | suite | 잡음 | 잡음 | `server.test.ts` · 1 | 재량 — EP-05′ #1-4 |
+| X41 | `main/adapters/opencode/v1/server.ts:172` | 고정값 | OpenCode `executableIdentity` 상수 | suite | 잡음 | 잡음 | `server.test.ts` · 1 | 재량 — EP-04′ #3 |
+| X42 | `preload/index.ts:196` | 맞바꿈 | preload 구독 채널 → recheck | suite | 잡음 | 잡음 | `harness.test.ts` · 1 | 재량 — EP-05′ #8(AC5′) |
+| X43 | `preload/index.ts:192` | 맞바꿈 | preload invoke 채널 → backendList | suite | 잡음 | 잡음 | `harness.test.ts` · 1 | 재량 — EP-04′ #5 |
+| X45 | `main/infra/log/file-transport.ts:65` | 고정값 | 버퍼 쓰기 시 flush 무장 `false` | suite | 잡음 | 잡음 | `file-transport.test.ts` · 1 | 재량 — EP-09 #3 |
+| X46 | `main/adapters/opencode/v1/mcp-control.ts:189` | 다른 값 | 제출 대기 상한 500 → 60000ms | suite | 잡음 | 잡음 | `adapter.startup.test.ts` · 3 | 재량 — EP-09 #4 |
+| X47 | `main/infra/db/native-history-queries.ts:204` | 고정값 | `raw_json` 항상 `null` | suite | 잡음 | 잡음 | `native-session.test.ts` · 9 | 재량 — EP-06 #3-4 |
+| X48 | `main/infra/db/native-history-queries.ts:83` | 제거 | `raw_json IS NULL` 가드 삭제 | suite | 잡음 | 잡음 | `native-history.db.test.ts` · 6 | 재량 — EP-06 #8 |
+| X50 | `main/app/bootstrap.ts:907` | 고정값 | 웜업 `installed` 배선 `true` | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — prepare가 `warmup.ts:45` `allowed()`로 `bootstrap.ts:902` usable을 다시 본다 · 조합 E 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-05′ #7 |
+| X51 | `main/app/bootstrap.ts:902` | 제거 | 웜업 `allowed`의 usable 항 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-05 #14 |
+| X52 | `main/adapters/opencode/v1/mcp-control.ts:50` | 제거 | activity 신호의 waiter 깨우기 삭제 | suite | 잡음 | 잡음 | `mcp-control.test.ts` · 1 | 재량 — EP-09 #4 |
+| X53 | `main/app/bootstrap.ts:1315` | 제거 | 부팅 `updateOpenCodeGlobalWatch(ctx, true)` 삭제 | suite | 잡음 | 잡음 | `bootstrap.native-history.test.ts` · 2 | 재량 — EP-05′ #15 |
+| X54 | `main/app/bootstrap.ts:721` | 제거 | settings 반응의 `recheckOpenCode` 본문 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-04′ #5 |
+| X55 | `main/app/bootstrap.ts:722` | 다른 값 | settings 반응 재확인 대상 `claude` | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-04′ #5 |
+| X56 | `renderer/src/features/chat/components/HarnessUnavailableNotice.tsx:29` | 제거 | Notice 재확인 호출 삭제 | suite | 잡음 | 잡음 | `HarnessUnavailableNotice.test.ts` · 2 | 재량 — EP-03 #4 |
+| X57 | `main/app/bootstrap.ts:683` | 제거 | runtime catalog `availability` 주입 삭제 | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — `misc.ts:59-61`이 merged 행을 registry 상태로 재게이트 · 조합 E 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-05 #11 |
+| X59 | `main/app/bootstrap.ts:720` | 제거 | 초기 `openCodeExecutablePath` 주입 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-04′ #5 |
+| X60 | `renderer/src/features/backend/store/backendStore.ts:33` | 제거 | initBackend seed 삭제 | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 1 | 재량 — EP-03 #1 |
+| X61 | `renderer/src/features/chat/store/chatStore.ts:187` | 고정값 | 재시드 조기 return `true` | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | 재량 — EP-03 #2 |
+| X62 | `renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:105` | 고정값 | 추가 메뉴 사유 툴팁 `missing` 고정 | suite | 잡음 | 잡음 | `AgentEnvironmentView.interaction.test.ts` · 2 | 재량 — EP-03 #9 |
+| X63 | `renderer/src/features/chat/components/HarnessUnavailableNotice.tsx:21` | 고정값 | Notice 사유 문구 `missing` 고정 | suite | 잡음 | 잡음 | `HarnessUnavailableNotice.test.ts` · 2 | 재량 — EP-03 #4 |
+| X64 | `main/app/handlers/misc.ts:61` | 고정값 | agent:list `unavailable` `missing` 고정 | suite | 잡음 | 잡음 | `misc.runtime-catalog.test.ts` · 2 | 재량 — EP-05 #9 |
+| X65 | `main/features/harnesses/common/runtime-catalog.ts:165` | 고정값 | runtime 행 `unavailable` `missing` 고정 | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — `misc.ts:61`이 runtime 행 사유를 registry 사유로 덮는다 · 조합 E 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-05 #11 |
+| X66 | `main/adapters/common/registry.ts:45` | 고정값 | registry 사유 `missing` 고정 | suite | 잡음 | 잡음 | `registry.availability.test.ts` · 3 | 재량 — EP-05′ #1-4 |
+| X67 | `main/adapters/opencode/v1/server.ts:203` | 다른 값 | 버전 확인 실패 사유 `failed` → `missing` | suite | 잡음 | 잡음 | `server.test.ts` · 1 | 재량 — EP-05′ #1-4 |
+| X68 | `renderer/src/shared/stores/harnessAvailabilityStore.ts:20` | 제거 | renderer store push 적용 무시 | suite | 잡음 | 잡음 | `harnessAvailability.test.ts` · 1 | 재량 — 목록 밖(VP-04 path) |
+| X70 | `main/app/handlers/misc.ts:109` | 제거 | 설치 스트림 뒤 refresh 삭제 | suite | 잡음 | 잡음 | `misc-split.test.ts` · 1 | 재량 — EP-02′ #4 |
+| B07a | `app/electron.vite.config.ts:36` | 제거 | renderer `minify` 삭제 | bundle | 잡음 | 잡음 | gate:bundle — minified false · 2,701,477B · recharts 0 · shiki 0 · 자산 21 · SDK require 0 | VP-07 등록 #1 |
+| B07b | `renderer/src/features/settings/components/UsageTab.tsx:19` | 호출 대체 | `TokensPerDayChart` 정적 import 복원 | bundle | 잡음 | 잡음 | gate:bundle — minified true · 1,653,247B · recharts 363,005 · shiki 0 · 자산 20 · SDK require 0 | VP-07 등록 #2 |
+| B07c | `renderer/src/shared/ui/markdown/syntax.ts:1` | 호출 대체 | `from 'shiki'` 정적 값 import 복원 | bundle | 잡음 | 잡음 | gate:bundle — minified true · 1,467,994B · recharts 0 · shiki 174,154 · 자산 279 · SDK require 0 | VP-07 등록 #4 |
+| B10 | `main/adapters/claude/adapter.ts:1` | 호출 대체 | SDK `query` 정적 값 import 복원 | bundle | 잡음 | 잡음 | gate:bundle — minified true · 1,283,424B · recharts 0 · shiki 0 · 자산 21 · SDK require 1 | VP-10 등록 #2 |
+| R03a | `renderer/src/features/chat/store/chatStore.ts:221` | 제거 | 시드 폴백 삭제 → `landingBackend = backend ?? claude` | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 6 | VP-03 등록(EP-03‴ #2) |
+| U3 | `main/adapters/common/registry.ts:39` | 다른 값 | `backend === 'claude' ||` 분기 복원 | suite | 신규 | 잡음 | `registry.availability.test.ts` · 1 | VP-05 등록 U3(EP-05″ #16) |
+| U4a | `main/adapters/claude/adapter.ts:377` | 제거 | 성공 반환의 `usable: true` 삭제 | suite | 잡음 | 잡음 | `adapter.availability.test.ts` · 1 | VP-05 등록 U4(EP-05″ #17) |
+| U4b | `main/adapters/claude/adapter.ts:379` | 제거 | 실패 반환의 `usable: true` 삭제 | suite | 잡음 | 잡음 | `adapter.availability.test.ts` · 1 | VP-05 등록 U4(EP-05″ #17) |
+| U5 | `renderer/src/features/chat/store/chatStore.ts:222` | 제거 | `seedLandingBackend` 사용 불가 분기의 기록 호출 삭제(메모리만 claude) | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 6 | VP-03 등록 U5(EP-03‴ #2) |
+| U6 | `renderer/src/features/chat/store/chatStore.ts:188` | 제거 | `applyHarnessAvailability` 전환 분기의 기록 호출 삭제 | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | VP-03 등록 U6(EP-03‴ #3) |
+| U7 | `renderer/src/features/chat/store/chatStore.ts:1902` | 제거 | `setModel` 기록 판정의 이어가기 초안 제외 항 삭제 | suite | 잡음 | 잡음 | `Composer.selection.test.ts` · 3 | VP-03 등록 U7(EP-03‴ #5) |
+| U8 | `renderer/src/features/chat/store/chatStore.ts:187` | 다른 값 | usable이면 `landingBackend = 'opencode'`로 되돌린 뒤 return | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | VP-03 등록 U8(EP-03‴ #3) |
+| U9 | `renderer/src/features/chat/components/Composer.tsx:435` | 제거 | 모델 메뉴 `onPick`의 `setModel(…)` 호출 삭제(메뉴 닫기만) | suite | 잡음 | 잡음 | `Composer.selection.test.ts` · 2 | VP-03 등록 U9(EP-03‴ #6) |
+| V01 | `renderer/src/features/chat/providers/ChatProvider.tsx:11` | 제거 | 마운트 시 `applyHarnessAvailability()` 1회 호출 삭제 | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — `App.tsx:20` 1회 마운트 effect가 비동기 부팅(`steps.ts:86` 첫 await)보다 먼저 — 그때 `landingBackend`=claude·초안은 claude뿐(`chatStore.ts:183`·`:306`) · 조합 V 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-03‴ #4 (`:11`) |
+| V02 | `renderer/src/features/chat/components/Composer.tsx:335` | 다른 값 | 메뉴 노출 조건 `agents.some(supported)` → `agents.length > 0` | suite→related | 잡음 | 잡음 | `composerMount.render.test.ts` · 1 | 재량 — EP-03‴ #14 (`:335`) |
+| V03 | `renderer/src/features/chat/components/Landing.tsx:27` | 제거 | 랜딩의 `<Composer …/>` 삭제 | related | 잡음 | 잡음 | `NewChatLandingPage.harness.test.ts` · 19 | 재량 — EP-03‴ #10 (`:27`) |
+| V04 | `renderer/src/pages/ProjectLandingPage.tsx:112` | 제거 | 프로젝트 랜딩의 `<Composer …/>` 삭제 | suite | 잡음 | 잡음 | `ProjectLandingPage.project-picker.test.ts` · 7 | 재량 — EP-03‴ #11 (`:112`) |
+| V05 | `renderer/src/features/chat/store/chatStore.ts:1869` | 제거 | `rememberLandingBackend`의 메모리 갱신(`landingBackend = backend`) 삭제 | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 4 | 재량 — EP-03‴ #2·#3·#5 공유 helper |
+| V06 | `renderer/src/features/chat/store/chatStore.ts:1901` | 제거 | `setModel` 기록 판정의 `!selected.sessionId` 항 삭제 | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | 재량 — EP-03‴ #5 (형제 항) |
+| V07 | `renderer/src/features/chat/store/chatStore.ts:1903` | 제거 | `setModel` 기록 판정의 `selected !== beforeSession` 항 삭제 | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — 기록 대상(세션 없음·비이어가기)에서 SET_MODEL이 같은 객체를 내는 거부 분기(`chatReducer.ts:1623-1631`)는 UI 호출로 생기지 않는다(`Composer.tsx:432`·`:137-139`) · 조합 V 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-03‴ #5 (형제 항) |
+| V08 | `renderer/src/features/chat/store/chatStore.ts:195` | 제거 | 재시드 제외 목록의 `isContinuityDraft(entry)` 삭제(r2 신규 항) | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | 재량 — EP-03‴ #3 |
+| V09 | `renderer/src/features/chat/store/chatStore.ts:229` | 제거 | 부팅 시드 대상의 `!isContinuityDraft(entry)` 삭제(r2 신규 항) | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — 부팅 1회 호출(`steps.ts:68`) 시점에 이어가기 초안 없음 + 초안은 `agentKindLocked:true`(`chatStore.ts:1525`) · 조합 V 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-03‴ #2 |
+| V10 | `renderer/src/features/chat/store/chatStore.ts:222` | 다른 값 | 시드 폴백 기록 값 `claude` → 받은 `backend` | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 6 | 재량 — EP-03‴ #2 |
+| V11 | `renderer/src/features/chat/lib/parts.ts:63` | 다른 값 | `hasPartsText`의 공백 판정 `trim()` 삭제 | suite | 잡음 | 잡음 | `Timeline.memo.test.ts` · 2 | 재량 — EP-08 #2 (r2 술어) |
+| V12 | `renderer/src/features/chat/harnesses/opencode/transcript/projection.ts:131` | 뒤집기 | `copyable` 판정 `some` → `every` | suite | 못 잡음 | 잡음 | `Timeline.memo.test.ts` · 4 | 재량 — EP-08 #2 |
+| V13 | `main/adapters/common/registry.ts:39` | 뒤집기 | `info.usable ?? info.installed` → `info.installed ?? info.usable` | suite | 잡음 | 잡음 | `registry.availability.test.ts` · 2 | 재량 — EP-05″ #16 |
+| V14 | `renderer/src/features/chat/store/chatStore.ts:1870` | 고정값 | helper 설정 쓰기 값을 `claude` 고정(메모리는 선택값) | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 2 | 재량 — EP-03‴ #5 형제 맞바꿈(plan 제안) |
+| V15 | `main/infra/ipc/send.ts:63` | 제거 | 공용 `broadcast`의 파괴된 webContents 제외 삭제 | suite | 잡음 | 잡음 | `send.availability.test.ts` · 1 | 재량 — 목록 밖(EP-04″ #10 공용 helper) |
+| V16 | `main/adapters/common/registry.ts:96` | 제거 | `onAvailabilityChange` 해제 함수가 listener를 지우지 않음 | suite→related→full | 동치 | 동치 | r2 근거 유지(코드 무변경) — shutdown이 `stopped=true` 뒤 해제하고 리스너가 `bootstrap.ts:911`에서 반환, 이어 `registry.close()`(:981)가 비운다 · 조합 V 전체 913파일·8442케이스 새 실패 0 | 재량 — EP-04″ #7 |
+| V17 | `main/app/bootstrap.ts:969` | 제거 | shutdown의 focus 리스너 해제 삭제 | suite | 잡음 | 잡음 | `bootstrap.opencode-warmup.test.ts` · 1 | 재량 — EP-04″ #4 (`:969`) |
+| V18 | `preload/index.ts:198` | 제거 | preload 가용성 구독 해제의 `removeListener` 삭제 | suite | 잡음 | 잡음 | `harness.test.ts` · 1 | 재량 — EP-04″ #12 (`:198`) |
+| V19 | `renderer/src/shared/api/ipc.ts:157` | 다른 값 | `harnessApi.recheck`가 요청 하네스 대신 `claude` 전달 | suite | 잡음 | 잡음 | `HarnessUnavailableNotice.test.ts` · 2 | 재량 — EP-04″ #13 (`:157`) |
+| V20 | `renderer/src/features/chat/components/HarnessUnavailableNotice.tsx:25` | 제거 | "다시 확인" 응답 전 `disabled={busy}` 삭제 | suite | 잡음 | 잡음 | `HarnessUnavailableNotice.test.ts` · 2 | 재량 — EP-04″ #16 |
+| V21 | `renderer/src/app/boot/steps.ts:68` | 빈 값 | 부팅 시드 인자 `settings.lastBackend` → `null` | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 6 | 재량 — EP-03‴ #1 |
+| V22 | `renderer/src/features/chat/components/composer/modelSelection.ts:27` | 제거 | 기본 모델 선택의 `!agent.supported` 항 삭제 | suite | 잡음 | 잡음 | `Composer.selection.test.ts` · 2 | 재량 — EP-03‴ #13 |
+| V23 | `renderer/src/features/chat/components/composer/ModelMenu.tsx:31` | 제거 | 모델 메뉴 행 필터의 `agent.supported` 항 삭제 | suite | 잡음 | 잡음 | `Composer.harness.test.ts` · 1 | 재량 — EP-03‴ #12 |
+| V24 | `renderer/src/features/chat/store/chatStore.ts:291` | 고정값 | `freshEntry` backend를 `claude` 고정 | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 6 | 재량 — EP-03‴ #19 |
+| V25 | `renderer/src/features/chat/store/chatStore.ts:183` | 다른 값 | 마지막 백엔드 초기값 `claude` → `opencode` | suite | 잡음 | 잡음 | `chatStore.availability.test.ts` · 1 | 재량 — EP-03‴ #18 |
+| V26 | `renderer/src/features/engine/common/components/EngineCard.tsx:34` | 고정값 | 사유 배지 노출 조건 `!agent.supported` → `true` | suite | 못 잡음 | 잡음 | `EngineCard.render.test.ts` · 2 | 재량 — EP-03‴ #15 (`:34`) |
+| V27 | `renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:96` | 제거 | 추가 메뉴 하네스 목록에서 OpenCode 제외 | suite | 잡음 | 잡음 | `AgentEnvironmentView.interaction.test.ts` · 4 | 재량 — EP-03‴ #16 (`:96`) |
+| V28 | `main/adapters/opencode/v1/server.ts:172` | 다른 값 | OpenCode identity를 경로만(stat 항 제거) | suite | 잡음 | 잡음 | `server.test.ts` · 1 | 재량 — EP-04″ #8 |
+| V29 | `main/adapters/common/registry.ts:82` | 다른 값 | focus 대상에 `unsupported` 추가 | suite | 잡음 | 잡음 | `registry.availability.test.ts` · 1 | 재량 — EP-04″ #6 |
+| V30 | `renderer/src/features/chat/components/ChatTile.tsx:71` | 제거 | 안내 보호 조건의 `pendingToolApprovals` 항 삭제 | suite | 잡음 | 잡음 | `ChatTile.harness.test.ts` · 1 | 재량 — EP-03‴ #7 (형제 항) |
+| V31 | `renderer/src/features/chat/lib/parts.ts:59` | 제거 | `isMainTextPart`의 child 제외 항 삭제(partsText 공유) | suite | 잡음 | 잡음 | `Timeline.memo.test.ts` · 2 | 재량 — EP-08 #2 (공유 술어) |
+| V32 | `main/app/handlers/misc.ts:44` | 다른 값 | 수동 재확인 응답을 `claude` 상태로 | suite | 잡음 | 잡음 | `misc-split.test.ts` · 1 | 재량 — EP-04″ #3 |
+| V33 | `renderer/src/features/chat/store/chatStore.ts:187` | 뒤집기 | 재시드 조기 return 조건 반전 | suite | 잡음 | 잡음 | `ChatProvider.availability.test.ts` · 2 | 재량 — EP-03‴ #3 |
+| V34 | `renderer/src/features/chat/store/chatStore.ts:221` | 뒤집기 | 시드 폴백 조건의 usable 판정 반전 | suite | 잡음 | 잡음 | `steps.availability.test.ts` · 10 | 재량 — EP-03‴ #2 |
+| W01 | `renderer/src/app/boot/steps.ts:104` | 뒤집기 | `backend` 단계 `mandatory: false` → `true`(목록 미수신이면 부팅 실패) | suite | 신규 | 잡음 | `steps.availability.test.ts` · 2 | 독립 — EP-03⁗ #1 D-021 "단계가 실패해도 시드" |
+| W02 | `renderer/src/shared/stores/harnessAvailabilityStore.ts:7` | 다른 값 | OpenCode store 기본값 `missing` → `usable:true`(미수신을 사용 가능으로 취급) | suite | 신규 | 잡음 | `steps.availability.test.ts` · 2 | 독립 — D-021 입력 상태(store 기본값 · VP-04 파일) |
+| W03 | `renderer/src/features/engine/common/components/EngineCard.tsx:37` | 고정값 | 배지 문구 선택 `agent.unavailable ?` → `true ?`(사유 없는 미지원 행도 사유 키) | suite→related→full | 신규 | **못 잡음** | 전체 913파일·8442케이스 새 실패 0(단독 실행) · 재현 [`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts) HEAD 2/2 통과 → 이 고장에서 2 실패 | 독립 — EP-03⁗ #15 `:37` "사유 없으면 일반 문구" |
+| W04 | `renderer/src/features/engine/common/components/EngineCard.tsx:39` | 다른 값 | 일반 배지 키 `engine.card.unsupportedAdapter` → `harnessUnavailable.failed` | suite→related→full | 신규 | **못 잡음** | 전체 913파일·8442케이스 새 실패 0(단독 실행) · 재현 [`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts) HEAD 2/2 통과 → 이 고장에서 2 실패 | 독립 — EP-03⁗ #15 일반 문구 슬롯(`:39` — `:37` 삼항의 else 값) |
+| W05 | `renderer/src/features/chat/harnesses/opencode/transcript/projection.ts:131` | 다른 값 | `copyable` 집계를 마지막 메시지만(`messages.slice(-1).some`) | suite | 신규 | 잡음 | `Timeline.memo.test.ts` · 2 | 독립 — EP-08 #2 메시지 순서 축 |
+| W06 | `renderer/src/features/chat/harnesses/opencode/transcript/projection.ts:131` | 다른 값 | `copyable` 집계를 첫 메시지만(`messages.slice(0, 1).some`) | suite | 신규 | 잡음 | `Timeline.memo.test.ts` · 2 | 독립 — EP-08 #2 메시지 순서 축 |
+| W07 | `renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:176` | 고정값 | meta 행 복사 텍스트 `row.copyable ?` → `true ?`(copyable 무시) | suite | 신규 | 잡음 | `Timeline.memo.test.ts` · 4 | 독립 — EP-08 #2 소비 자리(`copyable` → 버튼) |
+
+- 검산: 142 = 잡음 132(r2 잡음 125 · r2 못 잡음 2 · 독립 5) · 동치 8(r2 동치 8) · 못 잡음 2(독립 W03·W04).
+- `못 잡음` 2건은 r3-13 D16으로 이관한다 — EP-03⁗ #15는 §10 고정 목록 자리라 VP-03 `PAIR_FAIL`이다. W04의 `:39`는 S03‴ 술어에 걸리지 않는 줄이지만 `:37`에서 시작하는 같은 삼항의 else 값이고 #15 규칙이 "사유 없으면 일반 문구"를 적는다 — 목록 공백이 아니라 그 자리의 입력 공백이다.
+- 동치 8건의 확인 실행: 코드 무변경이라 r2 근거가 그대로이고, 조합 E·V 전체 스위트 새 실패 0.
+
+## r3-5. V-pair closeout — `UT → IT → ST → AT`
+
+❌ REQUIRED 11 중 PASS 9 · PAIR_FAIL 2 · BLOCKED 0. PLAN_GAP 0.
+
+| Pair | left ↔ right / 레벨 | 결과 | 직접 oracle 좌표 · 적대 증거 | §10 전수 |
+|---|---|---|---|---|
+| VP-11 | MD-04 ↔ UT-04 / UT | PASS | CANON·DEDUPE · R11a·R11b 잡음 | 2/2 |
+| VP-10 | MD-03 ↔ UT-03 / UT | PASS | SDK·SDKRETRY·TOOLS·MAP·PREFETCH·gate:bundle · X27·N05·X26·B10 잡음 | 5/5 |
+| VP-09 | MD-02 ↔ UT-02 / UT | PASS | TIMER·MCP·LOG·ADMIT·SIGNALS · R09 6종·X19·X20·X45·X46·X52 잡음 | 6/6 |
+| VP-08 | MD-01 ↔ UT-01 / UT | PASS | GOLD·COPYSEM·MULTICOPY·MEMO·COPY·INDEX · R08a·R08b·X01·X22·X23·V11·V31·V12·W05·W06·W07 잡음 — D13 해소 | 8/8 |
+| VP-07 | AR-02 ↔ IT-02 / IT | PASS | gate:bundle·CHART·SYNTAX · B07a·b·c·X24·X25 잡음 — CHART 부하 의존(N10) | 4/4 |
+| VP-06 | AR-03 ↔ IT-03 / IT | PASS | RAW·WRITE·LOAD·APPEND·OCARCHIVE·RECOVER · R06a·b·N06·X06·X08·X38·X47·X48 잡음 · X07 동치 | 16/16 |
+| VP-05 | AR-01 ↔ IT-01 / IT | PASS | CLAUDE·PORT·HOST·WARM·ROWS·CACHE·PREP·RESUME·WATCH · R05 6종·U3·U4a·U4b·V13·X29·X30·X35·X36·X40·X51·X53·X64·X66·X67 잡음 · X50·X57·X65 동치 | 17/17 |
+| VP-04 | SD-01 ↔ ST-01 / ST | PASS | PATH·BOOTPATH·INSTALL·BOOT·JOIN·FAILEDFOCUS·RESUME·IDENTITY·FANOUT·PRELOAD·STORE·RECHECK · R04a·b·N01·N02·X04·X05·X10·X12·X21·X31·X33·X41~X43·X54~X56·X59·X60·X68·V15·V17~V20·V28·V29·V32 잡음 · V16 동치 | 16/16 |
+| VP-03 | R-03 ↔ AT-03 / AT | **PAIR_FAIL** | SEED·DEGRADED·DRAFTSEED·DRAFT·PROVIDER·PREFERENCE·MENUPICK·PENDING·NOTICE·RECHECK·LANDING·PROJECT·MENU·SELECT·CHIP·CARD·ADD·AGENT·INITIAL·FRESH · R03a·b·c·N04·N07·U5~U9·X02·X13~X16·X61~X63·V02~V06·V08·V10·V14·V21~V27·V30·V33·V34·W01·W02 잡음 · V01·V07·V09 동치 / **W03·W04 못 잡음**(#15 일반 문구 슬롯) — D12·D14 해소 | 18/19 |
+| VP-02 | R-02 ↔ AT-02 / AT | PASS | BOOT·JOIN·INSTALL · R02a·R02b·X03·X21·X70 잡음 | 4/4 |
+| VP-01 | R-01 ↔ AT-01 / AT | **PAIR_FAIL** | gate:eslint error 1(`steps.availability.test.ts:111:31`) · gate:CI run #959 Lint 실패 — vitest 차집합 ∅·typecheck·scripts·migration·docs·budget·bundle은 통과(r3-9) | 0 — 집계 |
+
+- root `PAIR_FAIL` 2는 서로 다른 원인이라 종속(`BLOCKED_BY`)이 없다. VP-01은 r3 테스트 코드의 lint 위반, VP-03은 #15 좌표의 입력 공백이다.
+- 이번 라운드 실행 범위: r2 PAIR_FAIL 2(VP-03·VP-08) + ΔV4 CHANGED VP-03·VP-08 + 운영 gate에 더해 r2 PASS 9 pair도 좌표 실재를 다시 찾고 r2 잡음 고장을 전부 재실행했다 — 덮개 회귀 0.
+- 좌표 정정 확인: EP-03⁗ #10 LANDING·#11 PROJECT·#14 CHIP은 ΔV4가 적은 좌표 그대로이고 V03(19)·V04(7)·V02(1)가 잡힌다.
+
+### AT / AC 세부와 합계
+
+표기: ✅ 동작 충족 + 잠금 · ⚠️ 동작은 확인했으나 못 잡음·PLAN_GAP이 남음 · ❌ 동작 미충족.
+
+| AC | 결과 | 근거 |
+|---|---|---|
+| AC1 | ❌ | eslint(무수정) error 1 · Windows CI #959 Lint 실패로 typecheck·test 단계 미실행 / vitest 차집합 ∅(2차)·typecheck 0·scripts·migration·docs·budget 통과 |
+| AC2′ | ✅ | BOOT · R02a·R02b·X03 잡음 |
+| AC3′ | ✅ | JOIN · HOST·WARM · X21 잡음 |
+| AC4″ | ✅ | EP-04″ 16/16 · X04·X41·X54·X55·X59·X33·X68·X05·X12·X56 잡음 |
+| AC5″ | ✅ | INSTALL·FANOUT·PRELOAD·STORE · X33·X42·X43·V15·V18 잡음 |
+| AC6′ | ✅ | ROWS·CACHE·AGENT·PORT·CLAUDE · X64·U3·U4a·U4b 잡음 |
+| AC7‴ | ✅ | SEED·DEGRADED(거절·10초 초과)·DRAFTSEED·DRAFT·PROVIDER·PREFERENCE·MENUPICK·PENDING·RECHECK·INITIAL·FRESH · U5~U9·W01·W02 잡음(D14 해소) |
+| AC8 | ⚠️ | CARD·ADD · 지원 행 배지 0(V26 잡음, D12 해소)·X13·X62·R03c·V27 잡음 / 사유 없는 미지원 행의 일반 문구 미잠금(W03·W04 → D16) |
+| AC9 | ✅ | HOST·WARM·PREP·WATCH·RESUME · X35·X36 잡음 |
+| AC10 | ✅ | 진입 1,283,424B · `entryMinified:true` · B07a red(2,701,477B·false) |
+| AC11 | ✅ | recharts 0B · CHART · B07b red(363,005B) · X24 잡음 |
+| AC12 | ✅ | shiki 0B · 자산 21 · SYNTAX · B07c red(174,154B·자산 279) · `package*.json` diff 0 |
+| AC13 | ✅ | GOLD·COPYSEM·MULTICOPY·MEMO·COPY · X01·V11·V31·V12·W05·W06·W07 잡음(D13 해소) |
+| AC14 | ✅ | INDEX·`Timeline.selection.test.ts` · X22 잡음 |
+| AC15 | ✅ | RAW·WRITE · R06a·X47 잡음 |
+| AC16 | ✅ | RAW·LOAD · R06b·X38·X48 잡음 |
+| AC17 | ✅ | APPEND·OCARCHIVE·RECOVER · N06·X08 잡음 |
+| AC18 | ✅ | TIMER · R09-1·X19 잡음 |
+| AC19 | ✅ | MCP·ADMIT · R09-2·X20·X46·X52 잡음 |
+| AC20 | ✅ | LOG · R09-3·X45 잡음 |
+| AC21 | ✅ | SDK·SDKRETRY·PREFETCH·require 0 · X27·N05·X26·B10 잡음 |
+| AC22 | ✅ | CANON·DEDUPE · R11a·R11b 잡음 |
+| AC23 | ✅ | `check-doc-inventory --check` ok · r3 문서 계약 변경 0 |
+
+- **합계 재측정**: `✅ 21 · ⚠️ 1 · ❌ 1 = 23`. 자기보고 `✅ 22 · ⚠️ 1(AC1) · ❌ 0`과 갈린다 — AC1은 CI 대기가 아니라 lint 실패(D15), AC8은 D16.
+- **합계 사본 대조**: 구현 본문 22/23 = `c5c6f39` trailer `Criteria-Met: 22/23`(+`Criteria-Pending: AC1 Windows CI`) = INDEX 비고 22/23 — 일치.
+
+### pair별 plan §10 강제 지점 분모
+
+| Pair | §10 자리 목록 | 재측정 · 좌표 | 목록 밖 발견 · 고장 ID | 결과 |
+|---|---|---|---|---|
+| VP-02 | EP-02′ (4) | S02a 6·S02b 1(r2와 같음) | — | PASS |
+| VP-03 | EP-03⁗ (19) | S03‴ 43 = 목록 43줄(차집합 0) | #15 W03·W04 못 잡음 · 목록 밖 `steps.ts:104`·store 기본값은 W01·W02 잡음 | PAIR_FAIL |
+| VP-04 | EP-04″ (16) | S04′ 45 = 38 + VP-02 2 + VP-05 5 | — | PASS |
+| VP-05 | EP-05″ (17) | S05a 6·S05d 0·S05e 0 | — | PASS |
+| VP-06 | EP-06 (16) | S06a 5·S06b 11·S06c 1 | — | PASS |
+| VP-07 | EP-07 (4) | S07a 1·S07b 1·S07c 0 · gate:bundle | — | PASS |
+| VP-08 | EP-08 (8) | S08 4 | `Timeline.tsx:176` 소비 자리 W07 잡음 | PASS |
+| VP-09 | EP-09 (6) | S09a 1·S09b 0 | — | PASS |
+| VP-10 | EP-10 (5) | S10a 0·S10b 4 · require 0 | — | PASS |
+| VP-11 | EP-11 (2) | S11 0 | — | PASS |
+
+- 닫힌 자리: 97 중 **96** — EP-03⁗ #15를 뺀 값. 검산 4+19+16+17+16+4+8+6+5+2 = 97 = 구현자 표 97행(pair별 행 수 같음, 양방향 차집합 0).
+- `실패 의미`에 "다른 게이트가 막는다"를 적은 행: 없음.
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| typecheck | PASS | 3구성 `error TS` 0(1분28초) |
+| eslint(무수정) | **FAIL** | 1,999파일 · error 1(`app/src/renderer/src/app/boot/steps.availability.test.ts:111:31` `@typescript-eslint/explicit-function-return-type`) · warning 2(`Timeline.tsx:57`·`useTranscriptVirtualizer.ts:22`, r2와 같음). 그 줄은 `c5c6f39`가 만들었다(`git blame`) — 기준선 `b5c0e9e`의 같은 4파일은 0 |
+| vitest 차집합 | PASS | 기준선 `b5c0e9e` 913파일·8434케이스(8402·23·9) · HEAD 2차 913·8442(8410·23·9) — 실패 ID 양방향 ∅. HEAD 1차(8409·24·9)의 추가 1은 CHART 부하 의존(N10) |
+| scripts · migration · docs · budget | PASS | 144/144(16 suites) · sync ok 34+1·no-copies ok·append-only ok since v0.3.1 · 9 items·117 channels·prose·links ok · 16 suites ok |
+| bundle | PASS | 1,283,424B · 압축 · recharts 0 · shiki 0 · 자산 21 · SDK require 0 |
+| CI | **FAIL** | [run 41612162245](https://github.com/muzaby/orca-skin/actions/runs/41612162245)(#959, `c5c6f39`) — migration·docs·budget success · Lint failure(`1 error, 2 warnings`) · Typecheck·Test skipped. 직전 [run 41585361703](https://github.com/muzaby/orca-skin/actions/runs/41585361703)(#958, `b5c0e9e`) success |
+| message-bus | PASS | `c5c6f39` trailer 6키 파싱 |
+
+## r3-6. 외부 포트 / 문서 계약
+
+| 계약 | shape | semantics | 결과 |
+|---|---|---|---|
+| `HostHarnessPort`·`orca:backend:list`·`orca:harness:*` | r3 diff 밖(production 무변경) | r2 좌표 재실행 — HOST·INSTALL·FANOUT·PRELOAD · R05-6·X29·X33·X42·X43·V15 잡음 | PASS |
+| 문서(`docs/arch/**`·`IPC_CONTRACT.md`) | r3 변경 0 | doc-inventory `--check` ok | PASS |
+
+## r3-7. 숫자 / 음성 기준 / 상한 재측정
+
+- vitest: 기준선 913파일·8434케이스 → HEAD 913파일·8442케이스(+8케이스 = DEGRADED 2 · MULTICOPY 6). 실패 23은 양쪽 같은 ID이고 r2 HEAD 23과 같다.
+- 자리 수: S03‴ 43→43 · S04′ 45 · S05e 0 · S08 4 · 분모 97 = 구현자 표 97.
+- 고장: 142 = 132 + 8 + 2. AC: ✅ 21 · ⚠️ 1 · ❌ 1 = 23.
+- 번들: 진입 1,283,424B(기준 3,891,098B) · 자산 21(기준 277) — r2와 같다.
+- 0건 기준: S05e 0 · S05d 0 · SDK require 0 — PORT·HOST·gate:bundle 양성과 짝(U3·R05-6·B10 잡음).
+- 새 실패 0 판정의 기준선: 안정 실패 23(`head-failed-ids.txt`) — 부하 의존 CHART는 기준선에서 뺐다.
+
+## r3-8. 테스트 가능한 핸들 탐색 후 남은 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 사람 실기 |
+|---|---|---|
+| 부팅 체감 | 동시 시작·합류(BOOT·X03) | Windows 설치본 부팅 화면 종료 시점(plan §19 ①) |
+| 미설치 화면 | 시드·미수신 부팅·재시드·Notice·대기 보호·사유 문구·추가 비활성·지원 카드 배지 0 | OpenCode 미설치 PC 랜딩·모델 메뉴·엔진 추가·기존 세션 1회, Notice white/dark(§19 ②) |
+| 설치 뒤 복귀 | registry focus·방송·preload·store 반영 | 실제 설치 뒤 창 포커스로 노출 복귀(§19 ③) — 새 대화가 Claude로 남는 것까지(D-019) |
+| 사유 없는 미지원 카드 | 재현 테스트로 HEAD 동작 확인(D16) | 없음 — 기계 잠금 대상이다 |
+
+## r3-9. 게이트 재실행
+
+- 설치: 컨테이너의 기존 `app/node_modules`를 썼다 — `npm ls --depth=0` missing·invalid 0, better-sqlite3는 Electron ABI(Electron Node 모드 로드 성공·plain Node 실패). DB 스위트까지 Electron Node 모드로 실행했다.
+- vitest: `ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron ./node_modules/vitest/vitest.mjs run --maxWorkers=3 --reporter=json` — HEAD 1차 3분30초 · HEAD 2차 3분47초 · 기준선 `b5c0e9e` worktree(같은 `node_modules` 연결). 실패 ID는 0290 `scan/vitest-failed-ids.mjs`로 뽑아 `comm`으로 비교했다.
+- 정적: `npm run typecheck` · `./node_modules/.bin/eslint ./src ./scripts -f json`(무수정·캐시 없음) · `node --test scripts/*.test.mjs` · `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-test-budgets.mjs` · `electron-vite build --sourcemap --outDir <scratchpad>` + `scan/bundle-measure.mjs`.
+- Windows CI: GitHub API로 PR #529 run 41612162245의 job `gate`(windows-latest) 단계·로그 확인 — `head_sha` `c5c6f39`, Lint 단계 `steps.availability.test.ts 111:31 error`, 이후 단계 skipped.
+- 게이트가 작업 트리를 바꿨는가: 없음 — eslint `--fix` 미사용, doc-inventory는 `--check`만, 빌드 출력은 scratchpad. 실행 뒤 `git status`는 `verify-evidence/r3/`만.
+- 잔여물: 기준선 worktree·번들 출력·실행 JSON은 scratchpad에만 있다. 재현 테스트는 실행 때만 `app/src/renderer/src/features/engine/common/components/`에 복사하고 지웠다.
+
+## r3-10. 검증 책임 분리 — 사람 vs 에이전트
+
+| 항목 | 결과 |
+|---|---|
+| lint/typecheck/vitest/CI/번들 | 에이전트 실행 — lint·CI FAIL, 나머지 PASS |
+| AC ↔ production path | 에이전트 대조 — ❌ 1 · ⚠️ 1 |
+| 시각·실제 설치본 | 사람 실기 — r3-8 |
+
+## r3-11. Repository operation checks
+
+- AGENTS.md 변경 없음. r3 문서 변경은 plan `[구현자 기입] (r3)`·메타 상태 1행·INDEX 1행·`evidence/r3-*`뿐이다.
+- `[구현자 기입] (r3)` 7필드 전부 존재 — 설계 리뷰 · 강제 지점 전수(97행 + `남긴 곳` 열) · 잠금(137행 표) · Product/UX · 잠재 문제 5행 · 구현 보고 · Review Signals. 강제 지점 표는 pair §10 자리 전부(97)를 담는다.
+- INDEX: 0292 행 `impl/IMPL_DONE (r3)`·다음 Claude(검증)·라운드 3·비고 3줄 — 상태는 실제와 맞지만 비고의 "lint 통과"는 D15로 사실이 아니다. 대상 커밋 칸은 구현자가 이전 좌표를 지우고 자리표시자만 남겼다(r2와 같은 방식) — 이번 커밋에서 목록을 복원하고 `029655f`·`b5c0e9e`·`c5c6f39`를 기입한다.
+- 인용 해시: `3c50653`·`64047af`·`feaca09` = commit·`origin/main` 조상 · `c9d212b`·`ceae905`·`cc75cf8`·`c958f83`·`981056f`·`24d91a6`·`029655f`·`b5c0e9e`·`c5c6f39` = commit·PR #529 브랜치 조상(뒤 셋은 PR #525 브랜치에는 없음) · `0eb7dc2` = commit(`main` 비조상).
+- trailer: `c5c6f39` `Agent: codex`·`Handoff`·`Status: partial`·`Criteria-Met: 22/23`·`Criteria-Pending: AC1 Windows CI`·`Verified-By: pending` — 허용값, 파싱 6키.
+- 같은 handoff의 PR이 둘 열려 있다 — #525(`codex-0292-deep-optimization`, `24d91a6`) · #529(`ccr-d3f0312d-rr9r2c`, `c5c6f39`). 좌표는 #529 브랜치 기준으로 적는다.
+
+## r3-12. 구현자 코멘트 / 선조치 경계
+
+| 구현자 코멘트 | 검증자 판단 | 반영 |
+|---|---|---|
+| 새 대화 생성의 `lastSessionId` 쓰기를 빼고 `lastBackend` patch만 셈 | 타당 — 부팅 직후 전체 쓰기 정확히 1 단언을 남겨 0·2와 구별된다 | 없음 |
+| 다중 메시지 두 순서 + 본문 없음 fixture | 타당 — W05·W06이 각각 반대 순서 케이스로 잡힌다 | 없음 |
+| 지원 카드 배지 0 단언 | 타당(V26 잡음) — 다만 사유 없는 미지원 행 분기가 남았다 | D16 |
+| 전체 실행 일시 실패 3건 재확인 | 확인 — 이 환경에서는 다른 1건(CHART)이 같은 방식으로 흔들렸다 | N10 |
+| "새 브랜치는 PR CI 대상 아님 — Windows CI 대기" | 사실 아님 — PR #529가 run #957(`029655f`)부터 열려 있었고 r3 push의 run #959가 Lint에서 실패했다 | D15 |
+| eslint 오류 0 | 사실 아님 — 마지막 수정(반환 주석 삭제) 뒤 재실행이 없었다 | D15 |
+
+## r3-13. Finding disposition / 파생 이슈
+
+| # | finding | 귀속 | disposition | 후속 |
+|---|---|---|---|---|
+| D15 | 운영 gate lint가 red다 — r3가 더한 `steps.availability.test.ts:111:31` `const currentBackend = () => {`가 `@typescript-eslint/explicit-function-return-type` error. Windows CI #959가 Lint에서 실패해 Windows typecheck·test가 r3 트리에서 돌지 않았다. 구현 보고·`r3-gates.json`·INDEX는 "lint 통과"로 적었다 | VP-01 · AC1 · 운영 gate lint·CI | BLOCKING (PAIR_FAIL) | 반환 타입을 명시하고 무수정 eslint·typecheck·Windows CI를 마지막 수정 뒤 다시 관측 |
+| D16 | 엔진 카드의 "사유 없으면 일반 문구" 슬롯(`EngineCard.tsx:37-39`)이 잠기지 않는다 — 사유 선택을 `true`로 고정(W03, 배지에 원시 키 `harnessUnavailable.undefined`)하거나 일반 키를 사유 키로 바꿔도(W04, external 카드에 OpenCode 확인 실패 문구) 전체 913파일·8442케이스 green. CARD 입력에 사유 없는 미지원 행이 없고 `미지원 adapter`는 부정 단언에만 있다. 그런 행은 `agent:list`가 등록 백엔드 밖 adapter 설정에 낸다(`misc.ts:55-61`) | VP-03 · EP-03⁗ #15 · AC8 · D-003 | BLOCKING (PAIR_FAIL) | 사유 없는 미지원 행(예: `external`·사유 없는 `opencode`)에서 `미지원 adapter` 1·사유 문구 0을 단언(W03·W04 red). 재현 틀 [`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts) |
+| N10 | CHART(`UsageTab.chart.test.ts`)의 `vi.waitFor` 기본 1초가 전체 스위트 부하(3 workers)에서 한 번 초과했다 — 단독 3/3·2차 전체 통과. 구현자도 다른 3건의 같은 현상을 적었다 | VP-07 좌표(r1 테스트, r3 무변경) | NON_BLOCKING | 기록 — Windows CI에서 흔들리면 대기 상한 조정 후보 |
+
+- r2 파생 이슈 상태: D12 closed(V26 잡음 — CARD 지원 2케이스) · D13 closed(V12 잡음 4 · W05·W06·W07 잡음) · D14 closed(ΔV4 D-021 · DEGRADED 거절·10초 초과 · U5·W01·W02 잡음) · N6 closed(ΔV4 S03‴ 43줄) · N7 closed(ΔV4 메타 좌표 정정) · N9 closed(r3 케이스명 "empty child id is not main text") · N3·N8 open(변화 없음) · N5 open(r3 X57·X65 동치 재확인).
+
+> plan `[검증자 기입] 파생 이슈`로 이관했다. verify 3회째가 FAIL이라 r4 재구현 전에 `handoff-review`를 1회 수행한다(`docs/handoff/AGENTS.md §라운드`). 이어 구현자가 D15·D16을 고친다.
+
+## r3-14. Review Signals — 사실만
+
+- 이전 라운드와 유사 증상: 좌표의 운반 값이 한쪽 분기뿐인 형태가 세 라운드째다 — r1 사유 기본값 `missing`(X13·X62·X63·X64) · r2 `supported:false`만(V26)·단일 메시지 턴만(V12) · r3 사유 없는 미지원 행 없음(W03·W04). r3는 같은 #15 자리에서 다른 슬롯이 남았다.
+- 관련 plan 지침: ΔV4 #15 규칙 칸은 "사유 없으면 일반 문구"를 적었고, 같은 행 oracle 칸은 지원 행과 3사유만 요구했다.
+- 구현 보고의 gate 산출이 마지막 수정 전 실행 결과였다(D15) — 이 handoff에서 처음이다(r1·r2 gate 보고는 재측정과 일치).
+- 사용자 결정 변경: 없음(D-021은 ΔV4가 r2 동작 유지로 받았다).
+- 반복된 검증 환경 한계: 전체 스위트 부하에서 짧은 대기 상한 테스트가 흔들린다(N10, 구현자 3건) · Windows CI는 PR이 있어야 돈다.
+
+## r3-15. 결론
+
+- 상태: **FAIL** — verify 3회째. `docs/handoff/AGENTS.md §라운드`에 따라 r4 재구현 전에 `handoff-review` 1회가 필요하다.
+- pair: PASS 9(VP-02·04·05·06·07·08·09·10·11) · PAIR_FAIL 2(VP-01 D15 · VP-03 D16) · BLOCKED 0.
+- PLAN_GAP: 0 — D16은 #15 규칙이 이미 적은 분기의 입력 공백이라 새 계약 없이 고칠 수 있다.
+- r2 파생 이슈: D12·D13·D14 closed — r2 못 잡음 2건이 잡음이 됐다.
+- AC: ✅ 21 · ⚠️ 1(AC8) · ❌ 1(AC1) = 23.
+- 운영 gate: lint·CI FAIL, 나머지 PASS.
+- 다음: Claude `handoff-review` → Codex r4가 D15·D16을 고친다. 다음 verify는 이 이력의 못 잡음 2(W03·W04)·동치 8을 다시 실행한다.
