@@ -1,0 +1,3998 @@
+{
+  "round": "r4",
+  "registry": "verify-evidence/r3/mutations.json",
+  "entries": [
+    {
+      "id": "R02a",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "합류 대신 시작 직후 `await installation`(순차 대기)",
+      "attribution": "VP-02 등록 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\toverlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R02b",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "`finish()` 앞 `await installation` 삭제",
+      "attribution": "VP-02 등록 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\toverlaps the deferred install check with DB initialization, joins before finish, and removes focus listener",
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\trethrows a failed concurrent installation check at the join and keeps the critical boot report"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R03b",
+      "file": "app/src/renderer/src/features/chat/components/ChatTile.tsx",
+      "change": "가용성 조회 하네스 claude↔opencode",
+      "attribution": "VP-03 등록 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts\tshows an unavailable notice for idle OpenCode while retaining the active turn controls until completion"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R03c",
+      "file": "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+      "change": "추가 항목 `disabled` 조건 반전",
+      "attribution": "VP-03 등록 #9",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.crud.test.ts",
+        "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 14,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 14,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.crud.test.ts\tadds the selected claude harness through the production menu, form and API",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.crud.test.ts\tadds the selected opencode harness through the production menu, form and API",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tselects Claude or OpenCode before opening their production forms and closes the menu",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible missing reason and keeps Claude additions usable",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible unsupported reason and keeps Claude additions usable",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible failed reason and keeps Claude additions usable"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R04a",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "focus identity 비교 삭제",
+      "attribution": "VP-04 등록 #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > focus probes only a changed missing/failed identity, never a ready/unsupported installation",
+          "app/src/main/adapters/common/registry.availability.test.ts\trechecks changed failed identities once and leaves an unchanged failed identity alone"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R04b",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "변화 비교 삭제(매번 통지)",
+      "attribution": "VP-04 등록 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts",
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts",
+        "app/src/main/app/handlers/misc-split.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 3,
+        "tests": 23,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 3,
+        "tests": 23,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\tbroadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription",
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > joins concurrent refresh/settled consumers, retains previous state and emits only changes",
+          "app/src/main/app/handlers/misc-split.test.ts\thandlers/misc 분해 (0179) > preserves backend keys, rechecks the requested harness and refreshes after the install stream"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R05-6",
+      "file": "app/src/main/app/harness-host.ts",
+      "change": "Host `installed`가 `adapter.isInstalled()` 직접 호출",
+      "attribution": "VP-05 등록 #6",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/harness-host.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/harness-host.test.ts\tcreateHostHarnessPort (0291 AR-02) > installed reads the settled registry state and missing harnesses are not installed",
+          "app/src/main/app/harness-host.test.ts\tblocks model probes for an installed unsupported CLI without changing installed semantics"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R05-7",
+      "file": "app/src/main/app/harnesses/opencode/warmup.ts",
+      "change": "웜업 `installed` 게이트 삭제",
+      "attribution": "VP-05 등록 #7",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/harnesses/opencode/warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/harnesses/opencode/warmup.test.ts\tskips unavailable CLI and leaves an explicit foreground retry available",
+          "app/src/main/app/harnesses/opencode/warmup.test.ts\tdoes not consume its one warmup attempt while unavailable and prepares after installation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R05-9",
+      "file": "app/src/main/app/handlers/misc.ts",
+      "change": "agent:list usable 필터·행 게이트 삭제",
+      "attribution": "VP-05 등록 #9",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/misc.runtime-catalog.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/main/app/handlers/misc.runtime-catalog.test.ts\tgates settings and runtime OpenCode rows with their missing reason and preserves Claude",
+          "app/src/main/app/handlers/misc.runtime-catalog.test.ts\tgates settings and runtime OpenCode rows with their unsupported reason and preserves Claude",
+          "app/src/main/app/handlers/misc.runtime-catalog.test.ts\tgates settings and runtime OpenCode rows with their failed reason and preserves Claude"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R05-11",
+      "file": "app/src/main/features/harnesses/common/runtime-catalog.ts",
+      "change": "runtime 행 `supported: true`",
+      "attribution": "VP-05 등록 #11",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/features/harnesses/common/runtime-catalog.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 25,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 25,
+        "newFailures": [
+          "app/src/main/features/harnesses/common/runtime-catalog.test.ts\tupdates cached runtime row availability in both directions without refetching models"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R05-12",
+      "file": "app/src/main/app/composer-catalog.ts",
+      "change": "컴포저 준비 unavailable 게이트 삭제",
+      "attribution": "VP-05 등록 #12",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/composer-preparation-service.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "ids": [
+          "app/src/main/app/composer-preparation-service.test.ts\tshares targets across catalog resources and warmup through the production assembly"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/composer-preparation-service.test.ts\trejects unavailable OpenCode preparation before resolving or acquiring a native server"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R05-15",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "전역 감시 usable 조건 삭제",
+      "attribution": "VP-05 등록 #15",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "ids": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tstarts OpenCode global observation only when usable and sends one increasing revision for each later activation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R06a",
+      "file": "app/src/main/features/history/native-sync.ts",
+      "change": "payload에 raw 재합류(`JSON.stringify(result.snapshot)`)",
+      "attribution": "VP-06 등록 #9",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/chat-turn/native-session.test.ts",
+        "app/src/main/features/history/native-history.db.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 34,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 34,
+        "newFailures": [
+          "app/src/main/app/chat-turn/native-session.test.ts\tnative retention recovery through the migrated archive > displays and recovers a separated snapshot after the native source is deleted without reading raw",
+          "app/src/main/features/history/native-history.db.test.ts\tnative history with the migrated SQLite archive > atomically stores the snapshot, local frontier and searchable native text without replacing local rows",
+          "app/src/main/features/history/native-history.db.test.ts\tstores per-session cursors atomically, restores them through a new query owner, and preserves them on failure",
+          "app/src/main/features/history/native-history.db.test.ts\tupgrades a cursorless archive on its first native read"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R06b",
+      "file": "app/src/main/app/handlers/session.ts",
+      "change": "load 뒤 분리",
+      "attribution": "VP-06 등록 #12",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/session.load.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 12,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 12,
+        "newFailures": [
+          "app/src/main/app/handlers/session.load.test.ts\tsplits legacy raw before the handler loads messages and leaves the next refresh usable"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R08a",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx",
+      "change": "head `useMemo` 삭제",
+      "attribution": "VP-08 등록 #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 8,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\tprojects the committed head once and the live tail six times without computing copy text"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R08b",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+      "change": "meta 투영 중 `turnCopyText` 즉시 계산",
+      "attribution": "VP-08 등록 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\tprojects the committed head once and the live tail six times without computing copy text",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tkeeps head rows and indexed positions stable as only the live tail changes, without eager copy text"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R09-1",
+      "file": "app/src/main/app/project-resource-sync.ts",
+      "change": "500ms 상시 interval 복원",
+      "attribution": "VP-09 등록 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/project-resource-sync.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 19,
+        "newFailures": [
+          "app/src/main/app/project-resource-sync.test.ts\thas no idle timer or target scans, and activity/lease signals each tick once",
+          "app/src/main/app/project-resource-sync.test.ts\tretries only pending project application and disarms once peers become idle"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R09-2",
+      "file": "app/src/main/app/harnesses/opencode/mcp-reconcile.ts",
+      "change": "500ms 상시 interval 복원",
+      "attribution": "VP-09 등록 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts\thas no timer until dirty and stops retrying once idle peers are reconciled"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R09-3",
+      "file": "app/src/main/infra/log/file-transport.ts",
+      "change": "상시 flush interval 복원",
+      "attribution": "VP-09 등록 #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/infra/log/file-transport.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 8,
+        "newFailures": [
+          "app/src/main/infra/log/file-transport.test.ts\tarms flush only for buffered writes and clears the timer on explicit flush and close"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R09-5a",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "activity → `projectResourceSync.activityChanged` 삭제",
+      "attribution": "VP-09 등록 #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "ids": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tforwards each activity and lease change to project sync and the OpenCode admission signal"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R09-5b",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "activity → adapter `resourceActivityChanged` 삭제",
+      "attribution": "VP-09 등록 #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "ids": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tforwards each activity and lease change to project sync and the OpenCode admission signal"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R09-6",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "lease → `leasesChanged` 삭제",
+      "attribution": "VP-09 등록 #6",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "ids": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tforwards each activity and lease change to project sync and the OpenCode admission signal"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R11a",
+      "file": "app/src/main/adapters/claude/project-settings.ts",
+      "change": "`canonicalJson` → `JSON.stringify`",
+      "attribution": "VP-11 등록 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/canonical-consumers.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/main/adapters/claude/canonical-consumers.test.ts\tkeeps project revisions independent of nested object key order while detecting changed values"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R11b",
+      "file": "app/src/main/adapters/claude/background.ts",
+      "change": "`canonicalJson` → `JSON.stringify`",
+      "attribution": "VP-11 등록 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/canonical-consumers.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/main/adapters/claude/canonical-consumers.test.ts\tdeduplicates a provider message whose only change is nested object insertion order"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "N01",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "focus 리스너 등록 삭제",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\toverlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "N02",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "가용성 방송 삭제",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\tbroadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "N03",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "리스너의 웜업 재개 삭제",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\tbroadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "N04",
+      "file": "app/src/renderer/src/shared/stores/agentStore.ts",
+      "change": "agentStore 가용성 구독 삭제",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/shared/stores/agentStore.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 5,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 5,
+        "newFailures": [
+          "app/src/renderer/src/shared/stores/agentStore.test.ts\twires the production agent store to the harness API and refreshes changed availability once"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "N05",
+      "file": "app/src/main/adapters/claude/sdk.ts",
+      "change": "loader memo(`??=` → `=`)",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/sdk.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/adapters/claude/sdk.test.ts\tshares one cold import across consumers and first-use controls"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "N06",
+      "file": "app/src/main/adapters/claude/native-history.ts",
+      "change": "raw를 append 판정 전에 즉시 읽기",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 17,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 17,
+        "newFailures": [
+          "app/src/main/adapters/claude/native-history.test.ts\treads separated raw only for a proven append and keeps the full-parse result unchanged"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "N07",
+      "file": "app/src/renderer/src/app/boot/steps.ts",
+      "change": "`backend` 단계를 landing 뒤로",
+      "attribution": "구현자 새 oracle",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X01",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+      "change": "`copyable: true ||`",
+      "attribution": "재량 — EP-08 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 8,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders one turn copy control only when any assistant message has body text: 'tools only'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"   \"}",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"child only\",\"parentToolRunId\":\"child\"}",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"empty child identifier\",\"parentToolRunId\":\"\"}"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X02",
+      "file": "app/src/renderer/src/features/chat/providers/ChatProvider.tsx",
+      "change": "store → `applyHarnessAvailability` 구독 삭제",
+      "attribution": "재량 — EP-03 #2·#3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts\treseeds an ordinary OpenCode draft from actual provider subscription and stops on unmount"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X03",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "확인 시작을 첫 await(`:609`) 뒤 `workspace` 앞으로",
+      "attribution": "재량 — EP-02′ #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\toverlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X04",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "focus 대상에서 `failed` 제외",
+      "attribution": "재량 — EP-04′ #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\trechecks changed failed identities once and leaves an unchanged failed identity alone"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X05",
+      "file": "app/src/renderer/src/shared/stores/harnessAvailabilityStore.ts",
+      "change": "초기 목록 seed의 generation fence 삭제",
+      "attribution": "재량 — 목록 밖(VP-04 path)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/harnessAvailability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/harnessAvailability.test.ts\tapplies production harness API pushes and preserves a newer push over a deferred backend list"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X06",
+      "file": "app/src/main/infra/db/native-history-queries.ts",
+      "change": "`->` → `json_extract`",
+      "attribution": "재량 — EP-06 #8",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/features/history/native-history.db.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 21,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 21,
+        "newFailures": [
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: \"raw-text\"",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: false"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X07",
+      "file": "app/src/main/features/history/native-sync.ts",
+      "change": "legacy 내장 raw 분기 삭제",
+      "attribution": "재량 — EP-06 #10",
+      "previous": "동치",
+      "suites": [
+        "app/src/main/features/history/native-sync.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 14,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 1,
+        "tests": 14,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X08",
+      "file": "app/src/main/adapters/claude/native-history.ts",
+      "change": "lazy `previous.raw()` 무시",
+      "attribution": "재량 — EP-06 #14",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 17,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 17,
+        "newFailures": [
+          "app/src/main/adapters/claude/native-history.test.ts\treads separated raw only for a proven append and keeps the full-parse result unchanged"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X10",
+      "file": "app/src/main/app/settings-reactions.ts",
+      "change": "경로 비교 `true`",
+      "attribution": "재량 — EP-04′ #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/settings-reactions.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/main/app/settings-reactions.test.ts\trechecks only an executablePath change inside the actual top-level harnesses patch"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X12",
+      "file": "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx",
+      "change": "Notice 재확인 대상 `claude`",
+      "attribution": "재량 — EP-03 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the unsupported reason and rechecks that harness once while disabling the pending button",
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the failed reason and rechecks that harness once while disabling the pending button"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X13",
+      "file": "app/src/renderer/src/features/engine/common/components/EngineCard.tsx",
+      "change": "EngineCard 사유 `missing` 고정",
+      "attribution": "재량 — EP-03 #8",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 9,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 9,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tdisplays the unsupported installation reason instead of the generic unsupported badge",
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tdisplays the failed installation reason instead of the generic unsupported badge"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X14",
+      "file": "app/src/renderer/src/features/chat/components/ChatTile.tsx",
+      "change": "ChatTile `!inflight` 보호 삭제",
+      "attribution": "재량 — EP-03 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts\tshows an unavailable notice for idle OpenCode while retaining the active turn controls until completion"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X15",
+      "file": "app/src/renderer/src/features/chat/components/ChatTile.tsx",
+      "change": "ChatTile pending 요청 보호 삭제",
+      "attribution": "재량 — EP-03 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts\tretains Composer while the unavailable session has pendingAsks",
+          "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts\tretains Composer while the unavailable session has pendingToolApprovals",
+          "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts\tretains Composer while the unavailable session has pendingPlanReview"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X16",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "재시드 대상에서 저장 세션 제외 조건 삭제",
+      "attribution": "재량 — EP-03 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X19",
+      "file": "app/src/main/app/project-resource-sync.ts",
+      "change": "대기 적용 재시도 무장 `false`",
+      "attribution": "재량 — EP-09 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts",
+        "app/src/main/app/project-resource-sync.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 43,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 43,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tobserves external project settings through real bootstrap and waits for peer activity before reconciliation",
+          "app/src/main/app/project-resource-sync.test.ts\tretries only pending project application and disarms once peers become idle"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X20",
+      "file": "app/src/main/app/harnesses/opencode/mcp-reconcile.ts",
+      "change": "dirty 재시도 무장 `false`",
+      "attribution": "재량 — EP-09 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts\thas no timer until dirty and stops retrying once idle peers are reconciled"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X21",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "refresh 합류 삭제",
+      "attribution": "재량 — EP-02′ #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > joins concurrent refresh/settled consumers, retains previous state and emits only changes"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X22",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx",
+      "change": "rows 연결 head↔tail",
+      "attribution": "재량 — EP-08 #6~#8",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/transcript/TranscriptView.harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 8,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/transcript/TranscriptView.harness.test.ts\tOpenCode transcript presentation > preserves bubble colors and the harness viewport background in earlier and last exchanges ('opencode'/'code')"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X23",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+      "change": "tail 투영의 직전 행 seed 삭제",
+      "attribution": "재량 — EP-08 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 18,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 18,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tmatches original keys, gaps, tools, artifacts and incomplete rows 2",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.test.ts\tOpenCode timeline projection > uses 8px between tool rows, 16px at content boundaries and 24px between turns"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X24",
+      "file": "app/src/renderer/src/features/settings/components/UsageTab.tsx",
+      "change": "fallback 높이 120px",
+      "attribution": "재량 — EP-07 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts\treserves the original chart height while loading, then renders the same accessible chart"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X25",
+      "file": "app/src/renderer/src/shared/ui/markdown/syntax.ts",
+      "change": "markdown 문법 import 삭제",
+      "attribution": "재량 — EP-07 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/shared/ui/markdown/syntax.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/renderer/src/shared/ui/markdown/syntax.test.ts\tpreserves the original grammar/theme output for all supported languages and memoizes the shared highlighter"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X26",
+      "file": "app/src/main/adapters/claude/sdk.ts",
+      "change": "warm 경로 직접 반환 삭제",
+      "attribution": "재량 — EP-10 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "ids": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tcarries catalog changes through the real bootstrap registry into every new SDK query",
+          "app/src/main/app/bootstrap.native-history.test.ts\trestores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X27",
+      "file": "app/src/main/adapters/claude/sdk.ts",
+      "change": "import 실패 시 `pending` 해제 삭제",
+      "attribution": "재량 — EP-10 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/sdk.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/adapters/claude/sdk.test.ts\tretries a rejected SDK import instead of retaining the failed promise"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X29",
+      "file": "app/src/main/app/harness-host.ts",
+      "change": "Host 모델 조회 usable 게이트 삭제",
+      "attribution": "재량 — EP-05 #13",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/harness-host.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/harness-host.test.ts\tblocks model probes for an installed unsupported CLI without changing installed semantics"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X30",
+      "file": "app/src/main/features/harnesses/common/runtime-catalog.ts",
+      "change": "runtime 행 `unavailable` 삭제",
+      "attribution": "재량 — EP-05 #11",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/features/harnesses/common/runtime-catalog.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 25,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 25,
+        "newFailures": [
+          "app/src/main/features/harnesses/common/runtime-catalog.test.ts\tupdates cached runtime row availability in both directions without refetching models"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X31",
+      "file": "app/src/main/app/handlers/misc.ts",
+      "change": "recheck 핸들러 refresh 삭제",
+      "attribution": "재량 — EP-04′ #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/misc-split.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/handlers/misc-split.test.ts\thandlers/misc 분해 (0179) > preserves backend keys, rechecks the requested harness and refreshes after the install stream"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X33",
+      "file": "app/src/main/infra/ipc/send.ts",
+      "change": "방송 채널 → `extensionsChanged`",
+      "attribution": "재량 — 목록 밖(VP-04 path)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/infra/ipc/send.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/main/infra/ipc/send.availability.test.ts\tbroadcasts the availability payload on its channel to every living renderer"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X35",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "리스너의 `composerPreparation.invalidate()` 삭제",
+      "attribution": "재량 — EP-05 #14",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\tbroadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X36",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "리스너 `updateOpenCodeGlobalWatch(ctx, true)`",
+      "attribution": "재량 — EP-05′ #15",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\tbroadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X38",
+      "file": "app/src/main/app/handlers/session.ts",
+      "change": "`session:load`의 분리 호출 삭제",
+      "attribution": "재량 — EP-06 #12",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/session.load.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 12,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 12,
+        "newFailures": [
+          "app/src/main/app/handlers/session.load.test.ts\tsplits legacy raw before the handler loads messages and leaves the next refresh usable"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X40",
+      "file": "app/src/main/adapters/opencode/v1/server.ts",
+      "change": "`usable = true`(미지원 버전도 사용 가능)",
+      "attribution": "재량 — EP-05′ #1-4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/opencode/v1/server.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 37,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 37,
+        "newFailures": [
+          "app/src/main/adapters/opencode/v1/server.test.ts\towned OpenCode server lifecycle > reports the actual installed version"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X41",
+      "file": "app/src/main/adapters/opencode/v1/server.ts",
+      "change": "OpenCode `executableIdentity` 상수",
+      "attribution": "재량 — EP-04′ #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/opencode/v1/server.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 37,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 37,
+        "newFailures": [
+          "app/src/main/adapters/opencode/v1/server.test.ts\tcarries executable path and stat identity through the actual OpenCode adapter without probing a process"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X42",
+      "file": "app/src/preload/index.ts",
+      "change": "preload 구독 채널 → recheck",
+      "attribution": "재량 — EP-05′ #8(AC5′)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/preload/harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/preload/harness.test.ts\tcarries availability changes and invokes recheck with the requested harness"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X43",
+      "file": "app/src/preload/index.ts",
+      "change": "preload invoke 채널 → backendList",
+      "attribution": "재량 — EP-04′ #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/preload/harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/preload/harness.test.ts\tcarries availability changes and invokes recheck with the requested harness"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X45",
+      "file": "app/src/main/infra/log/file-transport.ts",
+      "change": "버퍼 쓰기 시 flush 무장 `false`",
+      "attribution": "재량 — EP-09 #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/infra/log/file-transport.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 8,
+        "newFailures": [
+          "app/src/main/infra/log/file-transport.test.ts\tarms flush only for buffered writes and clears the timer on explicit flush and close"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X46",
+      "file": "app/src/main/adapters/opencode/v1/mcp-control.ts",
+      "change": "제출 대기 상한 500 → 60000ms",
+      "attribution": "재량 — EP-09 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/opencode/v1/adapter.startup.test.ts",
+        "app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 14,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 14,
+        "newFailures": [
+          "app/src/main/adapters/opencode/v1/adapter.startup.test.ts\tDesktop-style OpenCode startup through the real SDK > shares one subscription and bootstrap for many first sessions and preserves the remaining owner after close",
+          "app/src/main/adapters/opencode/v1/adapter.startup.test.ts\tDesktop-style OpenCode startup through the real SDK > closes the shared event transport on adapter shutdown while channel owners still exist",
+          "app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts\tdefers busy/background peers and admits queued input only after successful disconnection mutation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X47",
+      "file": "app/src/main/infra/db/native-history-queries.ts",
+      "change": "`raw_json` 항상 `null`",
+      "attribution": "재량 — EP-06 #3-4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/chat-turn/native-session.test.ts",
+        "app/src/main/features/history/native-history.db.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 34,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 34,
+        "newFailures": [
+          "app/src/main/features/history/native-history.db.test.ts\tstores per-session cursors atomically, restores them through a new query owner, and preserves them on failure",
+          "app/src/main/features/history/native-history.db.test.ts\tupgrades a cursorless archive on its first native read",
+          "app/src/main/features/history/native-history.db.test.ts\tcommits the OpenCode reader result and checkpoint through the common transaction",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: [{\"uuid\":\"raw-original\"}]",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: {\"nested\":[1,true]}",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: \"raw-text\"",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: 42",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: false",
+          "app/src/main/app/chat-turn/native-session.test.ts\tnative retention recovery through the migrated archive > displays and recovers a separated snapshot after the native source is deleted without reading raw"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X48",
+      "file": "app/src/main/infra/db/native-history-queries.ts",
+      "change": "`raw_json IS NULL` 가드 삭제",
+      "attribution": "재량 — EP-06 #8",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/features/history/native-history.db.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 21,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 21,
+        "newFailures": [
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: [{\"uuid\":\"raw-original\"}]",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: {\"nested\":[1,true]}",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: \"raw-text\"",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: 42",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: false",
+          "app/src/main/features/history/native-history.db.test.ts\tatomically splits a legacy raw value once and keeps display reads lean: null"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X50",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "웜업 `installed` 배선 `true`",
+      "attribution": "재량 — EP-05′ #7",
+      "previous": "동치",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X51",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "웜업 `allowed`의 usable 항 삭제",
+      "attribution": "재량 — EP-05 #14",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\tbroadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X52",
+      "file": "app/src/main/adapters/opencode/v1/mcp-control.ts",
+      "change": "activity 신호의 waiter 깨우기 삭제",
+      "attribution": "재량 — EP-09 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/opencode/v1/mcp-control.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/main/adapters/opencode/v1/mcp-control.test.ts\twakes unsafe admission immediately on activity signals and cleans up aborted waits"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X53",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "부팅 `updateOpenCodeGlobalWatch(ctx, true)` 삭제",
+      "attribution": "재량 — EP-05′ #15",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.native-history.test.ts"
+      ],
+      "baseline": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "ids": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources"
+        ]
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 24,
+        "newFailures": [
+          "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts Claude global changes only on the common channel and closes both watchers on shutdown",
+          "app/src/main/app/bootstrap.native-history.test.ts\tbroadcasts each OpenCode plugin revision after retiring servers without an owner"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X54",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "settings 반응의 `recheckOpenCode` 본문 삭제",
+      "attribution": "재량 — EP-04′ #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\troutes actual settings patches from the initial executable path to the OpenCode registry only when changed"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X55",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "settings 반응 재확인 대상 `claude`",
+      "attribution": "재량 — EP-04′ #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\troutes actual settings patches from the initial executable path to the OpenCode registry only when changed"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X56",
+      "file": "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx",
+      "change": "Notice 재확인 호출 삭제",
+      "attribution": "재량 — EP-03 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the unsupported reason and rechecks that harness once while disabling the pending button",
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the failed reason and rechecks that harness once while disabling the pending button"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X57",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "runtime catalog `availability` 주입 삭제",
+      "attribution": "재량 — EP-05 #11",
+      "previous": "동치",
+      "suites": [
+        "app/src/main/app/deployment/opencode-connection-deployment.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X59",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "초기 `openCodeExecutablePath` 주입 삭제",
+      "attribution": "재량 — EP-04′ #5",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\troutes actual settings patches from the initial executable path to the OpenCode registry only when changed"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X60",
+      "file": "app/src/renderer/src/features/backend/store/backendStore.ts",
+      "change": "initBackend seed 삭제",
+      "attribution": "재량 — EP-03 #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X61",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "재시드 조기 return `true`",
+      "attribution": "재량 — EP-03 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X62",
+      "file": "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+      "change": "추가 메뉴 사유 툴팁 `missing` 고정",
+      "attribution": "재량 — EP-03 #9",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 4,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 4,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible unsupported reason and keeps Claude additions usable",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible failed reason and keeps Claude additions usable"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X63",
+      "file": "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx",
+      "change": "Notice 사유 문구 `missing` 고정",
+      "attribution": "재량 — EP-03 #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the unsupported reason and rechecks that harness once while disabling the pending button",
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the failed reason and rechecks that harness once while disabling the pending button"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X64",
+      "file": "app/src/main/app/handlers/misc.ts",
+      "change": "agent:list `unavailable` `missing` 고정",
+      "attribution": "재량 — EP-05 #9",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/misc.runtime-catalog.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/main/app/handlers/misc.runtime-catalog.test.ts\tgates settings and runtime OpenCode rows with their unsupported reason and preserves Claude",
+          "app/src/main/app/handlers/misc.runtime-catalog.test.ts\tgates settings and runtime OpenCode rows with their failed reason and preserves Claude"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X65",
+      "file": "app/src/main/features/harnesses/common/runtime-catalog.ts",
+      "change": "runtime 행 `unavailable` `missing` 고정",
+      "attribution": "재량 — EP-05 #11",
+      "previous": "동치",
+      "suites": [
+        "app/src/main/app/handlers/misc.runtime-catalog.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X66",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "registry 사유 `missing` 고정",
+      "attribution": "재량 — EP-05′ #1-4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > preserves installed/version and the failed reason",
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > preserves installed/version and the unsupported reason",
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > focus probes only a changed missing/failed identity, never a ready/unsupported installation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X67",
+      "file": "app/src/main/adapters/opencode/v1/server.ts",
+      "change": "버전 확인 실패 사유 `failed` → `missing`",
+      "attribution": "재량 — EP-05′ #1-4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/opencode/v1/server.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 37,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 37,
+        "newFailures": [
+          "app/src/main/adapters/opencode/v1/server.test.ts\towned OpenCode server lifecycle > does not probe a missing executable and distinguishes failed and usable checks without starting servers"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "X68",
+      "file": "app/src/renderer/src/shared/stores/harnessAvailabilityStore.ts",
+      "change": "renderer store push 적용 무시",
+      "attribution": "재량 — 목록 밖(VP-04 path)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/harnessAvailability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/harnessAvailability.test.ts\tapplies production harness API pushes and preserves a newer push over a deferred backend list"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "X70",
+      "file": "app/src/main/app/handlers/misc.ts",
+      "change": "설치 스트림 뒤 refresh 삭제",
+      "attribution": "재량 — EP-02′ #4",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/misc-split.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/handlers/misc-split.test.ts\thandlers/misc 분해 (0179) > preserves backend keys, rechecks the requested harness and refreshes after the install stream"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "B07a",
+      "file": "app/electron.vite.config.ts",
+      "change": "renderer `minify` 삭제",
+      "attribution": "VP-07 등록 #1",
+      "previous": "잡음",
+      "bundle": {
+        "entryChunk": "index.js",
+        "entryBytes": 2701477,
+        "entryLines": 69255,
+        "entryMinified": false,
+        "maxLineLength": 2629,
+        "sourceMap": true,
+        "familyBytes": {
+          "recharts": 0,
+          "shiki": 0
+        },
+        "assetCount": 21,
+        "rendererAssetBytes": 6534523,
+        "sdkRequires": 0
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "B07b",
+      "file": "app/src/renderer/src/features/settings/components/UsageTab.tsx",
+      "change": "`TokensPerDayChart` 정적 import 복원",
+      "attribution": "VP-07 등록 #2",
+      "previous": "잡음",
+      "bundle": {
+        "entryChunk": "index.js",
+        "entryBytes": 1653247,
+        "entryLines": 161,
+        "entryMinified": true,
+        "maxLineLength": 174138,
+        "sourceMap": true,
+        "familyBytes": {
+          "recharts": 363005,
+          "shiki": 0
+        },
+        "assetCount": 20,
+        "rendererAssetBytes": 4455025,
+        "sdkRequires": 0
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "B07c",
+      "file": "app/src/renderer/src/shared/ui/markdown/syntax.ts",
+      "change": "`from 'shiki'` 정적 값 import 복원",
+      "attribution": "VP-07 등록 #4",
+      "previous": "잡음",
+      "bundle": {
+        "entryChunk": "index.js",
+        "entryBytes": 1467994,
+        "entryLines": 254,
+        "entryMinified": true,
+        "maxLineLength": 174139,
+        "sourceMap": true,
+        "familyBytes": {
+          "recharts": 0,
+          "shiki": 174154
+        },
+        "assetCount": 279,
+        "rendererAssetBytes": 12477132,
+        "sdkRequires": 0
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "B10",
+      "file": "app/src/main/adapters/claude/adapter.ts",
+      "change": "SDK `query` 정적 값 import 복원",
+      "attribution": "VP-10 등록 #2",
+      "previous": "잡음",
+      "bundle": {
+        "entryChunk": "index.js",
+        "entryBytes": 1283424,
+        "entryLines": 107,
+        "entryMinified": true,
+        "maxLineLength": 174138,
+        "sourceMap": true,
+        "familyBytes": {
+          "recharts": 0,
+          "shiki": 0
+        },
+        "assetCount": 21,
+        "rendererAssetBytes": 4450853,
+        "sdkRequires": 1
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "R03a",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "시드 폴백 삭제 → `landingBackend = backend ?? claude`",
+      "attribution": "VP-03 등록(EP-03‴ #2)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts",
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (unsupported), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (failed), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tseeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections without rewriting settings"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U3",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "`backend === 'claude' ||` 분기 복원",
+      "attribution": "VP-05 등록 U3(EP-05″ #16)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > uses adapter fields without interpreting the claude harness name ({\"installed\":false})"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U4a",
+      "file": "app/src/main/adapters/claude/adapter.ts",
+      "change": "성공 반환의 `usable: true` 삭제",
+      "attribution": "VP-05 등록 U4(EP-05″ #17)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/adapter.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/main/adapters/claude/adapter.availability.test.ts\tkeeps the bundled Claude adapter usable when package metadata fails: false"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U4b",
+      "file": "app/src/main/adapters/claude/adapter.ts",
+      "change": "실패 반환의 `usable: true` 삭제",
+      "attribution": "VP-05 등록 U4(EP-05″ #17)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/claude/adapter.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/main/adapters/claude/adapter.availability.test.ts\tkeeps the bundled Claude adapter usable when package metadata fails: true"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U5",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`seedLandingBackend` 사용 불가 분기의 기록 호출 삭제(메모리만 claude)",
+      "attribution": "VP-03 등록 U5(EP-03‴ #2)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts",
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (unsupported), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (failed), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tseeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections without rewriting settings"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U6",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`applyHarnessAvailability` 전환 분기의 기록 호출 삭제",
+      "attribution": "VP-03 등록 U6(EP-03‴ #3)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U7",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`setModel` 기록 판정의 이어가기 초안 제외 항 삭제",
+      "attribution": "VP-03 등록 U7(EP-03‴ #5)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+        "app/src/renderer/src/features/chat/components/Composer.selection.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/Composer.selection.test.ts\trecords the production model menu pick only in a fork conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a fork conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a handoff conversation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U8",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "usable이면 `landingBackend = 'opencode'`로 되돌린 뒤 return",
+      "attribution": "VP-03 등록 U8(EP-03‴ #3)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "U9",
+      "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+      "change": "모델 메뉴 `onPick`의 `setModel(…)` 호출 삭제(메뉴 닫기만)",
+      "attribution": "VP-03 등록 U9(EP-03‴ #6)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/Composer.selection.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/Composer.selection.test.ts\trecords the production model menu pick only in a new conversation",
+          "app/src/renderer/src/features/chat/components/Composer.selection.test.ts\trecords the production model menu pick only in a fork conversation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "V01",
+      "file": "app/src/renderer/src/features/chat/providers/ChatProvider.tsx",
+      "change": "마운트 시 `applyHarnessAvailability()` 1회 호출 삭제",
+      "attribution": "재량 — EP-03‴ #4 (`:11`)",
+      "previous": "동치",
+      "suites": [
+        "app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V02",
+      "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+      "change": "메뉴 노출 조건 `agents.some(supported)` → `agents.length > 0`",
+      "attribution": "재량 — EP-03‴ #14 (`:335`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/Composer.selection.test.ts",
+        "app/src/renderer/src/features/chat/components/Composer.harness.test.ts",
+        "app/src/renderer/src/features/chat/components/composerMount.render.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 3,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 3,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/composerMount.render.test.ts\t0215 AT-26 — Composer 가 선택 모델을 칩 라벨로 낸다 > 마운트가 실제로 칩까지 도달했다 — 시드 수단의 양성 관측"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V03",
+      "file": "app/src/renderer/src/features/chat/components/Landing.tsx",
+      "change": "랜딩의 `<Composer …/>` 삭제",
+      "attribution": "재량 — EP-03‴ #10 (`:27`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/pages/NewChatLandingPage.harness.test.ts",
+        "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/pages/NewChatLandingPage.harness.test.ts\tnew conversation harness layout > renders the harness landing and preserves draft and attachment state",
+          "app/src/renderer/src/pages/NewChatLandingPage.harness.test.ts\tnew conversation harness layout > selects workspace and branch from the footer",
+          "app/src/renderer/src/pages/NewChatLandingPage.harness.test.ts\tshares the landing frame and hero slot across harnesses",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\treports a native picker error and preserves the current selection",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tcarries catalog loading through the claude composer while Add stays available",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tcarries catalog loading through the opencode composer while Add stays available",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tremoves deleted catalog rows from the open popup without restoring their IDs",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tcarries the page catalog through the claude composer and sends selection with preserved draft and attachments",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tcarries the page catalog through the opencode composer and sends selection with preserved draft and attachments",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tsearches paths, clears search on dismiss, and moves keyboard focus through rows",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\topens the native picker only from Add and matches its result against the latest catalog",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tdoes not apply a cancel folder result to the wrong draft",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tdoes not apply a root folder result to the wrong draft",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tdoes not apply a new-draft folder result to the wrong draft",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tdoes not apply a send folder result to the wrong draft",
+          "app/src/renderer/src/pages/NewChatLandingPage.project-picker.test.ts\tdoes not apply a unmount folder result to the wrong draft"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V04",
+      "file": "app/src/renderer/src/pages/ProjectLandingPage.tsx",
+      "change": "프로젝트 랜딩의 `<Composer …/>` 삭제",
+      "attribution": "재량 — EP-03‴ #11 (`:112`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 project landing opens the project popup with the current project checked (claude)",
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 project landing opens the project popup with the current project checked (opencode)",
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 selecting another project changes only the draft and the first send targets it (claude)",
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 selecting another project changes only the draft and the first send targets it (opencode)",
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 adding a folder follows the new chat rule (/selected)",
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 adding a folder follows the new chat rule (D:/Beta)",
+          "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts\t0293 adding a folder follows the new chat rule (null)"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V05",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`rememberLandingBackend`의 메모리 갱신(`landingBackend = backend`) 삭제",
+      "attribution": "재량 — EP-03‴ #2·#3·#5 공유 helper",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tremembers automatic model selection and later OpenCode picks only for ordinary new conversations"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V06",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`setModel` 기록 판정의 `!selected.sessionId` 항 삭제",
+      "attribution": "재량 — EP-03‴ #5 (형제 항)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a saved conversation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V07",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`setModel` 기록 판정의 `selected !== beforeSession` 항 삭제",
+      "attribution": "재량 — EP-03‴ #5 (형제 항)",
+      "previous": "동치",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+        "app/src/renderer/src/features/chat/components/Composer.selection.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V08",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "재시드 제외 목록의 `isContinuityDraft(entry)` 삭제(r2 신규 항)",
+      "attribution": "재량 — EP-03‴ #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V09",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "부팅 시드 대상의 `!isContinuityDraft(entry)` 삭제(r2 신규 항)",
+      "attribution": "재량 — EP-03‴ #2",
+      "previous": "동치",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V10",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "시드 폴백 기록 값 `claude` → 받은 `backend`",
+      "attribution": "재량 — EP-03‴ #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts",
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (unsupported), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (failed), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tseeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections without rewriting settings"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V11",
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "change": "`hasPartsText`의 공백 판정 `trim()` 삭제",
+      "attribution": "재량 — EP-08 #2 (r2 술어)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"   \"}",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tderives meta copyability from the same text semantics as turnCopyText: {\"type\":\"text\",\"text\":\"   \"}"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V12",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+      "change": "`copyable` 판정 `some` → `every`",
+      "attribution": "재량 — EP-08 #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders one turn copy control only when any assistant message has body text: 'tools then body'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders one turn copy control only when any assistant message has body text: 'body then tools'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tpreserves copyability across multiple assistant messages: 'tools then body'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tpreserves copyability across multiple assistant messages: 'body then tools'"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "V13",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "`info.usable ?? info.installed` → `info.installed ?? info.usable`",
+      "attribution": "재량 — EP-05″ #16",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > uses adapter fields without interpreting the claude harness name ({\"installed\":false,\"usable\":true})",
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > preserves installed/version and the unsupported reason"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V14",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "helper 설정 쓰기 값을 `claude` 고정(메모리는 선택값)",
+      "attribution": "재량 — EP-03‴ #5 형제 맞바꿈(plan 제안)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+        "app/src/renderer/src/features/chat/components/Composer.selection.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/Composer.selection.test.ts\trecords the production model menu pick only in a new conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tremembers automatic model selection and later OpenCode picks only for ordinary new conversations"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V15",
+      "file": "app/src/main/infra/ipc/send.ts",
+      "change": "공용 `broadcast`의 파괴된 webContents 제외 삭제",
+      "attribution": "재량 — 목록 밖(EP-04″ #10 공용 helper)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/infra/ipc/send.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/main/infra/ipc/send.availability.test.ts\tbroadcasts the availability payload on its channel to every living renderer"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V16",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "`onAvailabilityChange` 해제 함수가 listener를 지우지 않음",
+      "attribution": "재량 — EP-04″ #7",
+      "previous": "동치",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts",
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 20,
+        "ids": []
+      },
+      "run": {
+        "exit": 0,
+        "files": 2,
+        "tests": 20,
+        "newFailures": []
+      },
+      "outcome": "equivalent",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V17",
+      "file": "app/src/main/app/bootstrap.ts",
+      "change": "shutdown의 focus 리스너 해제 삭제",
+      "attribution": "재량 — EP-04″ #4 (`:969`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/bootstrap.opencode-warmup.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/app/bootstrap.opencode-warmup.test.ts\toverlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V18",
+      "file": "app/src/preload/index.ts",
+      "change": "preload 가용성 구독 해제의 `removeListener` 삭제",
+      "attribution": "재량 — EP-04″ #12 (`:198`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/preload/harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 1,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 1,
+        "newFailures": [
+          "app/src/preload/harness.test.ts\tcarries availability changes and invokes recheck with the requested harness"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V19",
+      "file": "app/src/renderer/src/shared/api/ipc.ts",
+      "change": "`harnessApi.recheck`가 요청 하네스 대신 `claude` 전달",
+      "attribution": "재량 — EP-04″ #13 (`:157`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the unsupported reason and rechecks that harness once while disabling the pending button",
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the failed reason and rechecks that harness once while disabling the pending button"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V20",
+      "file": "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx",
+      "change": "\"다시 확인\" 응답 전 `disabled={busy}` 삭제",
+      "attribution": "재량 — EP-04″ #16",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 2,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 2,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the unsupported reason and rechecks that harness once while disabling the pending button",
+          "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts\tshows the failed reason and rechecks that harness once while disabling the pending button"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V21",
+      "file": "app/src/renderer/src/app/boot/steps.ts",
+      "change": "부팅 시드 인자 `settings.lastBackend` → `null`",
+      "attribution": "재량 — EP-03‴ #1",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (unsupported), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (failed), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V22",
+      "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+      "change": "기본 모델 선택의 `!agent.supported` 항 삭제",
+      "attribution": "재량 — EP-03‴ #13",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts",
+        "app/src/renderer/src/features/chat/components/Composer.selection.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 11,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 11,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/Composer.selection.test.ts\tselects the supported Claude model when unavailable OpenCode models are present",
+          "app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts\truntime model selection > skips unsupported OpenCode rows when choosing a default model"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V23",
+      "file": "app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+      "change": "모델 메뉴 행 필터의 `agent.supported` 항 삭제",
+      "attribution": "재량 — EP-03‴ #12",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/Composer.harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 4,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 4,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/Composer.harness.test.ts\tharness composer surface > omits unavailable OpenCode models while preserving Claude menu items"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V24",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "`freshEntry` backend를 `claude` 고정",
+      "attribution": "재량 — EP-03‴ #19",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tremembers automatic model selection and later OpenCode picks only for ordinary new conversations",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a fork conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a handoff conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a saved conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.harness.test.ts\tremembered harness and request routing > creates a fresh draft using the boot-seeded opencode harness",
+          "app/src/renderer/src/features/chat/store/chatStore.harness.test.ts\tremembered harness and request routing > remembers model selection across repeated fresh draft creation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V25",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "마지막 백엔드 초기값 `claude` → `opencode`",
+      "attribution": "재량 — EP-03‴ #18",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tstarts with Claude before any landing backend is seeded"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V26",
+      "file": "app/src/renderer/src/features/engine/common/components/EngineCard.tsx",
+      "change": "사유 배지 노출 조건 `!agent.supported` → `true`",
+      "attribution": "재량 — EP-03‴ #15 (`:34`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 9,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 9,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tpreserves the claude card label and editable actions (0262 AC31)",
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tpreserves the opencode card label and editable actions (0262 AC31)"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "선택 증거"
+    },
+    {
+      "id": "V27",
+      "file": "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx",
+      "change": "추가 메뉴 하네스 목록에서 OpenCode 제외",
+      "attribution": "재량 — EP-03‴ #16 (`:96`)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 4,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 4,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tselects Claude or OpenCode before opening their production forms and closes the menu",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible missing reason and keeps Claude additions usable",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible unsupported reason and keeps Claude additions usable",
+          "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts\tdisables OpenCode additions with an accessible failed reason and keeps Claude additions usable"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V28",
+      "file": "app/src/main/adapters/opencode/v1/server.ts",
+      "change": "OpenCode identity를 경로만(stat 항 제거)",
+      "attribution": "재량 — EP-04″ #8",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/opencode/v1/server.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 37,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 37,
+        "newFailures": [
+          "app/src/main/adapters/opencode/v1/server.test.ts\tcarries executable path and stat identity through the actual OpenCode adapter without probing a process"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V29",
+      "file": "app/src/main/adapters/common/registry.ts",
+      "change": "focus 대상에 `unsupported` 추가",
+      "attribution": "재량 — EP-04″ #6",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/adapters/common/registry.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 10,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 10,
+        "newFailures": [
+          "app/src/main/adapters/common/registry.availability.test.ts\tregistry availability SSOT > focus probes only a changed missing/failed identity, never a ready/unsupported installation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V30",
+      "file": "app/src/renderer/src/features/chat/components/ChatTile.tsx",
+      "change": "안내 보호 조건의 `pendingToolApprovals` 항 삭제",
+      "attribution": "재량 — EP-03‴ #7 (형제 항)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 7,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 7,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts\tretains Composer while the unavailable session has pendingToolApprovals"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V31",
+      "file": "app/src/renderer/src/features/chat/lib/parts.ts",
+      "change": "`isMainTextPart`의 child 제외 항 삭제(partsText 공유)",
+      "attribution": "재량 — EP-08 #2 (공유 술어)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"child only\",\"parentToolRunId\":\"child\"}",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"empty child identifier\",\"parentToolRunId\":\"\"}"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V32",
+      "file": "app/src/main/app/handlers/misc.ts",
+      "change": "수동 재확인 응답을 `claude` 상태로",
+      "attribution": "재량 — EP-04″ #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/main/app/handlers/misc-split.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 3,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 3,
+        "newFailures": [
+          "app/src/main/app/handlers/misc-split.test.ts\thandlers/misc 분해 (0179) > preserves backend keys, rechecks the requested harness and refreshes after the install stream"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V33",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "재시드 조기 return 조건 반전",
+      "attribution": "재량 — EP-03‴ #3",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+        "app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 8,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts\treseeds an ordinary OpenCode draft from actual provider subscription and stops on unmount",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tfalls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "V34",
+      "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "change": "시드 폴백 조건의 usable 판정 반전",
+      "attribution": "재량 — EP-03‴ #2",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts",
+        "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 13,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 13,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (unsupported), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (failed), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tinitializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tseeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections without rewriting settings",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a fork conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a handoff conversation",
+          "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts\tkeeps the new-conversation backend unchanged when selecting a model in a saved conversation"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W01",
+      "file": "app/src/renderer/src/app/boot/steps.ts",
+      "change": "`backend` 단계 `mandatory: false` → `true`(목록 미수신이면 부팅 실패)",
+      "attribution": "독립 — EP-03⁗ #1 D-021 \"단계가 실패해도 시드\"",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W02",
+      "file": "app/src/renderer/src/shared/stores/harnessAvailabilityStore.ts",
+      "change": "OpenCode store 기본값 `missing` → `usable:true`(미수신을 사용 가능으로 취급)",
+      "attribution": "독립 — D-021 입력 상태(store 기본값 · VP-04 파일)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/app/boot/steps.availability.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 6,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 6,
+        "newFailures": [
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is rejected",
+          "app/src/renderer/src/app/boot/steps.availability.test.ts\tpersists the Claude fallback once for new and project drafts when the backend list is timed out"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W03",
+      "file": "app/src/renderer/src/features/engine/common/components/EngineCard.tsx",
+      "change": "배지 문구 선택 `agent.unavailable ?` → `true ?`(사유 없는 미지원 행도 사유 키)",
+      "attribution": "독립 — EP-03⁗ #15 `:37` \"사유 없으면 일반 문구\"",
+      "previous": "못 잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 9,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 9,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tshows exactly one generic badge and no installation reason for an unsupported external row without a reason",
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tshows exactly one generic badge and no installation reason for an unsupported opencode row without a reason",
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tshows exactly one generic badge and no installation reason for an unsupported claude row without a reason"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W04",
+      "file": "app/src/renderer/src/features/engine/common/components/EngineCard.tsx",
+      "change": "일반 배지 키 `engine.card.unsupportedAdapter` → `harnessUnavailable.failed`",
+      "attribution": "독립 — EP-03⁗ #15 일반 문구 슬롯(`:39` — `:37` 삼항의 else 값)",
+      "previous": "못 잡음",
+      "suites": [
+        "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 9,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 9,
+        "newFailures": [
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tshows exactly one generic badge and no installation reason for an unsupported external row without a reason",
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tshows exactly one generic badge and no installation reason for an unsupported opencode row without a reason",
+          "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts\tshows exactly one generic badge and no installation reason for an unsupported claude row without a reason"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W05",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+      "change": "`copyable` 집계를 마지막 메시지만(`messages.slice(-1).some`)",
+      "attribution": "독립 — EP-08 #2 메시지 순서 축",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders one turn copy control only when any assistant message has body text: 'body then tools'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tpreserves copyability across multiple assistant messages: 'body then tools'"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W06",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts",
+      "change": "`copyable` 집계를 첫 메시지만(`messages.slice(0, 1).some`)",
+      "attribution": "독립 — EP-08 #2 메시지 순서 축",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 2,
+        "tests": 19,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 2,
+        "tests": 19,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders one turn copy control only when any assistant message has body text: 'tools then body'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts\tpreserves copyability across multiple assistant messages: 'tools then body'"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    },
+    {
+      "id": "W07",
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx",
+      "change": "meta 행 복사 텍스트 `row.copyable ?` → `true ?`(copyable 무시)",
+      "attribution": "독립 — EP-08 #2 소비 자리(`copyable` → 버튼)",
+      "previous": "잡음",
+      "suites": [
+        "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts"
+      ],
+      "baseline": {
+        "exit": 0,
+        "files": 1,
+        "tests": 8,
+        "ids": []
+      },
+      "run": {
+        "exit": 1,
+        "files": 1,
+        "tests": 8,
+        "newFailures": [
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders one turn copy control only when any assistant message has body text: 'tools only'",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"   \"}",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"child only\",\"parentToolRunId\":\"child\"}",
+          "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts\trenders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"empty child identifier\",\"parentToolRunId\":\"\"}"
+        ]
+      },
+      "outcome": "caught",
+      "restored": true,
+      "reportSource": "직전 고장 이력"
+    }
+  ]
+}

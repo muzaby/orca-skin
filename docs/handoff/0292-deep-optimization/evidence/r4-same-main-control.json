@@ -1,0 +1,25 @@
+{
+  "reason": "main test closure is unchanged; renderer test edits cannot be imported by main under repository layer boundaries. Run the exact baseline main/shared/config objects at the same workspace path to isolate checkout-path effects.",
+  "objects": {
+    "app/src/main": {
+      "baselineObject": "03da69df26999d842dde04908253baf39c135f91",
+      "currentObject": "03da69df26999d842dde04908253baf39c135f91"
+    },
+    "app/src/shared": {
+      "baselineObject": "4d83b486000bff30ce965b2afc9b3a40c1afe5bc",
+      "currentObject": "4d83b486000bff30ce965b2afc9b3a40c1afe5bc"
+    },
+    "app/package.json": {
+      "baselineObject": "3072cb9565c4c75865098dca7a4c0fe3d2130ace",
+      "currentObject": "3072cb9565c4c75865098dca7a4c0fe3d2130ace"
+    },
+    "app/package-lock.json": {
+      "baselineObject": "1292c9510db55db605c2370260104c1da5fbd3de",
+      "currentObject": "1292c9510db55db605c2370260104c1da5fbd3de"
+    },
+    "app/vitest.config.ts": {
+      "baselineObject": "9104ebebfdc2ef7d1153f4e96e814bb0603e33d6",
+      "currentObject": "9104ebebfdc2ef7d1153f4e96e814bb0603e33d6"
+    }
+  }
+}
