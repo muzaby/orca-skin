@@ -62,6 +62,44 @@
   }
 }
 
+/* "opencode" 워드마크 글꼴(opencode.ai/font) — o·p·e·n·c·d 여섯 글자뿐인 로고 알파벳이라
+   `OpenCodeWordmark` 전용이다. block: 글꼴이 올 때까지 대체 글꼴로 그리지 않는다(로컬 파일이라 즉시 온다). */
+@font-face {
+  font-family: 'OpenCode Wordmark';
+  src: url('../../../../resources/opencode-wordmark.otf') format('opentype');
+  font-display: block;
+}
+
+/* 워드마크 음영 — 글꼴은 단색이라 글자 안쪽 아래 2/3 의 회색을 글자마다 `::before` 상자로 깐다.
+   글꼴 격자(1000 unit/em): 글자 폭 600(=0.6em) 중 잉크 x 60~540, 음영 y 0~360(기준선 위).
+   - 세로: 빈 inline-block 은 아래 가장자리가 기준선에 놓인다(vertical-align: baseline). 그래서 글리프와
+     **같은 기준선**을 공유한다 — em 오프셋으로 놓으면 Chromium 이 ascent/descent 를 픽셀로 반올림해
+     1px 씩 어긋난다.
+   - 가로: margin-left 0.06em + 폭 0.48em + margin-right -0.54em = 진행폭 0 이라 글리프 위치는 그대로다.
+   - 그리는 순서: 상자가 글리프보다 앞이라 획이 음영 위에 그려진다.
+   한 줄에 0.6em 타일을 반복하면 Chromium 이 타일 폭을 픽셀로 반올림해 글자마다 밀린다 — 그래서
+   글자 단위 span 으로 나눈다(`OpenCodeWordmark`). 자간·굵기 합성은 격자를 깨므로 끈다. */
+@utility opencode-wordmark {
+  font-family: 'OpenCode Wordmark';
+  font-weight: 400;
+  font-style: normal;
+  font-synthesis: none;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+
+  & > span::before {
+    content: '';
+    display: inline-block;
+    vertical-align: baseline;
+    width: 0.48em;
+    height: 0.36em;
+    margin-left: 0.06em;
+    margin-right: -0.54em;
+    background-color: color-mix(in srgb, currentColor 35%, transparent);
+  }
+}
+
 /* Keyboard hint pill — small enough to leave as a reusable component class. */
 @utility kbd {
   font-family: var(--font-mono);
