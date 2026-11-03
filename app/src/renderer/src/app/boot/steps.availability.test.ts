@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
+import type { Backend } from '../../../../shared/ipc'
 import {
   BOOT_TIMING_POLICY,
   createBootSteps,
@@ -108,7 +109,7 @@ it.each(['rejected', 'timed out'] as const)(
     expect(useHarnessAvailabilityStore.getState().byId.opencode).toEqual(
       availabilityBefore.byId.opencode
     )
-    const currentBackend = () => {
+    const currentBackend = (): Backend | null => {
       const state = useChatStore.getState()
       return state.sessions[state.activeKey].session.backend
     }
