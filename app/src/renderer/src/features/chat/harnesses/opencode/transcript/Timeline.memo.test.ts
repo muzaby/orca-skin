@@ -4,13 +4,19 @@ import { installFakeDom } from '../../../../../shared/ui/renderHarness.testfixtu
 import { initialChatState } from '../../../reducer/chatReducer'
 import * as projection from './projection'
 import * as turns from '../../../lib/turns'
-import { OpenCodeTimeline } from './Timeline'
+import { OpenCodeTimeline, OpenCodeTimelineRow } from './Timeline'
+import { withTranscript } from '../../registries/transcript.testfixture'
+import type { FakeNode } from '../../../../../shared/ui/renderHarness.testfixture'
 const live = vi.hoisted(() => ({ text: '', reasoning: '' }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
-vi.mock('../../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
+vi.mock('../../../../../shared/i18n', () => ({
+  useI18n: () => ({ tr: (key: string) => key, locale: 'ko' }),
+  formatTimeFull: () => 'time',
+  formatTimeShort: () => 'time'
+}))
 vi.mock('../../../store/chatStore', () => ({
   useLiveText: () => live.text,
   useLiveReasoning: () => live.reasoning,
@@ -78,6 +84,31 @@ it('projects the committed head once and the live tail six times without computi
       pending: true
     })
     expect(copy).not.toHaveBeenCalled()
+  } finally {
+    dom.unmount()
+  }
+})
+
+it.each([
+  [{ type: 'text', text: '   ' }, 0],
+  [{ type: 'text', text: 'child only', parentToolRunId: 'child' }, 0],
+  [{ type: 'text', text: 'empty child identifier', parentToolRunId: '' }, 0],
+  [{ type: 'text', text: 'ordinary body' }, 1]
+] as const)('renders exactly the copy controls justified by the meta text: %j', (part, count) => {
+  const head = projection.projectTimelineHead([{ role: 'assistant', createdAt: 1, parts: [part] }])
+  const rows = [
+    ...head.rows,
+    ...projection.projectTimelineTail(head, { text: '', reasoning: '', pending: false })
+  ]
+  const row = rows.find((value) => value.kind === 'meta')!
+  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
+  try {
+    dom.render(withTranscript(createElement(OpenCodeTimelineRow, { row }), 'opencode'))
+    const buttons = (node: FakeNode): FakeNode[] => [
+      ...(node.tag === 'button' ? [node] : []),
+      ...node.children.flatMap(buttons)
+    ]
+    expect(buttons(dom.body)).toHaveLength(count)
   } finally {
     dom.unmount()
   }

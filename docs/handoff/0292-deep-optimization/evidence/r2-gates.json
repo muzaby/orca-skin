@@ -1,0 +1,1477 @@
+{
+  "round": "r2",
+  "effectiveV": "V1 + ΔV1 + ΔV2 + ΔV3",
+  "baseline": {
+    "files": 908,
+    "total": 8398,
+    "passed": 8329,
+    "failed": 60,
+    "skipped": 9
+  },
+  "final": {
+    "files": 913,
+    "total": 8434,
+    "passed": 8365,
+    "failed": 60,
+    "skipped": 9
+  },
+  "baselineFailures": [
+    {
+      "file": "app/src/main/app/bootstrap.native-history.test.ts",
+      "name": "applies nav plugin choices to draft and stored-session commands and resources",
+      "signature": "AssertionError: expected [] to deeply equal [ 'fixture:review' ]\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/bootstrap.native-history.test.ts:781:78\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "preserves the configuration failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "preserves the acquire failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "prepares draft and saved directory with the same production settings and env resolution as turns",
+      "signature": "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-preparation-service.ts:50:25)\n    at Object.prepare (/workspace/orca-skin/work/0292-r2/bas"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/work/0292-r2/baseline/"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "does not start a native server after caller cancellation or session scope change during preparation",
+      "signature": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-ski"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "wires the public handler through the production resolver and returns its shutdown cleanup",
+      "signature": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }\n    at Assertion.__VITEST_RESOLVES__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1710:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/work/0292-r2/baselin"
+    },
+    {
+      "file": "app/src/main/app/composer-preparation-service.test.ts",
+      "name": "shares targets across catalog resources and warmup through the production assembly",
+      "signature": "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/composer-preparation-service.ts:50:25)\n    at ComposerCatalogOwners.prepare (/workspace/orca-skin/w"
+    },
+    {
+      "file": "app/src/main/app/project-resource-sync.test.ts",
+      "name": "detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+      "signature": "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]\n    at __vite_ssr_import_3__.vi.waitFor.timeout (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/project-resource-sync.test.ts:295:22)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "reconciles plugin choices through the actual adapter while preserving provider flags",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:255:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:292:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:329:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:393:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "reports a reconciled plugin revision as applied but not a later external edit",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:425:5\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/native-resources.test.ts",
+      "name": "applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+      "signature": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/s"
+    },
+    {
+      "file": "app/src/main/adapters/claude/native-resources.test.ts",
+      "name": "commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+      "signature": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/work/0292"
+    },
+    {
+      "file": "app/src/main/adapters/claude/native-resources.test.ts",
+      "name": "waits for durable persistence and serializes subsequent plugin mutations",
+      "signature": "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin"
+    },
+    {
+      "file": "app/src/main/adapters/claude/project-reconciliation.test.ts",
+      "name": "shows external selection with actual status immediately, waits for idle, and never saves it back",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/project-reconciliation.test.ts:95:65\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/project-reconciliation.test.ts",
+      "name": "projects native plugin flag false during external reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/claude/project-reconciliation.test.ts:173:67\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/common/git-root.test.ts",
+      "name": "finds the nearest Git ancestor through three nested directories and falls back to cwd",
+      "signature": "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-5FGVto/a/b/c' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/common/git-root.test.ts:12:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new "
+    },
+    {
+      "file": "app/src/main/app/handlers/session-resources.claude-assembly.test.ts",
+      "name": "reconciles external plugin selections and publishes the final state through the real watcher",
+      "signature": "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]\n    at __vite_ssr_import_0__.vi.waitFor.timeout (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/app/handlers/session-resources.claude-assembly.test.ts:114:11)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:5"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "attachment files and text normalization copies file and clipboard input into the product Temp child without touching the source",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-13aRzE'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:57:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "attachment files and text normalization passes the saved UTF-8 file path to the CLI and preserves BOM bytes (AC22)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-hEYAx5'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:88:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "attachment files and text normalization rejects binary-like text",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-9j2rAX'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:103:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments preserves text beyond 24,000 characters and 256KB in the saved file (AC22)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-X119fK'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:131:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments stores dialog, drop and clipboard bytes at unique paths while preserving display views and model data",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-M7T4SL'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:162:20\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments sanitizes stored names so quoted CLI mentions have no embedded quotes (AC21)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-hMZR3o'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:223:23\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of issue#12.md from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-IkFDQi'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of C# notes.md from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-9d30Ph'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of lines#L2-4.txt from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-tYmflG'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of a#b#c.md from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-ODihkP'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments rejects unsupported text extensions before passing a path to the CLI (AC22)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-vHR4VP'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:277:23\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments bounds actual file bytes regardless of the advertised size and rejects malformed clipboard data",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-QwhQlO'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/chat/attachments.test.ts:342:20\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/infra/git/git-safety.test.ts",
+      "name": "Git execution safety never runs a cwd executable through relative PATH entries",
+      "signature": "Error: Command failed: /tmp/orca-git-safety-8iidXR/git /tmp/orca-git-safety-8iidXR/marker.cjs\n/tmp/orca-git-safety-8iidXR/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "name": "Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+      "signature": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:227:75\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "name": "Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+      "signature": "AssertionError: expected '/workspace/orca-skin/work/0292-r2/bas…' to be 'C:/two' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:283:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "name": "exposes native resources from the live channel client and its directory without mutations",
+      "signature": "AssertionError: expected '/workspace/orca-skin/work/0292-r2/bas…' to be 'C:/native-B' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/opencode/v1/adapter.persistent.test.ts:1081:89\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.test.ts",
+      "name": "OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+      "signature": "AssertionError: expected '/workspace/orca-skin/work/0292-r2/bas…' to be 'C:/work' // Object.is equality\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/adapters/opencode/v1/adapter.test.ts:860:94\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 받은 id 들을 Markdown 으로 저장하고 경로·미리보기를 반환한다",
+      "signature": "AssertionError: expected [] to deeply equal [ '1', '2' ]\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:327:45\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 중복 id 는 한 번만 처리한다",
+      "signature": "AssertionError: expected [] to deeply equal [ '1' ]\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:348:45\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 한 번에 처리할 개수에 상한을 두고 남은 id 를 돌려준다",
+      "signature": "AssertionError: expected [] to have a length of 50 but got +0\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1389:20)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:359:24\n    at f"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 페이지 하나가 실패해도 나머지는 돌려준다",
+      "signature": "AssertionError: expected [] to deeply equal [ '1' ]\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:375:45\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 본문이 참조한 첨부만 바이너리+XSRF 로 내려받는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:393:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 첨부 하나가 실패해도 페이지 저장은 완료된다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:420:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 본문이 참조한 첨부가 목록에 없으면 실패로 남긴다 — 조용히 넘기지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'failedAssets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:432:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages includeAttachments:false 면 첨부 목록도 조회하지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'unreferencedAttachments')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:448:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 참조가 없어도 첨부 목록을 조회해 진단으로 남긴다 — 받지는 않는다",
+      "signature": "AssertionError: expected [] to have a length of 1 but got +0\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1389:20)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:468:70\n    at fi"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 참조 밖 첨부는 받지 않고 이름만 남긴다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:487:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 경로 밖 img 는 첨부 후보가 아니다 — 실패로 새지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:497:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 진단용 목록 조회가 실패해도 페이지 저장은 완료된다",
+      "signature": "AssertionError: expected [ { pageId: '1', …(1) } ] to deeply equal []\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:516:30\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 멘션 userkey 를 표시 이름으로 치환한다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'markdownPreview')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:533:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 사용자 조회가 실패해도 자리표시자를 흘리지 않는다",
+      "signature": "AssertionError: expected [ { pageId: '1', …(1) } ] to deeply equal []\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:554:30\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages displayName 이 없으면 username 으로 폴백한다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'markdownPreview')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:571:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 본문 URL 의 옛 version 을 따르지 않고 현재 첨부를 받는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:603:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 링크를 먼저 쓰고 data 경로는 두드리지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:649:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 링크가 없으면 data 경로로 받고 그 URL 을 남긴다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:674:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 링크가 실패하면 data 경로로 재시도한다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:710:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 두 다운로드 경로가 모두 실패해도 페이지 저장은 완료된다",
+      "signature": "AssertionError: expected [ { pageId: '1', …(1) } ] to deeply equal []\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:743:30\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 취소·크기 초과는 다음 다운로드 좌표로 재시도하지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'failedAssets')\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:783:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages manifest 에 참조 밖 첨부를 기록한다",
+      "signature": "Error: ENOENT: no such file or directory, open '/home/agent/.config/orcinus-orca/downloads/confluence/confluence-test/1/manifest.json'\n    at open (node:internal/fs/promises:636:25)\n    at readFile (node:internal/fs/promises:1235:14)\n    at /workspace/orca-skin/work/0292-r2/baseline/app/src/main/features/plugins/confluence/connector.test.ts:797:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+  ],
+  "finalFailures": [
+    {
+      "file": "app/src/main/app/bootstrap.native-history.test.ts",
+      "name": "applies nav plugin choices to draft and stored-session commands and resources",
+      "signature": "AssertionError: expected [] to deeply equal [ 'fixture:review' ]\n    at /workspace/orca-skin/app/src/main/app/bootstrap.native-history.test.ts:781:78\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "preserves the configuration failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "preserves the acquire failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "prepares draft and saved directory with the same production settings and env resolution as turns",
+      "signature": "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:50:25)\n    at Object.prepare (/workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:160:45)\n    at /workspace/orca-skin/app/"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/app/compo"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "does not start a native server after caller cancellation or session scope change during preparation",
+      "signature": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-ski"
+    },
+    {
+      "file": "app/src/main/app/composer-catalog.test.ts",
+      "name": "wires the public handler through the production resolver and returns its shutdown cleanup",
+      "signature": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }\n    at Assertion.__VITEST_RESOLVES__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1710:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/app/com"
+    },
+    {
+      "file": "app/src/main/app/composer-preparation-service.test.ts",
+      "name": "shares targets across catalog resources and warmup through the production assembly",
+      "signature": "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:50:25)\n    at ComposerCatalogOwners.prepare (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:37:66)\n    at /wor"
+    },
+    {
+      "file": "app/src/main/app/project-resource-sync.test.ts",
+      "name": "detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+      "signature": "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]\n    at __vite_ssr_import_3__.vi.waitFor.timeout (/workspace/orca-skin/app/src/main/app/project-resource-sync.test.ts:295:22)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "reconciles plugin choices through the actual adapter while preserving provider flags",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:255:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:292:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:329:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:393:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "name": "reports a reconciled plugin revision as applied but not a later external edit",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:425:5\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/native-resources.test.ts",
+      "name": "applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+      "signature": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/adapters/claud"
+    },
+    {
+      "file": "app/src/main/adapters/claude/native-resources.test.ts",
+      "name": "commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+      "signature": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/m"
+    },
+    {
+      "file": "app/src/main/adapters/claude/native-resources.test.ts",
+      "name": "waits for durable persistence and serializes subsequent plugin mutations",
+      "signature": "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin"
+    },
+    {
+      "file": "app/src/main/adapters/claude/project-reconciliation.test.ts",
+      "name": "shows external selection with actual status immediately, waits for idle, and never saves it back",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/project-reconciliation.test.ts:95:65\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/claude/project-reconciliation.test.ts",
+      "name": "projects native plugin flag false during external reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/project-reconciliation.test.ts:173:67\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/common/git-root.test.ts",
+      "name": "finds the nearest Git ancestor through three nested directories and falls back to cwd",
+      "signature": "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-ejYsJ8/a/b/c' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/common/git-root.test.ts:12:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n"
+    },
+    {
+      "file": "app/src/main/app/handlers/session-resources.claude-assembly.test.ts",
+      "name": "reconciles external plugin selections and publishes the final state through the real watcher",
+      "signature": "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]\n    at __vite_ssr_import_0__.vi.waitFor.timeout (/workspace/orca-skin/app/src/main/app/handlers/session-resources.claude-assembly.test.ts:114:11)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+    },
+    {
+      "file": "app/src/main/infra/git/git-safety.test.ts",
+      "name": "Git execution safety never runs a cwd executable through relative PATH entries",
+      "signature": "Error: Command failed: /tmp/orca-git-safety-QxKIYI/git /tmp/orca-git-safety-QxKIYI/marker.cjs\n/tmp/orca-git-safety-QxKIYI/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)\n    at ChildProcess.emit (node:events:519:28)\n    at maybeClose (node:internal/child_process:1101:16)"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "attachment files and text normalization copies file and clipboard input into the product Temp child without touching the source",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-46pkNy'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:57:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "attachment files and text normalization passes the saved UTF-8 file path to the CLI and preserves BOM bytes (AC22)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-f7OFtx'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:88:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "attachment files and text normalization rejects binary-like text",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-TkyWWU'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:103:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments preserves text beyond 24,000 characters and 256KB in the saved file (AC22)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-mzAS7a'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:131:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments stores dialog, drop and clipboard bytes at unique paths while preserving display views and model data",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-AVZbXb'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:162:20\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments sanitizes stored names so quoted CLI mentions have no embedded quotes (AC21)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-cwrkCX'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:223:23\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of issue#12.md from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-w5dErK'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of C# notes.md from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-dRWXh1'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of lines#L2-4.txt from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-rFwLHY'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments CLI mentions read the saved bytes of a#b#c.md from dialog and drop without renaming display views (0245 D1)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-pLXC1d'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:246:25\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments rejects unsupported text extensions before passing a path to the CLI (AC22)",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-irKAog'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:277:23\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/chat/attachments.test.ts",
+      "name": "normalizeAttachments bounds actual file bytes regardless of the advertised size and rejects malformed clipboard data",
+      "signature": "Error: EROFS: read-only file system, mkdtemp '/home/agent/.orca-attachment-test-sG4oLW'\n    at mkdtemp (node:internal/fs/promises:1175:10)\n    at makeHomeTempDir (/workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:35:23)\n    at /workspace/orca-skin/app/src/main/features/chat/attachments.test.ts:342:20\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "name": "Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+      "signature": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:227:75\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "name": "Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+      "signature": "AssertionError: expected '/workspace/orca-skin/app/C:/two' to be 'C:/two' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:283:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "name": "exposes native resources from the live channel client and its directory without mutations",
+      "signature": "AssertionError: expected '/workspace/orca-skin/app/C:/native-B' to be 'C:/native-B' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.persistent.test.ts:1081:89\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/adapters/opencode/v1/adapter.test.ts",
+      "name": "OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+      "signature": "AssertionError: expected '/workspace/orca-skin/app/C:/work' to be 'C:/work' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.test.ts:860:94\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 받은 id 들을 Markdown 으로 저장하고 경로·미리보기를 반환한다",
+      "signature": "AssertionError: expected [] to deeply equal [ '1', '2' ]\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:327:45\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 중복 id 는 한 번만 처리한다",
+      "signature": "AssertionError: expected [] to deeply equal [ '1' ]\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:348:45\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 한 번에 처리할 개수에 상한을 두고 남은 id 를 돌려준다",
+      "signature": "AssertionError: expected [] to have a length of 50 but got +0\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1389:20)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:359:24\n    at file:///workspace/orca-"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 페이지 하나가 실패해도 나머지는 돌려준다",
+      "signature": "AssertionError: expected [] to deeply equal [ '1' ]\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:375:45\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 본문이 참조한 첨부만 바이너리+XSRF 로 내려받는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:393:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 첨부 하나가 실패해도 페이지 저장은 완료된다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:420:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 본문이 참조한 첨부가 목록에 없으면 실패로 남긴다 — 조용히 넘기지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'failedAssets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:432:17\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages includeAttachments:false 면 첨부 목록도 조회하지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'unreferencedAttachments')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:448:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 참조가 없어도 첨부 목록을 조회해 진단으로 남긴다 — 받지는 않는다",
+      "signature": "AssertionError: expected [] to have a length of 1 but got +0\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1389:20)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:468:70\n    at file:///workspace/orca-s"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 참조 밖 첨부는 받지 않고 이름만 남긴다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:487:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 경로 밖 img 는 첨부 후보가 아니다 — 실패로 새지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:497:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 진단용 목록 조회가 실패해도 페이지 저장은 완료된다",
+      "signature": "AssertionError: expected [ { pageId: '1', …(1) } ] to deeply equal []\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:516:30\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 멘션 userkey 를 표시 이름으로 치환한다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'markdownPreview')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:533:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 사용자 조회가 실패해도 자리표시자를 흘리지 않는다",
+      "signature": "AssertionError: expected [ { pageId: '1', …(1) } ] to deeply equal []\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:554:30\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages displayName 이 없으면 username 으로 폴백한다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'markdownPreview')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:571:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 본문 URL 의 옛 version 을 따르지 않고 현재 첨부를 받는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:603:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 링크를 먼저 쓰고 data 경로는 두드리지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:649:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 링크가 없으면 data 경로로 받고 그 URL 을 남긴다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:674:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages download 링크가 실패하면 data 경로로 재시도한다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'assets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:710:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 두 다운로드 경로가 모두 실패해도 페이지 저장은 완료된다",
+      "signature": "AssertionError: expected [ { pageId: '1', …(1) } ] to deeply equal []\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:743:30\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages 취소·크기 초과는 다음 다운로드 좌표로 재시도하지 않는다",
+      "signature": "TypeError: Cannot read properties of undefined (reading 'failedAssets')\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:783:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "file": "app/src/main/features/plugins/confluence/connector.test.ts",
+      "name": "ConfluenceConnector — pages manifest 에 참조 밖 첨부를 기록한다",
+      "signature": "Error: ENOENT: no such file or directory, open '/home/agent/.config/orcinus-orca/downloads/confluence/confluence-test/1/manifest.json'\n    at open (node:internal/fs/promises:636:25)\n    at readFile (node:internal/fs/promises:1235:14)\n    at /workspace/orca-skin/app/src/main/features/plugins/confluence/connector.test.ts:797:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    }
+  ],
+  "newFailureIds": [],
+  "baselineOnlyFailureIds": [],
+  "relatedRecheck": {
+    "cases": 280,
+    "passed": 280
+  },
+  "typecheck": {
+    "configurations": 3,
+    "errors": 0
+  },
+  "eslint": {
+    "errors": 0,
+    "warnings": 2,
+    "warningSites": [
+      "Timeline.tsx",
+      "useTranscriptVirtualizer.ts"
+    ]
+  },
+  "scripts": {
+    "cases": 144,
+    "passed": 144,
+    "suites": 16
+  },
+  "migration": {
+    "appendOnlySince": "v0.3.1",
+    "syncMain": 34,
+    "syncMail": 1,
+    "copies": 0
+  },
+  "testBudgets": {
+    "suites": 16
+  },
+  "docInventory": {
+    "generatedItems": 9,
+    "channels": 117,
+    "prose": "pass",
+    "links": "pass"
+  },
+  "bundle": {
+    "entryChunk": "index.js",
+    "entryBytes": 1283424,
+    "entryLines": 107,
+    "entryMinified": true,
+    "maxLineLength": 174138,
+    "sourceMap": true,
+    "familyBytes": {
+      "recharts": 0,
+      "shiki": 0
+    },
+    "assetCount": 21,
+    "rendererAssetBytes": 4450853,
+    "sdkRequire": 0
+  },
+  "packageAndLockDiff": 0,
+  "enforcement": {
+    "expected": [
+      [
+        "VP-02",
+        "1"
+      ],
+      [
+        "VP-02",
+        "2"
+      ],
+      [
+        "VP-02",
+        "3"
+      ],
+      [
+        "VP-02",
+        "4"
+      ],
+      [
+        "VP-03",
+        "1"
+      ],
+      [
+        "VP-03",
+        "10"
+      ],
+      [
+        "VP-03",
+        "11"
+      ],
+      [
+        "VP-03",
+        "12"
+      ],
+      [
+        "VP-03",
+        "13"
+      ],
+      [
+        "VP-03",
+        "14"
+      ],
+      [
+        "VP-03",
+        "15"
+      ],
+      [
+        "VP-03",
+        "16"
+      ],
+      [
+        "VP-03",
+        "17"
+      ],
+      [
+        "VP-03",
+        "18"
+      ],
+      [
+        "VP-03",
+        "19"
+      ],
+      [
+        "VP-03",
+        "2"
+      ],
+      [
+        "VP-03",
+        "3"
+      ],
+      [
+        "VP-03",
+        "4"
+      ],
+      [
+        "VP-03",
+        "5"
+      ],
+      [
+        "VP-03",
+        "6"
+      ],
+      [
+        "VP-03",
+        "7"
+      ],
+      [
+        "VP-03",
+        "8"
+      ],
+      [
+        "VP-03",
+        "9"
+      ],
+      [
+        "VP-04",
+        "1"
+      ],
+      [
+        "VP-04",
+        "10"
+      ],
+      [
+        "VP-04",
+        "11"
+      ],
+      [
+        "VP-04",
+        "12"
+      ],
+      [
+        "VP-04",
+        "13"
+      ],
+      [
+        "VP-04",
+        "14"
+      ],
+      [
+        "VP-04",
+        "15"
+      ],
+      [
+        "VP-04",
+        "16"
+      ],
+      [
+        "VP-04",
+        "2"
+      ],
+      [
+        "VP-04",
+        "3"
+      ],
+      [
+        "VP-04",
+        "4"
+      ],
+      [
+        "VP-04",
+        "5"
+      ],
+      [
+        "VP-04",
+        "6"
+      ],
+      [
+        "VP-04",
+        "7"
+      ],
+      [
+        "VP-04",
+        "8"
+      ],
+      [
+        "VP-04",
+        "9"
+      ],
+      [
+        "VP-05",
+        "1"
+      ],
+      [
+        "VP-05",
+        "10"
+      ],
+      [
+        "VP-05",
+        "11"
+      ],
+      [
+        "VP-05",
+        "12"
+      ],
+      [
+        "VP-05",
+        "13"
+      ],
+      [
+        "VP-05",
+        "14"
+      ],
+      [
+        "VP-05",
+        "15"
+      ],
+      [
+        "VP-05",
+        "16"
+      ],
+      [
+        "VP-05",
+        "17"
+      ],
+      [
+        "VP-05",
+        "2"
+      ],
+      [
+        "VP-05",
+        "3"
+      ],
+      [
+        "VP-05",
+        "4"
+      ],
+      [
+        "VP-05",
+        "5"
+      ],
+      [
+        "VP-05",
+        "6"
+      ],
+      [
+        "VP-05",
+        "7"
+      ],
+      [
+        "VP-05",
+        "8"
+      ],
+      [
+        "VP-05",
+        "9"
+      ],
+      [
+        "VP-06",
+        "1"
+      ],
+      [
+        "VP-06",
+        "10"
+      ],
+      [
+        "VP-06",
+        "11"
+      ],
+      [
+        "VP-06",
+        "12"
+      ],
+      [
+        "VP-06",
+        "13"
+      ],
+      [
+        "VP-06",
+        "14"
+      ],
+      [
+        "VP-06",
+        "15"
+      ],
+      [
+        "VP-06",
+        "16"
+      ],
+      [
+        "VP-06",
+        "2"
+      ],
+      [
+        "VP-06",
+        "3"
+      ],
+      [
+        "VP-06",
+        "4"
+      ],
+      [
+        "VP-06",
+        "5"
+      ],
+      [
+        "VP-06",
+        "6"
+      ],
+      [
+        "VP-06",
+        "7"
+      ],
+      [
+        "VP-06",
+        "8"
+      ],
+      [
+        "VP-06",
+        "9"
+      ],
+      [
+        "VP-07",
+        "1"
+      ],
+      [
+        "VP-07",
+        "2"
+      ],
+      [
+        "VP-07",
+        "3"
+      ],
+      [
+        "VP-07",
+        "4"
+      ],
+      [
+        "VP-08",
+        "1"
+      ],
+      [
+        "VP-08",
+        "2"
+      ],
+      [
+        "VP-08",
+        "3"
+      ],
+      [
+        "VP-08",
+        "4"
+      ],
+      [
+        "VP-08",
+        "5"
+      ],
+      [
+        "VP-08",
+        "6"
+      ],
+      [
+        "VP-08",
+        "7"
+      ],
+      [
+        "VP-08",
+        "8"
+      ],
+      [
+        "VP-09",
+        "1"
+      ],
+      [
+        "VP-09",
+        "2"
+      ],
+      [
+        "VP-09",
+        "3"
+      ],
+      [
+        "VP-09",
+        "4"
+      ],
+      [
+        "VP-09",
+        "5"
+      ],
+      [
+        "VP-09",
+        "6"
+      ],
+      [
+        "VP-10",
+        "1"
+      ],
+      [
+        "VP-10",
+        "2"
+      ],
+      [
+        "VP-10",
+        "3"
+      ],
+      [
+        "VP-10",
+        "4"
+      ],
+      [
+        "VP-10",
+        "5"
+      ],
+      [
+        "VP-11",
+        "1"
+      ],
+      [
+        "VP-11",
+        "2"
+      ]
+    ],
+    "actual": [
+      [
+        "VP-02",
+        "1"
+      ],
+      [
+        "VP-02",
+        "2"
+      ],
+      [
+        "VP-02",
+        "3"
+      ],
+      [
+        "VP-02",
+        "4"
+      ],
+      [
+        "VP-03",
+        "1"
+      ],
+      [
+        "VP-03",
+        "10"
+      ],
+      [
+        "VP-03",
+        "11"
+      ],
+      [
+        "VP-03",
+        "12"
+      ],
+      [
+        "VP-03",
+        "13"
+      ],
+      [
+        "VP-03",
+        "14"
+      ],
+      [
+        "VP-03",
+        "15"
+      ],
+      [
+        "VP-03",
+        "16"
+      ],
+      [
+        "VP-03",
+        "17"
+      ],
+      [
+        "VP-03",
+        "18"
+      ],
+      [
+        "VP-03",
+        "19"
+      ],
+      [
+        "VP-03",
+        "2"
+      ],
+      [
+        "VP-03",
+        "3"
+      ],
+      [
+        "VP-03",
+        "4"
+      ],
+      [
+        "VP-03",
+        "5"
+      ],
+      [
+        "VP-03",
+        "6"
+      ],
+      [
+        "VP-03",
+        "7"
+      ],
+      [
+        "VP-03",
+        "8"
+      ],
+      [
+        "VP-03",
+        "9"
+      ],
+      [
+        "VP-04",
+        "1"
+      ],
+      [
+        "VP-04",
+        "10"
+      ],
+      [
+        "VP-04",
+        "11"
+      ],
+      [
+        "VP-04",
+        "12"
+      ],
+      [
+        "VP-04",
+        "13"
+      ],
+      [
+        "VP-04",
+        "14"
+      ],
+      [
+        "VP-04",
+        "15"
+      ],
+      [
+        "VP-04",
+        "16"
+      ],
+      [
+        "VP-04",
+        "2"
+      ],
+      [
+        "VP-04",
+        "3"
+      ],
+      [
+        "VP-04",
+        "4"
+      ],
+      [
+        "VP-04",
+        "5"
+      ],
+      [
+        "VP-04",
+        "6"
+      ],
+      [
+        "VP-04",
+        "7"
+      ],
+      [
+        "VP-04",
+        "8"
+      ],
+      [
+        "VP-04",
+        "9"
+      ],
+      [
+        "VP-05",
+        "1"
+      ],
+      [
+        "VP-05",
+        "10"
+      ],
+      [
+        "VP-05",
+        "11"
+      ],
+      [
+        "VP-05",
+        "12"
+      ],
+      [
+        "VP-05",
+        "13"
+      ],
+      [
+        "VP-05",
+        "14"
+      ],
+      [
+        "VP-05",
+        "15"
+      ],
+      [
+        "VP-05",
+        "16"
+      ],
+      [
+        "VP-05",
+        "17"
+      ],
+      [
+        "VP-05",
+        "2"
+      ],
+      [
+        "VP-05",
+        "3"
+      ],
+      [
+        "VP-05",
+        "4"
+      ],
+      [
+        "VP-05",
+        "5"
+      ],
+      [
+        "VP-05",
+        "6"
+      ],
+      [
+        "VP-05",
+        "7"
+      ],
+      [
+        "VP-05",
+        "8"
+      ],
+      [
+        "VP-05",
+        "9"
+      ],
+      [
+        "VP-06",
+        "1"
+      ],
+      [
+        "VP-06",
+        "10"
+      ],
+      [
+        "VP-06",
+        "11"
+      ],
+      [
+        "VP-06",
+        "12"
+      ],
+      [
+        "VP-06",
+        "13"
+      ],
+      [
+        "VP-06",
+        "14"
+      ],
+      [
+        "VP-06",
+        "15"
+      ],
+      [
+        "VP-06",
+        "16"
+      ],
+      [
+        "VP-06",
+        "2"
+      ],
+      [
+        "VP-06",
+        "3"
+      ],
+      [
+        "VP-06",
+        "4"
+      ],
+      [
+        "VP-06",
+        "5"
+      ],
+      [
+        "VP-06",
+        "6"
+      ],
+      [
+        "VP-06",
+        "7"
+      ],
+      [
+        "VP-06",
+        "8"
+      ],
+      [
+        "VP-06",
+        "9"
+      ],
+      [
+        "VP-07",
+        "1"
+      ],
+      [
+        "VP-07",
+        "2"
+      ],
+      [
+        "VP-07",
+        "3"
+      ],
+      [
+        "VP-07",
+        "4"
+      ],
+      [
+        "VP-08",
+        "1"
+      ],
+      [
+        "VP-08",
+        "2"
+      ],
+      [
+        "VP-08",
+        "3"
+      ],
+      [
+        "VP-08",
+        "4"
+      ],
+      [
+        "VP-08",
+        "5"
+      ],
+      [
+        "VP-08",
+        "6"
+      ],
+      [
+        "VP-08",
+        "7"
+      ],
+      [
+        "VP-08",
+        "8"
+      ],
+      [
+        "VP-09",
+        "1"
+      ],
+      [
+        "VP-09",
+        "2"
+      ],
+      [
+        "VP-09",
+        "3"
+      ],
+      [
+        "VP-09",
+        "4"
+      ],
+      [
+        "VP-09",
+        "5"
+      ],
+      [
+        "VP-09",
+        "6"
+      ],
+      [
+        "VP-10",
+        "1"
+      ],
+      [
+        "VP-10",
+        "2"
+      ],
+      [
+        "VP-10",
+        "3"
+      ],
+      [
+        "VP-10",
+        "4"
+      ],
+      [
+        "VP-10",
+        "5"
+      ],
+      [
+        "VP-11",
+        "1"
+      ],
+      [
+        "VP-11",
+        "2"
+      ]
+    ],
+    "missing": [],
+    "extra": []
+  },
+  "oracles": {
+    "aliases": 62,
+    "patterns": 67,
+    "missing": []
+  },
+  "mutations": {
+    "production": 103,
+    "caught": 99,
+    "equivalent": 4,
+    "priorMisses": 21,
+    "priorMissesNowCaught": 21,
+    "artifactControls": 3
+  },
+  "windowsCI": {
+    "state": "pending",
+    "url": null
+  }
+}

@@ -48,6 +48,9 @@ vi.mock('../infra/settings-store', () => ({
     getAll(): typeof fixture.settings {
       return fixture.settings
     }
+    onPatch(): void {
+      /* The settings-wiring case installs the real SettingsStore. */
+    }
     subscribe(): () => void {
       return () => {}
     }
@@ -72,7 +75,12 @@ vi.mock('./handlers/settings', () => ({
   registerSettingsHandlers: vi.fn()
 }))
 vi.mock('./handlers/providers', () => ({ registerConnectionHandlers: vi.fn() }))
-vi.mock('./settings-reactions', () => ({ registerSettingsReactions: vi.fn() }))
+vi.mock('electron-store', () => ({ default: class {} }))
+vi.mock('./harnesses/opencode/global-watch', () => ({
+  OpenCodeGlobalWatch: class {
+    close = vi.fn()
+  }
+}))
 vi.mock('../features/usage/tracker', () => ({
   UsageTracker: class {
     recompute = vi.fn()
@@ -420,6 +428,7 @@ it('overlaps the deferred install check with DB initialization, joins before fin
   const started = bootstrap.start().then(() => {
     complete = true
   })
+  expect(refresh).toHaveBeenCalledOnce()
   await vi.waitFor(() =>
     expect(owned.bootReport.getReport().steps.some((step) => step.id === 'db-init')).toBe(true)
   )
@@ -485,9 +494,11 @@ it('broadcasts a changed availability once and resumes skipped warmup and observ
     registry: import('../adapters/common/registry').AdapterRegistry
     updateOpenCodeGlobalWatch(ctx: RouterContext, initial: boolean): void
   }
-  const watch = vi.spyOn(owned, 'updateOpenCodeGlobalWatch').mockImplementation(() => {})
+  const watch = vi.spyOn(owned, 'updateOpenCodeGlobalWatch')
   await bootstrap.start()
   expect(resolveTarget).not.toHaveBeenCalled()
+  const invalidate = vi.spyOn(service, 'invalidate')
+  const pluginsChanged = vi.spyOn(sends, 'broadcastOpenCodePluginsChanged')
   installed.mockResolvedValue({ installed: true, usable: true, version: '1.19' })
   await owned.registry.refreshInstallState('opencode')
   expect(broadcast).toHaveBeenCalledExactlyOnceWith({
@@ -497,7 +508,40 @@ it('broadcasts a changed availability once and resumes skipped warmup and observ
     version: '1.19'
   })
   expect(watch).toHaveBeenCalledOnce()
+  expect(invalidate).toHaveBeenCalledOnce()
+  expect(pluginsChanged).toHaveBeenCalledExactlyOnceWith({ revision: 1 })
+  const watcher = (
+    bootstrap as unknown as { openCodeGlobalWatch: { close: ReturnType<typeof vi.fn> } }
+  ).openCodeGlobalWatch
   await vi.waitFor(() => expect(resolveTarget).toHaveBeenCalledOnce())
   await owned.registry.refreshInstallState('opencode')
   expect(broadcast).toHaveBeenCalledOnce()
+  expect(invalidate).toHaveBeenCalledOnce()
+  expect(pluginsChanged).toHaveBeenCalledOnce()
+  installed.mockResolvedValue({ installed: false, usable: false, reason: 'missing' })
+  await owned.registry.refreshInstallState('opencode')
+  expect(invalidate).toHaveBeenCalledTimes(2)
+  expect(watcher.close).toHaveBeenCalledOnce()
+})
+
+it('routes actual settings patches from the initial executable path to the OpenCode registry only when changed', async () => {
+  fixture.settings.lastBackend = 'claude'
+  const { SettingsStore } =
+    await vi.importActual<typeof import('../infra/settings-store')>('../infra/settings-store')
+  const settings = new SettingsStore('test', {
+    store: { harnesses: { opencode: { executablePath: '/initial' } } }
+  })
+  const bootstrap = boot()
+  Object.defineProperty(bootstrap, 'settings', { value: settings })
+  const owned = bootstrap as unknown as {
+    registry: import('../adapters/common/registry').AdapterRegistry
+  }
+  await bootstrap.start()
+  const refresh = vi.spyOn(owned.registry, 'refreshInstallState')
+  settings.patch({ harnesses: { opencode: { executablePath: '/initial' } } })
+  settings.patch({ lastCwd: '/unrelated' })
+  expect(refresh).not.toHaveBeenCalled()
+  settings.patch({ harnesses: { opencode: { executablePath: '/next' } } })
+  expect(refresh).toHaveBeenCalledExactlyOnceWith('opencode')
+  await owned.registry.settled('opencode')
 })

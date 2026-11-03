@@ -26,29 +26,23 @@ const setup = (): {
   }
 }
 describe('registry availability SSOT', () => {
-  it.each([false, true])(
-    'keeps Claude usable independently of its CLI installed flag (%s)',
-    async (installed) => {
+  it.each([
+    ['claude', { installed: false }, false],
+    ['opencode', { installed: true }, true],
+    ['claude', { installed: false, usable: true }, true]
+  ] as const)(
+    'uses adapter fields without interpreting the %s harness name (%j)',
+    async (id, info, usable) => {
       const registry = new AdapterRegistry(
-        [
-          {
-            id: 'claude',
-            isInstalled: async () => ({
-              installed,
-              version: 'claude-sentinel',
-              usable: false,
-              reason: 'failed'
-            })
-          } as unknown as SessionAdapter
-        ],
+        [{ id, isInstalled: async () => info } as unknown as SessionAdapter],
         null
       )
       await registry.refreshInstallState()
-      expect(registry.availability('claude')).toEqual({
-        id: 'claude',
-        installed,
-        usable: true,
-        ...(installed ? { version: 'claude-sentinel' } : {})
+      expect(registry.availability(id)).toEqual({
+        id,
+        installed: info.installed,
+        usable,
+        ...(!usable ? { unavailableReason: 'missing' } : {})
       })
       registry.close()
     }
@@ -134,4 +128,19 @@ describe('registry availability SSOT', () => {
     await f.registry.refreshInstallState()
     expect(f.probe).toHaveBeenCalledTimes(2)
   })
+})
+
+it('rechecks changed failed identities once and leaves an unchanged failed identity alone', async () => {
+  const f = setup()
+  f.probe.mockResolvedValue({ installed: false, usable: false, reason: 'failed' })
+  await f.registry.refreshInstallState()
+  f.registry.focusRecheck()
+  expect(f.probe).toHaveBeenCalledOnce()
+  f.identity('replacement:failed')
+  f.registry.focusRecheck()
+  await f.registry.settled('opencode')
+  expect(f.probe).toHaveBeenCalledTimes(2)
+  f.registry.focusRecheck()
+  expect(f.probe).toHaveBeenCalledTimes(2)
+  f.registry.close()
 })

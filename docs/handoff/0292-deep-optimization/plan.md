@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | READY (ΔV3 · r2 구현 대기) — r1 verify RETURN_TO_PLAN([verify](verify.md))의 PLAN_GAP D10·D11을 ΔV2로 닫고, 사용자 결정 변경(마지막 백엔드 원칙)을 ΔV3로 반영 |
+| 상태 | IMPL_DONE (r2 · Windows CI 대기) — ΔV2·ΔV3 구현 자기보고 22/23, 독립 검증 대기 |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV3` — 사용자 결정 변경 반영(2026-11-03). 직전 `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
@@ -1315,6 +1315,432 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 - 제약 환경은 Node 24와 설치 SQLite의 Electron ABI 차이다. 기존 Electron을 Node 모드로 실행해 DB를 포함한 동일 기준선·완료 검사를 수행했고 ABI 재빌드는 하지 않았다.
 - 통합 전체 실행의 일시 실패 1건은 동일 코드 파일 재실행 3회에서 재현되지 않았다. 원인을 확정하지 않았고 원문 실패 ID와 재확인 결과를 함께 보관했다.
 - GitHub CLI 인증 실패로 Windows CI를 실행하지 못했다. 작업 브랜치 push와 독립 검증 인계를 수행하며 PR은 생성하지 않는다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+
+- 동의 / 그대로 진행: 유지 — 유효 V는 `V1 + ΔV1 + ΔV2 + ΔV3`, 11 REQUIRED pair·97자리·23 AC다. r1 verify의 D1~D9·D10의 증거 누락을 이번 턴에서 재현·보강했고 D11의 제품 결정은 ΔV3를 따른다.
+- 이견 / 현실성 문제: 기술 세부만 조정 — 마지막 백엔드 메모리/설정 쓰기는 `rememberLandingBackend` 한 벌로 모았다. D-019의 자동 기록·D-020의 이어가기 제외는 그대로 구현했다. 줄 수와 호출 edge의 차이는 아래에 별도로 적었다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음 — 규범 Decision·AC·V·§10은 수정하지 않았다. r1 검증자 finding의 상태는 검증자가 재판정한다. 이번 턴은 r2 구현 자기보고다.
+
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+
+직접 좌표의 별칭은 아래 표다. `evidence/r2-oracles.json`은 이번 전체 실행에서 실제 매칭한 케이스명·통과 상태를 보관한다. 62별칭·67패턴의 미실재/비통과 좌표는 0이다. `gate:*`는 아래 구현 보고의 명령이다.
+
+
+| 별칭 | 파일 | 케이스명 |
+|---|---|---|
+| BOOT | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener` |
+| JOIN | `app/src/main/adapters/common/registry.availability.test.ts` | `joins concurrent refresh/settled consumers, retains previous state and emits only changes` |
+| INSTALL | `app/src/main/app/handlers/misc-split.test.ts` | `preserves backend keys, rechecks the requested harness and refreshes after the install stream` |
+| SEED | `app/src/renderer/src/app/boot/steps.availability.test.ts` | `initializes backend availability before seeding the remembered OpenCode draft` |
+| DRAFT | `app/src/renderer/src/features/chat/store/chatStore.availability.test.ts` | `falls back main/project drafts once while preserving stored, busy, locked and continuation sessions` |
+| NOTICE | `app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts` | `shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion` |
+| MENU | `app/src/renderer/src/features/chat/components/Composer.harness.test.ts` | `omits unavailable OpenCode models while preserving Claude menu items` |
+| SELECT | `app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts` | `skips unsupported OpenCode rows when choosing a default model` |
+| COMPOSER | `app/src/renderer/src/features/chat/components/Composer.selection.test.ts` | `selects the supported Claude model when unavailable OpenCode models are present` |
+| CARD | `app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts` | `installation reason instead of the generic unsupported badge` |
+| ADD | `app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts` | `reason and keeps Claude additions usable` |
+| AGENT | `app/src/renderer/src/shared/stores/agentStore.test.ts` | `wires the production agent store to the harness API and refreshes changed availability once` |
+| FOCUS | `app/src/main/adapters/common/registry.availability.test.ts` | `focus probes only a changed missing/failed identity, never a ready/unsupported installation` |
+| PATH | `app/src/main/app/settings-reactions.test.ts` | `rechecks only an executablePath change inside the actual top-level harnesses patch` |
+| HOST | `app/src/main/app/harness-host.test.ts` | `installed reads the settled registry state and missing harnesses are not installed` |
+| WARM | `app/src/main/app/harnesses/opencode/warmup.test.ts` | `does not consume its one warmup attempt while unavailable and prepares after installation` |
+| ROWS | `app/src/main/app/handlers/misc.runtime-catalog.test.ts` | `gates settings and runtime OpenCode rows with their` |
+| CACHE | `app/src/main/features/harnesses/common/runtime-catalog.test.ts` | `updates cached runtime row availability in both directions without refetching models` |
+| PREP | `app/src/main/app/composer-preparation-service.test.ts` | `rejects unavailable OpenCode preparation before resolving or acquiring a native server` |
+| RESUME | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription` |
+| WATCH | `app/src/main/app/bootstrap.native-history.test.ts` | `starts OpenCode global observation only when usable and sends one increasing revision for each later activation` |
+| RAW | `app/src/main/features/history/native-history.db.test.ts` | `atomically splits a legacy raw value once and keeps display reads lean` |
+| WRITE | `app/src/main/features/history/native-sync.test.ts` | `writes lean display payload while preserving raw separately and reads raw only on demand` |
+| LOAD | `app/src/main/app/handlers/session.load.test.ts` | `splits legacy raw before the handler loads messages and leaves the next refresh usable` |
+| APPEND | `app/src/main/adapters/claude/native-history.test.ts` | `reads separated raw only for a proven append and keeps the full-parse result unchanged` |
+| OCARCHIVE | `app/src/main/features/history/native-history.db.test.ts` | `commits the OpenCode reader result and checkpoint through the common transaction` |
+| RECOVER | `app/src/main/app/chat-turn/native-session.test.ts` | `displays and recovers a separated snapshot after the native source is deleted without reading raw` |
+| CHART | `app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts` | `reserves the original chart height while loading, then renders the same accessible chart` |
+| SYNTAX | `app/src/renderer/src/shared/ui/markdown/syntax.test.ts` | `preserves the original grammar/theme output for all supported languages and memoizes the shared highlighter` |
+| GOLD | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts` | `matches original keys, gaps, tools, artifacts and incomplete rows` |
+| MEMO | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts` | `projects the committed head once and the live tail six times without computing copy text` |
+| COPY | `app/src/renderer/src/shared/ui/CopyIconButton.lazy.test.ts` | `computes copy text only on click and forwards the exact string to the clipboard` |
+| INDEX | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts` | `keeps head rows and indexed positions stable as only the live tail changes, without eager copy text` |
+| TIMER | `app/src/main/app/project-resource-sync.test.ts` | `has no idle timer or target scans, and activity/lease signals each tick once` |
+| MCP | `app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts` | `has no timer until dirty and stops retrying once idle peers are reconciled` |
+| LOG | `app/src/main/infra/log/file-transport.test.ts` | `arms flush only for buffered writes and clears the timer on explicit flush and close` |
+| ADMIT | `app/src/main/adapters/opencode/v1/mcp-control.test.ts` | `wakes unsafe admission immediately on activity signals and cleans up aborted waits` |
+| SIGNALS | `app/src/main/app/bootstrap.native-history.test.ts` | `forwards each activity and lease change to project sync and the OpenCode admission signal` |
+| SDK | `app/src/main/adapters/claude/sdk.test.ts` | `shares one cold import across consumers and first-use controls` |
+| TOOLS | `app/src/main/adapters/claude/runtime-tools.test.ts` | `서버 식별자를 하나로 사용한다` |
+| PREFETCH | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `finishes boot before the SDK prefetch settles` |
+| CANON | `app/src/main/adapters/claude/canonical-consumers.test.ts` | `keeps project revisions independent of nested object key order while detecting changed values` |
+| DEDUPE | `app/src/main/adapters/claude/canonical-consumers.test.ts` | `deduplicates a provider message whose only change is nested object insertion order` |
+| MAP | `app/src/main/adapters/claude/native-history-map.test.ts` | `keeps text/thinking/tools in one assistant response and never makes a tool-result user bubble` |
+| CLAUDE | `app/src/main/adapters/claude/adapter.availability.test.ts` | `keeps the bundled Claude adapter usable when package metadata fails` |
+| DRAFTSEED | `app/src/renderer/src/features/chat/store/chatStore.availability.test.ts` | `seeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections` |
+| PREFERENCE | `app/src/renderer/src/features/chat/store/chatStore.availability.test.ts`<br>`app/src/renderer/src/features/chat/store/chatStore.availability.test.ts` | `remembers automatic model selection and later OpenCode picks only for ordinary new conversations`<br>`keeps the new-conversation backend unchanged when selecting a model in a` |
+| MENUPICK | `app/src/renderer/src/features/chat/components/Composer.selection.test.ts` | `records the production model menu pick only in a` |
+| PROVIDER | `app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts` | `reseeds an ordinary OpenCode draft from actual provider subscription and stops on unmount` |
+| PENDING | `app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts` | `retains Composer while the unavailable session has` |
+| INITIAL | `app/src/renderer/src/features/chat/store/chatStore.availability.test.ts` | `starts with Claude before any landing backend is seeded` |
+| FRESH | `app/src/renderer/src/features/chat/store/chatStore.harness.test.ts`<br>`app/src/renderer/src/features/chat/store/chatStore.harness.test.ts` | `creates a fresh draft using the boot-seeded`<br>`remembers model selection across repeated fresh draft creation` |
+| FAILEDFOCUS | `app/src/main/adapters/common/registry.availability.test.ts`<br>`app/src/main/adapters/common/registry.availability.test.ts` | `rechecks changed failed identities once and leaves an unchanged failed identity alone`<br>`focus probes only a changed missing/failed identity, never a ready/unsupported installation` |
+| BOOTPATH | `app/src/main/app/bootstrap.opencode-warmup.test.ts` | `routes actual settings patches from the initial executable path to the OpenCode registry only when changed` |
+| IDENTITY | `app/src/main/adapters/opencode/v1/server.test.ts` | `carries executable path and stat identity through the actual OpenCode adapter without probing a process` |
+| FANOUT | `app/src/main/infra/ipc/send.availability.test.ts` | `broadcasts the availability payload on its channel to every living renderer` |
+| PRELOAD | `app/src/preload/harness.test.ts` | `carries availability changes and invokes recheck with the requested harness` |
+| STORE | `app/src/renderer/src/app/boot/harnessAvailability.test.ts` | `applies production harness API pushes and preserves a newer push over a deferred backend list` |
+| RECHECK | `app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts` | `reason and rechecks that harness once while disabling the pending button` |
+| PORT | `app/src/main/adapters/common/registry.availability.test.ts` | `uses adapter fields without interpreting the` |
+| COPYSEM | `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts`<br>`app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts` | `derives meta copyability from the same text semantics as turnCopyText`<br>`renders exactly the copy controls justified by the meta text` |
+| SDKRETRY | `app/src/main/adapters/claude/sdk.test.ts`<br>`app/src/main/adapters/claude/sdk.test.ts` | `shares one cold import across consumers and first-use controls`<br>`retries a rejected SDK import instead of retaining the failed promise` |
+
+
+| V-pair | production path | §10이 적은 지점 | 닫은 수 / 전체 | 직접 oracle 좌표 + 관측값 | 운반 값을 구별한 fixture | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-02 | start 초입 확인 | EP-02′ #1 start 초입 확인 | 1/1 | BOOT — start 직후 refresh 1 · deferred 중 db-init 실행 | 확인 미완/DB 완료 | 없음 |
+| VP-02 | finish 직전 합류 | EP-02′ #2 finish 직전 합류 | 1/1 | BOOT — start 미완 → resolve 뒤 완료 | 미완/완료 분리 | 없음 |
+| VP-02 | refresh 합류 | EP-02′ #3 refresh 합류 | 1/1 | JOIN — 동시 refresh 2+settled → probe 1 | missing → 1.18.27 | 없음 |
+| VP-02 | 설치 종료 refresh | EP-02′ #4 설치 종료 refresh | 1/1 | INSTALL — install 종료 뒤 refresh(opencode) 1 | backend opencode | 없음 |
+| VP-03 | boot backend→seed | EP-03‴ #1 boot backend→seed | 1/1 | SEED — 3 불가 사유 claude·설정 쓰기 1; usable opencode·쓰기 0 | missing/unsupported/failed/usable | 없음 |
+| VP-03 | seedLandingBackend | EP-03‴ #2 seedLandingBackend | 1/1 | DRAFTSEED — failed 폴백 쓰기 1 · usable·claude·null 추가 쓰기 0 | opencode/claude/null | 없음 |
+| VP-03 | applyHarnessAvailability | EP-03‴ #3 applyHarnessAvailability | 1/1 | DRAFT — main/project claude · stored/busy/locked/continuation 참조 유지 · 반복·usable 뒤 쓰기 1 유지 | draft/project/saved/claude/busy/locked/fork/handoff | 없음 |
+| VP-03 | ChatProvider subscribe | EP-03‴ #4 ChatProvider subscribe | 1/1 | PROVIDER — store 변화만으로 opencode→claude · unmount 뒤 반영 0 | usable→missing | 없음 |
+| VP-03 | setModel 기록 판정 | EP-03‴ #5 setModel 기록 판정 | 1/1 | PREFERENCE — ordinary claude→opencode 쓰기 각1; fork/handoff/saved 쓰기0 | 선택 backend opencode vs claude | 없음 |
+| VP-03 | Composer ModelMenu.onPick | EP-03‴ #6 Composer ModelMenu.onPick | 1/1 | MENUPICK — 실제 메뉴 opencode pick 쓰기1 · fork의 다른 Claude pick 쓰기0 | opencode/model vs claude/other | 없음 |
+| VP-03 | ChatTile 안내 조건 | EP-03‴ #7 ChatTile 안내 조건 | 1/1 | PENDING — inflight·ask·approval·plan 각각 Composer 유지 | pending 3종/유휴 | 없음 |
+| VP-03 | ChatTile Composer | EP-03‴ #8 ChatTile Composer | 1/1 | NOTICE — unavailable idle 안내 · Claude Composer 유지 | claude/opencode | 없음 |
+| VP-03 | Notice 사유 | EP-03‴ #9 Notice 사유 | 1/1 | RECHECK — unsupported·failed 한국어 문구 | 기본 missing과 구별 | 없음 |
+| VP-03 | Landing Composer | EP-03‴ #10 Landing Composer | 1/1 | DRAFT — 새 대화 재시드 후 claude | draft | 없음 |
+| VP-03 | ProjectLanding Composer | EP-03‴ #11 ProjectLanding Composer | 1/1 | DRAFT — 프로젝트 재시드 후 claude | project/cwd | 없음 |
+| VP-03 | ModelMenu supported | EP-03‴ #12 ModelMenu supported | 1/1 | MENU — 미지원 opencode 항목0 · Claude 유지 | supported false/true | 없음 |
+| VP-03 | modelSelection | EP-03‴ #13 modelSelection | 1/1 | SELECT — 미지원 opencode 건너뜀 | 서로 다른 backend/model | 없음 |
+| VP-03 | Composer 메뉴 노출 | EP-03‴ #14 Composer 메뉴 노출 | 1/1 | COMPOSER — Claude 모델 선택·표시 | supported false/true | 없음 |
+| VP-03 | EngineCard 사유 | EP-03‴ #15 EngineCard 사유 | 1/1 | CARD — missing·unsupported·failed 문구 | 3사유 | 없음 |
+| VP-03 | AgentEnvironmentView 추가 | EP-03‴ #16 AgentEnvironmentView 추가 | 1/1 | ADD — 3사유별 disabled·툴팁 · Claude modal | 3사유/claude | 없음 |
+| VP-03 | agentStore availability subscribe | EP-03‴ #17 agentStore availability subscribe | 1/1 | AGENT — push1→list1 · dispose뒤0 | initial/after-change | 없음 |
+| VP-03 | landingBackend 초기값 | EP-03‴ #18 landingBackend 초기값 | 1/1 | INITIAL — fresh module seed없이 newChat→claude | 초기 import | 없음 |
+| VP-03 | freshEntry last backend | EP-03‴ #19 freshEntry last backend | 1/1 | FRESH — boot-seeded 하네스·반복 draft 모델선택 유지 | claude/opencode·agentKind | 없음 |
+| VP-04 | settings-reactions top-level patch | EP-04″ #1 settings-reactions top-level patch | 1/1 | PATH — 경로 변경만 recheck1 · 동일/다른키0 | initial/next | 없음 |
+| VP-04 | Bootstrap 실제 settings patch | EP-04″ #2 Bootstrap 실제 settings patch | 1/1 | BOOTPATH — 실제 SettingsStore patch · 동일0/변경opencode1/다른키0 | /initial vs /next | 없음 |
+| VP-04 | misc recheck | EP-04″ #3 misc recheck | 1/1 | INSTALL — 요청 하네스 refresh1·결과 | opencode | 없음 |
+| VP-04 | Bootstrap focus lifecycle | EP-04″ #4 Bootstrap focus lifecycle | 1/1 | BOOT — 등록focus1 · shutdown해제 | listener identity | 없음 |
+| VP-04 | registry refresh/listener | EP-04″ #5 registry refresh/listener | 1/1 | JOIN — 동시 합류 · 동일 결과 방송0 | missing→ready | 없음 |
+| VP-04 | registry focus failed/identity | EP-04″ #6 registry focus failed/identity | 1/1 | FAILEDFOCUS — failed 동일identity0 · 교체1 · ready/unsupported identity조회0 | failed/missing/usable/unsupported | 없음 |
+| VP-04 | registry listener register/remove | EP-04″ #7 registry listener register/remove | 1/1 | RESUME — 동일상태 방송0 · 다른상태1 | usable/missing | 없음 |
+| VP-04 | server→adapter identity | EP-04″ #8 server→adapter identity | 1/1 | IDENTITY — 파일 교체·경로 변경시 값변화 · missing undefined · probe/spawn0 | A→A′→B→missing | 없음 |
+| VP-04 | Bootstrap broadcast listener | EP-04″ #9 Bootstrap broadcast listener | 1/1 | RESUME — 변화payload 방송1 · 동일0 | ready version1.19 | 없음 |
+| VP-04 | send.ts actual channel/fanout | EP-04″ #10 send.ts actual channel/fanout | 1/1 | FANOUT — 살아있는2 send1씩 · 파괴된1 send0 | unsupported/version2.0 | 없음 |
+| VP-04 | preload recheck invoke | EP-04″ #11 preload recheck invoke | 1/1 | PRELOAD — harnessRecheck(opencode) invoke | 채널 구별 | 없음 |
+| VP-04 | preload push subscribe/remove | EP-04″ #12 preload push subscribe/remove | 1/1 | PRELOAD — harnessAvailability callback/해제 | 별도 채널 | 없음 |
+| VP-04 | harnessApi delegates | EP-04″ #13 harnessApi delegates | 1/1 | STORE — window.orca.harness stub를 실제 API로 실행 | unsupported/usable | 없음 |
+| VP-04 | store push apply | EP-04″ #14 store push apply | 1/1 | STORE — unsupported값 운반 후 usable값 운반 | 사유unsupported/version1.19 | 없음 |
+| VP-04 | backend list seed fence | EP-04″ #15 backend list seed fence | 1/1 | STORE — list deferred 중 usable push→missing list resolve 뒤 usable 유지 | usable push vs missing list | 없음 |
+| VP-04 | Notice button actual API | EP-04″ #16 Notice button actual API | 1/1 | RECHECK — recheck(opencode)1 · pendingdisabled · 완료enabled | unsupported/failed | 없음 |
+| VP-05 | 설치 캐시 정의 | EP-05′ #1 설치 캐시 정의 | 1/1 | JOIN + CLAUDE — OpenCode usable 결과·Claude 설치 독립성 | Claude installed false/true 모두 usable true | 없음 |
+| VP-05 | 설치 확인 입력 | EP-05′ #2 설치 확인 입력 | 1/1 | JOIN — 동시 수요 추가 probe 0 | 동시 refresh/settled | 없음 |
+| VP-05 | 결과 캐시 쓰기 | EP-05′ #3 결과 캐시 쓰기 | 1/1 | JOIN — ready installed/version 보존 | installed=true/version=1.18.27 | 없음 |
+| VP-05 | list/availability 읽기 | EP-05′ #4 list/availability 읽기 | 1/1 | JOIN — settled payload 키·값 동등 | missing 사유/ready 버전 | 없음 |
+| VP-05 | Host 주석·직접 probe 제거 | EP-05′ #5 Host 주석·직접 probe 제거 | 1/1 | gate:S05d — app isInstalled 직접 호출·언급 0 | scan/sites.sh 원문 | 없음 |
+| VP-05 | Host installed | EP-05′ #6 Host installed | 1/1 | HOST — 직접 probe 0·settled 값 반환 | installed false/true+버전 | 없음 |
+| VP-05 | warmup installed gate | EP-05′ #7 warmup installed gate | 1/1 | WARM — 미설치 prepare 0·설치 후 1 | attempt 미소비 | 없음 |
+| VP-05 | backend:list | EP-05′ #8 backend:list | 1/1 | INSTALL — 기존 installed/version·추가 usable/사유 | Claude 3.0/OpenCode missing | 없음 |
+| VP-05 | agent:list settings | EP-05 #9 agent:list settings | 1/1 | ROWS — settings/runtime 사유 missing·unsupported·failed 운반 | settings/runtime 별도 fixture | 없음 |
+| VP-05 | models.ts supported | EP-05 #10 models.ts supported | 1/1 | ROWS — 동일 handler의 실제 toAgentEnvironments 실행 | OpenCode false/Claude true | 없음 |
+| VP-05 | runtime-catalog supported | EP-05 #11 runtime-catalog supported | 1/1 | CACHE + ROWS — 캐시 행 false↔true 갱신 | 설치 후 모델 재조회 없음 | 없음 |
+| VP-05 | composer preparation | EP-05 #12 composer preparation | 1/1 | PREP — unavailable stage·get/acquire 0 | OpenCode missing | 없음 |
+| VP-05 | auth.connectAll Host edge | EP-05 #13 auth.connectAll Host edge | 1/1 | HOST — Host listModels unavailable probe 0 | login-free 기존 전 케이스 실행 | 없음 |
+| VP-05 | warmup 생성·재개 배선 | EP-05 #14 warmup 생성·재개 배선 | 1/1 | RESUME — 실제 리스너 → 준비 무효화 1 · 감시 생성/revision 1 · unavailable 전환 close | real registry subscription | 없음 |
+| VP-05 | global watch 생성·정리 | EP-05′ #15 global watch 생성·정리 | 1/1 | RESUME — 실제 리스너 → 준비 무효화 1 · 감시 생성/revision 1 · unavailable 전환 close | usable/missing/재활성화 | 없음 |
+| VP-05 | registry usable | EP-05″ #16 registry usable | 1/1 | PORT — 이름 비의존 · field 우선/fallback | claude installedfalse / opencode installedtrue / explicitttrue | 없음 |
+| VP-05 | Claude producer | EP-05″ #17 Claude producer | 1/1 | CLAUDE — 실제 adapter package metadata 성공·실패 모두 usabletrue + registry 경유 | installedtrue/version vs installedfalse | 없음 |
+| VP-06 | 0034 raw_json 열 | EP-06 #1 0034 raw_json 열 | 1/1 | RAW + gate:migration — 새 열 왕복·migration sync 통과 | 과거 migration 무수정 | 없음 |
+| VP-06 | replace SQL | EP-06 #2 replace SQL | 1/1 | RAW — raw_json 저장·lean payload | raw 6종 JSON | 없음 |
+| VP-06 | replace 입력 타입 | EP-06 #3 replace 입력 타입 | 1/1 | RAW — rawJson 인자 수용 | raw-text/false/null | 없음 |
+| VP-06 | replace 실행 | EP-06 #4 replace 실행 | 1/1 | RAW — raw_json 읽기 값 동등 | object/array/number | 없음 |
+| VP-06 | get SELECT | EP-06 #5 get SELECT | 1/1 | RAW — raw_json 반환 키 없음 | display payload만 조회 | 없음 |
+| VP-06 | row 타입 | EP-06 #6 row 타입 | 1/1 | gate:typecheck — node/web/test 3구성 오류 0 | SELECT 형상 유지 | 없음 |
+| VP-06 | raw(sessionId) | EP-06 #7 raw(sessionId) | 1/1 | RAW — JSON 값 왕복 | 6종 원형 보존 | 없음 |
+| VP-06 | compactLegacyRaw | EP-06 #8 compactLegacyRaw | 1/1 | RAW — 분리 changes 1 → 0·표시 동일 | array/object/string/number/bool/null | 없음 |
+| VP-06 | native-sync writer | EP-06 #9 native-sync writer | 1/1 | WRITE — payload raw 키 없음·rawJson 별도 | 비어 있지 않은 raw sentinel | 없음 |
+| VP-06 | previous lazy raw | EP-06 #10 previous lazy raw | 1/1 | WRITE — 조회 전 0·요청 후 1 | legacy 내장 raw도 지원 | 없음 |
+| VP-06 | reader messages | EP-06 #11 reader messages | 1/1 | RAW + RECOVER — 분리 뒤 본문 동일·복구 prompt 유지 | display remains/retained source question | 없음 |
+| VP-06 | session:load 순서 | EP-06 #12 session:load 순서 | 1/1 | LOAD — compact → load·다음 refresh busy 아님 | 호출 순서 로그 | 없음 |
+| VP-06 | previous.raw 포트 | EP-06 #13 previous.raw 포트 | 1/1 | APPEND — lazy raw 함수로 append 동치 | raw가 없는 lean snapshot | 없음 |
+| VP-06 | Claude append 조건 | EP-06 #14 Claude append 조건 | 1/1 | APPEND — unchanged·조건 거짓 raw 0 | identity/newline/offset/projectionVersion | 없음 |
+| VP-06 | Claude raw 사용 | EP-06 #15 Claude raw 사용 | 1/1 | APPEND — 검증된 append raw 1·전체 파싱과 동등 | 추가 user/assistant 둘 | 없음 |
+| VP-06 | OpenCode/Claude raw 생산 | EP-06 #16 OpenCode/Claude raw 생산 | 1/1 | OCARCHIVE + APPEND — OpenCode raw={session,messages}·Claude 원형 재사용 | 두 생산자 분리 검증 | 없음 |
+| VP-07 | renderer minify | EP-07 #1 renderer minify | 1/1 | gate:bundle — entryMinified=true·1,283,482B | 압축 제거 결함 검출 | 없음 |
+| VP-07 | UsageTab lazy/Suspense | EP-07 #2 UsageTab lazy/Suspense | 1/1 | CHART + gate:bundle — recharts 진입 0B·자리→차트 | 동일 높이 180px | 없음 |
+| VP-07 | TokensPerDayChart | EP-07 #3 TokensPerDayChart | 1/1 | CHART — 같은 접근성 차트 표시 | 차트 구현 무변경 | 없음 |
+| VP-07 | syntax segmented import | EP-07 #4 syntax segmented import | 1/1 | SYNTAX + gate:bundle — shiki 진입 0B·자산 21 | 11언어×2테마 기존 출력 동등 | 없음 |
+| VP-08 | projection head/tail | EP-08 #1 projection head/tail | 1/1 | GOLD — 원본 생성 golden 3종 동등 | 도구/산출물/미완료 | 없음 |
+| VP-08 | meta lazy copy | EP-08 #2 meta lazy copy | 1/1 | COPYSEM — 본문·공백·child·빈 child id별 copyable 동치 · 버튼 0/1 | 두 문단 개행 보존 | 없음 |
+| VP-08 | live text 구독 | EP-08 #3 live text 구독 | 1/1 | MEMO — live 5회 변경 tail 6회 | text 길이 1..5 | 없음 |
+| VP-08 | live reasoning 구독 | EP-08 #4 live reasoning 구독 | 1/1 | MEMO — tail 인자에 live reasoning 갱신값 전달 | text=12345/reasoning=thought 12345 | 없음 |
+| VP-08 | head memo | EP-08 #5 head memo | 1/1 | MEMO — head 1·tail 6 | messages 동일 identity | 없음 |
+| VP-08 | 보존 행 lookup | EP-08 #6 보존 행 lookup | 1/1 | INDEX — 모든 row key 인덱스 일치 | head/tail/missing 구별 | 없음 |
+| VP-08 | 앵커 lookup | EP-08 #7 앵커 lookup | 1/1 | INDEX — 누락 key=-1 | 기존 selection 스위트 함께 실행 | 없음 |
+| VP-08 | 선택 행 lookup | EP-08 #8 선택 행 lookup | 1/1 | INDEX — 선택 완료→해제 기존 동작 유지 | Timeline.selection.test.ts 1케이스 | 없음 |
+| VP-09 | project sync timer | EP-09 #1 project sync timer | 1/1 | TIMER — 10s idle targets 0·신호마다 tick 1 | pending 재시도 뒤 timer 0 | 없음 |
+| VP-09 | MCP reconcile timer | EP-09 #2 MCP reconcile timer | 1/1 | MCP — idle 0·dirty busy 재시도·완료 0 | close 타이머 해제 | 없음 |
+| VP-09 | file log timer | EP-09 #3 file log timer | 1/1 | LOG — 첫 write에만 timer·flush/close 0 | 버퍼 0/비어 있지 않음 | 없음 |
+| VP-09 | MCP admission wait | EP-09 #4 MCP admission wait | 1/1 | ADMIT — 시간 진행 없이 신호로 수행·abort reject | 500ms 상한 유지 | 없음 |
+| VP-09 | activity broadcast 배선 | EP-09 #5 activity broadcast 배선 | 1/1 | SIGNALS — 방송 1 → project/adapter 신호 각각 1 | 서로 다른 spy | 없음 |
+| VP-09 | lease 배선 | EP-09 #6 lease 배선 | 1/1 | SIGNALS — lease 이벤트 → leasesChanged 1 | activity와 별도 spy | 없음 |
+| VP-10 | SDK memo loader | EP-10 #1 SDK memo loader | 1/1 | SDKRETRY — 동시 import factory 1 · 실패 뒤 재시도 factory 2 | cold import gate | 없음 |
+| VP-10 | adapter query | EP-10 #2 adapter query | 1/1 | gate:bundle + SDK — SDK 정적 require 0·warm mock 호환 | cold control sentinel-model | 없음 |
+| VP-10 | runtime-tools factory | EP-10 #3 runtime-tools factory | 1/1 | TOOLS — 주입 함수·handler 결과 기존 동작 | 서버명 records | 없음 |
+| VP-10 | native-history-map | EP-10 #4 native-history-map | 1/1 | MAP — 기존 SDK history mock 스위트 실행 | 동일 native 메시지 | 없음 |
+| VP-10 | bootstrap prefetch | EP-10 #5 bootstrap prefetch | 1/1 | PREFETCH — finish 뒤 loader 1·미완 promise 비대기 | prefetch deferred | 없음 |
+| VP-11 | project-settings canonical | EP-11 #1 project-settings canonical | 1/1 | CANON — 키 순서 변경 revision 동일·값 변경 다름 | 중첩 키 순서/값 구별 | 없음 |
+| VP-11 | background canonical | EP-11 #2 background canonical | 1/1 | DEDUPE — 같은 uuid·키 순서만 변경한 두 번째 무시 | nested object | 없음 |
+
+
+- 목록 대조: 규범 §10의 유효 표에서 추출한 `(pair, slot)` 97개와 보고 97개를 양방향으로 빼서 **누락 0·추가 0**을 관측했다(`evidence/r2-gates.json`). 분모는 `4+19+16+17+16+4+8+6+5+2=97`이다. A2에서 표 한 행을 빼면 누락 1이 검출된다.
+- 검색 대조: `scan/sites-dv2.sh`의 S04′ **45→45**, S05e **1→0**이다. S03″은 **39→37**이다. helper로 옮긴 쓰기 2줄이 검색되고, helper를 부르는 3곳 중 `applyHarnessAvailability`는 기존 술어에 잡히지만 `seedLandingBackend`·`setModel`의 호출 2줄은 술어에 잡히지 않는다. 이 2 edge를 AST로 보충해 39 운반 줄을 대조했다. 원문 검색과 AST 결과는 `evidence/r2-sites-dv3-final.txt`·`r2-callers.json`에 함께 보관했고 정본 검색은 바꾸지 않았다.
+- 차집합: helper 호출자의 기대 집합 `{applyHarnessAvailability, seedLandingBackend, setModel}` − 실제 집합과 역방향은 각각 0이다. A1에서 seed 호출을 원문 문자열에서 제거하면 누락 `seedLandingBackend` 1이 검출된다. EP-03‴ 19자리의 운반은 위 직접 행동 좌표로 별도 관측했다. 삭제한 `unavailableLandingFallback`·`automaticFallback`은 D-019가 폐기한 표식이다.
+- 직전 verify 이력: 95행 중 X17(자동 전환 미기록)은 ΔV3 U5·U6으로, N08(registry Claude 특례 제거)은 ΔV2 U3·U4로 대체했다. 나머지 93행과 신규 10행을 재실행했다. 이전 `못 잡음` 21행은 모두 이번 실행에서 red였다. 동치 4행도 다시 실행해 새 실패 0을 관측했다.
+
+**V-pair 자기확인**
+
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_BLOCKED | gate:vitest·typecheck·eslint·scripts·migration·docs·budget | 집계 — Windows CI 대기 |
+| VP-02 | REQUIRED | SELF_PASS | BOOT·JOIN·INSTALL | R02a/R02b·X03 red |
+| VP-03 | REQUIRED | SELF_PASS | SEED·DRAFTSEED·DRAFT·PROVIDER·PREFERENCE·MENUPICK·PENDING·NOTICE·RECHECK·MENU·SELECT·COMPOSER·CARD·ADD·AGENT·INITIAL·FRESH | 기존·이전 미검출 및 U5~U9 red |
+| VP-04 | REQUIRED | SELF_PASS | PATH·BOOTPATH·INSTALL·BOOT·JOIN·FAILEDFOCUS·RESUME·IDENTITY·FANOUT·PRELOAD·STORE·RECHECK | identity·방송·경합·클릭·실제 bootstrap 변이 red |
+| VP-05 | REQUIRED | SELF_PASS | CLAUDE·PORT·HOST·WARM·ROWS·CACHE·PREP·RESUME·WATCH | U3·U4 양쪽 분기·리스너 인자 red; 3동치 재현 |
+| VP-06 | REQUIRED | SELF_PASS | RAW·WRITE·LOAD·APPEND·OCARCHIVE·RECOVER | raw 변이 red; X07 동치 재현 |
+| VP-07 | REQUIRED | SELF_PASS | gate:bundle·CHART·SYNTAX | B07a/B07b/B07c 실제 빌드 red |
+| VP-08 | REQUIRED | SELF_PASS | GOLD·COPYSEM·MEMO·COPY·INDEX·Timeline.selection.test.ts | X01·T1·memo/copy 변이 red |
+| VP-09 | REQUIRED | SELF_PASS | TIMER·MCP·LOG·ADMIT·SIGNALS | 등록·인용 timer/신호 변이 red |
+| VP-10 | REQUIRED | SELF_PASS | SDK·SDKRETRY·TOOLS·MAP·PREFETCH·gate:bundle | X27·B10 red |
+| VP-11 | REQUIRED | SELF_PASS | CANON·DEDUPE | canonical 두 자리 red |
+
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+
+선택·인용 고장을 한 자리씩 심은 뒤 원문을 복구했다. 프로덕션 103행의 전체 편집·실행·실패 좌표는 `evidence/r2-mutations.json`이다. 아래 케이스 수는 그 변이 실행에서 새로 실패한 수이며, 전체 원문 복구 실행에서는 관련 280/280 및 전체 실패 ID 차집합 0을 관측했다. A1~A3은 산출물 검사기의 민감도 대조다.
+
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `R02a` — `app/src/main/app/bootstrap.ts`: 합류 대신 시작 직후 `await installation`(순차 대기) | 선택 증거 | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 1케이스 (실행 10) | red → 원문 복구 |
+| `R02b` — `app/src/main/app/bootstrap.ts`: `finish()` 앞 `await installation` 삭제 | 선택 증거 | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 2케이스 (실행 10) | red → 원문 복구 |
+| `R03a` — `app/src/renderer/src/features/chat/store/chatStore.ts`: 시드 폴백 삭제 → `backend ?? claude` | 선택 증거 | 검출 | app/src/renderer/src/app/boot/steps.availability.test.ts:initializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback / 3케이스 (실행 4) | red → 원문 복구 |
+| `R03b` — `app/src/renderer/src/features/chat/components/ChatTile.tsx`: 가용성 조회 하네스 claude↔opencode | 선택 증거 | 검출 | app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts:shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion / 1케이스 (실행 7) | red → 원문 복구 |
+| `R03c` — `app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx`: 추가 항목 `disabled` 조건 반전 | 선택 증거 | 검출 | app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.crud.test.ts:adds the selected claude harness through the production menu, form and API / 2케이스 (실행 10) | red → 원문 복구 |
+| `R04a` — `app/src/main/adapters/common/registry.ts`: focus identity 비교 삭제 | 선택 증거 | 검출 | app/src/main/adapters/common/registry.availability.test.ts:registry availability SSOT > focus probes only a changed missing/failed identity, never a ready/unsupported installation / 2케이스 (실행 10) | red → 원문 복구 |
+| `R04b` — `app/src/main/adapters/common/registry.ts`: 변화 비교 삭제(매번 통지) | 선택 증거 | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1케이스 (실행 10) | red → 원문 복구 |
+| `R05-6` — `app/src/main/app/harness-host.ts`: Host `installed`가 `adapter.isInstalled()` 직접 호출 | 선택 증거 | 검출 | app/src/main/app/harness-host.test.ts:createHostHarnessPort (0291 AR-02) > installed reads the settled registry state and missing harnesses are not installed / 2케이스 (실행 3) | red → 원문 복구 |
+| `R05-7` — `app/src/main/app/harnesses/opencode/warmup.ts`: 웜업 `installed` 게이트 삭제 | 선택 증거 | 검출 | app/src/main/app/harnesses/opencode/warmup.test.ts:skips unavailable CLI and leaves an explicit foreground retry available / 2케이스 (실행 3) | red → 원문 복구 |
+| `R05-9` — `app/src/main/app/handlers/misc.ts`: agent:list usable 필터·행 게이트 삭제 | 선택 증거 | 검출 | app/src/main/app/handlers/misc.runtime-catalog.test.ts:gates settings and runtime OpenCode rows with their missing reason and preserves Claude / 3케이스 (실행 6) | red → 원문 복구 |
+| `R05-11` — `app/src/main/features/harnesses/common/runtime-catalog.ts`: runtime 행 `supported: true` | 선택 증거 | 검출 | app/src/main/features/harnesses/common/runtime-catalog.test.ts:updates cached runtime row availability in both directions without refetching models / 1케이스 (실행 25) | red → 원문 복구 |
+| `R05-12` — `app/src/main/app/composer-catalog.ts`: 컴포저 준비 unavailable 게이트 삭제 | 선택 증거 | 검출 | app/src/main/app/composer-preparation-service.test.ts:rejects unavailable OpenCode preparation before resolving or acquiring a native server / 1케이스 (실행 3) | red → 원문 복구 |
+| `R05-15` — `app/src/main/app/bootstrap.ts`: 전역 감시 usable 조건 삭제 | 선택 증거 | 검출 | app/src/main/app/bootstrap.native-history.test.ts:starts OpenCode global observation only when usable and sends one increasing revision for each later activation / 1케이스 (실행 24) | red → 원문 복구 |
+| `R06a` — `app/src/main/features/history/native-sync.ts`: payload에 raw 재합류(`JSON.stringify(result.snapshot)`) | 선택 증거 | 검출 | app/src/main/app/chat-turn/native-session.test.ts:native retention recovery through the migrated archive > displays and recovers a separated snapshot after the native source is deleted without reading raw / 1케이스 (실행 13) | red → 원문 복구 |
+| `R06b` — `app/src/main/app/handlers/session.ts`: load 뒤 분리 | 선택 증거 | 검출 | app/src/main/app/handlers/session.load.test.ts:splits legacy raw before the handler loads messages and leaves the next refresh usable / 1케이스 (실행 12) | red → 원문 복구 |
+| `R08a` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx`: head `useMemo` 삭제 | 선택 증거 | 검출 | app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts:projects the committed head once and the live tail six times without computing copy text / 1케이스 (실행 5) | red → 원문 복구 |
+| `R08b` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts`: meta 투영 중 `turnCopyText` 즉시 계산 | 선택 증거 | 검출 | app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts:projects the committed head once and the live tail six times without computing copy text / 1케이스 (실행 5) | red → 원문 복구 |
+| `R09-1` — `app/src/main/app/project-resource-sync.ts`: 500ms 상시 interval 복원 | 선택 증거 | 검출 | app/src/main/app/project-resource-sync.test.ts:has no idle timer or target scans, and activity/lease signals each tick once / 2케이스 (실행 19) | red → 원문 복구 |
+| `R09-2` — `app/src/main/app/harnesses/opencode/mcp-reconcile.ts`: 500ms 상시 interval 복원 | 선택 증거 | 검출 | app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts:has no timer until dirty and stops retrying once idle peers are reconciled / 1케이스 (실행 1) | red → 원문 복구 |
+| `R09-3` — `app/src/main/infra/log/file-transport.ts`: 상시 flush interval 복원 | 선택 증거 | 검출 | app/src/main/infra/log/file-transport.test.ts:arms flush only for buffered writes and clears the timer on explicit flush and close / 1케이스 (실행 8) | red → 원문 복구 |
+| `R09-5a` — `app/src/main/app/bootstrap.ts`: activity → `projectResourceSync.activityChanged` 삭제 | 선택 증거 | 검출 | app/src/main/app/bootstrap.native-history.test.ts:forwards each activity and lease change to project sync and the OpenCode admission signal / 1케이스 (실행 24) | red → 원문 복구 |
+| `R09-5b` — `app/src/main/app/bootstrap.ts`: activity → adapter `resourceActivityChanged` 삭제 | 선택 증거 | 검출 | app/src/main/app/bootstrap.native-history.test.ts:forwards each activity and lease change to project sync and the OpenCode admission signal / 1케이스 (실행 24) | red → 원문 복구 |
+| `R09-6` — `app/src/main/app/bootstrap.ts`: lease → `leasesChanged` 삭제 | 선택 증거 | 검출 | app/src/main/app/bootstrap.native-history.test.ts:forwards each activity and lease change to project sync and the OpenCode admission signal / 1케이스 (실행 24) | red → 원문 복구 |
+| `R11a` — `app/src/main/adapters/claude/project-settings.ts`: `canonicalJson` → `JSON.stringify` | 선택 증거 | 검출 | app/src/main/adapters/claude/canonical-consumers.test.ts:keeps project revisions independent of nested object key order while detecting changed values / 1케이스 (실행 2) | red → 원문 복구 |
+| `R11b` — `app/src/main/adapters/claude/background.ts`: `canonicalJson` → `JSON.stringify` | 선택 증거 | 검출 | app/src/main/adapters/claude/canonical-consumers.test.ts:deduplicates a provider message whose only change is nested object insertion order / 1케이스 (실행 2) | red → 원문 복구 |
+| `N01` — `app/src/main/app/bootstrap.ts`: focus 리스너 등록 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 1케이스 (실행 10) | red → 원문 복구 |
+| `N02` — `app/src/main/app/bootstrap.ts`: 가용성 방송 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1케이스 (실행 10) | red → 원문 복구 |
+| `N03` — `app/src/main/app/bootstrap.ts`: 리스너의 웜업 재개 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1케이스 (실행 10) | red → 원문 복구 |
+| `N04` — `app/src/renderer/src/shared/stores/agentStore.ts`: agentStore 가용성 구독 삭제 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/shared/stores/agentStore.test.ts:wires the production agent store to the harness API and refreshes changed availability once / 1케이스 (실행 5) | red → 원문 복구 |
+| `N05` — `app/src/main/adapters/claude/sdk.ts`: loader memo(`??=` → `=`) | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/claude/sdk.test.ts:shares one cold import across consumers and first-use controls / 1케이스 (실행 3) | red → 원문 복구 |
+| `N06` — `app/src/main/adapters/claude/native-history.ts`: raw를 append 판정 전에 즉시 읽기 | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/claude/native-history.test.ts:reads separated raw only for a proven append and keeps the full-parse result unchanged / 1케이스 (실행 17) | red → 원문 복구 |
+| `N07` — `app/src/renderer/src/app/boot/steps.ts`: `backend` 단계를 landing 뒤로 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/app/boot/steps.availability.test.ts:initializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback / 1케이스 (실행 4) | red → 원문 복구 |
+| `X01` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts`: `copyable: true \|\|` | 선택 증거 | 못 잡음 | app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts:renders exactly the copy controls justified by the meta text: {"type":"text","text":"   "} / 3케이스 (실행 5) | red → 원문 복구 |
+| `X02` — `app/src/renderer/src/features/chat/providers/ChatProvider.tsx`: store → `applyHarnessAvailability` 구독 삭제 | 선택 증거 | 못 잡음 | app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts:reseeds an ordinary OpenCode draft from actual provider subscription and stops on unmount / 1케이스 (실행 1) | red → 원문 복구 |
+| `X03` — `app/src/main/app/bootstrap.ts`: 확인 시작을 첫 await(`:609`) 뒤 `workspace` 앞으로 | 선택 증거 | 못 잡음 | app/src/main/app/bootstrap.opencode-warmup.test.ts:overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener / 1케이스 (실행 10) | red → 원문 복구 |
+| `X04` — `app/src/main/adapters/common/registry.ts`: focus 대상에서 `failed` 제외 | 선택 증거 | 못 잡음 | app/src/main/adapters/common/registry.availability.test.ts:rechecks changed failed identities once and leaves an unchanged failed identity alone / 1케이스 (실행 10) | red → 원문 복구 |
+| `X05` — `app/src/renderer/src/shared/stores/harnessAvailabilityStore.ts`: 초기 목록 seed의 generation fence 삭제 | 선택 증거 | 못 잡음 | app/src/renderer/src/app/boot/harnessAvailability.test.ts:applies production harness API pushes and preserves a newer push over a deferred backend list / 1케이스 (실행 1) | red → 원문 복구 |
+| `X06` — `app/src/main/infra/db/native-history-queries.ts`: `->` → `json_extract` | 인용 변이(하한 재생) | 검출 | app/src/main/features/history/native-history.db.test.ts:atomically splits a legacy raw value once and keeps display reads lean: "raw-text" / 2케이스 (실행 21) | red → 원문 복구 |
+| `X07` — `app/src/main/features/history/native-sync.ts`: legacy 내장 raw 분기 삭제 | 인용 변이(하한 재생) | 동치 | 관련 14케이스 / 새 실패 0 | 동치 — 아래 근거 |
+| `X08` — `app/src/main/adapters/claude/native-history.ts`: lazy `previous.raw()` 무시 | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/claude/native-history.test.ts:reads separated raw only for a proven append and keeps the full-parse result unchanged / 1케이스 (실행 17) | red → 원문 복구 |
+| `X10` — `app/src/main/app/settings-reactions.ts`: 경로 비교 `true` | 인용 변이(하한 재생) | 검출 | app/src/main/app/settings-reactions.test.ts:rechecks only an executablePath change inside the actual top-level harnesses patch / 1케이스 (실행 6) | red → 원문 복구 |
+| `X12` — `app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx`: Notice 재확인 대상 `claude` | 선택 증거 | 못 잡음 | app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts:shows the unsupported reason and rechecks that harness once while disabling the pending button / 2케이스 (실행 2) | red → 원문 복구 |
+| `X13` — `app/src/renderer/src/features/engine/common/components/EngineCard.tsx`: EngineCard 사유 `missing` 고정 | 선택 증거 | 못 잡음 | app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts:displays the unsupported installation reason instead of the generic unsupported badge / 2케이스 (실행 6) | red → 원문 복구 |
+| `X14` — `app/src/renderer/src/features/chat/components/ChatTile.tsx`: ChatTile `!inflight` 보호 삭제 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts:shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion / 1케이스 (실행 7) | red → 원문 복구 |
+| `X15` — `app/src/renderer/src/features/chat/components/ChatTile.tsx`: ChatTile pending 요청 보호 삭제 | 선택 증거 | 못 잡음 | app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts:retains Composer while the unavailable session has pendingAsks / 3케이스 (실행 7) | red → 원문 복구 |
+| `X16` — `app/src/renderer/src/features/chat/store/chatStore.ts`: 재시드 대상에서 저장 세션 제외 조건 삭제 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/features/chat/store/chatStore.availability.test.ts:falls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery / 1케이스 (실행 7) | red → 원문 복구 |
+| `X19` — `app/src/main/app/project-resource-sync.ts`: 대기 적용 재시도 무장 `false` | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.native-history.test.ts:observes external project settings through real bootstrap and waits for peer activity before reconciliation / 1케이스 (실행 24) | red → 원문 복구 |
+| `X20` — `app/src/main/app/harnesses/opencode/mcp-reconcile.ts`: dirty 재시도 무장 `false` | 인용 변이(하한 재생) | 검출 | app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts:has no timer until dirty and stops retrying once idle peers are reconciled / 1케이스 (실행 1) | red → 원문 복구 |
+| `X21` — `app/src/main/adapters/common/registry.ts`: refresh 합류 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/common/registry.availability.test.ts:registry availability SSOT > joins concurrent refresh/settled consumers, retains previous state and emits only changes / 1케이스 (실행 10) | red → 원문 복구 |
+| `X22` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx`: rows 연결 head↔tail | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/features/chat/components/transcript/TranscriptView.harness.test.ts:OpenCode transcript presentation > preserves bubble colors and the harness viewport background in earlier and last exchanges ('opencode'/'code') / 1케이스 (실행 8) | red → 원문 복구 |
+| `X23` — `app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts`: tail 투영의 직전 행 seed 삭제 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts:matches original keys, gaps, tools, artifacts and incomplete rows 2 / 1케이스 (실행 8) | red → 원문 복구 |
+| `X24` — `app/src/renderer/src/features/settings/components/UsageTab.tsx`: fallback 높이 120px | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts:reserves the original chart height while loading, then renders the same accessible chart / 1케이스 (실행 1) | red → 원문 복구 |
+| `X25` — `app/src/renderer/src/shared/ui/markdown/syntax.ts`: markdown 문법 import 삭제 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/shared/ui/markdown/syntax.test.ts:preserves the original grammar/theme output for all supported languages and memoizes the shared highlighter / 1케이스 (실행 1) | red → 원문 복구 |
+| `X26` — `app/src/main/adapters/claude/sdk.ts`: warm 경로 직접 반환 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.native-history.test.ts:carries catalog changes through the real bootstrap registry into every new SDK query / 2케이스 (실행 24) | red → 원문 복구 |
+| `X27` — `app/src/main/adapters/claude/sdk.ts`: import 실패 시 `pending` 해제 삭제 | 선택 증거 | 못 잡음 | app/src/main/adapters/claude/sdk.test.ts:retries a rejected SDK import instead of retaining the failed promise / 1케이스 (실행 3) | red → 원문 복구 |
+| `X29` — `app/src/main/app/harness-host.ts`: Host 모델 조회 usable 게이트 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/harness-host.test.ts:blocks model probes for an installed unsupported CLI without changing installed semantics / 1케이스 (실행 3) | red → 원문 복구 |
+| `X30` — `app/src/main/features/harnesses/common/runtime-catalog.ts`: runtime 행 `unavailable` 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/features/harnesses/common/runtime-catalog.test.ts:updates cached runtime row availability in both directions without refetching models / 1케이스 (실행 25) | red → 원문 복구 |
+| `X31` — `app/src/main/app/handlers/misc.ts`: recheck 핸들러 refresh 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/handlers/misc-split.test.ts:handlers/misc 분해 (0179) > preserves backend keys, rechecks the requested harness and refreshes after the install stream / 1케이스 (실행 3) | red → 원문 복구 |
+| `X33` — `app/src/main/infra/ipc/send.ts`: 방송 채널 → `extensionsChanged` | 선택 증거 | 못 잡음 | app/src/main/infra/ipc/send.availability.test.ts:broadcasts the availability payload on its channel to every living renderer / 1케이스 (실행 1) | red → 원문 복구 |
+| `X35` — `app/src/main/app/bootstrap.ts`: 리스너의 `composerPreparation.invalidate()` 삭제 | 선택 증거 | 못 잡음 | app/src/main/app/bootstrap.opencode-warmup.test.ts:broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1케이스 (실행 10) | red → 원문 복구 |
+| `X36` — `app/src/main/app/bootstrap.ts`: 리스너 `updateOpenCodeGlobalWatch(ctx, true)` | 선택 증거 | 못 잡음 | app/src/main/app/bootstrap.opencode-warmup.test.ts:broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1케이스 (실행 10) | red → 원문 복구 |
+| `X38` — `app/src/main/app/handlers/session.ts`: `session:load`의 분리 호출 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/handlers/session.load.test.ts:splits legacy raw before the handler loads messages and leaves the next refresh usable / 1케이스 (실행 12) | red → 원문 복구 |
+| `X40` — `app/src/main/adapters/opencode/v1/server.ts`: `usable = true`(미지원 버전도 사용 가능) | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/opencode/v1/server.test.ts:owned OpenCode server lifecycle > reports the actual installed version / 1케이스 (실행 37) | red → 원문 복구 |
+| `X41` — `app/src/main/adapters/opencode/v1/server.ts`: OpenCode `executableIdentity` 상수 | 선택 증거 | 못 잡음 | app/src/main/adapters/opencode/v1/server.test.ts:carries executable path and stat identity through the actual OpenCode adapter without probing a process / 1케이스 (실행 37) | red → 원문 복구 |
+| `X42` — `app/src/preload/index.ts`: preload 구독 채널 → recheck | 인용 변이(하한 재생) | 검출 | app/src/preload/harness.test.ts:carries availability changes and invokes recheck with the requested harness / 1케이스 (실행 1) | red → 원문 복구 |
+| `X43` — `app/src/preload/index.ts`: preload invoke 채널 → backendList | 인용 변이(하한 재생) | 검출 | app/src/preload/harness.test.ts:carries availability changes and invokes recheck with the requested harness / 1케이스 (실행 1) | red → 원문 복구 |
+| `X45` — `app/src/main/infra/log/file-transport.ts`: 버퍼 쓰기 시 flush 무장 `false` | 인용 변이(하한 재생) | 검출 | app/src/main/infra/log/file-transport.test.ts:arms flush only for buffered writes and clears the timer on explicit flush and close / 1케이스 (실행 8) | red → 원문 복구 |
+| `X46` — `app/src/main/adapters/opencode/v1/mcp-control.ts`: 제출 대기 상한 500 → 60000ms | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/opencode/v1/adapter.startup.test.ts:Desktop-style OpenCode startup through the real SDK > shares one subscription and bootstrap for many first sessions and preserves the remaining owner after close / 2케이스 (실행 7) | red → 원문 복구 |
+| `X47` — `app/src/main/infra/db/native-history-queries.ts`: `raw_json` 항상 `null` | 인용 변이(하한 재생) | 검출 | app/src/main/app/chat-turn/native-session.test.ts:native retention recovery through the migrated archive > displays and recovers a separated snapshot after the native source is deleted without reading raw / 1케이스 (실행 13) | red → 원문 복구 |
+| `X48` — `app/src/main/infra/db/native-history-queries.ts`: `raw_json IS NULL` 가드 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/features/history/native-history.db.test.ts:atomically splits a legacy raw value once and keeps display reads lean: [{"uuid":"raw-original"}] / 6케이스 (실행 21) | red → 원문 복구 |
+| `X50` — `app/src/main/app/bootstrap.ts`: 웜업 `installed` 배선 `true` | 인용 변이(하한 재생) | 동치 | 관련 10케이스 / 새 실패 0 | 동치 — 아래 근거 |
+| `X51` — `app/src/main/app/bootstrap.ts`: 웜업 `allowed`의 usable 항 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.opencode-warmup.test.ts:broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription / 1케이스 (실행 10) | red → 원문 복구 |
+| `X52` — `app/src/main/adapters/opencode/v1/mcp-control.ts`: activity 신호의 waiter 깨우기 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/opencode/v1/mcp-control.test.ts:wakes unsafe admission immediately on activity signals and cleans up aborted waits / 1케이스 (실행 2) | red → 원문 복구 |
+| `X53` — `app/src/main/app/bootstrap.ts`: 부팅 `updateOpenCodeGlobalWatch(ctx, true)` 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/bootstrap.native-history.test.ts:broadcasts Claude global changes only on the common channel and closes both watchers on shutdown / 2케이스 (실행 24) | red → 원문 복구 |
+| `X54` — `app/src/main/app/bootstrap.ts`: settings 반응의 `recheckOpenCode` 본문 삭제 | 선택 증거 | 못 잡음 | app/src/main/app/bootstrap.opencode-warmup.test.ts:routes actual settings patches from the initial executable path to the OpenCode registry only when changed / 1케이스 (실행 10) | red → 원문 복구 |
+| `X55` — `app/src/main/app/bootstrap.ts`: settings 반응 재확인 대상 `claude` | 선택 증거 | 못 잡음 | app/src/main/app/bootstrap.opencode-warmup.test.ts:routes actual settings patches from the initial executable path to the OpenCode registry only when changed / 1케이스 (실행 10) | red → 원문 복구 |
+| `X56` — `app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx`: Notice 재확인 호출 삭제 | 선택 증거 | 못 잡음 | app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts:shows the unsupported reason and rechecks that harness once while disabling the pending button / 2케이스 (실행 2) | red → 원문 복구 |
+| `X57` — `app/src/main/app/bootstrap.ts`: runtime catalog `availability` 주입 삭제 | 인용 변이(하한 재생) | 동치 | 관련 8케이스 / 새 실패 0 | 동치 — 아래 근거 |
+| `X59` — `app/src/main/app/bootstrap.ts`: 초기 `openCodeExecutablePath` 주입 삭제 | 선택 증거 | 못 잡음 | app/src/main/app/bootstrap.opencode-warmup.test.ts:routes actual settings patches from the initial executable path to the OpenCode registry only when changed / 1케이스 (실행 10) | red → 원문 복구 |
+| `X60` — `app/src/renderer/src/features/backend/store/backendStore.ts`: initBackend seed 삭제 | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/app/boot/steps.availability.test.ts:initializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback / 1케이스 (실행 4) | red → 원문 복구 |
+| `X61` — `app/src/renderer/src/features/chat/store/chatStore.ts`: 재시드 조기 return `true` | 인용 변이(하한 재생) | 검출 | app/src/renderer/src/features/chat/store/chatStore.availability.test.ts:falls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery / 1케이스 (실행 7) | red → 원문 복구 |
+| `X62` — `app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx`: 추가 메뉴 사유 툴팁 `missing` 고정 | 선택 증거 | 못 잡음 | app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts:disables OpenCode additions with an accessible unsupported reason and keeps Claude additions usable / 2케이스 (실행 4) | red → 원문 복구 |
+| `X63` — `app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx`: Notice 사유 문구 `missing` 고정 | 선택 증거 | 못 잡음 | app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts:shows the unsupported reason and rechecks that harness once while disabling the pending button / 2케이스 (실행 2) | red → 원문 복구 |
+| `X64` — `app/src/main/app/handlers/misc.ts`: agent:list `unavailable` `missing` 고정 | 선택 증거 | 못 잡음 | app/src/main/app/handlers/misc.runtime-catalog.test.ts:gates settings and runtime OpenCode rows with their unsupported reason and preserves Claude / 2케이스 (실행 6) | red → 원문 복구 |
+| `X65` — `app/src/main/features/harnesses/common/runtime-catalog.ts`: runtime 행 `unavailable` `missing` 고정 | 인용 변이(하한 재생) | 동치 | 관련 6케이스 / 새 실패 0 | 동치 — 아래 근거 |
+| `X66` — `app/src/main/adapters/common/registry.ts`: registry 사유 `missing` 고정 | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/common/registry.availability.test.ts:registry availability SSOT > preserves installed/version and the failed reason / 3케이스 (실행 10) | red → 원문 복구 |
+| `X67` — `app/src/main/adapters/opencode/v1/server.ts`: 버전 확인 실패 사유 `failed` → `missing` | 인용 변이(하한 재생) | 검출 | app/src/main/adapters/opencode/v1/server.test.ts:owned OpenCode server lifecycle > does not probe a missing executable and distinguishes failed and usable checks without starting servers / 1케이스 (실행 37) | red → 원문 복구 |
+| `X68` — `app/src/renderer/src/shared/stores/harnessAvailabilityStore.ts`: renderer store push 적용 무시 | 선택 증거 | 못 잡음 | app/src/renderer/src/app/boot/harnessAvailability.test.ts:applies production harness API pushes and preserves a newer push over a deferred backend list / 1케이스 (실행 1) | red → 원문 복구 |
+| `X70` — `app/src/main/app/handlers/misc.ts`: 설치 스트림 뒤 refresh 삭제 | 인용 변이(하한 재생) | 검출 | app/src/main/app/handlers/misc-split.test.ts:handlers/misc 분해 (0179) > preserves backend keys, rechecks the requested harness and refreshes after the install stream / 1케이스 (실행 3) | red → 원문 복구 |
+| `B07a` — `app/electron.vite.config.ts`: renderer `minify` 삭제 | 선택 증거 | 검출 | gate:bundle — entry 2701477B·minified False·recharts 0B·shiki 0B·assets 21·SDK require 0 | red → 원문 복구 |
+| `B07b` — `app/src/renderer/src/features/settings/components/UsageTab.tsx`: `TokensPerDayChart` 정적 import 복원 | 선택 증거 | 검출 | gate:bundle — entry 1653247B·minified True·recharts 363005B·shiki 0B·assets 20·SDK require 0 | red → 원문 복구 |
+| `B07c` — `app/src/renderer/src/shared/ui/markdown/syntax.ts`: `from 'shiki'` 정적 값 import 복원 | 선택 증거 | 검출 | gate:bundle — entry 1467994B·minified True·recharts 0B·shiki 174154B·assets 279·SDK require 0 | red → 원문 복구 |
+| `B10` — `app/src/main/adapters/claude/adapter.ts`: SDK `query` 정적 값 import 복원 | 선택 증거 | 검출 | gate:bundle — entry 1283424B·minified True·recharts 0B·shiki 0B·assets 21·SDK require 1 | red → 원문 복구 |
+| `U3` — `app/src/main/adapters/common/registry.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/main/adapters/common/registry.availability.test.ts:registry availability SSOT > uses adapter fields without interpreting the claude harness name ({"installed":false}) / 1케이스 (실행 10) | red → 원문 복구 |
+| `U4-success` — `app/src/main/adapters/claude/adapter.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/main/adapters/claude/adapter.availability.test.ts:keeps the bundled Claude adapter usable when package metadata fails: false / 1케이스 (실행 2) | red → 원문 복구 |
+| `U4-failure` — `app/src/main/adapters/claude/adapter.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/main/adapters/claude/adapter.availability.test.ts:keeps the bundled Claude adapter usable when package metadata fails: true / 1케이스 (실행 2) | red → 원문 복구 |
+| `U5` — `app/src/renderer/src/features/chat/store/chatStore.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/renderer/src/app/boot/steps.availability.test.ts:initializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback / 3케이스 (실행 4) | red → 원문 복구 |
+| `U6` — `app/src/renderer/src/features/chat/store/chatStore.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/renderer/src/features/chat/store/chatStore.availability.test.ts:falls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery / 1케이스 (실행 7) | red → 원문 복구 |
+| `U7` — `app/src/renderer/src/features/chat/store/chatStore.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/renderer/src/features/chat/store/chatStore.availability.test.ts:keeps the new-conversation backend unchanged when selecting a model in a fork conversation / 2케이스 (실행 7) | red → 원문 복구 |
+| `U8` — `app/src/renderer/src/features/chat/store/chatStore.ts`:  | 선택 증거 | 해당 없음(신규) | app/src/renderer/src/features/chat/store/chatStore.availability.test.ts:falls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery / 1케이스 (실행 7) | red → 원문 복구 |
+| `U9` — `app/src/renderer/src/features/chat/components/Composer.tsx`:  | 선택 증거 | 해당 없음(신규) | app/src/renderer/src/features/chat/components/Composer.selection.test.ts:records the production model menu pick only in a new conversation / 2케이스 (실행 6) | red → 원문 복구 |
+| `T1` — `app/src/renderer/src/features/chat/lib/parts.ts`:  | 새 oracle | 해당 없음(신규) | app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts:renders exactly the copy controls justified by the meta text: {"type":"text","text":"empty child identifier","parentToolRunId":""} / 1케이스 (실행 5) | red → 원문 복구 |
+| `T2` — `app/src/renderer/src/features/chat/store/chatStore.ts`:  | 새 oracle | 해당 없음(신규) | app/src/renderer/src/features/chat/store/chatStore.availability.test.ts:remembers automatic model selection and later OpenCode picks only for ordinary new conversations / 1케이스 (실행 7) | red → 원문 복구 |
+| A1 — remove seed caller from source text | 새 oracle | 해당 없음(신규) | 누락 ['seedLandingBackend'] | 검출 → 입력 복구 |
+| A2 — remove first enforcement row | 새 oracle | 해당 없음(신규) | 누락 [['VP-02', '1']] | 검출 → 입력 복구 |
+| A3 — replace BOOT oracle name with nonexistent case | 새 oracle | 해당 없음(신규) | 실재 케이스 0 · 거절 true | 검출 → 입력 복구 |
+
+
+- 분모 검산: 선택 증거 **58**(종전 등록 29 + ΔV2 편입 미검출 21 + U3~U9의 8분기) · 인용 변이 **43**(선택과 중복인 이전 행 제외) · 새 oracle **5**(T1·T2·A1~A3) = 표 **106행**. 생산 코드 변이 103 = 검출 99 + 동치 4, 산출물 대조 3 = 검출 3. 분류 밖 행 0.
+- 동치 근거: X07은 legacy raw 소비자가 여전히 `previous.snapshot.raw`를 읽는다(14케이스 green). X50은 warmup의 `allowed` 게이트가 앞서 차단한다(10 green). X57·X65는 runtime catalog 행을 `agent:list`가 registry 기준으로 재게이트·사유 덮어쓰므로 관측 결과가 같다(각 8·6 green). 해당 변경의 단독 새 실패는 모두 0이다.
+- 초기 시도: T1을 golden 동치만으로 실행했을 때 양쪽이 같은 술어를 공유해 못 잡았다. 독립 Timeline 버튼 수 좌표에 같은 결함을 심어 1케이스 red를 관측했다. B07b·B07c·B10 첫 실행은 scratch 빌드 폴더에 이전 entry가 남은 측정기 오류였다. 출력 폴더를 비우고 4종을 다시 빌드해 전부 임계 위반을 관측했다. 두 기록은 JSON의 `initialAttempts`에 남겼다.
+- 대체 기록: X17·N08은 현재 계약의 정상 구현을 결함으로 오판하므로 재생에서 제외하고 `superseded`에 근거를 적었다. 대체 U3~U6은 실제 red다.
+- 그 밖의 직접 행동 oracle: 해당 없음 — 추가 임의 변이를 만들지 않았다.
+
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 유지 — Notice·EngineCard·추가 메뉴의 unsupported/failed 한국어 문구를 실제 렌더로 관측(RECHECK·CARD·ADD) | Windows 설치본 시각 확인 대기 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 유지 — 새로운 production seam 없음; provider 구독 해제 뒤 재시드 0·bootstrap focus 해제 관측 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 일치 — 불가 새 대화·프로젝트는 Claude+기록 1, 기존·분기·핸드오프 유지. ask/승인/plan review Composer 유지(DRAFT·PENDING) | D-019·D-020 적용 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 유지 — 다시 확인 실제 API 1회·대기 중 버튼 disabled·완료 뒤 enabled; 한국어 사유 렌더 관측(RECHECK) | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 방지 — usable push 뒤 missing 목록 도착에도 usable 유지(STORE); 복구 후 새 대화 Claude 유지(DRAFT) | 없음 |
+
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | copyable과 복사 문자열이 empty parentToolRunId에서 갈림 | 선조치 — isMainTextPart 술어를 partsText/hasPartsText가 공유 | COPYSEM·T1: empty id 버튼 0, 본문 버튼 1 |
+| 2 | 이어가기 모델 선택이 새 대화 기본을 덮음 | 선조치 — sessionId·isContinuityDraft를 기록 대상에서 제외 | PREFERENCE·MENUPICK: fork/handoff 기록0; ordinary opencode 기록1 |
+| 3 | 공통 registry의 Claude 이름 특례가 adapter 포트를 무시 | 선조치 — usable ?? installed로 복원, 실제 Claude adapter 양쪽에 usable:true | PORT·CLAUDE·U3·U4-success/failure red |
+| 4 | 새 helper를 상단에 두면 오류 site catch 순번이 변경됨 | 선조치 — 원래 setModel 기록 위치 바로 앞에 함수 선언 배치 | shared/errors/reportSites.registry.test.ts 포함 재검사 280/280 |
+| 5 | helper 호출이 정본 rg 술어에 전부 보이지 않음 | 선조치 — 검색 원문을 그대로 보존하고 AST 호출자 차집합을 보충 | A1~A3 음성 대조 모두 검출; 자리 97의 직접 oracle 별도 실행 |
+| 6 | 환경 실패를 새 회귀와 혼동할 수 있음 | 보고만 — 같은 환경/Node 모드의 clean HEAD 기준선과 실패 ID를 양방향 대조 | 60동일·새/사라진 실패0; r2-gates.json에 원문 서명 |
+| 7 | Windows CI와 사람 시각 확인은 Linux 결과로 대체할 수 없음 | 보고만 — Windows CI를 AC1 ⚠️로 유지 | CI 푸시 뒤 결과 기록 예정; §19 설치본 3시나리오 미실시 |
+
+
+### 설계 대비 명시적 차이 (r2)
+
+- 기술 조정 — D-019의 세 기록 경로를 helper 한 벌로 접었다. 호출 3곳을 AST로 확인했고 각 분기의 쓰기 횟수·하네스 값은 직접 테스트로 구별했다. 검색 스크립트·규범 분모는 바꾸지 않았다.
+- 테스트 조정 — actual SettingsStore·settings-reactions·bootstrap 리스너, actual Composer/ModelMenu, actual preload API facade·provider를 실행했다. Electron·IPC 경계는 fake이며 OS 창 실기를 주장하지 않는다. sdk 실패 테스트는 실제 import 실패 뒤 같은 loader에서 mock source만 등록해 재시도한다.
+- 적용 제외 — DB·타이머·SDK 지연 로드 장치는 r1 구현을 유지한다. 이전 검출 변이를 재생해 검출 하한을 비교했다. 패키지/lock 변경 0, 신규 production 포트 0이다.
+
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 실패한 SDK import promise 고착 | AC21·EP-10 #1 / SDKRETRY factory2·두 번째 성공(X27 red) |
+| 공유 | helper를 부르는 한 경로의 누락·값 혼동 | AC7″·EP-03‴ #2/#3/#5 / 각 쓰기1·opencode/claude 구별; A1·U5~U9 red |
+| 재진입 | 반복 불가 알림이 설정을 재기록하거나 복구 때 OpenCode로 되돌림 | AC7″·EP-03‴ #3 / 반복·usable 뒤 쓰기1 유지, 새 대화/프로젝트 claude |
+| 다른 무효화 축 | 경로 patch·focus·push/list 경합이 각각 갱신 누락 | AC4″·AC5″ / BOOTPATH 같은0·다른1, IDENTITY A→A′→B→missing, STORE late-list 유지 |
+
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | production 6파일 + 회귀 테스트 18파일 + 정본 문서/증거. WP 전체 r1 결과를 유지하며 ΔV2·ΔV3의 지정 경로를 보강했다. |
+| 실행 명령 | app에서 gate:vitest = ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron ./node_modules/vitest/vitest.mjs run --maxWorkers=2 --reporter=json --outputFile=<report>. 나머지 gate 명령은 아래. |
+| 관측한 게이트 산출 | typecheck 3구성 오류0; eslint 오류0/기존 warning2; 전체913파일·8365 pass/60 fail/9 skip, 기준선908파일·8329 pass/동일60 fail/9 skip. 실패 ID 양방향 차집합0. scripts144/144·migration/docs/budget 통과. bundle 1,283,424B·21자산·SDK require0. |
+| V-pair 자기확인 | SELF_PASS 10 · SELF_BLOCKED 1(VP-01 Windows CI). 독립 verify 판정은 하지 않았다. |
+| 강제 지점 전수 | 97자리/보고97, 규범 목록과 양방향 차집합0. 62별칭67패턴 실제 실행과 대조, 미실재/비통과0. |
+| AC 자기보고 | 아래23행. AC1만 Windows CI 대기. |
+| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 총23. Criteria-Met 22/23. |
+| 블로커 / 역질문 | PLAN_GAP 없음. Windows CI·설치본 사람 실기 대기. 질문 없음. |
+| 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
+
+
+`gate:typecheck = npm run typecheck`; `gate:eslint = ./node_modules/.bin/eslint ./src ./scripts`(무수정); `gate:scripts = node --test scripts/*.test.mjs`; `gate:migration = node scripts/check-migrations-appendonly.mjs`; `gate:docs = node scripts/check-doc-inventory.mjs --check`; `gate:budget = node scripts/check-test-budgets.mjs`.
+`gate:bundle = ./node_modules/.bin/electron-vite build --sourcemap --outDir <t>` + `node ../docs/handoff/0292-deep-optimization/scan/bundle-measure.mjs <t>` + main SDK 정적 require 수. Windows gate는 기존 `.github/workflows/ci.yml`의 `windows-latest`다.
+
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ⚠️ | 전체913파일·8365 pass/60 fail/9 skip; clean 기준선의 동일 실패60, 양방향 차집합0. 정적3구성·lint0/2·scripts144/144·migration/docs/budget 통과, Windows CI 대기 |
+| AC2′ | ✅ | BOOT: start() 반환 직후 첫 await 전 refresh1, deferred 중 db-init 실행·finish0, resolve 뒤 완료 |
+| AC3′ | ✅ | JOIN: 동시 refresh2+settled 합류 probe1; server version 동시 수요 기존 케이스 통과 |
+| AC4″ | ✅ | FAILEDFOCUS failed 같은0·바뀐identity1; IDENTITY A→A′→B→missing; BOOTPATH 실제 patch0/1·focus 등록/해제 |
+| AC5″ | ✅ | INSTALL·FANOUT·PRELOAD·STORE: recheck 인자·live2/파괴1·실제 API push·late list fence 관측 |
+| AC6′ | ✅ | ROWS: settings/runtime missing·unsupported·failed 사유; PORT/CLAUDE generic 및 실제 adapter 양쪽 usabletrue |
+| AC7″ | ✅ | SEED 불가3사유 기록1·usable0; DRAFT 반복/복구 기록1 유지; PREFERENCE/MENUPICK ordinary1·fork/handoff/saved0; PROVIDER·PENDING·RECHECK 실제 경로 |
+| AC8 | ✅ | CARD·ADD: 3사유별 배지/tooltip·disabled; Claude 항목 유지 |
+| AC9 | ✅ | HOST·WARM·PREP·WATCH·RESUME: 불가 작업0·전환 무효화1·감시 생성/revision1·같은상태0·불가close |
+| AC10 | ✅ | entryMinified true·1,283,424B ≤ 1,500,000B (B07a 2,701,477B/false red) |
+| AC11 | ✅ | recharts entry0B·CHART 지연 자리→차트 (B07b 363,005B red) |
+| AC12 | ✅ | shiki entry0B·자산21 ≤60·SYNTAX 11×2 동치·package/lock diff0 (B07c 174,154B/279자산 red) |
+| AC13 | ✅ | GOLD 전체copyable 동치·COPYSEM whitespace/child/empty-id 버튼0·본문1; MEMO head1/tail6/copy0·COPY 클릭문자열 |
+| AC14 | ✅ | INDEX key별 색인·missing=-1; `app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.selection.test.ts:keeps selected live content on completion, then resolves complete Markdown when selection clears` 통과 |
+| AC15 | ✅ | RAW·WRITE: 새 raw_json 보관·payload raw 키 없음, DB 원형6종 동치 |
+| AC16 | ✅ | RAW 분리 changes1→0·LOAD 분리→load·refresh busy 아님 |
+| AC17 | ✅ | APPEND raw0/1·전체파싱 동치·OCARCHIVE raw 보관·RECOVER 원본삭제복구 |
+| AC18 | ✅ | TIMER idle10s targets0·pending 재시도/정지·SIGNALS activity tick |
+| AC19 | ✅ | MCP dirty timer만·ADMIT 신호진행/abort 및 등록3배선 재생red |
+| AC20 | ✅ | LOG 쓰기전timer0·write후flush·flushSync/close·고장재생red |
+| AC21 | ✅ | SDK 동시memo·coldclose·실패retry factory2·MAP/TOOLS·PREFETCH 비대기; build SDK require0(B10 1 red) |
+| AC22 | ✅ | CANON 키순서 revision동등/값변경다름·DEDUPE 순서만 바꾼 uuid중복무시 |
+| AC23 | ✅ | gate:docs 9항목/117채널·prose/links통과; state.md D019/020·adapters.md generic/Claude포트 갱신 |
+
+
+합계 검산: 유효 AC **23행**, ✅ **22** · ⚠️ **1** · ❌ **0** = **23**. 상태 사본: plan `IMPL_DONE (r2 · Windows CI 대기)` / INDEX `impl·IMPL_DONE`·다음 Claude·라운드2·좌표 `(r2 구현 — 검증자 기입)`.
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- r1 verify는 1회이며 RETURN_TO_PLAN 뒤 ΔV2·ΔV3가 READY가 된 다음 이 r2를 수행했다. verify 3회·6회나 같은 라운드 구현 3턴 초과 조건에 해당하지 않는다. 현재 라벨은 r2다.
+- D1~D10의 배선·운반 값 누락은 plan의 지정 직접 oracle로 보강했다. D11은 사용자 결정 D-019·D-020을 따른다. 이전 미검출 21행을 다시 심어 전부 red를 관측했으며 독립 검증자의 open 표는 그대로 보존했다.
+- 기존 mock이 default missing만 넣거나 실제 bootstrap/provider/API/Composer의 호출 구간을 건너뛰었던 좌표를 바꿨다. unsupported·failed·경로값·서로 다른 backend를 주어 인자 항도 구별했다.
+- 이번 copyable 술어 공유의 동치 검사만으로는 T1을 못 잡았다. 같은 fault를 독립 row 렌더의 empty-id 버튼0 기대가 검출했다. 측정기 scratch 잔여 오류도 숨기지 않고 첫 시도를 기록했다.
+- Linux 기준선과 최종의 실패60개는 동일했다. 읽기 전용 home·Windows 경로·git shim·Confluence fixture 제한의 서명과 양방향 ID 차집합0을 보관했다. Electron Node 모드로 SQLite ABI를 맞췄으며 ABI 재빌드는 하지 않았다.
+- Windows CI는 branch push 뒤 기존 PR #525에서 확인한다. §19의 사람 시각 확인3종은 미실시이며 자동 검사나 mutation 결과로 대체하지 않는다. 다음 주체는 Claude 독립 검증이다.
+
 
 ---
 

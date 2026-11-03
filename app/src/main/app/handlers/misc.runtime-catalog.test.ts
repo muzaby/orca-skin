@@ -206,46 +206,49 @@ describe('agent:list OpenCode runtime rows (0291)', () => {
   })
 })
 
-it('gates settings and runtime OpenCode rows and preserves Claude without starting unavailable catalogs', async () => {
-  const catalog = vi.fn(),
-    state = { usable: false }
-  registerMiscHandlers({
-    registry: {
-      list: () => [
-        { id: 'claude', installed: true, usable: true },
-        { id: 'opencode', installed: false, usable: state.usable, unavailableReason: 'missing' }
-      ],
-      get: () => ({ catalog, agentSpawnEnv: () => ({}) })
-    },
-    harnessSettings: {
-      adapters: () => ['claude', 'opencode'],
-      list: (adapter: string) => [
-        { key: adapter + '-local', harnessId: adapter, modelProviderId: 'local', models: [] }
-      ],
-      resolve: async () => ({ settings: {} })
-    },
-    runtimeModelCatalog: {
-      merge: (rows: unknown[]) => [
-        ...rows,
-        { key: 'oc-runtime', adapter: 'opencode', supported: true, source: 'runtime', models: [] }
-      ],
-      isReadOnly: () => false
-    },
-    debugMock: { log: false },
-    mcp: { resolver: () => () => undefined }
-  } as never)
-  catalog.mockImplementation(async (entry) => entry)
-  const result = (await callbacks.get(CHANNELS.agentList)!()) as Array<{
-    adapter: string
-    supported: boolean
-    unavailable?: string
-  }>
-  expect(result.filter((row) => row.adapter === 'opencode')).toHaveLength(2)
-  expect(
-    result
-      .filter((row) => row.adapter === 'opencode')
-      .every((row) => !row.supported && row.unavailable === 'missing')
-  ).toBe(true)
-  expect(result.find((row) => row.adapter === 'claude')?.supported).toBe(true)
-  expect(catalog).toHaveBeenCalledOnce()
-})
+it.each(['missing', 'unsupported', 'failed'] as const)(
+  'gates settings and runtime OpenCode rows with their %s reason and preserves Claude',
+  async (reason) => {
+    const catalog = vi.fn(),
+      state = { usable: false }
+    registerMiscHandlers({
+      registry: {
+        list: () => [
+          { id: 'claude', installed: true, usable: true },
+          { id: 'opencode', installed: false, usable: state.usable, unavailableReason: reason }
+        ],
+        get: () => ({ catalog, agentSpawnEnv: () => ({}) })
+      },
+      harnessSettings: {
+        adapters: () => ['claude', 'opencode'],
+        list: (adapter: string) => [
+          { key: adapter + '-local', harnessId: adapter, modelProviderId: 'local', models: [] }
+        ],
+        resolve: async () => ({ settings: {} })
+      },
+      runtimeModelCatalog: {
+        merge: (rows: unknown[]) => [
+          ...rows,
+          { key: 'oc-runtime', adapter: 'opencode', supported: true, source: 'runtime', models: [] }
+        ],
+        isReadOnly: () => false
+      },
+      debugMock: { log: false },
+      mcp: { resolver: () => () => undefined }
+    } as never)
+    catalog.mockImplementation(async (entry) => entry)
+    const result = (await callbacks.get(CHANNELS.agentList)!()) as Array<{
+      adapter: string
+      supported: boolean
+      unavailable?: string
+    }>
+    expect(result.filter((row) => row.adapter === 'opencode')).toHaveLength(2)
+    expect(
+      result
+        .filter((row) => row.adapter === 'opencode')
+        .every((row) => !row.supported && row.unavailable === reason)
+    ).toBe(true)
+    expect(result.find((row) => row.adapter === 'claude')?.supported).toBe(true)
+    expect(catalog).toHaveBeenCalledOnce()
+  }
+)
