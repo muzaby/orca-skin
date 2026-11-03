@@ -24,5 +24,16 @@
   ],
   "instructionDecision": "KEEP — normative change 0. 충분한 규칙의 실행 누락이므로 중복 규칙·corpus 추가 없음.",
   "regressionTier": "해당 없음 — 지침 변경 0이므로 6-A/6-B 변경 회귀 대상 없음; root↔handoff↔impl/verify↔template↔app/CI의 gate·형제 슬롯 요구 유지 확인",
-  "next": "Codex r4 implementation; independent verify pending"
+  "next": "Codex r4 implementation; independent verify pending",
+  "supersededByRemoteReview": {
+    "commit": "4fefa75f",
+    "source": ".agents/skills/handoff-review/references/regression-coverage.md#review-round-40",
+    "effectiveClassification": {
+      "D15": "A — 마지막 수정 뒤 게이트 실행 시점 요구가 명시되지 않음",
+      "D16": "A — 기존 값 구별·맞바꿈만으로 oracle 칸이 빠뜨린 분기를 강제하지 못함",
+      "CI lookup": "B",
+      "N10": "E"
+    },
+    "action": "원격 APPLY 결과가 정본이다. 위의 리베이스 전 DIAGNOSE_ONLY B/KEEP 진단은 경과로만 보존하고 현재 impl §2·§7의 강화된 분기 입력/최종 트리 gate 규칙을 따른다."
+  }
 }

@@ -1,0 +1,322 @@
+{
+  "round": "r4",
+  "effectiveV": "V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4",
+  "instructionRevision": "remote handoff-review Round 40 @4fefa75f",
+  "appTree": "584639f2b10e847893a2b64a171384e9d18e7fb5",
+  "sourceFingerprints": {
+    "app/src/renderer/src/app/boot/steps.availability.test.ts": "afbad3a0608136b3062b3ed137a1a7a507dbb7a9cf2e678d1db82b0187841b4d",
+    "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts": "3e2d8fe120210dc488eb3a076126e4e6b8a437120ee96642e1940e37ae4a16ef"
+  },
+  "baseline": {
+    "files": 913,
+    "tests": 8442,
+    "passed": 8408,
+    "failed": 25,
+    "skipped": 9
+  },
+  "final": {
+    "files": 913,
+    "tests": 8445,
+    "passed": 8409,
+    "failed": 27,
+    "skipped": 9
+  },
+  "initialNewFailedIds": [
+    "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources",
+    "app/src/main/app/project-resource-sync.test.ts\tdetects real file creation and atomic replacement without starting a runtime, and closes its watcher"
+  ],
+  "removedFailedIds": [],
+  "rechecks": [
+    {
+      "files": 2,
+      "tests": 43,
+      "passed": 41,
+      "failed": 2,
+      "skipped": 0
+    },
+    {
+      "files": 2,
+      "tests": 43,
+      "passed": 43,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "files": 2,
+      "tests": 43,
+      "passed": 43,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "remainingNewFailedIds": [],
+  "baselineFailures": {
+    "app/src/main/app/composer-catalog.test.ts\tpreserves the configuration failure stage through the registered catalog handler": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+    "app/src/main/app/composer-catalog.test.ts\tpreserves the acquire failure stage through the registered catalog handler": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+    "app/src/main/app/composer-catalog.test.ts\tprepares draft and saved directory with the same production settings and env resolution as turns": "Error: Composer directory must be absolute",
+    "app/src/main/app/composer-catalog.test.ts\treturns prepared plugin and agent parts through IPC before blocked MCP/models without a session": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }",
+    "app/src/main/app/composer-catalog.test.ts\tdoes not start a native server after caller cancellation or session scope change during preparation": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'",
+    "app/src/main/app/composer-catalog.test.ts\twires the public handler through the production resolver and returns its shutdown cleanup": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }",
+    "app/src/main/app/composer-preparation-service.test.ts\tshares targets across catalog resources and warmup through the production assembly": "Error: Composer directory must be absolute",
+    "app/src/main/adapters/common/git-root.test.ts\tfinds the nearest Git ancestor through three nested directories and falls back to cwd": "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-cXUewt/a/b/c' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\treconciles plugin choices through the actual adapter while preserving provider flags": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\texposes runtime-native watch files and applies external project choices only after idle reconciliation": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\tpreserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\tpins deployed MCP files for same-cwd peers and reloads until the final owner closes": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\treports a reconciled plugin revision as applied but not a later external edit": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/native-resources.test.ts\tapplies session-only inline flags and reloads actual plugin state while preserving sibling flags": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]",
+    "app/src/main/adapters/claude/native-resources.test.ts\tcommits a plugin choice only after verified reload and restores flags and commands when persistence fails": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'",
+    "app/src/main/adapters/claude/native-resources.test.ts\twaits for durable persistence and serializes subsequent plugin mutations": "Error: STACK_TRACE_ERROR",
+    "app/src/main/adapters/claude/project-reconciliation.test.ts\tshows external selection with actual status immediately, waits for idle, and never saves it back": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/project-reconciliation.test.ts\tprojects native plugin flag false during external reconciliation": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/app/handlers/session-resources.claude-assembly.test.ts\treconciles external plugin selections and publishes the final state through the real watcher": "AssertionError: expected [ [ 'a@m', false, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]",
+    "app/src/main/infra/git/git-safety.test.ts\tGit execution safety > never runs a cwd executable through relative PATH entries": "Error: Command failed: /tmp/orca-git-safety-MKECyE/git /tmp/orca-git-safety-MKECyE/marker.cjs",
+    "app/src/main/adapters/opencode/v1/adapter.instances.test.ts\tOwned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]",
+    "app/src/main/adapters/opencode/v1/adapter.instances.test.ts\tOwned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup": "AssertionError: expected '/tmp/orca-0292-r4/baseline-tree/app/C…' to be 'C:/two' // Object.is equality",
+    "app/src/main/adapters/opencode/v1/adapter.persistent.test.ts\texposes native resources from the live channel client and its directory without mutations": "AssertionError: expected '/tmp/orca-0292-r4/baseline-tree/app/C…' to be 'C:/native-B' // Object.is equality",
+    "app/src/main/adapters/opencode/v1/adapter.test.ts\tOpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime": "AssertionError: expected '/tmp/orca-0292-r4/baseline-tree/app/C…' to be 'C:/work' // Object.is equality",
+    "app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts\treserves the original chart height while loading, then renders the same accessible chart": "AssertionError: expected LoadedCheerio{ length: +0, …(3) } to have a length of 1 but got +0"
+  },
+  "finalFailures": {
+    "app/src/main/app/bootstrap.native-history.test.ts\tapplies nav plugin choices to draft and stored-session commands and resources": "AssertionError: expected [] to deeply equal [ 'fixture:review' ]",
+    "app/src/main/app/composer-catalog.test.ts\tpreserves the configuration failure stage through the registered catalog handler": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+    "app/src/main/app/composer-catalog.test.ts\tpreserves the acquire failure stage through the registered catalog handler": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+    "app/src/main/app/composer-catalog.test.ts\tprepares draft and saved directory with the same production settings and env resolution as turns": "Error: Composer directory must be absolute",
+    "app/src/main/app/composer-catalog.test.ts\treturns prepared plugin and agent parts through IPC before blocked MCP/models without a session": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }",
+    "app/src/main/app/composer-catalog.test.ts\tdoes not start a native server after caller cancellation or session scope change during preparation": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'",
+    "app/src/main/app/composer-catalog.test.ts\twires the public handler through the production resolver and returns its shutdown cleanup": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }",
+    "app/src/main/app/composer-preparation-service.test.ts\tshares targets across catalog resources and warmup through the production assembly": "Error: Composer directory must be absolute",
+    "app/src/main/app/project-resource-sync.test.ts\tdetects real file creation and atomic replacement without starting a runtime, and closes its watcher": "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\treconciles plugin choices through the actual adapter while preserving provider flags": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\texposes runtime-native watch files and applies external project choices only after idle reconciliation": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\tpreserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\tpins deployed MCP files for same-cwd peers and reloads until the final owner closes": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/adapter.native-plugins.test.ts\treports a reconciled plugin revision as applied but not a later external edit": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/native-resources.test.ts\tapplies session-only inline flags and reloads actual plugin state while preserving sibling flags": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]",
+    "app/src/main/adapters/claude/native-resources.test.ts\tcommits a plugin choice only after verified reload and restores flags and commands when persistence fails": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'",
+    "app/src/main/adapters/claude/native-resources.test.ts\twaits for durable persistence and serializes subsequent plugin mutations": "Error: STACK_TRACE_ERROR",
+    "app/src/main/adapters/claude/project-reconciliation.test.ts\tshows external selection with actual status immediately, waits for idle, and never saves it back": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/claude/project-reconciliation.test.ts\tprojects native plugin flag false during external reconciliation": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+    "app/src/main/adapters/common/git-root.test.ts\tfinds the nearest Git ancestor through three nested directories and falls back to cwd": "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-IZiDQo/a/b/c' // Object.is equality",
+    "app/src/main/app/handlers/session-resources.claude-assembly.test.ts\treconciles external plugin selections and publishes the final state through the real watcher": "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]",
+    "app/src/main/infra/git/git-safety.test.ts\tGit execution safety > never runs a cwd executable through relative PATH entries": "Error: Command failed: /tmp/orca-git-safety-DqhnTL/git /tmp/orca-git-safety-DqhnTL/marker.cjs",
+    "app/src/main/adapters/opencode/v1/adapter.instances.test.ts\tOwned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]",
+    "app/src/main/adapters/opencode/v1/adapter.instances.test.ts\tOwned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup": "AssertionError: expected '/workspace/orca-skin/app/C:/two' to be 'C:/two' // Object.is equality",
+    "app/src/main/adapters/opencode/v1/adapter.persistent.test.ts\texposes native resources from the live channel client and its directory without mutations": "AssertionError: expected '/workspace/orca-skin/app/C:/native-B' to be 'C:/native-B' // Object.is equality",
+    "app/src/main/adapters/opencode/v1/adapter.test.ts\tOpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime": "AssertionError: expected '/workspace/orca-skin/app/C:/work' to be 'C:/work' // Object.is equality",
+    "app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts\treserves the original chart height while loading, then renders the same accessible chart": "AssertionError: expected LoadedCheerio{ length: +0, …(3) } to have a length of 1 but got +0"
+  },
+  "recheckNote": "The two unchanged main suites failed in the first recheck (41/43), then passed twice (43/43 each). Main/shared/config git object equality is recorded; no source edit occurred between these runs. Cause is not determined; raw outcomes are retained.",
+  "chartRecheck": {
+    "files": 1,
+    "tests": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "chartNote": "N10 reproduced in the concurrent full runs; the unchanged CHART suite passed all cases in a separate gate. Original full-run failure is retained; Windows CI also passed all tests.",
+  "typecheck": {
+    "node": "passed",
+    "web": "passed",
+    "test": "passed"
+  },
+  "eslint": {
+    "files": 1999,
+    "errors": 0,
+    "warnings": 2,
+    "warningSites": [
+      {
+        "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx",
+        "line": 57,
+        "rule": "react-hooks/incompatible-library"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/hooks/useTranscriptVirtualizer.ts",
+        "line": 22,
+        "rule": "react-hooks/incompatible-library"
+      }
+    ]
+  },
+  "scripts": {
+    "passed": 144,
+    "failed": 0,
+    "suites": 16
+  },
+  "migration": "34+1 sync and no-copies pass; historical tag comparison skipped locally (no v* tag); Windows CI Migration guard success",
+  "docs": "generated 9 items / 117 channels; prose and links pass",
+  "budget": "16 real-git suites pass",
+  "bundle": {
+    "entryChunk": "index.js",
+    "entryBytes": 1283424,
+    "entryLines": 107,
+    "entryMinified": true,
+    "maxLineLength": 174138,
+    "sourceMap": true,
+    "familyBytes": {
+      "recharts": 0,
+      "shiki": 0
+    },
+    "assetCount": 21,
+    "rendererAssetBytes": 4450853,
+    "sdkStaticRequires": 0
+  },
+  "windowsCI": {
+    "repository": "muzaby/orca-skin",
+    "pullRequest": 529,
+    "branch": "ccr-d3f0312d-rr9r2c",
+    "runId": 41636603363,
+    "runNumber": 962,
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/41636603363",
+    "queriedCommit": "4fefa75f60ab957593e26a2370db929f9e45ee30",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 125919264518,
+        "name": "gate",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 41636603363,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Run actions/checkout@v4",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Run actions/setup-node@v4",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Install dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Migration guard (sync + append-only)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Doc inventory guard (counts + prose + links)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Test budget guard (real-git suites)",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Lint",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Typecheck",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Test",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Post Run actions/setup-node@v4",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19
+          },
+          {
+            "name": "Post Run actions/checkout@v4",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21
+          }
+        ]
+      }
+    ],
+    "observedTestSummary": [
+      "2026-11-03T12:45:48.7343915Z  Test Files  910 passed | 3 skipped (913)",
+      "2026-11-03T12:45:48.7403472Z       Tests  8442 passed | 3 skipped (8445)",
+      "2026-11-03T12:46:06.9456673Z # tests 144",
+      "2026-11-03T12:46:06.9457231Z # pass 144",
+      "2026-11-03T12:46:06.9457503Z # fail 0"
+    ],
+    "earlierFixedCodeRun": {
+      "runId": 41633125026,
+      "runNumber": 961,
+      "commit": "c7757e7703952cdb078a0dc69f03706ff8b4a209",
+      "conclusion": "success"
+    },
+    "appTree": "584639f2b10e847893a2b64a171384e9d18e7fb5"
+  },
+  "enforcement": {
+    "expected": 97,
+    "reported": 97,
+    "missing": [],
+    "extra": []
+  },
+  "oracles": {
+    "aliases": 68,
+    "patterns": 75,
+    "missingOrFailed": []
+  },
+  "artifactControls": {
+    "A1-drop-slot": [
+      [
+        "VP-02",
+        "1"
+      ]
+    ],
+    "A2-nonexistent-coordinate": true,
+    "A3-stale-gate": {
+      "mutatedReport": "final-eslint.json",
+      "mutatedMtimeNs": 1793707263675755910,
+      "lastSourceMtimeNs": 1793707263675755911,
+      "accepted": false,
+      "expectedAccepted": false
+    }
+  },
+  "sourceTiming": "Both app edits finished before eslint/typecheck/full vitest. Rebase added only skill/AGENTS documents; app tree equals tested c7757e77. No subsequent app source edits. Final documentation checks are rerun after report writing.",
+  "initialAttempts": [
+    "r3 lint 1 and CI #959 failure reproduced; r4 return annotation uses Backend|null without dropping the lint-required annotation",
+    "first two-suite recheck retained 2 failures; two subsequent runs passed all 43 without source edits",
+    "initial DIAGNOSE_ONLY B/KEEP assessment superseded by remote APPLY Round40 A classification; no local normative edits"
+  ],
+  "gateTimingProof": {
+    "lastAppSourceMtimeNs": 1793707263675755911,
+    "reportMtimeNs": {
+      "final-eslint.json": 1793707889455138772,
+      "final-typecheck.log": 1793707456249581019,
+      "final-vitest.json": 1793707903391577046,
+      "scripts.log": 1793707420804515067,
+      "bundle-final.json": 1793709887577035992
+    },
+    "allReportsAfterLastAppEdit": true,
+    "appTreeUnchangedAfterRebase": true
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "repository": "muzaby/orca-skin",
+  "pullRequest": 529,
+  "branch": "ccr-d3f0312d-rr9r2c",
+  "runId": 41636603363,
+  "runNumber": 962,
+  "url": "https://github.com/muzaby/orca-skin/actions/runs/41636603363",
+  "queriedCommit": "4fefa75f60ab957593e26a2370db929f9e45ee30",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "id": 125919264518,
+      "name": "gate",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": 41636603363,
+      "logs_url": null,
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Migration guard (sync + append-only)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Doc inventory guard (counts + prose + links)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Test budget guard (real-git suites)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Typecheck",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9
+        },
+        {
+          "name": "Test",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10
+        },
+        {
+          "name": "Post Run actions/setup-node@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21
+        }
+      ]
+    }
+  ],
+  "observedTestSummary": [
+    "2026-11-03T12:45:48.7343915Z  Test Files  910 passed | 3 skipped (913)",
+    "2026-11-03T12:45:48.7403472Z       Tests  8442 passed | 3 skipped (8445)",
+    "2026-11-03T12:46:06.9456673Z # tests 144",
+    "2026-11-03T12:46:06.9457231Z # pass 144",
+    "2026-11-03T12:46:06.9457503Z # fail 0"
+  ],
+  "earlierFixedCodeRun": {
+    "runId": 41633125026,
+    "runNumber": 961,
+    "commit": "c7757e7703952cdb078a0dc69f03706ff8b4a209",
+    "conclusion": "success"
+  },
+  "appTree": "584639f2b10e847893a2b64a171384e9d18e7fb5"
+}
