@@ -8,16 +8,18 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | READY (ΔV2 · r2 구현 대기) — r1 verify RETURN_TO_PLAN([verify](verify.md))의 PLAN_GAP D10·D11을 ΔV2로 닫음 |
+| 상태 | READY (ΔV3 · r2 구현 대기) — r1 verify RETURN_TO_PLAN([verify](verify.md))의 PLAN_GAP D10·D11을 ΔV2로 닫고, 사용자 결정 변경(마지막 백엔드 원칙)을 ΔV3로 반영 |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
-| 이번 V revision | `ΔV2` — r1 verify RETURN_TO_PLAN 정정(2026-11-02). 직전 `ΔV1` — 버전 확인 실측 반영 정정 |
-| 유효 V | `V1 + ΔV1 + ΔV2` — 뒤 revision 절이 충돌하는 앞 행을 대체 |
-| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입. ΔV2 기준: ΔV1 설계 `3c50653`(`main` 조상) · r1 구현 `c9d212b`·r1 verify `104034e`(둘 다 commit, 브랜치 `ccr-84491548-x3d7lw` — `main` 미병합) |
+| 이번 V revision | `ΔV3` — 사용자 결정 변경 반영(2026-11-03). 직전 `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` — 뒤 revision 절이 충돌하는 앞 행을 대체 |
+| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입. ΔV2 기준: ΔV1 설계 `3c50653`(`main` 조상) · r1 구현 `c9d212b`·r1 verify `104034e`(둘 다 commit, 브랜치 `ccr-84491548-x3d7lw` — `main` 미병합). ΔV3 기준: ΔV2 설계 `7f3b156`(commit, `main` 미병합 — 브랜치 `ccr-5c72b447-vhhjlk`) |
 
 > **ΔV1(2026-11-02)**: D-005·D-008을 D-014·D-015가, AC2~AC6을 AC2′~AC6′가, §10 EP-02·EP-04 전부와 EP-05 #1-8·#15·EP-03 #1을 아래 ΔV1 절이 대체한다. 그 밖의 V1 행은 그대로 유효하다.
 >
 > **ΔV2(2026-11-02, r1 verify RETURN_TO_PLAN)**: D-016~D-018을 더하고, AC4′·AC5′·AC7을 AC4″·AC5″·AC7′가, EP-03·EP-04′ 전부를 EP-03″·EP-04″가 대체한다. EP-05에 #16·#17을 더하고 EP-02′ #1·EP-05 #9·#14·EP-05′ #15·EP-08 #2·EP-10 #1의 직접 oracle을 정정한다 — 정본은 아래 ΔV2 절.
+>
+> **ΔV3(2026-11-03, 사용자 결정 변경)**: D-007·D-016·D-017을 D-019·D-020이 대체한다. AC7′를 AC7″가, EP-03″ 전부를 EP-03‴(19항목·39자리)가, ΔV2 구현 지시의 `setModel`·`Composer.tsx`·D-017 행과 등록 변이 U1·U2를 ΔV3 절이 대체한다 — 정본은 아래 ΔV3 절.
 
 ## 0. 작성 경로
 
@@ -59,7 +61,7 @@
 | D-004 | renderer production 번들을 전체 압축한다. main·preload는 압축하지 않는다 | 실측 3.89MB→1.83MB(§8) · 스택은 같은 커밋을 `--sourcemap`으로 빌드해 복원 | "전체 압축" | ACTIVE | — |
 | D-005 | 부팅은 OpenCode 버전 확인을 기다리지 않는다. registry 설치 캐시와 `orca:backend:list`의 `installed`를 하네스 가용성 상태로 대체한다. 판정원은 서버 풀의 실행 파일 탐색 + 버전 확인 캐시 1벌이다 | 그 값을 읽는 화면이 없다(§8) · 백그라운드 작업은 서버 풀 캐시만 쓴다(§8) | 질의 2라운드 답 + 추적 | SUPERSEDED | D-014 |
 | D-006 | OpenCode가 미설치·미지원·확인 실패면 OpenCode 컴포저를 노출하지 않는다(모델 메뉴의 OpenCode 엔진 비노출, 기존 OpenCode 세션은 컴포저 자리에 안내). 엔진&모델 페이지의 OpenCode 추가 항목은 비활성이다. main의 OpenCode 백그라운드 작업(웜업·로그인 프리 연결의 CLI 확인·전역 설정 감시·컴포저 준비)은 시작하지 않는다. Claude는 대상이 아니다 | "미설치 시 opencode 컴포저가 노출되면 안 된다" · "추가 버튼도 비활성화" · "Claude … 무관" | 질의 3라운드 | ACTIVE | — |
-| D-007 | 마지막 하네스가 OpenCode인데 사용할 수 없으면 새 대화는 Claude로 시작하고 `lastBackend`는 덮어쓰지 않는다 | "Claude로 시작" | 질의 3라운드 | ACTIVE | — |
+| D-007 | 마지막 하네스가 OpenCode인데 사용할 수 없으면 새 대화는 Claude로 시작하고 `lastBackend`는 덮어쓰지 않는다 | "Claude로 시작" | 질의 3라운드 | SUPERSEDED | D-019 — Claude 시작은 유지, `lastBackend` 미기록은 대체 |
 | D-008 | 가용성 판정 방식(D-005의 세부) — ① 실행 파일이 없으면 프로세스를 띄우지 않고 즉시 `missing`. ② 있으면 `checking`이며 화면은 사용 가능으로 취급(깜빡임 없음). ③ 버전 확인은 `start()` 초입에 대기 없이 시작해 부팅 단계와 겹친다(1회, 이후 수요는 합류). ④ 재확인은 실행 파일 설정 변경·"다시 확인"·`missing/failed` 상태의 창 포커스(파일 존재만 검사) | "사용자 체감 반응성 및 앱 동작이 원활한 방향으로 제안할 것" | 설계자 제안(질의 2라운드 설명) — 답변이 화면 요구만 더함 | SUPERSEDED | D-015 |
 | D-009 | 보관 raw를 같은 행의 별도 열로 분리 보관한다. 세션 열기·표시는 `messages`만 읽는다. 기존 행은 그 세션을 처음 열 때 1회 분리한다. raw를 지우지 않는다(삭제된 원본 재해석 대비 의도 유지) | "raw 분리 보관" · 원본 삭제 후 이어가기는 `messages` 경로(§8) | 질의 2라운드 | ACTIVE | — |
 | D-010 | 0225 이관 코드(폴더 이동·경로 재기록·워크트리 repair)를 유지한다 | v0.3.1 사용자 데이터 연속성 | "유지" | ACTIVE | — |
@@ -68,9 +70,11 @@
 | D-013 | 신규 의존성 없음. shiki는 같은 패키지의 세분 진입점(`shiki/core`·`shiki/engine/javascript`·`shiki/langs/*.mjs`·`shiki/themes/*.mjs`)만 쓴다 | `app/AGENTS.md` 의존성 정책 · exports 실측(§8) | 설계자 | ACTIVE | — |
 | D-014 | OpenCode 설치·버전 확인은 부팅 안에 둔다 — renderer `main-ready` 때 결과가 정해져 있다. 순차 단계 대신 `start()` 초입에 시작해 나머지 부팅 단계와 동시에 돌리고 `bootReport.finish()` 직전에 합류한다. 시간 초과 상한 15초와 그 처리는 현행 그대로다. `orca:backend:list`의 `installed`·`version`은 유지하고 `usable`·`unavailableReason`만 덧붙인다 | 확인은 사용자 실측 3초 이내 — 사용자 시나리오를 바꿀 근거가 없다 | "Version 확인은 오래걸리는 작업이 아니다. 15초 상한값 설정으로 유저시나리오를 변경하려는 시도를 너가 하지 않았나" → "그대로 plan 정정하라" | ACTIVE | D-005 대체 |
 | D-015 | 가용성 SSOT는 registry 설치 캐시(하네스별 `installed`·`version`·`usable`·`unavailableReason`·실행 파일 identity)다. 화면에 `checking` 상태는 없다. 재확인은 ① 실행 파일 경로 설정 변경 ② "다시 확인" ③ `missing`·`failed` 상태의 창 포커스 — identity(경로+stat, 프로세스 없음)가 마지막 확인과 다를 때만 버전 확인 1회. 재확인 중에는 직전 상태를 유지하고 결과가 바뀔 때만 방송한다 | 앱 실행 중 OpenCode를 설치하면 재시작 없이 쓰던 현행 동작을 게이트가 깨지 않게 한다 | 위 사용자 턴 · V1 D-008 ①④ 승계 | ACTIVE | D-008 대체 |
-| D-016 | OpenCode 사용 불가(미설치·미지원 버전·확인 실패)로 새 대화가 Claude로 자동 전환된 동안, 사용자가 모델 메뉴에서 직접 고른 모델은 `lastBackend`에 저장한다. 자동 전환과 자동 기본 모델 선택은 저장하지 않는다 | 사용자 선택이 다음 새 대화의 기본을 정한다 — 0292 이전 동작과 같다 | 2026-11-02 질의 [D11-1] "저장함"(질문: 메뉴에서 'Claude Opus'를 직접 골라 대화하면 '마지막 하네스=Claude'로 저장할까요?) | ACTIVE | D-007 범위 보완 — D-007(자동 전환은 덮어쓰지 않음)은 ACTIVE 유지 |
-| D-017 | 같은 실행 중 OpenCode가 다시 사용 가능해져도(설치 뒤 포커스·"다시 확인") 이번 실행 동안 새로 여는 빈 대화는 Claude로 시작한다. 메뉴에서 OpenCode 모델을 직접 고르면 그때부터 OpenCode이고, 다음 실행은 `lastBackend`를 따른다. 메뉴 선택 저장은 D-016을 따른다 | 실행 중 기본 하네스가 바뀌지 않는다 — 현재 구현 | 2026-11-02 질의 [D11-2] "이번 실행은 Claude" | ACTIVE | — |
+| D-016 | OpenCode 사용 불가(미설치·미지원 버전·확인 실패)로 새 대화가 Claude로 자동 전환된 동안, 사용자가 모델 메뉴에서 직접 고른 모델은 `lastBackend`에 저장한다. 자동 전환과 자동 기본 모델 선택은 저장하지 않는다 | 사용자 선택이 다음 새 대화의 기본을 정한다 — 0292 이전 동작과 같다 | 2026-11-02 질의 [D11-1] "저장함"(질문: 메뉴에서 'Claude Opus'를 직접 골라 대화하면 '마지막 하네스=Claude'로 저장할까요?) | SUPERSEDED | D-019 — 메뉴 선택 저장은 유지, 자동 전환·자동 기본 모델 선택 미저장은 대체 |
+| D-017 | 같은 실행 중 OpenCode가 다시 사용 가능해져도(설치 뒤 포커스·"다시 확인") 이번 실행 동안 새로 여는 빈 대화는 Claude로 시작한다. 메뉴에서 OpenCode 모델을 직접 고르면 그때부터 OpenCode이고, 다음 실행은 `lastBackend`를 따른다. 메뉴 선택 저장은 D-016을 따른다 | 실행 중 기본 하네스가 바뀌지 않는다 — 현재 구현 | 2026-11-02 질의 [D11-2] "이번 실행은 Claude" | SUPERSEDED | D-019 — 같은 실행 결과는 유지, 근거를 "마지막 백엔드"로 바꾸고 다음 실행도 Claude |
 | D-018 | registry는 하네스 이름으로 분기하지 않는다 — 각 adapter가 `isInstalled()`에 `usable`을 싣고(Claude는 항상 `true`), 없으면 `installed`로 읽는다 | §16 "구체 하네스 비의존" · `src/main/AGENTS.md` 공통 계층 원칙 · "Claude의 경우 bin이 앱에 동봉되어 있어 지금 다루고 있는 문제와 무관한다" · r1 verify N2(`registry.ts:40`) | 설계자 | ACTIVE | — |
+| D-019 | 새 대화·프로젝트 랜딩의 빈 칸은 마지막 백엔드로 시작한다. 마지막 백엔드는 새 대화·프로젝트 랜딩에서 마지막으로 정해진 하네스이고, 자의(모델 메뉴 선택·자동 기본 모델 선택)와 타의(OpenCode 사용 불가로 인한 Claude 자동 전환 — 부팅 시드·실행 중 사용 불가 전환)를 가리지 않고 정해지는 순간 `lastBackend`에 저장한다. OpenCode가 다시 사용 가능해져도 마지막 백엔드는 바뀌지 않는다 — 같은 실행·다음 실행 모두 Claude로 시작하고, 메뉴에서 OpenCode를 고르면 그때부터 OpenCode다 | "자의든 타의든 마지막 백앤드 선택을 클로드로 했기 때문임" · "마지막 선택 백앤드를 불러오는 것일 뿐이다" | 2026-11-03 사용자 턴 + 질의 [D11-3] 답 "니 경우 새대화, 프로젝트 랜딩은 클로드로 설정되어야 함"(질문: 자동 전환 뒤 메뉴를 건드리지 않고 OpenCode 설치 후 앱을 다시 켜면?) | ACTIVE | D-007·D-016·D-017 대체 |
+| D-020 | 마지막 백엔드는 새 대화·프로젝트 랜딩에서만 읽고 쓴다. 대화 이어가기 — 기존 대화 재열기·분기(fork)·핸드오프 초안 — 는 원본 세션의 하네스를 쓰고, 그 안의 모델 선택은 `lastBackend`와 새 대화 기본을 바꾸지 않는다 | "단 대화 이어가기는 마지막 백앤드로 성립하지 않음. 반드시 새대화, 프로젝트 랜딩에서만 유효" | 질의 [D11-3] 답 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -78,6 +82,9 @@
 - ΔV1(2026-11-02): D-005 → D-014, D-008 → D-015 SUPERSEDED. 원인은 설계자가 `--version` 실행 시간을 재지 않고 시간 초과 상한 15초(`server.ts:165`)를 비용처럼 제시한 것이다(§8 정정). 사용자 실측은 생성·종료 포함 3초 이내다.
 - ΔV2(2026-11-02): r1 verify가 D-007의 명시 선택 범위를 PLAN_GAP(D11)으로 올렸다. 사용자에게 미설치·미지원·확인 실패를 시나리오로 설명한 뒤 질의해 D-016·D-017을 받았다. [D11-2] 선택지 설명의 "선택을 저장하지 않는다"는 자동 선택에 한정해 읽는다 — 메뉴 선택 저장은 [D11-1]이 정했다. D-018은 verify N2에 대한 설계자 결정이다.
 - ΔV2 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-016·D-017 ↔ AC7′ · D-018 ↔ AC6′(Claude 행 불변)·EP-05 #16·#17 · D-015 ↔ AC4″ · D-014 ↔ AC5″. D-007은 AC7′의 자동 전환 미저장으로 유지된다.
+- ΔV3(2026-11-03): 사용자가 [D11-2] 선택 이유를 "마지막 선택 백엔드를 불러오는 것"으로 밝혀 D-007의 `lastBackend` 미기록과 결과가 갈렸다(다음 실행). 질의 [D11-3]으로 확인해 D-019·D-020을 받고 D-007·D-016·D-017을 SUPERSEDED로 돌렸다. [D11-3] 답은 선택지 밖 자유 답이다 — 저장 시점은 "선택을 클로드로 했기 때문"에 따라 전환이 정해지는 순간으로 읽었다(전송 시점 선택지는 고르지 않음).
+- D-020으로 바뀌는 기존 동작: 분기·핸드오프 초안의 모델 선택이 `lastBackend`를 쓴다(`chatStore.ts:1891` 판정이 `sessionId` 없음만 본다 — 초안 포함). ΔV3가 이 기록을 막는다.
+- ΔV3 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-019 ↔ AC7″(자동 전환 기록 1·복귀 뒤 Claude 유지·메뉴 OpenCode 기록) · D-020 ↔ AC7″(초안 기록 0·기존 대화 기록 0) · D-006 ↔ AC7″ 노출 조건(AC7′ 그대로). SUPERSEDED D-007·D-016·D-017의 "자동 전환 미기록"을 요구하는 유효 AC 없음(AC7·AC7′는 대체됨).
 - ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-014 ↔ AC2′·AC3′·AC5′(`installed` 유지) · D-015 ↔ AC4′·AC6′ · D-006 ↔ AC7(EP-03 #1′)·AC8·AC9. SUPERSEDED D-005·D-008을 요구하는 유효 AC 없음(AC2~AC6은 대체됨). D-003·D-004·D-007·D-009~D-013 대응은 V1 대조 줄과 같다.
 - raw에 대한 설계자 정정: 1라운드 질의의 "OpenCode raw는 읽히지 않는다"는 부정확했다. 보관 행(`payload_json`)은 세션 열기마다 통째로 읽힌다. 다만 그중 `raw` 필드를 실제로 쓰는 코드는 Claude 이어붙이기 빠른 경로 하나다(§8). 사용자는 이 정정을 받은 뒤 D-009를 골랐다.
 - (V1 — 아래 D-005·D-008 관련 대응은 ΔV1 대조가 대체) **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-003 ↔ AC1(회귀 gate)·AC7(보관 대화 표시 유지)·AC13(같은 DOM)·AC17(이어가기 동일). D-004 ↔ AC10. D-005 ↔ AC2·AC3·AC5. D-006 ↔ AC6·AC7·AC8·AC9(Claude 행은 AC6·AC8에서 불변 단언). D-007 ↔ AC7(`lastBackend` 미기록). D-008 ↔ AC4·AC12. D-009 ↔ AC15·AC16·AC17(raw를 지우라는 AC 없음). D-010 ↔ 0225 경로를 바꾸는 AC 없음(§16). D-012 ↔ AC9(`HostHarnessPort` 시그니처 불변)·AC18(이벤트 상한 미도입). D-013 ↔ AC12(새 패키지 0).
@@ -117,8 +124,10 @@
 | 실행 파일 경로 설정 변경 · "다시 확인" | 재확인 — 진행 중에는 직전 상태 유지(ΔV1) | 결과대로 노출/비노출 |
 | OpenCode 세션 열기, 사용 불가 | 보관 대화 로드는 지금과 같음 | 대화는 보이고 입력창 자리에 "OpenCode가 설치되어 있지 않습니다" + 다시 확인 |
 | 엔진&모델 페이지 추가 메뉴, 사용 불가 | OpenCode 항목 비활성 + 사유 | Claude 항목은 그대로 |
-| 사용 불가로 Claude 폴백 중 모델 메뉴에서 모델 선택 | 사용자 선택은 `lastBackend`에 저장, 자동 전환·자동 기본 모델 선택은 저장 안 함(ΔV2, D-016) | 다음 새 대화가 마지막으로 고른 하네스로 시작 |
-| 같은 실행 중 OpenCode가 다시 사용 가능 | 이번 실행의 새 대화 기본은 Claude 유지, 메뉴에서 OpenCode를 고르면 그때부터 OpenCode(ΔV2, D-017) | 모델 메뉴·기존 OpenCode 대화 입력창은 바로 돌아옴. 새 대화 기본은 다음 실행부터 `lastBackend` |
+| 부팅 또는 실행 중 OpenCode 사용 불가로 새 대화가 Claude로 자동 전환 | 전환하는 순간 마지막 백엔드 = Claude를 `lastBackend`에 저장(ΔV3, D-019) | 새 대화·프로젝트 랜딩이 Claude로 시작하고, 앱을 다시 켜도 Claude |
+| 새 대화·프로젝트 랜딩에서 모델 선택(메뉴·자동 기본 모델) | 고른 하네스를 `lastBackend`에 저장 — 폴백 중에도 같다(ΔV3, D-019) | 다음 새 대화가 마지막으로 정해진 하네스로 시작 |
+| 같은 실행 중 OpenCode가 다시 사용 가능 | 마지막 백엔드(Claude) 유지(ΔV3, D-019) | 모델 메뉴·기존 OpenCode 대화 입력창은 바로 돌아옴. 새 대화는 메뉴에서 OpenCode를 고를 때까지 Claude — 다시 켜도 같다 |
+| 기존 대화 재열기·분기·핸드오프 초안에서 모델 선택 | 마지막 백엔드를 읽지도 쓰지도 않음(ΔV3, D-020) | 원본 세션 하네스로 이어가고, 새 대화 기본은 그대로 |
 | 세션 열기(기존 보관 행에 raw 포함) | raw를 별도 열로 1회 분리 후 `messages`만 파싱 | 같은 대화가 더 빨리 뜬다 |
 | OpenCode 스트리밍 | 확정된 교환은 커밋 때 1회 투영, 진행 중 교환만 프레임마다 투영 | 같은 화면 |
 | 설정 > 사용량 탭 | 차트 모듈을 탭 표시 때 로드(같은 높이 자리 유지) | 같은 차트 — 최초 표시에 한 프레임 이상 늦을 수 있음 |
@@ -465,6 +474,95 @@ oracle 열의 "신규"는 구현자가 만들 테스트다. 진입점은 product
 - VP-04·VP-03 목록은 술어를 계약 주어(가용성 상태·재확인 트리거 / renderer 노출·폴백·기록)로, 범위를 path 파일 전부로 둔 검색의 출력에서 고정했다. 표본 확인으로 일일 게이트 focus 줄 2개를 뺐다.
 - r1 못 잡음 21건은 자리별 등록 변이로 귀속했다 — VP-02 1 · VP-03 5 · VP-04 10 · VP-05 3 · VP-08 1 · VP-10 1 = 21.
 - 사람 실기는 §19 그대로다(시각·실제 설치본 3건).
+
+## ΔV3 — 사용자 결정 변경: 마지막 백엔드 원칙 (2026-11-03)
+
+**수정 필요(사용자 결정 변경 — 실패 아님).** 사용자가 새 대화의 기본 하네스를 "자의든 타의든 마지막 백엔드"로 정했다(D-019). 그래서 자동 전환도 `lastBackend`에 저장하고, 이어가기는 이 규칙에서 뺀다(D-020). r2 구현 전이라 라운드는 2 그대로이고 바뀌는 pair는 VP-03 하나다.
+
+| 대상 | ΔV2 | ΔV3 | EP-03‴ 자리 |
+|---|---|---|---|
+| 자동 전환(부팅 시드·실행 중 사용 불가 전환) 기록 | 저장 안 함(D-007) | 전환 순간 `claude` 저장(D-019) | #1·#2·#3 |
+| 폴백 중 자동 기본 모델 선택 | 저장 안 함(D-016) | 저장(D-019) | #5 |
+| 모델 메뉴 선택 | `userPick` 옵션으로 구분해 저장(D-016) | 구분 없이 저장 — 옵션 불필요(D-019) | #5·#6 |
+| 같은 실행 중 다시 사용 가능 | 새 대화 Claude, 다음 실행은 `lastBackend`(=OpenCode)(D-017) | 새 대화 Claude, 다음 실행도 Claude(D-019) | #3 |
+| 분기·핸드오프 초안의 모델 선택 | 저장(현재 코드 `chatStore.ts:1891`, 결정 없음) | 저장 안 함(D-020) | #5 |
+
+### ΔV3 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 등록 변이(자리) |
+|---|---|---|---|
+| R-03 / VP-03 | CHANGED / REQUIRED | AC7′ → AC7″ · EP-03″(17) → EP-03‴(19) | 이관 N07(#1)·R03a(#2)·X16·X61(#3)·X02(#4)·R03b·X14·X15(#7)·X63(#9)·X13(#15)·R03c·X62(#16)·N04(#17) · 신규 U5(#2)·U6·U8(#3)·U7(#5)·U9(#6) |
+| VP-03 외 pair | ΔV2 그대로 | ΔV3 비영향 — main 코드 변경 0, 아래 소비처 판정 | ΔV2 그대로 |
+
+- `SUPERSEDED` 이관: U1(#6 `userPick` 삭제)의 메뉴 → `setModel` 배선 계약은 U9가, U2(#5 `!options?.userPick` 삭제)의 기록 판정 계약은 U7이 받는다.
+- X17 폐기: r1 `chatStore.ts:1896` "자동 폴백 시 lastBackend 미기록 조건 삭제"(잡음)는 그 조건을 D-019가 지워 심을 자리가 없다. 반대 계약(자동 전환 기록)은 U5·U6이 잠근다. 다음 verify는 X17을 재실행하지 않고 이 줄을 인용한다.
+- 레벨 판정: `lastBackend` 저장(`settingsApi.set` → main settings store)·부팅 읽기(`steps.ts:68`) edge는 그대로다. 새 edge는 renderer 안의 기록 호출뿐이라 R-03 AT 좌표가 production 진입(부팅 단계 실행·store action·Composer 렌더)으로 닫는다.
+- main 소비처: OpenCode 웜업은 `settings().lastBackend`를 매번 읽는다(`warmup.ts:28`). 자동 전환 기록 뒤에는 같은 실행의 usable 전환·다음 부팅에서 웜업하지 않는다 — 새 대화가 Claude이므로 의도와 같고, EP-05 #14′ 좌표는 main fixture `lastBackend:'opencode'`로 그대로 유효하다.
+- 유효 pair는 VP-01~VP-11 전부 REQUIRED, AC 23개(AC7′ → AC7″, 총수 불변)다.
+
+| ID | 자리 | 종류 | 바꾼 내용 |
+|---|---|---|---|
+| U5 | `chatStore.ts` `seedLandingBackend` 사용 불가 분기 | 제거 | `lastBackend:'claude'` 기록 호출 삭제 |
+| U6 | `chatStore.ts` `applyHarnessAvailability` 전환 분기 | 제거 | `lastBackend:'claude'` 기록 호출 삭제 |
+| U7 | `chatStore.ts` `setModel` 기록 대상 판정 | 제거 | 이어가기 초안 제외 항 삭제 |
+| U8 | `chatStore.ts` `applyHarnessAvailability` usable 분기 | 다른 값 | usable이면 `landingBackend = 'opencode'`로 되돌린 뒤 return |
+| U9 | `Composer.tsx` 모델 메뉴 `onPick` | 제거 | `setModel(…)` 호출 삭제(메뉴 닫기만 남김) |
+
+### 대체 AC (ΔV3)
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-03 | AT-03 / AC7″ | 사용 불가면 OpenCode 컴포저 비노출 — 새 대화·프로젝트 랜딩은 Claude, 기존 OpenCode 세션은 안내+다시 확인(진행 중 턴·대기 요청 동안은 Composer 유지). 자동 전환(부팅 시드·실행 중 사용 불가 전환)은 그 순간 `lastBackend`에 `claude`를 1회 쓰고, 새 대화·프로젝트 랜딩의 모델 선택은 메뉴·자동 구분 없이 고른 하네스를 쓴다(D-019). 다시 사용 가능해져도 새 대화·프로젝트 랜딩은 Claude이고 메뉴에서 OpenCode를 고르면 그때부터 OpenCode다. 분기·핸드오프 초안과 기존 대화의 모델 선택은 `lastBackend`·새 대화 기본을 바꾸지 않는다(D-020) | EP-03‴ #1~#19 좌표 — 특히 #1·#2·#3·#5·#6·#18 | 부팅 단계·store push → `ChatProvider` → chatStore(`seedLandingBackend`·`applyHarnessAvailability`·`setModel`·`newChat`) → `settingsApi.set` · Landing·ProjectLanding·ChatTile·ModelMenu |
+
+- AC 게이트 재확인: 행동 단언은 칸 backend 값·`settingsApi.set` 호출 수·인자다. `N회` sink `settingsApi.set({lastBackend})`의 ΔV3 production 호출부는 `setModel` 기록(#5)·`seedLandingBackend` 폴백(#2)·`applyHarnessAvailability` 전환(#3) 세 곳이고, helper 하나로 모아도 호출자는 이 셋이다. 각 좌표는 진입 함수를 실제로 부르고 다른 호출자를 fake로 바꾸지 않는다.
+- 음성 단언(기록 0)은 같은 테스트의 양성 단언과 짝이다 — 초안 기록 0(#5)은 새 대화 기록 1과, 복귀 뒤 Claude 유지(#3)는 기록 횟수 불변과 함께 본다.
+
+### ΔV3 §10
+
+자리 검색은 [`scan/sites-dv3.sh`](scan/sites-dv3.sh)(S03″)이고 N은 r1 코드 실측이다 — ΔV3 기준 HEAD `7f3b156`의 `app/`는 `c9d212b`와 같다(`git diff --stat c9d212b 7f3b156 -- app` 출력 0줄). S03′ 대비 폴백 표식 `unavailableLandingFallback` 술어를 빼고(D-019 삭제 대상), 마지막 백엔드를 운반하는 `landingBackend`·`lastBackend`와 기록 대상 판정 줄을 더했으며 JSDoc(`/**`) 줄도 주석으로 뺐다.
+
+| pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 → N / 목표 | 직접 oracle | 실패 의미 |
+|---|---|---|---|---|---|---|
+| VP-03 | D-006 노출 · D-019 마지막 백엔드 기록·적용 · D-020 이어가기 제외 | 가용성 store + `supported` + chatStore `landingBackend`(메모리)·`lastBackend`(설정) | EP-03‴ (19) | S03″ 39 / 표 자리 전부 유지(줄 이동 허용). 사라져도 되는 줄은 폴백 표식 식의 `:225`뿐이고, 늘어나는 줄은 #2·#3 기록 호출과 #5 초안 제외뿐 — 차집합을 `[구현자 기입]`에 | EP-03‴ 표 | 실패할 OpenCode 화면 노출 · 마지막 백엔드 유실·오기록 · 이어가기가 새 대화 기본을 바꿈 |
+
+- ΔV3 이후 강제 지점 분모: VP-03 19(ΔV2 17에서 +2) — 전체 95 → **97**.
+
+### EP-03‴ — renderer 노출 · 마지막 백엔드 (19, EP-03″ 대체)
+
+| # | 자리 (S03″ 줄, r1 코드) | 규칙 | 직접 oracle 좌표 | 출처 |
+|---|---|---|---|---|
+| 1 | `app/boot/steps.ts:68` | `backend` 단계 뒤 `seedLandingBackend(settings.lastBackend)` | 정정 — `steps.availability.test.ts` 사유 `it.each`(실제 `runBootSteps(createBootSteps(…))`): `lastBackend:'opencode'` × `missing`·`unsupported`·`failed` → 칸 `claude` + `settingsApi.set` 정확히 1회 `{lastBackend:'claude'}` · usable → `opencode` + 0회. 제목의 "without writing settings"는 바꾼다 (U5·N07 red) | CHANGED |
+| 2 | `chatStore.ts:221,225,226,227,241,242,244` | `seedLandingBackend`: `opencode` + 사용 불가 → 마지막 백엔드 `claude` + `{lastBackend:'claude'}` 1회. 그 밖(`claude`·`null`·usable)은 받은 값 그대로, 기록 0. 세션 없음·잠김 아님·명시 선택 아님 칸에 적용 | 정정 — `chatStore.availability.test.ts` "seeds Claude for an unavailable lastBackend…": `failed` → `claude` + 기록 1 · 이어 usable `opencode` → `opencode` + 추가 기록 0 · `seedLandingBackend('claude')` → 추가 기록 0 (R03a·U5 red) | CHANGED |
+| 3 | `chatStore.ts:187,188,189,190` | `applyHarnessAvailability`: 사용 불가 + 마지막 백엔드 `opencode` → `claude` + `{lastBackend:'claude'}` 1회, 세션 없는 OpenCode 새 대화·프로젝트 칸 재시드(저장 세션·진행 중·잠김 제외). 이미 `claude`면 기록 0. usable이면 아무것도 바꾸지 않는다 | 정정 — "falls back main/project drafts…": usable `seedLandingBackend('opencode')` 뒤 `missing` 반영·호출 → draft·project `claude`, saved·claude 칸 같은 참조, 기록 정확히 1 · 같은 상태 재호출 → 1 유지 · usable 반영·재호출 → `newChat()`·`newChat('project','/repo')` 칸 `claude`, 기록 1 유지 (X16·X61·U6·U8 red) | CHANGED |
+| 4 | `ChatProvider.tsx:11,12` | 마운트 1회 + store 변화마다 재시드 | EP-03″ #4 그대로 (X02) | INHERITED |
+| 5 | `chatStore.ts:1891,1892,1897` | `setModel` 기록 대상 = 활성 칸이 세션 없음 + 이어가기 초안(`forkFrom`·`handoffFrom`) 아님. 선택이 바뀌면 메뉴·자동 구분 없이 마지막 백엔드 갱신 + `{lastBackend: 선택 하네스}` 1회. 대상이 아니면 둘 다 그대로 | 신규 — `chatStore.availability.test.ts`(실제 `chatActions`): 폴백 중 새 대화 칸 `setModel(claude…)` → 기록 +1 `{lastBackend:'claude'}` · usable 뒤 같은 칸 `setModel(opencode…)` → 기록 +1 `{lastBackend:'opencode'}`, `newChat()` 칸 `opencode` · 마지막 백엔드 `opencode`에서 저장 Claude 세션의 `startForkDraft()`·`startHandoff()` 초안마다 다른 Claude 모델 `setModel` → 기록 0, 이어 `newChat()` 칸 `opencode` · 저장 세션 칸 `setModel` → 기록 0 (U7 red) | CHANGED |
+| 6 | `Composer.tsx:434` | 모델 메뉴 `onPick` → 추가 옵션 없이 `setModel(선택)` | 신규 — 실제 Composer 렌더(fake DOM, 새 대화 칸, OpenCode usable, Claude 선택 상태)에서 ModelMenu의 OpenCode 모델 클릭 → `{lastBackend:'opencode'}` 1(자동 선택은 Claude만 쓰므로 구별된다) · 분기 초안 칸 렌더에서 다른 Claude 모델 클릭 → `lastBackend` 기록 0 (U9 red) | CHANGED |
+| 7~17 | EP-03″ #7~#17과 같은 17줄(`ChatTile.tsx:65,165` · `HarnessUnavailableNotice.tsx:21` · `Landing.tsx:27` · `ProjectLandingPage.tsx:112` · `ModelMenu.tsx:31` · `modelSelection.ts:27` · `Composer.tsx:335` · `EngineCard.tsx:34,37,38` · `AgentEnvironmentView.tsx:31,96,105` · `agentStore.ts:22,43,94`) | EP-03″ 규칙 그대로 | EP-03″ 좌표 그대로 | INHERITED |
+| 18 | `chatStore.ts:183` | 시드 전 마지막 백엔드 초기값 `claude`(시드가 늦어도 번쩍임 없음) | 신규 — `vi.resetModules()` 뒤 새로 import한 `chatStore`에서 시드 없이 `newChat()` → 칸 `claude` | NEW(목록 편입) |
+| 19 | `chatStore.ts:296,297,298` | `freshEntry` — 새 대화·프로젝트 랜딩 칸은 마지막 백엔드로 시작하고, 그 하네스가 지원하지 않는 종류면 첫 종류로 | `chatStore.harness.test.ts` "creates a fresh draft using the boot-seeded %s harness"·"remembers model selection across repeated fresh draft creation"(기존) + #3·#5의 `newChat` 단언 | NEW(목록 편입) |
+
+- 검산: 1+7+4+2+3+1+17(#7~#17: 1×8 + 3×3)+1+3 = 39줄 = S03″.
+- 형제 맞바꿈: #2·#3이 쓰는 값은 `claude` 고정, #5는 선택 하네스다. #5를 `'claude'` 고정값으로 바꾸면 #5 좌표의 `{lastBackend:'opencode'}` 단언과 "remembers model selection…"이 red다.
+
+### ΔV3 구현 지시 (ΔV2 구현 지시의 `setModel`·`Composer.tsx`·D-017 행 대체)
+
+| 대상 | 변경 |
+|---|---|
+| `chatStore.ts` 폴백 표식 | `unavailableLandingFallback`과 `automaticFallback` 판정을 삭제한다. `:186` 주석을 D-019에 맞게 고친다 |
+| 마지막 백엔드 기록 | `landingBackend` 갱신과 `settingsApi.set({lastBackend})`(실패 보고 `chat.harness-preference.save-failed` 유지)를 함수 하나로 모은다 — 호출자는 #2·#3·#5 |
+| `seedLandingBackend` | `opencode` + 사용 불가일 때만 위 함수로 `claude`를 기록한다. 그 밖에는 기록하지 않는다(부팅 읽기가 같은 값을 다시 쓰지 않게) |
+| `applyHarnessAvailability` | 사용 불가 + 마지막 백엔드 `opencode`면 위 함수로 `claude`를 기록한다. usable 조기 return은 그대로다(D-019) |
+| `setModel` | `userPick` 옵션을 더하지 않는다(ΔV2 지시 폐기). 기록 대상 판정에 이어가기 초안 제외를 더하고 술어는 `isContinuityDraft`와 1벌로 둔다 |
+| `Composer.tsx:434-441` | 코드 변경 없음 — `onPick`은 지금 형태로 `setModel`을 부르고 #6 좌표로 잠근다 |
+| `explicitHarness` | 그대로 둔다 — 리듀서 `harnessExplicitlySelected`(Composer 모델 폴백 제한) 용도이고 ΔV3 기록 판정에 쓰지 않는다 |
+
+### ΔV3 self-review
+
+- D-019·D-020을 ACTIVE로 더하고 D-007·D-016·D-017을 대체 링크와 함께 SUPERSEDED로 돌렸다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모에 적었다(충돌 0).
+- 조건절 원문 인용: "자의든 타의든"(D-019) · "반드시 새대화, 프로젝트 랜딩에서만 유효"(D-020). [D11-3] 자유 답의 저장 시점 해석은 갱신 메모에 적었다.
+- AC7″는 AC 게이트를 다시 통과했다 — 행동 단언·검증 수단·도달 경로, sink 호출부 3곳을 #2·#3·#5에 매핑했다.
+- VP-03 목록은 S03″ 출력에서 고정했다(39줄 = 19항목 검산). SUPERSEDED U1·U2는 U9·U7로 이관했고 X17은 폐기 근거를 남겼다.
+- 사람 실기는 §19 그대로다 — 재시작 뒤 기본 하네스는 #1·#2 좌표가 기계 검증한다.
 
 ---
 
@@ -905,7 +1003,7 @@ isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바�
 - 사람 실기는 시각·실환경 3건뿐이다. 순수 로직은 테스트로 내렸다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0(§3 갱신 메모).
 - 산출물 문장 규칙: 판정 먼저·표 위주. 수치는 §8·§14에만 둔다.
-- ΔV2 self-review: 아래 ΔV2 절 끝 참조.
+- ΔV2·ΔV3 self-review: 아래 ΔV2·ΔV3 절 끝 참조.
 - ΔV1 self-review: SUPERSEDED D-005·D-008과 대체 D-014·D-015를 Ledger에 남겼다. 대체 AC2′~AC6′는 AC 게이트(행동 단언·검증 수단·도달 경로)를 다시 통과했다. 바뀐 pair VP-02~VP-05의 자리 목록은 `feaca09`에서 `scan/sites.sh`(S05d 추가)로 다시 열거했고, 바뀌지 않은 V1 검색 18개의 N은 `feaca09`에서도 같다.
 
 ---
