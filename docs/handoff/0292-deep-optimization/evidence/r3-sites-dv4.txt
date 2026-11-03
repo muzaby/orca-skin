@@ -1,0 +1,44 @@
+== S03‴ VP-03 renderer exposure · fallback · last backend · record targets N=43
+app/src/renderer/src/app/boot/steps.ts:68:    seedLandingBackend(settings.lastBackend)
+app/src/renderer/src/features/chat/components/ChatTile.tsx:65:  const availability = useHarnessAvailabilityStore((state) =>
+app/src/renderer/src/features/chat/components/ChatTile.tsx:165:            <Composer
+app/src/renderer/src/features/chat/components/Composer.tsx:335:                    {agents.some((agent) => agent.supported) && (
+app/src/renderer/src/features/chat/components/Composer.tsx:434:          onPick={(selection) => {
+app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.tsx:21:        <span>{tr(`harnessUnavailable.${availability.unavailableReason ?? 'failed'}`)}</span>
+app/src/renderer/src/features/chat/components/Landing.tsx:27:          <Composer {...composerProps} showLandingCwdPanel {...presentation.composer} />
+app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx:31:      (agent) => agent.supported && (!sessionBackend || agent.adapter === sessionBackend)
+app/src/renderer/src/features/chat/components/composer/modelSelection.ts:27:    if (!agent.supported || agent.models.length === 0) continue
+app/src/renderer/src/features/chat/providers/ChatProvider.tsx:11:    applyHarnessAvailability()
+app/src/renderer/src/features/chat/providers/ChatProvider.tsx:12:    const stopAvailability = useHarnessAvailabilityStore.subscribe(applyHarnessAvailability)
+app/src/renderer/src/features/chat/store/chatStore.ts:183:let landingBackend: import('../../../../../shared/ipc').Backend = 'claude'
+app/src/renderer/src/features/chat/store/chatStore.ts:186:export function applyHarnessAvailability(): void {
+app/src/renderer/src/features/chat/store/chatStore.ts:187:  if (useHarnessAvailabilityStore.getState().byId.opencode.usable) return
+app/src/renderer/src/features/chat/store/chatStore.ts:188:  if (landingBackend === 'opencode') rememberLandingBackend('claude')
+app/src/renderer/src/features/chat/store/chatStore.ts:195:          isContinuityDraft(entry) ||
+app/src/renderer/src/features/chat/store/chatStore.ts:218:export function seedLandingBackend(
+app/src/renderer/src/features/chat/store/chatStore.ts:221:  if (backend === 'opencode' && !useHarnessAvailabilityStore.getState().byId.opencode.usable)
+app/src/renderer/src/features/chat/store/chatStore.ts:222:    rememberLandingBackend('claude')
+app/src/renderer/src/features/chat/store/chatStore.ts:223:  else landingBackend = backend ?? 'claude'
+app/src/renderer/src/features/chat/store/chatStore.ts:229:        !isContinuityDraft(entry) &&
+app/src/renderer/src/features/chat/store/chatStore.ts:236:                backend: landingBackend,
+app/src/renderer/src/features/chat/store/chatStore.ts:237:                agentKind: supportsAgentKind(landingBackend, entry.session.agentKind)
+app/src/renderer/src/features/chat/store/chatStore.ts:239:                  : HARNESS_CAPABILITIES[landingBackend].agentKinds[0]
+app/src/renderer/src/features/chat/store/chatStore.ts:291:      backend: landingBackend,
+app/src/renderer/src/features/chat/store/chatStore.ts:292:      ...(!supportsAgentKind(landingBackend, landingAgentKind)
+app/src/renderer/src/features/chat/store/chatStore.ts:293:        ? { agentKind: HARNESS_CAPABILITIES[landingBackend].agentKinds[0] }
+app/src/renderer/src/features/chat/store/chatStore.ts:1868:function rememberLandingBackend(backend: import('../../../../../shared/ipc').Backend): void {
+app/src/renderer/src/features/chat/store/chatStore.ts:1869:  landingBackend = backend
+app/src/renderer/src/features/chat/store/chatStore.ts:1870:  void settingsApi.set({ lastBackend: backend }).catch((error) =>
+app/src/renderer/src/features/chat/store/chatStore.ts:1902:    !isContinuityDraft(getState().sessions[key]) &&
+app/src/renderer/src/features/chat/store/chatStore.ts:1903:    selected !== beforeSession
+app/src/renderer/src/features/chat/store/chatStore.ts:1905:    rememberLandingBackend(selected.backend)
+app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:31:  const availability = useHarnessAvailabilityStore((state) => state.byId)
+app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:96:          {HARNESS_IDS.map((engine) => (
+app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:105:                  ? tr(`harnessUnavailable.${availability[engine].unavailableReason ?? 'failed'}`)
+app/src/renderer/src/features/engine/common/components/EngineCard.tsx:34:            {!agent.supported && (
+app/src/renderer/src/features/engine/common/components/EngineCard.tsx:37:                  agent.unavailable
+app/src/renderer/src/features/engine/common/components/EngineCard.tsx:38:                    ? `harnessUnavailable.${agent.unavailable}`
+app/src/renderer/src/pages/ProjectLandingPage.tsx:112:              <Composer
+app/src/renderer/src/shared/stores/agentStore.ts:22:  subscribeAvailability?: (handler: () => void) => unknown
+app/src/renderer/src/shared/stores/agentStore.ts:43:      for (const subscribe of [deps.subscribe, deps.subscribeAvailability]) {
+app/src/renderer/src/shared/stores/agentStore.ts:94:  subscribeAvailability: (handler) => harnessApi.onAvailability(handler)

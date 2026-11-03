@@ -1,0 +1,767 @@
+{
+  "BOOT": [
+    {
+      "file": "app/src/main/app/bootstrap.opencode-warmup.test.ts",
+      "test": "overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener",
+      "observedCases": [
+        "overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener"
+      ],
+      "status": "passed"
+    }
+  ],
+  "JOIN": [
+    {
+      "file": "app/src/main/adapters/common/registry.availability.test.ts",
+      "test": "joins concurrent refresh/settled consumers, retains previous state and emits only changes",
+      "observedCases": [
+        "joins concurrent refresh/settled consumers, retains previous state and emits only changes"
+      ],
+      "status": "passed"
+    }
+  ],
+  "INSTALL": [
+    {
+      "file": "app/src/main/app/handlers/misc-split.test.ts",
+      "test": "preserves backend keys, rechecks the requested harness and refreshes after the install stream",
+      "observedCases": [
+        "preserves backend keys, rechecks the requested harness and refreshes after the install stream"
+      ],
+      "status": "passed"
+    }
+  ],
+  "SEED": [
+    {
+      "file": "app/src/renderer/src/app/boot/steps.availability.test.ts",
+      "test": "initializes backend availability before seeding the remembered OpenCode draft",
+      "observedCases": [
+        "initializes backend availability before seeding the remembered OpenCode draft (missing), persisting only an automatic fallback",
+        "initializes backend availability before seeding the remembered OpenCode draft (unsupported), persisting only an automatic fallback",
+        "initializes backend availability before seeding the remembered OpenCode draft (failed), persisting only an automatic fallback",
+        "initializes backend availability before seeding the remembered OpenCode draft (undefined), persisting only an automatic fallback"
+      ],
+      "status": "passed"
+    }
+  ],
+  "DRAFT": [
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+      "test": "falls back main/project drafts once while preserving stored, busy, locked and continuation sessions",
+      "observedCases": [
+        "falls back main/project drafts once while preserving stored, busy, locked and continuation sessions and retaining Claude after recovery"
+      ],
+      "status": "passed"
+    }
+  ],
+  "NOTICE": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts",
+      "test": "shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion",
+      "observedCases": [
+        "shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion"
+      ],
+      "status": "passed"
+    }
+  ],
+  "MENU": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/Composer.harness.test.ts",
+      "test": "omits unavailable OpenCode models while preserving Claude menu items",
+      "observedCases": [
+        "omits unavailable OpenCode models while preserving Claude menu items"
+      ],
+      "status": "passed"
+    }
+  ],
+  "SELECT": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts",
+      "test": "skips unsupported OpenCode rows when choosing a default model",
+      "observedCases": [
+        "skips unsupported OpenCode rows when choosing a default model"
+      ],
+      "status": "passed"
+    }
+  ],
+  "COMPOSER": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/Composer.selection.test.ts",
+      "test": "selects the supported Claude model when unavailable OpenCode models are present",
+      "observedCases": [
+        "selects the supported Claude model when unavailable OpenCode models are present"
+      ],
+      "status": "passed"
+    }
+  ],
+  "CARD": [
+    {
+      "file": "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts",
+      "test": "installation reason instead of the generic unsupported badge",
+      "observedCases": [
+        "displays the missing installation reason instead of the generic unsupported badge",
+        "displays the unsupported installation reason instead of the generic unsupported badge",
+        "displays the failed installation reason instead of the generic unsupported badge"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/renderer/src/features/engine/common/components/EngineCard.render.test.ts",
+      "test": "card label and editable actions (0262 AC31)",
+      "observedCases": [
+        "preserves the claude card label and editable actions (0262 AC31)",
+        "preserves the opencode card label and editable actions (0262 AC31)"
+      ],
+      "status": "passed"
+    }
+  ],
+  "ADD": [
+    {
+      "file": "app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.interaction.test.ts",
+      "test": "reason and keeps Claude additions usable",
+      "observedCases": [
+        "disables OpenCode additions with an accessible missing reason and keeps Claude additions usable",
+        "disables OpenCode additions with an accessible unsupported reason and keeps Claude additions usable",
+        "disables OpenCode additions with an accessible failed reason and keeps Claude additions usable"
+      ],
+      "status": "passed"
+    }
+  ],
+  "AGENT": [
+    {
+      "file": "app/src/renderer/src/shared/stores/agentStore.test.ts",
+      "test": "wires the production agent store to the harness API and refreshes changed availability once",
+      "observedCases": [
+        "wires the production agent store to the harness API and refreshes changed availability once"
+      ],
+      "status": "passed"
+    }
+  ],
+  "FOCUS": [
+    {
+      "file": "app/src/main/adapters/common/registry.availability.test.ts",
+      "test": "focus probes only a changed missing/failed identity, never a ready/unsupported installation",
+      "observedCases": [
+        "focus probes only a changed missing/failed identity, never a ready/unsupported installation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PATH": [
+    {
+      "file": "app/src/main/app/settings-reactions.test.ts",
+      "test": "rechecks only an executablePath change inside the actual top-level harnesses patch",
+      "observedCases": [
+        "rechecks only an executablePath change inside the actual top-level harnesses patch"
+      ],
+      "status": "passed"
+    }
+  ],
+  "HOST": [
+    {
+      "file": "app/src/main/app/harness-host.test.ts",
+      "test": "installed reads the settled registry state and missing harnesses are not installed",
+      "observedCases": [
+        "installed reads the settled registry state and missing harnesses are not installed"
+      ],
+      "status": "passed"
+    }
+  ],
+  "WARM": [
+    {
+      "file": "app/src/main/app/harnesses/opencode/warmup.test.ts",
+      "test": "does not consume its one warmup attempt while unavailable and prepares after installation",
+      "observedCases": [
+        "does not consume its one warmup attempt while unavailable and prepares after installation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "ROWS": [
+    {
+      "file": "app/src/main/app/handlers/misc.runtime-catalog.test.ts",
+      "test": "gates settings and runtime OpenCode rows with their",
+      "observedCases": [
+        "gates settings and runtime OpenCode rows with their missing reason and preserves Claude",
+        "gates settings and runtime OpenCode rows with their unsupported reason and preserves Claude",
+        "gates settings and runtime OpenCode rows with their failed reason and preserves Claude"
+      ],
+      "status": "passed"
+    }
+  ],
+  "CACHE": [
+    {
+      "file": "app/src/main/features/harnesses/common/runtime-catalog.test.ts",
+      "test": "updates cached runtime row availability in both directions without refetching models",
+      "observedCases": [
+        "updates cached runtime row availability in both directions without refetching models"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PREP": [
+    {
+      "file": "app/src/main/app/composer-preparation-service.test.ts",
+      "test": "rejects unavailable OpenCode preparation before resolving or acquiring a native server",
+      "observedCases": [
+        "rejects unavailable OpenCode preparation before resolving or acquiring a native server"
+      ],
+      "status": "passed"
+    }
+  ],
+  "RESUME": [
+    {
+      "file": "app/src/main/app/bootstrap.opencode-warmup.test.ts",
+      "test": "broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription",
+      "observedCases": [
+        "broadcasts a changed availability once and resumes skipped warmup and observation through the real registry subscription"
+      ],
+      "status": "passed"
+    }
+  ],
+  "WATCH": [
+    {
+      "file": "app/src/main/app/bootstrap.native-history.test.ts",
+      "test": "starts OpenCode global observation only when usable and sends one increasing revision for each later activation",
+      "observedCases": [
+        "starts OpenCode global observation only when usable and sends one increasing revision for each later activation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "RAW": [
+    {
+      "file": "app/src/main/features/history/native-history.db.test.ts",
+      "test": "atomically splits a legacy raw value once and keeps display reads lean",
+      "observedCases": [
+        "atomically splits a legacy raw value once and keeps display reads lean: [{\"uuid\":\"raw-original\"}]",
+        "atomically splits a legacy raw value once and keeps display reads lean: {\"nested\":[1,true]}",
+        "atomically splits a legacy raw value once and keeps display reads lean: \"raw-text\"",
+        "atomically splits a legacy raw value once and keeps display reads lean: 42",
+        "atomically splits a legacy raw value once and keeps display reads lean: false",
+        "atomically splits a legacy raw value once and keeps display reads lean: null"
+      ],
+      "status": "passed"
+    }
+  ],
+  "WRITE": [
+    {
+      "file": "app/src/main/features/history/native-sync.test.ts",
+      "test": "writes lean display payload while preserving raw separately and reads raw only on demand",
+      "observedCases": [
+        "writes lean display payload while preserving raw separately and reads raw only on demand"
+      ],
+      "status": "passed"
+    }
+  ],
+  "LOAD": [
+    {
+      "file": "app/src/main/app/handlers/session.load.test.ts",
+      "test": "splits legacy raw before the handler loads messages and leaves the next refresh usable",
+      "observedCases": [
+        "splits legacy raw before the handler loads messages and leaves the next refresh usable"
+      ],
+      "status": "passed"
+    }
+  ],
+  "APPEND": [
+    {
+      "file": "app/src/main/adapters/claude/native-history.test.ts",
+      "test": "reads separated raw only for a proven append and keeps the full-parse result unchanged",
+      "observedCases": [
+        "reads separated raw only for a proven append and keeps the full-parse result unchanged"
+      ],
+      "status": "passed"
+    }
+  ],
+  "OCARCHIVE": [
+    {
+      "file": "app/src/main/features/history/native-history.db.test.ts",
+      "test": "commits the OpenCode reader result and checkpoint through the common transaction",
+      "observedCases": [
+        "commits the OpenCode reader result and checkpoint through the common transaction"
+      ],
+      "status": "passed"
+    }
+  ],
+  "RECOVER": [
+    {
+      "file": "app/src/main/app/chat-turn/native-session.test.ts",
+      "test": "displays and recovers a separated snapshot after the native source is deleted without reading raw",
+      "observedCases": [
+        "displays and recovers a separated snapshot after the native source is deleted without reading raw"
+      ],
+      "status": "passed"
+    }
+  ],
+  "CHART": [
+    {
+      "file": "app/src/renderer/src/features/settings/components/UsageTab.chart.test.ts",
+      "test": "reserves the original chart height while loading, then renders the same accessible chart",
+      "observedCases": [
+        "reserves the original chart height while loading, then renders the same accessible chart"
+      ],
+      "status": "passed"
+    }
+  ],
+  "SYNTAX": [
+    {
+      "file": "app/src/renderer/src/shared/ui/markdown/syntax.test.ts",
+      "test": "preserves the original grammar/theme output for all supported languages and memoizes the shared highlighter",
+      "observedCases": [
+        "preserves the original grammar/theme output for all supported languages and memoizes the shared highlighter"
+      ],
+      "status": "passed"
+    }
+  ],
+  "GOLD": [
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+      "test": "matches original keys, gaps, tools, artifacts and incomplete rows",
+      "observedCases": [
+        "matches original keys, gaps, tools, artifacts and incomplete rows 0",
+        "matches original keys, gaps, tools, artifacts and incomplete rows 1",
+        "matches original keys, gaps, tools, artifacts and incomplete rows 2"
+      ],
+      "status": "passed"
+    }
+  ],
+  "MEMO": [
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts",
+      "test": "projects the committed head once and the live tail six times without computing copy text",
+      "observedCases": [
+        "projects the committed head once and the live tail six times without computing copy text"
+      ],
+      "status": "passed"
+    }
+  ],
+  "COPY": [
+    {
+      "file": "app/src/renderer/src/shared/ui/CopyIconButton.lazy.test.ts",
+      "test": "computes copy text only on click and forwards the exact string to the clipboard",
+      "observedCases": [
+        "computes copy text only on click and forwards the exact string to the clipboard"
+      ],
+      "status": "passed"
+    }
+  ],
+  "INDEX": [
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+      "test": "keeps head rows and indexed positions stable as only the live tail changes, without eager copy text",
+      "observedCases": [
+        "keeps head rows and indexed positions stable as only the live tail changes, without eager copy text"
+      ],
+      "status": "passed"
+    }
+  ],
+  "TIMER": [
+    {
+      "file": "app/src/main/app/project-resource-sync.test.ts",
+      "test": "has no idle timer or target scans, and activity/lease signals each tick once",
+      "observedCases": [
+        "has no idle timer or target scans, and activity/lease signals each tick once"
+      ],
+      "status": "passed"
+    }
+  ],
+  "MCP": [
+    {
+      "file": "app/src/main/app/harnesses/opencode/mcp-reconcile.timer.test.ts",
+      "test": "has no timer until dirty and stops retrying once idle peers are reconciled",
+      "observedCases": [
+        "has no timer until dirty and stops retrying once idle peers are reconciled"
+      ],
+      "status": "passed"
+    }
+  ],
+  "LOG": [
+    {
+      "file": "app/src/main/infra/log/file-transport.test.ts",
+      "test": "arms flush only for buffered writes and clears the timer on explicit flush and close",
+      "observedCases": [
+        "arms flush only for buffered writes and clears the timer on explicit flush and close"
+      ],
+      "status": "passed"
+    }
+  ],
+  "ADMIT": [
+    {
+      "file": "app/src/main/adapters/opencode/v1/mcp-control.test.ts",
+      "test": "wakes unsafe admission immediately on activity signals and cleans up aborted waits",
+      "observedCases": [
+        "wakes unsafe admission immediately on activity signals and cleans up aborted waits"
+      ],
+      "status": "passed"
+    }
+  ],
+  "SIGNALS": [
+    {
+      "file": "app/src/main/app/bootstrap.native-history.test.ts",
+      "test": "forwards each activity and lease change to project sync and the OpenCode admission signal",
+      "observedCases": [
+        "forwards each activity and lease change to project sync and the OpenCode admission signal"
+      ],
+      "status": "passed"
+    }
+  ],
+  "SDK": [
+    {
+      "file": "app/src/main/adapters/claude/sdk.test.ts",
+      "test": "shares one cold import across consumers and first-use controls",
+      "observedCases": [
+        "shares one cold import across consumers and first-use controls"
+      ],
+      "status": "passed"
+    }
+  ],
+  "TOOLS": [
+    {
+      "file": "app/src/main/adapters/claude/runtime-tools.test.ts",
+      "test": "서버 식별자를 하나로 사용한다",
+      "observedCases": [
+        "서버 식별자를 하나로 사용한다"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PREFETCH": [
+    {
+      "file": "app/src/main/app/bootstrap.opencode-warmup.test.ts",
+      "test": "finishes boot before the SDK prefetch settles",
+      "observedCases": [
+        "finishes boot before the SDK prefetch settles"
+      ],
+      "status": "passed"
+    }
+  ],
+  "CANON": [
+    {
+      "file": "app/src/main/adapters/claude/canonical-consumers.test.ts",
+      "test": "keeps project revisions independent of nested object key order while detecting changed values",
+      "observedCases": [
+        "keeps project revisions independent of nested object key order while detecting changed values"
+      ],
+      "status": "passed"
+    }
+  ],
+  "DEDUPE": [
+    {
+      "file": "app/src/main/adapters/claude/canonical-consumers.test.ts",
+      "test": "deduplicates a provider message whose only change is nested object insertion order",
+      "observedCases": [
+        "deduplicates a provider message whose only change is nested object insertion order"
+      ],
+      "status": "passed"
+    }
+  ],
+  "MAP": [
+    {
+      "file": "app/src/main/adapters/claude/native-history-map.test.ts",
+      "test": "keeps text/thinking/tools in one assistant response and never makes a tool-result user bubble",
+      "observedCases": [
+        "keeps text/thinking/tools in one assistant response and never makes a tool-result user bubble"
+      ],
+      "status": "passed"
+    }
+  ],
+  "CLAUDE": [
+    {
+      "file": "app/src/main/adapters/claude/adapter.availability.test.ts",
+      "test": "keeps the bundled Claude adapter usable when package metadata fails",
+      "observedCases": [
+        "keeps the bundled Claude adapter usable when package metadata fails: false",
+        "keeps the bundled Claude adapter usable when package metadata fails: true"
+      ],
+      "status": "passed"
+    }
+  ],
+  "DRAFTSEED": [
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+      "test": "seeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections",
+      "observedCases": [
+        "seeds Claude for an unavailable lastBackend once and keeps ready OpenCode selections without rewriting settings"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PREFERENCE": [
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+      "test": "remembers automatic model selection and later OpenCode picks only for ordinary new conversations",
+      "observedCases": [
+        "remembers automatic model selection and later OpenCode picks only for ordinary new conversations"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+      "test": "keeps the new-conversation backend unchanged when selecting a model in a",
+      "observedCases": [
+        "keeps the new-conversation backend unchanged when selecting a model in a fork conversation",
+        "keeps the new-conversation backend unchanged when selecting a model in a handoff conversation",
+        "keeps the new-conversation backend unchanged when selecting a model in a saved conversation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "MENUPICK": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/Composer.selection.test.ts",
+      "test": "records the production model menu pick only in a",
+      "observedCases": [
+        "records the production model menu pick only in a new conversation",
+        "records the production model menu pick only in a fork conversation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PROVIDER": [
+    {
+      "file": "app/src/renderer/src/features/chat/providers/ChatProvider.availability.test.ts",
+      "test": "reseeds an ordinary OpenCode draft from actual provider subscription and stops on unmount",
+      "observedCases": [
+        "reseeds an ordinary OpenCode draft from actual provider subscription and stops on unmount"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PENDING": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/ChatTile.harness.test.ts",
+      "test": "retains Composer while the unavailable session has",
+      "observedCases": [
+        "retains Composer while the unavailable session has pendingAsks",
+        "retains Composer while the unavailable session has pendingToolApprovals",
+        "retains Composer while the unavailable session has pendingPlanReview"
+      ],
+      "status": "passed"
+    }
+  ],
+  "INITIAL": [
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.availability.test.ts",
+      "test": "starts with Claude before any landing backend is seeded",
+      "observedCases": [
+        "starts with Claude before any landing backend is seeded"
+      ],
+      "status": "passed"
+    }
+  ],
+  "FRESH": [
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+      "test": "creates a fresh draft using the boot-seeded",
+      "observedCases": [
+        "creates a fresh draft using the boot-seeded claude harness",
+        "creates a fresh draft using the boot-seeded opencode harness"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.harness.test.ts",
+      "test": "remembers model selection across repeated fresh draft creation",
+      "observedCases": [
+        "remembers model selection across repeated fresh draft creation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "FAILEDFOCUS": [
+    {
+      "file": "app/src/main/adapters/common/registry.availability.test.ts",
+      "test": "rechecks changed failed identities once and leaves an unchanged failed identity alone",
+      "observedCases": [
+        "rechecks changed failed identities once and leaves an unchanged failed identity alone"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/main/adapters/common/registry.availability.test.ts",
+      "test": "focus probes only a changed missing/failed identity, never a ready/unsupported installation",
+      "observedCases": [
+        "focus probes only a changed missing/failed identity, never a ready/unsupported installation"
+      ],
+      "status": "passed"
+    }
+  ],
+  "BOOTPATH": [
+    {
+      "file": "app/src/main/app/bootstrap.opencode-warmup.test.ts",
+      "test": "routes actual settings patches from the initial executable path to the OpenCode registry only when changed",
+      "observedCases": [
+        "routes actual settings patches from the initial executable path to the OpenCode registry only when changed"
+      ],
+      "status": "passed"
+    }
+  ],
+  "IDENTITY": [
+    {
+      "file": "app/src/main/adapters/opencode/v1/server.test.ts",
+      "test": "carries executable path and stat identity through the actual OpenCode adapter without probing a process",
+      "observedCases": [
+        "carries executable path and stat identity through the actual OpenCode adapter without probing a process"
+      ],
+      "status": "passed"
+    }
+  ],
+  "FANOUT": [
+    {
+      "file": "app/src/main/infra/ipc/send.availability.test.ts",
+      "test": "broadcasts the availability payload on its channel to every living renderer",
+      "observedCases": [
+        "broadcasts the availability payload on its channel to every living renderer"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PRELOAD": [
+    {
+      "file": "app/src/preload/harness.test.ts",
+      "test": "carries availability changes and invokes recheck with the requested harness",
+      "observedCases": [
+        "carries availability changes and invokes recheck with the requested harness"
+      ],
+      "status": "passed"
+    }
+  ],
+  "STORE": [
+    {
+      "file": "app/src/renderer/src/app/boot/harnessAvailability.test.ts",
+      "test": "applies production harness API pushes and preserves a newer push over a deferred backend list",
+      "observedCases": [
+        "applies production harness API pushes and preserves a newer push over a deferred backend list"
+      ],
+      "status": "passed"
+    }
+  ],
+  "RECHECK": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/HarnessUnavailableNotice.test.ts",
+      "test": "reason and rechecks that harness once while disabling the pending button",
+      "observedCases": [
+        "shows the unsupported reason and rechecks that harness once while disabling the pending button",
+        "shows the failed reason and rechecks that harness once while disabling the pending button"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PORT": [
+    {
+      "file": "app/src/main/adapters/common/registry.availability.test.ts",
+      "test": "uses adapter fields without interpreting the",
+      "observedCases": [
+        "uses adapter fields without interpreting the claude harness name ({\"installed\":false})",
+        "uses adapter fields without interpreting the opencode harness name ({\"installed\":true})",
+        "uses adapter fields without interpreting the claude harness name ({\"installed\":false,\"usable\":true})"
+      ],
+      "status": "passed"
+    }
+  ],
+  "COPYSEM": [
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+      "test": "derives meta copyability from the same text semantics as turnCopyText",
+      "observedCases": [
+        "derives meta copyability from the same text semantics as turnCopyText: {\"type\":\"text\",\"text\":\"   \"}",
+        "derives meta copyability from the same text semantics as turnCopyText: {\"type\":\"text\",\"text\":\"child\",\"parentToolRunId\":\"child-run\"}",
+        "derives meta copyability from the same text semantics as turnCopyText: {\"type\":\"text\",\"text\":\"empty child id is not main text\",\"parentToolRunId\":\"\"}",
+        "derives meta copyability from the same text semantics as turnCopyText: {\"type\":\"text\",\"text\":\"main text\"}"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts",
+      "test": "renders exactly the copy controls justified by the meta text",
+      "observedCases": [
+        "renders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"   \"}",
+        "renders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"child only\",\"parentToolRunId\":\"child\"}",
+        "renders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"empty child identifier\",\"parentToolRunId\":\"\"}",
+        "renders exactly the copy controls justified by the meta text: {\"type\":\"text\",\"text\":\"ordinary body\"}"
+      ],
+      "status": "passed"
+    }
+  ],
+  "SDKRETRY": [
+    {
+      "file": "app/src/main/adapters/claude/sdk.test.ts",
+      "test": "shares one cold import across consumers and first-use controls",
+      "observedCases": [
+        "shares one cold import across consumers and first-use controls"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/main/adapters/claude/sdk.test.ts",
+      "test": "retries a rejected SDK import instead of retaining the failed promise",
+      "observedCases": [
+        "retries a rejected SDK import instead of retaining the failed promise"
+      ],
+      "status": "passed"
+    }
+  ],
+  "DEGRADED": [
+    {
+      "file": "app/src/renderer/src/app/boot/steps.availability.test.ts",
+      "test": "persists the Claude fallback once for new and project drafts when the backend list is",
+      "observedCases": [
+        "persists the Claude fallback once for new and project drafts when the backend list is rejected",
+        "persists the Claude fallback once for new and project drafts when the backend list is timed out"
+      ],
+      "status": "passed"
+    }
+  ],
+  "MULTICOPY": [
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.golden.test.ts",
+      "test": "preserves copyability across multiple assistant messages",
+      "observedCases": [
+        "preserves copyability across multiple assistant messages: 'tools then body'",
+        "preserves copyability across multiple assistant messages: 'body then tools'",
+        "preserves copyability across multiple assistant messages: 'tools only'"
+      ],
+      "status": "passed"
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.memo.test.ts",
+      "test": "renders one turn copy control only when any assistant message has body text",
+      "observedCases": [
+        "renders one turn copy control only when any assistant message has body text: 'tools then body'",
+        "renders one turn copy control only when any assistant message has body text: 'body then tools'",
+        "renders one turn copy control only when any assistant message has body text: 'tools only'"
+      ],
+      "status": "passed"
+    }
+  ],
+  "LANDING": [
+    {
+      "file": "app/src/renderer/src/pages/NewChatLandingPage.harness.test.ts",
+      "test": "renders the harness landing and preserves draft and attachment state",
+      "observedCases": [
+        "renders the harness landing and preserves draft and attachment state"
+      ],
+      "status": "passed"
+    }
+  ],
+  "PROJECT": [
+    {
+      "file": "app/src/renderer/src/pages/ProjectLandingPage.project-picker.test.ts",
+      "test": "0293 project landing opens the project popup with the current project checked",
+      "observedCases": [
+        "0293 project landing opens the project popup with the current project checked (claude)",
+        "0293 project landing opens the project popup with the current project checked (opencode)"
+      ],
+      "status": "passed"
+    }
+  ],
+  "CHIP": [
+    {
+      "file": "app/src/renderer/src/features/chat/components/composerMount.render.test.ts",
+      "test": "마운트가 실제로 칩까지 도달했다",
+      "observedCases": [
+        "마운트가 실제로 칩까지 도달했다 — 시드 수단의 양성 관측"
+      ],
+      "status": "passed"
+    }
+  ]
+}
