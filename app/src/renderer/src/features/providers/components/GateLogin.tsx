@@ -56,11 +56,11 @@ export function GateLogin({
     <div className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6">
       <h1 className="flex flex-col items-center gap-1 text-center leading-none">
         <span className="text-5xl font-bold tracking-tight text-ink">{PRODUCT_DISPLAY_NAME}</span>
-        <span className="whitespace-nowrap text-sm font-semibold uppercase tracking-[0.18em]">
+        <span className="whitespace-nowrap text-sm font-semibold uppercase tracking-[0.15em]">
           <span className="text-ink2">with </span>
           <span className="text-accent">Claude Code</span>
           <span className="text-ink2"> and </span>
-          <OpenCodeWordmark className="inline-block h-[1em] w-auto align-[-0.143em] text-ink" />
+          <OpenCodeWordmark className="inline-block h-[1.25em] w-auto align-[-0.18em] text-ink" />
         </span>
       </h1>
       <img
