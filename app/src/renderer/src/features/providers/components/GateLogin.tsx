@@ -60,7 +60,7 @@ export function GateLogin({
           <span className="text-ink2">with </span>
           <span className="text-accent">Claude Code</span>
           <span className="text-ink2"> and </span>
-          <OpenCodeWordmark className="inline-block h-[1.25em] w-auto align-[-0.18em] text-ink" />
+          <OpenCodeWordmark className="text-[1.5em] text-ink" />
         </span>
       </h1>
       <img
