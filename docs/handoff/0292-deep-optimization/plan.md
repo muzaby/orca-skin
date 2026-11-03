@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | IMPL_DONE (r4) — 원격 Round40 리베이스·D15/D16 보완·Windows CI #962 success, 다음 Claude 독립 검증 |
+| 상태 | verify/PASS (r4 · 기계 범위) — pair 11/11 · AC ✅23 · 고장 못 잡음 0. 남은 것은 §19 사람 실기([verify](verify.md) r4 절) |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV4` — r2 verify RETURN_TO_PLAN 정정(2026-11-03). 직전 `ΔV3` — 사용자 결정 변경 · `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
@@ -1883,9 +1883,10 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 | N7 | plan 메타의 `104034e`(r1 verify)·`7f3b156`(ΔV2)이 PR 브랜치 조상이 아닌 같은 트리 사본이다 — 브랜치 커밋은 `ceae905`·`cc75cf8`(`git diff` 0) | plan 메타 | 좌표 정본은 INDEX — 메타 정정 | NON_BLOCKING | closed (ΔV4 메타 `기준 커밋` 정정) |
 | N8 | 재시드·부팅 시드의 `isContinuityDraft` 항(`chatStore.ts:195`·`:229`)은 `agentKindLocked`와 겹치는 방어 항이고(V09 동치), DRAFT의 fork·handoff fixture는 production에 없는 잠기지 않은 이어가기 초안이다 | 비귀속 | 기록 | NON_BLOCKING | open |
 | N9 | COPYSEM 케이스명 "empty child id is main text"가 단언한 의미(`parentToolRunId:''`는 본문 아님 — Timeline 버튼 0)와 반대다 | 테스트 이름 | 이름 정정 후보 | NON_BLOCKING | closed (r3 — "empty child id is not main text") |
-| D15 | 운영 gate lint가 red다 — r3가 더한 `steps.availability.test.ts:111:31` `const currentBackend = () => {`가 `@typescript-eslint/explicit-function-return-type` error다. Windows CI run #959가 Lint에서 실패해 Windows typecheck·test가 r3 트리에서 돌지 않았다. 구현 보고·`evidence/r3-gates.json`·INDEX는 "lint 통과"로 적었다(반환 주석 삭제 뒤 재실행 없음) | VP-01 · AC1 · 운영 gate lint·CI | 반환 타입을 명시하고 마지막 수정 뒤 무수정 eslint·typecheck·Windows CI를 다시 관측 | BLOCKING (PAIR_FAIL) | open |
-| D16 | 엔진 카드의 "사유 없으면 일반 문구" 슬롯(`EngineCard.tsx:37-39`)이 잠기지 않는다 — 사유 선택 `true` 고정(W03, 배지에 원시 키 `harnessUnavailable.undefined`)·일반 키를 사유 키로 교체(W04, external 카드에 OpenCode 확인 실패 문구) 모두 전체 913파일·8442케이스 green. `미지원 adapter`는 지원 행 부정 단언에만 있다. 그런 행은 `agent:list`가 등록 백엔드 밖 adapter 설정에 낸다(`misc.ts:55-61`) | VP-03 · EP-03⁗ #15 · AC8 · D-003 | 사유 없는 미지원 행(예: `external`·사유 없는 `opencode`)에서 `미지원 adapter` 1·사유 문구 0을 단언(W03·W04 red) — 재현 틀 [`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts) | BLOCKING (PAIR_FAIL) | open |
+| D15 | 운영 gate lint가 red다 — r3가 더한 `steps.availability.test.ts:111:31` `const currentBackend = () => {`가 `@typescript-eslint/explicit-function-return-type` error다. Windows CI run #959가 Lint에서 실패해 Windows typecheck·test가 r3 트리에서 돌지 않았다. 구현 보고·`evidence/r3-gates.json`·INDEX는 "lint 통과"로 적었다(반환 주석 삭제 뒤 재실행 없음) | VP-01 · AC1 · 운영 gate lint·CI | 반환 타입을 명시하고 마지막 수정 뒤 무수정 eslint·typecheck·Windows CI를 다시 관측 | BLOCKING (PAIR_FAIL) | closed (r4 — eslint 0 error·CI #961~#963 success) |
+| D16 | 엔진 카드의 "사유 없으면 일반 문구" 슬롯(`EngineCard.tsx:37-39`)이 잠기지 않는다 — 사유 선택 `true` 고정(W03, 배지에 원시 키 `harnessUnavailable.undefined`)·일반 키를 사유 키로 교체(W04, external 카드에 OpenCode 확인 실패 문구) 모두 전체 913파일·8442케이스 green. `미지원 adapter`는 지원 행 부정 단언에만 있다. 그런 행은 `agent:list`가 등록 백엔드 밖 adapter 설정에 낸다(`misc.ts:55-61`) | VP-03 · EP-03⁗ #15 · AC8 · D-003 | 사유 없는 미지원 행(예: `external`·사유 없는 `opencode`)에서 `미지원 adapter` 1·사유 문구 0을 단언(W03·W04 red) — 재현 틀 [`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts) | BLOCKING (PAIR_FAIL) | closed (r4 — GENERIC 3케이스, W03·W04·W08 red 3) |
 | N10 | CHART(`UsageTab.chart.test.ts`)의 `vi.waitFor` 기본 1초가 전체 스위트 부하(3 workers)에서 한 번 초과했다 — 단독 3/3·2차 전체 실행 통과. 구현자도 다른 3건의 같은 현상을 적었다 | VP-07 좌표(r1 테스트, r3 무변경) | 기록 — Windows CI에서 흔들리면 대기 상한 조정 후보 | NON_BLOCKING | open |
+| N11 | `loopback-callback.test.ts` '경로가 다른 요청…' 1건이 r4 verify 전체 스위트 부하에서 한 번 실패 — 같은 고장 상태 suite·전체 재실행 0 | 비귀속(r4 무변경 파일) | 기록 | NON_BLOCKING | open |
 
 
 ---
