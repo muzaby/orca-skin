@@ -1,0 +1,74 @@
+== S02a refreshInstallState N=6
+app/src/main/app/handlers/misc.ts:43:    await ctx.registry.refreshInstallState(backend)
+app/src/main/app/handlers/misc.ts:109:    await ctx.registry.refreshInstallState(req.backend)
+app/src/main/app/bootstrap.ts:474:      () => this.registry.refreshInstallState()
+app/src/main/app/bootstrap.ts:722:        if (!this.stopped) void this.registry.refreshInstallState('opencode').catch(() => undefined)
+app/src/main/adapters/common/registry.ts:21:  refreshInstallState(id?: Backend): Promise<void> {
+app/src/main/adapters/common/registry.ts:90:        void this.refreshInstallState(id).catch(() => undefined)
+== S02b adapter-registry step N=1
+app/src/main/app/bootstrap.ts:472:      'adapter-registry',
+== S05a install consumers N=6
+app/src/main/adapters/common/registry.ts:8:  private installState = new Map<Backend, HarnessAvailability>()
+app/src/main/adapters/common/registry.ts:37:        const info = await adapter.isInstalled()
+app/src/main/adapters/common/registry.ts:47:        const previous = this.installState.get(backend)
+app/src/main/adapters/common/registry.ts:49:        this.installState.set(backend, next)
+app/src/main/adapters/common/registry.ts:64:      this.installState.get(id) ?? {
+app/src/main/app/handlers/misc.ts:37:    const backends = ctx.registry.list().map((b) => ({ ...b, capabilities: descriptors[b.id] }))
+== S05b supported producers N=1
+app/src/main/features/harnesses/common/models.ts:97:      supported: supported.has(entry.harnessId),
+== S05c OpenCode background starts N=4
+app/src/main/app/composer-preparation.ts:14:    resolveComposerPreparation(ctx, scope, signal)
+app/src/main/app/bootstrap.ts:857:          void auth.connectAll()
+app/src/main/app/bootstrap.ts:898:    this.openCodeWarmup = new OpenCodeWarmup({
+app/src/main/app/bootstrap.ts:1084:    this.openCodeGlobalWatch = new OpenCodeGlobalWatch({
+== S05d app direct install probes N=0
+== S03 renderer exposure N=9
+app/src/renderer/src/features/engine/common/components/EngineCard.tsx:34:            {!agent.supported && (
+app/src/renderer/src/pages/ProjectLandingPage.tsx:112:              <Composer
+app/src/renderer/src/app/boot/steps.ts:68:    seedLandingBackend(settings.lastBackend)
+app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx:96:          {HARNESS_IDS.map((engine) => (
+app/src/renderer/src/features/chat/components/composer/modelSelection.ts:27:    if (!agent.supported || agent.models.length === 0) continue
+app/src/renderer/src/features/chat/components/Composer.tsx:335:                    {agents.some((agent) => agent.supported) && (
+app/src/renderer/src/features/chat/components/ChatTile.tsx:165:            <Composer
+app/src/renderer/src/features/chat/components/Landing.tsx:27:          <Composer {...composerProps} showLandingCwdPanel {...presentation.composer} />
+app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx:31:      (agent) => agent.supported && (!sessionBackend || agent.adapter === sessionBackend)
+== S06a raw producers/consumers N=5
+app/src/main/adapters/opencode/v1/native-history.ts:272:        raw: second
+app/src/main/features/history/native-sync.ts:35:      if ('raw' in snapshot) return snapshot.raw
+app/src/main/adapters/common/native-history.ts:26:  raw?: unknown
+app/src/main/adapters/claude/native-history.ts:217:    const raw = append ? (previous?.raw?.() ?? previous?.snapshot.raw) : undefined
+app/src/main/adapters/claude/native-history.ts:284:        raw: entries
+== S06b snapshot payload IO N=11
+app/src/main/features/history/native-sync.ts:21:  const snapshot = JSON.parse(row.payload_json) as NativeHistorySnapshot
+app/src/main/features/history/native-sync.ts:125:      payloadJson: JSON.stringify(lean),
+app/src/main/features/history/reader.ts:30:        refreshedSnapshot ?? (JSON.parse(stored.payload_json) as NativeHistorySnapshot)
+app/src/main/infra/db/native-history-queries.ts:5:  payload_json: string
+app/src/main/infra/db/native-history-queries.ts:77:        'SELECT payload_json, cursor_json, local_frontier, synced_at FROM native_history_snapshots WHERE session_id = ?'
+app/src/main/infra/db/native-history-queries.ts:81:        SET raw_json = COALESCE(payload_json -> '$.raw', 'null'),
+app/src/main/infra/db/native-history-queries.ts:82:            payload_json = json_remove(payload_json, '$.raw')
+app/src/main/infra/db/native-history-queries.ts:91:        db.prepare(`INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at, cursor_json, raw_json)
+app/src/main/infra/db/native-history-queries.ts:93:        payload_json=excluded.payload_json, local_frontier=excluded.local_frontier, synced_at=excluded.synced_at, cursor_json=excluded.cursor_json, raw_json=excluded.raw_json`),
+app/src/main/infra/db/native-history-queries.ts:187:    payloadJson: string
+app/src/main/infra/db/native-history-queries.ts:200:        input.payloadJson,
+== S06c latest migration N=1
+0034_native_snapshot_raw.sql
+== S07a minify config N=1
+36:    build: { minify: 'esbuild' },
+== S07b recharts static imports N=1
+app/src/renderer/src/features/settings/components/TokensPerDayChart.tsx:7:import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+== S07c shiki static value import N=0
+== S08 timeline per-frame N=4
+app/src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts:66:export function projectTimeline(
+app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:34:  const liveText = useLiveText()
+app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:35:  const liveReasoning = useLiveReasoning()
+app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:176:          text={row.copyable ? () => turnCopyText(row.turn) : ''}
+== S09a setInterval main N=1
+app/src/main/features/scheduler/scheduler.ts:164:  const timer = setInterval(() => {
+== S09b admission 20ms poll N=0
+== S10a SDK static value imports N=0
+== S10b SDK dynamic imports N=4
+app/src/main/adapters/claude/sdk.ts:3:let resolved: typeof import('@anthropic-ai/claude-agent-sdk') | undefined
+app/src/main/adapters/claude/sdk.ts:4:let pending: Promise<typeof import('@anthropic-ai/claude-agent-sdk')> | undefined
+app/src/main/adapters/claude/sdk.ts:7:export function loadClaudeSdk(): Promise<typeof import('@anthropic-ai/claude-agent-sdk')> {
+app/src/main/adapters/claude/sdk.ts:8:  pending ??= import('@anthropic-ai/claude-agent-sdk')
+== S11 canonical copies N=0
