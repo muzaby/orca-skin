@@ -1,0 +1,111 @@
+{
+  "runId": 41570894158,
+  "jobId": 125703272461,
+  "url": "https://github.com/muzaby/orca-skin/actions/runs/41570894158",
+  "runner": "windows-latest",
+  "status": "completed",
+  "conclusion": "success",
+  "testSummary": [
+    "2026-11-03T03:26:42.9682187Z  Test Files  910 passed | 3 skipped (913)",
+    "2026-11-03T03:26:42.9745055Z       Tests  8431 passed | 3 skipped (8434)",
+    "2026-11-03T03:26:42.9759115Z    Duration  484.07s (transform 20.26s, setup 0ms, import 142.56s, tests 165.90s, environment 138ms)",
+    "2026-11-03T03:27:01.2873468Z # tests 144",
+    "2026-11-03T03:27:01.2874333Z # pass 144",
+    "2026-11-03T03:27:01.2874590Z # fail 0",
+    "2026-11-03T03:27:01.2875502Z # skipped 0"
+  ],
+  "vitest": {
+    "files": 913,
+    "passedFiles": 910,
+    "skippedFiles": 3,
+    "total": 8434,
+    "passed": 8431,
+    "skipped": 3,
+    "failed": 0
+  },
+  "scripts": {
+    "total": 144,
+    "passed": 144,
+    "failed": 0
+  },
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1
+    },
+    {
+      "name": "Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2
+    },
+    {
+      "name": "Run actions/setup-node@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3
+    },
+    {
+      "name": "Install dependencies",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4
+    },
+    {
+      "name": "Migration guard (sync + append-only)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 5
+    },
+    {
+      "name": "Doc inventory guard (counts + prose + links)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 6
+    },
+    {
+      "name": "Test budget guard (real-git suites)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 7
+    },
+    {
+      "name": "Lint",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8
+    },
+    {
+      "name": "Typecheck",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 9
+    },
+    {
+      "name": "Test",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 10
+    },
+    {
+      "name": "Post Run actions/setup-node@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 19
+    },
+    {
+      "name": "Post Run actions/checkout@v4",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 20
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 21
+    }
+  ]
+}
