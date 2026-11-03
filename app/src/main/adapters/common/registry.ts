@@ -36,8 +36,7 @@ export class AdapterRegistry {
       slot.ready = (async () => {
         const info = await adapter.isInstalled()
         if (this.closed || this.flights.get(backend) !== slot) return
-        // CLI gating applies to OpenCode; keep Claude's existing SDK paths available.
-        const usable = backend === 'claude' || (info.usable ?? info.installed)
+        const usable = info.usable ?? info.installed
         const next: HarnessAvailability = {
           id: backend,
           installed: info.installed,

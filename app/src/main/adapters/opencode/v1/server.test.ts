@@ -584,3 +584,40 @@ it('starts a new server for new owners after retireAll while existing owners kee
   next.release!()
   expect(children[1].kill).toHaveBeenCalledOnce()
 })
+
+it('carries executable path and stat identity through the actual OpenCode adapter without probing a process', () => {
+  const one = join(temporaryDirectory(), 'one.exe')
+  const two = join(temporaryDirectory(), 'two.exe')
+  writeFileSync(one, 'one')
+  writeFileSync(two, 'second')
+  const preferences = { executablePath: one, instructions: '' }
+  const readVersion = vi.fn(async () => '1.19.0')
+  const spawnProcess = vi.fn()
+  const fetchImpl = vi.fn<typeof fetch>()
+  const pool = new OpenCodeServerPool({
+    dataDirectory: temporaryDirectory(),
+    preferences: () => preferences,
+    readVersion,
+    spawnProcess: () => {
+      spawnProcess()
+      throw new Error('unexpected spawn')
+    },
+    fetchImpl
+  })
+  pools.push(pool)
+  const adapter = new OpenCodeAdapter(pool, fetchImpl)
+  preferences.executablePath = one
+  const a = adapter.executableIdentity()
+  expect(a).toBeDefined()
+  expect(adapter.executableIdentity()).toBe(a)
+  writeFileSync(one, 'replacement-with-different-size')
+  const replaced = adapter.executableIdentity()
+  expect(replaced).not.toBe(a)
+  preferences.executablePath = two
+  expect(adapter.executableIdentity()).not.toBe(replaced)
+  preferences.executablePath = join(temporaryDirectory(), 'missing.exe')
+  expect(adapter.executableIdentity()).toBeUndefined()
+  expect(readVersion).not.toHaveBeenCalled()
+  expect(spawnProcess).not.toHaveBeenCalled()
+  adapter.close()
+})

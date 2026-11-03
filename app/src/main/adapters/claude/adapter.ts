@@ -371,12 +371,12 @@ export class ClaudeAdapter implements SessionAdapter {
     return claudeErrorClassifier.classify(error, { provider: this.id, phase })
   }
 
-  async isInstalled(): Promise<{ installed: boolean; version?: string }> {
+  async isInstalled(): Promise<{ installed: boolean; version?: string; usable: boolean }> {
     try {
       const pkg = requireFn('@anthropic-ai/claude-agent-sdk/package.json') as { version?: string }
-      return { installed: true, version: pkg.version }
+      return { installed: true, version: pkg.version, usable: true }
     } catch {
-      return { installed: false }
+      return { installed: false, usable: true }
     }
   }
 

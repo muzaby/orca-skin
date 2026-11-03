@@ -27,6 +27,3 @@ export function seedHarnessAvailability(
   for (const state of states)
     if ((changedAt.get(state.id) ?? 0) <= readGeneration) applyHarnessAvailabilitySnapshot(state)
 }
-export function useHarnessAvailable(backend: Backend | null): boolean {
-  return useHarnessAvailabilityStore((state) => (backend ? state.byId[backend].usable : true))
-}

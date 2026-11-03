@@ -1,0 +1,21 @@
+{
+  "expected": [
+    "applyHarnessAvailability",
+    "seedLandingBackend",
+    "setModel"
+  ],
+  "actual": [
+    "applyHarnessAvailability",
+    "seedLandingBackend",
+    "setModel"
+  ],
+  "missing": [],
+  "extra": [],
+  "negative": {
+    "id": "A1",
+    "mutation": "remove seed caller from source text",
+    "detectedMissing": [
+      "seedLandingBackend"
+    ]
+  }
+}

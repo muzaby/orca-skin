@@ -190,3 +190,58 @@ it('shows each loaded session model instead of the provider default, across navi
   })
   expect(dom.query('[data-model-label]')?.textContent).toContain('claude-sonnet-4-6[1m]')
 })
+
+it.each(['new', 'fork'] as const)(
+  'records the production model menu pick only in a %s conversation',
+  async (kind) => {
+    const { useChatStore } = await import('../store/chatStore')
+    const { useHarnessAvailabilityStore } =
+      await import('../../../shared/stores/harnessAvailabilityStore')
+    useHarnessAvailabilityStore.setState(({ byId }) => ({
+      byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
+    }))
+    catalog.agents = [agent('claude'), agent('opencode')]
+    chatActions.setModel('claude-local', 'claude/model', 'claude-model', 'claude')
+    if (kind === 'fork') {
+      useChatStore.setState((state) => ({
+        sessions: {
+          ...state.sessions,
+          [state.activeKey]: {
+            ...state.sessions[state.activeKey],
+            session: {
+              ...state.sessions[state.activeKey].session,
+              sessionId: 'source',
+              agentKindLocked: true
+            }
+          }
+        }
+      }))
+      expect(chatActions.startForkDraft()).toBe(true)
+      catalog.agents[0].models.push({
+        ...catalog.agents[0].models[0],
+        model: 'claude/other',
+        alias: 'other',
+        isDefault: false
+      })
+    }
+    render()
+    const set = vi.mocked(window.orca.settings.set)
+    set.mockClear()
+    dom.click(dom.query('[data-model-label]')!)
+    const target = dom
+      .queryAll('[role="menuitemradio"]')
+      .find((node) =>
+        node.textContent.includes(kind === 'new' ? 'opencode-model' : 'claude/other')
+      )!
+    expect(target).toBeDefined()
+    dom.click(target)
+    const preferences = set.mock.calls.filter(([patch]) => 'lastBackend' in patch)
+    if (kind === 'new') {
+      expect(getActiveChatSession().backend).toBe('opencode')
+      expect(preferences).toEqual([[{ lastBackend: 'opencode' }]])
+    } else {
+      expect(getActiveChatSession().modelFamily).toBe('claude/other')
+      expect(preferences).toEqual([])
+    }
+  }
+)

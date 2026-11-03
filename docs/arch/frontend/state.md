@@ -82,6 +82,7 @@ interface SessionEntry {
 ```
 
 - **키 라우팅 (0013)**: IPC 이벤트는 `ev.sessionId` 로 해당 엔트리에 라우팅 — 비활성 세션의 턴이 백그라운드 누적되고 활성 UI 를 깨우지 않는다. sessionId 없는 이벤트는 활성 폴백, 미지 sessionId(엔트리 삭제 후 늦은 도착)는 폐기. `session.updated` 가 `NEW_CHAT_KEY` 엔트리를 sessionId 키로 승격(활성이면 activeKey 추종 — `useChatRouteSync` 방향 2 의 URL 승격 트리거).
+- **새 대화의 하네스** — `chatStore`의 마지막 백엔드를 새 대화·프로젝트 랜딩에 적용한다. 모델 선택과 OpenCode 사용 불가로 인한 자동 Claude 전환은 결정 즉시 `lastBackend`에 저장한다. 설치 상태가 복구돼도 기본값은 되돌리지 않는다. 기존 세션 재열기·분기·핸드오프 초안은 원본 하네스를 유지하며, 그 안의 모델 선택은 새 대화 기본값을 바꾸지 않는다.
 - **세션 재열기** — sessions Record의 기존 화면을 즉시 표시하면서 IPC로 native 이력을 갱신한다. 요청 세대·삭제·live 이벤트·낙관 전송 경합을 확인해 늦은 응답을 버린다. 갱신은 모델·권한·패널 선택을 보존하고 실패는 기존 화면과 함께 안내한다. LRU cap은 Future Scope.
 - **마지막 사용 모델** — 사용자 입력이 소비된 턴의 provider와 정확한 model 식별자([1m] 포함)를 세션 메타에 함께 기록한다. cold load는 그 모델을 Composer에 복원하고 alias는 현재 catalog로 채운다. 캐시된 세션 재열기는 더 최신인 로컬 선택을 보존한다. 새 모델 기록이 없는 레거시 세션은 마지막 telemetry 모델을 사용하고, 그 기록도 없으면 provider 기본 모델로 시작한다.
 - **기본 승인** — 명시적인 사용자 선택과 기본 선호를 구별한다. Claude 모델이 확정되면 지원 정책에 따라4.6 이상 모델은 자동 승인을 기본으로 사용한다. 모델 미정/미지원은 종류별 fallback이며 사용자가 고른 승인 모드는 모델 전환으로 덮지 않는다. OpenCode의 기본 정책은 별도다.

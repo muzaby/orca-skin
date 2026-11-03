@@ -1,5 +1,10 @@
 import type { Message } from '../../../reducer/chatReducer'
-import { messageSegments, partsArtifacts, type MessageSegment } from '../../../lib/parts'
+import {
+  hasPartsText,
+  messageSegments,
+  partsArtifacts,
+  type MessageSegment
+} from '../../../lib/parts'
 import { groupExchanges, type Turn, type TranscriptProjectionOptions } from '../../../lib/turns'
 import { groupTools } from './toolGrouping'
 import { toolKind } from '../toolPresentation'
@@ -123,11 +128,7 @@ function projectEntries(
       rows.push({
         kind: 'meta',
         turn: assistant,
-        copyable: assistant.messages.some((message) =>
-          message.parts.some(
-            (part) => part.type === 'text' && !part.parentToolRunId && part.text.trim() !== ''
-          )
-        ),
+        copyable: assistant.messages.some((message) => hasPartsText(message.parts)),
         createdAt: assistant.messages.at(-1)!.createdAt,
         key: `${prefix}:meta`,
         gap: 16

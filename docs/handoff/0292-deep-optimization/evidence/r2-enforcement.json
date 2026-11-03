@@ -1,0 +1,778 @@
+[
+  {
+    "pair": "VP-02",
+    "slot": "1",
+    "place": "EP-02′ #1 start 초입 확인",
+    "oracle": "BOOT",
+    "observed": "start 직후 refresh 1 · deferred 중 db-init 실행",
+    "values": "확인 미완/DB 완료"
+  },
+  {
+    "pair": "VP-02",
+    "slot": "2",
+    "place": "EP-02′ #2 finish 직전 합류",
+    "oracle": "BOOT",
+    "observed": "start 미완 → resolve 뒤 완료",
+    "values": "미완/완료 분리"
+  },
+  {
+    "pair": "VP-02",
+    "slot": "3",
+    "place": "EP-02′ #3 refresh 합류",
+    "oracle": "JOIN",
+    "observed": "동시 refresh 2+settled → probe 1",
+    "values": "missing → 1.18.27"
+  },
+  {
+    "pair": "VP-02",
+    "slot": "4",
+    "place": "EP-02′ #4 설치 종료 refresh",
+    "oracle": "INSTALL",
+    "observed": "install 종료 뒤 refresh(opencode) 1",
+    "values": "backend opencode"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "1",
+    "place": "EP-03‴ #1 boot backend→seed",
+    "oracle": "SEED",
+    "observed": "3 불가 사유 claude·설정 쓰기 1; usable opencode·쓰기 0",
+    "values": "missing/unsupported/failed/usable"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "2",
+    "place": "EP-03‴ #2 seedLandingBackend",
+    "oracle": "DRAFTSEED",
+    "observed": "failed 폴백 쓰기 1 · usable·claude·null 추가 쓰기 0",
+    "values": "opencode/claude/null"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "3",
+    "place": "EP-03‴ #3 applyHarnessAvailability",
+    "oracle": "DRAFT",
+    "observed": "main/project claude · stored/busy/locked/continuation 참조 유지 · 반복·usable 뒤 쓰기 1 유지",
+    "values": "draft/project/saved/claude/busy/locked/fork/handoff"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "4",
+    "place": "EP-03‴ #4 ChatProvider subscribe",
+    "oracle": "PROVIDER",
+    "observed": "store 변화만으로 opencode→claude · unmount 뒤 반영 0",
+    "values": "usable→missing"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "5",
+    "place": "EP-03‴ #5 setModel 기록 판정",
+    "oracle": "PREFERENCE",
+    "observed": "ordinary claude→opencode 쓰기 각1; fork/handoff/saved 쓰기0",
+    "values": "선택 backend opencode vs claude"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "6",
+    "place": "EP-03‴ #6 Composer ModelMenu.onPick",
+    "oracle": "MENUPICK",
+    "observed": "실제 메뉴 opencode pick 쓰기1 · fork의 다른 Claude pick 쓰기0",
+    "values": "opencode/model vs claude/other"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "7",
+    "place": "EP-03‴ #7 ChatTile 안내 조건",
+    "oracle": "PENDING",
+    "observed": "inflight·ask·approval·plan 각각 Composer 유지",
+    "values": "pending 3종/유휴"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "8",
+    "place": "EP-03‴ #8 ChatTile Composer",
+    "oracle": "NOTICE",
+    "observed": "unavailable idle 안내 · Claude Composer 유지",
+    "values": "claude/opencode"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "9",
+    "place": "EP-03‴ #9 Notice 사유",
+    "oracle": "RECHECK",
+    "observed": "unsupported·failed 한국어 문구",
+    "values": "기본 missing과 구별"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "10",
+    "place": "EP-03‴ #10 Landing Composer",
+    "oracle": "DRAFT",
+    "observed": "새 대화 재시드 후 claude",
+    "values": "draft"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "11",
+    "place": "EP-03‴ #11 ProjectLanding Composer",
+    "oracle": "DRAFT",
+    "observed": "프로젝트 재시드 후 claude",
+    "values": "project/cwd"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "12",
+    "place": "EP-03‴ #12 ModelMenu supported",
+    "oracle": "MENU",
+    "observed": "미지원 opencode 항목0 · Claude 유지",
+    "values": "supported false/true"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "13",
+    "place": "EP-03‴ #13 modelSelection",
+    "oracle": "SELECT",
+    "observed": "미지원 opencode 건너뜀",
+    "values": "서로 다른 backend/model"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "14",
+    "place": "EP-03‴ #14 Composer 메뉴 노출",
+    "oracle": "COMPOSER",
+    "observed": "Claude 모델 선택·표시",
+    "values": "supported false/true"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "15",
+    "place": "EP-03‴ #15 EngineCard 사유",
+    "oracle": "CARD",
+    "observed": "missing·unsupported·failed 문구",
+    "values": "3사유"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "16",
+    "place": "EP-03‴ #16 AgentEnvironmentView 추가",
+    "oracle": "ADD",
+    "observed": "3사유별 disabled·툴팁 · Claude modal",
+    "values": "3사유/claude"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "17",
+    "place": "EP-03‴ #17 agentStore availability subscribe",
+    "oracle": "AGENT",
+    "observed": "push1→list1 · dispose뒤0",
+    "values": "initial/after-change"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "18",
+    "place": "EP-03‴ #18 landingBackend 초기값",
+    "oracle": "INITIAL",
+    "observed": "fresh module seed없이 newChat→claude",
+    "values": "초기 import"
+  },
+  {
+    "pair": "VP-03",
+    "slot": "19",
+    "place": "EP-03‴ #19 freshEntry last backend",
+    "oracle": "FRESH",
+    "observed": "boot-seeded 하네스·반복 draft 모델선택 유지",
+    "values": "claude/opencode·agentKind"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "1",
+    "place": "EP-04″ #1 settings-reactions top-level patch",
+    "oracle": "PATH",
+    "observed": "경로 변경만 recheck1 · 동일/다른키0",
+    "values": "initial/next"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "2",
+    "place": "EP-04″ #2 Bootstrap 실제 settings patch",
+    "oracle": "BOOTPATH",
+    "observed": "실제 SettingsStore patch · 동일0/변경opencode1/다른키0",
+    "values": "/initial vs /next"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "3",
+    "place": "EP-04″ #3 misc recheck",
+    "oracle": "INSTALL",
+    "observed": "요청 하네스 refresh1·결과",
+    "values": "opencode"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "4",
+    "place": "EP-04″ #4 Bootstrap focus lifecycle",
+    "oracle": "BOOT",
+    "observed": "등록focus1 · shutdown해제",
+    "values": "listener identity"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "5",
+    "place": "EP-04″ #5 registry refresh/listener",
+    "oracle": "JOIN",
+    "observed": "동시 합류 · 동일 결과 방송0",
+    "values": "missing→ready"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "6",
+    "place": "EP-04″ #6 registry focus failed/identity",
+    "oracle": "FAILEDFOCUS",
+    "observed": "failed 동일identity0 · 교체1 · ready/unsupported identity조회0",
+    "values": "failed/missing/usable/unsupported"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "7",
+    "place": "EP-04″ #7 registry listener register/remove",
+    "oracle": "RESUME",
+    "observed": "동일상태 방송0 · 다른상태1",
+    "values": "usable/missing"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "8",
+    "place": "EP-04″ #8 server→adapter identity",
+    "oracle": "IDENTITY",
+    "observed": "파일 교체·경로 변경시 값변화 · missing undefined · probe/spawn0",
+    "values": "A→A′→B→missing"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "9",
+    "place": "EP-04″ #9 Bootstrap broadcast listener",
+    "oracle": "RESUME",
+    "observed": "변화payload 방송1 · 동일0",
+    "values": "ready version1.19"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "10",
+    "place": "EP-04″ #10 send.ts actual channel/fanout",
+    "oracle": "FANOUT",
+    "observed": "살아있는2 send1씩 · 파괴된1 send0",
+    "values": "unsupported/version2.0"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "11",
+    "place": "EP-04″ #11 preload recheck invoke",
+    "oracle": "PRELOAD",
+    "observed": "harnessRecheck(opencode) invoke",
+    "values": "채널 구별"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "12",
+    "place": "EP-04″ #12 preload push subscribe/remove",
+    "oracle": "PRELOAD",
+    "observed": "harnessAvailability callback/해제",
+    "values": "별도 채널"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "13",
+    "place": "EP-04″ #13 harnessApi delegates",
+    "oracle": "STORE",
+    "observed": "window.orca.harness stub를 실제 API로 실행",
+    "values": "unsupported/usable"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "14",
+    "place": "EP-04″ #14 store push apply",
+    "oracle": "STORE",
+    "observed": "unsupported값 운반 후 usable값 운반",
+    "values": "사유unsupported/version1.19"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "15",
+    "place": "EP-04″ #15 backend list seed fence",
+    "oracle": "STORE",
+    "observed": "list deferred 중 usable push→missing list resolve 뒤 usable 유지",
+    "values": "usable push vs missing list"
+  },
+  {
+    "pair": "VP-04",
+    "slot": "16",
+    "place": "EP-04″ #16 Notice button actual API",
+    "oracle": "RECHECK",
+    "observed": "recheck(opencode)1 · pendingdisabled · 완료enabled",
+    "values": "unsupported/failed"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "1",
+    "place": "EP-05′ #1 설치 캐시 정의",
+    "oracle": "JOIN + CLAUDE",
+    "observed": "OpenCode usable 결과·Claude 설치 독립성",
+    "values": "Claude installed false/true 모두 usable true"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "2",
+    "place": "EP-05′ #2 설치 확인 입력",
+    "oracle": "JOIN",
+    "observed": "동시 수요 추가 probe 0",
+    "values": "동시 refresh/settled"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "3",
+    "place": "EP-05′ #3 결과 캐시 쓰기",
+    "oracle": "JOIN",
+    "observed": "ready installed/version 보존",
+    "values": "installed=true/version=1.18.27"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "4",
+    "place": "EP-05′ #4 list/availability 읽기",
+    "oracle": "JOIN",
+    "observed": "settled payload 키·값 동등",
+    "values": "missing 사유/ready 버전"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "5",
+    "place": "EP-05′ #5 Host 주석·직접 probe 제거",
+    "oracle": "gate:S05d",
+    "observed": "app isInstalled 직접 호출·언급 0",
+    "values": "scan/sites.sh 원문"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "6",
+    "place": "EP-05′ #6 Host installed",
+    "oracle": "HOST",
+    "observed": "직접 probe 0·settled 값 반환",
+    "values": "installed false/true+버전"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "7",
+    "place": "EP-05′ #7 warmup installed gate",
+    "oracle": "WARM",
+    "observed": "미설치 prepare 0·설치 후 1",
+    "values": "attempt 미소비"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "8",
+    "place": "EP-05′ #8 backend:list",
+    "oracle": "INSTALL",
+    "observed": "기존 installed/version·추가 usable/사유",
+    "values": "Claude 3.0/OpenCode missing"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "9",
+    "place": "EP-05 #9 agent:list settings",
+    "oracle": "ROWS",
+    "observed": "settings/runtime 사유 missing·unsupported·failed 운반",
+    "values": "settings/runtime 별도 fixture"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "10",
+    "place": "EP-05 #10 models.ts supported",
+    "oracle": "ROWS",
+    "observed": "동일 handler의 실제 toAgentEnvironments 실행",
+    "values": "OpenCode false/Claude true"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "11",
+    "place": "EP-05 #11 runtime-catalog supported",
+    "oracle": "CACHE + ROWS",
+    "observed": "캐시 행 false↔true 갱신",
+    "values": "설치 후 모델 재조회 없음"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "12",
+    "place": "EP-05 #12 composer preparation",
+    "oracle": "PREP",
+    "observed": "unavailable stage·get/acquire 0",
+    "values": "OpenCode missing"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "13",
+    "place": "EP-05 #13 auth.connectAll Host edge",
+    "oracle": "HOST",
+    "observed": "Host listModels unavailable probe 0",
+    "values": "login-free 기존 전 케이스 실행"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "14",
+    "place": "EP-05 #14 warmup 생성·재개 배선",
+    "oracle": "RESUME",
+    "observed": "실제 리스너 → 준비 무효화 1 · 감시 생성/revision 1 · unavailable 전환 close",
+    "values": "real registry subscription"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "15",
+    "place": "EP-05′ #15 global watch 생성·정리",
+    "oracle": "RESUME",
+    "observed": "실제 리스너 → 준비 무효화 1 · 감시 생성/revision 1 · unavailable 전환 close",
+    "values": "usable/missing/재활성화"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "16",
+    "place": "EP-05″ #16 registry usable",
+    "oracle": "PORT",
+    "observed": "이름 비의존 · field 우선/fallback",
+    "values": "claude installedfalse / opencode installedtrue / explicitttrue"
+  },
+  {
+    "pair": "VP-05",
+    "slot": "17",
+    "place": "EP-05″ #17 Claude producer",
+    "oracle": "CLAUDE",
+    "observed": "실제 adapter package metadata 성공·실패 모두 usabletrue + registry 경유",
+    "values": "installedtrue/version vs installedfalse"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "1",
+    "place": "EP-06 #1 0034 raw_json 열",
+    "oracle": "RAW + gate:migration",
+    "observed": "새 열 왕복·migration sync 통과",
+    "values": "과거 migration 무수정"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "2",
+    "place": "EP-06 #2 replace SQL",
+    "oracle": "RAW",
+    "observed": "raw_json 저장·lean payload",
+    "values": "raw 6종 JSON"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "3",
+    "place": "EP-06 #3 replace 입력 타입",
+    "oracle": "RAW",
+    "observed": "rawJson 인자 수용",
+    "values": "raw-text/false/null"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "4",
+    "place": "EP-06 #4 replace 실행",
+    "oracle": "RAW",
+    "observed": "raw_json 읽기 값 동등",
+    "values": "object/array/number"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "5",
+    "place": "EP-06 #5 get SELECT",
+    "oracle": "RAW",
+    "observed": "raw_json 반환 키 없음",
+    "values": "display payload만 조회"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "6",
+    "place": "EP-06 #6 row 타입",
+    "oracle": "gate:typecheck",
+    "observed": "node/web/test 3구성 오류 0",
+    "values": "SELECT 형상 유지"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "7",
+    "place": "EP-06 #7 raw(sessionId)",
+    "oracle": "RAW",
+    "observed": "JSON 값 왕복",
+    "values": "6종 원형 보존"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "8",
+    "place": "EP-06 #8 compactLegacyRaw",
+    "oracle": "RAW",
+    "observed": "분리 changes 1 → 0·표시 동일",
+    "values": "array/object/string/number/bool/null"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "9",
+    "place": "EP-06 #9 native-sync writer",
+    "oracle": "WRITE",
+    "observed": "payload raw 키 없음·rawJson 별도",
+    "values": "비어 있지 않은 raw sentinel"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "10",
+    "place": "EP-06 #10 previous lazy raw",
+    "oracle": "WRITE",
+    "observed": "조회 전 0·요청 후 1",
+    "values": "legacy 내장 raw도 지원"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "11",
+    "place": "EP-06 #11 reader messages",
+    "oracle": "RAW + RECOVER",
+    "observed": "분리 뒤 본문 동일·복구 prompt 유지",
+    "values": "display remains/retained source question"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "12",
+    "place": "EP-06 #12 session:load 순서",
+    "oracle": "LOAD",
+    "observed": "compact → load·다음 refresh busy 아님",
+    "values": "호출 순서 로그"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "13",
+    "place": "EP-06 #13 previous.raw 포트",
+    "oracle": "APPEND",
+    "observed": "lazy raw 함수로 append 동치",
+    "values": "raw가 없는 lean snapshot"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "14",
+    "place": "EP-06 #14 Claude append 조건",
+    "oracle": "APPEND",
+    "observed": "unchanged·조건 거짓 raw 0",
+    "values": "identity/newline/offset/projectionVersion"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "15",
+    "place": "EP-06 #15 Claude raw 사용",
+    "oracle": "APPEND",
+    "observed": "검증된 append raw 1·전체 파싱과 동등",
+    "values": "추가 user/assistant 둘"
+  },
+  {
+    "pair": "VP-06",
+    "slot": "16",
+    "place": "EP-06 #16 OpenCode/Claude raw 생산",
+    "oracle": "OCARCHIVE + APPEND",
+    "observed": "OpenCode raw={session,messages}·Claude 원형 재사용",
+    "values": "두 생산자 분리 검증"
+  },
+  {
+    "pair": "VP-07",
+    "slot": "1",
+    "place": "EP-07 #1 renderer minify",
+    "oracle": "gate:bundle",
+    "observed": "entryMinified=true·1,283,482B",
+    "values": "압축 제거 결함 검출"
+  },
+  {
+    "pair": "VP-07",
+    "slot": "2",
+    "place": "EP-07 #2 UsageTab lazy/Suspense",
+    "oracle": "CHART + gate:bundle",
+    "observed": "recharts 진입 0B·자리→차트",
+    "values": "동일 높이 180px"
+  },
+  {
+    "pair": "VP-07",
+    "slot": "3",
+    "place": "EP-07 #3 TokensPerDayChart",
+    "oracle": "CHART",
+    "observed": "같은 접근성 차트 표시",
+    "values": "차트 구현 무변경"
+  },
+  {
+    "pair": "VP-07",
+    "slot": "4",
+    "place": "EP-07 #4 syntax segmented import",
+    "oracle": "SYNTAX + gate:bundle",
+    "observed": "shiki 진입 0B·자산 21",
+    "values": "11언어×2테마 기존 출력 동등"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "1",
+    "place": "EP-08 #1 projection head/tail",
+    "oracle": "GOLD",
+    "observed": "원본 생성 golden 3종 동등",
+    "values": "도구/산출물/미완료"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "2",
+    "place": "EP-08 #2 meta lazy copy",
+    "oracle": "COPYSEM",
+    "observed": "본문·공백·child·빈 child id별 copyable 동치 · 버튼 0/1",
+    "values": "두 문단 개행 보존"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "3",
+    "place": "EP-08 #3 live text 구독",
+    "oracle": "MEMO",
+    "observed": "live 5회 변경 tail 6회",
+    "values": "text 길이 1..5"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "4",
+    "place": "EP-08 #4 live reasoning 구독",
+    "oracle": "MEMO",
+    "observed": "tail 인자에 live reasoning 갱신값 전달",
+    "values": "text=12345/reasoning=thought 12345"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "5",
+    "place": "EP-08 #5 head memo",
+    "oracle": "MEMO",
+    "observed": "head 1·tail 6",
+    "values": "messages 동일 identity"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "6",
+    "place": "EP-08 #6 보존 행 lookup",
+    "oracle": "INDEX",
+    "observed": "모든 row key 인덱스 일치",
+    "values": "head/tail/missing 구별"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "7",
+    "place": "EP-08 #7 앵커 lookup",
+    "oracle": "INDEX",
+    "observed": "누락 key=-1",
+    "values": "기존 selection 스위트 함께 실행"
+  },
+  {
+    "pair": "VP-08",
+    "slot": "8",
+    "place": "EP-08 #8 선택 행 lookup",
+    "oracle": "INDEX",
+    "observed": "선택 완료→해제 기존 동작 유지",
+    "values": "Timeline.selection.test.ts 1케이스"
+  },
+  {
+    "pair": "VP-09",
+    "slot": "1",
+    "place": "EP-09 #1 project sync timer",
+    "oracle": "TIMER",
+    "observed": "10s idle targets 0·신호마다 tick 1",
+    "values": "pending 재시도 뒤 timer 0"
+  },
+  {
+    "pair": "VP-09",
+    "slot": "2",
+    "place": "EP-09 #2 MCP reconcile timer",
+    "oracle": "MCP",
+    "observed": "idle 0·dirty busy 재시도·완료 0",
+    "values": "close 타이머 해제"
+  },
+  {
+    "pair": "VP-09",
+    "slot": "3",
+    "place": "EP-09 #3 file log timer",
+    "oracle": "LOG",
+    "observed": "첫 write에만 timer·flush/close 0",
+    "values": "버퍼 0/비어 있지 않음"
+  },
+  {
+    "pair": "VP-09",
+    "slot": "4",
+    "place": "EP-09 #4 MCP admission wait",
+    "oracle": "ADMIT",
+    "observed": "시간 진행 없이 신호로 수행·abort reject",
+    "values": "500ms 상한 유지"
+  },
+  {
+    "pair": "VP-09",
+    "slot": "5",
+    "place": "EP-09 #5 activity broadcast 배선",
+    "oracle": "SIGNALS",
+    "observed": "방송 1 → project/adapter 신호 각각 1",
+    "values": "서로 다른 spy"
+  },
+  {
+    "pair": "VP-09",
+    "slot": "6",
+    "place": "EP-09 #6 lease 배선",
+    "oracle": "SIGNALS",
+    "observed": "lease 이벤트 → leasesChanged 1",
+    "values": "activity와 별도 spy"
+  },
+  {
+    "pair": "VP-10",
+    "slot": "1",
+    "place": "EP-10 #1 SDK memo loader",
+    "oracle": "SDKRETRY",
+    "observed": "동시 import factory 1 · 실패 뒤 재시도 factory 2",
+    "values": "cold import gate"
+  },
+  {
+    "pair": "VP-10",
+    "slot": "2",
+    "place": "EP-10 #2 adapter query",
+    "oracle": "gate:bundle + SDK",
+    "observed": "SDK 정적 require 0·warm mock 호환",
+    "values": "cold control sentinel-model"
+  },
+  {
+    "pair": "VP-10",
+    "slot": "3",
+    "place": "EP-10 #3 runtime-tools factory",
+    "oracle": "TOOLS",
+    "observed": "주입 함수·handler 결과 기존 동작",
+    "values": "서버명 records"
+  },
+  {
+    "pair": "VP-10",
+    "slot": "4",
+    "place": "EP-10 #4 native-history-map",
+    "oracle": "MAP",
+    "observed": "기존 SDK history mock 스위트 실행",
+    "values": "동일 native 메시지"
+  },
+  {
+    "pair": "VP-10",
+    "slot": "5",
+    "place": "EP-10 #5 bootstrap prefetch",
+    "oracle": "PREFETCH",
+    "observed": "finish 뒤 loader 1·미완 promise 비대기",
+    "values": "prefetch deferred"
+  },
+  {
+    "pair": "VP-11",
+    "slot": "1",
+    "place": "EP-11 #1 project-settings canonical",
+    "oracle": "CANON",
+    "observed": "키 순서 변경 revision 동일·값 변경 다름",
+    "values": "중첩 키 순서/값 구별"
+  },
+  {
+    "pair": "VP-11",
+    "slot": "2",
+    "place": "EP-11 #2 background canonical",
+    "oracle": "DEDUPE",
+    "observed": "같은 uuid·키 순서만 변경한 두 번째 무시",
+    "values": "nested object"
+  }
+]

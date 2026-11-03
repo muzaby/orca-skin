@@ -94,25 +94,28 @@ beforeEach(() =>
   }))
 )
 
-it('disables OpenCode additions with an accessible reason and keeps Claude additions usable', () => {
-  vi.useFakeTimers()
-  useHarnessAvailabilityStore.setState(({ byId }) => ({
-    byId: {
-      ...byId,
-      opencode: { id: 'opencode', installed: false, usable: false, unavailableReason: 'missing' }
-    }
-  }))
-  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
-  cleanup = () => dom.unmount()
-  dom.render(createElement(AgentEnvironmentView))
-  const button = (text: string): FakeNode =>
-    nodes(dom.body).find((node) => node.tag === 'button' && node.textContent === text)!
-  dom.click(button('engine.addEngine'))
-  expect(button('OpenCode').props.disabled).toBe(true)
-  expect(button('OpenCode').props['aria-disabled']).toBe(true)
-  expect(button('OpenCode').props.title).toBe('harnessUnavailable.missing')
-  dom.click(button('OpenCode'))
-  expect(dom.body.textContent).not.toContain('engine.form.titleAdd')
-  dom.click(button('Claude'))
-  expect(dom.body.textContent).toContain('engine.form.titleAdd')
-})
+it.each(['missing', 'unsupported', 'failed'] as const)(
+  'disables OpenCode additions with an accessible %s reason and keeps Claude additions usable',
+  (reason) => {
+    vi.useFakeTimers()
+    useHarnessAvailabilityStore.setState(({ byId }) => ({
+      byId: {
+        ...byId,
+        opencode: { id: 'opencode', installed: false, usable: false, unavailableReason: reason }
+      }
+    }))
+    const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    cleanup = () => dom.unmount()
+    dom.render(createElement(AgentEnvironmentView))
+    const button = (text: string): FakeNode =>
+      nodes(dom.body).find((node) => node.tag === 'button' && node.textContent === text)!
+    dom.click(button('engine.addEngine'))
+    expect(button('OpenCode').props.disabled).toBe(true)
+    expect(button('OpenCode').props['aria-disabled']).toBe(true)
+    expect(button('OpenCode').props.title).toBe(`harnessUnavailable.${reason}`)
+    dom.click(button('OpenCode'))
+    expect(dom.body.textContent).not.toContain('engine.form.titleAdd')
+    dom.click(button('Claude'))
+    expect(dom.body.textContent).toContain('engine.form.titleAdd')
+  }
+)

@@ -22,7 +22,8 @@ import { useScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
 const fixture = vi.hoisted(() => ({
   backend: 'claude' as 'claude' | 'opencode',
   agentKind: 'code' as 'code' | 'work',
-  inflight: false
+  inflight: false,
+  pending: {} as Partial<typeof initialChatState>
 }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -34,7 +35,12 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('../store/chatStore', () => ({
   useChatSession: (select: (state: typeof initialChatState) => unknown) =>
-    select({ ...initialChatState, backend: fixture.backend, agentKind: fixture.agentKind }),
+    select({
+      ...initialChatState,
+      backend: fixture.backend,
+      agentKind: fixture.agentKind,
+      ...fixture.pending
+    }),
   useChatStore: (select: (state: unknown) => unknown) =>
     select({ activeKey: 's', draftRestore: null }),
   useChatResponding: () => fixture.inflight,
@@ -128,11 +134,13 @@ describe('harness transcript background', () => {
   )
 })
 
-beforeEach(() =>
+beforeEach(() => {
+  fixture.pending = {}
+  fixture.inflight = false
   useHarnessAvailabilityStore.setState(({ byId }) => ({
     byId: { ...byId, opencode: { id: 'opencode', installed: true, usable: true } }
   }))
-)
+})
 
 it('shows an unavailable notice for idle OpenCode while retaining the active turn controls until completion', () => {
   fixture.backend = 'opencode'
@@ -158,3 +166,24 @@ it('shows an unavailable notice for idle OpenCode while retaining the active tur
   fixture.backend = 'claude'
   expect(render()('[data-composer-probe]')).toHaveLength(1)
 })
+
+it.each(['pendingAsks', 'pendingToolApprovals', 'pendingPlanReview'] as const)(
+  'retains Composer while the unavailable session has %s',
+  (key) => {
+    fixture.backend = 'opencode'
+    fixture.inflight = false
+    fixture.pending = {
+      [key]: key === 'pendingPlanReview' ? { toolUseId: 'plan' } : [{ toolUseId: 'request' }]
+    } as Partial<typeof initialChatState>
+    useHarnessAvailabilityStore.setState(({ byId }) => ({
+      byId: {
+        ...byId,
+        opencode: { id: 'opencode', installed: false, usable: false, unavailableReason: 'failed' }
+      }
+    }))
+    const html = renderToStaticMarkup(
+      createElement(ChatTile, { backendLabel: 'OpenCode', canAbort: true })
+    )
+    expect(load(html)('[data-composer-probe]')).toHaveLength(1)
+  }
+)

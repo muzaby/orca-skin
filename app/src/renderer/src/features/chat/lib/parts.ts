@@ -53,10 +53,19 @@ function stripParentToolRunId(p: AppMessagePart): AppMessagePart {
 
 // text 파트들을 순서대로 이어붙인 본문(마크다운 소스). 서브에이전트 child 텍스트는 제외
 // (메인 트랜스크립트/복사 대상이 아니라 우측 패널 child 트랜스크립트 전용).
+export function isMainTextPart(
+  part: AppMessagePart
+): part is Extract<AppMessagePart, { type: 'text' }> {
+  return part.type === 'text' && partParentToolRunId(part) === undefined
+}
+
+export function hasPartsText(parts: AppMessagePart[]): boolean {
+  return parts.some((part) => isMainTextPart(part) && part.text.trim() !== '')
+}
+
 export function partsText(parts: AppMessagePart[]): string {
   let out = ''
-  for (const p of parts)
-    if (p.type === 'text' && partParentToolRunId(p) === undefined) out += p.text
+  for (const p of parts) if (isMainTextPart(p)) out += p.text
   return out
 }
 

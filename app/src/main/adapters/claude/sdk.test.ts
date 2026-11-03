@@ -52,3 +52,15 @@ it('closing before the import completes prevents query creation and rejects iter
   await expect(handle[Symbol.asyncIterator]().next()).rejects.toMatchObject({ name: 'AbortError' })
   expect(query).not.toHaveBeenCalled()
 })
+
+it('retries a rejected SDK import instead of retaining the failed promise', async () => {
+  const failure = new Error('temporary import failure')
+  const factory = vi.fn().mockRejectedValueOnce(failure).mockResolvedValueOnce({ query: vi.fn() })
+  vi.doMock('@anthropic-ai/claude-agent-sdk', factory)
+  const { loadClaudeSdk } = await import('./sdk')
+  await expect(loadClaudeSdk()).rejects.toThrow()
+  // Restore the module source without resetting the loader module or its pending state.
+  vi.doMock('@anthropic-ai/claude-agent-sdk', factory)
+  expect(await loadClaudeSdk()).toHaveProperty('query')
+  expect(factory).toHaveBeenCalledTimes(2)
+})

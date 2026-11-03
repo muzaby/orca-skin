@@ -181,21 +181,18 @@ export interface PendingProjectTarget {
 // 시드 전 기본값은 첫 실행 고정값이라, 시드가 늦거나 실패해도 랜딩이 `code` 로 번쩍이지 않는다.
 let landingAgentKind: AgentKind = DEFAULT_LANDING_AGENT_KIND
 let landingBackend: import('../../../../../shared/ipc').Backend = 'claude'
-let unavailableLandingFallback = false
 
-/** Automatic fallback never rewrites the user's lastBackend preference. */
+/** Only new-conversation defaults change; continuation drafts retain their source harness. */
 export function applyHarnessAvailability(): void {
   if (useHarnessAvailabilityStore.getState().byId.opencode.usable) return
-  if (landingBackend === 'opencode') {
-    landingBackend = 'claude'
-    unavailableLandingFallback = true
-  }
+  if (landingBackend === 'opencode') rememberLandingBackend('claude')
   setState((state) => ({
     sessions: Object.fromEntries(
       Object.entries(state.sessions).map(([key, entry]) => {
         if (
           entry.session.backend !== 'opencode' ||
           entry.session.sessionId ||
+          isContinuityDraft(entry) ||
           entry.session.inflight ||
           entry.session.agentKindLocked
         )
@@ -221,17 +218,15 @@ export function applyHarnessAvailability(): void {
 export function seedLandingBackend(
   backend: import('../../../../../shared/ipc').Backend | null
 ): void {
-  unavailableLandingFallback =
-    backend === 'opencode' && !useHarnessAvailabilityStore.getState().byId.opencode.usable
-  landingBackend =
-    backend === 'opencode' && !useHarnessAvailabilityStore.getState().byId.opencode.usable
-      ? 'claude'
-      : (backend ?? 'claude')
+  if (backend === 'opencode' && !useHarnessAvailabilityStore.getState().byId.opencode.usable)
+    rememberLandingBackend('claude')
+  else landingBackend = backend ?? 'claude'
   setState((state) => ({
     sessions: Object.fromEntries(
       Object.entries(state.sessions).map(([key, entry]) => [
         key,
         !entry.session.sessionId &&
+        !isContinuityDraft(entry) &&
         !entry.session.agentKindLocked &&
         !entry.session.harnessExplicitlySelected
           ? {
@@ -1869,6 +1864,19 @@ function synchronizePermissionMode(key: string, previousMode: NormalizedPermissi
     .catch(fail)
 }
 
+// New conversations share one remembered backend, including automatic fallback.
+function rememberLandingBackend(backend: import('../../../../../shared/ipc').Backend): void {
+  landingBackend = backend
+  void settingsApi.set({ lastBackend: backend }).catch((error) =>
+    reportError({
+      event: 'chat.harness-preference.save-failed',
+      scope: 'chat',
+      title: 'saveFailed',
+      error
+    })
+  )
+}
+
 function setModel(
   providerKey: string | null,
   modelFamily: string | null,
@@ -1888,21 +1896,13 @@ function setModel(
     explicitHarness: options?.explicitHarness
   })
   const selected = getState().sessions[key]?.session
-  if (selected?.backend && !selected.sessionId && selected !== beforeSession) {
-    landingBackend = selected.backend
-    const automaticFallback =
-      unavailableLandingFallback && selected.backend === 'claude' && !options?.explicitHarness
-    if (!automaticFallback) unavailableLandingFallback = false
-    if (!automaticFallback)
-      void settingsApi.set({ lastBackend: selected.backend }).catch((error) =>
-        reportError({
-          event: 'chat.harness-preference.save-failed',
-          scope: 'chat',
-          title: 'saveFailed',
-          error
-        })
-      )
-  }
+  if (
+    selected?.backend &&
+    !selected.sessionId &&
+    !isContinuityDraft(getState().sessions[key]) &&
+    selected !== beforeSession
+  )
+    rememberLandingBackend(selected.backend)
   if (
     getState().sessions[key]?.session.permissionMode !== before ||
     beforeSession.permissionModeError

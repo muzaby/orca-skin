@@ -13,7 +13,7 @@ afterEach(() => {
 })
 
 it.each(['missing', 'unsupported', 'failed', undefined] as const)(
-  'initializes backend availability before seeding the remembered OpenCode draft (%s), without writing settings',
+  'initializes backend availability before seeding the remembered OpenCode draft (%s), persisting only an automatic fallback',
   async (reason) => {
     const usable = reason === undefined
     vi.spyOn(harnessApi, 'onAvailability').mockReturnValue(() => {})
@@ -53,6 +53,7 @@ it.each(['missing', 'unsupported', 'failed', undefined] as const)(
     )
     const state = useChatStore.getState()
     expect(state.sessions[state.activeKey].session.backend).toBe(usable ? 'opencode' : 'claude')
-    expect(write).not.toHaveBeenCalled()
+    if (usable) expect(write).not.toHaveBeenCalled()
+    else expect(write).toHaveBeenCalledExactlyOnceWith({ lastBackend: 'claude' })
   }
 )

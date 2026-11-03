@@ -6,7 +6,7 @@
 
 ## 설치와 가용성
 
-`adapters/common/registry.ts`의 설치 캐시가 하네스 가용성의 정본이다. `installed`·`version`에 `usable`·`unavailableReason`을 더하며 실행 파일 identity에 따라 확인을 합류한다. 부팅에서는 다른 단계와 동시에 확인한 뒤 완료 직전에 합류하고, 실행 파일 경로 변경·명시 재확인·missing/failed 상태의 포커스에서 identity가 바뀐 경우에 갱신한다.
+`adapters/common/registry.ts`의 설치 캐시가 하네스 가용성의 정본이다. 각 adapter가 사용 가능 여부를 제공하며 공통 registry는 하네스 이름으로 판정하지 않는다. Claude는 동봉 SDK를 사용하므로 패키지 버전 조회 성공 여부와 관계없이 사용 가능하다. `installed`·`version`에 `usable`·`unavailableReason`을 더하며 실행 파일 identity에 따라 확인을 합류한다. 부팅에서는 다른 단계와 동시에 확인한 뒤 완료 직전에 합류하고, 실행 파일 경로 변경·명시 재확인·missing/failed 상태의 포커스에서 identity가 바뀐 경우에 갱신한다.
 
 OpenCode 웜업·로그인 프리 모델 조회·전역 감시·컴포저 준비는 registry의 사용 가능 판정을 소비한다. 사용 불가인 기존 세션도 보관 대화를 표시하고 진행 중 턴의 제어를 유지한다. Claude SDK는 `adapters/claude/sdk.ts`에서 첫 사용에 동적 로드하고, 부팅 완료 뒤 같은 로드를 미리 시작한다.
 
