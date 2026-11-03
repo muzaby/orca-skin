@@ -3065,3 +3065,63 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 ## 남은 한계
 
 - 순서 열거의 완결성은 행위자 식별에 달려 있다 — 세 번째 행위자(다른 scope의 hold 등)를 놓치면 분모가 좁다. 변경 전 코드 대조가 기대값만 주고 분모를 주지는 않는다.
+
+---
+
+# review round 40 — 0292 (verify 3회째 FAIL): 규칙 분기마다 입력 · 마지막 수정 뒤 게이트
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0292 verify 3회째 `FAIL`(r3, `6fd1fc41`) 뒤 r4 착수 전 의무 review. 사용자 `/handoff-review` 후 질의에서 **APPLY** 선택(2026-11-03).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 자리 규칙이 적은 분기 중 하나에만 입력을 줘 같은 자리의 다른 분기가 미잠금 | 0292 #15 `EngineCard.tsx` — r2 V26(미지원 입력만) → r3 W03·W04(사유 없는 미지원 입력 없음) · r2 V12(단일 메시지 턴) · r1 X13 등(사유 기본값) | **A** — P56은 운반 값의 구별만 요구했다. 정상 수행해도 r3 oracle 칸(지원 행 + 3사유)은 통과했다. "분기마다 입력" 규칙을 P56 방어 자리 전부에 통합(P62) |
+| 2 | 게이트를 통과시킨 뒤 다른 게이트 지적으로 파일을 고치고 재실행하지 않아 오래된 0을 보고 | 0292 r3 D15 — eslint 0 보고 ↔ 실제 error 1, Windows CI #959 Lint 실패 | **A** — impl §7·§8은 "이번 턴 관측"만 요구하고 마지막 수정과의 순서를 묻지 않았다. 순서 요구 추가(P63) |
+| 3 | 구현 보고 "브랜치에 PR 없음 — CI 대기" ↔ PR #529가 r2 verify 때부터 열려 있음 | 0292 r3 | **B** — impl §8 "상태 사본을 다시 읽어 확인"이 이미 요구한다. 지침 변경 없음 |
+| 4 | 전체 스위트 부하에서 `vi.waitFor` 기본 1초 테스트가 흔들림 | 0292 r3 N10 · 구현자 3건 | **E** — 환경 한계 기록, 판정은 단독·재실행으로 분리(verify §8 유지) |
+
+- **병행 진단과의 차이.** 이 review 커밋 전에 Codex r4(`c7757e77`)가 사전 진단(DIAGNOSE_ONLY)을 남기고 #1·#2를 B(지침 KEEP)로 판정했다. 이 review는 #1을 A로 유지한다 — impl §2는 값 구별, §3은 형제 맞바꿈 변이만 요구하고 맞바꿈(사유↔일반)은 r3 3사유 케이스가 잡아 W03·W04를 막지 못했다. #2는 impl §8 "갱신된 값을 다시 읽어 확인"과 A/B 경계지만 관측 순서를 명시한 문장이 없어 시점 한 문장과 template 열 표기로 강화했다. r4 보드 상태(`impl/IN_PROGRESS`)는 그대로 둔다.
+
+## Tier
+
+**Tier 1.** plan oracle·impl 닫힘·verify 판정의 evidence 요구(분기 입력)와 impl 게이트 evidence 시점이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `6fd1fc41`. 바뀐 기존 줄 10개 전부 **REPLACE(강화)** — 변경 전 문장이 새 줄에 그대로 있고 지워진 조각은 활용 어미 4개(`준→주며`·`인→이거나`·`운…채운→채우고`·`졌→지고`)뿐이다(`SequenceMatcher` 대조 10/10). DELETE 0 · MOVE 0.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §공통 V 운반 값 규칙 | KEEP + 추가 | 분기 입력 문장 신설(설계자·구현자 책임 명시) |
+| AGENTS §단계별 절차 2 강제 지점·관측값 bullet | REPLACE | 분기 입력 · 마지막 수정 뒤 게이트 |
+| AGENTS §단계별 절차 3 좌표 판정 | REPLACE | 분기 입력 대조 추가 |
+| plan §5-A oracle · plan.template 강제 지점 인용·구현 보고 열 | REPLACE | 분기 입력 · `마지막 수정 뒤 실행` |
+| impl §2 · §7 | KEEP + 추가 | 분기 문장 · 게이트 시점 bullet |
+| verify §6 · verify.template §5 | REPLACE | 분기 입력 대조 |
+| 명령·gate·reference | 없음 | inbound `N`/`M/M` 대상 없음 — 이동·삭제 0 |
+
+## 6-B Historical Failure Regression
+
+- **63 P 전수**(P1~P63, heading 연속) · 변경 후 COVERED 62 / PARTIAL 1(P60, round 38 사용자 결정 유지) / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0이라 round 39에서 COVERED였던 60개는 그대로다.
+- P56: 강화 — 값 구별에 분기 입력을 더했다. P62·P63: 신규, plan READY(oracle 칸 작성)·impl §2(자리 닫기)·impl §7(게이트 기록)에서 실패 **전에** 발동한다.
+- P49(형제 슬롯 맞바꿈)·P55(실행 구간)·P59(변이 red 범위): 불변 — 분기 입력은 구간 안 좌표의 입력 조건이다.
+- P60: 불변 — 새 규칙은 §10 고정 목록 자리의 규칙 칸이 이미 적은 분기에만 걸려 분모를 열지 않는다.
+
+### V/lifecycle replay
+
+| anchor | 변경 전 | 변경 후 | 방향 |
+|---|---|---|---|
+| 0292 r2 V26(`24d91a6`) | verify 재량 축으로 발견 → `PAIR_FAIL` | 구현자가 규칙 칸 분기(지원 행)에 입력을 둬 구현 단계에서 닫음 · 남으면 `PAIR_FAIL` | 거짓 PASS 0 |
+| 0292 r3 W03·W04(`c5c6f39`) | verify 독립 축으로 발견 → `PAIR_FAIL` | 같은 — oracle 칸이 좁아도 구현자가 규칙 칸을 따름. `PLAN_GAP`으로 내리지 않음 | 거짓 PASS 0 · FAIL inflation 0 |
+| 0292 r3 D15 | CI·verify가 사후 발견 | 구현자가 마지막 수정 뒤 eslint 재실행으로 사전 발견 | 거짓 PASS 0 |
+| 0265 r2 D-0265-3(P56) | `PAIR_FAIL` | `PAIR_FAIL`(불변) | 불변 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 분기 입력: AGENTS §공통 V(정의) = §단계별 절차 2 = impl §2 = plan §5-A = plan.template; §단계별 절차 3 = verify §6 = verify.template §5. 게이트 시점: AGENTS §단계별 절차 2 = impl §7 = plan.template 구현 보고. verify §8(자기 게이트)·`app/AGENTS.md` 명령은 바뀌지 않았다. root AGENTS·CI 정본 무변경.
+- `node scripts/check-doc-inventory.mjs --check`(app/) links ok · `git diff --check` 0.
+
+## 남은 한계
+
+- 분기 열거는 규칙 칸의 서술에 달려 있다 — 설계자가 규칙 칸에 분기를 적지 않은 자리는 이 규칙이 닿지 않고, verify 재량 축이 남은 방어다.
