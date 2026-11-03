@@ -55,6 +55,30 @@ it('does not assign a supported harness brand to an unknown adapter', () => {
   expect($.text()).toContain('external')
 })
 
+it.each(['external', 'opencode', 'claude'])(
+  'shows exactly one generic badge and no installation reason for an unsupported %s row without a reason',
+  (adapter) => {
+    const $ = load(
+      renderToStaticMarkup(
+        createElement(EngineCard, {
+          agent: { key: `${adapter}/fixture`, adapter, supported: false, models: [] },
+          onEdit: vi.fn(),
+          onDelete: vi.fn()
+        })
+      )
+    )
+    expect($('span').filter((_index, node) => $(node).text() === '미지원 adapter')).toHaveLength(1)
+    expect($.text()).not.toContain('harnessUnavailable.')
+    for (const text of [
+      'OpenCode가 설치되어 있지 않습니다',
+      '지원하지 않는 OpenCode 버전입니다',
+      'OpenCode 설치 상태를 확인하지 못했습니다'
+    ]) {
+      expect($.text()).not.toContain(text)
+    }
+  }
+)
+
 it.each([
   ['missing', 'OpenCode가 설치되어 있지 않습니다'],
   ['unsupported', '지원하지 않는 OpenCode 버전입니다'],

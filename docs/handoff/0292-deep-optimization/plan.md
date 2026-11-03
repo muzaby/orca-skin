@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | verify/FAIL (r3) — PAIR_FAIL D15(lint·Windows CI)·D16(엔진 카드 일반 문구, 못 잡음 2). verify 3회째 FAIL이라 r4 전 handoff-review 대기([verify](verify.md) r3 절) |
+| 상태 | impl/IN_PROGRESS (r4) — 필수 사전 handoff-review 완료(지침 KEEP); D15·D16 코드 보완, 전수 gate·Windows CI 실행 중 |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV4` — r2 verify RETURN_TO_PLAN 정정(2026-11-03). 직전 `ΔV3` — 사용자 결정 변경 · `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
@@ -2333,3 +2333,14 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 - Node24/SQLite ABI140과 sandbox spawn/loopback EPERM은 Electron Node22 및 정상 프로세스 권한으로 분리했다. 기준선과 전체 실행의 일시 차이3은 동일 소스 재실행45/45 뒤 사라졌고 원래 보고를 보존했다.
 - baseline 실행의 자동 승인 검토가 사용량 제한으로 한 번 미실행됐으나 사용자 계속 지시 뒤 동일한 명령 재시도가 성공했다. Windows CI dispatch는 도구 부재/gh API Forbidden으로 미실시이고, §19 설치본 시각 확인3종도 대기다.
 - 다음 주체는 Claude 독립 검증이다. 구현 자기보고로 verify/PASS를 선점하지 않았다.
+
+
+---
+
+## [구현자 기입] 사전 handoff-review (r4)
+
+- 완료 — verify 3회 FAIL의 필수 사전 진단을 수행했다. `DIAGNOSE_ONLY`: 사용자는 구현·CI 보완을 요청했고 지침 자체 수정은 요청하지 않았다. 지침 변경 없이 구현 보고에 진단 결과를 보존한다(`evidence/r4-pre-review.json`).
+- D15는 B(실행 누락)다 — impl §7·§8은 현재 산출물의 gate 관측을 요구한다. 반환 주석 삭제 뒤 lint 재실행과 PR #529 확인이 빠졌다.
+- D16은 B(실행 누락)다 — impl §1의 조건절 계약·§2 구별 fixture·§3 형제 슬롯·§5 전수는 사유 없는 미지원 분기도 요구했다. 명확한 #15 규칙이 있어 새 계약·PLAN_GAP이 아니다.
+- 조치: 지침 KEEP, 중복 규칙·corpus 추가 0. root↔handoff↔impl/verify↔template↔app/CI의 gate·형제 슬롯 요구가 유지되므로 normative delta 0이며 변경 회귀 tier는 해당 없다. N10은 E(부하 의존 경계)로 기록하고 CI에서 재현될 때만 조정한다.
+- 구현 진행: `currentBackend(): Backend | null`로 lint/type 계약을 함께 맞췄다. 사유 없는 미지원 external·OpenCode·Claude의 일반 배지1·사유문구0을 추가했다. 관련15/15·W03/W04 각각 red3·typecheck3구성 통과; 전체 lint·vitest·이력142 재생과 CI 결과는 뒤 r4 종료 보고에서 판정한다.

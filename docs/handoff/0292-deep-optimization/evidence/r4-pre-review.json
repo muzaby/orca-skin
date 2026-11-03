@@ -1,0 +1,28 @@
+{
+  "mode": "DIAGNOSE_ONLY",
+  "basis": "사용자는 구현 지적·CI 보완을 요청했고 지침 자체의 수정을 요청하지 않았다. verify 3회 FAIL의 필수 사전 진단을 수행한다.",
+  "issues": [
+    {
+      "finding": "D15",
+      "class": "B",
+      "rule": "handoff-impl §7 게이트·§8 현재 산출물 관측; docs/handoff/AGENTS.md 판정 범위와 운영 gate",
+      "observation": "반환 타입을 지운 마지막 수정 뒤 eslint를 다시 실행하지 않았고 PR #529를 확인하지 않았다. 충분한 기존 gate를 수행하면 차단된다.",
+      "action": "최종 source fingerprint 뒤 lint/typecheck/test 관측과 실제 PR #529 CI 결과 확인"
+    },
+    {
+      "finding": "D16",
+      "class": "B",
+      "rule": "handoff-impl §1 조건절 계약·§2 구별 fixture·§3 형제 슬롯 맞바꿈·§5 불변식 전수",
+      "observation": "EP-03⁗ #15 규칙은 사유 없으면 일반 문구를 명시했으나 해당 입력을 검사하지 않았다.",
+      "action": "supported true / false-with-reason / false-without-reason 분기를 모두 같은 렌더 경로에서 관측; W03/W04 재생"
+    },
+    {
+      "finding": "N10",
+      "class": "E",
+      "action": "부하 의존 경계로 기록하며 CI에서 재현할 때만 대기 상한 수정"
+    }
+  ],
+  "instructionDecision": "KEEP — normative change 0. 충분한 규칙의 실행 누락이므로 중복 규칙·corpus 추가 없음.",
+  "regressionTier": "해당 없음 — 지침 변경 0이므로 6-A/6-B 변경 회귀 대상 없음; root↔handoff↔impl/verify↔template↔app/CI의 gate·형제 슬롯 요구 유지 확인",
+  "next": "Codex r4 implementation; independent verify pending"
+}
