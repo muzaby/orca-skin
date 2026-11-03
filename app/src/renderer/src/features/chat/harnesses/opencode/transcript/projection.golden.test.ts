@@ -43,7 +43,7 @@ it('keeps head rows and indexed positions stable as only the live tail changes, 
 it.each([
   [{ type: 'text', text: '   ' }],
   [{ type: 'text', text: 'child', parentToolRunId: 'child-run' }],
-  [{ type: 'text', text: 'empty child id is main text', parentToolRunId: '' }],
+  [{ type: 'text', text: 'empty child id is not main text', parentToolRunId: '' }],
   [{ type: 'text', text: 'main text' }]
 ] as const)('derives meta copyability from the same text semantics as turnCopyText: %j', (part) => {
   const rows = projectTimeline([{ role: 'assistant', createdAt: 1, parts: [part] }], {
@@ -55,3 +55,30 @@ it.each([
   if (meta.kind !== 'meta') throw new Error('missing meta')
   expect(meta.copyable).toBe(turns.turnCopyText(meta.turn) !== '')
 })
+
+it.each([
+  { order: 'tools then body', textAt: 1, expectedText: 'answer after tools' },
+  { order: 'body then tools', textAt: 0, expectedText: 'answer before tools' },
+  { order: 'tools only', textAt: -1, expectedText: '' }
+])(
+  'preserves copyability across multiple assistant messages: $order',
+  ({ textAt, expectedText }) => {
+    const messages: Message[] = [0, 1].map((index) => ({
+      role: 'assistant',
+      createdAt: index + 1,
+      parts:
+        index === textAt
+          ? [{ type: 'text', text: expectedText }]
+          : [{ type: 'tool_call', toolRunId: `read-${index}`, toolName: 'Read', args: {} }]
+    }))
+    const rows = projectTimeline(messages, { text: '', reasoning: '', pending: false })
+    const metas = rows.filter((row) => row.kind === 'meta')
+    expect(metas).toHaveLength(1)
+    const meta = metas[0]
+    if (meta.kind !== 'meta') throw new Error('missing meta')
+    expect(meta.turn.messages).toEqual(messages)
+    expect(turns.turnCopyText(meta.turn)).toBe(expectedText)
+    expect(meta.copyable).toBe(expectedText !== '')
+    expect(meta.copyable).toBe(turns.turnCopyText(meta.turn) !== '')
+  }
+)

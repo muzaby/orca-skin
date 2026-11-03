@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { installFakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
-import { initialChatState } from '../../../reducer/chatReducer'
+import { initialChatState, type Message } from '../../../reducer/chatReducer'
 import * as projection from './projection'
 import * as turns from '../../../lib/turns'
 import { OpenCodeTimeline, OpenCodeTimelineRow } from './Timeline'
@@ -88,6 +88,44 @@ it('projects the committed head once and the live tail six times without computi
     dom.unmount()
   }
 })
+
+it.each([
+  { order: 'tools then body', textAt: 1, count: 1 },
+  { order: 'body then tools', textAt: 0, count: 1 },
+  { order: 'tools only', textAt: -1, count: 0 }
+])(
+  'renders one turn copy control only when any assistant message has body text: $order',
+  ({ textAt, count }) => {
+    const messages: Message[] = [0, 1].map((index) => ({
+      role: 'assistant',
+      createdAt: index + 1,
+      parts:
+        index === textAt
+          ? [{ type: 'text', text: 'copy this answer' }]
+          : [{ type: 'tool_call', toolRunId: `read-${index}`, toolName: 'Read', args: {} }]
+    }))
+    const head = projection.projectTimelineHead(messages)
+    const metas = [
+      ...head.rows,
+      ...projection.projectTimelineTail(head, { text: '', reasoning: '', pending: false })
+    ].filter((row) => row.kind === 'meta')
+    expect(metas).toHaveLength(1)
+    const row = metas[0]
+    if (row.kind !== 'meta') throw new Error('missing meta')
+    expect(row.turn.messages).toEqual(messages)
+    const dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
+    try {
+      dom.render(withTranscript(createElement(OpenCodeTimelineRow, { row }), 'opencode'))
+      const buttons = (node: FakeNode): FakeNode[] => [
+        ...(node.tag === 'button' ? [node] : []),
+        ...node.children.flatMap(buttons)
+      ]
+      expect(buttons(dom.body)).toHaveLength(count)
+    } finally {
+      dom.unmount()
+    }
+  }
+)
 
 it.each([
   [{ type: 'text', text: '   ' }, 0],

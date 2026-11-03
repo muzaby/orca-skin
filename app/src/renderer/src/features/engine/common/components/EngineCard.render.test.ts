@@ -31,6 +31,14 @@ it.each([
   expect($('svg').first().next('span').text()).toBe(label)
   expect($('button')).toHaveLength(2)
   expect($('button[disabled]')).toHaveLength(0)
+  for (const text of [
+    'OpenCode가 설치되어 있지 않습니다',
+    '지원하지 않는 OpenCode 버전입니다',
+    'OpenCode 설치 상태를 확인하지 못했습니다',
+    '미지원 adapter'
+  ]) {
+    expect($.text()).not.toContain(text)
+  }
 })
 
 it('does not assign a supported harness brand to an unknown adapter', () => {
