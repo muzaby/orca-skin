@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | IMPL_DONE (r3 · Windows CI 대기) — ΔV4 테스트 보강 완료, 다음 Claude 독립 검증 |
+| 상태 | verify/FAIL (r3) — PAIR_FAIL D15(lint·Windows CI)·D16(엔진 카드 일반 문구, 못 잡음 2). verify 3회째 FAIL이라 r4 전 handoff-review 대기([verify](verify.md) r3 절) |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV4` — r2 verify RETURN_TO_PLAN 정정(2026-11-03). 직전 `ΔV3` — 사용자 결정 변경 · `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
@@ -1875,14 +1875,17 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 | N2 | `adapters/common/registry.ts:40`이 `backend === 'claude'`로 분기한다 — §16 "구체 하네스 비의존"과 다르다(동작은 CLAUDE 테스트로 잠김) | 비귀속 | adapter가 `usable`을 내거나 `info.usable ?? true`로 하네스 이름 분기 제거 | NON_BLOCKING | closed (D-018 · S05e 0 · r2 U3·U4a·U4b 잡음) |
 | N3 | 죽은 export `useHarnessAvailable`(`harnessAvailabilityStore.ts:30`) · production 호출 0인 `projectTimeline`(`projection.ts:61`)·`agentStore.dispose` | 비귀속 | 정리 후보 | NON_BLOCKING | open — `useHarnessAvailable` 삭제(r2), `projectTimeline`·`agentStore.dispose` 테스트 전용 잔여 |
 | N4 | ΔV1 §10 VP-02 목표 "S02a 3 / 3"이 EP-04′ #3·#5의 새 호출자와 맞지 않는다(HEAD 6) | plan 수치 | D10 정정 때 함께 | NON_BLOCKING | closed (ΔV2 — S02a 목표를 S04′가 대체) |
-| N5 | runtime 행 가용성 게이트(`runtime-catalog.ts:130,164-165`)가 `agent:list` 게이트(`misc.ts:59-61`)와 이중이다 — X57·X65 동치 | 비귀속 | 기록 | NON_BLOCKING | open — r2 X57·X65 동치 재확인 |
-| D12 | 엔진 카드 배지 노출 조건(`EngineCard.tsx:34` `!agent.supported`)이 잠기지 않는다 — `true`로 바꿔 지원 카드에 "지원하지 않는 어댑터" 배지를 붙여도(V26) 전체 스위트 green. CARD·ADD 입력이 전부 `supported:false`다 | VP-03 · EP-03‴ #15 · AC8 · D-003 | 지원 행(Claude·사용 가능 OpenCode) 카드에서 배지 0을 단언(V26 red) | BLOCKING (PAIR_FAIL) | open |
-| D13 | meta `copyable`의 메시지 집계(`projection.ts:131` `some`)가 잠기지 않는다 — `every`로 바꿔도(V12) 전체 스위트 green. GOLD·COPYSEM·Timeline 버튼 fixture의 assistant 턴이 전부 단일 메시지다. `groupTurns`(`turns.ts:42-43`)가 묶는 도구 단계 + 답변 턴에서 복사 버튼이 사라지는 회귀를 막지 못한다 | VP-08 · EP-08 #2 · AC13 · D-003 | 도구만 있는 메시지 + 본문 메시지로 된 assistant 턴에서 `copyable === (turnCopyText !== '')`와 복사 버튼 1을 단언(V12 red) | BLOCKING (PAIR_FAIL) | open |
-| D14 | 부팅 `backend` 단계(`mandatory:false`, `steps.ts:104`)가 실패하면 가용성을 읽지 못한 채 store 기본값 `missing`(`harnessAvailabilityStore.ts:5-8`)으로 `seedLandingBackend`가 `lastBackend:'claude'`를 영속한다 — `c958f83` 쓰기 0 → `24d91a6` 쓰기 1([repro](verify-evidence/r2/repro/steps.degraded.test.ts)). D-019 "사용 불가로 인한 자동 전환"에 미확인 상태가 드는지 plan에 없다 | VP-03 · D-019·D-003·D-006 · AC7″ · EP-03‴ #1·#2 | 설계자가 미확인 부팅의 기록 여부를 정한다(필요하면 사용자 질의) — 정한 규칙을 EP-03‴ 행·oracle로 고정 | PLAN_GAP | open |
-| N6 | S03″ 술어가 helper 호출 줄(`chatStore.ts:222`·`:1905`)과 초안 제외 줄(`:1902`)을 잡지 않는다 — 독립 재열거로 목록 밖 운반 자리 0 | plan 검색 | 다음 revision에서 `rememberLandingBackend\(`·`isContinuityDraft\(` 술어 추가 | NON_BLOCKING | open |
-| N7 | plan 메타의 `104034e`(r1 verify)·`7f3b156`(ΔV2)이 PR 브랜치 조상이 아닌 같은 트리 사본이다 — 브랜치 커밋은 `ceae905`·`cc75cf8`(`git diff` 0) | plan 메타 | 좌표 정본은 INDEX — 메타 정정 | NON_BLOCKING | open |
+| N5 | runtime 행 가용성 게이트(`runtime-catalog.ts:130,164-165`)가 `agent:list` 게이트(`misc.ts:59-61`)와 이중이다 — X57·X65 동치 | 비귀속 | 기록 | NON_BLOCKING | open — r2·r3 X57·X65 동치 재확인 |
+| D12 | 엔진 카드 배지 노출 조건(`EngineCard.tsx:34` `!agent.supported`)이 잠기지 않는다 — `true`로 바꿔 지원 카드에 "지원하지 않는 어댑터" 배지를 붙여도(V26) 전체 스위트 green. CARD·ADD 입력이 전부 `supported:false`다 | VP-03 · EP-03‴ #15 · AC8 · D-003 | 지원 행(Claude·사용 가능 OpenCode) 카드에서 배지 0을 단언(V26 red) | BLOCKING (PAIR_FAIL) | closed (r3 — V26 잡음: CARD 지원 2케이스). 같은 자리의 사유 없는 미지원 행 일반 문구는 D16 |
+| D13 | meta `copyable`의 메시지 집계(`projection.ts:131` `some`)가 잠기지 않는다 — `every`로 바꿔도(V12) 전체 스위트 green. GOLD·COPYSEM·Timeline 버튼 fixture의 assistant 턴이 전부 단일 메시지다. `groupTurns`(`turns.ts:42-43`)가 묶는 도구 단계 + 답변 턴에서 복사 버튼이 사라지는 회귀를 막지 못한다 | VP-08 · EP-08 #2 · AC13 · D-003 | 도구만 있는 메시지 + 본문 메시지로 된 assistant 턴에서 `copyable === (turnCopyText !== '')`와 복사 버튼 1을 단언(V12 red) | BLOCKING (PAIR_FAIL) | closed (r3 — V12 잡음: MULTICOPY 4 · 순서 축 W05·W06·소비 자리 W07 잡음) |
+| D14 | 부팅 `backend` 단계(`mandatory:false`, `steps.ts:104`)가 실패하면 가용성을 읽지 못한 채 store 기본값 `missing`(`harnessAvailabilityStore.ts:5-8`)으로 `seedLandingBackend`가 `lastBackend:'claude'`를 영속한다 — `c958f83` 쓰기 0 → `24d91a6` 쓰기 1([repro](verify-evidence/r2/repro/steps.degraded.test.ts)). D-019 "사용 불가로 인한 자동 전환"에 미확인 상태가 드는지 plan에 없다 | VP-03 · D-019·D-003·D-006 · AC7″ · EP-03‴ #1·#2 | 설계자가 미확인 부팅의 기록 여부를 정한다(필요하면 사용자 질의) — 정한 규칙을 EP-03‴ 행·oracle로 고정 | PLAN_GAP | closed (ΔV4 D-021 · r3 DEGRADED 거절·10초 초과 — U5·W01·W02 잡음) |
+| N6 | S03″ 술어가 helper 호출 줄(`chatStore.ts:222`·`:1905`)과 초안 제외 줄(`:1902`)을 잡지 않는다 — 독립 재열거로 목록 밖 운반 자리 0 | plan 검색 | 다음 revision에서 `rememberLandingBackend\(`·`isContinuityDraft\(` 술어 추가 | NON_BLOCKING | closed (ΔV4 S03‴ 43줄 — r3 재검색 동일) |
+| N7 | plan 메타의 `104034e`(r1 verify)·`7f3b156`(ΔV2)이 PR 브랜치 조상이 아닌 같은 트리 사본이다 — 브랜치 커밋은 `ceae905`·`cc75cf8`(`git diff` 0) | plan 메타 | 좌표 정본은 INDEX — 메타 정정 | NON_BLOCKING | closed (ΔV4 메타 `기준 커밋` 정정) |
 | N8 | 재시드·부팅 시드의 `isContinuityDraft` 항(`chatStore.ts:195`·`:229`)은 `agentKindLocked`와 겹치는 방어 항이고(V09 동치), DRAFT의 fork·handoff fixture는 production에 없는 잠기지 않은 이어가기 초안이다 | 비귀속 | 기록 | NON_BLOCKING | open |
-| N9 | COPYSEM 케이스명 "empty child id is main text"가 단언한 의미(`parentToolRunId:''`는 본문 아님 — Timeline 버튼 0)와 반대다 | 테스트 이름 | 이름 정정 후보 | NON_BLOCKING | open |
+| N9 | COPYSEM 케이스명 "empty child id is main text"가 단언한 의미(`parentToolRunId:''`는 본문 아님 — Timeline 버튼 0)와 반대다 | 테스트 이름 | 이름 정정 후보 | NON_BLOCKING | closed (r3 — "empty child id is not main text") |
+| D15 | 운영 gate lint가 red다 — r3가 더한 `steps.availability.test.ts:111:31` `const currentBackend = () => {`가 `@typescript-eslint/explicit-function-return-type` error다. Windows CI run #959가 Lint에서 실패해 Windows typecheck·test가 r3 트리에서 돌지 않았다. 구현 보고·`evidence/r3-gates.json`·INDEX는 "lint 통과"로 적었다(반환 주석 삭제 뒤 재실행 없음) | VP-01 · AC1 · 운영 gate lint·CI | 반환 타입을 명시하고 마지막 수정 뒤 무수정 eslint·typecheck·Windows CI를 다시 관측 | BLOCKING (PAIR_FAIL) | open |
+| D16 | 엔진 카드의 "사유 없으면 일반 문구" 슬롯(`EngineCard.tsx:37-39`)이 잠기지 않는다 — 사유 선택 `true` 고정(W03, 배지에 원시 키 `harnessUnavailable.undefined`)·일반 키를 사유 키로 교체(W04, external 카드에 OpenCode 확인 실패 문구) 모두 전체 913파일·8442케이스 green. `미지원 adapter`는 지원 행 부정 단언에만 있다. 그런 행은 `agent:list`가 등록 백엔드 밖 adapter 설정에 낸다(`misc.ts:55-61`) | VP-03 · EP-03⁗ #15 · AC8 · D-003 | 사유 없는 미지원 행(예: `external`·사유 없는 `opencode`)에서 `미지원 adapter` 1·사유 문구 0을 단언(W03·W04 red) — 재현 틀 [`repro/EngineCard.generic.test.ts`](verify-evidence/r3/repro/EngineCard.generic.test.ts) | BLOCKING (PAIR_FAIL) | open |
+| N10 | CHART(`UsageTab.chart.test.ts`)의 `vi.waitFor` 기본 1초가 전체 스위트 부하(3 workers)에서 한 번 초과했다 — 단독 3/3·2차 전체 실행 통과. 구현자도 다른 3건의 같은 현상을 적었다 | VP-07 좌표(r1 테스트, r3 무변경) | 기록 — Windows CI에서 흔들리면 대기 상한 조정 후보 | NON_BLOCKING | open |
 
 
 ---
