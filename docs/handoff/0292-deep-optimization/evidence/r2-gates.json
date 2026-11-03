@@ -1471,7 +1471,34 @@
     "artifactControls": 3
   },
   "windowsCI": {
-    "state": "pending",
-    "url": null
+    "state": "success",
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/41570894158",
+    "runId": 41570894158,
+    "jobId": 125703272461,
+    "testSummary": [
+      "2026-11-03T03:26:42.9682187Z  Test Files  910 passed | 3 skipped (913)",
+      "2026-11-03T03:26:42.9745055Z       Tests  8431 passed | 3 skipped (8434)",
+      "2026-11-03T03:26:42.9759115Z    Duration  484.07s (transform 20.26s, setup 0ms, import 142.56s, tests 165.90s, environment 138ms)",
+      "2026-11-03T03:27:01.2873468Z # tests 144",
+      "2026-11-03T03:27:01.2874333Z # pass 144",
+      "2026-11-03T03:27:01.2874590Z # fail 0",
+      "2026-11-03T03:27:01.2875502Z # skipped 0"
+    ],
+    "vitest": {
+      "files": 913,
+      "passed": 8431,
+      "failed": 0,
+      "skipped": 3
+    },
+    "scripts": {
+      "cases": 144,
+      "passed": 144,
+      "failed": 0
+    },
+    "reportFollowup": {
+      "scope": "docs/**",
+      "appUnchanged": true,
+      "validatedAppTree": "c9bcb1dad01e0622bfc63edd59eef2cbca514843"
+    }
   }
 }

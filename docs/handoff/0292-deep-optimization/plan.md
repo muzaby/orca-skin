@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | IMPL_DONE (r2 · Windows CI 대기) — ΔV2·ΔV3 구현 자기보고 22/23, 독립 검증 대기 |
+| 상태 | IMPL_DONE (r2) — ΔV2·ΔV3 구현 자기보고 23/23, Windows CI 통과·독립 검증 대기 |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
 | 이번 V revision | `ΔV3` — 사용자 결정 변경 반영(2026-11-03). 직전 `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
@@ -1509,7 +1509,7 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-01 | REQUIRED | SELF_BLOCKED | gate:vitest·typecheck·eslint·scripts·migration·docs·budget | 집계 — Windows CI 대기 |
+| VP-01 | REQUIRED | SELF_PASS | gate:vitest·typecheck·eslint·scripts·migration·docs·budget | 집계 — [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41570894158) success(8431 pass/0 fail/3 skip·scripts144/144) |
 | VP-02 | REQUIRED | SELF_PASS | BOOT·JOIN·INSTALL | R02a/R02b·X03 red |
 | VP-03 | REQUIRED | SELF_PASS | SEED·DRAFTSEED·DRAFT·PROVIDER·PREFERENCE·MENUPICK·PENDING·NOTICE·RECHECK·MENU·SELECT·COMPOSER·CARD·ADD·AGENT·INITIAL·FRESH | 기존·이전 미검출 및 U5~U9 red |
 | VP-04 | REQUIRED | SELF_PASS | PATH·BOOTPATH·INSTALL·BOOT·JOIN·FAILEDFOCUS·RESUME·IDENTITY·FANOUT·PRELOAD·STORE·RECHECK | identity·방송·경합·클릭·실제 bootstrap 변이 red |
@@ -1666,7 +1666,7 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 | 4 | 새 helper를 상단에 두면 오류 site catch 순번이 변경됨 | 선조치 — 원래 setModel 기록 위치 바로 앞에 함수 선언 배치 | shared/errors/reportSites.registry.test.ts 포함 재검사 280/280 |
 | 5 | helper 호출이 정본 rg 술어에 전부 보이지 않음 | 선조치 — 검색 원문을 그대로 보존하고 AST 호출자 차집합을 보충 | A1~A3 음성 대조 모두 검출; 자리 97의 직접 oracle 별도 실행 |
 | 6 | 환경 실패를 새 회귀와 혼동할 수 있음 | 보고만 — 같은 환경/Node 모드의 clean HEAD 기준선과 실패 ID를 양방향 대조 | 60동일·새/사라진 실패0; r2-gates.json에 원문 서명 |
-| 7 | Windows CI와 사람 시각 확인은 Linux 결과로 대체할 수 없음 | 보고만 — Windows CI를 AC1 ⚠️로 유지 | CI 푸시 뒤 결과 기록 예정; §19 설치본 3시나리오 미실시 |
+| 7 | Windows CI와 사람 시각 확인은 Linux 결과로 대체할 수 없음 | 보고만 — Windows CI success를 별도 기록 | r2-windows-ci.json; §19 설치본 3시나리오 미실시 |
 
 
 ### 설계 대비 명시적 차이 (r2)
@@ -1690,22 +1690,22 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 |---|---|
 | 변경 파일 | production 6파일 + 회귀 테스트 18파일 + 정본 문서/증거. WP 전체 r1 결과를 유지하며 ΔV2·ΔV3의 지정 경로를 보강했다. |
 | 실행 명령 | app에서 gate:vitest = ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron ./node_modules/vitest/vitest.mjs run --maxWorkers=2 --reporter=json --outputFile=<report>. 나머지 gate 명령은 아래. |
-| 관측한 게이트 산출 | typecheck 3구성 오류0; eslint 오류0/기존 warning2; 전체913파일·8365 pass/60 fail/9 skip, 기준선908파일·8329 pass/동일60 fail/9 skip. 실패 ID 양방향 차집합0. scripts144/144·migration/docs/budget 통과. bundle 1,283,424B·21자산·SDK require0. |
-| V-pair 자기확인 | SELF_PASS 10 · SELF_BLOCKED 1(VP-01 Windows CI). 독립 verify 판정은 하지 않았다. |
+| 관측한 게이트 산출 | typecheck 3구성 오류0; eslint 오류0/기존 warning2; 전체913파일·8365 pass/60 fail/9 skip, 기준선908파일·8329 pass/동일60 fail/9 skip. 실패 ID 양방향 차집합0. scripts144/144·migration/docs/budget 통과. bundle 1,283,424B·21자산·SDK require0. Windows CI: 913파일·8431 pass/0 fail/3 skip, scripts144/144(아래 증거). |
+| V-pair 자기확인 | SELF_PASS 11 · SELF_BLOCKED 0. 독립 verify 판정은 하지 않았다. |
 | 강제 지점 전수 | 97자리/보고97, 규범 목록과 양방향 차집합0. 62별칭67패턴 실제 실행과 대조, 미실재/비통과0. |
-| AC 자기보고 | 아래23행. AC1만 Windows CI 대기. |
-| 합계 검산 | ✅ 22 · ⚠️ 1 · ❌ 0 = 총23. Criteria-Met 22/23. |
-| 블로커 / 역질문 | PLAN_GAP 없음. Windows CI·설치본 사람 실기 대기. 질문 없음. |
+| AC 자기보고 | 아래23행. AC1 Windows CI success 포함. |
+| 합계 검산 | ✅ 23 · ⚠️ 0 · ❌ 0 = 총23. Criteria-Met 23/23. |
+| 블로커 / 역질문 | PLAN_GAP 없음. 설치본 사람 실기·독립 검증 대기. 질문 없음. |
 | 대상 커밋 | (r2 구현 — 좌표는 INDEX) |
 
 
 `gate:typecheck = npm run typecheck`; `gate:eslint = ./node_modules/.bin/eslint ./src ./scripts`(무수정); `gate:scripts = node --test scripts/*.test.mjs`; `gate:migration = node scripts/check-migrations-appendonly.mjs`; `gate:docs = node scripts/check-doc-inventory.mjs --check`; `gate:budget = node scripts/check-test-budgets.mjs`.
-`gate:bundle = ./node_modules/.bin/electron-vite build --sourcemap --outDir <t>` + `node ../docs/handoff/0292-deep-optimization/scan/bundle-measure.mjs <t>` + main SDK 정적 require 수. Windows gate는 기존 `.github/workflows/ci.yml`의 `windows-latest`다.
+`gate:bundle = ./node_modules/.bin/electron-vite build --sourcemap --outDir <t>` + `node ../docs/handoff/0292-deep-optimization/scan/bundle-measure.mjs <t>` + main SDK 정적 require 수. Windows gate는 기존 `.github/workflows/ci.yml`의 `windows-latest`다. [run 951](https://github.com/muzaby/orca-skin/actions/runs/41570894158)의 migration/docs/budget/lint/typecheck/test 단계가 모두 success다. 단계별 관측은 `evidence/r2-windows-ci.json`에 보관했다. CI 뒤 후속 변경은 `docs/**` 보고·증거뿐이며 app 코드는 동일하다.
 
 
 | AC | 자기보고 | 이번 턴 관측 |
 |---|---|---|
-| AC1 | ⚠️ | 전체913파일·8365 pass/60 fail/9 skip; clean 기준선의 동일 실패60, 양방향 차집합0. 정적3구성·lint0/2·scripts144/144·migration/docs/budget 통과, Windows CI 대기 |
+| AC1 | ✅ | 전체913파일·8365 pass/60 fail/9 skip; clean 기준선의 동일 실패60, 양방향 차집합0. 정적3구성·lint0/2·scripts144/144·migration/docs/budget 통과, [Windows CI](https://github.com/muzaby/orca-skin/actions/runs/41570894158) success(8431 pass/0 fail/3 skip·scripts144/144) |
 | AC2′ | ✅ | BOOT: start() 반환 직후 첫 await 전 refresh1, deferred 중 db-init 실행·finish0, resolve 뒤 완료 |
 | AC3′ | ✅ | JOIN: 동시 refresh2+settled 합류 probe1; server version 동시 수요 기존 케이스 통과 |
 | AC4″ | ✅ | FAILEDFOCUS failed 같은0·바뀐identity1; IDENTITY A→A′→B→missing; BOOTPATH 실제 patch0/1·focus 등록/해제 |
@@ -1730,7 +1730,7 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 | AC23 | ✅ | gate:docs 9항목/117채널·prose/links통과; state.md D019/020·adapters.md generic/Claude포트 갱신 |
 
 
-합계 검산: 유효 AC **23행**, ✅ **22** · ⚠️ **1** · ❌ **0** = **23**. 상태 사본: plan `IMPL_DONE (r2 · Windows CI 대기)` / INDEX `impl·IMPL_DONE`·다음 Claude·라운드2·좌표 `(r2 구현 — 검증자 기입)`.
+합계 검산: 유효 AC **23행**, ✅ **23** · ⚠️ **0** · ❌ **0** = **23**. 상태 사본: plan `IMPL_DONE (r2)` / INDEX `impl·IMPL_DONE`·다음 Claude·라운드2·좌표 `(r2 구현 — 검증자 기입)`.
 
 ## [구현자 기입] Review Signals — 사실만 (r2)
 
@@ -1739,7 +1739,7 @@ r1 직접 oracle 좌표다. 아래 별칭은 모두 `파일:케이스명`이며,
 - 기존 mock이 default missing만 넣거나 실제 bootstrap/provider/API/Composer의 호출 구간을 건너뛰었던 좌표를 바꿨다. unsupported·failed·경로값·서로 다른 backend를 주어 인자 항도 구별했다.
 - 이번 copyable 술어 공유의 동치 검사만으로는 T1을 못 잡았다. 같은 fault를 독립 row 렌더의 empty-id 버튼0 기대가 검출했다. 측정기 scratch 잔여 오류도 숨기지 않고 첫 시도를 기록했다.
 - Linux 기준선과 최종의 실패60개는 동일했다. 읽기 전용 home·Windows 경로·git shim·Confluence fixture 제한의 서명과 양방향 ID 차집합0을 보관했다. Electron Node 모드로 SQLite ABI를 맞췄으며 ABI 재빌드는 하지 않았다.
-- Windows CI는 branch push 뒤 기존 PR #525에서 확인한다. §19의 사람 시각 확인3종은 미실시이며 자동 검사나 mutation 결과로 대체하지 않는다. 다음 주체는 Claude 독립 검증이다.
+- Windows CI는 기존 PR #525의 [run 951](https://github.com/muzaby/orca-skin/actions/runs/41570894158)에서 success를 관측했다. §19의 사람 시각 확인3종은 미실시이며 자동 검사나 mutation 결과로 대체하지 않는다. 다음 주체는 Claude 독립 검증이다.
 
 
 ---
