@@ -8,18 +8,20 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-01 |
 | 매핑 | 사용자 `/handoff-plan` "292 핸드오프" — 0290이 다루지 못한 최적화 보완, 파괴적 수준, 서브에이전트 없이 조사 |
-| 상태 | verify/RETURN_TO_PLAN (r2) — PLAN_GAP D14 · PAIR_FAIL D12·D13(못 잡음 2), ΔV4 설계 대기([verify](verify.md) r2 절) |
+| 상태 | READY (ΔV4 · r3 구현 대기) — r2 verify RETURN_TO_PLAN([verify](verify.md) r2 절)의 PLAN_GAP D14를 사용자 결정 D-021로 닫고 D12·D13 자리 oracle과 VP-03 자리 검색을 정정 |
 | V mode | `Delta V` |
 | 기준 V | `0292:V1@64047af` — 이 plan의 V1(설계 HEAD `0eb7dc2`에서 작성, main 병합 `64047af`) |
-| 이번 V revision | `ΔV3` — 사용자 결정 변경 반영(2026-11-03). 직전 `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` — 뒤 revision 절이 충돌하는 앞 행을 대체 |
-| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입. ΔV2 기준: ΔV1 설계 `3c50653`(`main` 조상) · r1 구현 `c9d212b`·r1 verify `104034e`(둘 다 commit, 브랜치 `ccr-84491548-x3d7lw` — `main` 미병합). ΔV3 기준: ΔV2 설계 `7f3b156`(commit, `main` 미병합 — 브랜치 `ccr-5c72b447-vhhjlk`) |
+| 이번 V revision | `ΔV4` — r2 verify RETURN_TO_PLAN 정정(2026-11-03). 직전 `ΔV3` — 사용자 결정 변경 · `ΔV2` — r1 verify RETURN_TO_PLAN 정정 · `ΔV1` — 버전 확인 실측 반영 정정 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` — 뒤 revision 절이 충돌하는 앞 행을 대체 |
+| 기준 커밋 | V1 설계 HEAD `0eb7dc2` · V1 병합 `64047af` · ΔV1 설계 HEAD `feaca09`(셋 다 `git cat-file -t` = commit). 구현 착수 HEAD는 D-011 — 좌표는 검증자 기입. ΔV2 기준: ΔV1 설계 `3c50653`(`main` 조상) · r1 구현 `c9d212b`·r1 verify `ceae905`(둘 다 commit, PR #525 브랜치 — `main` 미병합. 같은 트리 사본 `104034e`는 PR 브랜치 조상이 아님). ΔV3 기준: ΔV2 설계 `cc75cf8`(commit, PR #525 브랜치 — 사본 `7f3b156`). ΔV4 기준: ΔV3 설계 `c958f83` · r2 구현 `981056f`·`24d91a6`(PR #525 브랜치) · r2 verify `029655f`(commit, 브랜치 `ccr-d3f0312d-rr9r2c`). 브랜치 좌표는 병합 때 해시가 바뀔 수 있고 정본은 INDEX다 |
 
 > **ΔV1(2026-11-02)**: D-005·D-008을 D-014·D-015가, AC2~AC6을 AC2′~AC6′가, §10 EP-02·EP-04 전부와 EP-05 #1-8·#15·EP-03 #1을 아래 ΔV1 절이 대체한다. 그 밖의 V1 행은 그대로 유효하다.
 >
 > **ΔV2(2026-11-02, r1 verify RETURN_TO_PLAN)**: D-016~D-018을 더하고, AC4′·AC5′·AC7을 AC4″·AC5″·AC7′가, EP-03·EP-04′ 전부를 EP-03″·EP-04″가 대체한다. EP-05에 #16·#17을 더하고 EP-02′ #1·EP-05 #9·#14·EP-05′ #15·EP-08 #2·EP-10 #1의 직접 oracle을 정정한다 — 정본은 아래 ΔV2 절.
 >
 > **ΔV3(2026-11-03, 사용자 결정 변경)**: D-007·D-016·D-017을 D-019·D-020이 대체한다. AC7′를 AC7″가, EP-03″ 전부를 EP-03‴(19항목·39자리)가, ΔV2 구현 지시의 `setModel`·`Composer.tsx`·D-017 행과 등록 변이 U1·U2를 ΔV3 절이 대체한다 — 정본은 아래 ΔV3 절.
+>
+> **ΔV4(2026-11-03, r2 verify RETURN_TO_PLAN)**: D-021을 더한다. AC7″를 AC7‴가, EP-03‴ 전부를 EP-03⁗(19항목·43자리, 자리 검색 S03‴)가 대체하고 EP-08 #2 직접 oracle을 정정한다. 등록 변이 V12·V26을 더한다 — 정본은 아래 ΔV4 절.
 
 ## 0. 작성 경로
 
@@ -75,6 +77,7 @@
 | D-018 | registry는 하네스 이름으로 분기하지 않는다 — 각 adapter가 `isInstalled()`에 `usable`을 싣고(Claude는 항상 `true`), 없으면 `installed`로 읽는다 | §16 "구체 하네스 비의존" · `src/main/AGENTS.md` 공통 계층 원칙 · "Claude의 경우 bin이 앱에 동봉되어 있어 지금 다루고 있는 문제와 무관한다" · r1 verify N2(`registry.ts:40`) | 설계자 | ACTIVE | — |
 | D-019 | 새 대화·프로젝트 랜딩의 빈 칸은 마지막 백엔드로 시작한다. 마지막 백엔드는 새 대화·프로젝트 랜딩에서 마지막으로 정해진 하네스이고, 자의(모델 메뉴 선택·자동 기본 모델 선택)와 타의(OpenCode 사용 불가로 인한 Claude 자동 전환 — 부팅 시드·실행 중 사용 불가 전환)를 가리지 않고 정해지는 순간 `lastBackend`에 저장한다. OpenCode가 다시 사용 가능해져도 마지막 백엔드는 바뀌지 않는다 — 같은 실행·다음 실행 모두 Claude로 시작하고, 메뉴에서 OpenCode를 고르면 그때부터 OpenCode다 | "자의든 타의든 마지막 백앤드 선택을 클로드로 했기 때문임" · "마지막 선택 백앤드를 불러오는 것일 뿐이다" | 2026-11-03 사용자 턴 + 질의 [D11-3] 답 "니 경우 새대화, 프로젝트 랜딩은 클로드로 설정되어야 함"(질문: 자동 전환 뒤 메뉴를 건드리지 않고 OpenCode 설치 후 앱을 다시 켜면?) | ACTIVE | D-007·D-016·D-017 대체 |
 | D-020 | 마지막 백엔드는 새 대화·프로젝트 랜딩에서만 읽고 쓴다. 대화 이어가기 — 기존 대화 재열기·분기(fork)·핸드오프 초안 — 는 원본 세션의 하네스를 쓰고, 그 안의 모델 선택은 `lastBackend`와 새 대화 기본을 바꾸지 않는다 | "단 대화 이어가기는 마지막 백앤드로 성립하지 않음. 반드시 새대화, 프로젝트 랜딩에서만 유효" | 질의 [D11-3] 답 | ACTIVE | — |
+| D-021 | 부팅 `backend` 단계가 main의 가용성 목록을 받지 못해(요청 실패·10초 시간 초과) renderer가 OpenCode를 store 기본값(`missing`)으로 사용 불가로 본 경우도 D-019의 자동 전환이다 — 새 대화·프로젝트 랜딩은 Claude로 시작하고 그 순간 `lastBackend`에 `claude`를 저장한다(r2 동작 유지) | "현재 r2가 저장함인데 이것을 계속 질문하는 이유는?" | 2026-11-03 질의 [D14](질문: 결과 목록을 받지 못한 부팅의 Claude 시작을 '마지막 백엔드'로 저장할까요? 선택지 "저장하지 않음"·"저장함(현재 r2)") | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -85,6 +88,8 @@
 - ΔV3(2026-11-03): 사용자가 [D11-2] 선택 이유를 "마지막 선택 백엔드를 불러오는 것"으로 밝혀 D-007의 `lastBackend` 미기록과 결과가 갈렸다(다음 실행). 질의 [D11-3]으로 확인해 D-019·D-020을 받고 D-007·D-016·D-017을 SUPERSEDED로 돌렸다. [D11-3] 답은 선택지 밖 자유 답이다 — 저장 시점은 "선택을 클로드로 했기 때문"에 따라 전환이 정해지는 순간으로 읽었다(전송 시점 선택지는 고르지 않음).
 - D-020으로 바뀌는 기존 동작: 분기·핸드오프 초안의 모델 선택이 `lastBackend`를 쓴다(`chatStore.ts:1891` 판정이 `sessionId` 없음만 본다 — 초안 포함). ΔV3가 이 기록을 막는다.
 - ΔV3 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-019 ↔ AC7″(자동 전환 기록 1·복귀 뒤 Claude 유지·메뉴 OpenCode 기록) · D-020 ↔ AC7″(초안 기록 0·기존 대화 기록 0) · D-006 ↔ AC7″ 노출 조건(AC7′ 그대로). SUPERSEDED D-007·D-016·D-017의 "자동 전환 미기록"을 요구하는 유효 AC 없음(AC7·AC7′는 대체됨).
+- ΔV4(2026-11-03): r2 verify가 부팅 `backend` 단계 실패 경로의 기록 여부를 PLAN_GAP(D14)으로 올렸다. 질의 [D14]는 두 번 했다 — 첫 질문의 "OpenCode 상태를 아예 읽지 못한 경우"를 사용자가 OpenCode 확인 실패로 읽고 반박했다("부팅시 opencode 가 실패했는데 어째서 새 대화시 opencode가 정상일 수 있는가"). 결과 목록 미수신으로 정정해 다시 묻자 위 D-021 출처 문장으로 답했다 — 현재 r2(저장) 유지로 읽었다.
+- ΔV4 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-021 ↔ AC7‴(미수신 부팅 기록 1) · D-019·D-020·D-006 ↔ AC7‴(AC7″ 문장 그대로 승계). OpenCode 확인 자체가 실패한 경우(`unavailableReason:'failed'`)는 D-006·D-019 그대로다.
 - ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-014 ↔ AC2′·AC3′·AC5′(`installed` 유지) · D-015 ↔ AC4′·AC6′ · D-006 ↔ AC7(EP-03 #1′)·AC8·AC9. SUPERSEDED D-005·D-008을 요구하는 유효 AC 없음(AC2~AC6은 대체됨). D-003·D-004·D-007·D-009~D-013 대응은 V1 대조 줄과 같다.
 - raw에 대한 설계자 정정: 1라운드 질의의 "OpenCode raw는 읽히지 않는다"는 부정확했다. 보관 행(`payload_json`)은 세션 열기마다 통째로 읽힌다. 다만 그중 `raw` 필드를 실제로 쓰는 코드는 Claude 이어붙이기 빠른 경로 하나다(§8). 사용자는 이 정정을 받은 뒤 D-009를 골랐다.
 - (V1 — 아래 D-005·D-008 관련 대응은 ΔV1 대조가 대체) **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-003 ↔ AC1(회귀 gate)·AC7(보관 대화 표시 유지)·AC13(같은 DOM)·AC17(이어가기 동일). D-004 ↔ AC10. D-005 ↔ AC2·AC3·AC5. D-006 ↔ AC6·AC7·AC8·AC9(Claude 행은 AC6·AC8에서 불변 단언). D-007 ↔ AC7(`lastBackend` 미기록). D-008 ↔ AC4·AC12. D-009 ↔ AC15·AC16·AC17(raw를 지우라는 AC 없음). D-010 ↔ 0225 경로를 바꾸는 AC 없음(§16). D-012 ↔ AC9(`HostHarnessPort` 시그니처 불변)·AC18(이벤트 상한 미도입). D-013 ↔ AC12(새 패키지 0).
@@ -125,6 +130,7 @@
 | OpenCode 세션 열기, 사용 불가 | 보관 대화 로드는 지금과 같음 | 대화는 보이고 입력창 자리에 "OpenCode가 설치되어 있지 않습니다" + 다시 확인 |
 | 엔진&모델 페이지 추가 메뉴, 사용 불가 | OpenCode 항목 비활성 + 사유 | Claude 항목은 그대로 |
 | 부팅 또는 실행 중 OpenCode 사용 불가로 새 대화가 Claude로 자동 전환 | 전환하는 순간 마지막 백엔드 = Claude를 `lastBackend`에 저장(ΔV3, D-019) | 새 대화·프로젝트 랜딩이 Claude로 시작하고, 앱을 다시 켜도 Claude |
+| 부팅 `backend` 단계가 가용성 목록을 받지 못함(요청 실패·10초 초과) | renderer store 기본값 `missing`으로 사용 불가 판정 → 위 행과 같은 자동 전환·`lastBackend` 저장(ΔV4, D-021) | 새 대화·프로젝트 랜딩 Claude, 다음 실행도 Claude(메뉴에서 OpenCode를 고를 때까지) |
 | 새 대화·프로젝트 랜딩에서 모델 선택(메뉴·자동 기본 모델) | 고른 하네스를 `lastBackend`에 저장 — 폴백 중에도 같다(ΔV3, D-019) | 다음 새 대화가 마지막으로 정해진 하네스로 시작 |
 | 같은 실행 중 OpenCode가 다시 사용 가능 | 마지막 백엔드(Claude) 유지(ΔV3, D-019) | 모델 메뉴·기존 OpenCode 대화 입력창은 바로 돌아옴. 새 대화는 메뉴에서 OpenCode를 고를 때까지 Claude — 다시 켜도 같다 |
 | 기존 대화 재열기·분기·핸드오프 초안에서 모델 선택 | 마지막 백엔드를 읽지도 쓰지도 않음(ΔV3, D-020) | 원본 세션 하네스로 이어가고, 새 대화 기본은 그대로 |
@@ -213,6 +219,8 @@
 
 - ΔV1: R-02·R-03·SD-01·AR-01과 VP-02~VP-05는 CHANGED — 정본은 ΔV1 절. 나머지 노드·pair는 V1 그대로 유효(REQUIRED).
 - ΔV2: R-03·SD-01·AR-01(VP-03·VP-04·VP-05) CHANGED, VP-02·VP-08·VP-10은 oracle 정정 — 정본은 ΔV2 절. VP-01·06·07·09·11은 r1 verify PASS 좌표 그대로(REQUIRED).
+- ΔV3: R-03(VP-03) CHANGED — 정본은 ΔV3 절.
+- ΔV4: R-03(VP-03) CHANGED(AC7‴·oracle·자리 목록 재고정), MD-01(VP-08) oracle 정정 — 정본은 ΔV4 절. 그 밖 9 pair는 r2 verify PASS 좌표 그대로(REQUIRED, `verify.md` r2-5).
 
 ### Pair registry
 
@@ -563,6 +571,109 @@ oracle 열의 "신규"는 구현자가 만들 테스트다. 진입점은 product
 - AC7″는 AC 게이트를 다시 통과했다 — 행동 단언·검증 수단·도달 경로, sink 호출부 3곳을 #2·#3·#5에 매핑했다.
 - VP-03 목록은 S03″ 출력에서 고정했다(39줄 = 19항목 검산). SUPERSEDED U1·U2는 U9·U7로 이관했고 X17은 폐기 근거를 남겼다.
 - 사람 실기는 §19 그대로다 — 재시작 뒤 기본 하네스는 #1·#2 좌표가 기계 검증한다.
+
+## ΔV4 — r2 verify RETURN_TO_PLAN 정정 (2026-11-03)
+
+**수정 필요.** r2 verify([`verify.md`](verify.md) r2 절)는 r1 파생 이슈 D1~D11을 전부 닫았지만 PLAN_GAP 1(D14)·PAIR_FAIL 2(D12·D13)·NON_BLOCKING N6~N9를 냈다. ΔV4는 D14를 사용자 결정 D-021로 닫고 D12·D13 자리의 직접 oracle을 구별 입력으로 정정하며, VP-03 자리 검색을 helper 호출·초안 제외 줄까지 넓혀 목록을 다시 고정한다. production 동작 변경은 없다 — D-021은 r2 동작을 규칙으로 고정한다.
+
+| 발견 | 근거 | 정정 |
+|---|---|---|
+| D14 — 부팅 `backend` 단계가 목록을 받지 못한 경로의 `lastBackend` 기록을 plan이 정하지 않음 | verify r2-13 D14 · [`repro/steps.degraded.test.ts`](verify-evidence/r2/repro/steps.degraded.test.ts)(`c958f83` 쓰기 0 → `24d91a6` 쓰기 1) | D-021 · AC7‴ · EP-03⁗ #1 |
+| D12 — `EngineCard.tsx:34` 배지 노출 조건을 미지원 행으로만 검증 | verify r2-13 D12 · V26 전체 스위트 green | EP-03⁗ #15 oracle · 등록 V26 |
+| D13 — `projection.ts:131` `copyable`의 메시지 집계를 단일 메시지 턴으로만 검증 | verify r2-13 D13 · V12 전체 스위트 green | EP-08 #2 oracle · 등록 V12 |
+| N6 — S03″ 술어가 helper 호출 줄과 초안 제외 줄을 잡지 않음 | verify r2-13 N6 | S03‴([`scan/sites-dv4.sh`](scan/sites-dv4.sh)) 43줄로 EP-03⁗ 고정 |
+| N7 — plan 메타 좌표가 PR 브랜치 밖 같은 트리 사본 | verify r2-13 N7 | 메타 `기준 커밋` 정정 |
+| N9 — COPYSEM 케이스명이 단언과 반대 의미 | verify r2-13 N9 | ΔV4 구현 지시 |
+
+### ΔV4 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 등록 변이(자리) |
+|---|---|---|---|
+| R-03 / VP-03 | CHANGED / REQUIRED | AC7″ → AC7‴ · EP-03‴(19항목·39자리) → EP-03⁗(19항목·43자리) — #1·#15 oracle 정정, #10·#11·#14 좌표 정정, 나머지 규칙·좌표 승계 | 이관 EP-03‴ 등록 변이 전부(N07·R03a·U5·X16·X61·U6·U8·X02·U7·U9·R03b·X14·X15·X63·X13·R03c·X62·N04) · 신규 V26(#15) |
+| MD-01 / VP-08 | CHANGED(oracle) / REQUIRED | EP-08 #2 oracle 정정 | 기존 R08b·X01 + 신규 V12(#2) |
+| VP-01·02·04·05·06·07·09·10·11 | INHERITED / REQUIRED 그대로 | r2 verify PASS — 좌표는 `verify.md` r2-5 | ΔV3 그대로 |
+
+- `SUPERSEDED` 이관: AC7″ → AC7‴(문장 승계 + D-021 항). EP-03‴ 등록 변이는 같은 번호의 EP-03⁗ 자리로 옮긴다. 폐기 0.
+- 레벨 판정: 새 계약 edge가 없다. D-021의 기록은 기존 부팅 시드 edge(`steps.ts:68` → `seedLandingBackend` → helper → `settingsApi.set`)이고 미수신은 그 edge의 입력 상태(store 기본값)다 — R-03 AT 좌표가 production 진입(실제 `runBootSteps`)으로 닫는다.
+- 유효 pair는 VP-01~VP-11 전부 REQUIRED, AC 23개(AC7″ → AC7‴, 총수 불변)다.
+- 등록 변이 정의는 [`verify-evidence/r2/mutations.json`](verify-evidence/r2/mutations.json)이다(`mutate.mjs`로 재실행).
+
+| ID | 자리 | 종류 | 바꾼 내용 |
+|---|---|---|---|
+| V26 | `EngineCard.tsx:34` | 고정값 | `{!agent.supported && (` → `{true && (` |
+| V12 | `projection.ts:131` | 뒤집기 | `copyable: assistant.messages.some(` → `.every(` |
+
+### 대체 AC (ΔV4)
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-03 | AT-03 / AC7‴ | AC7″ 전문 + 부팅 `backend` 단계가 가용성 목록을 받지 못한 경우(요청 실패·시간 초과)도 자동 전환이다 — 새 대화·프로젝트 랜딩 `claude` + `lastBackend`에 `claude` 1회(D-021) | EP-03⁗ #1~#19 좌표 — 특히 #1(미수신 케이스)·#2·#3·#5·#6·#15 | AC7″ 경로 그대로(부팅 단계·store push → `ChatProvider` → chatStore → `settingsApi.set` · Landing·ProjectLanding·ChatTile·ModelMenu·EngineCard) |
+
+- AC 게이트 재확인: 행동 단언은 칸 backend 값·`settingsApi.set` 호출 수·인자·배지 문구 수다. `N회` sink `settingsApi.set({lastBackend})`의 production 호출부는 helper 1곳(`chatStore.ts:1870`)이고 호출자는 `:188`(#3)·`:222`(#2)·`:1905`(#5) 셋이다 — 미수신 부팅은 `:222`를 지난다.
+- 음성 단언은 양성과 짝이다 — 지원 카드 배지 0(#15)은 미지원 3사유 배지와, 미수신 부팅 기록 1(#1)은 usable 부팅 기록 0과 같은 테스트 파일에서 본다.
+
+### ΔV4 §10
+
+자리 검색은 [`scan/sites-dv4.sh`](scan/sites-dv4.sh)(S03‴)이고 N은 r2 HEAD `24d91a6`(app = `981056f`) 실측이다. S03″ 술어에 `rememberLandingBackend\(`와 `isContinuityDraft\((entry|getState)`를 더했다 — 초안 관리 함수(`chatStore.ts:1461`·`:1472`·`:2360`·`:2402`)의 `isContinuityDraft(e)`는 마지막 백엔드를 운반하지 않아 뺐다. S03″ 37줄 + 6줄(`:195`·`:222`·`:229`·`:1868`·`:1902`·`:1905`) = 43.
+
+| pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 → N / 목표 | 직접 oracle | 실패 의미 |
+|---|---|---|---|---|---|---|
+| VP-03 | D-006 노출 · D-019·D-021 마지막 백엔드 기록·적용 · D-020 이어가기 제외 | 가용성 store + `supported` + chatStore `landingBackend`(메모리)·`lastBackend`(설정) | EP-03⁗ (19) | S03‴ 43 / 43 — 표 자리 전부 유지(줄 이동 허용). 늘거나 줄면 차집합을 `[구현자 기입]`에 | EP-03⁗ 표 | 실패할 OpenCode 화면 노출 · 마지막 백엔드 유실·오기록 · 지원 카드 오배지 |
+| VP-08 | live 변화는 진행 중 교환만 투영 · 복사 판정은 `turnCopyText`와 같은 의미 | `projection.ts` head/tail · `lib/parts` 술어 | EP-08 (8) | S08 4 / 4(검색 불변) | EP-08 표 + 아래 #2 정정 | 프레임마다 재투영 · 복사 버튼 오판 |
+
+- ΔV4 이후 강제 지점 분모: 자리 수 불변 — VP-03 19 · 전체 **97**.
+
+### EP-03⁗ — renderer 노출 · 마지막 백엔드 (19, EP-03‴ 대체)
+
+| # | 자리 (S03‴ 줄, `24d91a6`) | 규칙 | 직접 oracle 좌표 | 출처 |
+|---|---|---|---|---|
+| 1 | `app/boot/steps.ts:68` | `backend` 단계 뒤 `seedLandingBackend(settings.lastBackend)`. 단계가 실패해도 시드하고, 가용성 미수신이면 store 기본값 `missing`으로 사용 불가 판정(D-021) | SEED(기존 4사유) + 신규 미수신 — 같은 실제 `runBootSteps(createBootSteps(…))`에서 `backendApi.list` 거절·`lastBackend:'opencode'` → 칸 `claude` + `settingsApi.set` 정확히 1회 `{lastBackend:'claude'}`(재현 틀 [`repro/steps.degraded.test.ts`](verify-evidence/r2/repro/steps.degraded.test.ts)) · 미수신 케이스는 U5 red, N07은 기존 사유 케이스가 잡는다 | CHANGED |
+| 2 | `chatStore.ts:218,221,222,223,229,236,237,239` | EP-03‴ #2 규칙 그대로 | DRAFTSEED · R03a·U5 | INHERITED(줄 재측정) |
+| 3 | `chatStore.ts:186,187,188,195` | EP-03‴ #3 규칙 그대로 | DRAFT · X16·X61·U6·U8 | INHERITED(줄 재측정) |
+| 4 | `ChatProvider.tsx:11,12` | 그대로 — `:11` 마운트 호출은 마운트 시점에 바꿀 칸이 없다(r2 V01 동치) | PROVIDER · X02 | INHERITED |
+| 5 | `chatStore.ts:1868,1869,1870,1902,1903,1905` | EP-03‴ #5 규칙 그대로. helper `rememberLandingBackend`(`:1868-1878`)가 #2·#3·#5의 메모리 갱신·설정 쓰기 1벌 | PREFERENCE · U7 | INHERITED(줄 재측정) |
+| 6 | `Composer.tsx:434` | 그대로 | MENUPICK · U9 | INHERITED |
+| 7 | `ChatTile.tsx:65` | 그대로 | NOTICE·PENDING · R03b·X14·X15 | INHERITED |
+| 8 | `ChatTile.tsx:165` | 그대로 | NOTICE | INHERITED |
+| 9 | `HarnessUnavailableNotice.tsx:21` | 그대로 | RECHECK · X63 | INHERITED |
+| 10 | `Landing.tsx:27` | 그대로 | `pages/NewChatLandingPage.harness.test.ts` "renders the harness landing and preserves draft and attachment state" — DRAFT(store 단위)는 이 자리를 실행하지 않는다(r2 V03) | INHERITED(좌표 정정) |
+| 11 | `ProjectLandingPage.tsx:112` | 그대로 | `pages/ProjectLandingPage.project-picker.test.ts` "0293 project landing opens the project popup with the current project checked" — 같은 이유(r2 V04) | INHERITED(좌표 정정) |
+| 12 | `ModelMenu.tsx:31` | 그대로 | MENU | INHERITED |
+| 13 | `modelSelection.ts:27` | 그대로 | SELECT | INHERITED |
+| 14 | `Composer.tsx:335` | 그대로 | `components/composerMount.render.test.ts` "마운트가 실제로 칩까지 도달했다 — 시드 수단의 양성 관측" — COMPOSER 입력은 늘 지원 행을 포함한다(r2 V02) | INHERITED(좌표 정정) |
+| 15 | `EngineCard.tsx:34,37,38` | 미지원 행만 사유 배지(사유 없으면 일반 문구), 지원 행은 배지 없음 | CARD(기존 3사유) + 신규 — 같은 `EngineCard.render.test.ts`에서 `supported:true` Claude 행·`supported:true` OpenCode 행 각각 렌더 → `harnessUnavailable.*` 사유 문구·`미지원 adapter` 문구 0 (V26 red) | CHANGED(oracle) |
+| 16 | `AgentEnvironmentView.tsx:31,96,105` | 그대로 | ADD · R03c·X62 | INHERITED |
+| 17 | `agentStore.ts:22,43,94` | 그대로 | AGENT · N04 | INHERITED |
+| 18 | `chatStore.ts:183` | 그대로 | INITIAL | INHERITED |
+| 19 | `chatStore.ts:291,292,293` | 그대로 | FRESH | INHERITED |
+
+- 검산: 1+8+4+2+6+1+1+1+1+1+1+1+1+1+3+3+3+1+3 = 43줄 = S03‴.
+- 좌표 별칭은 r2 `[구현자 기입]` 별칭 표의 것이다(SEED·DRAFTSEED·DRAFT·PROVIDER·PREFERENCE·MENUPICK·NOTICE·PENDING·RECHECK·MENU·SELECT·CARD·ADD·AGENT·INITIAL·FRESH).
+
+### EP-08 #2 oracle 정정 (VP-08)
+
+| pair · 자리 | 정정한 직접 oracle | 등록 변이 |
+|---|---|---|
+| VP-08 · EP-08 #2 `projection.ts:131` | COPYSEM에 다중 메시지 assistant 턴을 더한다 — 첫 메시지는 도구 파트만(본문 없음)·둘째 메시지는 본문: `copyable === (turnCopyText(turn) !== '')` = true, Timeline 렌더 복사 버튼 1. 순서를 바꾼 턴(본문 → 도구만)도 1. 두 메시지 모두 본문 없음 → 0 | V12 |
+
+### ΔV4 구현 지시
+
+| 대상 | 변경 |
+|---|---|
+| production 코드 | 변경 없음 — D-021은 r2 동작이고 D12·D13은 테스트 공백이다 |
+| 실제 부팅 경로 테스트(`steps.availability.test.ts` 또는 같은 진입의 새 파일) | EP-03⁗ #1 미수신 케이스 |
+| `EngineCard.render.test.ts` | EP-03⁗ #15 지원 행 배지 0 |
+| `projection.golden.test.ts`·`Timeline.memo.test.ts` | EP-08 #2 다중 메시지 턴 |
+| COPYSEM 케이스명 | "empty child id is main text" → 단언과 같은 의미(`parentToolRunId:''`는 본문 아님)로(N9) |
+| 좌표 | `[구현자 기입] 강제 지점 전수`에 `파일:케이스명`, `scan/sites-dv4.sh` 재측정 차집합 |
+
+### ΔV4 self-review
+
+- D-021을 ACTIVE로 더했다. 대체한 결정은 없다 — D-019의 "타의" 범위를 미수신 부팅까지로 정했다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모에 적었다(충돌 0).
+- 조건절 원문 인용: D-021 출처는 사용자 답 원문 그대로다. 두 번 물은 경위와 첫 질문의 오해를 갱신 메모에 적었다.
+- AC7‴는 AC 게이트를 다시 통과했다 — 행동 단언·검증 수단·도달 경로, sink 호출부 3곳을 #2·#3·#5에 매핑했다.
+- VP-03 목록은 S03‴ 출력에서 다시 고정했다(43줄 = 19항목 검산). #10·#11·#14는 plan 좌표가 자리를 실행하지 않던 것을 r2 verify가 찾은 실제 좌표로 정정했다. 이관 폐기 0.
+- 사람 실기는 §19 그대로다. 미수신 부팅 뒤 renderer 가용성 회복은 §17 Skip에 남겼다.
 
 ---
 
@@ -974,6 +1085,7 @@ isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바�
 | 0225 부팅마다 경로 재기록 스캔 축소 | D-010 · 비용 수 ms |
 | OpenCode activity snapshots 지문화(0290 A14 후반) | 같은 길이 출력 변화를 놓칠 수 있음 |
 | renderer i18n 두 언어 동시 번들 | 97KB · 언어 전환 즉시성 유지 |
+| 부팅 목록 미수신 뒤 renderer 가용성 회복(ΔV4) — "다시 확인" 응답을 store에 반영·목록 재요청 | 드문 경로(`backend:list` 요청 실패·10초 초과)이고 D-021이 미수신을 사용 불가로 본다. 그 실행 동안 기존 OpenCode 세션은 안내가 남고 재시작이 회복이다. 응답 반영은 push·응답 경합 fence(0292 X05와 같은 축)가 필요해 별도 설계 |
 
 - 되돌리기 어려운 결정: `raw_json` 열 추가(마이그레이션) — 열만 더하고 지우지 않는다. ~~구버전 앱이 같은 DB를 열어도 읽기가 깨지지 않는다~~ **ΔV2 정정**: 구버전 앱은 모르는 마이그레이션이 적용된 DB를 `DbSchemaTooNewError`로 거절한다(`migrate.ts:167-168`, 기존 다운그레이드 보호 그대로 — r1 verify N1).
 - 신규 의존성: 없음(D-013).
@@ -1003,7 +1115,7 @@ isInstalled·executableIdentity(서버 풀) → registry 설치 캐시 → 바�
 - 사람 실기는 시각·실환경 3건뿐이다. 순수 로직은 테스트로 내렸다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0(§3 갱신 메모).
 - 산출물 문장 규칙: 판정 먼저·표 위주. 수치는 §8·§14에만 둔다.
-- ΔV2·ΔV3 self-review: 아래 ΔV2·ΔV3 절 끝 참조.
+- ΔV2·ΔV3·ΔV4 self-review: 위 ΔV2·ΔV3·ΔV4 절 끝 참조.
 - ΔV1 self-review: SUPERSEDED D-005·D-008과 대체 D-014·D-015를 Ledger에 남겼다. 대체 AC2′~AC6′는 AC 게이트(행동 단언·검증 수단·도달 경로)를 다시 통과했다. 바뀐 pair VP-02~VP-05의 자리 목록은 `feaca09`에서 `scan/sites.sh`(S05d 추가)로 다시 열거했고, 바뀌지 않은 V1 검색 18개의 N은 `feaca09`에서도 같다.
 
 ---
