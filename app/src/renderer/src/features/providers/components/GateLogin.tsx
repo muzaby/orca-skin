@@ -12,7 +12,8 @@ import { useI18n } from '../../../shared/i18n'
 import { authChoices, needsAuthChoice } from '../../../shared/config/providerAuth'
 import { AuthKindChoices } from '../../../shared/ui/AuthKindChoices'
 import { currentGateProvider, showsDailyRelogin } from '../lib/gateStep'
-import orca from '../assets/orca-login.webp'
+import { OpenCodeWordmark } from '../../../shared/ui/OpenCodeWordmark'
+import orca from '../../../../../../resources/login-hero.webp'
 
 // 로그인 랜딩 (0180 이 지운 구 `features/auth/AuthView` 복원 — 0181 의 provider 축에 맞춰 개정).
 //
@@ -55,9 +56,11 @@ export function GateLogin({
     <div className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6">
       <h1 className="flex flex-col items-center gap-1 text-center leading-none">
         <span className="text-5xl font-bold tracking-tight text-ink">{PRODUCT_DISPLAY_NAME}</span>
-        <span className="text-sm font-semibold uppercase tracking-[0.25em]">
+        <span className="whitespace-nowrap text-sm font-semibold uppercase tracking-[0.18em]">
           <span className="text-ink2">with </span>
           <span className="text-accent">Claude Code</span>
+          <span className="text-ink2"> and </span>
+          <OpenCodeWordmark className="inline-block h-[1em] w-auto align-[-0.143em] text-ink" />
         </span>
       </h1>
       <img
