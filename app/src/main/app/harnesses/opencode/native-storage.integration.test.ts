@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 
 describe('OpenCode 1.x native CLI interoperability', () => {
   it.skipIf(!process.env.ORCA_TEST_OPENCODE_EXE)(
@@ -65,6 +66,6 @@ describe('OpenCode 1.x native CLI interoperability', () => {
         rmSync(output, { recursive: true, force: true })
       }
     },
-    330000
+    scaleMs(330000)
   )
 })

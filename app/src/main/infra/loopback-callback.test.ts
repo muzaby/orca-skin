@@ -1,6 +1,7 @@
 // 루프백 리스너는 node `http` 만 쓰므로 **실제 포트에 바인딩해** 검증한다 — 리스너를 흉내내면
 // 정작 확인해야 할 것(주소 바인딩·1회성·정리)이 검증되지 않는다.
 
+import { createServer, type AddressInfo } from 'node:net'
 import { describe, expect, it } from 'vitest'
 import {
   awaitLoopbackCallback,
@@ -9,14 +10,20 @@ import {
   DEFAULT_CALLBACK_PATH
 } from './loopback-callback'
 
-// 포트 충돌을 피하기 위해 매번 다른 고정 포트를 쓴다(0 은 못 쓴다 — 인가 서버에 등록된
-// redirect_uri 가 고정 포트를 담는 것이 실제 계약이라, 그 경로를 그대로 시험한다).
-let nextPort = 45211
-const port = (): number => nextPort++
+// 리스너에는 **고정 포트**를 준다(0 은 못 쓴다 — 인가 서버에 등록된 redirect_uri 가 고정 포트를
+// 담는 것이 실제 계약이라, 그 경로를 그대로 시험한다). 다만 번호는 OS 에게 빈 포트를 받아 정한다 —
+// 리터럴 번호는 리눅스 임시 포트 대역(32768–60999) 안이라 병렬 부하에서 다른 연결과 겹쳤다(0294).
+async function port(): Promise<number> {
+  const probe = createServer()
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
+  const { port: free } = probe.address() as AddressInfo
+  await new Promise<void>((resolve) => probe.close(() => resolve()))
+  return free
+}
 
 describe('awaitLoopbackCallback', () => {
   it('콜백 요청의 전체 URL 을 돌려주고 서버를 닫는다', async () => {
-    const p = port()
+    const p = await port()
     const pending = awaitLoopbackCallback({ port: p })
     const response = await fetch(`http://127.0.0.1:${p}${DEFAULT_CALLBACK_PATH}?code=abc&state=xy`)
     expect(response.status).toBe(200)
@@ -31,7 +38,7 @@ describe('awaitLoopbackCallback', () => {
   })
 
   it('경로가 다른 요청(favicon 등)은 흘려보내고 계속 기다린다', async () => {
-    const p = port()
+    const p = await port()
     const pending = awaitLoopbackCallback({ port: p })
     const ignored = await fetch(`http://127.0.0.1:${p}/favicon.ico`)
     expect(ignored.status).toBe(404)
@@ -41,7 +48,7 @@ describe('awaitLoopbackCallback', () => {
   })
 
   it('응답 본문에 쿼리 값을 반영하지 않는다 (반사형 XSS 표면 제거)', async () => {
-    const p = port()
+    const p = await port()
     const pending = awaitLoopbackCallback({ port: p })
     const response = await fetch(
       `http://127.0.0.1:${p}${DEFAULT_CALLBACK_PATH}?code=%3Cscript%3Ealert(1)%3C/script%3E`
@@ -52,14 +59,16 @@ describe('awaitLoopbackCallback', () => {
   })
 
   it('타임아웃은 LoopbackCancelledError 로 끝난다', async () => {
-    await expect(awaitLoopbackCallback({ port: port(), timeoutMs: 30 })).rejects.toMatchObject({
+    await expect(
+      awaitLoopbackCallback({ port: await port(), timeoutMs: 30 })
+    ).rejects.toMatchObject({
       name: 'LoopbackCancelledError'
     })
   })
 
   it('abort 는 즉시 정리한다', async () => {
     const controller = new AbortController()
-    const p = port()
+    const p = await port()
     const pending = awaitLoopbackCallback({ port: p, signal: controller.signal })
     controller.abort()
     await expect(pending).rejects.toBeInstanceOf(LoopbackCancelledError)

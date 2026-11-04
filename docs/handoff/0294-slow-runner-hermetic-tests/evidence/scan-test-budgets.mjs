@@ -6,9 +6,9 @@
 //   setTimeout : 숫자 리터럴 지연 ≥ 1000ms
 //   waitFor    : vi.waitFor 호출 수·옵션 분포
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { createRequire } from 'node:module'
-const app = process.argv[2] ?? '.'
+const app = resolve(process.argv[2] ?? '.')
 const ts = createRequire(join(app, 'package.json'))('typescript')
 const list = (d) => readdirSync(d).flatMap((e) => { const f = join(d, e); return statSync(f).isDirectory() ? list(f) : /\.test\.tsx?$/.test(e) ? [f] : [] })
 const TEST = new Set(['it', 'test', 'describe', 'bench', 'suite'])

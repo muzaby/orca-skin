@@ -39,34 +39,17 @@ import { authToolServerId } from '../../adapters/common/runtime-tool-policy'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
 import { prepareHarnessConfig, type SpawnEnvInjector } from '../../adapters/common/harness-config'
 import { stripCommentsAndStrings } from '../../infra/source-scan'
-import { SPAWN_ENV_INJECTOR } from './spawn-env'
 import type { UsageFetcher, UsageSnapshot } from '../../features/usage/fetcher'
 import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'
+import { createPluginBinding, type PluginBinding, type PluginDeploymentDeps } from './plugins'
+import { gateRows, pluginRows, type ConnectionDeploymentDeps } from './connections'
 import {
-  createPluginBinding,
-  createPluginBindings as productionPluginBindings,
-  type PluginBinding,
-  type PluginDeploymentDeps
-} from './plugins'
-import {
-  createConnectionSources as productionConnectionSources,
-  gateRows,
-  pluginRows,
-  type ConnectionDeploymentDeps
-} from './connections'
-import {
-  createConfigApiAugmenters as productionConfigApiAugmenters,
-  createDirectCredentialAugmenters as productionDirectCredentialAugmenters,
-  createRuntimeConfigAugmenters as productionRuntimeConfigAugmenters,
   mergeAugmenters as productionMergeAugmenters,
   type HarnessConfigApiDeps,
   type HarnessDirectCredentialDeps
 } from './harness-runtime'
-import {
-  createUsageFetcher as productionUsageFetcher,
-  type UsageDeploymentDeps
-} from './usage-fetcher'
+import type { UsageDeploymentDeps } from './usage-fetcher'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/common/runtime-config'
 import { jiraTools } from '../../features/plugins/jira/tools'
 import { JIRA_CATALOG_PRESENTATION_INPUT } from '../../features/plugins/jira/source'
@@ -522,42 +505,9 @@ describe('가상 배포 — 카탈로그 row', () => {
 // 같은 이름·같은 형상이지만 **다른 함수**라, production 구현이 깨져도 통과할 수 있었다
 // (r4 리뷰 P2). 여기서는 `app/deployment/*` 의 실제 export 를 그대로 부른다.
 //
-// 기본 배포의 계약은 "비어 있다" 다 — 그것이 곧 **기본 빌드에서 network 0·도구 0·행 0** 이라는
-// 제품 약속이고, 무심코 채우면 OSS 기본 배포가 사내 endpoint 를 두드리게 된다.
-describe('production 배포 factory — 기본 배포 계약', () => {
-  it('createPluginBindings 는 기본 배포에서 비어 있다', () => {
-    const { auth, registry } = deployment()
-
-    const bindings = productionPluginBindings({ auth, registry })
-
-    expect(bindings).toEqual([])
-    expect(registry.snapshot().servers.size).toBe(0)
-  })
-
-  it('createConnectionSources 는 gate·plugin row 만 만든다', () => {
-    const { auth, registry } = deployment()
-    const gateSelection = selectGateMembers(GATE_AUTH_DEFINITIONS, (id) => auth.tryBind(id))
-    const plugins = productionPluginBindings({ auth, registry })
-
-    const rows = productionConnectionSources({
-      auth,
-      gateMembers: gateSelection.members,
-      plugins
-    })
-
-    // gate 선언 1건 + plugin 0건. harness·usage 는 배포가 더한다(레시피 B).
-    expect(rows.map((row) => row.category)).toEqual(['gate'])
-  })
-
-  it('augmenter factory 3종은 기본 배포에서 비어 있다', () => {
-    const { auth, secretFor } = deployment()
-
-    const secrets = { [CORP_LLM_AUTH.id]: secretFor(CORP_LLM_AUTH.id) }
-    expect(productionConfigApiAugmenters({ auth })).toEqual({})
-    expect(productionDirectCredentialAugmenters({ secrets })).toEqual({})
-    expect(productionRuntimeConfigAugmenters({ auth, secrets })).toEqual({})
-  })
-
+// 기본 배포 내용("비어 있다")은 여기서 고정하지 않는다(0294 D-007) — 폐쇄망 포크가
+// `app/deployment/*.ts` 를 채우면 그 단언이 포크 CI 를 깨뜨린다. 배포 내용과 무관한 합류 규칙만 남긴다.
+describe('production 배포 factory — 합류 규칙', () => {
   it('두 augmenter 방식이 같은 key 를 보강하면 던진다 — production 규칙을 직접 부른다', () => {
     // r6 은 이 규칙을 **테스트 안에 다시 구현**해서, production 가드를 지워도 통과했다.
     // 이제 합류 규칙(`mergeAugmenters`)을 직접 부른다.
@@ -572,12 +522,6 @@ describe('production 배포 factory — 기본 배포 계약', () => {
     expect(productionMergeAugmenters({}, { [CLAUDE_CORP_KEY]: augmenter })).toHaveProperty(
       CLAUDE_CORP_KEY
     )
-  })
-
-  it('createUsageFetcher 는 기본 배포에서 undefined 다 — 오류가 아니라 정상 구성', () => {
-    const { auth } = deployment()
-
-    expect(productionUsageFetcher({ auth })).toBeUndefined()
   })
 })
 
@@ -668,10 +612,6 @@ describe('폐쇄망 spawn env 주입점 (0207)', () => {
       hostEnv: {}
     })
     expect(narrowed.ANTHROPIC_BASE_URL).toBe('https://llm.corp.example')
-  })
-
-  it('기본 배포는 주입점을 비워 둔다 — 오류가 아니라 정상 구성', () => {
-    expect(SPAWN_ENV_INJECTOR).toBeUndefined()
   })
 
   // injector 는 **세 번째 배포 능력**이고, 앞의 둘과 달리 credential·network 를 받지 않는다

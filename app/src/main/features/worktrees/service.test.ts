@@ -7,6 +7,7 @@ import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { WorktreeService } from './service'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 // **파일 예산 198s** — 최악 케이스(AT-44 · D-072)는 실제 git 을 직렬로 22회 띄운다
 // (`repository()` 5 + 기준 브랜치 준비 5 + `prepare()` 2회 12). self-hosted windows 러너의
@@ -18,7 +19,7 @@ import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../
 // 케이스별 인라인 캡은 두지 않는다 — 더 작은 인라인 값이 파일 예산을 조용히 이긴다.
 // 0218 러너에서 이 파일이 정확히 그렇게 죽었다: 예산은 198s 인데 한 케이스에 30s 캡이 남아
 // 있어 그 캡이 이겼다. `scripts/check-test-budgets.mjs` 가 재발을 잡는다.
-vi.setConfig({ testTimeout: 198_000, hookTimeout: 198_000 })
+vi.setConfig(scaledBudget({ testTimeout: 198_000, hookTimeout: 198_000 }))
 
 const roots: string[] = []
 
@@ -242,7 +243,11 @@ describe('WorktreeService', () => {
     const canonicalMain = await realpath(mainWorktree.path)
     expect(isWithinDir(canonicalMain, canonicalRepo)).toBe(true)
     expect(isWithinDir(canonicalRepo, canonicalMain)).toBe(true)
-    expect(mainWorktree.branch).toBe('master')
+    // 기본 브랜치 이름은 호스트 git 설정(init.defaultBranch)·Git 버전 몫이다 — 저장소가 실제로
+    // 만든 이름과 비교한다(0294 D-006).
+    expect(mainWorktree.branch).toBe(
+      (await exec('git', ['-C', repo, 'symbolic-ref', '--short', 'HEAD'])).stdout.trim()
+    )
     expect(await import('node:fs/promises').then(({ readdir }) => readdir(physical))).toEqual([])
   })
 

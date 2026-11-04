@@ -21,9 +21,10 @@ import { applyMigrations } from '../infra/db/migrate'
 import { DbQueries } from '../infra/db/queries'
 import { isWithinDir } from '../infra/config/paths'
 import { makeClassifiedError } from '../infra/errors'
+import { scaleMs, scaledBudget } from '../../../scripts/test-time.mjs'
 
 vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
-vi.setConfig({ testTimeout: 120_000, hookTimeout: 30_000 })
+vi.setConfig(scaledBudget({ testTimeout: 120_000, hookTimeout: 30_000 }))
 
 function failureKind(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error)
@@ -71,7 +72,7 @@ it.skipIf(process.env.ORCA_ARTIFACT_LIVE !== '1')(
     const timeout = setTimeout(() => {
       timedOut = true
       controller.abort()
-    }, 90_000)
+    }, scaleMs(90_000))
     let model: string | undefined
     let sessionId: string | null = null
     let failure: string | null = null

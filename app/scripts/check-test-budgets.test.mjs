@@ -7,12 +7,16 @@ import { fileURLToPath } from 'node:url'
 
 import {
   analyze,
+  analyzeScale,
+  checkFixtureCap,
   findInlineTimeouts,
   findUncappedRunGit,
   isRealGitSuite,
   listTestFiles,
   parseBudget,
   runCli,
+  scanBudgetSites,
+  SEMANTIC_DELAYS,
   stripComments
 } from './check-test-budgets.mjs'
 
@@ -23,7 +27,7 @@ const GOOD = `
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execGit as exec, removeTempRoots } from './temp-repo.testfixture'
 
-vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
+vi.setConfig(scaledBudget({ testTimeout: 117_000, hookTimeout: 117_000 }))
 
 const roots = []
 afterEach(() => removeTempRoots(roots.splice(0)))
@@ -97,8 +101,16 @@ describe('예산 파싱', () => {
   test('두 값을 읽고 밑줄 구분자를 접는다', () => {
     assert.deepEqual(parseBudget(`vi.setConfig({ testTimeout: 117_000, hookTimeout: 99_000 })`), {
       testTimeout: 117000,
-      hookTimeout: 99000
+      hookTimeout: 99000,
+      scaled: false
     })
+  })
+
+  test('scaledBudget 로 감싼 기준값을 읽고 배율 경유를 표시한다 (0294)', () => {
+    assert.deepEqual(
+      parseBudget(`vi.setConfig(scaledBudget({ testTimeout: 72_000, hookTimeout: 36_000 }))`),
+      { testTimeout: 72000, hookTimeout: 36000, scaled: true }
+    )
   })
 
   test('호출이 없으면 null 이다', () => {
@@ -124,7 +136,7 @@ describe('인라인 타임아웃 탐지', () => {
 describe('규칙 — 0218 러너에서 실제로 터진 두 형태', () => {
   test('예산이 없으면 걸린다 (첫 조치에서 네 파일이 조용히 빠진 자리)', () => {
     const source = GOOD.replace(
-      'vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })\n',
+      'vi.setConfig(scaledBudget({ testTimeout: 117_000, hookTimeout: 117_000 }))\n',
       ''
     )
     const { errors } = analyze('a.test.ts', source)
@@ -217,11 +229,91 @@ describe('규칙 (E) — 캡이 파일 예산을 이기던 자리가 한 층 아
   })
 })
 
+describe('규칙 (F) — 배율 경유 (0294)', () => {
+  test('리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다', () => {
+    assert.equal(analyzeScale('a.test.ts', `vi.setConfig({ testTimeout: 15_000 })`).length, 1)
+    assert.match(
+      analyzeScale('a.test.ts', `vi.setConfig({ testTimeout: 15_000 })`)[0],
+      /scaledBudget/
+    )
+    assert.deepEqual(
+      analyzeScale('a.test.ts', `vi.setConfig(scaledBudget({ testTimeout: 15_000 }))`),
+      []
+    )
+  })
+
+  test('케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함', () => {
+    const literal = `it('x', async () => {\n}, 10_000)\nit.each([1])('y', async () => {}, 4000)\nit.skipIf(a)('z', async () => {}, 45_000)`
+    assert.equal(analyzeScale('a.test.ts', literal).length, 3)
+    const scaled = literal.replaceAll(/, (\d[\d_]*)\)/g, ', scaleMs($1))')
+    assert.deepEqual(analyzeScale('a.test.ts', scaled), [])
+  })
+
+  test('옵션 객체 timeout 과 훅 타임아웃도 같다', () => {
+    assert.equal(analyzeScale('a.test.ts', `it('x', { timeout: 15000 }, fn)`).length, 1)
+    assert.deepEqual(analyzeScale('a.test.ts', `it('x', { timeout: scaleMs(15000) }, fn)`), [])
+    assert.equal(analyzeScale('a.test.ts', `beforeAll(async () => {}, 30_000)`).length, 1)
+    assert.deepEqual(analyzeScale('a.test.ts', `beforeAll(async () => {}, scaleMs(30_000))`), [])
+  })
+
+  test('타임아웃이 아닌 끝 숫자 인자는 자리가 아니다 — jira result 형태', () => {
+    assert.deepEqual(analyzeScale('a.test.ts', `expect(() => f({ a: 1 }, 100)).toThrow()`), [])
+    assert.deepEqual(scanBudgetSites('a.test.ts', `expect(list).toHaveLength(2)`), [])
+  })
+})
+
+describe('규칙 (H) — 테스트 소유 실시간 마감 (0294)', () => {
+  test('리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다', () => {
+    assert.equal(
+      analyzeScale('a.test.ts', `const t = setTimeout(() => c.abort(), 90_000)`).length,
+      1
+    )
+    assert.equal(analyzeScale('a.test.ts', `const deadline = Date.now() + 30_000`).length, 1)
+    assert.deepEqual(
+      analyzeScale('a.test.ts', `const t = setTimeout(() => c.abort(), scaleMs(90_000))`),
+      []
+    )
+    assert.deepEqual(analyzeScale('a.test.ts', `const deadline = Date.now() + scaleMs(30_000)`), [])
+  })
+
+  test('1000ms 미만 대기는 자리가 아니다', () => {
+    assert.deepEqual(
+      scanBudgetSites('a.test.ts', `await new Promise((r) => setTimeout(r, 400))`),
+      []
+    )
+  })
+
+  test('의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다', () => {
+    const entry = SEMANTIC_DELAYS[0]
+    const code = `await new Promise((resolve) => setTimeout(resolve, ${entry.value}))`
+    assert.deepEqual(analyzeScale(entry.file, code), [])
+    assert.equal(analyzeScale('main/other.test.ts', code).length, 1)
+    assert.ok(SEMANTIC_DELAYS.every((item) => item.reason.trim().length > 0))
+  })
+})
+
+describe('규칙 (G) — 픽스처 상한 > 최대 파일 예산 (0294)', () => {
+  const fixture = (base) => `export const FIXTURE_GIT_TIMEOUT_MS = scaleMs(${base})`
+  test('기준 상한이 최대 기준 예산보다 크면 통과, 같거나 작으면 걸린다', () => {
+    const budgets = [{ testTimeout: 369_000, hookTimeout: 369_000 }, { testTimeout: 72_000 }]
+    assert.equal(checkFixtureCap(fixture('600_000'), budgets), null)
+    assert.match(checkFixtureCap(fixture('369_000'), budgets), /크지 않다/)
+    assert.match(checkFixtureCap(fixture('300_000'), budgets), /크지 않다/)
+  })
+
+  test('배율을 거치지 않은 상한은 형태부터 걸린다', () => {
+    assert.match(
+      checkFixtureCap(`export const FIXTURE_GIT_TIMEOUT_MS = 600_000`, []),
+      /찾지 못했다/
+    )
+  })
+})
+
 describe('CLI', () => {
   test('위반이 있으면 1, 없으면 0 이다', () => {
     const bad = fixture({
       'src/a.test.ts': GOOD.replace(
-        'vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })',
+        'vi.setConfig(scaledBudget({ testTimeout: 117_000, hookTimeout: 117_000 }))',
         ''
       )
     })

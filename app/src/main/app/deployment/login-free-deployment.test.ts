@@ -24,14 +24,8 @@ import { createVault } from '../../infra/vault'
 import { stripCommentsAndStrings } from '../../infra/source-scan'
 import { connectionState } from '../connection-views'
 import { createRuntimeModelAuthChangeHandler } from '../runtime-model-startup'
-import { LOGIN_FREE_DEFINITIONS } from './auth-definitions'
-import { createConnectionSources } from './connections'
-import {
-  createPluginBinding,
-  createPluginBindings as productionPluginBindings,
-  type PluginBinding,
-  type PluginDeploymentDeps
-} from './plugins'
+import { gateRows, pluginRows } from './connections'
+import { createPluginBinding, type PluginBinding, type PluginDeploymentDeps } from './plugins'
 
 // 가이드 §4 로그인 프리 레시피와 같은 타입·조립·요청 경로다.
 const PUBLIC_API_PLUGIN = {
@@ -312,11 +306,9 @@ describe('로그인 프리 가상 배포 — 같은 Plugin 경로 (0248)', () =>
         server: publicApiTools(port),
         registry: d.registry
       })
-      const sources = createConnectionSources({
-        auth: d.auth,
-        gateMembers: [d.auth.bind(CREDENTIAL.id)],
-        plugins: [plugin]
-      })
+      // 배포의 기본 행 조립(`createConnectionSources`)이 아니라 행 조각으로 직접 조립한다 —
+      // 폐쇄망 포크가 그 factory 에 자기 harness·usage 행을 끼우면 인덱스가 밀린다(0294 D-007).
+      const sources = [...gateRows([d.auth.bind(CREDENTIAL.id)]), ...pluginRows([plugin])]
       const state = connectionState(d.auth, d.gate, sources, false)
       expect(state.providers[1]).toEqual({
         id,
@@ -335,14 +327,6 @@ describe('로그인 프리 가상 배포 — 같은 Plugin 경로 (0248)', () =>
       expect(state.providers[0]?.authScheme).toBe('login-required')
     }
   )
-
-  it('기본 production 배포는 로그인 프리 선언·Plugin·연결 행이 비어 있다 (AC15)', () => {
-    const d = deployment()
-    expect(LOGIN_FREE_DEFINITIONS).toEqual([])
-    const plugins = productionPluginBindings({ auth: d.auth, registry: d.registry })
-    expect(plugins).toEqual([])
-    expect(createConnectionSources({ auth: d.auth, gateMembers: [], plugins })).toEqual([])
-  })
 
   it('로그인 프리 id를 gate로 잘못 지정하면 unregistered로 게이트가 닫힌다 (AC4)', () => {
     const d = deployment()

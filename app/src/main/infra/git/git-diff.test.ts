@@ -16,6 +16,7 @@ import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } fr
 import { runGit, type GitRunResult } from './runner'
 import { createGitGateway } from './gateway'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 /** 패치의 그 파일 — 없으면 undefined 라 테스트가 "목록에 없다" 도 단언할 수 있다. */
 function fileOf(files: readonly GitDiffPatchFile[], path: string): GitDiffPatchFile | undefined {
@@ -38,7 +39,7 @@ function shape(file: GitDiffPatchFile | undefined): string[] {
 // hookTimeout 을 같은 값으로 함께 못 박는 이유: 기본값 10s 는 여기 `beforeAll` 의 spawn
 // 11회(6s × 11 = 66s)를 애초에 담지 못한다. 예산이 끊긴 훅/케이스는 git 핸들을 연 채 죽고,
 // 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의 실패가 스위트 전체로 번진다.
-vi.setConfig({ testTimeout: 135_000, hookTimeout: 135_000 })
+vi.setConfig(scaledBudget({ testTimeout: 135_000, hookTimeout: 135_000 }))
 
 const dirs: string[] = []
 

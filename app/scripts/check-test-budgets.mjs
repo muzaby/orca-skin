@@ -27,10 +27,22 @@
 //     막은 "더 작은 캡이 파일 예산을 조용히 이긴다" 가 한 층 아래에서 그대로 일어난다 —
 //     `prepare-progress` 의 `worktree add` 가 병렬 부하에서 10s 를 넘겨 죽었고 99s 파일
 //     예산은 닿지도 않았다. 값을 직접 적는 것도 막고 픽스처 상수 하나만 받는다.
+//
+// 0294 부터는 **모든** `*.test.ts` 에 세 가지를 더 강제한다 — 기준 PC 가 5년 전 사무용
+// 데스크톱이라 예산은 언제나 `기준값 × 배율`(`scripts/test-time.mjs`)이어야 한다.
+//
+// (F) **배율 경유** — `vi.setConfig` 인자는 `scaledBudget({...})`, 케이스·훅 타임아웃 인자는
+//     `scaleMs(...)` 여야 한다. 리터럴로 남은 예산은 배율을 무시하고, 전역(×배율)보다 작아져
+//     "더 작은 캡이 이긴다" 를 다시 만든다.
+// (G) **픽스처 상한 > 최대 파일 예산** — 둘 다 같은 배율을 받으므로 기준값으로 비교한다.
+// (H) **테스트 소유 실시간 마감** — `setTimeout(_, 리터럴 ≥ 1000)` · `Date.now() + 리터럴` 은
+//     `scaleMs` 를 지나거나, production 계약을 시험하는 **의미 대기**로 `SEMANTIC_DELAYS` 에
+//     사유와 함께 등록돼야 한다. 의미 대기를 배율하면 시험하는 계약이 바뀐다.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import process from 'node:process'
+import ts from 'typescript'
 
 const TEST_ROOT = 'src'
 const FIXTURE = 'temp-repo.testfixture'
@@ -72,16 +84,19 @@ export function stripComments(source) {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
 }
 
-/** 최상위 `vi.setConfig({ … })` 의 두 값. 없으면 null. */
+/**
+ * 최상위 `vi.setConfig(scaledBudget({ … }))`(또는 리터럴 `vi.setConfig({ … })`)의 두 **기준값**.
+ * 없으면 null. `scaled` 는 배율 경유 여부 — 리터럴 형태는 규칙 (F) 위반이다.
+ */
 export function parseBudget(text) {
-  const call = /vi\.setConfig\(\s*\{([^}]*)\}\s*\)/.exec(text)
+  const call = /vi\.setConfig\(\s*(scaledBudget\(\s*)?\{([^}]*)\}\s*\)/.exec(text)
   if (!call) return null
-  const body = call[1]
+  const body = call[2]
   const read = (key) => {
     const hit = new RegExp(`${key}\\s*:\\s*(\\d[\\d_]*)`).exec(body)
     return hit ? Number(hit[1].replace(/_/g, '')) : null
   }
-  return { testTimeout: read('testTimeout'), hookTimeout: read('hookTimeout') }
+  return { testTimeout: read('testTimeout'), hookTimeout: read('hookTimeout'), scaled: !!call[1] }
 }
 
 /** 케이스별 인라인 타임아웃 값 목록. */
@@ -179,6 +194,141 @@ export function analyze(relPath, source) {
   return { path: relPath, errors }
 }
 
+// ── 0294 (F)(G)(H) — 모든 테스트 파일, TypeScript AST ─────────────────────────────
+
+/** production 계약을 시험하는 **의미 대기** — 배율하면 시험 대상이 바뀐다. 값은 리터럴 원문. */
+export const SEMANTIC_DELAYS = [
+  {
+    file: 'main/adapters/opencode/v1/adapter.persistent.test.ts',
+    value: '2700',
+    reason: 'SDK transport 의 실제 AbortSignal.timeout(2.5s) 을 넘겨야 하는 대기'
+  },
+  {
+    file: 'main/app/handlers/session-resources.claude-assembly.test.ts',
+    value: '1000',
+    reason: '설정 파일 mtime 을 구별하기 위한 1초 간격'
+  },
+  {
+    file: 'main/features/plugins/mail/sync-manager.test.ts',
+    value: '25_000',
+    reason: '가짜 타이머 아래의 느린 서버 응답 자극 — 명령 타임아웃보다 늦어야 한다'
+  },
+  {
+    file: 'main/adapters/opencode/v1/adapter.test.ts',
+    value: '5_001',
+    reason: 'vi.setSystemTime 으로 신선도 만료 직후를 만든다'
+  },
+  {
+    file: 'main/adapters/opencode/v1/adapter.test.ts',
+    value: '5000',
+    reason: 'vi.setSystemTime 으로 신선도 만료 경계를 만든다'
+  },
+  {
+    file: 'main/infra/git/git-snapshot.test.ts',
+    value: '60_000',
+    reason: '미래 시각 데이터(bornAt) — 대기가 아니다'
+  }
+]
+
+const TEST_CALLS = new Set(['it', 'test', 'describe', 'bench', 'suite'])
+const HOOK_CALLS = new Set(['beforeAll', 'beforeEach', 'afterAll', 'afterEach'])
+const DEADLINE_MIN_MS = 1000
+
+function rootName(expr) {
+  let e = expr
+  while (ts.isCallExpression(e) || ts.isPropertyAccessExpression(e)) e = e.expression
+  return ts.isIdentifier(e) ? e.text : null
+}
+const isFn = (node) => ts.isArrowFunction(node) || ts.isFunctionExpression(node)
+const isCallTo = (node, name) =>
+  ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === name
+const literalMs = (node) => Number(node.text.replace(/_/g, ''))
+
+/**
+ * 한 테스트 파일의 예산·마감 자리. 각 자리는 `{ kind, line, text, ok, reason? }`.
+ * kind = setConfig | case | hook | deadline. `ok` 는 배율 경유(또는 의미 대기 등록) 여부.
+ */
+export function scanBudgetSites(relPath, source) {
+  const src = ts.createSourceFile(relPath, source, ts.ScriptTarget.Latest, true)
+  const sites = []
+  const at = (node) => src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1
+  const text = (node) => node.getText(src).replace(/\s+/g, ' ').slice(0, 80)
+  const semantic = (literal) =>
+    SEMANTIC_DELAYS.find((entry) => entry.file === relPath && entry.value === literal.getText(src))
+  const push = (kind, node, ok, extra = {}) =>
+    sites.push({ kind, line: at(node), text: text(node), ok, ...extra })
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression.getText(src)
+      const name = rootName(node.expression)
+      if (callee === 'vi.setConfig') {
+        const arg = node.arguments[0]
+        push('setConfig', node, !!arg && isCallTo(arg, 'scaledBudget'))
+      } else if (/(^|\.)setTimeout$/.test(callee) && node.arguments[1]) {
+        const delay = node.arguments[1]
+        if (isCallTo(delay, 'scaleMs')) push('deadline', node, true)
+        else if (ts.isNumericLiteral(delay) && literalMs(delay) >= DEADLINE_MIN_MS) {
+          const entry = semantic(delay)
+          push('deadline', node, !!entry, entry ? { reason: entry.reason } : {})
+        }
+      } else if (name && (TEST_CALLS.has(name) || HOOK_CALLS.has(name))) {
+        const kind = HOOK_CALLS.has(name) ? 'hook' : 'case'
+        node.arguments.forEach((arg, index) => {
+          const afterFn = node.arguments.slice(0, index).some(isFn)
+          if (afterFn && !isFn(arg)) push(kind, arg, isCallTo(arg, 'scaleMs'))
+          if (ts.isObjectLiteralExpression(arg)) {
+            for (const prop of arg.properties) {
+              if (ts.isPropertyAssignment(prop) && prop.name.getText(src) === 'timeout')
+                push(kind, prop, isCallTo(prop.initializer, 'scaleMs'))
+            }
+          }
+        })
+      }
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.PlusToken &&
+      /^(Date|performance)\.now\(\)$/.test(node.left.getText(src))
+    ) {
+      if (isCallTo(node.right, 'scaleMs')) push('deadline', node, true)
+      else if (ts.isNumericLiteral(node.right) && literalMs(node.right) >= DEADLINE_MIN_MS) {
+        const entry = semantic(node.right)
+        push('deadline', node, !!entry, entry ? { reason: entry.reason } : {})
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(src)
+  return sites
+}
+
+const SCALE_HINT = {
+  setConfig:
+    '`vi.setConfig(scaledBudget({ … }))` 로 감싼다 — 리터럴 예산은 배율(ORCA_TEST_TIME_SCALE)을 무시한다',
+  case: '케이스 타임아웃은 `scaleMs(기준값)` 이다 — 리터럴은 전역 예산(× 배율)보다 작아져 조용히 이긴다',
+  hook: '훅 타임아웃은 `scaleMs(기준값)` 이다',
+  deadline:
+    '테스트 소유 마감은 `scaleMs(기준값)` 이다 — production 계약을 시험하는 의미 대기라면 SEMANTIC_DELAYS 에 사유와 등록한다'
+}
+
+/** (F)(H) 위반 목록. */
+export function analyzeScale(relPath, source) {
+  return scanBudgetSites(relPath, source)
+    .filter((site) => !site.ok)
+    .map((site) => `:${site.line} ${site.text} — ${SCALE_HINT[site.kind]}`)
+}
+
+/** (G) 픽스처 상한 기준값 > 실-git 파일 기준 예산 최대값. 통과면 null. */
+export function checkFixtureCap(fixtureSource, budgets) {
+  const hit = /FIXTURE_GIT_TIMEOUT_MS\s*=\s*scaleMs\(\s*(\d[\d_]*)\s*\)/.exec(fixtureSource)
+  if (!hit) return '`FIXTURE_GIT_TIMEOUT_MS = scaleMs(기준값)` 형태를 찾지 못했다'
+  const cap = Number(hit[1].replace(/_/g, ''))
+  const max = Math.max(0, ...budgets.flatMap((b) => [b.testTimeout ?? 0, b.hookTimeout ?? 0]))
+  return cap > max
+    ? null
+    : `픽스처 상한 기준값 ${cap} 이 실-git 파일 기준 예산 최대값 ${max} 보다 크지 않다 — 상한이 먼저 끊는다`
+}
+
 /** `dir` 아래의 `*.test.ts` 를 `/` 구분자 상대경로로 모은다. */
 export function listTestFiles(dir, base = dir) {
   const out = []
@@ -198,24 +348,50 @@ export function listTestFiles(dir, base = dir) {
   return out.sort()
 }
 
-export function runCli(appDir = process.cwd()) {
+const FIXTURE_PATH = 'main/infra/git/temp-repo.testfixture.ts'
+
+export function runCli(appDir = process.cwd(), argv = []) {
   const root = join(appDir, TEST_ROOT)
   const results = []
+  const scaleErrors = []
+  const report = []
   for (const rel of listTestFiles(root)) {
-    const verdict = analyze(rel, readFileSync(join(root, rel), 'utf8'))
-    if (verdict) results.push(verdict)
+    const source = readFileSync(join(root, rel), 'utf8')
+    const verdict = analyze(rel, source)
+    if (verdict) results.push({ ...verdict, budget: parseBudget(stripComments(source)) })
+    for (const error of analyzeScale(rel, source)) scaleErrors.push(`${TEST_ROOT}/${rel}${error}`)
+    if (argv.includes('--report'))
+      for (const site of scanBudgetSites(rel, source))
+        report.push(
+          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.text}`
+        )
   }
+  if (argv.includes('--report')) for (const line of report) console.log(line)
+  let fixtureError = null
+  let fixtureSource = null
+  try {
+    fixtureSource = readFileSync(join(root, FIXTURE_PATH), 'utf8')
+  } catch {
+    fixtureSource = null
+  }
+  if (fixtureSource !== null && results.length > 0)
+    fixtureError = checkFixtureCap(
+      fixtureSource,
+      results.map((r) => r.budget ?? {})
+    )
   const failed = results.filter((r) => r.errors.length > 0)
-  if (failed.length > 0) {
-    for (const { path, errors } of failed) {
-      for (const error of errors) console.error(`[test-budgets] ${TEST_ROOT}/${path}: ${error}`)
-    }
+  for (const { path, errors } of failed) {
+    for (const error of errors) console.error(`[test-budgets] ${TEST_ROOT}/${path}: ${error}`)
+  }
+  for (const error of scaleErrors) console.error(`[test-budgets] ${error}`)
+  if (fixtureError) console.error(`[test-budgets] ${TEST_ROOT}/${FIXTURE_PATH}: ${fixtureError}`)
+  if (failed.length > 0 || scaleErrors.length > 0 || fixtureError) {
     console.error(
-      `[test-budgets] ${failed.length}/${results.length} real-git suites violate the budget contract`
+      `[test-budgets] ${failed.length}/${results.length} real-git suites violate the budget contract · ${scaleErrors.length} unscaled budget sites${fixtureError ? ' · fixture cap' : ''}`
     )
     return 1
   }
-  console.log(`[test-budgets] ${results.length} real-git suites ok`)
+  console.log(`[test-budgets] ${results.length} real-git suites ok · all budget sites scaled`)
   return 0
 }
 
@@ -225,7 +401,7 @@ export function runCli(appDir = process.cwd()) {
 const invokedAs = process.argv[1]
 if (invokedAs && import.meta.url === pathToFileURL(invokedAs).href) {
   try {
-    process.exitCode = runCli()
+    process.exitCode = runCli(process.cwd(), process.argv.slice(2))
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1

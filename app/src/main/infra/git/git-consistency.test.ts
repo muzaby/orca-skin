@@ -7,8 +7,9 @@ import { createGitGateway } from './gateway'
 import { gitSnapshot } from './git-snapshot'
 import { gitDiffPatch } from './git-diff'
 import { execGit, FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
-vi.setConfig({ testTimeout: 150_000, hookTimeout: 150_000 })
+vi.setConfig(scaledBudget({ testTimeout: 150_000, hookTimeout: 150_000 }))
 const roots: string[] = []
 afterEach(async () => {
   vi.unstubAllEnvs()

@@ -28,6 +28,6 @@ env -i PATH="$PATH" HOME="$H" TMPDIR="$ROOT/tmp" LANG=C.UTF-8 \
   OPENCODE_CONFIG="$H/corp-opencode.json" OPENCODE_CONFIG_DIR="$ROOT/oc-dir" OPENCODE_DISABLE_PROJECT_CONFIG=true \
   ANTHROPIC_API_KEY=sk-ant-corp ANTHROPIC_BASE_URL=https://llm.corp.example \
   HTTPS_PROXY=http://proxy.corp.example:8080 NO_PROXY=localhost,127.0.0.1 \
-  ./node_modules/.bin/vitest run --reporter=json --outputFile="$OUT" "$@" >/dev/null 2>&1 || true
+  ${VITEST_PREFIX:-} ./node_modules/.bin/vitest run --reporter=json --outputFile="$OUT" "$@" >/dev/null 2>&1 || true
 # HOME 아래에 실행 중 새로 생긴 파일(실제 홈 쓰기) — 비어 있어야 한다.
 find "$H" -newer "$H/corp-opencode.json" -mindepth 1 | sed "s#$H#~#"

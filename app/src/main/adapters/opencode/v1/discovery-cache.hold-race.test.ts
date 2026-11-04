@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
 import { discoveryReadFile, openCodeDiscovery, OpenCodeDiscoveryCache } from './discovery-cache'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 
 let root: string
 const releases: (() => void)[] = []
@@ -42,19 +43,23 @@ it.each(['before-hold', 'during-load'] as const)(
     releases.push(cache.hold(key, changed))
     await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce(), { timeout: 4000, interval: 100 })
   },
-  10000
+  scaleMs(10000)
 )
 
-it('control: notifies a holder about a dependency change made after hold', async () => {
-  root = await realpath(await mkdtemp(join(tmpdir(), 'orca-verify-')))
-  const cache = new OpenCodeDiscoveryCache()
-  const file = join(root, 'opencode.json')
-  await writeFile(file, '{"mcp":{}}')
-  const key = cache.key('configured', root, {})
-  await cache.run(key, () => discoveryReadFile(file))
-  const changed = vi.fn()
-  releases.push(cache.hold(key, changed))
-  await new Promise((done) => setTimeout(done, 50))
-  await writeFile(file, '{"mcp":{"added":{"enabled":true}}}')
-  await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce(), { timeout: 4000, interval: 100 })
-}, 10000)
+it(
+  'control: notifies a holder about a dependency change made after hold',
+  async () => {
+    root = await realpath(await mkdtemp(join(tmpdir(), 'orca-verify-')))
+    const cache = new OpenCodeDiscoveryCache()
+    const file = join(root, 'opencode.json')
+    await writeFile(file, '{"mcp":{}}')
+    const key = cache.key('configured', root, {})
+    await cache.run(key, () => discoveryReadFile(file))
+    const changed = vi.fn()
+    releases.push(cache.hold(key, changed))
+    await new Promise((done) => setTimeout(done, 50))
+    await writeFile(file, '{"mcp":{"added":{"enabled":true}}}')
+    await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce(), { timeout: 4000, interval: 100 })
+  },
+  scaleMs(10000)
+)

@@ -5,13 +5,14 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
 import { gitDiffPatch } from './git-diff'
 import { runGit } from './runner'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 // **파일 예산 225s** — 최악 케이스(100/20줄 커밋)는 실제 git 을 직렬로 25회 띄운다
 // (`repo()` 3 + `commit()` 4회 12 + `gitDiffPatch` 4회 9 + `diff --numstat` 1). self-hosted windows 러너의 실측 spawn 은 약 6s 로
 // 레포 기준(약 2s)의 3배라, 상한을 25 × 6s × 1.5(여유) = 225s 로 잡는다. 글로벌 20s
 // (`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다. 훅도 같은 값이다 — 기본 10s 는
 // 실제 저장소를 만드는 훅을 담지 못하고, 끊긴 훅은 고아를 남겨 정리까지 함께 무너뜨린다.
-vi.setConfig({ testTimeout: 225_000, hookTimeout: 225_000 })
+vi.setConfig(scaledBudget({ testTimeout: 225_000, hookTimeout: 225_000 }))
 
 const repos: string[] = []
 async function git(cwd: string, args: string[]): Promise<string> {

@@ -19,8 +19,9 @@ import { jiraTools } from '../features/plugins/jira/tools'
 import { mailTools } from '../features/plugins/mail/tools'
 import { createPluginBinding } from './deployment/plugins'
 import { createManagedMcp } from './managed-mcp'
+import { scaleMs, scaledBudget } from '../../../scripts/test-time.mjs'
 
-vi.setConfig({ testTimeout: 120_000, hookTimeout: 30_000 })
+vi.setConfig(scaledBudget({ testTimeout: 120_000, hookTimeout: 30_000 }))
 const fixtureData = vi.hoisted(() => ({ root: '' }))
 vi.mock('../infra/config/user-data-path', () => ({ userDataPath: async () => fixtureData.root }))
 let executable: string | undefined
@@ -319,7 +320,7 @@ await server.connect(new StdioServerTransport());`
         requestApproval: approvals
       })
       const errors: unknown[] = []
-      const timeout = setTimeout(() => turn?.close(), 60_000)
+      const timeout = setTimeout(() => turn?.close(), scaleMs(60_000))
       try {
         for await (const batch of turn.eventBatches) {
           errors.push(...batch.events.filter((event) => event.type === 'error'))
@@ -417,7 +418,7 @@ await server.connect(new StdioServerTransport());`
       (child) =>
         new Promise<void>((resolve, reject) => {
           if (child.exitCode !== null || child.signalCode !== null) return resolve()
-          const timeout = setTimeout(() => reject(new Error('CLI did not exit')), 10_000)
+          const timeout = setTimeout(() => reject(new Error('CLI did not exit')), scaleMs(10_000))
           child.once('exit', () => {
             clearTimeout(timeout)
             resolve()
