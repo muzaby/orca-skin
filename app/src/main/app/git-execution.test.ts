@@ -12,8 +12,9 @@ import { gitSnapshot } from '../infra/git/git-snapshot'
 import { repairWorktree, removeWorktree, deleteBranch } from '../infra/git/worktree'
 import { WorktreeService } from '../features/worktrees/service'
 import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from '../infra/git/temp-repo.testfixture'
+import { scaledBudget } from '../../../scripts/test-time.mjs'
 
-vi.setConfig({ testTimeout: 180_000, hookTimeout: 180_000 })
+vi.setConfig(scaledBudget({ testTimeout: 180_000, hookTimeout: 180_000 }))
 const roots: string[] = []
 afterEach(() => removeTempRoots(roots.splice(0)))
 async function git(cwd: string, ...args: string[]): Promise<string> {

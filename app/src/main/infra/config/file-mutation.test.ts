@@ -14,6 +14,7 @@ import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { FileMutationCoordinator } from './file-mutation'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 
 let root: string
 beforeEach(async () => {
@@ -218,7 +219,7 @@ it.skipIf(process.platform !== 'win32')(
     try {
       // Use the CI shell and file signals: Console stdin/stdout depends on the host's console.
       // Readiness still means FileShare.None is held; the production retry budget stays 5s.
-      const deadline = Date.now() + 30_000
+      const deadline = Date.now() + scaleMs(30_000)
       for (;;) {
         if (spawnError) throw spawnError
         if (closed) throw new Error(`lock helper exited before readiness: ${stderr}`)
@@ -247,5 +248,5 @@ it.skipIf(process.platform !== 'win32')(
       await save?.catch(() => undefined)
     }
   },
-  45_000
+  scaleMs(45_000)
 )

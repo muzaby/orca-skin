@@ -34,6 +34,7 @@ import { registerChatHandlers } from './index'
 import { runTurnWithContinuations } from './post-turn'
 import { makeContinuationTurn } from './turn-context'
 import { buildTurnRequest } from './turn-request'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 const ipc = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
@@ -51,7 +52,7 @@ vi.mock('../../infra/ipc/send', () => ({
   broadcastBackgroundEvent: vi.fn()
 }))
 
-vi.setConfig({ testTimeout: 15_000 })
+vi.setConfig(scaledBudget({ testTimeout: 15_000 }))
 
 type Prompt = { messageID: string; parts: Array<{ type: string; text?: string }> }
 type UserCommit = Parameters<NonNullable<TurnPersistSink<WebContents>['commitUserMessage']>>[1]

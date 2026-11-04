@@ -14,6 +14,7 @@ import { removeTempRoots } from './temp-repo.testfixture'
 import { gitBranches, gitCheckout } from './git-cli'
 import { gitSnapshot } from './git-snapshot'
 import type { GitStatus } from '../../../shared/ipc'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 const gitStatus = async (cwd: string): Promise<GitStatus> =>
   (await gitSnapshot({ cwd, includeSummary: false })).status
 
@@ -27,7 +28,7 @@ const gitStatus = async (cwd: string): Promise<GitStatus> =>
 // 케이스별 인라인 캡(옛 30s)은 두지 않는다 — 인라인 값이 더 작으면 파일 예산을 조용히 이겨
 // 예산을 건 의미가 사라진다(0218 에서 `service.test.ts` 가 198s 예산에 30s 캡으로 죽었다).
 // `scripts/check-test-budgets.mjs` 가 이 두 규칙을 게이트로 잡는다.
-vi.setConfig({ testTimeout: 369_000, hookTimeout: 369_000 })
+vi.setConfig(scaledBudget({ testTimeout: 369_000, hookTimeout: 369_000 }))
 
 const roots: string[] = []
 

@@ -15,6 +15,7 @@ import {
 } from './adapter.testfixture'
 import { openCodePluginId } from './plugin-installation'
 import { OpenCodeSessionContexts } from './session-context'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
 
@@ -280,45 +281,50 @@ describe('OpenCode persistent SDK channel', () => {
       }
     }
   )
-  it('waits beyond the menu deadline for native command dispatch without submitting twice', async () => {
-    const f = fixture({ text: '/native:slow exact argument' })
-    const gate = Promise.withResolvers<void>()
-    const reads: AbortSignal[] = []
-    f.setCommandRead(async (request) => {
-      reads.push(request.signal)
-      await abortableGate(gate.promise, request.signal)
-      return jsonResponse([{ name: 'native:slow', hints: ['query'], source: 'command' }])
-    })
-    const iterator = f.live.eventBatches[Symbol.asyncIterator]()
-    const receiving = frame(iterator)
-    try {
-      await vi.waitFor(() => expect(reads).toHaveLength(1))
-      const menu = f.live.nativeResources!()
-      await vi.waitFor(() => expect(reads).toHaveLength(2))
-      // Use the real AbortSignal.timeout clock used by the installed SDK transport.
-      await new Promise((resolve) => setTimeout(resolve, 2700))
-      expect(reads[0]!.aborted).toBe(false)
-      expect(reads[1]!.aborted).toBe(true)
-      gate.resolve()
-      const batches = await receiving
-      expect(batches.flatMap((batch) => batch.events).some((value) => value.type === 'error')).toBe(
-        false
-      )
-      expect((await menu).commands).toBeUndefined()
-      const sent = f.requests.filter(
-        (request) => request.method === 'POST' && new URL(request.url).pathname.endsWith('/command')
-      )
-      expect(sent).toHaveLength(1)
-      expect(await sent[0]!.json()).toMatchObject({
-        command: 'native:slow',
-        arguments: 'exact argument'
+  it(
+    'waits beyond the menu deadline for native command dispatch without submitting twice',
+    async () => {
+      const f = fixture({ text: '/native:slow exact argument' })
+      const gate = Promise.withResolvers<void>()
+      const reads: AbortSignal[] = []
+      f.setCommandRead(async (request) => {
+        reads.push(request.signal)
+        await abortableGate(gate.promise, request.signal)
+        return jsonResponse([{ name: 'native:slow', hints: ['query'], source: 'command' }])
       })
-      expect(f.requests.some((request) => request.url.includes('/prompt_async'))).toBe(false)
-    } finally {
-      gate.resolve()
-      await dispose(f.live, iterator)
-    }
-  }, 10_000)
+      const iterator = f.live.eventBatches[Symbol.asyncIterator]()
+      const receiving = frame(iterator)
+      try {
+        await vi.waitFor(() => expect(reads).toHaveLength(1))
+        const menu = f.live.nativeResources!()
+        await vi.waitFor(() => expect(reads).toHaveLength(2))
+        // Use the real AbortSignal.timeout clock used by the installed SDK transport.
+        await new Promise((resolve) => setTimeout(resolve, 2700))
+        expect(reads[0]!.aborted).toBe(false)
+        expect(reads[1]!.aborted).toBe(true)
+        gate.resolve()
+        const batches = await receiving
+        expect(
+          batches.flatMap((batch) => batch.events).some((value) => value.type === 'error')
+        ).toBe(false)
+        expect((await menu).commands).toBeUndefined()
+        const sent = f.requests.filter(
+          (request) =>
+            request.method === 'POST' && new URL(request.url).pathname.endsWith('/command')
+        )
+        expect(sent).toHaveLength(1)
+        expect(await sent[0]!.json()).toMatchObject({
+          command: 'native:slow',
+          arguments: 'exact argument'
+        })
+        expect(f.requests.some((request) => request.url.includes('/prompt_async'))).toBe(false)
+      } finally {
+        gate.resolve()
+        await dispose(f.live, iterator)
+      }
+    },
+    scaleMs(10_000)
+  )
 
   it('fails command preparation safely before acceptance without aborting or submitting a prompt', async () => {
     const f = fixture({ text: '/native:slow' })

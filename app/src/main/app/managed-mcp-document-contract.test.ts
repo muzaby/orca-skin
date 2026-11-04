@@ -3,9 +3,9 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, it, vi } from 'vitest'
 import ts from 'typescript'
-import { createPluginBindings, type PluginDeploymentDeps } from './deployment/plugins'
+import { scaledBudget } from '../../../scripts/test-time.mjs'
 
-vi.setConfig({ testTimeout: 60_000 })
+vi.setConfig(scaledBudget({ testTimeout: 60_000 }))
 it('matches deployment recipes and secret boundaries', () => {
   const guide = readFileSync(
     new URL('../../../../docs/guides/closed-network-extensions.md', import.meta.url),
@@ -62,11 +62,4 @@ ${recipe}`
       (diagnostic) => diagnostic.code
     )
   ).toEqual([2322])
-  const add = vi.fn(),
-    remove = vi.fn()
-  expect(
-    createPluginBindings({ auth: {} as PluginDeploymentDeps['auth'], registry: { add, remove } })
-  ).toEqual([])
-  expect(add).not.toHaveBeenCalled()
-  expect(remove).not.toHaveBeenCalled()
 })

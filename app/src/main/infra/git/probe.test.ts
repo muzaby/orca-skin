@@ -5,8 +5,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { execGit, removeTempRoots } from './temp-repo.testfixture'
 import { probeRepo } from './probe'
 import { createGitGateway } from './gateway'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
-vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 })
+vi.setConfig(scaledBudget({ testTimeout: 90_000, hookTimeout: 90_000 }))
 const roots: string[] = []
 afterEach(() => removeTempRoots(roots.splice(0)))
 const git = (cwd: string, ...args: string[]): Promise<unknown> =>

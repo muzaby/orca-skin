@@ -12,6 +12,7 @@ import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.test
 import type { DbQueries } from '../../infra/db'
 import * as probe from '../../infra/git/probe'
 import { WorktreeService } from './service'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 // **파일 예산 117s** — 최악 케이스(거부 뒤 재시도)는 실제 git 을 직렬로 13회 띄운다
 // (`repo()` 5 + 거부되는 `prepare()` 2 + 성공하는 `prepare()` 6). self-hosted windows 러너의
@@ -20,7 +21,7 @@ import { WorktreeService } from './service'
 // 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다: 예산이 끊긴
 // 케이스는 git 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 케이스 하나의
 // 실패가 스위트 전체로 번진다.
-vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
+vi.setConfig(scaledBudget({ testTimeout: 117_000, hookTimeout: 117_000 }))
 
 const roots: string[] = []
 // 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git

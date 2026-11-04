@@ -64,6 +64,19 @@ vi.mock('./handlers/settings', () => ({
 }))
 vi.mock('./handlers/providers', () => ({ registerConnectionHandlers: vi.fn() }))
 vi.mock('./daily-gate', () => ({ startDailyGate: () => ({ dispose: vi.fn() }) }))
+// 이 테스트가 쓰는 배포를 직접 정한다 — production 배포(폐쇄망 포크가 게이트·인증을 채운다)에
+// 기대면 포크에서 부팅이 stub auth 의 `tryBind` 를 부른다(0294 D-007).
+// 원본을 펼쳐 둔다 — 포크가 더한 상수(게이트가 참조)를 지우면 mock 자체가 깨진다.
+vi.mock('./deployment/auth-definitions', async (original) => ({
+  ...(await original<typeof import('./deployment/auth-definitions')>()),
+  AUTH_DEFINITIONS: [],
+  LOGIN_FREE_DEFINITIONS: []
+}))
+vi.mock('./deployment/gate-auth', async (original) => ({
+  ...(await original<typeof import('./deployment/gate-auth')>()),
+  GATE_AUTH_DEFINITIONS: []
+}))
+vi.mock('./deployment/spawn-env', () => ({ SPAWN_ENV_INJECTOR: undefined }))
 vi.mock('./deployment/plugins', () => ({ createPluginBindings: () => [] }))
 vi.mock('./deployment/connections', () => ({ createConnectionSources: () => [] }))
 vi.mock('./auth-resume', () => ({ createAuthResume: () => ({ resuming: () => false }) }))

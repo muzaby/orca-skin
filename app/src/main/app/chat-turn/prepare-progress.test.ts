@@ -20,6 +20,7 @@ import type { WorktreePrepareStep } from '../../../shared/ipc'
 import { runGit } from '../../infra/git/runner'
 import { prepareTurnWorktree } from './prepare-worktree'
 import { WorktreeService } from '../../features/worktrees/service'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 // **파일 예산 180s** — 최악 케이스(다섯 단계)는 실제 git 을 직렬로 11회 띄운다(`makeRepo` 5 +
 // `prepare` 의 좌표·이름·add 6). self-hosted windows 러너의 실측 spawn 은 약 6s 로 레포
@@ -30,7 +31,7 @@ import { WorktreeService } from '../../features/worktrees/service'
 // 핸들을 연 채 죽고, 남은 고아가 정리 `rm` 을 EBUSY 로 밀어 실패가 스위트 전체로 번진다.
 // 글로벌 20s(`vitest.config.ts`)는 그대로 두고 **이 파일만** 넓힌다 — 전역을 올리면 git 을
 // 쓰지 않는 3천여 케이스의 멈춤 보고까지 함께 늦어진다. 훅도 같은 값이다.
-vi.setConfig({ testTimeout: 180_000, hookTimeout: 180_000 })
+vi.setConfig(scaledBudget({ testTimeout: 180_000, hookTimeout: 180_000 }))
 
 const dirs: string[] = []
 // 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git

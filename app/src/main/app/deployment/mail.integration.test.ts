@@ -13,7 +13,7 @@ import { createMailAuth, mailSessionConfig } from '../../features/plugins/mail/a
 import { mailTools } from '../../features/plugins/mail/tools'
 import { createMailSyncManager } from '../../features/plugins/mail/sync-manager'
 import { RuntimeToolRegistry } from '../../features/extensions/common/runtime-tool-registry'
-import { createPluginBinding, createPluginBindings, type PluginDeploymentDeps } from './plugins'
+import { createPluginBinding, type PluginDeploymentDeps } from './plugins'
 import { confluenceTools } from '../../features/plugins/confluence/tools'
 import { patSpec } from '../../features/auth/specs/credential'
 import { Pop3Error } from '../../infra/net/pop3-errors'
@@ -442,7 +442,7 @@ describe('mail declaration → auth → plugin → infra', () => {
       expect((await stat(source!.path)).mtimeMs).toBe(beforeStat.mtimeMs)
     }
   })
-  it('compiles HTTP and POP3 recipes with identical deployment deps; OSS default remains empty', async () => {
+  it('compiles HTTP and POP3 recipes with identical deployment deps', async () => {
     const f = await setup()
     const deps: PluginDeploymentDeps = { auth: f.runtime, registry: f.registry }
     const wikiAuth = deps.auth.bindForPlugin('wiki')
@@ -455,7 +455,6 @@ describe('mail declaration → auth → plugin → infra', () => {
       f.binding
     ]
     expect(bindings.map((binding) => binding.auth.authId)).toEqual(['wiki', 'mail'])
-    expect(createPluginBindings(deps)).toEqual([])
     expect(f.sockets).toHaveLength(0)
   })
 

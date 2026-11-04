@@ -21,6 +21,7 @@ import {
 } from '../infra/git/temp-repo.testfixture'
 import { runGit } from '../infra/git/runner'
 import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
+import { scaledBudget } from '../../../scripts/test-time.mjs'
 
 // `git worktree prune -v` 는 진단을 **stderr** 로 낸다. stdout 만 보면 어떤 상태에서도 빈
 // 문자열이라 단언이 항상 통과한다 — 적대 케이스가 이 실수를 잡았다.
@@ -31,7 +32,7 @@ async function pruneDiagnostics(repoRoot: string): Promise<string> {
   return `${result.stdout}${result.stderr}`.trim()
 }
 
-vi.setConfig({ testTimeout: 117_000, hookTimeout: 117_000 })
+vi.setConfig(scaledBudget({ testTimeout: 117_000, hookTimeout: 117_000 }))
 
 beforeAll(warmFileSqlite)
 

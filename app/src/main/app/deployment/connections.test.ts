@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthSnapshot, BoundAuth } from '../../contracts/auth'
 import { DEFAULT_PROVIDER_CATALOG_ICON } from '../../../shared/provider-catalog'
-import { createConnectionSources, gateRows, harnessRows, usageRows } from './connections'
+import { gateRows, harnessRows, usageRows } from './connections'
 
 function auth(authId: string): BoundAuth {
   const snapshot: AuthSnapshot = {
@@ -67,17 +67,10 @@ describe('connection deployment presentation input', () => {
     expect(() => usageRows([{ auth: auth('usage'), catalog: invalid }])).toThrow('title.ko')
   })
 
-  it('기본 factory는 gate·plugin row만 만든다', () => {
-    const sources = createConnectionSources({
-      auth: {
-        bind: (id) => auth(id),
-        bindLoginFreePlugin: () => {
-          throw new Error('unused login-free binding')
-        }
-      },
-      gateMembers: [auth('gate')],
-      plugins: []
-    })
+  // 배포의 기본 행 조립(`createConnectionSources`)은 폐쇄망 포크가 harness·usage 행을 끼워 바꾸는
+  // 파일이라 그 내용을 고정하지 않는다(0294 D-007). 행 조각의 규칙만 본다.
+  it('표시 입력이 없는 gate 행은 catalog 키를 만들지 않는다', () => {
+    const sources = gateRows([auth('gate')])
     expect(sources.map((source) => source.category)).toEqual(['gate'])
     expect(sources[0]).not.toHaveProperty('catalog')
   })

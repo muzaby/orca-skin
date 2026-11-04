@@ -7,8 +7,9 @@ import { gitDiffPatch } from './git-diff'
 import { createGitGateway } from './gateway'
 import { runGit } from './runner'
 import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
-vi.setConfig({ testTimeout: 120_000, hookTimeout: 120_000 })
+vi.setConfig(scaledBudget({ testTimeout: 120_000, hookTimeout: 120_000 }))
 const roots: string[] = []
 afterEach(() => removeTempRoots(roots.splice(0)))
 async function git(cwd: string, ...args: string[]): Promise<string> {

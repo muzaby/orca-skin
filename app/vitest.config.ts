@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config'
+import { BASE_CASE_MS, BASE_HOOK_MS, scaleMs } from './scripts/test-time.mjs'
 
 // 순수 함수 단위 테스트 전용. main 모듈 중 electron 비의존 부분(expand/convert 등)만 대상.
 // electron 의존 모듈(store/secret-store)은 import 하지 않으므로 node 환경으로 충분하다.
@@ -10,19 +11,18 @@ export default defineConfig({
     // 아니라 닫힌 DB의 정리 훅도 제한을 넘겼으므로 파일 단위로 직렬화한다.
     // 로컬 병렬도와 각 test/hook 예산은 유지한다.
     maxWorkers: process.platform === 'win32' && process.env.CI === 'true' ? 1 : undefined,
-    // **케이스 예산 20초** (0211 ΔV5 — CI run 33716628944·33718212925 와 로컬 병렬 실행 실측).
+    // **예산 = 기준값 × 배율** (0294). 기준 PC 는 5년 전 사무용 데스크톱이고, 배율 기본값은 3,
+    // 더 느린 러너는 `ORCA_TEST_TIME_SCALE` 로 올린다 — 정본은 `scripts/test-time.mjs`.
     //
-    // 기본값 5초는 windows 에서 **임시 디렉토리 + sqlite/git 를 실제로 쓰는 스위트**를 병렬로
-    // 돌릴 때 일이 끝나기 전에 끊는다. 0210 r4 가 프로세스 최초의 sqlite 비용을
-    // `beforeAll(warmFileSqlite)` 로 창 밖에 옮겼지만 남은 비용은 **케이스마다 치르는 것**이다 —
-    // `openDb()` 하나가 mkdtemp + 새 핸들 + 마이그레이션 20개이고, 재시작 케이스는 그것을 두 번
-    // 한다. 로컬 병렬 실행에서 `worktrees/{service,safe-delete,ipc-integration}` ·
-    // `infra/git/{git-cli,git-diff}` **5파일 6케이스**가 같은 형태로 끊겼고, 끊긴 케이스는 핸들을
-    // 연 채 죽어 `afterEach` 의 `rm` 이 **EBUSY** 로 한 번 더 실패했다(12 = 6 × 2).
+    // 케이스 기준값 20초는 0211 ΔV5 실측이다(CI run 33716628944·33718212925 와 로컬 병렬).
+    // 임시 디렉토리 + sqlite/git 를 실제로 쓰는 스위트는 케이스마다 mkdtemp·핸들·마이그레이션을
+    // 치른다. 훅 기준값도 같은 20초다 — vitest 기본 10초는 저장소를 세우는 훅을 담지 못한다.
     //
     // **늘려도 멈춤은 그대로 잡힌다.** 영영 resolve 되지 않는 promise 는 예산과 무관하게 걸리고,
-    // 바뀌는 것은 그 사실을 **보고하기까지의 시간**뿐이다. 직렬 실행(`--maxWorkers=1`)에서 같은
-    // 스위트가 3,135케이스 전건 green 인 것이 "일이 많은 것이지 멈춘 것이 아니다" 의 근거다.
-    testTimeout: 20_000
+    // 바뀌는 것은 그 사실을 **보고하기까지의 시간**뿐이다.
+    testTimeout: scaleMs(BASE_CASE_MS),
+    hookTimeout: scaleMs(BASE_HOOK_MS),
+    // 호스트 격리(HOME·XDG·git 설정·하네스 변수)와 `vi.waitFor` 배율 — 테스트 파일마다 실행된다.
+    setupFiles: ['./scripts/vitest-setup.mjs']
   }
 })

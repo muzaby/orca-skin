@@ -9,6 +9,7 @@ import { ClaudeAdapter } from '../../adapters/claude/adapter'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { ProjectResourceSync } from '../project-resource-sync'
 import { registerSessionResourceHandlers } from './session-resources'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 const fx = vi.hoisted(() => ({
   enabled: new Set<string>(),
   messages: [] as SDKMessage[],
@@ -54,77 +55,81 @@ const write = (p: string, v: unknown): void => {
   writeFileSync(p, JSON.stringify(v))
 }
 /** Real Claude adapter, native settings file, watcher and IPC read assembly. */
-it('reconciles external plugin selections and publishes the final state through the real watcher', async () => {
-  temp = mkdtempSync(join(tmpdir(), 'orca-toggle-assembly-'))
-  const cwd = join(temp, 'desk'),
-    root = join(temp, 'claude')
-  fx.root = join(temp, 'plugins')
-  mkdirSync(cwd, { recursive: true })
-  const names = ['a', 'b', 'c']
-  for (const name of names) {
-    write(join(fx.root, name, '.claude-plugin/plugin.json'), { name })
-    fx.enabled.add(name)
-  }
-  write(join(root, 'settings.json'), {
-    enabledPlugins: Object.fromEntries(names.map((name) => [`${name}@m`, true]))
-  })
-  write(join(root, 'plugins/installed_plugins.json'), {
-    plugins: Object.fromEntries(
-      names.map((name) => [`${name}@m`, [{ scope: 'user', installPath: join(fx.root, name) }]])
-    )
-  })
-  const live = new ClaudeAdapter().sendMessage({
-    sessionId: null,
-    cwd,
-    text: 'x',
-    env: { CLAUDE_CONFIG_DIR: root },
-    extensions: { skills: [], hooks: { normalized: {} } }
-  }) as unknown as GovernedLiveTurn
-  const snapshots: NativeResources[] = []
-  const reader: { read?: (request: { sessionId: string }) => Promise<NativeResources> } = {}
-  const target = {
-    backend: 'claude' as const,
-    cwd,
-    key: cwd,
-    request: { sessionId: 'S' },
-    runtime: live
-  }
-  const sync = new ProjectResourceSync({
-    resolve: () => target,
-    targets: () => [target],
-    policy: () => undefined,
-    idle: () => true,
-    read: (request) => reader.read!(request as { sessionId: string }),
-    emit: (_sessionId, value) => snapshots.push(value)
-  })
-  try {
-    reader.read = registerSessionResourceHandlers({
-      lookup: (id) => (id === 'S' ? live : undefined),
-      projectSync: sync
-    }) as typeof reader.read
-    sync.tick()
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    write(join(cwd, '.claude/settings.local.json'), {
-      enabledPlugins: { 'a@m': false, 'b@m': false }
+it(
+  'reconciles external plugin selections and publishes the final state through the real watcher',
+  async () => {
+    temp = mkdtempSync(join(tmpdir(), 'orca-toggle-assembly-'))
+    const cwd = join(temp, 'desk'),
+      root = join(temp, 'claude')
+    fx.root = join(temp, 'plugins')
+    mkdirSync(cwd, { recursive: true })
+    const names = ['a', 'b', 'c']
+    for (const name of names) {
+      write(join(fx.root, name, '.claude-plugin/plugin.json'), { name })
+      fx.enabled.add(name)
+    }
+    write(join(root, 'settings.json'), {
+      enabledPlugins: Object.fromEntries(names.map((name) => [`${name}@m`, true]))
     })
-    await vi.waitFor(
-      () => {
-        expect(
-          snapshots.at(-1)?.items.map((item) => [item.name, item.enabled, item.status])
-        ).toEqual([
-          ['a@m', false, 'disabled'],
-          ['b@m', false, 'disabled'],
-          ['c@m', true, 'enabled']
-        ])
-        expect(snapshots.at(-1)?.configurationPending).toBeUndefined()
-      },
-      { timeout: 5000 }
-    )
-  } finally {
-    sync.close()
-    live.close()
-  }
-}, 20000)
+    write(join(root, 'plugins/installed_plugins.json'), {
+      plugins: Object.fromEntries(
+        names.map((name) => [`${name}@m`, [{ scope: 'user', installPath: join(fx.root, name) }]])
+      )
+    })
+    const live = new ClaudeAdapter().sendMessage({
+      sessionId: null,
+      cwd,
+      text: 'x',
+      env: { CLAUDE_CONFIG_DIR: root },
+      extensions: { skills: [], hooks: { normalized: {} } }
+    }) as unknown as GovernedLiveTurn
+    const snapshots: NativeResources[] = []
+    const reader: { read?: (request: { sessionId: string }) => Promise<NativeResources> } = {}
+    const target = {
+      backend: 'claude' as const,
+      cwd,
+      key: cwd,
+      request: { sessionId: 'S' },
+      runtime: live
+    }
+    const sync = new ProjectResourceSync({
+      resolve: () => target,
+      targets: () => [target],
+      policy: () => undefined,
+      idle: () => true,
+      read: (request) => reader.read!(request as { sessionId: string }),
+      emit: (_sessionId, value) => snapshots.push(value)
+    })
+    try {
+      reader.read = registerSessionResourceHandlers({
+        lookup: (id) => (id === 'S' ? live : undefined),
+        projectSync: sync
+      }) as typeof reader.read
+      sync.tick()
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      write(join(cwd, '.claude/settings.local.json'), {
+        enabledPlugins: { 'a@m': false, 'b@m': false }
+      })
+      await vi.waitFor(
+        () => {
+          expect(
+            snapshots.at(-1)?.items.map((item) => [item.name, item.enabled, item.status])
+          ).toEqual([
+            ['a@m', false, 'disabled'],
+            ['b@m', false, 'disabled'],
+            ['c@m', true, 'enabled']
+          ])
+          expect(snapshots.at(-1)?.configurationPending).toBeUndefined()
+        },
+        { timeout: 5000 }
+      )
+    } finally {
+      sync.close()
+      live.close()
+    }
+  },
+  scaleMs(20000)
+)
 
 // Exercise the settled SDK path; sdk.test.ts covers cold import and cancellation.
 await loadClaudeSdk()

@@ -18,12 +18,13 @@
 
 import { execFile, type ChildProcess, type ExecFileOptions } from 'node:child_process'
 import { rm } from 'node:fs/promises'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 
 /** 아직 끝나지 않은 추적 자식. 케이스가 끊겨도 여기 남아 정리 훅이 찾을 수 있다. */
 const running = new Set<ChildProcess>()
 
 /** 종료를 기다리는 상한. 안 죽는 자식에 매달려 정리 전체를 막지 않는다. */
-const KILL_GRACE_MS = 5_000
+export const KILL_GRACE_MS = scaleMs(5_000)
 
 /**
  * 실-git 스위트가 `runGit` 을 픽스처로 쓸 때 넘기는 **프로세스 상한**.
@@ -35,14 +36,14 @@ const KILL_GRACE_MS = 5_000
  * stderr 에는 `Preparing worktree` 한 줄뿐 fatal 이 없었으며 99s 파일 예산은 닿지도 않았다.
  *
  * git 의 속도는 호스트 몫이라 orca 가 정할 수 없다. 그래서 **어떤 파일 예산보다도 크게**
- * 잡아(현재 최대 369s) 판정에서 빼고, 상한은 고아를 언젠가 반드시 죽이는 backstop 으로만
+ * 잡아(기준값 기준 현재 최대 369s — 둘 다 같은 배율을 받으므로 대소가 유지되고 게이트 (G)가 강제한다) 판정에서 빼고, 상한은 고아를 언젠가 반드시 죽이는 backstop 으로만
  * 남긴다 — 0(무제한)으로 두면 예산에 끊긴 케이스의 `runGit` 자식은 `execGit` 과 달리 추적
  * 밖이라 아무도 죽이지 않는다.
  */
-export const FIXTURE_GIT_TIMEOUT_MS = 600_000
+export const FIXTURE_GIT_TIMEOUT_MS = scaleMs(600_000)
 
-/** `rm` 재시도 — 200·400·…·2000ms 로 늘어 총 11초. 짧은 git 명령이 끝나기엔 충분하다. */
-const RM_RETRY = { maxRetries: 10, retryDelay: 200 } as const
+/** `rm` 재시도 — 기준 200·400·…·2000ms 로 늘어 총 11초(× 배율). 짧은 git 명령이 끝나기엔 충분하다. */
+export const RM_RETRY = { maxRetries: 10, retryDelay: scaleMs(200) } as const
 
 /**
  * `promisify(execFile)` 과 **같은 모양**이다 — 호출부는 그대로 두고 추적만 얹는다.

@@ -49,6 +49,9 @@ vi.mock('../../../infra/config/orca-config', () => ({
   appEnv: () => ({}),
   secretEnvAllowlist: () => []
 }))
+// spawn env 주입점은 폐쇄망 포크가 채운다 — 채워지면 서버 env 가 달라져 프로세스 수 단언이
+// 배포에 따라 갈린다. 이 테스트는 기본 주입점 없음을 자기 fixture 로 정한다(0294 D-007).
+vi.mock('../../deployment/spawn-env', () => ({ SPAWN_ENV_INJECTOR: undefined }))
 vi.mock('../registry', async (original) => {
   const { openCodeMainModule } = await import('./module')
   return {

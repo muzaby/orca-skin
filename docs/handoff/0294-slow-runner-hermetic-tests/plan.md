@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-03 |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7` |
-| 상태 | plan/READY |
+| 상태 | impl/IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다 |
 | 이번 V revision | `V1` |
@@ -497,69 +497,120 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: §10 계약 세부 그대로 — `test-time.mjs`·`test-host.mjs`·`vitest-setup.mjs`·게이트 (F)(G)(H)·`--report`.
+- 이견 / 현실성 문제: AC12 Git 변이 M-C(`GIT_CONFIG_GLOBAL` 미설정)는 HOME 리다이렉트와 겹쳐 민감도 0이었다 — 시스템 테스트 입력에 `GIT_CONFIG_COUNT`·`KEY_n`·`VALUE_n`(env 주입 설정, `GIT_` 지움만 막음)을 더해 M-C를 `GIT_` 지움 제거로 심었다(아래 차이).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01 EP-01 | 전역 케이스·훅 | 2 | 2/2 | `rg -n "testTimeout\|hookTimeout" app/vitest.config.ts` → 2 · `scripts/test-time.test.mjs`'케이스·훅 예산 = 20_000 × 배율' · `test-environment.test.ts`'케이스 예산은 기준값 × 배율이다' | 배율 미설정·1·5 → 60_000·20_000·100_000(t·h 각각) | — |
+| VP-01 EP-02 | `vi.waitFor` 배율 | 1 | 1/1 | `rg -n "vi\.waitFor\s*=" app/scripts` → 1 · `test-time.test.mjs`'waitFor 옵션 네 갈래' · `test-environment.test.ts`'무옵션 vi.waitFor 는 … 1초를 넘겨' | 미지정·숫자 4000·객체(timeout 2000+interval 10)·객체(interval만) → 15_000·12_000·6_000(+10)·10_000(배율 2) | 호출 173/52 = 기존 172/51 + 신규 배선 테스트 1 |
+| VP-01·09 EP-03 | `vi.setConfig(scaledBudget)` | 20 | 20/20 | `node scripts/check-test-budgets.mjs --report` setConfig 21 − §10 목록 20 = 차집합 `{infra/test-environment.hostile}`(신규·scaled) · gate (F) `check-test-budgets.test.mjs`'리터럴 vi.setConfig 는 걸리고…' | 기준값 = 기존 리터럴 그대로(diff) | — |
+| VP-01·09 EP-04 | 케이스 인라인 `scaleMs` | 6 | 6/6 | `--report` case 6 scaled · gate (F)'케이스 셋째 인자 리터럴은 걸리고…' | it·it.each·it.skipIf 형태 각각 | — |
+| VP-01·09 EP-05 | 마감 4 scaled + 의미 6 | 10 | 10/10 | `--report` deadline 4 scaled · 6 semantic · gate (H) 3케이스 | 의미 대기: 파일·값 둘 다 맞아야 통과(다른 파일 같은 값 red) | — |
+| VP-01 EP-06 | 픽스처 상수 | 3 | 3/3 | `rg -n "const (FIXTURE_GIT_TIMEOUT_MS\|KILL_GRACE_MS\|RM_RETRY)"` → 3 · `test-time.test.mjs`'상한·kill 유예·rm 재시도 간격이 기준값 × 배율이다' · gate (G) | 600_000·5_000·200 각각(서로 다른 기준값) | — |
+| VP-02 EP-07 | CI 상한·배율 전달 | 4 | 4/4 | `rg -n "^\s+timeout-minutes\|^\s+ORCA_TEST_TIME_SCALE:" .github/workflows` → 4 · `test-time.test.mjs`'작업 상한은…'·'두 Test 단계가…' · Windows CI 실행은 push 뒤(검증자 확인) | ci 90 / release 135 서로 다른 기본값 | Windows CI 실행 결과 |
+| VP-02·10 EP-08 | 배율 해석 | 2 | 2/2 | `rg -n "export (function resolveTestTimeScale\|const TEST_TIME_SCALE)\b"` → 2 · `test-time.test.mjs`'배율 해석' 3케이스 · '잘못된 배율이면 config 로드가 실패한다' · 'vitest 자체가 비정상 종료한다' | ''·공백·1·1.5·5·0·0.99·-1·abc·Infinity·NaN | — |
+| VP-03·08·11 EP-09 | 격리 env | 15 | 15/15 | `test-host.test.mjs` 5케이스 · `test-environment.test.ts` 격리 4케이스 · `test-environment.hostile.test.ts` | 지움 9키·보존 7키 표본 · win32/linux 분기 · 바꾸는 GIT_ 키 비지움 | 시스템 git 설정 파일 실물은 UT·배선까지(plan §10 Git 메모) |
+| VP-04 EP-10 | 배포 결합 | 13 | 13/13 | 음성 `rg … -g '*.test.ts'` → 0 · 포크 모사(`fork-deployment.py` → 전체 스위트) 기준 대비 +0 · 각 파일 green | 포크 id `acme-*`(fixture 와 겹치지 않음) | — |
+| VP-05 EP-11 | 동적 빈 포트 | 1 | 1/1 | `rg -n "nextPort\|45211" app/src -g '*.test.ts'` → 0 · `loopback-callback.test.ts` 전 케이스 green | 같은 포트 재바인딩 단언 유지 | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초)
+- §10 자리 목록 밖에서 본 운반 자리: `bootstrap.harness.test.ts`의 `spawn-env` mock도 더했다(필수 아님 — 포크 spawn env 가 그 테스트 경로에 닿지 않게 한 방어). 목록 밖 리터럴 예산 0(`--report` LITERAL 0줄).
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(최초).
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | 위 EP-01~06 행 | M1~M6 RED |
+| VP-02 | REQUIRED | SELF_PASS | 위 EP-07·08 행 (Windows CI 대기) | M7·M8 RED |
+| VP-03 | REQUIRED | SELF_PASS | `test-environment.hostile.test.ts`'합성 사내 호스트에서…' | M-A·M-B·M-C·M-D RED |
+| VP-04 | REQUIRED | SELF_PASS | 포크 모사 +0 · 음성 검색 0 | M9 RED(2자리) |
+| VP-05 | REQUIRED | SELF_PASS | `loopback-callback.test.ts` 7케이스 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `test-environment.test.ts`'홈은 이 파일의 임시 루트…'·'자식 프로세스도 격리된 홈을 받는다' | not selected |
+| VP-07 | REQUIRED | SELF_PASS | VP-01 좌표 | M1~M6 |
+| VP-08 | REQUIRED | SELF_PASS | VP-03·AC11 좌표 | M-A~M-D |
+| VP-09 | REQUIRED | SELF_PASS | `check-test-budgets.test.mjs` 38→신규 포함 전 케이스 · `gate:node scripts/check-test-budgets.mjs` | M3~M6 |
+| VP-10 | REQUIRED | SELF_PASS | `test-time.test.mjs` | M7 |
+| VP-11 | REQUIRED | SELF_PASS | `test-host.test.mjs` | M10 RED |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| M1 `vitest.config.ts` hookTimeout 제거 | VP-01 선택 증거 | 최초 | `test-time.test.mjs` config 예산 | 잠김 |
+| M2 `scaledWaitForOptions` 객체 timeout 비배율 | VP-01 | 최초 | waitFor 옵션 네 갈래 | 잠김 |
+| M3 `repository.test.ts:13` 리터럴 setConfig | VP-01 | 최초 | gate exit 1 | 잠김 |
+| M4 `file-mutation.test.ts` 인라인 45_000 리터럴 | VP-01 | 최초 | gate exit 1 | 잠김 |
+| M5 `file-mutation.test.ts` `Date.now()+30_000` | VP-01 | 최초 | gate exit 1 | 잠김 |
+| M6 픽스처 기준 600_000→300_000 | VP-01 | 최초 | gate (G) exit 1 | 잠김 |
+| M7 하한 `< 1` → `<= 0` | VP-02 | 최초 | 배율 해석 '0.99' | 잠김 |
+| M8 `ci.yml` 기본 90→30 | VP-02 | 최초 | 워크플로 상한 | 잠김 |
+| M9a 포크에서 `mcp-reconcile` spawn-env mock 제거 | VP-04 | 최초 | 1 failed / 7 | 잠김 |
+| M9b 포크에서 AC10 을 `createConnectionSources` 로 복귀 | VP-04 | 최초 | 2 failed / 10 | 잠김 |
+| M10 지움 접두사에 `ORCA_` 추가 | VP-11 | 최초 | `test-host.test.mjs` | 잠김 |
+| M-A `setupFiles: []` | VP-03 | 최초 | 시스템 테스트 1 failed | 잠김 |
+| M-B 지움 접두사 `OPENCODE_` 제거 | VP-03 | 최초 | 시스템 테스트 1 failed | 잠김 |
+| M-C 지움 접두사 `GIT_` 제거 | VP-03 | 최초 | 첫 시도 green(입력이 NOSYSTEM 에 막힘) → 입력에 `GIT_CONFIG_COUNT` 추가 후 1 failed | 잠김 |
+| M-D HOME·USERPROFILE 리다이렉트 제거 | VP-03 | 최초 | 시스템 테스트 1 failed | 잠김 |
+| EP-06 `KILL_GRACE_MS`·`RM_RETRY` 리터럴 복귀 | 새 oracle 민감도 | 최초 | `test-time.test.mjs` 픽스처 상수 | 잠김(2/2) |
 
-- **분모 검산**: …
-- **덮개 회귀**: 해당 없음(최초)
+- **분모 검산**: 선택 증거 16(M1~M8·M9a·M9b·M10·M-A~M-D) · 인용 변이 0 · 새 oracle 1(EP-06 상수 2 변이) = 표 행 17.
+- **덮개 회귀**: 해당 없음(최초). 기존 (A)~(E) 게이트 케이스는 fixture 문자열만 scaled 형태로 바꿔 전부 통과(`check-test-budgets.test.mjs` 38/38).
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 운영자 대면 3종 — 배율 오류 메시지(vitest 시작 실패 stderr), 게이트 위반 문구(CI 로그), 가이드 트러블슈팅 행 | 소비자 = CI 로그·`docs/guides/release-operations.md` |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 잘못된 배율 → §5 3행 · 멈춤 → 4행 · 정리 실패 → §13(삼킴) | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 잘못된 배율은 exit≠0 + 변수명·값 메시지(`test-time.test.mjs` 확인) | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 포크가 `auth-definitions.ts`에 상수를 더하면 그것을 참조하는 `gate-auth.ts` 원본이 mock 된 모듈에서 export 를 못 찾아 부팅 테스트가 suite 오류 | ✅ 선조치 — `bootstrap.harness.test.ts`의 mock 을 원본 spread + 배열만 덮기로 | 포크 모사 1차 실행 `<suite>` 실패 → 수정 후 +0 |
+| 2 | 바깥 실행이 색을 켜면 자식 vitest 출력에 ANSI 코드가 섞여 시스템 테스트 정규식이 빗나감 | ✅ 선조치 — 비교 전 ANSI 제거(`no-control-regex` 회피로 `String.fromCharCode(27)`) | 전체 실행에서만 실패 → `FORCE_COLOR=1` 단독 재현·수정 |
+| 3 | `GIT_CONFIG_NOSYSTEM`이 `GIT_CONFIG_SYSTEM` 주입도 무력화해 `GIT_` 지움 변이에 민감도가 없었다 | ✅ 선조치 — 시스템 테스트 입력에 env 주입 설정(`GIT_CONFIG_COUNT`) 추가 | M-C 첫 시도 green → 수정 후 red |
+| 4 | 실-git 픽스처 상수 2개가 비공개라 좌표가 없었다 | ✅ 선조치 — export 후 node 테스트(Node 22.18+ 타입 제거 import) | EP-06 변이 2건 red |
 
 ### 설계 대비 명시적 차이
 
-- …
+- 시스템 테스트 입력에 `GIT_CONFIG_COUNT`·`KEY_n`·`VALUE_n` 추가(위 3) — plan §11 행의 `GIT_CONFIG_SYSTEM`은 유지.
+- `KILL_GRACE_MS`·`RM_RETRY`를 export(위 4) — 소비 범위는 테스트뿐.
+- `bootstrap.harness.test.ts`는 plan의 `gate-auth`·`auth-definitions` mock 에 더해 `spawn-env` mock 도 둔다.
 
-## [구현자 기입] 구현 보고
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 시간 캐시 없음 | — |
+| 공유 | 해당 없음 — export 상수는 불변값 | EP-06 테스트 |
+| 재진입 | setup 이 파일마다 재실행돼도 `originalHome`은 첫 기록을 유지 | AC11 '홈은 … 다르다' green |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 신규 `app/scripts/{test-time.mjs,test-time.d.mts,test-time.test.mjs,test-host.mjs,test-host.test.mjs,vitest-setup.mjs}` · `app/src/main/infra/{test-environment.test.ts,test-environment.hostile.test.ts}` · 수정 `app/vitest.config.ts` · `app/scripts/check-test-budgets{,.test}.mjs` · EP-03~06·10·11 테스트 파일 · `features/worktrees/service.test.ts` · `.github/workflows/{ci,release}.yml` · `app/AGENTS.md` · `docs/guides/release-operations.md` · evidence 스크립트 2개(경로 해석·`VITEST_PREFIX`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `evidence/clean-host-run.sh` · `hostile-host-run.sh` · `slow-runner-run.sh … 8` · 포크 모사 · `node --test "scripts/*.test.mjs"` · `node scripts/check-test-budgets.mjs` · `check-doc-inventory --check` · `check-migrations-appendonly` |
+| **관측한 게이트 산출**(마지막 수정 뒤) | lint 0 error · 2 warning(변경 밖 `Timeline.tsx`·`useTranscriptVirtualizer.ts`) · typecheck exit 0 · vitest 915파일 8,447케이스: 통과 8,416 · 실패 22 · skip 9 — 실패 22 = 기준선 집합과 차집합 0(Windows 경로·Claude 플러그인 Linux) · node 171/171 · test-budgets ok · doc-inventory ok · migrations ok. 최종 수정(EP-06 export) 뒤 vitest는 영향 범위 76파일 572케이스 재실행 green |
+| 적대 측정 | 합성 사내 호스트 +0 · HOME 새 파일 0 / 저성능 모사(1코어·8워커, 6m25s) +0 / 포크 모사 +0 — 모두 구현 트리 기준선 대비 |
+| V-pair 자기확인 | `SELF_PASS 11 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 77/77 (2+1+20+6+10+3+4+2+15+13+1) |
+| **AC 자기보고**(`Criteria-Met`) | AC1~AC17 ✅(위 좌표) · AC19 ✅(문서 diff + doc-inventory ok) · AC9 의 Windows CI 실행과 AC18 사람 실기 ⚠️ |
+| **합계 검산** | `✅ 17 · ⚠️ 2(AC9 Windows CI 대기·AC18 사람 실기) · ❌ 0 = 총 19` |
+| 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(최초).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: plan M-C가 HOME 리다이렉트·NOSYSTEM과 겹쳐 민감도 0인 변이였다 — 구현 중 첫 시도 green으로 드러남.
+- 반복해서 부딪히는 환경 한계: 리눅스 기준선 22건 · Windows 백신·디스크 지연 모사 불가.
+- 현재 라운드·impl 턴: `r1`. 구현자 = 다음 검증자(Claude) — verify 는 보고에 없는 적대 축을 하나 더해야 한다.
 
 ---
 
