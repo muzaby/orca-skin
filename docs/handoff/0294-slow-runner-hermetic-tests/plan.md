@@ -10,13 +10,13 @@
 |---|---|
 | slug | `0294-slow-runner-hermetic-tests` |
 | 작성자 | Claude Code |
-| 일자 | 2026-11-03 |
-| 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7` |
-| 상태 | verify/RETURN_TO_PLAN (r1 검증 — [verify.md](verify.md)) |
-| V mode | `Baseline V` |
-| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1) |
+| 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) |
+| 상태 | plan/READY (ΔV1) — r1 검증 [verify.md](verify.md) `RETURN_TO_PLAN` D1 정정 |
+| V mode | `Baseline V + ΔV1` |
+| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1은 이 handoff의 V1 위 증분이다 |
+| 이번 V revision | `ΔV1` — verify r1 `PLAN_GAP` D1(EP-05 자리 술어·게이트 (H) 술어가 불변식 주어보다 좁음) 정정. 구 행은 supersede(§7-B) |
+| 유효 V | `V1 + ΔV1` |
 | 구현 주체 | Claude (비기능 — 테스트 인프라·CI. root `AGENTS.md` "리팩토링·버그수정 등 비기능 작업") |
 | 측정 증거 | [`evidence/`](evidence/) — 재현 스크립트. 수치는 아래 §8이 정본 |
 
@@ -60,12 +60,17 @@
 | D-009 | 실-git 인프라(픽스처 `execGit`·`removeTempRoots`·게이트 규칙 A~E)는 유지한다. 파일 예산의 **기준값과 도출식 주석은 그대로** 두고 배율만 씌운다 | "Git 인프라는 유지" + "실-git도 배율 적용(게이트 규칙은 유지)" | 응답 1·5 | ACTIVE | — |
 | D-010 | 실제 포트에 바인딩하는 테스트는 OS가 준 빈 포트를 쓴다 | §2 추론(임시 포트 대역 충돌) | 조사 | ACTIVE | — |
 | D-011 | 리눅스 전용 기존 실패 22건(9파일 — Windows 경로·Claude 플러그인 Linux 차이)은 범위 밖이다 | CI 정본은 windows 러너 | 측정 §8 | ACTIVE | — |
+| D-012 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 7형태다 — 타이머 지연 · `x.setTimeout(N)` · `AbortSignal.timeout(N)` · `now()` 마감 산술·비교 · 경과 상한 단언 · `/timeout/i` 옵션(중첩 `timeouts` 객체, 자식 프로세스 timeout, production 시간 인자 포함) · `/timeout/i` 매개변수 기본값. 값은 같은 파일 상수·`??`/`||` 기본값까지 따라간다 | D-001의 주어를 형태로 고정한다. V1 EP-05는 `setTimeout`·`Date.now()+N`만 세어 목록 밖 미배율 자리가 남았다(verify r1 D1) | 추론 — D-001 + verify r1 D1 · §7-B 실측 | ACTIVE | — (D-001 구체화) |
+| D-013 | 분류: 그 값이 지나면 **정상 경로의 테스트가 실패**하면 예산 → `scaleMs(기준값)`. 시간 초과 자체를 시험하거나(가짜 시계 포함) 값이 데이터로만 흐르거나 하한(그만큼 기다린 뒤 관측)이면 의미 값 → 허용 목록. 임계 1000ms(V1 AC7 유지), 단 `AbortSignal.timeout`·자식 프로세스 timeout은 임계 없이 본다 | 1초 미만 자리는 실측상 전부 시간 초과 유발값·순서용 하한이다. abort·자식 프로세스 상한은 1초 미만 사용이 0건이라 임계가 고장만 숨긴다(r1 X7·X8) | 추론 — §7-B 실측 | ACTIVE | — |
+| D-014 | 허용 목록 항목은 `{file, value, count, reason}`이고 게이트가 같은 파일·같은 값 자리 수를 `count`와 대조한다 — 같은 값의 새 자리·지운 자리 모두 red. `vi.waitFor` 옵션 안의 `scaleMs`(이중 배율, §12)도 게이트가 red로 막는다 | `{file, value}`만으로는 한 항목이 같은 파일의 새 예산 자리를 덮는다. §12 이중 배율 금지에는 강제 지점이 없었다 | 추론 — §7-B | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-011 (Baseline V).
+- ΔV1(2026-11-04)에서 추가된 결정: D-012~D-014 — 사용자 결정 변경이 아니라 D-001 범위 안의 설계 구체화다. 대체된 결정 없음.
 - 변경된 결정: 없음. 기존 handoff 결정과의 관계는 §16.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001 ↔ AC1·AC2·AC3·AC5~AC9(전 예산 자리) · D-002 ↔ AC4·AC9 · D-003 ↔ AC1~AC3(60s·60s·15s) · D-004 ↔ AC9(90·135분) · D-005 ↔ AC10~AC13(기대값 미변경 = AC16 회귀) · D-006 ↔ AC10·AC12·AC14(브랜치 이름) · D-007 ↔ AC15 · D-008 ↔ AC15(스킬 포크 0건 유지) · D-009 ↔ AC5·AC8(A~E 유지) · D-010 ↔ AC17 · D-011 ↔ AC16(22건 집합 유지).
+- **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001·D-012 ↔ AC7a(EP-05a 44자리 = 7형태 전수) · D-013 ↔ AC7a(예산 24 `scaleMs` · 의미 값 20 허용 목록 · 임계와 무임계 형태) · D-014 ↔ AC7a(count 대조·이중 배율 red) · D-005 ↔ AC7a(배율 전환은 대기 상한만 늘리고 단언 기대값은 그대로 — 단언 피연산자는 자리에서 제외) · D-009 ↔ AC7a((A)~(E) 대상 파일 범위 불변) · D-003 ↔ AC7a(기준값 = 현재 리터럴).
 
 ## 4. 요구 비판적 검토
 
@@ -130,7 +135,7 @@
 | R-02 | AT-02 / AC4 | 배율 해석: 미설정·`''`·공백→3, `1`·`1.5`·`5`→그 값, `0`·`0.99`·`-1`·`abc`·`Infinity`·`NaN`→throw(메시지에 변수명·원값) · 잘못된 값이면 vitest가 비정상 종료 | 순수 함수 테스트 + node 테스트: 잘못된 값으로 config import → reject | `test-time.mjs` → config |
 | R-01 | AT-01 / AC5 | 파일 예산 20곳이 `scaledBudget({...})`를 지나고 기준값은 현재 리터럴 그대로 | 게이트 (F) red/green 테스트 + `--report` 출력 20곳 = §10 EP-03 목록(차집합 0) | 각 테스트 파일 최상위 `vi.setConfig` |
 | R-01 | AT-01 / AC6 | 케이스 인라인 타임아웃 6곳이 `scaleMs(base)`를 지난다 | 게이트 (F) red/green + `--report` 6곳 = EP-04 | it/test 셋째 인자 |
-| R-01 | AT-01 / AC7 | 테스트 소유 실시간 마감 4곳은 `scaleMs`, 의미 대기 6곳은 허용 목록(파일·값·사유) | 게이트 (H): 새 리터럴 마감(≥1000ms)이 허용 목록 밖이면 red · `--report` 10곳 = EP-05 | 테스트 본문 `setTimeout`·`Date.now()+N` |
+| R-01 | ~~AT-01 / AC7~~ → **ΔV1 AC7a (§7-B)** | **SUPERSEDED** — 테스트 소유 실시간 마감 4곳은 `scaleMs`, 의미 대기 6곳은 허용 목록(파일·값·사유) | 게이트 (H): 새 리터럴 마감(≥1000ms)이 허용 목록 밖이면 red · `--report` 10곳 = EP-05 | 테스트 본문 `setTimeout`·`Date.now()+N` |
 | R-01 | AT-01 / AC8 | 실-git 픽스처 상수 3개(`FIXTURE_GIT_TIMEOUT_MS`·`KILL_GRACE_MS`·`RM_RETRY.retryDelay`)가 `scaleMs(600_000·5_000·200)` · 게이트 (G): 픽스처 기준 상한 > 실-git 파일 기준 예산 최대값 · 기존 규칙 (A)~(E) 그대로 통과 | 게이트 node 테스트(G red/green) + 기존 `check-test-budgets.test.mjs` 케이스 유지 + 픽스처 상수 vitest 테스트 | `temp-repo.testfixture.ts` |
 | R-02 | AT-02 / AC9 | `ci.yml` 상한 `fromJSON(vars.ORCA_CI_TIMEOUT_MINUTES \|\| '90')`, `release.yml` `… \|\| '135'`, 두 Test 단계 env `ORCA_TEST_TIME_SCALE: ${{ vars.ORCA_TEST_TIME_SCALE }}` · Windows CI green | node 테스트(워크플로 텍스트 단언) + `gate:` PR Windows CI 실행 | GitHub Actions |
 | R-03 | AT-03 / AC10 | 격리 env 순수 함수: 지움 = `ANTHROPIC_`·`CLAUDE_`·`OPENCODE_`·`GIT_` 접두사 + `CLAUDECODE` · 보존 = 그 밖(`ORCA_*`·`PATH`·`TEMP`·`TMPDIR`·프록시) · 바꿈 = `HOME`·`USERPROFILE`·XDG 4종·(win32만)`ProgramData` → 루트 하위 · Git = `GIT_CONFIG_GLOBAL`(빈 파일)·`GIT_CONFIG_NOSYSTEM=1` | node 테스트: 키 표본마다 단언(형제 키와 맞바꿔도 red), win32/linux 분기 각각 | `test-host.mjs` |
@@ -179,15 +184,15 @@
 
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED | 배율 해석 → config(케이스·훅) → setup(waitFor) → 파일 예산·인라인·마감·픽스처 → 실행 | 신규 `src/main/infra/test-environment.test.ts`('케이스 예산'·'waitFor 기본 대기') · `scripts/test-time.test.mjs`('config 예산'·'waitFor 옵션') · `scripts/check-test-budgets.test.mjs`(F·G·H) · `--report` 대조 | required — 구조 oracle(게이트). **M1** `vitest.config.ts` hookTimeout 제거 → AC2 red · **M2** wrapper가 명시 timeout을 배율 없이 통과 → AC3 red · **M3** EP-03 한 자리를 리터럴로 되돌림 → (F) red · **M4** EP-04 한 자리 리터럴 → (F) red · **M5** EP-05 마감 한 자리 리터럴 → (H) red · **M6** 픽스처 기준 상한을 300_000 → (G) red | EP-01(2)·EP-02(1)·EP-03(20)·EP-04(6)·EP-05(10)·EP-06(3) = 42 |
+| VP-01 | R-01 ↔ AT-01 | **SUPERSEDED → ΔV1 VP-01a (§7-B)** | 배율 해석 → config(케이스·훅) → setup(waitFor) → 파일 예산·인라인·마감·픽스처 → 실행 | 신규 `src/main/infra/test-environment.test.ts`('케이스 예산'·'waitFor 기본 대기') · `scripts/test-time.test.mjs`('config 예산'·'waitFor 옵션') · `scripts/check-test-budgets.test.mjs`(F·G·H) · `--report` 대조 | required — 구조 oracle(게이트). **M1** `vitest.config.ts` hookTimeout 제거 → AC2 red · **M2** wrapper가 명시 timeout을 배율 없이 통과 → AC3 red · **M3** EP-03 한 자리를 리터럴로 되돌림 → (F) red · **M4** EP-04 한 자리 리터럴 → (F) red · **M5** EP-05 마감 한 자리 리터럴 → (H) red · **M6** 픽스처 기준 상한을 300_000 → (G) red | EP-01(2)·EP-02(1)·EP-03(20)·EP-04(6)·EP-05(10)·EP-06(3) = 42 |
 | VP-02 | R-02 ↔ AT-02 | REQUIRED | `ORCA_TEST_TIME_SCALE` → `resolveTestTimeScale` → config import 실패/성공 · `vars.*` → 워크플로 | `scripts/test-time.test.mjs`('배율 해석' 표본 12개 · '잘못된 배율은 config 로드 실패') · `scripts/test-time.test.mjs`('워크플로 상한·변수') · `gate:` PR Windows CI | required — **M7** 하한 비교를 `> 0`으로 → '0.99' 표본 red · **M8** `ci.yml` 기본 90을 30으로 → 워크플로 테스트 red | EP-07(4)·EP-08(2) = 6 |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | 합성 HOME/env → 자식 vitest → config → setup(격리) → production reader(opencode 전역 설정·Claude 경로·git) → 결과·홈 트리 | 신규 `src/main/infra/test-environment.hostile.test.ts`('합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다') | required — **M-A** `vitest.config.ts`에서 `setupFiles` 제거 → 자식 실패(exit≠0) · **M-B** 지움 접두사에서 `OPENCODE_` 제거 → 자식 실패 · **M-C** 지움 접두사에서 `GIT_` 제거 → 자식 env의 `GIT_CONFIG_SYSTEM`(서명 강제 파일)이 살아 `repository.test.ts` 실패 · **M-D** HOME 리다이렉트 제거 → 홈 트리 변화 red | EP-09(15) · AC12 대표 9파일 |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | 포크 `app/deployment/*.ts` → 소비 테스트 13자리 | 자리별: 삭제 6 → 음성 검색 `rg` 0 · 절 삭제 2·fixture 고정 2·helper 전환 3 → 각 파일 green(기본 배포) + 포크 모사 green(`evidence/fork-deployment.py`) | required — 포크 모사가 곧 적대 증거: **M9** 아무 자리 하나 되돌림 → 포크 실행에서 그 자리 red | EP-10(13) |
 | VP-05 | R-05 ↔ AT-06 | REQUIRED | 테스트 → OS 빈 포트 → `awaitLoopbackCallback({port})` | `src/main/infra/loopback-callback.test.ts` 전 케이스 | not selected — 직접 행동 oracle(실제 바인딩) | EP-11(1) |
 | VP-06 | SD-01 ↔ ST-01 | REQUIRED | vitest 시작 → 파일마다 setup → afterAll 정리 → 자식 프로세스 env 상속 | `test-environment.test.ts`('파일마다 다른 루트'·'자식 프로세스가 격리 env를 받는다') · VP-03 시스템 테스트 | not selected — 행동 단언 | EP-09 적용 자리(1) |
-| VP-07 | AR-01 ↔ IT-01 | REQUIRED | `scripts/test-time.mjs` → config·setup·픽스처·테스트 파일 import | VP-01 좌표와 같음 + `typecheck`는 oracle 아님 | VP-01 M1~M6 | EP-01~EP-06 |
+| VP-07 | AR-01 ↔ IT-01 | **SUPERSEDED → ΔV1 VP-07a (§7-B)** | `scripts/test-time.mjs` → config·setup·픽스처·테스트 파일 import | VP-01 좌표와 같음 + `typecheck`는 oracle 아님 | VP-01 M1~M6 | EP-01~EP-06 |
 | VP-08 | AR-02 ↔ IT-02 | REQUIRED | setup → `process.env` → `os.homedir()`·XDG·git 자식 | `test-environment.test.ts`(AC11) · VP-03 | VP-03 M-A~M-D | EP-09(15) |
-| VP-09 | AR-03 ↔ IT-03 | REQUIRED | 테스트 소스 → 게이트 (A)~(H) → CI 'Test budget guard' 단계 | `scripts/check-test-budgets.test.mjs`(기존 A~E + 신규 F·G·H·report) · `gate:node scripts/check-test-budgets.mjs` | VP-01 M3~M6 | EP-03~EP-06 |
+| VP-09 | AR-03 ↔ IT-03 | **SUPERSEDED → ΔV1 VP-09a (§7-B)** | 테스트 소스 → 게이트 (A)~(H) → CI 'Test budget guard' 단계 | `scripts/check-test-budgets.test.mjs`(기존 A~E + 신규 F·G·H·report) · `gate:node scripts/check-test-budgets.mjs` | VP-01 M3~M6 | EP-03~EP-06 |
 | VP-10 | MD-01 ↔ UT-01 | REQUIRED | 순수 함수 | `scripts/test-time.test.mjs` | VP-02 M7 | EP-08 |
 | VP-11 | MD-02 ↔ UT-02 | REQUIRED | 순수 함수 | `scripts/test-host.test.mjs` | **M10** 지움 술어와 보존 술어 맞바꿈(`ORCA_` 지움) → red | EP-09 |
 
@@ -201,6 +206,201 @@
 | 예산·인벤토리 게이트 | 게이트 변경 · 문서 변경 | `node scripts/check-test-budgets.mjs` · `node scripts/check-doc-inventory.mjs --check` | 전부 |
 | Windows CI | 정본 통합 게이트 · 워크플로 변경 | PR `CI` 실행 | 전부 |
 | commit trailer | message bus | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
+
+## 7-B. ΔV1 — verify r1 `PLAN_GAP` D1 정정
+
+> **적용 순서: `V1` → `ΔV1`.** verify r1([verify.md](verify.md) §13 D1)이 돌려보낸 EP-05 자리 목록을 불변식의 주어로 **다시 열거해 한 번에 고정**한다. 구 행(§7 AC7 · §7-A VP-01·07·09 · §10 EP-05)은 그 자리에 두고 `SUPERSEDED`로 가리킨다. 결정은 §3 D-012~D-014.
+
+### 무엇이 왜 바뀌는가
+
+| verify r1 지적 | 진단 | ΔV1의 답 |
+|---|---|---|
+| D1 — EP-05 자리 검색 술어 | 술어가 해법 형태(`setTimeout`·`Date.now()+N`)였고 범위가 `*.test.ts`뿐이었다 | 주어("테스트가 고른 시간 값이 실제 경과의 상한")의 7형태 · 테스트 지원 파일 포함으로 재열거 → **10 → 44자리**(EP-05a). 목록 밖 미배율 자리는 verify가 본 2곳이 아니라 **18곳**이었다 |
+| D1 — 게이트 (H) 술어 | 같은 두 형태만 봤다 — r1 X7(`AbortSignal.timeout`)·X8(자식 프로세스 `timeout`)·X9(상수 경유) 못 잡음 | **(H′)** — 7형태 · 값 해석(같은 파일 상수·`??`/`||`·리터럴 산술) · abort·자식 프로세스 무임계 · testfixture 범위 |
+| D1 — `pop3-tls.test.ts:48-49` 분류 | 로컬 TLS 로그인이 3초 안에 끝나야 통과한다 | D-013상 **예산** → `scaleMs(3000)` |
+| 설계 감사 — §12 이중 배율 금지 | 강제 지점이 없었다 | (H′)가 `vi.waitFor` 옵션 안 `scaleMs`를 red로(D-014) |
+| 설계 감사 — 허용 목록 `{file, value}` | 한 항목이 같은 파일·같은 값의 새 예산 자리를 덮는다 | `count` 대조(D-014) |
+
+### 설계 근거 — 이번 턴 측정
+
+기준 트리 `e7d40b4`(r1.2 구현 HEAD — 브랜치 좌표, `main` 미병합. 앱 코드는 검증 커밋 `4ab60c9`와 같다).
+
+| 관측 | 명령 | 결과 | 설계에 미친 영향 |
+|---|---|---|---|
+| 넓힌 술어 전수 | `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/scan-deadlines.mjs app` | **44** — timer 7(배율 4) · deadline 6(배율 2) · abort 3 · option 27 · param 1 | EP-05a 분모 |
+| 1초 미만 자리 | 같은 명령 `--all` | option 13 — 전부 시간 초과 유발값(0·5·15·20·25·30·50·100·500ms, 결과가 `timeout`/reject) · timer 33 — 순서·부재 확인용 하한 대기 · abort·자식 프로세스 timeout 0 | 임계 1000 유지, abort·자식 프로세스는 무임계(D-013) |
+| 위치 인자 백스톱 | 테스트 소스 호출 인자의 숫자 리터럴 ≥1000 전수(`scaleMs`·`vi.waitFor`·가짜 시계·`expect` 제외) | 82 — 연도(2026)·크기·고정 시각·가짜 시계 값. 위치 인자 상한 예산 0 | 위치 인자 형태는 술어에 넣지 않는다 |
+| 라벨 표본 `/timeout/i` | 44자리의 키·이름 | 전부 시간 상한 값이 맞다 — 예산·데이터·가짜 시계가 섞여 분류는 자리마다 한다 | 키 술어 + 자리별 분류 |
+| 라벨 밖 시간 키 | 이름이 `Ms`·`_ms`·`Seconds`로 끝나는 값 ≥1000(비 timeout) | `durationMs` 18 · `intervalMs` 5 · `duration_ms` 5 · `connectMs` 3 · `retry_delay_ms` 2 · `commandMs`·`timedOutAfterMs`·`createdAtMs` 각 1 — `connectMs`·`commandMs` 4자리는 `timeouts: {…}` 안 | 중첩 `timeouts` 객체를 술어에 넣었다(+4). 나머지는 경과 기록·주기·데이터 |
+| 이중 배율 | AST — `vi.waitFor` 호출 173 중 옵션에 `scaleMs` | 0 | (H′) 규칙 추가 비용 0 |
+| r1 X7·X8·X9 스파이크 | 세 변이를 심고 같은 스캔 | 세 자리 모두 `literal`로 드러남(abort 10 · option 10 · 상수 경유 timer 30_000) | (H′)가 같은 술어면 세 변이 red |
+| EP-12 분기 탐침 | 스캔의 판정 함수에 EP-12 표 입력 18개를 넣음 | 18개 모두 표의 기대와 같다(elapsed·`expect` 대상·콜백 안 타이머는 세고, matcher 피연산자·`vi.waitFor` 옵션·production 시간 인자 10ms·라벨 밖 키는 건너뜀) | P1~P7이 서로 모순 없이 구현 가능하다 |
+| renderer 테스트의 배율 import | `boot/steps.test.ts`에 `scaleMs` import 시험(커밋 안 함) | eslint 0 · `typecheck:web` exit 0 · vitest 9/9 | renderer 자리 2곳 구현 가능 |
+| 자식 프로세스 테스트 지원 파일 | `native-storage.integration.test.ts:18-45` 읽기 | fixture를 esbuild로 묶어 자식 node가 실행 · env는 `{ ...process.env }` 상속 | fixture 안 `scaleMs`도 같은 배율로 해석된다 |
+| opt-in 스위트 | `managed-mcp.cli.integration`·`native-storage.integration`·`artifact-sdk-live` | 이 환경에서 skip — opencode 실행 파일 설치가 이 세션에서 거부됨 | 이 자리의 기계 oracle은 형태 게이트뿐 — 기준값 축 고장은 EP-05a `실패 의미`에 적는다 |
+
+### ΔV1 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §1 A · D-001 — 모든 시간 예산 = 기준값 × 배율 | INHERITED | `V1:R-01` — 요구 문장 무변경 |
+| AT-01a | AT | AC1·2·3·5·6·**7a·7b**·8 | CHANGED | `V1:AT-01` 대체(AC7 → AC7a, AC7b 신설) |
+| AR-01a | AR | 배율 SSOT ↔ 소비자 — 예산 24자리(새 18: production 시간 인자·abort·자식 프로세스·testfixture) | CHANGED | `V1:AR-01` 대체 |
+| IT-01a | IT | 자리별 게이트 좌표 + M5a | CHANGED | `V1:IT-01` 대체 |
+| AR-03a | AR | 예산 게이트 (A)~(G) + **(H′)** · (F)(H′) 범위에 testfixture | CHANGED | `V1:AR-03` 대체 |
+| IT-03a | IT | 트리 게이트 실행 · `--report` = EP-05a · CI 단계 | CHANGED | `V1:IT-03` 대체 |
+| MD-03 | MD | (H′) 자리 판정 알고리즘 — EP-12 7지점 | NEW | — |
+| UT-03 | UT | (H′) 분기별 단위 테스트 | NEW | — |
+| AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` — ΔV1이 테스트 파일 10곳을 바꿔 회귀로 다시 닫는다 |
+| 그 밖의 V1 node | — | — | INHERITED | 무변경 |
+
+### ΔV1 Pair registry
+
+| Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-12 | MD-03 ↔ UT-03 / UT | REQUIRED | 테스트 소스 문자열 → (H′) 판정 → 자리·위반 목록 | `scripts/check-test-budgets.test.mjs` 신규 describe '규칙 (H′)' — EP-12 분기표의 입력마다 위반/통과 단언 | required — 판정 코드 변이 **M12**·**M13**·**M14**·**M16**·**M17** + r1 **X6** 재실행(아래 변이 표) | EP-12(7) |
+| VP-09a | AR-03a ↔ IT-03a / IT | REQUIRED | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs`(트리 exit 0) · `--report` deadline 행 = `scan-deadlines.mjs app` 행(파일:줄 차집합 0) · Windows CI | required — V1 M3·M4·M6 승계 · **M11a**·**M11b**·**M15**·**X9′** | EP-03(20)·04(6)·05a(44)·06(3)·12(7) = 80 |
+| VP-07a | AR-01a ↔ IT-01a / IT | REQUIRED | `scripts/test-time.mjs` → 예산 24자리 `scaleMs` → 타이머·abort·자식 프로세스·production 시간 인자 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — 그 자리를 리터럴로 되돌리면 (H′) red(EP-05a `실패 의미` 상태) | required — **M5a**(새 예산 18자리 각각) · **X7′**·**X8′** · V1 M1·M2·M5·M6 승계 | EP-01(2)·02(1)·03(20)·04(6)·05a(44)·06(3) = 76 |
+| VP-01a | R-01 ↔ AT-01a / AT | REQUIRED | 배율 해석 → config·setup·파일 예산·인라인·마감 44자리·픽스처 → 실행 | AC1~3·5·6·8: verify r1 §5 VP-01 좌표 승계 · AC7a·7b: VP-07a·VP-09a·VP-12 좌표 · 행동: VP-13 | VP-07a·VP-09a·VP-12 변이 | VP-07a와 같음(76) |
+| VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 · 저성능 모사 S2 | `evidence/clean-host-run.sh` · `slow-runner-run.sh … 8` · `newfails.mjs` — 실패 집합 = 기준 22, 신규 0 | not selected — 직접 행동 oracle | 바뀐 테스트 파일 10 |
+| VP-01 · VP-07 · VP-09 | — | **SUPERSEDED** | — | VP-01a · VP-07a · VP-09a | — | — |
+| VP-02~06 · 08 · 10 · 11 | V1 그대로 | NOT_REQUIRED | — | verify r1 §5 PASS 좌표 | — | 비영향: ΔV1은 예산 자리 18곳·게이트 (H)·`app/AGENTS.md`만 바꾼다. 배율 해석·워크플로(VP-02·10)·격리(VP-03·06·08·11)·배포 결합(VP-04)·고정 포트(VP-05) 경로에 닿지 않는다 |
+
+- `SUPERSEDED` 이관: VP-01(AC1·2·3·5·6·7·8, M1~M6) → VP-01a(AC7 → AC7a) · VP-07(EP-01~06, M1~M6) → VP-07a(M5 → M5a로 자리 확장) · VP-09((A)~(H) 케이스, M3~M6) → VP-09a((H) → (H′)). 폐기 0.
+- NEW·CHANGED 왼쪽 node ↔ 같은 레벨 REQUIRED pair: MD-03→VP-12(UT) · AR-03a→VP-09a(IT) · AR-01a→VP-07a(IT). R-01(INHERITED)은 오른쪽 AT-01a가 바뀌어 VP-01a(REQUIRED), AT-05는 VP-13(REGRESSION). 차집합 0.
+
+### ΔV1 Acceptance — 정정·신설
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | **AT-01a / AC7a** (AC7 대체) | EP-05a 44자리 중 **예산 24**(이미 배율 6 — V1 EP-05 4 + 넓힌 술어가 새로 센 배율 자리 2 · 새로 배율 18)는 `scaleMs(기준값)`을 지나고 기준값은 현재 리터럴 그대로다. **의미 값 20**(V1 6 + 새 14)은 허용 목록 16항목 `{file, value, count, reason}`에 들고 항목마다 count = 자리 수다 | 게이트 (H′): 트리 exit 0 · 새 예산 18자리 각각을 리터럴로 되돌리면 exit 1(M5a) · 허용 자리 ±1이면 exit 1(M11a·b) · `--report` deadline 44행 = `scan-deadlines.mjs` 44행(파일:줄 차집합 0) | 테스트 본문의 타이머·`AbortSignal`·`now()` 마감·자식 프로세스·production 시간 인자 |
+| R-01 | **AT-01a / AC7b** (신설) | (H′)는 EP-12의 7지점 규칙대로 판정한다 — 형태 7 · 값 해석 · 임계 1000(abort·자식 프로세스 무임계) · 제외 맥락(단 `expect(x)`의 x는 센다) · 허용 목록 count·reason · 이중 배율 · 범위 `*.test.ts`·`*.testfixture.ts(x)` | `check-test-budgets.test.mjs` '규칙 (H′)' — EP-12 표의 입력마다 위반 수·통과를 단언. 분기마다 구별 입력 ≥1, 형제 분기 입력과 맞바꾸면 결과가 뒤집힌다 | `scripts/check-test-budgets.mjs` |
+| — | **AC19a** (신설) | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 (H′)의 형태·임계·허용 목록 `count`·testfixture 범위를 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
+
+**AC 게이트 재통과**(§5) — 정정 1행 + 신설 2행:
+
+- 행동 단언·검증 수단·도달 경로: 세 행 모두 세 칸을 갖는다.
+- **방향**: AC7a는 "예산 자리가 `scaleMs`를 지난다"를 잠근다 — 자리에서 `scaleMs`를 지우면 게이트가 red다(M5a). 여분의 사본·잔여물에 반응하는 장치가 아니다.
+- **자리를 말하는 불변식의 맞바꿈 축**: 허용 항목은 파일·값으로 자리를 가리킨다 — 다른 파일 같은 값(X6)·같은 파일 다른 개수(M11)가 red다.
+- 음성 기준의 양성 짝: "허용 목록 밖 리터럴 0"은 "예산 24자리가 `scaled`로 보고된다"(`--report`)와 짝이다.
+- 완결성 주장은 차집합으로 적었다 — `--report` ↔ 스캔의 파일:줄 차집합 0(합계가 아니다).
+- structural proxy: AC7a·7b는 형태 게이트다. 형태가 지키는 행동(느린 러너 통과)은 VP-13(AC16 전체 스위트·저성능 모사)이 닫는다. opt-in 스위트 자리의 행동은 이 환경에서 관측 불가 — EP-05a `실패 의미`에 적었다.
+- 사람 실기로 미룬 순수 로직 없음.
+- AC 총수: V1 19 + AC7b + AC19a = **21**(AC7→AC7a는 번호 승계).
+
+### ΔV1 §10 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-01a / VP-01a·07a·09a **EP-05a** | 테스트 소유 실시간 마감(D-012) — 예산 = `scaleMs(기준값)` · 의미 값 = 허용 목록 `{file, value, count, reason}`(D-013·D-014) | 각 자리 + 게이트 `SEMANTIC_DELAYS` | 테스트 작성자 · 게이트 (H′) | **44자리** — 아래 EP-05a 목록 | `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/scan-deadlines.mjs app` → 44(기준 `e7d40b4`) · TO-BE `node scripts/check-test-budgets.mjs --report` deadline 44 = 같은 스캔(파일:줄 차집합 0) | 리터럴 예산은 배율을 무시해 느린 러너에서 끊긴다 · 의미 값을 배율하면 시험 계약이 바뀐다 · 게이트 밖에 남는 차이는 아래 목록 |
+| MD-03 / VP-12 **EP-12** | (H′) 판정 | `scripts/check-test-budgets.mjs` | 게이트 | **7지점** — 아래 EP-12 표 P1~P7 | 코드 자리가 아니라 판정 규칙이다 — 분모는 EP-12 표이고, 구현은 지점마다 UT 입력(같은 표 셋째 열)을 둔다 | 지점 하나가 빠지면 그 형태·맥락의 미배율 마감이 게이트를 통과한다 |
+
+- **EP-05a 게이트가 초록인 채로 남는 차이**(§5 완료 조건 ≠ 목표):
+  - import 상수·위치 인자로 넘기는 시간 값 — 값 해석이 같은 파일 상수까지다.
+  - `/timeout/i` 밖 이름의 시간 인자 — 라벨 밖 36자리는 이번 턴에 읽어 상한 0을 확인했다(설계 근거 표).
+  - 1초 미만 상한 예산 — 현재 0(`--all` 실측).
+  - opt-in 스위트 자리의 **기준값만** 바꾼 고장(형태는 `scaleMs` 유지) — 그 스위트가 이 환경에서 skip이라 기계 oracle이 없다.
+- `실패 의미`에 "다른 게이트가 막는다"를 적은 칸: 없음.
+- **ΔV1 유효 강제 지점 전수**: V1 EP-01(2)·02(1)·03(20)·04(6)·06(3)·07(4)·08(2)·09(15)·10(13)·11(1) + **EP-05a(44)** + **EP-12(7)** = **118**(V1 EP-05 10은 supersede).
+
+**EP-05a 목록** — 경로는 `app/src/` 기준, 줄은 `e7d40b4`. 구현 후 import 줄로 줄이 밀려도 자리는 파일·형태·기준값으로 같다.
+
+| 처분 | 자리 (형태 · 현재 값) | 수 |
+|---|---|---:|
+| 예산 — 이미 배율 | `main/app/artifact-sdk-live.test.ts:72` timer `scaleMs(90_000)` · `main/app/managed-mcp.cli.integration.test.ts:323` timer `scaleMs(60_000)` · `:421` timer `scaleMs(10_000)` · `main/infra/config/file-mutation.test.ts:222` deadline `scaleMs(30_000)` · `:231` deadline 비교(같은 상수 경유) · `main/infra/git/temp-repo.testfixture.ts:80` timer `KILL_GRACE_MS`(EP-06과 같은 값) | 6 |
+| **예산 — 새로 배율** | `main/adapters/opencode/v1/instance-lifecycle.test.ts:4` param `timeoutMs = 1000` · `main/adapters/opencode/v1/server.database-path.test.ts:74` option `timeoutMs: 1000` · `main/adapters/opencode/v1/server.test.ts:88` option `options.timeoutMs ?? 1000` · `main/app/deployment/mail.integration.test.ts:373` option `timeouts.connectMs: 1000` · `:374` 같음 | 5 |
+| | `main/app/harnesses/opencode/native-storage.integration.test.ts:51` 자식 프로세스 `timeout: 300000` · `main/app/harnesses/opencode/native-storage.testfixture.ts:105` 자식 프로세스 `timeout: 90000` · `:189` abort `90000` · `:296` abort `90000` · `main/app/managed-mcp.cli.integration.test.ts:289` abort `40_000` | 5 |
+| | `main/features/chat/background-tasks.test.ts:122`·`:130`·`:137`(`expect` 대상)·`:160` option `timeoutMs: 1_000` · `main/infra/net/pop3-tls.test.ts:48` `connectTimeoutMs: 3000` · `:49` `timeoutMs: 3000` · `renderer/src/app/boot/steps.test.ts:94` `mandatoryTimeoutMs: 10_000` · `:95` `optionalTimeoutMs: 10_000` | 8 |
+| 의미 값 — V1 허용 | `main/adapters/opencode/v1/adapter.persistent.test.ts:302` timer `2700` · `main/adapters/opencode/v1/adapter.test.ts:343` deadline `5_001` · `:387` `5000` · `main/app/handlers/session-resources.claude-assembly.test.ts:109` timer `1000` · `main/features/plugins/mail/sync-manager.test.ts:40` timer `25_000` · `main/infra/git/git-snapshot.test.ts:52` deadline `60_000` | 6 |
+| **의미 값 — 새 허용** | `main/app/chat-turn/background.monitor.test.ts:34`·`:306` `5000` · `:39`·`:254` `9000` · `main/app/handlers/engine.opencode.integration.test.ts:71` `8000` · `main/features/approvals/broker.test.ts:68`·`:98`·`:119` `1000` · `main/features/plugins/mail/sync-manager.test.ts:73` `15_000`·`30_000` · `main/infra/test-environment.test.ts:39` deadline 비교 `1_500` · `renderer/src/features/chat/lib/taskBoard.test.ts:303` `30_000` · `renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts:141` `3000` · `renderer/src/features/engine/harnesses/opencode/v1/customProvider.test.ts:75` `1200` | 14 |
+| **합계** | 예산 24(이미 배율 6 + 새로 배율 18) · 의미 값 20(V1 허용 6 + 새 허용 14) | **44** |
+
+**허용 목록 16항목** — `SEMANTIC_DELAYS`의 정본. V1 6항목은 사유를 유지하고 `count: 1`을 더한다.
+
+| file (`app/src/` 기준) | value | count | reason |
+|---|---|---:|---|
+| `main/adapters/opencode/v1/adapter.persistent.test.ts` | `2700` | 1 | (V1 사유 유지) |
+| `main/app/handlers/session-resources.claude-assembly.test.ts` | `1000` | 1 | (V1 사유 유지) |
+| `main/features/plugins/mail/sync-manager.test.ts` | `25_000` | 1 | (V1 사유 유지) |
+| `main/adapters/opencode/v1/adapter.test.ts` | `5_001` | 1 | (V1 사유 유지) |
+| `main/adapters/opencode/v1/adapter.test.ts` | `5000` | 1 | (V1 사유 유지) |
+| `main/infra/git/git-snapshot.test.ts` | `60_000` | 1 | (V1 사유 유지) |
+| `main/app/chat-turn/background.monitor.test.ts` | `5000` | 2 | Monitor 도구 입력·출력 데이터 — production은 이 값으로 타이머를 걸지 않는다(같은 파일 'retains the provider timeout outcome…') |
+| `main/app/chat-turn/background.monitor.test.ts` | `9000` | 2 | 같은 데이터 + 가짜 타이머로 요청 마감 경과를 만드는 값(`advanceTimersByTimeAsync(9001)`) |
+| `main/app/handlers/engine.opencode.integration.test.ts` | `8000` | 1 | OpenCode provider 설정 문서의 데이터 — 왕복 보존을 시험한다, 대기가 아니다 |
+| `main/features/approvals/broker.test.ts` | `1000` | 3 | 가짜 타이머 아래 승인 만료 계약값 — `advanceTimersByTime`과 짝이다 |
+| `main/features/plugins/mail/sync-manager.test.ts` | `15_000` | 1 | 가짜 타이머 아래 연결 시간 초과 계약값(파일 전체 `useFakeTimers`) |
+| `main/features/plugins/mail/sync-manager.test.ts` | `30_000` | 1 | 가짜 타이머 아래 명령 시간 초과 계약값 — 'slow' 응답(25_000)은 이보다 짧고 'command-timeout'은 이것을 넘긴다 |
+| `main/infra/test-environment.test.ts` | `1_500` | 1 | `vi.waitFor`가 vitest 기본 1초보다 오래 재시도함을 보이는 하한 — 마감이 아니다 |
+| `renderer/src/features/chat/lib/taskBoard.test.ts` | `30_000` | 1 | TaskOutput 도구 입력 데이터 |
+| `renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts` | `3000` | 1 | provider 설정 데이터(가져오기 보존) |
+| `renderer/src/features/engine/harnesses/opencode/v1/customProvider.test.ts` | `1200` | 1 | provider 설정 데이터 |
+
+**EP-12 — (H′) 판정 7지점과 UT 입력** — 각 지점의 분기마다 구별 입력을 둔다. 입력은 `check-test-budgets.test.mjs`가 문자열 소스로 만든다(파일 범위 P1은 임시 디렉토리).
+
+| 지점 | 규칙 | UT 입력 → 기대 |
+|---|---|---|
+| P1 파일 범위 | (F)(H′) = `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx` · (A)~(E) = `*.test.ts`만 | 임시 트리 `a.test.ts`·`b.testfixture.ts`·`c.testfixture.tsx`(JSX 포함)에 각각 `AbortSignal.timeout(5000)` → 위반 3 · `d.ts` → 무시 · `b.testfixture.ts`의 `execFile('git', …)`는 (A)~(E) 위반 아님 |
+| P2 형태 7 | timer(전역·`globalThis.`·`window.`·`timers/promises`의 `setTimeout` 첫 인자) · `x.setTimeout(N)` · `AbortSignal.timeout` · deadline(`now() + N`·`N + now()`·`<`·`<=`·`>`·`>=` 비교) · elapsed(`expect(now 식).toBeLessThan(OrEqual)`) · option(`/timeout/i` 키 · `/timeout/i` 이름 속성·변수에 담긴 중첩 객체의 숫자 속성) · param(`/timeout/i` 매개변수 기본값) | 하위 분기마다 미배율 `5000` 1개 → 각 1 위반 · 같은 입력을 `scaleMs(5000)`로 → 0 · `delayMs: 5000`(라벨 밖) → 0 |
+| P3 값 해석 | 리터럴 · 같은 파일 `const` · `??`/`\|\|` 오른쪽 · 리터럴 `*`/`+` · `scaleMs(…)` = 배율 · import 식별자 = 건너뜀 | `const T = 30_000; setTimeout(f, T)` 위반 · `x ?? 2000` 위반 · `x ?? scaleMs(2000)` 통과 · `60 * 1000` 위반 · `import { T } …; setTimeout(f, T)` 통과 |
+| P4 임계 | ≥1000ms · abort·자식 프로세스(`execFile`·`execFileSync`·`spawn`·`spawnSync`·`exec`·`execSync`·`fork`) 옵션의 timeout은 무임계 | `setTimeout(f, 999)` 통과 · `setTimeout(f, 1000)` 위반 · `AbortSignal.timeout(10)` 위반 · `execFile(c, a, { timeout: 10 })` 위반 · `pool({ timeoutMs: 10 })` 통과 |
+| P5 제외 | `scaleMs`·`scaledBudget`·`vi.setConfig` 인자 · `vi.waitFor` 옵션(둘째 인자) · it/test/describe/훅 타임아웃 인자((F) 몫) · matcher 피연산자 — 단 `expect(x)`의 x와 elapsed 형태의 상한 인자는 센다 | `vi.waitFor(cb, { timeout: 4000 })` 통과 · `vi.waitFor(() => setTimeout(f, 4000))` 위반 · `expect(x).toMatchObject({ timeout: 60_000 })` 통과 · `expect(wait({ timeoutMs: 1000 })).resolves.toBe(…)` 위반 · `expect(Date.now() - start).toBeLessThan(5000)` 위반 · `it('x', fn, scaleMs(5000))` (H′) 0 |
+| P6 허용 목록 | 미등록 리터럴 위반 · 항목 count = 같은 파일·같은 값 자리 수 · reason 빈 값 위반 · 다른 파일 같은 값 위반 | 항목 `{file:'a', value:'5000', count:2, reason:'r'}` + 자리 2 → 통과 · 자리 3 → 위반 · 자리 1 → 위반 · reason `''` → 위반 · 파일 `b`의 `5000` → 위반 |
+| P7 이중 배율 | `vi.waitFor` 옵션(숫자·객체) 안의 `scaleMs` 위반 | `vi.waitFor(cb, { timeout: scaleMs(4000) })` 위반 · `vi.waitFor(cb, scaleMs(4000))` 위반 |
+
+**ΔV1 등록 변이** — 자리를 적었다. 판정 코드 변이(M12~M17·X6)는 UT(VP-12), 트리 변이는 게이트(VP-07a·09a)가 잡아야 한다.
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 oracle |
+|---|---|---|---|
+| M5a-1~18 | EP-05a "예산 — 새로 배율" 18자리 **각각** | `scaleMs(N)` → `N` | `gate:node scripts/check-test-budgets.mjs` exit 1 |
+| X7′ (r1 X7) | `main/app/managed-mcp.cli.integration.test.ts` abort 자리 | 인자 → `10` | 같은 게이트(abort 무임계) |
+| X8′ (r1 X8) | `main/app/harnesses/opencode/native-storage.integration.test.ts` 자식 프로세스 `timeout` | 값 → `10` | 같은 게이트(자식 프로세스 무임계) |
+| X9′ (r1 X9) | `main/infra/config/file-mutation.test.ts` | `const T = 30_000` + `setTimeout(() => {}, T)` 추가 | 같은 게이트(상수 해석) |
+| M11a | `main/features/approvals/broker.test.ts` | `{ timeoutMs: 1000 }` 자리 1개 추가 | 같은 게이트(count 3 ≠ 4) |
+| M11b | `renderer/src/features/chat/lib/taskBoard.test.ts` | `timeout: 30_000` 속성 삭제 | 같은 게이트(count 1 ≠ 0) |
+| M15 | `main/app/chat-turn/opencode-continuation.test.ts`의 `vi.waitFor` 옵션 | `timeout: 5000` → `timeout: scaleMs(5000)` | 같은 게이트(이중 배율) |
+| M12 | 판정 코드 P5 | `expect(x)`의 x도 제외 | UT P5 `expect(wait(…)).resolves` 입력 |
+| M13 | 판정 코드 P2 | 중첩 `timeouts` 객체 규칙 삭제 | UT P2 중첩 객체 입력 |
+| M14 | 판정 코드 P5 | `vi.waitFor` 제외를 첫 인자로 | UT P5 두 입력 + 트리 게이트(`vi.waitFor` 옵션 리터럴 13자리가 위반으로) |
+| M16 | 판정 코드 P1 | (H′) 범위를 `*.test.ts`로 | UT P1 `b.testfixture.ts`·`c.testfixture.tsx` |
+| M17 | 판정 코드 P4 | abort에 임계 재도입 | UT P4 `AbortSignal.timeout(10)` + X7′ |
+| X6 (r1) | 판정 코드 P6 | 허용 대조에서 파일 비교 삭제 | UT P6 파일 `b` 입력 |
+
+### ΔV1 구현 설계
+
+| 변경 파일 | 변경 내용 | 테스트 seam |
+|---|---|---|
+| `app/scripts/check-test-budgets.mjs` | (H) → (H′): deadline 수집을 EP-12 P1~P7로 교체 · (F)(H′)용 파일 목록(test + testfixture)을 따로 두고 (A)~(E)는 기존 `listTestFiles` 유지 · `SEMANTIC_DELAYS` 16항목 `{file, value, count, reason}` · count·reason·이중 배율 위반 · `--report` deadline 행에 형태 열 · 헤더 주석 (H′) | 순수 함수(`scanBudgetSites`·대조 함수) export → UT |
+| `app/scripts/check-test-budgets.test.mjs` | '규칙 (H′)' describe — EP-12 표의 입력 전부. V1 (H) 3케이스는 (H′) 아래로 옮겨 유지 | node test |
+| 새 예산 18자리 10파일 | `scaleMs(기준값)` + `scripts/test-time.mjs` import(파일마다 상대 경로) — 기준값은 현재 리터럴 그대로 · `server.test.ts`는 `options.timeoutMs ?? scaleMs(1000)` · `instance-lifecycle.test.ts`는 `timeoutMs = scaleMs(1000)` · `native-storage.testfixture.ts`는 esbuild 번들이라 같은 import로 해석된다 | 게이트 + 각 파일 green |
+| `app/AGENTS.md` | `check-test-budgets.mjs` 항목의 (H) 서술 → (H′)(형태·임계·`count`·testfixture 범위) | AC19a |
+
+- 이중 배율 금지 문구(§12)는 바뀌지 않는다 — (H′)가 그 강제 지점이 된다.
+- 신규 의존성 없음. production 코드 무변경(§6 비범위 유지).
+- 비범위: `app/scripts/smoke-*.mjs`(사람이 실제 실행 파일로 돌리는 수동 도구 — `npm test`·CI 밖, 자체 `--timeout-ms` 옵션) · production 타이머 상수(예 `RUNTIME_RESPONSE_TIMEOUT_MS`).
+
+### ΔV1 운영 gate
+
+| Gate | 적용 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| app lint·typecheck | `app/**` 수정 | `cd app && npm run lint && npm run typecheck` | 이번 변경이 낸 error |
+| node scripts 테스트 | 게이트 코드·테스트 변경 | `node --test "scripts/*.test.mjs"` | 전부 |
+| 예산·인벤토리 게이트 | (H′) · 문서 | `node scripts/check-test-budgets.mjs` · `--report` ↔ `scan-deadlines.mjs` 차집합 · `node scripts/check-doc-inventory.mjs --check` | 전부 |
+| vitest | 바뀐 테스트 10파일 + 회귀 | `./node_modules/.bin/vitest run` — 리눅스 기준선 22건 분리 · 저성능 모사 S2 | 22건 밖 신규 실패 |
+| Windows CI | 정본 통합 게이트 · 'Test budget guard' 단계 | PR `CI` 실행 | 전부 |
+| commit trailer | message bus | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
+
+### ΔV1 READY self-review
+
+- Decision 보존: D-001~D-011 무변경, D-012~D-014 추가(§3 갱신 메모에 대조 1줄) — 사용자 결정 변경 없음.
+- §10 gap을 자리 하나씩 더하지 않고 pair 목록 전체를 다시 열거했다 — 자리 검색 명령 `scan-deadlines.mjs`(술어 = D-012 주어, 범위 = 테스트 소스 전체)로 44, 이 수를 분모로 고정.
+- 술어 라벨 표본 확인: `/timeout/i` 44자리 전부 참 · 라벨 밖 시간 키 36자리 중 `connectMs`·`commandMs` 4자리(중첩 `timeouts`)를 술어에 넣었다. 나머지 32는 이름별 표본(`durationMs`·`duration_ms` — 이벤트 payload의 경과 기록 9파일, `intervalMs` — scheduler 주기, `retry_delay_ms`·`timedOutAfterMs`·`createdAtMs` — 데이터)이 상한이 아니다.
+- 임계의 근거 실측: 1초 미만 46자리(option 13·timer 33) 전부 시간 초과 유발값·하한 대기 · abort·자식 프로세스 1초 미만 0.
+- 새 왼쪽 node ↔ 같은 레벨 REQUIRED pair 차집합 0 · SUPERSEDED 3 pair의 AC·변이 이관 표기 · 비영향 pair 8개는 NOT_REQUIRED + r1 좌표.
+- 자리별 oracle: 예산 24자리 = 게이트 좌표(자리마다 M5a) · 의미 값 20자리 = 허용 항목 count · 판정 7지점 = UT 분기 입력(EP-12 표).
+- 장치 방향: `scaleMs`를 지우면 red(M5a) · 허용 자리 ±1이면 red(M11) · 다른 파일 같은 값 red(X6) · 판정 분기를 지우면 UT red(M12~M17).
+- 측정되지 않은 보호를 규범 행에 적지 않았다 — opt-in 스위트 자리의 기준값 축은 oracle 없음으로 `실패 의미`에 적었다.
+- 사람 실기 추가 없음(AC18 그대로).
 
 ---
 
@@ -312,7 +512,7 @@ CI: timeout-minutes = fromJSON(vars.* || 기본) · env ORCA_TEST_TIME_SCALE = v
 | AR-01 / VP-01 EP-02 | `vi.waitFor` 무옵션 `5_000×s`, 명시 `t×s`, 숫자 `t×s`, `interval` 보존 | `test-time.mjs` `scaledWaitForOptions` | setup | 1자리: `app/scripts/vitest-setup.mjs` wrapper 설치 — 호출 172곳(51파일)은 전부 `vi.waitFor` 경유 | `rg -n "vi\.waitFor\s*=" app/scripts` → 1 · `rg -c "vi\.waitFor\(" app/src -g '*.test.ts'` → 172/51(변화 0) | §8 S1·S2 실패 재발 |
 | AR-01 / VP-01·09 EP-03 | 파일 예산 = `vi.setConfig(scaledBudget({기준값}))` · 기준값 = 현재 리터럴 | 각 파일 + `scaledBudget` | 테스트 작성자 · 게이트 (F) | 20자리: `app/artifact-sdk-live:26` · `chat-turn/opencode-continuation:54` · `chat-turn/prepare-progress:33` · `git-execution:16` · `legacy-paths:34` · `managed-mcp-document-contract:8` · `managed-mcp.cli.integration:23` · `worktrees/ipc-integration:30` · `worktrees/reject-reasons:23` · `worktrees/safe-delete:27` · `worktrees/service:21` · `git/git-cli:30` · `git/git-consistency:11` · `git/git-diff-commit:14` · `git/git-diff:41` · `git/git-safety:13` · `git/git-snapshot:11` · `git/probe:9` · `git/queue-entry:22` · `git/repository:13` (경로 접두사 `app/src/main/`) | `node evidence/scan-test-budgets.mjs app` `setConfig` → 20 · TO-BE `node scripts/check-test-budgets.mjs --report` `setConfig` 20 = 목록(차집합 0) | 리터럴로 남은 파일은 배율 무시 |
 | AR-01 / VP-01·09 EP-04 | 케이스 인라인 타임아웃 = `scaleMs(기준값)` | 각 자리 | 게이트 (F) | 6자리: `adapters/opencode/v1/adapter.persistent:321`(10_000) · `discovery-cache.hold-race:45`(10000) · `:60`(10000) · `app/handlers/session-resources.claude-assembly:127`(20000) · `app/harnesses/opencode/native-storage.integration:68`(330000) · `infra/config/file-mutation:250`(45_000) | 같은 스캔 `case` → 6 · `--report` `case` | 인라인이 전역(60s)보다 작게 남아 이김 |
-| AR-01 / VP-01·09 EP-05 | 테스트 소유 실시간 마감 = `scaleMs(기준값)` · 의미 대기 = 허용 목록 `{file, value, reason}` | 게이트 `SEMANTIC_DELAYS` | 게이트 (H) | 10자리 — **예산 4**: `app/artifact-sdk-live:71`(90_000 abort) · `app/managed-mcp.cli.integration:322`(60_000 close) · `:420`(10_000 exit) · `infra/config/file-mutation:221`(30_000 준비) / **의미 6**: `adapter.persistent:299`(2700 — production AbortSignal 2.5s를 넘기는 대기) · `session-resources.claude-assembly:106`(1000 — mtime 구분) · `features/plugins/mail/sync-manager:40`(25_000 — fake 타이머 지연 응답 자극) · `adapter.test:343`(5_001)·`:387`(5000 — `vi.setSystemTime`) · `infra/git/git-snapshot:51`(60_000 — 데이터 시각) | 같은 스캔 `deadline`+`setTimeout` → 10 | 의미 대기를 배율하면 production 계약 시험이 바뀐다 · 예산 마감을 안 하면 느린 러너에서 끊김 |
+| ~~AR-01 / VP-01·09 EP-05~~ **SUPERSEDED → ΔV1 EP-05a (§7-B)** | 테스트 소유 실시간 마감 = `scaleMs(기준값)` · 의미 대기 = 허용 목록 `{file, value, reason}` | 게이트 `SEMANTIC_DELAYS` | 게이트 (H) | 10자리 — **예산 4**: `app/artifact-sdk-live:71`(90_000 abort) · `app/managed-mcp.cli.integration:322`(60_000 close) · `:420`(10_000 exit) · `infra/config/file-mutation:221`(30_000 준비) / **의미 6**: `adapter.persistent:299`(2700 — production AbortSignal 2.5s를 넘기는 대기) · `session-resources.claude-assembly:106`(1000 — mtime 구분) · `features/plugins/mail/sync-manager:40`(25_000 — fake 타이머 지연 응답 자극) · `adapter.test:343`(5_001)·`:387`(5000 — `vi.setSystemTime`) · `infra/git/git-snapshot:51`(60_000 — 데이터 시각) | 같은 스캔 `deadline`+`setTimeout` → 10 | 의미 대기를 배율하면 production 계약 시험이 바뀐다 · 예산 마감을 안 하면 느린 러너에서 끊김 |
 | AR-01 / VP-01 EP-06 | 실-git 픽스처 상수 = `scaleMs(600_000)`·`scaleMs(5_000)`·`retryDelay: scaleMs(200)` · (G) 기준 상한 600_000 > 최대 기준 예산 369_000 | `infra/git/temp-repo.testfixture.ts` | 픽스처 · 게이트 (G) | 3자리: `FIXTURE_GIT_TIMEOUT_MS` · `KILL_GRACE_MS` · `RM_RETRY` | `rg -n "const (FIXTURE_GIT_TIMEOUT_MS\|KILL_GRACE_MS\|RM_RETRY)" app/src/main/infra/git/temp-repo.testfixture.ts` → 3 | 상한이 배율된 파일 예산보다 먼저 끊음 |
 | R-02 / VP-02 EP-07 | CI 상한·배율 전달 | 워크플로 | GitHub Actions | 4자리: `ci.yml` `timeout-minutes` · `ci.yml` Test `env.ORCA_TEST_TIME_SCALE` · `release.yml` `timeout-minutes` · `release.yml` Test `env.ORCA_TEST_TIME_SCALE` | `rg -n "timeout-minutes\|ORCA_TEST_TIME_SCALE" .github/workflows` → TO-BE 4 | 작업이 테스트보다 먼저 끊김 · 변수 무시 |
 | MD-01 / VP-02·10 EP-08 | 배율 해석: 유한수 ≥1, 미설정·빈 값 = 3 | `test-time.mjs` `resolveTestTimeScale` | config import 시 | 2자리: `resolveTestTimeScale` 본문 · `TEST_TIME_SCALE` 모듈 상수(로드 시 1회 해석) | `rg -n "export (function resolveTestTimeScale\|const TEST_TIME_SCALE)" app/scripts/test-time.mjs` → 2 | 0·음수·NaN 배율로 예산 0/무한 |
@@ -460,6 +660,7 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 - `app/src/main/infra/{test-environment.test.ts,test-environment.hostile.test.ts}` (신규)
 - §10 EP-03(20)·EP-04(5파일)·EP-05(3파일)·EP-06(1)·EP-10(7)·EP-11(1) 파일 · `features/worktrees/service.test.ts`
 - `.github/workflows/{ci.yml,release.yml}` · `app/AGENTS.md` · `docs/guides/release-operations.md`
+- **ΔV1**: `app/scripts/check-test-budgets{,.test}.mjs` · 새 예산 18자리 10파일 · `app/AGENTS.md` — 정본은 §7-B "ΔV1 구현 설계"
 
 ## 19. 게이트
 
