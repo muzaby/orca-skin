@@ -44,11 +44,16 @@
 //     `{file, value, count, reason}` 으로 등록한다 — 게이트가 자리 수를 count 와 대조한다.
 //     `vi.waitFor` 옵션 안의 `scaleMs` 는 이중 배율이라 막는다. (F)(H′) 범위는 `*.test.ts` 와
 //     `*.testfixture.ts(x)` 다 — (A)~(E) 는 `*.test.ts` 만 본다.
+//     0294 ΔV2 — 판정이 읽는 식은 전부 같은 파일 바인딩 해석기(`test-budget-bindings.mjs`)를 지난다:
+//     단축 속성·대입·클래스 필드·구조 분해 기본값·`/timeout/i` 이름 변수(named) 슬롯, now 변수·`+=`,
+//     같은 파일 함수의 인자·반환, 변수에 담은 `vi.waitFor` 옵션까지. 문법 노드만 보면 같은 계약을
+//     다른 문법으로 쓴 자리가 조용히 지난다. (F) 는 그대로 인라인 형태만 통과시킨다(fail-closed).
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import process from 'node:process'
 import ts from 'typescript'
+import { createBindings, keyOf } from './test-budget-bindings.mjs'
 
 const TEST_ROOT = 'src'
 const FIXTURE = 'temp-repo.testfixture'
@@ -304,6 +309,49 @@ export const SEMANTIC_DELAYS = [
     value: '1200',
     count: 1,
     reason: 'provider 설정 데이터'
+  },
+  // ΔV2 — now 식 바인딩 해석과 `+=` 형태가 새로 센 자리. 전부 가짜·주입 시계와 데이터다.
+  {
+    file: 'main/adapters/opencode/v1/discovery-cache.poll-race.test.ts',
+    value: '1001',
+    count: 9,
+    reason: '`Date.now` mock 시계(now)를 캐시 신선도 1초 너머로 진행하는 값 — 실시간 대기가 아니다'
+  },
+  {
+    file: 'main/adapters/opencode/v1/discovery-cache.poll-race.test.ts',
+    value: '5000',
+    count: 1,
+    reason: '`utimes` 로 쓰는 파일 mtime 데이터 — 대기가 아니다'
+  },
+  {
+    file: 'main/adapters/opencode/v1/discovery-cache.test.ts',
+    value: '1001',
+    count: 1,
+    reason: '`Date.now` mock 시계 진행(캐시 만료)'
+  },
+  {
+    file: 'main/app/deployment/mail.integration.test.ts',
+    value: '299_000',
+    count: 1,
+    reason: '동기화 관리자에 주입한 시계(`now: () => now`)를 신선도 5분 직전까지 진행'
+  },
+  {
+    file: 'main/app/deployment/mail.integration.test.ts',
+    value: '2_000',
+    count: 1,
+    reason: '같은 주입 시계로 신선도 5분 경계를 넘긴다'
+  },
+  {
+    file: 'main/app/deployment/mail.integration.test.ts',
+    value: '301_000',
+    count: 4,
+    reason: '같은 주입 시계로 신선도 5분을 넘긴다'
+  },
+  {
+    file: 'main/app/deployment/mail.integration.test.ts',
+    value: '15 * 86400_000',
+    count: 1,
+    reason: '같은 주입 시계로 보존 기간 경계를 넘긴다'
   }
 ]
 
@@ -322,12 +370,16 @@ const CHILD_PROCESS = new Set([
   'fork'
 ])
 const TIMEOUT_NAME = /timeout/i
+const SK = ts.SyntaxKind
 const COMPARE = new Set([
-  ts.SyntaxKind.LessThanToken,
-  ts.SyntaxKind.LessThanEqualsToken,
-  ts.SyntaxKind.GreaterThanToken,
-  ts.SyntaxKind.GreaterThanEqualsToken
+  SK.LessThanToken,
+  SK.LessThanEqualsToken,
+  SK.GreaterThanToken,
+  SK.GreaterThanEqualsToken
 ])
+const SLOT_ASSIGN = new Set([SK.EqualsToken, SK.QuestionQuestionEqualsToken, SK.BarBarEqualsToken])
+const UPPER_MATCHERS = new Set(['toBeLessThan', 'toBeLessThanOrEqual'])
+const UPPER_MATCHERS_FLIPPED = new Set(['toBeGreaterThan', 'toBeGreaterThanOrEqual'])
 
 function rootName(expr) {
   let e = expr
@@ -340,70 +392,48 @@ const isCallTo = (node, name) =>
 
 /**
  * (H′) 테스트 소유 실시간 마감 — 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 자리.
- * 각 자리는 `{ form, line, node, value, scaled }`. `value` 는 리터럴 원문(배율 경유면 null).
+ * 각 자리는 `{ form, line, node, value, valueLine, scaled }`. `value` 는 리터럴 원문(배율이면 null).
  *
- * 형태(form) — timer(`setTimeout`·`setInterval` 전역·`globalThis.`·`window.` · `timers/promises`
+ * 식은 전부 `createBindings` 해석기를 지난다(D-015) — 형태의 호출 대상 · now 식 · 값 · 옵션 객체 · 맥락.
+ * 형태 8(D-016) — timer(`setTimeout`·`setInterval` 전역·`globalThis.`·`window.` · `timers/promises`
  * 의 `setTimeout` 첫 인자) · method(`x.setTimeout(N)`) · abort(`AbortSignal.timeout`) · deadline
- * (`now() + N` · now 식과 N 의 비교) · elapsed(`expect(now 식).toBeLessThan(OrEqual)(N)`) · option
- * (`/timeout/i` 키 · `/timeout/i` 이름에 담긴 중첩 객체의 숫자 속성) · param(`/timeout/i` 매개변수 기본값).
- * 값 해석 — 리터럴 · 같은 파일 `const` · `??`/`||` 오른쪽 · 리터럴 `*`/`+` · `scaleMs(…)` 는 배율.
- * import 식별자처럼 풀 수 없는 값은 건너뛴다. 같은 리터럴을 두 자리가 가리키면 한 번만 센다.
+ * (now 식 `+ N` · `N +` · `+= N` · now 식과 N 의 비교 — now 식끼리는 아님) · elapsed(`expect(now 식)
+ * .toBeLessThan(OrEqual)(N)` · `expect(N).toBeGreaterThan(OrEqual)(now 식)`) · option(`/timeout/i`
+ * 이름의 객체 속성·단축 속성·대입·클래스 필드 · `/timeout/i` 이름에 담긴 객체의 숫자 속성) ·
+ * param(`/timeout/i` 매개변수·구조 분해 기본값) · named(`/timeout/i` 이름 변수 초기값·식별자 대입).
  * 임계 1000ms — 단 abort 와 자식 프로세스 옵션의 timeout 은 임계 없이 센다.
  * 제외 — `scaleMs`·`scaledBudget`·`vi.setConfig` 인자 · `vi.waitFor` 옵션(setup 이 배율, 이중 배율은
  * 별도 위반) · it/test/describe/훅 타임아웃 인자((F) 몫) · matcher 피연산자. 단 `expect(x)` 의 x 와
- * elapsed 형태의 상한 인자는 센다.
+ * elapsed 의 상한 인자는 센다. 맥락은 사용 자리에서 본다 — 변수에 담긴 슬롯은 그 변수의 참조가
+ * 전부 제외 자리일 때만 제외, 자식 프로세스·`timeouts` 소유는 참조 하나라도.
+ * 한 리터럴은 한 자리 — 소스 전위 순회에서 처음 센 슬롯이 그 자리다.
  */
 export function scanDeadlineSites(relPath, source) {
-  const src = ts.createSourceFile(relPath, source, ts.ScriptTarget.Latest, true)
-  const consts = new Map()
-  const promiseTimers = new Set()
-  const collect = (node) => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
-      consts.set(node.name.text, node.initializer)
-    if (
-      ts.isImportDeclaration(node) &&
-      /^(node:)?timers\/promises$/.test(node.moduleSpecifier.text) &&
-      node.importClause?.namedBindings &&
-      ts.isNamedImports(node.importClause.namedBindings)
+  const b = createBindings(relPath, source)
+  const { src } = b
+  const lineOf = (node) => src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1
+  const timerAliases = new Set(
+    [...b.importAliases(/^(node:)?timers\/promises$/)]
+      .filter(([, original]) => original === 'setTimeout')
+      .map(([local]) => local)
+  )
+  const childAliases = new Map(
+    [...b.importAliases(/^(node:)?child_process$/)].filter(([, original]) =>
+      CHILD_PROCESS.has(original)
     )
-      for (const el of node.importClause.namedBindings.elements)
-        if ((el.propertyName ?? el.name).text === 'setTimeout') promiseTimers.add(el.name.text)
-    ts.forEachChild(node, collect)
-  }
-  collect(src)
-
-  const resolveValue = (node, depth = 0) => {
-    if (!node || depth > 4) return null
-    if (ts.isParenthesizedExpression(node)) return resolveValue(node.expression, depth + 1)
-    if (ts.isNumericLiteral(node))
-      return { literal: node, value: Number(node.text.replace(/_/g, '')), scaled: false }
-    if (isCallTo(node, 'scaleMs')) return { literal: node, value: null, scaled: true }
-    if (ts.isIdentifier(node) && consts.has(node.text))
-      return resolveValue(consts.get(node.text), depth + 1)
-    if (ts.isBinaryExpression(node)) {
-      const k = node.operatorToken.kind
-      if (k === ts.SyntaxKind.QuestionQuestionToken || k === ts.SyntaxKind.BarBarToken)
-        return resolveValue(node.right, depth + 1)
-      if (k === ts.SyntaxKind.AsteriskToken || k === ts.SyntaxKind.PlusToken) {
-        const l = resolveValue(node.left, depth + 1)
-        const r = resolveValue(node.right, depth + 1)
-        if (l?.scaled || r?.scaled) return { literal: node, value: null, scaled: true }
-        if (l && r) {
-          const value = k === ts.SyntaxKind.PlusToken ? l.value + r.value : l.value * r.value
-          return { literal: node, value, scaled: false }
-        }
-      }
-    }
-    return null
+  )
+  const calleeOf = (call) => {
+    const name = b.calleeName(call)
+    return childAliases.get(name) ?? name
   }
 
   // keepMatcher: elapsed 형태는 상한 자체가 matcher 인자라 그 제외를 건너뛴다.
-  const excluded = (node, keepMatcher) => {
+  const excludedHere = (node, keepMatcher) => {
     for (let child = node, p = node.parent; p; child = p, p = p.parent) {
       if (!ts.isCallExpression(p)) continue
       const argIndex = p.arguments.indexOf(child)
       if (argIndex < 0) continue
-      const callee = p.expression.getText(src)
+      const callee = calleeOf(p)
       if (callee === 'scaleMs' || callee === 'scaledBudget' || callee === 'vi.setConfig')
         return true
       if (callee === 'vi.waitFor' && argIndex >= 1) return true
@@ -417,88 +447,149 @@ export function scanDeadlineSites(relPath, source) {
     }
     return false
   }
-  // 속성을 담은 객체 리터럴(중첩 포함)이 /timeout/i 이름의 속성·변수에 담겼는가.
-  const inTimeoutObject = (prop) => {
-    for (let object = prop.parent; object && ts.isObjectLiteralExpression(object);) {
-      const owner = object.parent
-      if (!owner) return false
+  const excluded = (slot, keepMatcher) => {
+    const uses = b.usesOf(slot)
+    return uses.length > 0 && uses.every((use) => excludedHere(use, keepMatcher))
+  }
+  /** 객체 사용 자리 하나가 자식 프로세스 호출의 인자인가(전개·괄호 사이 포함). */
+  const usedByChildProcess = (objectExpression) =>
+    b.objectUses(objectExpression).some((use) => {
+      let at = use
+      while (
+        at.parent &&
+        (ts.isSpreadAssignment(at.parent) ||
+          ts.isObjectLiteralExpression(at.parent) ||
+          ts.isParenthesizedExpression(at.parent))
+      )
+        at = at.parent
+      const call = at.parent
+      if (!call || !ts.isCallExpression(call) || !call.arguments.includes(at)) return false
+      return CHILD_PROCESS.has(calleeOf(call).split('.').pop())
+    })
+  /** 객체 리터럴이 `/timeout/i` 이름의 속성·단축 속성·변수에 담겼는가(바인딩 참조 하나라도). */
+  const ownedByTimeoutName = (object, depth = 0) => {
+    if (!object || depth > 8 || !ts.isObjectLiteralExpression(object)) return false
+    for (const use of b.objectUses(object)) {
+      let owner = use.parent
+      while (owner && (ts.isParenthesizedExpression(owner) || ts.isAsExpression(owner)))
+        owner = owner.parent
+      if (!owner) continue
+      const named =
+        ts.isPropertyAssignment(owner) ||
+        ts.isShorthandPropertyAssignment(owner) ||
+        ts.isVariableDeclaration(owner)
+      if (named && TIMEOUT_NAME.test(keyOf(owner.name))) return true
       if (
-        (ts.isPropertyAssignment(owner) || ts.isVariableDeclaration(owner)) &&
-        TIMEOUT_NAME.test(owner.name.getText(src))
+        (ts.isPropertyAssignment(owner) || ts.isShorthandPropertyAssignment(owner)) &&
+        ownedByTimeoutName(owner.parent, depth + 1)
       )
         return true
-      if (!ts.isPropertyAssignment(owner)) return false
-      object = owner.parent
     }
     return false
   }
-  const childProcessOption = (prop) => {
-    const object = prop.parent
-    const call = object?.parent
-    if (!call || !ts.isCallExpression(call) || !call.arguments.includes(object)) return false
-    const e = call.expression
-    const name = ts.isIdentifier(e) ? e.text : ts.isPropertyAccessExpression(e) ? e.name.text : ''
-    return CHILD_PROCESS.has(name)
-  }
-  const mentionsNow = (node) => /\b(Date|performance)\.now\(\)/.test(node.getText(src))
-  const isNow = (node) => /^(Date|performance)\.now\(\)$/.test(node.getText(src))
 
   const seen = new Set()
   const sites = []
-  const push = (form, at, valueNode) => {
-    if (!valueNode || excluded(valueNode, form === 'elapsed')) return
-    const v = resolveValue(valueNode)
-    if (!v) return
-    const noThreshold = form === 'abort' || (form === 'option' && childProcessOption(at))
-    if (!v.scaled && !noThreshold && v.value < DEADLINE_MIN_MS) return
-    const key = v.literal.getStart(src)
-    if (seen.has(key)) return
-    seen.add(key)
-    sites.push({
-      form,
-      node: at,
-      line: src.getLineAndCharacterOfPosition(at.getStart(src)).line + 1,
-      value: v.scaled ? null : v.literal.getText(src),
-      scaled: v.scaled
-    })
+  const push = (form, slot, valueNode, options = {}) => {
+    if (!valueNode || excluded(slot, form === 'elapsed')) return
+    const noThreshold = form === 'abort' || !!options.childProcess
+    for (const v of b.values(valueNode)) {
+      if (!v.scaled && !noThreshold && v.value < DEADLINE_MIN_MS) continue
+      const key = v.literal.getStart(src)
+      if (seen.has(key)) continue
+      seen.add(key)
+      sites.push({
+        form,
+        node: slot,
+        line: lineOf(slot),
+        valueLine: lineOf(v.literal),
+        value: v.scaled ? null : v.literal.getText(src),
+        scaled: v.scaled
+      })
+    }
   }
+  const optionSlot = (slot, valueNode, objectExpression) =>
+    push('option', slot, valueNode, {
+      childProcess: !!objectExpression && usedByChildProcess(objectExpression)
+    })
+
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
-      const callee = node.expression.getText(src)
+      const callee = calleeOf(node)
+      const access = ts.isPropertyAccessExpression(node.expression) ? node.expression : null
       if (/^(globalThis\.|window\.)?(setTimeout|setInterval)$/.test(callee))
         push('timer', node, node.arguments[1])
-      else if (ts.isIdentifier(node.expression) && promiseTimers.has(callee))
-        push('timer', node, node.arguments[0])
+      else if (timerAliases.has(callee)) push('timer', node, node.arguments[0])
       else if (/\.setTimeout$/.test(callee)) push('method', node, node.arguments[0])
       else if (callee === 'AbortSignal.timeout') push('abort', node, node.arguments[0])
-      else if (
-        /\.(toBeLessThan|toBeLessThanOrEqual)$/.test(callee) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isCallExpression(node.expression.expression) &&
-        mentionsNow(node.expression.expression)
-      )
-        push('elapsed', node, node.arguments[0])
+      else if (access && isCallTo(access.expression, 'expect')) {
+        const subject = access.expression.arguments[0]
+        const bound = node.arguments[0]
+        if (UPPER_MATCHERS.has(access.name.text) && b.isNow(subject)) push('elapsed', node, bound)
+        else if (
+          UPPER_MATCHERS_FLIPPED.has(access.name.text) &&
+          b.isNow(bound) &&
+          !b.isNow(subject)
+        )
+          push('elapsed', node, subject)
+      }
     }
     if (ts.isBinaryExpression(node)) {
       const k = node.operatorToken.kind
-      if (k === ts.SyntaxKind.PlusToken && isNow(node.left)) push('deadline', node, node.right)
-      else if (k === ts.SyntaxKind.PlusToken && isNow(node.right)) push('deadline', node, node.left)
-      else if (COMPARE.has(k) && mentionsNow(node.left) && !mentionsNow(node.right))
+      const leftNow = b.isNow(node.left)
+      const rightNow = b.isNow(node.right)
+      if ((k === SK.PlusToken || k === SK.PlusEqualsToken) && leftNow && !rightNow)
         push('deadline', node, node.right)
-      else if (COMPARE.has(k) && mentionsNow(node.right) && !mentionsNow(node.left))
-        push('deadline', node, node.left)
+      else if (k === SK.PlusToken && rightNow && !leftNow) push('deadline', node, node.left)
+      else if (COMPARE.has(k) && leftNow && !rightNow) push('deadline', node, node.right)
+      else if (COMPARE.has(k) && rightNow && !leftNow) push('deadline', node, node.left)
+      if (SLOT_ASSIGN.has(k)) {
+        const target = node.left
+        if (ts.isIdentifier(target)) {
+          if (TIMEOUT_NAME.test(target.text)) push('named', node, node.right)
+        } else if (ts.isPropertyAccessExpression(target) || ts.isElementAccessExpression(target)) {
+          const name = ts.isPropertyAccessExpression(target)
+            ? target.name.text
+            : ts.isStringLiteralLike(target.argumentExpression)
+              ? target.argumentExpression.text
+              : ''
+          const owner = rootName(target.expression) ?? ''
+          if (TIMEOUT_NAME.test(name) || TIMEOUT_NAME.test(owner))
+            optionSlot(node, node.right, target.expression)
+        }
+      }
     }
     if (
       ts.isPropertyAssignment(node) &&
-      (TIMEOUT_NAME.test(node.name.getText(src)) || inTimeoutObject(node))
+      (TIMEOUT_NAME.test(keyOf(node.name)) || ownedByTimeoutName(node.parent))
     )
+      optionSlot(node, node.initializer, node.parent)
+    if (
+      ts.isShorthandPropertyAssignment(node) &&
+      (TIMEOUT_NAME.test(node.name.text) || ownedByTimeoutName(node.parent))
+    )
+      optionSlot(node, node.name, node.parent)
+    if (ts.isPropertyDeclaration(node) && node.initializer && TIMEOUT_NAME.test(keyOf(node.name)))
       push('option', node, node.initializer)
     if (ts.isParameter(node) && ts.isIdentifier(node.name) && TIMEOUT_NAME.test(node.name.text))
       push('param', node, node.initializer)
+    if (
+      ts.isBindingElement(node) &&
+      node.initializer &&
+      TIMEOUT_NAME.test(keyOf(node.propertyName ?? node.name))
+    )
+      push('param', node, node.initializer)
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      TIMEOUT_NAME.test(node.name.text)
+    )
+      push('named', node, node.initializer)
     ts.forEachChild(node, visit)
   }
   visit(src)
-  return { src, sites }
+  return { src, bindings: b, sites }
 }
 
 /**
@@ -507,16 +598,12 @@ export function scanDeadlineSites(relPath, source) {
  * waitFor 는 `vi.waitFor` 옵션 안의 `scaleMs` — setup 이 이미 배율하므로 언제나 위반(이중 배율).
  */
 export function scanBudgetSites(relPath, source, entries = SEMANTIC_DELAYS) {
-  const { src, sites: deadlines } = scanDeadlineSites(relPath, source)
+  const { src, bindings, sites: deadlines } = scanDeadlineSites(relPath, source)
   const sites = []
   const at = (node) => src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1
   const text = (node) => node.getText(src).replace(/\s+/g, ' ').slice(0, 80)
   const push = (kind, node, ok, extra = {}) =>
     sites.push({ kind, line: at(node), text: text(node), ok, ...extra })
-  const hasScaleMs = (node) => {
-    if (isCallTo(node, 'scaleMs')) return true
-    return ts.forEachChild(node, hasScaleMs) ?? false
-  }
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
       const callee = node.expression.getText(src)
@@ -524,9 +611,10 @@ export function scanBudgetSites(relPath, source, entries = SEMANTIC_DELAYS) {
       if (callee === 'vi.setConfig') {
         const arg = node.arguments[0]
         push('setConfig', node, !!arg && isCallTo(arg, 'scaledBudget'))
-      } else if (callee === 'vi.waitFor') {
+      } else if (bindings.calleeName(node) === 'vi.waitFor') {
+        // P7′ — 옵션이 바인딩(식별자·단축 속성·전개·멤버·반환)을 거쳐 scaleMs 에 닿아도 이중 배율.
         for (const option of node.arguments.slice(1))
-          if (hasScaleMs(option)) push('waitFor', option, false)
+          if (bindings.reachesScale(option)) push('waitFor', option, false)
       } else if (name && (TEST_CALLS.has(name) || HOOK_CALLS.has(name))) {
         const kind = HOOK_CALLS.has(name) ? 'hook' : 'case'
         node.arguments.forEach((arg, index) => {
@@ -551,6 +639,7 @@ export function scanBudgetSites(relPath, source, entries = SEMANTIC_DELAYS) {
     push('deadline', site.node, site.scaled || !!entry, {
       form: site.form,
       value: site.value,
+      valueLine: site.valueLine,
       ...(entry ? { reason: entry.reason } : {})
     })
   }
@@ -594,7 +683,10 @@ export function analyzeScale(relPath, source, entries = SEMANTIC_DELAYS) {
   return [
     ...sites
       .filter((site) => !site.ok)
-      .map((site) => `:${site.line} ${site.text} — ${SCALE_HINT[site.kind]}`),
+      .map(
+        (site) =>
+          `:${site.line}${site.valueLine && site.valueLine !== site.line ? ` (값 :${site.valueLine})` : ''} ${site.text} — ${SCALE_HINT[site.kind]}`
+      ),
     ...checkSemanticEntries(relPath, sites, entries)
   ]
 }
@@ -656,7 +748,7 @@ export function runCli(appDir = process.cwd(), argv = [], entries = SEMANTIC_DEL
     if (argv.includes('--report'))
       for (const site of scanBudgetSites(rel, source, entries))
         report.push(
-          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.form ?? '-'}\t${site.text}`
+          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.form ?? '-'}\t${site.kind === 'deadline' ? (site.value ?? 'scaleMs') : '-'}\t${site.text}`
         )
   }
   // 대상 파일이 사라진 의미 값 항목 — 낡은 허용은 다음 예산 자리의 우회로가 된다.
