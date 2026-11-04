@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) |
-| 상태 | plan/READY (ΔV2 — verify r2 D2·D3 정정, §7-C) |
+| 상태 | impl/IMPL_DONE (r3 — ΔV2 구현) |
 | V mode | `Baseline V + ΔV1 + ΔV2` |
 | 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1·ΔV2는 이 handoff의 V1 위 증분이다 |
 | 이번 V revision | `ΔV2` — verify r2 D2(`BLOCKING` — (H′) 형태 판정이 바인딩을 따라가지 않음)·D3(`PLAN_GAP` — EP-12 규칙 칸에 바인딩 추적 범위 없음) 정정. 구 행은 supersede(§7-C). ΔV1은 r1 D1 정정(§7-B) |
@@ -1141,7 +1141,135 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 - 반복해서 부딪히는 환경 한계: opt-in 스위트 2파일은 이 환경에서 skip — 그 자리의 기계 oracle은 형태 게이트뿐(§7-B 남는 차이). 세션 초기 환경에서 better-sqlite3 ABI·electron 바이너리 미설치.
 - 현재 라운드·impl 턴: `r2`. 구현자 = 다음 검증자(Claude) — verify는 보고에 없는 적대 축을 하나 더해야 한다.
 
+## [구현자 기입] 설계 리뷰 (r3 — ΔV2)
+
+- 동의 / 그대로 진행: §7-C ΔV2 구현 설계 그대로 — 해석기 B0~B7·경계, P2′~P9, 허용 목록 +7, `--report` 값 열, 위반 문구 값 줄, `app/AGENTS.md`.
+- 이견 / 현실성 문제: 없음. 해석기는 plan이 허용한 별도 모듈 `app/scripts/test-budget-bindings.mjs`로 나눴다. 시제품 `evidence/scan-deadlines-v2.mjs`는 복사하지 않고 새로 썼다(선언 노드를 키로 쓰는 참조·대입·호출 색인 구조).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r3
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07b·09b EP-05b 예산 | `scaleMs(기준값)` | 24 | 24/24 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — M5b 24자리 각각 리터럴 복귀 → exit 1(위반 1, `temp-repo:43`은 (G) 포함 3) | 기준값 = 현재 리터럴 · 이번 턴 테스트 소스 diff 0 | — |
+| 같음 · 의미 값 | 허용 23항목 `{file, value, count, reason}` | 38 | 38/38 | `--report` deadline `semantic` 38 · 새 7항목 count 9·1·1·1·1·4·1 · M11c(+1)·M11d(−1) exit 1 | count 1·4·9 항목 구별 | — |
+| 같음 · 분모 대조 | `--report` ↔ 스캔 | 62 | 62/62 | §7-B 대조 명령 → **0줄**(양쪽 62, 파일:줄·형태·값) | — | — |
+| VP-07b·09b EP-01·02·03·04·06 | 전역·waitFor·파일 예산·인라인·픽스처 | 2·1·20·6·3 = 32 | 32/32 | 이번 턴 diff 0 — 좌표: M1(`test-time.test.mjs` fail 1) · `rg -n "vi\.waitFor\s*=" app/scripts` 1 · M3·M4 exit 1 · `--report` setConfig 21 · case 6 · M6 exit 1 | — | — |
+| VP-12b EP-12b P1 | 파일 범위 | 1 | 1/1 | 'P1 — (H′) 는 test·testfixture…' · M16 UT fail 1 | ΔV1 입력 그대로 | — |
+| P2′ | 형태 8 · 슬롯 · 호출 대상 | 1 | 1/1 | '바인딩 해석 (0294 ΔV2)' P2′ 15케이스 · M18~M23 각 UT red | 분기마다 `5000`→1 · `scaleMs(5000)`→0 | — |
+| P3′ | 해석 B0~B7 | 1 | 1/1 | P3′ 13케이스 · M24~M28 각 UT red | 가림 두 순서 · `wait(5000)`·`wait(400)` 구별 | — |
+| P4′ | 임계 · 자식 프로세스 바인딩 | 1 | 1/1 | 'P4′ 자식 프로세스 옵션은…' 6입력 + 대조 `pool(opts)` 0 · M29 · M17 · R-child red | `timeout: 10` | — |
+| P5′ | 사용 자리 제외 | 1 | 1/1 | 'P5′ 변수에 담긴 슬롯은…' 5입력(Y2b·Y2e 0 · Y2f 1) · M30·M31 red | 전부/하나라도 맞바꿈 | — |
+| P6 | 허용 목록 | 1 | 1/1 | ΔV1 P6 2케이스 · X6 UT fail 3 | ΔV1 입력 그대로 | — |
+| P7′ | 이중 배율 바인딩 | 1 | 1/1 | 'P7′ vi.waitFor 옵션이…' 5입력 · M32 red | const 객체·숫자·전개·별칭 1, Y2b 0 | — |
+| P8 | now 식 | 1 | 1/1 | P8 7케이스 · M33~M37 각 red | `+=`·역방향·하한·호출 인자 안 now | — |
+| P9 | 자리 동일성 | 1 | 1/1 | 'P9 한 리터럴은 한 자리…' · '--report deadline 행은 형태 열과 값 열을 갖는다' · M38 red | `(값 :1)` 표기 · 값 열 `30_000`·`scaleMs` | — |
+| AC19b | `app/AGENTS.md` | 1 | 1/1 | `grep -c "test-budget-bindings" app/AGENTS.md` → 1 · 단축 속성·`+=`·"참조가 **전부** 제외" 문구 · doc-inventory ok | — | — |
+
+- 강제 지점 전수: EP-05b 62 + EP-01~04·06 32 + EP-12b 9 = **103/103**(VP-07b·09b·12b 분모, D4 반영). V1 EP-07~11(35)은 NOT_REQUIRED 비영향 — 이번 턴 diff가 워크플로·배율 해석·격리·배포·포트 파일에 0.
+- §10 목록 밖에서 본 운반 자리: 0 — 대조 명령 0줄 · `bash …/broad-time-lines.sh app` 나머지 266줄(설계와 같음).
+- 직전 verify 고장 이력의 `못 잡음` 행: Y1·Y2·Y5·Y5b·Y11 → 트리에 같은 입력 삽입 시 각각 게이트 exit 1, 대조 Y2b exit 0(아래 잠금 표).
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-12b | REQUIRED | SELF_PASS | `check-test-budgets.test.mjs` '바인딩 해석 (0294 ΔV2)' 38케이스 + '규칙 (H′)' 31 | M18~M38 21건 RED · ΔV1 M12~M14·M16·M17·X6·R-method·R-child RED |
+| VP-09b | REQUIRED | SELF_PASS | `gate:node scripts/check-test-budgets.mjs` exit 0 · 대조 명령 0줄 | M11c·M11d·Y-트리 5 RED · Y2b 대조 green · M3·M4·M6·M11a·M11b·M15·X9′ RED · Windows CI는 push 뒤 |
+| VP-07b | REQUIRED | SELF_PASS | 자리별 게이트 좌표(위 표 M5b 24) | M5b 24/24 · X7′·X8′ · M1 RED |
+| VP-01b | REQUIRED | SELF_PASS | AC1~3·5·6·8 = verify r1 §5 좌표 승계(이번 턴 테스트 소스·`test-time.mjs` diff 0, `node --test` 237/237) · AC7c·7d = VP-07b·09b·12b | 위 세 pair 변이 |
+| VP-13 | REGRESSION | SELF_PASS | `evidence/clean-host-run.sh app` → 2346 suites 엔트리 · 8,448케이스 · 실패 22(9파일 = D-011 기준선) · `git diff --stat 3ff54f9 -- app/src` 0줄 | not selected |
+| VP-02~06·08·10·11 | NOT_REQUIRED | — | verify r1 §5 · r2-5 좌표 · 이번 턴 diff 0 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r3
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M18 단축 속성 슬롯 삭제 | VP-12b | 신규 | UT fail 1('P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유') | 잠김 — 첫 시도 fail 0(Y1은 named가 대신 잡음) → 그 입력 추가 |
+| M19 대입 슬롯 삭제 | VP-12b | 신규 | UT fail 4 | 잠김 |
+| M20 클래스 필드 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M21 named 삭제 | VP-12b | 신규 | UT fail 2 | 잠김 |
+| M22 구조 분해 기본값 삭제 | VP-12b | 신규 | UT fail 4 | 잠김 |
+| M23 호출 대상 해석 삭제 | VP-12b | 신규 | UT fail 4(별칭 2 + `promisify` 경유 P4′ 등) | 잠김 |
+| M24 검사기 → 이름 맵(마지막 선언) | VP-12b | 신규 | UT fail 1('P3′ 가림…') | 잠김 |
+| M25 대입 후보 삭제 | VP-12b | 신규 | UT fail 2 · 트리 exit 1(discovery-cache `let now` 대입) | 잠김 |
+| M26 매개변수←호출 인자 삭제 | VP-12b | 신규 | UT fail 7 | 잠김 |
+| M27 반환식 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M28 멤버 접근 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M29 자식 프로세스 사용 자리 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M30 제외를 선언 자리로만 | VP-12b | 신규 | UT fail 1(Y2b·Y2e 오탐) | 잠김 |
+| M31 "전부" → "하나라도" | VP-12b | 신규 | UT fail 2 · 트리 exit 1 | 잠김 |
+| M32 P7′ 바인딩 해석 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M33 now 바인딩 해석 삭제 | VP-12b | 신규 | UT fail 6 · 트리 exit 1 | 잠김 |
+| M34 `+=` 삭제 | VP-12b | 신규 | UT fail 2 · 트리 exit 1(poll-race count) | 잠김 |
+| M35 역방향 elapsed 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M36 now 식 부분 트리 | VP-12b | 신규 | UT fail 2(오탐 + `new Date()` 분기) | 잠김 |
+| M37 now 식끼리 비교 제외 삭제 | VP-12b | 신규 | UT fail 1 | 잠김 |
+| M38 리터럴 중복 제거 삭제 | VP-12b | 신규 | UT fail 2 | 잠김 |
+| M5b 예산 24자리 각각 리터럴 복귀 | VP-07b | M5a 18 잠김(r2) | 게이트 exit 1 24/24 | 잠김 |
+| M11c poll-race `now += 1001` +1 | VP-09b | 신규 | 게이트 exit 1(count 9 ≠ 10) | 잠김 |
+| M11d mail `now += 301_000` −1 | VP-09b | 신규 | 게이트 exit 1(count 4 ≠ 3) | 잠김 |
+| Y1·Y2·Y5·Y5b·Y11 트리 삽입 | verify r2 `못 잡음` | 못 잡음 | 게이트 각 exit 1 · 위반 1 | 잠김 |
+| Y2b 트리 삽입(대조) | verify r2 대조 | red(오탐) | 게이트 exit 0 · 위반 0 | 오탐 해소 |
+| Y1c 트리 삽입 | verify r2 재실행 | 잡음 | exit 1 | 유지 |
+| M12·M13·M14·M16·M17·X6·R-method·R-child | ΔV1 승계(VP-12b) | 잡음 | UT fail 1·4·4·1·1·3·1·2 · M14 트리 exit 1 | 유지(덮개 회귀 0) |
+| M3·M4·M6·M11a·M11b·M15·X7′·X8′·X9′·X4·X5 | ΔV1·V1 승계 | 잡음 | 게이트 각 exit 1 | 유지 |
+| M1 `vitest.config.ts` hookTimeout | V1 승계 | 잡음 | `test-time.test.mjs` fail 1 | 유지 |
+
+- **분모 검산**: 선택 증거 21(M18~M38) + 3(M5b 묶음·M11c·M11d) · 인용 변이 6(Y1·Y2·Y5·Y5b·Y11 + Y2b 대조) · 승계 재실행 20(M12·M13·M14·M16·M17·X6·R-method·R-child · M3·M4·M6·M11a·M11b·M15·X7′·X8′·X9′·X4·X5 · M1) + Y1c 1 · 새 oracle 0(UT는 직접 행동 oracle) = 51 — 표 행 30 = 21 + 3 + 2(Y 묶음 행·Y2b) + 1(Y1c) + 2(승계 묶음 두 행) + 1(M1) = 30, 묶음 행 펼침 30 − 3 + (5 + 8 + 11) = 51 ✓.
+- **덮개 회귀**: 0 — ΔV1 판정 변이 8종·트리 변이 11종 전부 red 유지, '규칙 (H′)' 31케이스 그대로 통과.
+
+## [구현자 기입] Product/UX 파생 검토 — r3
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 위반 문구에 `(값 :N)` 추가 — 소비자 = CI 'Test budget guard' 로그·`npm test`. 바인딩 경유 자리에서 고칠 줄(리터럴 위치)을 가리킨다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 게이트 실패는 개발자 작업 루프(CI red) — §7-A·§7-C 운영 gate 행 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 위반마다 `파일:줄 (값 :N) 원문 — 처방` 한 줄 + 요약 줄, exit 1 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r3
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 확장자 없는 이름(UT의 `'a'`)은 `ts.createProgram`이 루트로 받지 않아 소스 파일이 `undefined` | ✅ 선조치 — 내부 program 이름에만 `.ts`를 붙인다 | 첫 실행 'P6 — 항목 count…' TypeError → 수정 후 66/66 |
+| 2 | M18 단축 속성 변이가 UT에 침묵 — Y1 입력은 named 슬롯이 같은 리터럴을 먼저 잡는다 | ✅ 선조치 — named가 닿지 않는 입력(`function run(timeoutMs) { return pool({ timeoutMs }) }`) 추가 | M18 fail 0 → 1 |
+| 3 | 게이트 실행 시간 1.4s → 5.6s(파일마다 단일 파일 program) | 보고만 — plan §7-C 설계 근거 "증가 수 초" 범위 | `time node scripts/check-test-budgets.mjs` real 5.55s |
+| 4 | 세션 초기 환경에서 electron 바이너리·better-sqlite3 Node ABI 미설치 | 환경 복구(`node node_modules/electron/install.js` · `npm rebuild better-sqlite3`) 후 회귀 실행 | env 로그 "rebuilt dependencies successfully" |
+
+### 설계 대비 명시적 차이
+
+- 해석기를 별도 모듈 `scripts/test-budget-bindings.mjs`로 뒀다 — plan이 허용한 선택. 테스트는 `analyzeScale`·`scanBudgetSites` 경유.
+- `--report`의 값 열은 deadline 행에만 채우고 다른 종류는 `-`.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시는 호출마다 새로 만든다 | — |
+| 공유 | 해당 없음 — 해석기는 파일마다 생성, 모듈 상태 없음 | P1 UT(여러 파일) · 트리 게이트 exit 0 |
+| 재진입 | 순환 바인딩(`let x = x + 1`·자기 전개) — memo·busy 집합으로 끊는다 | 트리 926파일 완주 · P3′ let 재대입 UT |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/test-budget-bindings.mjs`(신규) · `app/scripts/check-test-budgets.mjs` · `app/scripts/check-test-budgets.test.mjs` · `app/AGENTS.md` — `app/src/**` 0 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `node --test "scripts/*.test.mjs"` · `node scripts/check-test-budgets.mjs [--report]` · §7-C 대조 명령 · `check-doc-inventory --check` · `evidence/clean-host-run.sh app` |
+| **관측한 게이트 산출**(마지막 수정 뒤) | lint 0 error · 2 warning(변경 밖 `Timeline.tsx`·`useTranscriptVirtualizer.ts`) · typecheck exit 0 · `error TS` 0 · node 237/237(26 suites) · test-budgets exit 0("16 real-git suites ok") · 대조 0줄(62 = 62) · doc-inventory ok · vitest 깨끗한 호스트 8,448케이스 통과 8,417 · 실패 22(9파일 = 기준선) · skip 9 |
+| 적대 측정 | 위 잠금 표 — 판정 변이 21 · 트리 변이 32(M5b 24 · M11c·d · Y-행 5 · Y1c) · 승계 20 전부 red, 대조 Y2b green |
+| V-pair 자기확인 | `SELF_PASS 5 (VP-12b·09b·07b·01b·13) / SELF_BLOCKED 0` · NOT_REQUIRED 8 |
+| 강제 지점 전수 | 103/103 (EP-05b 62 + EP-01~04·06 32 + EP-12b 9) |
+| **AC 자기보고**(`Criteria-Met`) | AC7c ✅ · AC7d ✅ · AC19b ✅ · AC16 ✅(VP-13) · AC1~6·8·10~15·17·19 ✅ 승계(diff 0) · AC9 ⚠️(이번 push의 Windows CI 대기) · AC18 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 19 · ⚠️ 2(AC9 · AC18) · ❌ 0 = 총 21` — 분모 21 그대로(번호 승계) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 같다 — "판정은 D-012/D-015 주어보다 좁으면 안 된다". r1 술어, r2 문법 노드, r3 바인딩 해석 범위.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: ΔV1 P3가 값만 const를 따라가게 적었다 — verify r2 D3가 PLAN_GAP으로 돌렸다.
+- 반복해서 부딪히는 환경 한계: opt-in 스위트 2파일 skip · 세션 초기 electron·better-sqlite3 미설치 · 리눅스 기준선 22건.
+- 현재 라운드·impl 턴: `r3`. 설계·구현·검증 모두 Claude — verify는 보고에 없는 적대 축을 하나 더해야 한다.
+
 ---
+
 
 ## [검증자 기입] 파생 이슈
 

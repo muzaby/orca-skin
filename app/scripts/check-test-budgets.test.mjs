@@ -452,24 +452,198 @@ describe('규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)', () =
     assert.equal(v(`await vi.waitFor(() => f(scaleMs(4000)))`), 0)
   })
 
-  test('--report deadline 행은 형태 열을 갖는다', () => {
-    const fx = fixture({ 'src/a.test.ts': `const s = AbortSignal.timeout(scaleMs(5000))\n` })
+  test('--report deadline 행은 형태 열과 값 열을 갖는다', () => {
+    const fx = fixture({
+      'src/a.test.ts': `const s = AbortSignal.timeout(scaleMs(5000))\nconst T = 30_000\nsetTimeout(f, T)\n`
+    })
     const lines = []
     const original = console.log
+    const originalError = console.error
     console.log = (line) => lines.push(line)
+    console.error = () => {}
     try {
       runCli(fx.rootDir, ['--report'], [])
     } finally {
       console.log = original
+      console.error = originalError
       fx.cleanup()
     }
-    const row = lines.find((line) => line.startsWith('deadline\t'))
-    assert.deepEqual(row.split('\t').slice(0, 4), [
-      'deadline',
-      'src/a.test.ts:1',
-      'scaled',
-      'abort'
+    const rows = lines.filter((line) => line.startsWith('deadline\t'))
+    assert.deepEqual(
+      rows.map((row) => row.split('\t').slice(0, 5)),
+      [
+        ['deadline', 'src/a.test.ts:1', 'scaled', 'abort', 'scaleMs'],
+        ['deadline', 'src/a.test.ts:3', 'LITERAL', 'timer', '30_000']
+      ]
+    )
+  })
+})
+
+describe('바인딩 해석 (0294 ΔV2)', () => {
+  const v = (code, file = 'a.test.ts', entries = []) => analyzeScale(file, code, entries).length
+  const waitForDoubles = (code) =>
+    scanBudgetSites('a.test.ts', code, []).filter((site) => site.kind === 'waitFor').length
+  // 미배율 5000 → 1 · 같은 자리를 scaleMs(5000) 으로 → 0. 분기마다 구별 입력 하나.
+  const pair = (name, make) =>
+    test(`${name}: 리터럴은 1 위반, scaleMs 는 0`, () => {
+      assert.equal(v(make('5000')), 1)
+      assert.equal(v(make('scaleMs(5000)')), 0)
+    })
+
+  // P2′ 슬롯 · 형태 · 호출 대상
+  pair('P2′ 단축 속성 (Y1)', (n) => `const timeoutMs = ${n}\nwaitForTask(t, { timeoutMs })`)
+  pair(
+    'P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유',
+    (n) => `function run(timeoutMs) { return pool({ timeoutMs }) }\nrun(${n})`
+  )
+  pair('P2′ 속성 대입', (n) => `socket.timeout = ${n}`)
+  pair('P2′ ??= 대입', (n) => `opts.timeoutMs ??= ${n}`)
+  pair('P2′ timeouts 소유 객체 대입', (n) => `timeouts.connectMs = ${n}`)
+  pair('P2′ 클래스 필드', (n) => `class F { timeoutMs = ${n} }`)
+  pair('P2′ 구조 분해 매개변수 기본값 (Y11)', (n) => `const f = ({ timeoutMs = ${n} } = {}) => 0`)
+  pair('P2′ 구조 분해 변수 기본값', (n) => `const { timeoutMs = ${n} } = o`)
+  pair('P2′ 이름 바꾼 구조 분해', (n) => `function f({ timeout: t = ${n} } = {}) { return t }`)
+  pair('P2′ 배열 구조 분해 기본값', (n) => `const [timeoutMs = ${n}] = l`)
+  pair('P2′ named 위치 인자로 넘김', (n) => `const timeoutMs = ${n}\nawait waitUntil(s, timeoutMs)`)
+  pair('P2′ setTimeout 별칭', (n) => `const st = setTimeout\nst(f, ${n})`)
+  pair('P2′ AbortSignal.timeout 별칭', (n) => `const t = AbortSignal.timeout\nt(${n})`)
+  test('P2′ timeouts 소유는 바인딩 참조로도 본다', () => {
+    assert.equal(v(`const t = { connectMs: 1000 }\npool({ timeouts: t })`), 1)
+    assert.equal(v(`const t = { connectMs: 1000 }\npool({ other: t })`), 0)
+  })
+
+  // P3′ 값 해석
+  test('P3′ 가림 — 같은 이름 const 가 다른 블록에 있어도 각자 선언으로 푼다', () => {
+    const lit = `it('b', () => { const t = 5000; setTimeout(f, t) })`
+    const scaled = `it('a', () => { const t = scaleMs(5000); setTimeout(f, t) })`
+    assert.equal(v(`${lit}\n${scaled}`), 1)
+    assert.equal(v(`${scaled}\n${lit}`), 1)
+  })
+  test('P3′ let 재대입 값도 후보다', () => {
+    assert.equal(v(`let t = scaleMs(500)\nt = 5000\nsetTimeout(f, t)`), 1)
+    assert.equal(v(`let t = scaleMs(500)\nt = scaleMs(5000)\nsetTimeout(f, t)`), 0)
+  })
+  pair('P3′ 리터럴 구조 분해', (n) => `const { ms } = { ms: ${n} }\nsetTimeout(f, ms)`)
+  pair(
+    'P3′ 같은 파일 함수 매개변수 ← 호출 인자',
+    (n) => `const sleep = (ms) => new Promise((r) => setTimeout(r, ms))\nawait sleep(${n})`
+  )
+  test('P3′ 함수 선언의 호출마다 값', () => {
+    const fn = `function wait(ms) { return new Promise((r) => setTimeout(r, ms)) }`
+    assert.equal(v(`${fn}\nawait wait(5000)\nawait wait(400)`), 1)
+  })
+  pair(
+    'P3′ 구조 분해 매개변수 ← 호출 인자 객체',
+    (n) =>
+      `function wait({ ms }) { return new Promise((r) => setTimeout(r, ms)) }\nawait wait({ ms: ${n} })`
+  )
+  pair(
+    'P3′ 객체 메서드',
+    (n) =>
+      `const h = { wait(ms) { return new Promise((r) => setTimeout(r, ms)) } }\nawait h.wait(${n})`
+  )
+  pair(
+    'P3′ 클래스 메서드',
+    (n) =>
+      `class F { wait(ms) { return new Promise((r) => setTimeout(r, ms)) } }\nawait new F().wait(${n})`
+  )
+  pair(
+    'P3′ 속성 화살표',
+    (n) => `const h = { wait: (ms) => new Promise((r) => setTimeout(r, ms)) }\nawait h.wait(${n})`
+  )
+  pair('P3′ 반환식', (n) => `function budget() { return ${n} }\nsetTimeout(f, budget())`)
+  pair('P3′ 멤버 접근', (n) => `const cfg = { delay: ${n} }\nsetTimeout(f, cfg.delay)`)
+  pair('P3′ 요소 접근', (n) => `const cfg = { delay: ${n} }\nsetTimeout(f, cfg['delay'])`)
+  test('P3′ 조건식 양쪽 · 뺄셈 · as 래퍼', () => {
+    assert.equal(v(`setTimeout(f, fast ? 500 : 5000)`), 1)
+    assert.equal(v(`setTimeout(f, 6000 - 1000)`), 1)
+    assert.equal(v(`setTimeout(f, (5000 as number))`), 1)
+  })
+
+  // P4′ 임계 — 자식 프로세스 판정의 바인딩
+  test('P4′ 자식 프로세스 옵션은 바인딩·별칭·promisify 를 지나도 임계가 없다', () => {
+    for (const code of [
+      `const opts = { timeout: 10 }\nexecFile(c, a, opts)`,
+      `const base = { timeout: 10 }\nexecFile(c, a, { ...base })`,
+      `const o = {}\no.timeout = 10\nexecFile(c, a, o)`,
+      `import { execFile as run } from 'node:child_process'\nrun(c, a, { timeout: 10 })`,
+      `import { execFile } from 'node:child_process'\nawait promisify(execFile)(c, a, { timeout: 10 })`,
+      `import { execFile } from 'node:child_process'\nconst run = promisify(execFile)\nawait run(c, a, { timeout: 10 })`
     ])
+      assert.equal(v(code), 1, code)
+    assert.equal(v(`const opts = { timeout: 10 }\npool(opts)`), 0)
+  })
+
+  // P5′ 제외 — 사용 자리
+  test('P5′ 변수에 담긴 슬롯은 참조가 전부 제외 자리일 때만 제외한다', () => {
+    assert.equal(v(`const probeOpts = { timeout: 5000 }\nawait vi.waitFor(() => {}, probeOpts)`), 0)
+    assert.equal(v(`const timeout = 4000\nawait vi.waitFor(cb, { timeout })`), 0)
+    assert.equal(v(`const timeoutMs = 5000\nexpect(c.timeoutMs).toBe(timeoutMs)`), 0)
+    assert.equal(v(`const o = { timeout: 5000 }\nawait vi.waitFor(cb, o)\npool(o)`), 1)
+    assert.equal(v(`const timeoutMs = 5000`), 1)
+  })
+
+  // P7′ 이중 배율
+  test('P7′ vi.waitFor 옵션이 바인딩을 거쳐 scaleMs 에 닿으면 위반', () => {
+    assert.equal(
+      waitForDoubles(
+        `const probeOpts = { timeout: scaleMs(5000) }\nawait vi.waitFor(() => {}, probeOpts)`
+      ),
+      1
+    )
+    assert.equal(waitForDoubles(`const w = scaleMs(4000)\nawait vi.waitFor(cb, w)`), 1)
+    assert.equal(
+      waitForDoubles(
+        `const base = { timeout: scaleMs(4000) }\nawait vi.waitFor(cb, { ...base, interval: 50 })`
+      ),
+      1
+    )
+    assert.equal(
+      waitForDoubles(`const wf = vi.waitFor\nawait wf(cb, { timeout: scaleMs(4000) })`),
+      1
+    )
+    assert.equal(
+      waitForDoubles(`const probeOpts = { timeout: 5000 }\nawait vi.waitFor(() => {}, probeOpts)`),
+      0
+    )
+  })
+
+  // P8 now 식
+  pair(
+    'P8 경과 변수 상한 단언 (Y5)',
+    (n) =>
+      `const start = Date.now()\nconst elapsed = Date.now() - start\nexpect(elapsed).toBeLessThan(${n})`
+  )
+  pair(
+    'P8 파생 마감 (Y5b)',
+    (n) =>
+      `const start = Date.now()\nconst deadline = start + ${n}\nwhile (Date.now() < deadline) {}`
+  )
+  pair(
+    'P8 경과 변수 비교',
+    (n) => `const t0 = performance.now()\nconst el = performance.now() - t0\nif (el > ${n}) throw e`
+  )
+  pair('P8 += 마감', (n) => `let d = Date.now()\nd += ${n}`)
+  pair('P8 new Date().getTime()', (n) => `const d = new Date().getTime() + ${n}`)
+  pair('P8 역방향 상한 단언', (n) => `expect(${n}).toBeGreaterThan(Date.now() - s)`)
+  test('P8 하한 단언·호출 인자 안 now·now 식끼리 비교', () => {
+    assert.equal(v(`expect(Date.now() - s).toBeGreaterThanOrEqual(5000)`), 0)
+    assert.equal(v(`const h = render({ at: Date.now() })\nconst n = h + 5000`), 0)
+    const sites = scanBudgetSites(
+      'a.test.ts',
+      `const d = Date.now() + scaleMs(5000)\nwhile (Date.now() < d) {}`,
+      []
+    ).filter((site) => site.kind === 'deadline')
+    assert.equal(sites.length, 1)
+  })
+
+  // P9 자리 동일성
+  test('P9 한 리터럴은 한 자리 · 호출마다 다른 리터럴은 따로 · 값 줄 표기', () => {
+    assert.equal(v(`const T = 30_000\nsetTimeout(f, T)\nsetTimeout(g, T)`), 1)
+    const sleep = `const sleep = (ms) => new Promise((r) => setTimeout(r, ms))`
+    assert.equal(v(`${sleep}\nawait sleep(5000)\nawait sleep(5000)`), 2)
+    const [line] = analyzeScale('a.test.ts', `const T = 30_000\nsetTimeout(f, T)`, [])
+    assert.match(line, /^:2 \(값 :1\) /)
   })
 })
 
