@@ -1,4 +1,5 @@
 import { createServer, type TLSSocket } from 'node:tls'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -45,8 +46,8 @@ describe('real local POP3 TLS connection', () => {
         tlsOptions: { ca: cert },
         user: 'test-user',
         password: 'test-password',
-        connectTimeoutMs: 3000,
-        timeoutMs: 3000
+        connectTimeoutMs: scaleMs(3000),
+        timeoutMs: scaleMs(3000)
       },
       createPop3Socket
     )

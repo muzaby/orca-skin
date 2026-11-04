@@ -28,16 +28,22 @@
 //     `prepare-progress` 의 `worktree add` 가 병렬 부하에서 10s 를 넘겨 죽었고 99s 파일
 //     예산은 닿지도 않았다. 값을 직접 적는 것도 막고 픽스처 상수 하나만 받는다.
 //
-// 0294 부터는 **모든** `*.test.ts` 에 세 가지를 더 강제한다 — 기준 PC 가 5년 전 사무용
+// 0294 부터는 **모든** 테스트 소스에 세 가지를 더 강제한다 — 기준 PC 가 5년 전 사무용
 // 데스크톱이라 예산은 언제나 `기준값 × 배율`(`scripts/test-time.mjs`)이어야 한다.
 //
 // (F) **배율 경유** — `vi.setConfig` 인자는 `scaledBudget({...})`, 케이스·훅 타임아웃 인자는
 //     `scaleMs(...)` 여야 한다. 리터럴로 남은 예산은 배율을 무시하고, 전역(×배율)보다 작아져
 //     "더 작은 캡이 이긴다" 를 다시 만든다.
 // (G) **픽스처 상한 > 최대 파일 예산** — 둘 다 같은 배율을 받으므로 기준값으로 비교한다.
-// (H) **테스트 소유 실시간 마감** — `setTimeout(_, 리터럴 ≥ 1000)` · `Date.now() + 리터럴` 은
-//     `scaleMs` 를 지나거나, production 계약을 시험하는 **의미 대기**로 `SEMANTIC_DELAYS` 에
-//     사유와 함께 등록돼야 한다. 의미 대기를 배율하면 시험하는 계약이 바뀐다.
+// (H′) **테스트 소유 실시간 마감** — 테스트가 고른 시간 값이 실제 경과의 상한이 되는 7형태
+//     (타이머 지연 · `x.setTimeout(N)` · `AbortSignal.timeout(N)` · `now()` 마감 산술·비교 ·
+//     경과 상한 단언 · `/timeout/i` 옵션(중첩 `timeouts` 객체·자식 프로세스·production 시간 인자) ·
+//     `/timeout/i` 매개변수 기본값). 값은 같은 파일 상수·`??`/`||`·리터럴 산술까지 따라간다.
+//     임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계 없이 본다. 예산은 `scaleMs` 를 지나고,
+//     시간 초과 자체를 시험하거나 데이터·하한인 **의미 값**은 `SEMANTIC_DELAYS` 에
+//     `{file, value, count, reason}` 으로 등록한다 — 게이트가 자리 수를 count 와 대조한다.
+//     `vi.waitFor` 옵션 안의 `scaleMs` 는 이중 배율이라 막는다. (F)(H′) 범위는 `*.test.ts` 와
+//     `*.testfixture.ts(x)` 다 — (A)~(E) 는 `*.test.ts` 만 본다.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -194,45 +200,134 @@ export function analyze(relPath, source) {
   return { path: relPath, errors }
 }
 
-// ── 0294 (F)(G)(H) — 모든 테스트 파일, TypeScript AST ─────────────────────────────
+// ── 0294 (F)(G)(H′) — 모든 테스트 소스, TypeScript AST ─────────────────────────────
 
-/** production 계약을 시험하는 **의미 대기** — 배율하면 시험 대상이 바뀐다. 값은 리터럴 원문. */
+/**
+ * production 계약을 시험하는 **의미 값** — 배율하면 시험 대상이 바뀐다(가짜 시계·데이터·하한 대기).
+ * `value` 는 리터럴 원문, `count` 는 같은 파일·같은 값의 (H′) 자리 수다. 게이트가 수를 대조하므로
+ * 같은 값의 새 자리(새 예산일 수 있다)도, 지운 자리(낡은 항목)도 걸린다.
+ */
 export const SEMANTIC_DELAYS = [
   {
     file: 'main/adapters/opencode/v1/adapter.persistent.test.ts',
     value: '2700',
+    count: 1,
     reason: 'SDK transport 의 실제 AbortSignal.timeout(2.5s) 을 넘겨야 하는 대기'
   },
   {
     file: 'main/app/handlers/session-resources.claude-assembly.test.ts',
     value: '1000',
+    count: 1,
     reason: '설정 파일 mtime 을 구별하기 위한 1초 간격'
   },
   {
     file: 'main/features/plugins/mail/sync-manager.test.ts',
     value: '25_000',
+    count: 1,
     reason: '가짜 타이머 아래의 느린 서버 응답 자극 — 명령 타임아웃보다 늦어야 한다'
   },
   {
     file: 'main/adapters/opencode/v1/adapter.test.ts',
     value: '5_001',
+    count: 1,
     reason: 'vi.setSystemTime 으로 신선도 만료 직후를 만든다'
   },
   {
     file: 'main/adapters/opencode/v1/adapter.test.ts',
     value: '5000',
+    count: 1,
     reason: 'vi.setSystemTime 으로 신선도 만료 경계를 만든다'
   },
   {
     file: 'main/infra/git/git-snapshot.test.ts',
     value: '60_000',
+    count: 1,
     reason: '미래 시각 데이터(bornAt) — 대기가 아니다'
+  },
+  {
+    file: 'main/app/chat-turn/background.monitor.test.ts',
+    value: '5000',
+    count: 2,
+    reason: 'Monitor 도구 입력·출력 데이터 — production 은 이 값으로 타이머를 걸지 않는다'
+  },
+  {
+    file: 'main/app/chat-turn/background.monitor.test.ts',
+    value: '9000',
+    count: 2,
+    reason: '같은 데이터 + 가짜 타이머로 요청 마감 경과를 만드는 값(advanceTimersByTimeAsync(9001))'
+  },
+  {
+    file: 'main/app/handlers/engine.opencode.integration.test.ts',
+    value: '8000',
+    count: 1,
+    reason: 'OpenCode provider 설정 문서의 데이터 — 왕복 보존을 시험한다, 대기가 아니다'
+  },
+  {
+    file: 'main/features/approvals/broker.test.ts',
+    value: '1000',
+    count: 3,
+    reason: '가짜 타이머 아래 승인 만료 계약값 — advanceTimersByTime 과 짝이다'
+  },
+  {
+    file: 'main/features/plugins/mail/sync-manager.test.ts',
+    value: '15_000',
+    count: 1,
+    reason: '가짜 타이머 아래 연결 시간 초과 계약값(파일 전체 useFakeTimers)'
+  },
+  {
+    file: 'main/features/plugins/mail/sync-manager.test.ts',
+    value: '30_000',
+    count: 1,
+    reason:
+      "가짜 타이머 아래 명령 시간 초과 계약값 — 'slow' 응답(25_000)은 이보다 짧고 'command-timeout' 은 이것을 넘긴다"
+  },
+  {
+    file: 'main/infra/test-environment.test.ts',
+    value: '1_500',
+    count: 1,
+    reason: 'vi.waitFor 가 vitest 기본 1초보다 오래 재시도함을 보이는 하한 — 마감이 아니다'
+  },
+  {
+    file: 'renderer/src/features/chat/lib/taskBoard.test.ts',
+    value: '30_000',
+    count: 1,
+    reason: 'TaskOutput 도구 입력 데이터'
+  },
+  {
+    file: 'renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts',
+    value: '3000',
+    count: 1,
+    reason: 'provider 설정 데이터(가져오기 보존)'
+  },
+  {
+    file: 'renderer/src/features/engine/harnesses/opencode/v1/customProvider.test.ts',
+    value: '1200',
+    count: 1,
+    reason: 'provider 설정 데이터'
   }
 ]
 
 const TEST_CALLS = new Set(['it', 'test', 'describe', 'bench', 'suite'])
 const HOOK_CALLS = new Set(['beforeAll', 'beforeEach', 'afterAll', 'afterEach'])
+/** (H′) 임계 — 1초 미만 자리는 실측상 전부 시간 초과 유발값·순서용 하한 대기다. */
 const DEADLINE_MIN_MS = 1000
+/** 옵션의 `timeout` 이 임계 없이 상한인 자식 프로세스 호출. */
+const CHILD_PROCESS = new Set([
+  'execFile',
+  'execFileSync',
+  'spawn',
+  'spawnSync',
+  'exec',
+  'execSync',
+  'fork'
+])
+const TIMEOUT_NAME = /timeout/i
+const COMPARE = new Set([
+  ts.SyntaxKind.LessThanToken,
+  ts.SyntaxKind.LessThanEqualsToken,
+  ts.SyntaxKind.GreaterThanToken,
+  ts.SyntaxKind.GreaterThanEqualsToken
+])
 
 function rootName(expr) {
   let e = expr
@@ -242,21 +337,186 @@ function rootName(expr) {
 const isFn = (node) => ts.isArrowFunction(node) || ts.isFunctionExpression(node)
 const isCallTo = (node, name) =>
   ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === name
-const literalMs = (node) => Number(node.text.replace(/_/g, ''))
 
 /**
- * 한 테스트 파일의 예산·마감 자리. 각 자리는 `{ kind, line, text, ok, reason? }`.
- * kind = setConfig | case | hook | deadline. `ok` 는 배율 경유(또는 의미 대기 등록) 여부.
+ * (H′) 테스트 소유 실시간 마감 — 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 자리.
+ * 각 자리는 `{ form, line, node, value, scaled }`. `value` 는 리터럴 원문(배율 경유면 null).
+ *
+ * 형태(form) — timer(`setTimeout`·`setInterval` 전역·`globalThis.`·`window.` · `timers/promises`
+ * 의 `setTimeout` 첫 인자) · method(`x.setTimeout(N)`) · abort(`AbortSignal.timeout`) · deadline
+ * (`now() + N` · now 식과 N 의 비교) · elapsed(`expect(now 식).toBeLessThan(OrEqual)(N)`) · option
+ * (`/timeout/i` 키 · `/timeout/i` 이름에 담긴 중첩 객체의 숫자 속성) · param(`/timeout/i` 매개변수 기본값).
+ * 값 해석 — 리터럴 · 같은 파일 `const` · `??`/`||` 오른쪽 · 리터럴 `*`/`+` · `scaleMs(…)` 는 배율.
+ * import 식별자처럼 풀 수 없는 값은 건너뛴다. 같은 리터럴을 두 자리가 가리키면 한 번만 센다.
+ * 임계 1000ms — 단 abort 와 자식 프로세스 옵션의 timeout 은 임계 없이 센다.
+ * 제외 — `scaleMs`·`scaledBudget`·`vi.setConfig` 인자 · `vi.waitFor` 옵션(setup 이 배율, 이중 배율은
+ * 별도 위반) · it/test/describe/훅 타임아웃 인자((F) 몫) · matcher 피연산자. 단 `expect(x)` 의 x 와
+ * elapsed 형태의 상한 인자는 센다.
  */
-export function scanBudgetSites(relPath, source) {
+export function scanDeadlineSites(relPath, source) {
   const src = ts.createSourceFile(relPath, source, ts.ScriptTarget.Latest, true)
+  const consts = new Map()
+  const promiseTimers = new Set()
+  const collect = (node) => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
+      consts.set(node.name.text, node.initializer)
+    if (
+      ts.isImportDeclaration(node) &&
+      /^(node:)?timers\/promises$/.test(node.moduleSpecifier.text) &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    )
+      for (const el of node.importClause.namedBindings.elements)
+        if ((el.propertyName ?? el.name).text === 'setTimeout') promiseTimers.add(el.name.text)
+    ts.forEachChild(node, collect)
+  }
+  collect(src)
+
+  const resolveValue = (node, depth = 0) => {
+    if (!node || depth > 4) return null
+    if (ts.isParenthesizedExpression(node)) return resolveValue(node.expression, depth + 1)
+    if (ts.isNumericLiteral(node))
+      return { literal: node, value: Number(node.text.replace(/_/g, '')), scaled: false }
+    if (isCallTo(node, 'scaleMs')) return { literal: node, value: null, scaled: true }
+    if (ts.isIdentifier(node) && consts.has(node.text))
+      return resolveValue(consts.get(node.text), depth + 1)
+    if (ts.isBinaryExpression(node)) {
+      const k = node.operatorToken.kind
+      if (k === ts.SyntaxKind.QuestionQuestionToken || k === ts.SyntaxKind.BarBarToken)
+        return resolveValue(node.right, depth + 1)
+      if (k === ts.SyntaxKind.AsteriskToken || k === ts.SyntaxKind.PlusToken) {
+        const l = resolveValue(node.left, depth + 1)
+        const r = resolveValue(node.right, depth + 1)
+        if (l?.scaled || r?.scaled) return { literal: node, value: null, scaled: true }
+        if (l && r) {
+          const value = k === ts.SyntaxKind.PlusToken ? l.value + r.value : l.value * r.value
+          return { literal: node, value, scaled: false }
+        }
+      }
+    }
+    return null
+  }
+
+  // keepMatcher: elapsed 형태는 상한 자체가 matcher 인자라 그 제외를 건너뛴다.
+  const excluded = (node, keepMatcher) => {
+    for (let child = node, p = node.parent; p; child = p, p = p.parent) {
+      if (!ts.isCallExpression(p)) continue
+      const argIndex = p.arguments.indexOf(child)
+      if (argIndex < 0) continue
+      const callee = p.expression.getText(src)
+      if (callee === 'scaleMs' || callee === 'scaledBudget' || callee === 'vi.setConfig')
+        return true
+      if (callee === 'vi.waitFor' && argIndex >= 1) return true
+      const root = rootName(p.expression)
+      if (root && (TEST_CALLS.has(root) || HOOK_CALLS.has(root))) {
+        const afterFn = p.arguments.slice(0, argIndex).some(isFn)
+        if (afterFn || ts.isObjectLiteralExpression(child)) return true
+      }
+      // matcher 의 인자 · expect.<helper>(…) 의 인자. expect(x) 의 x 는 실제 호출이라 센다.
+      if (!keepMatcher && root === 'expect' && !isCallTo(p, 'expect')) return true
+    }
+    return false
+  }
+  // 속성을 담은 객체 리터럴(중첩 포함)이 /timeout/i 이름의 속성·변수에 담겼는가.
+  const inTimeoutObject = (prop) => {
+    for (let object = prop.parent; object && ts.isObjectLiteralExpression(object);) {
+      const owner = object.parent
+      if (!owner) return false
+      if (
+        (ts.isPropertyAssignment(owner) || ts.isVariableDeclaration(owner)) &&
+        TIMEOUT_NAME.test(owner.name.getText(src))
+      )
+        return true
+      if (!ts.isPropertyAssignment(owner)) return false
+      object = owner.parent
+    }
+    return false
+  }
+  const childProcessOption = (prop) => {
+    const object = prop.parent
+    const call = object?.parent
+    if (!call || !ts.isCallExpression(call) || !call.arguments.includes(object)) return false
+    const e = call.expression
+    const name = ts.isIdentifier(e) ? e.text : ts.isPropertyAccessExpression(e) ? e.name.text : ''
+    return CHILD_PROCESS.has(name)
+  }
+  const mentionsNow = (node) => /\b(Date|performance)\.now\(\)/.test(node.getText(src))
+  const isNow = (node) => /^(Date|performance)\.now\(\)$/.test(node.getText(src))
+
+  const seen = new Set()
+  const sites = []
+  const push = (form, at, valueNode) => {
+    if (!valueNode || excluded(valueNode, form === 'elapsed')) return
+    const v = resolveValue(valueNode)
+    if (!v) return
+    const noThreshold = form === 'abort' || (form === 'option' && childProcessOption(at))
+    if (!v.scaled && !noThreshold && v.value < DEADLINE_MIN_MS) return
+    const key = v.literal.getStart(src)
+    if (seen.has(key)) return
+    seen.add(key)
+    sites.push({
+      form,
+      node: at,
+      line: src.getLineAndCharacterOfPosition(at.getStart(src)).line + 1,
+      value: v.scaled ? null : v.literal.getText(src),
+      scaled: v.scaled
+    })
+  }
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression.getText(src)
+      if (/^(globalThis\.|window\.)?(setTimeout|setInterval)$/.test(callee))
+        push('timer', node, node.arguments[1])
+      else if (ts.isIdentifier(node.expression) && promiseTimers.has(callee))
+        push('timer', node, node.arguments[0])
+      else if (/\.setTimeout$/.test(callee)) push('method', node, node.arguments[0])
+      else if (callee === 'AbortSignal.timeout') push('abort', node, node.arguments[0])
+      else if (
+        /\.(toBeLessThan|toBeLessThanOrEqual)$/.test(callee) &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        ts.isCallExpression(node.expression.expression) &&
+        mentionsNow(node.expression.expression)
+      )
+        push('elapsed', node, node.arguments[0])
+    }
+    if (ts.isBinaryExpression(node)) {
+      const k = node.operatorToken.kind
+      if (k === ts.SyntaxKind.PlusToken && isNow(node.left)) push('deadline', node, node.right)
+      else if (k === ts.SyntaxKind.PlusToken && isNow(node.right)) push('deadline', node, node.left)
+      else if (COMPARE.has(k) && mentionsNow(node.left) && !mentionsNow(node.right))
+        push('deadline', node, node.right)
+      else if (COMPARE.has(k) && mentionsNow(node.right) && !mentionsNow(node.left))
+        push('deadline', node, node.left)
+    }
+    if (
+      ts.isPropertyAssignment(node) &&
+      (TIMEOUT_NAME.test(node.name.getText(src)) || inTimeoutObject(node))
+    )
+      push('option', node, node.initializer)
+    if (ts.isParameter(node) && ts.isIdentifier(node.name) && TIMEOUT_NAME.test(node.name.text))
+      push('param', node, node.initializer)
+    ts.forEachChild(node, visit)
+  }
+  visit(src)
+  return { src, sites }
+}
+
+/**
+ * 한 테스트 소스의 예산·마감 자리. 각 자리는 `{ kind, line, text, ok, form?, reason? }`.
+ * kind = setConfig | case | hook | deadline | waitFor. `ok` 는 배율 경유(또는 의미 값 등록) 여부.
+ * waitFor 는 `vi.waitFor` 옵션 안의 `scaleMs` — setup 이 이미 배율하므로 언제나 위반(이중 배율).
+ */
+export function scanBudgetSites(relPath, source, entries = SEMANTIC_DELAYS) {
+  const { src, sites: deadlines } = scanDeadlineSites(relPath, source)
   const sites = []
   const at = (node) => src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1
   const text = (node) => node.getText(src).replace(/\s+/g, ' ').slice(0, 80)
-  const semantic = (literal) =>
-    SEMANTIC_DELAYS.find((entry) => entry.file === relPath && entry.value === literal.getText(src))
   const push = (kind, node, ok, extra = {}) =>
     sites.push({ kind, line: at(node), text: text(node), ok, ...extra })
+  const hasScaleMs = (node) => {
+    if (isCallTo(node, 'scaleMs')) return true
+    return ts.forEachChild(node, hasScaleMs) ?? false
+  }
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
       const callee = node.expression.getText(src)
@@ -264,13 +524,9 @@ export function scanBudgetSites(relPath, source) {
       if (callee === 'vi.setConfig') {
         const arg = node.arguments[0]
         push('setConfig', node, !!arg && isCallTo(arg, 'scaledBudget'))
-      } else if (/(^|\.)setTimeout$/.test(callee) && node.arguments[1]) {
-        const delay = node.arguments[1]
-        if (isCallTo(delay, 'scaleMs')) push('deadline', node, true)
-        else if (ts.isNumericLiteral(delay) && literalMs(delay) >= DEADLINE_MIN_MS) {
-          const entry = semantic(delay)
-          push('deadline', node, !!entry, entry ? { reason: entry.reason } : {})
-        }
+      } else if (callee === 'vi.waitFor') {
+        for (const option of node.arguments.slice(1))
+          if (hasScaleMs(option)) push('waitFor', option, false)
       } else if (name && (TEST_CALLS.has(name) || HOOK_CALLS.has(name))) {
         const kind = HOOK_CALLS.has(name) ? 'hook' : 'case'
         node.arguments.forEach((arg, index) => {
@@ -285,21 +541,20 @@ export function scanBudgetSites(relPath, source) {
         })
       }
     }
-    if (
-      ts.isBinaryExpression(node) &&
-      node.operatorToken.kind === ts.SyntaxKind.PlusToken &&
-      /^(Date|performance)\.now\(\)$/.test(node.left.getText(src))
-    ) {
-      if (isCallTo(node.right, 'scaleMs')) push('deadline', node, true)
-      else if (ts.isNumericLiteral(node.right) && literalMs(node.right) >= DEADLINE_MIN_MS) {
-        const entry = semantic(node.right)
-        push('deadline', node, !!entry, entry ? { reason: entry.reason } : {})
-      }
-    }
     ts.forEachChild(node, visit)
   }
   visit(src)
-  return sites
+  for (const site of deadlines) {
+    const entry = site.scaled
+      ? null
+      : entries.find((item) => item.file === relPath && item.value === site.value)
+    push('deadline', site.node, site.scaled || !!entry, {
+      form: site.form,
+      value: site.value,
+      ...(entry ? { reason: entry.reason } : {})
+    })
+  }
+  return sites.sort((a, b) => a.line - b.line)
 }
 
 const SCALE_HINT = {
@@ -308,14 +563,40 @@ const SCALE_HINT = {
   case: '케이스 타임아웃은 `scaleMs(기준값)` 이다 — 리터럴은 전역 예산(× 배율)보다 작아져 조용히 이긴다',
   hook: '훅 타임아웃은 `scaleMs(기준값)` 이다',
   deadline:
-    '테스트 소유 마감은 `scaleMs(기준값)` 이다 — production 계약을 시험하는 의미 대기라면 SEMANTIC_DELAYS 에 사유와 등록한다'
+    '테스트 소유 마감은 `scaleMs(기준값)` 이다 — 시간 초과 자체를 시험하거나 데이터·하한이라면 SEMANTIC_DELAYS 에 count·사유와 등록한다',
+  waitFor:
+    '`vi.waitFor` 옵션에 `scaleMs` 를 쓰지 않는다 — setup 이 이미 배율한다(이중 배율). 기준값만 적는다'
 }
 
-/** (F)(H) 위반 목록. */
-export function analyzeScale(relPath, source) {
-  return scanBudgetSites(relPath, source)
-    .filter((site) => !site.ok)
-    .map((site) => `:${site.line} ${site.text} — ${SCALE_HINT[site.kind]}`)
+/**
+ * 한 파일의 의미 값 항목 대조 — 항목마다 count = 그 파일·그 값의 미배율 마감 자리 수, reason 필수.
+ * 자리가 하나도 없는 파일(지워진 파일)의 항목도 여기서 0 으로 걸린다.
+ */
+export function checkSemanticEntries(relPath, sites, entries = SEMANTIC_DELAYS) {
+  const errors = []
+  for (const entry of entries.filter((item) => item.file === relPath)) {
+    const found = sites.filter(
+      (site) => site.kind === 'deadline' && site.value === entry.value
+    ).length
+    if (found !== entry.count)
+      errors.push(
+        ` SEMANTIC_DELAYS { value: ${entry.value}, count: ${entry.count} } — 실제 자리 ${found} 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다`
+      )
+    if (!entry.reason || !entry.reason.trim())
+      errors.push(` SEMANTIC_DELAYS { value: ${entry.value} } — reason 이 비었다`)
+  }
+  return errors
+}
+
+/** (F)(H′) 위반 목록. */
+export function analyzeScale(relPath, source, entries = SEMANTIC_DELAYS) {
+  const sites = scanBudgetSites(relPath, source, entries)
+  return [
+    ...sites
+      .filter((site) => !site.ok)
+      .map((site) => `:${site.line} ${site.text} — ${SCALE_HINT[site.kind]}`),
+    ...checkSemanticEntries(relPath, sites, entries)
+  ]
 }
 
 /** (G) 픽스처 상한 기준값 > 실-git 파일 기준 예산 최대값. 통과면 null. */
@@ -329,14 +610,18 @@ export function checkFixtureCap(fixtureSource, budgets) {
     : `픽스처 상한 기준값 ${cap} 이 실-git 파일 기준 예산 최대값 ${max} 보다 크지 않다 — 상한이 먼저 끊는다`
 }
 
-/** `dir` 아래의 `*.test.ts` 를 `/` 구분자 상대경로로 모은다. */
-export function listTestFiles(dir, base = dir) {
+const TEST_FILE = /\.test\.ts$/
+/** (F)(H′) 범위 — 테스트 파일과 테스트가 import 하는 지원 파일(`*.testfixture.ts(x)`). */
+const BUDGET_FILE = /\.test\.ts$|\.testfixture\.tsx?$/
+
+/** `dir` 아래의 `*.test.ts`(또는 `pattern`) 를 `/` 구분자 상대경로로 모은다. */
+export function listTestFiles(dir, base = dir, pattern = TEST_FILE) {
   const out = []
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) {
-      out.push(...listTestFiles(full, base))
-    } else if (entry.endsWith('.test.ts')) {
+      out.push(...listTestFiles(full, base, pattern))
+    } else if (pattern.test(entry)) {
       out.push(
         full
           .slice(base.length + 1)
@@ -348,9 +633,12 @@ export function listTestFiles(dir, base = dir) {
   return out.sort()
 }
 
+/** (F)(H′) 대상 — `*.test.ts` · `*.testfixture.ts` · `*.testfixture.tsx`. */
+export const listBudgetFiles = (dir) => listTestFiles(dir, dir, BUDGET_FILE)
+
 const FIXTURE_PATH = 'main/infra/git/temp-repo.testfixture.ts'
 
-export function runCli(appDir = process.cwd(), argv = []) {
+export function runCli(appDir = process.cwd(), argv = [], entries = SEMANTIC_DELAYS) {
   const root = join(appDir, TEST_ROOT)
   const results = []
   const scaleErrors = []
@@ -359,13 +647,24 @@ export function runCli(appDir = process.cwd(), argv = []) {
     const source = readFileSync(join(root, rel), 'utf8')
     const verdict = analyze(rel, source)
     if (verdict) results.push({ ...verdict, budget: parseBudget(stripComments(source)) })
-    for (const error of analyzeScale(rel, source)) scaleErrors.push(`${TEST_ROOT}/${rel}${error}`)
+  }
+  const budgetFiles = listBudgetFiles(root)
+  for (const rel of budgetFiles) {
+    const source = readFileSync(join(root, rel), 'utf8')
+    for (const error of analyzeScale(rel, source, entries))
+      scaleErrors.push(`${TEST_ROOT}/${rel}${error}`)
     if (argv.includes('--report'))
-      for (const site of scanBudgetSites(rel, source))
+      for (const site of scanBudgetSites(rel, source, entries))
         report.push(
-          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.text}`
+          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.form ?? '-'}\t${site.text}`
         )
   }
+  // 대상 파일이 사라진 의미 값 항목 — 낡은 허용은 다음 예산 자리의 우회로가 된다.
+  for (const entry of entries)
+    if (!budgetFiles.includes(entry.file))
+      scaleErrors.push(
+        `${TEST_ROOT}/${entry.file} SEMANTIC_DELAYS { value: ${entry.value} } — 대상 파일이 없다`
+      )
   if (argv.includes('--report')) for (const line of report) console.log(line)
   let fixtureError = null
   let fixtureSource = null

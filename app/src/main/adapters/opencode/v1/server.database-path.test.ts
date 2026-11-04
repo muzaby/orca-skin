@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import type { ChildProcess, spawn } from 'node:child_process'
@@ -71,7 +72,7 @@ describe('OpenCode native database path (0262 EP56 P49)', () => {
       readVersion: async () => '1.19.0',
       spawnProcess: spawnProcess as unknown as typeof spawn,
       fetchImpl: vi.fn(async () => jsonResponse({ healthy: true, version: '1.19.0' })),
-      timeoutMs: 1000
+      timeoutMs: scaleMs(1000)
     })
     pools.push(pool)
     const document = { model: 'other/extra', provider: { other: { models: { extra: {} } } } }

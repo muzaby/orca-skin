@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 import { createBootSteps, runBootSteps, type BootDependencies } from './steps'
 
 function deps(overrides: Partial<BootDependencies> = {}): BootDependencies {
@@ -91,8 +92,8 @@ describe('boot steps', () => {
 
     await runBootSteps(createBootSteps(d), (event) => events.push(`${event.id}:${event.status}`), {
       warningAfterMs: -1,
-      mandatoryTimeoutMs: 10_000,
-      optionalTimeoutMs: 10_000
+      mandatoryTimeoutMs: scaleMs(10_000),
+      optionalTimeoutMs: scaleMs(10_000)
     })
 
     expect(events).not.toContain('landing-target:warning')
