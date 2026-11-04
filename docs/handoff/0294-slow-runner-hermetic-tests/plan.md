@@ -10,13 +10,13 @@
 |---|---|
 | slug | `0294-slow-runner-hermetic-tests` |
 | 작성자 | Claude Code |
-| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1) |
-| 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) |
-| 상태 | verify/RETURN_TO_PLAN (r2 검증 — [verify.md](verify.md) r2 절 · D2 BLOCKING · D3 PLAN_GAP) |
-| V mode | `Baseline V + ΔV1` |
-| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1은 이 handoff의 V1 위 증분이다 |
-| 이번 V revision | `ΔV1` — verify r1 `PLAN_GAP` D1(EP-05 자리 술어·게이트 (H) 술어가 불변식 주어보다 좁음) 정정. 구 행은 supersede(§7-B) |
-| 유효 V | `V1 + ΔV1` |
+| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) |
+| 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) |
+| 상태 | plan/READY (ΔV2 — verify r2 D2·D3 정정, §7-C) |
+| V mode | `Baseline V + ΔV1 + ΔV2` |
+| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1·ΔV2는 이 handoff의 V1 위 증분이다 |
+| 이번 V revision | `ΔV2` — verify r2 D2(`BLOCKING` — (H′) 형태 판정이 바인딩을 따라가지 않음)·D3(`PLAN_GAP` — EP-12 규칙 칸에 바인딩 추적 범위 없음) 정정. 구 행은 supersede(§7-C). ΔV1은 r1 D1 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 | 구현 주체 | Claude (비기능 — 테스트 인프라·CI. root `AGENTS.md` "리팩토링·버그수정 등 비기능 작업") |
 | 측정 증거 | [`evidence/`](evidence/) — 재현 스크립트. 수치는 아래 §8이 정본 |
 
@@ -60,16 +60,20 @@
 | D-009 | 실-git 인프라(픽스처 `execGit`·`removeTempRoots`·게이트 규칙 A~E)는 유지한다. 파일 예산의 **기준값과 도출식 주석은 그대로** 두고 배율만 씌운다 | "Git 인프라는 유지" + "실-git도 배율 적용(게이트 규칙은 유지)" | 응답 1·5 | ACTIVE | — |
 | D-010 | 실제 포트에 바인딩하는 테스트는 OS가 준 빈 포트를 쓴다 | §2 추론(임시 포트 대역 충돌) | 조사 | ACTIVE | — |
 | D-011 | 리눅스 전용 기존 실패 22건(9파일 — Windows 경로·Claude 플러그인 Linux 차이)은 범위 밖이다 | CI 정본은 windows 러너 | 측정 §8 | ACTIVE | — |
-| D-012 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 7형태다 — 타이머 지연 · `x.setTimeout(N)` · `AbortSignal.timeout(N)` · `now()` 마감 산술·비교 · 경과 상한 단언 · `/timeout/i` 옵션(중첩 `timeouts` 객체, 자식 프로세스 timeout, production 시간 인자 포함) · `/timeout/i` 매개변수 기본값. 값은 같은 파일 상수·`??`/`||` 기본값까지 따라간다 | D-001의 주어를 형태로 고정한다. V1 EP-05는 `setTimeout`·`Date.now()+N`만 세어 목록 밖 미배율 자리가 남았다(verify r1 D1) | 추론 — D-001 + verify r1 D1 · §7-B 실측 | ACTIVE | — (D-001 구체화) |
+| D-012 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 7형태다 — 타이머 지연 · `x.setTimeout(N)` · `AbortSignal.timeout(N)` · `now()` 마감 산술·비교 · 경과 상한 단언 · `/timeout/i` 옵션(중첩 `timeouts` 객체, 자식 프로세스 timeout, production 시간 인자 포함) · `/timeout/i` 매개변수 기본값. 값은 같은 파일 상수·`??`/`||` 기본값까지 따라간다 | D-001의 주어를 형태로 고정한다. V1 EP-05는 `setTimeout`·`Date.now()+N`만 세어 목록 밖 미배율 자리가 남았다(verify r1 D1) | 추론 — D-001 + verify r1 D1 · §7-B 실측 | **SUPERSEDED** | → D-015·D-016 (ΔV2) |
 | D-013 | 분류: 그 값이 지나면 **정상 경로의 테스트가 실패**하면 예산 → `scaleMs(기준값)`. 시간 초과 자체를 시험하거나(가짜 시계 포함) 값이 데이터로만 흐르거나 하한(그만큼 기다린 뒤 관측)이면 의미 값 → 허용 목록. 임계 1000ms(V1 AC7 유지), 단 `AbortSignal.timeout`·자식 프로세스 timeout은 임계 없이 본다 | 1초 미만 자리는 실측상 전부 시간 초과 유발값·순서용 하한이다. abort·자식 프로세스 상한은 1초 미만 사용이 0건이라 임계가 고장만 숨긴다(r1 X7·X8) | 추론 — §7-B 실측 | ACTIVE | — |
 | D-014 | 허용 목록 항목은 `{file, value, count, reason}`이고 게이트가 같은 파일·같은 값 자리 수를 `count`와 대조한다 — 같은 값의 새 자리·지운 자리 모두 red. `vi.waitFor` 옵션 안의 `scaleMs`(이중 배율, §12)도 게이트가 red로 막는다 | `{file, value}`만으로는 한 항목이 같은 파일의 새 예산 자리를 덮는다. §12 이중 배율 금지에는 강제 지점이 없었다 | 추론 — §7-B | ACTIVE | — |
+| D-015 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 자리다(D-012 주어·범위 승계). (H′)가 식을 읽는 모든 자리 — 형태의 호출 대상·대상 식·값·옵션 객체·맥락 — 는 **같은 파일 선언 그래프**를 해석기 하나로 푼다: 검사기 심볼(스코프·가림) · 래퍼 · 변수 초기값과 대입 · 구조 분해 · 같은 파일 함수·메서드의 매개변수←호출 인자와 호출 결과←반환식 · 단축 속성 · 객체 리터럴 멤버(전개) · `??`/`\|\|`/조건식/산술. **경계**: 같은 파일 선언에 닿지 않는 호출(production·라이브러리)의 인자와 그 콜백 매개변수 · production import 상수 · 객체 리터럴로 풀리지 않는 값의 멤버 · 계산 키 | D-012 주어("테스트가 고른 시간 값")는 값이 어느 바인딩을 거쳐도 같다. r1(술어 = 해법 형태)·r2(판정 = 문법 노드)로 같은 축이 두 번 좁았다(verify r2 D2·D3·Review Signals). 경계 밖은 이번 턴 실측으로 상한 0(§7-C) | 추론 — D-001·D-012 + verify r2 D2·D3 · §7-C 실측 | ACTIVE | D-012 대체(주어·범위 승계) |
+| D-016 | 형태·슬롯·now 원천·맥락을 전수로 고정한다 — 형태 8(D-012의 7 + **named**: `/timeout/i` 이름 변수 초기값·식별자 대입). `/timeout/i` 이름 슬롯 = 객체 속성 · 단축 속성 · 대입(`=`·`??=`·`\|\|=`) · 클래스 필드 · 매개변수·구조 분해 기본값 · 이름 변수. now 원천 4종(`Date.now()`·`performance.now()`·`new Date().getTime()`·`.valueOf()`) — 호출 인자·객체 안은 now 식이 아니다. deadline = now 식 `+ N`·`N +`·`+= N`·비교(now 식끼리 비교는 자리 아님) · elapsed = 상한 단언 두 방향. 맥락은 변수 참조 자리에서 판정 — 제외는 참조 **전부**, 자식 프로세스 무임계·`timeouts` 이름 소유는 참조 **하나라도**. 한 리터럴은 한 자리 | 같은 계약을 다른 문법 지점에서 깨는 입력(verify r2 Y-행)의 문법 축을 TS AST 선언·멤버 종류로 전수 나열해 닫는다. now 식을 부분 트리로 넓히면 호출 인자 안의 now 때문에 무관한 덧셈이 deadline 형태로 잡힌다(시제품: `statusLine.render.test.ts:204` `a + count(HTML, t)` — 산술·바인딩만으로 좁혀 0) | 추론 — D-012 + verify r2 Y-행 · §7-C 탐침 131입력 | ACTIVE | D-012 대체(형태·값 열거) |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-011 (Baseline V).
 - ΔV1(2026-11-04)에서 추가된 결정: D-012~D-014 — 사용자 결정 변경이 아니라 D-001 범위 안의 설계 구체화다. 대체된 결정 없음.
-- 변경된 결정: 없음. 기존 handoff 결정과의 관계는 §16.
+- ΔV2(2026-11-04)에서 추가·대체된 결정: D-015·D-016 추가, D-012 → SUPERSEDED(주어·범위는 D-015가 원문 승계, 7형태·값 열거는 D-016이 8형태·해석기로 대체). 사용자 결정 변경이 아니라 D-001 범위 안의 설계 정정이다.
+- 변경된 결정: D-012(ΔV2, 위). 기존 handoff 결정과의 관계는 §16.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001 ↔ AC1·AC2·AC3·AC5~AC9(전 예산 자리) · D-002 ↔ AC4·AC9 · D-003 ↔ AC1~AC3(60s·60s·15s) · D-004 ↔ AC9(90·135분) · D-005 ↔ AC10~AC13(기대값 미변경 = AC16 회귀) · D-006 ↔ AC10·AC12·AC14(브랜치 이름) · D-007 ↔ AC15 · D-008 ↔ AC15(스킬 포크 0건 유지) · D-009 ↔ AC5·AC8(A~E 유지) · D-010 ↔ AC17 · D-011 ↔ AC16(22건 집합 유지).
+- **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001·D-015 ↔ AC7c(EP-05b 62자리 = 해석기 술어 전수 · 예산 24 `scaleMs`) · D-016 ↔ AC7d(EP-12b P2′·P5′·P7′·P8·P9 = 형태 8·슬롯·now 원천 4·맥락 전부/하나라도·한 리터럴 한 자리) · D-013 ↔ AC7c(새 18자리는 가짜·주입 시계와 mtime 데이터 → 의미 값) · D-014 ↔ AC7c(새 7항목 count = 자리 수, M11c·M11d) · D-005 ↔ AC7c(테스트 소스·기대값 변경 0) · D-009 ↔ AC7d((A)~(E)·(F)·(G) 무변경) · D-003 ↔ AC7c(기준값 = 현재 리터럴). D-012(SUPERSEDED)를 근거로 삼는 ACTIVE AC: 0 — AC7a·7b는 AC7c·7d로 대체.
 - **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001·D-012 ↔ AC7a(EP-05a 44자리 = 7형태 전수) · D-013 ↔ AC7a(예산 24 `scaleMs` · 의미 값 20 허용 목록 · 임계와 무임계 형태) · D-014 ↔ AC7a(count 대조·이중 배율 red) · D-005 ↔ AC7a(배율 전환은 대기 상한만 늘리고 단언 기대값은 그대로 — 단언 피연산자는 자리에서 제외) · D-009 ↔ AC7a((A)~(E) 대상 파일 범위 불변) · D-003 ↔ AC7a(기준값 = 현재 리터럴).
 
 ## 4. 요구 비판적 검토
@@ -244,13 +248,13 @@
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
 | R-01 | R | §1 A · D-001 — 모든 시간 예산 = 기준값 × 배율 | INHERITED | `V1:R-01` — 요구 문장 무변경 |
-| AT-01a | AT | AC1·2·3·5·6·**7a·7b**·8 | CHANGED | `V1:AT-01` 대체(AC7 → AC7a, AC7b 신설) |
-| AR-01a | AR | 배율 SSOT ↔ 소비자 — 예산 24자리(새 18: production 시간 인자·abort·자식 프로세스·testfixture) | CHANGED | `V1:AR-01` 대체 |
-| IT-01a | IT | 자리별 게이트 좌표 + M5a | CHANGED | `V1:IT-01` 대체 |
-| AR-03a | AR | 예산 게이트 (A)~(G) + **(H′)** · (F)(H′) 범위에 testfixture | CHANGED | `V1:AR-03` 대체 |
-| IT-03a | IT | 트리 게이트 실행 · `--report` = EP-05a · CI 단계 | CHANGED | `V1:IT-03` 대체 |
-| MD-03 | MD | (H′) 자리 판정 알고리즘 — EP-12 7지점 | NEW | — |
-| UT-03 | UT | (H′) 분기별 단위 테스트 | NEW | — |
+| AT-01a | AT | AC1·2·3·5·6·**7a·7b**·8 | CHANGED → **SUPERSEDED → ΔV2 AT-01b** | `V1:AT-01` 대체(AC7 → AC7a, AC7b 신설) |
+| AR-01a | AR | 배율 SSOT ↔ 소비자 — 예산 24자리(새 18: production 시간 인자·abort·자식 프로세스·testfixture) | CHANGED → **SUPERSEDED → ΔV2 AR-01b** | `V1:AR-01` 대체 |
+| IT-01a | IT | 자리별 게이트 좌표 + M5a | CHANGED → **SUPERSEDED → ΔV2 IT-01b** | `V1:IT-01` 대체 |
+| AR-03a | AR | 예산 게이트 (A)~(G) + **(H′)** · (F)(H′) 범위에 testfixture | CHANGED → **SUPERSEDED → ΔV2 AR-03b** | `V1:AR-03` 대체 |
+| IT-03a | IT | 트리 게이트 실행 · `--report` = EP-05a · CI 단계 | CHANGED → **SUPERSEDED → ΔV2 IT-03b** | `V1:IT-03` 대체 |
+| MD-03 | MD | (H′) 자리 판정 알고리즘 — EP-12 7지점 | NEW → **SUPERSEDED → ΔV2 MD-03b** | — |
+| UT-03 | UT | (H′) 분기별 단위 테스트 | NEW → **SUPERSEDED → ΔV2 UT-03b** | — |
 | AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` — ΔV1이 테스트 파일 10곳을 바꿔 회귀로 다시 닫는다 |
 | 그 밖의 V1 node | — | — | INHERITED | 무변경 |
 
@@ -258,11 +262,11 @@
 
 | Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
 |---|---|---|---|---|---|---|
-| VP-12 | MD-03 ↔ UT-03 / UT | REQUIRED | 테스트 소스 문자열 → (H′) 판정 → 자리·위반 목록 | `scripts/check-test-budgets.test.mjs` 신규 describe '규칙 (H′)' — EP-12 분기표의 입력마다 위반/통과 단언 | required — 판정 코드 변이 **M12**·**M13**·**M14**·**M16**·**M17** + r1 **X6** 재실행(아래 변이 표) | EP-12(7) |
-| VP-09a | AR-03a ↔ IT-03a / IT | REQUIRED | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs`(트리 exit 0) · `--report` deadline 행 = `scan-deadlines.mjs app` 행(파일:줄 차집합 0) · Windows CI | required — V1 M3·M4·M6 승계 · **M11a**·**M11b**·**M15**·**X9′** | EP-03(20)·04(6)·05a(44)·06(3)·12(7) = 80 |
-| VP-07a | AR-01a ↔ IT-01a / IT | REQUIRED | `scripts/test-time.mjs` → 예산 24자리 `scaleMs` → 타이머·abort·자식 프로세스·production 시간 인자 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — 그 자리를 리터럴로 되돌리면 (H′) red(EP-05a `실패 의미` 상태) | required — **M5a**(새 예산 18자리 각각) · **X7′**·**X8′** · V1 M1·M2·M5·M6 승계 | EP-01(2)·02(1)·03(20)·04(6)·05a(44)·06(3) = 76 |
-| VP-01a | R-01 ↔ AT-01a / AT | REQUIRED | 배율 해석 → config·setup·파일 예산·인라인·마감 44자리·픽스처 → 실행 | AC1~3·5·6·8: verify r1 §5 VP-01 좌표 승계 · AC7a·7b: VP-07a·VP-09a·VP-12 좌표 · 행동: VP-13 | VP-07a·VP-09a·VP-12 변이 | VP-07a와 같음(76) |
-| VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 · 저성능 모사 S2 | `evidence/clean-host-run.sh` · `slow-runner-run.sh … 8` · `newfails.mjs` — 실패 집합 = 기준 22, 신규 0 | not selected — 직접 행동 oracle | 바뀐 테스트 파일 10 |
+| VP-12 | MD-03 ↔ UT-03 / UT | **SUPERSEDED → ΔV2 VP-12b (§7-C)** | 테스트 소스 문자열 → (H′) 판정 → 자리·위반 목록 | `scripts/check-test-budgets.test.mjs` 신규 describe '규칙 (H′)' — EP-12 분기표의 입력마다 위반/통과 단언 | required — 판정 코드 변이 **M12**·**M13**·**M14**·**M16**·**M17** + r1 **X6** 재실행(아래 변이 표) | EP-12(7) |
+| VP-09a | AR-03a ↔ IT-03a / IT | **SUPERSEDED → ΔV2 VP-09b (§7-C)** | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs`(트리 exit 0) · `--report` deadline 행 = `scan-deadlines.mjs app` 행(파일:줄 차집합 0) · Windows CI | required — V1 M3·M4·M6 승계 · **M11a**·**M11b**·**M15**·**X9′** | EP-03(20)·04(6)·05a(44)·06(3)·12(7) = 80 |
+| VP-07a | AR-01a ↔ IT-01a / IT | **SUPERSEDED → ΔV2 VP-07b (§7-C)** | `scripts/test-time.mjs` → 예산 24자리 `scaleMs` → 타이머·abort·자식 프로세스·production 시간 인자 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — 그 자리를 리터럴로 되돌리면 (H′) red(EP-05a `실패 의미` 상태) | required — **M5a**(새 예산 18자리 각각) · **X7′**·**X8′** · V1 M1·M2·M5·M6 승계 | EP-01(2)·02(1)·03(20)·04(6)·05a(44)·06(3) = 76 |
+| VP-01a | R-01 ↔ AT-01a / AT | **SUPERSEDED → ΔV2 VP-01b (§7-C)** | 배율 해석 → config·setup·파일 예산·인라인·마감 44자리·픽스처 → 실행 | AC1~3·5·6·8: verify r1 §5 VP-01 좌표 승계 · AC7a·7b: VP-07a·VP-09a·VP-12 좌표 · 행동: VP-13 | VP-07a·VP-09a·VP-12 변이 | VP-07a와 같음(76) |
+| VP-13 | R-01 ↔ AT-05 / AT | REGRESSION (ΔV2에서 다시 REGRESSION — §7-C) | 전체 스위트 — 깨끗한 호스트 · 저성능 모사 S2 | `evidence/clean-host-run.sh` · `slow-runner-run.sh … 8` · `newfails.mjs` — 실패 집합 = 기준 22, 신규 0 | not selected — 직접 행동 oracle | 바뀐 테스트 파일 10 |
 | VP-01 · VP-07 · VP-09 | — | **SUPERSEDED** | — | VP-01a · VP-07a · VP-09a | — | — |
 | VP-02~06 · 08 · 10 · 11 | V1 그대로 | NOT_REQUIRED | — | verify r1 §5 PASS 좌표 | — | 비영향: ΔV1은 예산 자리 18곳·게이트 (H)·`app/AGENTS.md`만 바꾼다. 배율 해석·워크플로(VP-02·10)·격리(VP-03·06·08·11)·배포 결합(VP-04)·고정 포트(VP-05) 경로에 닿지 않는다 |
 
@@ -273,9 +277,9 @@
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | **AT-01a / AC7a** (AC7 대체) | EP-05a 44자리 중 **예산 24**(이미 배율 6 — V1 EP-05 4 + 넓힌 술어가 새로 센 배율 자리 2 · 새로 배율 18)는 `scaleMs(기준값)`을 지나고 기준값은 현재 리터럴 그대로다. **의미 값 20**(V1 6 + 새 14)은 허용 목록 16항목 `{file, value, count, reason}`에 들고 항목마다 count = 자리 수다 | 게이트 (H′): 트리 exit 0 · 새 예산 18자리 각각을 리터럴로 되돌리면 exit 1(M5a) · 허용 자리 ±1이면 exit 1(M11a·b) · `--report` deadline 44행 = `scan-deadlines.mjs` 44행(파일:줄 차집합 0) | 테스트 본문의 타이머·`AbortSignal`·`now()` 마감·자식 프로세스·production 시간 인자 |
-| R-01 | **AT-01a / AC7b** (신설) | (H′)는 EP-12의 7지점 규칙대로 판정한다 — 형태 7 · 값 해석 · 임계 1000(abort·자식 프로세스 무임계) · 제외 맥락(단 `expect(x)`의 x는 센다) · 허용 목록 count·reason · 이중 배율 · 범위 `*.test.ts`·`*.testfixture.ts(x)` | `check-test-budgets.test.mjs` '규칙 (H′)' — EP-12 표의 입력마다 위반 수·통과를 단언. 분기마다 구별 입력 ≥1, 형제 분기 입력과 맞바꾸면 결과가 뒤집힌다 | `scripts/check-test-budgets.mjs` |
-| — | **AC19a** (신설) | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 (H′)의 형태·임계·허용 목록 `count`·testfixture 범위를 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
+| R-01 | ~~AT-01a / AC7a~~ (AC7 대체) → **SUPERSEDED → ΔV2 AC7c (§7-C)** | EP-05a 44자리 중 **예산 24**(이미 배율 6 — V1 EP-05 4 + 넓힌 술어가 새로 센 배율 자리 2 · 새로 배율 18)는 `scaleMs(기준값)`을 지나고 기준값은 현재 리터럴 그대로다. **의미 값 20**(V1 6 + 새 14)은 허용 목록 16항목 `{file, value, count, reason}`에 들고 항목마다 count = 자리 수다 | 게이트 (H′): 트리 exit 0 · 새 예산 18자리 각각을 리터럴로 되돌리면 exit 1(M5a) · 허용 자리 ±1이면 exit 1(M11a·b) · `--report` deadline 44행 = `scan-deadlines.mjs` 44행(파일:줄 차집합 0) | 테스트 본문의 타이머·`AbortSignal`·`now()` 마감·자식 프로세스·production 시간 인자 |
+| R-01 | ~~AT-01a / AC7b~~ (신설) → **SUPERSEDED → ΔV2 AC7d (§7-C)** | (H′)는 EP-12의 7지점 규칙대로 판정한다 — 형태 7 · 값 해석 · 임계 1000(abort·자식 프로세스 무임계) · 제외 맥락(단 `expect(x)`의 x는 센다) · 허용 목록 count·reason · 이중 배율 · 범위 `*.test.ts`·`*.testfixture.ts(x)` | `check-test-budgets.test.mjs` '규칙 (H′)' — EP-12 표의 입력마다 위반 수·통과를 단언. 분기마다 구별 입력 ≥1, 형제 분기 입력과 맞바꾸면 결과가 뒤집힌다 | `scripts/check-test-budgets.mjs` |
+| — | ~~AC19a~~ (신설) → **SUPERSEDED → ΔV2 AC19b (§7-C)** | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 (H′)의 형태·임계·허용 목록 `count`·testfixture 범위를 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
 
 **AC 게이트 재통과**(§5) — 정정 1행 + 신설 2행:
 
@@ -292,8 +296,8 @@
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| AR-01a / VP-01a·07a·09a **EP-05a** | 테스트 소유 실시간 마감(D-012) — 예산 = `scaleMs(기준값)` · 의미 값 = 허용 목록 `{file, value, count, reason}`(D-013·D-014) | 각 자리 + 게이트 `SEMANTIC_DELAYS` | 테스트 작성자 · 게이트 (H′) | **44자리** — 아래 EP-05a 목록 | `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/scan-deadlines.mjs app` → 44(기준 `e7d40b4`) · TO-BE `node scripts/check-test-budgets.mjs --report` deadline 44 = 같은 스캔(파일:줄 차집합 0) | 리터럴 예산은 배율을 무시해 느린 러너에서 끊긴다 · 의미 값을 배율하면 시험 계약이 바뀐다 · 게이트 밖에 남는 차이는 아래 목록 |
-| MD-03 / VP-12 **EP-12** | (H′) 판정 | `scripts/check-test-budgets.mjs` | 게이트 | **7지점** — 아래 EP-12 표 P1~P7 | 코드 자리가 아니라 판정 규칙이다 — 분모는 EP-12 표이고, 구현은 지점마다 UT 입력(같은 표 셋째 열)을 둔다 | 지점 하나가 빠지면 그 형태·맥락의 미배율 마감이 게이트를 통과한다 |
+| ~~AR-01a / VP-01a·07a·09a EP-05a~~ **SUPERSEDED → ΔV2 EP-05b (§7-C)** | 테스트 소유 실시간 마감(D-012) — 예산 = `scaleMs(기준값)` · 의미 값 = 허용 목록 `{file, value, count, reason}`(D-013·D-014) | 각 자리 + 게이트 `SEMANTIC_DELAYS` | 테스트 작성자 · 게이트 (H′) | **44자리** — 아래 EP-05a 목록 | `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/scan-deadlines.mjs app` → 44(기준 `e7d40b4`) · TO-BE `node scripts/check-test-budgets.mjs --report` deadline 44 = 같은 스캔(파일:줄 차집합 0) | 리터럴 예산은 배율을 무시해 느린 러너에서 끊긴다 · 의미 값을 배율하면 시험 계약이 바뀐다 · 게이트 밖에 남는 차이는 아래 목록 |
+| ~~MD-03 / VP-12 EP-12~~ **SUPERSEDED → ΔV2 EP-12b (§7-C)** | (H′) 판정 | `scripts/check-test-budgets.mjs` | 게이트 | **7지점** — 아래 EP-12 표 P1~P7 | 코드 자리가 아니라 판정 규칙이다 — 분모는 EP-12 표이고, 구현은 지점마다 UT 입력(같은 표 셋째 열)을 둔다 | 지점 하나가 빠지면 그 형태·맥락의 미배율 마감이 게이트를 통과한다 |
 
 - **EP-05a 게이트가 초록인 채로 남는 차이**(§5 완료 조건 ≠ 목표):
   - import 상수·위치 인자로 넘기는 시간 값 — 값 해석이 같은 파일 상수까지다.
@@ -400,6 +404,202 @@
 - 자리별 oracle: 예산 24자리 = 게이트 좌표(자리마다 M5a) · 의미 값 20자리 = 허용 항목 count · 판정 7지점 = UT 분기 입력(EP-12 표).
 - 장치 방향: `scaleMs`를 지우면 red(M5a) · 허용 자리 ±1이면 red(M11) · 다른 파일 같은 값 red(X6) · 판정 분기를 지우면 UT red(M12~M17).
 - 측정되지 않은 보호를 규범 행에 적지 않았다 — opt-in 스위트 자리의 기준값 축은 oracle 없음으로 `실패 의미`에 적었다.
+- 사람 실기 추가 없음(AC18 그대로).
+
+## 7-C. ΔV2 — verify r2 D2 `BLOCKING` · D3 `PLAN_GAP` 정정
+
+> **적용 순서: `V1` → `ΔV1` → `ΔV2`.** verify r2([verify.md](verify.md) r2-13 D2·D3)가 돌려보낸 (H′) 판정을 **같은 파일 바인딩 해석 하나**로 다시 정의하고, 그 규칙으로 EP-05 자리 목록을 다시 열거해 **62자리**로 고정한다. 구 행(§7-B AC7a·AC7b·AC19a · VP-12·VP-07a·VP-09a·VP-01a · EP-05a·EP-12)은 그 자리에 두고 `SUPERSEDED`로 가리킨다. 결정은 §3 D-015·D-016(D-012 대체).
+
+### 무엇이 왜 바뀌는가
+
+| verify r2 지적 | 진단 | ΔV2의 답 |
+|---|---|---|
+| D2(a) 단축 속성 `{ timeoutMs }` exit 0 (Y1) | option 슬롯을 `PropertyAssignment`만 봤다 | P2′ 슬롯 전수 — 속성·단축 속성·대입·클래스 필드·구조 분해 기본값·이름 변수 |
+| D2(b) const에 담은 `vi.waitFor` 옵션 — `scaleMs` green(Y2) · 기준값 red(Y2b) | 제외·이중 배율이 인라인 둘째 인자만 봤다 | P5′ 맥락을 바인딩 참조 자리에서 판정 · P7′ 옵션을 해석기로 따라가 `scaleMs`를 찾는다 |
+| D3 now 식 변수(Y5) · 파생 마감(Y5b) · 구조 분해 기본값(Y11) exit 0 | 형태의 **대상**(now 식·이름)을 문법 노드로만 봤다 — 값만 같은 파일 const를 따라갔다 | D-015 판정이 읽는 모든 식 자리를 해석기 하나로 푼다 · P8 now 식 |
+| Review Signal — r1·r2가 같은 축("D-012 주어보다 좁은 판정") | 지적된 문법을 하나씩 넓혔다 | 해석 범위를 TS 선언 종류로 전수 열거하고 경계 밖을 실측했다(아래 표) |
+| Review Signal — 게이트와 자리 검색 명령이 같은 알고리즘 사본 | `--report` = 스캔 차집합 0이 독립 측정이 아니었다 | 자리 검색 명령을 새로 쓴 시제품 `scan-deadlines-v2.mjs`로 두고 구현은 복사하지 않는다 · 텍스트 술어 독립 재열거 `broad-time-lines.sh`를 함께 둔다 |
+| (유지) 규칙 (F)는 바인딩을 따라가지 않는다 | 인라인 `scaledBudget(…)`·`scaleMs(…)`만 통과 — 바인딩 경유 배율도 red(fail-closed, `check-test-budgets.mjs:526`·`:534`) | 바꾸지 않는다 — 거짓 green이 없고 처방(인라인)이 위반 문구에 있다 |
+
+### 설계 근거 — 이번 턴 측정
+
+기준 트리 `544eb01`(r2 검증 HEAD — 브랜치 좌표, `main` 미병합). 앱 코드는 r2 구현 `f73927a`와 같다(`git diff --stat f73927a 544eb01 -- app` 0줄). 증거 경로 접두사 `docs/handoff/0294-slow-runner-hermetic-tests/evidence/`.
+
+| 관측 | 명령 | 결과 | 설계에 미친 영향 |
+|---|---|---|---|
+| ΔV1 분모 재확인 | `--report` deadline ↔ `scan-deadlines.mjs app` | 44 = 44, 파일:줄 차집합 0 | 기준 |
+| ΔV2 술어 전수 | `node …/scan-deadlines-v2.mjs app` | **62** — 예산(배율) 24 · 의미 값 38 = ΔV1 44 − 1 + 19 | EP-05b 분모 |
+| 빠진 1 | 같음 | `main/infra/config/file-mutation.test.ts:231` `Date.now() < deadline` — `deadline`이 now 식(`:222`)이라 now 식끼리 비교 | 그 마감의 자리는 `:222` 덧셈 하나(P8) |
+| 새 19 | 같음 | 배율 1(`main/infra/git/temp-repo.testfixture.ts:43` named `FIXTURE_GIT_TIMEOUT_MS = scaleMs(600_000)`) · 의미 값 18(`now += N` 17 · `now + 5000` 1) | 허용 목록 7항목 추가 · 테스트 소스 변경 0 |
+| 새 의미 값 18 분류 | 파일 읽기 | 가짜 시계 진행 11 — `discovery-cache.poll-race.test.ts:23`·`discovery-cache.test.ts:33` `vi.spyOn(Date, 'now').mockImplementation(() => now)` · mtime 데이터 1 — `poll-race:149-150` `utimes` · 주입 시계 진행 7 — `mail.integration.test.ts` `now: () => now` | D-013 의미 값(가짜 시계·데이터) |
+| 풀리지 않은 형태 자리 | `… --unresolved` | 50 — 시간 수 아님 24(객체·함수·문자열·타이머 핸들·전역 함수 참조) · 테스트 지원 파일 import 20(`FIXTURE_GIT_TIMEOUT_MS` — 그 파일의 named 자리) · 경계 6(콜백 매개변수 4 · 비리터럴 멤버 `input.timeout_ms` 2) | 경계 6은 값을 런타임 호출자가 고른다 — D-015 경계 |
+| 경계 — 맥락의 함수 경유 | `node …/scan-option-args.mjs <app 절대경로>` | `vi.waitFor` 옵션 인자 16 · 자식 프로세스 옵션 객체 7 — 전부 인라인 객체. 그 밖의 인자는 production이 부르는 콜백(`spawnProcess` 등)·데이터 | 맥락은 변수 참조까지만 따라간다(D-016) |
+| 경계 — 위치 인자 | `node …/scan-positional-args.mjs <app 절대경로>` | 59 — production·라이브러리 함수의 위치 인자(포맷터·크기·억제 창·주입 시계·포트) · 실시간 상한 0 | 남는 차이로 적는다 |
+| 독립 재열거 | `bash …/broad-time-lines.sh app` | 텍스트 술어 326줄 · 자리 줄 60 · 나머지 266 = 자동 분류 213(가짜 시계 57 · 데이터 키 48 · 과거 시각 33 · 고정 시각 30 · (F) 21 · 단언 11 · `vi.waitFor` 옵션 7 · `scaleMs` 인자 6) + 수동 53(여러 줄 `vi.waitFor` 옵션 5 · 주입 시계 값·크기·데이터·테스트 이름 48) — 실제 상한 0 | 게이트 알고리즘과 다른 방법으로 분모 확인 |
+| 임계 | `… --all` | 1초 미만 51(timer 33 · option 18) · 새 형태(named·`+=`·구조 분해·대입·클래스 필드)의 1초 미만 0 | 임계 1000 · abort·자식 프로세스 무임계 유지 |
+| 스코프 해석 | 탐침 B0 | ΔV1 이름 맵은 같은 이름 `const t`가 다른 블록에 둘이면 마지막 선언으로 푼다 — 블록 순서를 바꾸면 리터럴이 `scaleMs`에 가려진다 | 검사기 심볼로 해석(B0) |
+| EP-12b 분기 탐침 | `… --probe < …/ep12b-probe.json` | 131입력(verify r2 Y-행 7 · 새 분기 63 · ΔV1 UT 입력 61) → 기대와 같음(`ep12b-probe.expected.tsv`) · ΔV1 입력 61은 ΔV1 게이트와 같은 판정 | P1~P9가 서로 모순 없이 구현 가능 · ΔV1 판정 회귀 0 |
+| 해석 비용 | 같은 스캔 | 926파일 5.0s(파일마다 단일 파일 program, `noLib`·`noResolve`) · 현재 게이트 1.4s | CI 'Test budget guard' 증가 수 초 · 신규 의존성 없음(`typescript` 기존) |
+
+### ΔV2 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §1 A · D-001 | INHERITED | `V1:R-01` |
+| AT-01b | AT | AC1·2·3·5·6·**7c·7d**·8 | CHANGED | `ΔV1:AT-01a` 대체(AC7a → AC7c, AC7b → AC7d) |
+| AR-01b · IT-01b | AR · IT | 배율 SSOT ↔ 예산 24자리(EP-05b 구성: `:231` 빠짐 · `temp-repo:43` 더함) · 자리별 게이트 좌표 | CHANGED | `ΔV1:AR-01a`·`IT-01a` 대체 |
+| AR-03b · IT-03b | AR · IT | 게이트 (A)~(G) + (H′) 바인딩 해석 · 허용 23항목 · `--report` 값 열 | CHANGED | `ΔV1:AR-03a`·`IT-03a` 대체 |
+| MD-03b · UT-03b | MD · UT | (H′) 판정 — EP-12b 9지점 | CHANGED | `ΔV1:MD-03`·`UT-03` 대체 |
+| AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` |
+| 그 밖의 node | — | — | INHERITED | 무변경 |
+
+### ΔV2 Pair registry
+
+| Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-12b | MD-03b ↔ UT-03b / UT | REQUIRED | 테스트 소스 문자열 → 해석기(B) → 형태·맥락 판정 → 자리·위반 | `scripts/check-test-budgets.test.mjs` 새 describe '바인딩 해석 (0294 ΔV2)' — EP-12b 표 입력마다 위반 수 단언 · 기존 '규칙 (H′)' 유지 | required — **M18~M38**(아래 변이 표) + verify r2 Y1·Y2·Y2b·Y5·Y5b·Y11 재실행 | EP-12b(9) |
+| VP-09b | AR-03b ↔ IT-03b / IT | REQUIRED | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs`(트리 exit 0) · `--report` deadline 62행 = `scan-deadlines-v2.mjs` 62행(아래 대조 명령 0줄) · Windows CI | required — **M11c**·**M11d** · Y-트리 변이 · ΔV1 승계 M3·M4·M6·M11a·M11b·M15·X9′ | EP-03(20)·04(6)·05b(62)·06(3)·12b(9) = 100 |
+| VP-07b | AR-01b ↔ IT-01b / IT | REQUIRED | `scripts/test-time.mjs` → 예산 24자리 `scaleMs` → 타이머·abort·자식 프로세스·production 시간 인자·이름 변수 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — 그 자리를 리터럴로 되돌리면 exit 1 | required — **M5b**(24자리 각각) · X7′·X8′ · V1 M1·M2·M6 승계 | EP-01(2)·02(1)·03(20)·04(6)·05b(62)·06(3) = 94 |
+| VP-01b | R-01 ↔ AT-01b / AT | REQUIRED | 배율 해석 → config·setup·파일 예산·인라인·마감 62자리·픽스처 → 실행 | AC1~3·5·6·8: verify r1 §5 좌표 승계 · AC7c·7d: VP-07b·09b·12b 좌표 | VP-07b·09b·12b 변이 | VP-07b와 같음(94) |
+| VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 | `evidence/clean-host-run.sh` + `newfails.mjs` — 실패 집합 = 기준 22, added 0 · `git diff --stat <ΔV2 설계 커밋>..HEAD -- app/src` 0줄 | not selected — 직접 행동 oracle | 0 — ΔV2는 테스트 소스를 바꾸지 않는다 |
+| VP-12 · VP-09a · VP-07a · VP-01a | — | **SUPERSEDED** | — | VP-12b · VP-09b · VP-07b · VP-01b | — | — |
+| VP-02~06 · 08 · 10 · 11 | V1 그대로 | NOT_REQUIRED | — | verify r1 §5 · r2-5 좌표 | — | 비영향: ΔV2는 게이트 2파일·`app/AGENTS.md`만 바꾼다. 배율 해석·워크플로·격리·배포 결합·고정 포트 경로에 닿지 않는다 |
+
+- `SUPERSEDED` 이관: VP-12(EP-12 P1~P7 UT 입력, M12~M17·X6) → VP-12b(P1·P6 그대로, P2~P5·P7 입력 승계 + 새 분기) · VP-09a(M3·M4·M6·M11a·M11b·M15·X9′) → VP-09b · VP-07a(M5a-01~18·X7′·X8′·M1·M2·M5) → VP-07b(M5b가 M5a를 24자리로 확장) · VP-01a(AC7a·7b) → VP-01b(AC7c·7d). 폐기 0.
+- NEW·CHANGED 왼쪽 node ↔ 같은 레벨 REQUIRED pair: MD-03b→VP-12b(UT) · AR-03b→VP-09b(IT) · AR-01b→VP-07b(IT) · R-01(INHERITED, 오른쪽 AT-01b CHANGED)→VP-01b · AT-05→VP-13(REGRESSION). 차집합 0.
+- **대조 명령**(VP-09b, AC7c): `cd app && diff <(node scripts/check-test-budgets.mjs --report | awk -F'\t' '$1=="deadline"{print $2"\t"$4"\t"$5}' | sort) <(node ../docs/handoff/0294-slow-runner-hermetic-tests/evidence/scan-deadlines-v2.mjs . 2>/dev/null | awk -F'\t' '{print $2"\t"$1"\t"$3}' | sort)` → 0줄. 열은 `파일:슬롯 줄 · 형태 · 값(리터럴 원문 | scaleMs)`.
+
+### ΔV2 Acceptance — 정정
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | **AT-01b / AC7c** (AC7a 대체) | EP-05b 62자리 중 **예산 24**는 `scaleMs(기준값)`을 지나고 기준값은 현재 리터럴 그대로다(테스트 소스 변경 0). **의미 값 38**은 허용 목록 23항목(ΔV1 16 + 새 7) `{file, value, count, reason}`에 들고 항목마다 count = 자리 수다 | 게이트 (H′): 트리 exit 0 · 예산 24자리 각각을 리터럴로 되돌리면 exit 1(M5b) · 새 허용 자리 ±1이면 exit 1(M11c·M11d) · 대조 명령 0줄 | 테스트 본문의 타이머·abort·now 마감·자식 프로세스·production 시간 인자·이름 변수 |
+| R-01 | **AT-01b / AC7d** (AC7b 대체) | (H′)는 EP-12b 9지점 규칙대로 판정한다 — 해석기(B0~B7)·경계 · 형태 8 · 슬롯 · now 식 · 맥락(참조 자리) · 임계 · 허용 목록 · 이중 배율 · 자리 동일성. verify r2 Y1·Y2·Y5·Y5b·Y11은 위반 1(배율 입력 0), Y2b·Y2e는 0 | `check-test-budgets.test.mjs` '바인딩 해석 (0294 ΔV2)' — EP-12b 표의 입력마다 위반 수 단언. 분기마다 구별 입력 ≥1 · 배율 입력과 맞바꾸면 결과가 뒤집힌다 | `scripts/check-test-budgets.mjs` |
+| — | **AC19b** (AC19a 대체) | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 (H′)의 바인딩 해석 범위·경계, 슬롯(단축 속성·대입·클래스 필드·구조 분해 기본값·이름 변수), now 원천 4종·`+=`, 맥락 판정을 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
+
+**AC 게이트 재통과**(§5) — 정정 3행:
+
+- 행동 단언·검증 수단·도달 경로: 세 행 모두 세 칸을 갖는다.
+- **방향**: AC7c는 "예산 자리가 `scaleMs`를 지난다"를 잠근다 — 자리에서 `scaleMs`를 지우면 red(M5b). AC7d의 "정상 코드는 통과"(Y2b·Y2e·Y5g·Y5i)는 반대 방향(오탐)을 잠근다 — M30·M36이 그 방향의 변이다.
+- **자리를 말하는 불변식의 맞바꿈 축**: 허용 항목은 파일·값으로 자리를 가리킨다 — 다른 파일 같은 값(X6)·같은 파일 다른 개수(M11c·M11d)가 red다. 맥락 판정의 "전부/하나라도"는 서로 맞바꾸면 Y2f·P4 입력이 뒤집힌다(M31).
+- 완결성 주장은 차집합으로 적었다 — 대조 명령의 `diff` 출력 0줄(파일:줄·형태·값). 합계 62는 그 결과다.
+- structural proxy: AC7c·7d는 형태 게이트다. 형태가 지키는 행동(느린 러너 통과)은 VP-13 회귀와 V1·ΔV1 S2 실측이 닫는다 — ΔV2는 테스트 소스를 바꾸지 않아 실행 시간이 바뀌지 않는다.
+- 사람 실기로 미룬 순수 로직 없음.
+- AC 총수: **21** 그대로(AC7a → AC7c · AC7b → AC7d · AC19a → AC19b 번호 승계).
+
+### ΔV2 §10 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-01b / VP-01b·07b·09b **EP-05b** | 테스트 소유 실시간 마감(D-015) — 예산 = `scaleMs(기준값)` · 의미 값 = 허용 목록 `{file, value, count, reason}`(D-013·D-014) | 각 자리 + 게이트 `SEMANTIC_DELAYS` | 테스트 작성자 · 게이트 (H′) | **62자리** — 아래 EP-05b 목록 | `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/scan-deadlines-v2.mjs app` → 62(기준 `544eb01`) · TO-BE 대조 명령 0줄 · 독립 `broad-time-lines.sh` 나머지 266줄 실제 상한 0 | 리터럴 예산은 배율을 무시해 느린 러너에서 끊긴다 · 의미 값을 배율하면 시험 계약이 바뀐다 · 게이트 밖에 남는 차이는 아래 목록 |
+| MD-03b / VP-12b **EP-12b** | (H′) 판정 | `scripts/check-test-budgets.mjs` | 게이트 | **9지점** — 아래 EP-12b 표 P1~P9 | 판정 규칙이다 — 분모는 EP-12b 표이고 구현은 지점마다 UT 입력(같은 표 셋째 열)을 둔다 | 지점 하나가 빠지면 그 문법·바인딩을 지나는 미배율 마감이 게이트를 통과하거나(거짓 green) 정상 코드가 red가 된다(오탐) |
+
+- **EP-05b 게이트가 초록인 채로 남는 차이**(§5 완료 조건 ≠ 목표) — 전부 D-015 경계이고 이번 턴에 쟀다:
+  - 같은 파일 선언에 닿지 않는 호출(production·라이브러리)의 위치 인자 — 트리 59, 실시간 상한 0(`scan-positional-args.mjs`).
+  - 그런 호출이 부르는 콜백의 매개변수 · 객체 리터럴로 풀리지 않는 값의 멤버 — 트리 6, 값을 런타임 호출자가 고른다(`--unresolved`).
+  - production 모듈 import 상수 — §6 비범위. 테스트 소스의 export는 그 파일에서 자리로 센다.
+  - 함수 인자·반환을 거친 객체의 맥락(제외·무임계) — 선언 자리에서 판정한다. 트리 0: `vi.waitFor` 옵션 인자 16 전부 인라인 객체 · 자식 프로세스 옵션 객체 7 전부 인라인, 나머지 인자는 production이 부르는 콜백·데이터(`scan-option-args.mjs`).
+  - 1초 미만 상한 예산 — 새 형태 포함 0(`--all`). opt-in 스위트 자리의 기준값 축 — ΔV1 그대로.
+- `실패 의미`에 "다른 게이트가 막는다"를 적은 칸: 없음.
+- **ΔV2 유효 강제 지점 전수**: V1 EP-01(2)·02(1)·03(20)·04(6)·06(3)·07(4)·08(2)·09(15)·10(13)·11(1) = 67 + **EP-05b(62)** + **EP-12b(9)** = **138**(ΔV1 EP-05a 44·EP-12 7은 supersede).
+
+**EP-05b 목록** — 경로는 `app/src/` 기준, 줄은 `544eb01`(= `f73927a` 앱 코드). 자리 줄은 슬롯 줄이고, 값이 다른 줄이면 괄호에 값 줄을 적는다.
+
+| 처분 | 자리 (형태 · 현재 값) | 수 |
+|---|---|---:|
+| 예산 — 배율(ΔV1 이미 배율 6에서 `file-mutation:231` 빠지고 `temp-repo:43` 더함) | `main/app/artifact-sdk-live.test.ts:72` timer(값 `:75`) · `main/app/managed-mcp.cli.integration.test.ts:323` timer · `:421` timer · `main/infra/config/file-mutation.test.ts:222` deadline · `main/infra/git/temp-repo.testfixture.ts:43` named `FIXTURE_GIT_TIMEOUT_MS` · `:80` timer(값 `:27` `KILL_GRACE_MS`) | 6 |
+| 예산 — 배율(ΔV1 새로 배율 18, r2 구현) | `main/adapters/opencode/v1/instance-lifecycle.test.ts:5` param · `server.database-path.test.ts:75` option · `server.test.ts:89` option · `main/app/deployment/mail.integration.test.ts:374`·`:375` option · `main/app/harnesses/opencode/native-storage.integration.test.ts:51` option(자식 프로세스) · `native-storage.testfixture.ts:106` option(자식 프로세스) · `:190`·`:297` abort · `main/app/managed-mcp.cli.integration.test.ts:289` abort | 10 |
+| | `main/features/chat/background-tasks.test.ts:123`·`:131`·`:138`·`:163` option · `main/infra/net/pop3-tls.test.ts:49`·`:50` option · `renderer/src/app/boot/steps.test.ts:95`·`:96` option | 8 |
+| 의미 값 — ΔV1 허용 | `main/adapters/opencode/v1/adapter.persistent.test.ts:302` timer `2700` · `adapter.test.ts:343` `5_001` · `:387` `5000` · `main/app/chat-turn/background.monitor.test.ts:34`·`:306` `5000` · `:39`·`:254` `9000` · `main/app/handlers/engine.opencode.integration.test.ts:71` `8000` · `session-resources.claude-assembly.test.ts:109` `1000` | 9 |
+| | `main/features/approvals/broker.test.ts:68`·`:98`·`:119` `1000` · `main/features/plugins/mail/sync-manager.test.ts:40` `25_000` · `:73` `15_000`·`30_000` · `main/infra/git/git-snapshot.test.ts:52` `60_000` · `main/infra/test-environment.test.ts:39` `1_500` · `renderer/src/features/chat/lib/taskBoard.test.ts:303` `30_000` · `renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts:141` `3000` · `renderer/src/features/engine/harnesses/opencode/v1/customProvider.test.ts:75` `1200` | 11 |
+| **의미 값 — ΔV2 새 허용** | `main/adapters/opencode/v1/discovery-cache.poll-race.test.ts:70`·`:93`·`:98`·`:168`·`:171`·`:201`·`:238`·`:254`·`:267` deadline `now += 1001` · `:149` deadline `now + 5000` · `discovery-cache.test.ts:29` deadline `now += 1001` | 11 |
+| | `main/app/deployment/mail.integration.test.ts:503` `299_000` · `:506` `2_000` · `:513`·`:557`·`:684`·`:691` `301_000` · `:519` `15 * 86400_000` (전부 deadline `now += …`) | 7 |
+| **합계** | 예산 24 · 의미 값 38(ΔV1 20 + 새 18) | **62** |
+
+**허용 목록 새 7항목** — ΔV1 16항목은 그대로 둔다(합 23항목 · count 합 38).
+
+| file (`app/src/` 기준) | value | count | reason |
+|---|---|---:|---|
+| `main/adapters/opencode/v1/discovery-cache.poll-race.test.ts` | `1001` | 9 | `Date.now` mock 시계(`now`)를 캐시 신선도 1초 너머로 진행하는 값 — 실시간 대기가 아니다 |
+| `main/adapters/opencode/v1/discovery-cache.poll-race.test.ts` | `5000` | 1 | `utimes`로 쓰는 파일 mtime 데이터 — 대기가 아니다 |
+| `main/adapters/opencode/v1/discovery-cache.test.ts` | `1001` | 1 | `Date.now` mock 시계 진행(캐시 만료) |
+| `main/app/deployment/mail.integration.test.ts` | `299_000` | 1 | 동기화 관리자에 주입한 시계(`now: () => now`)를 신선도 5분 직전까지 진행 |
+| `main/app/deployment/mail.integration.test.ts` | `2_000` | 1 | 같은 주입 시계로 신선도 5분 경계를 넘긴다 |
+| `main/app/deployment/mail.integration.test.ts` | `301_000` | 4 | 같은 주입 시계로 신선도 5분을 넘긴다 |
+| `main/app/deployment/mail.integration.test.ts` | `15 * 86400_000` | 1 | 같은 주입 시계로 보존 기간 경계를 넘긴다 |
+
+**EP-12b — (H′) 판정 9지점과 UT 입력** — 각 지점의 분기마다 구별 입력을 둔다. "→ N"은 `analyzeScale`(허용 항목 없음) 위반 수다. ΔV1 EP-12 입력은 전부 유지한다(시제품 탐침에서 ΔV1 게이트와 같은 판정).
+
+| 지점 | 규칙 | UT 입력 → 기대 |
+|---|---|---|
+| P1 파일 범위 | ΔV1 P1 그대로 | ΔV1 P1 입력 그대로 |
+| P2′ 형태 8 · 슬롯 | ΔV1 7형태 + **named**. 형태의 호출 대상은 B1·B2·`promisify(x)`·`util.promisify(x)`·`child_process`/`timers/promises` import 별칭으로 푼다. `/timeout/i` 이름 슬롯: option = 객체 속성 · **단축 속성** · **대입**(`o.k = v`·`o['k'] = v`·`??=`·`\|\|=`, 소유 객체 이름이 `/timeout/i`여도) · **클래스 필드** · 중첩 `timeouts` 소유(소유 판정도 B로 — 바인딩 참조 하나라도) / param = 매개변수 기본값 · **구조 분해 기본값**(매개변수·변수, 이름 = 속성 이름 우선) / named = 이름 변수 초기값 · 식별자 대입 | 분기마다 미배율 `5000` → 1 · `scaleMs(5000)` → 0: `const timeoutMs = 5000` + `waitForTask(t, { timeoutMs })`(Y1) · `socket.timeout = 5000` · `opts.timeoutMs ??= 5000` · `timeouts.connectMs = 5000` · `class F { timeoutMs = 5000 }` · `({ timeoutMs = 5000 } = {}) => 0`(Y11) · `const { timeoutMs = 5000 } = o` · `function f({ timeout: t = 5000 } = {}) {}` · `const [timeoutMs = 5000] = l` · `const timeoutMs = 5000` + `waitUntil(s, timeoutMs)` · `const st = setTimeout; st(f, 5000)` · `const t = AbortSignal.timeout; t(5000)` · `const t = { connectMs: 1000 }; pool({ timeouts: t })` → 1 |
+| P3′ 값 해석 B0~B7 | B0 검사기 심볼(스코프·가림) · B1 래퍼 · B2 변수 초기값 + 같은 파일 대입(여러 값) · B3 구조 분해 원천 멤버 · B4 같은 파일 함수·메서드: 매개변수 ← 기본값 + 같은 파일 호출부 위치 인자, 호출 결과 ← 반환식 · B5 단축 속성 · B6 객체 리터럴 멤버(전개 포함) · B7 `??`·`\|\|`·조건식 양쪽 · 산술 `+ - * /`. 여러 값이면 값마다 자리. 경계는 D-015 | ΔV1 P3 입력 그대로 + 위반 1: 두 블록 `const t` 가림 두 순서(`5000` 블록이 앞·뒤) · `let t = scaleMs(500); t = 5000; setTimeout(f, t)` · `const { ms } = { ms: 5000 }; setTimeout(f, ms)` · `const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); await sleep(5000)`(`sleep(scaleMs(5000))` → 0) · `function wait(ms) {…}` + `wait(5000)`·`wait(400)` → 1 · `function wait({ ms }) {…}` + `wait({ ms: 5000 })` · 객체 메서드·클래스 메서드·속성 화살표 `h.wait(5000)` · `const budget = () => 5000; setTimeout(f, budget())`(`return scaleMs(5000)` → 0) · `cfg.delay`·`cfg['delay']`(`const cfg = { delay: 5000 }`) · `fast ? 500 : 5000` · `6000 - 1000` · `(5000 as number)` |
+| P4′ 임계 | ΔV1 P4 + 자식 프로세스 판정이 호출 대상 해석(P2′)과 객체의 사용 자리(바인딩 참조·전개·대입 대상 객체 — 하나라도)를 본다 | ΔV1 P4 입력 그대로 + `timeout: 10` 위반 1: `const opts = {…}; execFile(c, a, opts)` · `execFile(c, a, { ...base })` · `const o = {}; o.timeout = 10; execFile(c, a, o)` · `import { execFile as run } …; run(c, a, {…})` · `promisify(execFile)(c, a, {…})` · `const run = promisify(execFile); run(c, a, {…})` |
+| P5′ 제외 — 사용 자리 | 슬롯·객체가 변수 X의 초기값 안이면 X의 참조 자리(재귀, 함수 인자·반환은 넘지 않음)마다 ΔV1 P5 제외를 본다 — 참조 ≥1이고 **전부** 제외면 제외, 하나라도 비제외면 센다, 참조 0이면 선언 자리로 판정 | ΔV1 P5 입력 그대로 + `const probeOpts = { timeout: 5000 }; vi.waitFor(() => {}, probeOpts)`(Y2b) → 0 · `const timeout = 4000; vi.waitFor(cb, { timeout })`(Y2e) → 0 · `const timeoutMs = 5000; expect(c.timeoutMs).toBe(timeoutMs)` → 0 · `const o = { timeout: 5000 }; vi.waitFor(cb, o); pool(o)`(Y2f) → 1 · `const timeoutMs = 5000`(참조 0) → 1 |
+| P6 허용 목록 | ΔV1 P6 그대로 · 항목 23 | ΔV1 P6 입력 그대로 |
+| P7′ 이중 배율 | `vi.waitFor`(별칭 포함)의 둘째 이후 인자가 B(식별자·단축 속성·전개·멤버·호출 반환)를 거쳐 `scaleMs`에 닿으면 위반 · 콜백 함수 안은 보지 않는다 | ΔV1 P7 입력 그대로 + 위반 1: `const probeOpts = { timeout: scaleMs(5000) }; vi.waitFor(() => {}, probeOpts)`(Y2) · `const w = scaleMs(4000); vi.waitFor(cb, w)` · `const base = { timeout: scaleMs(4000) }; vi.waitFor(cb, { ...base, interval: 50 })` · `const wf = vi.waitFor; wf(cb, { timeout: scaleMs(4000) })` / 0: Y2b |
+| P8 now 식 (신설) | now 원천 4종(`Date.now()`·`performance.now()`·`new Date().getTime()`·`new Date().valueOf()`) + B(변수·대입·멤버·조건) + 산술. 호출 인자·객체·배열 안은 보지 않는다. deadline = now 식 `+ N` · `N +` · `+= N` · 비교(한쪽만 now 식) / elapsed = `expect(now 식).toBeLessThan(OrEqual)(N)` · `expect(N).toBeGreaterThan(OrEqual)(now 식)` | 위반 1(배율 0): `const start = Date.now(); const elapsed = Date.now() - start; expect(elapsed).toBeLessThan(5000)`(Y5) · `const deadline = start + 5000; while (Date.now() < deadline) {}`(Y5b) · `const el = performance.now() - t0; if (el > 5000) …` · `let d = Date.now(); d += 5000` · `new Date().getTime() + 5000` · `expect(5000).toBeGreaterThan(Date.now() - s)` / 0: `expect(Date.now() - s).toBeGreaterThanOrEqual(5000)`(Y5g, 하한) · `const h = render({ at: Date.now() }); h + 5000`(Y5i) / `const d = Date.now() + scaleMs(5000); while (Date.now() < d) {}` → 자리 1(배율) |
+| P9 자리 동일성 (신설) | 한 리터럴(또는 `scaleMs` 호출) 노드는 처음 방문한 슬롯(소스 전위 순회 순, 제외된 슬롯은 건너뜀) 하나의 자리다 · 자리 줄 = 슬롯 줄 · 위반 문구는 값이 다른 줄이면 값 줄을 함께 적는다 · `--report` deadline 행 = `deadline · 파일:줄 · scaled\|semantic · 형태 · 값(리터럴 원문\|scaleMs) · 원문` | `const T = 30_000; setTimeout(f, T); setTimeout(g, T)` → 1 · `sleep(5000)` 두 호출 → 2 · `--report` 행의 다섯째 열이 리터럴 원문·`scaleMs` |
+
+**ΔV2 등록 변이** — 자리를 적었다. 판정 코드 변이(M18~M38)는 UT(VP-12b), 트리 변이는 게이트(VP-07b·09b)가 잡아야 한다.
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 oracle |
+|---|---|---|---|
+| M18·M19·M20·M21 | 판정 코드 P2′ | 단축 속성 · 대입 · 클래스 필드 · named 슬롯 각각 삭제 | UT P2′ 해당 입력 |
+| M22 | P2′ | 구조 분해 기본값(BindingElement) 슬롯 삭제 | UT Y11·구조 분해 변수 |
+| M23 | P2′ | 호출 대상 해석 삭제(원문 비교) | UT 별칭·`promisify` 입력 |
+| M24 | P3′ B0 | 검사기 해석 → 이름 맵(마지막 선언) | UT 가림 두 순서 중 하나 |
+| M25 · M26 · M27 · M28 | P3′ | 대입 후보 · 매개변수←호출 인자 · 반환식 · 멤버 접근 각각 삭제 | UT B2 · B4 · 반환식 · B6 입력 |
+| M29 | P4′ | 자식 프로세스 판정에서 사용 자리 삭제 | UT `execFile(c, a, opts)` |
+| M30 | P5′ | 사용 자리 판정 삭제(선언 자리로만 제외) | UT Y2b·단축 → 0이 1로(오탐) |
+| M31 | P5′ | "전부" → "하나라도" | UT Y2f → 1이 0으로 |
+| M32 | P7′ | 바인딩 해석 삭제(인라인만) | UT Y2·const 숫자·전개 |
+| M33 | P8 | now 식 바인딩 해석 삭제(원문 정규식) | UT Y5·Y5b·경과 변수 비교 |
+| M34 | P8 | `+=` 형태 삭제 | UT `d += 5000` + 트리 게이트(poll-race `1001` count 9 ≠ 0) |
+| M35 | P8 | 역방향 elapsed 삭제 | UT `expect(5000).toBeGreaterThan(…)` |
+| M36 | P8 | now 식을 부분 트리 전체로(호출 인자 안까지) | UT `render({ at: Date.now() })` → 0이 1로(오탐) |
+| M37 | P8 | now 식끼리 비교 제외 삭제 | UT 자리 1이 2로 |
+| M38 | P9 | 리터럴 중복 제거 삭제 | UT `const T` 두 사용 → 1이 2로 |
+| M5b | EP-05b 예산 24자리 **각각** | `scaleMs(N)` → `N` (`temp-repo:43`은 `600_000`, `:80`은 `KILL_GRACE_MS` 상수 쪽 `:27`) | `gate:node scripts/check-test-budgets.mjs` exit 1 |
+| M11c | `main/adapters/opencode/v1/discovery-cache.poll-race.test.ts` | `now += 1001` 1자리 추가 | 같은 게이트(count 9 ≠ 10) |
+| M11d | `main/app/deployment/mail.integration.test.ts` | `now += 301_000` 1자리 삭제 | 같은 게이트(count 4 ≠ 3) |
+| Y-트리 | verify r2 Y1·Y2·Y5·Y5b·Y11의 파일 끝 | 같은 입력 추가 | 같은 게이트 exit 1 — Y2b 추가는 exit 0(대조) |
+
+### ΔV2 구현 설계
+
+| 변경 파일 | 변경 내용 | 테스트 seam |
+|---|---|---|
+| `app/scripts/check-test-budgets.mjs` | `scanDeadlineSites`에 해석기 도입 — 파일마다 단일 파일 TS program(`noLib`·`noResolve`) + 검사기 심볼 · P2′~P9 · `scanBudgetSites`의 `waitFor` 판정(P7′)도 해석기 사용 · `SEMANTIC_DELAYS` 7항목 추가 · `--report` deadline 다섯째 열 값 · 위반 문구 값 줄 · 헤더 주석. 해석기를 `scripts/` 아래 별도 모듈로 나눠도 된다 | `analyzeScale`·`scanBudgetSites`(문자열 소스) → UT |
+| `app/scripts/check-test-budgets.test.mjs` | 새 describe '바인딩 해석 (0294 ΔV2)' — EP-12b 새 입력 전부 · 기존 '규칙 (H′)' 유지 · '--report deadline 행은 형태 열을 갖는다'에 값 열 단언 | node test |
+| `app/AGENTS.md` | AC19b | 문서 diff + 인벤토리 |
+
+- **시제품을 복사하지 않는다** — `evidence/scan-deadlines-v2.mjs`는 자리 검색 명령이다. 게이트가 그 사본이면 대조 명령 0줄이 다시 사본 일치가 된다. 판정 기대는 EP-12b 표가 정본이다.
+- 테스트 소스(`app/src/**`) 변경 0 — 새 자리 18은 전부 의미 값이고 예산 자리 구성 변화(−1·+1)는 이미 배율이다. 바꿔야 할 자리가 생기면 PLAN_GAP으로 돌린다.
+- 신규 의존성 없음. production 코드 무변경(§6 비범위 유지). (F)·(G)·(A)~(E) 무변경.
+- `[구현자 기입]` 강제 지점 전수 표는 pair §10 자리 전부를 행으로 둔다 — VP-07b·09b 분모의 EP-01~04·06도 행이다(verify r2 D4).
+
+### ΔV2 운영 gate
+
+| Gate | 적용 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| app lint·typecheck | `app/**` 수정 | `cd app && npm run lint && npm run typecheck` | 이번 변경이 낸 error |
+| node scripts 테스트 | 게이트 코드·테스트 변경 | `node --test "scripts/*.test.mjs"` | 전부 |
+| 예산·인벤토리 게이트 | (H′) · 문서 | `node scripts/check-test-budgets.mjs` · 대조 명령 0줄 · `node scripts/check-doc-inventory.mjs --check` | 전부 |
+| vitest | 회귀(VP-13) | `evidence/clean-host-run.sh` — 리눅스 기준선 22건 분리 | 22건 밖 신규 실패 |
+| Windows CI | 정본 통합 게이트 · 'Test budget guard' 단계 | PR `CI` 실행 | 전부 |
+| commit trailer | message bus | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
+
+### ΔV2 READY self-review
+
+- Decision 보존: D-001~D-011·D-013·D-014 무변경 · D-012 → D-015·D-016 SUPERSEDED(주어·범위는 D-015가 원문 승계) — 사용자 결정 변경 없음. 대조 결과는 §3 갱신 메모.
+- §10 gap을 지적된 형태만 더하지 않고 판정이 식을 읽는 자리 전부를 해석기 하나로 묶은 뒤 EP-05 목록을 다시 열거했다 — 자리 검색 명령 `scan-deadlines-v2.mjs`(술어 = D-015 주어, 범위 = 테스트 소스 전체)로 62, 이 수를 분모로 고정.
+- 독립 재열거: 게이트·스캔과 다른 텍스트 술어 326줄의 나머지 266줄을 분류해 실제 상한 0 · 경계(위치 인자 59 · 런타임 값 6)를 실측해 남는 차이로 적었다.
+- 새 왼쪽 node ↔ 같은 레벨 REQUIRED pair 차집합 0 · SUPERSEDED 4 pair의 AC·변이 이관 표기 · 비영향 pair 8개는 NOT_REQUIRED + 좌표.
+- 자리별 oracle: 예산 24자리 = 게이트 좌표(자리마다 M5b) · 의미 값 38자리 = 허용 항목 count(M11c·M11d) · 판정 9지점 = UT 분기 입력(EP-12b 표, 탐침 131입력 기대 일치).
+- 장치 방향: `scaleMs`를 지우면 red(M5b) · 분기 코드를 지우면 UT red(M18~M38) · 오탐 방향도 변이로 잠근다(M30·M36).
+- AC 3행은 §5 AC 게이트를 다시 통과했다(위 재통과 목록).
+- 측정되지 않은 보호를 규범 행에 적지 않았다 — 남는 차이 5종은 전부 이번 턴 측정값과 함께 적었다.
 - 사람 실기 추가 없음(AC18 그대로).
 
 ---
@@ -661,6 +861,7 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 - §10 EP-03(20)·EP-04(5파일)·EP-05(3파일)·EP-06(1)·EP-10(7)·EP-11(1) 파일 · `features/worktrees/service.test.ts`
 - `.github/workflows/{ci.yml,release.yml}` · `app/AGENTS.md` · `docs/guides/release-operations.md`
 - **ΔV1**: `app/scripts/check-test-budgets{,.test}.mjs` · 새 예산 18자리 10파일 · `app/AGENTS.md` — 정본은 §7-B "ΔV1 구현 설계"
+- **ΔV2**: `app/scripts/check-test-budgets{,.test}.mjs` · `app/AGENTS.md`(테스트 소스 변경 0) — 정본은 §7-C "ΔV2 구현 설계"
 
 ## 19. 게이트
 

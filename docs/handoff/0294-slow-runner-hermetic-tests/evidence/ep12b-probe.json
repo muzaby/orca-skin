@@ -1,0 +1,526 @@
+[
+ {
+  "name": "Y1 shorthand",
+  "code": "const timeoutMs = 5000\nwaitForTask(t, { timeoutMs })"
+ },
+ {
+  "name": "Y1 shorthand scaled",
+  "code": "const timeoutMs = scaleMs(5000)\nwaitForTask(t, { timeoutMs })"
+ },
+ {
+  "name": "Y1c key via const",
+  "code": "const probeMs = 5000\nwaitForTask(t, { timeoutMs: probeMs })"
+ },
+ {
+  "name": "Y2 waitFor const opts scaleMs",
+  "code": "const probeOpts = { timeout: scaleMs(5000) }\nawait vi.waitFor(() => {}, probeOpts)"
+ },
+ {
+  "name": "Y2b waitFor const opts base",
+  "code": "const probeOpts = { timeout: 5000 }\nawait vi.waitFor(() => {}, probeOpts)"
+ },
+ {
+  "name": "Y2c waitFor const number scaled",
+  "code": "const w = scaleMs(4000)\nawait vi.waitFor(cb, w)"
+ },
+ {
+  "name": "Y2d waitFor spread scaled",
+  "code": "const base = { timeout: scaleMs(4000) }\nawait vi.waitFor(cb, { ...base, interval: 50 })"
+ },
+ {
+  "name": "Y2e waitFor shorthand base",
+  "code": "const timeout = 4000\nawait vi.waitFor(cb, { timeout })"
+ },
+ {
+  "name": "Y2f opts both waitFor and other",
+  "code": "const o = { timeout: 5000 }\nawait vi.waitFor(cb, o)\npool(o)"
+ },
+ {
+  "name": "Y5 elapsed via var",
+  "code": "const start = Date.now()\nconst elapsed = Date.now() - start\nexpect(elapsed).toBeLessThan(5000)"
+ },
+ {
+  "name": "Y5 elapsed scaled",
+  "code": "const start = Date.now()\nconst elapsed = Date.now() - start\nexpect(elapsed).toBeLessThan(scaleMs(5000))"
+ },
+ {
+  "name": "Y5b derived deadline",
+  "code": "const start = Date.now()\nconst deadline = start + 5000\nwhile (Date.now() < deadline) {}"
+ },
+ {
+  "name": "Y5c compare via elapsed var",
+  "code": "const t0 = performance.now()\nconst el = performance.now() - t0\nif (el > 5000) throw e"
+ },
+ {
+  "name": "Y5d += deadline",
+  "code": "let d = Date.now()\nd += 5000"
+ },
+ {
+  "name": "Y5e new Date getTime",
+  "code": "const d = new Date().getTime() + 5000"
+ },
+ {
+  "name": "Y5f inverse elapsed",
+  "code": "expect(5000).toBeGreaterThan(Date.now() - s)"
+ },
+ {
+  "name": "Y5g lower bound not site",
+  "code": "expect(Date.now() - s).toBeGreaterThanOrEqual(5000)"
+ },
+ {
+  "name": "Y5h now vs now compare",
+  "code": "const d = Date.now() + scaleMs(5000)\nwhile (Date.now() < d) {}"
+ },
+ {
+  "name": "Y5i call arg not now",
+  "code": "const h = render({ at: Date.now() })\nconst n = h + 5000"
+ },
+ {
+  "name": "Y11 destructured param default",
+  "code": "const f = ({ timeoutMs = 5000 }: { timeoutMs?: number } = {}) => timeoutMs"
+ },
+ {
+  "name": "Y11 scaled",
+  "code": "const f = ({ timeoutMs = scaleMs(5000) } = {}) => timeoutMs"
+ },
+ {
+  "name": "Y11b destructured var default",
+  "code": "const { timeoutMs = 5000 } = options"
+ },
+ {
+  "name": "Y11c renamed destructure",
+  "code": "function f({ timeout: t = 5000 } = {}) { return t }"
+ },
+ {
+  "name": "Y11d array destructure default",
+  "code": "const [timeoutMs = 5000] = list"
+ },
+ {
+  "name": "S3 member assign",
+  "code": "socket.timeout = 5000"
+ },
+ {
+  "name": "S3 ??= assign",
+  "code": "opts.timeoutMs ??= 5000"
+ },
+ {
+  "name": "S3 owner timeouts",
+  "code": "timeouts.connectMs = 5000"
+ },
+ {
+  "name": "S4 class field",
+  "code": "class Fake { timeoutMs = 5000 }"
+ },
+ {
+  "name": "S7 named var used positionally",
+  "code": "const timeoutMs = 5000\nawait waitUntil(server, timeoutMs)"
+ },
+ {
+  "name": "S7 named var only in matcher",
+  "code": "const timeoutMs = 5000\nexpect(cfg.timeoutMs).toBe(timeoutMs)"
+ },
+ {
+  "name": "S7 named var no ref",
+  "code": "const timeoutMs = 5000"
+ },
+ {
+  "name": "S7 named let reassigned",
+  "code": "let timeoutMs = 500\ntimeoutMs = 5000\nsetTimeout(f, timeoutMs)"
+ },
+ {
+  "name": "B2 let reassign to literal",
+  "code": "let t = scaleMs(500)\nt = 5000\nsetTimeout(f, t)"
+ },
+ {
+  "name": "B0 shadowing",
+  "code": "it('b', () => { const t = 5000; setTimeout(f, t) })\nit('a', () => { const t = scaleMs(5000); setTimeout(f, t) })"
+ },
+ {
+  "name": "B0 shadowing reverse",
+  "code": "it('a', () => { const t = scaleMs(5000); setTimeout(f, t) })\nit('b', () => { const t = 5000; setTimeout(f, t) })"
+ },
+ {
+  "name": "B1 as/satisfies",
+  "code": "setTimeout(f, (5000 as number))\nconst x = { timeoutMs: 6000 satisfies number }"
+ },
+ {
+  "name": "B3 destructure from literal",
+  "code": "const { ms } = { ms: 5000 }\nsetTimeout(f, ms)"
+ },
+ {
+  "name": "B4 helper sleep",
+  "code": "const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))\nawait sleep(5000)"
+ },
+ {
+  "name": "B4 helper sleep scaled",
+  "code": "const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))\nawait sleep(scaleMs(5000))"
+ },
+ {
+  "name": "B4 function decl",
+  "code": "function wait(ms) { return new Promise((r) => setTimeout(r, ms)) }\nawait wait(5000)\nawait wait(400)"
+ },
+ {
+  "name": "B4 destructured param",
+  "code": "function wait({ ms }) { return new Promise((r) => setTimeout(r, ms)) }\nawait wait({ ms: 5000 })"
+ },
+ {
+  "name": "B5 member of literal",
+  "code": "const cfg = { delay: 5000 }\nsetTimeout(f, cfg.delay)"
+ },
+ {
+  "name": "B5 element access",
+  "code": "const cfg = { delay: 5000 }\nsetTimeout(f, cfg['delay'])"
+ },
+ {
+  "name": "B7 conditional",
+  "code": "setTimeout(f, fast ? 500 : 5000)"
+ },
+ {
+  "name": "B7 minus arith",
+  "code": "setTimeout(f, 6000 - 1000)"
+ },
+ {
+  "name": "P4 child via const opts",
+  "code": "const opts = { timeout: 10 }\nexecFile(c, a, opts)"
+ },
+ {
+  "name": "P4 child via spread",
+  "code": "const base = { timeout: 10 }\nexecFile(c, a, { ...base })"
+ },
+ {
+  "name": "P4 assign then child",
+  "code": "const o: any = {}\no.timeout = 10\nexecFile(c, a, o)"
+ },
+ {
+  "name": "P2 timeouts owner via const",
+  "code": "const t = { connectMs: 1000 }\npool({ timeouts: t })"
+ },
+ {
+  "name": "P2 timeouts shorthand owner",
+  "code": "const timeouts = { connectMs: 1000 }\npool({ timeouts })"
+ },
+ {
+  "name": "boundary import",
+  "code": "import { T } from './t'\nsetTimeout(f, T)"
+ },
+ {
+  "name": "boundary callback param",
+  "code": "[5000].forEach((ms) => setTimeout(f, ms))"
+ },
+ {
+  "name": "boundary fn return",
+  "code": "const budget = () => 5000\nsetTimeout(f, budget())"
+ },
+ {
+  "name": "boundary method",
+  "code": "const h = { wait(ms) { return new Promise((r) => setTimeout(r, ms)) } }\nawait h.wait(5000)"
+ },
+ {
+  "name": "existing waitFor inline",
+  "code": "await vi.waitFor(cb, { timeout: 4000 })"
+ },
+ {
+  "name": "existing timer in waitFor cb",
+  "code": "await vi.waitFor(() => setTimeout(f, 4000))"
+ },
+ {
+  "name": "boundary method (obj)",
+  "code": "const h = { wait(ms) { return new Promise((r) => setTimeout(r, ms)) } }\nawait h.wait(5000)"
+ },
+ {
+  "name": "class method",
+  "code": "class F { wait(ms) { return new Promise((r) => setTimeout(r, ms)) } }\nawait new F().wait(5000)"
+ },
+ {
+  "name": "prop arrow",
+  "code": "const h = { wait: (ms) => new Promise((r) => setTimeout(r, ms)) }\nawait h.wait(5000)"
+ },
+ {
+  "name": "B4 helper sleep",
+  "code": "const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))\nawait sleep(5000)"
+ },
+ {
+  "name": "fn return",
+  "code": "const budget = () => 5000\nsetTimeout(f, budget())"
+ },
+ {
+  "name": "fn return scaled",
+  "code": "function budget() { return scaleMs(5000) }\nsetTimeout(f, budget())"
+ },
+ {
+  "name": "callback param",
+  "code": "[5000].forEach((ms) => setTimeout(f, ms))"
+ },
+ {
+  "name": "timer 전역 5000",
+  "code": "setTimeout(f, 5000)"
+ },
+ {
+  "name": "timer 전역 scaled",
+  "code": "setTimeout(f, scaleMs(5000))"
+ },
+ {
+  "name": "timer globalThis 5000",
+  "code": "globalThis.setTimeout(f, 5000)"
+ },
+ {
+  "name": "timer globalThis scaled",
+  "code": "globalThis.setTimeout(f, scaleMs(5000))"
+ },
+ {
+  "name": "timer window 5000",
+  "code": "window.setTimeout(f, 5000)"
+ },
+ {
+  "name": "timer window scaled",
+  "code": "window.setTimeout(f, scaleMs(5000))"
+ },
+ {
+  "name": "timer setInterval 5000",
+  "code": "setInterval(f, 5000)"
+ },
+ {
+  "name": "timer setInterval scaled",
+  "code": "setInterval(f, scaleMs(5000))"
+ },
+ {
+  "name": "timer timers/promises 5000",
+  "code": "import { setTimeout as sleep } from \"node:timers/promises\"\nawait sleep(5000)"
+ },
+ {
+  "name": "timer timers/promises scaled",
+  "code": "import { setTimeout as sleep } from \"node:timers/promises\"\nawait sleep(scaleMs(5000))"
+ },
+ {
+  "name": "method 5000",
+  "code": "socket.setTimeout(5000)"
+ },
+ {
+  "name": "method scaled",
+  "code": "socket.setTimeout(scaleMs(5000))"
+ },
+ {
+  "name": "abort 5000",
+  "code": "const s = AbortSignal.timeout(5000)"
+ },
+ {
+  "name": "abort scaled",
+  "code": "const s = AbortSignal.timeout(scaleMs(5000))"
+ },
+ {
+  "name": "deadline now()+N 5000",
+  "code": "const d = Date.now() + 5000"
+ },
+ {
+  "name": "deadline now()+N scaled",
+  "code": "const d = Date.now() + scaleMs(5000)"
+ },
+ {
+  "name": "deadline N+now() 5000",
+  "code": "const d = 5000 + performance.now()"
+ },
+ {
+  "name": "deadline N+now() scaled",
+  "code": "const d = scaleMs(5000) + performance.now()"
+ },
+ {
+  "name": "deadline < 5000",
+  "code": "while (Date.now() - t < 5000) {}"
+ },
+ {
+  "name": "deadline < scaled",
+  "code": "while (Date.now() - t < scaleMs(5000)) {}"
+ },
+ {
+  "name": "deadline <= 5000",
+  "code": "while (Date.now() - t <= 5000) {}"
+ },
+ {
+  "name": "deadline <= scaled",
+  "code": "while (Date.now() - t <= scaleMs(5000)) {}"
+ },
+ {
+  "name": "deadline > 5000",
+  "code": "if (Date.now() - t > 5000) throw e"
+ },
+ {
+  "name": "deadline > scaled",
+  "code": "if (Date.now() - t > scaleMs(5000)) throw e"
+ },
+ {
+  "name": "deadline >= 5000",
+  "code": "if (5000 >= Date.now() - t) ok()"
+ },
+ {
+  "name": "deadline >= scaled",
+  "code": "if (scaleMs(5000) >= Date.now() - t) ok()"
+ },
+ {
+  "name": "elapsed 5000",
+  "code": "expect(Date.now() - start).toBeLessThan(5000)"
+ },
+ {
+  "name": "elapsed scaled",
+  "code": "expect(Date.now() - start).toBeLessThan(scaleMs(5000))"
+ },
+ {
+  "name": "elapsed OrEqual 5000",
+  "code": "expect(performance.now() - s).toBeLessThanOrEqual(5000)"
+ },
+ {
+  "name": "elapsed OrEqual scaled",
+  "code": "expect(performance.now() - s).toBeLessThanOrEqual(scaleMs(5000))"
+ },
+ {
+  "name": "option 키 5000",
+  "code": "pool({ timeoutMs: 5000 })"
+ },
+ {
+  "name": "option 키 scaled",
+  "code": "pool({ timeoutMs: scaleMs(5000) })"
+ },
+ {
+  "name": "option 중첩 timeouts 5000",
+  "code": "pool({ timeouts: { connectMs: 5000 } })"
+ },
+ {
+  "name": "option 중첩 timeouts scaled",
+  "code": "pool({ timeouts: { connectMs: scaleMs(5000) } })"
+ },
+ {
+  "name": "option timeout 변수의 객체 5000",
+  "code": "const timeouts = { commandMs: 5000 }"
+ },
+ {
+  "name": "option timeout 변수의 객체 scaled",
+  "code": "const timeouts = { commandMs: scaleMs(5000) }"
+ },
+ {
+  "name": "param 5000",
+  "code": "function fixture(timeoutMs = 5000) {}"
+ },
+ {
+  "name": "param scaled",
+  "code": "function fixture(timeoutMs = scaleMs(5000)) {}"
+ },
+ {
+  "name": "delayMs",
+  "code": "pool({ delayMs: 5000 })\nfunction f(delayMs = 5000) {}"
+ },
+ {
+  "name": "P3 const",
+  "code": "const T = 30_000\nsetTimeout(f, T)"
+ },
+ {
+  "name": "P3 ??",
+  "code": "pool({ timeoutMs: x ?? 2000 })"
+ },
+ {
+  "name": "P3 ?? scaled",
+  "code": "pool({ timeoutMs: x ?? scaleMs(2000) })"
+ },
+ {
+  "name": "P3 60*1000",
+  "code": "setTimeout(f, 60 * 1000)"
+ },
+ {
+  "name": "P3 500+500",
+  "code": "setTimeout(f, 500 + 500)"
+ },
+ {
+  "name": "P3 60*scaleMs",
+  "code": "setTimeout(f, 60 * scaleMs(1000))"
+ },
+ {
+  "name": "P3 import",
+  "code": "import { T } from \"./t\"\nsetTimeout(f, T)"
+ },
+ {
+  "name": "P4 999",
+  "code": "setTimeout(f, 999)"
+ },
+ {
+  "name": "P4 abort10",
+  "code": "AbortSignal.timeout(10)"
+ },
+ {
+  "name": "P4 pool10",
+  "code": "pool({ timeoutMs: 10 })"
+ },
+ {
+  "name": "P4 execFile10",
+  "code": "execFile(c, a, { timeout: 10 })"
+ },
+ {
+  "name": "P4 cp.execFile10",
+  "code": "cp.execFile(c, a, { timeout: 10 })"
+ },
+ {
+  "name": "P5 waitFor opt",
+  "code": "await vi.waitFor(cb, { timeout: 4000 })"
+ },
+ {
+  "name": "P5 toMatchObject",
+  "code": "expect(x).toMatchObject({ timeout: 60_000 })"
+ },
+ {
+  "name": "P5 objectContaining",
+  "code": "expect(x).toEqual(expect.objectContaining({ timeoutMs: 60_000 }))"
+ },
+ {
+  "name": "P5 expect subject",
+  "code": "await expect(wait({ timeoutMs: 1000 })).resolves.toBe(\"settled\")"
+ },
+ {
+  "name": "P5 case",
+  "code": "it(\"x\", async () => {}, 5000)"
+ },
+ {
+  "name": "P5 setConfig",
+  "code": "vi.setConfig(scaledBudget({ testTimeout: 5000 }))"
+ },
+ {
+  "name": "P5 scaledBudget",
+  "code": "const b = scaledBudget({ hookTimeout: 5000 })"
+ },
+ {
+  "name": "P7 inline obj",
+  "code": "await vi.waitFor(cb, { timeout: scaleMs(4000) })"
+ },
+ {
+  "name": "P7 inline num",
+  "code": "await vi.waitFor(cb, scaleMs(4000))"
+ },
+ {
+  "name": "P7 cb scaleMs",
+  "code": "await vi.waitFor(() => f(scaleMs(4000)))"
+ },
+ {
+  "name": "alias setTimeout",
+  "code": "const st = setTimeout\nst(f, 5000)"
+ },
+ {
+  "name": "alias AbortSignal.timeout",
+  "code": "const t = AbortSignal.timeout\nt(10)"
+ },
+ {
+  "name": "import alias execFile",
+  "code": "import { execFile as run } from 'node:child_process'\nrun(c, a, { timeout: 10 })"
+ },
+ {
+  "name": "promisify execFile",
+  "code": "import { execFile } from 'node:child_process'\nawait promisify(execFile)(c, a, { timeout: 10 })"
+ },
+ {
+  "name": "promisify var",
+  "code": "import { execFile } from 'node:child_process'\nconst run = promisify(execFile)\nawait run(c, a, { timeout: 10 })"
+ },
+ {
+  "name": "alias vi.waitFor P7",
+  "code": "const wf = vi.waitFor\nawait wf(cb, { timeout: scaleMs(4000) })"
+ },
+ {
+  "name": "alias vi.waitFor P5",
+  "code": "const wf = vi.waitFor\nawait wf(cb, { timeout: 4000 })"
+ }
+]
