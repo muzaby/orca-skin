@@ -286,7 +286,7 @@ await server.connect(new StdioServerTransport());`
     const providerSettings = { settings: config } as unknown as TurnRequest['providerSettings']
     prepared = await adapter.prepareComposer({ cwd: root, env, providerSettings })
     const resources = await prepared
-      .read('mcp', AbortSignal.timeout(40_000))
+      .read('mcp', AbortSignal.timeout(scaleMs(40_000)))
       .catch((error: unknown) => {
         throw new Error(JSON.stringify(diagnostics), { cause: error })
       })

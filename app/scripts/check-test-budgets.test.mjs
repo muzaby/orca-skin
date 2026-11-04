@@ -12,6 +12,7 @@ import {
   findInlineTimeouts,
   findUncappedRunGit,
   isRealGitSuite,
+  listBudgetFiles,
   listTestFiles,
   parseBudget,
   runCli,
@@ -262,7 +263,10 @@ describe('규칙 (F) — 배율 경유 (0294)', () => {
   })
 })
 
-describe('규칙 (H) — 테스트 소유 실시간 마감 (0294)', () => {
+describe('규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)', () => {
+  const v = (code, file = 'a.test.ts', entries = []) => analyzeScale(file, code, entries).length
+
+  // V1 (H) 케이스 — (H′) 아래로 옮겨 유지한다.
   test('리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다', () => {
     assert.equal(
       analyzeScale('a.test.ts', `const t = setTimeout(() => c.abort(), 90_000)`).length,
@@ -284,11 +288,188 @@ describe('규칙 (H) — 테스트 소유 실시간 마감 (0294)', () => {
   })
 
   test('의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다', () => {
-    const entry = SEMANTIC_DELAYS[0]
+    const entry = SEMANTIC_DELAYS.find((item) => item.count === 1)
     const code = `await new Promise((resolve) => setTimeout(resolve, ${entry.value}))`
     assert.deepEqual(analyzeScale(entry.file, code), [])
     assert.equal(analyzeScale('main/other.test.ts', code).length, 1)
     assert.ok(SEMANTIC_DELAYS.every((item) => item.reason.trim().length > 0))
+  })
+
+  // P1 파일 범위
+  test('P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다', () => {
+    const body = `export const s = AbortSignal.timeout(5000)\n`
+    const fx = fixture({
+      'src/a.test.ts': body,
+      'src/b.testfixture.ts': `${body}await execFile('git', ['init'])\n`,
+      'src/c.testfixture.tsx': `${body}export const C = () => <div timeout={1} />\n`,
+      'src/d.ts': body
+    })
+    try {
+      const root = join(fx.rootDir, 'src')
+      assert.deepEqual(listBudgetFiles(root), [
+        'a.test.ts',
+        'b.testfixture.ts',
+        'c.testfixture.tsx'
+      ])
+      assert.deepEqual(listTestFiles(root), ['a.test.ts'])
+      const errors = []
+      const original = console.error
+      console.error = (line) => errors.push(line)
+      try {
+        assert.equal(runCli(fx.rootDir, [], []), 1)
+      } finally {
+        console.error = original
+      }
+      const scaleLines = errors.filter((line) => line.includes('테스트 소유 마감'))
+      assert.equal(scaleLines.length, 3)
+      assert.ok(errors.every((line) => !line.includes('d.ts')))
+      assert.equal(analyze('b.testfixture.ts', 'x'), null)
+    } finally {
+      fx.cleanup()
+    }
+  })
+
+  // P2 형태 7 — 하위 분기마다 미배율 1 · scaleMs 0
+  const FORMS = [
+    ['timer 전역', (n) => `setTimeout(f, ${n})`],
+    ['timer globalThis', (n) => `globalThis.setTimeout(f, ${n})`],
+    ['timer window', (n) => `window.setTimeout(f, ${n})`],
+    ['timer setInterval', (n) => `setInterval(f, ${n})`],
+    [
+      'timer timers/promises',
+      (n) => `import { setTimeout as sleep } from 'node:timers/promises'\nawait sleep(${n})`
+    ],
+    ['method', (n) => `socket.setTimeout(${n})`],
+    ['abort', (n) => `const s = AbortSignal.timeout(${n})`],
+    ['deadline now()+N', (n) => `const d = Date.now() + ${n}`],
+    ['deadline N+now()', (n) => `const d = ${n} + performance.now()`],
+    ['deadline <', (n) => `while (Date.now() - t < ${n}) {}`],
+    ['deadline <=', (n) => `while (Date.now() - t <= ${n}) {}`],
+    ['deadline >', (n) => `if (Date.now() - t > ${n}) throw e`],
+    ['deadline >=', (n) => `if (${n} >= Date.now() - t) ok()`],
+    ['elapsed', (n) => `expect(Date.now() - start).toBeLessThan(${n})`],
+    ['elapsed OrEqual', (n) => `expect(performance.now() - s).toBeLessThanOrEqual(${n})`],
+    ['option 키', (n) => `pool({ timeoutMs: ${n} })`],
+    ['option 중첩 timeouts', (n) => `pool({ timeouts: { connectMs: ${n} } })`],
+    ['option timeout 변수의 객체', (n) => `const timeouts = { commandMs: ${n} }`],
+    ['param', (n) => `function fixture(timeoutMs = ${n}) {}`]
+  ]
+  for (const [name, make] of FORMS) {
+    test(`P2 — ${name}: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0`, () => {
+      assert.equal(v(make('5000')), 1)
+      assert.equal(v(make('scaleMs(5000)')), 0)
+    })
+  }
+
+  test('P2 — 라벨 밖 이름(delayMs)은 자리가 아니다', () => {
+    assert.equal(v(`pool({ delayMs: 5000 })`), 0)
+    assert.equal(v(`function f(delayMs = 5000) {}`), 0)
+  })
+
+  // P3 값 해석
+  test('P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다', () => {
+    assert.equal(v(`const T = 30_000\nsetTimeout(f, T)`), 1)
+    assert.equal(v(`pool({ timeoutMs: x ?? 2000 })`), 1)
+    assert.equal(v(`pool({ timeoutMs: x || 2000 })`), 1)
+    assert.equal(v(`pool({ timeoutMs: x ?? scaleMs(2000) })`), 0)
+    assert.equal(v(`setTimeout(f, 60 * 1000)`), 1)
+    assert.equal(v(`setTimeout(f, 500 + 500)`), 1)
+    assert.equal(v(`setTimeout(f, 60 * scaleMs(1000))`), 0)
+    assert.equal(v(`import { T } from './t'\nsetTimeout(f, T)`), 0)
+  })
+
+  // P4 임계
+  test('P4 — 임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계가 없다', () => {
+    assert.equal(v(`setTimeout(f, 999)`), 0)
+    assert.equal(v(`setTimeout(f, 1000)`), 1)
+    assert.equal(v(`AbortSignal.timeout(10)`), 1)
+    assert.equal(v(`pool({ timeoutMs: 10 })`), 0)
+    for (const call of [
+      'execFile',
+      'execFileSync',
+      'spawn',
+      'spawnSync',
+      'exec',
+      'execSync',
+      'fork'
+    ])
+      assert.equal(v(`${call}(c, a, { timeout: 10 })`), 1, call)
+    assert.equal(v(`cp.execFile(c, a, { timeout: 10 })`), 1)
+  })
+
+  // P5 제외
+  test('P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다', () => {
+    assert.equal(v(`await vi.waitFor(cb, { timeout: 4000 })`), 0)
+    assert.equal(v(`await vi.waitFor(() => setTimeout(f, 4000))`), 1)
+    assert.equal(v(`expect(x).toMatchObject({ timeout: 60_000 })`), 0)
+    assert.equal(v(`expect(x).toEqual(expect.objectContaining({ timeoutMs: 60_000 }))`), 0)
+    assert.equal(v(`await expect(wait({ timeoutMs: 1000 })).resolves.toBe('settled')`), 1)
+    assert.equal(v(`expect(Date.now() - start).toBeLessThan(5000)`), 1)
+    assert.equal(v(`it('x', async () => {}, scaleMs(5000))`), 0)
+    assert.equal(v(`vi.setConfig(scaledBudget({ testTimeout: 5000 }))`), 0)
+    assert.equal(v(`const b = scaledBudget({ hookTimeout: 5000 })`), 0)
+    assert.equal(
+      scanBudgetSites('a.test.ts', `it('x', async () => {}, 5000)`).filter(
+        (site) => site.kind === 'deadline'
+      ).length,
+      0
+    )
+  })
+
+  // P6 허용 목록
+  test('P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다', () => {
+    const entry = { file: 'a', value: '5000', count: 2, reason: 'r' }
+    const sites = (n) => Array.from({ length: n }, () => `setTimeout(f, 5000)`).join('\n')
+    assert.equal(v(sites(2), 'a', [entry]), 0)
+    assert.equal(v(sites(3), 'a', [entry]), 1)
+    assert.equal(v(sites(1), 'a', [entry]), 1)
+    assert.equal(v(sites(2), 'a', [{ ...entry, reason: '' }]), 1)
+    assert.equal(v(sites(2), 'a', [{ ...entry, reason: '  ' }]), 1)
+    assert.equal(v(sites(2), 'b', [entry]), 2)
+    assert.equal(v(`setTimeout(f, 6000)\n${sites(2)}`, 'a', [entry]), 1)
+  })
+
+  test('P6 — 대상 파일이 없는 의미 값 항목은 CLI 가 막는다', () => {
+    const entry = SEMANTIC_DELAYS[0]
+    const fx = fixture({ 'src/a.test.ts': `it('x', () => {})\n` })
+    const errors = []
+    const original = console.error
+    console.error = (line) => errors.push(line)
+    try {
+      assert.equal(runCli(fx.rootDir), 1)
+    } finally {
+      console.error = original
+      fx.cleanup()
+    }
+    assert.ok(errors.some((line) => line.includes(entry.file) && line.includes('대상 파일이 없다')))
+  })
+
+  // P7 이중 배율
+  test('P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다', () => {
+    assert.equal(v(`await vi.waitFor(cb, { timeout: scaleMs(4000) })`), 1)
+    assert.equal(v(`await vi.waitFor(cb, scaleMs(4000))`), 1)
+    assert.equal(v(`await vi.waitFor(cb, { timeout: 4000 })`), 0)
+    assert.equal(v(`await vi.waitFor(() => f(scaleMs(4000)))`), 0)
+  })
+
+  test('--report deadline 행은 형태 열을 갖는다', () => {
+    const fx = fixture({ 'src/a.test.ts': `const s = AbortSignal.timeout(scaleMs(5000))\n` })
+    const lines = []
+    const original = console.log
+    console.log = (line) => lines.push(line)
+    try {
+      runCli(fx.rootDir, ['--report'], [])
+    } finally {
+      console.log = original
+      fx.cleanup()
+    }
+    const row = lines.find((line) => line.startsWith('deadline\t'))
+    assert.deepEqual(row.split('\t').slice(0, 4), [
+      'deadline',
+      'src/a.test.ts:1',
+      'scaled',
+      'abort'
+    ])
   })
 })
 
@@ -318,14 +499,19 @@ describe('CLI', () => {
       )
     })
     try {
-      assert.equal(runCli(bad.rootDir), 1)
+      assert.equal(runCli(bad.rootDir, [], []), 1)
     } finally {
       bad.cleanup()
     }
 
     const good = fixture({ 'src/a.test.ts': GOOD })
     try {
-      assert.equal(runCli(good.rootDir), 0)
+      assert.equal(runCli(good.rootDir, [], []), 0)
+      assert.equal(
+        runCli(good.rootDir),
+        1,
+        '실제 의미 값 항목은 그 파일이 없는 트리에서 낡은 허용으로 걸린다'
+      )
     } finally {
       good.cleanup()
     }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 import { createServer } from 'node:http'
 import { execFile } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
@@ -102,7 +103,7 @@ const cli = (args: string[], env: Record<string, string>): Promise<string> =>
         env: { ...process.env, ...env },
         encoding: 'utf8',
         windowsHide: true,
-        timeout: 90000,
+        timeout: scaleMs(90000),
         maxBuffer: 8 * 1024 * 1024
       },
       (error, stdout, stderr) =>
@@ -186,7 +187,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
     model: 'fixture/body',
     env: environment,
     providerSettings,
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(scaleMs(90000)),
     extensions: { skills: [], hooks: { normalized: {} } }
   })
   let sessionId = ''
@@ -293,7 +294,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
     model: 'fixture/body',
     env: legacyEnv,
     providerSettings,
-    signal: AbortSignal.timeout(90000),
+    signal: AbortSignal.timeout(scaleMs(90000)),
     extensions: { skills: [], hooks: { normalized: {} } }
   })
   let legacyId = ''

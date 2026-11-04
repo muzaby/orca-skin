@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, type Mock } from 'vitest'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 import { OpenCodeInstances } from './instance-lifecycle'
 
-function fixture(timeoutMs = 1000): {
+function fixture(timeoutMs = scaleMs(1000)): {
   actor: OpenCodeInstances
   connect: Mock<(signal: AbortSignal) => Promise<void>>
   dispose: Mock<(directory: string, signal: AbortSignal) => Promise<void>>
