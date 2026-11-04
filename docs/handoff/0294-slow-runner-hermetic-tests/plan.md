@@ -605,6 +605,18 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 | 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
+## [구현자 기입] 구현 보고 (r1.2 — Windows CI red 수정)
+
+| 항목 | 내용 |
+|---|---|
+| 계기 | Windows CI run 41745171529(r1 push) — `features/chat/attachments.test.ts` 12건 red, 그 밖 911파일 green(8,432 통과) |
+| 원인 | windows 러너 `tmpdir()`가 8.3 짧은 이름(`C:\Users\RUNNER~1\…`)이라 setup 이 그 아래에 만든 홈도 짧은 이름이었다. 첨부 검사는 `fs.realpath`(긴 이름) 결과를 `homedir()` 접두사와 비교해 "C: must be inside the user profile directory"로 거부 |
+| 수정 | `scripts/vitest-setup.mjs` — 임시 루트를 `realpathSync.native(mkdtemp…)`로 고정(실제 `USERPROFILE`은 긴 이름). 배선 테스트에 '홈은 실경로다' 추가, 루트 포함 비교를 `realpathSync.native(tmpdir())` 기준으로 |
+| 재현 · 잠금 | 리눅스에서 `TMPDIR`을 심볼릭 링크로 두면 같은 "표기 ≠ 실경로" — 수정 전 `outside the user home directory` 9건 → 수정 후 0건. 변이(realpath 제거)는 '홈은 실경로다'가 red(링크 TMPDIR). 링크 TMPDIR 의 `unsafe attachment directory` 6건은 링크 고유 검사라 Windows 8.3 과 별개(기준선 동일) |
+| **관측한 게이트 산출**(마지막 수정 뒤) | lint 0 error · 2 warning(변경 밖) · typecheck exit 0 · node 171/171 · test-budgets ok · vitest 8,448케이스 실패 22 = 기준선 집합 차집합 0 · HOME 새 파일 0 |
+| AC 자기보고 | 변동 없음 — `✅ 17 · ⚠️ 2(AC9 Windows CI 재실행 대기·AC18) · ❌ 0 = 총 19` |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
 ## [구현자 기입] Review Signals — 사실만
 
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(최초).

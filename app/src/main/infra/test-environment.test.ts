@@ -1,7 +1,7 @@
 // 테스트 실행 환경 배선 (0294) — 배율과 호스트 격리가 **이 파일이 도는 프로세스에** 실제로 걸렸는가.
 // 순수 계산은 `scripts/test-time.test.mjs`·`scripts/test-host.test.mjs` 가 갖는다.
 import { execFile } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { relative, isAbsolute } from 'node:path'
 import { promisify } from 'node:util'
@@ -45,10 +45,14 @@ describe('시간 예산 배선 (AC1·AC3)', () => {
 describe('호스트 격리 배선 (AC11)', () => {
   it('홈은 이 파일의 임시 루트 아래이고 setup 전 홈과 다르다', () => {
     expect(host).toBeDefined()
-    expect(within(host.root, tmpdir())).toBe(true)
+    expect(within(host.root, realpathSync.native(tmpdir()))).toBe(true)
     expect(within(homedir(), host.root)).toBe(true)
     expect(homedir()).not.toBe(host.originalHome)
     expect(process.env.USERPROFILE).toBe(homedir())
+  })
+
+  it('홈은 실경로다 — realpath 로 비교하는 production 경로 검사와 같은 표기', () => {
+    expect(realpathSync.native(homedir())).toBe(homedir())
   })
 
   it('XDG 4종은 루트 아래, git 은 빈 전역 설정과 시스템 설정 무시', () => {

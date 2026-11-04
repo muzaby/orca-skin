@@ -6,7 +6,7 @@
 //    가짜 타이머 의미는 그대로다(vitest 는 poll 마다 interval 만큼만 시계를 민다).
 // ③ 파일 종료 시 루트 정리 — 실패는 삼킨다. 남는 것은 OS 임시 폴더뿐이고 실제 홈은 쓰이지 않았다.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, vi } from 'vitest'
@@ -18,7 +18,9 @@ const WAIT_FOR_SCALED = Symbol.for('orca.test.waitFor.scaled')
 
 const previous = globalThis[HOST]
 const originalHome = previous?.originalHome ?? process.env.HOME ?? process.env.USERPROFILE ?? ''
-const root = mkdtempSync(join(tmpdir(), 'orca-test-host-'))
+// 실경로로 고정한다 — Windows 러너의 tmpdir() 는 8.3 짧은 이름(`RUNNER~1`)이라, 그대로 홈으로 쓰면
+// realpath(긴 이름)로 비교하는 production 경로 검사(첨부 홈 하위 판정)가 갈린다. 실제 USERPROFILE 은 긴 이름이다.
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'orca-test-host-')))
 const { set, remove } = hermeticTestEnv({ env: process.env, root, platform: process.platform })
 for (const dir of hermeticDirectories(set)) mkdirSync(dir, { recursive: true })
 writeFileSync(set.GIT_CONFIG_GLOBAL, '')
