@@ -216,3 +216,254 @@
 - AC: `✅ 17 · ⚠️ 2(AC7 PLAN_GAP · AC18 사람 실기) · ❌ 0 = 19`.
 - 운영 gate: 전부 green(lint·typecheck·vitest 기준선 동일·node·예산·인벤토리·Windows CI).
 - 다음 단계: 설계자가 V1 위 ΔV1로 EP-05 §10 행·게이트 (H) 계약을 정정(별도 설계 커밋) → `plan/READY` → 구현.
+
+---
+
+# r2 재검증 (2026-11-04)
+
+> r1 절은 위에 그대로 둔다. 이 절은 ΔV1(`05d75ee`) 기준으로 r2 구현(`756b461`)을 채점한다.
+
+## r2 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `05d75ee..756b461` (r2 `756b461`) |
+| 구현 전 plan 기준 | `05d75ee` (ΔV1 설계 커밋) |
+| V mode / 유효 V | `Baseline V + ΔV1` / `V1 + ΔV1` |
+| 검증 기준 plan revision | `05d75ee:ΔV1` |
+| 라운드 | 2 (verify 2회째) |
+| 상태 | **RETURN_TO_PLAN** — `PAIR_FAIL` VP-12(D2)와 `PLAN_GAP` D3이 함께 있어 다음 주체는 설계자다 |
+| 자기 검증 여부 | **설계·구현·검증 모두 Claude.** 보고에 없던 축 7개(Y1·Y1c·Y2·Y2b·Y5·Y5b·Y11)와 EP-05a 분모 독립 재열거를 더했다(r2-3·r2-4) — 고장 6개 중 5개를 게이트가 잡지 못했고, 정상 코드 대조 Y2b는 red로 오탐했다 |
+
+## r2-0. 기준선 / plan validity
+
+- 구현 커밋이 `plan.md`를 바꿨는가: 예 — `[구현자 기입]` 추가만(`git diff -U0 05d75ee..756b461 -- plan.md` hunk 1개, `@@ -827,0 +828,115 @@`).
+- 기준선이 diff로 성립하는가: 예 — ΔV1 설계 `05d75ee`와 r2 `756b461`이 분리.
+- Decision·AC·V node/pair·§10·oracle 변경: 없음. 채점 기준: `05d75ee:ΔV1` 원문.
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V mode·적용 순서 | 유효 | `V1 → ΔV1`, 구 행 SUPERSEDED 표기(plan §7-B) |
+| NEW/CHANGED node ↔ 같은 레벨 REQUIRED pair | 유효 | MD-03→VP-12 · AR-01a→VP-07a · AR-03a→VP-09a · AT-01a→VP-01a · AT-05→VP-13(REGRESSION) |
+| SUPERSEDED 이관 | 유효 | VP-01·07·09의 AC·M1~M6 → VP-01a·07a·09a, 폐기 0 |
+| EP-05a 자리 목록 재실행 | 유효 | `scan-deadlines.mjs app` 44 = 목록 44 = `--report` deadline 44, 파일:줄 차집합 0 |
+| EP-05a 술어 독립 재열거 | 유효(현재 트리) | 넓힌 술어 186행 중 게이트 밖 146행 전부 비마감(r2-3) · 단축 속성·변수 경유 옵션·변수 경유 경과 식·구조 분해 기본값 형태 ≥1000ms 트리 0자리 |
+| **EP-12 규칙 칸 ↔ D-012 주어** | **PLAN_GAP — D3** | P2 규칙(`expect(now 식)` · `now() + N` · `/timeout/i` 매개변수 기본값)이 형태 판정 대상이 같은 파일 바인딩(변수·구조 분해)을 거칠 때를 정하지 않는다. D-012 주어("경과 상한 단언"·"`now()` 마감"·"매개변수 기본값")는 그 형태를 덮는다 — Y5·Y5b·Y11 |
+| NOT_REQUIRED 8 pair 비영향 | 유효 | r2 diff = 게이트 2파일 · 예산 10파일 · `app/AGENTS.md`(`git show --stat 756b461`) — 격리·워크플로·배포·포트 경로 0 |
+| 운영 gate | 유효 | §7-B ΔV1 운영 gate 6종 |
+
+- root PLAN_GAP: **D3** → 영향 pair VP-12·VP-01a(AC7b).
+
+## r2-1. Product & UX / ACTIVE Decision
+
+| Decision | 기대 결과 | 관측 |
+|---|---|---|
+| D-001·D-012 | 테스트 소유 마감 7형태 전부 = `scaleMs(기준값)` | 트리 44자리 중 예산 24 `scaled` · 의미 값 20 `semantic`(`--report`) |
+| D-013 | 예산/의미 값 분류 · 임계 1000(abort·자식 프로세스 무임계) | 의미 값 20자리 원문 대조 — 가짜 시계 9(`adapter.test` 2 · `broker` 3 · `sync-manager` 3 · `background.monitor:254` 1) · 데이터 8 · 하한 대기 2(mtime 간격 · `test-environment:39`) · SDK 2.5s 초과 대기 1, 항목 사유와 일치 · P4 UT·M17·R-child red |
+| D-014 | count 대조 · `vi.waitFor` 옵션 안 `scaleMs` red | 인라인 옵션은 red(M15) · **같은 파일 const에 담은 옵션은 green(Y2) — D2** |
+| D-009 | (A)~(E) 대상 범위 불변 | `listTestFiles` = `*.test.ts`만(P1 UT) · 16 real-git suites ok |
+
+## r2-2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| false success | **있음(게이트)** | 단축 속성 `{ timeoutMs }`의 미배율 5000이 exit 0(Y1). 같은 값을 `{ timeoutMs: probeMs }`로 쓰면 exit 1(Y1c) |
+| 반대 실패(정상 코드 red) | **있음(게이트)** | 기준값만 담은 `const opts = { timeout: 5000 }; vi.waitFor(cb, opts)`가 "테스트 소유 마감은 `scaleMs`" 위반으로 red(Y2b) — 처방을 따르면 이중 배율이 되고, 그 이중 배율은 green(Y2) |
+| 다른 B 구현 | 부분 | 형태 판정이 대상 노드를 문법으로만 본다 — 값(N)만 같은 파일 const를 따라간다(`scanDeadlineSites` `resolveValue` vs `visit`) |
+| 증상만 제거 | 없음 | 새 예산 18자리는 기준값 그대로 `scaleMs` 래핑(diff) · 의미 값 count 합 20 = 자리 20 |
+| worst-case | 정상 | S2 최장 케이스 104.4s = hostile 시스템 테스트(예산 540s) · 60.0s 1건은 기준선 실패 `native-resources` 멈춤(기준과 같은 집합) |
+
+## r2-3. 역방향 탐색
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `scan-surface.sh 05d75ee..756b461` | 정상 | 테스트 전용 1건 `runNativeStorageFixture` — testfixture 정의상 정상. 미사용 export·형제 비대칭 0 |
+| 테스트 지원 파일 범위 | 정상 | `*.testlib.ts` 4 · `*.testHarness.ts` 1은 (H′) 범위 밖이지만 시간 자리 0(`grep setTimeout\|AbortSignal\|now\|timeout` 0줄) · `*.test.tsx` 0 |
+| 넓힌 술어 재열거 | 정상 | 숫자 ≥1000 + 시간 문맥(키·이름·callee·now 식) 186행 · 게이트 밖 146행(126줄) = `testTimeout`·`hookTimeout` 39 · `scaleMs` 인자 9 · 데이터 키(`durationMs`·`expiresAt`·`intervalMs` 등) 70 · `vi.waitFor` 옵션 13 · matcher 피연산자 12 · 과거 시각 `Date.now() - N` 2 · 게이트 자리와 같은 호출(`sync-manager:43` = `:40`) 1 — 실제 경과 상한 0 |
+| 게이트 ↔ 자리 검색 명령 | 사본 | `scanDeadlineSites`와 `scan-deadlines.mjs`는 같은 알고리즘(차이는 `vi.waitFor` `argIndex >= 1` vs `=== 1`) — `--report` = 스캔 차집합 0은 사본 일치다. 그래서 위 넓힌 재열거로 대신 쟀다 |
+| SSOT | 정상 | 기준값은 각 자리 리터럴 그대로 · 배율은 `test-time.mjs`만 |
+
+## r2-4. 기존 테스트 / semantic 검증
+
+- 선택된 적대 증거 재측정: ΔV1 등록 30(M5a 18 · X7′·X8′·X9′ · M11a·M11b·M15 · M12·M13·M14·M16·M17 · X6) + V1 승계(M1~M6) 전부 잡음.
+- 자리 미지정 등록 변이: 없음 — ΔV1 변이 표가 자리를 적었다. "이미 배율" 6자리는 M5·EP06a + 재량 Z1~Z3로 5자리를 심었다(`file-mutation:231`은 `:222`와 같은 상수).
+- 이전 라운드 대조: r1 `잡음` 21행 재실행 → 21행 잡음(**덮개 회귀 0**) · 역변이 AC14 → HEAD green 유지. r1 `못 잡음` X7·X8·X9 → X7′·X8′·X9′ 잡음.
+- 자기검증 분모: 보고에 없던 축 — **같은 계약을 다른 문법 지점에서 깨기**(Y-행) + EP-05a 분모 독립 재열거(r2-3).
+- 동작 보존 추출 라운드: 아니오. 형제 슬롯 맞바꿈: 해당 없음 — 의미 값 항목은 파일·값 키라 X6(파일 비교 삭제)이 같은 축을 본다.
+
+**고장 이력** — 게이트 = `node scripts/check-test-budgets.mjs` exit·위반 수, UT = `node --test scripts/check-test-budgets.test.mjs`. 경로는 `app/` 기준.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 범위 | 직전 | 이번 결과 | 잡은 테스트 / 근거 | 귀속 |
+|---|---|---|---|---|---|---|---|---|
+| M5a-01 | `src/main/adapters/opencode/v1/instance-lifecycle.test.ts:5` | 고정값 | `scaleMs(1000)`→`1000` | 게이트 | 신규 | 잡음 | exit 1 · 위반 1 | VP-07a 등록 |
+| M5a-02 | `…/v1/server.database-path.test.ts:75` | 고정값 | 같음 | 게이트 | 신규 | 잡음 | exit 1 · 1 | VP-07a 등록 |
+| M5a-03 | `…/v1/server.test.ts:89` | 고정값 | `?? scaleMs(1000)`→`?? 1000` | 게이트 | 신규 | 잡음 | exit 1 · 1 | VP-07a 등록 |
+| M5a-04·05 | `src/main/app/deployment/mail.integration.test.ts:374`·`:375` | 고정값 | `connectMs` 각각 | 게이트 | 신규 | 잡음 | 각 exit 1 · 1 | VP-07a 등록 |
+| M5a-06 | `src/main/app/harnesses/opencode/native-storage.integration.test.ts:51` | 고정값 | `scaleMs(300000)`→`300000` | 게이트 | 신규 | 잡음 | exit 1 · 1 | VP-07a 등록 |
+| M5a-07~09 | `…/native-storage.testfixture.ts:106`·`:190`·`:297` | 고정값 | option·abort·abort 각각 | 게이트 | 신규 | 잡음 | 각 exit 1 · 1 | VP-07a 등록 |
+| M5a-10 | `src/main/app/managed-mcp.cli.integration.test.ts:289` | 고정값 | `scaleMs(40_000)`→`40_000` | 게이트 | 신규 | 잡음 | exit 1 · 1 | VP-07a 등록 |
+| M5a-11~14 | `src/main/features/chat/background-tasks.test.ts:123`·`:131`·`:138`·`:163` | 고정값 | 각각 | 게이트 | 신규 | 잡음 | 각 exit 1 · 1 | VP-07a 등록 |
+| M5a-15·16 | `src/main/infra/net/pop3-tls.test.ts:49`·`:50` | 고정값 | 각각 | 게이트 | 신규 | 잡음 | 각 exit 1 · 1 | VP-07a 등록 |
+| M5a-17·18 | `src/renderer/src/app/boot/steps.test.ts:95`·`:96` | 고정값 | 각각 | 게이트 | 신규 | 잡음 | 각 exit 1 · 1 | VP-07a 등록 |
+| X7′ | `src/main/app/managed-mcp.cli.integration.test.ts:289` | 다른 값 | abort 인자 → `10` | 게이트 | 못 잡음(X7) | 잡음 | exit 1 · 1 | D1 인용 |
+| X8′ | `…/native-storage.integration.test.ts:51` | 다른 값 | 자식 프로세스 `timeout: 10` | 게이트 | 못 잡음(X8) | 잡음 | exit 1 · 1 | D1 인용 |
+| X9′ | `src/main/infra/config/file-mutation.test.ts`(끝) | 다른 값 | `const T = 30_000; setTimeout(() => {}, T)` | 게이트 | 못 잡음(X9) | 잡음 | exit 1 · 1 | D1 인용 |
+| M11a | `src/main/features/approvals/broker.test.ts`(끝) | 다른 값 | `{ timeoutMs: 1000 }` 1자리 추가 | 게이트 | 신규 | 잡음 | exit 1 · 1(count 3 ≠ 4) | VP-09a 등록 |
+| M11b | `src/renderer/src/features/chat/lib/taskBoard.test.ts:303` | 제거 | `timeout: 30_000` 삭제 | 게이트 | 신규 | 잡음 | "count: 1 — 실제 자리 0 개" | VP-09a 등록 |
+| M15 | `src/main/app/chat-turn/opencode-continuation.test.ts:60` | 다른 값 | `timeout: scaleMs(5000)` | 게이트 | 신규 | 잡음 | "`vi.waitFor` 옵션에 `scaleMs` 를 쓰지 않는다" | VP-09a 등록 |
+| M3 | `src/main/infra/git/repository.test.ts:14` | 제거 | `scaledBudget` 래핑 삭제 | 게이트 | 잡음 | 잡음 | exit 1 · 1 | VP-09a 승계 |
+| M4 | `file-mutation.test.ts:251` | 고정값 | `scaleMs(45_000)`→`45_000` | 게이트 | 잡음 | 잡음 | exit 1 · 1 | VP-09a 승계 |
+| M5 | `file-mutation.test.ts:222` | 고정값 | `+ scaleMs(30_000)`→`+ 30_000` | 게이트 | 잡음 | 잡음 | exit 1 · 1 | VP-07a 승계 |
+| M6 | `src/main/infra/git/temp-repo.testfixture.ts:43` | 다른 값 | `600_000`→`300_000` | 게이트 | 잡음 | 잡음 | exit 1 · fixture cap | VP-09a 승계 |
+| M12 | `scripts/check-test-budgets.mjs:416` | 제거 | `expect(x)` 예외 삭제 | UT | 신규 | 잡음 | fail 1 'P5 — …' | VP-12 등록 |
+| M13 | `scripts/check-test-budgets.mjs:493` | 제거 | `inTimeoutObject` 삭제 | UT | 신규 | 잡음 | fail 3 'P2 — option 중첩 timeouts'·'… 변수의 객체'·'실제 저장소…' | VP-12 등록 |
+| M14 | `scripts/check-test-budgets.mjs:409` | 뒤집기 | `argIndex >= 1`→`=== 0` | UT·게이트 | 신규 | 잡음 | UT fail 3('P5'·'P7'·'실제 저장소') · 트리 exit 1 · 위반 14 | VP-12 등록 |
+| M16 | `scripts/check-test-budgets.mjs:615` | 제거 | `BUDGET_FILE` = `*.test.ts`만 | UT | 신규 | 잡음 | fail 1 'P1 — …' · 트리 게이트는 exit 0(fixture 4자리가 모두 배율이라 판정 같음) | VP-12 등록 |
+| M17 | `scripts/check-test-budgets.mjs:452` | 제거 | abort 무임계 삭제 | UT | 신규 | 잡음 | fail 1 'P4 — …' | VP-12 등록 |
+| X6 | `scripts/check-test-budgets.mjs:550` | 제거 | 의미 값 파일 비교 삭제 | UT | 잡음 | 잡음 | fail 3('리터럴 마감…'·'의미 대기는 파일·값…'·'P6 — …') | VP-12 등록(r1 재실행) |
+| R-method | `scripts/check-test-budgets.mjs:472` | 제거 | method 형태 분기 | UT | 신규 | 잡음 | fail 1 'P2 — method' | 구현자 재량 재실행 |
+| R-child | `scripts/check-test-budgets.mjs:452` | 고정값 | 자식 프로세스 무임계 → `false` | UT | 신규 | 잡음 | fail 1 'P4 — …' | 구현자 재량 재실행 |
+| M1 | `vitest.config.ts:24` | 제거 | `hookTimeout` 줄 | `test-time.test.mjs` | 잡음 | 잡음 | fail 1 | r1 재실행 |
+| M2 | `scripts/test-time.mjs:58` | 고정값 | 객체 timeout 비배율 | 같음 | 잡음 | 잡음 | fail 1 | r1 재실행 |
+| M7 | `scripts/test-time.mjs:28` | 뒤집기 | `< 1`→`<= 0` | 같음 | 잡음 | 잡음 | fail 2 | r1 재실행 |
+| M8 | `.github/workflows/ci.yml:31` | 다른 값 | `'90'`→`'30'` | 같음 | 잡음 | 잡음 | fail 1 | r1 재실행 |
+| EP06a | `temp-repo.testfixture.ts:27` | 고정값 | `KILL_GRACE_MS = 5_000` | 같음 | 잡음 | 잡음 | fail 1 | r1 재실행 |
+| EP06b | `temp-repo.testfixture.ts:46` | 고정값 | `retryDelay: 200` | 같음 | 잡음 | 잡음 | fail 1 | r1 재실행 |
+| M10 | `scripts/test-host.mjs:12` | 다른 값 | 지움 접두사에 `ORCA_` | `test-host.test.mjs` | 잡음 | 잡음 | fail 1 | r1 재실행 |
+| X1 | `scripts/vitest-setup.mjs:27` | 제거 | 지움 루프 | `test-environment.test.ts` | 잡음 | 잡음 | '하네스 변수가 남아 있지 않다' | r1 재실행 |
+| X2 | `vitest-setup.mjs:33` | 호출 대체 | wrapper가 원래 옵션 전달 | 같음 | 잡음 | 잡음 | '무옵션 vi.waitFor 는 … 1초를 넘겨' | r1 재실행 |
+| X3 | `scripts/test-host.mjs:31` | 제거 | `XDG_CONFIG_HOME` | 같음 + `test-host.test.mjs` | 잡음 | 잡음 | 'XDG 4종은 루트 아래…' · test-host fail 1 | r1 재실행 |
+| X4 | `file-mutation.test.ts`(끝) | 다른 값 | `beforeEach(() => {}, 5000)` | 게이트 | 잡음 | 잡음 | exit 1 · 1 | r1 재실행 |
+| X5 | 같음 | 다른 값 | `it('x', { timeout: 5000 }, …)` | 게이트 | 잡음 | 잡음 | exit 1 · 1 | r1 재실행 |
+| AC14 | `src/main/features/worktrees/service.test.ts:33` | 다른 값 | `git init -b develop` | 그 파일 | HEAD green | HEAD green | 11/11 — 기본 브랜치 비의존(역변이) | r1 재실행 |
+| M-A | `vitest.config.ts:26` | 빈 값 | `setupFiles: []` | hostile | 잡음 | 잡음 | 자식 실패 'reuses a live OpenCode process…' | r1 재실행 |
+| M-B | `test-host.mjs:12` | 제거 | `'OPENCODE_'` | hostile | 잡음 | 잡음 | 요청 목록 `/mcp` 증가 | r1 재실행 |
+| M-C | `test-host.mjs:12` | 제거 | `'GIT_'` | hostile | 잡음 | 잡음 | 자식 2 failed / 118 | r1 재실행 |
+| M-D | `test-host.mjs:29-30` | 제거 | `HOME`·`USERPROFILE` | hostile | 잡음 | 잡음 | 홈 트리 6 → 9 | r1 재실행 |
+| Z1 | `src/main/app/artifact-sdk-live.test.ts:75` | 고정값 | `scaleMs(90_000)`→`90_000` | 게이트 | 신규 | 잡음 | exit 1 · 1 | 재량(이미 배율 자리) |
+| Z2·Z3 | `managed-mcp.cli.integration.test.ts:323`·`:421` | 고정값 | 각각 리터럴 | 게이트 | 신규 | 잡음 | 각 exit 1 · 1 | 재량 |
+| Y1 | `background-tasks.test.ts`(끝) | 다른 값 | `const timeoutMs = 5000` + `waitForTask(…, { timeoutMs })` | 게이트 | 신규 | **못 잡음** | exit 0 — 단축 속성은 `isPropertyAssignment`가 아니다(`:492`) | 보고 밖 축 → **D2** |
+| Y1c | 같음 | 다른 값 | `const probeMs = 5000` + `{ timeoutMs: probeMs }` | 게이트 | 신규 | 잡음 | exit 1 · 1 — Y1의 대조 | 보고 밖 축 |
+| Y2 | `opencode-continuation.test.ts`(끝) | 다른 값 | `const probeOpts = { timeout: scaleMs(5000) }` + `vi.waitFor(() => {}, probeOpts)` | 게이트 | 신규 | **못 잡음** | exit 0 — `hasScaleMs`가 식별자 인자만 본다(`:529`) | 보고 밖 축 → **D2** |
+| Y5 | `background-tasks.test.ts`(끝) | 다른 값 | `const elapsed = Date.now() - start; expect(elapsed).toBeLessThan(5000)` | 게이트 | 신규 | **못 잡음** | exit 0 — `mentionsNow`가 `expect` 인자 원문만 본다 | 보고 밖 축 → **D3** |
+| Y5b | 같음 | 다른 값 | `const start = Date.now(); const deadline = start + 5000; while (Date.now() < deadline) {}` | 게이트 | 신규 | **못 잡음** | exit 0 — `deadline` → `start + 5000` 값 해석이 null | 보고 밖 축 → **D3** |
+| Y11 | 같음 | 다른 값 | `({ timeoutMs = 5000 }: {…} = {}) => …` | 게이트 | 신규 | **못 잡음** | exit 0 — 구조 분해 `BindingElement`는 `isParameter`가 아니다(`:496`) | 보고 밖 축 → **D3** |
+
+- 정상 코드 대조(고장 아님) **Y2b**: `const probeOpts = { timeout: 5000 }; vi.waitFor(() => {}, probeOpts)` → exit 1 · 위반 1("테스트 소유 마감은 `scaleMs(기준값)`") — 기준값만 적는 §12 규칙대로의 코드가 red다(D2).
+- 검산: 시도 62(M5a 18 · 인용 3 · ΔV1 게이트 3 · V1 승계 4 · UT 6 · 구현자 재량 2 · r1 재실행 17 · 검증자 재량 3 · 보고 밖 축 6) = 잡음 56 · 역변이 기대대로 1(AC14) · 못 잡음 5 · 동치 0. 대조 1(Y2b)은 따로 셌다.
+- `못 잡음` 5건은 r2-13에서 D2(Y1·Y2)·D3(Y5·Y5b·Y11)으로 이관 — 현재 트리에 같은 형태의 ≥1000ms 자리는 0(r2-3).
+
+## r2-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-12 | MD-03↔UT-03 / UT | REQUIRED | **PAIR_FAIL** (root, D2) | `check-test-budgets.test.mjs` 66/66 · M12~M17·X6·R-method·R-child 잡음 · **Y1(P2·P3)·Y2(P5·P7) 못 잡음** | EP-12 7지점: P1·P4·P6 닫힘 · P2·P3·P5·P7 규칙 칸 대비 미완 · P2 규칙 칸 자체도 D3 |
+| VP-09a | AR-03a↔IT-03a / IT | REQUIRED | PASS | `gate:node scripts/check-test-budgets.mjs` exit 0 · `--report` deadline 44 = 스캔 44(차집합 0) · 넓힌 재열거 실제 상한 0 · M3·M4·M6·M11a·M11b·M15·X9′ 잡음 · Windows CI run 41850123503 'Test budget guard' success | EP-03 21(20 + hostile) · 04 6 · 05a 44 · 06 3 · 12 7 |
+| VP-07a | AR-01a↔IT-01a / IT | REQUIRED | PASS | M5a 18/18 · X7′·X8′ · M1·M2·M5 · Z1~Z3 · EP06a 잡음 | EP-01 2 · 02 1 · 03 21 · 04 6 · 05a 44 · 06 3 |
+| VP-13 | R-01↔AT-05 / AT | REGRESSION | PASS | clean-host 기준 `05d75ee` · HEAD `756b461` 둘 다 915파일 8,327케이스 실패 22 — `newfails` added 0 · removed 0 · S2(1코어·8워커 7m37s) added 0 · removed 0 | 바뀐 10파일: 8 green · opt-in 2 skip |
+| VP-01a | R-01↔AT-01a / AT | REQUIRED | **BLOCKED_BY:VP-12** | AC1~3·5·6·7a·8 ✅(아래) · AC7b는 VP-12 root | 76 |
+| VP-02~06·08·10·11 | — | NOT_REQUIRED | NOT_REQUIRED | r1 §5 좌표 실재 · 이번 라운드 M7·M8·M10·X1~X3·M-A~M-D·AC14·Windows CI로 재관측 | 비영향(r2-0) |
+
+- root `PAIR_FAIL`: VP-12(D2). root `PLAN_GAP`: D3(EP-12 P2 규칙). 종속: VP-01a → VP-12.
+- 좌표의 실행 구간: VP-12 UT는 판정 함수(`analyzeScale`·`scanBudgetSites`·`runCli`)를 production 그대로 부른다(mock 0). 운반 값: 형태마다 `5000` ↔ `scaleMs(5000)` 구별 입력 · P6은 count 1·2·3과 파일 a·b로 구별. 빠진 것은 입력 축이다 — 대상이 같은 파일 바인딩을 거치는 입력이 P2·P3·P5·P7에 없다.
+
+### AT / AC 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC1·AC2·AC3 | ✅ | M1·M2 · X2 · `node --test` 199/199 |
+| AC4 | ✅ | M7 · `test-time.test.mjs` '배율 해석' |
+| AC5·AC6 | ✅ | `--report` setConfig 21 scaled · case 6 scaled |
+| **AC7a** | ✅ | 44 = 스캔 44 · 예산 24 · 의미 값 20(16항목 count 합 20) · M5a 18/18 · M11a·b |
+| **AC7b** | ❌ | Y1·Y2 못 잡음(D2) · P2 규칙 칸 미정(D3) |
+| AC8 | ✅ | M6 · EP06a·b · (A)~(E) 케이스 통과 |
+| AC9 | ✅ | 워크플로 테스트 · M8 · Windows CI run 41850123503(head `756b461`) success |
+| AC10~AC13 | ✅ | M10 · X1·X3 · M-A~M-D · hostile 1/1 green |
+| AC14 | ✅ | 역변이 HEAD green 11/11 |
+| AC15 | ✅ | r1 §5 VP-04 좌표 승계 — r2 diff가 배포 결합 13자리에 닿지 않음(`mail.integration` 변경은 `:374-375` 시간 인자) |
+| AC16 | ✅ | VP-13 |
+| AC17 | ✅ | `rg "nextPort\|4521[0-9]"` 0 · `loopback-callback.test.ts` 6/6(기준과 같음, 파일 diff 0) |
+| AC18 | ⚠️ 사람 실기 | — |
+| AC19 | ✅ | `check-doc-inventory --check` ok |
+| AC19a | ✅ | `app/AGENTS.md:150` — (H′) 7형태·임계·"abort·자식 프로세스 `timeout` 은 임계가 없다"·`{file, value, count, reason}`·`*.testfixture.ts(x)` |
+
+- 합계 재측정: `✅ 19 · ⚠️ 1(AC18) · ❌ 1(AC7b) = 총 21`.
+- 자기보고 대조: 본문 `✅ 19 · ⚠️ 2 · ❌ 0` ↔ trailer `Criteria-Met: 19/21` ↔ INDEX 비고(수치 없음) — 사본끼리는 같다. 재측정과는 **불일치**: AC9 ⚠️→✅(CI 완료) · AC7b ✅→❌.
+
+### pair별 plan §10 강제 지점 분모
+
+| Pair | 계약/필드 | plan §10 자리 목록 | 목록 자리별 확인 · oracle 좌표 | 목록 밖 발견 · 고장 이력 ID | 결과 |
+|---|---|---|---|---|---|
+| VP-07a·09a | EP-05a 마감 | 44 | 새 예산 18 = M5a-01~18 · 이미 배율 6 = M5·Z1~Z3·EP06a(+`:231` 같은 상수) · 의미 값 20 = 16항목 count(M11a·b) | 트리 0 — 넓힌 재열거 · 형태 검색 | PASS |
+| VP-07a·09a | EP-01·02·03·04·06 | 2·1·20·6·3 | `rg testTimeout\|hookTimeout vitest.config.ts` 2 · `rg "vi\.waitFor\s*=" app/scripts` 1 · `--report` setConfig 21(목록 20 + hostile) · case 6 · 픽스처 상수 `rg` 3 · M1·M2·M3·M4·M6·EP06a·b | 없음 | PASS |
+| VP-12 | EP-12 판정 | 7 | P1 M16 · P2 M13·R-method · P3 X9′ · P4 M17·R-child · P5 M12·M14 · P6 X6·M11 · P7 M15 | Y1(P2·P3) · Y2(P5·P7) → D2 · Y5·Y5b·Y11(P2 규칙 칸 밖) → D3 | PAIR_FAIL + PLAN_GAP |
+
+- `실패 의미`가 "다른 게이트가 막는다"고 적은 행: 없음.
+- `vi.waitFor` 호출 173/52 = 설계 172/51 + 배선 테스트 1(r1과 같음).
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| lint | PASS | 0 error · 2 warning(`Timeline.tsx:57`·`useTranscriptVirtualizer.ts:22`, 변경 밖) · 실행 후 `git status` 변화 0 |
+| typecheck | PASS | node·web·test 3설정 exit 0 · `error TS` 0 |
+| node scripts 테스트 | PASS | `node --test "scripts/*.test.mjs"` 199 pass · 0 fail · 25 suites |
+| 예산 게이트 | PASS | exit 0 · "16 real-git suites ok · all budget sites scaled" |
+| 인벤토리 게이트 | PASS | `--check` generated·prose·links ok |
+| vitest | PASS | 915파일 · 8,327케이스 · 실패 22 = 기준 `05d75ee` 22(added 0 · removed 0) · HOME 새 파일 0 |
+| Windows CI | PASS | run 41850123503 · job `gate` windows-latest · 13m09s · 전 단계 success(Test budget guard·Lint·Typecheck·Test 포함) |
+| commit trailer | PASS | `756b461` 6키 + 2 파싱 · `05d75ee` 3키 + 2 파싱 |
+
+## r2-8. 남은 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 것 |
+|---|---|---|
+| AC18 | S2 1코어·8워커 7m37s · added 0 | 사내 백신·디스크 지연이 있는 실제 Windows에서 `cd app && npm test` green·소요 시간 |
+
+## r2-9. 게이트 재실행
+
+- 설치: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` exit 0 → `npm rebuild better-sqlite3`(Node ABI, `:memory:` 열기 확인).
+- 회귀 실행은 scratchpad worktree 2개(`05d75ee`·`756b461`, `node_modules` 링크)에서 했고 변이는 주 트리에서 했다 — 서로 간섭 없음.
+- 잔여물: worktree 2개 제거(`git worktree list` 1행) · 변이 전부 원복(`git status` clean).
+
+## r2-11. Repository operation checks
+
+- AGENTS 위생: `app/AGENTS.md` 1줄 교체 — 비밀·일회성 정보 없음, (A)~(E) 서술 유지.
+- INDEX: 상태·다음 주체 일치(`impl/IMPL_DONE` · Claude 검증). 자리표시자 2개를 좌표로 채움 — ΔV1 `05d75ee` · r2 `756b461`. `git cat-file -t` = commit, `origin/main` 조상 **아님**(PR #531·#532 미병합) → 브랜치 좌표. 이전 좌표 6개도 `main` 조상 아님 — 기존 표기("브랜치 좌표, `main` 미병합") 그대로 유효.
+- trailer: `756b461` — Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By + Co-Authored-By·Claude-Session 파싱.
+- `[구현자 기입]` r2 7필드: 설계 리뷰·강제 지점 전수·이번 라운드 수정의 잠금·Product/UX·놓친 잠재 문제·구현 보고·Review Signals 모두 있음. 강제 지점 전수 표는 EP-05a·EP-12 행만 두고 EP-01~04·06(VP-07a·09a 분모 32자리)을 "NOT_REQUIRED 비영향"으로 한 줄에 적었다 — 그 자리는 REQUIRED pair 분모다(D4, 검증자가 위 표로 독립 재측정).
+
+## r2-12. 구현자 코멘트 / 선조치 경계
+
+| 코멘트 | 판단 |
+|---|---|
+| `runCli` 셋째 인자 `entries` | 구현 세부 — CLI 기본값 `SEMANTIC_DELAYS`, P6 UT가 주입 경로를 쓴다 |
+| `listBudgetFiles` 신설 | plan "(F)(H′)용 파일 목록을 따로" 그대로 — P1 UT |
+| M14 위반 14 ≠ 설계 근거 13 | 재현 14 — 분모 행이 아니라 변이 관측값, 목록 영향 없음 |
+| 합성 사내 호스트·포크 모사 미재실행 | 타당 — VP-03·04 NOT_REQUIRED, r2 diff가 격리·배포 경로에 닿지 않음(r2-0) |
+
+## r2-13. Finding disposition
+
+| # | finding | 귀속 | disposition | 영향 | 후속 |
+|---|---|---|---|---|---|
+| D1 | (r1) EP-05 술어·게이트 (H)가 좁다 | VP-01·07·09 | **closed** | X7′·X8′·X9′ 잡음 · EP-05a 44 = 스캔 · pop3 2자리 `scaleMs` | — |
+| D2 | (H′) 형태 판정이 같은 파일 바인딩을 따라가지 않아 규칙 칸이 덮는 두 형태를 놓친다. (a) 단축 속성 `{ timeoutMs }` + 같은 파일 const 5000 → exit 0(Y1), 키 형태는 exit 1(Y1c) — P2 "`/timeout/i` 키" · P3 "같은 파일 const". (b) const에 담은 `vi.waitFor` 옵션 — 안의 `scaleMs`는 green(Y2), 기준값만 담으면 red(Y2b) — P5 "`vi.waitFor` 옵션(둘째 인자)" 제외 · P7 · D-014 | VP-12 · AC7b · D-012·D-014 | **BLOCKING** (`PAIR_FAIL`) | 현재 트리 해당 자리 0 — 게이트가 다음 자리를 막지 못한다 | 구현: 둘째 인자 식별자를 같은 파일 const로 풀어 P5 제외·P7 판정에 쓰고, 단축 속성을 키 형태로 판정 · UT 입력 Y1·Y2·Y2b 추가 |
+| D3 | EP-12 P2 규칙 칸이 형태의 **대상**이 같은 파일 바인딩을 거칠 때를 정하지 않는다 — `expect(elapsed)`(`const elapsed = Date.now() - start`, Y5) · `start + 5000`(`const start = Date.now()`, Y5b) · 구조 분해 매개변수 기본값 `{ timeoutMs = 5000 }`(Y11) 모두 exit 0. D-012 주어("경과 상한 단언"·"`now()` 마감"·"매개변수 기본값")는 덮는다. 자리 검색 명령 `scan-deadlines.mjs`도 같은 알고리즘이라 같이 놓친다 | VP-12 · AC7b · D-012 · §10 EP-12 | **PLAN_GAP** | 현재 트리 해당 자리 0(형태 검색) | 설계자: P2(·P3) 규칙 칸에 바인딩 추적 범위(now 식 변수·파생 마감·구조 분해 기본값·단축 속성)를 한 번에 정하고 UT 입력 칸·스캔 술어를 맞춘다 → 구현이 Y5·Y5b·Y11을 닫는다 |
+| D4 | r2 `[구현자 기입]` 강제 지점 전수 표가 VP-07a·09a 분모의 EP-01~04·06 32자리를 행으로 두지 않고 "NOT_REQUIRED 비영향"으로 적었다 | repository operation | NON_BLOCKING | 검증자가 독립 재측정으로 닫음(r2-5 분모 표) | 다음 impl 표는 pair §10 자리 전부를 행으로 둔다 |
+
+## r2-14. Review Signals — 사실만
+
+- 이전 라운드와 같은 축인가: 같다 — r1 D1은 자리 술어가 형태 이름이라 좁았고, r2 D2·D3은 형태 판정이 문법 노드만 봐서 좁다. 둘 다 "D-012 주어보다 좁은 판정"이다.
+- 관련 plan 지침: ΔV1 P3가 값 해석만 같은 파일 const로 넓혔고 형태 대상의 바인딩은 정하지 않았다.
+- 사용자 결정 변경: 없음.
+- 반복 환경 한계: opt-in 2파일 skip · 리눅스 기준선 22건 · 백신·디스크 지연 모사 불가.
+- 게이트와 자리 검색 명령이 같은 알고리즘 사본이라 차집합 0이 독립 측정이 아니다 — 두 라운드 모두 검증자가 다른 방법으로 재열거했다.
+
+## r2-15. 결론
+
+- 상태: **RETURN_TO_PLAN** — verify 2회째. `FAIL`(D2)과 `PLAN_GAP`(D3)이 함께 있어 설계자가 먼저다.
+- pair: PASS 3(VP-07a·09a·13) · PAIR_FAIL 1(VP-12) · BLOCKED_BY 1(VP-01a → VP-12) · NOT_REQUIRED 8.
+- AC: `✅ 19 · ⚠️ 1(AC18) · ❌ 1(AC7b) = 21`.
+- 운영 gate: 전부 PASS(lint·typecheck·node 199·예산·인벤토리·vitest 기준 동일·S2·Windows CI·trailer).
+- 고장 62 = 잡음 56 · 역변이 1 · 못 잡음 5(Y1·Y2 → D2 · Y5·Y5b·Y11 → D3), 덮개 회귀 0.
+- 다음 단계: 설계자가 ΔV2로 EP-12 P2·P3·P5·P7 규칙 칸·UT 입력 칸·스캔 술어를 바인딩 추적 범위까지 한 번에 고정(별도 설계 커밋) → `plan/READY` → 구현이 Y1·Y2·Y2b·Y5·Y5b·Y11을 닫는다.
