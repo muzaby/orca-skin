@@ -1,0 +1,131 @@
+Y1 shorthand	1 literal	0 scaled	0 waitFor×2	named:5000
+Y1 shorthand scaled	0 literal	1 scaled	0 waitFor×2	named:scaleMs
+Y1c key via const	1 literal	0 scaled	0 waitFor×2	option:5000
+Y2 waitFor const opts scaleMs	0 literal	0 scaled	1 waitFor×2	
+Y2b waitFor const opts base	0 literal	0 scaled	0 waitFor×2	
+Y2c waitFor const number scaled	0 literal	0 scaled	1 waitFor×2	
+Y2d waitFor spread scaled	0 literal	0 scaled	1 waitFor×2	
+Y2e waitFor shorthand base	0 literal	0 scaled	0 waitFor×2	
+Y2f opts both waitFor and other	1 literal	0 scaled	0 waitFor×2	option:5000
+Y5 elapsed via var	1 literal	0 scaled	0 waitFor×2	elapsed:5000
+Y5 elapsed scaled	0 literal	1 scaled	0 waitFor×2	elapsed:scaleMs
+Y5b derived deadline	1 literal	0 scaled	0 waitFor×2	deadline:5000
+Y5c compare via elapsed var	1 literal	0 scaled	0 waitFor×2	deadline:5000
+Y5d += deadline	1 literal	0 scaled	0 waitFor×2	deadline:5000
+Y5e new Date getTime	1 literal	0 scaled	0 waitFor×2	deadline:5000
+Y5f inverse elapsed	1 literal	0 scaled	0 waitFor×2	elapsed:5000
+Y5g lower bound not site	0 literal	0 scaled	0 waitFor×2	
+Y5h now vs now compare	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+Y5i call arg not now	0 literal	0 scaled	0 waitFor×2	
+Y11 destructured param default	1 literal	0 scaled	0 waitFor×2	param:5000
+Y11 scaled	0 literal	1 scaled	0 waitFor×2	param:scaleMs
+Y11b destructured var default	1 literal	0 scaled	0 waitFor×2	param:5000
+Y11c renamed destructure	1 literal	0 scaled	0 waitFor×2	param:5000
+Y11d array destructure default	1 literal	0 scaled	0 waitFor×2	param:5000
+S3 member assign	1 literal	0 scaled	0 waitFor×2	option:5000
+S3 ??= assign	1 literal	0 scaled	0 waitFor×2	option:5000
+S3 owner timeouts	1 literal	0 scaled	0 waitFor×2	option:5000
+S4 class field	1 literal	0 scaled	0 waitFor×2	option:5000
+S7 named var used positionally	1 literal	0 scaled	0 waitFor×2	named:5000
+S7 named var only in matcher	0 literal	0 scaled	0 waitFor×2	
+S7 named var no ref	1 literal	0 scaled	0 waitFor×2	named:5000
+S7 named let reassigned	1 literal	0 scaled	0 waitFor×2	named:5000
+B2 let reassign to literal	1 literal	1 scaled	0 waitFor×2	timer:scaleMs,timer:5000
+B0 shadowing	1 literal	1 scaled	0 waitFor×2	timer:5000,timer:scaleMs
+B0 shadowing reverse	1 literal	1 scaled	0 waitFor×2	timer:scaleMs,timer:5000
+B1 as/satisfies	2 literal	0 scaled	0 waitFor×2	timer:5000,option:6000
+B3 destructure from literal	1 literal	0 scaled	0 waitFor×2	timer:5000
+B4 helper sleep	1 literal	0 scaled	0 waitFor×2	timer:5000
+B4 helper sleep scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+B4 function decl	1 literal	0 scaled	0 waitFor×2	timer:5000
+B4 destructured param	1 literal	0 scaled	0 waitFor×2	timer:5000
+B5 member of literal	1 literal	0 scaled	0 waitFor×2	timer:5000
+B5 element access	1 literal	0 scaled	0 waitFor×2	timer:5000
+B7 conditional	1 literal	0 scaled	0 waitFor×2	timer:5000
+B7 minus arith	1 literal	0 scaled	0 waitFor×2	timer:6000 - 1000
+P4 child via const opts	1 literal	0 scaled	0 waitFor×2	option:10
+P4 child via spread	1 literal	0 scaled	0 waitFor×2	option:10
+P4 assign then child	1 literal	0 scaled	0 waitFor×2	option:10
+P2 timeouts owner via const	1 literal	0 scaled	0 waitFor×2	option:1000
+P2 timeouts shorthand owner	1 literal	0 scaled	0 waitFor×2	option:1000
+boundary import	0 literal	0 scaled	0 waitFor×2	
+boundary callback param	0 literal	0 scaled	0 waitFor×2	
+boundary fn return	1 literal	0 scaled	0 waitFor×2	timer:5000
+boundary method	1 literal	0 scaled	0 waitFor×2	timer:5000
+existing waitFor inline	0 literal	0 scaled	0 waitFor×2	
+existing timer in waitFor cb	1 literal	0 scaled	0 waitFor×2	timer:4000
+boundary method (obj)	1 literal	0 scaled	0 waitFor×2	timer:5000
+class method	1 literal	0 scaled	0 waitFor×2	timer:5000
+prop arrow	1 literal	0 scaled	0 waitFor×2	timer:5000
+B4 helper sleep	1 literal	0 scaled	0 waitFor×2	timer:5000
+fn return	1 literal	0 scaled	0 waitFor×2	timer:5000
+fn return scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+callback param	0 literal	0 scaled	0 waitFor×2	
+timer 전역 5000	1 literal	0 scaled	0 waitFor×2	timer:5000
+timer 전역 scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+timer globalThis 5000	1 literal	0 scaled	0 waitFor×2	timer:5000
+timer globalThis scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+timer window 5000	1 literal	0 scaled	0 waitFor×2	timer:5000
+timer window scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+timer setInterval 5000	1 literal	0 scaled	0 waitFor×2	timer:5000
+timer setInterval scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+timer timers/promises 5000	1 literal	0 scaled	0 waitFor×2	timer:5000
+timer timers/promises scaled	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+method 5000	1 literal	0 scaled	0 waitFor×2	method:5000
+method scaled	0 literal	1 scaled	0 waitFor×2	method:scaleMs
+abort 5000	1 literal	0 scaled	0 waitFor×2	abort:5000
+abort scaled	0 literal	1 scaled	0 waitFor×2	abort:scaleMs
+deadline now()+N 5000	1 literal	0 scaled	0 waitFor×2	deadline:5000
+deadline now()+N scaled	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+deadline N+now() 5000	1 literal	0 scaled	0 waitFor×2	deadline:5000
+deadline N+now() scaled	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+deadline < 5000	1 literal	0 scaled	0 waitFor×2	deadline:5000
+deadline < scaled	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+deadline <= 5000	1 literal	0 scaled	0 waitFor×2	deadline:5000
+deadline <= scaled	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+deadline > 5000	1 literal	0 scaled	0 waitFor×2	deadline:5000
+deadline > scaled	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+deadline >= 5000	1 literal	0 scaled	0 waitFor×2	deadline:5000
+deadline >= scaled	0 literal	1 scaled	0 waitFor×2	deadline:scaleMs
+elapsed 5000	1 literal	0 scaled	0 waitFor×2	elapsed:5000
+elapsed scaled	0 literal	1 scaled	0 waitFor×2	elapsed:scaleMs
+elapsed OrEqual 5000	1 literal	0 scaled	0 waitFor×2	elapsed:5000
+elapsed OrEqual scaled	0 literal	1 scaled	0 waitFor×2	elapsed:scaleMs
+option 키 5000	1 literal	0 scaled	0 waitFor×2	option:5000
+option 키 scaled	0 literal	1 scaled	0 waitFor×2	option:scaleMs
+option 중첩 timeouts 5000	1 literal	0 scaled	0 waitFor×2	option:5000
+option 중첩 timeouts scaled	0 literal	1 scaled	0 waitFor×2	option:scaleMs
+option timeout 변수의 객체 5000	1 literal	0 scaled	0 waitFor×2	option:5000
+option timeout 변수의 객체 scaled	0 literal	1 scaled	0 waitFor×2	option:scaleMs
+param 5000	1 literal	0 scaled	0 waitFor×2	param:5000
+param scaled	0 literal	1 scaled	0 waitFor×2	param:scaleMs
+delayMs	0 literal	0 scaled	0 waitFor×2	
+P3 const	1 literal	0 scaled	0 waitFor×2	timer:30_000
+P3 ??	1 literal	0 scaled	0 waitFor×2	option:2000
+P3 ?? scaled	0 literal	1 scaled	0 waitFor×2	option:scaleMs
+P3 60*1000	1 literal	0 scaled	0 waitFor×2	timer:60 * 1000
+P3 500+500	1 literal	0 scaled	0 waitFor×2	timer:500 + 500
+P3 60*scaleMs	0 literal	1 scaled	0 waitFor×2	timer:scaleMs
+P3 import	0 literal	0 scaled	0 waitFor×2	
+P4 999	0 literal	0 scaled	0 waitFor×2	
+P4 abort10	1 literal	0 scaled	0 waitFor×2	abort:10
+P4 pool10	0 literal	0 scaled	0 waitFor×2	
+P4 execFile10	1 literal	0 scaled	0 waitFor×2	option:10
+P4 cp.execFile10	1 literal	0 scaled	0 waitFor×2	option:10
+P5 waitFor opt	0 literal	0 scaled	0 waitFor×2	
+P5 toMatchObject	0 literal	0 scaled	0 waitFor×2	
+P5 objectContaining	0 literal	0 scaled	0 waitFor×2	
+P5 expect subject	1 literal	0 scaled	0 waitFor×2	option:1000
+P5 case	0 literal	0 scaled	0 waitFor×2	
+P5 setConfig	0 literal	0 scaled	0 waitFor×2	
+P5 scaledBudget	0 literal	0 scaled	0 waitFor×2	
+P7 inline obj	0 literal	0 scaled	1 waitFor×2	
+P7 inline num	0 literal	0 scaled	1 waitFor×2	
+P7 cb scaleMs	0 literal	0 scaled	0 waitFor×2	
+alias setTimeout	1 literal	0 scaled	0 waitFor×2	timer:5000
+alias AbortSignal.timeout	1 literal	0 scaled	0 waitFor×2	abort:10
+import alias execFile	1 literal	0 scaled	0 waitFor×2	option:10
+promisify execFile	1 literal	0 scaled	0 waitFor×2	option:10
+promisify var	1 literal	0 scaled	0 waitFor×2	option:10
+alias vi.waitFor P7	0 literal	0 scaled	1 waitFor×2	
+alias vi.waitFor P5	0 literal	0 scaled	0 waitFor×2	
