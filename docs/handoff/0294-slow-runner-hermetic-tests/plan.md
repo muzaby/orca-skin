@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-03 |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7` |
-| 상태 | impl/IMPL_DONE (r1) |
+| 상태 | verify/RETURN_TO_PLAN (r1 검증 — [verify.md](verify.md)) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다 |
 | 이번 V revision | `V1` |
@@ -630,4 +630,4 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| D1 | EP-05 자리 검색·게이트 (H) 술어가 `setTimeout`·`Date.now()+리터럴`뿐이라 "테스트 소유 실시간 마감"(D-001)보다 좁다. 목록 밖 미배율 `managed-mcp.cli.integration.test.ts:289` `AbortSignal.timeout(40_000)` · `native-storage.integration.test.ts:51` `execFileSync {timeout: 300000}` · 분류 필요 `pop3-tls.test.ts:48-49`(3000) · 식별자 경유 지연은 (H) 밖 | VP-01·07·09 · AC7 · [verify r1](verify.md) §13 | 설계자가 EP-05 술어·자리 목록·pop3 분류를 ΔV1로 고정 → 구현이 고장 이력 X7·X8·X9를 닫는다 | PLAN_GAP | open |
