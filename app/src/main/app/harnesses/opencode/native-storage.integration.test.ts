@@ -48,7 +48,7 @@ describe('OpenCode 1.x native CLI interoperability', () => {
             env,
             encoding: 'utf8',
             windowsHide: true,
-            timeout: 300000,
+            timeout: scaleMs(300000),
             maxBuffer: 4 * 1024 * 1024
           }).trim()
         )

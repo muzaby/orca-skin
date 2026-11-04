@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 import { BackgroundTaskTracker } from './background-tasks'
 import {
   applyBackgroundEvent,
@@ -119,7 +120,7 @@ describe('BackgroundTaskTracker.waitForTask (0204)', () => {
   it('SDK 정착(settled)에 resolve 한다 — task_notification completed 경로', async () => {
     const t = new BackgroundTaskTracker()
     t.started('s1', 'a1')
-    const waiting = t.waitForTask('s1', 'a1', { timeoutMs: 1_000 })
+    const waiting = t.waitForTask('s1', 'a1', { timeoutMs: scaleMs(1_000) })
     t.settled('s1', 'a1')
     await expect(waiting).resolves.toBe('settled')
   })
@@ -127,14 +128,16 @@ describe('BackgroundTaskTracker.waitForTask (0204)', () => {
   it('세션 전체 정리(clear)에도 resolve 한다 — 채널 사망·앱 종료 합성 정착 경로', async () => {
     const t = new BackgroundTaskTracker()
     t.started('s1', 'a1')
-    const waiting = t.waitForTask('s1', 'a1', { timeoutMs: 1_000 })
+    const waiting = t.waitForTask('s1', 'a1', { timeoutMs: scaleMs(1_000) })
     t.clear('s1')
     await expect(waiting).resolves.toBe('settled')
   })
 
   it('이미 추적에 없으면 즉시 settled — 정착이 먼저 관측된 경합에서 걸리지 않는다', async () => {
     const t = new BackgroundTaskTracker()
-    await expect(t.waitForTask('s1', 'gone', { timeoutMs: 1_000 })).resolves.toBe('settled')
+    await expect(t.waitForTask('s1', 'gone', { timeoutMs: scaleMs(1_000) })).resolves.toBe(
+      'settled'
+    )
   })
 
   it('확정이 오지 않으면 timeout 을 돌려준다 — watchdog 의 입력', async () => {
@@ -157,7 +160,7 @@ describe('BackgroundTaskTracker.waitForTask (0204)', () => {
   it('resolve 후 구독을 해제한다 — 대기가 끝난 뒤 리스너가 남지 않는다', async () => {
     const t = new BackgroundTaskTracker()
     t.started('s1', 'a1')
-    const waiting = t.waitForTask('s1', 'a1', { timeoutMs: 1_000 })
+    const waiting = t.waitForTask('s1', 'a1', { timeoutMs: scaleMs(1_000) })
     t.settled('s1', 'a1')
     await waiting
     // 남은 리스너가 있으면 이후 변경에서 다시 불린다 — 재시작/재정착으로 확인한다.

@@ -825,6 +825,121 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 - 반복해서 부딪히는 환경 한계: 리눅스 기준선 22건 · Windows 백신·디스크 지연 모사 불가.
 - 현재 라운드·impl 턴: `r1`. 구현자 = 다음 검증자(Claude) — verify 는 보고에 없는 적대 축을 하나 더해야 한다.
 
+## [구현자 기입] 설계 리뷰 (r2 — ΔV1)
+
+- 동의 / 그대로 진행: §7-B ΔV1 구현 설계 그대로 — (H′) 7형태·값 해석·임계·제외·`count`·이중 배율·testfixture 범위, 새 예산 18자리 `scaleMs`, `app/AGENTS.md`.
+- 이견 / 현실성 문제: 없음. 판정 코드는 `evidence/scan-deadlines.mjs`의 술어를 게이트로 옮겼다 — 스캔은 독립 검색 명령으로 그대로 두고 `--report`와 차집합으로 대조한다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07a·09a EP-05a 예산 — 새로 배율 | `scaleMs(기준값)` | 18 | 18/18 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — 리터럴 복귀 M5a-01~18 각각 exit 1 · 위반 1 | 기준값 = 현재 리터럴(diff: `1000`·`300000`·`90000`·`40_000`·`1_000`·`3000`·`10_000`) | — |
+| 같음 · 예산 — 이미 배율 | `scaleMs` 유지 | 6 | 6/6 | `--report` deadline `scaled` 24 = 새 18 + 기존 6 · 좌표 = V1 M5(`file-mutation:222` 리터럴 → exit 1) · `artifact-sdk-live:72`·`managed-mcp.cli:323`·`:421`·`temp-repo.testfixture:80`·`file-mutation:231` 은 같은 게이트 형태 판정 | 이번 턴 diff 0 | 개별 리터럴 복귀 변이는 M5 1자리만 심었다(나머지 5는 r1 변경, 이번 턴 미변경) |
+| 같음 · 의미 값 | 허용 목록 16항목 `{file, value, count, reason}` | 20 | 20/20 | `--report` deadline `semantic` 20 · 항목 count 합 = 20 · M11a(자리 +1)·M11b(자리 −1) exit 1 | count 1·2·3 항목 각각(broker 3·monitor 2·나머지 1) | — |
+| 같음 · 분모 대조 | `--report` ↔ 스캔 | 44 | 44/44 | `--report` deadline 파일:줄 ↔ `node …/evidence/scan-deadlines.mjs app` 파일:줄 `diff` → **0줄**(양쪽 44) | — | — |
+| VP-12 EP-12 P1 파일 범위 | test·testfixture.ts·tsx / (A)~(E) test만 | 1 | 1/1 | `check-test-budgets.test.mjs`'P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고…' | 임시 트리 4파일 → (H′) 위반 3 · `d.ts` 무시 · `listTestFiles` = `a.test.ts`만 | — |
+| VP-12 P2 형태 7 | 7형태 하위 분기 | 1 | 1/1 | 같은 파일 'P2 — <형태>' 19케이스 + '라벨 밖 이름' | 분기마다 `5000` → 1 · `scaleMs(5000)` → 0 · `delayMs` → 0 | — |
+| VP-12 P3 값 해석 | const·`??`·`\|\|`·산술·import | 1 | 1/1 | 'P3 — 같은 파일 const …' | 위반 5 입력 · 통과 3 입력(`?? scaleMs`·`* scaleMs`·import) | — |
+| VP-12 P4 임계 | 1000 · abort·자식 프로세스 무임계 | 1 | 1/1 | 'P4 — 임계 1000ms …' | 999 통과·1000 위반 · abort 10 위반 · 자식 프로세스 7호출 + `cp.execFile` 각 10 위반 · `pool({timeoutMs:10})` 통과 | — |
+| VP-12 P5 제외 | waitFor 옵션·matcher·케이스 인자 · `expect(x)`·elapsed는 셈 | 1 | 1/1 | 'P5 — vi.waitFor 옵션·matcher 피연산자…' | 통과 7 입력 · 위반 3 입력 | — |
+| VP-12 P6 허용 목록 | count·reason·파일 | 1 | 1/1 | 'P6 — 항목 count 는…' · 'P6 — 대상 파일이 없는 의미 값 항목은 CLI 가 막는다' | 자리 2 통과 · 3·1 위반 · reason `''`·공백 위반 · 파일 `b` 위반 2 · 미등록 값 1 | — |
+| VP-12 P7 이중 배율 | waitFor 옵션 안 `scaleMs` | 1 | 1/1 | 'P7 — vi.waitFor 옵션 안의 scaleMs …' | 객체·숫자 둘 다 위반 · 리터럴 옵션·첫 인자 안 `scaleMs` 통과 | — |
+| AC19a | `app/AGENTS.md` (H′) 서술 | 1 | 1/1 | `grep -c "(H′)" app/AGENTS.md` → 1 · `count`·`testfixture.ts(x)`·"abort·자식 프로세스 `timeout` 은 임계가 없다" 문구 존재 · doc-inventory `--check` ok | — | — |
+
+- 강제 지점 전수: EP-05a 44(새 18·기존 6·의미 20) + EP-12 7 = **51/51** 이번 턴 대상. V1 EP-01~04·06~11은 이번 턴 diff 0 — NOT_REQUIRED 비영향(§7-B) + VP-13 회귀로 다시 닫음.
+- §10 목록 밖에서 본 운반 자리: 0 — `--report`·스캔 차집합 0줄, LITERAL 0줄.
+- 직전 verify 고장 이력의 `못 잡음` 행: X7·X8·X9 → 이번 트리에서 X7′·X8′·X9′ 각각 게이트 exit 1(아래 잠금 표).
+- `[구현자 기입]` 발견: M14 트리 변이의 위반 수는 **14**(plan 설계 근거 표의 "옵션 리터럴 13자리"보다 1 많다) — 분모 행이 아니라 변이 관측값이라 목록에 영향 없음.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-12 | REQUIRED | SELF_PASS | `check-test-budgets.test.mjs` '규칙 (H′)' 31케이스 | M12·M13·M14·M16·M17·X6 RED |
+| VP-09a | REQUIRED | SELF_PASS | `gate:node scripts/check-test-budgets.mjs` exit 0 · `--report` ↔ 스캔 차집합 0 | M3·M4·M6·M11a·M11b·M15·X9′ RED · Windows CI는 push 뒤 |
+| VP-07a | REQUIRED | SELF_PASS | 자리별 게이트 좌표(위 표) | M5a-01~18·X7′·X8′·M1·M2·M5 RED |
+| VP-01a | REQUIRED | SELF_PASS | AC1~3·5·6·8 = verify r1 §5 좌표 승계(이번 턴 diff 0, `node --test` 199/199) · AC7a·7b = VP-07a·09a·12 | 위 세 pair 변이 |
+| VP-13 | REGRESSION | SELF_PASS | `evidence/clean-host-run.sh` 기준·현재 트리 + `slow-runner-run.sh … 8` + `newfails.mjs` | not selected |
+| VP-02~06·08·10·11 | NOT_REQUIRED | — | verify r1 §5 PASS 좌표 · 이번 턴 diff 0 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M5a-01~18 새 예산 18자리 각각 `scaleMs(N)`→`N` | VP-07a 선택 | 신규 | 게이트 exit 1 · 각 위반 1 (18/18) | 잠김 |
+| X7′ `managed-mcp.cli:289` abort → `10` | D1 인용(r1 X7) | 못 잡음 | 게이트 exit 1 · 위반 1 | 잠김 |
+| X8′ `native-storage.integration:51` 자식 프로세스 timeout → `10` | D1 인용(r1 X8) | 못 잡음 | 게이트 exit 1 · 위반 1 | 잠김 |
+| X9′ `file-mutation` 끝에 `const T = 30_000; setTimeout(() => {}, T)` | D1 인용(r1 X9) | 못 잡음 | 게이트 exit 1 · 위반 1 | 잠김 |
+| M11a `broker.test.ts` `{ timeoutMs: 1000 }` 1자리 추가 | VP-09a | 신규 | 게이트 exit 1(count 3 ≠ 4) | 잠김 |
+| M11b `taskBoard.test.ts` `timeout: 30_000` 삭제 | VP-09a | 신규 | 게이트 exit 1(count 1 ≠ 0) | 잠김 |
+| M15 `opencode-continuation` `vi.waitFor` 옵션 → `scaleMs(5000)` | VP-09a | 신규 | 게이트 exit 1 · 위반 1 | 잠김 |
+| M3 `repository.test.ts` `scaledBudget` 제거 | VP-09a(V1 승계) | 잠김(r1) | 게이트 exit 1 · 위반 2 | 잠김 |
+| M4 `file-mutation` 인라인 `scaleMs(45_000)`→`45_000` | VP-09a(V1 승계) | 잠김(r1) | 게이트 exit 1 · 위반 1 | 잠김 |
+| M6 픽스처 기준 600_000→300_000 | VP-09a·07a(V1 승계) | 잠김(r1) | 게이트 (G) exit 1 | 잠김 |
+| M1 `vitest.config.ts` hookTimeout 제거 | VP-07a(V1 승계) | 잠김(r1) | `test-time.test.mjs` fail 1 | 잠김 |
+| M2 `scaledWaitForOptions` 객체 timeout 비배율 | VP-07a(V1 승계) | 잠김(r1) | `test-time.test.mjs` fail 1 | 잠김 |
+| M5 `file-mutation:222` `scaleMs(30_000)`→`30_000` | VP-07a(V1 승계) | 잠김(r1) | 게이트 exit 1 · 위반 1 | 잠김 |
+| M12 P5 `expect(x)`의 x도 제외 | VP-12 | 신규 | UT fail 1 | 잠김 |
+| M13 P2 중첩 `timeouts` 규칙 삭제 | VP-12 | 신규 | UT fail 3 | 잠김 |
+| M14 P5 `vi.waitFor` 제외를 첫 인자로 | VP-12 | 신규 | UT fail 3 · 트리 게이트 exit 1 · 위반 14 | 잠김 |
+| M16 P1 (H′) 범위 `*.test.ts`만 | VP-12 | 신규 | UT fail 1 | 잠김 |
+| M17 P4 abort 임계 재도입 | VP-12 | 신규 | UT fail 1 · (M17+X7′ 동시 트리는 exit 0 — UT가 잡는 자리) | 잠김 |
+| X6 P6 허용 대조 파일 비교 삭제 | VP-12(r1 X6 재실행) | 잡음(r1) | UT fail 3 | 잠김 |
+| 재량 — P2 `method` 형태 분기 제거 | 보고 밖 축 | 신규 | UT fail 1 | 잠김 |
+| 재량 — P4 자식 프로세스 무임계 제거 | 보고 밖 축 | 신규 | UT fail 1 | 잠김 |
+
+- **분모 검산**: 선택 증거 32(M5a 18 · M11a·M11b·M15·M3·M4·M6 6 · M1·M2·M5 3 · M12·M13·M14·M16·M17 5) · 인용 변이 4(X7′·X8′·X9′ · X6) · 새 oracle 2(재량 2) = 38 — 표 행 21(M5a-01~18을 1행으로 묶음 = 18) → 21 − 1 + 18 = **38** ✓.
+- **덮개 회귀**: V1 (H) 3케이스는 '규칙 (H′)' 아래로 옮겨 그대로 통과. r1 `잡음` 행 중 이번 변경이 닿은 X6 재실행 red. 기존 (A)~(G) 케이스 전부 통과(`check-test-budgets.test.mjs` 66/66).
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 게이트 위반 문구 3종 신설(`count` 불일치·reason 빈 값·대상 파일 없음) + waitFor 이중 배율 — 소비자 = CI 'Test budget guard' 로그·`npm test` | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 게이트 실패는 개발자 작업 루프(CI red) — 제품 상태표 밖, §7-A 운영 gate 행 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 위반마다 `파일:줄 원문 — 처방` 한 줄 + 요약 줄, exit 1 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 낡은 의미 값 검사가 픽스처 트리 CLI 테스트를 깨뜨렸다(픽스처에 실제 항목 파일이 없다) | ✅ 선조치 — `runCli(appDir, argv, entries)` 로 항목 주입, 픽스처 테스트는 `[]` | 첫 실행 'CLI 위반이 있으면 1…' fail → 수정 후 66/66 |
+| 2 | 이 환경 첫 전체 실행에서 실패 318 — better-sqlite3 Electron ABI·electron 바이너리 미설치 | 환경 복구(`node node_modules/electron/install.js` · `npm rebuild better-sqlite3`) 후 재실행 — 22 | 두 트리 모두 318로 같았다(신규 0). 환경 기인 |
+
+### 설계 대비 명시적 차이
+
+- `runCli`에 셋째 인자 `entries`(기본 `SEMANTIC_DELAYS`) — 위 1. 실제 CLI 경로는 기본값이라 동작 같음.
+- `listBudgetFiles` 신설(`listTestFiles`에 패턴 인자) — plan "(F)(H′)용 파일 목록을 따로 두고".
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시 없음 | — |
+| 공유 | 해당 없음 — `entries`는 호출마다 인자 | P6 UT · 실제 트리 게이트 exit 0 |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/check-test-budgets{,.test}.mjs` · 새 예산 18자리 10파일(`instance-lifecycle`·`server.database-path`·`server`·`mail.integration`·`native-storage.integration`·`native-storage.testfixture`·`managed-mcp.cli.integration`·`background-tasks`·`pop3-tls`·`renderer/…/boot/steps`) · `app/AGENTS.md` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `node --test "scripts/*.test.mjs"` · `node scripts/check-test-budgets.mjs [--report]` · `scan-deadlines.mjs` 차집합 · `check-doc-inventory --check` · `clean-host-run.sh`(기준 = 브랜치 HEAD worktree · 현재) · `slow-runner-run.sh … 8` · `newfails.mjs` |
+| **관측한 게이트 산출**(마지막 수정 뒤) | lint 0 error · 2 warning(변경 밖 `Timeline.tsx`·`useTranscriptVirtualizer.ts`) · typecheck exit 0 · `error TS` 0 · node 199/199 · test-budgets exit 0(16 real-git suites ok) · `--report` deadline 44 = 스캔 44(차집합 0줄) · doc-inventory ok · vitest 깨끗한 호스트 8,448케이스 통과 8,417 · 실패 22 · skip 9 — 기준 트리와 같고 `newfails` added 0 removed 0 · 바뀐 10파일 중 8 green, opt-in 2(`native-storage.integration`·`managed-mcp.cli.integration`) skip |
+| 적대 측정 | 저성능 모사 S2: 1코어·8워커 6m17s · 8,448케이스 실패 22 — 기준 대비 `newfails` added 0 removed 0. 합성 사내 호스트·포크 모사는 비영향(VP-03·04 NOT_REQUIRED — 격리·배포 경로 diff 0)이라 재실행하지 않았다 |
+| V-pair 자기확인 | `SELF_PASS 5 (VP-12·09a·07a·01a·13) / SELF_BLOCKED 0` · NOT_REQUIRED 8 |
+| 강제 지점 전수 | 51/51 (EP-05a 44 + EP-12 7) |
+| **AC 자기보고**(`Criteria-Met`) | AC7a ✅ · AC7b ✅ · AC19a ✅ · AC16 ✅(VP-13) · AC1~6·8·10~15·17·19 ✅ 승계(diff 0, node 199/199 · vitest 회귀 0) · AC9 ⚠️(워크플로 텍스트 테스트 green, 이번 push의 Windows CI 대기) · AC18 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 19 · ⚠️ 2(AC9 Windows CI · AC18) · ❌ 0 = 총 21` — 분모 V1 19 → ΔV1 21(AC7b·AC19a 신설) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 같다 — "테스트가 고른 시간 값이 실제 경과의 상한이면 배율을 지난다"(D-001). r1은 술어가 해법 형태(`setTimeout`·`Date.now()+N`)라 분모가 10, ΔV1 주어 술어로 44.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: V1 §10 EP-05 자리 검색 명령이 주어가 아니라 형태로 셌다 — verify r1 D1이 `PLAN_GAP`으로 돌렸다.
+- 반복해서 부딪히는 환경 한계: opt-in 스위트 2파일은 이 환경에서 skip — 그 자리의 기계 oracle은 형태 게이트뿐(§7-B 남는 차이). 세션 초기 환경에서 better-sqlite3 ABI·electron 바이너리 미설치.
+- 현재 라운드·impl 턴: `r2`. 구현자 = 다음 검증자(Claude) — verify는 보고에 없는 적대 축을 하나 더해야 한다.
+
 ---
 
 ## [검증자 기입] 파생 이슈

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import { scaleMs } from '../../../../scripts/test-time.mjs'
 import { mkdtemp, realpath, rm, readFile, stat, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -370,8 +371,8 @@ describe('mail declaration → auth → plugin → infra', () => {
       })
       const manager = await createMailSyncManager({
         auth: f.auth,
-        options: { ...f.options, timeouts: { commandMs: 30, connectMs: 1000 } },
-        session: { ...f.session, timeouts: { commandMs: 30, connectMs: 1000 } },
+        options: { ...f.options, timeouts: { commandMs: 30, connectMs: scaleMs(1000) } },
+        session: { ...f.session, timeouts: { commandMs: 30, connectMs: scaleMs(1000) } },
         root: f.root,
         socketFactory: createPop3Socket
       })

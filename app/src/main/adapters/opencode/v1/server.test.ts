@@ -1,4 +1,5 @@
 import { OpenCodeAdapter } from './adapter'
+import { scaleMs } from '../../../../../scripts/test-time.mjs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
@@ -85,7 +86,7 @@ function setup(
     allocatePort: async () => 49123,
     spawnProcess: spawnProcess as unknown as typeof spawn,
     fetchImpl,
-    timeoutMs: options.timeoutMs ?? 1000
+    timeoutMs: options.timeoutMs ?? scaleMs(1000)
   })
   pools.push(pool)
   return { pool, spawnProcess, children, fetchImpl, dataDirectory, preferences, readVersion }
