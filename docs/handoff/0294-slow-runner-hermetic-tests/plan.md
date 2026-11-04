@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1) |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) |
-| 상태 | plan/READY (ΔV1) — r1 검증 [verify.md](verify.md) `RETURN_TO_PLAN` D1 정정 |
+| 상태 | verify/RETURN_TO_PLAN (r2 검증 — [verify.md](verify.md) r2 절 · D2 BLOCKING · D3 PLAN_GAP) |
 | V mode | `Baseline V + ΔV1` |
 | 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1은 이 handoff의 V1 위 증분이다 |
 | 이번 V revision | `ΔV1` — verify r1 `PLAN_GAP` D1(EP-05 자리 술어·게이트 (H) 술어가 불변식 주어보다 좁음) 정정. 구 행은 supersede(§7-B) |
@@ -946,4 +946,7 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 분류 | 상태 |
 |---|---|---|---|---|---|
-| D1 | EP-05 자리 검색·게이트 (H) 술어가 `setTimeout`·`Date.now()+리터럴`뿐이라 "테스트 소유 실시간 마감"(D-001)보다 좁다. 목록 밖 미배율 `managed-mcp.cli.integration.test.ts:289` `AbortSignal.timeout(40_000)` · `native-storage.integration.test.ts:51` `execFileSync {timeout: 300000}` · 분류 필요 `pop3-tls.test.ts:48-49`(3000) · 식별자 경유 지연은 (H) 밖 | VP-01·07·09 · AC7 · [verify r1](verify.md) §13 | 설계자가 EP-05 술어·자리 목록·pop3 분류를 ΔV1로 고정 → 구현이 고장 이력 X7·X8·X9를 닫는다 | PLAN_GAP | open |
+| D1 | EP-05 자리 검색·게이트 (H) 술어가 `setTimeout`·`Date.now()+리터럴`뿐이라 "테스트 소유 실시간 마감"(D-001)보다 좁다. 목록 밖 미배율 `managed-mcp.cli.integration.test.ts:289` `AbortSignal.timeout(40_000)` · `native-storage.integration.test.ts:51` `execFileSync {timeout: 300000}` · 분류 필요 `pop3-tls.test.ts:48-49`(3000) · 식별자 경유 지연은 (H) 밖 | VP-01·07·09 · AC7 · [verify r1](verify.md) §13 | 설계자가 EP-05 술어·자리 목록·pop3 분류를 ΔV1로 고정 → 구현이 고장 이력 X7·X8·X9를 닫는다 | PLAN_GAP | **closed** (verify r2 — X7′·X8′·X9′ 잡음 · EP-05a 44 = 스캔 44) |
+| D2 | (H′) 형태 판정이 같은 파일 바인딩을 따라가지 않아 규칙 칸이 덮는 두 형태를 놓친다. (a) 단축 속성 `{ timeoutMs }` + `const timeoutMs = 5000` → exit 0(Y1), 같은 값의 키 형태 `{ timeoutMs: probeMs }`는 exit 1(Y1c). (b) const에 담은 `vi.waitFor` 옵션 — 안의 `scaleMs`는 green(Y2), 기준값만 담은 정상 코드는 "테스트 소유 마감" 위반 red(Y2b) | VP-12 · AC7b · EP-12 P2·P3·P5·P7 · D-012·D-014 · [verify r2](verify.md) r2-13 | 둘째 인자 식별자를 같은 파일 const로 풀어 P5 제외·P7 판정에 쓰고, 단축 속성을 키 형태로 판정한다 · UT 입력에 Y1·Y2·Y2b를 둔다 | BLOCKING | open |
+| D3 | EP-12 P2 규칙 칸이 형태의 **대상**이 같은 파일 바인딩을 거칠 때를 정하지 않는다 — `const elapsed = Date.now() - start; expect(elapsed).toBeLessThan(5000)`(Y5) · `const start = Date.now(); const deadline = start + 5000`(Y5b) · 구조 분해 매개변수 기본값 `({ timeoutMs = 5000 } = {})`(Y11) 모두 게이트·`scan-deadlines.mjs` exit 0. D-012 주어("경과 상한 단언"·"`now()` 마감"·"매개변수 기본값")는 덮는다. 현재 트리 해당 자리 0 | VP-12 · AC7b · D-012 · §10 EP-12 · [verify r2](verify.md) r2-13 | 설계자가 P2(·P3) 규칙 칸에 바인딩 추적 범위(now 식 변수 · 파생 마감 · 구조 분해 기본값 · 단축 속성)를 한 번에 정하고 UT 입력 칸·스캔 술어를 맞춘다 → 구현이 Y5·Y5b·Y11을 닫는다 | PLAN_GAP | open |
+| D4 | r2 `[구현자 기입]` 강제 지점 전수 표가 VP-07a·09a 분모의 EP-01~04·06(32자리)을 행으로 두지 않고 "NOT_REQUIRED 비영향"으로 적었다 — 그 자리는 REQUIRED pair 분모다 | repository operation · [verify r2](verify.md) r2-11 | 다음 impl 표는 pair §10 자리 전부를 행으로 둔다(검증자가 r2-5에서 독립 재측정으로 닫음) | NON_BLOCKING | open |
