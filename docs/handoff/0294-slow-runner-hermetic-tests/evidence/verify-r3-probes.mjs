@@ -14,14 +14,11 @@ const w = (code) => scanBudgetSites('a.test.ts', code, []).filter((s) => s.kind 
 
 // [id, 규칙, 기대, 소스, 측정, gap]
 const CASES = [
-  // 규칙 원문이 덮는데 판정이 다르다 — PAIR_FAIL(D5)
+  // 이행 결함 — 규칙 칸 원문이 글자 그대로 덮는데 판정이 다르다(review round 41 판정 정정 기준)
   ['W1', 'ΔV1 P2 timer — timers/promises 의 setTimeout 첫 인자(별칭 없음)', 1, `import { setTimeout } from 'node:timers/promises'\nawait setTimeout(5000)`],
   ['W2', 'P3′ B7 조건식 양쪽 × 산술 — 여러 값이면 값마다', 1, `setTimeout(f, (fast ? 2 : 5) * 1000)`],
   ['W2b', 'P3′ B2·B7 — 여러 값 변수 × 산술', 1, `const n = fast ? 2 : 5\nsetTimeout(f, n * 1000)`],
-  ['W3', 'P2′ 중첩 timeouts 소유 — 클래스 필드 이름', 1, `class F { timeouts = { connectMs: 5000 } }`],
-  ['W3b', 'P2′ 중첩 timeouts 소유 — 대입 대상 속성 이름', 1, `o.timeouts = { connectMs: 5000 }`],
-  ['W7', 'P3′ B4 같은 파일 함수 ← 같은 파일 호출부(IIFE)', 1, `await ((ms) => new Promise((r) => setTimeout(r, ms)))(5000)`],
-  // 분기 입력 대조 — 현재 판정은 맞고 UT 에 입력이 없다(같은 입력으로 V-변이를 판정)
+  // 분기 입력 대조 — 현재 판정은 맞고 UT 에 입력이 없다(같은 입력으로 V-변이를 판정). satisfies·! 는 규칙 칸 밖 분기(확장)
   ['V-elem', "P2′ 대입 o['k'] = v", 1, `o['timeoutMs'] = 5000`],
   ['V-oreq', 'P2′ 대입 ||=', 1, `opts.timeoutMs ||= 5000`],
   ['V-util', 'P2′ util.promisify(x)', 1, `import util from 'node:util'\nimport { execFile } from 'node:child_process'\nawait util.promisify(execFile)(c, a, { timeout: 10 })`],
@@ -35,7 +32,10 @@ const CASES = [
   ['V-nonnull', 'P3′ B1 !', 1, `const d = { ms: 5000 }\nsetTimeout(f, d!.ms)`],
   ['V-expectx', 'ΔV1 P5 elapsed 상한 인자는 센다(matcher 콜백 안)', 1, `expect(x).toSatisfy(() => expect(Date.now() - s).toBeLessThan(5000))`],
   ['M21b', 'P2′ named — 식별자 대입', 1, `let timeoutMs\ntimeoutMs = 5000\nawait waitUntil(s, timeoutMs)`],
-  // 규칙 원문끼리 어긋나거나 주어보다 좁다 — PLAN_GAP(D6). 기대는 D-015 주어 기준 제안값
+  // 확장 후보 — 규칙 칸 밖이거나 덮는다고 보려면 해석이 필요. verify 3회째라 INDEX 후보 표로 갔다. 기대는 D-015 주어 기준 제안값
+  ['W3', 'P2′ 중첩 timeouts 소유 — 클래스 필드 이름(해석 필요)', 1, `class F { timeouts = { connectMs: 5000 } }`, v, true],
+  ['W3b', 'P2′ 중첩 timeouts 소유 — 대입 대상 속성 이름(해석 필요)', 1, `o.timeouts = { connectMs: 5000 }`, v, true],
+  ['W7', 'P3′ B4 같은 파일 호출부 — IIFE(해석 필요)', 1, `await ((ms) => new Promise((r) => setTimeout(r, ms)))(5000)`, v, true],
   ['W4', 'P2′ 호출 대상 목록(B1·B2·promisify·import) vs D-015 구조 분해 — vi.waitFor 별칭 기준값', 0, `const { waitFor } = vi\nawait waitFor(cb, { timeout: 5000 })`, v, true],
   ['W4b', '같음 — 별칭 안 scaleMs 이중 배율', 1, `const { waitFor } = vi\nawait waitFor(cb, { timeout: scaleMs(5000) })`, w, true],
   ['W4c', '같음 — setTimeout 구조 분해 별칭', 1, `const { setTimeout: st } = globalThis\nst(f, 5000)`, v, true],
