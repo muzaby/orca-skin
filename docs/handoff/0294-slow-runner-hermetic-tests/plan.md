@@ -10,13 +10,13 @@
 |---|---|
 | slug | `0294-slow-runner-hermetic-tests` |
 | 작성자 | Claude Code |
-| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) · 2026-11-05 (ΔV3) |
-| 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) · `ccr-8246f22f-rxq1zj`(ΔV3) |
-| 상태 | plan/READY (ΔV3 — r3 판정 정정 FAIL의 이행 결함 14건을 분기 목록 169행에 귀속, 다음 구현 r4. §7-D) |
-| V mode | `Baseline V + ΔV1 + ΔV2 + ΔV3` |
-| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1~ΔV3는 이 handoff의 V1 위 증분이다 |
-| 이번 V revision | `ΔV3` — plan 내부 정합: EP-12b 규칙 칸 ↔ UT 입력 칸을 분기 목록 169행으로 고정 · B7↔P9 충돌 해소(R4) · 용어 범위 R1~R8과 선언 경계 L01~L11. 구 행은 supersede(§7-D). ΔV2는 r2 D2·D3 정정(§7-C), ΔV1은 r1 D1 정정(§7-B) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) · 2026-11-05 (ΔV3 · ΔV4) |
+| 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) · `ccr-8246f22f-rxq1zj`(ΔV3·ΔV4) |
+| 상태 | plan/READY (ΔV4 — 사용자 결정: 식 노드 종류 표 + 값 자리 fail-closed. ΔV3 분기 169행 유지, 다음 구현 r4. §7-E) |
+| V mode | `Baseline V + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1~ΔV4는 이 handoff의 V1 위 증분이다 |
+| 이번 V revision | `ΔV4` — 사용자 결정(2026-11-05): (H′) 해석을 식 노드 종류 표 91칸으로 고정하고 값 자리는 fail-closed(판정 불가 + `UNRESOLVED_ALLOWED`). ΔV3 R1~R8·L01~L11은 supersede(§7-E). ΔV3는 plan 내부 정합: EP-12b 규칙 칸 ↔ UT 입력 칸을 분기 목록 169행으로 고정 · B7↔P9 충돌 해소(R4) · 용어 범위 R1~R8과 선언 경계 L01~L11. 구 행은 supersede(§7-D). ΔV2는 r2 D2·D3 정정(§7-C), ΔV1은 r1 D1 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 | 구현 주체 | Claude (비기능 — 테스트 인프라·CI. root `AGENTS.md` "리팩토링·버그수정 등 비기능 작업") |
 | 측정 증거 | [`evidence/`](evidence/) — 재현 스크립트. 수치는 아래 §8이 정본 |
 
@@ -63,8 +63,10 @@
 | D-012 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 7형태다 — 타이머 지연 · `x.setTimeout(N)` · `AbortSignal.timeout(N)` · `now()` 마감 산술·비교 · 경과 상한 단언 · `/timeout/i` 옵션(중첩 `timeouts` 객체, 자식 프로세스 timeout, production 시간 인자 포함) · `/timeout/i` 매개변수 기본값. 값은 같은 파일 상수·`??`/`||` 기본값까지 따라간다 | D-001의 주어를 형태로 고정한다. V1 EP-05는 `setTimeout`·`Date.now()+N`만 세어 목록 밖 미배율 자리가 남았다(verify r1 D1) | 추론 — D-001 + verify r1 D1 · §7-B 실측 | **SUPERSEDED** | → D-015·D-016 (ΔV2) |
 | D-013 | 분류: 그 값이 지나면 **정상 경로의 테스트가 실패**하면 예산 → `scaleMs(기준값)`. 시간 초과 자체를 시험하거나(가짜 시계 포함) 값이 데이터로만 흐르거나 하한(그만큼 기다린 뒤 관측)이면 의미 값 → 허용 목록. 임계 1000ms(V1 AC7 유지), 단 `AbortSignal.timeout`·자식 프로세스 timeout은 임계 없이 본다 | 1초 미만 자리는 실측상 전부 시간 초과 유발값·순서용 하한이다. abort·자식 프로세스 상한은 1초 미만 사용이 0건이라 임계가 고장만 숨긴다(r1 X7·X8) | 추론 — §7-B 실측 | ACTIVE | — |
 | D-014 | 허용 목록 항목은 `{file, value, count, reason}`이고 게이트가 같은 파일·같은 값 자리 수를 `count`와 대조한다 — 같은 값의 새 자리·지운 자리 모두 red. `vi.waitFor` 옵션 안의 `scaleMs`(이중 배율, §12)도 게이트가 red로 막는다 | `{file, value}`만으로는 한 항목이 같은 파일의 새 예산 자리를 덮는다. §12 이중 배율 금지에는 강제 지점이 없었다 | 추론 — §7-B | ACTIVE | — |
-| D-015 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 자리다(D-012 주어·범위 승계). (H′)가 식을 읽는 모든 자리 — 형태의 호출 대상·대상 식·값·옵션 객체·맥락 — 는 **같은 파일 선언 그래프**를 해석기 하나로 푼다: 검사기 심볼(스코프·가림) · 래퍼 · 변수 초기값과 대입 · 구조 분해 · 같은 파일 함수·메서드의 매개변수←호출 인자와 호출 결과←반환식 · 단축 속성 · 객체 리터럴 멤버(전개) · `??`/`\|\|`/조건식/산술. **경계**: 같은 파일 선언에 닿지 않는 호출(production·라이브러리)의 인자와 그 콜백 매개변수 · production import 상수 · 객체 리터럴로 풀리지 않는 값의 멤버 · 계산 키 | D-012 주어("테스트가 고른 시간 값")는 값이 어느 바인딩을 거쳐도 같다. r1(술어 = 해법 형태)·r2(판정 = 문법 노드)로 같은 축이 두 번 좁았다(verify r2 D2·D3·Review Signals). 경계 밖은 이번 턴 실측으로 상한 0(§7-C) | 추론 — D-001·D-012 + verify r2 D2·D3 · §7-C 실측 | ACTIVE | D-012 대체(주어·범위 승계) |
-| D-016 | 형태·슬롯·now 원천·맥락을 전수로 고정한다 — 형태 8(D-012의 7 + **named**: `/timeout/i` 이름 변수 초기값·식별자 대입). `/timeout/i` 이름 슬롯 = 객체 속성 · 단축 속성 · 대입(`=`·`??=`·`\|\|=`) · 클래스 필드 · 매개변수·구조 분해 기본값 · 이름 변수. now 원천 4종(`Date.now()`·`performance.now()`·`new Date().getTime()`·`.valueOf()`) — 호출 인자·객체 안은 now 식이 아니다. deadline = now 식 `+ N`·`N +`·`+= N`·비교(now 식끼리 비교는 자리 아님) · elapsed = 상한 단언 두 방향. 맥락은 변수 참조 자리에서 판정 — 제외는 참조 **전부**, 자식 프로세스 무임계·`timeouts` 이름 소유는 참조 **하나라도**. 한 리터럴은 한 자리 | 같은 계약을 다른 문법 지점에서 깨는 입력(verify r2 Y-행)의 문법 축을 TS AST 선언·멤버 종류로 전수 나열해 닫는다. now 식을 부분 트리로 넓히면 호출 인자 안의 now 때문에 무관한 덧셈이 deadline 형태로 잡힌다(시제품: `statusLine.render.test.ts:204` `a + count(HTML, t)` — 산술·바인딩만으로 좁혀 0) | 추론 — D-012 + verify r2 Y-행 · §7-C 탐침 131입력 | ACTIVE | D-012 대체(형태·값 열거) |
+| D-015 | D-001의 "테스트 소유 실시간 마감" 자리는 **테스트 소스**(`app/src`의 `*.test.ts`·`*.testfixture.ts`·`*.testfixture.tsx`)에서 테스트가 고른 시간 값이 실제 경과 시간의 **상한**이 되는 자리다(D-012 주어·범위 승계). (H′)가 식을 읽는 모든 자리 — 형태의 호출 대상·대상 식·값·옵션 객체·맥락 — 는 **같은 파일 선언 그래프**를 해석기 하나로 푼다: 검사기 심볼(스코프·가림) · 래퍼 · 변수 초기값과 대입 · 구조 분해 · 같은 파일 함수·메서드의 매개변수←호출 인자와 호출 결과←반환식 · 단축 속성 · 객체 리터럴 멤버(전개) · `??`/`\|\|`/조건식/산술. **경계**: 같은 파일 선언에 닿지 않는 호출(production·라이브러리)의 인자와 그 콜백 매개변수 · production import 상수 · 객체 리터럴로 풀리지 않는 값의 멤버 · 계산 키 | D-012 주어("테스트가 고른 시간 값")는 값이 어느 바인딩을 거쳐도 같다. r1(술어 = 해법 형태)·r2(판정 = 문법 노드)로 같은 축이 두 번 좁았다(verify r2 D2·D3·Review Signals). 경계 밖은 이번 턴 실측으로 상한 0(§7-C) | 추론 — D-001·D-012 + verify r2 D2·D3 · §7-C 실측 | **SUPERSEDED** | D-012 대체(주어·범위 승계) → D-018 (ΔV4 — 주어·해석기 하나 원칙 승계, 경계 목록은 노드 종류 표 경계 칸으로) |
+| D-016 | 형태·슬롯·now 원천·맥락을 전수로 고정한다 — 형태 8(D-012의 7 + **named**: `/timeout/i` 이름 변수 초기값·식별자 대입). `/timeout/i` 이름 슬롯 = 객체 속성 · 단축 속성 · 대입(`=`·`??=`·`\|\|=`) · 클래스 필드 · 매개변수·구조 분해 기본값 · 이름 변수. now 원천 4종(`Date.now()`·`performance.now()`·`new Date().getTime()`·`.valueOf()`) — 호출 인자·객체 안은 now 식이 아니다. deadline = now 식 `+ N`·`N +`·`+= N`·비교(now 식끼리 비교는 자리 아님) · elapsed = 상한 단언 두 방향. 맥락은 변수 참조 자리에서 판정 — 제외는 참조 **전부**, 자식 프로세스 무임계·`timeouts` 이름 소유는 참조 **하나라도**. 한 리터럴은 한 자리 | 같은 계약을 다른 문법 지점에서 깨는 입력(verify r2 Y-행)의 문법 축을 TS AST 선언·멤버 종류로 전수 나열해 닫는다. now 식을 부분 트리로 넓히면 호출 인자 안의 now 때문에 무관한 덧셈이 deadline 형태로 잡힌다(시제품: `statusLine.render.test.ts:204` `a + count(HTML, t)` — 산술·바인딩만으로 좁혀 0) | 추론 — D-012 + verify r2 Y-행 · §7-C 탐침 131입력 | **SUPERSEDED** | D-012 대체(형태·값 열거) → D-018 (ΔV4 — 형태 8·맥락·한 리터럴 한 자리 승계, 열거는 노드 종류 표로) |
+| D-017 | (H′) 해석은 **식 노드 종류 표**로 고정하고 **값 자리는 fail-closed**로 판정한다 — 표의 red 칸과 표 밖 종류는 "판정 불가" 위반이며 `UNRESOLVED_ALLOWED` 등록으로만 통과한다. 0294 안에서 한다 | "294안에 넣어라" — 앞 턴에서 SKILL §5-A(열린 입력 집합 판정 산출물은 fail-closed 또는 노드 종류 표)와 선택지(현행 유지 · fail-closed · 노드 종류 표 · 새 handoff 분리)를 설명한 뒤 | 사용자 턴 2026-11-05 | ACTIVE | — |
+| D-018 | 노드 종류 표의 내용 — 자리 9곳(KV·KD·KM·KF 값 · KC 호출 대상 · KN now · KE matcher · KO 소유 · KP param) 91칸, 값 자리 red 칸과 표 밖 red, 호출 대상·now 자리는 경계 칸(형태 아님·now 아님). §7-E 표가 정본이다. D-015 주어(테스트가 고른 시간 값이 상한이 되는 자리)·해석기 하나, D-016 형태 8·맥락(제외는 참조 전부, 자식 프로세스·소유는 하나라도)·한 리터럴 한 자리를 승계한다 | D-017의 구체화. 호출 대상·now 자리를 red로 두면 트리의 무관한 호출 101,920·산술 12가 막힌다 — 값 자리 red는 트리 0(§7-E 측정) | 추론 — D-017 + §7-E 센서스 | ACTIVE | D-015·D-016 대체(주어·원칙 승계) |
 
 ### 갱신 메모
 
@@ -74,6 +76,8 @@
 - 변경된 결정: D-012(ΔV2, 위). 기존 handoff 결정과의 관계는 §16.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001 ↔ AC1·AC2·AC3·AC5~AC9(전 예산 자리) · D-002 ↔ AC4·AC9 · D-003 ↔ AC1~AC3(60s·60s·15s) · D-004 ↔ AC9(90·135분) · D-005 ↔ AC10~AC13(기대값 미변경 = AC16 회귀) · D-006 ↔ AC10·AC12·AC14(브랜치 이름) · D-007 ↔ AC15 · D-008 ↔ AC15(스킬 포크 0건 유지) · D-009 ↔ AC5·AC8(A~E 유지) · D-010 ↔ AC17 · D-011 ↔ AC16(22건 집합 유지).
 - **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001·D-015 ↔ AC7c(EP-05b 62자리 = 해석기 술어 전수 · 예산 24 `scaleMs`) · D-016 ↔ AC7d(EP-12b P2′·P5′·P7′·P8·P9 = 형태 8·슬롯·now 원천 4·맥락 전부/하나라도·한 리터럴 한 자리) · D-013 ↔ AC7c(새 18자리는 가짜·주입 시계와 mtime 데이터 → 의미 값) · D-014 ↔ AC7c(새 7항목 count = 자리 수, M11c·M11d) · D-005 ↔ AC7c(테스트 소스·기대값 변경 0) · D-009 ↔ AC7d((A)~(E)·(F)·(G) 무변경) · D-003 ↔ AC7c(기준값 = 현재 리터럴). D-012(SUPERSEDED)를 근거로 삼는 ACTIVE AC: 0 — AC7a·7b는 AC7c·7d로 대체.
+- ΔV4(2026-11-05): **사용자 결정** D-017 추가, 그 구체화 D-018 추가, D-015·D-016 → D-018 SUPERSEDED(주어·원칙 승계). plan 동결 뒤 새 열거 항목의 출처가 이 사용자 결정이다.
+- **ΔV4 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-017 ↔ AC7f(값 자리 판정 불가 · `UNRESOLVED_ALLOWED` count) · D-018 ↔ AC7f(칸 91 · 입력 332) · D-013 ↔ AC7f(임계 1000 · abort·자식 프로세스 무임계 그대로) · D-014 ↔ AC7f(허용 목록 대조 규칙을 판정 불가 목록이 같은 형으로 승계) · D-005·D-009 ↔ AC7f(테스트 소스·(A)~(G) 변경 0) · D-017 ↔ AC19c(작성자 처방 문서화). D-015·D-016(SUPERSEDED)을 근거로 삼는 ACTIVE AC: AC7c 하나 — 그 근거(D-015 주어·EP-05b 술어)는 D-018이 승계하고 ΔV4의 트리 영향 0(새 자리 0)이라 AC7c는 그대로다. AC7e·AC19b는 AC7f·AC19c로 대체.
 - ΔV3(2026-11-05): 결정 추가·대체 없음 — 사용자 결정 변경이 아니라 EP-12b 규칙 칸의 plan 내부 정합(§7-D)이다.
 - **ΔV3 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-015 ↔ AC7e(EP-12c는 D-015 주어의 부분을 잠근다 — 열거 밖 L01~L11은 트리 0, 후보 표 0294 행 · 반대를 요구하는 행 0) · D-016 ↔ AC7e(R2 대입 = D-016 대입 정의 · R7 elapsed 두 방향 · R4는 "한 리터럴은 한 자리"를 산술 노드로 잇는다) · D-013 ↔ AC7e(R4 임계는 1000·abort·자식 프로세스 무임계 그대로) · D-005·D-009 ↔ AC7e(테스트 소스·(A)~(G) 변경 0).
 - **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001·D-012 ↔ AC7a(EP-05a 44자리 = 7형태 전수) · D-013 ↔ AC7a(예산 24 `scaleMs` · 의미 값 20 허용 목록 · 임계와 무임계 형태) · D-014 ↔ AC7a(count 대조·이중 배율 red) · D-005 ↔ AC7a(배율 전환은 대기 상한만 늘리고 단언 기대값은 그대로 — 단언 피연산자는 자리에서 제외) · D-009 ↔ AC7a((A)~(E) 대상 파일 범위 불변) · D-003 ↔ AC7a(기준값 = 현재 리터럴).
@@ -450,7 +454,7 @@
 | R-01 | R | §1 A · D-001 | INHERITED | `V1:R-01` |
 | AT-01b | AT | AC1·2·3·5·6·**7c·7d**·8 | CHANGED → **SUPERSEDED → ΔV3 AT-01c** | `ΔV1:AT-01a` 대체(AC7a → AC7c, AC7b → AC7d) |
 | AR-01b · IT-01b | AR · IT | 배율 SSOT ↔ 예산 24자리(EP-05b 구성: `:231` 빠짐 · `temp-repo:43` 더함) · 자리별 게이트 좌표 | CHANGED | `ΔV1:AR-01a`·`IT-01a` 대체 |
-| AR-03b · IT-03b | AR · IT | 게이트 (A)~(G) + (H′) 바인딩 해석 · 허용 23항목 · `--report` 값 열 | CHANGED | `ΔV1:AR-03a`·`IT-03a` 대체 |
+| AR-03b · IT-03b | AR · IT | 게이트 (A)~(G) + (H′) 바인딩 해석 · 허용 23항목 · `--report` 값 열 | CHANGED → **SUPERSEDED → ΔV4 AR-03c · IT-03c** | `ΔV1:AR-03a`·`IT-03a` 대체 |
 | MD-03b · UT-03b | MD · UT | (H′) 판정 — EP-12b 9지점 | CHANGED → **SUPERSEDED → ΔV3 MD-03c · UT-03c** | `ΔV1:MD-03`·`UT-03` 대체 |
 | AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` |
 | 그 밖의 node | — | — | INHERITED | 무변경 |
@@ -460,7 +464,7 @@
 | Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
 |---|---|---|---|---|---|---|
 | VP-12b | MD-03b ↔ UT-03b / UT | **SUPERSEDED → ΔV3 VP-12c (§7-D)** | 테스트 소스 문자열 → 해석기(B) → 형태·맥락 판정 → 자리·위반 | `scripts/check-test-budgets.test.mjs` 새 describe '바인딩 해석 (0294 ΔV2)' — EP-12b 표 입력마다 위반 수 단언 · 기존 '규칙 (H′)' 유지 | required — **M18~M38**(아래 변이 표) + verify r2 Y1·Y2·Y2b·Y5·Y5b·Y11 재실행 | EP-12b(9) |
-| VP-09b | AR-03b ↔ IT-03b / IT | REQUIRED | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs`(트리 exit 0) · `--report` deadline 62행 = `scan-deadlines-v2.mjs` 62행(아래 대조 명령 0줄) · Windows CI | required — **M11c**·**M11d** · Y-트리 변이 · ΔV1 승계 M3·M4·M6·M11a·M11b·M15·X9′ | EP-03(20)·04(6)·05b(62)·06(3)·12b(9) = 100 |
+| VP-09b | AR-03b ↔ IT-03b / IT | **SUPERSEDED → ΔV4 VP-09c (§7-E)** | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs`(트리 exit 0) · `--report` deadline 62행 = `scan-deadlines-v2.mjs` 62행(아래 대조 명령 0줄) · Windows CI | required — **M11c**·**M11d** · Y-트리 변이 · ΔV1 승계 M3·M4·M6·M11a·M11b·M15·X9′ | EP-03(20)·04(6)·05b(62)·06(3)·12b(9) = 100 |
 | VP-07b | AR-01b ↔ IT-01b / IT | REQUIRED | `scripts/test-time.mjs` → 예산 24자리 `scaleMs` → 타이머·abort·자식 프로세스·production 시간 인자·이름 변수 | 자리마다 `gate:node scripts/check-test-budgets.mjs` — 그 자리를 리터럴로 되돌리면 exit 1 | required — **M5b**(24자리 각각) · X7′·X8′ · V1 M1·M2·M6 승계 | EP-01(2)·02(1)·03(20)·04(6)·05b(62)·06(3) = 94 |
 | VP-01b | R-01 ↔ AT-01b / AT | **SUPERSEDED → ΔV3 VP-01c (§7-D)** | 배율 해석 → config·setup·파일 예산·인라인·마감 62자리·픽스처 → 실행 | AC1~3·5·6·8: verify r1 §5 좌표 승계 · AC7c·7d: VP-07b·09b·12b 좌표 | VP-07b·09b·12b 변이 | VP-07b와 같음(94) |
 | VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 | `evidence/clean-host-run.sh` + `newfails.mjs` — 실패 집합 = 기준 22, added 0 · `git diff --stat <ΔV2 설계 커밋>..HEAD -- app/src` 0줄 | not selected — 직접 행동 oracle | 0 — ΔV2는 테스트 소스를 바꾸지 않는다 |
@@ -477,7 +481,7 @@
 |---|---|---|---|---|
 | R-01 | **AT-01b / AC7c** (AC7a 대체) | EP-05b 62자리 중 **예산 24**는 `scaleMs(기준값)`을 지나고 기준값은 현재 리터럴 그대로다(테스트 소스 변경 0). **의미 값 38**은 허용 목록 23항목(ΔV1 16 + 새 7) `{file, value, count, reason}`에 들고 항목마다 count = 자리 수다 | 게이트 (H′): 트리 exit 0 · 예산 24자리 각각을 리터럴로 되돌리면 exit 1(M5b) · 새 허용 자리 ±1이면 exit 1(M11c·M11d) · 대조 명령 0줄 | 테스트 본문의 타이머·abort·now 마감·자식 프로세스·production 시간 인자·이름 변수 |
 | R-01 | ~~AT-01b / AC7d~~ (AC7b 대체) → **SUPERSEDED → ΔV3 AC7e (§7-D)** | (H′)는 EP-12b 9지점 규칙대로 판정한다 — 해석기(B0~B7)·경계 · 형태 8 · 슬롯 · now 식 · 맥락(참조 자리) · 임계 · 허용 목록 · 이중 배율 · 자리 동일성. verify r2 Y1·Y2·Y5·Y5b·Y11은 위반 1(배율 입력 0), Y2b·Y2e는 0 | `check-test-budgets.test.mjs` '바인딩 해석 (0294 ΔV2)' — EP-12b 표의 입력마다 위반 수 단언. 분기마다 구별 입력 ≥1 · 배율 입력과 맞바꾸면 결과가 뒤집힌다 | `scripts/check-test-budgets.mjs` |
-| — | **AC19b** (AC19a 대체) | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 (H′)의 바인딩 해석 범위·경계, 슬롯(단축 속성·대입·클래스 필드·구조 분해 기본값·이름 변수), now 원천 4종·`+=`, 맥락 판정을 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
+| — | ~~**AC19b**~~ (AC19a 대체) → **SUPERSEDED → ΔV4 AC19c (§7-E)** | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 (H′)의 바인딩 해석 범위·경계, 슬롯(단축 속성·대입·클래스 필드·구조 분해 기본값·이름 변수), now 원천 4종·`+=`, 맥락 판정을 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
 
 **AC 게이트 재통과**(§5) — 정정 3행:
 
@@ -635,6 +639,8 @@
 
 ### ΔV3 규칙 정정 — EP-12c = EP-12b 규칙 칸 + R1~R8
 
+> **SUPERSEDED → ΔV4 노드 종류 표(§7-E)** — R1~R8의 대체 칸은 §7-E "ΔV3 R·L 대체 표". R4(산술 조합)는 KV05로 그대로 승계한다.
+
 EP-12b 규칙 칸 원문은 그대로 두고 아래 범위만 더한다. "열거 밖"은 선언 경계(아래 L 표)다.
 
 | ID | 지점 | 규칙 — 용어 범위 고정 | 열거 밖 |
@@ -719,6 +725,8 @@ EP-12b 규칙 칸 원문은 그대로 두고 아래 범위만 더한다. "열거
 
 ### 선언 경계 — EP-12c 열거 밖 L01~L11
 
+> **SUPERSEDED → ΔV4(§7-E)** — L01~L11은 노드 종류 표의 해석 칸(L01~L09) 또는 red 칸(L10 KD02 · L11 KC04)으로 들어갔다. 이 표는 ΔV3 시점 측정 기록으로 남긴다.
+
 verify는 이 형태의 반례를 `경계`로 두고 판정에 쓰지 않는다. 그 형태가 테스트 소스에 나타나면 경계가 아니라 현재 결함이다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`). 구현이 이 형태를 판정해도 되지만 UT·sweep 의무는 없다.
 
 | ID | 형태 (verify r3 입력) | 규칙 근거 | 트리 실측 |
@@ -743,10 +751,10 @@ verify는 이 형태의 반례를 `경계`로 두고 판정에 쓰지 않는다.
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
 | R-01 | R | §1 A · D-001 | INHERITED | `V1:R-01` |
-| AT-01c | AT | AC1·2·3·5·6·7c·**7e**·8 | CHANGED | `ΔV2:AT-01b` 대체(AC7d → AC7e) |
+| AT-01c | AT | AC1·2·3·5·6·7c·**7e**·8 | CHANGED → **SUPERSEDED → ΔV4 AT-01d** | `ΔV2:AT-01b` 대체(AC7d → AC7e) |
 | AR-01b · IT-01b | AR · IT | 배율 SSOT ↔ 예산 24자리 | INHERITED | `ΔV2:AR-01b`·`IT-01b` — r4가 게이트 코드를 바꿔 회귀 |
 | AR-03b · IT-03b | AR · IT | 게이트 (A)~(G) + (H′) · 허용 23항목 · `--report` | INHERITED | `ΔV2:AR-03b`·`IT-03b` — 트리 판정 불변(실험 사본 diff 0)을 회귀로 다시 닫는다 |
-| MD-03c · UT-03c | MD · UT | (H′) 판정 — EP-12c(9지점 + R1~R8) · 분기 목록 169행 | CHANGED | `ΔV2:MD-03b`·`UT-03b` 대체 |
+| MD-03c · UT-03c | MD · UT | (H′) 판정 — EP-12c(9지점 + R1~R8) · 분기 목록 169행 | CHANGED → **SUPERSEDED → ΔV4 MD-03d · UT-03d** | `ΔV2:MD-03b`·`UT-03b` 대체 |
 | AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` |
 | 그 밖의 node | — | — | INHERITED | 무변경 |
 
@@ -754,9 +762,9 @@ verify는 이 형태의 반례를 `경계`로 두고 판정에 쓰지 않는다.
 
 | Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
 |---|---|---|---|---|---|---|
-| VP-12c | MD-03c ↔ UT-03c / UT | REQUIRED | 테스트 소스 문자열 → 해석기(B) → 형태·맥락 판정 → 자리·위반 | `scripts/check-test-budgets.test.mjs` — 분기 목록 169행마다 위반 수(측정 열 v·w·d)를 단언, 케이스명에 분기 ID. 기존 122행은 기존 케이스 그대로, 신설 43행·판정 4행은 새 describe '분기 목록 (0294 ΔV3)' | required — **M39~M42** + 인용 변이 14(아래) + ⑦ sweep 169행 기본 변이 | EP-12c(9지점 · 분기 169) |
-| VP-01c | R-01 ↔ AT-01c / AT | REQUIRED | ΔV2 VP-01b와 같음 | AC1~3·5·6·8: verify r1 §5 좌표 승계 · AC7c: VP-07b·09b · AC7e: VP-12c | VP-12c 변이 | VP-07b와 같음(94) |
-| VP-09b | AR-03b ↔ IT-03b / IT | REGRESSION | ΔV2와 같음 | `gate:node scripts/check-test-budgets.mjs` exit 0 · ΔV2 대조 명령 0줄 · Windows CI 'Test budget guard' | ΔV2 승계 M11c·M11d · Y-트리 | ΔV2와 같음(100) |
+| VP-12c | MD-03c ↔ UT-03c / UT | **SUPERSEDED → ΔV4 VP-12d (§7-E)** | 테스트 소스 문자열 → 해석기(B) → 형태·맥락 판정 → 자리·위반 | `scripts/check-test-budgets.test.mjs` — 분기 목록 169행마다 위반 수(측정 열 v·w·d)를 단언, 케이스명에 분기 ID. 기존 122행은 기존 케이스 그대로, 신설 43행·판정 4행은 새 describe '분기 목록 (0294 ΔV3)' | required — **M39~M42** + 인용 변이 14(아래) + ⑦ sweep 169행 기본 변이 | EP-12c(9지점 · 분기 169) |
+| VP-01c | R-01 ↔ AT-01c / AT | **SUPERSEDED → ΔV4 VP-01d (§7-E)** | ΔV2 VP-01b와 같음 | AC1~3·5·6·8: verify r1 §5 좌표 승계 · AC7c: VP-07b·09b · AC7e: VP-12c | VP-12c 변이 | VP-07b와 같음(94) |
+| VP-09b | AR-03b ↔ IT-03b / IT | **SUPERSEDED → ΔV4 VP-09c** | ΔV2와 같음 | `gate:node scripts/check-test-budgets.mjs` exit 0 · ΔV2 대조 명령 0줄 · Windows CI 'Test budget guard' | ΔV2 승계 M11c·M11d · Y-트리 | ΔV2와 같음(100) |
 | VP-07b | AR-01b ↔ IT-01b / IT | REGRESSION | ΔV2와 같음 | 자리마다 게이트 좌표(M5b 24) | M5b | ΔV2와 같음(94) |
 | VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 | `evidence/clean-host-run.sh` + `newfails.mjs` added 0 · `git diff --stat <ΔV3 설계 커밋>..HEAD -- app/src` 0줄 | not selected | 0 |
 | VP-12b · VP-01b | — | **SUPERSEDED** | — | VP-12c · VP-01c | — | — |
@@ -769,7 +777,7 @@ verify는 이 형태의 반례를 `경계`로 두고 판정에 쓰지 않는다.
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | **AT-01c / AC7e** (AC7d 대체) | (H′)는 EP-12c(EP-12b 9지점 + R1~R8)대로 판정한다 — 분기 목록 169행의 기대와 같다. 판정 4행: `timers/promises`에서 별칭 없이 들여온 `setTimeout(5000)` 위반 1(F04) · 여러 값 × 산술 위반 1(V33·V34) · 한 조합만 배율이어도 위반 1(V35) · 전부 배율이면 배율 자리 1·위반 0(V36). 선언 경계 L01~L11은 판정 의무가 없다 | `check-test-budgets.test.mjs` — 169행마다 기대 단언(케이스명에 ID) · 행의 분기 코드를 지우거나 형제와 맞바꾸면 그 행이 red(⑦ sweep 기록) · `dv3-branches.mjs` 판정 불일치 0 | `scripts/check-test-budgets.mjs` · `scripts/test-budget-bindings.mjs` |
+| R-01 | ~~**AT-01c / AC7e**~~ (AC7d 대체) → **SUPERSEDED → ΔV4 AC7f (§7-E)** | (H′)는 EP-12c(EP-12b 9지점 + R1~R8)대로 판정한다 — 분기 목록 169행의 기대와 같다. 판정 4행: `timers/promises`에서 별칭 없이 들여온 `setTimeout(5000)` 위반 1(F04) · 여러 값 × 산술 위반 1(V33·V34) · 한 조합만 배율이어도 위반 1(V35) · 전부 배율이면 배율 자리 1·위반 0(V36). 선언 경계 L01~L11은 판정 의무가 없다 | `check-test-budgets.test.mjs` — 169행마다 기대 단언(케이스명에 ID) · 행의 분기 코드를 지우거나 형제와 맞바꾸면 그 행이 red(⑦ sweep 기록) · `dv3-branches.mjs` 판정 불일치 0 | `scripts/check-test-budgets.mjs` · `scripts/test-budget-bindings.mjs` |
 
 **AC 게이트 재통과**(§5) — 정정 1행:
 
@@ -784,7 +792,7 @@ verify는 이 형태의 반례를 `경계`로 두고 판정에 쓰지 않는다.
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| MD-03c / VP-12c **EP-12c** | (H′) 판정 — EP-12b 9지점 + R1~R8 | `scripts/check-test-budgets.mjs` · `scripts/test-budget-bindings.mjs` | 게이트 | **9지점 · 분기 169행** — 위 분기 목록 | 분모 = `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/dv3-branches.mjs app` 169행(기대 열) · 열거 밖 트리 0 = `dv3-tree-scan.mjs app` + `dv3-experiment.sh app <작업 디렉토리>` | 행 하나가 빠지면 그 분기의 미배율 마감이 통과하거나(거짓 green) 정상 코드가 red다(오탐) |
+| MD-03c / VP-12c **EP-12c** — 분기 169행은 유효, 규칙 R1~R8은 **SUPERSEDED → ΔV4 EP-12d (§7-E)** | (H′) 판정 — EP-12b 9지점 + R1~R8 | `scripts/check-test-budgets.mjs` · `scripts/test-budget-bindings.mjs` | 게이트 | **9지점 · 분기 169행** — 위 분기 목록 | 분모 = `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/dv3-branches.mjs app` 169행(기대 열) · 열거 밖 트리 0 = `dv3-tree-scan.mjs app` + `dv3-experiment.sh app <작업 디렉토리>` | 행 하나가 빠지면 그 분기의 미배율 마감이 통과하거나(거짓 green) 정상 코드가 red다(오탐) |
 
 - **EP-12c 게이트가 초록인 채로 남는 차이**(§5 완료 조건 ≠ 목표): 선언 경계 L01~L11(전부 트리 0, 위 표) + ΔV2 EP-05b의 남는 차이 5종(그대로).
 - EP-05b 62자리는 바뀌지 않는다 — R4·F04 판정 변경의 트리 영향 0(combos 사본 diff 0줄 · F04 형태 0).
@@ -837,6 +845,319 @@ verify는 이 형태의 반례를 `경계`로 두고 판정에 쓰지 않는다.
 - 장치 방향: 판정 4행은 현재 red, 고친 뒤 되돌리면 red(M39~M41) · 오탐 방향은 V36·M42.
 - 열린 입력 집합 판정: 새 SKILL의 fail-closed·노드 종류 표는 도입하지 않았다 — 동결 뒤 설계 확장이라 출처가 없다. R1~R8 + L01~L11은 EP-12b 용어의 범위 열거다.
 - AC 1행은 §5 AC 게이트를 다시 통과했다(위 재통과 목록). 사람 실기 추가 없음(AC18 그대로).
+
+---
+
+## 7-E. ΔV4 — 식 노드 종류 표 + 값 자리 fail-closed (사용자 결정)
+
+> **적용 순서: `V1` → `ΔV1` → `ΔV2` → `ΔV3` → `ΔV4`.** 출처는 **사용자 결정**(2026-11-05 "294안에 넣어라" — SKILL §5-A의 fail-closed·노드 종류 표 설명과 선택지 표 뒤)이다. 사용자 요구 변경 ΔV라 ΔV4의 NEW·CHANGED 노드(MD-03d·UT-03d·AR-03c·IT-03c·AT-01d) 범위에서 확장 창이 다음 verify 2회 동안 다시 열린다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`). ΔV3 분기 목록 169행은 유지하고, ΔV3 R1~R8·선언 경계 L01~L11은 아래 표가 대체한다.
+
+### 무엇이 왜 바뀌는가
+
+| 지금 | 문제 | ΔV4 |
+|---|---|---|
+| 해석기가 모르는 식을 조용히 넘긴다 — 풀리지 않는 값은 자리 없음, 이름으로 안 풀리는 호출 대상은 형태 아님, now로 안 풀리는 피연산자는 deadline 아님 | r1~r3과 ΔV3 L01~L11에서 매번 새 문법이 거짓 통과로 나왔다(corpus P64) | 해석기가 식을 읽는 자리 9곳(KV·KD·KM·KF 값 · KC 호출 대상 · KN now · KE matcher · KO 소유 · KP param)의 노드 종류를 표로 고정하고 칸마다 해석·숫자 아님·경계·red를 적는다 |
+| 값 자리의 모르는 종류 → 자리 없음 | 미배율 마감이 green으로 지난다 | 값 자리는 fail-closed — red 칸과 표 밖 종류는 "판정 불가" 위반이고 `UNRESOLVED_ALLOWED`에 올려야 통과한다 |
+| 호출 대상·now 자리의 모르는 종류 | red로 두면 무관한 호출(형태 아님 101,920)·산술(now 아님 12)이 막힌다 | 경계 칸("형태 아님"·"now 아님")으로 명시하고 트리 수를 적는다 |
+
+### Product & UX — 게이트 소비자(테스트 작성자·CI)
+
+| 상황 | 게이트 출력 | 작성자가 할 일 |
+|---|---|---|
+| 값 자리가 red 칸·표 밖 종류에 닿음 | `:<줄> <원문> — 테스트 소유 마감의 값을 판정할 수 없다(판정 불가 <칸 ID>: <칸 이름>) — 리터럴·scaleMs(…)·같은 파일 선언으로 쓰거나, 값을 호출자가 고르는 경계면 UNRESOLVED_ALLOWED 에 {file, reason: '<칸 ID>', count, why} 로 등록한다` | 다시 쓰거나 등록 |
+| 허용 항목 count ≠ 같은 파일·같은 칸 자리 수 · `why` 빈 값 · 대상 파일 없음 | SEMANTIC_DELAYS와 같은 문형의 위반 | count·why를 맞춘다 |
+| `--report` | `deadline \t 파일:줄 \t UNRESOLVED\|allowed \t 형태 \t <칸 ID> \t 원문` 행 | — |
+| 현재 트리 | 판정 불가 0 · 허용 목록 0항목 · exit 0 | 없음 |
+
+### 설계 근거 — 이번 턴 측정
+
+기준 트리 `bbb800f`(브랜치 좌표 — 앱 코드는 r3 `fdb3b55`와 같다). 증거 경로 접두사 `docs/handoff/0294-slow-runner-hermetic-tests/evidence/`.
+
+| 관측 | 명령 | 결과 | 설계에 미친 영향 |
+|---|---|---|---|
+| 값 자리 종류 분포 | `node …/dv4-kind-census.mjs app` (V 행) | 숫자 89 · 배율 25 · 산술 1 · 숫자 아님 25(객체 8 · 화살표 6 · 핸들 4 · 문자열 3 · 함수 전역 2 · mock 1 · 키 없음 1) · 경계 26(import 20 · 콜백 매개변수 4 · 그 멤버 2) · **red 0** | 값 자리 fail-closed가 트리에서 0자리 — 허용 목록 0항목 |
+| red 0이 되기 전 | 같은 명령(칸 추가 전) | red 4 — 타이머 주입 콜백 3(`setTimeout: (fn, ms) => setTimeout(fn, ms)` 객체 속성) · mock 체인 1(`vi.spyOn(…).mockImplementation`) | KD08(저장된 함수 → 경계) · KF04(mock 체인 → 숫자 아님) 칸 |
+| now 자리 | 같은 명령(N 행) | 한쪽이 1000 이상 숫자이고 다른 쪽이 now로 안 풀림 12 — 카운터 `index < 2100` · 가짜 시계 `now += 1000`·`clock += ms` · 타임스탬프 `Date.UTC(…) + 60_000` 등, 실제 마감 0 | KN08은 red가 아니라 경계(now 아님) |
+| 호출 대상 | 같은 명령(C 행) | 형태로 풀림 344 · 형태 아님 101,920(멤버 47,012 · import 39,289 · 변수 6,502 · 함수 선언 6,482 · 호출의 호출 851 · 매개변수 492 · 구조 분해 442 · 재대입 254 · 전역 237 · `import()` 236 · 계산 키 98 · 즉시 호출 20 · `super` 3 · 그 밖 2) · 구조 분해·요소 키·재대입 후보에 형태 이름 0 | KC 경계 칸 · KC04·KC05·KC09 해석은 트리 0 |
+| 새 해석 경로의 트리 자리 | 같은 명령 — `@new` 단말 · O04 · N05 행 | 0 — `&&`·쉼표·단항 리터럴·배열 요소·즉시 호출·`this.x`·구조 분해 기본값 소유·`new Date()` 변수 시계 | EP-05b 62 그대로 · 테스트 소스 변경 0 |
+| ΔV3 분기 입력 | 148행(코드 입력)마다 `dv4-kind-census.mjs --probe` | 값 자리 red 0 | ΔV3 169행 기대 변경 0 |
+| 칸 입력 | `node …/dv4-cells.mjs app` | 163행 · 현재 게이트와 판정 불일치 70 | r4가 바꿀 범위 |
+| 센서스 민감도 | 심은 입력 8개(배열 요소 · `&&` · `this.ms` · 복합 대입 · import 함수 호출 · 호출부 없는 export 함수 · 구조 분해 기본값 소유 · `new Date()` 변수) | 각 입력이 해당 칸(`@new` · red · O04 · N05)으로 잡힘 | 트리 0이 사각이 아니다 |
+
+### 식 노드 종류 표 — EP-12d
+
+입력·기대 원문은 `evidence/dv4-cells.mjs`의 같은 ID 행이다 — 기대가 갈리면 이 표가 정본이다. "트리"는 위 센서스의 자리 수다(—는 해석 칸이라 따로 세지 않음). 표 밖 종류는 값 자리에서 red, 그 밖 자리에서 각 표 마지막 칸이다.
+
+**KV — 값 자리 식 종류**(슬롯이 읽는 식, 래퍼를 벗긴 뒤)
+
+| 칸 | 종류 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KV01 | 숫자 리터럴 | 숫자 | 89 | KV01 |
+| KV02 | `+`·`-` 숫자 리터럴 | 숫자(음수는 임계 아래) | 0 | KV02 · KV02b |
+| KV03 | `scaleMs(…)` | 배율 | 25 | KV03 |
+| KV04 | 래퍼 `( )`·`as`·`satisfies`·`!`·`<T>x` | 안쪽을 다시 이 표로 | — | KV04a~e |
+| KV05 | 산술 `+ - * /` | 피연산자 조합(ΔV3 R4 승계) | 1 | KV05 · ΔV3 V28~V36 |
+| KV06 | `??`·`\|\|` | 양쪽 | — | KV06 · ΔV3 V22~V25 |
+| KV07 | `&&` | 오른쪽(왼쪽은 숫자 아님) | 0 | KV07 |
+| KV08 | 쉼표 | 오른쪽 | 0 | KV08 |
+| KV09 | 비교·동등·`in`·`instanceof` | 숫자 아님 | — | KV09 · KV09b~d |
+| KV10 | 그 밖 이항 연산자(예: `%`·`**`·비트·시프트) | red | 0 | KV10 · KV10b |
+| KV11 | 대입 연산 식 | red | 0 | KV11 |
+| KV12 | 조건식 | 양쪽 | — | KV12 · ΔV3 V26·V27 |
+| KV13 | 문자열·템플릿 2종·정규식·`true`·`false`·`null`·객체·배열·함수 식·화살표·클래스 식·JSX 3종·`typeof`·`void`·`delete`·BigInt·`new`·`!x` | 숫자 아님 | 17(객체 8 · 화살표 6 · 문자열 3) | KV13a~u |
+| KV14 | `await` | red | 0 | KV14 |
+| KV15 | `this` | red | 0 | KV15 |
+| KV16 | `++`·`--`(전위·후위) · `~` · 리터럴 아닌 `+`/`-` | red | 0 | KV16a~g |
+| KV17 | 표 밖 종류(태그 템플릿·`yield` 등) | red | 0 | KV17a·b |
+
+식별자는 KD, 리터럴 키 멤버 접근은 KM, 호출은 KF 표로 간다.
+
+**KD — 식별자의 선언**
+
+| 칸 | 선언 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KD01 | 변수 — 초기값 + 같은 파일 대입 `=`·`??=`·`\|\|=` | 후보마다 KV | — | KD01 · ΔV3 V04~V07 |
+| KD02 | 변수 — 복합 대입(`+=`·`-=`·`*=`·`/=` 등)이 있음 | red | 0 | KD02 |
+| KD03 | 변수 — 값 없음 | 숫자 아님 | — | KD03 |
+| KD03b | `declare` 변수 | 경계(밖에서 정한 값) | 0 | KD03b |
+| KD04 | `for-of`·`for-in` 변수 | red | 0 | KD04a·b |
+| KD05 | 구조 분해(중첩 포함) — 기본값 + 원천 멤버 | 후보마다 KV | — | KD05 · ΔV3 V08·V09·S10~S13 |
+| KD06 | 매개변수 — 같은 파일 호출부 | 기본값 + 같은 위치 인자 | — | KD06 · ΔV3 V10~V16 |
+| KD07 | 매개변수 — 즉시 호출 | 그 호출의 인자 | 0 | KD07 |
+| KD08 | 매개변수 — 호출부 없음, 함수가 인자·객체/클래스 속성·배열 요소·반환값으로 넘어감 | 경계(호출자가 같은 파일 밖) | 4 | KD08a~e |
+| KD09 | 매개변수 — 호출부 없는 이름 붙은 함수(선언·변수) | red | 0 | KD09a·b |
+| KD10 | import(이름·기본·이름공간) | 경계 — 테스트 소스 export는 그 파일의 자리, production은 §6 비범위(D-015 승계) | 20 | KD10a~c |
+| KD11 | 함수·클래스·enum 선언 | 숫자 아님 | — | KD11 · KD11b·c |
+| KD12 | 선언 없음 — `undefined`·`Infinity`·`NaN`·함수 전역 / 그 밖 lib 전역 | 숫자 아님 / 경계 | 함수 전역 2 · 그 밖 0 | KD12a~e |
+| KD13 | `catch` 변수 | red | 0 | KD13 |
+| KD14 | 표 밖 선언 종류 | red | 0 | KD14 |
+
+**KM — 멤버 접근(이름·문자열·숫자 리터럴 키)**
+
+| 칸 | 원천 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KM01 | 객체 리터럴 — 속성·단축 속성·전개 | 그 값을 KV로 | — | KM01 · ΔV3 V18~V21 |
+| KM02 | 객체 리터럴에 키 없음 | 숫자 아님 | 1 | KM02 |
+| KM03 | 객체 리터럴 메서드 / getter | 숫자 아님 / red | 0 | KM03a·b |
+| KM04 | 배열 리터럴 + 숫자 키 | 그 요소를 KV로 | 0 | KM04 |
+| KM05 | 배열·문자열 리터럴의 그 밖 멤버 | red | 0 | KM05 · KM05b |
+| KM06 | `this.이름` | 같은 클래스 속성 선언의 초기값 · 없으면 red | 0 | KM06a~c |
+| KM07 | 경계(import·lib 전역·콜백 매개변수·`declare`) | 경계 | 2 | KM07a~c · KD10c |
+| KM08 | 그 밖(`new`·호출 결과·숫자 아님 선언 등) | red | 0 | KM08a~c |
+| KM09 | 계산 키 | red | 0 | KM09 |
+
+**KF — 호출 결과**
+
+| 칸 | 호출 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KF01 | `scaleMs(…)` | 배율(KV03) | 25 | KV03 |
+| KF02 | 같은 파일 함수·메서드 | 반환식을 KV로 | — | KF02 · ΔV3 V16·V17 |
+| KF03 | 즉시 호출 | 반환식을 KV로 | 0 | KF03 |
+| KF04 | 타이머 핸들(`setTimeout`·`setInterval`·`setImmediate`) · mock(`vi.fn`·`vi.spyOn`·`vi.mocked`와 그 체인) | 숫자 아님 | 핸들 4 · mock 1 | KF04a~f |
+| KF05 | 그 밖(import·lib·production 함수) | red | 0 | KF05a·b |
+
+**KC — 호출 대상**(형태 판정 · 제외 맥락 · 자식 프로세스 · P7′)
+
+| 칸 | 종류 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KC01 | 래퍼 5종 | 안쪽 | — | KC01a~c · ΔV3 C01·C02 |
+| KC02 | 선언 없는 식별자 | 그 이름 | 237 | ΔV3 F01 |
+| KC03 | 재대입 없는 변수 | 초기값을 다시 이 표로 | 6,502 | ΔV3 C03·C08 |
+| KC04 | 재대입되는 변수 | 후보에 형태 이름이 있으면 red(판정 불가), 없으면 형태 아님 | 254(형태 이름 후보 0) | KC04a·b |
+| KC05 | 구조 분해 | 원천.속성 | 442(형태 0) | KC05a~d |
+| KC06 | import | `child_process`·`timers/promises`는 원래 이름(별칭 유무 무관), 그 밖 모듈은 형태 아님 | 39,290 | KC06 · ΔV3 F04·F05·C07 |
+| KC07 | 매개변수 | 형태 아님(경계) | 492 | KC07 |
+| KC08 | 속성 접근 | 풀린 소유자.이름 | 47,012 | KC08a·b |
+| KC09 | 요소 접근 리터럴 키 | 풀린 소유자.키 | 1(형태 0) | KC09a·b |
+| KC10 | 요소 접근 계산 키 | 형태 아님(경계) | 98 | KC10 |
+| KC11 | 호출 — `promisify(x)`·`util.promisify(x)` / 그 밖 | x / 형태 아님(경계) | 851 | KC11 · ΔV3 C05·C06 |
+| KC12 | 같은 파일 함수 선언 | 형태 아님(값은 KD06) | 6,482 | KC12 |
+| KC13 | 즉시 호출 · `import()` · `super` · 그 밖 종류 | 형태 아님(즉시 호출의 값은 KD07) | 20 · 236 · 3 · 2 | KD07 · KC13a~c |
+
+**KN — now 식**(deadline·elapsed가 묻는 식)
+
+| 칸 | 종류 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KN01 | 원천 4종 | now | — | ΔV3 N01~N04 |
+| KN02 | 변수·대입·멤버·조건(B) | 후보 중 now | — | ΔV3 N05~N09 |
+| KN03 | 산술 | 한쪽이 now | — | ΔV3 N10 |
+| KN04 | 같은 파일 함수 호출 | 반환식 중 now | 0 | KN04 |
+| KN05 | 즉시 호출 | 반환식 중 now | 0 | KN05 |
+| KN06 | `X.getTime()`·`X.valueOf()`, X가 B로 인자 없는 `new Date()` | now | 0 | KN06 · KN06b |
+| KN07 | 호출 인자·객체·배열 안 | now 아님 | — | ΔV3 N11~N13 |
+| KN08 | 그 밖(외부 호출·import·매개변수·복합 대입 변수·lib 전역) | now 아님(경계) | 12 | KN08a~e |
+| KN09 | now 식끼리 비교 | 자리 아님 | — | ΔV3 N15 |
+
+**KE — elapsed matcher**
+
+| 칸 | 형태 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KE01 | `expect(now).toBeLessThan(OrEqual)(N)` · `expect(N).toBeGreaterThan(OrEqual)(now)` | 상한 | — | ΔV3 F15~F18 |
+| KE02 | 반대 matcher 4종 + `.not` | 상한 | 0 | KE02a~d |
+| KE03 | 상한 matcher + `.not` | 하한(자리 아님) | 0 | KE03a·b |
+| KE04 | 하한 단언 | 자리 아님 | — | ΔV3 N14 |
+| KE05 | `.resolves`·`.rejects`·그 밖 체인 | 자리 아님 | — | KE05 |
+
+**KO — `timeouts` 소유 이름**(숫자 속성이 option 슬롯이 되는 객체를 담은 이름)
+
+| 칸 | 이름 자리 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KO01 | 속성 할당 · 단축 속성 · 변수 선언 | 소유 | — | ΔV3 F20·S09·F21 |
+| KO02 | 클래스 필드 | 소유 | 0 | KO02 |
+| KO03 | 대입 대상 속성·요소(리터럴 키) | 소유 | 0 | KO03a·b |
+| KO04 | 구조 분해 기본값 | 소유 | 0 | KO04 |
+| KO05 | 그 밖 | 소유 아님 | — | KO05 |
+
+**KP — `/timeout/i` 매개변수 슬롯**
+
+| 칸 | 매개변수 | 분류 | 트리 | UT 입력 |
+|---|---|---|---:|---|
+| KP01 | 기본값 있음 | 그 값(D-016 승계) | — | ΔV3 F22 |
+| KP02 | 기본값 없음 — 같은 파일 호출부 | 같은 위치 인자 | 0 | KP02 |
+| KP03 | 기본값 없음 — 호출부 없음, 넘어간 함수 | 경계 | 0 | KP03 |
+| KP04 | 기본값 없음 — 호출부 없는 이름 붙은 함수 | red | 0 | KP04 |
+
+**KA — 판정 불가 허용 목록** `UNRESOLVED_ALLOWED: {file, reason(칸 ID), count, why}[]` — `SEMANTIC_DELAYS`와 같은 대조 규칙.
+
+| 칸 | 규칙 | UT 입력 |
+|---|---|---|
+| KA01~KA03 | 같은 파일·같은 칸 ID의 판정 불가 자리 수 = count면 통과, 많거나 적으면 위반 1 | KA01~KA03 |
+| KA04 | `why` 빈 값 위반 | KA04 |
+| KA05·KA06 | 다른 파일·다른 칸 ID 항목은 자리를 덮지 않는다(항목 쪽 count 불일치도 위반) | KA05 · KA06 |
+| KA07 | 대상 파일이 없는 항목은 CLI가 막는다 | KA07 |
+| KA08 | 위반 문구에 `판정 불가`와 칸 ID | KA08 |
+| KA09 | `--report` 셋째 열 `UNRESOLVED`·`allowed`, 다섯째 열 칸 ID | KA09 |
+
+- 칸 91 · 칸 입력 163행(`dv4-cells.mjs` 출력 "칸 입력 163"). ΔV3 분기 169행과 합친 UT 분모는 332행이다.
+- 판정 불가 자리도 P9를 따른다 — red 단말 노드 하나는 자리 하나다.
+
+**ΔV3 R·L 대체 표** — ΔV3 §7-D의 R1~R8·L01~L11은 SUPERSEDED다.
+
+| ΔV3 | → ΔV4 | | ΔV3 | → ΔV4 |
+|---|---|---|---|---|
+| R1 래퍼 2종 | KV04·KC01(5종) | | L01 클래스 필드 소유 | KO02 |
+| R2 대입·호출 대상 B2 | KD01·KD02·KC03·KC04 | | L02 대입 대상 소유 | KO03 |
+| R3 같은 파일 함수 | KD06~KD09 | | L03 즉시 호출 | KD07·KF03·KN05 |
+| R4 산술 조합 | KV05(승계) | | L04 래퍼 3종 | KV04c~e |
+| R5 소유 이름 | KO01~KO05 | | L05 구조 분해 호출 대상 | KC05 |
+| R6 호출 대상 | KC01~KC13 | | L06 요소 접근 호출 대상 | KC09 |
+| R7 now·elapsed | KN04~KN06·KE02·KE03 | | L07 now 헬퍼 | KN04 |
+| R8 param | KP01~KP04 | | L08 `.not` | KE02·KE03 |
+| | | | L09 기본값 없는 매개변수 | KP02~KP04 |
+| | | | L10 복합 대입 | KD02(red) |
+| | | | L11 재대입 호출 대상 | KC04(red) |
+
+INDEX 후보 표의 0294 행(판정 정정 확장 12건 + L11)은 위 칸으로 전부 들어왔다 — 행을 지운다.
+
+### ΔV4 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §1 A · D-001 | INHERITED | `V1:R-01` |
+| AT-01d | AT | AC1·2·3·5·6·7c·**7f**·8 | CHANGED | `ΔV3:AT-01c` 대체(AC7e → AC7f) |
+| AR-03c · IT-03c | AR · IT | 게이트 (A)~(G) + (H′) + 판정 불가 위반 · `UNRESOLVED_ALLOWED` · `--report` UNRESOLVED 행 | CHANGED | `ΔV2:AR-03b`·`IT-03b` 대체 |
+| MD-03d · UT-03d | MD · UT | (H′) 판정 — EP-12d(노드 종류 표 91칸 + ΔV3 분기 169행) | CHANGED | `ΔV3:MD-03c`·`UT-03c` 대체 |
+| AR-01b · IT-01b | AR · IT | 배율 SSOT ↔ 예산 24자리 | INHERITED | `ΔV2:AR-01b`·`IT-01b` — 게이트 코드가 바뀌어 회귀 |
+| AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` |
+| 그 밖의 node | — | — | INHERITED | 무변경 |
+
+### ΔV4 Pair registry
+
+| Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-12d | MD-03d ↔ UT-03d / UT | REQUIRED | 테스트 소스 문자열 → 해석기 노드 종류 표 → 형태·맥락 판정 → 자리·판정 불가·위반 | `scripts/check-test-budgets.test.mjs` — ΔV3 분기 169행 + ΔV4 칸 입력 163행마다 기대 단언(케이스명에 ID) | required — M43~M50 + 인용 변이(ΔV3 M39~M42 · verify r3 14) + ⑦ sweep 332행 | EP-12d(9지점 · 칸 91 · 입력 332) |
+| VP-09c | AR-03c ↔ IT-03c / IT | REQUIRED | 트리 → `node scripts/check-test-budgets.mjs` → exit · `--report` → CI 'Test budget guard' | `gate:node scripts/check-test-budgets.mjs` exit 0 · `UNRESOLVED_ALLOWED` 0항목 · `--report` UNRESOLVED 행 0 · ΔV2 대조 명령 0줄(deadline 62) · Windows CI | required — **M51**(트리에 판정 불가 자리) · **M52**(허용 항목 count) · ΔV2 승계 M11c·M11d · Y-트리 | EP-03(20)·04(6)·05b(62)·06(3)·12d(9) = 100 |
+| VP-01d | R-01 ↔ AT-01d / AT | REQUIRED | ΔV2 VP-01b와 같음 | AC1~3·5·6·8: verify r1 §5 좌표 승계 · AC7c: VP-07b·09c · AC7f: VP-12d·09c | VP-12d·09c 변이 | VP-07b와 같음(94) |
+| VP-07b | AR-01b ↔ IT-01b / IT | REGRESSION | ΔV2와 같음 | 자리마다 게이트 좌표(M5b 24) | M5b | ΔV2와 같음(94) |
+| VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 | `evidence/clean-host-run.sh` + `newfails.mjs` added 0 · `git diff --stat <ΔV4 설계 커밋>..HEAD -- app/src` 0줄 | not selected | 0 |
+| VP-12c · VP-09b · VP-01c | — | **SUPERSEDED** | — | VP-12d · VP-09c · VP-01d | — | — |
+| VP-02~06 · 08 · 10 · 11 | V1 그대로 | NOT_REQUIRED | — | verify r1 §5 · r2-5 · r3-5 좌표 | — | 비영향: ΔV4 구현은 게이트 2파일·그 UT·`app/AGENTS.md`만 바꾼다 |
+
+- `SUPERSEDED` 이관: VP-12c(분기 169행 · M39~M42 · 인용 변이 14) → VP-12d · VP-09b(M11c·M11d · Y-트리 · ΔV1 승계) → VP-09c · VP-01c(AC7c·7e) → VP-01d(AC7c·7f). 폐기 0.
+- NEW·CHANGED 왼쪽 node ↔ 같은 레벨 REQUIRED pair: MD-03d → VP-12d(UT) · AR-03c → VP-09c(IT) · R-01(오른쪽 AT-01d CHANGED) → VP-01d. 영향받은 INHERITED → REGRESSION: VP-07b · VP-13. 차집합 0.
+
+### ΔV4 Acceptance — 정정
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | **AT-01d / AC7f** (AC7e 대체) | (H′)는 EP-12d대로 판정한다 — ΔV3 분기 169행과 칸 입력 163행의 기대와 같다. 값 자리가 red 칸·표 밖 종류에 닿으면 "판정 불가 <칸 ID>" 위반 1이고, `UNRESOLVED_ALLOWED`의 같은 파일·같은 칸 ID count가 그 자리 수와 같을 때만 통과한다. 호출 대상·now 자리의 경계 칸은 형태 아님·now 아님이다 | `check-test-budgets.test.mjs` 332행 기대 단언(케이스명에 ID) · `dv3-branches.mjs`·`dv4-cells.mjs` 판정 불일치 0 · 칸마다 그 칸을 지우거나 이웃 분류와 맞바꾸면 그 칸의 행이 red(⑦ sweep 기록) | `scripts/check-test-budgets.mjs` · `scripts/test-budget-bindings.mjs` |
+| — | **AC19c** (AC19b 대체) | `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 노드 종류 표(정본 = 해석기 헤더 주석과 plan §7-E) · 값 자리 fail-closed와 "판정 불가" 처방 · `UNRESOLVED_ALLOWED {file, reason, count, why}` · 경계 칸(import·lib 전역·밖에서 부르는 콜백)을 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
+
+**AC 게이트 재통과**(§5) — 정정 2행:
+
+- 행동 단언·검증 수단·도달 경로: 두 행 모두 세 칸을 갖는다.
+- **방향**: red 칸 행은 지금 0/0이고 기대 1/1이다 — 구현이 판정 불가를 내야 green이다. 경계·숫자 아님 칸 행(KD08·KD10·KD12e·KF04·KM07 등 0/0)은 fail-closed가 넓어져 정상 코드를 막는 반대 방향을 잠근다(M44~M47).
+- **자리를 말하는 불변식의 맞바꿈 축**: 칸 ID가 위반 문구·허용 항목·`--report` 다섯째 열에 실린다 — 다른 칸 ID 항목이 자리를 덮지 않음을 KA06이 잠근다.
+- 완결성 주장: 표 밖 종류는 값 자리에서 red(KV17·KD14)라 표가 모든 종류를 덮는다 — 트리 분포는 센서스 출력, 칸 입력 수는 `dv4-cells.mjs` 출력이 관측이다.
+- structural proxy 없음 — 행마다 위반 수·판정 불가 수를 단언한다. 사람 실기로 미룬 순수 로직 없음.
+- AC 총수: **21** 그대로(AC7e → AC7f · AC19b → AC19c 번호 승계).
+
+### ΔV4 §10 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| MD-03d / VP-12d **EP-12d** | (H′) 판정 — EP-12b 9지점 + 노드 종류 표 | `scripts/test-budget-bindings.mjs`(표 KV·KD·KM·KF·KC·KN) · `scripts/check-test-budgets.mjs`(KE·KO·KP·KA·판정 불가) | 게이트 | **9지점 · 칸 91 · 입력 332**(ΔV3 169 + ΔV4 163) | 칸 입력 = `node docs/handoff/0294-slow-runner-hermetic-tests/evidence/dv4-cells.mjs app` · 분기 = `dv3-branches.mjs app` · 칸별 트리 분포 = `dv4-kind-census.mjs app` | 칸 하나가 빠지면 그 종류의 미배율 마감이 통과하거나(거짓 green) 정상 코드가 판정 불가로 막힌다(오탐) |
+| AR-03c / VP-09c **EP-13** (신설) | 판정 불가 허용 목록 | `UNRESOLVED_ALLOWED`(게이트) | 테스트 작성자 · 게이트 | **0항목** — 트리 판정 불가 0(센서스 V red 0) | `node scripts/check-test-budgets.mjs --report` 의 UNRESOLVED·allowed 행 = 0 | 낡은 항목은 다음 판정 불가 자리의 우회로가 된다 — count·대상 파일 대조로 막는다 |
+
+- **EP-12d 게이트가 초록인 채로 남는 차이**(§5 완료 조건 ≠ 목표) — 전부 경계 칸이고 이번 턴에 쟀다:
+  - 값 자리: import 20 · 밖에서 부르는 콜백의 매개변수 4와 그 멤버 2 · lib 전역 0 · `declare` 0 — 값을 테스트 밖이 고른다.
+  - 호출 대상: 형태 아님 101,920 — 이름으로 풀리지 않거나 형태 이름이 아닌 호출. 구조 분해·요소 키·재대입 후보에 형태 이름 0.
+  - now: now 아님 12 — 카운터·가짜 시계·타임스탬프, 실제 마감 0.
+  - ΔV2 EP-05b의 남는 차이 5종 중 "콜백 매개변수·객체 리터럴로 풀리지 않는 값의 멤버"는 위 경계 칸으로 옮겨졌고 나머지 3종은 그대로다.
+- EP-05b 62자리는 바뀌지 않는다 — 새 해석 경로의 트리 자리 0(센서스 `@new`·O04·N05 행 0).
+- `실패 의미`에 "다른 게이트가 막는다"를 적은 칸: 없음.
+- **ΔV4 유효 강제 지점 전수**: V1 67 + EP-05b 62 + EP-12d 9지점 + EP-13 0항목 = **138**. 칸 91·입력 332은 VP-12d UT의 분모다.
+
+**ΔV4 등록 변이** — 판정 코드 변이(M43~M50)는 UT(VP-12d), 트리 변이(M51·M52)는 게이트(VP-09c)가 잡아야 한다.
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 oracle |
+|---|---|---|---|
+| M43 | 값 자리 red 처리 | red 단말을 자리 없음으로(현재 fail-open으로 되돌림) | UT red 칸 행(KV10·KD02·KF05a 등) 1/1 → 0/0 |
+| M44 | KD08 | 호출부 없는 매개변수를 전부 red로 | UT KD08a~e 0/0 → 1/1 · 트리 exit 1(4자리) |
+| M45 | KD10 | import를 red로 | UT KD10a~c · 트리 exit 1(20자리) |
+| M46 | KD12e | lib 전역을 red로 | UT KD12e · ΔV3 기존 입력(미선언 대리 식별자) |
+| M47 | KF04 | 타이머 핸들·mock 체인을 red로 | UT KF04a~c · 트리 exit 1(5자리) |
+| M48 | KC05 | 구조 분해 해석 삭제 | UT KC05a~d |
+| M49 | KC04 | 재대입 후보의 형태 이름 검사 삭제(형태 아님으로) | UT KC04a |
+| M50 | KE02·KE03 | `.not`을 무시하고 원래 방향으로 판정 | UT KE02a~d 1/0 → 0/0 · KE03a 0/0 → 1/0 |
+| M51 | `src/main/infra/net/pop3-tls.test.ts` 끝 | `setTimeout(f, Math.max(1000, 5000))` 추가 | `gate:node scripts/check-test-budgets.mjs` exit 1 · 위반 문구 `판정 불가 KF05` |
+| M52 | 같은 자리 + `UNRESOLVED_ALLOWED` | `{file, reason: 'KF05', count: 1, why}` 추가 → exit 0 · count 2 → exit 1 | 같은 게이트 |
+
+### ΔV4 구현 설계
+
+| 변경 파일 | 변경 내용 | 테스트 seam |
+|---|---|---|
+| `app/scripts/test-budget-bindings.mjs` | `classify(expr)` — KV·KD·KM·KF 표를 한 함수로, 단말 `{ kind: 'num'\|'scaled'\|'nonnum'\|'bound'\|'red', cell, node, value? }`. `values()`는 `classify`의 num·scaled 단말로 다시 구현(R4 조합 유지) · `isNow`에 KN04~KN06 · `calleeName`을 KC 표로(구조 분해 · 요소 리터럴 키 · 소유자 별칭 · 재대입 후보 · 형태 이름 후보면 red 표시) · 헤더 주석에 표 칸 ID | `analyzeScale`·`scanBudgetSites`(문자열 소스) → UT |
+| `app/scripts/check-test-budgets.mjs` | 슬롯마다 `classify`의 red 단말 → 판정 불가 자리(`kind: 'deadline'`, `ok`는 허용 항목 일치, `reason` = 칸 ID) · `export const UNRESOLVED_ALLOWED = []` + `checkUnresolvedEntries` · `analyzeScale(relPath, source, entries = SEMANTIC_DELAYS, allowed = UNRESOLVED_ALLOWED)` · `scanBudgetSites(relPath, source, entries, allowed)` · `runCli(appDir, argv, entries, allowed)` — 대상 파일 없는 항목 · 위반 문구·`--report` 행 · KO02~KO04 소유 · KP02~KP04 param 슬롯 · KE02·KE03 `.not` · ΔV3 F04·R4 | 같음 + CLI 임시 트리 |
+| `app/scripts/check-test-budgets.test.mjs` | 새 describe '노드 종류 표 (0294 ΔV4)' — `dv4-cells.mjs` 163행의 입력·기대 그대로(케이스명에 ID) · ΔV3 describe '분기 목록 (0294 ΔV3)' 47행 · 기존 케이스 유지 | node test |
+| `app/AGENTS.md` | AC19c | 문서 diff + 인벤토리 |
+
+- `dv4-kind-census.mjs`의 분류 코드는 자리 검색 명령(설계자 시제품)이다 — 구현은 복사하지 않는다(ΔV2 원칙). 입력(`dv3-branches.mjs`·`dv4-cells.mjs`)은 복사해도 된다.
+- ⑦ sweep 분모 = 입력 332행 + 칸 91 + EP-05b 62자리. 칸마다 그 칸의 분류를 지우거나 이웃 분류(해석 ↔ 숫자 아님 ↔ 경계 ↔ red)와 맞바꾸는 변이를 심고 잡은 행 ID를 `[구현자 기입]`에 적는다.
+- 테스트 소스(`app/src/**`) 변경 0 · 신규 의존성 0 · production 코드 무변경 · (A)~(G) 무변경. 트리에 판정 불가 자리가 생기면 PLAN_GAP으로 돌린다.
+- 성능: 게이트 5.5s(r3)에 표 판정이 더해진다 — CI 'Test budget guard' 단계 시간을 `[구현자 기입]`에 적는다(센서스 전체 실행 9.2s가 상한 추정).
+
+### ΔV4 운영 gate
+
+| Gate | 적용 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| app lint·typecheck | `app/**` 수정 | `cd app && npm run lint && npm run typecheck` | 이번 변경이 낸 error |
+| node scripts 테스트 | 게이트 코드·테스트 변경 | `node --test "scripts/*.test.mjs"` | 전부 |
+| 분기·칸 탐침 | AC7f | `node ../docs/handoff/0294-slow-runner-hermetic-tests/evidence/dv3-branches.mjs .` · `dv4-cells.mjs .` → 판정 불일치 0 | 전부 |
+| 예산·인벤토리 게이트 | (H′) · 문서 | `node scripts/check-test-budgets.mjs` · ΔV2 대조 명령 0줄 · `--report` UNRESOLVED 행 0 · `node scripts/check-doc-inventory.mjs --check` | 전부 |
+| vitest | 회귀(VP-13) | `evidence/clean-host-run.sh` — 리눅스 기준선 22건 분리 | 22건 밖 신규 실패 |
+| Windows CI | 정본 통합 게이트 | PR `CI` 실행 | 전부 |
+| commit trailer | message bus | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
+
+### ΔV4 READY self-review
+
+- Decision: D-017(사용자 결정) · D-018(표 내용) 추가, D-015·D-016 → D-018 SUPERSEDED(주어·해석기 하나·형태 8·맥락·한 리터럴 한 자리 승계). 대조는 §3 갱신 메모.
+- 열린 입력 집합: 노드 종류 표(SKILL §5-A 둘째 방식)를 9자리에 두고, 값 자리는 표 밖 종류를 red로 막는다(첫째 방식). 호출 대상·now 자리의 경계 칸은 red로 둘 때의 오탐을 쟀다(101,920 · 12).
+- 규칙 칸 ↔ UT 입력 칸: 칸 91마다 입력 행 ≥1 — 칸 입력 163 + ΔV3 행 참조(표의 'UT 입력' 열).
+- 선언 경계는 측정한 것만 적었다 — 경계 칸의 트리 수 · red 칸 트리 0 · 새 경로 트리 자리 0 · 센서스 민감도 확인.
+- 새·변경 왼쪽 node ↔ 같은 레벨 REQUIRED pair 차집합 0 · SUPERSEDED 3 pair 이관 표기 · 회귀 2 pair · NOT_REQUIRED 8 pair.
+- 장치 방향: red 칸은 현재 0/0 → 기대 1/1 · 경계·숫자 아님 칸은 fail-closed 과잉을 잠근다(M44~M47) · 트리 변이 M51·M52.
+- AC 2행은 §5 AC 게이트를 다시 통과했다(위 재통과 목록). 사람 실기 추가 없음(AC18 그대로).
 
 ---
 
@@ -1515,6 +1836,6 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 | D2 | (H′) 형태 판정이 같은 파일 바인딩을 따라가지 않아 규칙 칸이 덮는 두 형태를 놓친다. (a) 단축 속성 `{ timeoutMs }` + `const timeoutMs = 5000` → exit 0(Y1), 같은 값의 키 형태 `{ timeoutMs: probeMs }`는 exit 1(Y1c). (b) const에 담은 `vi.waitFor` 옵션 — 안의 `scaleMs`는 green(Y2), 기준값만 담은 정상 코드는 "테스트 소유 마감" 위반 red(Y2b) | VP-12 · AC7b · EP-12 P2·P3·P5·P7 · D-012·D-014 · [verify r2](verify.md) r2-13 | 둘째 인자 식별자를 같은 파일 const로 풀어 P5 제외·P7 판정에 쓰고, 단축 속성을 키 형태로 판정한다 · UT 입력에 Y1·Y2·Y2b를 둔다 | BLOCKING | **closed** (verify r3 — Y1·Y2 잡음 · Y2b exit 0) |
 | D3 | EP-12 P2 규칙 칸이 형태의 **대상**이 같은 파일 바인딩을 거칠 때를 정하지 않는다 — `const elapsed = Date.now() - start; expect(elapsed).toBeLessThan(5000)`(Y5) · `const start = Date.now(); const deadline = start + 5000`(Y5b) · 구조 분해 매개변수 기본값 `({ timeoutMs = 5000 } = {})`(Y11) 모두 게이트·`scan-deadlines.mjs` exit 0. D-012 주어("경과 상한 단언"·"`now()` 마감"·"매개변수 기본값")는 덮는다. 현재 트리 해당 자리 0 | VP-12 · AC7b · D-012 · §10 EP-12 · [verify r2](verify.md) r2-13 | 설계자가 P2(·P3) 규칙 칸에 바인딩 추적 범위(now 식 변수 · 파생 마감 · 구조 분해 기본값 · 단축 속성)를 한 번에 정하고 UT 입력 칸·스캔 술어를 맞춘다 → 구현이 Y5·Y5b·Y11을 닫는다 | PLAN_GAP | **closed** (verify r3 — ΔV2 P2′·P8 · Y5·Y5b·Y11 잡음) |
 | D4 | r2 `[구현자 기입]` 강제 지점 전수 표가 VP-07a·09a 분모의 EP-01~04·06(32자리)을 행으로 두지 않고 "NOT_REQUIRED 비영향"으로 적었다 — 그 자리는 REQUIRED pair 분모다 | repository operation · [verify r2](verify.md) r2-11 | 다음 impl 표는 pair §10 자리 전부를 행으로 둔다(검증자가 r2-5에서 독립 재측정으로 닫음) | NON_BLOCKING | **closed** (verify r3 — r3 표 EP-01~04·06 32행) |
-| D5 | EP-12b 규칙 칸이 덮는데 판정·UT가 못 미친다. (a) 판정 위반 0: W1 `import { setTimeout } from 'node:timers/promises'; await setTimeout(5000)` · W2·W2b `(fast ? 2 : 5) * 1000` · W3·W3b 클래스 필드·대입의 `timeouts` 소유 · W7 IIFE 호출부. (b) 분기를 지워도 UT green: M21b named 식별자 대입 · `o['k'] =` · `\|\|=` · `util.promisify` · 호출 대상 래퍼 · `/` · `??`·`\|\|` 왼쪽 · 전개 멤버 · `satisfies` · `!` · `.valueOf()` · 역방향 `OrEqual` · matcher 안 elapsed | VP-12b · AC7d · EP-12b P2′·P3′·P5′·P8 · [verify r3](verify.md) r3-13 | 별칭 표를 전역 정규식보다 먼저 · 산술 값 조합마다 · 소유 판정에 클래스 필드·대입 · IIFE 호출부 · 13분기마다 UT 입력(`evidence/verify-r3-probes.mjs`) | BLOCKING | open — review round 41 판정 정정: 이행 14건 유지, W3·W3b·W7·`satisfies`·`!` 5건은 확장 → INDEX 후보 표 · ΔV3(§7-D): 이행 14건 = 분기 목록 15행(판정 F04·V33·V34 · 입력 F24·S03·S05·C06·C01·V31·V31b·V22·V21·N04·F18·X15), 확장 5건 = 선언 경계 L01~L04 |
-| D6 | EP-12b 규칙 칸이 D-015와 갈리거나 주어보다 좁다. (a) 호출 대상 해석 목록(P2′)에 구조 분해·요소 접근 없음 — W4b·W4c·W4d green, 정상 코드 W4·W10 red. (b) P8 now 식 목록에 호출 반환 없음 — W5 `now() + 5000` green, 변수 경유 W5b red. (c) D-016 열거 밖: `.not` elapsed(W6) · 기본값 없는 `/timeout/i` 매개변수 ← 같은 파일 호출(W8) · 복합 대입 값(W9). 시제품 스캔도 같은 판정, 현재 트리 해당 자리 0 | VP-12b · AC7d · D-015·D-016 · §10 EP-12b · [verify r3](verify.md) r3-13 | 설계자가 (a)(b)를 D-015 쪽 또는 P2′·P8 쪽 하나로 맞추고 (c) 3축을 자리/경계로 정해 EP-12b 규칙·UT 입력 칸·시제품 술어를 갱신 → 구현이 W4b~W9·오탐 W4·W10을 닫는다 | PLAN_GAP | **후보 표** — review round 41 판정 정정: verify 3회째 확장 후보 → `NEXT_HANDOFF(확장)`, INDEX `## 새 handoff 후보` 0294 행 |
+| D5 | EP-12b 규칙 칸이 덮는데 판정·UT가 못 미친다. (a) 판정 위반 0: W1 `import { setTimeout } from 'node:timers/promises'; await setTimeout(5000)` · W2·W2b `(fast ? 2 : 5) * 1000` · W3·W3b 클래스 필드·대입의 `timeouts` 소유 · W7 IIFE 호출부. (b) 분기를 지워도 UT green: M21b named 식별자 대입 · `o['k'] =` · `\|\|=` · `util.promisify` · 호출 대상 래퍼 · `/` · `??`·`\|\|` 왼쪽 · 전개 멤버 · `satisfies` · `!` · `.valueOf()` · 역방향 `OrEqual` · matcher 안 elapsed | VP-12b · AC7d · EP-12b P2′·P3′·P5′·P8 · [verify r3](verify.md) r3-13 | 별칭 표를 전역 정규식보다 먼저 · 산술 값 조합마다 · 소유 판정에 클래스 필드·대입 · IIFE 호출부 · 13분기마다 UT 입력(`evidence/verify-r3-probes.mjs`) | BLOCKING | open — review round 41 판정 정정: 이행 14건 유지, W3·W3b·W7·`satisfies`·`!` 5건은 확장 → INDEX 후보 표 · ΔV3(§7-D): 이행 14건 = 분기 목록 15행(판정 F04·V33·V34 · 입력 F24·S03·S05·C06·C01·V31·V31b·V22·V21·N04·F18·X15), 확장 5건 = 선언 경계 L01~L04 → ΔV4 KO02·KO03a·KD07·KV04c·KV04d 칸(사용자 결정) |
+| D6 | EP-12b 규칙 칸이 D-015와 갈리거나 주어보다 좁다. (a) 호출 대상 해석 목록(P2′)에 구조 분해·요소 접근 없음 — W4b·W4c·W4d green, 정상 코드 W4·W10 red. (b) P8 now 식 목록에 호출 반환 없음 — W5 `now() + 5000` green, 변수 경유 W5b red. (c) D-016 열거 밖: `.not` elapsed(W6) · 기본값 없는 `/timeout/i` 매개변수 ← 같은 파일 호출(W8) · 복합 대입 값(W9). 시제품 스캔도 같은 판정, 현재 트리 해당 자리 0 | VP-12b · AC7d · D-015·D-016 · §10 EP-12b · [verify r3](verify.md) r3-13 | 설계자가 (a)(b)를 D-015 쪽 또는 P2′·P8 쪽 하나로 맞추고 (c) 3축을 자리/경계로 정해 EP-12b 규칙·UT 입력 칸·시제품 술어를 갱신 → 구현이 W4b~W9·오탐 W4·W10을 닫는다 | PLAN_GAP | **ΔV4로 흡수** — 사용자 결정(2026-11-05, D-017)으로 노드 종류 표 칸이 됐다(W4b·W4c·W4d → KC05 · W5 → KN04 · W6 → KE02 · W8 → KP02 · W9 → KD02 · 오탐 W4·W10 → KC05d·KC09b). INDEX 후보 표 0294 행 삭제 |
 | N1 | `scripts/test-budget-bindings.mjs`의 `peel`·`ARITH_OPS` export 외부 소비 0 | 역방향 탐색 · [verify r3](verify.md) r3-3 | 다음 구현이 export를 거둘 수 있다 | NON_BLOCKING | open — ΔV3 증거 스크립트도 이 export를 쓰지 않는다 |
