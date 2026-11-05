@@ -10,13 +10,13 @@
 |---|---|
 | slug | `0294-slow-runner-hermetic-tests` |
 | 작성자 | Claude Code |
-| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) · 2026-11-05 (ΔV3 · ΔV4 · ΔV5) |
+| 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) · 2026-11-05 (ΔV3 · ΔV4 · ΔV5 · ΔV6) |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) · `ccr-8246f22f-rxq1zj`(ΔV3·ΔV4) |
-| 상태 | impl/IMPL_DONE (r5 — ΔV5 구현: KD05 빈 후보 · KD15 · KM10 · KM11. 다음 독립 검증 — ΔV4 창 2회째. Windows CI는 push 뒤 확인) |
-| V mode | `Baseline V + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
-| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1~ΔV5는 이 handoff의 V1 위 증분이다 |
-| 이번 V revision | `ΔV5` — verify r4 D7(KD05 원천 멤버 입력 칸 정합 — 이행 결함은 r5가 고친다) · D8(ΔV4 창 안 확장 채택 — KD15·KM10·KM11, 경계 L12·L13). 칸 94 · 입력 368(§7-F). `ΔV4` — 사용자 결정(2026-11-05): (H′) 해석을 식 노드 종류 표 91칸으로 고정하고 값 자리는 fail-closed(판정 불가 + `UNRESOLVED_ALLOWED`). ΔV3 R1~R8·L01~L11은 supersede(§7-E). ΔV3는 plan 내부 정합: EP-12b 규칙 칸 ↔ UT 입력 칸을 분기 목록 169행으로 고정 · B7↔P9 충돌 해소(R4) · 용어 범위 R1~R8과 선언 경계 L01~L11. 구 행은 supersede(§7-D). ΔV2는 r2 D2·D3 정정(§7-C), ΔV1은 r1 D1 정정(§7-B) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
+| 상태 | plan/READY (ΔV6 — verify r5 D10 KD05 문장 정합 · D11 창 안 확장 채택. 이 턴 뒤 열거 동결. 다음 구현 r6: D9 + ΔV6 칸) |
+| V mode | `Baseline V + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1~ΔV6는 이 handoff의 V1 위 증분이다 |
+| 이번 V revision | `ΔV6` — verify r5 D10(D-019 문장으로 KD05 정정 — 구조 분해 값 = 같은 원천의 멤버 읽기 판정) · D11(창 안 마지막 확장 채택 — KD01·KD02·KD15 "변수" = 이름 바인딩 · for 머리 대입 대상). D9는 이행 결함(r6가 고친다). 칸 94 · 입력 411(§7-G). `ΔV5` — verify r4 D7(KD05 원천 멤버 입력 칸 정합 — 이행 결함은 r5가 고친다) · D8(ΔV4 창 안 확장 채택 — KD15·KM10·KM11, 경계 L12·L13). 칸 94 · 입력 368(§7-F). `ΔV4` — 사용자 결정(2026-11-05): (H′) 해석을 식 노드 종류 표 91칸으로 고정하고 값 자리는 fail-closed(판정 불가 + `UNRESOLVED_ALLOWED`). ΔV3 R1~R8·L01~L11은 supersede(§7-E). ΔV3는 plan 내부 정합: EP-12b 규칙 칸 ↔ UT 입력 칸을 분기 목록 169행으로 고정 · B7↔P9 충돌 해소(R4) · 용어 범위 R1~R8과 선언 경계 L01~L11. 구 행은 supersede(§7-D). ΔV2는 r2 D2·D3 정정(§7-C), ΔV1은 r1 D1 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
 | 구현 주체 | r5 Claude(비기능 — 테스트 인프라) · r4 Codex(사용자 `handoff-impl 294` 명시 호출) · r1~r3 Claude |
 | 측정 증거 | [`evidence/`](evidence/) — 재현 스크립트. 수치는 아래 §8이 정본 |
 
@@ -68,6 +68,7 @@
 | D-017 | (H′) 해석은 **식 노드 종류 표**로 고정하고 **값 자리는 fail-closed**로 판정한다 — 표의 red 칸과 표 밖 종류는 "판정 불가" 위반이며 `UNRESOLVED_ALLOWED` 등록으로만 통과한다. 0294 안에서 한다 | "294안에 넣어라" — 앞 턴에서 SKILL §5-A(열린 입력 집합 판정 산출물은 fail-closed 또는 노드 종류 표)와 선택지(현행 유지 · fail-closed · 노드 종류 표 · 새 handoff 분리)를 설명한 뒤 | 사용자 턴 2026-11-05 | ACTIVE | — |
 | D-018 | 노드 종류 표의 내용 — 자리 9곳(KV·KD·KM·KF 값 · KC 호출 대상 · KN now · KE matcher · KO 소유 · KP param) 91칸, 값 자리 red 칸과 표 밖 red, 호출 대상·now 자리는 경계 칸(형태 아님·now 아님). §7-E 표가 정본이다. D-015 주어(테스트가 고른 시간 값이 상한이 되는 자리)·해석기 하나, D-016 형태 8·맥락(제외는 참조 전부, 자식 프로세스·소유는 하나라도)·한 리터럴 한 자리를 승계한다 | D-017의 구체화. 호출 대상·now 자리를 red로 두면 트리의 무관한 호출 101,920·산술 12가 막힌다 — 값 자리 red는 트리 0(§7-E 측정) | 추론 — D-017 + §7-E 센서스 | ACTIVE | D-015·D-016 대체(주어·원칙 승계) |
 | D-019 | 같은 파일 대입이 값을 바꾸는 경로를 노드 종류 표에 더한다 — 멤버(`this.이름`·객체 리터럴 원천 멤버, 별칭·같은 파일 매개변수 경유 포함)의 `=`·`??=`·`\|\|=` 대입 우변은 후보(KM10), 같은 멤버의 복합 대입·증감·구조 분해 대입 대상은 red(KM11), 변수의 증감·구조 분해 대입 대상은 red(KD15). KD05 "원천 멤버"는 원천 식을 KM 표로 판정한 결과이고 원천 식이 없는 선언은 그 선언의 칸이다(for-of KD04 · `catch` KD13). 같은 파일 밖·다른 클래스의 변경은 경계(L12·L13) | D-017 fail-closed · D-018 주어(같은 파일 선언 그래프). 구조 분해 대입은 기본값·나머지 해석이 따로 필요해 red로 막는다. 새 경로 트리 자리 0(§7-F 측정) | verify r4 D7(이행 — 입력 칸 정합)·D8(ΔV4 창 안 확장 채택) — 설계자 | ACTIVE | D-018 보완(대체 아님) |
+| D-020 | (a) D-019 "KD05 원천 멤버는 원천 식을 KM 표로 판정한 결과"는 **후보 유무와 무관하게** 원천 후보마다 적용한다 — 구조 분해 요소의 값 = 기본값 ∪ 같은 파일 대입 우변 ∪ 같은 원천의 멤버 읽기 판정(KM10 대입 우변 · KM11 red · 비리터럴 KM07/KM08). 원천 식이 없는 선언은 기본값이 있어도 그 칸(KD04·KD13·KD03b). (b) KD01·KD02·KD15의 "변수"는 같은 파일의 모든 이름 바인딩(변수 선언 · 구조 분해 선언 요소 · 매개변수)이고, for-of·for-in 머리의 대입 대상은 구조 분해 대입과 같은 칸(KD15·KM11)이다. 판정 순서는 모든 이름 바인딩에서 KD13 → KD04 → KD03b → KD02 → KD15 → 값 칸 | (a) D-017 fail-closed는 "후보가 있으면 원천을 보지 않는다"를 허용하지 않고, 같은 값의 멤버 읽기는 이미 그렇게 판정한다(verify r5 R5c·R7bc). (b) D-018 주어(같은 파일 선언 그래프)는 바인딩 종류를 가리지 않는다. 새 경로 트리 자리 0(§7-G 측정) | verify r5 D10(plan 내부 정합)·D11(ΔV4 창 안 마지막 확장 채택) — 설계자 | ACTIVE | D-019 보완(대체 아님) |
 
 ### 갱신 메모
 
@@ -81,6 +82,8 @@
 - **ΔV4 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-017 ↔ AC7f(값 자리 판정 불가 · `UNRESOLVED_ALLOWED` count) · D-018 ↔ AC7f(칸 91 · 입력 332) · D-013 ↔ AC7f(임계 1000 · abort·자식 프로세스 무임계 그대로) · D-014 ↔ AC7f(허용 목록 대조 규칙을 판정 불가 목록이 같은 형으로 승계) · D-005·D-009 ↔ AC7f(테스트 소스·(A)~(G) 변경 0) · D-017 ↔ AC19c(작성자 처방 문서화). D-015·D-016(SUPERSEDED)을 근거로 삼는 ACTIVE AC: AC7c 하나 — 그 근거(D-015 주어·EP-05b 술어)는 D-018이 승계하고 ΔV4의 트리 영향 0(새 자리 0)이라 AC7c는 그대로다. AC7e·AC19b는 AC7f·AC19c로 대체.
 - ΔV5(2026-11-05): D-019 추가(설계자 — verify r4 D8 창 안 확장 채택, D7은 KD05 입력 칸 정합). 대체된 결정 없음. 사용자 결정 ΔV가 아니라 확장 창을 새로 열지 않는다.
 - **ΔV5 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-017 ↔ AC7g(KD05 빈 후보·KD15·KM11 판정 불가 · 칸 ID 단언) · D-018 ↔ AC7g(칸 94 · 입력 368 — ΔV4 163·ΔV3 169행 기대 무변경) · D-019 ↔ AC7g(KM10 후보 · 구별 입력 KM10e·l·m) · D-013 ↔ AC7g(KM10a 5000 ≥ 임계 → 리터럴 위반, 임계 그대로) · D-005·D-009 ↔ AC7g(테스트 소스·(A)~(G) 변경 0) · D-017 ↔ AC19d(작성자 문서에 증감·구조 분해 대입 판정 불가).
+- ΔV6(2026-11-05): D-020 추가(설계자 — verify r5 D10 문장 정합 · D11 창 안 마지막 확장 채택). 대체된 결정 없음. 사용자 결정 ΔV가 아니라 창을 새로 열지 않는다 — 이 턴 뒤 열거 동결.
+- **ΔV6 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-017 ↔ AC7h(혼합 원천 KM08 · for-of·`catch` 기본값 KD04·KD13 · 이름 바인딩 증감·복합·구조 분해·for 머리 대입 판정 불가) · D-018 ↔ AC7h(칸 94 · 입력 411 — ΔV3~ΔV5 368행 기대 무변경, 시제품 불일치 0) · D-019·D-020 ↔ AC7h(구조 분해 = 멤버 읽기 짝 행 4쌍 · KM10 원천 사슬 KM10n) · D-013 ↔ AC7h(임계 1000 그대로 — KD05n 500은 위반 아님) · D-005·D-009 ↔ AC7h(테스트 소스·(A)~(G) 변경 0) · D-017 ↔ AC19e(작성자 문서에 이름 바인딩 범위).
 - ΔV3(2026-11-05): 결정 추가·대체 없음 — 사용자 결정 변경이 아니라 EP-12b 규칙 칸의 plan 내부 정합(§7-D)이다.
 - **ΔV3 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-015 ↔ AC7e(EP-12c는 D-015 주어의 부분을 잠근다 — 열거 밖 L01~L11은 트리 0, 후보 표 0294 행 · 반대를 요구하는 행 0) · D-016 ↔ AC7e(R2 대입 = D-016 대입 정의 · R7 elapsed 두 방향 · R4는 "한 리터럴은 한 자리"를 산술 노드로 잇는다) · D-013 ↔ AC7e(R4 임계는 1000·abort·자식 프로세스 무임계 그대로) · D-005·D-009 ↔ AC7e(테스트 소스·(A)~(G) 변경 0).
 - **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001·D-012 ↔ AC7a(EP-05a 44자리 = 7형태 전수) · D-013 ↔ AC7a(예산 24 `scaleMs` · 의미 값 20 허용 목록 · 임계와 무임계 형태) · D-014 ↔ AC7a(count 대조·이중 배율 red) · D-005 ↔ AC7a(배율 전환은 대기 상한만 늘리고 단언 기대값은 그대로 — 단언 피연산자는 자리에서 제외) · D-009 ↔ AC7a((A)~(E) 대상 파일 범위 불변) · D-003 ↔ AC7a(기준값 = 현재 리터럴).
@@ -1313,6 +1316,151 @@ D-019 추가(§3). D-017·D-018은 ACTIVE 그대로이고 D-019는 D-018 표의 
 - 장치 방향: red 칸 행 0/0 → 1/1 · KM10 0/0 → 1/0 · 구별 입력 0/0이 과잉을 잠근다(M58·M59) · 칸 ID 맞바꿈 M54·M56 · 트리 변이 M61.
 - AC 2행은 §5 AC 게이트를 다시 통과했다(위 재통과 목록). 사람 실기 추가 없음(AC18 그대로).
 
+## 7-G. ΔV6 — verify r5 D10 문장 정합 + D11 창 안 확장 채택 (마지막 열거 턴)
+
+> **적용 순서: `V1` → `ΔV1` → … → `ΔV5` → `ΔV6`.** 출처는 [verify r5](verify.md) r5-13이다. D9는 이행 결함이라 칸 원문을 바꾸지 않고 구현 r6이 고친다. D10은 plan 내부 불일치라 D-019 문장 쪽으로 KD05 칸을 정정한다. D11은 ΔV4 창 안(ΔV4 뒤 verify 2회째)의 확장 후보라 항목마다 **채택**한다(D-020). **이 설계 턴 뒤 열거 원문은 동결된다** — 다음 verify(6회째)는 창 밖이며, 그 뒤 새 열거 항목은 출처(현재 결함 · plan 내부 정합 · 사용자 결정)를 적는다.
+
+### 무엇이 왜 바뀌는가
+
+| verify r5 | 관측 | ΔV6의 답 |
+|---|---|---|
+| D9 (이행) | 빈 후보에서 원천이 리터럴 + 호출로 섞이면 KM02 숫자 아님(R7·R8) | 칸 원문 그대로 — "원천 식을 KM 표로"는 원천 후보마다다. 입력 KD05l·m으로 잠근다 |
+| D10 (plan 내부 불일치) | D-019 "원천 멤버 = 원천 식의 KM 판정" ↔ §7-F KD05 "후보가 없으면" — 후보가 있으면 KM10·KM11·비리터럴 원천이 빠진다(R5·R6·R7b·R8b) | **D-019 문장으로 맞춘다.** D-017(값 자리 fail-closed)이 "후보가 있으면 원천을 보지 않는다"를 허용하지 않는다. 구조 분해 값 = 같은 원천의 멤버 읽기 판정(후보 유무와 무관) |
+| D10 형제 (설계자 전수) | 기본값이 있는 for-of·`catch` 구조 분해(`for (const { ms = 500 } of cases)`)가 KD04·KD13을 건너뛴다 · 중첩 패턴·`this` 원천의 멤버 대입이 빠진다 | 같은 문장에 든다 — 원천 식이 없는 선언은 기본값이 있어도 그 칸 |
+| D11 (확장, 창 안 마지막) | KD02·KD15가 변수 선언만 본다 — 구조 분해 선언 요소 `ms++`·`ms += …`(R2·R2c) · 매개변수 `ms++`(R3) · for-of 머리 구조 분해 대입(R4) | **채택.** "변수" = 같은 파일의 모든 이름 바인딩 |
+| D11 형제 (설계자 전수) | 매개변수·구조 분해 요소의 `=`·`??=` 대입 우변이 후보가 아니다(`function run(ms) { ms = 5000 … } run(500)` 위반 0) · for-of·for-in 머리의 식별자·멤버 대입 대상 · KD15 변수를 원천으로 쓰는 멤버 읽기 | 같은 결정 D-020에 넣는다 — 다음 verify가 형제를 하나씩 여는 일을 막는다 |
+
+### 설계 근거 — 이번 턴 측정
+
+기준 트리 = 구현 r5 `aac291f`(해석기 sha256 `06fe70269b6e…`). 증거 경로 접두사 `docs/handoff/0294-slow-runner-hermetic-tests/evidence/`.
+
+| 관측 | 명령 | 결과 | 설계에 미친 영향 |
+|---|---|---|---|
+| ΔV6 칸 입력 | `node …/dv6-cells.mjs app` | 43행 · 현재 게이트와 판정 불일치 27 | r6가 바꿀 범위 |
+| 의도 규칙의 구현 가능성 | 시제품(커밋하지 않음 — `test-budget-bindings.mjs` 한 파일 +114줄: 구조 분해 값의 원천 멤버 판정 · 모든 이름 바인딩의 대입·증감·구조 분해 대입 · for 머리 대입 대상)으로 탐침과 트리를 함께 실행 | `dv6-cells` 43 · `dv5-cells` 36 · `dv4-cells` 163 · `dv3-branches` 169 · `verify-r4-probes` 13 불일치 0 · `verify-r5-probes` 26 중 불일치 1(R19 — 아래) · 기존 UT `check-test-budgets.test.mjs` 576/576 | 기존 368행 기대와 충돌 없이 구현된다 — 구현은 시제품을 복사하지 않는다 |
+| 새 경로의 트리 영향 | 같은 시제품으로 `node scripts/check-test-budgets.mjs` · `--report` | exit 0 · `--report` 90행이 r5와 바이트 동일(deadline 62 · setConfig 21 · case 6 · UNRESOLVED 0) | 채택해도 테스트 소스 변경 0 · 허용 목록 0항목 그대로 · EP-05b 62자리 불변 |
+| R19 기대 | `verify-r5-probes.mjs` R19(`({ ...rest } = …)` 뒤 `rest.ms`) | 시제품·r5 모두 `1/1/KM08` — 탐침 기대 KD15와 다름 | 칸 기대는 KM08(멤버 읽기는 KM 칸, verify r5-3 판정과 같음). 입력 KM08c로 원문화 |
+| 판정 순서 | 시제품에서 `catch ({ ms }) { ms++ }` · `for (let { ms } of …) { ms += … }` | 순서를 정하지 않으면 칸 ID가 KD15·KD02로 갈린다(변수 선언은 KD13·KD04가 먼저) | 모든 이름 바인딩에 같은 순서를 적는다 |
+
+### 칸 정정 — EP-12f = EP-12e + 아래
+
+입력·기대 원문은 `evidence/dv6-cells.mjs`의 같은 ID 행이다. 기대가 갈리면 이 표가 정본이다. 새 칸 ID는 없다 — 칸 94 그대로, 종류·분류 칸만 넓힌다.
+
+| 칸 | 종류 | 분류 | provenance | 트리 | UT 입력 |
+|---|---|---|---|---:|---|
+| KD05 | 구조 분해 요소(중첩 포함, 나머지 요소 제외) | **값 = 기본값(KV) ∪ 같은 파일 대입 우변(KD01) ∪ 원천 멤버.** 원천 멤버는 같은 원천의 멤버 읽기(`원천.k` · 중첩 `원천.a.k` · 배열 패턴 `원천[i]`)와 같은 KM 판정이며 **원천 후보마다, 후보 유무와 무관하게** 낸다 — 리터럴 KM01~KM05 · 멤버 대입 우변 KM10 · 복합·증감·구조 분해 대입 KM11 red · `this` KM06/KM10/KM11 · 경계 KM07 · 그 밖(호출·`await`·`new` 등) KM08 red. 원천 식 = 변수 초기값 · 같은 파일 호출부 인자(매개변수) · 바깥 패턴의 원천 멤버. **원천 식이 없는 선언은 기본값이 있어도 그 칸** — for-of·for-in KD04 · `catch` KD13 · `declare` KD03b · 호출부 없는 매개변수 KD08(기본값은 후보로 남는다) | CHANGED(§7-F 칸 대체) | 0 | ΔV5 KD05b~k · **KD05l~z** · 짝 KD05lm·nm·pm·rm |
+| KD01 · KD02 · KD15 | **이름 바인딩** — 변수 선언 · 구조 분해 선언 요소 · 매개변수(식별자·구조 분해 요소) | KD01: `=`·`??=`·`\|\|=` 대입 우변을 후보에 더한다. KD02: 복합 대입 red. KD15: 증감 · 구조 분해 대입 대상 · **for-of·for-in 머리의 대입 대상**(식별자·패턴) red | CHANGED(종류 "변수" → 이름 바인딩) | 0 | ΔV4·ΔV5 그대로 + **KD15h~p · KD02b~d · KD01b~f** |
+| KM11 | 같은 멤버 대상의 복합 대입 · 증감 · 구조 분해 대입 대상 · **for-of·for-in 머리의 멤버 대입 대상** | red | CHANGED(대상 추가) | 0 | ΔV5 KM11a~d · **KM11e** |
+| KM08 | 원천 사슬이 KD15 이름 바인딩·나머지 요소에 닿은 멤버 읽기 | red(원천 없음) | CHANGED(조건 명시) | 0 | **KM08b~d** |
+| KM10 | 원천 사슬에 매개변수·구조 분해 요소의 대입 우변이 든다 | 후보 | CHANGED(사슬 범위) | 0 | ΔV5 KM10a~m · **KM10n** |
+
+- 칸 94(ΔV5 그대로) · 입력 **411**행(ΔV3 169 + ΔV4 163 + ΔV5 36 + ΔV6 43).
+- **판정 순서(모든 이름 바인딩)**: KD13 → KD04 → KD03b → KD02 → KD15 → 값 칸(KD01 · KD05 · KD06~KD09). 구조 분해 요소의 KD13·KD04·KD03b는 가장 바깥 패턴의 선언에서 정한다. 입력 KD13b·KD04b·KD02d가 순서를 잠근다. 멤버는 ΔV5 그대로(KM11 → KM10·KM06/KM01 후보 합).
+- 나머지 요소 `{ ...rest }`는 KD05가 아니라 기존 경로다 — 그 멤버 읽기는 KM08(입력 KM08c·d).
+
+### ΔV6 Decision
+
+D-020 추가(§3). D-017·D-018·D-019는 ACTIVE 그대로이고 D-020은 D-019 KD05 문장의 정합(D10)과 이름 바인딩 범위 채택(D11)이다(대체 아님).
+
+### ΔV6 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | §1 A · D-001 | INHERITED | `V1:R-01` |
+| AT-01f | AT | AC1·2·3·5·6·7c·**7h**·8 | CHANGED | `ΔV5:AT-01e` 대체(AC7g → AC7h) |
+| MD-03f · UT-03f | MD · UT | (H′) 판정 — EP-12f(칸 94 + 입력 411) | CHANGED | `ΔV5:MD-03e`·`UT-03e` 대체 |
+| AR-03c · IT-03c | AR · IT | 게이트 (A)~(G) + (H′) + 판정 불가 · `UNRESOLVED_ALLOWED` · `--report` | INHERITED | `ΔV4:AR-03c`·`IT-03c` — 해석기가 바뀌어 회귀 |
+| AR-01b · IT-01b | AR · IT | 배율 SSOT ↔ 예산 24자리 | INHERITED | `ΔV2:AR-01b`·`IT-01b` — 해석기가 바뀌어 회귀 |
+| AT-05 | AT | AC16 회귀 | INHERITED | `V1:AT-05` |
+| 그 밖의 node | — | — | INHERITED | 무변경 |
+
+### ΔV6 Pair registry
+
+| Pair | left ↔ right / 레벨 | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-12f | MD-03f ↔ UT-03f / UT | REQUIRED | 테스트 소스 문자열 → 해석기 노드 종류 표 → 형태·맥락 판정 → 자리·판정 불가·위반 | `scripts/check-test-budgets.test.mjs` — ΔV3 169 + ΔV4 163 + ΔV5 36 + **ΔV6 43행**마다 기대 단언(케이스명에 ID, ΔV6 행은 `vc` 측정 그대로 — 칸 ID까지) | required — **M62~M70** + verify r5 K2 + 승계(ΔV5 M53~M60 · ΔV4 M43~M50 · ΔV3 M39~M42 · verify r3 인용 14) + ⑦ sweep 411행·칸 94 | EP-12f(9지점 · 칸 94 · 입력 411) |
+| VP-09c | AR-03c ↔ IT-03c / IT | REGRESSION | ΔV4와 같음 | `gate:node scripts/check-test-budgets.mjs` exit 0 · `--report` UNRESOLVED 0 · ΔV2 대조 명령 0줄(deadline 62) · Windows CI | **M71**(트리에 매개변수 증감 판정 불가 자리) · ΔV5 M61·M61b · ΔV4 M51·M52 · ΔV2 M11c·M11d | ΔV4와 같음(100) |
+| VP-01f | R-01 ↔ AT-01f / AT | REQUIRED | ΔV2 VP-01b와 같음 | AC1~3·5·6·8: verify r1 §5 좌표 승계 · AC7c: VP-07b·09c · AC7h: VP-12f·09c | VP-12f·09c 변이 | VP-07b와 같음(94) |
+| VP-07b | AR-01b ↔ IT-01b / IT | REGRESSION | ΔV2와 같음 | 자리마다 게이트 좌표(M5b 24) | M5b | ΔV2와 같음(94) |
+| VP-13 | R-01 ↔ AT-05 / AT | REGRESSION | 전체 스위트 — 깨끗한 호스트 | Windows CI 'Test' success(구현 head) · `git diff --stat <ΔV6 설계 커밋>..HEAD -- app/src app/vitest.config.ts app/scripts/{vitest-setup,test-time,test-host}.mjs app/package.json .github` 0줄 | not selected | 0 |
+| VP-12e · VP-01e | — | **SUPERSEDED** | — | VP-12f · VP-01f | — | — |
+| VP-02~06 · 08 · 10 · 11 | V1 그대로 | NOT_REQUIRED | — | verify r1 §5 · r2-5 · r3-5 · r4-5 · r5-5 좌표 | — | 비영향: ΔV6 구현은 해석기·그 UT·`app/AGENTS.md`만 바꾼다 |
+
+- `SUPERSEDED` 이관: VP-12e(칸 94 · 입력 368 · M53~M60 · 승계 변이) → VP-12f · VP-01e(AC7c·7g) → VP-01f(AC7c·7h). 폐기 0.
+- NEW·CHANGED 왼쪽 node ↔ 같은 레벨 REQUIRED pair: MD-03f → VP-12f(UT) · R-01(오른쪽 AT-01f CHANGED) → VP-01f. 영향받은 INHERITED → REGRESSION: VP-09c · VP-07b · VP-13. 차집합 0.
+
+### ΔV6 Acceptance — 정정
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | **AT-01f / AC7h** (AC7g 대체) | (H′)는 EP-12f대로 판정한다 — ΔV3 169 · ΔV4 163 · ΔV5 36 · ΔV6 43행의 기대와 같다. 구조 분해 값은 같은 원천의 멤버 읽기와 같은 판정이다(짝 행 4쌍이 같은 `vc`). 원천이 리터럴과 호출로 섞이면 판정 불가 KM08이다. 매개변수·구조 분해 요소도 대입 우변이 후보이고 증감·복합·구조 분해 대입·for 머리 대입은 판정 불가다(KD15·KD02·KM11) | `check-test-budgets.test.mjs` 411행 기대 단언(케이스명에 ID) · `dv3-branches`·`dv4-cells`·`dv5-cells`·`dv6-cells` 판정 불일치 0 · 칸마다 지우거나 이웃 분류·이웃 칸 ID와 맞바꾸면 그 칸의 행이 red(⑦ sweep 기록) | `scripts/check-test-budgets.mjs` · `scripts/test-budget-bindings.mjs` |
+| — | **AC19e** (AC19d 대체) | AC19d 그대로 + `app/AGENTS.md`의 `check-test-budgets.mjs` 항목이 노드 종류 표 정본을 plan §7-E·§7-F·§7-G로 가리키고, 판정 불가 형태 "증감·구조 분해 대입"이 변수·매개변수·멤버에 걸림을 적는다 · `node scripts/check-doc-inventory.mjs --check` green | 문서 diff + 인벤토리 게이트 | 문서 |
+
+**AC 게이트 재통과**(§5) — 정정 2행:
+
+- 행동 단언·검증 수단·도달 경로: 두 행 모두 세 칸을 갖는다.
+- **방향**: red 칸 행(KD05l·m·n·o·q·t·u·v · KD15h·i·j·m·n·o · KD02b·c·d · KM11e · KM08b·c·d · KD13b·KD04b)은 판정 불가가 나와야 green이다. 후보 행(KD05p·r·s·z · KD01b~e · KM10n)은 미배율 리터럴 위반 1이 나와야 green이다. 구별 입력(KD05w·x·y · KD01f · KD15k·l·p)은 0/0이라 과잉 판정(배율 원천 · 경계 원천 · 다른 키 · 무관 바인딩)을 잠근다.
+- **대칭 축**: 짝 행 KD05l↔lm · n↔nm · p↔pm · r↔rm은 같은 기대다 — 구조 분해 경로만 고장 내면 한쪽만 바뀐다(M62·M64).
+- **자리를 말하는 불변식의 맞바꿈 축**: 칸 ID를 `vc`가 단언한다 — KD13b `KD13` · KD04b `KD04` · KD02d `KD02` · KD02b `KD02` ↔ KD15h `KD15`. M68이 순서 맞바꿈을 심는다.
+- 완결성 주장: 칸 5개 정정의 트리 분포는 시제품 출력(exit 0 · `--report` 동일), 입력 수는 `dv6-cells.mjs` 출력 "칸 입력 43"이 관측이다.
+- structural proxy 없음 — 행마다 위반 수·판정 불가 수·칸 ID를 단언한다. 사람 실기로 미룬 순수 로직 없음.
+- AC 총수: **21** 그대로(AC7g → AC7h · AC19d → AC19e 번호 승계).
+
+### ΔV6 §10 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| MD-03f / VP-12f **EP-12f** | (H′) 판정 — EP-12b 9지점 + 노드 종류 표 | `scripts/test-budget-bindings.mjs`(KV·KD·KM·KF·KC·KN) · `scripts/check-test-budgets.mjs`(KE·KO·KP·KA·판정 불가·칸 이름) | 게이트 | **9지점 · 칸 94 · 입력 411**(ΔV3 169 + ΔV4 163 + ΔV5 36 + ΔV6 43) | 칸 입력 = `dv4-cells.mjs app` · `dv5-cells.mjs app` · `dv6-cells.mjs app` · 분기 = `dv3-branches.mjs app` | 칸 하나가 빠지면 그 종류의 미배율 마감이 통과하거나(거짓 green) 정상 코드가 판정 불가로 막힌다(오탐). 구조 분해와 멤버 읽기의 판정이 갈리면 같은 값이 문법에 따라 통과한다 |
+| AR-03c / VP-09c **EP-13** | 판정 불가 허용 목록 | `UNRESOLVED_ALLOWED` | 테스트 작성자 · 게이트 | **0항목**(그대로 — 새 경로 트리 0) | `node scripts/check-test-budgets.mjs --report`의 UNRESOLVED·allowed 행 = 0 | ΔV4와 같음 |
+
+- **EP-12f 게이트가 초록인 채로 남는 차이** — ΔV5 목록(ΔV4 + L12·L13) 그대로. ΔV6는 새 경계를 선언하지 않는다(측정한 경계 후보 없음).
+- EP-05b 62자리는 바뀌지 않는다 — 시제품 `--report` 동일.
+- `실패 의미`에 "다른 게이트가 막는다"를 적은 칸: 없음.
+- **ΔV6 유효 강제 지점 전수**: V1 67 + EP-05b 62 + EP-12f 9지점 + EP-13 0항목 = **138**(ΔV5와 같음). 칸 94·입력 411은 VP-12f UT의 분모다.
+
+**ΔV6 등록 변이** — 판정 코드 변이(M62~M70)는 UT(VP-12f), 트리 변이(M71)는 게이트(VP-09c)가 잡아야 한다. verify r5 K2(`.some` → `.every`)도 같은 UT가 잡아야 한다(D9 인용 변이).
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 oracle |
+|---|---|---|---|
+| M62 | KD05 원천 멤버 | 후보(기본값·대입)가 있으면 원천을 보지 않음(r5 동작으로 되돌림) | UT KD05n·o·p·q·r·s·u·v 불일치 · 짝 KD05nm·pm·rm은 그대로 |
+| M63 | KD05 혼합 원천 | 원천 후보 중 리터럴이 하나라도 있으면 KM02(verify r5 K2와 같은 축) | UT KD05l·m 불일치 |
+| M64 | KD05 ↔ KM10·KM11 | 구조 분해 원천의 멤버 쓰기 무시 | UT KD05p·q·r·s 불일치 · KD05y 그대로 |
+| M65 | KD02·KD15 바인딩 종류 | 구조 분해 요소·매개변수를 변수 선언에서만 보는 판정으로 | UT KD15h·i·j · KD02b·c·d 불일치 |
+| M66 | KD01 바인딩 종류 | 매개변수·구조 분해 요소의 대입 우변 제거 | UT KD01b~e · KM10n 불일치 · KD01f 그대로 |
+| M67 | for 머리 대입 대상 | for-of·for-in 머리 대입 대상 표시 제거 | UT KD15m·n·o · KM11e 불일치 |
+| M68 | 판정 순서 | 구조 분해 요소에서 KD15·KD02를 KD13·KD04보다 먼저 | UT KD13b·KD04b 칸 ID 불일치 |
+| M69 | KD15 소유 대조 | 증감 대상이 같은 함수의 다른 매개변수·같은 패턴의 다른 요소여도 red | UT KD15k·l `0/0/-` → red |
+| M70 | 원천 사슬 | KD15 이름 바인딩을 원천으로 그대로 풂 | UT KM08b 불일치 |
+| M71 | `src/main/infra/net/pop3-tls.test.ts` 끝 | `function probe(ms) { ms++; setTimeout(() => {}, ms) }` + `probe(scaleMs(500))` 추가 → exit 1 · 위반 문구 `판정 불가 KD15` · 같은 파일 `UNRESOLVED_ALLOWED {reason: 'KD15', count: 1, why}` 추가 → exit 0 | `gate:node scripts/check-test-budgets.mjs` |
+
+### ΔV6 구현 설계
+
+| 변경 파일 | 변경 내용 | 테스트 seam |
+|---|---|---|
+| `app/scripts/test-budget-bindings.mjs` | 색인 단계: for-of·for-in 머리가 선언이 아니면 대입 패턴으로 표시(`markAssignmentPattern`) · `classifyIdentifier`: 구조 분해 요소·매개변수에 판정 순서(바깥 선언의 KD13·KD04·KD03b → KD02 → KD15)와 대입 우변 후보 · 구조 분해 요소 값 = 기본값 ∪ 대입 우변 ∪ 원천 멤버(원천 owner마다 `classifyMember`와 같은 KM 판정 — `this` 원천 포함) — `emptyDestructuring`의 "후보가 없으면" 분기와 `:603` 리터럴 `.some` 판정은 이 경로로 대체 · `expand`: 매개변수·구조 분해 요소의 대입 우변, KD15 바인딩은 원천 없음 · 헤더 주석 칸 설명 | `analyzeScale`(문자열 소스) → UT |
+| `app/scripts/check-test-budgets.test.mjs` | 새 describe '노드 종류 표 정정 (0294 ΔV6)' — `dv6-cells.mjs` 43행의 입력·기대 그대로(케이스명에 ID, `vc` 측정) · 기존 describe 유지 | node test |
+| `app/AGENTS.md` | AC19e | 문서 diff + 인벤토리 |
+
+- 멤버 읽기 판정과 구조 분해 판정은 한 함수를 함께 쓴다 — 같은 KM 규칙을 두 곳에 복사하지 않는다(짝 행이 대칭을 잠근다).
+- `check-test-budgets.mjs` `UNRESOLVED_LABELS`는 바꾸지 않는다 — 새 칸 ID 없음. KD15 문구 "증감·구조 분해 대입 변수"의 "변수"는 이름 바인딩을 뜻한다(AC19e 문서가 적는다).
+- 시제품은 커밋하지 않았다 — 구현은 복사하지 않는다(ΔV2 원칙). 입력(`dv6-cells.mjs`)은 복사해도 된다.
+- ⑦ sweep 분모 = 입력 411행 + 칸 94 + EP-05b 62자리. 정정 칸 5개는 지우는 변이와 이웃 분류·이웃 칸 ID 맞바꿈 변이를 둘 다 심고 잡은 행 ID를 `[구현자 기입]`에 적는다.
+- 테스트 소스(`app/src/**`) 변경 0 · 신규 의존성 0 · production 코드 무변경 · (A)~(G) 무변경. 트리에 판정 불가 자리가 생기면 PLAN_GAP으로 돌린다.
+
+### ΔV6 운영 gate
+
+ΔV4 운영 gate 7종 그대로 — 분기·칸 탐침 행에 `dv6-cells.mjs .`(판정 불일치 0)를 더한다.
+
+### ΔV6 READY self-review
+
+- Decision: D-020 추가(설계자 — verify r5 D10 plan 내부 정합 + D11 창 안 채택). D-017~D-019 ACTIVE 유지. 대조는 §3 갱신 메모.
+- 창: ΔV4 창 안 2회째 뒤의 설계 턴이라 확장 채택이 허용되는 마지막 턴이다. 채택은 한 번에 했다 — R2·R2c·R3·R4와 형제(매개변수·구조 분해 요소 대입 우변 · for-of·for-in 머리 식별자·멤버 대상 · KD15 원천 사슬 · 판정 순서). 이 턴 뒤 열거는 동결된다.
+- 규칙 칸 ↔ UT 입력 칸: 정정 칸 5개의 분기마다 입력이 있다 — KD05(혼합 빈 리터럴·키 있는 리터럴 · 조건식 두 종 · 멤버 대입 · 증감 · 중첩 · `this` 대입·없음 · for-of·`catch` 기본값 · 배율 혼합 · 경계 혼합 · 다른 키 · 기본값만) · KD01/02/15(구조 분해 요소·매개변수·구조 분해 매개변수 × 대입·복합·증감·구조 분해 대입 · 호출부 없음 · 배율 · 무관 바인딩 2 · for 머리 식별자·패턴·for-in) · KM11(for 머리 멤버) · KM08(KD15 원천 · 나머지 요소 2) · KM10(매개변수 대입 사슬) · 순서 3.
+- 선언 경계: 새로 적지 않았다 — 측정한 경계 후보가 없다.
+- 새·변경 왼쪽 node ↔ 같은 레벨 REQUIRED pair 차집합 0 · SUPERSEDED 2 pair 이관 표기 · 회귀 3 pair · NOT_REQUIRED 8 pair.
+- 장치 방향: red 칸 행은 판정 불가 · 후보 행은 위반 1 · 구별 입력 0/0이 과잉을 잠근다(M69) · 짝 행 대칭(M62·M64) · 칸 ID 맞바꿈(M68) · 트리 변이 M71.
+- AC 2행은 §5 AC 게이트를 다시 통과했다(위 재통과 목록). 사람 실기 추가 없음(AC18 그대로).
+
 ---
 
 # Part II — Technical Design
@@ -1997,8 +2145,8 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 | D8 | KM06·KD01 칸이 D-018 주어(같은 파일 선언 그래프)보다 좁다 — 생성자 대입 `this.ms = 5000`(속성 초기값 500)과 구조 분해 대입 `({ ms } = { ms: 5000 })`이 위반 0(Q8·Q9). 트리 자리 0 | VP-12d · AC7f · D-018 · EP-12d KM06·KD01 · [verify r4](verify.md) r4-13 | 설계자가 두 형태를 칸으로 채택하거나 경계로 선언(ΔV4 창 안 — verify 1회째) | PLAN_GAP | **closed** (verify r5 — KM10a·KD15c 단언 · M55~M60 red). 이력: ΔV5 채택(D-019 · §7-F), 경계 L12·L13 |
 | N2 | `createBindings` 반환의 `values`·`sources`·`argumentsFor`·`importAliases` 외부 소비 0 | 역방향 탐색 · [verify r4](verify.md) r4-3 | 다음 구현이 거둘 수 있다 | NON_BLOCKING | open |
 | D9 | KD05 빈 후보에서 원천 후보가 리터럴과 호출로 섞이면 `test-budget-bindings.mjs:603-607` `sources(origin).some(리터럴)`이 KM02 숫자 아님을 낸다 — `let r = {}; r = getOpts(); const { ms } = r`(R7) · `const { ms } = cond ? {} : getOpts()`(R8) 위반 0, 같은 원천 멤버 읽기 R7c·R8c는 KM08. `.some`→`.every` 변이에 UT 709/709 green(K2) | VP-12e · AC7g · EP-12e KD05 "원천 식을 KM 표로 … 그 밖(호출…)은 KM08" · [verify r5](verify.md) r5-13 | 원천 후보마다 KM 판정 · R7·R8을 UT 입력으로(`evidence/verify-r5-probes.mjs`) | BLOCKING | open |
-| D10 | D-019 "KD05 '원천 멤버'는 원천 식을 KM 표로 판정한 결과" ↔ §7-F KD05 칸 "후보마다 KV. 후보가 없으면 원천 식을 KM 표로" — 후보가 있을 때 멤버 대입 우변(KM10)·증감(KM11)·비리터럴 원천이 드는지 갈린다. `o.ms = 5000; const { ms } = o`(R5) · `o.ms++` 뒤 구조 분해(R6) · 키 있는 리터럴 + 호출 혼합(R7b·R8b) 위반 0, 멤버 읽기 대조는 위반 1. 트리 자리 0 | VP-12e · AC7g · D-019 · EP-12e KD05 · [verify r5](verify.md) r5-13 | 설계자가 한 문장으로 정하고 KD05 칸·입력을 고친다 | PLAN_GAP | open |
-| D11 | KD02·KD15 판정이 변수 선언만 본다 — `let { ms } = { ms: 500 }` 뒤 `ms++`·`ms += 4500`(R2·R2c) · 매개변수 `ms++`(R3) · `for ({ ms } of …)`(R4) 위반 0. 트리 자리 0 | VP-12e · AC7g · D-018·D-019 · EP-12e KD02·KD15 · [verify r5](verify.md) r5-13 | 설계자가 항목마다 채택 또는 경계 선언(ΔV4 창 안 마지막 — 이 설계 턴 뒤 열거 동결) | PLAN_GAP | open |
+| D10 | D-019 "KD05 '원천 멤버'는 원천 식을 KM 표로 판정한 결과" ↔ §7-F KD05 칸 "후보마다 KV. 후보가 없으면 원천 식을 KM 표로" — 후보가 있을 때 멤버 대입 우변(KM10)·증감(KM11)·비리터럴 원천이 드는지 갈린다. `o.ms = 5000; const { ms } = o`(R5) · `o.ms++` 뒤 구조 분해(R6) · 키 있는 리터럴 + 호출 혼합(R7b·R8b) 위반 0, 멤버 읽기 대조는 위반 1. 트리 자리 0 | VP-12e · AC7g · D-019 · EP-12e KD05 · [verify r5](verify.md) r5-13 | 설계자가 한 문장으로 정하고 KD05 칸·입력을 고친다 | PLAN_GAP | **ΔV6 정정**(D-020 (a) · §7-G KD05 칸 · 입력 KD05n~v) — 구현 r6 대기 |
+| D11 | KD02·KD15 판정이 변수 선언만 본다 — `let { ms } = { ms: 500 }` 뒤 `ms++`·`ms += 4500`(R2·R2c) · 매개변수 `ms++`(R3) · `for ({ ms } of …)`(R4) 위반 0. 트리 자리 0 | VP-12e · AC7g · D-018·D-019 · EP-12e KD02·KD15 · [verify r5](verify.md) r5-13 | 설계자가 항목마다 채택 또는 경계 선언(ΔV4 창 안 마지막 — 이 설계 턴 뒤 열거 동결) | PLAN_GAP | **ΔV6 채택**(D-020 (b) · §7-G KD01·KD02·KD15·KM11·KM08·KM10 칸 · 입력 KD15h~p·KD02b~d·KD01b~f·KM11e·KM08b~d·KM10n) — 구현 r6 대기 |
 | N3 | PR #530 브랜치 CI run 41986312686(head `cc72b80`) `discovery-cache.test.ts:123` 경쟁 단언 red | 비귀속 · [verify r5](verify.md) r5-3 | — (`app/src` diff 0 · 같은 코드 `main` run 41986335666 success) | NON_BLOCKING | open |
 
 
