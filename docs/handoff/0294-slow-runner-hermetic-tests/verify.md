@@ -739,3 +739,24 @@
 - 운영 gate: 전부 PASS(lint·typecheck·node 237·예산·인벤토리·vitest 기준 동일·Windows CI·trailer).
 - 고장 134 = 잡음 103 · 역변이 1 · 동치 4 · 못 잡음 26(D5 19 · D6 7), 덮개 회귀 0.
 - 다음 단계: `handoff-review`(verify 3회째) → 설계자 ΔV3(D6 규칙 칸 정합 + D5 분기 입력 칸, 별도 설계 커밋) → `plan/READY` → 구현 r4가 못 잡음 26을 닫는다.
+
+---
+
+# r3 판정 정정 — review round 41 (2026-11-05)
+
+> 새 verify가 아니다(verify 횟수 3 유지). 2026-11-05 사용자 결정으로 바뀐 발견 분류·확장 창(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`)을 r3 발견에 적용한 기록이다. r3 원문은 위에 그대로 둔다.
+
+**정정 판정: FAIL** — 이행 결함 14건이 남고 `PLAN_GAP`은 0이다. verify 3회째라 확장 창 밖이므로 확장 후보 12건은 후보 표로 간다. 다음 주체는 구현자(r4).
+
+| 묶음 | r3 판정 | 새 분류 | 근거 | 정정 disposition |
+|---|---|---|---|---|
+| M21b · V-elem · V-oreq · V-util · V-peel · V-div · V-or · V-spreadval · V-valueOf · V-gte · V-expectx (11) | D5 BLOCKING | 이행 | EP-12b 규칙 칸 원문이 분기를 글자 그대로 적음 — P2′ named "식별자 대입"·`o['k'] = v`·`\|\|=`·`util.promisify(x)`·B1 · P3′ B7 `+ - * /`·`??`/`\|\|` 양쪽·B6 전개 · P8 now 원천 4종·역방향 `OrEqual` · ΔV1 P5 "elapsed 상한 인자는 센다" | BLOCKING |
+| W1 · W2 · W2b (3) | D5 BLOCKING | 이행 | ΔV1 P2 "`timers/promises`의 `setTimeout` 첫 인자" · P3′ B7 "여러 값이면 값마다 자리" | BLOCKING |
+| W3 · W3b · W7 (3) | D5 BLOCKING | 확장 | 덮는다고 보려면 해석이 필요 — "이름 속성"이 클래스 필드·대입 대상을 포함하는가 · "같은 파일 호출부"가 IIFE를 포함하는가 | NEXT_HANDOFF(확장) |
+| V-satisfies · V-nonnull (2) | D5 BLOCKING | 확장 | 규칙 칸은 "B1 래퍼"만 적고 `satisfies`·`!`를 열거하지 않음 — 구현이 고른 분기 | NEXT_HANDOFF(확장) |
+| W4b · W4c · W4d · W5 · W6 · W8 · W9 · 오탐 W4 · W10 | D6 PLAN_GAP | 확장 | 규칙 칸 밖 — D-015 주어만 근거 · 트리 영향 0(실험 사본 재열거 62) | NEXT_HANDOFF(확장) |
+| N1 | NON_BLOCKING | 비귀속 | 인접 정리 | NON_BLOCKING |
+
+- r4 의무: 이행 결함 14건의 `못 잡음`을 닫는다 + 열거 sweep(EP-12b 규칙 칸 분기 전수 · EP-05b 62자리). 재현 입력은 [`evidence/verify-r3-probes.mjs`](evidence/verify-r3-probes.mjs)다.
+- 후보 표: INDEX `## 새 handoff 후보`의 0294 행(확장 12건 + 오탐 2). 그 형태가 테스트 소스에 나타나거나 사용자가 요청할 때만 승격한다.
+- verify 3회째 비PASS의 의무 `handoff-review`는 round 41로 수행됐다(`.agents/skills/handoff-review/references/regression-coverage.md`).
