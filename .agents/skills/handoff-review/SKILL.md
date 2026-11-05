@@ -101,9 +101,9 @@ V 프로토콜을 건드리면 다음을 함께 감사한다.
 
 `handoff-plan`에는 현재 요구 비판, Decision Ledger, Product/UX Contract, 코드 조사·Technical Design(AS-IS/TO-BE), 검증 가능한 AC, READY 정합성 검사를 남긴다.
 
-`handoff-impl`에는 plan을 계약으로 수행하기, 강제 지점 전수 적용, 구현 중에만 보이는 결함과 Product/UX 파생 문제 진단, 지적을 불변식으로 올려 전수 적용하기, plan 되먹임 3분기 판정을 남긴다.
+`handoff-impl`에는 plan을 계약으로 수행하기, 강제 지점 전수 적용, 구현 중에만 보이는 결함과 Product/UX 파생 문제 진단, 지적을 불변식으로 올려 전수 적용하기, 열거 원문 sweep 자기점검, 발견 분류와 처리 권한(plan 되먹임)을 남긴다.
 
-`handoff-verify`에는 현재 구현 비판, 역방향 탐색, Product/UX ↔ end-to-end 검증, 구현자가 AC를 바꿔 자기 증명했는지 확인, 기계 검증/사람 실기 경계를 남긴다.
+`handoff-verify`에는 현재 구현 비판, 역방향 탐색, Product/UX ↔ end-to-end 검증, 구현자가 AC를 바꿔 자기 증명했는지 확인, 하한(독립 축·열거 sweep)과 발견 분류·확장 창 판정, 기계 검증/사람 실기 경계를 남긴다.
 
 `handoff-review`가 실패 원인 분류, 반복 실수 일반화, SKILL/template/AGENTS 자체 수정, failure corpus 유지 정책과 **지침 변경 회귀 검증**을 맡는다. plan/impl/verify가 매 작업마다 failure corpus를 갱신하거나 자기 SKILL을 수정하지 않는다.
 

@@ -118,6 +118,15 @@
 | `0114-better-sqlite3-asar-unpack` | impl | IMPL_DONE | Claude | (push 후) | 2 | **r2 — 사용자 실기에서 위치 수정 후 ABI mismatch 확인.** 설치본의 unpacked 바인딩은 Node 22 ABI 127, Electron 39는 ABI 140 요구. 릴리스가 `npm test`로 Node ABI 전환 후 패키징하는데 `npmRebuild: false`가 electron-builder의 최종 native rebuild를 차단한 것이 근본 원인. `npmRebuild: true`로 복구해 패키저가 대상 Electron ABI를 최종 보장하고, r1 `asarUnpack`은 유지한다. YAML 설정값·ABI 스크립트 7/7·lint/typecheck 통과, Windows 설치본 실기 대기. 상세=`0114-better-sqlite3-asar-unpack/plan.md` 파생 이슈 r2. |
 | `0115-single-instance-lock` | impl | IMPL_DONE | Claude | (push 후) | 1 | 단일 인스턴스 강제 (비기능=Claude 직접 구현, 사용자 결정 2건). 패키징 빌드 한정 `app.requestSingleInstanceLock()`(`app.isPackaged` 게이트 — dev HMR 재시작 경합 제외) + 두 번째 실행 시 `second-instance` 핸들러가 기존 창 복원·포커스(`focusMainWindow`) + `createWindow` 창 참조 보관(`mainWindowRef`, `closed` 항등 가드 해제) + `whenReady` 조기 반환(락 미획득 인스턴스는 Bootstrap/창 미생성). `app/src/main/index.ts` 1파일·신규 의존성 0·IPC 무변경. 게이트 lint ✅(0 error)/typecheck ✅(3/3)/순수 app 테스트 12 passed. 인수 1·2(중복 실행 차단·기존 창 포커스)는 패키징 설치본 2회 실행 사람 실기 대기(egress 차단으로 electron build/실기 불가 — 환경 제약). 상세=`0115-single-instance-lock/plan.md`. |
 
+## 새 handoff 후보
+
+> verify가 `NEXT_HANDOFF`(확장·독립)로 보낸 발견과 `verify/CLOSED` 종료 이관을 handoff별 1행으로 모은다(규칙: [`AGENTS.md`](AGENTS.md) §판정 범위와 운영 gate · §INDEX.md 운영).
+> 승격은 그 형태가 실제 코드에 나타났을 때(다른 handoff의 plan 조사·verify에서 발견) 또는 사용자 요청일 때만 한다 — 가정 반례만으로는 승격하지 않는다. 상세는 링크한 원본 문서가 갖는다.
+
+| 출처 | 종류 | 대상 | 요약 | 승격 조건 | 상세 |
+| --- | --- | --- | --- | --- | --- |
+| 0262 | 종료 이관(CLOSED) | OpenCode 하네스 | verify 9회 상한 종료로 남은 항목 | 사용자 요청 | [plan.md 종료 이관 목록](0262-opencode-harness/plan.md) |
+
 ## 진행 중 작업 메모
 
 > **0262 종료 이관 후보(2026-10-19)** — 0262는 verify 9회 상한으로 `verify/CLOSED` 종료됐다(archive history). 남은 항목은 [`0262 plan.md` 종료 이관 목록](0262-opencode-harness/plan.md)에 있고, 새 handoff는 그 목록부터 읽는다.
