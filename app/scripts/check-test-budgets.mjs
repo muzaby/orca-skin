@@ -35,10 +35,10 @@
 //     `scaleMs(...)` 여야 한다. 리터럴로 남은 예산은 배율을 무시하고, 전역(×배율)보다 작아져
 //     "더 작은 캡이 이긴다" 를 다시 만든다.
 // (G) **픽스처 상한 > 최대 파일 예산** — 둘 다 같은 배율을 받으므로 기준값으로 비교한다.
-// (H′) **테스트 소유 실시간 마감** — 테스트가 고른 시간 값이 실제 경과의 상한이 되는 7형태
+// (H′) **테스트 소유 실시간 마감** — 테스트가 고른 시간 값이 실제 경과의 상한이 되는 8형태
 //     (타이머 지연 · `x.setTimeout(N)` · `AbortSignal.timeout(N)` · `now()` 마감 산술·비교 ·
 //     경과 상한 단언 · `/timeout/i` 옵션(중첩 `timeouts` 객체·자식 프로세스·production 시간 인자) ·
-//     `/timeout/i` 매개변수 기본값). 값은 같은 파일 상수·`??`/`||`·리터럴 산술까지 따라간다.
+//     `/timeout/i` 매개변수 · 같은 이름 변수). 값은 같은 파일 선언 그래프를 따라간다.
 //     임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계 없이 본다. 예산은 `scaleMs` 를 지나고,
 //     시간 초과 자체를 시험하거나 데이터·하한인 **의미 값**은 `SEMANTIC_DELAYS` 에
 //     `{file, value, count, reason}` 으로 등록한다 — 게이트가 자리 수를 count 와 대조한다.
@@ -48,6 +48,9 @@
 //     단축 속성·대입·클래스 필드·구조 분해 기본값·`/timeout/i` 이름 변수(named) 슬롯, now 변수·`+=`,
 //     같은 파일 함수의 인자·반환, 변수에 담은 `vi.waitFor` 옵션까지. 문법 노드만 보면 같은 계약을
 //     다른 문법으로 쓴 자리가 조용히 지난다. (F) 는 그대로 인라인 형태만 통과시킨다(fail-closed).
+//     ΔV4 EP-12d: 해석기의 KV/KD/KM/KF/KC/KN 표와 이 파일의 KE(상한 matcher·not),
+//     KO(timeouts 소유), KP(매개변수), KA(허용 목록)가 정본이다(plan §7-E).
+//     값 자리의 red/표 밖 종류는 판정 불가 위반이다. UNRESOLVED_ALLOWED 는 파일·칸·수·사유를 대조한다.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -355,6 +358,9 @@ export const SEMANTIC_DELAYS = [
   }
 ]
 
+// ΔV4 — unresolved values need an explicit, counted boundary registration.
+export const UNRESOLVED_ALLOWED = []
+
 const TEST_CALLS = new Set(['it', 'test', 'describe', 'bench', 'suite'])
 const HOOK_CALLS = new Set(['beforeAll', 'beforeEach', 'afterAll', 'afterEach'])
 /** (H′) 임계 — 1초 미만 자리는 실측상 전부 시간 초과 유발값·순서용 하한 대기다. */
@@ -412,20 +418,7 @@ export function scanDeadlineSites(relPath, source) {
   const b = createBindings(relPath, source)
   const { src } = b
   const lineOf = (node) => src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1
-  const timerAliases = new Set(
-    [...b.importAliases(/^(node:)?timers\/promises$/)]
-      .filter(([, original]) => original === 'setTimeout')
-      .map(([local]) => local)
-  )
-  const childAliases = new Map(
-    [...b.importAliases(/^(node:)?child_process$/)].filter(([, original]) =>
-      CHILD_PROCESS.has(original)
-    )
-  )
-  const calleeOf = (call) => {
-    const name = b.calleeName(call)
-    return childAliases.get(name) ?? name
-  }
+  const calleeOf = (call) => b.calleeName(call)
 
   // keepMatcher: elapsed 형태는 상한 자체가 matcher 인자라 그 제외를 건너뛴다.
   const excludedHere = (node, keepMatcher) => {
@@ -477,8 +470,19 @@ export function scanDeadlineSites(relPath, source) {
       const named =
         ts.isPropertyAssignment(owner) ||
         ts.isShorthandPropertyAssignment(owner) ||
-        ts.isVariableDeclaration(owner)
-      if (named && TIMEOUT_NAME.test(keyOf(owner.name))) return true
+        ts.isVariableDeclaration(owner) ||
+        ts.isPropertyDeclaration(owner) ||
+        ts.isBindingElement(owner)
+      if (named && TIMEOUT_NAME.test(keyOf(owner.propertyName ?? owner.name))) return true
+      if (ts.isBinaryExpression(owner) && SLOT_ASSIGN.has(owner.operatorToken.kind)) {
+        const target = owner.left
+        const key = ts.isPropertyAccessExpression(target)
+          ? target.name.text
+          : ts.isElementAccessExpression(target)
+            ? keyOf(target.argumentExpression)
+            : keyOf(target)
+        if (TIMEOUT_NAME.test(key)) return true
+      }
       if (
         (ts.isPropertyAssignment(owner) || ts.isShorthandPropertyAssignment(owner)) &&
         ownedByTimeoutName(owner.parent, depth + 1)
@@ -493,21 +497,33 @@ export function scanDeadlineSites(relPath, source) {
   const push = (form, slot, valueNode, options = {}) => {
     if (!valueNode || excluded(slot, form === 'elapsed')) return
     const noThreshold = form === 'abort' || !!options.childProcess
-    for (const v of b.values(valueNode)) {
-      if (!v.scaled && !noThreshold && v.value < DEADLINE_MIN_MS) continue
-      const key = v.literal.getStart(src)
-      if (seen.has(key)) continue
+    // R4/P9: aggregate candidates of the same terminal before deduplicating the slot.
+    const groups = new Map()
+    for (const value of b.classify(valueNode)) {
+      if (!['num', 'scaled', 'red'].includes(value.kind)) continue
+      const key = value.node.getStart(src)
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(value)
+    }
+    for (const [key, candidates] of groups) {
+      const v =
+        candidates.find((v) => v.kind === 'red') ??
+        candidates.find((v) => v.kind === 'num' && (noThreshold || v.value >= DEADLINE_MIN_MS)) ??
+        candidates.find((v) => v.kind === 'scaled')
+      if (!v || seen.has(key)) continue
       seen.add(key)
       sites.push({
         form,
         node: slot,
         line: lineOf(slot),
-        valueLine: lineOf(v.literal),
-        value: v.scaled ? null : v.literal.getText(src),
-        scaled: v.scaled
+        valueLine: lineOf(v.node),
+        value: v.kind === 'scaled' ? null : v.node.getText(src),
+        scaled: v.kind === 'scaled',
+        ...(v.kind === 'red' ? { unresolved: v.cell } : {})
       })
     }
   }
+
   const optionSlot = (slot, valueNode, objectExpression) =>
     push('option', slot, valueNode, {
       childProcess: !!objectExpression && usedByChildProcess(objectExpression)
@@ -517,23 +533,41 @@ export function scanDeadlineSites(relPath, source) {
     if (ts.isCallExpression(node)) {
       const callee = calleeOf(node)
       const access = ts.isPropertyAccessExpression(node.expression) ? node.expression : null
-      if (/^(globalThis\.|window\.)?(setTimeout|setInterval)$/.test(callee))
+      if (b.calleeInfo(node).unresolved) {
+        if (!excluded(node, false))
+          sites.push({
+            form: 'callee',
+            node,
+            line: lineOf(node),
+            valueLine: lineOf(node),
+            value: null,
+            scaled: false,
+            unresolved: 'KC04'
+          })
+      } else if (callee === 'timers/promises.setTimeout') push('timer', node, node.arguments[0])
+      else if (/^(globalThis\.|window\.)?(setTimeout|setInterval)$/.test(callee))
         push('timer', node, node.arguments[1])
-      else if (timerAliases.has(callee)) push('timer', node, node.arguments[0])
       else if (/\.setTimeout$/.test(callee)) push('method', node, node.arguments[0])
       else if (callee === 'AbortSignal.timeout') push('abort', node, node.arguments[0])
-      else if (access && isCallTo(access.expression, 'expect')) {
-        const subject = access.expression.arguments[0]
-        const bound = node.arguments[0]
-        if (UPPER_MATCHERS.has(access.name.text) && b.isNow(subject)) push('elapsed', node, bound)
-        else if (
-          UPPER_MATCHERS_FLIPPED.has(access.name.text) &&
-          b.isNow(bound) &&
-          !b.isNow(subject)
-        )
-          push('elapsed', node, subject)
+      else if (access) {
+        let target = access.expression
+        let negated = false
+        if (ts.isPropertyAccessExpression(target) && target.name.text === 'not') {
+          negated = true
+          target = target.expression
+        }
+        if (isCallTo(target, 'expect')) {
+          const subject = target.arguments[0]
+          const bound = node.arguments[0]
+          const forward = negated ? UPPER_MATCHERS_FLIPPED : UPPER_MATCHERS
+          const reverse = negated ? UPPER_MATCHERS : UPPER_MATCHERS_FLIPPED
+          if (forward.has(access.name.text) && b.isNow(subject)) push('elapsed', node, bound)
+          else if (reverse.has(access.name.text) && b.isNow(bound) && !b.isNow(subject))
+            push('elapsed', node, subject)
+        }
       }
     }
+
     if (ts.isBinaryExpression(node)) {
       const k = node.operatorToken.kind
       const leftNow = b.isNow(node.left)
@@ -572,7 +606,7 @@ export function scanDeadlineSites(relPath, source) {
     if (ts.isPropertyDeclaration(node) && node.initializer && TIMEOUT_NAME.test(keyOf(node.name)))
       push('option', node, node.initializer)
     if (ts.isParameter(node) && ts.isIdentifier(node.name) && TIMEOUT_NAME.test(node.name.text))
-      push('param', node, node.initializer)
+      push('param', node, node.initializer ?? node.name)
     if (
       ts.isBindingElement(node) &&
       node.initializer &&
@@ -597,7 +631,12 @@ export function scanDeadlineSites(relPath, source) {
  * kind = setConfig | case | hook | deadline | waitFor. `ok` 는 배율 경유(또는 의미 값 등록) 여부.
  * waitFor 는 `vi.waitFor` 옵션 안의 `scaleMs` — setup 이 이미 배율하므로 언제나 위반(이중 배율).
  */
-export function scanBudgetSites(relPath, source, entries = SEMANTIC_DELAYS) {
+export function scanBudgetSites(
+  relPath,
+  source,
+  entries = SEMANTIC_DELAYS,
+  allowed = UNRESOLVED_ALLOWED
+) {
   const { src, bindings, sites: deadlines } = scanDeadlineSites(relPath, source)
   const sites = []
   const at = (node) => src.getLineAndCharacterOfPosition(node.getStart(src)).line + 1
@@ -633,17 +672,43 @@ export function scanBudgetSites(relPath, source, entries = SEMANTIC_DELAYS) {
   }
   visit(src)
   for (const site of deadlines) {
-    const entry = site.scaled
-      ? null
-      : entries.find((item) => item.file === relPath && item.value === site.value)
-    push('deadline', site.node, site.scaled || !!entry, {
+    const entry =
+      site.scaled || site.unresolved
+        ? null
+        : entries.find((item) => item.file === relPath && item.value === site.value)
+    const permitted =
+      site.unresolved &&
+      allowed.some((item) => item.file === relPath && item.reason === site.unresolved)
+    push('deadline', site.node, site.scaled || !!entry || !!permitted, {
       form: site.form,
       value: site.value,
       valueLine: site.valueLine,
+      ...(site.unresolved ? { unresolved: true, reason: site.unresolved } : {}),
       ...(entry ? { reason: entry.reason } : {})
     })
   }
   return sites.sort((a, b) => a.line - b.line)
+}
+
+const UNRESOLVED_LABELS = {
+  KV10: '지원하지 않는 이항 연산자',
+  KV11: '대입 연산 식',
+  KV14: 'await 식',
+  KV15: 'this 값',
+  KV16: '단항·증감 식',
+  KV17: '표 밖 식 종류',
+  KD02: '복합 대입 변수',
+  KD04: 'for-of·for-in 변수',
+  KD09: '호출부 없는 이름 붙은 함수의 매개변수',
+  KD13: 'catch 변수',
+  KD14: '표 밖 선언 종류',
+  KM03: 'getter 멤버',
+  KM05: '배열·문자열의 지원하지 않는 멤버',
+  KM06: '초기값 없는 this 멤버',
+  KM08: '해석할 수 없는 멤버 원천',
+  KM09: '계산 키',
+  KF05: '외부·라이브러리 호출 결과',
+  KC04: '재대입되는 호출 대상'
 }
 
 const SCALE_HINT = {
@@ -677,17 +742,38 @@ export function checkSemanticEntries(relPath, sites, entries = SEMANTIC_DELAYS) 
   return errors
 }
 
+/** Count and rationale checks also reject stale unresolved registrations. */
+export function checkUnresolvedEntries(relPath, sites, allowed = UNRESOLVED_ALLOWED) {
+  const errors = []
+  for (const entry of allowed.filter((item) => item.file === relPath)) {
+    const found = sites.filter((site) => site.unresolved && site.reason === entry.reason).length
+    if (found !== entry.count)
+      errors.push(
+        ` UNRESOLVED_ALLOWED { reason: ${entry.reason}, count: ${entry.count} } — 실제 자리 ${found} 개. count 를 맞춘다`
+      )
+    if (!entry.why?.trim())
+      errors.push(` UNRESOLVED_ALLOWED { reason: ${entry.reason} } — why 가 비었다`)
+  }
+  return errors
+}
+
 /** (F)(H′) 위반 목록. */
-export function analyzeScale(relPath, source, entries = SEMANTIC_DELAYS) {
-  const sites = scanBudgetSites(relPath, source, entries)
+export function analyzeScale(
+  relPath,
+  source,
+  entries = SEMANTIC_DELAYS,
+  allowed = UNRESOLVED_ALLOWED
+) {
+  const sites = scanBudgetSites(relPath, source, entries, allowed)
   return [
     ...sites
       .filter((site) => !site.ok)
       .map(
         (site) =>
-          `:${site.line}${site.valueLine && site.valueLine !== site.line ? ` (값 :${site.valueLine})` : ''} ${site.text} — ${SCALE_HINT[site.kind]}`
+          `:${site.line}${site.valueLine && site.valueLine !== site.line ? ` (값 :${site.valueLine})` : ''} ${site.text} — ${site.unresolved ? `테스트 소유 마감의 값을 판정할 수 없다(판정 불가 ${site.reason}: ${UNRESOLVED_LABELS[site.reason] ?? '값 분류'}) — 리터럴·scaleMs(…)·같은 파일 선언으로 쓰거나, 값을 호출자가 고르는 경계면 UNRESOLVED_ALLOWED 에 {file, reason: '${site.reason}', count, why} 로 등록한다` : SCALE_HINT[site.kind]}`
       ),
-    ...checkSemanticEntries(relPath, sites, entries)
+    ...checkSemanticEntries(relPath, sites, entries),
+    ...checkUnresolvedEntries(relPath, sites, allowed)
   ]
 }
 
@@ -730,7 +816,12 @@ export const listBudgetFiles = (dir) => listTestFiles(dir, dir, BUDGET_FILE)
 
 const FIXTURE_PATH = 'main/infra/git/temp-repo.testfixture.ts'
 
-export function runCli(appDir = process.cwd(), argv = [], entries = SEMANTIC_DELAYS) {
+export function runCli(
+  appDir = process.cwd(),
+  argv = [],
+  entries = SEMANTIC_DELAYS,
+  allowed = UNRESOLVED_ALLOWED
+) {
   const root = join(appDir, TEST_ROOT)
   const results = []
   const scaleErrors = []
@@ -743,12 +834,12 @@ export function runCli(appDir = process.cwd(), argv = [], entries = SEMANTIC_DEL
   const budgetFiles = listBudgetFiles(root)
   for (const rel of budgetFiles) {
     const source = readFileSync(join(root, rel), 'utf8')
-    for (const error of analyzeScale(rel, source, entries))
+    for (const error of analyzeScale(rel, source, entries, allowed))
       scaleErrors.push(`${TEST_ROOT}/${rel}${error}`)
     if (argv.includes('--report'))
-      for (const site of scanBudgetSites(rel, source, entries))
+      for (const site of scanBudgetSites(rel, source, entries, allowed))
         report.push(
-          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.form ?? '-'}\t${site.kind === 'deadline' ? (site.value ?? 'scaleMs') : '-'}\t${site.text}`
+          `${site.kind}\t${TEST_ROOT}/${rel}:${site.line}\t${site.unresolved ? (site.ok ? 'allowed' : 'UNRESOLVED') : site.ok ? (site.reason ? 'semantic' : 'scaled') : 'LITERAL'}\t${site.form ?? '-'}\t${site.unresolved ? site.reason : site.kind === 'deadline' ? (site.value ?? 'scaleMs') : '-'}\t${site.text}`
         )
   }
   // 대상 파일이 사라진 의미 값 항목 — 낡은 허용은 다음 예산 자리의 우회로가 된다.
@@ -756,6 +847,11 @@ export function runCli(appDir = process.cwd(), argv = [], entries = SEMANTIC_DEL
     if (!budgetFiles.includes(entry.file))
       scaleErrors.push(
         `${TEST_ROOT}/${entry.file} SEMANTIC_DELAYS { value: ${entry.value} } — 대상 파일이 없다`
+      )
+  for (const entry of allowed)
+    if (!budgetFiles.includes(entry.file))
+      scaleErrors.push(
+        `${TEST_ROOT}/${entry.file} UNRESOLVED_ALLOWED { reason: ${entry.reason} } — 대상 파일이 없다`
       )
   if (argv.includes('--report')) for (const line of report) console.log(line)
   let fixtureError = null
