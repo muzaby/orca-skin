@@ -3125,3 +3125,76 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 ## 남은 한계
 
 - 분기 열거는 규칙 칸의 서술에 달려 있다 — 설계자가 규칙 칸에 분기를 적지 않은 자리는 이 규칙이 닿지 않고, verify 재량 축이 남은 방어다.
+
+# review round 41 — 0294 (verify 3회째 RETURN_TO_PLAN) + 사용자 결정: 독립 축 공통 하한 · 발견 분류와 확장 창 · 열거 sweep · SKILL 구조 정리
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0294 verify 3회째 `RETURN_TO_PLAN`(`949b246`) 뒤 의무 review. 같은 날 사용자가 `/skill-creator`로 "조사한 파일을 참조하여 handoff-plan·impl·verify 스킬을 업데이트하라 … 최근 모델이 최고 성능을 끌어내지 못할 부분은 과감히 제거·보완하라"를 요청 → **APPLY**(2026-11-05). 근거 문서는 대화 중 작성한 개정안 v2(scratchpad, git 미반영).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 열린 입력 집합을 판정하는 계약에서 같은 축의 확장 반례가 라운드마다 나옴 | 0294 r1~r3(트리 영향 0) | **A + D** — 열거를 넓히는 정정으로는 닫히지 않는다. 발견 분류 + 확장 창 verify 1·2회째(사용자 결정) + 검사기 설계 권고(P64) |
+| 2 | 보고 밖 독립 축 하한이 구현자 = 검증자일 때만 걸림 | Codex 구현 라운드 11/28 · Claude 10/10 | **A + D** — 설계자 = 검증자라 plan의 사각은 구현자와 무관하게 공유된다. 하한을 모든 verify로(P65) |
+| 3 | 유한한 이행 결함이 라운드마다 몇 개씩 발견 | 0259 r1~r5 · 0290 r1~r4 · 0262 | **A** — 발견 방법(재량 표본)에 하한이 없었다. 열거 원문 sweep(P66) |
+| 4 | 0294 r3 규칙 칸 분기 13개에 UT 입력 없음 | r3 D5 | **B** — impl §2 "분기마다 입력"이 이미 있었다. 같은 문장을 더하지 않고 sweep(기계 대조)으로 evidence를 강화 |
+| 5 | 0294 r3 W1·W2 판정 오류 | r3 D5 | **F** — 검증이 잡았다. 지침 변경 없음 |
+| 6 | 적대 축만으로 4~9라운드를 도는 비효율 | 사용자 | **D** — round 38 "목록 안팎 모두 고침"을 창 밖 확장 후보에 한해 대체 |
+| 7 | SKILL 본문이 한 줄에 규칙 여러 개 · 인라인 사례 서사 · 강조 남발 | 사용자 요청 | 구조 정리 — 규칙 문장 보존, 사례 서사는 corpus로 MOVE(ID만 남김), 결정 표 추가 |
+
+## Tier
+
+**Tier 1.** lifecycle(확장 창·동결·재개)·failure semantics(발견 분류)·required template field(verify 메타·분류 열·sweep 행)·evidence 하한(⑥ 공통·⑦ sweep)이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `949b246`. 구판 각 줄의 백틱 식별자·사례 ID를 신판(+`docs/handoff/AGENTS.md`)에서 찾는 대조로 미일치 후보 45줄(verify 14 · impl 23 · plan 5 · AGENTS 3)을 뽑아 전부 판독했다 — 사례 세부(파일명·수치·해시)·앵커 표기만 빠졌고 규칙 문장은 신판에 있다. 인라인 사례 블록 14개(impl 12 · plan 1 · verify 1)는 corpus P38~P63에 원문이 있다.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| verify §4 "구현자 = 검증자면 보고 밖 축 ≥1" | REPLACE | ⑥ — 모든 verify(강화) |
+| AGENTS §판정 "못 잡음 자리 표"(round 38) | REPLACE | 분류 표 + 창 — 창 안은 같고 창 밖 확장 후보만 후보 표(D) |
+| impl §3 "직접 행동 oracle은 mutation 비의무" · 잠금 표 "그 밖 해당 없음" | REPLACE | ⑦ sweep 기본 변이(열거 항목 한정 — "일반 hunk를 자동 분모로 삼지 않는다"는 유지) |
+| "직전 `못 잡음`·`동치` 전부 재실행" | REPLACE(범위) | ③ — 후보 표·`경계` 행 제외, 그 밖은 같음 |
+| "이전 라운드 red 변이 재실행"(전부) | REPLACE(범위) | ④ — diff가 닿은 자리·oracle 파일의 행, 공용 설정·setup·헬퍼가 바뀌면 전부. 닿지 않은 결정적 행은 결과가 같다 |
+| verify.template 메타 `자기 검증 여부` · §4 `자기검증 분모` | REPLACE | `확장 창`·`독립 축(⑥)`·`열거 sweep(⑦)`·`발견 분류`·`구현 주체·문맥` 칸 |
+| plan.template §10 "목록 안팎 모두 다음 구현이 고친다" | REPLACE | 분류·창 문장 + `선언 경계`·검사기 설계 칸 |
+| impl §6 되먹임 3갈래 | REPLACE(확장) | §7 분류 표 — 3갈래 유지 + 현재 결함·확장 후보·비귀속 행 |
+| impl 절 번호 | MOVE | 새 §3 sweep · 진단 §3→§4 · Product/UX §4→§5 · 재구현 §5→§6 · 되먹임 §6→§7 · gate §7→§8 · 보고 §8→§9. inbound N = AGENTS 최소 계약 15 · plan.template 13 = 28 → 새 절 제목 대조 28/28 |
+| 인라인 사례 서사 14블록 | MOVE | corpus P38~P63 원문 · SKILL에는 사례 ID만 |
+| 사례 예시 문구(`credential commit·revoke·expiry·401/403` 등) | DELETE | 예시 — 규칙 문장 유지 |
+| 신규 | — | 분류·창·동결·재개(AGENTS·verify·plan) · sweep(impl·verify·AGENTS·template) · 후보 표(INDEX·AGENTS·verify·plan) · 선언 경계·검사기 설계(plan·template) · `handoff-verify/scripts/mutate.py` |
+| 명령·gate | KEEP | `app/AGENTS.md` 게이트 명령·ABI 규칙·CI 무변경 |
+
+## 6-B Historical Failure Regression
+
+- **66 P 전수**(P1~P63 + 신규 P64~P66, heading 연속). 변경 전 COVERED 62 / PARTIAL 1(P60) → 변경 후 **COVERED 66** / PARTIAL 0 / GAP 0 / OBSOLETE 0.
+- **P60**: PARTIAL → COVERED — 열린 분모의 반복이 창 2회로 끝나고, 원본 동작 결함(현재 결함)은 창과 무관하게 막는다(round 37 규칙이 창 밖에서 되살아남).
+- **P51**: COVERED 유지·강화 — ⑥이 구현 주체·세션과 무관해졌다.
+- **P50**: COVERED — ④가 diff 범위로 줄었지만 장치를 교체한 라운드는 그 oracle 파일을 diff가 건드리므로 재실행 대상이다.
+- P38~P41·P44·P48·P49·P52~P59·P61~P63: 규칙 문장 보존(6-A), 서사만 corpus로 이동. P62는 plan 규칙 칸↔입력 칸 1:1과 sweep 분기 입력으로 강화. P1~P37: plan 규칙 문장 보존. P45: 창 밖 확장 후보는 `PLAN_GAP`이 아니라 구현자에게 넘길 gap이 생기지 않는다.
+
+### V/lifecycle replay
+
+| anchor | 변경 전 | 변경 후 | 방향 |
+|---|---|---|---|
+| 0294 r1 D1(`426109e`) | `PLAN_GAP` | 현재 결함(트리 미배율 `AbortSignal.timeout(40_000)`) + 창 안 확장(X9) → `PLAN_GAP` | 같음 |
+| 0294 r2 D2·D3(`544eb01`) | `PAIR_FAIL` + `PLAN_GAP` | 이행(D2) + 창 안 확장(D3) → `RETURN_TO_PLAN` | 같음 |
+| 0294 r3 D5·D6(`949b246`) | `PAIR_FAIL` 19 + `PLAN_GAP` 7 → `RETURN_TO_PLAN` | 이행 14 `BLOCKING` + 확장 12 후보 표 → `FAIL`(판정 정정) | 거짓 PASS 0(이행 유지) |
+| 0262 r6~r8 목록 밖 `못 잡음` | `BLOCKING`(round 38) | 목록 미고정이면 `PLAN_GAP` 1회 → 고정 뒤 목록 밖 잠금 공백은 창 안 `PLAN_GAP`·창 밖 후보 표, 원본 동작 결함은 `BLOCKING` | 반복 상한 2 |
+| 0259 r1~r5 path edge 미잠금 | 매 라운드 `PAIR_FAIL` | 이행 — 구현자 sweep·verify 1회째 sweep이 전수로 발견 | 거짓 PASS 0 · 라운드 감소 |
+| 0292 r3 W03·W04 | `PAIR_FAIL` | 이행(규칙 칸 분기) — impl sweep 분기 입력으로 사전 발견 | 같음 |
+| 0275~0281 Codex r1·r2 | ⑥ 없음 | ⑥ 의무 — 창 안 확장 후보가 생기면 `RETURN_TO_PLAN` 가능 | 하한 강화(사용자 결정 비용) |
+| 0209 r11 D29 | `BLOCKING` | 이행 결함 — 같음 | 같음 |
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 발견 분류·창: AGENTS §판정(정본) = verify §11 = impl §7 = plan SKILL(무엇을 위해·verify 뒤 갱신) = root `AGENTS.md` 한 줄 = verify.template §13 = plan.template 파생 이슈. 하한 ①~⑦: AGENTS §고장 내 보기 = verify §4 표 = verify.template §4 = AGENTS §단계별 절차 2·3. sweep: impl §3 = verify §4 ⑦ = plan.template 잠금 표 = `mutate.py`. 후보 표: AGENTS §INDEX 운영 = verify 마무리 = plan 먼저 읽을 것·§4 = INDEX `## 새 handoff 후보`.
+- 9회 상한·review 3·6 주기·커밋 trailer·좌표 규칙: 불변. review SKILL §5 책임 경계 문장만 갱신.
+- `node scripts/check-doc-inventory.mjs --check`(app/) · `git diff --check` · 세 SKILL frontmatter YAML 파싱 3/3 — 결과는 커밋 직전 실측.
+
+## 남은 한계
+
+- 창 밖 확장 후보는 고치지 않는다 — 게이트가 미래 형태를 놓칠 위험은 후보 표의 승격 계기(실제 발생·사용자 요청)에 기댄다(사용자 결정).
+- "원문이 덮는가"에는 해석 여지가 있다 — 해석이 필요하면 확장으로 둔다는 기본값이 부풀림을 막지만, 축소 방향 오판은 verify 메타의 분류 수 지표로만 사후에 본다.
+- subagent 기반 skill eval은 돌리지 않았다 — 개정안 v2의 운영 시나리오 S1~S23 재생과 위 replay로 대신했다.
