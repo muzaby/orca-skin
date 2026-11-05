@@ -48,6 +48,7 @@
 - 사례 누적보다 `handoff-plan` / `handoff-impl` / `handoff-verify` **지침 자체**의 통합·교체·강화를 우선한다.
 - normative semantics가 바뀌는 지침 변경은 **Tier 1: Operational Instruction Delta → Historical Failure Regression → Cross-document Consistency**를 수행한다.
 - 실행 의미가 불변인 단순 referential/mechanical correction은 **Tier 2: affected Operational Delta + Cross-document Consistency**로 줄일 수 있다. **애매하면 Tier 1**이다.
+- 판정 의미(발견 분류·disposition·확장 창·하한)를 바꾸면 review를 발동시킨 handoff의 마지막 판정을 정정한다 — 새 verify가 아니다(skill §8).
 
 **중요**: plan/impl/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화·skill 변경·corpus 유지 판단은 review 책임이다.
 
@@ -137,7 +138,7 @@ disposition의 handoff 결과: `BLOCKING` → `FAIL` · `PLAN_GAP` → `RETURN_T
 | ④ | 이전 라운드 `잡음` 행 재실행 — 이번 diff가 닿은 행, 공용 설정·setup·헬퍼가 바뀌면 전부. `red → green`은 덮개 회귀 finding | 검증자 |
 | ⑤ | 계약이 다른 형제 슬롯의 맞바꿈 | 구현자·검증자 |
 | ⑥ | 구현 보고·등록 목록에 없는 독립 축 ≥1 — **구현 주체·세션과 무관**(2026-11-05 사용자 결정). 못 만들면 PASS하지 않는다 | 검증자 |
-| ⑦ | 열거 원문 sweep — §10 자리·pair path edge·규칙 칸 분기·등록 변이마다 기본 변이 1개(제거, 형제가 있으면 맞바꿈)와 분기 입력. 구현자는 IMPL_DONE 전 전수, 검증자는 1회째 전수·이후 diff 범위 + 직전 실패 | 구현자·검증자 |
+| ⑦ | 열거 원문 sweep — §10 자리·pair path edge·규칙 칸 분기·등록 변이마다 기본 변이 1개(제거 — 계약이 다른 형제 슬롯이 있으면 맞바꿈을 더함)와 분기 입력. 구현자는 IMPL_DONE 전 전수, 검증자는 1회째 전수·이후 diff 범위 + 직전 실패 | 구현자·검증자 |
 
 - 하네스: `.agents/skills/handoff-verify/scripts/mutate.py` — spec(JSONL) → 고침 → oracle 실행 → 원복.
 - **verify는 시도한 고장을 전부 `verify.md` 고장 이력 표에 남긴다** — ID · `파일:줄` · 종류 · 바꾼 내용 · 결과(`잡음` / `못 잡음` / `동치` / `경계`) · 잡은 테스트 · 분류.
@@ -259,6 +260,7 @@ docs/handoff/
 │   └── scripts/                         # scan-surface.sh(역방향 후보) · mutate.py(고장 내 보기 하네스)
 └── handoff-review/
     ├── SKILL.md
+    ├── scripts/instruction_delta.py      # 6-A 후보 줄 추출(표식·문장 대조)
     └── references/
         ├── failure-patterns.md           # 현재 review 진입점
         ├── failure-patterns.corpus.md    # historical evidence 본문, 현재 규칙 SSOT 아님
@@ -359,7 +361,7 @@ PR 리뷰·사용자가 붙여넣은 검토 결과·다른 에이전트의 지�
 - 구현 보고의 `Criteria-Met`은 자기보고일 뿐 verify 증거가 아니다. **그러므로 "닫았다/충족"으로 적는 모든 행(AC·강제 지점·계약이 요구한 표기·이번 턴이 갱신한 상태 사본)에 이번 턴에 재현한 관측값을 함께 적는다** — 산출물에서 표식을 다시 찾지 못하면 ✅로 세지 않는다. **게이트 산출은 마지막 수정 뒤의 트리에서 얻는다** — 한 게이트의 지적으로 파일을 고쳤으면 이미 통과한 게이트도 다시 돌린다. **완결성 주장(`전건`·`미분류 0`·`잔여 0`)의 관측값은 총계가 아니라 차집합이다** — 합계는 총계에 맞춰 배분한 값이라 반증할 수 없다. (skill §9)
 - **이번 턴에 만들거나 고친 oracle은 주장하는 production 경로에 실제로 진입해야 한다.** 구조적 proxy·0건/전수 스윕·배선 존재처럼 plan이 적대 증거를 선택한 oracle은 등록된 결함을 심어 방향·민감도를 확인하고, 열거 항목의 기본 변이(아래 sweep)는 oracle 종류와 무관하게 돈다. (skill §3·§4)
 - **등록된 적대 증거가 있으면 이번 라운드가 닫는 지점을 실제로 보는지 결함을 심어 확인한다.** 분모는 pair가 선택한 변이·닫는 파생 이슈가 인용한 변이·이번 턴에 만든 구조적 proxy·0건/전수·배선 oracle의 민감도이며, 일반 hunk를 자동 분모로 삼지 않는다. 인용 변이가 검출되지 않으면 그 이슈는 닫히지 않았고, 적대 증거를 선택하지 않은 pair는 직접 행동 oracle로 확인한다. **형제 슬롯이 서로 다른 계약을 가지면 지우는 변이에 더해 형제와 맞바꾸는 변이도 심는다** — 존재만 보는 단언은 자리를 바꾼 회귀에 침묵한다. (skill §3)
-- **열거 원문 sweep을 IMPL_DONE 전에 전수 돌린다** — §10 자리·pair path edge·규칙 칸 분기·등록 변이마다 기본 변이 1개(제거, 형제가 있으면 맞바꿈)와 분기 입력을 두고, `못 잡음`이면 테스트를 더하거나 동작이 같음(`동치`)을 보인다. verify 1회째가 같은 sweep을 돌리므로 여기서 빠진 항목은 그대로 다음 라운드가 된다. 하네스는 `.agents/skills/handoff-verify/scripts/mutate.py`. (skill §3)
+- **열거 원문 sweep을 IMPL_DONE 전에 전수 돌린다** — §10 자리·pair path edge·규칙 칸 분기·등록 변이마다 기본 변이 1개(제거 — 계약이 다른 형제 슬롯이 있으면 맞바꿈을 더함)와 분기 입력을 두고, `못 잡음`이면 테스트를 더하거나 동작이 같음(`동치`)을 보인다. verify 1회째가 같은 sweep을 돌리므로 여기서 빠진 항목은 그대로 다음 라운드가 된다. 하네스는 `.agents/skills/handoff-verify/scripts/mutate.py`. (skill §3)
 - **그 분모는 이번 라운드가 한 주장에서 유도한다.** `SELF_PASS`로 올린 pair의 선택 증거 + `closed`로 적은 이슈의 인용 변이 + 이번 턴에 만든 oracle을 각각 세어 `선택 증거 N · 인용 변이 M · 새 oracle K · sweep S = 표 행 T` 검산 줄을 적고, **행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다.** 자기가 고른 변이 하나가 red인 것은 그 변이가 잠겼다는 뜻이지 그 pair·그 이슈가 닫혔다는 뜻이 아니다. (skill §9)
 - **장치를 교체·삭제했다면 구 장치가 red로 만들던 변이를 새 장치도 red로 만드는지 확인한다.** 이전 라운드가 red로 잡던 자리를 이번 라운드가 green으로 되돌리면 개선이 아니라 **덮개 회귀**다 — 새 장치가 잡는 것만 보고하면 그 회귀는 보고서에 나타나지 않는다. (skill §3)
 - **합계는 행과 별개로 센다.** ✅ 개수와 현재 AC 총수를 세어 검산 줄을 적고, **그 줄을 쓴 뒤 커밋 trailer를 적는다** — trailer는 고칠 수 없는 사본이다. AC를 갈라 분모가 바뀌면 이전 라운드 합계와 직접 비교하지 않고 분모 변경을 적는다. (skill §9)
@@ -409,9 +411,13 @@ PR 리뷰·사용자가 붙여넣은 검토 결과·다른 에이전트의 지�
 - **Tier 1 — normative semantics 변경**: Operational Instruction Delta + Historical Failure Regression + Cross-document Consistency를 모두 수행한다.
 - **Tier 2 — 실행 의미 불변의 referential/mechanical correction**: affected Operational Delta + Cross-document Consistency를 수행하고 Historical Failure Regression 생략 근거를 남긴다.
 
+Operational Instruction Delta의 후보 줄은 `.agents/skills/handoff-review/scripts/instruction_delta.py`로 뽑고 후보 전부를 KEEP·MOVE·REPLACE·DELETE로 판정한다. 후보 0은 회귀 0이 아니다(skill §6-A).
+
 reference MOVE/REPLACE는 파일 존재만 보지 않는다. old path inbound reference `N`과 소비자가 기대하는 semantic target `M`을 전수 정리하고, 새 target에서 heading/anchor·named rule·contract·example 같은 의미가 **M/M 유지됨을 구체 evidence로 증명**한다.
 
-P1~P37 같은 historical coverage가 만점이어도 Operational Delta나 Cross-document 검사가 실패하면 review는 완료가 아니다.
+historical coverage(6-B)가 만점이어도 Operational Delta나 Cross-document 검사가 실패하면 review는 완료가 아니다.
+
+**판정 의미가 바뀌면 전환한다.** review를 발동시킨 handoff(사용자가 요청하면 다른 진행 중 handoff도)의 마지막 verify 판정이나 다음 주체가 새 규칙에서 달라지면 그 `verify.md`에 `판정 정정` 절을 더한다 — verify 횟수·라운드 칸을 바꾸지 않고, 정정으로 PASS를 주지 않으며(막는 발견이 0이면 다음 verify가 현재 하한으로 확인), review 커밋과 분리한 검증 커밋이다. 다른 주체가 진행 중인 턴과 `verify/CLOSED`는 건드리지 않는다(skill §8).
 
 ---
 

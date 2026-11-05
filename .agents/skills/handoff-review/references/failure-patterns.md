@@ -25,6 +25,6 @@
 
 과거 P corpus만으로는 기존 운영지침의 삭제나 reference의 의미 손실을 검출할 수 없다. `../SKILL.md`의 regression tier와 세 축 정의를 따른다.
 
-1. Operational Instruction Delta — 기존 책임/명령/게이트의 KEEP·MOVE·REPLACE·DELETE 승계와 inbound semantic expectation 확인.
+1. Operational Instruction Delta — 기존 책임/명령/게이트의 KEEP·MOVE·REPLACE·DELETE 승계와 inbound semantic expectation 확인. 후보 줄은 `../scripts/instruction_delta.py`로 뽑되 이 corpus를 대조 pool에 넣지 않는다 — corpus의 `→ 규칙.` 문장이 지침에서 지운 규칙을 가린다.
 2. Historical Failure Regression — Tier 1에서 이 corpus의 P 패턴 전수 대조.
 3. Cross-document Consistency — root/handoff AGENTS, SKILL, template, references/scripts, 하위 AGENTS/관련 CI 간 충돌 및 reference semantic integrity 검사.
