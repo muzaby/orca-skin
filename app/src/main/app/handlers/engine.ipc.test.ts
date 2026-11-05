@@ -10,7 +10,8 @@ import { createHarnessRuntimeConfigService } from '../../features/harnesses/comm
 import { orcaConfigDir } from '../../infra/config/paths'
 import {
   createRuntimeConfigAugmenters,
-  RUNTIME_MODEL_CONTRIBUTIONS
+  RUNTIME_MODEL_CONTRIBUTIONS,
+  type HarnessConfigApiDeps
 } from '../deployment/harness-runtime'
 import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
 import { registerEngineHandlers } from './engine'
@@ -66,6 +67,25 @@ const catalogOutputs = (list: AgentEnvironment[]): Record<string, unknown> =>
       { catalogError: agent.catalogError, agents: agent.agents?.map((item) => item.name) }
     ])
   )
+// The subject is the IPC boundary, not authentication. A closed-network deployment may bind its
+// Auth while building augmenters, so `bind` must succeed; every actual use of the auth runtime is
+// refused loudly instead of reaching the network or proceeding unauthenticated.
+const refused = (use: string): Error =>
+  new Error(`engine IPC test: auth.${use} is outside the IPC boundary`)
+const authStub: HarnessConfigApiDeps['auth'] = {
+  bind: (authId) => ({
+    authId,
+    snapshot: () => {
+      throw refused('snapshot')
+    },
+    request: async () => {
+      throw refused('request')
+    }
+  }),
+  connectionValue: () => {
+    throw refused('connectionValue')
+  }
+}
 const nativeCatalog = {
   'claude-shared': { catalogError: undefined, agents: undefined },
   'opencode-shared': { catalogError: undefined, agents: ['build', 'plan'] }
@@ -80,7 +100,7 @@ beforeEach(() => {
   const settings = createHarnessSettingsService()
   const harnessRuntime = createHarnessRuntimeConfigService({
     settings,
-    augmenters: createRuntimeConfigAugmenters({ auth: {} as never, secrets: {} })
+    augmenters: createRuntimeConfigAugmenters({ auth: authStub, secrets: {} })
   })
   const runtimeModelCatalog = createRuntimeModelCatalog({
     parseModels: parseHarnessRuntimeModels,
@@ -127,6 +147,18 @@ afterEach(() => {
 })
 
 describe('engine IPC registration through the real validator and settings services', () => {
+  it('refuses every auth use outside the IPC boundary', async () => {
+    const bound = authStub.bind('fork-corp-llm')
+    expect(bound.authId).toBe('fork-corp-llm')
+    expect(() => bound.snapshot()).toThrow(/auth\.snapshot is outside the IPC boundary/)
+    await expect(bound.request({ method: 'GET', path: '/config' })).rejects.toThrow(
+      /auth\.request is outside the IPC boundary/
+    )
+    expect(() => authStub.connectionValue('fork-corp-llm')).toThrow(
+      /auth\.connectionValue is outside the IPC boundary/
+    )
+  })
+
   it.each(['unknown', 'work', '../claude', '', null, 42])(
     'rejects an unregistered engine %j at the IPC boundary before any side effects',
     async (engine) => {

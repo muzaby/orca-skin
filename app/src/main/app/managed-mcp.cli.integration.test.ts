@@ -285,11 +285,25 @@ await server.connect(new StdioServerTransport());`
   try {
     const providerSettings = { settings: config } as unknown as TurnRequest['providerSettings']
     prepared = await adapter.prepareComposer({ cwd: root, env, providerSettings })
-    const resources = await prepared
-      .read('mcp', AbortSignal.timeout(scaleMs(40_000)))
-      .catch((error: unknown) => {
-        throw new Error(JSON.stringify(diagnostics), { cause: error })
-      })
+    // A read only observes: production catalog/warmup owners activate first
+    // (composer-catalog-owner.ts), and an unactivated directory reads as [] by design (0289 D19).
+    prepared.activate?.()
+    const lease = prepared
+    // Activation connects in the background, so the first read can still report `pending`.
+    // Wait for every Orca MCP to settle; a `failed` settlement ends the wait and fails below.
+    const resources = await vi.waitFor(
+      async () => {
+        const items = await lease
+          .read('mcp', AbortSignal.timeout(scaleMs(40_000)))
+          .catch((error: unknown) => {
+            throw new Error(JSON.stringify(diagnostics), { cause: error })
+          })
+        if (items.some((item) => item.origin === 'orca' && item.status === 'pending'))
+          throw new Error(`Orca MCP still pending: ${JSON.stringify(diagnostics)}`)
+        return items
+      },
+      { timeout: 40_000, interval: 100 }
+    )
     expect(
       resources.filter((item) => item.origin === 'orca' && item.status === 'connected')
     ).toHaveLength(6)
