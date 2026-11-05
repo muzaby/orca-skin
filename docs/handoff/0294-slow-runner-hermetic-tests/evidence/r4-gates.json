@@ -1,0 +1,68 @@
+{
+  "before": {
+    "numTotalTests": 8448,
+    "numPassedTests": 8406,
+    "numFailedTests": 26,
+    "numPendingTests": 9
+  },
+  "after": {
+    "numTotalTests": 8448,
+    "numPassedTests": 8395,
+    "numFailedTests": 26,
+    "numPendingTests": 9
+  },
+  "added": [],
+  "removed": [],
+  "baseline_failures": [
+    "main/adapters/claude/adapter.native-plugins.test.ts > exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+    "main/adapters/claude/adapter.native-plugins.test.ts > pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+    "main/adapters/claude/adapter.native-plugins.test.ts > preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+    "main/adapters/claude/adapter.native-plugins.test.ts > reconciles plugin choices through the actual adapter while preserving provider flags",
+    "main/adapters/claude/adapter.native-plugins.test.ts > reports a reconciled plugin revision as applied but not a later external edit",
+    "main/adapters/claude/native-resources.test.ts > applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+    "main/adapters/claude/native-resources.test.ts > commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+    "main/adapters/claude/native-resources.test.ts > waits for durable persistence and serializes subsequent plugin mutations",
+    "main/adapters/claude/project-reconciliation.test.ts > projects native plugin flag false during external reconciliation",
+    "main/adapters/claude/project-reconciliation.test.ts > shows external selection with actual status immediately, waits for idle, and never saves it back",
+    "main/adapters/common/git-root.test.ts > finds the nearest Git ancestor through three nested directories and falls back to cwd",
+    "main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+    "main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+    "main/adapters/opencode/v1/adapter.persistent.test.ts > exposes native resources from the live channel client and its directory without mutations",
+    "main/adapters/opencode/v1/adapter.test.ts > OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+    "main/app/bootstrap.native-history.test.ts > applies nav plugin choices to draft and stored-session commands and resources",
+    "main/app/composer-catalog.test.ts > does not start a native server after caller cancellation or session scope change during preparation",
+    "main/app/composer-catalog.test.ts > prepares draft and saved directory with the same production settings and env resolution as turns",
+    "main/app/composer-catalog.test.ts > preserves the acquire failure stage through the registered catalog handler",
+    "main/app/composer-catalog.test.ts > preserves the configuration failure stage through the registered catalog handler",
+    "main/app/composer-catalog.test.ts > returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+    "main/app/composer-catalog.test.ts > wires the public handler through the production resolver and returns its shutdown cleanup",
+    "main/app/composer-preparation-service.test.ts > shares targets across catalog resources and warmup through the production assembly",
+    "main/app/handlers/session-resources.claude-assembly.test.ts > reconciles external plugin selections and publishes the final state through the real watcher",
+    "main/app/project-resource-sync.test.ts > detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+    "main/infra/test-environment.hostile.test.ts > 합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다"
+  ],
+  "node_tests": {
+    "pass": 670,
+    "fail": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 2
+  },
+  "typecheck": [
+    "node",
+    "web",
+    "test"
+  ],
+  "code_sha256": {
+    "scripts/check-test-budgets.mjs": "c3c9514bd50ec5d997828cbdc9ed646287996e8ff1cefed65cd25d94763554c3",
+    "scripts/test-budget-bindings.mjs": "d031747f0ce0e2768454202a9ad0d320ce1ffe3f45fa42b92eb0e790a3719307",
+    "scripts/check-test-budgets.test.mjs": "205d31092484f22b96743d69a032070ff5914b5b0928908cbfa17a0b5e214a05",
+    "AGENTS.md": "1190d3ba4d1f17eafa4b10d01acc54083c55757baa7e869566e5a84f3510ca1f"
+  },
+  "budget_cli_seconds": 10.606,
+  "doc_inventory": "passed",
+  "deadline_diff": [],
+  "unresolved_sites": 0,
+  "unresolved_allowed_entries": 0
+}

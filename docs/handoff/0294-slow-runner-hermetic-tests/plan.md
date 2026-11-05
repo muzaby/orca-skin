@@ -12,12 +12,12 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) · 2026-11-05 (ΔV3 · ΔV4) |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) · `ccr-8246f22f-rxq1zj`(ΔV3·ΔV4) |
-| 상태 | plan/READY (ΔV4 — 사용자 결정: 식 노드 종류 표 + 값 자리 fail-closed. ΔV3 분기 169행 유지, 다음 구현 r4. §7-E) |
+| 상태 | impl/IMPL_DONE (r4 — ΔV3·ΔV4 구현, 다음 독립 검증. Windows CI·AC18 사람 실기 및 Linux 기준선 제약은 아래 구현 보고) |
 | V mode | `Baseline V + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 | 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1~ΔV4는 이 handoff의 V1 위 증분이다 |
 | 이번 V revision | `ΔV4` — 사용자 결정(2026-11-05): (H′) 해석을 식 노드 종류 표 91칸으로 고정하고 값 자리는 fail-closed(판정 불가 + `UNRESOLVED_ALLOWED`). ΔV3 R1~R8·L01~L11은 supersede(§7-E). ΔV3는 plan 내부 정합: EP-12b 규칙 칸 ↔ UT 입력 칸을 분기 목록 169행으로 고정 · B7↔P9 충돌 해소(R4) · 용어 범위 R1~R8과 선언 경계 L01~L11. 구 행은 supersede(§7-D). ΔV2는 r2 D2·D3 정정(§7-C), ΔV1은 r1 D1 정정(§7-B) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
-| 구현 주체 | Claude (비기능 — 테스트 인프라·CI. root `AGENTS.md` "리팩토링·버그수정 등 비기능 작업") |
+| 구현 주체 | r4 Codex — 사용자 `handoff-impl 294` 명시 호출. 이전 r1~r3은 Claude |
 | 측정 증거 | [`evidence/`](evidence/) — 재현 스크립트. 수치는 아래 §8이 정본 |
 
 ---
@@ -1839,3 +1839,132 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 | D5 | EP-12b 규칙 칸이 덮는데 판정·UT가 못 미친다. (a) 판정 위반 0: W1 `import { setTimeout } from 'node:timers/promises'; await setTimeout(5000)` · W2·W2b `(fast ? 2 : 5) * 1000` · W3·W3b 클래스 필드·대입의 `timeouts` 소유 · W7 IIFE 호출부. (b) 분기를 지워도 UT green: M21b named 식별자 대입 · `o['k'] =` · `\|\|=` · `util.promisify` · 호출 대상 래퍼 · `/` · `??`·`\|\|` 왼쪽 · 전개 멤버 · `satisfies` · `!` · `.valueOf()` · 역방향 `OrEqual` · matcher 안 elapsed | VP-12b · AC7d · EP-12b P2′·P3′·P5′·P8 · [verify r3](verify.md) r3-13 | 별칭 표를 전역 정규식보다 먼저 · 산술 값 조합마다 · 소유 판정에 클래스 필드·대입 · IIFE 호출부 · 13분기마다 UT 입력(`evidence/verify-r3-probes.mjs`) | BLOCKING | open — review round 41 판정 정정: 이행 14건 유지, W3·W3b·W7·`satisfies`·`!` 5건은 확장 → INDEX 후보 표 · ΔV3(§7-D): 이행 14건 = 분기 목록 15행(판정 F04·V33·V34 · 입력 F24·S03·S05·C06·C01·V31·V31b·V22·V21·N04·F18·X15), 확장 5건 = 선언 경계 L01~L04 → ΔV4 KO02·KO03a·KD07·KV04c·KV04d 칸(사용자 결정) |
 | D6 | EP-12b 규칙 칸이 D-015와 갈리거나 주어보다 좁다. (a) 호출 대상 해석 목록(P2′)에 구조 분해·요소 접근 없음 — W4b·W4c·W4d green, 정상 코드 W4·W10 red. (b) P8 now 식 목록에 호출 반환 없음 — W5 `now() + 5000` green, 변수 경유 W5b red. (c) D-016 열거 밖: `.not` elapsed(W6) · 기본값 없는 `/timeout/i` 매개변수 ← 같은 파일 호출(W8) · 복합 대입 값(W9). 시제품 스캔도 같은 판정, 현재 트리 해당 자리 0 | VP-12b · AC7d · D-015·D-016 · §10 EP-12b · [verify r3](verify.md) r3-13 | 설계자가 (a)(b)를 D-015 쪽 또는 P2′·P8 쪽 하나로 맞추고 (c) 3축을 자리/경계로 정해 EP-12b 규칙·UT 입력 칸·시제품 술어를 갱신 → 구현이 W4b~W9·오탐 W4·W10을 닫는다 | PLAN_GAP | **ΔV4로 흡수** — 사용자 결정(2026-11-05, D-017)으로 노드 종류 표 칸이 됐다(W4b·W4c·W4d → KC05 · W5 → KN04 · W6 → KE02 · W8 → KP02 · W9 → KD02 · 오탐 W4·W10 → KC05d·KC09b). INDEX 후보 표 0294 행 삭제 |
 | N1 | `scripts/test-budget-bindings.mjs`의 `peel`·`ARITH_OPS` export 외부 소비 0 | 역방향 탐색 · [verify r3](verify.md) r3-3 | 다음 구현이 export를 거둘 수 있다 | NON_BLOCKING | open — ΔV3 증거 스크립트도 이 export를 쓰지 않는다 |
+
+
+## [구현자 기입] 설계 리뷰 (r4 — ΔV3 + ΔV4)
+
+- 동의 / 그대로 진행: 유효 V는 `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4`. REQUIRED = VP-12d·09c·01d, REGRESSION = VP-07b·13, NOT_REQUIRED = VP-02~06·08·10·11.
+- 이견 / 현실성 문제: 없음. 현재 사용자 호출에 따라 Codex가 구현했다. ACTIVE Decision·AC·V·§10 규범 행은 바꾸지 않았다.
+- 기준선 재현: ΔV3 분기 169행 중 불일치 4 · ΔV4 칸 입력 163행 중 불일치 70. 수정 후 두 불일치 집합은 모두 0이다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r4
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07b·09c EP-01 | 전역 케이스·훅 | 2 | 2/2 | `test-time.test.mjs` '케이스·훅 예산 = 20_000 × 배율…'; M1 red | 배율 1·3·5의 test/hook 구별 값 | — |
+| 같음 EP-02 | waitFor wrapper | 1 | 1/1 | 같은 파일 'waitFor 옵션 네 갈래…'; M2 red · `test-environment.test.ts` 배선 8건 통과 | 미지정·숫자·timeout 유/무 객체, interval 보존 | — |
+| 같음 EP-03 | 파일 예산 | 20 | 20/20 | `r4-mutation-results.tsv` EP03 각 행 red · `check-test-budgets.test.mjs` F 판정 | 원본 파일의 scaledBudget만 제거, 같은 파일 analyzeScale 호출 | 검색 21 − 고정 목록 20 = 기존 `test-environment.hostile` 1. r1부터 보고된 차이, 이번 변경 0 |
+| 같음 EP-04 | 인라인 예산 | 6 | 6/6 | 같은 TSV EP04 각 행 red · F 케이스 좌표 | 원본 인자의 scaleMs만 제거 | — |
+| 같음 EP-06 | 픽스처 상한·kill·rm | 3 | 3/3 | `test-time.test.mjs` '상한·kill 유예·rm 재시도…'; M6·EP06-KILL·EP06-RM red | 600_000·5_000·200 각각 구별 | — |
+| VP-07b·09c EP-05b | 예산 마감 | 24 | 24/24 | `r4-sweep.tsv` tree/scaled 각 자리 · M5b 각각 실제 CLI exit 1 | 그 자리의 scaleMs만 제거. X7′·X8′ 10ms도 CLI red | — |
+| 같음 EP-05b | 의미 값 | 38 | 38/38 | 같은 파일 tree/semantic 각 자리 · 각 파일 analyzeScale의 count 불일치 | 값 하나를 임계 아래로 바꾸면 그 항목 count가 감소 | — |
+| 같음 EP-05b | 분모 대조 | 62 | 62/62 | §7-C 대조 명령의 양방향 차집합 0줄 · deadline 24 scaled + 38 semantic | 슬롯 줄·형태·값 비교 | — |
+| VP-12d EP-12d | 판정 P1~P9 | 9 | 9/9 | `check-test-budgets.test.mjs` ΔV3 169 + ΔV4 163 + 배율 대조 98 · `r4-sweep.tsv` input/cell | 칸 91·입력 332 모두 assertion red 좌표. 기존 A~G 유지 | — |
+| VP-09c EP-13 | 판정 불가 허용 | 0항목 | 0/0 | 실제 `--report` UNRESOLVED/allowed 0행 · `UNRESOLVED_ALLOWED=[]` | M51 red · M52 count 1 green / 2 red | — |
+
+- 대상 강제 지점은 **103/103** = EP-01~04·06 32 + EP-05b 62 + EP-12d 9 + EP-13 0. 나머지 35는 명시 NOT_REQUIRED pair의 자리다.
+- 자리별 좌표·변이·관측의 원문은 [`r4-sweep.tsv`](evidence/r4-sweep.tsv)와 [`r4-mutations.jsonl`](evidence/r4-mutations.jsonl)에 있다. 단순 typecheck를 자리 oracle로 세지 않았다.
+- 전칭 주장 검산: 입력 목록 − assertion으로 잡힌 입력 = 0개(332/332); 트리 대조 양방향 차집합 0줄. `app/src/**` diff 0, 신규 의존성 0.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-12d | REQUIRED | SELF_PASS | ΔV3·ΔV4 케이스 ID별 테스트; 분기·칸 탐침 불일치 0 | M43~M50·M39~M42·인용 14; sweep 332입력·91칸 red |
+| VP-09c | REQUIRED | SELF_PASS | 실제 CLI exit 0 · deadline 62 대조 0줄 · KA01~09 | M51·M52·승계 선택 증거 유지. Windows CI는 대기 |
+| VP-07b | REGRESSION | SELF_PASS | EP-01~06 위 행 · test-time 단위/배선 | 예산 24자리 각각 실제 CLI red |
+| VP-01d | REQUIRED | SELF_PASS | AC1~8의 단위·배선·게이트 좌표; VP-12d·09c 조합 | 하위 root 실패 0 |
+| VP-13 | REGRESSION | SELF_PASS | 변경 전/후 전체 실행 · `newfails.mjs` added 0 / removed 0 | not selected — 직접 결과 |
+| VP-02~06·08·10·11 | NOT_REQUIRED | — | 이전 verify 좌표 승계, 관련 코드 diff 0 | 이번 Linux 환경의 AC12·13 제한은 아래에 별도 기재 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r4
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M39~M42 | ΔV3 | F04·V33~35 오판 | F04 / V33·V34 / V35 / V36; 각 실제 red | 잠김 |
+| M43~M50 | ΔV4 선택 | 새 계약 | red 소거 38 · callback 경계 7 · import 경계 5 · lib 경계 7 · 핸들/mock 6 · 구조 분해 4 · 재대입 1 · not 방향 6 | 잠김 |
+| M51·M52 | 실제 트리·허용 목록 | 새 계약 | 외부 Math.max 마감 CLI red; count 1 green, count 2 red | 잠김 |
+| verify r3 인용 14 | D5 이행 결함 | 못 잡음 | `r4-selected.tsv` 인용 변이 행 14개와 직접 실패 ID | 잠김 — 같은 제거·맞바꿈을 재실행 |
+| 승계 선택 증거 | V1~ΔV2, 장치 하한 | 잡음 | M1~M4·M6·M11a~d·M12~M38·X/Y 계열의 물리적 실행은 같은 표 | 유지 |
+| 입력 332 · 칸 91 · EP-05b 62 | 열거 sweep | 이번 턴의 분모 | `r4-sweep.tsv` 485행, 각 행에 red 관측과 직접 좌표 | 잠김 |
+| M18 단축 속성 | 승계 + 이번 표면 | 첫 C236은 green | 신규 `S01·binding` 단독 1 failed; raw 1 / scaled 0 | 잠김 — 새 KP02가 종전 fixture를 대신 잡아 구조 분해 별칭으로 구별 |
+
+- **분모 검산**: 선택 증거 **82**(승계·기존 장치 하한 포함) · 인용 변이 **18**(ΔV3 4 + verify r3 14) · 새 구조 oracle **0** · sweep **485** = 추적 행 **585**. 정본은 [`r4-selected.tsv`](evidence/r4-selected.tsv) 100행 + `r4-sweep.tsv` 485행이다.
+- 물리적 실험은 **439회**(공유 변이가 여러 추적 행을 닫음): red 370 · green 69. 탐색 중 green은 완료 증거로 쓰지 않았고, 허용 count·Y2b 대조의 green만 의도한 결과다. 실제 결과는 [`r4-mutation-results.tsv`](evidence/r4-mutation-results.tsv)에 전부 남겼다.
+- 재현: `python3 ../.agents/skills/handoff-verify/scripts/mutate.py ../docs/handoff/0294-slow-runner-hermetic-tests/evidence/r4-mutations.jsonl --cwd .` (`app/`에서). 모든 배치의 원복 해시 확인을 통과했다.
+- 덮개 회귀: 없음. 예전 선택 증거가 이번에도 red이며, M18은 새 입력을 추가해 다시 red로 만들었다. 탐색 S-KE05의 green은 구별 입력 `KE05·now`와 방향 변이 S-KE05-direction으로 보완했다.
+
+## [구현자 기입] Product/UX 파생 검토 — r4
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문자열·상태에 소비자가 있는가 | CLI stderr는 파일·줄·칸 ID·칸 이름과 재작성/허용 등록 처방을 낸다. report는 UNRESOLVED/allowed·칸 ID를 운반 | 소비자 = 테스트 작성자·CI 로그, KA08·09가 단언 |
+| 새 실패 경로는 어느 계약인가 | 판정 불가·허용 목록 count/why/파일 오류는 §7-E Product & UX 행 | 제품 런타임·사용자 데이터 변경 없음 |
+| 조용한 실패인가 | 실제 M51 exit 1, M52 등록 후 exit 0 / 잘못된 count exit 1 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r4
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 새 KP02가 기존 M18 fixture의 값을 먼저 세어, 단축 속성 분기 제거가 green | 선조치 — 원천 키가 delay인 구조 분해 별칭 fixture 추가 | C236 green → M18-shorthand red 1 |
+| 2 | 문자열 소스를 script로 파싱하면 최상위 await IIFE가 await라는 호출로 파싱됨 | 선조치 — 단일 파일을 module로 파싱, 원문 좌표 보존 | KD07·KF03·KN05 모두 기대 통과 |
+| 3 | property 이름 now의 검사기 심볼이 없을 때 lexical now로 폴백하면 Date.now()를 로컬 함수로 오인 | 선조치 — 속성 이름에는 lexical 이름 폴백을 적용하지 않음 | KN04 + 가림 입력 통과 |
+| 4 | 호스트 Node 24와 Electron SQLite ABI 차이, 읽기 전용 홈 캐시 | Node ABI를 의도적으로 빌드; npm/node-gyp 캐시는 /tmp 지정 | 전체 DB 포함 실행 완료, 소스 변경 0 |
+| 5 | Linux 전체 실행은 문서 기준 22 대신 26 실패. 합성 호스트의 자식도 bootstrap.native-history 1건 실패 | 환경/기준선으로 분리; 이번 비영향 경로를 고치지 않음 | 변경 전후 실패 집합 차집합 0. AC12·13은 미관측으로 유지 |
+
+### 설계 대비 명시적 차이
+
+- 메커니즘 대체 없음. 기존 단위 테스트를 보존하고 분기/칸 입력 및 배율 대조를 추가했다. 사용하지 않던 `peel`·`ARITH_OPS` export를 거뒀다(N1 대응).
+- 검사 완료 트리는 별도 worktree에 고정했다. 최종 네 파일 해시가 작업 트리와 같아, 결함 심기 중인 파일을 게이트가 읽지 않게 했다. 원문 해시는 [`r4-gates.json`](evidence/r4-gates.json).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 호출별 해석기 | — |
+| 공유 | memo는 파일별이며 모듈 공용 상태가 아님 | P1 다중 파일·실제 트리 통과 |
+| 재진입 | 선언 순환은 memo/busy로 종료 | 실제 트리 완주 · 바인딩 입력 통과 |
+| 다른 무효화 축 | 해당 없음 — 설정/캐시 lifecycle을 바꾸지 않음 | — |
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/{test-budget-bindings,check-test-budgets,check-test-budgets.test}.mjs` · `app/AGENTS.md` · handoff 보고/증거. `app/src/**`·의존성·워크플로 변경 0 |
+| 실행 명령 | lint · typecheck(node/web/test) · `node --test scripts/*.test.mjs` · 두 탐침 · 예산 `--report`/독립 스캔 대조 · doc-inventory · 변경 전후 `clean-host-run.sh … --maxWorkers=2` · mutate.py |
+| **관측한 게이트 산출** | lint 0 error / 2 기존 warning · typecheck 3구성 통과 · node **670/670** · 탐침 169/163 불일치 0 · 예산 16 real-git suites ok · deadline 62 대조 차집합 0 · 판정 불가/허용 0 |
+| 전체 회귀 | 양쪽 915파일·8,448케이스, 실패 26 동일(added 0 / removed 0). 통과/보류 보고 수는 `r4-gates.json` 원문대로 보존. Linux 기준선이며 변경 관련 새 실패 0 |
+| 성능 | 로컬 실제 CLI **10.606s**(Node 24). 설계 시제품의 9.2s 상한 추정보다 높음. 현재 push의 Windows CI 단계 시간은 검증자 확인 대기 |
+| V-pair 자기확인 | SELF_PASS 5 / SELF_BLOCKED 0 · NOT_REQUIRED 8. 독립 verify를 선점하지 않음 |
+| 강제 지점 전수 | 103/103; sweep 485행. 파일 예산의 기존 고정 목록 차이 1은 위 표에 공개 |
+| 블로커 / 역질문 | PLAN_GAP 없음. Windows CI·AC18 사람 실기·Linux 기준선 제약은 남김 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 / 직접 좌표 |
+|---|---|---|
+| AC1 | ✅ | test-time config 예산 + vitest '케이스 예산은 기준값 × 배율이다' 통과 |
+| AC2 | ✅ | config import의 hook/test 1·3·5 배율 단언 통과, M1 red |
+| AC3 | ✅ | waitFor 네 갈래 통과 · 실제 기본 1초 초과 재시도 배선 통과, M2 red |
+| AC4 | ✅ | 잘못된 배율 config/vitest 실패 테스트 통과 |
+| AC5 | ✅ | EP03 20자리 각각 wrapper 제거 red, report 21 중 기존 고정 목록 20 대조 |
+| AC6 | ✅ | EP04 6자리 각각 리터럴 복귀 red |
+| AC7c | ✅ | 예산 24 + 의미 38, 독립 스캔 대조 0줄 |
+| AC7f | ✅ | 169·163 입력 불일치 0, 칸 91/입력 332 sweep 좌표 |
+| AC8 | ✅ | test-time 픽스처 상수 단언 · M6/KILL/RM red |
+| AC9 | ⚠️ | 워크플로 단위 테스트 통과; 이번 push의 Windows CI 대기 |
+| AC10 | ✅ | test-host 순수 테스트 통과, 관련 코드 diff 0 |
+| AC11 | ✅ | test-environment 배선 8케이스 통과 |
+| AC12 | ⚠️ | 기존 Linux bootstrap.native-history 실패가 합성 호스트 자식에 재현됨. 전후 동일 |
+| AC13 | ⚠️ | AC12의 exit 단언이 먼저 실패하여 사후 HOME 단언 미도달 |
+| AC14 | ✅ | worktrees/service 전체 실행 통과, 관련 코드 diff 0 |
+| AC15 | ✅ | 배포 소비 경로 diff 0 · 회귀 실패 집합 동일, 기존 verify 좌표 승계 |
+| AC16 | ✅ | 실제 전후 newfails added 0 / removed 0 · app/src diff 0 |
+| AC17 | ✅ | loopback-callback 전체 실행 통과, 고정 포트 도입 0 |
+| AC18 | ⚠️ | 사람 실기 대기 — Windows 백신·디스크 지연 |
+| AC19 | ✅ | 기존 운영 문서·워크플로 diff 0, 인벤토리 게이트 통과 |
+| AC19c | ✅ | app 가이드의 노드 표·판정 불가 처방·UNRESOLVED_ALLOWED·경계 칸 재확인 |
+
+**합계 검산**: `✅ 17 · ⚠️ 4(AC9·12·13·18) · ❌ 0 = 총 21`. 분모 21 유지. AC12·13은 이번 환경 관측 한계이며 비영향 pair를 실패로 부풀리지 않았다.
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 같은 축인가: 같다. 이번에는 식 종류를 명시 분류하고 값 자리의 미해석을 red로 남겨, 조용히 자리 없음으로 빠지는 경로를 닫았다.
+- 막았어야 할 지침·AC: ΔV4의 칸 표와 fail-closed 계약을 따랐다. M18의 구별 값 규칙은 있었으나 새 KP02가 기존 fixture의 값을 먼저 관측한다는 점은 결함 심기에서 드러났다.
+- 반복 환경 한계: Linux native plugin/Windows 경로, opt-in skip, 사내 Windows 백신·디스크 지연 실기. 이번 런타임은 Node 24이며 SQLite를 Node ABI로 맞췄다.
+- 현재 라운드·impl 턴: **r4**, 구현자 Codex. 다음은 Claude의 독립 verify다. 이번 사용자 호출 전 review round 41·42와 ΔV3·ΔV4 설계가 완료된 기준선이다.
