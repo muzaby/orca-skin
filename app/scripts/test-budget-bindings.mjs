@@ -12,6 +12,9 @@
 // ΔV4 노드 종류 표 정본: docs/handoff/0294-slow-runner-hermetic-tests/plan.md §7-E.
 // KV01~17 식 · KD01~14 선언 · KM01~09 멤버 · KF01~05 호출 결과는 classify 한 곳에서
 // num/scaled/nonnum/bound/red 단말로 판정한다. 표 밖 값은 red(판정 불가)다.
+// ΔV5(plan §7-F): KD05 빈 후보는 원천 식을 KM 표로(호출·await → KM08 · import → KM07 · 키 없는 객체 →
+// KM02), 원천 없는 선언은 그 칸(for-of KD04 · catch KD13). KD15 = 증감·구조 분해 대입 대상 변수(red).
+// KM10 = this·객체 멤버의 같은 파일 대입 = ??= ||= 우변을 후보로 · KM11 = 같은 멤버의 복합·증감·구조 분해 대입(red).
 // KC01~13 호출 대상과 KN01~09 now 식은 아래 전용 해석을 쓰며 모르는 종류는 형태/now가 아니다.
 // import·lib 전역·밖에서 부르는 콜백·declare는 bound다. 외부 함수의 호출 결과는 KF05 red다.
 import ts from 'typescript'
@@ -115,6 +118,10 @@ export function createBindings(relPath, source) {
   const assignments = new Map()
   const compoundAssignments = new Set()
   const callsTo = new Map()
+  // ΔV5 KD15 — variables whose value changes by increment or destructuring assignment.
+  const unresolvedVariables = new Set()
+  // ΔV5 KM10·KM11 — member writes: `assign` adds the right side, `red` makes the member unresolved.
+  const memberWrites = []
   const add = (map, key, value) => {
     const list = map.get(key)
     if (list) list.push(value)
@@ -136,6 +143,21 @@ export function createBindings(relPath, source) {
         ts.isMethodDeclaration(p) ||
         ts.isClassDeclaration(p))
     )
+  }
+  const isMemberTarget = (n) => ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)
+  /** 구조 분해 대입의 왼쪽 패턴에서 대상 변수·멤버를 모은다. */
+  const markAssignmentPattern = (n) => {
+    if (ts.isIdentifier(n)) {
+      const decl = declOf(n)
+      if (decl) unresolvedVariables.add(decl)
+    } else if (isMemberTarget(n)) memberWrites.push({ left: n, kind: 'red' })
+    else if (ts.isShorthandPropertyAssignment(n)) {
+      const decl = declOfSymbol(checker.getShorthandAssignmentValueSymbol(n))
+      if (decl) unresolvedVariables.add(decl)
+    } else if (ts.isPropertyAssignment(n)) markAssignmentPattern(n.initializer)
+    else if (ts.isBinaryExpression(n) && n.operatorToken.kind === K.EqualsToken)
+      markAssignmentPattern(n.left)
+    else ts.forEachChild(n, markAssignmentPattern)
   }
   const calleeId = (call) => {
     const e = peel(call.expression)
@@ -174,9 +196,43 @@ export function createBindings(relPath, source) {
       const decl = id && declOf(id)
       if (decl) add(callsTo, decl, node)
     }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === K.EqualsToken &&
+      (ts.isObjectLiteralExpression(node.left) || ts.isArrayLiteralExpression(node.left))
+    )
+      markAssignmentPattern(node.left)
+    if (
+      (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+      (node.operator === K.PlusPlusToken || node.operator === K.MinusMinusToken)
+    ) {
+      const operand = peel(node.operand)
+      if (ts.isIdentifier(operand)) {
+        const decl = declOf(operand)
+        if (decl) unresolvedVariables.add(decl)
+      } else if (isMemberTarget(operand)) memberWrites.push({ left: operand, kind: 'red' })
+    }
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind >= K.FirstAssignment &&
+      node.operatorToken.kind <= K.LastAssignment &&
+      isMemberTarget(node.left)
+    )
+      memberWrites.push({
+        left: node.left,
+        kind: ASSIGN_OPS.has(node.operatorToken.kind) ? 'assign' : 'red',
+        right: node.right
+      })
     ts.forEachChild(node, index)
   }
   index(src)
+  const writeKey = (left) =>
+    ts.isPropertyAccessExpression(left) ? left.name.text : keyOf(left.argumentExpression)
+  const classOf = (node) => {
+    let owner = node.parent
+    while (owner && !ts.isClassLike(owner)) owner = owner.parent
+    return owner
+  }
 
   /** 함수 값 노드 → 호출 목록의 키(이름이 붙은 선언). */
   const functionKey = (fn) => {
@@ -480,6 +536,7 @@ export function createBindings(relPath, source) {
       if (ts.getCombinedModifierFlags(decl) & ts.ModifierFlags.Ambient)
         return one('bound', 'KD03b', node)
       if (compoundAssignments.has(decl)) return one('red', 'KD02', node)
+      if (unresolvedVariables.has(decl)) return one('red', 'KD15', node)
       const candidates = [
         ...(decl.initializer ? [decl.initializer] : []),
         ...(assignments.get(decl) ?? [])
@@ -492,7 +549,8 @@ export function createBindings(relPath, source) {
       while (ts.isBindingElement(holder)) holder = holder.parent.parent
       if (!out.length && ts.isParameter(holder) && !argumentsFor(holder).length)
         return one('bound', 'KD08', node)
-      return out.length ? out : one('nonnum', 'KD05', node)
+      if (out.length) return out
+      return emptyDestructuring(holder, node)
     }
     if (ts.isParameter(decl)) {
       const args = argumentsFor(decl)
@@ -520,6 +578,38 @@ export function createBindings(relPath, source) {
       return one('nonnum', 'KD11', node)
     return one('red', 'KD14', node)
   }
+  /** ΔV5 KD05 — 후보가 없는 구조 분해: 원천 식을 KM 표로, 원천 식이 없는 선언은 그 칸. */
+  function emptyDestructuring(holder, node) {
+    if (ts.isVariableDeclaration(holder)) {
+      if (ts.isCatchClause(holder.parent)) return one('red', 'KD13', node)
+      if (ts.getCombinedModifierFlags(holder) & ts.ModifierFlags.Ambient)
+        return one('bound', 'KD03b', node)
+      const list = holder.parent
+      if (
+        ts.isVariableDeclarationList(list) &&
+        (ts.isForOfStatement(list.parent) || ts.isForInStatement(list.parent))
+      )
+        return one('red', 'KD04', node)
+    }
+    const origins = ts.isVariableDeclaration(holder)
+      ? holder.initializer
+        ? [holder.initializer]
+        : []
+      : ts.isParameter(holder)
+        ? argumentsFor(holder)
+        : []
+    if (!origins.length) return one('nonnum', 'KD03', node)
+    return origins.flatMap((origin) => {
+      const literal = sources(origin).some((s) => {
+        const o = peel(s)
+        return ts.isObjectLiteralExpression(o) || ts.isArrayLiteralExpression(o)
+      })
+      if (literal) return one('nonnum', 'KM02', node)
+      return classify(origin).some((v) => v.kind === 'bound')
+        ? one('bound', 'KM07', node)
+        : one('red', 'KM08', node)
+    })
+  }
   function classifyMember(node) {
     const arg = ts.isElementAccessExpression(node) ? peel(node.argumentExpression) : null
     const key = ts.isPropertyAccessExpression(node)
@@ -533,10 +623,33 @@ export function createBindings(relPath, source) {
       let owner = node.parent
       while (owner && !ts.isClassLike(owner)) owner = owner.parent
       const prop = owner?.members.find((p) => ts.isPropertyDeclaration(p) && keyOf(p.name) === key)
-      return prop?.initializer ? classify(prop.initializer) : one('red', 'KM06', node)
+      const writes = memberWrites.filter(
+        (w) =>
+          writeKey(w.left) === key &&
+          peel(w.left.expression).kind === K.ThisKeyword &&
+          classOf(w.left) === owner
+      )
+      if (writes.some((w) => w.kind === 'red')) return one('red', 'KM11', node)
+      const candidates = [
+        ...(prop?.initializer ? [prop.initializer] : []),
+        ...writes.map((w) => w.right)
+      ]
+      return candidates.length ? candidates.flatMap(classify) : one('red', 'KM06', node)
     }
     const owners = sources(target)
-    if (owners.length) return owners.flatMap((owner) => memberValue(owner, key, node))
+    if (owners.length) {
+      const writes = memberWrites.filter(
+        (w) =>
+          writeKey(w.left) === key &&
+          peel(w.left.expression).kind !== K.ThisKeyword &&
+          sources(w.left.expression).some((o) => owners.includes(o))
+      )
+      if (writes.some((w) => w.kind === 'red')) return one('red', 'KM11', node)
+      return [
+        ...owners.flatMap((owner) => memberValue(owner, key, node)),
+        ...writes.flatMap((w) => classify(w.right))
+      ]
+    }
     return classify(target).some((v) => v.kind === 'bound')
       ? one('bound', 'KM07', node)
       : one('red', 'KM08', node)
