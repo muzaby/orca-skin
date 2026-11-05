@@ -433,3 +433,4 @@ managed-mcp CLI test
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| — | 없음 — r1 verify 발견 0([`verify.md`](verify.md) §13) | — | — | — | — | — |
