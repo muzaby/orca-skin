@@ -1,0 +1,246 @@
+id	결과	exit	요약
+C001	red (기대 일치)	1	node --test fail 2 · V12 — B4 함수 선언 — 호출마다 값; I02 — 호출마다 다른 리터럴은 따로; 분기 목록 (0294 ΔV3)
+C006	red (기대 일치)	1	node --test fail 4 · V13 — B4 객체 메서드; V14 — B4 클래스 메서드; V15 — B4 속성 화살표
+C009	red (기대 일치)	1	node --test fail 6 · V05 — B2 같은 파일 대입 =; V06 — B2 같은 파일 대입 ??=; V07 — B2 같은 파일 대입 ||=
+C011	red (기대 일치)	1	node --test fail 1 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4)
+C016	red (기대 일치)	1	node --test fail 6 · V11·scaled — 같은 경로의 배율 입력; V15 — B4 속성 화살표; V15b·scaled — 같은 경로의 배율 입력
+C019	red (기대 일치)	1	node --test fail 4 · V17·scaled — 같은 경로의 배율 입력; W08 — B 호출 반환; 분기 목록 (0294 ΔV3)
+C020	red (기대 일치)	1	node --test fail 6 · V17 — B4 호출 결과 ← 반환식(화살표 식 몸통); W08 — B 호출 반환; 분기 목록 (0294 ΔV3)
+C022	red (기대 일치)	1	node --test fail 1 · V16 — B4 호출 결과 ← 반환식(블록 return); 분기 목록 (0294 ΔV3)
+C025	red (기대 일치)	1	node --test fail 14 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01·scaled — 같은 경로의 배율 입력
+C033	red (기대 일치)	1	node --test fail 3 · V08 — B3 구조 분해 원천 멤버; 분기 목록 (0294 ΔV3); KD05 — 구조 분해 — 중첩
+C034	red (기대 일치)	1	node --test fail 1 · V09 — B3 구조 분해 매개변수 ← 호출 인자 객체; 분기 목록 (0294 ΔV3)
+C035	red (기대 일치)	1	node --test fail 1 · KD05 — 구조 분해 — 중첩; 노드 종류 표 (0294 ΔV4)
+C045	red (기대 일치)	1	node --test fail 1 · N08 — B 멤버; 분기 목록 (0294 ΔV3)
+C048	red (기대 일치)	1	node --test fail 1 · N09 — B 조건; 분기 목록 (0294 ΔV3)
+C052	red (기대 일치)	1	node --test fail 2 · KF03 — 즉시 호출 → 반환식; KN05 — 즉시 호출 반환; 노드 종류 표 (0294 ΔV4)
+C055	red (기대 일치)	1	node --test fail 71 · 1000ms 미만 대기는 자리가 아니다; 의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다; P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다
+C059	red (기대 일치)	1	node --test fail 71 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+C060	red (기대 일치)	1	node --test fail 15 · V18·scaled — 같은 경로의 배율 입력; V19·scaled — 같은 경로의 배율 입력; V20·scaled — 같은 경로의 배율 입력
+C064	red (기대 일치)	1	node --test fail 11 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V28·scaled — 같은 경로의 배율 입력
+C065	red (기대 일치)	1	node --test fail 9 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V28 — B7 산술 +
+C067	red (기대 일치)	1	node --test fail 6 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V22·scaled — 같은 경로의 배율 입력
+C068	red (기대 일치)	1	node --test fail 2 · KV07 — && → 오른쪽(왼쪽은 숫자 아님); KV08 — 쉼표 → 오른쪽; 노드 종류 표 (0294 ΔV4)
+C069	red (기대 일치)	1	node --test fail 4 · KV09 — 비교·동등·in·instanceof → 숫자 아님; KV09b — 동등(===) → 숫자 아님; KV09c — in → 숫자 아님
+C072	red (기대 일치)	1	node --test fail 1 · KV11 — 대입 연산 식 → red; 노드 종류 표 (0294 ΔV4)
+C073	red (기대 일치)	1	node --test fail 2 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; 노드 종류 표 (0294 ΔV4)
+C074	red (기대 일치)	1	node --test fail 7 · V26·scaled — 같은 경로의 배율 입력; V27·scaled — 같은 경로의 배율 입력; V33·scaled — 같은 경로의 배율 입력
+C076	red (기대 일치)	1	node --test fail 2 · KV02 — + 숫자 리터럴 → 숫자; KV02b — - 숫자 리터럴 → 숫자(음수 — 임계 아래); 노드 종류 표 (0294 ΔV4)
+C077	red (기대 일치)	1	node --test fail 1 · KV02 — + 숫자 리터럴 → 숫자; 노드 종류 표 (0294 ΔV4)
+C078	red (기대 일치)	1	node --test fail 1 · KV13u — 숫자 아님 — !x; 노드 종류 표 (0294 ΔV4)
+C080	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+C082	red (기대 일치)	1	node --test fail 2 · KV16a — 후위 ++ → red; KV16e — 후위 -- → red; 노드 종류 표 (0294 ΔV4)
+C084	red (기대 일치)	1	node --test fail 1 · KV14 — await → red; 노드 종류 표 (0294 ΔV4)
+C086	red (기대 일치)	1	node --test fail 1 · KV15 — this → red; 노드 종류 표 (0294 ΔV4)
+C088	red (기대 일치)	1	node --test fail 4 · V16·scaled — 같은 경로의 배율 입력; V17·scaled — 같은 경로의 배율 입력; 분기 목록 (0294 ΔV3)
+C091	red (기대 일치)	1	node --test fail 8 · KF05a — 그 밖 호출(import 함수) → red; KF05b — 그 밖 호출(lib 함수) → red; KA01 — count = 판정 불가 자리 수 → 통과
+C092	red (기대 일치)	1	node --test fail 34 · P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+C094	red (기대 일치)	1	node --test fail 2 · KV17a — 그 밖 종류(태그 템플릿) → red; KV17b — 그 밖 종류(yield) → red; 노드 종류 표 (0294 ΔV4)
+C096	red (기대 일치)	1	node --test fail 27 · --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P3′ 가림 — 같은 이름 const 가 다른 블록에 있어도 각자 선언으로 푼다
+C097	red (기대 일치)	1	node --test fail 1 · KD13 — catch 변수 → red; 노드 종류 표 (0294 ΔV4)
+C099	red (기대 일치)	1	node --test fail 2 · KD04a — for-of 변수 → red; KD04b — for-in 변수 → red; 노드 종류 표 (0294 ΔV4)
+C101	red (기대 일치)	1	node --test fail 1 · KM07c — 원천이 declare 변수 → 경계; 노드 종류 표 (0294 ΔV4)
+C102	red (기대 일치)	1	node --test fail 2 · KD03b — declare 변수 → 경계; KM07c — 원천이 declare 변수 → 경계; 노드 종류 표 (0294 ΔV4)
+C105	red (기대 일치)	1	node --test fail 1 · KD03 — 값 없는 변수 → 숫자 아님; 노드 종류 표 (0294 ΔV4)
+C111	red (기대 일치)	1	node --test fail 14 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01·scaled — 같은 경로의 배율 입력
+C114	red (기대 일치)	1	node --test fail 3 · KD11 — 함수 선언 → 숫자 아님; KD11b — 클래스 선언 → 숫자 아님; KD11c — enum 선언 → 숫자 아님
+C116	red (기대 일치)	1	node --test fail 1 · KD14 — 표 밖 선언 종류(모듈 선언) → red; 노드 종류 표 (0294 ΔV4)
+C117	red (기대 일치)	1	node --test fail 1 · KM09 — 계산 키 → red; 노드 종류 표 (0294 ΔV4)
+C119	red (기대 일치)	1	node --test fail 2 · KM06a — this.이름 → 같은 클래스 속성 초기값; KM06b — this.이름 — 배율 초기값; 노드 종류 표 (0294 ΔV4)
+C120	red (기대 일치)	1	node --test fail 1 · KM06c — this.이름 — 속성 선언 없음 → red; 노드 종류 표 (0294 ΔV4)
+C122	red (기대 일치)	1	node --test fail 4 · KD10c — import 이름공간 멤버 → 경계; KM07a — 원천이 lib 전역 → 경계; KM07b — 원천이 콜백 매개변수 → 경계
+C123	red (기대 일치)	1	node --test fail 1 · KM08c — 원천이 enum 선언 → red; 노드 종류 표 (0294 ΔV4)
+C125	red (기대 일치)	1	node --test fail 8 · V18·scaled — 같은 경로의 배율 입력; V19·scaled — 같은 경로의 배율 입력; V20·scaled — 같은 경로의 배율 입력
+C126	red (기대 일치)	1	node --test fail 7 · V18 — B5 단축 속성 멤버; V19 — B6 객체 리터럴 멤버 — 속성 접근; V20 — B6 객체 리터럴 멤버 — 요소 접근
+C127	red (기대 일치)	1	node --test fail 5 · V19·scaled — 같은 경로의 배율 입력; V20·scaled — 같은 경로의 배율 입력; V21·scaled — 같은 경로의 배율 입력
+C130	red (기대 일치)	1	node --test fail 1 · KM02 — 키 없음 → 숫자 아님; 노드 종류 표 (0294 ΔV4)
+C131	red (기대 일치)	1	node --test fail 1 · KM04 — 배열 리터럴 + 숫자 키 → 요소; 노드 종류 표 (0294 ΔV4)
+C133	red (기대 일치)	1	node --test fail 1 · KM05 — 배열 리터럴의 그 밖 멤버 → red; 노드 종류 표 (0294 ΔV4)
+C135	red (기대 일치)	1	node --test fail 1 · KM05b — 문자열 리터럴의 멤버 → red; 노드 종류 표 (0294 ΔV4)
+C137	red (기대 일치)	1	node --test fail 2 · KM08a — 원천이 new → red; KM08b — 원천이 호출 결과 → red; 노드 종류 표 (0294 ΔV4)
+C144	red (기대 일치)	1	node --test fail 10 · F14 — deadline += N; N05 — B 변수(Y5); N06·scaled — 같은 경로의 배율 입력
+C148	red (기대 일치)	1	node --test fail 10 · P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); W01 — 인라인 객체 안 scaleMs
+C149	red (기대 일치)	1	node --test fail 2 · X17 — 사용 자리 — 단축 속성 참조 제외(Y2e); X18 — 사용 자리 — matcher 피연산자 참조 제외; 분기 목록 (0294 ΔV3)
+C150	red (기대 일치)	1	node --test fail 7 · S08 — 중첩 timeouts 소유 — 바인딩 참조(속성); S09 — 중첩 timeouts 소유 — 바인딩 참조(단축 속성); T13 — 자식 프로세스 객체 사용 자리 — 바인딩 참조
+C153	red (기대 일치)	1	node --test fail 2 · P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F21 — option /timeout/i 이름 변수에 담긴 객체
+C154	red (기대 일치)	1	node --test fail 1 · T15 — 자식 프로세스 객체 사용 자리 — 대입 대상 객체; 분기 목록 (0294 ΔV3)
+C160	red (기대 일치)	1	node --test fail 343 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함; 옵션 객체 timeout 과 훅 타임아웃도 같다
+C161	red (기대 일치)	1	node --test fail 7 · C03 — 호출 대상 B2 변수 초기값(재대입 없음); C08 — 호출 대상 B2 별칭 AbortSignal.timeout; T16 — 자식 프로세스 — promisify 변수
+C169	red (기대 일치)	1	node --test fail 4 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F04·scaled — 같은 경로의 배율 입력
+C170	red (기대 일치)	1	node --test fail 4 · C05 — 호출 대상 promisify(x); C06 — 호출 대상 util.promisify(x); C07 — 호출 대상 child_process import 별칭
+C178	red (기대 일치)	1	node --test fail 24 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01 — option 단축 속성(이름 변수가 아닌 매개변수 경유)
+C179	red (기대 일치)	1	node --test fail 35 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 규칙 (F) — 배율 경유 (0294); P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다
+C182	red (기대 일치)	1	node --test fail 3 · C05 — 호출 대상 promisify(x); C06 — 호출 대상 util.promisify(x); T16 — 자식 프로세스 — promisify 변수
+C183	red (기대 일치)	1	node --test fail 58 · 케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함; 타임아웃이 아닌 끝 숫자 인자는 자리가 아니다 — jira result 형태; 규칙 (F) — 배율 경유 (0294)
+C190	red (기대 일치)	1	node --test fail 5 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 규칙 (F) — 배율 경유 (0294); P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다
+C192	red (기대 일치)	1	node --test fail 8 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+C194	red (기대 일치)	1	node --test fail 6 · 옵션 객체 timeout 과 훅 타임아웃도 같다; 규칙 (F) — 배율 경유 (0294); X06 — it 옵션 객체 제외 — (H′) 자리 0
+C197	red (기대 일치)	1	node --test fail 4 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); X11 — matcher 피연산자 제외
+C202	red (기대 일치)	1	node --test fail 8 · P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+C204	red (기대 일치)	1	node --test fail 2 · KO03a — 대입 대상 속성; KO03b — 대입 대상 요소(리터럴 키); 노드 종류 표 (0294 ΔV4)
+C217	red (기대 일치)	1	node --test fail 128 · 리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다; 의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다; P2 — timer 전역: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0
+C218	red (기대 일치)	1	node --test fail 2 · P2 — method: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F06 — method x.setTimeout(N)
+C219	red (기대 일치)	1	node --test fail 8 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; P2 — abort: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P4 — 임계 1000ms, 단 abort·자식 프로세스 timeou
+C221	red (기대 일치)	1	node --test fail 4 · KE02a — .not.toBeGreaterThan(N) on now → 상한; KE02b — .not.toBeGreaterThanOrEqual(N) on now → 상한; KE02c — expect(N).not.toBeLessThan(now) → 상한
+C223	red (기대 일치)	1	node --test fail 10 · P2 — elapsed: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — elapsed OrEqual: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(
+C226	red (기대 일치)	1	node --test fail 16 · 리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다; P2 — deadline now()+N: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+C227	red (기대 일치)	1	node --test fail 3 · P2 — deadline N+now(): 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F09 — deadline N + now 식
+C228	red (기대 일치)	1	node --test fail 7 · P2 — deadline <: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — deadline <=: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — deadline >: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0
+C229	red (기대 일치)	1	node --test fail 2 · P2 — deadline >=: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F13 — deadline 비교 >= (now 오른쪽)
+C230	red (기대 일치)	1	node --test fail 7 · F24 — named 식별자 대입; S02 — option 대입 o.k = v; S03 — option 대입 o['k'] = v
+C233	red (기대 일치)	1	node --test fail 6 · S02 — option 대입 o.k = v; S03 — option 대입 o['k'] = v; S04 — option 대입 ??=
+C235	red (기대 일치)	1	node --test fail 35 · P2 — option 키: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, sca
+C237	red (기대 일치)	1	node --test fail 1 · S07 — option 클래스 필드; 분기 목록 (0294 ΔV3)
+C238	red (기대 일치)	1	node --test fail 4 · P2 — param: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F22 — param /timeout/i 매개변수 기본값
+C239	red (기대 일치)	1	node --test fail 4 · S10 — param 구조 분해 매개변수 기본값; S11 — param 구조 분해 변수 기본값; S12 — param 이름 = 속성 이름 우선
+C240	red (기대 일치)	1	node --test fail 2 · F23 — named 이름 변수 초기값; X20 — 사용 자리 — 참조 0 이면 선언 자리; 분기 목록 (0294 ΔV3)
+C241	red (기대 일치)	1	node --test fail 15 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함; 옵션 객체 timeout 과 훅 타임아웃도 같다
+C249	red (기대 일치)	1	node --test fail 3 · P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); A02 — 자리가 count 보다 많으면 위반
+C250	red (기대 일치)	1	node --test fail 2 · P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); A04 — reason 빈 값 위반
+C251	red (기대 일치)	1	node --test fail 3 · KA02 — count 가 자리보다 많음 → 위반; KA03 — count 가 자리보다 적음 → 위반; KA06 — 다른 사유 항목 → 덮지 않음 + 항목 count 불일치
+C252	red (기대 일치)	1	node --test fail 1 · KA04 — why 빈 값 → 위반; 노드 종류 표 (0294 ΔV4)
+C255	red (기대 일치)	1	node --test fail 9 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+C257	red (기대 일치)	1	node --test fail 4 · --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); I04 — --report 셋째 열 — 배율 아님 · 의미 값
+C259	red (기대 일치)	1	node --test fail 1 · KA07 — 대상 파일 없는 항목 → CLI 위반; 노드 종류 표 (0294 ΔV4)
+M39	red (기대 일치)	1	node --test fail 3 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F04 — timer timers/promises setTimeout 첫 인자 — 별칭 없음
+M40	red (기대 일치)	1	node --test fail 5 · V33 — B7 여러 값 × 산술 — 조건식; V34 — B7 여러 값 × 산술 — 변수 경유; V35 — B7 여러 값 × 산술 — 한 조합만 배율
+M41	red (기대 일치)	1	node --test fail 1 · V35 — B7 여러 값 × 산술 — 한 조합만 배율; 분기 목록 (0294 ΔV3)
+M42	red (기대 일치)	1	node --test fail 1 · V36 — B7 여러 값 × 산술 — 전부 배율이면 배율 자리 1(위반 0); 분기 목록 (0294 ΔV3)
+M43	red (기대 일치)	1	node --test fail 38 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; KV11 — 대입 연산 식 → red
+M44	red (기대 일치)	1	node --test fail 7 · KD08a — 매개변수 — 호출부 없음, 인자로 넘긴 함수 → 경계; KD08b — 매개변수 — 호출부 없음, 객체 속성에 둔 함수 → 경계; KD08c — 매개변수 — 호출부 없음, 배열 요소 함수 → 경계
+M45	red (기대 일치)	1	node --test fail 5 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V37 — import 식별자는 건너뜀(경계)
+M46	red (기대 일치)	1	node --test fail 7 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V23 — B7 ?? 오른쪽
+M47	red (기대 일치)	1	node --test fail 6 · KF04a — 타이머 핸들 호출 → 숫자 아님; KF04b — mock 체인(vi.spyOn) → 숫자 아님; KF04c — mock(vi.fn) → 숫자 아님
+M48	red (기대 일치)	1	node --test fail 4 · KC05a — 구조 분해 → 원천.속성(globalThis); KC05b — 구조 분해 → 원천.속성(AbortSignal); KC05c — 구조 분해 → vi.waitFor 이중 배율
+M49	red (기대 일치)	1	node --test fail 1 · KC04a — 재대입 변수 — 후보에 형태 이름 → red; 노드 종류 표 (0294 ΔV4)
+M50	red (기대 일치)	1	node --test fail 6 · KE02a — .not.toBeGreaterThan(N) on now → 상한; KE02b — .not.toBeGreaterThanOrEqual(N) on now → 상한; KE02c — expect(N).not.toBeLessThan(now) → 상한
+S-KN08	red (기대 일치)	1	node --test fail 2 · KN08d — 그 밖 — 매개변수 → now 아님; KN08e — 그 밖 — lib 전역 → now 아님; 노드 종류 표 (0294 ΔV4)
+S-P04	red (기대 일치)	1	node --test fail 3 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P04 — 그 밖의 .ts 무시
+S-W10	red (기대 일치)	1	node --test fail 12 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+M24	red (기대 일치)	1	node --test fail 30 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0
+M31	red (기대 일치)	1	node --test fail 1 · X19 — 사용 자리 — 하나라도 비제외면 센다(Y2f); 분기 목록 (0294 ΔV3)
+M30	red (기대 일치)	1	node --test fail 5 · X10 — fn 뒤 인자(변수) 제외 — (H′) 자리 0; X16 — 사용 자리 — 참조 전부 제외면 제외(Y2b); X17 — 사용 자리 — 단축 속성 참조 제외(Y2e)
+M32	red (기대 일치)	1	node --test fail 6 · W03 — B 식별자 → 객체(Y2); W04 — B 식별자 → 숫자; W05 — B 단축 속성
+M33	red (기대 일치)	1	node --test fail 10 · F14 — deadline += N; N05 — B 변수(Y5); N06·scaled — 같은 경로의 배율 입력
+M34	red (기대 일치)	1	node --test fail 1 · F14 — deadline += N; 분기 목록 (0294 ΔV3)
+M36	red (기대 일치)	1	node --test fail 3 · N11 — 호출 인자 안은 now 식 아님; N12 — 객체 안은 now 식 아님(Y5i); N13 — 배열 안은 now 식 아님
+M37	red (기대 일치)	1	node --test fail 3 · N06 — B 변수 — 파생 마감(Y5b); N06·scaled — 같은 경로의 배율 입력; N15 — now 식끼리 비교는 자리 아님
+M38	red (기대 일치)	1	node --test fail 3 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01 — option 단축 속성(이름 변수가 아닌 매개변수 경유)
+M12	red (기대 일치)	1	node --test fail 2 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); X13 — expect(x) 의 x 는 센다
+M13	red (기대 일치)	1	node --test fail 10 · P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+M14	red (기대 일치)	1	node --test fail 2 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); X05 — vi.waitFor 첫 인자는 센다
+M16	red (기대 일치)	1	node --test fail 3 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P02 — (H′) 범위 *.testfixture.ts
+M17	red (기대 일치)	1	node --test fail 2 · P4 — 임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계가 없다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); T03 — abort 무임계
+M51	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M3	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M4	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M6	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 0 unscaled budget sites · fixture cap
+M11c	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M11d	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M11a	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M11b	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M15	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+X9-prime	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+Y1	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+Y2	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+Y5	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+Y5b	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+Y11	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+Y2b	green (기대 일치)	0	[test-budgets] 16 real-git suites ok · all budget sites scaled
+M1	red (기대 일치)	1	node --test fail 1 · 케이스·훅 예산 = 20_000 × 배율, setup 파일을 건다; vitest.config.ts 배선 (0294 AC1·AC2·AC4)
+S-W11-range	red (기대 일치)	1	node --test fail 3 · P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); W11 — 콜백 함수 안은 보지 않는다
+S-KE05-direction	red (기대 일치)	1	node --test fail 1 · KE05·now — resolves와 rejects는 now 피연산자여도 elapsed 자리가 아니다; 노드 표 경계의 구별 입력
+M35	red (기대 일치)	1	node --test fail 4 · F17 — elapsed 역방향 expect(N).toBeGreaterThan(now 식); F18 — elapsed 역방향 toBeGreaterThanOrEqual; 분기 목록 (0294 ΔV3)
+M52-1	green (기대 일치)	0	[test-budgets] 16 real-git suites ok · all budget sites scaled
+M52-2	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M2	red (기대 일치)	1	node --test fail 1 · waitFor 옵션 네 갈래 — 미지정·숫자·timeout 있는 객체·timeout 없는 객체; 환산 (0294 AC1~AC3)
+X7-prime	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+X8-prime	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+KV04-Parenthesized	red (기대 일치)	1	node --test fail 15 · C01 — 호출 대상 B1 래퍼 ( ); C02 — 호출 대상 B1 래퍼 as; V03·scaled — 같은 경로의 배율 입력
+KV04-As	red (기대 일치)	1	node --test fail 3 · C02 — 호출 대상 B1 래퍼 as; V03·scaled — 같은 경로의 배율 입력; 분기 목록 (0294 ΔV3)
+KV04-Satisfies	red (기대 일치)	1	node --test fail 2 · KV04c — 래퍼 satisfies; KC01a — 래퍼 satisfies; 노드 종류 표 (0294 ΔV4)
+KV04-NonNull	red (기대 일치)	1	node --test fail 2 · KV04d — 래퍼 !; KC01b — 래퍼 !; 노드 종류 표 (0294 ΔV4)
+KV04-TypeAssertion	red (기대 일치)	1	node --test fail 2 · KV04e — 래퍼 <T>x; KC01c — 래퍼 <T>x; 노드 종류 표 (0294 ΔV4)
+KN08-call	red (기대 일치)	1	node --test fail 5 · N11 — 호출 인자 안은 now 식 아님; N12 — 객체 안은 now 식 아님(Y5i); N15 — now 식끼리 비교는 자리 아님
+KN08-compound	red (기대 일치)	1	node --test fail 2 · KD02 — 복합 대입이 있는 변수 → red; KN08b — 그 밖 — 복합 대입 카운터 → now 아님; 노드 종류 표 (0294 ΔV4)
+KN08-param	red (기대 일치)	1	node --test fail 1 · KN08d — 그 밖 — 매개변수 → now 아님; 노드 종류 표 (0294 ΔV4)
+M23	red (기대 일치)	1	node --test fail 20 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F04 — timer timers/promises setTimeout 첫 인자 — 별칭 없음
+M29	red (기대 일치)	1	node --test fail 3 · T13 — 자식 프로세스 객체 사용 자리 — 바인딩 참조; T14 — 자식 프로세스 객체 사용 자리 — 전개; T15 — 자식 프로세스 객체 사용 자리 — 대입 대상 객체
+X6	red (기대 일치)	1	node --test fail 4 · 리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다; 의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다; P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다
+R-child	red (기대 일치)	1	node --test fail 16 · P4 — 임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계가 없다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); C05 — 호출 대상 promisify(x)
+M21b	red (기대 일치)	1	node --test fail 1 · F24 — named 식별자 대입; 분기 목록 (0294 ΔV3)
+V-elem	red (기대 일치)	1	node --test fail 1 · S03 — option 대입 o['k'] = v; 분기 목록 (0294 ΔV3)
+V-oreq	red (기대 일치)	1	node --test fail 1 · S05 — option 대입 ||=; 분기 목록 (0294 ΔV3)
+V-util	red (기대 일치)	1	node --test fail 1 · C06 — 호출 대상 util.promisify(x); 분기 목록 (0294 ΔV3)
+V-div	red (기대 일치)	1	node --test fail 1 · V31 — B7 산술 / — 임계 아래; 분기 목록 (0294 ΔV3)
+V-or	red (기대 일치)	1	node --test fail 3 · V22 — B7 ?? 왼쪽; V24 — B7 || 왼쪽; 분기 목록 (0294 ΔV3)
+V-spreadval	red (기대 일치)	1	node --test fail 1 · V21 — B6 전개 멤버; 분기 목록 (0294 ΔV3)
+V-valueOf	red (기대 일치)	1	node --test fail 2 · N04 — now 원천 new Date().valueOf(); 분기 목록 (0294 ΔV3); KN06b — X.valueOf() — X → 인자 없는 new Date()
+V-gte	red (기대 일치)	1	node --test fail 2 · F18 — elapsed 역방향 toBeGreaterThanOrEqual; 분기 목록 (0294 ΔV3); KE02b — .not.toBeGreaterThanOrEqual(N) on now → 상한
+V-expectx	red (기대 일치)	1	node --test fail 1 · X15 — elapsed 상한 인자는 센다 — matcher 콜백 안; 분기 목록 (0294 ΔV3)
+S-KE04	red (기대 일치)	1	node --test fail 12 · P2 — elapsed: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — elapsed OrEqual: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(
+S-KO05	red (기대 일치)	1	node --test fail 2 · S08·n — 같음 — 라벨 밖 속성의 참조는 소유 아님; 분기 목록 (0294 ΔV3); KO05 — 그 밖 이름 → 소유 아님
+S-KA08	red (기대 일치)	1	node --test fail 34 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; KV11 — 대입 연산 식 → red
+M18-shorthand	red (기대 일치)	1	node --test fail 1 · S01·binding — 구조 분해 별칭의 단축 속성이 값 자리를 운반한다
+EP05-01	red (기대 일치)	1	SEMANTIC_DELAYS { value: 2700, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-02	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5_001, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-03	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-04	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-05	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-06	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-07	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-08	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-09	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-10	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-11	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-12	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-13	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-14	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-15	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-16	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-17	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-18	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-19	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-20	red (기대 일치)	1	SEMANTIC_DELAYS { value: 9000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-21	red (기대 일치)	1	SEMANTIC_DELAYS { value: 9000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-22	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-23	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-24	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-25	red (기대 일치)	1	SEMANTIC_DELAYS { value: 299_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-26	red (기대 일치)	1	SEMANTIC_DELAYS { value: 2_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-27	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-28	red (기대 일치)	1	SEMANTIC_DELAYS { value: 15 * 86400_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-29	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-30	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-31	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-32	red (기대 일치)	1	SEMANTIC_DELAYS { value: 8000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-33	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-34	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-35	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-36	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-37	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-38	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-39	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-40	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-41	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 3 } — 실제 자리 2 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-42	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 3 } — 실제 자리 2 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-43	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 3 } — 실제 자리 2 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-44	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-45	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-46	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-47	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-48	red (기대 일치)	1	SEMANTIC_DELAYS { value: 25_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-49	red (기대 일치)	1	SEMANTIC_DELAYS { value: 15_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-50	red (기대 일치)	1	SEMANTIC_DELAYS { value: 30_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-51	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-52	red (기대 일치)	1	SEMANTIC_DELAYS { value: 60_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-53	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites · fixture cap
+EP05-54	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-55	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-56	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-57	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1_500, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-58	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-59	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+EP05-60	red (기대 일치)	1	SEMANTIC_DELAYS { value: 30_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-61	red (기대 일치)	1	SEMANTIC_DELAYS { value: 3000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+EP05-62	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1200, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다

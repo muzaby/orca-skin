@@ -760,3 +760,198 @@
 - r4 의무: 이행 결함 14건의 `못 잡음`을 닫는다 + 열거 sweep(EP-12b 규칙 칸 분기 전수 · EP-05b 62자리). 재현 입력은 [`evidence/verify-r3-probes.mjs`](evidence/verify-r3-probes.mjs)다.
 - 후보 표: INDEX `## 새 handoff 후보`의 0294 행(확장 12건 + 오탐 2). 그 형태가 테스트 소스에 나타나거나 사용자가 요청할 때만 승격한다.
 - verify 3회째 비PASS의 의무 `handoff-review`는 round 41로 수행됐다(`.agents/skills/handoff-review/references/regression-coverage.md`).
+
+---
+
+# r4 재검증 (2026-11-05)
+
+> r1~r3 절과 r3 판정 정정은 위에 그대로 둔다. 이 절은 ΔV4(`947662e`) 기준으로 r4 구현(`b4e1b9d`, Codex)을 채점한다. 보고 밖 탐침은 [`evidence/verify-r4-probes.mjs`](evidence/verify-r4-probes.mjs)(`cd app && node ../docs/handoff/0294-slow-runner-hermetic-tests/evidence/verify-r4-probes.mjs .`).
+
+## r4 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `947662e..b4e1b9d` (r4 `b4e1b9d`) |
+| 구현 전 plan 기준 | `947662e` (ΔV4 설계 커밋) · `fedd224` (ΔV3 설계 커밋) |
+| V mode / 유효 V | `Baseline V + ΔV1 + ΔV2 + ΔV3 + ΔV4` / `V1 + ΔV1~ΔV4` |
+| 검증 기준 plan revision | `947662e:ΔV4` |
+| 라운드 | 4 (verify 4회째) |
+| 확장 창 | handoff 기준 창 밖(4회째). 단 ΔV4가 사용자 결정 ΔV라 NEW·CHANGED 노드(MD-03d·UT-03d·AR-03c·IT-03c·AT-01d) 범위는 **창 안 — ΔV4 뒤 verify 1회째** |
+| 상태 | **RETURN_TO_PLAN** — `PAIR_FAIL` VP-12d(D7 이행)와 `PLAN_GAP` D8(창 안 확장)이 함께 있어 설계자가 먼저다 |
+| 자기 검증 여부 | 구현 Codex · 설계·검증 Claude. 보고 밖 축(⑥): 332행 입력 목록에 없는 문법 13개(`verify-r4-probes.mjs`) — 구조 분해 원천 4종 · namespace import · `this` 생성자 대입 · 구조 분해 대입. 불일치 6 |
+
+## r4-0. 기준선 / plan validity
+
+- 구현 커밋이 `plan.md`를 바꿨는가: 예 — 메타 `상태`·`구현 주체` 2줄과 `[구현자 기입]` 추가만(`git diff -U0 947662e..b4e1b9d -- plan.md` hunk `@@ -15` · `@@ -20` · `@@ -1841,0 +1842,129`). Decision·AC·V·§10 변경 0. 채점 기준: `947662e:ΔV4` 원문.
+- `app/AGENTS.md`는 `check-test-budgets.mjs` 항목 1줄 교체(AC19c 대상).
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| Delta V 적용 순서 | 유효 | `V1 → ΔV1 → ΔV2 → ΔV3 → ΔV4`, 구 행 SUPERSEDED 표기(§7-D·§7-E) |
+| NEW/CHANGED ↔ 같은 레벨 REQUIRED | 유효 | MD-03d→VP-12d · AR-03c→VP-09c · AT-01d→VP-01d · REGRESSION VP-07b·13 |
+| SUPERSEDED 이관 | 유효 | VP-12c·09b·01c → VP-12d·09c·01d, 폐기 0 |
+| EP-12d 자리 목록 재실행 | 유효 | `dv3-branches.mjs .` "분기 169 · 판정 불일치 0" · `dv4-cells.mjs .` "칸 입력 163 · 판정 불일치 0" · 칸 표 행 수 91(KV 17·KD 15·KM 9·KF 5·KC 13·KN 9·KE 5·KO 5·KP 4·KA 9) |
+| EP-05b 재실행 | 유효 | 대조 명령 0줄 · `--report` deadline 62(scaled 24 · semantic 38) |
+| EP-13 | 유효 | `--report` UNRESOLVED·allowed 행 0 · `UNRESOLVED_ALLOWED = []` |
+| 운영 gate 열거 | 유효 | §7-E 운영 gate 7종 |
+| 칸 규칙 ↔ 보고 밖 입력 | **PLAN_GAP — D8** | KM06·KD01 규칙이 D-018 주어(같은 파일 선언 그래프)보다 좁다 — r4-3 Q8·Q9 |
+
+## r4-1. Product & UX / ACTIVE Decision
+
+| Decision | 기대 | 관측 |
+|---|---|---|
+| D-017·D-018 노드 종류 표 | 칸 91 판정 + 값 자리 fail-closed | 332행 기대 = 현재(탐침 불일치 0) · **표에 없는 결과 `KD05 숫자 아님`이 값 자리를 조용히 통과시킨다(D7)** |
+| 게이트 소비자 문구 | `판정 불가 <칸 ID>: <칸 이름>` + 처방 | `check-test-budgets.mjs` `analyzeScale` 문구 · KA08 단언 · M51 실제 CLI stderr |
+| `UNRESOLVED_ALLOWED` | 파일·칸·count·why 대조, 대상 파일 없음 위반 | `checkUnresolvedEntries` · `runCli` · KA01~KA07 · M52 count 1 exit 0 / 2 exit 1 |
+| 현재 트리 | 판정 불가 0 · 허용 0 · exit 0 | `node scripts/check-test-budgets.mjs` exit 0 · `--report` UNRESOLVED 0 |
+
+## r4-2. 구현 결과 비판적 검토 — AC 전에
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| false success | **있음(D7)** | 값 자리가 표에 없는 `nonnum` 단말로 끝나는 경로 — `test-budget-bindings.mjs:495` `out.length ? out : one('nonnum', 'KD05', node)` |
+| 같은 값 다른 문법의 판정 대칭 | **비대칭** | `getOpts().ms` → KM08 red, `const { ms } = getOpts()` → KD05 숫자 아님(Q1·Q1c) · `(await load()).ms` red, `const { ms } = await load()` 통과(Q3·Q3c) |
+| fail-closed 과잉 | 없음 | 트리 exit 0 · 판정 불가 0 · KD08·KD10·KD12e·KF04 경계 칸 M44~M47 잡음 |
+| 동시성·부분 실패 | 해당 없음 | 순수 함수 · 파일별 memo(`createBindings` 지역) |
+| worst-case | 정상 | 로컬 5.25s(Node 22) · Windows CI 'Test budget guard' 9s(`05:32:25 → 05:32:34`) |
+
+## r4-3. 역방향 탐색 · 보고 밖 축(⑥)
+
+`scan-surface.sh 947662e..b4e1b9d` → `app/src` 변경 0. 범위 밖 변경(`app/scripts/*`)은 직접 읽었다.
+
+| ID | 입력(요지) | 칸 근거 | 기대 | 현재 | 분류 |
+|---|---|---|---:|---:|---|
+| Q1 | `import { getOpts }…; const { ms } = getOpts(); setTimeout(f, ms)` | KD05 "후보마다 KV" → 원천 멤버 = 호출 결과의 멤버(KM08 red) | 1 | **0** | 이행(D7) |
+| Q1c | `setTimeout(f, getOpts().ms)` (대조) | KM08 | 1 | 1 | — |
+| Q2 | `for (const { ms } of cases) setTimeout(f, ms)` | KD04 "for-of 변수 → red" | 1 | **0** | 이행(D7) |
+| Q2c | `for (const ms of [5000]) setTimeout(f, ms)` (대조) | KD04 | 1 | 1 | — |
+| Q3 | `const { ms } = await load(); setTimeout(f, ms)` | KD05 → KV14 red | 1 | **0** | 이행(D7) |
+| Q3c | `setTimeout(f, (await load()).ms)` (대조) | KV14 | 1 | 1 | — |
+| Q4 | `const [ms] = pair(); setTimeout(f, ms)` | KD05 → KF05 red | 1 | **0** | 이행(D7) |
+| Q5·Q6 | 객체 리터럴 원천 5000 · `scaleMs` 원천 | KD05 | 1 · 0 | 1 · 0 | — |
+| Q7·Q7c | `import * as child …; child.execFileSync(…, { timeout: 500 })` · named import | KC06 · 무임계 | 1 · 1 | 1 · 1 | — |
+| Q8 | `class A { ms = 500; constructor() { this.ms = 5000 } … setTimeout(f, this.ms) }` | KM06 "같은 클래스 속성 선언의 초기값" — 생성자 대입은 표에 없다 | 1(D-018 주어) | **0** | 확장(창 안 → D8) |
+| Q9 | `let ms = 500; ({ ms } = { ms: 5000 }); setTimeout(f, ms)` | KD01 "같은 파일 대입 `=`" — 구조 분해 대입 대상이 드는지 해석 필요 | 1(D-018 주어) | **0** | 확장(창 안 → D8) |
+
+- D7 근거: KD05 칸의 분류는 "후보마다 KV" 하나다 — `숫자 아님` 결과가 없다. 값 자리는 "red 칸과 표 밖 종류는 판정 불가"(§7-E 무엇이 왜). 같은 값을 멤버 접근으로 쓴 대조 Q1c·Q3c는 red다. 원천이 for-of이면 그 변수는 KD04(red) 칸이다.
+- D7 잠금 부재: `:495`의 `'nonnum'`을 `'red'`로 바꾼 사본에서 `node --test scripts/check-test-budgets.test.mjs` 537/537 통과 · 트리 게이트 exit 0 — UT 입력이 이 분기에 없고 **트리 자리 0**(현재 결함 아님).
+- D8 트리 실측: 테스트 소스의 구조 분해 대입 5줄(`cascadeMenuState.test.ts:98`·`:100` · `chatStore.test.ts:189`·`:668` · `chatStore.listen.test.ts:22`)은 전부 상태·핸들러 값이고 값 자리에 닿지 않는다(게이트 exit 0) · `this.<시간 이름> =` 대입 0(`rg`).
+- N2(비귀속): `createBindings`가 돌려주는 `values`·`sources`·`argumentsFor`·`importAliases`의 외부 소비 0(`grep` — `check-test-budgets.mjs`는 `classify`·`calleeInfo`·`calleeName`·`isNow`·`reachesScale`·`usesOf`·`objectUses`만 쓴다). N1(`peel`·`ARITH_OPS` export)은 거둬졌다.
+
+## r4-4. 증거 재측정 · 고장 이력
+
+- 하한 ① 등록 변이·② 인용 변이·④ 이전 `잡음`·⑦ sweep: 구현자 spec `r4-mutations.jsonl` 중 `r4-sweep.tsv`(485행)·`r4-selected.tsv`(100행)가 인용한 변이 **245개**를 이 트리에서 다시 돌렸다(`mutate.py`, 결과 red 243 · green 2 — green은 대조 Y2b·M52-1로 기대 green, 전부 기대 일치). 원복 후 `git status` clean.
+- 하한 ③ r3 이행 14건: M21b·V-elem·V-oreq·V-util·V-div·V-or·V-spreadval·V-valueOf·V-gte·V-expectx·V-peel(KV04-Parenthesized)·W1(M39)·W2·W2b(M40) — 위 재실행에 포함, 전부 잡음. `verify-r3-probes.mjs` 재실행 32행 — ok 31. W11(`const ds = [5000]; setTimeout(f, ds[0])`)만 r3 기대 0 → 결과 1이며, ΔV4 KM04(배열 리터럴 + 숫자 키 → 요소 KV)가 r3 경계 기대를 대체해 1이 맞다.
+- 하한 ⑤ 형제 맞바꿈: 칸 91마다 이웃 분류(해석·숫자 아님·경계·red) 맞바꿈이 sweep `cell` 91행에 있다 — 재실행 잡음.
+- 하한 ⑥: r4-3 Q1~Q9(13입력, 불일치 6).
+- 덮개 회귀(④ `red → green`): 0.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 범위 | 직전 | 이번 결과 | 잡은 테스트 / 근거 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| r4-sweep 245 | `r4-mutations.jsonl` 각 행 | 제거·맞바꿈·고정값 | 구현자 spec 그대로 | UT · 게이트 | 잡음(구현자 r4) | 기대 일치 245/245 | 행별 결과 [`evidence/verify-r4-mutation-results.tsv`](evidence/verify-r4-mutation-results.tsv) · spec [`verify-r4-mutations.jsonl`](evidence/verify-r4-mutations.jsonl) | VP-12d·09c·07b |
+| K1 | B`:495` | 다른 값 | KD05 빈 후보 `'nonnum'` → `'red'` | UT · 게이트 | 신규(보고 밖) | **못 잡음** | UT 537/537 green · 게이트 exit 0 — 분기 입력 없음 | 이행(D7) |
+| Q1~Q4 | 입력(`verify-r4-probes.mjs`) | 다른 값 | 구조 분해 원천 = 호출·for-of·await·배열 | `analyzeScale` | 신규 | **못 잡음** | 위반 0(기대 1) | 이행(D7) |
+| Q8 | 입력 | 다른 값 | 생성자 `this.ms =` | `analyzeScale` | 신규 | **못 잡음** | 위반 0 | 확장(D8) |
+| Q9 | 입력 | 다른 값 | 구조 분해 대입 | `analyzeScale` | 신규 | **못 잡음** | 위반 0 | 확장(D8) |
+
+## r4-5. V-pair closeout — `UT → IT → ST → AT`
+
+| Pair | 레벨 | requiredness | 결과 | 직접 검증 증거 | §10 전수 |
+|---|---|---|---|---|---|
+| VP-12d | MD-03d↔UT-03d / UT | REQUIRED | **PAIR_FAIL** (root, D7) | `check-test-budgets.test.mjs` — ΔV3 describe '분기 목록 (0294 ΔV3)' · ΔV4 describe '노드 종류 표 (0294 ΔV4)'에 신설·칸 ID 327/332 케이스명 실재(나머지 T05~T09는 기존 케이스명 행) · 탐침 불일치 0 · sweep 재실행 기대 일치 245/245 · **KD05 빈 후보 분기가 표에 없는 `숫자 아님`(Q1~Q4 · K1)** | EP-12d 9지점 · 칸 91 · 입력 332 — KD05 칸 미완 |
+| VP-09c | AR-03c↔IT-03c / IT | REQUIRED | PASS | `gate:node scripts/check-test-budgets.mjs` exit 0 · 대조 명령 0줄 · UNRESOLVED 0 · M51 exit 1(`판정 불가 KF05`) · M52 count 1 exit 0 / 2 exit 1 · M11c·M11d · Windows CI run 41974447156(head `b4e1b9d`) 'Test budget guard' success | EP-03 20 · 04 6 · 05b 62 · 06 3 · 12d 9 · 13 0 |
+| VP-07b | AR-01b↔IT-01b / IT | REGRESSION | PASS | M5b 24 각 실제 CLI exit 1(재실행) · M1·M2·M6·EP06 잡음 | 94 |
+| VP-13 | R-01↔AT-05 / AT | REGRESSION | PASS | Windows CI run 41974447156 'Test' success(head `b4e1b9d`) · `git diff --stat 947662e..b4e1b9d -- app/src app/vitest.config.ts app/scripts/{vitest-setup,test-time,test-host}.mjs app/package.json .github` 0줄 — vitest가 읽는 파일 무변경 | 0 |
+| VP-01d | R-01↔AT-01d / AT | REQUIRED | **BLOCKED_BY:VP-12d** | AC1~3·5·6·7c·8 ✅(아래) · AC7f는 VP-12d root | 94 |
+| VP-02~06·08·10·11 | — | NOT_REQUIRED | NOT_REQUIRED | 관련 코드 diff 0 · Windows CI Test success로 재관측 | 비영향 |
+
+- 좌표의 실행 구간: VP-12d UT는 `analyzeScale`·`scanBudgetSites`·`runCli`를 production 그대로 부른다(mock 0). 실행 구간 밖은 KD05 빈 후보 분기(입력 0)다.
+- Linux 전체 실행은 이번 턴에 돌리지 않았다 — 같은 head의 Windows CI 전체 Test가 VP-13 좌표다. 구현자 Linux 실패 26(기준 22 + 4)은 같은 `app/src`의 환경 차이로 판단하며 재현하지 않았다.
+
+### AT / AC 합계
+
+| AC | 결과 | 증거 |
+|---|---|---|
+| AC1·AC2·AC3 | ✅ | `node --test scripts/*.test.mjs` 670/670 · M1·M2 재실행 잡음 |
+| AC4 | ✅ | `test-time.test.mjs` 통과 · 관련 코드 diff 0 |
+| AC5·AC6 | ✅ | `--report` setConfig 21 scaled · case 6 scaled |
+| AC7c | ✅ | 대조 0줄 · deadline 62 = 24 + 38 · M5b 24 |
+| **AC7f** | ❌ | D7 — KD05 칸이 표에 없는 결과로 값 자리를 통과시킨다(Q1~Q4) |
+| AC8 | ✅ | M6·EP06 재실행 잡음 |
+| AC9 | ✅ | Windows CI run 41974447156 `gate` success(head `b4e1b9d`, windows-latest) |
+| AC10~AC13 | ✅ | 같은 CI Test success — `test-environment.hostile.test.ts`(skip 없음) 포함 · 관련 코드 diff 0 |
+| AC14·AC15·AC17·AC19 | ✅ | 관련 코드 diff 0 · 인벤토리 `--check` ok · Windows CI Test success |
+| AC16 | ✅ | VP-13 |
+| AC18 | ⚠️ 사람 실기 | — |
+| AC19c | ✅ | `app/AGENTS.md:150` — 노드 종류 표 정본 링크 · fail-closed · 판정 불가 처방 · `UNRESOLVED_ALLOWED {file, reason, count, why}` · 경계 칸 4종 |
+
+- 합계 재측정: `✅ 19 · ⚠️ 1(AC18) · ❌ 1(AC7f) = 총 21`.
+- 자기보고 대조: 본문 `✅ 17 · ⚠️ 4 · ❌ 0` = trailer `Criteria-Met: 17/21` · `Criteria-Pending` 4항목 — 사본끼리 같다. 재측정과 불일치: AC9·12·13 ⚠️→✅(Windows CI 완료) · AC7f ✅→❌.
+
+### pair별 plan §10 강제 지점 분모
+
+| Pair | 계약/필드 | 자리 목록 | 자리별 확인 · oracle | 목록 밖 발견 | 결과 |
+|---|---|---|---|---|---|
+| VP-07b·09c | EP-01·02·03·04·06 | 2·1·20·6·3 | `--report` setConfig 21(목록 20 + hostile) · case 6 · 구현자 EP03·EP04·EP06 변이 재실행 잡음 | 없음 | PASS |
+| VP-07b·09c | EP-05b | 62 | 대조 0줄 · M5b 24 · semantic 38 | 없음 | PASS |
+| VP-09c | EP-13 | 0항목 | `--report` UNRESOLVED·allowed 0 | 없음 | PASS |
+| VP-12d | EP-12d | 9지점 · 칸 91 · 입력 332 | 칸 입력 163 + 분기 169 단언 · sweep 재실행 | KD05 빈 후보 분기(D7) · KM06·KD01 범위(D8) | PAIR_FAIL |
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| lint | PASS | 0 error · 2 warning(변경 밖) · 실행 후 `git status` 변화 0 |
+| typecheck | PASS | node·web·test exit 0 · `error TS` 0 |
+| node scripts 테스트 | PASS | 670 pass · 0 fail · 29 suites |
+| 분기·칸 탐침 | PASS | 169 · 163 불일치 0 |
+| 예산·인벤토리 | PASS | exit 0 · 5.25s · 대조 0줄 · UNRESOLVED 0 · `--check` ok |
+| vitest | PASS(CI 좌표) | Windows CI run 41974447156 Test success · vitest 입력 파일 diff 0 |
+| Windows CI | PASS | run 41974447156 · job `gate` · head `b4e1b9d` · 14m |
+| commit trailer | PASS | `b4e1b9d` Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By 6키 파싱 · 값 허용 범위 |
+
+## r4-8. 남은 사람 실기
+
+| 항목 | 기계 검증 범위 | 남은 것 |
+|---|---|---|
+| AC18 | r2 S2 1코어·8워커 실측(이후 테스트 소스 diff 0) | 사내 백신·디스크 지연 Windows에서 `cd app && npm test` green·소요 시간 |
+
+## r4-9. 게이트 재실행
+
+- 설치: `npm ci --ignore-scripts` + `npm rebuild better-sqlite3`(Node 22.23.4) — 코드 파일 해시 4개가 `r4-gates.json` `code_sha256`과 같다.
+- 변이는 주 트리에서 순차 실행했고 탐침·게이트는 변이 종료 뒤에 돌렸다. 잔여물: `git status` clean(증거 파일 2개 추가만).
+
+## r4-11. Repository operation checks
+
+- AGENTS 위생: `app/AGENTS.md:150` 1줄 교체 — 비밀·일회성 정보 없음, (A)~(G) 서술 유지 · 상대 링크 `../docs/handoff/…/plan.md` 해석(인벤토리 links ok).
+- INDEX: 상태·다음 주체 일치(`impl/IMPL_DONE` · Claude). 자리표시자 → r4 `b4e1b9d`(`git cat-file -t` commit). `main` 조상 아님 — 0294 사슬은 PR #530(head `b4e1b9d`, 열림)에 쌓여 있고 #531~#535는 그 사슬 브랜치로 병합됐다 → 브랜치 좌표. 이전 좌표 표기 유지.
+- `[구현자 기입]` r4 7필드 전부 있음 · 강제 지점 표가 EP-01~04·06·05b·12d·13 행을 둔다.
+- trailer: 위 gate 행. Criteria 사본(본문·trailer·INDEX 비고 "17/21") 일치.
+
+## r4-13. Finding disposition
+
+| # | finding | 귀속 | disposition | 영향 | 후속 |
+|---|---|---|---|---|---|
+| D5 | (r3) EP-12b 이행 14건 | VP-12b → VP-12d | **closed** | 인용 변이 14 재실행 잡음 · 분기 탐침 불일치 0 | — |
+| D7 | KD05 칸에 표에 없는 결과 `숫자 아님` — 원천이 호출·`await`·for-of·배열 요소면 값 자리가 통과(Q1~Q4) · 분기 UT 입력 0(K1) | VP-12d · AC7f · EP-12d KD05·KD04 | **BLOCKING** (`PAIR_FAIL`) | 트리 자리 0 | 구현: 빈 후보를 원천 식의 KV 판정으로(호출 → KF05·`await` → KV14·for-of → KD04 등) · Q1~Q4 + 객체 리터럴 대조를 UT 입력으로 |
+| D8 | KM06(생성자 `this.x =` 대입)·KD01(구조 분해 대입 `({ x } = …)`)이 D-018 주어보다 좁다 — Q8·Q9 위반 0 | VP-12d · AC7f · D-018 · EP-12d KM06·KD01 | **PLAN_GAP** (창 안 확장) | 트리 자리 0 | 설계자: 두 형태를 칸으로 채택하거나 경계로 선언 |
+| N2 | `createBindings` 반환의 `values`·`sources`·`argumentsFor`·`importAliases` 외부 소비 0 | 역방향 탐색 | NON_BLOCKING | 동작 무관 | 다음 구현이 거둘 수 있다 |
+| N1 | (r3) `peel`·`ARITH_OPS` export | — | **closed** | `grep "^export" test-budget-bindings.mjs` → `keyOf`·`createBindings`만 | — |
+
+## r4-14. Review Signals — 사실만
+
+- 같은 축인가: 같다 — r1~r3과 마찬가지로 "판정이 Decision 주어보다 좁다". 이번에는 표 자체가 아니라 구현이 표에 없는 결과(`KD05 숫자 아님`)를 만든 곳 1개(D7)와 표 칸 범위 2개(D8).
+- 관련 plan 지침: ΔV4 "값 자리는 fail-closed — red 칸과 표 밖 종류는 판정 불가" · KD05 "후보마다 KV".
+- 사용자 결정 변경: 없음(ΔV4가 사용자 결정, 이번 턴 변경 0).
+- 반복 환경 한계: AC18 사람 실기 · Linux 전체 실행 기준선(구현자 26 · r3 22).
+- 독립 축(⑥) 발견: 6입력 — 이행 4(D7) · 확장 2(D8).
+- 구현 주체가 Codex로 바뀐 첫 라운드다. 구현자 sweep 485행의 변이를 그대로 다시 돌리면 기대 일치 245/245이고, 발견 6건은 모두 그 목록 밖 입력에서 나왔다.
+
+## r4-15. 결론
+
+- 상태: **RETURN_TO_PLAN** — verify 4회째. `FAIL`(D7)과 `PLAN_GAP`(D8)이 함께 있어 설계자가 먼저다. 4회째라 review 의무 없음(3·6회째).
+- pair: PASS 3(VP-09c·07b·13) · PAIR_FAIL 1(VP-12d) · BLOCKED_BY 1(VP-01d → VP-12d) · NOT_REQUIRED 8.
+- AC: `✅ 19 · ⚠️ 1(AC18) · ❌ 1(AC7f) = 21`.
+- 운영 gate: 전부 PASS.
+- 고장: 재실행 245(기대 일치 245/245) · 보고 밖 7(K1 + Q1~Q4 + Q8·Q9 = 못 잡음 7 — 이행 5 · 확장 2), 덮개 회귀 0.
+- 다음 단계: 설계자 ΔV5(D8 채택/경계 — ΔV4 창 안 마지막 1회 남음, 별도 설계 커밋) → `plan/READY` → 구현 r5가 D7(K1·Q1~Q4)과 채택된 D8 칸을 닫는다.
