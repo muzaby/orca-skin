@@ -3198,3 +3198,68 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 - 창 밖 확장 후보는 고치지 않는다 — 게이트가 미래 형태를 놓칠 위험은 후보 표의 승격 계기(실제 발생·사용자 요청)에 기댄다(사용자 결정).
 - "원문이 덮는가"에는 해석 여지가 있다 — 해석이 필요하면 확장으로 둔다는 기본값이 부풀림을 막지만, 축소 방향 오판은 verify 메타의 분류 수 지표로만 사후에 본다.
 - subagent 기반 skill eval은 돌리지 않았다 — 개정안 v2의 운영 시나리오 S1~S23 재생과 위 replay로 대신했다.
+
+# review round 42 — handoff-review SKILL 자체(사용자 요청): v2 정합 · 판정 정정(전환) 절차 · 6-A 문장 대조 도구
+
+**발동/모드**: 사용자 "Review 스킬도 포함하여 업데이트하라"(2026-11-05, round 41의 skill-creator 요청 후속) → **APPLY**. 대상은 review SKILL과 그것이 쓰는 6-A 도구이고, 도구로 round 41 판본을 다시 대조해 찾은 약화도 같은 라운드에서 복원했다.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | review SKILL이 v2 어휘(발견 분류·확장 창·하한 ①~⑦·후보 표)와 판정 정정 절차를 모름 | 0294 r3 정정(`3d1916d4`)이 선례만 있고 규칙 없음 | **A** — §1 verify 메타 지표 · §2 분류 대조 · §3 감사 bullet 2 · §6-C 어휘 · §8 전환 신설 |
+| 2 | 6-A가 표식(백틱·사례 ID)만 대조해 표식 밖 문장의 약화를 못 봄 | round 41 판본 verify §8 "만든"(P41) · verify ② 이관 동작 · sweep "제거, 형제가 있으면 맞바꿈"(P49) | **A** — `scripts/instruction_delta.py`(표식·문장 대조, 같은 파일/다른 파일 분리) + word-diff 안내. 3건 복원 |
+| 3 | 대조 pool에 corpus를 넣으면 지운 규칙이 corpus의 `→ 규칙.` 문장에 가려짐 | round 41 범위 잃음 44 → corpus pool 시 26 | **A** — corpus pool 금지(SKILL §6-A · failure-patterns.md) |
+| 4 | 구 완료 조건 "AGENTS 변경 시 위생·CLAUDE stub"이 본문에 없던 체크리스트 전용 요구 | 구 review SKILL 완료 조건 | **A** — §6-C 본문으로 이동 |
+| 5 | 지침 문장 원칙이 review에 없어 라운드마다 다시 판단 | 사용자 요청(최근 모델 성능) | 구조 정리 + §4 문장 원칙 표(규칙+이유 · 판정 표 · 서사는 corpus · 절제된 강조 · 절차 우선) |
+
+## Tier
+
+**Tier 1.** review의 evidence 요구(verify 메타·분류 대조·도구)·lifecycle(판정 정정)·verify §0 횟수 규칙이 바뀌고, round 41이 약화한 normative 문장 3건을 복원한다.
+
+## 6-A Operational Instruction Delta
+
+기준 `3d1916d4`. `instruction_delta.py --prose --pool docs/handoff/AGENTS.md`.
+
+| 대상 | 후보 | 판정 |
+|---|---|---|
+| review SKILL(전면 재작성) | 40 → 복원 후 39(잃음 2 · 이동? 3 · 문장 29 · 문장 이동? 5) | 전부 판독. 약화 3 복원 — §1 anchor "최소" · §6-C "최소 다음을 대조" · 완료 조건 "증거는 줄이지 않음". 나머지는 표식 표기(`PARTIAL/GAP`→`PARTIAL`·`GAP`) · 목록→표 · 문장 재작성(KEEP/REPLACE) |
+| verify·impl SKILL · plan.template · AGENTS · failure-patterns.md | 0 · word-diff 지운 단어 13 | 전부 강화(sweep "제거 + 맞바꿈" · "만들거나 고친") 또는 낡은 예시 정리(`P1~P37 같은` → `historical coverage(6-B)`) |
+| review 절 번호 | — | MOVE — Decision drift §8→§9, 전환 §8 신설. 번호 인용 inbound N = 3(`0211 plan` §3-5 · `regression-coverage` §6·§7) → 같은 번호·같은 의미 3/3. 구 §8 인용 0 |
+| round 41 판본 재대조(`949b246..516665f6`) | SKILL·AGENTS 168(잃음 44 · 이동? 5 · 문장 111 · 문장 이동? 8) + template·root 10 | round 41 기록이 판독하지 않은 134줄(SKILL·AGENTS 124 + template 10)을 판독(미판정 0, 집합 대조). 약화 3 복원 — verify §8 "만들거나 고친"·"차집합이 비어야" · verify ② "`closed`여도 상태를 되돌려 §13" · sweep 괄호 5곳 "제거 — 계약이 다른 형제 슬롯이 있으면 맞바꿈을 더함" |
+| 명령·gate | KEEP | `app/AGENTS.md` 명령·CI 무변경 |
+
+- 같은 표식 대조를 최종 `516665f6`에 다시 돌리면 44(verify 13)이고, round 41 기록은 45(verify 14)였다.
+
+## 6-B Historical Failure Regression
+
+- **66 P 전수**(P1~P66, heading 연속). corpus의 `현재 방어`가 review SKILL을 가리키는 P는 0이다 — review 재작성은 P 방어 지점을 옮기지 않았다.
+- round 41 판본 재판정: **P41 PARTIAL**(verify §8이 "만든" 게이트로 좁아져 고친 게이트가 빠짐 — round 41 6-B가 놓침) · **P49 PARTIAL**(sweep 괄호가 "제거 대신 맞바꿈"으로 읽히고 plan.template 주석의 "지우는 변이에 더해"가 빠짐). P44는 판정 문장이 남아 COVERED(이관 동작만 복원).
+- 변경 후 **COVERED 66** / PARTIAL 0 / GAP 0 / OBSOLETE 0.
+
+### V/lifecycle replay — §8 전환
+
+| anchor·시나리오 | 그때 / 새 규칙 | 결과 |
+|---|---|---|
+| 0294 r3 정정(`3d1916d4`) | 정정 절 · verify 횟수 3 유지 · FAIL · plan·INDEX 갱신 · 별도 검증 커밋 — 새 §8과 같음 | 일치 |
+| 0292 r4(round 40) | 다른 주체의 `impl/IN_PROGRESS` 불개입 — 같음 | 일치 |
+| 정정 결과 막는 발견 0 | `PASS 후보` → `impl/IMPL_DONE`·검증자 → 다음 verify가 하한 확인 | 거짓 PASS 0 · 다음 주체 있음 |
+| RTP↔FAIL 정정 | 라운드 칸 불변(둘 다 +1) · 다음 주체만 바뀜 · 창 밖이면 동결 유지 | 반복 0 |
+| 다른 진행 중 handoff · CLOSED · DIAGNOSE_ONLY | 다음 verify부터(사용자 요청 시 정정) · 정정 없음 · 정정안만 | 막힌 상태 0 |
+
+- replay 중 2건을 고쳤다 — 정정 대상이 "판정이 바뀌는 모든 진행 중 handoff"와 "일괄 정정 금지"로 갈렸고(→ 발동 handoff, 그 밖은 사용자 요청 시), CLOSED가 빠져 있었다.
+
+## 6-C Cross-document Consistency
+
+- **PASS.** 전환: review §8 = AGENTS §4·책임 분리 bullet = verify §0(정정 절은 verify 횟수에 세지 않음). 도구: review §6-A = AGENTS §4·디렉토리 구조 = `failure-patterns.md`(corpus pool 금지). sweep 괄호: AGENTS ⑦·§단계별 절차 2 = verify ⑦ = impl §3 = plan.template. 네 SKILL frontmatter description이 본문 발동 조건과 맞다(review description = §언제 하는가 + §8).
+- `node scripts/check-doc-inventory.mjs --check`(app/) generated·prose·links ok · `git diff --check` 0 · 네 SKILL frontmatter YAML 파싱 4/4 · `instruction_delta.py` py_compile ok.
+
+## 전환
+
+- **해당 없음.** 발동 handoff가 없고(사용자 요청), 바뀐 문장은 이후 턴의 의무를 복원·명확화할 뿐 기존 판정(0294 r3 정정 `FAIL`)과 다음 주체를 바꾸지 않는다.
+
+## 남은 한계
+
+- 문장 대조는 한 줄 단위 포함률이다 — 여러 줄로 나뉘거나 합쳐진 규칙은 `문장`으로 과검출되고, 거의 같은 줄의 단어 하나 삭제는 word-diff로만 보인다.
+- §4 문장 원칙은 판단 기준이고 기계 검사는 없다.
+- §8은 선례 1건(0294 r3)과 시나리오 재생으로 만들었다 — FAIL→RTP·`PASS 후보` 실제 사례는 아직 없다. subagent 기반 skill eval은 돌리지 않았다(요청 없음).
