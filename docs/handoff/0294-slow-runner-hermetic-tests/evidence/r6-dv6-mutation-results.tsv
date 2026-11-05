@@ -1,0 +1,12 @@
+id	결과	exit	요약
+M62	green (기대 red)	0	node --test fail 0
+M63	red (기대 일치)	1	node --test fail 6 · KD05l — 원천 변수 후보 = 빈 리터럴 + 호출(재대입) → 호출 후보가 KM08; KD05m — 원천 = 조건식(빈 객체 | 호출) → KM08; KD05n — 원천 변수 후보 = 키 있는 리터럴 + 호출 → 리터럴 값과 KM08 둘 다
+M64	red (기대 일치)	1	node --test fail 9 · KM10f — 객체 멤버 — 속성 대입; KM10g — 객체 멤버 — 리터럴 키 요소 대입; KM10h — 객체 멤버 — ??= 대입
+M65	red (기대 일치)	1	node --test fail 3 · KD15h — 구조 분해 선언 요소의 증감; KD02b — 구조 분해 선언 요소의 복합 대입; KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상
+M66a	red (기대 일치)	1	node --test fail 2 · KD01b — 매개변수 = 대입 우변이 후보; KD01e — 호출부 없는 매개변수 + 대입 → 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+M66b	red (기대 일치)	1	node --test fail 2 · KD01c — 구조 분해 선언 요소 = 대입 우변이 후보; KD01d — 구조 분해 매개변수 요소 ??= 대입 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+M67	red (기대 일치)	1	node --test fail 4 · KD15m — for-of 머리 구조 분해 대입 대상; KD15n — for-of 머리 식별자 대입 대상; KD15o — for-in 머리 식별자 대입 대상
+M68	red (기대 일치)	1	node --test fail 2 · KD13b — catch 구조 분해 요소의 증감 → KD13 우선; KD04b — for-of 구조 분해 요소의 복합 대입 → KD04 우선; 노드 종류 표 정정 (0294 ΔV6)
+M69a	red (기대 일치)	1	node --test fail 1 · KD15k — 구별: 슬롯에 닿지 않는 매개변수의 증감은 무관; 노드 종류 표 정정 (0294 ΔV6)
+M69b	red (기대 일치)	1	node --test fail 1 · KD15l — 구별: 슬롯에 닿지 않는 구조 분해 요소의 증감은 무관; 노드 종류 표 정정 (0294 ΔV6)
+M70	red (기대 일치)	1	node --test fail 1 · KM08b — 구조 분해 대입 대상 변수의 멤버 읽기; 노드 종류 표 정정 (0294 ΔV6)

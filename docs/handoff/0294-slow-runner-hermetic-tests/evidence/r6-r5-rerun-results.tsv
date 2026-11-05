@@ -1,0 +1,72 @@
+id	결과	exit	요약
+M53	green (기대 red)	0	node --test fail 0
+M54a	red (기대 일치)	1	node --test fail 3 · KD05h — catch 구조 분해 변수 → KD13; 노드 종류 표 정정 (0294 ΔV5); KD05v — catch 구조 분해 — 기본값이 있어도 KD13
+M54b	green (기대 red)	0	node --test fail 0
+M55	red (기대 일치)	1	node --test fail 8 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; KD15c — 객체 구조 분해 대입 대상
+M56	red (기대 일치)	1	node --test fail 8 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; KD15c — 객체 구조 분해 대입 대상
+M57a	SKIP	-	old 원문 없음
+M57b	SKIP	-	old 원문 없음
+M58	red (기대 일치)	1	node --test fail 1 · KM10l — 객체 멤버 — 다른 객체의 같은 키 대입은 후보 아님(구별 입력); 노드 종류 표 정정 (0294 ΔV5)
+M59	red (기대 일치)	1	node --test fail 1 · KM10e — this 멤버 — 다른 클래스의 대입은 후보 아님(구별 입력); 노드 종류 표 정정 (0294 ΔV5)
+M60a	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+M60b	red (기대 일치)	1	node --test fail 4 · KM11b — 객체 멤버 증감; KM11c — 객체 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+S-KD05-literal	green (기대 red)	0	node --test fail 0
+S-KD05-bound	green (기대 red)	0	node --test fail 0
+S-KD05-red	green (기대 red)	0	node --test fail 0
+S-KD05-param	green (기대 red)	0	node --test fail 0
+S-KD05-noorigin	green (기대 red)	0	node --test fail 0
+S-KD15-incdec	red (기대 일치)	1	node --test fail 4 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; 노드 종류 표 정정 (0294 ΔV5)
+S-KD15-ident	red (기대 일치)	1	node --test fail 4 · KD15d — 배열 구조 분해 대입 대상; KD15e — 이름 바꾼 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+S-KD15-short	red (기대 일치)	1	node --test fail 4 · KD15c — 객체 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5); KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상
+S-KD15-prop	red (기대 일치)	1	node --test fail 3 · KD15e — 이름 바꾼 구조 분해 대입 대상; KM11c — 객체 멤버 구조 분해 대입 대상; KM11d — this 멤버 구조 분해 대입 대상
+S-KD15-scope	red (기대 일치)	1	node --test fail 1 · 실제 저장소가 계약을 지킨다; CLI
+S-KD15-entry	red (기대 일치)	1	node --test fail 7 · KD15c — 객체 구조 분해 대입 대상; KD15d — 배열 구조 분해 대입 대상; KD15e — 이름 바꾼 구조 분해 대입 대상
+S-KM11-patmember	red (기대 일치)	1	node --test fail 3 · KM11c — 객체 멤버 구조 분해 대입 대상; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+S-KM11-incdec	red (기대 일치)	1	node --test fail 2 · KM11b — 객체 멤버 증감; 노드 종류 표 정정 (0294 ΔV5); KD05q — 원천 객체 멤버 증감 → KM11
+S-KM10-kind-a	red (기대 일치)	1	node --test fail 1 · KM11a — this 멤버 복합 대입; 노드 종류 표 정정 (0294 ΔV5)
+S-KM10-kind-r	red (기대 일치)	1	node --test fail 15 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10b — this 멤버 — 초기값·대입 모두 배율; KM10c — this 멤버 — 초기값 없는 선언 + 대입
+S-KM10-key-this	SKIP	-	old 원문 없음
+S-KM10-key-obj	SKIP	-	old 원문 없음
+S-KM10-this-only	SKIP	-	old 원문 없음
+S-KM10-obj-notthis	SKIP	-	old 원문 없음
+S-KM10-collect	red (기대 일치)	1	node --test fail 14 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10c — this 멤버 — 초기값 없는 선언 + 대입; KM10d — this 멤버 — 화살표 안 대입(같은 this)
+S-KM10-elemkey	red (기대 일치)	1	node --test fail 1 · KM10g — 객체 멤버 — 리터럴 키 요소 대입; 노드 종류 표 정정 (0294 ΔV5)
+M61	red (기대 일치)	1	(출력 없음)
+X-KD05j	green (기대 red)	0	node --test fail 0
+X-KD05k	red (기대 일치)	1	node --test fail 1 · KD05k — 원천 = 배율 객체 리터럴(대조); 노드 종류 표 정정 (0294 ΔV5)
+X-KD15f	red (기대 일치)	1	node --test fail 1 · KD15f — 슬롯에 닿지 않는 변수의 증감은 무관(구별 입력); 노드 종류 표 정정 (0294 ΔV5)
+X-KD15g	SKIP	-	old가 3회 나옴 — occ 지정 필요
+X-KM10k	red (기대 일치)	1	node --test fail 1 · KM10k — 객체 멤버 — 배율 대입; 노드 종류 표 정정 (0294 ΔV5)
+X-KM01b	red (기대 일치)	1	node --test fail 1 · KM01b — 객체 멤버 — 대입 없음 → KM01 그대로; 노드 종류 표 정정 (0294 ΔV5)
+C010r	red (기대 일치)	1	node --test fail 15 · V05 — B2 같은 파일 대입 =; V06 — B2 같은 파일 대입 ??=; V07 — B2 같은 파일 대입 ||=
+C012r	red (기대 일치)	1	node --test fail 5 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+C036r	red (기대 일치)	1	node --test fail 2 · KD05 — 구조 분해 — 중첩; 노드 종류 표 (0294 ΔV4); KD05r — 중첩 패턴 — 안쪽 원천 멤버 대입 우변이 후보
+C061r	red (기대 일치)	1	node --test fail 24 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V22·scaled — 같은 경로의 배율 입력
+C072r	red (기대 일치)	1	node --test fail 1 · KV11 — 대입 연산 식 → red; 노드 종류 표 (0294 ΔV4)
+C073r	red (기대 일치)	1	node --test fail 2 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; 노드 종류 표 (0294 ΔV4)
+C075r	red (기대 일치)	1	node --test fail 3 · KV02 — + 숫자 리터럴 → 숫자; KV02b — - 숫자 리터럴 → 숫자(음수 — 임계 아래); KV13u — 숫자 아님 — !x
+C080r	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+C081r	green (기대 red)	0	node --test fail 0
+C082r	red (기대 일치)	1	node --test fail 2 · KV16a — 후위 ++ → red; KV16e — 후위 -- → red; 노드 종류 표 (0294 ΔV4)
+C084r	red (기대 일치)	1	node --test fail 1 · KV14 — await → red; 노드 종류 표 (0294 ΔV4)
+C086r	red (기대 일치)	1	node --test fail 1 · KV15 — this → red; 노드 종류 표 (0294 ΔV4)
+C091r	red (기대 일치)	1	node --test fail 8 · KF05a — 그 밖 호출(import 함수) → red; KF05b — 그 밖 호출(lib 함수) → red; KA01 — count = 판정 불가 자리 수 → 통과
+C094r	red (기대 일치)	1	node --test fail 2 · KV17a — 그 밖 종류(태그 템플릿) → red; KV17b — 그 밖 종류(yield) → red; 노드 종류 표 (0294 ΔV4)
+C098r	red (기대 일치)	1	node --test fail 1 · KD13 — catch 변수 → red; 노드 종류 표 (0294 ΔV4)
+C100r	red (기대 일치)	1	node --test fail 2 · KD04a — for-of 변수 → red; KD04b — for-in 변수 → red; 노드 종류 표 (0294 ΔV4)
+C118r	red (기대 일치)	1	node --test fail 1 · KD15i — 매개변수 증감; 노드 종류 표 정정 (0294 ΔV6)
+C122r	red (기대 일치)	1	node --test fail 4 · KD10c — import 이름공간 멤버 → 경계; KM07a — 원천이 lib 전역 → 경계; KM07b — 원천이 콜백 매개변수 → 경계
+C123r	red (기대 일치)	1	node --test fail 1 · KM09 — 계산 키 → red; 노드 종류 표 (0294 ΔV4)
+C130r	red (기대 일치)	1	node --test fail 7 · KM02 — 키 없음 → 숫자 아님; 노드 종류 표 (0294 ΔV4); KD05g — 원천 = 키 없는 객체 리터럴 → KM02 숫자 아님
+C133r	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+C135r	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+C136r	red (기대 일치)	1	node --test fail 1 · KD05f — 원천 = import → KM07 경계; 노드 종류 표 정정 (0294 ΔV5)
+C137r	red (기대 일치)	1	node --test fail 3 · KM06c — this.이름 — 속성 선언 없음 → red; 노드 종류 표 (0294 ΔV4); KM06d — this 멤버 — 선언·대입 모두 없음 → KM06 그대로
+C014r	red (기대 일치)	1	node --test fail 17 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01·scaled — 같은 경로의 배율 입력
+C103r	red (기대 일치)	1	node --test fail 2 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+C104r	red (기대 일치)	1	node --test fail 2 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+C108r	green (기대 red)	0	node --test fail 0
+C110r	red (기대 일치)	1	node --test fail 29 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01 — option 단축 속성(이름 변수가 아닌 매개변수 경유)
+C115r	red (기대 일치)	1	node --test fail 3 · KD11 — 함수 선언 → 숫자 아님; KD11b — 클래스 선언 → 숫자 아님; KD11c — enum 선언 → 숫자 아님
+C116r	red (기대 일치)	1	node --test fail 3 · KD05d — for-of 구조 분해 변수 → KD04; 노드 종류 표 정정 (0294 ΔV5); KD05u — for-of 구조 분해 — 기본값이 있어도 KD04
+C120r	green (기대 red)	0	node --test fail 0

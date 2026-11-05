@@ -202,6 +202,12 @@ export function createBindings(relPath, source) {
       (ts.isObjectLiteralExpression(node.left) || ts.isArrayLiteralExpression(node.left))
     )
       markAssignmentPattern(node.left)
+    // ΔV6 KD15·KM11 — for-of·for-in 머리가 선언이 아니면 대입 대상이다.
+    if (
+      (ts.isForOfStatement(node) || ts.isForInStatement(node)) &&
+      !ts.isVariableDeclarationList(node.initializer)
+    )
+      markAssignmentPattern(node.initializer)
     if (
       (ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
       (node.operator === K.PlusPlusToken || node.operator === K.MinusMinusToken)
@@ -350,14 +356,20 @@ export function createBindings(relPath, source) {
     if (ts.isIdentifier(node)) {
       const decl = declOf(node)
       if (!decl) return []
+      // ΔV6 KM08 — 이름 바인딩이 증감·대입 대상이면 원천 사슬은 끊기고 그 바인딩 자체가 원천이다.
+      if (unresolvedVariables.has(decl)) return [node]
       if (ts.isVariableDeclaration(decl) && ts.isIdentifier(decl.name)) {
         const out = decl.initializer ? sources(decl.initializer) : []
         for (const value of assignments.get(decl) ?? []) out.push(...sources(value))
         return out
       }
-      if (ts.isBindingElement(decl)) return bindingElementSources(decl)
+      if (ts.isBindingElement(decl))
+        return [
+          ...bindingElementSources(decl),
+          ...(assignments.get(decl) ?? []).flatMap((e) => sources(e))
+        ]
       if (ts.isParameter(decl) && ts.isIdentifier(decl.name))
-        return argumentsFor(decl).flatMap((e) => sources(e))
+        return [...argumentsFor(decl), ...(assignments.get(decl) ?? [])].flatMap((e) => sources(e))
       return []
     }
     if (ts.isPropertyAccessExpression(node))
@@ -544,16 +556,36 @@ export function createBindings(relPath, source) {
       return candidates.length ? candidates.flatMap(classify) : one('nonnum', 'KD03', node)
     }
     if (ts.isBindingElement(decl)) {
-      const out = bindingElementSources(decl).flatMap(classify)
       let holder = decl.parent.parent
       while (ts.isBindingElement(holder)) holder = holder.parent.parent
+      // ΔV6 판정 순서 — KD13 → KD04 → KD03b(가장 바깥 선언) → KD02 → KD15 → 값 칸
+      if (ts.isVariableDeclaration(holder)) {
+        if (ts.isCatchClause(holder.parent)) return one('red', 'KD13', node)
+        if (ts.getCombinedModifierFlags(holder) & ts.ModifierFlags.Ambient)
+          return one('bound', 'KD03b', node)
+        if (
+          ts.isVariableDeclarationList(holder.parent) &&
+          (ts.isForOfStatement(holder.parent.parent) || ts.isForInStatement(holder.parent.parent))
+        )
+          return one('red', 'KD04', node)
+      }
+      if (compoundAssignments.has(decl)) return one('red', 'KD02', node)
+      if (unresolvedVariables.has(decl)) return one('red', 'KD15', node)
+      const out = [
+        ...bindingElementSources(decl).flatMap(classify),
+        ...(assignments.get(decl) ?? []).flatMap(classify),
+        ...memberJudgments(decl, node)
+      ]
       if (!out.length && ts.isParameter(holder) && !argumentsFor(holder).length)
         return one('bound', 'KD08', node)
       if (out.length) return out
       return emptyDestructuring(holder, node)
     }
     if (ts.isParameter(decl)) {
-      const args = argumentsFor(decl)
+      if (compoundAssignments.has(decl)) return one('red', 'KD02', node)
+      if (unresolvedVariables.has(decl)) return one('red', 'KD15', node)
+      // ΔV6 KD01 — 호출 인자·기본값·같은 파일 대입 우변이 모두 후보다. 호출부 없는 매개변수도 대입이 있으면 후보가 있다.
+      const args = [...argumentsFor(decl), ...(assignments.get(decl) ?? [])]
       if (args.length) return args.flatMap(classify)
       let fn = decl.parent
       let owner = fn.parent
@@ -619,40 +651,74 @@ export function createBindings(relPath, source) {
         : null
     if (key === null) return one('red', 'KM09', node)
     const target = peel(node.expression)
-    if (target.kind === K.ThisKeyword) {
-      let owner = node.parent
-      while (owner && !ts.isClassLike(owner)) owner = owner.parent
-      const prop = owner?.members.find((p) => ts.isPropertyDeclaration(p) && keyOf(p.name) === key)
-      const writes = memberWrites.filter(
-        (w) =>
-          writeKey(w.left) === key &&
-          peel(w.left.expression).kind === K.ThisKeyword &&
-          classOf(w.left) === owner
-      )
-      if (writes.some((w) => w.kind === 'red')) return one('red', 'KM11', node)
-      const candidates = [
-        ...(prop?.initializer ? [prop.initializer] : []),
-        ...writes.map((w) => w.right)
-      ]
-      return candidates.length ? candidates.flatMap(classify) : one('red', 'KM06', node)
+    if (target.kind === K.ThisKeyword) return thisMember(key, node, node)
+    return memberTerminals(sources(target), key, node, () =>
+      classify(target).some((v) => v.kind === 'bound')
+        ? one('bound', 'KM07', node)
+        : one('red', 'KM08', node)
+    )
+  }
+  /** KM 표의 한 자리 — `this.key` 는 같은 클래스의 선언·대입으로 판정한다. `from` 에서 올라가 클래스를 찾는다. */
+  function thisMember(key, node, from) {
+    let owner = from.parent
+    while (owner && !ts.isClassLike(owner)) owner = owner.parent
+    const prop = owner?.members.find((p) => ts.isPropertyDeclaration(p) && keyOf(p.name) === key)
+    const writes = memberWrites.filter(
+      (w) =>
+        writeKey(w.left) === key &&
+        peel(w.left.expression).kind === K.ThisKeyword &&
+        classOf(w.left) === owner
+    )
+    if (writes.some((w) => w.kind === 'red')) return one('red', 'KM11', node)
+    const candidates = [
+      ...(prop?.initializer ? [prop.initializer] : []),
+      ...writes.map((w) => w.right)
+    ]
+    return candidates.length ? candidates.flatMap(classify) : one('red', 'KM06', node)
+  }
+  /** 원천 식 목록의 `key` 멤버 판정 — 읽기와 구조 분해가 이 함수 하나를 쓴다(짝 행이 대칭을 잠근다). */
+  function memberTerminals(owners, key, node, fallback) {
+    if (!owners.length) return fallback()
+    const writes = memberWrites.filter(
+      (w) =>
+        writeKey(w.left) === key &&
+        peel(w.left.expression).kind !== K.ThisKeyword &&
+        sources(w.left.expression).some((o) => owners.includes(o))
+    )
+    if (writes.some((w) => w.kind === 'red')) return one('red', 'KM11', node)
+    return [
+      ...owners.flatMap((owner) => memberValue(owner, key, node)),
+      ...writes.flatMap((w) => classify(w.right))
+    ]
+  }
+  /** ΔV6 KD05 — 구조 분해 요소의 원천 멤버 판정. 원천 후보마다 같은 KM 판정을 낸다(후보 유무와 무관). */
+  function memberJudgments(decl, node) {
+    const pattern = decl.parent
+    if (decl.dotDotDotToken || !pattern) return []
+    const key = ts.isArrayBindingPattern(pattern)
+      ? String(pattern.elements.indexOf(decl))
+      : keyOf(decl.propertyName ?? decl.name)
+    if (!key) return []
+    const holder = pattern.parent
+    if (ts.isVariableDeclaration(holder))
+      return holder.initializer ? judgeOrigin(holder.initializer, key, node) : []
+    if (ts.isParameter(holder))
+      return argumentsFor(holder).flatMap((a) => judgeOrigin(a, key, node))
+    if (ts.isBindingElement(holder)) {
+      const owners = bindingElementSources(holder)
+      return owners.length ? memberTerminals(owners, key, node, () => []) : []
     }
-    const owners = sources(target)
-    if (owners.length) {
-      const writes = memberWrites.filter(
-        (w) =>
-          writeKey(w.left) === key &&
-          peel(w.left.expression).kind !== K.ThisKeyword &&
-          sources(w.left.expression).some((o) => owners.includes(o))
-      )
-      if (writes.some((w) => w.kind === 'red')) return one('red', 'KM11', node)
-      return [
-        ...owners.flatMap((owner) => memberValue(owner, key, node)),
-        ...writes.flatMap((w) => classify(w.right))
-      ]
-    }
-    return classify(target).some((v) => v.kind === 'bound')
-      ? one('bound', 'KM07', node)
-      : one('red', 'KM08', node)
+    return []
+  }
+  /** 구조 분해의 원천 식 하나 → `key` 멤버 판정. `this` 원천은 클래스 멤버 판정이다. */
+  function judgeOrigin(origin, key, node) {
+    const target = peel(origin)
+    if (target.kind === K.ThisKeyword) return thisMember(key, node, target)
+    return memberTerminals(sources(origin), key, node, () =>
+      classify(origin).some((v) => v.kind === 'bound')
+        ? one('bound', 'KM07', node)
+        : one('red', 'KM08', node)
+    )
   }
   function memberValue(owner, key, node, busy = new Set()) {
     if (busy.has(owner)) return []

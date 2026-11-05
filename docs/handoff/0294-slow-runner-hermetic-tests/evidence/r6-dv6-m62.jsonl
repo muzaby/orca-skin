@@ -1,0 +1,1 @@
+{"id": "M62", "file": "scripts/test-budget-bindings.mjs", "old": "...memberJudgments(decl, node)", "new": "...(bindingElementSources(decl).length ? [] : memberJudgments(decl, node))", "occ": 0, "expect": "red", "oracle": "node --test-reporter=tap scripts/check-test-budgets.test.mjs", "label": "r5 동작 — 요소 자체의 후보(기본값·원천 멤버)가 있으면 원천 식을 보지 않음"}

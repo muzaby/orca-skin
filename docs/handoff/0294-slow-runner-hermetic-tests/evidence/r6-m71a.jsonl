@@ -1,0 +1,1 @@
+{"id": "M71a", "file": "src/main/infra/net/pop3-tls.test.ts", "new": "\nfunction probe(ms) { ms++; setTimeout(() => {}, ms) }\nprobe(scaleMs(500))\n", "mode": "append", "oracle": "node scripts/check-test-budgets.mjs", "expect": "red", "label": "매개변수 증감 판정 불가(트리)"}
