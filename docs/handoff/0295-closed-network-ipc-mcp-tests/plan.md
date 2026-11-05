@@ -325,19 +325,107 @@ managed-mcp CLI test
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: D-002~D-006, §11 두 파일 변경.
+- 이견 / 현실성 문제: §11·AC3의 `satisfies HarnessConfigApiDeps['auth']`는 쓰지 않았다 — `satisfies`는 메서드 시그니처를 리터럴에서 추론해 `bound.request({...})` 호출이 `TS2554: Expected 0 arguments`로 깨졌다. 같은 형상 검사를 하는 타입 주석 `const authStub: HarnessConfigApiDeps['auth']`로 바꿨다(아래 설계 대비 차이).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-02 | 조립에 넘기는 auth 형상 | EP-1 (1) | 1/1 | `rg -n "createRuntimeConfigAugmenters\(\{" app/src/main --glob '*.test.ts'` → 1건(`engine.ipc.test.ts:103`) · F1 상태 기존 13케이스+신규 = 14 passed · F1+구 `{}` = 14 failed(`TypeError: deps.auth.bind is not a function`) · `gate:tsc -p tsconfig.test.json`(T1 red TS2561) | `auth`: 형상 맞는 거부 가짜(구 값 `{}`와 F1에서 구별) → 파일 전체 결과 | — |
+| VP-03 | auth 사용 거부 | EP-2 (4): bind · snapshot · request · connectionValue | 4/4 | `engine.ipc.test.ts:'refuses every auth use outside the IPC boundary'` — 자리마다 S4·S1·S2·S3 red | bind: `authId` 'fork-corp-llm' 보존 · snapshot/request/connectionValue: 각 이름 regex 단언(S5 맞바꿈 red) | — |
+| VP-04 | 활성화 + 정착 대기 | EP-3 (2): (a) activate (b) pending 재조회 | 2/2 | `rg -n "\.read\('mcp'" app/src/main/app/managed-mcp.cli.integration.test.ts` → 1건 · `managed-mcp.cli.integration.test.ts:'advertises and calls managed MCP through the supported CLI'`(opencode 1.18.27) 1 passed · M1·M2 red | (a) 활성화 호출 유무 → 0 vs 6 · (b) 첫 read pending 6(실측) → 재조회 후 connected 6 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | opencode 없음: 3파일 18 passed·1 skipped · 있음: 19 passed | not selected — 하위 pair |
+| VP-02 | REQUIRED | SELF_PASS | `engine.ipc.test.ts` 14케이스 | F1 green · F2 green · F1+`{}` red 14/14 |
+| VP-03 | REQUIRED | SELF_PASS | `engine.ipc.test.ts:'refuses every auth use outside the IPC boundary'` | F3 red(Unhandled Rejection 14 · `auth.request is outside the IPC boundary`) · F4 red 14/14 · F5 red 14/14 |
+| VP-04 | REQUIRED | SELF_PASS | `managed-mcp.cli.integration.test.ts:'advertises and calls managed MCP through the supported CLI'` | M1 red · M2 red |
+| VP-05 | REGRESSION | SELF_PASS | `mcp-connection.test.ts:'activates directories connects desired MCPs independently and admits submissions within the bound'` | M3 red(1 failed · 3 passed) |
+
 ## [구현자 기입] 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`(spec 15줄), 끝난 뒤 원복 확인 메시지 "모든 파일 원문 그대로".
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `harness-runtime.ts` `createConfigApiAugmenters` — 생성 시 `bind` 호출(F1) | VP-02 선택 증거 | 최초 | 14 passed(기대 green) | 잠김 — 포크 형상 통과 |
+| `harness-runtime.ts` `RUNTIME_MODEL_CONTRIBUTIONS` 채움(F2) | VP-02 선택 증거 | 최초 | 14 passed(기대 green) | 잠김 |
+| F1 + `engine.ipc.test.ts` auth를 구 `{}`로 | VP-02 선택 증거(대조) | 최초 | 14 failed | 잠김 — 고친 결함이 재현됨 |
+| 생성 시 `bind().request()`(F3) | VP-03 선택 증거 | 최초 | Unhandled Rejection 14 → exit 1 | 잠김 |
+| 생성 시 `connectionValue()`(F4) | VP-03 선택 증거 | 최초 | 14 failed | 잠김 |
+| 생성 시 `bind().snapshot()`(F5) | VP-03 선택 증거 | 최초 | 14 failed | 잠김 |
+| `engine.ipc.test.ts` 가짜에서 `bind` 이름 제거(T1) | sweep — EP-1 형상 / AC3 | 최초 | `tsc -p tsconfig.test.json` TS2561 | 잠김 |
+| `snapshot` 본문 → 빈 값(S1) | sweep — EP-2 snapshot | 최초 | 1 failed | 잠김 |
+| `request` 본문 → 빈 값(S2) | sweep — EP-2 request | 최초 | 1 failed | 잠김 |
+| `connectionValue` → `undefined`(S3) | sweep — EP-2 connectionValue | 최초 | 1 failed | 잠김 |
+| `bind`가 `authId` 대신 다른 값(S4) | sweep — EP-2 bind | 최초 | 1 failed | 잠김 |
+| `snapshot` 메시지 ↔ `request` 메시지 맞바꿈(S5) | sweep — EP-2 형제 맞바꿈 | 최초 | 1 failed | 잠김 |
+| `engine.ipc.test.ts` auth → `{}`(E1, 기본 배포) | sweep — EP-1 제거 | 최초 | 14 passed | 동치 — 기본 배포는 `void deps`로 auth를 읽지 않는다(`harness-runtime.ts` `createConfigApiAugmenters`). 포크 형상은 F1+`{}` 행이 잠근다 |
+| `prepared.activate?.()` 제거(M1) | sweep — EP-3 (a) · VP-04 선택 증거 | 최초 | 1 failed | 잠김 |
+| pending 재조회 조건 제거(M2) | sweep — EP-3 (b) · VP-04 선택 증거 | 최초 | 1 failed | 잠김 |
+| `mcp-control.ts:149` → `this.activate()`(M3) | VP-05 선택 증거 | 최초 | 1 failed | 잠김 |
+
+- **분모 검산**: `선택 증거 9(F1·F2·F1+{}·F3·F4·F5·M1·M2·M3) · 인용 변이 0 · 새 oracle 1(UT-01 — 민감도는 S1~S5 행) · sweep 9(T1·S1~S5·E1·M1·M2) = 표 행 16` — M1·M2는 선택 증거와 sweep에 함께 속해 1행씩만 둔다(9 + 9 − 2 = 16).
+- **덮개 회귀**: 해당 없음(첫 라운드).
 
 ## [구현자 기입] Product/UX 파생 검토
 
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 테스트 메시지뿐(소비자: CI 로그) | — |
+| production 재배치 | 재배치 없음 | — |
+| 실패 경로가 Part I 상태 전이표의 어느 행인가 | `failed` 정착 → "일부가 failed" 행 · 미정착 → "정착하지 않음" 행 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 포크의 조용한 인증 사용은 이름 붙은 오류로 보인다(F3~F5) | — |
+| 늦은 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 정착 대기 안에서 `read` 자체가 reject하면 즉시 실패하지 않고 대기 한도까지 재시도한다(구 코드는 즉시 실패) | ✅ 선조치 안 함 — 진단은 마지막 오류의 `diagnostics`로 그대로 남고 상한은 기존 read 신호와 같은 기준값 40s | `vi.waitFor` 의미 |
+| 2 | 메일 도구 `cacheAsOf`가 better-sqlite3 Node ABI에 기댄다 | ⚠️ 보고만 — §10 선언 경계 (3), 범위 밖 | `npm rebuild better-sqlite3` 전 `db_failed`, 후 green |
+
+### 설계 대비 명시적 차이
+
+- `satisfies HarnessConfigApiDeps['auth']` → 타입 주석 `const authStub: HarnessConfigApiDeps['auth']`. 이유: `satisfies`가 리터럴 메서드를 0-인자로 추론해 신규 UT 호출이 TS2554.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 타입 검사뿐 | — |
+| 공유 | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 주석 타입은 잉여 속성 검사를 유지하고 누락 멤버를 막는다 | AC3 · T1 red(TS2561 `'_bind' does not exist in type 'Pick<AuthRuntime, "bind" \| "connectionValue">'`) |
 
 ## [구현자 기입] 구현 보고
 
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/app/handlers/engine.ipc.test.ts` · `app/src/main/app/managed-mcp.cli.integration.test.ts` |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `node scripts/check-test-budgets.mjs` · `vitest run` 3파일(opencode 유/무) · egress 차단 managed-mcp · `vitest run src/main/app`(opencode 유) · `mutate.py` 15줄 |
+| **관측한 게이트 산출** | typecheck error 0 · lint 0 error / 2 warning(renderer 기존 `react-hooks/incompatible-library`, 이번 diff 밖) · test-budgets "16 real-git suites ok · all budget sites scaled" · 3파일 opencode 없음 18 passed·1 skipped / 있음 19 passed · egress 차단 1 passed · `src/main/app` 22 files failed·8 tests failed — opencode 없는 변경 전 기준선 실패 목록과 diff 0줄(Electron 바이너리 부재 등 환경) |
+| V-pair 자기확인 | SELF_PASS 5 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | 7/7 (EP-1 1 · EP-2 4 · EP-3 2) |
+| **AC 자기보고** | AC1 ✅ F1 14 passed · AC2 ✅ UT + F3~F5 red · AC3 ✅ T1 TS2561 · AC4 ✅ opencode 1 passed, `toHaveLength(6)`·`skipIf`·`scaleMs(40_000)`·`testTimeout: 120_000` diff 불변 · AC5 ✅ mcp-connection green + M3 red · AC6 ✅ opencode 없음 1 skipped·engine.ipc passed |
+| **합계 검산** | `✅ 6 · ⚠️ 0 · ❌ 0 = 총 6` |
+| 블로커 / 역질문 | 없음. 사람 실기: 포크 CI 1회(§19) |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
 ## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: plan §11의 `satisfies` 지정이 TS 추론과 맞지 않았다 — 구현 세부로 정정.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 다운로드 불가(22파일 기준선) · better-sqlite3 Node ABI.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 
