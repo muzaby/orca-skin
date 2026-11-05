@@ -2396,3 +2396,70 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 - 막았어야 할 지침·AC: ΔV4 "값 자리 fail-closed"와 KD05 "후보마다 KV"가 있었고, r4 구현의 빈 후보 폴백이 그 문장을 어겼다(UT 입력 칸이 원천 종류를 열거하지 않았다).
 - 반복 환경 한계: AC18 사람 실기 · 이번 턴 vitest 전체 미실행(Windows CI 의존).
 - 현재 라운드·impl 턴: **r5**, 구현자 Claude. 다음 verify는 ΔV4 창 2회째(마지막 확장 창).
+
+## [구현자 기입] 설계 리뷰 (r6 — ΔV6)
+
+ΔV6 READY 입력을 현재 트리와 대조했다 — `dv6-cells.mjs app` 칸 입력 43 · 판정 불일치 27(설계 §7-G 관측과 같다). 설계 문장과 충돌하는 곳은 없다. 구현은 설계 "원천 멤버 판정 한 함수 공유"를 `memberTerminals`로 옮겼다. **설계 대비 차이**: 빈 후보 폴백(`emptyDestructuring`)을 기본 경로로 두지 않고 원천별 판정(`judgeOrigin`)을 기본으로 했다 — 중첩 패턴의 원천 없음만 폴백에 남는다. 칸 ID·기대·§10 자리는 그대로다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r6
+
+| 지점 | §10 자리(분모) | 닫음 | 남긴 곳 | 직접 oracle 좌표 |
+|---|---|---|---|---|
+| EP-12f (칸 94 · 입력 411) | 411행 = dv3 169 + dv4 163 + dv5 36 + dv6 43 | 411 | 0 | `dv3-branches`·`dv4-cells`·`dv5-cells`·`dv6-cells` 판정 불일치 각 0 · `check-test-budgets.test.mjs` 노드 종류 표 정정 (0294 ΔV6) 43행 |
+| EP-13 판정 불가 허용 | 0항목 | 0 | — | `node scripts/check-test-budgets.mjs --report` UNRESOLVED 0 |
+| EP-05b (62자리) | 62 | 62(변화 없음) | 0 | `--report` 90행 — HEAD 와 바이트 동일(md5 `553a99ce9e814450614af2756d3d490b`) |
+
+- 자리 검색 차집합: 입력 411 행의 `vc` 가 기대와 같다 → 목록 밖 운반 자리 0. 목록 미고정 pair 없음.
+- 정정 칸 5개(KD05 · KD01 · KD02 · KD15 · KM11 · KM08 · KM10)는 칸 행마다 기대가 있다(43행 중 27행이 r6 전 불일치 → 0).
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r6
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M62 요소 후보가 있으면 원천 생략(r5 동작) | ΔV6 등록 | 신규 — 첫 정의(요소 자신의 대입 기준)는 green이라 무효 → 정의를 고쳐 red 재측정 | KD05n · o · p 5 | 잠김 |
+| M63 원천 리터럴 혼합 → KM02 | ΔV6 등록 · verify r5 K2 축 | 신규 | KD05l · m · n 등 6 | 잠김 |
+| M64 쓰기 우변 제거(읽기·구조 분해 공통) | ΔV6 등록 | 신규 | KM10f · g · h 등 9 | 잠김 |
+| M65 KD02·KD15 제거 | ΔV6 등록 | 신규 | KD15h · KD02b · KD15j 3 | 잠김 |
+| M66a 매개변수 대입 우변 제거 · M66b 요소 대입 우변 제거 | ΔV6 등록 | 신규 | KD01b · KD01e 2 · KD01c · KD01d 2 | 잠김 |
+| M67 for-of·for-in 머리 대입 표시 제거 | ΔV6 등록 | 신규 | KD15m · n · o 4 | 잠김 |
+| M68 KD02·KD15를 KD13·KD04보다 먼저(이웃 칸 ID 맞바꿈) | ΔV6 등록 | 신규 | KD13b · KD04b 2 | 잠김 |
+| M69a · M69b 소유 대조 완화(같은 함수·같은 패턴) | ΔV6 등록 | 신규 | KD15k 1 · KD15l 1 | 잠김 |
+| M70 KD15 원천 사슬 끊기 제거 | ΔV6 등록 | 신규 | KM08b 1 | 잠김 |
+| M71a 트리에 매개변수 증감 자리 추가 | ΔV6 등록(VP-09c) | 신규 | 게이트 exit 1 · 판정 불가 KD15 | 잠김 |
+| M71b 같은 자리 + UNRESOLVED_ALLOWED 등록 | ΔV6 등록 | 신규 | 게이트 exit 0(기대 일치) | 확인 |
+| r5 spec 71행 재실행 | verify r5 ④ | red 53 · 기대 일치 | — | 아래 표 |
+
+**r5 spec 재실행 (④)**: 71행 중 red 일치 53 · 재앵커 16 · 동치 판정 2(S-KD05-literal · S-KD05-noorigin) — 나머지 `S-KM10-obj-notthis`는 r5 verify가 동치로 판정한 행이고 이번에도 green이며 alias 입력(`const t = this`)으로 재확인했다(같은 결과).
+- 재앵커 16행(`r6-reanchor-results.tsv`): R6-M53 · M54b · S-bound · S-red · S-param · X-KD05j · X-KD15g · C120r(a·b) · S-KM10-key-this · this-only · key-obj · M57a · M57b → red 일치. 기존 green이던 `C081r`·`C108r`은 r4 원 spec에서도 green이던 행이다(verify r5 설명 유지).
+- 재앵커 과정에서 잡은 것: 원천 판정 경로를 바꾸면서 r5 행의 `occ` 위치와 앵커가 옮겨 SKIP 7 · 구 위치 green 11이 생겼다. 신규 경로에 같은 의미의 변이를 다시 심어 판정했다.
+- 신규 잠금 입력 4개(`KM07b` 경계 원천 · `KM08e` 함수 참조 원천 · `KD05y2` 매개변수 원천 여러 호출 · `KD05w2` 구조 분해 매개변수의 멤버 읽기) — 재앵커한 red 중 R6-S-bound · S-red · S-param · X-KD05j를 잡는다.
+
+검산: 등록 변이 행 11(M62~M70 · M66·M69 분할) + 게이트 2(M71a·b) + 재앵커 16 + r5 재실행 71 = 표 행 T. 새 oracle 4(위 KM07b · KM08e · KD05y2 · KD05w2) · 선택 증거 pair 1(VP-12f).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r6
+
+- 재진입: `classifyMemo` 순환 차단은 기존 그대로다. 순환·자기 참조 입력 6종(`const {ms} = {ms: ms}` · `o = o.a` 순환 구조 분해 · 기본값 호출 · `this` 자기 대입 · 매개변수 자기 대입 · for-of 자기 참조)을 `r6-cycle-probe.mjs`로 돌려 예외 0.
+- 설계 대비 차이 축(만료·공유·재진입·다른 무효화): 순수 정적 분석이고 메모는 `createBindings` 호출마다 새로 만든다 → 공유 상태 없음 → 해당 없음. 재진입은 위 probe로 확인.
+- 판정이 엄격해진 입력(매개변수·구조 분해 원천의 여러 호출 중 호출 결과)은 이제 판정 불가 위반으로 막힌다. 현재 트리 영향 0(`--report` 동일).
+
+## [구현자 기입] Product/UX 파생 검토 — r6
+
+- 사용자 대면 문자열·칸 ID·허용 목록 문구 변화 없음. 칸 94 그대로.
+- 게이트 소비자(테스트 작성자) 관점: 새 판정 입력은 판정 불가 문구를 그대로 쓴다(`UNRESOLVED_LABELS` 불변).
+- 범위 밖 파생 이슈: 없음.
+
+## [구현자 기입] 구현 보고 (r6)
+
+- 변경 파일 3: `app/scripts/test-budget-bindings.mjs`(+103 −37) · `app/scripts/check-test-budgets.test.mjs`(ΔV6 43행 + r6 잠금 4행) · `app/AGENTS.md`(AC19e 한 문장 — `§7-G` 참조와 "변수" 정의).
+- gate 관측: `npx eslint` exit 0 · `node scripts/check-test-budgets.mjs` exit 0 · `node --test scripts/check-test-budgets.test.mjs` 623/623 · `node --test "scripts/*.test.mjs"` 756/756 · `check-doc-inventory.mjs --check` exit 0.
+- prettier: `app/AGENTS.md`는 HEAD에서도 `--check` 실패(사전 존재). 형식 일괄 재작성은 하지 않았다.
+- 미실행: vitest 전체(`src/**` 무변경)·Electron 빌드(ABI 차단 환경). 최종 확인은 Windows CI(AC9).
+- AC: ✅ 19 · ⚠️ 2(AC9 · AC18) · ❌ 0 = 총 21. AC7h = dv6 411행 · AC19e = `app/AGENTS.md:150`.
+- 대상 커밋: (r6 구현 — 검증자 기입)
+
+## [구현자 기입] Review Signals — 사실만 (r6)
+
+- 같은 축인가: 같다 — 구조 분해 값을 원천 멤버마다 판정하지 않던 것이 r5·r6 연속 발견. 이번에는 읽기와 구조 분해가 `memberTerminals` 한 함수를 쓰게 해 축 자체를 없앴다.
+- 막았어야 할 지침: D-019 "원천 멤버 = 원천 식의 KM 판정"과 r5 구현의 "후보가 있으면 생략"이 어긋났다(D10).
+- 반복 환경 한계: 변이의 `occ`·앵커가 구현 경로에 묶여 있어 경로를 바꿀 때마다 재앵커가 필요하다(r5 SKIP 7).
+- 현재 라운드·impl 턴: **r6**, 구현자 Claude. 다음 verify는 6회째(창 밖 — 이행·현재 결함만 막는다).

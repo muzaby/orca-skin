@@ -1,0 +1,17 @@
+id	결과	exit	요약
+R6-M53	red (기대 일치)	1	node --test fail 15 · KM08a — 원천이 new → red; KM08b — 원천이 호출 결과 → red; 노드 종류 표 (0294 ΔV4)
+R6-M54b	red (기대 일치)	1	node --test fail 3 · KD05d — for-of 구조 분해 변수 → KD04; 노드 종류 표 정정 (0294 ΔV5); KD05u — for-of 구조 분해 — 기본값이 있어도 KD04
+R6-S-literal	green (기대 일치)	0	node --test fail 0
+R6-S-bound	red (기대 일치)	1	node --test fail 2 · KD05f — 원천 = import → KM07 경계; 노드 종류 표 정정 (0294 ΔV5); KM07b — 경계 원천(import) 구조 분해 → KM07 경계, 위반 0
+R6-S-red	red (기대 일치)	1	node --test fail 1 · KM08e — 함수 참조 원천 구조 분해 → 그 밖이라 KM08; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+R6-S-param	red (기대 일치)	1	node --test fail 1 · KD05y2 — 매개변수 원천: 리터럴 호출 + 호출 결과 호출 → 호출 결과가 KM08; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+R6-X-KD05j	red (기대 일치)	1	node --test fail 1 · KD05w2 — 구조 분해 매개변수 원천의 멤버 읽기 → 원천 객체 값을 따른다; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+R6-X-KD15g	red (기대 일치)	1	node --test fail 1 · KD15g — 복합 대입은 KD02 그대로(형제 칸 구별); 노드 종류 표 정정 (0294 ΔV5)
+R6-C120r-a	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+R6-C120r-b	red (기대 일치)	1	node --test fail 4 · KM11b — 객체 멤버 증감; KM11c — 객체 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+R6-S-KM10-key-this	red (기대 일치)	1	node --test fail 1 · KM10n — 같은 클래스의 다른 키 this 대입은 후보 아님; 노드 종류 표 정정 구별 입력 (0294 ΔV5 sweep)
+R6-S-KM10-this-only	red (기대 일치)	1	node --test fail 1 · KM10o — 같은 클래스 안 객체 멤버 대입은 this 후보 아님; 노드 종류 표 정정 구별 입력 (0294 ΔV5 sweep)
+R6-S-KM10-key-obj	red (기대 일치)	1	node --test fail 2 · KM10m — 객체 멤버 — 같은 객체의 다른 키 대입은 후보 아님(구별 입력); 노드 종류 표 정정 (0294 ΔV5); KD05y — 구별: 다른 키의 멤버 대입은 후보 아님
+R6-S-KM10-obj-notthis	green (기대 red)	0	node --test fail 0
+R6-M57a	red (기대 일치)	1	node --test fail 4 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10c — this 멤버 — 초기값 없는 선언 + 대입; KM10d — this 멤버 — 화살표 안 대입(같은 this)
+R6-M57b	red (기대 일치)	1	node --test fail 9 · KM10f — 객체 멤버 — 속성 대입; KM10g — 객체 멤버 — 리터럴 키 요소 대입; KM10h — 객체 멤버 — ??= 대입
