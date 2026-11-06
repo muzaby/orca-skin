@@ -3263,3 +3263,73 @@ r6 구현은 프로덕션을 한 줄도 바꾸지 않고 렌더 테스트로만 
 - 문장 대조는 한 줄 단위 포함률이다 — 여러 줄로 나뉘거나 합쳐진 규칙은 `문장`으로 과검출되고, 거의 같은 줄의 단어 하나 삭제는 word-diff로만 보인다.
 - §4 문장 원칙은 판단 기준이고 기계 검사는 없다.
 - §8은 선례 1건(0294 r3)과 시나리오 재생으로 만들었다 — FAIL→RTP·`PASS 후보` 실제 사례는 아직 없다. subagent 기반 skill eval은 돌리지 않았다(요청 없음).
+
+# review round 43 — 0294 (verify 6회째 FAIL): 입력 칸이 좁을 때의 판정 · 재앵커 · diff 자리로 찾는 규칙 칸 분기
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0294 verify 6회째 `FAIL`(r6, `df2acbb`) 뒤 r7 착수 전 의무 review. 사용자 `/handoff-review` 후 질의에서 **APPLY 전체** 선택(2026-11-06).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 입력 칸이 규칙 칸보다 좁을 때를 round 40(AGENTS §공통 V · impl §2 · P62)은 "구현자가 규칙 칸을 따라 입력을 더한다 — `PAIR_FAIL`"로, round 41 판정 표(AGENTS §판정 범위 · verify §11 · impl §7)는 "plan 내부 불일치(규칙 칸↔UT 입력 칸) → `PLAN_GAP`"으로 보냈다 | 0294 r6 D12~D14 — verify는 round 40 쪽(FAIL)으로 판정 | **A** — round 41 6-C가 놓친 문서 충돌. 판정 표를 "기대 모순"으로 좁히고 좁음 규칙을 표 아래 한 문장으로 |
+| 2 | 코드를 재구성해 변이 원문 줄이 잔여 경로로 남자, 원문 변이와 재앵커 변이 중 무엇이 하한인지 규칙이 없었다 — 검증자가 M53은 "옮겨 감", 같은 처지의 K2는 "인용 변이 미검출"로 다르게 판정 | 0294 r5(occ 이동 12행) · r6(의미 재앵커 16행 · K2·M53·C122·S-KD05-literal 원문 green) | **A** — 새 causal class **P67**. AGENTS §고장 내 보기에 재앵커 규칙 |
+| 3 | 규칙 칸 하위 분기의 입력 누락이 설계 READY self-review("정정 칸 5개 분기마다 입력이 있다")와 구현을 지나 verify에서야 나왔다 | 0294 r6 D9↑·D12~D14(sv39·sv17·sv28·sv14) · 0294 r3(13분기) · 0292 r2·r3 | **A** — 세 번째 재발. 지침(1:1)을 정상 수행해도 긴 칸 문장의 하위 분기(`·` 항목·괄호 목록·"마다")는 읽어서 뽑으면 빠진다. 칸을 구현한 diff 자리 제거 변이 → `못 잡음`이면 칸 문장 인용으로 찾는 절차를 impl §3·verify §4·AGENTS에 |
+| 4 | r6 구현 잠금 표에 ΔV6 정정 칸 sweep 행 0 · 검산 줄 합계 T 없음 · 강제 지점 표 접힘 | 0294 r6 D16 | **B** — impl §3·§9와 plan ΔV6 문장이 이미 요구. 지침 변경 없음 |
+| 5 | 덮개 회귀 C035 — 구현자가 자기 r5 spec 71행만 재실행 | 0294 r6 D15 | **A**(부분) — impl §3 "구 장치가 red로 만들던 변이"의 범위가 열려 있었다. 하한 ④와 같은 범위로 고정(P50 개정) |
+| 6 | 리터럴 후보 500이 게이트 임계 1000 아래라 후보 판정 유무가 관측되지 않았다 | 0294 r6 D9↑ | **B** — P56(운반 값 구별)과 AGENTS §공통 V 그대로 |
+| 7 | 세션에 `app/node_modules`가 없어 verify가 `npm ci --ignore-scripts`를 했다 | verify r6 r6-9 | **E** — 기록만 |
+
+**verify 분류 대조(§2)**: D9↑·D12~D14는 칸 문장 인용(§7-G KD05·KM10) + 입력 칸 좁음이라 새 규칙에서도 이행 `BLOCKING`이다. D15는 원문 줄(`bindingElementSources` 중첩 분기)이 "(중첩 포함)"·"바깥 패턴의 원천 멤버"를 운반해 P67로도 이행이다. K2만 갈린다 — 원문 줄(`emptyDestructuring` 리터럴 `.some`)은 열거 밖 형태(계산 키·나머지 요소 값)만 운반하고 재앵커 M63이 red라 P67에서는 확장(E1)이다 → §8 판정 정정(FAIL 유지, D9 닫힘 조건만 바뀜). 거짓 PASS·FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** 발견 분류(좁음 → `BLOCKING` 명시) · 하한 실행 방법(재앵커 · diff 자리 변이) · impl 덮개 회귀 범위가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `df2acbb`. `instruction_delta.py --base df2acbb --prose`(대상 5파일, pool plan SKILL) 후보 **1** — AGENTS 원 364줄 `잃음`은 도구 오탐이다: 새 줄 = 원 줄 + 삽입문(정확 포함 True), `TOKEN` 정규식이 인접한 두 백틱 구간 사이 본문을 토큰으로 잡아 삽입문에 반응했다. word-diff 지운 단어 4 — `칸,` 3(판정 표 "규칙 칸↔UT 입력 칸," → "…의 기대 모순,") · `분기`` 1(template 출처 열 → `분기(diff 자리)`` ) 전부 REPLACE.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS §판정 범위 이행 행 · verify §11 · impl §7 PLAN_GAP 행 "규칙 칸↔UT 입력 칸" | REPLACE | "기대 모순"으로 좁힘 — 좁음은 새 bullet(AGENTS)과 impl §7 선조치 행이 이행 `BLOCKING`으로 받는다. 막는 범위 불변(`PLAN_GAP` → `BLOCKING`, 둘 다 막음) |
+| AGENTS ⑦ 행 · 최소 계약 sweep·덮개 회귀 bullet | KEEP + 추가 | 원문 그대로 포함 + diff 자리·범위 문장 |
+| AGENTS §고장 내 보기 bullet 2(diff 자리 · 재앵커) | 추가 | 새 절차 |
+| impl §3 bullet 2 추가 · "일반 hunk" bullet | 추가 · REPLACE | 예외(규칙 칸을 구현한 diff 자리)만 명시 — 일반 hunk 금지 유지 |
+| verify §4 ⑦ bullet · 고장을 읽을 때 bullet | 추가 | — |
+| `plan.template.md` 잠금 절 · `verify.template.md` ④·⑦ 줄 | REPLACE(강화) · KEEP + 추가 | 출처 열 `재앵커 — 원 ID` · 덮개 회귀 분모 |
+| 명령·gate·reference·script | 없음 | 이동·삭제 0 → inbound `N`/`M/M` 대상 없음 |
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
+
+## 6-B Historical Failure Regression
+
+- **67 P 전수**(P1~P67, heading 연속 — `rg -c '^## P[0-9]+'` 67) · 변경 후 **COVERED 67** / PARTIAL 0 / GAP 0 / OBSOLETE 0. round 42의 COVERED 66은 방어 문장 삭제 0이라 그대로다.
+- 바뀐 P: **P50** 강화(재실행 범위 = 하한 ④ · 재앵커) · **P62** 강화(분기 찾기 절차 · 판정 표 정합 — P62 규칙 "`PLAN_GAP`이 아니라 `PAIR_FAIL`"이 round 41 표와 다시 일치) · **P67** 신규. 둘 다 끝에 개정 메모.
+- **P60**(열린 분모): 유지 — diff 자리 변이의 `못 잡음`은 칸 문장을 인용할 때만 이행이고 인용이 없으면 `동치`·확장이라 일반 hunk가 분모가 되지 않는다(AGENTS bullet에 0262 명시). **P41**(도구가 정의한 전수): 유지 — diff 자리 목록은 구현자가 고르지만 검증자 ⑦이 같은 방법으로 다시 센다. **P45**(구현자 권한 밖 정정 소멸): 유지 — 좁음은 규범 행 정정 없이 테스트로 닫혀 권한 문제가 없다.
+- P1~P40·P42~P44·P46~P49·P51~P59·P61·P63~P66: 방어 지점 불변(plan 설계·AC·좌표·운영 절차 — 이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전(문면) | 변경 후 | 판정 |
+|---|---|---|---|
+| 0292 r2·r3 W03·W04(분기 입력 부재) | round 40 `PAIR_FAIL` ↔ round 41 표 `PLAN_GAP` 갈림 | 이행 `BLOCKING` · impl diff 자리 변이가 사전 발견 | 거짓 PASS 0 |
+| 0294 r3 D5(13분기) | 정정 판정 `FAIL`(round 41) | 같음 | 같음 |
+| 0294 r5 D10(규칙 문장끼리 기대 갈림) | `PLAN_GAP` | `PLAN_GAP`(기대 모순) | 같음 |
+| 0294 r6 D12~D14 | `FAIL`(verify r6) | 같음 | 같음 |
+| 0294 r6 K2 원문 green | D9 닫힘 조건(BLOCKING) | 확장 E1 + 재앵커 M63 red — D9는 sv39로 BLOCKING 유지 | FAIL 유지, 의무 축소(§8) |
+| 0294 r6 C035 | 이행 D15 | 이행(원문 줄이 열거 분기 운반) | 같음 |
+| 0262 r4~r8(열린 분모) | 창 안 `PLAN_GAP`·창 밖 후보 표 | 같음 — diff 자리 변이도 인용 없으면 확장 | inflation 0 |
+| 0209 r5→r6(덮개 회귀) | finding | finding + 구현자 재실행 범위 고정 | 강화 |
+
+- **시나리오 replay**: 창 안(verify 1·2회째) diff 자리 `못 잡음`이 인용 없음 → 확장 `PLAN_GAP` · 창 밖 → 후보 표(inflation 0) / 구현자가 약한 자리에 재앵커 → 검증자가 재앵커 충실성을 읽고 남은 원문 줄도 돌림(거짓 PASS 0) / plan이 동작을 없앤 변이 → 근거와 함께 닫힘(다음 주체 없는 행 0) / 9회째 CLOSED · 후보 표 승격 · 발동 handoff 판정 정정 — 변경 없음.
+
+## 6-C Cross-document Consistency
+
+- "규칙 칸↔UT 입력 칸" `PLAN_GAP` 문구 3곳(AGENTS 93 · verify 207 · impl 143)이 모두 "기대 모순"이고, 좁음 처리 문장(AGENTS §공통 V 79 · §판정 범위 115 · 최소 계약 367 · impl §2 73 · §3 85 · §7 142 · plan §5-A 153 · P62)이 같은 방향(구현자 입력 추가)이다.
+- 재앵커(AGENTS 149·369 · impl 96 · verify 132 · plan.template 426·429 · verify.template 106)와 diff 자리(AGENTS 142·148·367 · impl 85·94 · verify 127 · plan.template 421·426 · verify.template 108)가 owner(구현자·검증자)와 범위(⑦·④)를 같게 적는다. impl 덮개 회귀 범위는 "하한 ④와 같은 범위"로 verify §4 ④ 행을 그대로 가리킨다.
+- 일반 hunk 금지 문장(AGENTS 366 등록 증거 분모 · verify 126 · impl 94 · verify.template 103)은 유지되고, 예외는 "규칙 칸을 구현한 diff 자리 + 칸 문장 인용"으로 한정된다.
+- root `AGENTS.md`·SKILL frontmatter description·하위 `app/AGENTS.md`·CI 정본은 이번 변경이 닿지 않는다(문구 대조 — root의 "누락·모순된 `PLAN_GAP`"은 더 구체적인 handoff AGENTS가 좁힌다). 새 `AGENTS.md` 없음.
+
+## 남은 한계
+
+- `instruction_delta.py`의 `TOKEN`은 인접한 백틱 구간 사이 본문을 토큰으로 잡아 삽입문에 오탐한다 — 이번엔 정확 포함 검사로 판정했다.
+- diff 자리 목록 자체는 구현자가 고른다. 검증자 ⑦이 같은 방법으로 다시 세는 것이 방어다.
