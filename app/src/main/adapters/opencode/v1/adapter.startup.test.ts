@@ -440,10 +440,12 @@ describe('wait phases', () => {
     } = {}
   ): {
     adapter: OpenCodeAdapter
+    requests: Request[]
     emit: (directory: string, payload: Event) => void
   } {
     let cold = true
     let nextID = 0
+    const requests: Request[] = []
     const streams: { controller: ReadableStreamDefaultController<Uint8Array>; closed: boolean }[] =
       []
     const emit = (directory: string, payload: Event): void => {
@@ -455,6 +457,7 @@ describe('wait phases', () => {
     }
     const fetchImpl: typeof fetch = async (input, init) => {
       const request = new Request(input, init)
+      requests.push(request.clone())
       const url = new URL(request.url)
       const directory = url.searchParams.get('directory') ?? 'C:/work'
       if (url.pathname === '/global/event') {
@@ -537,7 +540,7 @@ describe('wait phases', () => {
       },
       fetchImpl
     )
-    return { adapter, emit }
+    return { adapter, requests, emit }
   }
 
   it('I1/I2/I3: cold turn emits 7 items, warm turn omits server, and pushTurn emits [mcp, send, model, null]', async () => {
@@ -710,6 +713,166 @@ describe('wait phases', () => {
       configGate.resolve()
       await close(liveClose, iterClose)
       fClose.adapter.close()
+    }
+  })
+
+  it('I7: clears waitPhase with null via finally when root session.error returns early from event loop', async () => {
+    const f = waitPhaseFixture({
+      onPrompt: ({ directory, sessionID, emit }) => {
+        emit(
+          directory,
+          event('session.error', {
+            sessionID,
+            error: {
+              name: 'ProviderAuthError',
+              data: { providerID: 'provider-1', message: 'invalid key' }
+            }
+          })
+        )
+      }
+    })
+    const phases: Array<ChatWaitPhase | null> = []
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Terminal error',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => phases.push(phase)
+    })
+    const iter = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = await frame(iter)
+      expect(events.some((e) => e.type === 'error')).toBe(true)
+      await vi.waitFor(() => expect(phases.at(-1)).toBeNull())
+    } finally {
+      await close(live, iter)
+      f.adapter.close()
+    }
+  })
+
+  it('I8: clears waitPhase with null on finish branch when interrupted before output while channel stays open', async () => {
+    const f = waitPhaseFixture({
+      onPrompt: () => {}
+    })
+    const phases: Array<ChatWaitPhase | null> = []
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Interrupt before output',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => phases.push(phase)
+    })
+    const iter = live.eventBatches[Symbol.asyncIterator]()
+    const events: ProviderMessageBatch['events'] = []
+    const pump = (async () => {
+      for (;;) {
+        const next = await iter.next()
+        if (next.done) break
+        events.push(...next.value.events)
+        if (next.value.events.some((value) => value.type === 'turn.aborted')) break
+      }
+    })()
+    try {
+      await vi.waitFor(() => expect(phases).toContainEqual({ kind: 'model' }))
+      await live.interrupt()
+      f.emit('C:/work', event('session.idle', { sessionID: 's1' }))
+      await pump
+      expect(events.some((e) => e.type === 'turn.aborted')).toBe(true)
+      expect(phases.at(-1)).toBeNull()
+    } finally {
+      await close(live, iter)
+      f.adapter.close()
+    }
+  })
+
+  it('I9: slash command turn emits [server, project, session, mcp, send, model, null] with 1 /command POST and 0 /prompt_async', async () => {
+    const f = waitPhaseFixture()
+    const phases: Array<ChatWaitPhase | null> = []
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      text: '/native:review now',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => phases.push(phase)
+    })
+    const iter = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iter)
+      expect(phases).toEqual([
+        { kind: 'server' },
+        { kind: 'project' },
+        { kind: 'session' },
+        { kind: 'mcp' },
+        { kind: 'send' },
+        { kind: 'model' },
+        null
+      ])
+      expect(
+        f.requests.filter(
+          (req) => req.method === 'POST' && new URL(req.url).pathname === '/session/s1/command'
+        )
+      ).toHaveLength(1)
+      expect(
+        f.requests.filter((req) => new URL(req.url).pathname.endsWith('/prompt_async'))
+      ).toHaveLength(0)
+    } finally {
+      await close(live, iter)
+      f.adapter.close()
+    }
+  })
+
+  it('I10: ignores child session retry status and emits the same 7-item sequence as I1', async () => {
+    const f = waitPhaseFixture({
+      onPrompt: ({ directory, sessionID, messageID, emit }) => {
+        emit(
+          directory,
+          event('session.status', {
+            sessionID: 'child-1',
+            status: { type: 'retry', attempt: 1, message: 'subagent retry', next: 500 }
+          })
+        )
+        const answer = assistantMessage(sessionID, messageID, `a-${messageID}`)
+        emit(directory, event('message.updated', { sessionID, info: answer }))
+        emit(
+          directory,
+          event('message.part.updated', {
+            sessionID,
+            time: 1,
+            part: textPart('Root output', {
+              id: `text-${messageID}`,
+              sessionID,
+              messageID: answer.id,
+              time: { start: 1, end: 2 }
+            })
+          })
+        )
+        emit(directory, event('session.idle', { sessionID }))
+      }
+    })
+    const phases: Array<ChatWaitPhase | null> = []
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Child retry ignored',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => phases.push(phase)
+    })
+    const iter = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iter)
+      expect(phases.some((p) => p?.kind === 'retry')).toBe(false)
+      expect(phases).toEqual([
+        { kind: 'server' },
+        { kind: 'project' },
+        { kind: 'session' },
+        { kind: 'mcp' },
+        { kind: 'send' },
+        { kind: 'model' },
+        null
+      ])
+    } finally {
+      await close(live, iter)
+      f.adapter.close()
     }
   })
 })

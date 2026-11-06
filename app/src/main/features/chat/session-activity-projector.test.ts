@@ -339,4 +339,35 @@ describe('SessionActivityProjector', () => {
     expect(f.emitted.at(-1)!.revision).toBeGreaterThan(rev1)
     f.projector.dispose()
   })
+
+  it('P9: promote("client-1", "s1") transfers waitPhase set before promotion to s1', () => {
+    const f = fixture()
+    f.foreground.set('client-1', 'streaming')
+    f.foreground.set('s1', 'streaming')
+    f.projector.setWaitPhase('client-1', { kind: 'session' })
+    f.projector.promote('client-1', 's1')
+
+    expect(f.projector.current('s1').waitPhase).toEqual({ kind: 'session' })
+    f.projector.dispose()
+  })
+
+  it('P10: clear("s1") deletes waitPhase from Map so later promote("client-2", "s1") leaves waitPhase undefined', () => {
+    const f = fixture()
+    f.foreground.set('s1', 'streaming')
+    f.projector.setWaitPhase('s1', { kind: 'model' })
+    f.projector.clear('s1')
+    f.projector.promote('client-2', 's1')
+
+    expect(f.projector.current('s1').waitPhase).toBeUndefined()
+    f.projector.dispose()
+  })
+
+  it('P11: dispose() clears waitPhase from Map so current("s1").waitPhase is undefined', () => {
+    const f = fixture()
+    f.foreground.set('s1', 'streaming')
+    f.projector.setWaitPhase('s1', { kind: 'model' })
+    f.projector.dispose()
+
+    expect(f.projector.current('s1').waitPhase).toBeUndefined()
+  })
 })

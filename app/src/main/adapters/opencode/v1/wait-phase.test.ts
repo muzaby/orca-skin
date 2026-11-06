@@ -69,6 +69,23 @@ describe('OpenCodeWaitPhase (0296 UT-01)', () => {
     expect(calls).toEqual([{ kind: 'send' }, null])
   })
 
+  it('R6c: connected(), accepted() -> [{project}] (accepted is no-op when current is project)', () => {
+    const { calls, sink } = makeSink()
+    const phase = new OpenCodeWaitPhase(sink)
+    phase.connected()
+    phase.accepted()
+    expect(calls).toEqual([{ kind: 'project' }])
+  })
+
+  it('R6d: sending(), status(retry 1), accepted() -> [{send}, {retry,1}] (accepted is no-op when current is retry)', () => {
+    const { calls, sink } = makeSink()
+    const phase = new OpenCodeWaitPhase(sink)
+    phase.sending()
+    phase.status({ type: 'retry', attempt: 1, message: 'r', next: 1 })
+    phase.accepted()
+    expect(calls).toEqual([{ kind: 'send' }, { kind: 'retry', attempt: 1 }])
+  })
+
   it('R7a: status({type:"retry",attempt:2,...}) -> [{retry,2}]', () => {
     const { calls, sink } = makeSink()
     const phase = new OpenCodeWaitPhase(sink)
@@ -133,6 +150,20 @@ describe('OpenCodeWaitPhase (0296 UT-01)', () => {
     phase.sending()
     phase.status({ type: 'idle' })
     expect(calls).toEqual([{ kind: 'send' }])
+  })
+
+  it('R7g: status({type:"retry", attempt:0, ...}) -> [{retry,1}] (non-positive integer falls back to 1)', () => {
+    const { calls, sink } = makeSink()
+    const phase = new OpenCodeWaitPhase(sink)
+    phase.status({ type: 'retry', attempt: 0, message: 'x', next: 1 })
+    expect(calls).toEqual([{ kind: 'retry', attempt: 1 }])
+  })
+
+  it('R7h: status({type:"retry", attempt:2.5, ...}) -> [{retry,1}] (non-integer attempt falls back to 1)', () => {
+    const { calls, sink } = makeSink()
+    const phase = new OpenCodeWaitPhase(sink)
+    phase.status({ type: 'retry', attempt: 2.5, message: 'x', next: 1 })
+    expect(calls).toEqual([{ kind: 'retry', attempt: 1 }])
   })
 
   it('R8a: sending() followed by observe([e]) for each of the 5 model output event types ends with null', () => {
