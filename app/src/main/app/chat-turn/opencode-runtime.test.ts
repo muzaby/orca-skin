@@ -387,7 +387,8 @@ describe('OpenCode submission through the production queue and session runtime',
   })
 
   it('IT-02: forwards waitPhase sequence [server, project, session, mcp, send, model, null] on 1st turn and omits server on 2nd turn', async () => {
-    const { runtime } = fixture()
+    const { adapter, runtime } = fixture()
+    expect(adapter.reportsWaitPhases).toBe(true)
     const setWaitPhase = vi.fn()
     const activity = { setWaitPhase } as unknown as SessionActivityProjector
     try {

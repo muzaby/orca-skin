@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   acquireTurnRuntime: vi.fn(),
   buildTurnContext: vi.fn(),
   buildTurnRequest: vi.fn((...args: [unknown, unknown]) => ({ args })),
+  runTurnWithContinuations: vi.fn<(...args: unknown[]) => Promise<void>>(async () => undefined),
   sendChatEvent: vi.fn(),
   startNew: vi.fn(),
   startResume: vi.fn(),
@@ -47,7 +48,7 @@ vi.mock('./enqueue', () => ({
 }))
 vi.mock('./turn-request', () => ({ buildTurnRequest: mocks.buildTurnRequest }))
 vi.mock('./approval', () => ({ createApprovalRequester: vi.fn(() => vi.fn()) }))
-vi.mock('./post-turn', () => ({ runTurnWithContinuations: vi.fn(async () => undefined) }))
+vi.mock('./post-turn', () => ({ runTurnWithContinuations: mocks.runTurnWithContinuations }))
 vi.mock('../chat-turn-continuation', () => ({ prepareAutomaticContinuation: vi.fn() }))
 vi.mock('../../features/chat/turn-coordinator', () => ({
   TurnCoordinator: class {
@@ -236,11 +237,11 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
       agentKind: 'code'
     })
 
-    expect(setWaitPhase.mock.calls.map(([, phase]) => phase)).toEqual([
-      { kind: 'preparing' },
-      { kind: 'history' },
-      { kind: 'preparing' },
-      null
+    expect(setWaitPhase.mock.calls).toEqual([
+      ['session-1', { kind: 'preparing' }],
+      ['session-1', { kind: 'history' }],
+      ['session-1', { kind: 'preparing' }],
+      ['session-1', null]
     ])
   })
 
@@ -276,5 +277,23 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
 
     const nonNullCalls = setWaitPhase.mock.calls.filter(([, phase]) => phase !== null)
     expect(nonNullCalls).toEqual([])
+  })
+
+  it('A6: clears waitPhase with null on confirmed turn.dbSessionId when new session confirms id during runTurnWithContinuations', async () => {
+    const { deps, sender, setWaitPhase } = makeHarness({ reportsWaitPhases: true })
+    mocks.runTurnWithContinuations.mockImplementationOnce(async (_deps, turn) => {
+      ;(turn as { dbSessionId: string | null }).dbSessionId = 's-new'
+    })
+
+    await handleChatSend(deps as never, { sender } as never, {
+      sessionId: null,
+      text: 'hello new confirmed',
+      agentKind: 'code'
+    })
+
+    expect(setWaitPhase.mock.calls).toEqual([
+      ['new:1', { kind: 'preparing' }],
+      ['s-new', null]
+    ])
   })
 })

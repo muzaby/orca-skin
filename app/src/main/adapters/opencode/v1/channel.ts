@@ -450,7 +450,6 @@ export function openCodeChannel(
       signal.throwIfAborted()
       throw openCodePreparationError('events')
     } catch (error) {
-      waitPhase.end()
       if (!closed)
         publish(
           admission.signal.aborted ||
