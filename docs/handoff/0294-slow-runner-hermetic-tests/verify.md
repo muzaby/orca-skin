@@ -1387,3 +1387,64 @@
 
 - **구현 r7의 의무**: `evidence/verify-r6-gap-inputs.mjs` G01~G10 입력을 UT에 단언(D9↑·D12~D15) · r6 diff의 규칙 칸 자리 sweep을 impl §3 새 절차(diff 자리 제거 변이 → 칸 문장 인용)로 남김 · 직전 verify `잡음` 행(하한 ④ 범위) 재실행과 재앵커 기록 · D16 보고 복원. `emptyDestructuring` 잔여 경로는 의무가 아니다(E1).
 - 다음 주체: 구현자(r7) — review 의무는 이 라운드로 끝났다.
+
+# r7 검증 (2026-11-06)
+
+## r7 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `de9ed03..f289753` (r7 `f289753` — `git cat-file -t` = commit · `origin/main` 조상). 앱 diff = `app/scripts/check-test-budgets.test.mjs` +162줄(케이스 18). 해석기·제품·의존성 diff 0 |
+| 구현 전 plan 기준 | `1f4cf65:ΔV6` (규범 행 변경 없음 — `git diff -U0 f289753~1 f289753 -- plan.md` hunk는 상태 2줄·파생 이슈 상태 칸·`[구현자 기입]` r7 추가뿐) |
+| V mode / 유효 V | `V1 + ΔV1~ΔV6` · REQUIRED VP-12f·01f · REGRESSION VP-09c·07b·13 |
+| 라운드 / 확장 창 | verify 7회째 — **창 밖**. 새 열거 항목 추가 없음(ΔV 없음) |
+| 상태 | **PASS** |
+| 자기 검증 여부 | 구현 Codex · 설계/검증 Claude(세션 분리). 규칙 칸은 내가 쓴 것이라 변이는 칸이 아니라 diff 자리·인접 형제에서 유도했다 |
+
+## r7-0~3. 기준선 · diff 읽기 · 역방향
+
+- plan validity 유효: 규칙 칸 ↔ UT 입력 칸 — G01~G10(18입력)이 D9·D12~D15 분기를 직접 단언한다. 테스트는 `analyzeScale`(production)을 호출하는 `vc()`로 판정해 로컬 재구현이 아니다.
+- 추가 diff는 단언뿐이라 false success·동시성·정리 경로가 없다. 미배선 0(테스트 전용 변경).
+
+## r7-4. 증거 재측정 · 고장 이력
+
+| 하한 | 실행 | 결과 |
+|---|---|---|
+| ① 등록 변이(r7 diff 78) | 복사 트리에서 `mutate.py` 재실행 | 구현자 결과와 **78/78 일치**. red 64 · green 14(기대). D9 sv39 · D12 sv17 · D13 sv28 · D14 sv14 · D15 C035 **전부 red** |
+| ② 파생 이슈 인용 변이 | 위 5건 | red 5/5 — D9·D12~D15 닫힘 |
+| ④ r6 `잡음` 회귀 306행(테스트 파일이 바뀜 → 전수) | 복사 트리(scripts 178) + 실트리(src·게이트 81 중 gate rows) | **306/306 구현자 결과와 일치** · red 305 · green 1(S-KD15-scope — 좁힌 oracle; 원 oracle 재실행 red) |
+| control 7 · reanchor 3 | 실트리 | M1·M2·S-KD15-scope·M71a·M71-2 red, M52-1·M71-1 green(기대) · R7-C080·C122·S-literal-swap red |
+| ③ r6 `못 잡음` | K2 원문·sv24·sv27·sv29·sv36 | 여전히 green — r6 판정 정정으로 E1·E3 확장(후보 표), 닫힘 조건 아님 |
+| ⑥ 독립 축 | (a) `owners` 합치기 항 형제 변이 5: first-only·skip-first·drop-last·reverse(동치)·empty — red 4 · green 1(동치). (b) 입력 17탐침(후보 순서 뒤집기·배열 슬롯 맞바꿈·객체 슬롯 맞바꿈·호출 인자+기본값·배열 매개변수 기본값·중첩 배열·alias 등) | 기대 정한 15개 전부 일치, 기대 미정 2(X13 배열 중첩 쓰기·X14 `this` 원천)는 위반 1건 — 발견 0 |
+| ⑦ 열거 sweep | 고정 입력 재실행 `verify-r6-gap-inputs` 18/0 · dv3 169 · dv4 163 · dv5 36 · dv6 43 불일치 각 0(합 411) | 차이 0 |
+
+- 변이 후 `git status` 클린(원복 확인).
+
+## r7-5~9. pair · AC · gate · 운영
+
+- VP-12f PASS · VP-01f PASS · VP-09c PASS(독립 스캔 deadline 62, `--report` 90행 md5 `553a99ce` = r6와 동일, UNRESOLVED 0) · VP-07b PASS · VP-13 PASS(Windows CI, 아래).
+- §10 분모 103 = EP-01·02·03·04·06 **32** + EP-05b 62 + EP-12f 9 + EP-13 0 — 강제 지점 표가 전부 담았다(D16 복원 확인). `[구현자 기입]` 일곱 필드 존재.
+- gate(내가 재실행): scripts `node --test` **774/774**(34 suites) · `check-test-budgets.test.mjs` 641/641 · 예산 게이트 exit 0(16 real-git suites) · doc-inventory prose·links ok · prettier·eslint(변경 파일) 클린. `npm ci --ignore-scripts`만 사용(전체 vitest·typecheck 3종은 로컬 미실행 — 아래 CI 좌표).
+- **AC9**: `f289753` main push CI run 42169011093, job `gate`(windows-latest) lint·typecheck·test·예산 가드 전부 success → 닫힘.
+- AC: `✅ 18 · ⚠️ 3(AC12·AC13 Linux hostile 관측 한계 — Windows CI success로 갈음, AC18 사내 실기) = 21`. 구현자 보고(17/4)와 AC9 한 칸 차이는 CI 좌표 확인분.
+- 커밋: trailer 파싱 확인(`Agent: codex … Verified-By: pending`) · 인용 해시 전부 실재 · `origin/main` 조상. INDEX 비고 3줄.
+
+## r7-13. Finding disposition
+
+| # | finding | 분류 | disposition |
+|---|---|---|---|
+| D9·D12~D15 | 입력 G01~G10으로 잠금, 인용 변이 5/5 red | 이행 — 닫힘 | 해소 |
+| D16 | 강제 지점 표 103 · 서술 정정 · 검산 복원 | 이행(운영) — 닫힘 | 해소 |
+| E1~E4 | 계산 키/나머지 요소 잔여 경로 · 재귀 상한 · 소유 대조 · 원천 유도 중복 | 확장 | 후보 표에 유지(`NEXT_HANDOFF`) |
+| N2·N3 | `createBindings` 외부 소비 0 · discovery-cache 경쟁 단언 | 비귀속 | NON_BLOCKING |
+
+못 본 것: AC18 사내 Windows 실기, AC12/13 Linux hostile 직접 관측(구현자도 환경 한계), 로컬 전체 vitest.
+
+## r7-14. Review Signals — 사실만
+
+- 같은 축 반복(칸 문장 대비 입력 좁음) r4~r6에 이어 r7에서 해소. review round 43의 재앵커·"입력 칸이 좁으면 이행" 지침 뒤 첫 라운드이고 신규 이행 결함 0.
+- 독립 축(⑥) 발견 0건 · 사용자 결정 변경 없음 · 환경 한계: 로컬 `node_modules` 부재(`npm ci --ignore-scripts` 필요), AC18 사람 실기.
+
+## r7-15. 결론
+
+**PASS** — verify 7회째. 막는 발견 0 · `PLAN_GAP` 0. pair: PASS 5(VP-12f·01f·09c·07b·13) · NOT_REQUIRED 8. 고장: r7 78 + 회귀 306 + control 7 + reanchor 3 + 형제 5 + 입력 17 — 기대 외 red/green 0(C108r의 개선 1은 의도). 남은 사람 실기 AC18은 사내 Windows 배포 전 확인 항목.
