@@ -1,4 +1,4 @@
-import type { ChatActivitySnapshot } from '../../../shared/ipc'
+import type { ChatActivitySnapshot, ChatWaitPhase } from '../../../shared/ipc'
 import type { SessionSchedule } from '../../../shared/session-schedules'
 import { parseLeaseKey } from '../../../shared/lease-key'
 import type { PendingMessageQueue, PendingQueueMutation } from './pending-message-queue'
@@ -37,6 +37,7 @@ export class SessionActivityProjector {
   private readonly residualAttempts = new Map<string, Set<string>>()
   private readonly schedules = new Map<string, SessionSchedule[]>()
   private readonly pendingWakeups = new Set<string>()
+  private readonly waitPhases = new Map<string, ChatWaitPhase>()
   // client key가 session key로 승격된 뒤에도 supervisor가 이전 키의 수명 전이를 한 번 더 알릴
   // 수 있다. 별칭으로 흡수해 provisional snapshot/revision이 다시 생기지 않게 한다.
   private readonly aliases = new Map<string, string>()
@@ -89,6 +90,16 @@ export class SessionActivityProjector {
     this.recompute(sessionId)
   }
 
+  setWaitPhase(sessionId: string, phase: ChatWaitPhase | null): void {
+    sessionId = this.canonicalKey(sessionId)
+    if (this.cleared.has(sessionId) || this.disposed) return
+    const previous = this.waitPhases.get(sessionId) ?? null
+    if (sameWaitPhase(previous, phase)) return
+    if (phase === null) this.waitPhases.delete(sessionId)
+    else this.waitPhases.set(sessionId, phase)
+    this.recompute(sessionId)
+  }
+
   // 잔여 attempt id 의 **단일 소유자**가 여기다. 호출자가 사본을 들면 remap(세션 id 확정)과
   // 자기 치유(개수 0 이면 폐기)를 두 번 구현해야 하고, 실제로 한쪽만 갱신돼 갈렸다.
   residualAttemptIds(sessionId: string): string[] {
@@ -125,6 +136,9 @@ export class SessionActivityProjector {
     const residual = this.residualAttempts.get(source)
     if (residual) this.residualAttempts.set(target, residual)
     this.residualAttempts.delete(source)
+    const waitPhase = this.waitPhases.get(source)
+    if (waitPhase) this.waitPhases.set(target, waitPhase)
+    this.waitPhases.delete(source)
     if (previous) this.recompute(target)
   }
 
@@ -137,6 +151,7 @@ export class SessionActivityProjector {
     this.schedules.delete(sessionId)
     this.pendingWakeups.delete(sessionId)
     this.residualAttempts.delete(sessionId)
+    this.waitPhases.delete(sessionId)
     this.pending.delete(sessionId)
     for (const [alias, target] of this.aliases) {
       if (alias === sessionId || target === sessionId) this.aliases.delete(alias)
@@ -152,6 +167,7 @@ export class SessionActivityProjector {
     this.schedules.clear()
     this.pendingWakeups.clear()
     this.residualAttempts.clear()
+    this.waitPhases.clear()
     this.aliases.clear()
     this.cleared.clear()
     this.pending.clear()
@@ -227,7 +243,10 @@ export class SessionActivityProjector {
       ...(this.schedules.has(sessionId)
         ? { sessionSchedules: this.schedules.get(sessionId)! }
         : {}),
-      ...(this.pendingWakeups.has(sessionId) ? { pendingSessionWakeup: true } : {})
+      ...(this.pendingWakeups.has(sessionId) ? { pendingSessionWakeup: true } : {}),
+      ...(foreground !== 'idle' && this.waitPhases.has(sessionId)
+        ? { waitPhase: this.waitPhases.get(sessionId)! }
+        : {})
     }
   }
 }
@@ -235,6 +254,12 @@ export class SessionActivityProjector {
 function activityKeyFromLogicalKey(logicalKey: string): string | undefined {
   // 접두사를 손으로 떼지 않는다 — 키를 만드는 쪽(features/sessions)과 같은 코덱을 쓴다.
   return parseLeaseKey(logicalKey)?.id
+}
+
+function sameWaitPhase(a: ChatWaitPhase | null, b: ChatWaitPhase | null): boolean {
+  if (a === b) return true
+  if (!a || !b || a.kind !== b.kind) return false
+  return a.kind !== 'retry' || (b.kind === 'retry' && a.attempt === b.attempt)
 }
 
 function sameActivity(a: ChatActivitySnapshot, b: ChatActivitySnapshot): boolean {
@@ -246,6 +271,7 @@ function sameActivity(a: ChatActivitySnapshot, b: ChatActivitySnapshot): boolean
     a.residualCount === b.residualCount &&
     a.backgroundTaskCount === b.backgroundTaskCount &&
     a.sessionSchedules === b.sessionSchedules &&
-    a.pendingSessionWakeup === b.pendingSessionWakeup
+    a.pendingSessionWakeup === b.pendingSessionWakeup &&
+    sameWaitPhase(a.waitPhase ?? null, b.waitPhase ?? null)
   )
 }

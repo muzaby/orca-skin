@@ -16,17 +16,19 @@ import { modelRef } from './model-ref'
 import { openCodeNativeCommands, openCodeNativePlugins } from './native-resources'
 import type { OpenCodeClientLease } from './session-context'
 import { OpenCodeTurnTrace } from './turn-trace'
+import { OpenCodeWaitPhase } from './wait-phase'
 
 /** One SDK subscription feeds the existing SessionRuntime pump for its entire lifetime. */
 export function openCodeChannel(
   req: TurnRequest,
-  connect: () => Promise<OpenCodeClientLease>,
+  connect: (observer?: { serverStarting?: () => void }) => Promise<OpenCodeClientLease>,
   release: () => void | Promise<void> = () => undefined,
   preferences?: () => import('../../../../shared/harness').OpenCodePreferences | undefined
 ): LiveTurn {
   const env = { ...process.env, ...req.env }
   const generation = randomUUID()
   const trace = new OpenCodeTurnTrace()
+  const waitPhase = new OpenCodeWaitPhase(req.onWaitPhase)
   const controller = new AbortController()
   const signal = req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal
   let mainApproval = new AbortController()
@@ -143,19 +145,22 @@ export function openCodeChannel(
     const mentioned = pluginMentionIds(next.text).map(
       (id) => connection?.managedMcpReferences?.[id] ?? id
     )
-    return connection?.mcpControl
-      ? connection.mcpControl.submit(
-          submittingSignal,
-          () => submitPrepared(next, initial, submittingSignal),
-          mentioned
-        )
-      : submitPrepared(next, initial, submittingSignal)
+    if (connection?.mcpControl) {
+      waitPhase.admitting()
+      return connection.mcpControl.submit(
+        submittingSignal,
+        () => submitPrepared(next, initial, submittingSignal),
+        mentioned
+      )
+    }
+    return submitPrepared(next, initial, submittingSignal)
   }
   const submitPrepared = async (
     next: TurnContinuation,
     initial: boolean,
     signal: AbortSignal
   ): Promise<void> => {
+    waitPhase.sending()
     signal.throwIfAborted()
     if (!client || !connection || !sessionId || !activity)
       throw new Error('OpenCode 이벤트 채널이 준비되지 않았습니다.')
@@ -263,6 +268,7 @@ export function openCodeChannel(
             if (!closed && !signal.aborted && submission === submissionEpoch)
               controller.abort(error)
           })
+        waitPhase.accepted()
       } else {
         await client.session.promptAsync(
           {
@@ -286,6 +292,7 @@ export function openCodeChannel(
           },
           { signal, throwOnError: true }
         )
+        waitPhase.accepted()
         trace.accept()
       }
     } catch (error) {
@@ -322,7 +329,7 @@ export function openCodeChannel(
     try {
       signal.throwIfAborted()
       if (req.forkFrom) throw new Error('OpenCode 세션 분기는 지원하지 않습니다.')
-      connection = await connect()
+      connection = await connect({ serverStarting: () => waitPhase.serverStarting() })
       detachActivity = connection.mcpControl?.observeActivity(() => responseOpen)
       client = connection.client
       signal.throwIfAborted()
@@ -338,12 +345,14 @@ export function openCodeChannel(
       } finally {
         clearTimeout(timer)
       }
+      waitPhase.connected()
       void refreshComposer()
       // Desktop prepares directory metadata in parallel. Only slash dispatch needs command readiness.
       void connection.commands(signal).catch(() => undefined)
       await connection.prepare(signal)
       signal.throwIfAborted()
-      if (!sessionId)
+      if (!sessionId) {
+        waitPhase.creatingSession()
         sessionId =
           (
             await client.session.create(
@@ -354,6 +363,7 @@ export function openCodeChannel(
               { signal, throwOnError: true }
             )
           ).data?.id ?? null
+      }
       if (!sessionId) throw new Error('OpenCode 세션 생성 실패')
       publish([
         {
@@ -411,6 +421,10 @@ export function openCodeChannel(
           responseOpen = true
           if (mainApproval.signal.aborted) mainApproval = new AbortController()
         }
+        if (event.type === 'session.status' && event.properties.sessionID === sessionId) {
+          waitPhase.status(event.properties.status)
+        }
+        waitPhase.observe(mapped.events)
         if (mapped.events.length || mapped.providerEvents.length)
           publish(mapped.events, mapped.providerEvents)
         if (activity.root.terminal && mapped.events.some((value) => value.type === 'error')) return
@@ -424,6 +438,7 @@ export function openCodeChannel(
           responseOpen &&
           (activity.root.sawAssistant || interrupted)
         ) {
+          waitPhase.end()
           responseOpen = false
           const events = activity.finish()
           publish(interrupted ? [aborted()] : events)
@@ -433,6 +448,7 @@ export function openCodeChannel(
       signal.throwIfAborted()
       throw openCodePreparationError('events')
     } catch (error) {
+      waitPhase.end()
       if (!closed)
         publish(
           admission.signal.aborted ||
@@ -447,6 +463,7 @@ export function openCodeChannel(
               ]
         )
     } finally {
+      waitPhase.end()
       mainApproval.abort()
       controller.abort()
       await cleanupOwned()

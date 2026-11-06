@@ -11,6 +11,7 @@ import { reportError } from '../../infra/error-report'
 
 import { randomUUID } from 'node:crypto'
 import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import { isModelOutputEvent } from '../../../shared/model-output'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { ResponseBoundary } from '../../../shared/response-boundary'
 import { isResponseDisplayEvent, responseBoundaryOutcome } from './response-boundary'
@@ -35,18 +36,6 @@ import type { PendingMessageQueue } from './pending-message-queue'
 
 const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
-
-// "응답이 시작됐다" 판정 집합(0069) — 턴-시작 배치(프렐류드+프롬프트)의 소비 앵커. 델타
-// (transient)도 포함한다: 소비 *증거* 는 영속 여부와 무관하고, 커밋은 어차피 같은 이벤트의
-// persist 직전(commitConsumed)에 돈다. 서브에이전트 child 출력은 부모 tool.call.started
-// (집합 포함)보다 늦으므로 앵커 누락이 없다.
-const MODEL_OUTPUT_EVENTS = new Set<string>([
-  'message.delta',
-  'message.reasoning.delta',
-  'message.reasoning',
-  'message.completed',
-  'tool.call.started'
-])
 
 // retry backoff 대기 — 턴 abort 시 즉시 reject 해 무의미한 대기를 끊는다.
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -403,7 +392,7 @@ export class TurnCoordinator<W = unknown> {
               }
               // 턴-시작 배치 소비 판정(0069) — 첫 모델 출력 관측 시 프렐류드+프롬프트를 일괄
               // 소비 표시한다. 바로 아래 commitConsumed 가 같은 이벤트의 persist 전에 커밋한다.
-              if (!turnOpenConsumed && turn.dbSessionId && MODEL_OUTPUT_EVENTS.has(ev.type)) {
+              if (!turnOpenConsumed && turn.dbSessionId && isModelOutputEvent(ev)) {
                 this.deps.pendingMessages?.confirm(turn.dbSessionId, {
                   kind: 'model-output',
                   uuids: turnOpenUuids

@@ -2268,6 +2268,7 @@ export function useChatResidualSteer(): number {
 export function useChatActivity(): Pick<
   ChatState,
   | 'activityForeground'
+  | 'activityWaitPhase'
   | 'activityQueuedCount'
   | 'activityDeliveryPendingCount'
   | 'activityResidualCount'
@@ -2281,6 +2282,7 @@ export function useChatActivity(): Pick<
       const session = s.sessions[s.activeKey].session
       return {
         activityForeground: session.activityForeground,
+        activityWaitPhase: session.activityWaitPhase,
         activityQueuedCount: session.activityQueuedCount,
         activityDeliveryPendingCount: session.activityDeliveryPendingCount,
         activityResidualCount: session.activityResidualCount,

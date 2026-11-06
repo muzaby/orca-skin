@@ -64,7 +64,8 @@ export async function resolveTurn(
   supervisor: RuntimeSupervisor<WebContents>,
   adapter: TurnPreparationAdapter,
   payload: SendChatPayload,
-  recoveryExtra = ''
+  recoveryExtra = '',
+  options?: { onNativeHistory?: (checking: boolean) => void }
 ): Promise<{ ok: true; value: ResolvedTurn } | { ok: false; error: ClassifiedError }> {
   const continuitySource = payload.forkFrom ?? payload.handoffFrom
   let continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
@@ -128,25 +129,31 @@ export async function resolveTurn(
     sessionMeta &&
     !supervisor.peekRuntime(payload.sessionId)
   ) {
-    const preparedNative = await prepareNativeSession(
-      adapter,
-      {
-        sessionId: payload.sessionId,
-        cwd: sessionMeta.cwd ?? ctx.getCwd(sessionMeta.project_id),
-        env: resolved.prepared.env,
-        providerSettings: resolved.prepared.providerSettings
-      },
-      ctx.db,
-      ctx.getCwd,
-      {
-        text: payload.text,
-        contextWindow: harnessModule(adapter.id).recoveryContextWindow(
-          resolved.prepared.providerSettings?.settings ?? {},
-          resolved.model
-        ),
-        extra: recoveryExtra
-      }
-    )
+    let preparedNative: Awaited<ReturnType<typeof prepareNativeSession>>
+    options?.onNativeHistory?.(true)
+    try {
+      preparedNative = await prepareNativeSession(
+        adapter,
+        {
+          sessionId: payload.sessionId,
+          cwd: sessionMeta.cwd ?? ctx.getCwd(sessionMeta.project_id),
+          env: resolved.prepared.env,
+          providerSettings: resolved.prepared.providerSettings
+        },
+        ctx.db,
+        ctx.getCwd,
+        {
+          text: payload.text,
+          contextWindow: harnessModule(adapter.id).recoveryContextWindow(
+            resolved.prepared.providerSettings?.settings ?? {},
+            resolved.model
+          ),
+          extra: recoveryExtra
+        }
+      )
+    } finally {
+      options?.onNativeHistory?.(false)
+    }
     if (!preparedNative.ok) return preparedNative
     native = preparedNative.value
     if (!ctx.db.getSessionById(payload.sessionId)) {

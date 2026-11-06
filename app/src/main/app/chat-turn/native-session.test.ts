@@ -506,4 +506,103 @@ describe('native retention recovery through the migrated archive', () => {
     expect(queries.nativeHistory.recovery(request.sessionId)).toBeUndefined()
     expect(texts()).toEqual(['archivedquestion', 'archivedanswer', 'concurrent message'])
   })
+
+  it('notifies onNativeHistory(true) while readHistory is pending and onNativeHistory(false) when settled', async () => {
+    const gate = Promise.withResolvers<void>()
+    const adapter = {
+      id: 'opencode' as const,
+      agentSpawnEnv: () => ({}),
+      readHistory: vi.fn(async (): Promise<NativeHistoryResult> => {
+        await gate.promise
+        return { status: 'unchanged' }
+      }),
+      recoverSession: vi.fn()
+    }
+    const ctx = {
+      db: queries,
+      getCwd: cwd,
+      mcp: { resolver: () => () => undefined },
+      harnessSettings: { list: () => [] }
+    } as unknown as RouterContext
+    const payload = {
+      sessionId: request.sessionId,
+      text: 'resume prompt',
+      agentKind: 'code',
+      projectId: null
+    } as never
+    const supervisor = { hasSession: () => false, peekRuntime: () => undefined } as never
+    const calls: boolean[] = []
+
+    const pending = resolveTurn(ctx, supervisor, adapter, payload, '', {
+      onNativeHistory: (checking) => calls.push(checking)
+    })
+    await vi.waitFor(() => expect(adapter.readHistory).toHaveBeenCalledOnce())
+    expect(calls).toEqual([true])
+
+    gate.resolve()
+    const resolved = await pending
+    expect(resolved.ok).toBe(true)
+    expect(calls).toEqual([true, false])
+  })
+
+  it('still calls onNativeHistory(false) in finally when readHistory rejects', async () => {
+    const adapter = {
+      id: 'opencode' as const,
+      agentSpawnEnv: () => ({}),
+      readHistory: vi.fn(async (): Promise<NativeHistoryResult> => {
+        throw new Error('history read failed')
+      }),
+      recoverSession: vi.fn()
+    }
+    const ctx = {
+      db: queries,
+      getCwd: cwd,
+      mcp: { resolver: () => () => undefined },
+      harnessSettings: { list: () => [] }
+    } as unknown as RouterContext
+    const payload = {
+      sessionId: request.sessionId,
+      text: 'resume prompt',
+      agentKind: 'code',
+      projectId: null
+    } as never
+    const supervisor = { hasSession: () => false, peekRuntime: () => undefined } as never
+    const calls: boolean[] = []
+
+    const resolved = await resolveTurn(ctx, supervisor, adapter, payload, '', {
+      onNativeHistory: (checking) => calls.push(checking)
+    })
+    expect(resolved.ok).toBe(false)
+    expect(calls).toEqual([true, false])
+  })
+
+  it('does not call onNativeHistory when supervisor.peekRuntime is already present', async () => {
+    const adapter = {
+      id: 'opencode' as const,
+      agentSpawnEnv: () => ({}),
+      readHistory: vi.fn(async (): Promise<NativeHistoryResult> => ({ status: 'unchanged' })),
+      recoverSession: vi.fn()
+    }
+    const ctx = {
+      db: queries,
+      getCwd: cwd,
+      mcp: { resolver: () => () => undefined },
+      harnessSettings: { list: () => [] }
+    } as unknown as RouterContext
+    const payload = {
+      sessionId: request.sessionId,
+      text: 'warm resume prompt',
+      agentKind: 'code',
+      projectId: null
+    } as never
+    const supervisor = { hasSession: () => false, peekRuntime: () => ({}) } as never
+    const calls: boolean[] = []
+
+    const resolved = await resolveTurn(ctx, supervisor, adapter, payload, '', {
+      onNativeHistory: (checking) => calls.push(checking)
+    })
+    expect(resolved.ok).toBe(true)
+    expect(calls).toEqual([])
+    expect(adapter.readHistory).not.toHaveBeenCalled()
+  })
 })

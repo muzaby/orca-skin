@@ -15,7 +15,8 @@ import {
   textPart
 } from '../../adapters/opencode/v1/adapter.testfixture'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
-import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
+import { SessionActivityProjector } from '../../features/chat/session-activity-projector'
+import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import { buildTurnRequest } from './turn-request'
 
@@ -32,13 +33,21 @@ function fixture(): {
   runtime: SessionRuntime
   requests: Request[]
   rejectPrompt: () => void
+  setConfigGate: (gate?: Promise<void>) => void
+  setPromptGate: (gate?: Promise<void>) => void
+  setIdleGate: (gate?: Promise<void>) => void
   killed: ReturnType<typeof vi.fn>
 } {
   const requests: Request[] = []
   const encoder = new TextEncoder()
   let stream: ReadableStreamDefaultController<Uint8Array>
+  let streamClosed = false
   let rejected = false
+  let configGate: Promise<void> | undefined
+  let promptGate: Promise<void> | undefined
+  let idleGate: Promise<void> | undefined
   const emit = (event: ReturnType<typeof openCodeEvent>): void => {
+    if (streamClosed) return
     stream.enqueue(
       encoder.encode(`data: ${JSON.stringify({ directory: 'C:/work', payload: event })}\n\n`)
     )
@@ -48,7 +57,10 @@ function fixture(): {
     requests.push(request.clone())
     const path = new URL(request.url).pathname
     if (path === '/global/health') return jsonResponse({ healthy: true })
-    if (path === '/config') return jsonResponse({})
+    if (path === '/config') {
+      if (configGate) await configGate
+      return jsonResponse({})
+    }
     if (path === '/instance/dispose') {
       emit(openCodeEvent('server.instance.disposed', { directory: 'C:/work' }))
       return jsonResponse(true)
@@ -73,13 +85,32 @@ function fixture(): {
         new ReadableStream<Uint8Array>({
           start(controller) {
             stream = controller
+            streamClosed = false
+            request.signal.addEventListener(
+              'abort',
+              () => {
+                if (!streamClosed) {
+                  streamClosed = true
+                  try {
+                    controller.close()
+                  } catch {
+                    // already closed
+                  }
+                }
+              },
+              { once: true }
+            )
             emit(openCodeEvent('server.connected', {}))
+          },
+          cancel() {
+            streamClosed = true
           }
         }),
         { headers: { 'content-type': 'text/event-stream' } }
       )
     }
     if (path.endsWith('/prompt_async')) {
+      if (promptGate) await promptGate
       if (rejected) return jsonResponse({ message: 'Rejected fixture prompt' }, 400)
       const body = (await request.json()) as { messageID: string }
       emit(
@@ -99,7 +130,12 @@ function fixture(): {
           time: 2
         })
       )
-      emit(openCodeEvent('session.idle', { sessionID: 's1' }))
+      if (idleGate) {
+        const gate = idleGate
+        void gate.then(() => emit(openCodeEvent('session.idle', { sessionID: 's1' })))
+      } else {
+        emit(openCodeEvent('session.idle', { sessionID: 's1' }))
+      }
       return new Response(null, { status: 204 })
     }
     if (path.endsWith('/abort')) return jsonResponse(true)
@@ -142,11 +178,23 @@ function fixture(): {
     killed,
     rejectPrompt: () => {
       rejected = true
+    },
+    setConfigGate: (gate) => {
+      configGate = gate
+    },
+    setPromptGate: (gate) => {
+      promptGate = gate
+    },
+    setIdleGate: (gate) => {
+      idleGate = gate
     }
   }
 }
 
-function admission(sessionId: string | null): {
+function admission(
+  sessionId: string | null,
+  activity: SessionActivityProjector = {} as SessionActivityProjector
+): {
   request: ReturnType<typeof buildTurnRequest>
   pending: PendingMessageQueue
   commit: ReturnType<typeof vi.spyOn>
@@ -160,7 +208,7 @@ function admission(sessionId: string | null): {
     {
       wc: {} as WebContents,
       pendingMessages: pending,
-      activity: {} as SessionActivityProjector,
+      activity,
       chainId: 'chain',
       queueKey,
       getActiveTurn: () => activeTurn,
@@ -334,6 +382,86 @@ describe('OpenCode submission through the production queue and session runtime',
       expect(commit).toHaveBeenCalledOnce()
       expect(events.map((event) => event.type)).toEqual(['session.updated', 'error'])
     } finally {
+      runtime.close()
+    }
+  })
+
+  it('IT-02: forwards waitPhase sequence [server, project, session, mcp, send, model, null] on 1st turn and omits server on 2nd turn', async () => {
+    const { runtime } = fixture()
+    const setWaitPhase = vi.fn()
+    const activity = { setWaitPhase } as unknown as SessionActivityProjector
+    try {
+      await collect(runtime, admission(null, activity).request)
+      expect(setWaitPhase.mock.calls.map(([key, phase]) => [key, phase])).toEqual([
+        ['draft', { kind: 'server' }],
+        ['draft', { kind: 'project' }],
+        ['draft', { kind: 'session' }],
+        ['draft', { kind: 'mcp' }],
+        ['draft', { kind: 'send' }],
+        ['draft', { kind: 'model' }],
+        ['draft', null]
+      ])
+
+      setWaitPhase.mockClear()
+      await collect(runtime, admission('s1', activity).request)
+      const secondPhases = setWaitPhase.mock.calls.map(([, phase]) => phase)
+      expect(secondPhases).toEqual([{ kind: 'mcp' }, { kind: 'send' }, { kind: 'model' }, null])
+      expect(secondPhases).not.toContainEqual({ kind: 'server' })
+    } finally {
+      runtime.close()
+    }
+  })
+
+  it('ST-01: projects waitPhase through SessionActivityProjector across 1st turn /config gate, 2nd turn prompt_async gate, and 3rd turn close()', async () => {
+    const { runtime, setConfigGate, setPromptGate, setIdleGate } = fixture()
+    const queue = new PendingMessageQueue()
+    const backgroundTasks = new BackgroundTaskTracker()
+    const projector = new SessionActivityProjector({
+      queue,
+      backgroundTasks,
+      leases: {
+        foreground: () => 'streaming',
+        subscribe: () => () => {}
+      },
+      emit: () => {}
+    })
+    try {
+      // Turn 1: gate on /config -> current('s1').waitPhase.kind === 'project', clear on model output & completion
+      const configGate = Promise.withResolvers<void>()
+      const idleGate = Promise.withResolvers<void>()
+      setConfigGate(configGate.promise)
+      setIdleGate(idleGate.promise)
+      const turn1 = collect(runtime, admission('s1', projector).request)
+      await vi.waitFor(() => expect(projector.current('s1').waitPhase?.kind).toBe('project'))
+      setConfigGate(undefined)
+      configGate.resolve()
+      await vi.waitFor(() => expect(projector.current('s1').waitPhase).toBeUndefined())
+      setIdleGate(undefined)
+      idleGate.resolve()
+      await turn1
+      expect(projector.current('s1').waitPhase).toBeUndefined()
+
+      // Turn 2: gate on /prompt_async -> current('s1').waitPhase.kind === 'send', then clear on completion
+      const promptGate2 = Promise.withResolvers<void>()
+      setPromptGate(promptGate2.promise)
+      const turn2 = collect(runtime, admission('s1', projector).request)
+      await vi.waitFor(() => expect(projector.current('s1').waitPhase?.kind).toBe('send'))
+      setPromptGate(undefined)
+      promptGate2.resolve()
+      await turn2
+      expect(projector.current('s1').waitPhase).toBeUndefined()
+
+      // Turn 3: gate on /prompt_async -> runtime.close() -> waitPhase cleared
+      const promptGate3 = Promise.withResolvers<void>()
+      setPromptGate(promptGate3.promise)
+      const turn3 = collect(runtime, admission('s1', projector).request)
+      await vi.waitFor(() => expect(projector.current('s1').waitPhase?.kind).toBe('send'))
+      runtime.close()
+      promptGate3.resolve()
+      await turn3.catch(() => undefined)
+      await vi.waitFor(() => expect(projector.current('s1').waitPhase).toBeUndefined())
+    } finally {
+      projector.dispose()
       runtime.close()
     }
   })

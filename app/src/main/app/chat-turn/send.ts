@@ -20,10 +20,11 @@ import {
   DEFAULT_PERMISSION_MODE,
   planApprovedMode
 } from '../../../shared/permission-mode'
-import type { AttachmentView, WorktreeDisplay } from '../../../shared/ipc'
+import type { AttachmentView, ChatWaitPhase, WorktreeDisplay } from '../../../shared/ipc'
 import { isBackend, supportsAgentKind } from '../../../shared/harness'
 import { parseProviderKey } from '../../infra/config/provider-key'
 import type { SteerFlushBatch, TurnExtensions, TurnRequest } from '../../adapters/common/turn'
+import type { SessionAdapter } from '../../adapters/common/types'
 import type { TurnContext } from '../../contracts/turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
@@ -66,7 +67,7 @@ export async function handleChatSend(
   } = deps
 
   // ── 1. 진입 게이트 (순수 판정 — admission.ts) ───────────────────────────────
-  let adapter =
+  let adapter: SessionAdapter | null =
     ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
   const admission = admitChatSend({
     raw,
@@ -250,8 +251,13 @@ export async function handleChatSend(
   const abortPreparing = (): void => lease.controller.abort()
   event.sender.once('destroyed', abortPreparing)
   event.sender.once('render-process-gone', abortPreparing)
+  const reportWaitPhase = (phase: ChatWaitPhase | null): void => {
+    if (activeAdapter.reportsWaitPhases !== true) return
+    activity.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, phase)
+  }
 
   try {
+    reportWaitPhase({ kind: 'preparing' })
     // ── 4·5. continuity 검증 + provider·env·메타·텍스트 해석 (resolve-turn.ts) ─
     const resolution = await resolveTurn(
       ctx,
@@ -259,7 +265,11 @@ export async function handleChatSend(
       activeAdapter,
       { ...payload, agentKind },
       JSON.stringify(normalizedAttachments) +
-        (ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions ?? '')
+        (ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions ?? ''),
+      {
+        onNativeHistory: (checking) =>
+          reportWaitPhase(checking ? { kind: 'history' } : { kind: 'preparing' })
+      }
     )
     if (!resolution.ok) {
       sendChatEvent(event.sender, { type: 'error', error: resolution.error })
@@ -723,6 +733,7 @@ export async function handleChatSend(
     event.sender.removeListener('destroyed', abortPreparing)
     event.sender.removeListener('render-process-gone', abortPreparing)
     unlinkResponseAbort()
+    activity.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, null)
     if (!cleanupDone) {
       const key = leaderTurn?.dbSessionId ?? leaderTurn?.queueKey ?? provisionalKey
       for (const batch of initialBatches) {

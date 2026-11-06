@@ -15,6 +15,7 @@ export function PendingAssistantStatus(): React.JSX.Element {
   const activityView = useMemo(
     () => ({
       foreground: activity.activityForeground,
+      ...(activity.activityWaitPhase ? { waitPhase: activity.activityWaitPhase } : {}),
       queuedCount: activity.activityQueuedCount,
       deliveryPendingCount: activity.activityDeliveryPendingCount,
       residualCount: activity.activityResidualCount,
@@ -25,6 +26,7 @@ export function PendingAssistantStatus(): React.JSX.Element {
     }),
     [
       activity.activityForeground,
+      activity.activityWaitPhase,
       activity.activityQueuedCount,
       activity.activityDeliveryPendingCount,
       activity.activityResidualCount,

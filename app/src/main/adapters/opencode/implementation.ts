@@ -14,7 +14,8 @@ export interface OpenCodeServer {
   acquire(
     config?: Record<string, unknown>,
     env?: Record<string, string>,
-    cwd?: string
+    cwd?: string,
+    observer?: { serverStarting?: () => void }
   ): Promise<{
     url: string
     headers: Record<string, string>

@@ -622,3 +622,61 @@ it('carries executable path and stat identity through the actual OpenCode adapte
   expect(spawnProcess).not.toHaveBeenCalled()
   adapter.close()
 })
+
+describe('OpenCodeServerPool observer.serverStarting (0296 UT-04)', () => {
+  it('S1/S2/S3/S5: notifies serverStarting on cold start and pending concurrent acquire, not on warm reuse, and tolerates omitted observer', async () => {
+    const { pool, children } = setup({ announce: false })
+    const s1 = vi.fn()
+    const s2 = vi.fn()
+    const s3 = vi.fn()
+
+    // S1: empty pool acquire invokes serverStarting once
+    const p1 = pool.acquire(undefined, undefined, undefined, { serverStarting: s1 })
+    expect(s1).toHaveBeenCalledTimes(1)
+
+    // S2: second acquire on same key while start is still pending invokes observer2.serverStarting once
+    const p2 = pool.acquire(undefined, undefined, undefined, { serverStarting: s2 })
+    expect(s2).toHaveBeenCalledTimes(1)
+
+    // S5: acquire without observer does not throw
+    const pNoObserver = pool.acquire()
+
+    await vi.waitFor(() => expect(children).toHaveLength(1), { interval: 1 })
+    children[0]!.stdout!.emit(
+      'data',
+      Buffer.from('opencode server listening on http://127.0.0.1:49123\n')
+    )
+    const [lease1, lease2, leaseNoObs] = await Promise.all([p1, p2, pNoObserver])
+
+    // S3: acquire on same key after readySettled does not invoke serverStarting
+    const lease3 = await pool.acquire(undefined, undefined, undefined, { serverStarting: s3 })
+    expect(s3).not.toHaveBeenCalled()
+
+    lease1.release?.()
+    lease2.release?.()
+    leaseNoObs.release?.()
+    lease3.release?.()
+  })
+
+  it('S4: re-acquire on same key after startup failure (exit) invokes serverStarting again', async () => {
+    const { pool, children } = setup({ announce: false })
+    const s1 = vi.fn()
+    const s2 = vi.fn()
+
+    const failing = pool.acquire(undefined, undefined, undefined, { serverStarting: s1 })
+    expect(s1).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(children).toHaveLength(1), { interval: 1 })
+    children[0]!.emit('exit', 1)
+    await expect(failing).rejects.toThrow()
+
+    const retry = pool.acquire(undefined, undefined, undefined, { serverStarting: s2 })
+    expect(s2).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(children).toHaveLength(2), { interval: 1 })
+    children[1]!.stdout!.emit(
+      'data',
+      Buffer.from('opencode server listening on http://127.0.0.1:49123\n')
+    )
+    const lease = await retry
+    lease.release?.()
+  })
+})

@@ -491,7 +491,17 @@ export const en: typeof ko = {
     agent: 'Agent',
     variant: 'Variant',
     defaultVariant: 'Default',
-    promptPlaceholder: 'Ask OpenCode to work on something.'
+    promptPlaceholder: 'Ask OpenCode to work on something.',
+    waitPhase: {
+      history: 'Checking conversation history…',
+      server: 'Starting OpenCode server…',
+      project: 'Loading project…',
+      session: 'Creating session…',
+      mcp: 'Waiting for MCP connections…',
+      send: 'Sending request…',
+      model: 'Waiting for model response…',
+      retry: 'Waiting to retry (attempt {{attempt}})…'
+    }
   },
   backend: {
     installer: {

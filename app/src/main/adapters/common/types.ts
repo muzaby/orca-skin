@@ -100,6 +100,7 @@ export interface SessionAdapter {
     env?: Record<string, string>
   ): Promise<import('../../../shared/ipc').AgentEnvironment>
   readonly id: Backend
+  readonly reportsWaitPhases?: true
   // Adapter-native subprocess policy selected by the session's immutable Code/Work kind.
   // Reserved values are finalized after generic env layers; null explicitly removes a key.
   agentSpawnEnv(agentKind: AgentKind): AdapterSpawnEnvPatch
