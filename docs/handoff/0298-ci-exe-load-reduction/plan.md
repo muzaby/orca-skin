@@ -479,6 +479,18 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 
 ---
 
+## [구현자 기입] 구현 보고 (r1.2 — ΔV2 실측 CI, 사용자 요구 변경 턴)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/test-pools.mjs`(모드)·`test-pools.d.mts`·`test-pools.test.mjs` · `app/scripts/summarize-vitest-report.mjs`(+test) · `app/vitest.config.ts` · `.github/workflows/test-pools-experiment.yml` · `app/AGENTS.md` |
+| 강제 지점 | EP-8 6/6 — 'io 실측 모드 (0298 ΔV2)' 6케이스 · EP-9 3/3 — 'summarizeReport' 2케이스 |
+| 잠금 | `mutate.py` 9행(EP-8 6 · EP-9 3) 전부 red, 원복 확인 · `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 9 = 9` |
+| 게이트 | lint 0 error · typecheck 0 · `node --test` 817/817 · test-budgets · doc-inventory · `ORCA_TEST_IO_MODE=sqlite-serial` vitest 3파일 + 요약 출력 실측 · `=fast` → 로드 실패 메시지 |
+| AC 자기보고 | AC11 ✅(UT 6) · AC12 ⚠️ 워크플로 첫 실행 대기 — `✅ 9 · ⚠️ 3 · ❌ 0 = 총 12` (분모 10 → 12: ΔV2 AC 2 추가) |
+| 기본 동작 | 미설정 분기 = r1 구조(AC4 UT 그대로 green) — `ci.yml`·`npm test` 는 변수를 설정하지 않는다 |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

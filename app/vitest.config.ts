@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig } from 'vitest/config'
 import { BASE_CASE_MS, BASE_HOOK_MS, scaleMs } from './scripts/test-time.mjs'
-import { buildProjects, partitionTestFiles } from './scripts/test-pools.mjs'
+import { buildProjects, partitionTestFiles, resolveIoMode } from './scripts/test-pools.mjs'
 
 // 순수 함수 단위 테스트 전용. main 모듈 중 electron 비의존 부분(expand/convert 등)만 대상.
 // electron 의존 모듈(store/secret-store)은 import 하지 않으므로 node 환경으로 충분하다.
@@ -28,7 +28,7 @@ const base = {
 }
 
 // plain node 로도 읽힌다(`scripts/test-time.test.mjs`) — `__dirname` 대신 이 파일의 URL 로 앱 루트를 잡는다.
-const { io } = partitionTestFiles(fileURLToPath(new URL('.', import.meta.url)))
+const { io, ioSqlite } = partitionTestFiles(fileURLToPath(new URL('.', import.meta.url)))
 
 export default defineConfig({
   test: {
@@ -36,8 +36,11 @@ export default defineConfig({
       platform: process.platform,
       ci: process.env.CI,
       io,
+      ioSqlite,
       base,
-      exclude: configDefaults.exclude
+      exclude: configDefaults.exclude,
+      // 미설정이면 기본 구조. 실측 워크플로(`test-pools-experiment.yml`)만 설정한다(0298 ΔV2).
+      mode: resolveIoMode()
     })
   }
 })
