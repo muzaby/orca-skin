@@ -24,8 +24,14 @@ import { createVault } from '../../infra/vault'
 import { stripCommentsAndStrings } from '../../infra/source-scan'
 import { connectionState } from '../connection-views'
 import { createRuntimeModelAuthChangeHandler } from '../runtime-model-startup'
-import { gateRows, pluginRows } from './connections'
+import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
+import type { RuntimeConfigAugmenters } from '../../features/harnesses/common/runtime-config'
+import { prepareHarnessConfig } from '../../adapters/common/harness-config'
+import type { UsageFetcher } from '../../features/usage/fetcher'
+import { gateRows, harnessRows, pluginRows, usageRows } from './connections'
+import { mergeAugmenters, type HarnessConfigApiDeps } from './harness-runtime'
 import { createPluginBinding, type PluginBinding, type PluginDeploymentDeps } from './plugins'
+import type { UsageDeploymentDeps } from './usage-fetcher'
 
 // 가이드 §4 로그인 프리 레시피와 같은 타입·조립·요청 경로다.
 const PUBLIC_API_PLUGIN = {
@@ -34,6 +40,18 @@ const PUBLIC_API_PLUGIN = {
   origin: 'https://api.example.corp'
 } satisfies LoginFreeDefinition
 const LOCAL_PLUGIN = { id: 'local-tools', label: '로컬 도구' } satisfies LoginFreeDefinition
+// 가이드 `### 로그인 프리 원격 사용량·config API 레시피`(0297)의 선언이다.
+const USAGE_API = {
+  id: 'usage-api',
+  label: '사용량 API',
+  origin: 'https://usage.example.corp'
+} satisfies LoginFreeDefinition
+const CONFIG_API = {
+  id: 'llm-config-api',
+  label: 'LLM 설정 API',
+  origin: 'https://llm-config.example.corp'
+} satisfies LoginFreeDefinition
+const CORP_LLM_KEY = 'claude-corp'
 const CREDENTIAL = {
   id: 'corp-sso',
   label: '사내 로그인',
@@ -90,6 +108,45 @@ function recipePluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
   ]
 }
 
+// ── 가이드 `### 로그인 프리 원격 사용량·config API 레시피`와 같은 본문 (0297) ──────
+function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher {
+  const usageApi = deps.auth.bindLoginFreePlugin(USAGE_API.id)
+  return {
+    supports: (providerKey) => providerKey === CORP_LLM_KEY,
+    async fetchUsage(providerKey, signal) {
+      const response = await usageApi.request({ path: '/api/usage', maxBytes: 64 * 1024 }, signal)
+      // 401/403 은 상태를 바꾸지 않는다 — 재인증 경로가 없으므로 오류로 낸다.
+      if (!response.ok) throw new Error(`usage request failed: ${response.status}`)
+      return {
+        providerKey,
+        asOf: null,
+        fetchedAt: Date.now(),
+        limitUsd: null,
+        usedUsd: null,
+        remainingUsd: null,
+        raw: response.body
+      }
+    }
+  }
+}
+
+function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAugmenters {
+  const configApi = deps.auth.bindLoginFreePlugin(CONFIG_API.id)
+  return {
+    [CORP_LLM_KEY]: {
+      async resolve(_input, signal) {
+        const response = await configApi.request(
+          { path: '/v1/config', maxBytes: 64 * 1024 },
+          signal
+        )
+        // 필수 값이 없거나 실패면 부분 env 를 만들지 않고 resolve 를 실패시킨다.
+        if (!response.ok) throw new Error(`llm config request failed: ${response.status}`)
+        return { runtimeEnv: { CORP_LLM_CONFIG: response.body } }
+      }
+    }
+  }
+}
+
 interface TestDeployment {
   auth: AuthRuntime
   secretReader: AuthSecretReader
@@ -101,6 +158,7 @@ interface TestDeployment {
   add: MockInstance<RuntimeToolRegistry['add']>
   remove: MockInstance<RuntimeToolRegistry['remove']>
   fetchImpl: Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>
+  requestHeaders: Headers[]
   setStatus(value: number): void
   setClock(value: number): void
 }
@@ -117,14 +175,15 @@ function deployment(options: { withExpiry?: boolean } = {}): TestDeployment {
   }
   let now = 1
   let status = 200
-  const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+  const requestHeaders: Headers[] = []
+  const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
     void _input
-    void _init
+    requestHeaders.push(new Headers(init?.headers))
     return new Response('result', { status })
   })
   const { runtime: auth, secretReader } = createAuthRuntime({
     definitions: [CREDENTIAL, EXPIRING],
-    loginFreeDefinitions: [PUBLIC_API_PLUGIN, LOCAL_PLUGIN],
+    loginFreeDefinitions: [PUBLIC_API_PLUGIN, LOCAL_PLUGIN, USAGE_API, CONFIG_API],
     persistence: createMemoryGrantPersistence(
       options.withExpiry
         ? {
@@ -191,6 +250,7 @@ function deployment(options: { withExpiry?: boolean } = {}): TestDeployment {
     add,
     remove,
     fetchImpl,
+    requestHeaders,
     setStatus: (value: number) => {
       status = value
     },
@@ -343,6 +403,177 @@ describe('로그인 프리 가상 배포 — 같은 Plugin 경로 (0248)', () =>
       }).state()
     ).toEqual({ required: true, passed: false, bypassed: false, dailyRelogin: [] })
     expect(d.secretReader.read(PUBLIC_API_PLUGIN.id)).toBeNull()
+  })
+})
+
+// ── Usage·config API 배포 factory 의 로그인 프리 포트 (0297) ─────────────────────
+//
+// 배포 factory 는 Bootstrap 이 넘기는 full `AuthRuntime` 이 아니라 **실제 deps 타입**으로만 받는다 —
+// `AuthBinder` 에서 `bindLoginFreePlugin` 이 빠지면 여기서 컴파일이 깨진다(VP-05).
+const usageDepsOf = (auth: AuthRuntime): UsageDeploymentDeps => ({ auth })
+const configApiDepsOf = (auth: AuthRuntime): HarnessConfigApiDeps => ({ auth })
+
+// 자격증명 Auth 가 로그인된 상태 — 자격증명 포트를 잘못 쓰면 `Authorization` 이 실린다.
+async function loggedIn(): Promise<TestDeployment> {
+  const d = deployment()
+  await d.auth.login(CREDENTIAL.id, 'pat', { secret: 'value' })
+  // 기록 장치의 눈 — probe 요청에는 자격증명 헤더가 실제로 관측된다.
+  expect(d.requestHeaders.at(-1)?.get('authorization')).toContain('value')
+  return d
+}
+
+function expectLoginFreeUntouched(d: TestDeployment, authId: string, changesBefore: number): void {
+  expect(d.changes).toHaveLength(changesBefore)
+  expect(d.auth.bindLoginFreePlugin(authId).snapshot()).toEqual({
+    authId,
+    status: 'valid',
+    verified: true,
+    credentialRevision: 0
+  })
+  expect(d.auth.snapshot(authId)).toEqual(d.auth.bindLoginFreePlugin(authId).snapshot())
+}
+
+describe('로그인 프리 Usage — UsageDeploymentDeps 만으로 조립 (0297 AC1)', () => {
+  it('(a) 200이면 선언 origin에 Authorization 없이 요청하고 snapshot을 만든다', async () => {
+    const d = await loggedIn()
+    const before = d.changes.length
+    const fetcher = createUsageFetcher(usageDepsOf(d.auth))
+
+    const snapshot = await fetcher.fetchUsage(CORP_LLM_KEY)
+
+    expect(snapshot).toMatchObject({ providerKey: CORP_LLM_KEY, raw: 'result' })
+    expect(d.fetchImpl.mock.calls.at(-1)?.[0]).toBe('https://usage.example.corp/api/usage')
+    expect(d.requestHeaders.at(-1)?.has('authorization')).toBe(false)
+    expectLoginFreeUntouched(d, USAGE_API.id, before)
+  })
+
+  it('(b) 401이면 reject하고 Auth change·로그인 프리 snapshot이 그대로다', async () => {
+    const d = await loggedIn()
+    const before = d.changes.length
+    const fetcher = createUsageFetcher(usageDepsOf(d.auth))
+    d.setStatus(401)
+
+    await expect(fetcher.fetchUsage(CORP_LLM_KEY)).rejects.toThrow('usage request failed: 401')
+
+    expect(d.fetchImpl.mock.calls.at(-1)?.[0]).toBe('https://usage.example.corp/api/usage')
+    expect(d.requestHeaders.at(-1)?.has('authorization')).toBe(false)
+    expectLoginFreeUntouched(d, USAGE_API.id, before)
+    expect(d.auth.bind(CREDENTIAL.id).snapshot().status).toBe('valid')
+  })
+
+  it('(c) origin 미선언 대상은 요청 전에 origin_not_declared로 reject한다', async () => {
+    const d = await loggedIn()
+    const before = d.changes.length
+    const calls = d.fetchImpl.mock.calls.length
+    // 같은 factory 본문이 origin 없는 로그인 프리 대상을 받은 경우.
+    const fetcher = createUsageFetcher({
+      auth: {
+        bind: (id) => d.auth.bind(id),
+        bindLoginFreePlugin: () => d.auth.bindLoginFreePlugin(LOCAL_PLUGIN.id)
+      }
+    })
+
+    await expect(fetcher.fetchUsage(CORP_LLM_KEY)).rejects.toMatchObject({
+      reason: 'origin_not_declared'
+    })
+    expect(d.fetchImpl.mock.calls).toHaveLength(calls)
+    expectLoginFreeUntouched(d, LOCAL_PLUGIN.id, before)
+  })
+
+  it('(d) supports는 배포가 지원하는 key만 참이다', () => {
+    const d = deployment()
+    const fetcher = createUsageFetcher(usageDepsOf(d.auth))
+    expect(fetcher.supports(CORP_LLM_KEY)).toBe(true)
+    expect(fetcher.supports('claude-anthropic')).toBe(false)
+    expect(d.fetchImpl).not.toHaveBeenCalled()
+  })
+})
+
+describe('로그인 프리 config API — HarnessConfigApiDeps 만으로 조립 (0297 AC2)', () => {
+  const resolveFor = async (
+    d: TestDeployment
+  ): Promise<
+    Awaited<ReturnType<ReturnType<typeof createHarnessRuntimeConfigService>['resolve']>>
+  > =>
+    createHarnessRuntimeConfigService({
+      settings: { resolve: async () => undefined },
+      augmenters: mergeAugmenters(createConfigApiAugmenters(configApiDepsOf(d.auth)), {})
+    }).resolve({ key: CORP_LLM_KEY, harnessId: 'claude', modelProviderId: 'corp' })
+
+  it('(a) 200이면 선언 origin 응답으로 runtimeEnv overlay를 만든다', async () => {
+    const d = await loggedIn()
+    const before = d.changes.length
+
+    const config = await resolveFor(d)
+    const prepared = prepareHarnessConfig({ config, baseEnv: () => ({ PATH: '/usr/bin' }) })
+
+    expect(prepared.env?.CORP_LLM_CONFIG).toBe('result')
+    expect(d.fetchImpl.mock.calls.at(-1)?.[0]).toBe('https://llm-config.example.corp/v1/config')
+    expect(d.requestHeaders.at(-1)?.has('authorization')).toBe(false)
+    expectLoginFreeUntouched(d, CONFIG_API.id, before)
+  })
+
+  it('(b) 403이면 resolve가 reject하고 Auth change가 없다', async () => {
+    const d = await loggedIn()
+    const before = d.changes.length
+    d.setStatus(403)
+
+    await expect(resolveFor(d)).rejects.toThrow('llm config request failed: 403')
+
+    expect(d.fetchImpl.mock.calls.at(-1)?.[0]).toBe('https://llm-config.example.corp/v1/config')
+    expectLoginFreeUntouched(d, CONFIG_API.id, before)
+  })
+})
+
+describe('두 deps 의 bind 는 로그인 프리 id 를 해석하지 않는다 (0297 AC3 런타임)', () => {
+  it('bind(loginFreeId).request는 unknown_auth로 reject한다', async () => {
+    const d = deployment()
+    await expect(
+      usageDepsOf(d.auth).auth.bind(USAGE_API.id).request({ path: '/api/usage' })
+    ).rejects.toMatchObject({ reason: 'unknown_auth' })
+    await expect(
+      configApiDepsOf(d.auth).auth.bind(CONFIG_API.id).request({ path: '/v1/config' })
+    ).rejects.toMatchObject({ reason: 'unknown_auth' })
+    expect(d.fetchImpl).not.toHaveBeenCalled()
+    expect(d.changes).toEqual([])
+  })
+})
+
+describe('로그인 프리 usage·harness row (0297 AC4)', () => {
+  it('connect 무선언 로그인 프리 포트는 login-free 디스크립터·kind 매핑으로 투영된다', () => {
+    const d = deployment()
+    // 기본 행 조립이 아니라 행 조각으로 직접 조립한다(0294 D-007).
+    const sources = [
+      ...gateRows([d.auth.bind(CREDENTIAL.id)]),
+      ...harnessRows([
+        {
+          auth: d.auth.bindLoginFreePlugin(CONFIG_API.id),
+          harnessModelProviderKey: CORP_LLM_KEY
+        }
+      ]),
+      ...usageRows([{ auth: d.auth.bindLoginFreePlugin(USAGE_API.id) }]),
+      ...usageRows([{ auth: d.auth.bindLoginFreePlugin(LOCAL_PLUGIN.id) }])
+    ]
+
+    const rows = connectionState(d.auth, d.gate, sources, false).providers
+
+    expect(rows[0]?.authScheme).toBe('login-required')
+    const expected = [
+      { id: CONFIG_API.id, kind: 'llm', origin: CONFIG_API.origin },
+      { id: USAGE_API.id, kind: 'service', origin: USAGE_API.origin },
+      { id: LOCAL_PLUGIN.id, kind: 'service', origin: '' }
+    ]
+    expected.forEach((want, index) => {
+      const row = rows[index + 1]!
+      expect(row).toMatchObject({
+        ...want,
+        authScheme: 'login-free',
+        auth: [],
+        status: 'valid'
+      })
+      expect('connection' in row).toBe(false)
+    })
+    expect(rows).toHaveLength(4)
   })
 })
 

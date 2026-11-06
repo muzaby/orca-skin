@@ -531,21 +531,32 @@ describe('production 배포 factory — 합류 규칙', () => {
 // 쓰지 않으면 그만이다. 그래서 "이 호출은 컴파일되지 않는다" 를 단언한다. `@ts-expect-error` 는
 // 오류가 사라지면 그 자체로 실패하므로, 누군가 deps 를 `AuthRuntime` 으로 되돌리면 여기가 깨진다.
 describe('배포 factory 의 능력 경계 (0190)', () => {
+  const stub: BoundAuth = {
+    authId: 'corp',
+    snapshot: () => ({ authId: 'corp', status: 'valid', verified: true, credentialRevision: 1 }),
+    request: () => Promise.reject(new Error('not used'))
+  }
+  const loginFreeStub = { ...stub, authId: 'public-api', label: '공개 API' }
+
   it('config API deps 로는 login/revoke/resume/subscribe 에 도달할 수 없다', () => {
-    const stub: BoundAuth = {
-      authId: 'corp',
-      snapshot: () => ({ authId: 'corp', status: 'valid', verified: true, credentialRevision: 1 }),
-      request: () => Promise.reject(new Error('not used'))
-    }
     const deps: HarnessConfigApiDeps = {
-      auth: { bind: () => stub, connectionValue: (id) => (id === 'corp' ? ['m'] : undefined) }
+      auth: {
+        bind: () => stub,
+        bindLoginFreePlugin: () => loginFreeStub,
+        connectionValue: (id) => (id === 'corp' ? ['m'] : undefined)
+      }
     }
 
-    // 허용된 능력 — 자격증명 bind 와 로그인 프리 연결 결과 읽기(0291).
+    // 허용된 능력 — 자격증명 bind, 로그인 프리 bind(0297), 로그인 프리 연결 결과 읽기(0291).
     expect(deps.auth.bind('corp').authId).toBe('corp')
+    expect(deps.auth.bindLoginFreePlugin('public-api').authId).toBe('public-api')
     expect(deps.auth.connectionValue('corp')).toEqual(['m'])
     // @ts-expect-error 배포 augmenter 는 연결 로직을 실행하지 않는다.
     expect(deps.auth.connect).toBeUndefined()
+    // @ts-expect-error config API 방식은 raw credential 을 열지 않는다(D-048).
+    expect(deps.auth.bindForPlugin).toBeUndefined()
+    // @ts-expect-error 배포는 gate 멤버 선택을 소유하지 않는다.
+    expect(deps.auth.tryBind).toBeUndefined()
 
     // @ts-expect-error 배포는 인증을 시작하지 않는다.
     expect(deps.auth.login).toBeUndefined()
@@ -555,6 +566,33 @@ describe('배포 factory 의 능력 경계 (0190)', () => {
     expect(deps.auth.resume).toBeUndefined()
     // @ts-expect-error 배포는 변경 구독을 소유하지 않는다.
     expect(deps.auth.subscribe).toBeUndefined()
+  })
+
+  it('Usage deps 로는 raw credential·gate 선택·lifecycle·연결 실행에 도달할 수 없다 (0297)', () => {
+    const deps: UsageDeploymentDeps = {
+      auth: { bind: () => stub, bindLoginFreePlugin: () => loginFreeStub }
+    }
+
+    // 허용된 능력 — 자격증명 bind 와 로그인 프리 bind(0297).
+    expect(deps.auth.bind('corp').authId).toBe('corp')
+    expect(deps.auth.bindLoginFreePlugin('public-api').authId).toBe('public-api')
+
+    // @ts-expect-error Usage 는 raw credential 을 열지 않는다.
+    expect(deps.auth.bindForPlugin).toBeUndefined()
+    // @ts-expect-error 배포는 gate 멤버 선택을 소유하지 않는다.
+    expect(deps.auth.tryBind).toBeUndefined()
+    // @ts-expect-error 배포는 인증을 시작하지 않는다.
+    expect(deps.auth.login).toBeUndefined()
+    // @ts-expect-error 배포는 인증을 해제하지 않는다.
+    expect(deps.auth.revoke).toBeUndefined()
+    // @ts-expect-error 배포는 부팅 복원 순서를 소유하지 않는다.
+    expect(deps.auth.resume).toBeUndefined()
+    // @ts-expect-error 배포는 변경 구독을 소유하지 않는다.
+    expect(deps.auth.subscribe).toBeUndefined()
+    // @ts-expect-error 배포는 연결 로직을 실행하지 않는다.
+    expect(deps.auth.connect).toBeUndefined()
+    // @ts-expect-error 연결 결과 읽기는 config API deps 에만 있다(0297 D-006).
+    expect(deps.auth.connectionValue).toBeUndefined()
   })
 
   it('direct credential deps 에는 request 능력이 없다 — 닫힌 closure 만 받는다', () => {

@@ -1,5 +1,7 @@
 # ADR-006 — 로그인 프리는 별도 인증 체계이며 같은 Plugin 소비 포트를 사용한다
 
+> 일부(Harness config API·Usage의 binder 확장) superseded by [ADR-011](011-login-free-deployment-binders.md)
+
 ## 문제
 
 앱은 인증 없이 기본 제공할 LLM 도구를 표현해야 한다. 도구는 공개 API를 호출하거나,
