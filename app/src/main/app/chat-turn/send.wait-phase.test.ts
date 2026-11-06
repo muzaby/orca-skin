@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import type { ChatWaitPhase } from '../../../shared/ipc'
+import { makeClassifiedError } from '../../infra/errors'
 
 const mocks = vi.hoisted(() => ({
   acquireTurnRuntime: vi.fn(),
@@ -20,11 +21,11 @@ vi.mock('../../features/chat/attachments', () => ({
     attachmentImages: []
   }))
 }))
-vi.mock('./admission', () => ({
+vi.mock('./admission', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./admission')>()),
   admitChatSend: vi.fn(({ raw }) => ({ ok: true, data: raw })),
   attachmentFailure: vi.fn(),
-  foreignPreparingLease: vi.fn(),
-  leaseKeyFor: vi.fn(() => ({ provisionalKey: 'new:1', logicalKey: 'new:1' }))
+  foreignPreparingLease: vi.fn()
 }))
 vi.mock('./resolve-turn', () => ({
   resolveTurnProvider: vi.fn(),
@@ -66,7 +67,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
     abortContinuation: undefined as 'reception' | 'send-now' | undefined,
     cwd: '/managed/repo',
     extraDirs: [] as string[],
-    queueKey: 'new:1',
+    queueKey: options.sessionId ?? 'new:1',
     dbSessionId: options.sessionId ?? null
   }
   mocks.buildTurnContext.mockImplementation((input) => {
@@ -177,6 +178,7 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
 
     await handleChatSend(deps as never, { sender } as never, {
       sessionId: null,
+      clientKey: 'new:1',
       text: 'hello',
       agentKind: 'code'
     })
@@ -194,6 +196,7 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
 
     await handleChatSend(deps as never, { sender } as never, {
       sessionId: null,
+      clientKey: 'new:1',
       text: 'hello',
       agentKind: 'code'
     })
@@ -243,6 +246,7 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
       ['session-1', { kind: 'preparing' }],
       ['session-1', null]
     ])
+    expect(setWaitPhase.mock.calls.some(([key]) => key === 'session:session-1')).toBe(false)
   })
 
   it('A5: does not emit any non-null waitPhase when adapter does not report waitPhases (Claude)', async () => {
@@ -287,6 +291,7 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
 
     await handleChatSend(deps as never, { sender } as never, {
       sessionId: null,
+      clientKey: 'new:1',
       text: 'hello new confirmed',
       agentKind: 'code'
     })
@@ -295,5 +300,28 @@ describe('handleChatSend waitPhase producer wiring (0296 IT-03)', () => {
       ['new:1', { kind: 'preparing' }],
       ['s-new', null]
     ])
+  })
+
+  it('A7: clears the resumed session waitPhase when resolveTurn fails before a turn is created', async () => {
+    const { deps, sender, setWaitPhase } = makeHarness({
+      reportsWaitPhases: true,
+      sessionId: 'session-1'
+    })
+    const error = makeClassifiedError('provider_connection_error', 'resume resolution failed')
+    mocks.resolveTurn.mockResolvedValueOnce({ ok: false, error })
+
+    await handleChatSend(deps as never, { sender } as never, {
+      sessionId: 'session-1',
+      text: 'resume',
+      agentKind: 'code'
+    })
+
+    expect(setWaitPhase.mock.calls).toEqual([
+      ['session-1', { kind: 'preparing' }],
+      ['session-1', null]
+    ])
+    expect(mocks.acquireTurnRuntime).not.toHaveBeenCalled()
+    expect(mocks.buildTurnContext).not.toHaveBeenCalled()
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(sender, { type: 'error', error })
   })
 })

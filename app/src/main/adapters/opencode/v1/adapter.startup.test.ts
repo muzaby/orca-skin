@@ -601,6 +601,52 @@ describe('wait phases', () => {
     }
   })
 
+  it('I11: clears the wait phase before publishing model output while the response stays open', async () => {
+    const f = waitPhaseFixture({
+      onPrompt: ({ directory, sessionID, messageID, emit }) => {
+        const answer = assistantMessage(sessionID, messageID, `a-${messageID}`)
+        emit(directory, event('message.updated', { sessionID, info: answer }))
+        emit(
+          directory,
+          event('message.part.updated', {
+            sessionID,
+            time: 2,
+            part: textPart('Still streaming', {
+              id: `text-${messageID}`,
+              sessionID,
+              messageID: answer.id
+            })
+          })
+        )
+      }
+    })
+    const phases: Array<ChatWaitPhase | null> = []
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Stream without finishing',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => phases.push(phase)
+    })
+    const iterator = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      for (;;) {
+        const next = await iterator.next()
+        expect(next.done).toBe(false)
+        if (next.done) break
+        expect(next.value.events.some((value) => value.type === 'turn.ended')).toBe(false)
+        if (next.value.events.some((value) => value.type === 'message.delta')) {
+          expect(phases).toContainEqual({ kind: 'model' })
+          expect(phases.at(-1)).toBeNull()
+          break
+        }
+      }
+    } finally {
+      await close(live, iterator)
+      f.adapter.close()
+    }
+  })
+
   it('I4: surfaces [..., model, {retry,1}, model, null] when prompt emits retry(1) then busy before text', async () => {
     const f = waitPhaseFixture({
       onPrompt: ({ directory, sessionID, messageID, emit }) => {

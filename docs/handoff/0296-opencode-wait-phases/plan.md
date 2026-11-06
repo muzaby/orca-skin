@@ -8,7 +8,7 @@
 | 작성자 | Claude Code (설계) · argon (구현) |
 | 일자 | 2026-11-05 |
 | 매핑 | 브랜치 `ccr-90fb2d84-yf9ksk` |
-| 상태 | READY (ΔV2) |
+| 상태 | impl/IMPL_DONE (ΔV2 r3 — 다음 Claude 독립 검증) |
 | V mode | `Delta V` |
 | 기준 V | `0296:V1@13db37e` — 이 plan의 V1(`git cat-file -t` = commit, `main` 조상). V1의 INHERITED 회귀 출처는 `main@16a1ee8` |
 | 이번 V revision | `ΔV2` — r2 verify RETURN_TO_PLAN 정정(2026-11-06). 직전 `ΔV1@1c888d0` |
@@ -1124,3 +1124,210 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 - 이전 라운드 반복 축 여부: r1 verify가 지적한 정리 경로 겹침(c11·c12)과 분기/운반 값 입력 공백(I7~I10, A4 키·A6, R6c·R6d·R7g·R7h, P9~P11, `hooks-deps`)을 ΔV1 명세에 따라 전수 잠갔다(`N1`~`N13` 14종 + `M-*` 8종 전부 red).
 - plan 지침·AC 누락 여부: 없음 (ΔV1 54자리와 MD-01′·MD-02 규칙 분기가 코드·테스트와 1:1 대응).
 - 환경 한계: Windows PowerShell 환경에서 `mutate.py`의 `subprocess.run(..., shell=True)`가 `.bin/vitest` 래퍼 실행 시 `cp949` 출력을 내어 UTF-8 디코딩 오류가 발생하므로, spec의 oracle 명령을 `node ./node_modules/vitest/vitest.mjs ...` 및 `node ./node_modules/eslint/bin/eslint.js ...`로 지정해 실행했다. AC15는 실제 OpenCode 1.x 서버 기동·시각 확인 항목이라 `SELF_BLOCKED`(`⚠️`)로 분리했다.
+
+---
+
+## [구현자 기입] 설계 리뷰 (r3 — ΔV2)
+
+동의 / 그대로 진행. 유효 V는 `V1 + ΔV1 + ΔV2`이며 D-014·D-015를 구현했다. VP-04·08·09·12의 변경 수단과 나머지 REQUIRED·REGRESSION pair를 재확인하며 AC 15개·§10 54자리 분모를 유지한다.
+
+- 불변식: 준비 단계는 실제 `leaseKeyFor`의 `provisionalKey`를 쓰고, chain 종료는 확정 `dbSessionId`가 있으면 그 키를, 없으면 같은 `provisionalKey`를 비운다. `send.ts:256·740`의 `setWaitPhase?.(`는 정확히 2줄이다.
+- 선조치: sweep에서 c9와 r2의 기존 입력 공백을 발견해 I11(종료 전 첫 출력)과 IT-04 기본 상태 렌더를 더했다. 근거는 AC6·EP-01′ c9와 EP-05 r2이며 Decision·AC·V·§10 규범 행은 변경하지 않았다.
+- 메커니즘 대체 없음. 실제 `leaseKeyFor`를 `importOriginal`로 유지하고 새 세션 `clientKey`·재개 `queueKey`를 production과 맞췄다. 만료·공유·재진입·무효화 축의 새 상태나 캐시는 없다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조 · r3)
+
+아래 좌표는 모두 §19 실행 집합 안의 production 경로다. 타입 자리(t1·t7·s4·s7·a1·r1·r8)는 같은 경로의 값 운반 좌표로 대응하며 타입 검사만으로 닫지 않았다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 자리별 직접 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01~03·08~10·14·23 | EP-01′ | c1~c10·c12 (11) | 11/11 | c1~c6 `adapter.startup.test.ts:I1/I2/I3`; c7 I9; c8 I4/I10; c9 **I11**; c10 I8; c12 I5/I6/I7 | cold/warm 순서·root/child·prompt/command·종료 전 출력/finish/finally 구별 | — |
+| VP-09·10·16 | EP-02′ | t1~t10 (10) | 10/10 | t1~t3·t7 `opencode-runtime.test.ts:IT-02/ST-01`; t4 `session-activity-projector.test.ts:P1/P2/P6/P7`; t5 P4/P5; t6 P3/P8; t8 P9; t9 P10; t10 P11 | `server`/`session`/`retry(1·2)`/null·원천/승격 키·idle | — |
+| VP-01·11·17 | EP-03 | s1~s7 (7) | 7/7 | s1~s3 `server.test.ts:S1/S2/S3/S5/S4`; s4·s5 `opencode-runtime.test.ts:IT-02`; s6·s7 `adapter.startup.test.ts:I1/I2/I3` | cold·미정착 합류 각 1회, warm 0회, 실패 후 재시작 1회 | — |
+| VP-01·04·06·08·12 | EP-04′ | a1~a7 (7) | 7/7 | a1·a2 `opencode-runtime.test.ts:IT-02`; a3 `send.wait-phase.test.ts:A1/A2·A4·A7`; a4 A4/A5; a5·a6 `native-session.test.ts:onNativeHistory` 3케이스; a7 A1/A2·A3·A4·A6·A7 | 새 `'new:1'`·재개 `'session-1'`·확정 `'s-new'`, 논리 키 `'session:session-1'` 0회; A7은 turn 조립/런타임 호출 0회 | — |
+| VP-05·13·22 | EP-05 | r1~r10 (10) | 10/10 | r1~r3·r6~r10 `statusLine.waitPhase.test.ts:기본 상태·9종 렌더`; r4·r5 같은 파일 LOAD_SESSION preserve/hydrate; r7 deps `gate:hooks-deps`(N8 red) | 스냅샷 부재/수신/지각 revision·기존 단계와 새 단계·실제 aria-live 문구 | — |
+| VP-05·07·15·20·21 | EP-06 | w1~w3 (3) | 3/3 | w1 `activityLabel.test.ts:L1~L7`; w2 K1; w3 `statusLine.waitPhase.test.ts:9종 렌더`·`resources.test.ts` | preparing/history와 채널 단계 우선순위·retry attempt 3·ko/en 키/빈 값 | — |
+| VP-18·24 | EP-07 | e1~e3 (3) | 3/3 | e1·e3 `wait-phase.test.ts:R8a` 5종, e2 `turn-coordinator.test.ts` 첫 모델 출력 소비 3케이스 | 다섯 출력 종류 각각 제거 red, 비출력 유지 | — |
+| VP-19 | EP-08 | d1~d3 (3) | 3/3 | `rg waitPhase` IPC_CONTRACT/provider-runtime, `rg '모델 응답을 기다리는'` ux-domains; 각 문장 제거 뒤 같은 rg exit 1 | 각 문서 1줄, inventory prose/links 검사 | — |
+
+검산: `11 + 10 + 7 + 7 + 10 + 3 + 3 + 3 = 54`. §10 검색 명령을 재실행하고 설계 기준 `d0b7b694`와 파일:줄 집합을 양방향 차집합으로 비교했다: EP-01 11 · EP-02 18(+t2 1) · EP-03 11 · EP-04 13 · EP-05 27 · EP-06 15 · EP-07 8 · EP-08 3 검색 좌표에서 추가/삭제 각 0이다(검색 좌표 수와 자리 수는 다르다).
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택 증거 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `adapter.startup.test.ts:I1/I2/I3·I9`; `opencode-runtime.test.ts:IT-02`; `send.wait-phase.test.ts:A1/A2`; projector P9 | N3·N5·N14 |
+| VP-02 | REQUIRED | SELF_PASS | startup I1/I2/I3 · runtime ST-01 | c4~c6 |
+| VP-03 | REQUIRED | SELF_PASS | startup I4/I10 · wait-phase R7a~h | N4·N10a/b |
+| VP-04 | REQUIRED | SELF_PASS | native-session onNativeHistory · send A4 | N14 |
+| VP-05 | REQUIRED | SELF_PASS | activityLabel L3~L7 · projector P5 · statusLine 렌더/LOAD_SESSION | M-05a·N8 |
+| VP-06 | REQUIRED | SELF_PASS | send A5 · StatusLine.harness 기존 Claude 케이스 | M-06a |
+| VP-07 | REQUIRED | SELF_PASS | activityLabel K1 · statusLine 9종 렌더 · resources 파리티/빈 값 | w2·w3 |
+| VP-08·09 | REQUIRED | SELF_PASS | startup I5~I8·I11 · runtime ST-01 · send A2/A3/A6/A7 · projector P10/P11 | M-09a·N1/N2/N7/N16 |
+| VP-10 | REQUIRED | SELF_PASS | startup I1~I11 | M-10a·N1~N4 |
+| VP-11 | REQUIRED | SELF_PASS | runtime IT-02 · server S1~S5 | s1~s6 |
+| VP-12 | REQUIRED | SELF_PASS | runtime IT-02 실제 플래그 · send A1~A7 | M-06a·N5/N7/N14/N15/N16/H1 |
+| VP-13 | REQUIRED | SELF_PASS | statusLine 9종/초기/LOAD_SESSION/revision · hooks-deps | M-13a·N8 |
+| VP-14 | REQUIRED | SELF_PASS | wait-phase R1~R11(22케이스) | N9·N10a/b |
+| VP-15 | REQUIRED | SELF_PASS | activityLabel L1~L7/K1 | M-05a |
+| VP-16 | REQUIRED | SELF_PASS | projector P1~P11 | M-16a/b·N11~N13 |
+| VP-17 | REQUIRED | SELF_PASS | server S1~S5 | s1~s3 |
+| VP-18 | REQUIRED | SELF_PASS | wait-phase R8a · coordinator 모델 출력 소비 | M-18a |
+| VP-19 | REQUIRED | SELF_PASS | EP-08 rg · doc-inventory --check | d1~d3 |
+| VP-20·21 | REGRESSION | SELF_PASS | activityLabel 기존 준비 단계·사실 조합·표시 순서·상태 describe | 기존 입력 green |
+| VP-22 | REGRESSION | SELF_PASS | StatusLine.harness 기존 2케이스 | 기존 입력 green |
+| VP-23 | REGRESSION | SELF_PASS | adapter.startup 기존 Desktop-style 7케이스 | 기존 입력 green |
+| VP-24 | REGRESSION | SELF_PASS | turn-coordinator 첫 출력 소비 케이스 | e2 |
+| VP-25 | REQUIRED | SELF_BLOCKED | §19 Windows 실제 OpenCode 시각 실기 | 사람 확인 대기 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+아래 표는 최종 트리에서 재실행한 고장 81행이다. N6은 D-014로 자리가 사라져 폐기했고 N14로 대체했다. r2 X1b·X1d도 삭제된 항이며, X6·X7·X11은 원 위치에서 재실행했다.
+
+| ID / 출처 | 자리 · 심은 결함 | oracle | 관측 |
+|---|---|---|---|
+| N1 / 선택 | `channel.ts:466` finally end 제거 | adapter.startup.test.ts | red · 2 failed \| 13 passed (15) |
+| N2 / 선택 | `channel.ts:443` finish end 제거 | adapter.startup.test.ts | red · 1 failed \| 14 passed (15) |
+| N3 / 선택 | `channel.ts:271` command accepted 제거 | adapter.startup.test.ts | red · 1 failed \| 14 passed (15) |
+| N4 / 선택 | `channel.ts:426` root 세션 가드 제거 | adapter.startup.test.ts | red · 1 failed \| 14 passed (15) |
+| N5 / 선택 | `adapter.ts:33` 실제 어댑터 플래그 제거 | opencode-runtime.test.ts | red · 1 failed \| 7 passed (8) |
+| N7 / 선택 | `send.ts:740` 확정 키 대신 provisionalKey | send.wait-phase.test.ts | red · 1 failed \| 5 passed (6) |
+| N8 / 선택 | `PendingAssistantStatus.tsx:29` memo deps 단계 제거 | hooks-deps | red · ESLint found too many warnings (maximum: 0). |
+| N9 / 선택 | `wait-phase.ts:39` accepted send 가드 제거 | wait-phase.test.ts | red · 2 failed \| 20 passed (22) |
+| N10a / 선택 | `wait-phase.ts:45` 잘못된 attempt 폴백 0 | wait-phase.test.ts | red · 2 failed \| 20 passed (22) |
+| N10b / 선택 | `wait-phase.ts:45` attempt 정수 가드 제거 | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| N11 / 선택 | `session-activity-projector.ts:140` promote 단계 이전 제거 | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| N12 / 선택 | `session-activity-projector.ts:154` clear 단계 삭제 제거 | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| N13 / 선택 | `session-activity-projector.ts:170` dispose 단계 삭제 제거 | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| N14 / 선택 | `send.ts:256` 준비 키를 logicalKey로 | send.wait-phase.test.ts | red · 5 failed \| 1 passed (6) |
+| N15 / 선택 | `send.ts:740` 확정 키를 queueKey로 | send.wait-phase.test.ts | red · 1 failed \| 5 passed (6) |
+| N16 / 선택 | `send.ts:740` 미확정 폴백을 logicalKey로 | send.wait-phase.test.ts | red · 3 failed \| 3 passed (6) |
+| H1 / 선택 | `send.wait-phase.test.ts:25` 상수 leaseKeyFor mock 복원 | send.wait-phase.test.ts | red · 2 failed \| 4 passed (6) |
+| M-05a / 선택 | `activityLabel.ts:65` 채널 단계 우선순위 제거 | activityLabel.test.ts | red · 1 failed \| 25 passed (26) |
+| M-06a / 선택 | `send.ts:255` 하네스 플래그 게이트 제거 | send.wait-phase.test.ts | red · 1 failed \| 5 passed (6) |
+| M-09a / 선택 | `channel.ts:429` 출력 observe + finally end 제거 | opencode-runtime.test.ts · adapter.startup.test.ts | red · 8 failed \| 15 passed (23) |
+| M-10a / 선택 | `channel.ts:350` project/session 전이 맞바꿈 | adapter.startup.test.ts | red · 5 failed \| 10 passed (15) |
+| M-13a / 선택 | `PendingAssistantStatus.tsx:18` 컴포넌트 단계 운반 제거 | statusLine.waitPhase.test.ts | red · 2 failed \| 2 passed (4) |
+| M-16a / 선택 | `session-activity-projector.ts:274` snapshot 단계 비교 제거 | session-activity-projector.test.ts | red · 3 failed \| 17 passed (20) |
+| M-16b / 선택 | `session-activity-projector.ts:97` 동치 조기 반환 제거 | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| M-18a / 선택 | `model-output.ts:6` tool.call.started 제외 | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| c1 / sweep/대조 | `channel.ts:333` serverStarting: () => waitP → serverStarting: () => {} | adapter.startup.test.ts | red · 4 failed \| 11 passed (15) |
+| c2 / sweep/대조 | `channel.ts:350` waitPhase.connected() → void 0 | adapter.startup.test.ts | red · 5 failed \| 10 passed (15) |
+| c3 / sweep/대조 | `channel.ts:357` waitPhase.creatingSession() → void 0 | adapter.startup.test.ts | red · 4 failed \| 11 passed (15) |
+| c4 / sweep/대조 | `channel.ts:149` waitPhase.admitting() → void 0 | adapter.startup.test.ts | red · 4 failed \| 11 passed (15) |
+| c5 / sweep/대조 | `channel.ts:163` waitPhase.sending() → void 0 | adapter.startup.test.ts | red · 6 failed \| 9 passed (15) |
+| c6 / sweep/대조 | `channel.ts:295` 제거: waitPhase.accepted() | adapter.startup.test.ts | red · 5 failed \| 10 passed (15) |
+| c8-call / sweep/대조 | `channel.ts:427` 제거: waitPhase.status(event.properties.status) | adapter.startup.test.ts | red · 1 failed \| 14 passed (15) |
+| c9 / sweep/대조 | `channel.ts:429` 제거: waitPhase.observe(mapped.events) | adapter.startup.test.ts | 초기 green → red · 1 failed \| 14 passed (15) |
+| t2 / sweep/대조 | `channel.ts:31` new OpenCodeWaitPhase(req.o → new OpenCodeWaitPhase() | adapter.startup.test.ts | red · 8 failed \| 7 passed (15) |
+| t3 / sweep/대조 | `turn-request.ts:133` activity?.setWaitPhase?.(de → void phase | opencode-runtime.test.ts | red · 2 failed \| 6 passed (8) |
+| t4 / sweep/대조 | `session-activity-projector.ts:99` else this.waitPhases.set(se → else void phase | session-activity-projector.test.ts | red · 6 failed \| 14 passed (20) |
+| t4-canonical / sweep/대조 | `session-activity-projector.ts:93` setWaitPhase(sessionId: str → setWaitPhase(sessionId: str | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| t5 / sweep/대조 | `session-activity-projector.ts:247` 제거: ...(foreground !== 'idle' && this.waitPhases.has(ses | session-activity-projector.test.ts | red · 6 failed \| 14 passed (20) |
+| t5-idle / sweep/대조 | `session-activity-projector.ts:247` foreground !== 'idle' && th → this.waitPhases.has(session | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| t6-attempt / sweep/대조 | `session-activity-projector.ts:262` return a.kind !== 'retry' \| → return true | session-activity-projector.test.ts | red · 1 failed \| 19 passed (20) |
+| s1 / sweep/대조 | `server.ts:233` 제거: observer?.serverStarting?.() | server.test.ts | red · 2 failed \| 37 passed (39) |
+| s2 / sweep/대조 | `server.ts:249` 제거: observer?.serverStarting?.() | server.test.ts | red · 1 failed \| 38 passed (39) |
+| s3 / sweep/대조 | `server.ts:238` 제거: created.readySettled = true | server.test.ts | red · 1 failed \| 38 passed (39) |
+| s5 / sweep/대조 | `adapter.ts:162` ...(observer ? [observer] : → ...[] | opencode-runtime.test.ts | red · 1 failed \| 7 passed (8) |
+| s6 / sweep/대조 | `adapter.ts:346` observer → undefined | adapter.startup.test.ts | red · 4 failed \| 11 passed (15) |
+| a3-call / sweep/대조 | `send.ts:260` 제거: reportWaitPhase({ kind: 'preparing' }) | send.wait-phase.test.ts | red · 5 failed \| 1 passed (6) |
+| a4 / sweep/대조 | `send.ts:273` reportWaitPhase(checking ?  → reportWaitPhase({ kind: 'pr | send.wait-phase.test.ts | red · 1 failed \| 5 passed (6) |
+| a5 / sweep/대조 | `resolve-turn.ts:133` 제거: options?.onNativeHistory?.(true) | native-session.test.ts | red · 2 failed \| 14 passed (16) |
+| a6 / sweep/대조 | `resolve-turn.ts:155` 제거: options?.onNativeHistory?.(false) | native-session.test.ts | red · 2 failed \| 14 passed (16) |
+| a7-call / sweep/대조 | `send.ts:740` 제거: activity?.setWaitPhase?.(leaderTurn?.dbSessionId ??  | send.wait-phase.test.ts | red · 5 failed \| 1 passed (6) |
+| r2 / sweep/대조 | `chatReducer.ts:519` activityWaitPhase: null, → activityWaitPhase: { kind:  | statusLine.waitPhase.test.ts | 초기 green → red · 1 failed \| 3 passed (4) |
+| r3 / sweep/대조 | `chatReducer.ts:1251` activityWaitPhase: ev.waitP → activityWaitPhase: null | statusLine.waitPhase.test.ts | red · 3 failed \| 1 passed (4) |
+| r4 / sweep/대조 | `chatReducer.ts:1538` activityWaitPhase: state.ac → activityWaitPhase: null | statusLine.waitPhase.test.ts | red · 1 failed \| 3 passed (4) |
+| r5 / sweep/대조 | `chatReducer.ts:1552` activityWaitPhase: activity → activityWaitPhase: null | statusLine.waitPhase.test.ts | red · 1 failed \| 3 passed (4) |
+| r6 / sweep/대조 | `chatStore.ts:2285` activityWaitPhase: session. → activityWaitPhase: null | statusLine.waitPhase.test.ts | red · 2 failed \| 2 passed (4) |
+| r9 / sweep/대조 | `activityLabel.ts:59` activity && activity.foregr → undefined | activityLabel.test.ts | red · 4 failed \| 22 passed (26) |
+| r10 / sweep/대조 | `StatusLine.tsx:113` const waitLabel = label.wai → const waitLabel = null | statusLine.waitPhase.test.ts | red · 2 failed \| 2 passed (4) |
+| w2-preparing / sweep/대조 | `activityLabel.ts:102` if (phase.kind === 'prepari → if (phase.kind === 'prepari | activityLabel.test.ts | red · 1 failed \| 25 passed (26) |
+| w2-attempt / sweep/대조 | `activityLabel.ts:104` params: { attempt: phase.at → params: { attempt: 1 } | activityLabel.test.ts | red · 1 failed \| 25 passed (26) |
+| w3-ko / sweep/대조 | `ko.ts:506` model: '모델 응답을 기다리는 중…' → model: 'WRONG' | statusLine.waitPhase.test.ts · resources.test.ts | red · 2 failed \| 9 passed (11) |
+| w3-en / sweep/대조 | `en.ts:502` model: 'Waiting for model r → model: '' | statusLine.waitPhase.test.ts · resources.test.ts | red · 1 failed \| 10 passed (11) |
+| e2 / sweep/대조 | `turn-coordinator.ts:395` !turnOpenConsumed && turn.d → false | turn-coordinator.test.ts | red · 4 failed \| 73 passed (77) |
+| e3 / sweep/대조 | `wait-phase.ts:55` events.some(isModelOutputEv → false | wait-phase.test.ts | red · 3 failed \| 19 passed (22) |
+| e1-message.delta / sweep/대조 | `model-output.ts:2` 제거: 'message.delta', | wait-phase.test.ts | red · 3 failed \| 19 passed (22) |
+| e1-message.reasoning.delta / sweep/대조 | `model-output.ts:3` 제거: 'message.reasoning.delta', | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| e1-message.reasoning / sweep/대조 | `model-output.ts:4` 제거: 'message.reasoning', | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| e1-message.completed / sweep/대조 | `model-output.ts:5` 제거: 'message.completed', | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| R5-reset / sweep/대조 | `wait-phase.ts:33` sending(): void {     this. → sending(): void { | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| R7-busy-guard / sweep/대조 | `wait-phase.ts:49` 제거: && this.current?.kind === 'retry' | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| R7-busy-output / sweep/대조 | `wait-phase.ts:50` this.outputObserved ? null  → { kind: 'model' } | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| R8-output / sweep/대조 | `wait-phase.ts:56` 제거: this.outputObserved = true | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| R10-same / sweep/대조 | `wait-phase.ts:67` 제거: if (samePhase(this.current, next)) return | wait-phase.test.ts | red · 2 failed \| 20 passed (22) |
+| R7-attempt-change / sweep/대조 | `wait-phase.ts:8` return a.kind !== 'retry' \| → return true | wait-phase.test.ts | red · 1 failed \| 21 passed (22) |
+| X6 / sweep/대조 | `session-activity-projector.ts:141` 원천 Map 삭제 생략(동치) | session-activity-projector.test.ts | green(동치) · 20 passed (20) |
+| X7 / sweep/대조 | `session-activity-projector.ts:140` 대상 set/원천 delete 맞바꿈(동치) | session-activity-projector.test.ts | green(동치) · 20 passed (20) |
+| X11 / sweep/대조 | `session-activity-projector.ts:95` 중복 guard 제거(이전 동치 판정) | session-activity-projector.test.ts | green(동치) · 20 passed (20) |
+| t1-type / sweep/대조 | `turn.ts:216` onWaitPhase 타입 선언 제거 | send.wait-phase.test.ts · opencode-runtime.test.ts | green(동치) · 14 passed (14) |
+| a1-type / sweep/대조 | `types.ts:103` reportsWaitPhases 타입 선언 제거 | send.wait-phase.test.ts · opencode-runtime.test.ts | green(동치) · 14 passed (14) |
+| d1 / sweep/대조 | `IPC_CONTRACT.md:594` 제거: \| chat.activity           \| sessionId; revision;  | EP-08 rg | red · rg exit 1 |
+| d2 / sweep/대조 | `provider-runtime.md:93` 제거: - **활동 스냅샷**: 턴-후 루프는 채널 활동 변경을 구독하고 channelBusy·미 | EP-08 rg | red · rg exit 1 |
+| d3 / sweep/대조 | `ux-domains.md:42` 제거: \| 요청 대기                  \| StatusLine — Claude 무작위 동 | EP-08 rg | red · rg exit 1 |
+
+분모 검산: `선택 증거 25(V1 8 + ΔV1 13[N6 제외] + ΔV2 4[H1 포함]) · 별도 인용 변이 0(기등록과 중복) · 새 구조 oracle 0 · sweep/동치 대조 56 = 표 행 81`. 앞 시행에서 c9·r2는 green이었다가 I11·기본 상태 렌더 추가 뒤 red가 됐다. w3-en의 앞 시행 1건은 쉼표 잔여로 문법 오류가 나 판정에서 빼고, 최종 표에는 유효한 빈 문자열 변이만 실었다.
+
+- 동치 대조: X6은 원천 키 삭제 생략, X7은 대상 set/원천 delete 순서 맞바꿈, X11은 `setWaitPhase`의 중복 guard 제거다. r2 verify 판정을 유지하며 projector 20케이스 green을 재현했다(별칭 수렴·`source !== target`·`recompute` guard).
+- 타입 선언 제거(t1-type·a1-type)는 런타임 소거라 green이다. 동작 운반은 t2·t3·a2~a7 좌표가, 선언 정합은 최종 typecheck가 맡는다. 각 규칙 입력은 wait-phase R1~R11·R6c/d·R7g/h, activityLabel L1~L7/K1에서 재확인했다.
+- `mutate.py`의 마지막 출력은 `모든 파일 원문 그대로`다. 최종 diff의 production 변경은 `send.ts` 2줄뿐이고 테스트는 A7·I11·IT-04 기본 상태와 하네스 정정이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 / 관측 | 후속 |
+|---|---|---|
+| 재개 조기 실패가 화면에 준비 문구를 남기는가 | A7에서 `preparing → null`이 모두 `'session-1'` 키이고 오류 이벤트가 전송된다. turn 조립·런타임 획득은 0회 | 없음 |
+| 확정된 새 세션에 옛 임시 키가 남는가 | A6은 `'new:1'`에 preparing, 확정 `'s-new'`에 null을 관측한다. N7·N15 red | 없음 |
+| 출력 중에도 모델 대기 문구가 남는가 | I11은 `turn.ended`가 없는 출력 배치를 받은 시점에 이미 phase가 null임을 관측한다. c9 단독 제거 red | 없음 |
+| 새 문구·저장소·비동기 경로·화면 구조가 생기는가 | 해당 없음. 기존 producer 키 식만 정리했고 기존 StatusLine을 그대로 렌더한다 | AC15 Windows 시각 확인 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 발견 / 출처 | 처리 | 이번 턴 관측 |
+|---|---|---|---|
+| 12 | r2 verify X1d·ΔV2 D-014·D-015: IT-03 상수 키 mock이 production과 갈림 | closed — 실제 leaseKeyFor·재개 queueKey·A4 논리 키 음성 짝·A7 | N14 5 fail · N15 1 fail · N16 3 fail · H1 2 fail |
+| F1 | EP-01′ c9·AC6: c9 단독 제거가 finish 정리에 가려짐 | 선조치 — I11에서 종료 전 첫 출력 관측 | c9: 14/14 green → I11 1 fail/총 15 |
+| F2 | EP-05 r2: 초기 단계 값을 잘못 넣어도 기존 IT-04는 스냅샷으로 덮음 | 선조치 — 스냅샷 전 기존 `생각 중` 렌더 관측 | r2: 3/3 green → 기본 상태 1 fail/총 4 |
+| F3 | D-010·EP-08 d1: IPC_CONTRACT가 모든 단계를 격리 준비 뒤로 서술 | 문서 드리프트 정정 — preparing/history만 뒤, 채널 단계는 앞 | `IPC_CONTRACT.md:594` · activityLabel L4~L6 green |
+| E1 | 관련 native-session 16케이스가 Electron ABI 140 / Node ABI 137 불일치로 실패 | 환경 복구 — 저장소 `ensure-sqlite-abi.mjs node` 실행, 제품 변경 없음 | `[sqlite-abi] node: rebuilt`, 최종 native-session 16/16 |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 관측 |
+|---|---|
+| 구현 주체·브랜치 | Codex · `ccr-2a63d408-u5l835`, 사용자 정정에 따라 0296 r3 수행 |
+| 변경 | production `send.ts` 키 식 2줄; 테스트 3파일(실제 키 하네스·A7·I11·초기 상태); IPC_CONTRACT 우선순위 정정·plan 구현 보고·INDEX |
+| 설계 대비 차이 | 메커니즘·제품 동작 변경 0. 선조치 2건은 기존 §10 자리의 oracle 보강이며 규범 행·분모는 그대로다 |
+| 정적 gate | lint 0 errors·기존 warning 2; typecheck node/web/test 진단 0; hooks-deps warning 0; 변경 코드 Prettier 통과 |
+| 관련 vitest | §19 대상 12파일 242/242 + admission·send.harness·send.worktree 3파일 64/64 = **15파일 306/306**, 실패/skip 0 |
+| 등록·sweep | 최종 81행: red 76 · green 5(동치/타입 대조), 기대 불일치 0·SKIP 0. 원복 확인 완료 |
+| 예산·문서 gate | test-budgets `16 real-git suites ok`; inventory generated doc/prose/links ok; §10 검색 좌표 집합 양방향 차집합 0 |
+| 상태 사본 | plan 메타 `impl/IMPL_DONE (ΔV2 r3)`; INDEX `impl/IMPL_DONE`·Claude·라운드 3·`(r3 구현 — 검증자 기입)` |
+| 대상 커밋 | `(r3 구현 — 검증자 기입)`, 좌표 정본은 INDEX |
+
+| AC | 자기보고 | 이번 턴 직접 관측 |
+|---|---|---|
+| AC1′ | ✅ | startup I1/I2/I3·I9, runtime IT-02 실제 플래그, send A1/A2, projector P9 |
+| AC2 | ✅ | startup warm · server S3 · runtime 2턴 server 0 |
+| AC3 | ✅ | startup pushTurn · runtime ST-01 2턴 send 게이트 |
+| AC4′ | ✅ | startup I4/I10 · wait-phase R7a~h, N4·N10a/b red |
+| AC5″ | ✅ | native-session 이력 알림 3케이스 · 실제 leaseKeyFor의 send A4, logicalKey 0회 |
+| AC6 | ✅ | wait-phase R8a 5종 · startup I11 첫 출력 전 null, c9 red |
+| AC7″ | ✅ | runtime ST-01 · startup I5~I8 · send A2/A3/A6/**A7** · projector P10/P11 |
+| AC8 | ✅ | activityLabel K1 · statusLine 9종 ko 원문 · resources ko/en 파리티/빈 값 |
+| AC9 | ✅ | activityLabel L4~L6 · 기존 격리 준비 우선 케이스 |
+| AC10 | ✅ | activityLabel L7 · statusLine `입력 대기 1건` 병기 |
+| AC11 | ✅ | send A5 비-null 0 · StatusLine.harness Claude 회귀 |
+| AC12 | ✅ | activityLabel L3 · projector P5 idle 단계 억제 |
+| AC13 | ✅ | statusLine stale revision · LOAD_SESSION hydrate/preserve |
+| AC14 | ✅ | EP-08 문서 3곳 rg · doc-inventory prose/links |
+| AC15 | ⚠️ | §19 Windows 실제 OpenCode 4시나리오 미실행 |
+
+검산: `✅ 14 · ⚠️ 1 · ❌ 0 = 총 15`. AC 분모는 15 불변이며 `Criteria-Met: 14/15`는 자기보고다. 독립 검증은 Claude의 다음 단계다.
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 같은 축: 예 — 테스트 조립이 production과 달랐다. 실제 `leaseKeyFor`를 사용하니 재개 키와 논리 lease 키를 구별할 수 있고 H1이 이를 확인한다.
+- 기존 지침·AC: ΔV2 D-014·D-015·EP-04′·A7·N14~N16·H1에 구현 수단이 모두 있다. sweep에서 찾은 F1·F2도 기존 c9·r2 자리의 입력 보강이며 신규 제품 결정은 없다.
+- 환경: Node 24.19.0에서 보관된 SQLite Electron ABI를 Node ABI로 복구했다. Windows 실제 서버/시각 실기는 미실행이다.
+- 라운드·impl 턴: r3. 직전 verify는 2회째 RETURN_TO_PLAN이므로 이번 착수의 의무 review 트리거는 없다. 다음은 Claude의 독립 verify이며 사용자 요청대로 이 구현 브랜치에 push한다.

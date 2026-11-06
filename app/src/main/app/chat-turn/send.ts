@@ -253,7 +253,7 @@ export async function handleChatSend(
   event.sender.once('render-process-gone', abortPreparing)
   const reportWaitPhase = (phase: ChatWaitPhase | null): void => {
     if (activeAdapter.reportsWaitPhases !== true) return
-    activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, phase)
+    activity?.setWaitPhase?.(provisionalKey, phase)
   }
 
   try {
@@ -737,7 +737,7 @@ export async function handleChatSend(
     event.sender.removeListener('destroyed', abortPreparing)
     event.sender.removeListener('render-process-gone', abortPreparing)
     unlinkResponseAbort()
-    activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, null)
+    activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? provisionalKey, null)
     if (!cleanupDone) {
       const key = leaderTurn?.dbSessionId ?? leaderTurn?.queueKey ?? provisionalKey
       for (const batch of initialBatches) {
