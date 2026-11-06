@@ -8,11 +8,14 @@
 | 작성자 | Claude Code (설계) · argon (구현) |
 | 일자 | 2026-11-05 |
 | 매핑 | 브랜치 `ccr-90fb2d84-yf9ksk` |
-| 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` — INHERITED 회귀 출처는 `main@16a1ee8`(`git merge-base --is-ancestor` 확인) |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | READY (ΔV1) |
+| V mode | `Delta V` |
+| 기준 V | `0296:V1@13db37e` — 이 plan의 V1(`git cat-file -t` = commit, `main` 조상). V1의 INHERITED 회귀 출처는 `main@16a1ee8` |
+| 이번 V revision | `ΔV1` — r1 verify RETURN_TO_PLAN 정정(2026-11-06) |
+| 유효 V | `V1 + ΔV1` — ΔV1 절이 충돌하는 V1 행을 대체 |
+| 기준 커밋 | V1 설계 `13db37e` · r1 구현 `c598077`·`dbef1b7`·`aa46653` · r1 verify `16fb6dd`(전부 `git cat-file -t` = commit). 좌표 정본은 INDEX |
+
+> **ΔV1(2026-11-06, r1 verify RETURN_TO_PLAN)**: D-011~D-013을 더한다. AC1·AC4·AC5·AC7을 AC1′·AC4′·AC5′·AC7′가, §10 EP-01(12자리)을 EP-01′(11자리)가, EP-02(7자리)를 EP-02′(10자리)가, MD-01 규칙 칸을 MD-01′가 대체한다. EP-04 a2·a3·a7, EP-05 r7의 직접 oracle을 정정하고 운영 gate 1행을 더한다. 등록 변이 N1~N13을 더한다. 정본은 아래 ΔV1 절이다.
 
 ---
 
@@ -49,12 +52,16 @@
 | D-008 | 단계는 main이 실제 경계를 지날 때만 바뀐다. 경과 시간으로 단계를 추측하지 않는다 | 거짓 진행 금지 — 0211 D-003과 같은 원칙(`chatReducer.ts:350` 주석) | 설계 해석 | ACTIVE | — |
 | D-009 | Orca 쪽 준비 구간(lease 획득 ~ OpenCode 채널의 첫 단계)은 기존 문구 `응답 준비 중…`으로 잇는다 | 채널 시작 전 틈에 `생각 중`이 끼면 D-001의 "첫 응답 조각부터 생각 중"을 어긴다 | 설계 해석 | ACTIVE | — |
 | D-010 | 채널 대기 단계(서버~재시도)는 격리 준비 단계 문구보다 우선한다. `응답 준비 중`·`이전 대화 확인`은 격리 준비 단계보다 뒤다 | 격리 준비 문구는 `session.updated`까지 남는데(`chatReducer.ts:350-352`), 채널 단계는 구조상 격리 준비가 끝난 뒤에만 온다 | 설계 해석 | ACTIVE | — |
+| D-011 | r1 verify 확장 후보 3건을 모두 채택한다. ① `promote`는 승격 전 단계를 새 키로 옮긴다 ② `clear`·`dispose`는 단계 Map을 비운다 ③ retry `attempt`가 1 이상 정수가 아니면 1로 운반한다 | ①은 실제 경로에 있다 — 새 세션 단계가 `queueKey`로 기록된 뒤 `session.updated` rekey(`turn-coordinator.ts:469`)로 승격되고, 옮기지 않으면 다음 전이까지 `생각 중`이 보여 D-001·D-009를 어긴다. ②는 `promote`가 `cleared`를 풀고(`session-activity-projector.ts:120`) `current()`가 dispose 뒤에도 Map을 읽어 관측된다. ③은 코드에 있는 분기다 | 설계 해석(r1 verify 창 안) | ACTIVE | — |
+| D-012 | 채널 `run()` catch의 `waitPhase.end()`(V1 c11)를 지운다. 비움은 finally(c12) 한 곳이 맡는다 | catch(`channel.ts:452-465`)에는 await가 없고 finally 첫 문장이 `end()`(`:468`)라 두 호출이 같은 동기 구간에 있다. projector는 microtask로 flush(`session-activity-projector.ts:187-196`)하므로 스냅샷은 어느 쪽이든 오류 publish 뒤에 나간다 — 단독 제거 변이 c11이 green(r1 verify) | 설계 해석 | ACTIVE | — |
+| D-013 | `PendingAssistantStatus` memo deps는 렌더 테스트가 아니라 `react-hooks/exhaustive-deps` 경고 0 gate로 잠근다 | 렌더러 vitest는 `environment: 'node'`(`vitest.config.ts:8`)이고 렌더 테스트는 `react-dom/server` 정적 렌더라 재렌더가 없다. jsdom·testing-library는 미설치이며 신규 의존성은 사용자 승인 대상이다(`app/AGENTS.md §의존성 정책`). 측정: 기준 경고 0, deps 제거 변이에서 1 | 설계 해석 | ACTIVE | — |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-010(신규 handoff).
 - 변경된 결정: 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 해당 없음(신규).
+- **ΔV1(2026-11-06)**: D-011~D-013 추가(설계 해석 — 사용자 결정 변경 없음). 대체된 결정 0. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-011①↔AC1′(새 세션 단계 연속)·D-011②↔AC7′·D-011③↔AC4′·D-012↔AC7′(I5·I6·I7이 c12만으로 닫힘)·D-013↔VP-13 gate. D-007(Claude 불변)은 a2 정정이 OpenCode 어댑터 플래그만 단언해 유지된다.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC8, D-002↔AC4·AC8, D-003↔AC5·AC8, D-004↔AC6, D-005↔AC3·AC4, D-006↔AC2, D-007↔AC11, D-008↔AC1~AC5(경계 이벤트 입력만), D-009↔AC1(첫 값 `preparing`), D-010↔AC9.
 
 ## 4. 요구 비판적 검토
@@ -222,6 +229,201 @@
 | test budget | 신규 테스트 파일이 시간 값을 쓴다 | `cd app && node scripts/check-test-budgets.mjs` | 신규·수정 테스트의 위반만 |
 | doc inventory | `docs/IPC_CONTRACT.md`·`docs/arch/**` 수정 | `cd app && node scripts/check-doc-inventory.mjs --check` | 같음 |
 | message-bus | 설계·구현·검증 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건이면 blocking |
+
+## ΔV1 — r1 verify RETURN_TO_PLAN 정정 (2026-11-06)
+
+**수정 필요.** r1 verify([`verify.md`](verify.md))는 gate PASS, 제품 결함 재현 0이었다. 그러나 고장 62건 중 16건이 green이었다(이행 8건 · 확장 3 · 동치 3). ΔV1은 다음을 한다.
+
+- 확장 3건을 D-011로 채택한다.
+- 동치 사본 c11을 D-012로 지운다.
+- 이행 결함 자리마다 구별 입력을 oracle 칸에 적는다.
+
+production 변경은 c11 삭제 1줄뿐이다. 나머지는 테스트 공백이다.
+
+| 발견(verify 파생 #) | 근거 | 정정 |
+|---|---|---|
+| #1 c12 단독 제거 green · c11 중복 | 터미널 오류 `return`(`channel.ts:432`)은 c10·c11을 건너뛴다. c11·c12는 같은 동기 구간이다 | D-012 · EP-01′ c12 oracle I7 · N1 |
+| #2 c10 제거 green | 출력 전 중단 → finish 분기 입력 없음 | EP-01′ c10 oracle I8 · N2 |
+| #3 c7 제거 green | `session.command` 경로 입력 없음 | EP-01′ c7 oracle I9 · N3 |
+| #4 c8 root 판정 제거 green | 자식 세션 retry 입력 없음 | AC4′ · EP-01′ c8 oracle I10 · N4 |
+| #5 a2 제거 green | IT-03은 가짜 어댑터 플래그만 주입한다. 귀속은 verify의 VP-06이 아니라 VP-01·VP-12다 — Claude 경로와 무관 | EP-04 a2 oracle(IT-02) · N5 |
+| #6 a3·a7 키 맞바꿈 green | A1~A4가 단계 값만 단언하고 키는 보지 않는다 | AC5′·AC7′ · EP-04 a3·a7 oracle(A4 키·A6) · N6·N7 |
+| #7 r7 memo deps 제거 green | 정적 렌더라 재렌더 없음 | D-013 · 운영 gate `hooks-deps` · N8 |
+| #8 MD-01 `accepted` 비-send 가드 제거 green | 규칙 칸 분기에 UT-01 입력 없음 | MD-01′ · UT-01 R6c·R6d · N9 |
+| #9~#11 확장(promote·clear·attempt) | 시도한 고장 promote·clear·X2 | D-011 · EP-02′ t8~t10 · MD-01′ · UT-01 R7g·R7h · UT-03 P9~P11 · N10a·N10b·N11~N13 |
+
+### ΔV1 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 등록 변이 |
+|---|---|---|---|
+| AT-01 / VP-01 | CHANGED(검증 수단) / REQUIRED | AC1 → AC1′ | N3 · N5 · N6 |
+| AT-03 / VP-03 | CHANGED / REQUIRED | AC4 → AC4′ — 자식 retry 무표시·attempt 정규화를 동작 기준에 올린다 | N4 · N10a · N10b |
+| AT-04 / VP-04 | CHANGED(검증 수단) / REQUIRED | AC5 → AC5′ | N6 · N7 |
+| AT-08 / VP-08 · ST-01 / VP-09 | CHANGED(검증 수단) / REQUIRED | AC7 → AC7′ | N1 · N2 · N7 |
+| AR-01 / VP-10 | CHANGED / REQUIRED | EP-01 → EP-01′(11자리) · IT-01 I7~I10 | N1~N4 |
+| AR-03 / VP-12 | CHANGED(oracle) / REQUIRED | EP-04 a2·a3·a7 oracle | N5~N7 |
+| AR-04 / VP-13 · R-05 / VP-05 | CHANGED(oracle) / REQUIRED | EP-05 r7 oracle → gate `hooks-deps` | N8 |
+| MD-01 / VP-14 | CHANGED / REQUIRED | MD-01 규칙 → MD-01′ · UT-01 R6c·R6d·R7g·R7h | N9 · N10a · N10b |
+| MD-03 / VP-16 | CHANGED / REQUIRED | EP-02 → EP-02′(10자리) · UT-03 P9~P11 | N11 · N12 · N13 |
+| VP-02·06·07·11·15·17~24 | INHERITED / REQUIRED·REGRESSION 그대로 | r1 verify PASS — 좌표는 `verify.md` §5 | V1 그대로 |
+| VP-25 | INHERITED / REQUIRED | 사람 실기 그대로 | — |
+
+- `SUPERSEDED` 이관: AC1·AC4·AC5·AC7은 문장을 그대로 승계하고 검증 수단만 넓힌다(AC4′는 동작 기준 2항 추가). EP-01·EP-02·MD-01 규칙의 V1 등록 변이(M-05a~M-18a)는 그대로 유효하다. M-09a는 c11이 사라져도 정의(c9+c12 동시 제거)가 같다. 폐기 0.
+- 레벨 판정: 새 계약 edge는 없다. D-011①②는 MD-03 내부 상태, ③은 MD-01 규칙, D-012는 EP-01 자리 1개 삭제다.
+- 유효 pair는 VP-01~VP-25 그대로이고 AC는 15개다(4행 대체, 총수 불변).
+
+### 대체 AC (ΔV1)
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC1′ | AC1 그대로 — 서버가 꺼진 새 OpenCode 세션 첫 턴은 `preparing → server → project → session → mcp → send → model → 비움` | AC1 수단 그대로에 세 가지를 더한다. ① IT-01 I9: 슬래시 명령 턴도 `send → model → 비움`이고 `/session/<id>/command` POST가 1회 ② IT-02: 실제 `createOpenCodeAdapter(…)`의 `reportsWaitPhases === true` ③ UT-03 P9: 승격 전 단계가 새 키에서 보인다 | AC1 경로 + `session.command` 분기 + 큐 rekey → projector `promote` |
+| R-03 | AT-03 / AC4′ | AC4 그대로에 두 항을 더한다. ① 자식 세션(`sessionID ≠ root`)의 `retry`는 단계를 바꾸지 않는다 ② `attempt`가 1 이상 정수가 아니면 1로 보인다 | AC4 수단 그대로 + IT-01 I10(자식 retry → 배열에 `retry` 0, 형제 I4는 root retry 1) + UT-01 R7g·R7h | SSE `session.status` → c8 root 판정 → `status()` |
+| R-04 | AT-04 / AC5′ | AC5 그대로 — 런타임 없는 재개에서 이력 확인 동안 `history`, 끝나면 `preparing` | AC5 수단 그대로 + IT-03 A4가 단계 값과 함께 **모든 `setWaitPhase` 첫 인자 = `'session-1'`**(재개 키 = `payload.sessionId`)을 단언 | `resolveTurn` → `onNativeHistory` → `reportWaitPhase` 키 |
+| R-08 | AT-08 / AC7′ | AC7 그대로 — 응답 종료·오류·중단·chain 종료 뒤 단계가 남지 않고, 다음 턴이 이전 단계를 보이지 않는다 | AC7 수단 그대로 + IT-01 I7(터미널 오류 `return` 경로) + I8(출력 전 중단 → finish, 채널이 열린 채로 `null`) + IT-03 A6(실행 중 확정된 `dbSessionId` 키로 chain 끝 `null`) + UT-03 P10·P11(clear·dispose 뒤 잔여 0) | 채널 finish·finally · `send.ts` 바깥 finally · projector `clear`·`dispose` |
+
+- AC 게이트 재확인: 행동 단언은 sink 배열·`setWaitPhase` 인자(키·값)·요청 경로 수·스냅샷 `waitPhase` 유무다.
+- 음성 단언은 양성과 짝이다 — I10(자식 retry 0)은 I4(root retry 1)와, P10·P11(잔여 0)은 P1(설정 시 emit 1)과 같은 파일에서 본다.
+- I9는 명령 요청 1회를 함께 단언한다 — 그렇지 않으면 prompt 경로로 새도 배열이 같다.
+
+### MD-01′ 규칙 (MD-01 규칙 칸 대체)
+
+| 호출 | 규칙 | UT-01 입력 |
+|---|---|---|
+| serverStarting · connected · creatingSession · admitting | V1 그대로(`server`·`project`·`session`·`mcp`) | R1~R4 |
+| sending | `send` + 출력 플래그 초기화 | R5·R6a |
+| accepted | 현재가 `send`이고 출력 전일 때만 `model`. **그 밖(현재 `null`·`project`·`retry`, 또는 출력 뒤)은 무동작** | R6a(send→model) · R6b(출력 뒤) · **R6c**(현재 `project`) · **R6d**(현재 `retry`) |
+| status(retry) | `retry(attempt)`. **`attempt`가 1 이상 정수가 아니면 1** | R7a · R7e · **R7g**(attempt 0) · **R7h**(attempt 2.5) |
+| status(busy) | 현재가 `retry`일 때만: 출력 전 `model` / 출력 뒤 `null` | R7b · R7c · R7d(현재 `send` → 무동작) |
+| status(idle) | 무시 | R7f |
+| observe | 모델 출력 포함이면 `null` + 출력 플래그 | R8a(5종) · R8b(비출력) |
+| end | `null` | R9 |
+| 공통 | 초기값 `null`, 같은 값 재호출 없음, sink 없으면 무동작 | R10 · R11 |
+
+신규 UT-01 입력:
+
+| ID | 입력(호출 순서) | 기대 sink 호출 |
+|---|---|---|
+| R6c | `connected()`, `accepted()` | `[{project}]` |
+| R6d | `sending()`, `status(retry 1)`, `accepted()` | `[{send}, {retry,1}]` |
+| R7g | `status({type:'retry', attempt:0, message:'x', next:1})` | `[{retry,1}]` |
+| R7h | `status({type:'retry', attempt:2.5, message:'x', next:1})` | `[{retry,1}]` |
+
+### ΔV1 §10
+
+| pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 → N | 실패 의미 |
+|---|---|---|---|---|
+| VP-14·VP-10·VP-01~03·VP-08·VP-09 | **EP-01′** 채널 경계 호출 | 아래 EP-01′ 11자리 | V1 EP-01 검색 그대로 → **11**(c11 삭제 뒤) | V1 그대로 |
+| VP-10·VP-16·VP-09 | **EP-02′** 운반·저장 | 아래 EP-02′ 10자리 | V1 EP-02 검색 그대로 — 출력 줄은 t1~t10 중 하나(주석·타입 import 제외) | V1 그대로 + t8 누락 시 승격 순간 `생각 중` · t9·t10 누락 시 해제된 세션·종료 뒤 옛 단계 |
+
+- 분모: EP-01′ 11 + EP-02′ 10 + EP-03 7 + EP-04 7 + EP-05 10 + EP-06 3 + EP-07 3 + EP-08 3 = **54**(V1 52 − 1 + 3).
+- 선언 경계(V1 6건)는 그대로다. "child session retry는 표시하지 않는다"는 이제 AC4′의 동작 기준이다 — 경계가 아니라 I10이 잠근다.
+
+#### EP-01′ — 채널 경계 호출 (11, EP-01 대체)
+
+줄은 `aa46653` 기준이고, c11 삭제 뒤의 줄 이동은 허용한다.
+
+| # | 자리 | 규칙 | 직접 oracle 좌표 | 출처 |
+|---|---|---|---|---|
+| c1 | `channel.ts:333` | V1 그대로 | IT-01 I1 | INHERITED |
+| c2 | `:350` | V1 그대로 | IT-01 I1~I4 · M-10a | INHERITED |
+| c3 | `:357` | V1 그대로 | IT-01 I1·I2 | INHERITED |
+| c4 | `:149` | V1 그대로 | IT-01 I1~I3 | INHERITED |
+| c5 | `:163` | V1 그대로 | IT-01 I1~I3 | INHERITED |
+| c6 | `:295` | V1 그대로 | IT-01 I1~I4 | INHERITED |
+| c7 | `:271` | `session.command` dispatch 직후 `accepted()` | **IT-01 I9** | CHANGED(oracle) |
+| c8 | `:426-427` | **root** `session.status`만 `status()`로 | IT-01 I4(root) + **I10**(자식) | CHANGED(oracle) |
+| c9 | `:429` | V1 그대로 | M-09a · UT-01 R8a 경유 IT-01 I1 | INHERITED |
+| c10 | `:443` | finish 분기 `end()` | **IT-01 I8** | CHANGED(oracle) |
+| c12 | `:468` | `run()` finally `end()` — catch·터미널 `return`·`closed` 경로 공통 | IT-01 I5·I6 + **I7** | CHANGED(oracle) |
+
+신규 IT-01 입력은 `adapter.startup.test.ts`의 `describe('wait phases')`, `waitPhaseFixture`에 둔다.
+
+| ID | 입력 | 기대 |
+|---|---|---|
+| I7 터미널 오류 | `onPrompt`가 root `session.error`(`error.name ≠ 'MessageAbortedError'`)를 송출 | frame에 `error` 이벤트, `phases.at(-1) === null` |
+| I8 출력 전 중단 | `onPrompt` 무송출 → `phases`에 `model` 도달 → `live.interrupt()` → fixture `emit(root session.idle)` | frame에 `turn.aborted`, `live.close()` **전에** `phases.at(-1) === null` |
+| I9 명령 | `/command`가 `native:review`를 돌려주는 fixture에서 text `'/native:review now'` | `phases`가 `[server, project, session, mcp, send, model, null]`, `/session/<id>/command` POST 1회 · `/prompt_async` 0회 |
+| I10 자식 retry | `onPrompt`가 `session.status{sessionID:'child-1', retry 1}`을 먼저 송출한 뒤 root 출력·idle | `phases`에 `kind:'retry'` 0 · 배열 = I1과 같은 7원소 |
+
+#### EP-02′ — 운반·저장 (10, EP-02 대체)
+
+| # | 자리 | 규칙 | 직접 oracle 좌표 | 출처 |
+|---|---|---|---|---|
+| t1 | `turn.ts:216` | V1 그대로 | (타입) — 운반은 t2·t3 좌표가 닫는다 | INHERITED |
+| t2 | `channel.ts:31` | V1 그대로 | IT-01 I1 | INHERITED |
+| t3 | `turn-request.ts:71,132-133` | V1 그대로 | IT-02 · ST-01 | INHERITED |
+| t4 | `session-activity-projector.ts:40,93-99` | `setWaitPhase` 저장(canonicalKey·cleared/disposed 무시·동치 조기 반환) | UT-03 P1·P2·P6·P7 · M-16b | INHERITED |
+| t5 | `:247-248` | V1 그대로 | UT-03 P5 | INHERITED |
+| t6 | `:275`(+`sameWaitPhase` `:259-263`) | V1 그대로 | UT-03 P3·P8 · M-16a | INHERITED |
+| t7 | `ipc.ts:1705` | V1 그대로 | (타입) — 운반은 ST-01 | INHERITED |
+| t8 | `:139-141` `promote` | 원천 키의 단계를 대상 키로 옮기고 원천을 지운다 | **UT-03 P9** | NEW |
+| t9 | `:154` `clear` | 단계 Map에서 지운다 | **UT-03 P10** | NEW |
+| t10 | `:170` `dispose` | 단계 Map을 비운다 | **UT-03 P11** | NEW |
+
+신규 UT-03 입력(lease stub의 foreground는 `streaming`):
+
+| ID | 입력 | 기대 |
+|---|---|---|
+| P9 | `setWaitPhase('client-1',{session})` → `promote('client-1','s1')` | `current('s1').waitPhase.kind === 'session'` |
+| P10 | `setWaitPhase('s1',{model})` → `clear('s1')` → `promote('client-2','s1')` | `current('s1').waitPhase` 부재 |
+| P11 | `setWaitPhase('s1',{model})` → `dispose()` | `current('s1').waitPhase` 부재 |
+
+#### EP-04·EP-05 oracle 정정
+
+| 자리 | 규칙(V1 그대로) | 정정한 직접 oracle 좌표 |
+|---|---|---|
+| a2 `adapter.ts:33` | `OpenCodeAdapter.reportsWaitPhases = true` | IT-02(`opencode-runtime.test.ts`)에서 실제 `createOpenCodeAdapter(…)` 결과의 `reportsWaitPhases === true`. 이 플래그가 켜졌을 때의 gate 동작은 IT-03 A1이 맡는다(edge 대응: 실제 어댑터 → 플래그 / 플래그 → `preparing`) |
+| a3 `send.ts:254-260` 키 | `leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey` | 분기별 입력: 새 세션 → A1 `preparing` 키 `'new:1'` · 재개 → A4 모든 호출 키 `'session-1'` |
+| a7 `send.ts:740` 키 | 같은 키 식 | 분기별 입력: 새 세션 미확정 → A2·A3 마지막 `null` 키 `'new:1'` · 재개 → A4 `'session-1'` · **A6**: 새 세션에서 `runTurnWithContinuations` mock이 `turn.dbSessionId = 's-new'`로 확정 → `preparing` 키 `'new:1'`, 마지막 `null` 키 `'s-new'` |
+| r7 `PendingAssistantStatus.tsx:18,29` | `activityView`에 `waitPhase` + memo deps | 렌더는 IT-04 그대로(M-13a). deps는 `gate:hooks-deps`(아래) |
+
+### ΔV1 운영 gate (V1 표에 추가)
+
+| Gate | 적용 이유 | 명령 | 실패 범위 |
+|---|---|---|---|
+| hooks-deps | EP-05 r7 memo deps(D-013) — `npm run lint`는 warning을 exit 0으로 낸다 | `cd app && ./node_modules/.bin/eslint --no-fix --max-warnings 0 src/renderer/src/features/chat/components/transcript/PendingAssistantStatus.tsx` | exit ≠ 0이면 blocking. 측정(`aa46653`): 기준 exit 0 · N8 적용 시 exit 1 |
+
+### ΔV1 등록 변이
+
+| ID | 자리 | 종류 | 바꾼 내용 | 잡아야 할 oracle |
+|---|---|---|---|---|
+| N1 | `channel.ts` finally `waitPhase.end()` | 제거 | finally 첫 문장 삭제 | IT-01 I5·I6·I7 |
+| N2 | `channel.ts:443` | 제거 | finish 분기 `waitPhase.end()` 삭제 | IT-01 I8 |
+| N3 | `channel.ts:271` | 제거 | command 경로 `waitPhase.accepted()` 삭제 | IT-01 I9 |
+| N4 | `channel.ts:426` | 제거 | `&& event.properties.sessionID === sessionId` 삭제 | IT-01 I10 |
+| N5 | `adapter.ts:33` | 제거 | `readonly reportsWaitPhases = true as const` 삭제 | IT-02 플래그 단언 |
+| N6 | `send.ts:256` | 다른 값 | 키 식 → `provisionalKey` | IT-03 A4 |
+| N7 | `send.ts:740` | 다른 값 | 키 식 → `provisionalKey` | IT-03 A4·A6 |
+| N8 | `PendingAssistantStatus.tsx:29` | 제거 | deps의 `activity.activityWaitPhase,` 삭제 | `gate:hooks-deps` |
+| N9 | `wait-phase.ts` `accepted` | 제거 | `this.current?.kind !== 'send' \|\|` 삭제 | UT-01 R6c·R6d |
+| N10a | `wait-phase.ts` `status` | 다른 값 | 폴백 `: 1` → `: 0` | UT-01 R7g |
+| N10b | `wait-phase.ts` `status` | 제거 | `Number.isInteger(status.attempt) &&` 삭제 | UT-01 R7h |
+| N11 | `projector.ts:140` | 제거 | `if (waitPhase) this.waitPhases.set(target, waitPhase)` 삭제 | UT-03 P9 |
+| N12 | `projector.ts:154` | 제거 | `clear`의 `this.waitPhases.delete(sessionId)` 삭제 | UT-03 P10 |
+| N13 | `projector.ts:170` | 제거 | `dispose`의 `this.waitPhases.clear()` 삭제 | UT-03 P11 |
+
+### ΔV1 구현 지시
+
+| 대상 | 변경 |
+|---|---|
+| `channel.ts` | catch의 `waitPhase.end()` 1줄 삭제(D-012) — 그 밖 production 변경 없음 |
+| `wait-phase.test.ts` | R6c·R6d·R7g·R7h |
+| `adapter.startup.test.ts` `describe('wait phases')` | I7~I10 |
+| `opencode-runtime.test.ts` IT-02 | 실제 어댑터 `reportsWaitPhases === true` |
+| `send.wait-phase.test.ts` | A1~A4에 키 단언, A6 신규 |
+| `session-activity-projector.test.ts` | P9~P11 |
+| gate | `hooks-deps` 실행 결과를 `[구현자 기입] 구현 보고`에 |
+| 기록 | `[구현자 기입]` r2 절 — 강제 지점 표는 54자리 전부, 등록 변이 N1~N13 + V1 M-* 결과, EP-01′ 검색 11줄 차집합 |
+
+### ΔV1 self-review
+
+- D-011~D-013을 ACTIVE로 더했다. 대체한 결정은 없다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모에 적었다(충돌 0).
+- 확장 후보 3건은 모두 채택했다(경계 0). 지금이 verify 1회째 뒤라 창 안이다.
+- 이행 결함 8건은 oracle 칸에 입력을 적어 구현자가 발명할 것을 없앴다. 원인은 V1 plan의 입력 칸이 규칙·자리 칸보다 좁았던 것이다(c7·c8·c10·c12·a3·a7·MD-01 accepted).
+- 대체 AC 4행은 AC 게이트를 다시 통과했다. 행동 단언·검증 수단·도달 경로가 있고, 음성 단언(I10·P10·P11)은 양성 짝(I4·P1)과 같은 파일에 있다. I9는 경로 요청 수를 함께 본다.
+- 자리 목록을 다시 셌다. EP-01 검색은 `aa46653`에서 12줄이고 c11 삭제 뒤 11이다. EP-02 검색 출력은 t1~t10에 모두 귀속된다(projector `:40·93-99·139-141·154·170·247-248·275`). 차집합은 0이다.
+- 측정한 것: c11 단독 제거 green(r1 verify), `hooks-deps` 기준 0 → N8 1(이번 턴 실행). N1~N7·N9~N13의 red는 구현 뒤 측정 대상이다.
+- 사람 실기(§19)는 그대로다.
 
 ---
 
@@ -702,3 +904,5 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 | 9 | VP-16 · promote | 확장 | `promote`가 승격 전 단계를 새 키로 옮기는지 | PLAN_GAP |
 | 10 | VP-16 · clear | 확장 | `clear` 후 Map 잔여(관측 동일) | PLAN_GAP |
 | 11 | VP-14 · status | 확장 | 비정상 `retry.attempt` 폴백 | PLAN_GAP |
+
+- ΔV1 처리(2026-11-06): #1~#8은 BLOCKING 그대로 — ΔV1이 자리별 입력(I7~I10 · A4 키·A6 · IT-02 플래그 · `hooks-deps` · R6c·R6d)을 oracle 칸에 적었고 구현자가 r2에서 닫는다. #1의 c11은 D-012로 삭제한다. #9~#11은 D-011로 채택했다(P9~P11 · R7g·R7h) — PLAN_GAP 해소.
