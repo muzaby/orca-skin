@@ -1,0 +1,4 @@
+id	결과	exit	요약
+R7-C080	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+R7-C122	red (기대 일치)	1	node --test fail 4 · KD10c — import 이름공간 멤버 → 경계; KM07a — 원천이 lib 전역 → 경계; KM07b — 원천이 콜백 매개변수 → 경계
+R7-S-literal-swap	red (기대 일치)	1	node --test fail 7 · KM02 — 키 없음 → 숫자 아님; 노드 종류 표 (0294 ΔV4); KD05g — 원천 = 키 없는 객체 리터럴 → KM02 숫자 아님

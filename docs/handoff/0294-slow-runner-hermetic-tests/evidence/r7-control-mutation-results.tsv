@@ -1,0 +1,8 @@
+id	결과	exit	요약
+S-KD15-scope	red (기대 일치)	1	node --test fail 1 · 실제 저장소가 계약을 지킨다; CLI
+M1	red (기대 일치)	1	node --test fail 1 · 케이스·훅 예산 = 20_000 × 배율, setup 파일을 건다; vitest.config.ts 배선 (0294 AC1·AC2·AC4)
+M52-1	green (기대 일치)	0	[test-budgets] 16 real-git suites ok · all budget sites scaled
+M2	red (기대 일치)	1	node --test fail 1 · waitFor 옵션 네 갈래 — 미지정·숫자·timeout 있는 객체·timeout 없는 객체; 환산 (0294 AC1~AC3)
+M71a	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+M71-1	green (기대 일치)	0	[test-budgets] 16 real-git suites ok · all budget sites scaled
+M71-2	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites

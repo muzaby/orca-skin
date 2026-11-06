@@ -12,12 +12,12 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-03 (V1) · 2026-11-04 (ΔV1 · ΔV2) · 2026-11-05 (ΔV3 · ΔV4 · ΔV5 · ΔV6) |
 | 매핑 | 기준 커밋 `origin/main@eed9741`(`git cat-file -t` = commit, 설계 시점 `HEAD`와 같음) · 브랜치 `ccr-f9f698c1-9uk3t7`(V1·r1) · `ccr-b2546271-j0m668`(r1 검증·ΔV1) · `ccr-6090e66f-p61jwm`(r2·r2 검증·ΔV2 — 같은 커밋 사슬, 좌표는 INDEX) · `ccr-8246f22f-rxq1zj`(ΔV3·ΔV4) |
-| 상태 | plan/READY (ΔV6 — verify r5 D10 KD05 문장 정합 · D11 창 안 확장 채택. 이 턴 뒤 열거 동결. 다음 구현 r6: D9 + ΔV6 칸) |
+| 상태 | impl/IMPL_DONE (ΔV6 r7 — D9·D12~D16 구현 조치, 다음 Claude 독립 검증) |
 | V mode | `Baseline V + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
 | 기준 V | `none` — 테스트 인프라 신규 계약이며 상속할 V가 없다. ΔV1~ΔV6는 이 handoff의 V1 위 증분이다 |
 | 이번 V revision | `ΔV6` — verify r5 D10(D-019 문장으로 KD05 정정 — 구조 분해 값 = 같은 원천의 멤버 읽기 판정) · D11(창 안 마지막 확장 채택 — KD01·KD02·KD15 "변수" = 이름 바인딩 · for 머리 대입 대상). D9는 이행 결함(r6가 고친다). 칸 94 · 입력 411(§7-G). `ΔV5` — verify r4 D7(KD05 원천 멤버 입력 칸 정합 — 이행 결함은 r5가 고친다) · D8(ΔV4 창 안 확장 채택 — KD15·KM10·KM11, 경계 L12·L13). 칸 94 · 입력 368(§7-F). `ΔV4` — 사용자 결정(2026-11-05): (H′) 해석을 식 노드 종류 표 91칸으로 고정하고 값 자리는 fail-closed(판정 불가 + `UNRESOLVED_ALLOWED`). ΔV3 R1~R8·L01~L11은 supersede(§7-E). ΔV3는 plan 내부 정합: EP-12b 규칙 칸 ↔ UT 입력 칸을 분기 목록 169행으로 고정 · B7↔P9 충돌 해소(R4) · 용어 범위 R1~R8과 선언 경계 L01~L11. 구 행은 supersede(§7-D). ΔV2는 r2 D2·D3 정정(§7-C), ΔV1은 r1 D1 정정(§7-B) |
 | 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
-| 구현 주체 | r5 Claude(비기능 — 테스트 인프라) · r4 Codex(사용자 `handoff-impl 294` 명시 호출) · r1~r3 Claude |
+| 구현 주체 | r7 Codex(사용자 명시 호출) · r6 Claude · r5 Claude(비기능 — 테스트 인프라) · r4 Codex(사용자 `handoff-impl 294` 명시 호출) · r1~r3 Claude |
 | 측정 증거 | [`evidence/`](evidence/) — 재현 스크립트. 수치는 아래 §8이 정본 |
 
 ---
@@ -2144,14 +2144,14 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 | D7 | KD05 칸에 표에 없는 결과 `숫자 아님` — `test-budget-bindings.mjs:495` `out.length ? out : one('nonnum', 'KD05', node)`. 구조 분해 원천이 호출(`const { ms } = getOpts()`)·`await`·for-of(`for (const { ms } of cases)`)·배열 요소면 값 자리가 통과한다(Q1~Q4 위반 0, 같은 값의 멤버 형태 Q1c·Q3c는 red). `'nonnum'`→`'red'` 변이에 UT 537/537 green(K1) | VP-12d · AC7f · EP-12d KD05 "후보마다 KV"·KD04 · [verify r4](verify.md) r4-13 | 빈 후보는 원천 식의 KV 판정(호출 → KF05 · `await` → KV14 · for-of → KD04 · import → KD10 경계)으로 · Q1~Q4·Q5·Q6을 UT 입력으로(`evidence/verify-r4-probes.mjs`) | BLOCKING | **closed** (verify r5 — M53 red · `verify-r4-probes.mjs` 13 불일치 0 · KD05b~e·h·i 단언). 이력: ΔV5 §7-F가 KD05 분류 칸을 풀어 적고 입력 KD05b~k를 뒀다 |
 | D8 | KM06·KD01 칸이 D-018 주어(같은 파일 선언 그래프)보다 좁다 — 생성자 대입 `this.ms = 5000`(속성 초기값 500)과 구조 분해 대입 `({ ms } = { ms: 5000 })`이 위반 0(Q8·Q9). 트리 자리 0 | VP-12d · AC7f · D-018 · EP-12d KM06·KD01 · [verify r4](verify.md) r4-13 | 설계자가 두 형태를 칸으로 채택하거나 경계로 선언(ΔV4 창 안 — verify 1회째) | PLAN_GAP | **closed** (verify r5 — KM10a·KD15c 단언 · M55~M60 red). 이력: ΔV5 채택(D-019 · §7-F), 경계 L12·L13 |
 | N2 | `createBindings` 반환의 `values`·`sources`·`argumentsFor`·`importAliases` 외부 소비 0 | 역방향 탐색 · [verify r4](verify.md) r4-3 | 다음 구현이 거둘 수 있다 | NON_BLOCKING | open |
-| D9 | KD05 빈 후보에서 원천 후보가 리터럴과 호출로 섞이면 `test-budget-bindings.mjs:603-607` `sources(origin).some(리터럴)`이 KM02 숫자 아님을 낸다 — `let r = {}; r = getOpts(); const { ms } = r`(R7) · `const { ms } = cond ? {} : getOpts()`(R8) 위반 0, 같은 원천 멤버 읽기 R7c·R8c는 KM08. `.some`→`.every` 변이에 UT 709/709 green(K2) | VP-12e · AC7g · EP-12e KD05 "원천 식을 KM 표로 … 그 밖(호출…)은 KM08" · [verify r5](verify.md) r5-13 | 원천 후보마다 KM 판정 · R7·R8을 UT 입력으로(`evidence/verify-r5-probes.mjs`) | BLOCKING | **open 유지(verify r6 재개방)** — R7·R8 계열 형태는 r6가 KM08로 판정(G01~G03 현재 코드 기대와 같음)하나 ② 인용 변이 K2 원문이 green(`:635` 잔여 경로)이고 마지막 후보만 판정하는 변이 sv39도 green(호출이 항상 마지막 · 리터럴 후보 500 < `DEADLINE_MIN_MS` 1000). 닫힘 조건: `evidence/verify-r6-gap-inputs.mjs` G01·G01m·G02·G03·G03m 입력. **review round 43 판정 정정**: K2 원문은 재앵커 M63 red + 원문 줄이 열거 밖 형태만 운반 → 확장(E1), 닫힘 조건에서 뺀다 |
+| D9 | KD05 빈 후보에서 원천 후보가 리터럴과 호출로 섞이면 `test-budget-bindings.mjs:603-607` `sources(origin).some(리터럴)`이 KM02 숫자 아님을 낸다 — `let r = {}; r = getOpts(); const { ms } = r`(R7) · `const { ms } = cond ? {} : getOpts()`(R8) 위반 0, 같은 원천 멤버 읽기 R7c·R8c는 KM08. `.some`→`.every` 변이에 UT 709/709 green(K2) | VP-12e · AC7g · EP-12e KD05 "원천 식을 KM 표로 … 그 밖(호출…)은 KM08" · [verify r5](verify.md) r5-13 | 원천 후보마다 KM 판정 · R7·R8을 UT 입력으로(`evidence/verify-r5-probes.mjs`) | BLOCKING | **구현 조치(r7), 검증 대기** — G01·G01m·G02·G03·G03m, sv39 red 5 |
 | D10 | D-019 "KD05 '원천 멤버'는 원천 식을 KM 표로 판정한 결과" ↔ §7-F KD05 칸 "후보마다 KV. 후보가 없으면 원천 식을 KM 표로" — 후보가 있을 때 멤버 대입 우변(KM10)·증감(KM11)·비리터럴 원천이 드는지 갈린다. `o.ms = 5000; const { ms } = o`(R5) · `o.ms++` 뒤 구조 분해(R6) · 키 있는 리터럴 + 호출 혼합(R7b·R8b) 위반 0, 멤버 읽기 대조는 위반 1. 트리 자리 0 | VP-12e · AC7g · D-019 · EP-12e KD05 · [verify r5](verify.md) r5-13 | 설계자가 한 문장으로 정하고 KD05 칸·입력을 고친다 | PLAN_GAP | **closed**(verify r6 — R5·R6·R7b·R8b = KD05n~v 단언 · M62 red 6 · 짝 행 KD05nm·pm·rm 대칭). 이력: ΔV6 정정(D-020 (a)) |
 | D11 | KD02·KD15 판정이 변수 선언만 본다 — `let { ms } = { ms: 500 }` 뒤 `ms++`·`ms += 4500`(R2·R2c) · 매개변수 `ms++`(R3) · `for ({ ms } of …)`(R4) 위반 0. 트리 자리 0 | VP-12e · AC7g · D-018·D-019 · EP-12e KD02·KD15 · [verify r5](verify.md) r5-13 | 설계자가 항목마다 채택 또는 경계 선언(ΔV4 창 안 마지막 — 이 설계 턴 뒤 열거 동결) | PLAN_GAP | **closed**(verify r6 — R2·R2c·R3·R4 = KD15h·KD02b·KD15i·KD15m 단언 · M65·M66a/b·M67·M68·M69a/b·M70 red). 이력: ΔV6 채택(D-020 (b)) |
-| D12 | KM10 칸 "원천 사슬에 매개변수·**구조 분해 요소**의 대입 우변이 든다" — UT 입력 KM10n은 매개변수뿐. `expand` 구조 분해 요소의 대입 우변 사슬 제거(sv17, `:369`)가 UT 623/623 green. 코드는 기대대로(G04 `1/0/-`) | VP-12f · AC7h · EP-12f KM10 · [verify r6](verify.md) r6-13 | `evidence/verify-r6-gap-inputs.mjs` G04·G04m을 입력 칸에 더한다 | BLOCKING | open |
-| D13 | KD05 칸 "배열 패턴 `원천[i]`와 같은 KM 판정" — 배열 패턴 × 멤버 쓰기(KM10·KM11) 입력 없음. 배열 패턴 키 제거(sv28, `:699`) green. 코드는 기대대로(G05·G06) | VP-12f · AC7h · EP-12f KD05 · [verify r6](verify.md) r6-13 | G05·G05m·G06·G06m | BLOCKING | open |
-| D14 | KD05 칸 "호출부 없는 매개변수 KD08(기본값은 후보로 남는다)" — 호출부 없는 구조 분해 매개변수 + 기본값 입력 없음. `!out.length &&` 제거(sv14, `:579`) green. 코드는 기대대로(G07) | VP-12f · AC7h · EP-12f KD05 · [verify r6](verify.md) r6-13 | G07·G07b·G07c | BLOCKING | open |
-| D15 | 덮개 회귀: r5에서 red이던 C035(`:333` `bindingElementSources` 중첩 분기 제거)가 green — 2단 중첩 값이 `memberJudgments`로 옮겨 구 장치가 닿지 않는다. 3단 중첩 값은 변이에서 `1/0/-` → `0/0/-`(거짓 통과) | VP-12f · AC7h · 하한 ④ · EP-12f KD05 "(중첩 포함)"·"바깥 패턴의 원천 멤버" · [verify r6](verify.md) r6-13 | G08·G08b·G09·G10 | BLOCKING | open |
-| D16 | `[구현자 기입]` 강제 지점 표가 VP-07b·09c의 §10(EP-01·02·03·04·06 34자리)을 담지 않고, "설계 대비 차이"("중첩 패턴의 원천 없음만 폴백에 남는다")가 계측과 다르며(411행 중 도달 1행 `rest.ms` · 도달 형태 = 나머지 요소 값·계산 키), 잠금 표 검산 줄에 합계 T가 없다. 정정(review round 43): 잠금 표에 ΔV6 정정 칸 sweep 행이 0이다(§7-G 요구 미수행) | 현재 산출물 운영 gate · SKILL §9 · §7-G | r7 `[구현자 기입]`에서 표 복원 · 서술 정정 · 검산 줄 · sweep 행(impl §3 diff 자리 절차) | BLOCKING(경미) | open |
+| D12 | KM10 칸 "원천 사슬에 매개변수·**구조 분해 요소**의 대입 우변이 든다" — UT 입력 KM10n은 매개변수뿐. `expand` 구조 분해 요소의 대입 우변 사슬 제거(sv17, `:369`)가 UT 623/623 green. 코드는 기대대로(G04 `1/0/-`) | VP-12f · AC7h · EP-12f KM10 · [verify r6](verify.md) r6-13 | `evidence/verify-r6-gap-inputs.mjs` G04·G04m을 입력 칸에 더한다 | BLOCKING | **구현 조치(r7), 검증 대기** — G04·G04m, sv17 red 1 |
+| D13 | KD05 칸 "배열 패턴 `원천[i]`와 같은 KM 판정" — 배열 패턴 × 멤버 쓰기(KM10·KM11) 입력 없음. 배열 패턴 키 제거(sv28, `:699`) green. 코드는 기대대로(G05·G06) | VP-12f · AC7h · EP-12f KD05 · [verify r6](verify.md) r6-13 | G05·G05m·G06·G06m | BLOCKING | **구현 조치(r7), 검증 대기** — G05·G05m·G06·G06m, sv28 red 2 |
+| D14 | KD05 칸 "호출부 없는 매개변수 KD08(기본값은 후보로 남는다)" — 호출부 없는 구조 분해 매개변수 + 기본값 입력 없음. `!out.length &&` 제거(sv14, `:579`) green. 코드는 기대대로(G07) | VP-12f · AC7h · EP-12f KD05 · [verify r6](verify.md) r6-13 | G07·G07b·G07c | BLOCKING | **구현 조치(r7), 검증 대기** — G07·G07b·G07c, sv14 red 1 · C108 재앵커 red 1 |
+| D15 | 덮개 회귀: r5에서 red이던 C035(`:333` `bindingElementSources` 중첩 분기 제거)가 green — 2단 중첩 값이 `memberJudgments`로 옮겨 구 장치가 닿지 않는다. 3단 중첩 값은 변이에서 `1/0/-` → `0/0/-`(거짓 통과) | VP-12f · AC7h · 하한 ④ · EP-12f KD05 "(중첩 포함)"·"바깥 패턴의 원천 멤버" · [verify r6](verify.md) r6-13 | G08·G08b·G09·G10 | BLOCKING | **구현 조치(r7), 검증 대기** — G08·G08b·G09·G10, C035 red 3 |
+| D16 | `[구현자 기입]` 강제 지점 표가 VP-07b·09c의 §10(EP-01·02·03·04·06 34자리)을 담지 않고, "설계 대비 차이"("중첩 패턴의 원천 없음만 폴백에 남는다")가 계측과 다르며(411행 중 도달 1행 `rest.ms` · 도달 형태 = 나머지 요소 값·계산 키), 잠금 표 검산 줄에 합계 T가 없다. 정정(review round 43): 잠금 표에 ΔV6 정정 칸 sweep 행이 0이다(§7-G 요구 미수행) | 현재 산출물 운영 gate · SKILL §9 · §7-G | r7 `[구현자 기입]`에서 표 복원 · 서술 정정 · 검산 줄 · sweep 행(impl §3 diff 자리 절차) | BLOCKING(경미) | **구현 조치(r7), 검증 대기** — 강제 지점 103/103 표 복원 · 폴백 서술 정정 · 정정 칸 제거/맞바꿈 · 추적 394행 검산 |
 | E1~E4 | 확장 후보 — 계산 키 구조 분해 0/0/- ↔ `o[k]` KM09 · `emptyDestructuring` 잔여 경로(sv36·C122·S-KD05-literal·K2 원문 — round 43 정정) · 구조 분해 사슬 재귀 상한 후퇴(800~1200 → 200~300단) · 소유 대조 `.some`·나머지 요소 제외·키 없음 반환 입력 없음 · 홀더 분기 중복 | D-020 주어보다 칸이 좁음 · 트리 0 | INDEX 후보 표 0294 행 | NEXT_HANDOFF(확장) | 후보 표 |
 | N3 | PR #530 브랜치 CI run 41986312686(head `cc72b80`) `discovery-cache.test.ts:123` 경쟁 단언 red | 비귀속 · [verify r5](verify.md) r5-3 | — (`app/src` diff 0 · 같은 코드 `main` run 41986335666 success) | NON_BLOCKING | open |
 
@@ -2469,3 +2469,131 @@ ORCA_TEST_TIME_SCALE / vars → test-time.mjs → config·setup·픽스처·테�
 - 막았어야 할 지침: D-019 "원천 멤버 = 원천 식의 KM 판정"과 r5 구현의 "후보가 있으면 생략"이 어긋났다(D10).
 - 반복 환경 한계: 변이의 `occ`·앵커가 구현 경로에 묶여 있어 경로를 바꿀 때마다 재앵커가 필요하다(r5 SKIP 7).
 - 현재 라운드·impl 턴: **r6**, 구현자 Claude. 다음 verify는 6회째(창 밖 — 이행·현재 결함만 막는다).
+
+
+## [구현자 기입] 설계 리뷰 (r7 — ΔV6 이행 결함)
+
+동의 / 그대로 진행. 유효 V는 `V1 + ΔV1~ΔV6`이며 REQUIRED는 VP-12f·01f, REGRESSION은 VP-09c·07b·13이다. review round 43의 r6 판정 정정을 적용해 D9·D12~D16을 처리하고, E1~E4는 후보 표에 둔다.
+
+- 기준선: G01~G10의 18입력은 수정 전에도 불일치 0이었다. 이번 변경은 `check-test-budgets.test.mjs`의 단언 18개이며 해석기·제품 코드·Decision·AC·V·§10 규범 행은 변경하지 않았다.
+- 불변식: 원천 후보의 순서·배열/객체 패턴·기본값 유무·중첩 깊이가 달라도 §7-G가 정한 같은 값은 같은 판정을 받고, 해당 분기를 없애면 테스트가 실패한다.
+- 이견 / 현실성 문제: 없음. r6 탐침 G08~G10의 이슈 번호 `D16`은 검증 판정 표의 `D15`로 표기했다(입력·기대는 동일).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r7
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07b·09c EP-01 | 전역 케이스·훅 | 2 | 2/2 | `scripts/test-time.test.mjs:케이스·훅 예산 = 20_000 × 배율, setup 파일을 건다`; M1 red | 배율 1·3·5의 test/hook 각각 | — |
+| 같음 EP-02 | waitFor wrapper | 1 | 1/1 | 같은 파일 `waitFor 옵션 네 갈래`; M2 red | 무옵션·숫자·객체 timeout 유/무, interval 보존 | — |
+| 같음 EP-03 | 파일 예산 | 20 | 20/20 | `r7-regression-mutation-results.tsv`의 EP03 각 자리 red; gate (F) | 그 자리의 `scaledBudget`만 제거 | 검색 21 − 목록 20 = 기존 hostile 1(r1부터 보고, 이번 diff 0) |
+| 같음 EP-04 | 케이스 인라인 | 6 | 6/6 | 같은 TSV의 EP04 6자리 red; gate (F) | 각 `scaleMs` 인자를 리터럴로 복귀 | — |
+| 같음 EP-06 | 실-git 상한·kill·rm | 3 | 3/3 | `test-time.test.mjs:상한·kill 유예·rm 재시도 간격이 기준값 × 배율이다`; M6·EP06-KILL·EP06-RM | 600_000·5_000·200을 따로 관측 | — |
+| VP-07b·09c EP-05b | 테스트 소유 마감 | 62 | 62/62 | gate의 deadline 62 = 독립 스캔 62, 파일:줄·형태·값 양방향 차집합 0줄; EP05-01~62 red | scaled 24 · semantic 38 | — |
+| VP-12f EP-12f | P1~P9 · 칸 94 · 고정 입력 411 | 9 | 9/9 | `check-test-budgets.test.mjs` 641/641; dv3·dv4·dv5·dv6 불일치 각 0 | 원문 169+163+36+43 · 이번 G 입력 18 | — |
+| VP-09c EP-13 | 판정 불가 허용 목록 | 0항목 | 0/0 | `--report` UNRESOLVED/allowed 0; M71a red, M71-1 green, M71-2 red | 같은 파일·KD15의 count 1/2 구별 | — |
+
+- 분모는 **103자리** = EP-01·02·03·04·06의 **32** + EP-05b 62 + EP-12f 9 + EP-13 0이다. r6 verify의 "34자리"는 같은 목록의 산술 오기이며 2+1+20+6+3=32로 보고한다.
+- 기존 고정 입력 411과 추가 입력 18을 구분한다. 추가 입력은 기존 규칙 칸의 이행이며 규범 행·AC 분모 21은 그대로다.
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-12f | REQUIRED | SELF_PASS | 위 EP-12f + G01~G10, M62~M70, 원천별 diff sweep | D9·D12~D15의 인용 변이 5개 red |
+| VP-09c | REGRESSION | SELF_PASS | gate exit 0, 독립 스캔 대조 0줄, KA·M71 count 분기 | Windows 현재 head 결과는 아래 AC9에 별도 남김 |
+| VP-07b | REGRESSION | SELF_PASS | EP-01~06 위 행, `test-time.test.mjs` | 예산 자리별 변이 재실행 |
+| VP-01f | REQUIRED | SELF_PASS | AC1~8 단위·배선·게이트, VP-12f·09c | 하위 구현 결함 0 |
+| VP-13 | REGRESSION | SELF_BLOCKED | 제품·vitest 입력 경로 diff 0, 로컬 전체 실행은 아래 관측 | 현재 head의 Windows CI 확인 대기 |
+| VP-02~06·08·10·11 | NOT_REQUIRED | — | 이전 verify 좌표 승계; 이번 경로 diff 0 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r7
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| sv39 마지막 원천만 판정 | D9 · KD05 "원천 후보마다" | green | G01·G01m·G02·G03·G03m, fail 5 | 잠김 |
+| sv17 구조 분해 요소의 대입 우변 원천 제거 | D12 · KM10 | green | G04, fail 1 | 잠김 |
+| sv28 배열 패턴 키 제거 | D13 · KD05 배열 × KM10·KM11 | green | G05·G06, fail 2 | 잠김 |
+| sv14 후보가 있어도 KD08 경계로 반환 | D14 · KD05 기본값 | green | G07, fail 1 | 잠김 |
+| C035 중첩 원천 분기 제거 | D15 · 덮개 회귀 | r5 red → r6 green | G08·G09·G10, fail 3 | 잠김 |
+| C108r@r6occ3 KD08 경계 → red | D14 구별 입력 | green | G07c, fail 1 | 개선 — 의도한 green 대조도 과잉 판정을 잡음 |
+| M62~M70 (M66·M69 분할) | ΔV6 선택 증거 | red | `r7-diff-mutation-results.tsv` 11행 | 유지 |
+| r6 diff 자리 제거·형제 맞바꿈 | §7-G 정정 칸 sweep · D16 | 분기 4곳 미잠금 | 같은 TSV의 sv01~sv39 및 분할 행 | 아래 분류대로 기록 |
+| R7-KM10-swap | KM10 후보 ↔ KM11 red | 신규 | KM10f·g·h 등 fail 12 | 잠김 |
+| r6 재앵커 16행 | 이전 경로의 같은 종류 고장 | red 14 · 동치 2 | 같은 TSV의 R6-* | 원문과 새 경로를 구분 |
+| C080·C122·키 없는 리터럴 재앵커 | 전위 단항 KV16 · 멤버 읽기 KM07 | 옛 occ가 다른 분기로 이동 | `r7-reanchor-mutation-results.tsv` | 옛 위치의 green은 E1/기존 설명 유지 |
+| r6 `잡음` 306행 | 기존 sweep·선택 증거 | red | `r7-regression-mutation-results.tsv` | 전체 oracle 재확인은 control 표 참조 |
+| M1·M2·S-KD15-scope·M52-1·M71a·M71-1/2 | 선택 증거·허용 목록 대조 | — | `r7-control-mutation-results.tsv` | 자식 프로세스 허용 환경에서 확인 |
+
+- ΔV6 정정 칸의 제거/맞바꿈: KD05 = sv13·sv32 / M63·sv35; KD01/02/15 = sv12·sv15·sv07~10 / sv07b~10b·M68; KM11 = R6-C120r-a/b / sv21·sv21b; KM08 = R6-S-red / sv35; KM10 = sv17·sv26 / R7-KM10-swap. 잡은 ID는 TSV의 요약 열에 있다.
+- `emptyDestructuring` 잔여 경로의 K2 원문·계산 키·나머지 요소와 소유 대조 입력(E1·E3)은 이번 의무가 아니다. 의도한 green·동치와, 반드시 red여야 하는 이행 행을 구분했다.
+- 최종 물리 실행/분모 검산: 선택 증거 18(ΔV6 11 + control 7) · 인용 변이 5 · 새 구조 oracle 0 · sweep/승계 371(나머지 diff 62 + 승계 306 + 재앵커 3) = **추적 표 394행**([r7-locks.tsv](evidence/r7-locks.tsv)). 물리 394회 = red 377 · green 17. 좁힌 oracle의 green 1(S-KD15-scope)은 원 oracle 재실행에서 red이고, C108r@r6occ3은 기존 green에서 red로 개선됐다. 다른 green은 선언된 경계·동치·정상 count 대조다..
+
+## [구현자 기입] Product/UX 파생 검토 — r7
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 변경은 Node 테스트의 이름·입력·단언이다 | — |
+| 실패·로딩·빈 상태·취소·재시도 | 제품 경로 diff 0; 게이트의 기존 판정 불가·처방·허용 목록 출력 유지 | — |
+| 늦은 응답·부분 실패·조용한 실패 | 비동기 제품 코드 변경 0; 변이 실패는 TAP의 케이스명과 exit로 관측 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r7
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 좁힌 mutation 실행 집합에서는 S-KD15-scope를 잡던 CLI 테스트가 빠졌다 | 원 oracle 전체를 control에서 재실행해 red 확인 | `실제 저장소가 계약을 지킨다`, fail 1 |
+| 2 | 제한 실행에서 자식 Node가 EPERM으로 시작하지 못하면 CLI 진입·config 테스트의 red가 거짓 근거가 된다 | 표준 scripts gate와 M1·M2를 자식 실행이 허용된 환경에서 재실행 | scripts 774/774; M1·M2의 직접 케이스 red |
+| 3 | r6 "중첩 패턴 원천 없음만 폴백" 설명이 틀렸다 | r6 원문을 이력으로 두고 정정한다 — 계산 키·나머지 요소 값도 `emptyDestructuring`에 닿음 | verify r6 계측·E1. 이번 해석기 diff 0 |
+| 4 | E1~E4 · N2 · N3 | 기존 비차단 finding 유지; 규범 범위를 늘리지 않음 | INDEX 후보 표·r6 판정 정정 |
+
+### 설계 대비 명시적 차이
+
+메커니즘 대체 없음. G 입력 18개는 r6 probe의 코드·기대를 복사했으며 D15의 이슈 표기만 정정했다. 판정은 생산 검사기의 `analyzeScale`을 직접 호출한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 타이머·캐시 구현 변경 0 | — |
+| 공유 | 해당 없음 — 새 배열은 describe의 읽기 전용 입력, 판정은 호출별 생성 | G 18/18 |
+| 재진입 | 해당 없음 — 생산 해석기·memo/busy 변경 0 | 고정 411입력 기대 유지 |
+| 다른 무효화 | 해당 없음 — 설정·저장소·배선 변경 0 | 경로 diff 0 |
+
+## [구현자 기입] 구현 보고 (r7)
+
+| 항목 | 내용 |
+|---|---|
+| 구현 주체 | Codex — 사용자 `handoff-impl 294` 호출로 r7 승계 |
+| 변경 | `app/scripts/check-test-budgets.test.mjs` +18케이스; handoff 보고·증거·INDEX. 생산 해석기·제품·의존성·워크플로 변경 0 |
+| 정적 gate | lint 0 error · 기존 renderer warning 2, typecheck node/web/test 3종 통과, 변경 테스트 prettier 통과 |
+| Node gate | `node --test --test-reporter=tap scripts/*.test.mjs` **774/774**, suites 34; 관련 파일 직접 실행 641/641 |
+| 계약 탐침 | dv3 169 · dv4 163 · dv5 36 · dv6 43 · G 18, 불일치 각 0 |
+| 예산·문서 | 16 real-git suites ok; report 90행(deadline 62 · setConfig 21 · case 6); UNRESOLVED 0; 독립 스캔 차집합 0줄; doc inventory prose·links ok |
+| 전체 앱 회귀 | 전체 8,499: pass 8,063 · fail 341 · skip 95. SQLite ABI 315실패는 Node 재빌드 후 35파일 338/338로 해소; 나머지 26은 변경 전 HEAD의 동일 13파일(145케이스, pass 119 · fail 26)에서 재현했으며 실패 집합 양방향 차집합 0이다. 상세 [r7-gates.json](evidence/r7-gates.json) · [실패 목록](evidence/r7-vitest-failures.json) |
+| 남은 확인 | AC9 현재 head Windows CI · AC12/13 Linux hostile 결과 한계 · AC18 사내 Windows 사람 실기 |
+| 대상 커밋 | `(r7 구현 — 검증자 기입)` |
+
+| AC | 자기보고 | 이번 턴 관측 / 직접 좌표 |
+|---|---|---|
+| AC1·AC2 | ✅ | `test-time.test.mjs` config 배율·M1 |
+| AC3 | ✅ | 같은 파일 waitFor 네 갈래·M2, 기존 배선 입력 경로 diff 0 |
+| AC4 | ✅ | 같은 파일 배율 해석·잘못된 config/vitest 시작 실패; scripts 774/774 |
+| AC5 | ✅ | EP03 자리별 wrapper 제거 red; report의 기존 추가 hostile 1은 위에 공개 |
+| AC6 | ✅ | EP04 6자리 리터럴 복귀 red |
+| AC7c | ✅ | deadline 62 = 독립 스캔, 파일:줄·형태·값 차집합 0줄 |
+| AC7h | ✅ | 고정 411·추가 18 기대 일치; D9·D12~D15 인용 변이 red; 정정 칸 sweep |
+| AC8 | ✅ | 픽스처 상수 단언; M6·EP06-KILL·RM |
+| AC9 | ⚠️ | 워크플로 단위 테스트 통과; 현재 head Windows CI 대기 |
+| AC10 | ✅ | `test-host.test.mjs` 키·플랫폼 분기; scripts 774/774 |
+| AC11 | ✅ | 기존 test-environment 배선 경로 diff 0; 전체 실행 관측은 위 행 |
+| AC12·AC13 | ⚠️ | hostile 자식의 bootstrap.native-history Linux plugin 단언 실패로 exit 0·사후 HOME 불변을 이번 환경에서 닫지 못함. 관련 경로 diff 0이며 r6 CI 좌표는 유지 |
+| AC14 | ✅ | worktrees/service 테스트 경로 diff 0; 전체 실행 관측은 위 행 |
+| AC15 | ✅ 승계 | 배포 소비·포크 경로 diff 0; r6 verify 좌표 유지 |
+| AC16 | ✅ | 제품·전체 vitest 입력 경로 diff 0; 아래 전체 회귀 관측 |
+| AC17 | ✅ | loopback-callback 경로 diff 0; 전체 실행 관측은 위 행 |
+| AC18 | ⚠️ | 사내 Windows 백신·디스크 지연 실기 대기 |
+| AC19·AC19e | ✅ | 기존 문서·노드 표 참조·이름 바인딩 정의 유지, doc-inventory --check prose·links ok |
+
+검산: `✅ 17 · ⚠️ 4(AC9·AC12·AC13·AC18) · ❌ 0 = 총 21`. 분모 21 유지. r6의 충족 수 19에서 AC12/13의 이번 환경 관측 한계 2를 분리했다. `Criteria-Met: 17/21`은 구현자 자기보고이며 독립 verify를 대신하지 않는다.
+
+## [구현자 기입] Review Signals — 사실만 (r7)
+
+- 같은 축: 예 — 규칙 칸이 적은 분기보다 UT 입력이 좁았다. G01~G10 단언 18개가 sv39·sv17·sv28·sv14·C035를 실제로 red로 바꿨다.
+- 막았어야 할 지침: §7-G의 "원천 후보마다"·"배열 패턴"·"기본값은 후보"·"구조 분해 요소 대입 우변"·"중첩 포함" 및 impl §3 sweep. 규범 변경은 필요 없었다.
+- 반복 환경 한계: 제한 실행의 자식 Node EPERM은 권한 조정 후 해소; 현재 Windows CI·AC18 사람 실기는 남음.
+- 라운드·impl 턴: **r7**, 구현자 Codex. review round 43으로 r6 뒤 의무 review는 완료됐으며 다음은 Claude의 독립 verify다.
