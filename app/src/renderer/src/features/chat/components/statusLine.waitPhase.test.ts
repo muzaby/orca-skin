@@ -46,6 +46,19 @@ function renderStatusWithSession(session: typeof initialChatState): string {
 }
 
 describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT-04)', () => {
+  it('does not invent a wait phase before receiving an activity snapshot', () => {
+    const html = renderStatusWithSession({
+      ...initialChatState,
+      sessionId: 's1',
+      backend: 'opencode',
+      activityForeground: 'streaming',
+      turnStartedAt: 1
+    })
+
+    expect(html).toContain('생각 중')
+    expect(html).not.toContain('OpenCode 서버를 시작하는 중…')
+  })
+
   it('renders the exact Korean text for all 9 ChatWaitPhase variants and falls back to 생각 중 when cleared', () => {
     const cases: Array<{ phase: ChatWaitPhase; expected: string }> = [
       { phase: { kind: 'preparing' }, expected: '응답 준비 중…' },
