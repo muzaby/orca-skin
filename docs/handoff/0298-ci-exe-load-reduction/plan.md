@@ -511,6 +511,17 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 | 기본 동작 | 미설정 분기 = r1 구조(AC4 UT 그대로 green) — `ci.yml`·`npm test` 는 변수를 설정하지 않는다 |
 | 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
 
+## [구현자 기입] 구현 보고 (r1.3 — ΔV3, 사용자 요구 변경 턴)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 | `summarize-vitest-report.mjs`·`.test.mjs` 삭제(D-009) · 모드 `workers2` 삭제·`io-sqlite` group 1(D-010) · `test-time.test.mjs`가 `ORCA_TEST_IO_MODE`를 지움(현재 결함 선조치) · 워크플로 vitest 기본 reporter·Summary 단계 삭제·반복 `[1,2]` |
+| 강제 지점 | EP-8′ 5/5 + 같은 group 같은 `maxWorkers` — `test-pools.test.mjs` 'io 실측 모드' 6케이스 · 로컬 `ORCA_TEST_IO_MODE=sqlite-serial node --test scripts/test-time.test.mjs` 12/12 |
+| 로컬 실측 | `ORCA_TEST_IO_MODE=parallel-shared`(제외 전): 179파일 988건 실패 · import 39.8초 |
+| 게이트 | lint 0 error · typecheck 0 · `node --test` 전체 green · doc-inventory |
+| AC 자기보고 | AC11′ ✅ · AC12′ ⚠️ 실행 대기 — `✅ 9 · ⚠️ 3 · ❌ 0 = 총 12` |
+| 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
