@@ -19,8 +19,6 @@ export declare const IO_MODE_ENV: string
 export declare const IO_MODES: readonly string[]
 export declare function resolveIoMode(env?: Record<string, string | undefined>): string | undefined
 export declare function buildProjects(input: {
-  platform: string
-  ci: string | undefined
   io: string[]
   ioSqlite?: string[]
   base: { setupFiles: string[] } & Record<string, unknown>

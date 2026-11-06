@@ -84,30 +84,26 @@ describe('buildProjects — 환경별 필드', () => {
     buildProjects({ platform, ci, io: ['src/a.test.ts'], base, exclude: ['**/node_modules/**'] })
   const byName = (projects) => Object.fromEntries(projects.map((p) => [p.test.name, p.test]))
 
-  test('Windows + CI=true: io 만 maxWorkers 1, unit 은 미지정', () => {
-    const { unit, io } = byName(make('win32', 'true'))
-    assert.equal(io.maxWorkers, 1)
-    assert.equal(unit.maxWorkers, undefined)
-  })
   for (const [platform, ci] of [
+    ['win32', 'true'],
     ['linux', 'true'],
     ['win32', undefined],
-    ['win32', 'false']
+    ['linux', undefined]
   ]) {
-    test(`${platform} + CI=${ci}: 둘 다 미지정(기본 병렬)`, () => {
+    test(`${platform} + CI=${ci}: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4)`, () => {
       const { unit, io } = byName(make(platform, ci))
       assert.equal(io.maxWorkers, undefined)
       assert.equal(unit.maxWorkers, undefined)
+      assert.equal(io.sequence.groupOrder, 0)
+      assert.equal(unit.sequence.groupOrder, 0)
     })
   }
-  test('unit = threads·가드 setup·group 0, io = forks·group 1', () => {
+  test('unit = threads·가드 setup, io = forks', () => {
     const { unit, io } = byName(make('linux', undefined))
     assert.equal(unit.pool, 'threads')
     assert.equal(io.pool, 'forks')
     assert.deepEqual(unit.setupFiles, ['./scripts/vitest-setup.mjs', UNIT_GUARD_SETUP])
     assert.deepEqual(io.setupFiles, ['./scripts/vitest-setup.mjs'])
-    assert.equal(unit.sequence.groupOrder, 0)
-    assert.equal(io.sequence.groupOrder, 1)
   })
   test('unit 은 전체에서 io 를 빼고, io 는 io 목록만', () => {
     const { unit, io } = byName(make('linux', undefined))
@@ -148,15 +144,20 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
     assert.throws(() => resolveIoMode({ ORCA_TEST_IO_MODE: 'fast' }), /ORCA_TEST_IO_MODE=fast/)
     assert.deepEqual(IO_MODES, ['serial', 'sqlite-serial', 'parallel'])
   })
-  test('미설정: Windows CI 에서도 기본 구조(io 1워커·unit 뒤) — 리눅스에서는 직렬이 아니다', () => {
-    assert.deepEqual(make(undefined, 'win32', 'true').io, {
-      include: io,
-      maxWorkers: 1,
-      group: 1,
-      pool: 'forks',
-      isolate: undefined
-    })
-    assert.equal(make(undefined, 'linux', 'true').io.maxWorkers, undefined)
+  test('미설정 = parallel: Windows CI 에서도 io 기본 워커·unit 과 같은 그룹 (ΔV4)', () => {
+    for (const [platform, ci] of [
+      ['win32', 'true'],
+      ['linux', undefined]
+    ]) {
+      assert.deepEqual(make(undefined, platform, ci), make('parallel', platform, ci))
+      assert.deepEqual(make(undefined, platform, ci).io, {
+        include: io,
+        maxWorkers: undefined,
+        group: 0,
+        pool: 'forks',
+        isolate: undefined
+      })
+    }
   })
   test('serial: 플랫폼과 무관하게 io 1워커·unit 뒤', () => {
     assert.deepEqual(make('serial').io, {
