@@ -555,7 +555,8 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 | 강제 지점 | EP-2 io.maxWorkers·io.groupOrder 2/2 — `test-pools.test.mjs` '직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0' 4환경 · '미설정 = parallel' |
 | 잠금 | `mutate.py` 3행(미설정 io 1워커 · group 1 · 미설정 분기 분리) 전부 red, 원복 확인 |
 | 게이트 | lint 0 error · typecheck 0 · `node --test` 815/815 · test-budgets · doc-inventory · Linux vitest 161초, 실패 9파일 22건 = 기준선 |
-| AC 자기보고 | AC4′ ✅ · AC8′ ⚠️ PR CI 대기 — `✅ 10 · ⚠️ 3 · ❌ 0 = 총 13` (분모 12 → 13: AC8′ 추가) |
+| PR Windows CI | run 42233452074 green — Test 5:10(node --test 26.1초 포함) · 같은 브랜치 직전 직렬 기본값 run 42209145424 Test 5:43 · 단일 표본(러너 편차 큼) |
+| AC 자기보고 | AC4′ ✅ · AC8′ ✅ run 42233452074 green — `✅ 11 · ⚠️ 2 · ❌ 0 = 총 13` (분모 12 → 13: AC8′ 추가) |
 | 대상 커밋 | `(r1.4 구현 — 좌표는 INDEX)` |
 
 ## [검증자 기입] 파생 이슈
