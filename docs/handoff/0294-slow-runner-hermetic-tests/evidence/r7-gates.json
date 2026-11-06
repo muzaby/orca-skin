@@ -1,0 +1,105 @@
+{
+  "runtime": "Node 24.19.0 / Linux",
+  "commands": {
+    "npm run lint": {
+      "exit": 0,
+      "errors": 0,
+      "warnings": 2,
+      "warning_files": [
+        "src/renderer/src/features/chat/components/Timeline.tsx",
+        "src/renderer/src/features/chat/hooks/useTranscriptVirtualizer.ts"
+      ]
+    },
+    "npm run typecheck": {
+      "exit": 0,
+      "configurations": [
+        "node",
+        "web",
+        "test"
+      ]
+    },
+    "node --test --test-reporter=tap scripts/*.test.mjs": {
+      "exit": 0,
+      "tests": 774,
+      "pass": 774,
+      "fail": 0,
+      "suites": 34
+    },
+    "node scripts/check-test-budgets.test.mjs": {
+      "exit": 0,
+      "tests": 641,
+      "pass": 641,
+      "fail": 0,
+      "suites": 20
+    },
+    "node scripts/check-test-budgets.mjs --report": {
+      "exit": 0,
+      "setConfig": 21,
+      "case": 6,
+      "deadline": 62,
+      "scaled": 24,
+      "semantic": 38,
+      "unresolved": 0,
+      "real_git_suites": 16
+    },
+    "deadline independent scan diff": {
+      "exit": 0,
+      "lines": 0,
+      "columns": [
+        "file:line",
+        "form",
+        "value"
+      ]
+    },
+    "node scripts/check-doc-inventory.mjs --check": {
+      "exit": 0,
+      "prose": "ok",
+      "links": "ok"
+    },
+    "prettier --check scripts/check-test-budgets.test.mjs": {
+      "exit": 0
+    },
+    "vitest run --maxWorkers=2 (full)": {
+      "numTotalTests": 8499,
+      "numPassedTests": 8063,
+      "numFailedTests": 341,
+      "numPendingTests": 95
+    },
+    "ensure-sqlite-abi.mjs node": {
+      "exit": 0,
+      "observation": "rebuilt dependencies successfully; [sqlite-abi] node: rebuilt"
+    },
+    "vitest ABI failure files recheck": {
+      "files": 35,
+      "numTotalTests": 338,
+      "numPassedTests": 338,
+      "numFailedTests": 0,
+      "numPendingTests": 0
+    },
+    "vitest baseline failure files recheck": {
+      "files": 13,
+      "numTotalTests": 145,
+      "numPassedTests": 119,
+      "numFailedTests": 26,
+      "numPendingTests": 0,
+      "only_current": [],
+      "only_baseline": []
+    }
+  },
+  "mutations": {
+    "physical": 394,
+    "red": 377,
+    "green": 17,
+    "diff": 78,
+    "regression": 306,
+    "controls": 7,
+    "reanchor": 3,
+    "subset_oracle_recheck": "S-KD15-scope green under subset; red under original full oracle",
+    "improved": "C108r@r6occ3 now red (G07c)"
+  },
+  "pending": [
+    "AC9 current-head Windows CI",
+    "AC12/13 Linux hostile environment observation",
+    "AC18 Windows corporate-host manual run"
+  ]
+}

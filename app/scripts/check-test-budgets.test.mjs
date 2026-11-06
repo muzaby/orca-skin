@@ -3787,3 +3787,165 @@ describe('노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)', () => {
     })
   }
 })
+
+// r7 — verify r6 D9·D12~D15: §7-G 규칙 칸의 분기 입력과 C035 덮개 회귀를 잠근다.
+describe('규칙 칸 분기 잠금 (0294 ΔV6 r7)', () => {
+  const vc = (code) => {
+    const out = analyzeScale('a.test.ts', code, [], [])
+    const red = out.filter((line) => line.includes('판정 불가'))
+    const ids = red.map((line) => line.match(/판정 불가 ([A-Z]{2}\d+[a-z]?)/)?.[1] ?? '?').sort()
+    return `${out.length}/${red.length}/${ids.join(',') || '-'}`
+  }
+  const IMP = (name) => `import { ${name} } from './o'\n`
+  const rows = [
+    [
+      'G01',
+      'D9',
+      'KD05 "원천 후보마다" — 호출 → 빈 리터럴 재대입(호출이 먼저)',
+      `${IMP('getOpts')}let r = getOpts()\nr = {}\nconst { ms } = r\nsetTimeout(f, ms)`,
+      '1/1/KM08',
+      'sv39 마지막 후보만 판정'
+    ],
+    [
+      'G01m',
+      'D9',
+      '짝: 같은 원천 멤버 읽기',
+      `${IMP('getOpts')}let r = getOpts()\nr = {}\nsetTimeout(f, r.ms)`,
+      '1/1/KM08',
+      'sv39'
+    ],
+    [
+      'G02',
+      'D9',
+      'KD05 "원천 후보마다" — 조건식 역순(호출 | 빈 객체)',
+      `${IMP('getOpts')}const { ms } = cond ? getOpts() : {}\nsetTimeout(f, ms)`,
+      '1/1/KM08',
+      'sv39'
+    ],
+    [
+      'G03',
+      'D9',
+      'KD05 "원천 후보마다" — 호출 → 키 있는 리터럴(5000) 재대입: 위반 1 + 판정 불가',
+      `${IMP('getOpts')}let r = getOpts()\nr = { ms: 5000 }\nconst { ms } = r\nsetTimeout(f, ms)`,
+      '2/1/KM08',
+      'sv39'
+    ],
+    [
+      'G03m',
+      'D9',
+      '짝: 같은 원천 멤버 읽기',
+      `${IMP('getOpts')}let r = getOpts()\nr = { ms: 5000 }\nsetTimeout(f, r.ms)`,
+      '2/1/KM08',
+      'sv39'
+    ],
+    [
+      'G04',
+      'D12',
+      'KM10 "원천 사슬에 구조 분해 요소의 대입 우변이 든다"',
+      `let { o } = { o: { ms: scaleMs(500) } }\no = { ms: 5000 }\nsetTimeout(f, o.ms)`,
+      '1/0/-',
+      'sv17 expand 구조 분해 요소 대입 우변 제거'
+    ],
+    [
+      'G04m',
+      'D12',
+      '대조: 일반 변수 대입 뒤 멤버 읽기(KM10 기존)',
+      `let o = { ms: scaleMs(500) }\no = { ms: 5000 }\nsetTimeout(f, o.ms)`,
+      '1/0/-',
+      '—'
+    ],
+    [
+      'G05',
+      'D13',
+      'KD05 "배열 패턴 원천[i]" + KM10 멤버 대입 우변',
+      `const arr = [scaleMs(500)]\narr[0] = 5000\nconst [ms] = arr\nsetTimeout(f, ms)`,
+      '1/0/-',
+      'sv28 배열 패턴 키 제거'
+    ],
+    [
+      'G05m',
+      'D13',
+      '짝: 같은 원천 멤버 읽기',
+      `const arr = [scaleMs(500)]\narr[0] = 5000\nsetTimeout(f, arr[0])`,
+      '1/0/-',
+      'sv28'
+    ],
+    [
+      'G06',
+      'D13',
+      'KD05 "배열 패턴 원천[i]" + KM11 증감 red',
+      `const arr = [scaleMs(500)]\narr[0]++\nconst [ms] = arr\nsetTimeout(f, ms)`,
+      '1/1/KM11',
+      'sv28'
+    ],
+    [
+      'G06m',
+      'D13',
+      '짝: 같은 원천 멤버 읽기',
+      `const arr = [scaleMs(500)]\narr[0]++\nsetTimeout(f, arr[0])`,
+      '1/1/KM11',
+      'sv28'
+    ],
+    [
+      'G07',
+      'D14',
+      'KD05 "호출부 없는 매개변수 KD08(기본값은 후보로 남는다)" — 기본값 5000이 후보',
+      `function run({ ms = 5000 }) { setTimeout(f, ms) }`,
+      '1/0/-',
+      'sv14 후보가 있어도 KD08 bound'
+    ],
+    [
+      'G07b',
+      'D14',
+      '구별: 기본값 scaleMs — 위반 0',
+      `function run({ ms = scaleMs(500) }) { setTimeout(f, ms) }`,
+      '0/0/-',
+      'sv14'
+    ],
+    [
+      'G07c',
+      'D14',
+      '구별: 기본값 없음 → KD08 bound, 위반 0',
+      `function run({ ms }) { setTimeout(f, ms) }`,
+      '0/0/-',
+      '—'
+    ],
+    [
+      'G08',
+      'D15',
+      'KD05 "(중첩 포함)" — 3단 중첩 값: 바깥 패턴의 원천 멤버가 두 번 이어진다',
+      `const { a: { b: { ms } } } = { a: { b: { ms: 5000 } } }\nsetTimeout(f, ms)`,
+      '1/0/-',
+      'C035 bindingElementSources 중첩 분기 제거'
+    ],
+    [
+      'G08b',
+      'D15',
+      '구별: 3단 중첩 값 scaleMs — 위반 0',
+      `const { a: { b: { ms } } } = { a: { b: { ms: scaleMs(500) } } }\nsetTimeout(f, ms)`,
+      '0/0/-',
+      'C035'
+    ],
+    [
+      'G09',
+      'D15',
+      'KD05 "원천 식 = 바깥 패턴의 원천 멤버" — 중첩 요소를 원천으로 멤버 읽기',
+      `const { a: { b } } = { a: { b: { ms: 5000 } } }\nsetTimeout(f, b.ms)`,
+      '1/0/-',
+      'C035'
+    ],
+    [
+      'G10',
+      'D15',
+      '중첩 요소를 원천으로 구조 분해 읽기',
+      `const { a: { b } } = { a: { b: { ms: 5000 } } }\nconst { ms } = b\nsetTimeout(f, ms)`,
+      '1/0/-',
+      'C035'
+    ]
+  ]
+  for (const [id, issue, rule, code, expected] of rows) {
+    test(`${id} — ${issue}: ${rule}`, () => {
+      assert.equal(vc(code), expected)
+    })
+  }
+})

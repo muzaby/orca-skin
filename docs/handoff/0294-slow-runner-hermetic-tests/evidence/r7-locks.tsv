@@ -1,0 +1,395 @@
+집합	id	결과	exit	관측
+diff	C080@r6occ3	green (기대 일치)	0	node --test fail 0
+diff	C081r@r6occ1	green (기대 일치)	0	node --test fail 0
+diff	C108r@r6occ3	red (기대 green)	1	node --test fail 1 · G07c — D14: 구별: 기본값 없음 → KD08 bound, 위반 0; 규칙 칸 분기 잠금 (0294 ΔV6 r7)
+diff	C122@r6occ7	green (기대 일치)	0	node --test fail 0
+diff	sv01	red (기대 일치)	1	node --test fail 1 · KD15o — for-in 머리 식별자 대입 대상; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv02	red (기대 일치)	1	node --test fail 3 · KD15m — for-of 머리 구조 분해 대입 대상; KD15n — for-of 머리 식별자 대입 대상; KM11e — for-of 머리 멤버 대입 대상
+diff	sv03	green (기대 일치)	0	node --test fail 0
+diff	sv04	green (기대 일치)	0	node --test fail 0
+diff	sv05	red (기대 일치)	1	node --test fail 2 · KD05v — catch 구조 분해 — 기본값이 있어도 KD13; KD13b — catch 구조 분해 요소의 증감 → KD13 우선; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv05b	red (기대 일치)	1	node --test fail 3 · KD05h — catch 구조 분해 변수 → KD13; 노드 종류 표 정정 (0294 ΔV5); KD05v — catch 구조 분해 — 기본값이 있어도 KD13
+diff	sv06	green (기대 일치)	0	node --test fail 0
+diff	sv07	red (기대 일치)	1	node --test fail 1 · KD02b — 구조 분해 선언 요소의 복합 대입; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv07b	red (기대 일치)	1	node --test fail 1 · KD02b — 구조 분해 선언 요소의 복합 대입; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv08	red (기대 일치)	1	node --test fail 2 · KD02c — 매개변수 복합 대입; KD02d — 매개변수 복합 + 증감 → KD02 우선; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv08b	red (기대 일치)	1	node --test fail 2 · KD02c — 매개변수 복합 대입; KD02d — 매개변수 복합 + 증감 → KD02 우선; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv09	red (기대 일치)	1	node --test fail 2 · KD15h — 구조 분해 선언 요소의 증감; KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv09b	red (기대 일치)	1	node --test fail 2 · KD15h — 구조 분해 선언 요소의 증감; KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv10	red (기대 일치)	1	node --test fail 1 · KD15i — 매개변수 증감; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv10b	red (기대 일치)	1	node --test fail 1 · KD15i — 매개변수 증감; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv11	red (기대 일치)	1	"node --test fail 2 · KD05z — 기본값 + 원천 키 없음 → 기본값만 후보; 노드 종류 표 정정 (0294 ΔV6); G07 — D14: KD05 ""호출부 없는 매개변수 KD08(기본값은 후보로 남는다)"" — 기본값 5000이 후보"
+diff	sv12	red (기대 일치)	1	node --test fail 2 · KD01c — 구조 분해 선언 요소 = 대입 우변이 후보; KD01d — 구조 분해 매개변수 요소 ??= 대입 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv13	red (기대 일치)	1	node --test fail 15 · KD05l — 원천 변수 후보 = 빈 리터럴 + 호출(재대입) → 호출 후보가 KM08; KD05m — 원천 = 조건식(빈 객체 | 호출) → KM08; KD05n — 원천 변수 후보 = 키 있는 리터럴 + 호출 → 리터럴 값과 KM08 둘 다
+diff	sv14	red (기대 일치)	1	"node --test fail 1 · G07 — D14: KD05 ""호출부 없는 매개변수 KD08(기본값은 후보로 남는다)"" — 기본값 5000이 후보; 규칙 칸 분기 잠금 (0294 ΔV6 r7)"
+diff	sv15	red (기대 일치)	1	node --test fail 2 · KD01b — 매개변수 = 대입 우변이 후보; KD01e — 호출부 없는 매개변수 + 대입 → 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv16	red (기대 일치)	1	node --test fail 1 · KM10n — 매개변수 대입 우변이 원천 사슬에 든다; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv17	red (기대 일치)	1	"node --test fail 1 · G04 — D12: KM10 ""원천 사슬에 구조 분해 요소의 대입 우변이 든다""; 규칙 칸 분기 잠금 (0294 ΔV6 r7)"
+diff	sv18	red (기대 일치)	1	node --test fail 5 · KM06a — this.이름 → 같은 클래스 속성 초기값; KM06b — this.이름 — 배율 초기값; 노드 종류 표 (0294 ΔV4)
+diff	sv19	red (기대 일치)	1	node --test fail 4 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10c — this 멤버 — 초기값 없는 선언 + 대입; KM10d — this 멤버 — 화살표 안 대입(같은 this)
+diff	sv20	red (기대 일치)	1	node --test fail 2 · KM06d — this 멤버 — 선언·대입 모두 없음 → KM06 그대로; 노드 종류 표 정정 (0294 ΔV5); KD05t — this 원천 — 선언·대입 모두 없음 → KM06
+diff	sv21	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+diff	sv21b	red (기대 일치)	1	node --test fail 6 · KM11b — 객체 멤버 증감; KM11c — 객체 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+diff	sv22	red (기대 일치)	1	node --test fail 2 · KM08c — 원천이 enum 선언 → red; 노드 종류 표 (0294 ΔV4); KM08d — 나머지 요소 선언의 멤버 읽기 → KM08
+diff	sv23	green (기대 일치)	0	node --test fail 0
+diff	sv24	green (기대 일치)	0	node --test fail 0
+diff	sv25	red (기대 일치)	1	node --test fail 32 · V18 — B5 단축 속성 멤버; V19 — B6 객체 리터럴 멤버 — 속성 접근; V20 — B6 객체 리터럴 멤버 — 요소 접근
+diff	sv26	red (기대 일치)	1	node --test fail 11 · KM10f — 객체 멤버 — 속성 대입; KM10g — 객체 멤버 — 리터럴 키 요소 대입; KM10h — 객체 멤버 — ??= 대입
+diff	sv27	green (기대 일치)	0	node --test fail 0
+diff	sv28	red (기대 일치)	1	"node --test fail 2 · G05 — D13: KD05 ""배열 패턴 원천[i]"" + KM10 멤버 대입 우변; G06 — D13: KD05 ""배열 패턴 원천[i]"" + KM11 증감 red; 규칙 칸 분기 잠금 (0294 ΔV6 r7)"
+diff	sv29	green (기대 일치)	0	node --test fail 0
+diff	sv30	red (기대 일치)	1	node --test fail 13 · KD05l — 원천 변수 후보 = 빈 리터럴 + 호출(재대입) → 호출 후보가 KM08; KD05m — 원천 = 조건식(빈 객체 | 호출) → KM08; KD05n — 원천 변수 후보 = 키 있는 리터럴 + 호출 → 리터럴 값과 KM08 둘 다
+diff	sv31	red (기대 일치)	1	node --test fail 1 · KD05y2 — 매개변수 원천: 리터럴 호출 + 호출 결과 호출 → 호출 결과가 KM08; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+diff	sv32	red (기대 일치)	1	node --test fail 1 · KD05r — 중첩 패턴 — 안쪽 원천 멤버 대입 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv33	red (기대 일치)	1	node --test fail 2 · KD05s — this 원천 — 같은 클래스 대입 우변이 후보; KD05t — this 원천 — 선언·대입 모두 없음 → KM06; 노드 종류 표 정정 (0294 ΔV6)
+diff	sv34	red (기대 일치)	1	node --test fail 2 · KD05f — 원천 = import → KM07 경계; 노드 종류 표 정정 (0294 ΔV5); KM07b — 경계 원천(import) 구조 분해 → KM07 경계, 위반 0
+diff	sv35	red (기대 일치)	1	node --test fail 1 · KM08e — 함수 참조 원천 구조 분해 → 그 밖이라 KM08; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+diff	sv36	green (기대 일치)	0	node --test fail 0
+diff	sv37	green (기대 일치)	0	node --test fail 0
+diff	sv38	red (기대 일치)	1	node --test fail 10 · KD05l — 원천 변수 후보 = 빈 리터럴 + 호출(재대입) → 호출 후보가 KM08; KD05lm — 짝: 같은 원천 멤버 읽기; KD05m — 원천 = 조건식(빈 객체 | 호출) → KM08
+diff	sv39	red (기대 일치)	1	"node --test fail 5 · G01 — D9: KD05 ""원천 후보마다"" — 호출 → 빈 리터럴 재대입(호출이 먼저); G01m — D9: 짝: 같은 원천 멤버 읽기; G02 — D9: KD05 ""원천 후보마다"" — 조건식 역순(호출 | 빈 객체)"
+diff	M62	red (기대 일치)	1	node --test fail 9 · KD05n — 원천 변수 후보 = 키 있는 리터럴 + 호출 → 리터럴 값과 KM08 둘 다; KD05o — 원천 = 조건식(키 있는 객체 | 호출) → KM08; KD05p — 원천 객체 멤버 대입 우변이 후보(후보 있음)
+diff	M63	red (기대 일치)	1	node --test fail 9 · KD05l — 원천 변수 후보 = 빈 리터럴 + 호출(재대입) → 호출 후보가 KM08; KD05m — 원천 = 조건식(빈 객체 | 호출) → KM08; KD05n — 원천 변수 후보 = 키 있는 리터럴 + 호출 → 리터럴 값과 KM08 둘 다
+diff	M64	red (기대 일치)	1	node --test fail 11 · KM10f — 객체 멤버 — 속성 대입; KM10g — 객체 멤버 — 리터럴 키 요소 대입; KM10h — 객체 멤버 — ??= 대입
+diff	M65	red (기대 일치)	1	node --test fail 3 · KD15h — 구조 분해 선언 요소의 증감; KD02b — 구조 분해 선언 요소의 복합 대입; KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상
+diff	M66a	red (기대 일치)	1	node --test fail 2 · KD01b — 매개변수 = 대입 우변이 후보; KD01e — 호출부 없는 매개변수 + 대입 → 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+diff	M66b	red (기대 일치)	1	node --test fail 2 · KD01c — 구조 분해 선언 요소 = 대입 우변이 후보; KD01d — 구조 분해 매개변수 요소 ??= 대입 우변이 후보; 노드 종류 표 정정 (0294 ΔV6)
+diff	M67	red (기대 일치)	1	node --test fail 4 · KD15m — for-of 머리 구조 분해 대입 대상; KD15n — for-of 머리 식별자 대입 대상; KD15o — for-in 머리 식별자 대입 대상
+diff	M68	red (기대 일치)	1	node --test fail 2 · KD13b — catch 구조 분해 요소의 증감 → KD13 우선; KD04b — for-of 구조 분해 요소의 복합 대입 → KD04 우선; 노드 종류 표 정정 (0294 ΔV6)
+diff	M69a	red (기대 일치)	1	node --test fail 1 · KD15k — 구별: 슬롯에 닿지 않는 매개변수의 증감은 무관; 노드 종류 표 정정 (0294 ΔV6)
+diff	M69b	red (기대 일치)	1	node --test fail 1 · KD15l — 구별: 슬롯에 닿지 않는 구조 분해 요소의 증감은 무관; 노드 종류 표 정정 (0294 ΔV6)
+diff	M70	red (기대 일치)	1	node --test fail 1 · KM08b — 구조 분해 대입 대상 변수의 멤버 읽기; 노드 종류 표 정정 (0294 ΔV6)
+diff	R6-M53	red (기대 일치)	1	node --test fail 20 · KM08a — 원천이 new → red; KM08b — 원천이 호출 결과 → red; 노드 종류 표 (0294 ΔV4)
+diff	R6-M54b	red (기대 일치)	1	node --test fail 3 · KD05d — for-of 구조 분해 변수 → KD04; 노드 종류 표 정정 (0294 ΔV5); KD05u — for-of 구조 분해 — 기본값이 있어도 KD04
+diff	R6-S-literal	green (기대 일치)	0	node --test fail 0
+diff	R6-S-bound	red (기대 일치)	1	node --test fail 2 · KD05f — 원천 = import → KM07 경계; 노드 종류 표 정정 (0294 ΔV5); KM07b — 경계 원천(import) 구조 분해 → KM07 경계, 위반 0
+diff	R6-S-red	red (기대 일치)	1	node --test fail 1 · KM08e — 함수 참조 원천 구조 분해 → 그 밖이라 KM08; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+diff	R6-S-param	red (기대 일치)	1	node --test fail 1 · KD05y2 — 매개변수 원천: 리터럴 호출 + 호출 결과 호출 → 호출 결과가 KM08; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+diff	R6-X-KD05j	red (기대 일치)	1	node --test fail 1 · KD05w2 — 구조 분해 매개변수 원천의 멤버 읽기 → 원천 객체 값을 따른다; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+diff	R6-X-KD15g	red (기대 일치)	1	node --test fail 1 · KD15g — 복합 대입은 KD02 그대로(형제 칸 구별); 노드 종류 표 정정 (0294 ΔV5)
+diff	R6-C120r-a	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+diff	R6-C120r-b	red (기대 일치)	1	node --test fail 6 · KM11b — 객체 멤버 증감; KM11c — 객체 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+diff	R6-S-KM10-key-this	red (기대 일치)	1	node --test fail 1 · KM10n — 같은 클래스의 다른 키 this 대입은 후보 아님; 노드 종류 표 정정 구별 입력 (0294 ΔV5 sweep)
+diff	R6-S-KM10-this-only	red (기대 일치)	1	node --test fail 1 · KM10o — 같은 클래스 안 객체 멤버 대입은 this 후보 아님; 노드 종류 표 정정 구별 입력 (0294 ΔV5 sweep)
+diff	R6-S-KM10-key-obj	red (기대 일치)	1	node --test fail 2 · KM10m — 객체 멤버 — 같은 객체의 다른 키 대입은 후보 아님(구별 입력); 노드 종류 표 정정 (0294 ΔV5); KD05y — 구별: 다른 키의 멤버 대입은 후보 아님
+diff	R6-S-KM10-obj-notthis	green (기대 일치)	0	node --test fail 0
+diff	R6-M57a	red (기대 일치)	1	node --test fail 4 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10c — this 멤버 — 초기값 없는 선언 + 대입; KM10d — this 멤버 — 화살표 안 대입(같은 this)
+diff	R6-M57b	red (기대 일치)	1	node --test fail 11 · KM10f — 객체 멤버 — 속성 대입; KM10g — 객체 멤버 — 리터럴 키 요소 대입; KM10h — 객체 멤버 — ??= 대입
+diff	C035	red (기대 일치)	1	"node --test fail 3 · G08 — D15: KD05 ""(중첩 포함)"" — 3단 중첩 값: 바깥 패턴의 원천 멤버가 두 번 이어진다; G09 — D15: KD05 ""원천 식 = 바깥 패턴의 원천 멤버"" — 중첩 요소를 원천으로 멤버 읽기; G10 — D15: 중첩 요소를 원천으로 구조 분해 읽기"
+diff	R7-KM10-swap	red (기대 일치)	1	node --test fail 12 · KM10f — 객체 멤버 — 속성 대입; KM10g — 객체 멤버 — 리터럴 키 요소 대입; KM10h — 객체 멤버 — ??= 대입
+regression	M56	red (기대 일치)	1	node --test fail 8 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; KD15c — 객체 구조 분해 대입 대상
+regression	M59	red (기대 일치)	1	node --test fail 1 · KM10e — this 멤버 — 다른 클래스의 대입은 후보 아님(구별 입력); 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KD15-incdec	red (기대 일치)	1	node --test fail 4 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KD15-scope	green (기대 red)	0	node --test fail 0
+regression	S-KM10-kind-a	red (기대 일치)	1	node --test fail 1 · KM11a — this 멤버 복합 대입; 노드 종류 표 정정 (0294 ΔV5)
+regression	M61	red (기대 일치)	1	(출력 없음)
+regression	C012r	red (기대 일치)	1	node --test fail 5 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+regression	C073r	red (기대 일치)	1	node --test fail 2 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; 노드 종류 표 (0294 ΔV4)
+regression	C082r	red (기대 일치)	1	node --test fail 2 · KV16a — 후위 ++ → red; KV16e — 후위 -- → red; 노드 종류 표 (0294 ΔV4)
+regression	C094r	red (기대 일치)	1	node --test fail 2 · KV17a — 그 밖 종류(태그 템플릿) → red; KV17b — 그 밖 종류(yield) → red; 노드 종류 표 (0294 ΔV4)
+regression	C122r	red (기대 일치)	1	node --test fail 4 · KD10c — import 이름공간 멤버 → 경계; KM07a — 원천이 lib 전역 → 경계; KM07b — 원천이 콜백 매개변수 → 경계
+regression	C135r	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	C103r	red (기대 일치)	1	node --test fail 2 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+regression	C115r	red (기대 일치)	1	node --test fail 3 · KD11 — 함수 선언 → 숫자 아님; KD11b — 클래스 선언 → 숫자 아님; KD11c — enum 선언 → 숫자 아님
+regression	C006	red (기대 일치)	1	node --test fail 4 · V13 — B4 객체 메서드; V14 — B4 클래스 메서드; V15 — B4 속성 화살표
+regression	C019	red (기대 일치)	1	node --test fail 4 · V17·scaled — 같은 경로의 배율 입력; W08 — B 호출 반환; 분기 목록 (0294 ΔV3)
+regression	C033	red (기대 일치)	1	node --test fail 5 · KD05 — 구조 분해 — 중첩; 노드 종류 표 (0294 ΔV4); KD05r — 중첩 패턴 — 안쪽 원천 멤버 대입 우변이 후보
+regression	C048	red (기대 일치)	1	node --test fail 2 · N09 — B 조건; 분기 목록 (0294 ΔV3); KD05w — 구별: 혼합 원천이 모두 배율 → 위반 0
+regression	C060	red (기대 일치)	1	node --test fail 53 · V18·scaled — 같은 경로의 배율 입력; V19·scaled — 같은 경로의 배율 입력; V20·scaled — 같은 경로의 배율 입력
+regression	C068	red (기대 일치)	1	node --test fail 2 · KV07 — && → 오른쪽(왼쪽은 숫자 아님); KV08 — 쉼표 → 오른쪽; 노드 종류 표 (0294 ΔV4)
+regression	C074	red (기대 일치)	1	node --test fail 7 · V26·scaled — 같은 경로의 배율 입력; V27·scaled — 같은 경로의 배율 입력; V33·scaled — 같은 경로의 배율 입력
+regression	C088	red (기대 일치)	1	node --test fail 4 · V16·scaled — 같은 경로의 배율 입력; V17·scaled — 같은 경로의 배율 입력; 분기 목록 (0294 ΔV3)
+regression	C096	red (기대 일치)	1	node --test fail 37 · --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P3′ 가림 — 같은 이름 const 가 다른 블록에 있어도 각자 선언으로 푼다
+regression	C102	red (기대 일치)	1	node --test fail 2 · KD03b — declare 변수 → 경계; KM07c — 원천이 declare 변수 → 경계; 노드 종류 표 (0294 ΔV4)
+regression	C116	red (기대 일치)	1	node --test fail 2 · KD04a — for-of 변수 → red; KD04b — for-in 변수 → red; 노드 종류 표 (0294 ΔV4)
+regression	C127	red (기대 일치)	1	node --test fail 44 · V08 — B3 구조 분해 원천 멤버; V08·scaled — 같은 경로의 배율 입력; V09 — B3 구조 분해 매개변수 ← 호출 인자 객체
+regression	C135	red (기대 일치)	1	node --test fail 2 · KD15h — 구조 분해 선언 요소의 증감; KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV6)
+regression	C149	red (기대 일치)	1	node --test fail 2 · X17 — 사용 자리 — 단축 속성 참조 제외(Y2e); X18 — 사용 자리 — matcher 피연산자 참조 제외; 분기 목록 (0294 ΔV3)
+regression	C160	red (기대 일치)	1	node --test fail 447 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함; 옵션 객체 timeout 과 훅 타임아웃도 같다
+regression	C178	red (기대 일치)	1	node --test fail 52 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01 — option 단축 속성(이름 변수가 아닌 매개변수 경유)
+regression	C190	red (기대 일치)	1	node --test fail 5 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 규칙 (F) — 배율 경유 (0294); P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다
+regression	C202	red (기대 일치)	1	node --test fail 8 · P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	C219	red (기대 일치)	1	node --test fail 8 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; P2 — abort: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P4 — 임계 1000ms, 단 abort·자식 프로세스 timeou
+regression	C227	red (기대 일치)	1	node --test fail 3 · P2 — deadline N+now(): 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F09 — deadline N + now 식
+regression	C233	red (기대 일치)	1	node --test fail 6 · S02 — option 대입 o.k = v; S03 — option 대입 o['k'] = v; S04 — option 대입 ??=
+regression	C239	red (기대 일치)	1	node --test fail 4 · S10 — param 구조 분해 매개변수 기본값; S11 — param 구조 분해 변수 기본값; S12 — param 이름 = 속성 이름 우선
+regression	C250	red (기대 일치)	1	node --test fail 2 · P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); A04 — reason 빈 값 위반
+regression	C257	red (기대 일치)	1	node --test fail 4 · --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); I04 — --report 셋째 열 — 배율 아님 · 의미 값
+regression	M41	red (기대 일치)	1	node --test fail 1 · V35 — B7 여러 값 × 산술 — 한 조합만 배율; 분기 목록 (0294 ΔV3)
+regression	M45	red (기대 일치)	1	node --test fail 7 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V37 — import 식별자는 건너뜀(경계)
+regression	M49	red (기대 일치)	1	node --test fail 1 · KC04a — 재대입 변수 — 후보에 형태 이름 → red; 노드 종류 표 (0294 ΔV4)
+regression	S-W10	red (기대 일치)	1	node --test fail 12 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	M32	red (기대 일치)	1	node --test fail 6 · W03 — B 식별자 → 객체(Y2); W04 — B 식별자 → 숫자; W05 — B 단축 속성
+regression	M37	red (기대 일치)	1	node --test fail 3 · N06 — B 변수 — 파생 마감(Y5b); N06·scaled — 같은 경로의 배율 입력; N15 — now 식끼리 비교는 자리 아님
+regression	M14	red (기대 일치)	1	node --test fail 2 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); X05 — vi.waitFor 첫 인자는 센다
+regression	M3	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	M11d	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	X9-prime	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	Y5b	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	S-W11-range	red (기대 일치)	1	node --test fail 3 · P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); W11 — 콜백 함수 안은 보지 않는다
+regression	M52-2	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	KV04-Parenthesized	red (기대 일치)	1	node --test fail 15 · C01 — 호출 대상 B1 래퍼 ( ); C02 — 호출 대상 B1 래퍼 as; V03·scaled — 같은 경로의 배율 입력
+regression	KV04-TypeAssertion	red (기대 일치)	1	node --test fail 2 · KV04e — 래퍼 <T>x; KC01c — 래퍼 <T>x; 노드 종류 표 (0294 ΔV4)
+regression	M23	red (기대 일치)	1	node --test fail 20 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F04 — timer timers/promises setTimeout 첫 인자 — 별칭 없음
+regression	M21b	red (기대 일치)	1	node --test fail 1 · F24 — named 식별자 대입; 분기 목록 (0294 ΔV3)
+regression	V-div	red (기대 일치)	1	node --test fail 1 · V31 — B7 산술 / — 임계 아래; 분기 목록 (0294 ΔV3)
+regression	V-gte	red (기대 일치)	1	node --test fail 2 · F18 — elapsed 역방향 toBeGreaterThanOrEqual; 분기 목록 (0294 ΔV3); KE02b — .not.toBeGreaterThanOrEqual(N) on now → 상한
+regression	S-KA08	red (기대 일치)	1	node --test fail 85 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; KV11 — 대입 연산 식 → red
+regression	EP05-03	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-07	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-11	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-15	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-19	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-23	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-27	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-31	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-35	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-39	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-43	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 3 } — 실제 자리 2 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-47	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-51	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-55	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-59	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	C072v	red (기대 일치)	1	node --test fail 1 · KV11 — 대입 연산 식 → red; 노드 종류 표 (0294 ΔV4)
+regression	C084v	red (기대 일치)	1	node --test fail 1 · KV14 — await → red; 노드 종류 표 (0294 ΔV4)
+regression	C130v	red (기대 일치)	1	node --test fail 7 · KM02 — 키 없음 → 숫자 아님; 노드 종류 표 (0294 ΔV4); KD05g — 원천 = 키 없는 객체 리터럴 → KM02 숫자 아님
+regression	M54a	red (기대 일치)	1	node --test fail 3 · KD05h — catch 구조 분해 변수 → KD13; 노드 종류 표 정정 (0294 ΔV5); KD05v — catch 구조 분해 — 기본값이 있어도 KD13
+regression	M60a	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KD15-ident	red (기대 일치)	1	node --test fail 4 · KD15d — 배열 구조 분해 대입 대상; KD15e — 이름 바꾼 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KD15-entry	red (기대 일치)	1	node --test fail 7 · KD15c — 객체 구조 분해 대입 대상; KD15d — 배열 구조 분해 대입 대상; KD15e — 이름 바꾼 구조 분해 대입 대상
+regression	S-KM10-kind-r	red (기대 일치)	1	node --test fail 17 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10b — this 멤버 — 초기값·대입 모두 배율; KM10c — this 멤버 — 초기값 없는 선언 + 대입
+regression	X-KM10k	red (기대 일치)	1	node --test fail 1 · KM10k — 객체 멤버 — 배율 대입; 노드 종류 표 정정 (0294 ΔV5)
+regression	C036r	red (기대 일치)	1	node --test fail 6 · KD05 — 구조 분해 — 중첩; 노드 종류 표 (0294 ΔV4); KD05r — 중첩 패턴 — 안쪽 원천 멤버 대입 우변이 후보
+regression	C075r	red (기대 일치)	1	node --test fail 3 · KV02 — + 숫자 리터럴 → 숫자; KV02b — - 숫자 리터럴 → 숫자(음수 — 임계 아래); KV13u — 숫자 아님 — !x
+regression	C084r	red (기대 일치)	1	node --test fail 1 · KV14 — await → red; 노드 종류 표 (0294 ΔV4)
+regression	C098r	red (기대 일치)	1	node --test fail 1 · KD13 — catch 변수 → red; 노드 종류 표 (0294 ΔV4)
+regression	C123r	red (기대 일치)	1	node --test fail 1 · KM09 — 계산 키 → red; 노드 종류 표 (0294 ΔV4)
+regression	C136r	red (기대 일치)	1	node --test fail 2 · KD05f — 원천 = import → KM07 경계; 노드 종류 표 정정 (0294 ΔV5); KM07b — 경계 원천(import) 구조 분해 → KM07 경계, 위반 0
+regression	C104r	red (기대 일치)	1	node --test fail 2 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+regression	C116r	red (기대 일치)	1	node --test fail 3 · KD05d — for-of 구조 분해 변수 → KD04; 노드 종류 표 정정 (0294 ΔV5); KD05u — for-of 구조 분해 — 기본값이 있어도 KD04
+regression	C009	red (기대 일치)	1	node --test fail 19 · V05 — B2 같은 파일 대입 =; V06 — B2 같은 파일 대입 ??=; V07 — B2 같은 파일 대입 ||=
+regression	C020	red (기대 일치)	1	node --test fail 6 · V17 — B4 호출 결과 ← 반환식(화살표 식 몸통); W08 — B 호출 반환; 분기 목록 (0294 ΔV3)
+regression	C034	red (기대 일치)	1	node --test fail 1 · KD05w2 — 구조 분해 매개변수 원천의 멤버 읽기 → 원천 객체 값을 따른다; 노드 종류 표 원천 판정 잠금 (0294 ΔV6 r6)
+regression	C052	red (기대 일치)	1	node --test fail 2 · KF03 — 즉시 호출 → 반환식; KN05 — 즉시 호출 반환; 노드 종류 표 (0294 ΔV4)
+regression	C064	red (기대 일치)	1	node --test fail 11 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V28·scaled — 같은 경로의 배율 입력
+regression	C069	red (기대 일치)	1	node --test fail 4 · KV09 — 비교·동등·in·instanceof → 숫자 아님; KV09b — 동등(===) → 숫자 아님; KV09c — in → 숫자 아님
+regression	C076	red (기대 일치)	1	node --test fail 2 · KV02 — + 숫자 리터럴 → 숫자; KV02b — - 숫자 리터럴 → 숫자(음수 — 임계 아래); 노드 종류 표 (0294 ΔV4)
+regression	C082	red (기대 일치)	1	node --test fail 1 · KV11 — 대입 연산 식 → red; 노드 종류 표 (0294 ΔV4)
+regression	C091	red (기대 일치)	1	node --test fail 2 · KV16a — 후위 ++ → red; KV16e — 후위 -- → red; 노드 종류 표 (0294 ΔV4)
+regression	C097	red (기대 일치)	1	node --test fail 1 · KD13 — catch 변수 → red; 노드 종류 표 (0294 ΔV4)
+regression	C105	red (기대 일치)	1	node --test fail 1 · KD03 — 값 없는 변수 → 숫자 아님; 노드 종류 표 (0294 ΔV4)
+regression	C117	red (기대 일치)	1	node --test fail 1 · KM09 — 계산 키 → red; 노드 종류 표 (0294 ΔV4)
+regression	C123	red (기대 일치)	1	node --test fail 3 · KD05h — catch 구조 분해 변수 → KD13; 노드 종류 표 정정 (0294 ΔV5); KD05v — catch 구조 분해 — 기본값이 있어도 KD13
+regression	C130	red (기대 일치)	1	node --test fail 1 · KM03a — 메서드 → 숫자 아님; 노드 종류 표 (0294 ΔV4)
+regression	C137	red (기대 일치)	1	node --test fail 2 · KD02c — 매개변수 복합 대입; KD02d — 매개변수 복합 + 증감 → KD02 우선; 노드 종류 표 정정 (0294 ΔV6)
+regression	C150	red (기대 일치)	1	node --test fail 7 · S08 — 중첩 timeouts 소유 — 바인딩 참조(속성); S09 — 중첩 timeouts 소유 — 바인딩 참조(단축 속성); T13 — 자식 프로세스 객체 사용 자리 — 바인딩 참조
+regression	C161	red (기대 일치)	1	node --test fail 7 · C03 — 호출 대상 B2 변수 초기값(재대입 없음); C08 — 호출 대상 B2 별칭 AbortSignal.timeout; T16 — 자식 프로세스 — promisify 변수
+regression	C179	red (기대 일치)	1	node --test fail 35 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 규칙 (F) — 배율 경유 (0294); P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다
+regression	C192	red (기대 일치)	1	node --test fail 8 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	C204	red (기대 일치)	1	node --test fail 2 · KO03a — 대입 대상 속성; KO03b — 대입 대상 요소(리터럴 키); 노드 종류 표 (0294 ΔV4)
+regression	C221	red (기대 일치)	1	node --test fail 4 · KE02a — .not.toBeGreaterThan(N) on now → 상한; KE02b — .not.toBeGreaterThanOrEqual(N) on now → 상한; KE02c — expect(N).not.toBeLessThan(now) → 상한
+regression	C228	red (기대 일치)	1	node --test fail 7 · P2 — deadline <: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — deadline <=: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — deadline >: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0
+regression	C235	red (기대 일치)	1	node --test fail 35 · P2 — option 키: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, sca
+regression	C240	red (기대 일치)	1	node --test fail 2 · F23 — named 이름 변수 초기값; X20 — 사용 자리 — 참조 0 이면 선언 자리; 분기 목록 (0294 ΔV3)
+regression	C251	red (기대 일치)	1	node --test fail 3 · KA02 — count 가 자리보다 많음 → 위반; KA03 — count 가 자리보다 적음 → 위반; KA06 — 다른 사유 항목 → 덮지 않음 + 항목 count 불일치
+regression	C259	red (기대 일치)	1	node --test fail 1 · KA07 — 대상 파일 없는 항목 → CLI 위반; 노드 종류 표 (0294 ΔV4)
+regression	M42	red (기대 일치)	1	node --test fail 1 · V36 — B7 여러 값 × 산술 — 전부 배율이면 배율 자리 1(위반 0); 분기 목록 (0294 ΔV3)
+regression	M46	red (기대 일치)	1	node --test fail 7 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V23 — B7 ?? 오른쪽
+regression	M50	red (기대 일치)	1	node --test fail 6 · KE02a — .not.toBeGreaterThan(N) on now → 상한; KE02b — .not.toBeGreaterThanOrEqual(N) on now → 상한; KE02c — expect(N).not.toBeLessThan(now) → 상한
+regression	M24	red (기대 일치)	1	node --test fail 52 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0
+regression	M33	red (기대 일치)	1	node --test fail 10 · F14 — deadline += N; N05 — B 변수(Y5); N06·scaled — 같은 경로의 배율 입력
+regression	M38	red (기대 일치)	1	node --test fail 3 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01 — option 단축 속성(이름 변수가 아닌 매개변수 경유)
+regression	M16	red (기대 일치)	1	node --test fail 3 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P02 — (H′) 범위 *.testfixture.ts
+regression	M4	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	M11a	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	Y1	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	Y11	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	S-KE05-direction	red (기대 일치)	1	node --test fail 1 · KE05·now — resolves와 rejects는 now 피연산자여도 elapsed 자리가 아니다; 노드 표 경계의 구별 입력
+regression	M2	red (기대 일치)	1	node --test fail 3 · waitFor 옵션 네 갈래 — 미지정·숫자·timeout 있는 객체·timeout 없는 객체; 환산 (0294 AC1~AC3); 케이스·훅 예산 = 20_000 × 배율, setup 파일을 건다
+regression	KV04-As	red (기대 일치)	1	node --test fail 3 · C02 — 호출 대상 B1 래퍼 as; V03·scaled — 같은 경로의 배율 입력; 분기 목록 (0294 ΔV3)
+regression	KN08-call	red (기대 일치)	1	node --test fail 5 · N11 — 호출 인자 안은 now 식 아님; N12 — 객체 안은 now 식 아님(Y5i); N15 — now 식끼리 비교는 자리 아님
+regression	M29	red (기대 일치)	1	node --test fail 3 · T13 — 자식 프로세스 객체 사용 자리 — 바인딩 참조; T14 — 자식 프로세스 객체 사용 자리 — 전개; T15 — 자식 프로세스 객체 사용 자리 — 대입 대상 객체
+regression	V-elem	red (기대 일치)	1	node --test fail 1 · S03 — option 대입 o['k'] = v; 분기 목록 (0294 ΔV3)
+regression	V-or	red (기대 일치)	1	node --test fail 3 · V22 — B7 ?? 왼쪽; V24 — B7 || 왼쪽; 분기 목록 (0294 ΔV3)
+regression	V-expectx	red (기대 일치)	1	node --test fail 1 · X15 — elapsed 상한 인자는 센다 — matcher 콜백 안; 분기 목록 (0294 ΔV3)
+regression	M18-shorthand	red (기대 일치)	1	node --test fail 1 · S01·binding — 구조 분해 별칭의 단축 속성이 값 자리를 운반한다
+regression	EP05-04	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-08	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-12	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-16	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-20	red (기대 일치)	1	SEMANTIC_DELAYS { value: 9000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-24	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-28	red (기대 일치)	1	SEMANTIC_DELAYS { value: 15 * 86400_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-32	red (기대 일치)	1	SEMANTIC_DELAYS { value: 8000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-36	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-40	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-44	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-48	red (기대 일치)	1	SEMANTIC_DELAYS { value: 25_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-52	red (기대 일치)	1	SEMANTIC_DELAYS { value: 60_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-56	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-60	red (기대 일치)	1	SEMANTIC_DELAYS { value: 30_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	C073v	red (기대 일치)	1	node --test fail 2 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; 노드 종류 표 (0294 ΔV4)
+regression	C086v	red (기대 일치)	1	node --test fail 1 · KV15 — this → red; 노드 종류 표 (0294 ΔV4)
+regression	C133v	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	K3	red (기대 일치)	1	node --test fail 14 · KD05b — 원천 = 호출 결과 → KM08; KD05c — 원천 = await 식 → KM08; KD05e — 배열 패턴 · 원천 = 호출 결과 → KM08
+regression	M60b	red (기대 일치)	1	node --test fail 6 · KM11b — 객체 멤버 증감; KM11c — 객체 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KD15-short	red (기대 일치)	1	node --test fail 4 · KD15c — 객체 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5); KD15j — 구조 분해 매개변수 요소의 구조 분해 대입 대상
+regression	S-KM11-patmember	red (기대 일치)	1	node --test fail 3 · KM11c — 객체 멤버 구조 분해 대입 대상; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KM10-collect	red (기대 일치)	1	node --test fail 16 · KM10a — this 멤버 — 생성자 대입(초기값 500); KM10c — this 멤버 — 초기값 없는 선언 + 대입; KM10d — this 멤버 — 화살표 안 대입(같은 this)
+regression	X-KD05k	red (기대 일치)	1	node --test fail 1 · KD05k — 원천 = 배율 객체 리터럴(대조); 노드 종류 표 정정 (0294 ΔV5)
+regression	X-KM01b	red (기대 일치)	1	node --test fail 1 · KM01b — 객체 멤버 — 대입 없음 → KM01 그대로; 노드 종류 표 정정 (0294 ΔV5)
+regression	C061r	red (기대 일치)	1	node --test fail 24 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V22·scaled — 같은 경로의 배율 입력
+regression	C080r	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+regression	C086r	red (기대 일치)	1	node --test fail 1 · KV15 — this → red; 노드 종류 표 (0294 ΔV4)
+regression	C100r	red (기대 일치)	1	node --test fail 2 · KD04a — for-of 변수 → red; KD04b — for-in 변수 → red; 노드 종류 표 (0294 ΔV4)
+regression	C130r	red (기대 일치)	1	node --test fail 7 · KM02 — 키 없음 → 숫자 아님; 노드 종류 표 (0294 ΔV4); KD05g — 원천 = 키 없는 객체 리터럴 → KM02 숫자 아님
+regression	C137r	red (기대 일치)	1	node --test fail 3 · KM06c — this.이름 — 속성 선언 없음 → red; 노드 종류 표 (0294 ΔV4); KM06d — this 멤버 — 선언·대입 모두 없음 → KM06 그대로
+regression	C011	red (기대 일치)	1	node --test fail 5 · KD02 — 복합 대입이 있는 변수 → red; 노드 종류 표 (0294 ΔV4); KD15g — 복합 대입은 KD02 그대로(형제 칸 구별)
+regression	C022	red (기대 일치)	1	node --test fail 1 · V16 — B4 호출 결과 ← 반환식(블록 return); 분기 목록 (0294 ΔV3)
+regression	C055	red (기대 일치)	1	node --test fail 108 · 1000ms 미만 대기는 자리가 아니다; 의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다; P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다
+regression	C065	red (기대 일치)	1	node --test fail 9 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V28 — B7 산술 +
+regression	C072	red (기대 일치)	1	node --test fail 4 · KM11b — 객체 멤버 증감; 노드 종류 표 정정 (0294 ΔV5); KD05q — 원천 객체 멤버 증감 → KM11
+regression	C077	red (기대 일치)	1	node --test fail 1 · KV02 — + 숫자 리터럴 → 숫자; 노드 종류 표 (0294 ΔV4)
+regression	C084	red (기대 일치)	1	node --test fail 2 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; 노드 종류 표 (0294 ΔV4)
+regression	C092	red (기대 일치)	1	node --test fail 34 · P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	C099	red (기대 일치)	1	node --test fail 2 · KD04a — for-of 변수 → red; KD04b — for-in 변수 → red; 노드 종류 표 (0294 ΔV4)
+regression	C111	red (기대 일치)	1	node --test fail 18 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01·scaled — 같은 경로의 배율 입력
+regression	C119	red (기대 일치)	1	node --test fail 12 · KM06a — this.이름 → 같은 클래스 속성 초기값; KM06b — this.이름 — 배율 초기값; 노드 종류 표 (0294 ΔV4)
+regression	C125	red (기대 일치)	1	node --test fail 46 · V08 — B3 구조 분해 원천 멤버; V08·scaled — 같은 경로의 배율 입력; V09 — B3 구조 분해 매개변수 ← 호출 인자 객체
+regression	C131	red (기대 일치)	1	"node --test fail 3 · KM04 — 배열 리터럴 + 숫자 키 → 요소; 노드 종류 표 (0294 ΔV4); G05 — D13: KD05 ""배열 패턴 원천[i]"" + KM10 멤버 대입 우변"
+regression	C144	red (기대 일치)	1	node --test fail 10 · F14 — deadline += N; N05 — B 변수(Y5); N06·scaled — 같은 경로의 배율 입력
+regression	C153	red (기대 일치)	1	node --test fail 2 · P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F21 — option /timeout/i 이름 변수에 담긴 객체
+regression	C169	red (기대 일치)	1	node --test fail 4 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F04·scaled — 같은 경로의 배율 입력
+regression	C182	red (기대 일치)	1	node --test fail 3 · C05 — 호출 대상 promisify(x); C06 — 호출 대상 util.promisify(x); T16 — 자식 프로세스 — promisify 변수
+regression	C194	red (기대 일치)	1	node --test fail 6 · 옵션 객체 timeout 과 훅 타임아웃도 같다; 규칙 (F) — 배율 경유 (0294); X06 — it 옵션 객체 제외 — (H′) 자리 0
+regression	C217	red (기대 일치)	1	node --test fail 209 · 리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다; 의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다; P2 — timer 전역: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0
+regression	C223	red (기대 일치)	1	node --test fail 10 · P2 — elapsed: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — elapsed OrEqual: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(
+regression	C229	red (기대 일치)	1	node --test fail 2 · P2 — deadline >=: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F13 — deadline 비교 >= (now 오른쪽)
+regression	C237	red (기대 일치)	1	node --test fail 1 · S07 — option 클래스 필드; 분기 목록 (0294 ΔV3)
+regression	C241	red (기대 일치)	1	node --test fail 15 · 리터럴 vi.setConfig 는 걸리고 scaledBudget 는 통과한다; 케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함; 옵션 객체 timeout 과 훅 타임아웃도 같다
+regression	C252	red (기대 일치)	1	node --test fail 1 · KA04 — why 빈 값 → 위반; 노드 종류 표 (0294 ΔV4)
+regression	M39	red (기대 일치)	1	node --test fail 3 · P2 — timer timers/promises: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F04 — timer timers/promises setTimeout 첫 인자 — 별칭 없음
+regression	M43	red (기대 일치)	1	node --test fail 89 · KV10 — 그 밖 이항 연산(%) → red; KV10b — 그 밖 이항 연산(**) → red; KV11 — 대입 연산 식 → red
+regression	M47	red (기대 일치)	1	node --test fail 6 · KF04a — 타이머 핸들 호출 → 숫자 아님; KF04b — mock 체인(vi.spyOn) → 숫자 아님; KF04c — mock(vi.fn) → 숫자 아님
+regression	S-KN08	red (기대 일치)	1	node --test fail 2 · KN08d — 그 밖 — 매개변수 → now 아님; KN08e — 그 밖 — lib 전역 → now 아님; 노드 종류 표 (0294 ΔV4)
+regression	M31	red (기대 일치)	1	node --test fail 1 · X19 — 사용 자리 — 하나라도 비제외면 센다(Y2f); 분기 목록 (0294 ΔV3)
+regression	M34	red (기대 일치)	1	node --test fail 1 · F14 — deadline += N; 분기 목록 (0294 ΔV3)
+regression	M12	red (기대 일치)	1	node --test fail 2 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); X13 — expect(x) 의 x 는 센다
+regression	M17	red (기대 일치)	1	node --test fail 2 · P4 — 임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계가 없다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); T03 — abort 무임계
+regression	M6	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 0 unscaled budget sites · fixture cap
+regression	M11b	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	Y2	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	M35	red (기대 일치)	1	node --test fail 4 · F17 — elapsed 역방향 expect(N).toBeGreaterThan(now 식); F18 — elapsed 역방향 toBeGreaterThanOrEqual; 분기 목록 (0294 ΔV3)
+regression	X7-prime	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	KV04-Satisfies	red (기대 일치)	1	node --test fail 2 · KV04c — 래퍼 satisfies; KC01a — 래퍼 satisfies; 노드 종류 표 (0294 ΔV4)
+regression	KN08-compound	red (기대 일치)	1	node --test fail 6 · KD02 — 복합 대입이 있는 변수 → red; KN08b — 그 밖 — 복합 대입 카운터 → now 아님; 노드 종류 표 (0294 ΔV4)
+regression	X6	red (기대 일치)	1	node --test fail 4 · 리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다; 의미 대기는 파일·값이 모두 맞을 때만 통과한다 — 다른 파일의 같은 값은 걸린다; P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다
+regression	V-oreq	red (기대 일치)	1	node --test fail 1 · S05 — option 대입 ||=; 분기 목록 (0294 ΔV3)
+regression	V-spreadval	red (기대 일치)	1	node --test fail 1 · V21 — B6 전개 멤버; 분기 목록 (0294 ΔV3)
+regression	S-KE04	red (기대 일치)	1	node --test fail 12 · P2 — elapsed: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — elapsed OrEqual: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(
+regression	EP05-01	red (기대 일치)	1	SEMANTIC_DELAYS { value: 2700, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-05	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-09	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-13	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-17	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-21	red (기대 일치)	1	SEMANTIC_DELAYS { value: 9000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-25	red (기대 일치)	1	SEMANTIC_DELAYS { value: 299_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-29	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-33	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-37	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-41	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 3 } — 실제 자리 2 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-45	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-49	red (기대 일치)	1	SEMANTIC_DELAYS { value: 15_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-53	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites · fixture cap
+regression	EP05-57	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1_500, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-61	red (기대 일치)	1	SEMANTIC_DELAYS { value: 3000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	C080v	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+regression	C091v	red (기대 일치)	1	node --test fail 8 · KF05a — 그 밖 호출(import 함수) → red; KF05b — 그 밖 호출(lib 함수) → red; KA01 — count = 판정 불가 자리 수 → 통과
+regression	C135v	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	M55	red (기대 일치)	1	node --test fail 8 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; KD15c — 객체 구조 분해 대입 대상
+regression	M58	red (기대 일치)	1	node --test fail 1 · KM10l — 객체 멤버 — 다른 객체의 같은 키 대입은 후보 아님(구별 입력); 노드 종류 표 정정 (0294 ΔV5)
+regression	S-KD15-prop	red (기대 일치)	1	node --test fail 3 · KD15e — 이름 바꾼 구조 분해 대입 대상; KM11c — 객체 멤버 구조 분해 대입 대상; KM11d — this 멤버 구조 분해 대입 대상
+regression	S-KM11-incdec	red (기대 일치)	1	node --test fail 4 · KM11b — 객체 멤버 증감; 노드 종류 표 정정 (0294 ΔV5); KD05q — 원천 객체 멤버 증감 → KM11
+regression	S-KM10-elemkey	red (기대 일치)	1	"node --test fail 5 · KM10g — 객체 멤버 — 리터럴 키 요소 대입; 노드 종류 표 정정 (0294 ΔV5); G05 — D13: KD05 ""배열 패턴 원천[i]"" + KM10 멤버 대입 우변"
+regression	X-KD15f	red (기대 일치)	1	node --test fail 1 · KD15f — 슬롯에 닿지 않는 변수의 증감은 무관(구별 입력); 노드 종류 표 정정 (0294 ΔV5)
+regression	C010r	red (기대 일치)	1	node --test fail 19 · V05 — B2 같은 파일 대입 =; V06 — B2 같은 파일 대입 ??=; V07 — B2 같은 파일 대입 ||=
+regression	C072r	red (기대 일치)	1	node --test fail 1 · KV11 — 대입 연산 식 → red; 노드 종류 표 (0294 ΔV4)
+regression	C091r	red (기대 일치)	1	node --test fail 8 · KF05a — 그 밖 호출(import 함수) → red; KF05b — 그 밖 호출(lib 함수) → red; KA01 — count = 판정 불가 자리 수 → 통과
+regression	C118r	red (기대 일치)	1	node --test fail 1 · KD15i — 매개변수 증감; 노드 종류 표 정정 (0294 ΔV6)
+regression	C133r	red (기대 일치)	1	node --test fail 2 · KM11a — this 멤버 복합 대입; KM11d — this 멤버 구조 분해 대입 대상; 노드 종류 표 정정 (0294 ΔV5)
+regression	C014r	red (기대 일치)	1	node --test fail 19 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01·scaled — 같은 경로의 배율 입력
+regression	C110r	red (기대 일치)	1	node --test fail 29 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01 — option 단축 속성(이름 변수가 아닌 매개변수 경유)
+regression	C001	red (기대 일치)	1	node --test fail 3 · V12 — B4 함수 선언 — 호출마다 값; I02 — 호출마다 다른 리터럴은 따로; 분기 목록 (0294 ΔV3)
+regression	C016	red (기대 일치)	1	node --test fail 6 · V11·scaled — 같은 경로의 배율 입력; V15 — B4 속성 화살표; V15b·scaled — 같은 경로의 배율 입력
+regression	C025	red (기대 일치)	1	node --test fail 20 · P2′ 단축 속성 — 이름 변수가 아닌 매개변수 경유: 리터럴은 1 위반, scaleMs 는 0; 바인딩 해석 (0294 ΔV2); S01·scaled — 같은 경로의 배율 입력
+regression	C045	red (기대 일치)	1	node --test fail 3 · N08 — B 멤버; 분기 목록 (0294 ΔV3); KD05r — 중첩 패턴 — 안쪽 원천 멤버 대입 우변이 후보
+regression	C059	red (기대 일치)	1	node --test fail 135 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	C067	red (기대 일치)	1	node --test fail 6 · P3 — 같은 파일 const · ?? · || · 리터럴 산술은 따라가고 import 식별자는 건너뛴다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); V22·scaled — 같은 경로의 배율 입력
+regression	C073	red (기대 일치)	1	node --test fail 1 · KM11a — this 멤버 복합 대입; 노드 종류 표 정정 (0294 ΔV5)
+regression	C078	red (기대 일치)	1	node --test fail 1 · KV13u — 숫자 아님 — !x; 노드 종류 표 (0294 ΔV4)
+regression	C086	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+regression	C094	red (기대 일치)	1	node --test fail 1 · KV14 — await → red; 노드 종류 표 (0294 ΔV4)
+regression	C101	red (기대 일치)	1	node --test fail 1 · KM07c — 원천이 declare 변수 → 경계; 노드 종류 표 (0294 ΔV4)
+regression	C114	red (기대 일치)	1	node --test fail 3 · KD11 — 함수 선언 → 숫자 아님; KD11b — 클래스 선언 → 숫자 아님; KD11c — enum 선언 → 숫자 아님
+regression	C120	red (기대 일치)	1	node --test fail 8 · KD15a — 후위 증감이 있는 변수; KD15b — 전위 감소가 있는 변수; KD15c — 객체 구조 분해 대입 대상
+regression	C126	red (기대 일치)	1	node --test fail 14 · V18 — B5 단축 속성 멤버; V19 — B6 객체 리터럴 멤버 — 속성 접근; V20 — B6 객체 리터럴 멤버 — 요소 접근
+regression	C133	red (기대 일치)	1	node --test fail 1 · KD02b — 구조 분해 선언 요소의 복합 대입; 노드 종류 표 정정 (0294 ΔV6)
+regression	C148	red (기대 일치)	1	node --test fail 10 · P7 — vi.waitFor 옵션 안의 scaleMs 는 이중 배율이라 걸린다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); W01 — 인라인 객체 안 scaleMs
+regression	C154	red (기대 일치)	1	node --test fail 1 · T15 — 자식 프로세스 객체 사용 자리 — 대입 대상 객체; 분기 목록 (0294 ΔV3)
+regression	C170	red (기대 일치)	1	node --test fail 4 · C05 — 호출 대상 promisify(x); C06 — 호출 대상 util.promisify(x); C07 — 호출 대상 child_process import 별칭
+regression	C183	red (기대 일치)	1	node --test fail 59 · 케이스 셋째 인자 리터럴은 걸리고 scaleMs 는 통과한다 — it.each·skipIf 포함; 타임아웃이 아닌 끝 숫자 인자는 자리가 아니다 — jira result 형태; 규칙 (F) — 배율 경유 (0294)
+regression	C197	red (기대 일치)	1	node --test fail 4 · P5 — vi.waitFor 옵션·matcher 피연산자·케이스 타임아웃은 빼고 expect(x) 의 x 와 elapsed 상한은 센다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); X11 — matcher 피연산자 제외
+regression	C218	red (기대 일치)	1	node --test fail 2 · P2 — method: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F06 — method x.setTimeout(N)
+regression	C226	red (기대 일치)	1	node --test fail 16 · 리터럴 마감 ≥ 1000ms 는 걸리고 scaleMs 는 통과한다; P2 — deadline now()+N: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	C230	red (기대 일치)	1	node --test fail 7 · F24 — named 식별자 대입; S02 — option 대입 o.k = v; S03 — option 대입 o['k'] = v
+regression	C238	red (기대 일치)	1	node --test fail 4 · P2 — param: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); F22 — param /timeout/i 매개변수 기본값
+regression	C249	red (기대 일치)	1	node --test fail 3 · P6 — 항목 count 는 같은 파일·같은 값 자리 수와 같아야 하고 reason 이 필요하다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); A02 — 자리가 count 보다 많으면 위반
+regression	C255	red (기대 일치)	1	node --test fail 9 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; --report deadline 행은 형태 열과 값 열을 갖는다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	M40	red (기대 일치)	1	node --test fail 5 · V33 — B7 여러 값 × 산술 — 조건식; V34 — B7 여러 값 × 산술 — 변수 경유; V35 — B7 여러 값 × 산술 — 한 조합만 배율
+regression	M44	red (기대 일치)	1	node --test fail 7 · KD08a — 매개변수 — 호출부 없음, 인자로 넘긴 함수 → 경계; KD08b — 매개변수 — 호출부 없음, 객체 속성에 둔 함수 → 경계; KD08c — 매개변수 — 호출부 없음, 배열 요소 함수 → 경계
+regression	M48	red (기대 일치)	1	node --test fail 4 · KC05a — 구조 분해 → 원천.속성(globalThis); KC05b — 구조 분해 → 원천.속성(AbortSignal); KC05c — 구조 분해 → vi.waitFor 이중 배율
+regression	S-P04	red (기대 일치)	1	node --test fail 3 · P1 — (H′) 는 test·testfixture.ts·testfixture.tsx 를 보고 (A)~(E) 는 test 만 본다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); P04 — 그 밖의 .ts 무시
+regression	M30	red (기대 일치)	1	node --test fail 5 · X10 — fn 뒤 인자(변수) 제외 — (H′) 자리 0; X16 — 사용 자리 — 참조 전부 제외면 제외(Y2b); X17 — 사용 자리 — 단축 속성 참조 제외(Y2e)
+regression	M36	red (기대 일치)	1	node --test fail 3 · N11 — 호출 인자 안은 now 식 아님; N12 — 객체 안은 now 식 아님(Y5i); N13 — 배열 안은 now 식 아님
+regression	M13	red (기대 일치)	1	node --test fail 10 · P2 — option 중첩 timeouts: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; P2 — option timeout 변수의 객체: 리터럴 5000 은 1 위반, scaleMs(5000) 은 0; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1)
+regression	M51	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	M11c	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	M15	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	Y5	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	M1	red (기대 일치)	1	node --test fail 2 · 케이스·훅 예산 = 20_000 × 배율, setup 파일을 건다; 잘못된 배율이면 vitest 자체가 비정상 종료한다; vitest.config.ts 배선 (0294 AC1·AC2·AC4)
+regression	X8-prime	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	KV04-NonNull	red (기대 일치)	1	node --test fail 2 · KV04d — 래퍼 !; KC01b — 래퍼 !; 노드 종류 표 (0294 ΔV4)
+regression	KN08-param	red (기대 일치)	1	node --test fail 2 · KN08d — 그 밖 — 매개변수 → now 아님; 노드 종류 표 (0294 ΔV4); KD02c — 매개변수 복합 대입
+regression	R-child	red (기대 일치)	1	node --test fail 16 · P4 — 임계 1000ms, 단 abort·자식 프로세스 timeout 은 임계가 없다; 규칙 (H′) — 테스트 소유 실시간 마감 (0294 ΔV1); C05 — 호출 대상 promisify(x)
+regression	V-util	red (기대 일치)	1	node --test fail 1 · C06 — 호출 대상 util.promisify(x); 분기 목록 (0294 ΔV3)
+regression	V-valueOf	red (기대 일치)	1	node --test fail 2 · N04 — now 원천 new Date().valueOf(); 분기 목록 (0294 ΔV3); KN06b — X.valueOf() — X → 인자 없는 new Date()
+regression	S-KO05	red (기대 일치)	1	node --test fail 3 · S08·n — 같음 — 라벨 밖 속성의 참조는 소유 아님; 분기 목록 (0294 ΔV3); KO05 — 그 밖 이름 → 소유 아님
+regression	EP05-02	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5_001, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-06	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-10	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 9 } — 실제 자리 8 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-14	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1001, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-18	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-22	red (기대 일치)	1	SEMANTIC_DELAYS { value: 5000, count: 2 } — 실제 자리 1 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-26	red (기대 일치)	1	SEMANTIC_DELAYS { value: 2_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-30	red (기대 일치)	1	SEMANTIC_DELAYS { value: 301_000, count: 4 } — 실제 자리 3 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-34	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-38	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-42	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1000, count: 3 } — 실제 자리 2 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-46	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-50	red (기대 일치)	1	SEMANTIC_DELAYS { value: 30_000, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	EP05-54	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-58	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+regression	EP05-62	red (기대 일치)	1	SEMANTIC_DELAYS { value: 1200, count: 1 } — 실제 자리 0 개. 새 자리는 예산일 수 있으니 분류하고 count 를 맞춘다
+regression	C082v	red (기대 일치)	1	node --test fail 2 · KV16a — 후위 ++ → red; KV16e — 후위 -- → red; 노드 종류 표 (0294 ΔV4)
+regression	C094v	red (기대 일치)	1	node --test fail 2 · KV17a — 그 밖 종류(태그 템플릿) → red; KV17b — 그 밖 종류(yield) → red; 노드 종류 표 (0294 ΔV4)
+regression	C137v	red (기대 일치)	1	node --test fail 3 · KM06c — this.이름 — 속성 선언 없음 → red; 노드 종류 표 (0294 ΔV4); KM06d — this 멤버 — 선언·대입 모두 없음 → KM06 그대로
+control	S-KD15-scope	red (기대 일치)	1	node --test fail 1 · 실제 저장소가 계약을 지킨다; CLI
+control	M1	red (기대 일치)	1	node --test fail 1 · 케이스·훅 예산 = 20_000 × 배율, setup 파일을 건다; vitest.config.ts 배선 (0294 AC1·AC2·AC4)
+control	M52-1	green (기대 일치)	0	[test-budgets] 16 real-git suites ok · all budget sites scaled
+control	M2	red (기대 일치)	1	node --test fail 1 · waitFor 옵션 네 갈래 — 미지정·숫자·timeout 있는 객체·timeout 없는 객체; 환산 (0294 AC1~AC3)
+control	M71a	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+control	M71-1	green (기대 일치)	0	[test-budgets] 16 real-git suites ok · all budget sites scaled
+control	M71-2	red (기대 일치)	1	[test-budgets] 0/16 real-git suites violate the budget contract · 1 unscaled budget sites
+reanchor	R7-C080	red (기대 일치)	1	node --test fail 5 · KV16b — 전위 ++ → red; KV16c — ~ → red; KV16d — 리터럴 아닌 - → red
+reanchor	R7-C122	red (기대 일치)	1	node --test fail 4 · KD10c — import 이름공간 멤버 → 경계; KM07a — 원천이 lib 전역 → 경계; KM07b — 원천이 콜백 매개변수 → 경계
+reanchor	R7-S-literal-swap	red (기대 일치)	1	node --test fail 7 · KM02 — 키 없음 → 숫자 아님; 노드 종류 표 (0294 ΔV4); KD05g — 원천 = 키 없는 객체 리터럴 → KM02 숫자 아님
