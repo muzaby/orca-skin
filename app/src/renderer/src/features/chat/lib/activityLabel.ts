@@ -60,7 +60,7 @@ export function deriveActivityLabel(
   const isChannelWaitPhase =
     waitPhase !== undefined && waitPhase.kind !== 'preparing' && waitPhase.kind !== 'history'
 
-  // 준비 단계는 Orca 측 준비(무단계·preparing·history)를 이기지만, 채널 단계(server~retry)는
+  // 준비 단계는 앱 측 준비(무단계·preparing·history)를 이기지만, 채널 단계(server~retry)는
   // 이미 격리 준비가 끝난 뒤의 진행이므로 채널 단계가 우선한다(0296 D-010 · §10 w1).
   if (prepareStep && !isChannelWaitPhase) return { status: 'preparing', facts: [], prepareStep }
   if (!activity) return { status: 'streaming', facts: [] }
