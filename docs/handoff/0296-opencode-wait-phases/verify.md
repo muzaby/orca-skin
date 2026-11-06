@@ -144,3 +144,57 @@
 - 사용자 결정 변경 근거: 없음.
 - 환경 한계: 이 세션은 `node_modules` 부재로 `npm ci --ignore-scripts` 후 `ensure-sqlite-abi`·electron 설치를 직접 했고, 인접 전체 스위트의 9파일 22케이스는 Linux에서 변경 전부터 실패한다.
 - 독립 축(⑥) 발견: 5축에서 이행 3(a7key·c8 root·X4) · 확장 2(promote·X2) + 동치 3 — 구현자 등록 목록 밖.
+
+---
+
+## r2 검증 (2026-11-06)
+
+### 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 | `1c888d0..d94ba6a4` (r2 구현 `d94ba6a4`, `Agent: codex`) |
+| 유효 V | `V1 + ΔV1` (기준 `1c888d0`) |
+| 라운드 / 확장 창 | 2 / verify 2회째 — 창 안 |
+| 판정 | **RETURN_TO_PLAN** (PLAN_GAP 1 · 이행 결함 0 · 현재 결함 0) |
+| 기준선 | `plan.md` diff는 `[구현자 기입] (r2)` 절 추가뿐 — Decision·AC·V·§10 변경 0 |
+
+### 결과
+
+- 구현 보고 대조: production 변경은 `channel.ts` catch `end()` 1줄 삭제(D-012)뿐. 테스트 5파일이 I7~I10 · IT-02 플래그 · A4 키 · A6 · R6c/d · R7g/h · P9~P11을 더했다.
+- 재현: 12파일 vitest **239 passed / 0 failed** · `hooks-deps` exit 0 · typecheck 3종 진단 0 · `check-test-budgets` ok · `check-doc-inventory` prose·links ok. trailer 파싱 정상(`Agent: codex` 허용값).
+- 좌표: `13db37e`·`aa46653`·`16fb6dd`·`1c888d0`·`d94ba6a4` 모두 commit, `13db37e`·`aa46653`은 `main` 조상.
+- 고장 이력 29건(`mutate.py`, 원복 확인): **ΔV1 N1~N13 14종 전부 red**(① 하한 · ③ r1 `못 잡음` 행 11개가 모두 잡힘). 독립 축(⑥) 15종 중 red 11 · green 4.
+
+| ID | 자리 | 종류 | 결과 | 분류 |
+|---|---|---|---|---|
+| X1d | `send.ts:740` | `?? payload.sessionId` 제거 | **green** | **PLAN_GAP** — 아래 |
+| X1b | `send.ts:256` | `leaderTurn?.dbSessionId ??` 제거 | green | 동치 — `reportWaitPhase`는 `:260·:273`뿐이고 둘 다 `leaderTurn`(`:419` 대입) 전이라 항상 null |
+| X6 | `projector.ts promote` | 원천 `waitPhases.delete(source)` 제거 | green | 동치 — 별칭으로 원천 키가 target으로 수렴 |
+| X7 | `projector.ts promote` | set/delete 순서 맞바꿈 | green | 동치 — `source ≠ target`이 보장됨 |
+| X11 | `projector.ts setWaitPhase` | cleared/disposed 조기 반환 제거 | green | 동치(r1 t4disp와 같음) — `recompute`가 막음 |
+| X1a·X1c·X2·X3·X4·X5·X8~X10·X12 | 키 맞바꿈·busy/retry·sending 초기화·observe·c4 등 | red | — |
+
+### PLAN_GAP — a7 `payload.sessionId` 분기에 닿는 oracle이 없다
+
+- ΔV1 EP-04 a7 oracle은 "재개 → **A4** `'session-1'`"이라 적는다. 그러나 A4는 `leaderTurn.dbSessionId`가 이미 `'session-1'`인 경로다. X1d(재개 키 식에서 `payload.sessionId` 제거)가 green인 것이 증거다.
+- `payload.sessionId` 분기는 `leaderTurn`이 대입(`send.ts:419`)되기 전에 `resolveTurn`이 실패·중단하는 **재개 턴**에서만 쓰인다. 거기서 키가 `provisionalKey`로 빠지면 `session-1`의 `preparing`/`history`가 지워지지 않는다(false success 아님 — 화면 단계 잔류).
+- 분류: plan 내부 불일치(oracle이 지목한 좌표가 분기에 도달하지 못함) → 창 안 `PLAN_GAP`. 구현자가 어긴 원문은 없고 현재 코드는 맞다(`payload.sessionId` 폴백이 있다).
+- 설계자 몫: a7 oracle에 "재개 + `resolveTurn` 실패(`ok:false`) → 마지막 `setWaitPhase` 호출 `['session-1', null]`" 입력(예: IT-03 A7)과 등록 변이 N14(`:740`에서 `payload.sessionId` 제거)를 더한다.
+
+### V-pair
+
+VP-01~VP-24 PASS(VP-12는 a7 분기만 위 gap으로 보류), VP-25 `SELF_BLOCKED`(사람 실기).
+
+### 파생 이슈
+
+| # | 분류 | 내용 | disposition |
+|---|---|---|---|
+| 1 | 확장→plan 내부 불일치 | a7 `payload.sessionId` 분기 입력 부재(X1d) | `PLAN_GAP` — 설계자 |
+| 2 | 비귀속 | 인접 전체 스위트의 Linux 변경 전 실패 9파일(r1 기록과 동일) | NON_BLOCKING |
+
+### Review Signals — 사실만
+
+- 반복 증상: r1의 "분기 입력 부재"와 같은 모양(a7 키 분기). 직전 plan이 지목한 A4가 분기에 닿지 않았다.
+- 독립 축(⑥): 15종에서 gap 1 · 동치 4. 사용자 결정 변경 근거 없음.
+- 환경 한계: `npm run lint`(`--fix`)가 이 세션에서 120초를 넘겨 백그라운드로 돌렸고, 완료 시 작업 트리 변화 여부를 아래에 적는다. 사람 몫: AC15 Windows 실기.
