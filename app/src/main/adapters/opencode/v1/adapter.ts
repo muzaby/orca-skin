@@ -159,7 +159,7 @@ export class OpenCodeAdapter implements SessionAdapter {
         projection?.config ?? startup,
         projection ? { ...env, ...projection.env } : env,
         cwd,
-        observer
+        ...(observer ? [observer] : [])
       )
     } catch (error) {
       await bridge?.release()

@@ -329,7 +329,9 @@ export function openCodeChannel(
     try {
       signal.throwIfAborted()
       if (req.forkFrom) throw new Error('OpenCode 세션 분기는 지원하지 않습니다.')
-      connection = await connect({ serverStarting: () => waitPhase.serverStarting() })
+      connection = await connect(
+        req.onWaitPhase ? { serverStarting: () => waitPhase.serverStarting() } : undefined
+      )
       detachActivity = connection.mcpControl?.observeActivity(() => responseOpen)
       client = connection.client
       signal.throwIfAborted()

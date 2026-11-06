@@ -130,7 +130,7 @@ export function buildTurnRequest(
     onSessionSchedules: (sessionId, schedules, pendingWakeup) =>
       activity.setSchedules(sessionId, schedules, pendingWakeup),
     onWaitPhase: (phase) =>
-      activity.setWaitPhase?.(deps.getActiveTurn().dbSessionId ?? queueKey, phase),
+      activity?.setWaitPhase?.(deps.getActiveTurn().dbSessionId ?? queueKey, phase),
     isSubagentBlocked: (st) => st !== undefined && deps.getActiveTurn().blockedSubagents.has(st)
   }
 }
