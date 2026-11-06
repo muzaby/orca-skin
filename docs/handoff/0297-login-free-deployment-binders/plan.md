@@ -318,3 +318,109 @@ bootstrap.ts 불변 (full AuthRuntime이 구조적으로 만족)
 - [x] 소비처 전수(§8) — stub 2곳 포함.
 - [x] 게이트 명령이 `app/AGENTS.md`와 일치.
 - [x] `ACTIVE 결정 ↔ AC` 대조를 §3 갱신 메모에 기록.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
+> [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
+
+## [구현자 기입] 설계 리뷰
+
+- 동의 / 그대로 진행: D-001~D-009 확정 결정 및 Part I/Part II 기술 설계를 그대로 따름.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음 (D-001~D-009 전수 준수).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| AR-01 / VP-05 | `AuthBinder` SSOT 능력 집합 | EP-5: ① `usage-fetcher.ts` ② `harness-runtime.ts` ③ `connections.ts` (3) | 3/3 | `git grep -n "^\s*auth:\s*" -- app/src/main/app/deployment/*.ts ':!app/src/main/app/deployment/*.test.ts'` → 4건 중 plugins.ts 제외 3건 전수 일치 · `gate:npm run typecheck` | `AuthBinder` 타입 바인딩 (`bind` \| `bindLoginFreePlugin`) | — |
+| R-01 / VP-01 | 로그인 프리 Usage 요청 | EP-1: ① fixture `createUsageFetcher`의 `bindLoginFreePlugin` 호출 (1) | 1/1 | `login-free-deployment.test.ts:113` · `login-free-deployment.test.ts:'로그인 프리 Usage — UsageDeploymentDeps 만으로 조립 (0297 AC1)'` | `USAGE_API.id`, `https://usage.example.corp/api/usage`, 헤더에 `Authorization` 없음 관측 | — |
+| R-02 / VP-02 | 로그인 프리 config API | EP-2: ① fixture `createConfigApiAugmenters`의 `bindLoginFreePlugin` 호출 (1) | 1/1 | `login-free-deployment.test.ts:134` · `login-free-deployment.test.ts:'로그인 프리 config API — HarnessConfigApiDeps 만으로 조립 (0297 AC2)'` | `CONFIG_API.id`, `prepared.env.CORP_LLM_CONFIG === 'result'`, 헤더에 `Authorization` 없음 관측 | — |
+| R-03 / VP-03 | 차단 능력 | EP-3: ① `UsageDeploymentDeps['auth']` ② `HarnessConfigApiDeps['auth']` (2) | 2/2 | `deployment-wiring.test.ts:'배포 factory 의 능력 경계 (0190)'` (L539-598) + `login-free-deployment.test.ts:'두 deps 의 bind 는 로그인 프리 id 를 해석하지 않는다 (0297 AC3 런타임)'` | `@ts-expect-error` 7종/8종 컴파일 거부 및 런타임 `unknown_auth` throw 관측 | — |
+| R-04 / VP-04 | login-free row 투영 | EP-4: ① `usageRows` ② `harnessRows` (2) | 2/2 | `git grep -n -E "^export function (usage\|harness)Rows" -- app/src/main/app/deployment/connections.ts` → 2건 전수 일치 · `login-free-deployment.test.ts:'로그인 프리 usage·harness row (0297 AC4)'` | `kind`(`llm`/`service`), `authScheme:'login-free'`, `origin`, `auth:[]`, `status:'valid'`, `'connection' in row === false` | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 (첫 구현 턴 r1)
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `login-free-deployment.test.ts:446-490` (AC1 (a)~(d) 4케이스) | not selected — 직접 oracle이 URL·헤더·changes=0으로 구별 |
+| VP-02 | REQUIRED | SELF_PASS | `login-free-deployment.test.ts:492-525` (AC2 (a)~(b) 2케이스) | not selected — 직접 oracle이 prepared.env·changes=0으로 구별 |
+| VP-03 | REQUIRED | SELF_PASS | `deployment-wiring.test.ts:539-598` + `login-free-deployment.test.ts:527-540` | required — 변이: `UsageDeploymentDeps.auth`를 `AuthRuntime`으로 변경 시 typecheck:test red (TS6133) 검출 |
+| VP-04 | REQUIRED | SELF_PASS | `login-free-deployment.test.ts:542-578` (AC4) | not selected — 직접 oracle이 row 속성 전수 단언 |
+| VP-05 | REQUIRED | SELF_PASS | `gate:npm run typecheck` | required — 변이: `AuthBinder`를 `Pick<AuthRuntime, 'bind'>`로 되돌림 시 typecheck red (TS2339) 검출 |
+| VP-06 | REGRESSION | SELF_PASS | `deployment-wiring.test.ts` (20 tests), `engine.ipc.test.ts` (14 tests), `features/auth` (20 suites) 전수 green | — (회귀 묶음) |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `login-free-deployment.test.ts:113` — `bindLoginFreePlugin`을 `bind`로 교체 | sweep — §10 EP-1 (자리 ①) | 최초 | `로그인 프리 Usage — UsageDeploymentDeps 만으로 조립 (0297 AC1)` (3건 실패) | 잠김 (red 확인) |
+| `login-free-deployment.test.ts:134` — `bindLoginFreePlugin`을 `bind`로 교체 | sweep — §10 EP-2 (자리 ①) | 최초 | `로그인 프리 config API — HarnessConfigApiDeps 만으로 조립 (0297 AC2)` (2건 실패) | 잠김 (red 확인) |
+| `login-free-deployment.test.ts:550` — harnessRows row 설정 제거 | sweep — §10 EP-4 (자리 ①) | 최초 | `로그인 프리 usage·harness row (0297 AC4)` (1건 실패) | 잠김 (red 확인) |
+| `login-free-deployment.test.ts:554` — usageRows row 설정 제거 | sweep — §10 EP-4 (자리 ②) | 최초 | `로그인 프리 usage·harness row (0297 AC4)` (1건 실패) | 잠김 (red 확인) |
+| `contracts/auth.ts:521` — `AuthBinder`에서 `bindLoginFreePlugin` 제거 | sweep — §10 EP-5 / VP-05 선택 증거 | 최초 | `npm run typecheck` (TS2339 Property 'bindLoginFreePlugin' does not exist) | 잠김 (red 확인) |
+| `usage-fetcher.ts:21` — `UsageDeploymentDeps.auth`를 `AuthRuntime`으로 역변이 | VP-03 선택 증거 (구조 proxy 민감도) | 최초 | `npm run typecheck` (TS6133 'AuthBinder' unused error) | 잠김 (red 확인) |
+
+- **분모 검산**: 선택 증거 2 · 인용 변이 0 · 새 oracle 0 · sweep 4 = 표 행 6
+- **덮개 회귀**: 이전 라운드 red에서 green 전환 0건 (r1 첫 라운드)
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 없음 (신규 배포 포트 타입 및 내부 배선 확장) | 해당 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | 해당 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | §5 상태와 전이 "로그인 프리 요청 401/403", "origin 미선언 대상" 행과 정확히 일치 | 검증 통과 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 401/403/미선언 시 throw되어 배포 resolver/fetcher 실패 전파, 카탈로그 상태는 'valid' 유지 | 관측 일치 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 로그인 프리 응답은 Auth change를 발생시키지 않아 화면 상태 전이 없음 | 관측 일치 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `login-free-deployment.test.ts`의 `prepareHarnessConfig` 반환 `env` optional 속성 타입체크 경고 | ✅ 선조치(구현 세부) | `prepared.env?.CORP_LLM_CONFIG`로 assertion 수정 |
+| 2 | `login-free-deployment.test.ts` eslint arrow function return type 누락 | ✅ 선조치(구현 세부) | `resolveFor` 함수 반환 타입 명시 |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 | 로그인 프리 포트에는 expiry 및 credential 없음 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 | Auth change 미발생, shared store 없음 |
+| 재진입 | 해당 없음 | 순수 HTTP 요청 또는 config API resolve |
+| 다른 무효화 축 | 해당 없음 | `AUTH_INVALIDATED_HARNESS_KEYS` 무영향(선언 경계 (a)) |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/contracts/auth.ts`, `app/src/main/app/deployment/usage-fetcher.ts`, `app/src/main/app/deployment/harness-runtime.ts`, `app/src/main/app/deployment/connections.ts`, `app/src/main/app/deployment/login-free-deployment.test.ts`, `app/src/main/app/deployment/deployment-wiring.test.ts`, `app/src/main/app/handlers/engine.ipc.test.ts`, `docs/guides/closed-network-extensions.md`, `docs/arch/backend/auth.md`, `docs/decisions/006-login-free-auth-scheme.md`, `docs/decisions/011-login-free-deployment-binders.md`, `docs/decisions/README.md` |
+| 실행 명령 | `npm run typecheck`, `npx eslint ...`, `vitest run ...`, `check-doc-inventory.mjs --check`, `check-test-budgets.mjs` |
+| **관측한 게이트 산출** | vitest: 23 files passed, 393 tests passed · typecheck: 0 errors · eslint: 0 errors, 0 warnings · doc-inventory: 9 items, 117 channels ok, links ok · test-budgets: 16 suites ok |
+| V-pair 자기확인 | `SELF_PASS 6 / SELF_BLOCKED 0` (VP-01~VP-06 전수 SELF_PASS) |
+| 강제 지점 전수 | 9/9 (EP-1 1/1, EP-2 1/1, EP-3 2/2, EP-4 2/2, EP-5 3/3) |
+| **AC 자기보고**(`Criteria-Met`) | 6/6 — AC1 ✅ (200/401/미선언/supports 관측), AC2 ✅ (200 env/403 reject 관측), AC3 ✅ (@ts-expect-error 15종 및 unknown_auth reject 관측), AC4 ✅ (kind/authScheme/origin/valid 관측), AC5 ✅ (AuthBinder 파생 및 typecheck 관측), AC6 ✅ (기존 회귀 스위트 393 tests green) |
+| **합계 검산** | `✅ 6 · ⚠️ 0 · ❌ 0 = 총 6` (Criteria-Met: 6/6) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 (r1 첫 구현)
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 없음 (설계 및 AC와 완전히 일치하여 진행됨)
+- 반복해서 부딪히는 환경 한계: 없음 (Node/vitest 순수 스위트로 ABI 이슈 없이 통과)
+- 현재 라운드·impl 턴: `r1`
+
+---
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
+|---|---|---|---|---|---|---|
+

@@ -13,7 +13,9 @@
 // usedUsd는 asOf, 없으면 fetchedAt의 달로 판정하고 SDK 증분 없이 쓴다.
 // daily/monthly 미제공은 기존 기간 행을 보존한다.
 //
-// 채우는 예제는 `docs/guides/closed-network-extensions.md` §5-b 다.
+// 채우는 예제는 `docs/guides/closed-network-extensions.md` §5-b 다. 로그인 프리 대상(공개·로컬
+// 키 API)은 `deps.auth.bindLoginFreePlugin(id)` 로 받는다 — 같은 가이드
+// `### 로그인 프리 원격 사용량·config API 레시피` (0297).
 
 import type { AuthBinder } from '../../contracts/auth'
 import type { UsageFetcher } from '../../features/usage/fetcher'

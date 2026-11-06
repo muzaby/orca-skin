@@ -513,7 +513,12 @@ export interface LoginFreePluginAuth extends BoundAuth {
 //
 // **인증 lifecycle 을 도는 것은 배포의 일이 아니다** — 그것은 IPC 핸들러(`app/handlers/
 // providers.ts`)와 부팅 복원(`app/auth-resume.ts`)이 소유한다.
-export type AuthBinder = Pick<AuthRuntime, 'bind'>
+//
+// 고르는 능력은 둘이다 (0297). `bind` 는 **자격증명 대상만** 해석하고 로그인 프리 id 면 요청이
+// `unknown_auth` 로 거부된다 — 로그인 프리가 자격증명 성공을 위조하지 않는다(ADR-006). 로그인 프리
+// 대상은 `bindLoginFreePlugin` 으로 받는다(상태 전이 없음, credential 주입 없음). raw credential 을
+// 여는 `bindForPlugin` 은 여기 없다 — Plugin deps(`PluginDeploymentDeps`) 전용이다.
+export type AuthBinder = Pick<AuthRuntime, 'bind' | 'bindLoginFreePlugin'>
 
 export interface AuthRuntime {
   bind(authId: AuthId): BoundAuth

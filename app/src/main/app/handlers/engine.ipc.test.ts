@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type AgentEnvironment, type Backend } from '../../../shared/ipc'
 import { ClaudeAdapter } from '../../adapters/claude/adapter'
 import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
+import type { BoundAuth } from '../../contracts/auth'
 import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
 import { orcaConfigDir } from '../../infra/config/paths'
@@ -68,20 +69,23 @@ const catalogOutputs = (list: AgentEnvironment[]): Record<string, unknown> =>
     ])
   )
 // The subject is the IPC boundary, not authentication. A closed-network deployment may bind its
-// Auth while building augmenters, so `bind` must succeed; every actual use of the auth runtime is
-// refused loudly instead of reaching the network or proceeding unauthenticated.
+// Auth while building augmenters, so `bind` and `bindLoginFreePlugin` must succeed; every actual
+// use of the auth runtime is refused loudly instead of reaching the network or proceeding
+// unauthenticated.
 const refused = (use: string): Error =>
   new Error(`engine IPC test: auth.${use} is outside the IPC boundary`)
+const refusedPort = (authId: string): BoundAuth => ({
+  authId,
+  snapshot: () => {
+    throw refused('snapshot')
+  },
+  request: async () => {
+    throw refused('request')
+  }
+})
 const authStub: HarnessConfigApiDeps['auth'] = {
-  bind: (authId) => ({
-    authId,
-    snapshot: () => {
-      throw refused('snapshot')
-    },
-    request: async () => {
-      throw refused('request')
-    }
-  }),
+  bind: refusedPort,
+  bindLoginFreePlugin: (authId) => ({ ...refusedPort(authId), label: authId }),
   connectionValue: () => {
     throw refused('connectionValue')
   }
@@ -156,6 +160,12 @@ describe('engine IPC registration through the real validator and settings servic
     )
     expect(() => authStub.connectionValue('fork-corp-llm')).toThrow(
       /auth\.connectionValue is outside the IPC boundary/
+    )
+    const loginFree = authStub.bindLoginFreePlugin('fork-public-api')
+    expect(loginFree.authId).toBe('fork-public-api')
+    expect(() => loginFree.snapshot()).toThrow(/auth\.snapshot is outside the IPC boundary/)
+    await expect(loginFree.request({ method: 'GET', path: '/config' })).rejects.toThrow(
+      /auth\.request is outside the IPC boundary/
     )
   })
 

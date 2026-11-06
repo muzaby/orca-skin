@@ -33,7 +33,7 @@
 //   · **정적·전역 적응값(프록시·사설 CA)은 여기가 아니라 `spawn-env.ts` 다** (0207). 이 파일은
 //     key 별 등록이라 운영자가 나중에 만든 ModelProvider 에는 붙지 않는다.
 
-import type { AuthId, AuthRuntime } from '../../contracts/auth'
+import type { AuthBinder, AuthId, AuthRuntime } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/common/runtime-config'
 import type { RuntimeModelContribution } from '../../features/harnesses/common/runtime-catalog'
 
@@ -50,8 +50,11 @@ import type { RuntimeModelContribution } from '../../features/harnesses/common/r
 //
 // `connectionValue` 는 로그인 프리 연결(0291)의 마지막 성공 결과다 — 호스트 모델 목록을
 // `listedModelsOf`·`runtimeModelsFromListing` 으로 바꿔 돌려준다(가이드 §4).
+//
+// 로그인 프리 대상의 설정 API 는 `bindLoginFreePlugin(id).request` 로 부른다(0297) — 401/403 은
+// 상태를 바꾸지 않으므로 응답을 resolve 실패로 낸다.
 export interface HarnessConfigApiDeps {
-  auth: Pick<AuthRuntime, 'bind' | 'connectionValue'>
+  auth: AuthBinder & Pick<AuthRuntime, 'connectionValue'>
 }
 
 // direct credential 방식 — 사용자가 입력한 API key 를 runtimeEnv 에 직접 놓는다. API 요청 능력이

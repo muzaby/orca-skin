@@ -78,16 +78,19 @@ app/src/main/app/deployment/
 | 파일 | factory | 받는 것 |
 |---|---|---|
 | `plugins.ts` | `createPluginBindings(deps: PluginDeploymentDeps)` | `auth` (`bindForPlugin`·`bindLoginFreePlugin`) · `registry: RuntimeToolSink` · `logger?` |
-| `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` **만** |
+| `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthBinder` + `connectionValue` (raw secret 없음) |
 | `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
-| `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` (표시 입력은 함수 본문의 row 조각 인자로 넣는다) |
+| `connections.ts` | `createConnectionSources(deps)` | `auth: AuthBinder` · `gateMembers` · `plugins` (표시 입력은 함수 본문의 row 조각 인자로 넣는다) |
 | `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthBinder` |
 
-`AuthBinder` 는 `Pick<AuthRuntime,'bind'>` 다 (0190) — 배포는 자기 AuthId 를 골라
-`BoundAuth.request` 를 쓸 뿐이고 `login`·`revoke`·`resume`·`subscribe` 에는 **도달하지 못한다**
-(컴파일 강제). 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다.
-Plugin은 표에 적힌 별도 binder만 사용한다. 로그인 프리 id를 `AuthBinder`·게이트·MCP
-`${BINDING:<id>}`에 넣지 않는다. 선언·바인딩·GUI의 소유 경계는 [인증 구조 정본](../arch/backend/auth.md#7-plugin)을 따른다.
+`AuthBinder` 는 `Pick<AuthRuntime,'bind'|'bindLoginFreePlugin'>` 다 (0190·0297) — 배포는 자기 AuthId 를
+골라 `request` 를 쓸 뿐이고 `login`·`revoke`·`resume`·`subscribe`·`bindForPlugin`(raw credential)
+에는 **도달하지 못한다** (컴파일 강제). 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다.
+자격증명 대상은 `bind(id)`, 로그인 프리 대상은 `bindLoginFreePlugin(id)` 로 고른다 — 로그인 프리
+id 를 `bind`·게이트·MCP `${BINDING:<id>}`에 넣지 않는다(`bind(로그인 프리 id).request` 는
+`unknown_auth` 로 거부된다). Plugin은 표에 적힌 별도 binder만 사용한다. 선언·바인딩·GUI의 소유
+경계는 [인증 구조 정본](../arch/backend/auth.md#7-plugin)을 따른다. `AuthBinder` 를 직접 구현한
+테스트 stub 이 있으면 `bindLoginFreePlugin` 도 채워야 컴파일된다.
 
 **`bootstrap.ts` 는 열지 않는다.** 필요한 능력이 인자에 없으면 그것부터 이 표에 추가한다 —
 부팅 파일을 배포마다 고치기 시작하면 이 디렉토리를 둔 이유가 없어진다.
@@ -898,6 +901,83 @@ exe만 사용하는 도구는 선언에서 `origin`을 생략하고 Plugin에서
 로그인 프리 연결 상태와 도구 노출은 유지되는지 확인한다. 프로그램 실행의 절대 경로·셸 금지·
 timeout·취소·출력 상한은 [보안 정본](../arch/backend/security.md#110-git-실행과-plugin-호스트-프로그램-경계)에 맞춘다.
 
+### 로그인 프리 원격 사용량·config API 레시피
+
+공개 API·로컬 키 API처럼 앱이 인증하지 않는 대상으로 원격 사용량(레시피 E)이나 사내 설정
+API(§3-c config API 방식)를 붙일 때 쓴다. 두 factory 의 `deps.auth`(`AuthBinder`)가
+`bindLoginFreePlugin` 을 갖고 있으므로 **Bootstrap 은 고치지 않는다**. 결정 근거는
+[ADR-011](../decisions/011-login-free-deployment-binders.md).
+
+| 순서 | 하는 일 | 확인 지점 |
+|---|---|---|
+| 선언 | `LoginFreeDefinition`에 bare `origin`을 넣고 `LOGIN_FREE_DEFINITIONS`에 담는다 | origin이 없으면 `request()`가 `origin_not_declared`로 전송 전에 거부된다 |
+| 조립 | `createUsageFetcher`·`createConfigApiAugmenters` 안에서 `deps.auth.bindLoginFreePlugin(선언.id)`로 포트를 받는다 | `deps.auth.bind(로그인 프리 id)`는 요청이 `unknown_auth`로 거부된다 |
+| 실패 | 401/403·네트워크 실패는 **상태를 바꾸지 않는다** — 재인증 회복 경로가 없다. 배포 매퍼가 `throw`로 낸다 | 카탈로그 행은 `연결됨`으로 남는다. 부분 snapshot·부분 env를 만들지 않는다 |
+| 행 | 카탈로그에 띄우려면 `usageRows([{auth: deps.auth.bindLoginFreePlugin(id)}])`·`harnessRows([...])`를 더한다 | `기본 제공`·`연결됨`, 인증 액션 없음 |
+| 검증 | `npm run typecheck`와 `./node_modules/.bin/vitest run src/main/app/deployment` | 같은 예제를 `app/src/main/app/deployment/login-free-deployment.test.ts`가 컴파일·실행한다 |
+
+```ts
+// app/deployment/auth-definitions.ts
+export const USAGE_API = {
+  id: 'usage-api',
+  label: '사용량 API',
+  origin: 'https://usage.example.corp'
+} satisfies LoginFreeDefinition
+export const CONFIG_API = {
+  id: 'llm-config-api',
+  label: 'LLM 설정 API',
+  origin: 'https://llm-config.example.corp'
+} satisfies LoginFreeDefinition
+export const LOGIN_FREE_DEFINITIONS: readonly LoginFreeDefinition[] = [USAGE_API, CONFIG_API]
+```
+
+```ts
+// app/deployment/usage-fetcher.ts
+export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher {
+  const usageApi = deps.auth.bindLoginFreePlugin(USAGE_API.id)
+  return {
+    supports: (providerKey) => providerKey === CORP_LLM_KEY,
+    async fetchUsage(providerKey, signal) {
+      const response = await usageApi.request({ path: '/api/usage', maxBytes: 64 * 1024 }, signal)
+      // 401/403 은 상태를 바꾸지 않는다 — 재인증 경로가 없으므로 오류로 낸다.
+      if (!response.ok) throw new Error(`usage request failed: ${response.status}`)
+      return {
+        providerKey,
+        asOf: null,
+        fetchedAt: Date.now(),
+        limitUsd: null,
+        usedUsd: null,
+        remainingUsd: null,
+        raw: response.body
+      }
+    }
+  }
+}
+```
+
+```ts
+// app/deployment/harness-runtime.ts
+export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAugmenters {
+  const configApi = deps.auth.bindLoginFreePlugin(CONFIG_API.id)
+  return {
+    [CORP_LLM_KEY]: {
+      async resolve(_input, signal) {
+        const response = await configApi.request({ path: '/v1/config', maxBytes: 64 * 1024 }, signal)
+        // 필수 값이 없거나 실패면 부분 env 를 만들지 않고 resolve 를 실패시킨다.
+        if (!response.ok) throw new Error(`llm config request failed: ${response.status}`)
+        return { runtimeEnv: { CORP_LLM_CONFIG: response.body } }
+      }
+    }
+  }
+}
+```
+
+- 로그인 프리 포트는 Auth change를 내지 않는다. `AUTH_INVALIDATED_HARNESS_KEYS`에 로그인 프리 id를
+  적어도 요청 실패로는 invalidate되지 않는다 — config API 결과 갱신은 서비스 cache 정책을 따른다.
+- 연결 선언(`connect`)이 있는 대상을 쓰더라도 `request()`는 연결 상태를 보지 않고 나간다.
+- 로컬 키가 필요하면 배포 코드가 직접 읽은 헤더를 `request({headers})`로 넘긴다. 앱은 키를
+  저장·주입하지 않는다.
+
 ### 로그인 프리 연결 레시피 — 호스트 OpenCode 모델
 
 호스트 PC의 OpenCode 연결 설정을 그대로 가져와 엔진&모델에 읽기 전용 카드로 띄울 때 쓴다. 인증이
@@ -1248,6 +1328,8 @@ renderer 에서 SP 를 부르려면 **전용 도메인 IPC 채널**을 만든다
 서버 응답을 검증하고 필드명·단위·날짜 달력을 이 형식으로 매핑한다. 내역 정규화의 정본은
 `features/usage/breakdown.ts`, 저장·합성 계약은 [IPC 계약 §2.12](../IPC_CONTRACT.md#212-cost-phase-3)다.
 기존 `UsageDeploymentDeps` 선언은 유지하고 레시피 B의 배포 키 `CLAUDE_CORP_KEY`를 함께 사용한다.
+로그인 프리 대상(공개·로컬 키 API)의 사용량은 `bind` 대신 `bindLoginFreePlugin`으로 받는다 —
+[로그인 프리 원격 사용량·config API 레시피](#로그인-프리-원격-사용량config-api-레시피).
 
 ```ts
 // app/deployment/usage-fetcher.ts — 배포가 이 자리를 채운다

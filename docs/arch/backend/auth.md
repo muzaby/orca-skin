@@ -111,8 +111,11 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 `createConfigApiAugmenters(deps)`·`createDirectCredentialAugmenters(deps)`·`createUsageFetcher(deps)`·
 `createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력(`AuthBinder`·`RuntimeToolSink`·
 AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴다. **`AuthBinder` 는
-`Pick<AuthRuntime,'bind'>` 다** — 배포는 자기 AuthId 를 골라 `BoundAuth.request` 를 쓸 뿐,
+`Pick<AuthRuntime,'bind'|'bindLoginFreePlugin'>` 다** — 배포는 자격증명 AuthId 는 `bind`, 로그인
+프리 id 는 `bindLoginFreePlugin` 으로 골라 `request` 를 쓸 뿐, `bindForPlugin`(raw credential)·
 `login`·`continue`·`reauth`·`revoke`·`resume`·`subscribe` 에는 도달하지 못한다(컴파일 강제).
+`UsageDeploymentDeps`·`HarnessConfigApiDeps`·`ConnectionDeploymentDeps` 의 `auth` 가 이 타입에서
+파생된다(config API 는 여기에 `connectionValue` 를 더한다).
 인증 lifecycle 은 IPC 핸들러와 부팅 복원이 소유한다. **Harness 의 두 방식은 deps 가
 갈라져 있다** — config API 는 `auth` 만, direct credential 은 **배포가 `DIRECT_CREDENTIAL_AUTH_IDS`
 에 선언한 id 로 미리 닫힌 closure map**(`secrets`)만 받아, 한 factory 가 API 접근 권한과 raw secret
@@ -125,8 +128,11 @@ key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 �
 
 Plugin 배포 능력은 `PluginDeploymentDeps`의 `auth`·`registry`·선택적 `logger`이며, `auth`는
 `bindForPlugin`·`bindLoginFreePlugin`만 제공한다. `bind`·`tryBind`·`bindForPlugin`과
-`AuthSecretReader`는 자격증명 목록만 해석하고, `describe`만 두 체계를 설명한다. 로그인 프리
-id를 게이트·부팅 복원·Harness/Usage 자격증명·MCP `${BINDING:<id>}` 대상으로 사용할 수 없다.
+`AuthSecretReader`는 자격증명 목록만 해석하고(`bind(로그인 프리 id).request`는 `unknown_auth`로
+거부), `describe`만 두 체계를 설명한다. 로그인 프리 id를 게이트·부팅 복원·Harness direct
+credential·MCP `${BINDING:<id>}` 대상으로 사용할 수 없다. Usage·Harness config API 배포는
+`bindLoginFreePlugin`으로 로그인 프리 대상에 요청할 수 있다 — 상태 전이·credential 주입이 없다.
+Decision rationale: [ADR-011](../../decisions/011-login-free-deployment-binders.md).
 기본 배포의 `AUTH_DEFINITIONS`·`LOGIN_FREE_DEFINITIONS`·`createPluginBindings()`는 빈 배열이다.
 
 ---
@@ -808,6 +814,10 @@ HarnessPlugin  Harness 규약에 맞춰 렌더한 package 를 Harness 가 직접
 - `baselineUsable`은 월 계산에 쓰이지 않는 호환 필드다. 포트 필드와 캐시 봉투 저장은 유지한다.
   `usedUsd`의 이번 달 판정은 `asOf`, 없으면 받은 시각 `fetchedAt`으로 한다.
 - 재인증·해제는 저장된 마지막 `UsageSnapshot` 을 임의로 삭제하지 않는다.
+- 로그인 프리 대상(공개·로컬 키 API)의 사용량은 `UsageDeploymentDeps.auth.bindLoginFreePlugin(id)`
+  로 요청한다. 401/403 은 상태를 바꾸지 않으므로 `fetchUsage()` 가 오류로 낸다 — 재인증 회복
+  경로가 없다. 레시피는 [`guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md)
+  `### 로그인 프리 원격 사용량·config API 레시피`.
 
 ---
 
