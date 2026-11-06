@@ -8,14 +8,16 @@
 | 작성자 | Claude Code (설계) · argon (구현) |
 | 일자 | 2026-11-05 |
 | 매핑 | 브랜치 `ccr-90fb2d84-yf9ksk` |
-| 상태 | READY (ΔV1) |
+| 상태 | READY (ΔV2) |
 | V mode | `Delta V` |
 | 기준 V | `0296:V1@13db37e` — 이 plan의 V1(`git cat-file -t` = commit, `main` 조상). V1의 INHERITED 회귀 출처는 `main@16a1ee8` |
-| 이번 V revision | `ΔV1` — r1 verify RETURN_TO_PLAN 정정(2026-11-06) |
-| 유효 V | `V1 + ΔV1` — ΔV1 절이 충돌하는 V1 행을 대체 |
-| 기준 커밋 | V1 설계 `13db37e` · r1 구현 `c598077`·`dbef1b7`·`aa46653` · r1 verify `16fb6dd`(전부 `git cat-file -t` = commit). 좌표 정본은 INDEX |
+| 이번 V revision | `ΔV2` — r2 verify RETURN_TO_PLAN 정정(2026-11-06). 직전 `ΔV1@1c888d0` |
+| 유효 V | `V1 + ΔV1 + ΔV2` — 뒤 revision 절이 충돌하는 앞 행을 대체 |
+| 기준 커밋 | V1 설계 `13db37e` · r1 구현 `c598077`·`dbef1b7`·`aa46653` · r1 verify `16fb6dd` · ΔV1 설계 `1c888d0` · r2 구현 `d94ba6a4` · r2 verify `4e8cc517`(전부 `git cat-file -t` = commit). 좌표 정본은 INDEX |
 
 > **ΔV1(2026-11-06, r1 verify RETURN_TO_PLAN)**: D-011~D-013을 더한다. AC1·AC4·AC5·AC7을 AC1′·AC4′·AC5′·AC7′가, §10 EP-01(12자리)을 EP-01′(11자리)가, EP-02(7자리)를 EP-02′(10자리)가, MD-01 규칙 칸을 MD-01′가 대체한다. EP-04 a2·a3·a7, EP-05 r7의 직접 oracle을 정정하고 운영 gate 1행을 더한다. 등록 변이 N1~N13을 더한다. 정본은 아래 ΔV1 절이다.
+>
+> **ΔV2(2026-11-06, r2 verify RETURN_TO_PLAN)**: D-014·D-015를 더한다. EP-04 a3·a7 행을 EP-04′가, AC5′·AC7′의 검증 수단을 AC5″·AC7″가 대체한다. N6을 폐기하고 N14~N16·H1을 더한다. 정본은 아래 ΔV2 절이다.
 
 ---
 
@@ -55,6 +57,8 @@
 | D-011 | r1 verify 확장 후보 3건을 모두 채택한다. ① `promote`는 승격 전 단계를 새 키로 옮긴다 ② `clear`·`dispose`는 단계 Map을 비운다 ③ retry `attempt`가 1 이상 정수가 아니면 1로 운반한다 | ①은 실제 경로에 있다 — 새 세션 단계가 `queueKey`로 기록된 뒤 `session.updated` rekey(`turn-coordinator.ts:469`)로 승격되고, 옮기지 않으면 다음 전이까지 `생각 중`이 보여 D-001·D-009를 어긴다. ②는 `promote`가 `cleared`를 풀고(`session-activity-projector.ts:120`) `current()`가 dispose 뒤에도 Map을 읽어 관측된다. ③은 코드에 있는 분기다 | 설계 해석(r1 verify 창 안) | ACTIVE | — |
 | D-012 | 채널 `run()` catch의 `waitPhase.end()`(V1 c11)를 지운다. 비움은 finally(c12) 한 곳이 맡는다 | catch(`channel.ts:452-465`)에는 await가 없고 finally 첫 문장이 `end()`(`:468`)라 두 호출이 같은 동기 구간에 있다. projector는 microtask로 flush(`session-activity-projector.ts:187-196`)하므로 스냅샷은 어느 쪽이든 오류 publish 뒤에 나간다 — 단독 제거 변이 c11이 green(r1 verify) | 설계 해석 | ACTIVE | — |
 | D-013 | `PendingAssistantStatus` memo deps는 렌더 테스트가 아니라 `react-hooks/exhaustive-deps` 경고 0 gate로 잠근다 | 렌더러 vitest는 `environment: 'node'`(`vitest.config.ts:8`)이고 렌더 테스트는 `react-dom/server` 정적 렌더라 재렌더가 없다. jsdom·testing-library는 미설치이며 신규 의존성은 사용자 승인 대상이다(`app/AGENTS.md §의존성 정책`). 측정: 기준 경고 0, deps 제거 변이에서 1 | 설계 해석 | ACTIVE | — |
+| D-014 | `send.ts` 단계 키 식에서 동치 사본과 도달할 수 없는 항을 지운다. a3 = `provisionalKey`, a7 = `leaderTurn?.dbSessionId ?? provisionalKey` | production `leaseKeyFor`는 재개 턴에서 `provisionalKey = payload.sessionId`다(`admission.ts:102-103`). a3 호출은 `leaderTurn` 대입(`send.ts:419`) 전뿐이다. 측정: production 정합 하네스에서 두 항 제거가 green이다 | 설계 해석(plan 내부 정합) | ACTIVE | — |
+| D-015 | IT-03 하네스는 실제 `leaseKeyFor`를 쓰고, 재개 turn의 `queueKey`는 `sessionId`다 | 상수 mock(`'new:1'`)은 production에 없는 분기를 만들어 N6을 가짜 red로, 실제 분기를 미측정으로 남겼다(r2 verify X1d) | 설계 해석(plan 내부 정합) | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -62,6 +66,7 @@
 - 변경된 결정: 없음.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 해당 없음(신규).
 - **ΔV1(2026-11-06)**: D-011~D-013 추가(설계 해석 — 사용자 결정 변경 없음). 대체된 결정 0. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-011①↔AC1′(새 세션 단계 연속)·D-011②↔AC7′·D-011③↔AC4′·D-012↔AC7′(I5·I6·I7이 c12만으로 닫힘)·D-013↔VP-13 gate. D-007(Claude 불변)은 a2 정정이 OpenCode 어댑터 플래그만 단언해 유지된다.
+- **ΔV2(2026-11-06)**: D-014·D-015 추가(설계 해석 — 사용자 결정 변경 없음). 대체된 결정 0. `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-014↔AC5″·AC7″(키 값 불변, 식만 축소)·D-015↔AC5″·AC7″(실제 `leaseKeyFor`)·D-009↔A7 첫 값 `preparing`.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001↔AC1·AC8, D-002↔AC4·AC8, D-003↔AC5·AC8, D-004↔AC6, D-005↔AC3·AC4, D-006↔AC2, D-007↔AC11, D-008↔AC1~AC5(경계 이벤트 입력만), D-009↔AC1(첫 값 `preparing`), D-010↔AC9.
 
 ## 4. 요구 비판적 검토
@@ -423,6 +428,98 @@ production 변경은 c11 삭제 1줄뿐이다. 나머지는 테스트 공백이�
 - 대체 AC 4행은 AC 게이트를 다시 통과했다. 행동 단언·검증 수단·도달 경로가 있고, 음성 단언(I10·P10·P11)은 양성 짝(I4·P1)과 같은 파일에 있다. I9는 경로 요청 수를 함께 본다.
 - 자리 목록을 다시 셌다. EP-01 검색은 `aa46653`에서 12줄이고 c11 삭제 뒤 11이다. EP-02 검색 출력은 t1~t10에 모두 귀속된다(projector `:40·93-99·139-141·154·170·247-248·275`). 차집합은 0이다.
 - 측정한 것: c11 단독 제거 green(r1 verify), `hooks-deps` 기준 0 → N8 1(이번 턴 실행). N1~N7·N9~N13의 red는 구현 뒤 측정 대상이다.
+- 사람 실기(§19)는 그대로다.
+
+## ΔV2 — r2 verify RETURN_TO_PLAN 정정 (2026-11-06)
+
+**수정 필요.** r2 verify의 PLAN_GAP 1건(a7 `payload.sessionId` 분기 oracle 부재, X1d green)은 원인이 다르다. IT-03 하네스가 `leaseKeyFor`를 production과 다르게 mock한다.
+
+| 발견 | 측정(이번 턴, `d94ba6a4`) | 판정 |
+|---|---|---|
+| IT-03 mock은 `leaseKeyFor`가 언제나 `provisionalKey:'new:1'`을 돌려준다(`send.wait-phase.test.ts:27`) | production은 `payload.sessionId ?? clientKey ?? clientRequestId ?? randomUUID()`(`admission.ts:102-103`)라, 재개 턴의 `provisionalKey`는 `payload.sessionId`와 같다 | 하네스가 production 조립과 갈라져 production에 없는 분기를 쟀다(0262 r4와 같은 모양) |
+| mock을 production과 같게 바꾼 뒤 변이를 다시 돌림 | N6(a3 → `provisionalKey`) **green** · X1d(a7에서 `payload.sessionId` 제거) **green** · N7 red · a3→`logicalKey` red · a7 `dbSessionId`→`queueKey` red | `payload.sessionId` 항은 a3·a7 모두 동치 사본이다. N6이 r2에서 red였던 건 mock 탓이다 |
+| a3 `leaderTurn?.dbSessionId` 항 | `reportWaitPhase` 호출은 `send.ts:260·273`뿐이고 둘 다 `leaderTurn` 대입(`:419`) 전이다 — r2 verify X1b green | 도달할 수 없는 항이다 |
+| r2 verify의 "재개 조기 실패 시 단계 잔류" | production에서는 `provisionalKey`가 `'session-1'`이라 잔류하지 않는다 | 현재 결함 아님. 남는 일은 하네스 정합과 동치 사본 제거다 |
+
+ΔV2가 하는 일:
+
+- D-014: 키 식의 동치 사본과 도달할 수 없는 항을 지운다.
+- D-015: IT-03이 실제 `leaseKeyFor`를 쓰게 한다.
+- a3·a7 oracle을 형제 키 슬롯과 구별되는 입력으로 다시 적는다.
+- 출처는 plan 내부 정합(oracle과 하네스 조립)이다. verify 2회째 뒤라 열거 원문을 더할 수 있는 마지막 설계 턴이다. 새 확장 채택은 0이다.
+
+### ΔV2 계약과 V 증분
+
+| Node / Pair | provenance / requiredness | 대체·상속 범위 | 등록 변이 |
+|---|---|---|---|
+| AR-03 / VP-12 | CHANGED(자리 규칙·oracle) / REQUIRED | ΔV1 EP-04 a3·a7 행 → 아래 EP-04′ a3·a7 | N7 · N14 · N15 · N16 |
+| AT-04 / VP-04 | CHANGED(검증 수단) / REQUIRED | AC5′ 수단의 IT-03 하네스 → D-015 하네스 | N14 |
+| AT-08 / VP-08 · ST-01 / VP-09 | CHANGED(검증 수단) / REQUIRED | AC7′에 IT-03 A7 추가 | N7 · N16 |
+| 그 밖 VP-01~03·05~07·10·11·13~25 | INHERITED / 그대로 | r2 verify 좌표 그대로(`verify.md` r2) | ΔV1 그대로 |
+
+- `SUPERSEDED`: ΔV1 등록 변이 **N6**은 폐기한다. 바꾸던 식(`leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey`)이 D-014로 `provisionalKey` 하나가 되어 자리가 사라진다. 형제 키 맞바꿈 N14가 a3의 운반 값을 대신 잠근다.
+- 레벨 판정: 새 계약 edge는 없다. a3·a7 자리의 규칙 칸과 IT-03 하네스만 바뀐다.
+- 분모: 자리 수 불변 **54**. a3·a7은 같은 자리에서 식만 줄어든다.
+- AC 수 15 불변. AC5′·AC7′의 동작 기준은 그대로이고 검증 수단만 바뀐다.
+
+### 대체 AC (ΔV2 — 검증 수단만)
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-04 | AT-04 / AC5″ | AC5′ 그대로 | AC5′ 수단을 D-015 하네스(실제 `leaseKeyFor`)에서 실행한다. A4는 모든 `setWaitPhase` 첫 인자가 `'session-1'`(= 재개 `provisionalKey`)이고 `'session:session-1'`(`logicalKey`)은 0회다 | `leaseKeyFor` → `reportWaitPhase` 키 |
+| R-08 | AT-08 / AC7″ | AC7′ 그대로 | AC7′ 수단에 IT-03 **A7**을 더한다. 재개 턴에서 `resolveTurn`이 `ok:false`이면 호출이 정확히 `[['session-1',{preparing}],['session-1',null]]`이다 | `resolveTurn` 실패 `return` → 바깥 finally a7(`leaderTurn` null) |
+
+- 음성 단언(`logicalKey` 0회)은 양성(`'session-1'` 키)과 같은 케이스에서 본다.
+- A7은 `leaderTurn`이 null인 채 a7을 지나는 유일한 입력이다. A2·A3(새 세션 미확정, 키 `'new:1'`)과 짝이 되어 a7의 `provisionalKey` 항을 재개·새 세션 두 값으로 잰다.
+
+### EP-04′ — a3·a7 (ΔV1 EP-04 a3·a7 행 대체)
+
+| # | 자리 | 규칙(D-014 뒤 식) | 분기 → 직접 oracle 입력(D-015 하네스) | 출처 |
+|---|---|---|---|---|
+| a3 | `send.ts:254-257` `reportWaitPhase` | 키 = `provisionalKey`(재개 = `payload.sessionId`, 새 세션 = `clientKey`) | 새 세션 → A1 `preparing` 키 `'new:1'` · 재개 → A4 모든 키 `'session-1'` · 재개 조기 실패 → A7 첫 호출 `'session-1'` | CHANGED |
+| a7 | `send.ts:740` 바깥 finally | 키 = `leaderTurn?.dbSessionId ?? provisionalKey` | `dbSessionId` 확정(값 ≠ `provisionalKey`·`queueKey`) → A6 마지막 `'s-new'` · `leaderTurn` 있음·미확정 → A2·A3 `'new:1'` · `leaderTurn` null·재개 → **A7** `'session-1'` · 재개 확정(값 = `provisionalKey`) → A4 `'session-1'` | CHANGED |
+
+- 자리 검색: ΔV1 EP-04 검색 그대로. `git grep -n -E "setWaitPhase\?\.\(" -- app/src/main/app/chat-turn/send.ts`는 **2줄**(a3·a7)이어야 한다.
+- 이 파일의 다른 `payload.sessionId ?? provisionalKey`(`send.ts:234`, busy 프렐류드 경로)는 단계 계약이 아니라 비범위다.
+
+### D-015 IT-03 하네스 (`send.wait-phase.test.ts`)
+
+| 대상 | 변경 | 근거(이번 턴 실측) |
+|---|---|---|
+| `vi.mock('./admission')` | `leaseKeyFor`를 `importOriginal`의 실제 함수로 둔다. 나머지 3개 mock은 그대로 둔다 | 실제 함수는 순수 함수다(`admission.ts:97-110` · `shared/lease-key.ts`). 적용한 시험본에서 5/5 passed |
+| 새 세션 payload(A1~A3·A6·A5) | `clientKey: 'new:1'`을 넣어 `provisionalKey`를 고정한다 | 없으면 `randomUUID()` |
+| `makeHarness` turn | `queueKey: options.sessionId ?? 'new:1'` | production `queueKey = provisionalKey`(`send.ts:389`). 재개 turn의 `queueKey`가 `'new:1'`이면 형제 슬롯 맞바꿈 N15가 재개 입력에서 가짜 red를 낸다 |
+| A7 신규 | `makeHarness({reportsWaitPhases:true, sessionId:'session-1'})` + `resolveTurn.mockResolvedValueOnce({ok:false, error:<ClassifiedError>})` | `send.ts:278-281` `return` → finally |
+
+### ΔV2 등록 변이
+
+| ID | 자리 | 종류 | 바꾼 내용(D-014 뒤 식 기준) | 잡아야 할 oracle |
+|---|---|---|---|---|
+| N7 | a7 `send.ts:740` | 다른 값 | `leaderTurn?.dbSessionId ?? provisionalKey` → `provisionalKey` | A6 |
+| N14 | a3 `send.ts:256` | 형제 맞바꿈 | `provisionalKey` → `logicalKey` | A1 · A4 · A7 |
+| N15 | a7 | 형제 맞바꿈 | `leaderTurn?.dbSessionId` → `leaderTurn?.queueKey`(`:742` 롤백 키 슬롯) | A6 |
+| N16 | a7 | 형제 맞바꿈 | `?? provisionalKey` → `?? logicalKey` | A2 · A3 · A7 |
+| H1 | IT-03 하네스 | 조립 되돌림 | `leaseKeyFor`를 ΔV1 상수 mock(`'new:1'`)으로 되돌림 | A4 · A7 red. 하네스 정합의 방향 확인 — production 변이가 아니다 |
+
+- 측정한 것: mock만 production과 같게 바꾼 시험본에서 N6 green · X1d green · N7 red · `logicalKey`(a3) red · `queueKey`(a7) red. 식을 줄인 뒤의 N14~N16·H1은 구현 뒤에 측정한다.
+- ΔV1 N1~N5·N7~N13과 V1 M-*는 그대로 유효하다. N6만 폐기다.
+
+### ΔV2 구현 지시
+
+| 대상 | 변경 |
+|---|---|
+| `send.ts:256` | `activity?.setWaitPhase?.(provisionalKey, phase)` (D-014) |
+| `send.ts:740` | `activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? provisionalKey, null)` (D-014) |
+| `send.wait-phase.test.ts` | D-015 하네스 · A4에 `logicalKey` 0회 단언 · A7 |
+| 기록 | `[구현자 기입]` r3 절. 강제 지점 표 54자리 · ΔV1 N1~N5·N7~N13 + N14~N16·H1 + V1 M-* 결과 · `setWaitPhase?.(` 검색 2줄 |
+
+### ΔV2 self-review
+
+- D-014·D-015를 ACTIVE로 더했다. 대체한 결정은 없다. `ACTIVE 결정 ↔ AC` 대조는 §3 갱신 메모에 적었다(충돌 0).
+- 동작 변경은 0이다. 지우는 항은 production에서 동치이거나 도달할 수 없다(위 측정표). 키 값은 재개 `'session-1'` · 새 세션 `clientKey` · 확정 `dbSessionId` 그대로다.
+- 규칙 칸 ↔ 입력 칸: a7 규칙의 두 항(`dbSessionId`·`provisionalKey`)과 `provisionalKey`의 두 값(재개·새 세션)마다 입력이 있다(A6 / A2·A3 / A7). a3는 두 값(A1 / A4·A7)에 입력이 있다.
+- 형제 슬롯 ⑤: a3·a7의 키 슬롯은 `provisionalKey`·`logicalKey`·`queueKey`·`dbSessionId`다. 맞바꿈마다 등록했다(N14~N16). 하네스 값은 서로 다르다 — `'new:1'`·`'client:new:1'`·`'session-1'`·`'session:session-1'`·`'s-new'`.
+- 대체 AC 2행은 AC 게이트를 다시 통과했다. 행동 단언(호출 인자 배열) · 음성 짝(`logicalKey` 0회 ↔ `'session-1'`) · 도달 경로(실제 `leaseKeyFor`)가 있다.
 - 사람 실기(§19)는 그대로다.
 
 ---
@@ -907,6 +1004,10 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 
 - ΔV1 처리(2026-11-06): #1~#8은 BLOCKING 그대로 — ΔV1이 자리별 입력(I7~I10 · A4 키·A6 · IT-02 플래그 · `hooks-deps` · R6c·R6d)을 oracle 칸에 적었고 구현자가 r2에서 닫는다. #1의 c11은 D-012로 삭제한다. #9~#11은 D-011로 채택했다(P9~P11 · R7g·R7h) — PLAN_GAP 해소.
 - r2 구현 결과(2026-11-06): #1~#11 전건 `closed` (D-012로 c11 삭제, N1~N13 14종 변이 전부 `red (기대 일치)`, V1 M-* 8종 유지 `red`).
+
+| # | 출처 | 발견 분류 | 내용 | disposition |
+|---|---|---|---|---|
+| 12 | VP-12·VP-08 · §10 a7 (r2 verify X1d) | plan 내부 정합 — IT-03 하네스가 `leaseKeyFor`를 production과 다르게 mock | a7 `payload.sessionId` 항이 production에서 동치인데 하네스가 다른 값으로 쟀다. a3 `leaderTurn` 항은 도달할 수 없다 | `PLAN_GAP` → ΔV2(D-014·D-015 · EP-04′ · A7 · N14~N16·H1)가 닫는다 · 구현자 r3 |
 
 ---
 
