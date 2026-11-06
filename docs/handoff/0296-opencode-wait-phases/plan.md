@@ -691,3 +691,14 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 
 | # | 출처 | 발견 분류 | 내용 | disposition |
 |---|---|---|---|---|
+| 1 | VP-08·09 · §10 c12·c11 | 이행 | 터미널 오류 `return` 경로에서 finally `end()` 단독 제거를 못 잡음 · c11 중복 | BLOCKING |
+| 2 | VP-01·08 · §10 c10 | 이행 | 출력 없이 finish(중단)한 뒤 단계 비움 입력 없음 | BLOCKING |
+| 3 | VP-01·10 · §10 c7 | 이행 | `session.command` 경로 `accepted()` 미잠금 | BLOCKING |
+| 4 | VP-03 · §10 c8 | 이행 | 자식 세션 retry 입력 없음(root 판정) | BLOCKING |
+| 5 | VP-06 · §10 a2 | 이행 | 실제 `OpenCodeAdapter.reportsWaitPhases` 관측 좌표 없음 | BLOCKING |
+| 6 | VP-09·12 · §10 a3·a7 | 이행 | 재개 세션 키(`dbSessionId`·`payload.sessionId`) 분기 입력 없음 | BLOCKING |
+| 7 | VP-05·13 · §10 r7 | 이행 | memo deps — 재렌더로 단계만 바뀌는 케이스 없음 | BLOCKING |
+| 8 | VP-14 · MD-01 규칙 | 이행 | `accepted`는 현재가 `send`일 때만 — 비-send 입력 없음 | BLOCKING |
+| 9 | VP-16 · promote | 확장 | `promote`가 승격 전 단계를 새 키로 옮기는지 | PLAN_GAP |
+| 10 | VP-16 · clear | 확장 | `clear` 후 Map 잔여(관측 동일) | PLAN_GAP |
+| 11 | VP-14 · status | 확장 | 비정상 `retry.attempt` 폴백 | PLAN_GAP |
