@@ -198,3 +198,66 @@ VP-01~VP-24 PASS(VP-12는 a7 분기만 위 gap으로 보류), VP-25 `SELF_BLOCKE
 - 반복 증상: r1의 "분기 입력 부재"와 같은 모양(a7 키 분기). 직전 plan이 지목한 A4가 분기에 닿지 않았다.
 - 독립 축(⑥): 15종에서 gap 1 · 동치 4. 사용자 결정 변경 근거 없음.
 - 환경 한계: `npm run lint`(`--fix`)가 이 세션에서 120초를 넘겨 백그라운드로 돌렸고, 완료 시 작업 트리 변화 여부를 아래에 적는다. 사람 몫: AC15 Windows 실기.
+
+---
+
+## r3 검증 (2026-11-06)
+
+### 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 | `8652135f..9a6aee64` (r3 구현 `9a6aee64`, `Agent: codex`) |
+| 유효 V | `V1 + ΔV1 + ΔV2` (기준 `8652135f`) |
+| 라운드 / 확장 창 | 3 / verify 3회째 — 창 밖, 다시 열린 노드 없음(ΔV2는 검증 수단만 CHANGED) |
+| 판정 | **PASS** (기계 범위) — 막는 발견 0 · PLAN_GAP 0 · 다음 주체 사람(AC15 실기) |
+| 기준선 | `plan.md` diff는 메타 `상태` 1칸 + `[구현자 기입] (r3)` 절 추가뿐 — Decision·AC·V·§10 변경 0 |
+| 이력 | 공유 브랜치가 `main` 위로 재배치되어 r1 이후 해시가 바뀌었다(아래 좌표). 검증은 원격 `9a6aee64` 트리에서 했다 |
+
+### 결과
+
+- production diff는 `send.ts` 2줄(`:256` `provisionalKey` · `:740` `leaderTurn?.dbSessionId ?? provisionalKey`)이다. `git grep -n -E "setWaitPhase\?\.\(" -- send.ts` = 정확히 2줄(`:256·:740`). D-014 동치 사본·도달 불가 항이 사라졌다.
+- 그 밖 변경은 테스트 4파일(`send.wait-phase`: 실제 `leaseKeyFor`(`importOriginal`)·`clientKey`·재개 `queueKey`·A4 `logicalKey` 0회·A7 / `adapter.startup`: I11 / `statusLine.waitPhase`: 스냅샷 전 기본 렌더)과 `IPC_CONTRACT.md` 우선순위 문장 1건이다. 문장은 `activityLabel.ts:59-63`(preparing·history가 `worktreePrepareStep` 뒤, 채널 단계가 앞)과 일치한다.
+- 재현: 12파일 vitest **242 passed / 0 failed** · typecheck 3종(node·web·test) 진단 0 · eslint 4개 변경 파일 0건 · chat-turn·opencode·chat 디렉터리 `--max-warnings 0`은 변경 전 파일 2개(`Timeline.tsx:57`·`useTranscriptVirtualizer.ts:22` `incompatible-library`)의 경고 2건뿐(이번 diff 밖 → 비귀속) · `check-test-budgets` ok · `check-doc-inventory --check` prose·links ok. 작업 트리 변화 0(`--fix` 미사용, 원복 확인).
+- trailer 파싱 정상: `Agent: codex` · `Handoff` · `Status: implemented` · `Criteria-Met: 14/15` · `Criteria-Pending` · `Verified-By: pending` 6키.
+- 좌표: `13db37e`·`c598077`·`dbef1b7`·`aa46653`은 commit이며 `main` 조상. `4cdef9d3`(ΔV1 설계)·`1ca5460c`(r2)·`d70419d9`(r2 verify)·`8652135f`(ΔV2 설계)·`9a6aee64`(r3)는 commit이고 PR 브랜치 좌표(`main` 조상 아님). r1 verify는 `66bfdd5e`.
+- `[구현자 기입] (r3)` 일곱 필드 모두 있음. 강제 지점 표 검산 `11+10+7+7+10+3+3+3 = 54` = 분모, 행 합계 일치.
+
+### 고장 이력 (r3 — `mutate.py`, 원복 확인 완료)
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|
+| N7 | `send.ts:740` | 다른 값 | 키 → `provisionalKey` | 잡음 | A6 (1 failed) | — |
+| N14 | `send.ts:256` | 맞바꿈 | `provisionalKey` → `logicalKey` | 잡음 | A1·A4·A7 (5 failed) | — |
+| N15 | `send.ts:740` | 맞바꿈 | `dbSessionId` → `queueKey` | 잡음 | A6 (1 failed) | — |
+| N16 | `send.ts:740` | 맞바꿈 | `?? provisionalKey` → `?? logicalKey` | 잡음 | A2·A3·A7 (3 failed) | — |
+| H1 | `send.wait-phase.test.ts` | 조립 되돌림 | 상수 `leaseKeyFor` mock 복귀 | 잡음 | A4·A7 (2 failed) | — |
+| N1~N5·N8~N13 (ΔV1 · ③④) | `channel.ts`·`adapter.ts`·`wait-phase.ts`·`projector.ts`·`PendingAssistantStatus.tsx` | 제거·다른 값 | 등록 그대로(N3은 `:271`·`:295` 두 곳 모두) | 잡음 | 각 1~5 failed · N8 `hooks-deps` | — |
+| X-a7-remove·X-a7-const·X-a3-guard·X-preparing | `send.ts` | 제거·고정값 | a7 호출 삭제 · a7 `?? 'new:1'` · `reportsWaitPhases` 가드 제거 · `preparing` 제거 | 잡음 | A1~A7 (1~5 failed) | — |
+| X-observe-noemit·noflag·I11-noemit | `wait-phase.ts:56-57` | 제거 | 첫 출력의 `emit(null)` / `outputObserved=true` 제거 | 잡음 | I11 포함 (4·1·1 failed) | — |
+| X-ui-prio · IT04-reducer-default | `activityLabel.ts:61` · `chatReducer.ts:519` | 고정값 | 우선순위 술어 `true` · 초기 `activityWaitPhase`를 `{server}`로 | 잡음 | L-우선순위 2 failed · 기본 상태 렌더 1 failed | — |
+| **X-a3-payload** | `send.ts:256` | 고정값 | `provisionalKey` → `payload.sessionId ?? 'new:1'` | **못 잡음** | 6 passed | 확장 후보 |
+
+- 시행 중 못 잡음 1(`X-a3-payload`). 하한 ①(N7·N14~N16·H1) · ②(r3 파생 이슈 12가 인용한 N14~N16·H1) · ③(r2 `못 잡음` X1d는 D-014로 삭제된 항 — 자리 N7·N14~N16이 대신 red) · ④(N1~N13 전부 재실행) · ⑤(N14~N16 형제 맞바꿈) · ⑥(독립 축 6종) · ⑦(r3 diff가 닿은 항목: a3·a7·I11·IT-04 기본 상태) 모두 실행.
+- 임시 가설 `IT04-default`(`activityLabel` 폴백)는 activity가 undefined라 닿지 않는 위치를 잘못 골랐다 — 판정에서 뺐다. 올바른 위치(`chatReducer.ts:519`)는 red.
+
+### V-pair
+
+VP-01~VP-24 **PASS** (UT→IT→ST→AT 순, 직접 oracle 좌표는 구현자 r3 강제 지점 표와 대조해 실재·실행 확인). VP-04·08·09·12는 ΔV2 하네스(실제 `leaseKeyFor`)에서 재판정: a3 키 `provisionalKey`(새 `'new:1'`·재개 `'session-1'`), a7 키 `leaderTurn?.dbSessionId ?? provisionalKey`가 A1·A2·A3·A4·A6·A7로 구별 값 5종(`'new:1'`·`'client:new:1'`·`'session-1'`·`'session:session-1'`·`'s-new'`)에서 잠겼다. VP-25 `SELF_BLOCKED`(AC15 사람 실기).
+
+### 파생 이슈
+
+| # | 분류 | 내용 | disposition |
+|---|---|---|---|
+| 1 | 확장 후보 | a3가 `payload.sessionId ?? 'new:1'`로 바뀌어도 green — 하네스 새 세션 `clientKey`가 리터럴과 같은 `'new:1'`이라 `clientKey` 경로 값이 구별되지 않는다(`clientKey`가 다른 값일 때만 갈린다) | `NEXT_HANDOFF(확장)` — 창 밖이라 후보 표에 기록, 고칠 의무 없음 |
+| 2 | 비귀속 | 인접 스위트의 Linux 변경 전 실패(r1·r2 기록과 동일)와 `Timeline.tsx`·`useTranscriptVirtualizer.ts` lint 경고 2건 | NON_BLOCKING |
+
+### 판정
+
+**PASS** — 모든 `REQUIRED`·`REGRESSION` pair(VP-01~24)와 적용 gate가 PASS이고 막는 발견이 0이다. 창 밖 확장 후보 1건은 판정에 쓰지 않는다. VP-25(AC15 Windows 실기 4항)는 사람 몫이라 handoff는 archive로 가지 않고 `verify/PASS`(기계 범위)로 사람 대기한다.
+
+### Review Signals — 사실만
+
+- r2의 PLAN_GAP(a7 oracle 부재)이 ΔV2의 oracle(A7)·하네스 정합으로 닫혔다. 같은 모양이 다시 나온 곳은 없다: 하네스 조립이 production(`leaseKeyFor`)과 갈리는 유형(0262 r4)은 H1로 방향 확인.
+- 사용자 결정 변경 근거 없음. 구현 주체 `codex`(`Agent: codex`), 설계=검증 Claude라 plan validity는 자기 설계 감사이며 독립성은 ⑥이 맡았다.
+- ⑥ 독립 축 발견 1건(확장 후보). 환경 한계: Linux에서 `npm run typecheck`·`eslint`를 한 명령에 묶으면 메모리로 종료(exit 137)되어 분리 실행했다. 사람 몫: AC15 Windows 실기.
