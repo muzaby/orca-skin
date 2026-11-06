@@ -11,8 +11,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV3` — 실측 1회차 반영 + 사용자 지시 "Mjs 만들지마라"(§7-D). `ΔV2` 실측 CI(§7-C) · `ΔV1` 구현 중 정정(§7-B) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV4` — 사용자 결정 "Io 병렬, mjs 유지"(§7-E). `ΔV3` 실측 반영(§7-D) · `ΔV2` 실측 CI(§7-C) · `ΔV1` 구현 중 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 
 # Part I — Product & UX Contract
 
@@ -36,7 +36,7 @@
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
 | D-001 | unit(io 외) 테스트는 `threads` 풀, io 테스트는 `forks` 풀로 나눈다 | 파일당 `node` 워커 프로세스 제거(안 A) | 3턴 "a+b 진행" | ACTIVE | — |
-| D-002 | Windows + `CI=true` 직렬화는 io 프로젝트에만 둔다. unit은 병렬 | "self hosted로 실행중"(CI=true) — 직렬 대상을 디스크 경합 원인(SQLite·git)으로 좁힘 | 3턴 · `vitest.config.ts:10-13` 주석 | ACTIVE | — |
+| D-002 | Windows + `CI=true` 직렬화는 io 프로젝트에만 둔다. unit은 병렬 | "self hosted로 실행중"(CI=true) — 직렬 대상을 디스크 경합 원인(SQLite·git)으로 좁힘 | 3턴 · `vitest.config.ts:10-13` 주석 | SUPERSEDED | D-011 |
 | D-003 | 격리 전역 git 설정(`GIT_CONFIG_GLOBAL`)에 `user.name=orca test` · `user.email=test@orca.local` · `core.autocrlf=false` · `maintenance.auto=false`를 쓰고, 테스트의 저장소별 신원·autocrlf `git config` 호출을 지운다 | 안 B. 신원 값은 유일한 작성자 단언 `git-diff.test.ts:417`(`'orca test'`)에 맞춤 | 3턴 "a+b" | ACTIVE | 0294 AC11 "빈 전역 설정" 단언을 대체(§16) |
 | D-004 | Windows 잠금 테스트는 `pwsh.exe` 대신 Windows PowerShell(`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`)을 띄운다 | "runner 환경에서 pwsh이 아닌 powershell을 쓰도록" — 러너에 pwsh 없음 | 3턴 | ACTIVE | — |
 | D-005 | 안 C(중첩 vitest hostile 분리)·D(`node --test` 격리 해제)는 하지 않는다 | 사용자가 "a+b"만 승인 | 3턴 | ACTIVE | — |
@@ -44,6 +44,7 @@
 | D-008 | io 직렬 범위는 바로 정하지 않는다. `ORCA_TEST_IO_MODE`(`serial`·`sqlite-serial`·`parallel`·`workers2`)로 고르고 실험 워크플로로 Windows에서 실측한 뒤 결정한다. 미설정이면 현행(D-002) | "테스트ci 작성하여 우선 테스트해보자" — 0259 대비 Windows test 2:50 → 5:50, io 파일이 0259 테스트 시간의 82%(160.3/196.5초) | 4턴 | ACTIVE | D-002는 미설정 기본값으로 유지 |
 | D-009 | 실측 요약용 `.mjs`(`summarize-vitest-report.mjs`)를 만들지 않는다. 실험 워크플로는 vitest 기본 reporter의 파일별 줄·Duration 줄을 그대로 남기고 분석은 로그에서 한다 | "Mjs 만들지마라" | 5턴 | ACTIVE | ΔV2 AC12 요약 단계·VP-14 대체 |
 | D-010 | 실측 모드 정정: `workers2` 삭제(vitest — 같은 `groupOrder`의 프로젝트는 `maxWorkers`가 같아야 한다) · `sqlite-serial`의 `io-sqlite`는 group 1로 · 모드마다 2회 반복. `parallel-shared`(unit `isolate: false`)는 로컬 실측 179파일 988건 실패(모듈 mock·상태 누수, import 143 → 39.8초)로 넣지 않는다 | 실측 1회차(run 42199401362): workers2 설정 오류 · parallel 251초인데 unit 구간이 벽시계 190.8초/테스트 합 94.8초 — import 175.5초가 최대 비용 | 실측 · 사용자 "테스트 ci 만들어서 결과를" | ACTIVE | D-008 모드 목록 대체 |
+| D-011 | 기본(미설정)은 io 병렬 — 플랫폼·`CI`와 무관하게 unit·io가 같은 group 0, io `maxWorkers` 미지정. 실측 모드(`serial`·`sqlite-serial`·`parallel`)는 남긴다. 새 `.mjs`(test-pools·test-source·vitest-unit-guard·test-pools.test)는 유지 | "Io 병렬, mjs 유지" — 실측 2회차 parallel 3:15·3:48 vs serial 4:31·4:46, 6 job 실패 0 | 6턴 | ACTIVE | D-002 대체 · D-009 범위 = 요약 스크립트만 |
 | D-007 | unit 가드는 throw와 함께 위반을 기록하고, setup의 `afterEach`·`afterAll`이 기록으로 red를 만든다 | production `runGit`이 throw를 결과로 삼켜 조용히 통과했다(fail-closed 아님) | 구현 중 재현(§7-B) | ACTIVE | — |
 
 ### 갱신 메모
@@ -53,6 +54,7 @@
 - `ACTIVE 결정 ↔ AC` 대조: D-001 ↔ AC1·AC2·AC3 · D-002 ↔ AC4 · D-003 ↔ AC5·AC6 · D-004 ↔ AC7 · D-005 ↔ 비범위(§6) — 충돌 0.
 - ΔV1 추가: D-006 ↔ AC9(격리 유지) · D-007 ↔ AC3(가드 fail-closed) — 충돌 0.
 - ΔV2 추가: D-008 ↔ AC11·AC12, D-002 ↔ AC4(미설정 분기로 유지) — 충돌 0.
+- ΔV4: D-011 ↔ AC4′(미설정 = 병렬) · D-002 SUPERSEDED — AC4는 AC4′로 대체, 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -237,6 +239,17 @@ npm test (pretest → vitest run → node --test)
 
 - SUPERSEDED: ΔV2 VP-14·EP-9(요약 스크립트) → 폐기(D-009). AC12 → AC12′. EP-8 `workers2` 분기 → 삭제(EP-8′ 5자리: 미설정·serial·sqlite-serial·parallel·잘못된 값) + 같은 group 같은 `maxWorkers` 단언.
 - 함께 고치는 현재 결함: `scripts/test-time.test.mjs`가 설정을 읽을 때 `ORCA_TEST_IO_MODE`를 지우지 않아 실험 job에서 실패(sqlite-serial job Script tests).
+
+## 7-E. ΔV4 — 기본 io 병렬 (2026-11-06, 사용자 결정)
+
+| R | AT / AC | 동작 기준 (대체) | 검증 수단 | 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC4′ (AC4 대체) | `ORCA_TEST_IO_MODE` 미설정이면 플랫폼·`CI`와 무관하게 unit(threads)·io(forks)가 같은 group 0에서 돌고 io `maxWorkers`는 미지정 — Windows CI 직렬화 없음 | UT `buildProjects` 미설정 × (win32,'true')·(linux,undef) · `test-time.test.mjs` 프로젝트 예산 | `vitest.config.ts` → `npm test` · `ci.yml` |
+| R-04 | AT-04 / AC8′ | Windows CI(`ci.yml`) gate green, Test 단계 시간 기록 | PR CI 실행 관측 | `ci.yml` |
+
+- §10 EP-2 대체: `io.maxWorkers`·`io.groupOrder` 자리의 규칙 = 미설정이면 `undefined`·0. 검색 명령은 그대로(`rg -n "pool:\|maxWorkers:\|groupOrder:\|setupFiles:" app/scripts/test-pools.mjs`).
+- 함께 고칠 서술: `vitest.config.ts` 풀 주석 · `app/AGENTS.md` test-pools 항목("Windows+`CI=true` 직렬" · "unit 이 먼저… io 가 뒤") · `test-pools.mjs` 헤더 주석.
+- 선언 경계: 0262의 "닫힌 DB 정리 훅 시간 초과"는 GitHub windows-latest 병렬 6 job에서 재현 0이다. self-hosted 러너는 미측정 — 재발하면 실측 모드 `sqlite-serial`이 대안(같은 워크플로로 확인).
 
 ---
 
