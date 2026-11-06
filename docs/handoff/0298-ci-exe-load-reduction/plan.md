@@ -11,8 +11,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV1` — 구현 중 발견 정정(§7-B). V1 행은 유지, EP-1·EP-3 규칙 칸만 ΔV1이 대체 |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` — 사용자 요구: io 직렬 범위 실측 CI(§7-C). `ΔV1` — 구현 중 발견 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -41,6 +41,7 @@
 | D-004 | Windows 잠금 테스트는 `pwsh.exe` 대신 Windows PowerShell(`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`)을 띄운다 | "runner 환경에서 pwsh이 아닌 powershell을 쓰도록" — 러너에 pwsh 없음 | 3턴 | ACTIVE | — |
 | D-005 | 안 C(중첩 vitest hostile 분리)·D(`node --test` 격리 해제)는 하지 않는다 | 사용자가 "a+b"만 승인 | 3턴 | ACTIVE | — |
 | D-006 | unit 워커 스레드에서 `os.homedir()`을 스레드 env 사본(`HOME`/win32 `USERPROFILE`)에 맞춘다 | 스레드의 `process.env`는 사본이라 libuv `os.homedir()`이 실제 홈을 읽는다 — 0294 파일별 홈 격리 유지(AC9) | 구현 중 재현(§7-B) | ACTIVE | — |
+| D-008 | io 직렬 범위는 바로 정하지 않는다. `ORCA_TEST_IO_MODE`(`serial`·`sqlite-serial`·`parallel`·`workers2`)로 고르고 실험 워크플로로 Windows에서 실측한 뒤 결정한다. 미설정이면 현행(D-002) | "테스트ci 작성하여 우선 테스트해보자" — 0259 대비 Windows test 2:50 → 5:50, io 파일이 0259 테스트 시간의 82%(160.3/196.5초) | 4턴 | ACTIVE | D-002는 미설정 기본값으로 유지 |
 | D-007 | unit 가드는 throw와 함께 위반을 기록하고, setup의 `afterEach`·`afterAll`이 기록으로 red를 만든다 | production `runGit`이 throw를 결과로 삼켜 조용히 통과했다(fail-closed 아님) | 구현 중 재현(§7-B) | ACTIVE | — |
 
 ### 갱신 메모
@@ -49,6 +50,7 @@
 - 변경된 결정: 없음. 0294의 "git 은 빈 전역 설정" 단언만 D-003으로 대체(§16).
 - `ACTIVE 결정 ↔ AC` 대조: D-001 ↔ AC1·AC2·AC3 · D-002 ↔ AC4 · D-003 ↔ AC5·AC6 · D-004 ↔ AC7 · D-005 ↔ 비범위(§6) — 충돌 0.
 - ΔV1 추가: D-006 ↔ AC9(격리 유지) · D-007 ↔ AC3(가드 fail-closed) — 충돌 0.
+- ΔV2 추가: D-008 ↔ AC11·AC12, D-002 ↔ AC4(미설정 분기로 유지) — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -194,6 +196,27 @@ npm test (pretest → vitest run → node --test)
 - 규칙 칸 ↔ 입력 칸: `sqlite` 6분기마다 `test-pools.test.mjs` 입력 1개. 가드 기록·훅은 `test-pools.test.ts` 2케이스(비운 위반 · `it.fails`). 홈 정렬 2입력.
 - 선언 경계 추가: 스레드에서 `os.homedir` 외에 프로세스 환경을 읽는 경로(네이티브 애드온의 `getenv`)는 맞추지 않는다 — unit 가드가 네이티브 SQLite만 허용 목록 없이 막고, 그 밖의 네이티브 로드는 현재 트리 unit 실행에서 0건(가드 dlopen 관측).
 - 신호 정본 이동: `FIXTURE`·`SPAWN_GIT`·`RUN_GIT`·`INJECTS_RUNNER`·`stripComments`·`isRealGitSuite`를 `app/scripts/test-source.mjs`로 옮기고 `check-test-budgets.mjs`가 import·재수출한다(§11 추가, 동작 불변 — `check-test-budgets.test.mjs` 641건).
+
+## 7-C. ΔV2 — io 직렬 범위 실측 CI (2026-11-06, 사용자 요구 변경)
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 도달 경로 |
+|---|---|---|---|---|
+| R-05 | AT-06 / AC11 | `ORCA_TEST_IO_MODE` 미설정 → 현행(AC4) · `serial` → io 1워커·unit 뒤 · `parallel` → io 기본 워커·unit과 같은 그룹 · `workers2` → io 2워커·같은 그룹 · `sqlite-serial` → SQLite 신호 io만 1워커(`io-sqlite`), 나머지 io 기본 워커, 셋 다 같은 그룹 · 그 밖의 값 → 설정 로드 실패 | UT `buildProjects`·`resolveIoMode` 모드별 입력 | `vitest.config.ts` |
+| R-05 | AT-06 / AC12 | 실험 워크플로가 모드 × 반복 행렬을 지정한 러너(기본 `windows-latest`, self-hosted 라벨 가능)에서 돌리고, 마지막 단계에 프로젝트별 벽시계·파일 수·상위 느린 파일을 출력한다 | 워크플로 실행 1회 + 요약 스크립트 UT | `.github/workflows/test-pools-experiment.yml` |
+
+| Pair | left ↔ right | req | path | 직접 oracle | §10 |
+|---|---|---|---|---|---|
+| VP-13 | MD-06 ↔ UT-06 (NEW 모드) | REQUIRED | env → `resolveIoMode` → `buildProjects({mode, ioSqlite})` | `scripts/test-pools.test.mjs` 모드 5입력 + 잘못된 값 1 | EP-8 (6) |
+| VP-14 | AR-03 ↔ IT-03 (NEW 요약) | REQUIRED | vitest JSON 보고서 → `summarize-vitest-report.mjs` → stdout | `scripts/summarize-vitest-report.test.mjs` — 가짜 보고서 2풀 → 풀별 벽시계·합·상위 목록 | EP-9 (3) |
+| VP-15 | R-05 ↔ AT-06 | REQUIRED | `workflow_dispatch`/PR(워크플로 파일 변경) → 행렬 job → 요약 | GitHub 실행 1회 관측 | 0 — 운영 pair |
+
+| pair | 계약 | 언제 강제 (자리) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| VP-13 | 모드 분기 | 미설정 · `serial` · `sqlite-serial` · `parallel` · `workers2` · 잘못된 값 (6) | `rg -n "'serial'\|'sqlite-serial'\|'parallel'\|'workers2'" app/scripts/test-pools.mjs` | 측정한 모드와 실제 구조가 다르면 비교가 무의미 |
+| VP-14 | 요약 항목 | 풀별 벽시계(최소 시작 → 최대 종료) · 풀별 파일 수·시간 합 · 상위 느린 파일 (3) | `rg -n "wall\|top" app/scripts/summarize-vitest-report.mjs` | 잘린 로그에서 판단 근거가 사라진다 |
+
+- 기본 동작 불변: `npm test`·`ci.yml`은 변수를 설정하지 않는다 — 미설정 분기 = AC4.
+- 선언 경계: 실험 워크플로의 시간은 러너별 편차가 크다(같은 코드 5:22 vs 8:18, run 41986335666·42001198642). 비교는 같은 실행 묶음 안에서만 하고 반복 입력으로 표본을 늘린다.
 
 ---
 
