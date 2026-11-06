@@ -253,7 +253,7 @@ export async function handleChatSend(
   event.sender.once('render-process-gone', abortPreparing)
   const reportWaitPhase = (phase: ChatWaitPhase | null): void => {
     if (activeAdapter.reportsWaitPhases !== true) return
-    activity.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, phase)
+    activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, phase)
   }
 
   try {
@@ -266,10 +266,14 @@ export async function handleChatSend(
       { ...payload, agentKind },
       JSON.stringify(normalizedAttachments) +
         (ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions ?? ''),
-      {
-        onNativeHistory: (checking) =>
-          reportWaitPhase(checking ? { kind: 'history' } : { kind: 'preparing' })
-      }
+      ...(activeAdapter.reportsWaitPhases === true
+        ? [
+            {
+              onNativeHistory: (checking: boolean) =>
+                reportWaitPhase(checking ? { kind: 'history' } : { kind: 'preparing' })
+            }
+          ]
+        : [])
     )
     if (!resolution.ok) {
       sendChatEvent(event.sender, { type: 'error', error: resolution.error })
@@ -733,7 +737,7 @@ export async function handleChatSend(
     event.sender.removeListener('destroyed', abortPreparing)
     event.sender.removeListener('render-process-gone', abortPreparing)
     unlinkResponseAbort()
-    activity.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, null)
+    activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? payload.sessionId ?? provisionalKey, null)
     if (!cleanupDone) {
       const key = leaderTurn?.dbSessionId ?? leaderTurn?.queueKey ?? provisionalKey
       for (const batch of initialBatches) {
