@@ -660,6 +660,7 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 | 1 | `send.ts`의 `adapter` 지역 변수가 `SessionAdapter \| MockAdapter \| null`로 추론되어 `activeAdapter.reportsWaitPhases` 접근 시 `MockAdapter`에서 TS2339 발생 | `send.ts:70`에서 `let adapter: SessionAdapter \| null`로 명시(`MockAdapter implements SessionAdapter`이므로 타입 안전하게 단일화) | `npm run typecheck` (`typecheck:node`·`typecheck:web`·`typecheck:test`) exit 0 |
 | 2 | `send.harness.test.ts`처럼 `deps.activity`를 생략하거나 `reportsWaitPhases`가 없는 어댑터에서 `resolveTurn` 5-인자 일치를 단언하는 기존 테스트가 `r1` CI에서 실패 | `send.ts:256,740`·`turn-request.ts:133`에서 `activity?.setWaitPhase?.(...)`로 방어하고, `send.ts:269`에서 `activeAdapter.reportsWaitPhases === true`일 때만 `resolveTurn` 6번째 인자 `{ onNativeHistory }`를 전달 | `send.harness.test.ts` (14 passed) · `send.wait-phase.test.ts` (4 passed) · `M-06a` red |
 | 3 | `adapter.test.ts:730`·`native-history.test.ts:546`이 `servers.acquire(config, env, cwd)` 3-인자 호출을 단언하는데 `observer`가 `undefined`일 때도 4번째 인자 `undefined`가 전달되어 `r1` CI에서 실패 | `channel.ts:333`에서 `req.onWaitPhase`가 있을 때만 observer 객체를 넘기고, `adapter.ts:162`에서 `...(observer ? [observer] : [])`로 `observer` 부재 시 3-인자 호출 유지 | `adapter.test.ts` (27 passed) · `native-history.test.ts` (35 passed) · 전체 561개 테스트 파일(5,257케이스) green |
+| 4 | `activityLabel.ts:63` 주석의 `Orca 측 준비` 표현이 `product-identity.test.ts:92`(`/\bOrca\b/` renderer prod 전수 음성 스윕)에 걸려 `r1.2` CI에서 실패 | `activityLabel.ts:63` 주석을 `앱 측 준비`로 정정 | `product-identity.test.ts` (34 passed) · `activityLabel.test.ts` (26 passed) |
 
 ## [구현자 기입] 구현 보고
 
@@ -674,15 +675,15 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 | AC 자기보고 | - **AC1** ✅: `opencode-runtime.test.ts:384`(IT-02), `adapter.startup.test.ts:537`(IT-01 I1), `send.wait-phase.test.ts:169`(IT-03 A1), `wait-phase.test.ts:138`(UT-01 R8a) 통과<br>- **AC2** ✅: `server.test.ts:819`(UT-04 S1~S5), `opencode-runtime.test.ts:396`(IT-02 2턴 `server` 0회), `adapter.startup.test.ts:569`(IT-01 I2) 통과<br>- **AC3** ✅: `adapter.startup.test.ts:590`(IT-01 I3 `pushTurn` `[mcp, send, model, null]`), `opencode-runtime.test.ts:439`(ST-01 2턴) 통과<br>- **AC4** ✅: `wait-phase.test.ts:72`(UT-01 R7a~R7f), `adapter.startup.test.ts:606`(IT-01 I4) 통과<br>- **AC5** ✅: `native-session.test.ts:523,548,579`(3케이스), `send.wait-phase.test.ts:219`(IT-03 A4) 통과<br>- **AC6** ✅: `activityLabel.test.ts:251`(UT-02 L4~L6), `activityLabel.test.ts:183`(REGRESSION VP-20) 통과<br>- **AC7** ✅: `opencode-runtime.test.ts:414`(ST-01), `adapter.startup.test.ts:669`(IT-01 I5/I6), `send.wait-phase.test.ts:169`(IT-03 A2/A3) 통과<br>- **AC8** ✅: `activityLabel.test.ts:320`(UT-02 L7), `statusLine.waitPhase.test.ts:67`(IT-04 queuedCount=1) 통과<br>- **AC9** ✅: `send.wait-phase.test.ts:250`(IT-03 A5 Claude 비-null 0건), `StatusLine.harness.test.ts`(2 passed) 통과<br>- **AC10** ✅: `activityLabel.test.ts:334`(UT-02 K1), `statusLine.waitPhase.test.ts:40`(IT-04 9종 ko), `resources.test.ts`(7 passed) 통과<br>- **AC11** ✅: `wait-phase.test.ts:138`(UT-01 R8a), `turn-coordinator.test.ts`(77 passed), `git grep -n -E "MODEL_OUTPUT_EVENTS" -- app/src` 0건 확인<br>- **AC12** ✅: `session-activity-projector.test.ts:352`(UT-03 P1~P8) 통과<br>- **AC13** ✅: `statusLine.waitPhase.test.ts:98,124`(IT-04 revision 무시·LOAD_SESSION hydrate/preserve) 통과<br>- **AC14** ✅: `IPC_CONTRACT.md:594`, `provider-runtime.md:93`, `ux-domains.md:42` 반영 + `check-doc-inventory.mjs --check` exit 0<br>- **AC15** ⚠️: Windows 실제 OpenCode 1.x 실기 시각 확인 대기 |
 | 합계 검산 | `✅ 14 · ⚠️ 1 · ❌ 0 = 총 15` |
 | 블로커 / 역질문 | 없음 (AC15 사람 실기만 대기) |
-| 대상 커밋 | `(r1·r1.2 구현 — 좌표는 INDEX)` |
+| 대상 커밋 | `(r1·r1.2·r1.3 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
 - 작성 에이전트: `argon`.
-- 라운드 및 턴 라벨: `r1.2` (`r1` 원격 CI `Test` 스텝 실패 3파일 보완).
+- 라운드 및 턴 라벨: `r1.3` (`r1`·`r1.2` 원격 CI `Test` 스텝 실패 보완).
 - 이전 라운드 반복 축 여부: 해당 없음 (`r1` 내 CI 보완 턴).
 - plan 지침·AC 누락 여부: 없음 (D-001~D-010 및 §10 EP-01~EP-08 52자리 전수가 코드와 1:1 대응).
-- 환경 한계: `native-session.test.ts`는 파일 최상단 `beforeEach`에서 `better-sqlite3` 인메모리 DB를 생성하므로 `node scripts/ensure-sqlite-abi.mjs node`로 Node ABI 보장 후 실행하여 16/16 green을 확인했고, Windows에서 `mutate.py` 실행 시 `cp949` 기본 인코딩 오류를 피하기 위해 `PYTHONUTF8=1`(`python -X utf8`)을 지정했다. AC15는 실제 OpenCode 1.x 프로세스·화면 시각 확인 항목이라 `SELF_BLOCKED`(`⚠️`)로 분리했다.
+- 환경 한계: `native-session.test.ts`는 파일 최상단 `beforeEach`에서 `better-sqlite3` 인메모리 DB를 생성하므로 `node scripts/ensure-sqlite-abi.mjs node`로 Node ABI 보장 후 실행하여 16/16 green을 확인했고, Windows에서 `mutate.py` 실행 시 `cp949` 기본 인코딩 오류를 피하기 위해 `PYTHONUTF8=1`(`python -X utf8`)을 지정했다. 모든 신규·수정 테스트는 실제 호스트/로컬 환경에 의존하지 않고 가상(in-memory/mock) 픽스처 입력과 기대 결과만 단언한다. AC15는 실제 OpenCode 1.x 프로세스·화면 시각 확인 항목이라 `SELF_BLOCKED`(`⚠️`)로 분리했다.
 
 ---
 
