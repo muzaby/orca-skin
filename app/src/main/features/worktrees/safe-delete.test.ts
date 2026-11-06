@@ -36,8 +36,6 @@ async function repository(): Promise<string> {
   const repo = await mkdtemp(join(tmpdir(), 'orca-safe-delete-'))
   roots.push(repo)
   await exec('git', ['init', repo])
-  await exec('git', ['-C', repo, 'config', 'user.email', 'a@b.c'])
-  await exec('git', ['-C', repo, 'config', 'user.name', 'orca'])
   await writeFile(join(repo, 'f.txt'), 'x\n')
   await exec('git', ['-C', repo, 'add', '.'])
   await exec('git', ['-C', repo, 'commit', '-m', 'init'])

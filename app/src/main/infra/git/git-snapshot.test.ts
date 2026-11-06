@@ -21,8 +21,6 @@ async function repo(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), 'orca-snapshot-'))
   roots.push(cwd)
   await git(cwd, 'init', '--initial-branch=main')
-  await git(cwd, 'config', 'user.email', 'test@orca.local')
-  await git(cwd, 'config', 'user.name', 'Test')
   await git(cwd, 'commit', '--allow-empty', '-m', 'base')
   return cwd
 }

@@ -91,3 +91,14 @@ describe('호스트 격리 env (0294 AC10)', () => {
     assert.deepEqual(hermeticTestEnv({ env, root: ROOT, platform: 'linux' }).remove, [])
   })
 })
+
+describe('격리 전역 git 설정 내용 (0298)', () => {
+  test('신원 · core.autocrlf=false · maintenance.auto=false 를 담는다', async () => {
+    const { HERMETIC_GIT_CONFIG, HERMETIC_GIT_IDENTITY } = await import('./test-host.mjs')
+    assert.deepEqual(HERMETIC_GIT_IDENTITY, { name: 'orca test', email: 'test@orca.local' })
+    assert.equal(
+      HERMETIC_GIT_CONFIG,
+      '[user]\n\tname = orca test\n\temail = test@orca.local\n[core]\n\tautocrlf = false\n[maintenance]\n\tauto = false\n'
+    )
+  })
+})

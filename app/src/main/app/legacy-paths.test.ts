@@ -86,8 +86,6 @@ function insertWorktree(
 async function seedRepo(root: string, repoDir: string, worktreeDir: string): Promise<void> {
   await mkdir(repoDir, { recursive: true })
   await execGit('git', ['init', '-q', repoDir], { cwd: root })
-  await execGit('git', ['config', 'user.email', 'a@b.c'], { cwd: repoDir })
-  await execGit('git', ['config', 'user.name', 't'], { cwd: repoDir })
   await writeFile(join(repoDir, 'f.txt'), 'hi', 'utf8')
   await execGit('git', ['add', '-A'], { cwd: repoDir })
   await execGit('git', ['commit', '-qm', 'init'], { cwd: repoDir })

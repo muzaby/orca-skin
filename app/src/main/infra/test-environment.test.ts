@@ -5,12 +5,14 @@ import { readFileSync, realpathSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { relative, isAbsolute } from 'node:path'
 import { promisify } from 'node:util'
+import { isMainThread } from 'node:worker_threads'
 import { describe, expect, it, vi } from 'vitest'
 import {
   BASE_CASE_MS,
   BASE_WAIT_FOR_MS,
   resolveTestTimeScale
 } from '../../../scripts/test-time.mjs'
+import { HERMETIC_GIT_CONFIG } from '../../../scripts/test-host.mjs'
 
 const host = (globalThis as unknown as Record<symbol, { root: string; originalHome: string }>)[
   Symbol.for('orca.test.host')
@@ -55,12 +57,12 @@ describe('호스트 격리 배선 (AC11)', () => {
     expect(realpathSync.native(homedir())).toBe(homedir())
   })
 
-  it('XDG 4종은 루트 아래, git 은 빈 전역 설정과 시스템 설정 무시', () => {
+  it('XDG 4종은 루트 아래, git 은 고정 전역 설정(0298)과 시스템 설정 무시', () => {
     for (const key of ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_STATE_HOME'])
       expect(within(process.env[key]!, host.root), key).toBe(true)
     expect(process.env.GIT_CONFIG_NOSYSTEM).toBe('1')
     expect(within(process.env.GIT_CONFIG_GLOBAL!, host.root)).toBe(true)
-    expect(readFileSync(process.env.GIT_CONFIG_GLOBAL!, 'utf8')).toBe('')
+    expect(readFileSync(process.env.GIT_CONFIG_GLOBAL!, 'utf8')).toBe(HERMETIC_GIT_CONFIG)
     if (process.platform === 'win32') expect(within(process.env.ProgramData!, host.root)).toBe(true)
   })
 
@@ -80,5 +82,14 @@ describe('호스트 격리 배선 (AC11)', () => {
       'process.stdout.write(require("node:os").homedir())'
     ])
     expect(stdout).toBe(homedir())
+  })
+})
+
+describe('풀 배선 (0298)', () => {
+  it('자식 프로세스를 쓰는 이 파일은 io 풀 — 워커 스레드가 아니라 프로세스에서 돈다', () => {
+    expect(isMainThread).toBe(true)
+    expect(
+      (process as unknown as Record<symbol, unknown>)[Symbol.for('orca.test.unitGuard')]
+    ).toBeUndefined()
   })
 })

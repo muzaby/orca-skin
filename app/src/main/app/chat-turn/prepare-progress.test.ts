@@ -49,12 +49,6 @@ async function makeRepo(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'orca-steps-'))
   dirs.push(dir)
   await git(dir, ['init', '--initial-branch=main'])
-  await git(dir, ['config', 'user.email', 't@orca.local'])
-  await git(dir, ['config', 'user.name', 'orca test'])
-  // 러너의 전역 `core.autocrlf=true` 를 이 저장소에서만 끈다. 켜져 있으면 LF 로 쓴 픽스처가
-  // 커밋될 때 CRLF 로 바뀌어 내용·줄 수가 기대와 어긋나고, 매 `add` 마다 "LF will be replaced
-  // by CRLF" 경고가 출력을 덮는다. 테스트가 보는 것은 개행 정책이 아니다.
-  await git(dir, ['config', 'core.autocrlf', 'false'])
   await writeFile(join(dir, 'a.ts'), 'x\n')
   await git(dir, ['add', '.'])
   await git(dir, ['commit', '-m', 'base'])
