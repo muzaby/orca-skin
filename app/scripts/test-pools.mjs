@@ -59,53 +59,82 @@ export function classifyTestSource(source, relPath = '') {
   return { pool: reasons.length > 0 ? 'io' : 'unit', reasons }
 }
 
-/** `appDir/src` 아래 `*.test.ts` 를 풀별로 가른다. 경로는 `src/…` posix, 정렬. */
+/**
+ * `appDir/src` 아래 `*.test.ts` 를 풀별로 가른다. 경로는 `src/…` posix, 정렬.
+ * `ioSqlite` 는 io 중 `sqlite` 신호가 있는 파일 — `sqlite-serial` 모드가 따로 직렬로 둔다.
+ */
 export function partitionTestFiles(appDir) {
   const io = []
   const unit = []
+  const ioSqlite = []
   const files = readdirSync(join(appDir, 'src'), { recursive: true, encoding: 'utf8' })
     .filter((entry) => entry.endsWith('.test.ts'))
     .map((entry) => `src/${entry.split(sep).join('/')}`)
     .sort()
   for (const relPath of files) {
-    const { pool } = classifyTestSource(readFileSync(join(appDir, relPath), 'utf8'), relPath)
+    const { pool, reasons } = classifyTestSource(
+      readFileSync(join(appDir, relPath), 'utf8'),
+      relPath
+    )
     ;(pool === 'io' ? io : unit).push(relPath)
+    if (reasons.includes('sqlite')) ioSqlite.push(relPath)
   }
-  return { io, unit }
+  return { io, unit, ioSqlite }
+}
+
+/** io 실행 방식 실측 모드 (0298 ΔV2). 미설정이면 기본 동작이다. */
+export const IO_MODE_ENV = 'ORCA_TEST_IO_MODE'
+export const IO_MODES = ['serial', 'sqlite-serial', 'parallel', 'workers2']
+
+/** `ORCA_TEST_IO_MODE` 해석. 미설정·빈 값은 undefined, 목록 밖 값은 설정 로드 실패. */
+export function resolveIoMode(env = process.env) {
+  const raw = env[IO_MODE_ENV]
+  if (raw === undefined || raw.trim() === '') return undefined
+  if (!IO_MODES.includes(raw)) {
+    throw new Error(`${IO_MODE_ENV}=${raw} — ${IO_MODES.join(' · ')} 중 하나여야 한다`)
+  }
+  return raw
 }
 
 /**
- * 두 프로젝트. unit 이 먼저(group 0) 병렬로 끝나고 io 가 뒤(group 1)에 돈다 — 두 풀이 동시에
- * 디스크를 다투지 않는다. Windows + `CI=true` 직렬화는 io 에만 건다(0262 의 디스크 경합 원인이
- * SQLite·git 파일 작업이었다).
+ * 프로젝트 구성. 기본(`mode` 미설정)은 unit 이 먼저(group 0) 병렬로 끝나고 io 가 뒤(group 1)에
+ * 돈다 — Windows + `CI=true` 직렬화는 io 에만 건다(0262 의 디스크 경합 원인이 SQLite·git 파일 작업).
+ * `mode` 를 주면 플랫폼과 무관하게 그 구조로 돈다 — Windows 실측 비교용(ΔV2):
+ *   serial        io 1워커, unit 뒤
+ *   parallel      io 기본 워커, unit 과 같은 그룹
+ *   workers2      io 2워커, unit 과 같은 그룹
+ *   sqlite-serial SQLite 신호 io 만 1워커(`io-sqlite`), 나머지 io 기본 워커, 셋 다 같은 그룹
  *
- * @param {{ platform: string, ci: string | undefined, io: string[], base: object, exclude: string[] }} input
+ * @param {{ platform: string, ci: string | undefined, io: string[], ioSqlite?: string[], base: object, exclude: string[], mode?: string }} input
  */
-export function buildProjects({ platform, ci, io, base, exclude }) {
-  const serialIo = platform === 'win32' && ci === 'true'
-  return [
-    {
-      test: {
-        ...base,
-        name: 'unit',
-        include: [TEST_INCLUDE],
-        exclude: [...exclude, ...io],
-        pool: 'threads',
-        setupFiles: [...base.setupFiles, UNIT_GUARD_SETUP],
-        sequence: { groupOrder: 0 }
-      }
-    },
-    {
-      test: {
-        ...base,
-        name: 'io',
-        include: io,
-        pool: 'forks',
-        maxWorkers: serialIo ? 1 : undefined,
-        sequence: { groupOrder: 1 }
-      }
+export function buildProjects({ platform, ci, io, ioSqlite = [], base, exclude, mode }) {
+  const unit = (groupOrder) => ({
+    test: {
+      ...base,
+      name: 'unit',
+      include: [TEST_INCLUDE],
+      exclude: [...exclude, ...io],
+      pool: 'threads',
+      setupFiles: [...base.setupFiles, UNIT_GUARD_SETUP],
+      sequence: { groupOrder }
     }
-  ]
+  })
+  const forks = (name, include, maxWorkers, groupOrder) => ({
+    test: { ...base, name, include, pool: 'forks', maxWorkers, sequence: { groupOrder } }
+  })
+  if (mode === undefined) {
+    const serialIo = platform === 'win32' && ci === 'true'
+    return [unit(0), forks('io', io, serialIo ? 1 : undefined, 1)]
+  }
+  if (mode === 'serial') return [unit(0), forks('io', io, 1, 1)]
+  if (mode === 'parallel') return [unit(0), forks('io', io, undefined, 0)]
+  if (mode === 'workers2') return [unit(0), forks('io', io, 2, 0)]
+  if (mode === 'sqlite-serial') {
+    const sqlite = io.filter((file) => ioSqlite.includes(file))
+    const rest = io.filter((file) => !ioSqlite.includes(file))
+    return [unit(0), forks('io', rest, undefined, 0), forks('io-sqlite', sqlite, 1, 0)]
+  }
+  throw new Error(`알 수 없는 io 모드: ${mode}`)
 }
 
 /**

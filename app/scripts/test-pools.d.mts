@@ -10,13 +10,22 @@ export declare function classifyTestSource(
   source: string,
   relPath?: string
 ): { pool: 'io' | 'unit'; reasons: string[] }
-export declare function partitionTestFiles(appDir: string): { io: string[]; unit: string[] }
+export declare function partitionTestFiles(appDir: string): {
+  io: string[]
+  unit: string[]
+  ioSqlite: string[]
+}
+export declare const IO_MODE_ENV: string
+export declare const IO_MODES: readonly string[]
+export declare function resolveIoMode(env?: Record<string, string | undefined>): string | undefined
 export declare function buildProjects(input: {
   platform: string
   ci: string | undefined
   io: string[]
+  ioSqlite?: string[]
   base: { setupFiles: string[] } & Record<string, unknown>
   exclude: string[]
+  mode?: string
 }): Array<{ test: Record<string, unknown> }>
 export interface UnitGuardState {
   violations: string[]
