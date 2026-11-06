@@ -39,8 +39,6 @@ describe('resolveHeadRef (0211 ΔV4 · AT-44 · EP-28 ②)', () => {
     const root = await mkdtemp(join(tmpdir(), 'orca-headref-test-'))
     roots.push(root)
     await exec('git', ['init', '--initial-branch=main', root])
-    await exec('git', ['-C', root, 'config', 'user.email', 'test@orca.local'])
-    await exec('git', ['-C', root, 'config', 'user.name', 'Orca Test'])
     return root
   }
 

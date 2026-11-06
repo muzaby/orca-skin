@@ -31,8 +31,6 @@ async function repository(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'orca-worktree-test-'))
   roots.push(root)
   await exec('git', ['init', root])
-  await exec('git', ['-C', root, 'config', 'user.email', 'test@orca.local'])
-  await exec('git', ['-C', root, 'config', 'user.name', 'Orca Test'])
   await writeFile(join(root, 'README.md'), 'base\n')
   await exec('git', ['-C', root, 'add', 'README.md'])
   await exec('git', ['-C', root, 'commit', '-m', 'base'])

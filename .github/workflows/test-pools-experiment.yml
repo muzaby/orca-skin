@@ -1,0 +1,67 @@
+# io 실행 방식 실측 (0298 ΔV2) — 직렬 범위를 정하기 전에 모드별 vitest 시간을 같은 묶음에서 비교한다.
+# `ORCA_TEST_IO_MODE`: serial(현행 Windows CI 구조) · sqlite-serial · parallel — 정본 `app/scripts/test-pools.mjs`.
+# vitest 는 기본 reporter(파일별 `|project|` 줄 + Duration 분해)를 그대로 남기고 `node --test` 는 dot 으로 줄여
+# job 로그가 API 의 끝 5,000줄 안에 들게 한다 — 별도 요약 스크립트는 두지 않는다(0298 ΔV3).
+# 러너 편차가 크다(같은 코드 5:22 vs 8:18) — 같은 실행 안에서만 비교하고, 필요하면 repeats 로 표본을 늘린다.
+# self-hosted 러너: runner 입력에 라벨 JSON(예: ["self-hosted","windows"])을 준다.
+name: Test pools experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: 'runs-on (JSON) — 예: "windows-latest" · ["self-hosted","windows"]'
+        default: '"windows-latest"'
+      modes:
+        description: 'ORCA_TEST_IO_MODE 목록 (JSON)'
+        default: '["serial","sqlite-serial","parallel"]'
+      repeats:
+        description: '모드마다 반복 (JSON 배열)'
+        default: '[1,2]'
+  pull_request:
+    paths:
+      - '.github/workflows/test-pools-experiment.yml'
+
+concurrency:
+  group: test-pools-experiment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    name: ${{ matrix.mode }} #${{ matrix.repeat }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: ${{ fromJSON(inputs.modes || '["serial","sqlite-serial","parallel"]') }}
+        repeat: ${{ fromJSON(inputs.repeats || '[1,2]') }}
+    runs-on: ${{ fromJSON(inputs.runner || '"windows-latest"') }}
+    timeout-minutes: ${{ fromJSON(vars.ORCA_CI_TIMEOUT_MINUTES || '90') }}
+    defaults:
+      run:
+        working-directory: app
+    env:
+      ORCA_TEST_IO_MODE: ${{ matrix.mode }}
+      # 비어 있으면 기본 배율 3 (scripts/test-time.mjs).
+      ORCA_TEST_TIME_SCALE: ${{ vars.ORCA_TEST_TIME_SCALE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # npm test 의 pretest 와 같다 — better-sqlite3 를 node ABI 로.
+      - name: SQLite ABI (node)
+        run: node scripts/ensure-sqlite-abi.mjs node
+
+      - name: Vitest
+        run: node node_modules/vitest/vitest.mjs run
+
+      - name: Script tests
+        if: always()
+        run: node --test --test-reporter=dot scripts/*.test.mjs

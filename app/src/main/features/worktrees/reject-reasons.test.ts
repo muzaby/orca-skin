@@ -35,8 +35,6 @@ async function repo(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'orca-reject-repo-'))
   roots.push(dir)
   await exec('git', ['init', dir])
-  await exec('git', ['-C', dir, 'config', 'user.email', 'a@b.c'])
-  await exec('git', ['-C', dir, 'config', 'user.name', 'orca'])
   await writeFile(join(dir, 'f.txt'), 'x\n')
   await exec('git', ['-C', dir, 'add', '.'])
   await exec('git', ['-C', dir, 'commit', '-m', 'init'])

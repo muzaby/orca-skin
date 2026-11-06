@@ -52,8 +52,6 @@ describe('Git execution safety', () => {
   it('blocks configured external diff/textconv helpers and keeps every read non-locking', async () => {
     const cwd = await root()
     await git(cwd, 'init', '--initial-branch=main')
-    await git(cwd, 'config', 'user.email', 'test@orca.local')
-    await git(cwd, 'config', 'user.name', 'Test')
     await writeFile(join(cwd, 'a.txt'), 'before\n')
     await git(cwd, 'add', '.')
     await git(cwd, 'commit', '-m', 'base')

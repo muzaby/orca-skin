@@ -24,13 +24,16 @@ const CONFIG = pathToFileURL(join(APP_DIR, 'vitest.config.ts')).href
 function configBudgets(scale) {
   const env = { ...process.env }
   delete env.ORCA_TEST_TIME_SCALE
+  // 실측 모드(0298)가 바꾸는 프로젝트 수와 무관하게 기본 구성을 본다.
+  delete env.ORCA_TEST_IO_MODE
   if (scale !== undefined) env.ORCA_TEST_TIME_SCALE = scale
   return spawnSync(
     process.execPath,
     [
       '--input-type=module',
       '-e',
-      `const c = (await import(${JSON.stringify(CONFIG)})).default; console.log(JSON.stringify({ t: c.test.testTimeout, h: c.test.hookTimeout, s: c.test.setupFiles }))`
+      // 풀이 둘이라(0298) 예산은 프로젝트마다 있다 — 이름 순으로 [io, unit].
+      `const c = (await import(${JSON.stringify(CONFIG)})).default; console.log(JSON.stringify(c.test.projects.map((p) => ({ n: p.test.name, t: p.test.testTimeout, h: p.test.hookTimeout, s: p.test.setupFiles[0] })).sort((a, b) => a.n.localeCompare(b.n))))`
     ],
     { cwd: APP_DIR, env, encoding: 'utf8' }
   )
@@ -103,11 +106,11 @@ describe('vitest.config.ts 배선 (0294 AC1·AC2·AC4)', () => {
     ]) {
       const result = configBudgets(scale)
       assert.equal(result.status, 0, result.stderr)
-      assert.deepEqual(JSON.parse(result.stdout.trim().split('\n').at(-1)), {
-        t: ms,
-        h: ms,
-        s: ['./scripts/vitest-setup.mjs']
-      })
+      const setup = './scripts/vitest-setup.mjs'
+      assert.deepEqual(JSON.parse(result.stdout.trim().split('\n').at(-1)), [
+        { n: 'io', t: ms, h: ms, s: setup },
+        { n: 'unit', t: ms, h: ms, s: setup }
+      ])
     }
   })
 
