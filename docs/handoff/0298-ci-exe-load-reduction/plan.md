@@ -11,8 +11,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` — 구현 중 발견 정정(§7-B). V1 행은 유지, EP-1·EP-3 규칙 칸만 ΔV1이 대체 |
+| 유효 V | `V1 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -40,12 +40,15 @@
 | D-003 | 격리 전역 git 설정(`GIT_CONFIG_GLOBAL`)에 `user.name=orca test` · `user.email=test@orca.local` · `core.autocrlf=false` · `maintenance.auto=false`를 쓰고, 테스트의 저장소별 신원·autocrlf `git config` 호출을 지운다 | 안 B. 신원 값은 유일한 작성자 단언 `git-diff.test.ts:417`(`'orca test'`)에 맞춤 | 3턴 "a+b" | ACTIVE | 0294 AC11 "빈 전역 설정" 단언을 대체(§16) |
 | D-004 | Windows 잠금 테스트는 `pwsh.exe` 대신 Windows PowerShell(`%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe`)을 띄운다 | "runner 환경에서 pwsh이 아닌 powershell을 쓰도록" — 러너에 pwsh 없음 | 3턴 | ACTIVE | — |
 | D-005 | 안 C(중첩 vitest hostile 분리)·D(`node --test` 격리 해제)는 하지 않는다 | 사용자가 "a+b"만 승인 | 3턴 | ACTIVE | — |
+| D-006 | unit 워커 스레드에서 `os.homedir()`을 스레드 env 사본(`HOME`/win32 `USERPROFILE`)에 맞춘다 | 스레드의 `process.env`는 사본이라 libuv `os.homedir()`이 실제 홈을 읽는다 — 0294 파일별 홈 격리 유지(AC9) | 구현 중 재현(§7-B) | ACTIVE | — |
+| D-007 | unit 가드는 throw와 함께 위반을 기록하고, setup의 `afterEach`·`afterAll`이 기록으로 red를 만든다 | production `runGit`이 throw를 결과로 삼켜 조용히 통과했다(fail-closed 아님) | 구현 중 재현(§7-B) | ACTIVE | — |
 
 ### 갱신 메모
 
 - 새 결정: D-001~D-005(이번 handoff 최초 설계).
 - 변경된 결정: 없음. 0294의 "git 은 빈 전역 설정" 단언만 D-003으로 대체(§16).
 - `ACTIVE 결정 ↔ AC` 대조: D-001 ↔ AC1·AC2·AC3 · D-002 ↔ AC4 · D-003 ↔ AC5·AC6 · D-004 ↔ AC7 · D-005 ↔ 비범위(§6) — 충돌 0.
+- ΔV1 추가: D-006 ↔ AC9(격리 유지) · D-007 ↔ AC3(가드 fail-closed) — 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -162,6 +165,35 @@ npm test (pretest → vitest run → node --test)
 | doc-inventory guard | 문서·스크립트 추가 | `node scripts/check-doc-inventory.mjs --check` | 변경 유발분 |
 | npm test | 테스트 인프라 자체 변경 | `npm test` (Linux 기준선 실패 9파일 분리) | AC8 |
 | trailer | 커밋 프로토콜 | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
+
+## 7-B. ΔV1 — 구현 중 발견 정정 (2026-11-06)
+
+출처는 전부 구현 중 재현이다(같은 에이전트, 규범 정정은 별도 커밋). V1 노드는 유지하고 아래 행만 더하거나 대체한다.
+
+| 발견 | 재현 | 정정 |
+|---|---|---|
+| 스레드에서 홈 격리 붕괴 | 전체 실행에서 `test-environment.hostile.test.ts` red — 합성 홈 6항목 → 9항목 · `node -e` 실험: 워커가 `process.env.HOME`을 바꿔도 `os.homedir()`은 프로세스 값 | D-006 · EP-7 신설 · VP-12 신설 |
+| 가드 throw를 production이 삼킴 | `send.agent-profile.test.ts`가 unit에서 green(git 16회 시도) | D-007 · EP-3 규칙 칸 대체(기록 + 훅 red) · VP-03 oracle에 `it.fails` 추가 |
+| 신호 없이 git을 띄우는 파일 | 위 파일 — production `handleChatSend`가 작업 폴더 git 조회 | EP-1 `forced` 목록에 1건 추가 |
+| SQLite 진입점 누락 | 가드가 4파일 red(`last-model`·`mail/store/migrate`·`mail/mime`·`mail.integration`) — `openFileDatabase`·`warmFileSqlite` 사용 | EP-1 `sqlite` 규칙 칸 대체 |
+| 설정 예산 검사가 단일 프로젝트 전제 | `scripts/test-time.test.mjs` 'vitest.config.ts 배선' red | VP-02 oracle에 프로젝트별 예산 단언 추가 |
+
+### ΔV1 Pair · §10
+
+| Pair | left ↔ right | req | path | 직접 oracle | §10 |
+|---|---|---|---|---|---|
+| VP-12 | MD-05 ↔ UT-05 (NEW — 스레드 홈 정렬) | REQUIRED | unit setup → `alignThreadHomedir` → `os.homedir` | `scripts/test-pools.test.mjs` 'alignThreadHomedir' 2입력(맞춤 → 스레드 값 / 안 맞춤 → 프로세스 값) · `src/main/infra/test-pools.test.ts` 'os.homedir() 는 setup 이 이 파일에 준 홈이다' · `test-environment.hostile.test.ts` | EP-7 (2) |
+
+| pair | 계약 | 언제 강제 (자리) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| VP-01 (ΔV1 대체) | `sqlite` 규칙 칸 | 드라이버 import · `openDb(` · `openFileDatabase(` · `initDb(` · `warmFileSqlite` · `new Database(` (6 분기) | `rg -n "const SQLITE" -A1 app/scripts/test-pools.mjs` | 분기 하나가 빠지면 그 진입점 파일이 unit → 가드 red |
+| VP-01 (ΔV1 추가) | `forced` 목록 | `send.agent-profile.test.ts` · `loopback-callback.test.ts` (2) | `rg -n "test.ts':" app/scripts/test-pools.mjs` | 빠지면 그 파일이 unit에서 red |
+| VP-03 (ΔV1 대체) | 가드 판정 | V1 5자리 + 위반 기록(`state.violations.push`) + setup 훅(`afterEach`·`afterAll`) = 8 | `rg -n "violations.push\|afterEach(check)\|afterAll(check)" app/scripts` | 기록·훅이 빠지면 삼킨 throw가 조용히 통과 |
+| VP-12 | 스레드 홈 정렬 | `alignThreadHomedir` 본체 · `vitest-unit-guard.mjs` 호출 (2) | `rg -n "alignThreadHomedir" app/scripts/test-pools.mjs app/scripts/vitest-unit-guard.mjs` | unit 파일이 실제 홈에 쓴다(0294 회귀) |
+
+- 규칙 칸 ↔ 입력 칸: `sqlite` 6분기마다 `test-pools.test.mjs` 입력 1개. 가드 기록·훅은 `test-pools.test.ts` 2케이스(비운 위반 · `it.fails`). 홈 정렬 2입력.
+- 선언 경계 추가: 스레드에서 `os.homedir` 외에 프로세스 환경을 읽는 경로(네이티브 애드온의 `getenv`)는 맞추지 않는다 — unit 가드가 네이티브 SQLite만 허용 목록 없이 막고, 그 밖의 네이티브 로드는 현재 트리 unit 실행에서 0건(가드 dlopen 관측).
+- 신호 정본 이동: `FIXTURE`·`SPAWN_GIT`·`RUN_GIT`·`INJECTS_RUNNER`·`stripComments`·`isRealGitSuite`를 `app/scripts/test-source.mjs`로 옮기고 `check-test-budgets.mjs`가 import·재수출한다(§11 추가, 동작 불변 — `check-test-budgets.test.mjs` 641건).
 
 ---
 
