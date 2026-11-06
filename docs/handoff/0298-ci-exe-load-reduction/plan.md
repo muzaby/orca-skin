@@ -547,6 +547,17 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 - AC12′ ✅ — job 로그 1,768줄(API 5,000줄 안), 파일별 `io`/`unit` 줄과 Duration 분해가 남는다. 6 job 모두 실패 0.
 - 판정: parallel의 병렬 효율(누적 415초 / 벽 194초 = 2.1)은 0259(339 / 161 = 2.1)와 같고, 파일당 0.21초로 0259(0.245초)보다 짧다. 0259 대비 남은 차이는 io 직렬화다. 기본 모드 변경(D-002)은 사용자 결정 대기.
 
+## [구현자 기입] 구현 보고 (r1.4 — ΔV4 기본 io 병렬, 사용자 결정 턴)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 | `buildProjects` 미설정 = `parallel`(unit·io group 0, io `maxWorkers` 미지정) · 쓰지 않게 된 `platform`·`ci` 인자 제거(`vitest.config.ts`·`test-pools.d.mts`) · 주석·`app/AGENTS.md` 서술 갱신 · `.mjs` 유지(D-011) |
+| 강제 지점 | EP-2 io.maxWorkers·io.groupOrder 2/2 — `test-pools.test.mjs` '직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0' 4환경 · '미설정 = parallel' |
+| 잠금 | `mutate.py` 3행(미설정 io 1워커 · group 1 · 미설정 분기 분리) 전부 red, 원복 확인 |
+| 게이트 | lint 0 error · typecheck 0 · `node --test` 815/815 · test-budgets · doc-inventory · Linux vitest 161초, 실패 9파일 22건 = 기준선 |
+| AC 자기보고 | AC4′ ✅ · AC8′ ⚠️ PR CI 대기 — `✅ 10 · ⚠️ 3 · ❌ 0 = 총 13` (분모 12 → 13: AC8′ 추가) |
+| 대상 커밋 | `(r1.4 구현 — 좌표는 INDEX)` |
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

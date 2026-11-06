@@ -3,7 +3,7 @@
 // vitest 4 의 forks 풀은 isolate 에서 **테스트 파일마다 node 프로세스를 하나** 띄운다. 백신이 있는
 // Windows 러너에서는 그 프로세스 생성이 곧 부하다. 그래서 둘로 나눈다.
 //
-//   io   — 자식 프로세스·git·SQLite·프로세스 전역 상태를 쓰는 파일. forks(프로세스 격리), Windows CI 직렬.
+//   io   — 자식 프로세스·git·SQLite·프로세스 전역 상태를 쓰는 파일. forks(프로세스 격리), 병렬.
 //   unit — 나머지. threads(같은 프로세스의 워커 스레드) 병렬, exe 를 띄우지 않는다.
 //
 // 분류는 소스 신호(IO_RULES)로 하고, 신호가 놓친 파일은 unit 런타임 가드(installUnitGuard)가
@@ -97,17 +97,18 @@ export function resolveIoMode(env = process.env) {
 }
 
 /**
- * 프로젝트 구성. 기본(`mode` 미설정)은 unit 이 먼저(group 0) 병렬로 끝나고 io 가 뒤(group 1)에
- * 돈다 — Windows + `CI=true` 직렬화는 io 에만 건다(0262 의 디스크 경합 원인이 SQLite·git 파일 작업).
- * `mode` 를 주면 플랫폼과 무관하게 그 구조로 돈다 — Windows 실측 비교용(ΔV2·ΔV3 — unit `isolate: false` 는 로컬 실측 179파일 실패로 제외). vitest 는 같은
- * `groupOrder` 의 프로젝트가 같은 `maxWorkers` 를 갖기를 요구하므로 직렬 io 는 언제나 뒤 그룹이다:
+ * 프로젝트 구성. 기본(`mode` 미설정)은 플랫폼·`CI` 와 무관하게 unit 과 io 가 같은 그룹(0)에서 병렬로
+ * 돈다 — Windows CI 직렬화(0262)는 실측에서 1분 이상 느렸고 병렬 실패는 0이라 없앴다(0298 ΔV4).
+ * `mode` 는 Windows 실측 비교용이다(`test-pools-experiment.yml` · unit `isolate: false` 는 로컬 실측
+ * 179파일 실패로 넣지 않았다). vitest 는 같은 `groupOrder` 의 프로젝트가 같은 `maxWorkers` 를 갖기를
+ * 요구하므로 직렬 io 는 언제나 뒤 그룹이다:
  *   serial          io 1워커, unit 뒤
  *   sqlite-serial   SQLite 신호 io 만 1워커로 뒤(`io-sqlite`), 나머지 io 는 unit 과 같은 그룹
- *   parallel        io 기본 워커, unit 과 같은 그룹
+ *   parallel        기본과 같다
  *
- * @param {{ platform: string, ci: string | undefined, io: string[], ioSqlite?: string[], base: object, exclude: string[], mode?: string }} input
+ * @param {{ io: string[], ioSqlite?: string[], base: object, exclude: string[], mode?: string }} input
  */
-export function buildProjects({ platform, ci, io, ioSqlite = [], base, exclude, mode }) {
+export function buildProjects({ io, ioSqlite = [], base, exclude, mode }) {
   const unit = (groupOrder) => ({
     test: {
       ...base,
@@ -122,12 +123,8 @@ export function buildProjects({ platform, ci, io, ioSqlite = [], base, exclude, 
   const forks = (name, include, maxWorkers, groupOrder) => ({
     test: { ...base, name, include, pool: 'forks', maxWorkers, sequence: { groupOrder } }
   })
-  if (mode === undefined) {
-    const serialIo = platform === 'win32' && ci === 'true'
-    return [unit(0), forks('io', io, serialIo ? 1 : undefined, 1)]
-  }
+  if (mode === undefined || mode === 'parallel') return [unit(0), forks('io', io, undefined, 0)]
   if (mode === 'serial') return [unit(0), forks('io', io, 1, 1)]
-  if (mode === 'parallel') return [unit(0), forks('io', io, undefined, 0)]
   if (mode === 'sqlite-serial') {
     const sqlite = io.filter((file) => ioSqlite.includes(file))
     const rest = io.filter((file) => !ioSqlite.includes(file))
