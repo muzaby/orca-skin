@@ -43,6 +43,26 @@ export function hermeticTestEnv({ env, root, platform }) {
   return { set, remove }
 }
 
+/**
+ * 격리 전역 git 설정(`GIT_CONFIG_GLOBAL`)의 내용 (0298). 호스트 설정은 여전히 보지 않고, 테스트가
+ * 저장소마다 하던 `git config` 를 한 곳에서 대신한다 — git 호출 하나가 Windows 에서는 exe 실행이다.
+ *
+ * - `user.*`: 커밋 신원. 작성자를 단언하는 테스트(`git-diff.test.ts`)가 이 이름을 본다.
+ * - `core.autocrlf=false`: LF 픽스처가 CRLF 로 바뀌지 않는다(Git for Windows 시스템 설정은 NOSYSTEM 이 막는다).
+ * - `maintenance.auto=false`: `git commit` 마다 뜨는 `git maintenance run --auto` 자식 프로세스를 없앤다.
+ */
+export const HERMETIC_GIT_IDENTITY = { name: 'orca test', email: 'test@orca.local' }
+export const HERMETIC_GIT_CONFIG = [
+  '[user]',
+  `\tname = ${HERMETIC_GIT_IDENTITY.name}`,
+  `\temail = ${HERMETIC_GIT_IDENTITY.email}`,
+  '[core]',
+  '\tautocrlf = false',
+  '[maintenance]',
+  '\tauto = false',
+  ''
+].join('\n')
+
 /** `set` 중 디렉토리로 만들어 둘 값(파일인 GIT_CONFIG_GLOBAL·플래그 제외). */
 export function hermeticDirectories(set) {
   return Object.entries(set)

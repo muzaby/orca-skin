@@ -350,19 +350,109 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: V1 A·B·PowerShell 경로 그대로.
+- 이견 / 현실성 문제: V1 §10 EP-3(throw만)·EP-1 sqlite 3분기·forced 1건은 실제 트리에서 부족했다 → 구현 중 재현 후 ΔV1(`1972b165` 설계 커밋)로 정정.
+- ACTIVE Decision과 충돌하는 설계 발견: V1 TO-BE의 threads 풀이 0294 파일별 홈 격리를 깬다(D-006으로 해소).
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | io 규칙 | 6 규칙 + sqlite 6분기 + forced 2 (ΔV1) | 14/14 | `rg -n "id: '" scripts/test-pools.mjs` → 6 · `scripts/test-pools.test.mjs` 'classifyTestSource — 규칙마다…'(13입력)·'FORCED_IO 는 실측한 파일 목록 그대로다' | 규칙마다 그 신호 하나만 든 소스 → `{io,[id]}` · 무신호·주석·`execFileImpl`·`getBuiltinModule` → unit | — |
+| VP-02·05 | 프로젝트 필드 | 6 | 6/6 | `rg -n "pool:\|maxWorkers:\|groupOrder:\|setupFiles:" scripts/test-pools.mjs` → 6 · 'buildProjects — 환경별 필드' 4환경 · `test-pools.test.ts` `isMainThread===false` · `test-environment.test.ts` '풀 배선 (0298)' | (win32,'true') → io 1 / (linux,'true')·(win32,undef)·(win32,'false') → undef | — |
+| VP-03 | 가드 | 8 (ΔV1) | 8/8 | 'installUnitGuard — 워커 스레드에서 실제 모듈로' 3케이스 · `test-pools.test.ts` 2케이스(+`it.fails`) · 'afterAll 에서 삼킨 자식 프로세스 시도' | 5형태 각각 throw 메시지 · 다른 `.node` 통과 · 삼킨 위반 → 테스트/파일 red | — |
+| VP-04·06 | 설정 키 | 4 + 기록 1 | 5/5 | `rg -n HERMETIC_GIT_CONFIG scripts` · `test-host.test.mjs` '격리 전역 git 설정 내용' · `hermetic-config.test.ts` 2케이스 · `test-environment.test.ts` 내용 단언 | 키별 `git config --get` 값 · `GIT_TRACE` stderr에 maintenance 없음(추적 켜짐 확인) | — |
+| VP-08 | 저장소별 config | 36 → 0 | 36/36 | `rg -n "'config', '(user\.email\|user\.name\|core\.autocrlf)'" src` → 0 · `test-pools.test.mjs` 음성 스캔 · 실-git 17스위트 green | 삭제 32+4줄 | — |
+| VP-09 | PowerShell 경로 | 1 | 0/1 | `rg -n -i pwsh src` → 주석 1건만 | — | Linux `it.skipIf` — Windows CI·self-hosted 실기 대기 |
+| VP-12 | 스레드 홈 정렬 | 2 | 2/2 | 'alignThreadHomedir' 2입력 · `test-pools.test.ts` 'os.homedir() 는 setup 이 이 파일에 준 홈이다' · `test-environment.hostile.test.ts` green | 스레드 env `-thread` 값 → 반환 / 정렬 없으면 프로세스 값 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: `test-time.test.mjs`의 설정 예산 읽기(단일 프로젝트 전제) — 이행 범위(설정 변경의 직접 소비자), 프로젝트별 단언으로 선조치.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01·02·03·04·05·08·11·12 | REQUIRED | SELF_PASS | 위 표 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `hermetic-config.test.ts` | required — 4키 각각 제거 → red(EP4-*) |
+| VP-07 | REQUIRED | SELF_PASS | `gate:` strace(아래 구현 보고) | not selected |
+| VP-09 | REQUIRED | SELF_BLOCKED | Windows CI | Linux 실행 불가 |
+| VP-10 | REQUIRED | SELF_PASS (Linux) | 실패 집합 = 기준선 9파일 22건 | Windows CI 대기 |
+
 ## [구현자 기입] 이번 라운드 수정의 잠금
+
+하네스 `mutate.py` spec 38행 — 전부 red, 원복 확인("모든 파일 원문 그대로").
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 | 결과 |
+|---|---|---|---|---|
+| `IO_RULES` 6행 각각 제거 | sweep — EP-1 | 최초 | 'classifyTestSource' 2~7건 | 잠김 |
+| `SQLITE` 6분기 각각 제거 | sweep — EP-1(ΔV1) | 최초 | 해당 분기 입력 1건씩 | 잠김 |
+| `FORCED_IO` 2항목 각각 다른 경로로 | sweep — EP-1(ΔV1) | 최초 | 'FORCED_IO 는 실측한…'·partition | 잠김 |
+| unit/io `pool` 제거·맞바꿈 4 · setup 가드 제거 · groupOrder 2 · io maxWorkers 고정 | sweep — EP-2 | 최초 | 'buildProjects' 1건씩 | 잠김 |
+| 가드 5형태 각각 제거 | sweep — EP-3 | 최초 | 'installUnitGuard' 1~2건 | 잠김 |
+| `violations.push`·`afterEach(check)`·`afterAll(check)` 제거 | sweep — EP-3(ΔV1) | 최초 | `test-pools.test.ts` 1~2건 · afterAll 중첩 실행 | 잠김 |
+| 설정 4키·기록 각각 제거 | sweep — EP-4 / VP-06 선택 증거 | 최초 | vitest 1~3건 | 잠김 |
+| 저장소별 config 재추가 | sweep — EP-5 | 최초 | 음성 스캔 1건 | 잠김 |
+| 홈 정렬 본체·호출 제거 | sweep — EP-7(ΔV1) | 최초 | 'alignThreadHomedir'·homedir 배선 | 잠김 |
+
+- **분모 검산**: 선택 증거 4(VP-06 키) · 인용 변이 0 · 새 oracle 1(afterAll 중첩 실행) · sweep 33 = 표 행 합 38. EP-6(PowerShell)은 Linux에서 실행되지 않아 sweep 밖 — 남긴 곳.
+- **덮개 회귀**: 해당 없음(첫 라운드).
 
 ## [구현자 기입] Product/UX 파생 검토
 
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구에 소비자가 있는가 | `[test-pools] …` 메시지 — 테스트 실패 출력에 그대로 보인다(관측: `send.agent-profile` red 출력) | — |
+| seam 재배치로 정리 코드 스코프가 바뀌었나 | 재배치 없음 | — |
+| 이번 실패 경로가 Part I 상태표의 어느 행인가 | "unit 파일이 자식 프로세스·SQLite를 씀" 행 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | V1 throw만으로는 조용한 통과였다 → D-007로 red | — |
+| 늦게 도착한 응답이 되돌리지 않는가 | 해당 없음 | — |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-## [구현자 기입] 구현 보고
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | threads에서 `os.homedir()`이 실제 홈(0294 격리 붕괴) | 📝 ΔV1 D-006 → 구현 | hostile 테스트 6 → 9항목, `node -e` 실험 |
+| 2 | production이 가드 throw를 삼킴 | 📝 ΔV1 D-007 → 구현 | `send.agent-profile` unit green |
+| 3 | SQLite 진입점·forced 누락 | 📝 ΔV1 → 구현 | 가드 red 4파일 + 1파일 |
+| 4 | Linux 벽시계 +20초(169초 vs 149초, strace 없음) — unit → io 순차 그룹과 스레드 재import | ⚠️ 보고만 | Linux는 프로세스 생성이 싸다. Windows 이득은 CI로 확인 |
+| 5 | `check-test-budgets` 신호 정본 이동 | ✅ 선조치(동작 불변) | `check-test-budgets.test.mjs` 641 pass |
+
+### 설계 대비 명시적 차이
+
+- 없음 — 차이는 전부 ΔV1로 plan에 반영.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 상태 없음 | — |
+| 공유 | 스레드 풀은 프로세스 환경을 공유한다 → 홈 정렬(D-006) | AC9 · hostile green |
+| 재진입 | 가드 재설치 → `proc[UNIT_GUARD]` 반환으로 1회 | 'installUnitGuard' |
+| 다른 무효화 축 | 스레드에서 `process.dlopen` 공유 없음(스레드별 `process`) | dlopen 0건 실측 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | §11 + `scripts/test-source.mjs`·`test-pools.d.mts`·`test-host.d.mts`·`test-time.test.mjs`·`check-test-budgets.mjs` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · 가드 3종 · `npm test`(strace) · `vitest run`(strace 없음) · `node --test scripts/*.test.mjs` · `mutate.py` 38행 |
+| **관측한 게이트 산출** | lint 0 error·2 warning(기존 renderer) · typecheck 0 · vitest 920파일: 9 failed(Linux 기준선 동일 9파일 22건) · `node --test` 809/809 · test-budgets 17 suites ok · doc-inventory ok |
+| **exe 측정 (VP-07)** | npm test 성공 execve: **1,224(vitest) + 31(`node --test`) = 1,255** — 변경 전 2,464 · 0259 2,420. 워커 `node` 918 → **76**(= io 76), git 직접 1,235 → 1,017, git 간접 248 → 110(maintenance 0) |
+| 측정 주의 | 이번 실행은 ABI가 이미 Node라 pretest 재빌드 체인(6회)이 없다 — 같은 조건 환산 1,261 |
+| V-pair 자기확인 | SELF_PASS 11 / SELF_BLOCKED 1(VP-09 Windows) |
+| 강제 지점 전수 | 71/72 (VP-09 1 남김) |
+| **AC 자기보고** | AC1 ✅ 워커 76 = io 76 · AC2 ✅ 13입력 · AC3 ✅ · AC4 ✅ · AC5 ✅ · AC6 ✅ 스캔 0 · AC7 ⚠️ Windows · AC8 ⚠️ Linux ✅ / Windows CI 대기 · AC9 ✅ hostile green · AC10 ✅ 1,255 ≤ 2,420 |
+| **합계 검산** | `✅ 8 · ⚠️ 2 · ❌ 0 = 총 10` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 라운드).
+- 막았어야 할 plan 지침: V1이 스레드의 env 의미(프로세스 환경 공유)를 조사하지 않았다 — 구현 중 hostile 테스트가 잡음.
+- 반복 환경 한계: Windows 전용 경로(VP-09)는 Linux에서 실행 불가.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

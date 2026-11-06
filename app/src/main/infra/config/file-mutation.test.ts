@@ -181,8 +181,16 @@ it.skipIf(process.platform !== 'win32')(
       '$f = [IO.File]::Open($env:ORCA_LOCK_FILE, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)',
       'try { [IO.File]::WriteAllText($env:ORCA_LOCK_READY, "ready"); while (-not [IO.File]::Exists($env:ORCA_LOCK_RELEASE)) { [Threading.Thread]::Sleep(10) } } finally { $f.Dispose() }'
     ].join('; ')
+    // Windows PowerShell 5.1 은 모든 Windows 에 있다. pwsh(7) 는 self-hosted 러너에 없을 수 있다(0298).
+    const powershell = join(
+      process.env.SystemRoot ?? 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe'
+    )
     const child = spawn(
-      'pwsh.exe',
+      powershell,
       [
         '-NoProfile',
         '-NonInteractive',
@@ -217,7 +225,7 @@ it.skipIf(process.platform !== 'win32')(
     )
     let save: Promise<void> | undefined
     try {
-      // Use the CI shell and file signals: Console stdin/stdout depends on the host's console.
+      // File signals, not Console stdin/stdout: those depend on the host's console.
       // Readiness still means FileShare.None is held; the production retry budget stays 5s.
       const deadline = Date.now() + scaleMs(30_000)
       for (;;) {
