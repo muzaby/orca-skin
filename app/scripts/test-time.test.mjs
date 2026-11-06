@@ -24,6 +24,8 @@ const CONFIG = pathToFileURL(join(APP_DIR, 'vitest.config.ts')).href
 function configBudgets(scale) {
   const env = { ...process.env }
   delete env.ORCA_TEST_TIME_SCALE
+  // 실측 모드(0298)가 바꾸는 프로젝트 수와 무관하게 기본 구성을 본다.
+  delete env.ORCA_TEST_IO_MODE
   if (scale !== undefined) env.ORCA_TEST_TIME_SCALE = scale
   return spawnSync(
     process.execPath,

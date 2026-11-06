@@ -84,7 +84,7 @@ export function partitionTestFiles(appDir) {
 
 /** io 실행 방식 실측 모드 (0298 ΔV2). 미설정이면 기본 동작이다. */
 export const IO_MODE_ENV = 'ORCA_TEST_IO_MODE'
-export const IO_MODES = ['serial', 'sqlite-serial', 'parallel', 'workers2']
+export const IO_MODES = ['serial', 'sqlite-serial', 'parallel']
 
 /** `ORCA_TEST_IO_MODE` 해석. 미설정·빈 값은 undefined, 목록 밖 값은 설정 로드 실패. */
 export function resolveIoMode(env = process.env) {
@@ -99,11 +99,11 @@ export function resolveIoMode(env = process.env) {
 /**
  * 프로젝트 구성. 기본(`mode` 미설정)은 unit 이 먼저(group 0) 병렬로 끝나고 io 가 뒤(group 1)에
  * 돈다 — Windows + `CI=true` 직렬화는 io 에만 건다(0262 의 디스크 경합 원인이 SQLite·git 파일 작업).
- * `mode` 를 주면 플랫폼과 무관하게 그 구조로 돈다 — Windows 실측 비교용(ΔV2):
- *   serial        io 1워커, unit 뒤
- *   parallel      io 기본 워커, unit 과 같은 그룹
- *   workers2      io 2워커, unit 과 같은 그룹
- *   sqlite-serial SQLite 신호 io 만 1워커(`io-sqlite`), 나머지 io 기본 워커, 셋 다 같은 그룹
+ * `mode` 를 주면 플랫폼과 무관하게 그 구조로 돈다 — Windows 실측 비교용(ΔV2·ΔV3 — unit `isolate: false` 는 로컬 실측 179파일 실패로 제외). vitest 는 같은
+ * `groupOrder` 의 프로젝트가 같은 `maxWorkers` 를 갖기를 요구하므로 직렬 io 는 언제나 뒤 그룹이다:
+ *   serial          io 1워커, unit 뒤
+ *   sqlite-serial   SQLite 신호 io 만 1워커로 뒤(`io-sqlite`), 나머지 io 는 unit 과 같은 그룹
+ *   parallel        io 기본 워커, unit 과 같은 그룹
  *
  * @param {{ platform: string, ci: string | undefined, io: string[], ioSqlite?: string[], base: object, exclude: string[], mode?: string }} input
  */
@@ -128,11 +128,10 @@ export function buildProjects({ platform, ci, io, ioSqlite = [], base, exclude, 
   }
   if (mode === 'serial') return [unit(0), forks('io', io, 1, 1)]
   if (mode === 'parallel') return [unit(0), forks('io', io, undefined, 0)]
-  if (mode === 'workers2') return [unit(0), forks('io', io, 2, 0)]
   if (mode === 'sqlite-serial') {
     const sqlite = io.filter((file) => ioSqlite.includes(file))
     const rest = io.filter((file) => !ioSqlite.includes(file))
-    return [unit(0), forks('io', rest, undefined, 0), forks('io-sqlite', sqlite, 1, 0)]
+    return [unit(0), forks('io', rest, undefined, 0), forks('io-sqlite', sqlite, 1, 1)]
   }
   throw new Error(`알 수 없는 io 모드: ${mode}`)
 }

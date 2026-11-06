@@ -136,7 +136,8 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
           include: p.test.include,
           maxWorkers: p.test.maxWorkers,
           group: p.test.sequence.groupOrder,
-          pool: p.test.pool
+          pool: p.test.pool,
+          isolate: p.test.isolate
         }
       ])
     )
@@ -145,19 +146,26 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
     assert.equal(resolveIoMode({ ORCA_TEST_IO_MODE: ' ' }), undefined)
     for (const mode of IO_MODES) assert.equal(resolveIoMode({ ORCA_TEST_IO_MODE: mode }), mode)
     assert.throws(() => resolveIoMode({ ORCA_TEST_IO_MODE: 'fast' }), /ORCA_TEST_IO_MODE=fast/)
-    assert.deepEqual(IO_MODES, ['serial', 'sqlite-serial', 'parallel', 'workers2'])
+    assert.deepEqual(IO_MODES, ['serial', 'sqlite-serial', 'parallel'])
   })
   test('미설정: Windows CI 에서도 기본 구조(io 1워커·unit 뒤) — 리눅스에서는 직렬이 아니다', () => {
     assert.deepEqual(make(undefined, 'win32', 'true').io, {
       include: io,
       maxWorkers: 1,
       group: 1,
-      pool: 'forks'
+      pool: 'forks',
+      isolate: undefined
     })
     assert.equal(make(undefined, 'linux', 'true').io.maxWorkers, undefined)
   })
   test('serial: 플랫폼과 무관하게 io 1워커·unit 뒤', () => {
-    assert.deepEqual(make('serial').io, { include: io, maxWorkers: 1, group: 1, pool: 'forks' })
+    assert.deepEqual(make('serial').io, {
+      include: io,
+      maxWorkers: 1,
+      group: 1,
+      pool: 'forks',
+      isolate: undefined
+    })
     assert.equal(make('serial').unit.group, 0)
   })
   test('parallel: io 기본 워커·unit 과 같은 그룹', () => {
@@ -165,32 +173,42 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
       include: io,
       maxWorkers: undefined,
       group: 0,
-      pool: 'forks'
+      pool: 'forks',
+      isolate: undefined
     })
   })
-  test('workers2: io 2워커·unit 과 같은 그룹', () => {
-    assert.deepEqual(make('workers2', 'win32', 'true').io, {
-      include: io,
-      maxWorkers: 2,
-      group: 0,
-      pool: 'forks'
-    })
-  })
-  test('sqlite-serial: SQLite io 만 1워커, 나머지 io 기본 워커, 셋 다 group 0', () => {
+  test('sqlite-serial: SQLite io 만 1워커로 group 1, 나머지 io 는 unit 과 group 0', () => {
     const p = make('sqlite-serial', 'win32', 'true')
     assert.deepEqual(p['io-sqlite'], {
       include: ['src/db.test.ts'],
       maxWorkers: 1,
-      group: 0,
-      pool: 'forks'
+      group: 1,
+      pool: 'forks',
+      isolate: undefined
     })
     assert.deepEqual(p.io, {
       include: ['src/git.test.ts'],
       maxWorkers: undefined,
       group: 0,
-      pool: 'forks'
+      pool: 'forks',
+      isolate: undefined
     })
     assert.equal(p.unit.group, 0)
+  })
+  test('모든 모드: 같은 group 의 프로젝트는 maxWorkers 가 같다(vitest 제약)', () => {
+    for (const mode of [undefined, ...IO_MODES]) {
+      for (const [platform, ci] of [
+        ['win32', 'true'],
+        ['linux', undefined]
+      ]) {
+        const byGroup = new Map()
+        for (const p of Object.values(make(mode, platform, ci))) {
+          const seen = byGroup.get(p.group)
+          if (seen === undefined) byGroup.set(p.group, p.maxWorkers)
+          else assert.equal(p.maxWorkers, seen, `${mode} ${platform} group ${p.group}`)
+        }
+      }
+    }
   })
 })
 
