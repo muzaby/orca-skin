@@ -11,8 +11,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV2` — 사용자 요구: io 직렬 범위 실측 CI(§7-C). `ΔV1` — 구현 중 발견 정정(§7-B) |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 이번 V revision | `ΔV3` — 실측 1회차 반영 + 사용자 지시 "Mjs 만들지마라"(§7-D). `ΔV2` 실측 CI(§7-C) · `ΔV1` 구현 중 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 
 # Part I — Product & UX Contract
 
@@ -42,6 +42,8 @@
 | D-005 | 안 C(중첩 vitest hostile 분리)·D(`node --test` 격리 해제)는 하지 않는다 | 사용자가 "a+b"만 승인 | 3턴 | ACTIVE | — |
 | D-006 | unit 워커 스레드에서 `os.homedir()`을 스레드 env 사본(`HOME`/win32 `USERPROFILE`)에 맞춘다 | 스레드의 `process.env`는 사본이라 libuv `os.homedir()`이 실제 홈을 읽는다 — 0294 파일별 홈 격리 유지(AC9) | 구현 중 재현(§7-B) | ACTIVE | — |
 | D-008 | io 직렬 범위는 바로 정하지 않는다. `ORCA_TEST_IO_MODE`(`serial`·`sqlite-serial`·`parallel`·`workers2`)로 고르고 실험 워크플로로 Windows에서 실측한 뒤 결정한다. 미설정이면 현행(D-002) | "테스트ci 작성하여 우선 테스트해보자" — 0259 대비 Windows test 2:50 → 5:50, io 파일이 0259 테스트 시간의 82%(160.3/196.5초) | 4턴 | ACTIVE | D-002는 미설정 기본값으로 유지 |
+| D-009 | 실측 요약용 `.mjs`(`summarize-vitest-report.mjs`)를 만들지 않는다. 실험 워크플로는 vitest 기본 reporter의 파일별 줄·Duration 줄을 그대로 남기고 분석은 로그에서 한다 | "Mjs 만들지마라" | 5턴 | ACTIVE | ΔV2 AC12 요약 단계·VP-14 대체 |
+| D-010 | 실측 모드 정정: `workers2` 삭제(vitest — 같은 `groupOrder`의 프로젝트는 `maxWorkers`가 같아야 한다) · `sqlite-serial`의 `io-sqlite`는 group 1로 · `parallel-shared`(io 병렬 + unit `isolate: false`) 추가 | 실측 1회차(run 42199401362): workers2 설정 오류 · parallel 251초인데 unit 구간이 벽시계 190.8초/테스트 합 94.8초 — import 175.5초가 최대 비용 | 실측 · 사용자 "테스트 ci 만들어서 결과를" | ACTIVE | D-008 모드 목록 대체 |
 | D-007 | unit 가드는 throw와 함께 위반을 기록하고, setup의 `afterEach`·`afterAll`이 기록으로 red를 만든다 | production `runGit`이 throw를 결과로 삼켜 조용히 통과했다(fail-closed 아님) | 구현 중 재현(§7-B) | ACTIVE | — |
 
 ### 갱신 메모
@@ -217,6 +219,24 @@ npm test (pretest → vitest run → node --test)
 
 - 기본 동작 불변: `npm test`·`ci.yml`은 변수를 설정하지 않는다 — 미설정 분기 = AC4.
 - 선언 경계: 실험 워크플로의 시간은 러너별 편차가 크다(같은 코드 5:22 vs 8:18, run 41986335666·42001198642). 비교는 같은 실행 묶음 안에서만 하고 반복 입력으로 표본을 늘린다.
+
+## 7-D. ΔV3 — 실측 1회차 반영 (2026-11-06)
+
+| 실측 (windows-latest, 모드당 1회) | Vitest 단계 | vitest 내부 |
+|---|---:|---|
+| serial | 5:00 | 298.5초 |
+| parallel | 4:13 | 251.1초 · unit 벽 190.8 / 합 94.8 · io 벽 59.8 / 합 132.0 |
+| sqlite-serial | 4:14 | 252.4초 = transform 25.5 · setup 54.1 · import 175.5 · tests 214.8 |
+| workers2 | 설정 오류 | `Projects "io" and "unit" have different 'maxWorkers' but same 'sequence.groupOrder'` |
+| 0259 (#727) | — | 161.2초 = transform 23.5 · setup 0 · import 119.1 · tests 196.5 |
+
+| R | AT / AC | 동작 기준 (대체) | 검증 수단 |
+|---|---|---|---|
+| R-05 | AT-06 / AC11′ | 모드 `serial` · `sqlite-serial`(io-sqlite 1워커 group 1) · `parallel` · `parallel-shared`(io 병렬, unit `isolate: false`) · 미설정(현행) · 그 밖 → 로드 실패. 같은 group의 프로젝트는 `maxWorkers`가 같다 | UT 모드 5입력 + 잘못된 값 + "같은 group 같은 maxWorkers" 단언 |
+| R-05 | AT-06 / AC12′ | 실험 워크플로가 vitest 기본 reporter(파일별 `|project|` 줄 + Duration 분해)와 `node --test` dot 출력만 남기고, 새 `.mjs` 없이 job 로그가 API 5,000줄 안에 든다 | 워크플로 실행 1회 관측 |
+
+- SUPERSEDED: ΔV2 VP-14·EP-9(요약 스크립트) → 폐기(D-009). AC12 → AC12′. EP-8 `workers2` 분기 → 삭제, `parallel-shared` 분기 추가(EP-8′ 6자리: 미설정·serial·sqlite-serial·parallel·parallel-shared·잘못된 값).
+- 함께 고치는 현재 결함: `scripts/test-time.test.mjs`가 설정을 읽을 때 `ORCA_TEST_IO_MODE`를 지우지 않아 실험 job에서 실패(sqlite-serial job Script tests).
 
 ---
 
