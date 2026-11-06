@@ -39,7 +39,7 @@
 
 | 상태                       | UI 표시                                                                                                                             | 위치                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| 요청 대기                  | StatusLine "Thinking... (Ns · ~Mtokens)"                                                                                            | `features/chat/components/StatusLine.tsx` (0093 에서 shared/ui 로부터 이동) |
+| 요청 대기                  | StatusLine — Claude 무작위 동사 `"Thinking... (Ns · ~Mtokens)"`, OpenCode 세부 대기 단계(`waitPhase`: `"OpenCode 서버를 시작하는 중…"` → `"모델 응답을 기다리는 중…"` 등) 후 첫 출력 도착 시 `"생각 중"` | `features/chat/components/StatusLine.tsx` (0093 에서 shared/ui 로부터 이동) |
 | 스트리밍 중                | StatusLine + 응답 메시지에 누적 텍스트                                                                                              | `features/chat/components/ChatTile.tsx`                 |
 | 에러 (`retryable: true`)   | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
 | 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/harnesses/claude/components/AuthExpiredModal.tsx`      |

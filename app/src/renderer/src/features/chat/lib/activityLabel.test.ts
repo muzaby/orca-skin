@@ -5,6 +5,7 @@ import {
   deriveActivityLabel,
   IDLE_HINT_MS,
   MAX_VISIBLE_FACTS,
+  waitPhaseLabel,
   type ActivityView
 } from './activityLabel'
 
@@ -202,5 +203,93 @@ describe('격리 준비 단계 우선 (EP-03)', () => {
     expect(deriveActivityLabel(undefined, 0).prepareStep).toBeUndefined()
     expect(deriveActivityLabel(undefined, 0, null).status).toBe('streaming')
     expect(deriveActivityLabel(busy, 0).status).toBe('streaming')
+  })
+})
+
+describe('대기 단계 (0296)', () => {
+  it('L1: foreground streaming + waitPhase {server} -> waitPhase.kind="server", status "streaming"', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'streaming', waitPhase: { kind: 'server' } }),
+      0
+    )
+    expect(label.status).toBe('streaming')
+    expect(label.waitPhase).toEqual({ kind: 'server' })
+  })
+
+  it('L2: foreground preparing + waitPhase {history} -> waitPhase.kind="history", status "preparing"', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'preparing', waitPhase: { kind: 'history' } }),
+      0
+    )
+    expect(label.status).toBe('preparing')
+    expect(label.waitPhase).toEqual({ kind: 'history' })
+  })
+
+  it('L3: foreground idle + listening true + waitPhase {model} -> waitPhase omitted, status "waiting"', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'idle', listening: true, waitPhase: { kind: 'model' } }),
+      0
+    )
+    expect(label.status).toBe('waiting')
+    expect(label.waitPhase).toBeUndefined()
+  })
+
+  it('L4: prepareStep "branch" + waitPhase {preparing} -> prepareStep "branch", waitPhase omitted', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'preparing', waitPhase: { kind: 'preparing' } }),
+      0,
+      'branch'
+    )
+    expect(label.status).toBe('preparing')
+    expect(label.prepareStep).toBe('branch')
+    expect(label.waitPhase).toBeUndefined()
+  })
+
+  it('L5: prepareStep "branch" + waitPhase {history} -> prepareStep "branch", waitPhase omitted', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'preparing', waitPhase: { kind: 'history' } }),
+      0,
+      'branch'
+    )
+    expect(label.status).toBe('preparing')
+    expect(label.prepareStep).toBe('branch')
+    expect(label.waitPhase).toBeUndefined()
+  })
+
+  it('L6: prepareStep "session" + waitPhase {server} + queuedCount 1 -> channel waitPhase wins over prepareStep and keeps facts', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'streaming', waitPhase: { kind: 'server' }, queuedCount: 1 }),
+      0,
+      'session'
+    )
+    expect(label.status).toBe('streaming')
+    expect(label.waitPhase).toEqual({ kind: 'server' })
+    expect(label.prepareStep).toBeUndefined()
+    expect(label.facts).toEqual([{ key: 'queued', count: 1 }])
+  })
+
+  it('L7: foreground streaming + waitPhase {model} + queuedCount 1 -> keeps facts [queued 1]', () => {
+    const label = deriveActivityLabel(
+      view({ foreground: 'streaming', waitPhase: { kind: 'model' }, queuedCount: 1 }),
+      0
+    )
+    expect(label.status).toBe('streaming')
+    expect(label.waitPhase).toEqual({ kind: 'model' })
+    expect(label.facts).toEqual([{ key: 'queued', count: 1 }])
+  })
+
+  it('K1: waitPhaseLabel maps all 9 ChatWaitPhase kinds accurately', () => {
+    expect(waitPhaseLabel({ kind: 'preparing' })).toEqual({ key: 'chat.activity.preparing' })
+    expect(waitPhaseLabel({ kind: 'history' })).toEqual({ key: 'harness.waitPhase.history' })
+    expect(waitPhaseLabel({ kind: 'server' })).toEqual({ key: 'harness.waitPhase.server' })
+    expect(waitPhaseLabel({ kind: 'project' })).toEqual({ key: 'harness.waitPhase.project' })
+    expect(waitPhaseLabel({ kind: 'session' })).toEqual({ key: 'harness.waitPhase.session' })
+    expect(waitPhaseLabel({ kind: 'mcp' })).toEqual({ key: 'harness.waitPhase.mcp' })
+    expect(waitPhaseLabel({ kind: 'send' })).toEqual({ key: 'harness.waitPhase.send' })
+    expect(waitPhaseLabel({ kind: 'model' })).toEqual({ key: 'harness.waitPhase.model' })
+    expect(waitPhaseLabel({ kind: 'retry', attempt: 3 })).toEqual({
+      key: 'harness.waitPhase.retry',
+      params: { attempt: 3 }
+    })
   })
 })

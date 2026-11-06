@@ -83,6 +83,7 @@ export interface OpenCodeConnection {
 
 interface ServerEntry {
   ready: Promise<OpenCodeConnection>
+  readySettled?: boolean
   child?: ChildProcess
   owners: number
   components: ProfileComponents
@@ -207,7 +208,8 @@ export class OpenCodeServerPool {
   acquire(
     config: Record<string, unknown> = {},
     env?: Record<string, string>,
-    cwd?: string
+    cwd?: string,
+    observer?: { serverStarting?: () => void }
   ): Promise<OpenCodeConnection> {
     if (this.stopped) return Promise.reject(new Error('OpenCode 서버 관리자가 종료되었습니다.'))
     const executable = this.executable()
@@ -221,20 +223,30 @@ export class OpenCodeServerPool {
       }
       const created: ServerEntry = {
         ready: Promise.resolve({ url: '', headers: {} }),
+        readySettled: false,
         owners: 0,
         components: profile.components
       }
       entry = created
       this.entries.set(key, created)
       this.ownedEntries.add(created)
+      observer?.serverStarting?.()
       created.ready = this.start(executable, profile, (child) => {
         created.child = child
-      }).catch((error) => {
-        if (this.entries.get(key) === created) this.entries.delete(key)
-        this.terminate(created.child)
-        this.ownedEntries.delete(created)
-        throw error
-      })
+      }).then(
+        (connection) => {
+          created.readySettled = true
+          return connection
+        },
+        (error) => {
+          if (this.entries.get(key) === created) this.entries.delete(key)
+          this.terminate(created.child)
+          this.ownedEntries.delete(created)
+          throw error
+        }
+      )
+    } else if (!entry.readySettled) {
+      observer?.serverStarting?.()
     }
     const owned = entry
     owned.owners++

@@ -583,57 +583,102 @@ OpenCodeWaitPhase / handleChatSend → projector.setWaitPhase → chat.activity{
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: D-001~D-010 Decision Ledger, V1 pair registry(VP-01~VP-25), §10 EP-01~EP-08(47자리 + 규칙 2칸) 및 §11 구현·테스트 설계 전체가 현재 코드베이스와 일치하여 그대로 진행했다.
+- 이견 / 현실성 문제: `send.ts:69`에서 `adapter`가 `SessionAdapter | MockAdapter | null`로 추론되어 `activeAdapter.reportsWaitPhases` 접근 시 `MockAdapter`(`implements SessionAdapter`, 선택 필드 미선언)에서 TS2339가 나므로 `let adapter: SessionAdapter | null`로 넓혔다(`MockAdapter`는 `SessionAdapter`에 대입 가능).
+- ACTIVE Decision과 충돌하는 설계 발견: 해당 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01 · VP-02 · VP-03 · VP-08 · VP-09 · VP-10 · VP-14 · VP-23 | **EP-01** 채널 경계 호출 12자리 + MD-01 규칙 12분기 | c1~c12 (12자리) + MD-01 규칙 12분기 | 12/12 + 12/12 | `git grep -n -E "waitPhase\.(serverStarting\|connected\|creatingSession\|admitting\|sending\|accepted\|status\|observe\|end)\(" -- app/src/main/adapters/opencode/v1/channel.ts` → 12줄(c1 `:332`, c2 `:348`, c3 `:355`, c4 `:149`, c5 `:163`, c6 `:295`, c7 `:271`, c8 `:425`, c9 `:427`, c10 `:441`, c11 `:451`, c12 `:466`, 차집합 0) · UT-01(`wait-phase.test.ts` R1~R11 18케이스) · IT-01(`adapter.startup.test.ts` I1~I6) · ST-01(`opencode-runtime.test.ts:414`) | `ChatWaitPhase \| null` (`server`, `project`, `session`, `mcp`, `send`, `model`, `{retry,1}`, `{retry,2}`, `null`) → `phases` 배열·`projector.current('s1').waitPhase` | 0 |
+| VP-09 · VP-10 · VP-16 | **EP-02** 운반 7자리 (`t1`~`t7`) | t1 `turn.ts` · t2 `channel.ts` · t3 `turn-request.ts` · t4 projector `setWaitPhase` · t5 `compute` · t6 `sameActivity` · t7 `shared/ipc.ts` (7자리) | 7/7 | `git grep -n -E "onWaitPhase\|setWaitPhase\|waitPhases\|waitPhase" -- app/src/main/adapters/common/turn.ts app/src/main/app/chat-turn/turn-request.ts app/src/main/features/chat/session-activity-projector.ts app/src/shared/ipc.ts` + `git grep -n -E "new OpenCodeWaitPhase" -- app/src/main/adapters/opencode/v1/channel.ts` → t1 `turn.ts:216`, t2 `channel.ts:31`, t3 `turn-request.ts:71,132-133`, t4 `session-activity-projector.ts:40,93-101,139-141,154,170`, t5 `:247-249`, t6 `:259-263,275`, t7 `ipc.ts:1705` (차집합 0) · UT-03(`session-activity-projector.test.ts` P1~P8) · ST-01 | `phase` (`{server}`, `{retry,1}`, `{retry,2}`, `{send}`, `{project}`, `{session}`, `null`) → `emit` 스냅샷·`current(key).waitPhase` | 0 |
+| VP-01 · VP-11 · VP-17 | **EP-03** observer 7자리 (`s1`~`s7`) | s1 새 entry · s2 미정착 합류 · s3 `readySettled = true` · s4 `implementation.ts` · s5 `adapter.ts` `client()` · s6 `adapter.ts` `sendMessage` · s7 `channel.ts` `connect` (7자리) | 7/7 | `git grep -n -E "serverStarting\|readySettled" -- app/src/main/adapters/opencode/implementation.ts app/src/main/adapters/opencode/v1/server.ts app/src/main/adapters/opencode/v1/adapter.ts app/src/main/adapters/opencode/v1/channel.ts` → s1 `server.ts:233`, s2 `:248-249`, s3 `:86,226,238`, s4 `implementation.ts:18`, s5 `adapter.ts:122,162`, s6 `adapter.ts:340,346`, s7 `channel.ts:24,332` (차집합 0) · UT-04(`server.test.ts` S1~S5) · IT-02(`opencode-runtime.test.ts:384`) | `observer.serverStarting()` 호출 횟수(cold=1, 합류=1, warm=0, 실패 후 재시도=1) · `setWaitPhase` 첫 원소 `{kind:'server'}` | 0 |
+| VP-01 · VP-04 · VP-06 · VP-08 · VP-12 | **EP-04** app 7자리 (`a1`~`a7`) | a1 `types.ts` · a2 `adapter.ts` · a3 `send.ts` 시작 `preparing` · a4 `send.ts` `onNativeHistory` 매핑 · a5 `resolve-turn.ts` `onNativeHistory(true)` · a6 finally `(false)` · a7 `send.ts` 바깥 finally `null` (7자리) | 7/7 | `git grep -n -E "reportsWaitPhases\|reportWaitPhase\|onNativeHistory\|setWaitPhase" -- app/src/main/adapters/common/types.ts app/src/main/contracts/ports.ts app/src/main/adapters/opencode/v1/adapter.ts app/src/main/app/chat-turn/send.ts app/src/main/app/chat-turn/resolve-turn.ts` → a1 `types.ts:103`, a2 `adapter.ts:33`, a3 `send.ts:254-260`, a4 `send.ts:270-271`, a5 `resolve-turn.ts:68,133`, a6 `resolve-turn.ts:155`, a7 `send.ts:736` (차집합 0) · IT-03(`send.wait-phase.test.ts` A1~A5) · `native-session.test.ts:523,548,579` | `preparing` · `history` · `null` (`invocationCallOrder`, `[true, false]`, Claude 비-null 0건) | 0 |
+| VP-05 · VP-13 · VP-22 | **EP-05** renderer 10자리 (`r1`~`r10`) | r1 `ChatState` · r2 `initialChatState` · r3 `chat.activity` · r4 LOAD_SESSION preserve · r5 LOAD_SESSION snapshot · r6 `useChatActivity` · r7 `PendingAssistantStatus` · r8 `ActivityView` · r9 `deriveActivityLabel` · r10 `StatusLine` (10자리) | 10/10 | `git grep -n -E "activityWaitPhase\|waitPhase" -- app/src/renderer/src/features/chat ":(exclude)*.test.ts"` → r1 `chatReducer.ts:335`, r2 `:519`, r3 `:1251`, r4 `:1538`, r5 `:1552`, r6 `chatStore.ts:2271,2285`, r7 `PendingAssistantStatus.tsx:18,29`, r8 `activityLabel.ts:39,45`, r9 `:59,61,84`, r10 `StatusLine.tsx:12,113` (차집합 0) · IT-04(`statusLine.waitPhase.test.ts`) · `StatusLine.harness.test.ts` | `activityWaitPhase` → `activityView.waitPhase` → `label.waitPhase` → `[aria-live]` DOM 텍스트 | 0 |
+| VP-05 · VP-07 · VP-15 · VP-20 · VP-21 | **EP-06** 표시 3자리 (`w1`~`w3`) + MD-02 규칙 5분기 | w1 우선순위 · w2 `waitPhaseLabel` · w3 `ko.ts`/`en.ts` 8키 (3자리) + MD-02 규칙 5분기 | 3/3 + 5/5 | `git grep -n -E "waitPhaseLabel\|harness\.waitPhase\|waitPhase: \{" -- app/src/renderer/src ":(exclude)*.test.ts"` → w1 `activityLabel.ts:59-84`, w2 `activityLabel.ts:89-106`, w3 `ko.ts:499-508` · `en.ts:495-504` (차집합 0) · UT-02(`activityLabel.test.ts` L1~L7·K1) · IT-04 · `resources.test.ts` | 9개 `kind` 각각의 i18n 키·한국어 문자열·`prepareStep` 우선순위 분기 | 0 |
+| VP-18 · VP-24 | **EP-07** SSOT 3자리 (`e1`~`e3`) | e1 `shared/model-output.ts` · e2 `turn-coordinator.ts` · e3 `wait-phase.ts` (3자리) | 3/3 | `git grep -n -E "MODEL_OUTPUT_EVENT\|isModelOutputEvent" -- app/src/main app/src/shared ":(exclude)*.test.ts"` → e1 `shared/model-output.ts:1,9,11-12`, e2 `turn-coordinator.ts:14,395`, e3 `wait-phase.ts:3,55` (차집합 0) · `git grep -n -E "MODEL_OUTPUT_EVENTS" -- app/src` → 0줄 · UT-01 R8a · `turn-coordinator.test.ts` | 5종 이벤트(`message.delta`, `message.reasoning.delta`, `message.reasoning`, `message.completed`, `tool.call.started`) → `true` | 0 |
+| VP-19 | **EP-08** 문서 3자리 (`d1`~`d3`) | d1 `docs/IPC_CONTRACT.md` · d2 `docs/arch/backend/provider-runtime.md` · d3 `docs/arch/frontend/ux-domains.md` (3자리) | 3/3 | `git grep -n -E "waitPhase" -- docs/IPC_CONTRACT.md docs/arch/backend/provider-runtime.md` → `IPC_CONTRACT.md:594`, `provider-runtime.md:93` · `git grep -n -E "모델 응답을 기다리는" -- docs/arch/frontend/ux-domains.md` → `ux-domains.md:42` · `check-doc-inventory.mjs --check` exit 0 | 문서 계약 설명 일치, 코드 수치 재서술 0건 | 0 |
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | `SELF_PASS` | `opencode-runtime.test.ts:384` (IT-02) · `adapter.startup.test.ts:537` (IT-01 I1/I2) · `send.wait-phase.test.ts:169` (IT-03 A1~A3) · `wait-phase.test.ts:138` (UT-01 R8a) | not selected |
+| VP-02 | REQUIRED | `SELF_PASS` | `adapter.startup.test.ts:590` (IT-01 I3) · `opencode-runtime.test.ts:439` (ST-01 2턴) | not selected |
+| VP-03 | REQUIRED | `SELF_PASS` | `wait-phase.test.ts:72` (UT-01 R7a~R7f) · `adapter.startup.test.ts:606` (IT-01 I4) | not selected |
+| VP-04 | REQUIRED | `SELF_PASS` | `native-session.test.ts:523,548,579` · `send.wait-phase.test.ts:219` (IT-03 A4) | not selected |
+| VP-05 | REQUIRED | `SELF_PASS` | `activityLabel.test.ts:251` (UT-02 L1~L7) · `session-activity-projector.test.ts:396` (UT-03 P5) · `statusLine.waitPhase.test.ts:67,98,124` (IT-04) | `M-05a` red (`activityLabel.test.ts` 1 failed, exit 1) |
+| VP-06 | REQUIRED | `SELF_PASS` | `send.wait-phase.test.ts:250` (IT-03 A5 Claude) | `M-06a` red (`send.wait-phase.test.ts` 1 failed, exit 1) |
+| VP-07 | REQUIRED | `SELF_PASS` | `activityLabel.test.ts:334` (UT-02 K1) · `statusLine.waitPhase.test.ts:40` (IT-04 9종 ko) · `resources.test.ts` (7 passed) | not selected |
+| VP-08 | REQUIRED | `SELF_PASS` | `opencode-runtime.test.ts:414` (ST-01) · `adapter.startup.test.ts:669` (IT-01 I5/I6) · `send.wait-phase.test.ts:169` (IT-03 A2/A3) | `M-09a` 공유 red (`opencode-runtime.test.ts` 1 failed, exit 1) |
+| VP-09 | REQUIRED | `SELF_PASS` | `opencode-runtime.test.ts:414` (ST-01 1~3턴 시퀀스) | `M-09a` red (`opencode-runtime.test.ts` 1 failed, exit 1) |
+| VP-10 | REQUIRED | `SELF_PASS` | `adapter.startup.test.ts:535` (IT-01 describe 'wait phases') | `M-10a` red (`adapter.startup.test.ts` 3 failed, exit 1) |
+| VP-11 | REQUIRED | `SELF_PASS` | `opencode-runtime.test.ts:384` (IT-02 1턴 `server` 포함·2턴 미포함) | not selected |
+| VP-12 | REQUIRED | `SELF_PASS` | `send.wait-phase.test.ts:168` (IT-03 A1~A5) | `M-06a` 공유 red (`send.wait-phase.test.ts` 1 failed, exit 1) |
+| VP-13 | REQUIRED | `SELF_PASS` | `statusLine.waitPhase.test.ts:39` (IT-04) | `M-13a` red (`statusLine.waitPhase.test.ts` 2 failed, exit 1) |
+| VP-14 | REQUIRED | `SELF_PASS` | `wait-phase.test.ts:15` (UT-01 R1~R11 18케이스) | not selected |
+| VP-15 | REQUIRED | `SELF_PASS` | `activityLabel.test.ts:251` (UT-02 L1~L7 + K1) | `M-05a` 공유 red (`activityLabel.test.ts` 1 failed, exit 1) |
+| VP-16 | REQUIRED | `SELF_PASS` | `session-activity-projector.test.ts:352` (UT-03 P1~P8) | `M-16a` red (3 failed, exit 1) · `M-16b` red (1 failed, exit 1) |
+| VP-17 | REQUIRED | `SELF_PASS` | `server.test.ts:819` (UT-04 S1~S5) | not selected |
+| VP-18 | REQUIRED | `SELF_PASS` | `wait-phase.test.ts:138` (UT-01 R8a) · `turn-coordinator.test.ts` (77 passed) | `M-18a` red (`wait-phase.test.ts` 1 failed, exit 1) |
+| VP-19 | REQUIRED | `SELF_PASS` | `IPC_CONTRACT.md:594` · `provider-runtime.md:93` · `ux-domains.md:42` · `check-doc-inventory.mjs --check` exit 0 | not selected |
+| VP-20 | REGRESSION | `SELF_PASS` | `activityLabel.test.ts:183` ('격리 준비 단계 우선 (EP-03)' 3케이스 passed) | not selected |
+| VP-21 | REGRESSION | `SELF_PASS` | `activityLabel.test.ts` (기존 describe 3개 포함 26 passed) | not selected |
+| VP-22 | REGRESSION | `SELF_PASS` | `StatusLine.harness.test.ts` (2 passed) | not selected |
+| VP-23 | REGRESSION | `SELF_PASS` | `adapter.startup.test.ts` (기존 7케이스 포함 10 passed) | not selected |
+| VP-24 | REGRESSION | `SELF_PASS` | `turn-coordinator.test.ts` (77 passed) | not selected |
+| VP-25 | REQUIRED | `SELF_BLOCKED` | §19 사람 실기 시나리오 4건 (Windows 실제 OpenCode 1.x 서버 기동·시각 확인 대기) | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| `M-05a`: `activityLabel.ts`에서 `prepareStep` 판정의 `!isChannelWaitPhase` 가드를 제거해 순위 맞바꿈 | VP-05 · VP-15 선택 증거 | 최초 | `activityLabel.test.ts` L6 1케이스 실패 (`1 failed \| 25 passed`) | `red (기대 일치)` |
+| `M-06a`: `send.ts` `reportWaitPhase`에서 `if (activeAdapter.reportsWaitPhases !== true) return` 게이트 제거 | VP-06 · VP-12 선택 증거 | 최초 | `send.wait-phase.test.ts` A5 1케이스 실패 (`1 failed \| 3 passed`) | `red (기대 일치)` |
+| `M-09a`: `channel.ts`에서 `waitPhase.observe(mapped.events)`(c9)와 finally `waitPhase.end()`(c12) 동시 제거 | VP-08 · VP-09 선택 증거 | 최초 | `opencode-runtime.test.ts` ST-01 1케이스 실패 (`1 failed \| 7 passed`) | `red (기대 일치)` |
+| `M-10a`: `channel.ts`에서 c2(`waitPhase.connected()`)와 c3(`waitPhase.creatingSession()`) 호출 위치 맞바꿈 | VP-10 선택 증거 | 최초 | `adapter.startup.test.ts` I1/I2/I4 3케이스 실패 (`3 failed \| 7 passed`) | `red (기대 일치)` |
+| `M-13a`: `PendingAssistantStatus.tsx` `activityView`에서 `waitPhase` 전달 제거 | VP-13 선택 증거 | 최초 | `statusLine.waitPhase.test.ts` 2케이스 실패 (`2 failed \| 1 passed`) | `red (기대 일치)` |
+| `M-16a`: `session-activity-projector.ts` `sameActivity`에서 `sameWaitPhase` 비교 제거 | VP-16 선택 증거 | 최초 | `session-activity-projector.test.ts` P4/P8 등 3케이스 실패 (`3 failed \| 14 passed`) | `red (기대 일치)` |
+| `M-16b`: `session-activity-projector.ts` `setWaitPhase`에서 `if (sameWaitPhase(previous, phase)) return` 동치 조기 반환 제거 | VP-16 선택 증거 | 최초 | `session-activity-projector.test.ts` P2 1케이스 실패 (`1 failed \| 16 passed`) | `red (기대 일치)` |
+| `M-18a`: `shared/model-output.ts` `MODEL_OUTPUT_EVENT_TYPES`에서 `'tool.call.started'` 제거 | VP-18 선택 증거 | 최초 | `wait-phase.test.ts` R8a 1케이스 실패 (`1 failed \| 17 passed`) | `red (기대 일치)` |
+| 열거 sweep: `CHAT_WAIT_PHASE_KINDS` 9개 원소(`preparing`, `history`, `server`, `project`, `session`, `mcp`, `send`, `model`, `retry`) 전수 | §4 열거 sweep | 최초 | UT-02 K1(`activityLabel.test.ts:334`) · IT-04(`statusLine.waitPhase.test.ts:40`) 9종 전수 단언 통과, `M-13a` 변이 시 red | `9/9 잠금 확인` |
+| 열거 sweep: `MODEL_OUTPUT_EVENT_TYPES` 5개 원소 전수 | §4 열거 sweep | 최초 | UT-01 R8a(`wait-phase.test.ts:138`) 5종 전수 단언 통과, `M-18a` 변이 시 red | `5/5 잠금 확인` |
+
+검산: `선택 증거 8 · 인용 변이 0 · 새 oracle 0 · sweep 2 = 표 행 10`.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| … | … | … |
+| OpenCode 스트리밍 중 즉시 보내기(steer)로 `pushTurn`이 호출될 때 잠시 `mcp → send → model` 문구가 보였다가 다음 모델 출력에서 해제되는 동작이 자연스러운가 | 설계 내 수용 (§10 선언 경계 3번째 항목에 이미 명시) | 추가 변경 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | `send.ts`의 `adapter` 지역 변수가 `SessionAdapter \| MockAdapter \| null`로 추론되어 `activeAdapter.reportsWaitPhases` 접근 시 `MockAdapter`에서 TS2339 발생 | `send.ts:70`에서 `let adapter: SessionAdapter \| null`로 명시(`MockAdapter implements SessionAdapter`이므로 타입 안전하게 단일화) | `npm run typecheck` (`typecheck:node`·`typecheck:web`·`typecheck:test`) exit 0 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 관측한 게이트 산출 | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| AC 자기보고 | … |
-| 합계 검산 | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 프로덕션 21파일: `app/src/shared/{ipc,model-output}.ts`, `app/src/main/adapters/common/{turn,types}.ts`, `app/src/main/adapters/opencode/implementation.ts`, `app/src/main/adapters/opencode/v1/{adapter,channel,server,wait-phase}.ts`, `app/src/main/features/chat/{session-activity-projector,turn-coordinator}.ts`, `app/src/main/app/chat-turn/{resolve-turn,send,turn-request}.ts`, `app/src/renderer/src/features/chat/{reducer/chatReducer.ts,store/chatStore.ts,components/transcript/PendingAssistantStatus.tsx,lib/activityLabel.ts,harnesses/common/transcript/StatusLine.tsx}`, `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` · 테스트 9파일: `wait-phase.test.ts`, `server.test.ts`, `adapter.startup.test.ts`, `opencode-runtime.test.ts`, `send.wait-phase.test.ts`, `native-session.test.ts`, `session-activity-projector.test.ts`, `activityLabel.test.ts`, `statusLine.waitPhase.test.ts` · 문서 3파일: `docs/IPC_CONTRACT.md`, `docs/arch/backend/provider-runtime.md`, `docs/arch/frontend/ux-domains.md` (+ `plan.md`, `INDEX.md`) |
+| 실행 명령 | 1) `cd app && ./node_modules/.bin/vitest run src/main/adapters/opencode/v1/wait-phase.test.ts src/main/adapters/opencode/v1/server.test.ts src/main/adapters/opencode/v1/adapter.startup.test.ts src/main/app/chat-turn/opencode-runtime.test.ts src/main/app/chat-turn/send.wait-phase.test.ts src/main/app/chat-turn/native-session.test.ts src/main/features/chat/session-activity-projector.test.ts src/main/features/chat/turn-coordinator.test.ts src/renderer/src/features/chat/lib/activityLabel.test.ts src/renderer/src/features/chat/components/statusLine.waitPhase.test.ts src/renderer/src/features/chat/components/StatusLine.harness.test.ts src/renderer/src/shared/i18n/resources/resources.test.ts`<br>2) `$env:PYTHONUTF8 = "1"; python -X utf8 .agents/skills/handoff-verify/scripts/mutate.py <scratch>/mutations.jsonl --cwd app`<br>3) `cd app && npm run lint && npm run typecheck && node scripts/check-test-budgets.mjs && node scripts/check-doc-inventory.mjs --check` |
+| 관측한 게이트 산출 | 1) vitest 12 files passed (`227 passed`, 0 failed)<br>2) `mutate.py` 8/8 `red (기대 일치)` + `# 원복 확인: 모든 파일 원문 그대로`<br>3) `lint` exit 0 (0 errors, 기존 warning 2), `typecheck` (`node`·`web`·`test`) exit 0, `check-test-budgets.mjs` exit 0 (`16 real-git suites ok · all budget sites scaled`), `check-doc-inventory.mjs --check` exit 0 (`9 items, 117 channels`) |
+| V-pair 자기확인 | 총 25 pair 중 `SELF_PASS` 24건(`VP-01`~`VP-24`), `SELF_BLOCKED` 1건(`VP-25` Windows 실제 OpenCode 실기) |
+| 강제 지점 전수 | EP-01(12/12) · EP-02(7/7) · EP-03(7/7) · EP-04(7/7) · EP-05(10/10) · EP-06(3/3) · EP-07(3/3) · EP-08(3/3) — 52/52 자리(§10 검색 명령 차집합 0) + MD-01(12/12)·MD-02(5/5) 규칙 분기 전수 |
+| AC 자기보고 | - **AC1** ✅: `opencode-runtime.test.ts:384`(IT-02), `adapter.startup.test.ts:537`(IT-01 I1), `send.wait-phase.test.ts:169`(IT-03 A1), `wait-phase.test.ts:138`(UT-01 R8a) 통과<br>- **AC2** ✅: `server.test.ts:819`(UT-04 S1~S5), `opencode-runtime.test.ts:396`(IT-02 2턴 `server` 0회), `adapter.startup.test.ts:569`(IT-01 I2) 통과<br>- **AC3** ✅: `adapter.startup.test.ts:590`(IT-01 I3 `pushTurn` `[mcp, send, model, null]`), `opencode-runtime.test.ts:439`(ST-01 2턴) 통과<br>- **AC4** ✅: `wait-phase.test.ts:72`(UT-01 R7a~R7f), `adapter.startup.test.ts:606`(IT-01 I4) 통과<br>- **AC5** ✅: `native-session.test.ts:523,548,579`(3케이스), `send.wait-phase.test.ts:219`(IT-03 A4) 통과<br>- **AC6** ✅: `activityLabel.test.ts:251`(UT-02 L4~L6), `activityLabel.test.ts:183`(REGRESSION VP-20) 통과<br>- **AC7** ✅: `opencode-runtime.test.ts:414`(ST-01), `adapter.startup.test.ts:669`(IT-01 I5/I6), `send.wait-phase.test.ts:169`(IT-03 A2/A3) 통과<br>- **AC8** ✅: `activityLabel.test.ts:320`(UT-02 L7), `statusLine.waitPhase.test.ts:67`(IT-04 queuedCount=1) 통과<br>- **AC9** ✅: `send.wait-phase.test.ts:250`(IT-03 A5 Claude 비-null 0건), `StatusLine.harness.test.ts`(2 passed) 통과<br>- **AC10** ✅: `activityLabel.test.ts:334`(UT-02 K1), `statusLine.waitPhase.test.ts:40`(IT-04 9종 ko), `resources.test.ts`(7 passed) 통과<br>- **AC11** ✅: `wait-phase.test.ts:138`(UT-01 R8a), `turn-coordinator.test.ts`(77 passed), `git grep -n -E "MODEL_OUTPUT_EVENTS" -- app/src` 0건 확인<br>- **AC12** ✅: `session-activity-projector.test.ts:352`(UT-03 P1~P8) 통과<br>- **AC13** ✅: `statusLine.waitPhase.test.ts:98,124`(IT-04 revision 무시·LOAD_SESSION hydrate/preserve) 통과<br>- **AC14** ✅: `IPC_CONTRACT.md:594`, `provider-runtime.md:93`, `ux-domains.md:42` 반영 + `check-doc-inventory.mjs --check` exit 0<br>- **AC15** ⚠️: Windows 실제 OpenCode 1.x 실기 시각 확인 대기 |
+| 합계 검산 | `✅ 14 · ⚠️ 1 · ❌ 0 = 총 15` |
+| 블로커 / 역질문 | 없음 (AC15 사람 실기만 대기) |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- …
+- 라운드 및 턴 라벨: `r1` (최초 구현 턴).
+- 이전 라운드 반복 축 여부: 해당 없음 (`r1`).
+- plan 지침·AC 누락 여부: 없음 (D-001~D-010 및 §10 EP-01~EP-08 52자리 전수가 코드와 1:1 대응).
+- 환경 한계: `native-session.test.ts`는 파일 최상단 `beforeEach`에서 `better-sqlite3` 인메모리 DB를 생성하므로 `node scripts/ensure-sqlite-abi.mjs node`로 Node ABI 보장 후 실행하여 16/16 green을 확인했고, Windows에서 `mutate.py` 실행 시 `cp949` 기본 인코딩 오류를 피하기 위해 `PYTHONUTF8=1`(`python -X utf8`)을 지정했다. AC15는 실제 OpenCode 1.x 프로세스·화면 시각 확인 항목이라 `SELF_BLOCKED`(`⚠️`)로 분리했다.
 
 ---
 

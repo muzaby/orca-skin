@@ -495,7 +495,17 @@ export const ko = {
     agent: '에이전트',
     variant: '추론 수준',
     defaultVariant: '기본',
-    promptPlaceholder: 'OpenCode에 작업을 요청하세요.'
+    promptPlaceholder: 'OpenCode에 작업을 요청하세요.',
+    waitPhase: {
+      history: '이전 대화를 확인하는 중…',
+      server: 'OpenCode 서버를 시작하는 중…',
+      project: '프로젝트를 불러오는 중…',
+      session: '세션을 만드는 중…',
+      mcp: 'MCP 연결을 기다리는 중…',
+      send: '요청을 보내는 중…',
+      model: '모델 응답을 기다리는 중…',
+      retry: '재시도 대기 중 ({{attempt}}번째)…'
+    }
   },
   backend: {
     installer: {

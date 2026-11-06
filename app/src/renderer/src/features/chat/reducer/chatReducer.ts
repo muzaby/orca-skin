@@ -14,6 +14,7 @@ import type {
   AskQuestionRequest,
   AttachmentView,
   Backend,
+  ChatWaitPhase,
   ClassifiedError,
   DiffRequirementAnchor,
   DiffRequirementItem,
@@ -331,6 +332,7 @@ export interface ChatState {
   activityTransport: 'idle' | 'ready' | 'listening'
   activityRevision: number
   activityForeground: 'idle' | 'preparing' | 'streaming'
+  activityWaitPhase: ChatWaitPhase | null
   activityQueuedCount: number
   activityDeliveryPendingCount: number
   activityResidualCount: number
@@ -514,6 +516,7 @@ export const initialChatState: ChatState = {
   activityTransport: 'idle',
   activityRevision: 0,
   activityForeground: 'idle',
+  activityWaitPhase: null,
   activityQueuedCount: 0,
   activityDeliveryPendingCount: 0,
   activityResidualCount: 0,
@@ -1245,6 +1248,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...state,
             activityRevision: ev.revision,
             activityForeground: ev.foreground,
+            activityWaitPhase: ev.waitPhase ?? null,
             activityTransport: ev.transport,
             activityQueuedCount: ev.queuedCount,
             activityDeliveryPendingCount: ev.deliveryPendingCount,
@@ -1531,6 +1535,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ? {
               activityRevision: state.activityRevision,
               activityForeground: state.activityForeground,
+              activityWaitPhase: state.activityWaitPhase,
               activityTransport: state.activityTransport,
               activityQueuedCount: state.activityQueuedCount,
               activityDeliveryPendingCount: state.activityDeliveryPendingCount,
@@ -1544,6 +1549,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ? {
                 activityRevision: activity.revision,
                 activityForeground: activity.foreground,
+                activityWaitPhase: activity.waitPhase ?? null,
                 activityTransport: activity.transport,
                 activityQueuedCount: activity.queuedCount,
                 activityDeliveryPendingCount: activity.deliveryPendingCount,

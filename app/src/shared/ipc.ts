@@ -1680,12 +1680,29 @@ export interface WorktreeDisplay {
 
 // 세션 활동의 단일 main 권위 스냅샷. listen/residual 엣지 이벤트를 각각 갱신하지 않고 같은
 // revision에서 원자 적용해 경고·애니메이션의 중간 상태 깜빡임을 막는다.
+export const CHAT_WAIT_PHASE_KINDS = [
+  'preparing',
+  'history',
+  'server',
+  'project',
+  'session',
+  'mcp',
+  'send',
+  'model',
+  'retry'
+] as const
+
+export type ChatWaitPhase =
+  | { kind: Exclude<(typeof CHAT_WAIT_PHASE_KINDS)[number], 'retry'> }
+  | { kind: 'retry'; attempt: number }
+
 export interface ChatActivitySnapshot {
   type: 'chat.activity'
   sessionId: string
   revision: number
   foreground: 'idle' | 'preparing' | 'streaming'
   transport: 'idle' | 'ready' | 'listening'
+  waitPhase?: ChatWaitPhase
   queuedCount: number
   deliveryPendingCount: number
   residualCount: number

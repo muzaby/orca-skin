@@ -30,6 +30,7 @@ import { OpenCodeSessionContexts, type OpenCodeClientLease } from './session-con
 
 export class OpenCodeAdapter implements SessionAdapter {
   readonly id = 'opencode' as const
+  readonly reportsWaitPhases = true as const
   private readonly contexts: OpenCodeSessionContexts
   private readonly reportedMcpFailures = new Set<string>()
   private reportMcpFailure(key: string, sourceId: string): void {
@@ -117,7 +118,8 @@ export class OpenCodeAdapter implements SessionAdapter {
     config: Record<string, unknown> = {},
     env?: Record<string, string>,
     cwd?: string,
-    snapshot: ManagedMcpSnapshot | undefined = this.managedMcp?.snapshot()
+    snapshot: ManagedMcpSnapshot | undefined = this.managedMcp?.snapshot(),
+    observer?: { serverStarting?: () => void }
   ): Promise<OpenCodeClientLease> {
     const bridge = snapshot && this.managedMcp ? await this.managedMcp.acquire(snapshot) : undefined
     let projection: ReturnType<typeof projectManagedMcp> | undefined
@@ -156,7 +158,8 @@ export class OpenCodeAdapter implements SessionAdapter {
       server = await this.servers.acquire(
         projection?.config ?? startup,
         projection ? { ...env, ...projection.env } : env,
-        cwd
+        cwd,
+        observer
       )
     } catch (error) {
       await bridge?.release()
@@ -334,12 +337,13 @@ export class OpenCodeAdapter implements SessionAdapter {
     let release: () => void | Promise<void> = () => undefined
     const live = openCodeChannel(
       { ...req, sessionId: nativeId },
-      async () => {
+      async (observer) => {
         const connection = await this.client(
           req.providerSettings?.settings,
           req.env,
           req.cwd,
-          req.extensions.managedMcp
+          req.extensions.managedMcp,
+          observer
         )
         release = connection.release
         return connection

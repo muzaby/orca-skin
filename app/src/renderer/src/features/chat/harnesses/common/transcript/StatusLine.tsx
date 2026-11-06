@@ -9,6 +9,7 @@ import type { WorktreePrepareStep } from '../../../../../../../shared/ipc'
 import {
   deriveActivityLabel,
   MAX_VISIBLE_FACTS,
+  waitPhaseLabel,
   type ActivityView
 } from '../../../lib/activityLabel'
 
@@ -109,14 +110,17 @@ export function StatusLine({
         : null
 
   const showCounter = elapsedSec >= 5
+  const waitLabel = label.waitPhase ? waitPhaseLabel(label.waitPhase) : null
   // 준비 단계가 있으면 그 문구다 — 무작위 동사(`verb`)도 일반 `preparing` 문구도 아니다.
   const statusLabel = label.prepareStep
     ? tr(`chat.worktreePrepare.${label.prepareStep}`)
-    : label.status === 'streaming'
-      ? streamingLabelKey
-        ? tr(streamingLabelKey)
-        : `${verb}…`
-      : tr(`chat.activity.${label.status}`)
+    : waitLabel
+      ? tr(waitLabel.key, waitLabel.params)
+      : label.status === 'streaming'
+        ? streamingLabelKey
+          ? tr(streamingLabelKey)
+          : `${verb}…`
+        : tr(`chat.activity.${label.status}`)
   const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
     .filter(Boolean)
     .join(', ')

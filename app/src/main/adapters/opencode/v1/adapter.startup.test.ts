@@ -1,5 +1,6 @@
 import type { Event } from '@opencode-ai/sdk/v2/client'
 import { describe, expect, it, vi } from 'vitest'
+import type { ChatWaitPhase } from '../../../../shared/ipc'
 import type { LiveTurn, ProviderMessageBatch } from '../../common/types'
 import { OpenCodeAdapter } from './adapter'
 import {
@@ -423,6 +424,292 @@ describe('Desktop-style OpenCode startup through the real SDK', () => {
     } finally {
       await close(retry, next)
       f.adapter.close()
+    }
+  })
+})
+
+describe('wait phases', () => {
+  function waitPhaseFixture(
+    options: {
+      onPrompt?: (ctx: {
+        directory: string
+        sessionID: string
+        messageID: string
+        emit: (directory: string, payload: Event) => void
+      }) => void
+    } = {}
+  ): {
+    adapter: OpenCodeAdapter
+    emit: (directory: string, payload: Event) => void
+  } {
+    let cold = true
+    let nextID = 0
+    const streams: { controller: ReadableStreamDefaultController<Uint8Array>; closed: boolean }[] =
+      []
+    const emit = (directory: string, payload: Event): void => {
+      for (const stream of streams)
+        if (!stream.closed)
+          stream.controller.enqueue(
+            new TextEncoder().encode(`data: ${JSON.stringify({ directory, payload })}\n\n`)
+          )
+    }
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const request = new Request(input, init)
+      const url = new URL(request.url)
+      const directory = url.searchParams.get('directory') ?? 'C:/work'
+      if (url.pathname === '/global/event') {
+        let owned: (typeof streams)[number]
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              owned = { controller, closed: false }
+              streams.push(owned)
+              controller.enqueue(
+                new TextEncoder().encode(
+                  `data: ${JSON.stringify({ payload: event('server.connected', {}) })}\n\n`
+                )
+              )
+            },
+            cancel() {
+              owned.closed = true
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        )
+      }
+      if (url.pathname === '/config') return jsonResponse({})
+      if (url.pathname === '/instance/dispose') {
+        emit(directory, event('server.instance.disposed', { directory }))
+        return jsonResponse(true)
+      }
+      if (url.pathname === '/mcp') return jsonResponse({})
+      if (url.pathname === '/agent') return jsonResponse([{ name: 'build', mode: 'primary' }])
+      if (url.pathname === '/provider') return jsonResponse({ all: [], connected: [], default: {} })
+      if (url.pathname === '/command') return jsonResponse([{ name: 'native:review', hints: [] }])
+      if (url.pathname === '/session' && request.method === 'POST')
+        return jsonResponse({ id: `s${++nextID}` })
+      if (/\/(prompt_async|command)$/.test(url.pathname)) {
+        const body = await request.json()
+        const sessionID = url.pathname.split('/')[2]
+        const messageID = body.messageID ?? 'cmd-1'
+        if (options.onPrompt) {
+          options.onPrompt({ directory, sessionID, messageID, emit })
+        } else {
+          const answer = assistantMessage(sessionID, messageID, `a-${messageID}`)
+          emit(directory, event('message.updated', { sessionID, info: answer }))
+          emit(
+            directory,
+            event('message.part.updated', {
+              sessionID,
+              time: 2,
+              part: textPart(`Reply ${sessionID}`, {
+                id: `text-${messageID}`,
+                sessionID,
+                messageID: answer.id,
+                time: { start: 1, end: 2 }
+              })
+            })
+          )
+          emit(directory, event('session.idle', { sessionID }))
+        }
+        return new Response(null, { status: 204 })
+      }
+      if (url.pathname.endsWith('/abort')) return jsonResponse(true)
+      throw new Error(`Unexpected request ${url.pathname}`)
+    }
+    const adapter = new OpenCodeAdapter(
+      {
+        retireAll: () => {},
+        listModels: async () => [],
+        acquire: async (_config, _env, _cwd, observer) => {
+          if (cold) {
+            cold = false
+            observer?.serverStarting?.()
+          }
+          return {
+            url: 'http://owned-waitphase.test',
+            headers: { Authorization: 'Basic waitphase' },
+            release: vi.fn()
+          }
+        },
+        installed: async () => ({ installed: true, version: '1.17.19' }),
+        close: vi.fn()
+      },
+      fetchImpl
+    )
+    return { adapter, emit }
+  }
+
+  it('I1/I2/I3: cold turn emits 7 items, warm turn omits server, and pushTurn emits [mcp, send, model, null]', async () => {
+    const f = waitPhaseFixture()
+    const coldPhases: Array<ChatWaitPhase | null> = []
+    const warmPhases: Array<ChatWaitPhase | null> = []
+    const live1 = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Cold turn',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => coldPhases.push(phase)
+    })
+    const iter1 = live1.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iter1)
+      expect(coldPhases).toEqual([
+        { kind: 'server' },
+        { kind: 'project' },
+        { kind: 'session' },
+        { kind: 'mcp' },
+        { kind: 'send' },
+        { kind: 'model' },
+        null
+      ])
+    } finally {
+      await close(live1, iter1)
+    }
+
+    // I2: warm server, new session -> [project, session, mcp, send, model, null]
+    const live2 = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Warm turn',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => warmPhases.push(phase)
+    })
+    const iter2 = live2.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iter2)
+      expect(warmPhases).toEqual([
+        { kind: 'project' },
+        { kind: 'session' },
+        { kind: 'mcp' },
+        { kind: 'send' },
+        { kind: 'model' },
+        null
+      ])
+
+      // I3: pushTurn on same channel -> second segment is [mcp, send, model, null]
+      warmPhases.length = 0
+      await live2.pushTurn!({ text: 'Continuation turn' })
+      await frame(iter2)
+      expect(warmPhases).toEqual([{ kind: 'mcp' }, { kind: 'send' }, { kind: 'model' }, null])
+    } finally {
+      await close(live2, iter2)
+      f.adapter.close()
+    }
+  })
+
+  it('I4: surfaces [..., model, {retry,1}, model, null] when prompt emits retry(1) then busy before text', async () => {
+    const f = waitPhaseFixture({
+      onPrompt: ({ directory, sessionID, messageID, emit }) => {
+        emit(
+          directory,
+          event('session.status', {
+            sessionID,
+            status: { type: 'retry', attempt: 1, message: 'rate limit', next: 1000 }
+          })
+        )
+        emit(
+          directory,
+          event('session.status', {
+            sessionID,
+            status: { type: 'busy' }
+          })
+        )
+        const answer = assistantMessage(sessionID, messageID, `a-${messageID}`)
+        emit(directory, event('message.updated', { sessionID, info: answer }))
+        emit(
+          directory,
+          event('message.part.updated', {
+            sessionID,
+            time: 1,
+            part: textPart('First chunk', {
+              id: `text-${messageID}`,
+              sessionID,
+              messageID: answer.id,
+              time: { start: 1, end: 2 }
+            })
+          })
+        )
+        emit(directory, event('session.idle', { sessionID }))
+      }
+    })
+    const phases: Array<ChatWaitPhase | null> = []
+    const live = f.adapter.sendMessage({
+      sessionId: null,
+      text: 'Retry then output',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => phases.push(phase)
+    })
+    const iter = live.eventBatches[Symbol.asyncIterator]()
+    try {
+      await frame(iter)
+      expect(phases).toEqual([
+        { kind: 'server' },
+        { kind: 'project' },
+        { kind: 'session' },
+        { kind: 'mcp' },
+        { kind: 'send' },
+        { kind: 'model' },
+        { kind: 'retry', attempt: 1 },
+        { kind: 'model' },
+        null
+      ])
+    } finally {
+      await close(live, iter)
+      f.adapter.close()
+    }
+  })
+
+  it('I5/I6: clears waitPhase with null on /config 500 error (I5) and on live.close() during /config gate (I6)', async () => {
+    // I5: /config returns 500 -> error event + trailing null
+    const fErr = fixture()
+    fErr.setConfig(async () => jsonResponse({ message: 'fail' }, 500))
+    const errPhases: Array<ChatWaitPhase | null> = []
+    const liveErr = fErr.adapter.sendMessage({
+      sessionId: null,
+      text: 'Config error',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => errPhases.push(phase)
+    })
+    const iterErr = liveErr.eventBatches[Symbol.asyncIterator]()
+    try {
+      const events = await frame(iterErr)
+      expect(events.some((e) => e.type === 'error')).toBe(true)
+      expect(errPhases.at(-1)).toBeNull()
+    } finally {
+      await close(liveErr, iterErr)
+      fErr.adapter.close()
+    }
+
+    // I6: live.close() while gated on /config -> trailing null
+    const fClose = fixture()
+    const configGate = Promise.withResolvers<void>()
+    fClose.setConfig(async () => {
+      await configGate.promise
+      return jsonResponse({})
+    })
+    const closePhases: Array<ChatWaitPhase | null> = []
+    const liveClose = fClose.adapter.sendMessage({
+      sessionId: null,
+      text: 'Close during config',
+      cwd: 'C:/work',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      onWaitPhase: (phase) => closePhases.push(phase)
+    })
+    const iterClose = liveClose.eventBatches[Symbol.asyncIterator]()
+    try {
+      const pending = iterClose.next()
+      await vi.waitFor(() => expect(closePhases).toContainEqual({ kind: 'project' }))
+      liveClose.close()
+      configGate.resolve()
+      await pending
+      await vi.waitFor(() => expect(closePhases.at(-1)).toBeNull())
+    } finally {
+      configGate.resolve()
+      await close(liveClose, iterClose)
+      fClose.adapter.close()
     }
   })
 })

@@ -235,4 +235,108 @@ describe('SessionActivityProjector', () => {
 
     expect(f.emitted).toHaveLength(1)
   })
+
+  it('P1/P2: emits waitPhase on streaming and skips recompute on duplicate setWaitPhase', async () => {
+    const f = fixture()
+    const recomputeSpy = vi.spyOn(
+      f.projector as unknown as { recompute: (id: string) => void },
+      'recompute'
+    )
+    f.foreground.set('s', 'streaming')
+    f.projector.setWaitPhase('s', { kind: 'server' })
+    await flush()
+    expect(f.emitted).toHaveLength(1)
+    expect(f.emitted[0]?.waitPhase).toEqual({ kind: 'server' })
+    const rev = f.emitted[0]!.revision
+    const recomputesAfterP1 = recomputeSpy.mock.calls.length
+
+    // P2: setting the exact same waitPhase again returns early without scheduling recompute or emitting
+    f.projector.setWaitPhase('s', { kind: 'server' })
+    await flush()
+    expect(recomputeSpy.mock.calls.length).toBe(recomputesAfterP1)
+    expect(f.emitted).toHaveLength(1)
+    expect(f.projector.current('s').revision).toBe(rev)
+    f.projector.dispose()
+  })
+
+  it('P3: emits new snapshot when retry attempt changes from 1 to 2', async () => {
+    const f = fixture()
+    f.foreground.set('s', 'streaming')
+    f.projector.setWaitPhase('s', { kind: 'retry', attempt: 1 })
+    await flush()
+    expect(f.emitted.at(-1)?.waitPhase).toEqual({ kind: 'retry', attempt: 1 })
+
+    f.projector.setWaitPhase('s', { kind: 'retry', attempt: 2 })
+    await flush()
+    expect(f.emitted.at(-1)?.waitPhase).toEqual({ kind: 'retry', attempt: 2 })
+    f.projector.dispose()
+  })
+
+  it('P4: clears waitPhase from snapshot when setWaitPhase(k, null) is called', async () => {
+    const f = fixture()
+    f.foreground.set('s', 'streaming')
+    f.projector.setWaitPhase('s', { kind: 'model' })
+    await flush()
+    expect(f.emitted.at(-1)?.waitPhase).toEqual({ kind: 'model' })
+
+    f.projector.setWaitPhase('s', null)
+    await flush()
+    expect(f.emitted.at(-1)?.waitPhase).toBeUndefined()
+    f.projector.dispose()
+  })
+
+  it('P5: omits waitPhase from snapshot when foreground is idle', async () => {
+    const f = fixture()
+    f.foreground.set('s', 'idle')
+    f.projector.setWaitPhase('s', { kind: 'model' })
+    await flush()
+
+    expect(f.projector.current('s').waitPhase).toBeUndefined()
+    f.projector.dispose()
+  })
+
+  it('P6: promote("client-1", "s1") followed by setWaitPhase("client-1", {send}) updates s1', async () => {
+    const f = fixture()
+    f.foreground.set('client-1', 'preparing')
+    f.foreground.set('s1', 'streaming')
+    f.projector.setWaitPhase('client-1', { kind: 'server' })
+    await flush()
+
+    f.projector.promote('client-1', 's1')
+    f.projector.setWaitPhase('client-1', { kind: 'send' })
+    await flush()
+
+    expect(f.projector.current('s1').waitPhase).toEqual({ kind: 'send' })
+    f.projector.dispose()
+  })
+
+  it('P7: ignores setWaitPhase after clear("s1")', async () => {
+    const f = fixture()
+    f.foreground.set('s1', 'streaming')
+    f.projector.setWaitPhase('s1', { kind: 'mcp' })
+    await flush()
+    const countBeforeClear = f.emitted.length
+
+    f.projector.clear('s1')
+    f.projector.setWaitPhase('s1', { kind: 'send' })
+    await flush()
+
+    expect(f.emitted).toHaveLength(countBeforeClear)
+    f.projector.dispose()
+  })
+
+  it('P8: emits when waitPhase kind changes from {project} to {session} with all other fields identical', async () => {
+    const f = fixture()
+    f.foreground.set('s', 'streaming')
+    f.projector.setWaitPhase('s', { kind: 'project' })
+    await flush()
+    const rev1 = f.emitted.at(-1)!.revision
+    expect(f.emitted.at(-1)?.waitPhase).toEqual({ kind: 'project' })
+
+    f.projector.setWaitPhase('s', { kind: 'session' })
+    await flush()
+    expect(f.emitted.at(-1)?.waitPhase).toEqual({ kind: 'session' })
+    expect(f.emitted.at(-1)!.revision).toBeGreaterThan(rev1)
+    f.projector.dispose()
+  })
 })
