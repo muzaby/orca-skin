@@ -6,13 +6,13 @@
 |---|---|
 | slug | `0298-ci-exe-load-reduction` |
 | 작성자 | Claude Code |
-| 일자 | 2026-11-06 |
+| 일자 | 2026-11-06 (ΔV5 2026-11-08) |
 | 매핑 | 비기능(테스트 인프라) — Claude 설계·구현 |
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV4` — 사용자 결정 "Io 병렬, mjs 유지"(§7-E). `ΔV3` 실측 반영(§7-D) · `ΔV2` 실측 CI(§7-C) · `ΔV1` 구현 중 정정(§7-B) |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 이번 V revision | `ΔV5` — verify r1 RETURN_TO_PLAN 정정 · 0299 verify D2 · 사용자 7턴(§7-F). `ΔV4` 기본 io 병렬(§7-E) · `ΔV3` 실측 반영(§7-D) · `ΔV2` 실측 CI(§7-C) · `ΔV1` 구현 중 정정(§7-B) |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
 
 # Part I — Product & UX Contract
 
@@ -30,6 +30,8 @@
 | 명시 요구 | "간접호출을 통한 exe 작업도 모두 포함해야 한다" | 라이브 세션 2턴 |
 | 명시 요구 | "Self hosted로 실행중임. 별도 ci runner가 있음" · "a+b 진행." · "runner 환경에서 pwsh이 아닌 powershell을 쓰도록 해야겠다" + `spawn pwsh.exe ENOENT` | 라이브 세션 3턴 |
 | 추론 의도 | A = 진단 답변의 "vitest io/unit 2-프로젝트 분리", B = "격리 전역 git 설정 + 저장소별 `git config` 제거" 그대로 | 3턴의 "a+b"가 직전 답변 표의 안 A·B를 가리킴 |
+| 명시 요구 | "verify 지적사항 보완." · "298에서 제시한 ci 규칙 등 준수사항을 handoff-impl이 준수하도록 규칙개정" | 7턴(`/handoff-plan 298`, 2026-11-08) |
+| 추론 의도 | "ci 규칙 등 준수사항" = `app/AGENTS.md` scripts 절의 0294·0298 테스트 규칙과 `ci.yml` gate. 0299 r1이 관련 스위트만 돌려 CI에서 전역 가드가 red였고, 사용자가 "298 준수"를 따로 요구해서야 r1.2가 unit 테스트의 git 조회를 mock으로 바꿨다 | 0299 [`r1.2-ci-failure.txt`](../0299-concurrency-notice-turn-end-flicker/evidence/r1.2-ci-failure.txt) · 0299 plan r1.2 설계 리뷰 |
 
 ## 3. Decision Ledger
 
@@ -46,6 +48,9 @@
 | D-010 | 실측 모드 정정: `workers2` 삭제(vitest — 같은 `groupOrder`의 프로젝트는 `maxWorkers`가 같아야 한다) · `sqlite-serial`의 `io-sqlite`는 group 1로 · 모드마다 2회 반복. `parallel-shared`(unit `isolate: false`)는 로컬 실측 179파일 988건 실패(모듈 mock·상태 누수, import 143 → 39.8초)로 넣지 않는다 | 실측 1회차(run 42199401362): workers2 설정 오류 · parallel 251초인데 unit 구간이 벽시계 190.8초/테스트 합 94.8초 — import 175.5초가 최대 비용 | 실측 · 사용자 "테스트 ci 만들어서 결과를" | ACTIVE | D-008 모드 목록 대체 |
 | D-011 | 기본(미설정)은 io 병렬 — 플랫폼·`CI`와 무관하게 unit·io가 같은 group 0, io `maxWorkers` 미지정. 실측 모드(`serial`·`sqlite-serial`·`parallel`)는 남긴다. 새 `.mjs`(test-pools·test-source·vitest-unit-guard·test-pools.test)는 유지 | "Io 병렬, mjs 유지" — 실측 2회차 parallel 3:15·3:48 vs serial 4:31·4:46, 6 job 실패 0 | 6턴 | ACTIVE | D-002 대체 · D-009 범위 = 요약 스크립트만 |
 | D-007 | unit 가드는 throw와 함께 위반을 기록하고, setup의 `afterEach`·`afterAll`이 기록으로 red를 만든다 | production `runGit`이 throw를 결과로 삼켜 조용히 통과했다(fail-closed 아님) | 구현 중 재현(§7-B) | ACTIVE | — |
+| D-012 | handoff-impl이 0298 테스트 규칙·CI gate를 따르게 하는 지침 개정은 `handoff-review` round 44(APPLY·Tier 1, `Handoff: none` 별도 커밋)로 한다. 0298 구현 범위에 넣지 않는다 | "handoff-impl이 준수하도록 규칙개정" — handoff SKILL 변경은 review 몫(root `AGENTS.md` 카브아웃 · `handoff-plan` "이 SKILL을 고치지 않는다") | 7턴 | ACTIVE | — |
+| D-013 | `app/AGENTS.md` test-pools 항목에 세 문장을 둔다 — unit 테스트의 oracle이 아닌 exe는 mock으로 대체(io 신호·`FORCED_IO`는 프로세스·DB·프로세스 전역 상태가 oracle일 때만) · unit 가드 실패의 환경 의존 · 테스트를 추가·수정한 변경의 로컬 확인 명령 | 현재 문장 "신호 없이 프로세스를 띄우는 파일은 `FORCED_IO` 에 사유와 함께 올린다"가 사용자가 받아들인 0299 r1.2 처리(`probeRepo` mock · `FORCED_IO` 제거)와 반대 방향이다. D-012의 일반 규칙이 가리킬 app 구체 명령이 필요하다 | 7턴(추론 — §2) | ACTIVE | D-007·§7-B "신호 없이 git을 띄우는 파일 → forced" 처리를 대체 |
+| D-014 | unit 가드 상태는 스레드에 하나다 — 다시 설치하면 첫 상태를 돌려주고 감싸기를 새로 만들지 않는다 | verify r1 F2(재진입 early-return 미잠금, 창 안 확장 후보) 채택 — 테스트 1건으로 닫히고 경계 선언에 필요한 실측(실행 중 재설치 0건)이 없다 | verify r1 F2 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -55,6 +60,7 @@
 - ΔV1 추가: D-006 ↔ AC9(격리 유지) · D-007 ↔ AC3(가드 fail-closed) — 충돌 0.
 - ΔV2 추가: D-008 ↔ AC11·AC12, D-002 ↔ AC4(미설정 분기로 유지) — 충돌 0.
 - ΔV4: D-011 ↔ AC4′(미설정 = 병렬) · D-002 SUPERSEDED — AC4는 AC4′로 대체, 충돌 0.
+- ΔV5: D-012 ↔ 비범위(§7-F — 0298 AC 없음) · D-013 ↔ AC13 · D-014 ↔ AC3(§7-F VP-03 자리 R1·R2) — 충돌 0. D-007은 유지(기록·훅), §7-B forced 처리만 D-013이 대체.
 
 ## 4. 요구 비판적 검토
 
@@ -99,7 +105,7 @@ npm test (pretest → vitest run → node --test)
 ## 6. 범위 / 비범위
 
 - **범위**: vitest 프로젝트 분리 + 분류 SSOT + unit 런타임 가드 · 격리 git 설정 내용 · 테스트의 저장소별 신원/autocrlf `git config` 제거 · 잠금 테스트 PowerShell 교체 · `app/AGENTS.md` 작업 규칙.
-- **비범위**: 안 C·D(D-005) · Git for Windows 런처·conhost 등 Windows 전용 multiplier 측정 · 워크플로 `shell:` 지정(테스트가 띄우는 실행 파일만 범위 — §17).
+- **비범위**: 안 C·D(D-005) · Git for Windows 런처·conhost 등 Windows 전용 multiplier 측정 · 워크플로 `shell:` 지정(테스트가 띄우는 실행 파일만 범위 — §17) · handoff 지침(`handoff-impl` 등) 개정(D-012 — review 경로).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
@@ -251,6 +257,69 @@ npm test (pretest → vitest run → node --test)
 - 함께 고칠 서술: `vitest.config.ts` 풀 주석 · `app/AGENTS.md` test-pools 항목("Windows+`CI=true` 직렬" · "unit 이 먼저… io 가 뒤") · `test-pools.mjs` 헤더 주석.
 - 선언 경계: 0262의 "닫힌 DB 정리 훅 시간 초과"는 GitHub windows-latest 병렬 6 job에서 재현 0이다. self-hosted 러너는 미측정 — 재발하면 실측 모드 `sqlite-serial`이 대안(같은 워크플로로 확인).
 
+## 7-F. ΔV5 — verify r1 정정 · 0299 D2 · app 테스트 규칙 문서 (2026-11-08)
+
+판정: verify r1의 PLAN_GAP 2건을 닫는다. F1은 VP-13 자리 목록을 path edge까지 검색 명령으로 다시 열거해 고정하고(10자리), F2는 창 안 확장 후보로 채택한다(D-014). 0299 verify D2는 plan 목록 ↔ 트리 정합으로 반영하고, 사용자 7턴 요청은 D-012(지침 개정 = review 경로)와 D-013(`app/AGENTS.md`)으로 나눈다.
+
+| 발견 | 출처 | 분류 | 이번 정정 |
+|---|---|---|---|
+| F1 VP-13 edge 2곳(`ioSqlite` 산출 · config `mode` 전달) 무좌표 | [verify r1](verify.md) F1 | 이행(path edge) — 목록 미고정 | VP-13 §10 대체(분기 5 + edge 5), edge마다 좌표 |
+| F2 가드 재진입 early-return 미잠금 | verify r1 F2 | 확장 후보(창 안) | 채택 — D-014 · VP-03 자리 R1·R2 |
+| F3 r1.2~r1.4 `[구현자 기입]` 필드 접힘 | verify r1 F3 | 이행(운영 gate) `BLOCKING` | plan 규범 변경 없음 — r2 의무 4 |
+| D2 forced 목록 2건 ↔ 트리 1건 | [0299 verify §6 D2](../0299-concurrency-notice-turn-end-flicker/verify.md) · INDEX 후보 표 | plan 내부 정합(목록 ↔ 검색 출력) | VP-01 forced 목록 대체(1) · 후보 표 행 흡수 |
+| 사용자 7턴 규칙 개정 | §2 | 사용자 요구 | D-012(review round 44) · D-013 → R-06·AC13·VP-16 |
+
+### Requirements 추가
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 도달 경로 |
+|---|---|---|---|---|
+| R-06 | AT-07 / AC13 (NEW) | `app/AGENTS.md` test-pools 항목이 굵은 표지 세 문장을 갖는다 — `**exe 대체**`: unit 테스트의 production 경로가 그 테스트의 oracle이 아닌 exe(git 조회 등)를 띄우면 그 경로를 mock으로 대체하고, io 신호·`FORCED_IO`는 프로세스·DB·프로세스 전역 상태가 oracle일 때만 쓴다 · `**환경 의존**`: unit 가드 실패는 폴더 존재·PATH에 따라 환경마다 다르게 날 수 있고 한 환경에서라도 나면 그 파일의 규칙 위반이다 · `**로컬 확인**`: 테스트를 추가·수정한 변경이 IMPL_DONE 전에 돌릴 `ci.yml` 단계의 ABI-중립 대응 명령(가드 3종 · lint · typecheck · 파일 필터 없는 `vitest run` · `node --test scripts/*.test.mjs`) | VP-16 `gate:` | 에이전트 → `app/AGENTS.md` scripts 절 → 테스트 작성·gate |
+
+- AC 문장은 바꾸지 않는다. AC11′(실측 모드)·AC3(가드)의 검증 수단은 아래 VP-13·VP-03 좌표가 넓힌다. AC 총수 13 → 14(AC13 추가).
+
+### Node · Pair (ΔV5)
+
+| Node | provenance | 근거 |
+|---|---|---|
+| MD-06·UT-06 | CHANGED | §10 자리 목록 대체(F1) |
+| MD-03·UT-03 | CHANGED | 자리 R1·R2 추가(D-014) |
+| MD-01·UT-01 | CHANGED | forced 목록 1(D2) |
+| R-06·AT-07 | NEW | D-013 |
+| R-01·AT-01 · R-04·AT-04 | INHERITED | V1 — 하위 변경이 닿아 회귀 |
+
+| Pair | left ↔ right | req | production path | 직접 oracle (자리별 좌표) | 적대 증거 |
+|---|---|---|---|---|---|
+| VP-13 | MD-06 ↔ UT-06 | REQUIRED | env·트리 → `vitest.config.ts`(E2 수신 · E3·E4 전달) → `resolveIoMode`(E5) · `partitionTestFiles`(E1) → `buildProjects` 분기 5 | 분기 5: `scripts/test-pools.test.mjs` 'io 실측 모드 (0298 ΔV2)' 기존 6케이스 / E1: 신규 같은 파일 'partitionTestFiles — ioSqlite 는 sqlite 신호 io 만 (ΔV5)' — 임시 앱 디렉토리 `src/`에 `db.test.ts`(`openDb(` 한 줄) · `git.test.ts`(`temp-repo.testfixture` import 한 줄) · `pure.test.ts`(무신호) → `{ io: [db, git], unit: [pure], ioSqlite: [db] }` 전체 deepEqual / E2~E5: 신규 같은 파일 'vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)' — 자식 node가 `vitest.config.ts`를 import(`test-time.test.mjs` `configBudgets` 방식, env는 `ORCA_TEST_IO_MODE`만 바꿈): 입력 `serial` → status 0 · `io` {maxWorkers 1, groupOrder 1} · `unit` groupOrder 0 / 입력 `sqlite-serial` → 이름 `[io, io-sqlite, unit]` · `io-sqlite.include` = 같은 테스트의 `partitionTestFiles(APP).ioSqlite`(길이 > 0 단언) · `io.include` ∩ `io-sqlite.include` = ∅ | not selected — 분기·edge별 직접 입력 |
+| VP-03 | MD-03 ↔ UT-03 | REQUIRED | unit setup → `installUnitGuard` 재호출 → 상태 반환(R1) · 기록(R2) | 신규 `scripts/test-pools.test.mjs` 'installUnitGuard — 워커 스레드에서 실제 모듈로' 케이스 '재설치는 첫 상태를 돌려주고 위반은 그 상태에 쌓인다 (ΔV5)' — worker에서 `a = install()` · `b = install()` · `spawnSync` 시도 → `a === b` · `a.violations.length === 1` / 기존 8자리는 V1·ΔV1 좌표 그대로 | not selected |
+| VP-01 | MD-01 ↔ UT-01 | REQUIRED | `FORCED_IO` → `forced` 규칙 → io | `scripts/test-pools.test.mjs` 'FORCED_IO 는 프로세스 격리가 필요한 파일만 남기고 Git 조회를 대체한 send 검사는 unit 이다'(0299 r1.2가 'FORCED_IO 는 실측한 파일 목록 그대로다'를 대체) · 'io 와 unit 이 겹치지 않고 합이 전체 *.test.ts 다'(forced ∈ io) | not selected |
+| VP-16 | R-06 ↔ AT-07 | REQUIRED | 에이전트가 app 테스트 추가·수정 → `app/AGENTS.md` test-pools 항목 → 확인 명령 | `gate: rg -n "\*\*(exe 대체\|환경 의존\|로컬 확인)\*\*" app/AGENTS.md` → 3 · `**로컬 확인**`에 적은 명령을 현재 트리에서 실행해 적은 결과(통과, 또는 app 환경 서명으로 분리한 실패)와 일치 · `node scripts/check-doc-inventory.mjs --check` | not selected |
+| VP-11 | R-01 ↔ AT-01 | REGRESSION | AC1~AC4′ | VP-01·02·03·05·07 좌표 합(VP-03은 ΔV5 좌표 포함) | not selected |
+| VP-10 | R-04 ↔ AT-04 | REGRESSION | 전체 gate | 실패 집합 기준선 비교(Linux) · PR Windows CI | not selected |
+
+### §10 강제 지점 (ΔV5)
+
+| pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| VP-13 (ΔV2·ΔV3 EP-8′ 대체) | 실측 모드·SQLite 부분집합이 env·트리에서 프로젝트 구성까지 운반된다 | 분기 5: 미설정 · `serial` · `sqlite-serial` · `parallel` · 잘못된 값 / edge 5: E1 `partitionTestFiles` 산출 `if (reasons.includes('sqlite')) ioSqlite.push` · E2 `vitest.config.ts` 수신 `const { io, ioSqlite } = partitionTestFiles(…)` · E3 `vitest.config.ts` 전달 `ioSqlite,` · E4 `vitest.config.ts` 전달 `mode: resolveIoMode()` · E5 `resolveIoMode` env 읽기 `env[IO_MODE_ENV]` = **10** | 분기: `rg -n "'serial'\|'sqlite-serial'\|'parallel'" app/scripts/test-pools.mjs` / edge: `rg -n "ioSqlite\|resolveIoMode\(\|IO_MODE_ENV\]" app/vitest.config.ts app/scripts/test-pools.mjs` → 13줄 = 자리 5 + 제외 8(아래) | 실험 job이 고른 모드·SQLite 묶음이 설정에 닿지 않으면 기본 구조를 재고도 green — 모드 비교가 무의미 |
+| VP-03 (ΔV5 추가) | 가드 상태는 스레드에 하나 | R1 재설치 반환 `if (proc[UNIT_GUARD]) return proc[UNIT_GUARD]` · R2 상태 기록 `proc[UNIT_GUARD] = state` (2) — ΔV1 8자리와 합 **10** | `rg -n "UNIT_GUARD\]" app/scripts/test-pools.mjs` → 2 | 재설치가 새 상태를 만들면 위반이 setup이 비우는 상태와 다른 곳에 쌓일 수 있다 |
+| VP-01 (ΔV1 forced 행 대체) | forced 목록 | `src/main/infra/loopback-callback.test.ts` (**1**) — `send.agent-profile.test.ts`는 0299 r1.2(`2c7ee29`, `probeRepo` mock)로 unit | `rg -n "test.ts':" app/scripts/test-pools.mjs` → 1 | 빠지면 그 파일이 unit 스레드끼리 EADDRINUSE |
+| VP-16 | app 테스트 작성 규칙 문서 | T1 `**exe 대체**` · T2 `**환경 의존**` · T3 `**로컬 확인**` (**3**) | `rg -n "\*\*(exe 대체\|환경 의존\|로컬 확인)\*\*" app/AGENTS.md` → 3(구현 뒤) | 에이전트가 신호 없는 git 조회 파일을 `FORCED_IO`로 올려 exe가 다시 늘거나, 관련 스위트만 돌려 트리 전체 가드를 놓친다(0299 r1) |
+
+- VP-13 edge 검색의 제외 8줄: `test-pools.mjs` 주석 2(`ioSqlite` 설명 · `@param`) · 빈 배열 선언·반환 2(E1 산출의 시작·끝 — E1 좌표가 같이 관측) · 함수 정의 1(`resolveIoMode(env = process.env)` — 본체가 E5) · 매개변수 기본값 1(`ioSqlite = []` — E3를 지웠을 때 떨어지는 폴백, E3 좌표가 관측) · `sqlite-serial` 분기 본문 2(분기 자리).
+- 규칙 칸 ↔ 입력 칸: 분기 5는 기존 6케이스, E1은 io 형제(git)·unit(pure)·대상(db) 3입력, E2~E5는 `serial`·`sqlite-serial` 2입력(미설정은 `test-time.test.mjs` 'vitest.config.ts 배선'이 이미 본다), R1·R2는 재설치 1입력, VP-16은 표지 3.
+- 구별 값: E1의 git 파일은 io이지만 `ioSqlite`가 아니다(형제 맞바꿈 감지). E4는 `serial`이 기본과 다른 maxWorkers·groupOrder를 내서 `mode` 미전달과 구별된다. E3은 `io-sqlite.include` 비어 있지 않음 단언으로 기본값 `[]`와 구별된다.
+- **선언 경계**: (a) 실험 워크플로가 job env를 넘기는 edge는 VP-15(GitHub 실행 관측 — run 42207662226에서 모드별 프로젝트 구성 확인) 몫이다. (b) VP-03은 함수 계약(재설치 시 같은 상태)이고, 실제 vitest 실행에서 재설치가 일어나는지는 다루지 않는다. (c) VP-16 문서 문장을 에이전트가 따르는지는 기계 판정 밖이다 — 정책의 기계 잠금은 `FORCED_IO` 정확 목록 단언(VP-01) · unit 가드(VP-03) · 저장소별 git config 스캔(VP-08)이다.
+- 0299 r1.2가 0298 산출물(`test-pools.mjs` `FORCED_IO` · 그 고정 테스트)을 바꾼 것은 VP-01 목록으로 흡수한다. INDEX 후보 표의 0299 D2 행은 이 ΔV5로 닫는다.
+
+### r2 구현 의무
+
+1. F1 — VP-13 E1~E5 좌표 2테스트를 만들고 분기 5 좌표를 다시 인용한다.
+2. F2 — VP-03 R1·R2 재설치 테스트.
+3. D-013 — `app/AGENTS.md` test-pools 항목의 "신호 없이 프로세스를 띄우는 파일은 `FORCED_IO` 에 사유와 함께 올린다"를 T1으로 바꾸고 T2·T3를 더한다. T3 명령은 현재 트리에서 실행해 결과를 구현 보고에 적는다(태그 없는 클론이면 마이그레이션 가드는 append-only를 건너뛴다).
+4. F3 — r2 `[구현자 기입]` 일곱 필드를 채운다. 강제 지점 전수 표는 유효 V의 REQUIRED pair 전부를 덮고 r1.2~r1.4가 바꾼 ΔV2~ΔV4 자리(VP-13 · EP-2 io.maxWorkers·io.groupOrder)를 포함한다. r1.2~r1.4 절은 원문 그대로 둔다.
+5. 직전 verify 고장 이력의 `못 잡음` 중 E1-iosq·C-cfg-mode(이행)·E3-reentry(채택)를 재실행해 red를 보인다. E2-badmode(`동치`)는 재실행 의무 밖이다.
+6. gate — §7-A 운영 gate + D-012가 개정한 `handoff-impl` gate(IMPL_DONE 전 `ci.yml` 단계 집합 · 기준선 분리 조건 · 추가·수정 테스트 파일의 subtree 테스트 규칙).
+
 ---
 
 # Part II — Technical Design
@@ -401,6 +470,7 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 - 모든 NEW node에 REQUIRED pair(VP-01~11). 규칙 칸 분기 ↔ 입력: EP-1 6규칙 + 무신호·주석·주입 3입력, EP-2 3환경, EP-3 5형태 + 통과 2입력.
 - 선언 경계·fail-closed 명시(§10). 후보 표 겹침 0(`rg` 결과 없음).
 - 사람 실기는 외부환경(AC7)뿐.
+- ΔV5 점검: CHANGED·NEW 노드 4(MD-06·MD-03·MD-01·R-06) ↔ REQUIRED pair 4(VP-13·03·01·16), 영향 상위 REGRESSION 2(VP-11·10). §10 검색 재실행 — VP-13 edge 13줄 = 자리 5 + 제외 8 · 분기 4줄(모드 상수 1 + 분기 3 — 미설정은 `parallel` 줄, 잘못된 값은 `resolveIoMode`·마지막 `throw`) · VP-03 `UNIT_GUARD\]` 2 · VP-01 forced 1. 규칙 칸 ↔ 입력 칸·구별 값·선언 경계 3건은 §7-F. 인용 테스트 'io 실측 모드 (0298 ΔV2)'·'FORCED_IO 는 프로세스 격리가 필요한…'·'installUnitGuard — 워커 스레드에서 실제 모듈로'·`test-time.test.mjs` `configBudgets` 실재(`rg -n` 확인).
 
 ---
 
