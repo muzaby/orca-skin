@@ -1,5 +1,105 @@
 # Verify — 0298-ci-exe-load-reduction
 
+# Round 2 (2026-11-08)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0298-ci-exe-load-reduction` |
+| 검증자 | Claude Code (설계자 = 검증자 — plan validity는 자기 설계 감사. 구현 주체 Codex) |
+| 대상 range | 설계 `d75f6c82`(ΔV5) · 구현 `9a994021`(r2) · `8189f647`(Windows CI 기록) — 브랜치 좌표, `main`에 없음 |
+| V mode / 유효 V | `Baseline V` / `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
+| 라운드 | 2 → 종료 |
+| 상태 | **PASS** (기계 범위 — AC7 self-hosted 실기는 사람 몫) |
+| 확장 창 | verify 2회째 — 창 안. ΔV5 NEW·CHANGED 노드(MD-01·03·06, R-06)도 이번이 첫 판정 |
+| 독립 축(⑥) | 3축 — (a) config·정렬·trim·재설치 변이 6행 (b) 실제 vitest unit 풀에 신호 없는 probe 파일 2개 (c) strace로 exe 수 독립 재측정 |
+| 열거 sweep(⑦) | diff가 닿은 항목 + 직전 실패 — 구현자 spec 64행 전수 재실행 · 못 잡음 0 |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 0 · 경계 0 · 비귀속 0 · 저장소 운영 1(INDEX 좌표, 검증자가 교정) |
+
+## 0. 기준선 / plan validity
+
+- 구현 커밋의 `plan.md` 변경은 추가만이다 — `git diff d75f6c8..HEAD -- plan.md`의 삭제 줄 0. Decision·AC·V·§10 규범 행 무변경. 설계(`d75f6c82`)와 구현(`9a994021`)이 별도 커밋이다.
+- 채점 기준: ΔV5 §7-F(VP-13 분기 5 + edge 5, VP-03 R1·R2, VP-01 forced 1, VP-16 표지 3, 의무 1~6).
+- plan validity 유효: VP-13 edge마다 좌표가 있고, 자리 검색 `rg -n "UNIT_GUARD\]" app/scripts/test-pools.mjs` 2줄 · `rg -n "test.ts':"` 1줄 · `rg` 표지 3줄이 고정 목록과 차집합 ∅.
+
+## 4. 증거 재측정
+
+| 항목 | 관측 |
+|---|---|
+| 가드 3종 | migrations append-only ok · doc-inventory ok · test-budgets 17 suites ok |
+| lint · typecheck | 0 error 2 warning(기존) · typecheck 3종 오류 0 · 작업 트리 변경 없음(`git status` 빈 출력) |
+| `node --test scripts/*.test.mjs` | 819/819 pass (구현 보고와 일치) |
+| 파일 필터 없는 `vitest run` | 29파일 22건 실패 · `[test-pools]` 0건. 구현자 기준선 9파일 22건 ⊂ 이 실행 — 차이 20파일은 `npm ci --ignore-scripts`로 Electron 미설치(`Electron failed to install correctly`)·`C:/` 경로. r2 diff는 `app/AGENTS.md`·`scripts/test-pools.test.mjs`뿐이라 vitest 대상 파일 변경 0 |
+| Windows CI | run 42460603101 `success`, `head_sha` = `9a994021`(GitHub API 관측) — AC8′ ✅ |
+| 합계 | AC `✅13 · ⚠️1 = 14` · 강제 지점 행 합 13+6+10+5+36+1+2+10+3 = 86 · 닫음 85 — 구현 보고와 일치 |
+| exe (AC1·AC10) | strace 재측정: vitest 성공 execve 1,200 + `node --test` 35 = 1,235 ≤ 2,420 · 워커 태그 68 ≤ io 파일 75 · `config user.*`/`autocrlf` 쓰기 0 · `maintenance` 0 |
+| AC13 | 표지 3 (`rg -n` 3줄) · T3 7개 명령을 전부 직접 실행해 위 표와 일치 · ci.yml 단계 6개의 ABI-중립 대응과 같다 |
+
+## 고장 이력
+
+구현자 spec(`evidence/r2-mutations.jsonl`) 64행을 `mutate.py`로 전수 재실행했다 — **red 64 · green 0**, 원복 확인 "모든 파일 원문 그대로".
+
+| 하한 | 결과 |
+|---|---|
+| ③ 직전 `못 잡음` | E1-iosq · C-cfg-mode · E3-reentry 직전 `못 잡음` → 지금 red(새 partition·config·재설치 케이스가 잡음). E2-badmode 동치 유지 |
+| ④ 직전 `잡음` | 직전 52행이 같은 ID로 spec에 있고 전부 red(`red → green` 0). 공용 setup·헬퍼 무변경 |
+| ① 등록 변이 | VP-06 E4-0~3 red 4/4 |
+| ⑤ 형제 맞바꿈 | E1-iosq-swap · E2-sqs-swap · E2-iopool · E2-iogroup red |
+| ⑦ 열거 sweep | 분기 5 · edge E1~E5 · R1·R2 · 표지 3 각각 red |
+
+독립 축(⑥) — 구현자 목록에 없는 행:
+
+| ID | 자리 | 종류 | 결과 | 분류 |
+|---|---|---|---|---|
+| N7-trim | `resolveIoMode` `raw.trim()` | 제거 | 잡음 | — |
+| N11-cfg-base | `vitest.config.ts` `base` 전달 | 다른 값 | 잡음 | — |
+| N12-partition-sort | `partitionTestFiles` 정렬 | 뒤집기 | 잡음 | — |
+| N13-guard | R1 반환을 새 상태로 | 호출 대체 | 잡음 | — |
+| N1-cfg-exclude | `vitest.config.ts` `exclude: configDefaults.exclude` → `[]` | 빈 값 | green | 동치 — `vitest list --filesOnly` 927파일 전후 동일 · src 아래 제외 패턴 디렉토리 0 |
+| N14-sqlite-sort | `io.filter(ioSqlite.includes)` → `ioSqlite` | 호출 대체 | green | 동치 — `ioSqlite` ⊂ `io`가 `partitionTestFiles`에서 성립(`sqlite`는 io 규칙) |
+| P-a · P-b | 임시 unit 파일: 신호 없이 `process.getBuiltinModule('node:child_process').spawnSync`/삼킨 `execSync` | 실제 풀 | red 2 | 가드가 `[test-pools]`로 막고 삼켜도 afterEach가 red(probe 삭제 확인) |
+
+## V-pair closeout
+
+| Pair | 결과 | 직접 oracle 확인 |
+|---|---|---|
+| VP-01 | PASS | forced 1 · sqlite 6분기 · 6규칙 — `test-pools.test.mjs` 케이스 존재, E1-* 변이 red |
+| VP-02·05 | PASS | 환경 4종 필드 · 실제 unit 워커(`test-pools.test.ts`) |
+| VP-03 | PASS | 10자리: 5형태 + 기록 + 훅 2 + R1·R2 — `재설치는 첫 상태를…` 케이스, E3-reentry·state red, probe 2 red |
+| VP-04·06 | PASS | `hermetic-config.test.ts` 실 git 4키 · E4 red 4/4 |
+| VP-07 | PASS | strace 재측정(위) |
+| VP-08 | PASS | `test-pools.test.mjs` 스캔 + E5-config red |
+| VP-09 | PASS(기계 범위) | Windows CI `file-mutation.test.ts` success. pwsh 없는 self-hosted는 사람 실기 |
+| VP-10·11 | PASS | 위 gate 표 |
+| VP-12 | PASS | E7 3행 red |
+| VP-13 | PASS | 10자리 — 분기 6케이스 · E1 partition 케이스 · E2~E5 config 케이스(자식 node가 실제 `vitest.config.ts` import), 변이 C-cfg-* 4행 · E1-iosq* 2행 red |
+| VP-15 | PASS(상속) | 실측 워크플로 이번 diff 불변 |
+| VP-16 | PASS | 표지 3 + T3 명령 실행 + 표지 제거 3행 red |
+
+## 9. Repository operation
+
+- 트레일러: `9a994021` · `8189f647` 모두 `git log -1 --format='%(trailers:only=true)'`가 Agent·Handoff·Status·Criteria-*·Verified-By를 돌려준다. 실행 시점 차이로 `11/14` → `13/14`(AC8·AC8′ 대기 종료)는 시차 사본이라 일치.
+- `[구현자 기입]` r2 일곱 필드 모두 있음. 강제 지점 표는 pair 자리 전부와 `남긴 곳`을 담고 ΔV2~ΔV4 자리(VP-13 · io.maxWorkers·groupOrder)를 포함한다.
+- `app/AGENTS.md` 위생: 비밀·IP 없음, 부모 규칙 충돌 없음. 새 AGENTS.md 없음.
+- **INDEX 좌표 교정**: 보드에 적힌 r1까지의 해시 14개(`9f39f9f` 등)는 이 클론에 객체가 없다(`git cat-file` 실패). rebase 병합된 `main` 해시로 교정했다 — 설계 `1677fe2e`·`10aee069`·`943b5938`·`0af8d3ce`·`1a815148`·`bea7f818`, 구현 `36f3113f`·`34d0e9bd`·`acd5972e`·`8af157b6`, 기록 `926babf4`·`a96e6bd4`, 검증 `6a40fc87`(전부 `origin/main` 조상 확인). ΔV5 설계 `d75f6c82` · r2 `9a994021`·`8189f647`은 PR 브랜치 좌표(`main`에 없음).
+
+## 판정
+
+**PASS (기계 범위).** 막는 발견 0, 필수 gate·REQUIRED/REGRESSION pair PASS. 남은 것은 AC7 — pwsh 없는 self-hosted 러너에서 Windows 잠금 테스트 통과(사람 실기).
+
+못 본 것: self-hosted 러너 실행(AC7), Windows에서의 execve 수(strace는 Linux 기준), Electron 의존 20파일의 이 환경 실행(미설치).
+
+## Review Signals
+
+- 직전 round의 `못 잡음` 4건 중 이행 2·확장 1이 ΔV5 좌표로 모두 닫혔다. 반복 증상 없음.
+- 반복 환경 한계: `npm ci --ignore-scripts` 시 Electron 미설치로 Linux에서 Electron·Windows 경로 의존 파일 실패(기준선 분리 조건: 차집합 ∅ + 환경 원인).
+- 독립 축 발견 0(동치 2) · INDEX 좌표 불일치 1(운영, 교정함).
+
+---
+
+# Round 1 (이력 — 2026-11-07, RETURN_TO_PLAN)
+
 ## 메타
 
 | 항목 | 값 |
