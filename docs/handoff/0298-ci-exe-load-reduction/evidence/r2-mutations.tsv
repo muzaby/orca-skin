@@ -1,0 +1,65 @@
+id	결과	exit	요약
+E1-child-process	red (기대 일치)	1	node --test fail 4 · child-process: import { spawn } from 'node:child_process'; child-process: const cp = require('child_process'); child-process: const cp = await import('node:chil
+E1-git-fixture	red (기대 일치)	1	node --test fail 3 · git-fixture: import { execGit } from '../infra/git/temp-repo.testfixture'; 규칙 id 는 6개이고 서로 다르다; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-run-git	red (기대 일치)	1	node --test fail 2 · run-git: await runGit(dir, ['init']); 규칙 id 는 6개이고 서로 다르다; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-sqlite	red (기대 일치)	1	node --test fail 9 · sqlite: import Database from 'better-sqlite3'; sqlite: const db = openDb(path); sqlite: const db = new Database(":memory:")
+E1-timezone	red (기대 일치)	1	node --test fail 3 · timezone: process.env.TZ = 'America/New_York'; timezone: process.env['TZ'] = 'UTC'; 규칙 id 는 6개이고 서로 다르다
+E1-forced	red (기대 일치)	1	node --test fail 3 · forced: 경로가 FORCED_IO 에 있으면 신호 없이도 io; 규칙 id 는 6개이고 서로 다르다; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-sq0	red (기대 일치)	1	node --test fail 1 · sqlite: import Database from 'better-sqlite3'; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-sq1	red (기대 일치)	1	node --test fail 2 · sqlite: const db = openDb(path); classifyTestSource — 규칙마다 그 신호 하나만 든 입력; DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다
+E1-sq2	red (기대 일치)	1	node --test fail 1 · sqlite: const db = openFileDatabase(join(dir, "a.db")); classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-sq3	red (기대 일치)	1	node --test fail 1 · sqlite: initDb(userData); classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-sq4	red (기대 일치)	1	node --test fail 1 · sqlite: await warmFileSqlite(); classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-sq5	red (기대 일치)	1	node --test fail 1 · sqlite: const db = new Database(":memory:"); classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-runinj	red (기대 일치)	1	node --test fail 1 · runGit 이 있어도 execFileImpl 을 주입하면 unit — 실제로 띄우지 않는다; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-tzbr	red (기대 일치)	1	node --test fail 1 · timezone: process.env['TZ'] = 'UTC'; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-cpimp	red (기대 일치)	1	node --test fail 2 · child-process: const cp = require('child_process'); child-process: const cp = await import('node:child_process'); classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-strip	red (기대 일치)	1	node --test fail 1 · 주석 안의 신호는 세지 않는다; classifyTestSource — 규칙마다 그 신호 하나만 든 입력
+E1-forced	red (기대 일치)	1	node --test fail 2 · io 와 unit 이 겹치지 않고 합이 전체 *.test.ts 다; FORCED_IO 는 프로세스 격리가 필요한 파일만 남기고 Git 조회를 대체한 send 검사는 unit 이다; partitionTestFiles — 실제 트리
+E2-unitpool	red (기대 일치)	1	node --test fail 1 · unit = threads·가드 setup, io = forks; buildProjects — 환경별 필드
+E2-iopool	red (기대 일치)	1	node --test fail 5 · unit = threads·가드 setup, io = forks; buildProjects — 환경별 필드; 미설정 = parallel: Windows CI 에서도 io 기본 워커·unit 과 같은 그룹 (ΔV4)
+E2-guardsetup	red (기대 일치)	1	node --test fail 1 · unit = threads·가드 setup, io = forks; buildProjects — 환경별 필드
+E2-excl	red (기대 일치)	1	node --test fail 1 · unit 은 전체에서 io 를 빼고, io 는 io 목록만; buildProjects — 환경별 필드
+E2-unitgroup	red (기대 일치)	1	node --test fail 4 · win32 + CI=true: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4); linux + CI=true: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4); win32 + CI=undefined: 직렬 없이 둘 다 maxWorkers 미지정
+E2-iogroup	red (기대 일치)	1	node --test fail 6 · win32 + CI=true: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4); linux + CI=true: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4); win32 + CI=undefined: 직렬 없이 둘 다 maxWorkers 미지정
+E2-iomax	red (기대 일치)	1	node --test fail 6 · win32 + CI=true: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4); linux + CI=true: 직렬 없이 둘 다 maxWorkers 미지정·같은 그룹 0 (ΔV4); win32 + CI=undefined: 직렬 없이 둘 다 maxWorkers 미지정
+E2-par	red (기대 일치)	1	node --test fail 3 · 미설정 = parallel: Windows CI 에서도 io 기본 워커·unit 과 같은 그룹 (ΔV4); parallel: io 기본 워커·unit 과 같은 그룹; 모든 모드: 같은 group 의 프로젝트는 maxWorkers 가 같다(vitest 제약)
+E2-serial	red (기대 일치)	1	node --test fail 2 · serial: 플랫폼과 무관하게 io 1워커·unit 뒤; io 실측 모드 (0298 ΔV2); serial: env 에서 고른 모드가 io 1워커·group 1까지 닿는다
+E2-serial-grp	red (기대 일치)	1	node --test fail 2 · serial: 플랫폼과 무관하게 io 1워커·unit 뒤; io 실측 모드 (0298 ΔV2); serial: env 에서 고른 모드가 io 1워커·group 1까지 닿는다
+E2-sqs-max	red (기대 일치)	1	node --test fail 1 · sqlite-serial: SQLite io 만 1워커로 group 1, 나머지 io 는 unit 과 group 0; io 실측 모드 (0298 ΔV2)
+E2-sqs-grp	red (기대 일치)	1	node --test fail 1 · sqlite-serial: SQLite io 만 1워커로 group 1, 나머지 io 는 unit 과 group 0; io 실측 모드 (0298 ΔV2)
+E2-sqs-rest	red (기대 일치)	1	node --test fail 2 · sqlite-serial: SQLite io 만 1워커로 group 1, 나머지 io 는 unit 과 group 0; io 실측 모드 (0298 ΔV2); sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다
+E2-sqs-swap	red (기대 일치)	1	node --test fail 2 · sqlite-serial: SQLite io 만 1워커로 group 1, 나머지 io 는 unit 과 group 0; io 실측 모드 (0298 ΔV2); sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다
+E2-resolve-empty	red (기대 일치)	1	node --test fail 1 · resolveIoMode: 미설정·빈 값 → undefined, 목록 값 그대로, 그 밖은 throw; io 실측 모드 (0298 ΔV2)
+E2-resolve-bad	red (기대 일치)	1	node --test fail 1 · resolveIoMode: 미설정·빈 값 → undefined, 목록 값 그대로, 그 밖은 throw; io 실측 모드 (0298 ΔV2)
+E1-iosq	red (기대 일치)	1	node --test fail 2 · DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다; partitionTestFiles — ioSqlite 는 sqlite 신호 io 만 (ΔV5); sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다
+E1-iosq-swap	red (기대 일치)	1	node --test fail 1 · DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다; partitionTestFiles — ioSqlite 는 sqlite 신호 io 만 (ΔV5)
+C-cfg-receive	red (기대 일치)	1	node --test fail 1 · sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다; vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)
+C-cfg-sqlite	red (기대 일치)	1	node --test fail 1 · sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다; vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)
+C-cfg-mode	red (기대 일치)	1	node --test fail 2 · serial: env 에서 고른 모드가 io 1워커·group 1까지 닿는다; sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다; vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)
+C-cfg-env	red (기대 일치)	1	node --test fail 3 · resolveIoMode: 미설정·빈 값 → undefined, 목록 값 그대로, 그 밖은 throw; io 실측 모드 (0298 ΔV2); serial: env 에서 고른 모드가 io 1워커·group 1까지 닿는다
+E3-spawn	red (기대 일치)	1	node --test fail 1 · 설치 후 spawn·spawnSync·execFileSync·execSync 가 [test-pools] 로 throw; installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-spawnSync	red (기대 일치)	1	node --test fail 3 · 설치 후 spawn·spawnSync·execFileSync·execSync 가 [test-pools] 로 throw; 재설치는 첫 상태를 돌려주고 위반은 그 상태에 쌓인다 (ΔV5); installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-execFileSync	red (기대 일치)	1	node --test fail 1 · 설치 후 spawn·spawnSync·execFileSync·execSync 가 [test-pools] 로 throw; installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-execSync	red (기대 일치)	1	node --test fail 1 · 설치 후 spawn·spawnSync·execFileSync·execSync 가 [test-pools] 로 throw; installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-dlopen	red (기대 일치)	1	node --test fail 1 · better_sqlite3.node 로드는 throw, 그 밖의 dlopen 은 원래 함수로 넘긴다; installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-dlopen-any	red (기대 일치)	1	node --test fail 1 · better_sqlite3.node 로드는 throw, 그 밖의 dlopen 은 원래 함수로 넘긴다; installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-push	red (기대 일치)	1	node --test fail 2 · 재설치는 첫 상태를 돌려주고 위반은 그 상태에 쌓인다 (ΔV5); installUnitGuard — 워커 스레드에서 실제 모듈로; afterAll 에서 삼킨 자식 프로세스 시도 → vitest 비정상 종료 + [test-pools]
+E3-reentry	red (기대 일치)	1	node --test fail 1 · 재설치는 첫 상태를 돌려주고 위반은 그 상태에 쌓인다 (ΔV5); installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-state	red (기대 일치)	1	node --test fail 2 · 설치 후 spawn·spawnSync·execFileSync·execSync 가 [test-pools] 로 throw; 재설치는 첫 상태를 돌려주고 위반은 그 상태에 쌓인다 (ΔV5); installUnitGuard — 워커 스레드에서 실제 모듈로
+E3-hook-each	red (기대 일치)	1	node --test fail 0
+E3-hook-all	red (기대 일치)	1	node --test fail 1 · afterAll 에서 삼킨 자식 프로세스 시도 → vitest 비정상 종료 + [test-pools]; unit setup 의 훅 배선 — 테스트 밖에서 삼킨 위반도 파일을 red 로 만든다
+E3-drain	red (기대 일치)	1	node --test fail 0
+E7-body	red (기대 일치)	1	node --test fail 1 · 맞추면 스레드에서 바꾼 홈을 돌려준다; alignThreadHomedir — 워커 스레드의 os.homedir 를 스레드 env 에 맞춘다
+E7-call	red (기대 일치)	1	node --test fail 0
+E7-key	red (기대 일치)	1	node --test fail 1 · 맞추면 스레드에서 바꾼 홈을 돌려준다; alignThreadHomedir — 워커 스레드의 os.homedir 를 스레드 env 에 맞춘다
+E4-0	red (기대 일치)	1	vitest 2 failed (2)
+E4-1	red (기대 일치)	1	vitest 2 failed (2)
+E4-2	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
+E4-3	red (기대 일치)	1	vitest 2 failed (2)
+E4-write	red (기대 일치)	1	vitest 3 failed | 11 passed | 1 expected fail (15)
+E4-name	red (기대 일치)	1	node --test fail 1 · 신원 · core.autocrlf=false · maintenance.auto=false 를 담는다; 격리 전역 git 설정 내용 (0298)
+E5-config	red (기대 일치)	1	node --test fail 1 · 테스트 소스에 `git config user.*`·`core.autocrlf` 호출이 없다; 저장소별 git 신원·줄바꿈 설정 (0298 — 격리 전역 설정이 대신한다)
+T-exe 대체	red (기대 일치)	1	(출력 없음)
+T-환경 의존	red (기대 일치)	1	(출력 없음)
+T-로컬 확인	red (기대 일치)	1	(출력 없음)
