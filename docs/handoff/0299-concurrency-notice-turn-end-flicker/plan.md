@@ -1091,4 +1091,4 @@ session.updated 복구 patch(S6) → worktreeIsolation ────────�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | `docs/IPC_CONTRACT.md:473` 표 셀 `string \| null`의 이스케이프 없는 파이프로 5열 표 행이 7셀이 되어, 렌더에서 AC13이 요구한 신원 제외·격리 세션 목록 제외 서술이 잘린다 | verify r1 · AC13 · [verify.md §6](verify.md) | `\|`로 이스케이프, 파서로 셀 수 5 확인 | 이행 | BLOCKING | open |
+| D1 | `docs/IPC_CONTRACT.md:473` 표 셀 `string \| null`의 이스케이프 없는 파이프로 5열 표 행이 7셀이 되어, 렌더에서 AC13이 요구한 신원 제외·격리 세션 목록 제외 서술이 잘린다 | verify r1 · AC13 · [verify.md §6](verify.md) | `\|`로 이스케이프, 파서로 셀 수 5 확인 | 이행 | BLOCKING | closed(r2 `2f15d59` — 파서 변이 3종 red) |
