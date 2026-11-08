@@ -142,7 +142,11 @@ describe('비격리·resume 은 단계를 내지 않는다 (VP-03 · D-005)', ()
       adapter: { complete: vi.fn() },
       providerSettings: undefined as never,
       env: {},
-      worktrees: { prepare: vi.fn(), recoverMissingWorktree: vi.fn() } as never,
+      worktrees: {
+        hasManagedWorktree: () => false,
+        prepare: vi.fn(),
+        recoverMissingWorktree: vi.fn()
+      } as never,
       onProgress: (step) => steps.push(step)
     })
     expect(result.kind).toBe('passthrough')
@@ -161,6 +165,7 @@ describe('비격리·resume 은 단계를 내지 않는다 (VP-03 · D-005)', ()
       providerSettings: undefined as never,
       env: {},
       worktrees: {
+        hasManagedWorktree: () => false,
         prepare: vi.fn(),
         recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const }))
       } as never,

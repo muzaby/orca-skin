@@ -12,6 +12,7 @@ import { sessionContextPolicy } from '../../../../../shared/agent-session-policy
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import { HARNESS_CAPABILITIES, supportsAgentKind } from '../../../../../shared/harness'
 import type {
+  ActiveTurnRef,
   AddSessionDirectoryResult,
   AttachmentView,
   ComposerAttachment,
@@ -39,6 +40,11 @@ import type { BranchSnapshot } from '../harnesses/common/composer/branchChipStat
 import type { DiffComparison } from '../harnesses/common/rightpanel/diffComparison'
 import { wireDiffRequirementAnchor } from '../harnesses/common/rightpanel/diffRequirements'
 import { backgroundCallKeyForToolUse } from '../lib/canonicalBackground'
+import {
+  displayedSessionIsolated,
+  otherProjectTurns,
+  ownTurnIdentity
+} from '../lib/concurrencyNotice'
 import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
 import { promoteComposer } from '../lib/composerPromotion'
 import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
@@ -115,6 +121,7 @@ export interface SubagentMetaState {
 }
 
 export interface SessionEntry {
+  clientKey?: string
   draftGeneration?: number
   cwdSelected?: boolean
   projectCwdInitialized?: boolean
@@ -148,7 +155,7 @@ export interface ChatStoreState {
   pendingNewChatKey: string | null
   newChatQueue: QueuedNewChat[]
   recentsEpoch: number
-  concurrencyByProjectId: Record<string, number>
+  concurrencyByProjectId: Record<string, readonly ActiveTurnRef[]>
   // 중단 버튼의 held 전량 취소(0067 확정 5) — main 의 message.cancelled 에서 잔존 항목 텍스트를
   // 모아 여기 실으면 ChatTile 이 구독해 Composer draft 로 복원한다(편집 가능). seq 로 중복 소비 방지.
   draftRestore: {
@@ -1046,6 +1053,7 @@ function send(
       if (!entry || entry.session.sessionId != null) return s
       const nextEntry: SessionEntry = {
         ...entry,
+        clientKey: draftKey,
         // 낙관 커밋(0068) — 첫 메시지가 즉시 정식 버블로 서고 랜딩→transcript 전환을
         // 트리거한다. echo 커밋(message.committed)은 clientId 멱등으로 합류만 한다.
         session: chatReducer(chatReducer(entry.session, { type: 'BEGIN_TURN' }), {
@@ -1636,6 +1644,7 @@ function startHandoff(): boolean {
       turnStartedAt: Date.now(),
       handoffFrom: sourceSessionId
     },
+    clientKey: draftKey,
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
     pendingSteer: []
@@ -2211,7 +2220,7 @@ export function bootstrapChat(): () => void {
   })
   const unsubConcurrency = concurrencyApi.onEvent((ev) => {
     setState((s) => ({
-      concurrencyByProjectId: { ...s.concurrencyByProjectId, [ev.projectId]: ev.count }
+      concurrencyByProjectId: { ...s.concurrencyByProjectId, [ev.projectId]: ev.turns }
     }))
   })
   return () => {
@@ -2421,6 +2430,15 @@ export function useLiveReasoning(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.reasoning)
 }
 
-export function useProjectConcurrencyCount(projectId: string | null): number {
-  return useChatStore((s) => (projectId ? (s.concurrencyByProjectId[projectId] ?? 0) : 0))
+export function otherProjectTurnCount(state: ChatStoreState, projectId: string | null): number {
+  const entry = state.sessions[state.activeKey]
+  if (displayedSessionIsolated(entry?.session)) return 0
+  return otherProjectTurns(
+    projectId ? (state.concurrencyByProjectId[projectId] ?? []) : [],
+    ownTurnIdentity(entry)
+  )
+}
+
+export function useOtherProjectTurnCount(projectId: string | null): number {
+  return useChatStore((state) => otherProjectTurnCount(state, projectId))
 }

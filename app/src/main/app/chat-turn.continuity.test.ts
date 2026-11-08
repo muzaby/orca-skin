@@ -122,13 +122,13 @@ async function runTurn(
     classifyError: (err) => {
       throw err
     },
-    activeTurns: { increment: vi.fn(), decrement: vi.fn() },
+    activeTurns: { begin: vi.fn(), confirm: vi.fn(), end: vi.fn() },
     pendingMessages,
     backgroundTasks: new BackgroundTaskTracker(),
     persistResponseBoundaries: () => false
   })
   await coordinator.run(turn, { sessionId: null, text: '', cwd: '/w' } as never, {
-    boundProjectId: null
+    sharedPathProjectId: null
   })
   return forwarded
 }

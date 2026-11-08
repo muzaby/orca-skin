@@ -35,7 +35,7 @@ vi.mock('../store/chatStore', () => ({
   useChatResponding: () => h.state.inflight,
   useChatResidualSteer: () => 0,
   useNewChatPending: () => false,
-  useProjectConcurrencyCount: () => 0,
+  useOtherProjectTurnCount: () => 0,
   chatActions: {
     selectDiffRequirement: h.select,
     removeDiffRequirement: h.remove,

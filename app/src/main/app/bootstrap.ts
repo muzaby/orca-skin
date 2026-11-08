@@ -1107,8 +1107,8 @@ export class Bootstrap {
     this.registerArtifacts(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
-      activeTurns: new ActiveTurnTracker((projectId, count) => {
-        broadcastConcurrency({ projectId, count })
+      activeTurns: new ActiveTurnTracker((event) => {
+        broadcastConcurrency(event)
         this.updateStateChanged()
       }),
       // 장수명 채널 cap과 idle LRU 축출은 supervisor가 소유한다.

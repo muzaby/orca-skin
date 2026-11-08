@@ -30,7 +30,7 @@ vi.mock('../store/chatStore', async (original) => ({
   useChatResponding: () => harness.responding,
   useChatResidualSteer: () => 0,
   useNewChatPending: () => false,
-  useProjectConcurrencyCount: () => 0
+  useOtherProjectTurnCount: () => 0
 }))
 vi.mock('../../../shared/ui/UsageCircle', () => ({ UsageCircle: () => null }))
 vi.mock('./CwdPanel', () => ({

@@ -118,11 +118,13 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           persist: writer,
           forward: { forward },
           registry: { promote: () => {} },
-          activeTurns: { increment: () => {}, decrement: () => {} },
+          activeTurns: { begin: () => {}, confirm: () => {}, end: () => {} },
           backgroundTasks: new BackgroundTaskTracker(),
           persistResponseBoundaries: () => false,
           classifyError: (error) => makeClassifiedError('stream_error', String(error))
-        }).run(turn, { sessionId: 's1', text: 'test' } as TurnRequest, { boundProjectId: null })
+        }).run(turn, { sessionId: 's1', text: 'test' } as TurnRequest, {
+          sharedPathProjectId: null
+        })
         const session = loadSession(queries, 's1', () => '/w')!
         const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
         const liveCall = partsToolCalls(live.messages.flatMap((message) => message.parts))[0]

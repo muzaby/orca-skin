@@ -97,7 +97,7 @@ vi.mock('../features/chat/store/chatStore', () => ({
   useChatResponding: () => false,
   useChatResidualSteer: () => 0,
   useNewChatPending: () => false,
-  useProjectConcurrencyCount: () => 0,
+  useOtherProjectTurnCount: () => 0,
   chatActions: {
     capturePendingProjectTarget: () => ({ key: 'draft', draftGeneration: 1 }),
     selectPendingProject: ({ cwd }: { cwd: string }) => {

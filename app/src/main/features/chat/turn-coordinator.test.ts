@@ -74,7 +74,7 @@ it('carries native IDs separately from queue UUIDs for matched echoes and automa
   deps.persist.commitUserMessage = commit
   const turn = makeTurn()
   turn.dbSessionId = 's1'
-  await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+  await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
   expect(commit.mock.calls).toEqual([
     [turn, expect.objectContaining({ text: 'next', nativeMessageId: 'native-user' })],
     [turn, expect.objectContaining({ text: 'reminder', nativeMessageId: 'native-auto' })]
@@ -110,7 +110,7 @@ it('commits a received scheduled prompt before its response without consuming a 
   const turn = makeTurn()
   turn.dbSessionId = 's1'
   turn.agentKind = 'work'
-  await new TurnCoordinator(deps).run(turn, REQUEST, { kind: 'listen', boundProjectId: null })
+  await new TurnCoordinator(deps).run(turn, REQUEST, { kind: 'listen', sharedPathProjectId: null })
   expect(commit).toHaveBeenCalledWith(
     turn,
     expect.objectContaining({ text: 'check now', origin: { kind: 'scheduled' } })
@@ -140,7 +140,7 @@ it('does not replay channel-owned schedule state through a delayed turn frame', 
   const deps = makeDeps(runtime)
   const turn = makeTurn()
   turn.dbSessionId = 's1'
-  await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+  await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
   const forwarded = vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1])
   expect(forwarded.some((event) => event.type === 'session.schedules')).toBe(false)
 })
@@ -164,7 +164,10 @@ it.each(['system-reminder', 'tagged', 'plain'] as const)(
     deps.persist.commitUserMessage = commit
     const turn = makeTurn()
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { kind: 'listen', boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, {
+      kind: 'listen',
+      sharedPathProjectId: null
+    })
     expect(listen).toHaveBeenCalledTimes(1)
     expect(send).not.toHaveBeenCalled()
     expect(commit).toHaveBeenCalledTimes(1)
@@ -252,7 +255,7 @@ function makeDeps(
     classifyError: vi.fn(
       () => ({ kind: 'stream_error', message: 'x', retryable: false }) as unknown as ClassifiedError
     ),
-    activeTurns: { increment: vi.fn(), decrement: vi.fn() },
+    activeTurns: { begin: vi.fn(), confirm: vi.fn(), end: vi.fn() },
     backgroundTasks: new BackgroundTaskTracker(),
     persistResponseBoundaries: (kind) => kind === 'work',
     ...overrides
@@ -306,7 +309,7 @@ describe('0243 execution lifetime', () => {
       turn.agentKind = 'work'
       turn.dbSessionId = 's1'
       const deps = makeDeps(runtime)
-      const run = new TurnCoordinator(deps).run(turn, REQUEST, { kind, boundProjectId: null })
+      const run = new TurnCoordinator(deps).run(turn, REQUEST, { kind, sharedPathProjectId: null })
       try {
         await vi.advanceTimersByTimeAsync(30 * 60_000)
         expect(turn.controller.signal.aborted).toBe(false)
@@ -348,7 +351,7 @@ describe('0243 execution lifetime', () => {
         if (mode === 'finalize-failure') throw new Error('database unavailable')
       })
       deps.persist.finalizeTurn = finalize
-      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
       const events = received(deps)
       expect(events.filter((ev) => ev.type === 'turn.aborted')).toEqual([
         { type: 'turn.aborted', sessionId: 's1', reason: 'interrupted' }
@@ -380,7 +383,7 @@ describe('0243 execution lifetime', () => {
       classifyError: () => ({ category: 'stream_error', message: 'retry', retryable: true })
     })
     deps.persist.finalizeTurn = vi.fn()
-    const run = new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    const run = new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     try {
       await vi.advanceTimersByTimeAsync(0)
       expect(received(deps).some((ev) => ev.type === 'turn.retrying')).toBe(true)
@@ -414,7 +417,7 @@ describe('0243 execution lifetime', () => {
       }
       const deps = makeDeps(runtime)
       deps.persist.finalizeTurn = vi.fn()
-      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
       expect(received(deps).filter((ev) => ev.type === 'turn.aborted')).toEqual([])
       expect(deps.persist.finalizeTurn).not.toHaveBeenCalled()
     }
@@ -428,11 +431,11 @@ describe('0243 execution lifetime', () => {
     const coordinator = new TurnCoordinator(deps)
     const before = makeTurn()
     before.controller.abort()
-    await coordinator.run(before, REQUEST, { boundProjectId: null })
+    await coordinator.run(before, REQUEST, { sharedPathProjectId: null })
     expect(runtime.sendCount).toBe(0)
     expect(received(deps).filter((ev) => ev.type === 'turn.aborted')).toHaveLength(1)
     const finished = makeTurn()
-    await coordinator.run(finished, REQUEST, { boundProjectId: null })
+    await coordinator.run(finished, REQUEST, { sharedPathProjectId: null })
     finished.controller.abort()
     expect(markAborted).not.toHaveBeenCalled()
   })
@@ -454,7 +457,7 @@ describe('Work response boundaries', () => {
     const turn = makeTurn()
     turn.agentKind = 'work'
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toEqual([])
   })
 
@@ -480,7 +483,7 @@ describe('Work response boundaries', () => {
       const turn = makeTurn()
       turn.agentKind = 'work'
       turn.dbSessionId = 's1'
-      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
       const events = forwarded(deps)
       const boundaries = events.filter((ev) => ev.type === 'response.boundary')
       expect(boundaries).toHaveLength(2)
@@ -506,7 +509,10 @@ describe('Work response boundaries', () => {
       const turn = makeTurn()
       turn.agentKind = agentKind
       turn.dbSessionId = 's1'
-      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null, kind: 'listen' })
+      await new TurnCoordinator(deps).run(turn, REQUEST, {
+        sharedPathProjectId: null,
+        kind: 'listen'
+      })
       expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toEqual([])
     }
   )
@@ -515,7 +521,7 @@ describe('Work response boundaries', () => {
     const deps = makeDeps(fakeRuntime([[text, telemetry]]))
     const turn = makeTurn()
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(forwarded(deps)).toEqual([text, telemetry])
   })
 
@@ -541,7 +547,10 @@ describe('Work response boundaries', () => {
     const turn = makeTurn()
     turn.agentKind = 'work'
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null, kind: 'listen' })
+    await new TurnCoordinator(deps).run(turn, REQUEST, {
+      sharedPathProjectId: null,
+      kind: 'listen'
+    })
     expect(forwarded(deps)).toEqual([childText, childTool, childResult, telemetry])
   })
 
@@ -558,7 +567,7 @@ describe('Work response boundaries', () => {
         throw new Error('stream failed')
       }
       const deps = makeDeps(runtime)
-      await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
       const boundaries = forwarded(deps).filter((ev) => ev.type === 'response.boundary')
       expect(boundaries).toHaveLength(2)
       expect(boundaries.at(-1)).toMatchObject({ boundary: { phase: 'end', outcome } })
@@ -580,7 +589,7 @@ describe('Work response boundaries', () => {
       const deps = makeDeps(runtime, {
         classifyError: () => ({ category: 'stream_error', message: 'retry', retryable: true })
       })
-      const run = new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+      const run = new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
       await vi.advanceTimersByTimeAsync(1000)
       await run
       expect(runtime.sendCount).toBe(2)
@@ -603,7 +612,7 @@ describe('Work response boundaries', () => {
         flushAskAnswers: vi.fn()
       }
     })
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(forwarded(deps).filter((ev) => ev.type === 'response.boundary')).toHaveLength(1)
     expect(forwarded(deps).at(-1)).toMatchObject({ type: 'error' })
   })
@@ -634,7 +643,7 @@ describe('Work response boundaries', () => {
     const turn = makeTurn()
     turn.agentKind = 'work'
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const events = forwarded(deps)
     const boundaries = events.filter((ev) => ev.type === 'response.boundary')
     expect(boundaries.map((ev) => ev.boundary.phase)).toEqual(['begin', 'end', 'begin', 'end'])
@@ -653,7 +662,7 @@ describe('Work response boundaries', () => {
     const deps = makeDeps(fakeRuntime([[raw]]))
     const turn = makeTurn()
     turn.agentKind = 'work'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(forwarded(deps)[0]).toMatchObject({ patch: { agentKind: 'work' } })
     expect(raw.patch?.agentKind).toBe('code')
   })
@@ -673,7 +682,7 @@ describe('runtime tool session confirmation', () => {
       },
       registry: { promote: () => order.push('promoted') }
     })
-    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { sharedPathProjectId: null })
     expect(order).toEqual(['persisted', 'promoted', 'confirmed:s1'])
   })
 
@@ -688,7 +697,7 @@ describe('runtime tool session confirmation', () => {
         flushAskAnswers: vi.fn()
       }
     })
-    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { sharedPathProjectId: null })
     expect(runtime.confirmRuntimeToolSession).not.toHaveBeenCalled()
   })
 })
@@ -734,7 +743,7 @@ describe('TurnCoordinator requirement commit', () => {
     await new TurnCoordinator(deps).run(
       turn,
       { ...REQUEST, sessionId: 's1', text: batch.text, promptUuid: batch.uuid },
-      { boundProjectId: null }
+      { sharedPathProjectId: null }
     )
     expect(commitUserMessage).toHaveBeenCalledWith(turn, expect.objectContaining({ requirements }))
     expect(deps.forward.forward).toHaveBeenCalledWith(
@@ -783,7 +792,7 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
     const deps = makeDeps(runtime)
     const turn = makeTurn()
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
 
     expect(deps.persist.persist).toHaveBeenCalledTimes(2)
     expect(deps.forward.forward).toHaveBeenCalledTimes(2)
@@ -792,15 +801,15 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
     expect(deps.titles.maybeStart).toHaveBeenCalledTimes(2)
     expect(deps.registry.promote).toHaveBeenCalledWith(turn, 's1')
     // active turn 회계는 증가/감소 짝이 맞아야 한다
-    expect(deps.activeTurns.increment).toHaveBeenCalledTimes(1)
-    expect(deps.activeTurns.decrement).toHaveBeenCalledTimes(1)
+    expect(deps.activeTurns.begin).toHaveBeenCalledTimes(1)
+    expect(deps.activeTurns.end).toHaveBeenCalledTimes(1)
   })
 
   it('telemetry 팬아웃은 usage→history→title→relay 등록 순서로 소비된다(순서 계약)', async () => {
     const runtime = fakeRuntime([[telemetry]])
     const deps = makeDeps(runtime)
 
-    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { sharedPathProjectId: null })
 
     // usage 가 history 의 currentAssistantMessageId reset 전에, title 이 relay 전에 실행된다는
     // 불변식은 bootstrap 의 버스 등록 순서가 소유한다(동기·등록순 emit).
@@ -812,7 +821,7 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
     const deps = makeDeps(runtime)
     const turn = makeTurn()
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
 
     // session.updated(1) + 합성 telemetry(1) = 2
     expect(deps.persist.persist).toHaveBeenCalledTimes(2)
@@ -831,7 +840,7 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
     const deps = makeDeps(runtime)
     const turn = makeTurn()
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
 
     expect(turn.askPendingIds).toContain('a1')
     expect(deps.persist.flushAskAnswers).toHaveBeenCalledWith(turn, 'owner')
@@ -898,7 +907,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     })
     const turn = makeTurn()
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => (c[1] as NormalizedEvent).type
     )
@@ -1012,7 +1021,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     })
     const turn = makeTurn()
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(persistSteer).not.toHaveBeenCalled()
   })
 })
@@ -1075,7 +1084,7 @@ describe('TurnCoordinator.run — 턴-시작 배치 소비 (응답 시작 증거
       promptUuid: mainBatch.uuid,
       ...(preludes.length > 0 ? { preludes } : {})
     } as unknown as TurnRequest
-    await new TurnCoordinator(deps).run(turn, request, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, request, { sharedPathProjectId: null })
     const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => (c[1] as NormalizedEvent).type
     )
@@ -1157,7 +1166,7 @@ describe('TurnCoordinator.run — retry', () => {
     })
     const turn = makeTurn()
 
-    const p = new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    const p = new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     await vi.advanceTimersByTimeAsync(1_000)
     await p
 
@@ -1168,8 +1177,8 @@ describe('TurnCoordinator.run — retry', () => {
     expect(types).toContain('telemetry')
     expect(runtime.sendCount).toBe(2)
     // 두 attempt 모두 active turn 짝이 맞아야 한다(누수 없음)
-    expect(deps.activeTurns.increment).toHaveBeenCalledTimes(2)
-    expect(deps.activeTurns.decrement).toHaveBeenCalledTimes(2)
+    expect(deps.activeTurns.begin).toHaveBeenCalledTimes(2)
+    expect(deps.activeTurns.end).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -1183,7 +1192,7 @@ describe('TurnCoordinator — 백그라운드 태스크 추적 (0136)', () => {
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     // a1 은 settled, a2 는 미정착으로 남는다.
     expect([...tracker.ids('s1')]).toEqual(['a2'])
   })
@@ -1203,7 +1212,7 @@ describe('TurnCoordinator — 백그라운드 태스크 추적 (0136)', () => {
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(tracker.ids('s1').size).toBe(0)
   })
 
@@ -1222,7 +1231,7 @@ describe('TurnCoordinator — 백그라운드 태스크 추적 (0136)', () => {
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     // 런치 영수증은 "실행 중" — settled 로 오해하지 않는다. 0143: background 확정 관측 기록.
     expect([...tracker.ids('s1')]).toEqual(['a1'])
     expect(tracker.isAsyncLaunched('s1', 'a1')).toBe(true)
@@ -1246,7 +1255,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
       .map((c) => c[1] as NormalizedEvent)
       .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
@@ -1262,7 +1271,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
       .map((c) => c[1] as NormalizedEvent)
       .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
@@ -1286,7 +1295,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     // 사용자가 중단 버튼을 눌렀다 — 확정이 도착하기 전 상태.
     turn.stoppedSubagents.add('a1')
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
       .map((c) => c[1] as NormalizedEvent)
       .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
@@ -1303,7 +1312,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
       .map((c) => c[1] as NormalizedEvent)
       .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
@@ -1326,7 +1335,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     const flags = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
       .map((c) => c[1] as NormalizedEvent)
       .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
@@ -1341,10 +1350,10 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     await new TurnCoordinator(deps).run(
       makeTurn(),
       { ...REQUEST, text: '' },
-      { boundProjectId: null, kind: 'listen' }
+      { sharedPathProjectId: null, kind: 'listen' }
     )
-    expect(deps.activeTurns.increment).not.toHaveBeenCalled()
-    expect(deps.activeTurns.decrement).not.toHaveBeenCalled()
+    expect(deps.activeTurns.begin).not.toHaveBeenCalled()
+    expect(deps.activeTurns.end).not.toHaveBeenCalled()
   })
 
   it('listen 턴은 send 가 아니라 runtime.listen 으로 프레임을 연다 (0149)', async () => {
@@ -1356,7 +1365,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     await new TurnCoordinator(deps).run(
       makeTurn(),
       { ...REQUEST, text: '' },
-      { boundProjectId: null, kind: 'listen' }
+      { sharedPathProjectId: null, kind: 'listen' }
     )
     expect(listenSpy).toHaveBeenCalledTimes(1)
     expect(sendSpy).not.toHaveBeenCalled()
@@ -1406,7 +1415,7 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
 
     expect(settledForwards(deps)).toHaveLength(0)
     expect([...tracker.ids('s1')]).toEqual(['a1'])
@@ -1427,7 +1436,7 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
 
     const settled = settledForwards(deps)
     expect(settled).toHaveLength(0)
@@ -1445,7 +1454,7 @@ describe('TurnCoordinator — background_tasks_changed 레벨 정착 (0212 R-04)
     // taskId 가 있어도 부르지 않는다 — 없어서 안 부른 것과 구분한다.
     turn.subagentTaskIds.set('a1', 'task-1')
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
 
     expect(settledForwards(deps)).toHaveLength(0)
     expect(runtime.backgroundTask).not.toHaveBeenCalled()
@@ -1466,7 +1475,7 @@ describe('TurnCoordinator — listen 턴 종료 후 수명', () => {
       turn,
       { ...REQUEST, text: '' },
       {
-        boundProjectId: null,
+        sharedPathProjectId: null,
         kind: 'listen'
       }
     )
@@ -1511,7 +1520,7 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     const d = deps ?? makeDeps(fakeRuntime([events]))
     const turn = makeTurn()
     turn.dbSessionId = 's1'
-    await new TurnCoordinator(d).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(d).run(turn, REQUEST, { sharedPathProjectId: null })
     return d
   }
 
@@ -1638,7 +1647,7 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     const turn = makeTurn()
     turn.dbSessionId = 's1'
     turn.controller.abort()
-    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
     expect(forwarded(deps).some((ev) => ev.type === 'tool.call.completed')).toBe(false)
     expect([...turn.openToolRuns.keys()]).toEqual([])
     expect(runtime.sendCount).toBe(0)

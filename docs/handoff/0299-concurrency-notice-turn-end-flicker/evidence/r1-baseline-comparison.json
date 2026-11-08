@@ -1,0 +1,34 @@
+{
+  "baseline": "implementation start HEAD on ccr-37c31341-jfr0sv; detached comparison checkout",
+  "command": "vitest run --maxWorkers=2 src/main/app/chat-turn.runtime-tools.test.ts src/main/app/chat-turn.execution-config.test.ts",
+  "failureSignature": "[test-pools] unit 풀(threads)은 자식 프로세스(/usr/local/bin/git) 을(를) 쓰지 않는다",
+  "baselineFailures": [
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-local with its own document and model on the initial and automatic flush turn",
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-local with its own document and model on the initial and automatic listen turn",
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-other with its own document and model on the initial and automatic flush turn",
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-other with its own document and model on the initial and automatic listen turn",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > VP-A1 routes the actual send request provider callback to the background controller",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > carries Work profile through the initial and automatic flush extension builds",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > carries Work profile through the initial and automatic listen extension builds",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > enables output capture only for Work, preserving code continuations",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > enables output capture only for Work, preserving work continuations",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > keeps the non-default selected model on a flush continuation without an unnecessary respawn",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > respawns a stale persistent channel before its listen request and forwards that fresh snapshot"
+  ],
+  "sqliteInitialSignature": "better-sqlite3 NODE_MODULE_VERSION 140 (Electron) vs 137 (Node); npm rebuild better-sqlite3 succeeded",
+  "currentFinalFailures": [
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-local with its own document and model on the initial and automatic flush turn",
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-local with its own document and model on the initial and automatic listen turn",
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-other with its own document and model on the initial and automatic flush turn",
+    "src/main/app/chat-turn.execution-config.test.ts > chat:send execution configuration from the selected engine document (0262) > runs opencode-other with its own document and model on the initial and automatic listen turn",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > VP-A1 routes the actual send request provider callback to the background controller",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > carries Work profile through the initial and automatic flush extension builds",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > carries Work profile through the initial and automatic listen extension builds",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > enables output capture only for Work, preserving code continuations",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > enables output capture only for Work, preserving work continuations",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > keeps the non-default selected model on a flush continuation without an unnecessary respawn",
+    "src/main/app/chat-turn.runtime-tools.test.ts > registerChatHandlers runtime-tool continuation wiring (0158) > respawns a stale persistent channel before its listen request and forwards that fresh snapshot"
+  ],
+  "currentMinusBaseline": [],
+  "baselineMinusCurrent": []
+}

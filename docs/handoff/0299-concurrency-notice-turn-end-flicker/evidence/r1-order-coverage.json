@@ -1,0 +1,81 @@
+{
+  "scenarios": [
+    {
+      "id": "P1",
+      "interleavings": 20,
+      "prefixObservations": 160
+    },
+    {
+      "id": "P2",
+      "interleavings": 6,
+      "prefixObservations": 36
+    },
+    {
+      "id": "P3",
+      "interleavings": 3,
+      "prefixObservations": 15
+    },
+    {
+      "id": "P4",
+      "interleavings": 3,
+      "prefixObservations": 15
+    },
+    {
+      "id": "P5",
+      "interleavings": 6,
+      "prefixObservations": 36
+    },
+    {
+      "id": "P6",
+      "interleavings": 60,
+      "prefixObservations": 480
+    },
+    {
+      "id": "P7",
+      "interleavings": 70,
+      "prefixObservations": 700
+    },
+    {
+      "id": "P8",
+      "interleavings": 20,
+      "prefixObservations": 160
+    },
+    {
+      "id": "O1",
+      "interleavings": 4,
+      "prefixObservations": 24
+    },
+    {
+      "id": "O2",
+      "interleavings": 15,
+      "prefixObservations": 120
+    },
+    {
+      "id": "O3",
+      "interleavings": 6,
+      "prefixObservations": 36
+    },
+    {
+      "id": "W1",
+      "interleavings": 2,
+      "prefixObservations": 8
+    },
+    {
+      "id": "W2",
+      "interleavings": 4,
+      "prefixObservations": 24
+    },
+    {
+      "id": "W3",
+      "interleavings": 3,
+      "prefixObservations": 15
+    },
+    {
+      "id": "W4",
+      "interleavings": 6,
+      "prefixObservations": 36
+    }
+  ],
+  "totalInterleavings": 228,
+  "totalPrefixObservations": 1865
+}

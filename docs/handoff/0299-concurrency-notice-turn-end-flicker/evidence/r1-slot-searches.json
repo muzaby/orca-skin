@@ -1,0 +1,307 @@
+{
+  "searches": [
+    {
+      "command": "rg -n 'activeTurns\\.(begin|confirm|end|increment|decrement)\\(|sharedPathProjectId' src/main -g '!*.test.ts'",
+      "exit": 0,
+      "output": [
+        "src/main/features/chat/turn-coordinator.ts:210:    opts: { sharedPathProjectId: string | null; kind?: TurnKind }",
+        "src/main/features/chat/turn-coordinator.ts:213:    const { sharedPathProjectId } = opts",
+        "src/main/features/chat/turn-coordinator.ts:326:            activeTurns.begin(turn, sharedPathProjectId, activeTurnRef(turn))",
+        "src/main/features/chat/turn-coordinator.ts:475:                activeTurns.confirm(turn, ev.sessionId)",
+        "src/main/features/chat/turn-coordinator.ts:554:            if (policy.countsAsActive) activeTurns.end(turn)",
+        "src/main/app/chat-turn/concurrency-identity.testfixture.ts:51:    sharedPathProjectId?: string | null",
+        "src/main/app/chat-turn/concurrency-identity.testfixture.ts:232:      options.sharedPathProjectId === undefined ? 'p1' : options.sharedPathProjectId",
+        "src/main/app/chat-turn/post-turn.ts:51:  sharedPathProjectId: string | null",
+        "src/main/app/chat-turn/post-turn.ts:92:      await coordinator.run(turn, request, { sharedPathProjectId })",
+        "src/main/app/chat-turn/post-turn.ts:224:              sharedPathProjectId,",
+        "src/main/app/chat-turn/post-turn.ts:274:        await coordinator.run(contTurn, contRequest, { sharedPathProjectId })"
+      ]
+    },
+    {
+      "command": "rg -n 'activeTurns\\.(begin|confirm|end|increment|decrement)\\(|sharedPathProjectId' src/main -g '!*.test.ts' -g '!*.testfixture.ts'",
+      "exit": 0,
+      "output": [
+        "src/main/features/chat/turn-coordinator.ts:210:    opts: { sharedPathProjectId: string | null; kind?: TurnKind }",
+        "src/main/features/chat/turn-coordinator.ts:213:    const { sharedPathProjectId } = opts",
+        "src/main/features/chat/turn-coordinator.ts:326:            activeTurns.begin(turn, sharedPathProjectId, activeTurnRef(turn))",
+        "src/main/features/chat/turn-coordinator.ts:475:                activeTurns.confirm(turn, ev.sessionId)",
+        "src/main/features/chat/turn-coordinator.ts:554:            if (policy.countsAsActive) activeTurns.end(turn)",
+        "src/main/app/chat-turn/post-turn.ts:51:  sharedPathProjectId: string | null",
+        "src/main/app/chat-turn/post-turn.ts:92:      await coordinator.run(turn, request, { sharedPathProjectId })",
+        "src/main/app/chat-turn/post-turn.ts:224:              sharedPathProjectId,",
+        "src/main/app/chat-turn/post-turn.ts:274:        await coordinator.run(contTurn, contRequest, { sharedPathProjectId })"
+      ]
+    },
+    {
+      "command": "rg -n '^\\s+(begin|confirm|end|turns)\\(' src/main/features/sessions/active-turn-tracker.ts",
+      "exit": 0,
+      "output": [
+        "9:  begin(token: object, projectId: string | null | undefined, ref: ActiveTurnRef): void {",
+        "15:  confirm(token: object, sessionId: string): void {",
+        "22:  end(token: object): void {",
+        "29:  turns(projectId: string | null | undefined): ActiveTurnRef[] {"
+      ]
+    },
+    {
+      "command": "rg -n '^export function activeTurnRef' src/main/features/chat/active-turn-ref.ts",
+      "exit": 0,
+      "output": [
+        "4:export function activeTurnRef("
+      ]
+    },
+    {
+      "command": "rg -n 'isolated|hasManagedWorktree' src/main/app/chat-turn/prepare-worktree.ts src/main/features/worktrees/service.ts",
+      "exit": 0,
+      "output": [
+        "src/main/features/worktrees/service.ts:221:  hasManagedWorktree(sessionId: string): boolean {",
+        "src/main/app/chat-turn/prepare-worktree.ts:17:      isolated: boolean",
+        "src/main/app/chat-turn/prepare-worktree.ts:24:      isolated: boolean",
+        "src/main/app/chat-turn/prepare-worktree.ts:34:      isolated: boolean",
+        "src/main/app/chat-turn/prepare-worktree.ts:52:  worktrees: Pick<WorktreeService, 'prepare' | 'recoverMissingWorktree' | 'hasManagedWorktree'>",
+        "src/main/app/chat-turn/prepare-worktree.ts:77:        isolated: false,",
+        "src/main/app/chat-turn/prepare-worktree.ts:86:      isolated: input.worktrees.hasManagedWorktree(input.sessionId),",
+        "src/main/app/chat-turn/prepare-worktree.ts:100:      isolated: false,",
+        "src/main/app/chat-turn/prepare-worktree.ts:129:      isolated: true,",
+        "src/main/app/chat-turn/prepare-worktree.ts:154:  | { kind: 'ready'; isolated: boolean; turn: TTurn; entry: TEntry }",
+        "src/main/app/chat-turn/prepare-worktree.ts:166:  return { kind: 'ready', isolated: prepared.isolated, turn, entry }"
+      ]
+    },
+    {
+      "command": "rg -n 'clientKey: draftKey|concurrencyByProjectId|otherProjectTurnCount|useOtherProjectTurnCount|\\[sessionId\\]: entry' src/renderer/src -g '!*.test.*' -g '!*.testfixture.*'",
+      "exit": 0,
+      "output": [
+        "src/renderer/src/features/chat/store/chatStore.ts:158:  concurrencyByProjectId: Record<string, readonly ActiveTurnRef[]>",
+        "src/renderer/src/features/chat/store/chatStore.ts:318:  concurrencyByProjectId: {},",
+        "src/renderer/src/features/chat/store/chatStore.ts:622:      sessions: { ...rest, [sessionId]: entry },",
+        "src/renderer/src/features/chat/store/chatStore.ts:1039:      clientKey: draftKey,",
+        "src/renderer/src/features/chat/store/chatStore.ts:1056:        clientKey: draftKey,",
+        "src/renderer/src/features/chat/store/chatStore.ts:1638:    clientKey: draftKey",
+        "src/renderer/src/features/chat/store/chatStore.ts:1647:    clientKey: draftKey,",
+        "src/renderer/src/features/chat/store/chatStore.ts:2223:      concurrencyByProjectId: { ...s.concurrencyByProjectId, [ev.projectId]: ev.turns }",
+        "src/renderer/src/features/chat/store/chatStore.ts:2433:export function otherProjectTurnCount(state: ChatStoreState, projectId: string | null): number {",
+        "src/renderer/src/features/chat/store/chatStore.ts:2437:    projectId ? (state.concurrencyByProjectId[projectId] ?? []) : [],",
+        "src/renderer/src/features/chat/store/chatStore.ts:2442:export function useOtherProjectTurnCount(projectId: string | null): number {",
+        "src/renderer/src/features/chat/store/chatStore.ts:2443:  return useChatStore((state) => otherProjectTurnCount(state, projectId))",
+        "src/renderer/src/features/chat/store/chatStore.testHarness.ts:77:      concurrencyByProjectId: {},",
+        "src/renderer/src/features/chat/components/Composer.tsx:26:  useOtherProjectTurnCount",
+        "src/renderer/src/features/chat/components/Composer.tsx:166:  const otherProjectTurnCount = useOtherProjectTurnCount(projectId)",
+        "src/renderer/src/features/chat/components/Composer.tsx:171:  const concurrencyActive = otherProjectTurnCount > 0"
+      ]
+    },
+    {
+      "command": "rg -n 'worktreeIsolation' src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "exit": 0,
+      "output": [
+        "317:  worktreeIsolation: boolean",
+        "509:  worktreeIsolation: false,",
+        "967:              ? { worktreeIsolation: false }",
+        "1350:        worktreeIsolation: state.cwd === action.cwd && state.worktreeIsolation,",
+        "1362:        worktreeIsolation: action.enabled,"
+      ]
+    },
+    {
+      "command": "rg -n '^export function' src/renderer/src/features/chat/lib/concurrencyNotice.ts",
+      "exit": 0,
+      "output": [
+        "3:export function ownTurnIdentity(entry?: {",
+        "13:export function isOwnTurn(ref: ActiveTurnRef, own: ActiveTurnRef): boolean {",
+        "20:export function otherProjectTurns(refs: readonly ActiveTurnRef[], own: ActiveTurnRef): number {",
+        "24:export function displayedSessionIsolated(session?: {"
+      ]
+    },
+    {
+      "command": "rg -n 'CONCURRENCY_ORDER' src -g '*.test.ts'",
+      "exit": 0,
+      "output": [
+        "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts:3:  CONCURRENCY_ORDER,",
+        "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts:86:  it.each(CONCURRENCY_ORDER)(",
+        "src/main/app/chat-turn/concurrency-identity.test.ts:3:  CONCURRENCY_ORDER,",
+        "src/main/app/chat-turn/concurrency-identity.test.ts:14:  return CONCURRENCY_ORDER.find((scenario) => scenario.id === id)!.lists.map((tags) => ({"
+      ]
+    }
+  ],
+  "effectivePlanSlots": [
+    "E0",
+    "E1",
+    "E2",
+    "E3",
+    "T1",
+    "T2",
+    "T3",
+    "T4",
+    "A1",
+    "P1",
+    "P2",
+    "P3",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "C1",
+    "N1",
+    "N2",
+    "N3",
+    "I1",
+    "SD-1",
+    "SD-2"
+  ],
+  "implementedSlots": [
+    "E0",
+    "E1",
+    "E2",
+    "E3",
+    "T1",
+    "T2",
+    "T3",
+    "T4",
+    "A1",
+    "P1",
+    "P2",
+    "P3",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "C1",
+    "N1",
+    "N2",
+    "N3",
+    "I1",
+    "SD-1",
+    "SD-2"
+  ],
+  "planMinusImplemented": [],
+  "implementedMinusPlan": [],
+  "testfixtureExclusion": "testfixture.ts transport harness options are test-only; the original !*.test.ts predicate includes them after adding the fixture",
+  "slotCoordinates": {
+    "E0": {
+      "file": "src/main/features/chat/turn-coordinator.ts",
+      "line": 326,
+      "anchor": "activeTurns.begin(turn,"
+    },
+    "E1": {
+      "file": "src/main/features/chat/turn-coordinator.ts",
+      "line": 475,
+      "anchor": "activeTurns.confirm(turn,"
+    },
+    "E2": {
+      "file": "src/main/features/chat/turn-coordinator.ts",
+      "line": 554,
+      "anchor": "activeTurns.end(turn)"
+    },
+    "E3": {
+      "file": "src/main/app/chat-turn/send.ts",
+      "line": 710,
+      "anchor": "preparedExecution.isolated ? null : boundProjectId"
+    },
+    "T1": {
+      "file": "src/main/features/sessions/active-turn-tracker.ts",
+      "line": 9,
+      "anchor": "  begin("
+    },
+    "T2": {
+      "file": "src/main/features/sessions/active-turn-tracker.ts",
+      "line": 15,
+      "anchor": "  confirm("
+    },
+    "T3": {
+      "file": "src/main/features/sessions/active-turn-tracker.ts",
+      "line": 22,
+      "anchor": "  end("
+    },
+    "T4": {
+      "file": "src/main/features/sessions/active-turn-tracker.ts",
+      "line": 29,
+      "anchor": "  turns("
+    },
+    "A1": {
+      "file": "src/main/features/chat/active-turn-ref.ts",
+      "line": 4,
+      "anchor": "export function activeTurnRef("
+    },
+    "P1": {
+      "file": "src/main/app/chat-turn/prepare-worktree.ts",
+      "line": 42,
+      "anchor": "export async function prepareTurnWorktree("
+    },
+    "P2": {
+      "file": "src/main/app/chat-turn/prepare-worktree.ts",
+      "line": 166,
+      "anchor": "isolated: prepared.isolated"
+    },
+    "P3": {
+      "file": "src/main/features/worktrees/service.ts",
+      "line": 221,
+      "anchor": "  hasManagedWorktree("
+    },
+    "S1": {
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 2223,
+      "anchor": "[ev.projectId]: ev.turns"
+    },
+    "S2": {
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 1056,
+      "anchor": "        clientKey: draftKey,"
+    },
+    "S3": {
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 1647,
+      "anchor": "    clientKey: draftKey,\n    live: EMPTY_LIVE"
+    },
+    "S4": {
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 622,
+      "anchor": "[sessionId]: entry"
+    },
+    "S5": {
+      "file": "src/renderer/src/features/chat/store/chatStore.ts",
+      "line": 2433,
+      "anchor": "export function otherProjectTurnCount("
+    },
+    "S6": {
+      "file": "src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "line": 966,
+      "anchor": "Object.hasOwn(ev.patch, 'worktree') && ev.patch.worktree === null"
+    },
+    "C1": {
+      "file": "src/renderer/src/features/chat/components/Composer.tsx",
+      "line": 171,
+      "anchor": "const concurrencyActive = otherProjectTurnCount > 0"
+    },
+    "N1": {
+      "file": "src/renderer/src/features/chat/lib/concurrencyNotice.ts",
+      "line": 3,
+      "anchor": "export function ownTurnIdentity("
+    },
+    "N2": {
+      "file": "src/renderer/src/features/chat/lib/concurrencyNotice.ts",
+      "line": 13,
+      "anchor": "export function isOwnTurn("
+    },
+    "N3": {
+      "file": "src/renderer/src/features/chat/lib/concurrencyNotice.ts",
+      "line": 20,
+      "anchor": "export function otherProjectTurns("
+    },
+    "I1": {
+      "file": "src/renderer/src/features/chat/lib/concurrencyNotice.ts",
+      "line": 24,
+      "anchor": "export function displayedSessionIsolated("
+    },
+    "SD-1": {
+      "file": "src/main/app/chat-turn/concurrency-identity.test.ts",
+      "line": 14,
+      "anchor": "CONCURRENCY_ORDER.find((scenario) => scenario.id === id)"
+    },
+    "SD-2": {
+      "file": "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts",
+      "line": 86,
+      "anchor": "it.each(CONCURRENCY_ORDER)"
+    }
+  }
+}

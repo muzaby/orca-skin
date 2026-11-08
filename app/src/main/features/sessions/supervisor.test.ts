@@ -190,16 +190,17 @@ describe('RuntimeSupervisor resource governance (0055)', () => {
 
   it('ActiveTurnTracker 는 Supervisor 가 소유하고 getter 로 노출한다', async () => {
     const { ActiveTurnTracker } = await import('./active-turn-tracker')
-    const events: Array<[string, number]> = []
-    const activeTurns = new ActiveTurnTracker((projectId, count) => events.push([projectId, count]))
+    const events: unknown[] = []
+    const activeTurns = new ActiveTurnTracker((event) => events.push(event))
     const supervisor = new RuntimeSupervisor<object>({ activeTurns })
 
-    supervisor.activeTurns.increment('p1')
-    supervisor.activeTurns.decrement('p1')
+    const token = {}
+    supervisor.activeTurns.begin(token, 'p1', { sessionId: 's1', clientKey: null })
+    supervisor.activeTurns.end(token)
 
     expect(events).toEqual([
-      ['p1', 1],
-      ['p1', 0]
+      { projectId: 'p1', turns: [{ sessionId: 's1', clientKey: null }] },
+      { projectId: 'p1', turns: [] }
     ])
   })
 

@@ -154,7 +154,10 @@ function harness(cwd: string, pluginPath = plugin) {
     isUpdateInstallPending: () => false,
     listenRelease: new Map(),
     settleDeadBackgroundTasks: vi.fn(),
-    worktrees: { recoverMissingWorktree: async () => ({ kind: 'none' }) },
+    worktrees: {
+      hasManagedWorktree: () => false,
+      recoverMissingWorktree: async () => ({ kind: 'none' })
+    },
     prepareOutputFiles: async () => ({ directory: join(cwd, 'outputs'), capture: vi.fn() })
   }
   return { sender, supervisor, runtime, extensions, deps, roots }

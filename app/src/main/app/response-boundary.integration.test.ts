@@ -97,7 +97,7 @@ describe('Work response boundary composition', () => {
         },
         registry: { promote: () => {} },
         classifyError: () => ({ category: 'stream_error', message: 'failed', retryable: false }),
-        activeTurns: { increment: () => {}, decrement: () => {} },
+        activeTurns: { begin: () => {}, confirm: () => {}, end: () => {} },
         backgroundTasks: new BackgroundTaskTracker(),
         pendingMessages: queue,
         persistResponseBoundaries: (kind) => resolveAgentProfile(kind).persistResponseBoundaries
@@ -105,7 +105,7 @@ describe('Work response boundary composition', () => {
       await coordinator.run(
         turn,
         { sessionId: 's1', text: first.text, promptUuid: first.uuid } as TurnRequest,
-        { boundProjectId: null }
+        { sharedPathProjectId: null }
       )
       const restored = loadSession(queries, 's1', () => '/fallback')!
       expect(restored.messages.map((message) => message.role)).toEqual([

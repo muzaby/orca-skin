@@ -22,7 +22,7 @@
 | **RuntimePool** | `features/sessions` | Persistent(장수명) idle 핸들을 세션 키로 보관. LRU 축출(기본 cap 5, bootstrap 주입). **IdleCloseTimer 폐기(0067)** — 세션 수명 = 프로그램 종료 or LRU 축출만. |
 | **TurnCoordinator** | `features/chat` | 한 SessionRuntime 의 `NormalizedEvent` 스트림 소비 → 턴-로컬 reduce → **2 병렬 독립 sink(persist ∥ forward)** 팬아웃. retry·중단/실패 settle·terminal 합성 소유. |
 | **PendingMessageQueue** | `features/chat` | **모든 사용자 프롬프트**가 커밋(DB 영속) 전 지나는 세션별 스테이징 통로(§1.4). |
-| **ActiveTurnTracker** | `features/sessions` | 프로젝트별 active turn 회계(IPC `concurrency` 도메인). RuntimeSupervisor 의 runtime cap count 와 **별개**. |
+| **ActiveTurnTracker** | `features/sessions` | `{ projectId; turns: ActiveTurnRef[] }` 신원 목록(IPC `concurrency`). 보고 있는 세션은 신원으로 제외하고 응답 중 표시로 산술하지 않는다. 격리(worktree) 세션의 응답은 목록에 넣지 않는다. RuntimeSupervisor의 runtime cap 회계와 별개. |
 
 - 서로 다른 세션은 **동시 턴**을 돌린다(멀티세션). `chat:cancel` 은 해당 세션의 턴만 중단(장수명 채널은 `interrupt` 로 채널을 살린 채 현재 턴만 멈춤 — 0067).
 - 구독 순서·팬아웃 배선의 SSOT 는 `app/bootstrap.ts` 한 곳(§2.4).

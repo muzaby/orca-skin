@@ -188,6 +188,7 @@ function makeHarness(sessionId?: string) {
     settleDeadBackgroundTasks: vi.fn(),
     // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.
     worktrees: {
+      hasManagedWorktree: vi.fn(() => false),
       prepare: vi.fn(),
       recoverMissingWorktree: vi.fn(async (): Promise<Recovery> => ({ kind: 'none' }))
     }
@@ -853,3 +854,51 @@ describe('handleChatSend — worktree 소실 폴백의 send 층 배선 (AC12 · 
     )
   })
 })
+
+it.each(['new-isolated', 'new-plain', 'resume-isolated', 'resume-recovered'] as const)(
+  'E3 concurrency accounting project follows prepared isolation: %s',
+  async (kind) => {
+    vi.clearAllMocks()
+    const resumed = kind.startsWith('resume')
+    mocks.sessionMeta.value = resumed
+      ? { cwd: '/source/repo', project_id: 'p1', provider_key: null }
+      : null
+    const h = makeHarness(resumed ? 'session-1' : undefined)
+    h.deps.ctx.db.ensurePathProject.mockImplementation((row) => ({
+      ...row,
+      id: 'p1',
+      cwd_key: row.cwdKey
+    }))
+    h.deps.worktrees.hasManagedWorktree.mockReturnValue(kind === 'resume-isolated')
+    h.deps.worktrees.prepare.mockResolvedValue({
+      kind: 'managed',
+      worktreeId: 'w1',
+      executionCwd: '/managed/repo',
+      baseOid: 'a'.repeat(40),
+      baseRef: 'main',
+      display: { sourceCwd: '/source/repo', repoRoot: '/source/repo' }
+    })
+    if (kind === 'resume-recovered')
+      h.deps.worktrees.recoverMissingWorktree.mockResolvedValue({
+        kind: 'recovered',
+        executionCwd: '/source/repo',
+        lostWorktreeRoot: '/gone'
+      })
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    await handleChatSend(h.deps as never, { sender: h.sender } as never, {
+      text: 'work',
+      projectId: 'p1',
+      ...(resumed ? { sessionId: 'session-1' } : {}),
+      worktreeIsolation: kind === 'new-isolated',
+      attachmentViews: []
+    })
+    expect(runTurnWithContinuations).toHaveBeenCalledOnce()
+    const expected = kind.endsWith('isolated') ? null : 'p1'
+    expect(vi.mocked(runTurnWithContinuations).mock.calls[0][3]).toBe(expected)
+    expect(expected === null || typeof expected === 'string').toBe(true)
+  }
+)

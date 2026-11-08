@@ -707,7 +707,7 @@ export async function handleChatSend(
         },
         turn,
         request,
-        boundProjectId
+        preparedExecution.isolated ? null : boundProjectId
       )
     } finally {
       const finalSessionId = activeTurn.dbSessionId ?? turn.dbSessionId

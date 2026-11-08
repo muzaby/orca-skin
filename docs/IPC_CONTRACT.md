@@ -470,7 +470,7 @@ interface UsageStats {
 
 | 채널                       | 방향       | 페이로드                                      | 응답 | 설명                                                                 |
 | -------------------------- | ---------- | --------------------------------------------- | ---- | -------------------------------------------------------------------- |
-| `orca:concurrency:event`   | M→R (send) | `ConcurrencyEvent` = `{ projectId; count }`   | —    | 같은 projectId에서 실행 중인 query 수를 브로드캐스트한다. Composer는 자기 inflight를 차감해 경고 표시 여부를 판정한다. |
+| `orca:concurrency:event`   | M→R (send) | `ConcurrencyEvent` = `{ projectId; turns: ActiveTurnRef[] }`   | —    | 같은 작업경로에서 응답 중인 비격리 세션 신원 목록을 통째로 보낸다. `ActiveTurnRef` = `{ sessionId: string | null; clientKey: string | null }`. 보고 있는 세션은 신원으로 제외하며 응답 중 표시로 산술하지 않는다. 격리(worktree) 세션의 응답은 목록에 넣지 않고, 보고 있는 세션이 격리면 경고를 표시하지 않는다. |
 
 ### 2.12-c Notify
 
