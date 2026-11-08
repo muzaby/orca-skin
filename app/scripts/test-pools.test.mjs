@@ -2,10 +2,10 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
 import {
   FORCED_IO,
@@ -213,6 +213,65 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
   })
 })
 
+describe('partitionTestFiles — ioSqlite 는 sqlite 신호 io 만 (ΔV5)', () => {
+  test('DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'orca-pool-partition-'))
+    try {
+      mkdirSync(join(dir, 'src'))
+      writeFileSync(join(dir, 'src', 'db.test.ts'), 'openDb(path)\n')
+      writeFileSync(
+        join(dir, 'src', 'git.test.ts'),
+        "import { execGit } from './temp-repo.testfixture'\n"
+      )
+      writeFileSync(join(dir, 'src', 'pure.test.ts'), 'expect(1).toBe(1)\n')
+      assert.deepEqual(partitionTestFiles(dir), {
+        io: ['src/db.test.ts', 'src/git.test.ts'],
+        unit: ['src/pure.test.ts'],
+        ioSqlite: ['src/db.test.ts']
+      })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)', () => {
+  function configuredProjects(mode) {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `const c = (await import(${JSON.stringify(pathToFileURL(join(APP, 'vitest.config.ts')).href)})).default; console.log(JSON.stringify(c.test.projects.map((p) => p.test).sort((a, b) => a.name.localeCompare(b.name))))`
+      ],
+      { cwd: APP, env: { ...process.env, ORCA_TEST_IO_MODE: mode }, encoding: 'utf8' }
+    )
+    assert.equal(result.status, 0, result.stdout + result.stderr)
+    return Object.fromEntries(
+      JSON.parse(result.stdout.trim().split('\n').at(-1)).map((p) => [p.name, p])
+    )
+  }
+
+  test('serial: env 에서 고른 모드가 io 1워커·group 1까지 닿는다', () => {
+    const { io, unit } = configuredProjects('serial')
+    assert.equal(io.maxWorkers, 1)
+    assert.equal(io.sequence.groupOrder, 1)
+    assert.equal(unit.sequence.groupOrder, 0)
+  })
+
+  test('sqlite-serial: 트리의 SQLite 부분집합만 io-sqlite 에 전달한다', () => {
+    const projects = configuredProjects('sqlite-serial')
+    assert.deepEqual(Object.keys(projects), ['io', 'io-sqlite', 'unit'])
+    const { ioSqlite } = partitionTestFiles(APP)
+    assert.ok(ioSqlite.length > 0)
+    assert.deepEqual(projects['io-sqlite'].include, ioSqlite)
+    assert.deepEqual(
+      projects.io.include.filter((file) => projects['io-sqlite'].include.includes(file)),
+      []
+    )
+  })
+})
+
 describe('installUnitGuard — 워커 스레드에서 실제 모듈로', () => {
   // 가드는 그 스레드의 builtin 만 바꾼다 — 이 프로세스(main thread)는 건드리지 않는다.
   function inWorker(body) {
@@ -266,6 +325,20 @@ describe('installUnitGuard — 워커 스레드에서 실제 모듈로', () => {
       `tryIt('spawnSync', () => cp.spawnSync(process.execPath, ['-e', '0']))`
     )
     assert.equal(out.spawnSync, 'ok')
+  })
+  test('재설치는 첫 상태를 돌려주고 위반은 그 상태에 쌓인다 (ΔV5)', async () => {
+    const out = await inWorker(`
+      const a = installUnitGuard({ childProcess: cp, sync: syncBuiltinESMExports })
+      const firstSpawnSync = cp.spawnSync
+      const b = installUnitGuard({ childProcess: cp, sync: syncBuiltinESMExports })
+      out.sameState = a === b
+      out.sameWrapper = firstSpawnSync === cp.spawnSync
+      tryIt('spawnSync', () => cp.spawnSync(process.execPath, ['-e', '0']))
+      out.violations = a.violations.length`)
+    assert.equal(out.sameState, true)
+    assert.equal(out.sameWrapper, true)
+    assert.match(out.spawnSync, /^\[test-pools\] unit 풀/)
+    assert.equal(out.violations, 1)
   })
 })
 

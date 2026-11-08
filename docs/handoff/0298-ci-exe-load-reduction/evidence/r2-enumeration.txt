@@ -1,0 +1,92 @@
+$ ['rg', '-n', "id: '", 'app/scripts/test-pools.mjs']
+45:  { id: 'child-process', test: (text) => CHILD_PROCESS_IMPORT.test(text) },
+46:  { id: 'git-fixture', test: (text) => text.includes(FIXTURE) },
+47:  { id: 'run-git', test: (text) => RUN_GIT.test(text) && !INJECTS_RUNNER.test(text) },
+48:  { id: 'sqlite', test: (text) => SQLITE.test(text) },
+49:  { id: 'timezone', test: (text) => TIMEZONE.test(text) },
+50:  { id: 'forced', test: (_text, relPath) => Object.hasOwn(FORCED_IO, relPath) }
+exit=0
+
+$ ['rg', '-n', 'const SQLITE', '-A1', 'app/scripts/test-pools.mjs']
+36:const SQLITE =
+37-  /['"]better-sqlite3['"]|\b(?:openDb|openFileDatabase|initDb)\s*\(|\bwarmFileSqlite\b|\bnew\s+Database\s*\(/
+exit=0
+
+$ ['rg', '-n', "test.ts':", 'app/scripts/test-pools.mjs']
+29:  'src/main/infra/loopback-callback.test.ts':
+exit=0
+
+$ ['rg', '-n', 'pool:|maxWorkers:|groupOrder:|setupFiles:', 'app/scripts/test-pools.mjs']
+57:  return { pool: reasons.length > 0 ? 'io' : 'unit', reasons }
+116:      pool: 'threads',
+117:      setupFiles: [...base.setupFiles, UNIT_GUARD_SETUP],
+122:    test: { ...base, name, include, pool: 'forks', maxWorkers, sequence: { groupOrder } }
+exit=0
+
+$ ['rg', '-n', "prototype.spawn|'spawnSync'|'execFileSync'|'execSync'|dlopen|UNIT_GUARD\\]|violations.push", 'app/scripts/test-pools.mjs']
+135: * unit 풀 가드. 자식 프로세스 생성(비동기 전부가 지나는 `ChildProcess.prototype.spawn` + 동기 3형태)과
+136: * better-sqlite3 네이티브 로드(`process.dlopen`)를 안내 메시지와 함께 throw 로 바꾸고 **위반을 기록한다**.
+144:  if (proc[UNIT_GUARD]) return proc[UNIT_GUARD]
+148:    state.violations.push(message)
+151:  childProcess.ChildProcess.prototype.spawn = function (options) {
+154:  for (const name of ['spawnSync', 'execFileSync', 'execSync']) {
+157:  const dlopen = proc.dlopen
+158:  proc.dlopen = function (module, filename, ...rest) {
+160:    return dlopen.call(this, module, filename, ...rest)
+162:  proc[UNIT_GUARD] = state
+exit=0
+
+$ ['rg', '-n', 'afterEach\\(check\\)|afterAll\\(check\\)|alignThreadHomedir', 'app/scripts/vitest-unit-guard.mjs', 'app/scripts/test-pools.mjs']
+app/scripts/vitest-unit-guard.mjs:10:import { alignThreadHomedir, drainGuardViolations, installUnitGuard } from './test-pools.mjs'
+app/scripts/vitest-unit-guard.mjs:13:alignThreadHomedir({ os, sync: syncBuiltinESMExports })
+app/scripts/vitest-unit-guard.mjs:20:afterEach(check)
+app/scripts/vitest-unit-guard.mjs:21:afterAll(check)
+app/scripts/test-pools.mjs:175:export function alignThreadHomedir({ os, proc = process, sync = () => {} }) {
+exit=0
+
+$ ['rg', '-n', 'ioSqlite|resolveIoMode\\(|IO_MODE_ENV\\]', 'app/vitest.config.ts', 'app/scripts/test-pools.mjs']
+app/scripts/test-pools.mjs:62: * `ioSqlite` 는 io 중 `sqlite` 신호가 있는 파일 — `sqlite-serial` 모드가 따로 직렬로 둔다.
+app/scripts/test-pools.mjs:67:  const ioSqlite = []
+app/scripts/test-pools.mjs:78:    if (reasons.includes('sqlite')) ioSqlite.push(relPath)
+app/scripts/test-pools.mjs:80:  return { io, unit, ioSqlite }
+app/scripts/test-pools.mjs:88:export function resolveIoMode(env = process.env) {
+app/scripts/test-pools.mjs:89:  const raw = env[IO_MODE_ENV]
+app/scripts/test-pools.mjs:107: * @param {{ io: string[], ioSqlite?: string[], base: object, exclude: string[], mode?: string }} input
+app/scripts/test-pools.mjs:109:export function buildProjects({ io, ioSqlite = [], base, exclude, mode }) {
+app/scripts/test-pools.mjs:127:    const sqlite = io.filter((file) => ioSqlite.includes(file))
+app/scripts/test-pools.mjs:128:    const rest = io.filter((file) => !ioSqlite.includes(file))
+app/vitest.config.ts:31:const { io, ioSqlite } = partitionTestFiles(fileURLToPath(new URL('.', import.meta.url)))
+app/vitest.config.ts:37:      ioSqlite,
+app/vitest.config.ts:41:      mode: resolveIoMode()
+exit=0
+
+$ ['rg', '-n', 'HERMETIC_GIT_CONFIG', 'app/scripts']
+app/scripts/vitest-setup.mjs:4://    바꾸고 하네스·git 변수를 지운다. 전역 git 설정은 고정 내용(`HERMETIC_GIT_CONFIG`, 0298)이다. 자식 프로세스는 process.env 를 상속하므로 함께 격리된다.
+app/scripts/vitest-setup.mjs:13:import { HERMETIC_GIT_CONFIG, hermeticDirectories, hermeticTestEnv } from './test-host.mjs'
+app/scripts/vitest-setup.mjs:26:writeFileSync(set.GIT_CONFIG_GLOBAL, HERMETIC_GIT_CONFIG)
+app/scripts/test-host.test.mjs:97:    const { HERMETIC_GIT_CONFIG, HERMETIC_GIT_IDENTITY } = await import('./test-host.mjs')
+app/scripts/test-host.test.mjs:100:      HERMETIC_GIT_CONFIG,
+app/scripts/test-host.d.mts:4:export declare const HERMETIC_GIT_CONFIG: string
+app/scripts/test-host.mjs:55:export const HERMETIC_GIT_CONFIG = [
+exit=0
+
+$ ['rg', '-n', "'config', '(user\\.email|user\\.name|core\\.autocrlf)'", 'app/src']
+exit=1
+
+$ ['rg', '-n', '-i', 'pwsh|powershell', 'app/src/main/infra/config/file-mutation.test.ts']
+184:    // Windows PowerShell 5.1 은 모든 Windows 에 있다. pwsh(7) 는 self-hosted 러너에 없을 수 있다(0298).
+185:    const powershell = join(
+188:      'WindowsPowerShell',
+190:      'powershell.exe'
+193:      powershell,
+exit=0
+
+$ ['rg', '-n', '\\*\\*(exe 대체|환경 의존|로컬 확인)\\*\\*', 'app/AGENTS.md']
+154:  - **exe 대체**: unit 테스트의 production 경로가 그 테스트의 oracle이 아닌 exe(git 조회 등)를 띄우면 그 경로를 mock으로 대체하고, io 신호·`FORCED_IO`는 프로세스·DB·프로세스 전역 상태 자체가 oracle일 때만 쓴다.
+155:  - **환경 의존**: unit 가드 실패는 폴더 존재·PATH에 따라 환경마다 다르게 날 수 있으며, 한 환경에서라도 나면 그 파일의 규칙 위반이다.
+156:  - **로컬 확인**: 테스트를 추가·수정한 변경은 IMPL_DONE 전에 `app/`에서 `node scripts/check-migrations-appendonly.mjs`, `node scripts/check-doc-inventory.mjs --check`, `node scripts/check-test-budgets.mjs`, `npm run lint`, `npm run typecheck`, 파일 필터 없는 `./node_modules/.bin/vitest run`, `node --test scripts/*.test.mjs`를 모두 실행한다(`ci.yml` 단계의 ABI-중립 대응이며 네이티브 로드 실패는 위 환경 서명·변경 전 실패 집합과 함께 분리 보고한다).
+exit=0
+
+$ ['git', 'diff', '--name-only', 'a2a61a70', '--', '*test*']
+app/scripts/test-pools.test.mjs
+exit=0

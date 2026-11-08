@@ -1,0 +1,182 @@
+{
+  "baseline_ref": "a2a61a70",
+  "platform": "Linux",
+  "node": "v24.19.0",
+  "CI": "unset for both baseline and measured run (D-011: default projects independent of CI)",
+  "test_pools": {
+    "io": 75,
+    "unit": 852,
+    "ioSqlite": 45
+  },
+  "vitest_summary": [
+    "Test Files  9 failed | 915 passed | 3 skipped (927)",
+    "Tests  22 failed | 8561 passed | 1 expected fail | 9 skipped (8593)",
+    "Errors  1 error",
+    "Duration  487.05s (transform 34.65s, setup 26.84s, import 128.80s, tests 180.21s, environment 86ms)"
+  ],
+  "baseline_failed_files": 9,
+  "current_failed_files": 9,
+  "baseline_failed_cases": 22,
+  "current_failed_cases": 22,
+  "failed_cases": [
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > reconciles plugin choices through the actual adapter while preserving provider flags",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > reports a reconciled plugin revision as applied but not a later external edit",
+    "src/main/adapters/claude/native-resources.test.ts > applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+    "src/main/adapters/claude/native-resources.test.ts > commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+    "src/main/adapters/claude/native-resources.test.ts > waits for durable persistence and serializes subsequent plugin mutations",
+    "src/main/adapters/claude/project-reconciliation.test.ts > projects native plugin flag false during external reconciliation",
+    "src/main/adapters/claude/project-reconciliation.test.ts > shows external selection with actual status immediately, waits for idle, and never saves it back",
+    "src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+    "src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup",
+    "src/main/adapters/opencode/v1/adapter.persistent.test.ts > exposes native resources from the live channel client and its directory without mutations",
+    "src/main/adapters/opencode/v1/adapter.test.ts > OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime",
+    "src/main/app/composer-catalog.test.ts > does not start a native server after caller cancellation or session scope change during preparation",
+    "src/main/app/composer-catalog.test.ts > prepares draft and saved directory with the same production settings and env resolution as turns",
+    "src/main/app/composer-catalog.test.ts > preserves the acquire failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts > preserves the configuration failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts > returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+    "src/main/app/composer-catalog.test.ts > wires the public handler through the production resolver and returns its shutdown cleanup",
+    "src/main/app/composer-preparation-service.test.ts > shares targets across catalog resources and warmup through the production assembly",
+    "src/main/app/handlers/session-resources.claude-assembly.test.ts > reconciles external plugin selections and publishes the final state through the real watcher"
+  ],
+  "failure_set_difference": {
+    "files_added": [],
+    "files_removed": [],
+    "cases_added": [],
+    "cases_removed": []
+  },
+  "unhandled_error": "same baseline/current: native-resources.test.ts, plugin control is win32-only (native-resources.ts:38~39)",
+  "node_script_tests": {
+    "tests": 819,
+    "pass": 819,
+    "fail": 0
+  },
+  "measurement": {
+    "worker_count_note": "raw --experimental-import-meta-resolve execve 77 = root io workers 75 + pre-existing hostile nested io workers 2 (D-005 excludes nested-vitest reorganization); parents reconstructed from clone/fork incl. resumed syscalls",
+    "trace_options": "strace -f -qq --seccomp-bpf -s 400 -e trace=execve,clone,clone3,fork,vfork -e signal=none",
+    "commands": {
+      "final": {
+        "command": [
+          "npm",
+          "test"
+        ],
+        "exit": 1
+      },
+      "scripts": {
+        "command": [
+          "node",
+          "--test",
+          "--test-reporter=tap",
+          "scripts/analyze-composer-input-trace.test.mjs",
+          "scripts/check-chat-resource-surface.test.mjs",
+          "scripts/check-doc-inventory.test.mjs",
+          "scripts/check-migrations-appendonly.test.mjs",
+          "scripts/check-test-budgets.test.mjs",
+          "scripts/ensure-sqlite-abi.test.mjs",
+          "scripts/git-boundary.test.mjs",
+          "scripts/harness-boundary.test.mjs",
+          "scripts/measure-spinner-perf.test.mjs",
+          "scripts/smoke-work-profile.test.mjs",
+          "scripts/test-host.test.mjs",
+          "scripts/test-pools.test.mjs",
+          "scripts/test-time.test.mjs",
+          "scripts/validate-dist.test.mjs",
+          "scripts/validate-release-version.test.mjs"
+        ],
+        "exit": 0
+      }
+    },
+    "metrics": {
+      "final": {
+        "successful_execve": 1174,
+        "vitest_fork_workers": 77,
+        "git_config_identity_writes": 0,
+        "git_maintenance": 0,
+        "root_vitest_workers": 75,
+        "nested_vitest_workers": 2,
+        "worker_parent_counts": {
+          "7939": 75,
+          "8012": 2
+        },
+        "trace_sha256": "41dd848a44eb726e94fcb8b0e91881ee9474bd85eed9eaab60ef01e9ccf6ee70"
+      },
+      "scripts": {
+        "successful_execve": 34,
+        "vitest_fork_workers": 0,
+        "git_config_identity_writes": 0,
+        "git_maintenance": 0,
+        "root_vitest_workers": 0,
+        "nested_vitest_workers": 0,
+        "worker_parent_counts": {},
+        "trace_sha256": "5a15942a6d4fc3733d9a234c820286b8a9a13806a258fc0fce603a0ae8a9e4b3"
+      }
+    },
+    "total_successful_execve": 1208,
+    "0259_limit": 2420
+  },
+  "static_gates": {
+    "migrations": {
+      "command": [
+        "node",
+        "scripts/check-migrations-appendonly.mjs"
+      ],
+      "exit": 0,
+      "output": "[migrations] sync ok: src/main/infra/db/migrations — 34 migrations\n[migrations] sync ok: src/main/features/plugins/mail/migrations — 1 migrations\n[migrations] no-copies ok: scanned 1984 source files, 3 list owners\n[migrations] no previous v* tag — append-only check skipped (first release)\n"
+    },
+    "inventory": {
+      "command": [
+        "node",
+        "scripts/check-doc-inventory.mjs",
+        "--check"
+      ],
+      "exit": 0,
+      "output": "[doc-inventory] generated doc ok (9 items, 117 channels)\n[doc-inventory] prose ok: no inventory counts restated in current-state docs\n[doc-inventory] links ok: every relative markdown link resolves\n"
+    },
+    "budgets": {
+      "command": [
+        "node",
+        "scripts/check-test-budgets.mjs"
+      ],
+      "exit": 0,
+      "output": "[test-budgets] 17 real-git suites ok · all budget sites scaled\n"
+    },
+    "lint": {
+      "command": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "exit": 0,
+      "output": "\n> orcinus-orca@0.3.1 lint\n> eslint --cache --fix ./src ./scripts\n\n\n/workspace/orca-skin/app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx\n  57:23  warning  Compilation Skipped: Use of incompatible library\n\nThis API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.\n\n/workspace/orca-skin/app/src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx:57:23\n  55 |     .map((key) => rowIndex(key))\n  56 |     .filter((index) => index >= 0)\n> 57 |   const virtualizer = useVirtualizer({\n     |                       ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely\n  58 |     count: rows.length,\n  59 |     getScrollElement: () => props.scrollRef.current,\n  60 |     getItemKey: (index) => rows[index].key,  react-hooks/incompatible-library\n\n/workspace/orca-skin/app/src/renderer/src/features/chat/hooks/useTranscriptVirtualizer.ts\n  22:10  warning  Compilation Skipped: Use of incompatible library\n\nThis API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.\n\n/workspace/orca-skin/app/src/renderer/src/features/chat/hooks/useTranscriptVirtualizer.ts:22:10\n  20 |   scrollRef: React.RefObject<HTMLDivElement | null>\n  21 | ): Virtualizer<HTMLDivElement, Element> {\n> 22 |   return useVirtualizer({\n     |          ^^^^^^^^^^^^^^ TanStack Virtual's `useVirtualizer()` API returns functions that cannot be memoized safely\n  23 |     count: head.length,\n  24 |     getScrollElement: () => scrollRef.current,\n  25 |     estimateSize: () => ESTIMATE_PX,  react-hooks/incompatible-library\n\n✖ 2 problems (0 errors, 2 warnings)\n\n"
+    },
+    "typecheck": {
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "output": "\n> orcinus-orca@0.3.1 typecheck\n> npm run typecheck:node && npm run typecheck:web && npm run typecheck:test\n\n\n> orcinus-orca@0.3.1 typecheck:node\n> tsc --noEmit -p tsconfig.node.json --composite false\n\n\n> orcinus-orca@0.3.1 typecheck:web\n> tsc --noEmit -p tsconfig.web.json --composite false\n\n\n> orcinus-orca@0.3.1 typecheck:test\n> tsc --noEmit -p tsconfig.test.json\n\n"
+    }
+  },
+  "mutations": {
+    "total": 64,
+    "caught": 64,
+    "missed": 0,
+    "restored": true
+  },
+  "changed_tests_audit": {
+    "files": [
+      "app/scripts/test-pools.test.mjs"
+    ],
+    "time_budget_violations": 0,
+    "time_budget_scope": "TS scanner does not apply to .mjs; no new timeouts introduced",
+    "host_isolation_violations": 0,
+    "host_isolation_evidence": "temporary src tree removed in finally; config subprocess only reads repository configuration; real guard mutations isolated in Worker",
+    "pool_violations": 0,
+    "pool_evidence": "node --test script; child node and Worker are the direct oracle for config/process state"
+  }
+}

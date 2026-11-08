@@ -1,0 +1,99 @@
+{
+  "observed_date": "2026-11-08",
+  "run_id": 42207662226,
+  "jobs": [
+    {
+      "id": 127858231804,
+      "name": "parallel",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Vitest",
+          "conclusion": "success"
+        },
+        {
+          "name": "Script tests",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127858231986,
+      "name": "serial",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Vitest",
+          "conclusion": "success"
+        },
+        {
+          "name": "Script tests",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127858232101,
+      "name": "sqlite-serial",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Vitest",
+          "conclusion": "success"
+        },
+        {
+          "name": "Script tests",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127858232164,
+      "name": "serial",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Vitest",
+          "conclusion": "success"
+        },
+        {
+          "name": "Script tests",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127858232224,
+      "name": "parallel",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Vitest",
+          "conclusion": "success"
+        },
+        {
+          "name": "Script tests",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 127858232264,
+      "name": "sqlite-serial",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Vitest",
+          "conclusion": "success"
+        },
+        {
+          "name": "Script tests",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "sample_job_id": 127858231804,
+  "sample_log_lines": 1769,
+  "duration_line": "2026-11-06T11:10:58.3132809Z    Duration  193.89s (transform 23.71s, setup 38.38s, import 144.92s, tests 207.94s, environment 159ms)"
+}

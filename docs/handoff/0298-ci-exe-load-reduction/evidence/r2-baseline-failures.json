@@ -1,0 +1,46 @@
+{
+  "command": "npm test (vitest run; Node ABI ensured by pretest)",
+  "baseline": "a2a61a70",
+  "files": [
+    "src/main/adapters/claude/adapter.native-plugins.test.ts",
+    "src/main/adapters/claude/native-resources.test.ts",
+    "src/main/adapters/claude/project-reconciliation.test.ts",
+    "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+    "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+    "src/main/adapters/opencode/v1/adapter.test.ts",
+    "src/main/app/composer-catalog.test.ts",
+    "src/main/app/composer-preparation-service.test.ts",
+    "src/main/app/handlers/session-resources.claude-assembly.test.ts"
+  ],
+  "cases": [
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > reconciles plugin choices through the actual adapter while preserving provider flags",
+    "src/main/adapters/claude/adapter.native-plugins.test.ts > reports a reconciled plugin revision as applied but not a later external edit",
+    "src/main/adapters/claude/native-resources.test.ts > applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+    "src/main/adapters/claude/native-resources.test.ts > commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+    "src/main/adapters/claude/native-resources.test.ts > waits for durable persistence and serializes subsequent plugin mutations",
+    "src/main/adapters/claude/project-reconciliation.test.ts > projects native plugin flag false during external reconciliation",
+    "src/main/adapters/claude/project-reconciliation.test.ts > shows external selection with actual status immediately, waits for idle, and never saves it back",
+    "src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+    "src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup",
+    "src/main/adapters/opencode/v1/adapter.persistent.test.ts > exposes native resources from the live channel client and its directory without mutations",
+    "src/main/adapters/opencode/v1/adapter.test.ts > OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime",
+    "src/main/app/composer-catalog.test.ts > does not start a native server after caller cancellation or session scope change during preparation",
+    "src/main/app/composer-catalog.test.ts > prepares draft and saved directory with the same production settings and env resolution as turns",
+    "src/main/app/composer-catalog.test.ts > preserves the acquire failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts > preserves the configuration failure stage through the registered catalog handler",
+    "src/main/app/composer-catalog.test.ts > returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+    "src/main/app/composer-catalog.test.ts > wires the public handler through the production resolver and returns its shutdown cleanup",
+    "src/main/app/composer-preparation-service.test.ts > shares targets across catalog resources and warmup through the production assembly",
+    "src/main/app/handlers/session-resources.claude-assembly.test.ts > reconciles external plugin selections and publishes the final state through the real watcher"
+  ],
+  "unhandled": [
+    "src/main/adapters/claude/native-resources.test.ts: 이 플러그인은 프로젝트별 제어를 지원하지 않습니다."
+  ],
+  "environment_cause": {
+    "windows_path": "C:/one·C:/two·C:/work 경로가 Linux에서는 절대 경로가 아님",
+    "windows_feature": "native-resources.ts:38~39 canTogglePlugins requires process.platform === 'win32'"
+  }
+}

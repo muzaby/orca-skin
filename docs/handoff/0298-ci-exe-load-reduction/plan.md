@@ -629,6 +629,142 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 | AC 자기보고 | AC4′ ✅ · AC8′ ✅ run 42233452074 green — `✅ 11 · ⚠️ 2 · ❌ 0 = 총 13` (분모 12 → 13: AC8′ 추가) |
 | 대상 커밋 | `(r1.4 구현 — 좌표는 INDEX)` |
 
+
+---
+
+## [구현자 기입] 설계 리뷰 (r2 — ΔV5)
+
+- 동의 / 그대로 진행: 유효 V는 `V1 + ΔV1~ΔV5`다. §7-F의 F1·F2·D-013·F3을 수행하며 r1.2~r1.4 원문은 보존한다.
+- 이견 / 현실성 문제: §19의 원시 워커 태그 집계에는 현재 트리의 기존 hostile 중첩 워커 2가 포함된다. 원시 77·본 실행 75·중첩 2를 모두 보고하고, D-005 비범위인 중첩 실행 구조는 유지한다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 보드의 Claude 구현 표기는 사용자 `handoff-impl 298` 지시로 Codex가 승계하며 Decision·AC·V 규범 행은 수정하지 않았다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r2)
+
+아래 스크립트 경로는 `app/` 기준이다. `P`는 `scripts/test-pools.test.mjs`, `H`는 `scripts/test-host.test.mjs`이며, 좌표는 아래 테스트명과 결합한다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | io 규칙·sqlite·forced | 6규칙 + sqlite 6분기 + forced 1 = 13 | 13/13 | `P:classifyTestSource — 규칙마다 그 신호 하나만 든 입력` · `P:FORCED_IO 는 프로세스 격리가 필요한 파일만 남기고 Git 조회를 대체한 send 검사는 unit 이다` | 각 신호만 있는 입력 → 정확한 `{pool,reasons}`; forced loopback ∈ io, send.profile ∈ unit | — |
+| VP-02·05 | 프로젝트 필드 | unit.pool·unit.setupFiles·unit.groupOrder·io.pool·io.maxWorkers·io.groupOrder (6) | 6/6 | `P:buildProjects — 환경별 필드` 6건 · `src/main/infra/test-pools.test.ts:워커 스레드에서 돌고 가드가 설치돼 있다` · `test-environment.test.ts:풀 배선 (0298)` | threads/forks 구별; 환경 4종 → maxWorkers 미지정·group 0; setup 배열 전체 단언 | — |
+| VP-03 | 가드·기록·훅·재설치 | spawn·spawnSync·execFileSync·execSync·dlopen·violations.push·afterEach·afterAll·R1·R2 (10) | 10/10 | `P:installUnitGuard — 워커 스레드에서 실제 모듈로` 4건 · `P:afterAll 에서 삼킨 자식 프로세스 시도 → vitest 비정상 종료 + [test-pools]` · `test-pools.test.ts:위반을 남긴 테스트는 호출자가 오류를 삼켜도 afterEach 가 red 로 만든다` | 5형태 throw; 다른 .node 전달; 두 install 상태·spawnSync 래퍼 동일; 첫 상태에 위반 1건; 삼킨 throw도 파일 red | — |
+| VP-04·06 | 격리 git 설정 | 신원 2키·autocrlf·maintenance + 파일 기록 (5) | 5/5 | `H:신원 · core.autocrlf=false · maintenance.auto=false 를 담는다` · `src/main/infra/git/hermetic-config.test.ts` 2건 · `test-environment.test.ts` 파일 내용 단언 | 실제 새 저장소 4키 읽기; `GIT_TRACE=1` 작동 확인 후 maintenance 부재·작성자 확인 | — |
+| VP-08 | 저장소별 config 삭제 | 신원 32 + autocrlf 4 → 0 (36) | 36/36 | ``P:테스트 소스에 `git config user.*`·`core.autocrlf` 호출이 없다`` · 전체 vitest의 실-git 스위트 | 소스 스캔 offenders=[]; `E5-config` 재삽입 시 음성 단언 red | — |
+| VP-09 | PowerShell | Windows FileShare.None helper (1) | 0/1 | `src/main/infra/config/file-mutation.test.ts:waits for an actual Windows FileShare.None handle to be released` — Linux skip | Windows PowerShell 경로는 원문 유지; Linux에서는 실행하지 않음 | Windows CI·pwsh 없는 self-hosted 실기 |
+| VP-12 | 스레드 홈 정렬 | 본체·unit setup 호출 (2) | 2/2 | `P:alignThreadHomedir — 워커 스레드의 os.homedir 를 스레드 env 에 맞춘다` 2건 · `test-pools.test.ts:os.homedir() 는 setup 이 이 파일에 준 홈이다` · hostile 스위트 | 다른 `-thread` 홈 → 반환값; 미정렬 대조는 원래 홈; 파일별 임시 홈 배선 | — |
+| VP-13 | 모드·SQLite 부분집합 | 분기 5 + E1~E5 = 10 | 10/10 | 분기: `P:io 실측 모드 (0298 ΔV2)` 6건; E1: `P:DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다`; E2~E5: `P:vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)` 2건 | db/git/pure 전체 deepEqual; serial → io maxWorkers 1·group 1, unit 0; sqlite-serial → 실제 트리의 비어 있지 않은 ioSqlite, io와 교집합 ∅ | — |
+| VP-16 | 테스트 작성 규칙 | T1 exe 대체·T2 환경 의존·T3 로컬 확인 (3) | 3/3 | `rg -n '\*\*(exe 대체\|환경 의존\|로컬 확인)\*\*' app/AGENTS.md` → 3; T3 전체 실행은 아래 gate 산출 | 표지 3개 각각 제거 → 개수 gate red; 명령은 CI 단계 집합과 일치 | — |
+
+- 자리 재열거: 6규칙·sqlite 6분기·forced 1·프로젝트 6·가드 10·설정 5·삭제 36·PowerShell 1·홈 2·모드 10·문서 3. §7-F 검색 결과와 고정 목록 차집합은 ∅이며 VP-13 edge 검색 13줄은 자리 5 + 선언된 제외 8이다.
+- §10 자리 목록 밖에서 본 운반 자리: 없음 — 새 production 분기는 만들지 않았다(`git diff --name-only`의 앱 변경은 테스트 1파일·지침 1파일).
+- 직전 `못 잡음`: `E1-iosq`·`C-cfg-mode`는 F1 새 테스트, `E3-reentry`는 F2 새 재설치 테스트가 red로 바꾼다(잠금 표·명세/결과 참조). `E2-badmode`는 §7-F 의무 5의 동치 경계로 재실행 대상 밖이다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01·02·03·04·05·08·12·13·16 | REQUIRED | SELF_PASS | 위 자리별 좌표 + 현재 gate 산출 | not selected — 분기별 직접 입력·64행 sweep |
+| VP-06 | REQUIRED | SELF_PASS | `hermetic-config.test.ts` 2케이스 | required — `E4-0~3` 4키 제거 각각 red |
+| VP-07 | REQUIRED | SELF_PASS | `gate: strace` 성공 execve·io 워커 집계(아래) | not selected |
+| VP-09 | REQUIRED | SELF_BLOCKED | `file-mutation.test.ts` Linux skip | Windows·self-hosted 실기 대기 |
+| VP-10 | REGRESSION | SELF_BLOCKED (Windows CI 대기) | 전체 테스트 실패 집합 비교·Windows PR CI | not selected |
+| VP-11 | REGRESSION | SELF_PASS | VP-01·02·03·05·07 좌표 합 | not selected |
+| VP-15 | REQUIRED | SELF_PASS (상속) | GitHub run 42207662226 job 6/6 success 재조회; job 127858231804 로그 1,769줄·Duration 193.89s | not selected — 실측 워크플로는 이번 diff에서 불변 |
+
+VP-14는 D-009로 폐기됐다. 현재 REQUIRED 13·REGRESSION 2 = 15 pair이며 SELF_PASS 13 / SELF_BLOCKED 2(VP-09·10)다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+명세와 결과는 [r2-mutations.jsonl](evidence/r2-mutations.jsonl)·[r2-mutations.tsv](evidence/r2-mutations.tsv)다. 하네스는 `.agents/skills/handoff-verify/scripts/mutate.py`이고 `원복 확인: 모든 파일 원문 그대로`를 확인했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| E1-child-process·git-fixture·run-git·sqlite·timezone·forced (6) | sweep — VP-01 규칙 | red | P classifyTestSource | 잠김 |
+| E1-sq0~5·runinj·tzbr·cpimp·strip·forced (11) | sweep — VP-01 하위 분기·forced 목록 | red; forced는 ΔV5 목록 1로 정정 | P 해당 신호·주석·주입·forced 단언 | 잠김 |
+| E2-unitpool·iopool·guardsetup·excl·unitgroup·iogroup·iomax (7) | sweep — VP-02·05 필드·형제 맞바꿈 | red | P buildProjects 환경별 필드 | 잠김 |
+| E2-par·serial·serial-grp·sqs-max·sqs-grp·sqs-rest·sqs-swap·resolve-empty·resolve-bad (9) | sweep — VP-13 분기·형제 맞바꿈 | red | P io 실측 모드 | 잠김 |
+| **E1-iosq**·**C-cfg-mode**·**E3-reentry** (3) | 인용 변이 — F1·F2 | **green** | 새 partition·실제 config serial·재설치 케이스 | 잠김 |
+| E1-iosq-swap·C-cfg-receive·C-cfg-sqlite·C-cfg-env (4) | sweep — VP-13 E1~E5·io 형제 구별 | 최초 | 새 partition·실제 config sqlite-serial/serial | 잠김 |
+| E3-spawn·spawnSync·execFileSync·execSync·dlopen·dlopen-any·push·state·hook-each·hook-all·drain (11) | sweep — VP-03; 직전 red 보존 | red; state는 최초 | P installUnitGuard·afterAll + vitest test-pools의 실제 훅 | 잠김 |
+| E7-body·call·key (3) | sweep — VP-12 | red | P alignThreadHomedir·vitest 홈 배선 | 잠김 |
+| E4-0~3 (4) | VP-06 선택 증거 | red | 실제 git hermetic-config 2케이스 | 잠김 |
+| E4-write·name·E5-config (3) | sweep — VP-04·06·08 | red | test-environment·H 설정 내용·P 음성 스캔 | 잠김 |
+| T-exe 대체·환경 의존·로컬 확인 (3) | 새 oracle — VP-16 표지 전수 gate | 최초 | `rg -c` 결과 2 ≠ 3 | 잠김 |
+
+- 분모 검산: 선택 증거 4 · 인용 변이 3 · 새 oracle 3 · sweep 54 = **64**행(중복은 앞 범주에 귀속). Windows PowerShell 1자리는 Linux 실행 경계라 남겼다.
+- 덮개 회귀: red → green 0건(재실행 64행 중 red 64·SKIP 0). 직전 verify가 red였던 변경 oracle의 분기·가드·홈·설정·배선 행은 같은 실수로 재앵커했고, 0299가 제거한 두 번째 forced 항목은 ΔV5가 폐기했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태의 소비자 | app 테스트 작성 규칙 3개 → 에이전트가 읽는 test-pools 항목; gate 명령은 실제 실행 | — |
+| seam 재배치와 정리 스코프 | production 재배치 없음; 새 임시 앱 디렉토리는 finally에서 rmSync | — |
+| 새 실패 경로의 상태표 | 테스트의 `[test-pools]` 위반 출력은 기존 §5 unit 위반 행; 제품 동작 변경 없음 | — |
+| 조용한 통과 가능성 | config mode·ioSqlite 누락/가드 재설치 제거는 새 케이스가 red | F1·F2 잠금 표 |
+| 늦은 응답·화면 되돌림 | 해당 없음 — UI·요청 수명주기 무변경 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | GitHub CI와 이 실행기의 플랫폼·Node 버전 차이 | 환경/비귀속 실패를 구분해 보고 | 변경 전·후 9파일 22건 및 unhandled rejection 1건 동일; C:/ 경로·win32 전용 plugin 제어 — r2-baseline-failures.json·r2-gates.json |
+| 2 | node --test가 npm test의 vitest red 뒤에는 실행되지 않음 | 선조치 — 전체 스크립트 테스트를 별도 실행·측정 | node --test scripts/*.test.mjs 819/819 passed |
+| 3 | app 테스트 가드가 env에 따라 다르게 실패할 수 있음 | D-013 문서 반영; 수정 테스트 파일의 가드 위반 0 확인 | 시간 예산 위반 0(신규 timeout 없음·.mjs는 TS 가드 대상 밖); 호스트 격리 위반 0(임시 앱 finally 정리·config 읽기만); 풀 위반 0(Node·worker가 직접 oracle) |
+
+### 설계 대비 명시적 차이
+
+- 계측 설명 보완: §19 원시 태그 집계는 77이고 본 실행 io 워커는 75다. trace의 clone/fork 부모를 따라 기존 hostile 중첩 2를 분리했으며, 본 실행 io 자리 75와 unit의 threads 동작을 직접 대조한다.
+- 구현 메커니즘 차이는 없음 — ΔV5가 정한 oracle과 문서만 추가했다. 재설치 케이스는 같은 상태뿐 아니라 같은 spawnSync 래퍼도 단언한다(D-014의 “새로 감싸지 않는다”).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체물·새 캐시 없음 | `git diff` production 무변경 |
+| 공유 | 실제 워커 builtin 변경이 부모로 새지 않아야 함 | AC3 · P 기존 워커 격리 경로; 부모의 자식 Node가 config를 정상 import |
+| 재진입 | 위반 상태와 래퍼가 새로 생기면 첫 상태가 비어 있음 | AC3 · R1·R2 신규 케이스; E3-reentry/state red |
+| 다른 무효화 | 외부 ORCA_TEST_IO_MODE 상속이 config 기대를 바꾸지 않아야 함 | AC11′ · config 자식마다 mode 명시; 기존 test-time은 변수를 지운 기본 구성 |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/scripts/test-pools.test.mjs` ΔV5 4케이스 · `app/AGENTS.md` T1~T3 · 본 보고·INDEX · 재현 증거 |
+| 실행 명령 | T3의 CI 대응 7명령 + `npm test` 기준선·strace 측정 + `mutate.py` 64행(명세/결과 링크 위) |
+| 관측한 게이트 산출 | 가드 3종 PASS(태그 부재로 append-only만 skip) · lint 0 error/2 기존 warning · typecheck 3종 PASS · vitest 927파일: 915 passed/9 failed/3 skipped, 22실패는 변경 전과 파일·케이스 차집합 ∅ 및 OS 원인; node --test 819/819 passed |
+| 추가·수정 테스트의 subtree 규칙 | `git diff --name-only a2a61a70 -- '*test*'` → `app/scripts/test-pools.test.mjs` 1파일; 시간 예산 위반 0(신규 timeout 없음·.mjs는 TS 가드 대상 밖); 호스트 격리 위반 0(임시 앱 finally 정리·config 읽기만); 풀 위반 0(Node·worker가 직접 oracle) |
+| V-pair 자기확인 | SELF_PASS 13 / SELF_BLOCKED 2(VP-09·10) — pair별 좌표는 전수 표 |
+| 강제 지점 전수 | **85/86** — Windows PowerShell 1 남김; forced 2→1·가드 8→10·VP-13 10·VP-16 3을 유효 V로 합성 |
+| exe 측정 (VP-07) | npm test 1174 + 별도 node --test 34 = **1208 ≤ 2,420**; 원시 fork 워커 **77 = 본 실행 io 75 + 기존 hostile 중첩 2**·unit 852 스레드; 신원/autocrlf config 쓰기 0·maintenance 0(양쪽 합). 기준선과 같은 CI 미설정 조건이며 D-011의 구성 불변은 UT로 확인 |
+| 블로커 / 역질문 | 코드·계약 블로커 없음; Windows PR CI·AC7 self-hosted 실기 대기 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+**AC 자기보고**
+
+| AC | 판정 / 이번 턴 관측 |
+|---|---|
+| AC1 | ✅ 본 실행의 fork 워커 75 = partition io 75; unit 852는 threads. §19 원시 태그 집계 77에는 기존 hostile의 중첩 io 2가 더해진다(D-005 비범위); 부모 귀속도 함께 보고 |
+| AC2 | ✅ P classifyTestSource 19케이스; 6규칙·sqlite 6분기·forced 목록 직접 입력 |
+| AC3 | ✅ P installUnitGuard 4케이스·unit test-pools 4케이스·afterAll 중첩 실행; 재진입 포함 |
+| AC4′ | ✅ buildProjects 4환경·미설정=parallel; io/unit group 0·maxWorkers 미지정 |
+| AC5 | ✅ hermetic-config 2케이스 — 실제 git 4키·trace maintenance 부재 |
+| AC6 | ✅ P 저장소별 config 스캔 0; 전체 실-git 스위트 실행 |
+| AC7 | ⚠️ pwsh 없는 self-hosted Windows 실기 대기; Linux FileShare.None skip |
+| AC8 | ⚠️ Linux 변경 전·후 9파일 22건·unhandled 1건 동일, 파일/케이스 차집합 ∅; Windows CI 대기 |
+| AC8′ | ⚠️ 이번 커밋 Windows PR CI 대기 |
+| AC9 | ✅ test-environment·hostile·unit 홈 배선 실행; E7-body/call/key red |
+| AC10 | ✅ 성공 execve **1208 ≤ 2,420**(npm test + 별도 스크립트 테스트) |
+| AC11′ | ✅ 기존 모드 6케이스 + 실제 config 2케이스; E1~E5 직접 관측 |
+| AC12′ | ✅ GitHub 실험 run 42207662226 job 6/6 success; 재조회한 parallel 로그 1,769줄·Duration 분해; 새 요약 mjs 없음 |
+| AC13 | ✅ app/AGENTS.md T1~T3 검색 3; T3 명령 전부 실행; marker 제거 3행 red |
+
+**합계 검산**: `✅ 11 · ⚠️ 3 · ❌ 0 = 총 14`. ΔV5의 AC13 추가로 직전 13에서 현재 14로 분모가 바뀌었다.
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 같은 축 여부: F1 모드 옆 배선·F2 재진입을 §7-F의 유한 목록으로 잠갔다(`E1-iosq`·`C-cfg-mode`·`E3-reentry` green → red).
+- 막았어야 할 지침·AC: 이전 §10이 모드 분기만 열거했던 F1은 ΔV5 edge 5로 보완됐다; F3는 이번 턴 일곱 필드와 전수 표를 모두 채웠다.
+- 반복 환경 한계: Linux C:/ 절대 경로·win32 전용 플러그인 제어; 9파일 22건과 unhandled 1건이 변경 전과 동일; AC7 self-hosted만 사람 몫.
+- 현재 라운드·impl 턴: `r2`(verify r1 이후 첫 구현 턴). handoff 지침 변경은 D-012에 따라 이번 diff에 없다.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
