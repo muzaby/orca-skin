@@ -178,5 +178,18 @@
     "host_isolation_evidence": "temporary src tree removed in finally; config subprocess only reads repository configuration; real guard mutations isolated in Worker",
     "pool_violations": 0,
     "pool_evidence": "node --test script; child node and Worker are the direct oracle for config/process state"
+  },
+  "windows_ci": {
+    "run_id": 42460603101,
+    "run_number": 1024,
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/42460603101",
+    "job_id": 128668865870,
+    "conclusion": "success",
+    "tested_head": "9a99402105fcb78d70d17ff7959929ae9384f5f7",
+    "test_step_elapsed_seconds": 277.929,
+    "vitest_files_passed": 924,
+    "vitest_tests_passed": 8589,
+    "script_tests_passed": 819,
+    "file_mutation_tests_passed": 6
   }
 }

@@ -1,0 +1,111 @@
+{
+  "observed_date": "2026-11-08",
+  "run_id": 42460603101,
+  "run_number": 1024,
+  "url": "https://github.com/muzaby/orca-skin/actions/runs/42460603101",
+  "job_id": 128668865870,
+  "conclusion": "success",
+  "tested_head": "9a99402105fcb78d70d17ff7959929ae9384f5f7",
+  "job": {
+    "id": 128668865870,
+    "name": "gate",
+    "status": "completed",
+    "conclusion": "success",
+    "run_id": 42460603101,
+    "logs_url": null,
+    "steps": [
+      {
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 1
+      },
+      {
+        "name": "Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 2
+      },
+      {
+        "name": "Run actions/setup-node@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 3
+      },
+      {
+        "name": "Install dependencies",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 4
+      },
+      {
+        "name": "Migration guard (sync + append-only)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 5
+      },
+      {
+        "name": "Doc inventory guard (counts + prose + links)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 6
+      },
+      {
+        "name": "Test budget guard (real-git suites)",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 7
+      },
+      {
+        "name": "Lint",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 8
+      },
+      {
+        "name": "Typecheck",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 9
+      },
+      {
+        "name": "Test",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 10
+      },
+      {
+        "name": "Post Run actions/setup-node@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 19
+      },
+      {
+        "name": "Post Run actions/checkout@v4",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 20
+      },
+      {
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success",
+        "number": 21
+      }
+    ]
+  },
+  "test_step_start": "2026-11-08T07:58:32.0607860Z ##[group]Run npm test",
+  "test_step_end": "2026-11-08T08:03:09.9892410Z # duration_ms 27180.7226",
+  "test_step_elapsed_seconds": 277.929,
+  "selected_log_lines": [
+    "2026-11-08T07:53:25.9919922Z Microsoft Windows Server 2025",
+    "2026-11-08T07:53:35.5806779Z HEAD is now at f0223933 Merge 9a99402105fcb78d70d17ff7959929ae9384f5f7 into 9af147e20d322a28ced9fb08a6dd011e25a5c4c7",
+    "2026-11-08T07:59:00.7024431Z  ✓  io  src/main/infra/config/file-mutation.test.ts (6 tests) 3540ms",
+    "2026-11-08T08:02:41.6745695Z  Test Files  924 passed | 3 skipped (927)",
+    "2026-11-08T08:02:41.6810477Z       Tests  8589 passed | 1 expected fail | 3 skipped (8593)",
+    "2026-11-08T08:02:41.6830718Z    Duration  246.05s (transform 26.62s, setup 58.93s, import 188.44s, tests 224.25s, environment 212ms)",
+    "2026-11-08T08:03:09.9891250Z # tests 819",
+    "2026-11-08T08:03:09.9891583Z # pass 819",
+    "2026-11-08T08:03:09.9891739Z # fail 0"
+  ]
+}
