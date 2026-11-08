@@ -6,436 +6,500 @@
 |---|---|
 | slug | `0299-concurrency-notice-turn-end-flicker` |
 | 작성자 | Claude Code |
-| 일자 | 2026-11-07 |
+| 일자 | 2026-11-07 (V1) · 2026-11-08 (ΔV1) |
 | 매핑 | 버그수정(비기능) — 구현 주체 Claude |
-| 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | READY (ΔV1) |
+| V mode | `Baseline V` + `Delta V` |
+| 기준 V | `0299:V1@(V1 설계 — 검증자 기입)` — 브랜치 `ccr-37c31341-jfr0sv` 커밋 `28cffb4`, `main` 미병합 |
+| 이번 V revision | `ΔV1` — 사용자 결정 D-008로 V1의 순서 보정 설계(SD-01·AR-01·AR-02·MD-01~03)를 신원 기반 설계로 대체 |
+| 유효 V | `V1 + ΔV1` — 구현은 §7-B와 Part II(ΔV1판)만 따른다 |
+
+> **ΔV1 읽는 법.** Part I과 Part II는 ΔV1 기준으로 고쳐 썼다. V1 원문(순서 계약 · `ownTurnOpen`)은 기준 V 커밋에 있다.
+> §7-A는 V1 node·pair의 처분만 남기고, 유효 V는 §7-B다. V1은 구현·검증 전이라 이관할 실행 증거가 없다.
 
 # Part I — Product & UX Contract
 
 ## 1. Context / 목표
 
 - 해결하려는 문제: 자기 턴만 실행 중인 프로젝트에서 턴이 끝날 때마다 컴포저 위 "같은 프로젝트에서 다른 작업이 실행 중입니다" 패널이 나타났다 곧바로 사라진다.
-- 원인(조사 결과, §8·§9 AS-IS): 판정식 `projectCount − (inflight ? 1 : 0) > 0`의 두 항이 서로 다른 IPC로 도착하고, 턴 종료 때 `inflight=false`가 `count=0`보다 먼저 도착한다. 그 사이 자기 턴 1건이 "다른 작업"으로 계산된다.
-- 완료 후 달라지는 것: 자기 턴의 종료·오류·중단(Stop)·즉시 보내기는 어느 순간에도 이 패널을 만들지 않는다. 다른 턴이 실제로 돌 때의 패널 동작은 그대로다.
-- 성공을 사용자 관점에서 한 문장으로: 혼자 작업할 때 이 경고는 한 번도 깜빡이지 않고, 같은 프로젝트에서 다른 작업이 돌 때만 보인다.
+- 구조 원인(§8 R-01~R-08): "자기 턴 제외"를 **출처·채널·시점이 다른 두 값의 산술**(main 집계 `count` − renderer 낙관 플래그 `inflight`)로 계산한다. 두 값 사이에는 동기화 계약이 없어 한쪽이 먼저 바뀌는 모든 순간이 오판이다.
+- 같은 구조가 만드는 증상 네 가지(하네스 무관): 턴 종료 오탐(보고된 깜빡임) · Stop·즉시 보내기 오탐 · 다른 세션 실행 중에 자기 턴을 시작하면 경고가 잠깐 사라지는 누락(OpenCode 서버 준비 동안 길어짐) · V1 같은 순서 보정은 IPC 도착 순서와 로컬 플래그 전이 자리를 전부 맞춰야만 성립한다.
+- 완료 후 달라지는 것: 경고는 main이 보낸 "지금 실행 중인 턴의 신원 목록"과 "화면에 띄운 세션의 신원"만으로 정해진다. 로컬 턴 플래그와 도착 순서는 판정에 들어가지 않는다.
+- 성공을 사용자 관점에서 한 문장으로: 혼자 작업할 때 이 경고는 한 번도 깜빡이지 않고, 같은 프로젝트에서 다른 세션이 돌 때만 끊김 없이 보인다.
 
 ## 2. 사용자 의도 / 요구 출처
 
 | 구분 | 내용 | 출처 |
 |---|---|---|
-| 명시 요구 | "오픈코드 컴포저로 세션 시작 시, 어시스턴트의 답변이 끝날때(턴종료), 컴포저 상단에 같은 경로에서 1개 이상의 세션이 동작하는 경우에 대한 경고 패널이 떴다가 바로 사라진다. 플리커처럼 깜빡이며 바로 사라지는데 판정상 1개의 세션만 확인돼서 그런것으로 보인다. 왜 이러현상이 매번 발생하는지 분석하고 원인 획인하라" | 라이브 세션 2026-11-07 (`/handoff-plan`) |
-| 추론 의도 | 원인 확인 후 깜빡임을 없앤다 — `/handoff-plan`으로 요청해 설계·구현 대상으로 본다 | 호출 스킬 |
-| 추론 의도 | Stop·즉시 보내기도 같은 원인으로 같은 깜빡임을 낸다(§8 R-07·R-08) — 같은 계약("자기 턴 제외") 위반이라 함께 닫는다 | D-003 |
+| 명시 요구 | "오픈코드 컴포저로 세션 시작 시, 어시스턴트의 답변이 끝날때(턴종료), 컴포저 상단에 같은 경로에서 1개 이상의 세션이 동작하는 경우에 대한 경고 패널이 떴다가 바로 사라진다. … 왜 이러현상이 매번 발생하는지 분석하고 원인 획인하라" | 라이브 세션 2026-11-07 |
+| 명시 요구 | "Claude에서도 발상할수있는 구조적인 문제라면 구조적인 문제자체를 해결하도록 설계하라" | 라이브 세션 2026-11-08 |
+| 추론 의도 | 순서를 맞추는 보정이 아니라 오판이 생길 수 없는 판정 구조로 바꾼다 — "구조적인 문제자체를 해결" | D-008 |
+| 추론 의도 | 같은 구조의 다른 증상(Stop·즉시 보내기·시작 시 누락)도 함께 사라져야 한다 | D-003 |
 
 ## 3. Decision Ledger
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
-| D-001 | 턴 종료 때 동시 실행 경고가 깜빡이는 원인을 확인하고 없앤다 | 원문: "왜 이러현상이 매번 발생하는지 분석하고 원인 획인하라" | 사용자 턴 | ACTIVE | — |
-| D-002 | 경고 의미 유지 — 같은 프로젝트에서 **자기 턴을 뺀** 다른 턴이 돌 때만 보이고, 차단하지 않으며, ×는 에피소드 단위다 | 기존 채택 동작 | `Composer.tsx:167-169` 주석 · `ko.ts:1099-1100` · `IPC_CONTRACT.md §2.12-b` | ACTIVE | — |
-| D-003 | 범위는 같은 원인의 자기 턴 종료 경로 전부다 — 정상 종료·스트림 오류/중단·Stop·즉시 보내기 | 같은 판정식이 같은 방식으로 틀린다(§8 R-07·R-08). 한 경로만 고치면 D-002 위반이 남는다 | 설계(추론) — 사용자가 좁히면 SUPERSEDED | ACTIVE | — |
-| D-004 | 하네스 무관하게 고친다. OpenCode 전용 분기를 두지 않는다 | 경합이 공통 `TurnCoordinator`·`Composer`에 있다(§8 R-05) | 설계 | ACTIVE | — |
-| D-005 | 지연·디바운스로 가리지 않고 순서를 보장해 고친다 | 시간 휴리스틱은 진짜 경고를 늦추고 경합을 남긴다 | 설계 | ACTIVE | — |
-| D-006 | listen 턴은 동시 턴으로 세지 않는다 | 0143 결정 유지 | `turn-coordinator.ts:320-323` 주석 · `turn-policy.ts` | ACTIVE | — |
-| D-007 | IPC `orca:concurrency:event` payload `{ projectId; count }`는 그대로 둔다. 설명 문장만 새 순서 계약으로 고친다 | 세션 식별자를 싣는 대안은 새 세션(id 미발급) 매핑이 필요해 범위가 커진다(§17) | 설계 | ACTIVE | — |
+| D-001 | 턴 종료 때 동시 실행 경고가 깜빡이는 원인을 확인하고 없앤다 | 원문: "왜 이러현상이 매번 발생하는지 분석하고 원인 획인하라" | 사용자 턴 2026-11-07 | ACTIVE | — |
+| D-002 | 경고 의미 유지 — 같은 프로젝트에서 **자기 것이 아닌** 턴이 돌 때만 보이고, 차단하지 않으며, ×는 에피소드 단위다 | 기존 채택 동작 | `Composer.tsx:167-178` · `ko.ts:1099-1100` | ACTIVE | — |
+| D-003 | 범위는 같은 원인의 모든 증상이다 — 정상 종료·스트림 오류/중단·Stop·즉시 보내기·핸드오프 새 세션·시작 시 누락 | 한 판정식이 모든 경로에서 같은 방식으로 틀린다 | 설계(추론) | ACTIVE | — |
+| D-004 | 하네스 무관하게 고친다. 하네스 전용 분기를 두지 않는다 | 원인이 공통 `TurnCoordinator`·`Composer`에 있다(§8 R-05) | 설계 | ACTIVE | — |
+| D-005 | 지연·디바운스로 가리지 않는다 | 시간 휴리스틱은 진짜 경고를 늦추고 원인을 남긴다 | 설계 | ACTIVE | — |
+| D-006 | listen 턴은 실행 중 턴으로 세지 않는다 | 0143 결정 유지 | `turn-coordinator.ts:320-323` | ACTIVE | — |
+| D-007 | IPC payload `{ projectId; count }`를 유지한다 | — | V1 설계 | SUPERSEDED | D-009 |
+| D-008 | 구조 원인 자체를 없앤다. 도착 순서·로컬 플래그 동기화에 기대는 보정을 쓰지 않는다 | 원문: "구조적인 문제라면 구조적인 문제자체를 해결하도록 설계하라" | 사용자 턴 2026-11-08 | ACTIVE | — |
+| D-009 | 자기 제외를 **신원**으로 한다. main은 프로젝트별 실행 중 턴의 신원 스냅샷 `{ projectId; turns: ActiveTurnRef[] }`을 보내고 `count`는 없앤다. renderer는 표시 중 세션 신원과 맞는 항목을 뺀 수로 판정한다. renderer 턴 플래그(`inflight`·`responding`·transport)는 판정 입력이 아니다 | 스냅샷은 한 번에 통째로 오고 신원 비교는 순서와 무관하다. `count`를 없애야 산술 판정이 다시 생기지 않는다 | 설계(D-008 이행) | ACTIVE | D-007 대체 |
+| D-010 | "자기"는 표시 중 세션이다 — 같은 세션 id, 또는 그 세션이 태어난 draft 키. 다른 창에서 같은 세션을 볼 때 그 세션의 턴도 자기로 본다 | 같은 세션은 lease 때문에 병렬로 돌 수 없어 파일 충돌 경고 대상이 아니다. AS-IS는 다른 창에서 경고를 띄웠다 — 사용자가 바꿀 수 있다 | 설계(추론) | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-007 (신규 handoff).
-- 변경된 결정: 없음.
-- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-002(기존 경고 의미), D-006(0143).
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-002 ↔ AC6(다른 턴 진행 시 표시 유지) · D-003 ↔ AC1~AC5 · D-004 ↔ AC14(두 하네스 실기) · D-005 ↔ §9 TO-BE(타이머 없음) · D-006 ↔ AC11(listen 비계상 회귀) · D-007 ↔ AC13(payload 불변, 문장 갱신).
+- 이번 턴(ΔV1)에서 새로 추가된 결정: D-008(사용자) · D-009 · D-010.
+- 변경된 결정: D-007 → D-009 (사용자 지시 "구조적인 문제자체를 해결" — payload 유지 조건이 순서 보정 설계의 전제였다).
+- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001~D-006.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-002 ↔ AC6 · D-003 ↔ AC1~AC7 · D-004 ↔ AC14 · D-005 ↔ §9 TO-BE(타이머 없음) · D-006 ↔ AC11 · D-008 ↔ AC1~AC7의 "모든 도착 순서" 단언 · D-009 ↔ AC12(Composer에 플래그 입력 없음)·AC13(payload) · D-010 ↔ AC9 N2 분기.
 
 ## 4. 요구 비판적 검토
 
 | 질문 | 판단 | 근거 |
 |---|---|---|
-| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 — 사용자 가설("1개 세션만 확인")이 맞다 | 실측 순서에서 count=1은 자기 턴이고, 그 순간 `inflight`가 이미 false라 차감이 빠진다(§8 R-04) |
-| 이미 기존 코드가 충족하는가 | 아니오 | 자기 차감은 renderer 낙관 플래그 `inflight`에 의존한다(`Composer.tsx:171`) |
-| 더 작은 해법이 있는가 | main 쪽 순서 교정 1곳만으로 정상 종료는 닫힌다. Stop은 renderer 낙관 갱신(`CANCEL_CHAT`)이 main보다 앞서 별도 신호가 필요하다 | §8 R-07·R-08 |
-| 선행 자료의 주장을 코드와 대조했는가 | `IPC_CONTRACT.md:473` "Composer는 자기 inflight를 차감해" — 이 서술이 경합을 만든 설계다 | §8 R-10 |
-| ACTIVE 결정·기존 채택 결정과 충돌하는가 | 없음 — D-002·D-006 유지 | §16 |
+| 요구가 증상이 아니라 원인을 겨냥하는가 | 타당 — 원인은 판정 구조이고 증상은 그 결과다 | §8 R-01·R-04·R-09 |
+| 이미 기존 코드가 충족하는가 | 아니오 | `Composer.tsx:171` 산술 판정 |
+| 더 작은 해법이 있는가 | V1(순서 보정)이 더 작지만 IPC FIFO 전제(V1 B-2)와 로컬 플래그 고착(V1 B-5)이 남고, 플래그가 오르는 자리 셋(R-10)을 놓쳤다 — D-008이 배제 | §8 R-10 |
+| 선행 자료의 주장을 코드와 대조했는가 | `IPC_CONTRACT.md:473` "Composer는 자기 inflight를 차감해" — 이 계약 문장이 구조 원인이다 | §8 R-11 |
+| ACTIVE 결정·기존 채택 결정과 충돌하는가 | D-007(V1)만 대체. D-002·D-006 유지 | §16 |
 
-- 사용자에게 올릴 결정: 없음. D-003(Stop·즉시 보내기 포함)은 추론이며 사용자가 정상 종료만으로 좁힐 수 있다.
-- 코드 조사로 닫은 사실: 원인·발생 조건·하네스 무관성·첫 턴 한정 아님(§8).
+- 사용자에게 올릴 결정: 없음. D-010(같은 세션 다른 창 처리)은 추론이며 사용자가 AS-IS 동작을 원하면 바꾼다.
+- 코드 조사로 닫은 사실: 원인·증상 네 가지·하네스 무관·같은 산술 패턴은 `Composer.tsx:171` 한 곳(§8 전수 조사)·양쪽이 공유하는 신원(R-12~R-14).
 
 ## 5. 동작 / 사용자 흐름
 
 ```text
-[사용자 전송] → BEGIN_TURN(자기 턴 열림)
-  → main 턴 시작 → 프로젝트 count +1  (자기 턴이라 차감 → 경고 없음)
-  → 응답 스트림 …
-  → 턴 종료(정상/오류/중단) 또는 Stop/즉시 보내기
-      → main이 자기 턴 계상을 먼저 해제(count −1) → 그 뒤 terminal 전달
-      → renderer가 terminal 수신 → 자기 턴 닫힘
-  → 모든 중간 순간 경고 없음
-  ↘ 같은 프로젝트에 다른 턴이 돌고 있으면 그 턴이 끝날 때까지 경고 표시
+main:      턴 시작 → 실행 중 턴 목록에 {세션 신원} 추가 → 세션 id 확정 시 신원 보강 → 턴 끝 → 목록에서 제거
+           (목록이 바뀔 때마다 프로젝트 스냅샷을 통째로 전송)
+renderer:  표시 중 세션 신원 = { sessionId, 그 세션이 태어난 draft 키 }
+           다른 턴 수 = 최신 스냅샷 − 표시 중 세션 신원과 맞는 항목
+           경고 = 다른 턴 수 > 0
+  → 스냅샷·채팅 이벤트·로컬 동작이 어떤 순서로 도착해도 결과가 같다
 ```
 
 ### 상태와 전이
 
 | 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
 |---|---|---|
-| 자기 턴만, 정상 종료(`telemetry`) | count 0 전달 → telemetry 전달 | 경고 없음(현재: 1~2 IPC 동안 표시 = 깜빡임) |
-| 자기 턴만, 스트림 `error`·`turn.aborted` | 같음 | 경고 없음 |
-| 자기 턴만, Stop 클릭 | renderer 즉시 응답 중 표시 해제, 자기 턴은 main terminal 전까지 차감 유지 → main 해제 → `turn.aborted` | 경고 없음(현재: 클릭~해제 사이 표시) |
-| 자기 턴만, 즉시 보내기 | 중단 → 연속 턴 시작·종료 | 경고 없음 |
-| 다른 턴 진행 중 + 자기 턴 진행/종료/Stop | count는 다른 턴 1 이상 유지 | 경고 계속 표시 |
-| 다른 턴 종료 | count 0 | 경고 사라짐 |
+| 자기 턴만, 정상 종료·오류·중단 | 스냅샷에서 자기 항목이 빠지기 전후 모두 자기 신원이라 제외 | 경고 없음 (AS-IS: 1~2 IPC 동안 표시) |
+| 자기 턴만, Stop·즉시 보내기 | 같음 | 경고 없음 (AS-IS: 클릭~해제 사이 표시) |
+| 새 세션 첫 턴(세션 id 확정 전후) | draft 키로 일치 → 확정 뒤에도 draft 키를 엔트리가 기억 | 경고 없음 |
+| 다른 세션 실행 중 + 자기 턴 시작(준비 대기 포함) | 다른 항목은 계속 남는다 | 경고 계속 표시 (AS-IS: 자기 턴 계상 전까지 사라짐) |
+| 다른 세션 실행 중 + 자기 턴 종료·Stop | 같음 | 경고 계속 표시 |
+| 다른 세션 턴 종료 | 그 항목이 빠진다 | 경고 사라짐 |
+| 같은 세션을 다른 창에서 보는 중 | 세션 id로 일치 → 자기 | 경고 없음 (D-010, AS-IS: 표시) |
 
 ### 파생 UX / 엣지케이스
 
-- loading / empty / error: 해당 없음 — 표시 문구·스타일 불변.
-- cancel / retry / close / restart: Stop은 상태표 행. 재시도(attempt) 사이 count 0/1 왕복은 자기 턴이 열려 있어 경고 없음. 재시작 hydrate는 활동 스냅샷으로 자기 턴 열림을 세운다.
-- concurrency / multi-session: 다른 세션·다른 창의 턴은 계속 "다른 작업"이다.
-- keyboard / a11y / theme: 해당 없음.
-- 외부환경: 해당 없음.
+- loading / empty / error: 해당 없음 — 문구·스타일 불변.
+- cancel / retry / close / restart: 재시도 attempt 사이 항목이 빠졌다 다시 들어와도 자기 신원이라 무관. 앱 재시작·renderer reload 직후 스냅샷은 다음 변경 때 온다(§10 B-3, 기존 동작).
+- concurrency / multi-session: 다른 세션·다른 창의 턴은 다른 작업이다. 새 대화 대기열(`newChatQueue`)의 아직 안 보낸 draft는 실행 중 항목이 없다.
+- keyboard / a11y / theme / 외부환경: 해당 없음.
 
 ## 6. 범위 / 비범위
 
-- **범위**: main 계상 해제 시점(턴 단위 멱등 해제, terminal 전달 전) · renderer 자기 차감 신호(`ownTurnOpen`) · Composer 판정의 순수 함수화 · IPC 계약 설명 문장 · 테스트.
-- **비범위**: 경고 문구·디자인 · × 에피소드 로직(`Composer.tsx:172-178`, 코드 미변경) · payload 형식(D-007) · 프로젝트 재바인딩 불일치(§10 경계 B-3) · steer 거절 `error`를 renderer가 terminal로 읽는 기존 동작(§10 경계 B-4).
+- **범위**: IPC `ConcurrencyEvent` payload를 신원 스냅샷으로 교체 · main 신원 계상(`begin`·`confirm`·`end`) · renderer 엔트리의 draft 키 보존 · 신원 판정 순수 함수·selector · Composer 판정 교체 · 계약 문서 · 테스트.
+- **비범위**: 경고 문구·디자인 · × 에피소드 로직(`Composer.tsx:172-178`, 코드 미변경) · renderer 기동 시 스냅샷 초기 조회(§10 B-3) · 프로젝트 재바인딩 불일치(§10 B-4).
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
-| 세션 식별자 기반 자기 제외(payload 변경) | 아니오 — 이번 순서 계약으로 충분 | 후속 불필요 |
+| 기동 시 스냅샷 초기 조회 채널 | 아니오 — payload가 스냅샷이라 나중에 pull 하나를 더하면 된다 | 후속 후보 |
 
 ## 7. Requirements / Acceptance — `R ↔ AT`
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | AT-01 / AC1 | 자기 턴만 있을 때 정상 종료(P1)의 owner 수신 순서 모든 접두에서 경고 판정 false | ST-01: 순서 fixture P1 재생 → 판정열 전부 false · IT-01: main 기록 순서 = fixture | `TurnCoordinator.run` → tracker → `broadcastConcurrency` / relay → `sendChatEvent` → `chatStore` → `Composer` |
-| R-01 | AT-01 / AC2 | 스트림 terminal이 `error`(P2)·`turn.aborted`(P3)여도 AC1과 같다 | ST-01 P2·P3 · IT-01 P2·P3 | 같음 |
-| R-02 | AT-02 / AC3 | Stop(P4): 클릭 직후 낙관 갱신 포함 모든 접두에서 false | ST-01 P4(`CANCEL_CHAT`을 main 반응 전에 둠) · IT-01 P4 | `chatCancel` → `interruptResponse` → tracker → `sendChatEvent(turn.aborted)` |
-| R-02 | AT-02 / AC4 | 즉시 보내기(P5): 중단 → 연속 턴 → 종료 전 구간 false | ST-01 P5 · IT-01 P5 | `chatSteerSendNow` → `interruptResponse` → post-turn flush |
-| R-01 | AT-01 / AC5 | 이미 순서가 맞던 경로 회귀 — 합성 telemetry(P6)·예외 error(P7)·시작 전 중단(P8) false | ST-01·IT-01 P6~P8 | `turn-coordinator.ts:553-616` |
-| R-03 | AT-03 / AC6 | 다른 턴 진행 중: 자기 턴 진행·종료·Stop 동안 true 유지, 다른 턴 종료 후 false(O1·O2), 자기 idle이면 다른 턴 동안 true(O3) | ST-01 O1~O3 · IT-01 O1 | 같음 |
-| — | UT-01 / AC8 | tracker `begin/end`가 토큰 단위 멱등이다(§10 규칙 칸) | UT-01 | `active-turn-tracker.ts` |
-| — | UT-02 / AC9 | 판정 함수·자기 계상 selector 규칙(§10 규칙 칸) | UT-02 | `concurrencyNotice.ts` |
-| — | UT-03 / AC10 | reducer `ownTurnOpen` 전이 규칙(§10 규칙 칸) — `CANCEL_CHAT`은 내리지 않는다 | UT-03 | `chatReducer.ts` |
-| — | IT-01 / AC11 | main 해제 3자리가 각 terminal 송신 전에 count 0을 낸다. listen 턴은 계상하지 않는다 | IT-01 · 기존 `turn-coordinator.test.ts:'listen 턴은 activeTurns 회계에 계상하지 않는다'` 갱신 | E1~E3 |
-| — | IT-02 / AC12 | Composer가 `useChatSession(ownTurnCounted)`와 `concurrencyNoticeActive`로 판정한다(`useChatResponding`으로 판정하지 않음) | IT-02 | `Composer.tsx` |
-| — | — / AC13 | `IPC_CONTRACT.md §2.12-b`·`runtime-ipc.md` ActiveTurnTracker 행이 새 순서 계약을 서술하고 payload 표기는 불변이다 | `node scripts/check-doc-inventory.mjs --check` + 문장 대조 | 문서 |
-| R-01·02·03 | AT-01~03 / AC14 | 실제 앱에서 OpenCode·Claude 각각: 새 세션 첫 턴 종료 5회·기존 세션 턴 종료 3회·Stop 3회에 패널 미출현, 두 세션 동시 실행 시 패널 출현→다른 턴 종료 후 소멸 | 사람 실기 — 페인트·IPC FIFO는 vitest 밖(§10 B-1·B-2) | 실제 Electron |
+| R-01 | AT-01 / AC1 | 자기 턴만, 정상 종료 — 새 세션(승격 포함)·기존 세션 모두, 세 채널(로컬 동작·채팅·스냅샷)의 **모든 인터리빙**의 모든 접두에서 경고 판정 false | ST-02 P1·P2 | `TurnCoordinator` → tracker → `broadcastConcurrency` / `sendChatEvent` → `chatStore` → `Composer` |
+| R-01 | AT-01 / AC2 | terminal이 `error`·`turn.aborted`여도 AC1과 같다 | ST-02 P3·P4 | 같음 |
+| R-02 | AT-02 / AC3 | Stop — `cancel`을 send 뒤 어느 위치에 두어도(새 세션 승격 전 포함) false | ST-02 P5·P6 | `cancel()` → `chatCancel` → `interruptResponse` |
+| R-02 | AT-02 / AC4 | 즉시 보내기 — 중단 → 연속 턴 스냅샷 왕복 동안 false | ST-02 P7 | `chatSteerSendNow` → post-turn flush |
+| R-01 | AT-01 / AC5 | main 예외·시작 전 중단·재시도 경로에서 턴 항목이 빠지고 남지 않는다 | IT-03 예외·재시도 케이스 | `turn-coordinator.ts` inner `finally` |
+| R-03 | AT-03 / AC6 | 다른 턴이 있으면 모든 인터리빙의 모든 접두에서 판정 = 최신 스냅샷에 자기 아닌 항목 존재(oracle은 fixture 태그) — 자기 턴 시작·종료·Stop 중에도 | ST-02 O1~O3 | 같음 |
+| R-01 | AT-01 / AC7 | 핸드오프 새 세션도 AC1과 같다 | ST-02 P8 | `startHandoff()` → `sendNewChatPayload` |
+| — | UT-04 / AC8 | tracker `begin/confirm/end/turns` 규칙(§10 규칙 칸) | UT-04 | `active-turn-tracker.ts` |
+| — | UT-05 / AC9 | 신원 순수 함수 규칙(§10 규칙 칸, D-010 분기 포함) | UT-05 | `concurrencyNotice.ts` |
+| — | UT-06 / AC10 | `activeTurnRef(turn)` 규칙(§10 규칙 칸) | UT-06 | `active-turn-ref.ts` |
+| — | IT-03 / AC11 | 실제 coordinator·tracker·핸들러가 P1·P2·P5·P7의 스냅샷 열을 fixture 그대로 낸다. listen 턴은 항목을 만들지 않는다 | IT-03 · `turn-coordinator.test.ts:'listen 턴은 activeTurns 회계에 계상하지 않는다'` 갱신 | E0~E2 |
+| — | IT-04 / AC12 | renderer가 스냅샷을 저장하고(S1) 새 세션 엔트리에 draft 키를 남기며(S2·S3) 승격 뒤에도 유지하고(S4) Composer는 `useOtherProjectTurnCount(projectId) > 0`으로만 판정한다(C1) | IT-04 | `chatStore.ts` · `Composer.tsx` |
+| — | — / AC13 | `IPC_CONTRACT.md §2.12-b`·`runtime-ipc.md` ActiveTurnTracker 행이 신원 스냅샷 payload와 "신원으로 제외, 산술 금지"를 서술한다 | `node scripts/check-doc-inventory.mjs --check` + 문장 대조 | 문서 |
+| R-01·02·03 | AT-01~03 / AC14 | 실제 앱에서 OpenCode·Claude 각각: 새 세션 첫 턴 종료 5회·기존 세션 턴 종료 3회·Stop 3회에 패널 미출현, 다른 세션 실행 중 자기 새 세션 시작(준비 대기 포함) 동안 패널 유지, 다른 세션 종료 후 소멸 | 사람 실기 — 페인트·실제 IPC는 vitest 밖(§10 B-1·B-2) | 실제 Electron |
 
 ### AC 검증 주의사항
 
-- 기존 테스트 재사용: `turn-coordinator.test.ts:1337` listen 비계상 케이스 실재 확인 — `increment/decrement` 단언을 새 API로 바꾼다.
-- 사람 실기 항목: 깜빡임 자체는 페인트 타이밍이고 main↔renderer IPC 순서는 Electron 실행이 필요하다. 판정 로직·순서 모델은 ST-01/IT-01이 덮는다.
-- 순서 기준 관측 지점: owner 하나로 가는 renderer-bound 이벤트와 concurrency 브로드캐스트를 **한 로그**에 기록한다(IT-01).
+- 기존 테스트 재사용: `turn-coordinator.test.ts:1337` listen 비계상 케이스 실재 확인 — API 갱신 대상.
+- 사람 실기 항목: 깜빡임은 페인트 현상이다. 판정이 순서와 무관하다는 논리는 ST-02 전수 인터리빙이 덮는다.
+- 순서 기준: 이번 계약은 순서를 요구하지 않는다. 대신 "모든 순서에서 같은 결과"를 인터리빙 전수로 관측한다(§11).
 - 총량 기준: 해당 없음.
 
-## 7-A. V / Trace Matrix
+## 7-A. V1 처분 (ΔV1)
 
-- V mode 판정: Baseline V — 이 영역의 기존 handoff V 없음(`rg -l "concurrencyNotice|useProjectConcurrencyCount" docs/handoff/*/plan.md` → 0).
-- 기준 V 상속 근거: 없음.
-- `SUPERSEDED`로 분해한 pair: 해당 없음.
-- 변경이 시작되는 수준: Baseline이라 해당 없음.
+- V mode 판정: 기준 V = 이 handoff의 V1. 사용자 결정으로 SD·AR·MD 수준을 대체하고 R은 강화(CHANGED).
+- 기준 V 상속 근거: `0299:V1@(검증자 기입)` — 커밋 `28cffb4`는 공유 브랜치 `main`에 없다.
+- 변경이 시작되는 수준: R(CHANGED — "모든 도착 순서"·시작 시 누락·D-010 추가).
+
+| V1 node | 처분 | 대체 node / 폐기 근거 |
+|---|---|---|
+| R-01 · R-02 · R-03 / AT-01~03 | CHANGED | §7-B 같은 ID |
+| SD-01 순서 계약 | SUPERSEDED | SD-02 순서 무관 계약 |
+| AR-01 main 해제 순서(E0~E3) | SUPERSEDED | AR-03 main 신원 스냅샷 |
+| AR-02 renderer `ownTurnOpen` 생산→Composer | SUPERSEDED | AR-04 renderer 신원 |
+| MD-01 tracker 토큰 규칙 | SUPERSEDED | MD-04 tracker 신원 규칙 |
+| MD-02 `count−own` 판정 함수 | SUPERSEDED | MD-05 신원 판정 함수 |
+| MD-03 reducer `ownTurnOpen` 전이 | SUPERSEDED — 폐기 | 로컬 턴 플래그가 판정 입력에서 빠진다(D-009) |
+
+| V1 pair | 처분 | AC·선택 적대 증거 이관 |
+|---|---|---|
+| VP-01~03 | CHANGED | §7-B 같은 ID |
+| VP-04 (SD-01↔ST-01) | → VP-14 | 적대 "AS-IS 순서 변형 → true" → VP-14 음성 대조(AS-IS 공식이 어떤 인터리빙에서 오판) |
+| VP-05 (AR-01↔IT-01) | → VP-15 | 적대 "end를 emit 뒤로" — **폐기**: 순서가 더 이상 계약이 아니다. VP-15는 `confirm` 누락 변이를 새로 등록 |
+| VP-06 (AR-02↔IT-02) | → VP-16 | 적대 "responding 맞바꿈" → VP-16 구별 입력으로 이관 |
+| VP-07 (MD-01↔UT-01) | → VP-17 | 규칙 입력 승계 + `confirm`·스냅샷 순서 분기 추가 |
+| VP-08 (MD-02↔UT-02) | → VP-18 | 판정 함수가 신원 함수로 바뀜 |
+| VP-09 (MD-03↔UT-03) | 폐기 | 대상 필드 없음 — AC10은 MD-06으로 재지정 |
+
+## 7-B. ΔV1 — V / Trace Matrix (유효)
 
 ### Node registry
 
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
-| R-01 | R | §5 상태표 1·2행 — 자기 턴 종료 경로 경고 없음 | NEW | — |
-| R-02 | R | §5 상태표 3·4행 — Stop·즉시 보내기 경고 없음 | NEW | — |
-| R-03 | R | §5 상태표 5·6행 — 다른 턴 경고 유지 | NEW | — |
-| AT-01~03 | AT | §7 AC14 + ST-01 | NEW | — |
-| SD-01 | SD | §9 TO-BE 순서 계약 — main 해제 ≺ terminal 전달, renderer 차감은 main terminal까지 | NEW | — |
-| ST-01 | ST | 순서 fixture 재생 | NEW | — |
-| AR-01 | AR | §10 main — 토큰 단위 해제 3자리 + begin 1자리 | NEW | — |
-| IT-01 | IT | main 순서 기록 | NEW | — |
-| AR-02 | AR | §10 renderer — `ownTurnOpen` 생산 → selector → Composer | NEW | — |
-| IT-02 | IT | Composer 렌더 | NEW | — |
-| MD-01 | MD | §10 tracker 규칙 | NEW | — |
-| MD-02 | MD | §10 판정 함수·selector 규칙 | NEW | — |
-| MD-03 | MD | §10 reducer 전이 규칙 | NEW | — |
+| R-01 | R | §5 1·3행 — 자기 턴 종료 경로 경고 없음, 모든 도착 순서 | CHANGED | V1 R-01 |
+| R-02 | R | §5 2행 — Stop·즉시 보내기 경고 없음, 모든 도착 순서 | CHANGED | V1 R-02 |
+| R-03 | R | §5 4~7행 — 다른 턴 경고 끊김 없음, 같은 세션 다른 창(D-010) | CHANGED | V1 R-03 |
+| AT-01~03 | AT | §7 AC14 + ST-02 | CHANGED | V1 AT-01~03 |
+| SD-02 | SD | §9 TO-BE — 판정 = f(최신 스냅샷, 표시 세션 신원), 입력 도착 순서 무관 | NEW | V1 SD-01 대체 |
+| ST-02 | ST | 세 채널 인터리빙 전수 재생 | NEW | — |
+| AR-03 | AR | §10 main 신원 스냅샷(E0~E2) + payload | NEW | V1 AR-01 대체 |
+| IT-03 | IT | main 스냅샷 열 기록 | NEW | — |
+| AR-04 | AR | §10 renderer 신원(S1~S5·C1) | NEW | V1 AR-02 대체 |
+| IT-04 | IT | 스토어·Composer | NEW | — |
+| MD-04 | MD | §10 tracker 규칙(T1~T4) | NEW | V1 MD-01 대체 |
+| MD-05 | MD | §10 신원 판정 함수(N1~N3) | NEW | V1 MD-02 대체 |
+| MD-06 | MD | §10 `activeTurnRef`(A1) | NEW | — |
 
 ### Pair registry
 
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
-| VP-01 | R-01 ↔ AT-01 | REQUIRED | 스트림 terminal → coordinator → tracker/relay → IPC → chatStore → Composer → `Notice` | AC14 실기 + ST-01 P1~P3·P5~P8 | not selected — ST-01이 판정을 직접 관측 | 0 — 운반 자리는 VP-04~09가 고정. AT는 페인트·IPC FIFO 확인 |
-| VP-02 | R-02 ↔ AT-02 | REQUIRED | Stop/즉시 보내기 클릭 → `CANCEL_CHAT`/IPC → `interruptResponse` → … → `Notice` | AC14 실기 + ST-01 P4·P5 | not selected | 0 — 같음 |
-| VP-03 | R-03 ↔ AT-03 | REQUIRED | 다른 턴 begin → count ≥1 → Composer | AC14 실기 + ST-01 O1~O3 | not selected | 0 — 같음 |
-| VP-04 | SD-01 ↔ ST-01 | REQUIRED | fixture 단계열(renderer 지역 동작 + wire) → 실제 `chatReducer` → `ownTurnCounted` → `concurrencyNoticeActive` | 신규 `app/src/renderer/src/features/chat/lib/concurrencyNotice.order.test.ts` — 경로별 판정열 = fixture `expectNotice` · fixture 연결은 IT-01의 동등 단언 | **required** — 순서 모델이 맞는지(민감도): AS-IS 순서(P1에서 terminal ≺ count 0)와 P4에서 `CANCEL_CHAT`이 `ownTurnOpen`을 내리는 reducer 변이를 넣으면 판정열에 true가 나와야 한다 | SD-1~SD-2 (2) |
-| VP-05 | AR-01 ↔ IT-01 | REQUIRED | `TurnCoordinator.run` begin → 스트림 terminal → `activeTurns.end` → onChange → `this.emit` → relay · `chatCancel`/`chatSteerSendNow` → `interruptResponse` → `end` → `sendChatEvent` | 신규 `app/src/main/app/chat-turn/concurrency-order.test.ts` — P1~P8·O1 기록 순서 = fixture wire · `turn-coordinator.test.ts` 갱신 케이스 | **required** — 불변식이 순서라 "end를 emit 뒤로 옮김" 변이를 E1·E3에 각각 심어 red | E0~E3 (4) |
-| VP-06 | AR-02 ↔ IT-02 | REQUIRED | `concurrencyApi.onEvent` → `concurrencyByProjectId` → `useProjectConcurrencyCount` + reducer `ownTurnOpen`·`activityTransport` → `useChatSession(ownTurnCounted)` → `concurrencyNoticeActive` → `<Notice>` | 신규 `app/src/renderer/src/features/chat/components/Composer.concurrency.test.ts` | **required** — Composer가 `useChatResponding`으로 되돌아가도 green이면 안 된다: 구별 입력(§10 IT-02 칸)으로 맞바꿈 변이 red | C1~C2 (2) |
-| VP-07 | MD-01 ↔ UT-01 | REQUIRED | `ActiveTurnTracker.begin/end/getCount` | `app/src/main/features/sessions/active-turn-tracker.test.ts` 개정 + `supervisor.test.ts:197-198` 갱신 | not selected — 규칙 칸 분기별 입력이 직접 oracle | T1~T3 (3) |
-| VP-08 | MD-02 ↔ UT-02 | REQUIRED | `concurrencyNoticeActive` · `ownTurnCounted` | 신규 `app/src/renderer/src/features/chat/lib/concurrencyNotice.test.ts` | not selected | N1~N2 (2) |
-| VP-09 | MD-03 ↔ UT-03 | REQUIRED | `chatReducer` `ownTurnOpen` 전이 자리 | 신규 `app/src/renderer/src/features/chat/reducer/chatReducer.ownTurnOpen.test.ts` | not selected | M1~M12 (12) |
+| VP-01 | R-01 ↔ AT-01 | REQUIRED | 사용자 전송 → main 턴 → tracker 스냅샷 · 채팅 이벤트 → IPC → `chatStore` → `Composer` → `Notice` | AC14 실기 + ST-02 P1~P4·P8 | not selected — ST-02가 판정을 직접 관측 | 0 — 운반 자리는 VP-14~19가 고정. AT는 페인트·실제 IPC 확인 |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | Stop/즉시 보내기 → `cancel`/IPC → `interruptResponse` → … → `Notice` | AC14 실기 + ST-02 P5~P7 | not selected | 0 — 같음 |
+| VP-03 | R-03 ↔ AT-03 | REQUIRED | 다른 세션 턴 → 스냅샷 → `Composer` | AC14 실기 + ST-02 O1~O3 + UT-05 N2(D-010) | not selected | 0 — 같음 |
+| VP-14 | SD-02 ↔ ST-02 | REQUIRED | fixture 세 열(L·C·K) → 인터리빙 → 실제 `chatStore`(`send`·`startHandoff`·`cancel`·`ingestChatEvent`·concurrency 핸들러) → `otherProjectTurnCount` | 신규 `app/src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts` — 경로별 모든 인터리빙·접두에서 판정 = oracle · fixture 연결은 IT-03의 동등 단언(SD-1) | **required** — 장치 민감도: 같은 인터리빙에 AS-IS 공식(`스냅샷 길이 − (sessionResponding?1:0) > 0`)을 적용하면 P1에서 오탐, O2에서 누락이 각각 1개 이상 나와야 한다 | SD-1~SD-2 (2) |
+| VP-15 | AR-03 ↔ IT-03 | REQUIRED | `TurnCoordinator.run` → `begin(turn, projectId, activeTurnRef(turn))` → `session.updated` → `promote` → `confirm(turn, ev.sessionId)` → `finally end(turn)` → tracker 이벤트 생성 → (bootstrap) `broadcastConcurrency` | 신규 `app/src/main/app/chat-turn/concurrency-identity.test.ts` — 스냅샷 열 = fixture K · `turn-coordinator.test.ts` 갱신 케이스 | **required** — `confirm` 누락 변이(E1 제거): 새 세션 스냅샷이 `{null, draft}`에 머물러 P1 열과 달라져야 한다. 신원 대신 빈 ref를 넣는 변이(E0 ref 빈 값)도 red | E0~E2 (3) |
+| VP-16 | AR-04 ↔ IT-04 | REQUIRED | `concurrencyApi.onEvent` → `concurrencyByProjectId` · 새 세션 `send`/`startHandoff` → `entry.clientKey` → 승격 → `otherProjectTurnCount` → `useOtherProjectTurnCount` → `Composer` → `<Notice>` | 신규 `app/src/renderer/src/features/chat/store/chatStore.concurrency.test.ts`(S1~S5) · 신규 `app/src/renderer/src/features/chat/components/Composer.concurrency.test.ts`(C1) | **required** — Composer가 플래그 산술로 돌아가면 red: §10 IT-04 구별 입력 | S1~S5·C1 (6) |
+| VP-17 | MD-04 ↔ UT-04 | REQUIRED | `ActiveTurnTracker.begin/confirm/end/turns` | `app/src/main/features/sessions/active-turn-tracker.test.ts` 개정 + `supervisor.test.ts:197-198` 갱신 | not selected — 분기별 입력이 직접 oracle | T1~T4 (4) |
+| VP-18 | MD-05 ↔ UT-05 | REQUIRED | `ownTurnIdentity` · `isOwnTurn` · `otherProjectTurns` | 신규 `app/src/renderer/src/features/chat/lib/concurrencyNotice.test.ts` | not selected | N1~N3 (3) |
+| VP-19 | MD-06 ↔ UT-06 | REQUIRED | `activeTurnRef(turn)` | 신규 `app/src/main/features/chat/active-turn-ref.test.ts` | not selected | A1 (1) |
 
 ### 현재 변경의 운영 gate
 
 | Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
 |---|---|---|---|
-| lint + typecheck | `app/**` 수정 | `cd app && npm run lint && npm run typecheck` | 현재 변경이 유발한 error |
-| 관련 vitest | main·renderer 테스트 추가·수정 | `./node_modules/.bin/vitest run src/main/features/sessions src/main/features/chat/turn-coordinator.test.ts src/main/app/chat-turn src/renderer/src/features/chat` | 현재 변경이 유발한 red. DB 로드 스위트 bindings 실패는 환경 기준선 |
-| 테스트 예산 | 새 테스트 파일 | `node scripts/check-test-budgets.mjs` | 새 파일의 위반 |
-| 테스트 풀 | 새 main 테스트가 unit 풀에서 자식 프로세스·SQLite를 쓰지 않음 | vitest 실행 결과(unit guard) | 새 파일의 위반 |
+| lint + typecheck | `app/**` 수정, IPC 타입 변경 | `cd app && npm run lint && npm run typecheck` | 현재 변경이 유발한 error |
+| 관련 vitest | main·renderer·shared 테스트 추가·수정 | `./node_modules/.bin/vitest run src/main/features/sessions src/main/features/chat src/main/app/chat-turn src/renderer/src/features/chat src/shared/ipc-documentation.test.ts` | 현재 변경이 유발한 red. DB 로드 스위트 bindings 실패는 환경 기준선 |
+| 테스트 예산·풀 | 새 테스트 파일 | `node scripts/check-test-budgets.mjs` + vitest unit guard | 새 파일의 위반 |
 | 문서 인벤토리 | `docs/**` 수정 | `node scripts/check-doc-inventory.mjs --check` | 새 수치·깨진 링크 |
 | message-bus | 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건 |
 
 ---
 
-# Part II — Technical Design
+# Part II — Technical Design (ΔV1)
 
 ## 8. Research — 현재 코드와 계약
 
 | # | 발견 / 제약 | 근거 |
 |---|---|---|
-| R-01 | 경고 판정 = `projectConcurrencyCount − (inflight ? 1 : 0) > 0`. `inflight`는 `useChatResponding()` = `s.inflight \|\| s.activityTransport === 'listening'` | `Composer.tsx:127,166,171` · `chatStore.ts:2248-2255` |
-| R-02 | renderer `inflight`는 main `telemetry`·`turn.aborted`·`error` 수신과 `CANCEL_CHAT`에서 `TURN_END_RESET`으로 false. 비-delta 이벤트는 rAF 버퍼 없이 즉시 store에 반영 | `chatReducer.ts:589-599,1131-1137,1289-1304,1404-1408` · `eventCoalescer.ts` push |
-| R-03 | count는 `ActiveTurnTracker`가 coordinator `increment`(스트림 시작 직후)·`decrement`(스트림 루프 `finally`)마다 즉시 `broadcastConcurrency` | `turn-coordinator.ts:323,550` · `bootstrap.ts:1110-1113` · `send.ts(ipc):67-69` |
-| R-04 | 실측 순서(실제 `TurnCoordinator` + 실제 `ActiveTurnTracker` + 버스 relay, 일회성 스크래치): `concurrency(p1=1)` → `chatEvent(message.completed)` → `chatEvent(telemetry)` → `chatEvent(turn.ended)` → `concurrency(p1=0)`. 같은 열에 R-01 판정을 적용하면 `[F,F,T,T,F]` | 스크래치 vitest 출력(커밋 안 함 — IT-01이 같은 관측을 고정) |
-| R-05 | 두 하네스 모두 terminal 배치가 `[…, telemetry, turn.ended]`이고 프레임은 그 배치 뒤 끝난다 — 경합은 공통 코드에 있다 | OpenCode `map.ts:245-277` · Claude `adapter.ts:945-965` · `session-runtime.ts:540,632-640` |
-| R-06 | renderer는 IPC 메시지마다 별도 task로 처리하고 zustand(`useSyncExternalStore`) 갱신을 다음 메시지 전에 commit한다. `Notice`에는 전환 효과가 없어 DOM 삽입·제거가 그대로 깜빡임이 된다 | React 19.2.8 · zustand 5.0.14 (`node_modules`) · `Notice.tsx:29-33` |
-| R-07 | Stop: renderer `cancel()`이 `CANCEL_CHAT`을 즉시 적용(inflight false)한 뒤 main이 처리한다. main `interruptResponse`는 `turn.aborted`를 바로 보내지만 coordinator `decrement`는 그 뒤 microtask에서 돈다 | `chatStore.ts:1372-1392` · `chat-turn/index.ts:110-120` · `session-runtime.ts:888-917` |
-| R-08 | 즉시 보내기도 `interruptResponse`를 지난다 | `chat-turn/index.ts:148-167` |
-| R-09 | count의 소비자는 Composer 경고 하나다. 업데이트 gate는 count가 아니라 lease를 읽는다 | `rg concurrencyByProjectId` → `chatStore.ts`·Composer만 · `bootstrap.ts:920-929` |
-| R-10 | 계약 문서가 현재 설계를 서술한다: "Composer는 자기 inflight를 차감해 경고 표시 여부를 판정한다" | `IPC_CONTRACT.md:473` |
-| R-11 | 연속 턴은 `makeContinuationTurn`이 새 객체를 명시 필드로 만든다 — 턴 객체를 토큰으로 써도 이전 턴 상태가 새지 않는다 | `turn-context.ts:213-243` |
-| R-12 | 같은 WebContents로 가는 `wc.send`는 channel을 인자로만 갖는다. chatEvent와 concurrencyEvent 모두 그 경로다. 저장소는 이미 같은 경로의 순서(delta → telemetry)에 의존한다 | `infra/ipc/send.ts:50-69` |
+| R-01 | 경고 판정 = `projectConcurrencyCount − (inflight ? 1 : 0) > 0`. `inflight` = `useChatResponding()` = `s.inflight \|\| s.activityTransport === 'listening'` | `Composer.tsx:127,166,171` · `chatStore.ts:2248-2255` |
+| R-02 | renderer `inflight`는 main terminal 수신과 `CANCEL_CHAT`에서 false, `BEGIN_TURN`·핸드오프 draft 생성에서 true. 비-delta 이벤트는 즉시 store 반영 | `chatReducer.ts:589-599,879,1131-1137,1289-1304,1404-1408` · `chatStore.ts:1632-1638` · `eventCoalescer.ts` |
+| R-03 | count는 coordinator `increment`(스트림 시작 직후)·`decrement`(스트림 루프 `finally`)마다 즉시 브로드캐스트 | `turn-coordinator.ts:323,550` · `bootstrap.ts:1110-1113` |
+| R-04 | 실측 순서(실제 coordinator + tracker + 버스 relay, 일회성 스크래치): `count=1` → `message.completed` → `telemetry` → `turn.ended` → `count=0`, 판정 `[F,F,T,T,F]` | 스크래치 vitest(커밋 안 함, V1 §8 R-04) |
+| R-05 | 두 하네스 모두 terminal 배치가 `[…, telemetry, turn.ended]`이고 같은 coordinator를 지난다 | OpenCode `map.ts:245-277` · Claude `adapter.ts:945-965` |
+| R-06 | renderer는 IPC 메시지마다 store를 갱신하고 commit한다. `Notice`에는 전환 효과가 없다 | React 19.2.8 · zustand 5.0.14 · `Notice.tsx:29-33` |
+| R-07 | Stop: `cancel()`이 `CANCEL_CHAT`을 먼저 적용하고, main `interruptResponse`는 count 감소 전에 `turn.aborted`를 보낸다 | `chatStore.ts:1372-1392` · `chat-turn/index.ts:110-120` |
+| R-08 | 시작 시 누락: `BEGIN_TURN`이 send 즉시 `inflight=true`를 세우고 count는 main 준비(OpenCode 서버 기동·세션 생성) 뒤 오른다 → 다른 턴 1건이 있으면 `1−1=0` | `chatStore.ts:1120` · `turn-coordinator.ts:319-323` · `channel.ts:330-385` |
+| R-09 | 산술 판정 패턴은 저장소에 한 곳뿐이다 | `rg -n "\? 1 : 0\)\|- \((inflight\|busy\|responding\|listening)" src/renderer/src -g '!*.test.*'` → `Composer.tsx:171` 1건(나머지 1건은 `StatusLine.tsx:35` 숫자 포맷) |
+| R-10 | 로컬 턴 플래그가 오르는 자리는 사용자 send 밖에도 있다 — 핸드오프 draft 직접 대입, main발 스트림 이벤트의 `shouldBeginTurn`(배치·단건 두 경로). 플래그 기반 설계는 이 자리를 전부 따라가야 하고 V1은 셋 다 놓쳤다 | `chatStore.ts:1632-1638` · `:540-542` · `:731-734` |
+| R-11 | 계약 문서가 구조 원인을 서술한다: "Composer는 자기 inflight를 차감해 경고 표시 여부를 판정한다" | `IPC_CONTRACT.md:473` |
+| R-12 | 새 세션 send 두 경로 모두 엔트리를 `draftKey`로 두고 payload `clientKey: draftKey`를 보낸다 | `chatStore.ts:1006,1032,1061-1063` · `:1617,1630,1643-1647` |
+| R-13 | main 턴은 새 세션이면 `isNewSession=true`·`dbSessionId=null`·`queueKey=clientKey`, 기존 세션이면 `dbSessionId=sessionId`로 시작한다. 연속 턴은 `isNewSession=false`·`queueKey` 없음 | `turn-context.ts:170-172,207,213-243` · `admission.ts:97-110` |
+| R-14 | 승격은 엔트리 객체를 그대로 `sessionId` 키로 옮긴다 — 엔트리에 둔 값은 승격 뒤에도 남는다 | `chatStore.ts:584-626`(`[sessionId]: entry`) |
+| R-15 | `registry.promote`는 대기 중 새 턴만 한 번 승격하고 `dbSessionId`를 쓰지 않는다. `dbSessionId`는 history writer가 `session.updated`에서 쓴다 | `session-registry.ts:27-31` · `writer.ts:309-312` |
+| R-16 | count 소비자는 Composer 하나다. 업데이트 gate는 lease를 읽는다 | `rg concurrencyByProjectId` · `bootstrap.ts:920-929` |
 
 ### 전수 조사
 
 | 대상 | 검색/방법 | N | 의미 |
 |---|---|---:|---|
-| main이 renderer로 terminal 리터럴을 보내는 자리 | `rg -n "type: '(telemetry\|error\|turn\.aborted)'" src/main/features/chat/turn-coordinator.ts src/main/app/chat-turn -g '!*.test.ts'` | 17 | 아래 분류표 |
-| 스트림 이벤트 relay 자리 | `rg -n "this\.emit\(turn, ev\)" src/main/features/chat/turn-coordinator.ts` | 4 | 113(emit 정의 내부) · 132(streamEmit) · 461(루프 relay — terminal 포함) · 560(합성 telemetry) |
-| tracker 호출 자리 | `rg -n "activeTurns\.(increment\|decrement\|begin\|end)\(" src/main -g '!*.test.ts'` | 2 | 323 · 550 |
-| renderer `inflight` 전이 자리 | `rg -n "inflight: (true\|false\|state\.inflight\|activity)\|\.\.\.TURN_END_RESET" src/renderer/src/features/chat/reducer/chatReducer.ts` | 9 | 514·593(정의) · 879(BEGIN_TURN) · 1137·1293·1302(main terminal) · 1408(CANCEL_CHAT) · 1544·1560(hydrate) |
-| count 소비처 | `rg -n "concurrencyByProjectId\|useProjectConcurrencyCount\|concurrencyActive" src/renderer/src -g '!*.test.*'` | 11 | store 정의·구독 + Composer만 |
-
-terminal 송신 자리 분류 — "그 턴이 계상 중일 때 송신될 수 있는가":
-
-| 자리 | 계상 중 송신 | 근거 |
-|---|---|---|
-| `turn-coordinator.ts:461` 루프 relay(terminal) | **예** | inner `finally`(550)보다 앞 |
-| `turn-coordinator.ts:296` `deliverAbortTerminal` | 아니오 | begin 전(시작 전 중단) 또는 inner `finally` 뒤에서만 호출 |
-| `turn-coordinator.ts:555` 합성 telemetry | 아니오 | inner `finally` 뒤 |
-| `turn-coordinator.ts:616` catch error | 아니오 | outer catch — inner `finally` 뒤 |
-| `chat-turn/index.ts:116` `interruptResponse` | **예** | coordinator 루프 진행 중 |
-| `send.ts` 12자리(78·92·110·117·134·152·166·186·228·279·460·727) | 아니오 | 727은 `runTurnWithContinuations` 예외 경로라 inner `finally` 뒤, 나머지는 begin 전 |
-| `enqueue.ts:103` busy 거절 | 해당 턴과 무관 — 경계 B-4 | steer 거절 |
+| 산술 판정 패턴 | R-09 검색 | 1 | 구조 원인이 사는 곳 — 교체 대상 |
+| 새 세션 payload(`clientKey`) | `rg -n "clientKey: draftKey" src/renderer/src -g '!*.test.*'` | 2 | S2·S3 — 각 함수가 엔트리에 같은 키를 남겨야 한다 |
+| 새 세션 payload(`sessionId: null`) | `rg -n "sessionId: null," src/renderer/src -g '!*.test.*'` | 4 | 1013·1617 = 위 2건 · `composerCatalogState.ts:242`(카탈로그 조회) · `chatReducer.ts:494`(초기 상태) — 누락 경로 없음 |
+| `ConcurrencyEvent`·`concurrencyByProjectId` 사용처 | `rg -n "concurrencyByProjectId\|ConcurrencyEvent" src` | 17 | 타입 6(`ipc.ts`·`protocol.ts`·renderer `api/ipc.ts` 2·preload 2) + main send 2 + store 4(151·311·2214·2425) + 테스트 fixture 5 = 17 |
+| tracker 호출 | `rg -n "activeTurns\.(increment\|decrement\|begin\|confirm\|end)\(" src/main -g '!*.test.ts'` | 2 | 323·550 → 변경 후 3(E0~E2) |
+| `activeTurns` 참조 테스트 | `rg -l "activeTurns" src/main -g '*.test.ts'` | 8 | 단위 2(`supervisor`·`turn-coordinator`) + 통합 6 |
 
 ### 수치 / 전칭 표현 검산
 
-- 분류표 합계: coordinator 3(296·555·616) + index 1 + send 12 + enqueue 1 = 17 = 검색 N.
-- "계상 중 송신" 자리 = 2(461·index:116). 반례 검색은 위 분류표 전수다.
-- "첫 턴 한정 아님": 경합은 턴마다 같은 coordinator 경로를 지난다(R-03·R-05).
-- 문서 앵커·기존 테스트 존재: `IPC_CONTRACT.md:469 §2.12-b` · `runtime-ipc.md:25` · `turn-coordinator.test.ts:1337` · `post-turn.schedules.test.ts` 실핸들러 fixture(:46-275) 확인.
+- "한 곳뿐"(R-09): 검색 2건 중 1건은 숫자 포맷이라 판정 패턴은 1건.
+- "새 세션 경로 2개"(R-12): `sessionId: null` 4건 = payload 2 + 비송신 2.
+- 문서 앵커·기존 테스트: `IPC_CONTRACT.md:469 §2.12-b` · `runtime-ipc.md:25` · `turn-coordinator.test.ts:1337` · `post-turn.schedules.test.ts` 실핸들러 fixture · `chatStore.test.ts:1423` concurrency mock 확인.
 
 ## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
 ### AS-IS — 현재 구조와 문제 발생 경로
 
-- 관련 V node: SD-01, AR-01, AR-02.
-- 현재 책임 소유자: count = main `ActiveTurnTracker`(프로젝트별 정수). 자기 차감 = renderer `inflight`(낙관).
-- 경로: coordinator가 스트림 시작에 `increment`, 루프가 terminal을 relay(461), 스트림 종료 뒤 `finally`에서 `decrement`(550).
-- 오류/취소: Stop은 renderer가 먼저 `inflight=false`, main은 `turn.aborted`를 먼저 보내고 count는 나중에 내려간다.
-- 직접 원인: 자기 차감 신호(`inflight`)가 count보다 먼저 내려가는 순서를 막는 계약이 없다.
+- 관련 V node: SD-02, AR-03, AR-04.
+- 책임: main은 프로젝트별 **개수**만 안다. renderer는 그 개수에서 **자기 플래그**를 뺀다.
+- 경로: tracker `increment/decrement` → `{projectId, count}` 브로드캐스트 → `concurrencyByProjectId[p] = count` → `count − (responding?1:0) > 0`.
+- 직접 원인: 개수에는 "누구"가 없어서 자기 몫을 다른 채널의 플래그로 추정한다. 두 채널은 독립적으로 도착한다.
 
 ```text
-main:  increment → … → relay(telemetry) ─┐        ┌→ decrement → concurrency(0)
-                                          ▼        │
-renderer: inflight=false (count 1 그대로) → 1−0>0 → Notice 삽입 → (다음 IPC) count 0 → Notice 제거
+main 개수 ──(concurrency 채널)──┐
+                                ├─ 산술 → 두 입력의 상대 시점에 결과가 좌우됨
+renderer 플래그 ←(chat 채널·로컬 클릭)─┘
 ```
 
 ### TO-BE — 변경 후 목표 구조와 동작 경로
 
-- 관련 V node: SD-01, AR-01, AR-02.
-- 책임: count는 그대로 main tracker. 다만 계상은 **턴 객체 토큰 단위**이고 해제는 멱등이다. 자기 차감은 renderer `ownTurnOpen`(main terminal로만 닫힘) 또는 활동 transport `listening`.
-- 순서 계약: main은 자기 턴의 terminal을 renderer로 보내기 **전에** 그 턴의 계상을 해제한다(E1·E3). renderer는 main terminal을 받을 때까지 자기 턴을 차감한다(M2~M6).
-- 오류/취소: Stop의 `CANCEL_CHAT`은 `inflight`만 내리고 `ownTurnOpen`은 둔다. main `interruptResponse`가 `end(turn)` 뒤 `turn.aborted`를 보낸다.
-- 유지: payload·브로드캐스트 경로·× 에피소드·listen 비계상. 제거: 판정의 `useChatResponding` 의존.
+- 관련 V node: SD-02, AR-03, AR-04.
+- 책임: main은 프로젝트별 **실행 중 턴의 신원 목록**을 안다. renderer는 표시 중 세션의 신원을 안다. 판정은 둘의 집합 연산이다.
+- main: coordinator가 스트림 시작에 `begin(turn, projectId, activeTurnRef(turn))`, 새 세션 id 확정 시 `confirm(turn, ev.sessionId)`, 스트림 종료 `finally`에 `end(turn)`. 바뀔 때마다 tracker가 `{ projectId, turns }`를 만들어 onChange로 넘긴다.
+- renderer: 새 세션 엔트리에 `clientKey = draftKey`를 남긴다(승격 뒤에도 유지). 판정 = `otherProjectTurns(최신 turns, ownTurnIdentity(활성 엔트리)) > 0`을 한 번의 store 읽기로 계산한다.
+- 유지: 브로드캐스트 경로·× 에피소드·listen 비계상. 제거: `count` 필드, 판정의 `useChatResponding` 의존, V1 순서 계약.
 
 ```text
-main:  begin(turn) → … → end(turn) → concurrency(0) → relay(telemetry)
-renderer: count 0 · ownTurnOpen → 0−1 ≤ 0 → telemetry → ownTurnOpen=false → 0−0 ≤ 0
-Stop:  CANCEL_CHAT(ownTurnOpen 유지) → main end(turn) → concurrency(0) → turn.aborted → ownTurnOpen=false
+main:      {sid|null, draftKey|null}[]  ──(concurrency 채널, 통째 교체)──┐
+renderer:  표시 엔트리 {sessionId, clientKey} ─────────────────────────────┤→ 신원 제외 개수 > 0
+           (로컬 플래그·채팅 이벤트는 판정에 쓰지 않음)                     ┘
 ```
 
 ### AS-IS → TO-BE Delta
 
 | 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
 |---|---|---|---|---|
-| 책임/소유권 | 자기 차감 = `inflight`(낙관) | `ownTurnOpen`(main terminal로만 닫힘) | 낙관 갱신이 count보다 앞섬 | AR-02 / VP-06·09 |
-| data/control flow | relay(terminal) ≺ decrement | end(turn) ≺ relay(terminal) | 순서 경합 제거 | SD-01 / VP-04·05 |
-| state/contract | tracker `increment/decrement(projectId)` | `begin(token, projectId)`/`end(token)` 멱등 | 여러 자리에서 안전하게 해제 | MD-01 / VP-07 |
-| error/lifecycle | Stop이 `turn.aborted` 먼저 | `interruptResponse`가 `end` 먼저 | R-07 | AR-01 / VP-05 E3 |
-| test seam | 판정 인라인 식 | 순수 `concurrencyNoticeActive`·`ownTurnCounted` | 단위·재생 테스트 | MD-02 / VP-08 |
+| 책임/소유권 | 자기 몫 추정 = renderer 플래그 | 자기 몫 = 신원 일치(main 목록 × renderer 엔트리) | 서로 다른 시점의 두 값을 섞지 않음 | AR-03·AR-04 / VP-15·16 |
+| data/control flow | 개수 산술 | 집합에서 신원 제외 | 도착 순서 무관 | SD-02 / VP-14 |
+| state/contract | `{ projectId; count }` | `{ projectId; turns: ActiveTurnRef[] }` | 신원 없이는 자기 제외가 불가능 | AR-03 / VP-15 · `ipc.ts` |
+| error/lifecycle | Stop이 플래그만 먼저 내림 | Stop은 판정에 무관 | 로컬 낙관 갱신이 입력이 아님 | SD-02 / VP-14 P5·P6 |
+| test seam | 인라인 식 | 순수 함수 3개 + selector + 인터리빙 재생 | 순서 무관을 전수로 관측 | MD-05 / VP-18 · VP-14 |
 
 ### 핵심 책임 분리
 
 | 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
 |---|---|---|---|
-| `features/sessions/active-turn-tracker.ts` | 토큰 단위 계상·프로젝트 count·onChange | `begin/end/getCount` | supervisor(소유) · coordinator(포트) · `chat-turn/index.ts`(supervisor 경유) |
-| `features/chat/turn-coordinator.ts` | begin · terminal 직전 end · finally end | `ActiveTurnGate` 포트 | `app/chat-turn` |
-| `app/chat-turn/index.ts` `interruptResponse` | `end(turn)` 뒤 `turn.aborted` | supervisor | IPC 핸들러 |
-| renderer `chatReducer.ts` | `ownTurnOpen` 전이 | action → state | store |
-| renderer `features/chat/lib/concurrencyNotice.ts`(신규) | 판정 함수·selector | 순수 | Composer |
-| renderer `Composer.tsx` | 판정 조립·표시 | hooks | 페이지 |
+| `src/shared/ipc.ts` | `ActiveTurnRef`·`ConcurrencyEvent` 타입 | 계약 | main·preload·renderer |
+| `main/features/sessions/active-turn-tracker.ts` | 토큰별 ref 보관·프로젝트 스냅샷·이벤트 생성 | `begin/confirm/end/turns` | supervisor(소유) · coordinator(포트) |
+| `main/features/chat/active-turn-ref.ts`(신규) | 턴 → ref 순수 변환 | `TurnContext` → `ActiveTurnRef` | coordinator |
+| `main/features/chat/turn-coordinator.ts` | E0~E2 호출 | `ActiveTurnGate` 포트 | `app/chat-turn` |
+| `main/app/bootstrap.ts` | tracker 이벤트 → `broadcastConcurrency` 전달 | pass-through | 부팅 |
+| renderer `features/chat/lib/concurrencyNotice.ts`(신규) | 신원 판정 순수 함수 | ref·identity → boolean/수 | store selector |
+| renderer `chatStore.ts` | 스냅샷 저장·엔트리 `clientKey` 기록·selector/hook | — | Composer |
+| renderer `Composer.tsx` | `useOtherProjectTurnCount(projectId) > 0` | hook | 페이지 |
 
 ## 10. 계약 / 타입 / 강제 지점
 
+계약 타입(`src/shared/ipc.ts`):
+
+```ts
+export interface ActiveTurnRef {
+  sessionId: string | null   // 확정된 세션 id. 새 세션 확정 전 null
+  clientKey: string | null   // 새 세션이 태어난 renderer draft 키. 기존 세션·연속 턴은 null
+}
+export interface ConcurrencyEvent {
+  projectId: string
+  turns: ActiveTurnRef[]     // 그 프로젝트의 실행 중 턴 전부(begin 순서). 비면 []
+}
+```
+
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| AR-01 / VP-05 | 자기 턴 계상 해제 ≺ 그 턴 terminal 송신 | `active-turn-tracker.ts` | main | **E0** `turn-coordinator.ts` 스트림 시작 직후 `begin(turn, boundProjectId)` (`policy.countsAsActive`일 때만) · **E1** 루프 relay 직전 — `ev.type`이 `telemetry`·`error`·`turn.aborted`면 `end(turn)` · **E2** inner `finally` `end(turn)` · **E3** `chat-turn/index.ts` `interruptResponse`의 `sendChatEvent(turn.aborted)` 직전 `supervisor.activeTurns.end(turn)` — 4자리 | `rg -n "activeTurns\.(begin\|end\|increment\|decrement)\(" src/main -g '!*.test.ts'` → 변경 후 4건 · 보조: §8 terminal 분류표 검색(17건) 중 "계상 중 송신" 2건 = E1·E3 | E1 누락 → 정상 종료 깜빡임 재발 · E3 누락 → Stop 깜빡임 · E2 누락 → 예외 경로 count 고착(경고 영구 표시) · E0 정책 누락 → listen이 경고 오점화 |
-| MD-01 / VP-07 | tracker 규칙 | 같음 | main | **T1** `begin` · **T2** `end` · **T3** `getCount` — 3자리 | `rg -n "^\s+(begin\|end\|getCount)\(" src/main/features/sessions/active-turn-tracker.ts` → 3건 | 아래 규칙 칸 |
-| AR-02 / VP-06 | Composer 판정 = `concurrencyNoticeActive(count, ownTurnCounted(state))` | `concurrencyNotice.ts` | renderer | **C1** `Composer.tsx` 판정식(현 171) · **C2** 자기 계상 입력(현 127 `useChatResponding` → `useChatSession(ownTurnCounted)`) — 2자리 | `rg -n "concurrencyActive\|concurrencyNoticeActive\|ownTurnCounted\|useProjectConcurrencyCount" src/renderer/src -g '!*.test.*'` | C2가 `useChatResponding`이면 Stop 깜빡임 · C1 인라인 복귀면 SSOT 이탈 |
-| MD-02 / VP-08 | 판정·selector | `concurrencyNotice.ts` | renderer | **N1** `concurrencyNoticeActive` · **N2** `ownTurnCounted` — 2자리 | `rg -n "^export function" src/renderer/src/features/chat/lib/concurrencyNotice.ts` → 2건 | 아래 규칙 칸 |
-| MD-03 / VP-09 | `ownTurnOpen` 전이 | `chatReducer.ts` | renderer | **M1** `initialChatState` false · **M2** `BEGIN_TURN` true · **M3** RECV `telemetry` false · **M4** RECV `turn.aborted` false · **M5** RECV `error` false · **M6** `CANCEL_CHAT` 유지 · **M7** `LOAD_SESSION` 전체 분기 + `preserveNewerLiveActivity` → `state.ownTurnOpen` · **M8** 전체 분기 + activity → `activity.foreground !== 'idle'` · **M9** 전체 분기 + activity 없음 → false(`...initialChatState`) · **M10** `LOAD_SESSION` `preserveLocalState` 분기 → `...state`로 유지 · **M11** `NEW_CHAT` → false(`...initialChatState`) · **M12** `START_LOAD_SESSION` → false(`...initialChatState`) — 12자리 | `rg -n "inflight: (true\|false\|state\.inflight\|activity)\|\.\.\.TURN_END_RESET\|preserveLocalState &&\|\.\.\.initialChatState," src/renderer/src/features/chat/reducer/chatReducer.ts` → 514 M1 · 593 `TURN_END_RESET` 정의(자리 아님 — M3~M5는 `MAIN_TERMINAL_RESET`, M6은 그대로) · 879 M2 · 1137 M3 · 1293 M4 · 1302 M5 · 1408 M6 · 1544 M7 · 1560 M8 · 1483 M9 · 1449 M10 · 1322 M11 · 1425 M12 | M6 누락 → Stop 깜빡임 · M3~M5 누락 → 자기 턴 영구 차감(다른 턴 1건 가림) · M7~M12 누락 → 재열기·새 대화 직후 오판 |
-| SD-01 / VP-04 | 순서 모델 | `app/src/shared/concurrency-order.testfixture.ts`(신규) | 테스트 | **SD-1** main 기록 투영 = fixture wire(IT-01 안의 동등 단언) · **SD-2** fixture 재생 판정열 = `expectNotice`(ST-01) — 2자리 | `rg -n "CONCURRENCY_ORDER" app/src -g '*.test.ts'` → 두 테스트 파일 | fixture가 실제 main 순서와 갈라지면 재생이 거짓 green |
+| AR-03 / VP-15 | 실행 중 턴 신원 스냅샷 | `active-turn-tracker.ts` | main | **E0** `turn-coordinator.ts` 스트림 시작 직후(현 323) `begin(turn, boundProjectId, activeTurnRef(turn))` — `policy.countsAsActive`일 때만 · **E1** `session.updated` 처리의 `registry.promote` 직후(현 471) `confirm(turn, ev.sessionId)` · **E2** inner `finally`(현 550) `end(turn)` — 3자리 | `rg -n "activeTurns\.(begin\|confirm\|end\|increment\|decrement)\(" src/main -g '!*.test.ts'` → 변경 후 3건 | E0 ref 누락 → 자기 턴이 다른 작업으로 잡힘 · E1 누락 → 같은 세션 다른 창·재로드 엔트리가 새 세션 첫 턴을 남으로 봄 · E2 누락 → 항목 고착(경고 영구) · E0 정책 누락 → listen 오점화 |
+| MD-04 / VP-17 | tracker 규칙 | 같음 | main | **T1** `begin` · **T2** `confirm` · **T3** `end` · **T4** `turns`(스냅샷·이벤트 생성) — 4자리 | `rg -n "^\s+(begin\|confirm\|end\|turns)\(" src/main/features/sessions/active-turn-tracker.ts` → 4건 | 아래 규칙 칸 |
+| MD-06 / VP-19 | 턴 → ref | `active-turn-ref.ts` | main | **A1** `activeTurnRef` — 1자리 | `rg -n "^export function activeTurnRef" src/main/features/chat/active-turn-ref.ts` → 1건 | 아래 규칙 칸 |
+| AR-04 / VP-16 | renderer 신원·스냅샷 | `chatStore.ts` | renderer | **S1** concurrency 핸들러(현 2212-2216)가 `ev.turns`를 그대로 저장 · **S2** 새 세션 `send()`가 만드는 엔트리(현 1047-1063)에 `clientKey: draftKey` · **S3** `startHandoff()` draft 엔트리(현 1632-1647)에 `clientKey: draftKey` · **S4** `promotePendingNewChat`(현 616-621) 엔트리 객체 이동 — 코드 변경 없음, 운반 자리 · **S5** `otherProjectTurnCount(state, projectId)` selector + `useOtherProjectTurnCount` hook · **C1** `Composer.tsx` 판정(현 166-171) — 6자리 | `rg -n "clientKey: draftKey\|concurrencyByProjectId\|otherProjectTurnCount\|useOtherProjectTurnCount\|\[sessionId\]: entry" src/renderer/src -g '!*.test.*'` — S2·S3은 payload 2건이 있는 함수마다 엔트리 기록 1건 | S1 변형 → 잘못된 목록 · S2/S3 누락 → 새 세션 승격 직후 자기 턴을 남으로 봄 · S4 재생성 → 같은 결함 · C1 산술 복귀 → 구조 재발 |
+| MD-05 / VP-18 | 신원 판정 | `concurrencyNotice.ts` | renderer | **N1** `ownTurnIdentity` · **N2** `isOwnTurn` · **N3** `otherProjectTurns` — 3자리 | `rg -n "^export function" src/renderer/src/features/chat/lib/concurrencyNotice.ts` → 3건 | 아래 규칙 칸 |
+| SD-02 / VP-14 | 순서 무관 | `app/src/shared/concurrency-order.testfixture.ts`(신규) | 테스트 | **SD-1** IT-03이 P1·P2·P5·P7 스냅샷 열 = fixture K 단언 · **SD-2** ST-02가 fixture로 인터리빙 전수 재생 — 2자리 | `rg -n "CONCURRENCY_ORDER" app/src -g '*.test.ts'` → 두 테스트 파일 | fixture가 실제 main 열과 갈라지면 재생이 거짓 green |
 
 ### 규칙 칸 ↔ UT 입력 칸
 
 | 자리 | 규칙(분기) | UT 입력 — 각 분기로 가는 입력 |
 |---|---|---|
-| T1 `begin(token, projectId)` | (a) projectId null/undefined → 무변화·onChange 없음 (b) 새 토큰 → count+1·onChange(p, n) (c) 이미 보유 토큰 → 무변화·onChange 없음 | (a) `begin(t1, null)` (b) `begin(t1,'p1')`·`begin(t2,'p1')` → 1·2 (c) `begin(t1,'p1')` 두 번 → 1, onChange 1회 |
-| T2 `end(token)` | (a) 보유 → count−1·0이면 삭제·onChange(p, n) (b) 미보유 → 무변화·onChange 없음 (c) 다른 토큰 보존 | (a) `begin(t1,'p1')`→`end(t1)` → 0, onChange `(p1,0)` (b) `end(t9)` 단독·`end(t1)` 두 번째 (c) t1·t2 보유 후 `end(t1)` → 1 |
-| T3 `getCount` | null/undefined → 0 · 미존재 → 0 | `getCount(null)`·`getCount(undefined)`·`getCount('px')` |
-| N1 `concurrencyNoticeActive(count, own)` | `count − (own?1:0) > 0` | `(0,false)`F · `(0,true)`F · `(1,true)`F · `(1,false)`T · `(2,true)`T |
-| N2 `ownTurnCounted(s)` | `ownTurnOpen` 또는 `activityTransport==='listening'` | `{open:true, idle}`T · `{false, listening}`T · `{false, ready}`F · `{false, idle}`F |
-| M1~M12 | 위 §10 표 | M1 `initialChatState` · M2 `BEGIN_TURN` · M3~M5 각 RECV(시작 true) · M6 open=true에서 `CANCEL_CHAT` → true **이면서 inflight=false**(구별) · M7 같은 세션 + 스냅샷 revision이 state보다 낮음, state.ownTurnOpen=true · M8 foreground `responding`→true / `idle`→false · M9 activity 없음, 시작 true → false · M10 `preserveLocalState` + 같은 세션, 시작 true → true · M11 `NEW_CHAT`, 시작 true → false · M12 `START_LOAD_SESSION`, 시작 true → false |
-| IT-02 Composer | 판정이 C1·C2를 거친다 | `(count 1, ownTurnOpen true, inflight false, responding false)` → 패널 없음 — **구 판정이면 표시되는 구별 입력** · `(1, false, false, false)` → 있음 · `(1, false, transport listening, responding true)` → 없음 · `(2, true, true, true)` → 있음 |
-| ST-01 경로 | P1~P8 판정열 전부 F · O1 `[F,T,T,T,F]` 형(자기 턴 중 count 2 → T, 종료 후 1 → T, 다른 턴 종료 → F) · O2 Stop 중 T 유지 · O3 T→F | fixture 단계열(§11) |
+| T1 `begin(token, projectId, ref)` | (a) projectId null/undefined → 무변화·이벤트 없음 (b) 새 토큰 → 끝에 추가·이벤트 `{p, turns}` (c) 이미 보유 → 무변화·이벤트 없음 | (a) `begin(t1, null, r1)` (b) `begin(t1,'p1',r1)`·`begin(t2,'p1',r2)` → `[r1]`·`[r1,r2]` (c) `begin(t1,'p1',r1)` 두 번 → 이벤트 1회 |
+| T2 `confirm(token, sessionId)` | (a) 보유 & ref.sessionId null → sessionId 채움(clientKey 유지)·이벤트 (b) 보유 & 이미 sessionId 있음 → 무변화(같은 id·다른 id 모두) (c) 미보유 → 무변화 | (a) r=`{null,'draft:a'}` → `confirm(t,'s1')` → `{s1,'draft:a'}` (b) r=`{s1,null}` → `confirm(t,'s1')`·`confirm(t,'s2')` → 이벤트 없음 (c) `confirm(t9,'s1')` |
+| T3 `end(token)` | (a) 보유 → 제거·이벤트(마지막이면 `turns: []`) (b) 미보유 → 무변화 (c) 다른 토큰·순서 보존 | (a) `begin(t1)`→`end(t1)` → 이벤트 `{p1, []}` (b) `end(t9)`·`end(t1)` 두 번째 (c) t1·t2·t3 보유 후 `end(t2)` → `[r1,r3]` |
+| T4 `turns(projectId)` | null/undefined → `[]` · 미존재 → `[]` · begin 순서 · 반환값을 바꿔도 내부 불변 | `turns(null)`·`turns('px')`·`turns('p1')` 후 반환 배열 `push` → 재조회 불변 |
+| A1 `activeTurnRef(turn)` | (a) 새 세션 확정 전 → `{null, queueKey}` (b) 기존 세션 → `{dbSessionId, null}`(queueKey가 sessionId여도) (c) 연속 턴(`isNewSession=false`, queueKey 없음) → `{dbSessionId, null}` (d) 새 세션인데 queueKey 없음 → `{null, null}` | (a) `{isNewSession:true, dbSessionId:null, queueKey:'draft:a'}` (b) `{false,'s1','s1'}` (c) `{false,'s1',undefined}` (d) `{true,null,undefined}` |
+| N1 `ownTurnIdentity(entry)` | 엔트리 없음 → `{null,null}` · `{ sessionId: entry.session.sessionId, clientKey: entry.clientKey ?? null }` | `undefined` · draft `{null,'draft:a'}` · 승격 `{s1,'draft:a'}` · 로드 `{s1, 없음}` → `{s1,null}` |
+| N2 `isOwnTurn(ref, own)` | (a) sessionId 같고 null 아님 → T (b) clientKey 같고 null 아님 → T (c) 양쪽 null끼리는 일치 아님 → F (d) 다른 id → F | (a) `{s1,null}`/`{s1,null}` (b) `{null,'draft:a'}`/`{s1,'draft:a'}`(승격 경합) (c) `{null,null}`/`{null,null}` (d) `{s1,null}`/`{s2,null}` · D-010: `{s1,'draft:a'}`/`{s1,null}` → T |
+| N3 `otherProjectTurns(refs, own)` | 자기 아닌 항목 수 | `[]`→0 · `[own]`→0 · `[own, other]`→1 · `[other, other2]`→2 |
+| S1~S5 | 위 §10 표 | S1: 핸들러에 `{p1, [r]}` → 저장값 `[r]`, 이어 `{p1, []}` → `[]` · S2: 새 세션 `send` → `sessions[draftKey].clientKey === payload.clientKey` · S3: `startHandoff` → 같음 · S4: `session.updated(s1)` 수신 → `sessions.s1.clientKey === draftKey` · 기존 세션 `send` → `clientKey` 미기록 · S5: `{ activeKey, sessions, concurrencyByProjectId }` 시드 → selector 값 |
+| C1 Composer | `useOtherProjectTurnCount(projectId) > 0`만 쓴다 | (자기 항목만, responding false) → 없음 — **AS-IS면 표시** · (다른 항목만, responding true) → 있음 — **AS-IS면 숨김** · (자기+다른, responding true) → 있음 · (빈 목록) → 없음 |
+| ST-02 경로 | P1~P8 모든 인터리빙·접두 F · O1~O3 판정 = oracle(최신 K에 `other` 태그 항목 존재) | §11 fixture 표 |
 
 - **선언 경계**:
-  - B-1 페인트 타이밍: vitest는 프레임을 그리지 않는다. 판정열 F가 곧 "그려질 상태 없음"이며 실제 깜빡임 부재는 AC14 실기로만 본다.
-  - B-2 IPC FIFO: chatEvent·concurrencyEvent가 같은 WebContents에서 보낸 순서대로 도착한다는 전제(R-12). vitest가 electron을 로드하지 못하고(`src/main/AGENTS.md` P29), `bootstrap.ts:1110-1113` onChange→`broadcastConcurrency` 동기 호출도 같은 이유로 좌표가 없다(이번 변경 없음). AC14가 덮는다.
-  - B-3 프로젝트 재바인딩: main이 `send.ts:349`에서 다른 projectId로 바인딩하면 renderer 키와 갈린다 — 기존 동작, 이번 계약 밖.
-  - B-4 steer 거절 `error`(`enqueue.ts:103`): renderer가 terminal로 읽어 `inflight`·`ownTurnOpen`을 내린다. 원 턴이 계속 돌면 경고가 보인다 — 현재도 같다(회귀 아님).
-  - B-5 renderer가 main terminal을 끝내 받지 못하면 `ownTurnOpen`이 남아 다른 턴 1건을 가린다(false negative). main은 begin 이후 모든 경로에서 terminal을 보낸다(§8 분류표) — 앱 crash·IPC 단절만 남는다.
+  - B-1 페인트: vitest는 프레임을 그리지 않는다. 판정 F가 "그려질 경고 없음"이며 깜빡임 부재는 AC14로만 본다.
+  - B-2 bootstrap 전달: `bootstrap.ts:1110-1113`의 tracker onChange → `broadcastConcurrency` 전달은 변환 없는 pass-through이고 electron을 import해 vitest가 로드하지 못한다(`src/main/AGENTS.md` P29). 이벤트 생성은 tracker(T4)가 맡아 좌표가 있다. 전달 자체는 AC14가 덮는다.
+  - B-3 기동 직후: renderer reload·앱 재시작 직후 스냅샷은 다음 변경 때 온다. 그 사이 경고가 안 보일 수 있다(누락, 깜빡임 아님) — 기존 push-only 동작이며 이번 변경이 바꾸지 않는다.
+  - B-4 프로젝트 재바인딩: main이 `send.ts:349`에서 다른 projectId로 바인딩하면 renderer 키와 갈린다 — 기존 동작.
+  - B-5 새 세션 payload에 `clientKey`가 없으면(현재 0경로, §8 전수 조사) 확정 전 신원이 맞지 않는다 — S2·S3 불변식이 막는다.
 - 열린 입력 집합 판정 산출물: 해당 없음.
-- 같은 규칙의 SSOT: 판정·selector는 `concurrencyNotice.ts` 한 곳. Composer에 인라인 식을 두지 않는다.
+- 같은 규칙의 SSOT: 신원 일치 규칙은 `isOwnTurn` 한 곳. selector·Composer·ST가 모두 이를 쓴다. ref 생성 규칙은 `activeTurnRef` 한 곳.
 - "다른 게이트가 막는다" 기재: 해당 없음.
-- 선택적 필드: `ownTurnOpen`은 필수 boolean(기본 false). tracker `projectId` null/undefined는 계상하지 않는다(T1a).
+- 선택적 필드: `ActiveTurnRef`의 두 필드는 `null` 허용 필수 필드다(`undefined` 금지). 엔트리 `clientKey?: string`은 새 세션 엔트리만 갖는다.
 - 외부 SDK 경계: 해당 없음.
 
 ## 11. 구현 설계
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
-| `app/src/main/features/sessions/active-turn-tracker.ts` | 토큰 계상 | `increment/decrement` → `begin(token: object, projectId)`/`end(token)`. `Map<object, string>`로 보유 토큰 관리, onChange는 실제 변화 때만. 헤더 주석에 순서 계약 1줄 | UT-01 |
-| `app/src/main/features/chat/turn-coordinator.ts` | E0~E2 | `ActiveTurnGate`를 `begin/end`로. 323 → `begin(turn, boundProjectId)` · 461 앞 terminal이면 `end(turn)` · 550 → `end(turn)` | IT-01 |
-| `app/src/main/app/chat-turn/index.ts` | E3 | `interruptResponse`에서 `sendChatEvent(turn.aborted)` 직전 `supervisor.activeTurns.end(turn)` | IT-01 P4·P5 |
-| `app/src/main/features/sessions/supervisor.ts` | 타입 | getter 타입 유지(코드 변경 없을 수 있음) | — |
-| `app/src/renderer/src/features/chat/reducer/chatReducer.ts` | M1~M12 | `ChatState.ownTurnOpen: boolean` + 주석("main terminal을 받기 전의 자기 턴 — 동시 실행 경고 자기 차감 전용, CANCEL_CHAT은 내리지 않는다"). main terminal 3경로는 `MAIN_TERMINAL_RESET = { ...TURN_END_RESET, ownTurnOpen: false }`, `CANCEL_CHAT`은 `TURN_END_RESET` 유지 | UT-03 |
-| `app/src/renderer/src/features/chat/lib/concurrencyNotice.ts`(신규) | N1·N2 | 순수 함수 2개 | UT-02 |
-| `app/src/renderer/src/features/chat/components/Composer.tsx` | C1·C2 | `const ownCounted = useChatSession(ownTurnCounted)` · `concurrencyActive = concurrencyNoticeActive(projectConcurrencyCount, ownCounted)`. `inflight`(=responding)의 다른 사용처는 그대로 | IT-02 |
-| `app/src/shared/concurrency-order.testfixture.ts`(신규) | 순서 fixture | 단계 어휘 `{at:'renderer', action:'BEGIN_TURN'\|'CANCEL_CHAT'}` · `{at:'wire', channel:'concurrency', count}` · `{at:'wire', channel:'chat', type:'telemetry'\|'error'\|'turn.aborted'\|'turn.ended'}` · `{at:'wire', channel:'chat', type:'chat.activity', transport}`. 경로 P1~P8·O1~O3별 `steps`·`expectNotice`. renderer 지역 동작은 main 반응 **전**에 둔다(최악 순서) | SD-1·SD-2 |
-| `app/src/main/app/chat-turn/concurrency-order.test.ts`(신규) | IT-01 | `post-turn.schedules.test.ts` fixture 형태(실제 `SessionRuntime`·`RuntimeSupervisor`·`TurnCoordinator`·`registerChatHandlers`) + `new RuntimeSupervisor({ activeTurns: new ActiveTurnTracker(로그) })` · `boundProjectId 'p1'` · coordinator forward와 `sendChatEvent` mock과 activity emit을 **같은 로그**에 기록. 경로별 투영(concurrency p1 · fixture 어휘 chat · activity는 transport 변화만) = fixture wire | E0~E3 · SD-1 |
-| `app/src/main/features/chat/turn-coordinator.test.ts` | 갱신 | `activeTurns` fake를 `begin/end`로(:255·795-796·1171-1172·1346-1347) | 기존 회귀 |
-| `app/src/main/features/sessions/active-turn-tracker.test.ts`·`supervisor.test.ts:197-198` | UT-01 | 규칙 칸 입력 | T1~T3 |
-| `app/src/renderer/src/features/chat/lib/concurrencyNotice.test.ts`(신규) | UT-02 | 규칙 칸 입력 | N1·N2 |
-| `app/src/renderer/src/features/chat/lib/concurrencyNotice.order.test.ts`(신규) | ST-01 | fixture `steps`를 실제 `chatReducer`(`RECV_EVENT`·`BEGIN_TURN`·`CANCEL_CHAT`)와 count 변수로 재생하고 단계마다 `concurrencyNoticeActive(count, ownTurnCounted(state))` → `expectNotice`. 대조: AS-IS 순서 P1 변형은 true를 낸다 | SD-2 |
-| `app/src/renderer/src/features/chat/reducer/chatReducer.ownTurnOpen.test.ts`(신규) | UT-03 | M1~M12 | M1~M12 |
-| `app/src/renderer/src/features/chat/components/Composer.concurrency.test.ts`(신규) | IT-02 | `Composer.activity.test.ts`와 같은 `renderToStaticMarkup` + `useChatSession`이 selector를 가짜 state에 적용하는 mock · `useProjectConcurrencyCount`·`useChatResponding` 값 주입 · 패널 제목 존재 단언 | C1·C2 |
-| `docs/IPC_CONTRACT.md:473` · `docs/arch/backend/runtime-ipc.md:25` | AC13 | 설명 문장: main은 턴 terminal 전 계상을 해제, Composer는 main terminal 전 자기 턴(+수신 대기 transport)을 차감 | 인벤토리 게이트 |
+| `app/src/shared/ipc.ts` | 계약 | `ActiveTurnRef` 추가, `ConcurrencyEvent.count` → `turns` | typecheck |
+| `app/src/main/features/sessions/active-turn-tracker.ts` | T1~T4 | `Map<object, { projectId; ref }>`. `begin/confirm/end/turns`. 변화 때만 onChange(`ConcurrencyEvent`) — 프로젝트별 begin 순서 유지 | UT-04 |
+| `app/src/main/features/chat/active-turn-ref.ts`(신규) | A1 | 순수 함수(`TurnContext` 일부 필드만 Pick) | UT-06 |
+| `app/src/main/features/chat/turn-coordinator.ts` | E0~E2 | `ActiveTurnGate`를 `begin/confirm/end`로. 323·471 뒤·550 | IT-03 |
+| `app/src/main/app/bootstrap.ts` | 전달 | `new ActiveTurnTracker((ev) => { broadcastConcurrency(ev); this.updateStateChanged() })` | B-2 |
+| `app/src/main/features/sessions/supervisor.ts` | 타입 | getter 유지 | — |
+| `app/src/renderer/src/features/chat/lib/concurrencyNotice.ts`(신규) | N1~N3 | 순수 함수. 엔트리는 구조적 타입 `{ session: { sessionId }, clientKey? }`로 받아 store 순환 import를 피한다 | UT-05 |
+| `app/src/renderer/src/features/chat/store/chatStore.ts` | S1~S5 | `SessionEntry.clientKey?: string` · `concurrencyByProjectId: Record<string, readonly ActiveTurnRef[]>` · S2·S3 엔트리 기록 · `otherProjectTurnCount`(export, 순수) · `useOtherProjectTurnCount` — 한 store 읽기에서 스냅샷과 활성 엔트리를 함께 본다. `useProjectConcurrencyCount` 삭제 | IT-04 |
+| `app/src/renderer/src/features/chat/components/Composer.tsx` | C1 | `const otherTurns = useOtherProjectTurnCount(projectId)` · `concurrencyActive = otherTurns > 0`. `useProjectConcurrencyCount` import 제거. `inflight`(responding)의 다른 사용처는 그대로 | IT-04 |
+| `app/src/shared/concurrency-order.testfixture.ts`(신규) | SD-1·SD-2 | `CONCURRENCY_ORDER` — 아래 fixture 표. 키 자리표시 `$draft`(store가 만든 draftKey로 치환)·`$sid`·`$other`(태그 `other`) | — |
+| `app/src/main/app/chat-turn/concurrency-identity.test.ts`(신규) | IT-03 | 새 세션 P1: coordinator 단위(턴 `isNewSession:true, dbSessionId:null, queueKey:'draft:a'`, 스크립트 `[session.updated s1, message.completed, telemetry, turn.ended]`, 실제 tracker). 기존 세션 P2·Stop P5·즉시 보내기 P7: `post-turn.schedules.test.ts` 형태 실핸들러 fixture(`new RuntimeSupervisor({ activeTurns: new ActiveTurnTracker(로그) })`, `boundProjectId 'p1'`). 예외(이벤트 1건 뒤 throw)·시작 전 중단·재시도(이벤트 0건 retryable 실패 후 성공) → AC5. 각 열 = fixture K | E0~E2 · SD-1 |
+| `app/src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts`(신규) | ST-02 | `chatStore.test.ts` 형태로 `window.api` mock(concurrency 핸들러 캡처). 경로마다 L·C·K 인터리빙을 전수 생성(각 열 내부 순서 보존 + 아래 제약) → 실제 `send`/`startHandoff`/`cancel`/`ingestChatEvent`/핸들러 실행 → 접두마다 `otherProjectTurnCount(getState(),'p1') > 0` = oracle. 음성 대조: 같은 열에 AS-IS 공식 → P1 오탐 ≥1·O2 누락 ≥1 | SD-2 |
+| `app/src/renderer/src/features/chat/store/chatStore.concurrency.test.ts`(신규) | IT-04 S1~S5 | §10 입력 | S1~S5 |
+| `app/src/renderer/src/features/chat/components/Composer.concurrency.test.ts`(신규) | IT-04 C1 | `Composer.activity.test.ts`처럼 `renderToStaticMarkup`. chatStore mock은 `...original`을 유지해 `useOtherProjectTurnCount`·`useChatStore`를 실물로 두고, `useChatStore.setState`로 엔트리·스냅샷을 시드. `useChatResponding`은 §10 C1 구별 값으로 덮는다 | C1 |
+| `active-turn-tracker.test.ts` · `supervisor.test.ts:197-198` · `turn-coordinator.test.ts`(:255·795-796·1171-1172·1346-1347) | 갱신 | 새 API | UT-04 · 회귀 |
+| `active-turn-ref.test.ts` · `concurrencyNotice.test.ts`(신규) | UT-06·UT-05 | §10 입력 | A1 · N1~N3 |
+| store 테스트 fixture 5곳(`chatStore.test.ts:384,497` · `chatStore.testHarness.ts:77` · `chatStore.extraDirs.test.ts:28` · `chatStore.worktreeIsolation.test.ts:35`) | 타입 | 빈 객체 유지 — 값 타입만 바뀐다 | typecheck |
+| `docs/IPC_CONTRACT.md:473` · `docs/arch/backend/runtime-ipc.md:25` | AC13 | payload 표기 교체 + "renderer는 표시 중 세션 신원과 맞는 항목을 빼고 판정한다 — 자기 턴 플래그로 산술하지 않는다" | 인벤토리 게이트 |
+
+### ST-02 fixture (`CONCURRENCY_ORDER`)
+
+L = renderer 로컬 동작, C = 채팅 채널(main→renderer), K = concurrency 채널 스냅샷. 공통 제약: C·K의 모든 단계는 L의 첫 동작 뒤. `turn.aborted`(Stop 경로)는 `cancel` 뒤. O 경로는 L 앞에 초기 스냅샷 `K0`를 적용한다.
+
+| 경로 | L | C | K |
+|---|---|---|---|
+| P1 새 세션 정상 | `send(새)` | `session.updated($sid)` · `telemetry` · `turn.ended` | `[{null,$draft}]` · `[{$sid,$draft}]` · `[]` |
+| P2 기존 정상 | `send($sid)` | `telemetry` · `turn.ended` | `[{$sid,null}]` · `[]` |
+| P3 기존 error | `send($sid)` | `error` | P2와 같음 |
+| P4 기존 스트림 중단 | `send($sid)` | `turn.aborted` | P2와 같음 |
+| P5 기존 Stop | `send($sid)` · `cancel` | `turn.aborted` | P2와 같음 |
+| P6 새 세션 승격 전 Stop | `send(새)` · `cancel` | `session.updated($sid)` · `telemetry` | P1과 같음 |
+| P7 즉시 보내기 | `send($sid)` | `turn.aborted` · `chat.activity(listening)` · `telemetry` · `chat.activity(idle)` | `[{$sid,null}]` · `[]` · `[{$sid,null}]` · `[]` |
+| P8 핸드오프 새 세션 | `startHandoff` | P1과 같음 | P1과 같음 |
+| O1 다른 턴 + 기존 정상 | `send($sid)` | `telemetry` | K0 `[{$other}]` → `[{$other},{$sid,null}]` · `[{$other}]` · `[]` |
+| O2 다른 턴 + 새 세션 시작~종료 | `send(새)` | `session.updated($sid)` · `telemetry` | K0 `[{$other}]` → `[{$other},{null,$draft}]` · `[{$other},{$sid,$draft}]` · `[{$other}]` · `[]` |
+| O3 다른 턴 + Stop | `send($sid)` · `cancel` | `turn.aborted` | K0 `[{$other}]` → `[{$other},{$sid,null}]` · `[{$other}]` |
+
+- 인터리빙 수는 경로마다 C(|C|+|K|, |K|) 이하(P7 최대 70) — 전수 실행 가능하다.
+- 기대값: P 경로는 전부 F. O 경로는 접두마다 "최신 K에 `other` 태그 항목이 있다" — 신원 함수와 독립인 oracle이다.
 
 ### 테스트 가능성
 
-- 순수 파일: `concurrencyNotice.ts`(React·store 비의존), `active-turn-tracker.ts`(electron 비의존).
-- 기존 메커니즘 재사용: 실핸들러 fixture는 `boundProjectId`를 `null`로 넘겨 계상하지 않는다(`post-turn.schedules.test.ts:229`) — 새 파일은 `'p1'`을 넘긴다.
-- 순서 관측: 단일 로그 배열 하나에 tracker onChange·forward·`sendChatEvent` mock·activity emit을 기록한다.
+- 순수 파일: `concurrencyNotice.ts`(React·store 비의존) · `active-turn-ref.ts`·`active-turn-tracker.ts`(electron 비의존).
+- 기존 메커니즘 재사용: 실핸들러 fixture는 `boundProjectId`를 `null`로 넘겨 계상하지 않는다(`post-turn.schedules.test.ts:229`) — 새 파일은 `'p1'`. `chatStore.test.ts:1423`의 `concurrency: { onEvent: vi.fn() }`에서 핸들러를 꺼낸다.
+- 순서 관측: 순서를 단언하지 않는다. ST-02가 모든 순서를 돌린다.
 
 ## 12. End-to-end 영향
 
 ### producer → consumer
 
 ```text
-coordinator/interruptResponse → ActiveTurnTracker → broadcastConcurrency ─┐
-coordinator relay / sendChatEvent → chatEvent ────────────────────────────┤→ chatStore(count · ownTurnOpen) → Composer → Notice
+coordinator(E0~E2) → ActiveTurnTracker(T1~T4) → bootstrap → broadcastConcurrency → preload → concurrencyApi
+  → chatStore.concurrencyByProjectId(S1) ─┐
+send/startHandoff(S2·S3) → entry.clientKey → 승격(S4) ─┴→ otherProjectTurnCount(S5) → Composer(C1) → Notice
 ```
 
-- producer 기준: count = 계상 중 턴 수. 해제는 terminal 송신 전(E1·E3).
-- consumer 파생 규칙: 다른 턴 = count − 자기 계상(main terminal 전 자기 턴 또는 수신 대기 transport).
-- 합성값 우회: 없음 — Composer는 `concurrencyNoticeActive` 하나로 판정한다.
+- producer 기준: `turns` = 그 순간 계상 중 턴 전부의 신원.
+- consumer 파생 규칙: 다른 턴 = `turns` 중 `isOwnTurn`이 false인 항목.
+- 합성값 우회: `count`가 사라져 개수 산술 경로가 없다.
 
 ### 부팅/등록/초기화 변경 시 기존 소비처
 
-| 기존 소비처 | 값 증가/변경 시 영향 | 회귀 AC |
+| 기존 소비처 | 값 변경 시 영향 | 회귀 AC |
 |---|---|---|
-| `bootstrap.ts:1110-1113` onChange → `broadcastConcurrency` + `updateStateChanged` | 호출 시점이 terminal 직전으로 앞당겨질 뿐, gate는 lease를 읽는다(R-09) | AC14 |
-| `activeTurns`를 참조하는 통합 테스트 6파일(`rg -l "activeTurns" src/main -g '*.test.ts'` → 8건 중 `supervisor.test.ts`·`turn-coordinator.test.ts` 제외: `chat-turn.runtime-tools`·`response-boundary.integration`·`post-turn.schedules`·`opencode-continuation`·`chat-turn.continuity`·`chat-turn.execution-config`) | 실제 tracker를 넘기면 API 변경만 반영 | 관련 vitest gate |
+| `bootstrap.ts:1110-1113` onChange → `broadcastConcurrency` + `updateStateChanged` | 인자 형태만 바뀐다. gate는 lease를 읽는다(R-16) | AC14 |
+| preload `concurrency.onEvent` · renderer `api/ipc.ts:225` | 타입 통과 | typecheck |
+| `activeTurns` 참조 통합 테스트 6파일 | 실제 tracker를 넘기면 API 변경만 반영 | vitest gate |
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: `runtime.send` 직후 `begin`(E0). 재시도 attempt마다 begin↔finally end 왕복.
-- 취소/중단: Stop·즉시 보내기 = E3 → 이후 coordinator의 E1·E2는 no-op.
-- 종료/crash/renderer-gone: 예외로 루프를 나오면 E2가 해제. renderer-gone은 lease 정리 경로가 turn abort → E2.
-- retry/timeout: retry는 thrown error·이벤트 0건에서만 — terminal 뒤 begin 재진입 없음.
-- cleanup: 토큰 Map 항목은 end에서 삭제 — 누수 없음.
-- 다중 저장소 쓰기: 산출 판정의 사본 = `plan.md`·`verify.md`·`INDEX.md` 보드. 코드 쪽은 해당 없음.
+- 생성/시작: `runtime.send` 직후 E0. 재시도 attempt마다 E0↔E2 왕복.
+- 세션 확정: E1은 대기 중 새 턴에서 한 번만 의미가 있다(T2a). 기존 세션 `session.updated` patch는 T2b로 무시.
+- 취소/중단: Stop·즉시 보내기는 coordinator 루프 종료 → E2. 판정은 그 시점과 무관하다.
+- 종료/crash/renderer-gone: 예외로 루프를 나오면 E2. renderer-gone은 lease 정리 → turn abort → E2.
+- cleanup: 토큰 항목은 E2에서 삭제. 프로젝트 목록이 비면 `turns: []` 이벤트를 보내고 내부 키를 지운다.
+- 다중 저장소 쓰기: 판정 사본 = `plan.md`·`verify.md`·`INDEX.md`. 코드 쪽은 해당 없음.
 
 ## 14. 성능 / 상한 / 최적화
 
-- 해당 없음 — 턴당 broadcast 수 불변(begin 1·end 1).
+- 이벤트 크기: 프로젝트 실행 중 턴 수 × ref 2필드. 턴 수 상한은 runtime cap(`bootstrap.ts:1117` capacity)과 lease 수에 묶인다.
+- 이벤트 수: 턴당 begin 1 · confirm 최대 1 · end 1 — AS-IS보다 새 세션에서 1 늘 뿐이다.
+- selector 비용: 렌더마다 목록 순회(수 개). 원시값 반환이라 불필요한 재렌더가 없다.
 
 ## 15. 외부 구현 포트 / 문서 계약
 
-- 해당 없음 — 외부 구현자 없음. IPC 계약 문장만 갱신(AC13).
+- 해당 없음 — 외부 구현자 없음. IPC 계약 문서만 갱신(AC13).
 
 ## 16. 기존 결정·규칙과의 관계
 
 | 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
 |---|---|---|---|
-| 경고 = 자기 턴 제외·비차단·에피소드 닫기 | `Composer.tsx:167-178` · `ko.ts:1099-1100` | §5 · AC6 | 유지 |
+| 경고 = 자기 제외·비차단·에피소드 닫기 | `Composer.tsx:167-178` · `ko.ts:1099-1100` | §5 · AC6 | 유지 — "자기"의 정의를 플래그에서 신원으로 바꿈(D-010) |
 | listen 턴 비계상(0143) | `turn-coordinator.ts:320-323` | E0 · AC11 | 유지 |
-| `inflight`는 라이브 경로에서 renderer 소유, 스냅샷은 hydrate만 | `chatReducer.ts:1242-1245,1558-1560` | M7·M8은 같은 원칙으로 `ownTurnOpen`도 hydrate에서만 스냅샷 사용 | 유지 |
-| `TURN_END_RESET` 단일 리셋 | `chatReducer.ts:586-599` | `MAIN_TERMINAL_RESET`이 `TURN_END_RESET`을 펼쳐 쓴다 | 유지(확장) |
-| IPC 계약 "자기 inflight 차감" | `IPC_CONTRACT.md:473` | AC13 | 변경 — 경합 원인 서술 |
-| main 레이어 DAG | `src/main/AGENTS.md` | `app → features/sessions`(supervisor 경유) | 유지 |
-| renderer 4-layer | `src/renderer/AGENTS.md` | 신규 파일은 `features/chat/lib` | 유지 |
+| `inflight`는 라이브 경로에서 renderer 소유 | `chatReducer.ts:1242-1245` | 판정이 `inflight`를 읽지 않음 | 유지(무관해짐) |
+| IPC 계약 "자기 inflight 차감" · payload `{projectId; count}` | `IPC_CONTRACT.md:473` | AC13 | 변경 — D-009 |
+| `clientKey`는 영속 금지 | `ipc.ts:961-963` · `contracts/turn.ts:71-73` | renderer 엔트리 메모리·IPC 스냅샷에만 둔다 | 유지 |
+| `lease-key.ts` 코덱 | `src/shared/lease-key.ts` | 접두 키를 쓰지 않고 원 키를 ref 필드에 둔다 | 유지(비사용) |
+| main 레이어 DAG · renderer 4-layer | `src/main/AGENTS.md` · `src/renderer/AGENTS.md` | `features/chat` ↔ `features/sessions`는 포트 경유 · 신규 renderer 파일은 `features/chat/lib` | 유지 |
+| V1 설계(순서 계약·`ownTurnOpen`) | 이 plan V1 | §7-A | 대체 |
 
 ## 17. 리스크 / 트레이드오프
 
 | 리스크 | 완화/결정 |
 |---|---|
-| Stop 직후 다른 창 Composer에서 경고가 실제 스트림 종료보다 조금 일찍 꺼진다 | 사용자가 중단을 요청한 턴이라 "실행 중 작업"이 아니다 — 수용 |
-| `ownTurnOpen` 고착(B-5) | 결과는 경고 1건 가림(오탐 아님). main 모든 경로가 terminal을 보낸다 |
-| 세션 식별자 기반 대안(D-007) | 새 세션 id 미발급 구간 매핑·payload 변경·IPC 문서 개정이 필요 — 순서 계약이 더 작다 |
+| D-010으로 같은 세션 다른 창의 경고가 사라진다 | 같은 세션은 병렬 실행이 불가능해 충돌 경고 의미가 없다. 사용자가 원하면 N2에서 창 구분을 더한다 |
+| payload 변경(one-way door) | 소비자가 Composer 하나이고 내부 IPC다(R-16). 문서 동시 갱신(AC13) |
+| 기동 직후 스냅샷 부재(B-3) | 기존 동작. 스냅샷 형태라 초기 조회 하나를 더하면 닫힌다(§6 후속) |
 
-- 되돌리기 어려운 결정: 없음(내부 API·renderer 상태).
+- 되돌리기 어려운 결정: IPC payload 형태 — 내부 계약이라 같은 PR에서 양쪽이 바뀐다.
 - 신규 의존성: 없음.
 
 ## 18. 영향 받는 파일 / 문서
 
+- `app/src/shared/ipc.ts` · `app/src/shared/concurrency-order.testfixture.ts`(신규)
 - `app/src/main/features/sessions/active-turn-tracker.ts`(+test) · `supervisor.test.ts`
-- `app/src/main/features/chat/turn-coordinator.ts`(+test)
-- `app/src/main/app/chat-turn/index.ts` · `app/src/main/app/chat-turn/concurrency-order.test.ts`(신규)
-- `app/src/shared/concurrency-order.testfixture.ts`(신규)
-- `app/src/renderer/src/features/chat/reducer/chatReducer.ts` · `chatReducer.ownTurnOpen.test.ts`(신규)
-- `app/src/renderer/src/features/chat/lib/concurrencyNotice.ts`·`.test.ts`·`.order.test.ts`(신규)
+- `app/src/main/features/chat/active-turn-ref.ts`(+test, 신규) · `turn-coordinator.ts`(+test)
+- `app/src/main/app/bootstrap.ts` · `app/src/main/app/chat-turn/concurrency-identity.test.ts`(신규)
+- `app/src/renderer/src/features/chat/lib/concurrencyNotice.ts`(+test, 신규)
+- `app/src/renderer/src/features/chat/store/chatStore.ts` · `chatStore.concurrency.test.ts`·`chatStore.concurrency.order.test.ts`(신규) · store 테스트 fixture 5곳
 - `app/src/renderer/src/features/chat/components/Composer.tsx` · `Composer.concurrency.test.ts`(신규)
 - `docs/IPC_CONTRACT.md` · `docs/arch/backend/runtime-ipc.md`
 
 ## 19. 게이트
 
 - 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` · `app/src/main/AGENTS.md` · `app/src/renderer/AGENTS.md`.
-- ABI/네트워크 제약: 제약 환경은 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts`로 설치한다. DB 로드 스위트 bindings 실패는 기준선.
+- ABI/네트워크 제약: 제약 환경은 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts`. DB 로드 스위트 bindings 실패는 기준선.
 - 기본 정적 게이트: `cd app && npm run lint && npm run typecheck`.
-- 관련 테스트: §7-A 운영 gate 표의 vitest 명령 + `node scripts/check-test-budgets.mjs` + `node scripts/check-doc-inventory.mjs --check`.
+- 관련 테스트: §7-B 운영 gate 표.
 - 사람 실기: AC14(OpenCode·Claude).
 
 ## READY self-review
 
-- 결정 보존: D-001~D-007 ACTIVE, OPEN 0. D-003은 추론임을 §2·§4에 표시.
-- Part I만으로 완료 상태 설명 가능: §1·§5 상태표.
-- 사용자 문장 재해석 없음: §2 원문 인용. "세션 시작 시"는 첫 턴 포함 모든 턴으로 확인(§8 검산).
-- AS-IS/TO-BE 같은 축: §9 Delta 5행이 §11 파일과 AC에 연결.
-- 실측: 순서(R-04)·검색 N(§8 전수 조사)·문서 앵커·기존 테스트(§8 검산 4번째 줄).
-- V: Baseline, NEW node 13개 전부 REQUIRED pair. AT pair는 §10 자리 0 + 이유.
-- 규칙 칸 ↔ 입력 칸: §10 표 — T1(3분기)·T2(3)·T3(2)·N1(5)·N2(4)·M1~M12·IT-02(4) 모두 입력 있음.
-- 적대 증거: VP-04(순서 모델 민감도)·VP-05(end 뒤로 옮김)·VP-06(responding 맞바꿈)만 선택, 이유 기재.
-- 선언 경계 B-1~B-5는 측정 근거(파일:줄·실측)와 함께.
-- INDEX 후보 표 겹침: 0행(0262·0294·0296 대상 파일과 무관).
-- 사람 실기로 미룬 순수 로직 없음: 판정·전이·순서 모델은 UT/ST.
-- 산출물 문장 규칙: 표 한 칸 3줄 이내로 작성.
+- 결정 보존: D-001~D-006·D-008~D-010 ACTIVE, D-007 SUPERSEDED → D-009, OPEN 0. D-010은 추론 표시(§3·§4).
+- 사용자 문장: §2 원문 인용. "구조적인 문제자체를 해결" → D-008(순서 보정 금지)·D-009(산술 제거).
+- Part I만으로 완료 상태 설명: §1·§5 상태표.
+- AS-IS/TO-BE 같은 축: §9 Delta 5행이 §11 파일·AC에 연결. 사라진 책임: `count`·플래그 차감·V1 순서 계약 = 삭제(§9 TO-BE 유지/제거 줄).
+- 실측: R-09·R-12·R-13·R-14·R-15 검색과 파일:줄, §8 전수 조사 N 6행.
+- V: ΔV1 — CHANGED R 3·NEW 10 node 전부 REQUIRED pair. SUPERSEDED pair 6건의 증거 이관·폐기 근거(§7-A).
+- 규칙 칸 ↔ 입력 칸: T1(3)·T2(3)·T3(3)·T4(4)·A1(4)·N1(4)·N2(4+D-010)·N3(4)·S1~S5·C1(4) 모두 입력 있음.
+- 적대 증거: VP-14(AS-IS 공식 음성 대조)·VP-15(`confirm` 누락·빈 ref)·VP-16(플래그 산술 구별 입력)만 선택.
+- 선언 경계 B-1~B-5 — 근거 파일:줄·전수 검색과 함께.
+- INDEX 후보 표 겹침: 0행.
+- 사람 실기로 미룬 순수 로직 없음.
+- 산출물 문장 규칙: 표 한 칸 3줄 이내.
 
 ---
 
