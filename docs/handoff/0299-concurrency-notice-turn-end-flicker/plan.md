@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-07 (V1) · 2026-11-08 (ΔV1·ΔV2) |
 | 매핑 | 버그수정(비기능) — 구현 주체 Claude |
-| 상태 | IMPL_DONE (ΔV2 · r1.2, AC14 사람 실기 대기) |
+| 상태 | IMPL_DONE (ΔV2 · r2, D1 문서 표 보완 · AC14 사람 실기 대기) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 `(검증자 기입 — 브랜치 커밋 28cffb4)` · ΔV1 `(검증자 기입 — 브랜치 커밋 75e1ab4)` — 둘 다 `main` 미병합 |
 | 이번 V revision | `ΔV2` — 사용자 용어 정렬(D-011)·worktree 격리 결정(D-012). D-010 철회 |
@@ -1000,6 +1000,90 @@ session.updated 복구 patch(S6) → worktreeIsolation ────────�
 - 관련 지침·AC가 있었는가: app/AGENTS.md의 298 unit 가드·격리 규칙과 handoff-impl의 현재 산출물 gate가 있었다. source guard를 기존 그대로 실행했다.
 - 반복 환경 한계: Linux Windows 경로 9파일/22실패와 미처리 거부 1건은 변경 전에도 같았다. r1의 Git unit 실패 11건은 이번에는 전부 통과한다.
 - 현재 라운드·impl 턴: **r1.2**. verify 횟수 증가 없음; 다음은 Claude 독립 검증·AC14 사람 실기다.
+
+## [구현자 기입] 설계 리뷰 — r2
+
+- **AC13 보완**. verify r1 D1의 불변식은 “계약 설명 전체가 해당 표의 설명 셀에 남는다”다. `IPC_CONTRACT.md:473`의 nullable 필드 두 곳을 이스케이프했다.
+- **규범 유지**. Decision·AC·유효 V·§10은 바꾸지 않았다. AC13이 지정한 두 문서 행을 GFM 파서로 대조했다([실측](evidence/r2-doc-validation.json)).
+- 착수 목록: D1·AC13, 문서 인벤토리·message-bus·최신 handoff 지침의 전체 CI 대응 gate. §7-B의 12 pair는 production 변경이 없어 r1 검증 좌표를 참조하고, AC14 실기는 유지한다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| 해당 없음(AC13 문서) | 렌더된 계약 설명 | 문서 AC라 §10 자리 없음 | 이번 턴 신규 0 | `r2-doc-validation.json:current` — IPC 5/5셀·runtime 3/3셀 | `sessionId`·`clientKey` nullable 표기와 신원 제외·산술 금지·격리 제외 문장 보존 | AC14 실기 |
+
+- **§10 영향 0**. `git diff --name-only origin/main -- app`는 빈 출력이다. 기존 25자리의 직접 좌표는 [verify §5](verify.md#5-v-pair-closeout-ut--it--st--at)에 있고 이번 턴에 새 `SELF_PASS`를 부여하지 않는다.
+- **V-pair 자기확인: 해당 없음**. 변경 대상은 pair가 없는 AC13이며, 기술 8 pair와 AT 4 pair는 r1 검증 결과를 참조한다. AT의 페인트·실제 IPC는 AC14 경계다.
+- 직전 고장 이력의 B2는 선언 경계, G-mock은 환경상 무효다([verify §4](verify.md#4-고장-이력-이번-턴-시도-전부)). 이번 의무는 D1의 문서 렌더 재현이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+**원문 7셀 오류를 재현하고 수정 후 5셀을 확인했다**. 설치된 `unified`·`remark-parse`·`remark-gfm`으로 두 문서 전체를 파싱한 뒤 행 신원으로 찾아, 헤더 폭 안에 실제 표시되는 설명을 대조했다([원문과 관측](evidence/r2-doc-validation.json)).
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| D1 원문 — 두 필드의 이스케이프 누락 | 닫는 이슈 인용 | GFM 7셀, 설명 잘림 | `baseline`: 7셀·필수 표기/문장 5개 누락 | 검출, 수정본은 5셀 |
+| `sessionId` 이스케이프만 제거 | 새 파서 oracle 민감도 | 미실행 | `mutations:D1-sessionId`: 6셀·문장 잘림 | 검출 |
+| `clientKey` 이스케이프만 제거 | 새 파서 oracle 민감도 | 미실행 | `mutations:D1-clientKey`: 6셀·문장 잘림 | 검출 |
+| IPC 행의 신원 제외·산술 금지·격리 제외를 각각 제거(3입력) | AC13 문장 sweep | 미실행 | `mutations:orca:concurrency:event:*`: 누락 문장을 각각 식별 | 3/3 검출 |
+| runtime 행의 같은 세 문장을 각각 제거(3입력) | AC13 문장 sweep | 미실행 | `mutations:ActiveTurnTracker:*`: 누락 문장을 각각 식별 | 3/3 검출 |
+
+- **분모 검산**: 선택 증거 0 · 인용 변이 1 · 새 oracle 2 · sweep 2 = 표 5행(9입력). 원문 음성 대조 1건과 메모리상 변이 8건 모두 검출했다.
+- **D1 구현 보완**. 두 nullable 필드를 독립적으로 고장 내 보았고, AC13의 형제 문서도 정상 3셀·문장 보존을 확인했다. 검증자 소유의 `verify.md`와 파생 이슈 판정은 다음 verify가 갱신한다.
+- **production 변이 재실행 해당 없음**. app 코드·테스트·설정·setup·헬퍼를 수정하지 않아 r1 고장 이력의 production 자리와 oracle에 닿는 diff가 없다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 계약 문서의 기존 설명이 렌더에서 끝까지 보이도록 보완 | AC13 파서 대조 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음 — `app/**` diff 0 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 문서 이스케이프만 변경 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 해당 없음 — 앱 표시 경로 변경 없음 | AC14 실기 유지 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 순서 판정 변경 없음 | r1 ST-02 좌표 유지 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 원문 문자열 대조만으로는 GFM 표에서 설명이 잘리는 것을 못 본다 | 헤더 폭 안의 설명 셀에서 AC13 문장을 대조 | 원문 7셀 red·수정본 5셀 green |
+| 2 | 문서 전체에서 첫 문자열만 치환하면 다른 행을 변이할 수 있다 | 대상 행을 신원으로 고정한 뒤 두 필드를 따로 변이 | `D1-sessionId`·`D1-clientKey` 각각 6셀 red |
+| 3 | 0298의 forced 목록 정정은 0299 D1과 별개다 | 이번 범위를 AC13에 한정 | [verify §6 D2](verify.md#6-발견), app diff 0 |
+
+### 설계 대비 명시적 차이 — r2
+
+**없음**. AC13의 문서 표기만 보완했다(`IPC_CONTRACT.md:473`).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체물·캐시 추가 없음 | app diff 0 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 판정 사본은 plan 메타·INDEX에 함께 반영 | 둘 다 `IMPL_DONE`·r2, 다음 주체 Claude |
+| 재진입 | 해당 없음 — production 변경 없음 | app diff 0 |
+| 다른 무효화 축 | 해당 없음 — 데이터·설정 변경 없음 | app diff 0 |
+
+## [구현자 기입] 구현 보고 — r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `IPC_CONTRACT.md` 한 행, 본 보고·INDEX·GFM 실측/전체 gate 증거 |
+| 실행 명령 | GFM 파서 대조·음성 대조 / IPC 문서 vitest 1파일 3케이스 통과 / CI 단계의 ABI-중립 전체 실행(정확한 명령은 `r2-gates.json:commands`) |
+| **관측한 게이트 산출** | lint 0 error/2 기존 warning · typecheck 3/3 · node 819/819 · migration/예산/inventory 통과. 전체 Vitest 927파일·8,161 passed/337 failed/95 pending, 변경 전과 실패 집합 동일([산출](evidence/r2-gates.json)) |
+| V-pair 자기확인 | 이번 턴 영향 pair 없음. r1 기계 범위 검증은 [verify §5](verify.md#5-v-pair-closeout-ut--it--st--at)를 참조 |
+| 강제 지점 전수 | AC13 문서 2행: IPC 5/5셀·runtime 3/3셀, 필수 문장 보존 |
+| **AC 자기보고**(`Criteria-Met`) | 17/18(AC13 이번 턴 보완, 나머지 기계 AC는 r1 검증 참조). AC14 실기 대기 |
+| **합계 검산** | ✅17(기존 기계 AC 16 + 이번 AC13 1) · ⚠️1(AC14) · ❌0 = 18, 분모 변경 없음 |
+| 블로커 / 역질문 | D1 보완 후 독립 검증 대기. AC14 OpenCode·Claude 실기 유지 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+- **변경 관련 실패 0**. 별도 clean worktree의 같은 전체 Vitest 명령과 비교해 `newFailures=[]`·`resolvedFailures=[]`를 얻었다. 43파일·315케이스는 SQLite ABI 140/Node 불일치·self-register 실패, 나머지 9파일·22케이스는 r1.2에도 기록된 Linux 실패다([목록·서명](evidence/r2-gates.json)).
+- **추가·수정 테스트 0파일**. `git diff --name-only origin/main -- app`가 비어 있어 테스트 예산·호스트 격리·풀 분류를 새로 판정할 파일은 없다. 마이그레이션 append-only는 태그를 가져온 뒤 `v0.3.1` 기준으로도 통과했다.
+
+## [구현자 기입] Review Signals — 사실만 — r2
+
+- **첫 문서 렌더 보완**. r1의 AC13 문자열 대조는 표 렌더를 관측하지 않았고, 이번에는 원문 7셀과 수정본 5셀을 파서로 확인했다.
+- **기존 계약 이행**. AC13이 요구한 두 문서의 신원 목록·신원 제외·산술 금지·격리 제외를 표시되는 설명 셀에서 확인했다.
+- **현재 턴 r2**. verify r1 FAIL 뒤 첫 구현이며 다음은 Claude 독립 검증이다. AC14 사람 실기는 그대로 남는다.
 
 ---
 
