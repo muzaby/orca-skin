@@ -1,10 +1,12 @@
 import type { ActiveTurnRef, ConcurrencyEvent } from '../../../shared/ipc'
 
+type ActiveTurnListener = (event: ConcurrencyEvent) => void
+
 // 응답 중인 비격리 세션의 신원. runtime cap/lease 회계와는 별개다.
 export class ActiveTurnTracker {
   private readonly entries = new Map<object, { projectId: string; ref: ActiveTurnRef }>()
 
-  constructor(private readonly onChange: (event: ConcurrencyEvent) => void = () => undefined) {}
+  constructor(private readonly notify: ActiveTurnListener = () => undefined) {}
 
   begin(token: object, projectId: string | null | undefined, ref: ActiveTurnRef): void {
     if (!projectId || this.entries.has(token)) return
@@ -34,6 +36,6 @@ export class ActiveTurnTracker {
   }
 
   private emit(projectId: string): void {
-    this.onChange({ projectId, turns: this.turns(projectId) })
+    this.notify({ projectId, turns: this.turns(projectId) })
   }
 }

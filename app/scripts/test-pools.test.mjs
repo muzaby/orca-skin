@@ -341,11 +341,10 @@ describe('partitionTestFiles — 실제 트리', () => {
     assert.equal(io.filter((file) => unit.includes(file)).length, 0)
     for (const forced of Object.keys(FORCED_IO)) assert.ok(io.includes(forced), forced)
   })
-  test('FORCED_IO 는 실측한 파일 목록 그대로다 — 빠지면 그 파일이 unit 에서 깨진다', () => {
-    assert.deepEqual(Object.keys(FORCED_IO).sort(), [
-      'src/main/app/chat-turn/send.agent-profile.test.ts',
-      'src/main/infra/loopback-callback.test.ts'
-    ])
+  test('FORCED_IO 는 프로세스 격리가 필요한 파일만 남기고 Git 조회를 대체한 send 검사는 unit 이다', () => {
+    assert.deepEqual(Object.keys(FORCED_IO).sort(), ['src/main/infra/loopback-callback.test.ts'])
+    const profile = 'src/main/app/chat-turn/send.agent-profile.test.ts'
+    assert.equal(classifyTestSource(readFileSync(join(APP, profile), 'utf8'), profile).pool, 'unit')
   })
 })
 

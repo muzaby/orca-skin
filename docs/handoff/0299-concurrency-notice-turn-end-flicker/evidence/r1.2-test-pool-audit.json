@@ -1,0 +1,371 @@
+{
+  "sourceBase": "801e42f8 (0299 implementation start)",
+  "tests": [
+    {
+      "file": "src/main/app/chat-turn.continuity.test.ts",
+      "fixture": false,
+      "pool": "io",
+      "reasons": [
+        "sqlite"
+      ]
+    },
+    {
+      "file": "src/main/app/chat-turn.execution-config.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn.runtime-tools.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn/concurrency-identity.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn/prepare-progress.test.ts",
+      "fixture": false,
+      "pool": "io",
+      "reasons": [
+        "git-fixture",
+        "run-git"
+      ]
+    },
+    {
+      "file": "src/main/app/chat-turn/prepare-worktree.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn/send.permission-mode.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn/send.wait-phase.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/chat-turn/send.worktree.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/app/response-boundary.integration.test.ts",
+      "fixture": false,
+      "pool": "io",
+      "reasons": [
+        "sqlite"
+      ]
+    },
+    {
+      "file": "src/main/features/chat/active-turn-ref.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/features/chat/turn-coordinator.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/features/sessions/active-turn-tracker.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/features/sessions/supervisor.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/main/features/worktrees/service.test.ts",
+      "fixture": false,
+      "pool": "io",
+      "reasons": [
+        "git-fixture"
+      ]
+    },
+    {
+      "file": "src/renderer/src/features/chat/components/Composer.activity.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/components/Composer.concurrency.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/components/composerRequirementWiring.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/lib/settlement.integration.test.ts",
+      "fixture": false,
+      "pool": "io",
+      "reasons": [
+        "sqlite"
+      ]
+    },
+    {
+      "file": "src/renderer/src/features/chat/reducer/chatReducer.worktreeIsolation.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/pages/NewChatLandingPage.harness.test.ts",
+      "fixture": false,
+      "pool": "unit",
+      "reasons": []
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "src/main/app/chat-turn/concurrency-identity.testfixture.ts",
+      "fixture": true,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/renderer/src/features/chat/store/chatStore.concurrency.testfixture.ts",
+      "fixture": true,
+      "pool": "unit",
+      "reasons": []
+    },
+    {
+      "file": "src/shared/concurrency-order.testfixture.ts",
+      "fixture": true,
+      "pool": "unit",
+      "reasons": []
+    }
+  ],
+  "unitCount": 20,
+  "ioCount": 5,
+  "changedSourcesNotAudited": [],
+  "auditedSourcesNotChanged": [],
+  "scriptTests": [
+    "scripts/test-pools.test.mjs"
+  ],
+  "runtimeResults": [
+    {
+      "file": "src/main/app/chat-turn.continuity.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/response-boundary.integration.test.ts",
+      "status": "passed",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/prepare-progress.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/features/worktrees/service.test.ts",
+      "status": "passed",
+      "passed": 12,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/lib/settlement.integration.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn.execution-config.test.ts",
+      "status": "passed",
+      "passed": 14,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn.runtime-tools.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/features/chat/active-turn-ref.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/features/chat/turn-coordinator.test.ts",
+      "status": "passed",
+      "passed": 77,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/features/sessions/active-turn-tracker.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/features/sessions/supervisor.test.ts",
+      "status": "passed",
+      "passed": 21,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/concurrency-identity.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/prepare-worktree.test.ts",
+      "status": "passed",
+      "passed": 11,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/send.agent-profile.test.ts",
+      "status": "passed",
+      "passed": 8,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/send.permission-mode.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/send.wait-phase.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/main/app/chat-turn/send.worktree.test.ts",
+      "status": "passed",
+      "passed": 29,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/pages/NewChatLandingPage.harness.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/components/Composer.activity.test.ts",
+      "status": "passed",
+      "passed": 4,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/components/Composer.concurrency.test.ts",
+      "status": "passed",
+      "passed": 5,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/components/composerRequirementWiring.test.ts",
+      "status": "passed",
+      "passed": 6,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts",
+      "status": "passed",
+      "passed": 9,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/reducer/chatReducer.worktreeIsolation.test.ts",
+      "status": "passed",
+      "passed": 3,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "failed": 0,
+      "pending": 0
+    },
+    {
+      "file": "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts",
+      "status": "passed",
+      "passed": 7,
+      "failed": 0,
+      "pending": 0
+    }
+  ],
+  "runtimeCaseCount": 279
+}

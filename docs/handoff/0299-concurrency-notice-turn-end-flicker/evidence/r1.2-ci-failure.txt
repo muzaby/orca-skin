@@ -1,0 +1,40 @@
+Run: https://github.com/muzaby/orca-skin/actions/runs/42448898011
+Job: 128633675130
+Commit: 93b3e381795fd695d54f21c3eba13cc4a191fc1e
+
+2026-11-08T05:05:32.4527676Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-08T05:05:32.4527932Z 
+2026-11-08T05:05:32.4530298Z  FAIL   unit  src/main/app/no-stray-auth-subscribe.test.ts > runtime model Auth composition seam > wires every catalog-reconcile injection point to a locked form
+2026-11-08T05:05:32.4537173Z AssertionError: expected [ Array(1) ] to deeply equal []
+2026-11-08T05:05:32.4539528Z 
+2026-11-08T05:05:32.4540137Z - Expected
+2026-11-08T05:05:32.4540467Z + Received
+2026-11-08T05:05:32.4540630Z 
+2026-11-08T05:05:32.4540964Z - []
+2026-11-08T05:05:32.4541209Z + [
+2026-11-08T05:05:32.4543394Z +   "active-turn-tracker.ts :: onChange: (event: ConcurrencyEvent) => void = () => undefined) {}",
+2026-11-08T05:05:32.4544074Z + ]
+2026-11-08T05:05:32.4544222Z 
+2026-11-08T05:05:32.4544718Z  ❯ src/main/app/no-stray-auth-subscribe.test.ts:152:44
+2026-11-08T05:05:32.4581821Z     150|   it('wires every catalog-reconcile injection point to a locked form',…
+2026-11-08T05:05:32.4582342Z     151|     // 파일이 아니라 **출현**을 센다 — seam 하나만 굳어도 여기 걸린다.
+2026-11-08T05:05:32.4582922Z     152|     expect(injectionViolations(MAIN_ROOT)).toEqual([])
+2026-11-08T05:05:32.4583408Z        |                                            ^
+2026-11-08T05:05:32.4583724Z     153|   })
+2026-11-08T05:05:32.4584250Z     154|
+2026-11-08T05:05:32.4584390Z 
+2026-11-08T05:05:32.4586307Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-08T05:05:32.4586482Z 
+2026-11-08T05:05:32.4590268Z 
+2026-11-08T05:05:32.4615533Z  Test Files  1 failed | 923 passed | 3 skipped (927)
+2026-11-08T05:05:32.4661612Z       Tests  1 failed | 8588 passed | 1 expected fail | 3 skipped (8593)
+2026-11-08T05:05:32.4662396Z    Start at  05:02:39
+2026-11-08T05:05:32.4671715Z    Duration  173.02s (transform 20.62s, setup 30.87s, import 133.00s, tests 178.36s, environment 136ms)
+2026-11-08T05:05:32.4674347Z 
+2026-11-08T05:05:32.4739819Z 
+2026-11-08T05:05:32.4764285Z ##[error]AssertionError: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []

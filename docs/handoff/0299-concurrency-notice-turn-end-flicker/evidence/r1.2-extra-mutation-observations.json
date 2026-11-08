@@ -1,0 +1,31 @@
+[
+  {
+    "id": "CI-01",
+    "contract": "원 CI의 인라인 onChange 선언을 복원하면 기존 전역 가드가 red",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/no-stray-auth-subscribe.test.ts > runtime model Auth composition seam > wires every catalog-reconcile injection point to a locked form"
+    ],
+    "summary": "1 failed | 16 passed (17)"
+  },
+  {
+    "id": "UNIT-01",
+    "contract": "생성한 실제 임시 폴더에서 Git mock을 빼면 unit 가드가 실제 spawn을 검출",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/send.agent-profile.test.ts > Work profile production send wiring > keeps Work and Code isolated at new and both automatic continuation preparations",
+      "src/main/app/chat-turn/send.agent-profile.test.ts > Work profile production send wiring > keeps Work and Code isolated at forkFrom and both automatic continuation preparations",
+      "src/main/app/chat-turn/send.agent-profile.test.ts > Work profile production send wiring > keeps Work and Code isolated at handoffFrom and both automatic continuation preparations",
+      "src/main/app/chat-turn/send.agent-profile.test.ts > Work profile production send wiring > reports missing Work resources and releases the registered turn and lease before runtime acquisition",
+      "src/main/app/chat-turn/send.agent-profile.test.ts > Work profile production send wiring > revalidates a removed resource on automatic continuation and closes the failed preparation"
+    ],
+    "summary": "5 failed | 3 passed (8)"
+  },
+  {
+    "id": "POOL-01",
+    "contract": "순수 send 검사를 FORCED_IO로 되돌리면 분류 회귀 검사 red",
+    "outcome": "caught",
+    "failedTests": [],
+    "summary": "node --test: # tests 40, # pass 39, # fail 1"
+  }
+]

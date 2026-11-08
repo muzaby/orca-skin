@@ -17,6 +17,12 @@ const mocks = vi.hoisted(() => ({
   }
 }))
 
+// 이 suite는 전송 배선을 검사한다. 저장소 판정은 prepare-worktree/probe 테스트가 맡는다.
+// 실제 폴더의 존재 여부와 무관하게 unit에서 git 프로세스를 띄우지 않는다(0298).
+vi.mock('../../infra/git/probe', async (original) => ({
+  ...(await original<typeof import('../../infra/git/probe')>()),
+  probeRepo: vi.fn(async () => ({ kind: 'not-repo' as const }))
+}))
 vi.mock('../../features/chat/attachments', () => ({
   normalizeAttachments: vi.fn(async () => ({}))
 }))
