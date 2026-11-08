@@ -12,7 +12,7 @@
 | V mode / 유효 V | `V1 + ΔV1 + ΔV2` |
 | 검증 기준 plan revision | `801e42f8:ΔV2` |
 | 라운드 | 1 (verify 1회째) |
-| 상태 | **FAIL** — 이행 결함 1건(문서 AC13), 나머지 pair PASS |
+| 상태 | r1 **FAIL** (이행 결함 1건, 문서 AC13) → r2 **PASS**(기계 범위) — 아래 r2 절 |
 | 확장 창 | verify 1회째 — 창 안. 창이 다시 열린 노드: ΔV2 NEW·CHANGED(R-04·MD-07·MD-08 등)는 이번이 첫 verify |
 | 독립 축(⑥) | 3축 — ① post-turn 계상 인자 3자리 변이(X-first·X-cont·X-listen, 구현 목록 밖) ② 문서 산출물의 렌더 파서 검증(mdast GFM) ③ 298 가드·CI 실행 결과 대조 |
 | 열거 sweep(⑦) | 1회째 전수 — §10 자리 E0~E3·P1~P3·T1~T4·A1·N1~N3·I1·S1~S6·C1 중 변이 24건(자리별 제거/맞바꿈) · 못 잡음 0 · 경계 1 |
@@ -142,3 +142,52 @@ root PLAN_GAP: 없음.
 - 구현 r1이 CI에서 실패(run 1020, 전역 가드 `onChange` 선언)했고 r1.2에서 닫았다 — 로컬 vitest에는 `no-stray-auth-subscribe`가 있었으나 구현자 r1 보고 시점의 gate 목록에 없었다.
 - 독립 축 ⑥ 발견: 3축 중 1건(문서 렌더, D1) 이행 결함, 1건(0298 열거 충돌, D2) 비귀속.
 - 반복 환경 한계: 샌드박스 electron 미설치로 `send.*` 테스트 로컬 관측 불가(CI로 대체).
+
+
+---
+
+## r2 검증 (2026-11-08)
+
+**판정: PASS(기계 범위)** — D1 해소, 막는 발견 0. 사람 몫은 AC14 실기만 남는다.
+
+| 항목 | 값 |
+|---|---|
+| 대상 | r2 구현 `2f15d59`(문서 1행 + evidence·plan 구현 보고) · r1 판정 시점 대비 rebase로 해시 재배치(`a56d83e`·`2c7ee29`는 `origin/main` 조상, `2f15d59`는 브랜치 좌표) |
+| 확장 창 | verify 2회째 — 창 안. ΔV 변화 없음 |
+| 독립 축(⑥) | ① 구현자의 remark 파서와 별개로 직접 쓴 GFM 셀 분리기(미이스케이프 `\|` 기준)로 두 문서 전 표 전수 ② 이스케이프 제거 변이 3종 ③ 샌드박스 `npm ci` 후 `ci.yml` 전 단계 로컬 대응 + 구현 전 기준선 worktree 비교 |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 0 · 경계 0 · 비귀속 2(D2 유지 · D4 신규) |
+
+### D1 재판정 — 해소
+
+- `docs/IPC_CONTRACT.md:473` 셀 수 5 = 헤더 5. `string \| null` 2곳 이스케이프, 설명 문장 4개 전부 같은 셀에 남음. `runtime-ipc.md` 표 5개 전수 셀 수 일치.
+- 변이(분리기 red 확인): M1 첫 이스케이프 제거 · M2 둘째 제거 · M-both 둘 다 제거 — 셋 모두 line 473 셀 수 불일치로 검출. 원복 후 `git status` clean.
+- 문서 AC에는 코드 oracle이 없고, 렌더 불변식(셀 수·설명 보존)을 파서 변이로 잠근 것이 직접 증거다. 테스트 추가는 plan 범위 밖(확장).
+
+### gate (이번 턴 실행)
+
+| gate | 관측 |
+|---|---|
+| 마이그레이션 · doc-inventory(counts·prose·links) · test-budgets | 모두 통과(`17 real-git suites ok`) |
+| `npm run lint` | error 0 · warning 2(`virtualization`, 이번 diff 밖) · 트리 변화 없음 |
+| `npm run typecheck` | 3분할 error 0 |
+| 전체 vitest(필터 없음, `pretest` 우회) | 실패 318케이스·338항목(69파일). **구현 전 `a56d83e~1` worktree 동일 명령 결과와 항목 집합 동일 — 신규 0 · 해소 0**. 서명: bindings 40파일 · electron 20 · Linux 경로(`C:/…`) 9 — 모두 환경 원인 |
+| 0299 직접 oracle 12파일 | 전부 passed(service 12 · identity 9 · prepare-worktree 11 · send.worktree 29 · active-turn-ref 4 · turn-coordinator 77 · tracker 4 · Composer.concurrency 5 · notice 9 · isolation 3 · order 15 · chatStore.concurrency 7) |
+| Windows CI | 로컬 관측 불가 — r1 시점 run은 success. r2는 문서 전용이라 앱 게이트에 닿지 않음(`git diff 9af147e..HEAD -- app`에 0299 변경 없음, 0298 `test-pools.test.mjs`는 비귀속) |
+
+r1의 production 변이 24건 결과는 이번 diff가 app을 건드리지 않아 유효. r1 `못 잡음` 0·경계 1(B2) 유지.
+
+### 비귀속
+
+- **D2 유지**: 0298 plan VP-01 forced 목록 2→1 정정은 0298 설계 턴 몫(NEXT_HANDOFF 독립).
+- **D4 신규**: `docs/IPC_CONTRACT.md:267`(`orca:session:native-resources`) 셀에 `string|null` 이스케이프 없음 → 7셀. 0299가 건드리지 않은 기존 행(`git diff` 무관, 0298/기존 이력). NEXT_HANDOFF(독립) — 문서 정리 후보.
+
+### repository operation
+
+- INDEX: 상태 `verify/PASS`로 갱신, 다음 주체 `사람`(AC14), 비고 5줄 이하. 사람 실기 대기이므로 archive 이동 보류(0296 관례).
+- 대상 커밋 좌표는 INDEX에서 검증자가 교정(아래). trailer `Agent: codex / Status: implemented / Criteria-Met: 17/18 / Verified-By: pending` 파싱 확인.
+- `[구현자 기입]` r2 일곱 필드 모두 존재. 합계 ✅17·⚠️1·❌0=18, 본문·trailer 일치.
+
+### Review Signals
+
+- r1 FAIL의 원인(문서 AC를 문자열 대조로만 확인)이 r2에서 렌더 파서 검증으로 닫혔다. 독립 파서 재현이 구현자 결과와 같다.
+- 반복 환경 한계: 샌드박스 electron·better-sqlite3 바인딩 부재(기준선 동일 집합으로 분리).
