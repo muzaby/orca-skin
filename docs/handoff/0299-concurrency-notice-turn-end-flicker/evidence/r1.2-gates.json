@@ -1,0 +1,68 @@
+{
+  "ciBefore": {
+    "run": 42448898011,
+    "job": 128633675130,
+    "url": "https://github.com/muzaby/orca-skin/actions/runs/42448898011",
+    "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+    "test": "wires every catalog-reconcile injection point to a locked form",
+    "observed": "onChange: (event: ConcurrencyEvent) => void = () => undefined) {}"
+  },
+  "vitest": {
+    "reportedFiles": 927,
+    "passedFiles": 915,
+    "failedFiles": 9,
+    "skippedFiles": 3,
+    "totalCases": 8593,
+    "passedCases": 8561,
+    "expectedFailures": 1,
+    "failedCases": 22,
+    "skippedCases": 9,
+    "unhandledErrors": 1,
+    "failureDelta": []
+  },
+  "changedTests": {
+    "files": 25,
+    "passedCases": 279,
+    "failedCases": 0,
+    "unitFiles": 20,
+    "ioFiles": 5,
+    "fixtures": 3
+  },
+  "sourceGuard": {
+    "file": "src/main/app/no-stray-auth-subscribe.test.ts",
+    "passed": 17,
+    "failed": 0
+  },
+  "nodeTest": {
+    "passed": 815,
+    "failed": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 2
+  },
+  "typecheck": {
+    "node": "passed",
+    "web": "passed",
+    "test": "passed"
+  },
+  "testBudgets": "17 real-git suites ok; all budget sites scaled",
+  "docInventory": "generated/prose/relative links passed",
+  "mutations": {
+    "inherited": 77,
+    "inheritedCaught": 75,
+    "inheritedEquivalent": 2,
+    "added": 3,
+    "addedCaught": 3,
+    "missed": 0,
+    "sourceRestored": true
+  },
+  "acceptance": {
+    "met": 17,
+    "total": 18,
+    "pending": [
+      "AC14 actual Electron OpenCode and Claude"
+    ]
+  },
+  "windowsCi": "PR #549 automatically reruns after push; outcome is read from GitHub Actions"
+}

@@ -26,8 +26,6 @@ export const TEST_INCLUDE = 'src/**/*.test.ts'
  * 깨진 것만 올린다(0298 §8).
  */
 export const FORCED_IO = {
-  'src/main/app/chat-turn/send.agent-profile.test.ts':
-    'production `handleChatSend` 가 작업 폴더를 git 으로 조회한다 — 소스에 신호 없이 git 을 띄운다(unit 가드 실측)',
   'src/main/infra/loopback-callback.test.ts':
     '빈 포트를 확인한 뒤 다시 잡는다 — 같은 프로세스의 스레드끼리 EADDRINUSE 로 부딪힌다'
 }
