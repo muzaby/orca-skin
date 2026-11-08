@@ -649,7 +649,7 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 | VP-03 | 가드·기록·훅·재설치 | spawn·spawnSync·execFileSync·execSync·dlopen·violations.push·afterEach·afterAll·R1·R2 (10) | 10/10 | `P:installUnitGuard — 워커 스레드에서 실제 모듈로` 4건 · `P:afterAll 에서 삼킨 자식 프로세스 시도 → vitest 비정상 종료 + [test-pools]` · `test-pools.test.ts:위반을 남긴 테스트는 호출자가 오류를 삼켜도 afterEach 가 red 로 만든다` | 5형태 throw; 다른 .node 전달; 두 install 상태·spawnSync 래퍼 동일; 첫 상태에 위반 1건; 삼킨 throw도 파일 red | — |
 | VP-04·06 | 격리 git 설정 | 신원 2키·autocrlf·maintenance + 파일 기록 (5) | 5/5 | `H:신원 · core.autocrlf=false · maintenance.auto=false 를 담는다` · `src/main/infra/git/hermetic-config.test.ts` 2건 · `test-environment.test.ts` 파일 내용 단언 | 실제 새 저장소 4키 읽기; `GIT_TRACE=1` 작동 확인 후 maintenance 부재·작성자 확인 | — |
 | VP-08 | 저장소별 config 삭제 | 신원 32 + autocrlf 4 → 0 (36) | 36/36 | ``P:테스트 소스에 `git config user.*`·`core.autocrlf` 호출이 없다`` · 전체 vitest의 실-git 스위트 | 소스 스캔 offenders=[]; `E5-config` 재삽입 시 음성 단언 red | — |
-| VP-09 | PowerShell | Windows FileShare.None helper (1) | 0/1 | `src/main/infra/config/file-mutation.test.ts:waits for an actual Windows FileShare.None handle to be released` — Linux skip | Windows PowerShell 경로는 원문 유지; Linux에서는 실행하지 않음 | Windows CI·pwsh 없는 self-hosted 실기 |
+| VP-09 | PowerShell | Windows FileShare.None helper (1) | 0/1 | `src/main/infra/config/file-mutation.test.ts:waits for an actual Windows FileShare.None handle to be released` — Linux skip | Windows PowerShell 경로는 원문 유지; Linux에서는 실행하지 않음 | pwsh 없는 self-hosted 실기(Windows CI는 6케이스 PASS) |
 | VP-12 | 스레드 홈 정렬 | 본체·unit setup 호출 (2) | 2/2 | `P:alignThreadHomedir — 워커 스레드의 os.homedir 를 스레드 env 에 맞춘다` 2건 · `test-pools.test.ts:os.homedir() 는 setup 이 이 파일에 준 홈이다` · hostile 스위트 | 다른 `-thread` 홈 → 반환값; 미정렬 대조는 원래 홈; 파일별 임시 홈 배선 | — |
 | VP-13 | 모드·SQLite 부분집합 | 분기 5 + E1~E5 = 10 | 10/10 | 분기: `P:io 실측 모드 (0298 ΔV2)` 6건; E1: `P:DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다`; E2~E5: `P:vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전달 (ΔV5)` 2건 | db/git/pure 전체 deepEqual; serial → io maxWorkers 1·group 1, unit 0; sqlite-serial → 실제 트리의 비어 있지 않은 ioSqlite, io와 교집합 ∅ | — |
 | VP-16 | 테스트 작성 규칙 | T1 exe 대체·T2 환경 의존·T3 로컬 확인 (3) | 3/3 | `rg -n '\*\*(exe 대체\|환경 의존\|로컬 확인)\*\*' app/AGENTS.md` → 3; T3 전체 실행은 아래 gate 산출 | 표지 3개 각각 제거 → 개수 gate red; 명령은 CI 단계 집합과 일치 | — |
@@ -665,12 +665,12 @@ vitest-setup → GIT_CONFIG_GLOBAL ← HERMETIC_GIT_CONFIG (test-host.mjs)
 | VP-01·02·03·04·05·08·12·13·16 | REQUIRED | SELF_PASS | 위 자리별 좌표 + 현재 gate 산출 | not selected — 분기별 직접 입력·64행 sweep |
 | VP-06 | REQUIRED | SELF_PASS | `hermetic-config.test.ts` 2케이스 | required — `E4-0~3` 4키 제거 각각 red |
 | VP-07 | REQUIRED | SELF_PASS | `gate: strace` 성공 execve·io 워커 집계(아래) | not selected |
-| VP-09 | REQUIRED | SELF_BLOCKED | `file-mutation.test.ts` Linux skip | Windows·self-hosted 실기 대기 |
-| VP-10 | REGRESSION | SELF_BLOCKED (Windows CI 대기) | 전체 테스트 실패 집합 비교·Windows PR CI | not selected |
+| VP-09 | REQUIRED | SELF_BLOCKED | `file-mutation.test.ts` Linux skip | Windows CI file-mutation 6케이스 PASS; self-hosted 실기 대기 |
+| VP-10 | REGRESSION | SELF_PASS | Linux 파일·케이스 차집합 ∅ · Windows CI #1024 success | not selected |
 | VP-11 | REGRESSION | SELF_PASS | VP-01·02·03·05·07 좌표 합 | not selected |
 | VP-15 | REQUIRED | SELF_PASS (상속) | GitHub run 42207662226 job 6/6 success 재조회; job 127858231804 로그 1,769줄·Duration 193.89s | not selected — 실측 워크플로는 이번 diff에서 불변 |
 
-VP-14는 D-009로 폐기됐다. 현재 REQUIRED 13·REGRESSION 2 = 15 pair이며 SELF_PASS 13 / SELF_BLOCKED 2(VP-09·10)다.
+VP-14는 D-009로 폐기됐다. 현재 REQUIRED 13·REGRESSION 2 = 15 pair이며 SELF_PASS 14 / SELF_BLOCKED 1(VP-09)다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
 
@@ -729,12 +729,12 @@ VP-14는 D-009로 폐기됐다. 현재 REQUIRED 13·REGRESSION 2 = 15 pair이며
 |---|---|
 | 변경 파일 | `app/scripts/test-pools.test.mjs` ΔV5 4케이스 · `app/AGENTS.md` T1~T3 · 본 보고·INDEX · 재현 증거 |
 | 실행 명령 | T3의 CI 대응 7명령 + `npm test` 기준선·strace 측정 + `mutate.py` 64행(명세/결과 링크 위) |
-| 관측한 게이트 산출 | 가드 3종 PASS(태그 부재로 append-only만 skip) · lint 0 error/2 기존 warning · typecheck 3종 PASS · vitest 927파일: 915 passed/9 failed/3 skipped, 22실패는 변경 전과 파일·케이스 차집합 ∅ 및 OS 원인; node --test 819/819 passed |
+| 관측한 게이트 산출 | 가드 3종 PASS(태그 부재로 append-only만 skip) · lint 0 error/2 기존 warning · typecheck 3종 PASS · vitest 927파일: 915 passed/9 failed/3 skipped, 22실패는 변경 전과 파일·케이스 차집합 ∅ 및 OS 원인; node --test 819/819 passed; [Windows CI #1024](https://github.com/muzaby/orca-skin/actions/runs/42460603101) 가드·lint·typecheck·전체 테스트 success([관측](evidence/r2-windows-ci.json)) |
 | 추가·수정 테스트의 subtree 규칙 | `git diff --name-only a2a61a70 -- '*test*'` → `app/scripts/test-pools.test.mjs` 1파일; 시간 예산 위반 0(신규 timeout 없음·.mjs는 TS 가드 대상 밖); 호스트 격리 위반 0(임시 앱 finally 정리·config 읽기만); 풀 위반 0(Node·worker가 직접 oracle) |
-| V-pair 자기확인 | SELF_PASS 13 / SELF_BLOCKED 2(VP-09·10) — pair별 좌표는 전수 표 |
+| V-pair 자기확인 | SELF_PASS 14 / SELF_BLOCKED 1(VP-09) — pair별 좌표는 전수 표 |
 | 강제 지점 전수 | **85/86** — Windows PowerShell 1 남김; forced 2→1·가드 8→10·VP-13 10·VP-16 3을 유효 V로 합성 |
 | exe 측정 (VP-07) | npm test 1174 + 별도 node --test 34 = **1208 ≤ 2,420**; 원시 fork 워커 **77 = 본 실행 io 75 + 기존 hostile 중첩 2**·unit 852 스레드; 신원/autocrlf config 쓰기 0·maintenance 0(양쪽 합). 기준선과 같은 CI 미설정 조건이며 D-011의 구성 불변은 UT로 확인 |
-| 블로커 / 역질문 | 코드·계약 블로커 없음; Windows PR CI·AC7 self-hosted 실기 대기 |
+| 블로커 / 역질문 | 코드·계약 블로커 없음; AC7 pwsh 없는 self-hosted 실기만 대기 |
 | 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
 
 **AC 자기보고**
@@ -748,15 +748,15 @@ VP-14는 D-009로 폐기됐다. 현재 REQUIRED 13·REGRESSION 2 = 15 pair이며
 | AC5 | ✅ hermetic-config 2케이스 — 실제 git 4키·trace maintenance 부재 |
 | AC6 | ✅ P 저장소별 config 스캔 0; 전체 실-git 스위트 실행 |
 | AC7 | ⚠️ pwsh 없는 self-hosted Windows 실기 대기; Linux FileShare.None skip |
-| AC8 | ⚠️ Linux 변경 전·후 9파일 22건·unhandled 1건 동일, 파일/케이스 차집합 ∅; Windows CI 대기 |
-| AC8′ | ⚠️ 이번 커밋 Windows PR CI 대기 |
+| AC8 | ✅ Linux 변경 전·후 9파일 22건·unhandled 1건 동일, 파일/케이스 차집합 ∅; Windows CI #1024 success |
+| AC8′ | ✅ [Windows CI #1024](https://github.com/muzaby/orca-skin/actions/runs/42460603101) success — Test 단계 277.9초(로그 시각), Vitest 246.05초·924파일/8,589 passed, node 819/819 |
 | AC9 | ✅ test-environment·hostile·unit 홈 배선 실행; E7-body/call/key red |
 | AC10 | ✅ 성공 execve **1208 ≤ 2,420**(npm test + 별도 스크립트 테스트) |
 | AC11′ | ✅ 기존 모드 6케이스 + 실제 config 2케이스; E1~E5 직접 관측 |
 | AC12′ | ✅ GitHub 실험 run 42207662226 job 6/6 success; 재조회한 parallel 로그 1,769줄·Duration 분해; 새 요약 mjs 없음 |
 | AC13 | ✅ app/AGENTS.md T1~T3 검색 3; T3 명령 전부 실행; marker 제거 3행 red |
 
-**합계 검산**: `✅ 11 · ⚠️ 3 · ❌ 0 = 총 14`. ΔV5의 AC13 추가로 직전 13에서 현재 14로 분모가 바뀌었다.
+**합계 검산**: `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14`. ΔV5의 AC13 추가로 직전 13에서 현재 14로 분모가 바뀌었다.
 
 ## [구현자 기입] Review Signals — 사실만 (r2)
 
