@@ -26,7 +26,11 @@ describe('prepareTurnWorktree', () => {
   })
 
   it('새 비격리 세션은 현재 HEAD를 birth baseline으로 한 번 읽고, Git 실패는 null로 접는다', async () => {
-    const worktrees = { prepare: vi.fn(), recoverMissingWorktree: vi.fn() }
+    const worktrees = {
+      hasManagedWorktree: () => false,
+      prepare: vi.fn(),
+      recoverMissingWorktree: vi.fn()
+    }
     probeMock
       .mockResolvedValueOnce({
         kind: 'repo',
@@ -77,7 +81,7 @@ describe('prepareTurnWorktree', () => {
         adapter,
         providerSettings,
         env: {},
-        worktrees: { prepare: vi.fn(), recoverMissingWorktree }
+        worktrees: { hasManagedWorktree: () => false, prepare: vi.fn(), recoverMissingWorktree }
       })
     ).resolves.toMatchObject({ kind: 'passthrough', sessionBaseline: null })
 
@@ -94,11 +98,12 @@ describe('prepareTurnWorktree', () => {
       adapter,
       providerSettings,
       env: {},
-      worktrees: { prepare, recoverMissingWorktree }
+      worktrees: { hasManagedWorktree: () => false, prepare, recoverMissingWorktree }
     }
 
     await expect(prepareTurnWorktree({ ...common, enabled: false })).resolves.toEqual({
       kind: 'passthrough',
+      isolated: false,
       executionCwd: '/repo/packages/web',
       sessionBaseline: null,
       sessionBaselineRef: null
@@ -107,6 +112,7 @@ describe('prepareTurnWorktree', () => {
       prepareTurnWorktree({ ...common, enabled: true, sessionId: 'session-1' })
     ).resolves.toEqual({
       kind: 'passthrough',
+      isolated: false,
       executionCwd: '/repo/packages/web',
       sessionBaseline: null,
       sessionBaselineRef: null
@@ -135,11 +141,12 @@ describe('prepareTurnWorktree', () => {
         adapter,
         providerSettings,
         env: {},
-        worktrees: { prepare, recoverMissingWorktree },
+        worktrees: { hasManagedWorktree: () => false, prepare, recoverMissingWorktree },
         onRecovered
       })
     ).resolves.toEqual({
       kind: 'recovered',
+      isolated: false,
       executionCwd: '/repo',
       lostWorktreeRoot: '/wt/repo-1234abcd/work-x',
       sessionBaseline: null,
@@ -170,7 +177,7 @@ describe('prepareTurnWorktree', () => {
       adapter,
       providerSettings,
       env: {},
-      worktrees: { prepare: vi.fn(), recoverMissingWorktree },
+      worktrees: { hasManagedWorktree: () => false, prepare: vi.fn(), recoverMissingWorktree },
       onRecovered
     })
 
@@ -204,7 +211,7 @@ describe('prepareTurnWorktree', () => {
       adapter,
       providerSettings,
       env: {},
-      worktrees: { prepare: vi.fn(), recoverMissingWorktree }
+      worktrees: { hasManagedWorktree: () => false, prepare: vi.fn(), recoverMissingWorktree }
     })
 
     await prepareTurnExecution({ ...base, worktree: worktree(recovered) })
@@ -231,7 +238,11 @@ describe('prepareTurnWorktree', () => {
       adapter,
       providerSettings,
       env: { TOKEN: 'redacted' },
-      worktrees: { prepare, recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const })) }
+      worktrees: {
+        hasManagedWorktree: () => false,
+        prepare,
+        recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const }))
+      }
     }).then((value) => {
       settled = true
       return value
@@ -251,6 +262,7 @@ describe('prepareTurnWorktree', () => {
     })
     await expect(result).resolves.toEqual({
       kind: 'managed',
+      isolated: true,
       worktreeId: 'w1',
       executionCwd: '/managed/repo',
       sessionBaseline: 'a'.repeat(40),
@@ -290,6 +302,7 @@ describe('prepareTurnWorktree', () => {
         providerSettings,
         env: {},
         worktrees: {
+          hasManagedWorktree: () => false,
           prepare,
           recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const }))
         }
@@ -315,10 +328,55 @@ describe('prepareTurnWorktree', () => {
     })
     await expect(result).resolves.toEqual({
       kind: 'ready',
+      isolated: true,
       turn: { cwd: '/managed/repo', extraDirs: ['/shared'] },
       entry: { request: { cwd: '/managed/repo', extraDirs: ['/shared'] } }
     })
     expect(buildTurn).toHaveBeenCalledWith('/managed/repo', ['/shared'], 'a'.repeat(40), 'main')
     expect(acquireRuntime).toHaveBeenCalledOnce()
   })
+})
+
+it.each([true, false])('P1 resumed isolation comes from the managed row: %s', async (isolated) => {
+  const hasManagedWorktree = vi.fn(() => isolated)
+  const result = await prepareTurnWorktree({
+    enabled: !isolated,
+    sessionId: 's-row',
+    sourceCwd: '/r',
+    firstPrompt: 'work',
+    signal,
+    adapter,
+    providerSettings: {} as ResolvedHarnessSettings,
+    env: {},
+    worktrees: {
+      prepare: vi.fn(),
+      recoverMissingWorktree: async () => ({ kind: 'none' }),
+      hasManagedWorktree
+    }
+  })
+  expect(result).toMatchObject({ kind: 'passthrough', isolated })
+  expect(hasManagedWorktree).toHaveBeenCalledExactlyOnceWith('s-row')
+})
+
+it('P2 nonisolated ready result carries false', async () => {
+  const result = await prepareTurnExecution({
+    worktree: {
+      enabled: false,
+      sourceCwd: '/r',
+      firstPrompt: 'work',
+      signal,
+      adapter,
+      providerSettings: {} as ResolvedHarnessSettings,
+      env: {},
+      worktrees: {
+        prepare: vi.fn(),
+        recoverMissingWorktree: vi.fn(),
+        hasManagedWorktree: () => false
+      }
+    },
+    extraDirs: undefined,
+    buildTurn: () => ({}),
+    acquireRuntime: async () => ({})
+  })
+  expect(result).toEqual({ kind: 'ready', isolated: false, turn: {}, entry: {} })
 })

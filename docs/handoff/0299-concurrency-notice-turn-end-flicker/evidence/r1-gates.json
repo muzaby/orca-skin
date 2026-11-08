@@ -1,0 +1,73 @@
+{
+  "lint": {
+    "errors": 0,
+    "warnings": 2,
+    "existingWarnings": [
+      "Timeline.tsx:57 react-hooks/incompatible-library",
+      "useTranscriptVirtualizer.ts:22 react-hooks/incompatible-library"
+    ]
+  },
+  "typecheck": {
+    "node": "passed",
+    "web": "passed",
+    "test": "passed"
+  },
+  "vitest": {
+    "files": 376,
+    "filesPassed": 374,
+    "filesFailed": 2,
+    "testsPassed": 3223,
+    "testsFailed": 11,
+    "testsTotal": 3234,
+    "failureDeltaAgainstBaseline": []
+  },
+  "addedTestFiles": [
+    {
+      "file": "app/src/main/app/chat-turn/concurrency-identity.test.ts",
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "file": "app/src/main/features/chat/active-turn-ref.test.ts",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/components/Composer.concurrency.test.ts",
+      "passed": 5,
+      "failed": 0
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/reducer/chatReducer.worktreeIsolation.test.ts",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/lib/concurrencyNotice.test.ts",
+      "passed": 9,
+      "failed": 0
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts",
+      "passed": 15,
+      "failed": 0
+    },
+    {
+      "file": "app/src/renderer/src/features/chat/store/chatStore.concurrency.test.ts",
+      "passed": 7,
+      "failed": 0
+    }
+  ],
+  "testBudgets": "17 real-git suites ok; all budget sites scaled",
+  "docInventory": "generated doc/prose/relative links ok",
+  "mutation": {
+    "total": 77,
+    "caught": 75,
+    "equivalent": 2,
+    "skipped": 0,
+    "sourceRestoration": "# 원복 확인: 모든 파일 원문 그대로"
+  },
+  "humanAcceptance": {
+    "AC14": "pending actual Electron with OpenCode and Claude; paint and live harness behavior"
+  }
+}

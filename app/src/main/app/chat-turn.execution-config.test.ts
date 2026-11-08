@@ -206,7 +206,7 @@ function install(
       peekRuntime: vi.fn(() => runtime),
       release: vi.fn(),
       releaseRuntime: vi.fn(),
-      activeTurns: { increment: vi.fn(), decrement: vi.fn() },
+      activeTurns: { begin: vi.fn(), confirm: vi.fn(), end: vi.fn() },
       promote: vi.fn(),
       getBySession: vi.fn(),
       getChainByKey: vi.fn(),
@@ -281,6 +281,7 @@ function install(
     isUpdateInstallPending: () => false,
     // A saved conversation checks its worktree before preparing the turn.
     worktrees: {
+      hasManagedWorktree: () => false,
       prepare: vi.fn(),
       recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' }))
     }

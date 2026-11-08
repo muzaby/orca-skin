@@ -910,9 +910,14 @@ export interface ReadAttachmentResult {
   mimeType: string
 }
 
+export interface ActiveTurnRef {
+  sessionId: string | null
+  clientKey: string | null
+}
+
 export interface ConcurrencyEvent {
   projectId: string
-  count: number
+  turns: ActiveTurnRef[]
 }
 
 // IPC payloads (TRD §5.2 의 활성 부분)

@@ -218,6 +218,10 @@ export class WorktreeService {
     await rmdir(dirname(input.worktreeRoot)).catch(() => undefined)
   }
 
+  hasManagedWorktree(sessionId: string): boolean {
+    return this.db.getManagedWorktreeBySession(sessionId) !== null
+  }
+
   // 실행 경로가 사라진 세션을 원본 작업 경로로 되돌린다 (0210 D-107).
   //
   // **`none` 과 `unrecoverable` 은 다르다.** 전자는 폴백할 이유가 없는 정상 resume(경로가 산다)

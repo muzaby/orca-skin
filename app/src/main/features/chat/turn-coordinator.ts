@@ -10,7 +10,8 @@ import { reportError } from '../../infra/error-report'
 // 보존(behavior-preserving)으로 추출했다 — 0051 §A staging P1, handoff 0052.
 
 import { randomUUID } from 'node:crypto'
-import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import type { ActiveTurnRef, ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import { activeTurnRef } from './active-turn-ref'
 import { isModelOutputEvent } from '../../../shared/model-output'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { ResponseBoundary } from '../../../shared/response-boundary'
@@ -73,8 +74,9 @@ export interface CoordinatorRuntime extends GovernedLiveTurn {
 // 프로젝트별 active turn 회계 포트 — lifecycle ActiveTurnTracker 가 만족.
 // RuntimeSupervisor 의 active+idle runtime cap count 와 섞지 않는다.
 interface ActiveTurnGate {
-  increment(projectId: string | null): void
-  decrement(projectId: string | null): void
+  begin(token: object, projectId: string | null, ref: ActiveTurnRef): void
+  confirm(token: object, sessionId: string): void
+  end(token: object): void
 }
 
 export interface TurnCoordinatorDeps<W> {
@@ -205,10 +207,10 @@ export class TurnCoordinator<W = unknown> {
   async run(
     turn: TurnContext<W>,
     request: TurnRequest,
-    opts: { boundProjectId: string | null; kind?: TurnKind }
+    opts: { sharedPathProjectId: string | null; kind?: TurnKind }
   ): Promise<void> {
     const { runtime, persist, forward, registry, classifyError, activeTurns } = this.deps
-    const { boundProjectId } = opts
+    const { sharedPathProjectId } = opts
     // 턴 종류별 정책은 turn-policy 단일 지점이 소유한다 — 동시 턴 계상·입력 push.
     const kind: TurnKind = opts.kind ?? 'user'
     const policy = turnPolicyFor(kind)
@@ -320,7 +322,8 @@ export class TurnCoordinator<W = unknown> {
           const events = policy.pushesInput ? runtime.send(request) : runtime.listen(request)
           // listen 턴(0143)은 동시 턴 회계에 계상하지 않는다 — 백그라운드 대기는 사용자 관점의
           // "진행 중 작업" 이 아니라 수신 대기라, 프로젝트 동시 턴 경고를 오점화하지 않는다.
-          if (policy.countsAsActive) activeTurns.increment(boundProjectId)
+          if (policy.countsAsActive)
+            activeTurns.begin(turn, sharedPathProjectId, activeTurnRef(turn))
           try {
             for await (const rawEv of events) {
               const coerced =
@@ -469,6 +472,7 @@ export class TurnCoordinator<W = unknown> {
                   this.deps.pendingMessages?.rekey(turn.queueKey, ev.sessionId)
                 }
                 registry.promote(turn, ev.sessionId)
+                activeTurns.confirm(turn, ev.sessionId)
                 runtime.confirmRuntimeToolSession?.(ev.sessionId)
                 // 턴-국소 훅 (0211) — promote 와 같은 자리다. 여기가 세션 id 를 처음 아는
                 // 지점이고, 무엇을 할지는 이 훅을 심은 컴포지션 루트가 안다.
@@ -547,7 +551,7 @@ export class TurnCoordinator<W = unknown> {
               if (ev.type === 'telemetry') this.commitConsumed(turn, closeBeforeUser)
             }
           } finally {
-            if (policy.countsAsActive) activeTurns.decrement(boundProjectId)
+            if (policy.countsAsActive) activeTurns.end(turn)
           }
           // 스트림이 terminal 없이 끝났고 abort 도 아니면 합성 telemetry 로 턴을 마감(버스 팬아웃).
           if (!sawTerminal && !turn.controller.signal.aborted) {

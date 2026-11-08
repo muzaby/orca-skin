@@ -1,0 +1,781 @@
+[
+  {
+    "id": "T1-project",
+    "contract": "T1a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T1-duplicate",
+    "contract": "T1c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T1-begin",
+    "contract": "T1b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T3 removes only its token, retains order and emits the final empty list once",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T4 returns snapshots detached from input, output and emitted references"
+    ],
+    "summary": "4 failed (4)"
+  },
+  {
+    "id": "T1-ref",
+    "contract": "T1/T4 snapshot",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T4 returns snapshots detached from input, output and emitted references"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T1-event",
+    "contract": "T1b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T4 returns snapshots detached from input, output and emitted references"
+    ],
+    "summary": "2 failed | 2 passed (4)"
+  },
+  {
+    "id": "T2-absent",
+    "contract": "T2c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T2-confirmed",
+    "contract": "T2b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T2-value",
+    "contract": "T2a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T2-key",
+    "contract": "T2a clientKey",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T2-event",
+    "contract": "T2a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T3-absent",
+    "contract": "T3b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T3 removes only its token, retains order and emits the final empty list once"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T3-end",
+    "contract": "T3a/c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T3 removes only its token, retains order and emits the final empty list once"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T3-event",
+    "contract": "T3a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T3 removes only its token, retains order and emits the final empty list once"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T4-null",
+    "contract": "T4 null guard redundant with project filter",
+    "outcome": "equivalent",
+    "failedTests": [],
+    "summary": "4 passed (4)"
+  },
+  {
+    "id": "T4-project",
+    "contract": "T4 project separation",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key"
+    ],
+    "summary": "2 failed | 2 passed (4)"
+  },
+  {
+    "id": "T4-copy",
+    "contract": "T4 detached output",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T4 returns snapshots detached from input, output and emitted references"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "T4-emission",
+    "contract": "T4 emitted snapshot",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T2 confirms a pending identity once, preserving its client key",
+      "src/main/features/sessions/active-turn-tracker.test.ts > ActiveTurnTracker > T4 returns snapshots detached from input, output and emitted references"
+    ],
+    "summary": "3 failed | 1 passed (4)"
+  },
+  {
+    "id": "A1-session",
+    "contract": "A1b/c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=false sid=s1 key=s1",
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=false sid=s1 key=undefined"
+    ],
+    "summary": "2 failed | 2 passed (4)"
+  },
+  {
+    "id": "A1-new",
+    "contract": "A1a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=true sid=null key=draft:a"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "A1-existing",
+    "contract": "A1b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=false sid=s1 key=s1"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "A1-fallback",
+    "contract": "A1d",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=true sid=null key=undefined"
+    ],
+    "summary": "1 failed | 3 passed (4)"
+  },
+  {
+    "id": "A1-swap",
+    "contract": "A1 sibling fields",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=true sid=null key=draft:a",
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=false sid=s1 key=s1",
+      "src/main/features/chat/active-turn-ref.test.ts > activeTurnRef > A1 new=false sid=s1 key=undefined"
+    ],
+    "summary": "3 failed | 1 passed (4)"
+  },
+  {
+    "id": "P1-managed",
+    "contract": "P1a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > prepareTurnWorktree > 준비가 끝날 때까지 기다린 뒤 managed cwd를 반환한다",
+      "src/main/app/chat-turn/prepare-worktree.test.ts > prepareTurnWorktree > 준비 완료 뒤에만 runtime을 확보하고 managed cwd와 원래 extraDirs를 전달한다"
+    ],
+    "summary": "2 failed | 9 passed (11)"
+  },
+  {
+    "id": "P1-plain",
+    "contract": "P1b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > prepareTurnWorktree > 격리를 끈 요청과 worktree 가 살아 있는 재개 세션은 원래 cwd를 그대로 통과시킨다 (AC19)",
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P2 nonisolated ready result carries false"
+    ],
+    "summary": "2 failed | 9 passed (11)"
+  },
+  {
+    "id": "P1-recovery",
+    "contract": "P1c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > prepareTurnWorktree > worktree 가 사라지면 source cwd 로 접고 통지한다 (AC12 · AC13 · AC17)"
+    ],
+    "summary": "1 failed | 10 passed (11)"
+  },
+  {
+    "id": "P1-row-present",
+    "contract": "P1d",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P1 resumed isolation comes from the managed row: true",
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P1 resumed isolation comes from the managed row: false"
+    ],
+    "summary": "2 failed | 9 passed (11)"
+  },
+  {
+    "id": "P1-row-absent",
+    "contract": "P1e",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > prepareTurnWorktree > 격리를 끈 요청과 worktree 가 살아 있는 재개 세션은 원래 cwd를 그대로 통과시킨다 (AC19)",
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P1 resumed isolation comes from the managed row: true",
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P1 resumed isolation comes from the managed row: false"
+    ],
+    "summary": "3 failed | 8 passed (11)"
+  },
+  {
+    "id": "P1-row-key",
+    "contract": "P1 requested session",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P1 resumed isolation comes from the managed row: true",
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P1 resumed isolation comes from the managed row: false"
+    ],
+    "summary": "2 failed | 9 passed (11)"
+  },
+  {
+    "id": "P2-ready",
+    "contract": "P2 true",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > prepareTurnWorktree > 준비 완료 뒤에만 runtime을 확보하고 managed cwd와 원래 extraDirs를 전달한다"
+    ],
+    "summary": "1 failed | 10 passed (11)"
+  },
+  {
+    "id": "P2-ready-false",
+    "contract": "P2 false",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/prepare-worktree.test.ts > P2 nonisolated ready result carries false"
+    ],
+    "summary": "1 failed | 10 passed (11)"
+  },
+  {
+    "id": "P3-present",
+    "contract": "P3 row present",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/worktrees/service.test.ts > P3 hasManagedWorktree reads the requested session row"
+    ],
+    "summary": "1 failed | 11 skipped (12)"
+  },
+  {
+    "id": "P3-absent",
+    "contract": "P3 row absent",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/worktrees/service.test.ts > P3 hasManagedWorktree reads the requested session row"
+    ],
+    "summary": "1 failed | 11 skipped (12)"
+  },
+  {
+    "id": "P3-key",
+    "contract": "P3 requested session",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/features/worktrees/service.test.ts > P3 hasManagedWorktree reads the requested session row"
+    ],
+    "summary": "1 failed | 11 skipped (12)"
+  },
+  {
+    "id": "E0-begin",
+    "contract": "E0",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 stream exception removes the live token",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 retry ends each attempt before beginning again"
+    ],
+    "summary": "7 failed | 2 passed (9)"
+  },
+  {
+    "id": "E0-ref",
+    "contract": "E0 empty ref",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 stream exception removes the live token",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 retry ends each attempt before beginning again"
+    ],
+    "summary": "7 failed | 2 passed (9)"
+  },
+  {
+    "id": "E0-project",
+    "contract": "E0 project",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 stream exception removes the live token",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 retry ends each attempt before beginning again"
+    ],
+    "summary": "7 failed | 2 passed (9)"
+  },
+  {
+    "id": "E0-listen",
+    "contract": "E0 listen exclusion",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "E1-confirm",
+    "contract": "E1 missing confirm",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "E1-session",
+    "contract": "E1 session identity",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "E1-token",
+    "contract": "E1 token",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "E2-end",
+    "contract": "E2",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 stream exception removes the live token",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 retry ends each attempt before beginning again"
+    ],
+    "summary": "7 failed | 2 passed (9)"
+  },
+  {
+    "id": "E2-token",
+    "contract": "E2 token",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 stream exception removes the live token",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 retry ends each attempt before beginning again"
+    ],
+    "summary": "7 failed | 2 passed (9)"
+  },
+  {
+    "id": "E3-isolated",
+    "contract": "E3 ignores isolation",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/send.worktree.test.ts > E3 concurrency accounting project follows prepared isolation: new-isolated",
+      "src/main/app/chat-turn/send.worktree.test.ts > E3 concurrency accounting project follows prepared isolation: resume-isolated"
+    ],
+    "summary": "2 failed | 2 passed | 25 skipped (29)"
+  },
+  {
+    "id": "E3-plain",
+    "contract": "E3 shared path",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/send.worktree.test.ts > E3 concurrency accounting project follows prepared isolation: new-plain",
+      "src/main/app/chat-turn/send.worktree.test.ts > E3 concurrency accounting project follows prepared isolation: resume-recovered"
+    ],
+    "summary": "2 failed | 2 passed | 25 skipped (29)"
+  },
+  {
+    "id": "E3-initial-edge",
+    "contract": "E3 initial edge",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker"
+    ],
+    "summary": "4 failed | 5 passed (9)"
+  },
+  {
+    "id": "E3-listen-edge",
+    "contract": "E3 listen edge",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "E3-flush-edge",
+    "contract": "E3 continuation edge",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "N1-session",
+    "contract": "N1",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N1 keeps the draft key after promotion and handles loaded/absent entries"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "N1-key",
+    "contract": "N1",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N1 keeps the draft key after promotion and handles loaded/absent entries"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "N1-null",
+    "contract": "N1 missing clientKey",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N1 keeps the draft key after promotion and handles loaded/absent entries"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "N2-session",
+    "contract": "N2a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":\"s1\",\"clientKey\":null} / {\"sessionId\":\"s1\",\"clientKey\":null}",
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":\"s1\",\"clientKey\":\"draft:a\"} / {\"sessionId\":\"s1\",\"clientKey\":null}"
+    ],
+    "summary": "2 failed | 7 passed (9)"
+  },
+  {
+    "id": "N2-key",
+    "contract": "N2b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":null,\"clientKey\":\"draft:a\"} / {\"sessionId\":\"s1\",\"clientKey\":\"draft:a\"}"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "N2-null-session",
+    "contract": "N2c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":null,\"clientKey\":null} / {\"sessionId\":null,\"clientKey\":null}",
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":null,\"clientKey\":\"draft:a\"} / {\"sessionId\":null,\"clientKey\":\"draft:b\"}"
+    ],
+    "summary": "2 failed | 7 passed (9)"
+  },
+  {
+    "id": "N2-null-key",
+    "contract": "N2c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":null,\"clientKey\":null} / {\"sessionId\":null,\"clientKey\":null}",
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":\"s1\",\"clientKey\":null} / {\"sessionId\":\"s2\",\"clientKey\":null}"
+    ],
+    "summary": "2 failed | 7 passed (9)"
+  },
+  {
+    "id": "N2-swap",
+    "contract": "N2 sibling identity fields",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":\"s1\",\"clientKey\":null} / {\"sessionId\":\"s1\",\"clientKey\":null}",
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N2 compares non-null identity fields: {\"sessionId\":\"s1\",\"clientKey\":\"draft:a\"} / {\"sessionId\":\"s1\",\"clientKey\":null}"
+    ],
+    "summary": "2 failed | 7 passed (9)"
+  },
+  {
+    "id": "N3-own",
+    "contract": "N3",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > N3 counts only other identities"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "I1-managed",
+    "contract": "I1a",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > I1 recognizes managed display and pending isolation independently"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "I1-intent",
+    "contract": "I1b",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > I1 recognizes managed display and pending isolation independently"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "I1-plain",
+    "contract": "I1c",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/lib/concurrencyNotice.test.ts > concurrency notice identity > I1 recognizes managed display and pending isolation independently"
+    ],
+    "summary": "1 failed | 8 passed (9)"
+  },
+  {
+    "id": "S1-snapshot",
+    "contract": "S1",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S1 stores full snapshots by project, including an empty replacement",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation undefined"
+    ],
+    "summary": "2 failed | 10 passed (12)"
+  },
+  {
+    "id": "S1-project",
+    "contract": "S1 project",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S1 stores full snapshots by project, including an empty replacement",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation undefined"
+    ],
+    "summary": "2 failed | 10 passed (12)"
+  },
+  {
+    "id": "S2-key",
+    "contract": "S2",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S2/S3/S4 send keeps clientKey after promotion"
+    ],
+    "summary": "1 failed | 11 passed (12)"
+  },
+  {
+    "id": "S3-key",
+    "contract": "S3",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S2/S3/S4 handoff keeps clientKey after promotion"
+    ],
+    "summary": "1 failed | 11 passed (12)"
+  },
+  {
+    "id": "S4-promotion",
+    "contract": "S4",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S2/S3/S4 send keeps clientKey after promotion",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S2/S3/S4 handoff keeps clientKey after promotion"
+    ],
+    "summary": "2 failed | 10 passed (12)"
+  },
+  {
+    "id": "S5-isolation",
+    "contract": "S5 isolation",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > other responding=false isolated=true renders notice=false",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation managed",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation intent"
+    ],
+    "summary": "3 failed | 9 passed (12)"
+  },
+  {
+    "id": "S5-own",
+    "contract": "S5 identity",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > own responding=false isolated=false renders notice=false",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S2/S3/S4 send keeps clientKey after promotion",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S2/S3/S4 handoff keeps clientKey after promotion",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation undefined"
+    ],
+    "summary": "4 failed | 8 passed (12)"
+  },
+  {
+    "id": "S5-project",
+    "contract": "S5 snapshot",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > other responding=true isolated=false renders notice=true",
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > both responding=true isolated=false renders notice=true",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation undefined"
+    ],
+    "summary": "3 failed | 9 passed (12)"
+  },
+  {
+    "id": "S5-fallback",
+    "contract": "S5 absent project",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.test.ts > concurrency store transport and identity > S5 selector uses displayed identity/isolation undefined"
+    ],
+    "summary": "1 failed | 11 passed (12)"
+  },
+  {
+    "id": "S5-hook",
+    "contract": "S5 selector hook edge",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > other responding=true isolated=false renders notice=true",
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > both responding=true isolated=false renders notice=true"
+    ],
+    "summary": "2 failed | 10 passed (12)"
+  },
+  {
+    "id": "S6-reset",
+    "contract": "S6",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/reducer/chatReducer.worktreeIsolation.test.ts > S6 recovered worktree isolation > clears isolation only for explicit worktree:null: {\"worktree\":null}"
+    ],
+    "summary": "1 failed | 2 passed (3)"
+  },
+  {
+    "id": "S6-only-null",
+    "contract": "S6 object preserves intent",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/reducer/chatReducer.worktreeIsolation.test.ts > S6 recovered worktree isolation > clears isolation only for explicit worktree:null: {\"worktree\":{\"sourceCwd\":\"/source\",\"repoRoot\":\"/repo\"}}"
+    ],
+    "summary": "1 failed | 2 passed (3)"
+  },
+  {
+    "id": "S6-key",
+    "contract": "S6 key guard redundant on cloned wire DTO",
+    "outcome": "equivalent",
+    "failedTests": [],
+    "summary": "3 passed (3)"
+  },
+  {
+    "id": "C1-arithmetic",
+    "contract": "C1 responding arithmetic",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > other responding=true isolated=false renders notice=true",
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > both responding=true isolated=false renders notice=true"
+    ],
+    "summary": "2 failed | 3 passed (5)"
+  },
+  {
+    "id": "C1-notice",
+    "contract": "C1 Notice edge",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > other responding=true isolated=false renders notice=true",
+      "src/renderer/src/features/chat/components/Composer.concurrency.test.ts > C1 Composer real identity selector > both responding=true isolated=false renders notice=true"
+    ],
+    "summary": "2 failed | 3 passed (5)"
+  },
+  {
+    "id": "SD2-observe",
+    "contract": "SD-2 prefix sweep / selected negative control",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P1' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P8' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P2' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P5' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'O3' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'W4' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P3' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P4' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'W3' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P6' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P7' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'O1' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'W2' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'O2' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'W1' identity predicate is independent of local response state"
+    ],
+    "summary": "15 failed (15)"
+  },
+  {
+    "id": "SD2-list-edge",
+    "contract": "SD-2 concurrency delivery edge",
+    "outcome": "caught",
+    "failedTests": [
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'P1' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'O1' identity predicate is independent of local response state",
+      "src/renderer/src/features/chat/store/chatStore.concurrency.order.test.ts > SD-2 all channel interleavings and every prefix > 'O2' identity predicate is independent of local response state"
+    ],
+    "summary": "3 failed | 12 passed (15)"
+  },
+  {
+    "id": "SD1-fixture",
+    "contract": "SD-1 production/fixture equality",
+    "outcome": "caught",
+    "failedTests": [
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P1 emits the fixture list column through begin, promote, confirm and end",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P2 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P5 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > SD-1 P7 real continuation path produces fixture K",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > listen receives the accounting project but does not enter the tracker",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 stream exception removes the live token",
+      "src/main/app/chat-turn/concurrency-identity.test.ts > IT-03 coordinator identity snapshots and real Stop/send-now handlers > AC5 retry ends each attempt before beginning again"
+    ],
+    "summary": "7 failed | 2 passed (9)"
+  }
+]

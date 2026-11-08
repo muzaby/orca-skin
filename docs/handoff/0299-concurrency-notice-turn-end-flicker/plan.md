@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-07 (V1) · 2026-11-08 (ΔV1·ΔV2) |
 | 매핑 | 버그수정(비기능) — 구현 주체 Claude |
-| 상태 | READY (ΔV2) |
+| 상태 | IMPL_DONE (ΔV2 · r1, AC14 사람 실기 대기) |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | V1 `(검증자 기입 — 브랜치 커밋 28cffb4)` · ΔV1 `(검증자 기입 — 브랜치 커밋 75e1ab4)` — 둘 다 `main` 미병합 |
 | 이번 V revision | `ΔV2` — 사용자 용어 정렬(D-011)·worktree 격리 결정(D-012). D-010 철회 |
@@ -590,81 +590,208 @@ session.updated 복구 patch(S6) → worktreeIsolation ────────�
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: **V1+ΔV1+ΔV2 이행**. D-009 신원 목록·D-011 다른 응답 중 세션만·D-012 양방향 격리 제외를 구현했다. 사용자 `handoff-impl 299` 호출로 Codex가 r1 구현을 맡았다.
+- 이견 / 현실성 문제: **규범 정정 없음**. SSR은 Zustand 초기 snapshot을 읽으므로 C1 테스트에서 `getInitialState()`를 실제 seed와 맞췄다(`Composer.concurrency.test.ts`).
+- ACTIVE Decision과 충돌하는 설계 발견: **없음**. Count IPC·응답 표시 산술을 제거했고, Notice 문구·× 에피소드 코드는 유지했다(`Composer.tsx` diff).
+- 착수 작업 목록: REQUIRED 12 pair 전부(§7-B), §10 25자리, 선택 증거 VP-14·15·16, §7-C gate, 미해결 파생 이슈 0. AT의 실제 IPC·페인트는 AC14 사람 실기로 남긴다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-15 | main 목록 | E0·E1·E2·E3 | 4/4 | `concurrency-identity.test.ts:SD-1 P1/P2/P5/P7`·`listen receives…`·AC5 3케이스 / `send.worktree.test.ts:E3 concurrency…` 4케이스 | p1/null · draft:a/s1 · 새 격리/비격리/재개 row/복구 | 없음 |
+| VP-17 | tracker | T1·T2·T3·T4 | 4/4 | `active-turn-tracker.test.ts:T1`·`T2`·`T3`·`T4` 4케이스 | p1/p2 · t1/t2/t3 · null/undefined · 복사본 변경 | 없음 |
+| VP-19 | 턴 ref | A1 | 1/1 | `active-turn-ref.test.ts:A1 new=%s sid=%s key=%s` 4케이스 | 신규 draft:a · 기존 s1 · 연속 queueKey 부재 · 신규 queueKey 부재 | 없음 |
+| VP-22 | main 격리 | P1·P2·P3 | 3/3 | `prepare-worktree.test.ts` 11케이스(기존 분기+P1 2·P2 1) / `service.test.ts:P3 hasManagedWorktree…` | managed T · plain F · recovered F · resume row T/F · ready T/F | 없음 |
+| VP-16 | 화면 운반 | S1·S2·S3·S4·S5·S6·C1 | 7/7 | `chatStore.concurrency.test.ts` 7 / `chatReducer.worktreeIsolation.test.ts` 3 / `Composer.concurrency.test.ts` 5 | p1/p2·draft/확정·자기/남·responding T/F·격리 T/F·patch 부재/null/객체 | 없음 |
+| VP-18 | 신원 비교 | N1·N2·N3 | 3/3 | `concurrencyNotice.test.ts:N1`·`N2`·`N3` 8케이스 | 없는 entry·draft·확정·재생성·다른 id·null 불일치 | 없음 |
+| VP-21 | 화면 격리 | I1 | 1/1 | `concurrencyNotice.test.ts:I1 recognizes…` 1케이스 | worktree 표시만 / 격리 의도만 / 둘 다 없음 / entry 부재 | 없음 |
+| VP-14 | fixture·순서 | SD-1·SD-2 | 2/2 | `concurrency-identity.test.ts:SD-1` 4 / `chatStore.concurrency.order.test.ts:SD-2` 15 | 실제 main K = fixture K · 228 인터리빙 / 1,865 접두 관측 | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드)
+- **25/25자리**. [검색·좌표 원문](evidence/r1-slot-searches.json): `planMinusImplemented=[]`, `implementedMinusPlan=[]`. main 원문 검색의 테스트 fixture hit는 production 전달 자리와 구분했다.
+- §10 자리 목록 밖에서 본 운반 자리: **production 추가 0**. `post-turn.ts` 최초·listen·flush 3개 전달 edge는 E3 path 안이며 각각 `E3-initial-edge`·`E3-listen-edge`·`E3-flush-edge` 변이로 관측했다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED | … | … | … |
+| VP-01 | REQUIRED | SELF_BLOCKED | SD-2 P1~P4·P8 통과 | not selected; AC14 실제 페인트 대기 |
+| VP-02 | REQUIRED | SELF_BLOCKED | SD-2 P5~P7·SD-1 P5/P7 통과 | not selected; AC14 실제 조작 대기 |
+| VP-03 | REQUIRED | SELF_BLOCKED | SD-2 O1~O3 통과 | not selected; AC14 실제 다른 세션 대기 |
+| VP-20 | REQUIRED | SELF_BLOCKED | SD-2 W1~W4·E3 4케이스 통과 | not selected; AC14 실제 격리 세션 대기 |
+| VP-14 | REQUIRED | SELF_PASS | SD-1 4케이스·SD-2 15케이스 | NC-01: AS-IS P1 오탐·O2 누락·W1 오탐 각각 ≥1; SD2-observe/list-edge red |
+| VP-15 | REQUIRED | SELF_PASS | E0~E2: SD-1·AC5 / E3: `send.worktree.test.ts:E3 concurrency…` | E0-ref·E1-confirm·E3-isolated 모두 red |
+| VP-16 | REQUIRED | SELF_PASS | S1~S5: store 7 / S6: reducer 3 / C1: Composer 5 | S5-isolation·C1-arithmetic 모두 red |
+| VP-17 | REQUIRED | SELF_PASS | `active-turn-tracker.test.ts:T1~T4` / `supervisor.test.ts:ActiveTurnTracker 는…` | not selected; sweep 결과 아래 |
+| VP-18 | REQUIRED | SELF_PASS | `concurrencyNotice.test.ts:N1~N3` | not selected; sweep 결과 아래 |
+| VP-19 | REQUIRED | SELF_PASS | `active-turn-ref.test.ts:A1` 4케이스 | not selected; sweep 결과 아래 |
+| VP-21 | REQUIRED | SELF_PASS | `concurrencyNotice.test.ts:I1 recognizes…` | not selected; sweep 결과 아래 |
+| VP-22 | REQUIRED | SELF_PASS | `prepare-worktree.test.ts:P1/P2`·기존 분기 / `service.test.ts:P3 hasManaged…` | not selected; sweep 결과 아래 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+**75건 검출·2건 동치·미실행 0**. 재현: `cd app && python3 ../.agents/skills/handoff-verify/scripts/mutate.py ../docs/handoff/0299-concurrency-notice-turn-end-flicker/evidence/r1-mutations.jsonl --cwd . --timeout 90`. [변이 원문](evidence/r1-mutations.jsonl)·[실행 결과](evidence/r1-mutation-results.tsv)·[실패 테스트 전건](evidence/r1-mutation-observations.json).
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| NC-01 AS-IS 개수−responding·격리 무시 | VP-14 선택 증거 | 최초 | SD-2 P1·O2·W1의 음성 대조 각각 ≥1 반례 단언 통과 | 방향 확인 |
+| `T1-project` — T1a | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate` · 1 failed \| 3 passed (4) | 검출 |
+| `T1-duplicate` — T1c | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate` · 1 failed \| 3 passed (4) | 검출 |
+| `T1-begin` — T1b | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate` · 4 failed (4) | 검출 |
+| `T1-ref` — T1/T4 snapshot | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T4 returns snapshots detached from input, output and emitted references` · 1 failed \| 3 passed (4) | 검출 |
+| `T1-event` — T1b | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate` · 2 failed \| 2 passed (4) | 검출 |
+| `T2-absent` — T2c | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T2 confirms a pending identity once, preserving its client key` · 1 failed \| 3 passed (4) | 검출 |
+| `T2-confirmed` — T2b | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T2 confirms a pending identity once, preserving its client key` · 1 failed \| 3 passed (4) | 검출 |
+| `T2-value` — T2a | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T2 confirms a pending identity once, preserving its client key` · 1 failed \| 3 passed (4) | 검출 |
+| `T2-key` — T2a clientKey | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T2 confirms a pending identity once, preserving its client key` · 1 failed \| 3 passed (4) | 검출 |
+| `T2-event` — T2a | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T2 confirms a pending identity once, preserving its client key` · 1 failed \| 3 passed (4) | 검출 |
+| `T3-absent` — T3b | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T3 removes only its token, retains order and emits the final empty list once` · 1 failed \| 3 passed (4) | 검출 |
+| `T3-end` — T3a/c | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T3 removes only its token, retains order and emits the final empty list once` · 1 failed \| 3 passed (4) | 검출 |
+| `T3-event` — T3a | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T3 removes only its token, retains order and emits the final empty list once` · 1 failed \| 3 passed (4) | 검출 |
+| `T4-null` — T4 null guard redundant with project filter | 열거 sweep | 최초 | `해당 UT green` · 4 passed (4) | 동치 |
+| `T4-project` — T4 project separation | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate` · 2 failed \| 2 passed (4) | 검출 |
+| `T4-copy` — T4 detached output | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T4 returns snapshots detached from input, output and emitted references` · 1 failed \| 3 passed (4) | 검출 |
+| `T4-emission` — T4 emitted snapshot | 열거 sweep | 최초 | `active-turn-tracker.test.ts:T1 ignores missing projects and duplicate tokens, keeps begin order and projects separate` · 3 failed \| 1 passed (4) | 검출 |
+| `A1-session` — A1b/c | 열거 sweep | 최초 | `active-turn-ref.test.ts:A1 new=false sid=s1 key=s1` · 2 failed \| 2 passed (4) | 검출 |
+| `A1-new` — A1a | 열거 sweep | 최초 | `active-turn-ref.test.ts:A1 new=true sid=null key=draft:a` · 1 failed \| 3 passed (4) | 검출 |
+| `A1-existing` — A1b | 열거 sweep | 최초 | `active-turn-ref.test.ts:A1 new=false sid=s1 key=s1` · 1 failed \| 3 passed (4) | 검출 |
+| `A1-fallback` — A1d | 열거 sweep | 최초 | `active-turn-ref.test.ts:A1 new=true sid=null key=undefined` · 1 failed \| 3 passed (4) | 검출 |
+| `A1-swap` — A1 sibling fields | 열거 sweep | 최초 | `active-turn-ref.test.ts:A1 new=true sid=null key=draft:a` · 3 failed \| 1 passed (4) | 검출 |
+| `P1-managed` — P1a | 열거 sweep | 최초 | `prepare-worktree.test.ts:준비가 끝날 때까지 기다린 뒤 managed cwd를 반환한다` · 2 failed \| 9 passed (11) | 검출 |
+| `P1-plain` — P1b | 열거 sweep | 최초 | `prepare-worktree.test.ts:격리를 끈 요청과 worktree 가 살아 있는 재개 세션은 원래 cwd를 그대로 통과시킨다 (AC19)` · 2 failed \| 9 passed (11) | 검출 |
+| `P1-recovery` — P1c | 열거 sweep | 최초 | `prepare-worktree.test.ts:worktree 가 사라지면 source cwd 로 접고 통지한다 (AC12 · AC13 · AC17)` · 1 failed \| 10 passed (11) | 검출 |
+| `P1-row-present` — P1d | 열거 sweep | 최초 | `prepare-worktree.test.ts:P1 resumed isolation comes from the managed row: true` · 2 failed \| 9 passed (11) | 검출 |
+| `P1-row-absent` — P1e | 열거 sweep | 최초 | `prepare-worktree.test.ts:격리를 끈 요청과 worktree 가 살아 있는 재개 세션은 원래 cwd를 그대로 통과시킨다 (AC19)` · 3 failed \| 8 passed (11) | 검출 |
+| `P1-row-key` — P1 requested session | 열거 sweep | 최초 | `prepare-worktree.test.ts:P1 resumed isolation comes from the managed row: true` · 2 failed \| 9 passed (11) | 검출 |
+| `P2-ready` — P2 true | 열거 sweep | 최초 | `prepare-worktree.test.ts:준비 완료 뒤에만 runtime을 확보하고 managed cwd와 원래 extraDirs를 전달한다` · 1 failed \| 10 passed (11) | 검출 |
+| `P2-ready-false` — P2 false | 열거 sweep | 최초 | `prepare-worktree.test.ts:P2 nonisolated ready result carries false` · 1 failed \| 10 passed (11) | 검출 |
+| `P3-present` — P3 row present | 열거 sweep | 최초 | `service.test.ts:P3 hasManagedWorktree reads the requested session row` · 1 failed \| 11 skipped (12) | 검출 |
+| `P3-absent` — P3 row absent | 열거 sweep | 최초 | `service.test.ts:P3 hasManagedWorktree reads the requested session row` · 1 failed \| 11 skipped (12) | 검출 |
+| `P3-key` — P3 requested session | 열거 sweep | 최초 | `service.test.ts:P3 hasManagedWorktree reads the requested session row` · 1 failed \| 11 skipped (12) | 검출 |
+| `E0-begin` — E0 | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 7 failed \| 2 passed (9) | 검출 |
+| `E0-ref` — E0 empty ref | 선택 증거 | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 7 failed \| 2 passed (9) | 검출 |
+| `E0-project` — E0 project | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 7 failed \| 2 passed (9) | 검출 |
+| `E0-listen` — E0 listen exclusion | 열거 sweep | 최초 | `concurrency-identity.test.ts:listen receives the accounting project but does not enter the tracker` · 1 failed \| 8 passed (9) | 검출 |
+| `E1-confirm` — E1 missing confirm | 선택 증거 | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 1 failed \| 8 passed (9) | 검출 |
+| `E1-session` — E1 session identity | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 1 failed \| 8 passed (9) | 검출 |
+| `E1-token` — E1 token | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 1 failed \| 8 passed (9) | 검출 |
+| `E2-end` — E2 | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 7 failed \| 2 passed (9) | 검출 |
+| `E2-token` — E2 token | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 7 failed \| 2 passed (9) | 검출 |
+| `E3-isolated` — E3 ignores isolation | 선택 증거 | 최초 | `send.worktree.test.ts:E3 concurrency accounting project follows prepared isolation: new-isolated` · 2 failed \| 2 passed \| 25 skipped (29) | 검출 |
+| `E3-plain` — E3 shared path | 열거 sweep | 최초 | `send.worktree.test.ts:E3 concurrency accounting project follows prepared isolation: new-plain` · 2 failed \| 2 passed \| 25 skipped (29) | 검출 |
+| `E3-initial-edge` — E3 initial edge | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P2 real continuation path produces fixture K` · 4 failed \| 5 passed (9) | 검출 |
+| `E3-listen-edge` — E3 listen edge | 열거 sweep | 최초 | `concurrency-identity.test.ts:listen receives the accounting project but does not enter the tracker` · 1 failed \| 8 passed (9) | 검출 |
+| `E3-flush-edge` — E3 continuation edge | 열거 sweep | 최초 | `concurrency-identity.test.ts:SD-1 P7 real continuation path produces fixture K` · 1 failed \| 8 passed (9) | 검출 |
+| `N1-session` — N1 | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N1 keeps the draft key after promotion and handles loaded/absent entries` · 1 failed \| 8 passed (9) | 검출 |
+| `N1-key` — N1 | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N1 keeps the draft key after promotion and handles loaded/absent entries` · 1 failed \| 8 passed (9) | 검출 |
+| `N1-null` — N1 missing clientKey | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N1 keeps the draft key after promotion and handles loaded/absent entries` · 1 failed \| 8 passed (9) | 검출 |
+| `N2-session` — N2a | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N2 compares non-null identity fields: {"sessionId":"s1","clientKey":null} / {"sessionId":"s1","clientKey":null}` · 2 failed \| 7 passed (9) | 검출 |
+| `N2-key` — N2b | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N2 compares non-null identity fields: {"sessionId":null,"clientKey":"draft:a"} / {"sessionId":"s1","clientKey":"draft:a"}` · 1 failed \| 8 passed (9) | 검출 |
+| `N2-null-session` — N2c | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N2 compares non-null identity fields: {"sessionId":null,"clientKey":null} / {"sessionId":null,"clientKey":null}` · 2 failed \| 7 passed (9) | 검출 |
+| `N2-null-key` — N2c | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N2 compares non-null identity fields: {"sessionId":null,"clientKey":null} / {"sessionId":null,"clientKey":null}` · 2 failed \| 7 passed (9) | 검출 |
+| `N2-swap` — N2 sibling identity fields | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N2 compares non-null identity fields: {"sessionId":"s1","clientKey":null} / {"sessionId":"s1","clientKey":null}` · 2 failed \| 7 passed (9) | 검출 |
+| `N3-own` — N3 | 열거 sweep | 최초 | `concurrencyNotice.test.ts:N3 counts only other identities` · 1 failed \| 8 passed (9) | 검출 |
+| `I1-managed` — I1a | 열거 sweep | 최초 | `concurrencyNotice.test.ts:I1 recognizes managed display and pending isolation independently` · 1 failed \| 8 passed (9) | 검출 |
+| `I1-intent` — I1b | 열거 sweep | 최초 | `concurrencyNotice.test.ts:I1 recognizes managed display and pending isolation independently` · 1 failed \| 8 passed (9) | 검출 |
+| `I1-plain` — I1c | 열거 sweep | 최초 | `concurrencyNotice.test.ts:I1 recognizes managed display and pending isolation independently` · 1 failed \| 8 passed (9) | 검출 |
+| `S1-snapshot` — S1 | 열거 sweep | 최초 | `chatStore.concurrency.test.ts:S1 stores full snapshots by project, including an empty replacement` · 2 failed \| 10 passed (12) | 검출 |
+| `S1-project` — S1 project | 열거 sweep | 최초 | `chatStore.concurrency.test.ts:S1 stores full snapshots by project, including an empty replacement` · 2 failed \| 10 passed (12) | 검출 |
+| `S2-key` — S2 | 열거 sweep | 최초 | `chatStore.concurrency.test.ts:S2/S3/S4 send keeps clientKey after promotion` · 1 failed \| 11 passed (12) | 검출 |
+| `S3-key` — S3 | 열거 sweep | 최초 | `chatStore.concurrency.test.ts:S2/S3/S4 handoff keeps clientKey after promotion` · 1 failed \| 11 passed (12) | 검출 |
+| `S4-promotion` — S4 | 열거 sweep | 최초 | `chatStore.concurrency.test.ts:S2/S3/S4 send keeps clientKey after promotion` · 2 failed \| 10 passed (12) | 검출 |
+| `S5-isolation` — S5 isolation | 선택 증거 | 최초 | `Composer.concurrency.test.ts:other responding=false isolated=true renders notice=false` · 3 failed \| 9 passed (12) | 검출 |
+| `S5-own` — S5 identity | 열거 sweep | 최초 | `Composer.concurrency.test.ts:own responding=false isolated=false renders notice=false` · 4 failed \| 8 passed (12) | 검출 |
+| `S5-project` — S5 snapshot | 열거 sweep | 최초 | `Composer.concurrency.test.ts:other responding=true isolated=false renders notice=true` · 3 failed \| 9 passed (12) | 검출 |
+| `S5-fallback` — S5 absent project | 열거 sweep | 최초 | `chatStore.concurrency.test.ts:S5 selector uses displayed identity/isolation undefined` · 1 failed \| 11 passed (12) | 검출 |
+| `S5-hook` — S5 selector hook edge | 열거 sweep | 최초 | `Composer.concurrency.test.ts:other responding=true isolated=false renders notice=true` · 2 failed \| 10 passed (12) | 검출 |
+| `S6-reset` — S6 | 열거 sweep | 최초 | `chatReducer.worktreeIsolation.test.ts:clears isolation only for explicit worktree:null: {"worktree":null}` · 1 failed \| 2 passed (3) | 검출 |
+| `S6-only-null` — S6 object preserves intent | 열거 sweep | 최초 | `chatReducer.worktreeIsolation.test.ts:clears isolation only for explicit worktree:null: {"worktree":{"sourceCwd":"/source","repoRoot":"/repo"}}` · 1 failed \| 2 passed (3) | 검출 |
+| `S6-key` — S6 key guard redundant on cloned wire DTO | 열거 sweep | 최초 | `해당 UT green` · 3 passed (3) | 동치 |
+| `C1-arithmetic` — C1 responding arithmetic | 선택 증거 | 최초 | `Composer.concurrency.test.ts:other responding=true isolated=false renders notice=true` · 2 failed \| 3 passed (5) | 검출 |
+| `C1-notice` — C1 Notice edge | 열거 sweep | 최초 | `Composer.concurrency.test.ts:other responding=true isolated=false renders notice=true` · 2 failed \| 3 passed (5) | 검출 |
+| `SD2-observe` — SD-2 prefix sweep / selected negative control | 새 oracle 감도 | 최초 | `chatStore.concurrency.order.test.ts:'P1' identity predicate is independent of local response state` · 15 failed (15) | 검출 |
+| `SD2-list-edge` — SD-2 concurrency delivery edge | 새 oracle 감도 | 최초 | `chatStore.concurrency.order.test.ts:'P1' identity predicate is independent of local response state` · 3 failed \| 12 passed (15) | 검출 |
+| `SD1-fixture` — SD-1 production/fixture equality | 새 oracle 감도 | 최초 | `concurrency-identity.test.ts:SD-1 P1 emits the fixture list column through begin, promote, confirm and end` · 7 failed \| 2 passed (9) | 검출 |
 
-- **분모 검산**: …
-- **덮개 회귀**: 해당 없음(첫 라운드)
+- **분모 검산**: 선택 증거 6(NC-01 + 등록 변이 5) · 인용 변이 0 · 새 oracle 3 · sweep 69 = 표 행 **78**. 실행 변이는 77이며 NC-01은 원본의 음성 대조다.
+- **동치 T4-null**: begin이 비어 있는 프로젝트를 저장하지 않으므로 필터만 남겨도 null/undefined 조회는 `[]`다. T4 snapshot UT green.
+- **동치 S6-key**: IPC로 복제된 patch에서 `worktree===null`이면 키가 존재한다. 부재는 undefined라 false이며, 부재/null/객체 UT 3건 green. production의 명시적 키 검사는 유지했다.
+- **덮개 회귀**: 해당 없음(첫 라운드). 변이 후 `# 원복 확인: 모든 파일 원문 그대로`; 소거의 red는 lint/typecheck가 아닌 행동 assertion에서 관측했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 기존 Notice 문구·스타일 재사용; C1 5케이스가 표시 여부를 관측 | AC14 페인트 실기 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 유지 — coordinator 기존 inner finally에 `end(turn)`; AC5 예외·시작 전 취소·재시도 통과 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 복구는 §5 마지막 행; S6 3갈래·E3 신규/재개/복구 4케이스 통과 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 경고 판정만 교체; 준비 거부·복구 통지 경로는 유지(`send.worktree.test.ts` 29케이스) | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | SD-2 15경로의 228 인터리빙·1,865 접두 관측 모두 oracle 일치 | B-3 초기 목록 조회 경계 유지 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | Electron용 SQLite 바이너리는 Node vitest에서 ABI 140/137 불일치 | `npm rebuild better-sqlite3` 후 관련 전체 재실행; DB 오류 소멸 | `r1-gates.json`, 최종 3,234케이스 |
+| 2 | 기존 unit 두 파일이 실제 git을 호출해 pool guard에 걸림 | 이번 요구와 별개인 기준선 결함으로 분리; 실패 집합 차집합 양방향 `[]` | [기준선 비교](evidence/r1-baseline-comparison.json), 변경 전/후 같은 11케이스 |
+| 3 | SSR은 Zustand의 최초 snapshot을 읽음 | C1이 실제 store/hook을 실행하도록 초기 snapshot을 seed와 맞춤 | `Composer.concurrency.test.ts`, C1-arithmetic 2케이스 red |
+| 4 | 새 테스트 fixture가 main 자리 검색에 포함됨 | 원문 hit를 보존하고 production hit만 별도 분류; §10 목록 변경 없음 | [자리 검색](evidence/r1-slot-searches.json) |
 
 ### 설계 대비 명시적 차이
 
-- …
+- 제품·production 메커니즘 차이 없음. main/renderer 테스트 준비를 `.testfixture.ts`로 분리했고 C1 SSR snapshot 준비만 추가했다. `r1-mutations.jsonl`은 이 변경을 포함한 최종 트리에서 실행했다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 시간 기반 캐시·타이머를 추가하지 않음 | D-005, SD-2 전수 통과 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 추가 없음 — 기존 store의 단일 snapshot; tracker는 입력·출력 ref를 복사 | T4 복사본 변경 UT 통과 |
+| 재진입 | 추가 없음 — tracker 토큰 멱등 begin/end | T1 중복·T3 재사용·AC5 재시도 통과 |
+| 다른 무효화 축 | 복구 patch의 null만 격리 의도 해제 | S6 부재/null/객체 3케이스 통과 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 신원 tracker·ref/격리 판정·send/post-turn/coordinator·IPC/문서·store/reducer/Composer·관련 fixture/테스트. 최종 목록은 commit diff |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · §7-C vitest + 변경한 외곽 통합/페이지 테스트(`--maxWorkers=2`) · test-budget/doc-inventory · mutation 77건 |
+| **관측한 게이트 산출** | lint **0 error/2 기존 warning**; typecheck **3/3**; vitest **374파일/3,223케이스 통과**, 기준선 **2파일/11케이스 실패**; budget·doc-inventory·diff-check 통과 |
+| V-pair 자기확인 | 기술 pair **8 SELF_PASS**, AT **4 SELF_BLOCKED(AC14 사람 실기)**; [기계 산출](evidence/r1-gates.json) |
+| 강제 지점 전수 | **25/25**; source 좌표 대응 후 양방향 차집합 `[]`([검색 원문](evidence/r1-slot-searches.json)) |
+| **AC 자기보고**(`Criteria-Met`) | **17/18** — 아래 AC별 관측. 실제 앱 AC14 대기 |
+| **합계 검산** | ✅ 17 · ⚠️ 1 · ❌ 0 = 총 18; AC 분모 변경 없음 |
+| 블로커 / 역질문 | 규범 PLAN_GAP 없음. AC14 OpenCode·Claude 실제 IPC·페인트·격리 양방향 실기 대기; 질문 없음 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기보고 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | SD-2 P1·P2·P8 모든 인터리빙·접두 false |
+| AC2 | ✅ | SD-2 P3·P4 모든 접두 false |
+| AC3 | ✅ | SD-2 P5·P6 + SD-1 P5 실제 Stop handler |
+| AC4 | ✅ | SD-2 P7 + SD-1 P7 실제 send-now handler |
+| AC5 | ✅ | IT-03 AC5 stream exception·cancellation before start·retry 3케이스 |
+| AC6 | ✅ | SD-2 O1~O3, 최신 K의 other 태그와 전수 일치 |
+| AC7 | ✅ | SD-2 P8 + S3/S4 handoff 운반 UT |
+| AC8 | ✅ | tracker T1~T4 4케이스 + supervisor 소유권 회귀 |
+| AC9 | ✅ | N1~N3·I1 `concurrencyNotice.test.ts` 9케이스 |
+| AC10 | ✅ | `active-turn-ref.test.ts` 4케이스 |
+| AC11 | ✅ | SD-1 P1/P2/P5/P7 목록 일치 + E3 4케이스 + 실제 listen 비계상·옵션 전달 |
+| AC12 | ✅ | store S1~S5 7 + reducer S6 3 + Composer C1 5케이스 |
+| AC13 | ✅ | IPC §2.12-b·runtime-ipc ActiveTurnTracker 행의 turns/ref/신원 제외/산술 금지/격리 제외를 대조; 인벤토리 gate 통과 |
+| AC14 | ⚠️ | 사람이 수행할 OpenCode·Claude 실제 응답/Stop/다중 세션/양방향 격리·페인트 항목 미실행 |
+| AC15 | ✅ | SD-2 W1·W2 + S5 managed/intent 구별 입력 |
+| AC16 | ✅ | E3 new-isolated/resume-isolated 넷째 인자 null + coordinator null 계상·연속 응답 0이벤트 + W3 |
+| AC17 | ✅ | E3 resume-recovered 넷째 인자 p1 + P1 recovered false + S6 명시 null + W4 |
+| AC18 | ✅ | P1 5분기·P2 ready T/F·P3 row T/F 직접 단언 |
+
+**합계 검산: ✅ 17 · ⚠️ 1 · ❌ 0 = 총 18.** `Criteria-Met: 17/18`, `Criteria-Pending: AC14 실제 Electron OpenCode·Claude 실기`.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 구현). 판정 입력은 신원·격리·최신 목록뿐이다(SD-2 15케이스 통과).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: D-009·D-012·§10이 신원/격리를 명시했고 25자리를 직접 oracle로 잠갔다.
+- 반복해서 부딪히는 환경 한계: 기존 SQLite ABI 불일치는 Node rebuild로 해결. unit 두 파일의 git pool guard 11실패는 변경 전/후 동일([비교](evidence/r1-baseline-comparison.json)).
+- 현재 라운드·impl 턴: `r1`. verify 수행 없음; 다음 주체는 Claude 검증.
 
 ---
 

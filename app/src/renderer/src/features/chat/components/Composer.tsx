@@ -23,7 +23,7 @@ import {
   useChatResponding,
   useChatSession,
   useNewChatPending,
-  useProjectConcurrencyCount
+  useOtherProjectTurnCount
 } from '../store/chatStore'
 import { ApprovalCard } from './ApprovalCard'
 import { GitRow } from './composer/GitRow'
@@ -163,12 +163,12 @@ export function Composer({
   const agents = useAgents()
   const telemetryButtonRef = useRef<HTMLButtonElement>(null)
   const [telemetryOpen, setTelemetryOpen] = useState(false)
-  const projectConcurrencyCount = useProjectConcurrencyCount(projectId)
+  const otherProjectTurnCount = useOtherProjectTurnCount(projectId)
   const newChatPending = useNewChatPending()
   // 같은 프로젝트에서 다른 작업이 실행 중인가(자기 턴 제외). × 닫기는 에피소드 단위 —
   // 카운트가 해소(0)되거나 프로젝트가 바뀌면 dismiss 를 리셋해 다음 에피소드에 재표시한다.
   // 리셋은 effect 가 아니라 렌더 중 이전값 비교로 조정한다(React 권장 패턴 — setState-in-effect 회피).
-  const concurrencyActive = projectConcurrencyCount - (inflight ? 1 : 0) > 0
+  const concurrencyActive = otherProjectTurnCount > 0
   const [concurrencyDismissed, setConcurrencyDismissed] = useState(false)
   const [noticeEpisode, setNoticeEpisode] = useState({ projectId, active: concurrencyActive })
   if (noticeEpisode.projectId !== projectId || noticeEpisode.active !== concurrencyActive) {

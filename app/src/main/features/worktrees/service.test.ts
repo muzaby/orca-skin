@@ -367,3 +367,16 @@ describe('WorktreeService', () => {
     expect(result).toMatchObject({ kind: 'managed', baseOid: oid, baseRef: null })
   })
 })
+
+it('P3 hasManagedWorktree reads the requested session row', () => {
+  const getManagedWorktreeBySession = vi.fn((sessionId: string) =>
+    sessionId === 'isolated' ? { id: 'w1' } : null
+  )
+  const service = new WorktreeService(
+    { getManagedWorktreeBySession } as unknown as DbQueries,
+    '/unused'
+  )
+  expect(service.hasManagedWorktree('isolated')).toBe(true)
+  expect(service.hasManagedWorktree('plain')).toBe(false)
+  expect(getManagedWorktreeBySession.mock.calls).toEqual([['isolated'], ['plain']])
+})

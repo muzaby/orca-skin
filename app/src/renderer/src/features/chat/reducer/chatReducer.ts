@@ -963,6 +963,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             // `worktree` 는 세 상태를 구분해야 해서(부재 / `null` = 소실 폴백의 삭제 명령 /
             // 객체 = 덮어쓰기) `undefined` 비교가 아니라 **키 유무**로 판정한다(0211 D-022).
             worktree: Object.hasOwn(ev.patch, 'worktree') ? ev.patch.worktree! : state.worktree,
+            ...(Object.hasOwn(ev.patch, 'worktree') && ev.patch.worktree === null
+              ? { worktreeIsolation: false }
+              : {}),
             // 준비가 끝났다 — 여기부터는 기존 진행 표시가 말한다(0211 §10 EP-04 둘째 지점).
             worktreePrepareStep: null,
             // 두 축은 `null` 이 값이 아니라 조건부 spread 로 충분하다 — 무조건 대입하면

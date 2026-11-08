@@ -182,6 +182,7 @@ function makeHarness(sessionId?: string) {
     settleDeadBackgroundTasks: vi.fn(),
     // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.
     worktrees: {
+      hasManagedWorktree: () => false,
       prepare: vi.fn(),
       recoverMissingWorktree: vi.fn(async (): Promise<Recovery> => ({ kind: 'none' }))
     }

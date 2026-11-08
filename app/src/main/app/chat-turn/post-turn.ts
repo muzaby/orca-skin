@@ -48,7 +48,7 @@ export async function runTurnWithContinuations(
   deps: PostTurnDeps,
   turn: TurnContext<WebContents>,
   request: TurnRequest,
-  boundProjectId: string | null
+  sharedPathProjectId: string | null
 ): Promise<void> {
   const { coordinator, runtime, lease, supervisor, activity, pendingMessages, backgroundTasks } =
     deps
@@ -89,7 +89,7 @@ export async function runTurnWithContinuations(
   try {
     // 준비 중 중단된 입력은 전송하지 않는다. 예약 유지 Stop이면 아래에서 새 수신 child를 연다.
     if (!turn.controller.signal.aborted) {
-      await coordinator.run(turn, request, { boundProjectId })
+      await coordinator.run(turn, request, { sharedPathProjectId })
     }
     // 자동 연속 턴(0067 AC7) — 응답 중 예약된 held 잔여를 턴 종료 뒤 즉시 다음 턴으로 잇는다.
     // 사용자 개입 없음. 체인 중단(lease controller abort)
@@ -220,7 +220,10 @@ export async function runTurnWithContinuations(
           // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.
           deps.listenRelease.set(sessionId, () => runtime.endListenFrame())
           try {
-            await coordinator.run(listenTurn, listenRequest, { boundProjectId, kind: 'listen' })
+            await coordinator.run(listenTurn, listenRequest, {
+              sharedPathProjectId,
+              kind: 'listen'
+            })
           } finally {
             deps.listenRelease.delete(sessionId)
             supervisor.release(listenTurn)
@@ -268,7 +271,7 @@ export async function runTurnWithContinuations(
         continuation
       })
       try {
-        await coordinator.run(contTurn, contRequest, { boundProjectId })
+        await coordinator.run(contTurn, contRequest, { sharedPathProjectId })
       } finally {
         supervisor.release(contTurn)
       }

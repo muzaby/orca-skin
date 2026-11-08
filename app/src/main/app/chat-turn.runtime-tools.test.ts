@@ -195,7 +195,7 @@ function installHarness(options: {
     acquireRuntime: vi.fn(() => turnRuntime),
     release: vi.fn(),
     releaseRuntime: vi.fn(),
-    activeTurns: { increment: vi.fn(), decrement: vi.fn() },
+    activeTurns: { begin: vi.fn(), confirm: vi.fn(), end: vi.fn() },
     promote: vi.fn(),
     getBySession: vi.fn(),
     getChainByKey: vi.fn(),

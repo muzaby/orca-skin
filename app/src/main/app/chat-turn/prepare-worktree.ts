@@ -14,12 +14,14 @@ type CompletionInput = Parameters<SessionAdapter['complete']>[0]
 export type PrepareTurnWorktreeResult =
   | {
       kind: 'passthrough'
+      isolated: boolean
       executionCwd: string
       sessionBaseline: string | null
       sessionBaselineRef: string | null
     }
   | {
       kind: 'managed'
+      isolated: boolean
       worktreeId: string
       executionCwd: string
       display: WorktreeDisplay
@@ -29,6 +31,7 @@ export type PrepareTurnWorktreeResult =
   // 원본 작업 경로로 되돌린 turn. `passthrough`와 합치면 통지·respawn 책임이 사라진다.
   | {
       kind: 'recovered'
+      isolated: boolean
       executionCwd: string
       lostWorktreeRoot: string
       sessionBaseline: null
@@ -46,7 +49,7 @@ export async function prepareTurnWorktree(input: {
   adapter: Pick<SessionAdapter, 'complete'>
   providerSettings: CompletionInput['providerSettings']
   env: CompletionInput['env']
-  worktrees: Pick<WorktreeService, 'prepare' | 'recoverMissingWorktree'>
+  worktrees: Pick<WorktreeService, 'prepare' | 'recoverMissingWorktree' | 'hasManagedWorktree'>
   // 폴백을 사용자 화면에 알린다. 세 번째 쓰기 지점이고 DB 두 쓰기 **뒤**다(§13).
   onRecovered?: (recovered: { sessionId: string; executionCwd: string }) => void
   // 격리 준비 진행 (0211). **신규 격리 경로에서만** 발화한다 — resume·recover·passthrough 는
@@ -71,6 +74,7 @@ export async function prepareTurnWorktree(input: {
       input.onRecovered?.({ sessionId: input.sessionId, executionCwd: recovery.executionCwd })
       return {
         kind: 'recovered',
+        isolated: false,
         executionCwd: recovery.executionCwd,
         lostWorktreeRoot: recovery.lostWorktreeRoot,
         sessionBaseline: null,
@@ -79,6 +83,7 @@ export async function prepareTurnWorktree(input: {
     }
     return {
       kind: 'passthrough',
+      isolated: input.worktrees.hasManagedWorktree(input.sessionId),
       executionCwd: input.sourceCwd,
       sessionBaseline: null,
       sessionBaselineRef: null
@@ -92,6 +97,7 @@ export async function prepareTurnWorktree(input: {
     const sessionBaselineRef = probe?.kind === 'repo' ? headName(probe.head) : null
     return {
       kind: 'passthrough',
+      isolated: false,
       executionCwd: input.sourceCwd,
       sessionBaseline,
       sessionBaselineRef
@@ -120,6 +126,7 @@ export async function prepareTurnWorktree(input: {
     input.onProgress?.('session')
     return {
       kind: 'managed',
+      isolated: true,
       worktreeId: prepared.worktreeId,
       executionCwd: prepared.executionCwd,
       display: prepared.display,
@@ -142,7 +149,10 @@ export async function prepareTurnExecution<TTurn, TEntry>(input: {
   // `executionCwdRecovered` 는 respawn 판정으로 간다 — cwd 는 spawn 시점에 박히므로 살아 있는
   // 채널을 새 경로로 돌릴 방법이 없고, 내려야만 다음 spawn 이 원본 경로에서 뜬다(D-108).
   acquireRuntime: (turn: TTurn, executionCwdRecovered: boolean) => Promise<TEntry>
-}): Promise<{ kind: 'rejected'; message: string } | { kind: 'ready'; turn: TTurn; entry: TEntry }> {
+}): Promise<
+  | { kind: 'rejected'; message: string }
+  | { kind: 'ready'; isolated: boolean; turn: TTurn; entry: TEntry }
+> {
   const prepared = await prepareTurnWorktree(input.worktree)
   if (prepared.kind === 'rejected') return prepared
 
@@ -153,5 +163,5 @@ export async function prepareTurnExecution<TTurn, TEntry>(input: {
     prepared.sessionBaselineRef
   )
   const entry = await input.acquireRuntime(turn, prepared.kind === 'recovered')
-  return { kind: 'ready', turn, entry }
+  return { kind: 'ready', isolated: prepared.isolated, turn, entry }
 }

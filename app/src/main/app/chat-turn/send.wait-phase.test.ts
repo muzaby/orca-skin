@@ -140,6 +140,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
     listenRelease: new Map(),
     settleDeadBackgroundTasks: vi.fn(),
     worktrees: {
+      hasManagedWorktree: () => false,
       prepare: vi.fn(),
       recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' as const }))
     }
