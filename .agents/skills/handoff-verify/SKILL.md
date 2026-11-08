@@ -174,7 +174,8 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 - 기본: `cd app && npm run lint && npm run typecheck` — ABI 중립. 단 `lint`는 `--fix`라 트리를 쓴다.
 - DB를 실제로 실행하지 않는 테스트는 `./node_modules/.bin/vitest run <suite>`로 `pretest`를 우회한다. `npm test`는 DB 동작을 봐야 할 때만 의도적으로 쓴다(ABI를 Node로 바꾸고, 그 뒤 `dev`/`build`는 Electron 재빌드가 필요하며 egress 차단 환경에서 403이 날 수 있다).
-- 환경 실패를 변경 무관으로 판정하려면 실패 목록과 알려진 ABI 서명을 분리해 남긴다.
+- 실행 집합은 구현 보고의 집합이 아니라 `ci.yml` 단계 전부의 로컬 대응이다(파일 필터 없는 테스트 포함 — 트리 전체 소스 가드가 부분 실행에서 빠진다, 0299 r1).
+- 실패를 변경 무관으로 판정하려면 `docs/handoff/AGENTS.md §판정 범위와 운영 gate`의 기준선 분리 두 조건(차집합 ∅ · 환경 원인)을 확인하고 실패 목록과 서명을 남긴다. 이번 변경이 추가·수정한 파일의 규칙 가드 실패는 기준선이 아니다.
 
 자기 gate 실행도 §4의 대상이다.
 

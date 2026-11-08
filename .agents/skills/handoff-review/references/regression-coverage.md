@@ -3333,3 +3333,67 @@ DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
 
 - `instruction_delta.py`의 `TOKEN`은 인접한 백틱 구간 사이 본문을 토큰으로 잡아 삽입문에 오탐한다 — 이번엔 정확 포함 검사로 판정했다.
 - diff 자리 목록 자체는 구현자가 고른다. 검증자 ⑦이 같은 방법으로 다시 세는 것이 방어다.
+
+# review round 44 — handoff-impl(사용자 요청, 0298·0299 증거): 마지막 gate 실행 집합 · 기준선 분리 조건 · 추가·수정 테스트의 subtree 규칙
+
+**발동/모드**: 사용자 요청 — `/handoff-plan 298` 인자 "298에서 제시한 ci 규칙 등 준수사항을 handoff-impl이 준수하도록 규칙개정"(2026-11-08). "규칙개정"이 수정 적용을 명시하므로 **APPLY**. 0298 plan D-012가 이 경로를 기록한다(설계 커밋 `d75f6c8`과 분리).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | 마지막 gate를 관련 스위트로만 돌려 트리 전체 소스 가드가 실행 집합에 없었다 | 0299 r1 vitest 376/927파일 → CI run 42448898011 `no-stray-auth-subscribe` red | **A** — AGENTS "관련 비-DB/순수 테스트: `vitest run <suite>`"와 impl §8 "pair 증거와 운영 gate에서 만든다"를 정상 수행한 결과다. 마지막 gate = `ci.yml` 단계 집합(impl §8 · AGENTS §단계별 절차 2·3 · §구현 게이트의 정본 · verify §8) |
+| 2 | 수정한 테스트 파일의 unit 가드 실패를 "변경 전 동일"로 기준선에 넣었다 | 0299 r1 `[test-pools]` 11건(`r1-baseline-comparison.json`) | **A** — "환경 기인 실패 분리"·"관련 없는 기존 실패"가 무엇이 환경인지 정하지 않았다. 분리 두 조건(차집합 ∅ · 환경 원인)을 AGENTS §판정 범위와 운영 gate에 한 번 정의하고 impl·verify·두 template이 가리킨다 |
+| 3 | subtree 테스트 작성 규칙을 사용자가 "298 준수"를 요구한 뒤에야 적용했다 | 0299 r1.2 전수 감사 25파일 · `probeRepo` mock | **A** — impl은 subtree `AGENTS.md`를 "레이어·gate·환경"으로만 읽었다. 추가·수정 테스트 파일마다 판정 + 구현 보고 행 |
+| 4 | 사용자 요구 변경 턴(r1.2~r1.4)이 `[구현자 기입]`을 보고 표 하나로 접었다 | 0298 verify r1 F3 | **B** — template 머리 주석은 같은 라운드 추가 턴을 이미 가리켰다. impl §9·AGENTS 최소 계약의 "재구현 턴"만 좁아 문구를 맞춤(P39 개정 메모) |
+| 5 | 0299 r1.2가 0298 산출물(`FORCED_IO`)을 바꿔 0298 열거 원문과 어긋났다 | 0299 verify D2 → 후보 표 → 0298 ΔV5 흡수 | 지침 변경 없음 — verify 비귀속 경로가 작동 |
+
+**verify 분류 대조(§2)**: 0299 r1의 11건은 r1.2가 닫아 0299 verify r1(FAIL — D1 문서 렌더)의 판정에 남지 않는다. 0298 verify r1 F3(이행 `BLOCKING`)은 새 문구에서도 이행이다. 거짓 PASS·FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** gate 실행 집합과 기준선 분리(실패 의미)가 바뀌고 template 필수 행이 늘어난다.
+
+## 6-A Operational Instruction Delta
+
+기준 `d75f6c8`. `instruction_delta.py --base d75f6c8 --prose --pool docs/handoff/AGENTS.md`(대상 5파일) 후보 **3**(모두 `문장`) · word-diff 지운 단어 구간 16(impl 5 · verify 3 · plan.template 3 · verify.template 3 · AGENTS 2).
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| impl §8 "환경 기인 실패(ABI·egress)는 변경 관련 실패와 분리해 실패 목록과 서명을 남긴다" | REPLACE(강화) | 분리 두 조건 + "분리한 실패는 목록과 서명을 남긴다" 유지. ABI·egress는 AGENTS 정의의 환경 원인에 포함 |
+| verify §8 "환경 실패를 변경 무관으로 판정하려면 실패 목록과 알려진 ABI 서명을 분리해 남긴다" | REPLACE(강화) | 같은 정의를 가리키고 실패 목록·서명 기록 유지 + 실행 집합 bullet |
+| `verify.template.md §8` "ABI 전환/egress 403 등 환경 기인 실패와 변경 관련 실패 분리 근거" | REPLACE | 실행 집합 줄 + 분리 근거 줄(ABI 전환·egress 403 표기 유지) |
+| `plan.template.md` `관측한 게이트 산출` "환경 기인 실패 분리 근거" | REPLACE | 행 라벨 유지(P63 방어 인용) · 분리 근거를 두 조건으로 |
+| "재구현 턴도 같은 이름의 필드"(impl §9 · AGENTS 최소 계약 · template 머리 주석) | REPLACE(넓힘) | 모든 impl 턴 — 재구현·사용자 요구 변경·`rN.k` |
+| AGENTS "관련 비-DB/순수 테스트" · impl "먼저 읽을 것 4" · AGENTS §3 gate 줄 | KEEP + 추가 | 코드 수정 루프 한정 표기 · 테스트 작성 규칙 · 실행 집합 |
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. `npm test` 의존 없음 — 마지막 gate의 로컬 대응은 `app/AGENTS.md` 게이트 가이드의 ABI-중립 명령(파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs`)을 가리켜 ABI·egress 규칙과 충돌하지 않는다.
+
+## 6-B Historical Failure Regression
+
+- **68 P 전수**(`rg -c '^## P[0-9]+'` 68 — P1~P67 + P68 신규) · 변경 후 **COVERED 68** / PARTIAL 0 / GAP 0 / OBSOLETE 0.
+- 방법: corpus `현재 방어` 30줄 중 이번 diff가 닿은 지침을 가리키는 줄 6(P39·P40·P47·P50·P63·P68)을 대조했다. 지운 문장(위 6-A REPLACE 5종)을 방어로 인용한 P는 0 — `rg "환경 기인|ABI 서명|환경 실패|관련 비-DB"` corpus 1건은 P68 자신의 인용이다.
+- 바뀐 P: **P39** 강화(필드 재기입 범위 = 모든 impl 턴, 개정 메모) · **P68** 신규. **P63** 유지 — `관측한 게이트 산출` 라벨과 "마지막 수정 뒤" 문장이 남고 실행 집합만 넓어졌다. **P7**(설계가 저장소 규칙을 읽음)은 plan 쪽 방어 그대로, impl 쪽 대응이 P68로 생겼다.
+- 그 밖의 P: 방어 지점 불변(설계·AC·좌표·하한·운영 절차 — 이번 diff가 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0299 r1 부분 실행 → CI red | IMPL_DONE 뒤 외부 피드백(red gate) → r1.2 | 마지막 gate가 트리 전체 가드를 실행 → IMPL_DONE 전 발견 | 거짓 PASS 0 · 라운드 절약 |
+| 0299 r1 `[test-pools]` 11건(수정 파일) | 기준선 분리 | 현재 변경의 gate 실패 — r1에서 고침 | 거짓 PASS 0 |
+| 0298 verify r1 Linux 실패 29파일(Windows 경로·Electron 미설치) | 기준선 | 기준선(차집합 ∅ + 다른 OS 경로·미설치 바이너리) | inflation 0 |
+| 0298 verify r1 F3 | 이행 `BLOCKING` | 같음 | 같음 |
+| 0293·0291 등 Linux 전용 실패 9파일 | 기준선 | 기준선(같은 근거) | inflation 0 |
+
+- **시나리오 replay**: 손대지 않은 파일의 규칙 가드 실패 → 비귀속(`NON_BLOCKING`) — inflation 0 / electron 미설치로 수정 파일이 import에서 실패 → 환경 원인 + 차집합 ∅이면 분리, 가드 판정은 "돌리지 못한 단계"로 CI 증거에 넘김 — 다음 주체 없는 상태 0 / 창 안·밖 확장 후보·9회 CLOSED·후보 표 승격 — 변경 없음.
+
+## 6-C Cross-document Consistency
+
+- 기준선 분리 정의는 `docs/handoff/AGENTS.md §판정 범위와 운영 gate` 한 곳이고, impl §8 · verify §8 · AGENTS §단계별 절차 2(최소 계약)·3 · `plan.template.md` 구현 보고 · `verify.template.md §8`이 같은 두 조건을 가리킨다.
+- 마지막 gate 실행 집합(`ci.yml` 단계 전부의 로컬 대응)은 impl §8 · AGENTS 최소 계약·§구현 게이트의 정본·§3 · verify §8 · 두 template이 같은 owner(구현자가 닫고 검증자가 다시 센다)로 적는다. 명령 목록은 `app/AGENTS.md`(CI 표 · 게이트 가이드)만 갖는다 — 사본 없음.
+- `app/AGENTS.md` 충돌 0: 게이트 가이드의 "`vitest run` … 순수 스위트로 판정, DB 로드 실패는 베이스라인 분리"는 새 정의의 환경 원인과 같은 방향이다. test-pools 항목의 "신호 없이 프로세스를 띄우는 파일은 `FORCED_IO`에 올린다"는 impl의 "subtree가 정한 우선순위"가 그대로 따른다 — mock 우선 문장은 0298 r2(D-013)가 더한다.
+- root `AGENTS.md`·SKILL frontmatter description·`ci.yml`은 닿지 않는다(impl description "현재 변경의 운영 gate를 수행"과 본문 일치). 새 `AGENTS.md` 없음. 판정 의미가 바뀌었으나 §8 정정 대상 없음 — 0299(FAIL·다음 Codex)·0298(RETURN_TO_PLAN → ΔV5 READY)의 마지막 판정·다음 주체가 새 규칙에서 같다.
+
+## 남은 한계
+
+- 사용자가 "298 준수"를 요구했을 때의 판단(mock vs `FORCED_IO`)은 `app/AGENTS.md` 문장이 생길 때(0298 r2) 비로소 subtree 우선순위가 된다.
+- 마지막 gate는 egress·electron 미설치 환경에서 일부 단계가 import 단계에서 실패해 규칙 가드 판정을 못 할 수 있다 — "돌리지 못한 단계"로 적고 CI가 최종 판정이다.
