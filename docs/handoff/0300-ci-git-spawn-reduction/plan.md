@@ -9,10 +9,10 @@
 | 일자 | 2026-11-09 |
 | 매핑 | 비기능(테스트 인프라 + production git 실행 경로) — Claude 설계·구현 |
 | 상태 | READY — D-014·D-017 OPEN은 구현 범위 밖(§6) |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` — Baseline V1 상속 |
+| 기준 V | 본문 Baseline `V1` (V1 설계 — 검증자 기입) |
+| 이번 V revision | `ΔV1` |
+| 유효 V | `V1 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -56,8 +56,11 @@
 | D-016 | 0294 시간 예산·호스트 격리와 0298 풀 분류·unit 가드, git 픽스처 규칙(`execGit` 추적·`removeTempRoots`·`FIXTURE_GIT_TIMEOUT_MS`)을 유지한다 | 상속 | 0294 D-001·D-009 · 0298 D-001·D-007 | ACTIVE | — |
 | D-017 | setup-node 캐시 저장(158초)·lint(198초)·러너 환경(백신 예외·TEMP 이동)을 이번 범위에 넣을지 | 4턴에 "함께 다룰지"로 물었고 명시 답이 없다 | 4턴 | OPEN | — |
 
+| D-018 | 기존 테스트 케이스를 전부 보존하고, 추가 검증 케이스는 파일 위치와 관계없이 허용한다 | AC13의 신규 파일 한정과 §11의 기존 파일 신규 케이스 요구를 조정 | 2026-11-09 구현 세션 사용자 답: "기존 케이스 보존 + 추가 검증 허용 (권장)" | ACTIVE | V1 AC13 → ΔV1 AC13 |
+
 ### 갱신 메모
 
+- ΔV1: D-018 ↔ AC13 정정(아래 §7-B). 나머지 ACTIVE 결정·AC·§10은 유지하며 충돌 0.
 - 새 결정: D-001~D-017(최초 설계). 대체: 4턴 CI PATH 변경(A) → D-005.
 - `ACTIVE 결정 ↔ AC` 대조: D-001 ↔ AC12·AC18 · D-002 ↔ AC1(런처 경로) · D-003 ↔ AC5(빌더에 fs 복사 없음) · D-004 ↔ 비범위 · D-005 ↔ AC1·AC4 · D-006 ↔ AC2·AC3 · D-007 ↔ AC5·AC6 · D-008 ↔ AC7·AC8 · D-009 ↔ AC9 · D-010 ↔ AC10 · D-011 ↔ AC11 · D-012 ↔ AC14 · D-013 ↔ AC15 · D-015 ↔ AC16 · D-016 ↔ AC13·AC17 — 충돌 0.
 - OPEN D-014·D-017은 AC가 없다 — 구현 범위 밖(§6).
@@ -133,7 +136,7 @@ TO-BE  test → createRepo(spec) → init · fast-import(+marks) · reset --hard
 | R-02 | AT-02 / AC10 | §10 EP-06의 검증 읽기 3자리가 각각 한 번의 git 읽기로 같은 단언을 한다 | 등록 변이 M-07·M-08 · 코드 diff | 테스트 검증 |
 | R-02 | AT-02 / AC11 | git-cli URL 케이스가 통합 성질 4가지 — origin 없음 → null · 추가가 다음 조회에 보인다 · worktree에서 같은 값 · 변경·삭제가 다음 조회에 보인다 — 를 유지하고 URL 형식 변형은 `github-url.test.ts`에만 있다 | 등록 변이 M-09·M-10 | `gitSnapshot` → `buildStatus` |
 | R-02 | AT-02 / AC12 | 리눅스 집계(§19)에서 io 전체 git 1002 → 840 이하, 테스트 측 538 → 380 이하, 파일별 git-cli 186 → 135 · git-consistency 131 → 85 · git-diff 144 → 115 · worktrees/service 121 → 115 이하 | `gate: node evidence/git-spawn-census.mjs <dir> --max-…` (기준선에서 red 관측) | io 전체 |
-| R-02 | AT-02 / AC13 | vitest `Test Files`·`Tests`의 통과·건너뜀 수가 변경 전과 같고(새 테스트 파일분만 증가) 실패 0. 기존 케이스의 `expect` 변경은 EP-05·EP-06·EP-07 자리에만 있다 | 전후 gate 비교 · `git diff` | `npm test` |
+| R-02 | AT-02 / AC13 (V1, ΔV1로 대체) | vitest `Test Files`·`Tests`의 통과·건너뜀 수가 변경 전과 같고(새 테스트 파일분만 증가) 실패 0. 기존 케이스의 `expect` 변경은 EP-05·EP-06·EP-07 자리에만 있다 | 전후 gate 비교 · `git diff` | `npm test` |
 | R-03 | AT-03 / AC14 | 격리 설정에 `init.templateDir =`·`core.fsync = none`이 있고 기존 4키(신원 2·autocrlf·maintenance.auto)가 남는다. 새 저장소 `git init`이 `.git` 아래 파일 2개만 만들고 경고가 없다 | `test-environment.test.ts`(내용 일치) · `hermetic-config.test.ts`(동작) | vitest-setup → `GIT_CONFIG_GLOBAL` |
 | R-04 | AT-04 / AC15 | `chooseBranchName`은 이름 충돌 수와 무관하게 git을 2회(브랜치 목록 1 · 고른 후보 형식 검사 1) 부르고 고르는 이름은 지금과 같다 — 충돌 0·1·k, 디렉토리 잔여물, 형식 거부, 목록 실패 분기 | UT `naming.test.ts` — 호출 수 단언 포함 | `WorktreeService.prepare` |
 | R-05 | AT-05 / AC16 | hostile 대표 교체 뒤에도 격리를 끄면 hostile 테스트가 red다 | 등록 변이 M-11 | 대표 vitest 중첩 실행 |
@@ -211,6 +214,18 @@ TO-BE  test → createRepo(spec) → init · fast-import(+marks) · reset --hard
 | 집계 gate | AC12 | §19 | 같음 |
 | 문서 링크 | `docs/handoff/INDEX.md` 갱신 | `node app/scripts/check-doc-inventory.mjs --check` | 같음 |
 | trailer 파싱 | 커밋 | `git log -1 --format='%(trailers:only=true)'` | 같음 |
+
+## 7-B. ΔV1 — AC13 내부 정합 정정 (2026-11-09, Codex)
+
+**READY.** 사용자가 "기존 케이스 보존 + 추가 검증 허용 (권장)"을 선택했다. V1 AC13의 신규 파일 한정이 §11의 `naming.test.ts` 신규 5케이스와 충돌해 그 한정만 대체한다.
+
+| 변경 | provenance / requiredness | 유효 계약 / oracle | 유지 항목 |
+|---|---|---|---|
+| R-02 ↔ AT-02 / AC13 | CHANGED / REQUIRED, 기존 VP-02로 추적 | 변경 전 케이스 ID를 전부 보존하며 통과·건너뜀을 유지하고 실패 0이다. 추가 검증 케이스는 파일 위치와 무관하게 허용한다. 기존 케이스의 `expect` 변경 허용 자리는 V1 그대로다. | AC5~AC12, EP-03~EP-07, 선택 증거·path·분모 |
+| VP-02 | CHANGED / REQUIRED | 전후 vitest 산출의 기존 케이스 ID 차집합 ∅와 상태 비교, 신규 ID는 별도 집계. 환경 실패 분리는 `docs/handoff/AGENTS.md` 기준이다. | AC12 집계 명령·임계 840/380 |
+
+- **정합성 확인:** D-018과 §11의 기존 파일 신규 케이스가 양립한다. 원래 케이스를 지우거나 새 케이스로 바꾸는 권한은 추가하지 않았다.
+- **영향 범위:** 테스트 추가 허용만 바뀐다. production 동작·기존 케이스 단언·운영 gate·Windows 및 self-hosted 실기는 V1을 상속한다.
 
 # Part II — Technical Design
 
@@ -468,7 +483,7 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 - 기준선에서 위 명령은 exit 1(`total 1002 > 840` 등)이다 — 이번 세션 관측.
 - 사람 실기: AC18(self-hosted 러너 전후 각 2회).
 
-## READY self-review
+## READY self-review (V1)
 
 - Decision Ledger: ACTIVE 15 · OPEN 2(D-014·D-017, 구현 범위 밖) · 4턴 A안은 D-005가 대체 — 관측: §3 표.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0(§3 갱신 메모).
