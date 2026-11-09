@@ -30,7 +30,7 @@ vi.mock('node:crypto', async (original) => {
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
-  return { ...actual, lstat: vi.fn(actual.lstat) }
+  return { ...actual, lstat: vi.fn(actual.lstat), realpath: vi.fn(actual.realpath) }
 })
 
 const roots: string[] = []
@@ -240,18 +240,29 @@ describe('Claude native history reads', () => {
 
   it('I7 does not accept a relative recorded cwd even when it resolves to the stored folder', async () => {
     const f = await fixture()
-    const relative = path.relative(process.cwd(), f.cwd)
-    expect(path.resolve(relative)).toBe(path.resolve(f.cwd))
-    await f.write([
-      historyEntry('user-1', null, 'user', 'hello', { cwd: relative }),
-      historyEntry('assistant-1', 'user-1', 'assistant', [{ type: 'text', text: 'a' }])
-    ])
-    const result = await readClaudeNativeHistory({
-      sessionId,
-      cwd: f.cwd,
-      env: { CLAUDE_CONFIG_DIR: f.config }
-    })
-    expect(result.status).toBe('unavailable')
+    // 상대 경로가 저장 폴더로 풀리는 상황을 플랫폼과 무관하게 만든다 — Windows CI 는 임시 폴더와
+    // 작업 폴더의 드라이브가 달라 path.relative 가 절대 경로를 돌려준다(CI #1035).
+    const relative = path.join('relative-recorded', 'project')
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    vi.mocked(fs.realpath).mockImplementation((async (target, ...args) =>
+      target === relative
+        ? actual.realpath(f.cwd)
+        : Reflect.apply(actual.realpath, actual, [target, ...args])) as typeof fs.realpath)
+    try {
+      expect(await fs.realpath(relative)).toBe(await actual.realpath(f.cwd))
+      await f.write([
+        historyEntry('user-1', null, 'user', 'hello', { cwd: relative }),
+        historyEntry('assistant-1', 'user-1', 'assistant', [{ type: 'text', text: 'a' }])
+      ])
+      const result = await readClaudeNativeHistory({
+        sessionId,
+        cwd: f.cwd,
+        env: { CLAUDE_CONFIG_DIR: f.config }
+      })
+      expect(result.status).toBe('unavailable')
+    } finally {
+      vi.mocked(fs.realpath).mockImplementation(actual.realpath)
+    }
   })
 
   it('returns busy for stable unfinished inputs and a partially written last line', async () => {
