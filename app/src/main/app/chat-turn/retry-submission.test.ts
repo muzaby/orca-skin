@@ -12,6 +12,7 @@ afterEach(() => vi.useRealTimers())
 function failingLive(message: string): LiveTurn {
   return {
     eventBatches: (async function* (): AsyncGenerator<ProviderMessageBatch> {
+      yield* []
       throw new Error(message)
     })(),
     close: () => {},

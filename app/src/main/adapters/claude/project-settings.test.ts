@@ -98,7 +98,6 @@ it('rejects malformed and non-object files without leaking their contents', () =
   for (const text of [
     '{"token":"private"',
     '[]',
-    'null',
     '{"enabledPlugins":[]}',
     '{"enabledMcpjsonServers":{}}'
   ]) {
@@ -108,6 +107,13 @@ it('rejects malformed and non-object files without leaking their contents', () =
     )
     expect(readFileSync(file, 'utf8')).toBe(text)
   }
+})
+it('shares the empty-content rule: a JSON null file reads like an absent one (0301 D-010·D-014)', () => {
+  const file = claudeProjectSettingsFiles(cwd, root)[1]
+  rmSync(file, { force: true })
+  const absent = readClaudeProjectSettings(cwd, root)
+  writeFileSync(file, 'null')
+  expect({ ...readClaudeProjectSettings(cwd, root), revision: absent.revision }).toEqual(absent)
 })
 it('distinguishes an explicitly selected config directory from legacy home state even at the same root', () => {
   const native = join(homedir(), '.claude')

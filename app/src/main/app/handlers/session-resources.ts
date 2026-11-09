@@ -7,8 +7,13 @@ import type {
 import { CHANNELS, NativeResourcesRequestSchema } from '../../../shared/protocol'
 import { resourceQuery } from '../../adapters/common/resource-query'
 import type { GovernedLiveTurn } from '../../contracts/ports'
+import { errorMessage } from '../../infra/errors'
 import { handle } from '../../infra/ipc/handle'
 import type { ProjectResourceSync, ResourceRequest } from '../project-resource-sync'
+
+// 목록 실패 메시지는 원래 원인을 함께 싣는다 — 고정 문구만 남기면 어떤 오류인지 알 수 없다(0301 D-016).
+const listFailed = (cause: unknown): Error =>
+  new Error(`하네스 목록을 불러오지 못했습니다(${errorMessage(cause)}). 다시 시도해 주세요.`)
 
 export function registerSessionResourceHandlers({
   lookup,
@@ -69,7 +74,7 @@ export function registerSessionResourceHandlers({
     if (runtime && liveRead.status === 'fulfilled' && live?.generation)
       observations.set(runtime, live)
     if (configuredRead.status === 'rejected' && live?.state !== 'connected' && !live?.items.length)
-      throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
+      throw listFailed(configuredRead.reason)
     const configured = configuredRead.status === 'fulfilled' ? (configuredRead.value ?? []) : []
     const pluginsAuthoritative =
       configuredRead.status === 'fulfilled' && configuredRead.value !== undefined
@@ -179,8 +184,8 @@ export function registerSessionResourceHandlers({
       if (!('sessionId' in request)) {
         try {
           return await readRequest(scope)
-        } catch {
-          throw new Error('하네스 목록을 불러오지 못했습니다. 다시 시도해 주세요.')
+        } catch (cause) {
+          throw listFailed(cause)
         }
       }
       const { sessionId } = request

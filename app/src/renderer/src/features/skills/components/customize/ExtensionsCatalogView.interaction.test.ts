@@ -342,10 +342,14 @@ it('scopes native loading and failure to plugin and MCP tabs', async () => {
       .join()
   ).not.toContain('불러오')
   expect(dom.queryAll('[role="status"]')).toHaveLength(0)
-  tab(0)
-  expect(dom.queryAll('[role="status"]')).toHaveLength(1)
-  tab(2)
-  expect(dom.queryAll('[role="status"]')).toHaveLength(1)
+  // A failed list is a toast, never a row inside the tab panel (0301 D-012).
+  for (const index of [0, 2]) {
+    tab(index)
+    const panel = dom.queryAll('[role="tabpanel"]')[0]
+    expect(panel.textContent).not.toContain('목록을 갱신하지 못했습니다')
+    expect(panel.textContent).not.toContain('다시 시도')
+    expect(dom.queryAll('[role="status"]')).toHaveLength(0)
+  }
 })
 
 it('shows OpenCode plugin rows as fixed native state and sends no toggle', async () => {

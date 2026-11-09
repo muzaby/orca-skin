@@ -655,3 +655,49 @@ it('applies consecutive Claude plugin toggles one at a time without disturbing o
     'a:false:disabled b:false:disabled c:true:configured'
   ])
 })
+
+it('toasts a list failure once when a harness enters the failed state, again only after recovery', async () => {
+  dom = installFakeDom({ innerWidth: 1280, innerHeight: 800 })
+  const logged = vi.fn()
+  const outcomes: Array<'reject' | 'resolve'> = ['reject', 'reject', 'resolve', 'reject']
+  let claudeReads = 0
+  const read = vi.fn(async (backend: 'claude' | 'opencode') => {
+    if (backend === 'opencode') return catalog()
+    const outcome = outcomes[claudeReads++] ?? 'resolve'
+    if (outcome === 'reject') throw new Error('settings could not be read')
+    return catalog()
+  })
+  Object.assign(window, {
+    orca: {
+      session: { globalExtensions: read, onExtensionsChanged: () => () => {} },
+      log: { error: logged }
+    }
+  })
+  const { result } = renderCatalog()
+  await flush()
+  const focus = vi
+    .mocked(window.addEventListener)
+    .mock.calls.find(([name]) => name === 'focus')![1] as () => void
+  const loadFailures = (): number =>
+    logged.mock.calls.filter(([event]) => event === 'skills.native.load-failed').length
+  expect(result().failed).toBe(true)
+  expect(loadFailures()).toBe(1)
+  expect(logged.mock.calls[0].slice(0, 2)).toEqual([
+    'skills.native.load-failed',
+    'native-resources'
+  ])
+  expect(errorToastStore.getState().toasts).toMatchObject([{ title: 'loadFailed' }])
+  focus()
+  await flush()
+  expect(result().failed).toBe(true)
+  expect(loadFailures()).toBe(1)
+  focus()
+  await flush()
+  expect(result().failed).toBe(false)
+  expect(loadFailures()).toBe(1)
+  focus()
+  await flush()
+  expect(result().failed).toBe(true)
+  expect(loadFailures()).toBe(2)
+  expect(claudeReads).toBe(4)
+})
