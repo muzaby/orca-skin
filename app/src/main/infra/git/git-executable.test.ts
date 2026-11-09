@@ -54,7 +54,7 @@ describe('resolveGitCommand — EP-02', () => {
         isDirectory: () => true
       })
     )
-    const readFile = vi.fn(async () => 'MSYS=config\n')
+    const readFile = vi.fn(async () => 'MSYSTEM=X\n#MSYS=c\nMSYS=config\n')
     vi.doMock('node:fs/promises', () => ({ stat, readFile, access: vi.fn() }))
     try {
       const { resolveGitCommand } = await import('./git-executable')
@@ -65,8 +65,15 @@ describe('resolveGitCommand — EP-02', () => {
       }))!
       expect(command.file).toBe(`${top}\\mingw64\\bin\\git.exe`)
       expect(
-        await command.env({ HOMEDRIVE: 'D:', HOMEPATH: '\\roaming', USERPROFILE: 'D:\\profile' })
-      ).toMatchObject({ HOME: 'D:\\roaming', MSYS: 'config' })
+        await command.env({
+          HOMEDRIVE: 'D:',
+          HOMEPATH: '\\roaming',
+          USERPROFILE: 'D:\\profile',
+          MSYS: 'existing'
+        })
+      ).toMatchObject({ HOME: 'D:\\roaming', MSYS: 'config existing', MSYSTEM: 'MINGW64' })
+      expect((await command.env({})).MSYS).toBe('config')
+      expect((await command.env({})).MSYSTEM).toBe('MINGW64')
       expect(readFile).toHaveBeenCalledWith(`${top}\\etc\\git-bash.config`, 'utf8')
       stat.mockRejectedValueOnce(new Error('absent directory'))
       expect(
@@ -219,12 +226,15 @@ describe('resolveGitCommand — EP-02', () => {
   })
 
   it('R10 — Path 키·HOME 길이·MSYS config·호출 시점 환경', async () => {
-    const readFile = vi.fn(async () => 'OTHER=ignored\r\nMSYS=enable_pcon\r\n')
+    const readFile = vi.fn(
+      async () => 'MSYSTEM=X\r\n#MSYS=c\r\nOTHER=ignored\r\nMSYS=enable_pcon\r\n'
+    )
     const command = (await resolve({ readFile }))!
     const env = await command.env({ Path: 'original', HOME: 'D:\\home', MSYS: 'old' })
     expect(env.Path).toBe(`${top}\\mingw64\\bin;${top}\\usr\\bin;D:\\home\\bin;original`)
     expect(env).not.toHaveProperty('PATH')
     expect(env.MSYS).toBe('enable_pcon old')
+    expect(env.MSYSTEM).toBe('MINGW64')
     expect(readFile).toHaveBeenCalledWith(`${top}\\etc\\git-bash.config`)
     expect((await command.env({ PATH: 'later', HOME: 'x'.repeat(254) })).PATH).toBe(
       `${top}\\mingw64\\bin;${top}\\usr\\bin;later`
@@ -235,5 +245,6 @@ describe('resolveGitCommand — EP-02', () => {
     )
     expect((await missing.env({ MSYS: 'keep' })).MSYS).toBe('keep')
     expect((await command.env({})).MSYS).toBe('enable_pcon')
+    expect((await command.env({})).MSYSTEM).toBe('MINGW64')
   })
 })

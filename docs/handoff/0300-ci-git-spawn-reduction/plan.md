@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-09 |
 | 매핑 | 비기능(테스트 인프라 + production git 실행 경로) — Claude 설계·구현 |
-| 상태 | plan/READY (ΔV4 — r1 verify 확장 후보 채택) — D-014·D-017 OPEN은 구현 범위 밖(§6) |
+| 상태 | impl/IMPL_DONE (ΔV4 r2 구현) — D-014·D-017 OPEN은 구현 범위 밖(§6) |
 | V mode | `Delta V` — Baseline V1 상속 |
 | 기준 V | 본문 Baseline `V1` (V1 설계 — 검증자 기입) |
 | 이번 V revision | `ΔV4` |
@@ -770,8 +770,72 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r2 — ΔV4)
+
+- **r2 / Codex / 유효 V1+ΔV1+ΔV2+ΔV3+ΔV4.** r1 verify에서 창 안 확장 후보로 지적된 R10 config 행 판별(V-05·V-12)을 채택한 ΔV4를 구현했다.
+- 동의 / 그대로 진행: production 코드는 `line.startsWith('MSYS=')`로 이미 올바르게 행 시작만 판별하므로 변경하지 않고, `git-executable.test.ts`에 혼합 행(`MSYSTEM=X` · `#MSYS=c` · `MSYS=config`) 입력을 더해 행 판별을 잠근다.
+- 이전 라운드 파생 이슈 #1(R10 config 판별) 대응 완료.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조, r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-06 | 런처 R1~R10 (EP-02 R10 ΔV4) | EP-02 1 | 1/1 SELF_PASS | `git-executable.test.ts:기본 fs 경로도 실제 파일·디렉토리·config를 읽고 부재 시 폴백한다` · `git-executable.test.ts:R10 — Path 키·HOME 길이·MSYS config·호출 시점 환경` | 혼합 행(`MSYSTEM=X`·`#MSYS=c`·`MSYS=config`), 기존 `MSYS` 유/무; `MSYS`가 `config`(또는 `config existing`), `MSYSTEM` 런처 값 보존 | 없음 |
+
+- r1 강제 지점 42개(VP-01~12)는 유지되며 r2 diff는 EP-02 R10 입력 보완이다.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `M-12a` — `git-executable.ts` config 행 판별 `startsWith('MSYS')` | ΔV4 등록 변이 (r1 verify V-05) | green (r1 verify 못 잡음) | `git-executable.test.ts` 2 failed / 16 passed (18) — 기본 fs 경로 및 R10 | SELF_PASS · red(exit 1) |
+| `M-12b` — `git-executable.ts` config 행 판별 `includes('MSYS=')` | ΔV4 등록 변이 (r1 verify V-12) | green (r1 verify 못 잡음) | `git-executable.test.ts` 2 failed / 16 passed (18) — 기본 fs 경로 및 R10 | SELF_PASS · red(exit 1) |
+
+- 분모 검산: 선택 증거 2 · 인용 변이 0 · 새 oracle 0 · sweep 0 = 표 행 2.
+- 덮개 회귀: 0건. M-12a·M-12b 모두 red 확인 후 `git-executable.ts` 원복 확인 완료 (`git diff` 0줄).
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+- 제품 동작 및 UI 변경 없음. production 코드는 이미 `startsWith('MSYS=')`로 동작하고 있어 불변이다.
+- 사용자 저장소 및 Git for Windows 환경에서 config의 다른 키(`MSYSTEM=`)나 주석(`#MSYS=`)이 섞여도 환경 변수가 오염되지 않음이 보장된다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+- **환경/선조치:** 새 환경 시작 시 `node_modules`가 없어 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`로 복구했다. better-sqlite3 ABI는 `node scripts/ensure-sqlite-abi.mjs node`로 멱등 보장했다.
+- **수정 테스트 파일 가드 규칙:** `git diff --name-only origin/main -- '*test*'` → `app/src/main/infra/git/git-executable.test.ts` 1파일. 시간 예산 위반 0 (단위 테스트, 신규 타임아웃 없음), 호스트 격리 위반 0, 풀 분류 위반 0 (unit 스위트, spawn 없음).
+
+## [구현자 기입] 구현 보고 (r2)
+
+- 구현 좌표: **(r2 구현 — 좌표는 INDEX)**. 상태 impl/IMPL_DONE, Verified-By pending.
+- `git-executable.test.ts`에 ΔV4 혼합 행 입력(`MSYSTEM=X` · `#MSYS=c` · `MSYS=config` 및 기존 `MSYS` 결합)을 추가해 V-05(M-12a)·V-12(M-12b)를 red로 잠갔다.
+- gate 산출:
+  - `node scripts/check-migrations-appendonly.mjs`: 통과 (v0.3.1 이후 append-only ok)
+  - `node scripts/check-doc-inventory.mjs --check`: 통과 (9 items, 117 channels ok)
+  - `node scripts/check-test-budgets.mjs`: 통과 (20 real-git suites ok · all budget sites scaled)
+  - `npm run lint`: 통과 (0 errors, 2 existing warnings)
+  - `npm run typecheck`: 통과 (node, web, test 3프로젝트 0 error)
+  - `node --test scripts/*.test.mjs`: 통과 (827/827 passed, 0 fail)
+  - `./node_modules/.bin/vitest run src/main/infra/git/`: 통과 (21 passed, 1 skipped — win32 전용)
+  - `./node_modules/.bin/vitest run src/main/infra/git/git-executable.test.ts`: 통과 (18 passed, 0 fail)
+
+| AC | 자기보고 | 근거 |
+|---|---|---|
+| AC1~AC17 | ✅ | r1 통과 승계 및 R10 혼합 행 UT 통과 |
+| AC18 | ⚠️ 사람 실기 | 폐쇄망 러너 실기 대기 (기계 범위 밖) |
+
+**검산: ✅17 + ⚠️1 + ❌0 = AC 18개.**
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- r1 verify 확장 후보 1건(V-05·V-12)을 ΔV4로 채택 후 r2에서 UT 혼합 행 입력으로 잠갔다. M-12a·M-12b 모두 red 확인.
+- production 코드 변경 없이 UT 입력 1개(2개 테스트 지점)만 보완했다.
+- gate 7종 통과 및 수정한 테스트 파일의 test-budget/pool 규칙 위반 0.
+- AC18은 폐쇄망 환경 실기 대기로 유지.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| 1 | R10 config 행 판별에 혼합 행 입력이 없어 V-05·V-12 green | VP-06 / EP-02 R10 → ΔV4 | 혼합 행 UT 입력 + M-12a·b | 확장 후보(r1 verify 창 안) → ΔV4 채택 | 다음 구현 이행 의무 | open |
+| 1 | R10 config 행 판별에 혼합 행 입력이 없어 V-05·V-12 green | VP-06 / EP-02 R10 → ΔV4 | 혼합 행 UT 입력 + M-12a·b | 확장 후보(r1 verify 창 안) → ΔV4 채택 | 다음 구현 이행 의무 | closed |
