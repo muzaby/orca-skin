@@ -35,21 +35,21 @@ app/src/main/app/git-execution.test.ts:145:            resolveGitCommand({ env: 
 exit=0
 
 EP-03 :: rg -n judgeGitSpawn|IO_GIT_ALLOWED app/scripts
-app/scripts/test-pools.test.mjs:16:  IO_GIT_ALLOWED,
-app/scripts/test-pools.test.mjs:17:  judgeGitSpawn,
-app/scripts/test-pools.test.mjs:456:    judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames, ...patch })
-app/scripts/test-pools.test.mjs:480:    for (const entry of IO_GIT_ALLOWED) {
-app/scripts/test-pools.test.mjs:569:  assert.equal(judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames }).kind, 'violation')
+app/scripts/test-pools.test.mjs:17:  IO_GIT_ALLOWED,
+app/scripts/test-pools.test.mjs:18:  judgeGitSpawn,
+app/scripts/test-pools.test.mjs:457:    judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames, ...patch })
+app/scripts/test-pools.test.mjs:481:    for (const entry of IO_GIT_ALLOWED) {
+app/scripts/test-pools.test.mjs:570:  assert.equal(judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames }).kind, 'violation')
 app/scripts/test-pools.mjs:201:export const IO_GIT_ALLOWED = [
 app/scripts/test-pools.mjs:259:/** @param {{file: string, args: string[], frames: {file: string, fn?: string}[], allowed?: typeof IO_GIT_ALLOWED}} input */
 app/scripts/test-pools.mjs:260:export function judgeGitSpawn({ file, args, frames, allowed = IO_GIT_ALLOWED }) {
 app/scripts/test-pools.mjs:292:export function finishGitAllowances(state, file, allowed = IO_GIT_ALLOWED) {
-app/scripts/test-pools.mjs:327:    const result = judgeGitSpawn({ file: String(file ?? ''), args, frames })
+app/scripts/test-pools.mjs:335:    const result = judgeGitSpawn({ file: String(file ?? ''), args, frames })
 app/scripts/test-pools.d.mts:51:export declare const IO_GIT_ALLOWED: GitAllowance[]
 app/scripts/test-pools.d.mts:65:export declare function judgeGitSpawn(
 exit=0
 
-EP-04 :: node docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs /tmp/orca-0300/final-census/trace
+EP-04 :: node docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs /tmp/orca-0300/final-census-fixed/trace
 file	total	test-side	build	production
 src/main/infra/git/git-cli.test.ts	122	55	26	67
 src/main/features/worktrees/service.test.ts	114	49	26	65
@@ -162,4 +162,4 @@ EP-12 :: rg -n ^export async function (createRepo|appendCommit) app/src/main/inf
 119:export async function appendCommit(
 exit=0
 
-差集合: EP-01 calls runner + fixture (compatibility export gitExecutable delegates only); EP-02 module definition one; EP-03 judge one; EP-04 original 18 files all migrated; EP-05 7 cases; EP-06 3 case positions; EP-07 1; EP-08 config + 2 existing assertions; EP-09 one consumer naming; EP-10 1; EP-11 2; EP-12 2. Missing 0, extra contract position 0. New test and declaration occurrences are direct oracles, not new production positions. Unique total 42.
+차집합: EP-01 calls runner + fixture (compatibility export gitExecutable delegates only); EP-02 module definition one; EP-03 judge one; EP-04 original 18 files all migrated; EP-05 7 cases; EP-06 3 case positions; EP-07 1; EP-08 config + 2 existing assertions; EP-09 one consumer naming; EP-10 1; EP-11 2; EP-12 2. Missing 0, extra contract position 0. New test and declaration occurrences are direct oracles, not new production positions. Unique total 42.

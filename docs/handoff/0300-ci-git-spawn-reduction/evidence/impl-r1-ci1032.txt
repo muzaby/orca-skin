@@ -1,0 +1,10 @@
+CI #1032 SUCCESS — https://github.com/muzaby/orca-skin/actions/runs/42573159116
+main correction of #1030; total job duration 9m43s (user observation).
+2026-11-09T06:33:58.2727138Z  ✓  io  src/main/infra/git/git-launch.win32.test.ts (2 tests) 1116ms
+2026-11-09T06:36:57.8870501Z  Test Files  928 passed | 3 skipped (931)
+2026-11-09T06:36:57.8927751Z       Tests  8629 passed | 1 expected fail | 3 skipped (8633)
+2026-11-09T06:36:57.8943537Z    Duration  230.98s (transform 26.10s, setup 47.40s, import 181.93s, tests 214.00s, environment 218ms)
+2026-11-09T06:37:28.8574135Z # tests 827
+2026-11-09T06:37:28.8574450Z # pass 827
+2026-11-09T06:37:28.8574605Z # fail 0
+2026-11-09T06:37:28.8574941Z # skipped 0

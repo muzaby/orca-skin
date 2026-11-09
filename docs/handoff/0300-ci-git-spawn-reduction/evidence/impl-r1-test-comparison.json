@@ -1,0 +1,183 @@
+{
+  "id_normalization": "app-root prefixes canonicalized to <app>/; identical file+fullName entries receive occurrence ordinal, preserving duplicates",
+  "command": "./node_modules/.bin/vitest run --reporter=default --reporter=json --outputFile.json=<report>",
+  "environment": "Linux Node v24.19.0 ABI137; better-sqlite3 rebuilt for Node; isolated HOME/XDG/git; Windows-style C:/ fixtures are not POSIX absolute paths",
+  "baseline": {
+    "files": 927,
+    "tests": 8593,
+    "status": {
+      "skipped": 9,
+      "passed": 8562,
+      "failed": 22
+    }
+  },
+  "after": {
+    "files": 931,
+    "tests": 8633,
+    "status": {
+      "skipped": 11,
+      "passed": 8600,
+      "failed": 22
+    }
+  },
+  "missing_existing_ids": [],
+  "changed_existing_status": [],
+  "added_ids": [
+    "src/main/features/worktrees/naming.test.ts::chooseBranchName 디렉토리 잔여물은 건너뛰고 정확히 일치하는 ref만 충돌이다#1",
+    "src/main/features/worktrees/naming.test.ts::chooseBranchName 모든 후보가 차 있어도 전체 id 후보를 한 번 검증한다#1",
+    "src/main/features/worktrees/naming.test.ts::chooseBranchName 충돌 0개도 목록 1회·형식 검사 1회다#1",
+    "src/main/features/worktrees/naming.test.ts::chooseBranchName 충돌 12개도 목록 1회·형식 검사 1회다#1",
+    "src/main/features/worktrees/naming.test.ts::chooseBranchName 충돌 1개도 목록 1회·형식 검사 1회다#1",
+    "src/main/features/worktrees/naming.test.ts::chooseBranchName 형식 거부는 전체 id로 폴백하고 목록 실패는 기존 부재 판정처럼 처리한다#1",
+    "src/main/infra/git/fast-import-stream.test.ts::fast-import 스트림 B10 — marks 순서·검증#1",
+    "src/main/infra/git/fast-import-stream.test.ts::fast-import 스트림 B2·B12 — 빈 명세와 append의 부모#1",
+    "src/main/infra/git/fast-import-stream.test.ts::fast-import 스트림 B4~B8 — 바이트·삭제·C 인용·메시지·날짜·신원·추가 브랜치#1",
+    "src/main/infra/git/fast-import-stream.test.ts::fast-import 스트림 B6 — 날짜를 생략하면 실행 시각을 author·committer에 쓴다#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R10 — Path 키·HOME 길이·MSYS config·호출 시점 환경#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R1·R2·R3·R7 — 변경 없는 경로와 git 부재#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R1·R3 — 우회 조건이 아니면 실제 파일 후보가 있어도 env를 바꾸지 않는다#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R4·R5 — bIn 런처와 혼합 대소문자#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R4·R5 — cmd 런처와 혼합 대소문자#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R6 — clangarm64와 뒤 후보 사이의 우선순위#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R6 — mingw32와 뒤 후보 사이의 우선순위#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R6 — mingw64와 뒤 후보 사이의 우선순위#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R6 — ucrt64와 뒤 후보 사이의 우선순위#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R8·R9 — HOME·PLINK 유지, 드라이브 홈·시스템 디렉토리·프로필·부재#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R9 — SYSTEMROOT 시스템 경로와 HOMEPATH 없는 드라이브를 홈으로 고르지 않는다#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R9 — SystemRoot 시스템 경로와 HOMEPATH 없는 드라이브를 홈으로 고르지 않는다#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 R9 — WINDIR 시스템 경로와 HOMEPATH 없는 드라이브를 홈으로 고르지 않는다#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 기본 fs 경로도 실제 파일·디렉토리·config를 읽고 부재 시 폴백한다#1",
+    "src/main/infra/git/git-executable.test.ts::resolveGitCommand — EP-02 캐시는 진행 중 탐색만 공유하고 부재 뒤 재탐색한다#1",
+    "src/main/infra/git/git-launch.win32.test.ts::production checkout commit-wip이 사용자 pre-commit 훅을 실행한다 (AC3)#1",
+    "src/main/infra/git/git-launch.win32.test.ts::런처와 production sh가 같은 환경을 본다 (AC3)#1",
+    "src/main/infra/git/repository.test.ts::resolveRepoRoot 브랜치 목록은 full ref를 한 번에 읽고 실패를 구별한다#1",
+    "src/main/infra/git/runner.test.ts::runGit 해석된 실행 파일과 호출 시점 환경을 실행부로 운반한다#1",
+    "src/main/infra/git/temp-repo.test.ts::B11 — 일반 브랜치도 파일과 index를 채워 clean 상태로 만든다#1",
+    "src/main/infra/git/temp-repo.test.ts::B13 — fast-import 실패는 stderr를 보고하고 정리 경로에 남는다#1",
+    "src/main/infra/git/temp-repo.test.ts::B13 — 끊긴 자식은 루트를 지우기 전에 kill하고 종료를 기다린다#1",
+    "src/main/infra/git/temp-repo.test.ts::B1~B11 — porcelain과 OID·브랜치·HEAD·트리가 같다#1",
+    "src/main/infra/git/temp-repo.test.ts::B2·B3·B11·B12 — 생성·추가 호출 수, 빈 커밋과 파일 커밋#1",
+    "src/main/infra/io-git-guard.test.ts::실제 vitest의 afterAll 위반이 red가 된다#1",
+    "src/main/infra/io-git-guard.test.ts::실제 vitest의 allowance 위반이 red가 된다#1",
+    "src/main/infra/io-git-guard.test.ts::실제 vitest의 test 위반이 red가 된다#1",
+    "src/main/infra/io-git-guard.test.ts::이름 실행은 비동기·동기 모두 위반을 기록한다#1",
+    "src/main/infra/io-git-guard.test.ts::직접 runGit 구성은 기록되고 빌더·production commit-wip은 통과한다#1",
+    "src/main/infra/io-git-guard.test.ts::픽스처 git 은 해석된 실행 파일로 뜬다#1"
+  ],
+  "failure_symmetric_difference": [],
+  "failure_signature_normalization": "one assertion prints a truncated <app>/C:/native-B path; truncation length differs with workspace prefix, canonicalized to <app>/C:/<truncated>",
+  "failure_signatures": [
+    {
+      "id": "src/main/adapters/claude/adapter.native-plugins.test.ts::exposes runtime-native watch files and applies external project choices only after idle reconciliation#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/claude/adapter.native-plugins.test.ts::pins deployed MCP files for same-cwd peers and reloads until the final owner closes#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/claude/adapter.native-plugins.test.ts::preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/claude/adapter.native-plugins.test.ts::reconciles plugin choices through the actual adapter while preserving provider flags#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/claude/adapter.native-plugins.test.ts::reports a reconciled plugin revision as applied but not a later external edit#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/claude/native-resources.test.ts::applies session-only inline flags and reloads actual plugin state while preserving sibling flags#1",
+      "before_signature": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)",
+      "after_signature": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)"
+    },
+    {
+      "id": "src/main/adapters/claude/native-resources.test.ts::commits a plugin choice only after verified reload and restores flags and commands when persistence fails#1",
+      "before_signature": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'",
+      "after_signature": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'"
+    },
+    {
+      "id": "src/main/adapters/claude/native-resources.test.ts::waits for durable persistence and serializes subsequent plugin mutations#1",
+      "before_signature": "Error: STACK_TRACE_ERROR",
+      "after_signature": "Error: STACK_TRACE_ERROR"
+    },
+    {
+      "id": "src/main/adapters/claude/project-reconciliation.test.ts::projects native plugin flag false during external reconciliation#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/claude/project-reconciliation.test.ts::shows external selection with actual status immediately, waits for idle, and never saves it back#1",
+      "before_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "after_signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition#1",
+      "before_signature": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]",
+      "after_signature": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]"
+    },
+    {
+      "id": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup#1",
+      "before_signature": "AssertionError: expected '<app>/C:/two' to be 'C:/two' // Object.is equality",
+      "after_signature": "AssertionError: expected '<app>/C:/two' to be 'C:/two' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/opencode/v1/adapter.persistent.test.ts::exposes native resources from the live channel client and its directory without mutations#1",
+      "before_signature": "AssertionError: expected '<app>/C:/<truncated>' to be 'C:/native-B' // Object.is equality",
+      "after_signature": "AssertionError: expected '<app>/C:/<truncated>' to be 'C:/native-B' // Object.is equality"
+    },
+    {
+      "id": "src/main/adapters/opencode/v1/adapter.test.ts::OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime#1",
+      "before_signature": "AssertionError: expected '<app>/C:/work' to be 'C:/work' // Object.is equality",
+      "after_signature": "AssertionError: expected '<app>/C:/work' to be 'C:/work' // Object.is equality"
+    },
+    {
+      "id": "src/main/app/composer-catalog.test.ts::does not start a native server after caller cancellation or session scope change during preparation#1",
+      "before_signature": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'",
+      "after_signature": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'"
+    },
+    {
+      "id": "src/main/app/composer-catalog.test.ts::prepares draft and saved directory with the same production settings and env resolution as turns#1",
+      "before_signature": "Error: Composer directory must be absolute",
+      "after_signature": "Error: Composer directory must be absolute"
+    },
+    {
+      "id": "src/main/app/composer-catalog.test.ts::preserves the acquire failure stage through the registered catalog handler#1",
+      "before_signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+      "after_signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }"
+    },
+    {
+      "id": "src/main/app/composer-catalog.test.ts::preserves the configuration failure stage through the registered catalog handler#1",
+      "before_signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+      "after_signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }"
+    },
+    {
+      "id": "src/main/app/composer-catalog.test.ts::returns prepared plugin and agent parts through IPC before blocked MCP/models without a session#1",
+      "before_signature": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)",
+      "after_signature": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)"
+    },
+    {
+      "id": "src/main/app/composer-catalog.test.ts::wires the public handler through the production resolver and returns its shutdown cleanup#1",
+      "before_signature": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }",
+      "after_signature": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }"
+    },
+    {
+      "id": "src/main/app/composer-preparation-service.test.ts::shares targets across catalog resources and warmup through the production assembly#1",
+      "before_signature": "Error: Composer directory must be absolute",
+      "after_signature": "Error: Composer directory must be absolute"
+    },
+    {
+      "id": "src/main/app/handlers/session-resources.claude-assembly.test.ts::reconciles external plugin selections and publishes the final state through the real watcher#1",
+      "before_signature": "AssertionError: expected [ [ 'a@m', false, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]",
+      "after_signature": "AssertionError: expected [ [ 'a@m', false, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]"
+    }
+  ],
+  "same_unhandled_error": "이 플러그인은 프로젝트별 제어를 지원하지 않습니다. @ src/main/adapters/claude/native-resources.ts:152:21; baseline and final",
+  "windows": "CI #1032 success: 8629 passed +1 expected-fail +3 skipped =8633, failed 0; Node827 passed"
+}

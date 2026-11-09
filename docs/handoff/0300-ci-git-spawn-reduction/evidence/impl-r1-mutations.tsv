@@ -106,7 +106,7 @@ S08-config-3	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
 S08-config-5	red (기대 일치)	1	vitest 2 failed (2)
 S08-config-6	red (기대 일치)	1	vitest 2 failed (2)
 S08-config-7	red (기대 일치)	1	vitest 1 failed | 1 passed (2)
-S08-file-writer	red (기대 일치)	1	vitest 2 failed | 7 passed (9)
+S08-file-writer	red (기대 일치)	1	vitest 1 failed | 8 passed (9)
 S09-ref	red (기대 일치)	1	vitest 4 failed | 4 passed (8)
 S09-directory	red (기대 일치)	1	vitest 1 failed | 7 passed (8)
 S09-validate	red (기대 일치)	1	vitest 6 failed | 2 passed (8)
@@ -119,3 +119,4 @@ K-afterAll	red (기대 일치)	1	vitest 2 failed | 4 passed (6)
 K-allowance-finalize	red (기대 일치)	1	vitest 1 failed | 5 passed (6)
 K-census-filter	red (기대 일치)	1	node --test fail 1 · git census는 감시기를 빼고 테스트 측·production을 구분하며 초과를 거부한다
 S09-exhausted-validation	red (기대 일치)	1	vitest 1 failed | 7 passed (8)
+K-execFile-promisify	red (기대 일치)	1	node --test fail 1 · io 감시는 promisify(execFile)의 stdout·stderr·child 계약을 보존한다
