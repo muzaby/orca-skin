@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-09 |
 | 매핑 | 비기능(테스트 인프라 + production git 실행 경로) — Claude 설계·구현 |
-| 상태 | impl/IMPL_DONE — D-014·D-017 OPEN은 구현 범위 밖(§6) |
+| 상태 | plan/READY (ΔV4 — r1 verify 확장 후보 채택) — D-014·D-017 OPEN은 구현 범위 밖(§6) |
 | V mode | `Delta V` — Baseline V1 상속 |
 | 기준 V | 본문 Baseline `V1` (V1 설계 — 검증자 기입) |
-| 이번 V revision | `ΔV3` |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV4` |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 
 # Part I — Product & UX Contract
 
@@ -255,6 +255,25 @@ TO-BE  test → createRepo(spec) → init · fast-import(+marks) · reset --hard
 
 - **정합성 확인:** EP-04 소비처 분모 18은 바꾸지 않는다. 모듈 UT가 소비 테스트 18자리를 닫았다고 세지 않도록 VP-07의 분모를 2로 정정한다.
 - **출처:** §9·§11이 이미 지정한 공용 함수의 자리 누락이다. 새 제품 동작·정책·AC·선택 변이를 추가하지 않는다.
+
+## 7-E. ΔV4 — R10 설정 행 판별 입력 채택 (2026-11-09, Claude)
+
+**READY.** r1 verify 발견 #1(확장 후보, 창 안)을 채택한다. `git-bash.config`의 행 판별을 바꾸는 변이 두 개(V-05 `startsWith('MSYS')` · V-12 `includes('MSYS=')`)가 `git-executable.test.ts` 18케이스 전부 green이었다. 입력 config가 `MSYS=config` 한 행뿐이라 다른 행을 고를 기회가 없다.
+
+| 변경 | provenance / requiredness | 유효 계약 / oracle | 유지 항목 |
+|---|---|---|---|
+| MD-01 ↔ UT-01 / EP-02 R10 | CHANGED / REQUIRED, 기존 VP-06 | 규칙 칸: `MSYS=`로 **시작하는** 행만 값을 쓴다. `MSYSTEM=`처럼 `MSYS`로 시작하는 다른 키 행과 행 중간에 `MSYS=`가 있는 행은 무시한다. 입력 칸: config 무 · `MSYS=` 한 행 · **혼합 행**(`MSYSTEM=X` · `#MSYS=c` · `MSYS=config`)에서 `MSYS`가 `config`(기존 `MSYS`가 있으면 그 앞)이고 `MSYSTEM`이 런처 값으로 남는다 | R1~R9 · R10의 PATH·HOME bin·키 이름 보존 · 다른 pair 전부 |
+| VP-06 등록 변이 | 추가 | M-12 아래 | M-01~M-11 |
+
+| ID | 심을 자리 | 바꾸는 것 | 기대 |
+|---|---|---|---|
+| M-12a | `git-executable.ts` config 행 판별 | `startsWith('MSYS=')` → `startsWith('MSYS')` | `git-executable.test.ts` 혼합 행 케이스 red |
+| M-12b | 같은 자리 | `startsWith('MSYS=')` → `includes('MSYS=')` | 같음 |
+
+- **§10 자리 목록:** 변경 없음 — EP-02는 `resolveGitCommand` 본문 1자리 그대로다(`rg -n "resolveGitCommand" app/src/main` 재실행: 정의 1 · `gitCommand` 호출 1 · 테스트).
+- **출처:** verify 1회째 확장 후보 채택(창 안). 새 제품 동작·Decision·AC 문장 변경 없음 — AC2의 "`<top>\etc\git-bash.config`의 `MSYS=`"를 행 시작 판별로 명확히 한 것이다.
+- **구현 의무:** UT 입력 1개 + M-12a·b red 확인. production 코드는 현재 동작이 이미 규칙과 같으므로 바꾸지 않는다(V-05·V-12는 코드가 아니라 입력 공백).
+- **적용 gate:** V1 운영 gate 그대로(`ci.yml` 로컬 대응 · 문서 링크 · trailer).
 
 # Part II — Technical Design
 
@@ -755,3 +774,4 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| 1 | R10 config 행 판별에 혼합 행 입력이 없어 V-05·V-12 green | VP-06 / EP-02 R10 → ΔV4 | 혼합 행 UT 입력 + M-12a·b | 확장 후보(r1 verify 창 안) → ΔV4 채택 | 다음 구현 이행 의무 | open |
