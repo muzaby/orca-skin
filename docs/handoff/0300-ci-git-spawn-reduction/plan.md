@@ -11,8 +11,8 @@
 | 상태 | READY — D-014·D-017 OPEN은 구현 범위 밖(§6) |
 | V mode | `Delta V` — Baseline V1 상속 |
 | 기준 V | 본문 Baseline `V1` (V1 설계 — 검증자 기입) |
-| 이번 V revision | `ΔV1` |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -226,6 +226,18 @@ TO-BE  test → createRepo(spec) → init · fast-import(+marks) · reset --hard
 
 - **정합성 확인:** D-018과 §11의 기존 파일 신규 케이스가 양립한다. 원래 케이스를 지우거나 새 케이스로 바꾸는 권한은 추가하지 않았다.
 - **영향 범위:** 테스트 추가 허용만 바뀐다. production 동작·기존 케이스 단언·운영 gate·Windows 및 self-hosted 실기는 V1을 상속한다.
+
+## 7-C. ΔV2 — D-013 통합 oracle 정합 정정 (2026-11-09, Codex)
+
+**READY.** `app/src/main/app/git-execution.test.ts`의 `prepares without baseRef in four executions…`는 `check-ref-format → show-ref`를 기대한다. D-013·EP-09는 `for-each-ref → check-ref-format`을 요구하므로 두 명령명 단언의 정정 없이는 두 계약이 양립하지 않는다.
+
+| 변경 | provenance / requiredness | 유효 계약 / oracle | 유지 항목 |
+|---|---|---|---|
+| R-02 ↔ AT-02 / AC13 | CHANGED / REQUIRED, 기존 VP-02 | ΔV1을 상속하고 `expect` 정정 허용 자리에 EP-09의 위 통합 케이스 명령 벡터 1곳만 추가한다. 기대 명령은 `rev-parse, for-each-ref, check-ref-format, worktree`다. | 케이스 ID·4회 호출·쓰기 정책·generation 단언, 그 밖의 기존 `expect` 제한 |
+| VP-04 | CHANGED / REQUIRED | 기존 `naming.test.ts` + `git-execution.test.ts`의 위 통합 케이스. 후자는 실제 `WorktreeService.prepare → listBranchRefs/validateBranchName → gateway → git` 배선을 관측한다. | EP-09 분모 1·경로·선택 증거 |
+
+- **출처:** D-013의 이미 합의된 실행 경로와 기존 assertion의 충돌이다. 제품 동작이나 새 정책을 결정하지 않으며 D-018의 기존 케이스 보존도 유지한다.
+- **정합성 확인:** AC15와 통합 케이스는 모두 목록 1회·고른 이름 검사 1회를 요구한다. 전체 호출 예산 4회는 변경하지 않는다.
 
 # Part II — Technical Design
 
