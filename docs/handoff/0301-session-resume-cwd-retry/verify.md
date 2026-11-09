@@ -223,3 +223,69 @@ AC 재계수: AC1~AC16·AC18~AC21 = 20 ✅ 동작 확인, AC17 사람 실기 ⚠
 - verify 2회째. 같은 축(post-turn 차단 가드의 회수 경로)이 r1 D2 → ΔV1 → E1로 이어졌다. 이번 E1은 ΔV1이 도입한 J 자리의 입력 폭이다.
 - 독립 축(⑥) 발견 1(확장), 동치 3.
 - 반복된 환경 한계: Electron 미설치(20파일), `origin/main`에 이 브랜치 커밋 없음.
+
+
+---
+
+## 라운드 3 (verify 3회째) — **PASS** (기계 범위)
+
+판정: E1(J′ (vi)·(vii))이 닫혔고 막는 발견 0, PLAN_GAP 0. AC17 Windows 실기만 사람 몫이다.
+
+### 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 range | `30b35c79..4fe087cf` (ΔV2 설계 READY `30b35c79` → r3 구현 `4fe087cf`). `git diff --stat`: 테스트 1파일 + plan·INDEX·gate-baseline. **production 코드 변경 0** |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1 + ΔV2` |
+| 확장 창 | verify 3회째 — 창 밖. ΔV2 새 열거 항목(J′ (vi)·(vii))은 r2 E1 출처(PLAN_GAP 채택)라 유효 |
+| 기준선 | 구현 커밋의 `plan.md` hunk는 `[구현자 기입] (r3)`·E1 처분 행뿐. Decision·AC·V·§10 규범 행 변경 0 |
+| 구현 주체 | 구현=Claude, 설계=Claude, 검증=Claude — 판정에 쓰지 않음 |
+
+### 고장 이력 (r3, `send.ts` finally 회수 루프 `:722-` 변이, 수동 원복)
+
+원복 확인: `git status` 깨끗(`/tmp` 백업과 대조).
+
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|
+| J1-7a | `initialBatches` → `.slice(0, 1)` | 호출 대체 | 잡음 (1 failed) | returned-input J(vii) | — (③ r2 `못 잡음`→`잡음`) |
+| J1-7b | `batch.ids` → `.slice(0, 1)` | 호출 대체 | 잡음 (1 failed) | returned-input J(vi) | — (③) |
+| J1-rev | 배치 순서 뒤집기 | 맞바꿈 | 잡음 (1 failed) | J(vii) | — (⑥) |
+| J1-idrev | 배치 안 id 순서 뒤집기 | 맞바꿈 | 잡음 (1 failed) | J(vi) | — (⑥) |
+| J1-nocancel | `cancel` 결과 무시하고 항상 push | 제거 | 잡음 (4 failed) | J(i)~(v) 일부 | — (④) |
+| J1-9 | 이벤트 ids = 초기 배치 전체 | 다른 값 | 못 잡음 (7 passed) | — | **경계** — §10 ΔV2 선언 경계 1항(일부 id만 held인 경합). 재실행 의무 제외 |
+
+기준 7/7 passed. 독립 축(⑥): 배치·id 순서 맞바꿈 2건(전부 잡음).
+
+### V-pair closeout
+
+| Pair | 판정 | 근거 |
+|---|---|---|
+| VP-16 (J′) | PASS | J(i)~J(vii) 7/7, 변이 5/5 잡음. J(vi)는 실제 `reserveHeld` 병합 배치, J(vii)는 이월 프렐류드 + 본 배치로 production 조립(실제 큐·런타임) 통과 |
+| VP-05 (REGRESSION) | PASS | `chat-turn` 디렉터리 실행에서 이번 diff와 무관한 환경 실패만(아래) |
+| VP-17·18 | NOT_REQUIRED | ΔV2 미변경, r2 PASS 유지(production 코드 diff 0) |
+
+### gate (cwd=`app`)
+
+| 명령 | 관측 |
+|---|---|
+| 가드 3종 | migrations ok since v0.3.1 · doc-inventory links ok · test-budgets 20 suites ok |
+| `eslint --no-fix` 변경 테스트 · `npm run typecheck` | 출력 0 · tsc 3프로젝트 에러 0 |
+| `vitest run src/main/app/chat-turn` | 12 files failed · 6 tests failed — 서명 전부 `better-sqlite3 bindings 없음`(7)·`Electron failed to install`(2)·skip. 변경 diff는 테스트 1파일이라 production 영향 없음. 파일 목록 양방향 차집합은 base 실행을 안 해 **못 했음** |
+| 전체 vitest · `node --test scripts/*.test.mjs` | **이번 턴 실행 안 함** — 미확인(r2 전체 기준선 차집합 ∅, 이번 diff는 테스트 1파일) |
+
+### repository operation
+
+- 좌표: r3 구현 `4fe087cf`·ΔV2 설계 `30b35c79` — `git cat-file -t` commit. `origin/main` 조상 아님(미병합 브랜치).
+- trailer: `4fe087cf` = `Agent: codex · Status: implemented · Criteria-Met: 21/22 · Criteria-Pending: AC17 · Verified-By: pending` 파싱됨(구현 주체는 Claude였으나 trailer가 `codex` — 허용값이고 판정 영향 없음, 사실만 기록).
+- AC 재계수: ✅21 · ⚠️1(AC17) · ❌0 = 22, 구현 보고와 일치.
+- `[구현자 기입] (r3)` 일곱 필드 존재 확인.
+
+### 판정
+
+**PASS (기계 범위).** 이행·현재 결함 0, PLAN_GAP 0. 사람: AC17 Windows 실기.
+
+### Review Signals — 사실만
+
+- verify 3회째 PASS. post-turn 가드의 회수 경로가 r1 D2 → ΔV1 → r2 E1 → ΔV2로 3라운드 이어졌고 이번에 닫혔다.
+- 독립 축(⑥) 발견 0. 환경 한계: better-sqlite3 바인딩·Electron 미설치, 전체 vitest·`node --test` 미실행.
+
