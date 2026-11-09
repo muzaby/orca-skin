@@ -9,10 +9,10 @@
 | 일자 | 2026-11-09 |
 | 매핑 | 버그수정(비기능) — 구현 주체 Claude |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| V mode | `Delta V` (V1 = Baseline) |
+| 기준 V | `0301-session-resume-cwd-retry:V1@01ca522` |
+| 이번 V revision | `ΔV1` — verify r1 D2(PLAN_GAP) 정정 · 사용자 결정 D-017. 대체 노드 없음 |
+| 유효 V | `V1 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -56,12 +56,17 @@
 | D-014 | 쓰기를 지배하는 읽기(`project-settings.ts`, `plugin-state.ts`)는 내용이 있는 깨진 파일에 대해 엄격을 유지한다. 빈 내용 규칙(D-010)만 공유한다 | 깨진 파일을 `{}`로 보고 덮어쓰면 사용자 설정이 사라진다 | 설계(D-011 적용 경계) | ACTIVE | — |
 | D-015 | 설정 경고·로그에는 파일 경로와 사유만 싣고 파일 내용은 싣지 않는다 | 원문 테스트명: "reports invalid configuration without its contents" · "with a redacted error" | `plugin-catalog.test.ts` · `configured-resources.test.ts` | ACTIVE | — |
 | D-016 | 하네스 목록 조회 실패 메시지에 원래 원인을 붙인다 | 원문: "어떤 에러인지도 검토하라" — 현재 main이 원인을 지운다(§8 R-14) | 사용자 2026-11-09 | ACTIVE | — |
+| D-017 | 시작 단계에서 보내지 못한 턴의 자기 입력(직전 턴이 연 입력 배치 중 held에 남은 항목)은 같은 체인에서 자동 재전송하지 않고, 체인이 끝날 때 대기열에서 빼 입력창으로 되돌린다. 보낸 말풍선은 지운다 | 원문 선택 "입력창으로 되돌림": "대기열에서 빼고 원문을 입력창에 되돌린다(Stop 버튼의 복원과 같은 방식). 나중에 자동으로 나가지 않는다. 대화 화면에 남은 사용자 말풍선을 어떻게 할지까지 범위에 들어온다." | 사용자 2026-11-09 (verify r1 D2 질의) | ACTIVE | — (D-006 보완) |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-016(V1).
 - 변경된 결정: 없음. 기존 잠금 테스트 3건(§8 R-17)이 지키던 "깨진 설정은 reject" 동작을 D-011이 사용자 결정으로 바꾼다.
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-003(0265)·D-008(0262)·D-015(0279 계열 테스트).
+- **ΔV1(verify r1 D2)**: D-017 추가, 대체 없음. r1 선조치(`post-turn.ts` 재flush 차단)가 남긴 "held에 남아 다음 전송 응답 뒤 자동 전송"을 사용자에게 물어 정했다.
+  - `ACTIVE 결정 ↔ AC` 대조(ΔV1): D-017 ↔ AC18·AC19·AC20·AC21, 충돌 0.
+  - AC6 "동기 실패는 held"는 post-turn 시점 관측이라 그대로 성립한다(AC20 i). 체인 종료 뒤 상태는 AC18이 정한다.
+  - D-006 "원래 오류로 끝낸다" ↔ AC18: 오류 이벤트는 그대로 1회이고 회수는 그 뒤다 — 충돌 없음.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 대응은 아래와 같다.
   - D-002 ↔ AC1·AC3 · D-003 ↔ AC2 · D-004 ↔ AC2 · D-005 ↔ AC4
   - D-006 ↔ AC5 · D-007 ↔ AC6 · D-008 ↔ AC7 · D-009 ↔ AC8·AC9
@@ -118,6 +123,11 @@
 | 설치된 플러그인의 `plugin.json`이 깨짐 | 그 플러그인 제외 | 나머지 정상 + "…이 플러그인을 제외했습니다: <경로>" 1회 |
 | 같은 깨진 파일을 다시 읽음(다음 전송·창 포커스) | 같은 상태 | 추가 알림 없음 |
 | 플러그인 탭 목록 조회 실패 | 탭 영역 변화 없음 | "정보를 불러오지 못했습니다" 토스트 1회. 실패가 이어지는 동안 반복 없음 |
+| (ΔV1) 기존 세션의 첫 시도가 spawn 단계 동기 실패 → 체인 종료 | 그 입력을 대기열에서 빼고 `message.cancelled` | 원래 오류 + 보낸 말풍선이 사라지고 원문이 입력창으로 돌아옴. 다음 전송 뒤에도 자동으로 나가지 않음 (r1: held에 남아 다음 전송 응답 뒤 자동 전송) |
+| (ΔV1) flush 턴(응답 중 예약했던 입력)이 동기 실패 | 같음 — 그 flush 입력이 대상 | 원래 오류 + 그 예약 원문이 입력창으로 돌아옴 |
+| (ΔV1) 동기 실패와 같은 순간 사용자가 즉시 보내기 | 기존 flush | 실패한 입력과 새 입력이 다음 턴으로 함께 나감(기존과 같음) |
+| (ΔV1) 새 대화(세션 ID 발급 전) 동기 실패 | 대기열에서만 뺌 | 원래 오류 + 말풍선 유지, 입력창 복원 없음 — 선언 경계(§10 ΔV1) |
+| (ΔV1) 준비 중 Stop·준비 실패·세션 폐기로 회수된 턴 시작 입력 | 기존 `message.cancelled` | 말풍선도 사라지고 입력창으로 돌아옴 (r1: 말풍선 유지·복원 없음). 같은 소비 규칙의 효과(§12) |
 
 ### 파생 UX / 엣지케이스
 
@@ -129,6 +139,7 @@
 ## 6. 범위 / 비범위
 
 - **범위**: 케이스 1 세션 경로 판정 · 케이스 2 재시도와 spawn 기록 순서 · Claude 설정 읽기 정책(빈 내용·건너뛰기·경고) · 플러그인 탭 실패 표시 · 하네스 목록 실패 메시지의 원인 · 현재 상태 문서.
+- **ΔV1 범위**: 시작 단계에서 보내지 못한 입력의 회수·말풍선 제거·입력창 복원(D-017). ΔV1 비범위: 새 대화(세션 ID 전)의 화면 복원 · 첨부 복원 · 비동기 실패로 orphaned 된 입력 · 실패한 턴 동안 예약된 다른 held.
 - **비범위**: relocated 세션을 따라 저장 경로를 바꾸는 기능 · 경합으로 생긴 정당한 `submission_stale:*`의 화면 분류 · 플러그인 스킬 `.md` 읽기 실패 정책 · OpenCode 설정 읽기 정책 · 앱 전체 인라인 안내의 토스트 전환(D-013) · 토스트 문구의 Electron IPC 접두어.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
@@ -157,7 +168,11 @@
 | R-04 | AT-04 / AC14 | 플러그인 탭 목록 조회가 실패해도 탭 영역에 안내 행·다시 시도 버튼이 없다. 백엔드별 실패 진입 시 `skills.native.load-failed` 토스트 1회, 실패가 이어지면 반복 없음, 회복 뒤 다시 실패하면 1회 | hook 테스트 호출 횟수 + View 상호작용 테스트 DOM + report site 레지스트리 | `/plugins` → `useNativeMcpCatalog` → `orca:extensions:catalog` |
 | R-04 | IT-04 / AC15 | `orca:session:native-resources`가 reject할 때 메시지가 "하네스 목록을 불러오지 못했습니다"와 원래 원인 문구를 함께 담는다 | 핸들러 테스트 2자리 | composer 목록 → handler |
 | — | gate / AC16 | 현재 상태 문서 5곳이 바뀐 동작을 서술하고 인벤토리 가드를 통과한다 | `node scripts/check-doc-inventory.mjs --check` + 문서 대조 | §18 문서 |
-| R-01~R-04 | 사람 / AC17 | Windows 실기: (a) 응답 중 `cd <하위폴더>`가 있던 세션을 앱 재시작 뒤 이어 보내기 (b) 빈 `~/.claude/settings.json`에서 플러그인 탭 배너 없음 + 전송 (c) 끝 쉼표 `settings.json`에서 경고 토스트 1회 + 전송 (d) 플러그인 탭 레이아웃 white/dark | 사람 확인 | 실제 CLI 기록·실제 Windows 파일 |
+| R-01~R-04 | 사람 / AC17 | Windows 실기: (a) 응답 중 `cd <하위폴더>`가 있던 세션을 앱 재시작 뒤 이어 보내기 (b) 빈 `~/.claude/settings.json`에서 플러그인 탭 배너 없음 + 전송 (c) 끝 쉼표 `settings.json`에서 경고 토스트 1회 + 전송 (d) 플러그인 탭 레이아웃 white/dark (e) ΔV1: 시작 단계 동기 실패(예: 읽을 수 없는 플러그인 스킬 파일)에서 말풍선이 사라지고 입력창에 원문이 돌아옴 white/dark | 사람 확인 | 실제 CLI 기록·실제 Windows 파일 |
+| R-05 | AT-05 / AC18 | 기존 세션의 첫 spawn이 동기 실패하면 원래 오류 1회 뒤 체인이 끝나고, 그 입력은 대기열에 없으며 `message.cancelled`(ids = 그 전송의 `clientRequestId`) 1회가 나간다. 같은 세션의 다음 전송 프롬프트에 그 입력이 없다 | §7-A ΔV1 VP-16 main 좌표 + VP-19 (ii) | `chat:send` → `handleChatSend` → post-turn I1 → finally J1 → `message.cancelled` → `chatStore` K1 |
+| R-05 | IT-05 / AC19 | renderer는 main이 보낸 `message.cancelled`의 id로 그 전송의 낙관 말풍선을 찾아 지우고 원문을 입력창 복원 신호로 낸다. 규칙은 producer를 가리지 않는다(준비 중 Stop·준비 실패·세션 폐기 포함) | VP-17: store 실제 전송 경로가 만든 말풍선 + 같은 id 이벤트 | J1 → IPC → K1 |
+| R-05 | UT-07 / AC20 | post-turn은 직전 턴 입력이 held로 돌아왔고 그 턴이 중단되지 않았을 때만 체인을 끝낸다. 즉시 보내기 중단·다른 held·정상 종료 뒤 flush는 그대로이고, flush 턴이 동기 실패해도 같은 규칙이다 | VP-18 입력 (i)~(iv) | `runTurnWithContinuations` |
+| R-05 | UT-08 / AC21 | renderer `message.cancelled`: pending 항목은 지금처럼 지우고, 같은 `clientId`의 사용자 말풍선도 지운다. 복원 텍스트는 말풍선 → pending 순 `\n\n` 결합이며, 매칭이 없으면 복원 신호도 없다 | VP-19 입력 (i)~(v) | `chatStore` |
 
 ### AC 검증 주의사항
 
@@ -216,6 +231,35 @@
 | VP-13 | MD-04 ↔ UT-04 | REQUIRED | `parseJsonObject` · `persistClaudePluginState` | `json-file.test.ts` 신규 — `undefined`·`''`·`'  \r\n'`·`'﻿'`·`'﻿ \n'`·`'null'`·`'{}'` → `{}` · `'[]'`·`'1'`·`'{"a":1'` → invalid. `plugin-state.test.ts` 신규 — latest `''`·`'null'` → enabledPlugins 저장 · latest 깨진 내용 → 저장 거부·파일 바이트 불변 | not selected | E (1) |
 | VP-14 | MD-05 ↔ UT-05 | REQUIRED | 신규 리더 모듈 단독 | 신규 `app/src/main/adapters/claude/native-settings-file.test.ts` sync·async 각각 — 없음 → `{}`·report 0 · 빈 4종 → `{}`·0 · 유효 → 객체·0 · 파싱 실패 → `{}`·1 · 비객체(`[]`) → `{}`·1 · 경로가 디렉터리 → `{}`·1 · 같은 깨진 파일 두 번 → 1 · 내용이 다른 깨진 내용으로 바뀜 → 2. manifest 리더 — 없음 → `{}` · 빈 → `{}` · 깨짐 → `undefined`·1 | not selected | F (15) |
 | VP-15 | MD-06 ↔ UT-06 | REQUIRED | `SessionRuntime.runAttempt` spawn 경로 | `session-runtime.test.ts` 신규 — `canSubmitInitial: () => false` → reject `submission_stale:before-spawn`, `sendMessage` 0, `getLogger().child('engine').info`의 `'engine.spawn.started'` 0, `rollbackInitialSubmission` 1 | not selected | C (1) |
+
+### ΔV1 — verify r1 D2 · D-017
+
+- V mode: Delta V. 기준 V = `0301-session-resume-cwd-retry:V1@01ca522`(설계 READY 커밋). 유효 V = V1 + ΔV1.
+- 변경이 시작되는 수준: R(새 요구 R-05). `SUPERSEDED` 노드 없음 → 이관 해당 없음.
+- verify r1 D1(VP-07 canReopen claim 항)은 계약 변경이 아니라 V1 이행 결함이다. 규칙 칸(AC7 "commit과 같은 세션 키·claim")은 그대로이고 재구현이 입력을 더한다.
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 |
+|---|---|---|---|---|
+| R-05 | R | §7 AC18·AC19 시작 실패 입력 회수·복원 | NEW | — |
+| AT-05 | AT | AC18 | NEW | — |
+| SD-01 | SD | §5 상태표 ΔV1 행 — 체인 종료 시 회수 | CHANGED | V1 SD-01 |
+| ST-01 | ST | AC6 + AC18 main 절반 | CHANGED | V1 ST-01 |
+| AR-05 | AR | §10 J·K — main `message.cancelled` producer ↔ renderer 소비 | NEW | — |
+| IT-05 | IT | AC19 | NEW | — |
+| MD-07 | MD | §10 I post-turn 가드 | NEW | — |
+| UT-07 | UT | AC20 | NEW | — |
+| MD-08 | MD | §10 K renderer 소비 규칙 | NEW | — |
+| UT-08 | UT | AC21 | NEW | — |
+| R-02 | R | AC4·AC5 재시도 — post-turn 경로 공유 | INHERITED | V1 R-02 |
+
+| Pair | left ↔ right | req. | production path | 직접 oracle (자리별 좌표 · 분기 입력) | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-16 | R-05 ↔ AT-05 | REQUIRED | `chat:send` → `handleChatSend`(`send.ts`) → `runTurnWithContinuations` → coordinator 실패 → runtime 동기 rollback(held) → I1 break → finally J1(회수 + `message.cancelled`) → renderer K1 | 신규 `app/src/main/app/chat-turn.returned-input.test.ts` — `registerChatHandlers` 조립 + **실제 `PendingMessageQueue`**(held 상태가 판정 입력이라 mock 금지). J(i): 기존 세션 `s1` 전송(`clientRequestId:'req-1'`, `질문-가`), `sendMessage` 1회차 동기 throw `Error('원래-오류')` → `error` 1(원래 문구) · `message.cancelled` 정확히 1(`sessionId:'s1'`, ids `['req-1']`) · `pending('s1')` 0 · `sendMessage` 1. 이어 `s1`에 `req-2` `질문-나`(정상) → 2회차 프롬프트에 `질문-가` 없음 · `sendMessage` 총 2 · 추가 `message.cancelled` 0. J(ii): 새 대화(`sessionId:null`, `req-3`) 동기 실패 → `message.cancelled` 0 · `pending('req-3')` 0(큐 키 = `clientRequestId`, `admission.ts:103`). J(iii): 정상 종료 → `message.cancelled` 0. J(iv): 최초 턴 정상 + 응답 중 예약 `req-5` → flush 턴 동기 실패 → `message.cancelled` ids `['req-5']` 1 | not selected — 이벤트·큐·spawn 수 직접 관측 | J (1) · I (2) |
+| VP-17 | AR-05 ↔ IT-05 | REQUIRED | main J1 ids(= `clientRequestId`) → IPC → renderer K1(말풍선 `clientId` = 전송 `requestId`) | main 절반 = VP-16 J(i) ids 단언. renderer 절반 = `chatStore.test.ts` 신규 — store의 실제 전송 함수로 새 메시지를 보내(`chatApi.send` mock, resolve) 낙관 말풍선을 만든 뒤, 그 `chatApi.send` 호출 인자의 `clientRequestId`로 `message.cancelled`를 받으면 말풍선 0 · `draftRestore.text` = 보낸 원문 | not selected | J (1) · K (1) |
+| VP-18 | MD-07 ↔ UT-07 | REQUIRED | `runTurnWithContinuations` 반복 상단 I1 → step | `retry-submission.test.ts`(실제 post-turn 조립). (i) 기존 `'C …'`: 동기 실패 → spawn 1 · `turn.retrying` 0 · `pending('s1')` 1. (ii) 신규 F: 1회차 `sendMessage` 안에서 그 턴의 `abortContinuation='send-now'` 설정·abort 뒤 동기 throw → flush로 spawn 2 · 2회차 입력에 `question` 포함. (iii) 기존 `chat-turn.execution-config.test.ts:'chat:send execution configuration from the selected engine document (0262) runs opencode-local with its own document and model on the initial and automatic flush turn'` — 정상 종료 뒤 다른 held flush. (iv) 신규 H: 최초 턴 정상 + 응답 중 held 1 → flush 턴 동기 throw → spawn 2 · `pending` 1(flush 입력) · 3번째 spawn 없음 | required — PT1(break 대입 제거) → (i) red · PT2(중단 항 제거) → (ii) red · PT3(held 판정 → `true`) → (iii) red · I2(`getInitialBatches` → `[]`) → (i) red · flush 배치 대신 최초 배치를 보게 하는 변이 → (iv) red | I (2) |
+| VP-19 | MD-08 ↔ UT-08 | REQUIRED | `chatStore` `case 'message.cancelled'` 단독 | `chatStore.test.ts` 신규 — (i) pending 항목만(`p-1` `예약-나`) → pending 제거 · draft `예약-나`(기존 동작) (ii) 말풍선만(`clientId:'req-1'` `질문-가`) → 말풍선 제거 · draft `질문-가` (iii) 말풍선 `req-1` + pending `p-1` → 둘 다 제거 · draft `질문-가\n\n예약-나` (iv) 매칭 없음 → messages·pending·`draftRestore` 불변 (v) ids에 없는 말풍선 `req-0`은 남음 | not selected | K (1) |
+| VP-05 | SD-01 ↔ ST-01 | REQUIRED (CHANGED) | V1 경로 + finally J1 | V1 좌표 유지 + VP-16 J(i)의 `pending('s1')` 0 · `message.cancelled` 1(공유 증거 — 체인 종료 뒤 상태 범위) | not selected | B (8) · J (1) |
+| VP-02 | R-02 ↔ AT-02 | REGRESSION | V1 경로(post-turn 공유) | V1 좌표 `retry-submission.test.ts:'A'~'E'` 재실행 green | not selected | B (8) |
 
 ### 현재 변경의 운영 gate
 
@@ -352,6 +396,9 @@
 | F | AR-03·MD-05 / VP-03·08·14 | Claude 설정 문서 읽기 실패 = `{}` + 경고 1회. manifest 실패 = 그 플러그인 제외 + 경고 1회. 경고는 경로·사유만 | `native-settings-file.ts` | 문서 11: `configured-resources.ts:67,68,69,70,71,72,147,156` · `plugin-catalog.ts:26,278,324`. manifest 3: `configured-resources.ts:132` · `plugin-catalog.ts:291,338`. 정책 모듈 경고 서명 1 — 15 | `rg -n "readObject(Async)?\(\|readClaude(Settings\|PluginManifest)" app/src/main/adapters/claude -g '!*.test.ts' -g '!*.testfixture.ts'` → 호출 14 + 정책 모듈 정의 | 깨진 파일 하나가 실행·목록 전체를 막음 / 반복 토스트 / 내용 노출 |
 | G | R-04 / VP-04 | 플러그인 탭 실패는 tabpanel에 렌더하지 않고 실패 진입 시 토스트 1회 | hook | G1 `ExtensionsCatalogView.tsx` 배너 제거 · G2 `useNativeMcpCatalog.ts` catch 전이 report · G3 `reportSites.registry.test.ts` 등록 — 3 | `rg -n "chat.nativeResources.error\|nativeMcp.failed\|skills.native.load-failed" app/src/renderer/src` | 레이아웃 밀림 / focus마다 토스트 |
 | H | AR-04 / VP-09 | 목록 reject 메시지 = 고정 문구 + 원래 원인 | `session-resources.ts` 단일 helper | H1 `:72` · H2 `:183` — 2 | `rg -n "하네스 목록을 불러오지 못했습니다" app/src/main -g '!*.test.ts'` → 2행이 같은 helper 경유 | 원인 소실 |
+| I | MD-07 / VP-18·VP-02 | 직전 턴(최초 또는 flush 턴)이 연 입력 배치 중 하나라도 held에 있고 그 턴이 중단(abort)되지 않았으면 이번 post-turn 반복은 `break`. 중단됐으면 기존 판정(즉시 보내기는 flush). 직전 입력이 held에 없으면 기존 판정 | `post-turn.ts` | I1 `post-turn.ts` `returnedInput` 계산과 `break` 대입 · I2 `send.ts` `getInitialBatches` 위임 — 2 | `rg -n "returnedInput\|getInitialBatches" app/src/main/app/chat-turn/post-turn.ts app/src/main/app/chat-turn/send.ts` → 6행: `post-turn.ts` 인터페이스 선언 1행 제외 · 계산·대입 3행 → I1 · `send.ts`의 `runTurnWithContinuations` deps 행 → I2 · `send.ts`의 `buildTurnRequest` deps 행은 B행 claim 원천이라 제외(그 밖 `turn-request.ts` 사용처도 B행) | 같은 실패 입력을 backoff 없이 반복 / 즉시 보내기 입력이 묶임 / 정상 예약이 안 나감 |
+| J | AR-05·SD-01 / VP-16·VP-17·VP-05 | 체인이 끝날 때(최종 `rollbackInitialSubmission` 다음) 마지막 초기 배치의 id 중 held에 남은 것을 큐 키 `activeTurn.dbSessionId ?? turn.dbSessionId ?? queueKey`에서 빼고, 세션 ID가 있으면 그 ids로 `message.cancelled` 1회. 분기: (i) 세션 있음 → 회수 + 이벤트 (ii) 세션 없음 → 회수만 (iii) held에 없음(확정·orphaned·submitted·flush로 나감) → 아무것도 안 함 (iv) flush 턴이면 그 flush 배치가 대상 | `send.ts` finally | J1 `send.ts` 실행 try의 finally — 1 | `rg -n "message\.cancelled" app/src/main/app/chat-turn/send.ts` 출력 중 준비 중 Stop 블록(`if (turn.controller.signal.aborted)`)·준비 실패 블록(`if (!cleanupDone)`)의 2행을 뺀 1행 = J1 | 실패한 입력이 다음 전송 뒤 몰래 나감 / 말풍선·입력창 복원 없음 |
+| K | MD-08·AR-05 / VP-19·VP-17 | `message.cancelled` 소비: ids 중 pending 항목을 지우고, pending에 없고 `role:'user'`·같은 `clientId`인 말풍선도 지운다. 복원 텍스트 = 말풍선들(메시지 순) → pending 항목들(기존 순), `\n\n` 결합. 하나라도 있으면 `draftRestore` 1회, 없으면 없음 | `chatStore.ts` | K1 `chatStore.ts` `case 'message.cancelled'` — 1 | `rg -n "case 'message.cancelled'" app/src/renderer/src -g '!*.test.*'` → 1행 | 말풍선이 남아 다시 보낸 입력이 두 번 보임 / 입력이 사라짐 |
 
 - 자리 목록은 위 검색 출력과 차집합 0이어야 한다. 구현 뒤 행 번호가 바뀌면 같은 명령으로 다시 열거한다.
 - **선언 경계**(측정 근거와 함께):
@@ -361,6 +408,13 @@
   - `project-settings.ts`는 내용이 있는 깨진 파일에서 지금처럼 오류다(D-014). 프로젝트 플러그인 제어가 그 동안 동작하지 않는다.
   - 플러그인 스킬 `.md`·OpenCode 설정의 읽기 실패 정책은 바꾸지 않는다(§6).
   - 토스트 detail의 Electron IPC 접두어("Error invoking remote method …")는 기존 공통 형식이다.
+- **ΔV1 선언 경계**:
+  - 새 대화(세션 ID 발급 전) — J(ii)는 renderer에 알리지 않는다. `message.cancelled`는 `sessionId` 필수(`shared/ipc.ts:595`)이고 준비 중 Stop도 같은 조건으로 생략한다(`send.ts:642`). 말풍선·오류가 남고 입력창 복원은 없다.
+  - 첨부는 복원하지 않는다 — 기존 복원과 같이 텍스트만이다(`chatStore.ts:878`).
+  - 비동기 실패(이벤트 0건)로 재시도를 다 쓴 입력은 `submitted`라 J 대상이 아니다. 체인 종료 시 orphaned로 늦은 확정을 기다린다(0154, `send.ts:717`).
+  - 실패한 턴 동안 사용자가 예약한 다른 held(steer)는 J 대상이 아니다. 취소 가능한 예약 말풍선으로 남고 다음 체인에서 기존대로 이어진다.
+  - K는 producer를 가리지 않는다. 준비 중 Stop(`send.ts:644`)·준비 실패(`send.ts:750`)·세션 폐기(`discard.ts:37`)의 턴 시작 입력도 말풍선이 지워지고 복원된다 — 세 자리의 주석이 이미 "복원"을 적는다(§12).
+  - K의 전제: main은 확정(커밋)된 id로 `message.cancelled`를 내지 않는다. 확정 배치는 `drainConfirmed`로 큐에서 빠지고 `cancel`은 held만(`pending-message-queue.ts:183`), `discardSubmitted`는 open(미확정)만 지운다(`:430`).
 - 열린 입력 집합 판정: 설정 파일 내용은 열린 입력이라 fail-closed 대신 결과 3분류(없음·빈 → `{}` 무경고 / 객체 → 사용 / 그 밖 전부 → `{}`·경고)로 닫는다. 모르는 형태는 전부 세 번째 칸이다.
 - 같은 규칙의 SSOT: 빈 내용은 `parseJsonObject` 한 곳이다. 건너뛰기·경고는 `native-settings-file.ts` 한 곳이고, 세 리더 모듈의 `readObject` 래퍼를 이 모듈 호출로 바꾼다(정규식·판정 복제 금지).
 - 선택적 필드 의미: `canReopenInitialSubmission`·`reopenInitialSubmission`이 `undefined`면 위임 없는 요청이라 기존처럼 재시도한다(B9). 둘 중 하나만 있는 조합은 `buildTurnRequest`가 만들지 않는다.
@@ -386,6 +440,10 @@
 | `app/src/renderer/src/shared/errors/reportSites.registry.test.ts` | G3 | useNativeMcpCatalog ordinal 0을 `TOAST`·`T-native-mcp-load`·`skills.native.load-failed`·`loadFailed`로 | 레지스트리 테스트 |
 | `app/src/main/app/chat-turn/concurrency-identity.testfixture.ts` | seam | `initial?: string` 옵션 — enqueue+`reserveItem` 후 `initialBatches=[batch]`, 요청 `promptUuid`=batch.uuid. 기본 동작 불변 | fixture |
 | 테스트 신규/수정 | §7-A 좌표 | VP-01~VP-15 | — |
+| `app/src/main/app/chat-turn/send.ts` (ΔV1) | J1 | finally에서 `request.rollbackInitialSubmission?.()` 다음: 큐 키 `finalSessionId ?? queueKey`에서 `initialBatches`의 id를 `pendingMessages.cancel`(held만 지움)로 빼고, 뺀 id가 있고 `finalSessionId`가 있으면 `sendChatEvent(wc, {type:'message.cancelled', sessionId: finalSessionId, ids})` | 조립 테스트(VP-16) |
+| `app/src/main/app/chat-turn/post-turn.ts` (ΔV1) | I1 | r1 구현 유지. 주석의 "사용자가 다시 보낸다"를 "체인 종료 시 send.ts가 입력창으로 돌려준다"로 | VP-18 |
+| `app/src/renderer/src/features/chat/store/chatStore.ts` (ΔV1) | K1 | `case 'message.cancelled'`: 기존 pending 처리에 더해 `ev.ids`와 `clientId`가 같은 사용자 말풍선을 `DROP_UNCOMMITTED_USER`로 지우고 텍스트를 모아 K행 순서로 결합 | `chatStore.test.ts` |
+| 테스트 (ΔV1) | VP-16~19 | 신규 `app/src/main/app/chat-turn.returned-input.test.ts` · `retry-submission.test.ts` F·H · `chatStore.test.ts` 신규 케이스 | — |
 
 ### 테스트 가능성
 
@@ -414,6 +472,10 @@ main reportError → hub → renderer ErrorToastHost
 |---|---|---|
 | `skill-catalog.ts:20` · `plugin-catalog.ts:375`(명령 목록) | 깨진 설정에서 reject 대신 남은 파일 기준 결과 | AC11 |
 | `app/harnesses/claude/module.ts:34,40`(전역·구성 목록) | 같음 | AC11·AC14 |
+| (ΔV1) `index.ts:143` 단건(hover) 취소의 `message.cancelled` | pending 항목만 — 말풍선 매칭 없음, 변화 없음 | AC21 (i) |
+| (ΔV1) `index.ts:188` 중단 버튼 `cancelAllHeld` | held 턴 시작 입력이 있으면 말풍선도 지워짐(D-017 뒤에는 J가 체인 종료 시 먼저 회수) | AC21 (ii)·(iii) |
+| (ΔV1) `send.ts:644` 준비 중 Stop · `send.ts:750` 준비 실패 | 턴 시작 입력 → 말풍선 제거 + 복원. 주석 "이 배치만 복원한다"·"held 로 복구" 의도와 일치 | AC19 |
+| (ΔV1) `discard.ts:37` 세션 폐기 | 미확정 턴 시작 입력 → 말풍선 제거 + 복원. 주석 "텍스트는 draft 로 복원해 사용자가 재전송을 정한다"와 일치 | AC19 |
 | `project-reconciliation.ts:112`(manifest 직접 파싱) | 제외된 플러그인은 설치 목록에 없어 `restart-required` 분기로 간다 | AC12 |
 
 ## 13. Lifecycle / 오류 / 정리
@@ -422,6 +484,7 @@ main reportError → hub → renderer ErrorToastHost
 - 취소/중단: backoff 중 Stop은 재개방 전이라 예약이 `submitted`로 남는다(AS-IS와 동일). 재개방과 다음 attempt 사이의 중단은 첫 attempt 중단과 같은 경로다.
 - 종료/crash: 경고 서명 기억은 프로세스 메모리라 재시작 뒤 같은 깨진 파일은 다시 1회 경고한다.
 - retry/timeout/partial failure: 재개방 실패는 원래 오류로 끝낸다. 마지막 attempt 실패에는 재개방을 묻지 않는다(B7).
+- (ΔV1) 체인 종료: 최종 rollback 뒤 마지막 초기 배치의 held 잔여를 J1이 회수하고 `message.cancelled`로 알린다(D-017).
 - cleanup/rollback: `send.ts:716` 최종 rollback은 그대로다. 재개방된 뒤 재spawn 전에 실패한 경우는 `submitting`이므로 이 rollback이 held로 되돌린다.
 - **다중 저장소 쓰기**: 해당 없음(코드). 문서 산출물은 판정 사본이 `plan.md`와 `INDEX.md` 두 곳이다 — 같은 설계 커밋에서 함께 바꾼다.
 
@@ -468,6 +531,7 @@ main reportError → hub → renderer ErrorToastHost
 - `docs/arch/backend/runtime-ipc.md:94` — 재시도는 같은 예약을 backoff 뒤 재개방해 다시 보내고, 재개방할 수 없으면 원래 오류로 끝난다. admission 거부는 spawn 시작 기록 전이다.
 - `docs/IPC_CONTRACT.md:196` — 플러그인 탭 조회 실패는 탭 영역에 표시하지 않고 실패 진입 시 토스트 1회. `:267` — reject 메시지는 원래 원인을 포함한다.
 - `docs/arch/frontend/design-components.md:390` — `ExtensionsCatalogView` 행에 실패 표시 예외.
+- (ΔV1) `docs/IPC_CONTRACT.md:582` `message.cancelled` 행 — 시작 단계에서 보내지 못하고 체인이 끝난 턴 시작 입력도 이 이벤트로 회신되고, renderer는 같은 id의 사용자 말풍선을 지우고 텍스트를 복원한다. `docs/arch/backend/runtime-ipc.md:94` — "같은 체인에서 자동 재전송하지 않는다" 뒤에 "체인 종료 시 대기열에서 빼 입력창으로 돌려준다".
 - `docs/arch/frontend/design-system.md:187` — error 행에 "배경 자동 갱신 목록(플러그인 카탈로그)의 조회 실패는 토스트" 예외 1줄.
 
 ## 19. 게이트
@@ -506,6 +570,18 @@ main reportError → hub → renderer ErrorToastHost
 - [x] 게이트 명령이 `app/AGENTS.md` 현재 문구와 맞는다.
 - [x] 본문 완성 후 Ledger와 교차검증했다 — §3 갱신 메모 "충돌 0".
 - [x] 산출물 문장 규칙을 지켰다.
+
+### READY self-review (ΔV1)
+
+- Ledger: D-017 ACTIVE 추가, 대체 0 — 사용자 응답 원문 인용. D-006과 충돌 0(갱신 메모).
+- 조건절: 사용자 원문 "나중에 자동으로 나가지 않는다"를 AC18 "다음 전송 프롬프트에 그 입력이 없다"로 관측화했다.
+- NEW 노드 R-05·AT-05·AR-05·IT-05·MD-07·UT-07·MD-08·UT-08 ↔ VP-16~19 REQUIRED. CHANGED SD-01·ST-01 ↔ VP-05 REQUIRED. 경로 공유 INHERITED R-02 ↔ VP-02 REGRESSION.
+- 자리 목록 실측(이 턴): I 검색 → `post-turn.ts:46`(선언, 제외) · `:134`·`:136`(계산)·`:146`(대입) → I1 · `send.ts:707` → I2 · `send.ts:576`(B행, 제외). 술어를 저장소 전체로 넓히면 `turn-request.ts:24·88·103·112`가 더 나오며 모두 V1 B행 claim 원천이다. J 검색 → `send.ts:644`·`:750` 2행(기존, J1은 구현 뒤 생김). K 검색 → `chatStore.ts:868` 1행.
+- 규칙 칸 ↔ 입력 칸: I 4분기 ↔ VP-18 (i)~(iv) · J 4분기 ↔ VP-16 J(i)~(iv) · K 5항 ↔ VP-19 (i)~(v).
+- 적대 증거: VP-18만 선택 — 가드는 "끝낸다/잇는다"의 방향이 둘이라 반대쪽 입력이 없으면 분기가 침묵한다(verify r1 PT2·PT3이 좌표에서 green).
+- 기존 좌표 실측: VP-18 (iii) 좌표는 이 턴에 PT3 변이를 심어 `chat-turn.execution-config.test.ts` 13케이스 red를 관측했다(`src/main/app/chat-turn`·`src/main/features/chat` 범위 실패 13 → 32, 늘어난 19 = 그 파일 13 + `chat-turn.runtime-tools.test.ts` 6).
+- 선언 경계 6항(측정 근거 인용). 사람 실기로 미룬 순수 로직 없음 — AC17(e)는 시각만.
+- 운영 gate: V1 표 그대로(renderer 테스트는 파일 필터 없는 vitest에 포함).
 
 ---
 
@@ -643,5 +719,5 @@ main reportError → hub → renderer ErrorToastHost
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
 | D1 | VP-07 좌표가 `turn-request.ts:124` canReopen claim 항을 잠그지 않는다(`batchClaims()`→`[]` green, B4는 red) | VP-07 · AC7 · §10 B3 | W1~W3에 claim 불일치(예: confirmed·다른 chainId)에서 canReopen 거짓인 입력 추가 | 이행 결함 | BLOCKING | open |
-| D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | open |
+| D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | ΔV1 채택(D-017 · §10 I·J·K) — 재구현·재검증 대상 |
 | D3 | 탭 배너 i18n 키 2개 소비처 0 | 구현 보고 #4 | 다음 정리 후보 | 비귀속 | NON_BLOCKING | open |
