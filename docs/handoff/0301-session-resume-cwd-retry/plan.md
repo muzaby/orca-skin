@@ -832,6 +832,7 @@ main reportError → hub → renderer ErrorToastHost
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | VP-07 좌표가 `turn-request.ts:124` canReopen claim 항을 잠그지 않는다(`batchClaims()`→`[]` green, B4는 red) | VP-07 · AC7 · §10 B3 | W1~W3에 claim 불일치(예: confirmed·다른 chainId)에서 canReopen 거짓인 입력 추가 | 이행 결함 | BLOCKING | open |
-| D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | ΔV1 채택(D-017 · §10 I·J·K) — 재구현·재검증 대상 |
+| D1 | VP-07 좌표가 `turn-request.ts:124` canReopen claim 항을 잠그지 않는다(`batchClaims()`→`[]` green, B4는 red) | VP-07 · AC7 · §10 B3 | W1~W3에 claim 불일치(예: confirmed·다른 chainId)에서 canReopen 거짓인 입력 추가 | 이행 결함 | BLOCKING | closed (r2 verify — B3b·B3c·B4a·B4b·B3a-swap 잡음) |
+| D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | ΔV1 채택(D-017 · §10 I·J·K) — r2 verify 닫힘(PT1~PT3·I2 잡음) |
 | D3 | 탭 배너 i18n 키 2개 소비처 0 | 구현 보고 #4 | 다음 정리 후보 | 비귀속 | NON_BLOCKING | open |
+| E1 | J1이 `initialBatches` 전부(프렐류드 + 잔여 held를 합친 본 배치)를 회수하는데 J 규칙 칸은 "마지막 초기 배치"만 적고, VP-16은 id 1개·배치 1개 입력뿐이다. 첫 id/첫 배치만 회수하는 변이(J1-7a·7b)와 이벤트 ids를 초기 배치 전체로 바꾸는 변이(J1-9)가 green | §10 J · VP-16 | J 규칙 칸에 합친 배치·프렐류드 분기와 입력을 적거나 경계 선언. 프렐류드가 이전 대기 입력을 입력창으로 합치는 것이 의도인지는 사용자 판단 | 확장 후보 | PLAN_GAP (verify 2회째, 창 안) | open |

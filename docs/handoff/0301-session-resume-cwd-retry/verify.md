@@ -11,8 +11,8 @@
 | 구현 전 plan 기준 | `01ca522` (설계 READY) |
 | V mode / 유효 V | `Baseline V: V1` / `V1` |
 | 검증 기준 plan revision | `01ca522:V1` |
-| 라운드 | 1 |
-| 상태 | **RETURN_TO_PLAN** (PLAN_GAP 1 + 이행 결함 1 동반) |
+| 라운드 | 1 → 2 (아래 `## 라운드 2`가 현재 판정) |
+| 상태 | r1 RETURN_TO_PLAN → **r2 RETURN_TO_PLAN** (PLAN_GAP 1) |
 | 확장 창 | verify 1회째 — 창 안 · ΔV로 다시 열린 노드: 없음 |
 | 독립 축(⑥) | 2축·시도 6 — (a) post-turn flush 가드(구현자 보고 밖 자리) 변이 3 (b) 기준선 전체 vitest 분리 |
 | 열거 sweep(⑦) | 1회째 전수 — §10 자리 A2·B8·C1·E1·F14+서명·G3·H2 기준 변이 49 · 못 잡음 4(B3b·PT2·PT3 좁은 oracle, Fw7 형태변이) |
@@ -140,3 +140,86 @@ AC 재계수: AC1~AC16 중 AC7만 영향(좌표 공백, 동작은 production에�
 - 이전 라운드 없음. 구현자가 PT-2를 스스로 `못 잡음`으로 보고했고 독립 변이가 PT-3·B3b를 더 찾았다(독립 축 발견 2: 이행 1·확장 1).
 - plan 열거에 post-turn 자리가 없었다(구현 보고 #1과 일치).
 - 환경 한계: `origin/main` ref 없음, Electron·better-sqlite3 미빌드로 전체 vitest 기준선 69파일, `node --test` 미실행.
+
+
+---
+
+## 라운드 2 (verify 2회째) — **RETURN_TO_PLAN**
+
+판정: D1(이행)·D2(ΔV1 채택분) 전부 닫혔고, J1이 합친 배치·프렐류드 입력을 잠그는 좌표가 없어 확장 후보 E1이 `PLAN_GAP`이다. verify 2회째라 창 안이다.
+
+### 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 range | `14b3cc2..7f368b5` (`5907ea8` CI #1035 보완 + `7f368b5` r2 구현). 설계 기준 `242881e`(ΔV1 READY) |
+| V mode / 유효 V | `Delta V` / `V1 + ΔV1` |
+| 확장 창 | verify 2회째 — 창 안 · ΔV1의 NEW·CHANGED 노드(R-05 등)는 이 라운드까지 창 안 |
+| 기준선 | `git diff 242881e..HEAD -- plan.md` hunk = `@@ -714` 하나(`[구현자 기입] (r2)` 이하). Decision·AC·V·§10 규범 행 변경 0 |
+| 독립 축(⑥) | (a) J1 다중 id·다중 배치 입력 (b) J1 순서·세션 ID 원천 (c) K1 필터·결합 항 — 변이 14 |
+| 구현 주체 | 구현=Claude, 설계=Claude, 검증=Claude — 판정에 쓰지 않음 |
+
+### plan validity · §10 자리 목록
+
+- 검색 재실행 차집합 0: §10 I `post-turn.ts:135·137·147`+`send.ts:707`(B행 `:576` 제외) · J `send.ts:729` 1행(`:644`·`:766` 제외) · K `chatStore.ts:874` 1행 · B(r1과 동일).
+- J 규칙 칸은 "마지막 초기 배치의 id 중 held에 남은 것"인데 코드는 `initialBatches` 전부(프렐류드 + 합친 본 배치)를 돈다. 칸이 이 입력을 분기로 적지 않았다 → E1.
+
+### 고장 이력 (r2, `mutate.py`, 32행 + 재실행 3행)
+
+원복 확인 "모든 파일 원문 그대로", `git status` 깨끗.
+
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|
+| PT1 / PT2 / PT3 / I2a | `post-turn.ts` break·aborted 항·held 판정 · `send.ts:707` | 제거·고정값 | 잡음 (crash / 1 / 16 / crash) | retry-submission F·H·C · returned-input | — (③ V-PT2·PT3 `못 잡음`→`잡음`) |
+| I1x-pending-key | `heldIds`를 빈 집합 | 빈 값 | 잡음 (crash) | 무한 flush | — |
+| I1x-heldIds-neg | `some`→`every` | 뒤집기 | 동치 | green 33 | 동치 — 배치는 rollback 단위라 한 배치의 id는 전부 held이거나 전부 아니다(B2 원자성 변이 잡음) |
+| J1-1 · J1-2 · J1-3 · J1-4 · J1-6 · J1-8 | cancel 결과 무시 · 이벤트 제거 · 큐 키 · 세션 가드 · 가드 대체 · 이벤트 sessionId | 제거·맞바꿈 | 잡음 (2·3·1·1·2·1) | returned-input J(i)~J(v) | — |
+| **J1-7a** | `for (batch of initialBatches.slice(0,1))` | 호출 대체 | **못 잡음** | 33 passed | **확장 후보 E1** |
+| **J1-7b** | `batch.ids.slice(0,1)` | 호출 대체 | **못 잡음** | 33 passed | **확장 후보 E1** |
+| **J1-9** | 이벤트 ids = 초기 배치 전체 id | 다른 값 | **못 잡음** | 33 passed | **확장 후보 E1** |
+| J1-10 | `finalSessionId` 원천 순서 맞바꿈 | 맞바꿈 | 동치 | green | 비귀속 — 이번 diff 밖 기존 줄 |
+| K1-1~7 · K1-9~11 | 말풍선 제거·pending 제외·결합 순서·role·id·`texts` 가드·join·pending 제거 | 제거·맞바꿈 | 잡음 (4·1·1·1·4·2·4·2·1·4) | chatStore.test.ts 66 중 | — |
+| K1-8 | `m.clientId !== undefined` 제거 | 제거 | 동치 | green | 동치 — `ev.ids.includes(undefined)`는 거짓이고 다음 줄은 `!`로 좁힌 타입 보정뿐 |
+| B3b · B3c · B3a-swap · B4a · B4b | canReopen/reopen claim·키·맞바꿈 | 빈 값·맞바꿈 | 잡음 (6·2·3·10·2) | turn-request.reopen W1~W3 | ② D1 인용 변이 `못 잡음`→`잡음` |
+| A2a · A2b · A2c | `native-history.ts` realpath catch·samePath·isAbsolute (I7 수정 파일) | 제거 | 잡음 (1·3·1) | native-history.test.ts 24 중 | ④ 덮개 회귀 없음 |
+
+E1 근거: `enqueue.ts:68` `initialBatches = [...preludes, mainBatch]`이고 `enqueue.ts:55-58` mainBatch는 잔여 held를 병합한다(0152 AC2). 합친 다중 id 배치와 프렐류드는 도달 가능한 입력인데 VP-16 J(i)~(v)는 id 1개·배치 1개뿐이라, 첫 id/첫 배치만 회수하는 변이가 green이다. 실제 코드는 둘 다 회수하므로 현재 결함은 재현하지 못했다(실입력 실행 안 함, 변이로만 확인).
+
+### V-pair closeout
+
+| Pair | 판정 | 근거 |
+|---|---|---|
+| VP-18 (MD-07↔UT-07) | PASS | I1·I2 변이 6/6 잡음, 동치 1(배치 원자성) |
+| VP-16·VP-05 (J) | PASS(좌표 범위 안) | J(i)~(v) 변이 6/6 잡음. 다중 id·배치 분기는 좌표 밖 → E1 |
+| VP-17·VP-19 (K) | PASS | K1 10/10 잡음, 동치 1 |
+| VP-07 | PASS | D1 닫힘(B3b red 6) |
+| VP-02 / VP-01·03~15 | PASS | `retry-submission` A~F·H green · A2 3/3 · r1 좌표 유지(이번 diff 밖) |
+
+AC 재계수: AC1~AC16·AC18~AC21 = 20 ✅ 동작 확인, AC17 사람 실기 ⚠️ = 21 (구현자 보고와 일치).
+
+### gate (cwd=`app`)
+
+| 명령 | 관측 |
+|---|---|
+| 가드 3종 | migrations skip(이전 `v*` 태그 없음) · inventory ok(9 items·117 channels) · test-budgets ok(20 suites) |
+| `eslint --no-fix` 변경 src 8파일 · `npm run typecheck` | 출력 0 · tsc 3프로젝트 exit 0 |
+| 변경 5 테스트 파일 | 5 files · 109 tests passed |
+| 전체 `vitest run` | head 939파일 중 29 failed(22 tests) · base `14b3cc2` worktree 938파일 중 29 failed(22 tests) — 실패 파일 양방향 차집합 ∅. 서명: `Electron failed to install correctly` 20파일 + Claude/OpenCode 어댑터 assertion 9파일(변경 diff 밖) |
+| `node --test scripts/*.test.mjs` | 827 pass · 0 fail |
+
+### repository operation
+
+- INDEX 행의 `951c186`(r1 검증)은 존재하지 않는 객체다 → 실제 r1 검증 커밋 `14b3cc2`로 교정했다. 모든 좌표(`d3f39e0`·`7854c06`·`14b3cc2`·`242881e`·`5907ea8`·`7f368b5`)는 `git cat-file -t` commit이고 `origin/main` 조상은 아직 아니다(미병합 브랜치).
+- trailer: `7f368b5`는 `Agent: claude · Status: implemented · Criteria-Met: 20/21 · Verified-By: pending` 파싱됨. `5907ea8`은 `partial · 0/21`(작업 중 커밋).
+- `[구현자 기입] (r2)` 일곱 필드 모두 있음. 강제 지점 표는 I·J·K·B3 4행이며 §10 자리 전부와 `남긴 곳`을 담았다.
+- 사람: AC17 Windows 실기(a~e) 대기.
+
+### 판정
+
+**RETURN_TO_PLAN.** 이행·현재 결함 0, PLAN_GAP 1(E1). 설계자가 E1을 채택(J 규칙 칸에 합친 배치·프렐류드 분기와 입력을 적고 J1-7a/7b/9를 등록)하거나 경계로 선언한다. 프렐류드가 이전 대기 입력을 입력창으로 합치는 것이 의도인지는 제품 판단이다.
+
+### Review Signals — 사실만
+
+- verify 2회째. 같은 축(post-turn 차단 가드의 회수 경로)이 r1 D2 → ΔV1 → E1로 이어졌다. 이번 E1은 ΔV1이 도입한 J 자리의 입력 폭이다.
+- 독립 축(⑥) 발견 1(확장), 동치 3.
+- 반복된 환경 한계: Electron 미설치(20파일), `origin/main`에 이 브랜치 커밋 없음.
