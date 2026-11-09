@@ -2251,3 +2251,27 @@ describe('SessionRuntime native resource generation', () => {
     await done()
   })
 })
+
+it('rejects a stale spawn admission before recording a spawn, building tool context or sending', async () => {
+  const sendMessage = vi.fn(() => live([]))
+  const runtime = new SessionRuntime({ ...adapter(live([])), sendMessage })
+  const info = vi.spyOn(getLogger().child('engine'), 'info')
+  const rollback = vi.fn()
+  try {
+    await expect(
+      collect(
+        runtime.send({
+          ...req(),
+          canSubmitInitial: () => false,
+          rollbackInitialSubmission: rollback
+        })
+      )
+    ).rejects.toThrow('submission_stale:before-spawn')
+    expect(sendMessage).not.toHaveBeenCalled()
+    expect(info.mock.calls.map(([event]) => event)).not.toContain('engine.spawn.started')
+    expect(rollback).toHaveBeenCalledOnce()
+    expect((runtime as unknown as { runtimeToolContext: unknown }).runtimeToolContext).toBeNull()
+  } finally {
+    info.mockRestore()
+  }
+})

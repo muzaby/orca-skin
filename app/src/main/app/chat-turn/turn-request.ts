@@ -65,6 +65,8 @@ export function buildTurnRequest(
     | 'canSubmitInitial'
     | 'commitInitialSubmission'
     | 'rollbackInitialSubmission'
+    | 'canReopenInitialSubmission'
+    | 'reopenInitialSubmission'
     | 'captureInterruptReceipt'
     | 'onChannelRetired'
     | 'onSessionSchedules'
@@ -116,6 +118,12 @@ export function buildTurnRequest(
         }
       }
     },
+    // 재시도 재개방은 commit 과 같은 세션 키·claim 을 본다. 소유권 표시는 그대로 두므로
+    // (renderer 에는 여전히 전송됨) 이벤트를 보내지 않는다.
+    canReopenInitialSubmission: () =>
+      pendingMessages.canReopenMany(deps.getActiveTurn().dbSessionId ?? queueKey, batchClaims()),
+    reopenInitialSubmission: () =>
+      pendingMessages.reopenMany(deps.getActiveTurn().dbSessionId ?? queueKey, batchClaims()),
     captureInterruptReceipt: () => {
       const sid = deps.getActiveTurn().dbSessionId
       if (!sid) return undefined

@@ -109,8 +109,12 @@ function scrubBatch(batch: TrackedBatch): void {
 //   held ──reserve*──→ submitting ──adapter accepted──→ submitted
 //     │                    │                              │
 //     │←──rollback─────────┤                              ├─confirm─→ confirmed ─→ 제거+scrub
-//   cancel                                                    └─체인 종료─→ orphaned ─→ 재주입
+//   cancel                 │←────retry reopen─────────────┤
+//                                                         └─체인 종료─→ orphaned ─→ 재주입
 //                                                 └──지각 confirm──→ confirmed
+//
+// retry reopen(`reopenMany`)은 같은 coordinator 실행의 턴 재시도 전용이다. 새 전송의 admission
+// (`canCommitMany`)은 여전히 `submitting` 만 통과하므로 커밋된 예약 fence 는 그대로다.
 //
 // 세션 상태가 주입 경로를 가른다:
 //   사용자 턴(세션 idle) — chat:send 가 enqueue 직후 reserveItem 으로 아이템 단위 배치를 떠서
@@ -314,6 +318,32 @@ export class PendingMessageQueue {
   canCommitMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
     const batches = this.trackedBySession.get(sessionId) ?? []
     return !selectAttempts(batches, attempts, ['submitting']).some((batch) => batch === undefined)
+  }
+
+  // 재시도 재개방 검사 — 상태를 바꾸지 않는다. claim 전부가 아직 이 턴의 전송 단계
+  // (`submitting`·`submitted`)에 있어야 참이다. confirmed·orphaned·rollback(held)·다른 claim이
+  // 하나라도 있으면 그 입력은 이미 다른 경로로 갔으므로 재전송하지 않는다.
+  canReopenMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+    const batches = this.trackedBySession.get(sessionId) ?? []
+    return !selectAttempts(batches, attempts, ['submitting', 'submitted']).some(
+      (batch) => batch === undefined
+    )
+  }
+
+  // 재시도 재개방 — 같은 검사 후 `submitted` 를 `submitting` 으로 되돌려 다음 spawn 의
+  // admission(`canCommitMany`)을 통과시킨다. 하나라도 검사에 실패하면 아무것도 바꾸지 않는다.
+  reopenMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+    const batches = this.trackedBySession.get(sessionId) ?? []
+    const selected = selectAttempts(batches, attempts, ['submitting', 'submitted'])
+    if (selected.some((batch) => batch === undefined)) return false
+    let changed = false
+    for (const batch of selected as TrackedBatch[]) {
+      if (batch.state !== 'submitted') continue
+      batch.state = 'submitting'
+      changed = true
+    }
+    if (changed) this.changed(sessionId)
+    return true
   }
 
   // 소비 확정(구 markConsumed) — 모든 예약은 턴 프롬프트·프렐류드라 신호 두 종 모두 유효하다:

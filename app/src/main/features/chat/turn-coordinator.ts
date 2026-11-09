@@ -582,13 +582,44 @@ export class TurnCoordinator<W = unknown> {
           const error = classifyError(err, 'sendMessage')
           const staleSubmission =
             err instanceof Error && err.message.startsWith('submission_stale:')
+          // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
+          const fail = (): void => {
+            sawTerminal = true
+            boundaryFailed = true
+            settleOpenToolRuns(
+              turn,
+              this.settleEmit,
+              'failed',
+              turn.dbSessionId ? this.deps.backgroundTasks.getState?.(turn.dbSessionId) : undefined
+            )
+            // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
+            log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })
+            forward.forward(turn.owner, {
+              type: 'error',
+              ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
+              error
+            })
+            terminalForwarded = true
+            closeAfterFailure()
+          }
+          // 입력을 보내는 턴은 같은 예약을 다시 보낼 수 있을 때만 재시도한다 — 예약이 되돌려졌거나
+          // 다른 경로로 넘어갔으면 다음 spawn 이 `submission_stale` 로 원인을 가린다. 검사는 상태를
+          // 바꾸지 않고(backoff 중 Stop 은 AS-IS 그대로), 재개방은 backoff 뒤 재전송 직전에 한다.
           if (
             error.retryable &&
             !staleSubmission &&
             eventsReceived === 0 &&
             attempt < MAX_RETRIES &&
-            !turn.controller.signal.aborted
+            !turn.controller.signal.aborted &&
+            (!policy.pushesInput || request.canReopenInitialSubmission?.() !== false)
           ) {
+            log.warn('chat.turn.retrying', {
+              ...turnMeta(),
+              attempt: attempt + 1,
+              maxRetries: MAX_RETRIES,
+              category: error.category,
+              message: error.message
+            })
             forward.forward(turn.owner, {
               type: 'turn.retrying',
               ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -603,26 +634,13 @@ export class TurnCoordinator<W = unknown> {
               closeAfterFailure()
               return
             }
+            if (policy.pushesInput && request.reopenInitialSubmission?.() === false) {
+              fail()
+              return
+            }
             continue
           }
-          // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
-          sawTerminal = true
-          boundaryFailed = true
-          settleOpenToolRuns(
-            turn,
-            this.settleEmit,
-            'failed',
-            turn.dbSessionId ? this.deps.backgroundTasks.getState?.(turn.dbSessionId) : undefined
-          )
-          // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
-          log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })
-          forward.forward(turn.owner, {
-            type: 'error',
-            ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
-            error
-          })
-          terminalForwarded = true
-          closeAfterFailure()
+          fail()
           return
         }
       }

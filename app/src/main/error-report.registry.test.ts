@@ -177,6 +177,13 @@ const sites = [
     event: 'opencode.channel.abort.failed',
     title: 'engineInternal',
     method: 'reportError'
+  },
+  {
+    id: 'M25',
+    file: 'adapters/claude/native-settings-file.ts',
+    event: 'claude.native-settings.skipped',
+    title: 'configInvalid',
+    method: 'reportError'
   }
 ]
 const root = fileURLToPath(new URL('./', import.meta.url))
@@ -205,7 +212,8 @@ const slots: Record<string, number> = {
   M19: 0,
   M22: 0,
   M23: 0,
-  M24: 0
+  M24: 0,
+  M25: 0
 }
 function matchingCalls(site: (typeof sites)[number], text: string): ReturnType<typeof calls> {
   return calls(sourceTree(text), site.method).filter(

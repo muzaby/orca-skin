@@ -62,3 +62,27 @@ it('creates a private local settings file and refuses malformed settings without
     expect(readFileSync(file, 'utf8')).toBe(original)
   }
 })
+it.each(['', 'null', '﻿ \n'])(
+  'saves the plugin choice over empty settings content %j',
+  async (latest) => {
+    const directory = join(root, '.claude'),
+      file = join(directory, 'settings.local.json')
+    mkdirSync(directory)
+    writeFileSync(file, latest)
+    await persistClaudePluginState(root, 'one@market', true)
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
+      enabledPlugins: { 'one@market': true }
+    })
+  }
+)
+it('refuses to save over broken non-empty settings and keeps their bytes', async () => {
+  const directory = join(root, '.claude'),
+    file = join(directory, 'settings.local.json')
+  mkdirSync(directory)
+  const original = '{"enabledPlugins":{"one@market":true},}'
+  writeFileSync(file, original)
+  await expect(persistClaudePluginState(root, 'two@market', true)).rejects.toThrow(
+    '플러그인 활성 상태를 저장할 수 없습니다.'
+  )
+  expect(readFileSync(file, 'utf8')).toBe(original)
+})

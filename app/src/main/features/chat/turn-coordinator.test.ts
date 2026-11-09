@@ -13,6 +13,7 @@ import { BackgroundTaskTracker } from './background-tasks'
 import { TypedBus } from '../../infra/bus'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
 import { PendingMessageQueue } from './pending-message-queue'
+import { setRootLogger } from '../../infra/log/registry'
 
 type W = string
 
@@ -1651,5 +1652,209 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     expect(forwarded(deps).some((ev) => ev.type === 'tool.call.completed')).toBe(false)
     expect([...turn.openToolRuns.keys()]).toEqual([])
     expect(runtime.sendCount).toBe(0)
+  })
+})
+
+describe('TurnCoordinator.run — retry reopen gate (0301)', () => {
+  const retryable = (err: unknown): ClassifiedError =>
+    ({
+      category: 'stream_error',
+      message: err instanceof Error ? err.message : String(err),
+      retryable: true
+    }) as ClassifiedError
+  type Step = 'throw' | 'event-then-throw' | 'ok'
+  let order: string[]
+  let warn: ReturnType<typeof vi.fn<(event: string, data?: Record<string, unknown>) => void>>
+  beforeEach(() => {
+    vi.useFakeTimers()
+    order = []
+    warn = vi.fn<(event: string, data?: Record<string, unknown>) => void>()
+    const logger = {
+      debug: () => {},
+      info: () => {},
+      warn,
+      error: () => {},
+      child: () => logger
+    }
+    setRootLogger(logger)
+  })
+  afterEach(() => {
+    setRootLogger(null)
+    vi.useRealTimers()
+  })
+  function scripted(
+    steps: Step[],
+    failures: Error[] = []
+  ): CoordinatorRuntime & {
+    sendCount: number
+  } {
+    const runtime = fakeRuntime([[telemetry]])
+    let count = 0
+    const send = (): AsyncIterable<NormalizedEvent> => {
+      const step = steps[count] ?? 'ok'
+      const failure = failures[count] ?? new Error(`failure-${count + 1}`)
+      count += 1
+      order.push('send')
+      return (async function* () {
+        if (step === 'event-then-throw') yield sessionUpdated
+        if (step !== 'ok') throw failure
+        yield telemetry
+      })()
+    }
+    return Object.defineProperties(runtime, {
+      send: { value: send },
+      listen: { value: send },
+      sendCount: { get: () => count }
+    })
+  }
+  function request(
+    can: boolean,
+    reopen: boolean
+  ): TurnRequest & {
+    canReopenInitialSubmission: ReturnType<typeof vi.fn>
+    reopenInitialSubmission: ReturnType<typeof vi.fn>
+  } {
+    return {
+      ...REQUEST,
+      canReopenInitialSubmission: vi.fn(() => {
+        order.push('canReopen')
+        return can
+      }),
+      reopenInitialSubmission: vi.fn(() => {
+        order.push('reopen')
+        return reopen
+      })
+    }
+  }
+  async function run(
+    runtime: CoordinatorRuntime,
+    req: TurnRequest,
+    opts: { kind?: 'listen'; afterRetrying?: (turn: TurnContext<W>) => void } = {}
+  ): Promise<{ events: NormalizedEvent[]; deps: CoordDeps }> {
+    const deps = makeDeps(runtime, { classifyError: vi.fn(retryable) })
+    const turn = makeTurn()
+    vi.mocked(deps.forward.forward).mockImplementation((_owner, ev) => {
+      order.push(ev.type)
+      if (ev.type === 'turn.retrying') opts.afterRetrying?.(turn)
+    })
+    const p = new TurnCoordinator(deps).run(turn, req, {
+      sharedPathProjectId: null,
+      ...(opts.kind ? { kind: opts.kind } : {})
+    })
+    await vi.runAllTimersAsync()
+    await p
+    return {
+      events: vi.mocked(deps.forward.forward).mock.calls.map((call) => call[1] as NormalizedEvent),
+      deps
+    }
+  }
+  const types = (events: NormalizedEvent[]): string[] => events.map((ev) => ev.type)
+  const errorMessage = (events: NormalizedEvent[]): string | undefined =>
+    (events.find((ev) => ev.type === 'error') as { error?: ClassifiedError } | undefined)?.error
+      ?.message
+
+  it('B1 asks before backoff, reopens after backoff, then sends again', async () => {
+    const runtime = scripted(['throw'])
+    const req = request(true, true)
+    const deps = makeDeps(runtime, { classifyError: vi.fn(retryable) })
+    vi.mocked(deps.forward.forward).mockImplementation((_owner, ev) => {
+      order.push(ev.type)
+    })
+    const p = new TurnCoordinator(deps).run(makeTurn(), req, { sharedPathProjectId: null })
+    await vi.advanceTimersByTimeAsync(999)
+    expect(order).toEqual(['send', 'canReopen', 'turn.retrying'])
+    expect(req.reopenInitialSubmission).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    await p
+    expect(order.slice(0, 5)).toEqual(['send', 'canReopen', 'turn.retrying', 'reopen', 'send'])
+    expect(types(vi.mocked(deps.forward.forward).mock.calls.map((c) => c[1]))).not.toContain(
+      'error'
+    )
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith(
+      'chat.turn.retrying',
+      expect.objectContaining({
+        attempt: 1,
+        maxRetries: 2,
+        category: 'stream_error',
+        message: 'failure-1'
+      })
+    )
+  })
+
+  it('B2 does not retry when the reservation can no longer be reopened', async () => {
+    const runtime = scripted(['throw'])
+    const req = request(false, true)
+    const { events } = await run(runtime, req)
+    expect(types(events)).not.toContain('turn.retrying')
+    expect(req.reopenInitialSubmission).not.toHaveBeenCalled()
+    expect(errorMessage(events)).toBe('failure-1')
+    expect(runtime.sendCount).toBe(1)
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('B3 ends with the original error when the reopen after backoff fails', async () => {
+    const runtime = scripted(['throw'])
+    const { events } = await run(runtime, request(true, false))
+    expect(types(events).filter((type) => type === 'turn.retrying')).toHaveLength(1)
+    expect(errorMessage(events)).toBe('failure-1')
+    expect(runtime.sendCount).toBe(1)
+  })
+
+  it.each([
+    ['B4 after an event arrived', ['event-then-throw'] as Step[], [new Error('late')], retryable],
+    [
+      'B5 for a stale submission',
+      ['throw'] as Step[],
+      [new Error('submission_stale:before-spawn')],
+      retryable
+    ],
+    [
+      'B6 for a non-retryable error',
+      ['throw'] as Step[],
+      [new Error('fatal')],
+      (err: unknown) => ({ ...retryable(err), retryable: false })
+    ]
+  ])('does not ask to reopen %s', async (_name, steps, failures, classify) => {
+    const runtime = scripted(steps, failures)
+    const req = request(true, true)
+    const deps = makeDeps(runtime, { classifyError: vi.fn(classify) })
+    const p = new TurnCoordinator(deps).run(makeTurn(), req, { sharedPathProjectId: null })
+    await vi.runAllTimersAsync()
+    await p
+    expect(req.canReopenInitialSubmission).not.toHaveBeenCalled()
+    expect(req.reopenInitialSubmission).not.toHaveBeenCalled()
+    expect(runtime.sendCount).toBe(1)
+  })
+
+  it('B7 does not ask on the last attempt and reports the last original error', async () => {
+    const runtime = scripted(['throw', 'throw', 'throw'])
+    const req = request(true, true)
+    const { events } = await run(runtime, req)
+    expect(req.canReopenInitialSubmission).toHaveBeenCalledTimes(2)
+    expect(req.reopenInitialSubmission).toHaveBeenCalledTimes(2)
+    expect(runtime.sendCount).toBe(3)
+    expect(types(events).filter((type) => type === 'turn.retrying')).toHaveLength(2)
+    expect(errorMessage(events)).toBe('failure-3')
+    expect(warn).toHaveBeenCalledTimes(2)
+  })
+
+  it('B8 a listen turn pushes no input, so it retries without the delegates', async () => {
+    const runtime = scripted(['throw'])
+    const req = request(false, false)
+    const { events } = await run(runtime, req, { kind: 'listen' })
+    expect(req.canReopenInitialSubmission).not.toHaveBeenCalled()
+    expect(req.reopenInitialSubmission).not.toHaveBeenCalled()
+    expect(runtime.sendCount).toBe(2)
+    expect(types(events)).toContain('turn.retrying')
+  })
+
+  it('B10 a Stop during backoff skips the reopen and the second send', async () => {
+    const runtime = scripted(['throw'])
+    const req = request(true, true)
+    await run(runtime, req, { afterRetrying: (turn) => turn.controller.abort() })
+    expect(req.canReopenInitialSubmission).toHaveBeenCalledOnce()
+    expect(req.reopenInitialSubmission).not.toHaveBeenCalled()
+    expect(runtime.sendCount).toBe(1)
   })
 })
