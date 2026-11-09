@@ -60,6 +60,7 @@ import {
   type DiffRequirementDraft,
   type DiffViewOptions,
   type GitSnapshotRequest,
+  type Message,
   type PlanComment
 } from '../reducer/chatReducer'
 import { forgetArtifacts, refreshArtifactList } from './artifactStore'
@@ -462,6 +463,11 @@ function patchSubagentMeta(
 
 // 턴-시작 낙관 커밋(0068) 합류 판정 — 해당 세션의 messages 에 같은 clientId 의 user 버블이
 // 이미 있으면 main 의 queued/committed 이벤트는 표시를 중복 생성하지 않는다.
+// 사용자 버블의 원문 — 낙관 커밋은 text 파트 하나에 보낸 원문을 담는다(첨부·요구 파트는 복원하지 않는다).
+function userBubbleText(message: Message): string {
+  return message.parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n\n')
+}
+
 function hasCommittedClientId(key: string, id: string): boolean {
   const entry = getState().sessions[key]
   if (!entry) return false
@@ -869,16 +875,30 @@ function receive(ev: NormalizedEvent): void {
       // held 취소 동기화. 아직 pending 에 남아있는 항목(=중단 버튼 전량 취소)의 텍스트는
       // composer draft 로 복원한다(0067 확정 5 — 편집 가능). hover 단건 취소는 renderer 가
       // 이미 낙관 제거+복원했으므로 잔존 항목이 없어 자연히 no-op 이 된다.
-      const present = (getState().sessions[key]?.pendingSteer ?? []).filter((item) =>
-        ev.ids.includes(item.id)
+      // 턴을 연 send 의 낙관 버블(clientId = clientRequestId)도 같은 id 로 회수된다 — 시작 단계에서
+      // 보내지 못하고 체인이 끝난 입력·준비 중 Stop·준비 실패·세션 폐기(0301 D-017). main 은 확정된
+      // id 로 이 이벤트를 내지 않으므로 지우는 버블은 미확정 사용자 버블뿐이다.
+      const entry = getState().sessions[key]
+      const present = (entry?.pendingSteer ?? []).filter((item) => ev.ids.includes(item.id))
+      const presentIds = new Set(present.map((item) => item.id))
+      const bubbles = (entry?.session.messages ?? []).filter(
+        (m) =>
+          m.role === 'user' &&
+          m.clientId !== undefined &&
+          ev.ids.includes(m.clientId) &&
+          !presentIds.has(m.clientId)
       )
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
-      if (present.length > 0) {
+      for (const bubble of bubbles) {
+        dispatchTo(key, { type: 'DROP_UNCOMMITTED_USER', clientId: bubble.clientId! })
+      }
+      const texts = [...bubbles.map(userBubbleText), ...present.map((item) => item.text)]
+      if (texts.length > 0) {
         setState({
           draftRestore: {
             key,
             seq: nextComposerDraftSequence(),
-            text: present.map((item) => item.text).join('\n\n')
+            text: texts.join('\n\n')
           }
         })
       }

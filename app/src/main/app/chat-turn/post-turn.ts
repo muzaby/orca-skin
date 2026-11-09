@@ -128,7 +128,8 @@ export async function runTurnWithContinuations(
       const channelBusy = runtime.channelBusy
       const hasBacklog = runtime.hasUnframedBacklog
       // 실패한 턴이 held 로 되돌린 자기 입력(spawn·push 거부 → rollback)은 같은 체인에서 다시
-      // 보내지 않는다 — 원래 오류로 끝내고 사용자가 다시 보낸다(0301 D-006). 그대로 flush 하면
+      // 보내지 않는다 — 원래 오류로 끝내고 체인 종료 시 send.ts 가 입력창으로 돌려준다(0301 D-006·
+      // D-017). 그대로 flush 하면
       // 같은 실패가 backoff 없이 반복된다. 사용자 Stop(예약 유지)은 아래 기존 경로가 판정한다.
       const heldIds = new Set(pendingMessages.pending(sessionId).map((item) => item.id))
       const returnedInput =

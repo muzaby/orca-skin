@@ -24,6 +24,22 @@ function failingLive(message: string): LiveTurn {
   }
 }
 
+function endingLive(...events: NormalizedEvent[]): LiveTurn {
+  return {
+    eventBatches: (async function* (): AsyncGenerator<ProviderMessageBatch> {
+      yield { sequence: 0, events }
+    })(),
+    close: () => {},
+    interrupt: vi.fn(async () => undefined),
+    setPermissionMode: async () => {},
+    setModel: async () => {},
+    stopTask: async () => {},
+    backgroundTask: async () => false
+  }
+}
+
+const promptText = (call: unknown): string => (call as [{ text: string }])[0].text
+
 function setup(): ReturnType<typeof concurrencyFixture> & {
   claims: () => Array<{ messageIds: string[]; attemptId: string; chainId: string }>
   samples: string[]
@@ -164,6 +180,52 @@ describe('turn retry resends the same reserved input (0301 R-02)', () => {
       expect(f.sendMessage).toHaveBeenCalledTimes(1)
       expect(f.pendingMessages.hasSubmitted('s1')).toBe(true)
       expect(f.errors()).toEqual([])
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+  // post-turn 가드 I1(0301 ΔV1 VP-18) — 실패 입력의 자동 재전송 차단은 중단되지 않은 턴에만 걸린다.
+  it('F a send-now interrupt during a synchronous spawn failure still flushes the returned input', async () => {
+    const f = setup()
+    f.sendMessage.mockImplementationOnce(() => {
+      f.active().abortContinuation = 'send-now'
+      f.active().controller.abort()
+      throw new Error('spawn failed')
+    })
+    const running = f.run()
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(f.sendMessage).toHaveBeenCalledTimes(2)
+      expect(promptText(f.sendMessage.mock.calls[1])).toContain('question')
+      f.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'answer' } }, terminal)
+      await vi.runAllTimersAsync()
+      await running
+      expect(f.retries()).toBe(0)
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('H a flush turn that fails synchronously keeps its own input held and stops the chain', async () => {
+    const f = setup()
+    f.sendMessage.mockImplementationOnce(() => {
+      f.queueHeld('later', 'held-1')
+      return endingLive({ type: 'message.delta', sessionId: 's1', delta: { text: 'a' } }, terminal)
+    })
+    f.sendMessage.mockImplementationOnce(() => {
+      throw new Error('flush spawn failed')
+    })
+    const running = f.run()
+    try {
+      await vi.runAllTimersAsync()
+      await running
+      expect(f.sendMessage).toHaveBeenCalledTimes(2)
+      expect(promptText(f.sendMessage.mock.calls[1])).toContain('later')
+      expect(f.pendingMessages.pending('s1').map((item) => item.id)).toEqual(['held-1'])
+      expect(f.errors()).toEqual([String(new Error('flush spawn failed'))])
+      expect(f.retries()).toBe(0)
     } finally {
       f.cleanup()
       await running
