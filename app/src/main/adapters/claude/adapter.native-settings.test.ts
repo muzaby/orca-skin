@@ -10,7 +10,9 @@ import { loadClaudeSdk } from './sdk'
 
 const { query } = vi.hoisted(() => ({
   query: vi.fn(() => ({
-    async *[Symbol.asyncIterator]() {},
+    async *[Symbol.asyncIterator]() {
+      yield* []
+    },
     close: vi.fn(),
     setPermissionMode: vi.fn(),
     interrupt: vi.fn()

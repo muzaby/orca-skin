@@ -60,8 +60,17 @@ export function useNativeMcpCatalog(): {
           try {
             const value = await sessionApi.globalExtensions(backend)
             if (mounted.current && version === versions.current[backend]) accept(backend, value)
-          } catch {
+          } catch (error) {
             if (mounted.current && version === versions.current[backend]) {
+              // Toast only when this harness enters the failed state. Focus and change pushes
+              // re-read the list, and a failure that persists must not toast on every read.
+              if (!failures.current.has(backend))
+                reportError({
+                  event: 'skills.native.load-failed',
+                  scope: 'native-resources',
+                  title: 'loadFailed',
+                  error
+                })
               failures.current.add(backend)
               loaded.current.add(backend)
               setLoading(loaded.current.size < 2)

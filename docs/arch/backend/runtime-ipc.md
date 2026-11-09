@@ -91,7 +91,7 @@ Decision rationale: [ADR-007](../../decisions/007-queued-input-next-turn.md).
 
 ### 1.6 Rate Limit / 재시도
 
-- SDK Rate Limit 은 내부 처리. **턴 재시도는 TurnCoordinator 소유**(`MAX_RETRIES = 2`, backoff `[1s, 2s]`) — 프레임 에러 시 `send()` 재호출(respawn+resume 콜드 패스). 실행 시간 자체로 턴을 중단하지 않는다.
+- SDK Rate Limit 은 내부 처리. **턴 재시도는 TurnCoordinator 소유**(`MAX_RETRIES = 2`, backoff `[1s, 2s]`) — 프레임 에러 시 `send()` 재호출(respawn+resume 콜드 패스). 입력을 보내는 턴은 같은 초기 예약을 다시 보낼 수 있을 때만 재시도한다: backoff 전에 상태를 바꾸지 않고 확인하고(`canReopenInitialSubmission`), backoff 뒤 커밋된 같은 claim을 재개방해(`reopenInitialSubmission` → `PendingMessageQueue.reopenMany`) 다시 spawn한다. 예약이 held로 되돌아갔거나 다른 경로로 넘어가 재개방할 수 없으면 재시도 표시 없이 원래 오류로 끝나며, 그 입력은 같은 체인에서 자동 재전송하지 않는다(`post-turn.ts`). 새 전송의 admission fence(`canCommitMany`)는 `submitting`만 통과한다. spawn admission 거부는 `engine.spawn.started` 기록 전에 판정하고, 재시도마다 `chat.turn.retrying` warn을 남긴다(0301). 실행 시간 자체로 턴을 중단하지 않는다.
 - 사용자에게 보여줄 에러: `error / sdk.crashed` 또는 `error / internal` (recoverable 표기, [provider-runtime.md](./provider-runtime.md) ErrorClassifier).
 
 ---

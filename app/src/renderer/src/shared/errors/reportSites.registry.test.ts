@@ -50,7 +50,10 @@ export const sites: Site[] = [
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
     ordinal: 0,
     line: 51,
-    disposition: 'CONSUMED'
+    disposition: 'TOAST',
+    id: 'T-native-mcp-load',
+    event: 'skills.native.load-failed',
+    title: 'loadFailed'
   },
   {
     file: 'features/skills/hooks/useNativeMcpCatalog.ts',
