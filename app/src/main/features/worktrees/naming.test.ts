@@ -87,6 +87,10 @@ describe('chooseBranchName', () => {
     const input = { repoRoot: '/repo', worktreeId: '12345678-abcd', firstPrompt: '' }
     await expect(chooseBranchName(input)).resolves.toBe('work/12345678abcd')
     expect(listBranchRefs).toHaveBeenCalledExactlyOnceWith('/repo', base, undefined)
-    expect(validateBranchName).toHaveBeenCalledExactlyOnceWith('/repo', 'work/12345678abcd', undefined)
+    expect(validateBranchName).toHaveBeenCalledExactlyOnceWith(
+      '/repo',
+      'work/12345678abcd',
+      undefined
+    )
   })
 })

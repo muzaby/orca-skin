@@ -1,0 +1,31 @@
+CI #1030 attempt 2 — https://github.com/muzaby/orca-skin/actions/runs/42570892530/attempts/2
+2026-11-09T06:12:18.0198231Z  ✓  io  src/main/infra/git/git-launch.win32.test.ts (2 tests) 851ms
+2026-11-09T06:14:45.4620395Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-09T06:14:45.4620783Z 
+2026-11-09T06:14:45.4623235Z  FAIL   io  src/main/infra/test-environment.test.ts > 호스트 격리 배선 (AC11) > 자식 프로세스도 격리된 홈을 받는다
+2026-11-09T06:14:45.4630945Z AssertionError: expected undefined to be 'C:\Users\runneradmin\AppData\Local\Te…' // Object.is equality
+2026-11-09T06:14:45.4631342Z 
+2026-11-09T06:14:45.4631464Z - Expected:
+2026-11-09T06:14:45.4631807Z "C:\\Users\\runneradmin\\AppData\\Local\\Temp\\orca-test-host-OSwMrv\\home"
+2026-11-09T06:14:45.4632142Z 
+2026-11-09T06:14:45.4632284Z + Received:
+2026-11-09T06:14:45.4632519Z undefined
+2026-11-09T06:14:45.4632659Z 
+2026-11-09T06:14:45.4632957Z  ❯ src/main/infra/test-environment.test.ts:84:20
+2026-11-09T06:14:45.4662123Z      82|       'process.stdout.write(require("node:os").homedir())'
+2026-11-09T06:14:45.4662620Z      83|     ])
+2026-11-09T06:14:45.4663142Z      84|     expect(stdout).toBe(homedir())
+2026-11-09T06:14:45.4663848Z        |                    ^
+2026-11-09T06:14:45.4664238Z      85|   })
+2026-11-09T06:14:45.4664497Z      86| })
+2026-11-09T06:14:45.4664847Z 
+2026-11-09T06:14:45.4667511Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-09T06:14:45.4667861Z 
+2026-11-09T06:14:45.4671650Z 
+2026-11-09T06:14:45.4692680Z  Test Files  1 failed | 927 passed | 3 skipped (931)
+2026-11-09T06:14:45.4745568Z       Tests  1 failed | 8628 passed | 1 expected fail | 3 skipped (8633)
+2026-11-09T06:14:45.4746525Z    Start at  06:11:34
+2026-11-09T06:14:45.4755743Z    Duration  190.73s (transform 23.24s, setup 36.80s, import 154.61s, tests 178.38s, environment 140ms)
+2026-11-09T06:14:45.4757854Z 
+2026-11-09T06:14:45.4815561Z 
+2026-11-09T06:14:45.4838298Z ##[error]AssertionError: expected undefined to be 'C:\Users\runneradmin\AppData\Local\Te…' // Object.is equality

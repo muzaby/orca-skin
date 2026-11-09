@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
+import { scaleMs } from './test-time.mjs'
 import {
   FORCED_IO,
   IO_RULES,
@@ -567,4 +568,27 @@ test('외부 라이브러리의 src 프레임을 production 앱 프레임으로 
   )
   assert.deepEqual(frames, [{ fn: 'fixture', file: 'src/example.test.ts' }])
   assert.equal(judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames }).kind, 'violation')
+})
+
+test('io 감시는 promisify(execFile)의 stdout·stderr·child 계약을 보존한다', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+import cp from 'node:child_process'
+import { promisify } from 'node:util'
+import { syncBuiltinESMExports } from 'node:module'
+import assert from 'node:assert/strict'
+import { installIoGitGuard } from ${JSON.stringify(pathToFileURL(join(APP, 'scripts/test-pools.mjs')).href)}
+installIoGitGuard({ childProcess: cp, sync: syncBuiltinESMExports })
+const pending = promisify(cp.execFile)(process.execPath, ['-e', 'process.stdout.write("out"); process.stderr.write("err")'])
+assert.ok(pending.child)
+assert.deepEqual(await pending, { stdout: 'out', stderr: 'err' })
+`
+    ],
+    { encoding: 'utf8', timeout: scaleMs(20_000) }
+  )
+  assert.equal(result.status, 0, result.stderr)
 })

@@ -534,7 +534,7 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 - **r1 / Codex / 유효 V1+ΔV1+ΔV2+ΔV3.** REQUIRED VP-01~04·06~13, REGRESSION VP-05. 이전 verify·인용 파생 이슈는 없다. 독립 검증을 대신하지 않는다.
 - 사용자 승인 D-018을 ΔV1에 반영했다. 기존 케이스 ID를 보존하며 새 검증은 기존 파일에도 추가한다. ΔV2는 D-013과 기존 통합 명령 벡터의 충돌, ΔV3는 순수 모듈·공용 빌더와 소비처 분모의 혼동을 고쳤다. 세 규범 정정은 구현과 별도 설계 커밋이다.
 - 경계 D-014·D-017은 OPEN 그대로다. checkout 재조회·캐시·lint 최적화·러너 설정은 추가하지 않았다.
-- 현재는 **impl/IN_PROGRESS**. 로컬 전체 gate와 Windows CI를 확인 중이며, 아래 SELF_PASS는 해당 직접 oracle·변이에 대한 자기보고다. AC3·AC13·AC18은 아직 합계에서 제외한다.
+- 현재는 **impl/IN_PROGRESS**. 로컬 전체 gate와 Windows CI를 확인 중이며, 아래 SELF_PASS는 해당 직접 oracle·변이에 대한 자기보고다. AC13·AC18은 아직 합계에서 제외한다. AC3은 #1030에서 실제 2케이스 통과했다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
@@ -542,23 +542,23 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-01 | 실제 파일·env·훅 | EP-01 2 + EP-02 1 = 3 | 2/3 SELF_PASS, Windows 1 SELF_BLOCKED | `git-executable.test.ts` 18케이스·`runner.test.ts` 3케이스·`io-git-guard.test.ts:픽스처 git 은 해석된 실행 파일로 뜬다` | cmd/bin·각 MSys 후보·결손·현재 HOME/Path/MSYS, 전달된 file/env 값 비교 | AC3 Windows 실기 |
+| VP-01 | 실제 파일·env·훅 | EP-01 2 + EP-02 1 = 3 | 3/3 SELF_PASS | `git-executable.test.ts` 18케이스·`runner.test.ts` 3케이스·`io-git-guard.test.ts:픽스처 git 은 해석된 실행 파일로 뜬다` | cmd/bin·각 MSys 후보·결손·현재 HOME/Path/MSYS, 전달된 file/env 값 비교 | 없음 |
 | VP-02 | 구성 가드·18소비처·공유/읽기/URL | EP-03~07 = 30 | 구조 30/30; 전체 상태 비교 SELF_BLOCKED | `node evidence/git-spawn-census.mjs <trace> --max-total 840 --max-test-side 380 --max-file …` → 829/377, 파일별 122/68/106/114; 기존 18 io 파일 | 실제 spawn 전수, 이전 1002/538; 직접 구성은 허용 목록만, 가드 위반 0 | AC13 전체 비교 |
 | VP-03 | 격리 설정+단언 | EP-08 3 | 3/3 SELF_PASS | `test-environment.test.ts:XDG 4종은 루트 아래…`·`hermetic-config.test.ts`·`test-host.test.mjs` | 기존 4키+빈 templateDir/fsync none; init 파일 2개·stderr 공백 | 없음 |
 | VP-04 | 목록·선택 검사 | EP-09 1 | 1/1 SELF_PASS | `naming.test.ts` 8케이스 + `git-execution.test.ts:prepares without baseRef in four executions…` | 충돌 0/1/12/9999·dirTaken·형식 거부·목록 실패; 목록1+검사1, 전체4회 | 없음 |
 | VP-05 | 예산·격리·풀 | EP-10 1 | 1/1 SELF_PASS | hostile 테스트 + `check-test-budgets.mjs` + `test-pools.test.mjs`; M-11 red | 실제 commit 대표를 hermetic-config로 교체; 격리 끄면 2건 실패 | 없음 |
 | VP-06 | 런처 R1~R10 | EP-02 1 | 1/1 SELF_PASS | `git-executable.test.ts` 18케이스; S02 27변이 red | win/linux·없음·후보 순서·HOME 4분기·긴 HOME·Path 키·config·동시/실패 재시도 | 없음 |
 | VP-07 | stream·marks | EP-11 2 | 2/2 SELF_PASS | `fast-import-stream.test.ts` B6/B4~B8/B2·B12/B10 4케이스 | UTF8 바이트·NUL/255·인용/개행·삭제·부모·날짜·복수 branch·marks 순서/오류 | 없음 |
-| VP-08 | J1~J9 | EP-03 1 | 1/1 SELF_PASS | `node --test scripts/test-pools.test.mjs` 50케이스; M-03a/M-04a red | 정규화된 src stack·production/빌더·외부 src·명령 옵션·허용 많음/적음/일치 | 없음 |
+| VP-08 | J1~J9 | EP-03 1 | 1/1 SELF_PASS | `node --test scripts/test-pools.test.mjs` 51케이스; M-03a/M-04a red | 정규화된 src stack·production/빌더·외부 src·명령 옵션·허용 많음/적음/일치 | 없음 |
 | VP-09 | runGit·execGit 운반 | EP-01 2 | 2/2 SELF_PASS | `runner.test.ts` 주입 실행부·`io-git-guard.test.ts` 실제 alias; M-01/S01 red | 구별되는 absolute file·호출 시점 env marker·timeout, runner와 픽스처 모두 관측 | 없음 |
 | VP-10 | 가드·소비처·공용 빌더 | EP-03 1 + EP-04 18 + EP-12 2 = 21 | 21/21 SELF_PASS | `temp-repo.test.ts` 5케이스·기존 18파일·`io-git-guard.test.ts` 6케이스; M-02/03b/04b red | 동일 OID/HEAD/refs/status·1/2/3회·append1/2회·stderr·kill-before-rm; child Vitest test/afterAll/allowance red | 없음 |
-| VP-11 | Windows sh·hook | EP-02 1 | 0/1 SELF_BLOCKED | `git-launch.win32.test.ts` 2케이스, Linux skip(사유 명시); Windows CI 대기 | launcher 강제 PATH와 직접 actual file, MSYSTEM/HOME/PLINK/PATH/sh 전체 출력 비교 | AC3 Windows CI |
+| VP-11 | Windows sh·hook | EP-02 1 | 1/1 SELF_PASS | `git-launch.win32.test.ts` #1030 Windows 2케이스 통과, Linux skip(사유 명시) | launcher 강제 PATH와 직접 actual file, MSYSTEM/HOME/PLINK/PATH/sh 전체 출력 비교 | 없음 |
 | VP-12 | 공유7·읽기3·URL1 | EP-05~07 = 11 | 11/11 SELF_PASS | `git-cli.test.ts` 기존 20케이스, M-05~10 전부 red·S05-sharing census red | dirty/브랜치/미추적 파일·origin 추가/변경/삭제·linked worktree 값 | 없음 |
 | VP-13 | 폐쇄망 실제 시간 | 기계 자리 0 | SELF_BLOCKED | 사용자 self-hosted Test 단계 전후 각2회 | 실제 584초 대비 시간은 이 환경에서 관측 불가 | AC18 사람 실기 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-**선택 증거 13(M-01~11, M-03·04는 UT/IT 각각) + 인용 변이 0 + 새 oracle 7(K-) + sweep 100(S-) = 표 120행. 모두 red, SKIP 0, 원복 확인 완료.** 재현 spec은 [impl-r1-mutations.jsonl](evidence/impl-r1-mutations.jsonl), 최종 결과는 [impl-r1-mutations.tsv](evidence/impl-r1-mutations.tsv). 하네스: `python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0300-ci-git-spawn-reduction/evidence/impl-r1-mutations.jsonl --cwd app`. 소거 시 사용하지 않는 import/지역변수 잔여물을 함께 제거했다. 119개 전수 실행 후 naming 경계 수정에 닿은 4개를 재실행하고 새 경계 1개를 추가했다.
+**선택 증거 13(M-01~11, M-03·04는 UT/IT 각각) + 인용 변이 0 + 새 oracle 8(K-) + sweep 100(S-) = 표 121행. 기존120개는 red, CI 수정 후121개 전수를 다시 실행 중이다.** 재현 spec은 [impl-r1-mutations.jsonl](evidence/impl-r1-mutations.jsonl), 최종 결과는 [impl-r1-mutations.tsv](evidence/impl-r1-mutations.tsv). 하네스: `python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0300-ci-git-spawn-reduction/evidence/impl-r1-mutations.jsonl --cwd app`. 소거 시 사용하지 않는 import/지역변수 잔여물을 함께 제거했다. 119개 전수 실행 후 naming 경계 수정에 닿은 4개를 재실행하고 새 경계 1개를 추가했다.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
@@ -692,6 +692,7 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
+- **CI #1030 / 현재 결함 / 선조치:** Windows 재실행은 `test-environment.test.ts:자식 프로세스도 격리된 홈을 받는다` 1건 실패였다. io 감시기의 execFile 래퍼가 Node의 custom promisify symbol을 잃어 stdout 객체가 문자열로 바뀌었다. symbol descriptor를 보존하고 stdout·stderr·child를 실제 Node 자식에서 관측하는 회귀 테스트를 추가했다. 관련 Vitest 20케이스·Node51케이스 통과. [실패와 Windows AC3 증거](evidence/impl-r1-ci1030.txt). 사용자가 병합 후 main에서 계속하라고 지정하여 main으로 전환했다.
 - **현재 결함/선조치:** 일반 브랜치의 reset 제거 변이(S04-B11)가 초회 green이었다. detached 동치 테스트만으로 일반 브랜치의 작업 트리 복원을 관측하지 못했다. 파일 바이트·index·status 직접 단언을 추가해 같은 변이가 red가 됐다. 최종 전수 변이도 red다.
 - **현재 결함/선조치:** 외부 도구의 `/src/` stack을 앱 production으로 오인하면 가드와 census가 느슨해졌다. `/app/src/` 프레임으로 한정하고 가드 UT 및 별도 trace→census Node 통합 oracle을 추가했다. 감시기 scripts 프레임은 집계에서 제외한다. K-census-filter red.
 - **현재 결함/선조치:** 후보 9,999개가 전부 찬 경계에서도 D-013의 목록1+검사1을 지켜야 했다. 선택·검사를 루프 밖에서 합치고 전체 id fallback 검사 단언과 S09-exhausted-validation을 추가했다.
@@ -718,7 +719,7 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 |---|---|---|
 | AC1 | ✅ | R1~R7 UT·runner 전달 |
 | AC2 | ✅ | R8~R10·현재 env/caching UT |
-| AC3 | ⚠ 대기 | Windows 런처 환경·실제 훅 CI |
+| AC3 | ✅ | #1030 재실행에서 Windows 런처 환경·실제 훅 2케이스 통과 |
 | AC4 | ✅ | fixture alias·실제 spawn file/env |
 | AC5 | ✅ | porcelain 동치·stream·1/2/3회 |
 | AC6 | ✅ | append OID·부모·1/2회 |
@@ -735,12 +736,12 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 | AC17 | ✅ | budget·pool·unit guard·fixture 규칙 |
 | AC18 | ⚠ 사람 실기 | 폐쇄망 전후 각2회 |
 
-**검산: ✅15 + ⚠3 + ❌0 = AC18개.** 최종 기계 gate를 확인한 뒤 합계를 갱신한다. AC18은 관측 없이 ✅로 바꾸지 않는다.
+**검산: ✅16 + ⚠2 + ❌0 = AC18개.** 최종 기계 gate를 확인한 뒤 합계를 갱신한다. AC18은 관측 없이 ✅로 바꾸지 않는다.
 
 ## [구현자 기입] Review Signals — 사실만
 
 - r1 구현이며 독립 verify는 아직 없다. 규범 정정3건을 구현 커밋과 분리했다.
-- 변이120개 red, 초회 B11 누락1개를 잠금 추가 후 재실행했다. 실패를 숨기거나 테스트를 삭제하지 않았다.
+- 기존 변이120개 red·CI 수정 후121개 재실행 중, 초회 B11 누락1개를 잠금 추가 후 재실행했다. 실패를 숨기거나 테스트를 삭제하지 않았다.
 - 기존 Linux 전체 기준선은 8,593케이스·22실패·9skip였다. ABI 복구 전 결과는 비교 기준으로 쓰지 않는다.
 - 수정·신규 테스트 소스 31파일(스크립트 3·Vitest/fixture 28)을 개별 판정했다. 실-Git 예산20파일·자식 timeout·추적/정리·호스트 격리·풀 분류·중복 config 규칙 위반0. Node 전체826케이스에서 소스 가드도 통과했다.
 - 최종 Vitest·Windows CI 결과 확인 중. 폐쇄망 시간만 사람 실기로 남는다.

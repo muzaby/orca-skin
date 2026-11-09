@@ -315,6 +315,14 @@ export function installIoGitGuard({ childProcess, proc = process, sync = () => {
       execOptions = previous
     }
   }
+  // Node는 execFile의 custom promisify가 stdout·stderr와 child를 함께 돌려준다.
+  // 감시 래퍼에도 메타데이터를 보존해야 promisify(execFile)의 API가 바뀌지 않는다.
+  for (const key of Object.getOwnPropertySymbols(originalExecFile ?? {}))
+    Object.defineProperty(
+      childProcess.execFile,
+      key,
+      Object.getOwnPropertyDescriptor(originalExecFile, key)
+    )
   const record = (file, args, options) => {
     const limit = Error.stackTraceLimit
     let frames
