@@ -11,8 +11,8 @@
 | 상태 | READY — D-014·D-017 OPEN은 구현 범위 밖(§6) |
 | V mode | `Delta V` — Baseline V1 상속 |
 | 기준 V | 본문 Baseline `V1` (V1 설계 — 검증자 기입) |
-| 이번 V revision | `ΔV2` |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 이번 V revision | `ΔV3` |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 
 # Part I — Product & UX Contract
 
@@ -238,6 +238,23 @@ TO-BE  test → createRepo(spec) → init · fast-import(+marks) · reset --hard
 
 - **출처:** D-013의 이미 합의된 실행 경로와 기존 assertion의 충돌이다. 제품 동작이나 새 정책을 결정하지 않으며 D-018의 기존 케이스 보존도 유지한다.
 - **정합성 확인:** AC15와 통합 케이스는 모두 목록 1회·고른 이름 검사 1회를 요구한다. 전체 호출 예산 4회는 변경하지 않는다.
+
+## 7-D. ΔV3 — 모듈 pair의 강제 자리 분리 (2026-11-09, Codex)
+
+**READY.** V1 VP-07은 순수 스트림·marks 함수가 path인데 EP-04의 분모는 소비 테스트 18파일이었다. 소비처와 모듈 자리를 분리하며 기존 B1~B13 계약은 그대로 둔다.
+
+| 변경 | provenance / requiredness | 유효 §10 자리 / oracle | 유지 항목 |
+|---|---|---|---|
+| VP-07, MD-02 ↔ UT-02 | CHANGED / REQUIRED | EP-11: `fast-import-stream.testfixture.ts`의 `fastImportStream`·`parseMarks` 2자리. `fast-import-stream.test.ts`의 스트림·기본 시각·부모·marks 케이스. | B1~B10 스트림·OID 의미, 적대 증거 not selected |
+| VP-10, AR-02 ↔ IT-02 | CHANGED / REQUIRED | EP-03 1 + EP-04 소비처 18 + EP-12 공용 빌더 2 = 21자리. 기존 소비 테스트와 `temp-repo.test.ts`·`io-git-guard.test.ts`. | M-02, B1~B13, 빌더 밖 직접 구성 금지 |
+
+| §10 추가 자리 | SSOT / 언제 강제 | 자리 검색 명령 | 실패 의미 / 직접 oracle |
+|---|---|---|---|
+| EP-11 (2) | `fastImportStream`·`parseMarks`, 공용 순수 모듈 본문 | `rg -n '^export function (fastImportStream|parseMarks)' app/src/main/infra/git/fast-import-stream.testfixture.ts` → 2 | 스트림·marks 의미가 달라짐. `fast-import-stream.test.ts` |
+| EP-12 (2) | `createRepo`·`appendCommit`, 실행·stdin·marks·시간 상한·추적/정리 배선 | `rg -n '^export async function (createRepo|appendCommit)' app/src/main/infra/git/temp-repo.testfixture.ts` → 2 | 파일·index·HEAD·OID·정리 의미가 달라짐. `temp-repo.test.ts`의 동치·호출 수·일반 브랜치 복원·실패·끊긴 자식 케이스 |
+
+- **정합성 확인:** EP-04 소비처 분모 18은 바꾸지 않는다. 모듈 UT가 소비 테스트 18자리를 닫았다고 세지 않도록 VP-07의 분모를 2로 정정한다.
+- **출처:** §9·§11이 이미 지정한 공용 함수의 자리 누락이다. 새 제품 동작·정책·AC·선택 변이를 추가하지 않는다.
 
 # Part II — Technical Design
 
