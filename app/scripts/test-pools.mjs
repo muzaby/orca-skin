@@ -119,7 +119,15 @@ export function buildProjects({ io, ioSqlite = [], base, exclude, mode }) {
     }
   })
   const forks = (name, include, maxWorkers, groupOrder) => ({
-    test: { ...base, name, include, pool: 'forks', maxWorkers, sequence: { groupOrder } }
+    test: {
+      ...base,
+      name,
+      include,
+      pool: 'forks',
+      maxWorkers,
+      setupFiles: [...base.setupFiles, IO_GUARD_SETUP],
+      sequence: { groupOrder }
+    }
   })
   if (mode === undefined || mode === 'parallel') return [unit(0), forks('io', io, undefined, 0)]
   if (mode === 'serial') return [unit(0), forks('io', io, 1, 1)]
@@ -185,4 +193,168 @@ export function drainGuardViolations(state) {
   if (violations.length === 0) return null
   const more = violations.length > 1 ? ` (외 ${violations.length - 1}건)` : ''
   return new Error(`${violations[0]}${more}`)
+}
+
+export const IO_GUARD = Symbol.for('orca.test.ioGitGuard')
+export const IO_GUARD_SETUP = './scripts/vitest-io-guard.mjs'
+export const FIXTURE_BUILDERS = ['createRepo', 'appendCommit']
+export const IO_GIT_ALLOWED = [
+  {
+    file: 'src/main/infra/git/hermetic-config.test.ts',
+    subcommand: 'init',
+    count: 2,
+    reason: '격리 설정·템플릿 동작'
+  },
+  {
+    file: 'src/main/infra/git/hermetic-config.test.ts',
+    subcommand: 'add',
+    count: 1,
+    reason: '실제 commit 서명·maintenance 검사'
+  },
+  {
+    file: 'src/main/infra/git/hermetic-config.test.ts',
+    subcommand: 'commit',
+    count: 1,
+    reason: 'hostile 대표'
+  },
+  {
+    file: 'src/main/infra/git/temp-repo.test.ts',
+    subcommand: 'add',
+    count: 2,
+    reason: 'porcelain 동치 비교'
+  },
+  {
+    file: 'src/main/infra/git/temp-repo.test.ts',
+    subcommand: 'commit',
+    count: 2,
+    reason: 'porcelain 동치 비교'
+  }
+]
+const BUILD_COMMANDS = new Set(['init', 'add', 'commit', 'fast-import'])
+const isTestFrame = (file) => /\.(?:test|testfixture)\.tsx?$/.test(file)
+
+export function gitSubcommand(args) {
+  let k = 0
+  while (k < args.length) {
+    if (args[k] === '-C' || args[k] === '-c') k += 2
+    else if (args[k] === '--no-optional-locks' || /^--[^=]+=/.test(args[k])) k++
+    else return args[k]
+  }
+  return undefined
+}
+
+/** app 소스만 분류한다. 감시기·테스트 런너 프레임은 production 경로가 아니다. */
+export function gitSpawnFrames(stack) {
+  return String(stack)
+    .split('\n')
+    .flatMap((line) => {
+      const normalized = line.replaceAll('\\', '/')
+      const match = normalized.match(
+        /at (?:async )?(?:(\S+) )?\(?(?:file:\/\/)?[^\n]*?\/app\/(src\/[^:)]+):\d+:\d+\)?$/i
+      )
+      return match ? [{ fn: match[1] ?? '', file: match[2] }] : []
+    })
+}
+
+/** @param {{file: string, args: string[], frames: {file: string, fn?: string}[], allowed?: typeof IO_GIT_ALLOWED}} input */
+export function judgeGitSpawn({ file, args, frames, allowed = IO_GIT_ALLOWED }) {
+  if (!/(^|[\\/])git(?:\.exe)?$/i.test(file)) return { kind: 'ignore' }
+  const tests = frames.filter((frame) => isTestFrame(frame.file))
+  if (
+    frames.some(
+      (frame) => !isTestFrame(frame.file) && frame.file !== 'src/main/infra/git/runner.ts'
+    )
+  )
+    return { kind: 'pass' }
+  if (tests.length === 0) return { kind: 'pass' }
+  if (/^git(?:\.exe)?$/i.test(file))
+    return { kind: 'violation', message: '[test-git] 테스트 git은 실행 파일 경로로 띄운다' }
+  const subcommand = gitSubcommand(args)
+  if (!BUILD_COMMANDS.has(subcommand)) return { kind: 'pass' }
+  if (
+    tests.some(
+      (frame) =>
+        frame.file === 'src/main/infra/git/temp-repo.testfixture.ts' &&
+        FIXTURE_BUILDERS.includes(frame.fn?.split('.').at(-1))
+    )
+  )
+    return { kind: 'pass' }
+  const entry = allowed.find(
+    (item) => item.subcommand === subcommand && tests.some((frame) => frame.file === item.file)
+  )
+  if (entry) return { kind: 'allowed', entry }
+  return {
+    kind: 'violation',
+    message: `[test-git] ${subcommand}는 createRepo·appendCommit 빌더로 구성한다 (${tests[0].file})`
+  }
+}
+
+export function finishGitAllowances(state, file, allowed = IO_GIT_ALLOWED) {
+  for (const entry of allowed.filter((item) => item.file === file)) {
+    const count = state.counts.get(`${entry.file}:${entry.subcommand}`) ?? 0
+    if (count !== entry.count)
+      state.violations.push(
+        `[test-git] ${entry.file} ${entry.subcommand}: ${count} != ${entry.count}`
+      )
+  }
+}
+
+export function installIoGitGuard({ childProcess, proc = process, sync = () => {} }) {
+  if (proc[IO_GUARD]) return proc[IO_GUARD]
+  const state = { violations: [], counts: new Map(), spawns: [] }
+  // execFile은 timeout을 자체 소비하고 spawn에 전달하지 않는다. 동기 진입 구간의 원 옵션을
+  // 보존해, 빌더의 프로세스 상한이 실제 실행 경계에 도달했는지도 관측한다.
+  let execOptions
+  const originalExecFile = childProcess.execFile
+  childProcess.execFile = function (file, args, options, ...rest) {
+    const previous = execOptions
+    execOptions = Array.isArray(args) ? options : args
+    try {
+      return originalExecFile.call(this, file, args, options, ...rest)
+    } finally {
+      execOptions = previous
+    }
+  }
+  const record = (file, args, options) => {
+    const limit = Error.stackTraceLimit
+    let frames
+    try {
+      Error.stackTraceLimit = 200
+      frames = gitSpawnFrames(new Error().stack)
+    } finally {
+      Error.stackTraceLimit = limit
+    }
+    const result = judgeGitSpawn({ file: String(file ?? ''), args, frames })
+    if (result.kind !== 'ignore')
+      state.spawns.push({
+        file,
+        args,
+        frames,
+        kind: result.kind,
+        timeout: options?.timeout ?? execOptions?.timeout
+      })
+    if (result.kind === 'violation') state.violations.push(result.message)
+    if (result.kind === 'allowed') {
+      const key = `${result.entry.file}:${result.entry.subcommand}`
+      state.counts.set(key, (state.counts.get(key) ?? 0) + 1)
+    }
+  }
+  const originalSpawn = childProcess.ChildProcess.prototype.spawn
+  childProcess.ChildProcess.prototype.spawn = function (options) {
+    record(options?.file, options?.args?.slice(1) ?? [], options)
+    return originalSpawn.call(this, options)
+  }
+  for (const name of ['spawnSync', 'execFileSync', 'execSync']) {
+    const original = childProcess[name]
+    childProcess[name] = function (file, args, ...rest) {
+      if (name === 'execSync') {
+        const words = String(file).match(/"[^"]*"|'[^']*'|\S+/g) ?? []
+        record(words[0]?.replace(/^["']|["']$/g, ''), words.slice(1))
+      } else record(file, Array.isArray(args) ? args : [], Array.isArray(args) ? rest[0] : args)
+      return original.call(this, file, args, ...rest)
+    }
+  }
+  proc[IO_GUARD] = state
+  sync()
+  return state
 }

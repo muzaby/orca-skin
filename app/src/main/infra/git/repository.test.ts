@@ -1,9 +1,15 @@
-import { mkdtemp, mkdir, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { execGit as exec, removeTempRoots } from './temp-repo.testfixture'
-import { resolveHead, resolveHeadRef, resolveRepoRoot } from './repository'
+import {
+  createRepo,
+  appendCommit,
+  type TempRepo,
+  execGit as exec,
+  removeTempRoots
+} from './temp-repo.testfixture'
+import { listBranchRefs, resolveHead, resolveHeadRef, resolveRepoRoot } from './repository'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 // **파일 예산 72s** — 최악 케이스(detached HEAD)는 실제 git 을 직렬로 8회 띄운다
@@ -14,15 +20,41 @@ import { scaledBudget } from '../../../../scripts/test-time.mjs'
 vi.setConfig(scaledBudget({ testTimeout: 72_000, hookTimeout: 72_000 }))
 
 const roots: string[] = []
+const fixtures = new Map<string, TempRepo>()
 // 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
 // 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterEach(() => removeTempRoots(roots.splice(0)))
 
 describe('resolveRepoRoot', () => {
+  it('브랜치 목록은 full ref를 한 번에 읽고 실패를 구별한다', async () => {
+    const read = vi.fn(async () => ({
+      ok: true,
+      stdout: 'refs/heads/work/a\nrefs/heads/work/a-2\n',
+      stderr: '',
+      code: null,
+      aborted: false
+    }))
+    const gateway = { read } as unknown as import('./gateway').GitGateway
+    expect(await listBranchRefs('/repo', 'work/a', gateway)).toEqual(
+      new Set(['refs/heads/work/a', 'refs/heads/work/a-2'])
+    )
+    expect(read).toHaveBeenCalledExactlyOnceWith('/repo', [
+      'for-each-ref',
+      '--format=%(refname)',
+      'refs/heads/work/a',
+      'refs/heads/work/a-*'
+    ])
+    read.mockResolvedValueOnce({
+      ok: false,
+      stdout: '',
+      stderr: 'failed',
+      code: null,
+      aborted: false
+    })
+    expect(await listBranchRefs('/repo', 'work/a', gateway)).toBeNull()
+  })
   it('canonicalizes the root returned from a nested repository cwd', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-repository-test-'))
-    roots.push(root)
-    await exec('git', ['init', root])
+    const { root } = await createRepo(roots)
     const nested = join(root, 'packages', 'web')
     await mkdir(nested, { recursive: true })
     expect(await resolveRepoRoot(nested)).toBe(await realpath(root))
@@ -36,17 +68,13 @@ describe('resolveRepoRoot', () => {
 // 가 실패하는 자리이고, detached 는 이름이 **없는** 상태라 sha 로 위장하면 안 된다(D-070·D-071).
 describe('resolveHeadRef (0211 ΔV4 · AT-44 · EP-28 ②)', () => {
   async function repo(): Promise<string> {
-    const root = await mkdtemp(join(tmpdir(), 'orca-headref-test-'))
-    roots.push(root)
-    await exec('git', ['init', '--initial-branch=main', root])
-    return root
+    const fixture = await createRepo(roots)
+    fixtures.set(fixture.root, fixture)
+    return fixture.root
   }
 
   async function commit(root: string, name: string): Promise<string> {
-    await writeFile(join(root, name), `${name}\n`)
-    await exec('git', ['-C', root, 'add', name])
-    await exec('git', ['-C', root, 'commit', '-m', name])
-    return (await exec('git', ['-C', root, 'rev-parse', 'HEAD'])).stdout.trim()
+    return appendCommit(fixtures.get(root)!, { message: name, files: { [name]: `${name}\n` } })
   }
 
   it('브랜치 위에서는 그 브랜치 이름이다', async () => {

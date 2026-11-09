@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { basename } from 'node:path'
-import { branchExists, validateBranchName } from '../../infra/git/repository'
+import { listBranchRefs, validateBranchName } from '../../infra/git/repository'
 import type { GitGateway } from '../../infra/git/gateway'
 
 function slugOf(value: string): string {
@@ -65,14 +65,15 @@ export async function chooseBranchName(input: {
     }
   }
   const base = `work/${slug || input.worktreeId.replace(/-/g, '').slice(0, 8)}`
+  const refs = await listBranchRefs(input.repoRoot, base, input.gateway)
+  const fallback = `work/${input.worktreeId.replace(/-/g, '')}`
+  let selected = fallback
   for (let suffix = 1; suffix < 10_000; suffix += 1) {
     const candidate = suffix === 1 ? base : `${base}-${suffix}`
-    if (
-      (await validateBranchName(input.repoRoot, candidate, input.gateway)) &&
-      !(await branchExists(input.repoRoot, candidate, input.gateway)) &&
-      !(await input.dirTaken?.(candidate))
-    )
-      return candidate
+    if (!refs?.has(`refs/heads/${candidate}`) && !(await input.dirTaken?.(candidate))) {
+      selected = candidate
+      break
+    }
   }
-  return `work/${input.worktreeId.replace(/-/g, '')}`
+  return (await validateBranchName(input.repoRoot, selected, input.gateway)) ? selected : fallback
 }

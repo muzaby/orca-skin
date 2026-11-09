@@ -4,11 +4,11 @@
 // 오염시키지 않는다**는 것을 본다 — 준비가 실패한 뒤 서비스가 내부 상태를 남기면 다음 세션이
 // 같은 이유로 계속 거부된다.
 
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
+import { createRepo, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
 import * as probe from '../../infra/git/probe'
 import { WorktreeService } from './service'
@@ -32,13 +32,7 @@ afterEach(async () => {
 })
 
 async function repo(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'orca-reject-repo-'))
-  roots.push(dir)
-  await exec('git', ['init', dir])
-  await writeFile(join(dir, 'f.txt'), 'x\n')
-  await exec('git', ['-C', dir, 'add', '.'])
-  await exec('git', ['-C', dir, 'commit', '-m', 'init'])
-  return dir
+  return (await createRepo(roots, { commits: [{ message: 'init' }] })).root
 }
 
 async function service(): Promise<{ svc: WorktreeService; rows: unknown[] }> {

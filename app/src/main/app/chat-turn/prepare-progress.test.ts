@@ -11,11 +11,15 @@
 // git operations 만 fake 다. `onProgress` 호출부는 **프로덕션 코드 그대로** 지나므로 이
 // 배열이 AT-01 의 분모(5)를 실제로 센다.
 
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
+import {
+  createRepo,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from '../../infra/git/temp-repo.testfixture'
 import type { WorktreePrepareStep } from '../../../shared/ipc'
 import { runGit } from '../../infra/git/runner'
 import { prepareTurnWorktree } from './prepare-worktree'
@@ -46,13 +50,7 @@ async function git(cwd: string, args: string[]): Promise<void> {
 }
 
 async function makeRepo(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'orca-steps-'))
-  dirs.push(dir)
-  await git(dir, ['init', '--initial-branch=main'])
-  await writeFile(join(dir, 'a.ts'), 'x\n')
-  await git(dir, ['add', '.'])
-  await git(dir, ['commit', '-m', 'base'])
-  return dir
+  return (await createRepo(dirs, { commits: [{ message: 'base', files: { 'a.ts': 'x\n' } }] })).root
 }
 
 // DB 는 insert 만 쓴다 — 이 pair 는 단계 발신을 보지 영속을 보지 않는다.

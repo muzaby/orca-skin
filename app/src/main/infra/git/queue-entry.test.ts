@@ -5,11 +5,11 @@
 // 채 각 API 를 부르고 **git 부작용이 아직 일어나지 않았음**을 본다. 시간이 아니라 상태를
 // 관측하므로 느린 러너에서도 판정이 뒤집히지 않는다.
 
-import { access, mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { access } from 'node:fs/promises'
+
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { execGit as exec, removeTempRoots } from './temp-repo.testfixture'
+import { createRepo, execGit as exec, removeTempRoots } from './temp-repo.testfixture'
 import { withRepoMutation } from './mutation-queue'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from './worktree'
 import { gitCheckout } from './git-cli'
@@ -28,14 +28,10 @@ const roots: string[] = []
 afterEach(() => removeTempRoots(roots.splice(0)))
 
 async function repository(): Promise<{ repo: string; head: string }> {
-  const repo = await mkdtemp(join(tmpdir(), 'orca-queue-entry-'))
-  roots.push(repo)
-  await exec('git', ['init', repo])
-  await writeFile(join(repo, 'f.txt'), 'x\n')
-  await exec('git', ['-C', repo, 'add', '.'])
-  await exec('git', ['-C', repo, 'commit', '-m', 'init'])
-  const { stdout } = await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])
-  return { repo, head: stdout.trim() }
+  const { root, oids } = await createRepo(roots, {
+    commits: [{ message: 'init' }]
+  })
+  return { repo: root, head: oids[0] }
 }
 
 const exists = (path: string): Promise<boolean> =>

@@ -12,6 +12,13 @@ import {
   IO_RULES,
   TEST_INCLUDE,
   UNIT_GUARD_SETUP,
+  IO_GUARD_SETUP,
+  IO_GIT_ALLOWED,
+  judgeGitSpawn,
+  gitSpawnFrames,
+  gitSubcommand,
+  finishGitAllowances,
+  installIoGitGuard,
   IO_MODES,
   buildProjects,
   classifyTestSource,
@@ -103,7 +110,7 @@ describe('buildProjects — 환경별 필드', () => {
     assert.equal(unit.pool, 'threads')
     assert.equal(io.pool, 'forks')
     assert.deepEqual(unit.setupFiles, ['./scripts/vitest-setup.mjs', UNIT_GUARD_SETUP])
-    assert.deepEqual(io.setupFiles, ['./scripts/vitest-setup.mjs'])
+    assert.deepEqual(io.setupFiles, ['./scripts/vitest-setup.mjs', IO_GUARD_SETUP])
   })
   test('unit 은 전체에서 io 를 빼고, io 는 io 목록만', () => {
     const { unit, io } = byName(make('linux', undefined))
@@ -436,4 +443,128 @@ describe('저장소별 git 신원·줄바꿈 설정 (0298 — 격리 전역 설�
       )
     assert.deepEqual(offenders, [])
   })
+})
+
+describe('io git guard — J1~J9', () => {
+  const testFile = 'src/main/infra/git/example.test.ts'
+  const fixture = 'src/main/infra/git/temp-repo.testfixture.ts'
+  const frames = [
+    { file: fixture, fn: 'execGit' },
+    { file: testFile, fn: 'test' }
+  ]
+  const judge = (patch = {}) =>
+    judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames, ...patch })
+  test('git 식별·production·비동기로 끊긴 경로·일반 명령', () => {
+    assert.equal(judge({ file: 'node' }).kind, 'ignore')
+    assert.equal(
+      judge({ frames: [...frames, { file: 'src/main/infra/git/git-cli.ts', fn: 'resolveDirty' }] })
+        .kind,
+      'pass'
+    )
+    assert.equal(
+      judge({ frames: [{ file: 'src/main/infra/git/runner.ts', fn: 'runGit' }] }).kind,
+      'pass'
+    )
+    for (const args of [['status'], ['remote', 'add'], ['worktree', 'add']])
+      assert.equal(judge({ args }).kind, 'pass')
+    assert.equal(
+      judge({ frames: [...frames, { file: 'src/main/infra/git/runner.ts', fn: 'runGit' }] }).kind,
+      'violation'
+    )
+  })
+  test('빌더 예외는 두 함수·정본 파일만, 허용 목록은 계수', () => {
+    for (const fn of ['createRepo', 'appendCommit']) {
+      assert.equal(judge({ frames: [...frames, { file: fixture, fn }] }).kind, 'pass')
+      assert.equal(judge({ frames: [...frames, { file: testFile, fn }] }).kind, 'violation')
+    }
+    for (const entry of IO_GIT_ALLOWED) {
+      const result = judge({ args: [entry.subcommand], frames: [{ file: entry.file }] })
+      assert.equal(result.kind, 'allowed')
+      assert.equal(result.entry, entry)
+    }
+    const allowed = [{ file: testFile, subcommand: 'init', count: 2, reason: 'test' }]
+    for (const count of [0, 1, 2, 3]) {
+      const state = { violations: [], counts: new Map([[`${testFile}:init`, count]]) }
+      finishGitAllowances(state, testFile, allowed)
+      assert.equal(state.violations.length, count === 2 ? 0 : 1)
+    }
+  })
+  test('이름 실행은 빌더·허용 목록에서도 red', () => {
+    for (const file of ['git', 'git.exe', 'GIT.EXE']) {
+      assert.equal(judge({ file, args: ['status'] }).kind, 'violation')
+      assert.equal(
+        judge({ file, frames: [...frames, { file: fixture, fn: 'createRepo' }] }).kind,
+        'violation'
+      )
+    }
+  })
+  test('앞 옵션을 건너뛰고 app 스택을 정규화한다', () => {
+    for (const args of [
+      ['-C', 'dir', 'commit'],
+      ['-c', 'k=v', 'commit'],
+      ['--no-optional-locks', 'commit'],
+      ['--git-dir=x', 'commit'],
+      ['-C', 'dir', '-c', 'x=y', '--no-optional-locks', '--work-tree=x', 'commit']
+    ]) {
+      assert.equal(gitSubcommand(args), 'commit')
+      assert.equal(judge({ args }).kind, 'violation')
+    }
+    assert.equal(gitSubcommand([]), undefined)
+    assert.deepEqual(
+      gitSpawnFrames(
+        'Error\n    at async createRepo (C:\\repo\\app\\src\\main\\infra\\git\\temp-repo.testfixture.ts:88:4)\n    at test (file:///repo/app/src/main/test.test.ts:1:2)\n    at record (/repo/app/scripts/test-pools.mjs:10:2)'
+      ),
+      [
+        { file: fixture, fn: 'createRepo' },
+        { file: 'src/main/test.test.ts', fn: 'test' }
+      ]
+    )
+  })
+})
+
+test('io 감시는 async spawn·sync 3형태를 보존하고 builtin을 한 번 동기화한다', () => {
+  const calls = []
+  const original = function (...args) {
+    calls.push({ receiver: this, args })
+    return 'original'
+  }
+  const childProcess = {
+    ChildProcess: function () {
+      this.testChild = true
+    },
+    spawnSync: original,
+    execFileSync: original,
+    execSync: original
+  }
+  childProcess.ChildProcess.prototype.spawn = original
+  const proc = {}
+  let synced = 0
+  const input = { childProcess, proc, sync: () => synced++ }
+  const state = installIoGitGuard(input)
+  assert.equal(installIoGitGuard(input), state)
+  assert.equal(synced, 1)
+  const child = new childProcess.ChildProcess()
+  const options = { file: '/usr/bin/git', args: ['git', '-C', 'repo', 'status'] }
+  assert.equal(child.spawn(options), 'original')
+  for (const name of ['spawnSync', 'execFileSync'])
+    assert.equal(childProcess[name]('/usr/bin/git', ['status']), 'original')
+  assert.equal(childProcess.execSync('"/usr/bin/git" status'), 'original')
+  assert.equal(calls.length, 4)
+  assert.equal(calls[0].receiver, child)
+  assert.equal(calls[0].args[0], options)
+  assert.deepEqual(
+    state.spawns.map(({ file, args }) => ({ file, args })),
+    [
+      { file: '/usr/bin/git', args: ['-C', 'repo', 'status'] },
+      ...Array.from({ length: 3 }, () => ({ file: '/usr/bin/git', args: ['status'] }))
+    ]
+  )
+})
+
+test('외부 라이브러리의 src 프레임을 production 앱 프레임으로 세지 않는다', () => {
+  const frames = gitSpawnFrames(
+    'Error\n    at wrapper (/repo/app/node_modules/tool/src/helper.ts:1:2)\n    at fixture (/repo/app/src/example.test.ts:3:4)'
+  )
+  assert.deepEqual(frames, [{ fn: 'fixture', file: 'src/example.test.ts' }])
+  assert.equal(judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames }).kind, 'violation')
 })

@@ -1,0 +1,165 @@
+EP-01 :: rg -n gitExecutable\(|gitCommand\( app/src/main
+app/src/main/infra/io-git-guard.test.ts:34:  const command = (await gitCommand())!
+app/src/main/infra/git/git-launch.win32.test.ts:49:    expect((await gitCommand())?.file).not.toBe(launcher)
+app/src/main/infra/git/temp-repo.testfixture.ts:65:    const command = await gitCommand()
+app/src/main/infra/git/git-executable.ts:122:export function gitCommand(): Promise<GitCommand | null> {
+app/src/main/infra/git/git-executable.ts:133:export async function gitExecutable(): Promise<string | null> {
+app/src/main/infra/git/git-executable.ts:134:  return (await gitCommand())?.file ?? null
+app/src/main/infra/git/git-executable.test.ts:122:      const first = gitCommand()
+app/src/main/infra/git/git-executable.test.ts:123:      expect(gitCommand()).toBe(first)
+app/src/main/infra/git/git-executable.test.ts:126:      const found = await gitCommand()
+app/src/main/infra/git/git-executable.test.ts:128:      expect(await gitCommand()).toBe(found)
+exit=0
+
+EP-01 execFile :: rg -n execFile\( app/src/main/infra/git --glob !*.test.ts
+app/src/main/infra/git/temp-repo.testfixture.ts:10:// ① **테스트가 띄운 자식은 죽인다.** 픽스처 준비용 `execFile('git', …)` 에는 timeout 이 없어
+app/src/main/infra/git/temp-repo.testfixture.ts:71:    const child = execFile(file, [...args], options, (error, stdout, stderr) => {
+exit=0
+
+EP-02 :: rg -n resolveGitCommand app/src/main
+app/src/main/infra/git/git-safety.test.ts:6:import { resolveGitCommand, resolveGitExecutable } from './git-executable'
+app/src/main/infra/git/git-safety.test.ts:51:      resolveExecutable: () => resolveGitCommand({ env }),
+app/src/main/infra/git/git-executable.ts:50:export async function resolveGitCommand(options: CommandOptions = {}): Promise<GitCommand | null> {
+app/src/main/infra/git/git-executable.ts:123:  return (command ??= resolveGitCommand()
+app/src/main/infra/git/git-executable.test.ts:2:import { resolveGitCommand, resolveGitExecutable } from './git-executable'
+app/src/main/infra/git/git-executable.test.ts:31:describe('resolveGitCommand — EP-02', () => {
+app/src/main/infra/git/git-executable.test.ts:38:      const command = await resolveGitCommand({ platform, env, isFile })
+app/src/main/infra/git/git-executable.test.ts:60:      const { resolveGitCommand } = await import('./git-executable')
+app/src/main/infra/git/git-executable.test.ts:62:      const command = (await resolveGitCommand({
+app/src/main/infra/git/git-executable.test.ts:86:        (await resolveGitCommand({ platform: 'win32', env: { Path: `${top}\\cmd` } }))?.file
+app/src/main/infra/git/git-executable.test.ts:139:    extra: Parameters<typeof resolveGitCommand>[0] = {},
+app/src/main/infra/git/git-executable.test.ts:141:  ): ReturnType<typeof resolveGitCommand> =>
+app/src/main/infra/git/git-executable.test.ts:142:    resolveGitCommand({
+app/src/main/app/git-execution.test.ts:9:import { resolveGitCommand } from '../infra/git/git-executable'
+app/src/main/app/git-execution.test.ts:145:            resolveGitCommand({ env: available ? process.env : { PATH: '' } })
+exit=0
+
+EP-03 :: rg -n judgeGitSpawn|IO_GIT_ALLOWED app/scripts
+app/scripts/test-pools.test.mjs:16:  IO_GIT_ALLOWED,
+app/scripts/test-pools.test.mjs:17:  judgeGitSpawn,
+app/scripts/test-pools.test.mjs:456:    judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames, ...patch })
+app/scripts/test-pools.test.mjs:480:    for (const entry of IO_GIT_ALLOWED) {
+app/scripts/test-pools.test.mjs:569:  assert.equal(judgeGitSpawn({ file: '/usr/bin/git', args: ['init'], frames }).kind, 'violation')
+app/scripts/test-pools.mjs:201:export const IO_GIT_ALLOWED = [
+app/scripts/test-pools.mjs:259:/** @param {{file: string, args: string[], frames: {file: string, fn?: string}[], allowed?: typeof IO_GIT_ALLOWED}} input */
+app/scripts/test-pools.mjs:260:export function judgeGitSpawn({ file, args, frames, allowed = IO_GIT_ALLOWED }) {
+app/scripts/test-pools.mjs:292:export function finishGitAllowances(state, file, allowed = IO_GIT_ALLOWED) {
+app/scripts/test-pools.mjs:327:    const result = judgeGitSpawn({ file: String(file ?? ''), args, frames })
+app/scripts/test-pools.d.mts:51:export declare const IO_GIT_ALLOWED: GitAllowance[]
+app/scripts/test-pools.d.mts:65:export declare function judgeGitSpawn(
+exit=0
+
+EP-04 :: node docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs /tmp/orca-0300/final-census/trace
+file	total	test-side	build	production
+src/main/infra/git/git-cli.test.ts	122	55	26	67
+src/main/features/worktrees/service.test.ts	114	49	26	65
+src/main/infra/git/git-diff.test.ts	106	48	32	58
+src/main/infra/git/git-consistency.test.ts	68	25	16	43
+src/main/infra/git/git-snapshot.test.ts	65	13	8	52
+src/main/features/worktrees/safe-delete.test.ts	55	15	13	40
+src/main/app/git-execution.test.ts	48	12	6	36
+src/main/infra/git/git-diff-commit.test.ts	42	23	11	19
+src/main/infra/git/temp-repo.test.ts	29	29	15	0
+src/main/infra/git/queue-entry.test.ts	26	15	8	11
+src/main/infra/git/repository.test.ts	24	10	6	14
+src/main/infra/git/git-safety.test.ts	21	13	3	8
+src/main/app/legacy-paths.test.ts	20	18	6	2
+src/main/app/chat-turn/prepare-progress.test.ts	16	8	4	8
+src/main/infra/git/probe.test.ts	16	6	4	10
+src/main/infra/io-git-guard.test.ts	15	9	5	6
+src/main/features/worktrees/reject-reasons.test.ts	12	4	4	8
+src/main/infra/git/hermetic-config.test.ts	11	11	4	0
+src/main/infra/test-environment.hostile.test.ts	11	11	4	0
+src/main/features/worktrees/ipc-integration.test.ts	8	3	2	5
+SUM	829	377	203	452
+exit=0
+
+EP-05 :: rg -n injections|reason:.*dirty app/src/main/infra/git/git-cli.test.ts
+158:  it('작업 트리를 한 바이트도 바꾸지 않고 reason:dirty 를 돌려준다', async () => {
+163:    expect(result).toMatchObject({ ok: false, reason: 'dirty', from: 'main' })
+205:  const injections = ['-f', '--', 'a..b', 'x.lock', '--upload-pack=touch /tmp/pwn', '']
+207:  for (const branch of injections) {
+exit=0
+
+EP-06 :: rg -n porcelain\(|--abbrev-ref|porcelain.*-b app/src/main/infra/git/git-cli.test.ts
+56:function porcelain(cwd: string): Promise<string> {
+57:  return git(cwd, 'status', '--porcelain', '-b')
+68:    return { repo: root, before: await porcelain(root) }
+153:    expect((await git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')).trim()).toBe('feature')
+166:    expect(await porcelain(repo)).toBe(before)
+194:      const status = await porcelain(repo)
+216:      expect(await porcelain(repo)).toBe(before)
+254:      expect((await git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')).trim()).toBe('main')
+exit=0
+
+EP-07 :: rg -n set-url app/src/main/infra/git/git-cli.test.ts
+92:      'set-url',
+exit=0
+
+EP-08 :: rg -n HERMETIC_GIT_CONFIG app/scripts app/src
+app/scripts/vitest-setup.mjs:4://    바꾸고 하네스·git 변수를 지운다. 전역 git 설정은 고정 내용(`HERMETIC_GIT_CONFIG`, 0298)이다. 자식 프로세스는 process.env 를 상속하므로 함께 격리된다.
+app/scripts/vitest-setup.mjs:13:import { HERMETIC_GIT_CONFIG, hermeticDirectories, hermeticTestEnv } from './test-host.mjs'
+app/scripts/vitest-setup.mjs:26:writeFileSync(set.GIT_CONFIG_GLOBAL, HERMETIC_GIT_CONFIG)
+app/scripts/test-host.test.mjs:97:    const { HERMETIC_GIT_CONFIG, HERMETIC_GIT_IDENTITY } = await import('./test-host.mjs')
+app/scripts/test-host.test.mjs:100:      HERMETIC_GIT_CONFIG,
+app/scripts/test-host.mjs:55:export const HERMETIC_GIT_CONFIG = [
+app/scripts/test-host.d.mts:4:export declare const HERMETIC_GIT_CONFIG: string
+app/src/main/infra/test-environment.test.ts:15:import { HERMETIC_GIT_CONFIG } from '../../../scripts/test-host.mjs'
+app/src/main/infra/test-environment.test.ts:65:    expect(readFileSync(process.env.GIT_CONFIG_GLOBAL!, 'utf8')).toBe(HERMETIC_GIT_CONFIG)
+app/src/main/infra/git/hermetic-config.test.ts:3:// 설정 내용의 정본은 `scripts/test-host.mjs` 의 `HERMETIC_GIT_CONFIG`, 기록은 `vitest-setup.mjs`.
+exit=0
+
+EP-09 :: rg -n validateBranchName|branchExists|listBranchRefs app/src/main --glob !*.test.ts
+app/src/main/infra/git/repository.ts:46:export async function validateBranchName(
+app/src/main/infra/git/repository.ts:53:export async function branchExists(
+app/src/main/infra/git/repository.ts:62:export async function listBranchRefs(
+app/src/main/features/worktrees/naming.ts:3:import { listBranchRefs, validateBranchName } from '../../infra/git/repository'
+app/src/main/features/worktrees/naming.ts:68:  const refs = await listBranchRefs(input.repoRoot, base, input.gateway)
+app/src/main/features/worktrees/naming.ts:78:  return (await validateBranchName(input.repoRoot, selected, input.gateway)) ? selected : fallback
+exit=0
+
+EP-10 :: rg -n REPRESENTATIVES -A12 app/src/main/infra/test-environment.hostile.test.ts
+19:const REPRESENTATIVES = [
+20-  'src/main/adapters/claude/adapter.context-policy.test.ts', // ANTHROPIC_MODEL · CLAUDE_CODE_DISABLE_1M_CONTEXT
+21-  'src/main/adapters/claude/workspace-guard.test.ts', // CLAUDE_CONFIG_DIR
+22-  'src/main/app/handlers/engine.import.test.ts', // CLAUDE_CONFIG_DIR
+23-  'src/main/app/bootstrap.opencode-warmup.test.ts', // 전역 opencode mcp(enabled) · OPENCODE_CONFIG_DIR · 홈 쓰기
+24-  'src/main/app/chat-turn/opencode-runtime.test.ts', // 전역 opencode mcp(disabled)
+25-  'src/main/app/managed-mcp-lifecycle.test.ts', // OPENCODE_CONFIG
+26-  'src/main/app/bootstrap.native-history.test.ts', // OPENCODE_DISABLE_PROJECT_CONFIG
+27-  'src/main/infra/git/hermetic-config.test.ts', // ~/.gitconfig · GIT_CONFIG_SYSTEM · GIT_CONFIG_COUNT 서명 강제
+28-  'src/main/features/plugins/confluence/connector.test.ts' // 실제 홈 쓰기
+29-]
+30-
+31-const root = mkdtempSync(join(tmpdir(), 'orca-hostile-host-'))
+--
+113:        ...REPRESENTATIVES,
+114-        '--reporter=dot'
+115-      ],
+116-      { cwd: APP, env, maxBuffer: 64 * 1024 * 1024 },
+117-      (error, stdout, stderr) =>
+118-        resolve({
+119-          code: error ? ((error as { code?: number }).code ?? 1) : 0,
+120-          output: `${stdout}\n${stderr}`
+121-        })
+122-    )
+123-  })
+124-  // 바깥 실행이 색을 켜 두면 자식 출력에 ANSI 코드가 섞인다.
+125-  const output = result.output.replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g'), '')
+--
+127:  expect(output).toMatch(new RegExp(`Test Files\\s+${REPRESENTATIVES.length} passed`))
+128-  expect(tree(home)).toEqual(before)
+129-})
+exit=0
+
+EP-11 :: rg -n ^export function (fastImportStream|parseMarks) app/src/main/infra/git/fast-import-stream.testfixture.ts
+30:export function fastImportStream(spec: RepoSpec, parent?: string, now = Date.now()): Buffer {
+67:export function parseMarks(text: string): string[] {
+exit=0
+
+EP-12 :: rg -n ^export async function (createRepo|appendCommit) app/src/main/infra/git/temp-repo.testfixture.ts
+90:export async function createRepo(
+119:export async function appendCommit(
+exit=0
+
+差集合: EP-01 calls runner + fixture (compatibility export gitExecutable delegates only); EP-02 module definition one; EP-03 judge one; EP-04 original 18 files all migrated; EP-05 7 cases; EP-06 3 case positions; EP-07 1; EP-08 config + 2 existing assertions; EP-09 one consumer naming; EP-10 1; EP-11 2; EP-12 2. Missing 0, extra contract position 0. New test and declaration occurrences are direct oracles, not new production positions. Unique total 42.

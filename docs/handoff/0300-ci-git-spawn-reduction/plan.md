@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-09 |
 | 매핑 | 비기능(테스트 인프라 + production git 실행 경로) — Claude 설계·구현 |
-| 상태 | READY — D-014·D-017 OPEN은 구현 범위 밖(§6) |
+| 상태 | impl/IN_PROGRESS — D-014·D-017 OPEN은 구현 범위 밖(§6) |
 | V mode | `Delta V` — Baseline V1 상속 |
 | 기준 V | 본문 Baseline `V1` (V1 설계 — 검증자 기입) |
 | 이번 V revision | `ΔV3` |
@@ -531,25 +531,219 @@ node ../docs/handoff/0300-ci-git-spawn-reduction/evidence/git-spawn-census.mjs $
 
 ## [구현자 기입] 설계 리뷰
 
+- **r1 / Codex / 유효 V1+ΔV1+ΔV2+ΔV3.** REQUIRED VP-01~04·06~13, REGRESSION VP-05. 이전 verify·인용 파생 이슈는 없다. 독립 검증을 대신하지 않는다.
+- 사용자 승인 D-018을 ΔV1에 반영했다. 기존 케이스 ID를 보존하며 새 검증은 기존 파일에도 추가한다. ΔV2는 D-013과 기존 통합 명령 벡터의 충돌, ΔV3는 순수 모듈·공용 빌더와 소비처 분모의 혼동을 고쳤다. 세 규범 정정은 구현과 별도 설계 커밋이다.
+- 경계 D-014·D-017은 OPEN 그대로다. checkout 재조회·캐시·lint 최적화·러너 설정은 추가하지 않았다.
+- 현재는 **impl/IN_PROGRESS**. 로컬 전체 gate와 Windows CI를 확인 중이며, 아래 SELF_PASS는 해당 직접 oracle·변이에 대한 자기보고다. AC3·AC13·AC18은 아직 합계에서 제외한다.
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+자리 재검색 결과는 [impl-r1-slots.txt](evidence/impl-r1-slots.txt), 소비처 18파일은 [baseline-census.tsv](evidence/baseline-census.tsv)의 SUM 제외 행과 대조한다. 고유 자리 **42 = 2+1+1+18+7+3+1+3+1+1+2+2**. pair 간 중복은 합산하지 않는다. 유효 ΔV3의 EP-11·12를 적용했다.
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
+| VP-01 | 실제 파일·env·훅 | EP-01 2 + EP-02 1 = 3 | 2/3 SELF_PASS, Windows 1 SELF_BLOCKED | `git-executable.test.ts` 18케이스·`runner.test.ts` 3케이스·`io-git-guard.test.ts:픽스처 git 은 해석된 실행 파일로 뜬다` | cmd/bin·각 MSys 후보·결손·현재 HOME/Path/MSYS, 전달된 file/env 값 비교 | AC3 Windows 실기 |
+| VP-02 | 구성 가드·18소비처·공유/읽기/URL | EP-03~07 = 30 | 구조 30/30; 전체 상태 비교 SELF_BLOCKED | `node evidence/git-spawn-census.mjs <trace> --max-total 840 --max-test-side 380 --max-file …` → 829/377, 파일별 122/68/106/114; 기존 18 io 파일 | 실제 spawn 전수, 이전 1002/538; 직접 구성은 허용 목록만, 가드 위반 0 | AC13 전체 비교 |
+| VP-03 | 격리 설정+단언 | EP-08 3 | 3/3 SELF_PASS | `test-environment.test.ts:XDG 4종은 루트 아래…`·`hermetic-config.test.ts`·`test-host.test.mjs` | 기존 4키+빈 templateDir/fsync none; init 파일 2개·stderr 공백 | 없음 |
+| VP-04 | 목록·선택 검사 | EP-09 1 | 1/1 SELF_PASS | `naming.test.ts` 8케이스 + `git-execution.test.ts:prepares without baseRef in four executions…` | 충돌 0/1/12/9999·dirTaken·형식 거부·목록 실패; 목록1+검사1, 전체4회 | 없음 |
+| VP-05 | 예산·격리·풀 | EP-10 1 | 1/1 SELF_PASS | hostile 테스트 + `check-test-budgets.mjs` + `test-pools.test.mjs`; M-11 red | 실제 commit 대표를 hermetic-config로 교체; 격리 끄면 2건 실패 | 없음 |
+| VP-06 | 런처 R1~R10 | EP-02 1 | 1/1 SELF_PASS | `git-executable.test.ts` 18케이스; S02 27변이 red | win/linux·없음·후보 순서·HOME 4분기·긴 HOME·Path 키·config·동시/실패 재시도 | 없음 |
+| VP-07 | stream·marks | EP-11 2 | 2/2 SELF_PASS | `fast-import-stream.test.ts` B6/B4~B8/B2·B12/B10 4케이스 | UTF8 바이트·NUL/255·인용/개행·삭제·부모·날짜·복수 branch·marks 순서/오류 | 없음 |
+| VP-08 | J1~J9 | EP-03 1 | 1/1 SELF_PASS | `node --test scripts/test-pools.test.mjs` 50케이스; M-03a/M-04a red | 정규화된 src stack·production/빌더·외부 src·명령 옵션·허용 많음/적음/일치 | 없음 |
+| VP-09 | runGit·execGit 운반 | EP-01 2 | 2/2 SELF_PASS | `runner.test.ts` 주입 실행부·`io-git-guard.test.ts` 실제 alias; M-01/S01 red | 구별되는 absolute file·호출 시점 env marker·timeout, runner와 픽스처 모두 관측 | 없음 |
+| VP-10 | 가드·소비처·공용 빌더 | EP-03 1 + EP-04 18 + EP-12 2 = 21 | 21/21 SELF_PASS | `temp-repo.test.ts` 5케이스·기존 18파일·`io-git-guard.test.ts` 6케이스; M-02/03b/04b red | 동일 OID/HEAD/refs/status·1/2/3회·append1/2회·stderr·kill-before-rm; child Vitest test/afterAll/allowance red | 없음 |
+| VP-11 | Windows sh·hook | EP-02 1 | 0/1 SELF_BLOCKED | `git-launch.win32.test.ts` 2케이스, Linux skip(사유 명시); Windows CI 대기 | launcher 강제 PATH와 직접 actual file, MSYSTEM/HOME/PLINK/PATH/sh 전체 출력 비교 | AC3 Windows CI |
+| VP-12 | 공유7·읽기3·URL1 | EP-05~07 = 11 | 11/11 SELF_PASS | `git-cli.test.ts` 기존 20케이스, M-05~10 전부 red·S05-sharing census red | dirty/브랜치/미추적 파일·origin 추가/변경/삭제·linked worktree 값 | 없음 |
+| VP-13 | 폐쇄망 실제 시간 | 기계 자리 0 | SELF_BLOCKED | 사용자 self-hosted Test 단계 전후 각2회 | 실제 584초 대비 시간은 이 환경에서 관측 불가 | AC18 사람 실기 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+**선택 증거 13(M-01~11, M-03·04는 UT/IT 각각) + 인용 변이 0 + 새 oracle 7(K-) + sweep 100(S-) = 표 120행. 모두 red, SKIP 0, 원복 확인 완료.** 재현 spec은 [impl-r1-mutations.jsonl](evidence/impl-r1-mutations.jsonl), 최종 결과는 [impl-r1-mutations.tsv](evidence/impl-r1-mutations.tsv). 하네스: `python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0300-ci-git-spawn-reduction/evidence/impl-r1-mutations.jsonl --cwd app`. 소거 시 사용하지 않는 import/지역변수 잔여물을 함께 제거했다. 119개 전수 실행 후 naming 경계 수정에 닿은 4개를 재실행하고 새 경계 1개를 추가했다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
+| `M-01` — `src/main/infra/git/temp-repo.testfixture.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 2 failed  /  4 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-02` — `scripts/test-pools.mjs` | §7 등록 변이 | 해당 없음(r1) | vitest 6 failed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-03a` — `scripts/test-pools.mjs` | §7 등록 변이 | 해당 없음(r1) | node --test fail 1 · 빌더 예외는 두 함수·정본 파일만, 허용 목록은 계수; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-03b` — `scripts/test-pools.mjs` | §7 등록 변이 | 해당 없음(r1) | vitest 1 failed  /  5 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-04a` — `scripts/test-pools.mjs` | §7 등록 변이 | 해당 없음(r1) | node --test fail 1 · git 식별·production·비동기로 끊긴 경로·일반 명령; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-04b` — `scripts/test-pools.mjs` | §7 등록 변이 | 해당 없음(r1) | vitest 2 failed  /  18 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-05` — `src/main/infra/git/git-cli.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 6 failed  /  14 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-06` — `src/main/infra/git/git-cli.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 7 failed  /  13 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-07` — `src/main/infra/git/git-cli.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 1 failed  /  19 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-08` — `src/main/infra/git/git-cli.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 10 failed  /  10 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-09` — `src/main/infra/git/git-snapshot.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 1 failed  /  19 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-10` — `src/main/infra/git/git-snapshot.ts` | §7 등록 변이 | 해당 없음(r1) | vitest 1 failed  /  19 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `M-11` — `scripts/vitest-setup.mjs` | §7 등록 변이 | 해당 없음(r1) | vitest 2 failed  /  115 passed (117); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S01-file` — `src/main/infra/git/runner.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  1 passed (3); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S01-env` — `src/main/infra/git/runner.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  2 passed (3); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S01-fixture-env` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  5 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R1` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R2` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  16 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R3` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R4` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 11 failed  /  7 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R5` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R6-order` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 4 failed  /  14 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R7` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 5 failed  /  13 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R8-default` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R8-preserve` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-home` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  16 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-path` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 3 failed  /  15 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-directory` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  16 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-system` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 4 failed  /  14 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-SystemRoot` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-SYSTEMROOT` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-WINDIR` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R9-profile` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 5 failed  /  13 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-home` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-home-drop` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-msys-path` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-usr-path` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-old-path` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-path-key` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-config` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  16 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-old-msys` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R10-reader` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S02-R-cache` — `src/main/infra/git/git-executable.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  17 passed (18); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J1` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · git 식별·production·비동기로 끊긴 경로·일반 명령; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J3` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · git 식별·production·비동기로 끊긴 경로·일반 명령; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J4` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · git 식별·production·비동기로 끊긴 경로·일반 명령; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J6` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 빌더 예외는 두 함수·정본 파일만, 허용 목록은 계수; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J7` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 4 · git 식별·production·비동기로 끊긴 경로·일반 명령; 빌더 예외는 두 함수·정본 파일만, 허용 목록은 계수; 앞 옵션을 건너뛰고 app 스택을 정규화한다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J8` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 이름 실행은 빌더·허용 목록에서도 red; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J9-C` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 앞 옵션을 건너뛰고 app 스택을 정규화한다; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J9-c` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 앞 옵션을 건너뛰고 app 스택을 정규화한다; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J9-no-locks` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 앞 옵션을 건너뛰고 app 스택을 정규화한다; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-J9-equals` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 앞 옵션을 건너뛰고 app 스택을 정규화한다; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-allow-count` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 빌더 예외는 두 함수·정본 파일만, 허용 목록은 계수; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-builder-file` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 빌더 예외는 두 함수·정본 파일만, 허용 목록은 계수; io git guard — J1~J9; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-watch-spawnSync` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · io 감시는 async spawn·sync 3형태를 보존하고 builtin을 한 번 동기화한다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-watch-execFileSync` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · io 감시는 async spawn·sync 3형태를 보존하고 builtin을 한 번 동기화한다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-watch-execSync` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · io 감시는 async spawn·sync 3형태를 보존하고 builtin을 한 번 동기화한다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-watch-async` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · io 감시는 async spawn·sync 3형태를 보존하고 builtin을 한 번 동기화한다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-cap-observer` — `scripts/test-pools.mjs` | 새 oracle 민감도 | 해당 없음(r1) | vitest 2 failed  /  3 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-01` — `src/main/infra/git/git-cli.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 12 failed  /  8 passed (20); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-02` — `src/main/infra/git/git-diff.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 12 failed  /  9 passed  /  11 skipped (32); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-03` — `src/main/infra/git/git-consistency.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 8 failed (8); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-04` — `src/main/features/worktrees/service.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 11 failed  /  1 passed (12); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-05` — `src/main/infra/git/git-snapshot.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 3 failed (3); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-06` — `src/main/features/worktrees/safe-delete.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 6 failed  /  1 passed (7); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-07` — `src/main/infra/git/git-diff-commit.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 3 failed (3); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-08` — `src/main/app/git-execution.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 3 failed (3); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-09` — `src/main/infra/git/queue-entry.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 4 failed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-10` — `src/main/infra/git/repository.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  5 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-11` — `scripts/vitest-setup.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  115 passed (117); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-12` — `src/main/infra/git/git-safety.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  1 passed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-13` — `src/main/app/legacy-paths.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 3 failed  /  3 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-14` — `src/main/app/chat-turn/prepare-progress.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  3 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-15` — `src/main/infra/git/probe.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  1 passed (3); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-16` — `src/main/features/worktrees/reject-reasons.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  3 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-17` — `src/main/features/worktrees/ipc-integration.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-18` — `src/main/infra/git/hermetic-config.test.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B1` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B4-delete` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B4-bytes` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B4-quote` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B5` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B6-date` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B6-now` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B7-swap` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B8` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B10-index` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B12` — `src/main/infra/git/fast-import-stream.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  3 passed (4); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B2` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B3` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B9` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B11` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 초회 green → 일반 브랜치 파일·index 단언 추가 후 red | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B12-reset` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B13-stdin` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 3 failed  /  2 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B13-tracking` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B13-kill` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B13-create-cap` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  3 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B13-append-cap` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S04-B13-error` — `src/main/infra/git/temp-repo.testfixture.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  4 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S05-share` — `src/main/infra/git/git-cli.test.ts` | §10 열거 sweep | 해당 없음(r1) | [census] over: src/main/infra/git/git-cli.test.ts total 146 > 135; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-config-1` — `scripts/test-host.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-config-2` — `scripts/test-host.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-config-3` — `scripts/test-host.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  1 passed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-config-5` — `scripts/test-host.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-config-6` — `scripts/test-host.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-config-7` — `scripts/test-host.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  1 passed (2); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S08-file-writer` — `scripts/vitest-setup.mjs` | §10 열거 sweep | 해당 없음(r1) | vitest 2 failed  /  7 passed (9); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S09-ref` — `src/main/features/worktrees/naming.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 4 failed  /  4 passed (8); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S09-directory` — `src/main/features/worktrees/naming.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  7 passed (8); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S09-validate` — `src/main/features/worktrees/naming.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 6 failed  /  2 passed (8); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S09-format` — `src/main/infra/git/repository.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  5 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S03-app-frames` — `scripts/test-pools.mjs` | §10 열거 sweep | 해당 없음(r1) | node --test fail 1 · 외부 라이브러리의 src 프레임을 production 앱 프레임으로 세지 않는다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-io-record` — `scripts/test-pools.mjs` | 새 oracle 민감도 | 해당 없음(r1) | vitest 4 failed  /  2 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-builder-counter` — `scripts/test-pools.mjs` | 새 oracle 민감도 | 해당 없음(r1) | vitest 3 failed  /  2 passed (5); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-afterEach` — `scripts/vitest-io-guard.mjs` | 새 oracle 민감도 | 해당 없음(r1) | vitest 1 failed  /  5 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-afterAll` — `scripts/vitest-io-guard.mjs` | 새 oracle 민감도 | 해당 없음(r1) | vitest 2 failed  /  4 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-allowance-finalize` — `scripts/vitest-io-guard.mjs` | 새 oracle 민감도 | 해당 없음(r1) | vitest 1 failed  /  5 passed (6); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `K-census-filter` — `../docs/handoff/0300-ci-git-spawn-reduction/evidence/spawn-trace.mjs` | 새 oracle 민감도 | 해당 없음(r1) | node --test fail 1 · git census는 감시기를 빼고 테스트 측·production을 구분하며 초과를 거부한다; 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
+| `S09-exhausted-validation` — `src/main/features/worktrees/naming.ts` | §10 열거 sweep | 해당 없음(r1) | vitest 1 failed  /  7 passed (8); 명령은 spec의 `oracle` | SELF_PASS · red(exit 1) |
 
 ## [구현자 기입] Product/UX 파생 검토
 
+- UI·IPC 오류 형태는 바꾸지 않았다. Git 출력·HEAD·브랜치·dirty 거부·미추적 파일·URL의 다음 조회 반영은 기존 통합 단언과 M-05~10으로 확인했다.
+- 사용자 pre-commit 훅과 sh 환경은 production `gitCheckout(commit-wip)`·`runGit` 경로를 실행하는 Windows 테스트로 확인한다. Linux mock 결과만으로 AC3을 닫지 않는다.
+- 실패한 fast-import는 stderr를 포함해 throw하고, 종료되지 않은 자식은 정리 훅이 먼저 kill한 뒤 임시 루트를 지운다. 새 사용자 대면 문자열이나 빈 화면 상태는 없다.
+- 공유 dirty 픽스처가 오염되면 후속 케이스도 실패할 수 있다. D-009에서 승인한 대가이며 before 상태를 한 번 읽어 후속 실행의 오염을 계속 검출한다.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+- **현재 결함/선조치:** 일반 브랜치의 reset 제거 변이(S04-B11)가 초회 green이었다. detached 동치 테스트만으로 일반 브랜치의 작업 트리 복원을 관측하지 못했다. 파일 바이트·index·status 직접 단언을 추가해 같은 변이가 red가 됐다. 최종 전수 변이도 red다.
+- **현재 결함/선조치:** 외부 도구의 `/src/` stack을 앱 production으로 오인하면 가드와 census가 느슨해졌다. `/app/src/` 프레임으로 한정하고 가드 UT 및 별도 trace→census Node 통합 oracle을 추가했다. 감시기 scripts 프레임은 집계에서 제외한다. K-census-filter red.
+- **현재 결함/선조치:** 후보 9,999개가 전부 찬 경계에서도 D-013의 목록1+검사1을 지켜야 했다. 선택·검사를 루프 밖에서 합치고 전체 id fallback 검사 단언과 S09-exhausted-validation을 추가했다.
+- **환경:** preinstalled better-sqlite3는 Electron ABI140, 실행 Node24는 ABI137이었다. `npm rebuild better-sqlite3` 후 기준선과 구현을 동일 ABI로 실행했다. 기준선 Linux 전체에 C:/ 경로 관련 22실패가 있다. 구현 실패와 ID·서명을 전수 비교해 gate 결과에 기록한다.
+- **환경:** native Node의 fixture constants import는 extensionless TS 런타임 import를 해석하지 못했다. 상수 모듈 적재 시 Git 모듈이 필요 없도록 아래 lazy import로 수정했다. Node test-time 관련 19케이스 통과.
 
 ### 설계 대비 명시적 차이
 
+- `temp-repo.testfixture.ts`에서 Git 실행 해석과 순수 스트림 모듈을 함수 내부 dynamic import한다. 별도 구현·캐시는 만들지 않으며 같은 모듈의 함수와 타입을 쓴다.
+- **만료:** dynamic import는 Node 모듈 캐시이며 자체 TTL 없음. gitCommand의 miss/failure 재시도·현재 env 적용은 그대로다(AC1·2·4, EP-01·02).
+- **공유:** 같은 프로세스의 빌더/execGit이 같은 해석 모듈을 공유한다. 파일별 env 사본은 저장하지 않는다. 동시 첫 호출 캐시 테스트와 실제 fixture env marker로 확인했다(AC2·4).
+- **재진입:** await 후 각 호출의 stdin·marks 경로·running 추적은 독립이다. 소비처의 다중 생성·append와 실패/정리 테스트로 확인했다(AC5·6, EP-12).
+- **다른 무효화 축:** 성공 executable 경로 캐시는 기존대로이며 setup의 HOME/Path 변경은 호출 시점 env에 반영된다. git 미설치·탐색 오류는 캐시를 비워 다음 호출 재탐색한다(AC1·2).
+- Node 스크립트 테스트의 격리 config·io setup 배열 단언은 확장된 필드를 반영했다. Vitest 기존 expect 변경 허용은 EP-05~07 및 ΔV2 한 곳이다. 테스트 삭제·케이스 이름 변경은 없다.
+
 ## [구현자 기입] 구현 보고
 
+- 구현 좌표: **(r1 구현 — 좌표는 INDEX)**. 상태 impl/IN_PROGRESS, Verified-By pending. 문서의 SELF_PASS는 독립 verify 판정이 아니다.
+- `runGit`과 fixture의 실행 파일·env 해석 통합, fast-import 빌더·marks OID·소비처18 이전, io 가드·정확한 허용 횟수, dirty 공유7·읽기3·URL1, 격리 설정2키·hostile 대표, 이름 선택2회까지 구현했다.
+- [호출 집계](evidence/impl-r1-census.tsv): **829 = 테스트 측377 + production452**, build203. 기존 1002/538/344/464 대비 감소. git-cli122≤135, consistency68≤85, diff106≤115, service114≤115. io78파일을 각각 실행했고, 기존 환경 실패 파일은 별도 집합 비교한다. 집계의 Linux 값으로 Windows 호출 수나 실제 러너 시간을 추정해 AC를 닫지 않는다.
+- gate: typecheck 3프로젝트 통과, lint 오류0·기존 경고2. migration/inventory/budget 통과, 전체 Node 826/826 통과. 파일 필터 없는 Vitest·Windows CI 결과는 진행 중이다. Linux 기준선 22실패는 아직 면제 판정하지 않았다.
+
+| AC | 자기보고 | 근거 |
+|---|---|---|
+| AC1 | ✅ | R1~R7 UT·runner 전달 |
+| AC2 | ✅ | R8~R10·현재 env/caching UT |
+| AC3 | ⚠ 대기 | Windows 런처 환경·실제 훅 CI |
+| AC4 | ✅ | fixture alias·실제 spawn file/env |
+| AC5 | ✅ | porcelain 동치·stream·1/2/3회 |
+| AC6 | ✅ | append OID·부모·1/2회 |
+| AC7 | ✅ | J1~9·자동 afterEach/afterAll/allowance 중첩 Vitest |
+| AC8 | ✅ | 이름 git async/sync 위반 |
+| AC9 | ✅ | 공유7·CLI122·M05/06·S05 |
+| AC10 | ✅ | 읽기3·M07/08 |
+| AC11 | ✅ | origin 통합·M09/10 |
+| AC12 | ✅ | 829/377 및 파일4 상한 |
+| AC13 | ⚠ 대기 | 전체 기존 case ID·상태 비교 및 Windows CI |
+| AC14 | ✅ | 고정 설정6키·init파일2·경고0 |
+| AC15 | ✅ | naming8·production prepare4회 |
+| AC16 | ✅ | hostile M11 red |
+| AC17 | ✅ | budget·pool·unit guard·fixture 규칙 |
+| AC18 | ⚠ 사람 실기 | 폐쇄망 전후 각2회 |
+
+**검산: ✅15 + ⚠3 + ❌0 = AC18개.** 최종 기계 gate를 확인한 뒤 합계를 갱신한다. AC18은 관측 없이 ✅로 바꾸지 않는다.
+
 ## [구현자 기입] Review Signals — 사실만
+
+- r1 구현이며 독립 verify는 아직 없다. 규범 정정3건을 구현 커밋과 분리했다.
+- 변이120개 red, 초회 B11 누락1개를 잠금 추가 후 재실행했다. 실패를 숨기거나 테스트를 삭제하지 않았다.
+- 기존 Linux 전체 기준선은 8,593케이스·22실패·9skip였다. ABI 복구 전 결과는 비교 기준으로 쓰지 않는다.
+- 수정·신규 테스트 소스 31파일(스크립트 3·Vitest/fixture 28)을 개별 판정했다. 실-Git 예산20파일·자식 timeout·추적/정리·호스트 격리·풀 분류·중복 config 규칙 위반0. Node 전체826케이스에서 소스 가드도 통과했다.
+- 최종 Vitest·Windows CI 결과 확인 중. 폐쇄망 시간만 사람 실기로 남는다.
 
 ---
 

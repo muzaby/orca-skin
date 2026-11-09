@@ -3,12 +3,18 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createGitGateway } from './gateway'
-import { resolveGitExecutable } from './git-executable'
+import { resolveGitCommand, resolveGitExecutable } from './git-executable'
 import { gitSnapshot } from './git-snapshot'
 import { gitDiffPatch } from './git-diff'
 import { gitCheckout } from './git-cli'
 import { runGit } from './runner'
-import { execGit, FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import {
+  createRepo,
+  appendCommit,
+  execGit,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from './temp-repo.testfixture'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 vi.setConfig(scaledBudget({ testTimeout: 150_000, hookTimeout: 150_000 }))
@@ -42,7 +48,7 @@ describe('Git execution safety', () => {
     const executable = await resolveGitExecutable({ env })
     expect(executable).toBe(realGit)
     const result = await runGit(cwd, [script], {
-      resolveExecutable: () => resolveGitExecutable({ env }),
+      resolveExecutable: () => resolveGitCommand({ env }),
       timeoutMs: FIXTURE_GIT_TIMEOUT_MS
     })
     expect(result.ok).toBe(false)
@@ -51,13 +57,13 @@ describe('Git execution safety', () => {
 
   it('blocks configured external diff/textconv helpers and keeps every read non-locking', async () => {
     const cwd = await root()
-    await git(cwd, 'init', '--initial-branch=main')
-    await writeFile(join(cwd, 'a.txt'), 'before\n')
-    await git(cwd, 'add', '.')
-    await git(cwd, 'commit', '-m', 'base')
-    const baseOid = await git(cwd, 'rev-parse', 'HEAD')
-    await writeFile(join(cwd, 'a.txt'), 'after\n')
-    await git(cwd, 'commit', '-am', 'change')
+    const fixture = await createRepo(
+      roots,
+      { commits: [{ message: 'base', files: { 'a.txt': 'before\n' } }] },
+      cwd
+    )
+    const baseOid = fixture.oids[0]
+    await appendCommit(fixture, { message: 'change', files: { 'a.txt': 'after\n' } })
     const marker = join(cwd, 'marker')
     const helper = join(cwd, 'helper.cjs')
     await writeFile(

@@ -58,3 +58,17 @@ export async function branchExists(
   return (await gateway.read(repoRoot, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]))
     .ok
 }
+
+export async function listBranchRefs(
+  repoRoot: string,
+  base: string,
+  gateway: GitGateway = gitGateway
+): Promise<Set<string> | null> {
+  const result = await gateway.read(repoRoot, [
+    'for-each-ref',
+    '--format=%(refname)',
+    `refs/heads/${base}`,
+    `refs/heads/${base}-*`
+  ])
+  return result.ok ? new Set(result.stdout.trim().split(/\r?\n/).filter(Boolean)) : null
+}

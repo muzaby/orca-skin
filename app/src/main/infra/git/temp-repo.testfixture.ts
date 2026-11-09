@@ -17,7 +17,10 @@
 //    끝나던 자리를 "잠시 기다렸다가 지운다" 로 바꾸는 것이 여기서 하는 일의 전부다.
 
 import { execFile, type ChildProcess, type ExecFileOptions } from 'node:child_process'
-import { rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import type { RepoCommit, RepoSpec } from './fast-import-stream.testfixture'
 import { scaleMs } from '../../../../scripts/test-time.mjs'
 
 /** 아직 끝나지 않은 추적 자식. 케이스가 끊겨도 여기 남아 정리 훅이 찾을 수 있다. */
@@ -50,11 +53,20 @@ export const RM_RETRY = { maxRetries: 10, retryDelay: scaleMs(200) } as const
  * 시그니처를 맞춘 이유가 그것이다: 스위트마다 다른 래퍼를 만들면 새 스위트가 조용히
  * 추적 밖으로 샌다.
  */
-export function execGit(
+export async function execGit(
   file: string,
   args: readonly string[],
-  options: ExecFileOptions = {}
+  options: ExecFileOptions = {},
+  input?: Buffer
 ): Promise<{ stdout: string; stderr: string }> {
+  if (file === 'git' || file === 'git.exe') {
+    // plain Node는 이 모듈의 예산 상수도 읽는다. TS 의존성은 실제 실행할 때만 적재한다.
+    const { gitCommand } = await import('./git-executable')
+    const command = await gitCommand()
+    if (!command) throw new Error('Git executable not found')
+    file = command.file
+    options = { ...options, env: await command.env(options.env ?? process.env) }
+  }
   return new Promise((resolve, reject) => {
     const child = execFile(file, [...args], options, (error, stdout, stderr) => {
       running.delete(child)
@@ -62,7 +74,85 @@ export function execGit(
       else resolve({ stdout: String(stdout), stderr: String(stderr) })
     })
     running.add(child)
+    child.stdin?.on('error', () => {
+      /* 종료 오류의 stderr는 execFile 콜백이 보고한다. */
+    })
+    child.stdin?.end(input)
   })
+}
+
+export interface TempRepo {
+  root: string
+  oids: string[]
+  branch: string
+}
+
+export async function createRepo(
+  roots: string[],
+  spec: RepoSpec = {},
+  at?: string
+): Promise<TempRepo> {
+  const root = at ?? (await mkdtemp(join(tmpdir(), 'orca-repo-')))
+  if (at) await mkdir(at, { recursive: true })
+  roots.push(root)
+  const branch = spec.branch ?? 'main'
+  const options = { cwd: root, timeout: FIXTURE_GIT_TIMEOUT_MS }
+  await execGit('git', ['init', '--initial-branch=' + branch], options)
+  const commits = spec.commits ?? []
+  if (commits.length === 0) return { root, oids: [], branch }
+  const { fastImportStream, parseMarks } = await import('./fast-import-stream.testfixture')
+  const marks = join(root, '.git', 'orca-marks')
+  await execGit(
+    'git',
+    ['fast-import', '--quiet', '--export-marks=' + marks],
+    options,
+    fastImportStream(spec)
+  )
+  const oids = parseMarks(await readFile(marks, 'utf8'))
+  if (spec.detach !== undefined)
+    await execGit('git', ['checkout', '--detach', oids[spec.detach]], options)
+  else if (commits.some((commit) => Object.keys(commit.files ?? {}).length > 0))
+    await execGit('git', ['reset', '--hard'], options)
+  return { root, oids, branch }
+}
+
+export async function appendCommit(
+  repository: TempRepo | string,
+  commit: RepoCommit,
+  options: { branch?: string; unborn?: boolean } = {}
+): Promise<string> {
+  const { fastImportStream, parseMarks } = await import('./fast-import-stream.testfixture')
+  const repo =
+    typeof repository === 'string'
+      ? {
+          root: repository,
+          branch: options.branch ?? 'main',
+          oids: options.unborn ? [] : ['parent']
+        }
+      : repository
+  const spawnOptions = { cwd: repo.root, timeout: FIXTURE_GIT_TIMEOUT_MS }
+  let gitDir = join(repo.root, '.git')
+  try {
+    const pointer = (await readFile(gitDir, 'utf8')).match(/^gitdir: (.+)\r?$/m)
+    if (pointer) gitDir = resolve(repo.root, pointer[1])
+  } catch {
+    /* 일반 저장소에서는 .git이 디렉토리다. */
+  }
+  const marks = join(gitDir, 'orca-marks')
+  await execGit(
+    'git',
+    ['fast-import', '--quiet', '--export-marks=' + marks],
+    spawnOptions,
+    fastImportStream(
+      { branch: repo.branch, commits: [commit] },
+      repo.oids.length ? `refs/heads/${repo.branch}^0` : undefined
+    )
+  )
+  const [oid] = parseMarks(await readFile(marks, 'utf8'))
+  if (Object.keys(commit.files ?? {}).length > 0)
+    await execGit('git', ['reset', '--hard'], spawnOptions)
+  repo.oids.push(oid)
+  return oid
 }
 
 /** 살아 있는 추적 자식을 죽이고 종료까지 기다린다. */

@@ -24,7 +24,7 @@ const REPRESENTATIVES = [
   'src/main/app/chat-turn/opencode-runtime.test.ts', // 전역 opencode mcp(disabled)
   'src/main/app/managed-mcp-lifecycle.test.ts', // OPENCODE_CONFIG
   'src/main/app/bootstrap.native-history.test.ts', // OPENCODE_DISABLE_PROJECT_CONFIG
-  'src/main/infra/git/repository.test.ts', // ~/.gitconfig · GIT_CONFIG_SYSTEM · GIT_CONFIG_COUNT 서명 강제
+  'src/main/infra/git/hermetic-config.test.ts', // ~/.gitconfig · GIT_CONFIG_SYSTEM · GIT_CONFIG_COUNT 서명 강제
   'src/main/features/plugins/confluence/connector.test.ts' // 실제 홈 쓰기
 ]
 

@@ -1,17 +1,21 @@
 import { execFile } from 'node:child_process'
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { writeFile } from 'node:fs/promises'
+
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DbQueries } from '../infra/db'
 import { runGit, type GitRunOptions } from '../infra/git/runner'
 import { createGitGateway } from '../infra/git/gateway'
-import { resolveGitExecutable } from '../infra/git/git-executable'
+import { resolveGitCommand } from '../infra/git/git-executable'
 import { gitCheckout } from '../infra/git/git-cli'
 import { gitSnapshot } from '../infra/git/git-snapshot'
 import { repairWorktree, removeWorktree, deleteBranch } from '../infra/git/worktree'
 import { WorktreeService } from '../features/worktrees/service'
-import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from '../infra/git/temp-repo.testfixture'
+import {
+  createRepo,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from '../infra/git/temp-repo.testfixture'
 import { scaledBudget } from '../../../scripts/test-time.mjs'
 
 vi.setConfig(scaledBudget({ testTimeout: 180_000, hookTimeout: 180_000 }))
@@ -22,14 +26,13 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   if (!result.ok) throw Error(result.stderr)
   return result.stdout.trim()
 }
-async function repo(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-git-execution-'))
-  roots.push(cwd)
-  await git(cwd, 'init', '--initial-branch=main')
-  await writeFile(join(cwd, 'a.txt'), 'base\n')
-  await git(cwd, 'add', '.')
-  await git(cwd, 'commit', '-m', 'base')
-  return cwd
+async function repo(feature = false): Promise<string> {
+  return (
+    await createRepo(roots, {
+      commits: [{ message: 'base', files: { 'a.txt': 'base\n' } }],
+      ...(feature ? { branches: { feature: 0 } } : {})
+    })
+  ).root
 }
 function recording(): {
   calls: Array<{ args: string[]; options?: GitRunOptions }>
@@ -59,8 +62,7 @@ function assertPolicies(calls: ReturnType<typeof recording>['calls']): void {
 }
 describe('Git entry point execution budgets and write policy', () => {
   it('checkout returns post-switch status in five executions; unresolved dirty state uses two', async () => {
-    const cwd = await repo()
-    await git(cwd, 'branch', 'feature')
+    const cwd = await repo(true)
     const { calls, gateway } = recording()
     const checkout = await gitCheckout(cwd, 'feature', undefined, gateway)
     expect(checkout).toMatchObject({ ok: true, status: { branch: 'feature', isRepo: true } })
@@ -117,8 +119,8 @@ describe('Git entry point execution budgets and write policy', () => {
     expect((await service.prepare({ sourceCwd: cwd, firstPrompt: 'work' })).kind).toBe('managed')
     expect(calls.map(({ args }) => args.find((arg) => !arg.startsWith('-')))).toEqual([
       'rev-parse',
+      'for-each-ref',
       'check-ref-format',
-      'show-ref',
       'worktree'
     ])
     expect(gateway.generation()).toBe(1)
@@ -140,7 +142,7 @@ describe('Git entry point execution budgets and write policy', () => {
           timeoutMs: FIXTURE_GIT_TIMEOUT_MS,
           execFileImpl: spawn as unknown as typeof execFile,
           resolveExecutable: () =>
-            resolveGitExecutable({ env: available ? process.env : { PATH: '' } })
+            resolveGitCommand({ env: available ? process.env : { PATH: '' } })
         })
     })
     const service = new WorktreeService({} as DbQueries, join(cwd, 'managed'), undefined, gateway)

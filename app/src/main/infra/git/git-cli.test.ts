@@ -5,12 +5,16 @@
 // 않는다. `git-cli` 는 electron 비의존(`node:child_process` + `node:fs/promises`)이라 vitest
 // 에서 그대로 돈다.
 
-import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { removeTempRoots } from './temp-repo.testfixture'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createRepo,
+  execGit,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from './temp-repo.testfixture'
 import { gitBranches, gitCheckout } from './git-cli'
 import { gitSnapshot } from './git-snapshot'
 import type { GitStatus } from '../../../shared/ipc'
@@ -36,26 +40,35 @@ const roots: string[] = []
 // 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterEach(() => removeTempRoots(roots.splice(0)))
 
-function git(cwd: string, ...args: string[]): string {
-  return String(execFileSync('git', args, { cwd, encoding: 'utf8' }))
+async function git(cwd: string, ...args: string[]): Promise<string> {
+  return (await execGit('git', args, { cwd, timeout: FIXTURE_GIT_TIMEOUT_MS })).stdout
 }
 
-// 커밋 1개 + 브랜치 2개(main·feature)를 가진 저장소. 사용자 전역 설정에 기대지 않도록
-// identity 는 로컬에 박는다.
-function makeRepo(): string {
-  const root = mkdtempSync(join(tmpdir(), 'orca-git-'))
-  roots.push(root)
-  git(root, 'init', '-b', 'main')
-  writeFileSync(join(root, 'tracked.txt'), 'v1\n')
-  git(root, 'add', 'tracked.txt')
-  git(root, 'commit', '-m', 'init')
-  git(root, 'branch', 'feature')
-  return root
+async function makeRepo(empty = false): Promise<string> {
+  return (
+    await createRepo(roots, {
+      commits: [{ message: 'init', ...(empty ? {} : { files: { 'tracked.txt': 'v1\n' } }) }],
+      branches: { feature: 0 }
+    })
+  ).root
 }
 
-function porcelain(cwd: string): string {
-  return git(cwd, 'status', '--porcelain')
+function porcelain(cwd: string): Promise<string> {
+  return git(cwd, 'status', '--porcelain', '-b')
 }
+const sharedRoots: string[] = []
+let shared: Promise<{ repo: string; before: string }> | undefined
+function sharedDirtyRepo(): Promise<{ repo: string; before: string }> {
+  return (shared ??= createRepo(sharedRoots, {
+    commits: [{ message: 'init', files: { 'tracked.txt': 'v1\n' } }],
+    branches: { feature: 0 }
+  }).then(async ({ root }) => {
+    dirty(root)
+    writeFileSync(join(root, 'untracked.txt'), 'u\n')
+    return { repo: root, before: await porcelain(root) }
+  }))
+}
+afterAll(() => removeTempRoots(sharedRoots))
 
 function dirty(cwd: string): void {
   writeFileSync(join(cwd, 'tracked.txt'), 'v2\n')
@@ -63,31 +76,25 @@ function dirty(cwd: string): void {
 
 describe('gitStatus / gitBranches', () => {
   it('origin 주소를 웹 URL로 정규화하고 원격 변경·worktree에서도 현재 값을 읽는다', async () => {
-    const repo = makeRepo()
+    const repo = await makeRepo(true)
     expect((await gitStatus(repo)).githubUrl).toBeNull()
-    git(repo, 'remote', 'add', 'origin', 'git@github.com:owner/repo.git')
+    await git(repo, 'remote', 'add', 'origin', 'git@github.com:owner/repo.git')
     expect((await gitStatus(repo)).githubUrl).toBe('https://github.com/owner/repo')
     const worktree = join(repo, 'review-worktree')
-    git(repo, 'worktree', 'add', '-b', 'review', worktree)
+    await git(repo, 'worktree', 'add', '-b', 'review', worktree)
     expect(await gitStatus(worktree)).toMatchObject({
       branch: 'review',
       githubUrl: 'https://github.com/owner/repo'
     })
-    git(repo, 'remote', 'set-url', 'origin', 'https://user:password@github.com/owner/renamed.git')
-    expect((await gitStatus(repo)).githubUrl).toBe('https://github.com/owner/renamed')
-    git(repo, 'remote', 'set-url', 'origin', 'git@github.company.com:owner/enterprise.git')
-    expect((await gitStatus(worktree)).githubUrl).toBe(
-      'https://github.company.com/owner/enterprise'
-    )
-    git(
+    await git(
       repo,
       'remote',
       'set-url',
       'origin',
-      'https://user:password@github.company.com/owner/next.git'
+      'https://user:password@github.com/owner/renamed.git'
     )
-    expect((await gitStatus(repo)).githubUrl).toBe('https://github.company.com/owner/next')
-    git(repo, 'remote', 'remove', 'origin')
+    expect((await gitStatus(repo)).githubUrl).toBe('https://github.com/owner/renamed')
+    await git(repo, 'remote', 'remove', 'origin')
     expect((await gitStatus(repo)).githubUrl).toBeNull()
   })
 
@@ -115,8 +122,8 @@ describe('gitStatus / gitBranches', () => {
   })
 
   it('detached HEAD 면 branch=null · detached=true 다', async () => {
-    const repo = makeRepo()
-    git(repo, 'checkout', '--detach', 'HEAD')
+    const repo = await makeRepo(true)
+    await git(repo, 'checkout', '--detach', 'HEAD')
     const status = await gitStatus(repo)
     expect(status.isRepo).toBe(true)
     expect(status.branch).toBeNull()
@@ -126,7 +133,7 @@ describe('gitStatus / gitBranches', () => {
 
 describe('gitCheckout — 깨끗한 트리 (AC3)', () => {
   it('실제 checkout 이 일어나고 이후 gitStatus 가 대상 브랜치를 돌려준다', async () => {
-    const repo = makeRepo()
+    const repo = await makeRepo(true)
     expect((await gitStatus(repo)).branch).toBe('main')
 
     const result = await gitCheckout(repo, 'feature')
@@ -143,24 +150,21 @@ describe('gitCheckout — 깨끗한 트리 (AC3)', () => {
       }
     })
     expect((await gitStatus(repo)).branch).toBe('feature')
-    expect(git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('feature')
+    expect((await git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')).trim()).toBe('feature')
   })
 })
 
 describe('gitCheckout — 더티 트리에 resolution 이 없으면 (AC4)', () => {
   it('작업 트리를 한 바이트도 바꾸지 않고 reason:dirty 를 돌려준다', async () => {
-    const repo = makeRepo()
-    dirty(repo)
-    writeFileSync(join(repo, 'untracked.txt'), 'u\n')
-    const before = porcelain(repo)
+    const { repo, before } = await sharedDirtyRepo()
 
     const result = await gitCheckout(repo, 'feature')
 
     expect(result).toMatchObject({ ok: false, reason: 'dirty', from: 'main' })
     expect(result).toHaveProperty('stat.files', 1)
     // 호출 전후의 작업 트리가 동일하다 — 브랜치도 그대로다.
-    expect(porcelain(repo)).toBe(before)
-    expect(git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('main')
+    expect(await porcelain(repo)).toBe(before)
+    expect(before).toMatch(/^## main(?:\r?\n|$)/)
   })
 })
 
@@ -169,7 +173,7 @@ describe('gitCheckout — 해소 3종은 추적 변경만 건드린다 (AC5)', (
 
   for (const resolution of resolutions) {
     it(`${resolution} 후에도 미추적 파일은 그대로 남는다`, async () => {
-      const repo = makeRepo()
+      const repo = await makeRepo()
       dirty(repo)
       writeFileSync(join(repo, 'untracked.txt'), 'u\n')
 
@@ -187,9 +191,10 @@ describe('gitCheckout — 해소 3종은 추적 변경만 건드린다 (AC5)', (
         }
       })
       // 미추적 파일은 체크아웃을 막지도 않고 지워지지도 않는다.
-      expect(porcelain(repo)).toContain('?? untracked.txt')
+      const status = await porcelain(repo)
+      expect(status).toContain('?? untracked.txt')
       // 추적 변경은 셋 다 해소됐다 — 워킹 트리에 modified 가 남지 않는다.
-      expect(porcelain(repo)).not.toMatch(/^ ?M /m)
+      expect(status).not.toMatch(/^ ?M /m)
     })
   }
 })
@@ -201,22 +206,20 @@ describe('gitCheckout — 브랜치 이름 문자셋을 실행부에서 다시 �
 
   for (const branch of injections) {
     it(`${JSON.stringify(branch)} 는 거부되고 작업 트리도 브랜치도 그대로다`, async () => {
-      const repo = makeRepo()
-      dirty(repo)
-      const before = porcelain(repo)
+      const { repo, before } = await sharedDirtyRepo()
 
       // `discard` 를 함께 넘긴다: 검사가 checkout 직전에만 있으면 여기서 이미 변경이
       // 폐기된 뒤라 이 단언이 깨진다 — 검사는 **모든** execFile 앞이어야 한다.
       const result = await gitCheckout(repo, branch, 'discard')
 
       expect(result).toMatchObject({ ok: false, reason: 'error' })
-      expect(porcelain(repo)).toBe(before)
-      expect(git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('main')
+      expect(await porcelain(repo)).toBe(before)
+      expect(before).toMatch(/^## main(?:\r?\n|$)/)
     })
   }
 
   it('정상 이름은 통과한다 — 검사가 전부를 막는 것은 아니다', async () => {
-    const repo = makeRepo()
+    const repo = await makeRepo(true)
     expect(await gitCheckout(repo, 'feature')).toEqual({
       ok: true,
       branch: 'feature',
@@ -241,20 +244,20 @@ describe('gitCheckout — 해소는 성공했는데 checkout 이 실패하면 (A
 
   for (const { resolution, survives } of cases) {
     it(`${resolution} 이 적용됐음을 결과가 식별한다`, async () => {
-      const repo = makeRepo()
+      const repo = await makeRepo()
       dirty(repo)
 
       const result = await gitCheckout(repo, 'no-such-branch', resolution)
 
       expect(result).toMatchObject({ ok: false, reason: 'error', applied: resolution })
       // 브랜치는 그대로다 — 그래서 "변경이 어디로 갔는가" 가 화면에 필요하다.
-      expect(git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').trim()).toBe('main')
-      if (survives) expect(git(repo, ...survives()).trim().length).toBeGreaterThan(0)
+      expect((await git(repo, 'rev-parse', '--abbrev-ref', 'HEAD')).trim()).toBe('main')
+      if (survives) expect((await git(repo, ...survives())).trim().length).toBeGreaterThan(0)
     })
   }
 
   it('해소 자체가 없었던 실패(깨끗한 트리)에는 applied 를 싣지 않는다', async () => {
-    const repo = makeRepo()
+    const repo = await makeRepo(true)
 
     const result = await gitCheckout(repo, 'no-such-branch')
 
