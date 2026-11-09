@@ -642,4 +642,6 @@ main reportError → hub → renderer ErrorToastHost
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — |
+| D1 | VP-07 좌표가 `turn-request.ts:124` canReopen claim 항을 잠그지 않는다(`batchClaims()`→`[]` green, B4는 red) | VP-07 · AC7 · §10 B3 | W1~W3에 claim 불일치(예: confirmed·다른 chainId)에서 canReopen 거짓인 입력 추가 | 이행 결함 | BLOCKING | open |
+| D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | open |
+| D3 | 탭 배너 i18n 키 2개 소비처 0 | 구현 보고 #4 | 다음 정리 후보 | 비귀속 | NON_BLOCKING | open |
