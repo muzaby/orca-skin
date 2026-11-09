@@ -1,0 +1,53 @@
+file	status	signature
+src/main/adapters/claude/adapter.native-plugins.test.ts	failed	Windows plugin control: restart-required vs applied
+src/main/adapters/claude/native-resources.test.ts	failed	Windows-only plugin/project resource policy
+src/main/adapters/claude/project-reconciliation.test.ts	failed	Windows plugin control: restart-required vs applied
+src/main/adapters/opencode/v1/adapter.instances.test.ts	failed	Windows fixture paths resolved by Linux path semantics
+src/main/adapters/opencode/v1/adapter.persistent.test.ts	failed	Windows fixture paths resolved by Linux path semantics
+src/main/adapters/opencode/v1/adapter.test.ts	failed	Windows fixture paths resolved by Linux path semantics
+src/main/adapters/opencode/v1/native-cursor.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn.continuity.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn/background.integration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn/context-usage.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn/native-session.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn/project-binding.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn/worktree-bind.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/chat-turn/worktree-recover.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/composer-catalog.test.ts	failed	Windows path: Composer directory must be absolute
+src/main/app/composer-preparation-service.test.ts	failed	Windows path: Composer directory must be absolute
+src/main/app/deployment/mail.integration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/handlers/files.contextDirectory.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/handlers/project.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/handlers/session-directory.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/handlers/session-resources.claude-assembly.test.ts	failed	Windows-only plugin/project resource policy
+src/main/app/handlers/session-worktree-display.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/handlers/session.delete.native-history.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/handlers/session.load.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/legacy-paths.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/response-boundary.integration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/app/work-profile.integration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/artifacts/service.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/extensions/common/builder.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/last-model.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/native-history.db.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/reader.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/writer.artifacts.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/writer.ask.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/writer.background.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/writer.plan-review-input.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/history/writer.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/orchestration/fork.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/plugins/mail/mime.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/plugins/mail/store/index.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/plugins/mail/store/migrate.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/features/usage/tracker-integration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/agent-kind.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/artifact-formats-migration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/artifact-queries.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/attachment-files.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/background-task-queries.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/file-database.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/managed-worktrees.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/migrate.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/main/infra/db/queries.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
+src/renderer/src/features/chat/lib/settlement.integration.test.ts	failed	better-sqlite3: NODE_MODULE_VERSION 140 vs 137 (Node 24)
