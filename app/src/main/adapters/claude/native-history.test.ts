@@ -238,6 +238,22 @@ describe('Claude native history reads', () => {
       })
   })
 
+  it('I7 does not accept a relative recorded cwd even when it resolves to the stored folder', async () => {
+    const f = await fixture()
+    const relative = path.relative(process.cwd(), f.cwd)
+    expect(path.resolve(relative)).toBe(path.resolve(f.cwd))
+    await f.write([
+      historyEntry('user-1', null, 'user', 'hello', { cwd: relative }),
+      historyEntry('assistant-1', 'user-1', 'assistant', [{ type: 'text', text: 'a' }])
+    ])
+    const result = await readClaudeNativeHistory({
+      sessionId,
+      cwd: f.cwd,
+      env: { CLAUDE_CONFIG_DIR: f.config }
+    })
+    expect(result.status).toBe('unavailable')
+  })
+
   it('returns busy for stable unfinished inputs and a partially written last line', async () => {
     const f = await fixture()
     const request = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }

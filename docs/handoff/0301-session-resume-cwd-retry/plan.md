@@ -514,83 +514,126 @@ main reportError → hub → renderer ErrorToastHost
 > **모든 impl 턴(재구현·사용자 요구 변경)이 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: A·B·C·E·F·G·H 행과 §11 파일 표를 그대로 구현했다. 신규 모듈 `transcript-cwd.ts`·`native-settings-file.ts`.
+- 이견 / 현실성 문제: §7 AC5·§5 "동기 실패 → 재시도 없음"은 coordinator만으로 성립하지 않았다. `post-turn.ts`가 held로 되돌아간 같은 입력을 곧바로 flush해 같은 실패를 반복했다(아래 놓친 문제 #1, 선조치).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. `project-settings.test.ts`의 `null` = 깨짐 단언이 R-17 목록 밖의 기존 잠금이었다 — D-010·D-014(빈 내용 규칙 공유)대로 바꿨다(#2).
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| … | … | … | … | … | … | … |
+| VP-01·06·10 | A 세션 경로 | A1·A2 — 2 | 2/2 | §10 A 검색 → `transcript-cwd.ts:11` 정의 + `native-history.ts:235` 호출(차집합 0). A1 `transcript-cwd.test.ts:'%s'` C1~C7 · A2 `native-history.test.ts:'judges the session cwd by the CLI rule: %s'` I1~I6 + `'I7 does not accept a relative recorded cwd…'` · `native-session.claude-transcript.test.ts` 4케이스 | 처음 cwd ≠ 마지막 cwd(하위폴더) · relocated ≠ 요청 cwd · 상대경로가 요청 cwd로 해석됨 | 없음 |
+| VP-02·05·07·11·12 | B 재개방 | B1~B8 — 8 | 8/8 | §10 B 검색 출력에서 타입 2·Omit 2 제외 → queue `:326`·`:335` · turn-request `:123`·`:125` · coordinator `:614`·`:616`·`:637` · continuation `:66`(차집합 0). B1·B2 `pending-message-queue.test.ts:'Q1~Q8'` · B3·B4 `turn-request.reopen.test.ts:'W1·W2·W3'` · B5~B7 `turn-coordinator.test.ts:'B1~B10'` · B8 `continuation.test.ts:'buildFlushRequest passes both reopen delegates through unchanged'` · 경로 `retry-submission.test.ts:'A~E'` | W1 dbSessionId `s1` ≠ queueKey `q-other` · W3 옛 배치 confirmed · 오류 문구 `failure-1`/`failure-3` 구별 | 없음 |
+| VP-15 | C admission 순서 | C1 — 1 | 1/1 | 검사 `session-runtime.ts:479` < 기록 `:482` · `session-runtime.test.ts:'rejects a stale spawn admission before recording a spawn…'` | started 0·sendMessage 0·rollback 1·toolContext null | 없음 |
+| VP-13 | E 빈 내용 | E1 — 1 | 1/1 | §10 E 검색 5행(정의 1·승계 4). `json-file.test.ts:'treats empty content %j as no settings'`·`'keeps non-empty invalid content %j invalid'` · `plugin-state.test.ts` 신규 2 | `''`·공백·BOM·`null` vs `[]`·`1`·끝 쉼표 | 없음 |
+| VP-03·08·14 | F 설정 정책 | 문서 11 · manifest 3 · 경고 서명 1 — 15 | 15/15 | §10 F 검색 → 호출 14 + 정의 4(차집합 0). 자리별: `plugin-catalog.test.ts:'P26·P281×4·P331×4 …: empty/broken'`·`'P295·P345 …'` · `configured-resources.test.ts:'C68~C163 …'`·`'C138 …'` · 서명 `native-settings-file.test.ts:'warns once per file state…'` · spawn `adapter.native-settings.test.ts` 6 · nav `extension-catalog.claude-settings.test.ts` 4 | 파일마다 결과에 단독 기여(“skipped ≠ full” 단언) · 비밀 문자열 미포함 | 없음 |
+| VP-04 | G 탭 실패 | G1~G3 — 3 | 3/3 | G1 `ExtensionsCatalogView.interaction.test.ts:'scopes native loading and failure to plugin and MCP tabs'` · G2 `useNativeMcpCatalog.test.ts:'toasts a list failure once when a harness enters the failed state…'` · G3 `reportSites.registry.test.ts`(`T-native-mcp-load`) | reject→reject→resolve→reject = 토스트 1→1→1→2 | 없음 |
+| VP-09 | H 원인 동반 | H1·H2 — 2 | 2/2 | 검색 1행 = 단일 helper `session-resources.ts:16`, 호출 `:77`·`:188`. `session-resources.test.ts:'H1 …'`·`'H2 …'` 정확 문구 | `원인-가` ≠ `원인-나` | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
+- §10 자리 목록 밖에서 본 운반 자리: `post-turn.ts` 자동 flush(#1, 선조치 · 잠금 `retry-submission.test.ts:'C …'`) · main report 레지스트리 `error-report.registry.test.ts` M25(구현 세부).
 - 직전 verify 고장 이력의 `못 잡음` 행: 없음(r1).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | `native-session.claude-transcript.test.ts` 4 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | `retry-submission.test.ts:'A'~'D'` | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `adapter.native-settings.test.ts` · `extension-catalog.claude-settings.test.ts` | not selected |
+| VP-04 | REQUIRED | SELF_PASS | 위 G 좌표 | G1-1 배너 복원 red · G2-1 전이 조건 제거 red |
+| VP-05 | REQUIRED | SELF_PASS | `retry-submission.test.ts:'A'`(표본 submitted→submitting→submitted, backoff 중 변경 0)·`'C'`(pending 1)·`'E'` | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `native-history.test.ts` I1~I7 | A1-5 "마지막 cwd" red · A2-R "아무 항목이나 일치" red |
+| VP-07 | REQUIRED | SELF_PASS | `turn-request.reopen.test.ts` W1~W3 · `continuation.test.ts` W4 | not selected |
+| VP-08 | REQUIRED | SELF_PASS | 위 F 자리별 좌표 | 14자리 각각 엄격 리더 복귀 red(F-P26~F-C163) |
+| VP-09 | REQUIRED | SELF_PASS | H1·H2 | not selected |
+| VP-10 | REQUIRED | SELF_PASS | C1~C7 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | Q1~Q8 | not selected |
+| VP-12 | REQUIRED | SELF_PASS | B1~B8·B10(B9는 기존 `'재시도성 에러 + 첫 이벤트 전이면…'`) | not selected |
+| VP-13 | REQUIRED | SELF_PASS | E 좌표 | not selected |
+| VP-14 | REQUIRED | SELF_PASS | `native-settings-file.test.ts` 28 | not selected |
+| VP-15 | REQUIRED | SELF_PASS | C1 좌표 | not selected |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스 `mutate.py`, spec 64행 + 재실행 2행. 원복 확인 "모든 파일 원문 그대로".
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| A1-1~A1-6 relocated 분기·findLast·빈/비문자열·first→last·type 조건 | §10 A1 규칙 분기 · VP-06 등록(A1-5) | 최초 | 8·1·2·1·9·1 failed | 잡음 |
+| A2-1 realpath catch 제거 · A2-2 samePath 제거 · A2-R 아무 항목 일치 | §10 A2 · VP-06 등록 | 최초 | 2·4·5 failed | 잡음 |
+| A2-3 `isAbsolutePath` 제거 | §10 A2 분기 | 최초 | 1차 0 failed → I7 추가 후 1 failed | 잡음(입력 추가) |
+| B1-1·B1-2 상태 집합 축소 · B2-1~B2-3 원자성·전이·통지 | §10 B1·B2 | 최초 | 2·5·4·5·1 failed | 잡음 |
+| B3-1·B3-2·B4-1·B4-2 키 맞바꿈(⑤)·claim 비움 | §10 B3·B4 | 최초 | 2·1·2·6 failed | 잡음 |
+| B5-1~B5-3 gate 항 제거·pushesInput 제거·`!==false`→`===true` | §10 B5 | 최초 | 5·1·3 failed | 잡음 |
+| B6-1·B6-2 재개방 실패 처리 제거·pushesInput 제거 | §10 B6 | 최초 | 6·1 failed | 잡음 |
+| B7-1·B7-2 warn 제거·message 항 제거 | §10 B7 | 최초 | 2·1 failed | 잡음 |
+| B8-1 flush가 위임을 지움 | §10 B8 | 최초 | 1 failed | 잡음 |
+| C1-1 검사를 started 뒤로 · C1-2 rollback 제거 | §10 C1 | 최초 | 1·1 failed | 잡음 |
+| E1-1~E1-3 null·빈 문자열·trim 제거 | §10 E1 분기 | 최초 | 2·6·3 failed | 잡음 |
+| E1-4 BOM 제거 제거 | §10 E1 | 최초 | 0 failed | 동치 — `'\uFEFF'.trim()===''` 실측 true(U+FEFF는 ECMAScript 공백). 중복 코드라 삭제 |
+| F-P26·P281·P331·P295·P345·C68·C69·C72·C75·C76·C77·C138·C154·C163 엄격 리더 복귀 | §10 F 14자리 · VP-08 등록 | 최초 | 9·21·11·2·1·12·10·8·8·8·4·1·26·2 failed | 잡음 |
+| F-W1~F-W9 1회 기억·서명·사유·digest·회복 삭제·ENOENT·detail 맞바꿈·manifest `{}`·read 경고 | §10 F 서명 · VP-14 분기 | 최초 | 27·27·2·2·2·44·6·3·2 failed | 잡음 |
+| G1-1 배너 복원 · G2-1 전이 조건 제거 · G2-2 event 바꿈 | VP-04 등록 · §10 G | 최초 | 1·1·2 failed | 잡음 |
+| H1-1·H2-1 원인 제거 · H-helper 원인 문구 제거 | §10 H | 최초 | 1·1·2 failed | 잡음 |
+| PT-1 post-turn break 제거 | 놓친 문제 #1 잠금 | 최초 | worker crash(무한 flush) | 잡음 |
+| PT-2 `!aborted` 조건 제거 | 놓친 문제 #1 | 최초 | 0 failed | 못 잡음 — 예약 유지 Stop + rollback 입력 조합 입력 없음. 남긴 곳 |
 
-- **분모 검산**: …
-- **덮개 회귀**: 해당 없음(r1).
+- **분모 검산**: 선택 증거 18(VP-04 2 · VP-06 2 · VP-08 14) · 인용 변이 0 · 새 oracle 2(PT-1·PT-2) · sweep 44 = 변이 64(재실행 2 별도: A2-3·E1-4). 최종 잡음 62 · 동치 1(E1-4) · 못 잡음 1(PT-2) = 64.
+- **덮개 회귀**: 해당 없음(r1). 교체한 장치(R-17 잠금 3건 + project-settings `null`)는 내용 비노출 단언을 report 인자로 옮겨 유지했다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음. 경고 detail 2종은 `configInvalid` 토스트(main reportError → hub), 목록 원인 문구는 기존 reject 경로, 탭 실패는 `loadFailed` 토스트 | 탭 배너 문구 `chat.nativeResources.error`·`retry`는 이제 renderer 소비처 0(`rg` 0행). 리소스 키만 남음 — 파생 #4 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | `session-runtime.ts` admission을 try 밖으로 옮겼다. 거부 시 도구 컨텍스트를 만들기 전이라 정리할 것이 rollback뿐이고 그것을 부른다(VP-15) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 동기 실패 → "원래 오류 즉시"(post-turn 차단 포함) · 비동기 0건 → "재시도 1/2 뒤 정상" · backoff 중 다른 경로 → "재시도 1/2 뒤 원래 오류" · 깨진 설정/manifest → 경고 1회 행 · 탭 실패 → 토스트 행 | 없음 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 탭 실패는 토스트 1회 후 탭이 직전 목록(또는 빈 목록, `suppressEmpty`)을 유지 — 실패가 이어지는 동안 추가 안내가 없다. D-012 의도대로 | AC17(d) 사람 확인 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | hook의 version 비교를 그대로 두고 그 안에서만 report — 지각 reject는 토스트를 내지 않는다 | 없음 |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 현재 결함: spawn 동기 실패로 held에 되돌아간 입력을 `post-turn.ts`가 같은 체인에서 바로 flush → 같은 실패 반복. 변경 전에는 backoff로 느리게(기준선 5초 6 spawn), 변경 후에는 backoff 없이 즉시 반복(worker crash) | 선조치: 직전 턴의 초기 배치 id가 held에 있고 턴이 중단되지 않았으면 `break`(`post-turn.ts:146`, `getInitialBatches` 위임 추가 `send.ts`·fixture). Part I §5 "재시도 없음·원래 오류"와 VP-02 C(spawn 1·pending 1)를 production 경로에서 성립시킨다 | `retry-submission.test.ts:'C …'` · PT-1 red |
+| 2 | R-17 밖의 기존 잠금: `project-settings.test.ts`가 `null`을 깨진 파일로 단언 | D-010·D-014대로 `null`=없음 단언으로 교체, 깨진 내용 단언 4종은 유지 | 기준선 대비 새 실패 1파일이 이것뿐 |
+| 3 | `parseJsonObject`의 `invalid` 콜백이 사유(`parse`·`shape`)를 받도록 넓혔다 | 기존 호출부는 인자를 무시(호환). 정책 모듈이 사유를 경고 data에 싣는다 | typecheck 0 |
+| 4 | 탭 배너 i18n 키 2개가 소비처 없이 남음 | 이번 범위 밖(비귀속) — 삭제는 다음 정리 후보 | `rg` 0행 |
+| 5 | PT-2: 예약 유지 Stop(`abortContinuation.resume`) 중 rollback된 입력의 판정 입력 없음 | 기존 경로 보존 의도의 가드라 남김. 확장 후보로 보고 | sweep PT-2 green |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan §11에 없던 `post-turn.ts`·`send.ts` 변경(#1)과 main report 레지스트리 M25. 메커니즘 대체는 없다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 판정은 매 post-turn 반복에서 큐 상태로 새로 계산 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 초기 배치 게터는 send.ts·post-turn·turn-request가 공유. flush 턴은 `setInitialBatches`로 갱신하므로 다음 반복은 flush 입력을 본다 | AC5 · `retry-submission.test.ts:'B'`(재시도 2회 뒤 정상 종료) |
+| 재진입 | 사용자가 같은 턴 중 새로 보낸 held는 초기 배치 id가 아니므로 그대로 flush | `concurrency-identity.test.ts` P7(send-now) green |
+| 다른 무효화 축 | 사용자 Stop(abort)은 가드로 기존 경로 — PT-2 미잠금 | 남긴 곳 #5 |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| **추가·수정 테스트의 subtree 규칙** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 변경 파일 | main: `transcript-cwd.ts`(신규)·`native-history.ts`·`native-settings-file.ts`(신규)·`plugin-catalog.ts`·`configured-resources.ts`·`json-file.ts`·`turn.ts`·`pending-message-queue.ts`·`turn-request.ts`·`turn-coordinator.ts`·`session-runtime.ts`·`post-turn.ts`·`send.ts`·`session-resources.ts` · renderer: `useNativeMcpCatalog.ts`·`ExtensionsCatalogView.tsx` · 문서 5곳(§18) · 테스트 23파일 |
+| 실행 명령 | cwd=`app`: `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` (`npm rebuild better-sqlite3`로 Node ABI) |
+| **관측한 게이트 산출** | 마이그레이션 ok · 인벤토리 ok(링크·수치) · 예산 "20 real-git suites ok" · lint 0 error/2 warning(손대지 않은 virtualizer 파일) · typecheck exit 0 · `node --test` exit 0 · vitest 938파일: 30 failed / 904 passed → `project-settings` 1건 수정 후 남은 29파일은 변경 전(같은 명령, HEAD worktree) 실패 집합과 차집합 ∅. 서명: `Electron failed to install correctly`(바이너리 미설치) · `C:/…`·`Composer directory must be absolute`(Windows 경로) · `restart-required`·"프로젝트별 제어를 지원하지 않습니다"(Windows 전용 플러그인 제어) |
+| **추가·수정 테스트의 subtree 규칙** | 23파일(`git diff --name-only 01ca522` + 신규). 시간 예산 위반 0(가드 통과, 신규 대기는 가짜 시계만) · 호스트 격리 위반 0(`CLAUDE_CONFIG_DIR`·tmp fixture, nav 테스트는 `HOME`/`USERPROFILE` 명시 주입) · 풀 분류 `[test-pools]` 0(23파일 실행 22 passed, 자식 프로세스·SQLite 없음) |
+| V-pair 자기확인 | 15/15 SELF_PASS |
+| 강제 지점 전수 | A 2/2 · B 8/8 · C 1/1 · E 1/1 · F 15/15 · G 3/3 · H 2/2 = 32/32 |
+| **AC 자기보고**(`Criteria-Met`) | AC1~AC16 ✅(좌표: 위 강제 지점 표 · AC16 = 인벤토리 가드 + 문서 5곳 `adapters.md` 2·`runtime-ipc.md` 1·`IPC_CONTRACT.md` 2·`design-system.md` 1·`design-components.md` 1 문단) · AC17 ⚠️ Windows 사람 실기 대기 |
+| **합계 검산** | ✅ 16 · ⚠️ 1 · ❌ 0 = 총 17 |
+| 블로커 / 역질문 | 없음. #1 선조치(post-turn)는 verify가 계약 범위를 판정한다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` — 같은 라운드 진행분 커밋 1개 + 완료 커밋 1개 |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1)
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(r1).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: VP-02 path가 `runTurnWithContinuations`를 포함했지만 §10 B 자리 목록에 post-turn 자동 flush가 없었다(#1). R-17이 `project-settings.test.ts` `null` 잠금을 열거하지 않았다(#2).
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 미설치로 전체 vitest의 기준선 29파일 red(Windows 전용 경로 포함). worker 재시작 1회.
 - 현재 라운드·impl 턴: `r1`
 
 ---

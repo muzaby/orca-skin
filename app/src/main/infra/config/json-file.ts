@@ -14,7 +14,8 @@ export function parseJsonObject(
   text: string | undefined,
   invalid: (reason: 'parse' | 'shape') => Error
 ): Record<string, unknown> {
-  const body = text?.replace(/^\uFEFF/, '').trim()
+  // `trim()` also strips a leading BOM (U+FEFF is ECMAScript whitespace).
+  const body = text?.trim()
   let value: unknown
   try {
     value = body === undefined || body === '' ? {} : JSON.parse(body)

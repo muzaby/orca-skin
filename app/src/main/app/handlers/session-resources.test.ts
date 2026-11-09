@@ -430,3 +430,40 @@ it('retains live observations only while the same provider generation survives m
     partial: true
   })
 })
+
+describe('list failures keep their original cause (0301 H)', () => {
+  it('H1 a rejected configured read without a live list names its cause', async () => {
+    registerSessionResourceHandlers({
+      lookup: () => undefined,
+      configuredResources: async () => {
+        throw new Error('원인-가')
+      }
+    })
+    const failure = invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
+    await expect(failure).rejects.toThrow(
+      new Error('하네스 목록을 불러오지 못했습니다(원인-가). 다시 시도해 주세요.')
+    )
+  })
+
+  it('H2 a failed draft read names its cause', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'orca-draft-cause-'))
+    try {
+      registerSessionResourceHandlers({
+        lookup: vi.fn(),
+        draftResources: async () => {
+          throw new Error('원인-나')
+        }
+      })
+      const failure = invoke(CHANNELS.sessionNativeResources, {
+        backend: 'claude',
+        cwd: directory,
+        projectId: 'draft-project'
+      })
+      await expect(failure).rejects.toThrow(
+        new Error('하네스 목록을 불러오지 못했습니다(원인-나). 다시 시도해 주세요.')
+      )
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
+})

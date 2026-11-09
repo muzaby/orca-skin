@@ -137,14 +137,6 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             )}
           </div>
           <div role="tabpanel" id={`${id}-items`} aria-labelledby={`${id}-${selection.tab}`}>
-            {nativeMcp.failed && selection.tab !== 'skills' && (
-              <div className="flex items-center gap-2 py-2 text-caption text-ink3" role="status">
-                {tr('chat.nativeResources.error')}
-                <Button size="small" onClick={() => void nativeMcp.refresh()}>
-                  {tr('chat.nativeResources.retry')}
-                </Button>
-              </div>
-            )}
             {skills.loading ||
             mcp.loading ||
             providers.loading ||
