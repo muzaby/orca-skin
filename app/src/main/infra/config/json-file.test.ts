@@ -30,7 +30,7 @@ it('reads BOM objects, treats absent files as empty and preserves injected error
     expect(readJsonObjectSync(file, invalid)).toEqual({ enabled: true })
     expect(await readJsonObject(file, invalid)).toEqual({ enabled: true })
     expect(parseJsonObject(undefined, invalid)).toEqual({})
-    for (const text of ['null', '[]', 'true', '{private']) {
+    for (const text of ['[]', 'true', '{private']) {
       writeFileSync(file, text)
       expect(() => readJsonObjectSync(file, invalid)).toThrow(failure)
       await expect(readJsonObject(file, invalid)).rejects.toBe(failure)
@@ -39,4 +39,16 @@ it('reads BOM objects, treats absent files as empty and preserves injected error
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+it.each([undefined, '', '  \r\n', '\uFEFF', '\uFEFF \n', 'null', '{}'])(
+  'treats empty content %j as no settings',
+  (text) => {
+    expect(parseJsonObject(text, () => new Error('invalid'))).toEqual({})
+  }
+)
+
+it.each(['[]', '1', '{"a":1'])('keeps non-empty invalid content %j invalid', (text) => {
+  const failure = new Error('invalid')
+  expect(() => parseJsonObject(text, () => failure)).toThrow(failure)
 })

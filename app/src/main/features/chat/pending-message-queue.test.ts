@@ -643,3 +643,100 @@ describe('PendingMessageQueue', () => {
     })
   })
 })
+
+describe('retry reopen (canReopenMany / reopenMany)', () => {
+  type Claim = { messageIds: string[]; attemptId: string; chainId: string }
+  function setup(): {
+    q: PendingMessageQueue
+    claims: Claim[]
+    changes: () => number
+  } {
+    const q = new PendingMessageQueue()
+    q.enqueue('s', msg('one'), 1, 'a')
+    q.enqueue('s', msg('two'), 2, 'b')
+    const claims = ['a', 'b'].map((id) => {
+      const batch = q.reserveItem('s', id, 'chain-1')!
+      return { messageIds: batch.ids, attemptId: batch.attemptId!, chainId: batch.chainId! }
+    })
+    let count = 0
+    q.subscribe((mutation) => {
+      if (mutation.kind === 'changed' && mutation.sessionId === 's') count += 1
+    })
+    return { q, claims, changes: () => count }
+  }
+  const both = (q: PendingMessageQueue, claims: Claim[], expected: boolean): void => {
+    expect(q.canReopenMany('s', claims)).toBe(expected)
+    expect(q.reopenMany('s', claims)).toBe(expected)
+  }
+
+  it('Q1 reopens every submitted claim to submitting without changing its identity', () => {
+    const { q, claims, changes } = setup()
+    expect(q.commitMany('s', claims)).toBe(true)
+    const before = changes()
+    const uuids = q.submittedUuids('s')
+    expect(q.canReopenMany('s', claims)).toBe(true)
+    expect(changes()).toBe(before)
+    expect(q.hasSubmitted('s')).toBe(true)
+    expect(q.reopenMany('s', claims)).toBe(true)
+    expect(changes()).toBe(before + 1)
+    expect(q.hasSubmitted('s')).toBe(false)
+    expect(q.canCommitMany('s', claims)).toBe(true)
+    expect(q.commitMany('s', claims)).toBe(true)
+    expect(q.submittedUuids('s')).toEqual(uuids)
+  })
+
+  it('Q2 accepts claims that are all still submitting without a change notice', () => {
+    const { q, claims, changes } = setup()
+    both(q, claims, true)
+    expect(changes()).toBe(0)
+    expect(q.canCommitMany('s', claims)).toBe(true)
+  })
+
+  it('Q3 reopens a mix of submitting and submitted claims to all submitting', () => {
+    const { q, claims } = setup()
+    expect(q.commit('s', claims[0].attemptId, claims[0].chainId)).toBe(true)
+    both(q, claims, true)
+    expect(q.hasSubmitted('s')).toBe(false)
+    expect(q.canCommitMany('s', claims)).toBe(true)
+  })
+
+  it('Q4 refuses when one claim is confirmed and changes nothing', () => {
+    const { q, claims, changes } = setup()
+    expect(q.commitMany('s', claims)).toBe(true)
+    q.confirm('s', { kind: 'echo', uuid: claims[1].attemptId })
+    const before = changes()
+    both(q, claims, false)
+    expect(changes()).toBe(before)
+    expect(q.submittedUuids('s')).toEqual([claims[0].attemptId])
+  })
+
+  it('Q5 refuses when one claim is orphaned and changes nothing', () => {
+    const { q, claims } = setup()
+    expect(q.commitMany('s', claims)).toBe(true)
+    q.orphanUnconfirmed('s')
+    both(q, claims, false)
+    expect(q.hasSubmitted('s')).toBe(false)
+    expect(q.canCommitMany('s', claims)).toBe(false)
+  })
+
+  it('Q6 refuses a claim already rolled back to held and keeps it held', () => {
+    const { q, claims } = setup()
+    expect(q.rollback('s', claims[0].attemptId)).toBe(true)
+    both(q, claims, false)
+    expect(q.pending('s').map((item) => item.id)).toEqual(['a'])
+    expect(q.canCommitMany('s', [claims[1]])).toBe(true)
+  })
+
+  it('Q7 refuses a claim whose chain or message ids differ', () => {
+    const { q, claims } = setup()
+    expect(q.commitMany('s', claims)).toBe(true)
+    both(q, [{ ...claims[0], chainId: 'other-chain' }], false)
+    both(q, [{ ...claims[0], messageIds: ['z'] }], false)
+    expect(q.submittedUuids('s')).toHaveLength(2)
+  })
+
+  it('Q8 accepts an empty claim list', () => {
+    const { q } = setup()
+    both(q, [], true)
+  })
+})

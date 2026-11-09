@@ -7,17 +7,23 @@ import { readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { isRecord } from '../../../shared/obj'
 
+// \uBE48 \uB0B4\uC6A9 \uADDC\uCE59(SSOT) \u2014 \uC5C6\uC74C\u00B70\uBC14\uC774\uD2B8\u00B7\uACF5\uBC31\u00B7BOM\uB9CC\u00B7JSON `null` \uC740 "\uC124\uC815 \uC5C6\uC74C" = `{}` \uC774\uB2E4. \uB0B4\uC6A9\uC774 \uC788\uB294\uB370
+// \uAC1D\uCCB4\uAC00 \uC544\uB2C8\uAC70\uB098 \uD30C\uC2F1\uD560 \uC218 \uC5C6\uC73C\uBA74 `invalid()` \uB97C \uB358\uC9C4\uB2E4. \uC4F0\uAE30 \uACBD\uB85C\uB3C4 \uC774 \uADDC\uCE59\uC744 \uADF8\uB300\uB85C \uB530\uB974\uBBC0\uB85C
+// \uBE48 \uD30C\uC77C \uC704\uC5D0\uB294 \uC800\uC7A5\uD558\uACE0, \uAE68\uC9C4 \uB0B4\uC6A9 \uC704\uC5D0\uB294 \uC800\uC7A5\uC744 \uAC70\uBD80\uD55C\uB2E4.
 export function parseJsonObject(
   text: string | undefined,
-  invalid: () => Error
+  invalid: (reason: 'parse' | 'shape') => Error
 ): Record<string, unknown> {
+  const body = text?.replace(/^\uFEFF/, '').trim()
+  let value: unknown
   try {
-    const value: unknown = text === undefined ? {} : JSON.parse(text.replace(/^\uFEFF/, ''))
-    if (!isRecord(value)) throw new Error('Expected a JSON object')
-    return value
+    value = body === undefined || body === '' ? {} : JSON.parse(body)
   } catch {
-    throw invalid()
+    throw invalid('parse')
   }
+  if (value === null) return {}
+  if (!isRecord(value)) throw invalid('shape')
+  return value
 }
 
 export function readJsonObjectSync(path: string, invalid: () => Error): Record<string, unknown> {

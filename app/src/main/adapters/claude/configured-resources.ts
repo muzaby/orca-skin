@@ -3,15 +3,16 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
-import { readJsonObject } from '../../infra/config/json-file'
 import { extensionChoices } from '../common/extension-control'
 import { gitRootLineage } from '../common/git-root'
 import { claudeNativePaths } from './native-paths'
+import {
+  readClaudePluginManifestAsync,
+  readClaudeSettingsObjectAsync
+} from './native-settings-file'
 import { claudeInstallationExists, installedClaudePlugins } from './plugin-catalog'
 import { claudePluginEnabled } from './plugin-flag'
 import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
-const readObject = (file: string): Promise<Record<string, unknown>> =>
-  readJsonObject(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
 const record = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {})
 
@@ -64,12 +65,16 @@ async function readConfiguredClaudeResources(
   const root = claudeLocalSettingsRoot(cwd)
   const nativeRoot = globalOnly ? cwd : await projectRoot(cwd)
   const [global, user, project, local, mcp, installed] = await Promise.all([
-    readObject(paths.globalConfig),
-    readObject(join(paths.root, 'settings.json')),
-    globalOnly ? record(undefined) : readObject(join(root, '.claude', 'settings.json')),
-    globalOnly ? record(undefined) : readObject(join(root, '.claude', 'settings.local.json')),
-    globalOnly ? record(undefined) : readObject(join(root, '.mcp.json')),
-    readObject(join(paths.root, 'plugins', 'installed_plugins.json'))
+    readClaudeSettingsObjectAsync(paths.globalConfig),
+    readClaudeSettingsObjectAsync(join(paths.root, 'settings.json')),
+    globalOnly
+      ? record(undefined)
+      : readClaudeSettingsObjectAsync(join(root, '.claude', 'settings.json')),
+    globalOnly
+      ? record(undefined)
+      : readClaudeSettingsObjectAsync(join(root, '.claude', 'settings.local.json')),
+    globalOnly ? record(undefined) : readClaudeSettingsObjectAsync(join(root, '.mcp.json')),
+    readClaudeSettingsObjectAsync(join(paths.root, 'plugins', 'installed_plugins.json'))
   ])
   const projects = record(global.projects)
   const projectEntry = (path: string): Record<string, unknown> =>
@@ -129,7 +134,9 @@ async function readConfiguredClaudeResources(
     const flag = enabledPlugins[name]
     const enabled = claudePluginEnabled(flag)
     const installedOnly = flag === undefined
-    const manifest = await readObject(join(installPath, '.claude-plugin', 'plugin.json'))
+    // An unreadable manifest excludes only that plugin, as the CLI does.
+    const manifest = await readClaudePluginManifestAsync(installPath)
+    if (!manifest) continue
     const id = nativePluginId(installPath)
     if (directories.has(id)) continue
     directories.set(id, installPath)
@@ -144,7 +151,7 @@ async function readConfiguredClaudeResources(
     })
     const pluginName = typeof manifest.name === 'string' ? manifest.name : name.split('@')[0]
     const prefix = `plugin:${pluginName}:`
-    const bundledMcp = await readObject(join(installPath, '.mcp.json'))
+    const bundledMcp = await readClaudeSettingsObjectAsync(join(installPath, '.mcp.json'))
     addServers(bundledMcp.mcpServers ?? bundledMcp, join(installPath, '.mcp.json'), prefix, enabled)
     const declarations = Array.isArray(manifest.mcpServers)
       ? manifest.mcpServers
@@ -153,7 +160,7 @@ async function readConfiguredClaudeResources(
       if (typeof declaration === 'string') {
         const file = pluginFile(installPath, declaration)
         if (file) {
-          const extra = await readObject(file)
+          const extra = await readClaudeSettingsObjectAsync(file)
           addServers(extra.mcpServers ?? extra, file, prefix, enabled)
         }
       } else

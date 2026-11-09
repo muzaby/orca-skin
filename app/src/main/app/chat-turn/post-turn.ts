@@ -42,6 +42,8 @@ interface PostTurnDeps {
   getActiveTurn: () => TurnContext<WebContents>
   setActiveTurn: (turn: TurnContext<WebContents>) => void
   setInitialBatches: (batches: SteerFlushBatch[]) => void
+  /** 직전 턴이 연 입력 배치 — 실패로 held 에 되돌아간 자기 입력을 자동 재전송하지 않기 위해 본다. */
+  getInitialBatches?: () => SteerFlushBatch[]
 }
 
 export async function runTurnWithContinuations(
@@ -125,6 +127,13 @@ export async function runTurnWithContinuations(
       const haveTasks = backgroundTasks.hasPending(sessionId)
       const channelBusy = runtime.channelBusy
       const hasBacklog = runtime.hasUnframedBacklog
+      // 실패한 턴이 held 로 되돌린 자기 입력(spawn·push 거부 → rollback)은 같은 체인에서 다시
+      // 보내지 않는다 — 원래 오류로 끝내고 사용자가 다시 보낸다(0301 D-006). 그대로 flush 하면
+      // 같은 실패가 backoff 없이 반복된다. 사용자 Stop(예약 유지)은 아래 기존 경로가 판정한다.
+      const heldIds = new Set(pendingMessages.pending(sessionId).map((item) => item.id))
+      const returnedInput =
+        !activeTurn.controller.signal.aborted &&
+        (deps.getInitialBatches?.() ?? []).some((batch) => batch.ids.some((id) => heldIds.has(id)))
       let step = decidePostTurnStep({
         havePending: pendingMessageCount > 0,
         haveTasks,
@@ -134,6 +143,7 @@ export async function runTurnWithContinuations(
         hasBacklog,
         haveUnconfirmed
       })
+      if (returnedInput) step = 'break'
       getLogger()
         .child('chat')
         .info('chat.postturn.step', {

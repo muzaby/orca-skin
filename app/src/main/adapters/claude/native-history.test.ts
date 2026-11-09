@@ -195,6 +195,49 @@ describe('Claude native history reads', () => {
     ).toBe('unavailable')
   })
 
+  it.each([
+    ['I1 an existing subfolder cwd drift', 'subfolder', 'ready'],
+    ['I2 a deleted subfolder cwd drift', 'deleted-subfolder', 'ready'],
+    ['I3 first cwd elsewhere, last cwd the stored one', 'first-elsewhere', 'unavailable'],
+    ['I4 relocated to another existing folder', 'relocated-elsewhere', 'unavailable'],
+    ['I5 first cwd elsewhere, relocated to the stored one', 'relocated-here', 'ready'],
+    ['I6 relocated to a folder that no longer exists', 'relocated-missing', 'unavailable']
+  ] as const)('judges the session cwd by the CLI rule: %s', async (_name, shape, status) => {
+    const f = await fixture()
+    const other = path.join(f.root, 'other')
+    await fs.mkdir(other)
+    const sub = path.join(f.cwd, 'sub')
+    if (shape === 'subfolder') await fs.mkdir(sub)
+    const user = historyEntry('user-1', null, 'user', 'hello')
+    const answer = historyEntry('assistant-1', 'user-1', 'assistant', [
+      { type: 'text', text: 'native answer' }
+    ])
+    const stamp = (relocatedCwd: string): Record<string, unknown> => ({
+      type: 'relocated',
+      sessionId,
+      relocatedCwd
+    })
+    const entries = {
+      subfolder: [user, { ...answer, cwd: sub }],
+      'deleted-subfolder': [user, { ...answer, cwd: sub }],
+      'first-elsewhere': [{ ...user, cwd: other }, answer],
+      'relocated-elsewhere': [user, stamp(other), answer],
+      'relocated-here': [{ ...user, cwd: other }, stamp(f.cwd), { ...answer, cwd: other }],
+      'relocated-missing': [user, stamp(path.join(f.root, 'gone')), answer]
+    }[shape]
+    await f.write(entries)
+    const result = await readClaudeNativeHistory({
+      sessionId,
+      cwd: f.cwd,
+      env: { CLAUDE_CONFIG_DIR: f.config }
+    })
+    expect(result.status).toBe(status)
+    if (status === 'unavailable')
+      expect(result).toMatchObject({
+        message: 'Claude 원본 세션의 작업 경로가 저장된 세션과 일치하지 않습니다.'
+      })
+  })
+
   it('returns busy for stable unfinished inputs and a partially written last line', async () => {
     const f = await fixture()
     const request = { sessionId, cwd: f.cwd, env: { CLAUDE_CONFIG_DIR: f.config } }

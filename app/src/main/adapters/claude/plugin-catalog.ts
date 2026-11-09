@@ -3,27 +3,30 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeCommand } from '../../../shared/native-resources'
 import { isRecord } from '../../../shared/obj'
-import { readJsonObject, readJsonObjectSync } from '../../infra/config/json-file'
 import { extensionChoices } from '../common/extension-control'
 import { skillMetadata } from '../common/skill-metadata'
 import { claudeNativePaths } from './native-paths'
+import {
+  readClaudePluginManifest,
+  readClaudePluginManifestAsync,
+  readClaudeSettingsObject,
+  readClaudeSettingsObjectAsync
+} from './native-settings-file'
 import { claudePluginEnabled } from './plugin-flag'
 import {
   claudeLocalSettingsRoot,
   claudeLocalSettingsRootAsync,
   pluginPathKey
 } from './project-path'
-const readObject = (file: string): Record<string, unknown> =>
-  readJsonObjectSync(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
-
-const readObjectAsync = (file: string): Promise<Record<string, unknown>> =>
-  readJsonObject(file, () => new Error('Claude 네이티브 확장 설정을 읽을 수 없습니다.'))
 
 export function claudePluginDefaults(
   nativeRoot: string,
   overrides: Record<string, unknown> = {}
 ): Record<string, boolean> {
-  const defaults = pluginDefaults(readObject(join(nativeRoot, 'settings.json')), overrides)
+  const defaults = pluginDefaults(
+    readClaudeSettingsObject(join(nativeRoot, 'settings.json')),
+    overrides
+  )
   return Object.fromEntries(
     Object.entries(defaults).map(([key, value]) => [key, claudePluginEnabled(value)])
   )
@@ -275,7 +278,7 @@ export function readClaudePluginCatalog(
   capturedDefaults?: Record<string, boolean>
 ): ClaudePluginCatalog {
   const documents = settingsPaths(claudeLocalSettingsRoot(cwd), nativeRoot).map((file, i) =>
-    i === 0 && capturedDefaults ? {} : readObject(file)
+    i === 0 && capturedDefaults ? {} : readClaudeSettingsObject(file)
   )
   const { defaults, entries } = catalogSelection(
     cwd,
@@ -286,9 +289,11 @@ export function readClaudePluginCatalog(
   )
   const loaded = entries
     .filter((entry) => claudeInstallationExists(entry.path))
-    .map((entry): LoadedPlugin => {
+    .flatMap((entry): LoadedPlugin[] => {
       const root = resolve(entry.path)
-      const manifest = readObject(join(root, '.claude-plugin', 'plugin.json'))
+      // An unreadable manifest excludes only that plugin, as the CLI does.
+      const manifest = readClaudePluginManifest(root)
+      if (!manifest) return []
       const files = (['commands', 'skills'] as const).flatMap((kind) => [
         ...new Set(
           declaredPaths(manifest, kind).flatMap((path) =>
@@ -296,17 +301,19 @@ export function readClaudePluginCatalog(
           )
         )
       ])
-      return {
-        entry,
-        manifest,
-        files: files.map((file) => {
-          try {
-            return { file, text: readFileSync(file, 'utf8') }
-          } catch {
-            throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
-          }
-        })
-      }
+      return [
+        {
+          entry,
+          manifest,
+          files: files.map((file) => {
+            try {
+              return { file, text: readFileSync(file, 'utf8') }
+            } catch {
+              throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
+            }
+          })
+        }
+      ]
     })
   return projectCatalog(defaults, loaded)
 }
@@ -321,7 +328,7 @@ export async function readClaudePluginCatalogAsync(
   const projectRoot = await claudeLocalSettingsRootAsync(cwd)
   const documents = await Promise.all(
     settingsPaths(projectRoot, nativeRoot).map((file, i) =>
-      i === 0 && capturedDefaults ? {} : readObjectAsync(file)
+      i === 0 && capturedDefaults ? {} : readClaudeSettingsObjectAsync(file)
     )
   )
   const { defaults, entries } = catalogSelection(
@@ -335,7 +342,8 @@ export async function readClaudePluginCatalogAsync(
     entries.map(async (entry): Promise<LoadedPlugin | null> => {
       if (!(await stat(entry.path).catch(() => null))?.isDirectory()) return null
       const root = resolve(entry.path)
-      const manifest = await readObjectAsync(join(root, '.claude-plugin', 'plugin.json'))
+      const manifest = await readClaudePluginManifestAsync(root)
+      if (!manifest) return null
       const perKind = await Promise.all(
         (['commands', 'skills'] as const).map(async (kind) => [
           ...new Set(
