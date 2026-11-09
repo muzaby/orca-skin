@@ -877,3 +877,120 @@ main reportError → hub → renderer ErrorToastHost
 | D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | ΔV1 채택(D-017 · §10 I·J·K) — r2 verify 닫힘(PT1~PT3·I2 잡음) |
 | D3 | 탭 배너 i18n 키 2개 소비처 0 | 구현 보고 #4 | 다음 정리 후보 | 비귀속 | NON_BLOCKING | open |
 | E1 | J1이 `initialBatches` 전부(프렐류드 + 잔여 held를 합친 본 배치)를 회수하는데 J 규칙 칸은 "마지막 초기 배치"만 적고, VP-16은 id 1개·배치 1개 입력뿐이다. 첫 id/첫 배치만 회수하는 변이(J1-7a·7b)와 이벤트 ids를 초기 배치 전체로 바꾸는 변이(J1-9)가 green | §10 J · VP-16 | J 규칙 칸에 합친 배치·프렐류드 분기와 입력을 적거나 경계 선언. 프렐류드가 이전 대기 입력을 입력창으로 합치는 것이 의도인지는 사용자 판단 | 확장 후보 | PLAN_GAP (verify 2회째, 창 안) | ΔV2 처분 — J1-7a·7b 채택(§10 J′ (vi)·(vii), VP-16 J(vi)·J(vii)) · J1-9 경계(§10 ΔV2 선언 경계). 다음 verify가 닫음 |
+
+---
+
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 동의 / 그대로 진행: 유효 V = V1 + ΔV1 + ΔV2. VP-16 REQUIRED·VP-05 REGRESSION과 §10 J′의 J(i)~J(vii)를 실행했다. VP-17·VP-18은 ΔV2에서 NOT_REQUIRED이며 기존 좌표는 전체 테스트로 유지 확인했다.
+- 이견 / 현실성 문제: 기존 fixture의 턴 단위 채널은 두 예약을 별도 프렐류드·본 배치로 나눴다. J(vi)는 장수명 채널에서 실제 `reserveHeld`가 병합한 직후 실제 런타임의 채널을 내려, 합친 배치를 새 spawn이 보내다 실패하게 했다(`chat-turn.returned-input.test.ts:'J(vi) …'`).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. D-017·AC22를 따르며 production 코드는 바꾸지 않았다(`git diff --name-only`의 코드 파일 = 테스트 1개).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-16 | J′ 체인 종료 회수 | J1 — 1 | 1/1 | §10 J 검색 → `send.ts:644`·`:729`·`:766`; 준비 중 Stop·준비 실패를 빼면 `:729` 1행, 목록과 차집합 ∅. `chat-turn.returned-input.test.ts:'J(i)'~'J(vii)'` 7/7 | J(vi) `req-a`·`req-b` 한 배치, J(vii) `p-9`·`req-11` 두 배치. 회신 ids 순서·대기열 0·다음 전송 text/preludes에 원문 없음 | J1-9 일부 id만 held인 경합은 ΔV2 선언 경계 유지 |
+| VP-05 | 예약 수명주기 + J′ | B1~B8 + J1 — 9(상속 포함) | 9/9 | B 검색 → queue `:326`·`:335`, 요청 `:123`·`:125`, coordinator `:614`·`:616`·`:637`, continuation `:66`; 타입·Omit·주석 제외 후 목록과 차집합 ∅. B1·2 `pending-message-queue.test.ts:'Q1~Q8'`, B3·4 `turn-request.reopen.test.ts:'W1~W3'`, B5~7 `turn-coordinator.test.ts:'B1~B10'`, B8 `continuation.test.ts:'buildFlushRequest passes both reopen delegates through unchanged'`, J1 = 위 J(i) | `retry-submission.test.ts:'A'·'C'·'E'` 재실행 포함 7/7. submitted→submitting→submitted·동기 실패 held·체인 종료 뒤 회수 | 없음 |
+
+- 이번 ΔV2가 바꾼 고유 지점은 J1 1/1이다. 상속 A·C·E·F·G·H·I·K는 r2의 직접 좌표를 유지하고 전체 실행에서 확인했다(아래 AC 표).
+- 직전 verify `못 잡음` 의무: E1의 J1-7a·J1-7b는 이번에 각각 J(vii)·J(vi)가 검출했다. J1-9는 ΔV2가 선언한 경계라 재실행 의무에서 제외했다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-16 | REQUIRED (CHANGED) | SELF_PASS | `chat-turn.returned-input.test.ts:'J(i)'~'J(vii)'` 7/7 | J1-7a·J1-7b·배치 순서 뒤집기 각각 1 failed |
+| VP-05 | REGRESSION | SELF_PASS | 위 B1~B8 좌표 + `retry-submission.test.ts:'A'·'C'·'E'` + J(i) | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+기준선은 7/7 green이다. `mutate.py` 12행을 실행하고 "모든 파일 원문 그대로" 및 `git diff -- app/src/main/app/chat-turn/send.ts` 빈 출력으로 원복을 확인했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| J1-7a `initialBatches.slice(0,1)` | VP-16 등록·E1 인용 | r2 못 잡음 | J(vii) 1 failed | 잡음 |
+| J1-7b `batch.ids.slice(0,1)` | VP-16 등록·E1 인용 | r2 못 잡음 | J(vi) 1 failed | 잡음 |
+| J1-order 배치 순서 뒤집기 | VP-16 등록 | 최초 | J(vii) 1 failed | 잡음 |
+| J1-1 cancel 대신 held 존재만 검사 | J1 sweep·이전 잡음 | r2 잡음 | J(i)·J(ii)·J(iv)~J(vii) 6 failed | 잡음 |
+| J1-2 이벤트 발신 제거 | J1 sweep·이전 잡음 | r2 잡음 | J(i)·J(iv)~J(vii) 5 failed | 잡음 |
+| J1-3 큐 키 → `queueKey` | J1 sweep·이전 잡음 | r2 잡음 | J(v) 1 failed | 잡음 |
+| J1-4 세션 가드 제거 | J1 sweep·이전 잡음 | r2 잡음 | J(ii) 1 failed | 잡음 |
+| J1-6 회수 id 길이 가드 제거 | J1 sweep·이전 잡음 | r2 잡음 | J(i)·J(iii)·J(vi)·J(vii) 4 failed | 잡음 |
+| J1-8 이벤트 세션 키 → `queueKey` | J1 sweep·이전 잡음 | r2 잡음 | J(v) 1 failed | 잡음 |
+| J1-id-order 배치 안 id 순서 뒤집기 | J′ (vi)·형제 순서 sweep | 최초 | J(vi) 1 failed | 잡음 |
+| J-enqueue-batches 최초 배치 전달을 `[mainBatch]`로 축소 | VP-16 path edge sweep | 최초 | J(vii) 1 failed | 잡음 |
+| J-flush-batches `setInitialBatches` 대입 제거 | VP-16 path edge sweep | r2 잡음(I-iv) | J(iv)·J(v)·J(vi) 3 failed | 잡음 |
+
+- 분모 검산: 선택 증거 3 · 인용 변이 0(선택 증거와 같은 E1 두 항, 중복 제외) · 새 구조적 oracle 0 · sweep 9 = 표 12행. 잡음 12 · 못 잡음 0 · 동치 0.
+- 덮개 회귀: 이번 oracle 파일을 쓰던 verify r2 J1-1·2·3·4·6·8을 전부 재실행해 red를 유지했다. K·I·B·A의 production·oracle 파일은 수정하지 않았다.
+- 입력 교정 전 J(vi)가 red인 상태에서 돌린 첫 변이 실행은 잠금 증거로 쓰지 않았다. 위 표는 병합 경로 교정 후 기준선 green과 대조한 재실행 결과다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구·상태 없음. J(vi)·J(vii)는 기존 `message.cancelled` ids를 관측하고 renderer 소비는 ΔV1 K1 좌표 유지 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | ΔV2 "시작 실패한 턴이 여러 입력을 보냈음" 행. 두 케이스 모두 원래 오류 1회·회수 이벤트 1회 | 없음 |
+| 실패가 화면에서 아무 일도 안 일어남으로 보이지 않는가 | J(vi)·J(vii)에서 큐 제거·전체 ids 회신을 관측, 기존 `chatStore.test.ts` VP-17·VP-19 좌표가 말풍선 제거·텍스트 복원을 관측 | AC17 Windows 시각 실기 유지 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | production 변경 없음. 일부 id 단건 취소 경합은 J1-9 선언 경계 유지 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 테스트 seam: 기존 턴 단위 채널은 두 held를 병합하지 않았다 | 실제 장수명 채널 + 큐 구독으로 병합 뒤 실제 `teardownChannel`; 구독·스트림은 finally 정리 | J(vi) 최초 `text='예약-가2'` → 교정 후 `예약-가1\n\n예약-가2`, preludes 0. J1-7b red 1 |
+| 2 | fixture의 supervisor 조회 포트는 `GovernedLiveTurn` 타입이라 채널 정리 메서드가 노출되지 않음 | fixture가 직접 만드는 `SessionRuntime`으로 타입 표기. runtime 동작 변경 없음 | typecheck:test 최초 TS2339 → 최종 3종 통과 |
+| 3 | 환경: SQLite 바이너리가 Electron ABI 140, 실행 Node는 24이며 Windows 경로 fixture도 있음 | 변경 전후 실패 집합 대조로 분리. 실패 파일·서명은 [gate-baseline.r3.tsv](gate-baseline.r3.tsv) | 변경 전후 52파일·337실패 케이스 동일, 두 집합 차집합 양방향 ∅ |
+
+### 설계 대비 명시적 차이
+
+- production 메커니즘 대체 없음. J(vi) seam은 위 #1처럼 계획한 "합친 배치 + 새 spawn 동기 실패"를 실행하도록 보강했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 새 타이머 없음 | J(vi)·J(vii) 직접 await |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 테스트의 큐 구독은 케이스 안에서만 유지 | J(vi) finally `unsubscribe()`·`endChannel()` |
+| 재진입 | 구독에서 채널을 내리기 전에 `queuedBoth=false` | J(vi) spawn 2회, 다음 전송 뒤 총 3회 |
+| 다른 무효화 축 | production 변경 없음 | J(i)~J(vii) 7/7 |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/app/chat-turn.returned-input.test.ts` J(vi)·J(vii) 추가, fixture가 실제 supervisor를 반환. `plan.md` r3 보고·`INDEX.md` 상태·[gate-baseline.r3.tsv](gate-baseline.r3.tsv) 실패 집합 |
+| 실행 명령 | cwd=`app`: `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · 파일 필터 없는 `./node_modules/.bin/vitest run --reporter=json --outputFile=/tmp/orca-0301-final-r3.json` · `node --test scripts/*.test.mjs` |
+| 관측한 게이트 산출 | 마이그레이션 sync/no-copies ok(이전 v* 태그 없어 append-only skip) · inventory prose/links ok · 예산 20 real-git suites ok · lint 0 error/기존 2 warning · typecheck 3종 통과 · node --test 827/827.<br>최종 vitest 939파일: 887 passed/52 failed; 8,800케이스: 8,366 passed/337 failed/97 pending. 기준선은 8,798케이스, 실패 파일·케이스 집합 양방향 차집합 ∅(SQLite ABI 43파일·Windows 전용 9파일) |
+| 추가·수정 테스트의 subtree 규칙 | `git diff --name-only`에서 테스트 1파일. 시간 예산: 새 실시간 상한·지연 0, 예산 가드 통과. 호스트 격리: 임시 설정 루트 명시 주입, 홈 참조 0. 풀 분류: `classifyTestSource` = unit/reasons `[]`, 실제 실행 `[test-pools]` 위반 0 |
+| V-pair 자기확인 | VP-16 SELF_PASS · VP-05 SELF_PASS. VP-17·VP-18은 ΔV2 NOT_REQUIRED, 기존 좌표 재실행 green |
+| 강제 지점 전수 | ΔV2 고유 J1 1/1. VP-05 상속을 포함하면 B1~B8·J1 고유 9/9 |
+| 블로커 / 역질문 | 없음. AC17 Windows 실기 대기, E1 독립 종료 판정은 다음 verify |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+**AC 자기보고**
+
+| AC | 자기 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1~AC3 | ✅ 3 | `native-session.claude-transcript.test.ts` 4 · Claude `native-history.test.ts` 24 · `transcript-cwd.test.ts` 8 green |
+| AC4~AC8 | ✅ 5 | `retry-submission.test.ts` 7 · `turn-request.reopen.test.ts` 7 · `turn-coordinator.test.ts` 86 및 queue·continuation 기존 직접 좌표 green |
+| AC9 | ✅ 1 | `session-runtime.test.ts` 90 green |
+| AC10~AC13 | ✅ 4 | `adapter.native-settings.test.ts` 6 · `extension-catalog.claude-settings.test.ts` 4 · `native-settings-file.test.ts` 28 · Claude plugin-catalog/configured-resources/plugin-state 및 json-file 기존 좌표 green |
+| AC14 | ✅ 1 | `useNativeMcpCatalog.test.ts` 12 · `ExtensionsCatalogView.interaction.test.ts` 11 · `reportSites.registry.test.ts` 273 green |
+| AC15 | ✅ 1 | `session-resources.test.ts` 15 green |
+| AC16 | ✅ 1 | 현재 상태 문서 5곳은 r2 그대로, `check-doc-inventory.mjs --check` prose·links green |
+| AC17 | ⚠️ 1 | Windows 실제 CLI·파일·white/dark 시각 실기는 실행하지 않음 |
+| AC18 | ✅ 1 | J(i) 원래 오류·회수 ids·다음 전송에 실패 입력 없음 |
+| AC19 | ✅ 1 | `chatStore.test.ts:'VP-17 …'` 포함 66 green |
+| AC20 | ✅ 1 | `retry-submission.test.ts:'C'·'F'·'H'` 및 `chat-turn.execution-config.test.ts` 기존 좌표 green |
+| AC21 | ✅ 1 | `chatStore.test.ts` VP-19 (i)~(vii) green |
+| AC22 | ✅ 1 | J(vi)·J(vii) 두 신규 입력 green, 첫 id·첫 배치·순서 변이 각각 red 1 |
+
+- 합계 검산: ✅ 21 · ⚠️ 1 · ❌ 0 = 총 22. 분모 변경: r2 21 → r3 22(ΔV2 AC22 추가).
+- 상태 사본 관측: INDEX의 0301 행 = `impl/IMPL_DONE`·다음 Claude·라운드 3. 구현 커밋 trailer `Status: implemented`·`Criteria-Met: 21/22`·`Criteria-Pending: AC17`·`Verified-By: pending`을 `git log -1 --format='%(trailers:only=true)'`로 커밋 뒤 확인한다.
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예. r2 E1이 지적한 J1의 입력 폭이고, 새 입력은 배치 안 모든 id와 모든 배치의 회수를 구별한다(J1-7b·J1-7a red).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 이번 ΔV2 §10 J′·AC22·VP-16 등록 변이가 있었다. J(vi)는 preludes 0·병합 text 단언으로 처음 fixture가 다른 분기를 탔음을 검출했다.
+- 반복해서 부딪히는 환경 한계: SQLite ABI·Windows 전용 경로. 실패 목록은 [gate-baseline.r3.tsv](gate-baseline.r3.tsv), 변경 전후 차집합은 위 gate 관측에 기록했다.
+- 현재 라운드·impl 턴: `r3`. 독립 verify는 수행하지 않았다.

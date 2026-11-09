@@ -1,4 +1,4 @@
-// 0301 ΔV1 VP-16 — 시작 단계에서 보내지 못한 턴 입력의 회수(§10 J1 · D-017).
+// 0301 ΔV1·ΔV2 VP-16 — 시작 단계에서 보내지 못한 턴 입력의 회수(§10 J′ · J1 · D-017).
 // `chat:send` 실제 핸들러 + 실제 TurnCoordinator·SessionRuntime·PendingMessageQueue 를 잇는다.
 // held 상태가 판정 입력이라 큐는 mock 하지 않는다. SDK 경계(adapter.sendMessage)만 대체한다.
 import type { WebContents } from 'electron'
@@ -202,7 +202,7 @@ function install() {
       recoverMissingWorktree: vi.fn(async () => ({ kind: 'none' }))
     }
   } as never)
-  return { sendMessage, pendingMessages }
+  return { sendMessage, pendingMessages, supervisor }
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
@@ -225,7 +225,7 @@ const cancelled = (): Array<{ sessionId?: string; ids?: string[] }> =>
 const errors = (): unknown[] =>
   harness.events.filter((event) => event.type === 'error').map((event) => event.error)
 
-describe('chat:send returns an input that never left the start phase (0301 D-017 · §10 J)', () => {
+describe('chat:send returns an input that never left the start phase (0301 D-017 · §10 J′)', () => {
   it('J(i) a stored session takes the input back and does not send it with the next message', async () => {
     const f = install()
     f.sendMessage.mockImplementationOnce(() => {
@@ -315,5 +315,100 @@ describe('chat:send returns an input that never left the start phase (0301 D-017
     expect(cancelled()).toEqual([{ type: 'message.cancelled', sessionId: 'n1', ids: ['req-8'] }])
     expect(f.pendingMessages.pending('n1')).toEqual([])
     expect(f.pendingMessages.pending('req-7')).toEqual([])
+  })
+
+  it('J(vi) a merged flush batch returns every reserved id in input order', async () => {
+    const f = install()
+    let endChannel!: () => void
+    const channelEnd = new Promise<void>((resolve) => {
+      endChannel = resolve
+    })
+    const pushTurn = vi.fn<NonNullable<LiveTurn['pushTurn']>>()
+    let queuedBoth = false
+    // 채널 생존 중 reserveHeld가 두 예약을 한 배치로 합친 뒤 채널을 내린다.
+    // 그 배치를 새 spawn이 보내다 동기 실패하는 경로이며, 큐·런타임은 실제 구현이다.
+    const unsubscribe = f.pendingMessages.subscribe(() => {
+      if (queuedBoth && f.pendingMessages.pending('s1').length === 0) {
+        queuedBoth = false
+        ;(f.supervisor.peekRuntime('s1') as SessionRuntime).teardownChannel()
+      }
+    })
+    f.sendMessage.mockImplementationOnce(() => ({
+      ...liveTurn(() => []),
+      close: endChannel,
+      pushTurn,
+      eventBatches: (async function* (): AsyncGenerator<ProviderMessageBatch> {
+        await send({ sessionId: 's1', text: '예약-가1', clientRequestId: 'req-a' })
+        await send({ sessionId: 's1', text: '예약-가2', clientRequestId: 'req-b' })
+        queuedBoth = true
+        yield { sequence: 0, events: answer('s1') }
+        await channelEnd
+      })()
+    }))
+    f.sendMessage.mockImplementationOnce(() => {
+      throw new Error('원래-오류')
+    })
+    try {
+      await send({ sessionId: 's1', text: '질문-처음', clientRequestId: 'req-10' })
+    } finally {
+      unsubscribe()
+      endChannel()
+    }
+
+    expect(f.sendMessage).toHaveBeenCalledTimes(2)
+    expect(pushTurn).not.toHaveBeenCalled()
+    const flush = f.sendMessage.mock.calls[1]![0]
+    expect(flush.text).toContain('예약-가1\n\n예약-가2')
+    expect(flush.preludes ?? []).toEqual([])
+    expect(errors()).toHaveLength(1)
+    expect(String((errors()[0] as { message: string }).message)).toContain('원래-오류')
+    expect(cancelled()).toEqual([
+      { type: 'message.cancelled', sessionId: 's1', ids: ['req-a', 'req-b'] }
+    ])
+    expect(f.pendingMessages.pending('s1')).toEqual([])
+
+    f.sendMessage.mockImplementationOnce(() => liveTurn(() => answer('s1')))
+    await send({ sessionId: 's1', text: '질문-다음', clientRequestId: 'req-after-flush' })
+
+    expect(f.sendMessage).toHaveBeenCalledTimes(3)
+    const next = f.sendMessage.mock.calls[2]![0]
+    expect(next.text).toContain('질문-다음')
+    const nextInput = [next.text, ...(next.preludes ?? []).map((batch) => batch.text)].join('\n')
+    expect(nextInput).not.toContain('예약-가1')
+    expect(nextInput).not.toContain('예약-가2')
+    expect(cancelled()).toHaveLength(1)
+    expect(errors()).toHaveLength(1)
+  })
+
+  it('J(vii) a cold spawn returns both the carried prelude and the main batch in order', async () => {
+    const f = install()
+    f.pendingMessages.enqueue('s1', { text: '대기-자' }, undefined, 'p-9')
+    f.sendMessage.mockImplementationOnce(() => {
+      throw new Error('원래-오류')
+    })
+    await send({ sessionId: 's1', text: '질문-차', clientRequestId: 'req-11' })
+
+    expect(f.sendMessage).toHaveBeenCalledTimes(1)
+    const first = f.sendMessage.mock.calls[0]![0]
+    expect(first.preludes).toEqual([expect.objectContaining({ ids: ['p-9'], text: '대기-자' })])
+    expect(first.text).toContain('질문-차')
+    expect(errors()).toHaveLength(1)
+    expect(String((errors()[0] as { message: string }).message)).toContain('원래-오류')
+    expect(cancelled()).toEqual([
+      { type: 'message.cancelled', sessionId: 's1', ids: ['p-9', 'req-11'] }
+    ])
+    expect(f.pendingMessages.pending('s1')).toEqual([])
+
+    f.sendMessage.mockImplementationOnce(() => liveTurn(() => answer('s1')))
+    await send({ sessionId: 's1', text: '질문-다음', clientRequestId: 'req-12' })
+
+    expect(f.sendMessage).toHaveBeenCalledTimes(2)
+    const next = f.sendMessage.mock.calls[1]![0]
+    expect(next.text).toContain('질문-다음')
+    const nextInput = [next.text, ...(next.preludes ?? []).map((batch) => batch.text)].join('\n')
+    expect(nextInput).not.toContain('대기-자')
+    expect(nextInput).not.toContain('질문-차')
+    expect(cancelled()).toHaveLength(1)
+    expect(errors()).toHaveLength(1)
   })
 })
