@@ -1325,6 +1325,136 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     expect(useChatStore.getState().draftRestore).toBeNull()
   })
 
+  describe('message.cancelled — 턴 시작 입력의 말풍선 회수 (0301 D-017 · §10 K)', () => {
+    const idle = (): void =>
+      useChatStore.setState((s) => ({
+        sessions: {
+          ...s.sessions,
+          s: { ...s.sessions.s, session: { ...s.sessions.s.session, inflight: false } }
+        }
+      }))
+    const userTexts = (): string[] =>
+      entry()
+        .session.messages.filter((m) => m.role === 'user')
+        .map((m) => partsText(m.parts))
+    const bubble = (clientId: string, text: string): void => {
+      idle()
+      useChatStore.setState((s) => ({
+        sessions: {
+          ...s.sessions,
+          s: {
+            ...s.sessions.s,
+            session: {
+              ...s.sessions.s.session,
+              messages: [
+                ...s.sessions.s.session.messages,
+                { role: 'user', createdAt: 1, clientId, parts: [{ type: 'text', text }] }
+              ]
+            }
+          }
+        }
+      }))
+    }
+    const queue = (id: string, text: string): void =>
+      ingestChatEvent({ type: 'message.queued', sessionId: 's', id, text, createdAt: 10 })
+
+    it('VP-17 the bubble the real send created is removed and its text goes back to the composer', async () => {
+      idle()
+      chatActions.send('보낸 원문')
+      await Promise.resolve()
+      const clientId = (chatSend.mock.calls[0][0] as { clientRequestId: string }).clientRequestId
+      expect(userTexts()).toEqual(['보낸 원문'])
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: [clientId] })
+      expect(userTexts()).toEqual([])
+      expect(useChatStore.getState().draftRestore).toMatchObject({ key: 's', text: '보낸 원문' })
+    })
+
+    it('(i) a pending item alone is removed and restored as before', () => {
+      queue('p-1', '예약-나')
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['p-1'] })
+      expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+      expect(useChatStore.getState().draftRestore).toMatchObject({ key: 's', text: '예약-나' })
+    })
+
+    it('(ii) a bubble alone is removed and restored', () => {
+      bubble('req-1', '질문-가')
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['req-1'] })
+      expect(userTexts()).toEqual([])
+      expect(useChatStore.getState().draftRestore).toMatchObject({ key: 's', text: '질문-가' })
+    })
+
+    it('(iii) a bubble and a pending item restore bubble text first', () => {
+      bubble('req-1', '질문-가')
+      queue('p-1', '예약-나')
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['p-1', 'req-1'] })
+      expect(userTexts()).toEqual([])
+      expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+      expect(useChatStore.getState().draftRestore).toMatchObject({
+        key: 's',
+        text: '질문-가\n\n예약-나'
+      })
+    })
+
+    it('(iv) no match changes nothing and restores nothing', () => {
+      bubble('req-1', '질문-가')
+      queue('p-1', '예약-나')
+      const before = useChatStore.getState().sessions.s
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['other'] })
+      const after = useChatStore.getState().sessions.s
+      expect(after.session.messages).toBe(before.session.messages)
+      expect(after.pendingSteer).toEqual(before.pendingSteer)
+      expect(useChatStore.getState().draftRestore).toBeNull()
+    })
+
+    it('(vi) an id that is still a pending item does not remove a bubble with the same id', () => {
+      bubble('dup', '말풍선-원문')
+      useChatStore.setState((s) => ({
+        sessions: {
+          ...s.sessions,
+          s: { ...s.sessions.s, pendingSteer: [{ id: 'dup', text: '예약-원문', createdAt: 2 }] }
+        }
+      }))
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['dup'] })
+      expect(userTexts()).toEqual(['말풍선-원문'])
+      expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+      expect(useChatStore.getState().draftRestore).toMatchObject({ text: '예약-원문' })
+    })
+
+    it('(vii) only user bubbles are taken back', () => {
+      idle()
+      useChatStore.setState((s) => ({
+        sessions: {
+          ...s.sessions,
+          s: {
+            ...s.sessions.s,
+            session: {
+              ...s.sessions.s.session,
+              messages: [
+                {
+                  role: 'assistant',
+                  createdAt: 1,
+                  clientId: 'req-1',
+                  parts: [{ type: 'text', text: '응답' }]
+                }
+              ]
+            }
+          }
+        }
+      }))
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['req-1'] })
+      expect(entry().session.messages).toHaveLength(1)
+      expect(useChatStore.getState().draftRestore).toBeNull()
+    })
+
+    it('(v) a bubble whose id is not in the event stays', () => {
+      bubble('req-0', '이전-질문')
+      bubble('req-1', '질문-가')
+      ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['req-1'] })
+      expect(userTexts()).toEqual(['이전-질문'])
+      expect(useChatStore.getState().draftRestore).toMatchObject({ text: '질문-가' })
+    })
+  })
+
   it('응답-전 → 커밋 → 응답-후 순서로 [assistant][user][assistant] 를 형성한다', () => {
     // echo 시맨틱(0060 D1): 소비 확정(message.committed)은 직전 응답 message.completed 뒤에 온다.
     ingestChatEvent({

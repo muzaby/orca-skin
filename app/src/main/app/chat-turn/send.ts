@@ -715,6 +715,22 @@ export async function handleChatSend(
       // 제출 수용 전 예외가 재시도 한도를 소진한 경우에만 submitting 예약을 held 로 복구한다.
       // 이미 submitted/confirmed/orphaned 인 배치는 rollback fence 가 거부하므로 이중 전달되지 않는다.
       request.rollbackInitialSubmission?.()
+      // 시작 단계에서 보내지 못하고 held 로 돌아온 이 체인의 마지막 입력은 다음 전송에 몰래 섞지
+      // 않는다 — 대기열에서 빼고 입력창으로 돌려준다(0301 D-017). cancel 은 held 만 지우므로
+      // 확정·orphaned·submitted 배치는 그대로다. 세션 ID 전에는 renderer 에 알릴 키가 없다.
+      const returnedIds: string[] = []
+      for (const batch of initialBatches) {
+        for (const id of batch.ids) {
+          if (pendingMessages.cancel(finalSessionId ?? queueKey, id)) returnedIds.push(id)
+        }
+      }
+      if (finalSessionId && returnedIds.length > 0) {
+        sendChatEvent(wc, {
+          type: 'message.cancelled',
+          sessionId: finalSessionId,
+          ids: returnedIds
+        })
+      }
       if (finalSessionId) pendingMessages.orphanUnconfirmed(finalSessionId, lease.chainId)
       // turn 핸들 teardown(레지스트리 제거)과 runtime 수명은 분리한다 — Persistent 핸들은 정상
       // 종료 시 세션 키로 idle 보존되고, 그 외(에러·OneShot)는 즉시 close.

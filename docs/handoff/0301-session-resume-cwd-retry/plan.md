@@ -712,6 +712,120 @@ main reportError → hub → renderer ErrorToastHost
 - 반복해서 부딪히는 환경 한계: Electron 바이너리 미설치로 전체 vitest의 기준선 29파일 red(Windows 전용 경로 포함). worker 재시작 1회.
 - 현재 라운드·impl 턴: `r1`
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: ΔV1 §10 I·J·K와 §11 ΔV1 행을 그대로 구현했다. J1 = `send.ts` 실행 try의 finally(최종 rollback 다음), K1 = `chatStore.ts` `case 'message.cancelled'`.
+- 이견 / 현실성 문제: VP-16 J(iv)를 mock supervisor로 조립하면 응답 중 보낸 입력이 busy 예약이 아니라 별도 체인으로 처리돼 J(i)를 다시 재는 것이 됐다(sweep I-iv green으로 발견). 실제 `RuntimeSupervisor`로 바꿔 닫았다(아래 #1).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+- 사용자 지적 CI #1035(같은 라운드, 외부 gate red): `native-history.test.ts` I7가 Windows에서 red — 임시 폴더(C:)와 작업 폴더(D:)의 드라이브가 달라 `path.relative`가 절대 경로를 돌려줘 입력이 성립하지 않았다. `realpath`를 감싸 상대 경로가 저장 폴더로 풀리는 입력을 플랫폼과 무관하게 만들었다(#2).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-18·VP-02 | I post-turn 가드 | I1·I2 — 2 | 2/2 | §10 I 검색 6행: `post-turn.ts:46` 선언 제외 · `:135`·`:137`·`:147` → I1 · `send.ts:707` → I2 · `send.ts:576` B행 제외(차집합 0). I1 (i) `retry-submission.test.ts:'C …'` · (ii) `'F a send-now interrupt …'` · (iii) `chat-turn.execution-config.test.ts:'… runs %s with its own document …'` · (iv) `'H a flush turn that fails synchronously …'` · I2 `chat-turn.returned-input.test.ts:'J(i)…'`(실제 send.ts 조립) | (ii) 중단 = send-now · (iv) flush 입력 `held-1` ≠ 최초 `initial-message` | 없음 |
+| VP-16·VP-17·VP-05 | J 체인 종료 회수 | J1 — 1 | 1/1 | §10 J 검색 3행: `send.ts:644` 준비 중 Stop · `:766` 준비 실패 제외 → `:729` = J1(차집합 0). `chat-turn.returned-input.test.ts` J(i)~J(v) | (i) ids `['req-1']`·세션 `s1` · (ii) 세션 없음 → 이벤트 0 · (iii) 정상 → 0 · (iv) flush `req-5` ≠ 최초 `req-6` · (v) 큐 키 `n1` ≠ queueKey `req-7` | 없음 |
+| VP-19·VP-17 | K renderer 소비 | K1 — 1 | 1/1 | §10 K 검색 1행 `chatStore.ts:874`. `chatStore.test.ts:'message.cancelled — 턴 시작 입력의 말풍선 회수 …'` VP-17·(i)~(vii) | 말풍선 `질문-가` ≠ pending `예약-나` · 결합 순서 · 같은 id pending(vi) · assistant clientId(vii) | 없음 |
+| VP-07 | B3 canReopen claim(D1) | B3 — 1(V1 B 8 중) | 1/1 | §10 B 검색 출력 r1과 동일(차집합 0). `turn-request.reopen.test.ts:'%s refuses to reopen a batch that was %s'` W1·W2 × confirmed·rolled back | 빈 claim(참) ≠ 불일치 claim(거짓) | 없음 |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: V-B3b(이행) → 이번 턴 red 4 · V-PT2·V-PT3(ΔV1 채택) → red 1·17 · V-Fw7은 verify가 `잡음`으로 재분류. 남은 의무 0.
+- V1 강제 지점 r1 `SELF_PASS`(A·C·E·F·G·H)는 좌표 유지 — 이번 diff가 닿은 A2만 재실행(V-A2a~c red).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-16 | REQUIRED | SELF_PASS | `chat-turn.returned-input.test.ts` J(i)~J(v) | not selected |
+| VP-17 | REQUIRED | SELF_PASS | main J(i) ids · `chatStore.test.ts:'VP-17 the bubble the real send created …'` | not selected |
+| VP-18 | REQUIRED | SELF_PASS | 위 I 좌표 (i)~(iv) | PT1 crash · PT2 red 1 · PT3 red 17 · I2 crash · I-iv red 2 |
+| VP-19 | REQUIRED | SELF_PASS | `chatStore.test.ts` (i)~(vii) | not selected |
+| VP-05 (CHANGED) | REQUIRED | SELF_PASS | V1 `retry-submission.test.ts:'A'`·`'C'`·`'E'` + J(i) `pending('s1')` 0·`message.cancelled` 1 | not selected |
+| VP-02 | REGRESSION | SELF_PASS | `retry-submission.test.ts` A~E 재실행 7 passed(F·H 포함) | not selected |
+| VP-07 | REQUIRED | SELF_PASS | W1~W3 + claim 불일치 4입력 | V-B3b red 4 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+하네스 `mutate.py`, spec 25행(`--cwd app`). 원복 확인 "모든 파일 원문 그대로".
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| PT1 `if (returnedInput) step='break'` 제거 | VP-18 등록 | r1 잡음(crash) | worker crash(무한 flush) | 잡음 |
+| PT2 `!aborted &&` 제거 | VP-18 등록 · verify V-PT2 | r1 못 잡음 | 1 failed(F) | 잡음 |
+| PT3 held 판정 → `true` | VP-18 등록 · verify V-PT3 | r1 좌표에서 못 잡음 | 17 failed | 잡음 |
+| I2 `send.ts:707` `getInitialBatches` → `[]` | VP-18 등록 | 최초 | worker crash | 잡음 |
+| I-iv flush 배치 갱신 제거(최초 배치를 보게 함) | VP-18 등록 | 최초 | 1차 0 failed → J(iv) 실제 supervisor로 교정 후 2 failed | 잡음(입력 교정) |
+| J1-1 cancel → held 존재 검사만(회수 안 함) | sweep J1 | 최초 | 4 failed | 잡음 |
+| J1-2 `message.cancelled` 발신 제거 | sweep J1 (i) | 최초 | 3 failed | 잡음 |
+| J1-3 큐 키 `finalSessionId ?? queueKey` → `queueKey` | sweep J1 큐 키 항 | 최초 | 1차 0 failed → J(v) 추가 후 1 failed | 잡음(입력 추가) |
+| J1-4 `finalSessionId &&` 제거 | sweep J1 (ii) | 최초 | 1 failed | 잡음 |
+| J1-5 cancel 결과 무시(모든 id 회신) | sweep J1 (iii) | 최초 | 2 failed | 잡음 |
+| J1-6 `returnedIds.length > 0` 제거 | sweep J1 (iii) | 최초 | 2 failed | 잡음 |
+| K1-1 말풍선 제거 dispatch 삭제 | sweep K1 | 최초 | 4 failed | 잡음 |
+| K1-2 `!presentIds.has` → `true` | sweep K1 "pending에 없고" | 최초 | 1차 0 failed → (vi) 추가 후 1 failed | 잡음(입력 추가) |
+| K1-3 결합 순서 맞바꿈(⑤) | sweep K1 순서 | 최초 | 1 failed | 잡음 |
+| K1-4 `role === 'user'` 제거 | sweep K1 `role:'user'` | 최초 | 1차 0 failed → (vii) 추가 후 1 failed | 잡음(입력 추가) |
+| K1-5 말풍선 텍스트 제외 | sweep K1 | 최초 | 4 failed | 잡음 |
+| K1-6 `ev.ids.includes` 제거 | sweep K1 (v) | 최초 | 2 failed | 잡음 |
+| K1-7 `texts.length > 0` → `true` | sweep K1 (iv) | 최초 | 4 failed | 잡음 |
+| V-B3b canReopen claim → `[]` | D1 인용 변이 | r1 verify 못 잡음 | 4 failed | 잡음 |
+| V-B3a·V-B4a·V-B4b 키·claim | verify 잡음 행(oracle 파일 수정) | 잡음 | 2·2·7 failed | 잡음 |
+| V-A2a·V-A2b·V-A2c realpath catch·samePath·isAbsolute | verify 잡음 행(I7 수정, CI #1035) | 잡음 | 2·4·1 failed | 잡음 |
+
+- **분모 검산**: 선택 증거 5(PT1·PT2·PT3·I2·I-iv) · 인용 변이 1(V-B3b) · 새 oracle 0 · sweep 13(J1 6 · K1 7) · 이전 잡음 재실행 6 = 표 25행(V-B3a·B4a·B4b·A2a·A2b·A2c는 2행에 묶음). 최종 잡음 25 · 못 잡음 0 · 동치 0.
+- **덮개 회귀**: 없음. I7 장치 교체(`path.relative` → `realpath` 감쌈) 뒤 V-A2c red 유지(1 failed). r1 verify `잡음` 중 이번 diff가 닿은 oracle 파일(native-history·turn-request.reopen)의 행 6개 전부 red.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음. J1 `message.cancelled`의 소비자 = K1(말풍선 제거 + `draftRestore`) | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 동기 실패 → ΔV1 1행 · flush 동기 실패 → 2행 · 새 대화 → 4행(이벤트 없음) · 세션 ID를 받은 새 대화의 flush 실패 → 2행(J(v), 세션 ID로 회신) | 없음 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 원래 오류 배너 1회 + 말풍선 제거 + 입력창 복원(VP-17) | AC17(e) 사람 확인 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | K는 확정 id에 오지 않는다(§10 K 전제) — 확정 뒤 같은 id 이벤트가 없다 | 없음 |
+| 기존 소비처 변화(§12) | 중단 버튼·준비 중 Stop·세션 폐기의 턴 시작 입력도 말풍선이 지워진다 — §12 표대로 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 구현 세부: VP-16 조립에서 mock supervisor는 lease를 모르므로 응답 중 전송이 busy 예약이 되지 않았다 | 실제 `RuntimeSupervisor` + `acquireRuntime`·`peekRuntime` spy(런타임 생성만 SDK 경계로). history 구독자의 `turn.dbSessionId` 대입은 bus mock이 대신 | I-iv 0 → 2 failed |
+| 2 | 외부 gate red(CI #1035): I7가 Windows 교차 드라이브에서 입력 불성립 | `realpath` mock으로 상대 경로 → 저장 폴더 해석을 직접 만든다 | CI 로그 `expected 'ready' to be 'unavailable'` · V-A2c red 유지 |
+| 3 | J(v) 큐 키 항: 세션 ID를 받은 새 대화는 큐가 그 ID로 rekey되므로 `queueKey`로 회수하면 놓친다 | 입력 J(v) 추가 | J1-3 0 → 1 failed |
+
+### 설계 대비 명시적 차이
+
+- 메커니즘 대체 없음 — 해당 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main: `send.ts`(J1)·`post-turn.ts`(주석) · renderer: `chatStore.ts`(K1) · 문서 `IPC_CONTRACT.md` `message.cancelled` 행 · `runtime-ipc.md:94` · 테스트 5파일(신규 `chat-turn.returned-input.test.ts` · `retry-submission.test.ts` F·H · `turn-request.reopen.test.ts` · `chatStore.test.ts` · `native-history.test.ts` I7) |
+| 실행 명령 | cwd=`app`: `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` (`ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts` + `npm rebuild better-sqlite3`) |
+| **관측한 게이트 산출** | 마이그레이션 skip(이전 v* 태그 없음) · 인벤토리 prose·links ok · 예산 "20 real-git suites ok" · lint 0 error/2 warning(손대지 않은 파일) · typecheck exit 0 · `node --test` pass 827/fail 0 · vitest 939파일: 29 failed / 906 passed, 변경 전(HEAD worktree, 같은 명령) 29 failed — 파일 집합 차집합 양방향 ∅. 서명: `C:/` 경로 26 · `restart-required` 14 · `Composer directory must be absolute` 4 · `Electron failed to install correctly` 3 · "프로젝트별 제어를 지원하지 않습니다" 3 |
+| **추가·수정 테스트의 subtree 규칙** | 5파일(`git diff --name-only` + 신규 1). 시간 예산 위반 0(가드 통과, 대기는 가짜 시계·`vi.waitFor` 기본값) · 호스트 격리 위반 0(설정 문서는 `mkdtempSync(tmpdir())` 루트를 명시 주입, 홈 미참조) · 풀 분류 `[test-pools]` 0(5파일 unit 실행, 자식 프로세스·SQLite 없음) |
+| V-pair 자기확인 | ΔV1 대상 7/7 SELF_PASS(VP-16·17·18·19·05·02·07) · V1 나머지 r1 유지 |
+| 강제 지점 전수 | I 2/2 · J 1/1 · K 1/1 · B3(D1) 1/1 = 5/5 (V1 32/32 r1 유지) |
+| **AC 자기보고**(`Criteria-Met`) | AC1~AC16 ✅(r1 좌표 유지 · AC7 W claim 입력 추가 · AC16 문서 ΔV1 2곳 추가) · AC18 ✅ J(i) · AC19 ✅ VP-17 · AC20 ✅ (i)~(iv) · AC21 ✅ (i)~(vii) · AC17 ⚠️ Windows 사람 실기(a~e) |
+| **합계 검산** | ✅ 20 · ⚠️ 1 · ❌ 0 = 총 21. 분모 변경: r1 17 → r2 21(ΔV1 AC18~21) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` — CI #1035 테스트 보완 커밋 1 + r2 구현 커밋 1 |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 예 — post-turn 차단 가드(r1 #1)의 후속(회수·복원). D1은 V1 B3 claim 항.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: r1 I7 입력은 플랫폼 가정(같은 드라이브)을 담았고 Linux에서만 성립했다 — CI #1035에서 발견.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 미설치·Windows 전용 경로로 전체 vitest 기준선 29파일 red(r1과 같은 수).
+- 현재 라운드·impl 턴: `r2`
+
 ---
 
 ## [검증자 기입] 파생 이슈

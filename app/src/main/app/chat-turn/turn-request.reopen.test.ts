@@ -74,4 +74,27 @@ describe('initial submission reopen delegates use the commit key and claims', ()
     expect(f.request.reopenInitialSubmission!()).toBe(true)
     expect(f.request.canSubmitInitial!()).toBe(true)
   })
+  // canReopen 의 claim 항(verify r1 D1) — commit 과 같은 claim 을 보지 않으면(빈 claim 은 참) 이
+  // 입력들이 참이 된다. 확정된 배치·held 로 돌아간 배치는 그 claim 으로 재개방할 수 없다.
+  it.each([
+    ['W1 stored session', { dbSessionId: 's1', queueKey: 'q-other' }, 'confirmed'],
+    ['W1 stored session', { dbSessionId: 's1', queueKey: 'q-other' }, 'rolled back'],
+    ['W2 new session', { dbSessionId: null, queueKey: 'new:1' }, 'confirmed'],
+    ['W2 new session', { dbSessionId: null, queueKey: 'new:1' }, 'rolled back']
+  ] as const)('%s refuses to reopen a batch that was %s', (_name, options, state) => {
+    const f = assemble(options)
+    const key = options.dbSessionId ?? options.queueKey
+    const batch = f.reserve('m1')
+    f.setBatches([batch])
+    if (state === 'confirmed') {
+      expect(f.request.commitInitialSubmission!()).toBe(true)
+      f.queue.confirm(key, { kind: 'echo', uuid: batch.uuid })
+    } else {
+      f.request.rollbackInitialSubmission!()
+      expect(f.queue.pending(key).map((item) => item.id)).toEqual(['m1'])
+    }
+    expect(f.request.canReopenInitialSubmission!()).toBe(false)
+    expect(f.request.reopenInitialSubmission!()).toBe(false)
+    expect(f.request.canSubmitInitial!()).toBe(false)
+  })
 })
