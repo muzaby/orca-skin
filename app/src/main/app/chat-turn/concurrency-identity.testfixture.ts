@@ -50,6 +50,8 @@ export function concurrencyFixture(
   options: {
     sharedPathProjectId?: string | null
     classifyError?: (error: unknown) => ClassifiedError
+    /** A real reserved initial prompt (enqueue + reserveItem), as `chat:send` makes for a turn. */
+    initial?: string
   } = {}
 ) {
   const queue: ProviderMessageBatch[] = []
@@ -177,6 +179,10 @@ export function concurrencyFixture(
   } as never)
   let activeTurn = turn
   let initialBatches: SteerFlushBatch[] = []
+  if (options.initial !== undefined) {
+    pendingMessages.enqueue('s1', { text: options.initial }, 1, 'initial-message')
+    initialBatches = [pendingMessages.reserveItem('s1', 'initial-message', lease.chainId)!]
+  }
   const request: TurnRequest = buildTurnRequest(
     {
       wc: owner,
@@ -190,7 +196,8 @@ export function concurrencyFixture(
     },
     {
       sessionId: 's1',
-      text: 'initial',
+      text: options.initial ?? 'initial',
+      ...(initialBatches[0] ? { promptUuid: initialBatches[0].uuid } : {}),
       cwd: '/w',
       extensions: { skills: [], hooks: { normalized: {} } }
     }
@@ -225,7 +232,8 @@ export function concurrencyFixture(
         },
         setInitialBatches: (batches) => {
           initialBatches = batches
-        }
+        },
+        getInitialBatches: () => initialBatches
       },
       turn,
       request,
@@ -258,6 +266,7 @@ export function concurrencyFixture(
       }
     },
     active: () => activeTurn,
+    initialBatches: () => initialBatches,
     beforePrepare: (callback: () => Promise<void>) => {
       beforePrepare = callback
     },

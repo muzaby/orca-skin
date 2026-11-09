@@ -703,7 +703,8 @@ export async function handleChatSend(
           },
           setInitialBatches: (next) => {
             initialBatches = next
-          }
+          },
+          getInitialBatches: () => initialBatches
         },
         turn,
         request,

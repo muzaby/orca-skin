@@ -473,6 +473,11 @@ export class SessionRuntime implements ManagedRuntime {
     // 스폰 — 채널이 없거나 죽었거나 pushTurn 미지원(mock). 콜백은 delegate 래퍼로 치환해
     // 채널이 턴을 넘어도 현재 턴의 콜백이 호출되게 한다. spawn 경계는 카탈로그(0124) 기록 —
     // sendMessage 동기 호출이 spawn 경계이며, 이후 스트림 실패는 chat.turn.failed 가 담당한다.
+    // admission 은 spawn 기록·도구 컨텍스트보다 먼저다 — 띄우지 않은 시도를 started 로 남기지 않는다.
+    if (req.canSubmitInitial && !req.canSubmitInitial()) {
+      req.rollbackInitialSubmission?.()
+      throw new Error('submission_stale:before-spawn')
+    }
     const log = getLogger().child('engine')
     log.info('engine.spawn.started', { provider: this.adapter.id })
     let spawned: LiveTurn
@@ -483,9 +488,6 @@ export class SessionRuntime implements ManagedRuntime {
     })
     this.runtimeToolContext = toolContext
     try {
-      if (req.canSubmitInitial && !req.canSubmitInitial()) {
-        throw new Error('submission_stale:before-spawn')
-      }
       spawned = this.adapter.sendMessage(this.wrapRequest(req))
       if (req.commitInitialSubmission && !req.commitInitialSubmission()) {
         spawned.close()

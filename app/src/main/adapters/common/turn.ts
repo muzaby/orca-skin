@@ -194,6 +194,11 @@ export interface TurnRequest {
   canSubmitInitial?: () => boolean
   commitInitialSubmission?: () => boolean
   rollbackInitialSubmission?: () => void
+  // 같은 coordinator 실행의 턴 재시도 전용 — 새 전송 admission fence(`canSubmitInitial`)와 별개다.
+  // can…은 상태를 바꾸지 않고 재전송 가능 여부만 본다(backoff 전). reopen…은 backoff 뒤 커밋된
+  // 같은 claim 을 다시 제출 가능 상태로 되돌린다. 둘 다 없으면 위임 없는 요청으로 보고 재시도한다.
+  canReopenInitialSubmission?: () => boolean
+  reopenInitialSubmission?: () => boolean
   // 턴 중단 영수증 수신(0151 AC10·AC11) — 런타임이 interrupt() 를 호출한 뒤 결과를 여기로 올린다.
   // 잔여 uuid 와 자기 예약의 교집합 판정은 **컴포지션 루트**가 한다(features/sessions 가
   // features/chat 을 참조하지 않도록 — main/AGENTS.md 해소책 ③).

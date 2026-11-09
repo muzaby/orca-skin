@@ -1,13 +1,16 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { reportError } from '../../infra/error-report'
 import {
   configuredClaudeResources,
   globalClaudeResources,
   nativePluginId
 } from './configured-resources'
 import { claudeNativeResources } from './native-resources'
+
+vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
 
 let temp: string
 let cwd: string
@@ -187,12 +190,18 @@ describe('configured Claude resources', () => {
   })
 
   it('distinguishes absent metadata from malformed data with a redacted error', async () => {
+    vi.mocked(reportError).mockClear()
     expect(await configuredClaudeResources(cwd, paths)).toEqual([])
     await json(paths.globalConfig, {})
+    expect(reportError).not.toHaveBeenCalled()
     await writeFile(paths.globalConfig, '{"token":"super-secret"')
-    await expect(configuredClaudeResources(cwd, paths)).rejects.toThrow(
-      'Claude 네이티브 확장 설정을 읽을 수 없습니다.'
-    )
+    expect(await configuredClaudeResources(cwd, paths)).toEqual([])
+    expect(reportError).toHaveBeenCalledOnce()
+    expect(vi.mocked(reportError).mock.calls[0][0]).toMatchObject({
+      event: 'claude.native-settings.skipped',
+      detail: expect.stringContaining(paths.globalConfig)
+    })
+    expect(JSON.stringify(vi.mocked(reportError).mock.calls)).not.toContain('super-secret')
   })
 })
 
@@ -267,4 +276,99 @@ it('omits installations whose directory no longer exists', async () => {
   expect((await configuredClaudeResources(cwd, paths)).map((item) => item.name)).toEqual([
     'kept@market'
   ])
+})
+
+describe('Claude settings read policy at every configured-resource reader site', () => {
+  const SECRET = 'private-token-value'
+  const BROKEN = `{"mcpServers":{"x":{"command":"c"}},"token":"${SECRET}",}`
+  let p: string
+  let q: string
+  // Each file changes the rows on its own, so "skipped" is distinguishable from "used".
+  beforeEach(async () => {
+    vi.mocked(reportError).mockClear()
+    p = join(temp, 'plugin-p')
+    q = join(temp, 'plugin-q')
+    await json(join(p, '.claude-plugin/plugin.json'), { name: 'pp', mcpServers: './extra.json' })
+    await json(join(p, '.mcp.json'), { mcpServers: { bundled: { command: 'b' } } })
+    await json(join(p, 'extra.json'), { mcpServers: { declared: { command: 'e' } } })
+    await json(join(q, '.claude-plugin/plugin.json'), { name: 'qq' })
+    await json(paths.globalConfig, { mcpServers: { global: { command: 'g' } } })
+    await json(join(paths.root, 'settings.json'), { enabledPlugins: { 'q@m': true } })
+    await json(join(cwd, '.claude/settings.json'), { disabledMcpjsonServers: ['project'] })
+    await json(join(cwd, '.claude/settings.local.json'), { enabledPlugins: { 'p@m': true } })
+    await json(join(cwd, '.mcp.json'), { mcpServers: { project: { command: 'p' } } })
+    await json(join(paths.root, 'plugins/installed_plugins.json'), {
+      plugins: {
+        'p@m': [{ scope: 'user', installPath: p }],
+        'q@m': [{ scope: 'user', installPath: q }]
+      }
+    })
+  })
+  const sites: Array<[string, () => string]> = [
+    ['C68 global config', () => paths.globalConfig],
+    ['C69 user settings', () => join(paths.root, 'settings.json')],
+    ['C72 project settings', () => join(cwd, '.claude/settings.json')],
+    ['C75 local settings', () => join(cwd, '.claude/settings.local.json')],
+    ['C76 project .mcp.json', () => join(cwd, '.mcp.json')],
+    ['C77 installed plugins', () => join(paths.root, 'plugins/installed_plugins.json')],
+    ['C154 bundled plugin .mcp.json', () => join(p, '.mcp.json')],
+    ['C163 declared plugin MCP file', () => join(p, 'extra.json')]
+  ]
+  const read = (): ReturnType<typeof configuredClaudeResources> =>
+    configuredClaudeResources(cwd, paths)
+  it.each(sites)('%s: empty content is no settings, silently', async (_site, file) => {
+    await writeFile(file(), '')
+    const empty = await read()
+    await rm(file())
+    expect(empty).toEqual(await read())
+    expect(reportError).not.toHaveBeenCalled()
+  })
+  it.each(sites)(
+    '%s: broken content is skipped like an absent file with one redacted warning',
+    async (_site, file) => {
+      const full = await read()
+      await writeFile(file(), BROKEN)
+      const skipped = await read()
+      expect(await read()).toEqual(skipped)
+      expect(reportError).toHaveBeenCalledOnce()
+      const report = vi.mocked(reportError).mock.calls[0][0]
+      expect(report).toMatchObject({
+        event: 'claude.native-settings.skipped',
+        level: 'warn',
+        detail: expect.stringContaining(file()),
+        data: { file: file(), reason: 'parse' }
+      })
+      expect(JSON.stringify(report)).not.toContain(SECRET)
+      await rm(file())
+      expect(skipped).toEqual(await read())
+      expect(skipped).not.toEqual(full)
+    }
+  )
+  const names = async (): Promise<string[]> => (await read()).map((item) => item.name).sort()
+  it('C138 plugin manifest: an empty manifest keeps the plugin silently', async () => {
+    await writeFile(join(p, '.claude-plugin/plugin.json'), '')
+    expect(await names()).toEqual(['global', 'p@m', 'plugin:p:bundled', 'project', 'q@m'])
+    expect(reportError).not.toHaveBeenCalled()
+  })
+  it('C138 plugin manifest: a broken manifest excludes only that plugin with one redacted warning', async () => {
+    const manifest = join(p, '.claude-plugin/plugin.json')
+    expect(await names()).toEqual([
+      'global',
+      'p@m',
+      'plugin:pp:bundled',
+      'plugin:pp:declared',
+      'project',
+      'q@m'
+    ])
+    await writeFile(manifest, `{"name":"pp","token":"${SECRET}"`)
+    expect(await names()).toEqual(['global', 'project', 'q@m'])
+    expect(await names()).toEqual(['global', 'project', 'q@m'])
+    expect(reportError).toHaveBeenCalledOnce()
+    const report = vi.mocked(reportError).mock.calls[0][0]
+    expect(report).toMatchObject({
+      detail: expect.stringContaining(manifest),
+      data: { file: manifest, reason: 'parse' }
+    })
+    expect(JSON.stringify(report)).not.toContain(SECRET)
+  })
 })

@@ -211,3 +211,21 @@ describe('r4 settled permission and plan approval target continuation', () => {
     expect(listen.attachmentImages).toBeUndefined()
   })
 })
+
+describe('W4 flush turns keep the retry reopen delegates of the original request', () => {
+  it('buildFlushRequest passes both reopen delegates through unchanged', () => {
+    const canReopenInitialSubmission = vi.fn(() => true)
+    const reopenInitialSubmission = vi.fn(() => true)
+    const base = { ...baseRequest(), canReopenInitialSubmission, reopenInitialSubmission }
+    const request = buildFlushRequest({
+      base,
+      sessionId: 's-1',
+      signal: new AbortController().signal,
+      batch: { uuid: 'batch-1', ids: ['m-9'], text: 'x' } as unknown as SteerFlushBatch,
+      preludes: [],
+      continuation
+    })
+    expect(request.canReopenInitialSubmission).toBe(canReopenInitialSubmission)
+    expect(request.reopenInitialSubmission).toBe(reopenInitialSubmission)
+  })
+})

@@ -2,12 +2,14 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { reportError } from '../../infra/error-report'
 import {
   claudePluginDefaults,
   configuredClaudeCommands,
   readClaudePluginCatalog,
   readClaudePluginCatalogAsync
 } from './plugin-catalog'
+vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
 vi.mock('node:fs', async (original) => {
   const actual = await original<typeof import('node:fs')>()
   return {
@@ -119,9 +121,12 @@ describe('native plugin catalog', () => {
       readClaudePluginCatalog(cwd, root, {}, true)
     )
     write(join(root, 'settings.json'), '{"secret":"private-value"')
-    await expect(readClaudePluginCatalogAsync(cwd, root)).rejects.toThrow(
-      'Claude 네이티브 확장 설정을 읽을 수 없습니다.'
+    vi.mocked(reportError).mockClear()
+    expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
+      readClaudePluginCatalog(cwd, root)
     )
+    expect(reportError).toHaveBeenCalledOnce()
+    expect(JSON.stringify(vi.mocked(reportError).mock.calls)).not.toContain('private-value')
   })
   it('selects active installations by scope and precedence and refreshes every read', () => {
     const active = plugin('frontend-design')
@@ -218,18 +223,26 @@ describe('native plugin catalog', () => {
   })
 
   it('reports invalid configuration without its contents and leaves absent installations empty', () => {
-    expect(readClaudePluginCatalog(cwd, root)).toEqual({
+    const empty = {
       defaults: {},
       roots: [],
       skills: [],
       commands: [],
       files: [],
       installations: []
-    })
+    }
+    expect(readClaudePluginCatalog(cwd, root)).toEqual(empty)
     write(join(root, 'settings.json'), '{"secret":"private-value"')
-    expect(() => readClaudePluginCatalog(cwd, root)).toThrow(
-      'Claude 네이티브 확장 설정을 읽을 수 없습니다.'
-    )
+    vi.mocked(reportError).mockClear()
+    expect(readClaudePluginCatalog(cwd, root)).toEqual(empty)
+    expect(reportError).toHaveBeenCalledOnce()
+    expect(vi.mocked(reportError).mock.calls[0][0]).toMatchObject({
+      event: 'claude.native-settings.skipped',
+      title: 'configInvalid',
+      level: 'warn',
+      detail: expect.stringContaining(join(root, 'settings.json'))
+    })
+    expect(JSON.stringify(vi.mocked(reportError).mock.calls)).not.toContain('private-value')
   })
 })
 
@@ -253,4 +266,109 @@ it('excludes local installs from child cwd and selects the nearest project witho
   expect(readClaudePluginCatalog(join(cwd, 'child'), root).roots).toEqual([outer])
   expect(readClaudePluginCatalog(join(cwd, 'nested', 'child'), root).roots).toEqual([inner])
   expect(readClaudePluginCatalog(join(cwd + '-sibling'), root).roots).toEqual([])
+})
+
+describe('Claude settings read policy at every catalog reader site', () => {
+  const SECRET = 'private-token-value'
+  const BROKEN = `{"enabledPlugins":{"a@m":true},"token":"${SECRET}",}`
+  let a: string
+  let b: string
+  let c: string
+  // Each document changes the result on its own, so "skipped" is distinguishable from "used".
+  beforeEach(() => {
+    vi.mocked(reportError).mockClear()
+    a = plugin('alpha')
+    b = plugin('beta')
+    c = plugin('gamma')
+    write(join(root, 'settings.json'), { enabledPlugins: { 'a@m': true, 'c@m': true } })
+    write(join(cwd, '.claude/settings.json'), { enabledPlugins: { 'b@m': true } })
+    write(join(cwd, '.claude/settings.local.json'), { enabledPlugins: { 'a@m': false } })
+    write(join(root, 'plugins/installed_plugins.json'), {
+      plugins: {
+        'a@m': [{ scope: 'user', installPath: a }],
+        'b@m': [{ scope: 'user', installPath: b }],
+        'c@m': [{ scope: 'user', installPath: c }]
+      }
+    })
+  })
+  const documents = (): string[] => [
+    join(root, 'settings.json'),
+    join(cwd, '.claude/settings.json'),
+    join(cwd, '.claude/settings.local.json'),
+    join(root, 'plugins/installed_plugins.json')
+  ]
+  type Reader = () => unknown | Promise<unknown>
+  const sites: Array<[string, () => string, Reader]> = [
+    [
+      'P26 claudePluginDefaults',
+      () => join(root, 'settings.json'),
+      () => claudePluginDefaults(root, { enabledPlugins: { 'z@m': true } })
+    ],
+    ...[0, 1, 2, 3].map((index): [string, () => string, Reader] => [
+      `P281 readClaudePluginCatalog document ${index}`,
+      () => documents()[index],
+      () => readClaudePluginCatalog(cwd, root)
+    ]),
+    ...[0, 1, 2, 3].map((index): [string, () => string, Reader] => [
+      `P331 readClaudePluginCatalogAsync document ${index}`,
+      () => documents()[index],
+      () => readClaudePluginCatalogAsync(cwd, root)
+    ])
+  ]
+  it.each(sites)('%s: empty content is no settings, silently', async (_site, file, read) => {
+    write(file(), '')
+    const empty = await read()
+    rmSync(file())
+    expect(empty).toEqual(await read())
+    expect(reportError).not.toHaveBeenCalled()
+  })
+  it.each(sites)(
+    '%s: broken content is skipped like an absent file with one redacted warning',
+    async (_site, file, read) => {
+      const full = await read()
+      write(file(), BROKEN)
+      const skipped = await read()
+      expect(await read()).toEqual(skipped)
+      expect(reportError).toHaveBeenCalledOnce()
+      const report = vi.mocked(reportError).mock.calls[0][0]
+      expect(report).toMatchObject({
+        event: 'claude.native-settings.skipped',
+        level: 'warn',
+        detail: expect.stringContaining(file()),
+        data: { file: file(), reason: 'parse' }
+      })
+      expect(JSON.stringify(report)).not.toContain(SECRET)
+      rmSync(file())
+      expect(skipped).toEqual(await read())
+      expect(skipped).not.toEqual(full)
+    }
+  )
+  const manifests: Array<
+    [string, (root: string) => Promise<{ roots: string[] }> | { roots: string[] }]
+  > = [
+    ['P295 readClaudePluginCatalog manifest', () => readClaudePluginCatalog(cwd, root)],
+    ['P345 readClaudePluginCatalogAsync manifest', () => readClaudePluginCatalogAsync(cwd, root)]
+  ]
+  it.each(manifests)('%s: an empty manifest keeps the plugin silently', async (_site, read) => {
+    write(join(b, '.claude-plugin/plugin.json'), '')
+    const catalog = await read(root)
+    expect(catalog.roots).toEqual([b, c])
+    expect(reportError).not.toHaveBeenCalled()
+  })
+  it.each(manifests)(
+    '%s: a broken manifest excludes only that plugin with one redacted warning',
+    async (_site, read) => {
+      const manifest = join(b, '.claude-plugin/plugin.json')
+      write(manifest, `{"name":"beta","token":"${SECRET}"`)
+      expect((await read(root)).roots).toEqual([c])
+      expect((await read(root)).roots).toEqual([c])
+      expect(reportError).toHaveBeenCalledOnce()
+      const report = vi.mocked(reportError).mock.calls[0][0]
+      expect(report).toMatchObject({
+        detail: expect.stringContaining(manifest),
+        data: { file: manifest, reason: 'parse' }
+      })
+      expect(JSON.stringify(report)).not.toContain(SECRET)
+    }
+  )
 })

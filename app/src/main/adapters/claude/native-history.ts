@@ -13,6 +13,7 @@ import {
   type ClaudeHistoryEntry
 } from './native-history-map'
 import { claudeNativePaths } from './native-paths'
+import { claudeTranscriptCwd } from './transcript-cwd'
 
 export const CLAUDE_HISTORY_MAX_BYTES = 128 * 1024 * 1024
 const PROJECTION_VERSION = 1
@@ -231,14 +232,13 @@ export async function readClaudeNativeHistory(
         status: 'unavailable',
         message: 'Claude 원본 세션의 ID가 저장된 세션과 일치하지 않습니다.'
       }
-    const latestCwd = entries
-      .map((entry) => (entry.type === 'relocated' ? entry.relocatedCwd : entry.cwd))
-      .findLast((value) => typeof value === 'string')
-    if (
-      typeof latestCwd !== 'string' ||
-      !isAbsolutePath(latestCwd) ||
-      !samePath(await realpath(latestCwd), cwd)
-    )
+    const transcriptCwd = claudeTranscriptCwd(entries)
+    // The original exists, so an unresolvable recorded directory is a path conflict, not `missing`.
+    const resolvedCwd =
+      typeof transcriptCwd === 'string' && isAbsolutePath(transcriptCwd)
+        ? await realpath(transcriptCwd).catch(() => undefined)
+        : undefined
+    if (resolvedCwd === undefined || !samePath(resolvedCwd, cwd))
       return {
         status: 'unavailable',
         message: 'Claude 원본 세션의 작업 경로가 저장된 세션과 일치하지 않습니다.'
