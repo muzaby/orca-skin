@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-09 |
 | 매핑 | 버그수정(비기능) — 구현 주체 Claude |
-| 상태 | READY |
+| 상태 | READY (ΔV2) |
 | V mode | `Delta V` (V1 = Baseline) |
 | 기준 V | `0301-session-resume-cwd-retry:V1@01ca522` |
-| 이번 V revision | `ΔV1` — verify r1 D2(PLAN_GAP) 정정 · 사용자 결정 D-017. 대체 노드 없음 |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` — verify r2 E1(PLAN_GAP, 확장 후보) 채택: §10 J 규칙 칸을 J′로 대체(다중 id·다중 배치 분기 추가) · J1-9 형태는 경계. 이전: `ΔV1`(verify r1 D2 · D-017) |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -67,6 +67,10 @@
   - `ACTIVE 결정 ↔ AC` 대조(ΔV1): D-017 ↔ AC18·AC19·AC20·AC21, 충돌 0.
   - AC6 "동기 실패는 held"는 post-turn 시점 관측이라 그대로 성립한다(AC20 i). 체인 종료 뒤 상태는 AC18이 정한다.
   - D-006 "원래 오류로 끝낸다" ↔ AC18: 오류 이벤트는 그대로 1회이고 회수는 그 뒤다 — 충돌 없음.
+- **ΔV2(verify r2 E1)**: 새 결정 0, 대체 0. 프렐류드·합친 배치의 회수는 D-017 원문으로 정해진다고 판정해 사용자에게 다시 묻지 않았다.
+  - D-017 대상 원문 "직전 턴이 연 입력 배치 중 held에 남은 항목" — 프렐류드도 그 턴이 연 배치다(`enqueue.ts:68` `initialBatches = [...preludes, mainBatch]`).
+  - 대안(프렐류드를 held로 남김)은 다음 체인에서 `takeForRespawn`이 다시 프렐류드로 싣는다(`enqueue.ts:43-45`) — D-017 원문 "나중에 자동으로 나가지 않는다"와 충돌한다.
+  - `ACTIVE 결정 ↔ AC` 대조(ΔV2): D-017 ↔ AC22, 충돌 0. AC18(단일 입력 ids = 그 `clientRequestId`)은 AC22의 단일 배치 경우라 그대로다.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 대응은 아래와 같다.
   - D-002 ↔ AC1·AC3 · D-003 ↔ AC2 · D-004 ↔ AC2 · D-005 ↔ AC4
   - D-006 ↔ AC5 · D-007 ↔ AC6 · D-008 ↔ AC7 · D-009 ↔ AC8·AC9
@@ -127,6 +131,7 @@
 | (ΔV1) flush 턴(응답 중 예약했던 입력)이 동기 실패 | 같음 — 그 flush 입력이 대상 | 원래 오류 + 그 예약 원문이 입력창으로 돌아옴 |
 | (ΔV1) 동기 실패와 같은 순간 사용자가 즉시 보내기 | 기존 flush | 실패한 입력과 새 입력이 다음 턴으로 함께 나감(기존과 같음) |
 | (ΔV1) 새 대화(세션 ID 발급 전) 동기 실패 | 대기열에서만 뺌 | 원래 오류 + 말풍선 유지, 입력창 복원 없음 — 선언 경계(§10 ΔV1) |
+| (ΔV2) 시작 실패한 턴이 이전 대기 입력(채널 사망 이월 프렐류드)이나 여러 예약을 합친 배치를 함께 보냈음 | 그 턴이 보낸 입력 전부를 대기열에서 빼고 `message.cancelled` 1회(보낸 순서) | 원래 오류 + 해당 말풍선·예약 항목이 모두 사라지고 원문이 입력창에 합쳐 돌아옴(결합 순서는 K: 말풍선 → 예약 항목). 다음 전송에 섞이지 않음 |
 | (ΔV1) 준비 중 Stop·준비 실패·세션 폐기로 회수된 턴 시작 입력 | 기존 `message.cancelled` | 말풍선도 사라지고 입력창으로 돌아옴 (r1: 말풍선 유지·복원 없음). 같은 소비 규칙의 효과(§12) |
 
 ### 파생 UX / 엣지케이스
@@ -173,6 +178,7 @@
 | R-05 | IT-05 / AC19 | renderer는 main이 보낸 `message.cancelled`의 id로 그 전송의 낙관 말풍선을 찾아 지우고 원문을 입력창 복원 신호로 낸다. 규칙은 producer를 가리지 않는다(준비 중 Stop·준비 실패·세션 폐기 포함) | VP-17: store 실제 전송 경로가 만든 말풍선 + 같은 id 이벤트 | J1 → IPC → K1 |
 | R-05 | UT-07 / AC20 | post-turn은 직전 턴 입력이 held로 돌아왔고 그 턴이 중단되지 않았을 때만 체인을 끝낸다. 즉시 보내기 중단·다른 held·정상 종료 뒤 flush는 그대로이고, flush 턴이 동기 실패해도 같은 규칙이다 | VP-18 입력 (i)~(iv) | `runTurnWithContinuations` |
 | R-05 | UT-08 / AC21 | renderer `message.cancelled`: pending 항목은 지금처럼 지우고, 같은 `clientId`의 사용자 말풍선도 지운다. 복원 텍스트는 말풍선 → pending 순 `\n\n` 결합이며, 매칭이 없으면 복원 신호도 없다 | VP-19 입력 (i)~(v) | `chatStore` |
+| R-05 | AT-05 / AC22 | (ΔV2) 시작 단계에서 실패한 턴이 여러 입력을 보냈으면 — 여러 id를 합친 배치(flush·잔여 held 병합), 또는 이월 프렐류드 배치 + 본 배치 — 그 전부가 대기열에서 빠지고, `message.cancelled` 1회의 ids가 배치 순서·배치 안 id 순서대로 그 전부를 담는다. 다음 전송 프롬프트·프렐류드에 어느 것도 없다 | §7-A ΔV2 VP-16 J(vi)·J(vii) | `chat:send` → `enqueueTurnPrompt`(프렐류드·병합) 또는 post-turn flush → 동기 실패 rollback → I1 break → finally J1 |
 
 ### AC 검증 주의사항
 
@@ -260,6 +266,29 @@
 | VP-19 | MD-08 ↔ UT-08 | REQUIRED | `chatStore` `case 'message.cancelled'` 단독 | `chatStore.test.ts` 신규 — (i) pending 항목만(`p-1` `예약-나`) → pending 제거 · draft `예약-나`(기존 동작) (ii) 말풍선만(`clientId:'req-1'` `질문-가`) → 말풍선 제거 · draft `질문-가` (iii) 말풍선 `req-1` + pending `p-1` → 둘 다 제거 · draft `질문-가\n\n예약-나` (iv) 매칭 없음 → messages·pending·`draftRestore` 불변 (v) ids에 없는 말풍선 `req-0`은 남음 | not selected | K (1) |
 | VP-05 | SD-01 ↔ ST-01 | REQUIRED (CHANGED) | V1 경로 + finally J1 | V1 좌표 유지 + VP-16 J(i)의 `pending('s1')` 0 · `message.cancelled` 1(공유 증거 — 체인 종료 뒤 상태 범위) | not selected | B (8) · J (1) |
 | VP-02 | R-02 ↔ AT-02 | REGRESSION | V1 경로(post-turn 공유) | V1 좌표 `retry-submission.test.ts:'A'~'E'` 재실행 green | not selected | B (8) |
+
+### ΔV2 — verify r2 E1
+
+- V mode: Delta V. 기준 = `V1 + ΔV1`(ΔV1 READY `242881e`, `git cat-file -t` commit — `origin/main` 조상 아님, 미병합 브랜치). 유효 V = V1 + ΔV1 + ΔV2.
+- 변경이 시작되는 수준: R-05(AC22 추가). 규범 변경은 §10 J 규칙 칸 → J′와 VP-16 입력 칸뿐이다. 코드 변경 의무는 테스트 입력 추가이고 J1 코드는 이미 J′ 동작이다(verify r2 "실제 코드는 둘 다 회수").
+- `SUPERSEDED` 노드 없음. §10 J 행만 J′로 대체하며, J 행이 들던 VP-16 J(i)~(iv) 입력과 변이 J1-1~J1-8은 J′ 분기 (i)~(iv)로 그대로 옮긴다.
+- verify 2회째 뒤의 설계 턴이라 **plan 동결** 직전 마지막 확장이다. 이후 J에 새 열거 항목은 출처(현재 결함·plan 내부 정합·사용자 결정)가 있어야 한다.
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 |
+|---|---|---|---|---|
+| R-05 | R | §7 AC18·AC19·**AC22** | CHANGED | ΔV1 R-05 |
+| AT-05 | AT | AC18 + AC22 | CHANGED | ΔV1 AT-05 |
+| AR-05 | AR | §10 **J′**·K | CHANGED | ΔV1 AR-05 |
+| SD-01 | SD | §5 상태표 ΔV1·ΔV2 행 | INHERITED | ΔV1 SD-01 |
+| MD-07 | MD | §10 I | INHERITED | ΔV1 MD-07 |
+| MD-08 | MD | §10 K | INHERITED | ΔV1 MD-08 |
+
+| Pair | left ↔ right | req. | production path | 직접 oracle (자리별 좌표 · 분기 입력) | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-16 | R-05 ↔ AT-05 | REQUIRED (CHANGED) | ΔV1 경로 + 초기 배치 원천 2곳: `enqueue.ts:68`(프렐류드 + 본 배치, 본 배치는 `:64-66` 잔여 held 병합) · `post-turn.ts:264` flush `reserveHeld`(여러 예약 병합) → `send.ts` `setInitialBatches` → finally J1 | `chat-turn.returned-input.test.ts`. J(i)~J(v) 기존 좌표 유지(J(v) = 큐 키 `activeTurn.dbSessionId` 항, r2 구현이 더한 입력을 J′ (v)로 정식화). **J(vi) 신규**: 최초 턴 정상 + 응답 중 `s1`에 `req-a` `예약-가1`·`req-b` `예약-가2` 두 번 예약 → flush 턴(두 예약이 한 배치) 동기 throw → 2회차 `sendMessage` 입력에 두 원문 모두 · `message.cancelled` 정확히 1(`s1`, ids `['req-a','req-b']`) · `pending('s1')` 0 · `sendMessage` 총 2. **J(vii) 신규**: 전송 전 `s1` 큐에 held `대기-자`(id `p-9`)를 실제 `PendingMessageQueue.enqueue`로 적재하고 이 세션의 런타임 채널이 없는 상태에서 `req-11` `질문-차` 전송 → 1회차 `sendMessage` 인자 `preludes`에 `대기-자`(프렐류드 경로 진입 확인) · 동기 throw → `message.cancelled` 정확히 1(`s1`, ids `['p-9','req-11']`) · `pending('s1')` 0 · `sendMessage` 1. 이어 `req-12` 정상 전송 → 2회차 `text`·`preludes`에 `대기-자`·`질문-차` 없음 | required — J1-7a(`initialBatches.slice(0,1)`) → J(vii) red · J1-7b(`batch.ids.slice(0,1)`) → J(vi)·J(vii) red · 배치 순서 뒤집기(`[...initialBatches].reverse()`) → J(vii) red. 선택 이유: verify r2에서 세 변이가 단일 입력 좌표로 green이었다(입력 폭 공백) | J′ (1) |
+| VP-05 | SD-01 ↔ ST-01 | REGRESSION | ΔV1 경로 | ΔV1 좌표 유지(J(i) `pending('s1')` 0) | not selected | J′ (1) |
+| VP-17 | AR-05 ↔ IT-05 | NOT_REQUIRED | ΔV1 경로 | 비영향: K 규칙 불변이고 여러 id 소비는 VP-19 (iii)(`req-1` 말풍선 + `p-1` 예약 → draft `질문-가\n\n예약-나`)가 이미 잠근다. ΔV1 좌표 `chatStore.test.ts:'VP-17 …'` 유지 | — | — |
+| VP-18 | MD-07 ↔ UT-07 | NOT_REQUIRED | ΔV1 경로 | 비영향: I 규칙 불변. r2 verify I1·I2 변이 6/6 잡음. 다중 배치 입력의 break는 J(vi)·J(vii)의 `sendMessage` 총수가 함께 본다 | — | — |
 
 ### 현재 변경의 운영 gate
 
@@ -397,7 +426,8 @@
 | G | R-04 / VP-04 | 플러그인 탭 실패는 tabpanel에 렌더하지 않고 실패 진입 시 토스트 1회 | hook | G1 `ExtensionsCatalogView.tsx` 배너 제거 · G2 `useNativeMcpCatalog.ts` catch 전이 report · G3 `reportSites.registry.test.ts` 등록 — 3 | `rg -n "chat.nativeResources.error\|nativeMcp.failed\|skills.native.load-failed" app/src/renderer/src` | 레이아웃 밀림 / focus마다 토스트 |
 | H | AR-04 / VP-09 | 목록 reject 메시지 = 고정 문구 + 원래 원인 | `session-resources.ts` 단일 helper | H1 `:72` · H2 `:183` — 2 | `rg -n "하네스 목록을 불러오지 못했습니다" app/src/main -g '!*.test.ts'` → 2행이 같은 helper 경유 | 원인 소실 |
 | I | MD-07 / VP-18·VP-02 | 직전 턴(최초 또는 flush 턴)이 연 입력 배치 중 하나라도 held에 있고 그 턴이 중단(abort)되지 않았으면 이번 post-turn 반복은 `break`. 중단됐으면 기존 판정(즉시 보내기는 flush). 직전 입력이 held에 없으면 기존 판정 | `post-turn.ts` | I1 `post-turn.ts` `returnedInput` 계산과 `break` 대입 · I2 `send.ts` `getInitialBatches` 위임 — 2 | `rg -n "returnedInput\|getInitialBatches" app/src/main/app/chat-turn/post-turn.ts app/src/main/app/chat-turn/send.ts` → 6행: `post-turn.ts` 인터페이스 선언 1행 제외 · 계산·대입 3행 → I1 · `send.ts`의 `runTurnWithContinuations` deps 행 → I2 · `send.ts`의 `buildTurnRequest` deps 행은 B행 claim 원천이라 제외(그 밖 `turn-request.ts` 사용처도 B행) | 같은 실패 입력을 backoff 없이 반복 / 즉시 보내기 입력이 묶임 / 정상 예약이 안 나감 |
-| J | AR-05·SD-01 / VP-16·VP-17·VP-05 | 체인이 끝날 때(최종 `rollbackInitialSubmission` 다음) 마지막 초기 배치의 id 중 held에 남은 것을 큐 키 `activeTurn.dbSessionId ?? turn.dbSessionId ?? queueKey`에서 빼고, 세션 ID가 있으면 그 ids로 `message.cancelled` 1회. 분기: (i) 세션 있음 → 회수 + 이벤트 (ii) 세션 없음 → 회수만 (iii) held에 없음(확정·orphaned·submitted·flush로 나감) → 아무것도 안 함 (iv) flush 턴이면 그 flush 배치가 대상 | `send.ts` finally | J1 `send.ts` 실행 try의 finally — 1 | `rg -n "message\.cancelled" app/src/main/app/chat-turn/send.ts` 출력 중 준비 중 Stop 블록(`if (turn.controller.signal.aborted)`)·준비 실패 블록(`if (!cleanupDone)`)의 2행을 뺀 1행 = J1 | 실패한 입력이 다음 전송 뒤 몰래 나감 / 말풍선·입력창 복원 없음 |
+| J (ΔV1 — **ΔV2에서 J′로 대체**) | AR-05·SD-01 / VP-16·VP-17·VP-05 | 체인이 끝날 때(최종 `rollbackInitialSubmission` 다음) 마지막 초기 배치의 id 중 held에 남은 것을 큐 키 `activeTurn.dbSessionId ?? turn.dbSessionId ?? queueKey`에서 빼고, 세션 ID가 있으면 그 ids로 `message.cancelled` 1회. 분기: (i) 세션 있음 → 회수 + 이벤트 (ii) 세션 없음 → 회수만 (iii) held에 없음(확정·orphaned·submitted·flush로 나감) → 아무것도 안 함 (iv) flush 턴이면 그 flush 배치가 대상 | `send.ts` finally | J1 `send.ts` 실행 try의 finally — 1 | `rg -n "message\.cancelled" app/src/main/app/chat-turn/send.ts` 출력 중 준비 중 Stop 블록(`if (turn.controller.signal.aborted)`)·준비 실패 블록(`if (!cleanupDone)`)의 2행을 뺀 1행 = J1 | 실패한 입력이 다음 전송 뒤 몰래 나감 / 말풍선·입력창 복원 없음 |
+| J′ (ΔV2) | AR-05·SD-01 / VP-16·VP-05 | 체인이 끝날 때(최종 `rollbackInitialSubmission` 다음) **현재 초기 배치 전부**의 모든 id 중 held에 남은 것을 큐 키 `activeTurn.dbSessionId ?? turn.dbSessionId ?? queueKey`에서 빼고, 세션 ID가 있으면 뺀 id를 배치 순서·배치 안 id 순서로 담아 `message.cancelled` 1회. 현재 초기 배치 = 최초 턴이면 프렐류드 배치들 + 본 배치, flush 턴이면 그 flush 배치. 분기: (i) 세션 있음·단일 id → 회수 + 이벤트 (ii) 세션 없음 → 회수만 (iii) held에 없음(확정·orphaned·submitted) → 아무것도 안 함 (iv) flush 턴 → flush 배치가 대상 (v) 체인 중 받은 세션 ID → 그 ID가 큐 키·이벤트 키 (vi) 여러 id를 합친 배치(flush 병합 · 본 배치의 잔여 held 병합) → 그 id 전부 (vii) 여러 배치(프렐류드 + 본 배치) → 배치 전부, 순서 유지 | `send.ts` finally | J1 `send.ts` 실행 try의 finally — 1 | J와 같음: `rg -n "message\.cancelled" app/src/main/app/chat-turn/send.ts` → 3행(이 턴 `:644`·`:729`·`:766`) 중 `:644` 준비 중 Stop·`:766` 준비 실패를 뺀 `:729` = J1 | 실패한 턴이 함께 보낸 다른 입력이 다음 전송에 몰래 섞임 / 일부만 입력창에 돌아옴 |
 | K | MD-08·AR-05 / VP-19·VP-17 | `message.cancelled` 소비: ids 중 pending 항목을 지우고, pending에 없고 `role:'user'`·같은 `clientId`인 말풍선도 지운다. 복원 텍스트 = 말풍선들(메시지 순) → pending 항목들(기존 순), `\n\n` 결합. 하나라도 있으면 `draftRestore` 1회, 없으면 없음 | `chatStore.ts` | K1 `chatStore.ts` `case 'message.cancelled'` — 1 | `rg -n "case 'message.cancelled'" app/src/renderer/src -g '!*.test.*'` → 1행 | 말풍선이 남아 다시 보낸 입력이 두 번 보임 / 입력이 사라짐 |
 
 - 자리 목록은 위 검색 출력과 차집합 0이어야 한다. 구현 뒤 행 번호가 바뀌면 같은 명령으로 다시 열거한다.
@@ -414,6 +444,7 @@
   - 비동기 실패(이벤트 0건)로 재시도를 다 쓴 입력은 `submitted`라 J 대상이 아니다. 체인 종료 시 orphaned로 늦은 확정을 기다린다(0154, `send.ts:717`).
   - 실패한 턴 동안 사용자가 예약한 다른 held(steer)는 J 대상이 아니다. 취소 가능한 예약 말풍선으로 남고 다음 체인에서 기존대로 이어진다.
   - K는 producer를 가리지 않는다. 준비 중 Stop(`send.ts:644`)·준비 실패(`send.ts:750`)·세션 폐기(`discard.ts:37`)의 턴 시작 입력도 말풍선이 지워지고 복원된다 — 세 자리의 주석이 이미 "복원"을 적는다(§12).
+  - (ΔV2) 초기 배치 중 **일부 id만** held인 채 finally에 닿는 입력은 J′가 잠그지 않는다(verify r2 J1-9: 이벤트 ids를 "뺀 id"가 아니라 "초기 배치 전체 id"로 바꾸는 변이). 측정: rollback은 초기 배치 전부를 같은 키로 되돌리므로(`turn-request.ts:109-120`) 일부만 held가 되려면 rollback 뒤 post-turn await(`post-turn.ts:116` `settleDeadBackgroundTasks`) 동안 그 id 하나가 단건 취소(`index.ts:143`, 자체 `message.cancelled` 송신)로 먼저 빠져야 한다. 이 경계는 그 경합에서 J1 이벤트에 그 id가 다시 실리는지를 주장하지 않는다.
   - K의 전제: main은 확정(커밋)된 id로 `message.cancelled`를 내지 않는다. 확정 배치는 `drainConfirmed`로 큐에서 빠지고 `cancel`은 held만(`pending-message-queue.ts:183`), `discardSubmitted`는 open(미확정)만 지운다(`:430`).
 - 열린 입력 집합 판정: 설정 파일 내용은 열린 입력이라 fail-closed 대신 결과 3분류(없음·빈 → `{}` 무경고 / 객체 → 사용 / 그 밖 전부 → `{}`·경고)로 닫는다. 모르는 형태는 전부 세 번째 칸이다.
 - 같은 규칙의 SSOT: 빈 내용은 `parseJsonObject` 한 곳이다. 건너뛰기·경고는 `native-settings-file.ts` 한 곳이고, 세 리더 모듈의 `readObject` 래퍼를 이 모듈 호출로 바꾼다(정규식·판정 복제 금지).
@@ -582,6 +613,16 @@ main reportError → hub → renderer ErrorToastHost
 - 기존 좌표 실측: VP-18 (iii) 좌표는 이 턴에 PT3 변이를 심어 `chat-turn.execution-config.test.ts` 13케이스 red를 관측했다(`src/main/app/chat-turn`·`src/main/features/chat` 범위 실패 13 → 32, 늘어난 19 = 그 파일 13 + `chat-turn.runtime-tools.test.ts` 6).
 - 선언 경계 6항(측정 근거 인용). 사람 실기로 미룬 순수 로직 없음 — AC17(e)는 시각만.
 - 운영 gate: V1 표 그대로(renderer 테스트는 파일 필터 없는 vitest에 포함).
+
+### READY self-review (ΔV2)
+
+- Ledger: 새 결정·대체 0. 프렐류드 회수는 D-017 원문 두 구절로 닫았다(갱신 메모 ΔV2) — `ACTIVE 결정 ↔ AC` 대조: D-017 ↔ AC22 충돌 0.
+- 확장 후보 E1 처분: J1-7a·J1-7b 채택(J′ (vi)·(vii) + VP-16 J(vi)·J(vii)) · J1-9 경계(§10 ΔV2 선언 경계 1항, 도달 조건 측정).
+- 자리 목록 실측(이 턴, `9cdfe42`): J 검색 → `send.ts:644`·`:729`·`:766` 3행, J1 = `:729` 1행 — 차집합 0. 초기 배치 원천 `rg -n "initialBatches" app/src/main/app/chat-turn/{send,enqueue}.ts` → 할당 `send.ts:490`(최초)·`:705`(flush)·`enqueue.ts:68`(구성). 원천은 V1·0152 계약이라 자리로 세지 않고 path edge로만 적었다.
+- 규칙 칸 ↔ 입력 칸: J′ 7분기 ↔ VP-16 J(i)~J(vii) 1:1. (vi)의 두 원천(flush 병합·본 배치 잔여 병합)은 J1에서 같은 항(`batch.ids` 전부)을 운반해 입력 하나(flush)로 닫는다.
+- 입력의 구별성: (vi) 두 id·(vii) 두 배치는 각각 첫 항만 남기는 변이와 다른 ids를 낸다. (vii)는 1회차 `preludes` 단언으로 병합 경로가 아닌 프렐류드 경로를 탔음을 확인한다.
+- 적대 증거: VP-16 required로 전환 — 단일 입력 좌표로 세 변이가 green이었던 입력 폭 공백이라 방향을 따로 확인한다.
+- NEW 0 · CHANGED R-05·AT-05·AR-05 ↔ VP-16 REQUIRED · 영향 INHERITED SD-01 ↔ VP-05 REGRESSION · VP-17·VP-18 NOT_REQUIRED(근거 표).
 
 ---
 
@@ -835,4 +876,4 @@ main reportError → hub → renderer ErrorToastHost
 | D1 | VP-07 좌표가 `turn-request.ts:124` canReopen claim 항을 잠그지 않는다(`batchClaims()`→`[]` green, B4는 red) | VP-07 · AC7 · §10 B3 | W1~W3에 claim 불일치(예: confirmed·다른 chainId)에서 canReopen 거짓인 입력 추가 | 이행 결함 | BLOCKING | closed (r2 verify — B3b·B3c·B4a·B4b·B3a-swap 잡음) |
 | D2 | `post-turn.ts` `returnedInput` 가드가 §10 B 목록 밖 운반 자리이고 PT2(aborted 항)·PT3(held 판정 항) 좌표가 없다 | VP-02 path · §10 B | 설계자가 B9로 채택하고 변이·입력을 고정하거나 경계 선언 | 확장 후보(목록 미고정) | PLAN_GAP | ΔV1 채택(D-017 · §10 I·J·K) — r2 verify 닫힘(PT1~PT3·I2 잡음) |
 | D3 | 탭 배너 i18n 키 2개 소비처 0 | 구현 보고 #4 | 다음 정리 후보 | 비귀속 | NON_BLOCKING | open |
-| E1 | J1이 `initialBatches` 전부(프렐류드 + 잔여 held를 합친 본 배치)를 회수하는데 J 규칙 칸은 "마지막 초기 배치"만 적고, VP-16은 id 1개·배치 1개 입력뿐이다. 첫 id/첫 배치만 회수하는 변이(J1-7a·7b)와 이벤트 ids를 초기 배치 전체로 바꾸는 변이(J1-9)가 green | §10 J · VP-16 | J 규칙 칸에 합친 배치·프렐류드 분기와 입력을 적거나 경계 선언. 프렐류드가 이전 대기 입력을 입력창으로 합치는 것이 의도인지는 사용자 판단 | 확장 후보 | PLAN_GAP (verify 2회째, 창 안) | open |
+| E1 | J1이 `initialBatches` 전부(프렐류드 + 잔여 held를 합친 본 배치)를 회수하는데 J 규칙 칸은 "마지막 초기 배치"만 적고, VP-16은 id 1개·배치 1개 입력뿐이다. 첫 id/첫 배치만 회수하는 변이(J1-7a·7b)와 이벤트 ids를 초기 배치 전체로 바꾸는 변이(J1-9)가 green | §10 J · VP-16 | J 규칙 칸에 합친 배치·프렐류드 분기와 입력을 적거나 경계 선언. 프렐류드가 이전 대기 입력을 입력창으로 합치는 것이 의도인지는 사용자 판단 | 확장 후보 | PLAN_GAP (verify 2회째, 창 안) | ΔV2 처분 — J1-7a·7b 채택(§10 J′ (vi)·(vii), VP-16 J(vi)·J(vii)) · J1-9 경계(§10 ΔV2 선언 경계). 다음 verify가 닫음 |
