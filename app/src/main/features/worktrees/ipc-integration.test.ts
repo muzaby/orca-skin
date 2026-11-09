@@ -7,12 +7,12 @@
 // 곁들여 EP-04 의 음성 축을 장치로 만든다 — feature 는 git 명령을 직접 만들지 않는다.
 
 import { readFileSync } from 'node:fs'
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
+import { createRepo, execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
 import { SendChatMessageSchema } from '../../../shared/protocol'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
@@ -37,12 +37,9 @@ afterEach(() => removeTempRoots(roots.splice(0)))
 
 describe('renderer payload → schema → service → git (AC1 · AC2 · VP-09)', () => {
   it('renderer 가 보낸 격리 요청이 실제 worktree 와 branch 로 도착한다', async () => {
-    const repo = await mkdtemp(join(tmpdir(), 'orca-ipc-repo-'))
-    roots.push(repo)
-    await exec('git', ['init', repo])
-    await writeFile(join(repo, 'f.txt'), 'x\n')
-    await exec('git', ['-C', repo, 'add', '.'])
-    await exec('git', ['-C', repo, 'commit', '-m', 'init'])
+    const { root: repo } = await createRepo(roots, {
+      commits: [{ message: 'init' }]
+    })
     const managed = await mkdtemp(join(tmpdir(), 'orca-ipc-managed-'))
     roots.push(managed)
 

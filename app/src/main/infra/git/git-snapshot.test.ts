@@ -6,7 +6,13 @@ import { gitSnapshot } from './git-snapshot'
 import { gitDiffPatch } from './git-diff'
 import { createGitGateway } from './gateway'
 import { runGit } from './runner'
-import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import {
+  createRepo,
+  type TempRepo,
+  appendCommit,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from './temp-repo.testfixture'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 vi.setConfig(scaledBudget({ testTimeout: 120_000, hookTimeout: 120_000 }))
@@ -17,12 +23,11 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   if (!result.ok) throw Error(result.stderr)
   return result.stdout.trim()
 }
+const fixtures = new Map<string, TempRepo>()
 async function repo(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-snapshot-'))
-  roots.push(cwd)
-  await git(cwd, 'init', '--initial-branch=main')
-  await git(cwd, 'commit', '--allow-empty', '-m', 'base')
-  return cwd
+  const fixture = await createRepo(roots, { commits: [{ message: 'base' }] })
+  fixtures.set(fixture.root, fixture)
+  return fixture.root
 }
 describe('snapshot request execution budget', () => {
   it('bounds missing/non-repository/unborn probes and repeats legacy date lookup', async () => {
@@ -37,7 +42,7 @@ describe('snapshot request execution budget', () => {
     expect(run).not.toHaveBeenCalled()
     expect((await gitSnapshot({ cwd, includeSummary: true }, gateway)).status.isRepo).toBe(false)
     expect(run).toHaveBeenCalledTimes(2)
-    await git(cwd, 'init', '--initial-branch=main')
+    await createRepo(roots, {}, cwd)
     run.mockClear()
     const unborn = await gitSnapshot({ cwd, includeSummary: true }, gateway)
     expect(unborn.status).toMatchObject({ isRepo: true, branch: 'main', detached: false })
@@ -65,7 +70,7 @@ describe('snapshot request execution budget', () => {
   })
   it('runs probe + origin on every equal-baseline and status-only request, without a completed result cache', async () => {
     const cwd = await repo()
-    const baseOid = await git(cwd, 'rev-parse', 'HEAD')
+    const baseOid = fixtures.get(cwd)!.oids[0]
     const run = vi.fn(runGit)
     const gateway = createGitGateway({ run })
     for (let n = 0; n < 2; n++) {
@@ -93,7 +98,7 @@ describe('snapshot request execution budget', () => {
   })
   it('uses four calls for changed snapshots, two for cumulative patch and three for selected patch', async () => {
     const cwd = await repo()
-    const baseOid = await git(cwd, 'rev-parse', 'HEAD')
+    const baseOid = fixtures.get(cwd)!.oids[0]
     const run = vi.fn(runGit)
     const gateway = createGitGateway({ run })
     expect(
@@ -101,9 +106,7 @@ describe('snapshot request execution budget', () => {
     ).toEqual([])
     expect(run.mock.calls.map((call) => call[1][1])).toEqual(['rev-parse', 'remote'])
     await writeFile(join(cwd, 'a.txt'), 'one\n')
-    await git(cwd, 'add', '.')
-    await git(cwd, 'commit', '-m', 'change')
-    const commitSha = await git(cwd, 'rev-parse', 'HEAD')
+    const commitSha = await appendCommit(cwd, { message: 'change', files: { 'a.txt': 'one\n' } })
     for (let n = 0; n < 2; n++) {
       run.mockClear()
       const result = await gitSnapshot({ cwd, baseOid, includeSummary: true }, gateway)

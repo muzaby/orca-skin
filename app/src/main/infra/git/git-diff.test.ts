@@ -6,14 +6,13 @@
 // 경로는 **값으로 비교하지 않는다** — Windows 의 `\` 와 POSIX 의 `/` 가 갈린다(0208 AT-29).
 // git 이 주는 diff 경로는 항상 `/` 이므로 그것만 단언한다.
 
-import { execFile } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import { createRepo, appendCommit, type TempRepo, removeTempRoots } from './temp-repo.testfixture'
 import { gitDiffPatch, gitDiffSummary, resolveDiffRange, type GitDiffRunner } from './git-diff'
-import { runGit, type GitRunResult } from './runner'
+import { type GitRunResult } from './runner'
 import { createGitGateway } from './gateway'
 import type { GitDiffPatchFile } from '../../../shared/ipc'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
@@ -47,38 +46,41 @@ const dirs: string[] = []
 // 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterAll(() => removeTempRoots(dirs.splice(0)))
 
-async function git(cwd: string, args: string[]): Promise<void> {
-  const result = await runGit(cwd, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })
-  if (!result.ok) throw new Error(`git ${args.join(' ')} → ${result.stderr}`)
+const fixtures = new Map<string, TempRepo>()
+const knownFiles = new Map<string, Set<string>>()
+async function makeRepo(commits: Parameters<typeof createRepo>[1] = {}): Promise<string> {
+  const fixture = await createRepo(dirs, commits)
+  fixtures.set(fixture.root, fixture)
+  const paths = new Set<string>()
+  for (const commit of commits.commits ?? [])
+    for (const [path, value] of Object.entries(commit.files ?? {})) {
+      if (value === null) paths.delete(path)
+      else paths.add(path)
+    }
+  knownFiles.set(fixture.root, paths)
+  return fixture.root
 }
 
-async function makeRepo(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'orca-diff-'))
-  dirs.push(dir)
-  await git(dir, ['init', '--initial-branch=main'])
-  return dir
+async function commitSnapshot(cwd: string, message: string, date?: string): Promise<void> {
+  const files: Record<string, Buffer | null> = {}
+  const names = new Set<string>()
+  for (const entry of await readdir(cwd, { recursive: true, withFileTypes: true })) {
+    const relative = join(entry.parentPath, entry.name)
+      .slice(cwd.length + 1)
+      .replaceAll('\\', '/')
+    if (relative === '.git' || relative.startsWith('.git/') || !entry.isFile()) continue
+    names.add(relative)
+    files[relative] = await readFile(join(cwd, relative))
+  }
+  for (const old of knownFiles.get(cwd) ?? []) if (!names.has(old)) files[old] = null
+  await appendCommit(fixtures.get(cwd)!, { message, date, files })
+  knownFiles.set(cwd, names)
 }
-
-// 커밋 시각을 못 박는 커밋. `runGit` 은 env 를 받지 않고 `--date` 는 author 만 바꾸는데,
-// `rev-list --before` 가 보는 것은 **committer** 시각이다. 벽시계에 기대면 두 커밋이 같은
-// 초에 걸려 경계가 흔들린다 — 실제로 그렇게 만든 첫 판이 한 번은 통과하고 한 번은 깨졌다.
 function commitAt(cwd: string, message: string, iso: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      'git',
-      ['commit', '-m', message],
-      { cwd, env: { ...process.env, GIT_COMMITTER_DATE: iso, GIT_AUTHOR_DATE: iso } },
-      (error) => (error ? reject(error) : resolve())
-    )
-  })
+  return commitSnapshot(cwd, message, iso)
 }
-
 async function head(cwd: string): Promise<string> {
-  const result = await runGit(cwd, ['rev-parse', 'HEAD'], {
-    readOnly: true,
-    timeoutMs: FIXTURE_GIT_TIMEOUT_MS
-  })
-  return result.stdout.trim()
+  return fixtures.get(cwd)!.oids.at(-1)!
 }
 
 describe('diff 요약 — 범위와 목록 (VP-09)', () => {
@@ -86,16 +88,16 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
   let baseOid: string
 
   beforeAll(async () => {
-    repo = await makeRepo()
-    await writeFile(join(repo, 'kept.ts'), 'const a = 1\n')
-    await writeFile(join(repo, 'edited.ts'), 'line one\nline two\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
-    baseOid = await head(repo)
-    // 기준선 뒤의 **커밋** 하나 — 이것만 패널에 온다(0211 ΔV6 D-111).
-    await writeFile(join(repo, 'edited.ts'), 'line one\nline two changed\nline three\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'work'])
+    repo = await makeRepo({
+      commits: [
+        {
+          message: 'base',
+          files: { 'kept.ts': 'const a = 1\n', 'edited.ts': 'line one\nline two\n' }
+        },
+        { message: 'work', files: { 'edited.ts': 'line one\nline two changed\nline three\n' } }
+      ]
+    })
+    baseOid = fixtures.get(repo)!.oids[0]
     // 그리고 커밋하지 않은 것 둘 — 추적 파일 수정 1 + 미추적 파일 생성 1.
     await writeFile(join(repo, 'kept.ts'), 'const a = 2\n')
     await writeFile(join(repo, 'fresh.ts'), 'new file\nsecond\n')
@@ -136,8 +138,8 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
   it('기준선 이후 커밋이 없으면 목록도 커밋도 비어 있다 (D-112)', async () => {
     const clean = await makeRepo()
     await writeFile(join(clean, 'a.ts'), 'base\n')
-    await git(clean, ['add', '.'])
-    await git(clean, ['commit', '-m', 'base'])
+
+    await commitSnapshot(clean, 'base')
     const oid = await head(clean)
     await writeFile(join(clean, 'a.ts'), 'working copy\n')
     await writeFile(join(clean, 'untracked.ts'), 'new\n')
@@ -151,15 +153,13 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
 
   // AT-18 증상 반증 — 사용자가 본 `+0−0` 이 여기서 재현되면 안 된다.
   it('base 위에 커밋하고 트리가 깨끗해도 합계가 0 이 아니다 (AT-18)', async () => {
-    const committed = await makeRepo()
-    await writeFile(join(committed, 'a.ts'), ['one', ''].join('\n'))
-    await git(committed, ['add', '.'])
-    await git(committed, ['commit', '-m', 'base'])
-    const base = await head(committed)
-    // 에이전트가 한 일 = 커밋. 작업 트리는 깨끗하다.
-    await writeFile(join(committed, 'a.ts'), ['one', 'two', 'three', ''].join('\n'))
-    await git(committed, ['add', '.'])
-    await git(committed, ['commit', '-m', 'work'])
+    const committed = await makeRepo({
+      commits: [
+        { message: 'base', files: { 'a.ts': 'one\n' } },
+        { message: 'work', files: { 'a.ts': 'one\ntwo\nthree\n' } }
+      ]
+    })
+    const base = fixtures.get(committed)!.oids[0]
 
     // HEAD 대비(비격리)는 0 이다 — 그것이 사용자가 본 `+0−0` 의 정체다.
     const headScope = await gitDiffSummary({ cwd: committed, baseOid: null })
@@ -186,24 +186,21 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
   let baseOid: string
 
   beforeAll(async () => {
-    repo = await makeRepo()
-    await writeFile(join(repo, 'edited.ts'), 'before\n')
-    await writeFile(join(repo, 'gone.ts'), 'x\ny\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
-    baseOid = await head(repo)
-    // 0211 ΔV6 D-111 — 범위가 `<base> HEAD` 라 **커밋해야** 패치에 온다.
-    await writeFile(join(repo, 'edited.ts'), 'after\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'edit'])
+    repo = await makeRepo({
+      commits: [
+        { message: 'base', files: { 'edited.ts': 'before\n', 'gone.ts': 'x\ny\n' } },
+        { message: 'edit', files: { 'edited.ts': 'after\n' } }
+      ]
+    })
+    baseOid = fixtures.get(repo)!.oids[0]
   })
 
   it('한 호출이 수정·추가·삭제·binary 를 함께 싣는다 — 파일 수와 무관하다 (AT-47)', async () => {
     await writeFile(join(repo, 'staged.ts'), 'brand new\n')
     await rm(join(repo, 'gone.ts'))
     await writeFile(join(repo, 'blob.bin'), Buffer.from([0x00, 0x01, 0x02, 0x00]))
-    await git(repo, ['add', '-A'])
-    await git(repo, ['commit', '-m', 'four kinds'])
+
+    await commitSnapshot(repo, 'four kinds')
 
     const patch = await gitDiffPatch({ cwd: repo, baseOid })
 
@@ -221,15 +218,14 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
   })
 
   it('전문맥이다 — 변경 주변이 아니라 파일 전체가 온다 (D-076)', async () => {
-    const wide = await makeRepo()
     const body = Array.from({ length: 40 }, (_, i) => `line${i + 1}`).join('\n')
-    await writeFile(join(wide, 'wide.ts'), `${body}\n`)
-    await git(wide, ['add', '.'])
-    await git(wide, ['commit', '-m', 'base'])
-    const oid = await head(wide)
-    await writeFile(join(wide, 'wide.ts'), `${body.replace('line20', 'CHANGED')}\n`)
-    await git(wide, ['add', '.'])
-    await git(wide, ['commit', '-m', 'wide'])
+    const wide = await makeRepo({
+      commits: [
+        { message: 'base', files: { 'wide.ts': `${body}\n` } },
+        { message: 'wide', files: { 'wide.ts': `${body.replace('line20', 'CHANGED')}\n` } }
+      ]
+    })
+    const oid = fixtures.get(wide)!.oids[0]
 
     const patch = await gitDiffPatch({ cwd: wide, baseOid: oid })
     const file = fileOf(patch.files, 'wide.ts')
@@ -240,14 +236,13 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
   })
 
   it('한글·공백 경로가 이스케이프되지 않는다 — core.quotePath=false (EP-29 ②)', async () => {
-    const repoKo = await makeRepo()
-    await writeFile(join(repoKo, '한글 파일.txt'), 'a\n')
-    await git(repoKo, ['add', '.'])
-    await git(repoKo, ['commit', '-m', 'base'])
-    const oid = await head(repoKo)
-    await writeFile(join(repoKo, '한글 파일.txt'), 'b\n')
-    await git(repoKo, ['add', '.'])
-    await git(repoKo, ['commit', '-m', 'ko'])
+    const repoKo = await makeRepo({
+      commits: [
+        { message: 'base', files: { '한글 파일.txt': 'a\n' } },
+        { message: 'ko', files: { '한글 파일.txt': 'a\nb\n' } }
+      ]
+    })
+    const oid = fixtures.get(repoKo)!.oids[0]
 
     const patch = await gitDiffPatch({ cwd: repoKo, baseOid: oid })
 
@@ -255,13 +250,13 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
   })
 
   it('rename 은 새 경로에 옛 경로를 함께 싣는다', async () => {
-    const repoRe = await makeRepo()
-    await writeFile(join(repoRe, 'src.txt'), 'a\nb\nc\nd\n')
-    await git(repoRe, ['add', '.'])
-    await git(repoRe, ['commit', '-m', 'base'])
-    const oid = await head(repoRe)
-    await git(repoRe, ['mv', 'src.txt', 'dst.txt'])
-    await git(repoRe, ['commit', '-m', 'rename'])
+    const repoRe = await makeRepo({
+      commits: [
+        { message: 'base', files: { 'src.txt': 'a\nb\nc\nd\n' } },
+        { message: 'rename', files: { 'src.txt': null, 'dst.txt': 'a\nb\nc\nd\n' } }
+      ]
+    })
+    const oid = fixtures.get(repoRe)!.oids[0]
 
     const patch = await gitDiffPatch({ cwd: repoRe, baseOid: oid })
 
@@ -354,15 +349,13 @@ describe('패치 조회 인자와 폴백 (VP-55 · VP-48 회귀)', () => {
 
 describe('raw history delimiter safety (VP-31)', () => {
   it('실제 Git의 루트 orca-commit 파일을 commit header로 오인하지 않는다', async () => {
-    const repo = await makeRepo()
-    await writeFile(join(repo, 'base.ts'), 'base\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
-    const baseOid = await head(repo)
-
-    await writeFile(join(repo, 'orca-commit'), 'one\ntwo\n')
-    await git(repo, ['add', 'orca-commit'])
-    await git(repo, ['commit', '-m', 'root path'])
+    const repo = await makeRepo({
+      commits: [
+        { message: 'base', files: { 'base.ts': 'base\n' } },
+        { message: 'root path', files: { 'orca-commit': 'one\ntwo\n' } }
+      ]
+    })
+    const baseOid = fixtures.get(repo)!.oids[0]
 
     const summary = await gitDiffSummary({ cwd: repo, baseOid })
     expect(summary.commits).toHaveLength(1)
@@ -384,20 +377,14 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
   let sha2: string
 
   beforeAll(async () => {
-    repo = await makeRepo()
-    await writeFile(join(repo, 'a.ts'), 'v0\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
-    baseOid = await head(repo)
-
-    await writeFile(join(repo, 'a.ts'), 'v1\n')
-    await git(repo, ['commit', '-am', 'first change', '-m', 'first body'])
-    sha1 = await head(repo)
-
-    await writeFile(join(repo, 'b.ts'), 'only in second\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'second change'])
-    sha2 = await head(repo)
+    repo = await makeRepo({
+      commits: [
+        { message: 'base', files: { 'a.ts': 'v0\n' } },
+        { message: 'first change\n\nfirst body', files: { 'a.ts': 'v1\n' } },
+        { message: 'second change', files: { 'b.ts': 'only in second\n' } }
+      ]
+    })
+    ;[baseOid, sha1, sha2] = fixtures.get(repo)!.oids
 
     // 같은 파일이 커밋 노드와 미커밋 블록에 동시에 등장하는 정상 중복을 만든다.
     await writeFile(join(repo, 'a.ts'), 'v2-worktree\n')
@@ -455,8 +442,8 @@ describe('범위 해석 SSOT (VP-35)', () => {
   it('HEAD와 baseline이 같으면 미커밋 변경이 있어도 전부 빈다 (D-111 · D-112)', async () => {
     const repo = await makeRepo()
     await writeFile(join(repo, 'a.ts'), 'base\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
+
+    await commitSnapshot(repo, 'base')
     const baseOid = await head(repo)
     await writeFile(join(repo, 'a.ts'), 'working\n')
 
@@ -474,20 +461,29 @@ describe('세션 파일 목록의 status (AT-39 산출 동등 · EP-25 ①)', ()
   let baseOid: string
 
   beforeAll(async () => {
-    repo = await makeRepo()
-    await writeFile(join(repo, 'keep.ts'), 'a\n')
-    await writeFile(join(repo, 'gone.ts'), 'b\n')
-    await writeFile(join(repo, 'old.ts'), 'same content stays identical for rename detection\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
-    baseOid = await head(repo)
-    await writeFile(join(repo, 'keep.ts'), 'a\nb\n')
-    await rm(join(repo, 'gone.ts'))
-    await git(repo, ['mv', 'old.ts', 'new.ts'])
-    await writeFile(join(repo, 'fresh.ts'), 'c\n')
-    await git(repo, ['add', '-A'])
-    // 0211 ΔV6 D-111 — status 는 **커밋된** 변경에서 온다.
-    await git(repo, ['commit', '-m', 'four statuses'])
+    repo = await makeRepo({
+      commits: [
+        {
+          message: 'base',
+          files: {
+            'keep.ts': 'a\n',
+            'gone.ts': 'b\n',
+            'old.ts': 'same content stays identical for rename detection\n'
+          }
+        },
+        {
+          message: 'four statuses',
+          files: {
+            'keep.ts': 'a\nb\n',
+            'gone.ts': null,
+            'old.ts': null,
+            'new.ts': 'same content stays identical for rename detection\n',
+            'fresh.ts': 'c\n'
+          }
+        }
+      ]
+    })
+    baseOid = fixtures.get(repo)!.oids[0]
   })
 
   afterAll(() =>
@@ -637,7 +633,7 @@ describe('기록된 기준선이 없는 세션 (D-098)', () => {
     // 세션이 선 시점 — 커밋 0개(`git init` 직후). `resolveHead` 가 null 을 내던 그 상태다.
     const bornAt = Date.parse('2020-06-01T00:00:00Z')
     await writeFile(join(repo, 'a.ts'), 'one\ntwo\n')
-    await git(repo, ['add', '.'])
+
     await commitAt(repo, '세션 시작 뒤 터미널에서 넣은 커밋', '2021-01-01T00:00:00Z')
 
     const summary = await gitDiffSummary({ cwd: repo, bornAt })
@@ -650,15 +646,18 @@ describe('기록된 기준선이 없는 세션 (D-098)', () => {
   })
 
   it('커밋이 있던 저장소는 출생 시각의 커밋을 기준으로 잡는다 — 그 이전 이력은 범위 밖이다', async () => {
-    const repo = await makeRepo()
-    await writeFile(join(repo, 'before.ts'), 'old\n')
-    await git(repo, ['add', '.'])
-    await commitAt(repo, '세션 이전 커밋', '2020-01-01T00:00:00Z')
-    const beforeOid = await head(repo)
+    const repo = await makeRepo({
+      commits: [
+        {
+          message: '세션 이전 커밋',
+          date: '2020-01-01T00:00:00Z',
+          files: { 'before.ts': 'old\n' }
+        },
+        { message: '세션 이후 커밋', date: '2021-01-01T00:00:00Z', files: { 'after.ts': 'new\n' } }
+      ]
+    })
+    const beforeOid = fixtures.get(repo)!.oids[0]
     const bornAt = Date.parse('2020-06-01T00:00:00Z')
-    await writeFile(join(repo, 'after.ts'), 'new\n')
-    await git(repo, ['add', '.'])
-    await commitAt(repo, '세션 이후 커밋', '2021-01-01T00:00:00Z')
 
     const summary = await gitDiffSummary({ cwd: repo, bornAt })
 
@@ -670,8 +669,8 @@ describe('기록된 기준선이 없는 세션 (D-098)', () => {
   it('기록된 기준선이 있으면 출생 시각을 보지 않는다 — 고정점이 우선이다', async () => {
     const repo = await makeRepo()
     await writeFile(join(repo, 'a.ts'), 'one\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
+
+    await commitSnapshot(repo, 'base')
     const baseOid = await head(repo)
 
     const range = await resolveDiffRange({ cwd: repo, baseOid, baseRef: 'main', bornAt: 0 })
@@ -682,8 +681,8 @@ describe('기록된 기준선이 없는 세션 (D-098)', () => {
   it('출생 시각이 없으면 예전 동작 그대로다 — 회귀 짝', async () => {
     const repo = await makeRepo()
     await writeFile(join(repo, 'a.ts'), 'one\n')
-    await git(repo, ['add', '.'])
-    await git(repo, ['commit', '-m', 'base'])
+
+    await commitSnapshot(repo, 'base')
 
     const range = await resolveDiffRange({ cwd: repo })
 

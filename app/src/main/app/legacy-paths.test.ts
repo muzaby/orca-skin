@@ -8,13 +8,14 @@
 import type Database from 'better-sqlite3'
 import { openFileDatabase } from '../infra/db/file-database'
 import { existsSync, renameSync } from 'node:fs'
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { applyMigrations } from '../infra/db/migrate'
 import { warmFileSqlite } from '../infra/db/warm-file-sqlite'
 import {
+  createRepo,
   execGit,
   FIXTURE_GIT_TIMEOUT_MS,
   removeTempRoots
@@ -83,12 +84,8 @@ function insertWorktree(
 }
 
 /** `<root>/<legacy>` 안에 저장소 하나 + 그 밖의 worktree 하나를 세운다. */
-async function seedRepo(root: string, repoDir: string, worktreeDir: string): Promise<void> {
-  await mkdir(repoDir, { recursive: true })
-  await execGit('git', ['init', '-q', repoDir], { cwd: root })
-  await writeFile(join(repoDir, 'f.txt'), 'hi', 'utf8')
-  await execGit('git', ['add', '-A'], { cwd: repoDir })
-  await execGit('git', ['commit', '-qm', 'init'], { cwd: repoDir })
+async function seedRepo(_root: string, repoDir: string, worktreeDir: string): Promise<void> {
+  await createRepo(roots, { commits: [{ message: 'init', files: { 'f.txt': 'hi' } }] }, repoDir)
   await execGit('git', ['worktree', 'add', '-q', worktreeDir, '-b', 'feat'], { cwd: repoDir })
 }
 

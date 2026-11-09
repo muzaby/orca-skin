@@ -1,12 +1,17 @@
-import { mkdtemp, writeFile, readFile } from 'node:fs/promises'
+import { writeFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runGit } from './runner'
 import { createGitGateway } from './gateway'
 import { gitSnapshot } from './git-snapshot'
 import { gitDiffPatch } from './git-diff'
-import { execGit, FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import {
+  createRepo,
+  appendCommit,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from './temp-repo.testfixture'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
 
 vi.setConfig(scaledBudget({ testTimeout: 150_000, hookTimeout: 150_000 }))
@@ -21,25 +26,27 @@ const git = async (cwd: string, ...args: string[]): Promise<string> => {
   return result.stdout.trim()
 }
 async function commit(cwd: string, count: number, date = '2001-01-01T00:00:00Z'): Promise<string> {
-  await writeFile(
-    join(cwd, 'lines.txt'),
-    Array.from({ length: count }, (_, i) => `line ${i}\n`).join('')
-  )
-  await git(cwd, 'add', '.')
-  await execGit('git', ['commit', '-m', `lines ${count}`], {
-    cwd,
-    timeout: FIXTURE_GIT_TIMEOUT_MS,
-    env: { ...process.env, GIT_COMMITTER_DATE: date, GIT_AUTHOR_DATE: date }
+  return appendCommit(cwd, {
+    message: `lines ${count}`,
+    date,
+    files: {
+      'lines.txt': Array.from({ length: count }, (_, i) => `line ${i}\n`).join('')
+    }
   })
-  return git(cwd, 'rev-parse', 'HEAD')
 }
 async function repo(): Promise<{ cwd: string; baseOid: string; selected: string; head: string }> {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-consistency-'))
-  roots.push(cwd)
-  await git(cwd, 'init', '--initial-branch=main')
-  const baseOid = await commit(cwd, 1, '2000-01-01T00:00:00Z')
-  const selected = await commit(cwd, 3)
-  const head = await commit(cwd, 6)
+  const {
+    root: cwd,
+    oids: [baseOid, selected, head]
+  } = await createRepo(roots, {
+    commits: [1, 3, 6].map((count, index) => ({
+      message: `lines ${count}`,
+      date: index === 0 ? '2000-01-01T00:00:00Z' : '2001-01-01T00:00:00Z',
+      files: {
+        'lines.txt': Array.from({ length: count }, (_, i) => `line ${i}\n`).join('')
+      }
+    }))
+  })
   return { cwd, baseOid, selected, head }
 }
 const failure = { ok: false, stdout: '', stderr: 'injected limit', code: 1, aborted: false }

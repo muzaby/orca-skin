@@ -1,8 +1,14 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { writeFile } from 'node:fs/promises'
+
+import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { FIXTURE_GIT_TIMEOUT_MS, removeTempRoots } from './temp-repo.testfixture'
+import {
+  createRepo,
+  appendCommit,
+  type TempRepo,
+  FIXTURE_GIT_TIMEOUT_MS,
+  removeTempRoots
+} from './temp-repo.testfixture'
 import { gitDiffPatch } from './git-diff'
 import { runGit } from './runner'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
@@ -15,32 +21,34 @@ import { scaledBudget } from '../../../../scripts/test-time.mjs'
 vi.setConfig(scaledBudget({ testTimeout: 225_000, hookTimeout: 225_000 }))
 
 const repos: string[] = []
+const fixtures = new Map<string, TempRepo>()
 async function git(cwd: string, args: string[]): Promise<string> {
   const result = await runGit(cwd, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })
   if (!result.ok) throw new Error(result.stderr)
   return result.stdout.trim()
 }
 async function repo(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-commit-diff-'))
-  repos.push(cwd)
-  await git(cwd, ['init', '--initial-branch=main'])
-  return cwd
+  const fixture = await createRepo(repos)
+  fixtures.set(fixture.root, fixture)
+  return fixture.root
 }
-async function commit(cwd: string, message: string): Promise<string> {
-  await git(cwd, ['add', '.'])
-  await git(cwd, ['commit', '--allow-empty', '-m', message])
-  return git(cwd, ['rev-parse', 'HEAD'])
+async function commit(
+  cwd: string,
+  message: string,
+  files: Record<string, string> = {},
+  branch = 'main'
+): Promise<string> {
+  const fixture = fixtures.get(cwd)!
+  fixture.branch = branch
+  return appendCommit(fixture, { message, files })
 }
+
 const content = (count: number): string =>
   Array.from({ length: count }, (_, i) => `line ${i + 1}\n`).join('')
 
 // 정리는 `removeTempRoots` 하나로 모은다 — `rm` 을 직접 부르면 끊긴 케이스가 남긴 고아 git
 // 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterAll(async () => {
-  for (const cwd of repos) {
-    if (!resolve(cwd).startsWith(`${resolve(tmpdir())}${sep}orca-commit-diff-`))
-      throw new Error('Unexpected test repo path')
-  }
   await removeTempRoots(repos)
 })
 
@@ -48,10 +56,8 @@ describe('커밋별 patch — 실제 Git 비교', () => {
   it('100줄과 20줄 커밋은 각각 100/20, 전체는 120이며 이후 HEAD/작업트리와 독립적이다', async () => {
     const cwd = await repo()
     const baseOid = await commit(cwd, 'base')
-    await writeFile(join(cwd, 'lines.txt'), content(100))
-    const first = await commit(cwd, 'add 100')
-    await writeFile(join(cwd, 'lines.txt'), content(120))
-    const second = await commit(cwd, 'add 20')
+    const first = await commit(cwd, 'add 100', { 'lines.txt': content(100) })
+    const second = await commit(cwd, 'add 20', { 'lines.txt': content(120) })
 
     const selected = await gitDiffPatch({ cwd, baseOid, commitSha: second })
     expect(selected.files[0]?.added).toBe(20)
@@ -61,16 +67,14 @@ describe('커밋별 patch — 실제 Git 비교', () => {
     expect((await gitDiffPatch({ cwd, baseOid })).files[0]?.added).toBe(120)
     expect(await git(cwd, ['diff', '--numstat', first, second])).toBe('20\t0\tlines.txt')
 
-    await writeFile(join(cwd, 'lines.txt'), content(130))
-    await commit(cwd, 'add later 10')
+    await commit(cwd, 'add later 10', { 'lines.txt': content(130) })
     await writeFile(join(cwd, 'lines.txt'), content(150))
     expect((await gitDiffPatch({ cwd, baseOid, commitSha: second })).files).toEqual(selected.files)
   })
 
   it('root는 empty tree 대비이고 없는 커밋은 누적 본문으로 폴백하지 않는다', async () => {
     const cwd = await repo()
-    await writeFile(join(cwd, 'root.txt'), 'root\n')
-    const root = await commit(cwd, 'root')
+    const root = await commit(cwd, 'root', { 'root.txt': 'root\n' })
     expect((await gitDiffPatch({ cwd, commitSha: root })).files[0]?.added).toBe(1)
     const missing = await gitDiffPatch({ cwd, commitSha: 'f'.repeat(40) })
     expect(missing).toMatchObject({ isRepo: true, unavailable: true, files: [] })
@@ -78,14 +82,11 @@ describe('커밋별 patch — 실제 Git 비교', () => {
 
   it('merge 커밋은 첫 부모와 비교한다', async () => {
     const cwd = await repo()
-    await writeFile(join(cwd, 'base.txt'), 'base\n')
-    const baseOid = await commit(cwd, 'base')
+    const baseOid = await commit(cwd, 'base', { 'base.txt': 'base\n' })
     await git(cwd, ['checkout', '-b', 'topic'])
-    await writeFile(join(cwd, 'topic.txt'), 'topic\n')
-    await commit(cwd, 'topic')
+    await commit(cwd, 'topic', { 'topic.txt': 'topic\n' }, 'topic')
     await git(cwd, ['checkout', 'main'])
-    await writeFile(join(cwd, 'main.txt'), 'main\n')
-    const parent = await commit(cwd, 'main')
+    const parent = await commit(cwd, 'main', { 'main.txt': 'main\n' })
     await git(cwd, ['merge', '--no-ff', 'topic', '-m', 'merge'])
     const sha = await git(cwd, ['rev-parse', 'HEAD'])
     const patch = await gitDiffPatch({ cwd, baseOid, commitSha: sha })

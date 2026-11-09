@@ -39,3 +39,42 @@ export declare function alignThreadHomedir(input: {
   proc?: NodeJS.Process
   sync?: () => void
 }): void
+export declare const IO_GUARD: unique symbol
+export declare const IO_GUARD_SETUP: string
+export declare const FIXTURE_BUILDERS: readonly string[]
+export interface GitAllowance {
+  file: string
+  subcommand: string
+  count: number
+  reason: string
+}
+export declare const IO_GIT_ALLOWED: GitAllowance[]
+export interface GitSpawn {
+  file: string
+  args: string[]
+  frames: { file: string; fn?: string }[]
+  kind: string
+  timeout?: number
+}
+export interface IoGitGuardState extends UnitGuardState {
+  counts: Map<string, number>
+  spawns: GitSpawn[]
+}
+export declare function gitSubcommand(args: string[]): string | undefined
+export declare function gitSpawnFrames(stack: string): GitSpawn['frames']
+export declare function judgeGitSpawn(
+  input: Omit<GitSpawn, 'kind'> & { allowed?: GitAllowance[] }
+):
+  | { kind: 'ignore' | 'pass' }
+  | { kind: 'violation'; message: string }
+  | { kind: 'allowed'; entry: GitAllowance }
+export declare function finishGitAllowances(
+  state: IoGitGuardState,
+  file: string,
+  allowed?: GitAllowance[]
+): void
+export declare function installIoGitGuard(input: {
+  childProcess: typeof import('node:child_process')
+  proc?: NodeJS.Process
+  sync?: () => void
+}): IoGitGuardState

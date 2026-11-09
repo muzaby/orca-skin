@@ -1,7 +1,7 @@
 // 격리 전역 git 설정 (0298) — 테스트 저장소는 저장소마다 `git config` 를 하지 않아도 신원·줄바꿈이
 // 고정이고, `git commit` 이 `git maintenance run --auto` 자식 프로세스를 띄우지 않는다.
 // 설정 내용의 정본은 `scripts/test-host.mjs` 의 `HERMETIC_GIT_CONFIG`, 기록은 `vitest-setup.mjs`.
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile, readdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -24,7 +24,14 @@ async function git(
 async function repo(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), 'orca-hermetic-git-'))
   roots.push(cwd)
-  await git(cwd, ['init', '-q', '--initial-branch=main'])
+  const { stderr } = await git(cwd, ['init', '-q', '--initial-branch=main'])
+  expect(stderr).toBe('')
+  expect(
+    (await readdir(join(cwd, '.git'), { recursive: true, withFileTypes: true }))
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .sort()
+  ).toEqual(['HEAD', 'config'])
   return cwd
 }
 
@@ -37,6 +44,8 @@ describe('격리 전역 git 설정 (0298)', () => {
     expect(await get('user.email')).toBe(HERMETIC_GIT_IDENTITY.email)
     expect(await get('core.autocrlf')).toBe('false')
     expect(await get('maintenance.auto')).toBe('false')
+    expect(await get('init.templateDir')).toBe('')
+    expect(await get('core.fsync')).toBe('none')
   })
 
   it('commit 이 고정 신원으로 기록되고 git maintenance 자식을 띄우지 않는다', async () => {

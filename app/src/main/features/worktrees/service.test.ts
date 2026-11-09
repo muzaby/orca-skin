@@ -1,8 +1,14 @@
-import { mkdir, mkdtemp, realpath, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join, relative, sep } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
+import {
+  appendCommit,
+  createRepo,
+  type TempRepo,
+  execGit as exec,
+  removeTempRoots
+} from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
 import { isWithinDir } from '../../infra/config/paths'
 import { WorktreeService } from './service'
@@ -27,14 +33,16 @@ const roots: string[] = []
 // 자식을 그대로 밟아 EBUSY/EPERM 이 난다(픽스처 주석 참고).
 afterEach(() => removeTempRoots(roots.splice(0)))
 
-async function repository(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-worktree-test-'))
-  roots.push(root)
-  await exec('git', ['init', root])
-  await writeFile(join(root, 'README.md'), 'base\n')
-  await exec('git', ['-C', root, 'add', 'README.md'])
-  await exec('git', ['-C', root, 'commit', '-m', 'base'])
-  return root
+const fixtures = new Map<string, TempRepo>()
+async function repository(nested = false): Promise<string> {
+  const fixture = await createRepo(roots, {
+    commits: [
+      { message: 'base', files: { 'README.md': 'base\n' } },
+      ...(nested ? [{ message: 'nested', files: { 'packages/web/index.ts': 'export {}\n' } }] : [])
+    ]
+  })
+  fixtures.set(fixture.root, fixture)
+  return fixture.root
 }
 
 describe('WorktreeService', () => {
@@ -95,12 +103,8 @@ describe('WorktreeService', () => {
   })
 
   it('repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다', async () => {
-    const repo = await repository()
+    const repo = await repository(true)
     const sourceCwd = join(repo, 'packages', 'web')
-    await mkdir(sourceCwd, { recursive: true })
-    await writeFile(join(sourceCwd, 'index.ts'), 'export {}\n')
-    await exec('git', ['-C', repo, 'add', '.'])
-    await exec('git', ['-C', repo, 'commit', '-m', 'nested'])
     const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
     roots.push(managed)
     const rows: Array<{ worktreeRoot: string }> = []
@@ -150,17 +154,17 @@ describe('WorktreeService', () => {
   // 저장소에서만 반증되므로 base 브랜치를 따로 만든다.
   it('유예된 기준 브랜치의 커밋에서 worktree 를 만든다 (AC10)', async () => {
     const repo = await repository()
-    const initial = (
-      await exec('git', ['-C', repo, 'rev-parse', '--abbrev-ref', 'HEAD'])
-    ).stdout.trim()
+    const initial = fixtures.get(repo)!.branch
     await exec('git', ['-C', repo, 'checkout', '-b', 'feature'])
     await writeFile(join(repo, 'feature.txt'), 'feature\n')
-    await exec('git', ['-C', repo, 'add', '.'])
-    await exec('git', ['-C', repo, 'commit', '-m', 'feature commit'])
-    const featureOid = (await exec('git', ['-C', repo, 'rev-parse', 'feature'])).stdout.trim()
+    const featureOid = await appendCommit(
+      repo,
+      { message: 'feature commit', files: { 'feature.txt': 'feature\n' } },
+      { branch: 'feature' }
+    )
     // HEAD 는 원래 브랜치로 되돌려 둔다 — 두 값이 다를 때만 이 단언이 의미를 갖는다.
     await exec('git', ['-C', repo, 'checkout', initial])
-    const headOid = (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
+    const headOid = fixtures.get(repo)!.oids[0]
     expect(headOid).not.toBe(featureOid)
 
     const managed = await mkdtemp(join(tmpdir(), 'orca-managed-base-'))
@@ -322,13 +326,14 @@ describe('WorktreeService', () => {
   // 산출을 본 적이 없었다. 이름과 커밋이 같은 시점을 가리키는지가 D-072 의 계약이다.
   it('managed 결과가 기준 커밋 옆에 그때의 브랜치 이름을 함께 싣는다 (AT-44 · D-072)', async () => {
     const repo = await repository()
-    const initial = (
-      await exec('git', ['-C', repo, 'rev-parse', '--abbrev-ref', 'HEAD'])
-    ).stdout.trim()
+    const initial = fixtures.get(repo)!.branch
     await exec('git', ['-C', repo, 'checkout', '-b', 'feature'])
     await writeFile(join(repo, 'feature.txt'), 'feature\n')
-    await exec('git', ['-C', repo, 'add', 'feature.txt'])
-    await exec('git', ['-C', repo, 'commit', '-m', 'feature commit'])
+    await appendCommit(
+      repo,
+      { message: 'feature commit', files: { 'feature.txt': 'feature\n' } },
+      { branch: 'feature' }
+    )
     await exec('git', ['-C', repo, 'checkout', initial])
 
     const managed = await mkdtemp(join(tmpdir(), 'orca-managed-baseref-'))
@@ -352,7 +357,7 @@ describe('WorktreeService', () => {
 
   it('detached HEAD 에서 시작하면 이름은 null 이고 커밋은 남는다 (AT-44 · D-071)', async () => {
     const repo = await repository()
-    const oid = (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
+    const oid = fixtures.get(repo)!.oids[0]
     await exec('git', ['-C', repo, 'checkout', '--detach', oid])
 
     const managed = await mkdtemp(join(tmpdir(), 'orca-managed-detached-'))

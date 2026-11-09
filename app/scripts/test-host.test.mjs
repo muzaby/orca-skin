@@ -98,7 +98,7 @@ describe('격리 전역 git 설정 내용 (0298)', () => {
     assert.deepEqual(HERMETIC_GIT_IDENTITY, { name: 'orca test', email: 'test@orca.local' })
     assert.equal(
       HERMETIC_GIT_CONFIG,
-      '[user]\n\tname = orca test\n\temail = test@orca.local\n[core]\n\tautocrlf = false\n[maintenance]\n\tauto = false\n'
+      '[user]\n\tname = orca test\n\temail = test@orca.local\n[core]\n\tautocrlf = false\n\tfsync = none\n[init]\n\ttemplateDir =\n[maintenance]\n\tauto = false\n'
     )
   })
 })

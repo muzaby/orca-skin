@@ -11,7 +11,7 @@ const isGit = (file) => /(^|[\\/])git(\.exe)?$/i.test(String(file ?? ''))
 function appFrames(stack) {
   const frames = []
   for (const line of String(stack).split('\n').slice(1)) {
-    const m = line.match(/at (?:async )?(?:(\S+) )?\(?(?:file:\/\/)?(.*\/app\/(?:src|scripts)\/[^:)]+):(\d+)/)
+    const m = line.match(/at (?:async )?(?:(\S+) )?\(?(?:file:\/\/)?(.*\/app\/src\/[^:)]+):(\d+)/)
     if (m) frames.push({ fn: m[1] ?? '<anon>', file: m[2].replace(/.*\/app\//, ''), line: Number(m[3]) })
   }
   return frames

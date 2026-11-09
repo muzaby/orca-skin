@@ -58,6 +58,9 @@ export const HERMETIC_GIT_CONFIG = [
   `\temail = ${HERMETIC_GIT_IDENTITY.email}`,
   '[core]',
   '\tautocrlf = false',
+  '\tfsync = none',
+  '[init]',
+  '\ttemplateDir =',
   '[maintenance]',
   '\tauto = false',
   ''

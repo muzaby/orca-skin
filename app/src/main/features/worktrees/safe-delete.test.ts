@@ -11,7 +11,12 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { execGit as exec, removeTempRoots } from '../../infra/git/temp-repo.testfixture'
+import {
+  appendCommit,
+  createRepo,
+  execGit as exec,
+  removeTempRoots
+} from '../../infra/git/temp-repo.testfixture'
 import type { DbQueries } from '../../infra/db'
 import { addWorktree, deleteBranch, listWorktrees, removeWorktree } from '../../infra/git/worktree'
 import { WorktreeService } from './service'
@@ -33,13 +38,7 @@ const roots: string[] = []
 afterEach(() => removeTempRoots(roots.splice(0)))
 
 async function repository(): Promise<string> {
-  const repo = await mkdtemp(join(tmpdir(), 'orca-safe-delete-'))
-  roots.push(repo)
-  await exec('git', ['init', repo])
-  await writeFile(join(repo, 'f.txt'), 'x\n')
-  await exec('git', ['-C', repo, 'add', '.'])
-  await exec('git', ['-C', repo, 'commit', '-m', 'init'])
-  return repo
+  return (await createRepo(roots, { commits: [{ message: 'init' }] })).root
 }
 
 type Row = Record<string, unknown>
@@ -106,8 +105,11 @@ describe('WorktreeService.removeForSession — 네 상태와 호출 순서 (AC15
     const { service, row, order } = await managedSession(repo)
     const wt = row().worktree_root as string
     await writeFile(join(wt, 'new.txt'), 'work\n')
-    await exec('git', ['-C', wt, 'add', '.'])
-    await exec('git', ['-C', wt, 'commit', '-m', 'user work'])
+    await appendCommit(
+      wt,
+      { message: 'user work', files: { 'new.txt': 'work\n' } },
+      { branch: row().branch as string }
+    )
 
     expect(await service.removeForSession('s1')).toMatchObject({
       ok: false,
