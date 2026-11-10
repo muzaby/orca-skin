@@ -2,18 +2,20 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { BLOCKS, check, extractBlock, render, replaceBlock } from './audit-check.mjs'
 
-const FILES = { 'app/src/main/a.ts': 'export function alpha() {}\nexport function beta() {}', 'app/src/main/b.ts': 'export const gamma = 1' }
+const FILES = { 'app/src/main/a.ts': 'export function alpha() {}\nexport function beta() {}', 'app/src/main/b.ts': 'export const gamma = 1', 'app/src/main/big/c.ts': 'l1\nl2\nl3' }
 const facts = () => ({
   channels: new Set(['orca:a:one', 'orca:a:two', 'orca:b:dead']),
   features: ['chat', 'debug'],
   handoffIds: new Set(['0100', '0200']),
   fileExists: (p) => typeof p === 'string' && p in FILES,
+  bucketOf: (p) => (p.includes('/big/') ? 'main/big' : 'main/x'),
+  lineCount: (p) => (p in FILES ? FILES[p].split('\n').length : 0),
   fileContains: (p, t) => typeof t === 'string' && t !== '' && (FILES[p] ?? '').includes(t)
 })
 
 function valid() {
   const data = {
-    volume: { totals: { files: 2, lines: 300 }, unclassified: [], buckets: { 'main/x': { prod: { files: 1, lines: 100 }, test: { files: 1, lines: 200 } } } },
+    volume: { totals: { files: 3, lines: 3300 }, unclassified: [], buckets: { 'main/x': { prod: { files: 1, lines: 100 }, test: { files: 1, lines: 200 } }, 'main/big': { prod: { files: 1, lines: 3000 } } } },
     scenarios: {
       scenarios: [
         { id: 'S-01', action: '보낸다', result: '응답', channels: ['orca:a:one'], features: ['chat'] },
@@ -29,8 +31,8 @@ function valid() {
       ],
       candidates: [
         { id: 'C-01', title: '죽은 채널', bucket: 'main/x', lens: 'L1', type: 'remove', scenarios: [], origin: ['0100'], preserve: '없음 — 호출부 없음', evidence: 'rg → 0', saving: { prod: 10, test: 20, basis: '핸들러 줄 수' }, risk: '낮음', approval: 'required' },
-        { id: 'C-02', title: '고정 인자', bucket: 'main/x', lens: 'L4', type: 'restructure', scenarios: ['S-01'], origin: ['0100', '0200'], preserve: '응답이 온다', evidence: 'a.ts:1', saving: { prod: 5, test: 0, basis: '인자 1' }, risk: '낮음', excess: ['X1', 'X5'], superseded: [{ id: '0100', by: '0200', concept: '재시도 2회' }] },
-        { id: 'C-03', title: '중복 쌍', bucket: 'main/x', lens: 'L5', type: 'restructure', scenarios: ['S-02'], origin: { unknown: true, search: 'rg 0[0-9]{3} a.ts' }, preserve: '목록이 보인다', evidence: 'b.ts:1', saving: { prod: 1, test: 1, basis: '쌍' }, risk: '중간', decisionChange: true, approval: 'required' }
+        { id: 'C-02', title: '고정 인자', bucket: 'main/x', lens: 'L4', type: 'restructure', scenarios: ['S-01'], origin: ['0100', '0200'], preserve: '응답이 온다', evidence: 'a.ts:1', saving: { prod: 5, test: 0, basis: '인자 1' }, risk: '낮음', excess: ['X1', 'X5'], decomposition: [{ cut: '고정 인자 제거', keep: '응답이 온다', files: ['app/src/main/a.ts'], scenarios: ['S-01'] }, { cut: '래퍼 제거', keep: '응답이 온다', files: ['app/src/main/b.ts'], scenarios: ['S-01', 'S-02'] }], superseded: [{ id: '0100', by: '0200', concept: '재시도 2회' }] },
+        { id: 'C-03', title: '중복 쌍', bucket: 'main/x', lens: 'L5', type: 'restructure', scenarios: ['S-02'], origin: { unknown: true, search: 'rg 0[0-9]{3} a.ts' }, preserve: '목록이 보인다', evidence: 'b.ts:1', saving: { prod: 1, test: 1, basis: '쌍' }, risk: '중간', decisionChange: true, approval: 'required', decomposition: [{ cut: '쌍 합치기', keep: '목록이 보인다', files: ['app/src/main/b.ts'], scenarios: ['S-02'] }] }
       ],
       approvals: ['C-01', 'C-03']
     },
@@ -52,14 +54,15 @@ function valid() {
         { scenario: 'S-02', read: ['app/src/main/b.ts'], verdicts: { X1: 'none', X2: 'none', X3: 'none', X4: 'none', X5: 'none', X6: 'none', X7: 'none' } }
       ]
     },
+    deep: { reviews: [{ bucket: 'main/big', read: ['app/src/main/big/c.ts'], verdicts: { X1: ['C-02'], X2: 'none', X3: 'none', X4: 'none', X5: 'none', X6: 'none', X7: 'none' }, density: 'excess', basis: '고정 인자가 전 호출부에 퍼져 있다' }] },
     split: { handoffs: [{ id: 'H-01', title: '첫 묶음', candidates: ['C-01', 'C-02'], scenarios: ['S-01'] }], deferred: [{ candidate: 'C-03', reason: '결정 대기' }] }
   }
-  const r = render(data)
+  const r = render(data, facts().lineCount)
   data.auditMd = BLOCKS.map((n) => `<!-- gen:${n} -->\n${r[n]}\n<!-- /gen:${n} -->`).join('\n\n') + '\n<!-- audit:complete -->\n'
   return data
 }
 const rerender = (d) => {
-  const r = render(d)
+  const r = render(d, facts().lineCount)
   for (const n of BLOCKS) d.auditMd = replaceBlock(d.auditMd, n, r[n])
 }
 const run = (mutate, { keepMd = false, complete = true } = {}) => {
@@ -129,6 +132,27 @@ const RED = [
   ['K17', '판정의 후보 미실재', (d) => (d.reviews.reviews[0].verdicts.X1 = ['C-88']), /K17 S-01 X1 가 없는 후보 C-88 를 가리킴/],
   ['K17', 'L4 후보에 excess 없음', (d) => { delete cand(d, 'C-02').excess; d.reviews.reviews[0].verdicts.X1 = 'none'; d.reviews.reviews[0].verdicts.X5 = 'none'; for (const t of d.traces.traces) t.steps[1] = { ...t.steps[1], excess: [], keep: 'k' } }, /K17 C-02 lens=L4 인데 excess 없음/],
   ['K17', '검토 칸 범주 불일치', (d) => (d.reviews.reviews[0].verdicts.X2 = ['C-02']), /K17 S-01 X2 ↔ C-02 excess 범주 불일치/],
+  ['K18', '상위 버킷에 심화 검토 없음', (d) => d.deep.reviews.pop(), /K18 심화 검토 없는 버킷 main\/big/],
+  ['K18', '없는 버킷의 검토', (d) => d.deep.reviews.push({ ...d.deep.reviews[0], bucket: 'main/zz', read: ['app/src/main/a.ts'] }), /K18 없는 버킷의 심화 검토 main\/zz/],
+  ['K18', 'read 빈 배열', (d) => (d.deep.reviews[0].read = []), /K18 심화 main\/big read 빈 배열/],
+  ['K18', 'read 미실재 파일', (d) => (d.deep.reviews[0].read = ['app/src/main/big/zz.ts']), /K18 심화 main\/big read 파일 미실재/],
+  ['K18', 'read 파일이 다른 버킷', (d) => d.deep.reviews[0].read.push('app/src/main/a.ts'), /K18 심화 main\/big read 파일이 다른 버킷 app\/src\/main\/a.ts/],
+  ['K18', '범주 판정 없음', (d) => delete d.deep.reviews[0].verdicts.X3, /K18 심화 main\/big X3 판정 없음/],
+  ['K18', '판정의 후보 미실재', (d) => (d.deep.reviews[0].verdicts.X1 = ['C-88']), /K18 심화 main\/big X1 가 없는 후보 C-88 를 가리킴/],
+  ['K18', '판정 범주 불일치', (d) => (d.deep.reviews[0].verdicts.X2 = ['C-02']), /K18 심화 main\/big X2 ↔ C-02 excess 범주 불일치/],
+  ['K18', 'excess 인데 후보 0', (d) => (d.deep.reviews[0].verdicts.X1 = 'none'), /K18 심화 main\/big density=excess 인데 후보 0/],
+  ['K18', 'basis 빈 값', (d) => (d.deep.reviews[0].basis = ' '), /K18 심화 main\/big basis 빈 값/],
+  ['K13', '모르는 density', (d) => (d.deep.reviews[0].density = 'dense'), /K13 심화 main\/big 모르는 density dense/],
+  ['K13', '심화 검토의 모르는 키', (d) => (d.deep.reviews[0].note = 'x'), /K13 심화 main\/big 모르는 키 note/],
+  ['K13', '분해 단계의 모르는 키', (d) => (cand(d, 'C-02').decomposition[0].order = 1), /K13 C-02 분해 1단계 모르는 키 order/],
+  ['K19', 'restructure 에 decomposition 없음', (d) => delete cand(d, 'C-02').decomposition, /K19 C-02 restructure 인데 decomposition 없음/],
+  ['K19', 'decomposition 빈 배열', (d) => (cand(d, 'C-03').decomposition = []), /K19 C-03 restructure 인데 decomposition 없음/],
+  ['K19', 'cut 빈 값', (d) => (cand(d, 'C-02').decomposition[1].cut = ''), /K19 C-02 분해 2단계 cut 빈 값/],
+  ['K19', 'keep 빈 값', (d) => delete cand(d, 'C-02').decomposition[0].keep, /K19 C-02 분해 1단계 keep 빈 값/],
+  ['K19', 'files 빈 배열', (d) => (cand(d, 'C-02').decomposition[0].files = []), /K19 C-02 분해 1단계 files 빈 배열/],
+  ['K19', 'files 미실재', (d) => (cand(d, 'C-02').decomposition[0].files = ['app/src/zz.ts']), /K19 C-02 분해 1단계 files 미실재 app\/src\/zz.ts/],
+  ['K19', 'scenarios 빈 배열', (d) => (cand(d, 'C-02').decomposition[0].scenarios = []), /K19 C-02 분해 1단계 scenarios 빈 배열/],
+  ['K19', '없는 S-ID', (d) => (cand(d, 'C-02').decomposition[1].scenarios = ['S-01', 'S-99']), /K19 C-02 분해 2단계 없는 시나리오 S-99/],
   ['K17', '추적 칸 범주 불일치', (d) => (d.traces.traces[0].steps[1].excess = [{ x: 'X7', candidate: 'C-02' }]), /K17 T1#2 X7 ↔ C-02 excess 범주 불일치/]
 ]
 for (const [rule, name, mutate, re] of RED) {
@@ -150,19 +174,20 @@ test('red K12: 완료 선언 뒤 data 파일 부재', () => {
 test('대기: 완료 선언 전에는 data 파일 부재가 red 가 아니다', () => {
   const d = valid()
   delete d.split
+  delete d.deep
   delete d.reviews
   delete d.traces
   delete d.candidates
-  const r = render(d)
+  const r = render(d, facts().lineCount)
   for (const n of BLOCKS) d.auditMd = replaceBlock(d.auditMd, n, r[n])
   const out = check(d, facts(), { complete: false })
   assert.deepEqual(out.errors, [])
-  assert.deepEqual(out.pending.sort(), ['candidates', 'reviews', 'split', 'traces'])
+  assert.deepEqual(out.pending.sort(), ['candidates', 'deep', 'reviews', 'split', 'traces'])
 })
 
 test('render: 합계 행과 분할 절감 합은 렌더 때 계산한다', () => {
   const r = render(valid())
-  assert.match(r.volume, /\| \*\*합계\*\* \| 100 \| 200 \| 2\.00 \| 2 \|/)
+  assert.match(r.volume, /\| \*\*합계\*\* \| 3100 \| 200 \| 0\.06 \| 3 \|/)
   assert.match(r.split, /\| 1 \| H-01 첫 묶음 \| C-01 C-02 \| 15\/20 \| S-01 \|/)
   assert.match(r.approvals, /\| C-03 \| 중복 쌍 \| 채택 결정 변경 \|/)
   assert.match(r.candidates, /배제: 0100→0200 재시도 2회/)
@@ -171,4 +196,27 @@ test('extractBlock/replaceBlock 왕복', () => {
   const md = 'a\n<!-- gen:x -->\nold\n<!-- /gen:x -->\nb'
   assert.equal(extractBlock(replaceBlock(md, 'x', 'new'), 'x'), 'new')
   assert.equal(extractBlock(md, 'y'), null)
+})
+
+test('K18: prod 가 기준 미만인 버킷은 심화 검토가 없어도 green, 기준과 같으면 필요', () => {
+  assert.deepEqual(run((d) => (d.volume.buckets['main/x'].prod.lines = 2999)), [])
+  assert.match(run((d) => (d.volume.buckets['main/x'].prod.lines = 3000)).join('\n'), /K18 심화 검토 없는 버킷 main\/x/)
+})
+test('K18: density=necessary 는 후보 0 이어도 green', () => {
+  assert.deepEqual(run((d) => Object.assign(d.deep.reviews[0], { density: 'necessary', verdicts: { X1: 'none', X2: 'none', X3: 'none', X4: 'none', X5: 'none', X6: 'none', X7: 'none' } })), [])
+})
+test('K19: remove 후보는 decomposition 이 없어도 green', () => assert.equal(cand(valid(), 'C-01').decomposition, undefined))
+test('render: 심화 표의 읽은 줄 비율과 분해 표의 단계 번호', () => {
+  const r = render(valid(), facts().lineCount)
+  assert.match(r.deep, /\| main\/big \| C-02 \| — \| — \| — \| — \| — \| — \| 과도 \| 3 \/ 3000 \(0%\) \|/)
+  assert.match(r.decomposition, /\| C-02 고정 인자 \| 1 \| 고정 인자 제거 \| 응답이 온다 \| `main\/a.ts` \| S-01 \|/)
+  assert.match(r.decomposition, /\| C-02 \| 2 \| 래퍼 제거 \| 응답이 온다 \| `main\/b.ts` \| S-01 S-02 \|/)
+})
+test('K19: 완료 선언 전에는 분해안 부재가 대기다', () => {
+  const d = valid()
+  delete cand(d, 'C-02').decomposition
+  rerender(d)
+  const out = check(d, facts(), { complete: false })
+  assert.deepEqual(out.errors, [])
+  assert.deepEqual(out.pending, ['decomposition:C-02'])
 })

@@ -1,27 +1,31 @@
 #!/usr/bin/env node
-// 0305 감사 검사·렌더 — plan §10 EP-06 규칙 K1~K14 · K17 · K7b.
+// 0305 감사 검사·렌더 — plan §10 EP-06 규칙 K1~K14 · K17 · K7b · K18 · K19.
 // 사용: node audit-check.mjs --check   → 위반 목록 (0 이면 exit 0)
 //       node audit-check.mjs --write   → audit.md 생성 블록 갱신
 import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { classifyBucket, countLines } from './volume.mjs'
 
 export const LENSES = ['L1', 'L4', 'L5']
 export const TYPES = ['remove', 'restructure']
 export const EXCESS = ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7']
 export const EFFECTS = ['user', 'none']
 export const TRACE_IDS = ['T1', 'T2', 'T3', 'T4', 'T5']
-export const BLOCKS = ['volume', 'scenarios', 'candidates', 'approvals', 'traces', 'reviews', 'split']
+export const DENSITY = ['excess', 'necessary']
+export const DEEP_MIN_PROD = 3000
+export const BLOCKS = ['volume', 'scenarios', 'candidates', 'approvals', 'traces', 'reviews', 'deep', 'decomposition', 'split']
 const REQUIRED = ['bucket', 'lens', 'type', 'scenarios', 'origin', 'preserve', 'evidence', 'saving', 'risk']
 const TOP_KEYS = {
   scenarios: ['scenarios', 'unreached'],
   candidates: ['lenses', 'candidates', 'approvals'],
   traces: ['traces'],
   reviews: ['reviews'],
+  deep: ['reviews'],
   split: ['handoffs', 'deferred']
 }
-const CANDIDATE_KEYS = [...REQUIRED, 'id', 'title', 'excess', 'decisionChange', 'approval', 'superseded']
+const CANDIDATE_KEYS = [...REQUIRED, 'id', 'title', 'excess', 'decisionChange', 'approval', 'superseded', 'decomposition']
 
 const blank = (v) =>
   v === undefined || v === null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0)
@@ -110,6 +114,22 @@ export function check(data, facts, { complete = false } = {}) {
       if (needsApproval && c.approval !== 'required') err('K8', `${c.id} 승인 필요인데 approval≠required`)
       if (c.approval !== undefined && !['required', 'none'].includes(c.approval)) err('K13', `${c.id} 모르는 approval ${c.approval}`)
       if (c.lens === 'L4' && blank(c.excess)) err('K17', `${c.id} lens=L4 인데 excess 없음`)
+      // K19 — restructure 후보의 분해안
+      // 완료 선언 전에는 아직 쓰지 않은 분해안을 대기로 센다(data 파일 부재와 같은 규칙).
+      if (c.type === 'restructure' && blank(c.decomposition)) {
+        if (complete) err('K19', `${c.id} restructure 인데 decomposition 없음`)
+        else pending.push(`decomposition:${c.id}`)
+      }
+      ;(Array.isArray(c.decomposition) ? c.decomposition : []).forEach((d, i) => {
+        const at = `${c.id} 분해 ${i + 1}단계`
+        if (blank(d.cut)) err('K19', `${at} cut 빈 값`)
+        if (blank(d.keep)) err('K19', `${at} keep 빈 값`)
+        if (blank(d.files)) err('K19', `${at} files 빈 배열`)
+        for (const f of d.files ?? []) if (!facts.fileExists(f)) err('K19', `${at} files 미실재 ${f}`)
+        if (blank(d.scenarios)) err('K19', `${at} scenarios 빈 배열`)
+        for (const s of d.scenarios ?? []) if (!scenarioIds.has(s)) err('K19', `${at} 없는 시나리오 ${s}`)
+        for (const k of Object.keys(d)) if (!['cut', 'keep', 'files', 'scenarios'].includes(k)) err('K13', `${at} 모르는 키 ${k}`)
+      })
     }
     const want = new Set((cd.candidates ?? []).filter((c) => c.type === 'remove' || c.decisionChange === true).map((c) => c.id))
     const have = new Set(cd.approvals ?? [])
@@ -165,11 +185,45 @@ export function check(data, facts, { complete = false } = {}) {
     for (const s of scenarioIds) if (!reviewed.has(s)) err('K17', `검토 없는 시나리오 ${s}`)
   }
 
+  // K18 — 분량 상위 버킷의 심화 검토
+  if (need('deep')) {
+    const buckets = data.volume?.buckets ?? {}
+    const reviewed = new Set()
+    for (const r of data.deep.reviews ?? []) {
+      reviewed.add(r.bucket)
+      for (const k of Object.keys(r)) if (!['bucket', 'read', 'verdicts', 'density', 'basis'].includes(k)) err('K13', `심화 ${r.bucket} 모르는 키 ${k}`)
+      if (!buckets[r.bucket]) err('K18', `없는 버킷의 심화 검토 ${r.bucket}`)
+      if (blank(r.read)) err('K18', `심화 ${r.bucket} read 빈 배열`)
+      for (const f of r.read ?? []) {
+        if (!facts.fileExists(f)) err('K18', `심화 ${r.bucket} read 파일 미실재 ${f}`)
+        else if (facts.bucketOf(f) !== r.bucket) err('K18', `심화 ${r.bucket} read 파일이 다른 버킷 ${f}`)
+      }
+      let pointed = 0
+      for (const x of EXCESS) {
+        const v = r.verdicts?.[x]
+        if (v === 'none') continue
+        if (!Array.isArray(v) || v.length === 0) err('K18', `심화 ${r.bucket} ${x} 판정 없음`)
+        else
+          for (const id of v) {
+            pointed += 1
+            pointers.push({ rule: 'K18', where: `심화 ${r.bucket}`, x, candidate: id })
+          }
+      }
+      for (const x of Object.keys(r.verdicts ?? {})) if (!EXCESS.includes(x)) err('K13', `심화 ${r.bucket} 모르는 범주 ${x}`)
+      if (!DENSITY.includes(r.density)) err('K13', `심화 ${r.bucket} 모르는 density ${r.density}`)
+      if (r.density === 'excess' && pointed === 0) err('K18', `심화 ${r.bucket} density=excess 인데 후보 0`)
+      if (blank(r.basis)) err('K18', `심화 ${r.bucket} basis 빈 값`)
+    }
+    for (const [name, b] of Object.entries(buckets))
+      if ((b.prod?.lines ?? 0) >= DEEP_MIN_PROD && !reviewed.has(name)) err('K18', `심화 검토 없는 버킷 ${name}`)
+  }
+
   if (data.candidates !== undefined) {
     for (const p of pointers) {
+      const rule = p.rule ?? 'K17'
       const c = candidateById.get(p.candidate)
-      if (!c) err('K17', `${p.where} ${p.x} 가 없는 후보 ${p.candidate} 를 가리킴`)
-      else if (!(c.excess ?? []).includes(p.x)) err('K17', `${p.where} ${p.x} ↔ ${p.candidate} excess 범주 불일치`)
+      if (!c) err(rule, `${p.where} ${p.x} 가 없는 후보 ${p.candidate} 를 가리킴`)
+      else if (!(c.excess ?? []).includes(p.x)) err(rule, `${p.where} ${p.x} ↔ ${p.candidate} excess 범주 불일치`)
     }
   }
 
@@ -196,7 +250,7 @@ export function check(data, facts, { complete = false } = {}) {
 
   // K12 — audit.md 생성 블록 = 렌더 결과
   if (data.auditMd !== undefined) {
-    const rendered = render(data)
+    const rendered = render(data, facts.lineCount ?? (() => 0))
     for (const name of BLOCKS) {
       const got = extractBlock(data.auditMd, name)
       if (got === null) err('K12', `생성 블록 누락 ${name}`)
@@ -232,7 +286,8 @@ const PENDING = '(대기 — 이 단계의 data 파일이 아직 없다)'
 const originText = (o) => (Array.isArray(o) ? o.join('·') : `미상(${o?.search ?? ''})`)
 
 // data → { 블록 이름: 본문 }. 합계·순위는 여기서 계산한다(저장하지 않는다).
-export function render(data) {
+// lineCount(path) 는 심화 검토의 읽은 줄 수에만 쓴다 — 없으면 0.
+export function render(data, lineCount = () => 0) {
   const out = {}
   if (data.volume) {
     const rows = Object.entries(data.volume.buckets)
@@ -321,6 +376,38 @@ export function render(data) {
       ])
     )
   } else out.reviews = PENDING
+  if (data.deep) {
+    out.deep = table(
+      ['버킷', ...EXCESS, '밀도', '읽은 줄 / prod 줄', '판정 근거', '읽은 파일'],
+      data.deep.reviews.map((r) => {
+        const prod = data.volume?.buckets?.[r.bucket]?.prod?.lines ?? 0
+        const read = r.read.reduce((n, f) => n + lineCount(f), 0)
+        return [
+          r.bucket,
+          ...EXCESS.map((x) => (r.verdicts[x] === 'none' ? '—' : (r.verdicts[x] ?? []).join(' '))),
+          r.density === 'excess' ? '과도' : '필요',
+          `${read} / ${prod}${prod > 0 ? ` (${Math.round((read / prod) * 100)}%)` : ''}`,
+          r.basis,
+          r.read.map((f) => f.slice(f.lastIndexOf('/') + 1)).join(' · ')
+        ]
+      })
+    )
+  } else out.deep = PENDING
+  if (data.candidates) {
+    out.decomposition = table(
+      ['후보', '단계', '떼어내는 것', '그 뒤에도 같아야 하는 동작', '파일', '회귀 시나리오'],
+      data.candidates.candidates.flatMap((c) =>
+        (c.decomposition ?? []).map((d, i) => [
+          i === 0 ? `${c.id} ${c.title ?? ''}` : c.id,
+          i + 1,
+          d.cut,
+          d.keep,
+          (d.files ?? []).map((f) => `\`${f.replace('app/src/', '')}\``).join(' · '),
+          (d.scenarios ?? []).join(' ')
+        ])
+      )
+    )
+  } else out.decomposition = PENDING
   if (data.split && data.candidates) {
     const by = new Map(data.candidates.candidates.map((c) => [c.id, c]))
     const sum = (ids, k) => ids.reduce((n, id) => n + (by.get(id)?.saving?.[k] ?? 0), 0)
@@ -359,6 +446,8 @@ function loadFacts(root) {
     features,
     handoffIds,
     fileExists: (p) => typeof p === 'string' && read(p) !== null,
+    bucketOf: (p) => classifyBucket(p),
+    lineCount: (p) => (read(p) === null ? 0 : countLines(read(p))),
     fileContains: (p, text) => typeof text === 'string' && text !== '' && (read(p) ?? '').includes(text)
   }
 }
@@ -368,24 +457,25 @@ function main() {
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: here, encoding: 'utf8' }).trim()
   const dir = join(here, '..')
   const data = {}
-  for (const name of ['volume', 'scenarios', 'candidates', 'traces', 'reviews', 'split']) {
+  for (const name of ['volume', 'scenarios', 'candidates', 'traces', 'reviews', 'deep', 'split']) {
     const p = join(dir, 'data', `${name}.json`)
     if (existsSync(p)) data[name] = JSON.parse(readFileSync(p, 'utf8'))
   }
   const mdPath = join(dir, 'audit.md')
   if (existsSync(mdPath)) data.auditMd = readFileSync(mdPath, 'utf8')
+  const facts = loadFacts(root)
   if (process.argv.includes('--write')) {
     let md = data.auditMd
     if (md === undefined) throw new Error('audit.md 없음')
-    const rendered = render(data)
+    const rendered = render(data, facts.lineCount)
     for (const name of BLOCKS) md = replaceBlock(md, name, rendered[name])
     writeFileSync(mdPath, md)
     console.log('[audit-check] audit.md 생성 블록 갱신')
     return
   }
   const complete = (data.auditMd ?? '').includes('<!-- audit:complete -->')
-  const { errors, pending } = check(data, loadFacts(root), { complete })
-  for (const p of pending) console.log(`[audit-check] 대기: data/${p}.json`)
+  const { errors, pending } = check(data, facts, { complete })
+  for (const p of pending) console.log(`[audit-check] 대기: ${p.includes(':') ? p : `data/${p}.json`}`)
   if (errors.length) {
     for (const e of errors) console.error(`[audit-check] ${e}`)
     console.error(`[audit-check] 위반 ${errors.length}`)
