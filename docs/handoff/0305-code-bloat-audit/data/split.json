@@ -150,6 +150,32 @@
     "S-02",
     "S-23"
    ]
+  },
+  {
+   "id": "H-J",
+   "title": "OpenCode 컴포저 목록 프로토콜 축소",
+   "candidates": [
+    "C-36"
+   ],
+   "scenarios": [
+    "S-05"
+   ],
+   "note": "설계 검토가 먼저다 — 절감 미추정. main owner 와 한 묶음"
+  },
+  {
+   "id": "H-K",
+   "title": "늘 같은 값이 들어오는 인자·optional props 정리",
+   "candidates": [
+    "C-37",
+    "C-38",
+    "C-39"
+   ],
+   "scenarios": [
+    "S-04",
+    "S-16",
+    "S-18"
+   ],
+   "note": "근거가 호출부 전수라 위험이 낮다 — H-B 와 합쳐도 된다"
   }
  ],
  "deferred": [
