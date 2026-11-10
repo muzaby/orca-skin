@@ -480,14 +480,172 @@ AC10 원문 4통(메시지 번호 1~4, 본문 단어 서로 다름):
 
 ## [구현자 기입] 설계 리뷰
 
+r1 (구현자 = Claude, 비기능 버그수정). 설계를 그대로 수행했다. plan 규범 행 변경 0, `PLAN_GAP` 0.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| D-014 체인 | 그대로 구현 | `normalize.ts` `selectBody` — plain → html → 첫 `text/html` 첨부 → none, 단계 결과는 `attempt()`(빈 결과·throw = 다음 단계) |
+| D-015 meta 정규식 | 2형을 정규식 1개로 처리(구현 세부) | `/<meta\b[^>]*?charset\s*=…/i`가 `charset=` 속성과 http-equiv `content="…charset=…"`를 모두 잡는다. 두 형은 AC17 (a)(b) latin1 입력으로 각각 관측 |
+| D-002 `head` 제거 규칙 | 구현했으나 동작상 잉여 | HTML 파서는 `<head>` 안 맨 텍스트를 body로 옮기고, head에 남는 텍스트 요소는 이미 제거되는 title·style·script·noscript와 inert template뿐 — 고장 이력 E2-04 `동치` |
+| `MigrationMetaDb` 트랜잭션 | `db.exec('BEGIN'/'COMMIT'/'ROLLBACK')`로 구현 | 인터페이스(`exec`·`prepare`)를 넓히지 않았다 |
+| 마이그레이션 테스트의 0001 단독 적용 | 정본 목록 `MAIL_MIGRATIONS`를 export해 필터 | 테스트에서 SQL `?raw`를 직접 import하면 append-only 가드가 "목록 사본"으로 막는다(실측 `migration list copy outside migrate.ts`) |
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-## [구현자 기입] Pair 자기검증
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07 | EP-01 체인 | 자리 4 · 분기 10 | 4/4 · 10/10 | `rg -n "email\.text\|email\.html\|email\.attachments\|text/html\|bodySource" …/normalize.ts` → 12줄(자리 4가 이 안). 좌표 `pure.test.ts` `mail body selection chain (0302 D-014)` (a)~(j) + 공백 결과 케이스 · `mime.test.ts` `mail body source matrix (0302 AC2)` | 원천마다 표지 단어 다름(`평문A`·`HTMLB`·`첨부C`·`첨부D`·`첨부F`) — 맞바꾸면 본문 단어가 달라진다(E1-08 red) | 0 |
+| VP-08 | EP-02 변환 규칙 | 자리 7 | 7/7 (⑦은 동치) | `rg -n "remove\|escape\|addRule\|slice\|trim\|HTML_BODY_INPUT_LIMIT" …/html-body.ts` → 8줄. 좌표 `html-body.test.ts` `htmlToBodyText (0302 AC3·AC5)` | 태그별 표지 `STYLEMARK` 등 · `LEADNBSP`·`LEADBR`(trim) · 표지 A/B(상한) · 상수 값 단언 `131_072` | ⑦ singleton: 결과 동일 — E2-11 `동치`(규칙 등록만 바뀌고 출력 불변) |
+| VP-10 | EP-06 디코딩 | 자리 4 · 분기 6 | 4/4 · 6/6 | `rg -n "subarray\|1024\|charset\|TextDecoder\|fatal\|euc-kr" …/html-body.ts` → 9줄. 좌표 `html-body.test.ts` `decodeHtmlBytes (0302 AC17)` 8케이스 · `mime.test.ts` `AC17 decodes an EUC-KR HTML attachment…` | latin1 선언 + `c3 a9` → `Ã©`(선언 단계만이 내는 값) · EUC-KR `c8b8c0c7` → `회의` · 창 안/밖 같은 바이트 | 0 |
+| VP-05 | EP-03 `bodySource` 운반 | 자리 9 | 9/9 | `rg -n "body_source\|bodySource" …/store/index.ts …/types.ts` → 11줄. 좌표 `store/index.test.ts` `returns each stored bodySource in %s results and updates it on re-save`(match·like·empty) | 네 출처가 서로 다른 값 → 분기별 `'plain' AS bodySource` 고정 변이 3종 모두 red(E3-03~05) | types ①② 필드는 typecheck가 아니라 위 런타임 단언(E1-12·E3-06 red)으로 관측 |
+| VP-04·VP-02 | EP-04 격리·집계 | 자리 4 | 4/4 | `rg -n "parseMail\|skippedMails\|noBodyMails\|mail\.sync\." …/sync-manager.ts` → 11줄. 좌표 `mail.integration.test.ts` `AC10·AC12·AC13 …` · `AC10 counts body-less and skipped mail separately` · `AC11 a storage failure still fails the whole sync…` | 주 시나리오 4·1·1 + 보조 2·2·1 → 카운터 맞바꿈 red(E4-04) · catch를 저장까지 넓히면 AC11 red(E4-01) | 0 |
+| VP-06 | EP-05 마이그레이션 | 자리 3 | 3/3 | `rg -n "0002\|BEGIN\|COMMIT\|ROLLBACK\|transaction" …/store/migrate.ts` → 5줄 · `ls migrations` → 0001·0002. 좌표 `store/migrate.test.ts` `backfills body_source on an existing 0001 cache…` · `rolls back a failing migration together with its record` · 기존 2케이스 | 행 2개(본문 있음/없음) → plain/none · 실패 목록 `9999_fail` | 0 |
+| VP-01 | path (EP-01 + EP-03) | 자리 13 | 13/13 | 위 VP-07·VP-05 좌표 + 배포 조립 경로 `mail.integration.test.ts` AC10/AC12 케이스(`f.server.implementations[0/1].handler`) | HTML 본문 단어 `htmlbodyword`·`결재`, 첨부 단어 `attachbodyword` | 0 |
+| VP-03 | 문서·의존성 | 0 | — | `git diff f49b0ad -- app/package.json app/package-lock.json app/src/main/infra/net/pop3-errors.ts` → 0줄 · `check-doc-inventory --check` ok | — | — |
+
+목록 밖 운반 자리 0. tools.ts는 결과를 변형 없이 통과시킨다(`tools.ts:118-145` 무변경, 통합 테스트가 handler JSON으로 관측).
+
+### Pair 자기검증
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `mail.integration.test.ts` `AC10·AC12·AC13 …` | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 같은 파일 주 시나리오 + `AC10 counts …` | 카운터 맞바꿈 E4-04 red · `skippedMails` 증가 제거 E4-02 red |
+| VP-03 | REQUIRED | SELF_PASS | gate `check-doc-inventory --check` · AC15 diff 0줄 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | `AC11 a storage failure …` · 주 시나리오 두 번째 동기화 `['RETR 4']` | catch 범위 확대 E4-01 red(2 failed) |
+| VP-05 | REQUIRED | SELF_PASS | `store/index.test.ts` `returns each stored bodySource …` ×3 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `store/migrate.test.ts` 4케이스 | 트랜잭션 제거 E5-01 red · ROLLBACK만 제거 E5-02 red |
+| VP-07 | REQUIRED | SELF_PASS | `pure.test.ts` 체인 12케이스 · `mime.test.ts` 매트릭스 13 | 순서 뒤집기 E1-08 red · "첫 번째만" 제거(`findLast`) E1-06 red |
+| VP-08 | REQUIRED | SELF_PASS | `html-body.test.ts` 변환 11케이스 | not selected |
+| VP-09 | REGRESSION | SELF_PASS | 기존 `mail.integration.test.ts`(0302 신규 3 포함 31 passed) · `sync-manager.test.ts` · `retention-window.test.ts` · `tools*.test.ts` — mail 14파일 189 passed | — |
+| VP-10 | REQUIRED | SELF_PASS | `html-body.test.ts` 디코딩 8케이스 · `mime.test.ts` EUC-KR raw | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+하네스 `mutate.py`, oracle = `vitest run src/main/features/plugins/mail src/main/app/deployment/mail.integration.test.ts`(14파일 189케이스). spec 52행 + 보강 뒤 재실행 3행. 실행 뒤 `# 원복 확인: 모든 파일 원문 그대로`.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| E1-01 `normalize.ts` plain 단계 제거 | sweep — EP-01 ① / 분기 (a) | — | 10 failed | 잡음 |
+| E1-02 plain 본문 `email.text.trim()` | sweep — 분기 (a) "원문 그대로" | — | 1 | 잡음 |
+| E1-03 html 단계 return 제거 | sweep — EP-01 ② / (b) | — | 9 | 잡음 |
+| E1-04 html 단계 catch 제거 | sweep — 분기 (e) | — | 3 | 잡음 |
+| E1-05 attachment 단계 return 제거 | sweep — EP-01 ③ / (f) | — | 8 | 잡음 |
+| E1-06 `find`→`findLast` | VP-07 선택 증거("첫 번째만") / (g) | — | 1 | 잡음 |
+| E1-07 mimeType 소문자화 제거 | sweep — 분기 (j) | — | 1 | 잡음 |
+| E1-08 html↔attachment 순서 맞바꿈 | VP-07 선택 증거 / 형제 맞바꿈 | — | 1 | 잡음 |
+| E1-09 attachment 단계 catch 제거 | sweep — 분기 (h) | — | 1 | 잡음 |
+| E1-10 `attempt` 공백 판정 제거 | sweep — diff 자리(규칙 "공백 제외 비어 있지 않은") | 첫 실행 전 테스트 추가 | 1 | 잡음 |
+| E1-11 none 기본값 `'plain'` | sweep — EP-01 ④ / (c)(d)(i) | — | 8 | 잡음 |
+| E1-12 반환 `bodySource: 'plain'` 고정 | sweep — EP-01 ④ | — | 23 | 잡음 |
+| E1-13 `deps.htmlToText` 무시 | sweep — seam 배선 | — | 3 | 잡음 |
+| E2-01~03·05 remove 목록에서 style·script·noscript·title 각 제거 | sweep — EP-02 ① | — | 9·1·1·1 | 잡음 |
+| E2-04 remove 목록에서 head 제거 | sweep — EP-02 ① | — | 0 (189 passed) | **동치** — 파서가 head에 텍스트 노드를 남기지 않고, 남는 텍스트 요소는 다른 규칙이 제거(이번 세션 node 실측: template·base·link·meta·noscript·title·object 입력 3종에서 head 규칙 유무 출력 동일) |
+| E2-06 escape 항등 제거 | sweep — EP-02 ② | — | 2 | 잡음 |
+| E2-07 img 규칙 제거 | sweep — EP-02 ③ | — | 1 | 잡음 |
+| E2-08 a 규칙 제거 | sweep — EP-02 ④ | — | 2 | 잡음 |
+| E2-09 입력 slice 제거 | sweep — EP-02 ⑤ | — | 1 | 잡음 |
+| E2-10 결과 trim 제거 | sweep — EP-02 ⑥ | 첫 실행 `못 잡음` → `LEADNBSP`·`LEADBR` 테스트 추가 | 1 | 잡음(재실행) |
+| E2-11 singleton → 매번 생성 | sweep — EP-02 ⑦ | — | 0 | **동치** — 규칙 등록 비용만 바뀌고 출력 불변(규칙은 상태 없음) |
+| E2-12 상한 `131_073` | sweep — D-003 값 | 첫 실행 전 상수 단언 추가 | 1 | 잡음 |
+| E6-01 탐지 창 제거(전체 바이트) | sweep — EP-06 ① / (f) | — | 1 | 잡음 |
+| E6-02 선언 단계 건너뜀 | sweep — EP-06 ② / (a)(b) | 첫 실행 전 latin1 입력 추가 | 3 | 잡음 |
+| E6-03 레이블 try 제거 | sweep — EP-06 ③ / (c) | — | 1 | 잡음 |
+| E6-04 `fatal` 제거 | sweep — EP-06 ④ / (e) | — | 2 | 잡음 |
+| E6-05 EUC-KR 대신 UTF-8 | sweep — EP-06 ④ / (e) | — | 2 | 잡음 |
+| E6-06 창 `2048` | sweep — D-015 값 | — | 1 | 잡음 |
+| E6-07 정규식을 `charset="`만 허용 | sweep — 분기 (b) http-equiv | — | 1 | 잡음 |
+| E3-01 INSERT 값 `'none'` | sweep — EP-03 ③ | — | 4 | 잡음 |
+| E3-02 UPSERT `body_source` SET 제거 | sweep — EP-03 ④ | — | 3 | 잡음 |
+| E3-03~05 LIKE·MATCH·빈 SELECT를 `'plain' AS bodySource`로 | sweep — EP-03 ⑤⑥⑦ (형제 분기) | — | 2·2·1 | 잡음 |
+| E3-06 hit 매핑 제거 | sweep — EP-03 ⑨ | — | 4 | 잡음 |
+| E4-01 catch를 `saveMessage`까지 확대 | VP-04 선택 증거 | — | 2 | 잡음 |
+| E4-02 `skippedMails += 1` 제거 | VP-02 선택 증거 | — | 2 | 잡음 |
+| E4-03 `noBodyMails += 1` 제거 | sweep — EP-04 ② | — | 2 | 잡음 |
+| E4-04 결과 두 카운터 맞바꿈 | VP-02 선택 증거 / 형제 맞바꿈 | — | 2 | 잡음 |
+| E4-05 catch의 `continue` 제거 | sweep — EP-04 ① | — | 2 | 잡음 |
+| E4-06 `parse_failed` 로그 제거 | sweep — D-012 | — | 1 | 잡음 |
+| E4-07 `body_none` 로그 제거 | sweep — D-012 | — | 1 | 잡음 |
+| E4-08 카운터 초기값 1 | sweep — EP-04 ④ | — | 2 | 잡음 |
+| E4-09 none 판정 `!== 'plain'` | sweep — EP-04 ② 조건 | — | 1 | 잡음 |
+| E5-01 트랜잭션 제거 | VP-06 선택 증거 | — | 1 | 잡음 |
+| E5-02 ROLLBACK 제거 | sweep — EP-05 ③ | — | 1 | 잡음 |
+| E5-03 0002 목록 항목 제거 | sweep — EP-05 ② | — | 44 | 잡음 |
+| E5-04 backfill UPDATE 제거 | sweep — EP-05 ① | — | 1 | 잡음 |
+| E5-05 CHECK에서 `attachment` 제거 | sweep — D-016 | — | 5 | 잡음 |
+
+검산: 선택 증거 N=6(VP-02 E4-02·E4-04 · VP-04 E4-01 · VP-06 E5-01 · VP-07 E1-06·E1-08) · 인용 변이 M=0 · 새 oracle K=0(구조적 proxy 없음) · sweep S=46 = 표 행 52(spec 52). 재실행 3행(E2-04·E2-10·E2-11)은 같은 ID. 결과: 잡음 50 · 동치 2 · 못 잡음 0.
+
 ## [구현자 기입] Product/UX 파생 검토
 
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `bodySource`·`noBodyMails`·`skippedMails`는 도구 JSON으로 모델이 받는다(통합 테스트 handler 관측). 로그 이벤트 2종은 운영자 로그 | 도구 descriptor 문구는 비범위(§6) |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — `parseMail` 호출만 try로 감쌌고 `saveMessage` 실패 시 기존 첨부 정리(`store/index.ts`)는 그대로 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 파싱 throw → "MIME 파싱 throw" 행 · 변환 throw → "어느 단계의 변환이 throw" 행 · 마이그레이션 실패 → 표에 없음(store 개방 실패 = 기존 오류 경로, 다음 개방에서 재시도) | 마이그레이션 실패는 사용자 동작 변화가 없어 상태표 행 추가 불요로 판단 |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 파싱 실패는 `skippedMails`와 warn 로그로 보인다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — renderer 없음, 동시 sync는 기존 Promise 공유 | — |
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 테스트가 상한·탐지 창 상수를 import해 경계를 계산하므로 값 변경에 무감 | ✅ 선조치 — 값 단언 추가(E2-12·E6-06 red) | `html-body.test.ts` `converts only the first …` |
+| 2 | EUC-KR 입력만으로는 meta 단계 제거가 폴백에 가려짐 | ✅ 선조치 — latin1 선언 입력 (a)(b) 추가(E6-02 red 3) | 같은 파일 `%s declaration wins over the UTF-8 fallback` |
+| 3 | turndown은 앞쪽 nbsp·`<br>` 줄바꿈을 남겨 trim이 실제로 필요(첫 sweep `못 잡음`) | ✅ 선조치 — `LEADNBSP`·`LEADBR`·`<p>&nbsp;</p>` 단언 | node 실측 `&nbsp;x` → `" x"`, `<br><br>x` → `"  \n  \nx"` |
+| 4 | 새 `301_000` 시계 자리가 테스트 예산 가드의 `SEMANTIC_DELAYS` 등록 수(4)와 어긋남 | ✅ 선조치 — `scripts/check-test-budgets.mjs` 등록 count 4→5(같은 사유: 주입 시계로 신선도 5분 넘김) | 가드 출력 `실제 자리 5 개` → 수정 뒤 `all budget sites scaled` |
+| 5 | 전체 vitest 29파일 red | 비귀속(환경) — 변경 전 커밋 `a43f564` worktree에서 같은 29파일 실행: 29 failed·22 tests failed, 차집합 ∅. 서명 `Electron failed to install correctly`(npm ci `--ignore-scripts`·`ELECTRON_SKIP_BINARY_DOWNLOAD`) 외 claude/opencode native 계열. 이번 변경 파일 0 | §gate |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| meta 정규식 2형 → 1개 | 한 형만 고치면 다른 형도 같이 바뀜(공유) | AC17 (a)(b) 각 입력 · E6-07 red |
+| 트랜잭션: better-sqlite3 `db.transaction` 대신 `exec('BEGIN')` | 재진입: 바깥 트랜잭션 안에서 부르면 `BEGIN` 실패 — `initialize`는 트랜잭션 밖에서만 호출(`file-database.ts:20`) | AC9 · E5-01·E5-02 red |
+| 만료·다른 무효화 | 해당 없음 — 캐시·만료 메커니즘을 바꾸지 않음 | — |
+
+### 구현 보고
+
+| AC | 상태 | 관측 |
+|---|---|---|
+| AC1 | ✅ | `pure.test.ts` `(b) AC1·AC4 converts HTML when plain text is blank` |
+| AC2 | ✅ | `mime.test.ts` `mail body source matrix (0302 AC2)` 13형상 |
+| AC3 | ✅ | `html-body.test.ts` 태그 5·escape·img·a 케이스 |
+| AC4 | ✅ | `pure.test.ts` (a)·(b) |
+| AC5 | ✅ | `html-body.test.ts` `converts only the first HTML_BODY_INPUT_LIMIT code units` |
+| AC6 | ✅ | `pure.test.ts` (e)·(h) |
+| AC7 | ✅ | `store/index.test.ts` `returns each stored bodySource in %s results …` ×3 |
+| AC8 | ✅ | `store/migrate.test.ts` `backfills body_source on an existing 0001 cache …` |
+| AC9 | ✅ | `store/migrate.test.ts` `rolls back a failing migration together with its record` |
+| AC10 | ✅ | `mail.integration.test.ts` `AC10·AC12·AC13 …`(4·1·1, 재RETR `['RETR 4']`, `lastErrorCode` null) · `AC10 counts …`(2·2·1) |
+| AC11 | ✅ | `AC11 a storage failure …`(`db_failed`) · 기존 `%s preserves valid auth and stale cache`·`%s during RETR closes socket …`·취소 케이스 green(파일 31 passed) |
+| AC12 | ✅ | 같은 테스트 — `htmlbodyword`(MATCH)·`결재`(LIKE)·`attachbodyword` 각 total 1, 출처 4종 |
+| AC13 | ✅ | 같은 테스트 — warn 2건(`m4` parse_failed, `m3` body_none), 제목·주소 미포함 |
+| AC14 | ✅ | `persistence.md` Mail Plugin 캐시 절 1문장 · `closed-network-extensions.md` mail 절 2문단 · `check-doc-inventory --check` ok |
+| AC15 | ✅ | `git diff f49b0ad -- app/package.json app/package-lock.json app/src/main/infra/net/pop3-errors.ts` → 0줄 |
+| AC16 | ✅ | `pure.test.ts` (g)·(i)·(j) · `AC16 never uses an HTML attachment while the HTML body has text` |
+| AC17 | ✅ | `html-body.test.ts` `decodeHtmlBytes (0302 AC17)` 8케이스 · `mime.test.ts` EUC-KR 첨부 raw |
+
+검산: ✅ 17 · ⚠️ 0 · ❌ 0 = 총 17 (AC1~AC17 재계수).
+
+**gate** (`app/`, 마지막 수정 뒤 트리):
+
+| Gate | 관측 |
+|---|---|
+| `node scripts/check-migrations-appendonly.mjs` | mail `2 migrations` sync ok · no-copies ok |
+| `node scripts/check-doc-inventory.mjs --check` | generated·prose·links ok |
+| `node scripts/check-test-budgets.mjs` | `20 real-git suites ok · all budget sites scaled` |
+| `npm run lint` | 0 errors · 2 warnings(`Timeline.tsx`·`useTranscriptVirtualizer.ts` — 변경 전과 같음, 변경 파일 아님) |
+| `npm run typecheck` | exit 0 |
+| `./node_modules/.bin/vitest run`(필터 없음) | 940파일 중 29 failed · 907 passed · 4 skipped / 케이스 22 failed · 8692 passed — 29파일 전부 변경 전 커밋에서도 같은 실패(차집합 ∅, 환경). 테스트 2파일 보강 뒤 재실행 결과는 아래 줄 |
+| `node --test scripts/*.test.mjs` | 827 pass · 0 fail |
+| mail 범위 | 14파일 189 passed |
+| 테스트 소스 규칙(수정·추가 테스트 6파일) | 예산 가드 위반 0 · 풀 가드: unit 2(`html-body`·`pure`), io 4(SQLite) — 전체 실행에서 `[test-pools]` 위반 0 |
+
+## [구현자 기입] Review Signals
+
+- 라운드 1, impl 턴 `r1`(같은 라운드 앞선 커밋은 진행 중 체크포인트 `Status: partial`).
+- 첫 sweep에서 `못 잡음` 1건(E2-10 trim)이 났다 — 테스트 입력이 "정리된 입력"만 써서 정리 단계를 관측하지 못했다. plan EP-02 입력 칸 ⑥(`<p> </p>` → `''`)도 같은 형태라 규칙 칸을 따라 입력을 더했다.
+- 환경 한계: Electron 바이너리 미설치로 claude/opencode 계열 29파일이 기준선에서도 red. mail 범위와 무관.
 
 ## [검증자 기입] 파생 이슈

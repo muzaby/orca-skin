@@ -47,6 +47,10 @@ describe('htmlToBodyText (0302 AC3·AC5)', () => {
   it('returns an empty string for whitespace-only HTML and trims the result', () => {
     expect(htmlToBodyText('<html><body><p> </p></body></html>')).toBe('')
     expect(htmlToBodyText('<p>   TRIMMED   </p>')).toBe('TRIMMED')
+    // turndown 은 앞쪽 nbsp·줄바꿈을 남긴다 — trim 은 여기서 한다.
+    expect(htmlToBodyText('&nbsp;LEADNBSP&nbsp;')).toBe('LEADNBSP')
+    expect(htmlToBodyText('<br><br>LEADBR<br>')).toBe('LEADBR')
+    expect(htmlToBodyText('<p>&nbsp;</p>')).toBe('')
   })
 
   it('reuses one service: repeated conversions are identical', () => {
@@ -56,6 +60,9 @@ describe('htmlToBodyText (0302 AC3·AC5)', () => {
   })
 
   it('converts only the first HTML_BODY_INPUT_LIMIT code units', () => {
+    // 값 자체가 계약이다 (0302 D-003 · D-015).
+    expect(HTML_BODY_INPUT_LIMIT).toBe(131_072)
+    expect(HTML_CHARSET_SNIFF_BYTES).toBe(1024)
     const before = '<p>MARKERA</p>'
     const after = '<p>MARKERB</p>'
     const filler = 'x'.repeat(HTML_BODY_INPUT_LIMIT - before.length - 1)
@@ -90,6 +97,17 @@ describe('decodeHtmlBytes (0302 AC17)', () => {
   it('(b) honours the http-equiv Content-Type form', () => {
     const head = '<meta http-equiv="Content-Type" content="text/html; charset=euc-kr">'
     expect(decodeHtmlBytes(html(head, EUC_KR_MEETING))).toContain('회의')
+  })
+
+  // 선언 단계만이 내는 결과 — 선언이 없으면 같은 바이트가 UTF-8 `é` 가 된다.
+  it.each([
+    ['(a) charset attribute', '<meta charset="iso-8859-1">'],
+    [
+      '(b) http-equiv content',
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">'
+    ]
+  ])('%s declaration wins over the UTF-8 fallback', (_name, head) => {
+    expect(decodeHtmlBytes(html(head, Buffer.from([0xc3, 0xa9])))).toContain('Ã©')
   })
 
   it('(c) falls back to UTF-8 when the declared label is unknown', () => {
