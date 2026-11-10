@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 `/handoff-plan` — 코드 비대화 방지(CI 감소는 결과 — D-011). 0305는 감사(지도)만, 축소 구현은 후속 handoff |
-| 상태 | READY |
+| 상태 | impl/IMPL_DONE (r1) — 감사 완료, 검증 대기 |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1` |
@@ -500,33 +500,115 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 
 ---
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-(impl 턴에서 채운다)
+- 동의 / 그대로 진행: 단계 P1·P2·P4·P5·P6, 데이터 → 렌더 → `audit.md` 구조, 검사 규칙 16개.
+- 이견 / 현실성 문제: §11 "L1의 export 조사만 `app` 설치(TypeScript API)를 쓴다" — 설치 없이 식별자 일치 스캔(`scan/lens-exports.mjs`)으로 수행했다. 아래 "설계 대비 명시적 차이".
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
-(impl 턴에서 채운다)
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 채널 → 시나리오 | 117 | 117/117 | `rg -o "'orca:[A-Za-z:._-]+'" app/src/shared/ipc.ts \| sort -u \| wc -l` → 117 · `gate:audit-check.mjs --check` ok · 변이 M1 red | 채널 이름 · `orca:chat:send` 제거 → K1 | — |
+| VP-01 | feature → 시나리오 | 14 | 14/14 | `ls app/src/renderer/src/features \| wc -l` → 14 · 같은 gate · 변이 M2 red | feature 이름 · `update` 제거 → K3 | — |
+| VP-02·VP-07 | 파일 → 버킷·종류 | 파일 2,116 · 규칙 8행 | 2,116/2,116 · 8/8 | `gate:volume.mjs --check` → `2116 files · 305843 lines · 102 buckets` · `scan/volume.test.mjs` 47케이스 · 변이 M3 red | 경로 · 규칙 행마다 입력(V1~V8) → 종류 | — |
+| VP-03·VP-04 | 후보 필수 9칸 | 9칸 × 후보 18 | 162/162 | `gate:audit-check.mjs --check` · `audit-check.test.mjs` "red K4" 11케이스 · 변이 M4·M5·M10 red | 칸 값 · 칸별 제거 → K4 · approval 뒤집기 → K8 | — |
+| VP-08 | 검사 규칙 | 16규칙 | 16/16 | `node --test scan/*.test.mjs` → tests 117 · pass 117 · `audit-check.test.mjs` RED 표 62행 + K12 3 + green 1 | 규칙마다 red 입력 | — |
+| VP-06 | 판정 사본 | 2(`audit.md` 블록 · INDEX 비고) | 2/2 | 변이 M6 red(K12) · INDEX 비고는 수치 없이 `audit.md` 링크만(`rg -n '0305' docs/handoff/INDEX.md`) | 블록 본문 · 숫자 1개 수정 → K12 | — |
+| VP-03 | 경로 추적 | 5건 | 5/5 | `data/traces.json` T1~T5 · 단계 46 · 변이 M7 red(K11) | 파일·심볼 · 심볼 변경 → K11 | — |
+| VP-03 | 시나리오 검토 | 시나리오 31 × 7칸 | 217/217 | `data/reviews.json` 31건 · 변이 M8·M9 red(K17) | 시나리오·범주 · 검토·칸 삭제 → K17 | — |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
 
-(impl 턴에서 채운다)
+**V-pair 자기확인**
 
-## [구현자 기입] Product/UX 파생 검토
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:audit-check.mjs --check` | M1·M2 red |
+| VP-02 | REQUIRED | SELF_PASS | `gate:volume.mjs --check` | M3 red |
+| VP-03 | REQUIRED | SELF_PASS | `gate:audit-check.mjs --check` | 표본 재현은 검증자 몫 — 구현자는 후보 근거 명령을 작성 시 실행 |
+| VP-04 | REQUIRED | SELF_PASS(기계 범위) | 같은 gate · AC12 는 사람 | M4·M5 red |
+| VP-05 | REQUIRED | SELF_PASS | `git diff --stat a0a95f7..HEAD -- app .github` → 0줄 | not selected |
+| VP-06 | REQUIRED | SELF_PASS | 같은 gate(K12) | M6 red |
+| VP-07 | REQUIRED | SELF_PASS | `scan/volume.test.mjs` | not selected |
+| VP-08 | REQUIRED | SELF_PASS | `scan/audit-check.test.mjs` | not selected |
 
-(impl 턴에서 채운다)
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+실제 데이터에 심고 원복했다(`git status` 로 원복 확인).
 
-(impl 턴에서 채운다)
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 gate | 결과 |
+|---|---|---|---|---|
+| M1 `scenarios.json` S-04 에서 `orca:chat:send` 제거 | sweep — EP-01 · VP-01 선택 증거 | 최초 | `audit-check --check` | 잠김 |
+| M2 `scenarios.json` 에서 feature `update` 제거 | sweep — EP-02 · VP-01 선택 증거 | 최초 | 같음 | 잠김 |
+| M3 `volume.json` 버킷 `preload` 삭제 | sweep — EP-03 · VP-02 선택 증거 | 최초 | `volume --check` | 잠김 |
+| M4 C-01 `approval` 을 `none` 으로 | VP-04 선택 증거 | 최초 | `audit-check --check` | 잠김 |
+| M5 H-A 에서 후보 1건 제거 | VP-04 선택 증거 | 최초 | 같음 | 잠김 |
+| M6 `audit.md` volume 블록 `468` → `469` | sweep — EP-07 · VP-06 선택 증거 | 최초 | 같음 | 잠김 |
+| M7 T1 2단계 심볼 변경 | sweep — EP-08 | 최초 | 같음 | 잠김 |
+| M8 `reviews.json` 마지막 검토 삭제 | sweep — EP-09 | 최초 | 같음 | 잠김 |
+| M9 S-01 검토의 `X7` 칸 삭제 | sweep — EP-09 | 최초 | 같음 | 잠김 |
+| M10 C-12 `evidence` 제거 | sweep — EP-05 | 최초 | 같음 | 잠김 |
 
-## [구현자 기입] 구현 보고
+- **분모 검산**: `선택 증거 6(M1~M6) · 인용 변이 0 · 새 oracle 2(검사·volume, 자체 테스트 117케이스가 민감도) · sweep 추가 4(M7~M10) = 표 행 10`. EP-06 의 16규칙 sweep 은 `audit-check.test.mjs` RED 표가 규칙·조건마다 1입력으로 수행한다(62행).
+- **덮개 회귀**: 해당 없음(첫 라운드).
 
-(impl 턴에서 채운다)
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
-## [구현자 기입] Review Signals — 사실만
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있다 — `audit.md` 를 사용자가 읽는다 | AC12 |
+| seam 을 만들려고 production 을 재배치했는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "`app` 설치 실패" 행 — 설치를 시도하지 않고 대체 방법을 썼다 | 아래 차이 |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 검사가 위반 목록과 exit 1 을 낸다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
 
-(impl 턴에서 채운다)
+- 사용자 자리에서 본 한계: 후보 18건 중 4건(C-07·C-14·C-15, 부분적으로 C-06)은 절감을 추정하지 않았다. `audit.md` §0 "한계"에 적었다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | EP-03 V2 가 `*.testlib.ts`·`*.testHarness.ts` 를 테스트 지원으로 잡지 않아 prod 로 센다 | ⚠️ 보고만 — 분류 규칙은 plan 규범 행 | 5파일 431줄(`git ls-files app/src \| grep -E 'testlib\|testHarness'`). prod 합계 113,757줄의 0.4% |
+| 2 | L4 검토 깊이가 진입 핸들러·main 전송 경로에 치우쳤다. renderer `chatStore.ts`·`chatReducer.ts` 와 어댑터 내부는 진입 심볼만 확인했다 | ⚠️ 보고만 — 선언 경계 7("검토의 깊이는 `read` 에 적은 파일까지") 안 | `data/reviews.json` `read` 칸 · `audit.md` §0 한계 |
+| 3 | 채널 호출부 스캔의 첫 판(한 줄 정규식)이 여러 줄 호출 사슬을 놓쳐 오탐 19건을 냈다 | ✅ 선조치 — `rg -U` 다중 줄 검색으로 재확인해 4건으로 확정 | `audit.md` §0 재현 방법 |
+| 4 | L5 겹침 측정 스크립트(파이썬)를 저장소에 남기지 않았다 | ⚠️ 보고만 — 방법은 `candidates.json` L5 `method` 에 서술 | 재현하려면 같은 기준으로 다시 작성해야 한다 |
+| 5 | 예비 실측(plan §8)의 prod 118,000줄과 정식 수치 113,757줄이 다르다 | ✅ 선조치 — `audit.md` 는 정식 수치만 쓴다 | 차이는 i18n 리소스·mock·fixture 를 종류 `data`·`test-support` 로 뺀 것 |
+
+### 설계 대비 명시적 차이
+
+- §11 은 L1 export 조사에 TypeScript API(설치 필요)를 지정했다. 설치하지 않고 식별자 일치 스캔으로 대체했다 — 설치는 better-sqlite3 ABI·egress 변수를 끌어들이고, 후보마다 사람이 근거를 확인하는 선언 경계 4 안이다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 일회성 스캔 | — |
+| 공유 | 같은 이름의 다른 심볼이 다른 파일에 있으면 "참조 있음"으로 잘못 본다(미탐) | 선언 경계 1 "후보는 하한" · 스캔 결과 646 중 16+50만 후보 |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 문자열·주석 안의 같은 단어도 참조로 센다(미탐). 타입 전용 재export 는 구분하지 못한다 | C-06·C-07 `risk` 칸 · C-07 은 절감 미추정 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `docs/handoff/0305-code-bloat-audit/{audit.md,data/*.json(6),scan/*.mjs(6)}` · `docs/handoff/INDEX.md` · 이 절 |
+| 실행 명령 | `node scan/volume.mjs --check` · `node scan/audit-check.mjs --check` · `node --test scan/*.test.mjs` · `cd app && node scripts/check-doc-inventory.mjs --check` · AC11 명령 |
+| 관측한 게이트 산출 | `[volume] ok — 2116 files · 305843 lines · 102 buckets` · `[audit-check] ok — 완료 선언` · `tests 117 · pass 117 · fail 0` · doc-inventory `links ok` · AC11 0줄. `app` lint·typecheck·test 는 gate 가 아니다(§19 — `app/**` 미수정) |
+| 추가·수정 테스트의 subtree 규칙 | 해당 없음 — 테스트 2파일은 `docs/handoff/` 아래 `node:test` 이고 `app` 테스트 규칙 대상이 아니다 |
+| V-pair 자기확인 | `SELF_PASS 8 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 8행 전부 닫음(위 표) |
+| AC 자기보고 | AC1 ✅ 117채널·14 feature 차집합 0 · AC2 ✅ 2,116파일 미분류 0 · AC5 ✅ 렌즈 3건 · AC6 ✅ 후보 18건 9칸 · AC7 ✅ 출처 ID 실재(K7) · AC8 ✅ 승인 목록 11건 = remove 11 · AC9 ✅ 후속 5묶음 + 보류 1 · AC10 ✅ 추적 5건 46단계 · AC11 ✅ 0줄 · AC13 ✅ K12 · AC14 ✅ 31건 × 7칸 · AC12 ⚠️ 사람 |
+| 합계 검산 | `✅ 11 · ⚠️ 1 · ❌ 0 = 총 12` (AC3·AC4 는 D-011 로 삭제) |
+| 블로커 / 역질문 | 없음. 사용자 판정 대기: 승인 목록 11건 · 분할 순위(AC12) |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 라운드).
+- 막았어야 할 plan 지침·AC 가 있었는가: 해당 없음.
+- 반복해서 부딪히는 환경 한계: `app/node_modules` 없음 · shallow clone(출처 추적이 코드 주석의 handoff 번호에 의존).
+- 현재 라운드·impl 턴: `r1`. 단계 커밋 3회(P1 · P2 · P4~P6)는 같은 턴이다.
 
 ---
 
