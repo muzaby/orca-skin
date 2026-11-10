@@ -458,16 +458,236 @@ READY. 출처는 plan 내부 정합이며 D-002~D-016의 제품 동작은 유지
 
 READY self-review: §10 EP-01 6·EP-02 8·EP-03 7·EP-04 2·EP-05 4·EP-06 6 = 33자리. 규칙 분기·선택 변이는 승계하고, 같은 manager 직접 호출은 기존 `syncManager` fixture(`mail.integration.test.ts`)로 가능하다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+- 동의 / 그대로 진행: V1 rev.4의 D-002~D-016을 구현했다. 기본 조회 창·full 비삭제·서로 다른 모드의 합류 규칙·공용 투영을 유지했다.
+- 이견 / 현실성 문제: 입력/응답 이름·자리 합계·manager 직접 oracle·rg alternation은 구현 전 별도 설계 커밋으로 정정했다(위 rev.4).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. 신규 의존성·마이그레이션 diff는 0줄이다.
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+작업 기준선: `5b4ee524`(공유 main의 0303 rev.3·0302 구현 포함), 유효 V = V1 rev.4. REQUIRED VP-01~08·10, REGRESSION VP-09, 열린 파생 이슈 없음, 선택 변이 A01~A06을 먼저 확정했다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+좌표 약칭: `B` = `mail/body-window.test.ts:mail body windows`, `M` = `mail/sync-mode.test.ts`, `T` = `mail/tools.test.ts`, `L` = `mail/tools-lifecycle.test.ts`, `S` = `mail/store/index.test.ts`, `I` = `app/deployment/mail.integration.test.ts`. 모두 `app/src/main/` 아래이며 아래 테스트명은 해당 파일 안의 직접 oracle이다.
 
-## [구현자 기입] Review Signals
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01·07 | EP-01① | offset 기본·정규화 (1) | 1/1 | B:normalizes invalid values; reads offset 37; S01~03 관측 | -5·1.7→0, 37→37 | — |
+| VP-01·07 | EP-01② | maxChars 기본 (1) | 1/1 | B:uses the public defaults; S04 관측 | 생략→8000·next 8000 | — |
+| VP-01·07 | EP-01③ | 상한·하한·정수 (1) | 1/1 | B:normalizes invalid values; S05~07 관측 | 99999→16000, 0·-3·2.5→8000 | — |
+| VP-01·07 | EP-01④ | 시작 pair 보정 (1) | 1/1 | B:preserves code points at offset 3; S08 관측 | offset 3→2·😀 | — |
+| VP-01·07 | EP-01⑤ | 끝 pair·빈 창 확장 (1) | 1/1 | B:preserves code points at offset 0; offset 2; S09·10·12~14 관측 | ab😀cd의 길이 3→ab, pair 길이 1→2 | — |
+| VP-01·07 | EP-01⑥ | nextOffset (1) | 1/1 | B:distinct consecutive windows; normalizes invalid values; S11 관측 | 8000→16000→null·본문 밖 빈 창 | — |
+| VP-01·05 | EP-02① | 계정 한정 SQL (1) | 1/1 | S:rejects loose identifiers even when id 100 exists and scopes the account; S15·58 관측 | 다른 account 행은 null, id 100은 존재 | — |
+| VP-01·05 | EP-02② | mailId 정규식 (1) | 1/1 | S:rejects loose identifiers; I:AC6·9; S16 관측 | 1e2·0·음수·소수·공백·없는 id→오류 | — |
+| VP-01·05 | EP-02③ | 메타 6필드 (1) | 1/1 | S:bounds a 12 attachment manifest; I:AC1·2·3·4·16; S17~22 관측 | date·from·to·cc·subject·source를 서로 다른 값으로 응답 단언 | — |
+| VP-01·05 | EP-02④ | manifest 10·truncated (1) | 1/1 | S:bounds a %i attachment manifest; S23·24·54 관측 | 12·3·0건, 파일명·MIME·size·id 구별 | — |
+| VP-01·05 | EP-02⑤ | manager 창·DTO (1) | 1/1 | I:AC1·2·3·4·16; AC6·9; S25·55·57 관측 | 37·113→[37,150), 20k 본문 재조립 | — |
+| VP-01·05 | EP-02⑥ | handler 정규화 (1) | 1/1 | L:normalizes get inputs, closes local readers, and hides failures; S26~28·56·59 관측 | 문자열 5·8→undefined, number 37·113 전달 | — |
+| VP-01·05 | EP-02⑦ | null 오류 (1) | 1/1 | I:AC6·9; S29 관측 | isError:true·mail_not_found, root 경로 없음 | — |
+| VP-01·05 | EP-02⑧ | get 항목·스키마 (1) | 1/1 | T:keeps search inputs unchanged and validates the new get and sync inputs; S30~32 관측 | 빈 id·음수·소수·max 0·16001 거부 | — |
+| VP-02·04 | EP-03① | mode 스키마 (1) | 1/1 | T:validates the new get and sync inputs; S33 관측 | full·incremental·생략 허용, all·빈 문자열·1 거부 | — |
+| VP-02·04 | EP-03② | mode 정규화 (1) | 1/1 | L:normalizes direct invalid sync modes; M:normalizes untrusted modes; S34·43 관측 | full 전달, all·빈 문자열·1→incremental | — |
+| VP-02·04 | EP-03③ | manager 인자 (1) | 1/1 | L:orders a running %s and requested %s flight; S35 관측 | controller.signal·undefined·mode 인자 기록 | — |
+| VP-02·04 | EP-03④ | manager 기본값 (1) | 1/1 | I 기존 syncManager 직접 호출 회귀; S36 관측 | 인자 생략은 증분, fresh 재호출 RETR 없음 | — |
+| VP-02·04 | EP-03⑤ | freshness 우회 (1) | 1/1 | I:AC11 full bypasses freshness; M:plans both independent full operations; A01·S41 관측 | 증분 직후 full도 접속·RETR 4건 | — |
+| VP-02·04 | EP-03⑥ | 전 UIDL 선택 (1) | 1/1 | I:AC11 full bypasses freshness; M:plans both independent full operations; A02·S42 관측 | 기존 3·새 1 모두 RETR 4,3,2,1 | — |
+| VP-02·04 | EP-03⑦ | mode·집계 (1) | 1/1 | I:AC11; counts a reappearing missing ledger entry; S37~39 관측 | new 1·updated 3, missing 재등장은 new 1 | — |
+| VP-02·06·08 | EP-04① | tools 합류·대기 (1) | 1/1 | L:orders a running %s and requested %s flight; retries a queued full; A03·S40·60 관측 | 4조합·후속 요청 둘·실패/취소 분기 | — |
+| VP-02·06·08 | EP-04② | manager 합류·대기 (1) | 1/1 | I:EP-04 manager waits for incremental before full; A04·S61 관측 | 같은 manager 직접 호출, mode·연결 수 1/2 | — |
+| VP-03 | EP-05① | descriptor 순서 (1) | 1/1 | T:four tools with local search and get as read-only operations; S44 관측 | sync/search/getAttachment/get·힌트 배열 | — |
+| VP-03 | EP-05② | implementation 순서 (1) | 1/1 | T:four tools with local search and get as read-only operations; S45 관측 | descriptor와 이름·순서 동일 | — |
+| VP-03 | EP-05③ | instructions (1) | 1/1 | T:four tools with local search and get as read-only operations; S46 관측 | mail_get·nextOffset·full 언급 | — |
+| VP-03 | EP-05④ | search 표면 (1) | 1/1 | T:keeps search inputs unchanged; I:AC1·2·3·4·16; S47 관측 | query·limit 키, hit 키 집합·앞 300자 | — |
+| VP-10 | EP-06① | search sliceBody (1) | 1/1 | S:shares search and get projections; I:AC7·21; A05 관측 | 20k·pair 경계·짧음·빈 본문 | — |
+| VP-10 | EP-06② | search mailMeta (1) | 1/1 | S:shares search and get projections; A06·S48 관측 | 3검색 모드·서로 다른 메타 4메일 | — |
+| VP-10 | EP-06③ | search manifest (1) | 1/1 | S:caps the whole response manifest at 50; S49·50 관측 | 메일당 10·전체 50·truncated | — |
+| VP-10 | EP-06④ | get mailMeta (1) | 1/1 | S:shares search and get projections; I:AC7·21; S51 관측 | 같은 메일의 메타·snippet/page 대조 | — |
+| VP-10 | EP-06⑤ | get manifest (1) | 1/1 | S:bounds a %i attachment manifest; I:AC7·21; S52 관측 | 첨부 12·3·0 및 첨부 본문 1건 | — |
+| VP-10 | EP-06⑥ | 300 상수 한 곳 (1) | 1/1 | B:uses the public defaults; S53 관측 | MAIL_SEARCH_SNIPPET_CHARS=300 | — |
+
+합계: EP-01 6 + EP-02 8 + EP-03 7 + EP-04 2 + EP-05 4 + EP-06 6 = **33/33**. 자리 검색은 [surface-search.txt](evidence/surface-search.txt)에 원출력을 보존했다. import·타입·상수 정의·helper 정의는 선언으로 분류했으며, 고정 자리 목록과 실제 운반 자리의 양방향 차집합은 ∅다.
+
+- §10 밖에서 발견한 운반 자리: 없음. 공용 `readManifest`는 EP-02④·EP-06③⑤의 같은 쿼리·투영을 묶은 helper다.
+- 직전 verify 고장 이력의 못 잡음: 해당 없음(r1 첫 구현).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | I:AC1·2·3·4·16, AC6·9, AC7·21 · B 전 케이스 | not selected; 직접 응답·재조립 |
+| VP-02 | REQUIRED | SELF_PASS | I:AC10~14 · L 동시·입력 정규화 | A01·A02 red |
+| VP-03 | REQUIRED | SELF_PASS | T 전 케이스 · I:AC1·2·3·4·16 · 문서/가드 | not selected; 스키마·목록·문서 직접 비교 |
+| VP-04 | REQUIRED | SELF_PASS | I:AC11, AC12·14, AC13 2케이스 | not selected; RETR·upsert·비삭제 |
+| VP-05 | REQUIRED | SELF_PASS | S:0303 cached mail projection | not selected; 계정·메타·manifest |
+| VP-06 | REQUIRED | SELF_PASS | L 동시 4조합 · I:EP-04 manager waits | A03·A04 red |
+| VP-07 | REQUIRED | SELF_PASS | B 전 8케이스 | not selected; 9분기·잘못된 입력·pair 직접 단언 |
+| VP-08 | REQUIRED | SELF_PASS | M:normalizes untrusted modes; joins only a running mode | not selected; 4조합·7입력·두 plan |
+| VP-09 | REGRESSION | SELF_PASS | 기존 mail 14파일 포함 현재 16파일·225케이스 | not selected; 변경한 도구 수 단언 포함 |
+| VP-10 | REQUIRED | SELF_PASS | S:shares search and get projections · I:AC7·21 | A05·A06 red |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+[변이 spec](evidence/mutations.jsonl)과 [원실행 결과](evidence/mutation-results.tsv)를 보존했다. 실행: `python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0303-mail-get-and-sync-modes/evidence/mutations.jsonl --cwd app`.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| S01 `mail/body-window.ts` — EP-01① specified offset | sweep | 최초 | vitest 7 failed \| 1 passed (8) | 잠김 |
+| S02 `mail/body-window.ts` — EP-01① noninteger offset | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S03 `mail/body-window.ts` — EP-01① negative offset | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S04 `mail/body-window.ts` — EP-01② default | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S05 `mail/body-window.ts` — EP-01③ clamp | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S06 `mail/body-window.ts` — EP-01③ integer | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S07 `mail/body-window.ts` — EP-01③ positive size | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S08 `mail/body-window.ts` — EP-01④ start pair | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S09 `mail/body-window.ts` — EP-01⑤ end pair | sweep | 최초 | vitest 2 failed \| 6 passed (8) | 잠김 |
+| S10 `mail/body-window.ts` — EP-01⑤ single pair | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S11 `mail/body-window.ts` — EP-01⑥ next offset | sweep | 최초 | vitest 8 failed (8) | 잠김 |
+| S12 `mail/body-window.ts` — EP-01⑤ end clamp | sweep | 최초 | vitest 8 passed (8) | 동치 — slice가 끝을 clamp하고 끝 이후 nextOffset은 null |
+| S13 `mail/body-window.ts` — EP-01⑤ empty-end guard | sweep | 최초 | vitest 8 passed (8) | 동치 — slice가 끝을 clamp하고 끝 이후 nextOffset은 null |
+| S14 `mail/body-window.ts` — EP-01⑤ actual length | sweep | 최초 | vitest 4 failed \| 4 passed (8) | 잠김 |
+| S15 `mail/store/index.ts` — EP-02① account scope | sweep | 최초 | vitest 1 failed \| 35 passed (36) | 잠김 |
+| S16 `mail/store/index.ts` — EP-02② strict id | sweep | 최초 | vitest 1 failed \| 35 passed (36) | 잠김 |
+| S17 `mail/store/index.ts` — EP-02③ metadata | sweep | 최초 | vitest 3 failed \| 33 passed (36) | 잠김 |
+| S18 `mail/store/index.ts` — EP-02③ metadata | sweep | 최초 | vitest 6 failed \| 30 passed (36) | 잠김 |
+| S19 `mail/store/index.ts` — EP-02③ metadata | sweep | 최초 | vitest 6 failed \| 30 passed (36) | 잠김 |
+| S20 `mail/store/index.ts` — EP-02③ metadata | sweep | 최초 | vitest 9 failed \| 27 passed (36) | 잠김 |
+| S21 `mail/store/index.ts` — EP-02③ metadata | sweep | 최초 | vitest 6 failed \| 30 passed (36) | 잠김 |
+| S22 `mail/store/index.ts` — EP-02③ cc | sweep | 최초 | vitest 3 failed \| 33 passed (36) | 잠김 |
+| S23 `mail/store/index.ts` — EP-02④ per-mail limit | sweep | 최초 | vitest 1 failed \| 35 passed (36) | 잠김 |
+| S24 `mail/store/index.ts` — EP-02④ truncation flag | sweep | 최초 | vitest 2 failed \| 34 passed (36) | 잠김 |
+| S25 `mail/sync-manager.ts` — EP-02⑤ window arguments | sweep | 최초 | vitest 1 failed \| 8 passed \| 32 skipped (41) | 잠김 |
+| S26 `mail/tools.ts` — EP-02⑥ offset | sweep | 최초 | vitest 1 failed \| 10 passed (11) | 잠김 |
+| S27 `mail/tools.ts` — EP-02⑥ maxChars | sweep | 최초 | vitest 1 failed \| 10 passed (11) | 잠김 |
+| S28 `mail/tools.ts` — EP-02⑥ type normalization | sweep | 최초 | vitest 1 failed \| 10 passed (11) | 잠김 |
+| S29 `mail/tools.ts` — EP-02⑦ isError | sweep | 최초 | vitest 1 failed \| 40 skipped (41) | 잠김 |
+| S30 `mail/tools.ts` — EP-02⑧ schema | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S31 `mail/tools.ts` — EP-02⑧ offset schema | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S32 `mail/tools.ts` — EP-02⑧ mailId schema | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S33 `mail/tools.ts` — EP-03① mode schema | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S34 `mail/tools.ts` — EP-03② mode normalization | sweep | 최초 | vitest 4 failed \| 7 passed (11) | 잠김 |
+| S35 `mail/tools.ts` — EP-03③ manager mode | sweep | 최초 | vitest 4 failed \| 7 passed (11) | 잠김 |
+| S36 `mail/sync-manager.ts` — EP-03④ default (inherited direct calls) | sweep | 최초 | vitest 4 failed \| 37 passed (41) | 잠김 |
+| A01 `mail/sync-manager.ts` — VP-02 selected freshness/EP-03⑤ | 선택 증거 | 최초 | vitest 1 failed \| 1 passed \| 39 skipped (41) | 잠김 |
+| A02 `mail/sync-manager.ts` — VP-02 selected targets/EP-03⑥ | 선택 증거 | 최초 | vitest 1 failed \| 1 passed \| 39 skipped (41) | 잠김 |
+| S37 `mail/sync-manager.ts` — EP-03⑦ actual result mode | sweep | 최초 | vitest 1 failed \| 1 passed \| 39 skipped (41) | 잠김 |
+| S38 `mail/sync-manager.ts` — EP-03⑦ new/updated swap | sweep | 최초 | vitest 1 failed \| 1 passed \| 39 skipped (41) | 잠김 |
+| S39 `mail/sync-manager.ts` — EP-03⑦ active-only ledger | sweep | 최초 | vitest 1 failed \| 40 skipped (41) | 잠김 |
+| A03 `mail/tools.ts` — VP-06 selected tools/EP-04① | 선택 증거 | 최초 | vitest 2 failed \| 9 passed (11) | 잠김 |
+| A04 `mail/sync-manager.ts` — VP-06 selected manager/EP-04② | 선택 증거 | 최초 | vitest 1 failed \| 40 skipped (41) | 잠김 |
+| S40 `mail/sync-mode.ts` — EP-04 four combinations | sweep | 최초 | vitest 1 failed \| 1 passed (2) | 잠김 |
+| S41 `mail/sync-mode.ts` — EP-03⑤ mode planner | sweep | 최초 | vitest 1 failed \| 1 passed (2) | 잠김 |
+| S42 `mail/sync-mode.ts` — EP-03⑥ mode planner | sweep | 최초 | vitest 1 failed \| 1 passed (2) | 잠김 |
+| S43 `mail/sync-mode.ts` — EP-03② mode normalizer | sweep | 최초 | vitest 1 failed \| 1 passed (2) | 잠김 |
+| S44 `mail/tools.ts` — EP-05① descriptor | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S45 `mail/tools.ts` — EP-05② implementation | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S46 `mail/tools.ts` — EP-05③ instructions | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| S47 `mail/tools.ts` — EP-05④ search schema | sweep | 최초 | vitest 1 failed \| 2 passed (3) | 잠김 |
+| A05 `mail/store/index.ts` — VP-10 selected snippet/EP-06① | 선택 증거 | 최초 | vitest 3 failed \| 33 passed (36) | 잠김 |
+| A06 `mail/store/index.ts` — VP-10 selected inline metadata swap/EP-06② | 선택 증거 | 최초 | vitest 6 failed \| 30 passed (36) | 잠김 |
+| S48 `mail/store/index.ts` — EP-06② common metadata | sweep | 최초 | vitest 14 failed \| 22 passed (36) | 잠김 |
+| S49 `mail/store/index.ts` — EP-06③ search manifest | sweep | 최초 | vitest 5 failed \| 31 passed (36) | 잠김 |
+| S50 `mail/store/index.ts` — EP-06③ global cap | sweep | 최초 | vitest 1 failed \| 35 passed (36) | 잠김 |
+| S51 `mail/store/index.ts` — EP-06④ get metadata | sweep | 최초 | vitest 6 failed \| 30 passed (36) | 잠김 |
+| S52 `mail/store/index.ts` — EP-06⑤ get manifest | sweep | 최초 | vitest 5 failed \| 31 passed (36) | 잠김 |
+| S53 `mail/body-window.ts` — EP-06⑥ snippet constant | sweep | 최초 | vitest 1 failed \| 7 passed (8) | 잠김 |
+| S54 `mail/store/index.ts` — EP-02④ attachment sibling swap | sweep | 최초 | vitest 3 failed \| 33 passed (36) | 잠김 |
+| S55 `mail/sync-manager.ts` — EP-02⑤ offset/maxChars swap | sweep | 최초 | vitest 1 failed \| 8 passed \| 32 skipped (41) | 잠김 |
+| S56 `mail/tools.ts` — EP-02⑥ size type normalization | sweep | 최초 | vitest 1 failed \| 10 passed (11) | 잠김 |
+| S57 `mail/sync-manager.ts` — EP-02⑤ missing row must be mail_not_found | sweep | 최초 | vitest 1 failed \| 40 skipped (41) | 잠김 |
+| S58 `mail/store/index.ts` — EP-02① SQL missing row | sweep | 최초 | vitest 1 failed \| 40 skipped (41) | 잠김 |
+| S59 `mail/tools.ts` — EP-02⑥ mailId | sweep | 최초 | vitest 1 failed \| 10 passed (11) | 잠김 |
+| S60 `mail/tools.ts` — EP-04① requested mode after wait | sweep | 최초 | vitest 2 failed \| 9 passed (11) | 잠김 |
+| S61 `mail/sync-manager.ts` — EP-04② requested mode after wait | sweep | 최초 | vitest 1 failed \| 40 skipped (41) | 잠김 |
+
+분모 검산: 선택 증거 6 · 인용 변이 0 · 새 구조 oracle 0 · sweep 61 = **67행**. 고정 33자리·path edge·규칙 분기·형제 값 맞바꿈을 포함하며, 그 집합의 행 없는 항목은 ∅다.
+
+65행 red · 2행 동치(S12 끝 clamp, S13 본문 끝 guard) · 못 잡음 0. 두 동치는 빈 본문·끝 이후 offset·끝에 닿는 창을 포함한 B 8케이스가 green이고, 변경 전후 반환식이 같다. 하네스 원복 메시지 `모든 파일 원문 그대로`를 확인했다. lint 정정 뒤 저장소 oracle의 18변이를 다시 실행해 전부 red로 유지했고, S54는 formatter의 들여쓰기에 재앵커했다.
+
+덮개 회귀: 해당 없음(r1 첫 구현·직전 verify 없음). 기존 검색 global manifest 50·첨부 동작은 기존 S 테스트와 VP-09 회귀로 유지했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 문구·상태 소비자 | 있음 — descriptor instructions·설명은 모델에 전달되고 `mail_not_found`는 structuredContent·isError로 전달(I:AC6·9) | 없음 |
+| seam 정리 스코프 | 기존 withManager finally 유지, L의 local read·실패에서도 close 관측 | 없음 |
+| 실패 상태표 귀속 | 없는 메일·끝 이후 빈 창·bulk loss·대기 취소가 §5 상태표/선언 경계와 일치 | 없음 |
+| 실패가 무음인가 | 아님 — I:AC6·9·AC13 오류 단언, full은 mode와 updatedMails를 반환 | 없음 |
+| 늦은 결과가 화면을 되돌리는가 | renderer 변경 없음, 각 호출은 실제 실행 flight의 mode 결과를 받음(L 4조합) | 없음 |
+| full 뒤 첨부 id | 선언 경계 유지 — 재검색/조회 절차를 운영 가이드에 명시 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | manager 합류 변이를 tools mock으로 관측할 수 없음 | 선조치 — rev.4 별도 정정 후 같은 manager 통합 | A04 red·I:EP-04 |
+| 2 | MIME parser는 평문 원문 끝에 개행을 추가함 | fixture를 base64로 전달해 저장 본문을 정확히 20,000자로 고정 | I:AC1·2·3·4·16 재조립 |
+| 3 | 로컬 Node ABI137과 SQLite ABI140 불일치 | Electron의 Node22/ABI140으로 직접 실행, 바이너리 재빌드 없음 | baseline.json·최종 gate 비교 |
+| 4 | 기다리는 full 호출이 증분 실패·취소 뒤 사라질 위험 | 기존 재진입 형태 유지, 실패 후 full·대기 취소 두 케이스 추가 | L:retries a queued full 2케이스 |
+| 5 | missing ledger를 updated로 셀 위험 | active 집합만 집계, 재등장은 new로 직접 확인 | I:counts a reappearing missing ledger entry·S39 red |
+
+full에서 기존 메일의 MIME 해석이 실패하면 기존 active ledger·캐시를 유지한다(`sync-manager.ts` parse catch가 저장 전에 continue). 다음 증분은 그 UIDL을 건너뛰므로 full로 재시도하도록 운영 가이드에 구분했다. D-009의 메시지별 격리·비삭제를 따르는 설명이며 새 제품 결정은 없다.
+
+### 설계 대비 명시적 차이
+
+제품 메커니즘 차이 없음. `readManifest` helper는 계획의 attachmentManifest 공유를 감싸며, 길이 설명은 body-window 상수를 직접 참조한다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시·TTL 추가 없음 | AC10·EP-03⑤ |
+| 공유 | 해당 없음 — 별도 공유 상태 추가 없이 기존 flight에 mode만 추가 | AC15·EP-04 두 자리 |
+| 재진입 | 해당 없음 — 계획의 종료 대기 후 재판정 사용 | L 실패·취소 및 4조합 |
+| 다른 무효화 | 해당 없음 — 삭제·초기화 경로 추가 없음 | AC12·14 mailId·캐시 유지 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | mail 순수 모듈 2·store/types/manager/tools·테스트 6·예산 등록·운영 가이드. 세부는 diff |
+| 실행 명령 | lint·typecheck·migration/doc/budget 가드·파일 필터 없는 vitest·node --test scripts/*.test.mjs. vitest만 Electron Node 모드 사용 |
+| 관측한 게이트 산출 | vitest 전체 942파일: 8855 passed · 23 failed · 11 skipped(총 8889); mail 16파일 225/225. node scripts 827/827 · lint 0 error/기존 warning 2 · typecheck 3종 · migration/doc/budget 가드 통과 |
+| 추가·수정 테스트의 subtree 규칙 | 6파일: unit 4(B·M·T·L), sqlite io 2(S·I). 새 exe 사용·실제 홈 참조·인라인 timeout 없음. test-budgets 위반 0, node scripts 가드 포함 |
+| V-pair 자기확인 | SELF_PASS 10 / SELF_BLOCKED 0 — 위 좌표 참조 |
+| 강제 지점 전수 | 33/33, 검색/목록 차집합 ∅ |
+| AC 자기보고 | 아래 21행 관측, Criteria-Met 21/21 |
+| 블로커 / 역질문 | 없음 — 독립 검증은 Claude 차례 |
+| 대상 커밋 | (r1 구현 — 좌표는 INDEX) |
+
+| AC | 자기 판정 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | I:AC1·2·3·4·16 — 20k 본문·기본 창·메타 6필드 |
+| AC2 | ✅ | 같은 테스트 — 8000+8000+4000 재조립·마지막 null |
+| AC3 | ✅ | B 지정 3구간·I offset37/max113 |
+| AC4 | ✅ | B clamp·끝 이후·기본 상수, T 스키마, I 직접 max99999 |
+| AC5 | ✅ | B pair 끝/시작/길이1 세 케이스·A05 red |
+| AC6 | ✅ | I:AC6·9 — id100 존재·입력7종 오류·root 미노출 |
+| AC7 | ✅ | I:AC7·21 — none 빈 창·attachment 본문+manifest |
+| AC8 | ✅ | S manifest12·3·0 세 케이스 |
+| AC9 | ✅ | I:AC6·9 — 미로그인·미동기화 캐시 읽기, sockets 불변 |
+| AC10 | ✅ | I:AC10 — 301초 뒤 RETR3만·299초 fresh·updated0 |
+| AC11 | ✅ | I:AC11 — RETR4,3,2,1·new1/updated3·실행 시각 |
+| AC12 | ✅ | I:AC12·14 — none→html·mailId 유지 |
+| AC13 | ✅ | I:AC13 두 케이스 — old RETR 제외·skipped1·bulk loss RETR0 |
+| AC14 | ✅ | I:AC12·14 — 서버 소실 메일 검색·조회 유지 |
+| AC15 | ✅ | L 동시 4조합·I manager 직접 4조합 |
+| AC16 | ✅ | T query/limit, I hit 키 집합·snippet300 |
+| AC17 | ✅ | T 스키마 거부, L 잘못된 mode 3종 증분 인자 |
+| AC18 | ✅ | T 도구4·순서·힌트·설명, 기존 I 인증 회수/복원 케이스 |
+| AC19 | ✅ | closed-network-extensions mail 절 창·두 모드·비삭제·첨부id, doc inventory 통과 |
+| AC20 | ✅ | 기준 main `5b4ee524` 대비 package/lock/migrations diff 0줄; migration 가드 2개 유지 |
+| AC21 | ✅ | I:AC7·21·S 공용 투영 3검색모드, pair 경계299·짧음·none |
+
+합계 검산: **✅ 21 · ⚠️ 0 · ❌ 0 = 총 21**. rev.4는 필드명·합계·직접 oracle 정정이며 AC 분모는 rev.3의 21을 유지한다.
+
+전체 실패 기준선 분리: [baseline.json](evidence/baseline.json) ↔ [final-gates.json](evidence/final-gates.json)의 `(파일, 테스트명)` 양방향 차집합 ∅. Windows 경로 fixture 11건·win32 플러그인 제어 조건 11건·복사된 Electron 실행 파일의 공유 라이브러리 1건이며 수정 테스트 파일의 실패는 0이다.
+
+마이그레이션 sync/no-copies는 통과했고, 저장소에 이전 `v*` 태그가 없어 append-only 비교 단계만 스크립트가 생략했다. 패키지·lock·마이그레이션 diff는 0줄이다. Windows PR/CI는 이 턴에서 실행하지 않았으며 독립 검증 대상이다.
+
+## [구현자 기입] Review Signals (r1)
+
+- 현재 라운드 r1, 첫 impl 턴. 직전 verify·반복 실패 축 없음.
+- plan의 등록 적대 증거 A01~A06은 모두 red였다. manager mock 사각은 구현 전 직접 oracle로 정정했다.
+- 환경 한계: plain Node는 ABI 불일치, Electron Node 모드는 SQLite 정상 로드. 전체 실패 집합은 최종 gate 증거에서 기준선과 비교한다.
 
 ## [검증자 기입] 파생 이슈

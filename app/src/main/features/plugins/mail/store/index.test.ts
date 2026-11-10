@@ -410,3 +410,88 @@ describe('mail store', () => {
     ).rejects.toThrow('account_id_conflict')
   })
 })
+
+describe('0303 cached mail projection', () => {
+  it.each([12, 3, 0])('bounds a %i attachment manifest and maps distinct fields', async (count) => {
+    const store = await fixture()
+    const source = document('manifest', 12345)
+    await store.saveMessage({
+      ...source,
+      ccAddrs: 'cc@example.test',
+      attachments: Array.from({ length: count }, (_, i) => ({
+        filename: `file-${i}.txt`,
+        mimeType: 'text/plain',
+        sizeBytes: i + 1,
+        bytes: new Uint8Array(i + 1)
+      }))
+    })
+    const id = store.search('', 1)[0].mailId
+    const mail = store.getMail(id)!
+    expect(mail).toMatchObject({
+      mailId: id,
+      date: 12345,
+      from: source.fromAddr,
+      to: source.toAddrs,
+      cc: 'cc@example.test',
+      subject: source.subject,
+      bodyText: source.bodyText,
+      bodySource: 'plain',
+      attachmentCount: count
+    })
+    expect(mail.attachments).toHaveLength(Math.min(count, 10))
+    for (const [i, attachment] of mail.attachments.entries())
+      expect(attachment).toEqual({
+        attachmentId: expect.any(String),
+        filename: `file-${i}.txt`,
+        mimeType: 'text/plain',
+        sizeBytes: i + 1
+      })
+    if (count > 10) expect(mail.attachmentsTruncated).toBe(true)
+    else expect(mail).not.toHaveProperty('attachmentsTruncated')
+  })
+
+  it('rejects loose identifiers even when id 100 exists and scopes the account', async () => {
+    const store = await fixture()
+    await store.saveMessage({ ...document('valid'), attachments: [] })
+    const db = new Database(store.dbPath)
+    try {
+      db.prepare('UPDATE mail SET id=100').run()
+      expect(store.getMail('100')).not.toBeNull()
+      for (const id of ['abc', '1e2', '0', '-1', '1.5', ' 100', '99999'])
+        expect(store.getMail(id)).toBeNull()
+      db.exec(
+        "INSERT INTO account(id, auth_id, host, port, tls, created_at) SELECT 'other', auth_id, host, port, tls, created_at FROM account LIMIT 1"
+      )
+      db.prepare("UPDATE mail SET account_id='other'").run()
+      expect(store.getMail('100')).toBeNull()
+    } finally {
+      db.close()
+    }
+  })
+
+  it.each(['match', 'like', 'empty'] as const)(
+    'shares search and get projections in %s mode',
+    async (mode) => {
+      const store = await fixture()
+      const bodies = ['x'.repeat(20000), '가'.repeat(299) + '😀끝', '짧은 본문', '']
+      for (const [i, bodyText] of bodies.entries())
+        await store.saveMessage({
+          ...document(`shared-${i}`, 12300 + i),
+          fromAddr: `from-${i}`,
+          toAddrs: `to-${i}`,
+          subject: `sharedprojection ${i}`,
+          bodyText,
+          bodySource: bodyText ? 'html' : 'none'
+        })
+      const query =
+        mode === 'empty' ? '' : mode === 'like' ? '%sharedprojection%' : 'sharedprojection'
+      for (const hit of store.search(query, 10, mode === 'empty' ? 'match' : mode)) {
+        const stored = store.getMail(hit.mailId)!
+        const { rank, snippet, ...meta } = hit
+        const { bodyText, cc, ...getMeta } = stored
+        expect({ ...meta, rank, cc }).toEqual({ ...getMeta, rank: expect.any(Number), cc: '' })
+        expect(snippet).toBe(bodyText.slice(0, bodyText.startsWith('가') ? 299 : 300))
+      }
+    }
+  )
+})

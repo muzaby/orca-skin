@@ -474,7 +474,7 @@ describe('mail declaration → auth → plugin → infra', () => {
 
   it('probes the candidate, persists it, syncs with identical USER/PASS and searches locally', async () => {
     const f = await setup()
-    expect(f.binding.toolNames()).toHaveLength(3)
+    expect(f.binding.toolNames()).toHaveLength(4)
     await f.login()
     expect(f.auth.snapshot().status).toBe('valid')
     expect(f.sockets).toHaveLength(1)
@@ -544,7 +544,7 @@ describe('mail declaration → auth → plugin → infra', () => {
     })
     expect(f.auth.snapshot().status).toBe('expired')
     expect(f.registry.snapshot().servers).toHaveLength(0)
-    expect(f.binding.toolNames()).toHaveLength(3)
+    expect(f.binding.toolNames()).toHaveLength(4)
     f.accept()
     await f.login()
     expect(f.registry.snapshot().servers).toHaveLength(1)
@@ -857,4 +857,316 @@ describe('0302 mail body source through the deployed tools', () => {
     expect(result).not.toHaveProperty('skippedMails')
     expect(manager.store.state().lastErrorCode).toBe('db_failed')
   })
+})
+
+// ── 0303 — 본문 분할 조회 · 모드별 재동기화 ──────────────────────────────────────
+const readPage = async (
+  f: Awaited<ReturnType<typeof setup>>,
+  input: Record<string, unknown>
+): Promise<import('../../features/plugins/mail/types').MailBodyPage> => {
+  const response = await f.server.implementations[3].handler(input)
+  expect(response.isError).not.toBe(true)
+  return response.structuredContent as unknown as import('../../features/plugins/mail/types').MailBodyPage
+}
+const readHits = async (
+  f: Awaited<ReturnType<typeof setup>>
+): Promise<import('../../features/plugins/mail/types').MailSearchHit[]> =>
+  (await f.server.implementations[1].handler({})).structuredContent!
+    .results as import('../../features/plugins/mail/types').MailSearchHit[]
+
+// 하나의 구간이 다른 구간과 같지 않도록 일련번호를 쓴다.
+const longMailBody = Array.from({ length: 2000 }, (_, i) => i.toString().padStart(10, '0')).join('')
+
+describe('0303 deployed mail get and sync modes', () => {
+  it('AC1·2·3·4·16 reads every body window with distinct metadata and keeps the search surface', async () => {
+    const f = await setup()
+    await f.login()
+    const date = new Date().toUTCString()
+    f.bodies({
+      1: `Date: ${date}\r\nFrom: from@example.test\r\nTo: to@example.test\r\nCc: cc@example.test\r\nSubject: window subject\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${Buffer.from(longMailBody).toString('base64')}`
+    })
+    await f.server.implementations[0].handler({})
+    const hit = (await readHits(f))[0]
+    expect(Object.keys(hit).sort()).toEqual(
+      [
+        'mailId',
+        'date',
+        'from',
+        'to',
+        'subject',
+        'snippet',
+        'bodySource',
+        'rank',
+        'attachmentCount',
+        'attachments'
+      ].sort()
+    )
+    expect(hit.snippet).toBe(longMailBody.slice(0, 300))
+    const first = await readPage(f, { mailId: hit.mailId })
+    expect(first).toEqual({
+      mailId: hit.mailId,
+      date: Date.parse(date),
+      from: 'from@example.test',
+      to: 'to@example.test',
+      cc: 'cc@example.test',
+      subject: 'window subject',
+      bodySource: 'plain',
+      totalChars: 20000,
+      offset: 0,
+      returnedChars: 8000,
+      text: longMailBody.slice(0, 8000),
+      nextOffset: 8000,
+      attachmentCount: 0,
+      attachments: []
+    })
+    const second = await readPage(f, { mailId: hit.mailId, offset: first.nextOffset })
+    const third = await readPage(f, { mailId: hit.mailId, offset: second.nextOffset })
+    expect([first.text, second.text, third.text].join('')).toBe(longMailBody)
+    expect(third).toMatchObject({ offset: 16000, returnedChars: 4000, nextOffset: null })
+    expect(await readPage(f, { mailId: hit.mailId, offset: 37, maxChars: 113 })).toMatchObject({
+      text: longMailBody.slice(37, 150),
+      offset: 37,
+      returnedChars: 113,
+      nextOffset: 150
+    })
+    expect(await readPage(f, { mailId: hit.mailId, maxChars: 99999 })).toMatchObject({
+      returnedChars: 16000,
+      nextOffset: 16000
+    })
+    expect(await readPage(f, { mailId: hit.mailId, offset: 99999 })).toMatchObject({
+      text: '',
+      returnedChars: 0,
+      nextOffset: null
+    })
+  })
+
+  it('AC6·9 reads an unsynchronized local cache and rejects loose ids even with id 100 present', async () => {
+    const f = await setup()
+    const manager = await syncManager(f)
+    for (let i = 0; i < 100; i++)
+      await manager.store.saveMessage(
+        await parseMail(Buffer.from('Subject: local\r\n\r\ncached text'), {
+          uidl: `local-${i}`,
+          messageNumber: i + 1,
+          firstSeenAt: Date.now()
+        })
+      )
+    manager.close()
+    const before = f.sockets.length
+    expect(await readPage(f, { mailId: '100' })).toMatchObject({
+      mailId: '100',
+      text: 'cached text\n'
+    })
+    for (const mailId of ['99999', 'abc', '1e2', '0', '-1', '1.5', ' 1']) {
+      const response = await f.server.implementations[3].handler({ mailId })
+      expect(response).toMatchObject({
+        isError: true,
+        structuredContent: { error: 'mail_not_found' }
+      })
+      expect(JSON.stringify(response)).not.toContain(f.root)
+    }
+    expect(f.sockets).toHaveLength(before)
+  })
+
+  it('AC7·21 shares Unicode-safe snippets, metadata and attachment manifests with get', async () => {
+    const f = await setup()
+    await f.login()
+    f.remote(['unicode', 'short', 'none', 'attached'])
+    f.bodies({
+      1: `From: first@test\r\nTo: target@test\r\nSubject: unicode\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${'가'.repeat(299)}😀끝`,
+      2: 'From: second@test\r\nTo: other@test\r\nSubject: short\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n짧은 본문',
+      3: mailRaw.none,
+      4: mailRaw.attachment
+    })
+    await f.server.implementations[0].handler({})
+    const hits = await readHits(f)
+    expect(hits).toHaveLength(4)
+    for (const hit of hits) {
+      const page = await readPage(f, { mailId: hit.mailId, offset: 0, maxChars: 300 })
+      expect(page.text).toBe(hit.snippet)
+      for (const field of [
+        'date',
+        'from',
+        'to',
+        'subject',
+        'bodySource',
+        'attachmentCount',
+        'attachments'
+      ] as const)
+        expect(page[field]).toEqual(hit[field])
+      if (hit.subject === 'unicode') {
+        expect(page.returnedChars).toBe(299)
+        expect(page.nextOffset).toBe(299)
+        expect(page.text.endsWith('가')).toBe(true)
+      }
+      if (hit.bodySource === 'none')
+        expect(page).toMatchObject({ text: '', totalChars: 0, nextOffset: null })
+      if (hit.bodySource === 'attachment') {
+        expect(page.text).toContain('attachbodyword')
+        expect(page.attachments).toHaveLength(1)
+      }
+    }
+  })
+
+  it('AC10 keeps incremental freshness and receives only newly seen UIDLs', async () => {
+    const f = await setup()
+    let now = Date.now()
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
+    try {
+      await f.login()
+      f.remote(['i1', 'i2'])
+      expect((await f.server.implementations[0].handler({})).structuredContent).toMatchObject({
+        synced: true,
+        mode: 'incremental',
+        newMails: 2,
+        updatedMails: 0
+      })
+      now += 301_000
+      f.remote(['i1', 'i2', 'i3'])
+      const before = f.sockets.length
+      expect(
+        (await f.server.implementations[0].handler({ mode: 'incremental' })).structuredContent
+      ).toMatchObject({ mode: 'incremental', newMails: 1, updatedMails: 0 })
+      expect(
+        f.sockets
+          .slice(before)
+          .flatMap((s) => s.commands)
+          .filter((c) => c.startsWith('RETR'))
+      ).toEqual(['RETR 3'])
+      const connected = f.sockets.length
+      now += 299_000
+      expect((await f.server.implementations[0].handler({})).structuredContent).toMatchObject({
+        fresh: true
+      })
+      expect(f.sockets).toHaveLength(connected)
+    } finally {
+      clock.mockRestore()
+    }
+  })
+
+  it('AC11 full bypasses freshness, re-fetches known mail, and splits new and updated counts', async () => {
+    const f = await setup()
+    await f.login()
+    f.remote(['f1', 'f2', 'f3'])
+    await f.server.implementations[0].handler({})
+    const before = f.sockets.length
+    f.remote(['f1', 'f2', 'f3', 'f4'])
+    const timestamp = Date.now() + 1
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(timestamp)
+    let response: Awaited<ReturnType<(typeof f.server.implementations)[0]['handler']>>
+    try {
+      response = await f.server.implementations[0].handler({ mode: 'full' })
+    } finally {
+      clock.mockRestore()
+    }
+    expect(response.structuredContent).toMatchObject({
+      synced: true,
+      mode: 'full',
+      newMails: 1,
+      updatedMails: 3
+    })
+    expect(response.structuredContent!.lastSyncAt).toBe(timestamp)
+    expect(
+      f.sockets
+        .slice(before)
+        .flatMap((s) => s.commands)
+        .filter((c) => c.startsWith('RETR'))
+    ).toEqual(['RETR 4', 'RETR 3', 'RETR 2', 'RETR 1'])
+  })
+
+  it('AC12·14 repairs existing empty bodies without changing mailId or deleting missing mail', async () => {
+    const f = await setup()
+    await f.login()
+    f.remote(['keep1', 'keep2', 'missing'])
+    f.bodies({ 1: mailRaw.none })
+    await f.server.implementations[0].handler({})
+    const original = await readHits(f)
+    const empty = original.find((h) => h.bodySource === 'none')!
+    const missing = original.find((h) => h.subject === '회의일정 3')!
+    f.remote(['keep1', 'keep2'])
+    f.bodies({ 1: mailRaw.html })
+    expect(
+      (await f.server.implementations[0].handler({ mode: 'full' })).structuredContent
+    ).toMatchObject({ synced: true, updatedMails: 2, newMails: 0 })
+    expect(await readPage(f, { mailId: empty.mailId })).toMatchObject({
+      mailId: empty.mailId,
+      bodySource: 'html',
+      text: expect.stringContaining('htmlbodyword')
+    })
+    expect(await readPage(f, { mailId: missing.mailId })).toMatchObject({
+      mailId: missing.mailId,
+      text: expect.stringContaining('예약 3')
+    })
+    expect(await readHits(f)).toHaveLength(3)
+  })
+
+  it('AC13 full respects old TOP headers and isolates MIME parse failures', async () => {
+    const f = await setup()
+    await f.login()
+    f.remote(['old', 'broken', 'recent', 'none'])
+    f.dates({ 1: Date.now() - 15 * 86_400_000 })
+    f.bodies({ 2: mailRaw.broken, 3: mailRaw.plain, 4: mailRaw.none })
+    const response = await f.server.implementations[0].handler({ mode: 'full' })
+    expect(response.structuredContent).toMatchObject({
+      synced: true,
+      mode: 'full',
+      newMails: 2,
+      noBodyMails: 1,
+      skippedMails: 1
+    })
+    expect(retrNumbers(f)).toEqual([2, 3, 4])
+  })
+
+  it('AC13 full preserves bulk-loss protection without RETR', async () => {
+    const f = await setup()
+    await f.login()
+    f.remote(Array.from({ length: 20 }, (_, i) => `p${i}`))
+    await f.server.implementations[0].handler({})
+    const before = f.sockets.length
+    f.remote(['p0'])
+    expect(
+      (await f.server.implementations[0].handler({ mode: 'full' })).structuredContent
+    ).toMatchObject({ error: 'bulk_loss_suspected' })
+    expect(
+      f.sockets
+        .slice(before)
+        .flatMap((s) => s.commands)
+        .filter((c) => c.startsWith('RETR'))
+    ).toEqual([])
+    expect(await readHits(f)).toHaveLength(20)
+  })
+
+  it('EP-04 manager waits for incremental before full and joins every other mode pairing', async () => {
+    for (const [running, requested, connections] of [
+      ['incremental', 'full', 2],
+      ['incremental', 'incremental', 1],
+      ['full', 'incremental', 1],
+      ['full', 'full', 1]
+    ] as const) {
+      const f = await setup()
+      await f.login()
+      const manager = await syncManager(f)
+      close.push(() => manager.close())
+      const before = f.sockets.length
+      const first = manager.sync(undefined, undefined, running)
+      const second = manager.sync(undefined, undefined, requested)
+      const results = await Promise.all([first, second])
+      expect(results[0]).toMatchObject({ mode: running })
+      expect(results[1]).toMatchObject({ mode: connections === 2 ? requested : running })
+      expect(f.sockets.length - before).toBe(connections)
+      expect(retrNumbers(f)).toHaveLength(connections)
+    }
+  })
+})
+
+it('0303 counts a reappearing missing ledger entry as new rather than updated', async () => {
+  const f = await setup()
+  await f.login()
+  await f.server.implementations[0].handler({})
+  const manager = await syncManager(f)
+  manager.store.markMissing(['u1'])
+  manager.close()
+  expect(
+    (await f.server.implementations[0].handler({ mode: 'full' })).structuredContent
+  ).toMatchObject({ newMails: 1, updatedMails: 0, mode: 'full' })
 })

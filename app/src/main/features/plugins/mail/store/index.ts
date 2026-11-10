@@ -1,3 +1,4 @@
+import { MAIL_SEARCH_SNIPPET_CHARS, sliceBody } from '../body-window'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
@@ -32,6 +33,51 @@ export interface StoredAttachment {
   readonly storedName: string
 }
 
+type MailRow = {
+  id: number
+  date: number
+  fromAddr: string
+  toAddrs: string
+  subject: string
+  bodyText: string
+  bodySource: MailBodySource
+}
+
+export type StoredMail = Omit<MailSearchHit, 'snippet' | 'rank'> & {
+  readonly cc: string
+  readonly bodyText: string
+}
+
+function mailMeta(
+  row: MailRow
+): Pick<MailSearchHit, 'mailId' | 'date' | 'from' | 'to' | 'subject' | 'bodySource'> {
+  return {
+    mailId: String(row.id),
+    date: row.date,
+    from: row.fromAddr,
+    to: row.toAddrs,
+    subject: row.subject,
+    bodySource: row.bodySource
+  }
+}
+
+function attachmentManifest(
+  rows: { id: number; filename: string; mimeType: string; sizeBytes: number }[],
+  limit: number
+): Pick<MailSearchHit, 'attachmentCount' | 'attachments' | 'attachmentsTruncated'> {
+  const attachments = rows.slice(0, Math.min(10, limit)).map((row) => ({
+    attachmentId: String(row.id),
+    filename: row.filename,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes
+  }))
+  return {
+    attachmentCount: rows.length,
+    attachments,
+    ...(rows.length > attachments.length ? { attachmentsTruncated: true } : {})
+  }
+}
+
 export interface MailStore {
   readonly dbPath: string
   readonly attachmentRoot: string
@@ -45,6 +91,7 @@ export interface MailStore {
   markMissing(uidls: readonly string[]): void
   saveMessage(document: MailDocument, signal?: AbortSignal): Promise<void>
   cleanupExpired(now: number, retentionDays?: number): Promise<number>
+  getMail(mailId: string): StoredMail | null
   search(query: string, limit: number, mode?: 'match' | 'like'): MailSearchHit[]
   findAttachment(
     mailId: string,
@@ -131,6 +178,16 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
       protection_observations: number | null
       protection_fingerprint: string | null
     }
+
+  const readManifest = (id: number, limit = 10): ReturnType<typeof attachmentManifest> =>
+    attachmentManifest(
+      db
+        .prepare(
+          'SELECT id, filename, mime_type AS mimeType, size_bytes AS sizeBytes FROM attachment WHERE mail_id=? ORDER BY id'
+        )
+        .all(id) as { id: number; filename: string; mimeType: string; sizeBytes: number }[],
+      limit
+    )
 
   return {
     dbPath,
@@ -292,6 +349,16 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
       )
       return new Set(rows.map((row) => row.id)).size
     },
+    getMail: (mailId) => {
+      if (!/^[1-9][0-9]*$/.test(mailId)) return null
+      const row = db
+        .prepare(
+          'SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.cc_addrs AS cc, m.subject, m.body_text AS bodyText, m.body_source AS bodySource FROM mail m WHERE m.id=? AND m.account_id=?'
+        )
+        .get(mailId, options.accountId) as (MailRow & { cc: string }) | undefined
+      if (!row) return null
+      return { ...mailMeta(row), cc: row.cc, bodyText: row.bodyText, ...readManifest(row.id) }
+    },
     search: (query, limit, mode = 'match') => {
       const rows = query.trim()
         ? mode === 'like'
@@ -311,44 +378,14 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
             )
             .all(options.accountId, limit)
       let remainingAttachments = 50
-      return (
-        rows as {
-          id: number
-          date: number
-          fromAddr: string
-          toAddrs: string
-          subject: string
-          bodyText: string
-          bodySource: MailBodySource
-          rank: number
-        }[]
-      ).map((row) => {
-        const attachments = db
-          .prepare(
-            'SELECT id, filename, mime_type AS mimeType, size_bytes AS sizeBytes FROM attachment WHERE mail_id=? ORDER BY id'
-          )
-          .all(row.id) as { id: number; filename: string; mimeType: string; sizeBytes: number }[]
-        const visible = attachments
-          .slice(0, Math.min(10, remainingAttachments))
-          .map((attachment) => ({
-            attachmentId: String(attachment.id),
-            filename: attachment.filename,
-            mimeType: attachment.mimeType,
-            sizeBytes: attachment.sizeBytes
-          }))
-        remainingAttachments -= visible.length
+      return (rows as (MailRow & { rank: number })[]).map((row) => {
+        const manifest = readManifest(row.id, remainingAttachments)
+        remainingAttachments -= manifest.attachments.length
         return {
-          mailId: String(row.id),
-          date: row.date,
-          from: row.fromAddr,
-          to: row.toAddrs,
-          subject: row.subject,
-          snippet: row.bodyText.slice(0, 300),
-          bodySource: row.bodySource,
+          ...mailMeta(row),
+          snippet: sliceBody(row.bodyText, 0, MAIL_SEARCH_SNIPPET_CHARS).text,
           rank: row.rank,
-          attachmentCount: attachments.length,
-          attachments: visible,
-          ...(attachments.length > visible.length ? { attachmentsTruncated: true } : {})
+          ...manifest
         }
       })
     },

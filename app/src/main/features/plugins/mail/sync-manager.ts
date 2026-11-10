@@ -1,3 +1,5 @@
+import { sliceBody } from './body-window'
+import { joinsRunningSync, syncPlan, type MailSyncMode } from './sync-mode'
 import { createHash } from 'node:crypto'
 import { isFresh } from './freshness'
 import { buildMailQuery } from './query-builder'
@@ -12,6 +14,7 @@ import { createMailStore, type MailStore } from './store'
 import { getLogger } from '../../../infra/log/registry'
 import { errorMessage } from '../../../infra/errors'
 import type {
+  MailBodyPage,
   MailPluginOptions,
   MailSearchResult,
   MailSessionConfig,
@@ -32,7 +35,12 @@ export interface MailSyncManagerOptions {
 
 export interface MailSyncManager {
   readonly store: MailStore
-  sync(signal?: AbortSignal, onStage?: (event: MailSyncStageEvent) => void): Promise<MailSyncResult>
+  sync(
+    signal?: AbortSignal,
+    onStage?: (event: MailSyncStageEvent) => void,
+    mode?: MailSyncMode
+  ): Promise<MailSyncResult>
+  getMail(mailId: string, offset?: number, maxChars?: number): MailBodyPage | null
   search(query: string, limit?: number, now?: number): MailSearchResult
   getAttachment(
     mailId: string,
@@ -66,16 +74,22 @@ export async function createMailSyncManager(
     tls: options.session.tls,
     now: options.now
   })
-  let inFlight: Promise<MailSyncResult> | undefined
+  let inFlight: { promise: Promise<MailSyncResult>; mode: MailSyncMode } | undefined
   const now = options.now ?? Date.now
 
   const sync = async (
     signal?: AbortSignal,
-    onStage?: (event: MailSyncStageEvent) => void
+    onStage?: (event: MailSyncStageEvent) => void,
+    mode: MailSyncMode = 'incremental'
   ): Promise<MailSyncResult> => {
-    if (inFlight) return inFlight
+    if (inFlight) {
+      if (joinsRunningSync(inFlight.mode, mode)) return inFlight.promise
+      await inFlight.promise.catch(() => undefined)
+      return sync(signal, onStage, mode)
+    }
+    const plan = syncPlan(mode)
     const operationSignal = signal ?? new AbortController().signal
-    inFlight = (async () => {
+    const promise: Promise<MailSyncResult> = (async (): Promise<MailSyncResult> => {
       const current = store.state()
       const timestamp = now()
       onStage?.({ stage: 'freshness' })
@@ -84,6 +98,7 @@ export async function createMailSyncManager(
         onStage?.({ stage: 'cleanup' })
         const expired = await store.cleanupExpired(timestamp, options.options.retentionDays)
         if (
+          !plan.bypassFreshness &&
           isFresh({
             now: timestamp,
             lastSyncAt: current.lastSyncAt,
@@ -130,6 +145,10 @@ export async function createMailSyncManager(
                 }
                 // 보호 관측 중에는 다음 비교의 활성 ledger 기준을 유지한다.
                 store.markMissing(reconciled.missing)
+                const active = new Set(
+                  local.filter((entry) => entry.state === 'active').map((entry) => entry.uidl)
+                )
+                let updatedMails = 0
                 let processed = 0
                 // 본문 없이 저장한 수 · 파싱 실패로 건너뛴 수 (0302 D-007).
                 let noBodyMails = 0
@@ -140,7 +159,7 @@ export async function createMailSyncManager(
                 const cutoff = retentionCutoff(timestamp, options.options.retentionDays)
                 for (const item of newest) {
                   if (operationSignal.aborted) throw new Pop3Error('cancelled')
-                  if (!reconciled.fresh.includes(item.uidl)) continue
+                  if (!plan.refetchKnown && !reconciled.fresh.includes(item.uidl)) continue
                   onStage?.({ stage: 'top' })
                   const top = await session.top(item.messageNumber)
                   const decision = decideIngest({
@@ -172,7 +191,8 @@ export async function createMailSyncManager(
                   }
                   onStage?.({ stage: 'persist' })
                   await store.saveMessage(document, operationSignal)
-                  processed += 1
+                  if (active.has(item.uidl)) updatedMails += 1
+                  else processed += 1
                   if (document.bodySource === 'none') {
                     noBodyMails += 1
                     getLogger().warn('mail.sync.body_none', { uidl: item.uidl })
@@ -180,6 +200,8 @@ export async function createMailSyncManager(
                 }
                 return {
                   synced: true,
+                  mode,
+                  updatedMails,
                   newMails: processed,
                   expired,
                   lastSyncAt: timestamp,
@@ -213,10 +235,12 @@ export async function createMailSyncManager(
         }
       }
     })()
+    const flight = { promise, mode }
+    inFlight = flight
     try {
-      return await inFlight
+      return await promise
     } finally {
-      inFlight = undefined
+      if (inFlight === flight) inFlight = undefined
     }
   }
 
@@ -237,6 +261,12 @@ export async function createMailSyncManager(
         total: results.length,
         results
       }
+    },
+    getMail: (mailId, offset, maxChars) => {
+      const stored = store.getMail(mailId)
+      if (!stored) return null
+      const { bodyText, ...meta } = stored
+      return { ...meta, ...sliceBody(bodyText, offset, maxChars) }
     },
     getAttachment: async (mailId, attachmentId) => {
       const attachment = await store.findAttachment(mailId, attachmentId)
