@@ -11,7 +11,7 @@
 | slug | `0302-mail-html-body-fallback` |
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
-| 상태 | plan/READY (ΔV1) — 다음 구현 r2 |
+| 상태 | impl/IMPL_DONE (V1 rev.2 + ΔV1, r2) — 다음 Claude 검증 |
 | 구현 주체 | Claude (버그수정 — 비기능 작업, root `AGENTS.md` 구현 주체 분담) |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음. 0237 mail plugin 회귀는 기존 테스트를 REGRESSION gate로 묶는다 |
 | 기준 V | `none` |
@@ -673,5 +673,153 @@ r1 (구현자 = Claude, 비기능 버그수정). 설계를 그대로 수행했�
 - 라운드 1, impl 턴 `r1`(같은 라운드 앞선 커밋은 진행 중 체크포인트 `Status: partial`).
 - 첫 sweep에서 `못 잡음` 1건(E2-10 trim)이 났다 — 테스트 입력이 "정리된 입력"만 써서 정리 단계를 관측하지 못했다. plan EP-02 입력 칸 ⑥(`<p> </p>` → `''`)도 같은 형태라 규칙 칸을 따라 입력을 더했다.
 - 환경 한계: Electron 바이너리 미설치로 claude/opencode 계열 29파일이 기준선에서도 red. mail 범위와 무관.
+
+## [구현자 기입] 설계 리뷰 — r2
+
+유지. 사용자 `Handoff-impl 302` 지시로 Codex가 ΔV1을 수행했다. production 변경 0이며 `html-body.test.ts`에 AC18 입력 3개만 추가했다(`git diff --numstat`: 15 insertions).
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 유효 V / 작업 목록 | V1 rev.2 + ΔV1 유지 | 이번 REQUIRED는 VP-10′, 명시 REGRESSION 없음. VP-01은 ΔV1의 NOT_REQUIRED이며 나머지 V1 경로도 변경하지 않았다 |
+| D-017 · AC18 | 그대로 수행 | g1 선언 EUC-KR 4,130바이트 · g2 UTF-8 4,109바이트 · g3 EUC-KR 폴백 4,107바이트. ASCII 채움 뒤 마지막 바이트가 `결론`이다 |
+| D-003 · D-015 | 유지 | `html-body.test.ts` AC5·AC17 기존 19케이스와 신규 AC18 3케이스가 함께 통과했다 |
+| 설계 대비 차이 | 없음 · PLAN_GAP 0 | `git diff --name-only`의 app 파일은 `html-body.test.ts` 하나이며 production diff는 0줄이다 |
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-10′ | EP-06 D-015 + EP-06′ D-017 | 7자리: 탐지 창 · meta 2형 · 레이블 생성 try · UTF-8 fatal/EUC-KR · 전체 바이트 decode 3곳 | 7/7 · (a)~(f) 6분기와 (g) 경로별 입력 3개 | §10 검색 재실행: `.decode(` 3줄(55·58·60), EP-06 검색 9줄. 아래 좌표 7행 · 변이 14개 red | `회의`·`결재`·`Ã©/é` · 입력 끝 `결론`. 길이 4,130/4,109/4,107 > 4,096 | 0 |
+
+| 자리 | 직접 oracle (`app/src/main/features/plugins/mail/html-body.test.ts`) | 이번 관측 |
+|---|---|---|
+| EP-06 ① 탐지 창 | `(f) only sniffs the declaration inside the first HTML_CHARSET_SNIFF_BYTES bytes` · `converts only the first HTML_BODY_INPUT_LIMIT code units` | 창 안/밖 `Ã©/é`, 상수 1024. R2-04·09 red |
+| EP-06 ② meta 2형 | `%s declaration wins over the UTF-8 fallback`의 `(a) charset attribute`·`(b) http-equiv content` | 선언 경로만 `Ã©`. R2-05 red 3 · R2-10 red 1 |
+| EP-06 ③ 레이블 생성 try | `(c) falls back to UTF-8 when the declared label is unknown` · `(a) honours <meta charset> for EUC-KR bytes` | bogus → UTF-8, 유효 선언 → EUC-KR. R2-06 red 1 |
+| EP-06 ④ UTF-8 fatal → EUC-KR | `(d) decodes undeclared valid UTF-8 as UTF-8` · `(e) decodes undeclared invalid UTF-8 as EUC-KR` | `결재`/`회의`. R2-07·08 red 각 2 · R2-11 red 4 |
+| EP-06′ ⑤ 선언 decode | `decodes the entire input through (g1) declared EUC-KR` | `결론` 포함. V1-04 red 1 · R2-01 red 6 |
+| EP-06′ ⑥ UTF-8 decode | `decodes the entire input through (g2) undeclared UTF-8` | `결론` 포함. V1-08 red 2 · R2-02 red 6 |
+| EP-06′ ⑦ EUC-KR decode | `decodes the entire input through (g3) undeclared EUC-KR fallback` | `결론` 포함. V1-09 red 1 · R2-03 red 2 |
+
+목록 차집합 ∅. §10의 EP-06′ 목록 `decoder`·`utf-8`·`euc-kr` decode와 `.decode(` 검색의 세 반환을 대응시켰다. EP-06도 기존 네 자리에 그대로 대응하며 신규 production 운반 자리는 없다.
+
+### Pair 자기검증
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-10′ | REQUIRED | SELF_PASS | 위 7자리 좌표 — AC17 8케이스 + AC18 3케이스, AC5 포함 파일 전체 22 passed | V1-04 red 1 · V1-08 red 2 · V1-09 red 1 |
+| VP-01 | NOT_REQUIRED | — (ΔV1 비영향) | production diff 0줄 · 기존 통합 테스트 41 passed | 선택 없음 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+하네스 `mutate.py`, oracle `cd app && ./node_modules/.bin/vitest run src/main/features/plugins/mail/html-body.test.ts`. 각 실험 후 원복했고 `git diff -- html-body.ts`는 0줄이다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V1-04 선언 경로를 2,000바이트로 절단 | VP-10′ 선택 · F1 인용 | verify r1 못 잡음 | AC18 g1 / 1 | 잡음 |
+| V1-08 UTF-8 경로를 2,000바이트로 절단 | VP-10′ 선택 · F1 인용 | verify r1 못 잡음 | AC18 g2·g3 / 2 | 잡음 |
+| V1-09 EUC-KR 경로를 2,000바이트로 절단 | VP-10′ 선택 | — | AC18 g3 / 1 | 잡음 |
+| R2-01 선언 경로의 bytes를 빈 배열로 | sweep EP-06′ ⑤ | — | 선언 입력·AC18 g1 / 6 | 잡음 |
+| R2-02 UTF-8 경로의 bytes를 빈 배열로 | sweep EP-06′ ⑥ | — | UTF-8·폴백 입력 / 6 | 잡음 |
+| R2-03 EUC-KR 경로의 bytes를 빈 배열로 | sweep EP-06′ ⑦ | — | AC17 (e)·AC18 g3 / 2 | 잡음 |
+| R2-04 탐지 창 제한 제거 | sweep EP-06 ① · (f) | — | AC17 (f) / 1 | 잡음 |
+| R2-05 선언 탐지·선언 디코더 단계 제거 | sweep EP-06 ② · (a)(b), 선언/UTF-8 edge | — | latin1 선언 2형·창 안 입력 / 3 | 잡음 |
+| R2-06 선언 레이블의 try/catch 제거 | sweep EP-06 ③ · (c) | — | AC17 (c) / 1 | 잡음 |
+| R2-07 UTF-8 fatal 제거 | sweep EP-06 ④ · (e) | — | AC17 (e)·AC18 g3 / 2 | 잡음 |
+| R2-08 EUC-KR 폴백을 UTF-8로 대체 | sweep EP-06 ④ · (e), 폴백 edge | — | AC17 (e)·AC18 g3 / 2 | 잡음 |
+| R2-09 탐지 창 1024 → 2048 | sweep D-015 값 | — | AC5 상수 단언 / 1 | 잡음 |
+| R2-10 meta 정규식을 charset 속성형만 허용 | sweep EP-06 ② · (b) | — | http-equiv latin1 입력 / 1 | 잡음 |
+| R2-11 UTF-8·EUC-KR 디코더 맞바꿈 | sweep 계약이 다른 형제 슬롯 | — | UTF-8 입력 / 4 | 잡음 |
+
+검산: 선택 증거 N=1(V1-09) · 인용 변이 M=2(V1-04·08, 선택 증거와 중복 집계하지 않음) · 새 구조적 oracle K=0 · sweep S=11 = 표 행 14. 선택 목록·F1 인용·sweep의 ID 합집합에서 실행 ID를 뺀 차집합은 ∅이며, 잡음 14 · 못 잡음 0이다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태의 소비자 | 해당 없음 — production diff 0줄 | 기존 bodySource·동기화 집계는 통합 테스트 handler에서 관측 |
+| 새 실패·정리·부분 저장 경로 | 없음 — 변경 파일은 순수 테스트 하나 | Part I 전이·파싱 격리·기존 저장 순서 유지 |
+| 로딩·취소·지각 응답 | 변경 없음 | 기존 메일 통합 41케이스를 다시 실행 |
+| 전체 디코딩과 변환 상한 | 유지 | AC18은 바이트 전체, AC5는 앞 131,072자 변환. 둘 다 같은 파일에서 통과 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| F1 | 작은 입력만으로 디코딩 절단을 검출하지 못함 | closed — 세 경로의 마지막 표지를 관측 | V1-04·08·09 red 1/2/1, 원복 후 22 passed |
+| F2 | 큰 첨부의 디코딩 비용·메모리 | 기존 설계 유지 · 추가 변경 없음 | ΔV1의 §14가 선형 비용·무상한을 이미 기록. D-017과 충돌하는 입력 절단은 추가하지 않음 |
+| G1 | 전체 테스트의 기존 비귀속 실패 | NON_BLOCKING(비귀속). 미수정 파일의 실패를 기록하고 이번 범위를 확장하지 않음 | 전 10파일/23건 · 후 10파일/23건. 공통 9파일/22건, 변경 후 전용 hostile 1건은 단독 재실행 green |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 메커니즘 대체 없음 | production diff 0줄 |
+| 공유 | 해당 없음 — 새 singleton·가변 fixture 없음 | 각 it.each 행의 Buffer는 읽기만 함 |
+| 재진입 | 해당 없음 — 함수·상태 변경 없음 | 기존 AC17 + 신규 AC18 11케이스 통과 |
+| 다른 무효화 | 해당 없음 — 저장·캐시 변경 없음 | 변경 파일 1개, test 소스 |
+
+## [구현자 기입] 구현 보고 — r2
+
+| AC | 상태 | 관측 |
+|---|---|---|
+| AC1 | ✅ | `pure.test.ts` `(b) AC1·AC4 converts HTML when plain text is blank` |
+| AC2 | ✅ | `mime.test.ts` `mail body source matrix (0302 AC2)` |
+| AC3 | ✅ | `html-body.test.ts` 태그 5·escape·img·a 케이스 |
+| AC4 | ✅ | `pure.test.ts` 체인 (a)·(b) |
+| AC5 | ✅ | `converts only the first HTML_BODY_INPUT_LIMIT code units` |
+| AC6 | ✅ | `pure.test.ts` 체인 (e)·(h) |
+| AC7 | ✅ | `store/index.test.ts` `returns each stored bodySource in %s results and updates it on re-save` ×3 |
+| AC8 | ✅ | `store/migrate.test.ts` `backfills body_source on an existing 0001 cache and restricts its values` |
+| AC9 | ✅ | `store/migrate.test.ts` `rolls back a failing migration together with its record` |
+| AC10 | ✅ | 통합 `AC10·AC12·AC13` · `AC10 counts body-less and skipped mail separately` |
+| AC11 | ✅ | 통합 `AC11 a storage failure still fails the whole sync instead of skipping the mail` 및 기존 오류·취소 케이스 |
+| AC12 | ✅ | 통합 `AC10·AC12·AC13`의 MATCH·LIKE·첨부 검색·출처 단언 |
+| AC13 | ✅ | 같은 통합 테스트의 parse_failed·body_none warn 인자 단언 |
+| AC14 | ✅ | 운영 문서의 기존 본문 출처·집계·HTML 폴백 문단 재확인 · doc-inventory green |
+| AC15 | ✅ | `git diff f49b0ad -- app/package.json app/package-lock.json app/src/main/infra/net/pop3-errors.ts` 0줄 |
+| AC16 | ✅ | `pure.test.ts` 첫 HTML 첨부·대문자 mimeType·plain 첨부·HTML 본문 우선 케이스 |
+| AC17 | ✅ | `decodeHtmlBytes (0302 AC17)` 8케이스 · `mime.test.ts` EUC-KR 첨부 raw |
+| AC18 | ✅ | `decodeHtmlBytes (0302 AC18)` g1~g3 3케이스 · V1-04·08·09 red |
+
+검산: ✅ 18 · ⚠️ 0 · ❌ 0 = 총 18. ΔV1이 AC18을 추가해 분모가 r1의 17에서 18로 바뀌었다. 구현 좌표는 `(r2 구현 — 좌표는 INDEX)`이다.
+
+| Gate | 관측 |
+|---|---|
+| 마이그레이션 가드 | core·mail sync / no-copies / `append-only ok since v0.3.1` |
+| 문서 인벤토리 | generated·prose·links ok |
+| 테스트 예산 | `20 real-git suites ok · all budget sites scaled` |
+| lint | 0 errors · 기존 2 warnings(Timeline·useTranscriptVirtualizer) |
+| typecheck | node·web·test 모두 exit 0 |
+| 파일 필터 없는 vitest | 945파일: 931 passed · 10 failed · 4 skipped. 케이스: 8913 passed · 23 failed · 1 expected fail · 11 skipped, unhandled error 1건 |
+| `node --test scripts/*.test.mjs` | 827 pass · 0 fail |
+| 메일 범위 (전체 실행에서 추출) | 16파일 · 228 passed(변경 전 225). html-body 22 passed · 메일 실패 0 |
+| 수정 테스트 소스 규칙 | 1파일: `html-body.test.ts`. unit 분류(reasons `[]`) · 새 시간/홈/프로세스/DB 자리 0 · 예산·풀 위반 0 |
+
+비귀속. 공통 실패 9파일/22케이스와 native-resources의 unhandled rejection 1건은 이번 변경 파일과 교집합이 없다. 원인이 확인되지 않은 native/plugin 실패를 환경 오류로 단정하지 않았다.
+
+| 파일 | 공통 실패 케이스 | 관측 |
+|---|---:|---|
+| `src/main/adapters/claude/adapter.native-plugins.test.ts` | 5 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/adapters/claude/native-resources.test.ts` | 3 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/adapters/claude/project-reconciliation.test.ts` | 2 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/adapters/opencode/v1/adapter.instances.test.ts` | 2 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/adapters/opencode/v1/adapter.persistent.test.ts` | 1 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/adapters/opencode/v1/adapter.test.ts` | 1 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/app/composer-catalog.test.ts` | 6 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/app/composer-preparation-service.test.ts` | 1 | 변경 전·후 같은 케이스가 실패 |
+| `src/main/app/handlers/session-resources.claude-assembly.test.ts` | 1 | 변경 전·후 같은 케이스가 실패 |
+
+- 변경 전 전용 실패 `adapters/common/git-root.test.ts` 1건은 변경 후 전체 실행에서 통과했다.
+- 변경 후 전용 실패 `infra/test-environment.hostile.test.ts` 1건은 내부 `bootstrap.native-history.test.ts`의 `fixture:review` 명령 단언이었다. 단독 재실행은 1/1 passed(14.42s)이며 원인은 미확정이다.
+- 단독 재실행 결과로 치환한 잔존 실패 집합에서 변경 전 실패 집합을 뺀 차집합은 ∅다. 원래 전체 실행의 차집합은 위 hostile 1건이며 숨기지 않았다.
+
+
+## [구현자 기입] Review Signals — r2
+
+- 라운드 2, impl 턴 `r2`. verify r1 F1을 채택한 ΔV1의 테스트 입력 3개를 구현했다.
+- 같은 디코딩 길이 축을 닫았다. 이전 EP-06의 분기에는 전체 길이가 없었고 ΔV1 D-017·EP-06′·AC18이 의무를 추가했다.
+- 환경 준비: SQLite ABI 140 → 현재 Node ABI 137로 `npm rebuild better-sqlite3` 후 메일 DB 경로도 실행했다. 전체 실패는 위 비귀속 목록으로 남겼다.
+
 
 ## [검증자 기입] 파생 이슈
