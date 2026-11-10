@@ -444,7 +444,7 @@
     "0301"
    ],
    "preserve": "전송·중단·이어 보내기의 결과가 같다",
-   "evidence": "`send.ts` 한 함수가 약 560줄 · `getActiveTurn`/`setActiveTurn`/`getInitialBatches`/`setInitialBatches` 4개 클로저로 상태 공유 · `prepareAgentExtensionProfile` 2회 · 하네스 `instructions` 설정 2회 읽기",
+   "evidence": "`send.ts` `handleChatSend`:52-789 한 함수 738줄 · `getActiveTurn`/`setActiveTurn`/`getInitialBatches`/`setInitialBatches` 4개 클로저로 상태 공유 · `prepareAgentExtensionProfile` 2회 · 하네스 `instructions` 설정 2회 읽기",
    "saving": {
     "prod": 0,
     "test": 0,
@@ -1131,7 +1131,7 @@
     "search": "rg -o \"\\b0[0-9]{3}\\b\" app/src/main/adapters/opencode/v1/channel.ts → 0"
    },
    "preserve": "OpenCode 로 보낸 메시지가 전송되고, 중단하면 멈춘다",
-   "evidence": "`v1/channel.ts` `openCodeChannel`:22 한 함수 약 560줄 · 가변 `let` 20개 :34-81 · `AbortController` 3개 :32 :34 :35 · 종료 플래그 4개 :71-74 · 전송마다 agents·models 재조회로 검증 :179-192 · 전송 경로 2벌(command :230-271 / promptAsync :273-296)이 prelude·복구 문맥 조립을 각자 한다",
+   "evidence": "`v1/channel.ts` `openCodeChannel`:22 한 함수 약 560줄 · 가변 `let` 19개 :34-81 · `AbortController` 3개 :32 :34 :35 · 종료 플래그 4개 :71-74 · 전송마다 agents·models 재조회로 검증 :179-192 · 전송 경로 2벌(command :230-271 / promptAsync :273-296)이 prelude·복구 문맥 조립을 각자 한다",
    "saving": {
     "prod": 0,
     "test": 0,
@@ -1341,7 +1341,7 @@
     "search": "rg -n \"PR #29|api/ipc\" docs/arch/frontend/state.md → :121 \"PR #29 에서 도입\"(handoff 번호 없음)"
    },
    "preserve": "모든 화면의 main 호출이 그대로 동작한다",
-   "evidence": "`renderer/src/shared/api/ipc.ts` 380줄 — `window.orca.` 를 그대로 부르는 한 줄 래퍼 115개(`grep -c \"window\\.orca\\.\" …` → 115) · 채널 하나가 스키마 → `preload/index.ts` 메서드 → 이 래퍼 → (chat 은) `chatActions` 를 거친다",
+   "evidence": "`renderer/src/shared/api/ipc.ts` 380줄 — `window.orca.` 를 그대로 부르는 호출 줄 113개(`grep -c \"window\\.orca\\.\" …` → 116, 주석 1줄 :110 · `typeof` 타입 참조 2줄 :233 :236 제외) · 채널 하나가 스키마 → `preload/index.ts` 메서드 → 이 래퍼 → (chat 은) `chatActions` 를 거친다",
    "saving": {
     "prod": 0,
     "test": 0,

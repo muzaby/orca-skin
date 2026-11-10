@@ -73,7 +73,7 @@
     "X7": "none"
    },
    "density": "excess",
-   "basis": "`openCodeChannel` 한 클로저가 약 560줄이고 가변 `let` 20개를 연결·전송·펌프가 함께 쓴다. 읽은 구간: 1-374. `session-context.ts`·`server.ts` 는 읽지 않았다"
+   "basis": "`openCodeChannel` 한 클로저가 약 560줄이고 가변 `let` 19개를 연결·전송·펌프가 함께 쓴다. 읽은 구간: 1-374. `session-context.ts`·`server.ts` 는 읽지 않았다"
   },
   {
    "bucket": "renderer/shared",
