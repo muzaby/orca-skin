@@ -95,3 +95,52 @@ Windows CI · Electron 런타임 실행 · 실제 POP3 서버 대상 `full` · �
 ## 15. 결론
 
 `RETURN_TO_PLAN` — 이행·현재 결함 0, E1(확장 후보 1)만 `PLAN_GAP`. 구현 코드 수정 요구는 없다. 설계자가 E1을 경계로 선언하면 구현 턴 없이 verify 2회째로 간다.
+
+
+---
+
+# verify 2회째 (r2) — 대상 `c774ebd` 그대로 · V1 rev.5
+
+**판정: `PASS`** — 막는 발견 0 · `PLAN_GAP` 0. 전 REQUIRED·REGRESSION pair PASS, gate green. r1 `RETURN_TO_PLAN`의 E1은 경계로 닫혔다.
+
+## 메타 · 기준선
+
+- 확장 창 verify **2회째**(창 안). ΔV 없음, `판정 정정` 절 없음. 검증자 Claude(구현자 Codex) — 독립 축 ⑥ 수행.
+- `git diff c774ebd HEAD --stat -- app` → 0줄: 구현 코드는 r1 그대로다. rev.5 diff(`git diff ddcf9a5 HEAD`)는 `plan.md` 14줄·INDEX 1행뿐 — 새 Decision·AC·자리·변이 의무 0, AC 완화 아님(E1 경계 선언은 설계자 판정, 원문 근거는 r1 §7의 스키마 거부 실측).
+- 대상 `c774ebd`: `git cat-file -t` = commit · `merge-base --is-ancestor origin/main` 성공. trailer 5키 파싱(`Criteria-Met: 21/21`).
+
+## 재측정(이번 턴)
+
+| 항목 | 관측 |
+|---|---|
+| mail 16파일 | **225/225** |
+| 전체 vitest(필터 없음) | 29 files · 22 tests failed — r1에서 변경 전 `c774ebd~1`과 `(파일,테스트)` 집합 42↔42 차집합 ∅로 확인한 수치와 동일(코드 불변). mail 실패 0 |
+| lint / typecheck | 0 error · 2 warning(기존) / 통과 · `git status` 변화 없음 |
+| 변이(구현자 spec 67행, oracle=plain `vitest`) | **65 red · 2 green(S12·S13 동치, r1과 동일)** · 원복 확인 |
+
+미실행(r1 값 승계, 코드 불변): `node --test scripts/*.test.mjs`·migrations·doc-inventory·test-budgets 가드.
+
+## E1 경계 대조
+
+rev.5 경계: "`isSafeInteger`가 아닌 offset·maxChars는 기본값으로 정규화". 코드(`body-window.ts`)와 일치 — 실측 `maxChars=1e21/Infinity/NaN → 8000자`, `offset=NaN → 0`. 경계 안이며 현재 결함 아님. 도구 스키마가 `int().min(0)`·`max(16000)`으로 선행 거부.
+
+## 독립 축 ⑥ (r1과 다른 입력·변이)
+
+- 입력: `maxChars=16001 → 16000` clamp · `offset=-0 → 0` · `''` → 빈 창 · `offset==total`/`>total` → `text:''·nextOffset:null` · 쌍 중간 `('a😀b',2,1)` → offset 1·2자 · `('😀',1,1)` → 쌍 전체 · `offset=2**53-1`(안전 정수) → 빈 창. 전부 규칙 칸과 일치.
+- 변이(spec 밖 4): W01 `maxChars` 상한 제거 · W02 `maxChars` 안전 정수 검사 제거 · W03 끝 쌍 분할 보정 제거 · W04 `nextOffset` 경계 `<`→`<=` → **전부 red**(잡음). 발견 0.
+
+## V-pair closeout
+
+VP-01~10 전부 PASS — 근거는 r1 표와 같고(코드 불변) 이번 턴 225/225·변이 65 red로 재확인. 강제 지점 33/33, AC 21/21(행·합계·trailer·INDEX 일치).
+
+## 못 본 것
+
+Windows CI · Electron 런타임 · 실제 POP3 서버 `full` · 폐쇄망 조립. 사람 실기 항목 없음.
+
+## 발견 disposition
+
+막는 발견 0. 새 handoff 후보 없음(E1은 경계로 종결).
+
+## Review Signals
+
+verify 2회째. E1 경계 선언 후 같은 증상 재발 없음. 독립 축 ⑥ 발견 0. 반복 환경 한계: 구현자 oracle이 Electron 전용이라 plain Node에서는 명령 치환 필요(r1과 동일).
