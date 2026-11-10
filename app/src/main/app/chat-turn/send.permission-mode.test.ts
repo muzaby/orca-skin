@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolve } from 'node:path'
 
 const workProfilePluginPath = resolve('resources/claude-plugins/work-profile')
@@ -412,6 +412,7 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
 })
 
 describe('0304 resolved send', () => {
+  afterEach(() => vi.restoreAllMocks())
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.sessionMeta.value = null
@@ -419,6 +420,8 @@ describe('0304 resolved send', () => {
     mocks.permissionModel.value = undefined
   })
   it('records resolved model before runtime and carries separate alias evidence', async () => {
+    const sentAt = 1_794_326_400_123
+    vi.spyOn(Date, 'now').mockReturnValue(sentAt)
     const h = makeHarness('session-1')
     mocks.sessionMeta.value = { cwd: null, project_id: null, provider_key: 'pk-a' }
     mocks.resolvedModel.value = 'haiku'
@@ -429,7 +432,7 @@ describe('0304 resolved send', () => {
       expect(h.deps.ctx.db.updateSessionProviderKey).toHaveBeenCalledExactlyOnceWith(
         'session-1',
         'pk-b',
-        expect.any(Number),
+        sentAt,
         'haiku'
       )
       return {

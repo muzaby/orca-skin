@@ -1,0 +1,1159 @@
+{
+  "baseline": {
+    "numTotalTestSuites": 2429,
+    "numPassedTestSuites": 2399,
+    "numFailedTestSuites": 30,
+    "numTotalTests": 8945,
+    "numPassedTests": 8888,
+    "numFailedTests": 46,
+    "numPendingTests": 11,
+    "files": 945,
+    "failedFiles": [
+      "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "src/main/adapters/claude/native-resources.test.ts",
+      "src/main/adapters/claude/project-reconciliation.test.ts",
+      "src/main/adapters/common/git-root.test.ts",
+      "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "src/main/adapters/opencode/v1/adapter.test.ts",
+      "src/main/adapters/opencode/v1/server.database-path.test.ts",
+      "src/main/app/bootstrap.native-history.test.ts",
+      "src/main/app/composer-catalog.test.ts",
+      "src/main/app/composer-preparation-service.test.ts",
+      "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+      "src/main/app/managed-mcp-lifecycle.test.ts",
+      "src/main/app/project-resource-sync.test.ts",
+      "src/main/features/extensions/common/mcp/bridge.integration.test.ts",
+      "src/main/infra/git/git-safety.test.ts",
+      "src/main/infra/io-git-guard.test.ts",
+      "src/main/infra/loopback-callback.test.ts",
+      "src/main/infra/net/loopback-port.test.ts",
+      "src/main/infra/net/pop3-tls.test.ts",
+      "src/main/infra/test-environment.hostile.test.ts",
+      "src/main/infra/test-environment.test.ts"
+    ],
+    "source": "r2 entry HEAD (unchanged detached worktree)"
+  },
+  "final": {
+    "numTotalTestSuites": 2429,
+    "numPassedTestSuites": 2399,
+    "numFailedTestSuites": 30,
+    "numTotalTests": 8947,
+    "numPassedTests": 8890,
+    "numFailedTests": 46,
+    "numPendingTests": 11,
+    "files": 945,
+    "failedFiles": [
+      "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "src/main/adapters/claude/native-resources.test.ts",
+      "src/main/adapters/claude/project-reconciliation.test.ts",
+      "src/main/adapters/common/git-root.test.ts",
+      "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "src/main/adapters/opencode/v1/adapter.test.ts",
+      "src/main/adapters/opencode/v1/server.database-path.test.ts",
+      "src/main/app/bootstrap.native-history.test.ts",
+      "src/main/app/composer-catalog.test.ts",
+      "src/main/app/composer-preparation-service.test.ts",
+      "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+      "src/main/app/managed-mcp-lifecycle.test.ts",
+      "src/main/app/project-resource-sync.test.ts",
+      "src/main/features/extensions/common/mcp/bridge.integration.test.ts",
+      "src/main/infra/git/git-safety.test.ts",
+      "src/main/infra/io-git-guard.test.ts",
+      "src/main/infra/loopback-callback.test.ts",
+      "src/main/infra/net/loopback-port.test.ts",
+      "src/main/infra/net/pop3-tls.test.ts",
+      "src/main/infra/test-environment.hostile.test.ts",
+      "src/main/infra/test-environment.test.ts"
+    ]
+  },
+  "failureComparison": {
+    "new": [],
+    "resolved": [],
+    "newFiles": [],
+    "resolvedFiles": [],
+    "changedTestSourceFailures": []
+  },
+  "runtime": {
+    "fullVitest": "Installed Electron in Node mode (Node v22.22.1, SQLite ABI 140)",
+    "env": [
+      "ELECTRON_RUN_AS_NODE=1",
+      "PATH prefix /tmp/orca-0304-r2-node"
+    ],
+    "nativeRebuild": false,
+    "execution": "default sandbox"
+  },
+  "changedTestSources": [
+    "app/src/main/app/chat-turn/send.permission-mode.test.ts",
+    "app/src/renderer/src/features/chat/reducer/chatReducer.model.test.ts"
+  ],
+  "baselineFailures": [
+    {
+      "case": "src/main/infra/io-git-guard.test.ts::이름 실행은 비동기·동기 모두 위반을 기록한다",
+      "signatures": [
+        "Error: spawnSync git EPERM\n    at Object.spawnSync (node:internal/child_process:1120:20)\n    at spawnSync (node:child_process:916:24)\n    at execFileSync (node:child_process:959:15)\n    at childProcess.<computed> (/tmp/orca-0304-r2-baseline/app/scripts/test-pools.mjs:362:23)\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/io-git-guard.test.ts:126:3",
+        "Error: [test-git] 테스트 git은 실행 파일 경로로 띄운다\n    at drainGuardViolations (/tmp/orca-0304-r2-baseline/app/scripts/test-pools.mjs:195:10)\n    at check (/tmp/orca-0304-r2-baseline/app/scripts/vitest-io-guard.mjs:9:37)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:750:10)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 콜백 요청의 전체 URL 을 돌려주고 서버를 닫는다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/loopback-callback.test.ts:25:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 경로가 다른 요청(favicon 등)은 흘려보내고 계속 기다린다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/loopback-callback.test.ts:40:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 응답 본문에 쿼리 값을 반영하지 않는다 (반사형 XSS 표면 제거)",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/loopback-callback.test.ts:50:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 타임아웃은 LoopbackCancelledError 로 끝난다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/loopback-callback.test.ts:61:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback abort 는 즉시 정리한다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/loopback-callback.test.ts:69:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/test-environment.hostile.test.ts::합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다",
+      "signatures": [
+        "AssertionError: \n: expected 1 to be +0 // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/test-environment.hostile.test.ts:126:44\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/infra/test-environment.test.ts::호스트 격리 배선 (AC11) 자식 프로세스도 격리된 홈을 받는다",
+      "signatures": [
+        "AssertionError: expected '' to be '/tmp/orca-test-host-coujJI/home' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/infra/test-environment.test.ts:84:20\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/infra/git/git-safety.test.ts::Git execution safety never runs a cwd executable through relative PATH entries",
+      "signatures": [
+        "Error: Command failed: /tmp/orca-git-safety-ZHV4CK/git /tmp/orca-git-safety-ZHV4CK/marker.cjs\n/tmp/orca-git-safety-ZHV4CK/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+      "signatures": [
+        "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:227:75\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+      "signatures": [
+        "AssertionError: expected '/tmp/orca-0304-r2-baseline/app/C:/two' to be 'C:/two' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:283:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/server.database-path.test.ts::OpenCode native database path (0262 EP56 P49) reads the database path through the server and CLI environment of the selected engine document",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/bootstrap.native-history.test.ts::applies nav plugin choices to draft and stored-session commands and resources",
+      "signatures": [
+        "AssertionError: expected [] to deeply equal [ 'fixture:review' ]\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/bootstrap.native-history.test.ts:781:78\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::preserves the configuration failure stage through the registered catalog handler",
+      "signatures": [
+        "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::preserves the acquire failure stage through the registered catalog handler",
+      "signatures": [
+        "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::prepares draft and saved directory with the same production settings and env resolution as turns",
+      "signatures": [
+        "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation-service.ts:50:25)\n    at Object.prepare (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:160:45)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:260:11"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+      "signatures": [
+        "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:324:35"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::does not start a native server after caller cancellation or session scope change during preparation",
+      "signatures": [
+        "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:390:5"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::wires the public handler through the production resolver and returns its shutdown cleanup",
+      "signatures": [
+        "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }\n    at Assertion.__VITEST_RESOLVES__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1710:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:420:5"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-preparation-service.test.ts::shares targets across catalog resources and warmup through the production assembly",
+      "signatures": [
+        "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation-service.ts:50:25)\n    at ComposerCatalogOwners.prepare (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation-service.ts:37:66)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog-owner.ts:92:23"
+      ]
+    },
+    {
+      "case": "src/main/app/managed-mcp-lifecycle.test.ts::shares generations and releases only owned resources",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/project-resource-sync.test.ts::detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+      "signatures": [
+        "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]\n    at __vite_ssr_import_3__.vi.waitFor.timeout (/tmp/orca-0304-r2-baseline/app/src/main/app/project-resource-sync.test.ts:295:22)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reconciles plugin choices through the actual adapter while preserving provider flags",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:255:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:292:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:329:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:393:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reports a reconciled plugin revision as applied but not a later external edit",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:425:5\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+      "signatures": [
+        "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/native-resources.test.ts:156:34"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+      "signatures": [
+        "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/native-resources.test.ts:209:72"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::waits for durable persistence and serializes subsequent plugin mutations",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/native-resources.test.ts:224:1"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/project-reconciliation.test.ts::shows external selection with actual status immediately, waits for idle, and never saves it back",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/project-reconciliation.test.ts:95:65\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/project-reconciliation.test.ts::projects native plugin flag false during external reconciliation",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/project-reconciliation.test.ts:173:67\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/common/git-root.test.ts::finds the nearest Git ancestor through three nested directories and falls back to cwd",
+      "signatures": [
+        "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-Lk6Q9O/a/b/c' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/common/git-root.test.ts:12:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)"
+      ]
+    },
+    {
+      "case": "src/main/app/handlers/session-resources.claude-assembly.test.ts::reconciles external plugin selections and publishes the final state through the real watcher",
+      "signatures": [
+        "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]\n    at __vite_ssr_import_0__.vi.waitFor.timeout (/tmp/orca-0304-r2-baseline/app/src/main/app/handlers/session-resources.claude-assembly.test.ts:117:13)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/infra/net/loopback-port.test.ts::releases an OS-assigned loopback port before returning it to the caller",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/infra/net/pop3-tls.test.ts::real local POP3 TLS connection uses the configured CA and speaks POP3 through the production socket factory",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.persistent.test.ts::exposes native resources from the live channel client and its directory without mutations",
+      "signatures": [
+        "AssertionError: expected '/tmp/orca-0304-r2-baseline/app/C:/nat…' to be 'C:/native-B' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.persistent.test.ts:1087:89\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.test.ts::OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+      "signatures": [
+        "AssertionError: expected '/tmp/orca-0304-r2-baseline/app/C:/work' to be 'C:/work' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.test.ts:860:94\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::applies saved managed and native choices across idle peers with stable definitions and project precedence",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::defers busy/background peers and admits queued input only after successful disconnection mutation",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::serializes rapid off/on and keeps the newest choice after a delayed mutation",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::traces warmup navigation two sends toggle expiry and quit through the real assembly",
+      "signatures": [
+        "AssertionError: expected [] to have a length of 2 but got +0\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1389:20)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:388:7\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::sends the first prompt within the bound while a global MCP connection hangs",
+      "signatures": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:486:78\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::waits for an explicitly mentioned global MCP and handles failed admission",
+      "signatures": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:517:80\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::waits for an explicitly mentioned global MCP and handles cancelled admission",
+      "signatures": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:517:80\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/features/extensions/common/mcp/bridge.integration.test.ts::serves only authorized application tools",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    }
+  ],
+  "finalFailures": [
+    {
+      "case": "src/main/infra/io-git-guard.test.ts::이름 실행은 비동기·동기 모두 위반을 기록한다",
+      "signatures": [
+        "Error: spawnSync git EPERM\n    at Object.spawnSync (node:internal/child_process:1120:20)\n    at spawnSync (node:child_process:916:24)\n    at execFileSync (node:child_process:959:15)\n    at childProcess.<computed> (/workspace/orca-skin/app/scripts/test-pools.mjs:362:23)\n    at /workspace/orca-skin/app/src/main/infra/io-git-guard.test.ts:126:3",
+        "Error: [test-git] 테스트 git은 실행 파일 경로로 띄운다\n    at drainGuardViolations (/workspace/orca-skin/app/scripts/test-pools.mjs:195:10)\n    at check (/workspace/orca-skin/app/scripts/vitest-io-guard.mjs:9:37)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:750:10)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 콜백 요청의 전체 URL 을 돌려주고 서버를 닫는다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/infra/loopback-callback.test.ts:25:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 경로가 다른 요청(favicon 등)은 흘려보내고 계속 기다린다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/infra/loopback-callback.test.ts:40:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 응답 본문에 쿼리 값을 반영하지 않는다 (반사형 XSS 표면 제거)",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/infra/loopback-callback.test.ts:50:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 타임아웃은 LoopbackCancelledError 로 끝난다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/infra/loopback-callback.test.ts:61:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback abort 는 즉시 정리한다",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/infra/loopback-callback.test.ts:69:3"
+      ]
+    },
+    {
+      "case": "src/main/infra/test-environment.hostile.test.ts::합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다",
+      "signatures": [
+        "AssertionError: \n: expected 1 to be +0 // Object.is equality\n    at /workspace/orca-skin/app/src/main/infra/test-environment.hostile.test.ts:126:44\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/infra/test-environment.test.ts::호스트 격리 배선 (AC11) 자식 프로세스도 격리된 홈을 받는다",
+      "signatures": [
+        "AssertionError: expected '' to be '/tmp/orca-test-host-StH0hu/home' // Object.is equality\n    at /workspace/orca-skin/app/src/main/infra/test-environment.test.ts:84:20\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/infra/git/git-safety.test.ts::Git execution safety never runs a cwd executable through relative PATH entries",
+      "signatures": [
+        "Error: Command failed: /tmp/orca-git-safety-djcfUR/git /tmp/orca-git-safety-djcfUR/marker.cjs\n/tmp/orca-git-safety-djcfUR/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+      "signatures": [
+        "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:227:75\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+      "signatures": [
+        "AssertionError: expected '/workspace/orca-skin/app/C:/two' to be 'C:/two' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:283:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/server.database-path.test.ts::OpenCode native database path (0262 EP56 P49) reads the database path through the server and CLI environment of the selected engine document",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/bootstrap.native-history.test.ts::applies nav plugin choices to draft and stored-session commands and resources",
+      "signatures": [
+        "AssertionError: expected [] to deeply equal [ 'fixture:review' ]\n    at /workspace/orca-skin/app/src/main/app/bootstrap.native-history.test.ts:781:78\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::preserves the configuration failure stage through the registered catalog handler",
+      "signatures": [
+        "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::preserves the acquire failure stage through the registered catalog handler",
+      "signatures": [
+        "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::prepares draft and saved directory with the same production settings and env resolution as turns",
+      "signatures": [
+        "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:50:25)\n    at Object.prepare (/workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:160:45)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:260:11"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+      "signatures": [
+        "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:324:35"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::does not start a native server after caller cancellation or session scope change during preparation",
+      "signatures": [
+        "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:390:5"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::wires the public handler through the production resolver and returns its shutdown cleanup",
+      "signatures": [
+        "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }\n    at Assertion.__VITEST_RESOLVES__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1710:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:420:5"
+      ]
+    },
+    {
+      "case": "src/main/app/composer-preparation-service.test.ts::shares targets across catalog resources and warmup through the production assembly",
+      "signatures": [
+        "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:50:25)\n    at ComposerCatalogOwners.prepare (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:37:66)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog-owner.ts:92:23"
+      ]
+    },
+    {
+      "case": "src/main/app/managed-mcp-lifecycle.test.ts::shares generations and releases only owned resources",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/project-resource-sync.test.ts::detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+      "signatures": [
+        "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]\n    at __vite_ssr_import_3__.vi.waitFor.timeout (/workspace/orca-skin/app/src/main/app/project-resource-sync.test.ts:295:22)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reconciles plugin choices through the actual adapter while preserving provider flags",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:255:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:292:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:329:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:393:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reports a reconciled plugin revision as applied but not a later external edit",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:425:5\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+      "signatures": [
+        "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/adapters/claude/native-resources.test.ts:156:34"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+      "signatures": [
+        "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/adapters/claude/native-resources.test.ts:209:72"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::waits for durable persistence and serializes subsequent plugin mutations",
+      "signatures": [
+        "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/adapters/claude/native-resources.test.ts:224:1"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/project-reconciliation.test.ts::shows external selection with actual status immediately, waits for idle, and never saves it back",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/project-reconciliation.test.ts:95:65\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/claude/project-reconciliation.test.ts::projects native plugin flag false during external reconciliation",
+      "signatures": [
+        "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/project-reconciliation.test.ts:173:67\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/common/git-root.test.ts::finds the nearest Git ancestor through three nested directories and falls back to cwd",
+      "signatures": [
+        "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-CLUp6q/a/b/c' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/common/git-root.test.ts:12:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)"
+      ]
+    },
+    {
+      "case": "src/main/infra/net/loopback-port.test.ts::releases an OS-assigned loopback port before returning it to the caller",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/infra/net/pop3-tls.test.ts::real local POP3 TLS connection uses the configured CA and speaks POP3 through the production socket factory",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/handlers/session-resources.claude-assembly.test.ts::reconciles external plugin selections and publishes the final state through the real watcher",
+      "signatures": [
+        "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]\n    at __vite_ssr_import_0__.vi.waitFor.timeout (/workspace/orca-skin/app/src/main/app/handlers/session-resources.claude-assembly.test.ts:117:13)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.persistent.test.ts::exposes native resources from the live channel client and its directory without mutations",
+      "signatures": [
+        "AssertionError: expected '/workspace/orca-skin/app/C:/native-B' to be 'C:/native-B' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.persistent.test.ts:1087:89\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.test.ts::OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+      "signatures": [
+        "AssertionError: expected '/workspace/orca-skin/app/C:/work' to be 'C:/work' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.test.ts:860:94\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::applies saved managed and native choices across idle peers with stable definitions and project precedence",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::defers busy/background peers and admits queued input only after successful disconnection mutation",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::serializes rapid off/on and keeps the newest choice after a delayed mutation",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::traces warmup navigation two sends toggle expiry and quit through the real assembly",
+      "signatures": [
+        "AssertionError: expected [] to have a length of 2 but got +0\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1389:20)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:388:7\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::sends the first prompt within the bound while a global MCP connection hangs",
+      "signatures": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /workspace/orca-skin/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:486:78\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::waits for an explicitly mentioned global MCP and handles failed admission",
+      "signatures": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /workspace/orca-skin/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:517:80\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::waits for an explicitly mentioned global MCP and handles cancelled admission",
+      "signatures": [
+        "AssertionError: expected false to be true // Object.is equality\n    at /workspace/orca-skin/app/src/main/app/harnesses/opencode/mcp-reconcile.test.ts:517:80\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+      ]
+    },
+    {
+      "case": "src/main/features/extensions/common/mcp/bridge.integration.test.ts::serves only authorized application tools",
+      "signatures": [
+        "Error: listen EPERM: operation not permitted 127.0.0.1\n    at Server.setupListenHandle [as _listen2] (node:net:1918:21)\n    at listenInCluster (node:net:1997:12)\n    at node:net:2206:7\n    at processTicksAndRejections (node:internal/process/task_queues:89:21)"
+      ]
+    }
+  ],
+  "outsideSandboxReplay": {
+    "baseline": {
+      "files": 23,
+      "tests": 181,
+      "passed": 154,
+      "failed": 27,
+      "failures": [
+        {
+          "case": "src/main/infra/test-environment.hostile.test.ts::합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다",
+          "signatures": [
+            "AssertionError: \n RUN  v4.1.10 /tmp/orca-0304-r2-baseline/app\n\n························x····························································································\n\n Test Files  1 failed | 8 passed (9)"
+          ]
+        },
+        {
+          "case": "src/main/infra/git/git-safety.test.ts::Git execution safety never runs a cwd executable through relative PATH entries",
+          "signatures": [
+            "Error: Command failed: /tmp/orca-git-safety-ODmv9S/git /tmp/orca-git-safety-ODmv9S/marker.cjs\n/tmp/orca-git-safety-ODmv9S/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+          "signatures": [
+            "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:227:75\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+          "signatures": [
+            "AssertionError: expected '/tmp/orca-0304-r2-baseline/app/C:/two' to be 'C:/two' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:283:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/bootstrap.native-history.test.ts::applies nav plugin choices to draft and stored-session commands and resources",
+          "signatures": [
+            "AssertionError: expected [] to deeply equal [ 'fixture:review' ]\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/bootstrap.native-history.test.ts:781:78\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::preserves the configuration failure stage through the registered catalog handler",
+          "signatures": [
+            "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::preserves the acquire failure stage through the registered catalog handler",
+          "signatures": [
+            "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::prepares draft and saved directory with the same production settings and env resolution as turns",
+          "signatures": [
+            "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation-service.ts:50:25)\n    at Object.prepare (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:160:45)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:260:11"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+          "signatures": [
+            "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:324:35"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::does not start a native server after caller cancellation or session scope change during preparation",
+          "signatures": [
+            "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:390:5"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::wires the public handler through the production resolver and returns its shutdown cleanup",
+          "signatures": [
+            "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }\n    at Assertion.__VITEST_RESOLVES__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1710:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.test.ts:420:5"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-preparation-service.test.ts::shares targets across catalog resources and warmup through the production assembly",
+          "signatures": [
+            "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation-service.ts:50:25)\n    at ComposerCatalogOwners.prepare (/tmp/orca-0304-r2-baseline/app/src/main/app/composer-preparation-service.ts:37:66)\n    at /tmp/orca-0304-r2-baseline/app/src/main/app/composer-catalog-owner.ts:92:23"
+          ]
+        },
+        {
+          "case": "src/main/app/project-resource-sync.test.ts::detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+          "signatures": [
+            "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]\n    at __vite_ssr_import_3__.vi.waitFor.timeout (/tmp/orca-0304-r2-baseline/app/src/main/app/project-resource-sync.test.ts:295:22)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reconciles plugin choices through the actual adapter while preserving provider flags",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:255:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:292:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:329:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:393:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reports a reconciled plugin revision as applied but not a later external edit",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/adapter.native-plugins.test.ts:425:5\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/native-resources.test.ts::applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+          "signatures": [
+            "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/native-resources.test.ts:156:34"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/native-resources.test.ts::commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+          "signatures": [
+            "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/native-resources.test.ts:209:72"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/native-resources.test.ts::waits for durable persistence and serializes subsequent plugin mutations",
+          "signatures": [
+            "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/native-resources.test.ts:224:1"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/project-reconciliation.test.ts::shows external selection with actual status immediately, waits for idle, and never saves it back",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/project-reconciliation.test.ts:95:65\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/project-reconciliation.test.ts::projects native plugin flag false during external reconciliation",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/claude/project-reconciliation.test.ts:173:67\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/common/git-root.test.ts::finds the nearest Git ancestor through three nested directories and falls back to cwd",
+          "signatures": [
+            "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-ZfFwBY/a/b/c' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/common/git-root.test.ts:12:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)"
+          ]
+        },
+        {
+          "case": "src/main/app/handlers/session-resources.claude-assembly.test.ts::reconciles external plugin selections and publishes the final state through the real watcher",
+          "signatures": [
+            "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]\n    at __vite_ssr_import_0__.vi.waitFor.timeout (/tmp/orca-0304-r2-baseline/app/src/main/app/handlers/session-resources.claude-assembly.test.ts:117:13)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.persistent.test.ts::exposes native resources from the live channel client and its directory without mutations",
+          "signatures": [
+            "AssertionError: expected '/tmp/orca-0304-r2-baseline/app/C:/nat…' to be 'C:/native-B' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.persistent.test.ts:1087:89\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.test.ts::OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+          "signatures": [
+            "AssertionError: expected '/tmp/orca-0304-r2-baseline/app/C:/work' to be 'C:/work' // Object.is equality\n    at /tmp/orca-0304-r2-baseline/app/src/main/adapters/opencode/v1/adapter.test.ts:860:94\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        }
+      ]
+    },
+    "final": {
+      "files": 23,
+      "tests": 181,
+      "passed": 154,
+      "failed": 27,
+      "failures": [
+        {
+          "case": "src/main/infra/test-environment.hostile.test.ts::합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다",
+          "signatures": [
+            "AssertionError: \n RUN  v4.1.10 /workspace/orca-skin/app\n\n························x····························································································\n\n Test Files  1 failed | 8 passed (9)"
+          ]
+        },
+        {
+          "case": "src/main/infra/git/git-safety.test.ts::Git execution safety never runs a cwd executable through relative PATH entries",
+          "signatures": [
+            "Error: Command failed: /tmp/orca-git-safety-OUeHSP/git /tmp/orca-git-safety-OUeHSP/marker.cjs\n/tmp/orca-git-safety-OUeHSP/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory\n\n    at genericNodeError (node:internal/errors:983:15)\n    at wrappedFn (node:internal/errors:537:14)\n    at ChildProcess.exithandler (node:child_process:417:12)"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+          "signatures": [
+            "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:227:75\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+          "signatures": [
+            "AssertionError: expected '/workspace/orca-skin/app/C:/two' to be 'C:/two' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.instances.test.ts:283:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/bootstrap.native-history.test.ts::applies nav plugin choices to draft and stored-session commands and resources",
+          "signatures": [
+            "AssertionError: expected [] to deeply equal [ 'fixture:review' ]\n    at /workspace/orca-skin/app/src/main/app/bootstrap.native-history.test.ts:781:78\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::preserves the configuration failure stage through the registered catalog handler",
+          "signatures": [
+            "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::preserves the acquire failure stage through the registered catalog handler",
+          "signatures": [
+            "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:193:22\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::prepares draft and saved directory with the same production settings and env resolution as turns",
+          "signatures": [
+            "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:50:25)\n    at Object.prepare (/workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:160:45)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:260:11"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+          "signatures": [
+            "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }\n(4 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:324:35"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::does not start a native server after caller cancellation or session scope change during preparation",
+          "signatures": [
+            "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:390:5"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-catalog.test.ts::wires the public handler through the production resolver and returns its shutdown cleanup",
+          "signatures": [
+            "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }\n    at Assertion.__VITEST_RESOLVES__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1710:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog.test.ts:420:5"
+          ]
+        },
+        {
+          "case": "src/main/app/composer-preparation-service.test.ts::shares targets across catalog resources and warmup through the production assembly",
+          "signatures": [
+            "Error: Composer directory must be absolute\n    at resolveComposerPreparation (/workspace/orca-skin/app/src/main/app/composer-catalog.ts:30:37)\n    at ComposerPreparationService.resolve (/workspace/orca-skin/app/src/main/app/composer-preparation.ts:14:5)\n    at ComposerPreparationService.acquire (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:50:25)\n    at ComposerCatalogOwners.prepare (/workspace/orca-skin/app/src/main/app/composer-preparation-service.ts:37:66)\n    at /workspace/orca-skin/app/src/main/app/composer-catalog-owner.ts:92:23"
+          ]
+        },
+        {
+          "case": "src/main/app/project-resource-sync.test.ts::detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+          "signatures": [
+            "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]\n    at __vite_ssr_import_3__.vi.waitFor.timeout (/workspace/orca-skin/app/src/main/app/project-resource-sync.test.ts:295:22)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reconciles plugin choices through the actual adapter while preserving provider flags",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:255:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:292:72\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:329:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:393:3\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reports a reconciled plugin revision as applied but not a later external edit",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at selectPlugin (/workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:150:70)\n    at /workspace/orca-skin/app/src/main/adapters/claude/adapter.native-plugins.test.ts:425:5\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/native-resources.test.ts::applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+          "signatures": [
+            "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]\n(6 matching properties omitted from actual)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1283:10)\n    at Proxy.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1156:15)\n    at Proxy.methodWrapper (file:///workspace/orca-skin/app/node_modules/chai/index.js:1700:25)\n    at /workspace/orca-skin/app/src/main/adapters/claude/native-resources.test.ts:156:34"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/native-resources.test.ts::commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+          "signatures": [
+            "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'\n    at Assertion.__VITEST_REJECTS__ (file:///workspace/orca-skin/app/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at Assertion.propertyGetter (file:///workspace/orca-skin/app/node_modules/chai/index.js:1570:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file:///workspace/orca-skin/app/node_modules/chai/index.js:1659:22)\n    at /workspace/orca-skin/app/src/main/adapters/claude/native-resources.test.ts:209:72"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/native-resources.test.ts::waits for durable persistence and serializes subsequent plugin mutations",
+          "signatures": [
+            "Error: STACK_TRACE_ERROR\n    at task (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1784:27)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1817:16)\n    at Object.<anonymous> (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1563:28)\n    at chain (file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:599:14)\n    at /workspace/orca-skin/app/src/main/adapters/claude/native-resources.test.ts:224:1"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/project-reconciliation.test.ts::shows external selection with actual status immediately, waits for idle, and never saves it back",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/project-reconciliation.test.ts:95:65\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/claude/project-reconciliation.test.ts::projects native plugin flag false during external reconciliation",
+          "signatures": [
+            "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/claude/project-reconciliation.test.ts:173:67\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/common/git-root.test.ts::finds the nearest Git ancestor through three nested directories and falls back to cwd",
+          "signatures": [
+            "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-hjMMsb/a/b/c' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/common/git-root.test.ts:12:33\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)"
+          ]
+        },
+        {
+          "case": "src/main/app/handlers/session-resources.claude-assembly.test.ts::reconciles external plugin selections and publishes the final state through the real watcher",
+          "signatures": [
+            "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]\n    at __vite_ssr_import_0__.vi.waitFor.timeout (/workspace/orca-skin/app/src/main/app/handlers/session-resources.claude-assembly.test.ts:117:13)\n    at Timeout.checkCallback (file:///workspace/orca-skin/app/node_modules/vitest/dist/chunks/test.DNmyFkvJ.js:3383:20)\n    at listOnTimeout (node:internal/timers:585:17)\n    at processTimers (node:internal/timers:521:7)"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.persistent.test.ts::exposes native resources from the live channel client and its directory without mutations",
+          "signatures": [
+            "AssertionError: expected '/workspace/orca-skin/app/C:/native-B' to be 'C:/native-B' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.persistent.test.ts:1087:89\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        },
+        {
+          "case": "src/main/adapters/opencode/v1/adapter.test.ts::OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+          "signatures": [
+            "AssertionError: expected '/workspace/orca-skin/app/C:/work' to be 'C:/work' // Object.is equality\n    at /workspace/orca-skin/app/src/main/adapters/opencode/v1/adapter.test.ts:860:94\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at file:///workspace/orca-skin/app/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+          ]
+        }
+      ]
+    },
+    "newFailures": [],
+    "resolvedFailures": [],
+    "selectedFiles": [
+      "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "src/main/adapters/claude/native-resources.test.ts",
+      "src/main/adapters/claude/project-reconciliation.test.ts",
+      "src/main/adapters/common/git-root.test.ts",
+      "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "src/main/adapters/opencode/v1/adapter.test.ts",
+      "src/main/adapters/opencode/v1/server.database-path.test.ts",
+      "src/main/app/bootstrap.native-history.test.ts",
+      "src/main/app/composer-catalog.test.ts",
+      "src/main/app/composer-preparation-service.test.ts",
+      "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts",
+      "src/main/app/managed-mcp-lifecycle.test.ts",
+      "src/main/app/project-resource-sync.test.ts",
+      "src/main/features/extensions/common/mcp/bridge.integration.test.ts",
+      "src/main/infra/git/git-safety.test.ts",
+      "src/main/infra/io-git-guard.test.ts",
+      "src/main/infra/loopback-callback.test.ts",
+      "src/main/infra/net/loopback-port.test.ts",
+      "src/main/infra/net/pop3-tls.test.ts",
+      "src/main/infra/test-environment.hostile.test.ts",
+      "src/main/infra/test-environment.test.ts"
+    ],
+    "sandboxOnlyFailures": [
+      "src/main/adapters/opencode/v1/server.database-path.test.ts::OpenCode native database path (0262 EP56 P49) reads the database path through the server and CLI environment of the selected engine document",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::applies saved managed and native choices across idle peers with stable definitions and project precedence",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::defers busy/background peers and admits queued input only after successful disconnection mutation",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::sends the first prompt within the bound while a global MCP connection hangs",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::serializes rapid off/on and keeps the newest choice after a delayed mutation",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::traces warmup navigation two sends toggle expiry and quit through the real assembly",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::waits for an explicitly mentioned global MCP and handles cancelled admission",
+      "src/main/app/harnesses/opencode/mcp-reconcile.test.ts::waits for an explicitly mentioned global MCP and handles failed admission",
+      "src/main/app/managed-mcp-lifecycle.test.ts::shares generations and releases only owned resources",
+      "src/main/features/extensions/common/mcp/bridge.integration.test.ts::serves only authorized application tools",
+      "src/main/infra/io-git-guard.test.ts::이름 실행은 비동기·동기 모두 위반을 기록한다",
+      "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback abort 는 즉시 정리한다",
+      "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 경로가 다른 요청(favicon 등)은 흘려보내고 계속 기다린다",
+      "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 응답 본문에 쿼리 값을 반영하지 않는다 (반사형 XSS 표면 제거)",
+      "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 콜백 요청의 전체 URL 을 돌려주고 서버를 닫는다",
+      "src/main/infra/loopback-callback.test.ts::awaitLoopbackCallback 타임아웃은 LoopbackCancelledError 로 끝난다",
+      "src/main/infra/net/loopback-port.test.ts::releases an OS-assigned loopback port before returning it to the caller",
+      "src/main/infra/net/pop3-tls.test.ts::real local POP3 TLS connection uses the configured CA and speaks POP3 through the production socket factory",
+      "src/main/infra/test-environment.test.ts::호스트 격리 배선 (AC11) 자식 프로세스도 격리된 홈을 받는다"
+    ],
+    "outsideFailuresNotInSandbox": []
+  },
+  "mutations": {
+    "total": 73,
+    "red": 73,
+    "green": 0,
+    "skipped": 0,
+    "restoration": "both harness runs: all original hashes restored"
+  },
+  "gates": {
+    "migrations": {
+      "command": [
+        "node",
+        "scripts/check-migrations-appendonly.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/orca-0304-r2-migrations.log",
+      "sandboxExit": 1,
+      "retryLog": "/tmp/orca-0304-r2-migrations-outside.log",
+      "retryExecution": "outside sandbox: git/loopback subprocess permission limitation",
+      "summary": [
+        "[migrations] sync ok: src/main/infra/db/migrations — 34 migrations",
+        "[migrations] sync ok: src/main/features/plugins/mail/migrations — 2 migrations",
+        "[migrations] no-copies ok: scanned 2009 source files, 3 list owners",
+        "[migrations] append-only ok since v0.3.1"
+      ]
+    },
+    "inventory": {
+      "command": [
+        "node",
+        "scripts/check-doc-inventory.mjs",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "/tmp/orca-0304-r2-inventory.log"
+    },
+    "budgets": {
+      "command": [
+        "node",
+        "scripts/check-test-budgets.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/orca-0304-r2-budgets.log"
+    },
+    "lint": {
+      "command": [
+        "npm",
+        "run",
+        "lint",
+        "--",
+        "--no-fix"
+      ],
+      "exit": 0,
+      "log": "/tmp/orca-0304-r2-lint.log",
+      "errors": 0,
+      "warnings": 2
+    },
+    "typecheck": {
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "log": "/tmp/orca-0304-r2-typecheck.log",
+      "projects": [
+        "node",
+        "web",
+        "test"
+      ]
+    },
+    "scripts": {
+      "command": [
+        "node",
+        "--test",
+        "scripts/analyze-composer-input-trace.test.mjs",
+        "scripts/check-chat-resource-surface.test.mjs",
+        "scripts/check-doc-inventory.test.mjs",
+        "scripts/check-migrations-appendonly.test.mjs",
+        "scripts/check-test-budgets.test.mjs",
+        "scripts/ensure-sqlite-abi.test.mjs",
+        "scripts/git-boundary.test.mjs",
+        "scripts/harness-boundary.test.mjs",
+        "scripts/measure-spinner-perf.test.mjs",
+        "scripts/smoke-work-profile.test.mjs",
+        "scripts/test-host.test.mjs",
+        "scripts/test-pools.test.mjs",
+        "scripts/test-spawn-trace.test.mjs",
+        "scripts/test-time.test.mjs",
+        "scripts/validate-dist.test.mjs",
+        "scripts/validate-release-version.test.mjs"
+      ],
+      "exit": 0,
+      "log": "/tmp/orca-0304-r2-scripts.log",
+      "sandboxExit": 1,
+      "retryLog": "/tmp/orca-0304-r2-scripts-outside.log",
+      "retryExecution": "outside sandbox: git/loopback subprocess permission limitation",
+      "summary": [
+        "✔ rejects malformed tag (0.19693ms)",
+        "✔ rejects non-strict package version (0.18832ms)",
+        "ℹ tests 827",
+        "ℹ suites 46",
+        "ℹ pass 827",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 139651.862511"
+      ],
+      "passed": 827,
+      "failed": 0,
+      "suites": 46
+    }
+  },
+  "commands": {
+    "fullVitest": "ELECTRON_RUN_AS_NODE=1 PATH=/tmp/orca-0304-r2-node:$PATH ./node_modules/.bin/vitest run --maxWorkers=4 --reporter=json --outputFile=<report.json>",
+    "outsideReplay": "same vitest command on the 23 listed failed files, before and after; outside sandbox",
+    "mutation": "python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0304-boot-race-auto-permission-alias/mutation-spec-r2.jsonl --cwd app"
+  }
+}

@@ -241,3 +241,49 @@ it('0304 agent-kind changes use resolved alias evidence', () => {
     'auto_classified'
   )
 })
+
+it.each([
+  ['work', 'default'],
+  ['code', 'accept_edits']
+] as const)(
+  '0304 clears stale alias evidence before later %s permission changes',
+  (kind, fallback) => {
+    const selected = chatReducer(
+      { ...initialChatState, agentKind: kind },
+      {
+        type: 'SET_MODEL',
+        providerKey: 'pk-b',
+        modelFamily: 'haiku',
+        modelAlias: 'haiku',
+        modelResolved: 'claude-haiku-5-5',
+        adapter: 'claude'
+      }
+    )
+    const auto = chatReducer(selected, { type: 'SET_PERMISSION_MODE', mode: 'auto_classified' })
+    expect(auto).toMatchObject({
+      modelResolved: 'claude-haiku-5-5',
+      permissionMode: 'auto_classified'
+    })
+
+    const withoutEvidence = chatReducer(auto, {
+      type: 'SET_MODEL',
+      providerKey: 'pk-b',
+      modelFamily: 'sonnet',
+      modelAlias: 'sonnet',
+      adapter: 'claude'
+    })
+    expect(withoutEvidence).toMatchObject({
+      modelFamily: 'sonnet',
+      modelAlias: 'sonnet',
+      modelResolved: null,
+      permissionMode: fallback
+    })
+    expect(
+      chatReducer(withoutEvidence, { type: 'SET_PERMISSION_MODE', mode: 'auto_classified' })
+        .permissionMode
+    ).toBe(fallback)
+    expect(chatReducer(withoutEvidence, { type: 'SET_AGENT_KIND', kind }).permissionMode).toBe(
+      fallback
+    )
+  }
+)
