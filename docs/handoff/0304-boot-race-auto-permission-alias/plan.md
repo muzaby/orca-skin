@@ -705,4 +705,8 @@ settings env / runtimeEnv → model-parser(resolvedModel) → toAgentEnvironment
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — |
+| D1 | send 선영속의 `updated_at` 인자를 `0`으로 바꿔도 green(`send.permission-mode.test.ts:432` `expect.any(Number)`) | VP-17 · AC16 "인자 4개 구별 값" · EP-8 | 구현: 시각 고정 후 정확값 단언 | 이행 | BLOCKING | open |
+| D2 | `SET_MODEL`이 증거 없는 모델로 바꿀 때 이전 `modelResolved`를 지우는 분기 무잠금(변이 `?? state.modelResolved` green) | VP-12 · EP-3 ⑥ | planner: UT 입력(증거 모델 → 증거 없는 모델) 채택 또는 경계 선언 | 확장 | PLAN_GAP | open |
+| D3 | `node --test scripts/*.test.mjs` 이번 턴 미실행 | 운영 gate | 기록 | 비귀속 | NON_BLOCKING | 기록 |
+
+상세: [`verify.md`](verify.md) §13.
