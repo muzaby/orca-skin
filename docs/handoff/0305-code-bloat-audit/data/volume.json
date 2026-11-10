@@ -1,0 +1,989 @@
+{
+ "totals": {
+  "files": 2116,
+  "lines": 305843
+ },
+ "unclassified": [],
+ "buckets": {
+  ".github/workflows": {
+   "ci": {
+    "files": 3,
+    "lines": 231
+   }
+  },
+  "main/(root)": {
+   "prod": {
+    "files": 2,
+    "lines": 355
+   },
+   "test": {
+    "files": 2,
+    "lines": 671
+   },
+   "doc": {
+    "files": 2,
+    "lines": 130
+   }
+  },
+  "main/adapters/claude": {
+   "prod": {
+    "files": 38,
+    "lines": 6588
+   },
+   "test": {
+    "files": 67,
+    "lines": 13398
+   },
+   "test-support": {
+    "files": 2,
+    "lines": 879
+   }
+  },
+  "main/adapters/common": {
+   "prod": {
+    "files": 22,
+    "lines": 1637
+   },
+   "test": {
+    "files": 10,
+    "lines": 1384
+   }
+  },
+  "main/adapters/opencode": {
+   "prod": {
+    "files": 43,
+    "lines": 5644
+   },
+   "test": {
+    "files": 44,
+    "lines": 9877
+   },
+   "test-support": {
+    "files": 3,
+    "lines": 293
+   }
+  },
+  "main/app/(root)": {
+   "prod": {
+    "files": 30,
+    "lines": 4061
+   },
+   "test": {
+    "files": 52,
+    "lines": 12078
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 1
+   }
+  },
+  "main/app/chat-turn": {
+   "prod": {
+    "files": 19,
+    "lines": 3348
+   },
+   "test": {
+    "files": 42,
+    "lines": 11946
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 298
+   }
+  },
+  "main/app/deployment": {
+   "prod": {
+    "files": 7,
+    "lines": 444
+   },
+   "test": {
+    "files": 7,
+    "lines": 3456
+   }
+  },
+  "main/app/handlers": {
+   "prod": {
+    "files": 22,
+    "lines": 1927
+   },
+   "test": {
+    "files": 32,
+    "lines": 5688
+   }
+  },
+  "main/app/harnesses": {
+   "prod": {
+    "files": 12,
+    "lines": 763
+   },
+   "test": {
+    "files": 12,
+    "lines": 1601
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 418
+   }
+  },
+  "main/contracts/(root)": {
+   "prod": {
+    "files": 5,
+    "lines": 775
+   },
+   "test": {
+    "files": 1,
+    "lines": 18
+   }
+  },
+  "main/features/agents": {
+   "prod": {
+    "files": 2,
+    "lines": 130
+   },
+   "test": {
+    "files": 1,
+    "lines": 34
+   }
+  },
+  "main/features/approvals": {
+   "prod": {
+    "files": 4,
+    "lines": 304
+   },
+   "test": {
+    "files": 4,
+    "lines": 397
+   }
+  },
+  "main/features/artifacts": {
+   "prod": {
+    "files": 9,
+    "lines": 1367
+   },
+   "test": {
+    "files": 8,
+    "lines": 1431
+   }
+  },
+  "main/features/auth": {
+   "prod": {
+    "files": 21,
+    "lines": 4111
+   },
+   "test": {
+    "files": 15,
+    "lines": 6670
+   }
+  },
+  "main/features/chat": {
+   "prod": {
+    "files": 22,
+    "lines": 3563
+   },
+   "test": {
+    "files": 18,
+    "lines": 5433
+   }
+  },
+  "main/features/extensions": {
+   "prod": {
+    "files": 20,
+    "lines": 1916
+   },
+   "test": {
+    "files": 16,
+    "lines": 1945
+   }
+  },
+  "main/features/gate": {
+   "prod": {
+    "files": 2,
+    "lines": 286
+   },
+   "test": {
+    "files": 2,
+    "lines": 547
+   }
+  },
+  "main/features/harnesses": {
+   "prod": {
+    "files": 12,
+    "lines": 1372
+   },
+   "test": {
+    "files": 8,
+    "lines": 1961
+   }
+  },
+  "main/features/history": {
+   "prod": {
+    "files": 6,
+    "lines": 1074
+   },
+   "test": {
+    "files": 14,
+    "lines": 2850
+   }
+  },
+  "main/features/orchestration": {
+   "prod": {
+    "files": 2,
+    "lines": 91
+   },
+   "test": {
+    "files": 2,
+    "lines": 181
+   }
+  },
+  "main/features/plugins": {
+   "prod": {
+    "files": 34,
+    "lines": 4710
+   },
+   "test": {
+    "files": 29,
+    "lines": 5222
+   },
+   "data": {
+    "files": 2,
+    "lines": 84
+   }
+  },
+  "main/features/scheduler": {
+   "prod": {
+    "files": 4,
+    "lines": 241
+   },
+   "test": {
+    "files": 1,
+    "lines": 285
+   }
+  },
+  "main/features/sessions": {
+   "prod": {
+    "files": 10,
+    "lines": 1813
+   },
+   "test": {
+    "files": 9,
+    "lines": 3236
+   }
+  },
+  "main/features/usage": {
+   "prod": {
+    "files": 6,
+    "lines": 851
+   },
+   "test": {
+    "files": 6,
+    "lines": 1848
+   }
+  },
+  "main/features/worktrees": {
+   "prod": {
+    "files": 2,
+    "lines": 381
+   },
+   "test": {
+    "files": 5,
+    "lines": 947
+   }
+  },
+  "main/infra/(root)": {
+   "prod": {
+    "files": 12,
+    "lines": 1120
+   },
+   "test": {
+    "files": 13,
+    "lines": 1346
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 24
+   }
+  },
+  "main/infra/bus": {
+   "prod": {
+    "files": 1,
+    "lines": 74
+   },
+   "test": {
+    "files": 1,
+    "lines": 64
+   }
+  },
+  "main/infra/config": {
+   "prod": {
+    "files": 18,
+    "lines": 1283
+   },
+   "test": {
+    "files": 12,
+    "lines": 1239
+   }
+  },
+  "main/infra/db": {
+   "prod": {
+    "files": 11,
+    "lines": 2503
+   },
+   "test": {
+    "files": 10,
+    "lines": 2171
+   },
+   "data": {
+    "files": 34,
+    "lines": 502
+   }
+  },
+  "main/infra/error-report": {
+   "prod": {
+    "files": 2,
+    "lines": 113
+   },
+   "test": {
+    "files": 2,
+    "lines": 159
+   }
+  },
+  "main/infra/git": {
+   "prod": {
+    "files": 13,
+    "lines": 1461
+   },
+   "test": {
+    "files": 22,
+    "lines": 3348
+   },
+   "test-support": {
+    "files": 2,
+    "lines": 268
+   }
+  },
+  "main/infra/ipc": {
+   "prod": {
+    "files": 4,
+    "lines": 312
+   },
+   "test": {
+    "files": 4,
+    "lines": 419
+   }
+  },
+  "main/infra/log": {
+   "prod": {
+    "files": 8,
+    "lines": 617
+   },
+   "test": {
+    "files": 6,
+    "lines": 625
+   }
+  },
+  "main/infra/net": {
+   "prod": {
+    "files": 8,
+    "lines": 824
+   },
+   "test": {
+    "files": 7,
+    "lines": 845
+   },
+   "test-support": {
+    "files": 2,
+    "lines": 47
+   }
+  },
+  "preload": {
+   "prod": {
+    "files": 2,
+    "lines": 468
+   },
+   "test": {
+    "files": 2,
+    "lines": 592
+   }
+  },
+  "renderer/(root)": {
+   "prod": {
+    "files": 4,
+    "lines": 79
+   },
+   "test": {
+    "files": 1,
+    "lines": 159
+   },
+   "doc": {
+    "files": 2,
+    "lines": 85
+   }
+  },
+  "renderer/app": {
+   "prod": {
+    "files": 28,
+    "lines": 2148
+   },
+   "test": {
+    "files": 20,
+    "lines": 2691
+   }
+  },
+  "renderer/features/artifacts/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 1
+   }
+  },
+  "renderer/features/artifacts/components": {
+   "prod": {
+    "files": 2,
+    "lines": 351
+   },
+   "test": {
+    "files": 1,
+    "lines": 47
+   }
+  },
+  "renderer/features/artifacts/store": {
+   "prod": {
+    "files": 1,
+    "lines": 112
+   },
+   "test": {
+    "files": 1,
+    "lines": 132
+   }
+  },
+  "renderer/features/backend/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 9
+   }
+  },
+  "renderer/features/backend/harnesses": {
+   "prod": {
+    "files": 2,
+    "lines": 180
+   }
+  },
+  "renderer/features/backend/providers": {
+   "prod": {
+    "files": 1,
+    "lines": 10
+   }
+  },
+  "renderer/features/backend/store": {
+   "prod": {
+    "files": 1,
+    "lines": 74
+   }
+  },
+  "renderer/features/camera/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 1
+   }
+  },
+  "renderer/features/camera/components": {
+   "prod": {
+    "files": 1,
+    "lines": 174
+   }
+  },
+  "renderer/features/captures/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 1
+   }
+  },
+  "renderer/features/captures/components": {
+   "prod": {
+    "files": 1,
+    "lines": 23
+   }
+  },
+  "renderer/features/chat/(root)": {
+   "prod": {
+    "files": 2,
+    "lines": 49
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 31
+   }
+  },
+  "renderer/features/chat/components": {
+   "prod": {
+    "files": 29,
+    "lines": 2772
+   },
+   "test": {
+    "files": 39,
+    "lines": 5727
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 96
+   }
+  },
+  "renderer/features/chat/harnesses": {
+   "prod": {
+    "files": 211,
+    "lines": 17599
+   },
+   "test": {
+    "files": 125,
+    "lines": 20215
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 14
+   },
+   "data": {
+    "files": 1,
+    "lines": 466
+   }
+  },
+  "renderer/features/chat/hooks": {
+   "prod": {
+    "files": 17,
+    "lines": 1311
+   },
+   "test": {
+    "files": 7,
+    "lines": 1414
+   }
+  },
+  "renderer/features/chat/lib": {
+   "prod": {
+    "files": 55,
+    "lines": 5240
+   },
+   "test": {
+    "files": 61,
+    "lines": 7289
+   }
+  },
+  "renderer/features/chat/providers": {
+   "prod": {
+    "files": 1,
+    "lines": 20
+   },
+   "test": {
+    "files": 1,
+    "lines": 53
+   }
+  },
+  "renderer/features/chat/reducer": {
+   "prod": {
+    "files": 1,
+    "lines": 2218
+   },
+   "test": {
+    "files": 27,
+    "lines": 4235
+   }
+  },
+  "renderer/features/chat/store": {
+   "prod": {
+    "files": 7,
+    "lines": 3261
+   },
+   "test": {
+    "files": 37,
+    "lines": 6660
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 62
+   }
+  },
+  "renderer/features/cost/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 3
+   }
+  },
+  "renderer/features/cost/providers": {
+   "prod": {
+    "files": 1,
+    "lines": 12
+   }
+  },
+  "renderer/features/debug/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 1
+   }
+  },
+  "renderer/features/debug/components": {
+   "prod": {
+    "files": 1,
+    "lines": 100
+   }
+  },
+  "renderer/features/debug/hooks": {
+   "prod": {
+    "files": 1,
+    "lines": 55
+   }
+  },
+  "renderer/features/engine/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 1
+   }
+  },
+  "renderer/features/engine/common": {
+   "prod": {
+    "files": 6,
+    "lines": 735
+   },
+   "test": {
+    "files": 11,
+    "lines": 1400
+   }
+  },
+  "renderer/features/engine/components": {
+   "prod": {
+    "files": 3,
+    "lines": 31
+   }
+  },
+  "renderer/features/engine/harnesses": {
+   "prod": {
+    "files": 9,
+    "lines": 653
+   },
+   "test": {
+    "files": 2,
+    "lines": 324
+   }
+  },
+  "renderer/features/projects/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 5
+   }
+  },
+  "renderer/features/projects/components": {
+   "prod": {
+    "files": 10,
+    "lines": 743
+   },
+   "test": {
+    "files": 1,
+    "lines": 43
+   }
+  },
+  "renderer/features/projects/store": {
+   "prod": {
+    "files": 1,
+    "lines": 65
+   },
+   "test": {
+    "files": 1,
+    "lines": 60
+   }
+  },
+  "renderer/features/providers/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 5
+   }
+  },
+  "renderer/features/providers/components": {
+   "prod": {
+    "files": 2,
+    "lines": 233
+   },
+   "test": {
+    "files": 1,
+    "lines": 83
+   }
+  },
+  "renderer/features/providers/hooks": {
+   "prod": {
+    "files": 2,
+    "lines": 132
+   }
+  },
+  "renderer/features/providers/lib": {
+   "prod": {
+    "files": 2,
+    "lines": 46
+   },
+   "test": {
+    "files": 2,
+    "lines": 119
+   }
+  },
+  "renderer/features/providers/store": {
+   "prod": {
+    "files": 1,
+    "lines": 65
+   },
+   "test": {
+    "files": 1,
+    "lines": 70
+   }
+  },
+  "renderer/features/sessions/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 14
+   }
+  },
+  "renderer/features/sessions/components": {
+   "prod": {
+    "files": 6,
+    "lines": 1049
+   },
+   "test": {
+    "files": 3,
+    "lines": 741
+   }
+  },
+  "renderer/features/sessions/hooks": {
+   "prod": {
+    "files": 2,
+    "lines": 81
+   }
+  },
+  "renderer/features/sessions/lib": {
+   "prod": {
+    "files": 4,
+    "lines": 149
+   },
+   "test": {
+    "files": 4,
+    "lines": 335
+   }
+  },
+  "renderer/features/sessions/providers": {
+   "prod": {
+    "files": 1,
+    "lines": 9
+   }
+  },
+  "renderer/features/sessions/store": {
+   "prod": {
+    "files": 2,
+    "lines": 362
+   },
+   "test": {
+    "files": 4,
+    "lines": 514
+   }
+  },
+  "renderer/features/settings/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 7
+   }
+  },
+  "renderer/features/settings/components": {
+   "prod": {
+    "files": 7,
+    "lines": 1087
+   },
+   "test": {
+    "files": 6,
+    "lines": 611
+   }
+  },
+  "renderer/features/settings/hooks": {
+   "prod": {
+    "files": 2,
+    "lines": 77
+   }
+  },
+  "renderer/features/settings/lib": {
+   "prod": {
+    "files": 1,
+    "lines": 20
+   },
+   "test": {
+    "files": 1,
+    "lines": 21
+   }
+  },
+  "renderer/features/settings/store": {
+   "prod": {
+    "files": 1,
+    "lines": 38
+   }
+  },
+  "renderer/features/skills/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 3
+   }
+  },
+  "renderer/features/skills/components": {
+   "prod": {
+    "files": 17,
+    "lines": 2080
+   },
+   "test": {
+    "files": 9,
+    "lines": 1428
+   }
+  },
+  "renderer/features/skills/hooks": {
+   "prod": {
+    "files": 4,
+    "lines": 470
+   },
+   "test": {
+    "files": 2,
+    "lines": 758
+   }
+  },
+  "renderer/features/skills/lib": {
+   "prod": {
+    "files": 6,
+    "lines": 236
+   },
+   "test": {
+    "files": 5,
+    "lines": 385
+   }
+  },
+  "renderer/features/skills/store": {
+   "prod": {
+    "files": 1,
+    "lines": 13
+   },
+   "test": {
+    "files": 1,
+    "lines": 13
+   }
+  },
+  "renderer/features/update/(root)": {
+   "prod": {
+    "files": 1,
+    "lines": 10
+   }
+  },
+  "renderer/features/update/components": {
+   "prod": {
+    "files": 2,
+    "lines": 150
+   }
+  },
+  "renderer/features/update/providers": {
+   "prod": {
+    "files": 1,
+    "lines": 10
+   }
+  },
+  "renderer/features/update/store": {
+   "prod": {
+    "files": 1,
+    "lines": 195
+   },
+   "test": {
+    "files": 1,
+    "lines": 31
+   }
+  },
+  "renderer/pages": {
+   "prod": {
+    "files": 9,
+    "lines": 334
+   },
+   "test": {
+    "files": 5,
+    "lines": 1114
+   }
+  },
+  "renderer/shared": {
+   "prod": {
+    "files": 83,
+    "lines": 5513
+   },
+   "test": {
+    "files": 37,
+    "lines": 4272
+   },
+   "test-support": {
+    "files": 1,
+    "lines": 711
+   },
+   "data": {
+    "files": 2,
+    "lines": 2887
+   }
+  },
+  "renderer/styles": {
+   "prod": {
+    "files": 2,
+    "lines": 838
+   },
+   "test": {
+    "files": 2,
+    "lines": 193
+   }
+  },
+  "scripts": {
+   "test": {
+    "files": 16,
+    "lines": 6908
+   },
+   "test-support": {
+    "files": 13,
+    "lines": 2121
+   },
+   "tooling": {
+    "files": 28,
+    "lines": 7139
+   }
+  },
+  "shared/(root)": {
+   "prod": {
+    "files": 35,
+    "lines": 5395
+   },
+   "test": {
+    "files": 33,
+    "lines": 2782
+   },
+   "test-support": {
+    "files": 2,
+    "lines": 129
+   }
+  },
+  "shared/harnesses": {
+   "prod": {
+    "files": 4,
+    "lines": 171
+   },
+   "test": {
+    "files": 1,
+    "lines": 68
+   }
+  },
+  "shared/time": {
+   "prod": {
+    "files": 3,
+    "lines": 105
+   },
+   "test": {
+    "files": 3,
+    "lines": 96
+   }
+  },
+  "shared/usage": {
+   "prod": {
+    "files": 3,
+    "lines": 296
+   },
+   "test": {
+    "files": 3,
+    "lines": 267
+   }
+  }
+ }
+}
