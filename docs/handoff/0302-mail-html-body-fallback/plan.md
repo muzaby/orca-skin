@@ -11,12 +11,12 @@
 | slug | `0302-mail-html-body-fallback` |
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
-| 상태 | impl/IMPL_DONE (r1) — 검증 대기 |
+| 상태 | plan/READY (ΔV1) — 다음 구현 r2 |
 | 구현 주체 | Claude (버그수정 — 비기능 작업, root `AGENTS.md` 구현 주체 분담) |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음. 0237 mail plugin 회귀는 기존 테스트를 REGRESSION gate로 묶는다 |
 | 기준 V | `none` |
-| 이번 V revision | `V1 rev.2` — rev.1(`a832f51`, 구현·검증 전)에 사용자 결정 D-014~D-016을 반영. 구현 전이라 Delta V를 두지 않고 V1 노드를 직접 갱신했으며 바뀐 노드는 Node registry에 `rev.2` 표시 |
-| 유효 V | `V1 rev.2` |
+| 이번 V revision | `ΔV1` — verify r1 F1(확장 후보, 창 안) 채택: EP-06에 "전체 바이트 디코딩" 분기 (g) 추가 · F2를 §14에 반영. 이전: `V1 rev.2` — rev.1(`b816296`, 구현·검증 전)에 사용자 결정 D-014~D-016을 반영. 구현 전이라 Delta V를 두지 않고 V1 노드를 직접 갱신했으며 바뀐 노드는 Node registry에 `rev.2` 표시 |
+| 유효 V | `V1 rev.2 + ΔV1` |
 | 기준 커밋 | `f49b0ad` (설계 착수 시 HEAD) |
 
 ---
@@ -65,6 +65,7 @@
 | D-014 | 본문 선택 체인: **plain → html → attachment → none**. 각 단계는 공백 제외 비어 있지 않은 텍스트를 내면 채택되고, 비었거나 변환이 throw하면 다음 단계로 간다. ① plain = `email.text` 원문 그대로 ② html = `htmlToBodyText(email.html)` ③ attachment = `email.attachments` 순서상 **첫 번째** `mimeType`이 `text/html`(대소문자 무시)인 첨부 하나만 — 바이트를 D-015로 디코딩해 `htmlToBodyText` ④ none = `''`. attachment 단계에서 쓴 첨부는 첨부 목록에서 빼지 않는다. 동기화는 어느 단계에서도 실패시키지 않는다 | case 8 실측: `text`·`html` 둘 다 없음, 첨부 `text/html:attachment`. 발동은 본문이 하나도 없을 때뿐이라 다른 본문을 밀어내지 않는다. 일반 HTML 보고서가 걸려도 빈 본문보다 검색에 낫다. 출처 값을 따로 두어 모델이 첨부 유래임을 안다. 첫 번째만 보는 것은 변환 비용을 메일당 HTML 2회로 묶기 위함 | 사용자 결정(선택지 1) | ACTIVE | ← D-001·D-004·D-013 |
 | D-015 | HTML 첨부 디코딩 `decodeHtmlBytes(bytes)`: ① 앞 1,024바이트를 latin1로 읽어 `<meta charset="X">` 또는 `<meta http-equiv="Content-Type" content="…charset=X">`의 X를 찾는다 → `new TextDecoder(X)`가 지원하면 그것으로 디코딩 ② X가 없거나 지원 안 되는 레이블이면 `new TextDecoder('utf-8', { fatal: true })` ③ 그것이 throw하면 `new TextDecoder('euc-kr')` | postal-mime는 첨부의 charset 파라미터를 버린다 — 첨부 키는 `filename`·`mimeType`·`disposition`·`content`뿐이고 바이트는 원 charset 그대로(이번 세션 실측: `charset=euc-kr` 첨부 → `content`에 `c8b8c0c7`). 폐쇄망 한국어 메일의 EUC-KR 가능성 때문에 ③을 둔다. 실측: UTF-8 fatal은 EUC-KR 바이트를 `ERR_ENCODING_INVALID_ENCODED_DATA`로 거부, `TextDecoder('euc-kr')`·`'ks_c_5601-1987'` 모두 `회의`, 모르는 레이블은 `ERR_ENCODING_NOT_SUPPORTED` | 사용자 결정(선택지 1 "charset 감지") + 설계자 규칙 | ACTIVE | — |
 | D-016 | `body_source` 값 집합 = `'plain' \| 'html' \| 'attachment' \| 'none'`. 0002의 CHECK가 이 넷을 허용한다 | SQLite는 열 CHECK를 ALTER로 바꿀 수 없어 나중에 넓히려면 `mail` 테이블·FTS 트리거를 재생성해야 한다 — rev.1 §6의 "append-only 마이그레이션으로 CHECK를 넓힌다"는 틀린 서술이었다 | 사용자 결정(선택지 1) + 설계자 정정 | ACTIVE | ← D-005(CHECK 부분) |
+| D-017 | `decodeHtmlBytes`는 **입력 바이트 전체**를 디코딩한다. 앞 1,024바이트 창은 charset 선언 탐지에만 쓰고 디코딩 길이를 제한하지 않는다. 길이 상한은 변환 단계의 D-003(131,072자) 하나뿐이다 | 디코딩이 앞부분만 읽으면 HTML 첨부 본문 뒷부분이 조용히 사라지고 출처는 `attachment`로 남아 손실이 숨는다(EP-06 실패 의미). 현재 코드는 이미 전체를 디코딩하나 V1 입력이 모두 2,000바이트 미만이라 잠기지 않았다(verify r1 V1-04·V1-08) | 설계자 결정(verify r1 F1 채택) | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -72,6 +73,8 @@
 - (rev.1) `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001→AC1·AC2·AC4, D-002→AC3, D-003→AC5, D-004→AC6, D-005→AC7·AC8, D-006→AC9, D-007→AC10, D-008→AC10, D-009→AC10·AC11, D-010→AC7·AC12, D-011→§6, D-012→AC13, D-013(OPEN)→AC2 case 8.
 - rev.2 (2026-11-10, 사용자 "1번으로 plan 수정해"): D-013 OPEN을 D-014·D-015·D-016으로 확정. D-001·D-004는 D-014로, D-005의 CHECK 부분은 D-016으로 대체. AC2·AC6·AC8·AC10·AC12를 고치고 AC16·AC17 신설, MD-03/VP-10 신설, EP-01 분기 재열거, EP-06 신설.
 - rev.2 `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-014→AC1·AC2·AC4·AC6·AC16, D-015→AC17, D-016→AC8, D-002→AC3, D-003→AC5, D-005(유지 부분)→AC7·AC8, D-006→AC9, D-007→AC10, D-008→AC10, D-009→AC10·AC11, D-010→AC7·AC12, D-011→§6, D-012→AC13. SUPERSEDED D-001·D-004·D-013을 근거로 쓰는 AC 0.
+- ΔV1 (verify r1 F1 채택): D-017 추가, 대체 없음. 제품 동작 변경 0 — 현재 코드의 전체 디코딩을 계약으로 잠근다.
+  - `ACTIVE 결정 ↔ AC 대조(ΔV1)`: D-017 ↔ AC18, D-015 ↔ AC17(유지) · D-003 ↔ AC5(유지), 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -156,6 +159,7 @@ mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
 | R-03 | AT-03 / AC15 | 새 의존성 0, `Pop3ErrorCode` 멤버 불변 | `git diff f49b0ad -- app/package.json app/package-lock.json` 빈 출력 · `git diff f49b0ad -- app/src/main/infra/net/pop3-errors.ts` 빈 출력 | — |
 | R-01 | AT-01 / AC16 | attachment 단계는 첫 번째 `text/html` 첨부만 쓴다: 첫 HTML 첨부가 비면 두 번째가 있어도 `none` · `Text/HTML` 대문자 mimeType도 대상 · `text/plain` 첨부만 있으면 `none` · html 본문이 있으면 HTML 첨부가 있어도 `html`이고 본문에 첨부 텍스트가 없다 · 사용한 첨부는 `attachments`에 남는다 | `pure.test.ts`: `normalizeMail`에 `attachments` 배열을 직접 준 케이스 5개 | `normalizeMail` |
 | R-01 | AT-01 / AC17 | HTML 첨부 바이트 디코딩: `<meta charset="euc-kr">` EUC-KR → 한글 정상 · `<meta http-equiv="Content-Type" content="text/html; charset=euc-kr">` → 정상 · meta 없는 UTF-8 → 정상 · meta 없는 EUC-KR → 정상(UTF-8 fatal 실패 → euc-kr) · `<meta charset="bogus">` + UTF-8 → 정상 · 탐지 창 경계: 바이트 `c3 a9`(UTF-8 `é`)를 담은 본문에 `<meta charset="iso-8859-1">`이 앞 1,024바이트 안이면 `Ã©`, 그 뒤에 있으면 `é` | `html-body.test.ts`: `decodeHtmlBytes(Buffer)` 6케이스, 한글 표지(`회의`)와 ASCII 표지 단언 · `mime.test.ts`: `charset=euc-kr` 파라미터를 가진 base64 HTML 첨부 raw(case 8) → `bodyText`에 `회의` | `normalizeMail` → `decodeHtmlBytes` → `htmlToBodyText` |
+| R-01 | AT-01 / AC18 (ΔV1) | HTML 첨부 디코딩은 바이트 전체를 읽는다(D-017): 3개 디코딩 경로 — 선언 레이블 · UTF-8 · EUC-KR 폴백 — 각각에서 `4×HTML_CHARSET_SNIFF_BYTES`(4,096)바이트 이상의 ASCII 채움 **뒤** 맨 끝에 둔 표지가 결과에 남는다 | `html-body.test.ts` `decodeHtmlBytes` 3케이스: (g1) `<meta charset="euc-kr">` + 채움 + EUC-KR `결론`(`b0e1b7d0`) (g2) meta 없음 + 채움 + UTF-8 `결론` (g3) meta 없음 + 채움 + EUC-KR `결론`. 각 결과에 `결론` 포함 단언 + 입력 길이 `> 4×HTML_CHARSET_SNIFF_BYTES` 단언 | `normalizeMail` → `decodeHtmlBytes` → `htmlToBodyText` |
 
 ### AC 검증 주의사항
 
@@ -164,6 +168,7 @@ mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
 - AC5는 시간 단언을 하지 않는다(상한 동작만). 시간은 §14.
 - AC16·AC17의 각 케이스는 본문 HTML·첨부 HTML·두 번째 첨부의 표지 단어가 서로 달라야 한다 — 같으면 어느 원천을 썼는지 관측이 같다.
 - AC17 탐지 창 케이스는 meta 위치만 다르고 바이트가 같아야 한다 — 1,024 상수를 바꾸거나 meta 단계를 지우면 둘 중 하나가 달라진다.
+- AC18 표지는 입력의 **마지막 바이트들**이어야 한다 — 디코딩 길이를 어떤 N(< 입력 길이)으로 잘라도 표지가 사라진다. 설계 실측(이번 세션): 세 입력 4,107~4,130바이트, 전체 디코딩은 `결론` 포함, `subarray(0, 2000)` 절단은 세 경로 모두 미포함.
 
 ## 7-A. V / Trace Matrix
 
@@ -210,6 +215,21 @@ mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
 | lint · typecheck | 타입 필드 추가 | `npm run lint` · `npm run typecheck` | 〃 |
 | vitest 전체 | 회귀 | 파일 필터 없는 `./node_modules/.bin/vitest run` | 네이티브 로드 환경 서명은 변경 전 실패 집합과 함께 분리 |
 | message bus | 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건이면 blocking |
+
+### ΔV1 — verify r1 F1 채택 · D-017
+
+- V mode: Delta V. 기준 V = `0302-mail-html-body-fallback:V1 rev.2@d196925`(설계 READY 커밋, `origin/main` 조상 확인). 유효 V = V1 rev.2 + ΔV1.
+- 범위: MD 레벨만. production 코드 변경 0이 기대값 — 현재 `html-body.ts:55·58·60`이 이미 `bytes` 전체를 디코딩한다. 구현은 테스트 입력 추가다.
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| MD-03 | MD | HTML 첨부 디코딩 D-015 + **전체 바이트 D-017** | CHANGED | V1 rev.2 MD-03 |
+| R-01 / AT-01 | R / AT | AC18을 §7 표에 추가하나 증거는 VP-10′(MD)가 든다 — R-01 동작·VP-01 path 불변 | INHERITED | V1 rev.2 R-01·AT-01 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-10′ | MD-03 ↔ UT-03 | REQUIRED | `decodeHtmlBytes(bytes) → 탐지 창 → 경로 선택(선언·utf-8 fatal·euc-kr) → decode(전체 bytes)` | 기존 `html-body.test.ts` `decodeHtmlBytes (0302 AC17)` 8케이스 + 신규 AC18 3케이스(g1~g3) | required — verify r1 인용 변이 V1-04(선언 경로 `decode(bytes.subarray(0, 2000))`)·V1-08(UTF-8 경로 같은 절단)과 신규 V1-09(EUC-KR 경로 같은 절단). 자리는 EP-06′ ⑤·⑥·⑦ 각각 | EP-06 (자리 4) + EP-06′ (자리 3) |
+| VP-01 | R-01 ↔ AT-01 | NOT_REQUIRED | V1 rev.2와 같음 | 기존 V1 좌표(verify r1 §4 PASS) | — | 비영향 근거: ΔV1의 production diff 0 · AC18은 MD-03 좌표로 닫힌다 |
 
 ---
 
@@ -350,6 +370,8 @@ RETR raw → try parseMail ─catch→ skipped++ · warn parse_failed · continu
 | AR-02 / VP-06 | **EP-05** 마이그레이션 | `store/migrate.ts` · `migrations/0002_mail_body_source.sql` | 구현자 | 자리 3: ① 0002 SQL 파일(D-005 문장에 D-016 CHECK `IN ('plain','html','attachment','none')`) ② `MAIL_MIGRATIONS` 항목 ③ `applyMigrationList`의 트랜잭션(`BEGIN`→`exec`→`record`→`COMMIT`, 실패 시 `ROLLBACK` 후 rethrow) | `rg -n "0002\|BEGIN\|COMMIT\|ROLLBACK\|transaction" app/src/main/features/plugins/mail/store/migrate.ts` · `ls app/src/main/features/plugins/mail/migrations` | 비원자면 중단 시 계정 store 영구 불능 |
 | MD-03 / VP-10 | **EP-06** 첨부 디코딩 D-015 | `html-body.ts` `decodeHtmlBytes` | 구현자 | 자리 4: ① 탐지 창 `bytes.subarray(0, 1024)` latin1 ② meta 정규식 2형(`charset=` 속성 · `http-equiv` content 안의 `charset=`) ③ 레이블 디코더 생성 try(실패 → ④) ④ utf-8 fatal → catch → euc-kr. **규칙 칸 분기 6**: (a) meta charset 속성 유효 (b) http-equiv 형 유효 (c) 레이블 무효 → utf-8 경로 (d) meta 없음 + 유효 UTF-8 (e) meta 없음 + UTF-8 무효 → euc-kr (f) meta가 창 밖 → 미검출 | `rg -n "subarray\|1024\|charset\|TextDecoder\|fatal\|euc-kr" app/src/main/features/plugins/mail/html-body.ts` | 디코딩이 틀리면 한글 본문이 깨져 검색 불능 — 출처는 `attachment`로 보여 손실이 숨는다 |
 | MD-03 / VP-10 UT 입력 칸 | — | — | — | AC17 6케이스가 (a)~(f)에 1:1: (a) `<meta charset="euc-kr">`+EUC-KR (b) http-equiv+EUC-KR (c) `<meta charset="bogus">`+UTF-8 (d) meta 없음 UTF-8 (e) meta 없음 EUC-KR (f) `c3 a9` 본문 + `iso-8859-1` meta 창 안/밖 두 입력 | — | — |
+| MD-03 / VP-10′ (ΔV1) | **EP-06′** 디코딩 완전성 D-017 | `html-body.ts` `decodeHtmlBytes` | 구현자 | 자리 3: ⑤ 선언 경로 `decoder.decode(bytes)` ⑥ UTF-8 fatal 경로 `.decode(bytes)` ⑦ EUC-KR 폴백 `.decode(bytes)`. **규칙 칸 분기 1**: (g) 어느 경로든 디코딩 입력은 `bytes` 전체 — 경로마다 입력 1개(g1~g3) | `rg -n "\.decode\(" app/src/main/features/plugins/mail/html-body.ts` → 3줄(55·58·60, 이번 세션) | 절단되면 첨부 본문 뒷부분이 색인되지 않는데 출처는 `attachment`로 보여 손실이 숨는다 |
+| MD-03 / VP-10′ UT 입력 칸 | — | — | — | (g1)→⑤ `<meta charset="euc-kr">` + `<p>`+`f`×4096+`</p>` + EUC-KR `결론` (g2)→⑥ meta 없음 + 같은 채움 + UTF-8 `결론` (g3)→⑦ meta 없음 + 같은 채움 + EUC-KR `결론`. 표지는 입력 맨 끝, 채움에 비-ASCII 0 | — | — |
 | R-03 / VP-03 | 문서·의존성 | 두 문서 | 구현자 | 0 — 운반 edge 없음 | — | — |
 
 **선언 경계** (게이트가 green인 채로 남는 차이 — 판정에 쓰지 않음):
@@ -363,6 +385,8 @@ RETR raw → try parseMail ─catch→ skipped++ · warn parse_failed · continu
 - 파싱 실패 메시지는 retention 경계까지 비-fresh 동기화마다 재RETR된다(D-009) — 비용 상한은 그 메시지 크기 × 동기화 수.
 - 모든 단계의 변환 throw와 진짜 빈 본문은 둘 다 `none`이다(로그 이벤트도 같은 `body_none`).
 - 기존 캐시의 HTML 단독 메일은 `none`으로 남다가 retention으로 사라진다(D-011).
+- (ΔV1) 디코딩은 전체지만 색인은 디코딩 결과의 앞 131,072자뿐이다(D-003) — AC18은 디코딩 단계만 잠그고 변환 상한은 AC5가 잠근다.
+- (ΔV1) `normalize.ts` `asBytes` → `decodeHtmlBytes` 운반 edge는 EP-06′ 자리가 아니다 — ΔV1은 MD-03 내부만 다룬다.
 
 ## 11. 구현 설계
 
@@ -370,7 +394,7 @@ RETR raw → try parseMail ─catch→ skipped++ · warn parse_failed · continu
 |---|---|---|---|
 | `app/src/main/features/plugins/mail/types.ts` | SSOT | `export type MailBodySource = 'plain' \| 'html' \| 'attachment' \| 'none'` · `MailDocument.bodySource: MailBodySource`(필수) · `MailSearchHit.bodySource: MailBodySource`(필수) · `synced:true` 분기에 `readonly noBodyMails: number; readonly skippedMails: number`. `partial?`은 손대지 않는다(D-007) | typecheck |
 | `…/mail/html-body.ts` (신규) | 변환·디코딩 | `export const HTML_BODY_INPUT_LIMIT = 131_072` · `export function htmlToBodyText(html: string): string` — EP-02 자리 7 · `export function decodeHtmlBytes(bytes: Uint8Array): string` — EP-06 자리 4 | 순수 단위 |
-| `…/mail/html-body.test.ts` (신규) | — | AC3·AC5·AC17 + EP-02·EP-06 입력 칸 | unit 풀 |
+| `…/mail/html-body.test.ts` (신규) | — | AC3·AC5·AC17·AC18(ΔV1) + EP-02·EP-06·EP-06′ 입력 칸 | unit 풀 |
 | `…/mail/normalize.ts` | 선택 | 3번째 인자 `deps: { htmlToText?: (html: string) => string } = {}`(본문 HTML·첨부 HTML 두 단계가 같은 변환기를 쓴다) · EP-01. 첨부 바이트는 기존 `asBytes`로 얻는다. `referencedContentIds(email.html)`(38줄)·첨부 필터는 그대로 | 순수 단위 |
 | `…/mail/pure.test.ts` | — | AC1·AC4·AC6·AC16 + EP-01 입력 칸 10개. 기존 `'normalizes sender/recipient…'`에 `bodySource:'plain'` 단언 추가 | unit |
 | `…/mail/mime.test.ts` | — | AC2 raw `it.each`(§8 매트릭스 1~12 중 AC2 행의 형상 + pdf 첨부만) · AC17 EUC-KR HTML 첨부 raw. 기존 케이스 유지 | 이 파일은 store를 import하므로 기존 풀 분류 그대로 |
@@ -428,6 +452,7 @@ AC10 원문 4통(메시지 번호 1~4, 본문 단어 서로 다름):
 ## 14. 성능 / 상한 / 최적화
 
 - 메일 1통 변환 상한: 입력 131,072자 — 실측 0.06~0.19s(이 환경), 기준 PC 배율 3을 적용해도 0.6s 이하. 체인에서 변환은 최대 2회(html 단계 + 첫 HTML 첨부)라 메일당 상한은 그 2배. 첨부 디코딩은 바이트 길이에 선형. 동기화는 메시지마다 RETR 왕복이 있어 변환이 지배하지 않는다.
+- (ΔV1, verify r1 F2) 첨부 디코딩은 128Ki 변환 상한 **앞**에서 첫 `text/html` 첨부 전체를 문자열로 만든다(D-017) — 비용·메모리는 그 첨부 크기에 비례하고 상한이 없다. postal-mime이 첨부 바이트를 이미 메모리에 들고 있어 추가분은 같은 크기 문자열 1개다. 디코딩 입력을 자르는 상한은 D-017과 충돌하므로 이번 범위 밖이다.
 - backfill `UPDATE`: 행 수 × FTS 재삽입. 보존 14일 캐시 규모(보고 259건)에서 무시 가능.
 - 저장 본문 크기: HTML 경로는 변환 출력이 입력 상한보다 작다(실측 출력/입력 ≈ 0.4~0.85). plain 경로는 현행대로 무상한.
 
@@ -477,6 +502,7 @@ AC10 원문 4통(메시지 번호 1~4, 본문 단어 서로 다름):
 - 적대 증거 선택: VP-02(카운터 맞바꿈·증가 제거) · VP-04(catch 범위 확대) · VP-06(트랜잭션 제거) · VP-07(rev.2 — 단계 순서 뒤집기·"첫 번째만" 제거). 각 red 기대 테스트를 Pair registry에 적었다.
 - rev.2 재검: 규칙 칸 ↔ 입력 칸 EP-01 분기 10 ↔ 입력 10, EP-06 분기 6 ↔ 입력 6(창 경계는 입력 2개). VP-01 자리 = EP-01 4 + EP-03 9 = 13. 고친 AC2·AC6·AC8·AC10·AC12와 신규 AC16·AC17이 각각 행동 단언·검증 수단·도달 경로를 가진다.
 - 사람 실기: 없음 — 폐쇄망 실제 메일로 22/259 → 개선 확인은 운영 관측이지 AC가 아니다(§6 범위 밖, verify 뒤 사용자 확인 권장).
+- ΔV1 재검: CHANGED MD-03 ↔ REQUIRED VP-10′ · 규칙 칸 (g) 1분기 ↔ 경로별 입력 3(자리 ⑤⑥⑦ 1:1) · 자리 검색 `.decode(` 3줄 = 목록 3 · 인용 변이 V1-04·V1-08 + 신규 V1-09 자리 지정 · AC18 행동 단언·검증·도달 경로 있음 · VP-01 NOT_REQUIRED 근거 기재. 입력 민감도는 설계 실측(§7 AC 주의사항)으로 확인.
 
 ## [구현자 기입] 설계 리뷰
 
