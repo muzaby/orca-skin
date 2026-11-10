@@ -11,12 +11,12 @@
 | slug | `0302-mail-html-body-fallback` |
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
-| 상태 | verify/RETURN_TO_PLAN (V1 rev.2 + ΔV1, r2 verify) — 다음 Claude 설계 |
+| 상태 | plan/READY (V1 rev.2 + ΔV1 + ΔV2) — 다음 구현 r3 |
 | 구현 주체 | Claude (버그수정 — 비기능 작업, root `AGENTS.md` 구현 주체 분담) |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음. 0237 mail plugin 회귀는 기존 테스트를 REGRESSION gate로 묶는다 |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV1` — verify r1 F1(확장 후보, 창 안) 채택: EP-06에 "전체 바이트 디코딩" 분기 (g) 추가 · F2를 §14에 반영. 이전: `V1 rev.2` — rev.1(`b816296`, 구현·검증 전)에 사용자 결정 D-014~D-016을 반영. 구현 전이라 Delta V를 두지 않고 V1 노드를 직접 갱신했으며 바뀐 노드는 Node registry에 `rev.2` 표시 |
-| 유효 V | `V1 rev.2 + ΔV1` |
+| 이번 V revision | `ΔV2` — verify r2 F3(확장 후보, 창 안, 마지막 창) 채택: EP-06′ (g)를 "디코딩 결과 = 입력 전체의 디코딩"(앞·뒤 누락 없음)으로 좁히고 AC18′ oracle을 정확 일치로 바꾼다. 이전: `ΔV1` — verify r1 F1(확장 후보, 창 안) 채택: EP-06에 "전체 바이트 디코딩" 분기 (g) 추가 · F2를 §14에 반영. 이전: `V1 rev.2` — rev.1(`b816296`, 구현·검증 전)에 사용자 결정 D-014~D-016을 반영. 구현 전이라 Delta V를 두지 않고 V1 노드를 직접 갱신했으며 바뀐 노드는 Node registry에 `rev.2` 표시 |
+| 유효 V | `V1 rev.2 + ΔV1 + ΔV2` |
 | 기준 커밋 | `f49b0ad` (설계 착수 시 HEAD) |
 
 ---
@@ -75,6 +75,8 @@
 - rev.2 `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-014→AC1·AC2·AC4·AC6·AC16, D-015→AC17, D-016→AC8, D-002→AC3, D-003→AC5, D-005(유지 부분)→AC7·AC8, D-006→AC9, D-007→AC10, D-008→AC10, D-009→AC10·AC11, D-010→AC7·AC12, D-011→§6, D-012→AC13. SUPERSEDED D-001·D-004·D-013을 근거로 쓰는 AC 0.
 - ΔV1 (verify r1 F1 채택): D-017 추가, 대체 없음. 제품 동작 변경 0 — 현재 코드의 전체 디코딩을 계약으로 잠근다.
   - `ACTIVE 결정 ↔ AC 대조(ΔV1)`: D-017 ↔ AC18, D-015 ↔ AC17(유지) · D-003 ↔ AC5(유지), 충돌 0.
+- ΔV2 (verify r2 F3 채택): Decision 추가·대체 없음 — D-017 "입력 바이트 전체를 디코딩"이 이미 머리 누락을 금지한다. 바뀐 것은 그 잠금(AC18′·EP-06″)뿐, 제품 동작 변경 0.
+  - `ACTIVE 결정 ↔ AC 대조(ΔV2)`: D-017 ↔ AC18′(AC18 대체), D-015 ↔ AC17(유지), 충돌 0.
 
 ## 4. 요구 비판적 검토
 
@@ -159,7 +161,8 @@ mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
 | R-03 | AT-03 / AC15 | 새 의존성 0, `Pop3ErrorCode` 멤버 불변 | `git diff f49b0ad -- app/package.json app/package-lock.json` 빈 출력 · `git diff f49b0ad -- app/src/main/infra/net/pop3-errors.ts` 빈 출력 | — |
 | R-01 | AT-01 / AC16 | attachment 단계는 첫 번째 `text/html` 첨부만 쓴다: 첫 HTML 첨부가 비면 두 번째가 있어도 `none` · `Text/HTML` 대문자 mimeType도 대상 · `text/plain` 첨부만 있으면 `none` · html 본문이 있으면 HTML 첨부가 있어도 `html`이고 본문에 첨부 텍스트가 없다 · 사용한 첨부는 `attachments`에 남는다 | `pure.test.ts`: `normalizeMail`에 `attachments` 배열을 직접 준 케이스 5개 | `normalizeMail` |
 | R-01 | AT-01 / AC17 | HTML 첨부 바이트 디코딩: `<meta charset="euc-kr">` EUC-KR → 한글 정상 · `<meta http-equiv="Content-Type" content="text/html; charset=euc-kr">` → 정상 · meta 없는 UTF-8 → 정상 · meta 없는 EUC-KR → 정상(UTF-8 fatal 실패 → euc-kr) · `<meta charset="bogus">` + UTF-8 → 정상 · 탐지 창 경계: 바이트 `c3 a9`(UTF-8 `é`)를 담은 본문에 `<meta charset="iso-8859-1">`이 앞 1,024바이트 안이면 `Ã©`, 그 뒤에 있으면 `é` | `html-body.test.ts`: `decodeHtmlBytes(Buffer)` 6케이스, 한글 표지(`회의`)와 ASCII 표지 단언 · `mime.test.ts`: `charset=euc-kr` 파라미터를 가진 base64 HTML 첨부 raw(case 8) → `bodyText`에 `회의` | `normalizeMail` → `decodeHtmlBytes` → `htmlToBodyText` |
-| R-01 | AT-01 / AC18 (ΔV1) | HTML 첨부 디코딩은 바이트 전체를 읽는다(D-017): 3개 디코딩 경로 — 선언 레이블 · UTF-8 · EUC-KR 폴백 — 각각에서 `4×HTML_CHARSET_SNIFF_BYTES`(4,096)바이트 이상의 ASCII 채움 **뒤** 맨 끝에 둔 표지가 결과에 남는다 | `html-body.test.ts` `decodeHtmlBytes` 3케이스: (g1) `<meta charset="euc-kr">` + 채움 + EUC-KR `결론`(`b0e1b7d0`) (g2) meta 없음 + 채움 + UTF-8 `결론` (g3) meta 없음 + 채움 + EUC-KR `결론`. 각 결과에 `결론` 포함 단언 + 입력 길이 `> 4×HTML_CHARSET_SNIFF_BYTES` 단언 | `normalizeMail` → `decodeHtmlBytes` → `htmlToBodyText` |
+| R-01 | AT-01 / AC18 (ΔV1) | HTML 첨부 디코딩은 바이트 전체를 읽는다(D-017): 3개 디코딩 경로 — 선언 레이블 · UTF-8 · EUC-KR 폴백 — 각각에서 `4×HTML_CHARSET_SNIFF_BYTES`(4,096)바이트 이상의 ASCII 채움 **뒤** 맨 끝에 둔 표지가 결과에 남는다 | `html-body.test.ts` `decodeHtmlBytes` 3케이스: (g1) `<meta charset="euc-kr">` + 채움 + EUC-KR `결론`(`b0e1b7d0`) (g2) meta 없음 + 채움 + UTF-8 `결론` (g3) meta 없음 + 채움 + EUC-KR `결론`. 각 결과에 `결론` 포함 단언 + 입력 길이 `> 4×HTML_CHARSET_SNIFF_BYTES` 단언 | `normalizeMail` → `decodeHtmlBytes` → `htmlToBodyText` | ← **ΔV2에서 AC18′로 대체**(검증 수단만)
+| R-01 | AT-01 / AC18′ (ΔV2, AC18 대체) | HTML 첨부 디코딩 결과는 입력 바이트 **전체**의 디코딩과 같다(D-017) — 앞·뒤·중간 어디도 빠지지 않는다. 3개 경로(선언 레이블 · UTF-8 · EUC-KR 폴백) 각각 | `html-body.test.ts` `decodeHtmlBytes (0302 AC18)` g1~g3: 입력 = `선언 + filler + 표지 바이트`(ASCII 채움 `4×HTML_CHARSET_SNIFF_BYTES` 이상) → `expect(decodeHtmlBytes(bytes)).toBe(declaration + filler + '결론')` 정확 일치 + 입력 길이 `> 4×HTML_CHARSET_SNIFF_BYTES` 단언. 포함(`toContain`) 단언은 쓰지 않는다 | `normalizeMail` → `decodeHtmlBytes` → `htmlToBodyText` |
 
 ### AC 검증 주의사항
 
@@ -169,6 +172,7 @@ mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
 - AC16·AC17의 각 케이스는 본문 HTML·첨부 HTML·두 번째 첨부의 표지 단어가 서로 달라야 한다 — 같으면 어느 원천을 썼는지 관측이 같다.
 - AC17 탐지 창 케이스는 meta 위치만 다르고 바이트가 같아야 한다 — 1,024 상수를 바꾸거나 meta 단계를 지우면 둘 중 하나가 달라진다.
 - AC18 표지는 입력의 **마지막 바이트들**이어야 한다 — 디코딩 길이를 어떤 N(< 입력 길이)으로 잘라도 표지가 사라진다. 설계 실측(이번 세션): 세 입력 4,107~4,130바이트, 전체 디코딩은 `결론` 포함, `subarray(0, 2000)` 절단은 세 경로 모두 미포함.
+- (ΔV2) AC18′은 정확 일치다 — 끝 표지 포함만 보면 머리 N≤30바이트 누락이 green이었다(verify r2 V2-A-head1·P-A-head1~30). 설계 실측(이번 세션, 임시 테스트를 `toBe`로 바꿔 실행 후 원복): 경로 3 × {head 1·head 30·tail 1·앞 2,000 절단} 12변이 전부 red, 원 코드 22 passed.
 
 ## 7-A. V / Trace Matrix
 
@@ -232,6 +236,22 @@ mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
 | VP-01 | R-01 ↔ AT-01 | NOT_REQUIRED | V1 rev.2와 같음 | 기존 V1 좌표(verify r1 §4 PASS) | — | 비영향 근거: ΔV1의 production diff 0 · AC18은 MD-03 좌표로 닫힌다 |
 
 ---
+
+### ΔV2 — verify r2 F3 채택
+
+- V mode: Delta V. 기준 V = `V1 rev.2 + ΔV1@873c410c`(브랜치 좌표 — `origin/main` 조상 아님, 검증자가 병합 뒤 교정). 유효 V = V1 rev.2 + ΔV1 + ΔV2.
+- 범위: MD 레벨만, production 변경 0 기대. 구현은 AC18 테스트의 단언을 정확 일치로 바꾸는 것이다.
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| MD-03 | MD | D-015 + D-017 — 디코딩 결과 = 입력 전체의 디코딩 | CHANGED | ΔV1 MD-03 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-10″ (VP-10′ 대체) | MD-03 ↔ UT-03 | REQUIRED | ΔV1 VP-10′와 같음 | 기존 AC17 8케이스 + AC18′ g1~g3(정확 일치) | required — VP-10′ 등록 변이 V1-04·V1-08·V1-09(이관) + verify r2 인용 변이 V2-A-head1(⑤ `subarray(1)`)과 같은 머리 누락 `subarray(1)`을 ⑥⑦에도(V2-B-head1·V2-C-head1). 자리는 EP-06″ ⑤·⑥·⑦ 각각 | EP-06 (4) + EP-06″ (3) |
+| VP-01 | R-01 ↔ AT-01 | NOT_REQUIRED | V1 rev.2와 같음 | 기존 V1 좌표 | — | 비영향: production diff 0 기대 · AC18′은 MD-03 좌표로 닫힌다 |
+
+- VP-10′ → VP-10″ 이관: AC17·AC18(→AC18′)·V1-04·08·09 전부 VP-10″로 간다. 폐기 0.
 
 # Part II — Technical Design
 
@@ -370,8 +390,10 @@ RETR raw → try parseMail ─catch→ skipped++ · warn parse_failed · continu
 | AR-02 / VP-06 | **EP-05** 마이그레이션 | `store/migrate.ts` · `migrations/0002_mail_body_source.sql` | 구현자 | 자리 3: ① 0002 SQL 파일(D-005 문장에 D-016 CHECK `IN ('plain','html','attachment','none')`) ② `MAIL_MIGRATIONS` 항목 ③ `applyMigrationList`의 트랜잭션(`BEGIN`→`exec`→`record`→`COMMIT`, 실패 시 `ROLLBACK` 후 rethrow) | `rg -n "0002\|BEGIN\|COMMIT\|ROLLBACK\|transaction" app/src/main/features/plugins/mail/store/migrate.ts` · `ls app/src/main/features/plugins/mail/migrations` | 비원자면 중단 시 계정 store 영구 불능 |
 | MD-03 / VP-10 | **EP-06** 첨부 디코딩 D-015 | `html-body.ts` `decodeHtmlBytes` | 구현자 | 자리 4: ① 탐지 창 `bytes.subarray(0, 1024)` latin1 ② meta 정규식 2형(`charset=` 속성 · `http-equiv` content 안의 `charset=`) ③ 레이블 디코더 생성 try(실패 → ④) ④ utf-8 fatal → catch → euc-kr. **규칙 칸 분기 6**: (a) meta charset 속성 유효 (b) http-equiv 형 유효 (c) 레이블 무효 → utf-8 경로 (d) meta 없음 + 유효 UTF-8 (e) meta 없음 + UTF-8 무효 → euc-kr (f) meta가 창 밖 → 미검출 | `rg -n "subarray\|1024\|charset\|TextDecoder\|fatal\|euc-kr" app/src/main/features/plugins/mail/html-body.ts` | 디코딩이 틀리면 한글 본문이 깨져 검색 불능 — 출처는 `attachment`로 보여 손실이 숨는다 |
 | MD-03 / VP-10 UT 입력 칸 | — | — | — | AC17 6케이스가 (a)~(f)에 1:1: (a) `<meta charset="euc-kr">`+EUC-KR (b) http-equiv+EUC-KR (c) `<meta charset="bogus">`+UTF-8 (d) meta 없음 UTF-8 (e) meta 없음 EUC-KR (f) `c3 a9` 본문 + `iso-8859-1` meta 창 안/밖 두 입력 | — | — |
-| MD-03 / VP-10′ (ΔV1) | **EP-06′** 디코딩 완전성 D-017 | `html-body.ts` `decodeHtmlBytes` | 구현자 | 자리 3: ⑤ 선언 경로 `decoder.decode(bytes)` ⑥ UTF-8 fatal 경로 `.decode(bytes)` ⑦ EUC-KR 폴백 `.decode(bytes)`. **규칙 칸 분기 1**: (g) 어느 경로든 디코딩 입력은 `bytes` 전체 — 경로마다 입력 1개(g1~g3) | `rg -n "\.decode\(" app/src/main/features/plugins/mail/html-body.ts` → 3줄(55·58·60, 이번 세션) | 절단되면 첨부 본문 뒷부분이 색인되지 않는데 출처는 `attachment`로 보여 손실이 숨는다 |
+| MD-03 / VP-10′ (ΔV1) | **EP-06′** 디코딩 완전성 D-017 | `html-body.ts` `decodeHtmlBytes` | 구현자 | 자리 3: ⑤ 선언 경로 `decoder.decode(bytes)` ⑥ UTF-8 fatal 경로 `.decode(bytes)` ⑦ EUC-KR 폴백 `.decode(bytes)`. **규칙 칸 분기 1**: (g) 어느 경로든 디코딩 입력은 `bytes` 전체 — 경로마다 입력 1개(g1~g3) | `rg -n "\.decode\(" app/src/main/features/plugins/mail/html-body.ts` → 3줄(55·58·60, 이번 세션) | 절단되면 첨부 본문 뒷부분이 색인되지 않는데 출처는 `attachment`로 보여 손실이 숨는다 | ← **ΔV2에서 EP-06″로 대체**
 | MD-03 / VP-10′ UT 입력 칸 | — | — | — | (g1)→⑤ `<meta charset="euc-kr">` + `<p>`+`f`×4096+`</p>` + EUC-KR `결론` (g2)→⑥ meta 없음 + 같은 채움 + UTF-8 `결론` (g3)→⑦ meta 없음 + 같은 채움 + EUC-KR `결론`. 표지는 입력 맨 끝, 채움에 비-ASCII 0 | — | — |
+| MD-03 / VP-10″ (ΔV2, EP-06′ 대체) | **EP-06″** 디코딩 완전성 D-017 | `html-body.ts` `decodeHtmlBytes` | 구현자 | 자리 3(EP-06′와 같음): ⑤ 선언 경로 `decoder.decode(bytes)` ⑥ UTF-8 fatal `.decode(bytes)` ⑦ EUC-KR 폴백 `.decode(bytes)`. **규칙 칸 분기 1**: (g′) 어느 경로든 디코딩 결과는 `bytes` 전체를 그 경로 디코더로 디코딩한 문자열과 같다 — 앞·뒤·중간 누락 없음. 경로마다 입력 1개(g1~g3) | `rg -n "\.decode\(" app/src/main/features/plugins/mail/html-body.ts` → 3줄(55·58·60, 이번 세션 재실행) | 머리가 빠지면 `<meta` 의 `<`가 사라져 `meta charset=…>` 같은 잡음이 본문에 들어가고, 꼬리가 빠지면 본문 뒷부분이 색인되지 않는다 — 출처는 `attachment`로 보여 손실이 숨는다 |
+| MD-03 / VP-10″ UT 입력 칸 | — | — | — | (g1)(g2)(g3) 입력은 EP-06′ 입력 칸과 같고, 관측을 **정확 일치**로 한다: g1 기대 `<meta charset="euc-kr"><p>f×4096</p>결론` · g2·g3 기대 `<p>f×4096</p>결론` | — | — |
 | R-03 / VP-03 | 문서·의존성 | 두 문서 | 구현자 | 0 — 운반 edge 없음 | — | — |
 
 **선언 경계** (게이트가 green인 채로 남는 차이 — 판정에 쓰지 않음):
@@ -503,6 +525,7 @@ AC10 원문 4통(메시지 번호 1~4, 본문 단어 서로 다름):
 - rev.2 재검: 규칙 칸 ↔ 입력 칸 EP-01 분기 10 ↔ 입력 10, EP-06 분기 6 ↔ 입력 6(창 경계는 입력 2개). VP-01 자리 = EP-01 4 + EP-03 9 = 13. 고친 AC2·AC6·AC8·AC10·AC12와 신규 AC16·AC17이 각각 행동 단언·검증 수단·도달 경로를 가진다.
 - 사람 실기: 없음 — 폐쇄망 실제 메일로 22/259 → 개선 확인은 운영 관측이지 AC가 아니다(§6 범위 밖, verify 뒤 사용자 확인 권장).
 - ΔV1 재검: CHANGED MD-03 ↔ REQUIRED VP-10′ · 규칙 칸 (g) 1분기 ↔ 경로별 입력 3(자리 ⑤⑥⑦ 1:1) · 자리 검색 `.decode(` 3줄 = 목록 3 · 인용 변이 V1-04·V1-08 + 신규 V1-09 자리 지정 · AC18 행동 단언·검증·도달 경로 있음 · VP-01 NOT_REQUIRED 근거 기재. 입력 민감도는 설계 실측(§7 AC 주의사항)으로 확인.
+- ΔV2 재검: CHANGED MD-03 ↔ REQUIRED VP-10″ · 규칙 칸 (g′) 1분기 ↔ 경로별 입력 3(자리 ⑤⑥⑦ 1:1, 기대 문자열 명시) · 자리 검색 `.decode(` 3줄 = 목록 3 · 등록 변이 V1-04·08·09 이관 + V2-A/B/C-head1 자리 지정 · AC18′ 행동 단언·검증·도달 경로 있음 · VP-01 NOT_REQUIRED 근거 기재 · 설계 실측 12변이 red. plan 동결: 이 턴이 verify 2회째 뒤 마지막 열거 확장 턴이다.
 
 ## [구현자 기입] 설계 리뷰
 
