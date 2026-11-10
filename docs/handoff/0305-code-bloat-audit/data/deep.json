@@ -1,0 +1,286 @@
+{
+ "reviews": [
+  {
+   "bucket": "renderer/features/chat/harnesses",
+   "read": [
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-34"
+    ],
+    "X4": "none",
+    "X5": "none",
+    "X6": [
+     "C-34"
+    ],
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "파일 211개·평균 83줄로 잘게 나뉘어 있고 하네스별 화면이라 한곳에 몰린 구현은 아니다. 읽은 것은 60-250줄 구간 1파일과 상위 12파일의 훅 수 집계뿐이다 — 나머지 파일은 판정하지 않았다"
+  },
+  {
+   "bucket": "main/adapters/claude",
+   "read": [
+    "app/src/main/adapters/claude/adapter.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": [
+     "C-27"
+    ],
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": [
+     "C-27"
+    ],
+    "X7": "none"
+   },
+   "density": "excess",
+   "basis": "`openChannel` 한 메서드가 595줄이고 지역 변수 약 25개를 옵션 조립·이벤트 생성기·채널 객체가 함께 쓴다. 읽은 구간: 개요 + 572-612 · 783-1088. `map.ts`(1,019줄)는 읽지 않았다"
+  },
+  {
+   "bucket": "main/adapters/opencode",
+   "read": [
+    "app/src/main/adapters/opencode/v1/channel.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-28"
+    ],
+    "X4": "none",
+    "X5": "none",
+    "X6": [
+     "C-28"
+    ],
+    "X7": "none"
+   },
+   "density": "excess",
+   "basis": "`openCodeChannel` 한 클로저가 약 560줄이고 가변 `let` 20개를 연결·전송·펌프가 함께 쓴다. 읽은 구간: 1-374. `session-context.ts`·`server.ts` 는 읽지 않았다"
+  },
+  {
+   "bucket": "renderer/shared",
+   "read": [
+    "app/src/renderer/src/shared/api/ipc.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": [
+     "C-33"
+    ],
+    "X6": "none",
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "UI 부품 83파일이 대부분이고 가장 큰 파일이 380줄이다. 읽은 구간: `api/ipc.ts` 1-60 · 150-200. UI 부품(`ui/`·`theme/`)은 읽지 않았다"
+  },
+  {
+   "bucket": "shared/(root)",
+   "read": [
+    "app/src/shared/ipc.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": [
+     "C-31"
+    ],
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "계약 스키마와 타입 선언이다(`ipc.ts` 1,974줄 · `protocol.ts` 1,069줄). 읽은 구간: `ipc.ts` 440-760 의 이벤트 변형 목록. 필드 단위 미사용은 r1 의 스키마 필드 스캔이 봤다"
+  },
+  {
+   "bucket": "renderer/features/chat/lib",
+   "read": [
+    "app/src/renderer/src/features/chat/lib/parts.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-34"
+    ],
+    "X4": "none",
+    "X5": "none",
+    "X6": [
+     "C-34"
+    ],
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "작은 순수 파생 함수 묶음이다(파일 55개, 최대 694줄) — 기존 진단이 유지 경계로 둔 형태. 읽은 구간: `parts.ts` 개요 + 304-400, `canonicalBackground.ts`·`taskBoard.ts` 는 함수 목록만"
+  },
+  {
+   "bucket": "main/features/plugins",
+   "read": [
+    "app/src/main/features/plugins/confluence/connector.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "외부 서비스(Confluence·Jira·메일) 연동이고 상한·재시도가 한 곳씩이다(`connector.ts`:439-458). 읽은 방식: 개요 + 176-496 을 제어 흐름 키워드로 걸러 봄 — 과잉을 판정할 만큼 읽지 못했다"
+  },
+  {
+   "bucket": "main/features/auth",
+   "read": [
+    "app/src/main/features/auth/login.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": [
+     "C-30"
+    ],
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "인증 방식 3갈래가 공통 정착(`settleGrant`:610 — 확인 → 금고 쓰기 → 저장 순서)을 쓰고 메서드가 최대 110줄이다. 읽은 구간: 개요 + 140-262 · 461-500 · 610-676"
+  },
+  {
+   "bucket": "main/app/(root)",
+   "read": [
+    "app/src/main/app/runtime-model-startup.ts",
+    "app/src/main/app/bootstrap.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": [
+     "C-29"
+    ],
+    "X6": "none",
+    "X7": "none"
+   },
+   "density": "necessary",
+   "basis": "`bootstrap.ts` 는 조립 루트다(기존 진단의 유지 경계). `start()` 475줄은 부팅 15단계의 나열이다. 읽은 구간: `runtime-model-startup.ts` 전부, `bootstrap.ts` 446-921 을 30자 미만 줄을 빼고 훑음"
+  },
+  {
+   "bucket": "main/features/chat",
+   "read": [
+    "app/src/main/features/chat/pending-message-queue.ts",
+    "app/src/main/features/chat/turn-coordinator.ts"
+   ],
+   "verdicts": {
+    "X1": [
+     "C-25"
+    ],
+    "X2": [
+     "C-14"
+    ],
+    "X3": [
+     "C-14",
+     "C-25"
+    ],
+    "X4": [
+     "C-26"
+    ],
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   },
+   "density": "excess",
+   "basis": "대기열이 public 메서드 28개·상태 4개·확정 신호 2종이고, `TurnCoordinator.run` 한 메서드의 이벤트 루프가 250줄에 종류별 분기 20여 개다. 읽은 구간: 대기열 전부, 조정기 1-574"
+  },
+  {
+   "bucket": "main/app/chat-turn",
+   "read": [
+    "app/src/main/app/chat-turn/post-turn.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-15"
+    ],
+    "X4": [
+     "C-12",
+     "C-13"
+    ],
+    "X5": [
+     "C-16"
+    ],
+    "X6": [
+     "C-12",
+     "C-15"
+    ],
+    "X7": "none"
+   },
+   "density": "excess",
+   "basis": "`handleChatSend` 한 함수가 약 740줄·12단계이고 턴-후 루프 하나가 재개·정착·listen·flush 를 함께 든다. 읽은 구간: `post-turn.ts` 전부, `send.ts` 는 단계 개요만(r1 이 본문을 읽었다)"
+  },
+  {
+   "bucket": "renderer/features/chat/store",
+   "read": [
+    "app/src/renderer/src/features/chat/store/chatStore.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": [
+     "C-19",
+     "C-21",
+     "C-22"
+    ],
+    "X3": [
+     "C-19",
+     "C-20",
+     "C-22"
+    ],
+    "X4": "none",
+    "X5": [
+     "C-23"
+    ],
+    "X6": "none",
+    "X7": [
+     "C-21"
+    ]
+   },
+   "density": "excess",
+   "basis": "`chatStore.ts` 한 파일 2,482줄에 이벤트 라우팅·전송·세션 적재·권한 동기화·초안 관리가 함께 있고 store 밖 모듈 전역 상태가 8개다. 파일 전부 읽음"
+  },
+  {
+   "bucket": "renderer/features/chat/reducer",
+   "read": [
+    "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-24"
+    ],
+    "X4": "none",
+    "X5": "none",
+    "X6": [
+     "C-24"
+    ],
+    "X7": "none"
+   },
+   "density": "excess",
+   "basis": "`chatReducer` 한 함수 1,295줄이 액션 60종을 처리하고 상태 객체가 약 95필드다. 읽은 구간: 상태·액션 정의 270-770, `LOAD_SESSION` 1444-1605, case 목록"
+  }
+ ]
+}

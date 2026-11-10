@@ -12,8 +12,10 @@
 | P4 | 렌즈별 후보 | 완료 |
 | P5 | 경로 추적 5건 + 전 시나리오 검토 | 완료 |
 | P6 | 분할안 · 승인 목록 | 완료 |
-| P7 | 분량 상위 버킷 심화 검토 (ΔV1) | 진행 중 |
-| P8 | 분해안 · 분할안 갱신 (ΔV1) | 대기 |
+| P7 | 분량 상위 버킷 심화 검토 (ΔV1) | 완료 |
+| P8 | 분해안 · 분할안 갱신 (ΔV1) | 완료 |
+
+<!-- audit:complete -->
 
 ## 0. 요약
 
@@ -22,6 +24,14 @@
 - **가장 큰 단일 절감은 0225 이관 코드다** — prod 369줄 · test 465줄. 0292가 유지로 결정한 항목이라 승인이 필요하다(C-10·C-11).
 - **분량의 대부분은 밀도 높은 기능 구현이다.** 전송 경로 한 곳에서 같은 세션 행을 6번 조회하고 같은 검증을 3중으로 한다(C-12). 응답 중 입력 대기는 public 메서드 26개짜리 프로토콜이다(C-14). 이런 항목은 줄 수 추정이 아니라 설계 검토가 필요해 절감을 `미추정`으로 뒀다.
 - **테스트가 prod 의 1.5배다**(§1 합계 행). 감사는 테스트를 독립 대상으로 삼지 않았다(plan D-011) — 테스트는 제품 코드의 분기·상태 수를 따라 줄어든다.
+
+### 심화 검토에서 더 나온 것 (ΔV1)
+
+- **과도하다고 판정한 버킷은 6개다** — `chat/store` · `chat/reducer` · `main/features/chat` · `main/app/chat-turn` · `adapters/claude` · `adapters/opencode`(§7). 공통된 형태는 한 함수·한 파일에 책임이 몰린 것이다: `chatReducer` 1,295줄, `handleChatSend` 약 740줄, `openChannel` 595줄, `openCodeChannel` 약 560줄, `chatStore.ts` 2,482줄.
+- **같은 사실을 두 번 드는 상태가 가장 많이 나왔다.** `listening` 은 `activityTransport` 의 파생이고(C-24), 대기열 배치의 `uuid` 와 `attemptId` 는 늘 같은 값이며(C-25), 백그라운드 작업은 정본 모델과 구 모델이 함께 산다(C-34).
+- **응답 중 입력 대기는 main 과 renderer 양쪽에 프로토콜이 있다.** 예약 여부를 두 곳이 각자 판정한다(C-14 · C-19) — 한 묶음(H-D)으로 설계해야 한다.
+- **분해안은 §8 에 있다.** `restructure` 후보 23건 전부에 단계를 달았다. 첫 단계는 대부분 동작을 바꾸지 않는 추출·삭제다.
+- 필요하다고 판정한 버킷 7개는 조립 루트 · 작은 순수 함수 묶음 · 외부 연동 · 계약 선언이다. 다만 `chat/harnesses`(prod 최대 버킷)와 `plugins` 는 읽은 양이 적어 "과잉 없음"이 아니라 "판정할 만큼 읽지 못함"에 가깝다(§7 근거 칸).
 
 ### 재현 방법
 
@@ -35,7 +45,9 @@
 
 ### 한계
 
-- 과잉 범주 판정(§6)은 진입 핸들러와 `read` 칸의 파일까지 읽은 결과다. renderer 쪽 상태 관리(`chatStore.ts` 2,482줄 · `chatReducer.ts` 2,218줄)와 어댑터 내부(`adapters/claude/adapter.ts` 1,140줄 · `map.ts` 1,019줄)는 진입 심볼만 확인했고 내부 과잉은 판정하지 않았다 — 분량 상위 버킷이므로 후속 감사 대상이다.
+- 과잉 범주 판정(§6)은 진입 핸들러와 `read` 칸의 파일까지 읽은 결과다. r1 이 진입 심볼만 본 `chatStore.ts` · `chatReducer.ts` · 어댑터 내부는 심화 검토(§7)가 읽었다.
+- 심화 검토의 `읽은 파일 줄 수`는 그 파일의 전체 줄 수라 **상한**이다. 일부 구간만 읽은 파일은 근거 칸에 구간을 적었다. 전부 읽은 파일은 `chatStore.ts` · `pending-message-queue.ts` · `post-turn.ts` · `runtime-model-startup.ts` 넷이다.
+- 심화에서도 읽지 않은 큰 파일: `adapters/claude/map.ts`(1,019줄) · `adapters/opencode/v1/session-context.ts`(567줄) · `features/auth/store.ts`(517줄) · `chat/harnesses` 의 `FileDiffSection.tsx`(915줄) · `ComposerInputController.tsx`(516줄) · `chatReducer` 본문의 대부분 case.
 - `saving` 이 0인 후보는 절감이 없다는 뜻이 아니라 추정하지 않았다는 뜻이다(`basis` 칸).
 
 ## 1. 분량 지도
@@ -203,11 +215,11 @@
 <!-- gen:candidates -->
 | 렌즈 | 방법 | 분모 | 후보 수 |
 |---|---|---|---|
-| L1 | 채널: preload 메서드 → `shared/api/ipc.ts` 래퍼 → renderer 호출부(`rg -U`) · feature: import 처 · export: 식별자 일치 스캔 · 이벤트·파트: 생산자 `rg` · 설정 키·스키마 필드: 읽는 곳 `rg` | 채널 117 · feature 14 · prod export 중 외부 prod 참조 0인 646 · 이벤트 변형 31 · 설정 키 24 | 11 |
-| L4 | 추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정 | 추적 단계 46 · 시나리오 31 | 6 |
-| L5 | `adapters/{claude,opencode}`·`chat/harnesses/{claude,opencode}` 의 같은 이름 파일 쌍에서 12자 초과 비주석 줄의 겹침 측정(35% 이상 · 12줄 이상) | 같은 이름 파일 27쌍 | 1 |
+| L1 | 채널: preload 메서드 → `shared/api/ipc.ts` 래퍼 → renderer 호출부(`rg -U`) · feature: import 처 · export: 식별자 일치 스캔 · 이벤트·파트: 생산자 `rg` · 설정 키·스키마 필드: 읽는 곳 `rg` · (ΔV1) 심화 검토 중 생산자 없는 이벤트 변형 1건 추가 | 채널 117 · feature 14 · prod export 중 외부 prod 참조 0인 646 · 이벤트 변형 31 · 설정 키 24 | 12 |
+| L4 | 추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정 · (ΔV1) prod 3,000줄 이상 버킷 12개와 `chat/reducer` 의 내부 파일을 읽는 심화 검토 | 추적 단계 46 · 시나리오 31 · 심화 버킷 13 | 21 |
+| L5 | `adapters/{claude,opencode}`·`chat/harnesses/{claude,opencode}` 의 같은 이름 파일 쌍에서 12자 초과 비주석 줄의 겹침 측정(35% 이상 · 12줄 이상) · (ΔV1) 이름이 다른 같은 역할 쌍은 `claude/composer`↔`opencode/composer` 목록 대조로 1쌍 확인 | 같은 이름 파일 27쌍 | 2 |
 
-후보 18건 · 예상 절감 합 prod 809줄 · test 465줄
+후보 35건 · 예상 절감 합 prod 985줄 · test 465줄
 
 | ID | 후보 | 버킷 | 렌즈·범주 | 유형 | 시나리오 | 출처 | 보존할 개념 요구 | 근거 | 절감 prod/test | 위험 |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -229,6 +241,23 @@
 | C-16 | 개발용 mock 어댑터 분기가 전송 경로에 있음 | main/app/chat-turn | L4 X5 | restructure | S-04 S-31 | 0003·0134·0204·0211 | 개발 빌드의 mock 재생(S-31)은 그대로다 | `send.ts:71,102` 가 매 전송마다 `ctx.mockAdapter && ctx.debugMock.enabled` 를 2회 판정 · `bootstrap.ts:890` 은 DEV 에서만 `MockAdapter` 생성 · `mock-scenarios.ts` 828줄은 정적 import | 4/0 — 어댑터 선택을 registry 한 곳으로 옮길 때의 추정 | 낮음 |
 | C-17 | 컨텍스트 파일 권한 가드 중복 | main/app/handlers | L4 X4 X6 | restructure | S-17 | 미상(rg -o '0[0-9]{3}' app/src/main/app/handlers/files.ts) | 허용되지 않은 경로는 열리지 않는다 | `handlers/files.ts` `recordedContextDirectories` 와 `recordedAttachmentFiles` 가 같은 세션 조회 + `sessionContextPolicy(…).allowContextFileOpen` 가드를 각각 가진다 | 7/0 — 가드 1벌 줄 수 | 낮음 |
 | C-18 | Claude·OpenCode `AssistantSegment` 중복 | renderer/features/chat/harnesses | L5 | restructure | S-04 S-05 | 미상(rg -o '0[0-9]{3}' …/transcript/AssistantSegment.tsx) | 두 하네스의 응답 본문이 지금과 같이 보인다 | 같은 이름 파일 27쌍의 줄 겹침 측정 — 35% 이상 겹치는 쌍은 `transcript/AssistantSegment.tsx` 1쌍(22줄, 71%) | 20/0 — 겹치는 줄 수 | 낮음 — 기존 진단이 "이름이 비슷하다고 합치지 않는다"를 경계로 뒀다 |
+| C-19 | 응답 중 입력 대기의 renderer 쪽 거울 프로토콜 | renderer/features/chat/store | L4 X2 X3 | restructure | S-07 S-06 | 0067·0068·0151·0153 | 응답 중 보낸 입력이 대기 버블로 보이고, 취소하면 입력창으로 돌아오며, 전달되면 정식 버블이 된다 | `chatStore.ts`: 예약 여부를 renderer 가 `shouldQueueAsPending`(:1126)로 판정하고 main 도 판정한다(:1010 주석) · 이벤트 4종 `message.queued`:802 `committed`:835 `submitted`:861 `cancelled`:875 를 낙관 `pendingSteer`·`sendNowRequested`:1335·`draftRestore`:898 와 맞춘다 | 0/0 — 미추정 — C-14(main 대기열)와 한 프로토콜의 양 끝이라 함께 설계해야 한다 | 높음 — 낙관 표시를 빼면 대기 버블이 왕복 시간만큼 늦게 뜬다 |
+| C-20 | store 옆 모듈 전역 가변 상태와 전 세션 순회 패치 | renderer/features/chat/store | L4 X3 | restructure | S-01 S-04 S-15 | 0228 | 새 대화가 마지막에 고른 종류·하네스·작업 폴더로 열린다 | `chatStore.ts` 모듈 전역 가변 8개 :180 :181 :182 :191 :192 :259 :343 :345 · 전 세션을 도는 패치 3벌 `applyHarnessAvailability`:195 `seedLandingBackend`:227 `seedLandingAgentKind`:282(술어가 서로 다르다) · draft 작업 폴더 플래그 5개(`cwdCache`·`cwdSelected`:128·`projectCwdInitialized`:129·`pendingProjectId`·`draftGeneration`) | 0/0 — 미추정 — 상태를 store 안 한 곳으로 모을 때 줄 수보다 분기 수가 준다 | 중간 — 부팅 시드 순서(설정 조회가 늦게 끝나는 경우)가 바뀔 수 있다 |
+| C-21 | 세션 열기의 2단 조회와 이중 rAF | renderer/features/chat/store | L4 X2 X7 | restructure | S-11 | 미상(rg -n "0[0-9]{3}" app/src/renderer/src/features/chat/store/chatStore.ts \| sed -n "/168[0-9]\\|17[0-9][0-9]/p" → 0) | 세션을 열면 저장된 대화가 뜨고, 그 사이 도착한 응답이 덮어써지지 않는다 | `chatStore.ts` `loadSession`:1686 — `sessionApi.load`:1727 뒤 `requestAnimationFrame` 2중:1741 을 거쳐 `sessionApi.refresh`:1775 를 한 번 더 부른다 · 요청 유효성을 `sessionLoads` Map + `isCurrent` 5조건:1718 + `liveChanged`:1005 로 본다 | 0/0 — 미추정 — 2차 조회가 화면에 주는 차이(네이티브 기록 동기화)를 후속 plan 에서 실측해야 한다 | 중간 — 2차 조회가 외부에서 이어 쓴 대화를 반영하는 유일한 경로일 수 있다 |
+| C-22 | 권한 모드 변경의 순번 2개와 8조건 유효성 검사 | renderer/features/chat/store | L4 X2 X3 | restructure | S-08 | 미상(rg -n "0[0-9]{3}" app/src/renderer/src/features/chat/store/chatStore.ts \| sed -n "/:3[4-7][0-9]:\\|:18[5-9][0-9]:/p" → 0) | 권한 모드를 바꾸면 바로 반영되고, 적용에 실패하면 이전 모드로 돌아가며 오류 표시가 뜬다 | `chatStore.ts` `permissionUpdates{request,settlement}`:343 · `dispatchTo` 가 액션 타입 문자열 6개로 순번을 올린다:347-372 · `synchronizePermissionMode`:1852 의 `current()` 8조건:1866 과 롤백 `fail()`:1879 | 0/0 — 미추정 — 순번을 세션 상태의 요청 id 하나로 줄일 수 있는지 후속 plan 에서 판정 | 중간 — 빠르게 연달아 바꿀 때의 마지막 값 우선이 깨질 수 있다 |
+| C-23 | `chatActions` 의 한 줄 전달 래퍼 | renderer/features/chat/store | L4 X5 | restructure | S-04 S-10 S-18 | 미상(rg -n "0[0-9]{3}" app/src/renderer/src/features/chat/store/chatStore.ts \| sed -n "/:20[5-9][0-9]:\\|:21[0-9][0-9]:/p" → 2136·2139 는 0211 의 개별 액션 주석뿐) | 같은 버튼이 같은 동작을 한다 | `chatStore.ts` `chatActions`:2052-2210 — 항목 약 85개 중 `dispatchActive({type:…})` 만 하는 한 줄 전달이 약 45개 · `dropSession` 래퍼 2개 `invalidateSessionCache`:1802 `handleSessionDeleted`:1808 | 90/0 — 한 줄 전달 45개 × 평균 2줄. 호출부가 액션 객체를 직접 보내는 형태로 바꿀 때 | 낮음 — 호출부 수가 많아 변경 파일이 넓다 |
+| C-24 | 세션 상태 한 객체에 95필드 · 활동 상태의 파생 중복 | renderer/features/chat/reducer | L4 X3 X6 | restructure | S-04 S-06 S-11 S-18 | 0143·0167·0211 | 응답 중·대기 중·유휴 표시와 중단 버튼이 지금과 같은 때에 바뀐다 | `chatReducer.ts` `ChatState`:270-489 약 95필드(대화 + git 리뷰 12 + 우측 패널 4 + 작업 id 배열 5) · `listening`:332 은 `activityTransport`:333 의 파생(:1256 :1572), `inflight` 도 적재 때 `activity.foreground` 에서 파생(:1571) · 활동 8필드를 3곳에서 필드별 복사 :1245 :1545 :1560 · 소비 술어 2개 `chatStore.ts`:2291 :2296 · `chatReducer`:848 한 함수 1,295줄 | 20/0 — `listening` 필드와 필드별 복사 2벌 제거분만 추정. 상태 분리는 줄 수가 아니라 한 함수의 크기를 줄인다 | 높음 — 모든 화면이 이 상태를 읽는다 |
+| C-25 | 대기열 배치의 이중 식별자와 쓰이지 않는 전이 메서드 | main/features/chat | L4 X1 X3 | restructure | S-07 | 0151·0154·0166 | 대기 입력이 순서대로 전달되고 전달된 것만 대화에 남는다 | `pending-message-queue.ts`: `uuid` 와 `attemptId` 가 항상 같은 값(:57-58 :481-482), 폴백 `attemptId ?? uuid` 5곳(`send.ts`:648 :774 · `turn-request.ts`:90 :114 · :541) · 제품 호출 0인 메서드 `commit`:291 `isFrozen`:158(`rg "\.commit\(\|\.isFrozen\b" app/src/main -g "!*.test.*"` 에 큐 호출 0) · `toPublic`:71 필드별 재복사 | 30/0 — `commit` 12줄 + `isFrozen` 3줄 + 폴백·재복사 정리 추정 | 낮음 — 식별자 통합은 타입 변경이라 컴파일러가 누락을 잡는다 |
+| C-26 | 턴 조정기의 선택적 의존성 호출 | main/features/chat | L4 X4 | restructure | S-04 S-05 | 미상(rg -n "0[0-9]{3}" app/src/main/features/chat/turn-coordinator.ts \| rg "\?\." → 0) | 같은 화면·같은 동작. 테스트는 production 조립과 같은 의존성으로 들어간다 | `turn-coordinator.ts` `?.(` 13곳(`rg -c "\?\.\(" …` → 13): `pendingMessages?`:95 `hasCanonical?.`:140 `getState?.`:141 `commitUserMessage?.`:186 `finalizeTurn?.`:292 `markAborted?.`:308 `confirmRuntimeToolSession?.`:476 — production 조립(`bootstrap.ts`:1128)은 전부 주입한다 | 5/0 — 분기 13개가 줄고 줄 수는 거의 같다 | 낮음 — C-13 과 같은 형태. 테스트 조립을 함께 고쳐야 한다 |
+| C-27 | Claude 채널의 스트림 밖 신호 5종 개별 큐 | main/adapters/claude | L4 X2 X6 | restructure | S-04 S-07 S-10 | 0064·0211 | 압축 요약·턴 종료·예약·산출 캡처가 응답 안에서 지금과 같은 순서로 보인다 | `adapter.ts` `openChannel`:493 한 메서드 595줄 · 신호마다 큐와 drain 이 따로: `compactSummaries`:584/:802 `turnEndSignals`:589/:816 `scheduleSnapshots`:590/:823 `capturedOutputs`:591/:949 `receipts`:572/:937 · drain 조합이 3곳에서 다르다 — 정상 :936-965, 종료 :968-973, 오류 :976-980(요약이 빠진다) · 배치를 :1019 에서 한 번 더 감싸 전 이벤트를 map | 0/0 — 미추정 — 신호 큐를 하나로 합칠 때 줄 수보다 drain 조합 3벌이 1벌이 된다 | 높음 — 이벤트 순서가 대화 저장 순서를 정한다 |
+| C-28 | OpenCode 채널 단일 클로저의 가변 상태 | main/adapters/opencode | L4 X3 X6 | restructure | S-05 | 미상(rg -o "\b0[0-9]{3}\b" app/src/main/adapters/opencode/v1/channel.ts → 0) | OpenCode 로 보낸 메시지가 전송되고, 중단하면 멈춘다 | `v1/channel.ts` `openCodeChannel`:22 한 함수 약 560줄 · 가변 `let` 20개 :34-81 · `AbortController` 3개 :32 :34 :35 · 종료 플래그 4개 :71-74 · 전송마다 agents·models 재조회로 검증 :179-192 · 전송 경로 2벌(command :230-271 / promptAsync :273-296)이 prelude·복구 문맥 조립을 각자 한다 | 0/0 — 미추정 — 전송 경로 2벌의 공통 조립을 합치면 약 20줄, 나머지는 구조 변경 | 중간 — 슬래시 명령 경로는 실기 확인이 필요하다 |
+| C-29 | 런타임 모델 배선의 호출 1곳짜리 팩토리 | main/app/(root) | L4 X5 | restructure | S-01 S-02 S-23 | 0188·0202 | 자격증명이 바뀌면 모델 목록이 다시 맞춰진다 | `runtime-model-startup.ts`(142줄) export 팩토리 7개 전부 호출 1곳(`bootstrap.ts`:565 :570 :589 :675 :837 :841 :830) · 그중 3개는 한 줄 클로저 `createRuntimeModelSnapshotReader`:64 `…ReconcileVerified`:72 `…ReconcileSnapshot`:83 | 25/0 — 한 줄 클로저 3개와 그 타입 선언 줄 수 | 중간 — 0202 가 배선 정의를 한 벌로 유지하려고 뽑은 자리다. 합치더라도 정의는 한 곳에 남겨야 한다 |
+| C-30 | 로그인 서비스의 선택적 콜백 | main/features/auth | L4 X4 | restructure | S-02 | 미상(rg -n "0[0-9]{3}" app/src/main/features/auth/login.ts \| rg "onStep\|onSnapshot" → 0) | 로그인 단계와 연결 상태가 화면에 바로 반영된다 | `login.ts` `deps.onSnapshot?.(` 6곳 · `deps.onStep?.(` 3곳(`rg -o "this\.deps\.[a-zA-Z]+\?\.\(" …`) — production(`runtime.ts`:209-210)은 둘 다 항상 주입한다 | 0/0 — 분기 9개가 줄고 줄 수는 같다 | 낮음 |
+| C-31 | main 내부 신호가 renderer 이벤트 타입에 섞여 있다 | shared/(root) | L4 X2 | restructure | S-04 S-10 | 0231·0239 | renderer 가 받는 이벤트와 화면 반응은 그대로다 | `shared/ipc.ts` `NormalizedEvent` 25변형 중 `session.schedules`:579 는 `turn-coordinator.ts`:353 이 버려 renderer 에 오지 않는데 no-op case 가 2곳(`chatStore.ts`:857 · `chatReducer.ts`:944) · `input.echo`:569 `input.received`:571 `tool.call.retracted`:683 은 renderer 참조 0 | 0/0 — 타입을 둘로 가르는 변경이라 이 버킷 줄 수는 같다. renderer no-op case 는 다른 버킷 | 낮음 — 타입 변경이라 컴파일러가 누락을 잡는다 |
+| C-32 | 생산자 없는 이벤트 변형 `subagent.backgroundSet` | shared/(root) | L1 | remove | 없음 | 0212·0231 | 없음 — 이 이벤트를 내는 코드가 없다 | `rg -n "subagent\.backgroundSet" app/src -g "!*.test.*"` → 2: 타입 `shared/ipc.ts`:739 와 renderer no-op `chatStore.ts`:982 뿐 · 0231 plan:341 이 "생산·coordinator 소비를 제거한다"로 적었다 | 6/0 — 타입 선언 줄 수. renderer case 는 다른 버킷 | 낮음 |
+| C-33 | `window.orca` 전달 래퍼 계층 | renderer/shared | L4 X5 | restructure | S-01 S-04 | 미상(rg -n "PR #29\|api/ipc" docs/arch/frontend/state.md → :121 "PR #29 에서 도입"(handoff 번호 없음)) | 모든 화면의 main 호출이 그대로 동작한다 | `renderer/src/shared/api/ipc.ts` 380줄 — `window.orca.` 를 그대로 부르는 한 줄 래퍼 115개(`grep -c "window\.orca\." …` → 115) · 채널 하나가 스키마 → `preload/index.ts` 메서드 → 이 래퍼 → (chat 은) `chatActions` 를 거친다 | 0/0 — 미추정 — 래퍼를 없애면 최대 380줄이지만 테스트 37파일이 이 모듈을 mock 한다 | 높음 — `docs/arch/frontend/state.md`:120-121 · `ux-domains.md`:125 의 채택 규칙(직접 호출 금지)을 바꾼다 |
+| C-34 | 백그라운드 작업 상태의 이중 모델 | renderer/features/chat/lib | L4 X3 X6 | restructure | S-10 S-11 | 0136·0143·0231 | 실행 중·끝난 백그라운드 작업이 목록에 보이고 멈출 수 있다. 0231 이전에 기록된 세션의 작업 표시는 승인 여부에 달렸다 | 정본 모델(main `BackgroundSessionState`)과 구 모델(메시지 파트 파생 `parts.ts` `subagentTasksFromMessages`:304 + `ChatState` id 배열 5개)이 함께 산다 · 전환 스위치 `hasCanonical`: main `settle.ts`:176 `background-controller.ts`:81 `chat-turn/index.ts`:78 :93 `turn-coordinator.ts`:140 · renderer `SubAgentTileContent.tsx`:97 :181(구 모델 계산 :87 :171 이 스위치보다 먼저 돈다) | 0/0 — 미추정 — 구 모델 표시 경로(`SubAgentTileContent.tsx` 385줄의 목록·상세)와 id 배열 5개가 대상. 유지 범위는 승인 뒤 정한다 | 높음 — 0231 plan:360 :404 가 구 모델 표시를 "과거 표시 fallback"으로 남기기로 했다 |
+| C-35 | 질문 응답 UI 의 상태 로직 2벌 | renderer/features/chat/harnesses | L5 | restructure | S-08 | 미상(rg -o "\b0[0-9]{3}\b" app/src/renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.tsx → 0) | 두 하네스에서 질문에 고르기·직접 입력·건너뛰기가 된다 | `claude/composer/QuestionCard.tsx`(325줄) ↔ `opencode/composer/QuestionDock.tsx`(265줄) — 같은 props(`ask`·`onSubmit`·`onSkip`)와 같은 `picks` 상태. 이름이 달라 같은 이름 쌍 비교에 잡히지 않았다. 공통 줄 13 | 0/0 — 미추정 — 선택 상태를 공용 훅으로 뽑을 때. 겉모습은 하네스별로 남는다 | 낮음 |
 <!-- /gen:candidates -->
 
 ## 4. 승인 목록
@@ -249,6 +278,9 @@
 | C-09 | 읽는 곳·쓰는 곳 없는 설정 키 `projectMcpChoices` | 제거 | 없음 | 3/0 |
 | C-10 | 0225 이관 코드(DB·git 단계) | 제거 · 채택 결정 변경 | 이미 이관을 마친 설치본은 그대로 동작한다. 0225 이전 데이터 폴더에서 직접 올라오는 사용자는 이관을 받지 못한다 | 163/250 |
 | C-11 | 0225 이관 코드(파일시스템 단계) | 제거 · 채택 결정 변경 | C-10 과 같다 | 206/215 |
+| C-32 | 생산자 없는 이벤트 변형 `subagent.backgroundSet` | 제거 | 없음 — 이 이벤트를 내는 코드가 없다 | 6/0 |
+| C-33 | `window.orca` 전달 래퍼 계층 | 채택 결정 변경 | 모든 화면의 main 호출이 그대로 동작한다 | 0/0 |
+| C-34 | 백그라운드 작업 상태의 이중 모델 | 채택 결정 변경 | 실행 중·끝난 백그라운드 작업이 목록에 보이고 멈출 수 있다. 0231 이전에 기록된 세션의 작업 표시는 승인 여부에 달렸다 | 0/0 |
 <!-- /gen:approvals -->
 
 ## 5. 경로 추적
@@ -368,10 +400,24 @@
 
 ## 7. 분량 상위 버킷 심화 검토
 
-prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 읽은 결과다. `읽은 줄`은 `읽은 파일` 의 줄 수 합이고, 그 밖의 파일은 판정하지 않았다(plan 선언 경계 7).
+prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 읽은 결과다. `읽은 파일 줄 수`는 `읽은 파일` 의 전체 줄 수 합이라 상한이고, 실제로 읽은 구간은 근거 칸에 있다. 그 밖의 파일은 판정하지 않았다(plan 선언 경계 7). `밀도` 는 한 단위에 몰린 구현이 그 조작에 필요한 것보다 큰지에 대한 감사자 판단이다(선언 경계 9).
 
 <!-- gen:deep -->
-(대기 — 이 단계의 data 파일이 아직 없다)
+| 버킷 | X1 | X2 | X3 | X4 | X5 | X6 | X7 | 밀도 | 읽은 파일 줄 수(상한) / prod 줄 | 판정 근거 | 읽은 파일 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| renderer/features/chat/harnesses | — | — | C-34 | — | — | C-34 | — | 필요 | 385 / 17599 (2%) | 파일 211개·평균 83줄로 잘게 나뉘어 있고 하네스별 화면이라 한곳에 몰린 구현은 아니다. 읽은 것은 60-250줄 구간 1파일과 상위 12파일의 훅 수 집계뿐이다 — 나머지 파일은 판정하지 않았다 | SubAgentTileContent.tsx |
+| main/adapters/claude | — | C-27 | — | — | — | C-27 | — | 과도 | 1140 / 6588 (17%) | `openChannel` 한 메서드가 595줄이고 지역 변수 약 25개를 옵션 조립·이벤트 생성기·채널 객체가 함께 쓴다. 읽은 구간: 개요 + 572-612 · 783-1088. `map.ts`(1,019줄)는 읽지 않았다 | adapter.ts |
+| main/adapters/opencode | — | — | C-28 | — | — | C-28 | — | 과도 | 584 / 5644 (10%) | `openCodeChannel` 한 클로저가 약 560줄이고 가변 `let` 20개를 연결·전송·펌프가 함께 쓴다. 읽은 구간: 1-374. `session-context.ts`·`server.ts` 는 읽지 않았다 | channel.ts |
+| renderer/shared | — | — | — | — | C-33 | — | — | 필요 | 380 / 5513 (7%) | UI 부품 83파일이 대부분이고 가장 큰 파일이 380줄이다. 읽은 구간: `api/ipc.ts` 1-60 · 150-200. UI 부품(`ui/`·`theme/`)은 읽지 않았다 | ipc.ts |
+| shared/(root) | — | C-31 | — | — | — | — | — | 필요 | 1974 / 5395 (37%) | 계약 스키마와 타입 선언이다(`ipc.ts` 1,974줄 · `protocol.ts` 1,069줄). 읽은 구간: `ipc.ts` 440-760 의 이벤트 변형 목록. 필드 단위 미사용은 r1 의 스키마 필드 스캔이 봤다 | ipc.ts |
+| renderer/features/chat/lib | — | — | C-34 | — | — | C-34 | — | 필요 | 694 / 5240 (13%) | 작은 순수 파생 함수 묶음이다(파일 55개, 최대 694줄) — 기존 진단이 유지 경계로 둔 형태. 읽은 구간: `parts.ts` 개요 + 304-400, `canonicalBackground.ts`·`taskBoard.ts` 는 함수 목록만 | parts.ts |
+| main/features/plugins | — | — | — | — | — | — | — | 필요 | 659 / 4710 (14%) | 외부 서비스(Confluence·Jira·메일) 연동이고 상한·재시도가 한 곳씩이다(`connector.ts`:439-458). 읽은 방식: 개요 + 176-496 을 제어 흐름 키워드로 걸러 봄 — 과잉을 판정할 만큼 읽지 못했다 | connector.ts |
+| main/features/auth | — | — | — | C-30 | — | — | — | 필요 | 990 / 4111 (24%) | 인증 방식 3갈래가 공통 정착(`settleGrant`:610 — 확인 → 금고 쓰기 → 저장 순서)을 쓰고 메서드가 최대 110줄이다. 읽은 구간: 개요 + 140-262 · 461-500 · 610-676 | login.ts |
+| main/app/(root) | — | — | — | — | C-29 | — | — | 필요 | 1507 / 4061 (37%) | `bootstrap.ts` 는 조립 루트다(기존 진단의 유지 경계). `start()` 475줄은 부팅 15단계의 나열이다. 읽은 구간: `runtime-model-startup.ts` 전부, `bootstrap.ts` 446-921 을 30자 미만 줄을 빼고 훑음 | runtime-model-startup.ts · bootstrap.ts |
+| main/features/chat | C-25 | C-14 | C-14 C-25 | C-26 | — | — | — | 과도 | 1261 / 3563 (35%) | 대기열이 public 메서드 28개·상태 4개·확정 신호 2종이고, `TurnCoordinator.run` 한 메서드의 이벤트 루프가 250줄에 종류별 분기 20여 개다. 읽은 구간: 대기열 전부, 조정기 1-574 | pending-message-queue.ts · turn-coordinator.ts |
+| main/app/chat-turn | — | — | C-15 | C-12 C-13 | C-16 | C-12 C-15 | — | 과도 | 296 / 3348 (9%) | `handleChatSend` 한 함수가 약 740줄·12단계이고 턴-후 루프 하나가 재개·정착·listen·flush 를 함께 든다. 읽은 구간: `post-turn.ts` 전부, `send.ts` 는 단계 개요만(r1 이 본문을 읽었다) | post-turn.ts |
+| renderer/features/chat/store | — | C-19 C-21 C-22 | C-19 C-20 C-22 | — | C-23 | — | C-21 | 과도 | 2482 / 3261 (76%) | `chatStore.ts` 한 파일 2,482줄에 이벤트 라우팅·전송·세션 적재·권한 동기화·초안 관리가 함께 있고 store 밖 모듈 전역 상태가 8개다. 파일 전부 읽음 | chatStore.ts |
+| renderer/features/chat/reducer | — | — | C-24 | — | — | C-24 | — | 과도 | 2218 / 2218 (100%) | `chatReducer` 한 함수 1,295줄이 액션 60종을 처리하고 상태 객체가 약 95필드다. 읽은 구간: 상태·액션 정의 270-770, `LOAD_SESSION` 1444-1605, case 목록 | chatReducer.ts |
 <!-- /gen:deep -->
 
 ## 8. 분해안
@@ -381,6 +427,56 @@ prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 �
 <!-- gen:decomposition -->
 | 후보 | 단계 | 떼어내는 것 | 그 뒤에도 같아야 하는 동작 | 파일 | 회귀 시나리오 |
 |---|---|---|---|---|---|
+| C-12 전송 1회에 같은 세션 행을 6번 조회·3중 검증 | 1 | 세션 행 조회를 진입에서 1회로 — 결과를 이후 단계에 넘긴다 | 없는 원본·다른 하네스로 보내면 지금과 같은 오류 문구가 뜬다 | `main/app/chat-turn/send.ts` · `main/app/chat-turn/resolve-turn.ts` | S-04 S-11 |
+| C-12 | 2 | 원본 존재·하네스 불일치 검증을 한 판정 함수로 합친다 | 오류 문구가 분기마다 지금과 같다 | `main/app/chat-turn/resolve-turn.ts` · `main/app/chat-turn/admission.ts` | S-04 S-05 |
+| C-13 production 이 항상 주입하는 의존성의 optional 선언과 fallback 분기 | 1 | 테스트 조립을 production 과 같은 의존성으로 맞춘다 | 기존 테스트가 같은 동작을 단언한다 | `main/app/chat-turn/deps.ts` | S-04 |
+| C-13 | 2 | `?.`·fallback 분기를 필수 호출로 바꾼다 | 전송·세션 열기가 지금과 같다 | `main/app/chat-turn/send.ts` · `main/app/chat-turn/resolve-turn.ts` | S-01 S-04 |
+| C-14 응답 중 입력 대기 프로토콜의 표면 | 1 | 제품 호출 0인 메서드와 이중 식별자를 먼저 걷는다(C-25) | 대기 입력이 순서대로 전달된다 | `main/features/chat/pending-message-queue.ts` | S-07 |
+| C-14 | 2 | 시나리오가 요구하는 전이(대기·취소·즉시 보내기·전달·되돌림)와 메서드를 표로 대응시키고 대응 없는 메서드를 합친다 | 취소한 입력이 입력창으로 돌아오고 전달된 입력만 대화에 남는다 | `main/features/chat/pending-message-queue.ts` · `main/app/chat-turn/post-turn.ts` | S-06 S-07 |
+| C-14 | 3 | renderer 의 예약 판정을 main 판정 하나로 모은다(C-19) | 대기 버블이 지금과 같은 때에 뜬다 | `renderer/src/features/chat/store/chatStore.ts` · `main/app/chat-turn/admission.ts` | S-07 |
+| C-15 `handleChatSend` 의 상태 전달 클로저와 중복 준비 호출 | 1 | 번호 붙은 12단계 중 아직 인라인인 단계를 단계 함수로 옮긴다(동작 보존) — 1 진입 게이트, 6·7 턴·런타임 확보, 10·11 구동체·요청 조립 | 전송 결과가 같다 | `main/app/chat-turn/send.ts` | S-04 S-05 |
+| C-15 | 2 | try 바깥 공유 `let` 8개를 단계 결과 객체로 바꾼다 | 중단·오류 때 정리가 지금과 같다 | `main/app/chat-turn/send.ts` | S-06 S-09 |
+| C-15 | 3 | 턴-후 루프를 중단 재개 · 채널 사망 정착 · 다음 스텝(listen/flush)으로 가른다 | 이어 보내기와 백그라운드 대기가 지금과 같다 | `main/app/chat-turn/post-turn.ts` | S-07 S-10 |
+| C-16 개발용 mock 어댑터 분기가 전송 경로에 있음 | 1 | 어댑터 선택을 registry 한 곳으로 옮긴다 | 개발 빌드의 mock 재생이 그대로다 | `main/app/chat-turn/send.ts` | S-31 |
+| C-17 컨텍스트 파일 권한 가드 중복 | 1 | 경로 가드 2벌을 하나로 합친다 | 허용되지 않은 경로는 열리지 않는다 | `main/app/handlers/files.ts` | S-17 |
+| C-18 Claude·OpenCode `AssistantSegment` 중복 | 1 | 겹치는 22줄을 공용 조각으로 뽑는다 | 두 하네스의 응답 본문이 지금과 같이 보인다 | `renderer/src/features/chat/harnesses/claude/transcript/AssistantSegment.tsx` · `renderer/src/features/chat/harnesses/opencode/transcript/AssistantSegment.tsx` | S-04 S-05 |
+| C-19 응답 중 입력 대기의 renderer 쪽 거울 프로토콜 | 1 | main 대기열의 전이 표(C-14 2단계)를 먼저 확정한다 | 대기·취소·즉시 보내기가 지금과 같다 | `main/features/chat/pending-message-queue.ts` | S-07 |
+| C-19 | 2 | 예약 여부를 main 응답으로만 정하고 renderer 판정을 지운다 | 응답 중 보낸 입력이 대기 버블로 뜬다 | `renderer/src/features/chat/store/chatStore.ts` | S-07 |
+| C-19 | 3 | 이벤트 4종의 처리와 낙관 항목을 한 reducer 조각으로 모은다 | 취소하면 입력창으로 돌아온다 | `renderer/src/features/chat/store/chatStore.ts` · `renderer/src/features/chat/reducer/chatReducer.ts` | S-06 S-07 |
+| C-20 store 옆 모듈 전역 가변 상태와 전 세션 순회 패치 | 1 | 모듈 전역 값을 store 의 한 조각(landing)으로 옮긴다 | 새 대화가 마지막 선택으로 열린다 | `renderer/src/features/chat/store/chatStore.ts` | S-01 S-04 |
+| C-20 | 2 | 전 세션 순회 패치 3벌을 "보내지 않은 초안" 술어 하나로 합친다 | 하네스가 없어지면 초안이 Claude 로 바뀐다 | `renderer/src/features/chat/store/chatStore.ts` | S-01 S-03 |
+| C-20 | 3 | draft 작업 폴더 플래그 5개를 출처 하나(기본·프로젝트·사용자 선택)로 바꾼다 | 고른 폴더가 유지된다 | `renderer/src/features/chat/store/chatStore.ts` | S-15 |
+| C-21 세션 열기의 2단 조회와 이중 rAF | 1 | 2차 조회가 바꾸는 화면을 실측한다(없으면 제거, 있으면 1차 응답에 합친다) | 세션을 열면 저장된 대화가 뜬다 | `renderer/src/features/chat/store/chatStore.ts` · `main/app/handlers/session.ts` | S-11 |
+| C-21 | 2 | 요청 유효성 검사를 요청 id 하나로 줄인다 | 여는 중 도착한 응답이 덮어써지지 않는다 | `renderer/src/features/chat/store/chatStore.ts` | S-11 |
+| C-22 권한 모드 변경의 순번 2개와 8조건 유효성 검사 | 1 | 순번 2개를 세션 상태의 요청 id 하나로 바꾼다 | 연달아 바꾸면 마지막 값이 남는다 | `renderer/src/features/chat/store/chatStore.ts` | S-08 |
+| C-22 | 2 | 액션 타입 문자열 목록을 reducer 안의 전이로 옮긴다 | 적용 실패 때 이전 모드로 돌아간다 | `renderer/src/features/chat/store/chatStore.ts` · `renderer/src/features/chat/reducer/chatReducer.ts` | S-08 |
+| C-23 `chatActions` 의 한 줄 전달 래퍼 | 1 | 상태 조각 하나(git 리뷰)부터 호출부가 액션을 직접 보내게 바꾼다 | 변경사항 화면의 버튼이 같은 동작을 한다 | `renderer/src/features/chat/store/chatStore.ts` | S-18 |
+| C-23 | 2 | 나머지 한 줄 전달을 같은 방식으로 걷는다 | 같은 버튼이 같은 동작을 한다 | `renderer/src/features/chat/store/chatStore.ts` | S-04 S-10 |
+| C-24 세션 상태 한 객체에 95필드 · 활동 상태의 파생 중복 | 1 | `listening` 을 `activityTransport` 파생 selector 로 바꾸고 필드를 지운다 | 중단 버튼과 대기 표시가 같은 때에 바뀐다 | `renderer/src/features/chat/reducer/chatReducer.ts` · `renderer/src/features/chat/store/chatStore.ts` | S-06 S-07 |
+| C-24 | 2 | 활동 8필드를 `activity` 객체 하나로 묶어 필드별 복사 3벌을 없앤다 | 세션을 다시 열어도 진행 표시가 맞다 | `renderer/src/features/chat/reducer/chatReducer.ts` | S-11 |
+| C-24 | 3 | git 리뷰 상태(12필드·액션 15종)를 자기 reducer 로 뗀다 | 변경사항 화면이 지금과 같다 | `renderer/src/features/chat/reducer/chatReducer.ts` | S-18 |
+| C-24 | 4 | 우측 패널·작업 선택 상태를 같은 방식으로 뗀다 | 타일 열기·닫기가 지금과 같다 | `renderer/src/features/chat/reducer/chatReducer.ts` | S-10 |
+| C-25 대기열 배치의 이중 식별자와 쓰이지 않는 전이 메서드 | 1 | `commit`·`isFrozen` 을 지운다 | 대기 입력 전달이 그대로다 | `main/features/chat/pending-message-queue.ts` | S-07 |
+| C-25 | 2 | `uuid` 를 `attemptId` 하나로 합치고 폴백 5곳을 지운다 | 전달된 입력만 대화에 남는다 | `main/features/chat/pending-message-queue.ts` · `main/app/chat-turn/send.ts` · `main/app/chat-turn/turn-request.ts` | S-07 |
+| C-26 턴 조정기의 선택적 의존성 호출 | 1 | 테스트 조립이 빠뜨리는 의존성을 채운다 | 기존 테스트가 같은 동작을 단언한다 | `main/features/chat/turn-coordinator.ts` | S-04 |
+| C-26 | 2 | 선택 표시(`?`)와 `?.` 호출을 필수로 바꾼다 | 전송·중단이 지금과 같다 | `main/features/chat/turn-coordinator.ts` · `main/features/chat/turn-sinks.ts` | S-04 S-05 S-06 |
+| C-27 Claude 채널의 스트림 밖 신호 5종 개별 큐 | 1 | 이벤트 생성기 `eventBatches` 를 파일로 뗀다(동작 보존) | 응답이 지금과 같은 순서로 보인다 | `main/adapters/claude/adapter.ts` | S-04 |
+| C-27 | 2 | 신호 5종의 큐를 순서 있는 큐 하나와 drain 하나로 합친다 | 압축 요약·턴 종료·예약 표시 순서가 같다 | `main/adapters/claude/adapter.ts` · `main/adapters/claude/input-receipts.ts` | S-04 S-07 S-10 |
+| C-27 | 3 | SDK 옵션 조립을 순수 함수로 뗀다 | 권한·작업 폴더 제한이 지금과 같다 | `main/adapters/claude/adapter.ts` | S-04 S-08 |
+| C-28 OpenCode 채널 단일 클로저의 가변 상태 | 1 | 전송 경로 2벌의 prelude·복구 문맥 조립을 한 함수로 합친다 | 슬래시 명령과 일반 전송이 모두 된다 | `main/adapters/opencode/v1/channel.ts` | S-05 |
+| C-28 | 2 | 종료 플래그 4개를 상태 값 하나로 바꾼다 | 중단하면 멈춘다 | `main/adapters/opencode/v1/channel.ts` | S-05 S-06 |
+| C-28 | 3 | 연결·전송·이벤트 펌프를 함수 셋으로 가른다 | OpenCode 응답이 지금과 같이 보인다 | `main/adapters/opencode/v1/channel.ts` | S-05 |
+| C-29 런타임 모델 배선의 호출 1곳짜리 팩토리 | 1 | 한 줄 클로저 3개를 호출 자리의 식으로 되돌리되 정의는 이 파일 한 곳에 둔다 | 자격증명이 바뀌면 모델 목록이 다시 맞춰진다 | `main/app/runtime-model-startup.ts` · `main/app/bootstrap.ts` | S-02 S-23 |
+| C-30 로그인 서비스의 선택적 콜백 | 1 | `onStep`·`onSnapshot` 을 필수 의존성으로 바꾼다 | 로그인 단계가 화면에 바로 뜬다 | `main/features/auth/login.ts` · `main/features/auth/runtime.ts` | S-02 |
+| C-31 main 내부 신호가 renderer 이벤트 타입에 섞여 있다 | 1 | 이벤트 타입을 main 내부용과 renderer 전달용으로 가른다 | renderer 가 받는 이벤트가 그대로다 | `shared/ipc.ts` | S-04 |
+| C-31 | 2 | renderer 의 no-op case 3개를 지운다 | 화면 반응이 그대로다 | `renderer/src/features/chat/store/chatStore.ts` · `renderer/src/features/chat/reducer/chatReducer.ts` | S-04 S-10 |
+| C-33 `window.orca` 전달 래퍼 계층 | 1 | 채택 규칙 변경을 먼저 결정한다(승인 대상) | 결정 전에는 바꾸지 않는다 | `renderer/src/shared/api/ipc.ts` | S-01 |
+| C-33 | 2 | 타입만 다시 적는 래퍼를 `window.orca` 재수출로 바꾸고 테스트 mock 지점을 유지한다 | 모든 화면의 main 호출이 그대로다 | `renderer/src/shared/api/ipc.ts` | S-01 S-04 |
+| C-34 백그라운드 작업 상태의 이중 모델 | 1 | 구 모델 표시를 남길 범위를 결정한다(승인 대상) | 결정 전에는 바꾸지 않는다 | `renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx` | S-10 |
+| C-34 | 2 | 구 모델 계산을 스위치 뒤로 옮긴다(정본이 있으면 계산하지 않는다) | 백그라운드 목록이 지금과 같다 | `renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx` | S-10 |
+| C-34 | 3 | main 의 `hasCanonical` 스위치 5곳을 정본 한 경로로 합친다 | 작업을 멈추면 멈춘 것으로 표시된다 | `main/features/chat/settle.ts` · `main/features/chat/background-controller.ts` · `main/app/chat-turn/index.ts` | S-10 |
+| C-34 | 4 | 구 모델 전용 id 배열과 파생 함수를 걷는다 | 지난 세션을 열어도 작업 표시가 승인한 범위대로 보인다 | `renderer/src/features/chat/reducer/chatReducer.ts` · `renderer/src/features/chat/lib/parts.ts` | S-10 S-11 |
+| C-35 질문 응답 UI 의 상태 로직 2벌 | 1 | 선택 상태(`picks`·제출 가능 판정)를 공용 훅으로 뽑는다 | 두 하네스에서 고르기·직접 입력·건너뛰기가 된다 | `renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx` · `renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.tsx` | S-08 |
 <!-- /gen:decomposition -->
 
 ## 9. 후속 handoff 분할안
@@ -388,13 +484,19 @@ prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 �
 <!-- gen:split -->
 | 순위 | 후속 handoff | 후보 | 예상 절감 prod/test | 회귀 판정 시나리오 | 비고 |
 |---|---|---|---|---|---|
-| 1 | H-A 미도달 코드 제거(승인분) | C-01 C-02 C-03 C-04 C-05 C-06 C-08 C-09 | 354/0 | S-10 S-19 S-02 S-04 S-25 | 승인된 항목만. 근거가 기계적이라 위험이 가장 낮다 |
-| 2 | H-B 전송 경로의 중복 조회·검증·optional 분기 정리 | C-12 C-13 C-16 C-17 | 66/0 | S-01 S-04 S-05 S-11 S-12 S-17 S-31 | — |
+| 1 | H-A 미도달 코드 제거(승인분) | C-01 C-02 C-03 C-04 C-05 C-06 C-08 C-09 C-32 | 360/0 | S-10 S-19 S-02 S-04 S-25 | 승인된 항목만. 근거가 기계적이라 위험이 가장 낮다 |
+| 2 | H-B 전송 경로의 중복 조회·검증·선택적 의존성 정리 | C-12 C-13 C-16 C-17 C-26 C-30 | 71/0 | S-01 S-02 S-04 S-05 S-06 S-11 S-12 S-17 S-31 | — |
 | 3 | H-C 0225 이관 코드 제거 | C-10 C-11 | 369/465 | S-01 S-11 | 0292 결정 변경 — 승인 필요. 절감이 가장 크다 |
-| 4 | H-D 응답 중 입력 대기 프로토콜과 `handleChatSend` 구조 축소 | C-14 C-15 | 0/0 | S-04 S-05 S-06 S-07 S-09 | 설계 검토가 먼저다 — 절감 미추정 |
+| 4 | H-D 응답 중 입력 대기 프로토콜과 `handleChatSend` 구조 축소 | C-14 C-15 C-19 C-25 | 30/0 | S-04 S-05 S-06 S-07 S-09 S-10 | 설계 검토가 먼저다 — 절감 미추정. C-25 가 첫 단계(위험 낮음) |
 | 5 | H-E 테스트 전용 export 분류·정리 | C-07 | 0/0 | S-02 S-04 | — |
+| 6 | H-F renderer 대화 상태 분해(상태 객체·store) | C-24 C-20 C-22 C-21 C-23 C-31 | 110/0 | S-01 S-04 S-06 S-08 S-11 S-15 S-18 | C-24 의 `listening` 제거가 첫 단계. 조각마다 따로 병합한다 |
+| 7 | H-G 하네스 채널 분해(Claude·OpenCode) | C-27 C-28 | 0/0 | S-04 S-05 S-06 S-07 S-10 | 이벤트 순서가 걸려 있어 동작 보존 추출을 먼저 한다 |
+| 8 | H-H 백그라운드 작업 이중 모델 정리 | C-34 | 0/0 | S-10 S-11 | 0231 결정 변경 — 승인 필요 |
+| 9 | H-I 런타임 모델 배선 팩토리 정리 | C-29 | 25/0 | S-01 S-02 S-23 | — |
 
 | 보류 후보 | 사유 |
 |---|---|
 | C-18 | 겹침이 22줄뿐이고 기존 진단이 하네스별 정책 분리를 경계로 뒀다 — 절감 대비 위험이 크다 |
+| C-33 | 채택 규칙(직접 호출 금지) 변경이고 테스트 37파일의 mock 지점이라 절감 대비 변경 범위가 넓다 — 승인 여부부터 정한다 |
+| C-35 | 겉모습이 하네스별로 달라 공통 줄이 13뿐이다 — C-18 과 같은 이유 |
 <!-- /gen:split -->

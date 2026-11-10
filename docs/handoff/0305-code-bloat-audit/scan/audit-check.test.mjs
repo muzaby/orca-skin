@@ -220,3 +220,10 @@ test('K19: 완료 선언 전에는 분해안 부재가 대기다', () => {
   assert.deepEqual(out.errors, [])
   assert.deepEqual(out.pending, ['decomposition:C-02'])
 })
+test('K12: 필수 생성 블록은 9개이고 deep·decomposition 을 지우면 red', () => {
+  assert.deepEqual(BLOCKS, ['volume', 'scenarios', 'candidates', 'approvals', 'traces', 'reviews', 'deep', 'decomposition', 'split'])
+  for (const name of ['deep', 'decomposition']) {
+    const errors = run((d) => (d.auditMd = d.auditMd.replace(`<!-- gen:${name} -->`, '<!-- gone -->')), { keepMd: true })
+    assert.match(errors.join('\n'), new RegExp(`K12 생성 블록 누락 ${name}`))
+  }
+})

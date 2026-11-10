@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 `/handoff-plan` — 코드 비대화 방지(CI 감소는 결과 — D-011). 0305는 감사(지도)만, 축소 구현은 후속 handoff |
-| 상태 | plan/READY (V1+ΔV1) — r1 감사 뒤 사용자 요구 추가(턴 5), r1.2 구현 대기 |
+| 상태 | impl/IMPL_DONE (r1.2) — ΔV1 심화 검토·분해안 완료, 검증 대기 |
 | V mode | `Delta V` (ΔV1 — 사용자 요구 변경) |
 | 기준 V | `V1` (이 plan · 설계 커밋 좌표는 INDEX) |
 | 이번 V revision | `ΔV1` |
@@ -639,6 +639,116 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 - 막았어야 할 plan 지침·AC 가 있었는가: 해당 없음.
 - 반복해서 부딪히는 환경 한계: `app/node_modules` 없음 · shallow clone(출처 추적이 코드 주석의 handoff 번호에 의존).
 - 현재 라운드·impl 턴: `r1`. 단계 커밋 3회(P1 · P2 · P4~P6)는 같은 턴이다.
+
+## [구현자 기입] 설계 리뷰 (r1.2)
+
+- 동의 / 그대로 진행: ΔV1 의 AC15·AC16 · K18·K19 · 단계 P7·P8 · 생성 블록 2개.
+- 이견 / 현실성 문제: 없음. 아래 "설계 대비 명시적 차이" 2건은 구현 세부다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-09 | 버킷 → 심화 검토 (EP-10) | 13건 × (범주 7 + 밀도 1) | 13/13 · 104/104 | `node -e` 로 `volume.json` 의 `prod.lines >= 3000` 나열 → 12, `chat/reducer` 더해 13 = `deep.json` 13건(차집합 0) · `gate:audit-check.mjs --check` ok · 변이 N1·N2·N4·N5·N7 red | 버킷 이름·판정 칸 · `chat/store` 검토 삭제 → K18 | — |
+| VP-09 | `restructure` 후보 → 분해안 (EP-11) | `restructure` 후보 23 | 23/23 (단계 50) | `candidates.json` 의 `type=restructure` 23건 전부 `decomposition` 보유 · 같은 gate · 변이 N3·N6 red | 후보 ID · C-24 분해안 삭제 → K19 | — |
+| VP-10 | 검사 규칙 K18·K19 (EP-06) | K18 8조건 · K19 4조건 | 8/8 · 4/4 | `scan/audit-check.test.mjs` "red K18" 10케이스 · "red K19" 8케이스 · 경계(`2999`/`3000`)·`necessary`·대기 3케이스 · 코드 변이 24건 red | 조건마다 red 입력 | — |
+| VP-06 (REGRESSION) | 판정 사본 (EP-07) | 2(`audit.md` 블록 9 · INDEX 비고) | 2/2 | 변이 M6·N10·N11 red(K12) · "K12: 필수 생성 블록은 9개…" 케이스 · INDEX 비고는 수치 없이 링크만 | 블록 본문 · 문자 1개 수정 → K12 | — |
+| VP-03·VP-04 (REGRESSION) | 후보 9칸 · 승인 · 분할 (EP-05) | 9칸 × 후보 35 | 315/315 | 같은 gate ok · 변이 M4·M5·N8·N9 red | approval·분할 소속 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(verify 0회).
+- V1 의 EP-01~EP-03·EP-08·EP-09 는 이번 턴에 바꾸지 않았다(`scenarios.json`·`volume.json`·`traces.json`·`reviews.json` diff 0). 닫힘은 r1 표의 좌표 그대로이고 gate 를 다시 돌려 green 을 봤다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-09 | REQUIRED | SELF_PASS | `gate:audit-check.mjs --check` | N1·N2·N3 red(등록 3) · 심화 후보 근거 재현은 검증자 몫 |
+| VP-10 | REQUIRED | SELF_PASS | `scan/audit-check.test.mjs` | not selected |
+| VP-03·VP-04·VP-06 | REGRESSION | SELF_PASS | V1 좌표 | M4·M5·M6 재실행 red |
+| VP-01·VP-02·VP-05·VP-07 | NOT_REQUIRED | — | r1 gate | 운영 gate 로 green 재확인 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.2)
+
+실제 데이터·검사기 코드에 심고 원복했다(`git status` 로 원복 확인). 하네스는 일회성 스크립트다 — 변이 목록은 아래 표가 전부다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 gate | 결과 |
+|---|---|---|---|---|
+| N1 `deep.json` 에서 `chat/store` 검토 삭제 | VP-09 선택 증거 · sweep EP-10 | 최초 | `audit-check --check` | 잠김 |
+| N2 심화 검토의 `X3` 칸 삭제 | VP-09 선택 증거 | 최초 | 같음 | 잠김 |
+| N3 C-24 `decomposition` 삭제 | VP-09 선택 증거 · sweep EP-11 | 최초 | 같음 | 잠김 |
+| N4 심화 `read` 를 다른 버킷 파일로 · N5 과도 버킷의 판정 전부 `none` · N7 범주가 다른 후보 지목 | sweep EP-10 규칙 분기 | 최초 | 같음 | 잠김 3 |
+| N6 분해 단계의 없는 S-ID | sweep EP-11 | 최초 | 같음 | 잠김 |
+| N8 승인 목록에서 C-34 제거 · N9 C-27 을 분할안에서 제거 | sweep EP-05(새 후보) | 최초 | 같음 | 잠김 2 |
+| M4 C-01 `approval` 뒤집기 · M5 H-A 후보 제거 · M6 volume 블록 숫자 | V1 등록 변이 재실행 | r1 잠김 | 같음 | 잠김 3(덮개 회귀 0) |
+| N10 `deep` 블록 문자 수정 · N11 `decomposition` 블록 문자 수정 | sweep EP-07(새 블록) | 최초 | 같음 | 잠김 2 |
+| 검사기 K18 조건 11건(제거 9 · 경계 `>=`→`>` · `excess`↔`necessary` 맞바꿈) | sweep EP-06 규칙 분기 | 최초 | `node --test` | 잠김 11 |
+| 검사기 K19 조건 9건(제거 7 · `restructure`→`remove` · `cut`↔`keep` 맞바꿈) | sweep EP-06 규칙 분기 | 최초 | 같음 | 잠김 9 |
+| 검사기 K13 3건(`density` enum · 심화 키 · 분해 단계 키) · 렌더 2건(읽은 줄 합 · 단계 번호) | sweep(이번 diff 의 조건·항) | 최초 | 같음 | 잠김 5 |
+| `BLOCKS` 에서 `deep` 제거 · `decomposition` 제거 | sweep EP-07 | 최초 — **못 잡음** | 같음 | 테스트 추가 뒤 잠김 2 |
+
+- **분모 검산**: `선택 증거 3(N1~N3) · 인용 변이 0 · 새 oracle 0(K18·K19 는 기존 검사기의 규칙 추가 — 민감도는 코드 변이 27건) · sweep 39(N4~N11 8 · M4~M6 3 · 코드 변이 28) = 표 행 42건`. 표는 12행으로 묶었다.
+- `못 잡음` 2건: fixture 가 `BLOCKS` 로 `audit.md` 를 만들어 목록에서 블록을 빼도 green 이었다. "K12: 필수 생성 블록은 9개…" 케이스를 더해 두 변이 모두 red 를 봤다.
+- **덮개 회귀**: 0 — r1 의 M1~M10 중 이번 diff 가 닿은 것(M4·M5·M6)을 다시 돌려 전부 red.
+
+## [구현자 기입] Product/UX 파생 검토 (r1.2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있다 — `audit.md` §0 "심화 검토에서 더 나온 것" · §7 · §8 을 사용자가 읽는다 | AC12 |
+| seam 을 만들려고 production 을 재배치했는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "단계 Pn 완료" 행 — P7·P8 을 진행표에 더했다 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 검사가 위반 목록과 exit 1 을 낸다. 완료 선언 전의 빈 분해안은 `대기: decomposition:C-NN` 으로 보인다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+- 사용자 자리에서 본 한계: `읽은 파일 줄 수` 비율은 파일 전체 줄 수라 실제보다 크게 보인다. 표 머리에 `(상한)` 을 붙이고 `audit.md` §0 한계·§7 머리말·근거 칸에 읽은 구간을 적었다.
+- "필요" 판정 7버킷 중 `chat/harnesses`(읽은 파일 1개)와 `plugins`(키워드 필터)는 근거가 얇다 — `audit.md` §0 에 "판정할 만큼 읽지 못함"으로 적었다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 검사기 CLI 가 `files` 에 디렉토리 경로가 오면 `EISDIR` 로 죽었다(위반 보고 없이 중단) | ✅ 선조치 — `statSync().isFile()` 로 디렉토리를 미실재로 센다 | C-18 분해안 작성 중 재현. 고친 뒤 `K19 … files 미실재` 로 보고됨. CLI 껍질(`loadFacts`)이라 UT 좌표는 없다 — 남긴 곳 |
+| 2 | 완료 선언 전에는 K19 가 기존 `restructure` 7건에서 red 라 단계 커밋(D-007)을 막았다 | ✅ 선조치 — 완료 전의 빈 분해안은 `pending` 으로 센다(data 파일 부재와 같은 규칙) | "K19: 완료 선언 전에는 분해안 부재가 대기다" 케이스 · 코드 변이 K19a2 red |
+| 3 | 심화 검토가 읽지 않은 큰 파일이 남는다 — `claude/map.ts` 1,019줄 · `opencode/session-context.ts` 567줄 · `auth/store.ts` 517줄 · `FileDiffSection.tsx` 915줄 · `chatReducer` 본문 대부분 | ⚠️ 보고만 — 선언 경계 7 안 | `audit.md` §0 한계 |
+| 4 | 과잉 범주 X1~X7 에 "한 함수에 몰린 책임"이 없다. 분해 대상 후보(C-15·C-24·C-27·C-28)는 그 안에서 찾은 중복 상태·중복 처리로 범주를 달았다 | ⚠️ 보고만 — 범주 추가는 plan 규범 행 | 확장 후보(verify 0회 — 창 열림). 설계자가 범주를 더할지 정한다 |
+| 5 | r1 의 "놓친 잠재 문제" 1(V2 가 `*.testlib.ts` 를 prod 로 셈)은 그대로다 | ⚠️ 보고만 | 심화 분모(prod ≥ 3,000)에 영향 없음 — 해당 5파일 431줄이 문턱을 넘기는 버킷이 없다(가장 가까운 `chat/components` 2,772) |
+
+### 설계 대비 명시적 차이
+
+- ΔV1 §10 은 `facts` 에 `bucketOf`·`lineCount` 를 더한다고만 적었다. `render(data, lineCount)` 로 둘째 인자를 더했다 — `render` 가 순수 함수로 남는다.
+- K19 의 "완료 선언 전 대기"는 ΔV1 규칙 칸에 없다(위 표 2). plan §13 "미완성 단계의 검사 규칙은 … 대기로 보고"의 적용이다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 | — |
+| 공유 | 완료 선언 표식 하나가 data 파일 부재와 분해안 부재를 함께 연다 — 표식을 지우면 둘 다 대기가 된다 | AC16 · `audit.md` 에 `<!-- audit:complete -->` 실재(`grep -c` → 1) · 변이 N3 는 완료 상태에서 red |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1.2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `audit.md` · `data/candidates.json` · `data/deep.json`(신규) · `data/split.json` · `scan/audit-check.mjs` · `scan/audit-check.test.mjs` · `docs/handoff/INDEX.md` · 이 절 |
+| 실행 명령 | `node scan/volume.mjs --check` · `node scan/audit-check.mjs --check` · `node --test scan/*.test.mjs` · `cd app && node scripts/check-doc-inventory.mjs --check` · AC11 명령 |
+| 관측한 게이트 산출 | `[volume] ok — 2116 files · 305843 lines · 102 buckets` · `[audit-check] ok — 완료 선언` · `tests 144 · pass 144 · fail 0` · doc-inventory `links ok` · AC11 0줄(작업 트리 `git status -- app .github` 도 0줄). `app` lint·typecheck·test 는 gate 가 아니다(§19) |
+| 추가·수정 테스트의 subtree 규칙 | 해당 없음 — `docs/handoff/` 아래 `node:test` 1파일 수정 |
+| V-pair 자기확인 | `SELF_PASS 5(VP-09 · VP-10 · REGRESSION 3) / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 5행 전부 닫음(위 표) |
+| AC 자기보고 | AC15 ✅ 심화 검토 13건 = {prod ≥ 3,000 버킷 12} ∪ {`chat/reducer`}, 차집합 0 · AC16 ✅ `restructure` 23건 전부 분해안(단계 50) · AC1·AC2·AC10·AC14 ✅ r1 그대로(데이터 diff 0, gate green) · AC5 ✅ 렌즈 3건 후보 수 12·21·2 = 35 · AC6·AC7 ✅ 후보 35건(K4~K7 green) · AC8 ✅ 승인 목록 14 = remove 12 ∪ 결정 변경 2 · AC9 ✅ 후속 9묶음 + 보류 3 · AC11 ✅ 0줄 · AC13 ✅ K12(블록 9) · AC12 ⚠️ 사람 |
+| 합계 검산 | `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14` — 분모가 r1 의 12 에서 14 로 바뀌었다(ΔV1 이 AC15·AC16 추가) |
+| 블로커 / 역질문 | 없음. 사용자 판정 대기: 승인 목록 14건 · 분할 순위(AC12) |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 아니다 — 사용자 요구 변경(ΔV1) 턴이다.
+- 막았어야 할 plan 지침·AC 가 있었는가: r1 은 AC14 의 깊이를 "`read` 에 적은 파일까지"(선언 경계 7)로 두어 분량 상위 버킷 내부를 읽지 않고 완료됐다. D-010("닿는 경로의 과잉이 주 대상")의 주어보다 좁았다.
+- 반복해서 부딪히는 환경 한계: `app/node_modules` 없음 · shallow clone · 서브에이전트 금지(D-006)라 읽는 양이 한 세션의 컨텍스트에 묶인다.
+- 현재 라운드·impl 턴: `r1.2`(사용자 요구 변경 턴 — verify 없는 impl 턴 수 산정에서 제외).
+- 세션 중 PR #566 본문이 D-011 이전 요약(렌즈 6개·CI 시간)으로 남아 있어 사용자가 추가 지시로 오인될 수 있는 형태로 전달했다. 본문을 현재 plan 에 맞게 고쳤다.
 
 ---
 
