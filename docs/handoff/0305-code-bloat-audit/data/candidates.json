@@ -2,21 +2,21 @@
  "lenses": [
   {
    "id": "L1",
-   "method": "채널: preload 메서드 → `shared/api/ipc.ts` 래퍼 → renderer 호출부(`rg -U`) · feature: import 처 · export: 식별자 일치 스캔 · 이벤트·파트: 생산자 `rg` · 설정 키·스키마 필드: 읽는 곳 `rg`",
+   "method": "채널: preload 메서드 → `shared/api/ipc.ts` 래퍼 → renderer 호출부(`rg -U`) · feature: import 처 · export: 식별자 일치 스캔 · 이벤트·파트: 생산자 `rg` · 설정 키·스키마 필드: 읽는 곳 `rg` · (ΔV1) 심화 검토 중 생산자 없는 이벤트 변형 1건 추가",
    "denominator": "채널 117 · feature 14 · prod export 중 외부 prod 참조 0인 646 · 이벤트 변형 31 · 설정 키 24",
-   "count": 11
+   "count": 12
   },
   {
    "id": "L4",
-   "method": "추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정",
-   "denominator": "추적 단계 46 · 시나리오 31",
-   "count": 6
+   "method": "추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정 · (ΔV1) prod 3,000줄 이상 버킷 12개와 `chat/reducer` 의 내부 파일을 읽는 심화 검토",
+   "denominator": "추적 단계 46 · 시나리오 31 · 심화 버킷 13",
+   "count": 21
   },
   {
    "id": "L5",
-   "method": "`adapters/{claude,opencode}`·`chat/harnesses/{claude,opencode}` 의 같은 이름 파일 쌍에서 12자 초과 비주석 줄의 겹침 측정(35% 이상 · 12줄 이상)",
+   "method": "`adapters/{claude,opencode}`·`chat/harnesses/{claude,opencode}` 의 같은 이름 파일 쌍에서 12자 초과 비주석 줄의 겹침 측정(35% 이상 · 12줄 이상) · (ΔV1) 이름이 다른 같은 역할 쌍은 `claude/composer`↔`opencode/composer` 목록 대조로 1쌍 확인",
    "denominator": "같은 이름 파일 27쌍",
-   "count": 1
+   "count": 2
   }
  ],
  "candidates": [
@@ -277,6 +277,32 @@
    "excess": [
     "X4",
     "X6"
+   ],
+   "decomposition": [
+    {
+     "cut": "세션 행 조회를 진입에서 1회로 — 결과를 이후 단계에 넘긴다",
+     "keep": "없는 원본·다른 하네스로 보내면 지금과 같은 오류 문구가 뜬다",
+     "files": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/app/chat-turn/resolve-turn.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-11"
+     ]
+    },
+    {
+     "cut": "원본 존재·하네스 불일치 검증을 한 판정 함수로 합친다",
+     "keep": "오류 문구가 분기마다 지금과 같다",
+     "files": [
+      "app/src/main/app/chat-turn/resolve-turn.ts",
+      "app/src/main/app/chat-turn/admission.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-05"
+     ]
+    }
    ]
   },
   {
@@ -304,6 +330,30 @@
    "risk": "낮음 — 테스트 조립을 고쳐야 한다",
    "excess": [
     "X4"
+   ],
+   "decomposition": [
+    {
+     "cut": "테스트 조립을 production 과 같은 의존성으로 맞춘다",
+     "keep": "기존 테스트가 같은 동작을 단언한다",
+     "files": [
+      "app/src/main/app/chat-turn/deps.ts"
+     ],
+     "scenarios": [
+      "S-04"
+     ]
+    },
+    {
+     "cut": "`?.`·fallback 분기를 필수 호출로 바꾼다",
+     "keep": "전송·세션 열기가 지금과 같다",
+     "files": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/app/chat-turn/resolve-turn.ts"
+     ],
+     "scenarios": [
+      "S-01",
+      "S-04"
+     ]
+    }
    ]
   },
   {
@@ -337,6 +387,41 @@
    "excess": [
     "X2",
     "X3"
+   ],
+   "decomposition": [
+    {
+     "cut": "제품 호출 0인 메서드와 이중 식별자를 먼저 걷는다(C-25)",
+     "keep": "대기 입력이 순서대로 전달된다",
+     "files": [
+      "app/src/main/features/chat/pending-message-queue.ts"
+     ],
+     "scenarios": [
+      "S-07"
+     ]
+    },
+    {
+     "cut": "시나리오가 요구하는 전이(대기·취소·즉시 보내기·전달·되돌림)와 메서드를 표로 대응시키고 대응 없는 메서드를 합친다",
+     "keep": "취소한 입력이 입력창으로 돌아오고 전달된 입력만 대화에 남는다",
+     "files": [
+      "app/src/main/features/chat/pending-message-queue.ts",
+      "app/src/main/app/chat-turn/post-turn.ts"
+     ],
+     "scenarios": [
+      "S-06",
+      "S-07"
+     ]
+    },
+    {
+     "cut": "renderer 의 예약 판정을 main 판정 하나로 모은다(C-19)",
+     "keep": "대기 버블이 지금과 같은 때에 뜬다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/main/app/chat-turn/admission.ts"
+     ],
+     "scenarios": [
+      "S-07"
+     ]
+    }
    ]
   },
   {
@@ -369,6 +454,41 @@
    "excess": [
     "X3",
     "X6"
+   ],
+   "decomposition": [
+    {
+     "cut": "번호 붙은 12단계 중 아직 인라인인 단계를 단계 함수로 옮긴다(동작 보존) — 1 진입 게이트, 6·7 턴·런타임 확보, 10·11 구동체·요청 조립",
+     "keep": "전송 결과가 같다",
+     "files": [
+      "app/src/main/app/chat-turn/send.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-05"
+     ]
+    },
+    {
+     "cut": "try 바깥 공유 `let` 8개를 단계 결과 객체로 바꾼다",
+     "keep": "중단·오류 때 정리가 지금과 같다",
+     "files": [
+      "app/src/main/app/chat-turn/send.ts"
+     ],
+     "scenarios": [
+      "S-06",
+      "S-09"
+     ]
+    },
+    {
+     "cut": "턴-후 루프를 중단 재개 · 채널 사망 정착 · 다음 스텝(listen/flush)으로 가른다",
+     "keep": "이어 보내기와 백그라운드 대기가 지금과 같다",
+     "files": [
+      "app/src/main/app/chat-turn/post-turn.ts"
+     ],
+     "scenarios": [
+      "S-07",
+      "S-10"
+     ]
+    }
    ]
   },
   {
@@ -397,6 +517,18 @@
    "risk": "낮음",
    "excess": [
     "X5"
+   ],
+   "decomposition": [
+    {
+     "cut": "어댑터 선택을 registry 한 곳으로 옮긴다",
+     "keep": "개발 빌드의 mock 재생이 그대로다",
+     "files": [
+      "app/src/main/app/chat-turn/send.ts"
+     ],
+     "scenarios": [
+      "S-31"
+     ]
+    }
    ]
   },
   {
@@ -423,6 +555,18 @@
    "excess": [
     "X4",
     "X6"
+   ],
+   "decomposition": [
+    {
+     "cut": "경로 가드 2벌을 하나로 합친다",
+     "keep": "허용되지 않은 경로는 열리지 않는다",
+     "files": [
+      "app/src/main/app/handlers/files.ts"
+     ],
+     "scenarios": [
+      "S-17"
+     ]
+    }
    ]
   },
   {
@@ -446,7 +590,903 @@
     "test": 0,
     "basis": "겹치는 줄 수"
    },
-   "risk": "낮음 — 기존 진단이 \"이름이 비슷하다고 합치지 않는다\"를 경계로 뒀다"
+   "risk": "낮음 — 기존 진단이 \"이름이 비슷하다고 합치지 않는다\"를 경계로 뒀다",
+   "decomposition": [
+    {
+     "cut": "겹치는 22줄을 공용 조각으로 뽑는다",
+     "keep": "두 하네스의 응답 본문이 지금과 같이 보인다",
+     "files": [
+      "app/src/renderer/src/features/chat/harnesses/claude/transcript/AssistantSegment.tsx",
+      "app/src/renderer/src/features/chat/harnesses/opencode/transcript/AssistantSegment.tsx"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-05"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-19",
+   "title": "응답 중 입력 대기의 renderer 쪽 거울 프로토콜",
+   "bucket": "renderer/features/chat/store",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-07",
+    "S-06"
+   ],
+   "origin": [
+    "0067",
+    "0068",
+    "0151",
+    "0153"
+   ],
+   "preserve": "응답 중 보낸 입력이 대기 버블로 보이고, 취소하면 입력창으로 돌아오며, 전달되면 정식 버블이 된다",
+   "evidence": "`chatStore.ts`: 예약 여부를 renderer 가 `shouldQueueAsPending`(:1126)로 판정하고 main 도 판정한다(:1010 주석) · 이벤트 4종 `message.queued`:802 `committed`:835 `submitted`:861 `cancelled`:875 를 낙관 `pendingSteer`·`sendNowRequested`:1335·`draftRestore`:898 와 맞춘다",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — C-14(main 대기열)와 한 프로토콜의 양 끝이라 함께 설계해야 한다"
+   },
+   "risk": "높음 — 낙관 표시를 빼면 대기 버블이 왕복 시간만큼 늦게 뜬다",
+   "excess": [
+    "X2",
+    "X3"
+   ],
+   "decomposition": [
+    {
+     "cut": "main 대기열의 전이 표(C-14 2단계)를 먼저 확정한다",
+     "keep": "대기·취소·즉시 보내기가 지금과 같다",
+     "files": [
+      "app/src/main/features/chat/pending-message-queue.ts"
+     ],
+     "scenarios": [
+      "S-07"
+     ]
+    },
+    {
+     "cut": "예약 여부를 main 응답으로만 정하고 renderer 판정을 지운다",
+     "keep": "응답 중 보낸 입력이 대기 버블로 뜬다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-07"
+     ]
+    },
+    {
+     "cut": "이벤트 4종의 처리와 낙관 항목을 한 reducer 조각으로 모은다",
+     "keep": "취소하면 입력창으로 돌아온다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+     ],
+     "scenarios": [
+      "S-06",
+      "S-07"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-20",
+   "title": "store 옆 모듈 전역 가변 상태와 전 세션 순회 패치",
+   "bucket": "renderer/features/chat/store",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-01",
+    "S-04",
+    "S-15"
+   ],
+   "origin": [
+    "0228"
+   ],
+   "preserve": "새 대화가 마지막에 고른 종류·하네스·작업 폴더로 열린다",
+   "evidence": "`chatStore.ts` 모듈 전역 가변 8개 :180 :181 :182 :191 :192 :259 :343 :345 · 전 세션을 도는 패치 3벌 `applyHarnessAvailability`:195 `seedLandingBackend`:227 `seedLandingAgentKind`:282(술어가 서로 다르다) · draft 작업 폴더 플래그 5개(`cwdCache`·`cwdSelected`:128·`projectCwdInitialized`:129·`pendingProjectId`·`draftGeneration`)",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 상태를 store 안 한 곳으로 모을 때 줄 수보다 분기 수가 준다"
+   },
+   "risk": "중간 — 부팅 시드 순서(설정 조회가 늦게 끝나는 경우)가 바뀔 수 있다",
+   "excess": [
+    "X3"
+   ],
+   "decomposition": [
+    {
+     "cut": "모듈 전역 값을 store 의 한 조각(landing)으로 옮긴다",
+     "keep": "새 대화가 마지막 선택으로 열린다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-01",
+      "S-04"
+     ]
+    },
+    {
+     "cut": "전 세션 순회 패치 3벌을 \"보내지 않은 초안\" 술어 하나로 합친다",
+     "keep": "하네스가 없어지면 초안이 Claude 로 바뀐다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-01",
+      "S-03"
+     ]
+    },
+    {
+     "cut": "draft 작업 폴더 플래그 5개를 출처 하나(기본·프로젝트·사용자 선택)로 바꾼다",
+     "keep": "고른 폴더가 유지된다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-15"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-21",
+   "title": "세션 열기의 2단 조회와 이중 rAF",
+   "bucket": "renderer/features/chat/store",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-11"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n \"0[0-9]{3}\" app/src/renderer/src/features/chat/store/chatStore.ts | sed -n \"/168[0-9]\\|17[0-9][0-9]/p\" → 0"
+   },
+   "preserve": "세션을 열면 저장된 대화가 뜨고, 그 사이 도착한 응답이 덮어써지지 않는다",
+   "evidence": "`chatStore.ts` `loadSession`:1686 — `sessionApi.load`:1727 뒤 `requestAnimationFrame` 2중:1741 을 거쳐 `sessionApi.refresh`:1775 를 한 번 더 부른다 · 요청 유효성을 `sessionLoads` Map + `isCurrent` 5조건:1718 + `liveChanged`:1005 로 본다",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 2차 조회가 화면에 주는 차이(네이티브 기록 동기화)를 후속 plan 에서 실측해야 한다"
+   },
+   "risk": "중간 — 2차 조회가 외부에서 이어 쓴 대화를 반영하는 유일한 경로일 수 있다",
+   "excess": [
+    "X2",
+    "X7"
+   ],
+   "decomposition": [
+    {
+     "cut": "2차 조회가 바꾸는 화면을 실측한다(없으면 제거, 있으면 1차 응답에 합친다)",
+     "keep": "세션을 열면 저장된 대화가 뜬다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/main/app/handlers/session.ts"
+     ],
+     "scenarios": [
+      "S-11"
+     ]
+    },
+    {
+     "cut": "요청 유효성 검사를 요청 id 하나로 줄인다",
+     "keep": "여는 중 도착한 응답이 덮어써지지 않는다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-11"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-22",
+   "title": "권한 모드 변경의 순번 2개와 8조건 유효성 검사",
+   "bucket": "renderer/features/chat/store",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-08"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n \"0[0-9]{3}\" app/src/renderer/src/features/chat/store/chatStore.ts | sed -n \"/:3[4-7][0-9]:\\|:18[5-9][0-9]:/p\" → 0"
+   },
+   "preserve": "권한 모드를 바꾸면 바로 반영되고, 적용에 실패하면 이전 모드로 돌아가며 오류 표시가 뜬다",
+   "evidence": "`chatStore.ts` `permissionUpdates{request,settlement}`:343 · `dispatchTo` 가 액션 타입 문자열 6개로 순번을 올린다:347-372 · `synchronizePermissionMode`:1852 의 `current()` 8조건:1866 과 롤백 `fail()`:1879",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 순번을 세션 상태의 요청 id 하나로 줄일 수 있는지 후속 plan 에서 판정"
+   },
+   "risk": "중간 — 빠르게 연달아 바꿀 때의 마지막 값 우선이 깨질 수 있다",
+   "excess": [
+    "X2",
+    "X3"
+   ],
+   "decomposition": [
+    {
+     "cut": "순번 2개를 세션 상태의 요청 id 하나로 바꾼다",
+     "keep": "연달아 바꾸면 마지막 값이 남는다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-08"
+     ]
+    },
+    {
+     "cut": "액션 타입 문자열 목록을 reducer 안의 전이로 옮긴다",
+     "keep": "적용 실패 때 이전 모드로 돌아간다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+     ],
+     "scenarios": [
+      "S-08"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-23",
+   "title": "`chatActions` 의 한 줄 전달 래퍼",
+   "bucket": "renderer/features/chat/store",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-10",
+    "S-18"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n \"0[0-9]{3}\" app/src/renderer/src/features/chat/store/chatStore.ts | sed -n \"/:20[5-9][0-9]:\\|:21[0-9][0-9]:/p\" → 2136·2139 는 0211 의 개별 액션 주석뿐"
+   },
+   "preserve": "같은 버튼이 같은 동작을 한다",
+   "evidence": "`chatStore.ts` `chatActions`:2052-2210 — 항목 약 85개 중 `dispatchActive({type:…})` 만 하는 한 줄 전달이 약 45개 · `dropSession` 래퍼 2개 `invalidateSessionCache`:1802 `handleSessionDeleted`:1808",
+   "saving": {
+    "prod": 90,
+    "test": 0,
+    "basis": "한 줄 전달 45개 × 평균 2줄. 호출부가 액션 객체를 직접 보내는 형태로 바꿀 때"
+   },
+   "risk": "낮음 — 호출부 수가 많아 변경 파일이 넓다",
+   "excess": [
+    "X5"
+   ],
+   "decomposition": [
+    {
+     "cut": "상태 조각 하나(git 리뷰)부터 호출부가 액션을 직접 보내게 바꾼다",
+     "keep": "변경사항 화면의 버튼이 같은 동작을 한다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-18"
+     ]
+    },
+    {
+     "cut": "나머지 한 줄 전달을 같은 방식으로 걷는다",
+     "keep": "같은 버튼이 같은 동작을 한다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-10"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-24",
+   "title": "세션 상태 한 객체에 95필드 · 활동 상태의 파생 중복",
+   "bucket": "renderer/features/chat/reducer",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-06",
+    "S-11",
+    "S-18"
+   ],
+   "origin": [
+    "0143",
+    "0167",
+    "0211"
+   ],
+   "preserve": "응답 중·대기 중·유휴 표시와 중단 버튼이 지금과 같은 때에 바뀐다",
+   "evidence": "`chatReducer.ts` `ChatState`:270-489 약 95필드(대화 + git 리뷰 12 + 우측 패널 4 + 작업 id 배열 5) · `listening`:332 은 `activityTransport`:333 의 파생(:1256 :1572), `inflight` 도 적재 때 `activity.foreground` 에서 파생(:1571) · 활동 8필드를 3곳에서 필드별 복사 :1245 :1545 :1560 · 소비 술어 2개 `chatStore.ts`:2291 :2296 · `chatReducer`:848 한 함수 1,295줄",
+   "saving": {
+    "prod": 20,
+    "test": 0,
+    "basis": "`listening` 필드와 필드별 복사 2벌 제거분만 추정. 상태 분리는 줄 수가 아니라 한 함수의 크기를 줄인다"
+   },
+   "risk": "높음 — 모든 화면이 이 상태를 읽는다",
+   "excess": [
+    "X3",
+    "X6"
+   ],
+   "decomposition": [
+    {
+     "cut": "`listening` 을 `activityTransport` 파생 selector 로 바꾸고 필드를 지운다",
+     "keep": "중단 버튼과 대기 표시가 같은 때에 바뀐다",
+     "files": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+     ],
+     "scenarios": [
+      "S-06",
+      "S-07"
+     ]
+    },
+    {
+     "cut": "활동 8필드를 `activity` 객체 하나로 묶어 필드별 복사 3벌을 없앤다",
+     "keep": "세션을 다시 열어도 진행 표시가 맞다",
+     "files": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+     ],
+     "scenarios": [
+      "S-11"
+     ]
+    },
+    {
+     "cut": "git 리뷰 상태(12필드·액션 15종)를 자기 reducer 로 뗀다",
+     "keep": "변경사항 화면이 지금과 같다",
+     "files": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+     ],
+     "scenarios": [
+      "S-18"
+     ]
+    },
+    {
+     "cut": "우측 패널·작업 선택 상태를 같은 방식으로 뗀다",
+     "keep": "타일 열기·닫기가 지금과 같다",
+     "files": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+     ],
+     "scenarios": [
+      "S-10"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-25",
+   "title": "대기열 배치의 이중 식별자와 쓰이지 않는 전이 메서드",
+   "bucket": "main/features/chat",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-07"
+   ],
+   "origin": [
+    "0151",
+    "0154",
+    "0166"
+   ],
+   "preserve": "대기 입력이 순서대로 전달되고 전달된 것만 대화에 남는다",
+   "evidence": "`pending-message-queue.ts`: `uuid` 와 `attemptId` 가 항상 같은 값(:57-58 :481-482), 폴백 `attemptId ?? uuid` 5곳(`send.ts`:648 :774 · `turn-request.ts`:90 :114 · :541) · 제품 호출 0인 메서드 `commit`:291 `isFrozen`:158(`rg \"\\.commit\\(|\\.isFrozen\\b\" app/src/main -g \"!*.test.*\"` 에 큐 호출 0) · `toPublic`:71 필드별 재복사",
+   "saving": {
+    "prod": 30,
+    "test": 0,
+    "basis": "`commit` 12줄 + `isFrozen` 3줄 + 폴백·재복사 정리 추정"
+   },
+   "risk": "낮음 — 식별자 통합은 타입 변경이라 컴파일러가 누락을 잡는다",
+   "excess": [
+    "X1",
+    "X3"
+   ],
+   "decomposition": [
+    {
+     "cut": "`commit`·`isFrozen` 을 지운다",
+     "keep": "대기 입력 전달이 그대로다",
+     "files": [
+      "app/src/main/features/chat/pending-message-queue.ts"
+     ],
+     "scenarios": [
+      "S-07"
+     ]
+    },
+    {
+     "cut": "`uuid` 를 `attemptId` 하나로 합치고 폴백 5곳을 지운다",
+     "keep": "전달된 입력만 대화에 남는다",
+     "files": [
+      "app/src/main/features/chat/pending-message-queue.ts",
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/app/chat-turn/turn-request.ts"
+     ],
+     "scenarios": [
+      "S-07"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-26",
+   "title": "턴 조정기의 선택적 의존성 호출",
+   "bucket": "main/features/chat",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-05"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n \"0[0-9]{3}\" app/src/main/features/chat/turn-coordinator.ts | rg \"\\?\\.\" → 0"
+   },
+   "preserve": "같은 화면·같은 동작. 테스트는 production 조립과 같은 의존성으로 들어간다",
+   "evidence": "`turn-coordinator.ts` `?.(` 13곳(`rg -c \"\\?\\.\\(\" …` → 13): `pendingMessages?`:95 `hasCanonical?.`:140 `getState?.`:141 `commitUserMessage?.`:186 `finalizeTurn?.`:292 `markAborted?.`:308 `confirmRuntimeToolSession?.`:476 — production 조립(`bootstrap.ts`:1128)은 전부 주입한다",
+   "saving": {
+    "prod": 5,
+    "test": 0,
+    "basis": "분기 13개가 줄고 줄 수는 거의 같다"
+   },
+   "risk": "낮음 — C-13 과 같은 형태. 테스트 조립을 함께 고쳐야 한다",
+   "excess": [
+    "X4"
+   ],
+   "decomposition": [
+    {
+     "cut": "테스트 조립이 빠뜨리는 의존성을 채운다",
+     "keep": "기존 테스트가 같은 동작을 단언한다",
+     "files": [
+      "app/src/main/features/chat/turn-coordinator.ts"
+     ],
+     "scenarios": [
+      "S-04"
+     ]
+    },
+    {
+     "cut": "선택 표시(`?`)와 `?.` 호출을 필수로 바꾼다",
+     "keep": "전송·중단이 지금과 같다",
+     "files": [
+      "app/src/main/features/chat/turn-coordinator.ts",
+      "app/src/main/features/chat/turn-sinks.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-05",
+      "S-06"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-27",
+   "title": "Claude 채널의 스트림 밖 신호 5종 개별 큐",
+   "bucket": "main/adapters/claude",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-07",
+    "S-10"
+   ],
+   "origin": [
+    "0064",
+    "0211"
+   ],
+   "preserve": "압축 요약·턴 종료·예약·산출 캡처가 응답 안에서 지금과 같은 순서로 보인다",
+   "evidence": "`adapter.ts` `openChannel`:493 한 메서드 595줄 · 신호마다 큐와 drain 이 따로: `compactSummaries`:584/:802 `turnEndSignals`:589/:816 `scheduleSnapshots`:590/:823 `capturedOutputs`:591/:949 `receipts`:572/:937 · drain 조합이 3곳에서 다르다 — 정상 :936-965, 종료 :968-973, 오류 :976-980(요약이 빠진다) · 배치를 :1019 에서 한 번 더 감싸 전 이벤트를 map",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 신호 큐를 하나로 합칠 때 줄 수보다 drain 조합 3벌이 1벌이 된다"
+   },
+   "risk": "높음 — 이벤트 순서가 대화 저장 순서를 정한다",
+   "excess": [
+    "X2",
+    "X6"
+   ],
+   "decomposition": [
+    {
+     "cut": "이벤트 생성기 `eventBatches` 를 파일로 뗀다(동작 보존)",
+     "keep": "응답이 지금과 같은 순서로 보인다",
+     "files": [
+      "app/src/main/adapters/claude/adapter.ts"
+     ],
+     "scenarios": [
+      "S-04"
+     ]
+    },
+    {
+     "cut": "신호 5종의 큐를 순서 있는 큐 하나와 drain 하나로 합친다",
+     "keep": "압축 요약·턴 종료·예약 표시 순서가 같다",
+     "files": [
+      "app/src/main/adapters/claude/adapter.ts",
+      "app/src/main/adapters/claude/input-receipts.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-07",
+      "S-10"
+     ]
+    },
+    {
+     "cut": "SDK 옵션 조립을 순수 함수로 뗀다",
+     "keep": "권한·작업 폴더 제한이 지금과 같다",
+     "files": [
+      "app/src/main/adapters/claude/adapter.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-08"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-28",
+   "title": "OpenCode 채널 단일 클로저의 가변 상태",
+   "bucket": "main/adapters/opencode",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-05"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o \"\\b0[0-9]{3}\\b\" app/src/main/adapters/opencode/v1/channel.ts → 0"
+   },
+   "preserve": "OpenCode 로 보낸 메시지가 전송되고, 중단하면 멈춘다",
+   "evidence": "`v1/channel.ts` `openCodeChannel`:22 한 함수 약 560줄 · 가변 `let` 20개 :34-81 · `AbortController` 3개 :32 :34 :35 · 종료 플래그 4개 :71-74 · 전송마다 agents·models 재조회로 검증 :179-192 · 전송 경로 2벌(command :230-271 / promptAsync :273-296)이 prelude·복구 문맥 조립을 각자 한다",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 전송 경로 2벌의 공통 조립을 합치면 약 20줄, 나머지는 구조 변경"
+   },
+   "risk": "중간 — 슬래시 명령 경로는 실기 확인이 필요하다",
+   "excess": [
+    "X3",
+    "X6"
+   ],
+   "decomposition": [
+    {
+     "cut": "전송 경로 2벌의 prelude·복구 문맥 조립을 한 함수로 합친다",
+     "keep": "슬래시 명령과 일반 전송이 모두 된다",
+     "files": [
+      "app/src/main/adapters/opencode/v1/channel.ts"
+     ],
+     "scenarios": [
+      "S-05"
+     ]
+    },
+    {
+     "cut": "종료 플래그 4개를 상태 값 하나로 바꾼다",
+     "keep": "중단하면 멈춘다",
+     "files": [
+      "app/src/main/adapters/opencode/v1/channel.ts"
+     ],
+     "scenarios": [
+      "S-05",
+      "S-06"
+     ]
+    },
+    {
+     "cut": "연결·전송·이벤트 펌프를 함수 셋으로 가른다",
+     "keep": "OpenCode 응답이 지금과 같이 보인다",
+     "files": [
+      "app/src/main/adapters/opencode/v1/channel.ts"
+     ],
+     "scenarios": [
+      "S-05"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-29",
+   "title": "런타임 모델 배선의 호출 1곳짜리 팩토리",
+   "bucket": "main/app/(root)",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-01",
+    "S-02",
+    "S-23"
+   ],
+   "origin": [
+    "0188",
+    "0202"
+   ],
+   "preserve": "자격증명이 바뀌면 모델 목록이 다시 맞춰진다",
+   "evidence": "`runtime-model-startup.ts`(142줄) export 팩토리 7개 전부 호출 1곳(`bootstrap.ts`:565 :570 :589 :675 :837 :841 :830) · 그중 3개는 한 줄 클로저 `createRuntimeModelSnapshotReader`:64 `…ReconcileVerified`:72 `…ReconcileSnapshot`:83",
+   "saving": {
+    "prod": 25,
+    "test": 0,
+    "basis": "한 줄 클로저 3개와 그 타입 선언 줄 수"
+   },
+   "risk": "중간 — 0202 가 배선 정의를 한 벌로 유지하려고 뽑은 자리다. 합치더라도 정의는 한 곳에 남겨야 한다",
+   "excess": [
+    "X5"
+   ],
+   "decomposition": [
+    {
+     "cut": "한 줄 클로저 3개를 호출 자리의 식으로 되돌리되 정의는 이 파일 한 곳에 둔다",
+     "keep": "자격증명이 바뀌면 모델 목록이 다시 맞춰진다",
+     "files": [
+      "app/src/main/app/runtime-model-startup.ts",
+      "app/src/main/app/bootstrap.ts"
+     ],
+     "scenarios": [
+      "S-02",
+      "S-23"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-30",
+   "title": "로그인 서비스의 선택적 콜백",
+   "bucket": "main/features/auth",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-02"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n \"0[0-9]{3}\" app/src/main/features/auth/login.ts | rg \"onStep|onSnapshot\" → 0"
+   },
+   "preserve": "로그인 단계와 연결 상태가 화면에 바로 반영된다",
+   "evidence": "`login.ts` `deps.onSnapshot?.(` 6곳 · `deps.onStep?.(` 3곳(`rg -o \"this\\.deps\\.[a-zA-Z]+\\?\\.\\(\" …`) — production(`runtime.ts`:209-210)은 둘 다 항상 주입한다",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "분기 9개가 줄고 줄 수는 같다"
+   },
+   "risk": "낮음",
+   "excess": [
+    "X4"
+   ],
+   "decomposition": [
+    {
+     "cut": "`onStep`·`onSnapshot` 을 필수 의존성으로 바꾼다",
+     "keep": "로그인 단계가 화면에 바로 뜬다",
+     "files": [
+      "app/src/main/features/auth/login.ts",
+      "app/src/main/features/auth/runtime.ts"
+     ],
+     "scenarios": [
+      "S-02"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-31",
+   "title": "main 내부 신호가 renderer 이벤트 타입에 섞여 있다",
+   "bucket": "shared/(root)",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-10"
+   ],
+   "origin": [
+    "0231",
+    "0239"
+   ],
+   "preserve": "renderer 가 받는 이벤트와 화면 반응은 그대로다",
+   "evidence": "`shared/ipc.ts` `NormalizedEvent` 25변형 중 `session.schedules`:579 는 `turn-coordinator.ts`:353 이 버려 renderer 에 오지 않는데 no-op case 가 2곳(`chatStore.ts`:857 · `chatReducer.ts`:944) · `input.echo`:569 `input.received`:571 `tool.call.retracted`:683 은 renderer 참조 0",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "타입을 둘로 가르는 변경이라 이 버킷 줄 수는 같다. renderer no-op case 는 다른 버킷"
+   },
+   "risk": "낮음 — 타입 변경이라 컴파일러가 누락을 잡는다",
+   "excess": [
+    "X2"
+   ],
+   "decomposition": [
+    {
+     "cut": "이벤트 타입을 main 내부용과 renderer 전달용으로 가른다",
+     "keep": "renderer 가 받는 이벤트가 그대로다",
+     "files": [
+      "app/src/shared/ipc.ts"
+     ],
+     "scenarios": [
+      "S-04"
+     ]
+    },
+    {
+     "cut": "renderer 의 no-op case 3개를 지운다",
+     "keep": "화면 반응이 그대로다",
+     "files": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts"
+     ],
+     "scenarios": [
+      "S-04",
+      "S-10"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-32",
+   "title": "생산자 없는 이벤트 변형 `subagent.backgroundSet`",
+   "bucket": "shared/(root)",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": [
+    "0212",
+    "0231"
+   ],
+   "preserve": "없음 — 이 이벤트를 내는 코드가 없다",
+   "evidence": "`rg -n \"subagent\\.backgroundSet\" app/src -g \"!*.test.*\"` → 2: 타입 `shared/ipc.ts`:739 와 renderer no-op `chatStore.ts`:982 뿐 · 0231 plan:341 이 \"생산·coordinator 소비를 제거한다\"로 적었다",
+   "saving": {
+    "prod": 6,
+    "test": 0,
+    "basis": "타입 선언 줄 수. renderer case 는 다른 버킷"
+   },
+   "risk": "낮음",
+   "approval": "required"
+  },
+  {
+   "id": "C-33",
+   "title": "`window.orca` 전달 래퍼 계층",
+   "bucket": "renderer/shared",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-01",
+    "S-04"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n \"PR #29|api/ipc\" docs/arch/frontend/state.md → :121 \"PR #29 에서 도입\"(handoff 번호 없음)"
+   },
+   "preserve": "모든 화면의 main 호출이 그대로 동작한다",
+   "evidence": "`renderer/src/shared/api/ipc.ts` 380줄 — `window.orca.` 를 그대로 부르는 한 줄 래퍼 115개(`grep -c \"window\\.orca\\.\" …` → 115) · 채널 하나가 스키마 → `preload/index.ts` 메서드 → 이 래퍼 → (chat 은) `chatActions` 를 거친다",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 래퍼를 없애면 최대 380줄이지만 테스트 37파일이 이 모듈을 mock 한다"
+   },
+   "risk": "높음 — `docs/arch/frontend/state.md`:120-121 · `ux-domains.md`:125 의 채택 규칙(직접 호출 금지)을 바꾼다",
+   "excess": [
+    "X5"
+   ],
+   "decisionChange": true,
+   "approval": "required",
+   "decomposition": [
+    {
+     "cut": "채택 규칙 변경을 먼저 결정한다(승인 대상)",
+     "keep": "결정 전에는 바꾸지 않는다",
+     "files": [
+      "app/src/renderer/src/shared/api/ipc.ts"
+     ],
+     "scenarios": [
+      "S-01"
+     ]
+    },
+    {
+     "cut": "타입만 다시 적는 래퍼를 `window.orca` 재수출로 바꾸고 테스트 mock 지점을 유지한다",
+     "keep": "모든 화면의 main 호출이 그대로다",
+     "files": [
+      "app/src/renderer/src/shared/api/ipc.ts"
+     ],
+     "scenarios": [
+      "S-01",
+      "S-04"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-34",
+   "title": "백그라운드 작업 상태의 이중 모델",
+   "bucket": "renderer/features/chat/lib",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-10",
+    "S-11"
+   ],
+   "origin": [
+    "0136",
+    "0143",
+    "0231"
+   ],
+   "preserve": "실행 중·끝난 백그라운드 작업이 목록에 보이고 멈출 수 있다. 0231 이전에 기록된 세션의 작업 표시는 승인 여부에 달렸다",
+   "evidence": "정본 모델(main `BackgroundSessionState`)과 구 모델(메시지 파트 파생 `parts.ts` `subagentTasksFromMessages`:304 + `ChatState` id 배열 5개)이 함께 산다 · 전환 스위치 `hasCanonical`: main `settle.ts`:176 `background-controller.ts`:81 `chat-turn/index.ts`:78 :93 `turn-coordinator.ts`:140 · renderer `SubAgentTileContent.tsx`:97 :181(구 모델 계산 :87 :171 이 스위치보다 먼저 돈다)",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 구 모델 표시 경로(`SubAgentTileContent.tsx` 385줄의 목록·상세)와 id 배열 5개가 대상. 유지 범위는 승인 뒤 정한다"
+   },
+   "risk": "높음 — 0231 plan:360 :404 가 구 모델 표시를 \"과거 표시 fallback\"으로 남기기로 했다",
+   "excess": [
+    "X3",
+    "X6"
+   ],
+   "decisionChange": true,
+   "approval": "required",
+   "decomposition": [
+    {
+     "cut": "구 모델 표시를 남길 범위를 결정한다(승인 대상)",
+     "keep": "결정 전에는 바꾸지 않는다",
+     "files": [
+      "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx"
+     ],
+     "scenarios": [
+      "S-10"
+     ]
+    },
+    {
+     "cut": "구 모델 계산을 스위치 뒤로 옮긴다(정본이 있으면 계산하지 않는다)",
+     "keep": "백그라운드 목록이 지금과 같다",
+     "files": [
+      "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx"
+     ],
+     "scenarios": [
+      "S-10"
+     ]
+    },
+    {
+     "cut": "main 의 `hasCanonical` 스위치 5곳을 정본 한 경로로 합친다",
+     "keep": "작업을 멈추면 멈춘 것으로 표시된다",
+     "files": [
+      "app/src/main/features/chat/settle.ts",
+      "app/src/main/features/chat/background-controller.ts",
+      "app/src/main/app/chat-turn/index.ts"
+     ],
+     "scenarios": [
+      "S-10"
+     ]
+    },
+    {
+     "cut": "구 모델 전용 id 배열과 파생 함수를 걷는다",
+     "keep": "지난 세션을 열어도 작업 표시가 승인한 범위대로 보인다",
+     "files": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/lib/parts.ts"
+     ],
+     "scenarios": [
+      "S-10",
+      "S-11"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C-35",
+   "title": "질문 응답 UI 의 상태 로직 2벌",
+   "bucket": "renderer/features/chat/harnesses",
+   "lens": "L5",
+   "type": "restructure",
+   "scenarios": [
+    "S-08"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o \"\\b0[0-9]{3}\\b\" app/src/renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.tsx → 0"
+   },
+   "preserve": "두 하네스에서 질문에 고르기·직접 입력·건너뛰기가 된다",
+   "evidence": "`claude/composer/QuestionCard.tsx`(325줄) ↔ `opencode/composer/QuestionDock.tsx`(265줄) — 같은 props(`ask`·`onSubmit`·`onSkip`)와 같은 `picks` 상태. 이름이 달라 같은 이름 쌍 비교에 잡히지 않았다. 공통 줄 13",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 선택 상태를 공용 훅으로 뽑을 때. 겉모습은 하네스별로 남는다"
+   },
+   "risk": "낮음",
+   "decomposition": [
+    {
+     "cut": "선택 상태(`picks`·제출 가능 판정)를 공용 훅으로 뽑는다",
+     "keep": "두 하네스에서 고르기·직접 입력·건너뛰기가 된다",
+     "files": [
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx",
+      "app/src/renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.tsx"
+     ],
+     "scenarios": [
+      "S-08"
+     ]
+    }
+   ]
   }
  ],
  "approvals": [
@@ -460,6 +1500,9 @@
   "C-08",
   "C-09",
   "C-10",
-  "C-11"
+  "C-11",
+  "C-32",
+  "C-33",
+  "C-34"
  ]
 }
