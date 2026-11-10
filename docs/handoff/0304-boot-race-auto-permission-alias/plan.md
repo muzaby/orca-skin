@@ -34,7 +34,7 @@
 | 명시 요구 3 | "ANTHROPIC_DEFAULT_XXX_MODEL: 환경변수를 claude 모델 5.5 이상으로 설정했다. Alias로 sonnet/opus/haiku도 availableModels로 노출하고 있는데, 컴포저에서 해당 alias 선택 시, 자동 승인/자동 이 노출되지 않고 있다." | 사용자 버그리포트 §3 |
 | 명시 요구(rev.2) | "Tobe의 3동작은 아직 턴이 시작되지 않은, ui 상 허용가능한 설정인지만 보여주는 것이다." — 답변 중 선택은 다음 턴 설정이고 진행 중 답변은 spawn 모델·기존 모드로 계속된다(0128) | 사용자 턴(rev.2) · `session-runtime.ts:270-272`(0128) · `docs/arch/frontend/state.md:88` |
 | 명시 요구(rev.2) | 보내지 않은 칩 변경은 세션 이동에는 유지, 앱 재시작에는 휘발(D-009 원문) | 사용자 턴(rev.2) |
-| 명시 요구(rev.2) | `last_model` 은 spawn 시점에 기록 — 답변 중 앱 종료에도 남게(D-010 원문) | 사용자 턴(rev.2) |
+| 명시 요구(rev.2) | `last_model` 은 사용자가 컴포저에서 메시지를 전송할 때 기록 — 답변 중 앱 종료에도 남게(D-010 이유 + D-011 정정 원문) | 사용자 턴(rev.2) |
 | 추론 의도 | 같은 부트 레이스를 가진 형제 호출(`updateApi.state()`)도 함께 닫는다 | §8 전수 조사 |
 
 ## 3. Decision Ledger
@@ -50,14 +50,15 @@
 | D-007 | 실행 모델 문자열(SDK `options.model`, 선택 식별자 `modelIdentity`)은 바꾸지 않는다 — alias는 alias로 넘기고 CLI/어댑터가 env로 해석한다 | 실행 경로·저장된 `last_model`·`modelDetails` 키 불변 | `model-identity.ts` · `context-policy.ts:69-82` | ACTIVE | — |
 | D-008 | 답변 중(live) 고른 권한 모드는 **아직 시작되지 않은 다음 턴의 설정**이다. UI는 선택한 모델 기준으로 허용 여부만 보여 주고 그 선택을 저장한다. main은 live 채널이 선택을 **그대로** 받을 수 있을 때(spawn 증거로 정착해도 같은 값)만 live에 적용하고, 아니면 live를 건드리지 않는다 — 대체값(fallback)을 live에 넣지 않는다. 저장·응답 = 선택, 다음 send가 해소 모델로 정착 | 사용자: "Tobe의 3동작은 아직 턴이 시작되지 않은, ui 상 허용가능한 설정인지만 보여주는 것이다." | 사용자 턴(2026-11-10, rev.2) | ACTIVE | D-005·D-006 대체 |
 | D-009 | 보내지 않은 컴포저 칩 변경(모델·권한)은 **메모리 임시 기록**이다. 앱을 끄지 않고 다른 세션에 갔다 돌아오면 변경 선택이 유지되고, 앱을 재시작하면 휘발되어 그 세션은 마지막 spawn 모델(`last_model`)과 그 모델의 기본 권한으로 돌아온다 | 사용자: "컴포저의 칩 변경 후, 메시지를 보내지않고 앱 종료 재시작시 해당 세션은 spawnd model을 유지. 앱 종료하지 않고 다른 세션을 이동했다가 돌아오는 경우는 변경 선택 유지" · "비유하자면 메모리에 임시 기록한것이고, 앱재시작시 휘발되어 날아간것" | 사용자 턴(2026-11-10, rev.2) | ACTIVE | — |
-| D-010 | 기존 DB 세션의 채널이 **spawn에 성공하면 즉시** `provider_key`·`last_model` 을 그 spawn의 provider·모델로 기록한다. 새 세션은 DB 행이 생기는 SDK init 시점 기록(`writer.ts:353`)을 유지하고, echo 커밋 시점 기록(`writer.ts:186`)은 같은 값의 후속 기록으로 남는다. preview는 종전대로 echo 커밋 시점 | 사용자: "Last model을 세션 시작시, spawnd가 되면 기록하도록 변경. 답변 중 앱이 종료되는 경우 기록되지 않기 때문." | 사용자 턴(2026-11-10, rev.2) | ACTIVE | 0067 "provider_key 갱신 = 커밋 시점 소유"를 provider_key·last_model에 한해 변경 |
+| D-010 | 기존 DB 세션의 채널이 **spawn에 성공하면 즉시** `provider_key`·`last_model` 을 그 spawn의 provider·모델로 기록한다. 새 세션은 DB 행이 생기는 SDK init 시점 기록(`writer.ts:353`)을 유지하고, echo 커밋 시점 기록(`writer.ts:186`)은 같은 값의 후속 기록으로 남는다. preview는 종전대로 echo 커밋 시점 | 사용자: "Last model을 세션 시작시, spawnd가 되면 기록하도록 변경. 답변 중 앱이 종료되는 경우 기록되지 않기 때문." | 사용자 턴(2026-11-10, rev.2) | SUPERSEDED → D-011 | 0067 "provider_key 갱신 = 커밋 시점 소유"를 provider_key·last_model에 한해 변경 |
+| D-011 | 기존 DB 세션에서 사용자가 컴포저로 **메시지를 전송하면**(idle 전송, `resolveTurn` 성공 직후·실행 전) `provider_key`·`last_model` 을 그 전송이 해석한 provider·모델로 기록한다. 새 세션은 DB 행이 생기는 SDK init 기록(`writer.ts:353`) 유지, echo 커밋 기록(`writer.ts:186`)은 같은 값의 후속 기록. busy 큐 전송(`reserveOnBusySession`)은 이어지는 체인 모델로 실행되므로 기록하지 않는다. preview는 종전대로 커밋 시점 | 사용자: "정정하겠다. Spawnd가 아니라 사용자가 컴포저에서 메시지를 전송 시 갱신되도록." (+ D-010의 이유 "답변 중 앱이 종료되는 경우 기록되지 않기 때문") · ""send 시점 선영속" 이 맞다" | 사용자 턴(2026-11-10, rev.2) | ACTIVE | D-010 대체 · 0067 "provider_key 갱신 = 커밋 시점 소유"를 provider_key·last_model에 한해 변경 |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: rev.1 D-001~D-007(신규 handoff) · rev.2 D-008·D-009·D-010.
+- 이번 턴에서 새로 추가된 결정: rev.1 D-001~D-007(신규 handoff) · rev.2 D-008·D-009·D-010(→ D-011로 대체)·D-011.
 - 변경된 결정: D-005·D-006 → D-008(사용자 정정 — 답변 중 선택은 다음 턴 설정이며 live에 대체값을 넣지 않는다). 기존 "alias는 증거가 아니다"는 D-003으로 **유지 + 증거원 추가**다(대체 아님).
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 0215 D-010(`자동` 미지원 시 Code=accept_edits, Work=default) · 0244 settings 읽기 조기 등록 · 0128 모델 변경 = respawn.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001↔AC1·AC2, D-002↔AC3, D-003↔AC4·AC5·AC6·AC7, D-004↔AC8, D-008↔AC9·AC10, D-009↔AC14·AC15, D-010↔AC16·AC17, D-007↔AC12. AC11은 D-006과 함께 폐기(§7).
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001↔AC1·AC2, D-002↔AC3, D-003↔AC4·AC5·AC6·AC7, D-004↔AC8, D-008↔AC9·AC10, D-009↔AC14·AC15, D-011↔AC16·AC17, D-007↔AC12. AC11은 D-006과 함께 폐기(§7).
 
 ## 4. 요구 비판적 검토
 
@@ -106,7 +107,8 @@
 | 다음 send | 해소 모델 증거로 재정착 | 새 모델 기준 실행 |
 | 보내지 않고 다른 세션 → 복귀(앱 유지) | 캐시 재진입(`preserveLocalState`) — 화면 상태 유지 | 바꾼 모델·권한 칩 유지 |
 | 보내지 않고 앱 재시작 | 메모리 상태 소멸, DB `last_model` 로 복원 | 마지막 spawn 모델 + 그 모델의 기본 권한 |
-| 기존 세션 send → spawn 성공 → (echo 전) 앱 종료 | spawn 직후 `provider_key`·`last_model` 기록 | 재시작 후 그 spawn 모델로 복원 |
+| 기존 세션에서 전송 → (echo 전) 앱 종료 | 전송 해석 직후 `provider_key`·`last_model` 기록 | 재시작 후 전송한 모델로 복원 |
+| 답변 중 큐로 전송(busy) | 기록 없음 — 체인 모델로 실행 | 재시작 후 그 체인을 시작한 전송의 모델 |
 
 ### 파생 UX / 엣지케이스
 
@@ -143,8 +145,8 @@
 | R-03 | AT-03 / AC12 | 실행 모델 문자열 불변: alias 턴의 `TurnRequest.model`='haiku', `modelIdentity` 불변, 어댑터 `modelForCli` 결과 불변 | `context-policy.test.ts` 기존 `resolveCliModel` 케이스 유지 + send 테스트의 `TurnRequest.model` 단언 | `send.ts:616` · `adapter.ts:521` |
 | R-04 | AT-05 / AC14 | 보내지 않은 칩 변경 뒤 캐시 재진입(`LOAD_SESSION` + `preserveLocalState`)하면 `modelFamily`·`modelAlias`·`modelResolved`·`permissionMode` 가 재진입 전 값 그대로다 | `chatReducer.model.test.ts:140` 케이스 확장 — 기존 단언(`providerKey`·`modelFamily`·`modelAlias`)에 `modelResolved`·`permissionMode`(auto, spawn과 다른 값) 추가 | `chatStore.ts:1736` → reducer `:1452` |
 | R-04 | AT-05 / AC15 | 캐시 없는 로드(재시작)는 `modelFamily = last_model`, `modelResolved = null`, `permissionMode = coerce(DEFAULT, last_model)` 이고 칩 변경만으로는 `last_model` 쓰기가 없다 | reducer 테스트(`preserveLocalState` 없음) + 쓰기 경로 전수 `rg -n "updateSessionProviderKey\(" app/src/main --glob '!*.test.*'` → 정의 1 + 턴 영속 2(`writer.ts:186,353`) · 칩 변경 IPC(`permissionSetMode`) 저장은 메모리 `PermissionModeController` 뿐 | `reader.ts:88` → `LOAD_SESSION` |
-| R-04 | AT-05 / AC16 | 채널 spawn 성공 직후(어댑터 `sendMessage` 반환 + `commitInitialSubmission` 통과) 현재 프레임의 `onSpawned({model: req.model})` 이 정확히 1회 불린다. spawn 실패·stale 제출·`pushTurn` 재사용(재spawn 없음)에서는 0회 | `session-runtime` 단위(신규): 성공 1회+인자 = req.model(형제 필드와 다른 값) · `sendMessage` throw 0회 · `commitInitialSubmission` false 0회 · 두 번째 턴 pushTurn 0회 · respawn(모델 변경) 1회 | `send.ts` → `runtime.run` → `session-runtime.ts` spawn 블록 |
-| R-04 | AT-05 / AC17 | `onSpawned` 는 `dbSessionId` 가 있을 때 `updateSessionProviderKey(dbSessionId, providerKey, now, model)` 을 echo·assistant 이벤트보다 먼저 쓴다. `dbSessionId` 가 없으면(새 세션) 쓰지 않는다. 연속 턴(listen·flush) 재spawn도 같은 콜백으로 기록한다 | send 조립 단위(신규): 기존 세션 → db 호출 1회(인자 4개 구별 값) · 새 세션 → 0회 · `pickFrameDelegates` 결과에 `onSpawned` 포함 · `buildFlushRequest` 결과에 포함 | `send.ts` TurnRequest 조립 · `continuation.ts` |
+| R-04 | AT-05 / AC16 | 기존 세션 idle 전송은 `resolveTurn` 성공 직후, 런타임 실행(spawn·pushTurn) 전에 `updateSessionProviderKey(payload.sessionId, resolved.providerKey, now, resolved.model)` 을 정확히 1회 쓴다. 해석 실패·`resolved.model` 부재 → 0회 | 순수 헬퍼 `sessionModelRecordFor`(신규, `turn-context.ts`) 단위: 입력별 반환(기록 인자 / null) + send 조립 테스트: db 기록이 runtime 실행 mock 호출보다 먼저 1회(인자 4개 구별 값) · resolution 실패 0 | `send.ts` 4·5단계 직후 |
+| R-04 | AT-05 / AC17 | 새 세션 전송(`payload.sessionId` 없음)과 busy 큐 전송(`reserveOnBusySession`)은 전송 시 기록하지 않는다 — 새 세션은 init 기록이, busy는 체인을 시작한 전송의 기록이 남는다 | 같은 헬퍼: `sessionId` 없음 → null · send 조립: busy 경로 db 0 | `send.ts:224-240` busy 반환 · `writer.ts:353` |
 | R-01·R-03 | AT-04 / AC13 | 실제 앱: 콜드 부팅 토스트·`No handler registered` 로그 0 · 답변 중 모델을 alias+env 5.5로 바꾸고 고른 자동 승인이 유지되고, 진행 중 답변은 기존 모드로 끝나며, 다음 답변이 자동 승인으로 실행 | 사람 실기(Windows 설치본) — 실제 SDK `status` 메시지·로그 파일은 테스트 하네스 밖 | 실제 부팅 · 실제 카탈로그 |
 
 ### AC 검증 주의사항
@@ -170,8 +172,8 @@
 | R-03 | R | §7 AC9~AC12 — 답변 중 선택 유지 | NEW | — |
 | AT-01·02·03 | AT | §7 | NEW | — |
 | AT-04 | AT | §7 AC13 사람 실기 | NEW | — |
-| R-04 | R | §7 AC14~AC17 — 보내지 않은 칩 변경은 메모리 임시 기록(D-009), spawn 모델은 spawn 시점에 영속(D-010) | NEW | — |
-| AR-03 | AR | §10 EP-8 — spawn 경계 → 프레임 위임 `onSpawned` → 세션 메타 기록 | NEW | — |
+| R-04 | R | §7 AC14~AC17 — 보내지 않은 칩 변경은 메모리 임시 기록(D-009), 전송한 모델은 전송 시점에 영속(D-011) | NEW | — |
+| AR-03 | AR | §10 EP-8 — 전송 해석 → 세션 메타 기록(실행 전) | NEW | — |
 | AT-05 | AT | §7 AC14~AC17 | NEW | — |
 | SD-01 | SD | §9 부팅 순서: renderer invoke ⊂ main-ready 이후 | NEW | — |
 | SD-02 | SD | §9 권한 선택 수명주기(idle→live 중 선택 저장→다음 send 정착) | NEW | — |
@@ -206,7 +208,7 @@
 | VP-14 | SD-R1 ↔ ST-R1 | REGRESSION | renderer boot steps | `steps.test.ts:30`·`:46` | — | 0 + 기존 계약 재실행 |
 | VP-15 | SD-R2 ↔ ST-R2 | REGRESSION | `start()` 첫 문장 settings 읽기 등록 | `bootstrap.settings-early.test.ts` | — | 0 + 기존 계약 재실행 |
 | VP-16 | R-04 ↔ AT-05 | REQUIRED | 칩 변경 → 세션 전환 → 캐시 재진입 유지 / 재시작 → `reader.ts:88` `last_model` → `LOAD_SESSION` 기본 정착 | AC14·AC15 좌표 | not selected — 직접 상태 단언 | EP-7 (2) |
-| VP-17 | AR-03 ↔ IT-03 | REQUIRED | `send.ts`(onSpawned 조립) → `runtime.run` → spawn 성공 → `this.delegate.onSpawned` → `db.updateSessionProviderKey` · 연속 턴: `pickFrameDelegates`/`buildFlushRequest` 승계 | AC16·AC17 좌표 | required — 제거: `FRAME_DELEGATE_KEYS` 에서 `onSpawned` 를 빼는 변이(연속 턴 재spawn 미기록) · 순서: 호출을 `commitInitialSubmission` 앞으로 옮기는 변이(stale 제출 기록) — 자리 EP-8 ①② | EP-8 (4) |
+| VP-17 | AR-03 ↔ IT-03 | REQUIRED | `chat:send` → admission → lease(idle) → `resolveTurn` ok → `sessionModelRecordFor` → `ctx.db.updateSessionProviderKey` → (이후) runtime 실행 | AC16·AC17 좌표 | required — 순서: 기록을 runtime 실행 뒤(또는 echo 커밋에만)로 옮기는 변이 · 맞바꿈: `providerKey`↔세션 기존 provider 값, `resolved.model`↔`payload.modelFamily` 원문 — 자리 EP-8 ①② | EP-8 (2) |
 
 ### 현재 변경의 운영 gate
 
@@ -322,7 +324,7 @@ permissionSetMode(auto) → selection=auto → spawn 증거가 auto를 받으면
 | MD-03 / VP-03·VP-10 — **EP-4** | live 변경: 저장·응답 = selection · live 적용은 `coerce(selection, spawnedPermissionModel ?? spawnedModel) === selection` 일 때만, 아니면 live 미호출 | D-008 | coordinator · runtime | ① `coordinator.ts` 저장(`setMode`)·응답 = selection ② live `setPermissionMode` 호출 조건 ③ `session-runtime.ts:520` `spawnedPermissionModelValue = req.permissionModel ?? req.model`, `:784` 해제 (3) | `rg -n "setMode\(sessionId\|setPermissionMode\(\|spawnedPermissionModel" app/src/main --glob '!*.test.*'` | 답변 중 칩 강등(AC9) / 5.5 alias live 미적용(AC10) |
 | MD-01 / VP-08 — **EP-6** | `resolveClaudeModelAlias` | D-003 | shared | ① 함수 본문 ② `context-policy.ts` `resolveCliModel` 위임 (2) | `rg -n "ANTHROPIC_DEFAULT_\\$\{" app/src --glob '!*.test.*'` → 1(shared 안) | 해석 규칙 이원화 |
 | R-04 / VP-16 — **EP-7** | 보내지 않은 칩 변경은 메모리에만 — 재진입은 유지, 재시작은 `last_model` | D-009 | renderer reducer · history writer | ① `chatReducer.ts` `LOAD_SESSION` `preserveLocalState` 분기(새 필드 `modelResolved` 포함 유지) ② 캐시 없는 `LOAD_SESSION` 분기(`modelResolved` 초기화) (2) — `last_model` 쓰기는 턴 영속 2자리뿐(변경 없음) | `rg -n "preserveLocalState" app/src/renderer/src/features/chat --glob '!*.test.*'` → 4(타입 1·분기 1·발신 2) | 재진입 시 선택 소실 / 재시작 시 미전송 선택 부활 |
-| AR-03 / VP-17 — **EP-8** | spawn 성공 직후 1회 `onSpawned` → 기존 세션 메타 기록 | D-010 | runtime · composition root | ① `session-runtime.ts` spawn 블록: `commitInitialSubmission` 통과·`spawnedModelValue` 기록 뒤 `this.delegate.onSpawned?.({model: req.model})` ② `FRAME_DELEGATE_KEYS` 에 `onSpawned`(어댑터 키 아님) ③ `adapters/common/turn.ts` `TurnRequest.onSpawned?` ④ `send.ts` TurnRequest 조립의 클로저(`getActiveTurn().dbSessionId`·`providerKey` 로 `ctx.db.updateSessionProviderKey`) (4) | `rg -n "onSpawned" app/src/main --glob '!*.test.*'` → ①~④ 파일 집합과 차집합 0 | 답변 중 종료 시 `last_model` 미기록(리포트 D-010) |
+| AR-03 / VP-17 — **EP-8** | 기존 세션 idle 전송 시 해석 직후 1회 세션 메타 기록 | D-011 | composition root | ① `turn-context.ts` 순수 헬퍼 `sessionModelRecordFor({sessionId, resolved})` → `{id, providerKey, model} \| null` ② `send.ts` 4·5단계 직후 호출·`ctx.db.updateSessionProviderKey` (2) | `rg -n "sessionModelRecordFor\|updateSessionProviderKey\(" app/src/main --glob '!*.test.*'` → 헬퍼 정의 1 · send 1 · 기존 writer 2 · queries 정의 1 | 답변 중 종료 시 전송 모델 미기록 |
 
 **규칙 칸 분기 ↔ UT 입력** (EP-6 · EP-3 ① · EP-4 · EP-1 · EP-7 · EP-8) — rev.2에서 EP-5 폐기(D-008):
 
@@ -333,7 +335,7 @@ permissionSetMode(auto) → selection=auto → spawn 증거가 auto를 받으면
 | EP-4 | (a) spawn 증거가 선택을 그대로 받음 → live 1회 적용, 저장/응답=선택 · (b) 받지 못함 → live 호출 0, 저장/응답=선택 · (c) idle → 종전(`permissionModeForAgent`) · (d) (a)에서 SDK 실패 → `undefined`, 저장 0(종전) | (a) `spawnedModel`='haiku' + `spawnedPermissionModel`='claude-haiku-5-5' + auto / `claude-sonnet-4-5` + bypass · (b) `claude-sonnet-4-5` + auto(Work·Code) · (c) live 없음 · (d) reject |
 | EP-1 | (a) ready 전 → 0회 · (b) ready resolve → 1회 · (c) ready reject → 0회·보고 0 · (d) ready 후 cwd reject → `chat.cwd.load-failed` 1회 | 보류 promise / resolve / reject / cwd reject |
 | EP-7 | (a) 재진입(`preserveLocalState`, 같은 sessionId) → 네 필드 유지 · (b) 캐시 없는 로드 → `last_model` 기준 기본값, `modelResolved` null | (a) 칩을 `claude-haiku-5-5`·auto로 바꾼 state + `session.modelFamily='claude-sonnet-4-5'` · (b) 같은 session, `preserveLocalState` 없음 |
-| EP-8 | (a) spawn 성공 + 제출 유효 → 1회 · (b) `sendMessage` throw → 0 · (c) `commitInitialSubmission` false → 0 · (d) pushTurn 재사용 → 0 · (e) 클로저: `dbSessionId` 있음 → db 1회 / 없음 → 0 · (f) `model` undefined → db 0(`last_model` 을 null로 지우지 않음) | (a) req.model='claude-haiku-5-5', providerKey='pk-b'(세션 기존값 'pk-a'와 구별) · (b)(c)(d) 각각 · (e) dbSessionId='s1' / undefined · (f) model 없음 |
+| EP-8 | (a) 기존 세션 + 해석 ok + model 있음 → 기록 1회(실행 전) · (b) 해석 실패 → 0 · (c) model undefined → 0(`last_model` 을 null로 지우지 않음) · (d) 새 세션 → 0 · (e) busy 큐 → 0 | (a) sessionId='s1', resolved.providerKey='pk-b'(세션 기존 'pk-a'), resolved.model='claude-haiku-5-5'(payload.modelFamily='haiku'와 구별) · (b)~(e) 각각 |
 
 - 자리 목록은 위 검색 출력과 차집합 0이어야 한다.
 - **선언 경계**: (1) alias 해석 lookup은 settings `env`·runtime `runtimeEnv` 레이어만 본다 — app/custom/process env 또는 adapter patch가 `ANTHROPIC_DEFAULT_*` 를 덮는 배포는 목록 판정에 반영되지 않는다(`harness-config.ts:363-370` 레이어 순서 실측). (2) 세션 로드(`chatReducer.ts:1491`) 직후 Composer의 `SET_MODEL` 이전 한 프레임은 `modelResolved=null` 로 판정한다 — `SET_MODEL` 이 `permissionModeExplicit=false` 상태에서 기본값으로 재정착한다(`chatReducer.ts:1661-1666`). (3) 부팅 게이트 밖 **신규** mount invoke를 막는 소스 가드는 두지 않는다 — 현재 트리의 대상은 EP-1 2자리뿐이다(§8 전수).
@@ -354,7 +356,7 @@ permissionSetMode(auto) → selection=auto → spawn 증거가 auto를 받으면
 | `app/src/main/app/chat-turn/resolve-turn.ts` · `chat-turn-continuation.ts` · `continuation.ts` · `send.ts` | EP-3 ②~⑤ | `permissionModel` 반환·운반 · send/연속 턴 정착 입력 교체 | send·continuation 단위 |
 | `app/src/main/adapters/common/turn.ts` · `contracts/ports.ts` · `features/sessions/session-runtime.ts` | EP-4 ③ | `TurnRequest.permissionModel?` · `RuntimeLiveTurn.spawnedPermissionModel?` · 기록/해제/getter | runtime 단위 |
 | `app/src/main/features/approvals/coordinator.ts` | EP-4 ①② | selection 저장·응답 · live는 그대로 받을 때만 | `coordinator.permission.test.ts` |
-| `app/src/main/features/sessions/session-runtime.ts` · `adapters/common/turn.ts` · `app/chat-turn/send.ts` | EP-8 | `TurnRequest.onSpawned?(spawn: {model?: string})` · `FRAME_DELEGATE_KEYS` 추가 · spawn 성공 직후 호출 · send 클로저가 기존 세션 메타 기록 | runtime·send 단위 |
+| `app/src/main/app/chat-turn/turn-context.ts` · `send.ts` | EP-8 | 순수 헬퍼 `sessionModelRecordFor` · 4·5단계 직후 기록 | 헬퍼 단위 + send 조립 |
 | `app/src/shared/permission-mode.ts` | EP-3 ① | 입력 `{alias; model; resolvedModel?}` · 증거 = `resolvedModel ?? model` | 순수 단위 |
 | `app/src/renderer/src/features/chat/reducer/chatReducer.ts` | EP-3 ⑥⑦⑧ | state `modelResolved: string \| null`(초기 null) · `SET_MODEL.modelResolved?` · 세 정착 자리 입력 교체 · 세션 로드 시 null | reducer 단위 |
 | `app/src/renderer/src/features/chat/store/chatStore.ts` | EP-1 ① · EP-3 | `bootstrapChat`: `bootApi.whenReady()` 후 `sessionApi.cwd()`; ready reject는 조용히 종료(CONSUMED), cwd reject는 `reportError('chat.cwd.load-failed','loadFailed')` · `setModel(…, options.resolvedModel)` | store 단위 |
@@ -395,7 +397,7 @@ settings env / runtimeEnv → model-parser(resolvedModel) → toAgentEnvironment
 
 - 생성/시작: 부팅 조회는 effect 1회. StrictMode 이중 mount에서 cleanup 뒤 늦게 끝난 cwd 조회는 기존 `cwdSelectionRevision` 비교만 거친다 — 추가 상태 없음.
 - 취소/중단: 해당 없음.
-- 종료/quit/crash: spawn 직후 `last_model` 이 기록되므로(D-010) 답변 중 종료 뒤 재시작해도 그 spawn 모델로 복원된다. `spawnedPermissionModelValue` 는 `spawnedModelValue` 와 같은 지점(`:784`)에서 해제.
+- 종료/quit/crash: 전송 해석 직후 `last_model` 이 기록되므로(D-011) 답변 중 종료 뒤 재시작해도 전송한 모델로 복원된다. `spawnedPermissionModelValue` 는 `spawnedModelValue` 와 같은 지점(`:784`)에서 해제.
 - retry/timeout/partial failure: coordinator SDK 실패 → `undefined`, 저장 0(종전 유지).
 - **다중 저장소 쓰기**: coordinator — live SDK 적용 후 controller 저장. 순서·실패 의미는 종전과 같다(SDK 실패면 저장 0). 산출 문서 사본: 이 plan + `INDEX.md` 행(상태·다음 주체).
 
@@ -422,7 +424,7 @@ settings env / runtimeEnv → model-parser(resolvedModel) → toAgentEnvironment
 | live 변경은 spawnedModel 정착값을 저장·응답 | `IPC_CONTRACT.md:607` · `provider-runtime.md:226` | D-008 | **변경** — 리포트 §2 + 사용자 정정(rev.2). 문서 같은 변경에서 갱신 |
 | 사용자가 고른 승인 모드는 모델 전환으로 덮지 않는다 | `state.md:88` | D-008 | 유지(이번 변경이 live 경로까지 적용) |
 | 모델 변경 = respawn | 0128 `session-runtime.ts:270-272` | D-008 근거 | 유지 |
-| `provider_key` 갱신은 echo 커밋 시점 소유(send 시점 선영속 제거) | 0067 `writer.ts:153-158` | D-010 | **변경** — provider_key·last_model만 spawn 성공 시점으로 앞당김(사용자 결정). preview·user row는 커밋 시점 유지. stale 제출은 `commitInitialSubmission` 뒤라 기록되지 않음 |
+| `provider_key` 갱신은 echo 커밋 시점 소유(send 시점 선영속 제거) | 0067 `writer.ts:153-158` | D-011 | **변경** — provider_key·last_model만 idle 전송 해석 직후로 앞당김(사용자 결정). preview·user row는 커밋 시점 유지 |
 | main-ready 필수 스텝 | 0109 `steps.ts:80-89` | D-002 | 유지 |
 | settings 읽기 조기 등록 | 0244 `bootstrap.ts:446-452` | §8 비대상 | 유지 |
 | 선택 식별자 = SDK 모델 문자열 | 0215 D-007 `model-identity.ts` | D-007 | 유지 |
@@ -435,14 +437,14 @@ settings env / runtimeEnv → model-parser(resolvedModel) → toAgentEnvironment
 | 진행 중 답변은 기존 모드인데 칩은 자동 승인 — 답변 중 승인 카드가 뜰 수 있음 | D-008: 칩은 다음 턴 설정이다(사용자 확정). AC13 실기에서 관측 |
 | 레지스트리 서수 이동으로 무관 행 실패 | §11 레지스트리 갱신을 구현 범위에 포함 |
 
-- spawn 후 echo 전에 턴이 실패하면 `last_model` 은 실행되지 못한 모델을 가리킨다 — D-010 의도(그 세션의 spawn 모델 유지)와 같다.
+- 전송 해석 뒤 실행 전에 턴이 실패하면(spawn 실패·stale 제출) `last_model` 은 실행되지 못한 모델을 가리킨다 — D-011("전송 시 갱신") 그대로다.
 - 되돌리기 어려운 결정: 없음(선택 필드 추가·IPC 응답 의미 변경은 앱 내부 계약).
 - 신규 의존성: 없음.
 
 ## 18. 영향 받는 파일 / 문서
 
 - `app/src/shared/{harnesses/claude/model-policy.ts, permission-mode.ts, ipc.ts}`
-- `app/src/main/adapters/{claude/context-policy.ts, common/turn.ts}` (`TurnRequest.permissionModel`·`onSpawned`) · `app/src/main/contracts/ports.ts`
+- `app/src/main/adapters/{claude/context-policy.ts, common/turn.ts}` (`TurnRequest.permissionModel`) · `app/src/main/contracts/ports.ts`
 - `app/src/main/features/{harnesses/claude/model-parser.ts, harnesses/common/{model-types,models}.ts, sessions/session-runtime.ts, approvals/coordinator.ts}`
 - `app/src/main/app/{chat-turn/{send,resolve-turn,continuation}.ts, chat-turn-continuation.ts}`
 - `app/src/renderer/src/features/{chat/{reducer/chatReducer.ts, store/chatStore.ts, components/Composer.tsx, harnesses/claude/composer/{Controls.tsx,modes.ts}}, update/store/updateStore.ts}` · `shared/errors/reportSites.registry.test.ts`
@@ -459,7 +461,7 @@ settings env / runtimeEnv → model-parser(resolvedModel) → toAgentEnvironment
 
 ## READY self-review
 
-- [x] Decision Ledger: D-001~D-004·D-007~D-010 ACTIVE, D-005·D-006 SUPERSEDED → D-008(rev.2).
+- [x] Decision Ledger: D-001~D-004·D-007~D-009·D-011 ACTIVE, D-010 SUPERSEDED → D-011, D-005·D-006 SUPERSEDED → D-008(rev.2).
 - [x] Part I만으로 완료 상태가 설명된다(§1·§5 상태표).
 - [x] 사용자 표현 원문 인용(§2), "커스텀 이름 항상 거부"는 실측으로 정정하되 요구 자체는 유지(§4).
 - [x] 사용자 질의 0 — 비강등 해석이 유일함을 §4에 근거와 함께 적었다.
