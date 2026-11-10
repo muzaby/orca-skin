@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 버그리포트 3건(부트 레이스 · 답변 중 자동 승인 강등 · alias 자동 승인 미노출) |
-| 상태 | IMPL_DONE |
+| 상태 | READY (ΔV2 — verify r1 RETURN_TO_PLAN 정정) |
 | V mode | `Delta V` |
 | 기준 V | `0304:V1 rev.2@eb5ecdb6` — `origin/main` 조상 확인 |
-| 이번 V revision | `ΔV1` — 구현 전 선택 객체 운반 목록 정정. 사용자 결정은 V1 rev.2 유지 |
-| 유효 V | `V1 rev.2 + ΔV1` |
+| 이번 V revision | `ΔV2` — verify r1 D2(확장) 채택 · D1(이행) 입력 명시. 사용자 결정은 V1 rev.2 유지 |
+| 유효 V | `V1 rev.2 + ΔV1 + ΔV2` (ΔV1 = `c7c9e9d`) |
 
 # Part I — Product & UX Contract
 
@@ -224,6 +224,21 @@
 
 - READY 대조: D-003·D-007 ↔ AC4~AC6 유지, D-009·D-011 ↔ AC15~AC17 충돌 없음. `ModelMenu`·`modelSelection`과 Composer 4자리의 현재 코드가 분모 조사 근거다.
 - 구현 주체: 사용자가 `handoff-impl 304`를 지시하여 Codex가 이번 버그수정 구현을 맡는다. 설계 정정은 구현 커밋과 분리한다.
+
+### ΔV2 — verify r1 정정 (D1 입력 명시 · D2 채택)
+
+- 판정: D2 **채택**, D1은 계약 불변(이행 결함 — 입력만 명시). 출처: [`verify.md`](verify.md) §13, verify 1회째(확장 창 안).
+- 채택 이유(D2): stale `modelResolved`가 남으면 증거 없는 alias에서 이후 `SET_PERMISSION_MODE`·`SET_AGENT_KIND`(`chatReducer.ts:1629`·`:861`)가 이전 증거로 auto를 허용한다 — 권한 판정의 fail-open이다(§10 "선택적 필드 의미: … fail-closed"). 비용은 UT 입력 1행.
+- 유지: ACTIVE Decision·AC 동작·Product/UX·pair path·자리 목록(EP-3 8자리 · EP-8 2자리)은 불변. VP-12·VP-17의 규칙 칸↔입력 칸만 아래로 덧씌운다. 다른 pair는 ΔV1까지를 상속한다.
+
+| 대체 대상 | 이번 유효 계약 (규칙 분기) | 구별 입력 / 직접 oracle |
+|---|---|---|
+| EP-3 ⑥ / VP-12 (`SET_MODEL`, `chatReducer.ts:1672`) | (a) `action.modelResolved` 있음 → state `modelResolved` = 그 값 · (b) 부재 → `null` — 이전 `state.modelResolved`를 상속하지 않는다. 이후 권한 정착(`SET_PERMISSION_MODE`·`SET_AGENT_KIND`)은 이 값을 증거로 쓴다 | (b) 시작 state: `modelAlias='haiku'`·`modelFamily='haiku'`·`modelResolved='claude-haiku-5-5'`·`permissionMode='auto_classified'` → `SET_MODEL{modelAlias:'sonnet', modelFamily:'sonnet'}`(modelResolved 없음) → 단언 ① `modelResolved === null` ② 이어서 `SET_PERMISSION_MODE('auto_classified')` → Work `default` · Code `accept_edits`(kind 2). 좌표: `chatReducer.model.test.ts` 신규 케이스. 잠그는 변이: `?? null` → `?? state.modelResolved`(verify I2) red |
+| EP-8 ② / VP-17 (`send.ts` 기록 호출의 `updated_at` 항) | AC16 원문 "인자 4개 구별 값" 유지 — 시각 항은 실행 시점 `now` | (a) 입력에 시각 고정 추가: `vi.useFakeTimers()`+`vi.setSystemTime(<고정값 ≠ 0>)` 또는 `Date.now` 스텁 → 3번째 인자 정확값 단언(`expect.any(Number)` 금지). 좌표: `send.permission-mode.test.ts` 기존 선영속 케이스(`:429-485`). 잠그는 변이: `Date.now()` → `0`(verify I1) red |
+
+- 선언 경계 추가: 없음.
+- 적용 gate: §7-A "현재 변경의 운영 gate" 4행 그대로.
+- ACTIVE 결정 ↔ AC 대조(ΔV2): 충돌 0 — D-003 ↔ AC6(증거 없는 alias는 auto 불가 = D2 입력 기대) · D-011 ↔ AC16(시각 항 구별 = D1).
 
 ### 현재 변경의 운영 gate
 
