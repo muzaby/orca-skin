@@ -2,6 +2,75 @@
 
 > 최신 라운드가 위, 이전 라운드(r1)는 아래에 원문 그대로 보존한다.
 
+# r3 검증 (verify 3회째)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 판정 | **PASS** — 이행·현재 결함 0, 확장 후보 1(창 밖 → 후보 표) |
+| 검증자 · 일자 | Claude Code · 2026-11-10 |
+| 대상 | r3 구현 `f0dd5582`(브랜치 좌표 — 병합 뒤 교정) · 설계 `4f339a0`(ΔV2) |
+| V mode / 유효 V | `Baseline V` V1 rev.2 + ΔV1 + ΔV2 |
+| 라운드 | 3 |
+| 확장 창 | verify 3회째 — **창 밖**. 사용자 요구 변경 ΔV로 다시 열린 노드 없음 |
+| 독립 축(⑥) | 2축·17행: 중간 구간 누락 · 가공(trim·replace·중복) · 형제 디코더 맞바꿈 — 경로 ⑤⑥⑦ |
+| 열거 sweep(⑦) | 이번 diff가 닿은 g1~g3 + 직전 실패(머리 누락) — 아래 17행, 이행 못 잡음 0 |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 1(후보 표) · 경계 0 · 비귀속 0 |
+| 못 본 것 | `mime.test.ts`·`store/index.test.ts`·`store/migrate.test.ts` 3파일 — 이 환경에서 `npm ci --ignore-scripts`라 better-sqlite3 바인딩 없음(`Could not locate the bindings file`), 실행 불가. 이번 diff는 테스트 1파일이라 production 변경 0 · 전체 vitest·`node --test`·가드 스크립트 미실행. 구현자 보고(메일 228 passed)는 증거로 쓰지 않음 |
+
+## 0. 기준선
+
+- `b0a105f..HEAD`의 app diff는 `html-body.test.ts` 1파일(`git diff --name-only`). production 0줄. plan.md 변경은 `[구현자 기입]` 추가와 상태 줄뿐이며 Decision·AC·V 규범 행 변경 없음(설계 커밋 `4f339a0`이 ΔV2).
+- plan validity: CHANGED MD-03 ↔ REQUIRED VP-10″ 유효 · `.decode(` 자리 3(55·58·60) = §10 EP-06″ 3자리, 차집합 ∅ · VP-01 NOT_REQUIRED 근거(production diff 0) 성립.
+
+## 1. 관측
+
+- 오라클 `vitest run html-body.test.ts`: 1파일 22 passed(이번 턴 재실행).
+- 정확 일치 단언(`toBe(declaration+filler+'결론')`)은 g1~g3 입력 4,130/4,109/4,107바이트에서 머리·중간·꼬리 변이를 모두 잡는다.
+- typecheck(node·web·test) exit 0, 대상 파일 eslint 출력 0건.
+- 커밋 trailer 파싱: `Agent·Handoff·Status·Criteria-Met·Verified-By` 5키 반환, 허용값 일치. 해시 `f0dd558` 실재.
+
+## 2. 고장 이력 (⑥⑦)
+
+| ID | 자리 | 바꾼 내용 | 결과 | 분류 |
+|---|---|---|---|---|
+| A-head1 | ⑤ | `decode(bytes.subarray(1))` | 잡음(g1) | — |
+| A-mid | ⑤ | 3,000번째 바이트 제거 | 잡음 | — |
+| A-tail1 | ⑤ | 꼬리 1바이트 제거 | 잡음 | — |
+| A-dup | ⑤ | 결과 뒤에 머리 1바이트 디코딩을 덧붙임 | 잡음 | — |
+| A-nonstream | ⑤ | 꼬리 1바이트를 따로 디코딩해 이음 | 잡음 | — |
+| A-sniffwin | ⑤ | 1,024바이트 경계로 둘로 나눠 디코딩 후 이음 | 못 잡음 | **동치** — 경계가 ASCII 구간이라 결과 문자열이 같다 |
+| A-trim | ⑤ | 결과 `.trim()` | 못 잡음 | 확장 후보(아래) |
+| B-head1·mid·tail1 | ⑥ | A와 같은 3변이 | 잡음 ×3 | — |
+| B-trim | ⑥ | `.trim()` | 못 잡음 | 확장 후보(같은 형태) |
+| C-head1·mid·tail1 | ⑦ | A와 같은 3변이 | 잡음 ×3 | — |
+| C-trim | ⑦ | `.trim()` | 못 잡음 | 확장 후보(같은 형태) |
+| C-utf8 | ⑦ | EUC-KR 폴백을 UTF-8로 맞바꿈 | 잡음(2케이스) | — |
+| C-replace | ⑦ | 결과 중 `f` 한 글자 치환 | 잡음 | — |
+
+원복 확인: 하네스 출력 "모든 파일 원문 그대로", `git status` 깨끗. 이행 못 잡음 0 — F3 머리 누락 형태(`subarray(N)`)는 세 경로 모두 잡힌다.
+
+## 3. 발견
+
+| # | finding | 분류 | disposition |
+|---|---|---|---|
+| F4 | `decodeHtmlBytes` 결과의 앞·뒤 공백 제거(`.trim()`)를 세 경로 모두 못 잡는다 — g1~g3 입력이 공백으로 시작·끝나지 않는다 | 확장 후보(EP-06″ (g′)는 "앞·뒤 누락"이나 열거 입력이 공백을 운반하지 않음) | 창 밖 → `NEXT_HANDOFF(확장)`, 후보 표 등록. 영향: `htmlToBodyText`가 어차피 `trim()`하므로 본문 결과 변화 0 — 사실상 무해 |
+
+## 4. 판정
+
+- VP-10″ REQUIRED: PASS(좌표 `html-body.test.ts` `decodeHtmlBytes (0302 AC18)` g1~g3 + AC17 8케이스).
+- VP-01 NOT_REQUIRED: 근거 성립. 이전 PASS 좌표 유지(이번 diff 비영향).
+- 막는 발견 0, 창 밖 확장 후보 F4는 PASS를 막지 않는다.
+
+## Review Signals
+
+- 직전 r2의 F3(머리 누락)과 같은 디코딩 완전성 축이 3라운드 연속 나왔다 — 단, 이번에는 이행 결함 0이고 남은 형태(F4)는 본문 결과에 영향이 없다.
+- 반복된 환경 한계: DB 바인딩 없는 환경에서 store·mime 3파일 미실행.
+- 독립 축(⑥) 발견 1건(확장).
+
+---
+
 # r2 검증 (verify 2회째)
 
 ## 메타
