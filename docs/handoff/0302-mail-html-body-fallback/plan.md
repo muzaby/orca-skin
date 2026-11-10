@@ -1,0 +1,452 @@
+# Plan — 0302-mail-html-body-fallback
+
+> POP3 메일 플러그인이 `text/plain` 파트 없는 메일의 본문을 0바이트로 저장하는 결함을 고친다.
+> HTML 폴백 · 본문 출처 상태(`bodySource`) · 메시지별 파싱 실패 격리 · 동기화 결과 집계를 한 번에 닫는다.
+> 입력: 폐쇄망 설치본 결함 리포트(2026-11-10, DB 실측 259건 중 본문 22건). 사용자 지시: "'요구'는 보고자 판단이니 자율적으로 다시 검토 및 판단하라".
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0302-mail-html-body-fallback` |
+| 작성자 | Claude Code |
+| 일자 | 2026-11-10 |
+| 상태 | READY |
+| 구현 주체 | Claude (버그수정 — 비기능 작업, root `AGENTS.md` 구현 주체 분담) |
+| V mode | `Baseline V` — 명시적으로 상속할 V 없음. 0237 mail plugin 회귀는 기존 테스트를 REGRESSION gate로 묶는다 |
+| 기준 V | `none` |
+| 이번 V revision | `V1` |
+| 유효 V | `V1` |
+| 기준 커밋 | `f49b0ad` (설계 착수 시 HEAD) |
+
+---
+
+# Part I — Product & UX Contract
+
+## 1. Context / 목표
+
+**문제.** `normalize.ts:67` `bodyText: email.text ?? ''`가 `email.html`을 쓰지 않는다. postal-mime 3.0.0은 메시지 전체에 `text/plain` 파트가 하나도 없으면 `text`를 만들지 않으므로(아래 §8 실측), HTML 단독 메일은 본문 0바이트로 저장·색인된다. 모델은 `mail_search`에서 빈 `snippet`을 받고 "본문 없음"과 "추출 실패"를 구분하지 못하며, `mail_sync`는 `synced:true`만 돌려준다.
+
+**완료 후.**
+- HTML만 있는 메일의 본문이 읽을 수 있는 텍스트로 저장되고 본문 단어로 검색된다.
+- 검색 결과 각 메일이 본문 출처(`plain`/`html`/`none`)를 갖는다.
+- `mail_sync` 결과가 본문 없이 저장된 수와 파싱 실패로 건너뛴 수를 보고한다.
+- 메시지 1건의 MIME 파싱 실패가 동기화 전체를 실패시키지 않는다.
+
+## 2. 사용자 의도 / 요구 출처
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 | "다음 이슈가 리포트 되었다. 대응하라. '요구'는 보고자 판단으러 네가 자율적으로 다시 검토 및 판단하라." | 사용자 턴 2026-11-10 |
+| 보고 결함 1~7 | §4 표의 각 행 — 결함 1·2·3·4·5·6·7 | 결함 리포트 |
+| 보고 요구 | text→html 2단 폴백(turndown 재사용) · `bodySource` + 마이그레이션 0002 · `partial`에 집계 · Pop3ErrorCode 추가 금지 · search 3분기에 `body_source` · 테스트 코퍼스 보강 · 기존 건 복구 불요 | 결함 리포트 "요구" — **보고자 판단이며 §4에서 재검토** |
+| 미검증 1건 | HTML 파트가 `Content-Disposition: attachment`면 `text`·`html` 모두 비어 폴백 불가(case 8). 3단 폴백 판정엔 원문 헤더 표본 1~2건 필요 | 결함 리포트 |
+| 추론 의도 | 모델이 메일 본문을 근거로 답할 때 "본문이 비었다"를 "내용이 없다"로 오인하지 않게 한다 — 추론 | 결함 4 "구분 불가" |
+
+## 3. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-001 | 본문 선택 규칙: `email.text`가 공백 제외 비어 있지 않으면 `plain`(값은 `email.text` 그대로), 아니면 `email.html`을 변환해 공백 제외 비어 있지 않으면 `html`, 둘 다 아니면 `none`(본문 `''`) | 결함 1. plain 우선은 현행 동작 보존(회귀 0) | 리포트 요구 (1) 채택 | ACTIVE | — |
+| D-002 | 변환기는 이미 채택된 `turndown`(0160 승인, `app/AGENTS.md` 의존성 정책)을 신규 순수 모듈 `mail/html-body.ts`에서 쓴다. 규칙 고정: `style`·`script`·`noscript`·`head`·`title` 제거 · `escape`를 항등 함수로 · `img`는 빈 문자열 · `a`는 링크 텍스트만 · 결과 `trim()` | 기본 설정은 CSS/JS 텍스트가 본문에 섞이고 `file_name`이 `file\_name`으로 이스케이프돼 trigram 검색이 깨진다(§8 실측). postal-mime 내부 `text-format.js`는 `exports`가 `.`뿐이라 import 불가 | 리포트 요구 (1) 채택 + 규칙 보강 | ACTIVE | — |
+| D-003 | HTML 변환 입력은 앞 **131,072 UTF-16 code unit**(`html.slice(0, 131072)`)으로 자른다. 상수는 `html-body.ts` 한 곳(`HTML_BODY_INPUT_LIMIT`) | turndown은 입력 크기에 초선형이다 — 이번 세션 실측 `<p>` 512KB 2.4s, 표 1MB 4.3s, 4MB 66s. 변환은 Electron main 스레드에서 돈다. 128Ki는 실측 0.06~0.19s | 설계자 판단(측정) | ACTIVE | — |
+| D-004 | 변환기가 throw하면 그 메일은 `bodySource:'none'`, 본문 `''`로 저장한다. 동기화를 실패시키지 않는다 | 결함 2·6. 메일 메타·첨부는 여전히 쓸모 있다 | 설계자 판단 | ACTIVE | — |
+| D-005 | `MailDocument.bodySource`와 `mail.body_source` 열을 추가한다. 마이그레이션 `0002_mail_body_source.sql`(append-only): `ALTER TABLE mail ADD COLUMN body_source TEXT NOT NULL DEFAULT 'none' CHECK (body_source IN ('plain','html','none'))` + `UPDATE mail SET body_source='plain' WHERE body_text <> ''` | 열 의미 = "저장된 `body_text`의 출처, `none` = 저장 본문이 비어 있음". 기존 행은 이 의미로 정확히 유도된다(내용 추측 없음). 구 코드는 `email.text`만 저장했으므로 비어 있지 않은 기존 본문은 전부 plain | 리포트 요구 (2) 채택 + backfill 규칙 | ACTIVE | — |
+| D-006 | 메일 마이그레이션은 한 건씩 `SQL 실행 + _migrations 기록`을 **한 트랜잭션**으로 적용한다 | 현재 `store/migrate.ts:15-19`는 트랜잭션 없이 `exec` 뒤 `record`한다. 0002는 `ALTER ADD COLUMN`이라 재실행이 `duplicate column`으로 실패한다 — 기록 전 중단되면 그 계정 store가 영구히 열리지 않는다. core `infra/db/migrate.ts:191`은 이미 트랜잭션이다 | 설계자 판단(조사로 발견) | ACTIVE | — |
+| D-007 | **`partial`을 재사용하지 않는다.** 대신 `synced:true` 결과에 `noBodyMails: number`(이번 동기화로 `bodySource:'none'`으로 저장된 수)와 `skippedMails: number`(MIME 파싱 실패로 저장하지 않은 수)를 항상 싣는다 | `partial`은 0237 §14가 "예산 초과 시 `partial:true` + 재개 커서"로 약속했고 그 구현 여부가 **0237 D-063 OPEN(사용자 결정 대기)**이다. 집계를 실으면 모델이 "일부만 동기화됨(시간 초과)"으로 읽고 D-063을 선점한다 | 리포트 요구 (2)(7)의 `partial` 부분 **기각** | ACTIVE | — |
+| D-008 | `Pop3ErrorCode`에 코드를 추가하지 않는다. 완료된 동기화의 `lastErrorCode:null` 기록은 유지한다 | 리포트 동의 — 오류 코드는 최외곽 catch가 동기화 전체 실패로 처리한다(`sync-manager.ts:175-186`). `lastErrorCode`는 기록만 있고 읽는 소비자가 0이다(§8). 손실은 D-007 결과·D-005 메일별 상태·D-012 로그로 보인다 | 리포트 요구 (2)(7) 일부 채택 | ACTIVE | — |
+| D-009 | 메시지별 예외 격리는 **`parseMail` 호출만** 감싼다. TOP/RETR(네트워크)·`saveMessage`(DB·파일)·취소는 기존처럼 동기화 전체로 전파한다. 건너뛴 메시지는 ledger에 쓰지 않으므로 다음 비-fresh 동기화가 다시 RETR한다 | 결함 6. 네트워크·디스크 장애를 메시지별로 삼키면 전체 장애가 "N건 skip"으로 위장된다. 재시도는 TOP 날짜가 14일 경계를 넘으면 `decideIngest`가 멈춘다 | 리포트 결함 6 채택 + 범위 한정 | ACTIVE | — |
+| D-010 | `MailSearchHit.bodySource`를 필수 필드로 추가하고 `store.search`의 3분기(LIKE·MATCH·빈 쿼리) SELECT가 모두 `m.body_source`를 읽는다. FTS 테이블·트리거는 바꾸지 않는다 | 결함 3·4. 변환된 본문은 기존 트리거(`0001_mail.sql:45-58`)로 색인된다 | 리포트 요구 (3)(4) 채택 | ACTIVE | — |
+| D-011 | 기존 캐시 복구 코드는 만들지 않는다 | 원문을 저장하지 않으므로 복구하려면 ledger를 되돌려 재수집해야 한다. 기존 빈 본문 행은 retention(기본 14일) 정리로 자연 소거된다. 근거 인용 정정: 보고서의 "D-060"은 0237의 **첨부 분류** 결정이며 본문에 대한 결정은 아니다 — 같은 원칙(새 수집에만 적용)을 이번 결정으로 명시한다 | 리포트 요구 동의 + 인용 정정 | ACTIVE | — |
+| D-012 | 로그: 파싱 실패마다 `getLogger().warn('mail.sync.parse_failed', { uidl, message })`, `none`으로 저장한 메일마다 `getLogger().warn('mail.sync.body_none', { uidl })`. 제목·주소·본문은 싣지 않는다 | 결함 2(무음). `infra/log/registry.ts`는 electron 비의존이라 feature에서 import 가능(다른 feature 8곳 선례) | 설계자 판단 | ACTIVE | — |
+| D-013 | HTML 파트가 `Content-Disposition: attachment`인 메일(case 8)의 3단 폴백(그 첨부를 본문으로 변환) 여부 | 현재도 그 HTML은 첨부로 저장되고 `mail_search` manifest에 보이며 `mail_getAttachment`로 열 수 있다. 일반 HTML 첨부(보고서 등)를 본문으로 오인하면 검색 품질이 나빠진다. 판정엔 폐쇄망 원문 헤더 표본(`Content-Type`·`Content-Disposition`만) 1~2건이 필요 | 리포트 "미검증 1건" | **OPEN — 사용자 표본 필요.** 이번 V1은 이 결정에 의존하지 않는다(case 8 = `none` + 첨부 유지로 고정, AC2) | — |
+
+### 갱신 메모
+
+- V1 신규 작성. 기존 handoff 상속 없음.
+- `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001→AC1·AC2·AC4, D-002→AC3, D-003→AC5, D-004→AC6, D-005→AC7·AC8, D-006→AC9, D-007→AC10, D-008→AC10(`lastErrorCode`·결과 형상), D-009→AC10·AC11, D-010→AC7·AC12, D-011→§6 비범위, D-012→AC13, D-013(OPEN)→AC2 case 8 행이 현행 유지로 고정.
+
+## 4. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 결함 1: `email.html` 미사용이 원인인가 | **타당.** postal-mime는 `textTypes`에 `plain`이 하나라도 있을 때만 html→text를 만든다 | `node_modules/postal-mime/src/postal-mime.js:346-416` · §8 매트릭스 12종 실측 |
+| 결함 2: 추출 실패 무음 | **타당.** mail 플러그인에 로거 사용 0 | `rg "infra/log" src/main/features/plugins` → 0건 |
+| 결함 3: 빈 본문이 FTS·snippet까지 전파 | **타당**, 단 트리거는 정상 동작(입력이 비었을 뿐) — 트리거 변경 불요 | `0001_mail.sql:45-58` · `store/index.ts:344` |
+| 결함 4: 검색 결과에 상태 없음 | **타당** | `types.ts:159-170` `MailSearchHit` |
+| 결함 5: HTML 단독 테스트 부재 | **타당.** `mime.test.ts:25-49` 픽스처는 항상 plain+html, `pure.test.ts:116-138`은 `text`만 준다 | 파일 열람 |
+| 결함 6: 메시지별 try/catch 없음 | **타당**, 단 격리 범위를 파싱으로 한정(D-009). postal-mime가 실제로 throw하는 입력이 있다 | 실측 `Maximum header size of 2097152 bytes exceeded` · `mime-node.js:46` 중첩 256 초과 |
+| 결함 7: 무조건 `lastErrorCode:null` | **전제 정정.** `lastErrorCode`는 읽는 곳이 없어 사용자·모델에게 보이지 않는다. 보이는 신호는 도구 결과 `synced:true`이고 거기에 집계를 싣는다(D-007) | `rg "lastErrorCode" src --type ts`(테스트 제외) → `store/index.ts`·`sync-manager.ts` 쓰기뿐 |
+| 요구: `partial`에 집계 | **이견 — 기각(D-007).** `partial`은 다른 의미로 약속돼 있고 OPEN 결정에 묶여 있다 | `0237 plan.md:1695` D-063 |
+| 요구: turndown 재사용 | **채택 + 규칙 보강 + 입력 상한.** 기본 설정은 검색을 깨고 큰 입력에 초선형 | §8 실측 |
+| 요구: 마이그레이션 0002 | **채택 + 적용 원자화(D-006).** 원자화 없이는 0002가 계정 store를 영구 불능으로 만들 수 있다 | `store/migrate.ts:15-19` · `migrate.test.ts:20-22` 주석이 이 위험을 이미 예고 |
+| 이미 충족됐는가 | 아니오. `bodySource`·집계·격리 모두 없음 | `rg "bodySource\|noBodyMails\|skippedMails" app/src` → 0건 |
+| 더 작은 해법 | `normalize.ts` 한 줄 폴백만으로 결함 1은 닫히나 결함 2·4·6이 남고, 변환 규칙 없이는 검색 회귀가 생긴다 | §8 turndown 기본 출력 |
+| 보고서 줄 번호 | 현재 `main`과 일부 다르다(`types.ts:82-93`→`159-170`, `partial` `:110`→`:187`, snippet `:334`→`:344`). 대상 코드는 같다 | 파일 열람 |
+
+## 5. 동작 / 사용자 흐름
+
+```text
+mail_sync → (fresh면 기존대로) → UIDL → 보호 판정 → 새 메시지마다 TOP → decideIngest
+   └ fetch: RETR → parseMail ──throw──→ skippedMails+1, warn parse_failed, 다음 메시지
+                      └ ok → bodySource 판정(plain|html|none) → saveMessage → newMails+1
+                                                     └ none이면 noBodyMails+1, warn body_none
+ → { synced:true, newMails, expired, lastSyncAt, noBodyMails, skippedMails }
+mail_search → 3분기 SELECT → hit { …, snippet, bodySource, … }
+```
+
+### 상태와 전이
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
+|---|---|---|
+| HTML 단독/alt{html}/mixed{html,…}/related{html,img} 메일 수집 | HTML을 D-002 규칙으로 변환해 저장 | 검색 snippet에 본문 텍스트, `bodySource:'html'` |
+| plain 파트가 있는 메일 | 현행 그대로 `email.text` 저장 | `bodySource:'plain'`, 본문 바이트 불변 |
+| 본문 파트 없음(첨부만·빈 본문·case 8) | 본문 `''` 저장, 첨부는 기존 규칙 | `bodySource:'none'`, `noBodyMails` 증가, 첨부 manifest 유지 |
+| 변환기 throw | `none`으로 저장 | 위와 같음 |
+| MIME 파싱 throw | 그 메시지만 건너뜀, ledger 미기록 | `skippedMails` 증가, 동기화는 `synced:true`; 다음 비-fresh 동기화가 재시도 |
+| TOP/RETR/저장/취소 오류 | 기존대로 동기화 전체 실패 | 기존 `stale:true` + 오류 코드 (회귀 0) |
+| 마이그레이션 이전 행 검색 | backfill 값 | 본문 있던 행 `plain`, 빈 행 `none` |
+
+### 파생 UX / 엣지케이스
+
+- plain이 공백뿐(`'\r\n'`)이고 HTML이 있으면 `html`이다(D-001 trim).
+- HTML이 131,072자를 넘으면 앞부분만 본문이 된다 — 검색 범위가 그만큼 줄어든다(§10 선언 경계).
+- `noBodyMails`는 "손실"이 아니라 "본문 없이 저장"이다. 첨부만 있는 정상 메일도 센다.
+
+## 6. 범위 / 비범위
+
+- **범위**: §11 파일 표 전부 + 두 문서(`persistence.md`·`closed-network-extensions.md`)의 해당 문단.
+- **비범위**: 기존 캐시 복구(D-011) · 3단 폴백(D-013 OPEN) · `partial`·재개 커서(0237 D-063) · 도구 descriptor/instructions 문구 변경 · plain이 "HTML을 보세요" 같은 안내문일 때의 HTML 우선 · renderer UI(메일 플러그인은 모델 도구 출력만 있음).
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| 3단 폴백(D-013) | 아니오 — `bodySource` 값 집합에 새 값이 필요하면 append-only 마이그레이션으로 CHECK를 넓힌다 | 사용자 표본 대기 |
+| `bodySource` 값 이름 | **예 — 저장 형식·도구 출력** | 지금 고정: `'plain' \| 'html' \| 'none'`(리포트 제안 그대로) |
+| 결과 필드 이름 `noBodyMails`·`skippedMails` | **예 — 도구 출력** | 지금 고정(D-007) |
+
+## 7. Requirements / Acceptance — `R ↔ AT`
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AT-01 / AC1 | HTML 단독 메일을 정규화하면 본문이 HTML의 보이는 텍스트이고 `bodySource:'html'`이다 | `pure.test.ts` 신규: `normalizeMail({html:'<p>결재 <b>요청</b></p>'})` → `bodyText`에 `결재`·`요청` 포함, `bodySource==='html'` | `sync-manager` → `parseMail` → `normalizeMail` |
+| R-01 | AT-01 / AC2 | raw MIME 매트릭스의 각 형상이 아래 출처·본문을 낸다: text/html 단독·alt{html}·mixed{html,pdf}·mixed{ics,html,pdf}·related{html,img} → `html` · plain 단독·alt{plain,html}·mixed{alt{plain,html},pdf} → `plain`이고 `bodyText`가 `email.text`와 같다 · HTML `attachment` disposition(case 8) → `none`이고 그 `text/html` 첨부 1건 유지 · 빈 본문 → `none` | `mime.test.ts` 신규 `it.each`: `parseMail(raw)` → `bodySource`·`bodyText` 포함 단어·(case 8) `attachments` 단언. 각 raw의 본문 단어는 서로 다르게 둔다 | `parseMail` production 함수 그대로 |
+| R-01 | AT-01 / AC3 | 변환 결과에 `<style>`·`<script>`·`<noscript>`·`<head>`·`<title>` 텍스트가 없고, `_`·`*`·`[`가 이스케이프되지 않으며, `img`의 alt·src와 `a`의 href가 없고 링크 텍스트는 남는다 | `html-body.test.ts` 신규: 규칙마다 표지 문자열 하나씩(§10 EP-02 입력 칸) 넣고 포함/미포함 단언 | `normalizeMail` → `htmlToBodyText` |
+| R-01 | AT-01 / AC4 | `text`가 공백뿐이고 `html`이 있으면 `html`, `text`가 비어 있지 않으면 `html`이 있어도 `plain`이고 본문은 `text` 그대로 | `pure.test.ts` 신규 2케이스 | `normalizeMail` |
+| R-01 | AT-01 / AC5 | 131,072자를 넘는 HTML은 앞 131,072자만 변환된다 | `html-body.test.ts`: 상한 앞에 표지 A, 상한 뒤에 표지 B → A 포함·B 미포함. 상한 직전 끝나는 입력은 B까지 포함(경계 1 이내) | 위와 같음 |
+| R-02 | AT-02 / AC6 | 변환기가 throw하면 그 메일은 `bodySource:'none'`, `bodyText:''`이고 나머지 필드(제목·첨부)는 정상이다 | `pure.test.ts`: `normalizeMail(email, input, { htmlToText: () => { throw … } })` → 단언 | `normalizeMail`의 catch 분기(seam은 테스트 전용 3번째 인자, production 기본값 = `htmlToBodyText`) |
+| R-02 | AT-02 / AC7 | `saveMessage`가 `bodySource`를 저장하고 같은 UIDL 재저장(upsert)이 갱신하며, `search`의 LIKE·MATCH·빈 쿼리 분기가 각 메일의 저장 값을 `bodySource`로 돌려준다 | `store/index.test.ts` 신규: plain·html·none 세 메일 저장 → 세 분기마다 메일별 `bodySource` 단언 · 같은 UIDL을 `none`→`html`로 재저장 후 `html` | `sync-manager` → `store.saveMessage` / `mail_search` → `store.search` |
+| R-02 | AT-02 / AC8 | 0002 적용 뒤 새 DB는 `body_source` 열을 갖고, 0001만 적용된 기존 DB의 행은 본문 있음→`plain`·빈 본문→`none`으로 채워지며, CHECK 밖 값은 거부되고, 재개방 시 재적용되지 않는다 | `store/migrate.test.ts` 신규: 0001만 적용한 파일에 행 2개 → `applyMailMigrations` → 값 단언 · `UPDATE … body_source='x'` throw · 기존 "records every"·"applies exactly once" 케이스가 0002 포함으로 green | `createMailStore` → `openFileDatabase.initialize` → `applyMailMigrations` |
+| R-02 | AT-02 / AC9 | 마이그레이션 SQL이 중간에 실패하면 그 마이그레이션의 스키마 변경도 `_migrations` 기록도 남지 않는다 | `store/migrate.test.ts` 신규: 내부 seam `applyMigrationList(db, list)`에 `[{name:'9999_fail', sql:'ALTER TABLE … ADD COLUMN probe TEXT; SELECT * FROM missing_table'}]` → throw 뒤 `probe` 열 없음·기록 없음 | `applyMailMigrations` = `applyMigrationList(db, MAIL_MIGRATIONS)` |
+| R-02 | AT-02 / AC10 | 서버가 [plain, html 단독, 본문 없음, 파싱 실패] 4통을 줄 때 `mail_sync` 결과는 `synced:true, newMails:3, noBodyMails:1, skippedMails:1`이고 `lastErrorCode`는 `null`, `error` 키가 없다. 파싱 실패 메시지는 ledger에 없고 freshness가 지난 다음 동기화에서 다시 RETR되며, 저장된 3통은 다시 RETR되지 않는다 | `app/deployment/mail.integration.test.ts` 신규: 메시지 번호별 RETR 원문 hook을 fixture에 추가 → `f.server.implementations[0].handler({})` 결과 · `manager.store.state().lastErrorCode` · 두 번째 동기화 RETR 명령 목록 단언. 파싱 실패 원문 = 2 MiB 초과 헤더(실측 throw) | 선언 → auth → `mailTools` → `createMailSyncManager` → 실제 store·POP3 경로 |
+| R-02 | AT-02 / AC11 | 파싱 외 오류(연결·TLS·타임아웃·DB)와 RETR 중 취소는 기존처럼 동기화 전체를 `stale:true`로 실패시킨다 | 기존 `mail.integration.test.ts:540` `'%s preserves valid auth and stale cache'` · `:353` `'%s during RETR closes socket without a partial message'` · `:297` 취소 케이스 green 유지 + 신규: `saveMessage`가 throw하면 `skippedMails` 경로가 아니라 `error:'db_failed'` | 같은 경로 |
+| R-01 | AT-01 / AC12 | 동기화 뒤 HTML 본문에만 있는 단어로 `mail_search`하면 그 메일 1건이 나오고 `snippet`에 그 단어, `bodySource:'html'`이 있다. 같은 동기화의 plain 메일은 `bodySource:'plain'`, 본문 없음 메일은 `'none'` | AC10과 같은 테스트에서 `f.server.implementations[1].handler({ query })` 결과 단언(MATCH 분기 길이 ≥3 단어 + LIKE 분기 2자 단어 각 1회) | `mail_search` → `manager.search` → `store.search` |
+| R-02 | AT-02 / AC13 | 파싱 실패는 `mail.sync.parse_failed`(uidl 포함), `none` 저장은 `mail.sync.body_none`(uidl 포함) warn 로그를 남기고 두 이벤트 데이터에 제목·주소가 없다 | AC10 테스트에서 `setRootLogger(spy)`로 warn 호출 인자 단언 | `sync-manager` 루프 |
+| R-03 | AT-03 / AC14 | `persistence.md` Mail Plugin 캐시 절이 본문 출처 열을, `closed-network-extensions.md` mail 절이 HTML 폴백·`bodySource`·`noBodyMails`·`skippedMails`·메시지별 파싱 실패 격리를 서술한다. 숫자 재서술 없음 | 문서 diff 열람 + `node scripts/check-doc-inventory.mjs --check` green | 운영자 문서 |
+| R-03 | AT-03 / AC15 | 새 의존성 0, `Pop3ErrorCode` 멤버 불변 | `git diff f49b0ad -- app/package.json app/package-lock.json` 빈 출력 · `git diff f49b0ad -- app/src/main/infra/net/pop3-errors.ts` 빈 출력 | — |
+
+### AC 검증 주의사항
+
+- AC2·AC12의 본문 단어는 형상마다 달라야 한다 — 같은 단어면 출처를 맞바꿔도 관측이 같다.
+- AC10의 4통은 메시지 번호별로 원문이 달라야 하고 `newMails`·`noBodyMails`·`skippedMails`가 서로 다른 값(3·1·1 중 `newMails`만 3)이므로 맞바꿈이 보인다. 두 집계 필드 맞바꿈은 값이 같아(1·1) 보이지 않으므로 **보조 케이스**로 [본문 없음 2통, 파싱 실패 1통]을 하나 더 둔다(`noBodyMails:2, skippedMails:1`).
+- AC5는 시간 단언을 하지 않는다(상한 동작만). 시간은 §14.
+
+## 7-A. V / Trace Matrix
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-01 | R | HTML 본문 메일이 검색 가능한 텍스트로 저장된다 (§1·§5) | NEW | — |
+| AT-01 | AT | AC1~AC5·AC12 | NEW | — |
+| R-02 | R | 본문 출처·손실·파싱 실패가 모델에게 보이고 파싱 실패가 동기화를 막지 않는다 (§1·§5) | NEW | — |
+| AT-02 | AT | AC6~AC11·AC13 | NEW | — |
+| R-03 | R | 운영 문서·의존성·오류 코드 계약 (§6) | NEW | — |
+| AT-03 | AT | AC14·AC15 | NEW | — |
+| SD-01 | SD | 동기화 수명주기: 메시지별 파싱 격리·집계·ledger 미기록 재시도 (§5 상태표·§13) | NEW | — |
+| AR-01 | AR | `bodySource` 운반: normalize → store 쓰기 → 3분기 읽기 → 도구 출력 (§9·§10) | NEW | — |
+| AR-02 | AR | 메일 마이그레이션 0002 + 원자 적용 (§10·§13) | NEW | — |
+| MD-01 | MD | 본문 선택 규칙 D-001·D-004 (`normalize.ts`) | NEW | — |
+| MD-02 | MD | 변환 규칙 D-002·D-003 (`html-body.ts`) | NEW | — |
+| INH-0237 | SD | 0237 동기화 경계(보호·수집 경계·취소·오류 분류) | INHERITED | `docs/handoff/0237-pop3-mail-search-plugin/plan.md` — 기존 테스트 `mail.integration.test.ts`·`sync-manager.test.ts`·`retention-window.test.ts` |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-01 | R-01 ↔ AT-01 | REQUIRED | `mail_sync handler → sync-manager RETR → parseMail → normalizeMail(본문 선택) → saveMessage → mail_search handler → store.search → hit.snippet` | 신규 `mail.integration.test.ts` AC10/AC12 케이스 — HTML 전용 단어 검색 결과·snippet | not selected — 직접 행동 oracle | EP-01·EP-03 (자리 9) |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | `mail_sync handler → sync loop(parse catch · none 집계) → 결과 객체 → handler JSON` · `mail_search → hit.bodySource` | 신규 `mail.integration.test.ts` AC10(주+보조)·AC12·AC13 | required — 집계 두 필드 맞바꿈·`skippedMails` 증가 제거를 EP-04에 심는다(구조가 같은 두 카운터) | EP-03·EP-04 (자리 10) |
+| VP-03 | R-03 ↔ AT-03 | REQUIRED | 문서·패키지 산출물 | gate: `check-doc-inventory --check` · AC15 diff 명령 | not selected | 0 — 운반 edge 없음(문서) |
+| VP-04 | SD-01 ↔ ST-01 | REQUIRED | `sync loop → parseMail throw → catch(파싱만) → 다음 메시지 → 완료 저장(lastSyncAt) → 다음 비-fresh sync → reconcile fresh에 재등장 → RETR` | 신규 AC10 두 번째 동기화 RETR 목록 · AC11 신규 `db_failed` 케이스 · 기존 `:540`·`:353`·`:297` | required — catch 범위를 `saveMessage`까지 넓히는 변이(AC11 red 기대) | EP-04 (자리 4) |
+| VP-05 | AR-01 ↔ IT-01 | REQUIRED | `MailDocument.bodySource → saveMessage INSERT/UPSERT → mail.body_source → SELECT(LIKE·MATCH·빈) → row 매핑 → MailSearchHit.bodySource` | 신규 `store/index.test.ts` AC7 | not selected — 세 메일의 값이 서로 달라 직접 oracle이 맞바꿈·제거를 본다 | EP-03 (자리 7) |
+| VP-06 | AR-02 ↔ IT-02 | REQUIRED | `createMailStore → openFileDatabase.initialize → applyMailMigrations → applyMigrationList → (BEGIN · exec · record · COMMIT)` | 신규 `store/migrate.test.ts` AC8·AC9 + 기존 2케이스 | required — 트랜잭션 제거 변이(AC9 red 기대) | EP-05 (자리 3) |
+| VP-07 | MD-01 ↔ UT-01 | REQUIRED | `normalizeMail(email, input, deps?) → 선택 → {bodyText, bodySource}` | 신규 `pure.test.ts` AC1·AC4·AC6 · `mime.test.ts` AC2 | not selected | EP-01 (자리 2) |
+| VP-08 | MD-02 ↔ UT-02 | REQUIRED | `htmlToBodyText(html) → slice(LIMIT) → turndown(규칙) → trim` | 신규 `html-body.test.ts` AC3·AC5 | not selected | EP-02 (자리 7) |
+| VP-09 | INH-0237 ↔ 기존 ST | REGRESSION | 동기화 루프가 바뀌므로 0237 경계 재확인 | 기존 `mail.integration.test.ts` 전체 · `sync-manager.test.ts` · `retention-window.test.ts` · `tools*.test.ts` green | not selected | — |
+
+### 현재 변경의 운영 gate
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 (`app/`에서) | 실패 범위 |
+|---|---|---|---|
+| 마이그레이션 append-only | 새 SQL·`migrate.ts` import 동기화 | `node scripts/check-migrations-appendonly.mjs` | 현재 변경이 유발한 실패만 blocking |
+| 문서 인벤토리 | 문서 2건 수정 | `node scripts/check-doc-inventory.mjs --check` | 〃 |
+| 테스트 예산 · 풀 | 테스트 파일 추가·수정 | `node scripts/check-test-budgets.mjs` · `node --test scripts/*.test.mjs` | 수정·추가 파일의 `[test-pools]`·예산 위반은 blocking(AGENTS §판정 범위) |
+| lint · typecheck | 타입 필드 추가 | `npm run lint` · `npm run typecheck` | 〃 |
+| vitest 전체 | 회귀 | 파일 필터 없는 `./node_modules/.bin/vitest run` | 네이티브 로드 환경 서명은 변경 전 실패 집합과 함께 분리 |
+| message bus | 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건이면 blocking |
+
+---
+
+# Part II — Technical Design
+
+## 8. Research — 현재 코드와 계약
+
+| 발견 / 제약 | 근거 |
+|---|---|
+| 본문은 `email.text`만 쓴다 | `app/src/main/features/plugins/mail/normalize.ts:67` |
+| `parseMail`은 `PostalMime.parse` → `normalizeMail` | `mime.ts:5-14` |
+| 루프에 메시지별 catch 없음, 완료 시 `lastErrorCode:null` | `sync-manager.ts:136-159`·`163-168` |
+| 결과 `partial?`은 production에서 설정 0 — 0237 D-063 OPEN | `types.ts:187` · `0237 plan.md:1695` |
+| `MailSearchHit`에 상태 필드 없음 | `types.ts:159-170` |
+| search 3분기 SELECT, snippet = `bodyText.slice(0,300)` | `store/index.ts:294-350` |
+| 메일 마이그레이션은 트랜잭션 없음, core는 트랜잭션 | `store/migrate.ts:12-20` · `infra/db/migrate.ts:191` |
+| `MigrationMetaDb`는 `exec`·`prepare`만 노출 | `infra/db/migration-meta.ts:8-11` |
+| append-only 가드가 mail migrations 디렉터리와 `?raw` import 집합 일치를 강제 | `scripts/check-migrations-appendonly.mjs:22-26` |
+| turndown 7.2.4 · `@types/turndown` · 승인 의존성 · 같은 `plugins` 슬라이스 confluence가 main에서 사용 | `app/package.json:53,68` · `app/AGENTS.md` 의존성 정책 · `confluence/storage-to-markdown.ts:14` |
+| postal-mime 3.0.0 `exports`는 `"."`뿐 | `node_modules/postal-mime/package.json` |
+| 로거는 electron 비의존 registry에서 | `infra/log/registry.ts` · `AppLogger.warn(event, data?)` `log-manager.ts:18` |
+| 도구 핸들러는 sync 결과·search 결과를 변형 없이 JSON으로 낸다 | `tools.ts:118-145` |
+| ADD COLUMN `NOT NULL DEFAULT 'none' CHECK(...)` + backfill UPDATE가 SQLite에서 동작하고 FTS 일치 유지, CHECK 위반 거부 | 이번 세션 실측(better-sqlite3, `:memory:`): `[u1 plain, u2 none]` · `CHECK constraint failed` · `match 'hello' → rowid 1` |
+
+### postal-mime 3.0.0 실측 매트릭스 (이번 세션)
+
+| # | 형상 | `text` | `html` | 첨부 |
+|---|---|---|---|---|
+| 1 | plain 단독 | 있음 | 없음 | — |
+| 2 | text/html 단독 | **없음** | 있음 | — |
+| 3 | alt{plain,html} | 있음 | 있음 | — |
+| 4 | alt{html} | **없음** | 있음 | — |
+| 5 | mixed{html,pdf} | **없음** | 있음 | pdf |
+| 6 | mixed{ics,html,pdf} | **없음** | 있음 | ics·pdf |
+| 7 | mixed{alt{plain,html},pdf} | 있음 | 있음 | pdf |
+| 8 | text/html `attachment` | **없음** | **없음** | text/html |
+| 9 | mixed{plain, html-attachment} | 있음 | 없음 | text/html |
+| 10 | mixed{html, txt-attachment} | **없음** | 있음 | text/plain |
+| 11 | 빈 본문 | 없음 | 없음 | — |
+| 12 | related{html,img} | **없음** | 있음 | png |
+
+### turndown 실측 (이번 세션)
+
+| 입력 | 결과 |
+|---|---|
+| 기본 설정, `<head><title>T</title><style>.a{}</style>` + `<script>` | 본문에 `T.a{color:red}var x=1` 혼입 |
+| 기본 설정, `file_name *star*` | `file\_name \*star\*` |
+| 기본 설정, `<a href>`·`<img alt>` | `[Click](http://…)![logo](cid:i1)` |
+| D-002 규칙 | `file_name *star* 1. item` · `Click` · 표 셀 텍스트 · CSS/JS 없음 · 공백 HTML → `""` |
+| 크기 (D-002 규칙) | `<p>` 128KB 187ms · 256KB 711ms · 512KB 2,399ms / 표 1MB 4,344ms · 4MB 65,955ms |
+
+### 전수 조사
+
+| 대상 | 검색/방법 | N | 의미 |
+|---|---|---:|---|
+| 본문 원천을 읽는 production 자리 | `rg -n "email\.text\|email\.html" app/src/main/features/plugins/mail -g '!*.test.ts'` | 2 | `normalize.ts:38`(cid 참조 — 불변) · `:67`(본문 — 변경) |
+| `parseMail` production 호출부 | `rg -n "parseMail\(" app/src/main -g '!*.test.ts'` | 1 | `sync-manager.ts:151` — catch 대상 유일 |
+| `body_text`를 다루는 store SQL | `rg -n "body_text" app/src/main/features/plugins/mail/store/index.ts` | 5 | INSERT(215)·UPSERT(217)·LIKE(299)·MATCH(304)·빈(309) — `body_source`도 같은 5문 + 매핑 1 |
+| `MailDocument` 리터럴 생성(테스트) | `rg -n "bodyText:" app/src/main --type ts` mail 관련 | 6 | `store/index.test.ts:53,175,221` · `mail.integration.test.ts:250,341,412` — 필수 필드 추가 시 `bodySource` 기입 필요(typecheck:test) |
+| `lastErrorCode` 읽기 | `rg -n "lastErrorCode" app/src --type ts`(테스트 제외) | 0 읽기 | 쓰기만 3(`sync-manager.ts:118,166,179`) |
+| mail 플러그인 로거 | `rg -n "infra/log" app/src/main/features/plugins` | 0 | 신규 |
+
+### 수치 / 전칭 표현 검산
+
+- "본문 22/259"는 보고자 실측이며 이 저장소에서 재현할 수 없다(폐쇄망 DB). 원인 메커니즘만 매트릭스로 재현했다.
+- "`parseMail` 호출부 유일" — 위 검색 1건.
+
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS
+
+```text
+RETR raw → parseMail → PostalMime.parse ──throw──→ 루프 탈출 → 최외곽 catch → stale 실패
+                             └ normalizeMail: bodyText = email.text ?? ''   (html 무시)
+→ saveMessage(body_text) → FTS 트리거 → search: snippet = body_text[0:300]  (상태 없음)
+→ { synced:true, newMails, expired, lastSyncAt }
+```
+
+### TO-BE
+
+```text
+RETR raw → try parseMail ─catch→ skipped++ · warn parse_failed · continue
+                └ normalizeMail(email, input, deps = { htmlToText: htmlToBodyText })
+                     text.trim() ? plain : (try convert(html) → trim ? html : none ; catch → none)
+→ saveMessage(body_text, body_source) → (none이면 noBody++ · warn body_none) → processed++
+→ search 3분기: SELECT … m.body_source AS bodySource → hit.bodySource
+→ { synced:true, newMails, expired, lastSyncAt, noBodyMails, skippedMails }
+```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
+|---|---|---|---|---|
+| 책임 | normalize가 text만 선택 | normalize가 3단 선택, 변환은 `html-body.ts` | D-001·D-002 | MD-01·MD-02 / VP-07·08 |
+| data flow | body_text만 운반 | body_text + body_source | D-005·D-010 | AR-01 / VP-05 |
+| contract | 결과에 집계 없음, hit에 상태 없음 | `noBodyMails`·`skippedMails`·`bodySource` | D-007·D-010 | AR-01·SD-01 / VP-02·05 |
+| error | 파싱 1건 → 전체 실패 | 파싱만 메시지별 격리 | D-009 | SD-01 / VP-04 |
+| schema | 0001만, 비원자 적용 | 0002 + 원자 적용 | D-005·D-006 | AR-02 / VP-06 |
+
+### 핵심 책임 분리
+
+| 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
+|---|---|---|---|
+| `mail/html-body.ts` (신규, 순수) | D-002 규칙·D-003 상한으로 HTML → 텍스트 | `string → string` | `normalize.ts` |
+| `mail/normalize.ts` | D-001 선택 + D-004 catch | `Email → MailDocument` | `mime.ts` |
+| `mail/sync-manager.ts` | D-009 격리 · 집계 · D-012 로그 | — | `tools.ts` |
+| `mail/store/index.ts` | `body_source` 쓰기·읽기 | — | `sync-manager.ts` |
+| `mail/store/migrate.ts` | 0002 등록 · D-006 원자 적용 | — | `store/index.ts` |
+| `mail/types.ts` | `MailBodySource` SSOT | — | 위 전부 |
+
+레이어: 전부 `features/plugins` 슬라이스 내부 + `infra/log/registry`(하향). turndown 서비스는 mail 전용 인스턴스를 `html-body.ts`에 lazy singleton으로 둔다 — confluence 변환기는 매크로 전처리와 규칙이 달라 재사용하지 않는다(`confluence/storage-to-markdown.ts:44-53`가 같은 singleton 패턴).
+
+## 10. 계약 / 타입 / 강제 지점
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| MD-01 / VP-07 | **EP-01** 본문 선택 D-001·D-004 | `normalize.ts` | 구현자 | 자리 2: ① `normalizeMail` 반환 객체의 `bodyText`·`bodySource` 결정식 ② 변환 호출의 catch. **규칙 칸 분기 5**: (a) text 비공백 → plain·text 원문 (b) text 공백/부재 + 변환 결과 비공백 → html (c) 변환 결과 공백 → none (d) html 부재 → none (e) 변환 throw → none | `rg -n "email\.text\|email\.html\|bodySource" app/src/main/features/plugins/mail/normalize.ts` | 선택식이 html을 무시하면 결함 1 재발 |
+| MD-01 / VP-07 UT 입력 칸 | — | — | — | (a) `{text:'본문', html:'<p>다른</p>'}`→plain,`'본문'` (b) `{text:'\r\n', html:'<p>결재 요청</p>'}`→html (c) `{html:'<p> </p>'}`→none (d) `{}`→none (e) `deps.htmlToText` throw→none·제목 유지 | — | — |
+| MD-02 / VP-08 | **EP-02** 변환 규칙 D-002·상한 D-003 | `html-body.ts` | 구현자 | 자리 7: ① `remove` 목록(style·script·noscript·head·title) ② `escape` 항등 ③ `img` 규칙 ④ `a` 규칙 ⑤ `slice(0, HTML_BODY_INPUT_LIMIT)` ⑥ `trim()` ⑦ singleton 생성 | `rg -n "remove\|escape\|addRule\|slice\|trim\|HTML_BODY_INPUT_LIMIT" app/src/main/features/plugins/mail/html-body.ts` | 규칙 하나가 빠지면 CSS/JS 혼입·이스케이프·URL 잡음으로 검색 품질 회귀 |
+| MD-02 / VP-08 UT 입력 칸 | — | — | — | ①은 5태그마다 고유 표지(`STYLEMARK` 등) ② `snake_case_word *star* [x]` 그대로 ③ `<img alt="IMGALT" src="cid:IMGSRC">` 둘 다 없음 ④ `<a href="http://HREFMARK">LINKTEXT</a>` → `LINKTEXT` 있음·`HREFMARK` 없음 ⑤ AC5 표지 A/B ⑥ `<p> </p>` → `''` ⑦ 두 번 호출해도 결과 동일 | — | — |
+| AR-01 / VP-05·VP-01 | **EP-03** `bodySource` 운반 | `types.ts` `MailBodySource` | 구현자 | 자리 9: ① `MailDocument.bodySource`(types) ② `MailSearchHit.bodySource`(types) ③ INSERT 열·값 ④ UPSERT `SET body_source=excluded.body_source` ⑤ LIKE SELECT ⑥ MATCH SELECT ⑦ 빈 쿼리 SELECT ⑧ row 타입 ⑨ hit 매핑 | `rg -n "body_source\|bodySource" app/src/main/features/plugins/mail/store/index.ts app/src/main/features/plugins/mail/types.ts` | 한 분기만 빠지면 그 쿼리 형태의 검색에서 상태가 `undefined` |
+| SD-01 / VP-04·VP-02 | **EP-04** 격리·집계 | `sync-manager.ts` | 구현자 | 자리 4: ① `parseMail`만 감싼 try/catch(→ skipped++·warn·continue) ② `document.bodySource==='none'` 분기(→ noBody++·warn) — 저장 **성공 뒤** ③ 성공 반환 객체 `noBodyMails`·`skippedMails` ④ 카운터 초기화(루프 전 0) | `rg -n "parseMail\|skippedMails\|noBodyMails\|mail\.sync\." app/src/main/features/plugins/mail/sync-manager.ts` | catch가 넓으면 DB·네트워크 장애가 skip으로 위장(D-009). 집계를 저장 전에 세면 저장 실패 메시지가 `noBodyMails`에 남음 |
+| AR-02 / VP-06 | **EP-05** 마이그레이션 | `store/migrate.ts` · `migrations/0002_mail_body_source.sql` | 구현자 | 자리 3: ① 0002 SQL 파일(D-005 문장 그대로) ② `MAIL_MIGRATIONS` 항목 ③ `applyMigrationList`의 트랜잭션(`BEGIN`→`exec`→`record`→`COMMIT`, 실패 시 `ROLLBACK` 후 rethrow) | `rg -n "0002\|BEGIN\|COMMIT\|ROLLBACK\|transaction" app/src/main/features/plugins/mail/store/migrate.ts` · `ls app/src/main/features/plugins/mail/migrations` | 비원자면 중단 시 계정 store 영구 불능 |
+| R-03 / VP-03 | 문서·의존성 | 두 문서 | 구현자 | 0 — 운반 edge 없음 | — | — |
+
+**선언 경계** (게이트가 green인 채로 남는 차이 — 판정에 쓰지 않음):
+
+- HTML 131,072자 뒤의 본문은 색인되지 않는다(D-003). AC5가 이 동작을 고정한다.
+- plain이 비어 있지 않으면 HTML이 더 풍부해도 plain을 쓴다(D-001).
+- case 8(HTML `attachment`)은 `none`이다(D-013 OPEN).
+- `noBodyMails`는 손실과 정상 무본문(첨부만)을 구분하지 않는다.
+- 파싱 실패 메시지는 retention 경계까지 비-fresh 동기화마다 재RETR된다(D-009) — 비용 상한은 그 메시지 크기 × 동기화 수.
+- 변환 throw와 진짜 빈 HTML은 둘 다 `none`이다(로그 이벤트도 같은 `body_none`).
+- 기존 캐시의 HTML 단독 메일은 `none`으로 남다가 retention으로 사라진다(D-011).
+
+## 11. 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/main/features/plugins/mail/types.ts` | SSOT | `export type MailBodySource = 'plain' \| 'html' \| 'none'` · `MailDocument.bodySource: MailBodySource`(필수) · `MailSearchHit.bodySource: MailBodySource`(필수) · `synced:true` 분기에 `readonly noBodyMails: number; readonly skippedMails: number`. `partial?`은 손대지 않는다(D-007) | typecheck |
+| `…/mail/html-body.ts` (신규) | 변환 | `export const HTML_BODY_INPUT_LIMIT = 131_072` · `export function htmlToBodyText(html: string): string` — EP-02 자리 7 | 순수 단위 |
+| `…/mail/html-body.test.ts` (신규) | — | AC3·AC5 + EP-02 입력 칸 | unit 풀 |
+| `…/mail/normalize.ts` | 선택 | 3번째 인자 `deps: { htmlToText?: (html: string) => string } = {}` · EP-01. `referencedContentIds(email.html)`(38줄)는 그대로 | 순수 단위 |
+| `…/mail/pure.test.ts` | — | AC1·AC4·AC6 + EP-01 입력 칸 5개. 기존 `'normalizes sender/recipient…'`에 `bodySource:'plain'` 단언 추가 | unit |
+| `…/mail/mime.test.ts` | — | AC2 raw `it.each` 9형상(§8 매트릭스 1·2·3·4·5·6·7·8·11·12 중 AC2 행의 것). 기존 케이스 유지 | 이 파일은 store를 import하므로 기존 풀 분류 그대로 |
+| `…/mail/migrations/0002_mail_body_source.sql` (신규) | 스키마 | D-005 SQL 두 문장 | — |
+| `…/mail/store/migrate.ts` | 적용 | `0002` `?raw` import·목록 추가 · `export function applyMigrationList(db, list)`에 D-006 트랜잭션 · `applyMailMigrations`는 이를 호출 | io(SQLite) |
+| `…/mail/store/migrate.test.ts` | — | AC8·AC9 | io |
+| `…/mail/store/index.ts` | 저장·검색 | EP-03 ③~⑨ | io |
+| `…/mail/store/index.test.ts` | — | AC7 · 기존 `MailDocument` 리터럴 3곳에 `bodySource` 기입 | io |
+| `…/mail/sync-manager.ts` | 격리·집계·로그 | EP-04 · `import { getLogger } from '../../../infra/log/registry'`(호출 시점에 `getLogger()`) · `errorMessage`는 `infra/errors` | integration |
+| `…/mail/sync-manager.test.ts` | — | 기존 `toMatchObject({ synced: true, newMails: 3 })` 유지(필드 추가에 내성) | — |
+| `app/src/main/app/deployment/mail.integration.test.ts` | — | fixture에 메시지 번호별 RETR 원문 hook(`bodies(next: Record<number, string>)`) 추가 · AC10(주+보조)·AC11 신규 db_failed·AC12·AC13 · 기존 리터럴 3곳 `bodySource` 기입 | io |
+| `docs/arch/backend/persistence.md` | 문서 | Mail Plugin 캐시 절에 "메일 행은 본문 출처(`plain`/`html`/`none`)를 함께 기록한다" 한 문장 | — |
+| `docs/guides/closed-network-extensions.md` | 문서 | mail 절(`mail_sync`… 문단 뒤)에 HTML 폴백·`bodySource`·`noBodyMails`·`skippedMails`·파싱 실패 격리·기존 캐시 비소급 문단 | — |
+
+AC10 원문 4통(메시지 번호 1~4, 본문 단어 서로 다름):
+1. `Content-Type: text/plain` — `평문본문`
+2. `Content-Type: text/html` — `<html><head><style>.x{}</style></head><body><p>결재요청서 HTML본문</p></body></html>`
+3. `Content-Type: multipart/mixed` 안에 pdf 첨부만 — 본문 없음
+4. 2 MiB 초과 헤더 1줄 + plain — postal-mime throw(이번 세션 실측 메시지 `Maximum header size of 2097152 bytes exceeded`)
+
+### 테스트 가능성
+
+- `normalize.ts`·`html-body.ts`는 런타임 의존이 turndown(+domino)뿐이라 unit 풀이다.
+- 파싱 실패는 mock 없이 실제 postal-mime throw 입력으로 만든다 — catch 자리가 production 경로 그대로 실행된다.
+- 마이그레이션 원자성은 `applyMigrationList` seam에 실패 목록을 준다 — production은 같은 함수에 `MAIL_MIGRATIONS`를 준다.
+
+## 12. End-to-end 영향
+
+### producer → consumer
+
+| producer | 정규화/상태 | consumer |
+|---|---|---|
+| POP3 RETR 원문 | `normalizeMail` → `MailDocument.bodySource` | `store.saveMessage` |
+| `mail.body_source` | `store.search` 매핑 | `mail_search` 도구 JSON → 모델 |
+| sync 루프 카운터 | 결과 객체 | `mail_sync` 도구 JSON → 모델 |
+
+### 기존 소비처
+
+| 기존 소비처 | 영향 | 회귀 AC |
+|---|---|---|
+| `tools.ts` mail_sync/mail_search | 변형 없이 통과 — 필드 증가만 | AC10·AC12 |
+| `tools.sync.test.ts:14` 수동 결과 `{synced:true, fresh:false, lastSyncAt}` | 타입 없는 `new Promise` 값이라 typecheck 영향 0(`tools.sync.test.ts:11-14`). 핸들러 통과 동작만 본다 — 변경 불요 | VP-09 |
+| `mail.integration.test.ts` `toMatchObject` 단언들 | 필드 추가에 내성 | VP-09 |
+
+## 13. Lifecycle / 오류 / 정리
+
+- 파싱 catch는 `operationSignal.aborted` 확인 뒤에 있다 — 취소는 기존 루프 머리 검사(`sync-manager.ts:137`)가 계속 던진다.
+- `saveMessage` 실패는 catch 밖이라 기존 롤백·첨부 정리(`store/index.ts:259-264`)가 그대로 동작한다.
+- 마이그레이션: `BEGIN` 전 `readAppliedMigrations`로 이미 적용된 것은 건너뛴다. 트랜잭션 안의 `ALTER`·`UPDATE`·`INSERT _migrations`가 함께 커밋/롤백된다. `UPDATE`는 `mail_au` 트리거로 FTS delete+insert를 같은 값으로 하므로 색인 내용 불변(실측).
+- 두 저장소 쓰기: 메시지 저장은 기존처럼 파일 → DB 트랜잭션 순서이고 이번 변경은 같은 행에 열 하나를 더할 뿐이라 새 조합 없음.
+
+## 14. 성능 / 상한 / 최적화
+
+- 메일 1통 변환 상한: 입력 131,072자 — 실측 0.06~0.19s(이 환경), 기준 PC 배율 3을 적용해도 0.6s 이하. 동기화는 메시지마다 RETR 왕복이 있어 변환이 지배하지 않는다.
+- backfill `UPDATE`: 행 수 × FTS 재삽입. 보존 14일 캐시 규모(보고 259건)에서 무시 가능.
+- 저장 본문 크기: HTML 경로는 변환 출력이 입력 상한보다 작다(실측 출력/입력 ≈ 0.4~0.85). plain 경로는 현행대로 무상한.
+
+## 15. 외부 구현 포트 / 문서 계약
+
+`mail_sync`·`mail_search` 출력은 모델 도구 계약이다. 폐쇄망 배포 문서(`closed-network-extensions.md`)가 운영자 진입점이므로 AC14로 함께 고친다. 배포 recipe(`MailAuthOptions`·`MailPluginOptions`) 형상은 바뀌지 않는다.
+
+## 16. 기존 결정·규칙과의 관계
+
+| 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
+|---|---|---|---|
+| D-063 `partial` 형상 OPEN | 0237 plan | D-007 | 유지 — 선점하지 않음 |
+| D-062 연속 old-header 카운트 | 0237 plan | §13 | 유지 — 파싱 catch는 `decideIngest` 뒤 |
+| D-060 새 수집에만 적용(첨부) | 0237 plan | D-011 | 유지 — 같은 원칙을 본문에 별도 결정으로 |
+| 머지된 마이그레이션 수정 금지 | `app/AGENTS.md` DB 정책 | EP-05 | 유지 — 0001 불변, 0002 신규 |
+| 의존성 정책 | `app/AGENTS.md` | D-002 | 유지 — 신규 0 |
+| main은 Node 전역 fetch 금지 등 보안 베이스라인 | `app/AGENTS.md` | — | 무관 |
+| 로거는 호출 시점 `getLogger()` | `infra/log/registry.ts` 헤더 | D-012 | 따른다 |
+
+## 17. 리스크 / 트레이드오프
+
+| 리스크 | 완화/결정 |
+|---|---|
+| 변환 텍스트가 HTML 레이아웃 잡음(표 셀 줄바꿈)을 포함 | 검색·snippet 용도로 충분. 마크다운 서식은 거의 남지 않음(§8) |
+| turndown/domino가 특정 HTML에서 예외 | D-004 — 메일은 `none`으로 저장, 동기화 계속 |
+| 0002 적용 실패 | D-006 — 롤백되어 다음 개방에서 재시도 |
+| 보고자가 기대한 `partial` 형상과 다름 | D-007 근거를 사용자에게 보고 |
+
+## 18. 영향 받는 파일 / 문서
+
+§11 표가 전부다. INDEX 보드 1행.
+
+## 19. 게이트
+
+§7-A "현재 변경의 운영 gate" 표가 정본이다. 단독 실행 예: `cd app && ./node_modules/.bin/vitest run src/main/features/plugins/mail src/main/app/deployment/mail.integration.test.ts`.
+
+## READY self-review
+
+- 여러 턴 결정: 단일 턴 — 사용자 지시 원문을 §2에 인용, 리포트 요구 채택/기각을 D-001~D-013에 귀속.
+- `ACTIVE 결정 ↔ AC 대조: 충돌 0`(§3 갱신 메모).
+- 조건절 보존: "'요구'는 보고자 판단 … 자율적으로 다시 검토 및 판단" → §4에서 요구별 판정, 기각 1건(D-007)·보강 3건(D-002 규칙·D-003·D-006).
+- 사용자 질의: 3단 폴백(D-013)만 OPEN — 원문 표본이 필요해 코드 조사로 닫을 수 없다. V1은 의존하지 않는다.
+- 실측: postal-mime 매트릭스 12종 · turndown 규칙·크기 · SQLite ALTER/CHECK/FTS · postal-mime throw 입력 · baseline `vitest run src/main/features/plugins/mail` 12 files/108 tests green.
+- 저장소 규칙: append-only 가드 · test-pools(SQLite는 io) · 레이어(슬라이스 내부 + infra 하향) · 후보 표 겹침 0행(`rg -n "mail" docs/handoff/INDEX.md` 후보 표 구간 0건).
+- 규칙 칸 ↔ 입력 칸: EP-01 분기 5 ↔ 입력 5, EP-02 자리 7 ↔ 입력 7.
+- 적대 증거 선택: VP-02(카운터 맞바꿈·증가 제거) · VP-04(catch 범위 확대) · VP-06(트랜잭션 제거). 각 red 기대 테스트를 Pair registry에 적었다.
+- 사람 실기: 없음 — 폐쇄망 실제 메일로 22/259 → 개선 확인은 운영 관측이지 AC가 아니다(§6 범위 밖, verify 뒤 사용자 확인 권장).
+
+## [구현자 기입] 설계 리뷰
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+## [구현자 기입] Pair 자기검증
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+## [구현자 기입] Product/UX 파생 검토
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+## [검증자 기입] 파생 이슈
