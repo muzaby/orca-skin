@@ -11,7 +11,7 @@
 | slug | `0302-mail-html-body-fallback` |
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
-| 상태 | READY |
+| 상태 | impl/IMPL_DONE (r1) — 검증 대기 |
 | 구현 주체 | Claude (버그수정 — 비기능 작업, root `AGENTS.md` 구현 주체 분담) |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음. 0237 mail plugin 회귀는 기존 테스트를 REGRESSION gate로 묶는다 |
 | 기준 V | `none` |
@@ -637,7 +637,7 @@ r1 (구현자 = Claude, 비기능 버그수정). 설계를 그대로 수행했�
 | `node scripts/check-test-budgets.mjs` | `20 real-git suites ok · all budget sites scaled` |
 | `npm run lint` | 0 errors · 2 warnings(`Timeline.tsx`·`useTranscriptVirtualizer.ts` — 변경 전과 같음, 변경 파일 아님) |
 | `npm run typecheck` | exit 0 |
-| `./node_modules/.bin/vitest run`(필터 없음) | 940파일 중 29 failed · 907 passed · 4 skipped / 케이스 22 failed · 8692 passed — 29파일 전부 변경 전 커밋에서도 같은 실패(차집합 ∅, 환경). 테스트 2파일 보강 뒤 재실행 결과는 아래 줄 |
+| `./node_modules/.bin/vitest run`(필터 없음, 마지막 수정 뒤) | 940파일 중 29 failed · 907 passed · 4 skipped / 케이스 22 failed · 8695 passed. 실패 29파일은 변경 전 커밋 `a43f564`에서 같은 29파일·22케이스 실패(차집합 ∅, 환경 — 이번 변경 파일 0) |
 | `node --test scripts/*.test.mjs` | 827 pass · 0 fail |
 | mail 범위 | 14파일 189 passed |
 | 테스트 소스 규칙(수정·추가 테스트 6파일) | 예산 가드 위반 0 · 풀 가드: unit 2(`html-body`·`pure`), io 4(SQLite) — 전체 실행에서 `[test-pools]` 위반 0 |
