@@ -196,6 +196,14 @@ describe('mail body selection chain (0302 D-014)', () => {
     expect(document).toMatchObject({ bodySource: 'attachment', bodyText: '첨부C' })
   })
 
+  it('treats a whitespace-only conversion result as no text and moves on', () => {
+    const document = body(
+      { html: '<p>HTMLB</p>', attachments: [htmlAttachment('<p>첨부C</p>')] },
+      { htmlToText: (html) => (html.includes('HTMLB') ? ' \r\n ' : '첨부C') }
+    )
+    expect(document).toMatchObject({ bodySource: 'attachment', bodyText: '첨부C' })
+  })
+
   it('(g) AC16 looks at the first HTML attachment only', () => {
     const document = body({
       attachments: [htmlAttachment('<p> </p>'), htmlAttachment('<p>첨부D</p>')]
