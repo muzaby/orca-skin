@@ -3,7 +3,7 @@
 // 사용: node audit-check.mjs --check   → 위반 목록 (0 이면 exit 0)
 //       node audit-check.mjs --write   → audit.md 생성 블록 갱신
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { classifyBucket, countLines } from './volume.mjs'
@@ -378,7 +378,7 @@ export function render(data, lineCount = () => 0) {
   } else out.reviews = PENDING
   if (data.deep) {
     out.deep = table(
-      ['버킷', ...EXCESS, '밀도', '읽은 줄 / prod 줄', '판정 근거', '읽은 파일'],
+      ['버킷', ...EXCESS, '밀도', '읽은 파일 줄 수(상한) / prod 줄', '판정 근거', '읽은 파일'],
       data.deep.reviews.map((r) => {
         const prod = data.volume?.buckets?.[r.bucket]?.prod?.lines ?? 0
         const read = r.read.reduce((n, f) => n + lineCount(f), 0)
@@ -438,7 +438,11 @@ function loadFacts(root) {
   for (const m of history.matchAll(/\b(\d{4})-[a-z]/g)) handoffIds.add(m[1])
   const cache = new Map()
   const read = (p) => {
-    if (!cache.has(p)) cache.set(p, existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null)
+    // 디렉토리는 파일이 아니다 — 읽으려 하면 EISDIR 로 죽으므로 미실재로 센다.
+    if (!cache.has(p)) {
+      const abs = join(root, p)
+      cache.set(p, existsSync(abs) && statSync(abs).isFile() ? readFileSync(abs, 'utf8') : null)
+    }
     return cache.get(p)
   }
   return {
