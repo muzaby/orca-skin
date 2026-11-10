@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 `/handoff-plan` — 코드 비대화 방지(CI 감소는 결과 — D-011). 0305는 감사(지도)만, 축소 구현은 후속 handoff |
-| 상태 | impl/IMPL_DONE (r1.2) — ΔV1 심화 검토·분해안 완료, 검증 대기 |
+| 상태 | impl/IMPL_DONE (r1.3) — ΔV1 심화 검토·분해안 + 미독 영역 보완 완료, 검증 대기 |
 | V mode | `Delta V` (ΔV1 — 사용자 요구 변경) |
 | 기준 V | `V1` (이 plan · 설계 커밋 좌표는 INDEX) |
 | 이번 V revision | `ΔV1` |
@@ -749,6 +749,102 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 - 반복해서 부딪히는 환경 한계: `app/node_modules` 없음 · shallow clone · 서브에이전트 금지(D-006)라 읽는 양이 한 세션의 컨텍스트에 묶인다.
 - 현재 라운드·impl 턴: `r1.2`(사용자 요구 변경 턴 — verify 없는 impl 턴 수 산정에서 제외).
 - 세션 중 PR #566 본문이 D-011 이전 요약(렌즈 6개·CI 시간)으로 남아 있어 사용자가 추가 지시로 오인될 수 있는 형태로 전달했다. 본문을 현재 plan 에 맞게 고쳤다.
+
+## [구현자 기입] 설계 리뷰 (r1.3)
+
+- 계기: 사용자 지시 "본래하려던 작업이 완성됐는지 확인하고 비어있는 부분이 있다면 보완하라". r1.2 산출의 gate 는 전부 green 이었고, 빈 부분은 `audit.md` 가 스스로 적은 미독 영역(`chat/harnesses` 2% · `plugins` · 미독 대형 파일)이었다.
+- 동의 / 그대로 진행: ΔV1 의 AC15·AC16 계약 안에서 기존 심화 검토의 `read`·판정을 넓히고 후보를 더했다. 규범 행(Decision·AC·§10)은 바꾸지 않았다.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-09 | 버킷 → 심화 검토 (EP-10) | 13건 × (범주 7 + 밀도 1) | 13/13 · 104/104 | `deep.json` 13건 그대로, 3건의 `read`·판정 확장 · `gate:audit-check.mjs --check` ok · 변이 Q2·Q3 red | 버킷·범주 · 범주가 다른 후보 지목 → K18 · 다른 버킷 파일 → K18 | — |
+| VP-09 | `restructure` 후보 → 분해안 (EP-11) | `restructure` 후보 27 | 27/27 (단계 58) | `candidates.json` `type=restructure` 27건 전부 `decomposition` 보유 · 같은 gate · 변이 Q1·Q6 red | 후보 ID · 분해안 삭제·없는 파일 → K19 | — |
+| VP-03·VP-04·VP-06 | 후보 9칸 · 승인 목록 · 분할안 · 생성 블록 (EP-05·EP-07) | 후보 39 × 9칸 · 블록 9 | 351/351 · 9/9 | 같은 gate(K4~K10·K12·K14) · 변이 Q4·Q5 red | 후보 ID·렌즈 수 · 분할 누락 → K9 · 수 고정 → K14 | — |
+| VP-10 | 검사 규칙 K18·K19 | 변경 없음 | 해당 없음 | `node --test scan/*.test.mjs` → tests 144 · pass 144 (검사기 코드 diff 0) | — | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-09 | REQUIRED | SELF_PASS | `gate:audit-check.mjs --check` | Q1·Q2·Q3·Q6 red |
+| VP-03·VP-04·VP-06 | REGRESSION | SELF_PASS | 같은 gate | Q4·Q5 red |
+| VP-10 | REQUIRED | SELF_PASS(유지) | `scan/audit-check.test.mjs` — r1.2 좌표 그대로, 코드 diff 0 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 gate | 결과 |
+|---|---|---|---|---|
+| Q1 C-36 `decomposition` 삭제 | sweep EP-11 · r1.2 N3 재앵커(새 후보) | 최초 | `audit-check --check` | 잠김 |
+| Q2 `chat/harnesses` 검토의 X2 가 범주 다른 C-37 지목 | sweep EP-10 · r1.2 N7 재앵커 | 최초 | 같음 | 잠김 |
+| Q3 `plugins` 검토 `read` 에 다른 버킷 파일 | sweep EP-10 · r1.2 N4 재앵커 | 최초 | 같음 | 잠김 |
+| Q4 C-38 을 분할안에서 제거 | REGRESSION — V1 M5 | red | 같음 | 잠김 |
+| Q5 L4 후보 수를 21 로 고정 | REGRESSION — K14 | 최초 | 같음 | 잠김 |
+| Q6 C-37 분해 단계에 없는 파일 | sweep EP-11 · r1.2 N6 형제 | 최초 | 같음 | 잠김 |
+
+- **분모 검산**: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 6(Q1~Q6 — 이번 턴이 더한 데이터 자리: 후보 4 · 심화 검토 3 · 분할 2 · 렌즈 수 1 에 종류별 1건) = 표 행 6`.
+- **덮개 회귀**: 0건 — 검사기·테스트 코드를 바꾸지 않았다(`git diff --stat` 에 `scan/` 없음).
+
+## [구현자 기입] Product/UX 파생 검토 (r1.3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있다 — `audit.md` §0 "보완에서 더 나온 것" | AC12 |
+| seam 을 만들려고 production 을 재배치했는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 새 실패 경로 없음 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+- 사용자 자리에서 본 한계: 보완 뒤에도 개요만 본 영역이 남는다. `audit.md` §0 한계에 파일 이름으로 적었다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | PR 브랜치가 `main`(0304 r1 검증 커밋)과 `INDEX.md` 에서 충돌했다 | ✅ 선조치 — `origin/main` 을 병합하고 0304 행은 `main` 것, 0305 행은 이 브랜치 것으로 뒀다 | 리베이스는 force-push 가 필요해 권한 정책이 거부했다. 병합 커밋 `Handoff: none` |
+| 2 | r1.2 가 `chat/harnesses`(prod 최대 버킷)를 2% 만 읽고 `necessary` 로 판정했다 | ✅ 선조치 — 가장 큰 2파일과 상태 모듈 1개를 읽어 후보 3건(C-36·C-38·C-39)을 더했다 | `deep.json` `read` 4파일 · 근거 칸에 읽은 구간 |
+| 3 | r1.2 가 `plugins` 를 "판정할 만큼 읽지 못했다"로 남겼다 | ✅ 선조치 — 메일 동기화·도구를 읽고 플러그인 간 겹침을 측정했다(C-37) | 같은 역할 7쌍 겹침 최대 7% |
+| 4 | 여전히 개요만 본 큰 파일이 있다(`session-context.ts` · `auth/store.ts` · `chatReducer` 의 `RECV_EVENT`·`LOAD_SESSION` · harnesses 나머지) | ⚠️ 보고만 — 선언 경계 7("검토의 깊이는 `read` 에 적은 파일까지") 안 | `audit.md` §0 한계 |
+| 5 | 플러그인 겹침 측정 스크립트를 저장소에 남기지 않았다(r1 #4 와 같은 축) | ⚠️ 보고만 — 방법은 `deep.json` 근거 칸에 서술 | 12자 초과 비주석 줄의 다중집합 교집합 |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것: 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체물 없음 | — |
+| 공유 | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1.3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `docs/handoff/0305-code-bloat-audit/{audit.md,data/candidates.json,data/deep.json,data/split.json}` · `docs/handoff/INDEX.md` · 이 절 |
+| 실행 명령 | `node scan/volume.mjs --check` · `node scan/audit-check.mjs --check` · `node --test scan/*.test.mjs` · `cd app && node scripts/check-doc-inventory.mjs --check` · AC11 명령 |
+| 관측한 게이트 산출 | `[volume] ok — 2116 files · 305843 lines · 102 buckets` · `[audit-check] ok — 완료 선언` · `tests 144 · pass 144 · fail 0` · doc-inventory `links ok` · AC11 0줄(병합으로 들어온 `main` 커밋도 `app`·`.github` 를 바꾸지 않는다) |
+| 추가·수정 테스트의 subtree 규칙 | 해당 없음 — 테스트를 건드리지 않았다 |
+| V-pair 자기확인 | `SELF_PASS 3 / SELF_BLOCKED 0` (이번 턴이 닿은 pair) |
+| 강제 지점 전수 | 4행 — 위 표 |
+| AC 자기보고 | AC15 ✅ 심화 검토 13건(차집합 0), 3건 확장 · AC16 ✅ `restructure` 27건 전부 분해안(단계 58) · AC5 ✅ 렌즈 수 12·25·2 = 후보 39 · AC6·AC7 ✅ K4~K7 green · AC8 ✅ 승인 목록 14건(이번 턴 추가 0 — 새 후보 4건은 `restructure`) · AC9 ✅ 후속 11묶음 + 보류 3 · AC13 ✅ K12 · AC1·AC2·AC10·AC11·AC14 ✅ 데이터 diff 0 · AC12 ⚠️ 사람 |
+| 합계 검산 | `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14` — 분모는 r1.2 와 같다 |
+| 블로커 / 역질문 | 없음. 사용자 판정 대기: 승인 목록 14건 · 분할 순위(AC12) |
+| 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 같다 — r1 #2 · r1.2 가 각각 "읽은 깊이가 얕다"를 보고했고 이번 턴이 그 일부를 메웠다.
+- 막았어야 할 plan 지침·AC 가 있었는가: AC15 는 버킷당 검토 1건과 `read` 가 그 버킷 소속임만 잠근다. 읽은 비율의 하한은 없다(선언 경계 7).
+- 반복해서 부딪히는 환경 한계: 세션 재시작으로 작업 주체가 바뀌었다. force-push 는 권한 정책으로 거부된다.
+- 현재 라운드·impl 턴: `r1.3` — verify 0회, verify 없는 impl 턴 3(r1 · r1.2 · r1.3). r1.2 는 사용자 요구 변경 턴이라 세지 않으면 2 다.
 
 ---
 

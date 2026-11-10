@@ -14,6 +14,7 @@
 | P6 | 분할안 · 승인 목록 | 완료 |
 | P7 | 분량 상위 버킷 심화 검토 (ΔV1) | 완료 |
 | P8 | 분해안 · 분할안 갱신 (ΔV1) | 완료 |
+| P9 | 읽지 못한 영역 보완 (r1.3) | 완료 |
 
 <!-- audit:complete -->
 
@@ -33,6 +34,15 @@
 - **분해안은 §8 에 있다.** `restructure` 후보 23건 전부에 단계를 달았다. 첫 단계는 대부분 동작을 바꾸지 않는 추출·삭제다.
 - 필요하다고 판정한 버킷 7개는 조립 루트 · 작은 순수 함수 묶음 · 외부 연동 · 계약 선언이다. 다만 `chat/harnesses`(prod 최대 버킷)와 `plugins` 는 읽은 양이 적어 "과잉 없음"이 아니라 "판정할 만큼 읽지 못함"에 가깝다(§7 근거 칸).
 
+### 보완에서 더 나온 것 (r1.3)
+
+r1.2 가 "판정할 만큼 읽지 못함"으로 남긴 `chat/harnesses`·`plugins` 와 미독 대형 파일을 읽었다.
+
+- **OpenCode 컴포저 목록 조회가 또 하나의 과한 프로토콜이다**(C-36). 목록 하나를 띄우는 데 낡은 응답을 거르는 축이 6개(`owner`·`previousOwner`·`generation`·`retired`·`epoch`·`disposed`)이고 renderer 275줄 · main 277줄 · 테스트 4,850줄이 걸려 있다.
+- **늘 같은 값만 들어오는 인자가 나왔다.** 메일 동기화의 단계 콜백은 유일한 호출부가 `undefined` 를 넘기고(C-37), diff 리뷰의 optional props 6개는 유일한 호출 사슬이 전부 넘긴다(C-38).
+- **플러그인 3벌(Confluence·Jira·메일)은 복붙이 아니다** — 같은 역할 파일 7쌍의 겹침이 최대 7%다. 과잉은 메일 쪽의 죽은 콜백과 이중 합류뿐이다.
+- `FileDiffSection.tsx`(915줄)·`ComposerInputController.tsx`(516줄)·`adapters/claude/map.ts`(1,019줄)는 크지만 기능(diff 보기 · IME 조합 보호 · SDK 메시지 변환)이 요구하는 분량으로 판정했다. 줄일 것은 선언·중복 계산 수준이다(C-38·C-39).
+
 ### 재현 방법
 
 | 근거 | 명령 |
@@ -47,7 +57,7 @@
 
 - 과잉 범주 판정(§6)은 진입 핸들러와 `read` 칸의 파일까지 읽은 결과다. r1 이 진입 심볼만 본 `chatStore.ts` · `chatReducer.ts` · 어댑터 내부는 심화 검토(§7)가 읽었다.
 - 심화 검토의 `읽은 파일 줄 수`는 그 파일의 전체 줄 수라 **상한**이다. 일부 구간만 읽은 파일은 근거 칸에 구간을 적었다. 전부 읽은 파일은 `chatStore.ts` · `pending-message-queue.ts` · `post-turn.ts` · `runtime-model-startup.ts` 넷이다.
-- 심화에서도 읽지 않은 큰 파일: `adapters/claude/map.ts`(1,019줄) · `adapters/opencode/v1/session-context.ts`(567줄) · `features/auth/store.ts`(517줄) · `chat/harnesses` 의 `FileDiffSection.tsx`(915줄) · `ComposerInputController.tsx`(516줄) · `chatReducer` 본문의 대부분 case.
+- 보완(r1.3) 뒤에도 개요만 본 큰 파일: `adapters/opencode/v1/session-context.ts`(567줄) · `features/auth/store.ts`(517줄) · `chatReducer` 의 `RECV_EVENT`(378줄)·`LOAD_SESSION`(159줄) case 본문 · `chat/harnesses` 의 나머지 약 200파일 · Confluence·Jira 플러그인 본문. 이 영역의 "후보 없음"은 과잉이 없다는 뜻이 아니다.
 - `saving` 이 0인 후보는 절감이 없다는 뜻이 아니라 추정하지 않았다는 뜻이다(`basis` 칸).
 
 ## 1. 분량 지도
@@ -216,10 +226,10 @@
 | 렌즈 | 방법 | 분모 | 후보 수 |
 |---|---|---|---|
 | L1 | 채널: preload 메서드 → `shared/api/ipc.ts` 래퍼 → renderer 호출부(`rg -U`) · feature: import 처 · export: 식별자 일치 스캔 · 이벤트·파트: 생산자 `rg` · 설정 키·스키마 필드: 읽는 곳 `rg` · (ΔV1) 심화 검토 중 생산자 없는 이벤트 변형 1건 추가 | 채널 117 · feature 14 · prod export 중 외부 prod 참조 0인 646 · 이벤트 변형 31 · 설정 키 24 | 12 |
-| L4 | 추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정 · (ΔV1) prod 3,000줄 이상 버킷 12개와 `chat/reducer` 의 내부 파일을 읽는 심화 검토 | 추적 단계 46 · 시나리오 31 · 심화 버킷 13 | 21 |
+| L4 | 추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정 · (ΔV1) prod 3,000줄 이상 버킷 12개와 `chat/reducer` 의 내부 파일을 읽는 심화 검토 | 추적 단계 46 · 시나리오 31 · 심화 버킷 13 | 25 |
 | L5 | `adapters/{claude,opencode}`·`chat/harnesses/{claude,opencode}` 의 같은 이름 파일 쌍에서 12자 초과 비주석 줄의 겹침 측정(35% 이상 · 12줄 이상) · (ΔV1) 이름이 다른 같은 역할 쌍은 `claude/composer`↔`opencode/composer` 목록 대조로 1쌍 확인 | 같은 이름 파일 27쌍 | 2 |
 
-후보 35건 · 예상 절감 합 prod 985줄 · test 465줄
+후보 39건 · 예상 절감 합 prod 1031줄 · test 465줄
 
 | ID | 후보 | 버킷 | 렌즈·범주 | 유형 | 시나리오 | 출처 | 보존할 개념 요구 | 근거 | 절감 prod/test | 위험 |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -258,6 +268,10 @@
 | C-33 | `window.orca` 전달 래퍼 계층 | renderer/shared | L4 X5 | restructure | S-01 S-04 | 미상(rg -n "PR #29\|api/ipc" docs/arch/frontend/state.md → :121 "PR #29 에서 도입"(handoff 번호 없음)) | 모든 화면의 main 호출이 그대로 동작한다 | `renderer/src/shared/api/ipc.ts` 380줄 — `window.orca.` 를 그대로 부르는 한 줄 래퍼 115개(`grep -c "window\.orca\." …` → 115) · 채널 하나가 스키마 → `preload/index.ts` 메서드 → 이 래퍼 → (chat 은) `chatActions` 를 거친다 | 0/0 — 미추정 — 래퍼를 없애면 최대 380줄이지만 테스트 37파일이 이 모듈을 mock 한다 | 높음 — `docs/arch/frontend/state.md`:120-121 · `ux-domains.md`:125 의 채택 규칙(직접 호출 금지)을 바꾼다 |
 | C-34 | 백그라운드 작업 상태의 이중 모델 | renderer/features/chat/lib | L4 X3 X6 | restructure | S-10 S-11 | 0136·0143·0231 | 실행 중·끝난 백그라운드 작업이 목록에 보이고 멈출 수 있다. 0231 이전에 기록된 세션의 작업 표시는 승인 여부에 달렸다 | 정본 모델(main `BackgroundSessionState`)과 구 모델(메시지 파트 파생 `parts.ts` `subagentTasksFromMessages`:304 + `ChatState` id 배열 5개)이 함께 산다 · 전환 스위치 `hasCanonical`: main `settle.ts`:176 `background-controller.ts`:81 `chat-turn/index.ts`:78 :93 `turn-coordinator.ts`:140 · renderer `SubAgentTileContent.tsx`:97 :181(구 모델 계산 :87 :171 이 스위치보다 먼저 돈다) | 0/0 — 미추정 — 구 모델 표시 경로(`SubAgentTileContent.tsx` 385줄의 목록·상세)와 id 배열 5개가 대상. 유지 범위는 승인 뒤 정한다 | 높음 — 0231 plan:360 :404 가 구 모델 표시를 "과거 표시 fallback"으로 남기기로 했다 |
 | C-35 | 질문 응답 UI 의 상태 로직 2벌 | renderer/features/chat/harnesses | L5 | restructure | S-08 | 미상(rg -o "\b0[0-9]{3}\b" app/src/renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.tsx → 0) | 두 하네스에서 질문에 고르기·직접 입력·건너뛰기가 된다 | `claude/composer/QuestionCard.tsx`(325줄) ↔ `opencode/composer/QuestionDock.tsx`(265줄) — 같은 props(`ask`·`onSubmit`·`onSkip`)와 같은 `picks` 상태. 이름이 달라 같은 이름 쌍 비교에 잡히지 않았다. 공통 줄 13 | 0/0 — 미추정 — 선택 상태를 공용 훅으로 뽑을 때. 겉모습은 하네스별로 남는다 | 낮음 |
+| C-36 | OpenCode 컴포저 목록 조회의 소유·세대 프로토콜 | renderer/features/chat/harnesses | L4 X2 X3 | restructure | S-05 | 0268·0276·0280·0281·0289 | OpenCode 컴포저의 모델·에이전트·MCP·플러그인 목록이 뜨고, 실패하면 다시 시도할 수 있으며, 새 대화가 세션으로 확정돼도 목록이 깜빡이지 않는다 | `composerCatalogState.ts` 275줄 — 낡은 응답을 거르는 축이 6개다: `owner`·`previousOwner`·`generation`·`retired`·`epoch`·`disposed`(:26-38, 판정 `stale()` :109 · `retired.has` :84 :169) · 진행 중 요청 `flights` · 지연 해제 타이머 `disposal` · 재키잉 `promote`(:100, 모듈 전역 `states` Map :219-260) · main 쪽 `composer-catalog-owner.ts` 206줄 · `handlers/composer-catalog.ts` 71줄 · 관련 테스트 4,850줄 | 0/0 — 미추정 — 무효화 축을 몇 개로 줄일 수 있는지는 main owner 의 세대 발급 규칙과 함께 후속 plan 에서 실측 | 높음 — 0281 메뉴 캐시·0289 런타임 보존이 이 축들로 낡은 목록 표시를 막는다 |
+| C-37 | 메일 동기화의 쓰이지 않는 단계 콜백과 이중 합류 | main/features/plugins | L4 X1 X4 | restructure | S-04 | 0237·0303 | 메일 도구가 동기화를 한 번만 돌리고(겹친 호출은 합류) 취소·오류 결과가 지금과 같다 | `onStage`: 유일한 production 호출부 `mail/tools.ts:66` 이 `undefined` 를 넘긴다(`rg -n "onStage\|MailSyncStageEvent" app/src/main -g '!*.test.*'` → `sync-manager.ts` 10건 · `types.ts:157` 뿐, 테스트 참조 0) · 합류: `tools.ts:53-78` 이 진행 중 동기화에 합류시키는데 `sync-manager.ts:77,85-89` 도 같은 합류를 한다 — `tools.ts:40-51` 이 호출마다 manager 를 새로 만들어 manager 쪽 합류는 겹친 호출을 볼 수 없다 | 25/0 — `onStage` 호출 9줄 + 타입·시그니처 + manager 쪽 `inFlight` 분기 | 낮음 |
+| C-38 | diff 리뷰의 항상 주입되는 optional props 와 3단 전달 | renderer/features/chat/harnesses | L4 X1 X5 | restructure | S-18 | 0211 | 변경사항 패널에서 줄에 요구사항을 달고·고르고·지울 수 있다 | 호출 사슬이 `DiffTileContent.tsx:96-117` → `DiffReview.tsx:158-174` → `FileDiffSection.tsx` 하나뿐이고 6개 props(`activeRequirementId`·`selectionVersion`·`onSelectRequirement`·`onDraftChange`·`onAddRequirement`·`onRemoveRequirement`)를 늘 넘긴다 · 그런데 두 컴포넌트가 전부 optional 로 선언(`DiffReview.tsx:28-30,43-49` · `FileDiffSection.tsx:52-66`)해 `?.(` 호출이 6곳(`:625,826,830,841,884,901`) · 같은 props 가 `FileDiffBody`·`InlineBody`·`SideBySideBody`·행 컴포넌트까지 내려간다(이 파일 안 언급 56회) | 15/0 — optional 선언·`?.` 분기와 중복 props 타입 선언 추정 | 낮음 |
+| C-39 | 컴포저의 플러그인 멘션 목록 이중 계산 | renderer/features/chat/harnesses | L4 X6 | restructure | S-16 | 미상(rg -o '0[0-9]{3}' app/src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.tsx) | @ 멘션 자동완성에 플러그인이 뜨고 알려진 플러그인만 칩으로 인정된다 | `ComposerInputController.tsx:223-229` `observedPlugins` 와 `:238-248` `validPluginIds` 가 `nativePluginMentions(native.view)`·`nativePluginMentions(native.view, 'orca')` 를 각각 다시 계산한다 | 6/0 — 두 번째 계산을 첫 결과에서 파생 | 낮음 |
 <!-- /gen:candidates -->
 
 ## 4. 승인 목록
@@ -405,13 +419,13 @@ prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 �
 <!-- gen:deep -->
 | 버킷 | X1 | X2 | X3 | X4 | X5 | X6 | X7 | 밀도 | 읽은 파일 줄 수(상한) / prod 줄 | 판정 근거 | 읽은 파일 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| renderer/features/chat/harnesses | — | — | C-34 | — | — | C-34 | — | 필요 | 385 / 17599 (2%) | 파일 211개·평균 83줄로 잘게 나뉘어 있고 하네스별 화면이라 한곳에 몰린 구현은 아니다. 읽은 것은 60-250줄 구간 1파일과 상위 12파일의 훅 수 집계뿐이다 — 나머지 파일은 판정하지 않았다 | SubAgentTileContent.tsx |
-| main/adapters/claude | — | C-27 | — | — | — | C-27 | — | 과도 | 1140 / 6588 (17%) | `openChannel` 한 메서드가 595줄이고 지역 변수 약 25개를 옵션 조립·이벤트 생성기·채널 객체가 함께 쓴다. 읽은 구간: 개요 + 572-612 · 783-1088. `map.ts`(1,019줄)는 읽지 않았다 | adapter.ts |
+| renderer/features/chat/harnesses | C-38 | C-36 | C-34 C-36 | — | C-38 | C-34 C-39 | — | 필요 | 2091 / 17599 (12%) | 파일 211개·평균 83줄로 잘게 나뉜 하네스별 화면이다. r1.3 에서 가장 큰 두 파일과 상태 모듈 하나를 더 읽었다: `FileDiffSection.tsx` 1-510 전부·511-915 개요(diff 보기 기능 — 과잉은 props 선언뿐, C-38) · `ComposerInputController.tsx` 1-355(IME 조합 보호 때문에 초안 스냅샷이 필요, C-39) · `composerCatalogState.ts` 전부(프로토콜 과잉, C-36). 버킷 전체로는 한곳에 몰린 구현이 아니어서 필요로 둔다 — 나머지 약 200파일은 읽지 않았다 | SubAgentTileContent.tsx · FileDiffSection.tsx · ComposerInputController.tsx · composerCatalogState.ts |
+| main/adapters/claude | — | C-27 | — | — | — | C-27 | — | 과도 | 2159 / 6588 (33%) | `openChannel` 한 메서드가 595줄이고 지역 변수 약 25개를 옵션 조립·이벤트 생성기·채널 객체가 함께 쓴다. 읽은 구간: 개요 + 572-612 · 783-1088. `map.ts`(1,019줄)는 읽지 않았다 · r1.3: `map.ts` 개요 + 373-470 + 470-900 제어 흐름 — `mapClaudeMessage` 한 함수 508줄이 SDK 메시지 5종(system·stream_event·assistant·user·result)을 변환하고 가변 `MapContext` 가 24필드다. 외부 프로토콜 변환이라 과잉 후보는 올리지 않았다 | adapter.ts · map.ts |
 | main/adapters/opencode | — | — | C-28 | — | — | C-28 | — | 과도 | 584 / 5644 (10%) | `openCodeChannel` 한 클로저가 약 560줄이고 가변 `let` 20개를 연결·전송·펌프가 함께 쓴다. 읽은 구간: 1-374. `session-context.ts`·`server.ts` 는 읽지 않았다 | channel.ts |
 | renderer/shared | — | — | — | — | C-33 | — | — | 필요 | 380 / 5513 (7%) | UI 부품 83파일이 대부분이고 가장 큰 파일이 380줄이다. 읽은 구간: `api/ipc.ts` 1-60 · 150-200. UI 부품(`ui/`·`theme/`)은 읽지 않았다 | ipc.ts |
 | shared/(root) | — | C-31 | — | — | — | — | — | 필요 | 1974 / 5395 (37%) | 계약 스키마와 타입 선언이다(`ipc.ts` 1,974줄 · `protocol.ts` 1,069줄). 읽은 구간: `ipc.ts` 440-760 의 이벤트 변형 목록. 필드 단위 미사용은 r1 의 스키마 필드 스캔이 봤다 | ipc.ts |
 | renderer/features/chat/lib | — | — | C-34 | — | — | C-34 | — | 필요 | 694 / 5240 (13%) | 작은 순수 파생 함수 묶음이다(파일 55개, 최대 694줄) — 기존 진단이 유지 경계로 둔 형태. 읽은 구간: `parts.ts` 개요 + 304-400, `canonicalBackground.ts`·`taskBoard.ts` 는 함수 목록만 | parts.ts |
-| main/features/plugins | — | — | — | — | — | — | — | 필요 | 659 / 4710 (14%) | 외부 서비스(Confluence·Jira·메일) 연동이고 상한·재시도가 한 곳씩이다(`connector.ts`:439-458). 읽은 방식: 개요 + 176-496 을 제어 흐름 키워드로 걸러 봄 — 과잉을 판정할 만큼 읽지 못했다 | connector.ts |
+| main/features/plugins | C-37 | — | — | C-37 | — | — | — | 필요 | 1166 / 4710 (25%) | 외부 서비스(Confluence·Jira·메일) 연동 3벌이고 서로 겹치는 줄이 거의 없다 — 같은 역할 파일 7쌍의 겹침이 최대 7%(r1.3 측정). `mail/sync-manager.ts` 1-230 은 POP3 동기화의 신선도·대량 유실 보호·보존 기간을 순서대로 적용하는 도메인 규칙이고 과잉은 죽은 콜백과 이중 합류뿐이다(C-37). `confluence/connector.ts` 는 r1.2 의 개요 수준 그대로다. Jira 쪽은 `rest.ts` 개요만 봤다 | connector.ts · sync-manager.ts · tools.ts |
 | main/features/auth | — | — | — | C-30 | — | — | — | 필요 | 990 / 4111 (24%) | 인증 방식 3갈래가 공통 정착(`settleGrant`:610 — 확인 → 금고 쓰기 → 저장 순서)을 쓰고 메서드가 최대 110줄이다. 읽은 구간: 개요 + 140-262 · 461-500 · 610-676 | login.ts |
 | main/app/(root) | — | — | — | — | C-29 | — | — | 필요 | 1507 / 4061 (37%) | `bootstrap.ts` 는 조립 루트다(기존 진단의 유지 경계). `start()` 475줄은 부팅 15단계의 나열이다. 읽은 구간: `runtime-model-startup.ts` 전부, `bootstrap.ts` 446-921 을 30자 미만 줄을 빼고 훑음 | runtime-model-startup.ts · bootstrap.ts |
 | main/features/chat | C-25 | C-14 | C-14 C-25 | C-26 | — | — | — | 과도 | 1261 / 3563 (35%) | 대기열이 public 메서드 28개·상태 4개·확정 신호 2종이고, `TurnCoordinator.run` 한 메서드의 이벤트 루프가 250줄에 종류별 분기 20여 개다. 읽은 구간: 대기열 전부, 조정기 1-574 | pending-message-queue.ts · turn-coordinator.ts |
@@ -477,6 +491,14 @@ prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 �
 | C-34 | 3 | main 의 `hasCanonical` 스위치 5곳을 정본 한 경로로 합친다 | 작업을 멈추면 멈춘 것으로 표시된다 | `main/features/chat/settle.ts` · `main/features/chat/background-controller.ts` · `main/app/chat-turn/index.ts` | S-10 |
 | C-34 | 4 | 구 모델 전용 id 배열과 파생 함수를 걷는다 | 지난 세션을 열어도 작업 표시가 승인한 범위대로 보인다 | `renderer/src/features/chat/reducer/chatReducer.ts` · `renderer/src/features/chat/lib/parts.ts` | S-10 S-11 |
 | C-35 질문 응답 UI 의 상태 로직 2벌 | 1 | 선택 상태(`picks`·제출 가능 판정)를 공용 훅으로 뽑는다 | 두 하네스에서 고르기·직접 입력·건너뛰기가 된다 | `renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx` · `renderer/src/features/chat/harnesses/opencode/composer/QuestionDock.tsx` | S-08 |
+| C-36 OpenCode 컴포저 목록 조회의 소유·세대 프로토콜 | 1 | 낡은 응답 판정을 한 함수로 모은다 — `stale()`·`retired.has()` 두 갈래를 하나로 | 목록·오류·재시도 표시가 지금과 같다 | `renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts` | S-05 |
+| C-36 | 2 | `generation`·`retired`·`epoch` 중 겹치는 축을 걷는다(같은 사건에서 함께 바뀌는 것 — :73-76 · :85-88) | 에이전트 개정·무효화 뒤 새 목록으로 바뀐다 | `renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts` · `main/app/composer-catalog-owner.ts` | S-05 |
+| C-36 | 3 | 세션 확정 시 재키잉(`promote`·`previousOwner`)을 재조회 한 번으로 바꿀 수 있는지 판정하고, 가능하면 걷는다 | 새 대화의 첫 전송 뒤에도 모델 목록이 비지 않는다 | `renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts` · `main/app/handlers/composer-catalog.ts` | S-05 |
+| C-37 메일 동기화의 쓰이지 않는 단계 콜백과 이중 합류 | 1 | `onStage` 인자와 `MailSyncStageEvent` 를 지운다 | 동기화 결과가 같다 | `main/features/plugins/mail/sync-manager.ts` · `main/features/plugins/mail/types.ts` · `main/features/plugins/mail/tools.ts` | S-04 |
+| C-37 | 2 | manager 쪽 `inFlight` 합류를 지우고 합류를 `tools.ts` 한 곳에 둔다 | 겹친 동기화 요청이 한 번만 실행된다 | `main/features/plugins/mail/sync-manager.ts` | S-04 |
+| C-38 diff 리뷰의 항상 주입되는 optional props 와 3단 전달 | 1 | 6개 props 를 필수로 바꾸고 `?.(` 를 걷는다 | 요구사항 추가·선택·삭제가 지금과 같다 | `renderer/src/features/chat/harnesses/common/rightpanel/FileDiffSection.tsx` · `renderer/src/features/chat/harnesses/common/rightpanel/DiffReview.tsx` | S-18 |
+| C-38 | 2 | 요구사항 관련 props 를 한 객체(또는 context)로 묶어 중간 컴포넌트의 전달 선언을 줄인다 | 나란히 보기·한 줄 보기 양쪽에서 요구사항 표시가 같다 | `renderer/src/features/chat/harnesses/common/rightpanel/FileDiffSection.tsx` · `renderer/src/features/chat/harnesses/common/rightpanel/DiffTileContent.tsx` | S-18 |
+| C-39 컴포저의 플러그인 멘션 목록 이중 계산 | 1 | `validPluginIds` 를 `observedPlugins` 에서 파생한다 | 멘션 자동완성·칩 판정이 같다 | `renderer/src/features/chat/harnesses/common/composer/ComposerInputController.tsx` | S-16 |
 <!-- /gen:decomposition -->
 
 ## 9. 후속 handoff 분할안
@@ -493,6 +515,8 @@ prod 3,000줄 이상 버킷과 `renderer/features/chat/reducer` 의 내부를 �
 | 7 | H-G 하네스 채널 분해(Claude·OpenCode) | C-27 C-28 | 0/0 | S-04 S-05 S-06 S-07 S-10 | 이벤트 순서가 걸려 있어 동작 보존 추출을 먼저 한다 |
 | 8 | H-H 백그라운드 작업 이중 모델 정리 | C-34 | 0/0 | S-10 S-11 | 0231 결정 변경 — 승인 필요 |
 | 9 | H-I 런타임 모델 배선 팩토리 정리 | C-29 | 25/0 | S-01 S-02 S-23 | — |
+| 10 | H-J OpenCode 컴포저 목록 프로토콜 축소 | C-36 | 0/0 | S-05 | 설계 검토가 먼저다 — 절감 미추정. main owner 와 한 묶음 |
+| 11 | H-K 늘 같은 값이 들어오는 인자·optional props 정리 | C-37 C-38 C-39 | 46/0 | S-04 S-16 S-18 | 근거가 호출부 전수라 위험이 낮다 — H-B 와 합쳐도 된다 |
 
 | 보류 후보 | 사유 |
 |---|---|

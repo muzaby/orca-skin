@@ -3,28 +3,40 @@
   {
    "bucket": "renderer/features/chat/harnesses",
    "read": [
-    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx"
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/SubAgentTileContent.tsx",
+    "app/src/renderer/src/features/chat/harnesses/common/rightpanel/FileDiffSection.tsx",
+    "app/src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.tsx",
+    "app/src/renderer/src/features/chat/harnesses/opencode/composer/composerCatalogState.ts"
    ],
    "verdicts": {
-    "X1": "none",
-    "X2": "none",
+    "X1": [
+     "C-38"
+    ],
+    "X2": [
+     "C-36"
+    ],
     "X3": [
-     "C-34"
+     "C-34",
+     "C-36"
     ],
     "X4": "none",
-    "X5": "none",
+    "X5": [
+     "C-38"
+    ],
     "X6": [
-     "C-34"
+     "C-34",
+     "C-39"
     ],
     "X7": "none"
    },
    "density": "necessary",
-   "basis": "파일 211개·평균 83줄로 잘게 나뉘어 있고 하네스별 화면이라 한곳에 몰린 구현은 아니다. 읽은 것은 60-250줄 구간 1파일과 상위 12파일의 훅 수 집계뿐이다 — 나머지 파일은 판정하지 않았다"
+   "basis": "파일 211개·평균 83줄로 잘게 나뉜 하네스별 화면이다. r1.3 에서 가장 큰 두 파일과 상태 모듈 하나를 더 읽었다: `FileDiffSection.tsx` 1-510 전부·511-915 개요(diff 보기 기능 — 과잉은 props 선언뿐, C-38) · `ComposerInputController.tsx` 1-355(IME 조합 보호 때문에 초안 스냅샷이 필요, C-39) · `composerCatalogState.ts` 전부(프로토콜 과잉, C-36). 버킷 전체로는 한곳에 몰린 구현이 아니어서 필요로 둔다 — 나머지 약 200파일은 읽지 않았다"
   },
   {
    "bucket": "main/adapters/claude",
    "read": [
-    "app/src/main/adapters/claude/adapter.ts"
+    "app/src/main/adapters/claude/adapter.ts",
+    "app/src/main/adapters/claude/map.ts"
    ],
    "verdicts": {
     "X1": "none",
@@ -40,7 +52,7 @@
     "X7": "none"
    },
    "density": "excess",
-   "basis": "`openChannel` 한 메서드가 595줄이고 지역 변수 약 25개를 옵션 조립·이벤트 생성기·채널 객체가 함께 쓴다. 읽은 구간: 개요 + 572-612 · 783-1088. `map.ts`(1,019줄)는 읽지 않았다"
+   "basis": "`openChannel` 한 메서드가 595줄이고 지역 변수 약 25개를 옵션 조립·이벤트 생성기·채널 객체가 함께 쓴다. 읽은 구간: 개요 + 572-612 · 783-1088. `map.ts`(1,019줄)는 읽지 않았다 · r1.3: `map.ts` 개요 + 373-470 + 470-900 제어 흐름 — `mapClaudeMessage` 한 함수 508줄이 SDK 메시지 5종(system·stream_event·assistant·user·result)을 변환하고 가변 `MapContext` 가 24필드다. 외부 프로토콜 변환이라 과잉 후보는 올리지 않았다"
   },
   {
    "bucket": "main/adapters/opencode",
@@ -125,19 +137,25 @@
   {
    "bucket": "main/features/plugins",
    "read": [
-    "app/src/main/features/plugins/confluence/connector.ts"
+    "app/src/main/features/plugins/confluence/connector.ts",
+    "app/src/main/features/plugins/mail/sync-manager.ts",
+    "app/src/main/features/plugins/mail/tools.ts"
    ],
    "verdicts": {
-    "X1": "none",
+    "X1": [
+     "C-37"
+    ],
     "X2": "none",
     "X3": "none",
-    "X4": "none",
+    "X4": [
+     "C-37"
+    ],
     "X5": "none",
     "X6": "none",
     "X7": "none"
    },
    "density": "necessary",
-   "basis": "외부 서비스(Confluence·Jira·메일) 연동이고 상한·재시도가 한 곳씩이다(`connector.ts`:439-458). 읽은 방식: 개요 + 176-496 을 제어 흐름 키워드로 걸러 봄 — 과잉을 판정할 만큼 읽지 못했다"
+   "basis": "외부 서비스(Confluence·Jira·메일) 연동 3벌이고 서로 겹치는 줄이 거의 없다 — 같은 역할 파일 7쌍의 겹침이 최대 7%(r1.3 측정). `mail/sync-manager.ts` 1-230 은 POP3 동기화의 신선도·대량 유실 보호·보존 기간을 순서대로 적용하는 도메인 규칙이고 과잉은 죽은 콜백과 이중 합류뿐이다(C-37). `confluence/connector.ts` 는 r1.2 의 개요 수준 그대로다. Jira 쪽은 `rest.ts` 개요만 봤다"
   },
   {
    "bucket": "main/features/auth",
