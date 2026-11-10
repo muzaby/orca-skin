@@ -8,11 +8,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 `/handoff-plan` — 코드 비대화 방지(CI 감소는 결과 — D-011). 0305는 감사(지도)만, 축소 구현은 후속 handoff |
-| 상태 | impl/IMPL_DONE (r1) — 감사 완료, 검증 대기 |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 상태 | plan/READY (V1+ΔV1) — r1 감사 뒤 사용자 요구 추가(턴 5), r1.2 구현 대기 |
+| V mode | `Delta V` (ΔV1 — 사용자 요구 변경) |
+| 기준 V | `V1` (이 plan · 설계 커밋 좌표는 INDEX) |
+| 이번 V revision | `ΔV1` |
+| 유효 V | `V1 + ΔV1` |
 | 기준 커밋 | `a0a95f7` (`git cat-file -t` = commit · `origin/main` 조상) |
 
 ## 0. 작성 경로
@@ -45,6 +45,7 @@
 | 명시 결정 | "조사과정에서, 핸드오프 간 상호배제되는 개념에 대해서는 후속 핸드오프를 정본으로 한다." | 턴 2 |
 | 명시 요구 | "시나리오이 대해 닿지 않는 것만 찾는게 아니다. 닿는데 너무 과도하며/비대한 프로세싱이 있다면 과감하게 불필요한 요소들을 다이어트 하는 것이 목표다. (불필요한 혹은 너무 비대하거나 과한 요소/파라미터/프로토콜 등등)" | 턴 3 |
 | 명시 요구 | "코드가 줄어든다면 ci는 자연적으로 줄어든다. Ci를 검사하여 의도적으로 줄이려는 형태로 접근하지 마라" | 턴 4 |
+| 명시 요구 | r1 감사 뒤 "이어서"의 뜻을 묻자: "감사 심화 + 밀도있는 구현이 과도한 구현이라면 이를 어떻게 분해할지도". 질의 선택지 원문: "audit.md가 한계로 적은 미검토 영역 — renderer chatStore/chatReducer, chat/harnesses(prod 최대 버킷), adapters/claude·opencode 내부 — 의 닿는 경로 과잉(X1~X7)을 읽어 후보를 추가" | 턴 5 · 질의 2 |
 | 추론 의도 | 감사 작업도 중단 뒤 이어갈 수 있어야 한다 — D-006 이유절("컨텍스트를 소실한다. 지속적인 작업이 안 된다")에서 유도 | 턴 1 |
 
 ## 3. Decision Ledger
@@ -62,8 +63,14 @@
 | D-009 | 이전 handoff끼리 상호배제되는 개념은 번호가 큰(후속) handoff를 정본으로 한다. 보존할 개념 요구는 후속 쪽에서 뽑는다 | "핸드오프 간 상호배제되는 개념에 대해서는 후속 핸드오프를 정본으로 한다" | 턴 2 | ACTIVE | — |
 | D-010 | 감사의 주 대상은 시나리오에 **닿는** 경로의 과잉이다 — 불필요하거나 비대한 요소·파라미터·프로토콜을 과감하게 후보로 올린다. 미도달 탐색은 그 일부일 뿐이다 | "닿지 않는 것만 찾는게 아니다. 닿는데 너무 과도하며/비대한 프로세싱이 있다면 과감하게 불필요한 요소들을 다이어트" | 턴 3 | ACTIVE | — |
 | D-011 | 목표는 코드 감량이다. CI 감소는 그 결과로만 얻는다 — CI 단계·실행 시간·가드·테스트 인프라를 검사해 줄이는 접근을 하지 않는다 | "코드가 줄어든다면 ci는 자연적으로 줄어든다. Ci를 검사하여 의도적으로 줄이려는 형태로 접근하지 마라" | 턴 4 | ACTIVE | D-001 대체 |
+| D-012 | 감사를 심화한다 — r1이 진입 심볼만 본 분량 상위 영역의 내부를 읽고 과잉(X1~X7)을 판정한다 | "감사 심화" · 질의 2 선택지("chatStore/chatReducer, chat/harnesses, adapters/claude·opencode 내부") | 턴 5 | ACTIVE | — |
+| D-013 | 밀도 높은 구현이 과도하다고 판정되면 그것을 어떻게 분해할지도 감사가 제시한다 | "밀도있는 구현이 과도한 구현이라면 이를 어떻게 분해할지도" | 턴 5 | ACTIVE | — |
 
 ### 갱신 메모
+
+- 턴 5(ΔV1): D-012·D-013 추가. 변경·대체된 결정 없음 — D-002~D-011 유지. r1 산출(V1)은 그대로 두고 증분만 더한다: AC15·AC16 · EP-10·EP-11 · K18·K19 · 단계 P7·P8 · 선언 경계 7 정정·9·10 추가.
+- D-012 ↔ AC15: 일치 — 분량 상위 버킷마다 심화 검토 1건. D-013 ↔ AC16: 일치 — "과도" 판정(`density=excess`)은 후보로 이어지고 `restructure` 후보는 전부 분해 단계를 갖는다. D-004("코드는 바꾸지 않고") ↔ AC16: 충돌 없음 — 분해안은 제안이고 구현은 후속 handoff다. D-006 유지 — 심화도 서브·백그라운드 에이전트 없이 한다.
+- `ACTIVE 결정 ↔ AC` 대조(ΔV1): 충돌 0.
 
 - 턴 4: D-001 → D-011(사용자 변경). 구현 전이라 V1을 그대로 갱신했다 — AC3·AC4 · EP-04 · K15·K16 · 단계 P3 · 렌즈 L2(테스트 과밀)·L3(메타 코드)·L6(CI 시간) · 추적 T6 · 후보 유형 `test-merge`·`guard-simplify`·`ci-step`을 삭제했다. 삭제한 ID는 재사용하지 않는다.
 - D-011 ↔ AC: 충돌 0 — CI·테스트 시간을 재는 AC가 남아 있지 않다. D-003(테스트 통합·삭제 가능)은 유지되며, 테스트는 감량되는 제품 코드에 딸린 몫으로만 `saving.test`에 추정한다.
@@ -140,6 +147,8 @@
 | R-03 | AC7 | 후보마다 그 코드에 요구를 실은 이전 handoff ID와 보존할 개념 요구 한 문장이 있다 | 검사 K7: ID 실재 · `unknown`이면 검색 명령 동반. 출처끼리 상호배제면 `superseded{id, by}`에 적고 `preserve`는 후속(`by`) 기준(D-009) | 코드 주석·plan → `origin` 칸 |
 | R-03 | AC10 | 경로 추적 5건이 entry부터 end까지 단계별로 `파일:심볼`·사용자 관측 효과·판정을 가진다 | 검사 K11: 단계의 파일 실재 + 그 파일에서 심볼 문자열 검출. `effect=none` 단계는 후보 ID를 갖거나 유지 근거를 가짐 | `traces.json` → 검사 |
 | R-03 | AC14 | 카탈로그의 모든 시나리오가 경로 검토 1건을 갖는다 — 읽은 파일 목록과 과잉 범주 X1~X7 각각의 판정(후보 ID 또는 `none`) | 검사 K17: 시나리오 집합 − 검토 집합 = ∅ · 범주 7개 전부 판정 · `none`이 아닌 칸의 후보 ID 실재 | `scenarios.json` → `reviews.json` → 검사 |
+| R-03 | AC15 (ΔV1) | prod 3,000줄 이상인 버킷 전부와 `renderer/features/chat/reducer`가 심화 검토 1건을 갖는다 — 읽은 파일(그 버킷 소속) · 범주 X1~X7 판정 · 밀도 판정(`excess`/`necessary`)과 근거 | 검사 K18: {prod ≥ 3,000 버킷} − 검토 집합 = ∅ · 칸 누락·미실재 파일·타 버킷 파일·`excess`인데 후보 0이면 red | `volume.json` → `deep.json` → 검사 |
+| R-03 | AC16 (ΔV1) | `restructure` 후보 전부가 분해안을 갖는다 — 단계마다 떼어내는 것 · 남는 관측 동작 · 대상 파일 · 회귀 판정 시나리오 | 검사 K19: `restructure` 후보 − 분해안 보유 = ∅ · 단계 칸 누락·미실재 파일·없는 S-ID면 red | `candidates.json` `decomposition` → audit 분해 표 |
 | R-04 | AC8 | 유형이 `remove`이거나 채택 결정을 바꾸는 후보는 전부 승인 목록에 나타난다 | 검사 K8: {remove ∪ decisionChange} − 승인 목록 = ∅ = 역방향 | `candidates.json` → audit 승인 표 |
 | R-04 | AC9 | 모든 후보가 후속 handoff 1개 또는 `deferred`(사유)에 정확히 한 번 속하고, 후속마다 회귀 판정 시나리오가 1개 이상 있다 | 검사 K9·K10: 0회·2회 이상·없는 후보 참조·시나리오 0이면 red | `split.json` → audit 분할 표 |
 | R-04 | AC12 | 사용자가 승인 목록과 분할 순위를 판정한다 | 사람 — 감사 문서 열람 후 결정 | audit.md → 사용자 |
@@ -177,6 +186,10 @@
 | MD-01 | MD | §10 EP-03 `volume.mjs` 종류·버킷 규칙 | NEW | — |
 | MD-02 | MD | §10 EP-06 `audit-check.mjs` 규칙 K1~K14·K17·K7b | NEW | — |
 | UT-01·UT-02 | UT | `scan/*.test.mjs` | NEW | — |
+| R-03 (ΔV1) | R | §7 AC15·AC16 추가 — 심화 검토·분해안 | CHANGED | V1 R-03 |
+| AT-03 (ΔV1) | AT | 검사 K18·K19 | CHANGED | V1 AT-03 |
+| MD-02 (ΔV1) | MD | §10 EP-06 규칙에 K18·K19 추가(16 → 18) | CHANGED | V1 MD-02 |
+| UT-02 (ΔV1) | UT | `scan/audit-check.test.mjs` K18·K19 입력 | CHANGED | V1 UT-02 |
 
 ### Pair registry
 
@@ -190,6 +203,12 @@
 | VP-06 | R-06 ↔ AT-06 · AR-01 ↔ IT-01 | REQUIRED | `data/*.json` → `render()` → `audit.md` 생성 블록 | `gate:audit-check.mjs --check`(K12) | required — 변이: 생성 블록 숫자 1개 수정 → red | EP-07(2 사본) |
 | VP-07 | MD-01 ↔ UT-01 | REQUIRED | 경로 문자열 → `classify()` → `{bucket, kind}` | `scan/volume.test.mjs` — EP-03 규칙 행마다 1케이스 | not selected — 행동 oracle | EP-03 규칙 8행 |
 | VP-08 | MD-02 ↔ UT-02 | REQUIRED | fixture 데이터 → `check()` → 위반 목록 | `scan/audit-check.test.mjs` — K1~K14·K17·K7b 규칙마다 red 입력 + 전부 유효한 green 입력 1 | not selected — 행동 oracle | EP-06(16규칙) |
+| VP-09 (ΔV1) | R-03 ↔ AT-03 | REQUIRED | `volume.json`(prod ≥ 3,000) → `deep.json` → 검사 K18 · `candidates.json` `decomposition` → 검사 K19 | `gate:audit-check.mjs --check` | required — 전수 주장·구조 proxy. 변이: 심화 검토 1건 삭제 · 검토 `X3` 칸 삭제 · `restructure` 후보 1건의 `decomposition` 삭제 → red. 검증자가 심화 후보 3건의 근거를 재현 | EP-10 · EP-11 |
+| VP-10 (ΔV1) | MD-02 ↔ UT-02 | REQUIRED | fixture → `check()` → 위반 목록 | `scan/audit-check.test.mjs` — K18·K19 조건마다 red 입력 | not selected — 행동 oracle | EP-06 K18·K19 |
+| VP-03·VP-04·VP-06 (ΔV1) | V1 그대로 | REGRESSION | 후보가 늘어 `lenses.count`·승인 목록·분할안·생성 블록(7 → 9)이 바뀐다 | V1 좌표 그대로 | V1 등록 변이 M4·M5·M6 재실행 | EP-05 · EP-07 |
+
+- ΔV1 비영향(`NOT_REQUIRED`): VP-01·VP-02·VP-05·VP-07 — 채널·feature·분량·`classify` 규칙을 바꾸지 않는다(V1 증거: r1 gate). VP-05는 AC11 명령으로 다시 본다(운영 gate).
+- VP-08(V1)은 그대로 유효하고 K18·K19 몫은 VP-10이 든다.
 
 ### 현재 변경의 운영 gate
 
@@ -288,6 +307,8 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 | P4 | `candidates.json` | 렌즈 L1·L4·L5 수행 |
 | P5 | `traces.json` · `reviews.json` | 경로 추적 5건(단계 단위) + 나머지 시나리오 전부의 경로 검토(시나리오 단위). L4의 입력 — P4와 순서를 바꿔도 된다 |
 | P6 | `split.json` · `audit.md` 완성 | 분할안 · 승인 목록 |
+| P7 (ΔV1) | `deep.json` · 후보 추가 | 분량 상위 버킷의 내부를 읽는 심화 검토. 버킷 묶음별로 끊어 커밋한다(D-007). 시작할 때 `audit.md`의 완료 선언을 내리고 진행표에 P7·P8 행을 둔다 |
+| P8 (ΔV1) | `candidates.json` `decomposition` · `split.json` 갱신 · `audit.md` 완성 | `restructure` 후보의 분해안 · 늘어난 후보의 분할·승인 목록 반영 |
 
 | 렌즈 | 묻는 것 | 방법(분모) | 후보 유형 |
 |---|---|---|---|
@@ -329,6 +350,8 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 | EP-07 / VP-06 | 판정 사본 일치 | `data/*.json` | 검사 K12 · 사람 | `audit.md` 생성 블록 · `INDEX.md` 비고 (2) | `rg -c 'gen:' …/audit.md` · INDEX 0305 행 | 문서와 데이터가 다른 말을 함 |
 | EP-08 / VP-03 | 경로 추적 단계 | `traces.json` | 검사 K11 | 추적 5건(T1~T5) | §9 추적 표 → 5 | 추적이 실재하지 않는 코드를 인용 |
 | EP-09 / VP-03 | 시나리오 → 경로 검토 | `scenarios.json` | 검사 K17 | 시나리오마다 범주 7칸 — 시나리오 수는 P2가 `scenarios.json`으로 고정 | `scenarios.json`의 `S-NN` 전수 | 닿는 경로를 보지 않고 넘어간 시나리오 |
+| EP-10 / VP-09 (ΔV1) | 버킷 → 심화 검토 | `volume.json` | 검사 K18 | prod ≥ 3,000 버킷 12 + `renderer/features/chat/reducer` 1 = 13건, 건마다 범주 7칸 + 밀도 1칸 | `node -e` 로 `volume.json` 에서 `prod.lines >= 3000` 버킷 나열 → 12 | 분량이 가장 큰 구현을 읽지 않고 "과잉 없음"으로 넘어감 |
+| EP-11 / VP-09 (ΔV1) | `restructure` 후보 → 분해안 | `candidates.json` | 검사 K19 | `restructure` 후보마다(수는 P7 뒤 `candidates.json`이 고정 — r1 시점 7) | `candidates.json`의 `type=restructure` 전수 | 과도하다고만 하고 어떻게 줄일지 없는 후보 |
 
 **EP-03 종류 규칙** (위에서부터 첫 일치, 규칙 칸 ↔ UT 입력 1:1):
 
@@ -367,7 +390,12 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 | K12 | `audit.md` 생성 블록 ≠ 렌더 결과 / 필수 블록 누락 | 숫자 1개 수정 · 블록 삭제 |
 | K13 | 모르는 최상위 키 · 모르는 enum 값(`lens`·`type`·`kind`·`effect`) | 키 추가 · `type: "x"` |
 | K14 | `lenses`가 {L1, L4, L5} 집합이 아님 / `method`·`denominator` 누락 / 후보 수 불일치 | 세 조건 각각 1입력 |
+| K18 (ΔV1) | prod ≥ 3,000 버킷에 심화 검토 없음 / 없는 버킷의 검토 / `read` 빈 배열·미실재 파일 / `read` 파일이 그 버킷 소속이 아님 / 범주 X1~X7 중 판정 없는 칸 / 판정의 후보 ID 미실재·`excess` 범주 불일치 / `density`가 `excess`인데 가리킨 후보 0 / `basis` 빈 값 | 여덟 조건 각각 1입력(후보 ID 미실재·범주 불일치는 각 1) |
+| K19 (ΔV1) | `restructure` 후보에 `decomposition` 없음·빈 배열 / 단계의 `cut`·`keep` 빈 값 / `files` 빈 배열·미실재 파일 / `scenarios` 빈 배열·없는 S-ID | 네 조건 각각 1입력(`cut`·`keep` 각 1, 빈·미실재 각 1, 빈·없는 ID 각 1) |
 
+- ΔV1 스키마: `data/deep.json` = `{reviews:[{bucket, read[], verdicts{X1..X7: 후보 ID 배열 또는 "none"}, density, basis}]}`. `density` enum = `excess`·`necessary`(모르는 값은 K13). 후보 선택 칸 `decomposition` = `[{cut, keep, files[], scenarios[]}]` — `cut` 떼어내는 것, `keep` 그 단계 뒤에도 같아야 하는 관측 동작. 단계는 앞에서부터 하나씩 따로 병합할 수 있는 순서로 적는다.
+- ΔV1 생성 블록: `deep`(버킷 · 범주 7칸 · 밀도 · 읽은 줄/버킷 prod 줄 · 근거) · `decomposition`(후보 · 단계 · 떼어내는 것 · 남는 동작 · 파일 · 시나리오). 필수 블록 7 → 9(K12).
+- ΔV1 `facts` 추가: `bucketOf(path)`(`volume.mjs` `classify` 재사용 — 규칙 사본을 만들지 않는다) · `lineCount(path)`(렌더의 읽은 줄 수).
 - 자리 목록과 검색 출력의 차집합은 0이어야 한다. 기준 커밋이 바뀌면 분모를 다시 센다.
 - 열린 입력 집합: 검사 입력은 이 plan이 정한 JSON 스키마다. 모르는 키·enum은 K13으로 red(fail-closed). `volume.mjs`는 모르는 확장자를 V8로 red.
 - 같은 규칙의 공유: 채널 추출 정규식은 `audit-check.mjs` 한 곳에만 둔다. `check-doc-inventory.mjs`를 import하지 않는다(app gate와 분리).
@@ -381,8 +409,10 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 4. L1의 "prod importer 0" 판정은 정적 import만 본다. 후보마다 `rg` 근거를 달아 오탐을 사람이 거른다.
 5. `origin`은 코드 주석·handoff 문서의 번호 인용에 의존한다(shallow clone). 인용이 없는 코드는 `unknown + 검색 명령`으로 남는다.
 6. 상호배제 판정은 감사자가 두 handoff의 plan을 읽고 내린다. 검사는 `superseded`의 형식과 번호 순서만 본다 — 적지 않은 상호배제는 검사가 찾지 못한다.
-7. 단계 단위 추적은 §9 표의 5건으로 고정한다. 그 밖의 시나리오는 시나리오 단위 검토(EP-09)로 다루며, 검토의 깊이는 `read`에 적은 파일까지다.
+7. 단계 단위 추적은 §9 표의 5건으로 고정한다. 그 밖의 시나리오는 시나리오 단위 검토(EP-09)로 다루며, 검토의 깊이는 `read`에 적은 파일까지다. (ΔV1) 심화 검토(EP-10)도 같다 — 버킷 안에서 `read`에 없는 파일은 판정하지 않았고, 읽은 비율은 `deep` 블록이 보인다. prod 3,000줄 미만 버킷은 `chat/reducer` 외에는 심화 대상이 아니다.
 8. 과잉 판정(X1~X7)은 감사자의 판단이다. 검사는 판정이 빠짐없이 있는지와 후보와의 연결만 본다 — `none`의 옳고 그름은 verify의 표본 재현으로만 본다.
+9. (ΔV1) 밀도 판정(`excess`/`necessary`)은 감사자의 판단이다. 검사는 판정·근거의 존재와 `excess` → 후보 연결만 본다.
+10. (ΔV1) 분해안은 제안이다. 단계가 실제로 따로 병합되는지·동작이 보존되는지는 후속 handoff의 plan·verify가 본다 — 검사는 칸의 존재와 파일·시나리오 실재만 본다.
 
 ## 11. 구현 설계
 
