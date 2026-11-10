@@ -15,7 +15,7 @@
 | V mode | `Baseline V` |
 | 기준 V | `none` |
 | 이번 V revision | `V1 rev.2` — rev.1의 D-005·D-006을 D-008로 대체(구현 전 사용자 정정) |
-| 유효 V | `V1 rev.2` |
+| 유효 V | `V1 rev.2 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -209,6 +209,20 @@
 | VP-15 | SD-R2 ↔ ST-R2 | REGRESSION | `start()` 첫 문장 settings 읽기 등록 | `bootstrap.settings-early.test.ts` | — | 0 + 기존 계약 재실행 |
 | VP-16 | R-04 ↔ AT-05 | REQUIRED | 칩 변경 → 세션 전환 → 캐시 재진입 유지 / 재시작 → `reader.ts:88` `last_model` → `LOAD_SESSION` 기본 정착 | AC14·AC15 좌표 | not selected — 직접 상태 단언 | EP-7 (2) |
 | VP-17 | AR-03 ↔ IT-03 | REQUIRED | `chat:send` → admission → lease(idle) → `resolveTurn` ok → `sessionModelRecordFor` → `ctx.db.updateSessionProviderKey` → (이후) runtime 실행 | AC16·AC17 좌표 | required — 순서: 기록을 runtime 실행 뒤(또는 echo 커밋에만)로 옮기는 변이 · 맞바꿈: `providerKey`↔세션 기존 provider 값, `resolved.model`↔`payload.modelFamily` 원문 — 자리 EP-8 ①② | EP-8 (2) |
+
+### ΔV1 — 구현 전 배선 목록·쓰기 경로 정정
+
+- 출처: plan 내부 불일치. `modelSelection.ts:65`는 모델을 재조립하고 `ModelMenu.tsx:67`은 선택 객체를 새로 만든다. 기존 EP-2 목록은 이 운반 자리를 빠뜨렸다.
+- 유지: ACTIVE Decision·AC 동작·적대 증거는 불변. VP-02·VP-06의 AR-01→IT-01 경로와 EP-2 분모만 아래 목록으로 대체한다. 다른 pair는 V1 rev.2를 상속한다.
+- 정정: AC15·EP-7의 “턴 영속 2자리뿐”은 EP-8 신설 전 수치다. 변경 후 쓰기는 writer 2 + send 1이며, **칩 변경에서는 쓰지 않는다**가 AC15 판정이다. AC16·AC17의 입력·관측으로 send 1자리를 별도 검증한다.
+
+| 대체 대상 | 이번 유효 계약 / 자리 목록 | 직접 oracle / 구별 입력 |
+|---|---|---|
+| EP-2 / VP-02·VP-06 | 기존 ①~⑤ 유지 + ⑥ `defaultSelection` + ⑦ `ModelMenu.onPick` + ⑧ `selectedModelShape` + ⑨~⑫ Composer `setModel` 4자리 + ⑬ store `setModel` dispatch. **총 13자리** | 기존 AC4~AC6 + `modelSelection.test.ts` default·shape에 alias와 해석 이름 구별 입력; `ModelMenu` render 테스트 click → 해석 이름 관측; Composer render 테스트는 네 진입(초기·alias/증거 보정·provider hydration·menu pick)에서 state `modelResolved` 관측; store 테스트 AC6 |
+| EP-2 검색 | `rg -n "resolvedModel\|modelResolved\|setModel\(" app/src/renderer/src/features/chat app/src/main/features/harnesses app/src/shared/ipc.ts --glob '!*.test.*'`를 producer·wire·선택·store·menu/reducer 소비로 분류 | 레이아웃 표시와 OpenCode 소비는 비대상. 목록 밖 같은 증거 운반 자리 발견 시 다시 planner로 |
+
+- READY 대조: D-003·D-007 ↔ AC4~AC6 유지, D-009·D-011 ↔ AC15~AC17 충돌 없음. `ModelMenu`·`modelSelection`과 Composer 4자리의 현재 코드가 분모 조사 근거다.
+- 구현 주체: 사용자가 `handoff-impl 304`를 지시하여 Codex가 이번 버그수정 구현을 맡는다. 설계 정정은 구현 커밋과 분리한다.
 
 ### 현재 변경의 운영 gate
 
