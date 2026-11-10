@@ -13,7 +13,7 @@
 | 구현 주체 | 사용자 결정 대기 — 도구 추가는 기능 구현(기본 Codex). Codex 부재 환경이면 사용자 지시로 Claude |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음 |
 | 기준 V | `none` |
-| 이번 V revision | `V1 rev.2` — rev.1(`e67b718`, 구현 전)에서 파라미터 이름만 변경(D-015). 동작·노드·pair 불변 |
+| 이번 V revision | `V1 rev.3` — rev.1 `e67b718` · rev.2 `b043ce9`(이름 변경 D-015) · rev.3: 사용자 확인 D-008 + 검색·조회 코드 재사용 D-016(구현 전이라 V1 노드를 직접 갱신, 바뀐 행에 `rev.3` 표시) |
 | 유효 V | `V1` |
 | 기준 커밋 | `e7991dd` (0302 r1 구현 포함, 0302는 검증 대기). 이 plan은 0302의 `bodySource`·`noBodyMails`·`skippedMails`·RETR 원문 fixture hook 위에 선다 |
 
@@ -46,24 +46,26 @@
 
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
-| D-001 | `mail_search`의 입력 스키마·결과 필드·snippet 300자·정렬·상한을 바꾸지 않는다 | "Search는 유지" | 사용자 | ACTIVE | — |
+| D-001 | `mail_search`의 입력 스키마·결과 필드·snippet 300자·정렬·상한을 바꾸지 않는다 | "Search는 유지" | 사용자 | SUPERSEDED | → D-016 (snippet 산출 방식만. 입력·필드·300자·정렬·상한은 D-016이 그대로 승계) |
 | D-002 | 새 도구 `mail_get`: 입력 `{ mailId, offset?, maxChars? }`, 로컬 캐시만 읽는다. `readOnlyHint:true`·`idempotentHint:true`·`openWorldHint:false` — 승인 없이 호출된다 | "Get 추가. 본문 전체 조회 기능 제공". 승인은 `readOnlyHint`가 정한다(`adapters/common/runtime-tool-policy.ts:25`), `mail_search`와 같은 등급 | 사용자 + 조사 | ACTIVE | — |
 | D-003 | `offset`·`maxChars`의 단위는 **문자(UTF-16 code unit)**다. `offset`은 0부터, 응답은 `totalChars`와 `nextOffset`(다음 호출의 offset, 끝이면 `null`)을 준다 | 라인 단위는 한 줄이 한 문단인 본문(HTML 변환 결과·줄바꿈 없는 평문)에서 한 번의 응답 크기를 묶지 못하고, 줄 중간에서 이어 읽으려면 결국 문자 offset이 필요하다. 문자 단위는 항상 이어 읽을 수 있다. 모델은 `nextOffset`만 따라가면 된다 | 설계자 판단(요구 3 "offset, length 개념") | ACTIVE — 사용자 확인(rev.2): "Offset, length는 개념적인것" | — |
 | D-004 | `maxChars` 기본 **8,000**, 최대 **16,000** 문자. 상수는 `body-window.ts` 한 곳(`MAIL_GET_DEFAULT_CHARS`·`MAIL_GET_MAX_CHARS`) | 사용자: "100값을 제안하는 것이 아님" — 값은 설계자 몫. 기준은 기존 `mail_search` 응답 상한 ≈31KB(0237 §14)와 같은 자릿수. HTML 본문 최대(변환 입력 128Ki자)도 기본값으로 십수 회에 다 읽힌다 | 설계자 판단 | ACTIVE — 값 조정은 사용자 지시로 | — |
 | D-005 | 창 경계는 code point를 가르지 않는다. 시작이 low surrogate면 한 칸 앞으로, 끝이 pair를 가르면 한 칸 앞으로 당긴다. 그 결과 빈 창이 되면(요청 길이 1이 pair에 걸림) pair 전체를 준다. 응답 `offset`·`maxChars`는 실제 값이다 | 이모지가 반쪽으로 잘려 깨진 문자가 모델에 가지 않게 한다 | 설계자 판단 | ACTIVE | — |
 | D-006 | `mail_get` 응답: `{ mailId, date, from, to, cc, subject, bodySource, totalChars, offset, returnedChars, text, nextOffset, attachmentCount, attachments, attachmentsTruncated? }`. 메타데이터는 매 호출에 싣는다(무상태). 첨부 manifest는 메일당 10건 상한 + `attachmentsTruncated` — `mail_search`와 같은 형상 | 모델이 이전 호출을 기억하지 않아도 되고, 첨부 조회(`mail_getAttachment`)로 바로 이어진다 | 설계자 판단 | ACTIVE | — |
 | D-007 | `mailId`가 `^[1-9][0-9]*$`가 아니거나 그 메일이 없으면 `{ error: 'mail_not_found' }` + `isError`. `offset`이 본문 길이 이상이면 오류가 아니라 `text:''`·`nextOffset:null` | `Number('1e2')` 같은 느슨한 변환으로 다른 메일이 조회되지 않게 한다. 끝을 넘긴 offset은 "다 읽었다"는 정상 신호 | 설계자 판단 | ACTIVE | — |
-| D-008 | `mail_sync` 입력 `mode?: 'incremental' \| 'full'`, 기본 `incremental`. `incremental`은 현행 동작 그대로(5분 freshness 포함) | "Sync는 부분 갱신, 전체 (재)갱신 할 수 있도록" — 부분 = 증분(§2 추론) | 사용자 + 추론 | ACTIVE — "부분"의 뜻이 다르면 사용자 정정 | — |
+| D-008 | `mail_sync` 입력 `mode?: 'incremental' \| 'full'`, 기본 `incremental`. `incremental`은 현행 동작 그대로(5분 freshness 포함) | "Sync는 부분 갱신, 전체 (재)갱신 할 수 있도록" — 부분 = 증분(§2 추론) | 사용자 + 추론 | ACTIVE — 사용자 확인(rev.3): "증분맞다" | — |
 | D-009 | `full`: freshness를 건너뛰고, 서버 UIDL 전부를 대상으로 TOP → 14일 경계 판정 → RETR → 덮어쓰기 저장한다. **지우지 않는다** — 서버에 없는 캐시 메일은 그대로 남고(ledger `missing`), 보호 판정(bulk loss)·연속 old-header 중단·메시지별 파싱 격리는 증분과 같다 | "(재)갱신"은 다시 받기다. 삭제까지 하면 서버 장애 순간의 full이 캐시를 날린다. 0237 D-007·D-026·D-047·D-062와 0302 D-009를 그대로 적용 | 사용자 + 설계자 | ACTIVE | — |
 | D-010 | 성공 결과에 `mode`와 `updatedMails`를 싣는다. `newMails` = 저장한 메일 중 ledger에 active로 없던 것, `updatedMails` = active로 있던 것(증분에서는 항상 0) | full에서 "새 메일 N"만 주면 재저장분이 새 메일로 읽힌다 | 설계자 판단 | ACTIVE | — |
 | D-011 | 동시 호출 규칙: 진행 중 동기화가 `full`이면 어떤 요청이든 합류한다. 진행 중이 `incremental`이고 요청도 `incremental`이면 합류한다. 진행 중이 `incremental`인데 요청이 `full`이면 **그 동기화가 끝난 뒤 full을 새로 돈다**. 합류한 호출자는 실제 돈 `mode`를 결과에서 본다 | 현재는 모드가 없어 무조건 합류한다(`tools.ts:45-85`). full 요청이 증분 결과를 받으면 재갱신이 조용히 안 된 것이다. full ⊇ incremental | 설계자 판단 | ACTIVE | — |
 | D-012 | 새 도구는 도구 목록 **맨 뒤**에 둔다: `[mail_sync, mail_search, mail_getAttachment, mail_get]` | 기존 mail 테스트 14곳이 `implementations[0..2]` 위치로 부른다(§8) — 순서를 바꾸면 무관한 테스트가 깨진다 | 조사 | ACTIVE | — |
 | D-013 | 스키마 변경·마이그레이션·새 의존성 없음 | 본문은 이미 `body_text`에 전부 저장돼 있다 | 조사 | ACTIVE | — |
 | D-015 | 파라미터 이름: 입력은 `offset`·`maxChars`, 응답은 `offset`·`returnedChars`·`totalChars`·`nextOffset`. rev.1의 입력 `length`·응답 `length`를 대체한다 | 사용자: "Offset, length는 개념적인것. 더 나은 파라미터 이름이 있으면 거기에 맞춰라". `maxChars`는 단위(문자)와 "상한"(경계 보정·본문 끝에서 더 짧게 올 수 있음)을 이름이 말한다. `offset`은 응답의 `nextOffset`과 짝이라 유지. 응답의 길이는 요청값과 헷갈리지 않게 `returnedChars` | 사용자 + 설계자 | ACTIVE | ← rev.1 이름 |
+| D-016 | **검색 발췌와 본문 조회는 같은 코드를 쓴다.** ① `mail_search`의 `snippet` = `sliceBody(bodyText, 0, 300).text` — `mail_get(mailId, offset:0, maxChars:300).text`와 항상 같다 ② 메일 행 → 메타(`date`·`from`·`to`·`subject`·`bodySource`) 매핑은 한 함수 `mailMeta(row)`를 검색과 조회가 함께 쓴다(조회는 `cc`를 더한다) ③ 첨부 manifest 매핑은 한 헬퍼를 함께 쓴다(메일당 10건 상한·`attachmentsTruncated`; 검색 응답 전체 50건 상한은 검색에만 남는다). `mail_search`의 입력 스키마·결과 필드·300자·정렬·상한은 그대로다 | 사용자: "Get(0, 300) 호출하면 search 와 같을 것으로 보인다. 내부적으로 코드 재사용이 되어야 할 것으로 보인다". 현재 검색은 `bodyText.slice(0, 300)`(`store/index.ts:346`)이라 300번째 자리에 surrogate pair가 걸리면 lone surrogate를 내고(이번 세션 실측: `'가'×299+'😀'` → 길이 300, `isWellFormed()` false) get(D-005)과 갈린다. 재사용하면 그 경우만 검색 발췌가 299자로 바뀐다 | 사용자 | ACTIVE | ← D-001 |
 | D-014 | 서버 descriptor `instructions`와 `mail_sync`·`mail_get` 설명에 사용법을 적는다: 검색 뒤 본문이 더 필요하면 `mail_get`, `nextOffset`으로 이어 읽기, `full`은 사용자가 전체 재갱신을 원하거나 캐시 본문이 비정상일 때만 | full은 보존 기간 전체를 다시 받는다 — 모델이 습관적으로 쓰면 서버 부하(0237 D-008의 취지) | 설계자 판단 | ACTIVE | — |
 
 ### 갱신 메모
 
+- rev.3 (2026-11-10): 사용자 "증분맞다" → D-008 확인. 사용자 "Get(0, 300) … search 와 같을 것 … 코드 재사용" → D-016 신설, D-001 SUPERSEDED(산출 방식만). AC16 수정·AC21 신설, MD-03/VP-10 신설, EP-06 신설. `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-016→AC16·AC21, D-008→AC10·AC17, 나머지 매핑 불변. SUPERSEDED D-001을 근거로 쓰는 AC 0.
 - rev.2 (2026-11-10): 사용자 지시로 이름 변경 — 입력 `length` → `maxChars`, 응답 `length` → `returnedChars`, 상수 `MAIL_GET_*_LENGTH` → `MAIL_GET_*_CHARS`. `ACTIVE 결정 ↔ AC 대조: 충돌 0`(D-015→AC1·AC3·AC4·AC5, 나머지 매핑 불변).
 - V1 신규. 0302(검증 대기)의 산출 위에 서지만 그 V를 상속하지 않는다 — 0302 pair는 0302 verify가 닫는다.
 - `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001→AC16, D-002→AC1·AC9·AC18, D-003→AC1~AC3, D-004→AC4, D-005→AC5, D-006→AC1·AC7·AC8, D-007→AC4·AC6, D-008→AC10·AC17, D-009→AC11~AC14, D-010→AC10·AC11, D-011→AC15, D-012→AC18, D-013→AC20, D-014→AC18.
@@ -153,11 +155,12 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 | R-02 | AT-02 / AC13 | full도 경계를 지킨다: TOP 날짜가 14일 밖이면 RETR하지 않고, 대량 소실 의심이면 RETR 0·`error:'bulk_loss_suspected'`, 파싱 실패는 그 메일만 건너뛴다(`skippedMails`) | 통합 3케이스 — `f.dates`·기존 보호 fixture·`mailRaw.broken` 재사용 | 같은 경로 |
 | R-02 | AT-02 / AC14 | full은 지우지 않는다: 서버에서 사라진 캐시 메일이 full 뒤에도 검색되고 `mail_get`으로 읽힌다 | 통합: 3통 동기화 → 서버 목록에서 1통 제거(보호 임계 미만 표본) → full → 3통 모두 조회 | 같은 경로 |
 | R-02 | AT-02 / AC15 | 동시 호출: 증분 진행 중 full 요청 → 동기화 2회(증분 → full 순서), 각 호출자가 자기 `mode` 결과 · full 진행 중 증분 요청 → 동기화 1회, 둘 다 `mode:'full'` · 같은 모드 동시 3회 → 1회(현행) | `tools-lifecycle.test.ts`(manager mock): `manager.sync` 호출 인자의 mode 순서와 횟수, 각 handler 결과의 `mode` 단언 | `tools.ts` flight 판정 |
-| R-03 | AT-03 / AC16 | `mail_search`는 그대로다: 입력 스키마 키가 `query`·`limit`뿐이고, hit의 키 집합이 0302 시점과 같으며 snippet이 300자다 | `tools.test.ts`: 스키마 키 · 통합: 20,000자 메일 hit의 `Object.keys` = 고정 목록, `snippet.length === 300` · 기존 검색 테스트 green | `mail_search` handler |
+| R-03 | AT-03 / AC16 | `mail_search`의 표면은 그대로다: 입력 스키마 키가 `query`·`limit`뿐이고, hit의 키 집합이 0302 시점과 같으며, 300자 이상인 본문(surrogate 없음)의 snippet은 본문 앞 300자다 | `tools.test.ts`: 스키마 키 · 통합: 20,000자 메일 hit의 `Object.keys` = 고정 목록, `snippet === body.slice(0, 300)` · 기존 검색 테스트 green | `mail_search` handler → `store.search` |
 | R-02 | AT-02 / AC17 | `mode`에 다른 값(`'all'`·`''`·`1`)은 스키마가 거부하고, handler 직접 호출은 증분으로 처리한다 | `tools.test.ts` safeParse · `tools-lifecycle.test.ts`: `handler({ mode:'all' })` → `manager.sync`가 `'incremental'`로 호출됨 | `mail_sync` inputSchema·handler |
 | R-03 | AT-03 / AC18 | 도구 목록이 `[mail_sync, mail_search, mail_getAttachment, mail_get]` 순서이고 `readOnlyHint`가 `[false, true, false, true]`, `mail_get`은 `idempotentHint:true`·`openWorldHint:false`다. `instructions`가 `mail_get`·`nextOffset`·`full`을 언급한다. 인증 만료 시 네 도구가 함께 회수되고 재로그인 시 복원된다 | `tools.test.ts` 갱신 · 통합 기존 케이스의 `toHaveLength(3)` 2곳 → 4 | descriptor → registry binding |
 | R-03 | AT-03 / AC19 | `closed-network-extensions.md` mail 절이 `mail_get`(문자 단위 창·`nextOffset`·승인 없음)과 `mail_sync` 두 모드(full의 범위·비삭제·`attachmentId` 변경)를 서술하고 "세 도구"를 "네 도구"로 고친다 | 문서 diff + `node scripts/check-doc-inventory.mjs --check` | 운영자 문서 |
 | R-03 | AT-03 / AC20 | 새 의존성 0 · 마이그레이션 파일 2개 그대로 | `git diff e7991dd -- app/package.json app/package-lock.json` 0줄 · `ls …/mail/migrations` 2개 | — |
+| R-03 | AT-03 / AC21 | 같은 메일에서 `mail_search` hit의 `snippet`은 `mail_get(mailId, offset:0, maxChars:300)`의 `text`와 같고, `date`·`from`·`to`·`subject`·`bodySource`도 같다. 300번째 자리에 surrogate pair가 걸린 본문에서도 같으며 그때 snippet은 299자이고 lone surrogate가 없다. 본문이 300자보다 짧거나 비어도 같다 | 통합: 본문 3종(`'가'×299+'😀'+…` · 짧은 본문 · `bodySource:'none'`)과 서로 다른 메타를 가진 메일을 저장 → 메일마다 search hit와 `mail_get(0, 300)` 대조 · `snippet.isWellFormed()` | `mail_search` → `store.search` → `sliceBody`·`mailMeta` / `mail_get` → `store.getMail` → 같은 함수 |
 
 ### AC 검증 주의사항
 
@@ -177,12 +180,13 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 | R-02 | R | 증분/전체 동기화를 고른다 (§1·§5) | NEW | — |
 | AT-02 | AT | AC10~AC15·AC17 | NEW | — |
 | R-03 | R | 검색 불변·도구 표면·문서·의존성 (§6) | NEW | — |
-| AT-03 | AT | AC16·AC18~AC20 | NEW | — |
+| AT-03 | AT | AC16·AC18~AC21 | NEW (rev.3 AC21) | — |
 | SD-01 | SD | 동기화 모드 수명주기: freshness 생략·대상 선택·비삭제·동시 호출 (§5 상태표·§13) | NEW | — |
 | AR-01 | AR | `mail_get` 운반: handler → manager → store → 창 → DTO (§9·§10) | NEW | — |
 | AR-02 | AR | `mode` 운반: 입력 → flight → manager → 루프 → 결과 (§9·§10) | NEW | — |
 | MD-01 | MD | 창 계산 D-003~D-005·D-007 (`body-window.ts`) | NEW | — |
 | MD-02 | MD | 모드 판정 D-009·D-011 (`sync-mode.ts`) | NEW | — |
+| MD-03 | MD | 검색·조회 공용 투영 D-016 — `sliceBody` 재사용 · `mailMeta` · manifest 헬퍼 (`store/index.ts`) | NEW (rev.3) | — |
 | INH-MAIL | SD | 0237·0302 동기화·검색·첨부 동작 | INHERITED | 기존 테스트 — mail 14파일 189케이스(`e7991dd`에서 green) |
 
 ### Pair registry
@@ -198,6 +202,7 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 | VP-07 | MD-01 ↔ UT-01 | REQUIRED | `sliceBody(text, offset?, maxChars?)` | `body-window.test.ts` AC3·AC4·AC5 | not selected | EP-01 (자리 6) |
 | VP-08 | MD-02 ↔ UT-02 | REQUIRED | `syncPlan(mode)` · `joinsRunningSync(running, requested)` · `normalizeSyncMode(input)` | `sync-mode.test.ts` 전 조합 | not selected | EP-04 판정표 |
 | VP-09 | INH-MAIL ↔ 기존 ST | REGRESSION | 동기화 루프·tools flight·store를 고친다 | 기존 mail 14파일(갱신한 단언 3곳 포함) green | not selected | — |
+| VP-10 | MD-03 ↔ IT-03 | REQUIRED | `store.search row → mailMeta → sliceBody(…,0,300) → manifest 헬퍼 → hit` ∥ `store.getMail row → mailMeta → (manager) sliceBody → manifest 헬퍼 → page` | 신규 통합 AC21 · `store/index.test.ts` 대조 케이스 | required — 검색 snippet을 `bodyText.slice(0, 300)`로 되돌리는 변이(AC21 surrogate 본문 red 기대) · 검색이 `mailMeta` 대신 인라인 매핑으로 `from`↔`to`를 맞바꾸는 변이 | EP-06 (자리 6) |
 
 ### 현재 변경의 운영 gate
 
@@ -289,9 +294,9 @@ mail_get({mailId, offset?, maxChars?}) → withManager(m => m.getMail(mailId, of
 
 | 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
 |---|---|---|---|
-| `mail/body-window.ts` (신규, 순수) | 길이 상수 · `sliceBody` | `(text, offset?, maxChars?) → { offset, returnedChars, text, totalChars, nextOffset }` | `sync-manager.ts`·`tools.ts`(상수) |
+| `mail/body-window.ts` (신규, 순수) | 길이 상수(`MAIL_GET_*`·`MAIL_SEARCH_SNIPPET_CHARS`) · `sliceBody` — 검색·조회 공용 | `(text, offset?, maxChars?) → { offset, returnedChars, text, totalChars, nextOffset }` | `sync-manager.ts`·`store/index.ts`·`tools.ts`(상수) |
 | `mail/sync-mode.ts` (신규, 순수) | `MailSyncMode` 값·`normalizeSyncMode`·`syncPlan`·`joinsRunningSync` | — | `tools.ts`·`sync-manager.ts`·`types.ts`(타입) |
-| `mail/store/index.ts` | `getMail(mailId)` · manifest 공용 헬퍼 | `string → StoredMail \| null` | `sync-manager.ts` |
+| `mail/store/index.ts` | `getMail(mailId)` · 검색·조회 공용 `mailMeta`·manifest 헬퍼 · 검색 snippet은 `sliceBody` 사용(D-016) | `string → StoredMail \| null` | `sync-manager.ts` |
 | `mail/sync-manager.ts` | `sync(signal?, onStage?, mode?)` · `getMail(mailId, offset?, maxChars?)` | — | `tools.ts` |
 | `mail/tools.ts` | 도구 4개 · 입력 정규화 · mode별 flight | — | 배포 조립 |
 
@@ -309,6 +314,8 @@ mail_get({mailId, offset?, maxChars?}) → withManager(m => m.getMail(mailId, of
 | MD-02 / VP-06·VP-08 | **EP-04** 동시 호출 판정 | `sync-mode.ts` `joinsRunningSync` | 구현자 | 자리 2: ① `tools.ts` flight 판정(합류 / 종료 대기 후 재판정) ② `sync-manager.ts` `inFlight` 판정(같은 함수 사용). **판정표 4칸**: (incremental, incremental) → 합류 · (full, incremental) → 합류 · (full, full) → 합류 · (incremental, full) → 대기 후 실행 | `rg -n "joinsRunningSync\|inFlight" app/src/main/features/plugins/mail -g '!*.test.ts'` | ①이 무조건 합류면 full 요청이 증분 결과를 받는다(재갱신 무음 실패) |
 | MD-02 UT 입력 칸 | — | — | — | `joinsRunningSync` 4조합 전부 · `syncPlan('incremental')` = `{bypassFreshness:false, refetchKnown:false}` · `syncPlan('full')` = 둘 다 true · `normalizeSyncMode`: `'full'`→full, `'incremental'`·`undefined`·`'all'`·`''`·`1`·`null`→incremental | — | — |
 | R-03 / VP-03 | **EP-05** 도구 표면·검색 불변 | `tools.ts` descriptor | 구현자 | 자리 4: ① descriptor `tools` 배열 순서 ② `implementations` 배열 순서(같은 순서) ③ `instructions` 문자열 ④ `mail_search` 항목·`store.search` 무변경 | `rg -n "name: 'mail_" app/src/main/features/plugins/mail/tools.ts` → 8줄(4×2) | 순서가 바뀌면 위치 기반 호출 14곳이 다른 도구를 부른다 |
+| MD-03 / VP-10 | **EP-06** 검색·조회 공용 투영 (rev.3) | `body-window.ts` `sliceBody` · `store/index.ts` `mailMeta`·manifest 헬퍼 | 구현자 | 자리 6: ① 검색 snippet = `sliceBody(row.bodyText, 0, 300).text` ② 검색 hit 메타 = `mailMeta(row)` ③ 검색 manifest = 공용 헬퍼(+전체 50 상한은 검색에) ④ `getMail` 메타 = `mailMeta(row)` + `cc` ⑤ `getMail` manifest = 같은 헬퍼 ⑥ 검색 snippet 길이 상수 300을 한 곳(`MAIL_SEARCH_SNIPPET_CHARS`)에 둔다. **규칙 칸 분기 3**: (a) 300자 이상·surrogate 없음 → 앞 300자 (b) 300번째 자리에 pair → 299자 (c) 300자 미만·빈 본문 → 본문 전체 | `rg -n "sliceBody\|mailMeta\|slice\(0, 300\)\|MAIL_SEARCH_SNIPPET_CHARS\|attachmentManifest" app/src/main/features/plugins/mail -g '!*.test.ts'` | 사본이 남으면 검색과 조회가 조용히 갈린다(예: 한쪽만 매핑 필드를 고침) |
+| MD-03 / VP-10 UT 입력 칸 | — | — | — | (a) 20,000자 ASCII 본문 (b) `'가'×299 + '😀' + '끝'` (c) `'짧은 본문'`·`''` — 메일마다 from·to·subject·date가 서로 다름 | — | — |
 
 **선언 경계** (판정에 쓰지 않음):
 
@@ -331,13 +338,13 @@ mail_get({mailId, offset?, maxChars?}) → withManager(m => m.getMail(mailId, of
 | `…/mail/sync-mode.ts` (신규) | 모드 판정 | `export type MailSyncMode = 'incremental' \| 'full'` · `normalizeSyncMode(value: unknown)` · `syncPlan(mode)` · `joinsRunningSync(running, requested)` | 순수 단위 |
 | `…/mail/sync-mode.test.ts` (신규) | — | EP-04 판정표 + MD-02 입력 칸 | unit |
 | `…/mail/types.ts` | 타입 | `MailBodyPage`(D-006 필드) · `synced:true` 분기에 `readonly mode: MailSyncMode; readonly updatedMails: number` | typecheck |
-| `…/mail/store/index.ts` | 조회 | `getMail(mailId: string): StoredMail \| null`(메타 + `bodyText` 전체 + manifest) · search의 manifest 매핑을 헬퍼로 추출해 공유(검색의 전체 50 상한 로직은 search에 남긴다) — EP-02 ①~④ | io |
-| `…/mail/store/index.test.ts` | — | AC8 · 필드 매핑 · 형식 검사 · 기존 search 테스트 무변경 | io |
+| `…/mail/store/index.ts` | 조회·공용 투영 | `getMail(mailId: string): StoredMail \| null`(메타 + `bodyText` 전체 + manifest) — EP-02 ①~④ · `mailMeta(row)`·`attachmentManifest(rows, limit)` 추출 · 검색 snippet을 `sliceBody(row.bodyText, 0, MAIL_SEARCH_SNIPPET_CHARS).text`로 교체 — EP-06 | io |
+| `…/mail/store/index.test.ts` | — | AC8 · 필드 매핑 · 형식 검사 · 검색 hit와 `getMail` 메타·발췌 대조(EP-06 입력 3종) · 기존 search 테스트 무변경 | io |
 | `…/mail/sync-manager.ts` | 동기화·조회 | `sync(signal?, onStage?, mode = 'incremental')` — EP-03 ④~⑦·EP-04 ② · `getMail(mailId, offset?, maxChars?)` — EP-02 ⑤ | 통합 |
 | `…/mail/tools.ts` | 도구 | `mail_sync` 스키마·handler·mode별 flight(EP-03 ①~③·EP-04 ①) · `mail_get` 항목(EP-02 ⑥~⑧·EP-05) · `instructions`·설명 문구(D-014) | mock manager |
 | `…/mail/tools.test.ts` | — | AC4·AC16·AC17·AC18(기존 "exactly three" 케이스를 넷으로 갱신) | unit |
 | `…/mail/tools-lifecycle.test.ts` | — | AC15·AC17 | unit |
-| `app/src/main/app/deployment/mail.integration.test.ts` | — | AC1·AC2·AC6·AC7·AC9~AC14·AC16 · `toHaveLength(3)` 2곳 → 4 | io |
+| `app/src/main/app/deployment/mail.integration.test.ts` | — | AC1·AC2·AC6·AC7·AC9~AC14·AC16·AC21 · `toHaveLength(3)` 2곳 → 4 | io |
 | `app/scripts/check-test-budgets.mjs` | 가드 등록 | 통합 테스트에 주입 시계 자리가 늘면 `SEMANTIC_DELAYS` count 갱신 | gate |
 | `docs/guides/closed-network-extensions.md` | 문서 | AC19 | — |
 
@@ -395,6 +402,7 @@ flight 구현 지침(`tools.ts`): flight 레코드에 `mode`를 둔다. `sync(mo
 | 0237 D-008 freshness 5분 | 0237 plan | D-008·D-009 | 유지(증분) — full만 명시적으로 건너뜀(사용자 요구 1) |
 | 0237 D-007·D-026·D-047·D-062 | 0237 plan | D-009 | 유지 — full에도 그대로 |
 | 0237 도구 3개 표면 | `tools.test.ts:16` | D-002·D-012 | 변경 — 사용자 요구 3으로 4개 |
+| 0237 검색 snippet 300자(`slice`) | `store/index.ts:346` | D-016 | 변경 — 산출을 `sliceBody`로 공유. 300번째 자리에 surrogate pair가 걸린 경우만 299자 |
 | 0237 D-053 도구 작업마다 연결 | 0237 plan | §13 | 유지 |
 | 0237 D-063 `partial` OPEN | 0237 plan | §6 | 유지 — 손대지 않음 |
 | 0302 D-009 파싱 격리 · D-007 집계 | 0302 plan | D-009 | 유지 — full에도 그대로 |
@@ -423,11 +431,12 @@ flight 구현 지침(`tools.ts`): flight 레코드에 `mode`를 둔다. `sync(mo
 - 결정 보존: 사용자 문장 3개를 §2에 원문 인용, D-001(유지)·D-002~D-007(Get)·D-008~D-011(Sync)에 귀속.
 - `ACTIVE 결정 ↔ AC 대조: 충돌 0`(§3 갱신 메모).
 - 조건절: "100값을 제안하는 것이 아님" → 값은 D-004가 근거와 함께 정함. "E.g." → 단위는 예시로 읽고 D-003에 거부권.
-- 사용자 질의로 남긴 것: D-003 단위 · D-008 "부분"의 뜻 — 둘 다 합리적 기본값으로 진행하고 보고에서 확인을 구한다. 구현 주체(Codex/Claude)도 사용자 결정.
+- 사용자 질의: D-003 단위(rev.2 "개념적인것")·D-008(rev.3 "증분맞다") 모두 확인됨. 남은 것은 구현 주체(Codex/Claude) 하나.
 - 실측: §8 전수 조사 6행(이번 세션 `e7991dd`) · 인용 테스트 존재 확인(`tools.test.ts:16`, `mail.integration.test.ts:477,547`, `tools-lifecycle.test.ts` shares concurrent sync 케이스).
 - 저장소 규칙: 레이어(슬라이스 내부) · test-pools(순수 2모듈 unit) · 예산 가드 등록 선례 · 후보 표 겹침 0행.
 - 규칙 칸 ↔ 입력 칸: EP-01 분기 9 ↔ 입력 9(+2) · EP-04 판정표 4 ↔ 4 · `normalizeSyncMode` 7입력.
-- 적대 증거: VP-02(freshness 생략·대상 선택 각각 되돌림) · VP-06(무조건 합류로 되돌림, 두 자리).
+- 적대 증거: VP-02(freshness 생략·대상 선택 각각 되돌림) · VP-06(무조건 합류로 되돌림, 두 자리) · VP-10(rev.3 — 검색 snippet을 `slice`로 되돌림 · 검색 메타 인라인 맞바꿈).
+- rev.3 재검: EP-06 분기 3 ↔ 입력 3. AC 총 21. D-016이 D-001을 승계해 "Search는 유지"(사용자 요구 2)를 표면 기준으로 지킨다 — 바뀌는 관측은 surrogate 경계 한 경우뿐.
 - 사람 실기: 없음.
 
 ## [구현자 기입] 설계 리뷰
