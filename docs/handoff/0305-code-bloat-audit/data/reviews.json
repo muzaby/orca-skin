@@ -1,0 +1,533 @@
+{
+ "reviews": [
+  {
+   "scenario": "S-01",
+   "read": [
+    "app/src/main/app/bootstrap.ts",
+    "app/src/renderer/src/app/boot/steps.ts",
+    "app/src/main/app/handlers/boot.ts",
+    "app/src/main/app/handlers/misc.ts",
+    "app/src/main/app/handlers/session.ts",
+    "app/src/main/app/handlers/settings.ts",
+    "app/src/main/app/handlers/log.ts",
+    "app/src/main/app/legacy-paths.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": [
+     "C-13"
+    ],
+    "X5": [
+     "C-16"
+    ],
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-02",
+   "read": [
+    "app/src/main/app/handlers/providers.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-03",
+   "read": [
+    "app/src/main/app/handlers/misc.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-04",
+   "read": [
+    "app/src/main/app/chat-turn/send.ts",
+    "app/src/main/app/chat-turn/admission.ts",
+    "app/src/main/app/chat-turn/resolve-turn.ts",
+    "app/src/shared/protocol.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-15"
+    ],
+    "X4": [
+     "C-12",
+     "C-13"
+    ],
+    "X5": [
+     "C-16"
+    ],
+    "X6": [
+     "C-12",
+     "C-15"
+    ],
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-05",
+   "read": [
+    "app/src/main/app/chat-turn/send.ts",
+    "app/src/main/app/handlers/composer-catalog.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-15"
+    ],
+    "X4": [
+     "C-12"
+    ],
+    "X5": "none",
+    "X6": [
+     "C-12",
+     "C-15"
+    ],
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-06",
+   "read": [
+    "app/src/main/app/chat-turn/send.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": [
+     "C-15"
+    ],
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-07",
+   "read": [
+    "app/src/main/features/chat/pending-message-queue.ts",
+    "app/src/main/app/chat-turn/admission.ts",
+    "app/src/main/app/chat-turn/send.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": [
+     "C-14"
+    ],
+    "X3": [
+     "C-14",
+     "C-15"
+    ],
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-08",
+   "read": [
+    "app/src/main/app/chat-turn/send.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-09",
+   "read": [
+    "app/src/main/app/chat-turn/send.ts",
+    "app/src/main/features/chat/pending-message-queue.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": [
+     "C-14"
+    ],
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-10",
+   "read": [
+    "app/src/main/features/chat/background-controller.ts",
+    "app/src/main/app/chat-turn/background.ts",
+    "app/src/main/infra/background-output.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-11",
+   "read": [
+    "app/src/main/app/handlers/session.ts",
+    "app/src/main/app/chat-turn/resolve-turn.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": [
+     "C-12",
+     "C-13"
+    ],
+    "X5": "none",
+    "X6": [
+     "C-12"
+    ],
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-12",
+   "read": [
+    "app/src/main/app/handlers/session.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": [
+     "C-13"
+    ],
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-13",
+   "read": [
+    "app/src/main/app/handlers/files.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-14",
+   "read": [
+    "app/src/main/app/handlers/project.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-15",
+   "read": [
+    "app/src/main/app/handlers/files.ts",
+    "app/src/main/app/handlers/session.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-16",
+   "read": [
+    "app/src/main/app/handlers/files.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-17",
+   "read": [
+    "app/src/main/app/handlers/files.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": [
+     "C-17"
+    ],
+    "X5": "none",
+    "X6": [
+     "C-17"
+    ],
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-18",
+   "read": [
+    "app/src/main/app/handlers/git.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-19",
+   "read": [
+    "app/src/main/app/handlers/artifacts.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-20",
+   "read": [
+    "app/src/main/app/handlers/skills.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-21",
+   "read": [
+    "app/src/main/app/handlers/extension-catalog.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-22",
+   "read": [
+    "app/src/main/app/handlers/mcp.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-23",
+   "read": [
+    "app/src/main/app/handlers/engine.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-24",
+   "read": [
+    "app/src/main/app/handlers/cost.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-25",
+   "read": [
+    "app/src/main/app/handlers/settings.ts",
+    "app/src/shared/protocol.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-26",
+   "read": [
+    "app/src/main/app/handlers/update.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-27",
+   "read": [
+    "app/src/main/index.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-28",
+   "read": [
+    "app/src/main/app/handlers/error.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-29",
+   "read": [
+    "app/src/main/app/handlers/misc.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-30",
+   "read": [
+    "app/src/renderer/src/features/captures/components/CapturesView.tsx",
+    "app/src/renderer/src/app/router.tsx"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none"
+   }
+  },
+  {
+   "scenario": "S-31",
+   "read": [
+    "app/src/main/app/handlers/misc.ts",
+    "app/src/main/app/chat-turn/send.ts"
+   ],
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": [
+     "C-16"
+    ],
+    "X6": "none",
+    "X7": "none"
+   }
+  }
+ ]
+}
