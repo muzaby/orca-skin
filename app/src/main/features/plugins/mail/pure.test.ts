@@ -133,7 +133,116 @@ describe('mail pure policy modules', () => {
     expect(document.ccAddrs).toBe('c@example.com')
     expect(document.subject).toBe('제목')
     expect(document.bodyText).toBe('본문')
+    expect(document.bodySource).toBe('plain')
     expect(document.sizeBytes).toBe(123)
     expect(document.attachments[0]).toMatchObject({ filename: '../a.txt', sizeBytes: 2 })
+  })
+})
+
+// 0302 EP-01 — 본문 선택 체인 plain → html → 첫 HTML 첨부 → none. 원천마다 표지 단어가 다르다.
+const input = { uidl: 'u', messageNumber: 1, firstSeenAt: 0 }
+const htmlAttachment = (body: string, mimeType = 'text/html'): Record<string, unknown> => ({
+  filename: 'link_1.html',
+  mimeType,
+  disposition: 'attachment',
+  content: new TextEncoder().encode(body)
+})
+function body(
+  email: Record<string, unknown>,
+  deps?: Parameters<typeof normalizeMail>[2]
+): ReturnType<typeof normalizeMail> {
+  return normalizeMail({ subject: '제목', ...email } as never, input, deps)
+}
+
+describe('mail body selection chain (0302 D-014)', () => {
+  it('(a) AC4 keeps non-blank plain text verbatim even when HTML exists', () => {
+    const document = body({ text: '평문A\n', html: '<p>HTMLB</p>' })
+    expect(document).toMatchObject({ bodySource: 'plain', bodyText: '평문A\n' })
+  })
+
+  it('(b) AC1·AC4 converts HTML when plain text is blank', () => {
+    const document = body({ text: '\r\n', html: '<p>결재 <b>요청</b> HTMLB</p>' })
+    expect(document.bodySource).toBe('html')
+    expect(document.bodyText).toContain('결재')
+    expect(document.bodyText).toContain('요청')
+    expect(document.bodyText).toContain('HTMLB')
+  })
+
+  it('(c) moves on to the HTML attachment when the HTML body converts to nothing', () => {
+    const document = body({ html: '<p> </p>', attachments: [htmlAttachment('<p>첨부C</p>')] })
+    expect(document).toMatchObject({ bodySource: 'attachment', bodyText: '첨부C' })
+  })
+
+  it('(d)(f) uses the first HTML attachment when there is no body part', () => {
+    const document = body({ attachments: [htmlAttachment('<p>첨부C</p>')] })
+    expect(document).toMatchObject({ bodySource: 'attachment', bodyText: '첨부C' })
+    expect(document.attachments).toHaveLength(1)
+    expect(document.attachments[0]).toMatchObject({
+      filename: 'link_1.html',
+      mimeType: 'text/html'
+    })
+  })
+
+  it('(e) AC6 skips only the step whose conversion throws', () => {
+    const document = body(
+      { html: '<p>HTMLB</p>', attachments: [htmlAttachment('<p>첨부C</p>')] },
+      {
+        htmlToText: (html) => {
+          if (html.includes('HTMLB')) throw new Error('body conversion failed')
+          return html.replace(/<[^>]+>/g, '')
+        }
+      }
+    )
+    expect(document).toMatchObject({ bodySource: 'attachment', bodyText: '첨부C' })
+  })
+
+  it('(g) AC16 looks at the first HTML attachment only', () => {
+    const document = body({
+      attachments: [htmlAttachment('<p> </p>'), htmlAttachment('<p>첨부D</p>')]
+    })
+    expect(document).toMatchObject({ bodySource: 'none', bodyText: '' })
+    expect(document.attachments).toHaveLength(2)
+  })
+
+  it('(h) AC6 stores no body when every conversion throws, keeping the rest of the mail', () => {
+    const document = body(
+      { html: '<p>HTMLB</p>', attachments: [htmlAttachment('<p>첨부C</p>')] },
+      {
+        htmlToText: () => {
+          throw new Error('conversion failed')
+        }
+      }
+    )
+    expect(document).toMatchObject({ bodySource: 'none', bodyText: '', subject: '제목' })
+    expect(document.attachments).toHaveLength(1)
+  })
+
+  it('(i) AC16 ignores non-HTML attachments', () => {
+    const document = body({
+      attachments: [
+        {
+          filename: 'n.txt',
+          mimeType: 'text/plain',
+          content: new TextEncoder().encode('평문첨부E')
+        }
+      ]
+    })
+    expect(document).toMatchObject({ bodySource: 'none', bodyText: '' })
+  })
+
+  it('(j) AC16 matches the HTML mime type case-insensitively', () => {
+    const document = body({ attachments: [htmlAttachment('<p>첨부F</p>', 'Text/HTML')] })
+    expect(document).toMatchObject({ bodySource: 'attachment', bodyText: '첨부F' })
+  })
+
+  it('AC16 never uses an HTML attachment while the HTML body has text', () => {
+    const document = body({ html: '<p>HTMLB</p>', attachments: [htmlAttachment('<p>첨부C</p>')] })
+    expect(document.bodySource).toBe('html')
+    expect(document.bodyText).toContain('HTMLB')
+    expect(document.bodyText).not.toContain('첨부C')
+  })
+
+  it('stores no body for a mail without any text part', () => {
+    expect(body({})).toMatchObject({ bodySource: 'none', bodyText: '' })
   })
 })

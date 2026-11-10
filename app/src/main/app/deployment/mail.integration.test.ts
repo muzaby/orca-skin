@@ -20,6 +20,8 @@ import { patSpec } from '../../features/auth/specs/credential'
 import { Pop3Error } from '../../infra/net/pop3-errors'
 import { parseMail } from '../../features/plugins/mail/mime'
 import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
+import { setRootLogger } from '../../infra/log/registry'
+import type { AppLogger } from '../../infra/log/log-manager'
 
 vi.mock('../../infra/net/pop3-socket', () => ({ createPop3Socket: vi.fn() }))
 vi.mock('../../infra/config/user-data-path', () => ({ userDataPath: vi.fn() }))
@@ -70,6 +72,7 @@ async function setup(withProbe = true): Promise<{
   accept: () => void
   remote: (next: string[]) => void
   dates: (next: Record<number, number>) => void
+  bodies: (next: Record<number, string>) => void
 }> {
   const root = await mkdtemp(join(tmpdir(), 'orca-mail-integration-'))
   roots.push(root)
@@ -113,6 +116,8 @@ async function setup(withProbe = true): Promise<{
   let remote = ['u1']
   // TOP 헤더 날짜는 기본이 현재 시각이다. 수집 경계 테스트만 메시지 번호별로 덮어쓴다.
   let headerDates: Record<number, number> = {}
+  // RETR 원문을 메시지 번호별로 덮어쓴다 — 본문 출처 테스트(0302)만 쓴다.
+  let rawBodies: Record<number, string> = {}
   const reply = (line: string): string => {
     const [command, index] = line.split(' ')
     if (command === 'USER' || command === 'PASS')
@@ -121,6 +126,8 @@ async function setup(withProbe = true): Promise<{
       return `+OK\r\n${remote.map((uidl, i) => `${i + 1} ${uidl}\r\n`).join('')}.\r\n`
     if (command === 'TOP')
       return `+OK\r\nDate: ${new Date(headerDates[Number(index)] ?? Date.now()).toUTCString()}\r\n.\r\n`
+    if (command === 'RETR' && rawBodies[Number(index)] !== undefined)
+      return `+OK\r\n${rawBodies[Number(index)]}\r\n.\r\n`
     if (command === 'RETR') {
       // 날짜를 지정한 메시지는 본문 헤더에도 같은 `Date:`를 싣는다 — 저장 메일의 실효 날짜가
       // 동기화 시각(first_seen_at)으로 떨어지면 정리 경계를 잴 수 없다 (r6 G2).
@@ -168,6 +175,9 @@ async function setup(withProbe = true): Promise<{
     },
     dates: (next: Record<number, number>) => {
       headerDates = next
+    },
+    bodies: (next: Record<number, string>) => {
+      rawBodies = next
     }
   }
 }
@@ -248,6 +258,7 @@ describe('mail declaration → auth → plugin → infra', () => {
           ccAddrs: '',
           subject: 'cached',
           bodyText: '',
+          bodySource: 'none',
           attachments: []
         })
       f.remote([...Array.from({ length: retained }, (_, i) => `old-${i}`), 'new'])
@@ -339,6 +350,7 @@ describe('mail declaration → auth → plugin → infra', () => {
         ccAddrs: '',
         subject: 'old',
         bodyText: '',
+        bodySource: 'none',
         attachments: []
       })
     f.remote(['new-a'])
@@ -410,6 +422,7 @@ describe('mail declaration → auth → plugin → infra', () => {
       ccAddrs: '',
       subject: '첨부',
       bodyText: '',
+      bodySource: 'none',
       attachments: [1, 2, 3].map((n) => ({
         filename: `item-${n}.bin`,
         mimeType: 'application/octet-stream',
@@ -693,4 +706,155 @@ it('retentionDays moves the cleanup boundary that sync applies to stored mail', 
   close.push(() => narrow.close())
   expect(await narrow.sync()).toMatchObject({ synced: true, expired: 1 })
   expect(narrow.search('회의', 10).results).toHaveLength(0)
+})
+
+// ── 0302 — 본문 출처 · 메시지별 파싱 격리 · 동기화 집계 (VP-01·02·04) ─────────────
+//
+// 원문 5종은 본문 표지 단어가 서로 다르다. 4번은 postal-mime 가 실제로 throw 하는 입력이다
+// (헤더 2 MiB 초과 — `Maximum header size of 2097152 bytes exceeded`).
+const mailRaw = {
+  plain:
+    'Subject: plain mail\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n평문본문 plainbodyword',
+  html: 'Subject: html mail\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<html><head><style>.x{color:red}</style></head><body><p>결재요청서 htmlbodyword</p></body></html>',
+  none: 'Subject: none mail\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="B"\r\n\r\n--B\r\nContent-Type: application/pdf; name="a.pdf"\r\nContent-Disposition: attachment; filename="a.pdf"\r\nContent-Transfer-Encoding: base64\r\n\r\nJVBERi0=\r\n--B--',
+  broken: `Subject: broken mail\r\nX-Big: ${'a'.repeat(2 * 1024 * 1024 + 16)}\r\nContent-Type: text/plain\r\n\r\nbrokenbodyword`,
+  attachment:
+    'Subject: attachment mail\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="B"\r\n\r\n--B\r\nContent-Type: text/html; charset=utf-8; name="link_1.html"\r\nContent-Disposition: attachment; filename="link_1.html"\r\n\r\n<p>첨부링크본문 attachbodyword</p>\r\n--B--'
+}
+
+function captureWarnings(): { events: { event: string; data?: Record<string, unknown> }[] } {
+  const events: { event: string; data?: Record<string, unknown> }[] = []
+  const logger: AppLogger = {
+    debug: () => {},
+    info: () => {},
+    warn: (event, data) => void events.push({ event, data }),
+    error: () => {},
+    child: () => logger
+  }
+  setRootLogger(logger)
+  close.push(() => setRootLogger(null))
+  return { events }
+}
+
+describe('0302 mail body source through the deployed tools', () => {
+  it('AC10·AC12·AC13 reports body-less and skipped mail, keeps syncing, and searches every source', async () => {
+    const f = await setup()
+    await f.login()
+    const warnings = captureWarnings()
+    f.remote(['m1', 'm2', 'm3', 'm4', 'm5'])
+    f.bodies({
+      1: mailRaw.plain,
+      2: mailRaw.html,
+      3: mailRaw.none,
+      4: mailRaw.broken,
+      5: mailRaw.attachment
+    })
+
+    const synced = await f.server.implementations[0].handler({})
+    expect(synced.isError).not.toBe(true)
+    expect(synced.structuredContent).toMatchObject({
+      synced: true,
+      newMails: 4,
+      noBodyMails: 1,
+      skippedMails: 1
+    })
+    expect(synced.structuredContent).not.toHaveProperty('error')
+
+    const search = async (query: string): Promise<Record<string, unknown>> =>
+      (await f.server.implementations[1].handler({ query })).structuredContent as Record<
+        string,
+        unknown
+      >
+    const html = (await search('htmlbodyword')) as {
+      total: number
+      results: Record<string, unknown>[]
+    }
+    expect(html.total).toBe(1)
+    expect(html.results[0]).toMatchObject({ subject: 'html mail', bodySource: 'html' })
+    expect(html.results[0].snippet).toContain('htmlbodyword')
+    expect(html.results[0].snippet).not.toContain('color:red')
+    const korean = (await search('결재')) as { total: number; results: Record<string, unknown>[] }
+    expect(korean.total).toBe(1)
+    expect(korean.results[0]).toMatchObject({ subject: 'html mail', bodySource: 'html' })
+    const attached = (await search('attachbodyword')) as {
+      total: number
+      results: {
+        subject: string
+        bodySource: string
+        snippet: string
+        attachments: { mimeType: string }[]
+      }[]
+    }
+    expect(attached.total).toBe(1)
+    expect(attached.results[0]).toMatchObject({
+      subject: 'attachment mail',
+      bodySource: 'attachment'
+    })
+    expect(attached.results[0].snippet).toContain('attachbodyword')
+    expect(attached.results[0].attachments.map((item) => item.mimeType)).toEqual(['text/html'])
+    const all = (await search('')) as { results: { subject: string; bodySource: string }[] }
+    expect(Object.fromEntries(all.results.map((hit) => [hit.subject, hit.bodySource]))).toEqual({
+      'plain mail': 'plain',
+      'html mail': 'html',
+      'none mail': 'none',
+      'attachment mail': 'attachment'
+    })
+    expect((await search('brokenbodyword')).total).toBe(0)
+
+    expect(warnings.events.filter((item) => item.event.startsWith('mail.sync.'))).toEqual([
+      {
+        event: 'mail.sync.parse_failed',
+        data: { uidl: 'm4', message: expect.stringContaining('Maximum header size') }
+      },
+      { event: 'mail.sync.body_none', data: { uidl: 'm3' } }
+    ])
+    expect(JSON.stringify(warnings.events)).not.toContain('none mail')
+    expect(JSON.stringify(warnings.events)).not.toContain('alice@example.test')
+
+    // 파싱 실패 메시지만 ledger 밖에 남아 freshness 뒤 다시 받는다.
+    const manager = await syncManager(f, undefined, () => Date.now() + 301_000)
+    close.push(() => manager.close())
+    expect(manager.store.state().lastErrorCode).toBeNull()
+    expect(
+      manager.store
+        .ledger()
+        .map((row) => row.uidl)
+        .sort()
+    ).toEqual(['m1', 'm2', 'm3', 'm5'])
+    const before = f.sockets.length
+    expect(await manager.sync()).toMatchObject({ synced: true, newMails: 0, skippedMails: 1 })
+    expect(
+      f.sockets
+        .slice(before)
+        .flatMap((socket) => socket.commands)
+        .filter((command) => command.startsWith('RETR'))
+    ).toEqual(['RETR 4'])
+  })
+
+  it('AC10 counts body-less and skipped mail separately', async () => {
+    const f = await setup()
+    await f.login()
+    f.remote(['n1', 'n2', 'b3'])
+    f.bodies({ 1: mailRaw.none, 2: mailRaw.none, 3: mailRaw.broken })
+    const synced = await f.server.implementations[0].handler({})
+    expect(synced.structuredContent).toMatchObject({
+      synced: true,
+      newMails: 2,
+      noBodyMails: 2,
+      skippedMails: 1
+    })
+  })
+
+  it('AC11 a storage failure still fails the whole sync instead of skipping the mail', async () => {
+    const f = await setup()
+    await f.login()
+    f.bodies({ 1: mailRaw.plain })
+    const manager = await syncManager(f)
+    close.push(() => manager.close())
+    vi.spyOn(manager.store, 'saveMessage').mockRejectedValue(new Error('database or disk is full'))
+    const result = await manager.sync()
+    expect(result).toMatchObject({ synced: false, error: 'db_failed', stale: true })
+    expect(result).not.toHaveProperty('skippedMails')
+    expect(manager.store.state().lastErrorCode).toBe('db_failed')
+  })
 })

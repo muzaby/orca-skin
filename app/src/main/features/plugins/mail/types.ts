@@ -57,6 +57,9 @@ export interface MailAttachment {
   readonly bytes?: Uint8Array
 }
 
+// 저장된 본문(`body_text`)의 출처. `none` = 저장 본문이 비어 있다 (0302 D-014·D-016).
+export type MailBodySource = 'plain' | 'html' | 'attachment' | 'none'
+
 export interface MailDocument {
   readonly uidl: string
   readonly messageNumber: number
@@ -68,6 +71,7 @@ export interface MailDocument {
   readonly ccAddrs: string
   readonly subject: string
   readonly bodyText: string
+  readonly bodySource: MailBodySource
   readonly sizeBytes?: number
   readonly attachments: readonly MailAttachment[]
 }
@@ -86,6 +90,7 @@ export interface MailSearchHit {
   readonly to: string
   readonly subject: string
   readonly snippet: string
+  readonly bodySource: MailBodySource
   readonly rank: number
   readonly attachmentCount: number
   readonly attachments: readonly MailAttachmentManifest[]
@@ -107,6 +112,10 @@ export type MailSyncResult =
       readonly newMails: number
       readonly expired: number
       readonly lastSyncAt: number
+      // 이번 동기화로 본문 없이(`bodySource:'none'`) 저장한 메일 수 (0302 D-007).
+      readonly noBodyMails: number
+      // MIME 파싱 실패로 저장하지 않은 메일 수. ledger 에 쓰지 않아 다음 동기화가 다시 받는다 (D-009).
+      readonly skippedMails: number
       readonly partial?: boolean
       readonly protection?: 'bulk_loss_suspected'
       readonly removed?: 0

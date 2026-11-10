@@ -9,6 +9,8 @@ import { Pop3Error, normalizePop3Error } from './pop3/errors'
 import { withMailSession } from './auth'
 import type { PluginAuth } from '../../../contracts/auth'
 import { createMailStore, type MailStore } from './store'
+import { getLogger } from '../../../infra/log/registry'
+import { errorMessage } from '../../../infra/errors'
 import type {
   MailPluginOptions,
   MailSearchResult,
@@ -129,6 +131,9 @@ export async function createMailSyncManager(
                 // 보호 관측 중에는 다음 비교의 활성 ledger 기준을 유지한다.
                 store.markMissing(reconciled.missing)
                 let processed = 0
+                // 본문 없이 저장한 수 · 파싱 실패로 건너뛴 수 (0302 D-007).
+                let noBodyMails = 0
+                let skippedMails = 0
                 const newest = [...remote].sort((a, b) => b.messageNumber - a.messageNumber)
                 // 연속 카운트는 `decideIngest`가 돌려주는 값만 쓴다 (D-062 · EP-28 ②).
                 let consecutiveOld = 0
@@ -148,16 +153,39 @@ export async function createMailSyncManager(
                   if (decision.action === 'skip') continue
                   onStage?.({ stage: 'retr' })
                   const raw = await session.retr(item.messageNumber)
-                  const document = await parseMail(raw, {
-                    uidl: item.uidl,
-                    messageNumber: item.messageNumber,
-                    firstSeenAt: timestamp
-                  })
+                  // 파싱만 메시지별로 격리한다. 네트워크·저장·취소는 동기화 전체로 전파한다 (D-009).
+                  // 건너뛴 메시지는 ledger 에 쓰지 않으므로 다음 비-fresh 동기화가 다시 받는다.
+                  let document: Awaited<ReturnType<typeof parseMail>>
+                  try {
+                    document = await parseMail(raw, {
+                      uidl: item.uidl,
+                      messageNumber: item.messageNumber,
+                      firstSeenAt: timestamp
+                    })
+                  } catch (error) {
+                    skippedMails += 1
+                    getLogger().warn('mail.sync.parse_failed', {
+                      uidl: item.uidl,
+                      message: errorMessage(error)
+                    })
+                    continue
+                  }
                   onStage?.({ stage: 'persist' })
                   await store.saveMessage(document, operationSignal)
                   processed += 1
+                  if (document.bodySource === 'none') {
+                    noBodyMails += 1
+                    getLogger().warn('mail.sync.body_none', { uidl: item.uidl })
+                  }
                 }
-                return { synced: true, newMails: processed, expired, lastSyncAt: timestamp }
+                return {
+                  synced: true,
+                  newMails: processed,
+                  expired,
+                  lastSyncAt: timestamp,
+                  noBodyMails,
+                  skippedMails
+                }
               }
             )
             if (result.synced)
