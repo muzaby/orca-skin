@@ -307,7 +307,7 @@ export const SEMANTIC_DELAYS = [
   {
     file: 'main/app/deployment/mail.integration.test.ts',
     value: '299_000',
-    count: 1,
+    count: 2,
     reason: '동기화 관리자에 주입한 시계(`now: () => now`)를 신선도 5분 직전까지 진행'
   },
   {
@@ -319,7 +319,7 @@ export const SEMANTIC_DELAYS = [
   {
     file: 'main/app/deployment/mail.integration.test.ts',
     value: '301_000',
-    count: 5,
+    count: 6,
     reason: '같은 주입 시계로 신선도 5분을 넘긴다'
   },
   {

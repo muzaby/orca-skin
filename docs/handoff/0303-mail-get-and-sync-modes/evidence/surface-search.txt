@@ -1,0 +1,86 @@
+1:export const MAIL_GET_DEFAULT_CHARS = 8_000
+2:export const MAIL_GET_MAX_CHARS = 16_000
+6:  const before = text.charCodeAt(offset - 1)
+7:  const after = text.charCodeAt(offset)
+14:  maxChars = MAIL_GET_DEFAULT_CHARS
+20:  nextOffset: number | null
+25:      ? Math.min(maxChars, MAIL_GET_MAX_CHARS)
+26:      : MAIL_GET_DEFAULT_CHARS
+28:  let end = Math.min(start + size, text.length)
+37:    nextOffset: end < text.length ? end : null
+app/src/main/features/plugins/mail/types.ts:101:export interface MailBodyPage {
+app/src/main/features/plugins/mail/tools.ts:104:        'Call mail_sync before mail_search when the cache may be stale. Synchronization defaults to incremental; use mode full only when the user requests a complete refresh or cached bodies are invalid. After mail_search, use mail_get for more body text and follow nextOffset until null. Use attachmentId values from mail_search or mail_get and call mail_getAttachment one attachment at a time; each attachment requires its own approval.',
+app/src/main/features/plugins/mail/tools.ts:118:          name: 'mail_getAttachment',
+app/src/main/features/plugins/mail/tools.ts:124:          name: 'mail_get',
+app/src/main/features/plugins/mail/tools.ts:164:        name: 'mail_getAttachment',
+app/src/main/features/plugins/mail/tools.ts:200:        name: 'mail_get',
+app/src/main/features/plugins/mail/tools.ts:209:              manager.getMail(
+app/src/main/features/plugins/mail/tools.ts:215:            if (!page) return result({ error: 'mail_not_found' }, true)
+app/src/main/features/plugins/mail/sync-manager.ts:17:  MailBodyPage,
+app/src/main/features/plugins/mail/sync-manager.ts:43:  getMail(mailId: string, offset?: number, maxChars?: number): MailBodyPage | null
+app/src/main/features/plugins/mail/sync-manager.ts:265:    getMail: (mailId, offset, maxChars) => {
+app/src/main/features/plugins/mail/sync-manager.ts:266:      const stored = store.getMail(mailId)
+app/src/main/features/plugins/mail/store/index.ts:94:  getMail(mailId: string): StoredMail | null
+app/src/main/features/plugins/mail/store/index.ts:352:    getMail: (mailId) => {
+app/src/main/features/plugins/mail/sync-manager.ts:2:import { joinsRunningSync, syncPlan, type MailSyncMode } from './sync-mode'
+app/src/main/features/plugins/mail/sync-manager.ts:41:    mode?: MailSyncMode
+app/src/main/features/plugins/mail/sync-manager.ts:77:  let inFlight: { promise: Promise<MailSyncResult>; mode: MailSyncMode } | undefined
+app/src/main/features/plugins/mail/sync-manager.ts:83:    mode: MailSyncMode = 'incremental'
+app/src/main/features/plugins/mail/sync-manager.ts:86:      if (joinsRunningSync(inFlight.mode, mode)) return inFlight.promise
+app/src/main/features/plugins/mail/sync-manager.ts:88:      return sync(signal, onStage, mode)
+app/src/main/features/plugins/mail/sync-manager.ts:90:    const plan = syncPlan(mode)
+app/src/main/features/plugins/mail/sync-manager.ts:101:          !plan.bypassFreshness &&
+app/src/main/features/plugins/mail/sync-manager.ts:151:                let updatedMails = 0
+app/src/main/features/plugins/mail/sync-manager.ts:162:                  if (!plan.refetchKnown && !reconciled.fresh.includes(item.uidl)) continue
+app/src/main/features/plugins/mail/sync-manager.ts:194:                  if (active.has(item.uidl)) updatedMails += 1
+app/src/main/features/plugins/mail/sync-manager.ts:203:                  mode,
+app/src/main/features/plugins/mail/sync-manager.ts:204:                  updatedMails,
+app/src/main/features/plugins/mail/sync-manager.ts:238:    const flight = { promise, mode }
+app/src/main/features/plugins/mail/sync-manager.ts:253:      const results = store.search(built.parameter, Math.min(Math.max(limit, 1), 50), built.mode)
+app/src/main/features/plugins/mail/tools.ts:3:import { joinsRunningSync, normalizeSyncMode, type MailSyncMode } from './sync-mode'
+app/src/main/features/plugins/mail/tools.ts:34:        mode: MailSyncMode
+app/src/main/features/plugins/mail/tools.ts:53:  const sync = (mode: MailSyncMode, signal?: AbortSignal): Promise<MailSyncResult> => {
+app/src/main/features/plugins/mail/tools.ts:55:    if (inFlight && (inFlight.controller.signal.aborted || !joinsRunningSync(inFlight.mode, mode)))
+app/src/main/features/plugins/mail/tools.ts:56:      return inFlight.promise.catch(() => undefined).then(() => sync(mode, signal))
+app/src/main/features/plugins/mail/tools.ts:61:        mode,
+app/src/main/features/plugins/mail/tools.ts:66:        manager.sync(controller.signal, undefined, mode)
+app/src/main/features/plugins/mail/tools.ts:104:        'Call mail_sync before mail_search when the cache may be stale. Synchronization defaults to incremental; use mode full only when the user requests a complete refresh or cached bodies are invalid. After mail_search, use mail_get for more body text and follow nextOffset until null. Use attachmentId values from mail_search or mail_get and call mail_getAttachment one attachment at a time; each attachment requires its own approval.',
+app/src/main/features/plugins/mail/tools.ts:109:            'Synchronize the local POP3 cache (default mode: incremental). Use full only for a requested complete refresh or invalid cached bodies; full re-fetches retained server mail without deleting missing cached mail. This contacts the mail server.',
+app/src/main/features/plugins/mail/tools.ts:133:        inputSchema: { mode: z.enum(['incremental', 'full']).optional() },
+app/src/main/features/plugins/mail/tools.ts:136:            const value = await sync(normalizeSyncMode(input.mode), context?.getSignal())
+app/src/main/features/plugins/mail/sync-mode.ts:11:export function joinsRunningSync(running: MailSyncMode, requested: MailSyncMode): boolean {
+app/src/main/features/plugins/mail/tools.ts:3:import { joinsRunningSync, normalizeSyncMode, type MailSyncMode } from './sync-mode'
+app/src/main/features/plugins/mail/tools.ts:29:  let inFlight:
+app/src/main/features/plugins/mail/tools.ts:55:    if (inFlight && (inFlight.controller.signal.aborted || !joinsRunningSync(inFlight.mode, mode)))
+app/src/main/features/plugins/mail/tools.ts:56:      return inFlight.promise.catch(() => undefined).then(() => sync(mode, signal))
+app/src/main/features/plugins/mail/tools.ts:57:    if (!inFlight) {
+app/src/main/features/plugins/mail/tools.ts:68:        if (inFlight === flight) inFlight = undefined
+app/src/main/features/plugins/mail/tools.ts:70:      inFlight = flight
+app/src/main/features/plugins/mail/tools.ts:72:    const flight = inFlight
+app/src/main/features/plugins/mail/sync-manager.ts:2:import { joinsRunningSync, syncPlan, type MailSyncMode } from './sync-mode'
+app/src/main/features/plugins/mail/sync-manager.ts:77:  let inFlight: { promise: Promise<MailSyncResult>; mode: MailSyncMode } | undefined
+app/src/main/features/plugins/mail/sync-manager.ts:85:    if (inFlight) {
+app/src/main/features/plugins/mail/sync-manager.ts:86:      if (joinsRunningSync(inFlight.mode, mode)) return inFlight.promise
+app/src/main/features/plugins/mail/sync-manager.ts:87:      await inFlight.promise.catch(() => undefined)
+app/src/main/features/plugins/mail/sync-manager.ts:239:    inFlight = flight
+app/src/main/features/plugins/mail/sync-manager.ts:243:      if (inFlight === flight) inFlight = undefined
+107:          name: 'mail_sync',
+113:          name: 'mail_search',
+118:          name: 'mail_getAttachment',
+124:          name: 'mail_get',
+132:        name: 'mail_sync',
+144:        name: 'mail_search',
+164:        name: 'mail_getAttachment',
+200:        name: 'mail_get',
+app/src/main/features/plugins/mail/body-window.ts:3:export const MAIL_SEARCH_SNIPPET_CHARS = 300
+app/src/main/features/plugins/mail/body-window.ts:11:export function sliceBody(
+app/src/main/features/plugins/mail/sync-manager.ts:1:import { sliceBody } from './body-window'
+app/src/main/features/plugins/mail/sync-manager.ts:269:      return { ...meta, ...sliceBody(bodyText, offset, maxChars) }
+app/src/main/features/plugins/mail/store/index.ts:1:import { MAIL_SEARCH_SNIPPET_CHARS, sliceBody } from '../body-window'
+app/src/main/features/plugins/mail/store/index.ts:51:function mailMeta(
+app/src/main/features/plugins/mail/store/index.ts:64:function attachmentManifest(
+app/src/main/features/plugins/mail/store/index.ts:182:  const readManifest = (id: number, limit = 10): ReturnType<typeof attachmentManifest> =>
+app/src/main/features/plugins/mail/store/index.ts:183:    attachmentManifest(
+app/src/main/features/plugins/mail/store/index.ts:360:      return { ...mailMeta(row), cc: row.cc, bodyText: row.bodyText, ...readManifest(row.id) }
+app/src/main/features/plugins/mail/store/index.ts:385:          ...mailMeta(row),
+app/src/main/features/plugins/mail/store/index.ts:386:          snippet: sliceBody(row.bodyText, 0, MAIL_SEARCH_SNIPPET_CHARS).text,

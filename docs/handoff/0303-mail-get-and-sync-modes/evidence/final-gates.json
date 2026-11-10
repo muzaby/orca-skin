@@ -1,0 +1,176 @@
+{
+  "baseline": "5b4ee524",
+  "runtime": "Electron 39 / Node 22.22.1 / ABI 140, ELECTRON_RUN_AS_NODE=1",
+  "command": "ELECTRON_RUN_AS_NODE=1 ./node_modules/electron/dist/electron ./node_modules/vitest/vitest.mjs run --reporter=default --reporter=json --outputFile.json=/tmp/orca-0303-final.json",
+  "files": 942,
+  "tests": 8889,
+  "passed": 8855,
+  "failed": 23,
+  "skipped": 11,
+  "failedFiles": 10,
+  "newFailures": [],
+  "resolvedFailures": [],
+  "mailFiles": 16,
+  "mailTests": 225,
+  "mailFailures": 0,
+  "newTests": 36,
+  "lint": {
+    "errors": 0,
+    "warnings": 2,
+    "warningsUnchangedRenderer": true
+  },
+  "typecheck": [
+    "node",
+    "web",
+    "test"
+  ],
+  "scriptTests": 827,
+  "guards": {
+    "migrations": "sync/no-copies passed; no previous v* tag so append-only comparison skipped",
+    "docInventory": "passed",
+    "testBudgets": "passed"
+  },
+  "mutationRows": 67,
+  "mutationsDetected": 65,
+  "equivalentMutations": 2,
+  "failures": [
+    {
+      "file": "src/main/infra/git/git-safety.test.ts",
+      "test": "Git execution safety never runs a cwd executable through relative PATH entries",
+      "signature": "/tmp/orca-git-safety-QW4C2G/git: error while loading shared libraries: libffmpeg.so: cannot open shared object file: No such file or directory",
+      "environmentReason": "Electron Node 모드의 process.execPath를 임시 git 실행 파일로 복사하면 상대 공유 라이브러리를 찾지 못함"
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "test": "Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+      "signature": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.instances.test.ts",
+      "test": "Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+      "signature": "AssertionError: expected '/workspace/orca-skin/app/C:/two' to be 'C:/two' // Object.is equality",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "test": "preserves the configuration failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "test": "preserves the acquire failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "test": "prepares draft and saved directory with the same production settings and env resolution as turns",
+      "signature": "Error: Composer directory must be absolute",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "test": "returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "test": "does not start a native server after caller cancellation or session scope change during preparation",
+      "signature": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-catalog.test.ts",
+      "test": "wires the public handler through the production resolver and returns its shutdown cleanup",
+      "signature": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/app/composer-preparation-service.test.ts",
+      "test": "shares targets across catalog resources and warmup through the production assembly",
+      "signature": "Error: Composer directory must be absolute",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "test": "reconciles plugin choices through the actual adapter while preserving provider flags",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "test": "exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "test": "preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "test": "pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/adapter.native-plugins.test.ts",
+      "test": "reports a reconciled plugin revision as applied but not a later external edit",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/native-resources.test.ts",
+      "test": "applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+      "signature": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/native-resources.test.ts",
+      "test": "commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+      "signature": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/native-resources.test.ts",
+      "test": "waits for durable persistence and serializes subsequent plugin mutations",
+      "signature": "Error: STACK_TRACE_ERROR",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+      "test": "shows external selection with actual status immediately, waits for idle, and never saves it back",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/claude/project-reconciliation.test.ts",
+      "test": "projects native plugin flag false during external reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/app/handlers/session-resources.claude-assembly.test.ts",
+      "test": "reconciles external plugin selections and publishes the final state through the real watcher",
+      "signature": "AssertionError: expected [ [ 'a@m', false, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]",
+      "environmentReason": "Linux에서 native-resources.ts:39의 process.platform === 'win32' 조건이 false"
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.persistent.test.ts",
+      "test": "exposes native resources from the live channel client and its directory without mutations",
+      "signature": "AssertionError: expected '/workspace/orca-skin/app/C:/native-B' to be 'C:/native-B' // Object.is equality",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    },
+    {
+      "file": "src/main/adapters/opencode/v1/adapter.test.ts",
+      "test": "OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+      "signature": "AssertionError: expected '/workspace/orca-skin/app/C:/work' to be 'C:/work' // Object.is equality",
+      "environmentReason": "Windows 절대 경로 C:/… fixture가 Linux에서는 상대 경로로 해석됨"
+    }
+  ]
+}

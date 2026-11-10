@@ -1089,8 +1089,10 @@ export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[
 XOAUTH2 확장 형상을 정의하며 해당 방식의 실행·로그인 UI는 제공하지 않는다. 새 방식의 probe와
 연결 구현은 플러그인에서 제공한다. 기본 OSS 배포는 계속 빈 배열을 반환한다.
 
-`mail_sync`는 freshness 확인 뒤에만 POP3에 연결하며, `mail_search`는 로컬 DB만 읽는다. 인증 거부만
-Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임아웃·파싱·DB 장애는 캐시와 Auth를 유지한 채
+`mail_sync`는 기본 `incremental` 모드에서 freshness 확인 뒤 새 UIDL만 받는다. `mode: 'full'`은
+freshness를 건너뛰고 보존 기간 안의 서버 메일을 다시 받아 덮어쓴다. 서버에 없는 캐시 메일은 삭제하지
+않는다. 전체 재갱신은 사용자가 요청하거나 캐시 본문이 비정상일 때만 호출한다. 인증 거부만 Auth를
+만료시키고 네 도구를 함께 회수한다. 연결·TLS·타임아웃·DB 장애는 캐시와 Auth를 유지한 채
 `stale` 결과를 돌려준다. 첨부는 `mail_search`의 `attachmentId`를 사용해 `mail_getAttachment`를 건별로
 호출하며, 내부 `mail.db` 경로는 출력하지 않는다.
 
@@ -1101,9 +1103,19 @@ Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임�
 `attachment`·`none`)가 본문 출처를 알리고, `none`은 저장된 본문이 없다는 뜻이다.
 
 `mail_sync` 성공 결과의 `noBodyMails`는 본문 없이 저장한 메일 수, `skippedMails`는 MIME 해석에 실패해
-저장하지 않은 메일 수다. 해석 실패는 그 메일만 건너뛰고 동기화를 계속하며, 다음 동기화가 다시 받는다.
+저장하지 않은 메일 수다. 해석 실패는 그 메일만 건너뛰고 동기화를 계속한다. 새 메일은 다음 증분
+동기화가 다시 받는다. full에서 기존 메일의 해석이 실패하면 기존 캐시가 남으므로 full로 재시도한다.
 연결·TLS·타임아웃·DB 장애는 지금처럼 동기화 전체를 실패로 돌려준다. 이 규칙은 새로 수집하는 메일에만
-적용되며 기존 캐시는 다시 받지 않고 보존 기간을 따른다.
+적용되며 기존 캐시의 본문을 고치려면 `mail_sync({ mode: 'full' })`을 호출한다. 성공 결과의 `mode`는
+실제 실행 모드, `newMails`는 새로 저장한 수, `updatedMails`는 기존 메일을 덮어쓴 수다.
+
+`mail_search`는 로컬 DB만 읽는다. 검색 발췌 뒤 본문이 더 필요하면 승인 없이 `mail_get({ mailId })`을
+호출한다. `offset`과 `maxChars`는 UTF-16 문자 단위이고 기본·최대 길이는 `mail/body-window.ts`가
+정한다. 응답 `returnedChars`는 실제 길이, `totalChars`는 본문 전체 길이이며, `nextOffset`을 다음
+호출의 `offset`으로 넘겨 `null`이 될 때까지 이어 읽는다. 이모지의 surrogate pair는 경계에서
+자르지 않는다. 조회는 서버에 접속하지 않는다. 메타데이터와 첨부 manifest는 매 창에 포함한다.
+full 뒤에도 `mailId`는 유지되지만 첨부를 다시 저장하므로 `attachmentId`는 바뀐다. 이전 첨부 id가
+실패하면 다시 검색하거나 조회해 새 id를 사용한다.
 
 새로 수집한 메일의 첨부 목록에서 본문 임베드 이미지는 제외된다. MIME의 `image/*` part 중
 `related`, `inline`, HTML `cid:` 참조에 해당하는 이미지는 파일로 저장하거나 모델에 첨부로

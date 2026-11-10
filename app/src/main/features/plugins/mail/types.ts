@@ -1,3 +1,4 @@
+import type { MailSyncMode } from './sync-mode'
 import type { TlsOptions } from 'node:tls'
 import type { Pop3Socket, Pop3SocketOptions } from '../../../infra/net/pop3-socket'
 
@@ -97,6 +98,24 @@ export interface MailSearchHit {
   readonly attachmentsTruncated?: boolean
 }
 
+export interface MailBodyPage {
+  readonly mailId: string
+  readonly date: number
+  readonly from: string
+  readonly to: string
+  readonly cc: string
+  readonly subject: string
+  readonly bodySource: MailBodySource
+  readonly totalChars: number
+  readonly offset: number
+  readonly returnedChars: number
+  readonly text: string
+  readonly nextOffset: number | null
+  readonly attachmentCount: number
+  readonly attachments: readonly MailAttachmentManifest[]
+  readonly attachmentsTruncated?: boolean
+}
+
 export interface MailSearchResult {
   readonly cacheAsOf: number | null
   readonly stale: boolean
@@ -108,6 +127,8 @@ export type MailSyncResult =
   | { readonly synced: false; readonly fresh: true; readonly lastSyncAt: number | null }
   | {
       readonly synced: true
+      readonly mode: MailSyncMode
+      readonly updatedMails: number
       readonly fresh?: false
       readonly newMails: number
       readonly expired: number
