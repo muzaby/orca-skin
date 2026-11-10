@@ -11,7 +11,7 @@
 | slug | `0302-mail-html-body-fallback` |
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
-| 상태 | impl/IMPL_DONE (V1 rev.2 + ΔV1, r2) — 다음 Claude 검증 |
+| 상태 | verify/RETURN_TO_PLAN (V1 rev.2 + ΔV1, r2 verify) — 다음 Claude 설계 |
 | 구현 주체 | Claude (버그수정 — 비기능 작업, root `AGENTS.md` 구현 주체 분담) |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음. 0237 mail plugin 회귀는 기존 테스트를 REGRESSION gate로 묶는다 |
 | 기준 V | `none` |
@@ -823,3 +823,12 @@ r1 (구현자 = Claude, 비기능 버그수정). 설계를 그대로 수행했�
 
 
 ## [검증자 기입] 파생 이슈
+
+### verify r2 (2회째, 창 안)
+
+| # | finding | 분류 | disposition | 설계자 선택지 |
+|---|---|---|---|---|
+| F3 | `decodeHtmlBytes` 선언 경로(`html-body.ts:55`)가 입력 앞 N≤30바이트를 빠뜨려도 green(`decode(bytes.subarray(N))` N=1~30 7행 `못 잡음`, N≥100은 AC17이 잡음) — g1 표지가 입력 맨 끝에만 있음 | 확장 후보(V1-04·08·09 밖) | `PLAN_GAP`(창 안) | (a) 채택: g1 입력 맨 앞에도 표지 + (g)를 앞·뒤 보존으로 (b) 경계 선언: 머리 수십 바이트 누락은 잠그지 않음 — 구현 턴 없이 verify 3회째 |
+| F2 | 거대 첨부 디코딩 비용 | 비귀속 | `NON_BLOCKING` | §14에 기록됨 |
+
+상세 `verify.md` r2. 이행·현재 결함 0, gate green(전체 vitest 29파일/22케이스는 Electron 미설치 기준선).
