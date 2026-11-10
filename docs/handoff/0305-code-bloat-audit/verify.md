@@ -12,7 +12,7 @@
 | V mode / 유효 V | `Delta V` / `V1 + ΔV1` |
 | 검증 기준 plan revision | `312e20e:ΔV1` |
 | 라운드 | 1 |
-| 상태 | **FAIL** |
+| 상태 | **PASS** (r2 — 아래 `r2` 절, r1 FAIL 본문은 보존) |
 | 확장 창 | verify 1회째 — 창 안. 사용자 요구 변경 ΔV1의 NEW·CHANGED 노드는 이 verify와 다음 verify까지 창 안 |
 | 독립 축(⑥) | 3축 — ① 분모 독립 재열거(채널·feature·파일·심화 버킷·restructure·승인) ② 후보 근거 수치 재실행 15건 ③ 가정 입력 변이(디렉토리 경로·유령 버킷·restructure→remove) |
 | 열거 sweep(⑦) | 1회째 전수 — 검사기 규칙 분기 18 · 데이터 14 = 32건 · 못 잡음 0 |
@@ -251,3 +251,66 @@
 - 현재 변경 운영 gate: 5/5 PASS.
 - 남은 사람 확인: AC12 — 승인 목록 14건·분할 순위.
 - 다음 단계: 구현(Claude)이 D1의 3개 수치를 재실행값으로 고치고 `--write` 후 gate 재실행 → verify 2회째. E1(범주 추가)은 설계자·사용자 결정 사항으로 남긴다.
+
+---
+
+## r2 — verify 2회째 (대상 `71addd6`)
+
+**판정: PASS.** r1의 BLOCKING D1이 해소됐고 막는 발견은 0이다. 확장 창: 2회째(창 안 마지막) — 확장 후보 0.
+
+### 기준선
+- 구현 커밋 `71addd6`의 `plan.md` diff는 상태 줄과 `[구현자 기입] (r2)` 절뿐이고 Decision·AC·V·§10 행은 0줄(`git diff af5c849 HEAD -- plan.md`). 기준 원문은 r1과 같은 `312e20e:ΔV1`.
+- plan validity: r1과 같음, PLAN_GAP 0.
+
+### D1 닫힘 — 재실행값
+| 후보 | 재현 명령 | 관측 | 판정 |
+|---|---|---|---|
+| C-15 | `send.ts` `handleChatSend` `:52` ~ 닫는 `}` `:789`(`grep -n "^}"` 마지막) | 738줄 · 근거 칸 738 | 일치 |
+| C-28 | `awk NR>=34&&NR<=81 channel.ts \| grep -cE '^\s*let '` | 19 · `:168`의 `let`은 구간 밖 · 근거 칸 19 | 일치 |
+| C-33 | `grep -c "window\.orca\." ipc.ts` · 주석·`typeof` 줄 제외 | 116 · `:110` 주석 · `:233`·`:236` `typeof` → 호출 113 · 근거 칸 113(116 병기) | 일치 |
+| `deep.json` opencode `basis` | `grep -n "20개" data/*.json audit.md` | 0건 · `let` 19 | 일치 |
+
+- 보너스: `openCodeChannel` `:22`~`:584` = 563줄, 근거 `약 560줄` · `audit.md:31` 손글 `약 740`/`약 560` 은 근사 표기로 일치.
+
+### 독립 축(⑥) — r1에 없던 후보 표본
+- C-03 `openFolder` renderer 호출부는 `ipc.ts` 정의·테스트·i18n뿐 · `handlers` `artifactOpenFolder` 실재 — 일치.
+- C-09 `projectMcpChoices` `protocol.ts:778` · `ipc.ts:1157,1179` 외 비테스트 참조 0 — 일치.
+- C-14 `pending-message-queue.ts` 610줄 · public 메서드 26 · 테스트 742줄 — 일치.
+- 표본 3건 일치(r1 15건과 겹치지 않음). 나머지 후보는 plan이 표본 재현을 택했으므로 전수 재계수하지 않았다.
+
+### 고장 이력 (④ — 이번 diff가 닿은 생성 블록 자리)
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 분류 |
+|---|---|---|---|---|---|
+| R1 | `audit.md` C-15 | 다른 값 | `738줄`→`739줄` | 잡음 — K12 위반 1 | — |
+| R2 | `audit.md` C-28 | 다른 값 | `let 19개`→`18개` | 잡음 — K12 위반 1 | — |
+| R3 | `audit.md` C-33 | 다른 값 | `호출 줄 113개`→`114개` | 잡음 — K12 위반 1 | — |
+| R4 | `deep.json` basis | 다른 값 | `let 19개`→`20개` | 잡음 — K12 위반 1 | — |
+
+- 시도 4 = 잡음 4 · 못 잡음 0. 직전 `못 잡음` 0이라 ③ 없음. 전부 `git checkout`으로 원복, `git status` 빈 출력.
+- 검사기·테스트(`scan/`) diff 0이라 r1 `잡음` 32행 중 나머지는 닿지 않았다.
+
+### gate
+- `volume.mjs --check` ok(2116 files · 305843 lines · 102 buckets) · `audit-check.mjs --check` ok · `node --test scan/*.test.mjs` tests 144 · pass 144 · fail 0 · `check-doc-inventory.mjs --check` generated·prose·links ok · `git diff --stat a0a95f7..HEAD -- app .github` 0줄.
+- `app` lint·typecheck·test는 `app/**` diff 0이라 범위 밖(plan §19). gate 전후 `git status` 빈 출력.
+
+### pair·AC
+- VP-09·VP-03 PASS(D1 해소) · VP-04·06·07·08·10 r1 좌표 유지(diff가 닿은 VP-06은 R1~R4 red) · BLOCKED_BY 0.
+- AC `✅ 13 · ⚠️ 1(AC12 사람) · ❌ 0 = 14` — 행·합계 일치, 구현 커밋 trailer `Criteria-Met: 13/14` 일치.
+
+### repository operation
+- `71addd6` trailer: Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By 파싱 확인. `git cat-file -t` = commit, `origin/main` 조상 아님(PR 브랜치 — `main` 병합 뒤 교정).
+- INDEX 행: 상태 PASS · 다음 주체 사람 하나 · 비고 5줄 이내 · r2 좌표 `71addd6` 기입.
+- `[구현자 기입] (r2)` 7필드(설계 리뷰·강제 지점·잠금(sweep)·Product/UX·놓친 문제·구현 보고·Review Signals) 존재.
+
+### Finding disposition
+| # | finding | 분류 | disposition |
+|---|---|---|---|
+| D1 | 근거 수치 3건 | 이행 | **닫힘** — 재실행값 일치 |
+| N1·N2·E1 | r1 §13 | 비귀속 | NON_BLOCKING 유지 — 설계자·사용자 결정 |
+
+### Review Signals
+- 같은 증상 재발 없음(r2 새 발견 0). verify 2회째 PASS라 review 조건(3·6회째 비PASS) 미해당.
+- 독립 축 발견 0 · 환경 한계: `app/node_modules` 없음 · 서브에이전트 금지(D-006).
+
+### 결론
+- 상태 **PASS**(기계 범위). 남은 것: AC12 — 승인 목록 14건·분할 순위의 사람 판정. 그 뒤 archive 이동.
