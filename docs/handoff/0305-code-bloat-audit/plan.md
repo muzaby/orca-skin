@@ -684,11 +684,11 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 | M4 C-01 `approval` 뒤집기 · M5 H-A 후보 제거 · M6 volume 블록 숫자 | V1 등록 변이 재실행 | r1 잠김 | 같음 | 잠김 3(덮개 회귀 0) |
 | N10 `deep` 블록 문자 수정 · N11 `decomposition` 블록 문자 수정 | sweep EP-07(새 블록) | 최초 | 같음 | 잠김 2 |
 | 검사기 K18 조건 11건(제거 9 · 경계 `>=`→`>` · `excess`↔`necessary` 맞바꿈) | sweep EP-06 규칙 분기 | 최초 | `node --test` | 잠김 11 |
-| 검사기 K19 조건 9건(제거 7 · `restructure`→`remove` · `cut`↔`keep` 맞바꿈) | sweep EP-06 규칙 분기 | 최초 | 같음 | 잠김 9 |
+| 검사기 K19 조건 10건(제거 8 · `restructure`→`remove` · `cut`↔`keep` 맞바꿈) | sweep EP-06 규칙 분기 | 최초 | 같음 | 잠김 10 |
 | 검사기 K13 3건(`density` enum · 심화 키 · 분해 단계 키) · 렌더 2건(읽은 줄 합 · 단계 번호) | sweep(이번 diff 의 조건·항) | 최초 | 같음 | 잠김 5 |
 | `BLOCKS` 에서 `deep` 제거 · `decomposition` 제거 | sweep EP-07 | 최초 — **못 잡음** | 같음 | 테스트 추가 뒤 잠김 2 |
 
-- **분모 검산**: `선택 증거 3(N1~N3) · 인용 변이 0 · 새 oracle 0(K18·K19 는 기존 검사기의 규칙 추가 — 민감도는 코드 변이 27건) · sweep 39(N4~N11 8 · M4~M6 3 · 코드 변이 28) = 표 행 42건`. 표는 12행으로 묶었다.
+- **분모 검산**: `선택 증거 3(N1~N3) · 인용 변이 0 · 새 oracle 0(K18·K19 는 기존 검사기의 규칙 추가 — 민감도는 코드 변이 28건) · sweep 39(N4~N11 8 · M4~M6 3 · 코드 변이 28) = 표 행 42건`. 표는 12행으로 묶었다.
 - `못 잡음` 2건: fixture 가 `BLOCKS` 로 `audit.md` 를 만들어 목록에서 블록을 빼도 green 이었다. "K12: 필수 생성 블록은 9개…" 케이스를 더해 두 변이 모두 red 를 봤다.
 - **덮개 회귀**: 0 — r1 의 M1~M10 중 이번 diff 가 닿은 것(M4·M5·M6)을 다시 돌려 전부 red.
 
