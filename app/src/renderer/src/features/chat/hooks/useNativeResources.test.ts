@@ -83,7 +83,7 @@ beforeEach(() => {
   observe.mockClear()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         nativeResources: (request: string, observation?: unknown) => {
           if (observation) {

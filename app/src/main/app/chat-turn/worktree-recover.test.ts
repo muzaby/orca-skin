@@ -36,7 +36,7 @@ async function fixture(): Promise<{
   source: string
   worktreeRoot: string
 }> {
-  const dir = await mkdtemp(join(tmpdir(), 'orca-recover-'))
+  const dir = await mkdtemp(join(tmpdir(), 'orcinus-orca-recover-'))
   dirs.push(dir)
   // source 는 **실재하는** 디렉토리여야 한다 — 폴백은 되돌릴 곳이 있을 때만 성립한다.
   const source = dir

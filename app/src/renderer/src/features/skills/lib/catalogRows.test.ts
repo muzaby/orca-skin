@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
 import { mcpRowMeta, skillRowMeta } from './catalogRows'
-const skill = { sourceKind: 'orca', sourceId: 'orca', sourceLabel: 'Orca', name: 'x' } as SkillInfo
+const skill = {
+  sourceKind: 'orcinus-orca',
+  sourceId: 'orcinus-orca',
+  sourceLabel: 'Orcinus orca',
+  name: 'x'
+} as SkillInfo
 describe('catalog rows', () => {
   it('updatedAt 미지정 스킬은 updatedAtMs 가 null 이다', () =>
     expect(skillRowMeta(skill).updatedAtMs).toBeNull())

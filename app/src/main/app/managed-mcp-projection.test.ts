@@ -83,7 +83,7 @@ it('preserves transports identities and native configuration', () => {
   expect(mapped[0]).toMatchObject({
     name: 'a-b',
     mentionId: alias,
-    origin: 'orca',
+    origin: 'orcinus-orca',
     managedSource: { kind: 'user', sourceId: 'a-b' },
     canToggle: false
   })

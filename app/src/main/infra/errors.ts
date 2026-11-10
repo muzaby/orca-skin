@@ -1,6 +1,6 @@
 // ErrorClassifier — provider 중립 에러 정규화 계층 (provider-runtime.md §6).
 // 어댑터/IPC 가 던지는 임의 예외를 8 category + retryable 의 ClassifiedError 로 정규화해
-// 와이어(orca:chat:event)의 error 이벤트에 싣는다. 여기엔 provider 비의존 조각만 둔다:
+// 와이어(oo:chat:event)의 error 이벤트에 싣는다. 여기엔 provider 비의존 조각만 둔다:
 //   ① ErrorClassifier 인터페이스 — provider 별 classifier(claude-classifier.ts 등)가 구현.
 //   ② makeClassifiedError — category→기본 retryable 매핑을 적용해 ClassifiedError 를 합성.
 //   ③ sanitizeCause — Error 인스턴스/함수를 IPC(structuredClone) 안전값으로 평탄화.

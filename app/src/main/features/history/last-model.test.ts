@@ -11,7 +11,7 @@ import { HistoryWriter } from './writer'
 import { loadSession } from './reader'
 
 it('restores each session model after closing and reopening its database, without using title models or unconsumed input', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-last-model-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-last-model-'))
   const file = join(root, 'history.db')
   let db = openFileDatabase(file)
   try {
@@ -123,7 +123,7 @@ it('restores each session model after closing and reopening its database, withou
 })
 
 it('upgrades an existing database without losing conversation rows or messages', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-model-upgrade-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-model-upgrade-'))
   const db = openFileDatabase(join(root, 'history.db'))
   try {
     applyMigrations(db)

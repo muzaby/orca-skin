@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { isRecord } from '../../../../shared/obj'
 import { providerKeyOf, PROVIDER_NAME_RE } from '../../../infra/config/provider-key'
 import type { ParsedModel, SettingsModelParser } from './model-types'
-import { orcaConfigDir } from '../../../infra/config/paths'
+import { ooConfigDir } from '../../../infra/config/paths'
 import { getLogger } from '../../../infra/log/registry'
 import type {
   HarnessNativeSettings,
@@ -45,7 +45,7 @@ export class HarnessSettingsService {
 
   constructor(
     private readonly loaders: Record<string, HarnessSettingsLoader>,
-    private readonly root: string = orcaConfigDir(),
+    private readonly root: string = ooConfigDir(),
     private readonly parseModels: (
       harnessId: string,
       settings: Record<string, unknown>
@@ -197,7 +197,7 @@ function modelsForProvider(
 
 // sources/settings/ 의 어댑터 디렉토리 열거 — agent:list 가 미지원 어댑터(supported:false)도
 // 노출할 수 있게 registry 가 아닌 디렉토리를 원천으로 한다.
-export function listAdapters(root: string = orcaConfigDir()): string[] {
+export function listAdapters(root: string = ooConfigDir()): string[] {
   try {
     return readdirSync(join(root, 'sources', 'settings'), { withFileTypes: true })
       .filter((e) => e.isDirectory())
@@ -212,7 +212,7 @@ export function listAdapters(root: string = orcaConfigDir()): string[] {
 // 각 provider 의 settings.json 을 파싱해 모델 목록을 채운다.
 export function listProviders(
   adapter: string,
-  root: string = orcaConfigDir(),
+  root: string = ooConfigDir(),
   parse: SettingsModelParser
 ): HarnessModelProviderEntry[] {
   const settingsDir = join(root, 'sources', 'settings', adapter)

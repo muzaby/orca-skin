@@ -79,7 +79,7 @@ describe('POP3 native boundary', () => {
   })
 
   it('detects a native runtime import outside the exact boundary path', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-pop3-boundary-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-pop3-boundary-'))
     roots.push(root)
     mkdirSync(join(root, 'feature'))
     writeFileSync(join(root, 'feature', 'freshness.ts'), "import { connect } from 'node:net'")
@@ -98,14 +98,14 @@ describe('POP3 native boundary', () => {
     "import net = require('net')",
     "import { type Socket, connect } from 'net'"
   ])('rejects runtime module loading: %s', (source) => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-pop3-boundary-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-pop3-boundary-'))
     roots.push(root)
     writeFileSync(join(root, 'other.ts'), source)
     expect(nativeOffenders(root)).toEqual(['other.ts'])
   })
 
   it('allows type-only references and ignores text, comments and tests', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-pop3-boundary-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-pop3-boundary-'))
     roots.push(root)
     writeFileSync(
       join(root, 'types.ts'),
@@ -137,7 +137,7 @@ describe('POP3 native boundary', () => {
 })
 
 it('permits a loopback allocator net import but rejects TLS at that exact path', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-port-boundary-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-port-boundary-'))
   roots.push(root)
   mkdirSync(join(root, 'infra/net'), { recursive: true })
   writeFileSync(join(root, PORT_ALLOCATOR), "import { createServer } from 'node:net'")

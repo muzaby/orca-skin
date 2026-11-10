@@ -17,7 +17,7 @@ import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../shared/product'
 let root: string
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-deploy-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-deploy-'))
 })
 afterEach(() => {
   rmSync(root, { recursive: true, force: true })
@@ -160,7 +160,7 @@ describe('deploy', () => {
     ).toBe(true)
   })
 
-  it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', async () => {
+  it('Orcinus orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', async () => {
     seedSources('{"mcpServers":{"on":{"command":"npx"},"off":{"command":"node"}}}')
     writeFile(join(root, 'sources', 'skills', 'off', 'SKILL.md'), '# off')
 
@@ -190,9 +190,9 @@ describe('deploy', () => {
       {
         skillRoots: [
           {
-            sourceId: 'orca',
-            sourceLabel: 'Orca 스킬',
-            sourceKind: 'orca',
+            sourceId: 'orcinus-orca',
+            sourceLabel: 'Orcinus orca 스킬',
+            sourceKind: 'orcinus-orca',
             rootDir: join(root, 'sources', 'skills')
           },
           {
@@ -207,7 +207,7 @@ describe('deploy', () => {
     )
 
     expect(r.validation.ok).toBe(true)
-    // Orca 스킬만 orca plugin 패키지에 포함, 어댑터 스킬은 제외(복사 없음).
+    // Orcinus orca 스킬만 Orcinus orca plugin 패키지에 포함, 어댑터 스킬은 제외(복사 없음).
     expect(existsSync(join(dist(), 'plugins', PRODUCT_SLUG, 'skills', 'demo', 'SKILL.md'))).toBe(
       true
     )

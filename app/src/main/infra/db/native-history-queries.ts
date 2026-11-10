@@ -92,7 +92,7 @@ export class NativeHistoryQueries {
         VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
         payload_json=excluded.payload_json, local_frontier=excluded.local_frontier, synced_at=excluded.synced_at, cursor_json=excluded.cursor_json, raw_json=excluded.raw_json`),
       deleteMissing: db.prepare(
-        "DELETE FROM native_history_messages WHERE session_id = ? AND native_id NOT LIKE 'orca-recovery:%' AND native_id NOT IN (SELECT value FROM json_each(?))"
+        "DELETE FROM native_history_messages WHERE session_id = ? AND native_id NOT LIKE 'orcinus-orca-recovery:%' AND native_id NOT IN (SELECT value FROM json_each(?))"
       ),
       upsertMessage: db.prepare(`INSERT INTO native_history_messages
         (session_id, native_id, role, created_at, content) VALUES (?, ?, ?, ?, ?)
@@ -141,7 +141,7 @@ export class NativeHistoryQueries {
       input.messages.forEach((message, index) =>
         insert.run(
           input.sessionId,
-          `orca-recovery:${index}`,
+          `orcinus-orca-recovery:${index}`,
           message.role,
           message.createdAt,
           message.content

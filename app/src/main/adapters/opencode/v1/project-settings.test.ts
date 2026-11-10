@@ -11,7 +11,7 @@ afterEach(async () => {
   if (root) await rm(root, { recursive: true, force: true })
 })
 it('observes exact cwd MCP/plugin keys without writing, and waits for reclamation for external edits', async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-oc-project-'))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-oc-project-'))
   const a = join(root, 'A'),
     b = join(a, 'B')
   await mkdir(b, { recursive: true })
@@ -38,7 +38,7 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
     new AbortController().signal
   )
   control.activate()
-  await control.pending() // Own native project declaration wins over an Orca global default.
+  await control.pending() // Own native project declaration wins over an Orcinus orca global default.
   await writeFile(file, '{"mcp":{"same":{"enabled":false}},"plugin":["p"],"model":"other"}')
   openCodeDiscovery.invalidate()
   expect((await readOpenCodeProjectSettings(a)).revision).toBe(first.revision)
@@ -67,7 +67,7 @@ it('observes exact cwd MCP/plugin keys without writing, and waits for reclamatio
 })
 
 it('changes revision for plugin-only external edits while preserving MCP and other cwd state', async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-oc-plugin-revision-'))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-oc-plugin-revision-'))
   const a = join(root, 'A'),
     b = join(a, 'B')
   await mkdir(b, { recursive: true })

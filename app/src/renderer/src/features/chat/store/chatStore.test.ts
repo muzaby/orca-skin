@@ -1,5 +1,5 @@
 // chatStore 의 이벤트 라우팅(델타 → live 슬라이스 / 커밋 → reducer / sessionId 키 라우팅)
-// 단위 테스트. IPC(window.orca)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
+// 단위 테스트. IPC(window.oo)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
 // session.updated 의 설정 영속화는 통합/시각 검증 영역.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -37,7 +37,7 @@ describe('chatStore — 0250 즉시 보내기', () => {
 
   beforeEach(() => {
     sendNow = vi.fn().mockResolvedValue(undefined)
-    Object.assign(window.orca.chat, { sendSteerNow: sendNow })
+    Object.assign(window.oo.chat, { sendSteerNow: sendNow })
     vi.spyOn(errors, 'reportError').mockImplementation(() => {})
   })
   afterEach(() => vi.restoreAllMocks())
@@ -80,7 +80,7 @@ describe('chatStore — 0250 즉시 보내기', () => {
       error: failure
     })
     expect(chatActions.cancelSteer('first')).toBe('first')
-    expect(window.orca.chat.cancelSteer).toHaveBeenCalledExactlyOnceWith({
+    expect(window.oo.chat.cancelSteer).toHaveBeenCalledExactlyOnceWith({
       sessionId: 's',
       id: 'first'
     })
@@ -92,7 +92,7 @@ describe('chatStore — 0250 즉시 보내기', () => {
     queued('second')
     chatActions.sendSteerNow()
     expect(chatActions.cancelSteer('first')).toBe('first')
-    expect(window.orca.chat.cancelSteer).toHaveBeenCalledExactlyOnceWith({
+    expect(window.oo.chat.cancelSteer).toHaveBeenCalledExactlyOnceWith({
       sessionId: 's',
       id: 'first'
     })
@@ -1539,7 +1539,7 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
   // languageCache 는 모듈 전역이라 afterEach 에서 ko 로 재시드해 다른 테스트를 오염하지 않는다.
   const seedLanguage = async (language: string): Promise<void> => {
     vi.stubGlobal('window', {
-      orca: {
+      oo: {
         boot: { whenReady: async () => undefined },
         chat: {
           send: chatSend,

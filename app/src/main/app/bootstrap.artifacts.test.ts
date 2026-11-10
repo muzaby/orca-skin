@@ -66,7 +66,7 @@ describe('artifact composition wiring', () => {
   )
   it('owns one registry entry, ID handlers, and publication-only notification', () => {
     const add = vi.fn()
-    const server = { descriptor: { id: 'orca_artifacts' } }
+    const server = { descriptor: { id: 'orcinus_orca_artifacts' } }
     mocks.tool.mockReturnValue(server)
     const bootstrap = Object.create(Bootstrap.prototype) as {
       registerArtifacts(ctx: unknown): void

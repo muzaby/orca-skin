@@ -60,7 +60,7 @@ function fakeChild(): ChildProcess {
 
 describe('OpenCode native database path (0262 EP56 P49)', () => {
   it('reads the database path through the server and CLI environment of the selected engine document', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-opencode-db-path-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-opencode-db-path-'))
     directories.push(root)
     cli.output = join(root, 'opencode.db')
     writeFileSync(cli.output, '')

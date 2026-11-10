@@ -14,7 +14,7 @@ vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
 
 let temp: string
 beforeEach(() => {
-  temp = mkdtempSync(join(tmpdir(), 'orca-native-settings-'))
+  temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-native-settings-'))
   vi.mocked(reportError).mockClear()
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))

@@ -87,7 +87,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
   read = vi.fn().mockResolvedValue({ exists: true, settingsJson: '{"model":"fixture/한국어"}' })
-  Object.assign(window, { orca: { engine: { importUserSettings: read } } })
+  Object.assign(window, { oo: { engine: { importUserSettings: read } } })
   submit = vi.fn(async () => {})
   close = vi.fn()
 })

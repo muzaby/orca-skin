@@ -40,7 +40,7 @@ export async function replaceExport(path: string, root: string, bytes: Buffer): 
   // Replace the directory entry rather than truncating a possibly shared hardlink inode.
   const parent = await realpath(dirname(path))
   const destination = join(parent, basename(path))
-  const pending = join(parent, `.orca-artifact-${randomUUID()}.tmp`)
+  const pending = join(parent, `.orcinus-orca-artifact-${randomUUID()}.tmp`)
   await assertExportDestination(destination, root)
   await assertExportDestination(pending, root)
   let owned: Stats | undefined

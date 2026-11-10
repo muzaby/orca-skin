@@ -59,7 +59,7 @@ export function buildAttachMenu(input: {
     backend?: 'claude' | 'opencode'
     items: CascadeItem<AttachMenuAction>[]
     skills: CascadeItem<AttachMenuAction>[]
-    orcaItems?: CascadeItem<AttachMenuAction>[]
+    ooItems?: CascadeItem<AttachMenuAction>[]
   }
 }): CascadeItem<AttachMenuAction>[] {
   const { labels, canManagePlugins } = input
@@ -72,7 +72,7 @@ export function buildAttachMenu(input: {
   )
   const catalogNames = new Set(skills.map((skill) => skill.name))
   const observedIds = new Set(
-    input.native?.orcaItems
+    input.native?.ooItems
       ?.filter((item) => item.kind === 'action' && item.action.type === 'plugin')
       .map((item) =>
         item.kind === 'action' && item.action.type === 'plugin' ? item.action.id : ''
@@ -97,7 +97,7 @@ export function buildAttachMenu(input: {
     else {
       const next = { label: skill.sourceLabel, skills: [skill] }
       bySource.set(skill.sourceLabel, next)
-      if (skill.sourceId === 'orca') skillGroups.unshift(next)
+      if (skill.sourceId === 'orcinus-orca') skillGroups.unshift(next)
       else skillGroups.push(next)
     }
   }
@@ -117,9 +117,11 @@ export function buildAttachMenu(input: {
             label: skill.name,
             icon: 'bolt' as const,
             title: skillTooltip(skill),
-            disabled: skill.enabled === false || (skill.sourceId === 'orca' && !includeSkills),
+            disabled:
+              skill.enabled === false || (skill.sourceId === 'orcinus-orca' && !includeSkills),
             action: {
-              type: skill.sourceId === 'orca' ? ('skill' as const) : ('nativeCommand' as const),
+              type:
+                skill.sourceId === 'orcinus-orca' ? ('skill' as const) : ('nativeCommand' as const),
               name: skill.name
             }
           }))
@@ -137,17 +139,17 @@ export function buildAttachMenu(input: {
           disabled: !includeManagedMcp,
           action: { type: 'plugin' as const, id: plugin.id }
         }))
-  if (includeManagedMcp && input.native?.orcaItems?.length) {
+  if (includeManagedMcp && input.native?.ooItems?.length) {
     if (!plugins.length) pluginItems.length = 0
-    pluginItems.unshift(...input.native.orcaItems)
+    pluginItems.unshift(...input.native.ooItems)
   }
   // Settings-only MCP rows have no connection observation and cannot be offered as usable.
-  if (plugins.length || (includeManagedMcp && input.native?.orcaItems?.length))
+  if (plugins.length || (includeManagedMcp && input.native?.ooItems?.length))
     pluginItems.unshift({
       kind: 'heading',
-      id: 'plugins:orca',
-      label: extensionSourceLabels.orca,
-      leading: input.sourceIcon?.('orca')
+      id: 'plugins:orcinus-orca',
+      label: extensionSourceLabels['orcinus-orca'],
+      leading: input.sourceIcon?.('orcinus-orca')
     })
   if (input.native) {
     if (bySource.size === 0) skillItems.length = 0
@@ -176,7 +178,7 @@ export function buildAttachMenu(input: {
       while (end < skillItems.length && skillItems[end].kind !== 'heading') end++
       skillItems.splice(end, 0, item)
     }
-    if (plugins.length === 0 && !(includeManagedMcp && input.native.orcaItems?.length))
+    if (plugins.length === 0 && !(includeManagedMcp && input.native.ooItems?.length))
       pluginItems.length = 0
     if (input.native.items.length)
       pluginItems.push(
@@ -226,7 +228,10 @@ export function buildAttachMenu(input: {
 }
 
 /** The menu and decoration share the same observed, usable native MCP membership. */
-export function nativePluginMentions(view: NativeResourcesView, origin?: 'orca'): PluginMention[] {
+export function nativePluginMentions(
+  view: NativeResourcesView,
+  origin?: 'orcinus-orca'
+): PluginMention[] {
   if (view.status !== 'ready' || view.value.state !== 'connected') return []
   return view.value.items
     .filter(
@@ -254,7 +259,7 @@ export function nativeAttachItems(
     harness?: string
   },
   kind: 'skills' | 'mcp',
-  origin?: 'orca'
+  origin?: 'orcinus-orca'
 ): CascadeItem<AttachMenuAction>[] {
   const items: CascadeItem<AttachMenuAction>[] = []
   if (view.status === 'ready') {

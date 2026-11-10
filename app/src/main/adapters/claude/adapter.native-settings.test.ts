@@ -41,7 +41,7 @@ const plugin = (name: string): string => {
 beforeEach(() => {
   query.mockClear()
   vi.mocked(reportError).mockClear()
-  temp = mkdtempSync(join(tmpdir(), 'orca-native-settings-spawn-'))
+  temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-native-settings-spawn-'))
   cwd = join(temp, 'project')
   root = join(temp, 'claude')
   mkdirSync(join(cwd, '.git'), { recursive: true })

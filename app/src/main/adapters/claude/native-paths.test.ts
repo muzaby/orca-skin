@@ -21,7 +21,7 @@ describe('Claude native root consumers', () => {
   })
 
   it('imports settings and permits plan writes at the same custom native root', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'orca-native-paths-'))
+    const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-native-paths-'))
     roots.push(root)
     const native = path.join(root, 'native')
     await mkdir(native)

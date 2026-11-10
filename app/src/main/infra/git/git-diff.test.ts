@@ -171,7 +171,7 @@ describe('diff 요약 — 범위와 목록 (VP-09)', () => {
   })
 
   it('저장소가 아니면 빈 요약이다 — 타일이 사라지지 않는다', async () => {
-    const outside = await mkdtemp(join(tmpdir(), 'orca-nonrepo-'))
+    const outside = await mkdtemp(join(tmpdir(), 'orcinus-orca-nonrepo-'))
     dirs.push(outside)
     const summary = await gitDiffSummary({ cwd: outside, baseOid: null })
     expect(summary.isRepo).toBe(false)
@@ -279,7 +279,7 @@ describe('diff 패치 — 파일별 줄 (VP-55)', () => {
   })
 
   it('저장소가 아니면 빈 패치다 — 화면이 사라지지 않는다', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'orca-diff-none-'))
+    const dir = await mkdtemp(join(tmpdir(), 'orcinus-orca-diff-none-'))
     dirs.push(dir)
 
     await expect(gitDiffPatch({ cwd: dir })).resolves.toMatchObject({
@@ -348,11 +348,11 @@ describe('패치 조회 인자와 폴백 (VP-55 · VP-48 회귀)', () => {
 })
 
 describe('raw history delimiter safety (VP-31)', () => {
-  it('실제 Git의 루트 orca-commit 파일을 commit header로 오인하지 않는다', async () => {
+  it('실제 Git의 루트 orcinus-orca-commit 파일을 commit header로 오인하지 않는다', async () => {
     const repo = await makeRepo({
       commits: [
         { message: 'base', files: { 'base.ts': 'base\n' } },
-        { message: 'root path', files: { 'orca-commit': 'one\ntwo\n' } }
+        { message: 'root path', files: { 'orcinus-orca-commit': 'one\ntwo\n' } }
       ]
     })
     const baseOid = fixtures.get(repo)!.oids[0]
@@ -365,7 +365,7 @@ describe('raw history delimiter safety (VP-31)', () => {
       totals: { added: 2, removed: 0 }
     })
     expect(summary.commits[0].files).toEqual([
-      { path: 'orca-commit', status: 'added', added: 2, removed: 0, binary: false }
+      { path: 'orcinus-orca-commit', status: 'added', added: 2, removed: 0, binary: false }
     ])
   })
 })
@@ -395,7 +395,7 @@ describe('커밋 grouping과 미커밋 블록 (VP-31 · VP-33)', () => {
     expect(summary.commits).toHaveLength(2)
     expect(summary.commits.map((c) => c.subject)).toEqual(['second change', 'first change'])
     expect(summary.commits[0].sha).toBe(sha2)
-    expect(summary.commits[0].author).toBe('orca test')
+    expect(summary.commits[0].author).toBe('Orcinus orca test')
     expect(summary.commits[0]).not.toHaveProperty('body')
     expect(summary.commits[0]).toMatchObject({
       fileCount: 1,

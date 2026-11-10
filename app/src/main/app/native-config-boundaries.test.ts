@@ -17,7 +17,7 @@ import { configuredOpenCodeResources } from '../adapters/opencode/v1/configured-
 
 let root: string, cwd: string, native: string
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-config-boundaries-'))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-config-boundaries-'))
   cwd = join(root, 'a/b/c')
   native = join(root, 'native')
   await Promise.all([mkdir(cwd, { recursive: true }), mkdir(native), mkdir(join(root, '.git'))])

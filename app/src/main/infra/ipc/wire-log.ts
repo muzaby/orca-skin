@@ -3,7 +3,7 @@
 // 0124: console.log 직접 출력을 제거하고 주입식 sink(컴포지션 루트가 로거 debug 로 연결)로
 // 대체했다. sendChatEvent(renderer 전달 이벤트) 외에 main-내부 신호(input.echo)·훅 발화
 // 타이밍이 같은 `ipc.wire.event` 스트림에 남아 echo↔훅 순서 실측(0068 AC7) 타임라인을 유지한다.
-// 0144: prod 도 orca.json debug 스위치로 sink 를 주입받는다(misc.ts prod 분기) — 이때 payload 는
+// 0144: prod 도 orcinus-orca.json debug 스위치로 sink 를 주입받는다(misc.ts prod 분기) — 이때 payload 는
 // 메시지 본문을 제거해 대화 내용 유출을 막는다(dev sink 는 풀 payload 유지).
 // 스트리밍 델타 2종은 전 경로 미기록(사용자 결정 2026-07-18) — 필터의 단일 지점이 여기다.
 // 0149: 본문 제거도 그 "단일 지점" 안으로 들였다 — 예전엔 호출부(handlers/misc)가 sink 를 감싸며

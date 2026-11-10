@@ -1,11 +1,11 @@
 // Tier A — 백엔드 중립 Hook 어휘 + 결정 형식 + 충돌해소 (설계검토 §6, §9 3단계).
 //
-// 정규화 모델: 백엔드마다 다른 Hook 이벤트 이름·입력 스키마·출력 형식을 Orca 중립 어휘로
+// 정규화 모델: 백엔드마다 다른 Hook 이벤트 이름·입력 스키마·출력 형식을 Orcinus orca 중립 어휘로
 // 통일한다. 어댑터가 자기 백엔드의 snake_case payload 를 NormalizedHookContext 로 매핑하고, 핸들러가
 // 반환한 NormalizedHookDecision 들을 resolveHookDecisions() 로 1결정 병합한 뒤 자기 출력 형식으로
 // 다시 굽는다. electron 비의존 — 순수 타입 + 순수 함수라 단위 테스트 가능.
 
-// claude HookEvent (29종) 중 Orca 가 정규화한 9종. 나머지(Setup·WorktreeCreate 등)는 백엔드
+// claude HookEvent (29종) 중 Orcinus orca 가 정규화한 9종. 나머지(Setup·WorktreeCreate 등)는 백엔드
 // 종속이라 backendSpecific 이스케이프 해치로만 노출한다.
 export type NormalizedHookEvent =
   | 'before-tool' // PreToolUse

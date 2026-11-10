@@ -5,7 +5,7 @@ import { Button } from '../shared/ui/Button'
 import { MenuItem } from '../shared/ui/MenuItem'
 import { Popover } from '../shared/ui/Popover'
 import { Modal } from '../shared/ui/Modal'
-import { OrcaLogo } from '../shared/ui/OrcaLogo'
+import { OoLogo } from '../shared/ui/OoLogo'
 import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
 import { useI18n } from '../shared/i18n'
@@ -176,7 +176,7 @@ function HeaderVersionModal({
       ariaLabel={tr('header.versionModalAria')}
       panelClassName="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
     >
-      <OrcaLogo className="h-10 w-auto text-ink" />
+      <OoLogo className="h-10 w-auto text-ink" />
       <div className="font-serif text-[18px] font-semibold tracking-tight text-ink">
         {PRODUCT_DISPLAY_NAME}
       </div>

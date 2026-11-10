@@ -63,7 +63,7 @@ vi.mock('../infra/settings-store', () => ({
 vi.mock('../infra/config/secret-store', () => ({ SecretStore: class {} }))
 vi.mock('../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../infra/config/paths')>()),
-  orcaConfigDir: () => fixture.root,
+  ooConfigDir: () => fixture.root,
   mcpJsonPath: () => `${fixture.root}/mcp.json`
 }))
 vi.mock('../infra/db', () => ({ initDb: () => ({}), getDbConnection: () => null }))
@@ -140,7 +140,7 @@ let service: ComposerPreparationService,
   models: ReturnType<typeof Promise.withResolvers<void>>
 let resolveTarget: ReturnType<typeof vi.fn>
 beforeEach(async () => {
-  fixture.root = await mkdtemp(join(tmpdir(), 'orca-boot-warmup-'))
+  fixture.root = await mkdtemp(join(tmpdir(), 'orcinus-orca-boot-warmup-'))
   fixture.passed = true
   fixture.resuming = false
   fixture.settings.lastBackend = 'opencode'

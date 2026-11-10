@@ -79,7 +79,7 @@ const AttachmentViewSchema: z.ZodType<AttachmentView> = z.object({
   sizeBytes: z.number().int().nonnegative().optional()
 })
 
-// orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
+// oo:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
 // (구 ChatEventSchema 는 ChatEvent 폐기와 함께 제거 — 와이어가 NormalizedEvent 로 전환됨.)
 
 // 정규화 권한 모드 6종 (shared/permission-mode.ts NormalizedPermissionMode 와 일치).
@@ -255,16 +255,16 @@ export const ReadBackgroundOutputSchema = StopBackgroundTaskSchema.extend({
     .optional()
 })
 
-// 세션 전체 중단 (orca:chat:discardSession, 0151 r2) — 런타임 폐기로 CLI 큐 잔여를 소멸시킨다.
+// 세션 전체 중단 (oo:chat:discardSession, 0151 r2) — 런타임 폐기로 CLI 큐 잔여를 소멸시킨다.
 export const DiscardSessionSchema = z.object({ sessionId: z.string().min(1) })
 
-// 서브에이전트(Task) 단위 중단 (orca:chat:stopSubagent). toolUseId = 부모 Agent 도구 호출 id.
+// 서브에이전트(Task) 단위 중단 (oo:chat:stopSubagent). toolUseId = 부모 Agent 도구 호출 id.
 export const StopSubagentSchema = z.object({
   sessionId: z.string().min(1),
   toolUseId: z.string().min(1)
 })
 
-// 서브에이전트(Task) foreground → background 전환 (orca:chat:backgroundSubagent, 0212 R-07).
+// 서브에이전트(Task) foreground → background 전환 (oo:chat:backgroundSubagent, 0212 R-07).
 // 중단과 같은 좌표(sessionId + toolUseId)를 쓴다 — 대상이 같은 부모 Agent 도구 호출이다.
 // **단건만** 받는다: SDK 는 인자 없는 전량 전환도 지원하지만 그것은 Bash 까지 옮겨 TaskXXX
 // 범위를 벗어난다(D-020).
@@ -273,7 +273,7 @@ export const BackgroundSubagentSchema = z.object({
   toolUseId: z.string().min(1)
 })
 
-// 권한 모드 라이브 전환 (orca:permission:setMode).
+// 권한 모드 라이브 전환 (oo:permission:setMode).
 export const SetPermissionModeSchema = z.object({
   sessionId: z.string().min(1),
   mode: NormalizedPermissionModeSchema
@@ -629,7 +629,7 @@ const PermissionUpdateSchema = z.object({
   scope: z.literal('session')
 })
 
-// 계획 revise 의 구조화 코멘트 — deny 분기에 옵셔널 동봉. main 이 ORCA_PLAN_FEEDBACK 태그로
+// 계획 revise 의 구조화 코멘트 — deny 분기에 옵셔널 동봉. main 이 ORCINUS_ORCA_PLAN_FEEDBACK 태그로
 // 직렬화한다(prompts/plan-feedback.ts). quote/body 길이는 직렬화 측에서 정규화하므로 여기선
 // 형태만 검증한다.
 const PlanFeedbackCommentSchema = z.object({
@@ -770,7 +770,7 @@ export const SettingsSchema = z.object({
   // MCP 서버 on/off. 키 = 서버 name. 부재한 서버는 enabled=true 로 간주(McpStore.toDto).
   // enabled 상태는 mcp.json(정의 소스)이 아니라 앱 설정이 보유한다(설계 결정 D2).
   mcpEnabled: z.record(z.string(), z.boolean()).default({}),
-  // Orca 전용 per-server 메타(description). mcp.json 은 순정 Claude mcpServers 스키마만
+  // Orcinus orca 전용 per-server 메타(description). mcp.json 은 순정 Claude mcpServers 스키마만
   // 담으므로 Claude 스키마에 없는 필드는 여기(앱 설정)에 둔다. 키 = 서버 name.
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),

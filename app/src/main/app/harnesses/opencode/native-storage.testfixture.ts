@@ -9,9 +9,10 @@ import { openCodeMainModule } from './module'
 import type { OpenCodeAdapter } from '../../../adapters/opencode/v1/adapter'
 import { openFileDatabase } from '../../../infra/db/file-database'
 
-const executable = process.env.ORCA_TEST_OPENCODE_EXE
-if (!executable) throw new Error('ORCA_TEST_OPENCODE_EXE must point to the tested local 1.x CLI')
-const root = mkdtempSync(join(tmpdir(), 'orca-native-cli-'))
+const executable = process.env.ORCINUS_ORCA_TEST_OPENCODE_EXE
+if (!executable)
+  throw new Error('ORCINUS_ORCA_TEST_OPENCODE_EXE must point to the tested local 1.x CLI')
+const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-native-cli-'))
 const home = join(root, 'home')
 const cwd = join(root, 'workspace')
 mkdirSync(home, { recursive: true })
@@ -154,7 +155,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
   writeFileSync(projectConfig, originalProject)
   const makeAdapter = (): OpenCodeAdapter => {
     const adapter = openCodeMainModule.createAdapter({
-      dataDirectory: join(root, 'orca'),
+      dataDirectory: join(root, 'orcinus-orca'),
       preferences: () => ({ executablePath: executable!, instructions: '' }),
       fetchImpl: async (input, init) => {
         const request = new Request(input, init)
@@ -182,7 +183,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
   const turn = adapter.sendMessage({
     sessionId: null,
     cwd,
-    text: 'ORCA_NATIVE_INITIAL',
+    text: 'ORCINUS_ORCA_NATIVE_INITIAL',
     promptUuid: 'queue-id',
     model: 'fixture/body',
     env: environment,
@@ -214,7 +215,7 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
     path.replaceAll('\\', '/'),
     join(home, '.local', 'share', 'opencode', 'opencode.db').replaceAll('\\', '/')
   )
-  assert.ok(!existsSync(join(root, 'orca', 'opencode', 'data')))
+  assert.ok(!existsSync(join(root, 'orcinus-orca', 'opencode', 'data')))
   const exported = JSON.parse(await cli(['export', sessionId], cliEnv))
   assert.equal(exported.info.id, sessionId)
   assert.ok(
@@ -276,8 +277,8 @@ async function run(fetchImpl: typeof fetch): Promise<void> {
   assert.equal(unchanged.status, 'unchanged', JSON.stringify(unchanged))
   assert.equal(requests.length, requestsBeforeRead)
 
-  // Reproduce the old Orca-only XDG root, then migrate via the actual module's 404 path.
-  const legacyRoot = join(root, 'orca', 'opencode')
+  // Reproduce the old Orcinus orca-only XDG root, then migrate via the actual module's 404 path.
+  const legacyRoot = join(root, 'orcinus-orca', 'opencode')
   const legacyEnv = {
     ...environment,
     XDG_DATA_HOME: join(legacyRoot, 'data'),

@@ -42,7 +42,7 @@ let db: Database.Database
 let queries: DbQueries
 let busy: boolean
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-session-directory-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-session-directory-'))
   directory = join(root, 'reference')
   mkdirSync(directory)
   db = new Database(':memory:')
@@ -81,7 +81,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   db.close()
-  if (dirname(root) !== resolve(tmpdir()) || !root.includes('orca-session-directory-'))
+  if (dirname(root) !== resolve(tmpdir()) || !root.includes('orcinus-orca-session-directory-'))
     throw new Error('unsafe cleanup')
   rmSync(root, { recursive: true, force: true })
 })

@@ -18,11 +18,14 @@ test('native fixture rejects invalid arguments and identifies the latest resume 
   assert.equal(parseArgs(['--workflow']).workflow, true)
   assert.equal(
     requestMarker([
-      { role: 'user', content: 'ORCA_WORK_PROFILE_empty_work_new' },
-      { role: 'assistant', content: 'ORCA_WORK_PROFILE_empty_code_new' },
-      { role: 'user', content: [{ type: 'text', text: 'ORCA_WORK_PROFILE_empty_work_resume' }] }
+      { role: 'user', content: 'ORCINUS_ORCA_WORK_PROFILE_empty_work_new' },
+      { role: 'assistant', content: 'ORCINUS_ORCA_WORK_PROFILE_empty_code_new' },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'ORCINUS_ORCA_WORK_PROFILE_empty_work_resume' }]
+      }
     ]),
-    'ORCA_WORK_PROFILE_empty_work_resume'
+    'ORCINUS_ORCA_WORK_PROFILE_empty_work_resume'
   )
 })
 
@@ -62,7 +65,7 @@ test('request oracle rejects a coding-first Work prompt and a leaked Code append
 })
 
 test('workspace oracle detects injected settings writes, byte changes and deleted entries', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-work-oracle-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-work-oracle-'))
   try {
     const config = join(root, '.claude')
     const before = await snapshotTree(config)

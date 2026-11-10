@@ -19,7 +19,7 @@ vi.mock('electron', () => ({
       handlers.set(key, handler)
   }
 }))
-vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ PREVIEW_APP_ENV: 'app-value' }) }))
+vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({ PREVIEW_APP_ENV: 'app-value' }) }))
 
 const cleanups: Array<() => void | Promise<void>> = []
 afterEach(async () => {
@@ -28,7 +28,7 @@ afterEach(async () => {
 
 it('shares preparation identity for reordered settings and changes it for different values', async () => {
   const f = fixture()
-  const root = await mkdtemp(join(tmpdir(), 'orca-catalog-identity-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-catalog-identity-'))
   cleanups.push(() => rm(root, { recursive: true, force: true }))
   const config = await f.resolve({ key: 'opencode-one', modelProviderId: 'one' })
   const key = async (settings: Record<string, unknown>): Promise<string> => {
@@ -205,7 +205,7 @@ it.each(['configuration', 'acquire'] as const)(
 )
 
 it('reads installed plugin metadata using the resolved provider cache environment', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-prepared-plugin-env-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-prepared-plugin-env-'))
   const f = fixture()
   f.capture.mockRestore()
   const cache = join(root, 'provider-cache')

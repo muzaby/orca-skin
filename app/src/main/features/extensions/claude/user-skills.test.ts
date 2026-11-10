@@ -18,7 +18,7 @@ let root: string
 let target: string
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-user-plugin-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-user-plugin-'))
   target = join(root, 'home-claude-skills')
 })
 afterEach(() => {

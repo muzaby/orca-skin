@@ -45,7 +45,7 @@ import {
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../shared/product'
 import type { RestartGateState } from '../../shared/update-restart'
 import type { AuthRuntime, AuthSecretReader } from '../contracts/auth'
-import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
+import type { MainBus, OoBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import { resolveAgentProfile } from '../features/agents/profiles'
 import { ApprovalCoordinator } from '../features/approvals/coordinator'
@@ -96,12 +96,12 @@ import { BrowserSessionStore } from '../infra/browser-session'
 import { TypedBus } from '../infra/bus'
 import type { MigrationReport } from '../infra/config/migrate-legacy'
 import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
-import { loadOrcaConfig } from '../infra/config/orca-config'
+import { loadOoConfig } from '../infra/config/oo-config'
 import {
   ensureConfigDir,
   getWorkspacePath,
   managedWorktreesDir,
-  orcaConfigDir,
+  ooConfigDir,
   sourcesSkillsDir
 } from '../infra/config/paths'
 import { SecretStore } from '../infra/config/secret-store'
@@ -223,7 +223,7 @@ export class Bootstrap {
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
-  // cwd. 기본은 ~/.config/orca/workspace — 향후 사용자 선택 디렉토리로 확장 가능.
+  // cwd. 기본은 ~/.config/orcinus-orca/workspace — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
   // sources→dist plugin 배포 freshness 관리. boot/CRUD/턴 진입 전 최신화를 보장한다.
   private deployment?: ExtensionDeploymentService
@@ -281,9 +281,9 @@ export class Bootstrap {
   private skillRoots(): SkillScanRoot[] {
     return [
       {
-        sourceId: 'orca',
+        sourceId: 'orcinus-orca',
         sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
-        sourceKind: 'orca',
+        sourceKind: 'orcinus-orca',
         rootDir: sourcesSkillsDir()
       },
       ...harnessSkillRoots()
@@ -480,7 +480,7 @@ export class Bootstrap {
 
     // ── 인증 스택: **DB 보다 먼저, 최상단에서 조기 등록** (0109/0157 제약 복원) ──
     // 창은 start() 완료 전에 열리고 renderer 는 오픈 직후 게이트 판정을 위해
-    // `orca:provider:state` 를 invoke 한다. 그 첫 invoke 가 부팅 완료를 기다리면 화면이 빈 채로
+    // `oo:provider:state` 를 invoke 한다. 그 첫 invoke 가 부팅 완료를 기다리면 화면이 빈 채로
     // 멈춘다. **게이트 판정에는 DB 가 필요 없다** — grant 는 파일+vault 에만 산다.
     // critical=true 다 — 게이트를 판정할 수 없으면 로그인 강제 빌드가 무인증으로 열린다.
     // 영속 실패 같은 회복 가능한 사고는 팩토리 안에서 메모리 폴백으로 흡수한다.
@@ -775,7 +775,7 @@ export class Bootstrap {
       () => this.skillsCache,
       () => this.settings.getAll(),
       app.getVersion(),
-      // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
+      // Orcinus orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
       // 경로는 각 플러그인 레이아웃을 소유한 feature 렌더러의 헬퍼에서 파생한다(이중 정의 방지).
       harnessPluginRoots,
       runtimeTools,
@@ -785,7 +785,7 @@ export class Bootstrap {
     await this.bootReport.step('workspace', { critical: false, label: '기본 작업공간 보장' }, () =>
       mkdir(this.defaultCwd, { recursive: true })
     )
-    // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
+    // ~/.config/orcinus-orca 보장 → orcinus-orca.json 로드 → provider settings 스캐폴드(최초 1회) →
     // dist/<engine> 배포(ExtensionDeployer) → settings 해석 캐시 무효화.
     // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
     await this.bootReport.step(
@@ -794,10 +794,10 @@ export class Bootstrap {
       () => ensureConfigDir()
     )
     this.bootReport.stepSync(
-      'orca-config',
+      'orcinus-orca-config',
       { critical: false, label: `${PRODUCT_SLUG}.json 로드` },
       () => {
-        const cfg = loadOrcaConfig()
+        const cfg = loadOoConfig()
         // `"debug":true` 면 prod 파일 레벨을 info→debug 로 올린다(0144). dev 는 항상 debug.
         setLogDebug(cfg.debug === true)
       }
@@ -1050,7 +1050,7 @@ export class Bootstrap {
   private registerArtifacts(ctx: Pick<RouterContext, 'db' | 'runtimeTools'>): void {
     const artifacts = (this.artifacts = new ArtifactService({
       queries: ctx.db.artifacts,
-      rootDir: join(orcaConfigDir(), 'artifacts', ...(import.meta.env.DEV ? ['.dev'] : [])),
+      rootDir: join(ooConfigDir(), 'artifacts', ...(import.meta.env.DEV ? ['.dev'] : [])),
       isInputFile: (sessionId, inputSource, hash) =>
         ctx.db
           .listSessionAttachmentFiles(sessionId)
@@ -1119,7 +1119,7 @@ export class Bootstrap {
       this.updateStateChanged()
       this.projectResourceSync?.leasesChanged()
     })
-    const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
+    const bus = (this.bus = new TypedBus<OoBusEvents<Electron.WebContents>>())
     const persistence = this.registerTurnEvents(ctx, bus)
 
     const approvals = new ApprovalCoordinator()

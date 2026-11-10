@@ -9,12 +9,12 @@ import {
 
 const agents: AgentEnvironment[] = [
   {
-    key: 'orca-corp',
-    adapter: 'orca',
+    key: 'orcinus-orca-corp',
+    adapter: 'orcinus-orca',
     models: [
       {
         alias: 'custom',
-        model: 'orca-private-v1',
+        model: 'orcinus-orca-private-v1',
         isCustom: true,
         oneMillionContext: false,
         isDefault: true
@@ -45,22 +45,22 @@ describe('runtime model selection', () => {
   it('shows the custom model name verbatim', () => {
     expect(
       selectionLabel({
-        providerKey: 'orca-corp',
+        providerKey: 'orcinus-orca-corp',
         provider: 'corp',
-        adapter: 'orca',
-        modelFamily: 'orca-private-v1',
+        adapter: 'orcinus-orca',
+        modelFamily: 'orcinus-orca-private-v1',
         modelAlias: 'custom'
       })
-    ).toBe('corp/orca-private-v1')
+    ).toBe('corp/orcinus-orca-private-v1')
   })
 
   it('detects a selection removed with its runtime contribution', () => {
-    expect(selectionExists(agents, 'orca-corp', 'orca-private-v1')).toBe(true)
-    expect(selectionExists([], 'orca-corp', 'orca-private-v1')).toBe(false)
+    expect(selectionExists(agents, 'orcinus-orca-corp', 'orcinus-orca-private-v1')).toBe(true)
+    expect(selectionExists([], 'orcinus-orca-corp', 'orcinus-orca-private-v1')).toBe(false)
   })
 
   it('keeps a restored provider while its model is awaiting default hydration', () => {
-    expect(selectionExists(agents, 'orca-corp', null)).toBe(true)
+    expect(selectionExists(agents, 'orcinus-orca-corp', null)).toBe(true)
   })
 
   it('uses actual model names as unique keys for repeated families and custom models', () => {

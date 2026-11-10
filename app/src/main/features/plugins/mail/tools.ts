@@ -117,7 +117,7 @@ export function mailTools(auth: PluginAuth, options: MailPluginOptions): Runtime
         {
           name: 'mail_getAttachment',
           description:
-            'Copy one attachment identified by mailId and attachmentId into Orca temporary storage.',
+            'Copy one attachment identified by mailId and attachmentId into Orcinus orca temporary storage.',
           annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
         },
         {

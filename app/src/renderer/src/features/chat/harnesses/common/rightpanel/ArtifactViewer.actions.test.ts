@@ -128,7 +128,7 @@ beforeEach(async () => {
   })
   writeText.mockReset().mockResolvedValue(undefined)
   reveal.mockReset().mockResolvedValue({ ok: true })
-  vi.stubGlobal('window', { orca: { artifacts: { preview, reveal } } })
+  vi.stubGlobal('window', { oo: { artifacts: { preview, reveal } } })
   vi.stubGlobal('navigator', { clipboard: { writeText } })
   await openArtifactViewer('key', 'session', ref)
 })

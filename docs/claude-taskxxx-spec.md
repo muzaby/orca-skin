@@ -1,8 +1,8 @@
-# TaskXXX 도구군 스펙 (Agent SDK 원문 + Orca 채택 표기)
+# TaskXXX 도구군 스펙 (Agent SDK 원문 + Orcinus orca 채택 표기)
 
 > **본 문서의 위치**
 > 이 문서는 Claude Agent SDK 의 **TaskXXX 도구군 해설 미러** 다. 외부 사실의 1차 원본은 아래 두 곳이고,
-> 본 문서는 그것을 *Orca 관점* 으로 정리해 채택 표기를 덧붙인다. PRD/TRD·`arch/`·handoff 가 TaskXXX 의
+> 본 문서는 그것을 *Orcinus orca 관점* 으로 정리해 채택 표기를 덧붙인다. PRD/TRD·`arch/`·handoff 가 TaskXXX 의
 > 도구 이름·필드·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 다.
 >
 > - **1차 원본 (설치본 타입)**: `app/node_modules/@anthropic-ai/claude-agent-sdk/` 의 `sdk-tools.d.ts`(도구 입출력)
@@ -11,10 +11,10 @@
 > - **동기화 책임**: SDK 를 올리면 (1) 위 두 `.d.ts` 를 다시 읽고 (2) 본 문서의 필드 표를 정합화한다.
 >   사람이 수동, 자동 동기화 없음.
 > - **편집 규칙**: 외부 사실(도구 이름·필드·상태값)은 설치본 타입을 따른다. 본 문서가 *추가* 하는 것은
->   **Orca 채택 박스**, 정리표, 절 번호 안정성뿐이다. 원격 문서와 설치본 타입이 어긋나면 **타입이 정본**이다.
+>   **Orcinus orca 채택 박스**, 정리표, 절 번호 안정성뿐이다. 원격 문서와 설치본 타입이 어긋나면 **타입이 정본**이다.
 > - **절 번호 안정**: 다른 문서가 `§번호` 로 인용한다. 재번호하지 않고 새 사실은 끝에 흡수한다.
 > - **각주 표기 범례**
->   - ✅ **Orca 채택** — 읽어서 화면·상태까지 도달한다
+>   - ✅ **Orcinus orca 채택** — 읽어서 화면·상태까지 도달한다
 >   - ⛔ **의도적 미채택** — 읽지 않기로 결정했고 근거가 handoff Decision 에 있다
 >   - ❌ **미채택** — 결정 기록 없이 빠져 있다 (지원 공백)
 >   - ⏳ **채택 예정** — 진행 중 handoff 가 닫는다
@@ -34,7 +34,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | 관측 경로 | `tool_use` + `tool_result` 의 구조화 출력 | `system` 메시지 (`task_*` · `background_tasks_changed`) |
 
 두 네임스페이스를 한 모델로 합치면 `completed` 의 의미가 갈라진다 — 할 일의 완료와 프로세스의 종료는
-다른 사건이다. Orca 는 `app/src/shared/task-tool.ts` 헤더에서 이 구분을 명시한다.
+다른 사건이다. Orcinus orca 는 `app/src/shared/task-tool.ts` 헤더에서 이 구분을 명시한다.
 
 ---
 
@@ -42,7 +42,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 2.1 `TaskCreate` — 항목 하나를 만든다
 
-| 방향 | 필드 | 타입 | 의미 | Orca |
+| 방향 | 필드 | 타입 | 의미 | Orcinus orca |
 |---|---|---|---|---|
 | 입력 | `subject` | `string` (필수) | 짧은 제목 | ✅ |
 | 입력 | `description` | `string` (필수) | 무엇을 해야 하는가 | ✅ |
@@ -56,7 +56,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 2.2 `TaskGet` — id 하나를 다시 읽는다
 
-| 방향 | 필드 | 타입 | 의미 | Orca |
+| 방향 | 필드 | 타입 | 의미 | Orcinus orca |
 |---|---|---|---|---|
 | 입력 | `taskId` | `string` (필수) | 조회할 id | ✅ |
 | 출력 | `task` | `object \| null` | **`null` = 그 id 가 없다** | ✅ 제거 신호로 읽는다 |
@@ -66,7 +66,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 2.3 `TaskUpdate` — id 하나를 패치한다
 
-| 방향 | 필드 | 타입 | 의미 | Orca |
+| 방향 | 필드 | 타입 | 의미 | Orcinus orca |
 |---|---|---|---|---|
 | 입력 | `taskId` | `string` (필수) | 대상 id | ✅ |
 | 입력 | `subject` · `description` | `string?` | 새 값 | ✅ |
@@ -87,7 +87,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 2.4 `TaskList` — 전체 스냅샷
 
-| 방향 | 필드 | 타입 | 의미 | Orca |
+| 방향 | 필드 | 타입 | 의미 | Orcinus orca |
 |---|---|---|---|---|
 | 입력 | — | `{}` | 인자가 없다 | ✅ |
 | 출력 | `tasks[].{id,subject,status}` | — | 현재 전량 | ✅ |
@@ -110,14 +110,14 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ## 3. background 실행 태스크 도구
 
-| 도구 | 필드 | 의미 | Orca |
+| 도구 | 필드 | 의미 | Orcinus orca |
 |---|---|---|---|
 | `TaskOutput` 입력 | `task_id` · `block` · `timeout` | 실행 태스크의 출력을 읽는다 (`block=true` 면 완료까지 대기) | ⛔ 관측만 |
 | `TaskOutput` 출력 | — | **구조화 출력 타입이 없다** (텍스트) | ⛔ |
 | `TaskStop` 입력 | `task_id?` · `shell_id?`(deprecated) | 실행 태스크를 멈춘다 | ⛔ 관측만 |
 | `TaskStop` 출력 | `message` · `task_id` · `task_type` · `command?` | 멈춘 대상 | ⛔ |
 
-> ⛔ **Orca 의도적 미채택.** GUI 의 background 상태를 `TaskOutput` 호출 여부에 의존시키지 않는다 —
+> ⛔ **Orcinus orca 의도적 미채택.** GUI 의 background 상태를 `TaskOutput` 호출 여부에 의존시키지 않는다 —
 > 주기적 polling 을 만들지 않기 위해서다(0204 D-010·D-011). 상태의 권위는 §4 의 system 메시지이고,
 > 모델이 이 두 도구를 부르는 것은 transcript 에만 남는다.
 
@@ -129,7 +129,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 4.1 `task_started` (edge)
 
-| 필드 | 의미 | Orca |
+| 필드 | 의미 | Orcinus orca |
 |---|---|---|
 | `task_id` · `tool_use_id?` | 식별자 두 축 | ✅ `tool_use_id` 가 없으면 앞선 매핑으로 복원 |
 | `description` · `subagent_type?` | 무엇을 하는 서브에이전트인가 | ✅ |
@@ -138,11 +138,11 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 | `skip_transcript?` | ambient/housekeeping — 인라인 transcript 에서 숨기라는 뜻 | ⛔ 드롭 (0204 D-013) |
 
 `skip_transcript` 의 SDK 주석은 *"it may still appear in a tasks panel"* 이다 — 패널 표시는 **허용**이지
-요구가 아니다. Orca 는 범위를 넓히지 않으려고 패널에서도 드롭한다.
+요구가 아니다. Orcinus orca 는 범위를 넓히지 않으려고 패널에서도 드롭한다.
 
 ### 4.2 `task_progress` (반복)
 
-| 필드 | 의미 | Orca |
+| 필드 | 의미 | Orcinus orca |
 |---|---|---|
 | `description` | 무엇을 하는 서브에이전트인가 (필수) | ✅ |
 | `subagent_type?` | Task 도구 서브에이전트의 종류 | ✅ |
@@ -151,7 +151,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 4.3 `task_notification` (edge — 종단)
 
-| 필드 | 의미 | Orca |
+| 필드 | 의미 | Orcinus orca |
 |---|---|---|
 | `status` | `completed` \| `failed` \| `stopped` | ✅ |
 | `summary` | 정착 사유 문구 | ✅ 실패·중단 행이 원인을 말한다 (0204 D-024) |
@@ -161,7 +161,7 @@ TaskXXX 는 **한 도구군이 아니라 두 네임스페이스**다. 키 표기
 
 ### 4.4 `task_updated` (델타 패치)
 
-| 필드 | 의미 | Orca |
+| 필드 | 의미 | Orcinus orca |
 |---|---|---|
 | `task_id` | 대상 | ✅ 호출 `toolUseId` 로 대응 (`claude-map.ts`, 0212) |
 | `patch.status` | `pending`\|`running`\|`completed`\|`failed`\|**`killed`**\|**`paused`** | ✅ `killed`·`completed`·`failed` 는 정착(`killed`→중단), `paused`·`running` 은 실행 상태 (0212) |
@@ -176,7 +176,7 @@ their local task map."* **누락 필드는 무변경**이지 초기화가 아니
 
 ### 4.5 `background_tasks_changed` (level)
 
-| 필드 | 의미 | Orca |
+| 필드 | 의미 | Orcinus orca |
 |---|---|---|
 | `tasks[].{task_id,task_type,description}` | **변화 후 살아 있는 전량** | ✅ live 집합 전량 교체 (`claude-map.ts`·`claude-background.ts`, 0212·0231) |
 
@@ -200,7 +200,7 @@ SDK 주석이 사용법과 존재 이유를 함께 적는다.
 
 ### 5.1 `Query` 제어 API (background 실행 태스크)
 
-| API | 의미 | Orca |
+| API | 의미 | Orcinus orca |
 |---|---|---|
 | `stopTask(taskId)` | 실행 태스크 중단 — `status:'stopped'` 인 `task_notification` 이 뒤따른다 | ✅ 두 타일의 행별 중단 버튼 |
 | `backgroundTasks(toolUseId)` | **그 tool_use 의 foreground 태스크 하나**를 background 로 | ✅ Code foreground Bash/PowerShell 의 백그라운드 전환 버튼(`BackgroundController.promote`, 0231) + `stopTask` 앞의 내부 폴백 |
@@ -226,7 +226,7 @@ a task_notification when it settles."*
 | 이미 돌고 있으니 전환할 게 없다 | 이미 background 인 항목에는 **효과가 없다**(`false` 반환). 전환 대상은 턴을 막고 있는 foreground 뿐이다 |
 | 중단과 비슷한 것이다 | 반대다. 중단은 일을 없애고, 전환은 **기다림만 없앤다** |
 
-Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136 · `isAsyncLaunched`).
+Orcinus orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136 · `isAsyncLaunched`).
 
 ### 5.3 SDK 에 제어 API 가 **없는** 것
 
@@ -236,18 +236,18 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 | 실행 태스크 일시정지 / 재개 | **불가능** | `task_updated.patch.status` 가 `paused` 를 **관측만** 시킨다(§4.4). pause/resume API 가 없다 |
 | 할 일 항목 하나만 중단 | **해당 없음** | 할 일은 실행 단위가 아니다 — 멈출 프로세스가 없다 |
 
-> 위 세 줄은 **Orca 의 결손이 아니라 SDK 의 경계**다. "모든 기능 지원" 의 상한이 여기다.
+> 위 세 줄은 **Orcinus orca 의 결손이 아니라 SDK 의 경계**다. "모든 기능 지원" 의 상한이 여기다.
 
 ### 5.4 도구 호출 자체를 막는 경로
 
 `canUseTool` 권한 콜백과 `PreToolUse` 훅은 Task 도구 호출도 가로챌 수 있다.
 
-> ⛔ **Orca 의도적 미채택.** `RISKY_TOOLS` 는 상태를 바꾸는 도구(`Bash`·`PowerShell`·`Write`·`Edit`·
+> ⛔ **Orcinus orca 의도적 미채택.** `RISKY_TOOLS` 는 상태를 바꾸는 도구(`Bash`·`PowerShell`·`Write`·`Edit`·
 > `MultiEdit`·`NotebookEdit` — `adapters/common/risky-tools.ts`)만 담는다. Task 도구는 할 일 목록만 바꾸므로 승인 카드 대상이 아니다 — 넣으면
 > 할 일이 갱신될 때마다 승인 카드가 뜬다.
 
 `stopTask` 는 **확정을 기다려야 한다**. 클릭 즉시 `중단됨` 으로 확정하지 않고 `중단 중` 을 거쳐
-`task_notification` 으로 정착하는 것이 Orca 의 계약이다(0204 D-005·D-006).
+`task_notification` 으로 정착하는 것이 Orcinus orca 의 계약이다(0204 D-005·D-006).
 
 ---
 
@@ -261,7 +261,7 @@ Orca 는 이 구분을 `async_launched` 영수증으로 이미 판별한다(0136
 | CLI 버전 | v2.1.142 미만은 `TodoWrite` 를 쓴다 | Task 도구 호출이 **한 번도 오지 않는다** |
 | 환경 변수 | `CLAUDE_CODE_ENABLE_TASKS=0` 이면 Task 도구가 꺼진다 | 최신 CLI 에서도 같은 결과가 된다 |
 | SDK 버전 | `package.json` 의 SDK 버전이 **CLI 버전을 고정한다** — SDK 는 자기 버전에 잠긴 CLI 를 동봉한다 | SDK 를 올려야 CLI 가 올라간다 |
-| 실행 경로 | Orca 는 `pathToClaudeCodeExecutable` 로 **앱이 동봉한 번들 바이너리만** 고른다. 호스트 설치본(PATH·`~/.local/bin`)은 보지 않는다 (`app/src/main/adapters/claude-executable.ts`) | 사용자 머신의 CLI 버전은 결정자가 아니다 (0215 D-028 — 이전에는 호스트 우선이었고 자동 갱신으로 드리프트했다) |
+| 실행 경로 | Orcinus orca 는 `pathToClaudeCodeExecutable` 로 **앱이 동봉한 번들 바이너리만** 고른다. 호스트 설치본(PATH·`~/.local/bin`)은 보지 않는다 (`app/src/main/adapters/claude-executable.ts`) | 사용자 머신의 CLI 버전은 결정자가 아니다 (0215 D-028 — 이전에는 호스트 우선이었고 자동 갱신으로 드리프트했다) |
 
 ### 6.1 판정 방법 — 버전 파싱이 아니라 feature detection
 
@@ -290,12 +290,12 @@ SDK 는 `TodoWriteInput`/`TodoWriteOutput` 을 **여전히 정의한다**. 한 �
 | `todos[].status` | `'pending'\|'in_progress'\|'completed'` | 같다 |
 | `todos[].activeForm` | `string` | **필수** — Task 도구에서는 선택 |
 
-> ❌ **Orca 미채택.** `TodoWrite` 관측 경로가 없다. 구버전 CLI 에서는 목록이 채워지지 않으며,
+> ❌ **Orcinus orca 미채택.** `TodoWrite` 관측 경로가 없다. 구버전 CLI 에서는 목록이 채워지지 않으며,
 > 0212 는 **폴백을 만들지 않고 원인을 안내하는 쪽**을 택했다(0212 D-004).
 
 ---
 
-## 7. Orca 채택 요약
+## 7. Orcinus orca 채택 요약
 
 | 영역 | 상태 | 정본 코드 |
 |---|---|---|
@@ -307,4 +307,4 @@ SDK 는 `TodoWriteInput`/`TodoWriteOutput` 을 **여전히 정의한다**. 한 �
 
 세부 결정의 근거는 [`handoff/0204-taskxxx-right-panel/plan.md`](handoff/0204-taskxxx-right-panel/plan.md)
 Decision Ledger 와 [`handoff/0212-taskxxx-surface-gaps/plan.md`](handoff/0212-taskxxx-surface-gaps/plan.md)
-가 갖는다. 본 문서는 **외부 계약**만 서술하고 Orca 내부 구조는 위 정본 코드가 갖는다.
+가 갖는다. 본 문서는 **외부 계약**만 서술하고 Orcinus orca 내부 구조는 위 정본 코드가 갖는다.

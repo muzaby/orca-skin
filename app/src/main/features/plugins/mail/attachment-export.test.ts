@@ -17,8 +17,8 @@ afterEach(async () => {
 // `C:\Users\RUNNER~1\...` 8.3 별칭과 같은 조건이다 — 자기 자신은 symlink 가 아니고
 // 조상만 다른 철자를 갖는다.
 async function aliasedDirectory(): Promise<{ alias: string; canonical: string }> {
-  const real = await realpath(await mkdtemp(join(tmpdir(), 'orca-mail-real-')))
-  const holder = await realpath(await mkdtemp(join(tmpdir(), 'orca-mail-alias-')))
+  const real = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-real-')))
+  const holder = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-alias-')))
   roots.push(real, holder)
   await symlink(real, join(holder, 'link'), 'junction')
   const alias = join(holder, 'link', 'exports')

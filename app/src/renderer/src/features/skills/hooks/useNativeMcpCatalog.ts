@@ -38,7 +38,7 @@ export function useNativeMcpCatalog(): {
       [
         ...previous.filter((item) => item.backend !== backend),
         ...value.items
-          .filter((resource) => resource.origin !== 'orca')
+          .filter((resource) => resource.origin !== 'orcinus-orca')
           .map((resource) => ({ backend, resource }))
       ].sort((a, b) => a.backend.localeCompare(b.backend))
     )

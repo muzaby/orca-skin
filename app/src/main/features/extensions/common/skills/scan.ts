@@ -1,4 +1,4 @@
-// SKILL.md frontmatter 스캐너 — Orca sources/skills 와 어댑터가 제공한 skill root 목록을
+// SKILL.md frontmatter 스캐너 — Orcinus orca sources/skills 와 어댑터가 제공한 skill root 목록을
 // 받아 각 root 하위 디렉토리의 SKILL.md 를 SkillInfo 로 정규화한다. SDK headless 모드는
 // 슬래시 명령 목록을 제공하지 않으므로 백엔드가 직접 디렉토리를 스캔한다.
 
@@ -11,7 +11,7 @@ import { skillMetadata } from '../../../../adapters/common/skill-metadata'
 export interface SkillScanRoot {
   sourceId: string
   sourceLabel: string
-  sourceKind: 'orca' | 'adapter' | 'workspace'
+  sourceKind: 'orcinus-orca' | 'adapter' | 'workspace'
   rootDir: string
   /** Explicit native plugin files, with their exact slash-command names. */
   files?: readonly {
@@ -76,13 +76,13 @@ async function scanRoot(
         sourceId: root.sourceId,
         sourceLabel: root.sourceLabel,
         enabled:
-          root.sourceKind === 'orca'
+          root.sourceKind === 'orcinus-orca'
             ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true)
             : (entry.enabled ?? true),
         body: bodyWithoutFrontmatter(text),
         sourceKind: root.sourceKind,
-        canToggle: root.sourceKind === 'orca',
-        canRemove: root.sourceKind === 'orca',
+        canToggle: root.sourceKind === 'orcinus-orca',
+        canRemove: root.sourceKind === 'orcinus-orca',
         skillPath,
         skillDir,
         ...(stat ? { updatedAt: stat.mtimeMs, createdAt: stat.birthtimeMs } : {})

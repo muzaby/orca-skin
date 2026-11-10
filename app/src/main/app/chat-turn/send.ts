@@ -208,7 +208,7 @@ export async function handleChatSend(
       ? {
           ...extensions,
           outputFiles,
-          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the Orca-specific orcinus-orca folder under the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
+          systemPromptAppend: `${extensions.systemPromptAppend ?? ''}\nFinal ordinary output directory: ${outputFiles.directory} (the Orcinus orca-specific orcinus-orca folder under the OS user temporary directory). Use this exact absolute path in file operations and final Markdown links.`
         }
       : extensions
   }

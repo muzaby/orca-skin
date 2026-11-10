@@ -3,12 +3,12 @@ import { reportError } from '../../infra/error-report'
 // flat-read 한 뒤 escalating defaultMode 필터만 적용해 **verbatim** 으로 돌려준다.
 // provider settings.json 은 `~/.claude/settings.json` 과 동일 스키마/취급이다 (handoff 0028):
 // auth key 등은 사용자가 env 블록에 직접 적어 관리하고, env 는 options.settings flag 로 그대로
-// 주입되어 사용자 전역 `~/.claude/settings.json` 을 덮어쓴다. Orca 고유의 ${VAR} 확장·secret-store
+// 주입되어 사용자 전역 `~/.claude/settings.json` 을 덮어쓴다. Orcinus orca 고유의 ${VAR} 확장·secret-store
 // 토큰 주입(구 0010/0015)은 폐지했다 — Claude 정책 그대로.
 //
 // provider settings 는 dist/.claude 로 배포하지 않으므로 sources 파일을 직접 읽는다.
 // escalating defaultMode 제거는 SDK filterEscalatingDefaultMode 와 동등하게 수동 적용한다(권한은
-// Orca 의 canUseTool 게이트가 담당 — env 와 무관, TRD §6.8).
+// Orcinus orca 의 canUseTool 게이트가 담당 — env 와 무관, TRD §6.8).
 
 import { existsSync, readFileSync } from 'node:fs'
 import type { EngineUserSettingsResult } from '../../../shared/ipc'

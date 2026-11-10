@@ -102,7 +102,7 @@ beforeEach(() => {
     sessionId: 'session',
     backend: 'opencode',
     agentKind: 'code',
-    cwd: 'C:/orca',
+    cwd: 'C:/orcinus-orca',
     rightPanelTiles: [{ id: 'task', tiles: ['task', 'diff'] }],
     selectedProcessToolId: 'original-process',
     selectedSubagentTaskId: 'original-agent'

@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | PR 미생성 |
-| 상태 | READY |
+| 상태 | READY → IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0225 V1은 "코드 식별자 불변"(EP-11)을 잠갔고 이번 작업은 그 결정을 뒤집는다. 일부 변경이 아니라 반대 방향이라 상속하지 않는다 |
 | 이번 V revision | `V1` rev.3 — 구현 중 규범 행 정정 C1~C5(rev.2) · C6(rev.3) |
@@ -389,17 +389,115 @@ main 소비자    같은 리터럴(별도 사본)       같은 새 리터럴
 - 사람 실기는 AC9·AC10(외부 설정·실제 설치본)뿐이다.
 - 남긴 한계: EP-07의 30자리와 EP-08의 자리는 명령으로 고정했고 자리별 테스트 귀속은 구현자가 표로 채운다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 — r1
 
-(구현 턴에 채운다)
+- 구현자 = Claude(비기능 작업). 설계와 같은 에이전트라 규범 행 정정은 별도 설계 커밋 2개(rev.2·rev.3)로 분리했다.
+- plan §11 작업 순서(단계별 typecheck)는 따르지 않았다 — TypeScript AST로 토큰 종류(식별자·문자열·주석)를 가른 변환 스크립트를 한 번에 적용하고 typecheck·전체 테스트로 판정했다. 결과물의 계약(D-004)은 같다.
+- 설계가 틀린 곳 6건은 §3 "r1 구현 중 설계 정정" 표 C1~C6에 있다.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1
 
-(구현 턴에 채운다)
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01·VP-08 | EP-01 검사기 7분기 | 7 | 7/7 | `node --test app/scripts/check-product-naming.test.mjs` → 35 pass. 분기별 describe ①~⑦ | 입력을 `FORMS`에서 만들어 꼴마다 따로 준다 | — |
+| VP-05 | EP-02 노출 키 3자리 | 3 | 3/3 | `preload/index.test.ts` — 키를 `xx`로 바꾸면 28/29 red. d.ts·`logging.ts`는 `gate:npm run typecheck`(전역 타입) | 키 값 `oo` ↔ `xx` | — |
+| VP-02·VP-05 | EP-03 채널 접두사 3자리 | 3 | 3/3 | `product-identity.test.ts:'IPC 채널이 전부 oo: …'` · `check-doc-inventory.test.mjs`(정규식 변이 → 2 red) · `gate:check-doc-inventory --check` | 채널 수 117 = 생성물 | — |
+| VP-06 | EP-04 영수증 type 3자리 | 3 | 3/3 | 소비 `writer.ts` 변이 → 4 red · 생산 `service.ts:224` 변이 → 3 red (`src/main/features/{history,artifacts}`) | 리터럴 ↔ `x.artifact.published` | — |
+| VP-06 | EP-05 도구 이름 3자리 | 3 | 3/3 | 소비 `artifact-queries.ts` 변이 → 9 red · 생산 `tool.ts` id 변이 → +1 red | 서버 id ↔ `x_artifacts` | `tool.ts:30` `connectorId`는 따로 심지 않았다 |
+| VP-09 | EP-06 표식 17자리 | 17 | 17/17 | 이스케이프 6줄 변이 → 6/6 red(`diff-requirements`·`attachment-prompt`·`plan-feedback` 테스트). 상수 11줄은 `product-identity.test.ts:'프롬프트 표식 4군…'` + 조립 테스트 | 테스트 입력이 새 표식 꼴 | — |
+| VP-06 | EP-07 값 34줄 + env 4 + alias 1 | 39 | 39/39 | 34줄 전수 변이(`'x-source'`) — vitest red 22 · typecheck red 9 · 신규 테스트 red 3. env 4 → 4 red(1은 신규 테스트). alias → `product-identity.test.ts:'OpenCode 관리 MCP alias…'` | 값 ↔ `x-source` | — |
+| VP-07 | EP-08 env 이름 | 스크립트 2 + 워크플로 10줄 | 2/2 (스크립트) | `test-time.test.mjs` 변이 → 5 red · `test-pools.test.mjs` 변이 → 3 red | env 이름 | 워크플로 `vars.*` ↔ 저장소 설정은 사람(AC9) |
+| VP-04 | EP-09 허용 목록 12파일 | 12 | 12/12 | `check-product-naming.test.mjs:'허용 목록의 파일 집합은 고정이다'` · `--report-allowed` 등록=실제 13항목 | 파일 집합 일치 | — |
 
-## [구현자 기입] 구현 보고
+- 자리 검색 재실행: EP-06 `grep -n "ORCINUS_ORCA_" <3파일>` → lint 재포맷으로 `diff-requirements.ts` 이스케이프가 15~19줄로 늘었다(자리 수 같음). EP-07 값 리터럴은 diff에서 34줄(rev.2 C4).
 
-(구현 턴에 채운다)
+### V-pair 자기확인
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate: node app/scripts/check-product-naming.mjs` → OK 2,161파일 · 허용 13항목 | VP-08이 든다 |
+| VP-02 | REQUIRED | SELF_PASS | `product-identity.test.ts` `이름 규칙 (0306)` 8케이스 | not selected |
+| VP-03 | REQUIRED | SELF_PASS | vitest 실패 집합 변경 전후 차집합 ∅ | not selected |
+| VP-04 | REGRESSION | SELF_PASS | `product-identity.test.ts:'레거시 슬러그 상수…'` · `migrate-legacy.test.ts` · `rebase-path.test.ts`(HEAD 그대로) | not selected |
+| VP-05 | REQUIRED | SELF_PASS | `preload/index.test.ts` | 노출 키 되돌림 → 28 red |
+| VP-06 | REQUIRED | SELF_PASS | 위 표 EP-04·05·07 | 소비 쪽 리터럴 되돌림 → 자리마다 red |
+| VP-07 | REQUIRED | SELF_PASS | `test-time.test.mjs` · `test-pools.test.mjs` | not selected(직접 값) |
+| VP-08 | REQUIRED | SELF_PASS | `check-product-naming.test.mjs` 35케이스 | 개수 대조·꼴별 입력이 케이스로 있다 |
+| VP-09 | REQUIRED | SELF_PASS | 표식 3파일 테스트 | 이스케이프 리터럴 되돌림 6/6 red |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r1
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `preload/index.ts` 노출 키 → `xx` | VP-05 선택 증거 | 최초 | `preload/index.test.ts` 28 | 잡음 |
+| `writer.ts`·`service.ts:224` 영수증 type | sweep — EP-04 | 최초 | 4 · 3 | 잡음 |
+| `artifact-queries.ts`·`tool.ts:29` 도구 이름 | sweep — EP-05 | 최초 | 9 · 1 | 잡음 |
+| 표식 이스케이프 6줄(3파일) | VP-09 선택 증거 | 최초 | 각 1 (attachment 시작 상수는 16) | 잡음 — `plan-feedback.ts:28`은 처음에 못 잡아 테스트 추가 |
+| `'orcinus-orca'` 값 34줄 | sweep — EP-07 | 최초 | vitest 22줄 · typecheck 9줄 · 신규 테스트 3줄 | 잡음 — 3줄(`bootstrap.ts:284`·`deployer.ts:195`·`attachMenuModel.ts:152`)은 처음에 못 잡아 테스트 추가 |
+| env 접두사 4줄 | sweep — EP-07 | 최초 | 6 · 4 · 1 · (diagnostics 37은 34와 같은 케이스) | 잡음 — `mcp/store.ts:44`는 처음에 못 잡아 테스트 추가 |
+| `extension-sources.ts` 라벨 키 → `oo` | 구현 중 발견한 오변환의 재현 | 최초 | 15 | 잡음 |
+| `git-diff-parse.ts` 커밋 표식 | sweep — path edge | 최초 | 19 | 잡음 |
+| `test-time.mjs`·`test-pools.mjs` env 이름 | sweep — EP-08 | 최초 | 5 · 3 | 잡음 |
+| `check-doc-inventory.mjs` 채널 정규식 | sweep — EP-03 | 최초 | 2 | 잡음 |
+
+- 검산: 선택 증거 3(VP-05·06·09) · 인용 변이 0 · 새 oracle 2(검사기 테스트 · 이름 규칙 블록) · sweep 7 = 표 행 10(선택 증거 2행이 sweep과 겹친다).
+- 처음에 `못 잡음`이던 5자리에 더한 테스트: `plan-feedback.test.ts`(코멘트 표식) · `mcp/store.test.ts`(합성 변수 이름) · `attachMenuModel.test.ts`(삽입 타입 · 플러그인 머리글 아이콘) · `product-identity.test.ts`(스킬 출처 생산 자리 · alias). 다섯 다 재실행에서 red.
+
+## [구현자 기입] Product/UX 파생 검토 — r1
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 화면 문구는 새로 만들지 않았다. 모델 대면 문구(시스템 머리글 · 도구 설명)는 표시명으로 바뀌었다 | — |
+| seam을 만들려고 production을 재배치했는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 검사기 실패 2행(옛 표기 · 허용 개수 불일치) | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | **보인다 — 꺼 둔 제품 스킬이 알림 없이 다시 켜진다**(§3 C3). D-002가 정한 결과다 | 사용자에게 보고(아래 #1) |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r1
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 출처 id가 `skillEnabled` 설정 키의 접두사다 — 이름을 바꾸면 꺼 둔 제품 스킬이 다시 켜진다 | ⚠️ 보고만 — D-002(호환 없음)가 정한 결과. plan §8의 "저장되지 않는다"는 틀려서 rev.2 C3로 정정 | `scan.ts` `skillEnabledKey` · `handlers/skills.ts:71` |
+| 2 | 일괄 변환이 `extensionSourceLabels`의 키를 식별자(`oo`)로 바꿔 제품 출처 라벨이 `undefined`가 됐다 | ✅ 선조치 — 키를 `'orcinus-orca'`로 | `Record<string,string>`이라 typecheck가 못 본다. 변이로 15 red 확인 |
+| 3 | 변환이 `${` 옆 토큰을 잘못 갈랐다 — OpenCode alias 접두사가 `oo_`가 됐다 | ✅ 선조치 + 테스트 추가 | 실기 전용 테스트(`managed-mcp.cli.integration`)만 접두사를 봐서 green이었다 |
+| 4 | 변환이 문자열 속 `\n` 앞의 표시명을 경로로 오판했다(시스템 머리글 `# orcinus-orca`) | ✅ 선조치 — 머리글을 `PRODUCT_DISPLAY_NAME` 파생으로 | `system-header.test.ts` red로 발견 |
+| 5 | `rebase-path.test.ts`의 옛 루트·새 루트가 같은 값이 됐다 — green인 채 의미를 잃음 | ✅ 선조치 — HEAD로 되돌리고 허용 목록 등록(rev.2 C1) | diff 검토로 발견 |
+| 6 | 지난 문서를 가리키는 링크 9종이 함께 바뀌어 끊어졌다 | ✅ 선조치 — 링크 복원 + 검사기 ⑦분기(rev.2 C2) | `check-doc-inventory --check` red |
+| 7 | 스폰 추적 테스트가 범위 밖 0300 증거 스크립트를 실행한다 — 그 스크립트는 옛 환경변수 이름을 읽는다 | ✅ 선조치 — 테스트의 이름을 옛 이름으로 유지 + 허용 목록(rev.3 C6) | `node --test` 1 red |
+| 8 | CI 경로 필터가 `app/**`·`.github/workflows/**`라 문서만 바꾼 PR에서는 검사기가 돌지 않는다 | ⚠️ 보고만 — 문서 인벤토리 가드와 같은 조건이다 | `ci.yml` paths |
+| 9 | 검사기는 N2/N3를 뒤바꾼 것(값에 `oo`, 식별자에 긴 꼴)을 보지 않는다 | ⚠️ 보고만 — plan §10 선언 경계 | — |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 수명주기를 바꾸지 않았다 | — |
+| 공유 | 검사기 ⑦분기는 추적 파일 목록에 기댄다 — 범위 밖 파일을 지우면 그 링크가 위반이 된다(의도) | EP-01 ⑦ UT "파일이 없어지면 같은 링크가 위반" |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 작업 순서를 일괄 변환으로 바꿨다 — 단계별 typecheck 대신 마지막 트리의 전체 gate로 판정 | AC3 차집합 ∅ |
+
+## [구현자 기입] 구현 보고 — r1
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 476 — 코드·문서 이름 변경 469 · 파일명 변경 6(`oo-file`·`oo-config`(+테스트 2)·`OoLogo`(+테스트 1)) · 신규 2(`check-product-naming.mjs`·`.test.mjs`) · 워크플로 3 |
+| 실행 명령 | `app/`에서 `node scripts/check-product-naming.mjs` · `check-migrations-appendonly.mjs` · `check-doc-inventory.mjs --check` · `check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` |
+| **관측한 게이트 산출** | 이름 검사기 OK(2,161파일 · 허용 13항목) · 문서 가드 OK(117 채널 · 링크 전부 해석) · 예산 가드 OK(20 suites) · lint error 0 · warning 2(변경 전과 같음) · typecheck error 0 · vitest 945파일: 22 failed / 8,795 passed · `node --test` 862 pass / 0 fail |
+| 기준선 분리 | 변경 전(better-sqlite3를 Node ABI로 재빌드한 같은 환경) vitest 22 failed / 8,787 passed. 실패 집합 차집합 **양방향 ∅**(파일명 변경 3건 정규화 후 `comm`). 원인은 Electron 미설치·Windows 경로 전제(`C:/…` 절대경로 판정) — 환경 |
+| 추가·수정 테스트의 subtree 규칙 | 테스트 파일은 문자열만 바뀌었고 신규 케이스 8(`product-identity` 4 순증 · 그 밖 4). 예산 가드·unit 풀 가드 위반 0(전체 실행에 포함) |
+| V-pair 자기확인 | `SELF_PASS 9 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | EP-01 7/7 · EP-02 3/3 · EP-03 3/3 · EP-04 3/3 · EP-05 3/3 · EP-06 17/17 · EP-07 39/39 · EP-08 2/2(스크립트) · EP-09 12/12 |
+| **AC 자기보고** | AC1 ✅ 검사기 OK · AC2 ✅ `이름 규칙 (0306)` 8케이스 pass · AC3 ✅ 실패 집합 차집합 ∅ · AC4 ✅ 고정 12파일 단언 pass · AC5 ✅ 이관 3모듈 테스트 pass · AC6 ✅ 문서 가드 OK, `git diff --name-only`에서 D-003 경로 0(이 handoff 디렉토리 제외) · AC7 ✅ Variables 3개 이름 단언 pass · AC8 ✅ 검사기 테스트 35 pass · AC9 ⚠️ 사람 · AC10 ⚠️ 사람 |
+| **합계 검산** | `✅ 8 · ⚠️ 2 · ❌ 0 = 총 10` |
+| 블로커 / 역질문 | 없음. 사용자 보고 1건 — 꺼 둔 제품 스킬이 다시 켜진다(#1) |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1`.
+- plan 조사가 템플릿으로 조립되는 저장 키를 `sourceId` 문자열 검색으로만 찾아 놓쳤다(C3).
+- plan의 "유지 대상"이 코드 5파일로만 열거돼 문서·링크·지난 스크립트의 입력이 구현 중 세 번 추가됐다(C1·C2·C6).
+- 이 환경은 Electron 바이너리를 받을 수 없어 `dev`/`build`와 설치본 실기는 하지 못했다(AC10).
 
 ## [검증자 기입] 파생 이슈
 

@@ -31,7 +31,7 @@ export interface SendResult {
 }
 
 export interface AuthenticatedFetchDeps {
-  // 실제 전송자. browser session binding 이면 Orca 소유 Session 의 fetch, static credential 이면
+  // 실제 전송자. browser session binding 이면 Orcinus orca 소유 Session 의 fetch, static credential 이면
   // 전역 fetch 가 주입된다.
   send(req: PreparedRequest, signal?: AbortSignal, options?: SendOptions): Promise<SendResult>
 }

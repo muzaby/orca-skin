@@ -26,7 +26,7 @@ describe('adaptPlugins', () => {
   let pluginRoot: string
 
   beforeEach(() => {
-    pluginRoot = mkdtempSync(join(tmpdir(), 'orca-plugin-'))
+    pluginRoot = mkdtempSync(join(tmpdir(), 'orcinus-orca-plugin-'))
   })
   afterEach(() => {
     rmSync(pluginRoot, { recursive: true, force: true })
@@ -56,16 +56,16 @@ describe('adaptPlugins', () => {
     })
   })
 
-  it('복수 root(orca + user 래퍼, 0117) — 유효한 것만 순서 보존으로 담는다', () => {
-    const orca = join(pluginRoot, 'orca')
+  it('복수 root(Orcinus orca + user 래퍼, 0117) — 유효한 것만 순서 보존으로 담는다', () => {
+    const oo = join(pluginRoot, 'orcinus-orca')
     const wrapper = join(pluginRoot, 'claude')
     const broken = join(pluginRoot, 'no-manifest')
-    seedManifest(orca)
+    seedManifest(oo)
     seedManifest(wrapper)
     mkdirSync(broken, { recursive: true })
-    expect(adaptPlugins([orca, broken, wrapper])).toEqual({
+    expect(adaptPlugins([oo, broken, wrapper])).toEqual({
       plugins: [
-        { type: 'local', path: orca },
+        { type: 'local', path: oo },
         { type: 'local', path: wrapper }
       ]
     })
@@ -92,15 +92,19 @@ describe('adaptSystemPrompt', () => {
 })
 
 describe('adaptSkills', () => {
-  const skill = (name: string, sourceKind: 'orca' | 'adapter', enabled: boolean): SkillInfo => ({
+  const skill = (
+    name: string,
+    sourceKind: 'orcinus-orca' | 'adapter',
+    enabled: boolean
+  ): SkillInfo => ({
     name,
     description: '',
-    sourceId: sourceKind === 'orca' ? 'orca' : 'adapter:claude',
-    sourceLabel: sourceKind === 'orca' ? 'Orca 스킬' : 'CLAUDE 스킬',
+    sourceId: sourceKind === 'orcinus-orca' ? 'orcinus-orca' : 'adapter:claude',
+    sourceLabel: sourceKind === 'orcinus-orca' ? 'Orcinus orca 스킬' : 'CLAUDE 스킬',
     sourceKind,
     enabled,
-    canToggle: sourceKind === 'orca',
-    canRemove: sourceKind === 'orca',
+    canToggle: sourceKind === 'orcinus-orca',
+    canRemove: sourceKind === 'orcinus-orca',
     skillPath: `/x/${name}/SKILL.md`,
     skillDir: `/x/${name}`
   })
@@ -109,19 +113,19 @@ describe('adaptSkills', () => {
     expect(adaptSkills([])).toEqual({ skills: 'all' })
   })
 
-  it('활성 Orca + 모든 어댑터 스킬만 활성 목록으로 반환한다(비활성 Orca 제외, 어댑터는 claude: 네임스페이스 — 0117)', () => {
+  it('활성 Orcinus orca + 모든 어댑터 스킬만 활성 목록으로 반환한다(비활성 Orcinus orca 제외, 어댑터는 claude: 네임스페이스 — 0117)', () => {
     const skills = [
-      skill('a', 'orca', true),
-      skill('b', 'orca', false),
+      skill('a', 'orcinus-orca', true),
+      skill('b', 'orcinus-orca', false),
       skill('native', 'adapter', true)
     ]
     expect(adaptSkills(skills)).toEqual({ skills: [`${PRODUCT_SLUG}:a`, 'claude:native'] })
   })
 
-  it('adds native plugin skills without enabling disabled Orca skills', () => {
+  it('adds native plugin skills without enabling disabled Orcinus orca skills', () => {
     expect(
       adaptSkills(
-        [skill('on', 'orca', true), skill('off', 'orca', false)],
+        [skill('on', 'orcinus-orca', true), skill('off', 'orcinus-orca', false)],
         ['frontend-design:frontend-design']
       )
     ).toEqual({
@@ -129,8 +133,8 @@ describe('adaptSkills', () => {
     })
   })
 
-  it('이미 네임스페이스된 Orca 스킬은 중복 prefix 하지 않는다', () => {
-    expect(adaptSkills([skill(`${PRODUCT_SLUG}:ready`, 'orca', true)])).toEqual({
+  it('이미 네임스페이스된 Orcinus orca 스킬은 중복 prefix 하지 않는다', () => {
+    expect(adaptSkills([skill(`${PRODUCT_SLUG}:ready`, 'orcinus-orca', true)])).toEqual({
       skills: [`${PRODUCT_SLUG}:ready`]
     })
   })
@@ -177,7 +181,7 @@ describe('adaptExecutionConfig Windows defaults', () => {
 
   it('pins the host temp root in both channels without changing inherited OS temp or caller settings', () => {
     vi.stubEnv('CLAUDE_CODE_TMPDIR', 'C:/broad-temp')
-    vi.stubEnv('ORCA_TEMP_TEST_INHERITED', 'preserved')
+    vi.stubEnv('ORCINUS_ORCA_TEMP_TEST_INHERITED', 'preserved')
     const settings = {
       env: {
         claude_code_tmpdir: 'C:/other-broad',
@@ -189,7 +193,7 @@ describe('adaptExecutionConfig Windows defaults', () => {
     const out = adaptExecutionConfig(settings, undefined, 'C:/Temp/orcinus-orca')
     expect(out.env).toMatchObject({
       CLAUDE_CODE_TMPDIR: 'C:/Temp/orcinus-orca',
-      ORCA_TEMP_TEST_INHERITED: 'preserved'
+      ORCINUS_ORCA_TEMP_TEST_INHERITED: 'preserved'
     })
     expect(out.env).not.toHaveProperty('claude_code_tmpdir')
     expect(JSON.parse(out.settings as string).env).toEqual({

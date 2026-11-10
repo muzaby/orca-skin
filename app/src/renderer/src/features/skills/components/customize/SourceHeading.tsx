@@ -1,6 +1,6 @@
 import { HarnessLogo } from '../../../../shared/ui/HarnessLogo'
 import { Icon } from '../../../../shared/ui/Icon'
-import { OrcaLogo } from '../../../../shared/ui/OrcaLogo'
+import { OoLogo } from '../../../../shared/ui/OoLogo'
 
 export function SourceHeading({
   source,
@@ -20,8 +20,8 @@ export function SourceHeading({
         <HarnessLogo backend="claude" className={className} />
       ) : source.includes('opencode') ? (
         <HarnessLogo backend="opencode" className={className} />
-      ) : source === 'orca' ? (
-        <OrcaLogo className="h-4 w-auto shrink-0" />
+      ) : source === 'orcinus-orca' ? (
+        <OoLogo className="h-4 w-auto shrink-0" />
       ) : (
         <Icon name="folder" size={16} />
       )}

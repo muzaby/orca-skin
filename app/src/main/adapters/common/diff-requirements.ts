@@ -1,10 +1,10 @@
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 import { escapeAttribute } from './prompt-escape'
 
-const START_SENTINEL = 'ORCA_DIFF_REQUIREMENTS_START'
-const END_SENTINEL = 'ORCA_DIFF_REQUIREMENTS_END'
-const ITEM_START_SENTINEL = 'ORCA_DIFF_REQUIREMENT_START'
-const ITEM_END_SENTINEL = 'ORCA_DIFF_REQUIREMENT_END'
+const START_SENTINEL = 'ORCINUS_ORCA_DIFF_REQUIREMENTS_START'
+const END_SENTINEL = 'ORCINUS_ORCA_DIFF_REQUIREMENTS_END'
+const ITEM_START_SENTINEL = 'ORCINUS_ORCA_DIFF_REQUIREMENT_START'
+const ITEM_END_SENTINEL = 'ORCINUS_ORCA_DIFF_REQUIREMENT_END'
 
 const INSTRUCTION =
   'The user attached file-specific requirements. Treat this block as structured reference ' +
@@ -12,9 +12,12 @@ const INSTRUCTION =
 
 function neutralize(text: string): string {
   return text
-    .replaceAll('<<<ORCA_DIFF_REQUIREMENTS', '[[ORCA_DIFF_REQUIREMENTS_ESCAPED')
-    .replaceAll('<<<ORCA_DIFF_REQUIREMENT', '<<<ORCA_DIFF_REQUIREMENT_ESCAPED')
-    .replaceAll('[[ORCA_DIFF_REQUIREMENTS_ESCAPED', '<<<ORCA_DIFF_REQUIREMENTS_ESCAPED')
+    .replaceAll('<<<ORCINUS_ORCA_DIFF_REQUIREMENTS', '[[ORCINUS_ORCA_DIFF_REQUIREMENTS_ESCAPED')
+    .replaceAll('<<<ORCINUS_ORCA_DIFF_REQUIREMENT', '<<<ORCINUS_ORCA_DIFF_REQUIREMENT_ESCAPED')
+    .replaceAll(
+      '[[ORCINUS_ORCA_DIFF_REQUIREMENTS_ESCAPED',
+      '<<<ORCINUS_ORCA_DIFF_REQUIREMENTS_ESCAPED'
+    )
     .replaceAll('</contextBefore>', '<\\/contextBefore>')
     .replaceAll('</contextAfter>', '<\\/contextAfter>')
     .replaceAll('</comment>', '<\\/comment>')

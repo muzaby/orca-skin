@@ -12,7 +12,7 @@ const pluginEvents = vi.hoisted(() => {
   const subscribe = vi.fn<(handler: (event: { revision: number }) => void) => () => void>(() =>
     vi.fn()
   )
-  vi.stubGlobal('window', { orca: { session: { onOpenCodePluginsChanged: subscribe } } })
+  vi.stubGlobal('window', { oo: { session: { onOpenCodePluginsChanged: subscribe } } })
   return { subscribe }
 })
 // Bind the real vanilla store to the test React runtime.
@@ -79,7 +79,7 @@ it('prepares draft agents before providers, reuses cached agents and variants ac
   )
   const release = vi.fn(async () => undefined)
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         composerCatalog: query,
         releaseComposerCatalog: release,
@@ -175,7 +175,7 @@ it.each(['agents', 'models'] as const)(
       request.part === 'agents' ? agents.promise : models.promise
     )
     Object.assign(window, {
-      orca: {
+      oo: {
         session: {
           composerCatalog: query,
           releaseComposerCatalog: vi.fn(async () => undefined),
@@ -235,7 +235,7 @@ it('reuses the first successful agent list across landing scopes without request
       }) as ComposerCatalogResult
   )
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         composerCatalog: query,
         releaseComposerCatalog: async () => {},
@@ -274,7 +274,7 @@ it('shows cached agents before the chat scope exists', () => {
     pendingProjectId: null
   })
   const query = vi.fn()
-  Object.assign(window, { orca: { session: { composerCatalog: query } } })
+  Object.assign(window, { oo: { session: { composerCatalog: query } } })
   const props = {
     agents: [],
     providerKey: null,
@@ -311,7 +311,7 @@ it('clears cached agents on plugin changes with no Composer mounted and refetche
     pendingProjectId: null
   })
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         composerCatalog: query,
         releaseComposerCatalog: async () => {},
@@ -345,7 +345,7 @@ it('fills agents from the provider catalog while the runtime list loads and over
       : Promise.resolve({ part: 'models', value: [], generation: 'g1' } as ComposerCatalogResult)
   )
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         composerCatalog: query,
         releaseComposerCatalog: vi.fn(async () => undefined),

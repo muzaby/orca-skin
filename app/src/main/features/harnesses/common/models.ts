@@ -1,6 +1,6 @@
 // 모델 해석 (handoff 0017 D2; settings-json-model-parser 로 meta.json 제거 후 재정의).
 // provider 별 모델은 이제 sources/settings/<adapter>/<provider>/settings.json 을 claude/model-parser.ts
-// 로 파싱해 얻는다(provider-registry.listProviders). 본 모듈은 alias→name 해석과 orca:agent:list
+// 로 파싱해 얻는다(provider-registry.listProviders). 본 모듈은 alias→name 해석과 oo:agent:list
 // 페이로드 변환을 담당한다. 순수 함수 — vitest 대상.
 
 import type { AgentEnvironment, AgentModelView } from '../../../../shared/ipc'
@@ -74,7 +74,7 @@ export function modelForPreferredAlias(models: ParsedModel[], alias: string): st
   return modelNameForFamily(models, preferred ? modelKey(preferred) : null)
 }
 
-// 도메인 entry → `orca:agent:list` 행. 순환을 피해 구조적 입력만 받는다(HarnessModelProviderEntry
+// 도메인 entry → `oo:agent:list` 행. 순환을 피해 구조적 입력만 받는다(HarnessModelProviderEntry
 // 미import). ParsedModel 은 필드 변환 없이 그대로 통과시킨다.
 //
 // **행을 만드는 자리는 여기 하나다** — settings 원천과 runtime 카탈로그가 같은 함수를 지나야

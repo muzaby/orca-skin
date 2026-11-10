@@ -208,7 +208,7 @@ describe('컨텍스트 바의 컨트롤 — `×` 는 타일이 그린다 (제안
     expect(tagOf(shown)).toContain('aria-label="파일 목록 숨기기"')
   })
 
-  it('활성 목록 토글은 Orca 파란 selected 토큰을 쓴다 (ΔV8 AT-80)', () => {
+  it('활성 목록 토글은 Orcinus orca 파란 selected 토큰을 쓴다 (ΔV8 AT-80)', () => {
     const html = render({ sidebarVisible: true })
     const at = html.indexOf('data-diff-sidebar-toggle=')
     const button = html.slice(html.lastIndexOf('<button', at), html.indexOf('</button>', at))

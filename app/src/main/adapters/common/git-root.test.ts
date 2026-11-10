@@ -5,7 +5,7 @@ import { expect, it } from 'vitest'
 import { gitRootLineage, gitRootSync } from './git-root'
 
 it('finds the nearest Git ancestor through three nested directories and falls back to cwd', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-git-root-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-git-root-'))
   const nested = join(root, 'a', 'b', 'c')
   mkdirSync(nested, { recursive: true })
   try {

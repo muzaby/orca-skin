@@ -36,7 +36,7 @@ async function readPreview(
   publicationId: string
 ): Promise<ArtifactPreviewResult> {
   try {
-    return await window.orca.artifacts.preview({ sessionId, publicationId })
+    return await window.oo.artifacts.preview({ sessionId, publicationId })
   } catch {
     return { state: 'unavailable', reason: 'io-error' }
   }
@@ -62,7 +62,7 @@ async function revealUnsupported(
 ): Promise<boolean> {
   if (result.state !== 'unavailable' || result.reason !== 'unsupported-format') return false
   try {
-    const revealed = await window.orca.artifacts.reveal({
+    const revealed = await window.oo.artifacts.reveal({
       sessionId,
       publicationId: artifact.publicationId
     })

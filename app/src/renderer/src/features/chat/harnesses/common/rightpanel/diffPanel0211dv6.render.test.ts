@@ -60,7 +60,7 @@ const EMPTY_PATCH: GitDiffPatch = {
 
 const STATUS: GitStatus = {
   isRepo: true,
-  root: '/x/orca',
+  root: '/x/orcinus-orca',
   branch: 'claude/hello-hcpxul',
   detached: false
 }

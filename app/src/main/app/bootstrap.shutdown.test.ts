@@ -15,10 +15,10 @@ vi.mock('../infra/settings-store', () => ({ SettingsStore: class {} }))
 import { Bootstrap } from './bootstrap'
 import { ExtensionDeploymentService } from '../features/extensions/common/extension-deployment-service'
 import * as extensionDeployer from '../features/extensions/claude/deployer'
-import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../adapters/common/mcp-config'
 import type { RouterContext } from './context'
 import { TypedBus } from '../infra/bus'
-import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
+import type { MainBus, OoBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import { HistoryWriter } from '../features/history/writer'
 import { TitleGenerator } from '../features/chat/title-generation'
@@ -55,7 +55,7 @@ describe('Bootstrap turn event registration', () => {
         bus: MainBus<Electron.WebContents>
       ): HistoryWriter
     }
-    const bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>()
+    const bus = new TypedBus<OoBusEvents<Electron.WebContents>>()
     const persistence = bootstrap.registerTurnEvents(ctx, bus)
     const turn = {
       currentAssistantMessageId: 42,
@@ -169,7 +169,7 @@ describe('Bootstrap title ownership', () => {
 
 describe('Bootstrap deployment forwarding', () => {
   it('deploys enabled MCP servers after resolver expansion and excludes unresolved servers', async () => {
-    const source: OrcaMcpConfig = {
+    const source: OoMcpConfig = {
       command: { command: 'fake-mcp', args: ['serve'], env: { TOKEN: '${TEST_TOKEN}' } },
       remote: {
         type: 'http',
@@ -179,7 +179,7 @@ describe('Bootstrap deployment forwarding', () => {
       unresolved: { command: 'missing-mcp', env: { TOKEN: '${MISSING_TOKEN}' } }
     }
     const before = structuredClone(source)
-    const enabledConfig = (): OrcaMcpConfig => source
+    const enabledConfig = (): OoMcpConfig => source
     const resolver =
       (): ((name: string) => string | undefined) =>
       (name: string): string | undefined =>
@@ -207,7 +207,7 @@ describe('Bootstrap deployment forwarding', () => {
 
     expect(deploy).toHaveBeenCalledExactlyOnceWith('claude', {
       skillRoots: [
-        expect.objectContaining({ sourceId: 'orca' }),
+        expect.objectContaining({ sourceId: 'orcinus-orca' }),
         expect.objectContaining({ sourceId: 'adapter:claude' })
       ],
       mcpConfig: {

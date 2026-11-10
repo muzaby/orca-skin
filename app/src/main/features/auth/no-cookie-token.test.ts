@@ -47,7 +47,7 @@ describe('토큰은 쿠키에서 나오지 않는다 (0195 D-006)', () => {
   // 추출(어떤 토큰을 뽑는가) · 주석/문자열 제거(무엇을 실재로 세는가). 지점마다 하나씩 심는다.
 
   it('대상 집합 — 중첩 디렉토리의 위반을 잡고 테스트 파일은 세지 않는다', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-cookie-guard-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-cookie-guard-'))
     mkdirSync(join(root, 'browser-session'), { recursive: true })
     writeFileSync(join(root, 'clean.ts'), 'export const a = 1\n')
     // 심은 결함 ①: 하위 디렉토리 — 훑기가 최상위에서 멈추면 이 줄이 보이지 않는다.

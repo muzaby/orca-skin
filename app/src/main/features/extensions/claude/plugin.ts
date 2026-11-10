@@ -7,13 +7,13 @@ import { chmod, cp, mkdir, readdir, writeFile } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../../shared/ipc'
-import { ORCA_PLUGIN_NAME } from '../../../adapters/claude/plugin'
+import { OO_PLUGIN_NAME } from '../../../adapters/claude/plugin'
 import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
 import type { ClaudeMcpConfig } from '../../../adapters/claude/mcp-config'
 import type { SkillScanRoot } from '../common/skills/scan'
 
-const ORCA_PLUGIN_MANIFEST = {
-  name: ORCA_PLUGIN_NAME,
+const OO_PLUGIN_MANIFEST = {
+  name: OO_PLUGIN_NAME,
   description: `${PRODUCT_DISPLAY_NAME}에서 구성된 skill 및 mcp`,
   version: '1.0.0'
 } as const
@@ -26,13 +26,13 @@ interface ClaudeHarnessPluginInput {
 }
 
 export function builtInHarnessPluginRoot(root: string, engine: Backend): string {
-  return join(root, 'dist', engine, 'plugins', ORCA_PLUGIN_NAME)
+  return join(root, 'dist', engine, 'plugins', OO_PLUGIN_NAME)
 }
 
-async function copyOrcaSkills(roots: SkillScanRoot[], dest: string): Promise<void> {
+async function copyOoSkills(roots: SkillScanRoot[], dest: string): Promise<void> {
   await mkdir(dest, { recursive: true })
   for (const root of roots) {
-    if (root.sourceKind !== 'orca') continue
+    if (root.sourceKind !== 'orcinus-orca') continue
     let entries: Dirent[]
     try {
       entries = await readdir(root.rootDir, { withFileTypes: true })
@@ -61,19 +61,19 @@ export async function renderClaudeHarnessPlugin(input: ClaudeHarnessPluginInput)
   const agentsDir = join(pluginRoot, 'agents')
   const hooksDir = join(pluginRoot, 'hooks')
 
-  // 디렉토리 4곳은 서로 독립 — 병렬 생성(copyOrcaSkills 가 skillsDir mkdir 를 겸한다).
+  // 디렉토리 4곳은 서로 독립 — 병렬 생성(copyOoSkills 가 skillsDir mkdir 를 겸한다).
   await Promise.all([
     mkdir(manifestDir, { recursive: true }),
     mkdir(agentsDir, { recursive: true }),
     mkdir(hooksDir, { recursive: true }),
-    copyOrcaSkills(input.skillRoots, skillsDir)
+    copyOoSkills(input.skillRoots, skillsDir)
   ])
 
   const mcpPath = join(pluginRoot, '.mcp.json')
   await Promise.all([
     writeFile(
       join(manifestDir, 'plugin.json'),
-      JSON.stringify(ORCA_PLUGIN_MANIFEST, null, 2),
+      JSON.stringify(OO_PLUGIN_MANIFEST, null, 2),
       'utf8'
     ),
     writeFile(mcpPath, JSON.stringify({ mcpServers: input.mcpConfig }, null, 2), 'utf8')

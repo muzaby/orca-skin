@@ -8,7 +8,7 @@ import { providerConnectionInfo } from '../connection-views'
 //
 // 응답 DTO 에 raw secret 이 없다 — 상태·만료·표시용 principal 만 나간다.
 //
-// **채널·DTO 이름은 `orca:provider:*` 그대로다** (0188 D-030) — 별도 UI migration 전까지
+// **채널·DTO 이름은 `oo:provider:*` 그대로다** (0188 D-030) — 별도 UI migration 전까지
 // compatibility 계약이다. 내부 소유자만 바뀌었다.
 
 import {

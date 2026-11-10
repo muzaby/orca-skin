@@ -52,7 +52,7 @@ beforeEach(() => {
   fixture.state.backend = 'claude'
   read.mockReset().mockResolvedValue({ state: 'connected', generation: 'g', items: [] })
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
-  Object.assign(window, { orca: { session: { nativeResources: read } } })
+  Object.assign(window, { oo: { session: { nativeResources: read } } })
 })
 afterEach(() => {
   dom.unmount()

@@ -99,7 +99,7 @@ async function run(tool, stop, scenario) {
       (body.messages ?? []).some(
         (message) =>
           message.role === 'user' &&
-          JSON.stringify(message.content).includes('orca-fixture-workflow-child')
+          JSON.stringify(message.content).includes('orcinus-orca-fixture-workflow-child')
       )
     )
       await delay(3000)
@@ -113,7 +113,7 @@ async function run(tool, stop, scenario) {
               .filter((block) => block.type === 'text')
               .map((block) => block.text)
               .join('\n')
-        ).includes('orca-fixture-child-shell')
+        ).includes('orcinus-orca-fixture-child-shell')
     )
     const selectedTool =
       scenario?.owner && scenario.owner !== 'main' ? (childRequest ? 'Bash' : 'Agent') : tool
@@ -129,32 +129,32 @@ async function run(tool, stop, scenario) {
     }
     const command = promotion
       ? tool === 'Bash'
-        ? `printf '%s' "$$" > '${scenario.name}.started'; sleep 8; printf '%s' "$$" > '${scenario.name}.done'; printf 'orca-promotion-finished\\n'`
-        : `$PID | Set-Content -LiteralPath '${scenario.name}.started'; Start-Sleep -Seconds 8; $PID | Set-Content -LiteralPath '${scenario.name}.done'; Write-Output 'orca-promotion-finished 한글'`
+        ? `printf '%s' "$$" > '${scenario.name}.started'; sleep 8; printf '%s' "$$" > '${scenario.name}.done'; printf 'orcinus-orca-promotion-finished\\n'`
+        : `$PID | Set-Content -LiteralPath '${scenario.name}.started'; Start-Sleep -Seconds 8; $PID | Set-Content -LiteralPath '${scenario.name}.done'; Write-Output 'orcinus-orca-promotion-finished 한글'`
       : scenario && selectedTool === 'Bash'
-        ? `printf '%s' "$$" > '${scenario.name}.started'; sleep 8; printf 'finished' > '${scenario.name}.done'; printf 'orca-lifetime-finished\\n'`
+        ? `printf '%s' "$$" > '${scenario.name}.started'; sleep 8; printf 'finished' > '${scenario.name}.done'; printf 'orcinus-orca-lifetime-finished\\n'`
         : tool === 'Bash'
-          ? `sleep ${stop ? 20 : 3}; printf 'orca-sdk-smoke-bash\\n'`
-          : `Start-Sleep -Seconds ${stop ? 20 : 3}; Write-Output 'orca-sdk-smoke-powershell 한글'`
+          ? `sleep ${stop ? 20 : 3}; printf 'orcinus-orca-sdk-smoke-bash\\n'`
+          : `Start-Sleep -Seconds ${stop ? 20 : 3}; Write-Output 'orcinus-orca-sdk-smoke-powershell 한글'`
     const input =
       selectedTool === 'Workflow'
         ? {
             // Valid module syntax reaches the CLI's second-stage async-function compiler.
             script:
               scenario?.action === 'oneshot'
-                ? "export const meta = { name: 'orca-smoke-oneshot', description: 'Bounded local fixture agent', phases: [] }; return await agent('orca-fixture-workflow-child: return a local result.');"
-                : "export const meta = { name: 'orca-smoke-start-error', description: 'Bounded syntax error fixture', phases: [] }; export const unsupportedBodyExport = 1;"
+                ? "export const meta = { name: 'orcinus-orca-smoke-oneshot', description: 'Bounded local fixture agent', phases: [] }; return await agent('orcinus-orca-fixture-workflow-child: return a local result.');"
+                : "export const meta = { name: 'orcinus-orca-smoke-start-error', description: 'Bounded syntax error fixture', phases: [] }; export const unsupportedBodyExport = 1;"
           }
         : selectedTool === 'Agent'
           ? {
               subagent_type: 'general-purpose',
               description: 'SDK local agent smoke',
               prompt: scenario
-                ? 'orca-fixture-child-shell: Run the bounded local background Bash fixture once, then return.'
+                ? 'orcinus-orca-fixture-child-shell: Run the bounded local background Bash fixture once, then return.'
                 : 'Return a brief local smoke result.',
               ...(scenario ? { run_in_background: scenario.owner === 'background-agent' } : {})
             }
-          : { command, run_in_background: !promotion, description: 'Orca SDK local smoke' }
+          : { command, run_in_background: !promotion, description: 'Orcinus orca SDK local smoke' }
     const content = use
       ? [
           {

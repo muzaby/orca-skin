@@ -11,7 +11,7 @@ import { applyMigrations } from '../infra/db/migrate'
 import type { LineageRelation } from '../infra/db/types'
 import type { NormalizedEvent } from '../../shared/ipc'
 import { TypedBus } from '../infra/bus'
-import type { OrcaBusEvents } from '../contracts/bus-events'
+import type { OoBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import { TurnCoordinator, type CoordinatorRuntime } from '../features/chat/turn-coordinator'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
@@ -103,7 +103,7 @@ async function runTurn(
     () => false,
     (arrival) => materializeContinuityArrival(db, arrival)
   )
-  const bus = new TypedBus<OrcaBusEvents<unknown>>()
+  const bus = new TypedBus<OoBusEvents<unknown>>()
   bus.on('turn.event', ({ turn: t, ev }) => persistence.persist(t, ev), { critical: true })
   bus.on('turn.event', ({ ev }) => forwarded.push(ev))
   // 0067: 프롬프트도 큐 경유 — enqueue→예약 후 첫 모델 출력(uuid=item id) 관측으로 커밋된다.

@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
   ipcMain: { handle: (key: string, fn: never) => handlers.set(key, fn) },
   shell: {}
 }))
-vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({}) }))
+vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({}) }))
 
 const cleanups: (() => void)[] = []
 afterEach(() => {

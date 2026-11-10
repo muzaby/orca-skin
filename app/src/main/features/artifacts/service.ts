@@ -30,7 +30,7 @@ export interface ArtifactPublishContext {
   isCurrent(): boolean
 }
 export interface ArtifactReceipt {
-  type: 'orca.artifact.published'
+  type: 'orcinus-orca.artifact.published'
   version: 1
   publicationId: string
 }
@@ -221,7 +221,7 @@ export class ArtifactService {
         throw new Error('storage-failed')
       }
       committed = true
-      return { type: 'orca.artifact.published', version: 1, publicationId }
+      return { type: 'orcinus-orca.artifact.published', version: 1, publicationId }
     } catch (error) {
       throw artifactError(error)
     } finally {

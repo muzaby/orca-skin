@@ -659,7 +659,7 @@ describe('claudeToNormalized', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'user',
-        uuid: 'orca-steer-1',
+        uuid: 'orcinus-orca-steer-1',
         message: { content: [{ type: 'text', text: 'steer feedback' }] }
       }),
       ctx()
@@ -669,8 +669,8 @@ describe('claudeToNormalized', () => {
         type: 'input.echo',
         sessionId: 's1',
         text: 'steer feedback',
-        uuid: 'orca-steer-1',
-        nativeMessageId: 'orca-steer-1'
+        uuid: 'orcinus-orca-steer-1',
+        nativeMessageId: 'orcinus-orca-steer-1'
       }
     ])
   })

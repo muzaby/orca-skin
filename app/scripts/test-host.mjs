@@ -5,7 +5,7 @@
 // 그래서 홈·XDG 루트를 테스트 전용 임시 루트로 바꾸고 하네스·git 변수를 지운다.
 //
 // 지우는 술어는 접두사다 — 프로덕션이 읽는 키를 하나씩 나열하면 새 키가 조용히 샌다.
-// `ORCA_*`(opt-in 실기 테스트·배율)·PATH·임시 폴더·프록시는 건드리지 않는다.
+// `ORCINUS_ORCA_*`(opt-in 실기 테스트·배율)·PATH·임시 폴더·프록시는 건드리지 않는다.
 
 import { join } from 'node:path'
 
@@ -51,7 +51,7 @@ export function hermeticTestEnv({ env, root, platform }) {
  * - `core.autocrlf=false`: LF 픽스처가 CRLF 로 바뀌지 않는다(Git for Windows 시스템 설정은 NOSYSTEM 이 막는다).
  * - `maintenance.auto=false`: `git commit` 마다 뜨는 `git maintenance run --auto` 자식 프로세스를 없앤다.
  */
-export const HERMETIC_GIT_IDENTITY = { name: 'orca test', email: 'test@orca.local' }
+export const HERMETIC_GIT_IDENTITY = { name: 'Orcinus orca test', email: 'test@orcinus-orca.local' }
 export const HERMETIC_GIT_CONFIG = [
   '[user]',
   `\tname = ${HERMETIC_GIT_IDENTITY.name}`,

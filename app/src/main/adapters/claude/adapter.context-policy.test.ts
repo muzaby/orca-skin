@@ -153,8 +153,8 @@ describe('0245 AC21 — three actual query input paths', () => {
       const attachments = {
         text: path,
         attachmentTexts: [
-          textAttachment('C:/Temp/Orca/first reference.md'),
-          textAttachment('C:/Temp/Orca/second.txt')
+          textAttachment('C:/Temp/orcinus-orca/first reference.md'),
+          textAttachment('C:/Temp/orcinus-orca/second.txt')
         ],
         attachmentImages: [image]
       }
@@ -175,7 +175,7 @@ describe('0245 AC21 — three actual query input paths', () => {
         { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'QUJD' } },
         {
           type: 'text',
-          text: `${path}\n\n@"C:/Temp/Orca/first reference.md"\n@"C:/Temp/Orca/second.txt"`
+          text: `${path}\n\n@"C:/Temp/orcinus-orca/first reference.md"\n@"C:/Temp/orcinus-orca/second.txt"`
         }
       ])
       expect(args.options.additionalDirectories).toContain(resolve(tmpdir(), PRODUCT_SLUG))

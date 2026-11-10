@@ -108,7 +108,7 @@ describe('provider-owned Tweaks store', () => {
     const ready = deferred<void>()
     vi.mocked(bootApi.whenReady).mockReturnValueOnce(ready.promise)
     vi.mocked(settingsApi.get)
-      .mockRejectedValueOnce(new Error("No handler registered for 'orca:settings:get'"))
+      .mockRejectedValueOnce(new Error("No handler registered for 'oo:settings:get'"))
       .mockResolvedValueOnce({ ...SettingsSchema.parse({}), ...initial, theme: 'dark' })
     const cleanup = store.load()
     await Promise.resolve()

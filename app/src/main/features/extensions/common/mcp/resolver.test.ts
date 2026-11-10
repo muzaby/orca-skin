@@ -20,51 +20,54 @@ describe('MCP resolver — process.env 전체 fallback 제거 (AC11)', () => {
   })
 
   it('allowlist 에 없는 이름은 process.env 에 있어도 보이지 않는다', () => {
-    process.env.ORCA_TEST_LEAK = 'should-not-leak'
+    process.env.ORCINUS_ORCA_TEST_LEAK = 'should-not-leak'
     try {
       const resolve = makeResolver({ secrets: secrets() })
-      expect(resolve('ORCA_TEST_LEAK')).toBeUndefined()
+      expect(resolve('ORCINUS_ORCA_TEST_LEAK')).toBeUndefined()
     } finally {
-      delete process.env.ORCA_TEST_LEAK
+      delete process.env.ORCINUS_ORCA_TEST_LEAK
     }
   })
 
   it('allowlist 에 정확히 적은 이름만 env fallback 을 허용한다', () => {
-    process.env.ORCA_TEST_ALLOWED = 'ok'
-    process.env.ORCA_TEST_OTHER = 'nope'
+    process.env.ORCINUS_ORCA_TEST_ALLOWED = 'ok'
+    process.env.ORCINUS_ORCA_TEST_OTHER = 'nope'
     try {
       const resolve = makeResolver({
         secrets: secrets(),
-        envAllowlist: ['ORCA_TEST_ALLOWED']
+        envAllowlist: ['ORCINUS_ORCA_TEST_ALLOWED']
       })
-      expect(resolve('ORCA_TEST_ALLOWED')).toBe('ok')
-      expect(resolve('ORCA_TEST_OTHER')).toBeUndefined()
+      expect(resolve('ORCINUS_ORCA_TEST_ALLOWED')).toBe('ok')
+      expect(resolve('ORCINUS_ORCA_TEST_OTHER')).toBeUndefined()
     } finally {
-      delete process.env.ORCA_TEST_ALLOWED
-      delete process.env.ORCA_TEST_OTHER
+      delete process.env.ORCINUS_ORCA_TEST_ALLOWED
+      delete process.env.ORCINUS_ORCA_TEST_OTHER
     }
   })
 
   it('접두사 일치로 allowlist 를 우회할 수 없다', () => {
-    process.env.ORCA_TEST_ALLOWED_EXTRA = 'sneaky'
+    process.env.ORCINUS_ORCA_TEST_ALLOWED_EXTRA = 'sneaky'
     try {
-      const resolve = makeResolver({ secrets: secrets(), envAllowlist: ['ORCA_TEST_ALLOWED'] })
-      expect(resolve('ORCA_TEST_ALLOWED_EXTRA')).toBeUndefined()
+      const resolve = makeResolver({
+        secrets: secrets(),
+        envAllowlist: ['ORCINUS_ORCA_TEST_ALLOWED']
+      })
+      expect(resolve('ORCINUS_ORCA_TEST_ALLOWED_EXTRA')).toBeUndefined()
     } finally {
-      delete process.env.ORCA_TEST_ALLOWED_EXTRA
+      delete process.env.ORCINUS_ORCA_TEST_ALLOWED_EXTRA
     }
   })
 
   it('vault 가 allowlist env 보다 우선한다', () => {
-    process.env.ORCA_TEST_BOTH = 'from-env'
+    process.env.ORCINUS_ORCA_TEST_BOTH = 'from-env'
     try {
       const resolve = makeResolver({
-        secrets: secrets({ ORCA_TEST_BOTH: 'from-vault' }),
-        envAllowlist: ['ORCA_TEST_BOTH']
+        secrets: secrets({ ORCINUS_ORCA_TEST_BOTH: 'from-vault' }),
+        envAllowlist: ['ORCINUS_ORCA_TEST_BOTH']
       })
-      expect(resolve('ORCA_TEST_BOTH')).toBe('from-vault')
+      expect(resolve('ORCINUS_ORCA_TEST_BOTH')).toBe('from-vault')
     } finally {
-      delete process.env.ORCA_TEST_BOTH
+      delete process.env.ORCINUS_ORCA_TEST_BOTH
     }
   })
 })

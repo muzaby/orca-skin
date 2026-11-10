@@ -6,10 +6,10 @@ import { escapeAttribute } from '../common/prompt-escape'
 // sentinel 블록 + attribute escaping + content 태그 + sentinel/닫는태그 neutralize.
 // 이 중 escaping 은 **주장이 아니라 강제**다 — `prompt-escape.ts` 한 함수를 셋이 부른다(0218).
 
-const START_SENTINEL = 'ORCA_PLAN_FEEDBACK_START'
-const END_SENTINEL = 'ORCA_PLAN_FEEDBACK_END'
-const COMMENT_START_SENTINEL = 'ORCA_PLAN_COMMENT_START'
-const COMMENT_END_SENTINEL = 'ORCA_PLAN_COMMENT_END'
+const START_SENTINEL = 'ORCINUS_ORCA_PLAN_FEEDBACK_START'
+const END_SENTINEL = 'ORCINUS_ORCA_PLAN_FEEDBACK_END'
+const COMMENT_START_SENTINEL = 'ORCINUS_ORCA_PLAN_COMMENT_START'
+const COMMENT_END_SENTINEL = 'ORCINUS_ORCA_PLAN_COMMENT_END'
 
 const INSTRUCTION =
   'The user reviewed your proposed plan and left inline comments anchored to quoted ' +
@@ -24,8 +24,8 @@ const MAX_QUOTE_CHARS = 200
 // 사용자 콘텐츠가 sentinel/닫는 태그를 흉내내 블록 구조를 깨거나 인젝션하는 것을 차단한다.
 function neutralize(text: string): string {
   return text
-    .replaceAll('<<<ORCA_PLAN_FEEDBACK', '<<<ORCA_PLAN_FEEDBACK_ESCAPED')
-    .replaceAll('<<<ORCA_PLAN_COMMENT', '<<<ORCA_PLAN_COMMENT_ESCAPED')
+    .replaceAll('<<<ORCINUS_ORCA_PLAN_FEEDBACK', '<<<ORCINUS_ORCA_PLAN_FEEDBACK_ESCAPED')
+    .replaceAll('<<<ORCINUS_ORCA_PLAN_COMMENT', '<<<ORCINUS_ORCA_PLAN_COMMENT_ESCAPED')
     .replaceAll('</quote>', '<\\/quote>')
     .replaceAll('</comment>', '<\\/comment>')
     .replaceAll('</note>', '<\\/note>')

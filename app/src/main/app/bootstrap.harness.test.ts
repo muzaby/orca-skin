@@ -52,7 +52,7 @@ vi.mock('../infra/settings-store', () => ({
 vi.mock('../infra/config/secret-store', () => ({ SecretStore: class {} }))
 vi.mock('../infra/config/paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infra/config/paths')>()),
-  orcaConfigDir: () => fixture.root
+  ooConfigDir: () => fixture.root
 }))
 vi.mock('../infra/db', () => ({ initDb: () => ({}), getDbConnection: () => null }))
 vi.mock('../features/chat/recovery', () => ({
@@ -109,7 +109,7 @@ import { netFetch } from '../infra/net/net-fetch'
 
 const bootstraps: Bootstrap[] = []
 beforeEach(() => {
-  fixture.root = mkdtempSync(join(tmpdir(), 'orca-bootstrap-harness-'))
+  fixture.root = mkdtempSync(join(tmpdir(), 'orcinus-orca-bootstrap-harness-'))
   fixture.userData = join(fixture.root, 'user-data')
 })
 afterEach(() => {

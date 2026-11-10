@@ -15,7 +15,7 @@ import {
 } from '../../features/chat/session-activity-projector'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import { TypedBus } from '../../infra/bus'
-import type { OrcaBusEvents } from '../../contracts/bus-events'
+import type { OoBusEvents } from '../../contracts/bus-events'
 import { makeClassifiedError } from '../../infra/errors'
 import { setRootLogger } from '../../infra/log/registry'
 import type { AppLogger } from '../../infra/log/log-manager'
@@ -126,7 +126,7 @@ function fixture(options: { activeChain?: boolean } = {}) {
     emit: (snapshot) => activityEvents.push(snapshot)
   })
   const events: NormalizedEvent[] = []
-  const bus = new TypedBus<OrcaBusEvents<WebContents>>()
+  const bus = new TypedBus<OoBusEvents<WebContents>>()
   bus.on('turn.event', ({ ev }) => {
     events.push(ev)
   })

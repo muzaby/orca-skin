@@ -30,7 +30,7 @@ export async function nativeHistoryFixture(): Promise<{
   file: string
   write: (entries: ClaudeHistoryEntry[]) => Promise<void>
 }> {
-  const root = await mkdtemp(path.join(tmpdir(), 'orca-native-history-'))
+  const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-native-history-'))
   const cwd = path.join(root, 'workspace')
   const config = path.join(root, 'native-config')
   const project = path.join(config, 'projects', 'native-project-key')

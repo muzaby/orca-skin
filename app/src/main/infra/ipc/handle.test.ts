@@ -51,37 +51,37 @@ afterEach(() => {
 
 describe('handle() invalid payload logging (0124 AC6)', () => {
   it("'reject' 정책 — reject 하면서 ipc.payload.rejected warn 을 남긴다", async () => {
-    handle('orca:test:reject', schema, 'reject', (data: string) => data.length)
-    await expect(handlers.get('orca:test:reject')!({}, 42)).rejects.toThrow('invalid')
+    handle('oo:test:reject', schema, 'reject', (data: string) => data.length)
+    await expect(handlers.get('oo:test:reject')!({}, 42)).rejects.toThrow('invalid')
     expect(warns).toEqual([
       {
         event: 'ipc.payload.rejected',
-        data: { channel: 'orca:test:reject', policy: 'reject' }
+        data: { channel: 'oo:test:reject', policy: 'reject' }
       }
     ])
   })
 
   it('fallback 정책 — 폴백을 반환하면서 warn 을 남긴다', async () => {
-    handle('orca:test:fallback', schema, { fallback: -1 }, (data: string) => data.length)
-    await expect(handlers.get('orca:test:fallback')!({}, 42)).resolves.toBe(-1)
+    handle('oo:test:fallback', schema, { fallback: -1 }, (data: string) => data.length)
+    await expect(handlers.get('oo:test:fallback')!({}, 42)).resolves.toBe(-1)
     expect(warns).toEqual([
       {
         event: 'ipc.payload.rejected',
-        data: { channel: 'orca:test:fallback', policy: 'fallback' }
+        data: { channel: 'oo:test:fallback', policy: 'fallback' }
       }
     ])
   })
 
   it('유효 payload 는 무기록으로 통과한다', async () => {
-    handle('orca:test:ok', schema, 'reject', (data: string) => data.length)
-    await expect(handlers.get('orca:test:ok')!({}, 'abcd')).resolves.toBe(4)
+    handle('oo:test:ok', schema, 'reject', (data: string) => data.length)
+    await expect(handlers.get('oo:test:ok')!({}, 'abcd')).resolves.toBe(4)
     expect(warns).toHaveLength(0)
   })
 
   it('registry 미초기화(no-op 로거)에서도 throw 하지 않는다', async () => {
     setRootLogger(null)
-    handle('orca:test:noop', schema, { fallback: 0 }, (data: string) => data.length)
-    await expect(handlers.get('orca:test:noop')!({}, 42)).resolves.toBe(0)
+    handle('oo:test:noop', schema, { fallback: 0 }, (data: string) => data.length)
+    await expect(handlers.get('oo:test:noop')!({}, 42)).resolves.toBe(0)
     expect(getLogger()).toBeDefined()
   })
 })

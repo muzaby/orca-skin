@@ -8,7 +8,7 @@ import { FileTransport, logFilePath } from './file-transport'
 let dir: string
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'orca-log-'))
+  dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-log-'))
 })
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
@@ -105,7 +105,7 @@ describe('FileTransport', () => {
 
 it('arms flush only for buffered writes and clears the timer on explicit flush and close', async () => {
   vi.useFakeTimers()
-  const dir = mkdtempSync(join(tmpdir(), 'orca-demand-log-'))
+  const dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-demand-log-'))
   const transport = new FileTransport({ dir })
   try {
     expect(vi.getTimerCount()).toBe(0)

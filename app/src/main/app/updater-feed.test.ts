@@ -9,7 +9,7 @@ describe('resolveUpdateFeed', () => {
   it('enabled:false 는 비활성 + feed 없음', () => {
     expect(resolveUpdateFeed({ enabled: false })).toEqual({ disabled: true })
     // provider/필드가 남아 있어도 enabled:false 가 우선한다
-    expect(resolveUpdateFeed({ enabled: false, provider: 's3', bucket: 'orca' })).toEqual({
+    expect(resolveUpdateFeed({ enabled: false, provider: 's3', bucket: 'orcinus-orca' })).toEqual({
       disabled: true
     })
   })
@@ -26,7 +26,7 @@ describe('resolveUpdateFeed', () => {
       resolveUpdateFeed({
         provider: 'github',
         owner: 'infra',
-        repo: 'orca',
+        repo: 'orcinus-orca',
         host: 'github.company.com',
         protocol: 'https',
         channel: 'latest'
@@ -36,7 +36,7 @@ describe('resolveUpdateFeed', () => {
       feed: {
         provider: 'github',
         owner: 'infra',
-        repo: 'orca',
+        repo: 'orcinus-orca',
         host: 'github.company.com',
         protocol: 'https',
         channel: 'latest'
@@ -46,19 +46,23 @@ describe('resolveUpdateFeed', () => {
 
   it('generic → url + channel', () => {
     expect(
-      resolveUpdateFeed({ provider: 'generic', url: 'https://updates.internal/orca/' })
+      resolveUpdateFeed({ provider: 'generic', url: 'https://updates.internal/orcinus-orca/' })
     ).toEqual({
       disabled: false,
-      feed: { provider: 'generic', url: 'https://updates.internal/orca/' }
+      feed: { provider: 'generic', url: 'https://updates.internal/orcinus-orca/' }
     })
   })
 
   it('s3(AWS) → bucket/region, endpoint 없이도 유효', () => {
     expect(
-      resolveUpdateFeed({ provider: 's3', bucket: 'orca-updates', region: 'ap-northeast-2' })
+      resolveUpdateFeed({
+        provider: 's3',
+        bucket: 'orcinus-orca-updates',
+        region: 'ap-northeast-2'
+      })
     ).toEqual({
       disabled: false,
-      feed: { provider: 's3', bucket: 'orca-updates', region: 'ap-northeast-2' }
+      feed: { provider: 's3', bucket: 'orcinus-orca-updates', region: 'ap-northeast-2' }
     })
   })
 
@@ -66,7 +70,7 @@ describe('resolveUpdateFeed', () => {
     expect(
       resolveUpdateFeed({
         provider: 's3',
-        bucket: 'orca-updates',
+        bucket: 'orcinus-orca-updates',
         endpoint: 'http://minio.internal:9000',
         path: 'win',
         channel: 'latest'
@@ -75,7 +79,7 @@ describe('resolveUpdateFeed', () => {
       disabled: false,
       feed: {
         provider: 's3',
-        bucket: 'orca-updates',
+        bucket: 'orcinus-orca-updates',
         endpoint: 'http://minio.internal:9000',
         path: 'win',
         channel: 'latest'

@@ -44,10 +44,10 @@ vi.mock('../../infra/log', () => ({
 vi.mock('../../infra/log/registry', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })
 }))
-vi.mock('../../infra/config/orca-config', () => ({ getOrcaConfig: () => ({}), appEnv: () => ({}) }))
+vi.mock('../../infra/config/oo-config', () => ({ getOoConfig: () => ({}), appEnv: () => ({}) }))
 vi.mock('../../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../../infra/config/paths')>()),
-  orcaConfigDir: () => fixture.root
+  ooConfigDir: () => fixture.root
 }))
 
 afterEach(() => {
@@ -57,7 +57,7 @@ afterEach(() => {
 })
 
 it('imports fields, saves an independent document and lists/resolves only its model without a server', async () => {
-  fixture.root = mkdtempSync(join(tmpdir(), 'orca-engine-scope-'))
+  fixture.root = mkdtempSync(join(tmpdir(), 'orcinus-orca-engine-scope-'))
   const globalRoot = join(fixture.root, 'global')
   vi.stubEnv('XDG_CONFIG_HOME', globalRoot)
   mkdirSync(join(globalRoot, 'opencode'), { recursive: true })

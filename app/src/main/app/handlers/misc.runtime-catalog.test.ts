@@ -15,8 +15,8 @@ vi.mock('../../infra/log', () => ({
   getLogger: () => ({ child: () => ({ debug: vi.fn() }) }),
   setConsoleMirror: vi.fn()
 }))
-vi.mock('../../infra/config/orca-config', () => ({
-  getOrcaConfig: () => ({}),
+vi.mock('../../infra/config/oo-config', () => ({
+  getOoConfig: () => ({}),
   appEnv: () => ({ XDG_DATA_HOME: 'C:/native/data' })
 }))
 

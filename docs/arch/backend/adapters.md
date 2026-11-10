@@ -12,7 +12,7 @@ OpenCode 웜업·로그인 프리 모델 조회·전역 감시·컴포저 준비
 
 ## 1. Backend Adapter 추상화
 
-> ⚠️ **"LLM Provider" 가 아니다.** Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK (Claude Code SDK, opencode 등) 를 래핑한다. 용어는 [GLOSSARY.md](../../GLOSSARY.md) §3 참조.
+> ⚠️ **"LLM Provider" 가 아니다.** Orcinus orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK (Claude Code SDK, opencode 등) 를 래핑한다. 용어는 [GLOSSARY.md](../../GLOSSARY.md) §3 참조.
 
 ### 1.1 SessionAdapter 인터페이스 계약
 
@@ -52,7 +52,7 @@ Work와 Code는 실행 backend와 별개인 제품 에이전트 종류다. `feat
 
 호스트 모델 목록(`listProviderModels` → `OpenCodeServerPool.listModels`)은 서버 시작과 같은 실행 파일·같은 1.x 판정(`assertCliVersion`)을 쓰고 `models <provider> --verbose --pure`를 홈 cwd·`OPENCODE_DISABLE_PROJECT_CONFIG=true`로 실행한다. 출력은 `model-listing.ts`가 `provider/model` 줄과 0열 JSON 블록으로 해석하며 형식이 깨지면 부분 목록 대신 실패한다. 로그인 프리 연결이 이 결과로 만든 runtime 행은 settings 대신 `HarnessRuntimeConfig.availableModels`·`modelDetails`를 정본으로 하므로 catalog는 runtime 행의 모델을 다시 계산하지 않고 primary agent만 채운다. settings 파일이 없는 OpenCode 키는 빈 설정으로 해석한다.
 
-`opencode/v1/native-history.ts`는 동일 native ID·cwd를 확인하고 변경 중이거나 응답이 미완료인 이력의 교체를 보류한다. 원본 세션이 없으면 `missing`을 반환한다. 공통 조립은 snapshot을 Orca DB에 보관해 표시·검색에 사용한다. 목록 제거와 보관 계층의 수명은 [persistence.md](./persistence.md), 원본 소유 정책은 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
+`opencode/v1/native-history.ts`는 동일 native ID·cwd를 확인하고 변경 중이거나 응답이 미완료인 이력의 교체를 보류한다. 원본 세션이 없으면 `missing`을 반환한다. 공통 조립은 snapshot을 Orcinus orca DB에 보관해 표시·검색에 사용한다. 목록 제거와 보관 계층의 수명은 [persistence.md](./persistence.md), 원본 소유 정책은 [ADR-009](../../decisions/009-harness-native-storage-authority.md)를 따른다.
 
 `OpenCodeAdapter`는 `/v2/client`의 legacy 호환 API(`/session`, `/global/event`)를 사용한다. 정적 엔진 catalog는 문서에서 파생하며 서버를 시작하지 않는다. OpenCode composer에 작업폴더가 정해지면 `prepareComposer`가 실행 설정에 맞는 directory lease를 확보한다. `/agent`와 `/provider`는 독립적으로 요청·반영하며 별도 config/SSE/session/MCP/command 조회를 선행하지 않는다. native `/agent`가 plugin 초기화와 config hook을 포함한 자신의 의존성을 처리한다. 실행 연결에서는 `opencode/v1/session-context.ts`가 소유 server URL·인증 generation별 SDK client와 전역 SSE를 공유한다. 메시지 제출은 global 연결과 native config 준비를 확인하며 일반 입력은 명령 목록을 기다리지 않고 slash 입력은 성공한 동일 instance의 목록으로 dispatch한다.
 
@@ -79,7 +79,7 @@ native user의 synthetic text만 공통 `input.received`로 기록하고, 모델
 
 nav의 확장 카탈로그는 하네스 전역 파일만 읽으며 서버나 directory를 만들지 않는다. Claude plugin과 OpenCode MCP는 가변 토글·일반 폰트이며, OpenCode plugin과 Claude MCP는 실제 상태의 고정 토글·회색 폰트다. 기본 경로 스킬은 항상 활성으로 취급하며 토글을 제공하지 않는다. 미지정 항목은 native 기본값을 따르고 명시 선택만 `Settings.nativeExtensionChoices`에 저장한다. app의 control은 시작 시 이를 복원하고 변경 시 main 전용 setter를 거쳐 저장한다. renderer의 일반 settings patch는 선택을 바꿀 수 없다. 설정 버전 업그레이드 시 예전 선택을 한 번 비우고 이후 저장값은 재시작에도 유지한다.
 
-Claude plugin 전역 선택은 새 Query마다 SDK inline plugin flags로 반영한다. 살아 있는 Query는 자기 flag를 바꾸지 않으므로 nav 전역 토글이 실행 중인 Claude 프로세스를 모두 닫고(동작 중 세션이 있으면 먼저 확인), 다음 메시지가 새 프로세스로 같은 대화를 resume한다(`app/harnesses/claude/processes.ts`). 초안·미실행 세션도 user 설정보다 Orca 선택, 그보다 project·local 설정을 우선해 명령과 리소스를 읽는다. 설치 폴더가 없는 플러그인은 실행·카탈로그에서 제외한다. 같은 작업경로의 살아 있는 Query들은 Orca 스킬 선택·배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
+Claude plugin 전역 선택은 새 Query마다 SDK inline plugin flags로 반영한다. 살아 있는 Query는 자기 flag를 바꾸지 않으므로 nav 전역 토글이 실행 중인 Claude 프로세스를 모두 닫고(동작 중 세션이 있으면 먼저 확인), 다음 메시지가 새 프로세스로 같은 대화를 resume한다(`app/harnesses/claude/processes.ts`). 초안·미실행 세션도 user 설정보다 Orcinus orca 선택, 그보다 project·local 설정을 우선해 명령과 리소스를 읽는다. 설치 폴더가 없는 플러그인은 실행·카탈로그에서 제외한다. 같은 작업경로의 살아 있는 Query들은 Orcinus orca 스킬 선택·배포 사본을 공유하며 마지막 Query 해제 후 새 값을 읽는다. 배포기는 직렬화된 배포 안에서 immutable 사본을 발행하고, 기존 owner가 참조하는 사본은 후속 배포나 재로드로 바뀌지 않는다. 프로젝트 plugin 선택은 이 기본값보다 우선한다. Claude native MCP는 SDK 저장이 Git 루트와 하위 작업폴더에 전파되므로 전역·프로젝트 제어를 제공하지 않는다. Windows Claude 플러그인만 실제 cwd의 `.claude/settings.local.json`에 `enabledPlugins` 키를 병합 저장하며 다른 키는 보존한다.
 
 Claude 설정·manifest 읽기는 spawn과 목록이 같은 정책을 쓴다(`claude/native-settings-file.ts`, 빈 내용 규칙은 `infra/config/json-file.ts`의 `parseJsonObject`). 파일이 없거나 내용이 비었으면(0바이트·공백·BOM만·`null`) 설정 없음으로 보고 알리지 않는다. 내용이 있는데 읽거나 파싱할 수 없으면 CLI처럼 그 파일만 빼고 계속하며, `plugin.json`이면 그 플러그인만 실행·목록에서 제외한다. 경로와 사유만 담은 경고 토스트(`claude.native-settings.skipped`)를 같은 파일 상태당 한 번 내고 파일 내용은 싣지 않는다. 쓰기를 지배하는 읽기(`plugin-state.ts`·`project-settings.ts`)는 빈 내용 규칙만 공유하고, 내용이 있는 깨진 파일에서는 저장을 거부해 파일을 덮어쓰지 않는다(0301).
 
@@ -125,7 +125,7 @@ OpenCode 서버 기동 설정은 같은 환경의 전역 파일에서 켜진 MCP
 
 ### 1.5 SDKMessage → NormalizedEvent 정규화
 
-`adapters/claude/map.ts` 의 `claudeToNormalized` 가 SDK 메시지를 `NormalizedEvent` 로 직접 정규화한다(순수 함수). 와이어(`orca:chat:event`)의 유일한 페이로드는 `NormalizedEvent` 이고, variant 전수는 [IPC_CONTRACT.md §3](../../IPC_CONTRACT.md) 이 SSOT, SDKMessage → variant 매핑표는 [provider-runtime.md §2](./provider-runtime.md) 가 갖는다. 구 `ChatEvent` 어휘는 제거됐다([GLOSSARY.md](../../GLOSSARY.md) NormalizedEvent 항목).
+`adapters/claude/map.ts` 의 `claudeToNormalized` 가 SDK 메시지를 `NormalizedEvent` 로 직접 정규화한다(순수 함수). 와이어(`oo:chat:event`)의 유일한 페이로드는 `NormalizedEvent` 이고, variant 전수는 [IPC_CONTRACT.md §3](../../IPC_CONTRACT.md) 이 SSOT, SDKMessage → variant 매핑표는 [provider-runtime.md §2](./provider-runtime.md) 가 갖는다. 구 `ChatEvent` 어휘는 제거됐다([GLOSSARY.md](../../GLOSSARY.md) NormalizedEvent 항목).
 
 ### 1.6 인증 만료 감지
 
@@ -133,7 +133,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 
 ### 1.7 SDK 채택 범위 (현행)
 
-| SDK 기능 | Orca | 상태 | 비고 |
+| SDK 기능 | Orcinus orca | 상태 | 비고 |
 |---|---|---|---|
 | `query({ prompt, options })` 단일 진입점 | ✅ | 구현 | CLI `claude -p` 의 대체. 대화는 장수명 채널(`pushTurn`), 제목은 `complete()` 단발 |
 | `options.resume: sessionId` | ✅ | 구현 | `--resume` 직접 대응 |
@@ -151,7 +151,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `prompt: AsyncIterable<SDKUserMessage>` | ✅ | 구현 | `streaming-input.ts` 턴-스코프 입력 — 장수명 채널 `pushTurn` 의 토대 |
 | `forkSession` | ✅ | 구현 | Fork(분기)가 SDK 네이티브 `forkSession` 에 위임([GLOSSARY.md](../../GLOSSARY.md) Fork) |
 | `getSessionMessages` | ✅ | 조회 | `claude/native-history.ts`가 원본 JSONL의 ID·cwd·파일 일관성을 확인하고 SDK로 현재 chain을 선택한다. 세션 경로는 CLI 규칙(`claude/transcript-cwd.ts`) — 마지막 유효 `relocated` 스탬프, 없으면 처음 기록된 `cwd` — 이며 항목별 `cwd`(셸 현재 경로)의 이동은 경로 변경이 아니다. 원본이 있는데 그 경로를 찾을 수 없거나 저장 경로와 다르면 `unavailable`이다. 조회용 메모리 저장소는 실행 query의 native persistence를 바꾸지 않는다([persistence.md](./persistence.md)) |
-| native 전체 세션 목록 가져오기 | ❌ | 미제공 | Orca에 알려진 세션만 재조회하며 native 저장소 전체를 목록으로 자동 가져오지 않는다 |
+| native 전체 세션 목록 가져오기 | ❌ | 미제공 | Orcinus orca에 알려진 세션만 재조회하며 native 저장소 전체를 목록으로 자동 가져오지 않는다 |
 
 자세한 SDK API 시그니처는 [`docs/spec/claude/agent-sdk/typescript.md`](../../spec/claude/agent-sdk/typescript.md) (SSOT).
 
@@ -163,9 +163,9 @@ opencode 등 다중 어댑터 환경 대비:
 
 | 책임 | 현재 | 확장 경계 |
 |---|---|---|
-| Skills 스캔 경로 | app 조립이 Orca sources와 하네스 native 루트를 제공하고 공통 scanner에 주입 | 하네스별 경로·지원 범위는 §2 참조 |
+| Skills 스캔 경로 | app 조립이 Orcinus orca sources와 하네스 native 루트를 제공하고 공통 scanner에 주입 | 하네스별 경로·지원 범위는 §2 참조 |
 | 자격증명 주입 | Auth 플랫폼 — Harness `RuntimeConfigAugmenter`(`features/harnesses/common/runtime-config.ts`)가 선택된 Harness+ModelProvider 에 자격증명 env overlay 를 붙여 `options.env` 로 넘긴다([auth.md](./auth.md)). 어댑터는 키 이름을 모른다 | 어댑터별 자격증명 요구를 선언으로 노출하는 seam — security.md §1.4 |
-| native 세션 → Orca 보관 | `readHistory()` → 공통 native sync → snapshot·검색·표시 projection | native 형식 해석은 하네스 모듈이 소유 — [persistence.md](./persistence.md) |
+| native 세션 → Orcinus orca 보관 | `readHistory()` → 공통 native sync → snapshot·검색·표시 projection | native 형식 해석은 하네스 모듈이 소유 — [persistence.md](./persistence.md) |
 | 설치 / binary 해소 | Claude는 SDK 번들 CLI, OpenCode는 설치된 CLI와 하네스 설정 경로 사용 | 설치·버전·수명은 각 구현이 소유 |
 
 ### 1.9 새 백엔드 추가 체크리스트
@@ -192,13 +192,13 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 | 항목 | 값 |
 |---|---|
-| 스캔 루트 | Orca source, Claude/OpenCode 사용자 native 루트, 해당 설치 plugin의 skill metadata, lock에 등록된 `~/.agents/skills`. 프로젝트별 스킬은 실행 SDK 명령에서 보완한다. Claude native 루트는 §1.3의 resolver를 따른다 |
+| 스캔 루트 | Orcinus orca source, Claude/OpenCode 사용자 native 루트, 해당 설치 plugin의 skill metadata, lock에 등록된 `~/.agents/skills`. 프로젝트별 스킬은 실행 SDK 명령에서 보완한다. Claude native 루트는 §1.3의 resolver를 따른다 |
 | 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
 | 인식 키 | `name`, `description`, `argument-hint`, `user-invocable`. plugin metadata의 정확한 명령 이름을 보존한다 |
-| 캐싱 | 부팅·목록 조회·Orca 작성·업로드·토글·삭제 때 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → `Bootstrap.skillsCache` |
+| 캐싱 | 부팅·목록 조회·Orcinus orca 작성·업로드·토글·삭제 때 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → `Bootstrap.skillsCache` |
 | 핫리로드 | 파일 감시 없음 — 바깥에서 고친 스킬은 다음 재스캔(위 동작) 또는 재시작에 반영 |
 
-> 사용자 Claude skills 루트는 `app/harnesses/claude/extensions.ts`가 제공한다. OpenCode 설치 plugin의 `skills`/`skill` 루트와 plugin 내부의 명시 `skills.paths`는 read-only로 스캔하며 plugin 코드는 실행하지 않는다. `agents`는 lock의 등록 이름과 실재 파일의 교집합이며 lock 안의 upstream 경로는 해석하지 않는다. canonical 경로가 같은 alias는 하나만 표시한다. OpenCode 실행 명령은 SDK skill location을 실제 설치 plugin/자체 루트와 대조하여 다른 도구의 스킬·일반 command를 제외한다. Orca 스킬의 OpenCode 배포 지원과 표시 목록은 별도 범위다.
+> 사용자 Claude skills 루트는 `app/harnesses/claude/extensions.ts`가 제공한다. OpenCode 설치 plugin의 `skills`/`skill` 루트와 plugin 내부의 명시 `skills.paths`는 read-only로 스캔하며 plugin 코드는 실행하지 않는다. `agents`는 lock의 등록 이름과 실재 파일의 교집합이며 lock 안의 upstream 경로는 해석하지 않는다. canonical 경로가 같은 alias는 하나만 표시한다. OpenCode 실행 명령은 SDK skill location을 실제 설치 plugin/자체 루트와 대조하여 다른 도구의 스킬·일반 command를 제외한다. Orcinus orca 스킬의 OpenCode 배포 지원과 표시 목록은 별도 범위다.
 
 **번들 스킬 시딩 (0078)**: 부팅 시퀀스의 `builtin-skill-seed` 단계에서 `skills/seed.ts` 의 `seedBuiltinSkills(builtinDir, sourcesSkillsDir)` 가 앱에 번들된 스킬을 `sources/skills/` 로 1회 시딩한다. `app/builtin-resources.ts` 가 dev/패키지 빌드의 번들 경로를 해석하고, manifest/marker 버전 게이트로 이미 시딩된(또는 사용자가 수정한) 스킬을 덮어쓰지 않는다.
 
@@ -215,10 +215,10 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 | Backend | 예상 경로 |
 |---|---|
-| `claude-code` | `<Claude native 루트>/skills/` (현재 — Orca `sources/skills` 와 병행) |
+| `claude-code` | `<Claude native 루트>/skills/` (현재 — Orcinus orca `sources/skills` 와 병행) |
 | `opencode` | `~/.config/opencode/skills/` (TBD — opencode 공식 경로 확인 필요) |
 
-- IPC `orca:skills:list` 의 응답은 활성 어댑터의 경로만 반영 (또는 모든 등록된 어댑터의 경로 통합 — 결정 필요).
+- IPC `oo:skills:list` 의 응답은 활성 어댑터의 경로만 반영 (또는 모든 등록된 어댑터의 경로 통합 — 결정 필요).
 
 ### 2.3 게시 원본 파일 (Artifacts)
 
@@ -242,22 +242,22 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 | 자산 | 정규 소스 (Tier A, 중립) | claude 어댑트 | opencode 어댑트 | 정규화도 |
 |---|---|---|---|---|
-| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → plugin `.mcp.json`(`dist/<engine>/plugins/orcinus-orca/`, 배포 시 `${VAR}` 해석); 인프로세스 runtime tool 은 `options.mcpServers` | (opencode 변환기 미구현 — `opencode.json` `mcp` 는 목표 형식) | ✅ claude 축 구현됨 |
+| **MCP** | `mcp.json` (`OoMcpConfig`) | `toClaudeConfig` → plugin `.mcp.json`(`dist/<engine>/plugins/orcinus-orca/`, 배포 시 `${VAR}` 해석); 인프로세스 runtime tool 은 `options.mcpServers` | (opencode 변환기 미구현 — `opencode.json` `mcp` 는 목표 형식) | ✅ claude 축 구현됨 |
 | **Skill** | `skills/<n>/SKILL.md` | `dist/<engine>/plugins/orcinus-orca/skills/` 배포 → `options.plugins` 로 로드(`settingSources: ['project','local']`) | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
 | **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
 | **Hook(런타임)** | **런타임 전용** — 배포 자산 아님 | `options.hooks` in-process 콜백(claude-side `NormalizedHookSet`, §3.2.5) | 네이티브 플러그인 모듈 | ❌ 정규화 안 함(§3.2) |
 
-→ "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
+→ "어댑터를 Orcinus orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
 
-> **엔진 고유 자산**: agents·commands·hooks·full-plugin 번들의 원본은 각 하네스가 관리하며 Orca sources/dist로 복사하지 않는다. Claude는 `plugin-catalog.ts`가 사용자·프로젝트·로컬 활성 설정과 설치 registry를 해석하고 `sendMessage`가 해당 범위 내 설치의 local plugin 경로와 스킬 허용 목록을 SDK에 전달하고 name@inline 세션 플래그로 초기 활성/비활성 상태를 강제한다. 실행 중에는 applyFlagSettings→reloadPlugins로 활성 상태를 변경·확인하고 원래 설치 key의 선택을 프로젝트 `.claude/settings.local.json` enabledPlugins에 원자 저장한다. 기존 설정·다른 플러그인 key는 보존하며 저장 실패 시 직전 SDK 상태로 복구한다. 다음 spawn은 프로젝트 local 선택을 provider 기본값보다 우선해 복원한다. provider 전역 설정 격리는 유지하며 사용자 인증·env·model을 함께 상속하지 않는다. 런타임 hook(`options.hooks`)은 별도 어댑터 경로다.
+> **엔진 고유 자산**: agents·commands·hooks·full-plugin 번들의 원본은 각 하네스가 관리하며 Orcinus orca sources/dist로 복사하지 않는다. Claude는 `plugin-catalog.ts`가 사용자·프로젝트·로컬 활성 설정과 설치 registry를 해석하고 `sendMessage`가 해당 범위 내 설치의 local plugin 경로와 스킬 허용 목록을 SDK에 전달하고 name@inline 세션 플래그로 초기 활성/비활성 상태를 강제한다. 실행 중에는 applyFlagSettings→reloadPlugins로 활성 상태를 변경·확인하고 원래 설치 key의 선택을 프로젝트 `.claude/settings.local.json` enabledPlugins에 원자 저장한다. 기존 설정·다른 플러그인 key는 보존하며 저장 실패 시 직전 SDK 상태로 복구한다. 다음 spawn은 프로젝트 local 선택을 provider 기본값보다 우선해 복원한다. provider 전역 설정 격리는 유지하며 사용자 인증·env·model을 함께 상속하지 않는다. 런타임 hook(`options.hooks`)은 별도 어댑터 경로다.
 
 네이티브 스킬 메뉴는 실행 채널이 있으면 SDK의 실제 명령을, 없으면 활성 설치 플러그인의 skill/command 파일에서 얻은 이름·설명·힌트를 사용한다. 설치 metadata는 매 조회/새 spawn에서 읽으며 사용자 호출 금지 스킬은 메뉴에서 제외한다. 메뉴의 `plugin::skill` 표시와 전송의 `/plugin:skill` 이름은 구분한다.
 
-Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다. Orca가 실행 중 Query에 적용하고 저장한 plugin 선택은 그 런타임이 `nativeResourcesApplied(revision)`로 적용됨을 보고해 감시자가 미적용 설정으로 표시하지 않는다(파일에 외부 편집이 섞이면 그 revision은 미적용이다). 감시 방송은 같은 프로젝트 변경 큐 뒤에서 나간다(0284).
+Claude 프로젝트 확장은 `project-settings.ts`가 MCP/plugin 대상 키의 revision을 계산하고 `project-reconciliation.ts`가 시작 시 기본값과 외부 프로젝트 선택을 대조한다. Windows 프로젝트 settings/local 파일은 현재 cwd를 사용하며 native MCP 상태는 SDK의 Git 프로젝트 항목도 읽는다. 외부 plugin 재적용은 파일을 역으로 저장하지 않고, MCP on/off의 native 저장은 SDK에 맡긴다. `.mcp.json` 승인·거부는 프로젝트 출처에만 적용하며 일반 MCP의 disabledMcpServers와 구분한다. 다음 실행은 전역/provider 기본값 위에 프로젝트·local 선택을 순서대로 적용한다. Orcinus orca가 실행 중 Query에 적용하고 저장한 plugin 선택은 그 런타임이 `nativeResourcesApplied(revision)`로 적용됨을 보고해 감시자가 미적용 설정으로 표시하지 않는다(파일에 외부 편집이 섞이면 그 revision은 미적용이다). 감시 방송은 같은 프로젝트 변경 큐 뒤에서 나간다(0284).
 
-컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 기본 경로 스킬과 Orca 스킬을 표시하고 native 플러그인 출처 스킬은 제외한다. 네이티브 플러그인은 플러그인 탭에서 관리하며 세션의 호출 가능 명령 목록과 구별한다.
+컴포저의 slash 자동완성·강조도 같은 세션 native 명령 관측을 사용한다. 전역 스킬 탭은 기본 경로 스킬과 Orcinus orca 스킬을 표시하고 native 플러그인 출처 스킬은 제외한다. 네이티브 플러그인은 플러그인 탭에서 관리하며 세션의 호출 가능 명령 목록과 구별한다.
 
-OpenCode의 설정 파일 목록은 초안·nav discovery에만 사용하며 실행 SDK가 재개 후 관측한 plugin 목록을 제한하지 않는다. 연결 이벤트에서 목록을 갱신하고 renderer의 세션별 관측 저장소는 같은 generation의 부분 실패에도 연결 상태를 보존한다. 명시 종료는 연결 상태와 제어 권한을 해제한다. Claude가 Orca 주입 MCP를 실제 관측하면 `origin=orca`로 반환하여 Composer의 Orca 그룹에 표시하고, native 관리 목록과 SDK 내부 서버에서는 분리한다.
+OpenCode의 설정 파일 목록은 초안·nav discovery에만 사용하며 실행 SDK가 재개 후 관측한 plugin 목록을 제한하지 않는다. 연결 이벤트에서 목록을 갱신하고 renderer의 세션별 관측 저장소는 같은 generation의 부분 실패에도 연결 상태를 보존한다. 명시 종료는 연결 상태와 제어 권한을 해제한다. Claude가 Orcinus orca 주입 MCP를 실제 관측하면 `origin=orcinus-orca`로 반환하여 Composer의 Orcinus orca 그룹에 표시하고, native 관리 목록과 SDK 내부 서버에서는 분리한다.
 
 ---
 
@@ -273,7 +273,7 @@ MCP/skill 은 **정적 선언 데이터**다 — 디스크 파일을 다른 형�
 
 #### 3.2.2 중립 이벤트 어휘 — `NormalizedHookEvent`
 
-claude SDK 이벤트(`docs/spec/claude/agent-sdk/hooks.md`)를 Orca 중립 어휘로 매핑한다. **교집합을 코어로, 백엔드 전용은 메타데이터로 표시**한다.
+claude SDK 이벤트(`docs/spec/claude/agent-sdk/hooks.md`)를 Orcinus orca 중립 어휘로 매핑한다. **교집합을 코어로, 백엔드 전용은 메타데이터로 표시**한다.
 
 | `NormalizedHookEvent` | claude 이벤트 | opencode 대응(추정) | 코어/전용 |
 |---|---|---|---|
@@ -333,10 +333,10 @@ const protectEnv: NormalizedHookHandler = (ctx) =>
 
 여기가 "정규화 가능 / 불가능"이 갈리는 지점이다.
 
-- **claude (인프로세스)**: SDK 가 `query().options.hooks` 로 **인프로세스 TS 콜백**을 받는다. → Orca 가 hook 로직을 `NormalizedHookHandler`(인프로세스 함수)로 소유하고, claude 어댑터는 이를 claude `HookCallback` 으로 **얇게 래핑**해 넘기면 된다. **claude 단독 운영에서는 거의 완전 정규화** — 어휘·입출력·로직 전부 Orca 소유, 어댑터는 시그니처 어댑팅만.
+- **claude (인프로세스)**: SDK 가 `query().options.hooks` 로 **인프로세스 TS 콜백**을 받는다. → Orcinus orca 가 hook 로직을 `NormalizedHookHandler`(인프로세스 함수)로 소유하고, claude 어댑터는 이를 claude `HookCallback` 으로 **얇게 래핑**해 넘기면 된다. **claude 단독 운영에서는 거의 완전 정규화** — 어휘·입출력·로직 전부 Orcinus orca 소유, 어댑터는 시그니처 어댑팅만.
 
-- **opencode (out-of-process `serve`)**: opencode 는 HTTP 서버로 동작하고 hook 을 **별도 TS 플러그인 코드 모듈**로 로드한다. Orca 메인 프로세스의 인프로세스 콜백을 직접 호출할 수 없다. 두 가지 길:
-  - **(A) 코드생성 브릿지**: opencode config 에 *thin 플러그인 모듈*을 생성해 두고, 그 모듈이 발생 이벤트를 Orca 메인으로(local HTTP/IPC) 되돌려 `NormalizedHookHandler` 를 실행 → 결정을 회신. 임의 TS 로직을 그대로 살릴 수 있으나, **`before-tool` 같은 동기 게이팅은 왕복(round-trip) 레이턴시**가 붙는다(도구 실행을 막아 세우고 메인의 응답을 기다림). 후처리/로깅 계열(`after-tool`, `on-*`)은 비동기라 비용이 작다.
+- **opencode (out-of-process `serve`)**: opencode 는 HTTP 서버로 동작하고 hook 을 **별도 TS 플러그인 코드 모듈**로 로드한다. Orcinus orca 메인 프로세스의 인프로세스 콜백을 직접 호출할 수 없다. 두 가지 길:
+  - **(A) 코드생성 브릿지**: opencode config 에 *thin 플러그인 모듈*을 생성해 두고, 그 모듈이 발생 이벤트를 Orcinus orca 메인으로(local HTTP/IPC) 되돌려 `NormalizedHookHandler` 를 실행 → 결정을 회신. 임의 TS 로직을 그대로 살릴 수 있으나, **`before-tool` 같은 동기 게이팅은 왕복(round-trip) 레이턴시**가 붙는다(도구 실행을 막아 세우고 메인의 응답을 기다림). 후처리/로깅 계열(`after-tool`, `on-*`)은 비동기라 비용이 작다.
   - **(B) 선언형 변환**: 단순·선언형 hook(예: "이 도구는 차단", "이 프롬프트에 이 텍스트 주입")만 opencode 네이티브 형식으로 정적 변환. **임의 TS 로직은 표현 불가** → 표현력 손실.
 
 → **정규화 불가 영역이 이만큼으로 좁혀진다**: ① opencode 의 out-of-process 브릿지 비용(레이턴시) + ② (B 경로 선택 시) 표현력 한계 + ③ §3.2.2 의 백엔드 전용 이벤트. **이벤트 어휘·결정 형식·핸들러 로직 자체는 정규화된다.**

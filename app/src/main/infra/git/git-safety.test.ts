@@ -21,7 +21,7 @@ vi.setConfig(scaledBudget({ testTimeout: 150_000, hookTimeout: 150_000 }))
 const roots: string[] = []
 afterEach(() => removeTempRoots(roots.splice(0)))
 async function root(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-git-safety-'))
+  const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-git-safety-'))
   roots.push(cwd)
   return cwd
 }

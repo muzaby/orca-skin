@@ -28,7 +28,7 @@ function writeFile(p: string, content: string): void {
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-provider-settings-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-provider-settings-'))
 })
 afterEach(() => {
   rmSync(root, { recursive: true, force: true })
@@ -145,13 +145,13 @@ describe('model helpers (alias 기준)', () => {
     const custom = [
       {
         alias: 'custom',
-        model: 'orca-private-v1',
+        model: 'orcinus-orca-private-v1',
         isCustom: true,
         oneMillionContext: false,
         isDefault: true
       }
     ]
-    expect(modelNameForFamily(custom, 'orca-private-v1')).toBe('orca-private-v1')
+    expect(modelNameForFamily(custom, 'orcinus-orca-private-v1')).toBe('orcinus-orca-private-v1')
   })
 
   it('resolveTitleModel 은 haiku 보유 시 haiku, 없으면 default, 빈 배열이면 undefined', () => {

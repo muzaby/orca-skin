@@ -121,6 +121,6 @@ export function mergeAugmenters(
 // 만들지 않는다(0188 §성능 계약).
 export const AUTH_INVALIDATED_HARNESS_KEYS: Readonly<Record<string, readonly string[]>> = {}
 
-// 인증 성공 시 한 번 resolve해 모델 카탈로그에 투영할 Orca Harness 선언.
+// 인증 성공 시 한 번 resolve해 모델 카탈로그에 투영할 Orcinus orca Harness 선언.
 // 기본 배포는 Auth와 마찬가지로 비어 있고 폐쇄망 배포가 실제 Auth 상수의 id를 사용해 채운다.
 export const RUNTIME_MODEL_CONTRIBUTIONS: readonly RuntimeModelContribution[] = []

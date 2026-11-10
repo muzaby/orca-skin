@@ -89,7 +89,7 @@ it('observes an actual status-less SDK start after a failed Workflow receipt unt
 })
 
 it('journals before relay, captures late terminal output, and reloads without raw/currentness leakage', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'orca-background-it-'))
+  const directory = await mkdtemp(join(tmpdir(), 'orcinus-orca-background-it-'))
   const connection = new Database(':memory:')
   try {
     applyMigrations(connection)

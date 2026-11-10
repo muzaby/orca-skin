@@ -60,7 +60,7 @@ function artifactReceiptId(result: unknown): string | null {
     if (receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) return null
     const value = receipt as Record<string, unknown>
     return Object.keys(value).length === 3 &&
-      value.type === 'orca.artifact.published' &&
+      value.type === 'orcinus-orca.artifact.published' &&
       value.version === 1 &&
       typeof value.publicationId === 'string' &&
       value.publicationId.length > 0 &&

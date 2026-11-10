@@ -31,7 +31,7 @@ async function repo(): Promise<string> {
 }
 describe('snapshot request execution budget', () => {
   it('bounds missing/non-repository/unborn probes and repeats legacy date lookup', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'orca-snapshot-states-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-snapshot-states-'))
     roots.push(cwd)
     const run = vi.fn(runGit)
     const gateway = createGitGateway({ run })

@@ -6,19 +6,19 @@ import { execGit, FIXTURE_GIT_TIMEOUT_MS } from './git/temp-repo.testfixture'
 
 const trip = (): Promise<unknown> =>
   execGit('git', ['init', '--initial-branch=main'], {
-    cwd: process.env.ORCA_GIT_GUARD_PROBE_CWD!,
+    cwd: process.env.ORCINUS_ORCA_GIT_GUARD_PROBE_CWD!,
     timeout: FIXTURE_GIT_TIMEOUT_MS
   })
 it('직접 구성 고장 입력', async () => {
-  if (process.env.ORCA_GIT_GUARD_PROBE_MODE === 'allowance')
+  if (process.env.ORCINUS_ORCA_GIT_GUARD_PROBE_MODE === 'allowance')
     IO_GIT_ALLOWED.push({
       file: 'src/main/infra/io-git-guard.probe.testfixture.ts',
       subcommand: 'init',
       count: 1,
       reason: '이 자식에서만 쓰는 고장 입력: 실제 0회와 허용 1회의 불일치'
     })
-  if (process.env.ORCA_GIT_GUARD_PROBE_MODE === 'test') await trip()
+  if (process.env.ORCINUS_ORCA_GIT_GUARD_PROBE_MODE === 'test') await trip()
 })
 afterAll(async () => {
-  if (process.env.ORCA_GIT_GUARD_PROBE_MODE === 'afterAll') await trip()
+  if (process.env.ORCINUS_ORCA_GIT_GUARD_PROBE_MODE === 'afterAll') await trip()
 })

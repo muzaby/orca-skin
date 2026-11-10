@@ -183,7 +183,7 @@ export async function readClaudeNativeHistory(
     if (candidates.length === 0)
       return {
         status: 'missing',
-        message: 'Claude 원본 세션을 찾을 수 없습니다. Orca 보관 기록은 유지됩니다.'
+        message: 'Claude 원본 세션을 찾을 수 없습니다. Orcinus orca 보관 기록은 유지됩니다.'
       }
     if (candidates.length !== 1)
       return {
@@ -291,7 +291,8 @@ export async function readClaudeNativeHistory(
     if (code(error) === 'ENOENT')
       return {
         status: 'missing',
-        message: 'Claude 원본 세션 또는 작업 경로를 찾을 수 없습니다. Orca 보관 기록은 유지됩니다.'
+        message:
+          'Claude 원본 세션 또는 작업 경로를 찾을 수 없습니다. Orcinus orca 보관 기록은 유지됩니다.'
       }
     return {
       status: 'unavailable',

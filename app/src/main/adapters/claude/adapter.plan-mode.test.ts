@@ -83,7 +83,7 @@ async function setup(
   events: NormalizedEvent[]
   consume: () => Promise<void>
 }> {
-  const root = await mkdtemp(path.join(tmpdir(), 'orca-plan-mode-'))
+  const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-plan-mode-'))
   roots.push(root)
   const plans = path.join(root, 'plans')
   await mkdir(plans)

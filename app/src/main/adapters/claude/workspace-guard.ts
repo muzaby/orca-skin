@@ -16,7 +16,7 @@ import type {
   HookJSONOutput,
   PreToolUseHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
-import { isWithinDir, orcaConfigDir } from '../../infra/config/paths'
+import { isWithinDir, ooConfigDir } from '../../infra/config/paths'
 import { isAbsolutePath, isFilesystemRoot } from '../../../shared/absolute-path'
 import { claudeNativePaths } from './native-paths'
 
@@ -25,7 +25,7 @@ const READ_TOOLS = ['Read', 'Glob', 'Grep']
 
 // read **와 write** 를 모두 허용하는 예외 루트. `~/.claude` 는 plan 모드 산출물·skill 설치가 쓰기를
 // 요구할 수 있어(예: `~/.claude/skills/<name>` 설치, plan 아티팩트 기록) write 까지 연다(사용자 결정
-// 0075 r2). 가이드(0074 §3.2)의 기본 read-only 스탠스에서 Orca 가 의도적으로 넓힌 지점 — 편차로 문서화.
+// 0075 r2). 가이드(0074 §3.2)의 기본 read-only 스탠스에서 Orcinus orca 가 의도적으로 넓힌 지점 — 편차로 문서화.
 function writeExceptionRoots(nativeRoot: string): string[] {
   if (
     !isAbsolutePath(nativeRoot) ||
@@ -41,9 +41,9 @@ function writeExceptionRoots(nativeRoot: string): string[] {
 // 본다 → 그 read 를 허용하려면 이 루트가 필요하다(요구사항: node/python skill 실행 예외).
 export function readOnlyExceptionRoots(): string[] {
   return [
-    // ~/.config/orca — plugin/skill 제공(dist·sources). read-only 지만 세션 cwd(projects/<…>)는
+    // ~/.config/orcinus-orca — plugin/skill 제공(dist·sources). read-only 지만 세션 cwd(projects/<…>)는
     // writeRoots 라 write 허용된다(예외의 예외).
-    orcaConfigDir(),
+    ooConfigDir(),
     // node/python 등 런타임(실행 특성상 read 불가피). 패키지 앱에서 process.execPath 는 앱 바이너리라
     // 근사치다 — 정상 명령이 절대 interpreter 경로를 쓰다 오차단되면 verify 에서 최소 추가한다.
     path.dirname(process.execPath)
@@ -86,15 +86,15 @@ export function resolveGuardRoots(
     .filter((d) => !isFilesystemRoot(d))
   // write 허용 = cwd + additionalDirectories + write 예외(~/.claude)
   const writeRoots = [ws, ...extra, ...writeExceptionRoots(nativeRoot)]
-  // read 허용 = write + read-only 예외(~/.config/orca·런타임)
+  // read 허용 = write + read-only 예외(~/.config/orcinus-orca·런타임)
   const readRoots = [...writeRoots, ...readOnlyExceptionRoots()]
   return { ws, writeRoots, readRoots }
 }
 
 // 툴 1건의 경로 접근을 판정한다. 반환 `null` = pass-through(안·예외·비파일툴), 문자열 = deny 사유.
 // **write 불변식**: WRITE_TOOLS 는 writeRoots(cwd + additionalDirs + `~/.claude`)만 참조한다 —
-// read-only 예외(`~/.config/orca`·런타임)는 보지 않는다. 그래서 세션 cwd(`~/.config/orca/projects/<…>`)
-// 와 `~/.claude` 는 write 허용되고, `~/.config/orca/sources` 등은 write 차단된다.
+// read-only 예외(`~/.config/orcinus-orca`·런타임)는 보지 않는다. 그래서 세션 cwd(`~/.config/orcinus-orca/projects/<…>`)
+// 와 `~/.claude` 는 write 허용되고, `~/.config/orcinus-orca/sources` 등은 write 차단된다.
 //
 // **Bash 는 판정하지 않는다(0075 후속)**: 명령 문자열 정적 스크리닝은 eval·변수치환($HOME)·파이프·
 // base64 우회를 못 잡고 URL(`//host`)·literal `~/.claude` 를 오차단해 실효가 없었다 — 제거했다.

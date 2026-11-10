@@ -34,12 +34,12 @@ it('픽스처 git 은 해석된 실행 파일로 뜬다', async () => {
   const command = (await gitCommand())!
   const env = vi.fn(async (base: NodeJS.ProcessEnv) => ({
     ...(await command.env(base)),
-    ORCA_GIT_PROBE: 'resolved-env'
+    ORCINUS_ORCA_GIT_PROBE: 'resolved-env'
   }))
   vi.spyOn(commands, 'gitCommand').mockResolvedValue({ file: command.file, env })
   const { stdout } = await execGit(
     'git',
-    ['-c', 'alias.orca-probe=!printf "%s" "$ORCA_GIT_PROBE"', 'orca-probe'],
+    ['-c', 'alias.orcinus-orca-probe=!printf "%s" "$ORCINUS_ORCA_GIT_PROBE"', 'orcinus-orca-probe'],
     { timeout: FIXTURE_GIT_TIMEOUT_MS }
   )
   expect(stdout).toBe('resolved-env')
@@ -52,7 +52,7 @@ it('픽스처 git 은 해석된 실행 파일로 뜬다', async () => {
 it.each(['test', 'afterAll', 'allowance'] as const)(
   '실제 vitest의 %s 위반이 red가 된다',
   async (mode) => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-git-guard-probe-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-git-guard-probe-'))
     roots.push(root)
     const app = process.cwd()
     const config = join(root, 'vitest.config.mjs')
@@ -83,7 +83,11 @@ export default { root: ${JSON.stringify(app)}, test: { projects: buildProjects({
     const ok = await execGit(process.execPath, args, {
       cwd: app,
       timeout: FIXTURE_GIT_TIMEOUT_MS,
-      env: { ...process.env, ORCA_GIT_GUARD_PROBE_CWD: root, ORCA_GIT_GUARD_PROBE_MODE: mode }
+      env: {
+        ...process.env,
+        ORCINUS_ORCA_GIT_GUARD_PROBE_CWD: root,
+        ORCINUS_ORCA_GIT_GUARD_PROBE_MODE: mode
+      }
     }).then(
       () => true,
       () => false

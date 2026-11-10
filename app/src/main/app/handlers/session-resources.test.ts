@@ -374,7 +374,7 @@ it('treats a fresh registry as authoritative over live plugins', async () => {
 })
 
 it('lists draft installations without looking up a session', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'orca-draft-plugin-'))
+  const directory = await mkdtemp(join(tmpdir(), 'orcinus-orca-draft-plugin-'))
   try {
     const plugin: NativeResource = {
       id: 'draft-plugin',
@@ -446,7 +446,7 @@ describe('list failures keep their original cause (0301 H)', () => {
   })
 
   it('H2 a failed draft read names its cause', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'orca-draft-cause-'))
+    const directory = await mkdtemp(join(tmpdir(), 'orcinus-orca-draft-cause-'))
     try {
       registerSessionResourceHandlers({
         lookup: vi.fn(),

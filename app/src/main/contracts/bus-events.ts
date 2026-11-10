@@ -10,12 +10,12 @@ import type { NormalizedEvent } from '../../shared/ipc'
 import type { TypedBus } from '../infra/bus'
 import type { TurnContext } from './turn'
 
-export interface OrcaBusEvents<W = unknown> {
+export interface OoBusEvents<W = unknown> {
   // 어댑터 스트림 + 합성(telemetry·settle) 이벤트의 단일 팬아웃 지점.
   'turn.event': { turn: TurnContext<W>; ev: NormalizedEvent }
 }
 
-export type MainBus<W = unknown> = TypedBus<OrcaBusEvents<W>>
+export type MainBus<W = unknown> = TypedBus<OoBusEvents<W>>
 
 // turn.event 를 방출하는 얇은 콜백 — settle 등 버스를 직접 알 필요 없는 순수 함수에 주입한다.
 export type TurnEmit<W = unknown> = (turn: TurnContext<W>, ev: NormalizedEvent) => void

@@ -96,14 +96,14 @@ describe('buildTurnContent', () => {
     const content = buildTurnContent('질문 본문', [textAtt()], [], [requirement()])
     expect(typeof content).toBe('string')
     expect(content).toContain('@"C:/tmp/spec with spaces.md"')
-    expect(content).toContain('<<<ORCA_DIFF_REQUIREMENTS_START count="1">>>')
+    expect(content).toContain('<<<ORCINUS_ORCA_DIFF_REQUIREMENTS_START count="1">>>')
     expect(content).toContain('filePath="app/src/main/adapters/claude/adapter.ts"')
   })
 
   it('이미지 경로에서도 requirements 는 마지막 text 블록에만 실린다', () => {
     const content = buildTurnContent('보세요', [], [imageAtt()], [requirement()])
     const blocks = content as unknown as Array<Record<string, unknown>>
-    expect(blocks[1]?.text).toContain('<<<ORCA_DIFF_REQUIREMENTS_START count="1">>>')
+    expect(blocks[1]?.text).toContain('<<<ORCINUS_ORCA_DIFF_REQUIREMENTS_START count="1">>>')
     expect(blocks).toHaveLength(2)
   })
 
@@ -117,9 +117,9 @@ describe('buildTurnContent', () => {
     const blocks = content as Array<{ type: string; text?: string }>
     const text = blocks.at(-1)!.text!
     expect(text).toContain('@"C:/tmp/spec with spaces.md"\n@"C:/tmp/second.txt"')
-    expect(text.indexOf('ORCA_ATTACHMENT_END')).toBeLessThan(text.indexOf('@"'))
+    expect(text.indexOf('ORCINUS_ORCA_ATTACHMENT_END')).toBeLessThan(text.indexOf('@"'))
     expect(text.indexOf('@"C:/tmp/second.txt"')).toBeLessThan(
-      text.indexOf('ORCA_DIFF_REQUIREMENTS_START')
+      text.indexOf('ORCINUS_ORCA_DIFF_REQUIREMENTS_START')
     )
     expect(text).not.toContain('Attachment truncated')
     expect(text).not.toContain('id="att_text"')

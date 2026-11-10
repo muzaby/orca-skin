@@ -2,7 +2,7 @@
 //
 // 기준 PC 는 "5년 전 사무용 데스크톱" 이다. 예산 숫자는 측정 환경(GitHub windows 러너·로컬
 // 병렬)에서 잡은 **기준값** 으로만 적고, 실효값은 언제나 `기준값 × 배율` 이다. 배율 기본값은 3,
-// 더 느린 러너는 `ORCA_TEST_TIME_SCALE` 로 코드 수정 없이 올린다.
+// 더 느린 러너는 `ORCINUS_ORCA_TEST_TIME_SCALE` 로 코드 수정 없이 올린다.
 //
 // 늘려도 멈춤은 그대로 잡힌다 — 예산은 유한하고, 바뀌는 것은 멈춤을 보고하기까지의 시간뿐이다.
 // 그래서 배율은 1 이상의 **유한한** 수만 받는다(0·음수·NaN·Infinity 는 시작 시 실패).
@@ -11,7 +11,7 @@
 // 그 옵션에 `scaleMs` 를 쓰면 이중 배율이다.
 
 export const DEFAULT_TEST_TIME_SCALE = 3
-export const TEST_TIME_SCALE_ENV = 'ORCA_TEST_TIME_SCALE'
+export const TEST_TIME_SCALE_ENV = 'ORCINUS_ORCA_TEST_TIME_SCALE'
 
 /** 전역 케이스 예산 기준값 (0211 ΔV5 실측 20s). */
 export const BASE_CASE_MS = 20_000
@@ -20,7 +20,7 @@ export const BASE_HOOK_MS = 20_000
 /** `vi.waitFor` 무옵션 기준값 — vitest 기본 1s 는 지연 import 하나에도 모자란다(0294 §8). */
 export const BASE_WAIT_FOR_MS = 5_000
 
-/** `ORCA_TEST_TIME_SCALE` 해석. 미설정·빈 값은 기본값, 그 밖은 1 이상의 유한한 수만. */
+/** `ORCINUS_ORCA_TEST_TIME_SCALE` 해석. 미설정·빈 값은 기본값, 그 밖은 1 이상의 유한한 수만. */
 export function resolveTestTimeScale(env = process.env) {
   const raw = env[TEST_TIME_SCALE_ENV]
   if (raw === undefined || raw.trim() === '') return DEFAULT_TEST_TIME_SCALE

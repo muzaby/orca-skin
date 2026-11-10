@@ -1,20 +1,20 @@
-# Claude Code CLI 실행 스펙 (`spec/claude/` 라우터 + Orca 채택 표기)
+# Claude Code CLI 실행 스펙 (`spec/claude/` 라우터 + Orcinus orca 채택 표기)
 
-> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/common/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
+> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orcinus orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/features/extensions/common/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
 
 > **본 문서의 위치**
-> 이 문서는 Claude Code 공식 한국어 문서의 **해설 미러** 이다. 원문은 본 저장소의 `docs/spec/claude/` 에 *원문 그대로* 보관되며, 본 문서는 그 원문을 *Orca 관점* 으로 정리하고 채택 표기를 덧붙인다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 역할을 한다.
+> 이 문서는 Claude Code 공식 한국어 문서의 **해설 미러** 이다. 원문은 본 저장소의 `docs/spec/claude/` 에 *원문 그대로* 보관되며, 본 문서는 그 원문을 *Orcinus orca 관점* 으로 정리하고 채택 표기를 덧붙인다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 역할을 한다.
 >
 > - **1차 원본 (저장소 로컬 원문 미러)**:
 >   - `docs/spec/claude/headless.md` — 프로그래밍 방식 실행 (구 "헤드리스 모드")
 >   - `docs/spec/claude/cli-reference.md` — 전체 CLI 명령·플래그 참조
 > - **원격 원문**: `https://code.claude.com/docs/ko/headless`, `https://code.claude.com/docs/ko/cli-reference`
 > - **동기화 책임**: 원문이 갱신되면 (1) `docs/spec/claude/*.md` 를 *통째로 덮어쓰기* 한 뒤 (2) 본 문서를 미러와 정합화한다. 사람이 수동, 자동 동기화 없음. 미러 정책은 `docs/spec/AGENTS.md` 참조.
-> - **편집 규칙**: 외부 사실(플래그·이벤트 스키마)은 원문 미러를 따른다. 본 문서가 *추가* 하는 것은 **Orca v1 채택 박스**, 정리표, 절 번호 안정성 뿐이다.
+> - **편집 규칙**: 외부 사실(플래그·이벤트 스키마)은 원문 미러를 따른다. 본 문서가 *추가* 하는 것은 **Orcinus orca v1 채택 박스**, 정리표, 절 번호 안정성 뿐이다.
 > - **절 번호 안정**: PRD/TRD/architecture 가 본 문서를 §번호 로 인용한다. 절 번호 (§3·§4·§5·§7·§13) 는 함부로 재번호하지 않는다. 새 사실은 끝(§14)에 흡수하거나 기존 절의 하위 절로 둔다.
 > - **각주 표기 범례**: 각 섹션 말미에 다음 중 하나가 있다.
->   - ✅ **Orca v1 채택** — Phase 1 MVP 가 사용 (사용 방식·근거)
->   - ❌ **Orca v1 미사용** — MVP 범위 밖 (이유)
+>   - ✅ **Orcinus orca v1 채택** — Phase 1 MVP 가 사용 (사용 방식·근거)
+>   - ❌ **Orcinus orca v1 미사용** — MVP 범위 밖 (이유)
 >   - ⏳ **Open Question** — Phase 1 정책 미정 (PRD §11 / TRD §7.1 와 미러링)
 >   - ⛔ **대체됨** — 당시 채택했으나 이후 절에서 다른 방식으로 교체됨. 어느 절이 대체했는지 함께 적는다
 
@@ -24,7 +24,7 @@
 
 Claude Code 는 [Agent SDK](https://code.claude.com/docs/ko/agent-sdk/overview)와 동일한 도구·에이전트 루프·컨텍스트 관리 위에서 동작한다. 다음 세 가지 진입 경로가 있다.
 
-| 진입 경로 | 호출 방식 | Orca 사용 여부 |
+| 진입 경로 | 호출 방식 | Orcinus orca 사용 여부 |
 |---|---|---|
 | **CLI** (`claude -p`) | `child_process.spawn` 으로 매 턴 새 프로세스 | ⛔ 대체됨 — Phase 1 채택 후 §13 에서 SDK `query()` 로 교체 |
 | **Python SDK** (`claude-agent-sdk`) | Python 프로세스 임베드 | ❌ 미사용 (§10) |
@@ -32,7 +32,7 @@ Claude Code 는 [Agent SDK](https://code.claude.com/docs/ko/agent-sdk/overview)�
 
 > CLI 는 이전에 "헤드리스 모드" 로 불렸다. `-p` 플래그 및 모든 CLI 옵션은 동일하게 작동한다.
 
-> **요금 / 크레딧 정책 변경 (원문 Note)**: 2026-06-15 부 Agent SDK 와 `claude -p` 사용량은 구독 플랜의 *대화형 사용량 한도와 분리된* 월간 Agent SDK 크레딧에서 차감된다. Orca 는 사용자 머신의 구독·API 키 환경을 그대로 활용하므로 — 정책 결정 권한은 사용자에게 있다 — 본 문서가 Orca 측에서 따로 다루지 않는다. 다만 *비용/한도 도달* 시 stdout/stderr 에 별도 패턴이 나올 수 있어 §4.3 의 `api_retry` (`error: rate_limit` / `billing_error`) 와 함께 다룬다.
+> **요금 / 크레딧 정책 변경 (원문 Note)**: 2026-06-15 부 Agent SDK 와 `claude -p` 사용량은 구독 플랜의 *대화형 사용량 한도와 분리된* 월간 Agent SDK 크레딧에서 차감된다. Orcinus orca 는 사용자 머신의 구독·API 키 환경을 그대로 활용하므로 — 정책 결정 권한은 사용자에게 있다 — 본 문서가 Orcinus orca 측에서 따로 다루지 않는다. 다만 *비용/한도 도달* 시 stdout/stderr 에 별도 패턴이 나올 수 있어 §4.3 의 `api_retry` (`error: rate_limit` / `billing_error`) 와 함께 다룬다.
 
 ---
 
@@ -53,7 +53,7 @@ claude -p "What does the auth module do?"
 - `--append-system-prompt` / `--append-system-prompt-file` / `--system-prompt` / `--system-prompt-file` — 시스템 프롬프트 (§6)
 - `--bare` — 시작 시간 단축 (§2)
 
-`-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
+`-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orcinus orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
 ⛔ **대체됨 (§13)** — Phase 1 은 구 ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 했다. Phase 3 부터는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 부른다 — 현행 어댑터는 `src/main/adapters/claude/adapter.ts` 다.
 
@@ -77,7 +77,7 @@ claude -p "What does the auth module do?"
 
 > 공식: `--bare` 는 SDK/스크립트 호출에 권장되며 향후 릴리스에서 `-p` 의 기본값이 될 예정이다.
 
-⏳ **Open Question** — Phase 1 MVP 에서는 **미사용**. Orca 는 사용자 머신의 `~/.claude` 환경(로그인 토큰, 프로젝트 메모리, MCP 서버) 을 그대로 활용해야 하므로 베어 모드를 켜면 안 된다. 향후 *고정 컨텍스트* 가 필요한 자동 검증 시나리오에서 도입 검토 (PRD §11 신규 OQ 와 연결).
+⏳ **Open Question** — Phase 1 MVP 에서는 **미사용**. Orcinus orca 는 사용자 머신의 `~/.claude` 환경(로그인 토큰, 프로젝트 메모리, MCP 서버) 을 그대로 활용해야 하므로 베어 모드를 켜면 안 된다. 향후 *고정 컨텍스트* 가 필요한 자동 검증 시나리오에서 도입 검토 (PRD §11 신규 OQ 와 연결).
 
 ---
 
@@ -101,7 +101,7 @@ claude -p "Extract main function names from auth.py" \
   --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}'
 ```
 
-⛔ **대체됨 (§13)** — 본 절은 CLI 서브프로세스 실행에만 해당한다. Orca 는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 호출하므로 `--output-format` 을 넘기지 않는다(`rg stream-json app/src` = 0건). 스트리밍은 `query()` 의 async iterator 로 받고 정규화는 [`arch/backend/adapters.md`](./arch/backend/adapters.md)·[`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md) 가 정본이다. 단발 모드를 쓰지 않는 이유(첫 토큰 지연)는 그대로 유효하다.
+⛔ **대체됨 (§13)** — 본 절은 CLI 서브프로세스 실행에만 해당한다. Orcinus orca 는 CLI 를 띄우지 않고 SDK `query()` 를 인프로세스로 호출하므로 `--output-format` 을 넘기지 않는다(`rg stream-json app/src` = 0건). 스트리밍은 `query()` 의 async iterator 로 받고 정규화는 [`arch/backend/adapters.md`](./arch/backend/adapters.md)·[`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md) 가 정본이다. 단발 모드를 쓰지 않는 이유(첫 토큰 지연)는 그대로 유효하다.
 
 ❌ `--json-schema` 미사용 — Phase 1 은 자유 텍스트 챗 응답이 목표.
 
@@ -235,13 +235,13 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 | `--dangerously-skip-permissions` | `--permission-mode bypassPermissions` 와 동일. 모든 권한 프롬프트 건너뜀 |
 | `--allow-dangerously-skip-permissions` | Shift+Tab 모드 사이클에 `bypassPermissions` 를 *옵션* 으로 추가. 시작은 다른 모드로. 스트리밍 세션의 라이브 `setPermissionMode('bypassPermissions')` 도 이 플래그(또는 bypass 시작) 없이 spawn 한 세션에서는 거부된다(SDK 0.3.296 실측) |
 
-✅ **Orca v1 채택 (두 플래그 모두)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다.
+✅ **Orcinus orca v1 채택 (두 플래그 모두)** — 같은 의미의 `permissionMode: 'bypassPermissions'` 를 Composer 권한 메뉴의 `bypass`(Work·Code)로 사용자가 고를 수 있다(`shared/permission-mode.ts` `menuModes`, 0224). 기본값이 아니며(기본 정책은 OQ9), workspace guard 훅의 deny 는 이 모드에서도 유효하다.
 
 - 대화 query 는 시작 모드(`permissionMode`)를 명시할 때 `allowDangerouslySkipPermissions: true` 를 함께 넘긴다(`adapters/claude/adapter.ts`, 0261) — 다른 모드로 시작한 장수명 채널도 턴 중·다음 턴에 `bypass` 로 바뀐다.
 - 플래그는 가용성만 연다. 시작 모드는 명시값이고, 레포 settings 의 `defaultMode: bypassPermissions` 는 시작 모드가 되지 않으며, `disableBypassPermissionsMode` 정책은 전환을 계속 막는다(0261 실측 — SDK 를 갱신하면 `docs/handoff/0261-bypass-flag-prod-devtools/probe-live-bypass.mjs` 로 다시 잰다).
 - 제목 생성 `complete()` 는 넘기지 않는다(도구 0·모드 없음).
 
-### 5.6 Orca 채택 (OQ9)
+### 5.6 Orcinus orca 채택 (OQ9)
 
 ⏳ **Open Question (PRD §11 OQ9 — 부분 진전)** — 도구 승인 오버레이(`canUseTool` RISKY_TOOLS 게이트, handoff 0022)와 workspace guard(PreToolUse hook·permissionMode, handoff 0075)는 **구현됨**. 미정으로 남은 것은 *기본 정책값*(사전승인 범위·`acceptEdits` 기본 여부). 원 후보(역사 보존):
 1. **무지정** (현재) — 모든 도구 호출에 사용자 권한 프롬프트. UX 마찰 큼.
@@ -275,7 +275,7 @@ gh pr diff "$1" | claude -p \
 
 자세한 옵션은 공식 [시스템 프롬프트 플래그](https://code.claude.com/docs/ko/cli-reference#system-prompt-flags) 참조.
 
-✅ **append 채택** — SDK `systemPrompt: { type:'preset', preset:'claude_code', append }`(`--append-system-prompt` 대응)로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 완전 교체(`--system-prompt`)와 프롬프트 파일 플래그는 쓰지 않는다.
+✅ **append 채택** — SDK `systemPrompt: { type:'preset', preset:'claude_code', append }`(`--append-system-prompt` 대응)로 `# Orcinus orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 완전 교체(`--system-prompt`)와 프롬프트 파일 플래그는 쓰지 않는다.
 
 ---
 
@@ -301,7 +301,7 @@ claude -p "Continue that review" --resume "$session_id"
 
 세션 컨텍스트는 Claude Code 가 `~/.claude/projects/<cwd>/<session-id>.jsonl` 에 보관한다.
 
-✅ **Orca v1 채택** — 세션 이어가기를 사용한다. 아래 CLI 형태는 Phase 1 기준이고, 현행은 같은 의미의 SDK `options.resume` 이다(§13). 동작:
+✅ **Orcinus orca v1 채택** — 세션 이어가기를 사용한다. 아래 CLI 형태는 Phase 1 기준이고, 현행은 같은 의미의 SDK `options.resume` 이다(§13). 동작:
 
 1. 첫 턴: `claude -p "<text>" --output-format stream-json` (resume 없음)
 2. 어댑터가 첫 `system/init` 이벤트에서 `session_id` 추출 → 세션 초기화 이벤트로 Renderer 에 전달 (현행 와이어는 `NormalizedEvent` 의 `session.updated`)
@@ -310,7 +310,7 @@ claude -p "Continue that review" --resume "$session_id"
 
 근거: `docs/etc/llm-chat-desktop-strategy.md §6.2~6.3`, `docs/TRD.md §7.1`, `docs/arch/backend/adapters.md §1`.
 
-❌ `--continue` 미사용 — Orca 는 세션 목록에서 고른 세션을 `resume` 으로 잇는다. *직전 세션 자동 이어가기* 는 없다.
+❌ `--continue` 미사용 — Orcinus orca 는 세션 목록에서 고른 세션을 `resume` 으로 잇는다. *직전 세션 자동 이어가기* 는 없다.
 
 ### 7.3 `--fork-session` (재개 시 새 세션 ID)
 
@@ -320,7 +320,7 @@ claude -p "Continue that review" --resume "$session_id"
 claude --resume <id> --fork-session -p "..."
 ```
 
-✅ **Orca v1 채택 (0064)** — SDK `forkSession`(resume 복사본 + 새 session id)으로 Fork·Handoff 가 쓴다(`app/chat-turn/send.ts`, §11 세션 분기).
+✅ **Orcinus orca v1 채택 (0064)** — SDK `forkSession`(resume 복사본 + 새 session id)으로 Fork·Handoff 가 쓴다(`app/chat-turn/send.ts`, §11 세션 분기).
 
 ### 7.4 `--session-id <UUID>` (호출자가 ID 지정)
 
@@ -330,7 +330,7 @@ claude --resume <id> --fork-session -p "..."
 claude --session-id "550e8400-e29b-41d4-a716-446655440000" -p "..."
 ```
 
-⏳ **Open Question** — Orca 가 세션 ID 를 어디서 얻을지 두 가지 선택지가 있다:
+⏳ **Open Question** — Orcinus orca 가 세션 ID 를 어디서 얻을지 두 가지 선택지가 있다:
 
 1. **현재 채택**: GUI 가 *수신* — 첫 호출은 ID 없이 spawn, `system/init` 이벤트의 `session_id` 를 받아 보유 (§7.2). 단순. 동기화 race 없음.
 2. **대안**: GUI 가 *발급* — UUID v4 를 만들어 `--session-id` 로 전달, `system/init` 에서 *검증* 만. Phase 3 의 "세션 영속화·재방문" UI 에서 ID 를 사전에 알아야 할 때 매력적.
@@ -344,7 +344,7 @@ Phase 1 은 (1) 을 유지. Phase 3 진입 시 재검토 — 본 항목을 §12 
 | `--name <text>` / `-n` | 세션의 *표시 이름* 을 설정. `claude --resume <name>` 으로 이름으로 재개 가능. 세션 중 `/rename` 으로 변경 |
 | `--no-session-persistence` | 세션을 디스크에 저장하지 않음. 재개 불가. *인쇄 모드 한정*. 환경변수 `CLAUDE_CODE_SKIP_PROMPT_HISTORY` 와 동일 효과 |
 
-❌ **Orca v1 미사용 (`--name`)** — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude/adapter.ts`).
+❌ **Orcinus orca v1 미사용 (`--name`)** — 제목은 Orcinus orca DB(`sessions.title`·`title_source`)가 소유한다(§11 세션 이름). `--no-session-persistence` 대응 `persistSession: false` 는 제목 생성 단발 호출(`complete()`)에만 쓴다(`adapters/claude/adapter.ts`).
 
 ---
 
@@ -368,7 +368,7 @@ cat build-error.txt | claude -p 'concisely explain the root cause' > output.txt
 
 > 공식: Claude Code v2.1.128 부터 파이프된 stdin 은 10MB 로 제한된다. 초과 시 0 이 아닌 상태로 종료. 더 큰 입력은 파일에 쓰고 프롬프트에서 경로를 참조한다.
 
-❌ **Orca v1 미사용** — 챗 UI 가 입력 채널이므로 stdin 파이프는 쓰지 않는다. 현행 어댑터는 SDK `query()` 의 `prompt` 로 사용자 입력을 전달한다(§13).
+❌ **Orcinus orca v1 미사용** — 챗 UI 가 입력 채널이므로 stdin 파이프는 쓰지 않는다. 현행 어댑터는 SDK `query()` 의 `prompt` 로 사용자 입력을 전달한다(§13).
 
 ---
 
@@ -383,7 +383,7 @@ claude -p "Extract function names" \
   | jq '.structured_output'
 ```
 
-❌ **Orca v1 미사용** — MVP 는 자유 텍스트 챗. 향후 Skills (Phase 3+) 에서 구조화 응답이 필요하면 본 절 재검토.
+❌ **Orcinus orca v1 미사용** — MVP 는 자유 텍스트 챗. 향후 Skills (Phase 3+) 에서 구조화 응답이 필요하면 본 절 재검토.
 
 ---
 
@@ -391,15 +391,15 @@ claude -p "Extract function names" \
 
 CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/python) 및 [TypeScript](https://code.claude.com/docs/ko/agent-sdk/typescript) 패키지가 있다. 콜백 기반 도구 승인, 메시지 객체 직접 조작, 실시간 응답 스트리밍에 대한 프로그래밍 제어가 필요할 때 사용한다.
 
-✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → `NormalizedEvent` 매핑·내부 구현 패턴·MVP 채택 범위는 [`arch/backend/adapters.md` §1](./arch/backend/adapters.md) 참조.
+✅ **Orcinus orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → `NormalizedEvent` 매핑·내부 구현 패턴·MVP 채택 범위는 [`arch/backend/adapters.md` §1](./arch/backend/adapters.md) 참조.
 
 현재 채택 범위 — 세션당 장수명 `query()` 채널(`AsyncIterable<SDKUserMessage>` 입력 + 턴별 `pushTurn`) · `resume` · `includePartialMessages` · `cwd`·`additionalDirectories` · `permissionMode`/`canUseTool` · `hooks` · `createSdkMcpServer`(인프로세스 runtime tool) · `plugins` · `forkSession` · `settingSources: ['project','local']` · `disallowedTools: ['WebSearch']` · `systemPrompt` preset + append. 기능별 표는 [`arch/backend/adapters.md` §1.7](./arch/backend/adapters.md) 이 정본이다. `startup()` 사전 워밍은 쓰지 않는다.
 
 ---
 
-## 11. Orca v1 채택 요약
+## 11. Orcinus orca v1 채택 요약
 
-| 영역 | Orca v1 결정 |
+| 영역 | Orcinus orca v1 결정 |
 |---|---|
 | 진입 경로 | **SDK `query()`** — `@anthropic-ai/claude-agent-sdk` (Phase 3 채택, 2026-05-18). CLI `claude -p` + `child_process.spawn` 은 폐기됨(코드 0건) |
 | 출력 포맷 | SDKMessage union (`SDKSystemMessage` / `SDKAssistantMessage` / `SDKPartialAssistantMessage` / `SDKResultMessage`) — CLI 의 `--output-format stream-json` 대체 |
@@ -407,11 +407,11 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | 세션 재개 | `options.resume: sessionId` — CLI 의 `--resume <sessionId>` 와 1:1 대응. 채널이 죽은 뒤 다음 send 의 spawn 에서 쓴다 |
 | 세션 ID 발급 | 첫 `SDKSystemMessage(subtype: 'init')` 의 `session_id` (수신). 사전 발급 (`options.sessionId` 또는 CLI `--session-id`) 은 OQ — §7.4 |
 | 세션 분기 | ✅ **채택 (0064)** — SDK `forkSession`(resume 복사본 + 새 session id). Fork·Handoff 가 사용한다([GLOSSARY](./GLOSSARY.md) Fork·Handoff) |
-| 세션 이름 | `--name` / `-n` 미사용 — 제목은 Orca DB(`sessions.title`·`title_source`)가 소유한다 |
+| 세션 이름 | `--name` / `-n` 미사용 — 제목은 Orcinus orca DB(`sessions.title`·`title_source`)가 소유한다 |
 | 세션 저장 비활성화 | `--no-session-persistence` 미사용 — *시크릿 모드* anchor |
 | 베어 모드 | 미사용 (`~/.claude` 환경 활용) |
 | 도구 권한 | **OQ9 부분 진전** — 승인 오버레이(0022)·workspace guard(0075) 구현, 기본 정책값만 미정. 권한 우회(`bypassPermissions`)는 Composer 권한 메뉴 `bypass` 로 고를 수 있다(0224, §5.5) |
-| 시스템 프롬프트 | ✅ **append 채택** — `systemPrompt: { type:'preset', preset:'claude_code', append }` 로 `# Orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 교체(`--system-prompt`·`--system-prompt-file`)는 미사용 |
+| 시스템 프롬프트 | ✅ **append 채택** — `systemPrompt: { type:'preset', preset:'claude_code', append }` 로 `# Orcinus orca` 구조화 헤더(+Work `# Agent`)를 덧붙인다([system-prompt.md](./arch/backend/system-prompt.md)). 교체(`--system-prompt`·`--system-prompt-file`)는 미사용 |
 | 구조화 출력 | 미사용 (`--json-schema`) |
 | 모델 선택 | ✅ **채택 (0010)** — SDK `options.model` per-turn 전달 (Composer ModelMenu, `SendChatMessage.modelFamily`). 미지정 시 사용자 `~/.claude` 설정 폴백 |
 | 노력 수준 | ✅ **채택** — 모델 선택 시 [모델별 기본값](../app/src/shared/harnesses/claude/model-effort.ts)을 적용하고 수동 선택은 같은 모델 동안 유지한다. spawn은 `options.effort`, 후속 턴은 `applyFlagSettings({ effortLevel })`로 입력 전송 전에 적용한다. EffortMenu는 모델 기본 수준 옆에 '추천'을 표시한다 |
@@ -457,13 +457,13 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 
 ---
 
-## 14. Orca 관련 CLI 플래그 카탈로그 (Orca 관점 인덱스)
+## 14. Orcinus orca 관련 CLI 플래그 카탈로그 (Orcinus orca 관점 인덱스)
 
-`cli-reference.md` 의 모든 플래그 중 *Orca 관련성이 있는 것* 만 4단계로 분류한다. 자세한 의미는 `docs/spec/claude/cli-reference.md` 가 SSOT — 본 표는 *어디를 봐야 하는지* 의 지도일 뿐이다.
+`cli-reference.md` 의 모든 플래그 중 *Orcinus orca 관련성이 있는 것* 만 4단계로 분류한다. 자세한 의미는 `docs/spec/claude/cli-reference.md` 가 SSOT — 본 표는 *어디를 봐야 하는지* 의 지도일 뿐이다.
 
-> **(2026-05-18)** 본 카탈로그는 *CLI 플래그* 단위 분류이지만 Orca 는 Phase 3 부터 SDK `query()` 를 사용한다. 각 CLI 플래그는 SDK `Options` 필드와 1:1 대응 — 본 카탈로그는 *어떤 기능을 채택했는지* 의 지도로 계속 유효하다 (예: `--include-partial-messages` ↔ `options.includePartialMessages`, `--resume` ↔ `options.resume`, `--allowedTools` ↔ `options.allowedTools`). SDK 측 필드명·시그니처는 `docs/spec/claude/agent-sdk/typescript.md` 가 단일 출처.
+> **(2026-05-18)** 본 카탈로그는 *CLI 플래그* 단위 분류이지만 Orcinus orca 는 Phase 3 부터 SDK `query()` 를 사용한다. 각 CLI 플래그는 SDK `Options` 필드와 1:1 대응 — 본 카탈로그는 *어떤 기능을 채택했는지* 의 지도로 계속 유효하다 (예: `--include-partial-messages` ↔ `options.includePartialMessages`, `--resume` ↔ `options.resume`, `--allowedTools` ↔ `options.allowedTools`). SDK 측 필드명·시그니처는 `docs/spec/claude/agent-sdk/typescript.md` 가 단일 출처.
 
-### 14.1 ✅ Orca 사용 (SDK `Options` 대응)
+### 14.1 ✅ Orcinus orca 사용 (SDK `Options` 대응)
 
 | 플래그 | SDK 대응 / 쓰임 | 본 문서 절 |
 |---|---|---|
@@ -474,14 +474,14 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--permission-mode` | `permissionMode` — Composer 권한 메뉴·라이브 전환(`bypass` = `--dangerously-skip-permissions` 와 같은 `bypassPermissions`). **기본 정책값은 OQ9** | §5.2, §5.5, §5.6 |
 | `--allow-dangerously-skip-permissions` | `allowDangerouslySkipPermissions: true` — 대화 query 가 명시 시작 모드와 함께 넘긴다(라이브 `bypass` 전환의 전제, 0261). 제목 생성 `complete()` 는 넘기지 않는다 | §5.5 |
 | `--disallowedTools` | `disallowedTools: ['WebSearch']` | §5.4 |
-| `--append-system-prompt` | `systemPrompt` preset + append(`# Orca` 헤더) | §6 |
+| `--append-system-prompt` | `systemPrompt` preset + append(`# Orcinus orca` 헤더) | §6 |
 | `--add-dir` | `additionalDirectories` — 앱 임시 루트 + 세션 extraDirs | §11 |
 | `--model`, `--effort` | `model`(턴 단위) · `effort`/`applyFlagSettings` (0010·0020) | §11 |
 | `--settings` | provider settings 인라인 JSON (0028) | [TRD §6.8](./TRD.md) |
 | `--setting-sources` | `settingSources: ['project','local']` (0117) | [adapters.md §1.3](./arch/backend/adapters.md) |
-| `--plugin-dir` | `plugins: [{ type:'local', path }]` — Orca plugin + 사용자 skill wrapper (0058·0117) | §2 |
+| `--plugin-dir` | `plugins: [{ type:'local', path }]` — Orcinus orca plugin + 사용자 skill wrapper (0058·0117) | §2 |
 
-### 14.2 ⏳ Orca 후보 (미결)
+### 14.2 ⏳ Orcinus orca 후보 (미결)
 
 | 플래그 | 후보 시점 | 본 문서 절 |
 |---|---|---|
@@ -492,7 +492,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--include-hook-events`, `--init`, `--init-only` | Hook 이벤트 표시 결정 시 (훅 자체는 in-process `hooks` 로 채택) | §11 |
 | `--system-prompt-file`, `--append-system-prompt-file` | 파일 기반 프롬프트가 필요할 때 (append 는 문자열로 채택) | §6 |
 
-### 14.3 ❌ Orca v1 미사용 (의도적)
+### 14.3 ❌ Orcinus orca v1 미사용 (의도적)
 
 | 플래그 | 이유 | 본 문서 절 |
 |---|---|---|
@@ -501,12 +501,12 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `--system-prompt` (완전 교체) | Claude Code 정체성 유지 | §6 |
 | `--json-schema` | 자유 텍스트 챗 | §9 |
 | `--no-session-persistence` | 영속화 가치 (재개 시 컨텍스트 복원) | §7.5 |
-| `--name <text>` / `-n` | 제목은 Orca DB(`sessions.title`·`title_source`)가 소유 | §7.5 |
+| `--name <text>` / `-n` | 제목은 Orcinus orca DB(`sessions.title`·`title_source`)가 소유 | §7.5 |
 | stdin 파이프 입력 | UI 가 입력 채널, `-p` 인자만 사용 | §8 |
 
-### 14.4 ◯ Orca 무관 (CLI 자체 운영)
+### 14.4 ◯ Orcinus orca 무관 (CLI 자체 운영)
 
-다음은 Claude Code CLI *자체* 의 운영용 — Orca 가 자식 프로세스로 호출하는 시나리오에서는 의미가 없다. 본 문서는 이름만 나열한다.
+다음은 Claude Code CLI *자체* 의 운영용 — Orcinus orca 가 자식 프로세스로 호출하는 시나리오에서는 의미가 없다. 본 문서는 이름만 나열한다.
 
 `claude install`, `claude update`, `claude auth login/logout/status`, `claude mcp`, `claude plugin`, `claude project purge`, `claude remote-control`, `claude setup-token`, `claude ultrareview`, `claude agents`, `claude attach`, `claude logs`, `claude stop`, `claude rm`, `claude respawn`, `claude auto-mode defaults`, `--ide`, `--chrome`, `--no-chrome`, `--teleport`, `--remote`, `--remote-control`, `--worktree`, `--tmux`, `--teammate-mode`, `--bg`, `--channels`, `--from-pr`.
 

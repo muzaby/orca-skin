@@ -115,7 +115,7 @@ describe('Work boundary persistence', () => {
   }
 
   it('appends end to the completed original row, preserves FTS, and survives disk reopen and fork', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'orca-response-boundary-'))
+    const directory = mkdtempSync(join(tmpdir(), 'orcinus-orca-response-boundary-'))
     const filename = join(directory, 'history.db')
     let connection = openFileDatabase(filename)
     try {

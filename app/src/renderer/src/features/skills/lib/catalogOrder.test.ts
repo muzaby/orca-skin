@@ -7,7 +7,7 @@ const skill = (sourceId: string, sourceLabel: string, name: string): SkillInfo =
   sourceLabel,
   name,
   description: '',
-  sourceKind: 'orca',
+  sourceKind: 'orcinus-orca',
   enabled: true,
   canToggle: true,
   canRemove: true,
@@ -44,15 +44,15 @@ describe('catalog final row order', () => {
   it('orders skill sources by label and keeps the original order within each source', () => {
     const items = [
       skill('adapter:opencode', 'OpenCode 스킬', 'o'),
-      skill('orca', 'Orcinus orca 스킬', 'z'),
+      skill('orcinus-orca', 'Orcinus orca 스킬', 'z'),
       skill('agents', '~/.agents/skills', 'shared'),
       skill('claude', 'Claude', 'b'),
-      skill('orca', 'Orcinus orca 스킬', 'a'),
+      skill('orcinus-orca', 'Orcinus orca 스킬', 'a'),
       skill('claude', 'Claude', 'a')
     ]
     expect(orderSkills(items).map((item) => `${item.sourceId}/${item.name}`)).toEqual([
-      'orca/z',
-      'orca/a',
+      'orcinus-orca/z',
+      'orcinus-orca/a',
       'agents/shared',
       'claude/b',
       'claude/a',

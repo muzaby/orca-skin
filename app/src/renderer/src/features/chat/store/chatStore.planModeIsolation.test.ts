@@ -269,13 +269,13 @@ describe('0249 independent X2 — plan acceptance ownership and child mode isola
             '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
           )
         else {
-          expect(result.message).toContain('<<<ORCA_PLAN_FEEDBACK_START count="1">>>')
+          expect(result.message).toContain('<<<ORCINUS_ORCA_PLAN_FEEDBACK_START count="1">>>')
           expect(result.message).toContain(
-            '<<<ORCA_PLAN_COMMENT_START id="c" index="1" range="0-4">>>'
+            '<<<ORCINUS_ORCA_PLAN_COMMENT_START id="c" index="1" range="0-4">>>'
           )
           expect(result.message).toContain('<quote>plan</quote>\n<comment>Revise</comment>')
           expect(result.message).toContain('<note>Include tests</note>')
-          expect(result.message).toContain('<<<ORCA_PLAN_FEEDBACK_END>>>')
+          expect(result.message).toContain('<<<ORCINUS_ORCA_PLAN_FEEDBACK_END>>>')
           expect(result.message).not.toContain('사용자 수정 요청:')
         }
         const resolved = useChatStore.getState().sessions.s.session

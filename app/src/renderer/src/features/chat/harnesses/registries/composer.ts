@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import type { Backend } from '../../../../../../shared/ipc'
 import { HarnessLogo } from '../../../../shared/ui/HarnessLogo'
 import { Icon } from '../../../../shared/ui/Icon'
-import { OrcaLogo } from '../../../../shared/ui/OrcaLogo'
+import { OoLogo } from '../../../../shared/ui/OoLogo'
 import { composerModule as claude } from '../claude/composer/Module'
 import type { ComposerModule } from '../contracts'
 import { composerModule as opencode } from '../opencode/composer/Module'
@@ -14,8 +14,8 @@ function sourceIcon(backend: Backend): ComposerModule['sourceIcon'] {
       : source.endsWith(':opencode')
         ? 'opencode'
         : backend
-    return source === 'orca'
-      ? createElement(OrcaLogo, { className: 'h-3.5 w-auto shrink-0' })
+    return source === 'orcinus-orca'
+      ? createElement(OoLogo, { className: 'h-3.5 w-auto shrink-0' })
       : createElement(HarnessLogo, {
           backend: sourceBackend,
           className: 'size-3.5 shrink-0'

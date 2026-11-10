@@ -8,7 +8,7 @@ import { openFileDatabase } from './file-database'
 import { DbQueries } from './queries'
 
 it('persists Work across reopen, defaults callers to Code, and preserves birth on conflict', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-agent-kind-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-agent-kind-'))
   let db: Database.Database | undefined
   try {
     const path = join(root, 'fixture.db')

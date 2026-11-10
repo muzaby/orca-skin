@@ -58,7 +58,7 @@ describe('context file existence before canonical resolution', () => {
   let root: string
   let cwd: string
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'orca-context-file-'))
+    root = mkdtempSync(join(tmpdir(), 'orcinus-orca-context-file-'))
     cwd = join(root, 'work')
     mkdirSync(cwd)
   })

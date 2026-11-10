@@ -35,10 +35,10 @@ function failureKind(error: unknown): string {
   return 'sdk-or-execution'
 }
 
-it.skipIf(process.env.ORCA_ARTIFACT_LIVE !== '1')(
+it.skipIf(process.env.ORCINUS_ORCA_ARTIFACT_LIVE !== '1')(
   'P02 real SDK preserves publisher receipt and original tool call identity',
   async () => {
-    const fixtureRoot = await mkdtemp(join(tmpdir(), 'orca-artifact-sdk-live-'))
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-sdk-live-'))
     const cwd = join(fixtureRoot, 'workspace')
     const artifactRoot = join(fixtureRoot, 'published')
     await mkdir(cwd)
@@ -99,7 +99,7 @@ it.skipIf(process.env.ORCA_ARTIFACT_LIVE !== '1')(
             systemPrompt: { type: 'preset', preset: 'claude_code' },
             ...adaptRuntimeTools(createSdkMcpServer, tools, request.runtimeToolContext),
             canUseTool: async (name, input) => {
-              if (name === 'mcp__orca_artifacts__publish_artifact')
+              if (name === 'mcp__orcinus_orca_artifacts__publish_artifact')
                 return { behavior: 'allow', updatedInput: input }
               const path =
                 typeof input.file_path === 'string' ? resolve(cwd, input.file_path) : null
@@ -170,7 +170,7 @@ it.skipIf(process.env.ORCA_ARTIFACT_LIVE !== '1')(
       })) {
         if (
           event.type === 'tool.call.started' &&
-          event.toolName === 'mcp__orca_artifacts__publish_artifact'
+          event.toolName === 'mcp__orcinus_orca_artifacts__publish_artifact'
         ) {
           calls.push({ id: event.toolRunId, path: (event.args as { path?: unknown })?.path })
         }

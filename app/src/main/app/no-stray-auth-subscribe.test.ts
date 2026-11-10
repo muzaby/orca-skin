@@ -170,7 +170,7 @@ describe('runtime model Auth composition seam', () => {
   })
 
   it('target set includes nested production files and excludes tests', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-seam-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-runtime-model-seam-'))
     mkdirSync(join(root, 'nested'))
     writeFileSync(join(root, 'nested', 'install.ts'), 'auth.subscribe(listener)\n')
     writeFileSync(join(root, 'ignored.test.ts'), 'auth.subscribe(listener)\n')
@@ -193,7 +193,7 @@ describe('runtime model Auth composition seam', () => {
   })
 
   it('flags a resume batch whose reconcile sink is inert, commented, or stringified', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-sink-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-runtime-model-sink-'))
     mkdirSync(join(root, 'nested'))
     const inert = ['const resume = createAuthResume({', '  reconcileVerified: () => {}', '})'].join(
       '\n'
@@ -229,7 +229,7 @@ describe('runtime model Auth composition seam', () => {
 
   it('flags one inert injection even when sibling seams keep the locked form', () => {
     // 이것이 D4 의 본체다 — r2 의 파일 단위 판정은 아래 fixture 를 통과시켰다.
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-injection-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-runtime-model-injection-'))
     mkdirSync(join(root, 'nested'))
     const seams = (second: string): string =>
       [
@@ -246,7 +246,7 @@ describe('runtime model Auth composition seam', () => {
   })
 
   it('flags an inert bridge argument and a hand-written forwarding', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-forward-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-runtime-model-forward-'))
     writeFileSync(
       join(root, 'bootstrap.ts'),
       [
@@ -295,7 +295,7 @@ describe('runtime model Auth composition seam', () => {
   })
 
   it('detects startup calls but ignores the definition, comments, and strings', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-startup-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-runtime-model-startup-'))
     writeFileSync(
       join(root, 'runtime-model-startup.ts'),
       'export function startRuntimeModelCatalogAfterDeploy() {}\n'
@@ -315,7 +315,7 @@ describe('runtime model Auth composition seam', () => {
   })
 
   it('detects resume installer calls but ignores the definition, imports, comments, and strings', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-runtime-model-resume-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-runtime-model-resume-'))
     writeFileSync(
       join(root, 'runtime-model-startup.ts'),
       'export function createRuntimeModelAuthResume() {}\n'

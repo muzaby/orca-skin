@@ -11,7 +11,7 @@
 // 버블 본문(`text-[calc(14px*var(--transcript-text-scale,1))]`)과 같은 치수라, 옆의 12px 상태문구보다 크게 읽힌다.
 //
 // Icon.tsx 는 single-path 규약이라 stroke·멀티마크인 이 스피너는 여기 인라인으로 둔다
-// (OrcaLogo 와 같은 자리). 색은 지정하지 않는다 — 소비자가 주는 `text-spinner` 를
+// (OoLogo 와 같은 자리). 색은 지정하지 않는다 — 소비자가 주는 `text-spinner` 를
 // currentColor 로 상속한다(raw hex 금지, renderer/AGENTS.md). 원본은 두 테마 구분 없이
 // 항상 #C15F3C 이므로 그 토큰도 테마 스코프에 재정의되지 않는다.
 

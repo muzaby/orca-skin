@@ -4,7 +4,7 @@
 // 캐시(구 meta.json)에 박지 않고 열거 시점(`settings.listProviders`)에 settings.json 을
 // 파싱해 얻는다.
 //
-// **`engine` 은 wire 호환 필드다** (0188 D-005) — IPC `orca:engine:*` 채널과 `shared/protocol` 의
+// **`engine` 은 wire 호환 필드다** (0188 D-005) — IPC `oo:engine:*` 채널과 `shared/protocol` 의
 // DTO 가 그 이름을 쓰므로 반환 객체의 key 는 유지하고, 신규 도메인 어휘(Harness)는 타입·함수
 // 이름에만 적용한다.
 
@@ -16,7 +16,7 @@ import {
   parseProviderKey,
   PROVIDER_NAME_RE
 } from '../../../infra/config/provider-key'
-import { orcaConfigDir } from '../../../infra/config/paths'
+import { ooConfigDir } from '../../../infra/config/paths'
 import { writeJsonAtomic } from '../../../infra/config/json-file'
 
 import { HARNESS_IDS, isBackend } from '../../../../shared/harness'
@@ -85,7 +85,7 @@ function writeHarnessSettings(
   engine: Backend,
   provider: string,
   settingsJson: string,
-  root: string = orcaConfigDir()
+  root: string = ooConfigDir()
 ): HarnessSettingsWriteResult {
   requireHarness(engine)
   const normalized = normalizeProvider(provider)
@@ -100,7 +100,7 @@ export function addHarnessSettings(
   engine: Backend,
   provider: string,
   settingsJson: string,
-  root: string = orcaConfigDir()
+  root: string = ooConfigDir()
 ): HarnessSettingsWriteResult {
   const normalized = normalizeProvider(provider)
   if (existsSync(providerDir(engine, normalized, root)))
@@ -111,7 +111,7 @@ export function addHarnessSettings(
 export function updateHarnessSettings(
   key: string,
   settingsJson: string,
-  root: string = orcaConfigDir()
+  root: string = ooConfigDir()
 ): HarnessSettingsWriteResult {
   const { engine, provider } = parseHarnessSettingsKey(key)
   if (!existsSync(providerDir(engine, provider, root)))
@@ -121,7 +121,7 @@ export function updateHarnessSettings(
 
 export function readHarnessSettings(
   key: string,
-  root: string = orcaConfigDir()
+  root: string = ooConfigDir()
 ): HarnessSettingsReadResult {
   const { engine, provider } = parseHarnessSettingsKey(key)
   const path = settingsPath(engine, provider, root)
@@ -133,7 +133,7 @@ export function readHarnessSettings(
   }
 }
 
-export function deleteHarnessSettings(key: string, root: string = orcaConfigDir()): void {
+export function deleteHarnessSettings(key: string, root: string = ooConfigDir()): void {
   const { engine, provider } = parseHarnessSettingsKey(key)
   const dir = providerDir(engine, provider, root)
   if (!existsSync(dir)) throw new Error('provider 를 찾을 수 없습니다')

@@ -12,7 +12,7 @@ import {
 } from '../../../shared/protocol'
 import { skillEnabledKey } from '../../features/extensions/common/skills/scan'
 import {
-  removeOrcaSkillDir,
+  removeOoSkillDir,
   writeAuthoredSkill,
   writeUploadedSkill
 } from '../../features/extensions/common/skills/sources'
@@ -71,7 +71,7 @@ export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
           [skillEnabledKey(req.sourceId, req.name)]: req.enabled
         }
       })
-      // 토글은 파일을 바꾸지 않는다(모든 Orca 스킬은 항상 배포됨) — 활성화는 런타임
+      // 토글은 파일을 바꾸지 않는다(모든 Orcinus orca 스킬은 항상 배포됨) — 활성화는 런타임
       // options.skills 필터가 반영하므로 캐시 갱신만으로 충분(파일 재싱크 불필요).
       return refresh()
     }
@@ -88,7 +88,7 @@ export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
   handle(CHANNELS.skillsRemove, SkillTargetSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     const skill = findSkill(ctx, req.sourceId, req.name)
     if (!skill.canRemove) throw new Error(`${PRODUCT_DISPLAY_NAME} 스킬만 제거할 수 있습니다.`)
-    await removeOrcaSkillDir(skill.skillDir)
+    await removeOoSkillDir(skill.skillDir)
     const current = ctx.settings.getAll()
     const skillEnabled = { ...current.skillEnabled }
     delete skillEnabled[skillEnabledKey(req.sourceId, req.name)]

@@ -23,7 +23,7 @@ export const MAX_DIFF_COMMITS = 100
 /** 커밋 노드 하나가 실을 수 있는 최대 파일 수. */
 export const MAX_DIFF_COMMIT_FILES = 50
 
-// `git log -z --format=%x00orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00`
+// `git log -z --format=%x00orcinus-orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00`
 // 프레임. Git 커밋 메시지와 경로는 NUL을 담을 수 없으므로 제목·본문·개행·탭을
 // 손실 없이 싣는다. `withFiles=true`는 같은 프레임 뒤의 raw 블록과 numstat
 // 블록을 결합한다. false는 메타데이터 폴백이라 파일 값을 null로 낸다.
@@ -72,13 +72,13 @@ export function parseCommitLog(
   }
 }
 
-// `%x00orca-commit%x00` 자체만으로 stream을 자르면 루트 파일명 `orca-commit`의
-// `\0orca-commit\0`과 충돌한다. header는 format이 만든 선행 빈 token 뒤에만 있고,
+// `%x00orcinus-orca-commit%x00` 자체만으로 stream을 자르면 루트 파일명 `orcinus-orca-commit`의
+// `\0orcinus-orca-commit\0`과 충돌한다. header는 format이 만든 선행 빈 token 뒤에만 있고,
 // 그 다음 다섯 metadata token이 완전해야 한다. 경로 token은 이 grammar를 만족하지 않는다.
 function findCommitHeaders(tokens: readonly string[]): number[] {
   const headers: number[] = []
   for (let index = 1; index + 5 < tokens.length; index += 1) {
-    if (tokens[index] !== 'orca-commit' || tokens[index - 1] !== '') continue
+    if (tokens[index] !== 'orcinus-orca-commit' || tokens[index - 1] !== '') continue
     const sha = tokens[index + 1]
     const committed = tokens[index + 4]
     // Git's %ct is a Unix epoch and may be negative for commits before 1970.

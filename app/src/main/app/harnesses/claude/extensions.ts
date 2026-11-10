@@ -8,7 +8,7 @@ import { builtInHarnessPluginRoot } from '../../../features/extensions/claude/pl
 import { userClaudePluginRoot } from '../../../features/extensions/claude/user-skills'
 import { readUserClaudeSettings } from '../../../adapters/claude/settings'
 import { claudeNativePaths } from '../../../adapters/claude/native-paths'
-import { orcaConfigDir } from '../../../infra/config/paths'
+import { ooConfigDir } from '../../../infra/config/paths'
 import { reportError } from '../../../infra/error-report'
 import { getLogger } from '../../../infra/log'
 
@@ -25,8 +25,8 @@ export function claudeSkillRoots(): SkillScanRoot[] {
 
 export function claudePluginRoots(): string[] {
   return [
-    builtInHarnessPluginRoot(orcaConfigDir(), 'claude'),
-    userClaudePluginRoot(orcaConfigDir(), 'claude')
+    builtInHarnessPluginRoot(ooConfigDir(), 'claude'),
+    userClaudePluginRoot(ooConfigDir(), 'claude')
   ]
 }
 

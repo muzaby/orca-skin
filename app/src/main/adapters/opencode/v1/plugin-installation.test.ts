@@ -9,7 +9,9 @@ import { openCodePluginId, openCodePluginInstallation } from './plugin-installat
 
 let root: string
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-opencode-plugin-')).then((path) => realpath(path))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-opencode-plugin-')).then((path) =>
+    realpath(path)
+  )
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })

@@ -11,7 +11,7 @@ export function orderSkills(skills: readonly SkillInfo[]): SkillInfo[] {
   return [...bySource.values()]
     .sort(
       (a, b) =>
-        Number(b[0].sourceId === 'orca') - Number(a[0].sourceId === 'orca') ||
+        Number(b[0].sourceId === 'orcinus-orca') - Number(a[0].sourceId === 'orcinus-orca') ||
         a[0].sourceLabel.localeCompare(b[0].sourceLabel)
     )
     .flat()

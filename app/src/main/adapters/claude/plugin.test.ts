@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { adaptSkillNameForClaude, namespaceOrcaSkill } from './plugin'
+import { adaptSkillNameForClaude, namespaceOoSkill } from './plugin'
 import type { SkillInfo } from '../../../shared/ipc'
 import { PRODUCT_SLUG } from '../../../shared/product'
 
@@ -7,20 +7,20 @@ function skill(name: string, sourceKind: SkillInfo['sourceKind']): SkillInfo {
   return {
     name,
     description: '',
-    sourceId: sourceKind === 'orca' ? 'orca' : `${sourceKind}:claude`,
+    sourceId: sourceKind === 'orcinus-orca' ? 'orcinus-orca' : `${sourceKind}:claude`,
     sourceLabel: '',
     sourceKind,
     enabled: true,
-    canToggle: sourceKind === 'orca',
-    canRemove: sourceKind === 'orca',
+    canToggle: sourceKind === 'orcinus-orca',
+    canRemove: sourceKind === 'orcinus-orca',
     skillPath: `/x/${name}/SKILL.md`,
     skillDir: `/x/${name}`
   }
 }
 
 describe('adaptSkillNameForClaude', () => {
-  it('orca 스킬은 제품 슬러그 네임스페이스', () => {
-    expect(adaptSkillNameForClaude(skill('review', 'orca'))).toBe(`${PRODUCT_SLUG}:review`)
+  it('Orcinus orca 스킬은 제품 슬러그 네임스페이스', () => {
+    expect(adaptSkillNameForClaude(skill('review', 'orcinus-orca'))).toBe(`${PRODUCT_SLUG}:review`)
   })
 
   it('adapter 스킬은 claude: 네임스페이스 (0117 — dist/plugins/claude 래퍼 플러그인 발견 이름)', () => {
@@ -32,7 +32,7 @@ describe('adaptSkillNameForClaude', () => {
   })
 
   it('이미 네임스페이스된 이름은 중복 prefix 하지 않는다', () => {
-    expect(namespaceOrcaSkill(`${PRODUCT_SLUG}:ready`)).toBe(`${PRODUCT_SLUG}:ready`)
+    expect(namespaceOoSkill(`${PRODUCT_SLUG}:ready`)).toBe(`${PRODUCT_SLUG}:ready`)
     expect(adaptSkillNameForClaude(skill('claude:done', 'adapter'))).toBe('claude:done')
   })
 })

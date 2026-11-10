@@ -35,11 +35,11 @@ describe('fast-import 스트림', () => {
     expect(stream).toEqual(
       Buffer.concat([
         Buffer.from(
-          'commit refs/heads/trunk\nmark :1\nauthor orca test <test@orca.local> 946684800 +0000\ncommitter orca test <test@orca.local> 946684800 +0000\ndata 11\nfirst\nbody\n\nM 100644 inline "a b"\ndata 6\n한글\nM 100644 inline "\\042line\\012"\ndata 2\n'
+          'commit refs/heads/trunk\nmark :1\nauthor Orcinus orca test <test@orcinus-orca.local> 946684800 +0000\ncommitter Orcinus orca test <test@orcinus-orca.local> 946684800 +0000\ndata 11\nfirst\nbody\n\nM 100644 inline "a b"\ndata 6\n한글\nM 100644 inline "\\042line\\012"\ndata 2\n'
         ),
         Buffer.from([0, 255]),
         Buffer.from(
-          '\nD "old"\n\ncommit refs/heads/trunk\nmark :2\nauthor orca test <test@orca.local> 978307200 +0000\ncommitter orca test <test@orca.local> 978307200 +0000\ndata 6\nempty\n\n\nreset refs/heads/topic\nfrom :1\n\nreset refs/heads/other\nfrom :2\n\n'
+          '\nD "old"\n\ncommit refs/heads/trunk\nmark :2\nauthor Orcinus orca test <test@orcinus-orca.local> 978307200 +0000\ncommitter Orcinus orca test <test@orcinus-orca.local> 978307200 +0000\ndata 6\nempty\n\n\nreset refs/heads/topic\nfrom :1\n\nreset refs/heads/other\nfrom :2\n\n'
         )
       ])
     )

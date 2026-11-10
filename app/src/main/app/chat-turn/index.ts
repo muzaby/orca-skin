@@ -1,5 +1,5 @@
 import { reportError } from '../../infra/error-report'
-// chat 턴 파이프라인 진입(orca:chat:send / steerCancel / discardSession / cancel / stopSubagent)의
+// chat 턴 파이프라인 진입(oo:chat:send / steerCancel / discardSession / cancel / stopSubagent)의
 // 컴포지션 루트(L3). 가로축 구동(스트림 소비→reduce→persist∥forward + retry/settle)은
 // TurnCoordinator(L1)가 1급으로 소유하고(0052, 0051 §A), 여기서는 **배선만** 한다.
 //

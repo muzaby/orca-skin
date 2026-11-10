@@ -39,9 +39,9 @@ const INVENTORY = [
 
 // ── 순수 파서 ────────────────────────────────────────────────────────────────
 
-/** `'orca:...'` 리터럴을 뽑아 채널 목록과 도메인 분포를 만든다. */
+/** `'oo:...'` 리터럴을 뽑아 채널 목록과 도메인 분포를 만든다. */
 export function parseChannels(ipcSource) {
-  const channels = [...new Set(ipcSource.match(/'orca:[a-zA-Z0-9:._-]+'/g) ?? [])].map((raw) =>
+  const channels = [...new Set(ipcSource.match(/'oo:[a-zA-Z0-9:._-]+'/g) ?? [])].map((raw) =>
     raw.slice(1, -1)
   )
   const domains = new Map()

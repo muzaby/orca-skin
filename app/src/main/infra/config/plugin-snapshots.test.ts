@@ -6,7 +6,7 @@ import { PluginSnapshots } from './plugin-snapshots'
 
 let root: string
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-publications-'))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-publications-'))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
@@ -15,7 +15,7 @@ it('pins MCP/skill bytes for existing owners, publishes new defaults and reclaim
   const source = join(root, 'source'),
     base = join(root, 'private')
   await mkdir(join(source, '.claude-plugin'), { recursive: true })
-  await writeFile(join(source, '.claude-plugin/plugin.json'), '{"name":"orca"}')
+  await writeFile(join(source, '.claude-plugin/plugin.json'), '{"name":"orcinus-orca"}')
   await writeFile(join(source, '.mcp.json'), '{"mcpServers":{"original":{}}}')
   await writeFile(join(source, 'SKILL.md'), 'old skill')
   const snapshots = new PluginSnapshots(base)

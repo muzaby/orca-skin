@@ -6,12 +6,12 @@
 // 전건 초록이었다 — §10 EP-14 의 `실패 의미`("인자를 흘리면 다른 태스크가 백그라운드로
 // 간다")가 바로 그 상태다.
 //
-// preload 는 `orca` 를 값으로 export 하지 않는다. `contextBridge.exposeInMainWorld` 가 받은
+// preload 는 `orcinus-orca` 를 값으로 export 하지 않는다. `contextBridge.exposeInMainWorld` 가 받은
 // 객체를 포획해 실제 노출 표면을 그대로 부른다 — 재구현이 아니라 production 객체다.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type OpenContextFileResult } from '../shared/ipc'
-import type { OrcaApi } from './index'
+import type { OoApi } from './index'
 
 const harness = vi.hoisted(() => ({
   invoke: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(undefined),
@@ -38,13 +38,13 @@ vi.mock('electron', () => ({
   webUtils: { getPathForFile: vi.fn(() => '/f') }
 }))
 
-// contextIsolated 가 거짓이면 모듈이 `window.orca` 분기로 가고 node 환경에는 window 가 없다.
+// contextIsolated 가 거짓이면 모듈이 `window.oo` 분기로 가고 node 환경에는 window 가 없다.
 Object.defineProperty(process, 'contextIsolated', { value: true, configurable: true })
 
 await import('./index')
 
 it('forwards backend extension changes through preload and renderer and removes the listener', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const seen = vi.fn()
@@ -64,7 +64,7 @@ it('forwards backend extension changes through preload and renderer and removes 
 })
 
 it('carries managed MCP revision events through the actual preload and renderer subscription', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const seen = vi.fn()
@@ -81,7 +81,7 @@ it('carries managed MCP revision events through the actual preload and renderer 
 })
 
 it('carries explicit global extension scope and choices across renderer API and preload', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     await sessionApi.globalExtensions('opencode')
@@ -119,7 +119,7 @@ it('carries explicit global extension scope and choices across renderer API and 
 it.each(['claude', 'opencode'] as const)(
   'preserves %s engine CRUD identities through the renderer API and actual preload',
   async (engine) => {
-    vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+    vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
     try {
       const { engineApi, agentApi } = await import('../renderer/src/shared/api/ipc')
       const key = `${engine}-nondefault`
@@ -155,7 +155,7 @@ it.each(['claude', 'opencode'] as const)(
 )
 
 it('imports settings for the selected harness through the renderer wrapper and exposed preload', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { engineApi } = await import('../renderer/src/shared/api/ipc')
     const result = { exists: true, settingsJson: '{"fixture":true}' }
@@ -175,13 +175,13 @@ it('imports settings for the selected harness through the renderer wrapper and e
 })
 
 it('reveals logs through the renderer wrapper and exposed preload on the dedicated no-input channel', async () => {
-  const api = harness.exposed.get('orca') as OrcaApi
-  vi.stubGlobal('window', { orca: api })
+  const api = harness.exposed.get('oo') as OoApi
+  vi.stubGlobal('window', { oo: api })
   try {
     const { errorApi } = await import('../renderer/src/shared/api/ipc')
     harness.invoke.mockClear()
     await errorApi.revealLog()
-    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith('orca:error:revealLog')
+    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith('oo:error:revealLog')
     harness.invoke.mockRejectedValueOnce(new Error('folder denied'))
     await expect(errorApi.revealLog()).rejects.toThrow('folder denied')
   } finally {
@@ -190,8 +190,8 @@ it('reveals logs through the renderer wrapper and exposed preload on the dedicat
 })
 
 it('promotes the selected shell through the renderer API and actual preload with all identity fields', async () => {
-  const api = harness.exposed.get('orca') as OrcaApi
-  vi.stubGlobal('window', { orca: api })
+  const api = harness.exposed.get('oo') as OoApi
+  vi.stubGlobal('window', { oo: api })
   try {
     const { chatApi } = await import('../renderer/src/shared/api/ipc')
     harness.invoke.mockClear()
@@ -200,7 +200,7 @@ it('promotes the selected shell through the renderer API and actual preload with
       { sessionId: 'session-b', generation: 'generation-b', toolUseId: 'shell-b' }
     ]) {
       await chatApi.promoteBackgroundTask(req)
-      expect(harness.invoke).toHaveBeenLastCalledWith('orca:chat:promoteBackgroundTask', req)
+      expect(harness.invoke).toHaveBeenLastCalledWith('oo:chat:promoteBackgroundTask', req)
     }
     expect(harness.invoke).toHaveBeenCalledTimes(2)
     harness.invoke.mockRejectedValueOnce(new Error('promotion failed'))
@@ -213,8 +213,8 @@ it('promotes the selected shell through the renderer API and actual preload with
 })
 
 it('sends all held inputs now through the renderer API and actual preload using the session key', async () => {
-  const api = harness.exposed.get('orca') as OrcaApi
-  vi.stubGlobal('window', { orca: api })
+  const api = harness.exposed.get('oo') as OoApi
+  vi.stubGlobal('window', { oo: api })
   try {
     const { chatApi } = await import('../renderer/src/shared/api/ipc')
     harness.invoke.mockClear()
@@ -229,8 +229,8 @@ it('sends all held inputs now through the renderer API and actual preload using 
 })
 
 it('opens a context file through the renderer wrapper and actual preload with unchanged results', async () => {
-  const api = harness.exposed.get('orca') as OrcaApi
-  vi.stubGlobal('window', { orca: api })
+  const api = harness.exposed.get('oo') as OoApi
+  vi.stubGlobal('window', { oo: api })
   try {
     const { fileApi } = await import('../renderer/src/shared/api/ipc')
     const request = { path: 'C:/work/a.md', sessionId: 'owner' }
@@ -244,7 +244,7 @@ it('opens a context file through the renderer wrapper and actual preload with un
     for (const outcome of outcomes) {
       harness.invoke.mockResolvedValueOnce(outcome)
       await expect(fileApi.openContextFile(request)).resolves.toBe(outcome)
-      expect(harness.invoke).toHaveBeenLastCalledWith('orca:files:openContextFile', request)
+      expect(harness.invoke).toHaveBeenLastCalledWith('oo:files:openContextFile', request)
     }
     expect(harness.invoke).toHaveBeenCalledTimes(4)
     harness.invoke.mockRejectedValueOnce(new Error('scope rejected'))
@@ -255,7 +255,7 @@ it('opens a context file through the renderer wrapper and actual preload with un
 })
 
 it('artifact actions preserve session and publication IDs on dedicated channels', async () => {
-  const api = harness.exposed.get('orca') as OrcaApi
+  const api = harness.exposed.get('oo') as OoApi
   harness.invoke.mockClear()
   const target = { sessionId: 'original-session', publicationId: 'older-publication' }
   const batch = { sessionId: 'original-session', publicationIds: ['old', 'new'] }
@@ -278,7 +278,7 @@ it('artifact actions preserve session and publication IDs on dedicated channels'
 })
 
 it('artifact catalog and pin state preserve their exact IPC requests', async () => {
-  const api = harness.exposed.get('orca') as OrcaApi
+  const api = harness.exposed.get('oo') as OoApi
   harness.invoke.mockClear()
   const request = { sessionId: 'owner', publicationId: 'selected', pinned: false }
   await api.artifacts.catalog()
@@ -295,12 +295,12 @@ type ChatApi = {
 }
 
 function chat(): ChatApi {
-  const api = harness.exposed.get('orca') as { chat: ChatApi } | undefined
-  if (!api) throw new Error('preload 가 orca 를 노출하지 않았다 — contextBridge 포획 실패')
+  const api = harness.exposed.get('oo') as { chat: ChatApi } | undefined
+  if (!api) throw new Error('preload 가 `oo` 를 노출하지 않았다 — contextBridge 포획 실패')
   return api.chat
 }
 
-describe('preload orca.chat — 서브에이전트 제어 wire 홉 (0212 §10 EP-14)', () => {
+describe('preload oo.chat — 서브에이전트 제어 wire 홉 (0212 §10 EP-14)', () => {
   beforeEach(() => harness.invoke.mockClear())
 
   // 두 번 부르고 인자를 서로 다르게 준다 — 한 번이면 상수로 굳힌 payload 도 통과하고,
@@ -333,7 +333,7 @@ describe('preload orca.chat — 서브에이전트 제어 wire 홉 (0212 §10 EP
 interface EventEndpoint {
   name: string
   channel: string
-  subscribe: (api: OrcaApi, handler: (payload: unknown) => void) => () => void
+  subscribe: (api: OoApi, handler: (payload: unknown) => void) => () => void
 }
 
 // 공개 API에서 구독한다. 내부 helper만 시험하면 endpoint의 잘못된 채널 연결을 놓친다.
@@ -396,7 +396,7 @@ describe('preload public event subscriptions', () => {
   it.each(eventEndpoints)(
     '$name keeps its channel, strips the Electron event and releases only its own listener',
     (endpoint) => {
-      const api = harness.exposed.get('orca') as OrcaApi
+      const api = harness.exposed.get('oo') as OoApi
       const first = vi.fn()
       const second = vi.fn()
       const stopFirst = endpoint.subscribe(api, first)
@@ -432,7 +432,7 @@ describe('preload public event subscriptions', () => {
 })
 
 it('wires DB load and lazy refresh as separate calls with the same stored session ID', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const loaded = { id: 'native-session', backend: 'opencode', messages: [] }
@@ -455,7 +455,7 @@ it('wires DB load and lazy refresh as separate calls with the same stored sessio
 })
 
 it('preserves native resource state and toggle identity through renderer and preload', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const catalogRequest = {
@@ -520,19 +520,16 @@ it('preserves native resource state and toggle identity through renderer and pre
 })
 
 it('forwards OpenCode plugin changes on their own channel', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const changed = vi.fn()
     const stop = sessionApi.onOpenCodePluginsChanged(changed)!
     for (const revision of [2, 7])
-      for (const listener of harness.listeners.get('orca:extensions:opencode-plugins-changed') ??
-        [])
+      for (const listener of harness.listeners.get('oo:extensions:opencode-plugins-changed') ?? [])
         listener({}, { revision })
     expect(changed.mock.calls).toEqual([[{ revision: 2 }], [{ revision: 7 }]])
-    expect(CHANNELS.extensionOpenCodePluginsChanged).toBe(
-      'orca:extensions:opencode-plugins-changed'
-    )
+    expect(CHANNELS.extensionOpenCodePluginsChanged).toBe('oo:extensions:opencode-plugins-changed')
     stop()
     expect(harness.listeners.get(CHANNELS.extensionOpenCodePluginsChanged)?.size).toBe(0)
   } finally {
@@ -540,9 +537,9 @@ it('forwards OpenCode plugin changes on their own channel', async () => {
   }
 })
 
-// 0291 — 로그인 프리 연결 요청이 renderer API → preload → `orca:provider:connect` 로 그대로 간다.
+// 0291 — 로그인 프리 연결 요청이 renderer API → preload → `oo:provider:connect` 로 그대로 간다.
 it('carries the login-free connect request and its final state through the actual preload', async () => {
-  vi.stubGlobal('window', { orca: harness.exposed.get('orca') as OrcaApi })
+  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
   try {
     const { providerApi } = await import('../renderer/src/shared/api/ipc')
     const result = { state: 'failed', message: 'OpenCode가 설치되어 있지 않습니다.' }

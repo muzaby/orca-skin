@@ -5,7 +5,7 @@
 > 언어: TypeScript
 > 전제: sandbox/docker/wsl/appcontainer **없이** 작업 폴더 밖 r/w 를 막는다. OS 샌드박스 대체가 아니라 "작업 폴더 밖 실수·오작동 방지" 수준이다(§8 한계).
 >
-> **Orca 에서는 이미 구현돼 있다 — 정본은 `app/src/main/adapters/workspace-guard.ts`(handoff 0074·0075)다.**
+> **Orcinus orca 에서는 이미 구현돼 있다 — 정본은 `app/src/main/adapters/workspace-guard.ts`(handoff 0074·0075)다.**
 > `resolveGuardRoots`(write 허용 = cwd + `additionalDirectories` + write 예외) · `guardToolAccess`(순수 판정) ·
 > `makeWorkspaceGuardHook`(`options.hooks` 조각) 셋으로 나뉘어 있고 판정부는 순수 함수라 단위 테스트가 붙어
 > 있다(`workspace-guard.test.ts`). **아래 코드 블록은 그 구현을 새로 쓰라는 뜻이 아니라 설계 근거를 읽기 위한
@@ -34,7 +34,7 @@
 | 경로 격리 실판정 (밖=차단) | **PreToolUse 훅** — 모드 독립, 항상 최우선 |
 | permission mode | 앱이 필요대로 선택 (**default 권장**; `acceptEdits`·`plan` 도 안전). `dontAsk` **아님** |
 | 툴 표면 축소 (선택) | `allowedTools` |
-| 위험 명령 이중 차단 (Orca 는 이 deny 패턴을 쓰지 않는다 — Orca 의 `disallowedTools` 는 `['WebSearch']` 전용, §6) | `disallowedTools` (deny 규칙) |
+| 위험 명령 이중 차단 (Orcinus orca 는 이 deny 패턴을 쓰지 않는다 — Orcinus orca 의 `disallowedTools` 는 `['WebSearch']` 전용, §6) | `disallowedTools` (deny 규칙) |
 
 격리는 훅이 지고, permissionMode 는 대화·자동진행 UX 를 위해 자유롭게 고른다. 이것이 요구사항 1·2 를 동시에 만족시키는 유일한 배치다.
 
@@ -85,7 +85,7 @@ const options = {
   ],
 
   // 위험 명령 이중 차단(가이드 예시). deny 규칙은 bypassPermissions 에서도 유효.
-  // Orca 는 이 패턴 대신 ['WebSearch'] 하나만 넘긴다 (§6).
+  // Orcinus orca 는 이 패턴 대신 ['WebSearch'] 하나만 넘긴다 (§6).
   disallowedTools: [
     "Bash(sudo *)",
     "Bash(rm -rf /*)",
@@ -132,14 +132,14 @@ for await (const message of query({ prompt: userPrompt, options })) {
 | 경로 | read | write |
 |---|---|---|
 | workspace (작업 폴더) + `additionalDirectories` | 허용 | 허용 |
-| `~/.claude` — plugin/skill 제공 | 허용 | 차단 *(가이드 기본값 — Orca 구현은 **허용**, 아래 편차 노트)* |
+| `~/.claude` — plugin/skill 제공 | 허용 | 차단 *(가이드 기본값 — Orcinus orca 구현은 **허용**, 아래 편차 노트)* |
 | `~/.config/orcinus-orca/` — plugin 제공 | 허용 | 차단 (단, 세션 cwd 가 이 하위면 cwd 는 writeRoots — 예외의 예외) |
 | node/python skill 런타임 경로 (실행 특성상 read 불가피) | 허용 | 차단 |
 | 그 외 모든 경로 | 차단 | 차단 |
 
 > **최소권한 우선.** 먼저 read 예외 **없이** 돌려보고 skill/plugin 로딩이 깨질 때만 최소 경로를 추가한다. SDK 가 plugin/skill 을 내부적으로 로드해 read 권한이 불필요하면 이 예외들은 넣지 않는다(요구사항의 "무시해도 좋다").
 >
-> **Orca 구현 편차 (0075 r2, 사용자 결정)**: 실제 구현(`app/src/main/adapters/workspace-guard.ts` `writeExceptionRoots`)은 `~/.claude` 를 **write 허용**으로 넓혔다 — plan 모드 산출물 기록·`~/.claude/skills/<name>` 스킬 설치가 쓰기를 요구하기 때문. 본 표의 read-only 스탠스는 일반 방법론 기본값으로 보존한다.
+> **Orcinus orca 구현 편차 (0075 r2, 사용자 결정)**: 실제 구현(`app/src/main/adapters/workspace-guard.ts` `writeExceptionRoots`)은 `~/.claude` 를 **write 허용**으로 넓혔다 — plan 모드 산출물 기록·`~/.claude/skills/<name>` 스킬 설치가 쓰기를 요구하기 때문. 본 표의 read-only 스탠스는 일반 방법론 기본값으로 보존한다.
 
 ### 3.3 툴별 경로 추출
 
@@ -150,7 +150,7 @@ for await (const message of query({ prompt: userPrompt, options })) {
 
 ### 3.4 구현
 
-> Orca 의 실제 구현은 `app/src/main/adapters/workspace-guard.ts` 다. 아래는 같은 판정을 한 파일로 펼친 참조 형태다.
+> Orcinus orca 의 실제 구현은 `app/src/main/adapters/workspace-guard.ts` 다. 아래는 같은 판정을 한 파일로 펼친 참조 형태다.
 
 ```typescript
 // workspace-guard.ts
@@ -168,7 +168,7 @@ function readOnlyAllowRoots(): string[] {
   const home = os.homedir();
   return [
     path.join(home, ".claude"),
-    path.join(home, ".config", "orca"),
+    path.join(home, ".config", "orcinus-orca"),
     // node/python 런타임: 환경에 맞게. 예) process.execPath 상위, /usr/lib/python3.*, venv 경로
     path.dirname(process.execPath),
   ].map((p) => path.resolve(p));
@@ -230,7 +230,7 @@ export function makeWorkspaceGuardHook(
       return deny(`허용되지 않은 경로 read 차단: ${p}`);
     }
 
-    // --- Bash: 정적 스크리닝은 SUPERSEDED (§3.5 — Orca 0075 r3 에서 제거) ---
+    // --- Bash: 정적 스크리닝은 SUPERSEDED (§3.5 — Orcinus orca 0075 r3 에서 제거) ---
     // Bash 격리는 코드 강제가 아니라 시스템 프롬프트 도구-사용 정책으로 유도한다.
     // (구 스케치: screenBashCommand(cmd, WS, readRoots) 판별 후 deny — §3.5 역사 보존 참조)
     if (tool_name === "Bash") {
@@ -245,12 +245,12 @@ export function makeWorkspaceGuardHook(
 
 ### 3.5 Bash 경로 스크리닝 (핵심 한계 지점)
 
-> **SUPERSEDED (Orca 구현 0075 r3)**: 아래 정적 스크리닝은 실전 검증에서 실효가 없어(eval·변수치환
-> `$HOME`·파이프·base64 우회를 못 잡고 URL `//host`·literal `~/.claude` 를 오차단) **Orca 구현에서 제거**했다.
+> **SUPERSEDED (Orcinus orca 구현 0075 r3)**: 아래 정적 스크리닝은 실전 검증에서 실효가 없어(eval·변수치환
+> `$HOME`·파이프·base64 우회를 못 잡고 URL `//host`·literal `~/.claude` 를 오차단) **Orcinus orca 구현에서 제거**했다.
 > 대신 Bash 격리는 시스템 프롬프트 도구-사용 정책(`# Tools` — 파일 작업을 전용 툴로 라우팅 + Bash 를
 > workspace 스코프로 유도, opencode `anthropic.txt` 참고)으로 옮겼다. 즉 **구조 파일툴(Read/Write/Edit/
 > Glob/Grep)=훅으로 코드 강제, Bash=프롬프트로 유도**(코드 강제 불가). 본 §3.5 는 일반 참고로 보존한다.
-> 현재 Orca 대화가 노출하는 셸 도구는 `PowerShell` 이고(`Bash` 제외 — [system-prompt.md](../arch/backend/system-prompt.md)),
+> 현재 Orcinus orca 대화가 노출하는 셸 도구는 `PowerShell` 이고(`Bash` 제외 — [system-prompt.md](../arch/backend/system-prompt.md)),
 > 같은 원칙(프롬프트로 유도 · 경로 비격리 · 승인 카드)이 그대로 적용된다.
 
 Bash 는 임의 문자열이라 완벽한 정적 판별이 불가능하다. 전략은 **"절대경로 화이트리스트 + 상위 탈출 차단"** best-effort 다.
@@ -280,7 +280,7 @@ function screenBashCommand(
   }
 
   // 3) 홈/시스템 확장 차단 (~/.claude, ~/.config/orcinus-orca 예외)
-  if (/(^|\s)(~[^\/\s]|~\/(?!\.claude|\.config\/orca))/.test(cmd)) {
+  if (/(^|\s)(~[^\/\s]|~\/(?!\.claude|\.config\/orcinus-orca))/.test(cmd)) {
     return { block: true, reason: "Bash 홈 디렉터리 확장 차단" };
   }
 
@@ -309,7 +309,7 @@ function screenBashCommand(
 
 ## 5. `additionalDirectories` 확장 시나리오
 
-Orca는 OS 임시 폴더 아래의 `orcinus-orca` 앱 루트를 Code·Work에 자동 추가하고, 사용자가 고른 참조 경로도 함께 넣는다. **SDK 옵션과 훅에는 같은 배열을 주입**한다.
+Orcinus orca는 OS 임시 폴더 아래의 `orcinus-orca` 앱 루트를 Code·Work에 자동 추가하고, 사용자가 고른 참조 경로도 함께 넣는다. **SDK 옵션과 훅에는 같은 배열을 주입**한다.
 
 ```typescript
 const ADDITIONAL_DIRS = [AUTOMATIC_TEMP_ROOT, ...USER_EXTRA_DIRS]; // 단일 소스(one array)
@@ -328,9 +328,9 @@ const options = {
 
 ---
 
-## 6. `disallowedTools` 로 보강 (deny 규칙 — Orca 는 `['WebSearch']` 만 사용)
+## 6. `disallowedTools` 로 보강 (deny 규칙 — Orcinus orca 는 `['WebSearch']` 만 사용)
 
-> **현재 Orca 는 `disallowedTools` 에 `['WebSearch']` 하나만 넘긴다** (`adapters/claude/adapter.ts` — 대화의 WebSearch 차단).
+> **현재 Orcinus orca 는 `disallowedTools` 에 `['WebSearch']` 하나만 넘긴다** (`adapters/claude/adapter.ts` — 대화의 WebSearch 차단).
 > 아래 위험 명령 deny 규칙은 도입할 경우의 형태이지 지금 켜져 있는 설정이 아니다 — 켜려면 그 배열에
 > 패턴을 더하는 코드 변경이 필요하다. 현재 위험 도구 게이트는 `RISKY_TOOLS` 화이트리스트
 > (`adapters/common/risky-tools.ts` — Bash·PowerShell 포함)를 통한 **승인 카드**가 담당한다.
@@ -359,9 +359,9 @@ disallowedTools: [
 - [ ] workspace 내 파일 Read/Write → 허용 (모드별 흐름: default=승인 카드, acceptEdits=자동, plan=라우팅)
 - [ ] `/etc/passwd` Read → 차단
 - [ ] workspace 밖 절대경로 Write → 차단
-- [ ] `Bash: cat /etc/hosts` → (Orca 구현) 코드 차단 아님 — 프롬프트 유도 + 승인 카드 (§3.5 SUPERSEDED)
+- [ ] `Bash: cat /etc/hosts` → (Orcinus orca 구현) 코드 차단 아님 — 프롬프트 유도 + 승인 카드 (§3.5 SUPERSEDED)
 - [ ] `Bash: cat ../../secret` → 동상
-- [ ] `~/.claude` 하위 Read → 허용, Write → 가이드 기본 차단 / **Orca 구현 허용** (§3.2 편차 노트)
+- [ ] `~/.claude` 하위 Read → 허용, Write → 가이드 기본 차단 / **Orcinus orca 구현 허용** (§3.2 편차 노트)
 - [ ] `~/.config/orcinus-orca` 하위 Read → 허용
 - [ ] **`AskUserQuestion` → 사용자에게 질문이 뜬다 (자동 거부되지 않음)**
 - [ ] **`ExitPlanMode` / `plan` 모드 → 계획 제출 후 정상 진행 (자동 거부되지 않음)**

@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 
-/** 파일 작업은 현재 Orca 창의 신뢰한 최상위 문서만 요청할 수 있다. */
+/** 파일 작업은 현재 Orcinus orca 창의 신뢰한 최상위 문서만 요청할 수 있다. */
 export function createArtifactSenderCheck(
   getContents: () => WebContents | null,
   rendererUrl: string

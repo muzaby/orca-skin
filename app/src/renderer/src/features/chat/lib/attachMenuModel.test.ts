@@ -21,8 +21,8 @@ const labels = {
 const skill = (name: string, sourceId: string, sourceLabel: string, description = ''): SkillInfo =>
   ({ name, sourceId, sourceLabel, description }) as SkillInfo
 const skills = [
-  skill('a', 'orca', 'Orcinus orca', '설명 A'),
-  skill('b', 'orca', 'Orcinus orca'),
+  skill('a', 'orcinus-orca', 'Orcinus orca', '설명 A'),
+  skill('b', 'orcinus-orca', 'Orcinus orca'),
   skill('c', 'adapter:claude', 'Claude', '설명 C')
 ]
 const plugins = [
@@ -36,7 +36,7 @@ describe('buildAttachMenu', () => {
       skills: [
         skill('same', 'adapter:claude', 'OLD'),
         skill('same', 'plugin:claude', 'OLD'),
-        skill('local', 'orca', 'OLD')
+        skill('local', 'orcinus-orca', 'OLD')
       ],
       plugins,
       labels,
@@ -47,14 +47,33 @@ describe('buildAttachMenu', () => {
     if (panel.kind !== 'submenu') throw new Error('skills panel')
     // Orcinus orca 그룹은 항상 첫 그룹이다(0291 D-017).
     expect(panel.items.filter((item) => item.kind === 'heading')).toEqual([
-      { kind: 'heading', id: 'skills:orca', label: 'Orcinus orca', leading: 'orca' },
+      {
+        kind: 'heading',
+        id: 'skills:orcinus-orca',
+        label: 'Orcinus orca',
+        leading: 'orcinus-orca'
+      },
       { kind: 'heading', id: 'skills:adapter:claude', label: 'Claude', leading: 'adapter:claude' }
     ])
     expect(panel.items.filter((item) => item.kind === 'action').map((item) => item.id)).toEqual([
-      'skill:orca/local',
+      'skill:orcinus-orca/local',
       'skill:adapter:claude/same',
       'skill:plugin:claude/same'
     ])
+    // 플러그인 목록의 머리글도 제품 출처 아이콘을 받는다 (0306 EP-07).
+    const headings = menu.flatMap((entry) =>
+      entry.kind === 'submenu' ? entry.items.filter((item) => item.kind === 'heading') : []
+    )
+    expect(headings).toContainEqual({
+      kind: 'heading',
+      id: 'plugins:orcinus-orca',
+      label: 'Orcinus orca',
+      leading: 'orcinus-orca'
+    })
+    // 제품 출처의 스킬만 `skill` 로 삽입되고 하네스 출처는 native 명령으로 삽입된다 (0306 EP-07).
+    expect(
+      panel.items.flatMap((item) => (item.kind === 'action' ? [item.action.type] : []))
+    ).toEqual(['skill', 'nativeCommand', 'nativeCommand'])
   })
   it.each(['claude', 'opencode'] as const)(
     'limits %s to approved skill sources and merges duplicate source headings',
@@ -147,7 +166,7 @@ describe('buildAttachMenu', () => {
       }
     ])
   })
-  it('exposes native commands for OpenCode without exposing Orca integrations or inventing slash names', () => {
+  it('exposes native commands for OpenCode without exposing Orcinus orca integrations or inventing slash names', () => {
     const nativeLabels = {
       loading: 'loading',
       error: 'error',
@@ -392,10 +411,10 @@ it('shares native menu membership with decoration without exposing disabled or o
         },
         {
           kind: 'mcp' as const,
-          id: 'orca-id',
-          name: 'Orca label',
+          id: 'orcinus-orca-id',
+          name: 'Orcinus orca label',
           status: 'connected' as const,
-          origin: 'orca' as const,
+          origin: 'orcinus-orca' as const,
           enabled: true,
           canToggle: false
         },
@@ -413,8 +432,8 @@ it('shares native menu membership with decoration without exposing disabled or o
   expect(nativePluginMentions(view)).toEqual([
     { kind: 'plugin', id: 'native-id', label: 'Native label' }
   ])
-  expect(nativePluginMentions(view, 'orca')).toEqual([
-    { kind: 'plugin', id: 'orca-id', label: 'Orca label' }
+  expect(nativePluginMentions(view, 'orcinus-orca')).toEqual([
+    { kind: 'plugin', id: 'orcinus-orca-id', label: 'Orcinus orca label' }
   ])
   expect(nativePluginMentions({ status: 'loading' })).toEqual([])
   expect(

@@ -74,13 +74,13 @@ async function setup(withProbe = true): Promise<{
   dates: (next: Record<number, number>) => void
   bodies: (next: Record<number, string>) => void
 }> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-mail-integration-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-integration-'))
   roots.push(root)
   vi.mocked(userDataPath).mockResolvedValue(root)
   // 프로덕션 `prepareTemporaryFilesPath` 는 realpath 를 돌려준다. mkdtemp 원본은 Windows
   // 러너에서 `C:\\Users\\RUNNER~1\\...` 8.3 별칭이라 그대로 쓰면 mock 이 프로덕션과 다른
   // 값을 준다 — fixture 를 실제 계약에 맞춘다.
-  const temp = await realpath(await mkdtemp(join(tmpdir(), 'orca-mail-export-')))
+  const temp = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-export-')))
   roots.push(temp)
   vi.mocked(prepareTemporaryFilesPath).mockResolvedValue(temp)
   // 좌표는 선언 입력에만 있고 런타임 옵션에는 없다 — 사본이 하나임을 fixture 도 따른다.

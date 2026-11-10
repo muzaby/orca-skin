@@ -173,7 +173,7 @@ export function CustomizeList({
           )
         })}
       {tab === 'mcp' && mcpServers.length > 0 && (
-        <SourceHeading source="orca" label={extensionSourceLabels.orca} />
+        <SourceHeading source="orcinus-orca" label={extensionSourceLabels['orcinus-orca']} />
       )}
       {tab === 'mcp' &&
         orderMcpServers(mcpServers).map((server) => {
@@ -209,7 +209,7 @@ export function CustomizeList({
         })}
       {tab === 'mcp' && nativeList}
       {tab === 'providers' && providers.length > 0 && (
-        <SourceHeading source="orca" label={extensionSourceLabels.orca} />
+        <SourceHeading source="orcinus-orca" label={extensionSourceLabels['orcinus-orca']} />
       )}
       {tab === 'providers' &&
         orderProviders(providers).map((provider) => {

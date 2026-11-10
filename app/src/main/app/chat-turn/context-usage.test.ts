@@ -36,7 +36,7 @@ describe('OpenCode last-step context through persistence', () => {
       contextWindow: 123456,
       costUsd: 0.5
     })
-    const root = mkdtempSync(join(tmpdir(), 'orca-context-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-context-'))
     const file = join(root, 'test.db')
     let db = openFileDatabase(file, { initialize: applyMigrations })
     try {

@@ -206,7 +206,7 @@ describe('Jira service', () => {
   })
 
   it('save batch는 publish 전 prepared 상태이고 중간 실패면 stage 전체를 abort할 수 있다', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'orca-jira-service-'))
+    const directory = await mkdtemp(join(tmpdir(), 'orcinus-orca-jira-service-'))
     roots.push(directory)
     let binaryCall = 0
     const fake = context((req) => {
@@ -234,7 +234,7 @@ describe('Jira service', () => {
   })
 
   it('single save 성공은 output preflight가 publish를 결정할 prepared invocation을 돌려준다', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'orca-jira-service-'))
+    const directory = await mkdtemp(join(tmpdir(), 'orcinus-orca-jira-service-'))
     roots.push(directory)
     const fake = context((req) =>
       req.responseType === 'binary'

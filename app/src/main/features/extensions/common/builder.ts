@@ -3,7 +3,7 @@
 // 어댑터/백엔드를 전혀 모른다. router 에 흩어져 있던 지침 조회를 이리로 이주해
 // "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
-// systemPromptAppend = 구조화 헤더(# Orca/# User/# Project). 프로젝트 name·지침은 '# Project'
+// systemPromptAppend = 구조화 헤더(# orcinus-orca/# User/# Project). 프로젝트 name·지침은 '# Project'
 // 섹션 안에 함께 포맷화된다(라운드 2). 세션마다·매 턴 가변이라 여기서 매 턴 조회·재조립한다. 헤더는
 // buildSystemHeader(순수)가 조립한다. (정적 정책 append 체인 prompts/ 는 handoff 0062 에서 제거.)
 //
@@ -25,7 +25,7 @@ export class ExtensionBuilder {
     private readonly db: DbQueries,
     private readonly skills: () => SkillInfo[],
     private readonly settings: () => Settings,
-    private readonly orcaVersion: string,
+    private readonly ooVersion: string,
     private readonly pluginRoots?: () => string[],
     private readonly runtimeTools?: RuntimeToolSource,
     private readonly managedMcp?: import('../../../adapters/common/managed-mcp').ManagedMcpSource
@@ -57,11 +57,11 @@ export class ExtensionBuilder {
     }
 
     // 구조화 헤더(사용자 정보 + 실행환경 구성) 조립. 매 턴 최신 settings 를 읽는다. 프로젝트 지침은
-    // 헤더의 '# Project' 섹션 안에 name 과 함께 포맷화되어 편입된다(라운드 2). 헤더는 '# Orca' 상시라
+    // 헤더의 '# Project' 섹션 안에 name 과 함께 포맷화되어 편입된다(라운드 2). 헤더는 '# Orcinus orca' 상시라
     // 빈 문자열이 될 수 없으므로 append = 헤더 단일 문자열이다.
     const s = this.settings()
     const systemPromptAppend = buildSystemHeader({
-      orcaVersion: this.orcaVersion,
+      ooVersion: this.ooVersion,
       agentInstructions: profile?.agentInstructions,
       language: s.language,
       accountInstructions: s.accountInstructions,

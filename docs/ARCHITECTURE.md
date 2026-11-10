@@ -23,7 +23,7 @@
 | [auth.md](./arch/backend/auth.md) | **인증과 그 소비 경계 정본** — 책임 지도(Auth·Gate·Harness·Plugin·Usage)·`AuthDefinition`(소비 슬롯 없음)·`AuthMethod` 5분기(OAuth code→token 포함)·`Grant`·`AuthChange` 분류표·게이트 진리표와 이중 강제·Harness 실행 구성(augmenter·세대 fence·두 주입 채널·fingerprint)·Plugin/HarnessPlugin 구분·부팅 순서·뒤집으면 안 되는 결정 |
 | [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(vault·Grant)·MCP&Skill 통합 레이어·CSP·**§1.8 원격 전송 스택 단일화(Node `fetch` 금지 → Electron `net.fetch`, 0173/0174)**·**§1.9 `infra/net/` 인벤토리**·§1.10 Git 실행·Plugin 호스트 프로그램 경계 |
 | [runtime-ipc.md](./arch/backend/runtime-ipc.md) | 동시성 모델·IPC 핸들러 구조·시스템 통합 |
-| [system-prompt.md](./arch/backend/system-prompt.md) | 시스템 프롬프트 조립 — preset + 구조화 헤더(`# Orca`/`# Agent`/`# Tools`/`# User`/`# Project`)·변동성 계층 |
+| [system-prompt.md](./arch/backend/system-prompt.md) | 시스템 프롬프트 조립 — preset + 구조화 헤더(`# Orcinus orca`/`# Agent`/`# Tools`/`# User`/`# Project`)·변동성 계층 |
 | [observability.md](./arch/backend/observability.md) | 로깅 — 중앙 LogManager·JSONL 로테이션·redact·suppress · §7 오류 보고(toast) |
 | [terms.md](./arch/backend/terms.md) | **사람용 용어 해설** — 백엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
@@ -46,8 +46,8 @@
 | 파일/디렉토리 | 역할 |
 |---|---|
 | [IPC_CONTRACT.md](./IPC_CONTRACT.md) · [GLOSSARY.md](./GLOSSARY.md) | SSOT (채널 / 용어) — 분해 안 함 |
-| [claude-code-spec.md](./claude-code-spec.md) | `spec/claude/` 원문 미러로 가는 **라우터**(Orca 합성분은 arch/backend 로 이관됨) |
-| [claude-taskxxx-spec.md](./claude-taskxxx-spec.md) · [opencode-sdk-spec.md](./opencode-sdk-spec.md) | 해설 미러 — TaskXXX 도구군 / OpenCode SDK 표면과 Orca 채택 표기 |
+| [claude-code-spec.md](./claude-code-spec.md) | `spec/claude/` 원문 미러로 가는 **라우터**(Orcinus orca 합성분은 arch/backend 로 이관됨) |
+| [claude-taskxxx-spec.md](./claude-taskxxx-spec.md) · [opencode-sdk-spec.md](./opencode-sdk-spec.md) | 해설 미러 — TaskXXX 도구군 / OpenCode SDK 표면과 Orcinus orca 채택 표기 |
 | `spec/claude/` · `spec/opencode/` | 외부 공식 문서 원문 미러 (편집 금지) |
 | [decisions/](./decisions/) | ADR — 왜 그렇게 결정했나 |
 | [generated/inventory.md](./generated/inventory.md) | 코드에서 센 수치 (생성물 — 직접 편집 금지) |

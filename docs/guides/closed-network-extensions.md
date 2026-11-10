@@ -1,7 +1,7 @@
 # 폐쇄망(사내) 배포 — 로그인 게이트·확장 추가 가이드
 
-회사 폐쇄망에 Orca 를 배포할 때, 코어를 고치지 않고 **로그인 게이트·LLM 자격증명·사내 서비스
-도구·로그인 프리 기본 도구**를 붙이는 방법의 정본. 대상 독자는 **Orca 내부 구조를 모르는 외부 에이전트/사내 개발자**다 —
+회사 폐쇄망에 Orcinus orca 를 배포할 때, 코어를 고치지 않고 **로그인 게이트·LLM 자격증명·사내 서비스
+도구·로그인 프리 기본 도구**를 붙이는 방법의 정본. 대상 독자는 **Orcinus orca 내부 구조를 모르는 외부 에이전트/사내 개발자**다 —
 각 절은 순서대로 실행 가능한 단계로 쓴다.
 
 > **구조·설계 근거는 [`arch/backend/auth.md`](../arch/backend/auth.md) 가 정본이다.**
@@ -23,7 +23,7 @@
 **0180 이 그것을 지웠고, 0188 이 같은 이름을 다른 뜻으로 되살렸다** — 지금 **Plugin 은 제품 기능
 단위**(`features/plugins/<name>/`)이고 등록은 `app/deployment/plugins.ts` 가 한다(Confluence 가
 그 예다). 그 밖의 두 용례는 UI 우산어(`nav.plugins` 카탈로그 탭)와 Claude Code 플랫폼 배포
-산출물(`ORCA_PLUGIN_NAME`)이다([`GLOSSARY.md`](../GLOSSARY.md) `Plugin` 표제어).
+산출물(`OO_PLUGIN_NAME`)이다([`GLOSSARY.md`](../GLOSSARY.md) `Plugin` 표제어).
 
 세 뜻이 한 단어를 쓰므로 **문맥 없이 서로 대체하지 않는다.**
 
@@ -35,15 +35,15 @@
 | 하려는 일 | 레시피 | 축 | 재빌드 | 요청 주체 |
 |---|---|---|---|---|
 | 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-구-kindgate)** | `AuthDefinition` + `gate-auth.ts` membership | 필요 | — |
-| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--harness-실행-구성-추가-구-kindllm)** | `AuthDefinition` + `harness-runtime.ts` augmenter | 필요 | Orca(발급) → Harness(사용) |
+| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--harness-실행-구성-추가-구-kindllm)** | `AuthDefinition` + `harness-runtime.ts` augmenter | 필요 | Orcinus orca(발급) → Harness(사용) |
 | 사내 **프록시·사설 CA** 를 Claude subprocess 에 먹인다 | **[B-2 — §3-d](#3-d-spawn-env-주입점--프록시사설-ca-같은-환경-적응값)** | `spawn-env.ts` injector (모든 key) | 필요 | — |
-| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--plugin--내장-도구-구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orca** (`BoundAuth.request`) |
+| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--plugin--내장-도구-구-kindservice)** | `AuthDefinition` + `plugins.ts` binding | 필요 | **Orcinus orca** (`BoundAuth.request`) |
 | 앱 로그인·인증 없이 항상 제공하는 **내장 도구**를 추가한다 (공개 API·로컬 키·호스트 exe) | **[C 로그인 프리 — §4](#로그인-프리-plugin-레시피)** | `LoginFreeDefinition` + `LOGIN_FREE_DEFINITIONS` + `plugins.ts` binding | 필요 | Plugin (`LoginFreePluginAuth.request` 또는 직접 실행) |
 | 호스트 PC 에 설치된 **OpenCode 설정을 그대로** 읽기 전용 엔진&모델 카드로 띄운다 (연결 버튼) | **[C 연결 — §4](#로그인-프리-연결-레시피--호스트-opencode-모델)** | `LoginFreeDefinition.connect` + contribution + augmenter + `harnessRows` | 필요 | 호스트 OpenCode CLI (`HostHarnessPort`) |
 | 그 외 모든 서비스 연동 | **[D — §5](#5-레시피-d--mcp-서버-추가-재빌드-없음)** | MCP 서버 | **불필요** | claude CLI |
 
 **"재빌드 없이 서비스를 추가하고 싶다" → 레시피 D(MCP) 를 쓴다.** 인증이 필요한 MCP 서버는
-`mcp.json` 에서 `${BINDING:<providerId>}` 로 provider 의 토큰을 참조할 수 있다(값 소유는 Orca
+`mcp.json` 에서 `${BINDING:<providerId>}` 로 provider 의 토큰을 참조할 수 있다(값 소유는 Orcinus orca
 vault 가 유지, §5).
 
 > **런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·vault
@@ -394,7 +394,7 @@ config: {
     code: {
       urlParam: 'ticket',       // final URL 에서 찾을 이름. 생략하면 'code'
       bodyField: 'authorization_code', // 본문에 실을 때의 이름. 생략하면 urlParam(또는 'code')
-      extraFields: { grant_type: 'authorization_code', client_id: 'orca' } // 함께 실을 고정값
+      extraFields: { grant_type: 'authorization_code', client_id: 'orcinus-orca' } // 함께 실을 고정값
     },
     // ── 필수 ②: 받은 토큰을 요청에 싣는 방법 ──
     present: { location: 'header', name: 'Authorization', scheme: 'bearer' },
@@ -408,7 +408,7 @@ config: {
 
 **교환 요청은 항상 `POST` + `application/json` 이다** — 전송 형상을 고르는 선언은 없다. 위
 예제가 실제로 내보내는 요청은 `POST /api/token` 에 본문
-`{"grant_type":"authorization_code","client_id":"orca","authorization_code":"<코드>"}` 하나다.
+`{"grant_type":"authorization_code","client_id":"orcinus-orca","authorization_code":"<코드>"}` 하나다.
 `code.extraFields` 에 코드와 **같은 이름**을 적어도 실제 인가 코드가 이긴다. 코드는 본문에만 실리므로
 프록시·서버 액세스 로그에 인가 코드가 남지 않는다.
 
@@ -462,7 +462,7 @@ subprocess env가 아니라 runtime catalog에 전달된다.
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
-| 1 | 사용자 편집 provider면 settings 디렉토리를 만들고, 인증 파생 Orca Harness면 runtime contribution을 선언한다 | 전자는 settings SSOT, 후자는 read-only catalog다 |
+| 1 | 사용자 편집 provider면 settings 디렉토리를 만들고, 인증 파생 Orcinus orca Harness면 runtime contribution을 선언한다 | 전자는 settings SSOT, 후자는 read-only catalog다 |
 | 2 | 인증 대상을 선언한다 (`AuthDefinition` — `envKey` 는 적지 않는다) | `app/deployment/auth-definitions.ts` |
 | 3 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 `methods` 배열에** | 같은 파일 |
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
@@ -491,7 +491,7 @@ return [
 
 **주입 규칙 4가지** (어기면 진단이 어려워진다):
 
-- secret 은 **`options.env` 에만** 실린다. `settings.json` 은 여전히 verbatim 이고 Orca 가 그
+- secret 은 **`options.env` 에만** 실린다. `settings.json` 은 여전히 verbatim 이고 Orcinus orca 가 그
   파일에 토큰을 쓰지 않는다(0028 결정 유지,
   [`arch/backend/security.md`](../arch/backend/security.md)).
 - **미인증이면 실패시킨다** — 빈 문자열로 치환하지 않는다. 인증된 것처럼 보이는 요청이 나가면
@@ -552,7 +552,7 @@ apiKeySpec({
     const redirectUri = ctx.loopbackRedirectUri(9321)
     const url = new URL('https://llm.example.corp/oauth/authorize')
     url.searchParams.set('response_type', 'code')
-    url.searchParams.set('client_id', 'orca-desktop')
+    url.searchParams.set('client_id', 'orcinus-orca-desktop')
     url.searchParams.set('redirect_uri', redirectUri)
     url.searchParams.set('state', ctx.state())
     url.searchParams.set('code_challenge', pkce.challenge)
@@ -603,7 +603,7 @@ manual 분기와 같은 규칙). 반대로 한 번이라도 부르면 콜백이 
 |---|---|---|
 | `loopback` (권장) | IdP 가 `http://127.0.0.1:<port>/callback` 을 등록해 준다 | 사용자의 **기본 브라우저**가 흐름을 처리한다(주소창·인증서를 직접 본다). RFC 8252 |
 | `window` | 루프백 redirect 를 등록해주지 않는 폐쇄망 IdP | 앱 내부 창. `isDone(url)` 이 참인 URL 에서 code 를 뽑는다 |
-| `manual` | 리다이렉트를 아예 못 쓰는 환경 | 사용자가 브라우저에서 받은 code 를 붙여 넣는다(`orca:provider:continue`) |
+| `manual` | 리다이렉트를 아예 못 쓰는 환경 | 사용자가 브라우저에서 받은 code 를 붙여 넣는다(`oo:provider:continue`) |
 
 **코어가 보장하는 것** — 배포가 다시 구현하지 마라:
 
@@ -747,11 +747,11 @@ export const SPAWN_ENV_INJECTOR: SpawnEnvInjector | undefined = ({ target, hostE
 | 이름을 바꾼 Claude 모델 | `gw-opus-4.7`처럼 계열·버전 토큰을 남긴다. 별칭을 쓰면 `ANTHROPIC_DEFAULT_OPUS_MODEL` 등 실제 모델 매핑도 확인한다. |
 | 게이트웨이에서 1M 사용 | 자동으로 붙는 `[1m]`의 beta 헤더를 게이트웨이가 받는지 설치본에서 확인한다. 거절하면 `CLAUDE_CODE_DISABLE_1M_CONTEXT=1`로 자동 부착을 끈다. |
 | 미확인 1M 모델 | 선택 이름에 `[1m]`을 명시하고 실제 서버 창과 CLI 사용량을 확인한다. |
-| 창·요약 env 설정 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS`·`CLAUDE_CODE_AUTO_COMPACT_WINDOW` 등은 CLI 설정으로 관리한다. Orca가 기본값을 주입하지 않으므로 기존 운영 설정을 확인한다. |
+| 창·요약 env 설정 | `CLAUDE_CODE_MAX_CONTEXT_TOKENS`·`CLAUDE_CODE_AUTO_COMPACT_WINDOW` 등은 CLI 설정으로 관리한다. Orcinus orca가 기본값을 주입하지 않으므로 기존 운영 설정을 확인한다. |
 | 프록시 모델의 컨텍스트 창 | 미확인 모델은 `CLAUDE_CODE_MAX_CONTEXT_TOKENS`를 실제 창으로 설정하고 도넛 분모와 CLI 압축 기준이 같은 창을 쓰는지 확인한다. 미설정 시 기본 정책을 따른다 — [컨텍스트 분모](../arch/frontend/rendering.md#19-컨텍스트-사용량-도넛패널-구현-완료). |
 | 프록시 컨텍스트 도넛이 갱신되지 않음 | 메인 assistant usage 또는 `message_delta.usage`의 입력·캐시 토큰을 요청 로그에서 확인한다. 둘 다 usage를 반환하지 않는 프록시는 도넛 미지원이다 — [사용량 수집](../arch/backend/provider-runtime.md#8-telemetryservice). |
 | 큰 텍스트 첨부 | 작은 파일·큰 파일·이미지와 함께 첨부한 파일을 설치본에서 확인한다. 읽기·상한 안내는 CLI가 처리한다. |
-| 도구 결과 이미지가 글자로 변환됨 | 게이트웨이의 `/v1/messages` 변환 경로와 요청 로그를 확인한다. Orca에서 우회하지 않는다 — [study 8.8](../etc/study/claude/08-컨텍스트-한도와-파일-정책.md#88-게이트웨이litellm-뒤에서-달라지는-것). |
+| 도구 결과 이미지가 글자로 변환됨 | 게이트웨이의 `/v1/messages` 변환 경로와 요청 로그를 확인한다. Orcinus orca에서 우회하지 않는다 — [study 8.8](../etc/study/claude/08-컨텍스트-한도와-파일-정책.md#88-게이트웨이litellm-뒤에서-달라지는-것). |
 
 ## 4. 레시피 C — Plugin + 내장 도구 (구 `kind:'service'`)
 
@@ -1437,7 +1437,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 |---|---|
 | 미제공 | `daily`·`monthly` 생략/`null`/`[]`, `total`의 수치 전무, 모델의 수치 전무, 걸러낸 뒤 빈 모델 집합은 해당 쓰기 0이다. 기존 행을 삭제하거나 0으로 덮지 않는다. 제공한 행의 개별 수치 생략·`null`은 SQL NULL로 보존하고 명시적 `0`은 저장한다. |
 | 누적·교체 | 다른 기간은 이력으로 남긴다. 같은 기간의 제공한 `total`은 통째 갱신한다. `models`를 실은 기간의 모델 집합은 통째 교체하여 빠진 모델을 지우고, 미제공이면 기존 집합을 유지한다. |
-| 날짜 키 | `day`는 실재하는 `YYYY-MM-DD`, `month`는 `YYYY-MM`이다. 서버 날짜를 Orca OS 로컬 달력으로 변환한다. 코어는 타임존을 변환하지 않는다. |
+| 날짜 키 | `day`는 실재하는 `YYYY-MM-DD`, `month`는 `YYYY-MM`이다. 서버 날짜를 Orcinus orca OS 로컬 달력으로 변환한다. 코어는 타임존을 변환하지 않는다. |
 | 검증·상한 | 키 오류·중복 기간/모델·빈 모델명·음수/비유한 수치·비정수 토큰·상한 초과는 갱신 전체 실패다. 상한값은 `features/usage/breakdown.ts`의 `USAGE_BREAKDOWN_LIMITS`를 따른다. 요청 창은 최근 2개월을 권장한다. |
 | 실패 | 형식 오류는 쓰기 0·push 0, DB 쓰기 실패는 트랜잭션 전체 롤백이다. 마지막 반영 값은 유지한다. |
 | 원격 칸 | 지원 provider의 저장된 원격 합계·모델 집합 칸은 원격 값만 사용한다. 표시할 때 미제공 수치는 0이고 SDK 수치로 채우거나 더하지 않는다. 칸 없는 날만 SDK 값을 쓴다. |
@@ -1518,7 +1518,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | **신원 조회** (probe 뒤 whoami) | `app/src/main/features/auth/browser-session/runner.ts` |
 | 상태 push 배선 | `app/src/main/app/handlers/settings.ts` |
 | 게이트 셸 (타이틀바·디버그 패널 마운트) | `app/src/renderer/src/app/GateFrame.tsx` |
-| 로그인 랜딩 (Orca 제목·이미지·입력 카드·버튼) | `app/src/renderer/src/features/providers/components/GateLogin.tsx` |
+| 로그인 랜딩 (Orcinus orca 제목·이미지·입력 카드·버튼) | `app/src/renderer/src/features/providers/components/GateLogin.tsx` |
 | 상태·액션 훅 | `app/src/renderer/src/features/providers/hooks/useProviderGate.ts` |
 | **신원 선택 규칙 (순수)** | `app/src/renderer/src/features/providers/lib/principal.ts` |
 | **사이드바 표시** | `app/src/renderer/src/app/SidebarUserButton.tsx` |
@@ -1642,13 +1642,13 @@ provider 선언과 별개로, **배포본 자체를 폐쇄망에서 만들고 �
 **자동 업데이트**: 피드가 설정되지 않으면 updater 는 이미 noop 으로 저하된다
 (`feed-not-configured`, `app/src/main/app/updater.ts`) — 외부 GitHub Releases 피드는 폐쇄망에서
 자연히 불능이다. 사내 피드는 `orcinus-orca.json` 의 `update` 로 **코드 수정 없이** 지정한다
-(스키마·조립 정본: `infra/config/orca-file.ts` · `app/updater-feed.ts`).
+(스키마·조립 정본: `infra/config/oo-file.ts` · `app/updater-feed.ts`).
 
 | provider | `orcinus-orca.json` 예 | 언제 |
 |---|---|---|
-| `s3` (권장 — MinIO/S3-호환) | `{ "update": { "provider": "s3", "bucket": "orca-updates", "endpoint": "http://minio.internal:9000", "path": "win" } }` | `endpoint` 를 주면 electron-updater 가 `${endpoint}/${bucket}[/${path}]` 를 base URL 로 삼는다(사내 MinIO). 생략하면 AWS S3(`region` 사용) |
-| `generic` | `{ "update": { "provider": "generic", "url": "https://updates.internal/orca/" } }` | 임의 HTTPS 정적 호스트 |
-| `github` | `{ "update": { "provider": "github", "owner": "infra", "repo": "orca", "host": "github.company.com" } }` | 사내 GitHub Enterprise. base URL 이 다르면 `host`(필요 시 `protocol`)로 지정 |
+| `s3` (권장 — MinIO/S3-호환) | `{ "update": { "provider": "s3", "bucket": "orcinus-orca-updates", "endpoint": "http://minio.internal:9000", "path": "win" } }` | `endpoint` 를 주면 electron-updater 가 `${endpoint}/${bucket}[/${path}]` 를 base URL 로 삼는다(사내 MinIO). 생략하면 AWS S3(`region` 사용) |
+| `generic` | `{ "update": { "provider": "generic", "url": "https://updates.internal/orcinus-orca/" } }` | 임의 HTTPS 정적 호스트 |
+| `github` | `{ "update": { "provider": "github", "owner": "infra", "repo": "orcinus-orca", "host": "github.company.com" } }` | 사내 GitHub Enterprise. base URL 이 다르면 `host`(필요 시 `protocol`)로 지정 |
 | 비활성 | `{ "update": { "enabled": false } }` | 업데이터 전체를 끈다 |
 
 - 어느 쪽이든 `latest.yml` · installer(`*-setup.exe`) · `.blockmap` 셋을 올린다.

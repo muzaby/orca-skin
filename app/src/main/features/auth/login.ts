@@ -719,7 +719,7 @@ export class LoginService {
     input: Record<string, string> | undefined
   ): Promise<AuthStep> {
     // 1회차는 입력이 없으므로 필드를 알린다. **신뢰된 prompt** 다 — 방식이 만든 임의 UI 가
-    // 아니라 Orca 가 이 필드 선언을 렌더링한다.
+    // 아니라 Orcinus orca 가 이 필드 선언을 렌더링한다.
     if (!input || !spec.fields.some((field) => input[field.name] !== undefined)) {
       this.pending.set(definition.id, { authId: definition.id, authKind: spec.kind })
       return this.emit({

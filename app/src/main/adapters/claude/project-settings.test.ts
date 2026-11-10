@@ -8,7 +8,7 @@ import { claudeProjectSettingsFiles, readClaudeProjectSettings } from './project
 
 let temp: string, cwd: string, root: string
 beforeEach(() => {
-  temp = mkdtempSync(join(tmpdir(), 'orca-project-settings-'))
+  temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-project-settings-'))
   cwd = join(temp, 'project/child')
   root = join(temp, 'native')
   mkdirSync(join(temp, 'project/.git'), { recursive: true })

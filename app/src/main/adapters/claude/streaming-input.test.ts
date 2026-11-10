@@ -6,7 +6,9 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 describe('createSessionInputStream', () => {
   it('initial 이 주어지면 스폰 프롬프트로 먼저 yield 한다 (uuid 상관키 포함)', async () => {
-    const { stream } = createSessionInputStream([{ content: 'hello', uuid: 'orca-prompt-1' }])
+    const { stream } = createSessionInputStream([
+      { content: 'hello', uuid: 'orcinus-orca-prompt-1' }
+    ])
     const it = stream[Symbol.asyncIterator]()
     const first = await it.next()
     expect(first.done).toBe(false)
@@ -14,7 +16,7 @@ describe('createSessionInputStream', () => {
       type: 'user',
       parent_tool_use_id: null,
       priority: 'next',
-      uuid: 'orca-prompt-1',
+      uuid: 'orcinus-orca-prompt-1',
       message: { role: 'user', content: 'hello' }
     })
   })
@@ -108,17 +110,17 @@ describe('createSessionInputStream', () => {
     close()
   })
 
-  it('push(content, uuid) 는 uuid(orca 상관키)와 priority next 를 함께 싣는다 (0060 D1)', async () => {
+  it('push(content, uuid) 는 uuid(Orcinus orca 상관키)와 priority next 를 함께 싣는다 (0060 D1)', async () => {
     const { stream, push, close } = createSessionInputStream([{ content: 'first' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next()
 
     const pending = it.next()
-    push('steer feedback', 'orca-steer-0001')
+    push('steer feedback', 'orcinus-orca-steer-0001')
     const second = await pending
     expect(second.value).toMatchObject({
       type: 'user',
-      uuid: 'orca-steer-0001',
+      uuid: 'orcinus-orca-steer-0001',
       priority: 'next',
       message: { role: 'user', content: 'steer feedback' }
     })

@@ -77,7 +77,7 @@ beforeEach(() => {
   }))
   api.skillList.mockResolvedValue(
     [
-      'orca',
+      'orcinus-orca',
       'agents',
       'adapter:claude',
       'adapter:opencode',
@@ -87,9 +87,9 @@ beforeEach(() => {
       name: 'review',
       sourceId,
       sourceLabel: sourceId,
-      sourceKind: sourceId === 'orca' ? 'orca' : 'adapter',
+      sourceKind: sourceId === 'orcinus-orca' ? 'orcinus-orca' : 'adapter',
       enabled: true,
-      canToggle: sourceId === 'orca',
+      canToggle: sourceId === 'orcinus-orca',
       canRemove: false,
       description: '',
       skillDir: '/fixture',
@@ -315,7 +315,7 @@ it('hides native plugin skills from the skills tab', async () => {
   await flush()
   tab(1)
   expect(rows()).toEqual([
-    'orca/review',
+    'orcinus-orca/review',
     'adapter:claude/review',
     'adapter:opencode/review',
     'agents/review'
@@ -332,7 +332,7 @@ it('scopes native loading and failure to plugin and MCP tabs', async () => {
   expect(rows()).toEqual([])
   expect(dom.queryAll('[role="status"]').map((node) => node.textContent)).toEqual(['불러오는 중…'])
   tab(1)
-  expect(rows()).toContain('orca/review')
+  expect(rows()).toContain('orcinus-orca/review')
   pending.reject(new Error('offline'))
   await flush()
   expect(

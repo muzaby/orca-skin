@@ -4,7 +4,7 @@ import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
 // logo.png is a square application-icon canvas. The visible mark occupies the
 // centered 1023 x 776 region, so the wrapper clips that transparent padding
 // while preserving the public height-based sizing contract.
-export function OrcaLogo({ className = '' }: { className?: string }): React.JSX.Element {
+export function OoLogo({ className = '' }: { className?: string }): React.JSX.Element {
   return (
     <span
       className={`relative inline-block aspect-[1023/776] overflow-hidden align-middle ${className}`}

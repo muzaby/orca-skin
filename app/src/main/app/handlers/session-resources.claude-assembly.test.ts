@@ -58,7 +58,7 @@ const write = (p: string, v: unknown): void => {
 it(
   'reconciles external plugin selections and publishes the final state through the real watcher',
   async () => {
-    temp = mkdtempSync(join(tmpdir(), 'orca-toggle-assembly-'))
+    temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-toggle-assembly-'))
     const cwd = join(temp, 'desk'),
       root = join(temp, 'claude')
     fx.root = join(temp, 'plugins')

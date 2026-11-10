@@ -6,14 +6,14 @@ import { SkillDetail } from './SkillDetail'
 import type { SkillInfo } from '../../../../../../shared/ipc'
 
 it('renders no switch for default-path skills', () => {
-  for (const sourceId of ['orca', 'agents', 'adapter:claude', 'adapter:opencode']) {
+  for (const sourceId of ['orcinus-orca', 'agents', 'adapter:claude', 'adapter:opencode']) {
     const skill: SkillInfo = {
       name: 'review',
       sourceId,
       sourceLabel: sourceId,
-      sourceKind: sourceId === 'orca' ? 'orca' : 'adapter',
+      sourceKind: sourceId === 'orcinus-orca' ? 'orcinus-orca' : 'adapter',
       enabled: true,
-      canToggle: sourceId === 'orca',
+      canToggle: sourceId === 'orcinus-orca',
       canRemove: false,
       description: '',
       body: '',
@@ -32,7 +32,7 @@ it('renders no switch for default-path skills', () => {
         })
       )
     )
-    expect($('[role=switch]')).toHaveLength(sourceId === 'orca' ? 1 : 0)
+    expect($('[role=switch]')).toHaveLength(sourceId === 'orcinus-orca' ? 1 : 0)
     expect($('h2').hasClass('text-ink3')).toBe(false)
   }
 })

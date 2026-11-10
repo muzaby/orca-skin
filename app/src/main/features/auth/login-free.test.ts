@@ -44,7 +44,7 @@ function build(respond: typeof fetch = async () => new Response('ok')): CreatedA
     loginFreeDefinitions: [
       PUBLIC,
       { id: 'host-exe', label: '호스트' },
-      { id: 'non-http', label: 'authority', origin: 'orca://local' }
+      { id: 'non-http', label: 'authority', origin: 'orcinus-orca://local' }
     ],
     persistence,
     vault: createVault(secretStore),

@@ -63,8 +63,8 @@ new BrowserWindow({
 
 | # | 경로 | 왜 불가피한가 | 완화 |
 |---|---|---|---|
-| 1 | **MCP `.mcp.json`** — `dist/<engine>/plugins/orcinus-orca/.mcp.json` 에 해석된 값이 평문으로 렌더된다 | claude CLI 가 그 파일을 읽어 MCP 서버를 spawn 한다 — Orca 가 요청 주체가 아니다 | 미해결 참조는 그 **서버를 통째로 드롭**(fail-closed). 소유권이 provider 하나로 일원화돼 회전·해제가 한 곳 |
-| 2 | **LLM `--settings` argv** — provider `settings.json` 의 `env` 블록 | 사용자가 `~/.claude/settings.json` 과 같은 방식으로 직접 적는 값(0028) | Orca 는 이 파일에 **쓰지 않는다**. 확장·주입도 하지 않고 verbatim 으로 읽는다 |
+| 1 | **MCP `.mcp.json`** — `dist/<engine>/plugins/orcinus-orca/.mcp.json` 에 해석된 값이 평문으로 렌더된다 | claude CLI 가 그 파일을 읽어 MCP 서버를 spawn 한다 — Orcinus orca 가 요청 주체가 아니다 | 미해결 참조는 그 **서버를 통째로 드롭**(fail-closed). 소유권이 provider 하나로 일원화돼 회전·해제가 한 곳 |
+| 2 | **LLM `--settings` argv** — provider `settings.json` 의 `env` 블록 | 사용자가 `~/.claude/settings.json` 과 같은 방식으로 직접 적는 값(0028) | Orcinus orca 는 이 파일에 **쓰지 않는다**. 확장·주입도 하지 않고 verbatim 으로 읽는다 |
 | 3 | **LLM `Options.env`** (0181 신규) — 인증된 provider 의 자격증명을 subprocess 환경변수로 병합 | SDK 가 subprocess 를 띄우므로 자격증명은 프로세스 경계를 넘어야 한다 | **디스크에 남지 않는다**(subprocess 수명). 미인증이면 그 키를 **드롭**(빈 문자열 치환 금지). 0028 이 없앤 "설정 파일에 토큰 기록" 은 되살리지 않는다 |
 
 | 4 | **OpenCode 자식 환경** — 사용자 MCP의 실행 값과 main bridge capability | 하네스가 사용자 MCP와 loopback bridge에 연결한다 | `OPENCODE_CONFIG_CONTENT`에는 환경 변수 참조만 담고 값은 JSON 문자열 치환 규칙으로 이스케이프한다. 내장 서비스 credential은 main에 남는다. 새 평문 파일·argv·renderer·앱 로그로 복제하지 않는다. |
@@ -91,16 +91,16 @@ new BrowserWindow({
 
 > **MCP 서버 인증값**: 전역 MCP 설정의 인증값(stdio API 키 / http Bearer 토큰)은 `${VAR}` 참조로 적고 배포 시 resolver 가 해석한다(`${BINDING:<id>}` → vault → allowlist env, 아래). `isEncryptionAvailable()` 이 false 면 저장을 거부(에러).
 >
-> **MCP & Skill 통합 레이어 (파일-백드 모델로 재설계)**: 초기 구현은 `orca-mcp` 스토어에 풍부한 per-server 레코드(authEnc 포함)를 담았으나, 이후 **정규 소스 = `~/.config/orcinus-orca/mcp.json`** (순정 Claude `mcpServers` 스키마 + `${VAR}` 플레이스홀더) 로 이전했다. 3출처 분할:
+> **MCP & Skill 통합 레이어 (파일-백드 모델로 재설계)**: 초기 구현은 `orcinus-orca-mcp` 스토어에 풍부한 per-server 레코드(authEnc 포함)를 담았으나, 이후 **정규 소스 = `~/.config/orcinus-orca/mcp.json`** (순정 Claude `mcpServers` 스키마 + `${VAR}` 플레이스홀더) 로 이전했다. 3출처 분할:
 > - **소스** (`mcp.json`, `~/.config/orcinus-orca`): 정의의 진실. 순정 Claude 스키마만 — Claude Code 로 그대로 복사 가능. `${VAR}` 만 있고 **평문 비밀 0**. atomic write(temp+rename).
 > - **비밀** (`secret-store`, `orcinus-orca-secrets` + safeStorage): **env-var 이름**으로 키잉(서버 id 아님) → 여러 서버가 같은 `${TOKEN}` 공유. 소스는 `${VAR}`로 이 값을 참조하며, 배포 산출물에는 해석한 값이 렌더된다.
-> - **enabled / description** (settings `mcpEnabled` / `mcpMeta`): per-install UI 상태 + Claude 스키마에 없는 Orca 메타. 정의(mcp.json) 와 분리(D2).
+> - **enabled / description** (settings `mcpEnabled` / `mcpMeta`): per-install UI 상태 + Claude 스키마에 없는 Orcinus orca 메타. 정의(mcp.json) 와 분리(D2).
 >
 > **`${VAR}` resolver 순서 (0157 개정) = `${BINDING:<id>}`(인증 플랫폼 binding) → safeStorage(비밀) → **명시 allowlist 에 있는 경우에만** process.env**. 구 구현은 `process.env` **전체**가 fallback 이라 앱 환경의 임의 값이 이름만 맞으면 MCP 설정으로 샜다 — 이제 `orcinus-orca.json` 의 `secrets.envAllowlist` 에 **정확한 이름**을 적은 것만 허용한다(패턴·접두사 없음, 미지정이면 fallback 0건). 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록** — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
 
 > **provider settings**: 사용자가 `sources/settings/<harness>/<provider>/settings.json`에 적은 env는 파일 소스로 남는다. 실행 설정은 settings 계층이 읽고 runtime 구성과 함께 adapter에 전달한다. MCP 배포 파일의 비밀 처리와는 별개의 경로다.
 >
-> **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
+> **타입 모델**: 정규 컬렉션 타입은 `OoMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OoMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
 > **MCP 변환 경계**: `features/extensions/common/mcp/resolve.ts`가 env/header 확장과 미해결 제외를 수행하고 Claude wrapper가 같은 결과를 소비한다. OpenCode의 `managed-mcp.ts`는 메모리 snapshot을 native 설정과 자식 환경으로 투영한다. 원본 stdio/http/sse 설정을 덮어쓰지 않는다.
 >
@@ -109,7 +109,7 @@ new BrowserWindow({
 > **확장 정규 레이어**: 공통 source와 bridge의 책임은 [standardization.md §5](./standardization.md)에 서술한다. bridge는 `127.0.0.1` 임시 포트·무작위 bearer capability·Host 검사·Origin 거부를 적용한다. SDK transport session은 세대와 서버에 묶이며 현재 인증을 호출마다 재검사한다. session 범위 도구에는 채팅 sessionId·cwd를 합성하지 않는다.
 >
 > - **정규 소스**: 편집 가능한 MCP·skill 소스와 배포 산출물을 구분한다. 현재 디렉토리 배치는 [standardization.md §5](./standardization.md)를 참조한다.
-> - **Claude 배포·주입**: 배포기가 Orca skill과 MCP를 `dist/claude/plugins/orcinus-orca` 플러그인에 렌더하고, 사용자 skill은 별도 wrapper로 연결한다. Adapter는 plugin 경로를 SDK에 전달한다. SDK 메모리 MCP 서버는 runtime tool 경로가 별도로 공급한다.
+> - **Claude 배포·주입**: 배포기가 Orcinus orca skill과 MCP를 `dist/claude/plugins/orcinus-orca` 플러그인에 렌더하고, 사용자 skill은 별도 wrapper로 연결한다. Adapter는 plugin 경로를 SDK에 전달한다. SDK 메모리 MCP 서버는 runtime tool 경로가 별도로 공급한다.
 > - **opencode 어댑터 머티리얼라이즈**(future anchor, 미구현): 설정은 디스크 파일만 가능한 모델이 아니다. SDK server helper의 `config`는 `OPENCODE_CONFIG_CONTENT`로 전달되고 config API도 존재한다([SDK 해설](../../opencode-sdk-spec.md)). 어느 경로를 쓸지는 후속 설계 사항이며, 확장된 평문 비밀을 `opencode.json`에 쓰는 해법을 기본값으로 삼지 않는다. skill/agent/command 변환·배포도 아직 구현하지 않았다.
 >
 > **이식성 경계 (= 변환 가능성)**: **Skill(`SKILL.md`)** 은 변환 없이 양 백엔드 공통(opencode 가 `.claude/skills`·`~/.claude/skills` 네이티브 글로빙). **MCP/Agent/Command** 는 변환 가능(MCP 는 구현됨, agent/command 변환기는 anchor). **Hook·full-plugin 번들** 은 본질적으로 백엔드 종속(Claude=선언형 `hooks.json`+shell·manifest 디렉토리 / opencode=TS 코드 모듈; SDK 도 Claude=인프로세스 vs opencode=`serve` HTTP) → 정규화 대상이 아니며 향후 백엔드별 슬롯으로 둔다. `skill-creator` 같은 full Claude 플러그인은 정규 모델에 포함하지 않는다(필요 시 `SKILL.md` 만 `skills/` 로 추출).
@@ -140,7 +140,7 @@ connect-src 'self'
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **앱 로그인 게이트**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/gate/index.ts` 의 **순수 진리표**이고 상태는 `orca:provider:state` 로 온다.
+- **앱 로그인 게이트**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/gate/index.ts` 의 **순수 진리표**이고 상태는 `oo:provider:state` 로 온다.
   - **prod 는 선언이 0개면 통과**(`required:false`) — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치이며 `gate.test.ts` 가 회귀로 고정한다.
   - **DEV 는 선언이 0개여도 게이트를 세운다**(`alwaysRequired`, 0089/0130 동작 복원) — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수 있어야 하기 때문이다. 그 빌드의 유일한 탈출구가 우회 토글이라, 디버그 패널이 로그인 화면에도 마운트된다.
   - **판정 전에는 통과시키지 않는다**(`gate=null` → 부팅 화면 유지). main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다(fail-closed).
@@ -235,7 +235,7 @@ OpenCode 모델 목록은 `server.ts`가 서버와 같은 실행 파일·같은 
 
 ### Agent provider auth token
 
-provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude/settings.json` 과 **동일 스키마·동일 취급**이다(handoff 0028). 접근 토큰·base URL 등 인증 env 는 사용자가 그 파일의 `env` 블록에 **직접** 적어 관리한다(Claude Code 정책 그대로). Orca 는 이 env 에 대해 `${VAR}` 확장도, secret-store 토큰 주입(구 `provider:${key}`→`ANTHROPIC_API_KEY`, 0010/0015)도 **하지 않는다** — settings 를 verbatim 으로 읽어 그대로 주입한다. (secret-store `provider:` 토큰 경로는 0028 에서 폐지. safeStorage 는 이제 Auth vault(§1.4-b)가 쓴다.) provider settings 는 dist 에 배포하지 않고 sources 파일만 읽으므로 **디스크 평문 0** 은 유지된다.
+provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude/settings.json` 과 **동일 스키마·동일 취급**이다(handoff 0028). 접근 토큰·base URL 등 인증 env 는 사용자가 그 파일의 `env` 블록에 **직접** 적어 관리한다(Claude Code 정책 그대로). Orcinus orca 는 이 env 에 대해 `${VAR}` 확장도, secret-store 토큰 주입(구 `provider:${key}`→`ANTHROPIC_API_KEY`, 0010/0015)도 **하지 않는다** — settings 를 verbatim 으로 읽어 그대로 주입한다. (secret-store `provider:` 토큰 경로는 0028 에서 폐지. safeStorage 는 이제 Auth vault(§1.4-b)가 쓴다.) provider settings 는 dist 에 배포하지 않고 sources 파일만 읽으므로 **디스크 평문 0** 은 유지된다.
 
 **env→`options.settings` 주입 (handoff 0028 — 0015/0018 "env↛argv" 불변식 폐기)**: provider settings 는 `query()` 의 flag 레이어(`options.settings` → CLI `--settings`)로 주입된다. `settingSources: ['project','local']`(0117) 이라 사용자 전역 `~/.claude/settings.json` 은 상속되지 않고, 이 flag settings 가 **앱 환경구성의 유일한 settings 원천**이 된다 — env 도 settings 안에 그대로 실어 주입한다. 이 값은 SDK 가 직렬화 없이 CLI argv 에 push 하므로 env(auth key 포함)가 **process list(같은 사용자에게 가시)에 노출**되는데, 이는 "앱 환경구성이 settings 를 소유한다"는 요구를 위한 **수용된 트레이드오프**다(same-user 한정 — Claude Code 의 `--settings` 와 동일 노출 특성). `options.env` 에는 턴 env 만 싣는다 — `orcinus-orca.json` 앱 env · Harness 실행 구성 overlay([auth.md](./auth.md)) · 배포 custom env(`app/deployment/spawn-env.ts`) · 에이전트 종류별 spawn env(`SessionAdapter.agentSpawnEnv`).
 
@@ -245,6 +245,6 @@ provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude
 
 게시 입력은 채널의 cwd/extraDirs 또는 OS 사용자 Temp와 그 하위에 있는 로컬 일반 파일을 허용한다. Temp는 `infra/config/temp-path.ts`로 해석하며 다른 도구의 허용 폴더를 늘리지 않는다. 경로 실체가 허용 root 안에 있는지와 UTF-8 형식, 크기 상한, 읽기 전후 파일·root 상태를 검사하여 허용 범위 밖으로 나가는 정션을 거부한다. 이 파일 검증은 OS 샌드박스가 아니며 악의적인 모든 경로 교체 경쟁의 원자적 차단을 보장하지 않는다.
 
-artifact IPC는 현재 Orca 메인 창의 최상위 frame과 renderer URL의 protocol/host를 확인한다. renderer는 session/publication ID만 전달하고 Main이 세션 참조와 보관 루트 실체를 다시 검사한다. 개별 내보내기는 임시 파일을 작성하고 rename으로 교체하여 외부 하드링크를 통한 보관 원본 덮어쓰기를 피한다. 묶음 저장은 exclusive create와 접미사로 기존 파일을 보존한다. 파일 reveal은 탐색기 선택만 하며 HTML을 실행하지 않는다.
+artifact IPC는 현재 Orcinus orca 메인 창의 최상위 frame과 renderer URL의 protocol/host를 확인한다. renderer는 session/publication ID만 전달하고 Main이 세션 참조와 보관 루트 실체를 다시 검사한다. 개별 내보내기는 임시 파일을 작성하고 rename으로 교체하여 외부 하드링크를 통한 보관 원본 덮어쓰기를 피한다. 묶음 저장은 exclusive create와 접미사로 기존 파일을 보존한다. 파일 reveal은 탐색기 선택만 하며 HTML을 실행하지 않는다.
 
 휴지통 이동은 사용자 확인 후 등록된 파일만 대상으로 하고 영구 삭제로 대체하지 않는다. 모델에는 삭제 도구를 노출하지 않는다. 본문 미리보기는 session/publication ID의 소유권과 제한 읽기를 확인한 뒤 반환한다. HTML은 Main에서 정제한 문서만 격리된 iframe에 표시하며 원문은 코드·복사용으로 보존한다([렌더링 경계](../frontend/rendering.md#산출물-게시-카드)). 보관·소실·복원 규칙은 [persistence.md](persistence.md)에 있다.

@@ -2,13 +2,13 @@
 // electron 값(앱 버전·DEV)은 여기서만 읽어 LogManager 에 주입한다 —
 // 나머지 log 모듈은 electron 비의존(순수 vitest 대상)을 유지한다.
 // 파일 위치는 ~/.config/orcinus-orca/logs/ (홈 디렉토리 고정) — dev/prod 공통 디렉토리를 쓴다.
-// 루트 조립은 `infra/config/paths` 의 `orcaConfigDir()` 하나가 소유한다 — 0225 이전에는 여기서
+// 루트 조립은 `infra/config/paths` 의 `ooConfigDir()` 하나가 소유한다 — 0225 이전에는 여기서
 // 독립 하드코딩해 설정 루트 정의가 둘이었고, 한쪽만 고치면 로그가 옛 루트에 남는다.
 
 import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
-import { orcaConfigDir } from '../config/paths'
+import { ooConfigDir } from '../config/paths'
 import type { LogInput, LogRecord } from '../../../shared/logging'
 import { FileTransport, logFilePath } from './file-transport'
 import { LogManager, type AppLogger, type LogSource } from './log-manager'
@@ -46,7 +46,7 @@ function mirrorToConsole(record: LogRecord): void {
 
 export function initLog(): AppLogger {
   if (rootLogger) return rootLogger
-  const dir = join(orcaConfigDir(), 'logs')
+  const dir = join(ooConfigDir(), 'logs')
   transport = new FileTransport({ dir, onInternalError: emergency })
   manager = new LogManager({
     transport,
@@ -67,7 +67,7 @@ export function setConsoleMirror(on: boolean): void {
   manager?.setConsoleMirrorEnabled(on)
 }
 
-// orca.json debug 스위치 런타임 반영 (0144) — 부팅 시 loadOrcaConfig() 후 컴포지션 루트가 호출.
+// orcinus-orca.json debug 스위치 런타임 반영 (0144) — 부팅 시 loadOoConfig() 후 컴포지션 루트가 호출.
 // true 면 prod 파일 레벨을 info→debug 로 올린다(dev 는 항상 debug 라 무영향).
 export function setLogDebug(on: boolean): void {
   manager?.setDebugEnabled(on)
@@ -85,7 +85,7 @@ export function flushLogSync(): void {
 }
 
 export function currentLogFilePath(): string {
-  return transport?.filePath ?? logFilePath(join(orcaConfigDir(), 'logs'))
+  return transport?.filePath ?? logFilePath(join(ooConfigDir(), 'logs'))
 }
 
 export function closeLog(): void {

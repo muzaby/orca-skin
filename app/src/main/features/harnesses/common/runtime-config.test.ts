@@ -81,7 +81,7 @@ describe('정적 구성 (AC11)', () => {
   it('warm cache 는 augmenter 를 다시 부르지 않는다', async () => {
     const augment = vi.fn(async () => ({
       runtimeEnv: { A: '1' },
-      availableModels: ['sonnet-corp', 'orca-private-v1']
+      availableModels: ['sonnet-corp', 'orcinus-orca-private-v1']
     }))
     const service = createHarnessRuntimeConfigService({
       settings: settingsPort(() => 'rev-1'),
@@ -92,7 +92,7 @@ describe('정적 구성 (AC11)', () => {
     const second = await service.resolve(ENTRY)
 
     expect(augment).toHaveBeenCalledTimes(1)
-    expect(first.availableModels).toEqual(['sonnet-corp', 'orca-private-v1'])
+    expect(first.availableModels).toEqual(['sonnet-corp', 'orcinus-orca-private-v1'])
     expect(second).toBe(first)
   })
 })

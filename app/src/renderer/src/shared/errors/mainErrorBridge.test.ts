@@ -11,7 +11,7 @@ afterEach(() => {
 describe('main error bridge', () => {
   it('subscribes before drain so reports arriving during drain are not lost or logged twice', async () => {
     const log = vi.fn()
-    vi.stubGlobal('window', { orca: { log: { error: log } } })
+    vi.stubGlobal('window', { oo: { log: { error: log } } })
     let listener: ((r: AppErrorReport) => void) | undefined
     const order: string[] = []
     const pending: AppErrorReport = {

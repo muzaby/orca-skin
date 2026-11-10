@@ -18,7 +18,7 @@ afterEach(async () => {
   for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true })
 })
 async function fixture(): Promise<{ root: string; allowed: string; store: BackgroundOutputStore }> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-output-test-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-output-test-'))
   dirs.push(root)
   const allowed = join(root, 'allowed')
   await mkdir(allowed)

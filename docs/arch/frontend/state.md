@@ -49,12 +49,12 @@ artifact의 선택·요청 세대는 `artifactViewerStore`가 계속 소유한�
 
 | 상태 종류 | 위치 | 영속화 | 예시 |
 |---|---|---|---|
-| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | native 원본 + Orca 보관 DB + 재조회 캐시 ([영속성](../backend/persistence.md)). | sessionId, messages, inflight, permissionMode |
+| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | native 원본 + Orcinus orca 보관 DB + 재조회 캐시 ([영속성](../backend/persistence.md)). | sessionId, messages, inflight, permissionMode |
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
-| Tweaks (theme/대화 텍스트 크기·너비/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `orca:settings:get` / `set` | theme, transcriptTextSize, transcriptWidth, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
+| Tweaks (theme/대화 텍스트 크기·너비/sidebar/한도) | `shared/theme/TweakProvider`의 provider별 store + electron-store | ✅ `oo:settings:get` / `set` | theme, transcriptTextSize, transcriptWidth, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
 | 세션/프로젝트 목록 | `features/{sessions,projects}/store/*Store`(Zustand, 0013) | — | list, loading |
-| 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + `providerUpdatedAt[key]` (전역 쪽 타임스탬프는 두지 않는다 — 전역 화면에 "마지막 업데이트" 표시가 없다). **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `orca:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
+| 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + `providerUpdatedAt[key]` (전역 쪽 타임스탬프는 두지 않는다 — 전역 화면에 "마지막 업데이트" 표시가 없다). **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `oo:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
 | 업데이트 상태 | `features/update/store/updateStore`(Zustand, 0085/0086) | — | state(UpdateState), dialogOpen, actionError, dummyMode(dev) |
 | 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
@@ -117,8 +117,8 @@ interface SessionEntry {
 ### 1.3 Anti-pattern (하지 말 것)
 
 - ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. draft snapshot은 persistent input controller의 로컬 state로 두고, shell·transcript에는 올리지 않는다.
-- ❌ **컴포넌트에서 `window.orca` 직접 호출** — feature hook/store와 `shared/api/ipc.ts` 래퍼를 사용한다. Tweaks는 `shared/theme/TweakProvider.tsx` 내부 store가 settings 호출을 소유하고 소비 컴포넌트는 selector/action을 사용한다.
-- ❌ **`features/` hook 에서 `window.orca.*` 직접 호출** — `shared/api/ipc.ts` 타입드 래퍼 (PR #29 에서 도입) 를 경유한다. 직접 호출은 ESLint 위반은 아니지만 테스트 진입점 / IPC 계약 변경 추적성을 망가뜨린다.
+- ❌ **컴포넌트에서 `window.oo` 직접 호출** — feature hook/store와 `shared/api/ipc.ts` 래퍼를 사용한다. Tweaks는 `shared/theme/TweakProvider.tsx` 내부 store가 settings 호출을 소유하고 소비 컴포넌트는 selector/action을 사용한다.
+- ❌ **`features/` hook 에서 `window.oo.*` 직접 호출** — `shared/api/ipc.ts` 타입드 래퍼 (PR #29 에서 도입) 를 경유한다. 직접 호출은 ESLint 위반은 아니지만 테스트 진입점 / IPC 계약 변경 추적성을 망가뜨린다.
 - ❌ **`useEffect` 안에서 store→다른 store 갱신** — 무한 루프 위험. reducer 의 단일 액션으로 묶을 것.
 - ❌ **`messages` 배열을 mutate** — reducer 는 `.slice()` 후 새 배열 반환 (`chatReducer.ts` 패턴).
 - ❌ **Tailwind 클래스에 raw hex 색상** — 시맨틱 토큰 (`bg-bg`, `text-ink`, `border-border`) 우선. 새 색이 필요하면 `tokens.css` 의 `@theme` 에 추가하고 두 테마(white/dark) 스코프 모두 채움.
@@ -127,7 +127,7 @@ interface SessionEntry {
 
 - **구조**: feature 별 store + chat 의 `sessions: Record<key, SessionEntry>` 외피(§1.2). `Map<sessionId, store>` factory 는 채택하지 않았다 — 전역 공유 필드용 root store 가 또 필요해지고 영속성 hydration 이 2회가 된다(선택 근거는 handoff 0008·0013 plan).
 - **선택적 리렌더**: `useChatSession(selector)`·`useLiveText` 등 selector 구독으로 비활성 세션의 델타 누적이 활성 UI 를 깨우지 않는다(§1.2 · rendering.md §1.2). `ChatProvider` 는 부팅 effect(`bootstrapChat()`)만 가지며 Context·useReducer 를 쓰지 않는다.
-- **외부 dispatch**: IPC `orca:chat:event` 핸들러가 React 트리 밖에서 코얼레서 → `chatStore` 로 직접 넣는다(ux-domains.md §3.2). 모든 `NormalizedEvent` 가 `sessionId` 를 가져 store 가 키 라우팅한다(GLOSSARY NormalizedEvent).
+- **외부 dispatch**: IPC `oo:chat:event` 핸들러가 React 트리 밖에서 코얼레서 → `chatStore` 로 직접 넣는다(ux-domains.md §3.2). 모든 `NormalizedEvent` 가 `sessionId` 를 가져 store 가 키 라우팅한다(GLOSSARY NormalizedEvent).
 - **슬라이스**: 세션별 `sessions[key]`(`session`·`live`·`subagentMeta`·`pendingSteer` …) — `inflight` 도 세션별이다. 전역은 feature store(§1.1 표).
 - **세션 삭제**: 엔트리 제거 + 진행 중 턴 abort.
 - **사이드바 슬롯**: `app/hooks/useSidebarSlots.tsx` 의 `projectsSlot`·`pinnedSlot`·`sessionsSlot`·`footerSlot` 을 `AppLayout` 이 props 로 받는다 — `shared/ui/` presentational 규칙(layers.md §1.1) 유지.
@@ -182,7 +182,7 @@ Sidebar는 고정됨→프로젝트→최근 대화 순서다. 고정 프로젝�
 |---|---|---|
 | `ChatState` 외피 | `sessions: Record<key, SessionEntry>` + `activeKey` — reducer 는 세션 1개 단위 순수 함수 | `features/chat/store/chatStore.ts` |
 | 이벤트 출처 식별 | 모든 `NormalizedEvent` 가 `sessionId` 를 갖고 store 가 키 라우팅한다(GLOSSARY NormalizedEvent) | `app/src/shared/ipc.ts` |
-| IPC 1채널 | `orca:chat:event` 하나 — Electron `webContents.send` 가 ordered + lossless 를 보장하므로 별도 메시지큐를 두지 않는다 | — |
+| IPC 1채널 | `oo:chat:event` 하나 — Electron `webContents.send` 가 ordered + lossless 를 보장하므로 별도 메시지큐를 두지 않는다 | — |
 | 세션 전환 수단 | 사이드바 목록(고정됨 · 프로젝트 · 최근 대화, §1.6) — 세션 탭 UI 는 두지 않았다 | `app/Sidebar.tsx` · `features/sessions/` |
 | 비활성 세션 알림 | 오른쪽 상태 칸 — 생성 중 회색 원호 · 비열람 완료/응답 대기 파란 공, 주의 표시는 세션을 열면 해제 | `sessionsStore.unseenAttention` |
 

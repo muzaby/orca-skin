@@ -16,7 +16,7 @@ afterEach(async () => {
 it.each(['before-hold', 'during-load'] as const)(
   'notifies once about a dependency changed %s without a later edit',
   async (timing) => {
-    root = await realpath(await mkdtemp(join(tmpdir(), 'orca-verify-')))
+    root = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-verify-')))
     const cache = new OpenCodeDiscoveryCache()
     const file = join(root, 'opencode.json')
     await writeFile(file, '{"mcp":{}}')
@@ -49,7 +49,7 @@ it.each(['before-hold', 'during-load'] as const)(
 it(
   'control: notifies a holder about a dependency change made after hold',
   async () => {
-    root = await realpath(await mkdtemp(join(tmpdir(), 'orca-verify-')))
+    root = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-verify-')))
     const cache = new OpenCodeDiscoveryCache()
     const file = join(root, 'opencode.json')
     await writeFile(file, '{"mcp":{}}')

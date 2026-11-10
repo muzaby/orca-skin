@@ -97,7 +97,7 @@ const answer = (sessionId: string): NormalizedEvent[] => [
 function install() {
   harness.handlers.clear()
   harness.events.length = 0
-  root = mkdtempSync(join(tmpdir(), 'orca-returned-input-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-returned-input-'))
   const directory = join(root, 'sources', 'settings', 'opencode', 'local')
   mkdirSync(directory, { recursive: true })
   writeFileSync(join(directory, 'settings.json'), JSON.stringify(document))

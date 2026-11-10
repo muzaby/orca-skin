@@ -25,7 +25,7 @@ afterEach(() => {
 describe('ErrorToastLayer production wiring', () => {
   it('mounts Host and supplies live navigation, settings and preload wrapper dependencies', async () => {
     const revealLog = vi.fn(async () => {})
-    vi.stubGlobal('window', { orca: { error: { revealLog } } })
+    vi.stubGlobal('window', { oo: { error: { revealLog } } })
     const element = ErrorToastLayer()
     expect(element.type).toBe(ErrorToastHost)
     const onOpen = element.props.onOpen as Parameters<typeof ErrorToastHost>[0]['onOpen']

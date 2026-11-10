@@ -26,7 +26,7 @@ afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
 function temporaryDirectory(): string {
-  const path = mkdtempSync(join(tmpdir(), 'orca-opencode-test-'))
+  const path = mkdtempSync(join(tmpdir(), 'orcinus-orca-opencode-test-'))
   directories.push(path)
   return path
 }
@@ -101,18 +101,18 @@ describe('owned OpenCode server lifecycle', () => {
     const first = { mcp: { fixture: { enabled: false } } }
     await pool.acquire(
       first,
-      { ORCA_MCP_secret_name: 'sentinel-first', XDG_DATA_HOME: 'relative' },
+      { ORCINUS_ORCA_MCP_secret_name: 'sentinel-first', XDG_DATA_HOME: 'relative' },
       'C:/first'
     )
     await pool.acquire(
       first,
-      { ORCA_MCP_secret_name: 'sentinel-first', XDG_DATA_HOME: 'relative' },
+      { ORCINUS_ORCA_MCP_secret_name: 'sentinel-first', XDG_DATA_HOME: 'relative' },
       'C:/first'
     )
     expect(debug.mock.calls.filter(([event]) => event.endsWith('key-split'))).toHaveLength(0)
     await pool.acquire(
       { mcp: { another: { enabled: false } } },
-      { ORCA_MCP_secret_name: 'sentinel-second', XDG_DATA_HOME: 'relative' },
+      { ORCINUS_ORCA_MCP_secret_name: 'sentinel-second', XDG_DATA_HOME: 'relative' },
       'C:/second'
     )
     const splits = debug.mock.calls.filter(([event]) => event.endsWith('key-split'))
@@ -121,7 +121,7 @@ describe('owned OpenCode server lifecycle', () => {
       'config:mcp',
       'cwd',
       'env:OPENCODE_CONFIG_CONTENT',
-      'env:ORCA_MCP_*'
+      'env:ORCINUS_ORCA_MCP_*'
     ])
     expect(JSON.stringify(debug.mock.calls)).not.toMatch(/sentinel|secret_name|fixture|another|C:/)
   })
@@ -137,10 +137,10 @@ describe('owned OpenCode server lifecycle', () => {
     })
     const env = { OPENCODE_DB: path }
     await Promise.all([
-      pool.databasePath({ mcp: { first: {} } }, { ...env, ORCA_MCP_A: 'one' }, 'C:/A'),
+      pool.databasePath({ mcp: { first: {} } }, { ...env, ORCINUS_ORCA_MCP_A: 'one' }, 'C:/A'),
       pool.databasePath(
         { mcp: { second: {} } },
-        { ...env, ORCA_MCP_B: 'two', OPENCODE_CONFIG_CONTENT: '{}' },
+        { ...env, ORCINUS_ORCA_MCP_B: 'two', OPENCODE_CONFIG_CONTENT: '{}' },
         'C:/B'
       )
     ])
@@ -167,7 +167,7 @@ describe('owned OpenCode server lifecycle', () => {
         const result = await adapter.readHistory({
           sessionId: 's1',
           cwd,
-          env: { ...env, ORCA_MCP_HISTORY: cwd }
+          env: { ...env, ORCINUS_ORCA_MCP_HISTORY: cwd }
         })
         expect(result.status).toBe('ready')
       }

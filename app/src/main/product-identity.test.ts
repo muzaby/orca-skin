@@ -1,4 +1,7 @@
-// 0225 제품 식별자 계약 — 이름의 SSOT 와 그 사본들이 어긋나지 않는지 본다.
+// 제품 식별자 계약(0225 · 0306) — 이름의 SSOT 와 그 사본들이 어긋나지 않는지 본다.
+//
+// 옛 이름 리터럴은 이 파일에 직접 적지 않는다 — `LEGACY_PRODUCT_SLUG` 에서 만든다. 옛 표기
+// 재유입은 `scripts/check-product-naming.mjs` 가 트리 전체에서 막는다(0306 D-007).
 //
 // 여기서만 할 수 있는 단언이 셋이다.
 //   ① 빌드 설정 2개 파일(`package.json`·`electron-builder.yml`)은 코드에서 import 할 수 없어
@@ -42,6 +45,10 @@ function relative(file: string): string {
     .join(posix.sep)
 }
 
+// 옛 표기 — 음성 단언의 재료. 리터럴로 적으면 이름 검사기에 걸린다.
+const OLD = LEGACY_PRODUCT_SLUG
+const OLD_TITLE = OLD[0].toUpperCase() + OLD.slice(1)
+
 const PROD_SOURCE = (file: string): boolean =>
   /\.(ts|tsx|html)$/.test(file) && !/\.test\.(ts|tsx)$/.test(file)
 
@@ -62,7 +69,7 @@ describe('빌드 식별자 (EP-01 · EP-02)', () => {
 
   it('electron-builder appId 가 SSOT 와 같고 옛 값이 아니다 (D-013)', () => {
     expect(builder).toMatch(new RegExp(`^appId: ${APP_USER_MODEL_ID}$`, 'm'))
-    expect(builder).not.toContain('com.orca.app')
+    expect(builder).not.toContain(`com.${OLD}.app`)
   })
 
   it('electron-builder productName 이 표시명이다 — 바로가기·제거 표시 이름', () => {
@@ -80,16 +87,16 @@ describe('빌드 식별자 (EP-01 · EP-02)', () => {
   it('main 프로세스가 SSOT 값으로 AppUserModelID 를 설정한다', () => {
     const source = read('src', 'main', 'index.ts')
     expect(source).toContain('setAppUserModelId(APP_USER_MODEL_ID)')
-    expect(source).not.toContain('com.orca.app')
+    expect(source).not.toContain(`com.${OLD}.app`)
   })
 })
 
 // ── ② 화면 표시명 — §10 EP-04 (31지점) ────────────────────────────────────────
 describe('표시명 (EP-04)', () => {
   const RENDERER = join(APP_ROOT, 'src', 'renderer')
-  // 불변식의 **주어** — 홀로 선 제품명 단어. 코드 식별자(`OrcaLogo`·`orcaApi`)는 단어 경계가
-  // 성립하지 않아 걸리지 않고, 새 표기 `Orcinus orca` 의 소문자 `orca` 도 걸리지 않는다.
-  const SUBJECT = /\bOrca\b/
+  // 불변식의 **주어** — 홀로 선 옛 제품명 단어. 새 표기 `Orcinus orca` 는 뒤 단어가 소문자라
+  // 걸리지 않는다.
+  const SUBJECT = new RegExp(`\\b${OLD_TITLE}\\b`)
 
   it('SSOT 값이 요구 표기다', () => {
     expect(PRODUCT_DISPLAY_NAME).toBe('Orcinus orca')
@@ -117,7 +124,7 @@ describe('표시명 (EP-04)', () => {
       ['src', 'renderer', 'src', 'app', 'boot', 'BootScreen.tsx'],
       ['src', 'renderer', 'src', 'app', 'hooks', 'useCompletionNotifier.ts'],
       ['src', 'renderer', 'src', 'features', 'providers', 'components', 'GateLogin.tsx'],
-      ['src', 'renderer', 'src', 'shared', 'ui', 'OrcaLogo.tsx'],
+      ['src', 'renderer', 'src', 'shared', 'ui', 'OoLogo.tsx'],
       ['src', 'renderer', 'src', 'shared', 'i18n', 'resources', 'ko.ts'],
       ['src', 'renderer', 'src', 'shared', 'i18n', 'resources', 'en.ts']
     ]
@@ -131,8 +138,8 @@ describe('표시명 (EP-04)', () => {
     )
   })
 
-  // main 은 전수 스윕 대상이 아니다 — 프롬프트 본문·주석의 `Orca` 가 D-012 로 남는다.
-  // 대신 사용자 대면 7지점을 열거된 양성 단언으로 잠근다.
+  // main 의 옛 표기 전수 스윕은 이름 검사기가 한다(0306). 여기서는 사용자 대면 7지점이 SSOT 를
+  // 참조하는지를 양성 단언으로 잠근다.
   it('main 의 사용자 대면 문구 7지점이 SSOT 파생이다', () => {
     const sites: [string[], string][] = [
       [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 스킬`'],
@@ -159,11 +166,11 @@ describe('표시명 (EP-04)', () => {
       const source = read(...parts)
       expect(source, relative(join(APP_ROOT, ...parts))).toContain(expected)
     }
-    expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain("'Orca ")
+    expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain(`'${OLD_TITLE} `)
     expect(read('src', 'main', 'features', 'extensions', 'claude', 'deployer.ts')).not.toContain(
-      "'Orca "
+      `'${OLD_TITLE} `
     )
-    expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain("'orca.json 로드'")
+    expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain(`'${OLD}.json 로드'`)
   })
 })
 
@@ -207,56 +214,56 @@ describe('내부 저장 이름 (EP-03)', () => {
       'settings-store',
       ['src', 'main', 'infra', 'settings-store.ts'],
       '`${PRODUCT_SLUG}-settings`',
-      "'orca-settings'"
+      `'${OLD}-settings'`
     ],
     [
       'secret-store',
       ['src', 'main', 'infra', 'config', 'secret-store.ts'],
       '`${PRODUCT_SLUG}-secrets`',
-      "'orca-secrets'"
+      `'${OLD}-secrets'`
     ],
     [
       'provider grants',
       ['src', 'main', 'features', 'auth', 'store-file.ts'],
       '`${PRODUCT_SLUG}-provider-grants`',
-      "'orca-provider-grants'"
+      `'${OLD}-provider-grants'`
     ],
     [
       'provider oauth',
       ['src', 'main', 'features', 'auth', 'store-file.ts'],
       '`${PRODUCT_SLUG}-provider-oauth`',
-      "'orca-provider-oauth'"
+      `'${OLD}-provider-oauth'`
     ],
     [
       'deploy marker',
       ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts'],
       '`.${PRODUCT_SLUG}-deploy.json`',
-      "'.orca-deploy.json'"
+      `'.${OLD}-deploy.json'`
     ],
     [
       'seed marker',
       ['src', 'main', 'features', 'extensions', 'common', 'skills', 'seed.ts'],
       '`.${PRODUCT_SLUG}-builtin.json`',
-      "'.orca-builtin.json'"
+      `'.${OLD}-builtin.json'`
     ],
-    ['db 파일', ['src', 'main', 'infra', 'db', 'index.ts'], '`${PRODUCT_SLUG}.db`', "'orca.db'"],
+    ['db 파일', ['src', 'main', 'infra', 'db', 'index.ts'], '`${PRODUCT_SLUG}.db`', `'${OLD}.db'`],
     [
       'db 백업',
       ['src', 'main', 'infra', 'db', 'migrate.ts'],
       '`${PRODUCT_SLUG}.db.backup.before-',
-      "'orca.db.backup"
+      `'${OLD}.db.backup`
     ],
     [
       '로그 디렉토리',
       ['src', 'main', 'infra', 'log', 'index.ts'],
-      "join(orcaConfigDir(), 'logs')",
-      "'.config', 'orca'"
+      "join(ooConfigDir(), 'logs')",
+      `'.config', '${OLD}'`
     ],
     [
       'artifacts 루트',
       ['src', 'main', 'app', 'bootstrap.ts'],
-      "join(orcaConfigDir(), 'artifacts'",
-      "'.config', 'orca'"
+      "join(ooConfigDir(), 'artifacts'",
+      `'.config', '${OLD}'`
     ]
   ]
 
@@ -270,45 +277,93 @@ describe('내부 저장 이름 (EP-03)', () => {
 
   it('플러그인 디렉토리 이름과 스킬 네임스페이스가 슬러그다 (D-015)', () => {
     const source = read('src', 'main', 'adapters', 'claude', 'plugin.ts')
-    expect(source).toContain('export const ORCA_PLUGIN_NAME = PRODUCT_SLUG')
-    // sourceKind enum 은 코드 식별자라 불변이다 (D-012).
-    expect(source).toContain("skill.sourceKind === 'orca'")
+    expect(source).toContain('export const OO_PLUGIN_NAME = PRODUCT_SLUG')
+    expect(source).toContain("skill.sourceKind === 'orcinus-orca'")
   })
 })
 
-// ── ⑤ 코드 식별자 불변 — §10 EP-11 / D-012 ────────────────────────────────────
-describe('코드 식별자 불변 (EP-11)', () => {
+// ── ⑤ 이름 규칙 — 0306 §10 EP-02 · EP-03 · EP-06 · EP-07 ──────────────────────
+// 0225 는 코드 식별자를 그대로 두기로 했고(D-012) 0306 이 그 결정을 뒤집었다. 옛 표기가 없다는 것은
+// 이름 검사기가 보고, 여기서는 규칙 N1~N4 의 대표 자리가 **새 꼴로 있다**는 것을 본다 — 자리를 통째로
+// 지우면 검사기는 green 이지만 이 블록이 red 다.
+describe('이름 규칙 (0306)', () => {
   const ipc = read('src', 'shared', 'ipc.ts')
+  const VALUE_PREFIX = PRODUCT_SLUG.toUpperCase().replace('-', '_')
 
-  it('IPC 채널 접두가 그대로 `orca:` 이고 개수가 생성물과 일치한다', () => {
+  it('preload 가 전역 키 `oo` 로 API 를 노출하고 타입 선언이 같은 이름을 쓴다 (N3)', () => {
+    expect(read('src', 'preload', 'index.ts')).toContain("exposeInMainWorld('oo', oo)")
+    expect(read('src', 'preload', 'index.d.ts')).toContain('oo: OoApi')
+  })
+
+  it('IPC 채널이 전부 `oo:` 접두사이고 개수가 생성물과 일치한다 (N4)', () => {
     const channels = new Set(
-      (ipc.match(/'orca:[a-zA-Z0-9:._-]+'/g) ?? []).map((raw) => raw.slice(1, -1))
+      (ipc.match(/'oo:[a-zA-Z0-9:._-]+'/g) ?? []).map((raw) => raw.slice(1, -1))
     )
     expect(channels.size).toBeGreaterThan(0)
     const inventory = readFileSync(join(REPO_ROOT, 'docs', 'generated', 'inventory.md'), 'utf8')
     const recorded = /\| IPC 채널 \| \*\*(\d+)\*\* \|/.exec(inventory)?.[1]
     expect(Number(recorded)).toBe(channels.size)
+    // CHANNELS 의 값은 전부 채널이다 — 다른 접두사를 가진 값이 섞이면 수가 어긋난다.
+    const values = ipc.slice(ipc.indexOf('export const CHANNELS'), ipc.indexOf('} as const'))
+    expect((values.match(/: '[^']+'/g) ?? []).length).toBe(channels.size)
   })
 
-  it('sourceKind enum 과 프롬프트 sentinel 4군이 그대로다', () => {
-    expect(read('src', 'main', 'features', 'extensions', 'common', 'skills', 'scan.ts')).toContain(
-      "sourceKind: 'orca' | 'adapter' | 'workspace'"
-    )
-    const protocolAndShared = walk(join(APP_ROOT, 'src'), PROD_SOURCE)
+  it('프롬프트 표식 4군이 긴 꼴 접두사를 쓴다 (N2)', () => {
+    expect(VALUE_PREFIX).toBe('ORCINUS_ORCA')
+    const sources = walk(join(APP_ROOT, 'src'), PROD_SOURCE)
       .map((file) => readFileSync(file, 'utf8'))
       .join('\n')
     for (const sentinel of [
-      'ORCA_ATTACHMENT_START',
-      'ORCA_DIFF_REQUIREMENT_START',
-      'ORCA_PLAN_COMMENT_START',
-      'ORCA_PLAN_FEEDBACK_START'
+      'ATTACHMENT_START',
+      'DIFF_REQUIREMENT_START',
+      'PLAN_COMMENT_START',
+      'PLAN_FEEDBACK_START'
     ]) {
-      expect(protocolAndShared).toContain(sentinel)
+      expect(sources).toContain(`'${VALUE_PREFIX}_${sentinel}'`)
     }
   })
 
+  it('출처 값이 슬러그다 — 생산 타입과 스캔 타입이 같은 유니온을 쓴다 (N2)', () => {
+    const union = `sourceKind: '${PRODUCT_SLUG}' | 'adapter' | 'workspace'`
+    expect(read('src', 'main', 'features', 'extensions', 'common', 'skills', 'scan.ts')).toContain(
+      union
+    )
+    expect(ipc).toContain(union)
+  })
+
+  it('스킬 출처를 만드는 두 자리가 id 와 kind 를 슬러그로 낸다 (N2 — 소비 쪽 비교값과 같은 문자열)', () => {
+    // `sourceId` 는 `string` 이라 타입 검사가 생산·소비의 어긋남을 못 본다. 설정 `skillEnabled` 의
+    // 키 접두사이기도 하다(`skillEnabledKey`).
+    for (const parts of [
+      ['src', 'main', 'app', 'bootstrap.ts'],
+      ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts']
+    ]) {
+      const source = read(...parts)
+      expect(source, parts.at(-1)).toContain(`sourceId: '${PRODUCT_SLUG}',`)
+      expect(source, parts.at(-1)).toContain(`sourceKind: '${PRODUCT_SLUG}',`)
+    }
+    expect(
+      read('src', 'renderer', 'src', 'features', 'chat', 'lib', 'attachMenuModel.ts')
+    ).toContain(`skill.sourceId === '${PRODUCT_SLUG}'`)
+  })
+
+  it('OpenCode 관리 MCP alias 가 snake 꼴 제품 접두사로 시작한다 (N2)', () => {
+    const prefix = PRODUCT_SLUG.replace('-', '_')
+    expect(read('src', 'main', 'adapters', 'opencode', 'v1', 'managed-mcp.ts')).toContain(
+      `return \`${prefix}_\${kind === 'builtin' ? 'b' : 'u'}_`
+    )
+  })
+
+  it('모델에 보내는 시스템 머리글이 표시명 SSOT 파생이다 (N1)', () => {
+    const header = read('src', 'main', 'features', 'extensions', 'common', 'system-header.ts')
+    expect(header).toContain('`# ${PRODUCT_DISPLAY_NAME}\\n')
+    expect(header).toContain('${PRODUCT_DISPLAY_NAME} version: ')
+  })
+
   it('레거시 슬러그 상수가 옛 이름을 그대로 갖는다 — 이관의 source 가 여기서 나온다', () => {
-    expect(LEGACY_PRODUCT_SLUG).toBe('orca')
+    // 옛 이름은 새 슬러그의 마지막 마디다. 리터럴로 적지 않고 관계로 잠근다.
+    expect(LEGACY_PRODUCT_SLUG).toBe(PRODUCT_SLUG.split('-')[1])
+    expect(LEGACY_PRODUCT_SLUG).not.toBe(PRODUCT_SLUG)
   })
 })
 
@@ -319,11 +374,18 @@ describe('운영 문서 (EP-12)', () => {
   it('새 산출물명과 새 데이터 경로를 서술한다', () => {
     expect(doc).toContain(`${PRODUCT_SLUG}-`)
     expect(doc).toContain(`%APPDATA%/${PRODUCT_SLUG}`)
-    expect(doc).not.toContain('%APPDATA%/orca/')
+    expect(doc).not.toContain(`%APPDATA%/${OLD}/`)
   })
 
   it('구버전 수동 제거 절차 문단을 갖는다 (D-013)', () => {
-    expect(doc).toContain('## 구버전(orca) 수동 제거')
+    expect(doc).toContain(`## 구버전(${OLD}) 수동 제거`)
+  })
+
+  it('저장소 Variables 의 새 이름 3개를 안내한다 (0306 AC7)', () => {
+    const prefix = PRODUCT_SLUG.toUpperCase().replace('-', '_')
+    for (const name of ['CI_TIMEOUT_MINUTES', 'RELEASE_TIMEOUT_MINUTES', 'TEST_TIME_SCALE']) {
+      expect(doc).toContain(`\`${prefix}_${name}\``)
+    }
   })
 })
 

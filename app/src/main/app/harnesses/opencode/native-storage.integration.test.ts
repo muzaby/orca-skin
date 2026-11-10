@@ -7,7 +7,7 @@ import { createRequire } from 'node:module'
 import { scaleMs } from '../../../../../scripts/test-time.mjs'
 
 describe('OpenCode 1.x native CLI interoperability', () => {
-  it.skipIf(!process.env.ORCA_TEST_OPENCODE_EXE)(
+  it.skipIf(!process.env.ORCINUS_ORCA_TEST_OPENCODE_EXE)(
     'creates, migrates and reopens the same native ID with a terminal followup and unchanged native config',
     () => {
       const cwd = process.cwd()

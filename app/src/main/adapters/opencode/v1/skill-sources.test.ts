@@ -5,7 +5,7 @@ import { expect, it } from 'vitest'
 import { openCodeSkillRoots, withinSkillRoot } from './skill-sources'
 
 it('matches a canonical skill against an aliased config root while excluding sibling installations', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-skill-root-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-skill-root-'))
   try {
     const config = join(root, 'physical')
     const alias = join(root, 'alias')

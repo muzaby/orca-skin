@@ -10,7 +10,7 @@ afterEach(() => vi.unstubAllEnvs())
 
 describe('Claude native skill root', () => {
   it('reads skill content from the configured native directory without copying or modifying it', async () => {
-    const root = await mkdtemp(path.join(tmpdir(), 'orca-native-skill-'))
+    const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-native-skill-'))
     try {
       const skill = path.join(root, 'skills', 'native-example', 'SKILL.md')
       await mkdir(path.dirname(skill), { recursive: true })
@@ -32,7 +32,7 @@ describe('Claude native skill root', () => {
     }
   })
 
-  it('scans the configured native root instead of an Orca-managed copy', () => {
+  it('scans the configured native root instead of an Orcinus orca-managed copy', () => {
     const native = path.resolve('fixture-native-root')
     vi.stubEnv('CLAUDE_CONFIG_DIR', native)
     expect(claudeSkillRoots()[0].rootDir).toBe(path.join(native, 'skills'))

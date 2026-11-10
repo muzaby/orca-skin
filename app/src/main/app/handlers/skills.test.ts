@@ -8,7 +8,7 @@ const shell = vi.hoisted(() => ({
   showItemInFolder: vi.fn()
 }))
 const sources = vi.hoisted(() => ({
-  removeOrcaSkillDir: vi.fn(async () => {}),
+  removeOoSkillDir: vi.fn(async () => {}),
   writeAuthoredSkill: vi.fn(async () => {}),
   writeUploadedSkill: vi.fn(async () => {})
 }))
@@ -28,10 +28,10 @@ const skill = (sourceId: string, name: string, enabled = false): SkillInfo => ({
   sourceId,
   sourceLabel: sourceId,
   description: '',
-  sourceKind: sourceId === 'orca' ? 'orca' : 'adapter',
+  sourceKind: sourceId === 'orcinus-orca' ? 'orcinus-orca' : 'adapter',
   enabled,
-  canToggle: sourceId === 'orca',
-  canRemove: sourceId === 'orca',
+  canToggle: sourceId === 'orcinus-orca',
+  canRemove: sourceId === 'orcinus-orca',
   skillPath: `/catalog/${sourceId}/${name}/SKILL.md`,
   skillDir: `/catalog/${sourceId}/${name}`
 })
@@ -39,12 +39,12 @@ const catalog = [
   skill('adapter:claude', nativeName, true),
   skill('plugin:claude', 'other:skill', true),
   skill('plugin:claude', nativeName),
-  skill('orca', 'local')
+  skill('orcinus-orca', 'local')
 ]
 const ctx = {
   getSkills: () => catalog,
   settings: {
-    getAll: () => ({ skillEnabled: { 'orca/local': false, 'orca/other': true } }),
+    getAll: () => ({ skillEnabled: { 'orcinus-orca/local': false, 'orcinus-orca/other': true } }),
     patch: vi.fn()
   },
   deployExtensions: vi.fn(async () => {}),
@@ -67,8 +67,8 @@ describe('catalog skill target IPC', () => {
   it.each([
     [CHANNELS.skillsAuthor, { name: 'authored', description: 'new skill', body: 'body' }],
     [CHANNELS.skillsUpload, { fileName: 'SKILL.md', content: 'uploaded skill' }],
-    [CHANNELS.skillsSetEnabled, { sourceId: 'orca', name: 'local', enabled: true }],
-    [CHANNELS.skillsRemove, { sourceId: 'orca', name: 'local' }]
+    [CHANNELS.skillsSetEnabled, { sourceId: 'orcinus-orca', name: 'local', enabled: true }],
+    [CHANNELS.skillsRemove, { sourceId: 'orcinus-orca', name: 'local' }]
   ])('%s starts a post-write scan while an earlier list is pending', async (channel, request) => {
     const older = Promise.withResolvers<SkillInfo[]>()
     const newer = Promise.withResolvers<SkillInfo[]>()
@@ -95,7 +95,7 @@ describe('catalog skill target IPC', () => {
       await Promise.all(oldLists)
       const latestList = invoke(CHANNELS.skillsList, undefined)
       expect(ctx.refreshSkills).toHaveBeenCalledTimes(2)
-      const fresh = [skill('orca', 'post-write', true)]
+      const fresh = [skill('orcinus-orca', 'post-write', true)]
       newer.resolve(fresh)
       expect(await mutation).toEqual(fresh)
       expect(await latestList).toEqual(fresh)
@@ -116,7 +116,11 @@ describe('catalog skill target IPC', () => {
       invoke(CHANNELS.skillsList, undefined)
     ]
     expect(ctx.refreshSkills).toHaveBeenCalledOnce()
-    await invoke(CHANNELS.skillsSetEnabled, { sourceId: 'orca', name: 'local', enabled: true })
+    await invoke(CHANNELS.skillsSetEnabled, {
+      sourceId: 'orcinus-orca',
+      name: 'local',
+      enabled: true
+    })
     expect(ctx.refreshSkills).toHaveBeenCalledTimes(2)
     await invoke(CHANNELS.skillsList, undefined)
     expect(ctx.refreshSkills).toHaveBeenCalledTimes(3)
@@ -158,7 +162,7 @@ describe('catalog skill target IPC', () => {
     for (const invalid of [
       { ...target, sourceId: 'unknown' },
       { ...target, name: 'superpowers:missing' },
-      { sourceId: 'orca', name: nativeName },
+      { sourceId: 'orcinus-orca', name: nativeName },
       { ...target, name: '../outside' },
       { ...target, name: ` ${target.name} ` }
     ]) {
@@ -170,7 +174,7 @@ describe('catalog skill target IPC', () => {
     expect(shell.showItemInFolder).not.toHaveBeenCalled()
     expect(ctx.settings.patch).not.toHaveBeenCalled()
     expect(ctx.deployExtensions).not.toHaveBeenCalled()
-    expect(sources.removeOrcaSkillDir).not.toHaveBeenCalled()
+    expect(sources.removeOoSkillDir).not.toHaveBeenCalled()
   })
 
   it('keeps native toggles read-only after accepting namespaced targets', async () => {
@@ -181,24 +185,30 @@ describe('catalog skill target IPC', () => {
 
   it('keeps native removal forbidden after accepting namespaced targets', async () => {
     await expect(invoke(CHANNELS.skillsRemove, target)).rejects.toThrow('스킬만 제거할 수 있습니다')
-    expect(sources.removeOrcaSkillDir).not.toHaveBeenCalled()
+    expect(sources.removeOoSkillDir).not.toHaveBeenCalled()
     expect(ctx.settings.patch).not.toHaveBeenCalled()
     expect(ctx.deployExtensions).not.toHaveBeenCalled()
   })
 
-  it('still updates Orca skill toggles without changing other settings', async () => {
-    await invoke(CHANNELS.skillsSetEnabled, { sourceId: 'orca', name: 'local', enabled: true })
+  it('still updates Orcinus orca skill toggles without changing other settings', async () => {
+    await invoke(CHANNELS.skillsSetEnabled, {
+      sourceId: 'orcinus-orca',
+      name: 'local',
+      enabled: true
+    })
     expect(ctx.settings.patch).toHaveBeenCalledWith({
-      skillEnabled: { 'orca/local': true, 'orca/other': true }
+      skillEnabled: { 'orcinus-orca/local': true, 'orcinus-orca/other': true }
     })
     expect(ctx.refreshSkills).toHaveBeenCalledOnce()
     expect(ctx.deployExtensions).not.toHaveBeenCalled()
   })
 
-  it('still removes only the selected Orca directory and its setting', async () => {
-    await invoke(CHANNELS.skillsRemove, { sourceId: 'orca', name: 'local' })
-    expect(sources.removeOrcaSkillDir).toHaveBeenCalledWith(catalog[3].skillDir)
-    expect(ctx.settings.patch).toHaveBeenCalledWith({ skillEnabled: { 'orca/other': true } })
+  it('still removes only the selected Orcinus orca directory and its setting', async () => {
+    await invoke(CHANNELS.skillsRemove, { sourceId: 'orcinus-orca', name: 'local' })
+    expect(sources.removeOoSkillDir).toHaveBeenCalledWith(catalog[3].skillDir)
+    expect(ctx.settings.patch).toHaveBeenCalledWith({
+      skillEnabled: { 'orcinus-orca/other': true }
+    })
     expect(ctx.deployExtensions).toHaveBeenCalledOnce()
     expect(ctx.refreshSkills).toHaveBeenCalledOnce()
   })

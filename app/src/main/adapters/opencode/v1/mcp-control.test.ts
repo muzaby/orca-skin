@@ -6,7 +6,7 @@ import { expect, it, vi } from 'vitest'
 import { OpenCodeMcpControl } from './mcp-control'
 
 it('applies restored choices once per new directory and preserves project overrides and existing instances', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-mcp-choices-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mcp-choices-'))
   const a = join(root, 'A'),
     b = join(root, 'B')
   await mkdir(a)
@@ -88,7 +88,7 @@ it('applies restored choices once per new directory and preserves project overri
 })
 
 it('wakes unsafe admission immediately on activity signals and cleans up aborted waits', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-activity-admission-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-activity-admission-'))
   const controller = new AbortController()
   const client = {
     mcp: {

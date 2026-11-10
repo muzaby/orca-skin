@@ -48,7 +48,7 @@ import type { TurnRequest } from '../common/turn'
 import { getTemporaryFilesPath } from '../../infra/config/temp-path'
 
 // Native catalog discovery must not read the developer's installed plugins.
-const isolatedConfig = join(tmpdir(), `orca-executable-config-${randomUUID()}`)
+const isolatedConfig = join(tmpdir(), `orcinus-orca-executable-config-${randomUUID()}`)
 beforeEach(() => vi.stubEnv('CLAUDE_CONFIG_DIR', isolatedConfig))
 afterEach(() => vi.unstubAllEnvs())
 
@@ -187,7 +187,7 @@ describe('Claude 공통 실행 옵션', () => {
   })
 
   it('대화 query는 plugin과 메모리 도구를 계속 소비한다', () => {
-    const pluginRoot = mkdtempSync(join(tmpdir(), 'orca-query-plugin-'))
+    const pluginRoot = mkdtempSync(join(tmpdir(), 'orcinus-orca-query-plugin-'))
     try {
       mkdirSync(join(pluginRoot, '.claude-plugin'))
       writeFileSync(join(pluginRoot, '.claude-plugin', 'plugin.json'), '{"name":"fixture"}')

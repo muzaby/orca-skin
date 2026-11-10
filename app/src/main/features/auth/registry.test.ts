@@ -86,7 +86,7 @@ describe('로그인 프리 등록 — 공유 id 공간 (0248 AC8)', () => {
       { id: 'Invalid_ID', label: '잘못된 id' },
       { id: 'invalid-origin', label: '잘못된 origin', origin: 'https://public.example/api' },
       { id: 'public-api', label: '공개 API', origin: 'https://public.example' },
-      { id: 'non-http', label: 'authority', origin: 'orca://local' }
+      { id: 'non-http', label: 'authority', origin: 'orcinus-orca://local' }
     ]
     const result = registerAuthDefinitions(declared, loginFree)
     expect(result.definitions).toEqual(declared)

@@ -26,13 +26,13 @@ async function trackTempDir(dir: string): Promise<string> {
 }
 
 async function makeTempDir(): Promise<string> {
-  return trackTempDir(await mkdtemp(join(tmpdir(), 'orca-attachment-test-')))
+  return trackTempDir(await mkdtemp(join(tmpdir(), 'orcinus-orca-attachment-test-')))
 }
 
 // normalizeAttachments 경로 첨부는 assertAllowedAttachmentPath 가 홈 하위 경로만
 // 허용하므로(보안 검사) 홈 안에 만들 수밖에 없다 — afterEach 가 즉시 정리한다.
 async function makeHomeTempDir(): Promise<string> {
-  return trackTempDir(await mkdtemp(join(homedir(), '.orca-attachment-test-')))
+  return trackTempDir(await mkdtemp(join(homedir(), '.orcinus-orca-attachment-test-')))
 }
 
 // Claude Code 2.1.267 번들의 quoted mention과 #L/anchor 정규식.

@@ -138,7 +138,7 @@ beforeEach(() => {
   confirm = vi.fn(() => true)
   Object.assign(window, {
     confirm,
-    orca: {
+    oo: {
       agent: { list },
       engine: { read, update, delete: remove, add },
       provider: { onState: () => () => {} },

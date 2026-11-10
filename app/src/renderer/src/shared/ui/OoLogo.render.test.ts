@@ -2,11 +2,11 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { PRODUCT_DISPLAY_NAME } from '../../../../shared/product'
-import { OrcaLogo } from './OrcaLogo'
+import { OoLogo } from './OoLogo'
 
-describe('OrcaLogo', () => {
+describe('OoLogo', () => {
   it('renders the PNG with its transparent canvas clipped and smooth scaling enabled', () => {
-    const html = renderToStaticMarkup(createElement(OrcaLogo, { className: 'h-10 w-auto' }))
+    const html = renderToStaticMarkup(createElement(OoLogo, { className: 'h-10 w-auto' }))
 
     expect(html).toContain('<span')
     expect(html).toContain(`aria-label="${PRODUCT_DISPLAY_NAME}"`)

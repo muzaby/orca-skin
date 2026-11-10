@@ -45,7 +45,7 @@ beforeEach(async () => {
   catalog.mockReset().mockResolvedValue([first, second])
   setPinned.mockReset().mockResolvedValue({ ok: true })
   trash.mockReset().mockResolvedValue({ outcome: 'trashed', deletionRecorded: true })
-  vi.stubGlobal('window', { orca: { artifacts: { catalog, setPinned, trash } } })
+  vi.stubGlobal('window', { oo: { artifacts: { catalog, setPinned, trash } } })
   useArtifactCatalogStore.setState({ items: [], loading: false, error: null, busy: {} })
   await refreshArtifactCatalog()
 })

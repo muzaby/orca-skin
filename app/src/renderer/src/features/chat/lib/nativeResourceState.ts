@@ -212,7 +212,7 @@ export function nativeResourceState(
     sessionApi.onManagedMcpChanged?.(() => {
       for (const state of owned.values()) state.managedMcpChanged()
     })
-    window.orca?.session?.onNativeResourcesChanged?.(({ sessionId, scope, resources }) => {
+    window.oo?.session?.onNativeResourcesChanged?.(({ sessionId, scope, resources }) => {
       for (const state of owned.values()) {
         if (
           (sessionId && state.request === sessionId) ||
@@ -227,7 +227,7 @@ export function nativeResourceState(
           state.accept(resources)
       }
     })
-    window.orca?.chat?.onBackgroundEvent?.((event) => {
+    window.oo?.chat?.onBackgroundEvent?.((event) => {
       if (event.type !== 'background.connection') return
       for (const state of owned.values()) {
         if (state.request !== event.sessionId) continue

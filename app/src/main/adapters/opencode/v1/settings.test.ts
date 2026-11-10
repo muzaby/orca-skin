@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { openCodeCatalog } from './catalog'
 
 it('reads raw global settings including invalid JSON for editing', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-opencode-import-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-opencode-import-'))
   try {
     expect(readUserOpenCodeSettings(root)).toEqual({ exists: false, settingsJson: '' })
     mkdirSync(join(root, 'opencode'))
@@ -110,7 +110,7 @@ describe('OpenCode runtime rows (0291 MD-03)', () => {
   })
 
   it('treats a missing settings file as an empty config', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-opencode-settings-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-opencode-settings-'))
     try {
       await expect(
         loadOpenCodeProviderSettings({ sourcesSettingsFile: join(root, 'missing.json') } as never)

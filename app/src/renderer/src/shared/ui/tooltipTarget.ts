@@ -4,7 +4,7 @@
 // `TOOLTIP_ATTR` 로 옮겨 OS 툴팁을 막고 검은 툴팁을 그린 뒤, 떠나면 되돌린다. React 는 prop 이
 // 바뀔 때만 속성을 쓰므로 옮겨 둔 값은 다시 덮이지 않는다 — 바뀌면 호스트가 다시 옮긴다.
 
-export const TOOLTIP_ATTR = 'data-orca-tooltip'
+export const TOOLTIP_ATTR = 'data-orcinus-orca-tooltip'
 /** OS 기본 툴팁과 같은 체감의 표시 지연. */
 export const TOOLTIP_SHOW_DELAY_MS = 500
 /** 직전 툴팁이 이 시간 안에 닫혔으면 다음 대상은 지연 없이 보인다. */

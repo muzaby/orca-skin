@@ -54,7 +54,7 @@ describe('agent extension profile', () => {
     'manifest foreign',
     'style empty'
   ])('rejects %s without writing to the resource root', async (condition) => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-profile-validation-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-profile-validation-'))
     try {
       await mkdir(join(root, '.claude-plugin'))
       await mkdir(join(root, 'output-styles'))

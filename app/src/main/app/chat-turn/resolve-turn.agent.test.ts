@@ -3,7 +3,7 @@ import { resolveTurn } from './resolve-turn'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 
 vi.mock('../../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
-vi.mock('../../infra/config/orca-config', () => ({ appEnv: () => ({}) }))
+vi.mock('../../infra/config/oo-config', () => ({ appEnv: () => ({}) }))
 afterEach(() => vi.clearAllMocks())
 
 it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(

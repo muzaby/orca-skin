@@ -2,21 +2,21 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, vi } from 'vitest'
-import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../adapters/common/mcp-config'
 import { PRODUCT_SLUG } from '../../shared/product'
 
 const fixture = vi.hoisted(() => ({ root: '' }))
 vi.mock('../infra/config/paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infra/config/paths')>()),
-  orcaConfigDir: () => fixture.root
+  ooConfigDir: () => fixture.root
 }))
 vi.mock('../infra/error-report', () => ({ reportError: vi.fn() }))
 import { createClaudeDeploymentService } from './harnesses/claude/extensions'
 
 it('retains resolved Claude MCP publication through the actual deployment service and plugin writer', async () => {
-  fixture.root = await mkdtemp(join(tmpdir(), 'orca-managed-claude-'))
+  fixture.root = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-claude-'))
   const source = join(fixture.root, 'sources', 'mcp', 'mcp.json')
-  const config: OrcaMcpConfig = {
+  const config: OoMcpConfig = {
     stdio: { command: 'distinct-command', args: ['two words', ''], env: { TOKEN: '${TOKEN}' } },
     http: { type: 'http', url: 'https://http.test', headers: { Authorization: '${TOKEN}' } },
     sse: { type: 'sse', url: 'https://sse.test', headers: { 'X-User': '${USER}' } },

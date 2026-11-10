@@ -26,7 +26,7 @@
 
 - 멀티라인 textarea + 자동 높이 조절
 - 컨트롤 행: `+` 메뉴(아래) · 권한 모드 칩 · 모델 칩 · 사용량 도넛 — Skill 선택은 `+` 메뉴의 계단식 하위 항목이다(구 Popover picker 는 0259 에서 대체)
-- `+` 메뉴는 파일 또는 사진 추가 / 스킬 ▸ / 플러그인 ▸이다. 스킬·플러그인 패널은 출처 제목과 로고 아래 항목을 직접 나열한다. 스킬은 현재 하네스·해당 native plugin·Orcinus orca·lock에 등록된 `~/.agents/skills`만 표시하며 설명은 툴팁에 둔다. 두 패널 모두 Orcinus orca 그룹이 첫 그룹이다. 플러그인은 연결된 native/Orca MCP와 인증이 유효한 Orca 플러그인 이름만 표시한다. native 명령은 초안 앞에, Orca 스킬·플러그인 토큰과 MCP 사용 요청은 커서에 삽입하며 자동 전송하지 않는다. 틀 = `shared/ui/CascadeMenu.tsx`, 트리 = `lib/attachMenuModel.ts`. 재개 연결 이벤트와 메뉴 재열기에서 갱신하고 같은 프로세스의 관측은 navigation·부분 실패 동안 유지한다. 갱신 안내·부분 실패 토스트는 표시하지 않는다.
+- `+` 메뉴는 파일 또는 사진 추가 / 스킬 ▸ / 플러그인 ▸이다. 스킬·플러그인 패널은 출처 제목과 로고 아래 항목을 직접 나열한다. 스킬은 현재 하네스·해당 native plugin·Orcinus orca·lock에 등록된 `~/.agents/skills`만 표시하며 설명은 툴팁에 둔다. 두 패널 모두 Orcinus orca 그룹이 첫 그룹이다. 플러그인은 연결된 native/orcinus-orca MCP와 인증이 유효한 Orcinus orca 플러그인 이름만 표시한다. native 명령은 초안 앞에, Orcinus orca 스킬·플러그인 토큰과 MCP 사용 요청은 커서에 삽입하며 자동 전송하지 않는다. 틀 = `shared/ui/CascadeMenu.tsx`, 트리 = `lib/attachMenuModel.ts`. 재개 연결 이벤트와 메뉴 재열기에서 갱신하고 같은 프로세스의 관측은 navigation·부분 실패 동안 유지한다. 갱신 안내·부분 실패 토스트는 표시하지 않는다.
 - `/` 자동완성 후보는 출처 라벨 섹션으로 묶이고, `/`·`@` 헤더는 `AutocompleteSectionHeader` 하나를 쓴다
 - `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 mirror overlay 강조 (`composer/ComposerDecorationLayer.tsx` + `composer/composerDecoration.ts`, `knownSkillNames: ReadonlySet<string>`)
 - `@filepath` 자동완성: 디렉토리 단계별 진입, quoted/plain 자동 감지, 공백 시 자동 wrapping
@@ -58,7 +58,7 @@
 | 사용량 한도 | Composer 도넛 클릭 → `UsagePanel`(rendering.md §1.9) → `>` 로 설정 사용량 탭(provider 탭 포함) 이동, 월간 한도 편집 | `features/chat/components/UsagePanel.tsx` + `features/settings/` (0079~0082) |
 | 툴팁 | 모든 `title` 툴팁은 앱 루트 `TooltipHost` 가 hover 500ms 뒤 검은 배경·흰 글자 툴팁으로 그린다(OS 툴팁 대신, 두 테마 동일). 표면 클래스 SSOT = `shared/ui/tooltipStyle.ts` | `shared/ui/{TooltipHost.tsx,tooltipController.ts,tooltipTarget.ts}` (0257) |
 | 사용자 버블 접기 | 본문이 10줄을 넘으면 접고 마지막 줄을 흐린 뒤 버블 안 '더 보기'/'간략히 보기'로 오간다. 펼침 상태는 키별 메모리(가상화 재마운트에도 유지) | `features/chat/harnesses/common/transcript/UserBubbleText.tsx` + `store/bubbleExpansionStore.ts` (0257) |
-| 엔진 추가 모달 | 단일 화면(마법사 폐기) — provider 드롭다운 + 선택 하네스의 native 설정 불러오기(`orca:engine:importUserSettings`) | `features/engine/components/EngineFormModal.tsx` (0090) |
+| 엔진 추가 모달 | 단일 화면(마법사 폐기) — provider 드롭다운 + 선택 하네스의 native 설정 불러오기(`oo:engine:importUserSettings`) | `features/engine/components/EngineFormModal.tsx` (0090) |
 
 ### 1.4 접근성
 
@@ -84,13 +84,13 @@
 
 **② 예시.** Bash `rm -rf …` 승인 카드에서 (a) 인자를 고쳐 승인 → `allow{updatedInput}`, (b) "이 세션 동안 Read 자동 허용" 토글 → `allow{updatedPermissions}`, (c) 거부 + 에이전트 중단 → `deny{interrupt:true}`. **OpenCode 세션이면** `updatedInput`/`updatedPermissions` 가 boolean 으로 downcast 되어 손실됨을 카드에 배지로 명시(../backend/provider-runtime.md §3 손실표).
 
-**③ 현재 코드 갭.** 스테이지 C2 (`2d4ab8f`) 로 `PlanApprovalCard` → `features/chat/components/ApprovalCard.tsx` 일반화 — `permission.requested` 의 `action.kind` 분기. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `ApprovalCard` 가 `pendingPlanReview`/`pendingToolApprovals` 둘 다 디스패치하고, `ToolApprovalBody`(거부/세션 동안 허용/허용 3지)가 위험 도구 승인을 surface 한다. main 의 `makeCanUseTool` 이 `RISKY_TOOLS`(Bash/PowerShell/Write/Edit/MultiEdit/NotebookEdit — `adapters/common/risky-tools.ts`)만 게이트하고 안전 도구는 자동 통과(../backend/provider-runtime.md §3 ③). `AskUserQuestionCard.tsx`(명확화 질문)는 별도 유지. **현재 구조**: 승인 대기는 도메인별 분리 저장(`pendingAsks`/`pendingPlanReview`/`pendingToolApprovals`)이고 단일 큐로 합치지 않는다. 권한 모드는 Composer 권한 메뉴(`composer/modes.ts` — Code 와 Work 가 다른 선택지, rendering.md "Work/Code 표현")가 `orca:permission:setMode` 로 PermissionModeController 와 연동되고 진행 중 턴에도 라이브 적용된다(../backend/overview.md §4 `options.permissionMode` 행). 단일 카드 일반화(`origin`/`risk`/`provider` 배지)는 미착수.
+**③ 현재 코드 갭.** 스테이지 C2 (`2d4ab8f`) 로 `PlanApprovalCard` → `features/chat/components/ApprovalCard.tsx` 일반화 — `permission.requested` 의 `action.kind` 분기. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `ApprovalCard` 가 `pendingPlanReview`/`pendingToolApprovals` 둘 다 디스패치하고, `ToolApprovalBody`(거부/세션 동안 허용/허용 3지)가 위험 도구 승인을 surface 한다. main 의 `makeCanUseTool` 이 `RISKY_TOOLS`(Bash/PowerShell/Write/Edit/MultiEdit/NotebookEdit — `adapters/common/risky-tools.ts`)만 게이트하고 안전 도구는 자동 통과(../backend/provider-runtime.md §3 ③). `AskUserQuestionCard.tsx`(명확화 질문)는 별도 유지. **현재 구조**: 승인 대기는 도메인별 분리 저장(`pendingAsks`/`pendingPlanReview`/`pendingToolApprovals`)이고 단일 큐로 합치지 않는다. 권한 모드는 Composer 권한 메뉴(`composer/modes.ts` — Code 와 Work 가 다른 선택지, rendering.md "Work/Code 표현")가 `oo:permission:setMode` 로 PermissionModeController 와 연동되고 진행 중 턴에도 라이브 적용된다(../backend/overview.md §4 `options.permissionMode` 행). 단일 카드 일반화(`origin`/`risk`/`provider` 배지)는 미착수.
 
 **④ 연동.** `permission.requested` 이벤트 → reducer 가 종류별 대기 슬롯(`pendingPlanReview`·`pendingToolApprovals`·`pendingAsks`)에 적재 → `ApprovalCard.tsx` 가 Composer 입력창을 대체하거나 입력 위에 additive 로 뜬다(③) → 결정은 PermissionBridge(../backend/provider-runtime.md §3)로 회신. 렌더링은 ToolRendererRegistry 의 `'approval'` kind(rendering.md §1.6).
 
 ---
 
-## 2. 도메인 카탈로그 (Orca 고유)
+## 2. 도메인 카탈로그 (Orcinus orca 고유)
 
 `shared/navigation/routes.ts` 의 path 카탈로그 + Tweaks 패널을 화면 단위로 정리.
 
@@ -100,7 +100,7 @@
 | `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트                             | 프로젝트            | ✅ '프로젝트'                 | **✅ Phase 3 활성**       | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일.                                                                                    |
 | `routines` (placeholder, 라우트 미정의)                        | 자동화                                  | —                   | ❌ (Future Scope, nav 미노출) | **⏳ Future Scope**       | 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록 시 nav 복귀 가능.                                            |
 | `engine` (`features/engine/components/AgentEnvironmentView.tsx`, 구 EngineView) | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | **✅ Phase 4 CRUD 활성 (0021·0090)** | nav 항목으로 노출. 라우트 `/agent`. provider CRUD(`EngineFormModal` — 단일 화면 모달 + 선택 하네스의 native 설정 불러오기, 0090) + `EngineCard`/`EngineModelList`. 제목 옆 개수는 settings·배포 runtime을 합친 화면 카드 수이며 단위는 '개'다. 카드는 Claude → OpenCode 순서로 정렬한다. OpenCode Composer 에이전트 선택은 목록 조회 중에 선택 provider 행의 agents(없으면 build·plan)를 스피너와 함께 보여 주고 조회가 끝나면 교체한다 — placeholder는 저장하지 않는다. |
-| `plugins` (`pages/PluginsPage.tsx` → `features/skills/components/customize/ExtensionsCatalogView.tsx`) | 04 플러그인                             | 플러그인            | ✅ '플러그인' (`/plugins`)   | **✅ Phase 4 활성 (0159·0217·0236)** | 플러그인 → 스킬 → MCP 탭 카탈로그(rendering.md 카탈로그 단락). **MCP 섹션 실 연동**(`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제) · 연결(Auth) 상세와 인증 액션.                 |
+| `plugins` (`pages/PluginsPage.tsx` → `features/skills/components/customize/ExtensionsCatalogView.tsx`) | 04 플러그인                             | 플러그인            | ✅ '플러그인' (`/plugins`)   | **✅ Phase 4 활성 (0159·0217·0236)** | 플러그인 → 스킬 → MCP 탭 카탈로그(rendering.md 카탈로그 단락). **MCP 섹션 실 연동**(`oo:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제) · 연결(Auth) 상세와 인증 액션.                 |
 | `artifacts` (`pages/ArtifactsPage.tsx` → `features/artifacts/`) | 05 아티팩트                             | 아티팩트            | ✅ '아티팩트' (`/artifacts`) | **✅ Phase 4 활성 (0223·0257)** | 전체/고정 탭 · 검색 · 세로 목록 · 우측 공통 파일 뷰어(rendering.md "산출물 게시 카드"). 일반 출력 파일은 목록 밖.                                                                       |
 | (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 — electron-store 동기화. 더미 업데이트·wire log·로그인 게이트 우회(`authBypass`) 토글 포함. |
 | (SearchModal) `features/sessions/components/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
@@ -112,9 +112,9 @@
 ### 2.1 도메인별 IPC 연결 상태
 
 - **Projects**: ✅ 로컬 DB(`projects` + `sessions.project_id`, ../backend/persistence.md) — 카드 그리드·랜딩·삭제(`useProjectDeletion`).
-- **Engine & Model / 연결**: ✅ Harness settings CRUD(`orca:engine:*`) + Auth 연결 탭(`orca:provider:*`, ../backend/auth.md §9). 자격증명은 Auth Grant → vault 가 소유한다(../backend/security.md §1.4).
-- **플러그인 카탈로그 — MCP 서버**: ✅ `orca:mcp:*` CRUD + 파일-백드 `mcp.json`. 활성 서버는 배포기가 plugin `.mcp.json` 으로 렌더해 `options.plugins` 로 로드한다(../backend/standardization.md §5.1). 도구 권한은 승인 UI(§1.6)와 권한 모드 메뉴가 담당하고, **기본 정책값은 PRD OQ9** 로 열려 있다.
-- **Artifacts**: ✅ `orca:artifact:*`(IPC_CONTRACT §2.6-a) — 목록·뷰어·휴지통.
+- **Engine & Model / 연결**: ✅ Harness settings CRUD(`oo:engine:*`) + Auth 연결 탭(`oo:provider:*`, ../backend/auth.md §9). 자격증명은 Auth Grant → vault 가 소유한다(../backend/security.md §1.4).
+- **플러그인 카탈로그 — MCP 서버**: ✅ `oo:mcp:*` CRUD + 파일-백드 `mcp.json`. 활성 서버는 배포기가 plugin `.mcp.json` 으로 렌더해 `options.plugins` 로 로드한다(../backend/standardization.md §5.1). 도구 권한은 승인 UI(§1.6)와 권한 모드 메뉴가 담당하고, **기본 정책값은 PRD OQ9** 로 열려 있다.
+- **Artifacts**: ✅ `oo:artifact:*`(IPC_CONTRACT §2.6-a) — 목록·뷰어·휴지통.
 
 ---
 
@@ -122,7 +122,7 @@
 
 ### 3.1 호출 규칙
 
-- 직접 `window.orca.*` 호출은 **금지**. 모두 `shared/api/ipc.ts` 의 타입드 래퍼 (`chatApi`/`backendApi`/`installApi`/`settingsApi`/`skillApi`/`fileApi`/`sessionApi`/`projectApi`/`windowApi`) 를 경유한다.
+- 직접 `window.oo.*` 호출은 **금지**. 모두 `shared/api/ipc.ts` 의 타입드 래퍼 (`chatApi`/`backendApi`/`installApi`/`settingsApi`/`skillApi`/`fileApi`/`sessionApi`/`projectApi`/`windowApi`) 를 경유한다.
 - 래퍼 호출은 `features/<domain>/hooks/use*.ts` 안에 캡슐화. 컴포넌트가 직접 호출 금지.
 - 모든 IPC 호출은 타입이 있어야 한다 (채널 정의는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) 참조).
 - 에러는 throw 로 전달 (Main 측에서 직렬화된 `ClassifiedError` — `category`·`message`·`retryable`, IPC_CONTRACT §4).
@@ -136,7 +136,7 @@
 chatApi.onEvent(ingestChatEvent) // 1회 구독 — 델타는 rAF 코얼레서, 그 외는 즉시 store.receive(ev)
 ```
 
-- main→renderer 의 `orca:chat:event` 채널은 ordered + lossless (Electron `webContents.send` 가 V8 microtask queue 위에서 보장).
+- main→renderer 의 `oo:chat:event` 채널은 ordered + lossless (Electron `webContents.send` 가 V8 microtask queue 위에서 보장).
 - Renderer 가 일시적으로 늦어도 microtask queue 에 안전히 쌓임.
 - 컴포넌트 언마운트 시 unsubscribe **필수**.
 
@@ -144,7 +144,7 @@ chatApi.onEvent(ingestChatEvent) // 1회 구독 — 델타는 rAF 코얼레서, 
 
 ```typescript
 import { chatApi } from "../../../shared/api/ipc";
-chatApi.cancel(sessionId); // → window.orca.chat.cancel(sessionId) → ipcRenderer.invoke('orca:chat:cancel', ...)
+chatApi.cancel(sessionId); // → window.oo.chat.cancel(sessionId) → ipcRenderer.invoke('oo:chat:cancel', ...)
 ```
 
 Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중단. 진행 중이던 도구 호출은 SDK 가 정리.
@@ -157,7 +157,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ## Agent/model UX (0010)
 
-- Composer 모델 칩은 `orca:agent:list` 의 supported agent × model family 를 보여준다. 세션 생성 전에는 전체 supported agent 를, 세션 생성 후에는 같은 adapter 의 provider/model 만 노출한다.
+- Composer 모델 칩은 `oo:agent:list` 의 supported agent × model family 를 보여준다. 세션 생성 전에는 전체 supported agent 를, 세션 생성 후에는 같은 adapter 의 provider/model 만 노출한다.
 - `availableModels`의 custom 항목은 실제 모델명을 Composer에 그대로 표시하고 선택값도 같은 이름을 쓴다. 1M 변형은 선택값에 `[1m]` 이 붙어 기본 변형과 구분된다(`shared/model-identity.ts`).
 - Claude 모델 계열은 `sonnet`·`opus`·`haiku`·`fable`을 인식한다. `ANTHROPIC_DEFAULT_FABLE_MODEL`과 `availableModels`의 Fable 항목도 동일한 모델 identity 축(모델명 + `[1m]`)으로 Composer와 Engine 카드에 투영하며, alias 폴백 우선순위는 기존 호환 순서를 유지한 뒤 Fable을 마지막에 둔다.
-- Engine 화면의 runtime-derived Orca Harness는 `readOnly:true` 배지를 표시하며 편집·삭제 액션을 노출하지 않는다. Main IPC도 같은 provenance로 mutation을 거부한다.
+- Engine 화면의 runtime-derived Orcinus orca Harness는 `readOnly:true` 배지를 표시하며 편집·삭제 액션을 노출하지 않는다. Main IPC도 같은 provenance로 mutation을 거부한다.

@@ -147,9 +147,13 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
     )
   test('resolveIoMode: 미설정·빈 값 → undefined, 목록 값 그대로, 그 밖은 throw', () => {
     assert.equal(resolveIoMode({}), undefined)
-    assert.equal(resolveIoMode({ ORCA_TEST_IO_MODE: ' ' }), undefined)
-    for (const mode of IO_MODES) assert.equal(resolveIoMode({ ORCA_TEST_IO_MODE: mode }), mode)
-    assert.throws(() => resolveIoMode({ ORCA_TEST_IO_MODE: 'fast' }), /ORCA_TEST_IO_MODE=fast/)
+    assert.equal(resolveIoMode({ ORCINUS_ORCA_TEST_IO_MODE: ' ' }), undefined)
+    for (const mode of IO_MODES)
+      assert.equal(resolveIoMode({ ORCINUS_ORCA_TEST_IO_MODE: mode }), mode)
+    assert.throws(
+      () => resolveIoMode({ ORCINUS_ORCA_TEST_IO_MODE: 'fast' }),
+      /ORCINUS_ORCA_TEST_IO_MODE=fast/
+    )
     assert.deepEqual(IO_MODES, ['serial', 'sqlite-serial', 'parallel'])
   })
   test('미설정 = parallel: Windows CI 에서도 io 기본 워커·unit 과 같은 그룹 (ΔV4)', () => {
@@ -223,7 +227,7 @@ describe('io 실측 모드 (0298 ΔV2)', () => {
 
 describe('partitionTestFiles — ioSqlite 는 sqlite 신호 io 만 (ΔV5)', () => {
   test('DB·Git·순수 파일을 구별해 전체 분할과 SQLite 부분집합을 운반한다', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'orca-pool-partition-'))
+    const dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-pool-partition-'))
     try {
       mkdirSync(join(dir, 'src'))
       writeFileSync(join(dir, 'src', 'db.test.ts'), 'openDb(path)\n')
@@ -252,7 +256,7 @@ describe('vitest.config.ts 배선 — 실측 모드와 SQLite 부분집합 전�
         '-e',
         `const c = (await import(${JSON.stringify(pathToFileURL(join(APP, 'vitest.config.ts')).href)})).default; console.log(JSON.stringify(c.test.projects.map((p) => p.test).sort((a, b) => a.name.localeCompare(b.name))))`
       ],
-      { cwd: APP, env: { ...process.env, ORCA_TEST_IO_MODE: mode }, encoding: 'utf8' }
+      { cwd: APP, env: { ...process.env, ORCINUS_ORCA_TEST_IO_MODE: mode }, encoding: 'utf8' }
     )
     assert.equal(result.status, 0, result.stdout + result.stderr)
     return Object.fromEntries(
@@ -381,7 +385,7 @@ describe('unit setup 의 훅 배선 — 테스트 밖에서 삼킨 위반도 파
   // afterEach 는 `src/main/infra/test-pools.test.ts` 의 it.fails 가 잠근다. afterAll(파일 정리 훅에서 삼킨
   // 위반)은 그 파일 안에서 관측할 수 없어 최소 vitest 를 한 번 띄운다 — threads 1스레드, 워커 프로세스 없음.
   test('afterAll 에서 삼킨 자식 프로세스 시도 → vitest 비정상 종료 + [test-pools]', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'orca-unit-guard-'))
+    const dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-unit-guard-'))
     try {
       writeFileSync(
         join(dir, 'vitest.config.mjs'),

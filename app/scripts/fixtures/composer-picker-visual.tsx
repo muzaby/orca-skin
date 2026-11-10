@@ -6,10 +6,10 @@ import {
   OpenCodeVariantControl
 } from '../../src/renderer/src/features/chat/harnesses/opencode/composer/Controls'
 import { chatActions } from '../../src/renderer/src/features/chat/store/chatStore'
-window.orca = {
+window.oo = {
   settings: { set: async () => ({}) },
   files: { pickDirectory: async () => null }
-} as unknown as Window['orca']
+} as unknown as Window['oo']
 chatActions.newChat(null, 'C:/workspace/orca-skin')
 const root = createRoot(document.getElementById('root')!)
 const projects = {

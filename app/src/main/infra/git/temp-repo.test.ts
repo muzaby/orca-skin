@@ -115,7 +115,7 @@ it('B13 — fast-import 실패는 stderr를 보고하고 정리 경로에 남는
 })
 
 it('B13 — 끊긴 자식은 루트를 지우기 전에 kill하고 종료를 기다린다', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-tracked-child-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-tracked-child-'))
   roots.push(root)
   const child = Object.assign(new EventEmitter(), {
     exitCode: null as number | null,

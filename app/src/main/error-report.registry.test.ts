@@ -152,15 +152,15 @@ const sites = [
   },
   {
     id: 'M22',
-    file: 'infra/config/orca-config.ts',
-    event: 'config.orca.invalid',
+    file: 'infra/config/oo-config.ts',
+    event: 'config.orcinus-orca.invalid',
     title: 'configInvalid',
     method: 'publishErrorReport'
   },
   {
     id: 'M22',
-    file: 'infra/config/orca-config.ts',
-    event: 'config.orca.load-failed',
+    file: 'infra/config/oo-config.ts',
+    event: 'config.orcinus-orca.load-failed',
     title: 'configInvalid',
     method: 'reportError'
   },
@@ -276,7 +276,7 @@ describe('main report site registry', () => {
   it('restricts unlogged publication to scheduler and aggregate config warnings', () => {
     expect(publishingFiles()).toEqual([
       'features/scheduler/scheduler.ts',
-      'infra/config/orca-config.ts'
+      'infra/config/oo-config.ts'
     ])
   })
   it('detects a third publisher file', () => {

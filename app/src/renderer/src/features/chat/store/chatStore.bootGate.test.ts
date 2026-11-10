@@ -24,13 +24,13 @@ function fixture(): {
   })
   const cwd = vi.fn().mockResolvedValue('C:/boot')
   const off = (): void => {}
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     boot: { whenReady: () => pending },
     session: { cwd, onTitle: () => off },
     settings: { get: async () => ({}) },
     concurrency: { onEvent: () => off }
   })
-  window.orca.chat.onEvent = () => off
+  window.oo.chat.onEvent = () => off
   return { ready, fail, cwd, cleanup: bootstrapChat() }
 }
 

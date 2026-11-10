@@ -25,7 +25,7 @@ import { mkdir } from 'node:fs/promises'
 import { LEGACY_PRODUCT_SLUG, PRODUCT_SLUG } from '../../../shared/product'
 
 // 모든 OS 동일하게 ~/.config/orcinus-orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
-export function orcaConfigDir(): string {
+export function ooConfigDir(): string {
   return join(homedir(), '.config', PRODUCT_SLUG)
 }
 
@@ -51,25 +51,25 @@ export function legacyUserDataDir(appDataDir: string, isDev: boolean): string {
   return join(appDataDir, isDev ? `${LEGACY_PRODUCT_SLUG}-dev` : LEGACY_PRODUCT_SLUG)
 }
 
-// 격리 worktree 루트. `<userData>` 가 아니라 `orcaConfigDir()` 하위다(0210 D-102) — 저장소
+// 격리 worktree 루트. `<userData>` 가 아니라 `ooConfigDir()` 하위다(0210 D-102) — 저장소
 // 내부에 두면 `status --untracked-files=all` 이 그 저장소를 영구 dirty 로 만들고, `<userData>`
 // 아래는 사용자가 찾아갈 경로가 아니다.
 //
-// **dev 는 이 디렉토리에만 `-dev` 를 붙인다**(D-103). `orcaConfigDir()` 자체를 가르면 dev 가
+// **dev 는 이 디렉토리에만 `-dev` 를 붙인다**(D-103). `ooConfigDir()` 자체를 가르면 dev 가
 // settings·plugins·projects 를 통째로 잃는다 — 그 격리는 `devUserDataDir` 이 DB 축에서 이미 한다.
 export function managedWorktreesDir(isDev: boolean): string {
-  return join(orcaConfigDir(), isDev ? 'worktrees-dev' : 'worktrees')
+  return join(ooConfigDir(), isDev ? 'worktrees-dev' : 'worktrees')
 }
 
 // 정규 소스 루트(사람 편집 SSOT).
 function sourcesDir(): string {
-  return join(orcaConfigDir(), 'sources')
+  return join(ooConfigDir(), 'sources')
 }
 
 // Orcinus orca 앱 자체 전역 설정 파일. sources/ 는 엔진별 배포 리소스 SSOT 이고, orcinus-orca.json 은
 // 앱 부팅 시 1회 로드되는 전역 agent/provider 설정이다.
-export function orcaJsonPath(): string {
-  return join(orcaConfigDir(), `${PRODUCT_SLUG}.json`)
+export function ooJsonPath(): string {
+  return join(ooConfigDir(), `${PRODUCT_SLUG}.json`)
 }
 
 export function sourcesSkillsDir(): string {
@@ -78,15 +78,15 @@ export function sourcesSkillsDir(): string {
 
 // 모든 세션 cwd 의 단일 루트. default/ 와 프로젝트별 디렉토리가 여기 산다.
 export function projectsDir(): string {
-  return join(orcaConfigDir(), 'projects')
+  return join(ooConfigDir(), 'projects')
 }
 
-// connector 플러그인이 내려받은 파일의 루트 (0160). `orcaConfigDir()` 하위인 것이 중요하다 —
+// connector 플러그인이 내려받은 파일의 루트 (0160). `ooConfigDir()` 하위인 것이 중요하다 —
 // workspace-guard 의 `readOnlyExceptionRoots()` 가 이 루트를 이미 포함하므로, 도구가 경로만
 // 반환해도 모델이 `Read`/`Grep` 으로 결과물을 읽을 수 있다. 세션 cwd 가 아니라 여기 두는 이유는
 // 연결이 앱 전역이고 도구 컨텍스트에 cwd 가 없기 때문이다(`adapters/runtime-tools.ts`).
 export function downloadsDir(): string {
-  return join(orcaConfigDir(), 'downloads')
+  return join(ooConfigDir(), 'downloads')
 }
 
 // child 가 parent 내부(또는 동일)인지 — 정규화 후 상대경로가 '..' 로 빠져나가거나
@@ -141,5 +141,5 @@ export function mcpJsonPath(): string {
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.
 export async function ensureConfigDir(): Promise<void> {
-  await mkdir(orcaConfigDir(), { recursive: true })
+  await mkdir(ooConfigDir(), { recursive: true })
 }

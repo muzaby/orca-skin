@@ -24,7 +24,7 @@ it('uses the product child of the real OS temporary root across workspace drives
 })
 
 it('creates the product child under an injected OS temporary root', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-temp-policy-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-temp-policy-'))
   roots.push(root)
   const expected = join(root, PRODUCT_SLUG)
 
@@ -33,8 +33,8 @@ it('creates the product child under an injected OS temporary root', async () => 
 })
 
 it('rejects a redirected OS temporary parent before preparing the product child', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-temp-policy-'))
-  const target = await mkdtemp(join(tmpdir(), 'orca-temp-target-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-temp-policy-'))
+  const target = await mkdtemp(join(tmpdir(), 'orcinus-orca-temp-target-'))
   roots.push(root, target)
   const alias = join(root, 'redirected')
   await symlink(target, alias, process.platform === 'win32' ? 'junction' : 'dir')

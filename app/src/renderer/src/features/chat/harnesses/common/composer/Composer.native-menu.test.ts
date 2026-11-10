@@ -58,7 +58,7 @@ beforeEach(() => {
   observe.mockReset().mockResolvedValue({ state: 'disconnected', items: [] })
   fixture.sessionId = 'session-B'
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         nativeResources: (request: unknown, observation?: unknown) =>
           observation ? observe(request, observation) : read(request),
@@ -128,22 +128,22 @@ it.each(['claude', 'opencode'] as const)(
     fixture.backend = backend
     const items = [
       {
-        id: 'orca_b_builtin',
+        id: 'orcinus_orca_b_builtin',
         mentionId: 'wiki',
         name: 'Wiki',
         kind: 'mcp',
-        origin: 'orca',
+        origin: 'orcinus-orca',
         managedSource: { kind: 'builtin', sourceId: 'wiki' },
         status: 'connected',
         enabled: true,
         canToggle: false
       },
       {
-        id: 'orca_u_user',
-        mentionId: 'orca_u_user',
+        id: 'orcinus_orca_u_user',
+        mentionId: 'orcinus_orca_u_user',
         name: 'User documents',
         kind: 'mcp',
-        origin: 'orca',
+        origin: 'orcinus-orca',
         managedSource: { kind: 'user', sourceId: 'user-docs' },
         status: 'connected',
         enabled: true,
@@ -153,7 +153,7 @@ it.each(['claude', 'opencode'] as const)(
         id: 'not-connected',
         name: 'Unavailable documents',
         kind: 'mcp',
-        origin: 'orca',
+        origin: 'orcinus-orca',
         status: 'failed',
         enabled: true,
         canToggle: false
@@ -165,7 +165,7 @@ it.each(['claude', 'opencode'] as const)(
       items,
       commands: []
     })
-    render('@orca_u')
+    render('@orcinus_orca_u')
     await settle()
     const options = dom.queryAll('[role="option"]')
     expect(options).toHaveLength(1)
@@ -177,12 +177,12 @@ it.each(['claude', 'opencode'] as const)(
     )
     await settle()
     const input = dom.query('[aria-label="chat.composer.inputAria"]')!
-    expect(input.props.value).toBe('@orca_u_user ')
+    expect(input.props.value).toBe('@orcinus_orca_u_user ')
     expect(
       (dom.query('[data-composer-decoration-projection]')?.children ?? []).map(
         (node) => node.textContent
       )
-    ).toContain('@orca_u_user')
+    ).toContain('@orcinus_orca_u_user')
     expect(onSend).not.toHaveBeenCalled()
     dom.act(() =>
       (input.props.onKeyDown as (event: Record<string, unknown>) => void)({
@@ -194,7 +194,7 @@ it.each(['claude', 'opencode'] as const)(
       })
     )
     await settle()
-    expect(onSend.mock.calls[0]?.[0]).toBe('@orca_u_user ')
+    expect(onSend.mock.calls[0]?.[0]).toBe('@orcinus_orca_u_user ')
   }
 )
 it.each(['claude', 'opencode'] as const)(
@@ -352,17 +352,17 @@ it('reflects session-enabled plugin commands in real autocomplete and decoration
 })
 
 it.each(['claude', 'opencode'] as const)(
-  'keeps Orca file skill autocomplete scoped to extension-enabled %s inputs',
+  'keeps Orcinus orca file skill autocomplete scoped to extension-enabled %s inputs',
   async (backend) => {
     fixture.backend = backend
-    window.orca.skills.list = async () =>
+    window.oo.skills.list = async () =>
       [
         {
           name: 'local-skill',
-          sourceId: 'orca',
-          sourceLabel: 'Orca',
+          sourceId: 'orcinus-orca',
+          sourceLabel: 'Orcinus orca',
           enabled: true,
-          description: 'Orca file skill'
+          description: 'Orcinus orca file skill'
         }
       ] as never
     render('/local-skill')
@@ -516,16 +516,16 @@ it.each(['claude', 'opencode'] as const)(
   'shows all source groups directly for %s and keeps draft text on selection — puts the Orcinus orca group first in both panels',
   async (backend) => {
     fixture.backend = backend
-    window.orca.skills.list = async () =>
+    window.oo.skills.list = async () =>
       [
         {
-          name: 'orca-skill',
-          sourceId: 'orca',
-          sourceLabel: 'Orca skills',
+          name: 'orcinus-orca-skill',
+          sourceId: 'orcinus-orca',
+          sourceLabel: 'Orcinus orca skills',
           description: 'Local skill'
         }
       ] as never
-    window.orca.mcp.list = async () =>
+    window.oo.mcp.list = async () =>
       [
         {
           id: 'custom',
@@ -540,7 +540,7 @@ it.each(['claude', 'opencode'] as const)(
           enabled: false
         }
       ] as never
-    window.orca.provider.state = async () =>
+    window.oo.provider.state = async () =>
       ({
         providers: [
           { id: 'jira', label: 'Jira', tools: ['issue'], status: 'valid' },
@@ -554,9 +554,9 @@ it.each(['claude', 'opencode'] as const)(
         { id: 'native', name: 'Native MCP', kind: 'mcp', status: 'connected', enabled: true },
         {
           id: 'plugin:orcinus-orca:custom',
-          name: 'Connected Orca MCP',
+          name: 'Connected Orcinus orca MCP',
           kind: 'mcp',
-          origin: 'orca',
+          origin: 'orcinus-orca',
           status: 'connected',
           enabled: true
         },
@@ -579,12 +579,12 @@ it.each(['claude', 'opencode'] as const)(
     await settle()
     clickLabel('chat.composer.attachMenu.skills')
     const rows = dom.queryAll('[data-cascade-level="1"]')
-    expect(rows.map((row) => row.textContent)).toEqual(['orca-skill', 'design::review'])
+    expect(rows.map((row) => row.textContent)).toEqual(['orcinus-orca-skill', 'design::review'])
     expect(rows.every((row) => !row.props['aria-haspopup'])).toBe(true)
     expect(rows[0].props.disabled).toBe(backend === 'opencode')
-    const orcaMark = dom.query('[aria-label="Orcinus orca"]')!
-    expect(orcaMark).not.toBeNull()
-    const tokens = String(orcaMark.props.className).split(/\s+/)
+    const ooMark = dom.query('[aria-label="Orcinus orca"]')!
+    expect(ooMark).not.toBeNull()
+    const tokens = String(ooMark.props.className).split(/\s+/)
     expect(tokens).toEqual(expect.arrayContaining(['h-3.5', 'w-auto', 'shrink-0']))
     expect(tokens.filter((token) => /^(size-|w-(?!auto$))/.test(token))).toEqual([])
     expect(dom.queryAll('[data-menu-heading]').map((node) => node.textContent)).toEqual([
@@ -617,8 +617,8 @@ it.each(['claude', 'opencode'] as const)(
     expect(dom.queryAll('[data-cascade-level="1"]').map((row) => row.textContent)).toEqual(
       // Orcinus orca 그룹은 두 패널 모두 첫 그룹이다(0291 D-017).
       backend === 'claude'
-        ? ['Connected Orca MCP', 'Jira', 'Native MCP']
-        : ['Connected Orca MCP', 'Native MCP']
+        ? ['Connected Orcinus orca MCP', 'Jira', 'Native MCP']
+        : ['Connected Orcinus orca MCP', 'Native MCP']
     )
     expect(dom.queryAll('[data-menu-heading]').map((node) => node.textContent)).toEqual(
       backend === 'claude' ? ['Orcinus orca', 'Claude'] : ['Orcinus orca', 'OpenCode']
@@ -632,7 +632,7 @@ it.each(['claude', 'opencode'] as const)(
     expect(highlightedPlugins()).toContain('@native')
     if (backend === 'claude') {
       for (const [label, token] of [
-        ['Connected Orca MCP', '@plugin:orcinus-orca:custom'],
+        ['Connected Orcinus orca MCP', '@plugin:orcinus-orca:custom'],
         ['Jira', '@jira']
       ]) {
         open()
@@ -646,7 +646,7 @@ it.each(['claude', 'opencode'] as const)(
       open()
       await settle()
       clickLabel('chat.composer.attachMenu.plugins')
-      clickLabel('Connected Orca MCP')
+      clickLabel('Connected Orcinus orca MCP')
       await settle()
       expect(highlightedPlugins()).toContain('@plugin:orcinus-orca:custom')
       expect(highlightedPlugins()).not.toContain('@jira')

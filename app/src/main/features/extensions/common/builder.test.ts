@@ -20,7 +20,7 @@ function seedDb(): DbQueries {
 }
 
 describe('ExtensionBuilder.systemPromptAppend', () => {
-  it('resume 경로: 헤더(# Orca/# User/# Project) 뒤에 프로젝트 지침이 붙는다', () => {
+  it('resume 경로: 헤더(# orcinus-orca/# User/# Project) 뒤에 프로젝트 지침이 붙는다', () => {
     const db = seedDb()
     db.insertProject({
       id: 'p1',
@@ -38,8 +38,8 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
     )
     const { systemPromptAppend } = builder.build('s1', null)
 
-    expect(systemPromptAppend).toContain('# Orca')
-    expect(systemPromptAppend).toContain('Orca version: 1.0.0')
+    expect(systemPromptAppend).toContain('# Orcinus orca')
+    expect(systemPromptAppend).toContain('Orcinus orca version: 1.0.0')
     expect(systemPromptAppend).toContain('Preferred language: 한국어')
     expect(systemPromptAppend).toContain('Account instructions: 간결하게')
     expect(systemPromptAppend).toContain('Active project: 센서 QA')
@@ -78,7 +78,7 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
     )
     const { systemPromptAppend } = builder.build('s2', null)
 
-    expect(systemPromptAppend).toContain('# Orca')
+    expect(systemPromptAppend).toContain('# Orcinus orca')
     expect(systemPromptAppend).toContain('Preferred language: 한국어')
     expect(systemPromptAppend).not.toContain('# Project')
   })
@@ -118,7 +118,7 @@ describe('ExtensionBuilder.runtimeTools', () => {
       sourceId: 'fixture',
       sourceLabel: 'Fixture',
       enabled: true,
-      sourceKind: 'orca',
+      sourceKind: 'orcinus-orca',
       canToggle: true,
       canRemove: true,
       skillPath: '/skills/review/SKILL.md',
@@ -136,7 +136,7 @@ describe('ExtensionBuilder.runtimeTools', () => {
     expect(extensions.pluginRoots).toEqual(['/plugins/orcinus-orca', '/plugins/user'])
     expect(extensions.skills).toEqual([skill])
     expect(extensions.hooks).toEqual({ normalized: {} })
-    expect(extensions.systemPromptAppend).toContain('Orca version: 1.0.0')
+    expect(extensions.systemPromptAppend).toContain('Orcinus orca version: 1.0.0')
   })
 
   it('forwards the injected empty registry snapshot with revision zero', () => {

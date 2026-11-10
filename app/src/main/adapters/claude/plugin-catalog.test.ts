@@ -36,7 +36,7 @@ function plugin(name: string): string {
   return path
 }
 beforeEach(() => {
-  temp = mkdtempSync(join(tmpdir(), 'orca-plugin-catalog-'))
+  temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-plugin-catalog-'))
   cwd = join(temp, 'project')
   root = join(temp, 'claude')
   mkdirSync(join(cwd, '.git'), { recursive: true })

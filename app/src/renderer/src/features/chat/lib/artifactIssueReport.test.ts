@@ -7,7 +7,7 @@ beforeEach(() => {
   logError.mockReset()
   for (const toast of errorToastStore.getState().toasts)
     errorToastStore.getState().dismiss(toast.id)
-  vi.stubGlobal('window', { orca: { log: { error: logError } } })
+  vi.stubGlobal('window', { oo: { log: { error: logError } } })
 })
 
 it('titles file-access reasons as fileUnavailable and everything else as actionFailed', () => {

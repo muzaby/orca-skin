@@ -105,7 +105,9 @@ describe('SendChatMessageSchema — permissionMode (정규화 6종)', () => {
 
 describe('SendChatMessageSchema — cwd', () => {
   it('새 세션 cwd payload 를 허용하고 빈 문자열은 거부한다', () => {
-    expect(SendChatMessageSchema.safeParse({ ...base, cwd: '/repo/orca' }).success).toBe(true)
+    expect(SendChatMessageSchema.safeParse({ ...base, cwd: '/repo/orcinus-orca' }).success).toBe(
+      true
+    )
     expect(SendChatMessageSchema.safeParse({ ...base, cwd: null }).success).toBe(true)
     expect(SendChatMessageSchema.safeParse({ ...base, cwd: '' }).success).toBe(false)
   })
@@ -132,17 +134,19 @@ describe('OpenContextFileRequestSchema', () => {
 
 describe('OpenPathRequestSchema', () => {
   it('열 경로를 검증한다', () => {
-    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca', mode: 'directory' }).success).toBe(
-      true
-    )
+    expect(
+      OpenPathRequestSchema.safeParse({ path: '/repo/orcinus-orca', mode: 'directory' }).success
+    ).toBe(true)
     expect(OpenPathRequestSchema.safeParse({ path: '', mode: 'directory' }).success).toBe(false)
   })
 
   // 0211 ΔV5 D-108 — 모드는 **필수**다. optional 로 두고 미지정을 파일 허용으로 접으면
   // 기존 호출부가 조용히 넓어진다(fail-open).
   it('모드가 없거나 목록 밖이면 거절한다', () => {
-    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca' }).success).toBe(false)
-    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca', mode: 'any' }).success).toBe(false)
+    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orcinus-orca' }).success).toBe(false)
+    expect(
+      OpenPathRequestSchema.safeParse({ path: '/repo/orcinus-orca', mode: 'any' }).success
+    ).toBe(false)
     expect(OpenPathRequestSchema.safeParse({ path: '/repo/a.ts', mode: 'reveal' }).success).toBe(
       true
     )

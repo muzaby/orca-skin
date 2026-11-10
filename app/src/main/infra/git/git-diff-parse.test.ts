@@ -54,7 +54,7 @@ describe('numstat -z 파싱', () => {
 
 describe('커밋 로그 파싱', () => {
   const record = (sha: string, subject: string, body = ''): string =>
-    `\x00orca-commit\x00${sha}\x00${subject}\x00codex\x001756500000\x00${body}\x00`
+    `\x00orcinus-orca-commit\x00${sha}\x00${subject}\x00codex\x001756500000\x00${body}\x00`
 
   it('메타데이터 폴백은 본문을 보존하고 파일 값을 unavailable로 표현한다', () => {
     const { commits, truncated } = parseCommitLog(record('abc123', 'feat: 붙인다'))
@@ -85,7 +85,7 @@ describe('커밋 로그 파싱', () => {
 
   it('pre-1970의 음수 epoch도 유효한 formatted header로 읽는다', () => {
     const { commits } = parseCommitLog(
-      '\x00orca-commit\x00pre1970\x00old commit\x00codex\x00-1\x00\x00'
+      '\x00orcinus-orca-commit\x00pre1970\x00old commit\x00codex\x00-1\x00\x00'
     )
 
     expect(commits).toMatchObject([
@@ -117,7 +117,7 @@ describe('커밋 로그 파싱', () => {
 
 describe('raw + numstat 커밋 파싱 (VP-31 · EP-17)', () => {
   const header = (sha: string, subject: string, body = ''): string =>
-    `\x00orca-commit\x00${sha}\x00${subject}\x00tester\x001756500000\x00${body}\x00\x00`
+    `\x00orcinus-orca-commit\x00${sha}\x00${subject}\x00tester\x001756500000\x00${body}\x00\x00`
 
   it('두 커밋의 본문·순서를 유지하고 M/A/D/R/C·binary·NUL 경로를 함께 해석한다', () => {
     const first =
@@ -165,18 +165,20 @@ describe('raw + numstat 커밋 파싱 (VP-31 · EP-17)', () => {
     expect(parsed.commits[1].files.map((file) => file.path)).toEqual(['only-old.ts'])
   })
 
-  it('루트의 orca-commit 경로를 다음 commit header로 오인하지 않는다', () => {
+  it('루트의 orcinus-orca-commit 경로를 다음 commit header로 오인하지 않는다', () => {
     const output =
       header('root-path', 'root path') +
-      ':000000 100644 0000000 aaaaaaa A\0orca-commit\0' +
-      '2\t1\torca-commit\0'
+      ':000000 100644 0000000 aaaaaaa A\0orcinus-orca-commit\0' +
+      '2\t1\torcinus-orca-commit\0'
 
     expect(parseCommitLog(output, true).commits).toEqual([
       expect.objectContaining({
         sha: 'root-path',
         fileCount: 1,
         totals: { added: 2, removed: 1 },
-        files: [{ path: 'orca-commit', status: 'added', added: 2, removed: 1, binary: false }]
+        files: [
+          { path: 'orcinus-orca-commit', status: 'added', added: 2, removed: 1, binary: false }
+        ]
       })
     ])
   })
@@ -207,7 +209,7 @@ describe('raw + numstat 커밋 파싱 (VP-31 · EP-17)', () => {
   it('실제 0과 파일 데이터 unavailable의 null을 다른 상태로 보존한다', () => {
     const observedZero = parseCommitLog(header('zero', 'empty tree'), true).commits[0]
     const unavailable = parseCommitLog(
-      `\x00orca-commit\x00fallback\x00metadata only\x00tester\x001756500000\x00\x00`
+      `\x00orcinus-orca-commit\x00fallback\x00metadata only\x00tester\x001756500000\x00\x00`
     ).commits[0]
 
     expect(observedZero).toMatchObject({ fileCount: 0, totals: { added: 0, removed: 0 } })

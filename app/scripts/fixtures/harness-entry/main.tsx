@@ -39,7 +39,7 @@ useProjectsStore.setState({
     }
   ]
 })
-const base = window.orca
+const base = window.oo
 let enabled = true
 let pluginEnabled = true
 const resourceListeners = new Set<
@@ -78,12 +78,12 @@ const snapshot = (): NativeResources => ({
     },
     {
       id: 'plugin:orcinus-orca:custom',
-      name: 'Orca Custom MCP',
+      name: 'Orcinus orca Custom MCP',
       kind: 'mcp',
       status: 'connected',
       enabled: true,
       canToggle: false,
-      origin: 'orca'
+      origin: 'orcinus-orca'
     },
     {
       id: 'auth',
@@ -104,16 +104,16 @@ const snapshot = (): NativeResources => ({
     }
   ]
 })
-window.orca = new Proxy(base, {
+window.oo = new Proxy(base, {
   get(target, name) {
     if (name === 'skills')
       return {
         ...target.skills,
         list: async () => [
           {
-            name: 'orca-review',
-            description: 'Orca 작업 검토',
-            sourceId: 'orca',
+            name: 'orcinus-orca-review',
+            description: 'Orcinus orca 작업 검토',
+            sourceId: 'orcinus-orca',
             sourceLabel: 'Orcinus orca 스킬'
           },
           {
@@ -152,7 +152,12 @@ window.orca = new Proxy(base, {
       return {
         ...target.mcp,
         list: async () => [
-          { id: 'custom-mcp', name: 'Orca Custom MCP', description: '등록한 MCP', enabled: true },
+          {
+            id: 'custom-mcp',
+            name: 'Orcinus orca Custom MCP',
+            description: '등록한 MCP',
+            enabled: true
+          },
           { id: 'disabled-mcp', name: 'Disabled MCP', description: '비활성 MCP', enabled: false }
         ]
       }

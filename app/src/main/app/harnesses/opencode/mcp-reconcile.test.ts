@@ -32,7 +32,7 @@ vi.mock('electron', () => ({
 }))
 vi.mock('../../../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../../../infra/config/paths')>()),
-  orcaConfigDir: () => boundary.root,
+  ooConfigDir: () => boundary.root,
   mcpJsonPath: () => `${boundary.root}/mcp.json`
 }))
 vi.mock('../../../infra/config/secret-store', () => ({
@@ -45,7 +45,7 @@ vi.mock('../../../infra/config/secret-store', () => ({
     }
   }
 }))
-vi.mock('../../../infra/config/orca-config', () => ({
+vi.mock('../../../infra/config/oo-config', () => ({
   appEnv: () => ({}),
   secretEnvAllowlist: () => []
 }))
@@ -90,7 +90,7 @@ async function nextTurn(
   }
 }
 beforeEach(async () => {
-  boundary.root = await mkdtemp(join(tmpdir(), 'orca-retention-assembly-'))
+  boundary.root = await mkdtemp(join(tmpdir(), 'orcinus-orca-retention-assembly-'))
   cwd = join(boundary.root, 'A')
   peerCwd = join(boundary.root, 'B')
   await mkdir(cwd)
@@ -243,7 +243,7 @@ it('applies saved managed and native choices across idle peers with stable defin
   expect(f.children).toHaveLength(1)
   expect(
     (await a.mcp(new AbortController().signal)).find((item) => item.id === alias)
-  ).toMatchObject({ origin: 'orca', status: 'connected' })
+  ).toMatchObject({ origin: 'orcinus-orca', status: 'connected' })
   await call(CHANNELS.extensionSetEnabled, {
     backend: 'opencode',
     id: 'native',

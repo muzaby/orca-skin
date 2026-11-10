@@ -46,7 +46,7 @@ afterEach(async () => {
 })
 
 async function tempRoot(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), 'orca-legacy-paths-'))
+  const dir = await mkdtemp(join(tmpdir(), 'orcinus-orca-legacy-paths-'))
   roots.push(dir)
   return dir
 }

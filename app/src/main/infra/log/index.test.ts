@@ -6,7 +6,7 @@ import { closeLog, currentLogFilePath, flushLogSync, initLog } from './index'
 
 const mocks = vi.hoisted(() => ({ configDir: vi.fn() }))
 vi.mock('electron', () => ({ app: { getVersion: () => 'test' } }))
-vi.mock('../config/paths', () => ({ orcaConfigDir: mocks.configDir }))
+vi.mock('../config/paths', () => ({ ooConfigDir: mocks.configDir }))
 let dir: string | undefined
 afterEach(() => {
   closeLog()
@@ -16,7 +16,7 @@ afterEach(() => {
 
 describe('current log file path', () => {
   it('uses the transport destination before initialization, while open and after close', () => {
-    dir = mkdtempSync(join(tmpdir(), 'orca-log-path-'))
+    dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-log-path-'))
     mocks.configDir.mockReturnValue(dir)
     const expected = join(dir, 'logs', 'application.jsonl')
     expect(currentLogFilePath()).toBe(expected)

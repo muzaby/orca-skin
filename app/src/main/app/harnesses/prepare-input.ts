@@ -1,4 +1,4 @@
-import { appEnv } from '../../infra/config/orca-config'
+import { appEnv } from '../../infra/config/oo-config'
 import { getLogger } from '../../infra/log'
 import { expandEnvRecord, processEnvRecord } from '../../features/harnesses/common/env'
 import {

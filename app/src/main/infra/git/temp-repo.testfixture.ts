@@ -38,7 +38,7 @@ export const KILL_GRACE_MS = scaleMs(5_000)
  * `worktree add`(풀 체크아웃이라 가장 무겁다)가 병렬 부하에서 10s 를 넘겨 자식이 죽었고,
  * stderr 에는 `Preparing worktree` 한 줄뿐 fatal 이 없었으며 99s 파일 예산은 닿지도 않았다.
  *
- * git 의 속도는 호스트 몫이라 orca 가 정할 수 없다. 그래서 **어떤 파일 예산보다도 크게**
+ * git 의 속도는 호스트 몫이라 Orcinus orca 가 정할 수 없다. 그래서 **어떤 파일 예산보다도 크게**
  * 잡아(기준값 기준 현재 최대 369s — 둘 다 같은 배율을 받으므로 대소가 유지되고 게이트 (G)가 강제한다) 판정에서 빼고, 상한은 고아를 언젠가 반드시 죽이는 backstop 으로만
  * 남긴다 — 0(무제한)으로 두면 예산에 끊긴 케이스의 `runGit` 자식은 `execGit` 과 달리 추적
  * 밖이라 아무도 죽이지 않는다.
@@ -92,7 +92,7 @@ export async function createRepo(
   spec: RepoSpec = {},
   at?: string
 ): Promise<TempRepo> {
-  const root = at ?? (await mkdtemp(join(tmpdir(), 'orca-repo-')))
+  const root = at ?? (await mkdtemp(join(tmpdir(), 'orcinus-orca-repo-')))
   if (at) await mkdir(at, { recursive: true })
   roots.push(root)
   const branch = spec.branch ?? 'main'
@@ -101,7 +101,7 @@ export async function createRepo(
   const commits = spec.commits ?? []
   if (commits.length === 0) return { root, oids: [], branch }
   const { fastImportStream, parseMarks } = await import('./fast-import-stream.testfixture')
-  const marks = join(root, '.git', 'orca-marks')
+  const marks = join(root, '.git', 'orcinus-orca-marks')
   await execGit(
     'git',
     ['fast-import', '--quiet', '--export-marks=' + marks],
@@ -138,7 +138,7 @@ export async function appendCommit(
   } catch {
     /* 일반 저장소에서는 .git이 디렉토리다. */
   }
-  const marks = join(gitDir, 'orca-marks')
+  const marks = join(gitDir, 'orcinus-orca-marks')
   await execGit(
     'git',
     ['fast-import', '--quiet', '--export-marks=' + marks],

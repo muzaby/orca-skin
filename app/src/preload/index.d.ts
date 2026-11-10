@@ -1,7 +1,7 @@
-import type { OrcaApi } from './index'
+import type { OoApi } from './index'
 
 declare global {
   interface Window {
-    orca: OrcaApi
+    oo: OoApi
   }
 }

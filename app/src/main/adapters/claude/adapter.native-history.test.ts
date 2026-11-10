@@ -49,7 +49,7 @@ describe('ClaudeAdapter native history port', () => {
       cwd: f.cwd,
       text: 'explicit next input',
       env,
-      model: 'orca-runtime-model',
+      model: 'orcinus-orca-runtime-model',
       extensions: { skills: [], hooks: { normalized: {} } }
     })
     try {
@@ -57,7 +57,7 @@ describe('ClaudeAdapter native history port', () => {
       expect(options).toMatchObject({
         resume: sessionId,
         cwd: f.cwd,
-        model: 'orca-runtime-model',
+        model: 'orcinus-orca-runtime-model',
         env: { CLAUDE_CONFIG_DIR: f.config }
       })
       expect(options.persistSession).not.toBe(false)

@@ -15,7 +15,7 @@ function slugOf(value: string): string {
 // 저장소를 가리키는 **결정적** 디렉토리 세그먼트 (0210 D-104). 같은 repoRoot 는 언제나 같은
 // 값이어야 한다 — 호출마다 새 UUID 를 뽑으면 첫 칸이 저장소를 식별하지 못하고 depth 만 는다.
 //
-// 이름만으로는 다른 저장소가 겹치므로(`~/a/orca` 와 `~/b/orca`) 경로 해시 8자를 붙인다.
+// 이름만으로는 다른 저장소가 겹치므로(`~/a/orcinus-orca` 와 `~/b/orcinus-orca`) 경로 해시 8자를 붙인다.
 // 입력은 `canonicalPath` 를 지난 값 하나로 고정한다 — realpath 결과가 아니면 같은 저장소가
 // 두 세그먼트로 갈린다.
 export function repoDirSegment(repoRoot: string): string {

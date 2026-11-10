@@ -12,9 +12,9 @@ const skill = (sourceId: string, sourceLabel: string): SkillInfo => ({
   description: 'Review changes',
   sourceId,
   sourceLabel,
-  sourceKind: 'orca',
+  sourceKind: 'orcinus-orca',
   enabled: true,
-  canToggle: sourceId === 'orca',
+  canToggle: sourceId === 'orcinus-orca',
   canRemove: true,
   skillPath: `/skills/${sourceId}/review/SKILL.md`,
   skillDir: `/skills/${sourceId}/review`,
@@ -49,7 +49,7 @@ const render = (patch: Partial<ComponentProps<typeof CustomizeList>>): string =>
   renderToStaticMarkup(
     createElement(CustomizeList, {
       tab: 'skills',
-      skills: [skill('orca', 'Orcinus orca 스킬'), skill('adapter:claude', 'Claude 스킬')],
+      skills: [skill('orcinus-orca', 'Orcinus orca 스킬'), skill('adapter:claude', 'Claude 스킬')],
       mcpServers: [server('inactive', false), server('active', true)],
       providers: [provider('service', 'service'), provider('gate', 'gate')],
       onSelect: vi.fn(),
@@ -60,8 +60,8 @@ const rows = (markup: string): string[] =>
   [...markup.matchAll(/data-extensions-row="([^"]+)"/g)].map((match) => match[1])
 
 describe('plugin catalog list', () => {
-  it('renders switches only for Orca skills', () => {
-    const entries = ['orca', 'agents', 'adapter:claude', 'adapter:opencode'].map((source) =>
+  it('renders switches only for Orcinus orca skills', () => {
+    const entries = ['orcinus-orca', 'agents', 'adapter:claude', 'adapter:opencode'].map((source) =>
       skill(source, source)
     )
     const $ = load(render({ skills: entries }))
@@ -70,7 +70,7 @@ describe('plugin catalog list', () => {
       const row = $(`[data-extensions-row="${entry.sourceId}/${entry.name}"]`)
       expect(row).toHaveLength(1)
       expect(row.find('[title]').hasClass('text-ink3')).toBe(false)
-      expect(row.find('[role=switch]')).toHaveLength(entry.sourceId === 'orca' ? 1 : 0)
+      expect(row.find('[role=switch]')).toHaveLength(entry.sourceId === 'orcinus-orca' ? 1 : 0)
     }
   })
 
@@ -113,7 +113,7 @@ describe('plugin catalog list', () => {
     expect(mcp).toContain('text-oc-ink')
   })
   it.each<[CatalogTab, string[]]>([
-    ['skills', ['orca/review', 'adapter:claude/review']],
+    ['skills', ['orcinus-orca/review', 'adapter:claude/review']],
     ['mcp', ['active', 'inactive']],
     ['providers', ['gate', 'service']]
   ])('%s uses flat catalog buttons with selection and preserves its previous order', (tab, ids) => {
@@ -224,7 +224,7 @@ describe('plugin catalog list', () => {
 const groupFixture = {
   skills: [
     skill('adapter:opencode', 'OpenCode 스킬'),
-    skill('orca', 'Orcinus orca 스킬'),
+    skill('orcinus-orca', 'Orcinus orca 스킬'),
     skill('agents', '~/.agents/skills'),
     skill('adapter:claude', 'Claude 스킬')
   ],
@@ -253,7 +253,12 @@ it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
   (tab) => {
     const markup = render({ ...groupFixture, tab })
     const expectedRows = {
-      skills: ['orca/review', 'agents/review', 'adapter:claude/review', 'adapter:opencode/review'],
+      skills: [
+        'orcinus-orca/review',
+        'agents/review',
+        'adapter:claude/review',
+        'adapter:opencode/review'
+      ],
       mcp: ['active', 'inactive', 'claude:mcp', 'opencode:mcp'],
       providers: ['gate', 'model', 'service', 'claude:plugin', 'opencode:plugin']
     }
@@ -285,7 +290,7 @@ it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
 )
 
 it.each<CatalogTab>(['mcp', 'providers'])(
-  'omits an empty Orca group and gives the first native heading initial spacing (%s)',
+  'omits an empty Orcinus orca group and gives the first native heading initial spacing (%s)',
   (tab) => {
     const $ = load(render({ ...groupFixture, tab, providers: [], mcpServers: [] }))
     const headings = $('li').not('[data-extensions-row]')
@@ -297,7 +302,7 @@ it.each<CatalogTab>(['mcp', 'providers'])(
 )
 
 it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
-  'sizes the Orca mark by height only (%s)',
+  'sizes the Orcinus orca mark by height only (%s)',
   (tab) => {
     const $ = load(render({ ...groupFixture, tab }))
     const tokens = ($('[aria-label="Orcinus orca"]').attr('class') ?? '').split(/\s+/)
@@ -311,7 +316,7 @@ it.each<CatalogTab>(['skills', 'mcp', 'providers'])(
   }
 )
 
-it('uses the MCP icon for Orca MCP rows of both transports', () => {
+it('uses the MCP icon for Orcinus orca MCP rows of both transports', () => {
   const $ = load(
     render({
       tab: 'mcp',

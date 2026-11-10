@@ -1,7 +1,7 @@
 // 0215 VP-13 (R-04 ↔ AT-13 · §10 EP-14) — 모델 전환으로 권한이 강등되면 **main 도** 그 값을 읽는다.
 //
 // reducer(상태 정본)만 고치면 controller 와 진행 중 턴이 '자동'을 계속 믿는다. 그래서 강등이
-// 실제로 일어난 경우에만 `orca:permission:setMode` 가 나가는지를 본다 — 호출 여부가 아니라
+// 실제로 일어난 경우에만 `oo:permission:setMode` 가 나가는지를 본다 — 호출 여부가 아니라
 // **어떤 값으로** 나갔는지가 계약이다.
 import { beforeEach, describe, expect, it } from 'vitest'
 import { chatActions, useChatStore } from './chatStore'

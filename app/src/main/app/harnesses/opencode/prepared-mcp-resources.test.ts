@@ -84,7 +84,7 @@ it('keeps observed preparations alive and discards retired completions', async (
             id: generation,
             name: 'distinct managed MCP',
             kind: 'mcp',
-            origin: 'orca',
+            origin: 'orcinus-orca',
             managedSource: { kind: 'user', sourceId: 'stored-user' },
             status: 'connected',
             enabled: true,

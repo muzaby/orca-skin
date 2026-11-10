@@ -130,7 +130,7 @@ function install(
   harness.errors.length = 0
   harness.steps = [...steps]
   harness.afterRun = undefined
-  root = mkdtempSync(join(tmpdir(), 'orca-turn-config-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-turn-config-'))
   for (const [provider, document] of Object.entries({ ...documents, ...extraDocuments })) {
     const directory = join(root, 'sources', 'settings', 'opencode', provider)
     mkdirSync(directory, { recursive: true })

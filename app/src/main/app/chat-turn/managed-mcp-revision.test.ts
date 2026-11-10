@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import type { Settings } from '../../../shared/ipc'
 import type { ManagedMcpSnapshot, ManagedMcpSource } from '../../adapters/common/managed-mcp'
-import type { OrcaMcpConfig } from '../../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../../adapters/common/mcp-config'
 import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import { ExtensionBuilder } from '../../features/extensions/common/builder'
@@ -153,7 +153,7 @@ it.each(['opencode', 'claude'] as const)(
 it('applies new revisions to user and continuation turns', async () => {
   let changed = false
   const source = createManagedMcpSource({
-    users: (): OrcaMcpConfig => (changed ? { next: { command: 'next' } } : {}),
+    users: (): OoMcpConfig => (changed ? { next: { command: 'next' } } : {}),
     resolver: () => () => undefined,
     plugins: () => []
   })

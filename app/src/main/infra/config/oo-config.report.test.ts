@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loadOrcaConfig } from './orca-config'
-import { DEFAULT_ORCA_CONFIG, readOrcaFile } from './orca-file'
+import { loadOoConfig } from './oo-config'
+import { DEFAULT_OO_CONFIG, readOoFile } from './oo-file'
 import { errorReportHub } from '../error-report'
 import { setRootLogger } from '../log/registry'
 
-vi.mock('./orca-file', async (original) => ({
-  ...(await original<typeof import('./orca-file')>()),
-  ensureOrcaFile: vi.fn(),
-  readOrcaFile: vi.fn()
+vi.mock('./oo-file', async (original) => ({
+  ...(await original<typeof import('./oo-file')>()),
+  ensureOoFile: vi.fn(),
+  readOoFile: vi.fn()
 }))
 
 afterEach(() => {
@@ -20,11 +20,11 @@ describe('config error reporting', () => {
     const log = { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn(), child: () => log }
     setRootLogger(log)
     const publish = vi.spyOn(errorReportHub, 'publish').mockImplementation(() => {})
-    vi.mocked(readOrcaFile).mockReturnValue({
-      config: DEFAULT_ORCA_CONFIG,
+    vi.mocked(readOoFile).mockReturnValue({
+      config: DEFAULT_OO_CONFIG,
       warnings: ['first', 'second', 'third']
     })
-    expect(loadOrcaConfig()).toBe(DEFAULT_ORCA_CONFIG)
+    expect(loadOoConfig()).toBe(DEFAULT_OO_CONFIG)
     expect(log.warn).toHaveBeenCalledTimes(3)
     expect(publish).toHaveBeenCalledTimes(1)
     expect(publish.mock.calls[0][0]).toMatchObject({
@@ -36,12 +36,12 @@ describe('config error reporting', () => {
     const log = { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn(), child: () => log }
     setRootLogger(log)
     const publish = vi.spyOn(errorReportHub, 'publish').mockImplementation(() => {})
-    vi.mocked(readOrcaFile).mockImplementation(() => {
+    vi.mocked(readOoFile).mockImplementation(() => {
       throw new Error('unreadable')
     })
-    expect(loadOrcaConfig()).toBe(DEFAULT_ORCA_CONFIG)
+    expect(loadOoConfig()).toBe(DEFAULT_OO_CONFIG)
     expect(log.warn).toHaveBeenCalledWith(
-      'config.orca.load-failed',
+      'config.orcinus-orca.load-failed',
       expect.objectContaining({ fallback: 'defaults' })
     )
     expect(publish.mock.calls[0][0]).toMatchObject({ title: 'configInvalid', detail: 'unreadable' })

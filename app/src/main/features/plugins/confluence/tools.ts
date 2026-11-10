@@ -140,7 +140,7 @@ export function createConfluenceToolServer(
           name: CONFLUENCE_TOOL_NAMES.getPages,
           description:
             `Read ${connectorLabel} pages by id: each page is converted to Markdown and its ` +
-            'referenced image attachments are downloaded under the Orca downloads directory. ' +
+            'referenced image attachments are downloaded under the Orcinus orca downloads directory. ' +
             'Returns the Markdown body inline plus the saved file paths. ' +
             'Takes the page ids returned by confluence_search.',
           // 페이지 Markdown·첨부를 로컬에 쓴다 → 환경 변경 → 승인 대상.

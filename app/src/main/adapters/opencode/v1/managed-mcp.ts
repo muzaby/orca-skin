@@ -8,7 +8,7 @@ import type { NativeResource } from '../../../../shared/native-resources'
 import { isRecord } from '../../../../shared/obj'
 
 export function managedMcpAlias(kind: ManagedMcpIdentity['kind'], sourceId: string): string {
-  return `orca_${kind === 'builtin' ? 'b' : 'u'}_${createHash('sha256').update(`${kind}:${sourceId}`).digest('hex').slice(0, 12)}`
+  return `orcinus_orca_${kind === 'builtin' ? 'b' : 'u'}_${createHash('sha256').update(`${kind}:${sourceId}`).digest('hex').slice(0, 12)}`
 }
 
 export function projectManagedMcp(
@@ -40,7 +40,7 @@ export function projectManagedMcp(
     occupied.add(normalize(alias))
     let sequence = 0
     const value = (text: string): string => {
-      const key = `ORCA_MCP_${alias}_${sequence++}`
+      const key = `ORCINUS_ORCA_MCP_${alias}_${sequence++}`
       // OpenCode substitutes into JSONC text before parsing. Preserve Windows paths,
       // quotes and newlines, and prevent values from becoming native file/env templates.
       env[key] = JSON.stringify(text)
@@ -84,7 +84,7 @@ export function projectManagedMcp(
   }
   for (const [id, plugin] of snapshot.plugins) {
     const endpoint = bridgeLease.endpoints.get(id)
-    if (!endpoint) throw new Error('Orca MCP 연결을 준비하지 못했습니다.')
+    if (!endpoint) throw new Error('Orcinus orca MCP 연결을 준비하지 못했습니다.')
     add(plugin.identity, (value) => ({
       type: 'remote',
       url: value(endpoint.url),
@@ -106,7 +106,7 @@ export function mapManagedMcpResources(
       ? {
           ...item,
           name: source.name,
-          origin: 'orca',
+          origin: 'orcinus-orca',
           managedSource: { kind: source.kind, sourceId: source.sourceId },
           mentionId: source.mentionId,
           canToggle: false,

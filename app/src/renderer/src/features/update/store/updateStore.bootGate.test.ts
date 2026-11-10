@@ -16,7 +16,7 @@ it.each([true, false])('0304 update lookup waits for readiness (%s)', async (suc
   const next = { status: 'idle' as const, currentVersion: '3.4.5', canInstall: false }
   const state = vi.fn().mockResolvedValue(next)
   useUpdateStore.setState({ dummyMode: false, actionError: null })
-  vi.stubGlobal('window', { orca: { boot: { whenReady: () => pending }, update: { state } } })
+  vi.stubGlobal('window', { oo: { boot: { whenReady: () => pending }, update: { state } } })
   const initialized = initUpdate()
   expect(state).not.toHaveBeenCalled()
   await Promise.resolve()

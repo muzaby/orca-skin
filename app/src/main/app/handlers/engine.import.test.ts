@@ -37,7 +37,7 @@ function write(path: string, raw: string): void {
   writeFileSync(path, raw)
 }
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-engine-import-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-engine-import-'))
   h.home = root
   vi.stubEnv('XDG_CONFIG_HOME', '')
   h.handlers.clear()

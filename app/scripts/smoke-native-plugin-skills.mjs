@@ -187,11 +187,11 @@ try {
       skills: [
         {
           name: 'unrelated-disabled',
-          sourceKind: 'orca',
+          sourceKind: 'orcinus-orca',
           enabled: false,
           description: '',
-          sourceId: 'orca',
-          sourceLabel: 'Orca',
+          sourceId: 'orcinus-orca',
+          sourceLabel: 'Orcinus orca',
           canToggle: true,
           canRemove: true,
           skillPath: join(root, 'unused/SKILL.md'),

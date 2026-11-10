@@ -27,7 +27,7 @@ import { AttachMenu } from './AttachMenu'
 import { ComposerChip } from './ComposerChip'
 
 const skills = [
-  { name: 'review', sourceId: 'orca', sourceLabel: 'Orcinus orca', description: '리뷰' },
+  { name: 'review', sourceId: 'orcinus-orca', sourceLabel: 'Orcinus orca', description: '리뷰' },
   { name: 'plan', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' },
   { name: 'ship', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' }
 ] as SkillInfo[]

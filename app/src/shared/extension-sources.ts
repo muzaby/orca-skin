@@ -7,7 +7,7 @@ export function harnessSourceTitle(backend: Backend): string {
 }
 
 export const extensionSourceLabels: Readonly<Record<string, string>> = {
-  orca: PRODUCT_DISPLAY_NAME,
+  'orcinus-orca': PRODUCT_DISPLAY_NAME,
   agents: '~/.agents/skills',
   'adapter:claude': harnessSourceTitle('claude'),
   'plugin:claude': harnessSourceTitle('claude'),
@@ -17,7 +17,7 @@ export const extensionSourceLabels: Readonly<Record<string, string>> = {
 
 export function skillSourceAllowed(source: string, backend: Backend): boolean {
   return (
-    source === 'orca' ||
+    source === 'orcinus-orca' ||
     source === 'agents' ||
     source === `adapter:${backend}` ||
     source === `plugin:${backend}`

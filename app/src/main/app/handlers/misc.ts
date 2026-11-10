@@ -21,7 +21,7 @@ import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
-import { getOrcaConfig } from '../../infra/config/orca-config'
+import { getOoConfig } from '../../infra/config/oo-config'
 import { prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 
 type MiscHandlerContext = Pick<
@@ -44,7 +44,7 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
     return ctx.registry.availability(backend)
   })
 
-  // 원천 = sources/settings/<adapter>/ 트리 (handoff 0014 — 구 orca.json agents[] 대체).
+  // 원천 = sources/settings/<adapter>/ 트리 (handoff 0014 — 구 orcinus-orca.json agents[] 대체).
   // 페이로드 shape(AgentEnvironment)는 0010 과 동일 유지 — renderer ModelMenu 변경 0.
   handlePlain(CHANNELS.agentList, async (): Promise<AgentEnvironment[]> => {
     const availability = ctx.registry.list()
@@ -136,8 +136,8 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
       applyLogSwitch(ctx.debugMock.log)
       return { ...ctx.debugMock }
     })
-  } else if (getOrcaConfig().debug === true) {
-    // prod: orca.json "debug":true 면 wire 이벤트를 파일에 남긴다(0144) — 메시지 본문 제거는
+  } else if (getOoConfig().debug === true) {
+    // prod: orcinus-orca.json "debug":true 면 wire 이벤트를 파일에 남긴다(0144) — 메시지 본문 제거는
     // redact 옵션으로 선언하고 wire-log 가 적용한다(0149). 파일 레벨을 debug 로 올리는 것은
     // bootstrap 의 setLogDebug 담당(레벨이 info 면 이 debug 레코드는 드롭됨).
     setWireSink(

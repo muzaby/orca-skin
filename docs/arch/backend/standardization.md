@@ -39,7 +39,7 @@ AGENTS.md 와 MCP 는 같은 재단(AAIF) 거버넌스로 수렴했으므로 공
 
 `commands` 는 독립 축이 아니다. Claude 가 custom commands 를 skills 로 병합했으므로, commands 는 skill 의 invocation surface 로 본다(adapters.md §3.1 Command 행).
 
-**호환성 기준 소유 모델**: 위 표의 처리는 "엔진 밖에서도 표준인가"(=cross-engine 호환)로 갈린다. Orca SSOT 가 관리·배포하는 **호환 자산은 AGENTS.md·MCP·SKILL.md** 셋이다. 반면 **agents·commands·hooks·full-plugin 번들**은 엔진 고유(엔진 *안에서만* 표준)라 **engine-specific 으로 분류**하고 Orca SSOT 에서 제외한다 — 각 엔진이 SSOT 이며 Orca 는 배포하지 않는다. Claude 네이티브 플러그인은 설치 registry와 활성 설정을 읽어 기존 설치 경로에서 SDK로 로드한다. Orca 자산으로 재배포하지 않으며 로딩·스킬 목록 계약은 [adapters.md](./adapters.md)를 따른다. 단 **런타임 hook**(`options.hooks` in-process 콜백)은 배포 자산이 아니라 어댑터 구현 디테일로 유지된다(adapters.md §3.2.5).
+**호환성 기준 소유 모델**: 위 표의 처리는 "엔진 밖에서도 표준인가"(=cross-engine 호환)로 갈린다. Orcinus orca SSOT 가 관리·배포하는 **호환 자산은 AGENTS.md·MCP·SKILL.md** 셋이다. 반면 **agents·commands·hooks·full-plugin 번들**은 엔진 고유(엔진 *안에서만* 표준)라 **engine-specific 으로 분류**하고 Orcinus orca SSOT 에서 제외한다 — 각 엔진이 SSOT 이며 Orcinus orca 는 배포하지 않는다. Claude 네이티브 플러그인은 설치 registry와 활성 설정을 읽어 기존 설치 경로에서 SDK로 로드한다. Orcinus orca 자산으로 재배포하지 않으며 로딩·스킬 목록 계약은 [adapters.md](./adapters.md)를 따른다. 단 **런타임 hook**(`options.hooks` in-process 콜백)은 배포 자산이 아니라 어댑터 구현 디테일로 유지된다(adapters.md §3.2.5).
 
 ## 3. 시스템 구조
 
@@ -102,7 +102,7 @@ class OpenCodeEngine {
 │           └── <provider>/settings.json  # 모델은 settings.json 파싱(claude/model-parser.ts, 파생 캐시 없음)
 └── dist/<engine>/           # ExtensionDeployer 산출 = 런타임 plugin 패키지 (편집 금지)
     └── plugins/orcinus-orca/
-        ├── .claude-plugin/plugin.json  # name=orca, description/version 고정
+        ├── .claude-plugin/plugin.json  # name=orcinus-orca, description/version 고정
         ├── skills/                     # sources/skills projection (SDK plugin skill)
         ├── agents/                     # 후속 자산용 빈 스캐폴드
         ├── hooks/                      # 후속 자산용 빈 스캐폴드
@@ -110,15 +110,15 @@ class OpenCodeEngine {
     # settings.json 은 dist 에 두지 않음 — query flag(options.settings)로 주입(아래)
 ```
 
-> **소유 모델 (plugin 패키지 기준)**: Orca 가 관리하는 skill·mcp 는 `plugins/orcinus-orca` 라는 단일 Claude Code plugin 패키지로 projection 한다. agents·hooks 는 구조만 스캐폴드하고 실제 자산 변환은 후속으로 남긴다. commands 는 레거시라 배포하지 않는다.
+> **소유 모델 (plugin 패키지 기준)**: Orcinus orca 가 관리하는 skill·mcp 는 `plugins/orcinus-orca` 라는 단일 Claude Code plugin 패키지로 projection 한다. agents·hooks 는 구조만 스캐폴드하고 실제 자산 변환은 후속으로 남긴다. commands 는 레거시라 배포하지 않는다.
 >
 > **외부 사용량 리포트는 배포 계층에 없다**: 사용량 전용 확장점은 **제거됐다** — 구 `static/modules/` 레지스트리도, 그것을 선언으로 옮긴 필드도 없다(0183 r2). 앱이 집계하는 사용량은 **로컬 턴 집계**(`UsageTracker`)뿐이고, `sources/settings/<adapter>/<provider>/settings.json` 은 bedrock/vertex/custom 을 선생성하지 않는다. 사내 사용량 endpoint 가 필요한 배포는 **확장점이 아니라 코드**로 붙인다 — 그 기능을 쓰는 feature 가 `BoundAuth.request` 로 부르고, 주기 실행이 필요하면 컴포지션 루트가 `Scheduler` 에 action 을 등록한다(절차: [`../../guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §5-b).
 
 > **dist = 런타임 plugin 패키지**: `dist/<engine>/plugins/orcinus-orca` 는 SDK `options.plugins: [{type:'local', path}]` 가 직접 읽는 경로다. 더 이상 세션 cwd 로 `.claude/skills`·`.mcp.json` 을 복사하지 않는다. MCP 도 `options.mcpServers` 가 아니라 plugin `.mcp.json` 로 로드되도록 query 전 렌더한다. `options.mcpServers` 는 인프로세스 runtime tool(`claude/runtime-tools.ts` `adaptRuntimeTools`)에만 쓴다. plugin `.mcp.json` 은 `${VAR}` 를 확장한 활성 MCP 설정을 담을 수 있으므로 dist/.bak 에 평문 비밀이 잔존할 수 있다. 원천은 여전히 `sources/mcp/mcp.json` + safeStorage 이며 dist 는 파생 산출물이다. **settings.json 은 plugin 패키지의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어 — `settingSources: ['project','local']` 이라 사용자 전역 `~/.claude/settings.json` 은 읽지 않는다, TRD §6.8). provider settings.json 은 `~/.claude/settings.json` 과 동일 취급이라 **env 를 포함한 채** verbatim 주입된다(handoff 0028 — argv 노출은 수용된 트레이드오프, security.md §1.4). `options.env` 에는 시스템(턴) env 만.
 >
-> **설정 범위**: `query()` 는 `settingSources: ['project','local']` 로 호출한다(`claude/adapt.ts`의 `adaptSettingSources`). 사용자 전역 settings는 상속하지 않고 native 루트의 사용자 skills만 wrapper plugin으로 전달한다. 루트 해석과 실행 오버라이드는 [adapters.md §1.3](./adapters.md)를 따른다. Orca sources/dist는 앱이 제공하는 확장의 원본·배포 계층이며 하네스 native 세션·리소스 저장소를 대체하지 않는다. `disallowedTools`의 `WebSearch`는 대화 실행의 웹 검색을 차단한다.
+> **설정 범위**: `query()` 는 `settingSources: ['project','local']` 로 호출한다(`claude/adapt.ts`의 `adaptSettingSources`). 사용자 전역 settings는 상속하지 않고 native 루트의 사용자 skills만 wrapper plugin으로 전달한다. 루트 해석과 실행 오버라이드는 [adapters.md §1.3](./adapters.md)를 따른다. Orcinus orca sources/dist는 앱이 제공하는 확장의 원본·배포 계층이며 하네스 native 세션·리소스 저장소를 대체하지 않는다. `disallowedTools`의 `WebSearch`는 대화 실행의 웹 검색을 차단한다.
 >
-> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/claude/deployer.ts` 는 `plugins/orcinus-orca` 패키지를 렌더하고, `claude/adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
+> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `features/extensions/claude/deployer.ts` 는 `plugins/orcinus-orca` 패키지를 렌더하고, `claude/adapt.ts` 는 `options.plugins` 와 `orcinus-orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
 
 ### 5.2 ExtensionDeployer
 
@@ -141,7 +141,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 | skills | `dist/<engine>/plugins/orcinus-orca/skills/` 로 **복사** (plugin skill projection) | 심링크는 샌드박스 이슈를 피해 복사 우선 |
 | mcp | 활성 서버를 resolver 로 해석해 `dist/<engine>/plugins/orcinus-orca/.mcp.json` 로 **배포** + **키 이름 검증** | 해석된 값이 dist 에 렌더된다 — raw secret 반출의 문서화된 예외 1(security.md §1.4-b) |
 
-> **dist 에 두지 않는 것**: ① **settings.json** — provider settings 는 파일 설치가 아니라 query flag(`options.settings`)로 주입(TRD §6.8). ② **agents·commands·hooks 의 실제 자산** — engine-specific 이라 Orca 가 변환·배포하지 않는다(`agents/`·`hooks/` 는 빈 스캐폴드, §5.1; §2, adapters.md §3.1). 런타임 hook 기능은 `options.hooks` in-process 경로로 별도 유지(adapters.md §3.2.5).
+> **dist 에 두지 않는 것**: ① **settings.json** — provider settings 는 파일 설치가 아니라 query flag(`options.settings`)로 주입(TRD §6.8). ② **agents·commands·hooks 의 실제 자산** — engine-specific 이라 Orcinus orca 가 변환·배포하지 않는다(`agents/`·`hooks/` 는 빈 스캐폴드, §5.1; §2, adapters.md §3.1). 런타임 hook 기능은 `options.hooks` in-process 경로로 별도 유지(adapters.md §3.2.5).
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
 

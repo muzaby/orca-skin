@@ -31,7 +31,7 @@ const write = (path: string, value: unknown): void => {
 beforeEach(() => {
   f.handlers.clear()
   vi.mocked(reportError).mockClear()
-  home = mkdtempSync(join(tmpdir(), 'orca-nav-claude-settings-'))
+  home = mkdtempSync(join(tmpdir(), 'orcinus-orca-nav-claude-settings-'))
   vi.stubEnv('HOME', home)
   vi.stubEnv('USERPROFILE', home)
   vi.stubEnv('CLAUDE_CONFIG_DIR', '')

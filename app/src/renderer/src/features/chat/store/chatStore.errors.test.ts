@@ -15,7 +15,7 @@ beforeEach(() => {
     providerKey: 'claude',
     modelFamily: 'sonnet'
   })
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     log: { error: log },
     session: { load: vi.fn().mockRejectedValue(new Error('load rejected')) }
   })

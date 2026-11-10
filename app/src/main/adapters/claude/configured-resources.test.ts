@@ -20,7 +20,7 @@ const json = async (file: string, value: unknown): Promise<void> => {
   await writeFile(file, JSON.stringify(value))
 }
 beforeEach(async () => {
-  temp = await mkdtemp(join(tmpdir(), 'orca-native-'))
+  temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-native-'))
   cwd = join(temp, 'project')
   paths = { root: join(temp, 'claude'), globalConfig: join(temp, '.claude.json') }
   await mkdir(join(cwd, '.git'), { recursive: true })
@@ -242,7 +242,7 @@ it('lists every applicable install independently of flags, uses path boundaries 
   expect(await configuredClaudeResources(cwd, paths)).toEqual([])
 })
 
-it('applies Orca plugin choices above user defaults and below project selections', async () => {
+it('applies Orcinus orca plugin choices above user defaults and below project selections', async () => {
   const plugin = join(temp, 'fixture')
   await json(join(plugin, '.claude-plugin/plugin.json'), { name: 'fixture' })
   await json(join(paths.root, 'plugins/installed_plugins.json'), {

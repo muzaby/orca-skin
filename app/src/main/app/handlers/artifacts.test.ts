@@ -50,9 +50,9 @@ async function setup(): Promise<{
   trusted: ReturnType<typeof vi.fn<(event: IpcMainInvokeEvent) => boolean>>
   call(key: keyof typeof CHANNELS, req?: unknown): Promise<unknown>
 }> {
-  const dest = await mkdtemp(join(tmpdir(), 'orca-artifact-export-'))
+  const dest = await mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-export-'))
   dirs.push(dest)
-  const root = await mkdtemp(join(tmpdir(), 'orca-artifact-source-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-source-'))
   dirs.push(root)
   const service: Mocked<TestService> = {
     listLatest: vi.fn(() => []),

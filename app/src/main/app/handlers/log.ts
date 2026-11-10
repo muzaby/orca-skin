@@ -1,4 +1,4 @@
-// 로그 인제스트 핸들러 (0123 AC7) — renderer/preload 발 orca:log:emit 수신.
+// 로그 인제스트 핸들러 (0123 AC7) — renderer/preload 발 oo:log:emit 수신.
 // 신뢰 경계: renderer 가 보낸 데이터는 내부 앱 코드라도 외부 입력으로 취급한다 —
 // zod(LogInputSchema) + payload 크기 상한을 통과한 것만 emit 하고, 실패는 폐기 + warn 집계
 // (RepeatSuppressor 가 60s 창으로 반복을 삼킨다). 공통 필드는 main 이 강제 부여(위조 방지).

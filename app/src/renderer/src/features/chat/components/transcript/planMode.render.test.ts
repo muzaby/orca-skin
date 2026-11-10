@@ -118,7 +118,7 @@ describe('0249 ΔV3 VP-35 — 계획 입력의 라이브/재로드 도구 카드
   it.each(['started-first', 'approval-first'] as const)(
     '%s: 실제 adapter·history payload·decode·reducer에서 같은 승인 본문/경로를 표시한다',
     async (order) => {
-      const root = await mkdtemp(path.resolve('orca-plan-card-'))
+      const root = await mkdtemp(path.resolve('orcinus-orca-plan-card-'))
       roots.push(root)
       await mkdir(path.join(root, 'plans'))
       const file = path.join(root, 'plans', 'review.md')

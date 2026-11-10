@@ -4,13 +4,13 @@ import type {
   ManagedMcpSnapshot,
   ManagedMcpSource
 } from '../../../../adapters/common/managed-mcp'
-import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../../../../adapters/common/mcp-config'
 import type { Resolver } from '../../../../infra/vars'
 import { resolveMcpConfig } from './resolve'
 
 export function createManagedMcpSource(input: {
-  users(): OrcaMcpConfig
-  definitions?(): { definitions: OrcaMcpConfig; desired: Record<string, boolean> }
+  users(): OoMcpConfig
+  definitions?(): { definitions: OoMcpConfig; desired: Record<string, boolean> }
   resolver(): Resolver
   plugins(): readonly ManagedMcpPlugin[]
   unresolved?(name: string): void

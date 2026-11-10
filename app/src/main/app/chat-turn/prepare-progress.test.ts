@@ -75,7 +75,7 @@ function fakeOps(): {
 describe('격리 준비 단계 (VP-01)', () => {
   it('다섯 단계가 이 순서로 정확히 1회씩 온다', async () => {
     const repo = await makeRepo()
-    const root = await mkdtemp(join(tmpdir(), 'orca-wt-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-wt-'))
     dirs.push(root)
     const ops = fakeOps()
     // `worktree add` fake 는 디렉토리를 만들지 않으므로 실제 add 로 대체한다 — 성공 경로의
@@ -104,9 +104,9 @@ describe('격리 준비 단계 (VP-01)', () => {
   })
 
   it('저장소가 아니면 repo 단계 뒤에 멈춘다 — 실패 뒤에 "세션 시작" 을 말하지 않는다', async () => {
-    const outside = await mkdtemp(join(tmpdir(), 'orca-nonrepo-'))
+    const outside = await mkdtemp(join(tmpdir(), 'orcinus-orca-nonrepo-'))
     dirs.push(outside)
-    const root = await mkdtemp(join(tmpdir(), 'orca-wt-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-wt-'))
     dirs.push(root)
     const service = new WorktreeService(fakeDb() as never, root, fakeOps() as never)
     const steps: WorktreePrepareStep[] = []
@@ -176,7 +176,7 @@ describe('비격리·resume 은 단계를 내지 않는다 (VP-03 · D-005)', ()
 describe('표시 정본이 준비 결과에 실린다 (VP-04 의 producer 절)', () => {
   it('managed 결과가 source_cwd·repo_root 를 함께 준다 — 소비자가 역산하지 않는다', async () => {
     const repo = await makeRepo()
-    const root = await mkdtemp(join(tmpdir(), 'orca-wt-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-wt-'))
     dirs.push(root)
     const ops = fakeOps()
     ops.add.mockImplementation(async ({ path, branch, base }) => {

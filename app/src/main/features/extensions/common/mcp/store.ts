@@ -1,9 +1,9 @@
 // 전역 MCP 서버 관리. 3개 출처를 조율한다:
-//   ① mcp.json (~/.config/orca) — 정규 소스(순정 Claude mcpServers 스키마 + ${VAR} 플레이스홀더)
+//   ① mcp.json (~/.config/orcinus-orca) — 정규 소스(순정 Claude mcpServers 스키마 + ${VAR} 플레이스홀더)
 //   ② secret-store (<userData>, safeStorage) — 비밀. env-var 이름으로 키잉.
-//   ③ settings (electron-store) — enabled on/off(mcpEnabled) + Orca 전용 메타(mcpMeta.description)
+//   ③ settings (electron-store) — enabled on/off(mcpEnabled) + Orcinus orca 전용 메타(mcpMeta.description)
 //
-// renderer 로 나가는 DTO(McpServer)는 id/transport/description 등 Orca 관점 필드를 갖는다.
+// renderer 로 나가는 DTO(McpServer)는 id/transport/description 등 Orcinus orca 관점 필드를 갖는다.
 // 정규 소스엔 id/description 이 없으므로 id = name(고유 키)으로 두고, description 은 settings 에서
 // 합성한다. 비밀 평문은 절대 mcp.json·DTO 에 들어가지 않는다(hasAuth boolean 만 노출).
 
@@ -21,15 +21,15 @@ import { SecretStore } from '../../../../infra/config/secret-store'
 import type { Resolver } from '../../../../infra/vars'
 import { VAR_RE } from '../../../../infra/vars'
 import { makeResolver } from './resolver'
-import { secretEnvAllowlist } from '../../../../infra/config/orca-config'
-import type { OrcaMcpServer, OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
+import { secretEnvAllowlist } from '../../../../infra/config/oo-config'
+import type { OoMcpServer, OoMcpConfig } from '../../../../adapters/common/mcp-config'
 
 // VAR_RE(global) 의 비-global 사본 — .exec 는 lastIndex 를 진행시키지 않아 무상태로 재사용 가능.
 const VAR_NAME_RE = new RegExp(VAR_RE.source)
 
 // 소스 항목이 참조하는 첫 ${VAR} 이름 = "인증 env-var". app 이 만든 서버는 정확히 하나.
 // 손으로 편집한 다변수 서버는 첫 변수를 best-effort 로 노출(DTO 는 표시/편집용).
-function authVarOf(server: OrcaMcpServer): string | null {
+function authVarOf(server: OoMcpServer): string | null {
   const haystack =
     'url' in server ? Object.values(server.headers ?? {}) : Object.values(server.env ?? {})
   for (const v of haystack) {
@@ -41,7 +41,7 @@ function authVarOf(server: OrcaMcpServer): string | null {
 
 // authEnvKey 미지정 + 비밀만 있을 때 합성하는 env-var 이름.
 function synthVar(name: string): string {
-  return `ORCA_MCP_${name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}_AUTH`
+  return `ORCINUS_ORCA_MCP_${name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}_AUTH`
 }
 
 export class McpStore {
@@ -51,22 +51,22 @@ export class McpStore {
   private tokens?: (providerId: string) => string | null
   // mcp.json 파스 캐시 — 이 스토어가 유일한 런타임 read/write 주체(bootstrap 싱글턴)라
   // write() 가 단일 무효화 지점이다. 매 턴(enabledConfig) 디스크 재파싱을 없앤다(0092).
-  private cache: OrcaMcpConfig | null = null
+  private cache: OoMcpConfig | null = null
 
   constructor(private readonly settings: SettingsStore) {}
 
-  private read(): OrcaMcpConfig {
+  private read(): OoMcpConfig {
     this.cache ??= readMcpFile().mcpServers
     // 호출부가 항목을 추가/삭제 후 write() 하므로 캐시 원본 오염을 막는 shallow copy 를 준다.
     return { ...this.cache }
   }
 
-  private write(servers: OrcaMcpConfig): void {
+  private write(servers: OoMcpConfig): void {
     writeMcpFile({ mcpServers: servers })
     this.cache = servers
   }
 
-  private toDto(name: string, server: OrcaMcpServer, s: Settings): McpServer {
+  private toDto(name: string, server: OoMcpServer, s: Settings): McpServer {
     const isHttp = 'url' in server
     const authEnvKey = authVarOf(server)
     return {
@@ -102,7 +102,7 @@ export class McpStore {
     },
     auth: string | undefined,
     prevAuthVar: string | null
-  ): OrcaMcpServer {
+  ): OoMcpServer {
     // 인증 env-var 이름 결정: 명시 authEnvKey → 기존 var → (비밀 있으면) 합성.
     const explicit =
       fields.authEnvKey && fields.authEnvKey.trim() !== '' ? fields.authEnvKey.trim() : null
@@ -247,17 +247,17 @@ export class McpStore {
   // 활성화된 서버를 백엔드 중립 정규형(미확장 ${VAR})으로 반환. 어댑터가 자기 resolver 로 확장 후
   // 자기 형식으로 어댑트한다 — 변환·allowedTools 조립은 더 이상 McpStore 책임이 아니다
   // (설계검토 §9: router 는 백엔드 중립, 변환은 어댑터). 비밀은 디스크/이 반환값에 들어가지 않는다.
-  enabledConfig(): OrcaMcpConfig {
+  enabledConfig(): OoMcpConfig {
     const s = this.settings.getAll()
     const all = this.read()
-    const out: OrcaMcpConfig = {}
+    const out: OoMcpConfig = {}
     for (const [name, server] of Object.entries(all)) {
       if ((s.mcpEnabled[name] ?? true) === true) out[name] = server
     }
     return out
   }
 
-  executionDefinitions(): { definitions: OrcaMcpConfig; desired: Record<string, boolean> } {
+  executionDefinitions(): { definitions: OoMcpConfig; desired: Record<string, boolean> } {
     const definitions = this.read()
     const enabled = this.settings.getAll().mcpEnabled
     return {
@@ -269,7 +269,7 @@ export class McpStore {
   // resolver 팩토리 노출. 비밀 단일 소유권은 McpStore 가 유지하고(this.secrets), 확장 시점은
   // 어댑터의 어댑트 시점으로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
   //
-  // 0157: process.env 전체 fallback 을 제거하고 orca.json 의 명시 allowlist 만 허용한다.
+  // 0157: process.env 전체 fallback 을 제거하고 orcinus-orca.json 의 명시 allowlist 만 허용한다.
   // 0181: `${BINDING:<대상>}` 토큰 소스를 컴포지션 루트가 주입한다(`attachTokenSource`).
   resolver(): Resolver {
     return makeResolver({

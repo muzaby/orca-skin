@@ -202,7 +202,7 @@ export function openCodeChannel(
     const system = [
       req.extensions.systemPromptAppend,
       managedMcpMentions && Object.keys(managedMcpMentions).length
-        ? `Orca MCP references (JSON mapping of mention IDs to runtime server IDs): ${JSON.stringify(managedMcpMentions)}`
+        ? `Orcinus orca MCP references (JSON mapping of mention IDs to runtime server IDs): ${JSON.stringify(managedMcpMentions)}`
         : undefined,
       req.extraDirs?.length
         ? `Additional context directories selected for this session (JSON): ${JSON.stringify(req.extraDirs)}`

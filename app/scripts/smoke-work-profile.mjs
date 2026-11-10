@@ -56,7 +56,9 @@ export function requestMarker(messages) {
     )
     .join('\n')
   return [
-    ...text.matchAll(/ORCA_WORK_PROFILE_(empty|sentinel|workflow)_(work|code)_(new|resume)/g)
+    ...text.matchAll(
+      /ORCINUS_ORCA_WORK_PROFILE_(empty|sentinel|workflow)_(work|code)_(new|resume)/g
+    )
   ].at(-1)?.[0]
 }
 
@@ -144,7 +146,7 @@ function fixtureEnv(root, config, url) {
 function respond(res, body, content) {
   const stopReason = content.some((block) => block.type === 'tool_use') ? 'tool_use' : 'end_turn'
   const message = {
-    id: 'msg_orca_work_profile_fixture',
+    id: 'msg_orcinus_orca_work_profile_fixture',
     type: 'message',
     role: 'assistant',
     model: body.model,
@@ -212,7 +214,7 @@ function workflowResponse(body, cwd, state) {
   if (!done('fixture_write'))
     return use('fixture_write', 'Write', {
       file_path: join(cwd, 'result.txt'),
-      content: 'Orca Work fixture 한글\n'
+      content: 'Orcinus orca Work fixture 한글\n'
     })
   if (!done('fixture_deny'))
     return use('fixture_deny', 'Write', {
@@ -353,14 +355,17 @@ export async function main(args = process.argv.slice(2)) {
     )
     await writeFile(
       join(basePlugin, '.claude-plugin', 'plugin.json'),
-      JSON.stringify({ name: 'orca-smoke-base', version: '1.0.0' })
+      JSON.stringify({ name: 'orcinus-orca-smoke-base', version: '1.0.0' })
     )
     const baseRoots = Object.freeze([basePlugin])
-    const project = { name: 'Orca fixture', instructions: 'ORCA_FIXTURE_PROJECT_INSTRUCTIONS' }
+    const project = {
+      name: 'Orcinus orca fixture',
+      instructions: 'ORCINUS_ORCA_FIXTURE_PROJECT_INSTRUCTIONS'
+    }
     const builder = new ExtensionBuilder(
       { getProject: () => project, getProjectContextForSession: () => project },
       () => [],
-      () => ({ language: 'en', accountInstructions: 'ORCA_FIXTURE_ACCOUNT_INSTRUCTIONS' }),
+      () => ({ language: 'en', accountInstructions: 'ORCINUS_ORCA_FIXTURE_ACCOUNT_INSTRUCTIONS' }),
       'fixture',
       () => baseRoots
     )
@@ -436,7 +441,7 @@ export async function main(args = process.argv.slice(2)) {
     async function run(fixture, cwd, kind, resume) {
       check(!fatal, 'smoke already failed')
       const phase = resume ? 'resume' : 'new'
-      const marker = `ORCA_WORK_PROFILE_${fixture}_${kind}_${phase}`
+      const marker = `ORCINUS_ORCA_WORK_PROFILE_${fixture}_${kind}_${phase}`
       const profile = await prepareAgentExtensionProfile(kind, pluginPath)
       check(
         (profile.agentProfileKey ?? null) === (kind === 'work' ? 'work:4' : null),
@@ -535,7 +540,7 @@ export async function main(args = process.argv.slice(2)) {
                         (['TaskCreate', 'TaskUpdate'].includes(input.tool_name) ||
                           (input.tool_name === 'Write' &&
                             input.tool_input?.file_path === join(cwd, 'result.txt') &&
-                            input.tool_input?.content === 'Orca Work fixture 한글\n'))
+                            input.tool_input?.content === 'Orcinus orca Work fixture 한글\n'))
                       // Ask routes disallowed calls to canUseTool even if the CLI would auto-allow them.
                       return {
                         hookSpecificOutput: {
@@ -569,7 +574,8 @@ export async function main(args = process.argv.slice(2)) {
             'permission denial was not requested'
           )
           check(
-            (await readFile(join(cwd, 'result.txt'), 'utf8')) === 'Orca Work fixture 한글\n',
+            (await readFile(join(cwd, 'result.txt'), 'utf8')) ===
+              'Orcinus orca Work fixture 한글\n',
             'native output bytes mismatch'
           )
           check(
@@ -605,7 +611,10 @@ export async function main(args = process.argv.slice(2)) {
       await mkdir(cwd)
       if (fixture === 'sentinel') {
         await mkdir(join(cwd, '.claude'))
-        await writeFile(join(cwd, '.claude', 'CLAUDE.md'), 'Harmless Orca fixture sentinel.\n')
+        await writeFile(
+          join(cwd, '.claude', 'CLAUDE.md'),
+          'Harmless Orcinus orca fixture sentinel.\n'
+        )
         await writeFile(join(cwd, '.claude', 'settings.json'), '{}\n')
       }
       const before = await snapshotTree(join(cwd, '.claude'))
@@ -630,7 +639,7 @@ export async function main(args = process.argv.slice(2)) {
         sessions = settled.map((item) => item.value)
         check(sessions[0] !== sessions[1], 'Work and Code shared a native session id')
         const pair = ['work', 'code'].map((kind) =>
-          captures.get(`ORCA_WORK_PROFILE_${fixture}_${kind}_${phase}`)
+          captures.get(`ORCINUS_ORCA_WORK_PROFILE_${fixture}_${kind}_${phase}`)
         )
         const inventories = pair.flatMap((state) =>
           state.requests.map((request) => JSON.stringify(request.toolNames))

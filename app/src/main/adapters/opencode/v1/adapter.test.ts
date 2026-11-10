@@ -27,13 +27,13 @@ function request(overrides: Partial<TurnRequest> = {}): TurnRequest {
     sessionId: 's1',
     cwd: 'C:/work',
     text: 'inspect',
-    promptUuid: 'orca-prompt',
+    promptUuid: 'orcinus-orca-prompt',
     extensions: { skills: [], hooks: { normalized: {} } },
     ...overrides
   }
 }
 it('projects disabled global MCP overrides and connects them through the directory manager', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-global-projection-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-global-projection-'))
   const aPath = join(root, 'A'),
     bPath = join(root, 'B')
   const configRoot = join(root, 'config')
@@ -445,7 +445,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
             id: 'settled',
             sessionID: 's1',
             permission: 'mcp',
-            patterns: ['orca_*'],
+            patterns: ['orcinus_orca_*'],
             always: [],
             metadata: {}
           })
@@ -722,7 +722,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
         }
       }
     }
-    const env = { ORCA_SELECTED_ENGINE: 'other' }
+    const env = { ORCINUS_ORCA_SELECTED_ENGINE: 'other' }
     f.onPrompt = (body) => finish(f, String(body.messageID))
     await collect(f.adapter, request({ providerSettings, env }))
     await f.adapter.complete({ cwd: 'C:/work', prompt: 'title', providerSettings, env })
@@ -878,7 +878,7 @@ describe('OpenCode adapter with the real installed SDK and injected HTTP/SSE tra
         type: 'input.echo',
         sessionId: 's1',
         text: 'inspect',
-        uuid: 'orca-prompt',
+        uuid: 'orcinus-orca-prompt',
         nativeMessageId: expect.any(String)
       }
     ])

@@ -45,13 +45,13 @@ function registeredPolicies(): Map<string, 'reject' | 'fallback'> {
   )
 }
 
-// §2.6-b 표의 행들 — `| \`orca:git:xxx\` | … |` 한 줄이 한 채널이다.
+// §2.6-b 표의 행들 — `| \`oo:git:xxx\` | … |` 한 줄이 한 채널이다.
 function documentedRows(): Map<string, string> {
   const document = readFileSync(IPC_DOCUMENT, 'utf8')
   const section = document.slice(document.indexOf('### 2.6-b Git'))
   const body = section.slice(0, section.indexOf('\n### '))
   return new Map(
-    [...body.matchAll(/^\| `(orca:git:[a-zA-Z]+)` \|(.*)$/gm)].map((row) => [row[1], row[2]])
+    [...body.matchAll(/^\| `(oo:git:[a-zA-Z]+)` \|(.*)$/gm)].map((row) => [row[1], row[2]])
   )
 }
 
