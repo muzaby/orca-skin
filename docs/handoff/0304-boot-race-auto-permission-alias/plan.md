@@ -219,6 +219,7 @@
 | 대체 대상 | 이번 유효 계약 / 자리 목록 | 직접 oracle / 구별 입력 |
 |---|---|---|
 | EP-2 / VP-02·VP-06 | 기존 ①~⑤ 유지 + ⑥ `defaultSelection` + ⑦ `ModelMenu.onPick` + ⑧ `selectedModelShape` + ⑨~⑫ Composer `setModel` 4자리 + ⑬ store `setModel` dispatch. **총 13자리** | 기존 AC4~AC6 + `modelSelection.test.ts` default·shape에 alias와 해석 이름 구별 입력; `ModelMenu` render 테스트 click → 해석 이름 관측; Composer render 테스트는 네 진입(초기·alias/증거 보정·provider hydration·menu pick)에서 state `modelResolved` 관측; store 테스트 AC6 |
+| EP-1 검색(대체) | `rg -Un "(sessionApi\s*\.cwd\|updateApi\s*\.state)\(" app/src/renderer/src --glob '!*.test.*'` | Prettier의 체인 줄바꿈을 허용한다. 술어·자리 목록은 불변이며 실제 두 sink를 반환한다. |
 | EP-2 검색 | `rg -n "resolvedModel\|modelResolved\|setModel\(" app/src/renderer/src/features/chat app/src/main/features/harnesses app/src/shared/ipc.ts --glob '!*.test.*'`를 producer·wire·선택·store·menu/reducer 소비로 분류 | 레이아웃 표시와 OpenCode 소비는 비대상. 목록 밖 같은 증거 운반 자리 발견 시 다시 planner로 |
 
 - READY 대조: D-003·D-007 ↔ AC4~AC6 유지, D-009·D-011 ↔ AC15~AC17 충돌 없음. `ModelMenu`·`modelSelection`과 Composer 4자리의 현재 코드가 분모 조사 근거다.
