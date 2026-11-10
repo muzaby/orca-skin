@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 `/handoff-plan` — 코드 비대화 방지(CI 감소는 결과 — D-011). 0305는 감사(지도)만, 축소 구현은 후속 handoff |
-| 상태 | impl/IMPL_DONE (r1.3) — ΔV1 심화 검토·분해안 + 미독 영역 보완 완료, 검증 대기 |
+| 상태 | verify/FAIL (verify 1회째) — D1 근거 수치 3건 정정 필요 |
 | V mode | `Delta V` (ΔV1 — 사용자 요구 변경) |
 | 기준 V | `V1` (이 plan · 설계 커밋 좌표는 INDEX) |
 | 이번 V revision | `ΔV1` |
@@ -852,3 +852,4 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| D1 | `candidates.json` 근거 칸 수치 3건이 재실행값과 다르다 — C-15 `약 560줄`(실측 `send.ts:52-789` 738줄) · C-28 `let 20개 :34-81`(실측 19) · C-33 `grep -c … → 115`(실측 116, `:110` 주석 줄 포함). 상세 [`verify.md`](verify.md) §4·§13 | VP-09·VP-03 — 적대 증거 "근거 명령을 재실행해 N 일치" | 3건의 수치·명령 출력을 정정하고 `audit-check.mjs --write`로 `audit.md` 블록을 다시 만든다. 나머지 후보 재계수는 요구하지 않는다 | 이행 | BLOCKING | open |
