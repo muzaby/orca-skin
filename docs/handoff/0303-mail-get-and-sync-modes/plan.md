@@ -439,6 +439,23 @@ flight 구현 지침(`tools.ts`): flight 레코드에 `mode`를 둔다. `sync(mo
 - rev.3 재검: EP-06 분기 3 ↔ 입력 3. AC 총 21. D-016이 D-001을 승계해 "Search는 유지"(사용자 요구 2)를 표면 기준으로 지킨다 — 바뀌는 관측은 surrogate 경계 한 경우뿐.
 - 사람 실기: 없음.
 
+## 구현 전 규범 정정 — V1 rev.4 (2026-11-10)
+
+READY. 출처는 plan 내부 정합이며 D-002~D-016의 제품 동작은 유지한다. 아래 행은 rev.3의 해당 문구만 대체하며, 원문은 비교를 위해 남긴다.
+
+| 대상 | rev.3 원문 | 유효 기준 / 근거 |
+|---|---|---|
+| 구현 주체 | 사용자 결정 대기 | Codex — 이번 사용자 `handoff-impl 303` 명시 호출 |
+| AC4 검증 수단 | `returnedChars:0` 스키마 거부 | 입력 `maxChars:0` 거부. D-015의 입력은 `maxChars`, `returnedChars`는 응답이다 |
+| D-005 마지막 문장·AC5 검증 수단 | 응답 `maxChars` | 응답 `returnedChars`. D-006·D-015 응답 필드 목록과 일치 |
+| VP-02 강제 지점 합계 | EP-03·EP-04 자리 11 | 자리 9 = EP-03 7 + EP-04 2. §10의 고정 자리 목록은 유지 |
+| VP-06 EP-04 ② 직접 oracle | `tools-lifecycle.test.ts` AC15 red | 배포 통합에서 같은 manager에 incremental→full을 겹쳐 호출하고 RETR·mode·호출 순서를 관측한다. tools mock은 manager를 실행하지 않음(`tools-lifecycle.test.ts:6`) |
+| §10 manager 경계 | 판정 함수 UT와 tools ①만 잠금 | production에서 도달하지 않는 경계는 유지. 직접 호출 통합이 ②의 실행 구간을 덮는다 |
+
+`ACTIVE 결정 ↔ AC 대조: 충돌 0` — AC4·AC5 이름은 D-006·D-015를 따르고, manager 검사는 D-011의 판정표를 실행한다. 새 Decision·노드·자리·의존성은 없으며 VP-01~VP-10의 path는 유지한다.
+
+READY self-review: §10 EP-01 6·EP-02 8·EP-03 7·EP-04 2·EP-05 4·EP-06 6 = 33자리. 규칙 분기·선택 변이는 승계하고, 같은 manager 직접 호출은 기존 `syncManager` fixture(`mail.integration.test.ts`)로 가능하다.
+
 ## [구현자 기입] 설계 리뷰
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
