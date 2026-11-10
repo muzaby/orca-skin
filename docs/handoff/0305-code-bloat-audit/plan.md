@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 `/handoff-plan` — 코드 비대화 방지(CI 감소는 결과 — D-011). 0305는 감사(지도)만, 축소 구현은 후속 handoff |
-| 상태 | verify/FAIL (verify 1회째) — D1 근거 수치 3건 정정 필요 |
+| 상태 | impl/IMPL_DONE (r2) — D1 근거 수치 3건 정정, 검증 대기 |
 | V mode | `Delta V` (ΔV1 — 사용자 요구 변경) |
 | 기준 V | `V1` (이 plan · 설계 커밋 좌표는 INDEX) |
 | 이번 V revision | `ΔV1` |
@@ -845,6 +845,94 @@ ipc.ts · features/ ─▶ (사람) data/scenarios.json ─┤
 - 막았어야 할 plan 지침·AC 가 있었는가: AC15 는 버킷당 검토 1건과 `read` 가 그 버킷 소속임만 잠근다. 읽은 비율의 하한은 없다(선언 경계 7).
 - 반복해서 부딪히는 환경 한계: 세션 재시작으로 작업 주체가 바뀌었다. force-push 는 권한 정책으로 거부된다.
 - 현재 라운드·impl 턴: `r1.3` — verify 0회, verify 없는 impl 턴 3(r1 · r1.2 · r1.3). r1.2 는 사용자 요구 변경 턴이라 세지 않으면 2 다.
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 계기: verify 1회째 FAIL — D1(근거 칸 수치 3건 불일치). 불변식: **근거 칸의 수치는 그 근거 명령을 지금 다시 돌린 값과 같다.**
+- 동의 / 그대로 진행: D1 대응 방향(3건 정정 + `--write`). 규범 행은 바꾸지 않았다.
+- 이견 / 현실성 문제: C-33 은 지적된 116 으로 맞추지 않았다 — 근거 문장의 주어가 "래퍼(호출)"라 주석·타입 참조를 뺀 113 이 맞는 값이다(아래 표).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-03·VP-09 | 후보 `evidence` 칸 (EP-05) | 후보 39 × 9칸 — 이번 턴은 D1 의 3칸 + 같은 수치의 사본 1(`deep.json` opencode `basis`) | 4/4 | C-15: `awk` 로 `send.ts` `handleChatSend` 시작 :52 · 파일 끝 :789 → 738줄 · C-28: `awk 'NR>=34&&NR<=81' channel.ts \| rg -c "^\s*let "` → 19(20번째 `let` 은 :168 지역 변수) · C-33: `grep -c "window\.orca\." ipc.ts` → 116 = 호출 113 + 주석 1(:110) + `typeof` 2(:233 :236) | 수치 · 재실행값 | 나머지 36 후보의 근거 수치는 재계수하지 않았다(D1 대응 방향·plan 의 표본 재현 선택) |
+| VP-06 (REGRESSION) | 판정 사본 (EP-07) | 블록 9 · INDEX 비고 | 2/2 | `audit-check.mjs --write` 뒤 `--check` ok · 변이 R1~R3 red(K12) · INDEX 비고 수치 없음 | 블록 본문 · 숫자 1 수정 → K12 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: `audit.md` `:31` 손글 요약(`handleChatSend` 약 740줄 · `openCodeChannel` 약 560줄)은 실측 738·563 과 맞아 그대로 뒀다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 0건(32/32 잡음).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-09·VP-03 | REQUIRED·REGRESSION | SELF_PASS | `gate:audit-check.mjs --check` + 위 3건 재실행값 | 표본 재현은 검증자 몫 — D1 3건은 재실행값과 일치 |
+| VP-06 | REGRESSION | SELF_PASS | 같은 gate(K12) | R1~R3 red |
+| VP-04·VP-07·VP-08·VP-10 | — | 유지 | verify r1 좌표(`verify.md` §5) — `scan/`·`split.json`·승인 목록 diff 0 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 gate | 결과 |
+|---|---|---|---|---|
+| R1 `audit.md` C-15 `738줄` → `739줄` | sweep EP-07 — 이번 diff 가 닿은 블록 자리 | 최초(verify M6 과 같은 종류) | `audit-check --check` | 잠김 |
+| R2 `audit.md` C-28 `let 19개` → `18개` | 같음 | 최초 | 같음 | 잠김 |
+| R3 `audit.md` C-33 `113개` → `114개` | 같음 | 최초 | 같음 | 잠김 |
+
+- **분모 검산**: `선택 증거 0 · 인용 변이 0(D1 은 변이를 인용하지 않았다 — 닫힘의 관측값은 재실행값 일치) · 새 oracle 0 · sweep 3 = 표 행 3`.
+- **덮개 회귀**: 0 — 검사기·테스트 diff 0(`git diff --stat` 에 `scan/` 없음). verify r1 `잡음` 행 중 이번 diff 가 닿은 자리(M6 — 생성 블록)는 R1~R3 가 같은 자리·같은 종류로 다시 red.
+- 근거 수치와 코드의 일치 자체는 검사가 잠그지 않는다(plan §7 "구조 proxy 주의") — 표본 재현이 oracle 이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있다 — `audit.md` §3 후보 표·§7 심화 표의 3행 | AC12 |
+| seam 을 만들려고 production 을 재배치했는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+- 사용자 자리에서 본 한계: C-15 의 분량이 560 → 738줄로 커졌다. 후보의 방향(분해)은 같고 절감은 여전히 미추정이다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | C-33 의 "래퍼 115개"는 지적값 116 으로 고쳐도 틀린다 — 116 줄 중 주석 1·타입 참조 2 는 호출이 아니다 | ✅ 선조치 — 호출 113 과 `grep -c` 116 을 둘 다 적고 차이를 풀었다 | `grep -n "window\.orca\." ipc.ts` 의 `:110` · `:233` · `:236` |
+| 2 | 같은 수치의 사본이 `deep.json` opencode `basis`("`let` 20개")에 있었다 | ✅ 선조치 — 19 로 함께 고쳤다 | `grep -n "20개" data/*.json` → 0 |
+| 3 | 나머지 36 후보의 근거 수치에도 같은 종류의 어긋남이 있을 수 있다 | ⚠️ 보고만 — 비귀속(D1 범위 밖, plan 은 표본 재현을 선택). verify r1 표본 15건 중 12건은 일치 | `verify.md` §4 |
+| 4 | verify N1(plan §17·§9 표의 규칙 수 16)·E1(범주 추가) | ⚠️ 보고만 — plan 규범·서술 행이라 설계자 몫 | `verify.md` §13 |
+
+### 설계 대비 명시적 차이
+
+- plan 이 지정한 것과 다르게 구현한 것: 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 공유 · 재진입 · 다른 무효화 축 | 해당 없음 — 대체물 없음 | — |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `docs/handoff/0305-code-bloat-audit/{audit.md,data/candidates.json,data/deep.json}` · `docs/handoff/INDEX.md` · 이 절 |
+| 실행 명령 | `node scan/audit-check.mjs --write` · `node scan/volume.mjs --check` · `node scan/audit-check.mjs --check` · `node --test scan/*.test.mjs` · `cd app && node scripts/check-doc-inventory.mjs --check` · AC11 명령 |
+| 관측한 게이트 산출 | `[volume] ok — 2116 files · 305843 lines · 102 buckets` · `[audit-check] ok — 완료 선언` · `tests 144 · pass 144 · fail 0` · doc-inventory `links ok` · AC11 0줄 |
+| 추가·수정 테스트의 subtree 규칙 | 해당 없음 — 테스트를 건드리지 않았다 |
+| V-pair 자기확인 | `SELF_PASS 3(VP-09 · VP-03 · VP-06) / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 2행 — 위 표 |
+| AC 자기보고 | AC6·AC13 ✅ `--check` ok(K4·K12) · 그 밖의 AC 는 데이터 diff 0 으로 verify r1 그대로 · AC12 ⚠️ 사람 |
+| 합계 검산 | `✅ 13 · ⚠️ 1 · ❌ 0 = 총 14` — 분모 변동 없음 |
+| 블로커 / 역질문 | 없음. 사용자 판정 대기: 승인 목록 14건 · 분할 순위(AC12) |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 아니다 — 근거 수치의 정확성은 처음 지적됐다.
+- 막았어야 할 plan 지침·AC 가 있었는가: 근거 수치는 검사 밖이고 verify 표본 재현만 본다(plan §7 주의사항). impl 턴에 근거 명령을 다시 돌리라는 지침은 없었다.
+- 반복해서 부딪히는 환경 한계: 없음.
+- 현재 라운드·impl 턴: `r2`.
 
 ---
 
