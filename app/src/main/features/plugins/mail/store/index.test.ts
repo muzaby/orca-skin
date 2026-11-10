@@ -51,6 +51,7 @@ function document(uidl: string, date = 1000): MailDocument {
     ccAddrs: '',
     subject: '회의일정 안내',
     bodyText: '저장소 검색 본문',
+    bodySource: 'plain',
     attachments: [
       {
         filename: 'notes.txt',
@@ -80,6 +81,44 @@ describe('mail store', () => {
         to: 'recipient@example.test',
         subject: 'distinctsubject'
       })
+    }
+  )
+
+  // 0302 AC7 — 네 출처가 서로 다른 값이라 분기별 SELECT·매핑의 누락·맞바꿈이 보인다.
+  it.each(['match', 'like', 'empty'] as const)(
+    'returns each stored bodySource in %s results and updates it on re-save',
+    async (mode) => {
+      const store = await fixture()
+      const sources = ['plain', 'html', 'attachment', 'none'] as const
+      for (const source of sources)
+        await store.saveMessage({
+          ...document(`source-${source}`),
+          subject: `sourcecheck ${source}`,
+          bodyText: source === 'none' ? '' : `${source} body`,
+          bodySource: source,
+          attachments: []
+        })
+      const query = mode === 'empty' ? '' : mode === 'like' ? '%sourcecheck%' : 'sourcecheck'
+      const read = (): Record<string, string> =>
+        Object.fromEntries(
+          store
+            .search(query, 10, mode === 'empty' ? 'match' : mode)
+            .map((hit) => [hit.subject, hit.bodySource])
+        )
+      expect(read()).toEqual({
+        'sourcecheck plain': 'plain',
+        'sourcecheck html': 'html',
+        'sourcecheck attachment': 'attachment',
+        'sourcecheck none': 'none'
+      })
+      await store.saveMessage({
+        ...document('source-none'),
+        subject: 'sourcecheck none',
+        bodyText: 'html body',
+        bodySource: 'html',
+        attachments: []
+      })
+      expect(read()['sourcecheck none']).toBe('html')
     }
   )
 
@@ -173,6 +212,7 @@ describe('mail store', () => {
       ccAddrs: '',
       subject: '회의일정 안내',
       bodyText: '회의실 일정 공유',
+      bodySource: 'plain',
       sizeBytes: 5,
       attachments: [
         {
@@ -219,6 +259,7 @@ describe('mail store', () => {
       ccAddrs: '',
       subject: 'keep',
       bodyText: 'cached',
+      bodySource: 'plain',
       attachments: []
     })
     store.markMissing(['gone'])

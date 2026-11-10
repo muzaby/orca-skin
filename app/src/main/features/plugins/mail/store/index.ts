@@ -5,7 +5,7 @@ import { openFileDatabase } from '../../../../infra/db/file-database'
 import { applyMailMigrations } from './migrate'
 import { retentionCutoff } from '../retention-window'
 import { sanitizeAttachmentFilename } from '../../attachment-fs'
-import type { MailDocument, MailSearchHit } from '../types'
+import type { MailBodySource, MailDocument, MailSearchHit } from '../types'
 import type { ProtectionState } from '../protection'
 
 export interface MailStoreOptions {
@@ -212,9 +212,9 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
           signal?.throwIfAborted()
           const result = db
             .prepare(
-              `INSERT INTO mail (account_id, uidl, header_date, first_seen_at, from_addr, to_addrs, cc_addrs, subject, body_text, size_bytes)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(account_id, uidl) DO UPDATE SET header_date=excluded.header_date, from_addr=excluded.from_addr, to_addrs=excluded.to_addrs, cc_addrs=excluded.cc_addrs, subject=excluded.subject, body_text=excluded.body_text, size_bytes=excluded.size_bytes`
+              `INSERT INTO mail (account_id, uidl, header_date, first_seen_at, from_addr, to_addrs, cc_addrs, subject, body_text, body_source, size_bytes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(account_id, uidl) DO UPDATE SET header_date=excluded.header_date, from_addr=excluded.from_addr, to_addrs=excluded.to_addrs, cc_addrs=excluded.cc_addrs, subject=excluded.subject, body_text=excluded.body_text, body_source=excluded.body_source, size_bytes=excluded.size_bytes`
             )
             .run(
               options.accountId,
@@ -226,6 +226,7 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
               document.ccAddrs,
               document.subject,
               document.bodyText,
+              document.bodySource,
               document.sizeBytes ?? 0
             )
           const row = db
@@ -296,17 +297,17 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
         ? mode === 'like'
           ? db
               .prepare(
-                `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, 0 AS rank FROM mail m WHERE m.account_id=? AND (m.from_addr || ' ' || m.to_addrs || ' ' || m.cc_addrs || ' ' || m.subject || ' ' || m.body_text) LIKE ? ESCAPE '\\' ORDER BY date DESC LIMIT ?`
+                `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, m.body_source AS bodySource, 0 AS rank FROM mail m WHERE m.account_id=? AND (m.from_addr || ' ' || m.to_addrs || ' ' || m.cc_addrs || ' ' || m.subject || ' ' || m.body_text) LIKE ? ESCAPE '\\' ORDER BY date DESC LIMIT ?`
               )
               .all(options.accountId, query, limit)
           : db
               .prepare(
-                `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, bm25(mail_fts) AS rank FROM mail_fts JOIN mail m ON m.id=mail_fts.rowid WHERE m.account_id=? AND mail_fts MATCH ? ORDER BY rank LIMIT ?`
+                `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, m.body_source AS bodySource, bm25(mail_fts) AS rank FROM mail_fts JOIN mail m ON m.id=mail_fts.rowid WHERE m.account_id=? AND mail_fts MATCH ? ORDER BY rank LIMIT ?`
               )
               .all(options.accountId, query, limit)
         : db
             .prepare(
-              `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, 0 AS rank FROM mail m WHERE m.account_id=? ORDER BY date DESC LIMIT ?`
+              `SELECT m.id, COALESCE(m.header_date,m.first_seen_at) AS date, m.from_addr AS fromAddr, m.to_addrs AS toAddrs, m.subject, m.body_text AS bodyText, m.body_source AS bodySource, 0 AS rank FROM mail m WHERE m.account_id=? ORDER BY date DESC LIMIT ?`
             )
             .all(options.accountId, limit)
       let remainingAttachments = 50
@@ -318,6 +319,7 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
           toAddrs: string
           subject: string
           bodyText: string
+          bodySource: MailBodySource
           rank: number
         }[]
       ).map((row) => {
@@ -342,6 +344,7 @@ export async function createMailStore(options: MailStoreOptions): Promise<MailSt
           to: row.toAddrs,
           subject: row.subject,
           snippet: row.bodyText.slice(0, 300),
+          bodySource: row.bodySource,
           rank: row.rank,
           attachmentCount: attachments.length,
           attachments: visible,

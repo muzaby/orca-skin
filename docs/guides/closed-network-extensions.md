@@ -1094,6 +1094,17 @@ Auth를 만료시키고 세 도구를 함께 회수한다. 연결·TLS·타임�
 `stale` 결과를 돌려준다. 첨부는 `mail_search`의 `attachmentId`를 사용해 `mail_getAttachment`를 건별로
 호출하며, 내부 `mail.db` 경로는 출력하지 않는다.
 
+본문은 `text/plain` 파트를 먼저 쓰고, 비었으면 HTML 파트를, 둘 다 없으면 첫 번째 `text/html` 첨부를
+텍스트로 변환해 쓴다. 첨부를 본문으로 쓴 메일도 그 첨부는 목록에 남는다. HTML은 스타일·스크립트와 링크
+주소를 버리고 보이는 텍스트만 남기며 앞부분만 변환한다(상한은 `html-body.ts`가 갖는다). 첨부 HTML은
+`<meta charset>` → UTF-8 → EUC-KR 순으로 읽는다. `mail_search` 결과의 `bodySource`(`plain`·`html`·
+`attachment`·`none`)가 본문 출처를 알리고, `none`은 저장된 본문이 없다는 뜻이다.
+
+`mail_sync` 성공 결과의 `noBodyMails`는 본문 없이 저장한 메일 수, `skippedMails`는 MIME 해석에 실패해
+저장하지 않은 메일 수다. 해석 실패는 그 메일만 건너뛰고 동기화를 계속하며, 다음 동기화가 다시 받는다.
+연결·TLS·타임아웃·DB 장애는 지금처럼 동기화 전체를 실패로 돌려준다. 이 규칙은 새로 수집하는 메일에만
+적용되며 기존 캐시는 다시 받지 않고 보존 기간을 따른다.
+
 새로 수집한 메일의 첨부 목록에서 본문 임베드 이미지는 제외된다. MIME의 `image/*` part 중
 `related`, `inline`, HTML `cid:` 참조에 해당하는 이미지는 파일로 저장하거나 모델에 첨부로
 노출하지 않는다. 파일명 유무로 분류하지 않으므로 일반 이미지 파일 첨부와 파일명 없는 일반

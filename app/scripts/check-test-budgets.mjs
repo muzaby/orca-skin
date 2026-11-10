@@ -319,7 +319,7 @@ export const SEMANTIC_DELAYS = [
   {
     file: 'main/app/deployment/mail.integration.test.ts',
     value: '301_000',
-    count: 4,
+    count: 5,
     reason: '같은 주입 시계로 신선도 5분을 넘긴다'
   },
   {
