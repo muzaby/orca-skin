@@ -11,7 +11,7 @@ describe('groupSkillSuggestions', () => {
     const sections = groupSkillSuggestions([
       s('a', 'adapter:claude', 'Claude'),
       s('b', 'plugin:claude', 'Claude'),
-      s('c', 'orca', 'Orcinus orca'),
+      s('c', 'orcinus-orca', 'Orcinus orca'),
       s('d', 'adapter:claude', 'Claude')
     ])
     expect(sections.map((x) => [x.label, x.items.map((i) => [i.skill.name, i.index])])).toEqual([
@@ -29,8 +29,8 @@ describe('groupSkillSuggestions', () => {
   it('화면 순서 = 인덱스 순서(0,1,2…)', () => {
     const sections = groupSkillSuggestions([
       s('z', 'adapter:claude', 'Claude'),
-      s('a', 'orca', 'Orcinus orca'),
-      s('b', 'orca', 'Orcinus orca')
+      s('a', 'orcinus-orca', 'Orcinus orca'),
+      s('b', 'orcinus-orca', 'Orcinus orca')
     ])
     expect(sections.flatMap((x) => x.items.map((i) => i.index))).toEqual([0, 1, 2])
   })

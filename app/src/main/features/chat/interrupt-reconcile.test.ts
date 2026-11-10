@@ -24,7 +24,7 @@ describe('reconcileInterruptReceipt (0151 AC11)', () => {
 
   it('모르는 uuid 만 남으면 clear — 백그라운드 auto-resume continuation 을 잔여로 오인하지 않는다', () => {
     // sdk.d.ts:3487 — "internally-enqueued uuids the client never sent (cron triggers,
-    // auto-resume continuations) … ignore unknown uuids". Orca 는 백그라운드 서브에이전트가
+    // auto-resume continuations) … ignore unknown uuids". Orcinus orca 는 백그라운드 서브에이전트가
     // 기본(0143)이라 이 경로가 실제로 발생하며, 잔여로 오인해 런타임을 폐기하면 완료 통지가 죽는다.
     expect(
       reconcileInterruptReceipt({ stillQueued: ['cli-internal-1', 'cron-2'] }, ['batch-1'])

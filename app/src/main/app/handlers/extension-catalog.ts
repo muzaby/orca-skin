@@ -49,7 +49,7 @@ export function registerExtensionCatalogHandlers(
         (item) => item.kind === request.kind && item.id === request.id
       )
       if (!item?.canToggle)
-        throw new Error('이 항목은 Orca에서 전역 활성 상태를 제어할 수 없습니다.')
+        throw new Error('이 항목은 Orcinus orca에서 전역 활성 상태를 제어할 수 없습니다.')
       const key = extensionChoiceKey(item.kind, item.name)
       if (request.backend === 'claude' && item.kind === 'plugin') {
         // Live Claude queries keep the flags they started with, so the toggle closes them all.

@@ -18,7 +18,7 @@ import { reportError } from '../error-report'
 
 type Listener<P> = { fn: (payload: P) => void; critical: boolean }
 
-// M = 이벤트 맵(예: OrcaBusEvents) — 키→페이로드 타입. 인터페이스도 그대로 쓸 수 있게 index
+// M = 이벤트 맵(예: OoBusEvents) — 키→페이로드 타입. 인터페이스도 그대로 쓸 수 있게 index
 // signature(Record) 제약을 두지 않고 keyof M 로 타입을 유도한다.
 export class TypedBus<M> {
   private readonly listeners = new Map<keyof M, Listener<unknown>[]>()

@@ -1,4 +1,4 @@
-# Orca — Technical Requirements Document (v1)
+# Orcinus orca — Technical Requirements Document (v1)
 
 > `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/ARCHITECTURE.md` (파일 맵 — `arch/frontend`·`arch/backend`) + `docs/IPC_CONTRACT.md` (채널 SSOT) + `docs/GLOSSARY.md` (용어 SSOT) 참조.
 
@@ -11,16 +11,16 @@
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
 
 > **하네스 실행 정책**
-> `claude`와 `opencode`를 지원한다. 새 대화의 모델 선택이 하네스를 결정하며, 생성 후에는 DB의 backend로 고정한다. OpenCode는 Code만 지원하고 설치된 CLI의 로컬 서버를 Orca가 자동 관리한다. 마지막 하네스를 기억하며 최초 기본값은 Claude다. UI 전용 슬라이스·서버·SDK 계약은 [어댑터 구조](arch/backend/adapters.md)와 [IPC 계약](IPC_CONTRACT.md)을 따른다.
+> `claude`와 `opencode`를 지원한다. 새 대화의 모델 선택이 하네스를 결정하며, 생성 후에는 DB의 backend로 고정한다. OpenCode는 Code만 지원하고 설치된 CLI의 로컬 서버를 Orcinus orca가 자동 관리한다. 마지막 하네스를 기억하며 최초 기본값은 Claude다. UI 전용 슬라이스·서버·SDK 계약은 [어댑터 구조](arch/backend/adapters.md)와 [IPC 계약](IPC_CONTRACT.md)을 따른다.
 
 > **Preload 노출 표면 축소 결정 (2026-05-13)**
-> preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
+> preload `window.oo` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
 
 ---
 
 ## 1. 문서의 목적과 범위
 
-본 문서는 Orca v1 MVP (Phase 1) 가 **무엇을 기능으로 제공하고, 어떤 기술 스택으로 만드는가** 를 검증 가능한 형태로 정의한다.
+본 문서는 Orcinus orca v1 MVP (Phase 1) 가 **무엇을 기능으로 제공하고, 어떤 기술 스택으로 만드는가** 를 검증 가능한 형태로 정의한다.
 
 본문은 Phase 1 사양을 기준으로 쓰고, 이후 구현된 기능은 §2 F11+ 표가, 미구현 확장은 §10 의 anchor 가 갖는다. 하드웨어·Captures 등 미구현 도메인의 범위는 `docs/PRD.md` §9 Future Scope 를 참조.
 
@@ -42,7 +42,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F4 | **단일 활성 대화 컨텍스트** | ChatState (reducer), Adapter | 같은 `sessionId` 를 매 턴 어댑터에 전달 (Claude: `options.resume` / opencode: same session HTTP call), Renderer는 `sessionId` 변수 1개만 메모리 보관, 백엔드가 이전 턴들을 복원 | §6.1 |
 | F5 | **새 대화** | ChatShell ("새 대화" 버튼) | `sessionId = null` 리셋 → reducer 메시지 배열·pendingDelta 초기화, 다음 전송 시 `sendMessage(null, ...)` 호출 → 어댑터가 ID 발급 (`init` 이벤트에서 추출) | §6.1 |
 | F6 | **백엔드 선택** | AdapterRegistry, BackendSelector UI | 시작 시 병렬 `isInstalled()` → (둘 다/한쪽/없음) 결과. 둘 다 설치: 사용자 선택 또는 OQ7 정책. 한쪽: 자동 선택. 없음: 인스톨러 트리거. v1에서 세션 중 전환 불가 | §6.1 |
-| F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
+| F7 | **CLI 설치 자동화** | Installer (IPC `oo:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
 | F10 | **Tweaks 패널** | 설정 일반 탭(`GeneralTab`) + DebugPanel(dev 전용), `TweakProvider` | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 키 카탈로그의 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
@@ -108,7 +108,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 **white/dark 2테마** 전환. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | **exact pin** (`app/package.json` — 모델 세대 추가 시 갱신) | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })` — 대화는 세션당 장수명 채널(§7.1). 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
-| HTTP (opencode) | `@opencode-ai/sdk` | 1.18.27 (exact) | 확정 | Orca가 소유한 CLI 서버의 SDK client; [기준/제약](opencode-sdk-spec.md) |
+| HTTP (opencode) | `@opencode-ai/sdk` | 1.18.27 (exact) | 확정 | Orcinus orca가 소유한 CLI 서버의 SDK client; [기준/제약](opencode-sdk-spec.md) |
 | 표준 MCP bridge | `@modelcontextprotocol/sdk` | 1.29.0 (exact) | 사용자 승인 | main 소유 loopback 서버에서 application 도구를 노출한다. [보안 경계](arch/backend/security.md) 참조 |
 | IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션도 1채널 + `sessionId` 라우팅, [arch/frontend/state.md](arch/frontend/state.md) §2) |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
@@ -138,7 +138,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 ### 5.1 채널 명명 규칙
 
-모든 IPC 채널은 `orca:<domain>:<action>` 형식.
+모든 IPC 채널은 `oo:<domain>:<action>` 형식.
 - `domain`: 기능 영역 (chat, backend, install, settings)
 - `action`: 동작 (send, event, cancel, list, select, start, status, get, set)
 
@@ -150,35 +150,35 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
-| `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; text: string }` | `Promise<void>` (ack). 응답은 `orca:chat:event` 스트림 | SendChatMessage |
-| `orca:chat:event` | M→R (send) | — | `NormalizedEvent` (반복) | NormalizedEvent union (IPC_CONTRACT §3) |
-| `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` — `AbortSignal` 전파 | CancelChat |
-| `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string }[]; active?: Backend }` | (검증 생략) |
-| `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack). 진행은 `orca:install:status` 스트림. 현재 claude 는 SDK `optionalDependencies` 자동 해소 → 즉시 `done: true` | StartInstall |
-| `orca:install:status` | M→R (send) | — | `InstallStatus` = `{ step: string; progress?: number; log?: string; error?: string; done?: boolean }` | InstallStatus |
-| `orca:settings:get` | R→M (invoke) | — | `Settings` (electron-store 전체 객체) | (검증 생략) |
-| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Partial<Settings>` | `Settings` (병합·검증된 전체 객체) | SettingsPatch |
-| `orca:skills:list` | R→M (invoke) | — | `SkillInfo[]` = `{ name: string; description: string; argumentHint?: string }[]` — 부팅 1회 스캔, 핫리로드 없음 | (검증 생략) |
-| `orca:files:list` | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` — `@` 자동완성용 | ListFilesRequest |
-| `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` — 현재 작업 디렉토리 | (검증 생략) |
+| `oo:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; text: string }` | `Promise<void>` (ack). 응답은 `oo:chat:event` 스트림 | SendChatMessage |
+| `oo:chat:event` | M→R (send) | — | `NormalizedEvent` (반복) | NormalizedEvent union (IPC_CONTRACT §3) |
+| `oo:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` — `AbortSignal` 전파 | CancelChat |
+| `oo:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string }[]; active?: Backend }` | (검증 생략) |
+| `oo:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack). 진행은 `oo:install:status` 스트림. 현재 claude 는 SDK `optionalDependencies` 자동 해소 → 즉시 `done: true` | StartInstall |
+| `oo:install:status` | M→R (send) | — | `InstallStatus` = `{ step: string; progress?: number; log?: string; error?: string; done?: boolean }` | InstallStatus |
+| `oo:settings:get` | R→M (invoke) | — | `Settings` (electron-store 전체 객체) | (검증 생략) |
+| `oo:settings:set` | R→M (invoke) | `SettingsPatch` = `Partial<Settings>` | `Settings` (병합·검증된 전체 객체) | SettingsPatch |
+| `oo:skills:list` | R→M (invoke) | — | `SkillInfo[]` = `{ name: string; description: string; argumentHint?: string }[]` — 부팅 1회 스캔, 핫리로드 없음 | (검증 생략) |
+| `oo:files:list` | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` — `@` 자동완성용 | ListFilesRequest |
+| `oo:session:cwd` | R→M (invoke) | — | `Promise<string>` — 현재 작업 디렉토리 | (검증 생략) |
 
 Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 
 | 채널 | 도입 시점 | 사유 |
 |---|---|---|
-| `orca:backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드 운영, 선택 호출자 없음 |
-| `orca:message:*` (list / append / delete) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist (IPC_CONTRACT §2.14) |
-| ~~`orca:session:list` / `:load` / `:delete`~~ | **구현됨** | 로컬 DB 기반 — SDK `listSessions`/`loadSession` 은 쓰지 않는다 (IPC_CONTRACT §2.7) |
-| ~~`orca:credentials:set` / `:hasKey`~~ | **폐기** | 자격증명은 `provider` 도메인(IPC_CONTRACT §2.13-c)과 Auth vault 가 소유 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
-| `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
+| `oo:backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드 운영, 선택 호출자 없음 |
+| `orcinus-orca:message:*` (list / append / delete) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist (IPC_CONTRACT §2.14) |
+| ~~`oo:session:list` / `:load` / `:delete`~~ | **구현됨** | 로컬 DB 기반 — SDK `listSessions`/`loadSession` 은 쓰지 않는다 (IPC_CONTRACT §2.7) |
+| ~~`orcinus-orca:credentials:set` / `:hasKey`~~ | **폐기** | 자격증명은 `provider` 도메인(IPC_CONTRACT §2.13-c)과 Auth vault 가 소유 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
+| `oo:skills:reload` | **Future** | 핫리로드 도입 시 |
 
 > **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락): 채널·도메인 전수와 개수의 SSOT 는 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 와 [생성물 인벤토리](generated/inventory.md) 다. 구 `runtime` 채널(Python uv 런타임)은 renderer 소비처 부재로 제거됐다(handoff 0012 · IPC_CONTRACT §2.11).
 
-### 5.3 `window.orca` API (Preload 화이트리스트)
+### 5.3 `window.oo` API (Preload 화이트리스트)
 
 ```typescript
 // src/preload/index.ts 에서 노출 (Phase 2 코어 표면 발췌 — 전수는 IPC_CONTRACT §2)
-interface OrcaApi {
+interface OoApi {
   chat: {
     send(req: { sessionId: string | null; text: string }): Promise<void>;
     onEvent(handler: (ev: NormalizedEvent) => void): () => void;  // unsubscribe 함수 반환
@@ -208,19 +208,19 @@ interface OrcaApi {
 
 declare global {
   interface Window {
-    orca: OrcaApi;
+    oo: OoApi;
   }
 }
 ```
 
-Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `message.*` 는 §5.2 의 예약 표대로 도입 시점에 노출한다.
+Renderer 코드는 `window.oo.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `message.*` 는 §5.2 의 예약 표대로 도입 시점에 노출한다.
 
 **Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 Node `require` 가 화이트리스트 (`electron`, `events`, `timers`, `url`) 로 제한된다. 따라서 preload 는 zod 가 끼어있는 `src/shared/protocol.ts` 를 **import 하지 않는다**. CHANNELS 상수와 순수 TS 타입은 별도 파일 `src/shared/ipc.ts` (zod 0 의존) 에 두고, preload + renderer 가 이 파일을 import 한다. zod 스키마는 main 측 IPC 라우터에서만 사용.
 
 ### 5.4 스트림 종료 신호
 
-- `orca:chat:event` 스트림: `NormalizedEvent` 의 `telemetry`(구 `result`)·`error`·`turn.aborted` 중 하나가 **턴을 닫는다** → Renderer가 `inflight` 플래그 해제. `turn.ended`(Stop hook)는 terminal 이 아니다 (IPC_CONTRACT §3).
-- `orca:install:status` 스트림: `{ step: 'complete' | 'failed' }` 도착 시 설치 프로세스 종료.
+- `oo:chat:event` 스트림: `NormalizedEvent` 의 `telemetry`(구 `result`)·`error`·`turn.aborted` 중 하나가 **턴을 닫는다** → Renderer가 `inflight` 플래그 해제. `turn.ended`(Stop hook)는 terminal 이 아니다 (IPC_CONTRACT §3).
+- `oo:install:status` 스트림: `{ step: 'complete' | 'failed' }` 도착 시 설치 프로세스 종료.
 
 ---
 
@@ -236,7 +236,7 @@ type Backend = 'claude';
 
 ### 6.2 NormalizedEvent (어댑터→Renderer 정규화 스트림)
 
-와이어 `orca:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude/map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
+와이어 `oo:chat:event`의 현행 타입은 [shared/ipc.ts](../app/src/shared/ipc.ts)의 `NormalizedEvent`다. Claude 원본은 [claude-map.ts](../app/src/main/adapters/claude/map.ts)가 정규화하며, 원본 SDK 타입을 renderer에 직접 전달하지 않는다.
 멀티세션 이벤트는 `sessionId`로 라우팅한다. 동시성·큐는 [runtime-ipc.md](arch/backend/runtime-ipc.md), renderer 소비는 [state.md](arch/frontend/state.md)가 설명한다.
 
 도구 이름·입력의 백엔드 간 표준화는 PRD OQ10의 미결정이다. OpenCode mapping은 [연구 가이드](etc/study/opencode/orca-migration-guide.md)의 권고이며 아직 이 와이어에 연결하지 않았다.
@@ -272,7 +272,7 @@ chat store 외피(`sessions: Record<key, { session, live }>` + `activeKey`)와 �
 | `lastBackend` | `Backend \| null` | 마지막 사용 백엔드 (OQ7) |
 | `lastSessionId` | `string \| null` | 재개용 마지막 세션 ID |
 | `windowBounds` | `{ x; y; width; height } \| null` | 마지막 윈도우 위치/크기 — 재시작 시 복원 |
-| `mcpEnabled` / `mcpMeta` | `Record<…>` | MCP 서버 on/off + Orca 전용 메타 (mcp.json 정의와 분리) |
+| `mcpEnabled` / `mcpMeta` | `Record<…>` | MCP 서버 on/off + Orcinus orca 전용 메타 (mcp.json 정의와 분리) |
 | `skillEnabled` | `Record<string, boolean>` | Skill on/off (부재⇒true) |
 | `authBypass` | `boolean` | 인증 게이트 우회 (디버그 토글, DEV 전용) — 0157 에서 `ssoBypass` 에서 개명 |
 | `language` / `accountInstructions` | `string` | 시스템 프롬프트 `# User` 헤더로 매 턴 주입 |
@@ -289,7 +289,7 @@ chat store 외피(`sessions: Record<key, { session, live }>` + `activeKey`)와 �
 **orcinus-orca.json (handoff 0014 에서 축소)**: `~/.config/orcinus-orca/orcinus-orca.json` 은 앱 자체의 전역 환경변수 파일이다. `sources/` 아래 엔진 배포 리소스가 아니며, 부팅 시 1회 로드해 main 프로세스 메모리에 캐시한다. 파일이 없으면 앱이 `{ "version": 1 }` 템플릿을 atomic write(temp+rename) 로 생성하고, 기존 파일은 덮어쓰지 않는다. 손상 JSON 또는 최상위 스키마 위반은 부팅을 막지 않고 기본값으로 동작하며 원본 파일을 보존한다.
 
 ```ts
-interface OrcaConfig {
+interface OoConfig {
   version: 1
   env?: Record<string, string> // 앱 전역 env — 모든 어댑터 subprocess 공통 베이스. 값에 '${VAR}' 허용
 }
@@ -305,7 +305,7 @@ interface OrcaConfig {
 | `env` | settings.json `env` 블록 |
 | `models` | `sources/settings/<adapter>/<provider>/settings.json` 의 `env` 모델 키에서 파싱 (`claude/model-parser.ts`) |
 
-**provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
+**provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orcinus orca 전용 키 발명 없음.
 
 ```text
 ~/.config/orcinus-orca/sources/settings/<adapter>/
@@ -318,18 +318,18 @@ interface OrcaConfig {
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`features/extensions/claude/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 예외). skill·mcp 는 `dist/<engine>/plugins/orcinus-orca/{skills,.mcp.json}` plugin 패키지로 배포해 `options.plugins` 로 로드한다(standardization.md §5.1·§5.2).
 
-**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude/adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude/settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude/adapter.ts`). 해석·캐시는 `features/harnesses/common/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
+**런타임 주입 (0117 현행)**: 턴/completion 의 `query()` 는 `settingSources: ['project','local']` 로 실행한다(`claude/adapt.ts` `adaptSettingSources`) — 사용자 전역 `~/.claude/settings.json` 은 상속하지 않고, 사용자 `~/.claude/skills` 만 wrapper plugin 으로 전달한다([adapters.md](arch/backend/adapters.md) §1.3). provider settings 는 `adapters/claude/settings.ts` 가 파일을 flat-read 해 **verbatim** 으로 flag 레이어(`options.settings`)에 주입한다. settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 같은 파일의 `ESCALATING_MODES` 필터로 제거된다 — **의도된 동작**(권한은 Orcinus orca 의 canUseTool 게이트와 권한 모드가 담당). `disallowedTools` 는 `['WebSearch']` 하나로 대화의 WebSearch 를 차단한다(`claude/adapter.ts`). 해석·캐시는 `features/harnesses/common/settings.ts` 의 `HarnessSettingsService`(mtime 캐시, deploy 후 무효화)가 소유한다.
 
 주입 채널은 settings 와 subprocess env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
 
 - **settings(env 포함) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md). 사용자 전역 settings 를 상속하지 않으므로 이 flag settings 가 앱 환경구성의 settings 원천이다.
 - **턴 env → `options.env`(subprocess env)**: `adapters/common/harness-config.ts` 가 orcinus-orca.json 앱 env · Harness 실행 구성 overlay([auth.md](arch/backend/auth.md) §6) · 배포 spawn env 주입점(`app/deployment/spawn-env.ts`) · 에이전트 종류별 env(`SessionAdapter.agentSpawnEnv`)를 조립한다. provider settings 의 env 는 settings 레이어로 흐르므로 여기엔 없다.
 
-> **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성이 settings 를 소유한다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
+> **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성이 settings 를 소유한다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orcinus orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
 
 > **설정 범위 결정 이력**: handoff 0014/0015 의 `settingSources: []` 격리모드 → 생략(전 소스 상속, 0024) → **`['project','local']`(0117, 현행)** 순으로 바뀌었다. 사용자 전역 skill 은 settings 상속이 아니라 wrapper plugin 으로 전달한다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 와 무관하게 동작한다. 0014/0015/0024 문서는 historical 기록으로 보존한다.
 
-**provider env 레시피** (`~/.claude/settings.json` 과 동일 — 사용자가 네이티브 env 값을 직접 작성. Orca 는 `${VAR}` 확장 안 함):
+**provider env 레시피** (`~/.claude/settings.json` 과 동일 — 사용자가 네이티브 env 값을 직접 작성. Orcinus orca 는 `${VAR}` 확장 안 함):
 
 | provider | `sources/settings/claude/<provider>/settings.json` |
 |---|---|
@@ -338,7 +338,7 @@ interface OrcaConfig {
 | vertex | `{ "env": { "CLAUDE_CODE_USE_VERTEX": "1" } }` |
 | 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "<token>" } }` |
 
-provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입된다(handoff 0028 — 사용자 전역 settings 는 상속하지 않는다, 0117). Orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orcinus-orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
+provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입된다(handoff 0028 — 사용자 전역 settings 는 상속하지 않는다, 0117). Orcinus orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orcinus-orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
@@ -409,7 +409,7 @@ PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies`
 | client 호출 | `createOpencodeClient({ baseUrl, fetch })`; root/v1·v2 legacy·native의 인자와 endpoint가 다름 |
 | 입력과 이벤트 | `session.prompt`와 SSE 구독은 별도 경로; native는 admission과 실행 완료도 구분 |
 | 전송 | root SSE는 주입 fetch를 우회하는 제약이 있어 `/v2` 경계 검증이 필요 |
-| 메시지·권한 | 실제 SDK 계약은 [해설](opencode-sdk-spec.md), Orca 정규화 권고는 [migration 연구](etc/study/opencode/orca-migration-guide.md) |
+| 메시지·권한 | 실제 SDK 계약은 [해설](opencode-sdk-spec.md), Orcinus orca 정규화 권고는 [migration 연구](etc/study/opencode/orca-migration-guide.md) |
 | 검증 범위 | 패키지 타입/JS와 무네트워크 client 계약 검사; 실제 서버·모델·패키징 통합은 미실행 |
 
 ### 7.3 AdapterRegistry & Backend 선택
@@ -499,7 +499,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) 시스템 트레이** — UI/Main 진입점 미지정. Phase 2+ 검토.
 - ~~(anchor) electron-updater + GitHub Releases~~ — **구현 완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollout.
 - ~~(anchor) Auto-update 채널~~ — stable 단일 채널로 출발 (beta 채널 분리는 Future).
-- **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
+- **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orcinus-orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — SDK는 설치됐으나 어댑터·서버 lifecycle·백엔드 선택·OpenCode MCP 변환기는 미구현이다(`Backend`=`'claude'`). [SDK 해설](opencode-sdk-spec.md)과 [마이그레이션 연구](etc/study/opencode/orca-migration-guide.md)를 후속 설계 입력으로 쓰며, OQ7/OQ10·권한·서버 소유권을 결정한 뒤 활성화한다. 기존 `toClaudeConfig`의 OpenCode 대응 변환기 목표는 유지하되 실제 SDK 설정 형상과 보안 경계는 별도 검증한다.
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - ~~(anchor) Agent SDK 고급 기능~~ — **구현됨**: `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer`(runtime tool) / `plugins` / `forkSession` / `AsyncIterable<SDKUserMessage>` 스트리밍 입력 — 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7. `startup()` 사전 워밍은 쓰지 않는다. 권한 **기본 정책값**은 OQ9 로 열려 있다.
@@ -510,7 +510,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 비활성 세션 표시는 nav 세션 행 상태 아이콘(0249·0254)으로 구현했고 세션 탭은 두지 않는다.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
-- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, native 원본 + Orca 보관 DB). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
+- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, native 원본 + Orcinus orca 보관 DB). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **Artifact 게시·보관** — 모델의 `publish_artifact` 호출로 HTML/Markdown·텍스트/코드·이미지를 `~/.config/orcinus-orca/artifacts/<fileId>/<filename>`에 보관한다. 개발 파일은 `.dev` 하위에 분리한다. DB는 파일 메타데이터와 세션별 게시 참조를 가지며 대화 삭제로 파일을 지우지 않는다. 파일 소실 시 게시 기록을 유지하고 파일 없음으로 표시한다. 출력 목록과 transcript 카드에서 우측 뷰어를 열어 미리보기·줄번호 코드·복사·다운로드를 사용한다. HTML은 격리된 정적 문서로 표시한다. 상세 [arch/backend/persistence.md](arch/backend/persistence.md), [렌더링](arch/frontend/rendering.md).
 - ~~(anchor) safeStorage 자격증명~~ — **구현됨**: Auth Grant → vault(0181·0188)가 LLM 게이트웨이·사내 서비스·MCP `${BINDING:}` 자격증명을 소유한다. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
@@ -570,7 +570,7 @@ Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 
 ### 6.8.1 Agent/model 선택 (0010-agent-model-select → 0014 원천 교체)
 
 - provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orcinus-orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
-- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/common/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
+- Composer 는 `oo:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. **`modelFamily` = 모델 선택 식별자 = SDK 에 넘기는 모델 문자열**(`model ?? alias` + 1M 이면 `[1m]`)이고 규칙은 `shared/model-identity.ts` 하나가 갖는다 — main(`features/harnesses/common/models.ts`)과 renderer(`composer/modelSelection.ts`)가 위임한다.
 - 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
 - provider 자격증명은 settings.json `env`(사용자 직접 기입, 0028) 또는 Auth Grant(vault — Harness 실행 구성 overlay)가 소유한다. 구 secret-store `provider:${provider key}` 토큰 경로는 폐지됐다(security.md "Agent provider auth token"). DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.
 - Composer의 `@` 자동완성은 main이 Plugin source에만 싣는 cached `tools`가 비어 있지 않은 provider를 내장 Plugin 후보로 투영한다. `catalog`는 gate·harness·plugin·usage의 공용 표시 입력이므로 후보 판별에 사용하지 않는다. root plain 토큰에서는 경로 그룹을 먼저, Plugin 그룹을 마지막에 표시하고, slash/quoted 토큰에서는 기존 파일 경로 그룹만 표시한다. 입력 전체 삭제로 token이 사라진 뒤 같은 Composer에서 다시 `@`를 입력하면 dismissal과 active index를 초기화해 팝업을 다시 연다. 선택값과 decoration은 표시 label이 아닌 `ProviderInfo.id`를 사용하며 인증 상태(`none`·`valid`·`expired`·`unknown`)는 후보 자격을 바꾸지 않는다.

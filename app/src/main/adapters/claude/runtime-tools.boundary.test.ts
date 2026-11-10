@@ -126,9 +126,11 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
   }
 
   it('정상 결과는 content 를 그대로 싣고 isError 를 세우지 않는다', async () => {
-    const res = await callTool(async () => ({ content: [{ type: 'text', text: 'ORCA-1' }] }))
+    const res = await callTool(async () => ({
+      content: [{ type: 'text', text: 'ORCINUS-ORCA-1' }]
+    }))
 
-    expect(res.content).toEqual([{ type: 'text', text: 'ORCA-1' }])
+    expect(res.content).toEqual([{ type: 'text', text: 'ORCINUS-ORCA-1' }])
     expect(res.isError).toBeFalsy()
   })
 
@@ -178,7 +180,9 @@ describe('runtime tool 결과가 실제 MCP 경계를 지난 뒤', () => {
 
   it('MCP 형상이 아닌 반환값은 조용한 빈 성공이 아니라 도구 실패가 된다', async () => {
     // 수정 전 이 입력은 {"content":[],"ok":true,...} 로 도착해 모델에게 "성공, 결과 없음" 이었다.
-    const res = await callTool(async () => ({ ok: true, data: { issue: 'ORCA-1' } }) as never)
+    const res = await callTool(
+      async () => ({ ok: true, data: { issue: 'ORCINUS-ORCA-1' } }) as never
+    )
 
     expect(res.isError).toBe(true)
     expect(JSON.stringify(res.content)).toMatch(/non-MCP result/i)

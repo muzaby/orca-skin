@@ -134,7 +134,7 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): () => voi
 }
 
 // renderer가 사용하는 제한된 공개 표면. 임의 채널이나 ipcRenderer 원본은 노출하지 않는다.
-const orca = {
+const oo = {
   error: {
     onReport: (handler: (report: AppErrorReport) => void): (() => void) =>
       subscribe(CHANNELS.errorReportEvent, handler),
@@ -447,15 +447,15 @@ const orca = {
   platform: process.platform as 'darwin' | 'win32' | 'linux'
 }
 
-export type OrcaApi = typeof orca
+export type OoApi = typeof oo
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('orca', orca)
+    contextBridge.exposeInMainWorld('oo', oo)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.orca = orca
+  window.oo = oo
 }

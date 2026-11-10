@@ -1,11 +1,11 @@
 # Observability — 로깅 정본 (0123/0124)
 
-> Orca 의 구조화 로깅 시스템 SSOT. 코드 정본: `app/src/shared/logging.ts`(계약) · `app/src/main/infra/log/`(구현) · `app/src/main/app/handlers/log.ts`(인제스트). IPC 채널은 [IPC_CONTRACT.md §2.13-b](../../IPC_CONTRACT.md), 보안 근거(마스킹 의무·DEV 가드)는 [security.md](security.md) §1.4/§1.7. 설계 이력: `docs/handoff/0123-logging-system/` · `0124-log-wiring/`.
+> Orcinus orca 의 구조화 로깅 시스템 SSOT. 코드 정본: `app/src/shared/logging.ts`(계약) · `app/src/main/infra/log/`(구현) · `app/src/main/app/handlers/log.ts`(인제스트). IPC 채널은 [IPC_CONTRACT.md §2.13-b](../../IPC_CONTRACT.md), 보안 근거(마스킹 의무·DEV 가드)는 [security.md](security.md) §1.4/§1.7. 설계 이력: `docs/handoff/0123-logging-system/` · `0124-log-wiring/`.
 
 ## 1. 목표와 원칙
 
 1. **에이전트 분석 가능** — 로그는 JSONL(1줄=1 JSON)로, 고정 이벤트명(`<domain>.<operation>.<state>`) 기준 grep/jq 만으로 "어떤 버전에서, 어떤 흐름 중, 어디서, 무엇이 실패했나"를 재구성할 수 있어야 한다.
-2. **중앙집중** — 파일 소유자는 main 프로세스 하나. renderer/preload 는 제한된 IPC(`orca:log:emit`)로 `LogInput` 만 보내고, 공통 필드는 main 이 강제 부여한다(출처·버전 위조 방지).
+2. **중앙집중** — 파일 소유자는 main 프로세스 하나. renderer/preload 는 제한된 IPC(`oo:log:emit`)로 `LogInput` 만 보내고, 공통 필드는 main 이 강제 부여한다(출처·버전 위조 방지).
 3. **로거 장애 ≠ 앱 장애** — emit 은 절대 throw 하지 않는다. 내부 실패는 emergency 콘솔 1줄(1회성)로만 보고하고, 로거가 로거를 재귀 호출하지 않는다. 쓰기 실패 시 transport 는 스스로 비활성화된다.
 4. **배포 최소화, 경계는 확실히** — prod 는 기본 `info` 이상만 파일 기록(카탈로그 화이트리스트 — §5), dev 는 `debug` 까지 파일 기록 + **콘솔 미러는 디버그 패널 "로그" 스위치 ON 일 때만**(0124 통합 게이트 — 기본 OFF 는 콘솔 침묵). dev 전용 경로는 `import.meta.env.DEV` 인라인 가드로 prod 번들에서 제거된다. **prod opt-in 디버그(0144)**: `~/.config/orcinus-orca/orcinus-orca.json` 의 `"debug": true` 면 부팅 시 `setLogDebug(true)` 가 prod 파일 레벨을 `info`→`debug` 로 올려 배포 후 진단 로그를 사용자가 직접 켤 수 있다(기본 false·미지정=off). 이때 메시지/턴 이벤트 스트림(`ipc.wire.event`)도 prod 파일에 남되 **메시지 본문은 제거**된다(§5).
 
@@ -29,7 +29,7 @@
 ## 3. 파이프라인과 파일
 
 ```
-renderer/preload ─ orca.log.* (≤32KB) ─┐
+renderer/preload ─ orcinus-orca.log.* (≤32KB) ─┐
                                        ├→ zod(LogInputSchema) → LogManager.emit
 main ─ getLogger().child(scope).* ─────┘     enrich → suppress → redact → JSONL
                                                                     └→ dev 콘솔 미러(로그 스위치 게이트, 0124)
@@ -43,7 +43,7 @@ main ─ getLogger().child(scope).* ─────┘     enrich → suppress �
 
 ## 4. 신뢰 경계 (renderer 인제스트)
 
-`orca:log:emit` 은 유일한 R→M one-way send 채널. main 은 `LogInputSchema`(strict) 로 level enum·event 패턴·scope 형식·문자열 8KB·payload 32KB·깊이 6/키 64/배열 128·`__proto__` 류 키를 검증하고, 실패는 폐기 + `ipc.payload.rejected` warn 집계. 공통 필드를 실어 보내면 strict 위반으로 거부된다. preload 는 `orca.log.{debug,info,warn,error}` 4메서드만 노출한다(`ipcRenderer` 원본 미노출).
+`oo:log:emit` 은 유일한 R→M one-way send 채널. main 은 `LogInputSchema`(strict) 로 level enum·event 패턴·scope 형식·문자열 8KB·payload 32KB·깊이 6/키 64/배열 128·`__proto__` 류 키를 검증하고, 실패는 폐기 + `ipc.payload.rejected` warn 집계. 공통 필드를 실어 보내면 strict 위반으로 거부된다. preload 는 `orcinus-orca.log.{debug,info,warn,error}` 4메서드만 노출한다(`ipcRenderer` 원본 미노출).
 
 ## 5. 이벤트 카탈로그 (prod `info` 화이트리스트)
 
@@ -66,7 +66,7 @@ rg -o "\.info\('[a-z.]+'" app/src/main --glob '!**/*.test.ts' | sed "s/.*'\(.*\)
 
 - **원격 전송/텔레메트리** — PRD §11 OQ4 미결(옵트인 정책 사용자 결정 대기). 로컬 파일이 종점.
 - **crashReporter(네이티브 덤프) · Support Bundle · audit 로그 분리** — Future(0123 plan 비범위 참조).
-- ~~debug 모드 런타임 토글 UI~~ — **0124 범위 편입(사용자 지시 2026-07-18)**: 디버그 패널 "로그" 스위치(기존 `orca:debug:setMock` 재사용, dev 전용)가 wire 이벤트 debug 기록 + 콘솔 미러를 통합 게이트한다.
+- ~~debug 모드 런타임 토글 UI~~ — **0124 범위 편입(사용자 지시 2026-07-18)**: 디버그 패널 "로그" 스위치(기존 `oo:debug:setMock` 재사용, dev 전용)가 wire 이벤트 debug 기록 + 콘솔 미러를 통합 게이트한다.
 - ~~prod 디버그 로그 토글~~ — **0144 구현(사용자 지시 2026-07-22)**: orcinus-orca.json `"debug": true` 로 prod 설치본도 debug 레벨 전체 + 본문 제거 wire 스트림을 파일에 남긴다(`setLogDebug` 런타임 setter — `initLog` 가 config 로드보다 먼저라 생성자 주입 불가). 신규 IPC 채널/설정 UI 추가는 여전히 비범위(파일 편집 기반).
 
 ## 7. 오류 보고(toast)
@@ -78,7 +78,7 @@ rg -o "\.info\('[a-z.]+'" app/src/main --glob '!**/*.test.ts' | sed "s/.*'\(.*\)
 | main `infra/error-report` | Electron 비의존 보고 API·ready 창 집합·부팅 대기열·중복 cooldown |
 | main `app/error-report-sink.ts`·`app/handlers/error.ts` | 창 전달·drain·파괴 정리. 로깅 및 drain 수신은 창 생성 전에 등록한다. |
 | renderer `shared/errors` | 로그 동반 보고·main 보고 수신(중복 로그 없음)·스택·만료 타이머 |
-| renderer `shared/ui/ErrorToastHost.tsx` | 게이트 화면에서도 표시하는 전역 호스트. Orca 테마·앱 폰트·reduced-motion을 따른다. |
+| renderer `shared/ui/ErrorToastHost.tsx` | 게이트 화면에서도 표시하는 전역 호스트. Orcinus orca 테마·앱 폰트·reduced-motion을 따른다. |
 | renderer `app/ErrorToastLayer.tsx` | 본문 클릭을 페이지·설정 탭 이동 또는 로그 위치 열기에 연결한다. Host에는 이동 콜백을 주입한다. |
 
 `title`은 `APP_ERROR_TITLES`의 번역 키다. `detail` 미지정은 오류 메시지, `null`은 설명 숨김, 문자열은 명시 설명이며 `APP_ERROR_DETAIL_MAX`로 절단한다. 비밀 가능성이 있는 실패는 원문을 설명으로 보내지 않는다.

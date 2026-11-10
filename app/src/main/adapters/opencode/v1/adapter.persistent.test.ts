@@ -740,10 +740,10 @@ describe('OpenCode persistent SDK channel', () => {
       f.live.close()
     }
   })
-  it('sends archived context only to the model and routes the replacement native session to the existing Orca transcript', async () => {
+  it('sends archived context only to the model and routes the replacement native session to the existing Orcinus orca transcript', async () => {
     const onPrompt = vi.fn()
     const f = fixture({
-      sessionId: 'orca-archive',
+      sessionId: 'orcinus-orca-archive',
       nativeSessionId: 's1',
       recovery: { history: 'archived conversation', freshStart: false, onPrompt }
     })
@@ -757,12 +757,14 @@ describe('OpenCode persistent SDK channel', () => {
       expect(body.parts[0].text).toMatch(/First$/)
       expect(onPrompt).toHaveBeenCalledWith(body.messageID)
       expect(events.find((event) => event.type === 'input.echo')).toMatchObject({
-        sessionId: 'orca-archive',
+        sessionId: 'orcinus-orca-archive',
         text: 'First',
         nativeMessageId: body.messageID
       })
       expect(
-        events.every((event) => !('sessionId' in event) || event.sessionId === 'orca-archive')
+        events.every(
+          (event) => !('sessionId' in event) || event.sessionId === 'orcinus-orca-archive'
+        )
       ).toBe(true)
       f.setPrompt(async (next) => f.reply(next.messageID as string))
       await f.live.pushTurn!({ text: 'Later', promptUuid: 'later' })

@@ -64,7 +64,7 @@ describe('ErrorToastHost', () => {
       expect(html).toContain(token)
   })
 
-  it('uses Orca semantic aliases in both themes and the specified subtle 4.6s keyframes', () => {
+  it('uses Orcinus orca semantic aliases in both themes and the specified subtle 4.6s keyframes', () => {
     const css = readFileSync(new URL('../../styles/tokens.css', import.meta.url), 'utf8')
     for (const [name, source] of [
       ['bg', 'panel'],

@@ -168,7 +168,7 @@ export function mapClaudeHistory(
     const events = claudeToNormalized(native as unknown as SDKMessage, context)
     const content =
       isRecord(entry.message) && Array.isArray(entry.message.content) ? entry.message.content : []
-    // Image-only composer turns have no text echo, but their UUID still owns Orca's
+    // Image-only composer turns have no text echo, but their UUID still owns Orcinus orca's
     // attachment sidecar. Do not lose that identity when projecting native history.
     if (
       entry.type === 'user' &&

@@ -15,7 +15,7 @@ import {
 import { HERMETIC_GIT_CONFIG } from '../../../scripts/test-host.mjs'
 
 const host = (globalThis as unknown as Record<symbol, { root: string; originalHome: string }>)[
-  Symbol.for('orca.test.host')
+  Symbol.for('orcinus-orca.test.host')
 ]
 const within = (child: string, parent: string): boolean => {
   const rel = relative(parent, child)
@@ -30,7 +30,9 @@ describe('시간 예산 배선 (AC1·AC3)', () => {
 
   it('vi.waitFor 는 배율 wrapper 다', () => {
     expect(
-      (vi.waitFor as unknown as Record<symbol, boolean>)[Symbol.for('orca.test.waitFor.scaled')]
+      (vi.waitFor as unknown as Record<symbol, boolean>)[
+        Symbol.for('orcinus-orca.test.waitFor.scaled')
+      ]
     ).toBe(true)
   })
 
@@ -89,7 +91,7 @@ describe('풀 배선 (0298)', () => {
   it('자식 프로세스를 쓰는 이 파일은 io 풀 — 워커 스레드가 아니라 프로세스에서 돈다', () => {
     expect(isMainThread).toBe(true)
     expect(
-      (process as unknown as Record<symbol, unknown>)[Symbol.for('orca.test.unitGuard')]
+      (process as unknown as Record<symbol, unknown>)[Symbol.for('orcinus-orca.test.unitGuard')]
     ).toBeUndefined()
   })
 })

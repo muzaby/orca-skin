@@ -460,11 +460,11 @@ describe('DbQueries session cwd', () => {
       title: null,
       projectId: null,
       createdAt: 10,
-      cwd: '/repo/orca'
+      cwd: '/repo/orcinus-orca'
     })
 
-    expect(q.getSessionById('s-cwd')?.cwd).toBe('/repo/orca')
-    expect(q.hasSessionWithCwd('/repo/orca')).toBe(true)
+    expect(q.getSessionById('s-cwd')?.cwd).toBe('/repo/orcinus-orca')
+    expect(q.hasSessionWithCwd('/repo/orcinus-orca')).toBe(true)
     expect(q.hasSessionWithCwd('/etc')).toBe(false)
   })
 

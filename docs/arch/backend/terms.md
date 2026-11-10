@@ -6,7 +6,7 @@
 
 이 문서는 main(백엔드) 코드·아키텍처 문서에 나오는 *요소 이름* 을 처음 보는 사람을 위해 평이한 한국어로 풀어준다. 정확한 한 줄 정의·코드 심볼·진실의 기준은 GLOSSARY.md(및 링크된 arch 절)에 있으니 "정본" 칸을 따라가면 된다. 본 문서는 새 정의를 만들지 않는다.
 
-> 큰 그림 한 줄: Orca 는 LLM API 를 직접 부르지 않는다. **외부 CLI/SDK(현재 claude-code)를 래핑** 해서 그 출력을 정규화해 화면에 흘려보낸다.
+> 큰 그림 한 줄: Orcinus orca 는 LLM API 를 직접 부르지 않는다. **외부 CLI/SDK(현재 claude-code)를 래핑** 해서 그 출력을 정규화해 화면에 흘려보낸다.
 
 ## 1. 프로세스 구조 (앱이 나뉘어 도는 방식)
 
@@ -14,9 +14,9 @@
 |---|---|---|
 | **Main Process** | Electron 의 Node.js 쪽. 창 생성·SDK 호출·파일 시스템·설정 저장·IPC 핸들러 담당. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
 | **Renderer Process** | Chromium 쪽. React UI 를 그린다. 보안상 Node API 직접 접근 불가(sandbox). | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
-| **Preload** | Main 과 Renderer 사이의 *다리*. 화이트리스트된 API 만 `window.orca` 로 노출. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
-| **IPC** | 두 프로세스 간 메시지 채널. `orca:<도메인>:<액션>` 으로 이름 짓는다. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) · [runtime-ipc.md §2](./runtime-ipc.md) |
-| **window.orca** | Renderer 가 IPC 를 부르는 단일 진입점. 노출 표면은 IPC_CONTRACT 가 정본. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
+| **Preload** | Main 과 Renderer 사이의 *다리*. 화이트리스트된 API 만 `window.oo` 로 노출. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
+| **IPC** | 두 프로세스 간 메시지 채널. `oo:<도메인>:<액션>` 으로 이름 짓는다. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) · [runtime-ipc.md §2](./runtime-ipc.md) |
+| **window.oo** | Renderer 가 IPC 를 부르는 단일 진입점. 노출 표면은 IPC_CONTRACT 가 정본. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
 
 ## 2. 어댑터 계층 (외부 백엔드 래핑)
 
@@ -46,7 +46,7 @@
 | **Skill** | `SKILL.md` 로 정의된 슬래시 명령(`/이름`). 입력창에서 호출. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **McpStore** | MCP 서버 추가/삭제/목록 관리. 설정 + 비밀값 저장을 묶어 다룬다. | [security.md §1](./security.md) |
 | **Secret Store / Vault** | Electron safeStorage(OS 키체인) 위의 암호화 저장. Auth 비밀은 `infra/vault.ts` 가 네임스페이스 키로 보관하고 Grant 가 그 키를 가리킨다. | [GLOSSARY §1 (Credential)](../../GLOSSARY.md#1-도메인-용어) · [security.md §1.4-b](./security.md) |
-| **Skills Scan** | Orca `sources/skills/`와 하네스 조립부가 제공한 Claude native skills 루트에서 SKILL.md frontmatter를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Skills Scan** | Orcinus orca `sources/skills/`와 하네스 조립부가 제공한 Claude native skills 루트에서 SKILL.md frontmatter를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 5. Python 런타임
 
@@ -86,7 +86,7 @@
 | **sources / dist** | 사람이 편집하는 단일 원천(sources) → 엔진별 생성물(dist, 편집 금지). | [standardization.md §5.1](./standardization.md) |
 | **ExtensionDeployer** | sources 를 엔진 규약으로 렌더 → 검증 → 백업 후 기록(dryRun 지원). 모듈을 가리키는 설계 이름 — 코드 진입점은 `deployer.ts` 의 `deploy()`. | [standardization.md §5.2](./standardization.md) |
 | **StandardConformance** | 엔진을 "표준을 얼마나 구현하나"로 기술(instructions/tool/skill/hook + mcpSpecVersion). | [standardization.md §5.3](./standardization.md) |
-| **AGENTS.md** | instructions 표준(AAIF). Orca instructions SSOT 채택 방향(현 systemPromptAppend 헤더와 통합 — 정적 정책 append 체인은 제거됨). | [standardization.md §5.4](./standardization.md) |
+| **AGENTS.md** | instructions 표준(AAIF). Orcinus orca instructions SSOT 채택 방향(현 systemPromptAppend 헤더와 통합 — 정적 정책 append 체인은 제거됨). | [standardization.md §5.4](./standardization.md) |
 | **Engine 구체클래스** | 범용 어댑터를 미리 안 만들고 ClaudeEngine/OpenCodeEngine 구체 클래스로 시작, 3번째 엔진에서 공통 추출(rule of three). | [standardization.md §4](./standardization.md) |
 
 > 사용하지 않는 어휘(Provider/Conversation/Thread 등)는 [GLOSSARY §3](../../GLOSSARY.md#3-사용하지-않는-용어-혼동-방지).

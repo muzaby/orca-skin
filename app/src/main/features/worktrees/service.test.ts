@@ -48,7 +48,7 @@ async function repository(nested = false): Promise<string> {
 describe('WorktreeService', () => {
   it('clean HEAD에서 repository 밖 managed worktree를 만들고 metadata를 기록한다', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-test-'))
     roots.push(managed)
     const rows: unknown[] = []
     const db = { insertManagedWorktree: (row: unknown) => rows.push(row) } as unknown as DbQueries
@@ -71,7 +71,7 @@ describe('WorktreeService', () => {
   it('managed 경로는 <repo>-<hash8>/<브랜치> 2단이고 같은 repo 는 늘 같은 첫 칸이다 (AC5 · AC6)', async () => {
     const repo = await repository()
     const other = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-seg-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-seg-'))
     roots.push(managed)
     const rows: Array<{ worktreeRoot: string; branch: string }> = []
     const db = {
@@ -105,7 +105,7 @@ describe('WorktreeService', () => {
   it('repository 하위 cwd를 managed worktree 안의 같은 subpath로 보존한다', async () => {
     const repo = await repository(true)
     const sourceCwd = join(repo, 'packages', 'web')
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-test-'))
     roots.push(managed)
     const rows: Array<{ worktreeRoot: string }> = []
     const db = {
@@ -129,7 +129,7 @@ describe('WorktreeService', () => {
   // 않으므로 미커밋 변경은 격리를 막을 이유가 아니다 — 대신 그 변경이 **그 자리에 남는지**를 본다.
   it('tracked·untracked 변경이 있어도 격리를 만들고 source 트리를 그대로 둔다 (AC1 · AC2)', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-dirty-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-dirty-'))
     roots.push(managed)
     await writeFile(join(repo, 'untracked.txt'), 'dirty')
     await writeFile(join(repo, 'README.md'), 'modified\n')
@@ -167,7 +167,7 @@ describe('WorktreeService', () => {
     const headOid = fixtures.get(repo)!.oids[0]
     expect(headOid).not.toBe(featureOid)
 
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-base-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-base-'))
     roots.push(managed)
     const rows: Array<{ baseOid: string }> = []
     const db = {
@@ -191,7 +191,7 @@ describe('WorktreeService', () => {
 
   it('없는 기준 브랜치는 거부한다 — HEAD 로 조용히 대체하지 않는다 (AC10)', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-noref-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-noref-'))
     roots.push(managed)
     const rows: unknown[] = []
     const db = { insertManagedWorktree: (row: unknown) => rows.push(row) } as unknown as DbQueries
@@ -208,9 +208,9 @@ describe('WorktreeService', () => {
 
   it('별칭 managed root에서 add가 실패로 끝나면 생성된 worktree와 빈 bucket을 rollback한다', async () => {
     const repo = await repository()
-    const physical = await mkdtemp(join(tmpdir(), 'orca-managed-real-'))
+    const physical = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-real-'))
     roots.push(physical)
-    const aliasParent = await mkdtemp(join(tmpdir(), 'orca-managed-alias-'))
+    const aliasParent = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-alias-'))
     roots.push(aliasParent)
     const alias = join(aliasParent, 'managed')
     await symlink(physical, alias, 'dir')
@@ -255,7 +255,7 @@ describe('WorktreeService', () => {
 
   it('managed worktree가 clean이고 새 commit이 없을 때만 안전 제거한다', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-test-'))
     roots.push(managed)
     let row: Record<string, unknown> | undefined
     let deleted = false
@@ -287,7 +287,7 @@ describe('WorktreeService', () => {
 
   it('managed worktree가 dirty면 세션 작업을 보존한다', async () => {
     const repo = await repository()
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-test-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-test-'))
     roots.push(managed)
     let row: Record<string, unknown> | undefined
     let deleted = false
@@ -336,7 +336,7 @@ describe('WorktreeService', () => {
     )
     await exec('git', ['-C', repo, 'checkout', initial])
 
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-baseref-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-baseref-'))
     roots.push(managed)
     const db = { insertManagedWorktree: () => undefined } as unknown as DbQueries
     const service = new WorktreeService(db, managed)
@@ -360,7 +360,7 @@ describe('WorktreeService', () => {
     const oid = fixtures.get(repo)!.oids[0]
     await exec('git', ['-C', repo, 'checkout', '--detach', oid])
 
-    const managed = await mkdtemp(join(tmpdir(), 'orca-managed-detached-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-detached-'))
     roots.push(managed)
     const db = { insertManagedWorktree: () => undefined } as unknown as DbQueries
 

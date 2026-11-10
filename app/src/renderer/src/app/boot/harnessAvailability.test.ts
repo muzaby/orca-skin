@@ -9,7 +9,7 @@ it('applies production harness API pushes and preserves a newer push over a defe
   const list = Promise.withResolvers<{ backends: HarnessAvailability[] }>()
   let push!: (state: HarnessAvailability) => void
   vi.stubGlobal('window', {
-    orca: {
+    oo: {
       backend: { list: vi.fn(() => list.promise) },
       harness: {
         onAvailability: vi.fn((handler) => {
@@ -45,5 +45,5 @@ it('applies production harness API pushes and preserves a newer push over a defe
   })
   await pending
   expect(store.getState().byId.opencode).toEqual(usable)
-  expect(window.orca.harness.onAvailability).toHaveBeenCalledOnce()
+  expect(window.oo.harness.onAvailability).toHaveBeenCalledOnce()
 })

@@ -58,7 +58,7 @@ describe('프로젝트 삭제는 대화 캐시의 소속만 해제한다', () =>
     const loading = new Promise<LoadedSession>((done) => {
       resolve = done
     })
-    Object.assign(window.orca, { session: { load: vi.fn(() => loading) } })
+    Object.assign(window.oo, { session: { load: vi.fn(() => loading) } })
     const operation = chatActions.loadSession('late-load')
     chatActions.detachProject('deleted-load')
     resolve({

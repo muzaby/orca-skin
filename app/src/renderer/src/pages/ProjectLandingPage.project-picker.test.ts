@@ -134,10 +134,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   fixture.pickDirectory.mockReset().mockResolvedValue('/selected')
   ipc = installChatStoreHarness()
-  const orca = window.orca
+  const oo = window.oo
   dom = installFakeDom({ innerWidth: 1000, innerHeight: 800 })
-  Object.assign(window, { orca })
-  Object.assign(window.orca, {
+  Object.assign(window, { oo })
+  Object.assign(window.oo, {
     session: {
       nativeResources: async () => ({ backend: 'claude', state: 'configured', items: [] }),
       onNativeResourcesChanged: () => () => {},

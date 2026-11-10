@@ -40,7 +40,7 @@ describe('renderer payload → schema → service → git (AC1 · AC2 · VP-09)'
     const { root: repo } = await createRepo(roots, {
       commits: [{ message: 'init' }]
     })
-    const managed = await mkdtemp(join(tmpdir(), 'orca-ipc-managed-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-ipc-managed-'))
     roots.push(managed)
 
     // renderer 가 실제로 보내는 형상 그대로 신뢰 경계를 건넌다.

@@ -14,7 +14,7 @@ import {
   type Event,
   type UserMessage
 } from '../../adapters/opencode/v1/adapter.testfixture'
-import type { OrcaBusEvents } from '../../contracts/bus-events'
+import type { OoBusEvents } from '../../contracts/bus-events'
 import type { TurnContext } from '../../contracts/turn'
 import { BackgroundController } from '../../features/chat/background-controller'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
@@ -251,7 +251,7 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
   })
   const events: NormalizedEvent[] = []
   const commits: UserCommit[] = []
-  const bus = new TypedBus<OrcaBusEvents<WebContents>>()
+  const bus = new TypedBus<OoBusEvents<WebContents>>()
   bus.on('turn.event', ({ ev }) => events.push(ev))
   const persistence: TurnPersistSink<WebContents> = {
     persist: () => {},

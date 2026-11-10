@@ -107,7 +107,7 @@ function toolCallsFragment(): MockStep[] {
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-read-1',
-      result: { content: '# Orca\nMock file result' },
+      result: { content: '# Orcinus orca\nMock file result' },
       isError: false,
       durationMs: 120
     })
@@ -122,14 +122,14 @@ function toolApprovalFragment(): MockStep[] {
       action: {
         kind: 'tool_approval',
         toolName: 'Bash',
-        input: { command: 'rm -rf /tmp/mock-orca-debug' }
+        input: { command: 'rm -rf /tmp/mock-orcinus-orca-debug' }
       },
       allow: [
         emit({
           type: 'tool.call.started',
           toolRunId: 'mock-bash-1',
           toolName: 'Bash',
-          args: { command: 'rm -rf /tmp/mock-orca-debug' }
+          args: { command: 'rm -rf /tmp/mock-orcinus-orca-debug' }
         }),
         delay(120),
         emit({

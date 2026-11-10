@@ -5,7 +5,7 @@ import { expect, it } from 'vitest'
 import { parseJsonObject, readJsonObject, readJsonObjectSync, writeJsonAtomic } from './json-file'
 
 it('creates missing parents, replaces existing files and leaves no temp file', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-json-file-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-json-file-'))
   try {
     const file = join(root, 'missing', 'parents', 'data.json')
     writeJsonAtomic(file, { first: true })
@@ -19,7 +19,7 @@ it('creates missing parents, replaces existing files and leaves no temp file', (
 })
 
 it('reads BOM objects, treats absent files as empty and preserves injected errors for malformed input', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-json-read-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-json-read-'))
   const file = join(root, 'settings.json')
   const failure = new Error('redacted')
   const invalid = (): Error => failure

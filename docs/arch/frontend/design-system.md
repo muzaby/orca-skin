@@ -6,7 +6,7 @@
 
 ## 1. 디자인 방향과 근거
 
-Orca는 검증 엔지니어가 긴 대화·코드·작업 결과를 읽는 데스크톱 도구다.
+Orcinus orca는 검증 엔지니어가 긴 대화·코드·작업 결과를 읽는 데스크톱 도구다.
 중립적인 표면, 얇은 경계, 작은 컨트롤, 읽기 쉬운 본문을 기본으로 한다.
 색·그림자·애니메이션은 선택·상태·계층을 설명하는 데 사용한다.
 
@@ -32,7 +32,7 @@ Orca는 검증 엔지니어가 긴 대화·코드·작업 결과를 읽는 데�
 
 | 범위 | 토큰 / 표면 | 선택 기준 |
 |---|---|---|
-| Orca 공통·Claude | `bg-bg`, `bg-sidebar`, `bg-panel`, `bg-bg2`, `text-ink` | 셸·카탈로그·설정·프로젝트·공통 채팅 표면의 기본 |
+| Orcinus orca 공통·Claude | `bg-bg`, `bg-sidebar`, `bg-panel`, `bg-bg2`, `text-ink` | 셸·카탈로그·설정·프로젝트·공통 채팅 표면의 기본 |
 | OpenCode 전용 chrome | `oc-*` | OpenCode 컨트롤·요청 dock·전용 도구 행·패널 내부에서 해당 하네스 구현을 따른다. |
 | OpenCode 공유 본문 | 공통 transcript 배경·활자·Markdown + 하네스별 색 | 전체 채팅 배경을 임의로 `oc-background`로 치환하지 않는다. [렌더링 계약](rendering.md)의 하네스 전용 표시 참조. |
 | 카메라·이미지 검사 | `stage-*`, Bayer·Histogram | 뷰포트·엔지니어링 표시용. 일반 설정·모달로 확장하지 않는다. |

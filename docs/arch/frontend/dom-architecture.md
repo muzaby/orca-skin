@@ -40,7 +40,7 @@ html[data-theme][data-platform]
             │   │   [data-behavior="collapsible resizable"]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
-            │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
+            │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orcinus orca" 브랜드 로고)
             │   │   │   ├── nav.app-frame-sidebar-nav   (새 대화 · 프로젝트 · 아티팩트 · 엔진 & 모델 · 플러그인 — 정본 `app/navItems.ts`; 자동화는 Future Scope 로 nav 미노출)
             │   │   │   ├── .app-frame-sidebar-sessions (고정됨 · 프로젝트 · 최근 대화 구획 — state.md §1.6)
             │   │   │   └── .app-frame-sidebar-footer
@@ -61,7 +61,7 @@ html[data-theme][data-platform]
             └── #app-frame-debug     z=30                 (DebugPanel 등 개발 보조 floating UI)
 ```
 
-footer 는 두지 않음 — Orca 는 정보 분산 배치 (모델/사용량 → composer 하단, 브랜치/상태 → titlebar, 계정 → sidebar footer).
+footer 는 두지 않음 — Orcinus orca 는 정보 분산 배치 (모델/사용량 → composer 하단, 브랜치/상태 → titlebar, 계정 → sidebar footer).
 
 > 추가로 sidebar `sessions` 슬롯 내부의 각 행은 `.app-frame-session-row` + `data-context="session"` + `data-state="active|inactive"` + `data-behavior="interactive selectable"` (rename 모드에서는 `interactive renaming`) 를 부여한다. `data-session-id` 가 함께 부착되어 외부 도구가 행을 식별할 수 있다.
 >

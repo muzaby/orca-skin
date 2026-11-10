@@ -22,7 +22,7 @@ import { buildAttachMenu } from '../../../lib/attachMenuModel'
 import type { SkillInfo } from '../../../../../../../shared/ipc'
 
 const skills = [
-  { name: 'a', sourceId: 'orca', sourceLabel: 'Orcinus orca', description: '설명 A' },
+  { name: 'a', sourceId: 'orcinus-orca', sourceLabel: 'Orcinus orca', description: '설명 A' },
   { name: 'c', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' }
 ] as SkillInfo[]
 const plugins = [{ kind: 'plugin' as const, id: 'jira', label: 'Jira' }]
@@ -90,11 +90,11 @@ describe('자동완성 정돈 (AC9·AC10)', () => {
         onPick: vi.fn()
       })
     )
-    const orca = html.indexOf('Orcinus orca')
+    const oo = html.indexOf('Orcinus orca')
     const claude = html.indexOf('Claude')
-    expect(orca).toBeGreaterThan(-1)
-    expect(claude).toBeGreaterThan(orca)
-    expect(html.indexOf('/a')).toBeGreaterThan(orca)
+    expect(oo).toBeGreaterThan(-1)
+    expect(claude).toBeGreaterThan(oo)
+    expect(html.indexOf('/a')).toBeGreaterThan(oo)
     expect(html.indexOf('/c')).toBeGreaterThan(claude)
     expect(html).toMatch(/aria-selected="true"[^>]*data-index="1"/)
   })

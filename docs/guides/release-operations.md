@@ -36,7 +36,7 @@ Orcinus orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 �
 
 ## 버전 정책 (SemVer, pre-1.0)
 
-`orca` 는 **0.1.0 에서 시작**한다. 1.0.0 GA 전까지 0.x 규약을 따른다:
+`orcinus-orca` 는 **0.1.0 에서 시작**한다. 1.0.0 GA 전까지 0.x 규약을 따른다:
 
 | bump | 명령 | 예 | 언제 |
 |---|---|---|---|
@@ -60,7 +60,7 @@ Orcinus orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 �
 - [ ] **버전 확인**: 헤더에 `v<new>` 표시.
 - [ ] **DB 마이그레이션**: 신버전에 새 마이그레이션이 있으면 `%APPDATA%/orcinus-orca/orcinus-orca.db.backup.before-<old>.<timestamp>` 백업 파일 생성 확인.
 - [ ] **데이터 보존**: 기존 세션·메시지가 그대로 보이는지 확인.
-- [ ] (선택) `orcinus-orca.json` 의 `update` override 경로를 쓰는 경우 해당 피드로도 감지 확인. 지원 provider: `github`(옵션 `host`=GitHub Enterprise) · `generic`(정적 HTTPS `url`) · `s3`(오브젝트 스토리지 — `bucket`+옵션 `endpoint`=MinIO/S3-호환·`region`·`path`) · `{ enabled: false }`(비활성). 스키마·조립은 `infra/config/orca-file.ts`·`app/updater-feed.ts`, 폐쇄망 배포는 [`closed-network-extensions.md §10`](./closed-network-extensions.md).
+- [ ] (선택) `orcinus-orca.json` 의 `update` override 경로를 쓰는 경우 해당 피드로도 감지 확인. 지원 provider: `github`(옵션 `host`=GitHub Enterprise) · `generic`(정적 HTTPS `url`) · `s3`(오브젝트 스토리지 — `bucket`+옵션 `endpoint`=MinIO/S3-호환·`region`·`path`) · `{ enabled: false }`(비활성). 스키마·조립은 `infra/config/oo-file.ts`·`app/updater-feed.ts`, 폐쇄망 배포는 [`closed-network-extensions.md §10`](./closed-network-extensions.md).
 
 ## 구버전(orca) 수동 제거
 
@@ -122,7 +122,7 @@ Orcinus orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 �
 | 앱이 업데이트를 감지 못함 | 1순위: tag workflow가 아닌 `workflow_dispatch` dry-run으로 실행했는지 확인. 그 외: release가 draft 상태, 버전이 semver로 더 낮음, `orcinus-orca.json` `update.enabled=false` |
 | 같은 태그 재실행 시 업로드 충돌 | 기존 release에 동명 자산이 남아 있음 — 실패 버전 번호를 재사용하지 말고 다음 patch 버전으로 전진 |
 | 구버전 설치 후 앱이 안 뜸 | `DB_SCHEMA_TOO_NEW` 다운그레이드 가드 — 위 클라이언트측 롤백 3단계(DB 백업 복원) 수행 |
-| 느린 러너(self-hosted·오래된 PC)에서 테스트가 시간 초과 · 작업이 상한에서 끊김 | 테스트 예산은 `기준값 × 배율`(기본 3)이다. 저장소 Settings → Variables 에 `ORCA_TEST_TIME_SCALE`(1 이상의 수, 예 `5`)을 두면 CI·release 의 Test 단계가 그 배율을 쓴다. 작업 상한은 `ORCA_CI_TIMEOUT_MINUTES`(기본 90)·`ORCA_RELEASE_TIMEOUT_MINUTES`(기본 135)로 함께 올린다 — 정본 `app/scripts/test-time.mjs` |
+| 느린 러너(self-hosted·오래된 PC)에서 테스트가 시간 초과 · 작업이 상한에서 끊김 | 테스트 예산은 `기준값 × 배율`(기본 3)이다. 저장소 Settings → Variables 에 `ORCINUS_ORCA_TEST_TIME_SCALE`(1 이상의 수, 예 `5`)을 두면 CI·release 의 Test 단계가 그 배율을 쓴다. 작업 상한은 `ORCINUS_ORCA_CI_TIMEOUT_MINUTES`(기본 90)·`ORCINUS_ORCA_RELEASE_TIMEOUT_MINUTES`(기본 135)로 함께 올린다 — 정본 `app/scripts/test-time.mjs`. 세 변수는 0306 에서 이름이 바뀌었다 — 이전 이름으로 둔 값은 읽지 않으므로 새 이름으로 다시 만든다(없으면 기본값으로 돈다) |
 | CI 에서 better-sqlite3 로드 실패 | `ensure-sqlite-abi.mjs` 훅 순서 전제(`npm ci`→test→build) 위반 여부 확인 — `npx electron-builder` 직접 호출 금지 |
 
 ## 압축된 renderer 스택 복원

@@ -11,7 +11,7 @@ let builtinDir: string
 let skillsDir: string
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-skill-seed-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-skill-seed-'))
   builtinDir = join(root, 'builtin', 'skills')
   skillsDir = join(root, 'sources', 'skills')
 })

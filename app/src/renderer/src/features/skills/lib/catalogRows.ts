@@ -4,7 +4,7 @@ import type { MessageKey } from '../../../shared/i18n'
 export function skillRowMeta(skill: SkillInfo): { updatedAtMs: number | null; author: string } {
   return {
     updatedAtMs: skill.updatedAt ?? null,
-    author: skill.sourceKind === 'orca' ? 'skills.table.user' : skill.sourceLabel
+    author: skill.sourceKind === 'orcinus-orca' ? 'skills.table.user' : skill.sourceLabel
   }
 }
 

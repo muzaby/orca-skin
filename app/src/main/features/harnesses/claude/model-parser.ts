@@ -35,7 +35,7 @@ const ALIAS_ENV_KEY: Record<ModelAlias, string> = {
   fable: 'ANTHROPIC_DEFAULT_FABLE_MODEL'
 }
 
-// 모델 선택 UI 1행. meta.json 의 구 OrcaModelConfig({name,family,default}) 를 대체한다.
+// 모델 선택 UI 1행. meta.json 의 구 모델 설정 타입({name,family,default})을 대체한다.
 export type { ParsedModel } from '../common/model-types'
 
 interface AliasCandidate extends ParsedModel {}

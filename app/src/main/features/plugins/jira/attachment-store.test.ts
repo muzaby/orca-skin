@@ -20,7 +20,7 @@ vi.mock('../../../infra/config/temp-path', () => ({ prepareTemporaryFilesPath: v
 
 const roots: string[] = []
 const root = async (): Promise<string> => {
-  const value = await mkdtemp(join(tmpdir(), 'orca-jira-store-'))
+  const value = await mkdtemp(join(tmpdir(), 'orcinus-orca-jira-store-'))
   roots.push(value)
   return value
 }

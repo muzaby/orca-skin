@@ -28,7 +28,7 @@ it('an explicit repeat open requests the same offscreen tile again; background p
   expect(useChatStore.getState().sessions.s.panelReveal).toBe(second)
 })
 it('background publication refreshes a mounted list without changing chat layout or reveal identity', async () => {
-  Object.assign(window.orca, { artifacts: { list: vi.fn().mockResolvedValue([artifact]) } })
+  Object.assign(window.oo, { artifacts: { list: vi.fn().mockResolvedValue([artifact]) } })
   const release = acquireArtifacts('s', [], true)
   chatActions.setRightPanelTileActive('task', true)
   chatActions.setRightPanelTileActive('plan', true)
@@ -53,7 +53,7 @@ it('session invalidation discards a pending artifact list and does not recreate 
         resolve = done
       })
   )
-  Object.assign(window.orca, { artifacts: { list } })
+  Object.assign(window.oo, { artifacts: { list } })
   acquireArtifacts('s', [], true)
   const pending = refreshArtifactList('s')
   chatActions.invalidateSessionCache('s')

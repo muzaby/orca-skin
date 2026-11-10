@@ -34,7 +34,7 @@ import {
   type NormalizedHookSet
 } from '../common/hooks'
 
-// Claude Code plugin root 들을 SDK local plugin 옵션으로 변환한다(0117 에서 복수화 — Orca plugin +
+// Claude Code plugin root 들을 SDK local plugin 옵션으로 변환한다(0117 에서 복수화 — Orcinus orca plugin +
 // 사용자 ~/.claude/skills 래퍼 plugin). 상대 경로는 cwd 기준이라 세션 cwd 변경과 얽힐 수 있으므로
 // 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트(.claude-plugin/plugin.json)가
 // 없는 root 는 개별 생략한다 — deploy 실패/미실행 시 SDK 에 존재하지 않는 local plugin 경로를 넘겨
@@ -61,12 +61,12 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// Skill 은 두 plugin(sources/skills → dist/plugins/orca/skills · ~/.claude/skills → dist/plugins/claude
+// Skill 은 두 plugin(sources/skills → dist/plugins/orcinus-orca/skills · ~/.claude/skills → dist/plugins/claude
 // 래퍼, 0117) 에서 발견되고, SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다. plugin 스킬은
-// `plugin-name:skill-name` 네임스페이스로 발견되므로 Orca 스킬은 `orca:`, 어댑터 스킬은 `claude:`
+// `plugin-name:skill-name` 네임스페이스로 발견되므로 Orcinus orca 스킬은 `orcinus-orca:`, 어댑터 스킬은 `claude:`
 // prefix 를 붙인다(adaptSkillNameForClaude). canToggle인 소스만 명시한 enabled를 반영한다. 알려진 스킬이
 // 하나도 없으면 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다. 네이티브 플러그인의
-// 원래 이름은 nativeSkills 로 합쳐 Orca 필터가 활성 네이티브 스킬을 차단하지 않게 한다.
+// 원래 이름은 nativeSkills 로 합쳐 Orcinus orca 필터가 활성 네이티브 스킬을 차단하지 않게 한다.
 export function adaptSkills(skills: SkillInfo[], nativeSkills: readonly string[] = []): object {
   if (skills.length === 0) return { skills: 'all' as const }
   const active = skills
@@ -104,7 +104,7 @@ export function adaptSettingSources(): Pick<Options, 'settingSources'> {
   return { settingSources: ['project', 'local'] }
 }
 
-// 시스템(턴) env 주입. 턴 env(orca.json 앱 env 병합 결과)를 options.env(subprocess
+// 시스템(턴) env 주입. 턴 env(orcinus-orca.json 앱 env 병합 결과)를 options.env(subprocess
 // env)로 넘긴다. provider settings 의 env 는 settings flag(adaptSettings)로 흐르므로 여기서는
 // 시스템 env 만 다룬다(handoff 0028). 베이스가 없으면 옵션을 생략해 SDK 기본 env(process.env
 // 상속) 동작을 유지한다.

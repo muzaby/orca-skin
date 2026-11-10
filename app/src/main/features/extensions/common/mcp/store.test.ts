@@ -73,4 +73,12 @@ describe('McpStore 캐시 (0092)', () => {
     expect(store.enabledConfig()).toEqual({ api: { type: 'http', url: 'https://x' } })
     expect(readMcpFile).toHaveBeenCalledTimes(1)
   })
+
+  it('비밀만 주고 변수 이름을 안 주면 제품 접두사로 합성한다 (0306 EP-07)', () => {
+    const store = new McpStore(fakeSettings())
+    store.add({ name: 'my-api', transport: 'http', url: 'https://x', auth: 'token' })
+    expect(store.list().find((server) => server.name === 'my-api')?.authEnvKey).toBe(
+      'ORCINUS_ORCA_MCP_MY_API_AUTH'
+    )
+  })
 })

@@ -12,7 +12,7 @@ vi.mock('node:fs/promises', async (original) => ({
 
 const roots: string[] = []
 async function tempRoot(): Promise<string> {
-  const root = await fs.mkdtemp(join(tmpdir(), 'orca-artifact-path-'))
+  const root = await fs.mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-path-'))
   roots.push(root)
   return fs.realpath(root)
 }
@@ -95,7 +95,7 @@ describe('artifact storage root validation', () => {
 
 describe('bounded file-handle publication reads', () => {
   it('rejects a real file modified after opening instead of publishing mixed bytes', async () => {
-    const root = await fs.mkdtemp(join(tmpdir(), 'orca-artifact-read-'))
+    const root = await fs.mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-read-'))
     roots.push(root)
     const path = join(root, 'report.md')
     await fs.writeFile(path, 'Original')
@@ -114,7 +114,7 @@ describe('bounded file-handle publication reads', () => {
   })
 
   it('closes its handle when reading fails and reports no partial successful buffer', async () => {
-    const root = await fs.mkdtemp(join(tmpdir(), 'orca-artifact-read-'))
+    const root = await fs.mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-read-'))
     roots.push(root)
     const path = join(root, 'report.md')
     await fs.writeFile(path, 'Original')

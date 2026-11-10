@@ -47,7 +47,7 @@ const write = (path: string, value: unknown): void => {
 beforeEach(() => {
   fixture.query.mockClear()
   fixture.messages.length = 0
-  temp = mkdtempSync(join(tmpdir(), 'orca-native-spawn-'))
+  temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-native-spawn-'))
   cwd = join(temp, 'project')
   root = join(temp, 'claude')
   plugin = join(temp, 'frontend-design')
@@ -152,9 +152,9 @@ async function selectPlugin(live: LiveTurn, enabled: boolean): Promise<void> {
 const skill = (name: string, enabled: boolean): SkillInfo => ({
   name,
   enabled,
-  sourceKind: 'orca',
-  sourceId: 'orca',
-  sourceLabel: 'Orca',
+  sourceKind: 'orcinus-orca',
+  sourceId: 'orcinus-orca',
+  sourceLabel: 'Orcinus orca',
   description: '',
   canToggle: true,
   canRemove: true,
@@ -163,9 +163,9 @@ const skill = (name: string, enabled: boolean): SkillInfo => ({
 })
 
 it.each([null, 'resume-native-B'])(
-  'loads enabled native skills for session %s alongside Orca skills',
+  'loads enabled native skills for session %s alongside Orcinus orca skills',
   async (sessionId) => {
-    const injected = join(temp, 'orca')
+    const injected = join(temp, 'orcinus-orca')
     write(join(injected, '.claude-plugin/plugin.json'), { name: 'orcinus-orca' })
     fixture.messages.push({
       type: 'system',

@@ -17,8 +17,8 @@ const skill = (name: string, sourceId: string, enabled = true): SkillInfo => ({
   skillDir: '/'
 })
 const catalog = [
-  skill('local', 'orca'),
-  skill('disabled', 'orca', false),
+  skill('local', 'orcinus-orca'),
+  skill('disabled', 'orcinus-orca', false),
   skill('superpowers:using-superpowers', 'plugin:claude', false),
   skill('other:command', 'plugin:opencode'),
   skill('user-file', 'adapter:claude')
@@ -62,7 +62,7 @@ it('removes disabled session commands and never resurrects catalog-only plugin e
     ])
   }
 })
-it('keeps OpenCode native commands while excluding Orca and Claude file extensions', () => {
+it('keeps OpenCode native commands while excluding Orcinus orca and Claude file extensions', () => {
   expect(composerSkills(catalog, 'opencode', false, native).map((s) => s.sourceId)).toEqual([
     'plugin:opencode'
   ])

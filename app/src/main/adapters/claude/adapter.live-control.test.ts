@@ -51,7 +51,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
 import type { TurnRequest } from '../common/turn'
 import { ClaudeAdapter } from './adapter'
 
-const isolatedConfig = join(tmpdir(), `orca-live-control-config-${randomUUID()}`)
+const isolatedConfig = join(tmpdir(), `orcinus-orca-live-control-config-${randomUUID()}`)
 beforeEach(() => vi.stubEnv('CLAUDE_CONFIG_DIR', isolatedConfig))
 afterEach(() => vi.unstubAllEnvs())
 
@@ -117,11 +117,11 @@ it('wires native status, loaded plugins, injected exclusions and read-only MCP g
     session_id: 'native-session',
     uuid: 'init-id',
     tools: [],
-    slash_commands: ['native-plugin:review', 'orca:internal'],
+    slash_commands: ['native-plugin:review', 'orcinus-orca:internal'],
     mcp_servers: [],
     plugins: [
       { name: 'native-plugin', path: '/native' },
-      { name: 'orca', path: '/injected' }
+      { name: 'orcinus-orca', path: '/injected' }
     ]
   } as unknown as SDKMessage)
   const request = baseReq()

@@ -16,7 +16,7 @@ renderer 제작·컴포넌트 추가·기존 UI 수정 전에
 [컴포넌트 카탈로그](../../../docs/arch/frontend/design-components.md)의 해당 영역을 **읽고 준수한다**.
 AI도 동일하게 적용한다. 토큰 값·props는 연결된 현재 소스에서 확인한다.
 
-1. **역할과 범위 선택**: 공통 Orca·Claude / OpenCode 전용 chrome / 카메라 stage / 개발 패널 중 적용 범위를 정한다. 하네스별 표면을 공통 셸에 전파하지 않는다.
+1. **역할과 범위 선택**: 공통 Orcinus orca·Claude / OpenCode 전용 chrome / 카메라 stage / 개발 패널 중 적용 범위를 정한다. 하네스별 표면을 공통 셸에 전파하지 않는다.
 2. **재사용 우선**: 카탈로그에서 같은 역할의 선례를 열고 Button·MenuItem·Modal·Catalog UI·PanelControls·ReadingColumn 등 기존 primitive를 사용한다. 새 범용 UI는 shared, 도메인 UI는 해당 feature, 조립은 pages/app에 둔다.
 3. **상태 설계**: 관련되는 기본·hover·focus·선택·disabled·busy·empty·error·success·펼침/닫힘을 정의한다. 키보드 경로·접근성 이름·초점 복귀·긴 텍스트·좁은 pane도 포함한다.
 4. **구현**: 아래 레이어·토큰·style·group 규칙과 디자인 시스템을 지킨다. 기존 원시 색·고정 크기를 새 컴포넌트의 관례로 복사하지 않는다.

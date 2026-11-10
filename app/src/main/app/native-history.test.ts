@@ -12,7 +12,7 @@ import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { resolveTurn } from './chat-turn/resolve-turn'
 import type { RouterContext } from './context'
 import { createNativeHistoryRefresh, nativeHistoryBusy } from './native-history'
-vi.mock('../infra/config/orca-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
+vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
 
@@ -111,7 +111,7 @@ function setup(backend: 'claude' | 'opencode'): {
 }
 
 describe('native history composition', () => {
-  it('reads the replacement identity and masks its recovery input before refreshing the Orca snapshot', async () => {
+  it('reads the replacement identity and masks its recovery input before refreshing the Orcinus orca snapshot', async () => {
     const f = setup('opencode')
     f.ctx.db.nativeHistory.recovery = () => ({
       native_id: 'replacement',

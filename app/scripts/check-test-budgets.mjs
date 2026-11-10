@@ -687,7 +687,7 @@ const UNRESOLVED_LABELS = {
 
 const SCALE_HINT = {
   setConfig:
-    '`vi.setConfig(scaledBudget({ … }))` 로 감싼다 — 리터럴 예산은 배율(ORCA_TEST_TIME_SCALE)을 무시한다',
+    '`vi.setConfig(scaledBudget({ … }))` 로 감싼다 — 리터럴 예산은 배율(ORCINUS_ORCA_TEST_TIME_SCALE)을 무시한다',
   case: '케이스 타임아웃은 `scaleMs(기준값)` 이다 — 리터럴은 전역 예산(× 배율)보다 작아져 조용히 이긴다',
   hook: '훅 타임아웃은 `scaleMs(기준값)` 이다',
   deadline:

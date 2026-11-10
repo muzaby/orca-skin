@@ -12,16 +12,16 @@ describe('Claude native resources', () => {
         supportedCommands: async () => [
           { name: 'native:review', description: 'Review code', argumentHint: '<file>' },
           { name: 'mcp__docs__search', description: 'Search docs', argumentHint: '<query>' },
-          { name: 'orca:private', description: '', argumentHint: '' },
+          { name: 'orcinus-orca:private', description: '', argumentHint: '' },
           { name: 'mcp__runtime__private', description: '', argumentHint: '' },
-          { name: 'mcp__plugin:orca:tools__private', description: '', argumentHint: '' },
+          { name: 'mcp__plugin:orcinus-orca:tools__private', description: '', argumentHint: '' },
           { name: 'compact', description: '', argumentHint: '', builtin: true }
         ]
       },
       ['/injected'],
       ['runtime']
     )
-    resources.observePlugins([{ name: 'orca', path: '/injected' }])
+    resources.observePlugins([{ name: 'orcinus-orca', path: '/injected' }])
     expect(await resources.commands()).toEqual([
       {
         name: 'native:review',
@@ -48,7 +48,7 @@ describe('Claude native resources', () => {
     { name: 'auth', status: 'needs-auth' },
     { name: 'sdk', status: 'connected', scope: 'dynamic', source: 'sdk' },
     { name: 'runtime', status: 'connected' },
-    { name: 'plugin:orca:tools', status: 'connected', source: 'plugin' }
+    { name: 'plugin:orcinus-orca:tools', status: 'connected', source: 'plugin' }
   ]
   function fixture(): {
     query: {
@@ -64,7 +64,7 @@ describe('Claude native resources', () => {
     const resources = claudeNativeResources(query, ['/injected'], ['runtime'])
     resources.observePlugins([
       { name: 'native-plugin', path: '/private/plugin' },
-      { name: 'orca', path: '/injected' }
+      { name: 'orcinus-orca', path: '/injected' }
     ])
     return { query, resources }
   }
@@ -99,14 +99,14 @@ describe('Claude native resources', () => {
         canToggle: false
       },
       {
-        id: 'plugin:orca:tools',
+        id: 'plugin:orcinus-orca:tools',
         source: 'plugin',
         name: 'tools',
         kind: 'mcp',
         status: 'connected',
         enabled: true,
         canToggle: false,
-        origin: 'orca'
+        origin: 'orcinus-orca'
       },
       {
         id: nativePluginId('/private/plugin'),
@@ -121,7 +121,7 @@ describe('Claude native resources', () => {
   })
   it('rejects both MCP toggle directions before SDK native Git-root persistence', async () => {
     const { query, resources } = fixture()
-    for (const id of ['native', 'off', 'runtime', 'plugin:orca:tools', 'missing'])
+    for (const id of ['native', 'off', 'runtime', 'plugin:orcinus-orca:tools', 'missing'])
       for (const enabled of [true, false])
         await expect(resources.set(id, enabled)).rejects.toThrow()
     expect(query.toggleMcpServer).not.toHaveBeenCalled()

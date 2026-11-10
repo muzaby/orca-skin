@@ -1,5 +1,5 @@
 // fork/handoff 도착 물질화 (L1 domain, handoff 0064). 컨텍스트 전달은 SDK 네이티브
-// forkSession 에 위임하므로 Orca 측 일은 (a) lineage 영속(공통) + (b) fork 만 display 복사
+// forkSession 에 위임하므로 Orcinus orca 측 일은 (a) lineage 영속(공통) + (b) fork 만 display 복사
 // (원문 transcript 를 도착 세션 DB 로 — handoff 는 모델 컨텍스트만 이력을 보유, 원문은
 // 출발 세션에서 확인)뿐이다.
 //

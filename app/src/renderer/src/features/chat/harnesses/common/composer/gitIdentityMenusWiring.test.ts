@@ -123,7 +123,13 @@ interface Props {
   githubUrl: string | null
 }
 
-const BASE: Props = { cwd: '/repo', repo: 'orca', branch: 'main', detached: false, githubUrl: null }
+const BASE: Props = {
+  cwd: '/repo',
+  repo: 'orcinus-orca',
+  branch: 'main',
+  detached: false,
+  githubUrl: null
+}
 
 type Node = ReactElement & { props?: Record<string, unknown> }
 

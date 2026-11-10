@@ -16,7 +16,7 @@ const appVersion = packageJson.version
 // 따라서 preset 이 끝난 뒤(`enforce: 'post'`) `base` 를 절대 경로 `/` 로 되돌린다.
 function absoluteRendererBase(): Plugin {
   return {
-    name: 'orca:absolute-renderer-base',
+    name: 'orcinus-orca:absolute-renderer-base',
     enforce: 'post',
     config(config) {
       config.base = '/'

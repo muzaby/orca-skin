@@ -26,7 +26,7 @@ export const CLAUDE_DESCRIPTOR: ProviderDescriptor = {
     resume: true, // SDK Options.resume [검증-런타임]
     fork: true, // SDK Options.forkSession (typescript.md:457) [검증-타입]
     persistSessionFalse: true, // 새 채팅(sessionId=null) 비영속 시작 [검증-런타임]
-    delete: true, // Orca DB hard delete (CASCADE) [검증-런타임]
+    delete: true, // Orcinus orca DB hard delete (CASCADE) [검증-런타임]
     update: true, // 세션 rename/title [검증-런타임]
     // structure / control
     children: false, // Claude SDK 에 대응 함수 없음 (OpenCode session.children 전용) [N/A-claude]

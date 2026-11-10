@@ -3,7 +3,7 @@
 //
 // **왜 교집합인가.** SDK JSDoc(`sdk.d.ts:3487`)이 명시한다 — 목록에는 *"internally-enqueued
 // uuids the client never sent (cron triggers, auto-resume continuations)"* 가 섞이며,
-// *"ignore unknown uuids rather than treating them as an error"* 다. Orca 는 백그라운드
+// *"ignore unknown uuids rather than treating them as an error"* 다. Orcinus orca 는 백그라운드
 // 서브에이전트가 기본이라(0143) 완료 알림이 CLI 내부 큐 주입 → auto-resume continuation 으로
 // 새 턴을 연다. 즉 **모르는 uuid 는 정상이며, 그것을 잔여로 오인해 런타임을 폐기하면 백그라운드
 // 완료 통지가 죽는다.**

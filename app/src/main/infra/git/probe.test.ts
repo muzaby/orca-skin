@@ -57,7 +57,7 @@ describe('probeRepo', () => {
     expect(worktree.head).toMatchObject({ kind: 'branch', name: 'linked' })
   })
   it('does not execute for missing directories and distinguishes absent git', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'orca-probe-plain-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-probe-plain-'))
     roots.push(cwd)
     expect(await probeRepo(cwd)).toEqual({ kind: 'not-repo' })
     const run = vi.fn(async () => ({

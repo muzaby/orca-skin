@@ -27,7 +27,7 @@ export interface RemoteModelUsage extends RemoteUsageMetrics {
 }
 
 export interface RemoteDailyUsage {
-  day: string // YYYY-MM-DD, Orca OS 로컬 날짜 달력. 변환은 배포 매퍼 책임.
+  day: string // YYYY-MM-DD, Orcinus orca OS 로컬 날짜 달력. 변환은 배포 매퍼 책임.
   total?: RemoteUsageMetrics | null
   models?: readonly RemoteModelUsage[] | null
 }

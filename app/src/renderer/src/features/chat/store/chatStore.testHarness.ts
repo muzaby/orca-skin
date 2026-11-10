@@ -1,4 +1,4 @@
-// chatStore 단위 테스트 공용 하네스(0149) — rAF 스텁 + window.orca 스텁 + 스토어 시드.
+// chatStore 단위 테스트 공용 하네스(0149) — rAF 스텁 + window.oo 스텁 + 스토어 시드.
 //
 // chatStore.test.ts 와 chatStore.listen.test.ts 가 같은 ~45줄을 복제하고 있었다(후자 파일 주석이
 // "동일 하네스" 라고 자인). ChatStoreState 에 필드가 하나 늘 때마다(listening/listenStartedAt 이
@@ -47,7 +47,7 @@ export function installChatStoreHarness(
   const backgroundSubagent = vi.fn().mockResolvedValue(undefined)
   const permissionSetMode = vi.fn().mockImplementation(async ({ mode }) => mode)
   vi.stubGlobal('window', {
-    orca: {
+    oo: {
       boot: { whenReady: async () => undefined },
       chat: {
         send: chatSend,

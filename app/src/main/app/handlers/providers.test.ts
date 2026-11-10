@@ -39,7 +39,7 @@ describe('registerConnectionHandlers', () => {
   // 0188 — 내부 소유자는 바뀌었지만 **채널 이름은 compat 계약이라 그대로다**(D-030).
   it('등록 집합이 CHANNELS 의 provider 도메인 전수와 일치한다', () => {
     const declared = Object.entries(CHANNELS)
-      .filter(([, value]) => value.startsWith('orca:provider:'))
+      .filter(([, value]) => value.startsWith('oo:provider:'))
       .map(([, value]) => value)
     expect([...EXPECTED].sort()).toEqual([...declared].sort())
   })

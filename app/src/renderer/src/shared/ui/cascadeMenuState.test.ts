@@ -21,8 +21,8 @@ const items: CascadeItem<A>[] = [
     items: [
       {
         kind: 'submenu',
-        id: 'orca',
-        label: 'orca',
+        id: 'orcinus-orca',
+        label: 'orcinus-orca',
         items: [
           { kind: 'action', id: 's1', label: 's1', action: 'skill:s1' },
           { kind: 'action', id: 's2', label: 's2', action: 'skill:s2', disabled: true },

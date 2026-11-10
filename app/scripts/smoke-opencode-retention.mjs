@@ -8,9 +8,9 @@ import { spawn, execFile } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
 import assert from 'node:assert/strict'
 
-const source = resolve(process.env.ORCA_SMOKE_SOURCE || '.')
+const source = resolve(process.env.ORCINUS_ORCA_SMOKE_SOURCE || '.')
 const baseline = process.argv.includes('--baseline')
-const root = await mkdtemp(join(tmpdir(), 'orca-retention-cli-'))
+const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-retention-cli-'))
 const records = [],
   requests = [],
   children = [],
@@ -472,7 +472,7 @@ try {
     requests
   }
   await writeFile(
-    process.env.ORCA_SMOKE_REPORT || join(root, 'report.json'),
+    process.env.ORCINUS_ORCA_SMOKE_REPORT || join(root, 'report.json'),
     JSON.stringify(report, null, 2)
   )
 } finally {

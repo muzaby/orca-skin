@@ -22,7 +22,7 @@ async function git(
 }
 
 async function repo(): Promise<string> {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-hermetic-git-'))
+  const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-hermetic-git-'))
   roots.push(cwd)
   const { stderr } = await git(cwd, ['init', '-q', '--initial-branch=main'])
   expect(stderr).toBe('')

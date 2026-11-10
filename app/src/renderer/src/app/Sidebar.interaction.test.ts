@@ -50,7 +50,7 @@ function render(collapsed = false): {
 } {
   route.collapsed = collapsed
   const harness = installChatStoreHarness({ backend: 'claude', title: 'keep existing' })
-  const orca = window.orca
+  const oo = window.oo
   dom = installFakeDom({
     innerWidth: 1200,
     innerHeight: 800,
@@ -64,7 +64,7 @@ function render(collapsed = false): {
       return undefined
     }
   })
-  Object.assign(window, { orca })
+  Object.assign(window, { oo })
   dom.render(
     createElement(Sidebar, {
       projectsSlot: null,

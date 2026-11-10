@@ -128,7 +128,7 @@ export function registerArtifactHandlers(
           if (selected.canceled || !selected.filePaths[0])
             return { outcome: 'cancelled', items: [] }
           destination = await realpath(selected.filePaths[0])
-          await assertExportDestination(join(destination, '.orca-export-check'), root)
+          await assertExportDestination(join(destination, '.orcinus-orca-export-check'), root)
         }
         for (const publicationId of publicationIds) {
           try {

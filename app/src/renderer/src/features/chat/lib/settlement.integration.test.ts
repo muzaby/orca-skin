@@ -16,7 +16,7 @@ import { DbQueries } from '../../../../../main/infra/db/queries'
 import { applyMigrations } from '../../../../../main/infra/db/migrate'
 import { TypedBus } from '../../../../../main/infra/bus'
 import { makeClassifiedError } from '../../../../../main/infra/errors'
-import type { OrcaBusEvents } from '../../../../../main/contracts/bus-events'
+import type { OoBusEvents } from '../../../../../main/contracts/bus-events'
 import type { TurnContext } from '../../../../../main/contracts/turn'
 import type { TurnRequest } from '../../../../../main/adapters/common/turn'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
@@ -109,7 +109,7 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           delivered.push(event)
           live = chatReducer(live, { type: 'RECV_EVENT', event })
         }
-        const bus = new TypedBus<OrcaBusEvents<WebContents>>()
+        const bus = new TypedBus<OoBusEvents<WebContents>>()
         bus.on('turn.event', ({ turn, ev }) => writer.persist(turn, ev), { critical: true })
         bus.on('turn.event', ({ ev }) => forward(owner, ev))
         await new TurnCoordinator<WebContents>({

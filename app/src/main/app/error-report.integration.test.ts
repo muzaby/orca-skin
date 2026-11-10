@@ -31,7 +31,7 @@ describe('main → IPC → renderer reporting', () => {
     const log = { error, warn: vi.fn(), info: vi.fn(), debug: vi.fn(), child: () => log }
     setRootLogger(log)
     const rendererLog = vi.fn()
-    vi.stubGlobal('window', { orca: { log: { error: rendererLog } } })
+    vi.stubGlobal('window', { oo: { log: { error: rendererLog } } })
     reportError({
       event: 'app.uncaught.exception',
       scope: 'app',

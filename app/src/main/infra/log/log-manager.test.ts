@@ -86,7 +86,7 @@ describe('레벨 정책 (dev/prod)', () => {
     expect(lines.length).toBe(1)
   })
 
-  // 0144 — orca.json debug 스위치 런타임 반영.
+  // 0144 — orcinus-orca.json debug 스위치 런타임 반영.
   it('setDebugEnabled(true) 면 prod(dev:false) 도 debug 를 기록한다', () => {
     const { m, lines } = manager({ dev: false })
     m.emit({ level: 'debug', event: 'x.y.z', scope: 's' }, MAIN)

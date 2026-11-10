@@ -21,7 +21,7 @@ interface SessionInputStream {
   // 주의: push 는 SDK 서브프로세스 stdin 으로 입력을 흘려보낼 뿐 — UI/영속 커밋은 CLI 가 소비
   // 후 되돌려주는 user echo(input.echo)로 확정한다(0060 D1·0067 AC6). SDK 는 이 AsyncIterable
   // 을 eager 하게 drain 하므로 pull ≠ 소비다.
-  // uuid 는 orca 가 부여하는 상관키(PendingMessageQueue 아이템/배치 uuid) — echo 매칭 1차 키.
+  // uuid 는 Orcinus orca 가 부여하는 상관키(PendingMessageQueue 아이템/배치 uuid) — echo 매칭 1차 키.
   //
   // 반환값(0151 AC3) = **로컬 스트림 수용 여부**뿐이다. closed 스트림이면 false 를 돌려주고
   // 호출자가 예약을 롤백할 수 있게 한다 — 구 계약(void)은 닫힌 스트림을 조용히 삼켜, 메시지가
@@ -32,7 +32,7 @@ interface SessionInputStream {
   close(): void
 }
 
-// 주입 user 메시지 — uuid(orca 상관키) + priority 'next'(도구 경계 drain 클래스)를 명시한다.
+// 주입 user 메시지 — uuid(Orcinus orca 상관키) + priority 'next'(도구 경계 drain 클래스)를 명시한다.
 // priority 기본값도 'next' 지만 CLI 버전 드리프트를 막기 위해 고정으로 싣는다(0060 D1). idle
 // 채널에서는 다음 턴 프롬프트로(P2 픽업), busy 채널에서는 도구 경계에서(P1 drain) 소비된다 —
 // 분기는 CLI 몫(0067 설계: 주입 로직은 SDK 역할).

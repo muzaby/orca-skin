@@ -53,10 +53,10 @@ beforeEach(() => {
     agentKind: 'code',
     modelFamily: 'model'
   })
-  const orca = window.orca
+  const oo = window.oo
   dom = installFakeDom({ innerWidth: 1000, innerHeight: 800 })
-  Object.assign(window, { orca })
-  Object.assign(window.orca, {
+  Object.assign(window, { oo })
+  Object.assign(window.oo, {
     session: {
       composerCatalog: async (r: ComposerCatalogRequest) => ({
         part: r.part,
@@ -78,7 +78,7 @@ const trigger = (): import('../../../../../shared/ui/renderHarness.testfixture')
   dom.query('[aria-label="harness.agent"]')!
 it('routes returned first agent through label, check, real store and initial send while models still load', async () => {
   const models = Promise.withResolvers<ComposerCatalogResult>()
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     session: {
       composerCatalog: (r: ComposerCatalogRequest) =>
         r.part === 'agents'
@@ -138,9 +138,9 @@ it('keeps manual selection, falls back on removal, clears empty results and send
     agentKind: 'code',
     harnessAgent: 'a-second'
   })
-  const orca = window.orca
+  const oo = window.oo
   dom = installFakeDom({ innerWidth: 1000, innerHeight: 800 })
-  Object.assign(window, { orca })
+  Object.assign(window, { oo })
   render()
   expect(chatActions.send('next')).toBe(true)
   expect(ipc.chatSend.mock.calls[0][0]).toMatchObject({

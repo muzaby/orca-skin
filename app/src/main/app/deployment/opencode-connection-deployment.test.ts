@@ -26,7 +26,7 @@ vi.mock('../../infra/ipc/send', () => ({
 }))
 vi.mock('../../infra/ipc/wire-log', () => ({ setWireSink: vi.fn() }))
 vi.mock('../../infra/error-report', () => ({ reportError: reported }))
-vi.mock('../../infra/config/orca-config', () => ({ getOrcaConfig: () => ({}), appEnv: () => ({}) }))
+vi.mock('../../infra/config/oo-config', () => ({ getOoConfig: () => ({}), appEnv: () => ({}) }))
 
 const { createAuthRuntime } = await import('../../features/auth/runtime')
 const { createMemoryGrantPersistence } = await import('../../features/auth/store')
@@ -126,7 +126,7 @@ interface BootedApp {
 }
 
 function boot(host: HostHarnessPort): BootedApp {
-  const root = mkdtempSync(join(tmpdir(), 'orca-0291-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-0291-'))
   roots.push(root)
   const raw = new Map<string, string>()
   const { runtime: auth } = createAuthRuntime({

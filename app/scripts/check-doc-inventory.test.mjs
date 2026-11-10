@@ -39,9 +39,9 @@ function makeFixture(files) {
 
 const IPC_STUB = `
 export const CHANNELS = {
-  CHAT_SEND: 'orca:chat:send',
-  CHAT_EVENT: 'orca:chat:event',
-  SESSION_LIST: 'orca:session:list'
+  CHAT_SEND: 'oo:chat:send',
+  CHAT_EVENT: 'oo:chat:event',
+  SESSION_LIST: 'oo:session:list'
 } as const
 
 export type NormalizedEvent =
@@ -84,7 +84,7 @@ function fullFixture(extra = {}) {
 describe('파서', () => {
   test('채널과 도메인 분포를 뽑는다', () => {
     const { channels, domains } = parseChannels(IPC_STUB)
-    assert.deepEqual(channels, ['orca:chat:event', 'orca:chat:send', 'orca:session:list'])
+    assert.deepEqual(channels, ['oo:chat:event', 'oo:chat:send', 'oo:session:list'])
     assert.deepEqual(domains, [
       ['chat', 2],
       ['session', 1]

@@ -196,7 +196,7 @@ it.each([
 ] as const)(
   'broadcasts Claude %s config / %s file changes through the configured native paths',
   async (configured, kind) => {
-    const home = await mkdtemp(join(tmpdir(), 'orca-claude-watch-path-'))
+    const home = await mkdtemp(join(tmpdir(), 'orcinus-orca-claude-watch-path-'))
     vi.spyOn(os, 'homedir').mockReturnValue(home)
     const root = join(home, configured ? 'custom' : '.claude')
     vi.stubEnv('CLAUDE_CONFIG_DIR', configured ? root : undefined)
@@ -238,7 +238,7 @@ it.each([
   }
 )
 it('broadcasts Claude global changes only on the common channel and closes both watchers on shutdown', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-claude-watch-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-claude-watch-'))
   vi.stubEnv('CLAUDE_CONFIG_DIR', root)
   await writeFile(join(root, 'settings.json'), '{}')
   const bootstrap = new Bootstrap(() => true)
@@ -347,7 +347,7 @@ function register(realBootstrap?: Bootstrap): {
 }
 
 it('carries catalog changes through the real bootstrap registry into every new SDK query', async () => {
-  const temp = await mkdtemp(join(tmpdir(), 'orca-control-wiring-'))
+  const temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-control-wiring-'))
   const root = join(temp, 'native'),
     plugin = join(temp, 'plugin')
   await mkdir(join(root, 'plugins'), { recursive: true })
@@ -494,7 +494,7 @@ it('wires native resource lookups to the current supervisor runtime', () => {
 })
 
 it('reads native configuration through the registered module using stored backend and cwd', async () => {
-  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-native-'))
+  const temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-bootstrap-native-'))
   const root = join(temp, 'claude')
   const cwd = join(temp, 'session-B')
   const { ctx, activity } = register()
@@ -609,24 +609,24 @@ it('reads native configuration through the registered module using stored backen
   }
 })
 
-it('refreshes the bootstrap skill cache with native catalog sources and preserves Orca enablement', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-bootstrap-skills-'))
+it('refreshes the bootstrap skill cache with native catalog sources and preserves Orcinus orca enablement', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-bootstrap-skills-'))
   try {
     vi.stubEnv('OPENCODE_CONFIG_DIR', root)
     await mkdir(join(root, 'skills', 'native-refresh'), { recursive: true })
-    await mkdir(join(root, 'orca', 'off'), { recursive: true })
+    await mkdir(join(root, 'orcinus-orca', 'off'), { recursive: true })
     await writeFile(
       join(root, 'skills', 'native-refresh', 'SKILL.md'),
       '---\nname: native-refresh\n---\nbody'
     )
-    await writeFile(join(root, 'orca', 'off', 'SKILL.md'), '---\nname: off\n---\nbody')
+    await writeFile(join(root, 'orcinus-orca', 'off', 'SKILL.md'), '---\nname: off\n---\nbody')
     const bootstrap = Object.create(Bootstrap.prototype) as {
       extensionChoices: ReturnType<typeof extensionControl>
       settings: { getAll: () => { skillEnabled: Record<string, boolean> } }
       skillRoots: () => {
         sourceId: string
         sourceLabel: string
-        sourceKind: 'orca'
+        sourceKind: 'orcinus-orca'
         rootDir: string
       }[]
       refreshSkills: () => Promise<SkillInfo[]>
@@ -634,9 +634,14 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
       skillsRevision: number
     }
     bootstrap.skillsRevision = 0
-    bootstrap.settings = { getAll: () => ({ skillEnabled: { 'orca/off': false } }) }
+    bootstrap.settings = { getAll: () => ({ skillEnabled: { 'orcinus-orca/off': false } }) }
     bootstrap.skillRoots = () => [
-      { sourceId: 'orca', sourceLabel: 'Orca', sourceKind: 'orca', rootDir: join(root, 'orca') }
+      {
+        sourceId: 'orcinus-orca',
+        sourceLabel: 'Orcinus orca',
+        sourceKind: 'orcinus-orca',
+        rootDir: join(root, 'orcinus-orca')
+      }
     ]
     const values = await bootstrap.refreshSkills()
     expect(values).toBe(bootstrap.skillsCache)
@@ -645,9 +650,9 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
       sourceLabel: 'OpenCode 스킬',
       enabled: true
     })
-    expect(values.find((skill) => skill.sourceId === 'orca' && skill.name === 'off')).toMatchObject(
-      { enabled: false, canToggle: true }
-    )
+    expect(
+      values.find((skill) => skill.sourceId === 'orcinus-orca' && skill.name === 'off')
+    ).toMatchObject({ enabled: false, canToggle: true })
   } finally {
     vi.unstubAllEnvs()
     await rm(root, { recursive: true, force: true })
@@ -655,7 +660,7 @@ it('refreshes the bootstrap skill cache with native catalog sources and preserve
 })
 
 it('observes external project settings through real bootstrap and waits for peer activity before reconciliation', async () => {
-  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-sync-'))
+  const temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-bootstrap-sync-'))
   const { ctx, supervisor, activity } = register()
   try {
     const cwd = join(temp, 'project'),
@@ -683,7 +688,7 @@ it('observes external project settings through real bootstrap and waits for peer
     fixture.projectSync!.tick()
     await vi.waitFor(() =>
       expect(fixture.broadcasts).toHaveBeenCalledWith(
-        'orca:session:native-resources-changed',
+        'oo:session:native-resources-changed',
         expect.objectContaining({
           resources: expect.objectContaining({ configurationPending: true })
         })
@@ -721,7 +726,7 @@ it('observes external project settings through real bootstrap and waits for peer
 })
 
 it('applies nav plugin choices to draft and stored-session commands and resources', async () => {
-  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-choices-'))
+  const temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-bootstrap-choices-'))
   const root = join(temp, 'claude'),
     cwd = join(temp, 'project'),
     plugin = join(temp, 'plugin')
@@ -816,7 +821,7 @@ it('applies nav plugin choices to draft and stored-session commands and resource
 })
 
 it('broadcasts each OpenCode plugin revision after retiring servers without an owner', async () => {
-  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-global-'))
+  const temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-bootstrap-global-'))
   const plugin = join(temp, 'plugin'),
     file = join(temp, 'opencode/opencode.jsonc')
   await mkdir(plugin)
@@ -905,7 +910,7 @@ it('broadcasts each OpenCode plugin revision after retiring servers without an o
 })
 
 it('restores global choices through production Bootstrap into catalogs, new Claude queries and OpenCode directories', async () => {
-  const temp = await mkdtemp(join(tmpdir(), 'orca-bootstrap-restart-'))
+  const temp = await mkdtemp(join(tmpdir(), 'orcinus-orca-bootstrap-restart-'))
   const claude = join(temp, 'claude'),
     plugin = join(temp, 'plugin'),
     global = join(temp, 'opencode')
@@ -1279,7 +1284,7 @@ it('starts OpenCode global observation only when usable and sends one increasing
     await owned.openCodeGlobalWatch!.ready
     expect(
       fixture.broadcasts.mock.calls.filter(
-        ([channel]) => channel === 'orca:extensions:opencode-plugins-changed'
+        ([channel]) => channel === 'oo:extensions:opencode-plugins-changed'
       )
     ).toHaveLength(0)
     const revisions: number[] = []
@@ -1293,7 +1298,7 @@ it('starts OpenCode global observation only when usable and sends one increasing
       usable = true
       owned.updateOpenCodeGlobalWatch(ctx, false)
       const sent = fixture.broadcasts.mock.calls.filter(
-        ([channel]) => channel === 'orca:extensions:opencode-plugins-changed'
+        ([channel]) => channel === 'oo:extensions:opencode-plugins-changed'
       )
       expect(sent).toHaveLength(1)
       revisions.push((sent[0][1] as { revision: number }).revision)

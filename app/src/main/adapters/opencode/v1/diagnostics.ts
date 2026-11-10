@@ -31,10 +31,10 @@ export function profileComponents(
   }
   const managed: [string, string | undefined][] = []
   for (const [key, value] of Object.entries(environment)) {
-    if (key.startsWith('ORCA_MCP_')) managed.push([key, value])
+    if (key.startsWith('ORCINUS_ORCA_MCP_')) managed.push([key, value])
     else result[`env:${key}`] = opaqueIdentity(JSON.stringify(value) ?? 'undefined')
   }
-  result['env:ORCA_MCP_*'] = opaqueIdentity(
+  result['env:ORCINUS_ORCA_MCP_*'] = opaqueIdentity(
     JSON.stringify(managed.sort(([a], [b]) => a.localeCompare(b)))
   )
   const content = environment.OPENCODE_CONFIG_CONTENT

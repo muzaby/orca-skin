@@ -49,7 +49,7 @@ async function setup(
   approve: CanUseTool
   hook: (event: 'PostToolUse' | 'Stop', value?: Record<string, unknown>) => Promise<void>
 }> {
-  const root = await mkdtemp(path.join(tmpdir(), 'orca-claude-plan-'))
+  const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-claude-plan-'))
   roots.push(root)
   const plans = path.join(root, 'plans')
   await mkdir(plans)

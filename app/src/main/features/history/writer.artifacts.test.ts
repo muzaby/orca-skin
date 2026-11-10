@@ -19,7 +19,7 @@ const artifact: ArtifactRef = {
   publishedAt: 1
 }
 const receipt = JSON.stringify({
-  type: 'orca.artifact.published',
+  type: 'orcinus-orca.artifact.published',
   version: 1,
   publicationId: 'pub-1'
 })
@@ -169,7 +169,7 @@ describe('HistoryWriter artifact receipt', () => {
           type: 'tool.call.started',
           sessionId: 's1',
           toolRunId: 'original-tool',
-          toolName: 'mcp__orca_artifacts__publish_artifact',
+          toolName: 'mcp__orcinus_orca_artifacts__publish_artifact',
           args: { path: 'report.md' },
           ...(parentToolRunId ? { parentToolRunId } : {})
         })
@@ -230,9 +230,9 @@ describe('HistoryWriter artifact receipt', () => {
 
   it.each([
     'ordinary result',
-    { type: 'orca.artifact.published', version: 1, publicationId: 'pub-1' },
-    JSON.stringify({ type: 'orca.artifact.published', version: 2, publicationId: 'pub-1' }),
-    JSON.stringify({ type: 'orca.artifact.published', version: 1, publicationId: '' }),
+    { type: 'orcinus-orca.artifact.published', version: 1, publicationId: 'pub-1' },
+    JSON.stringify({ type: 'orcinus-orca.artifact.published', version: 2, publicationId: 'pub-1' }),
+    JSON.stringify({ type: 'orcinus-orca.artifact.published', version: 1, publicationId: '' }),
     [
       { type: 'text', text: receipt },
       { type: 'text', text: receipt }

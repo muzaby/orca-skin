@@ -86,9 +86,9 @@ function render(): void {
 beforeEach(() => {
   vi.useFakeTimers()
   installChatStoreHarness({ sessionId: null, backend: 'opencode', agentKind: 'code' })
-  const orca = window.orca
+  const oo = window.oo
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
-  Object.assign(window, { orca })
+  Object.assign(window, { oo })
   catalog.agents = [agent('claude')]
 })
 afterEach(() => {
@@ -147,13 +147,13 @@ it('shows each loaded session model instead of the provider default, across navi
     modelFamily: id === 'A' ? 'claude-sonnet-4-6[1m]' : 'claude-opus-4-6',
     messages: []
   })
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     session: {
       load: async (id: string) => saved(id),
       refresh: async () => ({ status: 'unchanged' })
     }
   })
-  Object.assign(window.orca.chat, {
+  Object.assign(window.oo.chat, {
     backgroundState: async () => ({ tasks: [], connections: [], revision: 0 })
   })
   catalog.agents = [
@@ -231,7 +231,7 @@ it.each(['new', 'fork'] as const)(
       })
     }
     render()
-    const set = vi.mocked(window.orca.settings.set)
+    const set = vi.mocked(window.oo.settings.set)
     set.mockClear()
     dom.click(dom.query('[data-model-label]')!)
     const target = dom
@@ -265,9 +265,9 @@ it.each(['default', 'hydrate', 'alias', 'evidence'] as const)(
         ? { modelFamily: 'haiku', modelAlias: source === 'alias' ? null : 'haiku' }
         : {})
     })
-    const orca = window.orca
+    const oo = window.oo
     vi.stubGlobal('window', fakeWindow)
-    Object.assign(window, { orca })
+    Object.assign(window, { oo })
     catalog.agents = [
       {
         ...agent('claude'),
@@ -303,9 +303,9 @@ it.each(['default', 'hydrate', 'alias', 'evidence'] as const)(
 it('0304 a model menu click carries evidence through the selection object', () => {
   const fakeWindow = window
   installChatStoreHarness({ sessionId: null, backend: 'claude', agentKind: 'work' })
-  const orca = window.orca
+  const oo = window.oo
   vi.stubGlobal('window', fakeWindow)
-  Object.assign(window, { orca })
+  Object.assign(window, { oo })
   catalog.agents = [
     {
       ...agent('claude'),
@@ -349,9 +349,9 @@ it('0304 a model menu click carries evidence through the selection object', () =
 it('0304 the real Claude control opens automatic approval for a resolved alias', () => {
   const fakeWindow = window
   installChatStoreHarness({ sessionId: null, backend: 'claude', agentKind: 'work' })
-  const orca = window.orca
+  const oo = window.oo
   vi.stubGlobal('window', fakeWindow)
-  Object.assign(window, { orca })
+  Object.assign(window, { oo })
   catalog.agents = [
     {
       ...agent('claude'),

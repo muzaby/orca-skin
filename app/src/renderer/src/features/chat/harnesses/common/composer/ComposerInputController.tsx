@@ -223,7 +223,7 @@ export function ComposerInputController({
   const observedPlugins = useMemo(
     () => [
       ...nativePluginMentions(native.view),
-      ...(includeManagedMcp ? nativePluginMentions(native.view, 'orca') : [])
+      ...(includeManagedMcp ? nativePluginMentions(native.view, 'orcinus-orca') : [])
     ],
     [native.view, includeManagedMcp]
   )
@@ -241,7 +241,7 @@ export function ComposerInputController({
         ...mentionAutocomplete.validPluginIds,
         ...nativePluginMentions(native.view).map((plugin) => plugin.id),
         ...(includeManagedMcp
-          ? nativePluginMentions(native.view, 'orca').map((plugin) => plugin.id)
+          ? nativePluginMentions(native.view, 'orcinus-orca').map((plugin) => plugin.id)
           : [])
       ]),
     [mentionAutocomplete.validPluginIds, native.view, includeManagedMcp]

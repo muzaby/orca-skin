@@ -131,7 +131,7 @@ export class ArtifactQueries {
       }
       if (
         !payload ||
-        payload.toolName !== 'mcp__orca_artifacts__publish_artifact' ||
+        payload.toolName !== 'mcp__orcinus_orca_artifacts__publish_artifact' ||
         (parentToolRunId !== undefined && payload.parentToolRunId !== parentToolRunId)
       )
         return null

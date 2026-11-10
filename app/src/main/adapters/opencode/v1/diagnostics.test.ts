@@ -14,13 +14,13 @@ it('classifies MCP errors and diffs profile components', () => {
   ])
     expect(classifyMcpError(error)).toBe(expected)
   const before = profileComponents('exe', 'cwd', {
-    ORCA_MCP_one: 'first',
+    ORCINUS_ORCA_MCP_one: 'first',
     OPENCODE_CONFIG_CONTENT: '{"mcp":{"one":{}}}',
     A: '1',
     REMOVED: 'yes'
   })
   const after = profileComponents('exe', 'cwd', {
-    ORCA_MCP_one: 'second',
+    ORCINUS_ORCA_MCP_one: 'second',
     OPENCODE_CONFIG_CONTENT: '{"mcp":{"two":{}}}',
     A: '2',
     ADDED: 'yes'
@@ -30,7 +30,7 @@ it('classifies MCP errors and diffs profile components', () => {
     'env:A',
     'env:ADDED',
     'env:OPENCODE_CONFIG_CONTENT',
-    'env:ORCA_MCP_*',
+    'env:ORCINUS_ORCA_MCP_*',
     'env:REMOVED'
   ])
   expect(JSON.stringify(after)).not.toMatch(/first|second|two|yes/)

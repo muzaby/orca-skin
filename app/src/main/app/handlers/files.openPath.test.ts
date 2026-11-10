@@ -1,4 +1,4 @@
-// 0211 ΔV5 AT-68 / VP-69 — `orca:files:openPath` 의 파일 reveal 모드 (D-108 · §10 EP-44).
+// 0211 ΔV5 AT-68 / VP-69 — `oo:files:openPath` 의 파일 reveal 모드 (D-108 · §10 EP-44).
 //
 // **거부 케이스가 이 스위트의 보안 축이다.** "파일을 연다" 만 재면 임의 경로 오픈 벡터가
 // 열린다 — 이 핸들러는 지금까지 디렉토리 전용이라 그 벡터를 구조적으로 막고 있었고, 이번에
@@ -38,7 +38,7 @@ vi.mock('electron', () => ({
 
 const { registerFilesHandlers } = await import('./files')
 
-const ROOT = mkdtempSync(join(tmpdir(), 'orca-openpath-'))
+const ROOT = mkdtempSync(join(tmpdir(), 'orcinus-orca-openpath-'))
 const SESSION_CWD = join(ROOT, 'repo')
 const OUTSIDE = join(ROOT, 'elsewhere')
 mkdirSync(join(SESSION_CWD, 'src'), { recursive: true })

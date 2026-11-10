@@ -19,7 +19,7 @@
 import { existsSync, readdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 import { LEGACY_PRODUCT_SLUG, PRODUCT_SLUG } from '../../../shared/product'
-import { legacyConfigDir, legacyUserDataDir, orcaConfigDir } from './paths'
+import { legacyConfigDir, legacyUserDataDir, ooConfigDir } from './paths'
 
 export interface MigrationMove {
   from: string
@@ -76,7 +76,7 @@ type Rename = (from: string, to: string) => void
 export function migrateLegacyRoots(input: MigrateLegacyRootsInput): MigrationReport {
   const rename: Rename = input.rename ?? renameSync
   const legacyConfig = legacyConfigDir()
-  const configDir = orcaConfigDir()
+  const configDir = ooConfigDir()
   const report: MigrationReport = {
     moved: [],
     conflicts: [],

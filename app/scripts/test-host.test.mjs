@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { hermeticDirectories, hermeticTestEnv, isHostHarnessKey } from './test-host.mjs'
 
-const ROOT = join('/', 'tmp', 'orca-test-host-x')
+const ROOT = join('/', 'tmp', 'orcinus-orca-test-host-x')
 const HOST = {
   ANTHROPIC_MODEL: 'corp-model',
   ANTHROPIC_BASE_URL: 'https://llm.corp.example',
@@ -15,8 +15,8 @@ const HOST = {
   OPENCODE_CONFIG_DIR: '/corp/oc',
   GIT_CONFIG_SYSTEM: '/corp/gitconfig',
   GIT_DIR: '/corp/.git',
-  ORCA_TEST_TIME_SCALE: '5',
-  ORCA_TEST_OPENCODE_EXE: '/bin/opencode',
+  ORCINUS_ORCA_TEST_TIME_SCALE: '5',
+  ORCINUS_ORCA_TEST_OPENCODE_EXE: '/bin/opencode',
   PATH: '/usr/bin',
   TEMP: 'C:\\Temp',
   TMPDIR: '/tmp',
@@ -27,7 +27,7 @@ const HOST = {
 }
 
 describe('호스트 격리 env (0294 AC10)', () => {
-  test('하네스·git 변수는 지우고 ORCA_*·PATH·임시 폴더·프록시·CI 는 남긴다', () => {
+  test('하네스·git 변수는 지우고 ORCINUS_ORCA_*·PATH·임시 폴더·프록시·CI 는 남긴다', () => {
     const { remove } = hermeticTestEnv({ env: HOST, root: ROOT, platform: 'linux' })
     assert.deepEqual(remove.sort(), [
       'ANTHROPIC_BASE_URL',
@@ -41,8 +41,8 @@ describe('호스트 격리 env (0294 AC10)', () => {
       'OPENCODE_CONFIG_DIR'
     ])
     for (const kept of [
-      'ORCA_TEST_TIME_SCALE',
-      'ORCA_TEST_OPENCODE_EXE',
+      'ORCINUS_ORCA_TEST_TIME_SCALE',
+      'ORCINUS_ORCA_TEST_OPENCODE_EXE',
       'PATH',
       'TEMP',
       'TMPDIR',
@@ -95,10 +95,13 @@ describe('호스트 격리 env (0294 AC10)', () => {
 describe('격리 전역 git 설정 내용 (0298)', () => {
   test('신원 · core.autocrlf=false · maintenance.auto=false 를 담는다', async () => {
     const { HERMETIC_GIT_CONFIG, HERMETIC_GIT_IDENTITY } = await import('./test-host.mjs')
-    assert.deepEqual(HERMETIC_GIT_IDENTITY, { name: 'orca test', email: 'test@orca.local' })
+    assert.deepEqual(HERMETIC_GIT_IDENTITY, {
+      name: 'Orcinus orca test',
+      email: 'test@orcinus-orca.local'
+    })
     assert.equal(
       HERMETIC_GIT_CONFIG,
-      '[user]\n\tname = orca test\n\temail = test@orca.local\n[core]\n\tautocrlf = false\n\tfsync = none\n[init]\n\ttemplateDir =\n[maintenance]\n\tauto = false\n'
+      '[user]\n\tname = Orcinus orca test\n\temail = test@orcinus-orca.local\n[core]\n\tautocrlf = false\n\tfsync = none\n[init]\n\ttemplateDir =\n[maintenance]\n\tauto = false\n'
     )
   })
 })

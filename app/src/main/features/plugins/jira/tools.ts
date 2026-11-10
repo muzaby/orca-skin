@@ -167,7 +167,7 @@ const DESCRIPTIONS: Record<JiraToolName, string> = {
     'Link Jira issues. inwardIssueKey displays the outward phrase; outwardIssueKey displays the inward phrase.',
   jira_unlinkIssues: 'Delete one Jira issue link by link id.',
   jira_downloadAttachment:
-    'Download Jira attachments inline and optionally save them under the Orca temporary directory.'
+    'Download Jira attachments inline and optionally save them under the Orcinus orca temporary directory.'
 }
 
 export function createJiraToolServer(

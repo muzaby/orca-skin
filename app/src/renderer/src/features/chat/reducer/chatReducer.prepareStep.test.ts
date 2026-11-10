@@ -59,48 +59,54 @@ describe('표시 정본의 수명 (VP-04 · VP-19 · D-020)', () => {
     const next = recv(initialChatState, {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { worktree: { sourceCwd: '/repo/orca', repoRoot: '/repo/orca' } }
+      patch: { worktree: { sourceCwd: '/repo/orcinus-orca', repoRoot: '/repo/orcinus-orca' } }
     })
-    expect(next.worktree).toEqual({ sourceCwd: '/repo/orca', repoRoot: '/repo/orca' })
+    expect(next.worktree).toEqual({
+      sourceCwd: '/repo/orcinus-orca',
+      repoRoot: '/repo/orcinus-orca'
+    })
   })
 
   it('cwd 만 든 patch 는 기존 표시 정본 객체를 그대로 보존한다', () => {
     const managed = recv(initialChatState, {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { worktree: { sourceCwd: '/repo/orca', repoRoot: '/repo/orca' } }
+      patch: { worktree: { sourceCwd: '/repo/orcinus-orca', repoRoot: '/repo/orcinus-orca' } }
     })
     const recovered = recv(managed, {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { cwd: '/repo/orca' }
+      patch: { cwd: '/repo/orcinus-orca' }
     })
     expect(recovered.worktree).toBe(managed.worktree)
-    expect(recovered.cwd).toBe('/repo/orca')
+    expect(recovered.cwd).toBe('/repo/orcinus-orca')
   })
 
   it('명시적 worktree:null 은 표시 정본을 지운다', () => {
     const managed = recv(initialChatState, {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { worktree: { sourceCwd: '/repo/orca', repoRoot: '/repo/orca' } }
+      patch: { worktree: { sourceCwd: '/repo/orcinus-orca', repoRoot: '/repo/orcinus-orca' } }
     })
     const recovered = recv(managed, {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { cwd: '/repo/orca', worktree: null }
+      patch: { cwd: '/repo/orcinus-orca', worktree: null }
     })
     expect(recovered.worktree).toBeNull()
-    expect(recovered.cwd).toBe('/repo/orca')
+    expect(recovered.cwd).toBe('/repo/orcinus-orca')
   })
 
   it('cwd·worktree 가 둘 다 없는 갱신은 기존 표시를 보존한다 — 무관한 patch 가 이름을 지우지 않는다', () => {
     const managed = recv(initialChatState, {
       type: 'session.updated',
       sessionId: 's1',
-      patch: { worktree: { sourceCwd: '/repo/orca', repoRoot: '/repo/orca' } }
+      patch: { worktree: { sourceCwd: '/repo/orcinus-orca', repoRoot: '/repo/orcinus-orca' } }
     })
     const other = recv(managed, { type: 'session.updated', sessionId: 's1', patch: {} })
-    expect(other.worktree).toEqual({ sourceCwd: '/repo/orca', repoRoot: '/repo/orca' })
+    expect(other.worktree).toEqual({
+      sourceCwd: '/repo/orcinus-orca',
+      repoRoot: '/repo/orcinus-orca'
+    })
   })
 })

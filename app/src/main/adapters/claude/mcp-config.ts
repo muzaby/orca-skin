@@ -1,4 +1,4 @@
-import type { OrcaMcpConfig } from '../common/mcp-config'
+import type { OoMcpConfig } from '../common/mcp-config'
 
-// Orca's persisted source already adopts the Claude mcpServers schema.
-export type ClaudeMcpConfig = OrcaMcpConfig
+// Orcinus orca's persisted source already adopts the Claude mcpServers schema.
+export type ClaudeMcpConfig = OoMcpConfig

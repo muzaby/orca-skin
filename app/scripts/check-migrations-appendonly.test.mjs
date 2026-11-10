@@ -181,7 +181,7 @@ test('checkNoListCopies 는 사본이 없으면 통과한다', () => {
 // 컴포저 기능이 `.tsx` 로 가득한 저장소라 그 그늘이 곧 실제 위험이다.
 
 function makeTree() {
-  const root = mkdtempSync(join(tmpdir(), 'orca-scan-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-scan-'))
   mkdirSync(join(root, 'src', 'deep', 'nested'), { recursive: true })
   const files = {
     'src/a.ts': 'ts',

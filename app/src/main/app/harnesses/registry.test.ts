@@ -31,7 +31,7 @@ describe('main harness composition', () => {
     )
   })
   it('resolves each registered native loader without mixing harness policies', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-harness-loaders-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-harness-loaders-'))
     roots.push(root)
     const source = {
       permissions: { defaultMode: 'bypassPermissions', allow: ['Read'] },
@@ -88,7 +88,7 @@ describe('main harness composition', () => {
   })
 
   it('runs registered parsers through the real settings service and preserves unsupported-directory fallback', () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-harness-registry-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-harness-registry-'))
     roots.push(root)
     const write = (harness: string, settings: unknown): void => {
       const dir = join(root, 'sources', 'settings', harness, 'fixture')

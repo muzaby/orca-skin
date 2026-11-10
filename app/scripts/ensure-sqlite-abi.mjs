@@ -9,7 +9,7 @@ import process from 'node:process'
 
 const VALID_TARGETS = new Set(['node', 'electron'])
 const MARKER_VERSION = 1
-const CACHE_DIR = join('node_modules', '.cache', 'orca')
+const CACHE_DIR = join('node_modules', '.cache', 'orcinus-orca')
 const MARKER_FILE = join(CACHE_DIR, 'sqlite-abi.json')
 
 export function parseArgs(argv) {
@@ -142,7 +142,7 @@ export function needsRebuild({ target, cwd, loadBetterSqlite = defaultLoadBetter
   // electron: 메타데이터가 드리프트했거나(마커 불일치, 예: electron/lockfile 버전 변경), 또는
   // better-sqlite3 가 지금 plain Node 에서 로드되면 rebuild 한다. 후자는 바이너리가 Node-ABI 로
   // 빌드됐다는 뜻이다 — 대표적으로 `npm install` 이 better-sqlite3 의 prebuild-install 을 재실행해
-  // Node-ABI prebuilt 로 바이너리를 되돌린 경우다. 이때 orca 마커는 여전히 {target:electron} 이라
+  // Node-ABI prebuilt 로 바이너리를 되돌린 경우다. 이때 Orcinus orca 마커는 여전히 {target:electron} 이라
   // 마커만 보면(binary-blind) fast-path 로 skip 되어 Electron 이 Node-ABI 를 로드하다 실패한다.
   return loadBetterSqlite(cwd) || !markerMatches(readMarker(cwd), computeFingerprint(cwd, target))
 }

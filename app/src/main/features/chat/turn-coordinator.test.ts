@@ -11,7 +11,7 @@ import {
 import { turnPolicyFor } from './turn-policy'
 import { BackgroundTaskTracker } from './background-tasks'
 import { TypedBus } from '../../infra/bus'
-import type { OrcaBusEvents } from '../../contracts/bus-events'
+import type { OoBusEvents } from '../../contracts/bus-events'
 import { PendingMessageQueue } from './pending-message-queue'
 import { setRootLogger } from '../../infra/log/registry'
 
@@ -249,7 +249,7 @@ function makeDeps(
   }
   const base: TurnCoordinatorDeps<W> = {
     runtime,
-    bus: new TypedBus<OrcaBusEvents<W>>(),
+    bus: new TypedBus<OoBusEvents<W>>(),
     persist: { persist: vi.fn(() => order.push('history')), flushAskAnswers: vi.fn() },
     forward: { forward: vi.fn(() => order.push('relay')) },
     registry: { promote: vi.fn() },

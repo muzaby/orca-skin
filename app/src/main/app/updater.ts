@@ -8,7 +8,7 @@ import type {
   UpdateProgress,
   UpdateState
 } from '../../shared/ipc'
-import { getOrcaConfig } from '../infra/config/orca-config'
+import { getOoConfig } from '../infra/config/oo-config'
 import { resolveUpdateFeed } from './updater-feed'
 import { broadcastUpdateProgress, broadcastUpdateState } from '../infra/ipc/send'
 import { errorMessage } from '../infra/errors'
@@ -204,7 +204,7 @@ export class UpdateController {
     }
   }
   private configureFeed(): boolean {
-    const { disabled, feed } = resolveUpdateFeed(getOrcaConfig().update)
+    const { disabled, feed } = resolveUpdateFeed(getOoConfig().update)
     if (feed) this.deps.updater.setFeedURL?.(feed)
     return disabled
   }

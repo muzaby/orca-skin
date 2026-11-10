@@ -104,7 +104,7 @@ describe('resolveHeadRef (0211 ΔV4 · AT-44 · EP-28 ②)', () => {
   })
 
   it('저장소가 아니면 null 이다', async () => {
-    const plain = await mkdtemp(join(tmpdir(), 'orca-headref-plain-'))
+    const plain = await mkdtemp(join(tmpdir(), 'orcinus-orca-headref-plain-'))
     roots.push(plain)
 
     expect(await resolveHeadRef(plain)).toBeNull()

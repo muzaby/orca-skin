@@ -8,11 +8,11 @@
 >
 > **세로축 자원 supervision:** **`RuntimeSupervisor`**(`features/sessions/supervisor.ts`)가 활성 턴 registry와 장수명 runtime pool을 소유한다. 턴 release와 runtime close를 구분하며 cap admission·LRU 축출을 수행한다. 시간 기반 idle eviction은 사용하지 않는다. 실제 수명 정책은 [runtime-ipc.md §1](./runtime-ipc.md)에 서술한다.
 
-> **상태**: 절마다 다르다 — **절별 판정은 각 절의 "③ 현재 코드 갭" 이 갖고, 요약은 §12 매핑표·§13 이다.** 와이어(`orca:chat:event`)는 `NormalizedEvent` 로 전면 전환됐고 PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 는 구현돼 있다. `RevertManager`(§5) 는 구현 없음, 활성 하네스는 Claude와 OpenCode 1.x이며 실행 구현은 [adapters.md](./adapters.md)를 따른다. 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
+> **상태**: 절마다 다르다 — **절별 판정은 각 절의 "③ 현재 코드 갭" 이 갖고, 요약은 §12 매핑표·§13 이다.** 와이어(`oo:chat:event`)는 `NormalizedEvent` 로 전면 전환됐고 PermissionBridge·PermissionModeController·ErrorClassifier·Telemetry 는 구현돼 있다. `RevertManager`(§5) 는 구현 없음, 활성 하네스는 Claude와 OpenCode 1.x이며 실행 구현은 [adapters.md](./adapters.md)를 따른다. 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
 >
 > **계층 위치 + 방법론 (짝 문서 [standardization.md](./standardization.md))**: 이 문서는 **런타임 정규화**(세션 *실행 중* 의 이벤트·권한·세션 흐름)를 다룬다. **배포 계층 표준화**(무엇을 배포·주입하는가 — AGENTS.md·MCP·SKILL.md)는 standardization.md 가 짝으로 다루며, 그 **ExtensionDeployer 산출물이 런타임 설정 입력이 되는 단방향** 연결이다. 또한 여기 정의한 정본 인터페이스는 *목표 카탈로그*다 — 구현은 **rule of three** 로 점진 추출하며, **v1 은 `permission.requested` 를 우선 정규화**하고 나머지 이벤트는 소비자가 생길 때 케이스를 추가한다(EventStream union 미완성 허용, standardization.md §1·§6 과 정합).
 >
-> **출처 신뢰 원칙**: `[검증-타입]`은 SDK 선언/소스 확인, `[검증-런타임]`은 실제 코드 구동/소비 확인, `[미확인-런타임]`은 실제 서버 상호운용 미검증, `[N/A-claude]`는 Claude 대응 개념 없음, `[미확인-opencode]`는 OpenCode 적용 의미 미확정이다. OpenCode SDK는 조사·계약 검증용으로 설치되어 있으며 버전·API 표면·mock 관측은 [SDK 해설](../../opencode-sdk-spec.md)이 갖는다. 설치·mock 성공을 Orca adapter 활성화나 실제 서버 검증으로 승격하지 않는다.
+> **출처 신뢰 원칙**: `[검증-타입]`은 SDK 선언/소스 확인, `[검증-런타임]`은 실제 코드 구동/소비 확인, `[미확인-런타임]`은 실제 서버 상호운용 미검증, `[N/A-claude]`는 Claude 대응 개념 없음, `[미확인-opencode]`는 OpenCode 적용 의미 미확정이다. OpenCode SDK는 조사·계약 검증용으로 설치되어 있으며 버전·API 표면·mock 관측은 [SDK 해설](../../opencode-sdk-spec.md)이 갖는다. 설치·mock 성공을 Orcinus orca adapter 활성화나 실제 서버 검증으로 승격하지 않는다.
 >
 > **rename 범위 밖**: 실제 코드 심볼(`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 구 `ChatEvent` 는 예외로, 와이어 전환과 함께 이미 제거됐다(§2 ③·PR #47). 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
 
@@ -34,7 +34,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 ## 2. NormalizedEvent — provider 중립 이벤트
 
-**① 설명.** OpenCode legacy 이벤트는 `type/properties`, `/v2` import의 native `client.v2.event` 이벤트는 `type/data`와 추가 envelope 필드를 갖는다 `[검증-타입]` ([SDK 해설](../../opencode-sdk-spec.md)). Claude는 `query()` 메시지 async iterator와 `canUseTool` 콜백을 사용한다. Orca에 전달할 때만 session-scoped `NormalizedEvent`로 정규화하며, OpenCode의 전역 이벤트에도 세션 ID가 있다고 가정하지 않는다.
+**① 설명.** OpenCode legacy 이벤트는 `type/properties`, `/v2` import의 native `client.v2.event` 이벤트는 `type/data`와 추가 envelope 필드를 갖는다 `[검증-타입]` ([SDK 해설](../../opencode-sdk-spec.md)). Claude는 `query()` 메시지 async iterator와 `canUseTool` 콜백을 사용한다. Orcinus orca에 전달할 때만 session-scoped `NormalizedEvent`로 정규화하며, OpenCode의 전역 이벤트에도 세션 ID가 있다고 가정하지 않는다.
 
 **② 예시.** "Bash 한 줄 실행" 한 턴이 정규화 전에는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흘렀다. 정규화 후엔 `sessionId`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
@@ -78,7 +78,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | `ask_question` | `permission.requested`(`origin:'agent'`) | Claude `AskUserQuestion` 의 합성 — §3 |
 | `plan_review` | `permission.requested`(`origin:'agent'`) | Claude `ExitPlanMode` 의 합성 — §3 |
 
-> OpenCode raw 이벤트 계약은 [SDK 해설](../../opencode-sdk-spec.md), Orca 투영 권고는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)에 있다. 이 절의 도식보다 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 현행 `NormalizedEvent`가 우선한다; 현재 OpenCode 1.x mapper는 `adapters/opencode/v1/map.ts`·`activity.ts`·`native-input.ts`다.
+> OpenCode raw 이벤트 계약은 [SDK 해설](../../opencode-sdk-spec.md), Orcinus orca 투영 권고는 [migration 연구](../../etc/study/opencode/orca-migration-guide.md)에 있다. 이 절의 도식보다 [shared/ipc.ts](../../../app/src/shared/ipc.ts)의 현행 `NormalizedEvent`가 우선한다; 현재 OpenCode 1.x mapper는 `adapters/opencode/v1/map.ts`·`activity.ts`·`native-input.ts`다.
 
 SDK assistant UUID와 도구 ID 연결은 제한된 크기로 보관한다. 공개 철회 신호(`model_refusal_fallback`·`assistant.supersedes`)는 main 내부 `tool.call.retracted`로 변환하고 coordinator가 아직 열린 도구만 `nonExecution:{source:'host',kind:'retracted'}`로 정착한다. 이 내부 신호는 renderer나 DB로 전달하지 않는다.
 
@@ -86,7 +86,7 @@ coordinator는 `telemetry`·`error`와 합성 terminal 전에 결과 없는 열�
 
 **서브에이전트(Agent/Task) 백그라운드 라이프사이클** (CLI 2.1.198+ / SDK 0.3.215, handoff 0136·**0143 기본화** — 0135 foreground 주입·0138 기본 배제는 0143 에서 폐기):
 
-- **기본 = 백그라운드, 주입 없음(0143)**: CLI 2.1.198 부터 서브에이전트는 `run_in_background` 미지정 시 **백그라운드가 기본**이며, Orca 는 이를 제품 기본으로 수용한다. `makeCanUseTool`(`adapters/claude/adapter.ts`)은 차단 deny(`isSubagentBlocked`)만 판정하고 입력을 passthrough 한다 — `run_in_background` 를 주입하지 않는다(모델 명시값, 동기 실행 opt-out `false` 포함, 그대로 존중). 구 `ORCA_SUBAGENT_BACKGROUND` env·0135 `false` 주입·0138 기본 경로 게이트는 전부 소거.
+- **기본 = 백그라운드, 주입 없음(0143)**: CLI 2.1.198 부터 서브에이전트는 `run_in_background` 미지정 시 **백그라운드가 기본**이며, Orcinus orca 는 이를 제품 기본으로 수용한다. `makeCanUseTool`(`adapters/claude/adapter.ts`)은 차단 deny(`isSubagentBlocked`)만 판정하고 입력을 passthrough 한다 — `run_in_background` 를 주입하지 않는다(모델 명시값, 동기 실행 opt-out `false` 포함, 그대로 존중). 구 `ORCINUS_ORCA_SUBAGENT_BACKGROUND` env·0135 `false` 주입·0138 기본 경로 게이트는 전부 소거.
 - **런치 영수증 구조화 매핑(0136)**: 백그라운드로 뜬 Task 의 부모 `tool_result` 는 즉시 반환되며, wire `content` 는 모델용 텍스트라 renderer 의 `async_launched` 판정이 성립하지 않는다. `claude-map` 은 SDK user 메시지의 **별도 필드 `tool_use_result`**(status=`async_launched`, tool_result 블록이 정확히 1개일 때) 를 `tool.call.completed.result` 로 싣는다 — renderer 가 '실행 중'을 유지한다. 완료/실패 결과는 현행 content 유지.
 - **listen 턴(0136, 0143 상시화)**: 백그라운드 태스크의 진짜 종료(`task_notification`)·진행·완료 알림 턴은 메인 턴 종료(터미널) 후 도착해 `SessionRuntime` 의 `unframed` 버퍼에 적체된다. chat-turn 의 턴-후 루프가 순수 판정 `decidePostTurnStep`(`features/chat/post-turn.ts`)으로 **listen 턴**(`TurnRequest.listen` — 입력 push 없이 프레임만 소비)을 열어 라이브 배달한다. 실행 시간 상한 없이 수신하며 턴 중단은 프레임 종료와 renderer terminal로 전달한다.
 - **pushTurn 유휴 보장(0143·0165)**: `SessionRuntime` 이 CLI 메인 루프 mid-turn 상태와 `hasUnframedBacklog` 를 추적한다. 소속이 확인된 backlog는 listen 프레임만 인수한다. 프레임 밖 provider 턴이 이미 시작된 상태에서 사용자 입력이 오면 과거 이벤트를 새 사용자 프레임에 합치지 않고 **채널을 격리·재스폰**한다. provider 원본 메시지는 `ProviderMessageBatch`로 원자 라우팅해 `[telemetry,error]` 같은 꼬리가 다음 턴으로 새지 않는다.
@@ -109,7 +109,7 @@ Claude의 공급자 origin·synthetic 입력과 OpenCode의 소유 세션 synthe
 
 공통 `origin.format`은 확인된 자동 입력의 완결된 외곽 태그를 `system-reminder`·`tagged`·`plain`으로 구분한다. 정본은 `shared/session-schedules.ts`와 `shared/received-input.ts`이며 원문과 출처를 변경하지 않는다. 공급자가 이미 모델에 전달한 입력의 영수증이므로 태그를 받았다는 이유로 send/prompt를 다시 호출하지 않는다. 코디네이터는 후속 응답보다 먼저 원문과 origin을 기존 user 커밋 경로로 기록하며 저장·IPC·재로드가 같은 값을 보존한다. 표시 정책과 DEV 제어는 [렌더링](../frontend/rendering.md), 와이어 의미는 [IPC 계약](../../IPC_CONTRACT.md)에 있다.
 
-이 연결은 실행 중인 Orca의 세션 예약용이다. Claude Desktop 예약은 별도 세션 생성 경로이고 Routines는 별도 클라우드 서비스다. 현재 공개 Routines 실행 API의 토큰은 결과 읽기 권한을 제공하지 않으므로 해당 서비스의 결과 폴링을 구현하지 않는다. 근거: [Stop 훅](https://code.claude.com/docs/en/hooks#stop-input), [예약 실행](https://code.claude.com/docs/en/scheduled-tasks), [Routines 실행 API](https://platform.claude.com/docs/en/api/claude-code/routines-fire).
+이 연결은 실행 중인 Orcinus orca의 세션 예약용이다. Claude Desktop 예약은 별도 세션 생성 경로이고 Routines는 별도 클라우드 서비스다. 현재 공개 Routines 실행 API의 토큰은 결과 읽기 권한을 제공하지 않으므로 해당 서비스의 결과 폴링을 구현하지 않는다. 근거: [Stop 훅](https://code.claude.com/docs/en/hooks#stop-input), [예약 실행](https://code.claude.com/docs/en/scheduled-tasks), [Routines 실행 API](https://platform.claude.com/docs/en/api/claude-code/routines-fire).
 
 ## 3. 권한 정규화 파이프라인
 
@@ -209,7 +209,7 @@ const DEFAULT_APP_COMMAND_POLICY: Record<AppCommandKind, 'pass' | 'require_appro
 
 **② 예시.** 사용자가 "계획만 보기(plan)" 로 시작했다가, 신뢰가 쌓이면 런타임에 `accept_edits` 로 올려 파일 편집 자동 수락. 이후 `allow` 시 `updatedPermissions` 로 규칙 누적.
 
-**③ 현재 상태.** 어댑터(`adapters/claude/adapter.ts`)는 턴 경로에서 `prompt: input.stream`(`createSessionInputStream`)으로 `query()`를 호출해 살아있는 Query 핸들을 유지한다. 문자열 prompt 경로는 제목 생성용 complete()에 남아 있다. 전송 IPC는 정규화 permissionMode를 전달하고 라이브 변경은 `orca:permission:setMode`가 담당한다. 입력 큐가 살아있는 동안 generator를 종료하지 않아야 control 메서드가 열린다. 세션별 핸들은 SessionRuntimeRegistry가 관리한다.
+**③ 현재 상태.** 어댑터(`adapters/claude/adapter.ts`)는 턴 경로에서 `prompt: input.stream`(`createSessionInputStream`)으로 `query()`를 호출해 살아있는 Query 핸들을 유지한다. 문자열 prompt 경로는 제목 생성용 complete()에 남아 있다. 전송 IPC는 정규화 permissionMode를 전달하고 라이브 변경은 `oo:permission:setMode`가 담당한다. 입력 큐가 살아있는 동안 generator를 종료하지 않아야 control 메서드가 열린다. 세션별 핸들은 SessionRuntimeRegistry가 관리한다.
 
 **④ 인터페이스 (정본).**
 
@@ -330,7 +330,7 @@ interface ErrorClassifier { classify(error: unknown, ctx: { provider: ProviderId
 
 **① 설명.** 이벤트 스트림과 별개로 대화 기록을 저장·재렌더링하는 내부 모델. OpenCode 가 messages 를 `{ info: Message, parts: Part[] }[]` 로 다루는 것을 반영해 **parts** 모델을 둔다. 무거운 페이로드(stdout/파일 본문)는 별도 blob store 로 분리해 메시지 행을 가볍게 유지.
 
-**③ 현재 코드.** ✅ **구현 완료** — `0004_message_parts.sql` 가 `message_parts(message_id FK, idx, type, tool_run_id, payload_json)` 를 신설하고 기존 `messages.content`/`tool_calls` 를 parts 로 backfill 후 `tool_calls` 를 DROP 한다(정식 배포 전이라 하위호환 불요). `messages.content` 는 **text/reasoning parts 의 concat 캐시**로 유지해 FTS5 contentless 트리거를 건드리지 않는다. `router.persist` 가 한 턴의 모든 파트(text/reasoning/tool_call/tool_result/error)를 같은 assistant 메시지에 순서대로 append 하고(`DbQueries.appendPart`/`upsertToolResultPart`), 세션 로드는 `features/history/reader.ts`에서 native snapshot과 Orca 보관 파트를 결합해 `LoadedMessage.parts: AppMessagePart[]`를 구성한다. 원본 조회·ID 연결·snapshot 이후 live 기록의 정책은 [persistence.md](./persistence.md)를 따른다. **claude 가 채우는 종류**: text/tool_call/tool_result/error + **reasoning**(확장사고 — `claude-map` 이 `assistant` content 의 `thinking` block → `message.reasoning` 이벤트, signature opaque 보관). `file`/`diff`/`structured_output` 은 union 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam). blob 분리(무거운 stdout/파일 본문)는 후속(Phase 4).
+**③ 현재 코드.** ✅ **구현 완료** — `0004_message_parts.sql` 가 `message_parts(message_id FK, idx, type, tool_run_id, payload_json)` 를 신설하고 기존 `messages.content`/`tool_calls` 를 parts 로 backfill 후 `tool_calls` 를 DROP 한다(정식 배포 전이라 하위호환 불요). `messages.content` 는 **text/reasoning parts 의 concat 캐시**로 유지해 FTS5 contentless 트리거를 건드리지 않는다. `router.persist` 가 한 턴의 모든 파트(text/reasoning/tool_call/tool_result/error)를 같은 assistant 메시지에 순서대로 append 하고(`DbQueries.appendPart`/`upsertToolResultPart`), 세션 로드는 `features/history/reader.ts`에서 native snapshot과 Orcinus orca 보관 파트를 결합해 `LoadedMessage.parts: AppMessagePart[]`를 구성한다. 원본 조회·ID 연결·snapshot 이후 live 기록의 정책은 [persistence.md](./persistence.md)를 따른다. **claude 가 채우는 종류**: text/tool_call/tool_result/error + **reasoning**(확장사고 — `claude-map` 이 `assistant` content 의 `thinking` block → `message.reasoning` 이벤트, signature opaque 보관). `file`/`diff`/`structured_output` 은 union 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam). blob 분리(무거운 stdout/파일 본문)는 후속(Phase 4).
 
 **④ 인터페이스 (정본).**
 
@@ -498,7 +498,7 @@ type ModelProviderConfig =
 
 ## 16. PermissionBridge 필수 경로 테스트 (구현 전 정의)
 
-§3의 Orca 승인 결과와 OpenCode reply/질문 응답/interrupt 간 의미 차이를 아래 경로에서 검증해야 한다. OpenCode 경로는 아직 구현하지 않았다.
+§3의 Orcinus orca 승인 결과와 OpenCode reply/질문 응답/interrupt 간 의미 차이를 아래 경로에서 검증해야 한다. OpenCode 경로는 아직 구현하지 않았다.
 
 ```text
 Claude canUseTool → permission.requested(agent) → allow          → callback resolve {behavior:'allow', updatedInput}

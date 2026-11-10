@@ -15,7 +15,7 @@ import { join, sep } from 'node:path'
 import { FIXTURE, INJECTS_RUNNER, RUN_GIT, stripComments } from './test-source.mjs'
 
 /** unit 가드 상태(`{ violations }`)가 붙는 `process` 키 — 배선 테스트가 읽는다. */
-export const UNIT_GUARD = Symbol.for('orca.test.unitGuard')
+export const UNIT_GUARD = Symbol.for('orcinus-orca.test.unitGuard')
 /** unit 프로젝트에만 붙는 setup 파일. */
 export const UNIT_GUARD_SETUP = './scripts/vitest-unit-guard.mjs'
 /** vitest `include` 와 같은 대상. */
@@ -81,10 +81,10 @@ export function partitionTestFiles(appDir) {
 }
 
 /** io 실행 방식 실측 모드 (0298 ΔV2). 미설정이면 기본 동작이다. */
-export const IO_MODE_ENV = 'ORCA_TEST_IO_MODE'
+export const IO_MODE_ENV = 'ORCINUS_ORCA_TEST_IO_MODE'
 export const IO_MODES = ['serial', 'sqlite-serial', 'parallel']
 
-/** `ORCA_TEST_IO_MODE` 해석. 미설정·빈 값은 undefined, 목록 밖 값은 설정 로드 실패. */
+/** `ORCINUS_ORCA_TEST_IO_MODE` 해석. 미설정·빈 값은 undefined, 목록 밖 값은 설정 로드 실패. */
 export function resolveIoMode(env = process.env) {
   const raw = env[IO_MODE_ENV]
   if (raw === undefined || raw.trim() === '') return undefined
@@ -195,7 +195,7 @@ export function drainGuardViolations(state) {
   return new Error(`${violations[0]}${more}`)
 }
 
-export const IO_GUARD = Symbol.for('orca.test.ioGitGuard')
+export const IO_GUARD = Symbol.for('orcinus-orca.test.ioGitGuard')
 export const IO_GUARD_SETUP = './scripts/vitest-io-guard.mjs'
 export const FIXTURE_BUILDERS = ['createRepo', 'appendCommit']
 export const IO_GIT_ALLOWED = [

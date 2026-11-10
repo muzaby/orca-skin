@@ -54,7 +54,7 @@ export interface SteerFlushBatch extends SteerFlush {
 // 뭉개면 "잔여 없음" 을 오판한다.
 //
 // 주의: 목록에는 클라이언트가 보낸 적 없는 **내부 uuid**(cron 트리거·auto-resume continuation)가
-// 섞인다. 소비자는 자기가 아는 uuid 와 교집합만 취하고 나머지는 무시해야 한다 — Orca 는
+// 섞인다. 소비자는 자기가 아는 uuid 와 교집합만 취하고 나머지는 무시해야 한다 — Orcinus orca 는
 // 백그라운드 서브에이전트가 기본이라(0143) 내부 uuid 가 실제로 발생한다.
 export interface InterruptReceipt {
   stillQueued: string[]
@@ -102,7 +102,7 @@ export interface TurnExtensions {
       expectedContent?: string
     ): Promise<ArtifactRef | void>
   }
-  // SDK options.plugins 로 로드할 plugin root 목록 — Orca plugin(dist/plugins/orca) + 사용자
+  // SDK options.plugins 로 로드할 plugin root 목록 — Orcinus orca plugin(dist/plugins/orcinus-orca) + 사용자
   // ~/.claude/skills 래퍼 plugin(dist/plugins/claude, 0117). 존재/매니페스트 검증은 어댑터
   // (adaptPlugins)가 root 별로 수행하므로 조립 측(ExtensionBuilder)은 fs 를 만지지 않는다.
   pluginRoots?: string[]
@@ -111,7 +111,7 @@ export interface TurnExtensions {
   skills: NormalizedSkillRef[]
   // 정규화된 Hook 핸들러 집합 (§6). 이번 PR 의 실런타임 경로는 {normalized:{}} 라 옵션 미주입.
   hooks: NormalizedHookSet
-  // SDK 기본 시스템 프롬프트 뒤에 append 할 중립 텍스트 (구조화 헤더 # Orca/# User/# Project;
+  // SDK 기본 시스템 프롬프트 뒤에 append 할 중립 텍스트 (구조화 헤더 # orcinus-orca/# User/# Project;
   // 프로젝트 name·지침은 # Project 섹션 안에 포맷화 — ExtensionBuilder 가 system-header 로 조립).
   systemPromptAppend?: string
 }
@@ -135,7 +135,7 @@ export interface TurnContinuation {
 
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
-  /** Native identity can change after retention without changing Orca relationships. */
+  /** Native identity can change after retention without changing Orcinus orca relationships. */
   nativeSessionId?: string
   recovery?: { history: string; freshStart: boolean; onPrompt: (nativeMessageId: string) => void }
   harnessAgent?: string
@@ -159,7 +159,7 @@ export interface TurnRequest {
   extraDirs?: string[]
   signal?: AbortSignal
   extensions: TurnExtensions
-  // subprocess env (orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
+  // subprocess env (orcinus-orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
   // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
   env?: Record<string, string>
   // 위 `env` 의 fingerprint — 조립부가 이미 계산한 값을 spawn 기록부로 나른다(0190). 없으면

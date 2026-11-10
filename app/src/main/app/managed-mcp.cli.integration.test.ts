@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../adapters/common/mcp-config'
 import type { TurnRequest } from '../adapters/common/turn'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { OpenCodeServerPool, resolveOpenCodeExecutable } from '../adapters/opencode/v1/server'
@@ -37,7 +37,7 @@ const bodyOf = async (request: IncomingMessage): Promise<Record<string, unknown>
 }
 
 it.skipIf(!executable)('advertises and calls managed MCP through the supported CLI', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-managed-mcp-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-managed-mcp-'))
   fixtureData.root = root
   const home = join(root, 'home')
   await mkdir(home)
@@ -101,7 +101,7 @@ it.skipIf(!executable)('advertises and calls managed MCP through the supported C
       const results = messages.filter((message) => message.role === 'tool')
       const tools = (body.tools as Array<{ function: { name: string } }>).filter(
         (tool) =>
-          tool.function.name.startsWith('orca_') &&
+          tool.function.name.startsWith('orcinus_orca_') &&
           /_(lookup|confluence_search|jira_getIssue|mail_search)$/.test(tool.function.name)
       )
       const calls = results.length
@@ -168,7 +168,7 @@ const server=new McpServer({name:'stdio-fixture',version:'1'});
 server.registerTool('lookup',{inputSchema:{text:z.string()}},async({text})=>({content:[{type:'text',text:process.env.DISTINCT==='stdio-secret'?'stdio:'+text:'missing-stdio-environment'}]}));
 await server.connect(new StdioServerTransport());`
   )
-  const users: OrcaMcpConfig = {
+  const users: OoMcpConfig = {
     stdio: { command: process.execPath, args: [script], env: { DISTINCT: 'stdio-secret' } },
     http: { type: 'http', url: `${base}/http`, headers: { 'X-Secret': 'http-secret' } },
     sse: { type: 'sse', url: `${base}/sse`, headers: { 'X-Secret': 'sse-secret' } }
@@ -290,7 +290,7 @@ await server.connect(new StdioServerTransport());`
     prepared.activate?.()
     const lease = prepared
     // Activation connects in the background, so the first read can still report `pending`.
-    // Wait for every Orca MCP to settle; a `failed` settlement ends the wait and fails below.
+    // Wait for every Orcinus orca MCP to settle; a `failed` settlement ends the wait and fails below.
     const resources = await vi.waitFor(
       async () => {
         const items = await lease
@@ -298,14 +298,14 @@ await server.connect(new StdioServerTransport());`
           .catch((error: unknown) => {
             throw new Error(JSON.stringify(diagnostics), { cause: error })
           })
-        if (items.some((item) => item.origin === 'orca' && item.status === 'pending'))
-          throw new Error(`Orca MCP still pending: ${JSON.stringify(diagnostics)}`)
+        if (items.some((item) => item.origin === 'orcinus-orca' && item.status === 'pending'))
+          throw new Error(`Orcinus orca MCP still pending: ${JSON.stringify(diagnostics)}`)
         return items
       },
       { timeout: 40_000, interval: 100 }
     )
     expect(
-      resources.filter((item) => item.origin === 'orca' && item.status === 'connected')
+      resources.filter((item) => item.origin === 'orcinus-orca' && item.status === 'connected')
     ).toHaveLength(6)
     for (const text of [
       'Call every managed lookup tool once',
@@ -340,7 +340,7 @@ await server.connect(new StdioServerTransport());`
           errors.push(...batch.events.filter((event) => event.type === 'error'))
           if (batch.events.some((event) => event.type === 'turn.ended')) {
             const live = await turn.nativeResources?.()
-            expect(live?.items.filter((item) => item.origin === 'orca')).toHaveLength(6)
+            expect(live?.items.filter((item) => item.origin === 'orcinus-orca')).toHaveLength(6)
             expect(JSON.stringify(live)).not.toMatch(/stdio-secret|http-secret|sse-secret|Bearer /)
             break
           }
@@ -375,7 +375,7 @@ await server.connect(new StdioServerTransport());`
         expect(results).toContain('cacheAsOf')
         expect(called).toEqual(expect.arrayContaining(['wiki', 'jira', 'http', 'sse']))
       }
-      expect(JSON.stringify(modelRequests[before])).toContain('Orca MCP references')
+      expect(JSON.stringify(modelRequests[before])).toContain('Orcinus orca MCP references')
       expect(children).toHaveLength(1)
       expect(JSON.stringify(children[0].spawnargs)).not.toMatch(
         /stdio-secret|http-secret|sse-secret|Bearer /

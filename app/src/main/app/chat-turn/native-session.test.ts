@@ -22,11 +22,11 @@ import { prepareNativeSession } from './native-session'
 import { resolveTurn } from './resolve-turn'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
-vi.mock('../../infra/config/orca-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
+vi.mock('../../infra/config/oo-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 
 let db: Database.Database
 let queries: DbQueries
-const request = { sessionId: 'orca-session', cwd: 'C:/work' }
+const request = { sessionId: 'orcinus-orca-session', cwd: 'C:/work' }
 const missing = { status: 'missing', message: 'Expired' } as const
 const cwd = (): string => 'C:/work'
 function append(text: string, role: 'user' | 'assistant' = 'user'): void {
@@ -324,7 +324,7 @@ describe('native retention recovery through the migrated archive', () => {
     expect(adapter.recoverSession).toHaveBeenCalledOnce()
   })
   it('persists a replacement across restart and settles its receipt through the real history writer', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'orca-recovery-'))
+    const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-recovery-'))
     const file = join(root, 'recovery.db')
     // The fixture is replaced with a file database; no user history is used.
     db.close()

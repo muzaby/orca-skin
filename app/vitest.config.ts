@@ -9,11 +9,11 @@ import { buildProjects, partitionTestFiles, resolveIoMode } from './scripts/test
 // **풀은 둘이다** (0298 — 정본 `scripts/test-pools.mjs`). 자식 프로세스·git·SQLite·프로세스 전역
 // 상태를 쓰는 파일(io)만 forks(파일마다 프로세스)로 돌고, 나머지(unit)는 threads 로 exe 없이 돈다.
 // 둘은 같은 그룹에서 병렬로 돈다 — Windows CI 직렬화(0262)는 실측에서 더 느렸고 병렬 실패가 없어
-// 없앴다(0298 ΔV4). 실측 모드(`ORCA_TEST_IO_MODE`)는 실험 워크플로만 쓴다.
+// 없앴다(0298 ΔV4). 실측 모드(`ORCINUS_ORCA_TEST_IO_MODE`)는 실험 워크플로만 쓴다.
 const base = {
   environment: 'node' as const,
   // **예산 = 기준값 × 배율** (0294). 기준 PC 는 5년 전 사무용 데스크톱이고, 배율 기본값은 3,
-  // 더 느린 러너는 `ORCA_TEST_TIME_SCALE` 로 올린다 — 정본은 `scripts/test-time.mjs`.
+  // 더 느린 러너는 `ORCINUS_ORCA_TEST_TIME_SCALE` 로 올린다 — 정본은 `scripts/test-time.mjs`.
   //
   // 케이스 기준값 20초는 0211 ΔV5 실측이다(CI run 33716628944·33718212925 와 로컬 병렬).
   // 임시 디렉토리 + sqlite/git 를 실제로 쓰는 스위트는 케이스마다 mkdtemp·핸들·마이그레이션을

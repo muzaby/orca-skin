@@ -50,7 +50,7 @@ export async function writeUploadedSkill(input: {
   await fs.writeFile(join(dir, 'SKILL.md'), input.content, 'utf8')
 }
 
-export async function removeOrcaSkillDir(skillDir: string): Promise<void> {
+export async function removeOoSkillDir(skillDir: string): Promise<void> {
   if (!skillDir.startsWith(sourcesSkillsDir())) {
     throw new Error(`${PRODUCT_DISPLAY_NAME} 스킬 sources 안의 항목만 제거할 수 있습니다.`)
   }

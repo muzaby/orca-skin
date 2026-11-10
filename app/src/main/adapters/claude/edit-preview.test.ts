@@ -133,7 +133,7 @@ describe('buildEditPreview', () => {
 })
 
 describe('nodeEditPreviewReader', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'orca-edit-preview-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'orcinus-orca-edit-preview-'))
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
   it('상한 이하 파일은 본문을 준다', () => {

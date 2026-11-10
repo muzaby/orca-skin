@@ -99,7 +99,7 @@ describe('gitStatus / gitBranches', () => {
   })
 
   it('저장소가 아니면 isRepo:false 이고 브랜치도 비운다', async () => {
-    const plain = mkdtempSync(join(tmpdir(), 'orca-plain-'))
+    const plain = mkdtempSync(join(tmpdir(), 'orcinus-orca-plain-'))
     roots.push(plain)
     expect(await gitStatus(plain)).toEqual({
       isRepo: false,

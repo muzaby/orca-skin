@@ -1,4 +1,4 @@
-import type { OrcaMcpConfig } from './mcp-config'
+import type { OoMcpConfig } from './mcp-config'
 import type { RuntimeToolServer } from './runtime-tools'
 
 export interface ManagedMcpIdentity {
@@ -18,9 +18,9 @@ export interface ManagedMcpSnapshot {
   revision: number
   definitionRevision?: number
   connectionRevision?: number
-  definitions?: OrcaMcpConfig
+  definitions?: OoMcpConfig
   desired?: Record<string, boolean>
-  users: OrcaMcpConfig
+  users: OoMcpConfig
   plugins: ReadonlyMap<string, ManagedMcpPlugin>
 }
 export interface ManagedMcpSource {

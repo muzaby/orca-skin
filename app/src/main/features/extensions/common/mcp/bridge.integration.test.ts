@@ -64,7 +64,7 @@ it('serves only authorized application tools', async () => {
   const second = await bridge.acquire(source.snapshot())
   const endpoint = first.endpoints.get(server.descriptor.id)!
   const headers = { Authorization: `Bearer ${endpoint.token}` }
-  const client = new Client({ name: 'orca-test', version: '1' })
+  const client = new Client({ name: 'orcinus-orca-test', version: '1' })
   const transport = new StreamableHTTPClientTransport(new URL(endpoint.url), {
     requestInit: { headers }
   })

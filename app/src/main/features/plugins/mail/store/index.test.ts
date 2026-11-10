@@ -25,7 +25,7 @@ afterEach(async () => {
 async function fixture(
   accountId = 'account'
 ): Promise<Awaited<ReturnType<typeof createMailStore>>> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-'))
   roots.push(root)
   const store = await createMailStore({
     root,
@@ -189,7 +189,7 @@ describe('mail store', () => {
     ).not.toBeNull()
   })
   it('persists FTS rows, attachment manifests and opaque attachment ids', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-'))
     roots.push(root)
     const store = await createMailStore({
       root,
@@ -236,7 +236,7 @@ describe('mail store', () => {
   })
 
   it('marks missing UIDLs without removing cached mail until retention cleanup', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-'))
     roots.push(root)
     const store = await createMailStore({
       root,
@@ -364,7 +364,7 @@ describe('mail store', () => {
   })
 
   it('closes the real mail connection if account initialization fails and retries cleanly', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-mail-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-'))
     roots.push(root)
     const options = {
       root,

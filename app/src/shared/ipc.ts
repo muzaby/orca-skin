@@ -17,160 +17,160 @@ export type { ResponseBoundary } from './response-boundary'
 
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
-  errorReportEvent: 'orca:error:reportEvent',
-  errorDrain: 'orca:error:drain',
-  errorRevealLog: 'orca:error:revealLog',
-  chatSend: 'orca:chat:send',
+  errorReportEvent: 'oo:error:reportEvent',
+  errorDrain: 'oo:error:drain',
+  errorRevealLog: 'oo:error:revealLog',
+  chatSend: 'oo:chat:send',
   // 0067 AC5: 구 chat:steer 는 chat:send 로 흡수(main 이 busy=예약/idle=즉시를 판정).
-  chatSteerCancel: 'orca:chat:steerCancel',
-  chatSteerSendNow: 'orca:chat:steerSendNow',
-  chatEvent: 'orca:chat:event',
-  chatBackgroundState: 'orca:chat:backgroundState',
-  chatBackgroundEvent: 'orca:chat:backgroundEvent',
-  chatStopBackgroundTask: 'orca:chat:stopBackgroundTask',
-  chatPromoteBackgroundTask: 'orca:chat:promoteBackgroundTask',
-  chatStopAllBackgroundTasks: 'orca:chat:stopAllBackgroundTasks',
-  chatReadBackgroundOutput: 'orca:chat:readBackgroundOutput',
-  chatCancel: 'orca:chat:cancel',
-  chatStopSubagent: 'orca:chat:stopSubagent',
+  chatSteerCancel: 'oo:chat:steerCancel',
+  chatSteerSendNow: 'oo:chat:steerSendNow',
+  chatEvent: 'oo:chat:event',
+  chatBackgroundState: 'oo:chat:backgroundState',
+  chatBackgroundEvent: 'oo:chat:backgroundEvent',
+  chatStopBackgroundTask: 'oo:chat:stopBackgroundTask',
+  chatPromoteBackgroundTask: 'oo:chat:promoteBackgroundTask',
+  chatStopAllBackgroundTasks: 'oo:chat:stopAllBackgroundTasks',
+  chatReadBackgroundOutput: 'oo:chat:readBackgroundOutput',
+  chatCancel: 'oo:chat:cancel',
+  chatStopSubagent: 'oo:chat:stopSubagent',
   // 서브에이전트(Task) 단위 foreground → background 전환(0212 R-07). 중단과 다른 축이다 —
   // 중단은 일을 없애고 이것은 **기다림만** 없앤다(turn 이 계속되고 태스크는 그대로 돈다).
   // SDK `backgroundTasks(tool_use_id)` 로 내려가며, 인자 없는 전량 전환은 Bash 까지 옮기므로
   // 채널에 담지 않는다(0212 D-020).
-  chatBackgroundSubagent: 'orca:chat:backgroundSubagent',
+  chatBackgroundSubagent: 'oo:chat:backgroundSubagent',
   // 세션 전체 중단(0151 r2) — Stop 이후에도 CLI 큐에 살아남은 우리 예약을 없애는 유일한 수단.
   // 공개 SDK 에 provider 큐 개별 취소가 없으므로 런타임(서브프로세스)을 폐기해 큐를 통째로
   // 소멸시킨다. 백그라운드 서브에이전트도 함께 죽으므로 **사용자가 명시적으로 고를 때만** 쓴다.
-  chatDiscardSession: 'orca:chat:discardSession',
-  bootReport: 'orca:boot:report',
+  chatDiscardSession: 'oo:chat:discardSession',
+  bootReport: 'oo:boot:report',
   // main 부팅 완료 게이트(0109) — 창을 start() 전에 띄우므로, renderer 부트 오케스트레이터의
   // 첫 스텝이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝을 시작한다.
-  bootWhenReady: 'orca:boot:whenReady',
-  backendList: 'orca:backend:list',
-  harnessAvailability: 'orca:harness:availability',
-  harnessRecheck: 'orca:harness:recheck',
-  agentList: 'orca:agent:list',
-  installStart: 'orca:install:start',
-  installStatus: 'orca:install:status',
-  settingsGet: 'orca:settings:get',
-  settingsSet: 'orca:settings:set',
-  skillsList: 'orca:skills:list',
-  skillsAuthor: 'orca:skills:author',
-  skillsUpload: 'orca:skills:upload',
-  skillsSetEnabled: 'orca:skills:setEnabled',
-  skillsOpen: 'orca:skills:open',
-  skillsShowInFolder: 'orca:skills:showInFolder',
-  skillsRemove: 'orca:skills:remove',
-  filesList: 'orca:files:list',
-  filesPickAttachments: 'orca:files:pickAttachments',
-  filesPickDirectory: 'orca:files:pickDirectory',
-  filesOpenPath: 'orca:files:openPath',
-  filesOpenContextFile: 'orca:files:openContextFile',
-  filesReadAttachment: 'orca:files:readAttachment',
-  artifactList: 'orca:artifact:list',
-  artifactCatalog: 'orca:artifact:catalog',
-  artifactSetPinned: 'orca:artifact:setPinned',
-  artifactStatus: 'orca:artifact:status',
-  artifactPreview: 'orca:artifact:preview',
-  artifactSave: 'orca:artifact:save',
-  artifactReveal: 'orca:artifact:reveal',
-  artifactTrash: 'orca:artifact:trash',
-  artifactOpenFolder: 'orca:artifact:openFolder',
+  bootWhenReady: 'oo:boot:whenReady',
+  backendList: 'oo:backend:list',
+  harnessAvailability: 'oo:harness:availability',
+  harnessRecheck: 'oo:harness:recheck',
+  agentList: 'oo:agent:list',
+  installStart: 'oo:install:start',
+  installStatus: 'oo:install:status',
+  settingsGet: 'oo:settings:get',
+  settingsSet: 'oo:settings:set',
+  skillsList: 'oo:skills:list',
+  skillsAuthor: 'oo:skills:author',
+  skillsUpload: 'oo:skills:upload',
+  skillsSetEnabled: 'oo:skills:setEnabled',
+  skillsOpen: 'oo:skills:open',
+  skillsShowInFolder: 'oo:skills:showInFolder',
+  skillsRemove: 'oo:skills:remove',
+  filesList: 'oo:files:list',
+  filesPickAttachments: 'oo:files:pickAttachments',
+  filesPickDirectory: 'oo:files:pickDirectory',
+  filesOpenPath: 'oo:files:openPath',
+  filesOpenContextFile: 'oo:files:openContextFile',
+  filesReadAttachment: 'oo:files:readAttachment',
+  artifactList: 'oo:artifact:list',
+  artifactCatalog: 'oo:artifact:catalog',
+  artifactSetPinned: 'oo:artifact:setPinned',
+  artifactStatus: 'oo:artifact:status',
+  artifactPreview: 'oo:artifact:preview',
+  artifactSave: 'oo:artifact:save',
+  artifactReveal: 'oo:artifact:reveal',
+  artifactTrash: 'oo:artifact:trash',
+  artifactOpenFolder: 'oo:artifact:openFolder',
   // 컴포저 브랜치 칩(작업 경로의 git 상태·브랜치 목록·전환). 작업 경로가 git 저장소가 아니면
   // status 가 `isRepo:false` 를 돌려주고 renderer 는 칩 자체를 렌더하지 않는다.
-  gitSnapshot: 'orca:git:snapshot',
-  gitBranches: 'orca:git:branches',
-  gitCheckout: 'orca:git:checkout',
+  gitSnapshot: 'oo:git:snapshot',
+  gitBranches: 'oo:git:branches',
+  gitCheckout: 'oo:git:checkout',
   // 변경사항(diff) 타일의 읽기 2종 (0211). 요약은 cwd/세션 변경·턴 종료·새로고침에 부르고
   // 컴포저 git 행도 그 `totals` 를 읽는다 — 그래서 요약은 가볍게 둔다.
   // 패치는 **타일이 열려 있을 때 요약 세대당 1회**다(ΔV4 D-078): 파일 수와 무관하게 한 번이라
   // 파일마다 묻던 옛 `diffFile` 을 대신한다.
-  gitDiffPatch: 'orca:git:diffPatch',
-  sessionCwd: 'orca:session:cwd',
-  sessionList: 'orca:session:list',
-  sessionLoad: 'orca:session:load',
-  sessionRefresh: 'orca:session:refresh',
-  sessionDelete: 'orca:session:delete',
-  sessionRename: 'orca:session:rename',
-  sessionSetPinned: 'orca:session:setPinned',
-  sessionNativeResources: 'orca:session:native-resources',
-  extensionCatalog: 'orca:extensions:catalog',
-  extensionsChanged: 'orca:extensions:changed',
-  extensionOpenCodePluginsChanged: 'orca:extensions:opencode-plugins-changed',
-  managedMcpChanged: 'orca:extensions:managed-mcp-changed',
-  extensionSetEnabled: 'orca:extensions:setEnabled',
-  extensionOpen: 'orca:extensions:open',
-  composerCatalog: 'orca:composer:catalog',
-  composerCatalogRelease: 'orca:composer:catalog-release',
-  composerCatalogInvalidated: 'orca:composer:catalog-invalidated',
-  sessionNativeResourcesChanged: 'orca:session:native-resources-changed',
-  sessionAddDirectory: 'orca:session:addDirectory',
-  sessionTitleEvent: 'orca:session:titleEvent',
-  projectList: 'orca:project:list',
-  projectCreate: 'orca:project:create',
-  projectUpdate: 'orca:project:update',
-  projectDelete: 'orca:project:delete',
-  projectSetPinned: 'orca:project:setPinned',
-  projectListSessions: 'orca:project:listSessions',
-  windowMinimize: 'orca:window:minimize',
-  windowMaximize: 'orca:window:maximize',
-  windowClose: 'orca:window:close',
-  searchMessages: 'orca:search:messages',
-  mcpList: 'orca:mcp:list',
-  mcpAdd: 'orca:mcp:add',
-  mcpUpdate: 'orca:mcp:update',
-  mcpDelete: 'orca:mcp:delete',
+  gitDiffPatch: 'oo:git:diffPatch',
+  sessionCwd: 'oo:session:cwd',
+  sessionList: 'oo:session:list',
+  sessionLoad: 'oo:session:load',
+  sessionRefresh: 'oo:session:refresh',
+  sessionDelete: 'oo:session:delete',
+  sessionRename: 'oo:session:rename',
+  sessionSetPinned: 'oo:session:setPinned',
+  sessionNativeResources: 'oo:session:native-resources',
+  extensionCatalog: 'oo:extensions:catalog',
+  extensionsChanged: 'oo:extensions:changed',
+  extensionOpenCodePluginsChanged: 'oo:extensions:opencode-plugins-changed',
+  managedMcpChanged: 'oo:extensions:managed-mcp-changed',
+  extensionSetEnabled: 'oo:extensions:setEnabled',
+  extensionOpen: 'oo:extensions:open',
+  composerCatalog: 'oo:composer:catalog',
+  composerCatalogRelease: 'oo:composer:catalog-release',
+  composerCatalogInvalidated: 'oo:composer:catalog-invalidated',
+  sessionNativeResourcesChanged: 'oo:session:native-resources-changed',
+  sessionAddDirectory: 'oo:session:addDirectory',
+  sessionTitleEvent: 'oo:session:titleEvent',
+  projectList: 'oo:project:list',
+  projectCreate: 'oo:project:create',
+  projectUpdate: 'oo:project:update',
+  projectDelete: 'oo:project:delete',
+  projectSetPinned: 'oo:project:setPinned',
+  projectListSessions: 'oo:project:listSessions',
+  windowMinimize: 'oo:window:minimize',
+  windowMaximize: 'oo:window:maximize',
+  windowClose: 'oo:window:close',
+  searchMessages: 'oo:search:messages',
+  mcpList: 'oo:mcp:list',
+  mcpAdd: 'oo:mcp:add',
+  mcpUpdate: 'oo:mcp:update',
+  mcpDelete: 'oo:mcp:delete',
   // 사용량 정본 조회 (0186) — providerKey 를 주면 그 provider, 없으면 전역. 구 `cost:summary`
   // 와 `cost:providerSummaries` 를 흡수했다(Main 이 UsageLimitsView 를 완성해 돌려준다).
-  costUsage: 'orca:cost:usage',
+  costUsage: 'oo:cost:usage',
   // 변경된 scope 만 push 하는 delta (0186). 전체 provider map 을 매번 보내지 않는다.
-  costUsageEvent: 'orca:cost:usageEvent',
+  costUsageEvent: 'oo:cost:usageEvent',
   // provider별 월 한도 설정 (0080 항목 4).
-  costSetProviderLimit: 'orca:cost:setProviderLimit',
+  costSetProviderLimit: 'oo:cost:setProviderLimit',
   // 원격 사용량 즉시 동기화 (0186) — **쓰기/커맨드**다. 설정 사용량 탭의 동기화 버튼이 1분
   // cron 을 기다리지 않고 지금 원격을 부른다. 읽기 채널 `cost:usage` 에 부수효과 옵션을 넣는
   // 대신 채널을 나눴다 — read query 와 write command 의 구분이 채널 수보다 중요하다.
-  costRefreshUsage: 'orca:cost:refreshUsage',
+  costRefreshUsage: 'oo:cost:refreshUsage',
   // 사용량 요약(0112) — 기간(range)별 일 단위 시계열 + 모델별 집계를 한 번에 반환.
-  costUsageStats: 'orca:cost:usageStats',
-  concurrencyEvent: 'orca:concurrency:event',
+  costUsageStats: 'oo:cost:usageStats',
+  concurrencyEvent: 'oo:concurrency:event',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
-  permissionRespond: 'orca:permission:respond',
+  permissionRespond: 'oo:permission:respond',
   // 세션 진행 중 권한 모드 라이브 전환 (PR③). { sessionId, mode } 를 main 에 invoke —
   // 진행 중 턴이면 즉시 Query.setPermissionMode, 아니면 controller 에 기록해 다음 턴에 반영.
-  permissionSetMode: 'orca:permission:setMode',
-  debugGetMock: 'orca:debug:getMock',
-  debugSetMock: 'orca:debug:setMock',
-  engineAdd: 'orca:engine:add',
-  engineUpdate: 'orca:engine:update',
-  engineDelete: 'orca:engine:delete',
-  engineRead: 'orca:engine:read',
+  permissionSetMode: 'oo:permission:setMode',
+  debugGetMock: 'oo:debug:getMock',
+  debugSetMock: 'oo:debug:setMock',
+  engineAdd: 'oo:engine:add',
+  engineUpdate: 'oo:engine:update',
+  engineDelete: 'oo:engine:delete',
+  engineRead: 'oo:engine:read',
   // 사용자 전역 ~/.claude/settings.json 원문 조회 — 모달의 settings.json 자동완성용.
-  engineImportUserSettings: 'orca:engine:importUserSettings',
-  notifyShow: 'orca:notify:show',
-  updateState: 'orca:update:state',
-  updateCheck: 'orca:update:check',
-  updateDownload: 'orca:update:download',
-  updateQuitAndInstall: 'orca:update:quitAndInstall',
-  updateStateEvent: 'orca:update:stateEvent',
-  updateProgressEvent: 'orca:update:progressEvent',
+  engineImportUserSettings: 'oo:engine:importUserSettings',
+  notifyShow: 'oo:notify:show',
+  updateState: 'oo:update:state',
+  updateCheck: 'oo:update:check',
+  updateDownload: 'oo:update:download',
+  updateQuitAndInstall: 'oo:update:quitAndInstall',
+  updateStateEvent: 'oo:update:stateEvent',
+  updateProgressEvent: 'oo:update:progressEvent',
   // renderer/preload → main 로그 인제스트 (0123). 유일한 one-way send 채널 —
   // fire-and-forget 이라 invoke 가 아니다. 공통 필드는 main 이 강제 부여.
-  logEmit: 'orca:log:emit',
+  logEmit: 'oo:log:emit',
   // provider 플랫폼 (0181) — 구 auth 7 + plugin 4 채널을 6개로 대체한다. 인증 대상은
   // `Provider` 선언 하나이고, 게이트·LLM·사내 서비스가 `kind` 로만 갈린다.
-  providerList: 'orca:provider:list',
-  providerLogin: 'orca:provider:login',
-  providerContinue: 'orca:provider:continue',
-  providerReauth: 'orca:provider:reauth',
-  providerRevoke: 'orca:provider:revoke',
+  providerList: 'oo:provider:list',
+  providerLogin: 'oo:provider:login',
+  providerContinue: 'oo:provider:continue',
+  providerReauth: 'oo:provider:reauth',
+  providerRevoke: 'oo:provider:revoke',
   // 로그인 프리 호스트 연결 실행(0291). 연결 선언이 있는 대상만 받는다.
-  providerConnect: 'orca:provider:connect',
+  providerConnect: 'oo:provider:connect',
   // **양방향 1채널** — invoke 는 게이트 판정용 초기 스냅샷, send 는 이후 변화 push.
   // 같은 객체(`ProviderPlatformState`)를 나르므로 채널을 둘로 쪼개지 않는다(구 auth 는
   // `status`+`stateEvent` 로 나눠 두 벌의 동기화 버그를 만들었다).
-  providerState: 'orca:provider:state'
+  providerState: 'oo:provider:state'
 } as const
 
 export type UpdateStateStatus =
@@ -411,7 +411,7 @@ export interface ClassifiedError {
   cause?: unknown
 }
 
-// ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
+// ── NormalizedEvent (provider-runtime.md §2) — 와이어(oo:chat:event)의 정규 이벤트 ─────────
 // 이벤트는 sessionId(멀티세션 라우팅)로 키잉되고 tool 은 toolRunId 로 start/complete 를 매칭한다.
 // 코어 중립(0016): 이벤트는 provider 를 싣지 않는다 — "어느 백엔드인지" 는 session.backend 파생.
 // claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude/map.ts)로 이 타입에 직접
@@ -464,7 +464,7 @@ export interface PlanFeedbackComment {
 }
 
 // plan revise 의 구조화 피드백 — 코멘트 묶음 + 선택 메모(자유 입력). main 이 구조화 태그
-// (ORCA_PLAN_FEEDBACK)로 직렬화해 ExitPlanMode deny message 로 전달한다(prompts/plan-feedback.ts).
+// (ORCINUS_ORCA_PLAN_FEEDBACK)로 직렬화해 ExitPlanMode deny message 로 전달한다(prompts/plan-feedback.ts).
 export interface PlanFeedback {
   comments: PlanFeedbackComment[]
   note?: string
@@ -731,7 +731,7 @@ export type NormalizedEvent =
   // 와 짝지어 읽지 않고 **매 payload 로 집합을 교체**한다: 놓친 bookend 가 "실행 중" 표시를
   // 영구 고착시키지 못하게 하는 것이 이 신호의 존재 이유다(SDK 주석).
   //
-  // 세 제약이 함께 온다. ① payload 는 `task_id` 만 싣고 Orca 의 표시·중단 키는 `tool_use_id` 라
+  // 세 제약이 함께 온다. ① payload 는 `task_id` 만 싣고 Orcinus orca 의 표시·중단 키는 `tool_use_id` 라
   // **매핑된 것만** 실어 보낸다(EP-06 — 매핑 없는 항목은 애초에 추적 대상이 아니다). ② 프로세스
   // 단위 레벨이라 **시작 시점에는 아무것도 오지 않는다** → 첫 payload 는 기준선일 뿐 아무것도
   // 정착시키지 않는다(EP-07). ③ edge 와의 순서가 미정의라 상관시키지 않는다.
@@ -993,7 +993,7 @@ export interface CancelChat {
   sessionId: string
 }
 
-// 권한 모드 라이브 전환 요청 (orca:permission:setMode). 정규화 6종을 그대로 싣는다 —
+// 권한 모드 라이브 전환 요청 (oo:permission:setMode). 정규화 6종을 그대로 싣는다 —
 // main 이 toClaudePermissionMode 로 SDK 모드로 변환해 라이브/다음-턴에 적용.
 export interface SetPermissionMode {
   sessionId: string
@@ -1148,7 +1148,7 @@ export interface Settings {
   windowBounds: WindowBounds | null
   // MCP 서버 enabled on/off (키 = 서버 name). 부재 ⇒ enabled=true.
   mcpEnabled: Record<string, boolean>
-  // MCP 서버 Orca 전용 메타(description) — mcp.json(순정 Claude 스키마) 에 없는 필드.
+  // MCP 서버 Orcinus orca 전용 메타(description) — mcp.json(순정 Claude 스키마) 에 없는 필드.
   mcpMeta: Record<string, { description: string }>
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
@@ -1207,7 +1207,7 @@ export interface SkillInfo {
   body?: string
   updatedAt?: number
   createdAt?: number
-  sourceKind: 'orca' | 'adapter' | 'workspace'
+  sourceKind: 'orcinus-orca' | 'adapter' | 'workspace'
   canToggle: boolean
   canRemove: boolean
   skillPath: string
@@ -1896,7 +1896,7 @@ export interface ProviderInfo {
   connection?: ProviderConnectionInfo
 }
 
-// 로그인 진행 단계. 대화형 단계는 `orca:provider:continue` 로 이어진다.
+// 로그인 진행 단계. 대화형 단계는 `oo:provider:continue` 로 이어진다.
 export type ProviderStepInfo =
   | {
       kind: 'input-required'

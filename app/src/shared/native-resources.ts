@@ -21,8 +21,8 @@ export interface NativeResource {
   canOpen?: boolean
   /** Native provenance, without server configuration or credentials. */
   source?: string
-  /** An Orca-injected MCP observed connected by the running harness. */
-  origin?: 'orca'
+  /** An Orcinus orca-injected MCP observed connected by the running harness. */
+  origin?: 'orcinus-orca'
   managedSource?: { kind: 'builtin' | 'user'; sourceId: string }
   mentionId?: string
 }

@@ -1,12 +1,12 @@
 import { expandVars, type Resolver } from '../../../../infra/vars'
-import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../../../../adapters/common/mcp-config'
 
 export interface ResolvedMcpConfig {
-  config: OrcaMcpConfig
+  config: OoMcpConfig
   dropped: { name: string; reason: string }[]
 }
-export function resolveMcpConfig(servers: OrcaMcpConfig, resolve: Resolver): ResolvedMcpConfig {
-  const config: OrcaMcpConfig = {}
+export function resolveMcpConfig(servers: OoMcpConfig, resolve: Resolver): ResolvedMcpConfig {
+  const config: OoMcpConfig = {}
   const dropped: ResolvedMcpConfig['dropped'] = []
   for (const [name, server] of Object.entries(servers)) {
     const missing = new Set<string>()

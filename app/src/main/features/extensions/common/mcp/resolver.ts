@@ -13,8 +13,8 @@
 // 미해결이면 undefined 를 돌려주고, convert.ts 가 해당 **서버 전체를 드롭**한다(fail-closed 유지).
 //
 // ── 남는 노출 (문서화된 예외) ────────────────────────────────────────────────
-// 해석된 값은 여전히 `dist/plugins/orca/.mcp.json` 에 평문으로 렌더된다 — claude CLI 가 그
-// 파일을 읽어 MCP 서버를 spawn 하므로 Orca 가 요청 주체가 아니기 때문이다. 이번 변경의 이득은
+// 해석된 값은 여전히 `dist/plugins/orcinus-orca/.mcp.json` 에 평문으로 렌더된다 — claude CLI 가 그
+// 파일을 읽어 MCP 서버를 spawn 하므로 Orcinus orca 가 요청 주체가 아니기 때문이다. 이번 변경의 이득은
 // 값이 디스크에서 사라지는 것이 아니라 **소유권 일원화**다: 회전·만료·logout 이 binding 하나로
 // 일관되고, 출처가 broker 로 단일화돼 후속 proxy 단계를 코어 수정 없이 얹을 수 있다.
 // (요구명세 §소비자 경계 / §MCP 통합)
@@ -24,7 +24,7 @@ import type { SecretStore } from '../../../../infra/config/secret-store'
 
 interface ResolverOptions {
   secrets: SecretStore
-  // orca.json 의 `secrets.envAllowlist`. **정확한 이름 일치만** 허용한다(패턴·접두사 없음).
+  // orcinus-orca.json 의 `secrets.envAllowlist`. **정확한 이름 일치만** 허용한다(패턴·접두사 없음).
   envAllowlist?: readonly string[]
   // `${BINDING:<대상>}` 의 토큰 소스 (0181). **미주입이면 모든 대상 참조가 미해결**이다 —
   // 조용히 빈 값으로 채우지 않는다(convert.ts 가 그 서버를 통째로 드롭한다).

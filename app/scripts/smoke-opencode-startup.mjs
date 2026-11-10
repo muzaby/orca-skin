@@ -7,7 +7,7 @@ import { execFile, spawn } from 'node:child_process'
 import assert from 'node:assert/strict'
 import { createOpencodeClient } from '@opencode-ai/sdk/v2/client'
 
-const root = await mkdtemp(join(tmpdir(), 'orca-opencode-startup-'))
+const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-opencode-startup-'))
 const loader = await createServer({
   root: resolve('.'),
   configFile: false,

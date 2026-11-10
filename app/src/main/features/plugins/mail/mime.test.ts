@@ -123,7 +123,7 @@ afterEach(async () => {
 it.each([false, true])(
   'persists only file attachments (embedded-only: %s)',
   async (embeddedOnly) => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-mime-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mime-'))
     roots.push(root)
     const store = await createMailStore({
       root,

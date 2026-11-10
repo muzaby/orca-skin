@@ -185,7 +185,7 @@ it.each(['transcript', 'list'] as const)(
   '%s primary button opens the exact publication through the real cards callback',
   async (variant) => {
     vi.stubGlobal('window', {
-      orca: {
+      oo: {
         artifacts: {
           preview: async () => ({
             state: 'ready',
@@ -227,7 +227,7 @@ it.each(['transcript', 'list'] as const)(
 )
 
 it('ignores a stale card callback after the active session changes', () => {
-  vi.stubGlobal('window', { orca: { artifacts: { preview: vi.fn() } } })
+  vi.stubGlobal('window', { oo: { artifacts: { preview: vi.fn() } } })
   const tree = render() as ReactElement<{ children: unknown[] }>
   const cards = tree.props.children[1] as ReactElement<Parameters<typeof ArtifactCard>[0]>[]
   h.sessionId = 'other'

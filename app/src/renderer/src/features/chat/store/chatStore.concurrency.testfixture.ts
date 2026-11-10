@@ -18,7 +18,7 @@ export function installConcurrencyHarness(
 } {
   const { chatSend } = installChatStoreHarness()
   let emit!: (event: ConcurrencyEvent) => void
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     concurrency: {
       onEvent: (handler: typeof emit) => {
         emit = handler
@@ -28,7 +28,7 @@ export function installConcurrencyHarness(
     session: { cwd: async () => '/repo', onTitle: () => () => {} },
     settings: { get: async () => ({}), set: vi.fn(async () => ({})) }
   })
-  window.orca.chat.onEvent = vi.fn(() => () => {})
+  window.oo.chat.onEvent = vi.fn(() => () => {})
   const key = options.newSession ? NEW_CHAT_KEY : options.handoffSource ? 'source' : 's1'
   useChatStore.setState({
     sessions: {

@@ -31,7 +31,7 @@ import { DbQueries } from '../infra/db/queries'
 import { prepareAgentExtensionProfile } from './harnesses/registry'
 
 it('composes Work only into the SDK header while retaining Code execution, tools, plugins and approval', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-profile-query-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-profile-query-'))
   const db = new Database(':memory:')
   try {
     mkdirSync(join(root, '.claude-plugin'))

@@ -1996,7 +1996,7 @@ function revisePlan(requestId: string, feedback: string): void {
   dispatchTo(current.key, { type: 'RESOLVE_PLAN' })
 }
 
-// 인라인 코멘트 묶음(+선택 메모)으로 계획 수정 요청. main 이 구조화 태그(ORCA_PLAN_FEEDBACK)로
+// 인라인 코멘트 묶음(+선택 메모)으로 계획 수정 요청. main 이 구조화 태그(ORCINUS_ORCA_PLAN_FEEDBACK)로
 // 직렬화한다(prompts/plan-feedback.ts). 보낼 내용이 없으면 no-op.
 function revisePlanWithComments(requestId: string, comments: PlanComment[], note: string): void {
   const current = currentPlanReview(requestId)

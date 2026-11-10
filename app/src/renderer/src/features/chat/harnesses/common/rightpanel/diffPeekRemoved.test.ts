@@ -56,7 +56,7 @@ describe('사라진 표면 (AT-53)', () => {
       ({ source }) =>
         /gitDiffFile\b/.test(source) ||
         /GitDiffFileContent\b/.test(source) ||
-        /orca:git:diffFile/.test(source) ||
+        /oo:git:diffFile/.test(source) ||
         /gitApi\s*\.\s*diffFile\s*\(/.test(source)
     ).map(({ path }) => path)
 

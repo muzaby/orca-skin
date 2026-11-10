@@ -36,7 +36,7 @@ async function repo(): Promise<string> {
 }
 
 async function service(): Promise<{ svc: WorktreeService; rows: unknown[] }> {
-  const managed = await mkdtemp(join(tmpdir(), 'orca-reject-managed-'))
+  const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-reject-managed-'))
   roots.push(managed)
   const rows: unknown[] = []
   const db = { insertManagedWorktree: (row: unknown) => rows.push(row) } as unknown as DbQueries
@@ -45,7 +45,7 @@ async function service(): Promise<{ svc: WorktreeService; rows: unknown[] }> {
 
 describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
   it('저장소가 아니면 `not-repo` 로 거부하고 Git mutation 을 0회 한다', async () => {
-    const plain = await mkdtemp(join(tmpdir(), 'orca-not-a-repo-'))
+    const plain = await mkdtemp(join(tmpdir(), 'orcinus-orca-not-a-repo-'))
     roots.push(plain)
     const { svc, rows } = await service()
 
@@ -73,7 +73,7 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
   })
 
   it('git 은 도는데 저장소가 아니면 `not-repo` 다 — 두 이유가 같은 분기에서 갈린다', async () => {
-    const plain = await mkdtemp(join(tmpdir(), 'orca-not-a-repo-'))
+    const plain = await mkdtemp(join(tmpdir(), 'orcinus-orca-not-a-repo-'))
     roots.push(plain)
     const { svc } = await service()
     vi.spyOn(probe, 'probeRepo').mockResolvedValue({ kind: 'not-repo' })
@@ -85,7 +85,7 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
   })
 
   it('저장소 밖 하위 경로는 `invalid-path` 다', async () => {
-    const outside = await mkdtemp(join(tmpdir(), 'orca-outside-'))
+    const outside = await mkdtemp(join(tmpdir(), 'orcinus-orca-outside-'))
     roots.push(outside)
     const { svc } = await service()
     vi.spyOn(probe, 'probeRepo').mockResolvedValue({
@@ -103,7 +103,7 @@ describe('준비 거부 이유는 send 단위다 (AC14 · VP-02)', () => {
   })
 
   it('거부한 뒤에도 다음 준비는 성공한다 — 실패가 서비스에 남지 않는다', async () => {
-    const plain = await mkdtemp(join(tmpdir(), 'orca-not-a-repo-'))
+    const plain = await mkdtemp(join(tmpdir(), 'orcinus-orca-not-a-repo-'))
     roots.push(plain)
     const dir = await repo()
     const { svc, rows } = await service()

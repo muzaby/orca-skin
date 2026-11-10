@@ -4,7 +4,7 @@
 //   · SDK(`source:'sdk'`) — 실행 전 거부·중단·취소된 도구의 tool_result 에 CLI 가 찍는
 //     `tool_result_meta[].non_execution_kind`. 공개 타입에 없는 `@internal` wrapper 라 형상·값이
 //     예고 없이 바뀔 수 있다 — 검증을 통과한 값만 읽고, 미지 값은 `not_executed` 로 분류한다.
-//   · host(`source:'host'`) — SDK 가 결과를 보내지 않은 도구를 Orca 가 턴 terminal 직전(`no_result`)
+//   · host(`source:'host'`) — SDK 가 결과를 보내지 않은 도구를 Orcinus orca 가 턴 terminal 직전(`no_result`)
 //     이나 SDK 공개 철회 신호(`retracted`)에서 정착할 때 붙인다.
 // 필드 부재 = 도구가 끝까지 실행됐거나(SDK 문구 "absent means the tool ran to completion") 사유를
 // 모른다 — 소비자는 현행 표시로 폴백한다(D-002).
@@ -30,7 +30,7 @@ const REJECTED_KINDS: ReadonlySet<string> = new Set([
   'automode-parsing-error'
 ])
 
-// `interrupted` 는 사용자 Stop 의 결과라 Orca 자체 중단 정착(`aborted`)과 같은 이름으로 보인다(D-008).
+// `interrupted` 는 사용자 Stop 의 결과라 Orcinus orca 자체 중단 정착(`aborted`)과 같은 이름으로 보인다(D-008).
 export function nonExecutionOutcome(value: NonExecution): NonExecutionOutcome {
   if (value.source === 'host') return 'not_executed'
   if (REJECTED_KINDS.has(value.kind)) return 'rejected'

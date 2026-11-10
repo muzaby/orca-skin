@@ -70,7 +70,7 @@ const APPLIED_SQL = [
 const tmpRoots: string[] = []
 
 function tmpRoot(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'orca-migrate-'))
+  const dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-migrate-'))
   tmpRoots.push(dir)
   return dir
 }
@@ -515,7 +515,7 @@ describe('0023_session_agent_kind_code migration', () => {
   })
 
   it('preserves published artifact references, messages, and FTS after close and reopen', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'orca-agent-kind-migration-'))
+    const directory = mkdtempSync(join(tmpdir(), 'orcinus-orca-agent-kind-migration-'))
     const filename = join(directory, 'history.db')
     let db = databaseThrough0022(filename)
     try {

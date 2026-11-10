@@ -7,16 +7,16 @@ import {
   makeWorkspaceGuardHook,
   type GuardRoots
 } from './workspace-guard'
-import { orcaConfigDir } from '../../infra/config/paths'
+import { ooConfigDir } from '../../infra/config/paths'
 
-// 세션 cwd 는 실제로 ~/.config/orca/projects/<…> 하위다(paths.ts getWorkspacePath). read-only 예외
-// (~/.config/orca)의 하위이면서도 write 가 허용돼야 하는 "예외의 예외"를 실제 경로로 검증한다.
-const WS = path.join(orcaConfigDir(), 'projects', 'default')
+// 세션 cwd 는 실제로 ~/.config/orcinus-orca/projects/<…> 하위다(paths.ts getWorkspacePath). read-only 예외
+// (~/.config/orcinus-orca)의 하위이면서도 write 가 허용돼야 하는 "예외의 예외"를 실제 경로로 검증한다.
+const WS = path.join(ooConfigDir(), 'projects', 'default')
 const roots: GuardRoots = resolveGuardRoots(WS)
 
 const OUTSIDE = process.platform === 'win32' ? 'C:\\Windows\\System32\\x' : '/etc/passwd'
 const CLAUDE_FILE = path.join(homedir(), '.claude', 'skills', 'foo', 'ref.md')
-const ORCA_SOURCES = path.join(orcaConfigDir(), 'sources', 'skills', 'x.md')
+const ORCINUS_ORCA_SOURCES = path.join(ooConfigDir(), 'sources', 'skills', 'x.md')
 
 describe('guardToolAccess — write 계열(writeRoots 만 참조)', () => {
   it('workspace 안 Write 는 pass-through(null)', () => {
@@ -38,17 +38,17 @@ describe('guardToolAccess — write 계열(writeRoots 만 참조)', () => {
     expect(guardToolAccess('Edit', { file_path: CLAUDE_FILE }, roots)).toBeNull()
   })
 
-  it('~/.config/orca 는 read-only — cwd 밖(sources) Write 는 여전히 차단', () => {
-    expect(guardToolAccess('Write', { file_path: ORCA_SOURCES }, roots)).not.toBeNull()
+  it('~/.config/orcinus-orca 는 read-only — cwd 밖(sources) Write 는 여전히 차단', () => {
+    expect(guardToolAccess('Write', { file_path: ORCINUS_ORCA_SOURCES }, roots)).not.toBeNull()
   })
 
-  it('예외의 예외: 세션 cwd 하위는 ~/.config/orca 밑이어도 Write 허용, sources 는 차단', () => {
-    // cwd 자신은 ~/.config/orca 의 하위지만 writeRoots 라 통과.
+  it('예외의 예외: 세션 cwd 하위는 ~/.config/orcinus-orca 밑이어도 Write 허용, sources 는 차단', () => {
+    // cwd 자신은 ~/.config/orcinus-orca 의 하위지만 writeRoots 라 통과.
     expect(
       guardToolAccess('Write', { file_path: path.join(WS, 'deep', 'out.txt') }, roots)
     ).toBeNull()
-    // 같은 ~/.config/orca 밑이라도 cwd 밖(sources)은 write 차단.
-    expect(guardToolAccess('Write', { file_path: ORCA_SOURCES }, roots)).not.toBeNull()
+    // 같은 ~/.config/orcinus-orca 밑이라도 cwd 밖(sources)은 write 차단.
+    expect(guardToolAccess('Write', { file_path: ORCINUS_ORCA_SOURCES }, roots)).not.toBeNull()
   })
 
   it('Write 경로 누락은 deny', () => {
@@ -65,9 +65,9 @@ describe('guardToolAccess — read 계열(readRoots 참조)', () => {
     expect(guardToolAccess('Read', { file_path: OUTSIDE }, roots)).not.toBeNull()
   })
 
-  it('read 예외 경로(~/.claude·~/.config/orca)는 Read 허용', () => {
+  it('read 예외 경로(~/.claude·~/.config/orcinus-orca)는 Read 허용', () => {
     expect(guardToolAccess('Read', { file_path: CLAUDE_FILE }, roots)).toBeNull()
-    expect(guardToolAccess('Read', { file_path: ORCA_SOURCES }, roots)).toBeNull()
+    expect(guardToolAccess('Read', { file_path: ORCINUS_ORCA_SOURCES }, roots)).toBeNull()
   })
 
   it('Glob/Grep 은 path(검색 루트)로 판정, 생략 시 cwd 기준 → 통과', () => {

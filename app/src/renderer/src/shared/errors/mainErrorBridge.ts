@@ -7,7 +7,7 @@ interface MainErrorApi {
 }
 
 export async function connectMainErrorReports(
-  api: MainErrorApi | undefined = typeof window === 'undefined' ? undefined : window.orca?.error
+  api: MainErrorApi | undefined = typeof window === 'undefined' ? undefined : window.oo?.error
 ): Promise<() => void> {
   if (!api) return () => {}
   const seen = new Set<string>()

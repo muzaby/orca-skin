@@ -7,8 +7,8 @@ import type { HarnessRuntimeConfig } from '../../../adapters/common/harness-conf
 
 const contribution = {
   authId: 'gate',
-  key: 'orca-corp',
-  harnessId: 'orca',
+  key: 'orcinus-orca-corp',
+  harnessId: 'orcinus-orca',
   modelProviderId: 'corp'
 }
 const config = (models: string[]): HarnessRuntimeConfig => ({
@@ -33,7 +33,7 @@ describe('runtime model catalog', () => {
       ...contribution,
       get key(): string {
         keyReads += 1
-        return ' ORCA-CORP '
+        return ' ORCINUS-ORCA-CORP '
       }
     })
     const catalog = createRuntimeModelCatalog({
@@ -42,15 +42,15 @@ describe('runtime model catalog', () => {
       snapshotOf: () => valid(),
       runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
     })
-    expect(catalog.isReadOnly('orca-corp')).toBe(true)
-    expect(catalog.isReadOnly(' ORCA-CORP ')).toBe(true)
-    expect(catalog.isReadOnly('orca-other')).toBe(false)
+    expect(catalog.isReadOnly('orcinus-orca-corp')).toBe(true)
+    expect(catalog.isReadOnly(' ORCINUS-ORCA-CORP ')).toBe(true)
+    expect(catalog.isReadOnly('orcinus-orca-other')).toBe(false)
     expect(
       catalog.merge([
-        { key: 'orca-corp', adapter: 'orca', models: [], supported: true },
-        { key: 'orca-local', adapter: 'orca', models: [], supported: true }
+        { key: 'orcinus-orca-corp', adapter: 'orcinus-orca', models: [], supported: true },
+        { key: 'orcinus-orca-local', adapter: 'orcinus-orca', models: [], supported: true }
       ])
-    ).toEqual([{ key: 'orca-local', adapter: 'orca', models: [], supported: true }])
+    ).toEqual([{ key: 'orcinus-orca-local', adapter: 'orcinus-orca', models: [], supported: true }])
     expect(keyReads).toBe(1)
   })
 
@@ -65,12 +65,14 @@ describe('runtime model catalog', () => {
     expect(
       catalog.merge(
         [
-          { key: 'orca-local', adapter: 'orca', models: [], supported: false },
+          { key: 'orcinus-orca-local', adapter: 'orcinus-orca', models: [], supported: false },
           { key: 'other-local', adapter: 'other', models: [], supported: false }
         ],
-        'orca'
+        'orcinus-orca'
       )
-    ).toEqual([{ key: 'orca-local', adapter: 'orca', models: [], supported: false }])
+    ).toEqual([
+      { key: 'orcinus-orca-local', adapter: 'orcinus-orca', models: [], supported: false }
+    ])
   })
 
   it('replays an auth-resume snapshot that arrived before bootstrap attached the catalog', async () => {
@@ -120,7 +122,7 @@ describe('runtime model catalog', () => {
     await catalog.reconcile('gate', valid())
     expect(resolve).toHaveBeenCalledTimes(1)
     expect(catalog.list()).toEqual([
-      expect.objectContaining({ key: 'orca-corp', readOnly: true, source: 'runtime' })
+      expect.objectContaining({ key: 'orcinus-orca-corp', readOnly: true, source: 'runtime' })
     ])
     expect(catalog.list()[0].models[0]).toMatchObject({
       alias: 'custom',
@@ -193,7 +195,7 @@ describe('runtime model catalog', () => {
   })
 
   it('warms the shared runtime cache so later session and turn resolves do not fetch', async () => {
-    const fetchContribution = vi.fn(async () => config(['orca-private-v1']))
+    const fetchContribution = vi.fn(async () => config(['orcinus-orca-private-v1']))
     const runtime = createHarnessRuntimeConfigService({
       settings: { resolve: async () => undefined },
       augmenters: { [contribution.key]: { resolve: fetchContribution } }
@@ -227,7 +229,7 @@ describe('runtime model catalog', () => {
   })
 
   it('removes only the failing contribution when a fetch rejects', async () => {
-    const other = { ...contribution, key: 'orca-other', modelProviderId: 'other' }
+    const other = { ...contribution, key: 'orcinus-orca-other', modelProviderId: 'other' }
     const resolve = vi.fn(async (item: typeof contribution) => {
       if (item.key === contribution.key) throw new Error('offline')
       return { ...config(['sonnet-other']), key: other.key, modelProviderId: other.modelProviderId }
@@ -241,7 +243,7 @@ describe('runtime model catalog', () => {
 
     await catalog.reconcile('gate', valid())
 
-    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-other'])
+    expect(catalog.list().map((entry) => entry.key)).toEqual(['orcinus-orca-other'])
   })
 
   it('treats declared runtime keys as read-only across casing and whitespace variants', () => {
@@ -252,7 +254,7 @@ describe('runtime model catalog', () => {
       runtime: { resolve: vi.fn(), cached: vi.fn(), invalidate: vi.fn() }
     })
 
-    expect(catalog.isReadOnly(' orca-CORP ')).toBe(true)
+    expect(catalog.isReadOnly(' orcinus-orca-CORP ')).toBe(true)
   })
 
   it('replays a valid snapshot inside the same invalidation', async () => {
@@ -267,14 +269,14 @@ describe('runtime model catalog', () => {
     })
     await catalog.reconcile('gate', valid())
 
-    await catalog.invalidate(' ORCA-corp ')
+    await catalog.invalidate(' ORCINUS-ORCA-corp ')
     expect(resolve).toHaveBeenCalledTimes(2)
     expect(catalog.list()).toHaveLength(1)
     expect(onChange).toHaveBeenCalledTimes(3)
   })
 
   it('invalidates only the requested canonical contribution key', async () => {
-    const other = { ...contribution, key: 'orca-other', modelProviderId: 'other' }
+    const other = { ...contribution, key: 'orcinus-orca-other', modelProviderId: 'other' }
     const catalog = createRuntimeModelCatalog({
       parseModels: parseRuntimeModels,
       contributions: [contribution, other],
@@ -291,13 +293,16 @@ describe('runtime model catalog', () => {
     })
     await catalog.reconcile('gate', valid())
 
-    await catalog.invalidate(' ORCA-CORP ')
+    await catalog.invalidate(' ORCINUS-ORCA-CORP ')
 
-    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-corp', 'orca-other'])
+    expect(catalog.list().map((entry) => entry.key)).toEqual([
+      'orcinus-orca-corp',
+      'orcinus-orca-other'
+    ])
   })
 
   it('replays every contribution during a full invalidation', async () => {
-    const other = { ...contribution, authId: 'other-auth', key: 'orca-other' }
+    const other = { ...contribution, authId: 'other-auth', key: 'orcinus-orca-other' }
     const snapshots: Record<string, AuthSnapshot> = {
       gate: valid(),
       'other-auth': { ...valid(), authId: 'other-auth' }
@@ -321,7 +326,10 @@ describe('runtime model catalog', () => {
     await catalog.invalidate()
 
     expect(resolve).toHaveBeenCalledTimes(4)
-    expect(catalog.list().map((entry) => entry.key)).toEqual(['orca-corp', 'orca-other'])
+    expect(catalog.list().map((entry) => entry.key)).toEqual([
+      'orcinus-orca-corp',
+      'orcinus-orca-other'
+    ])
   })
 
   it('starts a latest-generation replay instead of joining stale in-flight work', async () => {

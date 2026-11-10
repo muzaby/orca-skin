@@ -16,7 +16,7 @@ const text = (): string =>
     2
   ).replace('{', '{\n  // keep this comment') + '\n'
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-global-plugins-'))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-global-plugins-'))
   await mkdir(join(root, 'opencode'))
   specs = []
   for (const name of ['one', 'two']) {

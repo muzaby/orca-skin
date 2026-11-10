@@ -27,7 +27,7 @@ it('skips unavailable CLI and leaves an explicit foreground retry available', as
 })
 
 it('uses the foreground cwd fallback and releases failed warmup for an explicit retry', async () => {
-  const cwd = await mkdtemp(join(tmpdir(), 'orca-warmup-fallback-'))
+  const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-warmup-fallback-'))
   const release = vi.fn(async () => {})
   let failed = true
   const read = vi.fn(

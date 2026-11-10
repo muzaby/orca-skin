@@ -15,7 +15,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest'
 import { persistClaudePluginState } from './plugin-state'
 let root: string
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-plugin-state-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-plugin-state-'))
   mkdirSync(join(root, '.git'))
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))

@@ -7,7 +7,7 @@ version/dist-tags.latest를 조회한 뒤 app dependencies에 범위 연산자 �
 package.json, package-lock.json, 설치본 package.json과 npm ls 결과가 같은 버전이다.
 이 날짜 이후의 latest를 뜻하지 않는다.
 
-Orca는 `OpenCodeAdapter`와 소유 로컬 서버를 등록하며 `/v2/client`의 legacy 호환 API를 사용한다. native `/api/...`와 혼용하지 않는다. 설치 SDK의 주입 fetch 계약·SSE fixture를 실행하며, CLI 버전 호환성은 실제 health/catalog 검증과 별도로 기록한다. 실행 구조와 제한은 [어댑터 문서](arch/backend/adapters.md)가 정본이다.
+Orcinus orca는 `OpenCodeAdapter`와 소유 로컬 서버를 등록하며 `/v2/client`의 legacy 호환 API를 사용한다. native `/api/...`와 혼용하지 않는다. 설치 SDK의 주입 fetch 계약·SSE fixture를 실행하며, CLI 버전 호환성은 실제 health/catalog 검증과 별도로 기록한다. 실행 구조와 제한은 [어댑터 문서](arch/backend/adapters.md)가 정본이다.
 
 | 증거 수준 | 이 문서에서 뜻하는 것 |
 | --- | --- |
@@ -155,10 +155,10 @@ root Message는 role: 'user'인 UserMessage 또는 role: 'assistant'인 Assistan
 메시지 목록/단일 응답은 info와 parts를 분리한다. Part의 id, messageID, sessionID와
 ToolPart.callID는 서로 다른 식별 축이다.
 
-| 타입 | 주요 필드 | Orca 변환에서 주의할 점 |
+| 타입 | 주요 필드 | Orcinus orca 변환에서 주의할 점 |
 | --- | --- | --- |
 | UserMessage | id/sessionID, time.created, agent, model { providerID, modelID }, optional summary/system/tools | 모델 식별자를 Claude model 문자열로 단순 축약하지 않음 |
-| AssistantMessage | id/sessionID, parentID, providerID/modelID, mode, path, time, cost, tokens, finish?, error? | parentID와 Orca pending ID 구분; finish/완료 시간/오류를 함께 해석 |
+| AssistantMessage | id/sessionID, parentID, providerID/modelID, mode, path, time, cost, tokens, finish?, error? | parentID와 Orcinus orca pending ID 구분; finish/완료 시간/오류를 함께 해석 |
 | TextPart | type=text, text, synthetic?/ignored?, time? | snapshot과 append delta 구분 |
 | ReasoningPart | type=reasoning, text, time, metadata? | 사용자 text와 분리; 표시·보존 정책 별도 |
 | FilePart | type=file, mime, url, filename?, source? | URL/path 권한·첨부 보존; 무조건 로컬 파일로 가정하지 않음 |
@@ -228,7 +228,7 @@ mapper를 재사용할 수 없다. raw 객체를 stringify하여 본문으로 �
 native stream에도 message.part.* 및 session.status/idle 같은 호환 이벤트가 들어갈 수 있다.
 type/data라는 envelope가 곧 모든 항목이 session.next.*라는 뜻은 아니다. server.connected,
 catalog/provider/project/file/PTY 등에는 일반 대화의 sessionID가 없거나 의미가 다를 수 있다.
-전역 이벤트를 무조건 활성 Orca session에 붙이면 안 된다.
+전역 이벤트를 무조건 활성 Orcinus orca session에 붙이면 안 된다.
 
 | 관심 이벤트 계열 | 변환 시 확인할 계약 |
 | --- | --- |
@@ -244,7 +244,7 @@ catalog/provider/project/file/PTY 등에는 일반 대화의 sessionID가 없거
 목록의 전수 타입 정본은 각각 Event/V2Event union이다. 이 표는 소비 책임별 분류이며 새
 타입 추가를 조용히 drop해도 된다는 뜻이 아니다.
 
-### 5.2 durable replay와 Orca history는 별개다
+### 5.2 durable replay와 Orcinus orca history는 별개다
 
 v2 client의 native session 메서드가 다음을 선언한다.
 
@@ -258,9 +258,9 @@ v2 client의 native session 메서드가 다음을 선언한다.
 검증한 결과가 아니다. SSE Last-Event-ID와 durable.aggregateID/seq 및 history.after는
 다른 계층의 cursor다. 임의로 서로 대입하지 않는다.
 
-Orca 후속 adapter는 backend/session/message/content ID, frame token, durable sequence로
+Orcinus orca 후속 adapter는 backend/session/message/content ID, frame token, durable sequence로
 중복·늦은 이벤트를 격리하고 gap이면 resync해야 한다. snapshot은 overwrite, delta는 append로
-분리하며 replay된 사용량/도구 완료를 다시 계상하지 않는다. UI 기록의 SSOT는 Orca DB로
+분리하며 replay된 사용량/도구 완료를 다시 계상하지 않는다. UI 기록의 SSOT는 Orcinus orca DB로
 유지하고 OpenCode history는 transport 복구 근거로 다루는 것이 이번 연구의 권고다.
 
 ## 6. SSE와 Electron 네트워크 제약
@@ -268,7 +268,7 @@ Orca 후속 adapter는 backend/session/message/content ID, frame token, durable 
 **1.18.27 root SSE는 configured fetch를 우회한다.** root REST에는 fetch가 주입되지만
 dist/gen/core/serverSentEvents.gen.js는 fetch(url, options)를 직접 호출하고 request
 interceptor도 거치지 않는다. 실제 SDK fixture로 이 차이를 관측했다. 따라서 root client에
-netFetch를 지정했다는 이유만으로 Orca의 Chromium 단일 네트워크 정책을 충족한다고 말할 수 없다.
+netFetch를 지정했다는 이유만으로 Orcinus orca의 Chromium 단일 네트워크 정책을 충족한다고 말할 수 없다.
 
 v2 SSE는 options.fetch ?? globalThis.fetch를 선택하고 onRequest를 통해 request interceptor를
 적용한다. v2 legacy/native 양쪽을 fake injected fetch로 관측했다. 이 경로가 후속 transport
@@ -315,9 +315,9 @@ permission API가 존재하지만 이를 Claude default/acceptEdits/bypassPermis
 자동 동치로 만들지는 않는다. always의 범위·저장·철회와 기존 vault/permission mode의
 매핑은 후속 제품 결정이다.
 
-question의 answers는 질문 순서별 선택 문자열 배열, 즉 string[][]다. Orca에는 이미
+question의 answers는 질문 순서별 선택 문자열 배열, 즉 string[][]다. Orcinus orca에는 이미
 permission.requested의 action.kind = ask_question 및 AskResult 경로가 있으므로 재사용을
-검토할 수 있다. 그러나 Orca의 question-keyed Record와 배열은 동일하지 않다. 중복 질문
+검토할 수 있다. 그러나 Orcinus orca의 question-keyed Record와 배열은 동일하지 않다. 중복 질문
 문자열, 순서, multiple/custom 답변, reject/cancel, 늦은 reply를 검증해야 한다.
 tool 권한 reject를 session interrupt와 동일하게 처리하면 안 된다.
 
@@ -340,7 +340,7 @@ legacy client.question.reply의 flat answers와 native questionV2Reply wrapper�
 
 ## 8. 설정·모델·인증·MCP·프로세스
 
-| 관심사 | 확인한 사실 | 후속 Orca 책임 |
+| 관심사 | 확인한 사실 | 후속 Orcinus orca 책임 |
 | --- | --- | --- |
 | provider/model | legacy provider/config API와 native model/provider/integration namespace가 별도 | ProviderId/ModelRef/catalog를 분리하고 capability 검증 |
 | provider credential | root auth.set({ path: { id }, body: { type: 'api', key } }) 같은 타입 존재 | 저장 위치·server 전달·vault·redaction 결정; API 존재가 인증 정책 승인은 아님 |
@@ -356,7 +356,7 @@ port는 4096, 시작 대기 timeout은 5000ms다. env에 OPENCODE_CONFIG_CONTENT
 stdout의 server listening URL을 파싱한다. 시작 실패/timeout/abort와 close는 프로세스
 정리 경로를 갖지만 Windows 패키징·자식 트리 종료는 실기 확인하지 않았다.
 
-createOpencode helper는 생성한 client에 server URL을 넘기며 Orca의 netFetch를 자동으로
+createOpencode helper는 생성한 client에 server URL을 넘기며 Orcinus orca의 netFetch를 자동으로
 연결하지 않는다. 서버 ownership·배포 방식·자격증명·shutdown 정책을 정하기 전에는 앱 boot에
 직접 넣지 않는다. CLI 바이너리는 npm SDK 설치로 생기지 않으며 이번 작업에서 설치/실행하지 않았다.
 
@@ -374,8 +374,8 @@ createOpencode helper는 생성한 client에 server URL을 넘기며 Orca의 net
 | custom fetch를 지정하면 모든 요청에 적용된다는 기대 | root SSE는 예외 (§6); v2 주입 경로를 따로 확인 |
 | /v2 import와 native API를 같은 것으로 해석 | client.session과 client.v2.session은 endpoint·입출력·이벤트가 다름 |
 
-Orca의 예전 문서에 있던 session.send, payload: true/false, ChatEvent 기반 adapter 예제는
-현재 SDK/Orca 타입의 근거로 삼지 않는다. 관련 현재 문서는 실제 계약 링크와 설치≠활성
+Orcinus orca의 예전 문서에 있던 session.send, payload: true/false, ChatEvent 기반 adapter 예제는
+현재 SDK/orcinus-orca 타입의 근거로 삼지 않는다. 관련 현재 문서는 실제 계약 링크와 설치≠활성
 표기로 정렬했다.
 
 ## 10. 검증 범위와 다음 구현의 진입 조건
@@ -394,7 +394,7 @@ CLI 설치·Windows 종료·패키징의 통과가 아니다. 그 범위는 이�
 2. netFetch 주입과 SSE 요청의 directory/workspace/auth/signal 전달을 Electron에서 검증한다.
 3. message/part/native content의 exhaustive mapper와 unsupported 정책을 확정한다.
 4. ID binding, durable cursor, snapshot/delta, usage 중복, reconnect/cancel/late event를 잠근다.
-5. permission/question, config/catalog, credentials/MCP를 Orca 경계별로 설계한다.
+5. permission/question, config/catalog, credentials/MCP를 Orcinus orca 경계별로 설계한다.
 6. OQ7/OQ10와 server 소유·배포 정책을 사용자 결정으로 닫고 Claude 회귀·rollback을 검증한다.
 
 SDK를 올릴 때는 manifest/lock/설치본 버전, exports, generated 타입의 discriminant,

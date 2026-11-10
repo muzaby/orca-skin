@@ -13,7 +13,7 @@
 //
 // dist/<engine> 는 편집 대상이 아니다. 무단 덮어쓰기를 막기 위해 기록 전 항상 백업한다(.bak 1개 롤링).
 // 레이아웃은 paths.ts 의 sources*/dist* 헬퍼와 일치해야 한다 — 본 함수는 테스트 용이성을 위해 root 를
-// 받아 상대 경로로 계산한다(homedir 비의존). 기본값은 orcaConfigDir().
+// 받아 상대 경로로 계산한다(homedir 비의존). 기본값은 ooConfigDir().
 
 // 동기 fs 금지(0109) — 배포는 부팅 스텝과 스킬/MCP CRUD invoke 핸들러 안에서 돌므로,
 // 재귀 복사/삭제가 sync 면 그 동안 이벤트 루프(=모든 IPC·프로토콜 응답)가 멈춘다.
@@ -27,9 +27,9 @@ import { isRecord } from '../../../../shared/obj'
 import type { ClaudeMcpConfig } from '../../../adapters/claude/mcp-config'
 import type { SkillScanRoot } from '../common/skills/scan'
 import { readJsonFile } from '../../../infra/config/json-file'
-import { orcaConfigDir } from '../../../infra/config/paths'
+import { ooConfigDir } from '../../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../../infra/config/provider-key'
-import { ORCA_PLUGIN_NAME } from '../../../adapters/claude/plugin'
+import { OO_PLUGIN_NAME } from '../../../adapters/claude/plugin'
 import { renderClaudeHarnessPlugin } from './plugin'
 import { renderClaudeUserSkillsPlugin } from './user-skills'
 import { PRODUCT_SLUG } from '../../../../shared/product'
@@ -103,7 +103,7 @@ async function scanProviderSettings(settingsRoot: string): Promise<{
 export async function deploy(
   engine: Backend,
   opts: DeployOptions = {},
-  root: string = orcaConfigDir()
+  root: string = ooConfigDir()
 ): Promise<DeployResult> {
   const dryRun = !!opts.dryRun
   const sources = join(root, 'sources')
@@ -138,7 +138,7 @@ export async function deploy(
       `validate mcp keys (${validation.ok ? 'ok' : validation.errors.length + ' error(s)'})`
     )
     if (existsSync(dist)) actions.push(`backup ${dist} → ${dist}.bak`)
-    actions.push(`render orca plugin → dist/plugins/${PRODUCT_SLUG}`)
+    actions.push(`render Orcinus orca plugin → dist/plugins/${PRODUCT_SLUG}`)
     actions.push(
       existsSync(mcpSrc) || opts.mcpConfig
         ? `render mcp → plugins/${PRODUCT_SLUG}/.mcp.json`
@@ -161,7 +161,7 @@ export async function deploy(
       // 아닌데, dist 를 통째로 rename 하면 평문 .mcp.json 이 무기한 남는다(보고서 위험 #2).
       // 남는 1차 사본(dist 쪽)은 claude CLI 가 읽어야 해서 제거할 수 없다 — 요구명세
       // §소비자 경계의 문서화된 잔여 노출이며, 최종 제거는 MCP proxy 단계 몫이다.
-      await rm(join(bak, 'plugins', ORCA_PLUGIN_NAME, '.mcp.json'), { force: true })
+      await rm(join(bak, 'plugins', OO_PLUGIN_NAME, '.mcp.json'), { force: true })
       actions.push('backup dist → .bak (mcp secret 스크럽)')
     } catch (e) {
       getLogger()
@@ -192,15 +192,15 @@ export async function deploy(
     root,
     skillRoots: opts.skillRoots ?? [
       {
-        sourceId: 'orca',
+        sourceId: 'orcinus-orca',
         sourceLabel: `${PRODUCT_DISPLAY_NAME} 스킬`,
-        sourceKind: 'orca',
+        sourceKind: 'orcinus-orca',
         rootDir: join(sources, 'skills')
       }
     ],
     mcpConfig
   })
-  actions.push(`render orca plugin → dist/plugins/${PRODUCT_SLUG}`)
+  actions.push(`render Orcinus orca plugin → dist/plugins/${PRODUCT_SLUG}`)
 
   // 사용자 ~/.claude/skills 래퍼 플러그인(0117) — 대상 부재/링크 실패는 렌더러가 null 로 강등.
   const userPluginRoot = adapterSkillsRoot

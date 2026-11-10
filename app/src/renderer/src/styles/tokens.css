@@ -1,4 +1,4 @@
-/* Orca design tokens — Tailwind v4 theme + data-theme scope overrides.
+/* Orcinus orca design tokens — Tailwind v4 theme + data-theme scope overrides.
    Color/font tokens declared here become Tailwind utility classes
    (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
@@ -45,7 +45,7 @@
     }
   }
 
-  /* Error toast aliases follow Orca's semantic palette in both themes. */
+  /* Error toast aliases follow Orcinus orca's semantic palette in both themes. */
   --color-toast-bg: var(--color-panel);
   --color-toast-border: var(--color-border);
   --color-toast-icon-border: var(--color-border-strong);
@@ -138,7 +138,7 @@
 
   /* ── Epitaxy tone scale (t1→t9, surface→text) ──────────────────────
      Vocabulary borrowed from the Claude Code desktop design system;
-     concrete values map onto Orca's warm palette. Alias tokens (t1/t2/
+     concrete values map onto Orcinus orca's warm palette. Alias tokens (t1/t2/
      t5/t6/t9) reference semantic tokens so they re-theme automatically —
      do NOT override aliases in [data-theme] scopes (double definition).
      Only the non-alias values (t3/t7/t8) carry per-theme overrides. */

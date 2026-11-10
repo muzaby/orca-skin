@@ -71,7 +71,7 @@ export class LogManager {
     this.consoleMirrorEnabled = on
   }
 
-  // orca.json debug 플래그 런타임 반영(0144). 부팅 시 config 로드 후 컴포지션 루트가 호출한다
+  // orcinus-orca.json debug 플래그 런타임 반영(0144). 부팅 시 config 로드 후 컴포지션 루트가 호출한다
   // (initLog 가 config 로드보다 먼저라 생성자 주입 불가). dev 는 항상 debug 유지 — 이 스위치는
   // prod 에서만 minRank 를 올린다. minRank 가 유일한 상태다(플래그를 따로 들지 않는다).
   setDebugEnabled(on: boolean): void {

@@ -519,7 +519,7 @@ describe('OpenCode native read through the SDK boundary', () => {
       close: vi.fn()
     }
     const adapter = createOpenCodeAdapter({
-      dataDirectory: 'C:/fixture/orca',
+      dataDirectory: 'C:/fixture/orcinus-orca',
       preferences: () => undefined,
       fetchImpl: transport,
       server

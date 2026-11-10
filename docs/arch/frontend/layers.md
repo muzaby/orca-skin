@@ -77,14 +77,14 @@ src/renderer/
     │   ├── navigation/              # routes.ts (path 패턴 + 라벨 + breadcrumb 카탈로그 — AppLayout matchPath 소스)
     │   ├── i18n/                    # i18next 초기화 + 리소스 번들 + datetime 로캘 포맷 (0096/0097)
     │   ├── theme/                   # TweakProvider(인스턴스별 설정 store·DOM 효과), useTweakContext(필수 selector)
-    │   ├── hooks/                   # useSkills (orca:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
+    │   ├── hooks/                   # useSkills (oo:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
     │   ├── stores/                  # agentStore (engine/provider 공유 store — 카드·Composer/ModelMenu 싱크)
-    │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
+    │   ├── api/ipc.ts               # `window.oo.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId 타입 + TRANSCRIPT_TEXT_SCALE·TRANSCRIPT_WIDTH_PX
-    │   ├── logging.ts               # renderer 로그를 orca:log:emit 으로 중계 (0123/0124)
+    │   ├── logging.ts               # renderer 로그를 oo:log:emit 으로 중계 (0123/0124)
     │   └── ui/                      # Icon, Status, Popover, CopyIconButton, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom),
     │                                #   Modal(공용 모달 셸, 0093 일반화), ConfirmDialogHost+confirmDialogStore(삭제 확인, 0083), RenameInput(0083),
-    │                                #   Meter·UsageCircle·usageTone(사용량 시각화, 0079/0080), AutoGrowTextarea, ReadingColumn, OrcaLogo, Button, Toggle,
+    │                                #   Meter·UsageCircle·usageTone(사용량 시각화, 0079/0080), AutoGrowTextarea, ReadingColumn, OoLogo, Button, Toggle,
     │                                #   markdown/(Markdown·CodeBlock — features/chat 에는 StreamingMarkdown 만 잔류), elapsed, mock, BayerPattern, Histogram
     │
     └── styles/                      ✅
@@ -108,8 +108,8 @@ src/renderer/
 
 - **`app/`**: Provider 합성 + 라우터 + 앱 셸 레이아웃 원자. `router.tsx` = 어느 pages/를 보여줄지. `AppLayout.tsx` = 셸 조립 (wiring hook 호출 + JSX 만). Header/Sidebar/OverlayLayer/WinControls = 레이아웃 컴포넌트 — 셸의 *도메인 특정 설정값과 적용* (예: `SIDEBAR_MIN/MAX/DEFAULT_WIDTH` + `setTweak('sidebarWidth', n)`) 은 컴포넌트 자체에 잔류 (공용 인프라가 아니므로). cross-feature wiring (chat→sessions 동기화, 다중 도메인 핸들러 합성, slot 안정화 등) 은 **`app/hooks/`** 에 캡슐화. ❌ 도메인 비즈니스 로직 (UI 위젯 설정/적용을 넘어선 도메인 규칙) 금지.
 - **`pages/`**: 라우터가 `<Outlet>` (`app-frame-body > main`) 에 마운트하는 진입점. **무엇을 배치할지 조립만. 비즈니스 로직 없음.** features/ + shared/ 를 가져다 배치하는 역할.
-- **`features/<domain>/`**: 도메인 기능 모듈. 6-슬롯 (`components/` / `hooks/` / `api/` / `store/` / `types.ts` / `index.ts`). 외부 노출: `index.ts` barrel 만. 다른 feature 의 내부 파일 직접 import 금지. features 간 직접 의존 금지 — 공유 필요 시 `shared/` 로. **IPC 호출: `shared/api/ipc.ts` 래퍼 경유만 허용. `window.orca.*` 직접 호출 금지.**
-- **`shared/`** (renderer 내부): 도메인 지식 없는 재사용 자산. `ui/` = 도메인-무관 UI 원자 (구 `components/atoms/`). `hooks/` = 도메인-무관 hook — 셸 컴포넌트의 *재사용 가능한 메커니즘* (예: 1D 드래그→숫자 `useDragResize`) 도 여기에. *도메인 특정 설정* (sidebar 폭 경계, sessions 액션 wiring 등) 은 shared 자격 미달. `api/ipc.ts` = `window.orca.*` 타입드 래퍼. `config/` = 상수·테마 타입. **store / 도메인 hook import 금지.**
+- **`features/<domain>/`**: 도메인 기능 모듈. 6-슬롯 (`components/` / `hooks/` / `api/` / `store/` / `types.ts` / `index.ts`). 외부 노출: `index.ts` barrel 만. 다른 feature 의 내부 파일 직접 import 금지. features 간 직접 의존 금지 — 공유 필요 시 `shared/` 로. **IPC 호출: `shared/api/ipc.ts` 래퍼 경유만 허용. `window.oo.*` 직접 호출 금지.**
+- **`shared/`** (renderer 내부): 도메인 지식 없는 재사용 자산. `ui/` = 도메인-무관 UI 원자 (구 `components/atoms/`). `hooks/` = 도메인-무관 hook — 셸 컴포넌트의 *재사용 가능한 메커니즘* (예: 1D 드래그→숫자 `useDragResize`) 도 여기에. *도메인 특정 설정* (sidebar 폭 경계, sessions 액션 wiring 등) 은 shared 자격 미달. `api/ipc.ts` = `window.oo.*` 타입드 래퍼. `config/` = 상수·테마 타입. **store / 도메인 hook import 금지.**
 - **`styles/`**: Tailwind + CSS 변수만. JS 의존 없음.
 
 ### 1.2 새 파일을 만들 때 결정 흐름

@@ -28,7 +28,12 @@ function resolveDirty(
   write: GitWrite
 ): Promise<GitRunResult> {
   if (resolution === 'stash')
-    return write(cwd, ['stash', 'push', '-m', `orca: auto-stash before switching to ${target}`])
+    return write(cwd, [
+      'stash',
+      'push',
+      '-m',
+      `Orcinus orca: auto-stash before switching to ${target}`
+    ])
   if (resolution === 'commit-wip') return write(cwd, ['commit', '-a', '-m', 'WIP'])
   return write(cwd, ['reset', '--hard', 'HEAD'])
 }

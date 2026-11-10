@@ -10,7 +10,7 @@ import { nativeSchemaSql } from './native-schema.testfixture'
 let root: string
 let file: string
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-native-cursor-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-native-cursor-'))
   file = join(root, 'opencode.db')
   const db = new Database(file)
   try {

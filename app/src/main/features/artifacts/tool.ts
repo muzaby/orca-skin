@@ -4,7 +4,7 @@ import type { RuntimeToolServer } from '../../adapters/common/runtime-tools'
 import type { ArtifactService } from './service'
 import { artifactError } from './validation'
 
-const instructions = `Publish a completed HTML, Markdown, text/code or image deliverable into the current Orca conversation.
+const instructions = `Publish a completed HTML, Markdown, text/code or image deliverable into the current Orcinus orca conversation.
 Use this when the user requests an artifact or a result intended for publishing or sharing.
 Ordinary generated documents are file outputs and do not require artifact publication.
 Do not publish application internals, configuration, tests, logs or intermediate files
@@ -12,11 +12,11 @@ merely because they were created or edited. A requested standalone HTML example 
 itself be a deliverable; decide from the user's task, not the folder or extension alone.
 Finish writing and checking the requested artifact, then call this tool before the final response.
 If several artifacts are requested, publish each. Do not claim publication succeeded
-unless the tool confirms success. This publishes locally in Orca, not to the web.
-The tool stores the published file in Orca's artifacts folder and returns its reference.
+unless the tool confirms success. This publishes locally in Orcinus orca, not to the web.
+The tool stores the published file in Orcinus orca's artifacts folder and returns its reference.
 Use the completed file in your working directory, the session's additional directories,
 or the orcinus-orca folder under the OS user's temporary directory (including its subdirectories) as input.
-Do not change Orca settings or write directly to its configuration folder.
+Do not change Orcinus orca settings or write directly to its configuration folder.
 The UI provides a preview, source view for text, and file actions for published deliverables.`
 
 export function createArtifactToolServer(
@@ -26,15 +26,15 @@ export function createArtifactToolServer(
   const name = 'publish_artifact'
   return {
     descriptor: {
-      id: 'orca_artifacts',
-      connectorId: 'orca_artifacts',
+      id: 'orcinus_orca_artifacts',
+      connectorId: 'orcinus_orca_artifacts',
       alwaysLoad: true,
       instructions,
       tools: [
         {
           name,
           description:
-            'Publish one finished local HTML, Markdown, text/code or PNG/JPEG/GIF/WebP/SVG deliverable to this Orca conversation. The input file is copied and preserved. Maximum 5 MiB; text and SVG must be UTF-8 and raster images must have valid signatures. Path is relative to the current working directory or an allowed absolute local path, including files under the orcinus-orca folder in the OS temporary directory.',
+            'Publish one finished local HTML, Markdown, text/code or PNG/JPEG/GIF/WebP/SVG deliverable to this Orcinus orca conversation. The input file is copied and preserved. Maximum 5 MiB; text and SVG must be UTF-8 and raster images must have valid signatures. Path is relative to the current working directory or an allowed absolute local path, including files under the orcinus-orca folder in the OS temporary directory.',
           annotations: {
             readOnlyHint: false,
             destructiveHint: false,

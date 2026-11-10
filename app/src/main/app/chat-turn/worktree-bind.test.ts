@@ -18,7 +18,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 // `HistoryWriter` → `infra/log` 가 `electron.app` 을 문다. 저장소에 이미 있는 패턴으로 끊는다
 // (`app/handlers/misc-split.test.ts` 와 같은 형태) — 로그는 이 계약의 대상이 아니다.
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/orca-test-userdata', getName: () => 'orca' }
+  app: { getPath: () => '/tmp/orcinus-orca-test-userdata', getName: () => 'orcinus-orca' }
 }))
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
@@ -58,7 +58,7 @@ function turnFor(cwd: string): TurnContext {
 }
 
 async function openDb(): Promise<{ file: string; db: Database.Database; q: DbQueries }> {
-  const dir = await mkdtemp(join(tmpdir(), 'orca-bind-'))
+  const dir = await mkdtemp(join(tmpdir(), 'orcinus-orca-bind-'))
   dirs.push(dir)
   const file = join(dir, 'orcinus-orca.db')
   const db = openHandle(file)

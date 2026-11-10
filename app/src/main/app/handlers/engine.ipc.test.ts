@@ -8,7 +8,7 @@ import { OpenCodeAdapter } from '../../adapters/opencode/v1/adapter'
 import type { BoundAuth } from '../../contracts/auth'
 import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
-import { orcaConfigDir } from '../../infra/config/paths'
+import { ooConfigDir } from '../../infra/config/paths'
 import {
   createRuntimeConfigAugmenters,
   RUNTIME_MODEL_CONTRIBUTIONS,
@@ -44,7 +44,7 @@ vi.mock('../../infra/log', () => ({
 }))
 vi.mock('../../infra/ipc/send', () => ({ sendInstallStatus: vi.fn(), setWireLog: vi.fn() }))
 vi.mock('../../infra/ipc/wire-log', () => ({ setWireSink: vi.fn() }))
-vi.mock('../../infra/config/orca-config', () => ({ getOrcaConfig: () => ({}), appEnv: () => ({}) }))
+vi.mock('../../infra/config/oo-config', () => ({ getOoConfig: () => ({}), appEnv: () => ({}) }))
 
 const invoke = async (channel: string, raw?: unknown): Promise<unknown> =>
   fixture.callbacks.get(channel)!({}, raw)
@@ -58,7 +58,7 @@ const settingsJson = (backend: Backend, model: string): string =>
       : { provider: { shared: { models: { [model]: { name: `OpenCode ${model}` } } } } }
   )
 const file = (backend: Backend): string =>
-  join(orcaConfigDir(), 'sources', 'settings', backend, 'shared', 'settings.json')
+  join(ooConfigDir(), 'sources', 'settings', backend, 'shared', 'settings.json')
 // Only a successful native catalog yields OpenCode agents; its failure fallback keeps the same
 // parsed models, so model names alone cannot tell the two apart.
 const catalogOutputs = (list: AgentEnvironment[]): Record<string, unknown> =>
@@ -96,7 +96,7 @@ const nativeCatalog = {
 }
 
 beforeEach(() => {
-  fixture.home = mkdtempSync(join(tmpdir(), 'orca-engine-ipc-'))
+  fixture.home = mkdtempSync(join(tmpdir(), 'orcinus-orca-engine-ipc-'))
   fixture.callbacks.clear()
   vi.clearAllMocks()
   // Assemble the runtime services the way bootstrap does: production always injects them, and
@@ -179,7 +179,7 @@ describe('engine IPC registration through the real validator and settings servic
         channel: CHANNELS.engineAdd,
         policy: 'reject'
       })
-      expect(existsSync(orcaConfigDir())).toBe(false)
+      expect(existsSync(ooConfigDir())).toBe(false)
       expect(deploy).not.toHaveBeenCalled()
       expect(await invoke(CHANNELS.agentList)).toEqual([])
     }
@@ -197,7 +197,7 @@ describe('engine IPC registration through the real validator and settings servic
       channel,
       policy: 'reject'
     })
-    expect(existsSync(orcaConfigDir())).toBe(false)
+    expect(existsSync(ooConfigDir())).toBe(false)
     expect(deploy).not.toHaveBeenCalled()
   })
 

@@ -4,7 +4,7 @@
 //
 // handoff = rebind 방식(r2): 출발 세션을 SDK forkSession 으로 새 세션에 전체 맥락 전달하고,
 // 도착 세션의 첫 프롬프트(아래 자동 메시지)가 SDK 네이티브 /compact 압축으로 요약을 생성한다.
-// Orca 자체 요약 파이프라인은 없다.
+// Orcinus orca 자체 요약 파이프라인은 없다.
 
 import type { ContinuityLang } from '../../../shared/continuity-lang'
 

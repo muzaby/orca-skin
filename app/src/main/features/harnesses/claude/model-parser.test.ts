@@ -51,13 +51,13 @@ describe('parseClaudeModels — 노출 + default 불변식', () => {
   })
   it('env family 모델을 먼저 구성하고 availableModels를 모두 뒤에 추가한다', () => {
     const models = parseClaudeModels({
-      availableModels: ['claude-sonnet-corp', 'orca-private-v1'],
+      availableModels: ['claude-sonnet-corp', 'orcinus-orca-private-v1'],
       env: { ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-default' }
     })
     expect(models).toEqual([
       expect.objectContaining({ alias: 'opus', model: 'claude-opus-default' }),
       expect.objectContaining({ alias: 'sonnet', model: 'claude-sonnet-corp' }),
-      expect.objectContaining({ alias: 'custom', model: 'orca-private-v1' })
+      expect.objectContaining({ alias: 'custom', model: 'orcinus-orca-private-v1' })
     ])
   })
 

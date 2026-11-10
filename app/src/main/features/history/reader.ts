@@ -39,14 +39,15 @@ export function loadSession(
         status: 'ready',
         ...(projected.orphaned
           ? {
-              message: '원본 메시지에 연결할 수 없는 이전 Orca 부가 기록을 대화 끝에 보존했습니다.'
+              message:
+                '원본 메시지에 연결할 수 없는 이전 Orcinus orca 부가 기록을 대화 끝에 보존했습니다.'
             }
           : {})
       }
     } catch {
       nativeSync = {
         status: 'unavailable',
-        message: '저장된 원본 이력을 읽을 수 없어 Orca 보관 기록을 표시합니다.'
+        message: '저장된 원본 이력을 읽을 수 없어 Orcinus orca 보관 기록을 표시합니다.'
       }
     }
   }

@@ -44,7 +44,7 @@ async function skill(root: string, name: string): Promise<void> {
   )
 }
 it('assembles the real catalog from lock, harness and native plugin files without exposing other installations', async () => {
-  const home = await mkdtemp(join(tmpdir(), 'orca-skill-catalog-'))
+  const home = await mkdtemp(join(tmpdir(), 'orcinus-orca-skill-catalog-'))
   roots.push(home)
   const agents = join(home, '.agents', 'skills'),
     claude = join(home, '.claude')

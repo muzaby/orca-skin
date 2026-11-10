@@ -25,7 +25,7 @@
 | **A 유휴 세션 유지 중 B 경로의 1분 지연·Desktop 비동기 준비** | [`실제 CLI 재현·MCP 대기·Desktop 비교`](etc/study/opencode/cross-directory-idle-delay.md) |
 | **OpenCode Desktop 기준 부팅~첫 세션 대응과 실제1.17.19 검증** | [`시작 시퀀스 대응표`](handoff/0274-opencode-desktop-startup/desktop-sequence.md) |
 | **공통 시스템 피드·reminder 표시 설계와 native 조사** | [`공통 계약 초안`](handoff/0232-background-transcript-ux/plan.md) · [`OpenCode 1.19 수신·자동 재개 실측`](handoff/0262-opencode-harness/system-feed-research.md) · [`DEV 제어 초안`](handoff/0003-debug-panel-mock-adapter/plan.md) |
-| **Orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
+| **Orcinus orca → OpenCode 마이그레이션 연구** (레이어별 작업 · 매핑 · 단계별 gate) | [`etc/study/opencode/orca-migration-guide.md`](etc/study/opencode/orca-migration-guide.md) · 기존 연구 지도는 [`etc/study/opencode/00-index.md`](etc/study/opencode/00-index.md) |
 | 턴 이벤트 정규화 계층 (NormalizedEvent · 권한 브리지) | [`arch/backend/provider-runtime.md`](arch/backend/provider-runtime.md) |
 | **인증 provider · 로그인 프리 Plugin** (로그인 게이트 · LLM 자격증명 · 사내 서비스 · 기본 제공 도구) | [`arch/backend/auth.md`](arch/backend/auth.md) |
 | Electron 보안 경계 · 자격증명 · 원격 전송 스택 | [`arch/backend/security.md`](arch/backend/security.md) |
@@ -96,7 +96,7 @@
 > ⚠️ **`etc/study/orca/` 는 폐기됐다** — 요구명세 3건이 정정됐고 그 구현은 전면 제거됐다
 > (사용자 지시 2026-08-10). **근거로 인용하지 않는다.**
 
-> ⚠️ **`etc/lightweight-llm-strategy.md` 는 Orca 와 무관한 별도 제품 방향**이다 (로컬 4B LLM
+> ⚠️ **`etc/lightweight-llm-strategy.md` 는 Orcinus orca 와 무관한 별도 제품 방향**이다 (로컬 4B LLM
 > 이미지 센서 QA). 이 저장소에 구현체가 없다.
 
 ## 문서를 새로 둘 때

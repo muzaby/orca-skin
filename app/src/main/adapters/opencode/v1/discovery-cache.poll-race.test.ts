@@ -18,7 +18,7 @@ vi.mock('node:fs/promises', async (original) => {
 let root: string, now: number
 const releases: (() => void)[] = []
 beforeEach(async () => {
-  root = await realpath(await mkdtemp(join(tmpdir(), 'orca-discovery-poll-')))
+  root = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-discovery-poll-')))
   now = Date.now()
   vi.spyOn(Date, 'now').mockImplementation(() => now)
   // Drive poll explicitly: filesystem timing cannot start a competing watcher pass.

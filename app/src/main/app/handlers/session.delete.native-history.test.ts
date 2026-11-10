@@ -43,7 +43,7 @@ describe('session removal preserves native and archived files through the real h
   it.each([false, true])(
     'keeps native, worktree and output files when runtime cleanup fails: %s',
     async (failCleanup) => {
-      const root = await mkdtemp(path.join(tmpdir(), 'orca-session-remove-'))
+      const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-session-remove-'))
       roots.push(root)
       const worktree = path.join(root, 'worktree')
       const nativeRoot = path.join(root, 'native')

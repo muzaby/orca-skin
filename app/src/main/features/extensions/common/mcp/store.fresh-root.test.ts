@@ -16,7 +16,7 @@ vi.mock('../../../../infra/config/secret-store', () => ({
 import { McpStore } from './store'
 
 it('adds a server when the sources mcp directory does not exist', () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-mcp-fresh-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-mcp-fresh-'))
   target.file = join(root, 'sources', 'mcp', 'mcp.json')
   let settings = { mcpEnabled: {}, mcpMeta: {} }
   const store = new McpStore({

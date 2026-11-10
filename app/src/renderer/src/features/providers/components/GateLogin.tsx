@@ -13,7 +13,7 @@ import { authChoices, needsAuthChoice } from '../../../shared/config/providerAut
 import { AuthKindChoices } from '../../../shared/ui/AuthKindChoices'
 import { currentGateProvider, showsDailyRelogin } from '../lib/gateStep'
 import { OpenCodeWordmark } from '../../../shared/ui/OpenCodeWordmark'
-import orca from '../../../../../../resources/login-hero.webp'
+import loginHero from '../../../../../../resources/login-hero.webp'
 
 // 로그인 랜딩 (0180 이 지운 구 `features/auth/AuthView` 복원 — 0181 의 provider 축에 맞춰 개정).
 //
@@ -64,7 +64,7 @@ export function GateLogin({
         </span>
       </h1>
       <img
-        src={orca}
+        src={loginHero}
         alt={PRODUCT_DISPLAY_NAME}
         className="h-56 w-56 select-none object-contain"
         draggable={false}

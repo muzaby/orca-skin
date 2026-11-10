@@ -50,7 +50,7 @@ app 또는 pages 조립은 하향 의존만 허용한다. 페이지는 feature U
 
 ## 공통 UI·테마
 
-Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의 제한을 따른다. 같은 파일의 보조 컴포넌트도 이 규칙을 상속한다.
+Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의 제한을 따른다. 같은 파일의 보조 컴포넌트도 이 규칙을 상속한다.
 
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
@@ -74,7 +74,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를, afterLabel 슬롯에 제목 바로 뒤 진행 표시를, trailing 슬롯에 우측 보조 항목을 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. disabled에서도 일반 커서(cursor-default)를 유지하며 회색 표시와 입력 차단을 적용한다. |
 | [shared/ui/Meter.tsx](../../../app/src/renderer/src/shared/ui/Meter.tsx) — `Meter` | ratio·tone API와 공통 의미색을 사용한다. 수치와 함께 표시한다. |
 | [shared/ui/Modal.tsx](../../../app/src/renderer/src/shared/ui/Modal.tsx) — `MODAL_BACKDROP_CLASS`, `Modal`, `MODAL_LABEL`, `MODAL_INPUT`, `ModalActions` | Modal·ModalActions·MODAL_LABEL·MODAL_INPUT 재사용. busy 닫기 정책·크롬리스 ariaLabel 확인. |
-| [shared/ui/OrcaLogo.tsx](../../../app/src/renderer/src/shared/ui/OrcaLogo.tsx) — `OrcaLogo` | 승인된 Orca artwork의 비율·색 경계를 보존한다. 새 whale 그림으로 교체하지 않는다. |
+| [shared/ui/OoLogo.tsx](../../../app/src/renderer/src/shared/ui/OoLogo.tsx) — `OoLogo` | 승인된 Orcinus orca artwork의 비율·색 경계를 보존한다. 새 whale 그림으로 교체하지 않는다. |
 | [shared/ui/PanelControls.tsx](../../../app/src/renderer/src/shared/ui/PanelControls.tsx) — `PanelExpandButton`, `PanelCloseButton` | PanelExpandButton·PanelCloseButton의 아이콘·공통 번역·상태·대상 접근성 이름을 재사용한다. |
 | [shared/ui/Popover.tsx](../../../app/src/renderer/src/shared/ui/Popover.tsx) — `Popover` | anchor·placement·align·flip·바깥 클릭·Escape 재사용. 메뉴 키보드는 소비처와 함께 확인한다. |
 | [shared/ui/Rail.tsx](../../../app/src/renderer/src/shared/ui/Rail.tsx) — `Rail`, `RailItem` | 설정·카탈로그 모달의 좌측 탭 레일. sidebar 표면·중립 선택·nested 들여쓰기·aria-current를 유지한다. |
@@ -130,7 +130,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
 | [features/chat/harnesses/common/composer/AnchoredDropdown.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AnchoredDropdown.tsx) — `AnchoredDropdown` | 자동완성 anchor·폭·viewport 경계를 입력과 맞춘다. 메뉴를 입력 영역 밖에 방치하지 않는다. |
-| [features/chat/harnesses/common/composer/AttachMenu.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachMenu.tsx) — `AttachMenu` | 파일 추가는 Material Attach File 아이콘. 스킬·플러그인 패널은 출처 제목+로고 아래 단일 목록이다. 현재 하네스 스킬·native plugin 스킬·Orcinus orca·lock 등록 agents 스킬만 표시하고 두 패널 모두 Orcinus orca 그룹이 맨 위다.  스킬 설명은 툴팁에 둔다. 플러그인은 연결된 native/Orca MCP를 표시하며 Claude는 valid binding 후보도 사용한다. MCP와 스킬 허용을 분리하고 같은 source의 중복을 제거한다. 재개·재열기에서 갱신하고 살아 있는 generation의 관측을 navigation·부분 실패에도 유지한다. 갱신/partial 안내는 없다. native 명령은 초안 앞, MCP 요청은 커서에 넣으며 자동 전송하지 않는다. |
+| [features/chat/harnesses/common/composer/AttachMenu.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachMenu.tsx) — `AttachMenu` | 파일 추가는 Material Attach File 아이콘. 스킬·플러그인 패널은 출처 제목+로고 아래 단일 목록이다. 현재 하네스 스킬·native plugin 스킬·Orcinus orca·lock 등록 agents 스킬만 표시하고 두 패널 모두 Orcinus orca 그룹이 맨 위다.  스킬 설명은 툴팁에 둔다. 플러그인은 연결된 native/orcinus-orca MCP를 표시하며 Claude는 valid binding 후보도 사용한다. MCP와 스킬 허용을 분리하고 같은 source의 중복을 제거한다. 재개·재열기에서 갱신하고 살아 있는 generation의 관측을 navigation·부분 실패에도 유지한다. 갱신/partial 안내는 없다. native 명령은 초안 앞, MCP 요청은 커서에 넣으며 자동 전송하지 않는다. |
 | [features/chat/harnesses/common/composer/AttachmentChip.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentChip.tsx) — `AttachmentChip` | 파일명·종류·제거를 조밀하게 표시한다. 긴 이름이 제거 버튼을 밀어내지 않게 한다. |
 | [features/chat/harnesses/common/composer/AttachmentThumb.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentThumb.tsx) — `AttachmentThumb` | 이미지 미리보기·크기·제거 위치를 유지하고 파일 chip과 간격을 맞춘다. |
 | [features/chat/harnesses/common/composer/AttachmentTray.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/composer/AttachmentTray.tsx) — `AttachmentTray` | 첨부 chip·thumb을 공통 간격으로 감싸고 입력·전송 영역을 가리지 않는다. |
@@ -154,7 +154,7 @@ Orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아래 행의
 
 ## 공유 transcript
 
-Orca 본문·버블·의미 상태 토큰을 사용한다. 메시지별 key·접힘·선택·hover 스코프를 보존한다.
+Orcinus orca 본문·버블·의미 상태 토큰을 사용한다. 메시지별 key·접힘·선택·hover 스코프를 보존한다.
 
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
@@ -212,7 +212,7 @@ Orca 본문·버블·의미 상태 토큰을 사용한다. 메시지별 key·접
 
 ## Claude 전용 표면
 
-Orca 공통 팔레트와 기존 Claude 활자·카드·메뉴를 따른다. Work·Code 차이는 기존 정책/슬롯을 사용한다.
+Orcinus orca 공통 팔레트와 기존 Claude 활자·카드·메뉴를 따른다. Work·Code 차이는 기존 정책/슬롯을 사용한다.
 
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
@@ -363,7 +363,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 
 | 소스 / 표시 단위 | 적용 규칙 |
 |---|---|
-| [features/providers/components/GateLogin.tsx](../../../app/src/renderer/src/features/providers/components/GateLogin.tsx) — `GateLogin` | Orca 브랜드·입력 카드·중립 로그인 버튼의 위계를 유지하고 인증 진행/실패를 구별한다. |
+| [features/providers/components/GateLogin.tsx](../../../app/src/renderer/src/features/providers/components/GateLogin.tsx) — `GateLogin` | Orcinus orca 브랜드·입력 카드·중립 로그인 버튼의 위계를 유지하고 인증 진행/실패를 구별한다. |
 | [features/providers/components/ProviderDebugSection.tsx](../../../app/src/renderer/src/features/providers/components/ProviderDebugSection.tsx) — `ProviderDebugSection` | 인증 개발 제어를 FloatingPanel 패턴으로 표시하며 실제 게이트 상태와 혼동하지 않는다. |
 | [features/settings/components/GeneralTab.tsx](../../../app/src/renderer/src/features/settings/components/GeneralTab.tsx) — `GeneralTab` | SettingsGroup·SettingsRow·SettingsSelect·Toggle 사용. 폰트/읽기 설정을 실제 적용 범위와 함께 안내한다. 업데이트 아래 Claude 출력 스타일·OpenCode 권한 자동 수락 그룹과 app에서 주입한 브랜드 로고를 표시한다. |
 | [features/settings/components/ProviderUsageTab.tsx](../../../app/src/renderer/src/features/settings/components/ProviderUsageTab.tsx) — `ProviderUsageTab` | provider 상태·비용·기간·한도와 설정 동작을 보조 활자/고정 숫자로 표시한다. |
@@ -381,9 +381,9 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [features/skills/components/AddMcpServerModal.tsx](../../../app/src/renderer/src/features/skills/components/AddMcpServerModal.tsx) — `AddMcpServerModal` | 전송 방식·이름·명령/URL·인자를 공통 Modal 입력·mono·필드 오류로 표시한다. |
 | [features/skills/components/customize/CustomMcpModal.tsx](../../../app/src/renderer/src/features/skills/components/customize/CustomMcpModal.tsx) — `CustomMcpModal` | JSON 입력은 mono·code 크기, 설명·파싱 오류·취소/추가를 구별한다. |
-| [features/skills/components/customize/CustomizeList.tsx](../../../app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx) — `CustomizeList` | 전역 plugin·스킬·MCP 행은 CatalogListRow로 표시하고 제목 버튼과 토글을 분리한다. 지원하는 네이티브 MCP·플러그인은 일반 폰트·가변 토글, 나머지 네이티브 항목은 실제 상태의 회색 폰트·고정 토글이다. 각 탭은 Orcinus orca 그룹을 맨 위에 두고 네이티브 그룹은 Claude→OpenCode 순서로 표시한다. 스킬 탭은 플러그인 출처를 제외하고 기본 경로 스킬에 일반 글씨·토글 없음을 적용하며 Orca 스킬만 토글한다. 실제 설정/설치 위치가 있는 항목만 열기를 제공한다. 스킬 이름/시간, 출처 제목+브랜드 로고를 유지한다. |
+| [features/skills/components/customize/CustomizeList.tsx](../../../app/src/renderer/src/features/skills/components/customize/CustomizeList.tsx) — `CustomizeList` | 전역 plugin·스킬·MCP 행은 CatalogListRow로 표시하고 제목 버튼과 토글을 분리한다. 지원하는 네이티브 MCP·플러그인은 일반 폰트·가변 토글, 나머지 네이티브 항목은 실제 상태의 회색 폰트·고정 토글이다. 각 탭은 Orcinus orca 그룹을 맨 위에 두고 네이티브 그룹은 Claude→OpenCode 순서로 표시한다. 스킬 탭은 플러그인 출처를 제외하고 기본 경로 스킬에 일반 글씨·토글 없음을 적용하며 Orcinus orca 스킬만 토글한다. 실제 설정/설치 위치가 있는 항목만 열기를 제공한다. 스킬 이름/시간, 출처 제목+브랜드 로고를 유지한다. |
 | [features/skills/components/customize/CatalogToggle.tsx](../../../app/src/renderer/src/features/skills/components/customize/CatalogToggle.tsx) — `CatalogToggle` | 전역 목록/상세의 on/off switch. capability로 고정 여부를 결정하며 변경 중 중복 클릭을 막고 실패를 보고한다. 선택 `locked`는 같은 소유자(예: 네이티브 하네스)의 다른 변경이 진행 중일 때 스위치를 비활성화한다. |
-| [features/skills/components/customize/SourceHeading.tsx](../../../app/src/renderer/src/features/skills/components/customize/SourceHeading.tsx) — `SourceHeading` | 플러그인·스킬·MCP 탭의 브랜드 제목 왼쪽에 Claude·OpenCode·Orca 로고 또는 agents 폴더 아이콘을 배치한다. Orca 로고는 높이 기준 `h-4 w-auto`로 표시한다. 첫 제목은 `pt-5`, 후속 제목은 `pt-8`로 분리한다. |
+| [features/skills/components/customize/SourceHeading.tsx](../../../app/src/renderer/src/features/skills/components/customize/SourceHeading.tsx) — `SourceHeading` | 플러그인·스킬·MCP 탭의 브랜드 제목 왼쪽에 Claude·OpenCode·Orcinus orca 로고 또는 agents 폴더 아이콘을 배치한다. Orcinus orca 로고는 높이 기준 `h-4 w-auto`로 표시한다. 첫 제목은 `pt-5`, 후속 제목은 `pt-8`로 분리한다. |
 | [features/skills/components/customize/CustomizeTabs.tsx](../../../app/src/renderer/src/features/skills/components/customize/CustomizeTabs.tsx) — `CustomizeTabs` | CatalogTabs wrapper. Plugin·스킬·MCP의 선택·ARIA·방향키 처리를 공유한다. |
 | [features/skills/components/customize/ExtensionDetailPane.tsx](../../../app/src/renderer/src/features/skills/components/customize/ExtensionDetailPane.tsx) — `ExtensionDetailPane` | ResizableSidePane·타일 header·PanelControls·본문 스크롤을 재사용한다. |
 | [features/skills/components/customize/ExtensionsCatalogModal.tsx](../../../app/src/renderer/src/features/skills/components/customize/ExtensionsCatalogModal.tsx) — `ExtensionsCatalogModal` | 카탈로그 modal 진입 조립. 같은 ExtensionsCatalogView를 사용한다. |

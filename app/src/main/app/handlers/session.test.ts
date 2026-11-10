@@ -14,7 +14,7 @@ afterEach(async () => {
   for (const path of roots.splice(0)) await rm(path, { recursive: true, force: true })
 })
 it('returns the remembered work path only while it is a directory', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-last-cwd-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-last-cwd-'))
   roots.push(root)
   const file = join(root, 'file.txt')
   await writeFile(file, '')

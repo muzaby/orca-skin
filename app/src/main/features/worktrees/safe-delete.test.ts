@@ -50,7 +50,7 @@ async function managedSession(repo: string): Promise<{
   order: string[]
   managed: string
 }> {
-  const managed = await mkdtemp(join(tmpdir(), 'orca-safe-managed-'))
+  const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-safe-managed-'))
   roots.push(managed)
   let row!: Row
   const order: string[] = []
@@ -173,7 +173,7 @@ describe('WorktreeService.removeForSession — 네 상태와 호출 순서 (AC15
   })
 
   it('managed row가 없는 세션은 통과시킨다 — 기존 삭제 경로', async () => {
-    const managed = await mkdtemp(join(tmpdir(), 'orca-safe-managed-'))
+    const managed = await mkdtemp(join(tmpdir(), 'orcinus-orca-safe-managed-'))
     roots.push(managed)
     const db = { getManagedWorktreeBySession: () => undefined } as unknown as DbQueries
 
@@ -186,8 +186,8 @@ describe('외부 worktree 는 자동 mutation 대상이 아니다 (AC16 · VP-16
     const repo = await repository()
     const { service, row, order } = await managedSession(repo)
 
-    // 앱 밖에서 만든 worktree — Orca 의 managed root 밖이고 DB row 도 없다.
-    const external = join(await mkdtemp(join(tmpdir(), 'orca-external-')), 'wt')
+    // 앱 밖에서 만든 worktree — Orcinus orca 의 managed root 밖이고 DB row 도 없다.
+    const external = join(await mkdtemp(join(tmpdir(), 'orcinus-orca-external-')), 'wt')
     roots.push(external)
     const head = (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
     expect(
@@ -204,7 +204,7 @@ describe('외부 worktree 는 자동 mutation 대상이 아니다 (AC16 · VP-16
     ])
     const after = await listWorktrees(repo)
     expect(after?.map((entry) => entry.path)).toContain(
-      before!.find((entry) => entry.path.includes('orca-external-'))!.path
+      before!.find((entry) => entry.path.includes('orcinus-orca-external-'))!.path
     )
     expect(after?.length).toBe(2)
   })

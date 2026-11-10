@@ -28,7 +28,7 @@ const REPRESENTATIVES = [
   'src/main/features/plugins/confluence/connector.test.ts' // 실제 홈 쓰기
 ]
 
-const root = mkdtempSync(join(tmpdir(), 'orca-hostile-host-'))
+const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-hostile-host-'))
 afterAll(() => rmSync(root, { recursive: true, force: true, maxRetries: 3 }))
 
 function write(path: string, content: string): void {

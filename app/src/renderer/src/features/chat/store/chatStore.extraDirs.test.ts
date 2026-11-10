@@ -1,7 +1,7 @@
 // 참조 경로가 **`chat:send` 페이로드까지 실제로 나가는지** — AC10.
 //
 // 리듀서만 잠그면 상태는 옳은데 페이로드에 안 실리는 배선 회귀를 못 잡는다. 여기서는
-// window.orca.chat.send 가 받은 인자를 본다.
+// window.oo.chat.send 가 받은 인자를 본다.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { chatActions, useChatStore, NEW_CHAT_KEY } from './chatStore'

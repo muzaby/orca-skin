@@ -22,7 +22,7 @@ export interface UseProviders {
 }
 
 // provider 카탈로그. mcp/projects 와 다른 점은 **폴링이 없다**는 것 — main 이 grant 변화마다
-// `orca:provider:state` 를 push 하므로 초기 스냅샷 1회 + 구독으로 동기화가 끝난다. 로그인은
+// `oo:provider:state` 를 push 하므로 초기 스냅샷 1회 + 구독으로 동기화가 끝난다. 로그인은
 // 브라우저 창처럼 renderer 밖에서 끝나는 흐름이 있어, 응답만 기다리면 화면이 뒤처진다.
 export function useProviders(): UseProviders {
   const [list, setList] = useState<ProviderInfo[]>([])

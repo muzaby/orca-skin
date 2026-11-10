@@ -18,14 +18,14 @@ import { openFileDatabase } from '../../infra/db/file-database'
 import { DbQueries } from '../../infra/db/queries'
 import { ArtifactService, type ArtifactPublishContext } from './service'
 import { ArtifactFiles } from './files'
-import { orcaConfigDir } from '../../infra/config/paths'
+import { ooConfigDir } from '../../infra/config/paths'
 import { partFromRow } from '../../infra/ipc/dto'
 import { createArtifactToolServer } from './tool'
 
 const configFixture = vi.hoisted(() => ({ root: '' }))
 vi.mock('../../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../../infra/config/paths')>()),
-  orcaConfigDir: () => configFixture.root
+  ooConfigDir: () => configFixture.root
 }))
 vi.mock('../../infra/config/temp-path', () => ({
   getTemporaryFilesPath: () => join(configFixture.root, 'tmp')
@@ -45,11 +45,11 @@ async function setup(fileDb = false): Promise<{
   trashItem: ReturnType<typeof vi.fn<(path: string) => Promise<void>>>
   isInputFile: ReturnType<typeof vi.fn<(sessionId: string, path: string, hash: string) => boolean>>
 }> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-artifact-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-'))
   roots.push(root)
   configFixture.root = root
   const cwd = join(root, 'workspace')
-  const rootDir = join(orcaConfigDir(), 'artifacts')
+  const rootDir = join(ooConfigDir(), 'artifacts')
   await mkdir(cwd)
   const db = fileDb ? openFileDatabase(join(root, 'orcinus-orca.db')) : new Database(':memory:')
   databases.push(db)
@@ -101,7 +101,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     expect(result.isError).not.toBe(true)
     const receipt = JSON.parse(result.content[0].text)
     expect(receipt).toEqual({
-      type: 'orca.artifact.published',
+      type: 'orcinus-orca.artifact.published',
       version: 1,
       publicationId: expect.any(String)
     })
@@ -394,7 +394,7 @@ describe('artifact real filesystem and SQLite publication', () => {
       type: 'tool_call',
       toolRunId: 'publisher',
       payloadJson: JSON.stringify({
-        toolName: 'mcp__orca_artifacts__publish_artifact',
+        toolName: 'mcp__orcinus_orca_artifacts__publish_artifact',
         args: { path: 'report.md' }
       })
     })
@@ -453,7 +453,7 @@ describe('artifact real filesystem and SQLite publication', () => {
       type: 'tool_call',
       toolRunId: 'publisher',
       payloadJson: JSON.stringify({
-        toolName: 'mcp__orca_artifacts__publish_artifact',
+        toolName: 'mcp__orcinus_orca_artifacts__publish_artifact',
         args: { path: 'report.md' }
       })
     })
@@ -522,7 +522,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     const first = await f.service.publish({ path: 'report.md' }, f.context)
     const second = await f.service.publish({ path: 'report.md' }, f.context)
     expect(first).toEqual({
-      type: 'orca.artifact.published',
+      type: 'orcinus-orca.artifact.published',
       version: 1,
       publicationId: expect.any(String)
     })
@@ -543,7 +543,7 @@ describe('artifact real filesystem and SQLite publication', () => {
     )
     await expect(
       f.service.publish({ path: join(extra, 'ok.html') }, { ...f.context, extraDirs: [extra] })
-    ).resolves.toMatchObject({ type: 'orca.artifact.published' })
+    ).resolves.toMatchObject({ type: 'orcinus-orca.artifact.published' })
     await symlink(extra, join(f.cwd, 'escape'), 'junction')
     await expect(f.service.publish({ path: 'escape/ok.html' }, f.context)).rejects.toThrow(
       'unsafe-path'

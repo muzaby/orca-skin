@@ -108,9 +108,9 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 ### 1.5 Custom Titlebar / 윈도우 컨트롤 (Phase 3+)
 
 - BrowserWindow: `frame: false` + macOS `titleBarStyle: 'hidden'` + `trafficLightPosition: { x: 12, y: 10 }` (`app/src/main/index.ts`).
-- `data-platform` 부착: App boot effect 에서 `documentElement.dataset.platform = window.orca.platform` 1회 (preload 가 sync 노출).
-- IPC: `window.orca.window.{minimize,maximize,close}()` 3개 (IPC_CONTRACT §2.8).
-- macOS 분기: `WinControls` 가 `window.orca.platform === 'darwin'` 일 때 `null` 반환 — OS traffic light 가 그린다. 헤더 좌측 패딩 80px 로 traffic light 영역 회피.
+- `data-platform` 부착: App boot effect 에서 `documentElement.dataset.platform = window.oo.platform` 1회 (preload 가 sync 노출).
+- IPC: `window.oo.window.{minimize,maximize,close}()` 3개 (IPC_CONTRACT §2.8).
+- macOS 분기: `WinControls` 가 `window.oo.platform === 'darwin'` 일 때 `null` 반환 — OS traffic light 가 그린다. 헤더 좌측 패딩 80px 로 traffic light 영역 회피.
 - drag 영역: `[-webkit-app-region:drag]` inline 클래스 대신 `style={{ WebkitAppRegion: 'drag' }}` (dom-architecture.md.3 의 2-layer 패턴).
 - **header-left 내용물 (Phase 3++)**: 액션 5-버튼 툴바 — `menu` (시스템 메뉴 popover · 자식 `종료` → `windowApi.close()`) · `panelL` (사이드바 접기 토글 · `setTweak('sidebarCollapsed', !current)`) · `search` (대화 검색 모달 열기 — `SearchModal`) · `arrowL` / `arrowR` (`navigate(-1)` / `navigate(1)` 항상 enabled, 추적 없음). 모든 버튼은 `data-behavior="no-drag"` 영역 안. 기존 brand + breadcrumb 표시는 제거 (브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동).
 
@@ -177,7 +177,7 @@ type StructuredOutputState =
 
 **① 설명.** OpenCode SSE 와 Claude async iterator 를 단일 lifecycle 로 정규화: `open → streaming → (reconnect)* → closed`. partial 재조립 / 중복 dedup(eventId) / 순서 보장(monotonic seq) / 긴 tool 출력 버퍼링·절단.
 
-**③ 현재 코드 갭.** 현행은 §1.2 의 rAF 코얼레서 + `message.delta` 누적만. dedup/재연결/절단 정책 없음(`orca:chat:event` 가 ordered+lossless 1채널이라 claude 단일 백엔드에선 충분).
+**③ 현재 코드 갭.** 현행은 §1.2 의 rAF 코얼레서 + `message.delta` 누적만. dedup/재연결/절단 정책 없음(`oo:chat:event` 가 ordered+lossless 1채널이라 claude 단일 백엔드에선 충분).
 
 **④ 인터페이스.**
 
@@ -228,7 +228,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 `useArtifactViewerActions`는 복사와 저장의 중복 실행 잠금·피드백·요청 소유권을 관리한다. 오류 문구는 `artifactFeedback`에서 해석하고 선택 전환·닫기 이후의 완료는 이전 화면을 갱신하지 않는다. 패널 펼치기·복원·닫기는 공통 `PanelControls`와 Material SVG를 사용한다. 같은 역할의 툴팁은 공통 번역을 사용하며 타일을 식별해야 하는 접근성 이름에는 대상명을 포함한다.
 
-프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정한다. 각 탭은 Orcinus orca 그룹이 맨 위이며 실제 항목이 있는 그룹만 제목과 브랜드 로고로 구분한다. 제목은 `Orcinus orca`·`Claude`·`OpenCode`이고 스킬 탭의 `~/.agents/skills`는 유지한다. 플러그인 탭의 Orca provider는 gate→llm→service 순서이며 이후 Claude→OpenCode 그룹을 둔다. Orca 로고는 높이와 자동 너비로 표시하고 Orca MCP 목록·상세는 MCP 아이콘을 사용한다. Composer도 같은 제목·로고 규칙을 사용하며 첨부 메뉴는 같은 제목을 합치고 자동완성은 연속한 같은 제목을 합친다. Composer `+` 메뉴의 스킬·플러그인 패널도 Orcinus orca 그룹을 맨 위에 두고 나머지 그룹의 상대 순서는 유지한다(`attachMenuModel.orcaGroupFirst`). 스킬 탭은 네이티브 플러그인 출처 스킬을 제외하고 Claude·OpenCode 기본 스킬·Orcinus orca 스킬·lock 등록 agents를 표시한다. 기본 경로 스킬은 일반 글씨이며 토글이 없고 Orca 스킬만 토글한다. native MCP는 양 하네스 설정을 read-only로 읽어 설정 파일 위치 열기를 제공한다.
+프로젝트·아티팩트·플러그인 목록의 탭은 `CatalogTabs`로 방향키·Home/End·ARIA 연결을 공유한다. Plugin 카탈로그는 플러그인→스킬→MCP 순서이고 첫 진입도 플러그인이다. Plugin 행은 main이 전달한 허용 Material icon과 현재 locale의 title·body를 표시하며 locale 선택은 exact→base→ko→en 순서다. 상세는 body와 분리해 source·version·GitHub·license attribution을 표시한다. catalog가 없는 Plugin은 `electrical_services`와 Auth label, Plugin이 아닌 연결은 기존 power icon과 Auth label을 사용한다. 프로젝트와 아티팩트 검색은 `CatalogSearch`와 `useCatalogSearch`로 열기·Escape·초점 복귀를 공유하며 검색어와 필터·총계는 각 feature가 소유한다. 플러그인의 최종 행 순서는 `catalogOrder`에서 정한다. 각 탭은 Orcinus orca 그룹이 맨 위이며 실제 항목이 있는 그룹만 제목과 브랜드 로고로 구분한다. 제목은 `Orcinus orca`·`Claude`·`OpenCode`이고 스킬 탭의 `~/.agents/skills`는 유지한다. 플러그인 탭의 Orcinus orca provider는 gate→llm→service 순서이며 이후 Claude→OpenCode 그룹을 둔다. Orcinus orca 로고는 높이와 자동 너비로 표시하고 Orcinus orca MCP 목록·상세는 MCP 아이콘을 사용한다. Composer도 같은 제목·로고 규칙을 사용하며 첨부 메뉴는 같은 제목을 합치고 자동완성은 연속한 같은 제목을 합친다. Composer `+` 메뉴의 스킬·플러그인 패널도 Orcinus orca 그룹을 맨 위에 두고 나머지 그룹의 상대 순서는 유지한다(`attachMenuModel.ooGroupFirst`). 스킬 탭은 네이티브 플러그인 출처 스킬을 제외하고 Claude·OpenCode 기본 스킬·Orcinus orca 스킬·lock 등록 agents를 표시한다. 기본 경로 스킬은 일반 글씨이며 토글이 없고 Orcinus orca 스킬만 토글한다. native MCP는 양 하네스 설정을 read-only로 읽어 설정 파일 위치 열기를 제공한다.
 
 뷰어 패널과 작업 타일은 도메인에 독립적인 공통 `ResizableSidePane`을 사용한다. Transcript와 아티팩트 화면의 뷰어 좌측 핸들은 포인터·키보드로 폭을 조절하며 iframe 위를 지나는 드래그도 유지한다. 확대는 가장 가까운 현재 pane 전체를 덮고 nav에는 영향을 주지 않는다. Code 변경사항의 `GitContextBar`도 registry 헤더 props로 같은 확대 상태를 전달받는다. 본문을 다시 mount하지 않으며 복원 시 일반 폭과 스크롤을 되돌린다. 확대한 타일을 닫으면 확대 상태도 해제한다. 세션·대상 전환, 창 초점 이탈, 취소와 unmount에서 드래그 자원을 정리한다.
 
@@ -238,7 +238,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 OpenCode가 실행된 뒤에는 같은 세션의 native resource cache에 있는 SDK 에이전트·모델 variant를 Composer 선택지로 사용한다. visible primary/all 에이전트를 표시하고 hidden/subagent는 제외한다. 성공한 목록에서 사라진 agent·variant 선택은 정리하며 variant가 없으면 선택기를 숨긴다. 연결 전에는 설정 카탈로그를 사용하고, 재개 후 연결 이벤트에서 갱신하며 살아 있는 같은 generation은 화면 이동에도 보존한다.
 
-양 Composer의 `+` 메뉴는 스킬을 `/이름`, 플러그인 메뉴의 내장 Plugin과 연결된 native MCP를 `@id`로 삽입한다. 공백이 있는 MCP id는 `@"id with spaces"`로 보존한다. 하이라이트는 현재 후보의 정확한 id/name과 일치할 때만 표시하며, 플러그인과 파일 참조는 같은 배경색을 사용한다. native MCP의 메뉴와 하이라이트는 같은 connected·enabled 투영을 사용하고, OpenCode의 native 후보는 Orca 통합 주입 여부와 독립적이다. 하네스 plugin이 제공한 스킬·명령은 스킬 그룹의 `/이름`을 유지한다. 그룹 제목의 공식 Claude/OpenCode 마크는 해당 브랜드 색을 명시한다.
+양 Composer의 `+` 메뉴는 스킬을 `/이름`, 플러그인 메뉴의 내장 Plugin과 연결된 native MCP를 `@id`로 삽입한다. 공백이 있는 MCP id는 `@"id with spaces"`로 보존한다. 하이라이트는 현재 후보의 정확한 id/name과 일치할 때만 표시하며, 플러그인과 파일 참조는 같은 배경색을 사용한다. native MCP의 메뉴와 하이라이트는 같은 connected·enabled 투영을 사용하고, OpenCode의 native 후보는 Orcinus orca 통합 주입 여부와 독립적이다. 하네스 plugin이 제공한 스킬·명령은 스킬 그룹의 `/이름`을 유지한다. 그룹 제목의 공식 Claude/OpenCode 마크는 해당 브랜드 색을 명시한다.
 
 `TranscriptView`는 공유 메시지 모델을 하네스별 viewport로 보낸다. Claude는 기존 교환 단위 가상화와 `useScrollAnchor`를 사용한다. OpenCode는 `harnesses/opencode/transcript/Timeline`에서 텍스트·도구·메타를 안정된 행 key로 투영하고 행 단위로 가상화한다. 읽기 중인 행과 선택 범위를 보존하며, 세션별 위치·도구 펼침을 기억한다. 위로 스크롤하거나 텍스트를 선택하면 새 출력의 바닥 추종을 해제하고, 바닥 도달 또는 최신 이동으로 추종을 재개한다. 탐색 도구는 접기 행으로 묶고 수정 도구는 사용자가 펼칠 때 diff를 표시한다. `providerTool` 원본은 상세 disclosure에서 읽는다. 본문 배경과 사용자 버블 색상은 Claude와 공유한다.
 

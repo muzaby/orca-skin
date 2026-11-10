@@ -88,7 +88,9 @@ describe('OpenCode native resources', () => {
     }
   })
   it('classifies only OpenCode and installed-plugin skills from SDK locations, without losing exact dispatch names', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-native-skill-')).then((path) => realpath(path))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-native-skill-')).then((path) =>
+      realpath(path)
+    )
     try {
       const plugin = join(root, 'native-plugin')
       await mkdir(plugin)

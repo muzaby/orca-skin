@@ -10,7 +10,7 @@ import { OpenCodeMcpControl } from './mcp-control'
 let cwd: string
 let controller: AbortController
 beforeEach(async () => {
-  cwd = await mkdtemp(join(tmpdir(), 'orca-connection-'))
+  cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-connection-'))
   controller = new AbortController()
   openCodeDiscovery.invalidate()
 })

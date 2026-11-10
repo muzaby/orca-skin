@@ -1,6 +1,6 @@
 # 저장소 루트 — 코딩 에이전트용 가이드
 
-이 저장소는 **Orca** (검증 엔지니어용 Windows Electron 데스크톱 앱) 의 디자인 핸드오프 + 구현 작업 공간이다. 한 화면에 모든 정보를 담을 수 없으므로 디렉토리마다 별도의 `AGENTS.md` 가 있다 (각 디렉토리의 `CLAUDE.md` 는 같은 위치의 `AGENTS.md` 를 import 하는 stub — 정본은 `AGENTS.md`). 본 문서는 *어디로 가서 무엇을 읽어야 하는지* 만 안내한다.
+이 저장소는 **Orcinus orca** (검증 엔지니어용 Windows Electron 데스크톱 앱) 의 디자인 핸드오프 + 구현 작업 공간이다. 한 화면에 모든 정보를 담을 수 없으므로 디렉토리마다 별도의 `AGENTS.md` 가 있다 (각 디렉토리의 `CLAUDE.md` 는 같은 위치의 `AGENTS.md` 를 import 하는 stub — 정본은 `AGENTS.md`). 본 문서는 *어디로 가서 무엇을 읽어야 하는지* 만 안내한다.
 
 ## 디렉토리 한눈에
 
@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/AGENTS.md` |
 | `docs/` | PRD, TRD, 현재 아키텍처, 결정 근거(ADR), 운영 절차 — *무엇을* / *어떻게* / *왜* 가 산다. **어느 문서를 열지는 [`docs/INDEX.md`](docs/INDEX.md)** | `docs/AGENTS.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 아카이브 — *어떻게 보여야 하는가* | `project/AGENTS.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 빌드·게이트·의존성 정책·보안 베이스라인. | `app/AGENTS.md` |
+| `app/` | Orcinus orca v1 실제 구현체 (electron-vite + React/TypeScript). 빌드·게이트·의존성 정책·보안 베이스라인. | `app/AGENTS.md` |
 | `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스 → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제). 원격 요청은 Chromium `net.fetch` 단일 스택. | `app/src/main/AGENTS.md` |
 | `app/src/renderer/` | **Renderer** 레이어·제작 가이드 — [디자인 시스템](docs/arch/frontend/design-system.md)·[컴포넌트 카탈로그](docs/arch/frontend/design-components.md) 필수 참조·준수, 4-layer · 시맨틱 토큰 · 그룹 격리. | `app/src/renderer/AGENTS.md` |
 | `docs/guides/` | 운영 절차서 — 릴리스 · 폐쇄망 확장 · workspace 권한 구성. *구조 서술은 `docs/arch/`, 실행 절차는 여기* | `docs/guides/AGENTS.md` |
@@ -92,7 +92,7 @@
 
 ## 별도 제품 방향 (본 저장소 내 *문서로만* 존재)
 
-- `docs/etc/lightweight-llm-strategy.md` — 로컬 4B LLM 기반 이미지 센서 QA 시스템. **Orca 와 독립** 한 별개 제품 방향. 본 저장소에서 구현체는 없다.
+- `docs/etc/lightweight-llm-strategy.md` — 로컬 4B LLM 기반 이미지 센서 QA 시스템. **Orcinus orca 와 독립** 한 별개 제품 방향. 본 저장소에서 구현체는 없다.
 
 ## 외부 진입점과의 구분
 

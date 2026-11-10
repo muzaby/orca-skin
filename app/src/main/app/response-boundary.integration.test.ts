@@ -9,7 +9,7 @@ import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { DbQueries } from '../infra/db/queries'
 import { applyMigrations } from '../infra/db/migrate'
 import { TypedBus } from '../infra/bus'
-import type { OrcaBusEvents } from '../contracts/bus-events'
+import type { OoBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import type { TurnRequest } from '../adapters/common/turn'
 import type { NormalizedEvent } from '../../shared/ipc'
@@ -78,7 +78,7 @@ describe('Work response boundary composition', () => {
           yield { type: 'telemetry', sessionId: 's1' } as const
         }
       } as unknown as CoordinatorRuntime
-      const bus = new TypedBus<OrcaBusEvents>()
+      const bus = new TypedBus<OoBusEvents>()
       const live: NormalizedEvent[] = []
       bus.on('turn.event', ({ turn, ev }) => writer.persist(turn, ev), { critical: true })
       bus.on('turn.event', ({ ev }) => live.push(ev))

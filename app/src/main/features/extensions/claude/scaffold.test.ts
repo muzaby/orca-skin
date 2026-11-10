@@ -8,7 +8,7 @@ let root: string
 const settingsDir = (): string => join(root, 'sources', 'settings', 'claude')
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-scaffold-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-scaffold-'))
 })
 afterEach(() => {
   rmSync(root, { recursive: true, force: true })
@@ -56,7 +56,7 @@ describe('scaffoldProviderSettings — 사용자 settings 시딩 (0090)', () => 
   })
 
   it('vertex env 면 vertex, 게이트웨이(ANTHROPIC_BASE_URL)면 custom 으로 시딩한다', () => {
-    const vertexRoot = mkdtempSync(join(tmpdir(), 'orca-scaffold-'))
+    const vertexRoot = mkdtempSync(join(tmpdir(), 'orcinus-orca-scaffold-'))
     scaffoldProviderSettings(
       'claude',
       vertexRoot,

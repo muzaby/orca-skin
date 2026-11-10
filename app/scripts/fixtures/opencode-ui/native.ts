@@ -91,7 +91,7 @@ async function call(namespace: string, method: string, args: unknown[]): Promise
 
 export function installNativeFixture(): void {
   // IPC만 메모리 대역이다. 실파일·설정·인증·프로세스·외부 모델에 연결되는 메서드는 없다.
-  window.orca = new Proxy(
+  window.oo = new Proxy(
     { platform: 'win32' },
     {
       get(target, namespace: string) {
@@ -109,7 +109,7 @@ export function installNativeFixture(): void {
         )
       }
     }
-  ) as typeof window.orca
+  ) as typeof window.oo
   useAgentStore.setState({ agents, loaded: true, loading: false, error: null })
   useBackendStore.setState({
     active: 'opencode',

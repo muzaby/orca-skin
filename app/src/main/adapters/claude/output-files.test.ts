@@ -4,7 +4,7 @@ import type { HookCallback, HookInput } from '@anthropic-ai/claude-agent-sdk'
 import { explicitOutputLinks, makeOutputFilesHook } from './output-files'
 import type { RuntimeToolContext } from '../common/runtime-tools'
 
-const directory = path.resolve('/orca/output')
+const directory = path.resolve('/orcinus-orca/output')
 const output = (name: string): string => path.join(directory, name)
 const inputBase = { session_id: 's1', cwd: '/work', transcript_path: '/work/transcript.jsonl' }
 

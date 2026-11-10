@@ -123,7 +123,7 @@ export interface HarnessRuntimeConfig {
 // **하네스에 전달되기 직전에** 얹는 자리라서 config API 응답까지 덮는다. 그 위의 adapter patch는
 // adapter가 예약한 종류별 키만 최종 강제한다(0235). 대상 좁히기는 각 owner가 수행한다.
 //
-// settings env 가 app env 를 이기는 것이 계약의 핵심이다 — `orca.json` 의 app env 는 **전역
+// settings env 가 app env 를 이기는 것이 계약의 핵심이다 — `orcinus-orca.json` 의 app env 는 **전역
 // 폴백**이고 ModelProvider settings 는 **그 ModelProvider 전용 설정**이다. 폴백이 전용을 이기면
 // 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다.
 //
@@ -280,7 +280,7 @@ function spawnEnvTarget(config: HarnessRuntimeConfig, configResolved?: boolean):
 
 export interface PrepareHarnessConfigInput {
   config: HarnessRuntimeConfig
-  // orca.json 앱 전역 env(`${VAR}` 확장 완료). 없으면 앱 env 레이어가 비었다는 뜻.
+  // orcinus-orca.json 앱 전역 env(`${VAR}` 확장 완료). 없으면 앱 env 레이어가 비었다는 뜻.
   appEnv?: Record<string, string>
   // 완전한 baseline 을 만드는 함수(기본은 `process.env` 스냅샷). SDK `options.env` 는
   // subprocess env 를 **대체**하므로 overlay 만 넘기면 상속이 끊긴다.
@@ -394,7 +394,7 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
 // electron 을 물어 vitest 가 import 하지 못한다. 규칙이 거기 있으면 이 경로는 **테스트가 닿지
 // 않는 자리**가 되고, 실제로 0188 r9 가 그렇게 두 가지를 놓쳤다 —
 //
-//   ① app env 유실. 0188 이전에는 `buildTurnEnv()` 가 entry 선택과 무관하게 불려 orca.json 의
+//   ① app env 유실. 0188 이전에는 `buildTurnEnv()` 가 entry 선택과 무관하게 불려 orcinus-orca.json 의
 //      `env` 가 항상 실렸다. 여기서 빠뜨리면 settings 트리가 없는 어댑터(DEV mock)나 sources
 //      디렉터리가 잠깐 안 보이는 턴에서 subprocess 환경이 조용히 달라진다.
 //   ② fingerprint 를 값으로 냄. `harnessEnvFingerprint(undefined)` 도 정의된 문자열이고

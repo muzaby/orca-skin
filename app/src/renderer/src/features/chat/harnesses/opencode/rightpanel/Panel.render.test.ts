@@ -91,13 +91,13 @@ describe('OpenCode panel rendering', () => {
       sessionId: 's',
       backend: 'opencode',
       agentKind: 'code',
-      cwd: 'C:/workspace/orca',
+      cwd: 'C:/workspace/orcinus-orca',
       extraDirs: ['C:/refs'],
       rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
     }
     const $ = load(renderToStaticMarkup(createElement(RightPanel)))
     expect($('[data-component="opencode-session-panel"]').length).toBe(1)
-    for (const label of ['변경 사항', '소스', 'orca', 'refs', '폴더 추가'])
+    for (const label of ['변경 사항', '소스', 'orcinus-orca', 'refs', '폴더 추가'])
       expect($.html()).toContain(label)
     expect($('[data-panel-group]').length).toBe(0)
     expect($('[data-component="opencode-summary-title"] button').length).toBe(0)
@@ -119,7 +119,7 @@ describe('OpenCode panel rendering', () => {
         ...original,
         backend: 'opencode',
         agentKind: 'code',
-        cwd: 'C:/orca',
+        cwd: 'C:/orcinus-orca',
         rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
       }
       const render = (): ReturnType<typeof load> =>
@@ -175,7 +175,7 @@ describe('OpenCode panel rendering', () => {
       ...original,
       backend: 'opencode',
       agentKind: 'code',
-      cwd: 'C:/orca',
+      cwd: 'C:/orcinus-orca',
       extraDirs: ['C:/refs'],
       messages,
       rightPanelTiles: [{ id: 'task', tiles: ['task'] }]
@@ -259,14 +259,14 @@ describe('OpenCode panel rendering', () => {
       backend: 'opencode',
       agentKind: 'code',
       sessionId: 's',
-      cwd: 'C:/orca',
+      cwd: 'C:/orcinus-orca',
       rightPanelTiles: [{ id: 'task', tiles: ['task', 'source'] }]
     }
     const render = (): ReturnType<typeof load> =>
       load(renderToStaticMarkup(createElement(RightPanel)))
     expect(render()('[data-context="task"] [data-component="opencode-sources"]').length).toBe(0)
     expect(render()('[data-context="source"] button[aria-label="폴더 추가"]').length).toBe(1)
-    expect(render()('[data-context="source"]').text()).toContain('orca')
+    expect(render()('[data-context="source"]').text()).toContain('orcinus-orca')
     entry.session = { ...entry.session, extraDirs: ['C:/refs'] }
     expect(render()('[data-context="task"] [data-component="opencode-sources"]').text()).toContain(
       'refs'

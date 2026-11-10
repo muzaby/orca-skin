@@ -23,10 +23,10 @@ const CONFIG = pathToFileURL(join(APP_DIR, 'vitest.config.ts')).href
 /** 깨끗한 env 로 vitest.config.ts 를 읽어 test 블록 예산을 받는다. */
 function configBudgets(scale) {
   const env = { ...process.env }
-  delete env.ORCA_TEST_TIME_SCALE
+  delete env.ORCINUS_ORCA_TEST_TIME_SCALE
   // 실측 모드(0298)가 바꾸는 프로젝트 수와 무관하게 기본 구성을 본다.
-  delete env.ORCA_TEST_IO_MODE
-  if (scale !== undefined) env.ORCA_TEST_TIME_SCALE = scale
+  delete env.ORCINUS_ORCA_TEST_IO_MODE
+  if (scale !== undefined) env.ORCINUS_ORCA_TEST_TIME_SCALE = scale
   return spawnSync(
     process.execPath,
     [
@@ -43,8 +43,8 @@ describe('배율 해석 (0294 AC4)', () => {
   test('미설정·빈 값·공백은 기본값 3', () => {
     assert.equal(DEFAULT_TEST_TIME_SCALE, 3)
     assert.equal(resolveTestTimeScale({}), 3)
-    assert.equal(resolveTestTimeScale({ ORCA_TEST_TIME_SCALE: '' }), 3)
-    assert.equal(resolveTestTimeScale({ ORCA_TEST_TIME_SCALE: '  ' }), 3)
+    assert.equal(resolveTestTimeScale({ ORCINUS_ORCA_TEST_TIME_SCALE: '' }), 3)
+    assert.equal(resolveTestTimeScale({ ORCINUS_ORCA_TEST_TIME_SCALE: '  ' }), 3)
   })
 
   test('1 이상의 유한한 수는 그 값', () => {
@@ -53,14 +53,14 @@ describe('배율 해석 (0294 AC4)', () => {
       ['1.5', 1.5],
       ['5', 5]
     ])
-      assert.equal(resolveTestTimeScale({ ORCA_TEST_TIME_SCALE: raw }), value)
+      assert.equal(resolveTestTimeScale({ ORCINUS_ORCA_TEST_TIME_SCALE: raw }), value)
   })
 
   test('1 미만·숫자 아님·무한은 변수명과 원값을 담아 던진다', () => {
     for (const raw of ['0', '0.99', '-1', 'abc', 'Infinity', 'NaN']) {
       assert.throws(
-        () => resolveTestTimeScale({ ORCA_TEST_TIME_SCALE: raw }),
-        (error) => error.message.includes(`ORCA_TEST_TIME_SCALE=${raw}`)
+        () => resolveTestTimeScale({ ORCINUS_ORCA_TEST_TIME_SCALE: raw }),
+        (error) => error.message.includes(`ORCINUS_ORCA_TEST_TIME_SCALE=${raw}`)
       )
     }
   })
@@ -117,11 +117,11 @@ describe('vitest.config.ts 배선 (0294 AC1·AC2·AC4)', () => {
   test('잘못된 배율이면 config 로드가 실패한다', () => {
     const result = configBudgets('0.5')
     assert.notEqual(result.status, 0)
-    assert.match(result.stderr, /ORCA_TEST_TIME_SCALE=0\.5/)
+    assert.match(result.stderr, /ORCINUS_ORCA_TEST_TIME_SCALE=0\.5/)
   })
 
   test('잘못된 배율이면 vitest 자체가 비정상 종료한다', () => {
-    const env = { ...process.env, ORCA_TEST_TIME_SCALE: 'abc' }
+    const env = { ...process.env, ORCINUS_ORCA_TEST_TIME_SCALE: 'abc' }
     let failed = false
     try {
       execFileSync(
@@ -131,7 +131,7 @@ describe('vitest.config.ts 배선 (0294 AC1·AC2·AC4)', () => {
       )
     } catch (error) {
       failed = true
-      assert.match(String(error.stderr), /ORCA_TEST_TIME_SCALE=abc/)
+      assert.match(String(error.stderr), /ORCINUS_ORCA_TEST_TIME_SCALE=abc/)
     }
     assert.ok(failed)
   })
@@ -142,11 +142,11 @@ describe('CI 워크플로 (0294 AC9)', () => {
   test('작업 상한은 저장소 변수 또는 기존값 × 3 이다', () => {
     assert.match(
       read('ci.yml'),
-      /timeout-minutes: \$\{\{ fromJSON\(vars\.ORCA_CI_TIMEOUT_MINUTES \|\| '90'\) \}\}/
+      /timeout-minutes: \$\{\{ fromJSON\(vars\.ORCINUS_ORCA_CI_TIMEOUT_MINUTES \|\| '90'\) \}\}/
     )
     assert.match(
       read('release.yml'),
-      /timeout-minutes: \$\{\{ fromJSON\(vars\.ORCA_RELEASE_TIMEOUT_MINUTES \|\| '135'\) \}\}/
+      /timeout-minutes: \$\{\{ fromJSON\(vars\.ORCINUS_ORCA_RELEASE_TIMEOUT_MINUTES \|\| '135'\) \}\}/
     )
   })
 
@@ -156,7 +156,7 @@ describe('CI 워크플로 (0294 AC9)', () => {
       const step = text.slice(text.indexOf('- name: Test\n'))
       assert.match(
         step.slice(0, 200),
-        /ORCA_TEST_TIME_SCALE: \$\{\{ vars\.ORCA_TEST_TIME_SCALE \}\}/,
+        /ORCINUS_ORCA_TEST_TIME_SCALE: \$\{\{ vars\.ORCINUS_ORCA_TEST_TIME_SCALE \}\}/,
         name
       )
     }

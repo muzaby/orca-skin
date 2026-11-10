@@ -7,8 +7,8 @@ import {
   getWorkspacePath,
   isWithinDir,
   managedWorktreesDir,
-  orcaConfigDir,
-  orcaJsonPath,
+  ooConfigDir,
+  ooJsonPath,
   sourcesSkillsDir,
   projectsDir,
   downloadsDir,
@@ -77,8 +77,8 @@ describe('getWorkspacePath', () => {
 })
 
 describe('downloadsDir', () => {
-  it('downloadsDir 는 orcaConfigDir 하위다', () => {
-    // workspace-guard 의 read 예외 루트(`orcaConfigDir()`) 안이어야 모델이 결과물을 읽을 수 있다.
+  it('downloadsDir 는 ooConfigDir 하위다', () => {
+    // workspace-guard 의 read 예외 루트(`ooConfigDir()`) 안이어야 모델이 결과물을 읽을 수 있다.
     expect(downloadsDir()).toBe(join(homedir(), '.config', PRODUCT_SLUG, 'downloads'))
     expect(isWithinDir(downloadsDir(), join(homedir(), '.config', PRODUCT_SLUG))).toBe(true)
   })
@@ -92,38 +92,38 @@ describe('devUserDataDir', () => {
 
 describe('isWithinDir', () => {
   it('하위 경로와 동일 경로는 true', () => {
-    expect(isWithinDir('/repo/orca/sub', '/repo/orca')).toBe(true)
-    expect(isWithinDir('/repo/orca', '/repo/orca')).toBe(true)
+    expect(isWithinDir('/repo/orcinus-orca/sub', '/repo/orcinus-orca')).toBe(true)
+    expect(isWithinDir('/repo/orcinus-orca', '/repo/orcinus-orca')).toBe(true)
   })
 
   it('상위/형제/이탈(..) 경로는 false', () => {
-    expect(isWithinDir('/repo', '/repo/orca')).toBe(false)
-    expect(isWithinDir('/repo/other', '/repo/orca')).toBe(false)
-    expect(isWithinDir('/repo/orca/../../etc', '/repo/orca')).toBe(false)
+    expect(isWithinDir('/repo', '/repo/orcinus-orca')).toBe(false)
+    expect(isWithinDir('/repo/other', '/repo/orcinus-orca')).toBe(false)
+    expect(isWithinDir('/repo/orcinus-orca/../../etc', '/repo/orcinus-orca')).toBe(false)
   })
 
   it('정규화로 중복 슬래시·trailing 슬래시를 흡수한다', () => {
-    expect(isWithinDir('/repo/orca/sub/', '/repo//orca')).toBe(true)
+    expect(isWithinDir('/repo/orcinus-orca/sub/', '/repo//orcinus-orca')).toBe(true)
   })
 })
 
 // AC3 · AC4 — 격리 worktree 루트. 0210 D-102·D-103.
 describe('managedWorktreesDir', () => {
-  it('orcaConfigDir 하위다 — `<userData>` 도 저장소 내부도 아니다 (AC3)', () => {
-    expect(managedWorktreesDir(false)).toBe(join(orcaConfigDir(), 'worktrees'))
+  it('ooConfigDir 하위다 — `<userData>` 도 저장소 내부도 아니다 (AC3)', () => {
+    expect(managedWorktreesDir(false)).toBe(join(ooConfigDir(), 'worktrees'))
   })
 
   it('dev 만 `-dev` 로 갈라진다 (AC4)', () => {
-    expect(managedWorktreesDir(true)).toBe(join(orcaConfigDir(), 'worktrees-dev'))
+    expect(managedWorktreesDir(true)).toBe(join(ooConfigDir(), 'worktrees-dev'))
     expect(managedWorktreesDir(true)).not.toBe(managedWorktreesDir(false))
   })
 
   // D-103 의 조건절이 여기 산다. config 루트까지 갈랐다면 dev 가 settings·plugins·projects 를
   // 통째로 잃는데, 그 회귀는 worktree 경로만 보는 단언으로는 보이지 않는다.
-  it('orcaConfigDir 자체는 dev 에서도 그대로다 (AC3)', () => {
-    expect(orcaConfigDir()).toBe(join(homedir(), '.config', PRODUCT_SLUG))
-    expect(projectsDir()).toBe(join(orcaConfigDir(), 'projects'))
-    expect(downloadsDir()).toBe(join(orcaConfigDir(), 'downloads'))
+  it('ooConfigDir 자체는 dev 에서도 그대로다 (AC3)', () => {
+    expect(ooConfigDir()).toBe(join(homedir(), '.config', PRODUCT_SLUG))
+    expect(projectsDir()).toBe(join(ooConfigDir(), 'projects'))
+    expect(downloadsDir()).toBe(join(ooConfigDir(), 'downloads'))
   })
 })
 
@@ -133,8 +133,8 @@ describe('managedWorktreesDir', () => {
 describe('설정 루트 파생 (0225 AT-04)', () => {
   const root = join(homedir(), '.config', PRODUCT_SLUG)
 
-  it('orcaConfigDir 가 ~/.config/orcinus-orca 다', () => {
-    expect(orcaConfigDir()).toBe(root)
+  it('ooConfigDir 가 ~/.config/orcinus-orca 다', () => {
+    expect(ooConfigDir()).toBe(root)
     expect(root.endsWith('orcinus-orca')).toBe(true)
   })
 
@@ -143,8 +143,8 @@ describe('설정 루트 파생 (0225 AT-04)', () => {
     expect(managedWorktreesDir(true)).toBe(join(root, 'worktrees-dev'))
   })
 
-  it('orcaJsonPath 는 <루트>/orcinus-orca.json 이다', () => {
-    expect(orcaJsonPath()).toBe(join(root, `${PRODUCT_SLUG}.json`))
+  it('ooJsonPath 는 <루트>/orcinus-orca.json 이다', () => {
+    expect(ooJsonPath()).toBe(join(root, `${PRODUCT_SLUG}.json`))
   })
 
   it('sourcesSkillsDir 는 <루트>/sources/skills 다', () => {

@@ -50,8 +50,8 @@ it.runIf(process.platform === 'win32')(
     const { root } = await createRepo(roots)
     const args = [
       '-c',
-      'alias.orca-env=!printf "%s\\n" "$MSYSTEM" "$HOME" "$PLINK_PROTOCOL" "$PATH"; command -v sh',
-      'orca-env'
+      'alias.orcinus-orca-env=!printf "%s\\n" "$MSYSTEM" "$HOME" "$PLINK_PROTOCOL" "$PATH"; command -v sh',
+      'orcinus-orca-env'
     ]
     const expected = await execGit(launcher, args, { cwd: root, timeout: FIXTURE_GIT_TIMEOUT_MS })
     const actual = await runGit(root, args, { timeoutMs: FIXTURE_GIT_TIMEOUT_MS })
@@ -72,11 +72,11 @@ it.runIf(process.platform === 'win32')(
     await mkdir(join(repo.root, '.git', 'hooks'), { recursive: true })
     await writeFile(
       join(repo.root, '.git', 'hooks', 'pre-commit'),
-      '#!/bin/sh\nprintf hook > .git/orca-hook\n',
+      '#!/bin/sh\nprintf hook > .git/orcinus-orca-hook\n',
       { mode: 0o755 }
     )
     await writeFile(join(repo.root, 'tracked'), 'dirty\n')
     expect(await gitCheckout(repo.root, 'feature', 'commit-wip')).toMatchObject({ ok: true })
-    expect(await readFile(join(repo.root, '.git', 'orca-hook'), 'utf8')).toBe('hook')
+    expect(await readFile(join(repo.root, '.git', 'orcinus-orca-hook'), 'utf8')).toBe('hook')
   }
 )

@@ -32,7 +32,7 @@ function fixture(): {
   }
   const service = {
     publish: vi.fn(async () => ({
-      type: 'orca.artifact.published' as const,
+      type: 'orcinus-orca.artifact.published' as const,
       version: 1 as const,
       publicationId: 'pub'
     })),
@@ -62,7 +62,7 @@ describe('model artifact tool contract', () => {
   })
   it('always exposes only path/title and the single source of publishing instructions', () => {
     const { server } = fixture()
-    expect(server.descriptor.id).toBe('orca_artifacts')
+    expect(server.descriptor.id).toBe('orcinus_orca_artifacts')
     expect(server.descriptor.alwaysLoad).toBe(true)
     expect(server.descriptor.instructions).toContain('Do not publish application internals')
     expect(server.descriptor.instructions).toContain('orcinus-orca')
@@ -87,7 +87,7 @@ describe('model artifact tool contract', () => {
       })
     )
     expect(JSON.parse(result.content[0].text)).toEqual({
-      type: 'orca.artifact.published',
+      type: 'orcinus-orca.artifact.published',
       version: 1,
       publicationId: 'pub'
     })

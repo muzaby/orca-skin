@@ -792,7 +792,7 @@ id는 케밥 소문자이고 자격증명 id와 같은 공간을 사용한다. `
 ### 7.1 Plugin 과 HarnessPlugin 은 다른 것이다
 
 ```text
-Plugin         Orca GUI 가 표시·인증·관리하고 Runtime Tool 등을 제공   (features/plugins/*)
+Plugin         Orcinus orca GUI 가 표시·인증·관리하고 Runtime Tool 등을 제공   (features/plugins/*)
 HarnessPlugin  Harness 규약에 맞춰 렌더한 package 를 Harness 가 직접 로드 (features/extensions/harness-plugins/*)
 ```
 
@@ -855,7 +855,7 @@ renderer는 한 DTO에서 `gate | llm | service` 분류·인증 체계·상태·
   라벨·인증·재인증·연결 해제 액션은 없고 cached 도구 목록은 항상 활성이다. 사용자가 끌 수 없다.
 - connect 선언 로그인 프리 행만 `connection:{state, message}`를 싣는다. 상태는 `연결 안 됨`(slate)·
   `확인 중…`(amber)·`연결됨`(green)·`연결 실패`(red)이고, 액션은 `연결`(idle) / `다시 연결`(그 밖, 확인 중
-  busy) 버튼 하나다. 버튼은 `orca:provider:connect`로 배포 연결 로직만 실행한다.
+  busy) 버튼 하나다. 버튼은 `oo:provider:connect`로 배포 연결 로직만 실행한다.
 - 자격증명 행의 인증 상세 액션은 `status === 'none'`이면 `인증` 단일 버튼, 그 외에는 `재인증` dropdown과
   메뉴의 위험 색상 `연결 해제`로 구성한다. 모두 기존 `login`·`reauth`·`revoke` 경로를 호출한다.
 - **renderer 에 새 kind 를 추가하지 않는다.** 신규 도메인 코드 안쪽에서는 `ProviderKind` 를 쓰지
@@ -907,7 +907,7 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 
 | 결정 | 이유 |
 |---|---|
-| `AuthId` · vault key **prefix** · `orca:provider:*` 채널 · DB `provider_key` 는 그대로다 | 저장된 grant·사용자 MCP 설정·기존 세션이 걸려 있다. 개명하려면 secret migration + rollback 계획이 선행한다 |
+| `AuthId` · vault key **prefix** · `oo:provider:*` 채널 · DB `provider_key` 는 그대로다 | 저장된 grant·사용자 MCP 설정·기존 세션이 걸려 있다. 개명하려면 secret migration + rollback 계획이 선행한다 |
 | 자격증명은 **고정 키를 덮어쓰지 않는다** — 새 값은 새 세대 키에, 커밋은 `Grant` 저장으로 | vault 와 grant 를 원자적으로 함께 쓸 방법이 없다. 덮어쓰면 "vault=새 값 / grant=옛 값" 창이 반드시 생긴다(§4.3). 동결된 것은 prefix 이고 세대 접미사는 그 안에 있다 |
 | 영속 실패를 성공으로 접지 않는다 | 옛 키를 지워도 된다는 잘못된 근거가 되어, 재시작 후 아무것도 가리키지 않는 grant 를 만든다 |
 | **해제는 fail-closed, 추가·교체는 degrade-open** | 방향이 다르다 — 해제를 degrade 하면 사용자가 끊은 연결이 재시작 후 되살아나고, 추가를 fail 시키면 멀쩡한 로그인이 일시적 디스크 문제로 막힌다 |

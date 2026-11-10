@@ -7,7 +7,7 @@ import { scanSkills } from './scan'
 let root: string
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-skill-scan-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-skill-scan-'))
 })
 
 afterEach(() => {
@@ -22,14 +22,19 @@ function skill(dir: string, name: string, text: string): void {
 
 describe('scanSkills', () => {
   it('여러 source root 를 소스 메타와 enabled 상태로 스캔한다', async () => {
-    const orca = join(root, 'orca')
+    const oo = join(root, 'orcinus-orca')
     const adapter = join(root, 'adapter')
-    skill(orca, 'alpha', '---\nname: alpha\ndescription: A\nargument-hint: <file>\n---\nbody')
+    skill(oo, 'alpha', '---\nname: alpha\ndescription: A\nargument-hint: <file>\n---\nbody')
     skill(adapter, 'beta', '---\nname: beta\ndescription: B\n---\ntext')
 
     const result = await scanSkills(
       [
-        { sourceId: 'orca', sourceLabel: 'Orca 스킬', sourceKind: 'orca', rootDir: orca },
+        {
+          sourceId: 'orcinus-orca',
+          sourceLabel: 'Orcinus orca 스킬',
+          sourceKind: 'orcinus-orca',
+          rootDir: oo
+        },
         {
           sourceId: 'adapter:claude',
           sourceLabel: '어댑터 스킬',
@@ -37,18 +42,18 @@ describe('scanSkills', () => {
           rootDir: adapter
         }
       ],
-      { 'orca/alpha': false, 'adapter:claude/beta': false }
+      { 'orcinus-orca/alpha': false, 'adapter:claude/beta': false }
     )
 
     expect(result).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: 'alpha',
-          sourceId: 'orca',
-          sourceLabel: 'Orca 스킬',
+          sourceId: 'orcinus-orca',
+          sourceLabel: 'Orcinus orca 스킬',
           enabled: false,
           canToggle: true,
-          sourceKind: 'orca',
+          sourceKind: 'orcinus-orca',
           argumentHint: '<file>'
         }),
         expect.objectContaining({

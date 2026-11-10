@@ -17,7 +17,7 @@ function writeFile(p: string, content: string): void {
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-claude-settings-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-claude-settings-'))
 })
 afterEach(() => {
   rmSync(root, { recursive: true, force: true })
@@ -68,7 +68,7 @@ describe('loadClaudeProviderSettings — sources flat read (verbatim)', () => {
       args().sourcesSettingsFile,
       JSON.stringify({ env: { ANTHROPIC_API_KEY: 'plain-key', BASE: '${VAR}' }, model: 'm' })
     )
-    // Orca 는 ${VAR} 확장도, secret-store 토큰 주입도 하지 않는다 — 입력 그대로.
+    // Orcinus orca 는 ${VAR} 확장도, secret-store 토큰 주입도 하지 않는다 — 입력 그대로.
     expect(await loadClaudeProviderSettings(args())).toEqual({
       settings: { env: { ANTHROPIC_API_KEY: 'plain-key', BASE: '${VAR}' }, model: 'm' }
     })

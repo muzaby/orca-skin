@@ -59,7 +59,7 @@ it('registered IPC validates the payload and drives controller through the selec
       patch: { taskType: 'local_bash', status: 'running', isBackgrounded: false }
     })
   }
-  const handler = harness.handlers.get('orca:chat:promoteBackgroundTask')
+  const handler = harness.handlers.get('oo:chat:promoteBackgroundTask')
   expect(handler).toBeTypeOf('function')
   const invoke = (req: unknown): Promise<unknown> => handler!({}, req)
   for (const toolUseId of ['', ' ', '\t'])

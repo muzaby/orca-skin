@@ -188,7 +188,7 @@ export function makeCanUseTool(
           }
         : undefined
     // 서브에이전트 호출 — 재호출 차단(deny)만 판정하고 입력은 passthrough(0143). CLI 2.1.198+
-    // 기본 = 백그라운드이며 Orca 런타임(listen 턴)이 이를 기본 경로로 소화한다. run_in_background
+    // 기본 = 백그라운드이며 Orcinus orca 런타임(listen 턴)이 이를 기본 경로로 소화한다. run_in_background
     // 는 주입하지 않는다 — 모델이 명시한 값(동기 실행 opt-out 포함)을 그대로 존중한다.
     if (isSubagentTool(toolName)) {
       const subagentType = subagentTypeOf(input)
@@ -655,7 +655,7 @@ export class ClaudeAdapter implements SessionAdapter {
           agentProgressSummaries: true,
           perTaskStopAffordance: true,
           // steer echo 의 전제 조건(0060 D5). CLI 는 mid-turn drain 한 큐 커맨드(steer)를
-          // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=orca
+          // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=Orcinus orca
           // batch uuid) 메시지로 output 스트림에 되돌린다 — 기본 off 라 echo 가 아예 안 와서
           // D1 커밋 신호가 영영 발화하지 않았다(v0.3.143 바이너리 직렬화 게이트 실측:
           // `replayUserMessages: h=!1` + `h && attachment.type==="queued_command"` 분기).
@@ -672,7 +672,7 @@ export class ClaudeAdapter implements SessionAdapter {
           // claude 실행 파일 경로(앱 동봉 번들 단일 출처). undefined 면 생략해 SDK 기본 해석.
           ...claudeExecutableOption,
           ...adaptSystemPrompt(extensions.systemPromptAppend),
-          // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — user 소스 배제로 끊긴
+          // Orcinus orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — user 소스 배제로 끊긴
           // ~/.claude/skills 를 dist/claude/plugins/claude(정션/심링크)로 보전한다.
           ...adaptPlugins(extensions.pluginRoots, nativePlugins.roots),
           ...adaptSkills(extensions.skills, nativePlugins.skills),
@@ -680,7 +680,7 @@ export class ClaudeAdapter implements SessionAdapter {
           // settingSources 는 ['project','local'] 로 명시해 user 소스를 배제한다(handoff 0117 —
           // 0028 의 "생략=기본 소스 상속" supersede). provider settings 가 사용자 전역
           // ~/.claude/settings.json 개입 없이 적용된다.
-          // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
+          // options.env(adaptEnv)에는 시스템(턴) env 만 — orcinus-orca.json 앱 env.
           ...adaptExecutionConfig(
             nativePlugins.installations.length
               ? {

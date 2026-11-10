@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, it, vi } from 'vitest'
-import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../adapters/common/mcp-config'
 import type { OpenCodeServer } from '../adapters/opencode/implementation'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { openCodeDiscovery } from '../adapters/opencode/v1/discovery-cache'
@@ -12,7 +12,7 @@ import { createPluginBinding } from './deployment/plugins'
 import { createManagedMcp } from './managed-mcp'
 
 it('shares generations and releases only owned resources', async () => {
-  let users: OrcaMcpConfig = { user: { command: 'distinct command', env: { TOKEN: '${TOKEN}' } } }
+  let users: OoMcpConfig = { user: { command: 'distinct command', env: { TOKEN: '${TOKEN}' } } }
   const plugin = createPluginBinding({
     auth: {
       authId: 'docs',
@@ -123,11 +123,11 @@ it('shares generations and releases only owned resources', async () => {
     peek: () => managed.source.peek(),
     acquire: (snapshot) => managed.mcpBridge.acquire(snapshot)
   })
-  const env = { XDG_CONFIG_HOME: 'C:/orca-managed-mcp-lifecycle-empty' }
+  const env = { XDG_CONFIG_HOME: 'C:/orcinus-orca-managed-mcp-lifecycle-empty' }
   let a: Awaited<ReturnType<typeof adapter.client>> | undefined, b: typeof a, c: typeof a
   try {
-    a = await adapter.client({}, env, 'C:/orca-managed-mcp-A')
-    b = await adapter.client({}, env, 'C:/orca-managed-mcp-B')
+    a = await adapter.client({}, env, 'C:/orcinus-orca-managed-mcp-A')
+    b = await adapter.client({}, env, 'C:/orcinus-orca-managed-mcp-B')
     expect(profiles.size).toBe(1)
     expect([...profiles.values()][0].owners).toBe(1)
     expect(inputs[0].config).toHaveProperty('mcp')
@@ -145,7 +145,7 @@ it('shares generations and releases only owned resources', async () => {
     const connected = await b.mcp(new AbortController().signal)
     expect(
       connected
-        .filter((item) => item.origin === 'orca')
+        .filter((item) => item.origin === 'orcinus-orca')
         .map((item) => item.managedSource?.kind)
         .sort()
     ).toEqual(['builtin', 'user'])
@@ -153,7 +153,7 @@ it('shares generations and releases only owned resources', async () => {
     users = {}
     managed.source.refresh()
     expect((await b.mcp(new AbortController().signal)).map((item) => item.id)).toEqual(['native'])
-    c = await adapter.client({}, env, 'C:/orca-managed-mcp-C')
+    c = await adapter.client({}, env, 'C:/orcinus-orca-managed-mcp-C')
     expect(profiles.size).toBe(2)
     expect([...profiles.values()][0].owners).toBe(1)
     await c.release()
@@ -166,7 +166,7 @@ it('shares generations and releases only owned resources', async () => {
     })
     const turn = adapter.sendMessage({
       sessionId: 'existing',
-      cwd: 'C:/orca-managed-mcp-turn',
+      cwd: 'C:/orcinus-orca-managed-mcp-turn',
       text: 'turn',
       env,
       extensions: {
@@ -191,7 +191,7 @@ it('shares generations and releases only owned resources', async () => {
       await iterator.return?.()
     }
     fail = true
-    await expect(adapter.client({}, env, 'C:/orca-managed-mcp-failure')).rejects.toThrow(
+    await expect(adapter.client({}, env, 'C:/orcinus-orca-managed-mcp-failure')).rejects.toThrow(
       'fixture acquisition'
     )
     const failedEndpoint = Object.values(inputs.at(-1)!.env!).find((value) =>
@@ -208,7 +208,7 @@ it('shares generations and releases only owned resources', async () => {
 })
 
 it('checks native identity collisions in each actual adapter environment before projection', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-collision-cache-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-collision-cache-'))
   const cwd = join(root, 'project'),
     first = join(root, 'one'),
     second = join(root, 'two')

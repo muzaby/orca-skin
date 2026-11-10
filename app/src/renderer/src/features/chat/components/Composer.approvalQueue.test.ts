@@ -161,7 +161,7 @@ beforeEach(() => {
   catalog.agents = []
   vi.useFakeTimers()
   ;({ permissionRespond } = installChatStoreHarness({ backend: 'opencode', agentKind: 'code' }))
-  const orca = window.orca
+  const oo = window.oo
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
   vi.stubGlobal(
     'ResizeObserver',
@@ -171,10 +171,10 @@ beforeEach(() => {
     }
   )
   Object.assign(window, {
-    orca: {
-      ...orca,
+    oo: {
+      ...oo,
       session: {
-        ...orca.session,
+        ...oo.session,
         nativeResources: async () => ({ state: 'disconnected', items: [], commands: [] }),
         onNativeResourcesChanged: () => () => {},
         composerCatalog: async ({ part }: { part: string }) => ({
@@ -518,9 +518,9 @@ it('does not hydrate a Claude model before an OpenCode session finishes loading'
     }
   ]
   let resolve!: (session: import('../../../../../shared/ipc').LoadedSession) => void
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     session: {
-      ...window.orca.session,
+      ...window.oo.session,
       load: () =>
         new Promise<import('../../../../../shared/ipc').LoadedSession>((yes) => {
           resolve = yes

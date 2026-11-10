@@ -1,10 +1,10 @@
 import { expect, it, vi } from 'vitest'
 import type { SettingsStore } from '../infra/settings-store'
 import type { PluginAuth } from '../contracts/auth'
-import type { OrcaMcpConfig } from '../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../adapters/common/mcp-config'
 const storage = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, input: unknown) => Promise<unknown>>(),
-  servers: {} as OrcaMcpConfig,
+  servers: {} as OoMcpConfig,
   secrets: new Map<string, string>()
 }))
 vi.mock('electron', () => ({
@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
 }))
 vi.mock('../features/extensions/common/mcp/file', () => ({
   readMcpFile: () => ({ mcpServers: structuredClone(storage.servers) }),
-  writeMcpFile: (value: { mcpServers: OrcaMcpConfig }) => {
+  writeMcpFile: (value: { mcpServers: OoMcpConfig }) => {
     storage.servers = structuredClone(value.mcpServers)
   }
 }))
@@ -35,7 +35,7 @@ vi.mock('../infra/config/secret-store', () => ({
     }
   }
 }))
-vi.mock('../infra/config/orca-config', () => ({ secretEnvAllowlist: () => [] }))
+vi.mock('../infra/config/oo-config', () => ({ secretEnvAllowlist: () => [] }))
 import { McpStore } from '../features/extensions/common/mcp/store'
 import { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
 import { confluenceTools } from '../features/plugins/confluence/tools'

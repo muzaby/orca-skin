@@ -20,7 +20,7 @@ describe('unit 풀 배선 (0298)', () => {
 
   it('os.homedir() 는 setup 이 이 파일에 준 홈이다 — 스레드 env 사본에 맞춘다', () => {
     const host = (globalThis as unknown as Record<symbol, { root: string } | undefined>)[
-      Symbol.for('orca.test.host')
+      Symbol.for('orcinus-orca.test.host')
     ]
     const key = process.platform === 'win32' ? 'USERPROFILE' : 'HOME'
     expect(homedir()).toBe(process.env[key])

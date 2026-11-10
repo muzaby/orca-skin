@@ -5,7 +5,7 @@ import { pluginDescription } from '../common/plugin-description'
 import { resourceQuery } from '../common/resource-query'
 import { nativePluginId } from './configured-resources'
 
-/** Owns observations for one Query; Orca MCPs carry a separate read-only origin. */
+/** Owns observations for one Query; Orcinus orca MCPs carry a separate read-only origin. */
 export function claudeNativeResources(
   query: Pick<Query, 'mcpServerStatus' | 'toggleMcpServer'> &
     Partial<Pick<Query, 'supportedCommands' | 'applyFlagSettings' | 'reloadPlugins'>>,
@@ -129,7 +129,7 @@ export function claudeNativeResources(
             ...(server.source ? { source: server.source } : {}),
             enabled: server.status !== 'disabled',
             canToggle: false,
-            ...(injectedPrefix(server.name) ? { origin: 'orca' as const } : {})
+            ...(injectedPrefix(server.name) ? { origin: 'orcinus-orca' as const } : {})
           })),
         ...(await Promise.all(
           plugins.map(async (plugin) => {

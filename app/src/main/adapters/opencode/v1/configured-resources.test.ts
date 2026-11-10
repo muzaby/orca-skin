@@ -11,7 +11,7 @@ import {
 import { openCodeDiscovery } from './discovery-cache'
 
 it('discovers global config.json and excludes the default workspace and its .opencode files', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-global-config-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-global-config-'))
   try {
     const global = join(root, 'config', 'opencode')
     await mkdir(global, { recursive: true })
@@ -51,7 +51,7 @@ it('discovers global config.json and excludes the default workspace and its .ope
 })
 
 it('resolves JSONC MCP declarations in global, custom and project scopes without parsing URL comments', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-open-config-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-open-config-'))
   const cwd = join(root, 'project')
   const global = join(root, 'config', 'opencode', 'opencode.json')
   const custom = join(root, 'override.json')
@@ -89,7 +89,7 @@ it('resolves JSONC MCP declarations in global, custom and project scopes without
 
 it('retains plugin skill roots through cached metadata and refreshes removed installations', async () => {
   // Windows tmpdir() can be an 8.3 short path; installations resolve through realpath.
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'orca-plugin-skills-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'orcinus-orca-plugin-skills-')))
   const plugin = join(root, 'plugin'),
     config = join(root, 'config', 'opencode')
   const env = { XDG_CONFIG_HOME: join(root, 'config') }

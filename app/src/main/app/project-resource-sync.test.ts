@@ -256,7 +256,7 @@ it('releases draft watchers on owner release and discards delayed results from a
   expect(f.owner).not.toHaveBeenCalled()
 })
 it('detects real file creation and atomic replacement without starting a runtime, and closes its watcher', async () => {
-  const temp = mkdtempSync(join(tmpdir(), 'orca-watch-'))
+  const temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-watch-'))
   const cwd = join(temp, 'project'),
     root = join(temp, 'native')
   mkdirSync(join(cwd, '.claude'), { recursive: true })

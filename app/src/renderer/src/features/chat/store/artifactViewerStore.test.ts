@@ -45,7 +45,7 @@ beforeEach(() => {
   logError.mockReset()
   for (const toast of errorToastStore.getState().toasts)
     errorToastStore.getState().dismiss(toast.id)
-  vi.stubGlobal('window', { orca: { artifacts: { preview, reveal }, log: { error: logError } } })
+  vi.stubGlobal('window', { oo: { artifacts: { preview, reveal }, log: { error: logError } } })
 })
 afterEach(() => vi.unstubAllGlobals())
 describe('viewer selection and request lifetime', () => {

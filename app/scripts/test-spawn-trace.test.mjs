@@ -11,8 +11,9 @@ import { syncBuiltinESMExports } from 'node:module'
 import { scaleMs } from './test-time.mjs'
 
 test('git census는 감시기를 빼고 테스트 측·production을 구분하며 초과를 거부한다', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-spawn-trace-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-spawn-trace-'))
   const trace = join(root, 'src_probe.test.ts.jsonl')
+  // 이 변수 이름은 아래에서 import 하는 0300 증거 스크립트(지난 기록 — 이름을 바꾸지 않는다)가 읽는다.
   const previous = process.env.ORCA_SPAWN_TRACE
   const saved = {
     spawn: cp.ChildProcess.prototype.spawn,

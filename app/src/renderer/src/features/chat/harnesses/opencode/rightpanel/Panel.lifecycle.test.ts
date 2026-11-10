@@ -101,7 +101,7 @@ beforeEach(() => {
     sessionId: 'panel-session',
     backend: 'opencode',
     agentKind: 'code',
-    cwd: 'C:/orca',
+    cwd: 'C:/orcinus-orca',
     extraDirs: ['C:/references'],
     rightPanelTiles: [{ id: 'task', tiles: ['task'] }],
     rightPanelColWidths: [420],

@@ -91,11 +91,11 @@ describe('변경량은 diff 요약 합계에서 읽는다 (AT-18 · EP-12)', () 
 // 셋을 한 케이스로 잰다. 둘째를 빼면 닫기가 전혀 안 먹는 구현이, 셋째를 빼면 **영영 안
 // 돌아오는 구현**이 통과한다 — 사용자가 고른 수명은 "다음 턴 종료 때 다시 뜸" 이다.
 describe('컴포저 행 닫기와 복귀 (AT-70)', () => {
-  const repo = { isRepo: true, root: '/x/orca', branch: 'main', detached: false } as const
+  const repo = { isRepo: true, root: '/x/orcinus-orca', branch: 'main', detached: false } as const
 
   it('닫으면 사라지고, 재렌더에도 닫혀 있고, tick 이 오르면 다시 선다', () => {
     const at = (closedAtTick: number | null, tick: number): boolean =>
-      gitRowView(true, '/x/orca', repo, null, null, closedAtTick, tick).visible
+      gitRowView(true, '/x/orcinus-orca', repo, null, null, closedAtTick, tick).visible
 
     expect(at(null, 3)).toBe(true)
     expect(at(3, 3)).toBe(false)
@@ -106,6 +106,6 @@ describe('컴포저 행 닫기와 복귀 (AT-70)', () => {
   })
 
   it('닫힘은 다른 노출 조건을 덮어쓰지 않는다 — 랜딩은 여전히 안 뜬다', () => {
-    expect(gitRowView(false, '/x/orca', repo, null, null, null, 0).visible).toBe(false)
+    expect(gitRowView(false, '/x/orcinus-orca', repo, null, null, null, 0).visible).toBe(false)
   })
 })

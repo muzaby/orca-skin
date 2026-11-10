@@ -61,7 +61,7 @@ it('refreshes on backend push and focus, coalesces busy and locked pushes and st
   let changed!: (event: { backend: 'claude' | 'opencode' }) => void
   const off = vi.fn()
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         globalExtensions: read,
         setGlobalExtension: write,
@@ -124,7 +124,7 @@ it('queries explicit global scope without owning runtime observations, retains g
   const runtimeRead = vi.fn(),
     observe = vi.fn()
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         globalExtensions: read,
         openGlobalExtension: open,
@@ -197,7 +197,7 @@ it('renders native plugin capabilities and updates the actual row through its to
   })
   const write = vi.fn(async () => applied(plugin('claude', true)))
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         globalExtensions: async (backend: string) => plugin(backend),
         setGlobalExtension: write
@@ -251,7 +251,7 @@ it('reports a choice write failure once and releases the queue for a retry', asy
     .mockResolvedValueOnce(applied(plugins(false)))
   const logged = vi.fn()
   Object.assign(window, {
-    orca: {
+    oo: {
       session: { globalExtensions: async () => plugins(), setGlobalExtension: write },
       log: { error: logged }
     }
@@ -324,7 +324,7 @@ function claudePluginHarness(results: SetGlobalNativeResourceResult[]): {
     applied(rows(request.backend, request.enabled))
   )
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         globalExtensions: async (backend: string) => rows(backend),
         setGlobalExtension: write
@@ -464,7 +464,7 @@ function nativeMain(sessions = 0): {
     }
   )
   Object.assign(window, {
-    orca: { session: { globalExtensions: read, setGlobalExtension: write } }
+    oo: { session: { globalExtensions: read, setGlobalExtension: write } }
   })
   return {
     read,
@@ -668,7 +668,7 @@ it('toasts a list failure once when a harness enters the failed state, again onl
     return catalog()
   })
   Object.assign(window, {
-    orca: {
+    oo: {
       session: { globalExtensions: read, onExtensionsChanged: () => () => {} },
       log: { error: logged }
     }

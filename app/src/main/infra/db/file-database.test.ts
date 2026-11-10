@@ -12,7 +12,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
 })
 async function path(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-file-db-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-file-db-'))
   roots.push(root)
   return join(root, 'test.db')
 }

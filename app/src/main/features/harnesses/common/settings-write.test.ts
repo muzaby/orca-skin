@@ -10,7 +10,7 @@ import {
 } from './settings-write'
 
 function tempRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'orca-engine-write-'))
+  return mkdtempSync(join(tmpdir(), 'orcinus-orca-engine-write-'))
 }
 
 describe('engine settings writes', () => {

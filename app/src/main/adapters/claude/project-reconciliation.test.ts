@@ -12,7 +12,7 @@ const json = (path: string, value: unknown): void => {
   writeFileSync(path, JSON.stringify(value))
 }
 beforeEach(() => {
-  temp = mkdtempSync(join(tmpdir(), 'orca-project-reconcile-'))
+  temp = mkdtempSync(join(tmpdir(), 'orcinus-orca-project-reconcile-'))
   cwd = join(temp, 'cwd')
   root = join(temp, 'root')
   plugin = join(temp, 'plugin')

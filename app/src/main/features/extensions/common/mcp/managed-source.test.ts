@@ -1,10 +1,10 @@
 import { expect, it, vi } from 'vitest'
 import type { ManagedMcpPlugin } from '../../../../adapters/common/managed-mcp'
-import type { OrcaMcpConfig } from '../../../../adapters/common/mcp-config'
+import type { OoMcpConfig } from '../../../../adapters/common/mcp-config'
 import { createManagedMcpSource } from './managed-source'
 
 it('separates definitions and desired choices through disable edit resolution rotation and revocation', () => {
-  let definitions: OrcaMcpConfig = {
+  let definitions: OoMcpConfig = {
     first: { command: 'first' },
     secured: { command: 'tool', env: { TOKEN: '${TOKEN}' } }
   }

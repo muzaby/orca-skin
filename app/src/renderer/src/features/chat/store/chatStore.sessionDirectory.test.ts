@@ -8,7 +8,7 @@ let addDirectory: ReturnType<typeof vi.fn>
 beforeEach(() => {
   installChatStoreHarness({ agentKind: 'work' })
   addDirectory = vi.fn().mockResolvedValue({ ok: true, extraDirs: ['C:/canonical'] })
-  Object.assign(window.orca, { session: { addDirectory } })
+  Object.assign(window.oo, { session: { addDirectory } })
 })
 const target = { key: 's', sessionId: 's' }
 function deferred(): {

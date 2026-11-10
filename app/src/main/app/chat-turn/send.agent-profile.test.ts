@@ -180,7 +180,7 @@ describe('Work profile production send wiring', () => {
   it.each([false, true])(
     'routes a saved OpenCode session through its runtime and keeps harness instructions isolated (recovery: %s)',
     async (recovery) => {
-      const cwd = await mkdtemp(join(tmpdir(), 'orca-send-harness-'))
+      const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-send-harness-'))
       const recoveryPrompt = vi.fn()
       if (recovery)
         mocks.native = {
@@ -285,7 +285,7 @@ describe('Work profile production send wiring', () => {
   it.each(['new', 'resume', 'forkFrom', 'handoffFrom'])(
     'keeps Work and Code isolated at %s and both automatic continuation preparations',
     async (arrival) => {
-      const cwd = await mkdtemp(join(tmpdir(), 'orca-send-profile-'))
+      const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-send-profile-'))
       try {
         const runs = [harness(cwd), harness(cwd)]
         for (const [index, kind] of (['work', 'code'] as const).entries()) {
@@ -350,7 +350,7 @@ describe('Work profile production send wiring', () => {
   )
 
   it('reports missing Work resources and releases the registered turn and lease before runtime acquisition', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'orca-send-profile-failure-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-send-profile-failure-'))
     try {
       const current = harness(cwd, join(cwd, 'missing'))
       await handleChatSend(current.deps as never, { sender: current.sender } as never, {
@@ -378,7 +378,7 @@ describe('Work profile production send wiring', () => {
   })
 
   it('revalidates a removed resource on automatic continuation and closes the failed preparation', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'orca-send-profile-continuation-'))
+    const cwd = await mkdtemp(join(tmpdir(), 'orcinus-orca-send-profile-continuation-'))
     try {
       const current = harness(cwd)
       mocks.acquire.mockImplementation(async (input) => {

@@ -32,9 +32,9 @@ it('keeps the chosen path when the boot query finishes late', async () => {
     finish = resolve
   })
   const unsubscribe = (): void => {}
-  Object.assign(window.orca, {
+  Object.assign(window.oo, {
     boot: { whenReady: async () => undefined },
-    chat: { ...window.orca.chat, onEvent: () => unsubscribe, onBackgroundEvent: () => unsubscribe },
+    chat: { ...window.oo.chat, onEvent: () => unsubscribe, onBackgroundEvent: () => unsubscribe },
     session: { cwd: () => ready, onTitle: () => unsubscribe },
     concurrency: { onEvent: () => unsubscribe },
     settings: { get: async () => ({}), set: f.settingsSet }

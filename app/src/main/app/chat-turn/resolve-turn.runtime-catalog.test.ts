@@ -9,7 +9,7 @@ vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/log', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })
 }))
-vi.mock('../../infra/config/orca-config', () => ({ appEnv: () => ({}) }))
+vi.mock('../../infra/config/oo-config', () => ({ appEnv: () => ({}) }))
 
 const contribution = {
   authId: 'gate',

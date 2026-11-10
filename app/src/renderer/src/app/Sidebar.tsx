@@ -1,7 +1,7 @@
 import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '../shared/ui/Icon'
-import { OrcaLogo } from '../shared/ui/OrcaLogo'
+import { OoLogo } from '../shared/ui/OoLogo'
 import { CollapsibleSection } from '../shared/ui/SidebarSection'
 import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useTweakContext } from '../shared/theme'
@@ -84,7 +84,7 @@ function SidebarImpl({
             className="app-frame-sidebar-brand flex items-center justify-center px-3 pb-1.5 pt-2.5"
             aria-hidden
           >
-            <OrcaLogo className="h-[18px] w-auto text-ink" />
+            <OoLogo className="h-[18px] w-auto text-ink" />
           </div>
           <nav className="app-frame-sidebar-nav flex flex-col px-1.5 py-1">
             {SIDEBAR_NAV.map((it) => {
@@ -124,7 +124,7 @@ function SidebarImpl({
       >
         <div className="app-frame-sidebar-body flex min-h-0 flex-1 flex-col">
           <div className="app-frame-sidebar-brand flex items-center gap-2 px-3 pb-1.5 pt-2.5">
-            <OrcaLogo className="h-[18px] w-auto flex-none text-ink" />
+            <OoLogo className="h-[18px] w-auto flex-none text-ink" />
             <span className="font-serif text-[16px] font-semibold tracking-tight text-ink">
               {PRODUCT_DISPLAY_NAME}
             </span>

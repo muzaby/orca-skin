@@ -18,7 +18,7 @@ import { scaleMs } from '../../../../scripts/test-time.mjs'
 
 let root: string
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'orca-file-queue-'))
+  root = await mkdtemp(join(tmpdir(), 'orcinus-orca-file-queue-'))
 })
 afterEach(async () => {
   await rm(root, { recursive: true, force: true })
@@ -178,8 +178,8 @@ it.skipIf(process.platform !== 'win32')(
     await writeFile(file, '{}')
     const script = [
       '$ErrorActionPreference = "Stop"',
-      '$f = [IO.File]::Open($env:ORCA_LOCK_FILE, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)',
-      'try { [IO.File]::WriteAllText($env:ORCA_LOCK_READY, "ready"); while (-not [IO.File]::Exists($env:ORCA_LOCK_RELEASE)) { [Threading.Thread]::Sleep(10) } } finally { $f.Dispose() }'
+      '$f = [IO.File]::Open($env:ORCINUS_ORCA_LOCK_FILE, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)',
+      'try { [IO.File]::WriteAllText($env:ORCINUS_ORCA_LOCK_READY, "ready"); while (-not [IO.File]::Exists($env:ORCINUS_ORCA_LOCK_RELEASE)) { [Threading.Thread]::Sleep(10) } } finally { $f.Dispose() }'
     ].join('; ')
     // Windows PowerShell 5.1 은 모든 Windows 에 있다. pwsh(7) 는 self-hosted 러너에 없을 수 있다(0298).
     const powershell = join(
@@ -200,9 +200,9 @@ it.skipIf(process.platform !== 'win32')(
       {
         env: {
           ...process.env,
-          ORCA_LOCK_FILE: file,
-          ORCA_LOCK_READY: ready,
-          ORCA_LOCK_RELEASE: release
+          ORCINUS_ORCA_LOCK_FILE: file,
+          ORCINUS_ORCA_LOCK_READY: ready,
+          ORCINUS_ORCA_LOCK_RELEASE: release
         },
         windowsHide: true,
         stdio: ['ignore', 'ignore', 'pipe']

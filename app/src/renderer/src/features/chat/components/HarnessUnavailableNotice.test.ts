@@ -39,7 +39,7 @@ it.each([
     dom = installFakeDom({ innerWidth: 1000, innerHeight: 700 })
     const pending = Promise.withResolvers<void>()
     const recheck = vi.fn(() => pending.promise)
-    Object.assign(window, { orca: { harness: { recheck } } })
+    Object.assign(window, { oo: { harness: { recheck } } })
     dom.render(
       createElement(HarnessUnavailableNotice, {
         backend: 'opencode',

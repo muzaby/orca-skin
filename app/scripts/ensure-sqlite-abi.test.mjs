@@ -16,7 +16,7 @@ import {
 } from './ensure-sqlite-abi.mjs'
 
 function fixture() {
-  const cwd = mkdtempSync(join(tmpdir(), 'orca-sqlite-abi-'))
+  const cwd = mkdtempSync(join(tmpdir(), 'orcinus-orca-sqlite-abi-'))
   mkdirSync(join(cwd, 'node_modules', 'electron'), { recursive: true })
   mkdirSync(join(cwd, 'node_modules', 'better-sqlite3'), { recursive: true })
   writeFileSync(join(cwd, 'package.json'), '{"name":"fixture"}\n')
@@ -66,7 +66,7 @@ test('electron target fast-paths when marker matches and binary is Electron-ABI'
 })
 
 test('electron target rebuilds when binary is Node-ABI even if marker matches', () => {
-  // 회귀 가드: `npm install` 이 better-sqlite3 를 Node-ABI prebuilt 로 되돌려도 orca 마커는
+  // 회귀 가드: `npm install` 이 better-sqlite3 를 Node-ABI prebuilt 로 되돌려도 Orcinus orca 마커는
   // {target:electron} 그대로 남는다. loadBetterSqlite=true(= plain Node 로드 성공 = Node-ABI)면
   // 마커가 매치해도 반드시 Electron 으로 rebuild 해야 한다.
   const cwd = fixture()

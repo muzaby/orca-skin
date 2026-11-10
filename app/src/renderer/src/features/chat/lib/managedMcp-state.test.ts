@@ -11,7 +11,7 @@ it('invalidates usable managed candidates and discards the old successful respon
       : new Promise<NativeResources>((resolve) => pending.push(resolve))
   )
   vi.stubGlobal('window', {
-    orca: {
+    oo: {
       session: {
         nativeResources: read,
         onManagedMcpChanged: (callback: typeof changed) => {
@@ -35,7 +35,7 @@ it('invalidates usable managed candidates and discards the old successful respon
   const managed = {
     ...native,
     id: 'old-managed',
-    origin: 'orca' as const,
+    origin: 'orcinus-orca' as const,
     managedSource: { kind: 'user' as const, sourceId: 'old-source' }
   }
   try {

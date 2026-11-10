@@ -1,4 +1,4 @@
-// orca.json 읽기/생성. 파일은 **앱 자체 전역 환경변수**(모든 어댑터 공통 process env 베이스)의
+// orcinus-orca.json 읽기/생성. 파일은 **앱 자체 전역 환경변수**(모든 어댑터 공통 process env 베이스)의
 // 정규 소스다 — agent/provider 설정은 handoff 0014 에서 sources/settings/<adapter>/<provider>/
 // settings.json 으로 이전됐다 (구 agents[] 필드는 제거 — 클린 브레이크, 발견 시 경고만).
 // 부재 시 사용자가 발견·편집할 수 있게 빈 템플릿을 atomic(temp+rename) 생성한다.
@@ -6,7 +6,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { z } from 'zod'
-import { orcaJsonPath } from './paths'
+import { ooJsonPath } from './paths'
 import { writeJsonAtomic } from './json-file'
 
 // enabled:false 면 업데이터 전체가 꺼져 피드 데이터를 아무도 읽지 않는다 — provider 만 남긴다
@@ -63,7 +63,7 @@ const SecretsConfigSchema = z.object({
   envAllowlist: z.array(z.string().min(1)).optional()
 })
 
-const OrcaConfigTopSchema = z.object({
+const OoConfigTopSchema = z.object({
   version: z.literal(1),
   env: z.record(z.string(), z.string()).optional(),
   update: UpdateConfigSchema.optional(),
@@ -74,7 +74,7 @@ const OrcaConfigTopSchema = z.object({
 export type UpdateConfig = z.infer<typeof UpdateConfigSchema>
 type SecretsConfig = z.infer<typeof SecretsConfigSchema>
 
-export interface OrcaConfig {
+export interface OoConfig {
   version: 1
   // 앱 전역 env (${VAR} 플레이스홀더 허용 — 확장은 소비 시점). 모든 어댑터 subprocess 에
   // 공통 베이스로 병합된다. provider 별 env 는 settings.json 의 env 블록이 담당.
@@ -92,12 +92,12 @@ export interface OrcaConfig {
   debug?: boolean
 }
 
-interface ParseOrcaFileResult {
-  config: OrcaConfig
+interface ParseOoFileResult {
+  config: OoConfig
   warnings: string[]
 }
 
-export const DEFAULT_ORCA_CONFIG: OrcaConfig = { version: 1 }
+export const DEFAULT_OO_CONFIG: OoConfig = { version: 1 }
 
 function issueSummary(error: z.ZodError): string {
   return error.issues
@@ -105,22 +105,22 @@ function issueSummary(error: z.ZodError): string {
     .join('; ')
 }
 
-export function parseOrcaFile(raw: string): ParseOrcaFileResult {
+export function parseOoFile(raw: string): ParseOoFileResult {
   let json: unknown
   try {
     json = JSON.parse(raw)
   } catch (err) {
     return {
-      config: DEFAULT_ORCA_CONFIG,
-      warnings: [`orca.json JSON 파싱 실패 — 기본값 사용: ${String(err)}`]
+      config: DEFAULT_OO_CONFIG,
+      warnings: [`orcinus-orca.json JSON 파싱 실패 — 기본값 사용: ${String(err)}`]
     }
   }
 
-  const top = OrcaConfigTopSchema.safeParse(json)
+  const top = OoConfigTopSchema.safeParse(json)
   if (!top.success) {
     return {
-      config: DEFAULT_ORCA_CONFIG,
-      warnings: [`orca.json 최상위 스키마 위반 — 기본값 사용: ${issueSummary(top.error)}`]
+      config: DEFAULT_OO_CONFIG,
+      warnings: [`orcinus-orca.json 최상위 스키마 위반 — 기본값 사용: ${issueSummary(top.error)}`]
     }
   }
 
@@ -128,7 +128,7 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
   // 구 스키마(handoff 0009~0010) 잔존 감지 — 마이그레이션 없이 무시하되 1회 경고로 안내한다.
   if (typeof json === 'object' && json !== null && 'agents' in json) {
     warnings.push(
-      'orca.json 의 agents 필드는 제거됐습니다(handoff 0014) — provider 설정은 ' +
+      'orcinus-orca.json 의 agents 필드는 제거됐습니다(handoff 0014) — provider 설정은 ' +
         'sources/settings/<adapter>/<provider>/settings.json 으로 이전하세요 (TRD §6.8).'
     )
   }
@@ -143,21 +143,21 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
   }
 }
 
-export function ensureOrcaFile(): void {
-  const path = orcaJsonPath()
+export function ensureOoFile(): void {
+  const path = ooJsonPath()
   if (existsSync(path)) return
-  writeJsonAtomic(path, DEFAULT_ORCA_CONFIG)
+  writeJsonAtomic(path, DEFAULT_OO_CONFIG)
 }
 
-export function readOrcaFile(): ParseOrcaFileResult {
+export function readOoFile(): ParseOoFileResult {
   let raw: string
   try {
-    raw = readFileSync(orcaJsonPath(), 'utf8')
+    raw = readFileSync(ooJsonPath(), 'utf8')
   } catch (err) {
     return {
-      config: DEFAULT_ORCA_CONFIG,
-      warnings: [`orca.json 읽기 실패 — 기본값 사용: ${String(err)}`]
+      config: DEFAULT_OO_CONFIG,
+      warnings: [`orcinus-orca.json 읽기 실패 — 기본값 사용: ${String(err)}`]
     }
   }
-  return parseOrcaFile(raw)
+  return parseOoFile(raw)
 }

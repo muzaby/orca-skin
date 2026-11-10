@@ -38,7 +38,7 @@ let directory: string
 let db: Database.Database
 let queries: DbQueries
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'orca-context-open-'))
+  root = mkdtempSync(join(tmpdir(), 'orcinus-orca-context-open-'))
   cwd = join(root, 'Workspace')
   directory = join(root, 'References')
   mkdirSync(cwd)
@@ -67,7 +67,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   db.close()
-  if (dirname(root) !== resolve(tmpdir()) || !root.includes('orca-context-open-'))
+  if (dirname(root) !== resolve(tmpdir()) || !root.includes('orcinus-orca-context-open-'))
     throw new Error('unsafe cleanup')
   rmSync(root, { recursive: true, force: true })
 })

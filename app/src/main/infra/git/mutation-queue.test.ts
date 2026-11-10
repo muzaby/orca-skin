@@ -11,7 +11,7 @@ afterEach(async () =>
 
 describe('repository mutation queue', () => {
   it('serializes filesystem aliases of the same repository', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-queue-test-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-queue-test-'))
     roots.push(root)
     const repo = join(root, 'repo')
     const alias = join(root, 'alias')
@@ -51,7 +51,7 @@ describe('repository mutation queue', () => {
   })
 
   it('allows different repositories to start in parallel', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'orca-queue-test-'))
+    const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-queue-test-'))
     roots.push(root)
     const one = join(root, 'one')
     const two = join(root, 'two')

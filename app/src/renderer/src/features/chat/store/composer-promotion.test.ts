@@ -128,7 +128,7 @@ beforeEach(() => {
   )
   release.mockClear()
   Object.assign(window, {
-    orca: {
+    oo: {
       session: {
         composerCatalog: query,
         releaseComposerCatalog: release,

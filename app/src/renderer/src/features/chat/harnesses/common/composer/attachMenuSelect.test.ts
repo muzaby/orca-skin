@@ -107,7 +107,7 @@ describe('AttachMenu 데이터 전달 (AC2·AC3 · r3 D6·D7)', () => {
   it('받은 플러그인·스킬 목록을 그대로 하위 메뉴에 그린다', () => {
     render(vi.fn(), {
       skills: [
-        { name: 'review', sourceId: 'orca', sourceLabel: 'Orcinus orca', description: '' },
+        { name: 'review', sourceId: 'orcinus-orca', sourceLabel: 'Orcinus orca', description: '' },
         { name: 'plan', sourceId: 'adapter:claude', sourceLabel: 'Claude', description: '' }
       ] as SkillInfo[],
       plugins: [
@@ -116,15 +116,15 @@ describe('AttachMenu 데이터 전달 (AC2·AC3 · r3 D6·D7)', () => {
       ]
     })
     expect(submenuIds('plugins')).toEqual([
-      'plugins:orca',
+      'plugins:orcinus-orca',
       'plugin:jira-dc',
       'plugin:confluence',
       'plugins:separator',
       'plugins:manage'
     ])
     expect(submenuIds('skills')).toEqual([
-      'skills:orca',
-      'skill:orca/review',
+      'skills:orcinus-orca',
+      'skill:orcinus-orca/review',
       'skills:adapter:claude',
       'skill:adapter:claude/plan'
     ])

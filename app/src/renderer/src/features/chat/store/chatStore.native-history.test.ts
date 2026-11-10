@@ -65,7 +65,7 @@ beforeEach(() => {
   })
   load.mockReset().mockResolvedValue(snapshot())
   refresh.mockReset().mockResolvedValue({ status: 'unchanged' })
-  Object.assign(window.orca, { session: { load, refresh } })
+  Object.assign(window.oo, { session: { load, refresh } })
   report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
 })
 

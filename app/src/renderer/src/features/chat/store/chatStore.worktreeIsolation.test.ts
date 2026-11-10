@@ -3,7 +3,7 @@
 // 리듀서(`chatReducer.worktree.test.ts`)와 칩(`CwdPanel.isolation.test.ts`)이 각자 자기 축을
 // 잠그지만 그 사이의 페이로드 조립은 어느 쪽도 보지 않았다. 사용자가 칩을 켜고 리듀서가 그것을
 // 기록해도 IPC 직전에 조용히 버려지면 worktree 는 만들어지지 않고 오류도 없다(verify r12 D33).
-// 형제 `chatStore.extraDirs.test.ts` 와 같은 하네스로 window.orca.chat.send 가 받은 인자를 본다.
+// 형제 `chatStore.extraDirs.test.ts` 와 같은 하네스로 window.oo.chat.send 가 받은 인자를 본다.
 //
 // 렌더러의 `SendChatMessage` 조립 지점은 셋이다 — 신규 세션·확정 세션(둘 다 `send`)과
 // `startHandoff`. D-004 가 격리를 **신규 일반 세션 전용**으로 못박으므로 나머지 둘은 음성 축이고,

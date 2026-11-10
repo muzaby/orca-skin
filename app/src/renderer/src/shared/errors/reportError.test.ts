@@ -8,7 +8,7 @@ const originalPush = errorToastStore.getState().push
 beforeEach(() => {
   vi.useFakeTimers()
   errorToastStore.setState({ push: originalPush })
-  vi.stubGlobal('window', { orca: { log: { error: log } } })
+  vi.stubGlobal('window', { oo: { log: { error: log } } })
   log.mockClear()
 })
 afterEach(() => {

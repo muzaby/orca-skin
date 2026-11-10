@@ -53,7 +53,7 @@ function call(
     type: 'tool_call',
     toolRunId,
     payloadJson: JSON.stringify({
-      toolName: options.toolName ?? 'mcp__orca_artifacts__publish_artifact',
+      toolName: options.toolName ?? 'mcp__orcinus_orca_artifacts__publish_artifact',
       args: {},
       ...(options.parentToolRunId ? { parentToolRunId: options.parentToolRunId } : {})
     })

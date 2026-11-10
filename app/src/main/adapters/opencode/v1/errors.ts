@@ -54,7 +54,7 @@ export function classifyOpenCodeError(
   if (status === 403 && isRestrictedFreeTier(data.responseBody, message)) {
     return result(
       'permission_denied',
-      'OpenCode 무료 모델은 공급자 정책상 OpenCode 앱에서만 사용할 수 있어 Orca의 요청이 거절되었습니다(403). 엔진 및 모델에서 외부 앱 사용이 허용된 공급자를 설정한 뒤 모델을 선택해 주세요.'
+      'OpenCode 무료 모델은 공급자 정책상 OpenCode 앱에서만 사용할 수 있어 Orcinus orca의 요청이 거절되었습니다(403). 엔진 및 모델에서 외부 앱 사용이 허용된 공급자를 설정한 뒤 모델을 선택해 주세요.'
     )
   }
   if (record.name === 'ProviderAuthError' || status === 401) {

@@ -156,7 +156,7 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
         exchangeSpec({
           code: {
             bodyField: 'authorization_code',
-            extraFields: { grant_type: 'authorization_code', client_id: 'orca' }
+            extraFields: { grant_type: 'authorization_code', client_id: 'orcinus-orca' }
           }
         })
       )
@@ -168,7 +168,7 @@ describe('SessionRunner — ② 인가 코드로 토큰 교환 (0195)', () => {
     expect(sentBody(sessions)).toEqual({
       authorization_code: 'auth-code-1',
       grant_type: 'authorization_code',
-      client_id: 'orca'
+      client_id: 'orcinus-orca'
     })
   })
 

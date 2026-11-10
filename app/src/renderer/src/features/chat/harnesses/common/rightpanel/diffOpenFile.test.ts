@@ -29,7 +29,7 @@ vi.mock('./DiffReview', () => ({
 vi.mock('../../../hooks/useGitPatch', () => ({ useGitPatch: () => undefined }))
 
 const state = {
-  cwd: 'C:\\repo\\orca',
+  cwd: 'C:\\repo\\orcinus-orca',
   sessionId: 's1',
   gitSnapshot: {
     summary: null,
@@ -75,7 +75,7 @@ describe('`↗` 배선', () => {
 
     expect(openPath).toHaveBeenCalledTimes(1)
     expect(openPath).toHaveBeenCalledWith({
-      path: 'C:\\repo\\orca/app/src/main/infra/db/queries.ts',
+      path: 'C:\\repo\\orcinus-orca/app/src/main/infra/db/queries.ts',
       mode: 'reveal'
     })
   })

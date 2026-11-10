@@ -1,6 +1,6 @@
 // spawn 입력 조립 — env 우선순위·secret 격리·fingerprint (0188 AC15·AC16·AC19).
 //
-// 0181 의 `buildTurnEnv` 는 `orca.json env + materialize().env` 두 층만 병합했다. 여기서는
+// 0181 의 `buildTurnEnv` 는 `orcinus-orca.json env + materialize().env` 두 층만 병합했다. 여기서는
 // spawn env 레이어(process → app → settings env → runtimeEnv → 배포 custom, 0207)의 최종 값과,
 // 그 값이 respawn 판정에 쓰이는 fingerprint 로 접히는지를 본다.
 
@@ -68,7 +68,7 @@ describe('env 우선순위 (AC15)', () => {
   })
 
   // r3 정정 — r2 는 이 단언이 반대로 고정돼 있어 결함을 회귀로 잡는 대신 승인하고 있었다.
-  // `orca.json` app env 는 **전역 폴백**이고 settings 는 **그 ModelProvider 전용 설정**이다.
+  // `orcinus-orca.json` app env 는 **전역 폴백**이고 settings 는 **그 ModelProvider 전용 설정**이다.
   // 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다.
   it('settings env 가 app env 를 덮는다 — 전용 설정이 전역 폴백을 이긴다', () => {
     const prepared = prepareHarnessConfig({

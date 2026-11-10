@@ -18,7 +18,7 @@ afterEach(async () => {
 })
 
 async function dbPath(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), 'orca-mail-migrate-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-mail-migrate-'))
   roots.push(root)
   return join(root, 'mail.db')
 }

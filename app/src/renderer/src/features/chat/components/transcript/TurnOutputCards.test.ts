@@ -223,7 +223,7 @@ it.each([
 
 it('preserves earlier turn refs after latest output replacement, and never places ownerless files at the session tail', async () => {
   const replacement = { ...file, publicationId: 'updated', artifactFileId: 'updated-file' }
-  Object.assign(window.orca, { artifacts: { list: vi.fn().mockResolvedValue([replacement]) } })
+  Object.assign(window.oo, { artifacts: { list: vi.fn().mockResolvedValue([replacement]) } })
   const release = acquireArtifacts('s', [], true)
   await refreshArtifactList('s')
   const messages = [

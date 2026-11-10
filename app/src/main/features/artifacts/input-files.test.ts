@@ -22,7 +22,7 @@ async function setup(): Promise<{
   temp: string
   outside: string
 }> {
-  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), 'orca-publish-input-')))
+  const root = await fs.realpath(await fs.mkdtemp(join(tmpdir(), 'orcinus-orca-publish-input-')))
   roots.push(root)
   const cwd = join(root, 'workspace')
   const osTemp = join(root, 'tmp')

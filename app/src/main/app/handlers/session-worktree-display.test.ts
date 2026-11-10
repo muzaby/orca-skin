@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/orca-test-userdata', getName: () => 'orca' }
+  app: { getPath: () => '/tmp/orcinus-orca-test-userdata', getName: () => 'orcinus-orca' }
 }))
 
 import { applyMigrations } from '../../infra/db/migrate'
@@ -47,7 +47,7 @@ function worktreeFor(
 
 describe('resume 후 표시 정본 복원 (VP-08)', () => {
   it('앱을 다시 켜도 source_cwd·repo_root 가 같은 값으로 돌아온다', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'orca-wtdisplay-'))
+    const dir = await mkdtemp(join(tmpdir(), 'orcinus-orca-wtdisplay-'))
     dirs.push(dir)
     const file = join(dir, 'orcinus-orca.db')
 
@@ -87,7 +87,7 @@ describe('resume 후 표시 정본 복원 (VP-08)', () => {
   })
 
   it('managed row 가 없는 세션은 필드를 싣지 않는다 — 소비자가 cwd 파생으로 폴백한다', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'orca-wtdisplay-'))
+    const dir = await mkdtemp(join(tmpdir(), 'orcinus-orca-wtdisplay-'))
     dirs.push(dir)
     const { q } = open(join(dir, 'orcinus-orca.db'))
     q.insertSession({

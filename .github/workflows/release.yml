@@ -23,8 +23,8 @@ jobs:
   release:
     runs-on: windows-latest
     # 기준 PC 는 5년 전 사무용 데스크톱이다(0294) — 상한 = 측정 작업 시간 기준값 × 3. 더 느린 러너는
-    # 저장소 Variables 의 ORCA_RELEASE_TIMEOUT_MINUTES 로 올린다(테스트 배율은 ORCA_TEST_TIME_SCALE).
-    timeout-minutes: ${{ fromJSON(vars.ORCA_RELEASE_TIMEOUT_MINUTES || '135') }}
+    # 저장소 Variables 의 ORCINUS_ORCA_RELEASE_TIMEOUT_MINUTES 로 올린다(테스트 배율은 ORCINUS_ORCA_TEST_TIME_SCALE).
+    timeout-minutes: ${{ fromJSON(vars.ORCINUS_ORCA_RELEASE_TIMEOUT_MINUTES || '135') }}
     defaults:
       run:
         working-directory: app
@@ -63,7 +63,7 @@ jobs:
         run: npm test
         env:
           # 비어 있으면 기본 배율 3 (scripts/test-time.mjs).
-          ORCA_TEST_TIME_SCALE: ${{ vars.ORCA_TEST_TIME_SCALE }}
+          ORCINUS_ORCA_TEST_TIME_SCALE: ${{ vars.ORCINUS_ORCA_TEST_TIME_SCALE }}
 
       # prebuild 가 electron ABI 로 복귀시킨다. npm run 인자는 스크립트 끝의
       # electron-builder --win 에 붙는다 — npx electron-builder 직접 호출은 ABI 훅 우회라 금지.

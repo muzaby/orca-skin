@@ -30,7 +30,7 @@ const HISTORY_MAX_BUFFER = 8 * 1024 * 1024
 const PATCH_MAX_BUFFER = 16 * 1024 * 1024
 // 전문맥을 요구하는 값. 실측(git 2.43) — 파일 전체가 한 hunk 로 나온다.
 const PATCH_CONTEXT = 1_000_000
-const COMMIT_FORMAT = '--format=%x00orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00'
+const COMMIT_FORMAT = '--format=%x00orcinus-orca-commit%x00%H%x00%s%x00%an%x00%ct%x00%b%x00'
 
 export type GitDiffRunner = GitWrite
 export const DIFF_SAFETY_ARGS = ['--no-ext-diff', '--no-textconv'] as const

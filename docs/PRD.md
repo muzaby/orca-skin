@@ -1,10 +1,10 @@
-# Orca — Product Requirements Document (v1)
+# Orcinus orca — Product Requirements Document (v1)
 
 > Claude Code / opencode CLI 를 백엔드로 활용하는 검증 엔지니어용 데스크톱 LLM 어시스턴트
 
 | 항목 | 값 |
 |---|---|
-| 제품명 (코드네임) | **Orca** |
+| 제품명 (코드네임) | **Orcinus orca** |
 | 문서 버전 | v1 (MVP 정의) — 최종 동기화 2026-10-13 (handoff 0260: §6.2·§7·§8·§9·§11 비고·§12 사실 정정과 구현 완료 표기. 의도 변경 없음 — 미결 OQ 비접촉) |
 | 1차 소스 | `docs/etc/llm-chat-desktop-strategy.md` |
 | 2차 소스 | `project/` 프로토타입 (Variation A · "Claude Desktop classic"), `chats/chat1.md` |
@@ -14,7 +14,7 @@
 
 ## 1. Overview & Vision
 
-Orca 는 호스트에 이미 설치된 **Claude Code** 또는 **opencode** CLI 를 백엔드 엔진으로 활용해, 데스크톱 GUI 에서 LLM 과 대화할 수 있게 해주는 Electron 앱이다. LLM/컨텍스트/세션 로직은 CLI 에 완전 위임하고, 앱 자체는 **어댑터 + UI** 만 직접 구현한다.
+Orcinus orca 는 호스트에 이미 설치된 **Claude Code** 또는 **opencode** CLI 를 백엔드 엔진으로 활용해, 데스크톱 GUI 에서 LLM 과 대화할 수 있게 해주는 Electron 앱이다. LLM/컨텍스트/세션 로직은 CLI 에 완전 위임하고, 앱 자체는 **어댑터 + UI** 만 직접 구현한다.
 
 장기적으로는 한국어 사용 **이미지 센서 검증 엔지니어** 의 워크플로 (라이브 카메라 → 캡처 → AI 분석 → 메트릭) 를 한 화면에서 다루는 것을 지향하지만, **v1 의 본문은 채팅 + 세션 재개 코어** 로 한정하고 도메인 화면은 §9 Future Scope 로 분리한다.
 
@@ -38,7 +38,7 @@ Orca 는 호스트에 이미 설치된 **Claude Code** 또는 **opencode** CLI �
 
 | # | 비-목표 | 이유 |
 |---|---|---|
-| NG1 | LLM/컨텍스트/세션 영속화를 GUI 가 직접 관리. | CLI 에 완전 위임 (전략 §8.3). 하네스 native 저장소가 세션 원본이며 Orca DB는 대화 사본·검색·앱 메타데이터를 보관함 ([arch/backend/persistence.md](arch/backend/persistence.md), [`GLOSSARY.md`](./GLOSSARY.md) Session 항목). |
+| NG1 | LLM/컨텍스트/세션 영속화를 GUI 가 직접 관리. | CLI 에 완전 위임 (전략 §8.3). 하네스 native 저장소가 세션 원본이며 Orcinus orca DB는 대화 사본·검색·앱 메타데이터를 보관함 ([arch/backend/persistence.md](arch/backend/persistence.md), [`GLOSSARY.md`](./GLOSSARY.md) Session 항목). |
 | NG2 | 멀티 세션 동시 실행 (여러 대화를 한 번에 진행). | v1 비대상, Phase 4 검토 (전략 §11). |
 | NG3 | CLI 자체를 앱에 번들. | 호스트 설치 가정, 부재 시 가이드 (전략 §1.2). |
 | NG4 | 자체 모델 호스팅 / 프롬프트 로직. | CLI 가 담당 (전략 §1.1). |
@@ -207,14 +207,14 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | 영역 | 무엇 | 프로토타입 참조 |
 |---|---|---|
 | **Projects** ✅ 구현 | 프로젝트 단위 워크스페이스(지침·cwd 스코프), `project` 채널(개수는 [생성물](generated/inventory.md)) + 카드 그리드 + 랜딩 | `project/variations/v1-screens.jsx` (Projects 카드 그리드) — 구현 IPC_CONTRACT §2.7-b |
-| **Engine & Model 레지스트리** | Claude·OpenCode 하네스별 provider CRUD·모델 카탈로그와 하네스 설정. OpenCode는 Code만 지원하고 Orca가 로컬 서버를 관리한다. | `arch/backend/adapters.md` |
+| **Engine & Model 레지스트리** | Claude·OpenCode 하네스별 provider CRUD·모델 카탈로그와 하네스 설정. OpenCode는 Code만 지원하고 Orcinus orca가 로컬 서버를 관리한다. | `arch/backend/adapters.md` |
 | **Skills** ✅ 부분 구현 | 스킬 카탈로그(스캔·토글·업로드 UI) + 번들 시딩(0078). 도메인 스킬(bayer-analysis, mtf-sfr 등) 자체는 잔여 | `project/variations/v1-screens.jsx` (Skills/MCP 좌측) |
 | **MCP 서버** ✅ 구현 | MCP 서버 등록/토글/삭제 + safeStorage 인증 + 세션 주입. 세분화된 권한 패널은 잔여 | 동 우측 — 구현 IPC_CONTRACT §2.10 |
 | **Captures** | 캡처 리스트(248개) → 상세(Bayer 뷰어 + AI 분석 + 품질 메트릭 + 채널 히스토그램 + EXIF) | `project/variations/v1-screens.jsx` (Captures 분할 페인) |
 | **하드웨어 통합** | 카메라 라이브뷰 (Bayer/RGB/R/G1/G2/B 탭), 노출/아날로그 게인/디지털 게인 슬라이더, 캡처+시퀀스 버튼, 보드 연결 상태 (`COM7 · OV-9282`), 라이브 텔레메트리 (FPS, 온도) | `project/electron/index.html`, `project/variations/v1-shell.jsx` (V1CameraPane) |
 | **Bayer 디버그 모드** | R/G1/G2/B 채널 분리 + RGB 디코딩 뷰 (row-noise, 채널 imbalance 분석용) | 동 |
 | **품질 메트릭** | SNR, ΔG1−G2, Sharpness, DR, ΔE, MTF50 (tone: ok/warn/bad) | 동 |
-| **로컬 워크스페이스** | `~/orca/projects/{name}/captures/`, `skills/`, `.mcp.json`, `sessions.db` | 프로토타입 도메인 단서 |
+| **로컬 워크스페이스** | `~/orcinus-orca/projects/{name}/captures/`, `skills/`, `.mcp.json`, `sessions.db` | 프로토타입 도메인 단서 |
 | **Python 런타임 (내장)** ❌ 제거됨 (0050 PR-B) | 구 uv 기반 격리 환경(`<userData>/runtime`)은 구현됐다가 **제거**됐다 — runtime IPC 채널·main 서브시스템 삭제. uv 사용 규약 정책 append 만 잔존. 재도입 여부는 미정 | IPC_CONTRACT §2.11 주석, `arch/backend/system-prompt.md` |
 
 §9 항목들은 *언제* 구현할지 본 문서에서 약속하지 않는다 (✅ 표시 항목은 이미 구현됨). 사용량 한도 UI(0079~0082)·자동 업데이트(0084~0086)는 §9 목록 밖에서 구현됐다 — TRD §2 F11+ 참조.

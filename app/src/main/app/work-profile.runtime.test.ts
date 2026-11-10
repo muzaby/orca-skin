@@ -27,7 +27,7 @@ import { prepareAgentExtensionProfile } from './harnesses/registry'
 
 let nativeConfig: string
 beforeEach(async () => {
-  nativeConfig = await mkdtemp(join(tmpdir(), 'orca-work-native-config-'))
+  nativeConfig = await mkdtemp(join(tmpdir(), 'orcinus-orca-work-native-config-'))
   vi.clearAllMocks()
   mock.messages.length = 0
   mock.query.mockImplementation(() => ({
@@ -122,7 +122,7 @@ it('keeps Work questions, denied tools and cancellation on existing SDK control 
 })
 
 it('captures checked Work output through the existing PostToolUse hook and output event', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-work-output-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-work-output-'))
   try {
     const output = join(root, 'result.txt')
     const text = 'verified output 한글\n'

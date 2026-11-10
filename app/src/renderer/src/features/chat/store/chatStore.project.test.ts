@@ -42,7 +42,7 @@ describe('project landing cwd', () => {
     })
     const unsubscribe = (): void => {}
     vi.stubGlobal('window', {
-      orca: {
+      oo: {
         boot: { whenReady: async () => undefined },
         chat: { onEvent: () => unsubscribe, onBackgroundEvent: () => unsubscribe },
         session: { cwd: () => ready, onTitle: () => unsubscribe },

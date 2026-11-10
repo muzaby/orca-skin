@@ -526,7 +526,7 @@ it('upgrades a cursorless archive on its first native read', async () => {
 })
 
 it('persists the committed cursor after closing and reopening a file database', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'orca-cursor-restart-'))
+  const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-cursor-restart-'))
   const file = join(root, 'cache.db')
   try {
     const value = snapshot([native('saved', 'persisted')])

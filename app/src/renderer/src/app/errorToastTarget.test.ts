@@ -51,7 +51,7 @@ describe('toast navigation', () => {
 
   it('reports a rejected reveal once to the actual toast store and logger', async () => {
     const log = vi.fn()
-    vi.stubGlobal('window', { orca: { log: { error: log } } })
+    vi.stubGlobal('window', { oo: { log: { error: log } } })
     const deps = dependencies()
     deps.revealLog.mockRejectedValue(new Error('folder denied'))
     await openErrorTarget(undefined, deps)

@@ -40,7 +40,7 @@ const PENDING_KEY = 'pending'
 // 떠야 한다" 주석이 붙어 있었다).
 //
 // 스토어는 **처음 쓸 때 연다.** `new Store()` 는 생성자에서 디렉토리 확인 + 파일 읽기 +
-// JSON 파싱을 동기로 한다. provider 부팅 단계는 renderer 의 첫 `orca:provider:state` 를
+// JSON 파싱을 동기로 한다. provider 부팅 단계는 renderer 의 첫 `oo:provider:state` 를
 // 기다리게 하지 않으려고 DB 앞으로 일부러 당겨 둔 자리라, 그 앞에 동기 파일 열기를 놓으면
 // 당겨 둔 만큼을 도로 쓴다 — OAuth pending 은 실제 OAuth 로그인이 돌 때만 읽힌다.
 function createRecordPersistence<T>(options: {

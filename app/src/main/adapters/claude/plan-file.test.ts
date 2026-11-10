@@ -20,7 +20,7 @@ afterEach(async () => {
   for (const root of fixtures.splice(0)) await rm(root, { recursive: true, force: true })
 })
 async function directory(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), 'orca-plan-file-'))
+  const root = await mkdtemp(path.join(tmpdir(), 'orcinus-orca-plan-file-'))
   fixtures.push(root)
   return root
 }

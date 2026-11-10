@@ -13,14 +13,14 @@ import { afterAll, vi } from 'vitest'
 import { HERMETIC_GIT_CONFIG, hermeticDirectories, hermeticTestEnv } from './test-host.mjs'
 import { scaledWaitForOptions } from './test-time.mjs'
 
-const HOST = Symbol.for('orca.test.host')
-const WAIT_FOR_SCALED = Symbol.for('orca.test.waitFor.scaled')
+const HOST = Symbol.for('orcinus-orca.test.host')
+const WAIT_FOR_SCALED = Symbol.for('orcinus-orca.test.waitFor.scaled')
 
 const previous = globalThis[HOST]
 const originalHome = previous?.originalHome ?? process.env.HOME ?? process.env.USERPROFILE ?? ''
 // 실경로로 고정한다 — Windows 러너의 tmpdir() 는 8.3 짧은 이름(`RUNNER~1`)이라, 그대로 홈으로 쓰면
 // realpath(긴 이름)로 비교하는 production 경로 검사(첨부 홈 하위 판정)가 갈린다. 실제 USERPROFILE 은 긴 이름이다.
-const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'orca-test-host-')))
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'orcinus-orca-test-host-')))
 const { set, remove } = hermeticTestEnv({ env: process.env, root, platform: process.platform })
 for (const dir of hermeticDirectories(set)) mkdirSync(dir, { recursive: true })
 writeFileSync(set.GIT_CONFIG_GLOBAL, HERMETIC_GIT_CONFIG)

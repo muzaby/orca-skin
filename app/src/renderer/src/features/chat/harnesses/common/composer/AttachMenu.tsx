@@ -45,7 +45,7 @@ export function AttachMenu({
   const items = useMemo(() => {
     const nativeItems = (
       kind: 'skills' | 'mcp',
-      origin?: 'orca'
+      origin?: 'orcinus-orca'
     ): ReturnType<typeof nativeAttachItems> =>
       nativeAttachItems(
         native!.view,
@@ -71,7 +71,7 @@ export function AttachMenu({
             label: native.label,
             backend: native.backend,
             items: nativeItems('mcp'),
-            orcaItems: nativeItems('mcp', 'orca'),
+            ooItems: nativeItems('mcp', 'orcinus-orca'),
             skills: nativeItems('skills')
           }
         : undefined,

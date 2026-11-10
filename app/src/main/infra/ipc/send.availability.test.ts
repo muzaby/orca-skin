@@ -20,6 +20,6 @@ it('broadcasts the availability payload on its channel to every living renderer'
   }
   broadcastHarnessAvailability(state)
   for (const send of [fixture.sendA, fixture.sendB])
-    expect(send).toHaveBeenCalledExactlyOnceWith('orca:harness:availability', state)
+    expect(send).toHaveBeenCalledExactlyOnceWith('oo:harness:availability', state)
   expect(fixture.destroyed).not.toHaveBeenCalled()
 })

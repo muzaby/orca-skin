@@ -1,4 +1,4 @@
-// orca.json `update` → electron-updater setFeedURL 옵션 조립 (순수 함수).
+// orcinus-orca.json `update` → electron-updater setFeedURL 옵션 조립 (순수 함수).
 // updater.ts 는 `electron` 을 import 하므로 순수 vitest 로 로드할 수 없다(0124 electron-free
 // 분리 선례). 피드 옵션 조립을 electron 미의존 모듈로 빼서 단위 테스트를 보존한다.
 //
@@ -7,7 +7,7 @@
 // `${endpoint}/${bucket}` 이 되어 사내 MinIO/S3-호환 서버를 가리킨다(미지정 시 AWS S3).
 // github provider 는 host 로 GitHub Enterprise 를 지원한다.
 
-import type { UpdateConfig } from '../infra/config/orca-file'
+import type { UpdateConfig } from '../infra/config/oo-file'
 
 type UpdateFeedOptions =
   | {

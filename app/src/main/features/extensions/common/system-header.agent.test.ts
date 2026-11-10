@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest'
 import { buildSystemHeader } from './system-header'
 
-it('inserts Work once after Orca while an absent profile leaves Code bytes unchanged', () => {
-  const input = { orcaVersion: '1', language: 'ko', projectName: 'test' }
+it('inserts Work once after Orcinus orca while an absent profile leaves Code bytes unchanged', () => {
+  const input = { ooVersion: '1', language: 'ko', projectName: 'test' }
   const code = buildSystemHeader(input)
   expect(buildSystemHeader({ ...input, agentInstructions: undefined })).toBe(code)
   const work = buildSystemHeader({ ...input, agentInstructions: 'Work fixture instruction' })

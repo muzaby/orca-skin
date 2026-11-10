@@ -21,7 +21,7 @@ vi.mock('node:fs/promises', async (original) => {
 })
 
 it('establishes the watcher baseline before reading and publishing project settings', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'orca-project-watch-start-'))
+  const root = await mkdtemp(join(tmpdir(), 'orcinus-orca-project-watch-start-'))
   const file = join(root, 'settings.json')
   await writeFile(file, 'old')
   const baseline = Promise.withResolvers<void>()
