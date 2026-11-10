@@ -454,6 +454,8 @@ READY. 출처는 plan 내부 정합이며 D-002~D-016의 제품 동작은 유지
 
 `ACTIVE 결정 ↔ AC 대조: 충돌 0` — AC4·AC5 이름은 D-006·D-015를 따르고, manager 검사는 D-011의 판정표를 실행한다. 새 Decision·노드·자리·의존성은 없으며 VP-01~VP-10의 path는 유지한다.
 
+자리 검색 명령 정정: rev.3 표의 `\|`는 rg에서 OR가 아니라 리터럴 파이프다. 같은 검색 항을 `rg -n -e '항1|항2'`로 실행하며, escape된 괄호 alternation도 `Math\.(min|max)`로 고친다. 검색 범위·고정 자리 목록은 유지하고 import·타입·정의는 운반 자리의 선언 근거로 분류한다.
+
 READY self-review: §10 EP-01 6·EP-02 8·EP-03 7·EP-04 2·EP-05 4·EP-06 6 = 33자리. 규칙 분기·선택 변이는 승계하고, 같은 manager 직접 호출은 기존 `syncManager` fixture(`mail.integration.test.ts`)로 가능하다.
 
 ## [구현자 기입] 설계 리뷰
