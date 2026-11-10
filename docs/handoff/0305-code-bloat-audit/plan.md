@@ -42,6 +42,7 @@
 | 명시 결정 | "과대한 CI 증가"의 뜻: "둘 다" (실행 시간 + 코드·가드 분량) | 질의 1 |
 | 명시 결정 | 회귀 판정: "시나리오 단위 판정 (Recommended)" | 질의 1 |
 | 명시 결정 | 시나리오 미도달 기능·방어 경로: "목록 승인 후 제거 (Recommended)" | 질의 1 |
+| 명시 결정 | "조사과정에서, 핸드오프 간 상호배제되는 개념에 대해서는 후속 핸드오프를 정본으로 한다." | 턴 2 |
 | 추론 의도 | 감사 작업도 중단 뒤 이어갈 수 있어야 한다 — D-006 이유절("컨텍스트를 소실한다. 지속적인 작업이 안 된다")에서 유도 | 턴 1 |
 
 ## 3. Decision Ledger
@@ -56,12 +57,14 @@
 | D-006 | 백그라운드·서브 에이전트를 쓰지 않는다 | "토큰이 금장 소모되어 에이전트 작업이 중단, 컨텍스트를 소실한다. 지속적인 작업이 안 된다." | 턴 1 | ACTIVE | — |
 | D-007 | 감사는 단계마다 산출 파일과 커밋을 남겨 다음 세션이 이어받을 수 있게 한다 | 설계자 추론 — D-006 이유절 | §2 추론 행 | ACTIVE | — |
 | D-008 | 구현(감사 수행) 주체는 Claude다 | 비기능 작업은 Claude가 직접 구현 | root `AGENTS.md` 협업 워크플로우 | ACTIVE | — |
+| D-009 | 이전 handoff끼리 상호배제되는 개념은 번호가 큰(후속) handoff를 정본으로 한다. 보존할 개념 요구는 후속 쪽에서 뽑는다 | "핸드오프 간 상호배제되는 개념에 대해서는 후속 핸드오프를 정본으로 한다" | 턴 2 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-008.
-- 변경된 결정: 없음.
-- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 해당 없음(신규 handoff).
+- 이번 턴(턴 2)에서 새로 추가된 결정: D-009. 구현 전이라 V1을 그대로 갱신했다(AC7·EP-05·K7).
+- 변경된 결정: 없음. D-003("이전 핸드오프의 요구 조건을 개념적으로 만족")은 유지되고 D-009가 충돌 시의 우선순위를 더한다.
+- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001~D-008.
+- D-009 ↔ AC7: 일치 — `superseded` 칸이 밀려난 handoff와 그것을 대체한 후속 handoff를 적는다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-003("테스트 통합·삭제 가능") ↔ AC6(후보 유형 `test-merge` 허용) 일치 · D-004("코드는 바꾸지 않고") ↔ AC11(`app`·`.github` diff 0) 일치 · D-005 ↔ AC8(승인 목록 차집합 0) 일치 · D-006·D-007 ↔ §19 운영 gate 일치.
 
 ## 4. 요구 비판적 검토
@@ -129,7 +132,7 @@
 | R-02 | AC4 | 테스트 파일별 실행 시간 상위 30과 버킷별 합이 있다. 측정 못 하면 실패 명령·서명이 있다 | 검사 K16: `test-time.json`이 `rows` 30행 이상 또는 `unmeasured{command,signature}` 중 하나 | vitest JSON reporter → `test-time.json` |
 | R-03 | AC5 | 렌즈 L1~L6마다 방법(명령)·분모 N·후보 수가 있다 | 검사 K14: `lenses` 6건 각각 `method`·`denominator`·후보 수(= 그 렌즈 후보 행 수) | 렌즈 수행 → `candidates.json` |
 | R-03 | AC6 | 후보 행은 필수 9칸을 모두 가진다 — 버킷·렌즈·유형·시나리오·출처·보존 요구·근거·예상 절감·위험 | 검사 K4~K6: 칸 누락·빈 값·미지 enum·없는 버킷·절감 > 버킷 현재 줄 수면 red | `candidates.json` → 검사 |
-| R-03 | AC7 | 후보마다 그 코드에 요구를 실은 이전 handoff ID와 보존할 개념 요구 한 문장이 있다 | 검사 K7: ID가 `docs/handoff/<ID>-*` 또는 archive history에 실재. `unknown`이면 검색 명령 동반 | 코드 주석·plan → `origin` 칸 |
+| R-03 | AC7 | 후보마다 그 코드에 요구를 실은 이전 handoff ID와 보존할 개념 요구 한 문장이 있다 | 검사 K7: ID 실재 · `unknown`이면 검색 명령 동반. 출처끼리 상호배제면 `superseded{id, by}`에 적고 `preserve`는 후속(`by`) 기준(D-009) | 코드 주석·plan → `origin` 칸 |
 | R-03 | AC10 | 경로 추적 6건이 entry부터 end까지 단계별로 `파일:심볼`·사용자 관측 효과·판정을 가진다 | 검사 K11: 단계의 파일 실재 + 그 파일에서 심볼 문자열 검출. `effect=none` 단계는 후보 ID를 갖거나 유지 근거를 가짐 | `traces.json` → 검사 |
 | R-04 | AC8 | 유형이 `remove`이거나 채택 결정을 바꾸는 후보는 전부 승인 목록에 나타난다 | 검사 K8: {remove ∪ decisionChange} − 승인 목록 = ∅ = 역방향 | `candidates.json` → audit 승인 표 |
 | R-04 | AC9 | 모든 후보가 후속 handoff 1개 또는 `deferred`(사유)에 정확히 한 번 속하고, 후속마다 회귀 판정 시나리오가 1개 이상 있다 | 검사 K9·K10: 0회·2회 이상·없는 후보 참조·시나리오 0이면 red | `split.json` → audit 분할 표 |
@@ -166,7 +169,7 @@
 | AR-01 | AR | §9 `data/*.json` → 렌더 → `audit.md` 생성 블록 | NEW | — |
 | IT-01 | IT | 검사 `--check`의 재생성 대조 | NEW | — |
 | MD-01 | MD | §10 EP-03 `volume.mjs` 종류·버킷 규칙 | NEW | — |
-| MD-02 | MD | §10 EP-06 `audit-check.mjs` 규칙 K1~K16 | NEW | — |
+| MD-02 | MD | §10 EP-06 `audit-check.mjs` 규칙 K1~K16·K7b | NEW | — |
 | UT-01·UT-02 | UT | `scan/*.test.mjs` | NEW | — |
 
 ### Pair registry
@@ -180,7 +183,7 @@
 | VP-05 | R-05 ↔ AT-05 | REQUIRED | 작업 트리 → `git diff` | `gate:git diff --stat a0a95f7..HEAD -- app .github` | not selected — 직접 관측 | 0 — 강제 자리 없음(부재 단언) |
 | VP-06 | R-06 ↔ AT-06 · AR-01 ↔ IT-01 | REQUIRED | `data/*.json` → `render()` → `audit.md` 생성 블록 | `gate:audit-check.mjs --check`(K12) | required — 변이: 생성 블록 숫자 1개 수정 → red | EP-07(2 사본) |
 | VP-07 | MD-01 ↔ UT-01 | REQUIRED | 경로 문자열 → `classify()` → `{bucket, kind}` | `scan/volume.test.mjs` — EP-03 규칙 행마다 1케이스 | not selected — 행동 oracle | EP-03 규칙 8행 |
-| VP-08 | MD-02 ↔ UT-02 | REQUIRED | fixture 데이터 → `check()` → 위반 목록 | `scan/audit-check.test.mjs` — K1~K16 규칙마다 red 입력 + 전부 유효한 green 입력 1 | not selected — 행동 oracle | EP-06(16규칙) |
+| VP-08 | MD-02 ↔ UT-02 | REQUIRED | fixture 데이터 → `check()` → 위반 목록 | `scan/audit-check.test.mjs` — K1~K16·K7b 규칙마다 red 입력 + 전부 유효한 green 입력 1 | not selected — 행동 oracle | EP-06(17규칙) |
 
 ### 현재 변경의 운영 gate
 
@@ -316,7 +319,7 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 | EP-03 / VP-02·VP-07 | 파일 → 버킷·종류 | `volume.mjs` `classify()` | `--check` | 파일 2,116개 각각 · 규칙 8행(아래) | `git ls-files app/src app/scripts .github/workflows` → 2,116 | 지도에서 빠진 코드 |
 | EP-04 / VP-02 | CI 단계 → 시간·줄 수 | `ci.yml` | 검사 K15 | gate job 단계 9개 | §8 CI 명령 → 9 | 재지 않은 단계 |
 | EP-05 / VP-03·VP-04 | 후보 행 필수 칸 | `candidates.json` 스키마 | 검사 K4~K8 | 칸 9개 × 후보 수 | 스키마 필드 목록(아래) | 후속 handoff가 근거 없이 착수 |
-| EP-06 / VP-08 | 검사 규칙 | `audit-check.mjs` `check()` | UT-02 | 규칙 16개(아래) | 규칙 표 K1~K16 | 검사가 green인데 표가 불완전 |
+| EP-06 / VP-08 | 검사 규칙 | `audit-check.mjs` `check()` | UT-02 | 규칙 17개(아래) | 규칙 표 K1~K16 + K7b | 검사가 green인데 표가 불완전 |
 | EP-07 / VP-06 | 판정 사본 일치 | `data/*.json` | 검사 K12 · 사람 | `audit.md` 생성 블록 · `INDEX.md` 비고 (2) | `rg -c 'gen:' …/audit.md` · INDEX 0305 행 | 문서와 데이터가 다른 말을 함 |
 | EP-08 / VP-03 | 경로 추적 단계 | `traces.json` | 검사 K11 | 추적 6건(T1~T6) | §9 추적 표 → 6 | 추적이 실재하지 않는 코드를 인용 |
 
@@ -335,7 +338,7 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 
 버킷 규칙: `app/src/main/<layer>/<entry>` · `app/src/renderer/src/features/<feature>/<entry>` · `app/src/renderer/src/<dir>` · `app/src/shared/<entry>`(파일이면 `shared/(root)`) · `app/src/preload` · `app/scripts` · `.github/workflows`. UT-01은 층마다 1입력을 둔다.
 
-**EP-05 후보 필수 칸**: `bucket` · `lens`(L1~L6) · `type`(`remove`/`restructure`/`test-merge`/`guard-simplify`/`ci-step`) · `scenarios`(S-ID 배열, `remove`만 빈 배열 허용) · `origin`(handoff ID 배열 또는 `{unknown, search}`) · `preserve`(보존할 개념 요구 한 문장) · `evidence`(`파일:줄` 또는 명령+N) · `saving`(`{prod, test, ciSeconds, basis}`) · `risk`. 선택 칸: `decisionChange`(bool) · `approval`(`required`/`none`).
+**EP-05 후보 필수 칸**: `bucket` · `lens`(L1~L6) · `type`(`remove`/`restructure`/`test-merge`/`guard-simplify`/`ci-step`) · `scenarios`(S-ID 배열, `remove`만 빈 배열 허용) · `origin`(handoff ID 배열 또는 `{unknown, search}`) · `preserve`(보존할 개념 요구 한 문장) · `evidence`(`파일:줄` 또는 명령+N) · `saving`(`{prod, test, ciSeconds, basis}`) · `risk`. 선택 칸: `decisionChange`(bool) · `approval`(`required`/`none`) · `superseded`(`{id, by, concept}` 배열 — 상호배제로 밀려난 출처 `id`, 정본인 후속 `by`, 배제되는 개념 한 문장. D-009).
 
 **EP-06 검사 규칙** (규칙 칸 ↔ UT-02 red 입력 1:1, 전부 유효한 입력 1건은 green):
 
@@ -348,6 +351,7 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 | K5 | 후보의 S-ID가 카탈로그에 없다 / `remove` 아닌데 `scenarios` 빈 배열 | 없는 S-ID · `restructure`+빈 배열 |
 | K6 | 후보 `bucket`이 `volume.json`에 없다 / `saving.prod`·`saving.test`가 버킷 현재 값 초과 | 없는 버킷 · 초과 값(prod·test 각 1) |
 | K7 | `origin` ID가 `docs/handoff/<ID>-*`·archive history에 없다 / `unknown`인데 `search` 없음 | `9999` · `search` 누락 |
+| K7b | `superseded`의 `id`·`by`가 실재하지 않음 / `by` 번호 ≤ `id` 번호 / `by`가 `origin`에 없음 / `concept` 빈 값 | 네 조건 각각 1입력 |
 | K8 | `type=remove` 또는 `decisionChange=true`인데 `approval≠required` / 승인 표와 집합 불일치 | 두 조건 각각 1입력 |
 | K9 | 후보가 `split.json`에 0회 또는 2회 이상 / 분할이 없는 후보 참조 | 누락 · 중복 · 유령 ID |
 | K10 | 후속 handoff의 회귀 시나리오 0개 / 없는 S-ID / `deferred`에 사유 없음 | 세 조건 각각 1입력 |
@@ -370,7 +374,8 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 3. 시간 수치는 환경 의존이다. `ci.json`은 Windows 러너 기록, `test-time.json`은 감사 환경(Linux) 1회 실행이며 순위 용도다.
 4. L1의 "prod importer 0" 판정은 정적 import만 본다. 후보마다 `rg` 근거를 달아 오탐을 사람이 거른다.
 5. `origin`은 코드 주석·handoff 문서의 번호 인용에 의존한다(shallow clone). 인용이 없는 코드는 `unknown + 검색 명령`으로 남는다.
-6. 추적 6건은 §9 표로 고정한다. 그 밖의 시나리오 경로는 L1·L2·L5의 버킷 단위 관측으로만 다룬다.
+6. 상호배제 판정은 감사자가 두 handoff의 plan을 읽고 내린다. 검사는 `superseded`의 형식과 번호 순서만 본다 — 적지 않은 상호배제는 검사가 찾지 못한다.
+7. 추적 6건은 §9 표로 고정한다. 그 밖의 시나리오 경로는 L1·L2·L5의 버킷 단위 관측으로만 다룬다.
 
 ## 11. 구현 설계
 
@@ -379,7 +384,7 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 | `…/scan/volume.mjs` | 분량 지도 | `classify(path)` 순수 함수 + `git ls-files` 집계 + `--check` | `classify` 단위 |
 | `…/scan/volume.test.mjs` | UT-01 | V1~V8 · 버킷 층별 입력 | `node --test` |
 | `…/scan/audit-check.mjs` | 검증·렌더 | `check(data, facts)` 순수 함수(파일 I/O는 CLI 껍질) · `render(data)` · `--check`·`--write` | `check`·`render` 단위 |
-| `…/scan/audit-check.test.mjs` | UT-02 | K1~K16 red 입력 + green 1 | `node --test` |
+| `…/scan/audit-check.test.mjs` | UT-02 | K1~K16·K7b red 입력 + green 1 | `node --test` |
 | `…/data/{volume,scenarios,ci,test-time,candidates,traces,split}.json` | 감사 정본 | P1~P6 산출 | 검사 |
 | `…/audit.md` | 사용자 문서 | 진행표 · 요약 · 생성 블록 7 · 원인 신호 · 재현 방법 | 검사 K12 |
 
@@ -433,9 +438,10 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 
 | 리스크 | 완화/결정 |
 |---|---|
-| 감사 자체가 문서·스크립트 비대가 된다 | CI 밖에 둔다(§14). 스크립트 2개 · 검사 규칙 16개로 고정 |
+| 감사 자체가 문서·스크립트 비대가 된다 | CI 밖에 둔다(§14). 스크립트 2개 · 검사 규칙 17개로 고정 |
 | 후보 판단이 주관적이다 | 근거 칸 필수(K4) · verify가 표본 재현(VP-03) |
 | 토큰 소진으로 감사가 끊긴다 | 단계 커밋·진행표(D-007) |
+| 후속 handoff가 앞선 요구를 일부만 대체했는데 전부 밀려난 것으로 읽는다 | `superseded.concept`에 배제되는 개념만 한 문장으로 한정(D-009). 나머지 요구는 `origin`에 남긴다 |
 | 시나리오 단위 판정이 세부 잠금을 잃는다 | 사용자 결정(D-003). 후보마다 `preserve`·`origin`으로 무엇을 잃는지 드러낸다 |
 | 기준 커밋이 감사 중 낡는다 | `audit.md` 머리에 기준 커밋 고정, 옮기면 P1부터 재생성 |
 
@@ -457,7 +463,7 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 
 ## READY self-review
 
-- [x] Decision Ledger가 결정을 보존한다 — D-001~D-008, 사용자 문장 원문 인용.
+- [x] Decision Ledger가 결정을 보존한다 — D-001~D-009, 사용자 문장 원문 인용.
 - [x] Part I만 읽어도 완료 상태가 이해된다 — §1 성공 문장 · §5 흐름.
 - [x] 조건절·이유절을 재해석하지 않았다 — "개념적으로"는 D-003·AC7 `preserve` 칸으로, D-006 이유절은 D-007 추론으로 분리 표기.
 - [x] 핵심 동작이 AC와 Technical Design에 연결된다 — §7 표의 도달 경로 ↔ §9 흐름도.
@@ -470,8 +476,8 @@ vitest JSON ─▶ (사람) data/test-time.json ─────────┼�
 - [x] 모든 NEW node에 REQUIRED pair — VP-01~VP-08.
 - [x] INHERITED node 없음 — REGRESSION·NOT_REQUIRED 해당 없음.
 - [x] pair별 경로·분모·좌표 — §7-A · §10. 적대 증거는 0건/전수/구조 proxy pair(VP-01~04·06)에만.
-- [x] 규칙 칸 ↔ UT 입력 — EP-03 8행 · EP-06 16행 각각 입력.
-- [x] 선언 경계 6건 · fail-closed(K13·V8).
+- [x] 규칙 칸 ↔ UT 입력 — EP-03 8행 · EP-06 17행 각각 입력.
+- [x] 선언 경계 7건 · fail-closed(K13·V8).
 - [x] 후보 표 확인 — 0294 행(`test-budget-bindings.mjs`)이 L3 대상과 겹친다. 이번에는 측정만 하고 코드를 건드리지 않아 승격하지 않는다.
 - [x] 운영 gate 5개 — 관련 없는 `app` 실패를 범위로 만들지 않는다.
 - [x] 사람 실기로 미룬 순수 로직 없음 — AC12만 사람.
