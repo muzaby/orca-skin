@@ -1,8 +1,112 @@
 # Verify — 0304-boot-race-auto-permission-alias
 
-> 판정: **RETURN_TO_PLAN** (verify 1회째, 창 안). 이행 결함 1(`BLOCKING`, VP-17) · 확장 후보 1(`PLAN_GAP`, VP-12). 나머지 REQUIRED·REGRESSION pair와 현재 변경 gate는 PASS.
+> 판정(r2): **PASS** (verify 2회째, 창 안). 막는 발견 0 · REQUIRED 14·REGRESSION 2 pair PASS · 현재 변경 gate PASS. 남은 것은 AC13 사람 실기(Windows 설치본·실제 SDK)뿐이다.
 
-## 메타
+## r2 메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 · 일자 | Claude Code · 2026-11-10 |
+| 대상 range | `a0a95f7..8cf0d223` — 테스트 2파일만(`git diff --stat`: `send.permission-mode.test.ts`·`chatReducer.model.test.ts`), production 변경 0 |
+| 기준선 | `fb2155e3`(ΔV2 설계) ↔ `8cf0d223`(r2 구현) — 설계·구현 별도 커밋. 구현이 바꾼 plan.md는 `[구현자 기입]` 절뿐, Decision·AC·V·§10 규범 행 변경 없음 |
+| V / 확장 창 | `V1 rev.2 + ΔV1 + ΔV2` · verify 2회째 — 창 안. 새로 열린 ΔV 노드: VP-12(EP-3 ⑥)·VP-17(EP-8 ②) |
+| 독립 축(⑥) | 6건 — J1~J5(spec에 없던 변이) + 셔플 순서 실행 |
+| 열거 sweep(⑦) | 구현자 spec 73행 전수 재실행 — red 73/73, 원복 확인 "모든 파일 원문 그대로", 이후 `git status` 깨끗 |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 0 · 경계 0 · 비귀속 1(S1, 아래) |
+
+## r2 §1 D1·D2 닫힘 재확인 (하한 ②)
+
+| ID | 변이 | r1 결과 | r2 결과 | 잡은 테스트 |
+|---|---|---|---|---|
+| I1-record-time | `send.ts:297` `Date.now()` → `0` | 못 잡음 | **잡음** | `send.permission-mode.test.ts` 1 failed · 13 passed — 3번째 인자 정확값 `1794326400123`(스텁은 `afterEach`에서 `restoreAllMocks`) |
+| I2-stale-evidence | `chatReducer.ts:1672` `?? null` → `?? state.modelResolved` | 못 잡음 | **잡음** | `chatReducer.model.test.ts` 2 failed · 17 passed — `it.each` 2 kind(Work→`default`·Code→`accept_edits`) |
+| I3-send-priority (하한 ④) | `send.ts:556` `permissionModel ?? model` 뒤집기 | 잡음 | **잡음** | `send.permission-mode.test.ts` 1 failed |
+
+D1·D2 모두 닫혔다. I1·I2 둘 다 `green → red`이고, 덮개 회귀(`red → green`)는 없다 — 이번 diff가 닿은 두 oracle을 쓰는 기존 70행이 전부 red.
+
+## r2 §2 독립 축 고장 이력 (⑥ — 구현자 spec 밖)
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|
+| J1-time-plus1 | `send.ts:297` | 다른 값 | `Date.now()` → `Date.now() + 1` | 잡음 | send 스위트 1 failed — 정확값 단언이 `expect.any(Number)`로는 못 보던 오프셋을 잡음 | — |
+| J2-setmodel-coerce-stale | `chatReducer.ts:1681` | 뒤집기 | SET_MODEL 권한 보정 증거 `action.modelResolved` → `state.modelResolved ?? action.modelResolved` | 잡음 | reducer 스위트 2 failed | — |
+| J3-agentkind-evidence-drop | `chatReducer.ts:861` | 제거 | SET_AGENT_KIND 증거 → `undefined` | 잡음 | reducer 1 failed | — |
+| J4-setperm-evidence-drop | `chatReducer.ts:1629` | 제거 | SET_PERMISSION_MODE 증거 → `undefined` | 잡음 | reducer 3 failed | — |
+| J5-setmodel-null-vs-undefined | `chatReducer.ts:1672` | 다른 값 | `?? null` → 무폴백(증거 부재 시 `undefined`) | 잡음 | reducer 2 failed — 단언이 `null`을 구별 | — |
+
+시도 78(구현자 73 + 검증자 5) · 잡음 78 · 못 잡음 0 · 동치 0 · 경계 0. 소거 변이 잔여물: 변이는 값 치환이라 해당 없음. 동작 보존 추출 라운드 아님(③ r1의 `못 잡음` I1·I2는 위 표로 소진).
+
+**셔플 순서(⑥)**: `vitest run --sequence.shuffle --sequence.seed=N send.permission-mode.test.ts` — seed 3에서 `0304 resolved send > records resolved model before runtime and carries separate alias evidence`가 `expected undefined to match object { model: 'haiku', … }`로 실패(seeds 1·2·4~8 통과). 같은 시드가 r1 버전 파일(`fb2155e3`의 테스트)에서도 실패하고, 0304 이전 파일(`c7c9e9d`, 10케이스)은 seeds 1~8 전부 통과 — **r2 diff가 만든 것이 아니라 r1이 더한 0304 테스트의 순서 의존**이다. reducer 파일은 seeds 1~6 통과.
+
+## r2 §3 V-pair closeout
+
+| Pair | 결과 | 직접 oracle 좌표 · 근거 |
+|---|---|---|
+| VP-12 | PASS | `chatReducer.model.test.ts` 신규 `it.each` 케이스(2 kind) — 규칙 (a) 증거 있음·(b) 부재=`null` 둘 다 입력 보유, 실행 구간은 `chatReducer` 순수 호출이라 mock 0. 변이 I2·J2~J5 red |
+| VP-17 | PASS | `send.permission-mode.test.ts:422-` `records resolved model before runtime…` — 4인자 `session-1`/`pk-b`/시각/`haiku`가 서로·기본값과 구별. mock은 db 포트뿐이고 기록 호출은 구간 안. 변이 I1·J1·EP8 6행 red |
+| 나머지 REQUIRED 12 · REGRESSION VP-14·15 | PASS | r1 PASS 좌표 그대로 — production 변경 0, 구현자 spec 70행 전부 red 재현, 전체 vitest에서 좌표 파일 실패 0 |
+
+§10 자리 목록: production 파일 변경 집합이 ∅(`git diff a0a95f7..8cf0d223 -- app/src`는 테스트 2파일)라 자리·검색 결과가 r1과 같다. r1 검색 5종 중 EP-8(`rg "sessionModelRecordFor|updateSessionProviderKey\("`)을 다시 돌려 `turn-context.ts:19` helper 1 · `send.ts:294` 호출 1 · `writer.ts:187·354` 2 · `queries.ts:579` 정의 1 — 차집합 ∅.
+
+### AC · 합계
+
+| AC | 결과 |
+|---|---|
+| AC1~AC12·AC14·AC15·AC17 | ✅ (r1 PASS 좌표 유지, 위 sweep 재현) |
+| AC16 | ✅ — 4인자 시각 항 정확값, I1·J1 red |
+| AC13 | ⚠️ — Windows 설치본·실제 SDK 실기 대기(사람) |
+
+합계 재측정: ✅16 · ⚠️1 · ❌0 = 총 17 (AC ID `{1,2,3,3b,4,5,6,7,8,9,10,12,14,15,16,17,13}`, AC11 폐기 제외). 본문·`Criteria-Met: 16/17`·INDEX 비고 사본이 일치한다.
+
+## r2 §4 gate (환경: `npm ci --ignore-scripts` → `npm rebuild better-sqlite3`(Node ABI) → `node node_modules/electron/install.js`)
+
+| 명령 | 관측 |
+|---|---|
+| `check-migrations-appendonly` · `check-doc-inventory --check` · `check-test-budgets` | 3종 exit 0 — "20 real-git suites ok · all budget sites scaled" |
+| `npm run typecheck` | node·web·test 모두 exit 0 |
+| `npx eslint ./src ./scripts` (`--fix` 없음) | 0 error · 2 warning(기존 `react-hooks/incompatible-library`) |
+| `./node_modules/.bin/vitest run` (필터 없음) | 945파일 — **9 failed · 932 passed · 4 skipped**, 22 케이스 실패 · 8,913 passed. 구현자 보고(8,890 passed·46 failed)와 건수가 다르다 — 환경(Electron 바이너리 유무)·집계 단위 차이로 추정하며 원인은 확인하지 않았다 |
+| `node --test scripts/*.test.mjs` | tests 827 · pass 827 · fail 0 |
+
+- 실패 9파일은 모두 이번 diff가 만진 파일이 아니다: `opencode/v1/adapter.{instances,persistent}.test.ts`·`adapter.test.ts`(Windows 경로 `C:/…` 단언) · `app/composer-catalog.test.ts`·`composer-preparation-service.test.ts`(절대경로 판정) · `claude/{adapter.native-plugins,native-resources,project-reconciliation}.test.ts`·`handlers/session-resources.claude-assembly.test.ts`(`restart-required` — 다른 OS 경로). r1이 같은 베이스라인에서 잰 "9파일·22케이스"와 파일 수·케이스 수가 같고 원인은 환경(다른 OS 전용 경로)이다. 케이스 이름 단위 대조는 하지 않았다.
+- `[test-pools]` 가드·예산 가드 실패 0. 수정한 두 테스트 파일은 unit 풀 가드를 통과했다(전체 실행에서 두 파일 33케이스 green).
+- 작업 트리: gate가 만든 변화 없음(`git status` 깨끗). 잔여물 `app/node_modules`.
+
+## r2 §5 repository operation checks
+
+- 커밋 `8cf0d223` trailer 파싱: `Agent: codex`·`Handoff`·`Status: implemented`·`Criteria-Met: 16/17`·`Criteria-Pending`·`Verified-By: pending` — 허용값 ✓, 6키 그대로 반환.
+- `[구현자 기입]` r2 7필드(설계 리뷰·강제 지점 전수·잠금·Product/UX·잠재 문제·구현 보고·Review Signals) 존재. 강제 지점 표는 7행으로 EP 32자리 전부를 담는다.
+- 좌표: `402c23a`·`e87d9bc`·`eb5ecdb`·`758309f`·`ec77831`·`c7c9e9d`·`a0a95f7`·`41bb8d6` — `git cat-file -t` commit, `origin/main` 조상. `fb2155e3`(ΔV2 설계)·`8cf0d223`(r2 구현)은 commit이지만 **`origin/main`에 아직 없다**(PR 브랜치 해시 — rebase 병합 시 바뀐다).
+- INDEX 비고 5줄 이내 ✓. AGENTS 변경 없음.
+
+## r2 §6 Finding disposition
+
+| # | finding | 분류 · 근거 | disposition |
+|---|---|---|---|
+| S1 | `send.permission-mode.test.ts`의 0304 케이스가 `--sequence.shuffle --sequence.seed=3`에서 실패(순서 의존) | **비귀속** — 기본 순서·`ci.yml`은 셔플을 쓰지 않아 어떤 gate·AC·§10 oracle도 이 순서를 요구하지 않고, 불변식 잠금 공백이 아니라 테스트 격리 위생이다. r1에서 도입됐고 r2 diff와 무관 | NON_BLOCKING → INDEX 후보 표 1행(`NEXT_HANDOFF` 독립) |
+| S2 | 전체 vitest 22 실패 케이스(9파일) | 비귀속 — 환경(다른 OS 경로), r1 베이스라인과 파일·케이스 수 동일 | NON_BLOCKING |
+
+## r2 Review Signals — 사실만
+
+- 이전 라운드와 같은 증상: 없음. r1의 두 발견(D1 이행·D2 확장)은 이번에 `green → red`로 닫혔다.
+- 사용자 결정 변경 근거: 없음(ΔV2는 verify r1 D2 채택·D1 입력 명시).
+- 환경 한계: Electron 바이너리·better-sqlite3 바인딩 부재(`--ignore-scripts`)를 설치 뒤 복구, 다른 OS 경로 9파일 잔존.
+- 독립 축(⑥): J1~J5 + 셔플 → 발견 1(S1, 비귀속).
+- 판단 호출: S1을 확장 후보가 아니라 비귀속으로 분류했다 — 셔플 독립성을 요구하는 계약이 없어서다. 반대로 읽으면 창 안 `PLAN_GAP`이 되므로 사용자가 다른 분류를 원하면 알려 달라.
+
+## r2 결론
+
+- 상태: **PASS** · verify 2회째(창 안) · 후보 표로 간 항목 1(S1) · BLOCKED_BY 0 · PLAN_GAP 0
+- Product/UX·ACTIVE Decision 충족. AC ✅16 · ⚠️1(AC13 사람 실기)
+- 남은 사람 확인: AC13 — Windows 설치본 콜드 부팅 로그, 실제 SDK `status`, 다음 턴 자동 승인 실행
+
+---
+
+## 이전 라운드
+
+> r1 판정: **RETURN_TO_PLAN** (verify 1회째, 창 안). 이행 결함 1(`BLOCKING`, VP-17) · 확장 후보 1(`PLAN_GAP`, VP-12). 나머지 REQUIRED·REGRESSION pair와 현재 변경 gate는 PASS.
+
+### 메타
 
 | 항목 | 값 |
 |---|---|
@@ -21,7 +125,7 @@
 | 발견 분류 | 이행 1 · 현재 0 · 확장 1(막음 1 / 후보 표 0) · 경계 0 · 비귀속 1 |
 | 구현 주체·문맥 | 구현 Codex. 설계자 = 검증자(Claude)라 plan validity는 자기 설계 감사다 |
 
-## 0. 기준선 / plan validity
+### 0. 기준선 / plan validity
 
 - 구현 커밋이 `plan.md`를 바꿨는가: 예 — `[구현자 기입]` 절만 추가(`git show --stat a0a95f7`: plan.md +194/−38). Decision·AC·V·§10 규범 행 변경 없음.
 - Decision Ledger / Product·UX / AC / V·§10·oracle 변경: 없음. 채점 원 기준 = `c7c9e9d`의 plan.
@@ -39,7 +143,7 @@
 
 재실행한 자리 검색(`app/`): EP-1 `rg -Un "(sessionApi\s*\.cwd|updateApi\s*\.state)\("` → `chatStore.ts:2220-2221`·`updateStore.ts:161` 2자리 · EP-8 `rg "sessionModelRecordFor|updateSessionProviderKey\("` → helper 1·send 1·writer 2·queries 1 · EP-6 `rg 'ANTHROPIC_DEFAULT_\$\{'` → 1 · EP-7 `rg preserveLocalState` → 4 · EP-4 `rg "setMode\(sessionId|setPermissionMode\(|spawnedPermissionModel"` → 목록 3자리 포함 · EP-2 `rg -l resolvedModel` → 12파일, ΔV1 13자리 + EP-3 파일 집합과 차집합 ∅.
 
-## 2. 구현 결과 비판적 검토
+### 2. 구현 결과 비판적 검토
 
 | 질문 | 판정 | 근거/후속 |
 |---|---|---|
@@ -50,11 +154,11 @@
 | `updated_at` 값 | **결함** | D1 — 시각 인자가 고정값으로 바뀌어도 green |
 | 출력/요청 상한 | 해당 없음 | 부팅 invoke +2 고정 |
 
-## 3. 역방향 탐색
+### 3. 역방향 탐색
 
 `scan-surface.sh c7c9e9d..a0a95f7` 후보 중 `defaultSelection`·`resolveCliModel`·`classifyContextModel`은 테스트 전용 참조로 보이나 같은 파일 내부 호출이 실제 경로다(`modelSelection.ts`, `context-policy.ts`) — 정상. 형제 정책 비대칭 0. `toAgentEnvironment`의 `...model` spread가 `resolvedModel`을 통과시키고 IPC에서 모델을 재조립하는 자리 없음(`rg oneMillionContext`, 비테스트 6자리 확인) — 무영향.
 
-## 4. 고장 이력
+### 4. 고장 이력
 
 구현자 spec 70건(`mutation-spec.jsonl`)을 `mutate.py`로 전수 재실행: **70/70 red**, 원복 확인 출력 "모든 파일 원문 그대로", 이후 `git status` 깨끗. 행별 결과는 구현자 표(`plan.md [구현자 기입] 잠금`)와 일치한다. 직전 이력이 없어 ③④ 해당 없음. 형제 슬롯 맞바꿈(⑤): `EP3-send-*`·`EP8-helper-session/model`(providerKey↔payload 계열)이 포함된다.
 
@@ -69,7 +173,7 @@
 
 검산: 시도 74 = 잡음 72 · 못 잡음 2 · 동치 0 · 경계 0. 소거 변이 잔여물 해당 없음. 동작 보존 추출 라운드 아님.
 
-## 5. V-pair closeout
+### 5. V-pair closeout
 
 | Pair | 레벨 | 결과 | 직접 증거(좌표 실재 확인) | §10 |
 |---|---|---|---|---|
@@ -101,17 +205,17 @@
 - **합계 재측정**: ✅15 · ⚠️2 · ❌0 = 총 17 (AC ID `{1,2,3,3b,4,5,6,7,8,9,10,12,14,15,16,17,13}`, AC11 폐기 제외) · 구현자 보고 `16/17` ↔ 이번 재측정 15/17 · **불일치(AC16)**.
 - 합계 사본: plan 본문 16 · 커밋 trailer `Criteria-Met: 16/17` · INDEX 비고 `AC 16/17` — 서로 일치(구현자 기준).
 
-## 7. 숫자 재측정
+### 7. 숫자 재측정
 
 `updateSessionProviderKey` 비테스트 호출 4(정의 1 + writer 2 + send 1) — AC15 정정과 일치. EP 분모 합 32 = 구현자 표 32.
 
-## 8. 사람 실기
+### 8. 사람 실기
 
 | 항목 | 기계 검증한 범위 | 남은 사람 실기 |
 |---|---|---|
 | AC13 | 순서·live 호출·선택 유지·전송 기록 전부 vitest | Windows 설치본 콜드 부팅 로그·실제 SDK `status`·다음 턴 자동 승인 실행 |
 
-## 9. 게이트 재실행
+### 9. 게이트 재실행
 
 환경: `npm ci --ignore-scripts` 뒤 `npm rebuild better-sqlite3`(Node ABI, 성공) · `node node_modules/electron/install.js`(Electron 바이너리).
 
@@ -127,14 +231,14 @@
 - `node --test scripts/*.test.mjs`는 이번 턴 미실행(구현자 보고 827/827은 참조 값).
 - 게이트가 작업 트리를 바꿨는가: 없음. 잔여물: `app/node_modules`·검증 worktree(제거함).
 
-## 11. Repository operation checks
+### 11. Repository operation checks
 
 - INDEX: 상태 IMPL_DONE·다음 주체 Claude 하나 — 실제와 일치. 대상 커밋 자리표시자를 검증자가 채움: r1 구현 `a0a95f7`, 설계 `402c23a`·`e87d9bc`·`eb5ecdb`·`758309f`·`ec77831`·`c7c9e9d` — 전부 `git cat-file -t` commit · `origin/main` 조상.
 - trailer: `git log -1 --format='%(trailers:only=true)' a0a95f7` → Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By 6키 파싱 ✓, 허용값 ✓.
 - `[구현자 기입]` 7필드(설계 리뷰·강제 지점 전수·잠금(sweep 포함)·Product/UX·잠재 문제·구현 보고·Review Signals) 존재.
 - AGENTS 변경 없음.
 
-## 13. Finding disposition
+### 13. Finding disposition
 
 | # | finding | 분류 · 근거 | 귀속 | disposition | root / 영향 | 후속 |
 |---|---|---|---|---|---|---|
@@ -144,7 +248,7 @@
 
 > D2가 `PLAN_GAP`이라 판정은 `RETURN_TO_PLAN`이고 다음 주체는 설계자다. D1은 창과 무관하게 막으므로 설계 정정 뒤 구현 턴이 고친다.
 
-## 14. Review Signals — 사실만
+### 14. Review Signals — 사실만
 
 - 이전 라운드와 동일/유사 증상: 해당 없음(1회째). 다만 "기록 인자 중 한 항이 `expect.any`로만 단언"은 0265 r2(운반 값 구별) 형태.
 - 관련 plan 지침: AC16 "인자 4개 구별 값" · §공통 V 운반 항 구별 — 있었음.
@@ -152,7 +256,7 @@
 - 반복된 검증 환경 한계: Electron 바이너리·better-sqlite3 바인딩 부재(`--ignore-scripts`), 복구 뒤에도 Windows 경로 단언 9파일.
 - 독립 축(⑥) 발견: 4건 시도 → 못 잡음 2 (이행 1 · 확장 1).
 
-## 15. 결론
+### 15. 결론
 
 - 상태: **RETURN_TO_PLAN**
 - verify 횟수: 1회째 — 확장 창 안
