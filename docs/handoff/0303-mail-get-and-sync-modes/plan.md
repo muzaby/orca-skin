@@ -13,7 +13,7 @@
 | 구현 주체 | 사용자 결정 대기 — 도구 추가는 기능 구현(기본 Codex). Codex 부재 환경이면 사용자 지시로 Claude |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음 |
 | 기준 V | `none` |
-| 이번 V revision | `V1 rev.3` — rev.1 `e67b718` · rev.2 `b043ce9`(이름 변경 D-015) · rev.3: 사용자 확인 D-008 + 검색·조회 코드 재사용 D-016(구현 전이라 V1 노드를 직접 갱신, 바뀐 행에 `rev.3` 표시) |
+| 이번 V revision | `V1 rev.5`(경계 선언, 아래 절) · 이전 `V1 rev.3` — rev.1 `e67b718` · rev.2 `b043ce9`(이름 변경 D-015) · rev.3: 사용자 확인 D-008 + 검색·조회 코드 재사용 D-016(구현 전이라 V1 노드를 직접 갱신, 바뀐 행에 `rev.3` 표시) |
 | 유효 V | `V1` |
 | 기준 커밋 | `e7991dd` (0302 r1 구현 포함, 0302는 검증 대기). 이 plan은 0302의 `bodySource`·`noBodyMails`·`skippedMails`·RETR 원문 fixture hook 위에 선다 |
 
@@ -457,6 +457,18 @@ READY. 출처는 plan 내부 정합이며 D-002~D-016의 제품 동작은 유지
 자리 검색 명령 정정: rev.3 표의 `\|`는 rg에서 OR가 아니라 리터럴 파이프다. 같은 검색 항을 `rg -n -e '항1|항2'`로 실행하며, escape된 괄호 alternation도 `Math\.(min|max)`로 고친다. 검색 범위·고정 자리 목록은 유지하고 import·타입·정의는 운반 자리의 선언 근거로 분류한다.
 
 READY self-review: §10 EP-01 6·EP-02 8·EP-03 7·EP-04 2·EP-05 4·EP-06 6 = 33자리. 규칙 분기·선택 변이는 승계하고, 같은 manager 직접 호출은 기존 `syncManager` fixture(`mail.integration.test.ts`)로 가능하다.
+
+## verify r1 후 규범 정정 — V1 rev.5 (2026-11-10)
+
+READY — **규범 변경만, 구현 없음.** 출처: verify 1회째 확장 후보 E1([`verify.md`](verify.md) §7). 판정은 **경계 선언**이며 새 Decision·AC·자리·UT 입력·변이 의무는 0이다.
+
+| 대상 | 결정 | 근거 |
+|---|---|---|
+| E1 `sliceBody` 안전하지 않은 큰 정수 offset(`2**53`·`1e21`·`Infinity`) → 0 정규화 | **경계** — §10 선언 경계에 아래 1줄 추가. EP-01 ①·(e) 규칙 칸과 UT 입력 칸은 그대로 | 도구 스키마 `z.number().int().min(0)`(zod 4.4.3)가 두 값을 거부한다(verify §7 실측 `safeParse(...).success=false`). production MCP 경로에서 닿지 않고 직접 호출에서만 관측된다 |
+
+§10 선언 경계 추가: **`Number.isSafeInteger`가 아닌 offset·maxChars(큰 정수·`Infinity`)는 비정수와 같이 기본값(offset 0·maxChars 8,000)으로 정규화한다. 스키마가 거부하는 입력이라 (e) "offset ≥ total → 빈 창"의 대상이 아니다.**
+
+`ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-003·D-007은 스키마 안 입력의 의미를 정하고, 스키마 밖 값의 처리는 D-007이 다루지 않는다. AC4·AC5와 VP-07 path는 그대로다.
 
 ## [구현자 기입] 설계 리뷰 (r1)
 
