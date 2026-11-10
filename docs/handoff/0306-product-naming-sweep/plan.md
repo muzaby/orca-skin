@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0225 V1은 "코드 식별자 불변"(EP-11)을 잠갔고 이번 작업은 그 결정을 뒤집는다. 일부 변경이 아니라 반대 방향이라 상속하지 않는다 |
-| 이번 V revision | `V1` |
+| 이번 V revision | `V1` rev.2 — 구현 착수 뒤 규범 행 정정 C1~C5(§3) |
 | 유효 V | `V1` |
 
 # Part I — Product & UX Contract
@@ -43,7 +43,7 @@
 | D-002 | 저장 데이터·외부와 맞물린 이름도 **전부 바꾸고 옛 이름을 읽는 호환 코드를 두지 않는다** | 사용자 선택 "전부 바꾸고 호환 없음" | 질의 1 | ACTIVE | — |
 | D-003 | 문서는 **현재 문서만** 고친다. `docs/handoff/` · `docs/archive/` · `docs/decisions/` · `docs/etc/` · `chats/` · `project/` · 루트 `README.md` · `.agents/**/references/`는 손대지 않는다 | 사용자 선택 "현재 문서만". 지난 기록은 당시 코드·커밋과 맞아야 한다 | 질의 2 | ACTIVE | — |
 | D-004 | **이름 규칙** (아래 표). 산문은 `Orcinus orca`, 프로세스 밖으로 나가거나 저장되는 문자열 값은 긴 꼴, 코드 식별자는 `oo` | "상황별, 문맥에 맡김" 위임. 값은 맥락 없이 읽히므로 긴 꼴, 식별자는 코드 안에서만 읽히므로 짧은 꼴 | 턴 A + 설계자 판단 | ACTIVE | — |
-| D-005 | 0225 이관 모듈의 **옛 디스크 이름 리터럴은 유지**한다 — `LEGACY_PRODUCT_SLUG = 'orca'`와 이관 모듈·그 테스트의 옛 경로 문자열 | 이 값은 이관의 source다. 바꾸면 0225 이전 설치본의 이관이 깨진다. 이 코드의 존폐는 0305 C-10·C-11 승인 건이다 | 설계자 판단 | ACTIVE | — |
+| D-005 | **옛 이름이 사실인 자리는 유지**한다 — 0225 이관의 입력(`LEGACY_PRODUCT_SLUG`, 이관 모듈 `migrate-legacy`·`legacy-paths`·`rebase-path`와 그 테스트의 옛 경로 문자열) · 현재 문서가 과거 이름을 사실로 서술하는 문장(구버전 수동 제거 안내 등) · 범위 밖 파일을 가리키는 경로 | 이관 입력을 바꾸면 0225 이전 설치본의 이관이 깨진다. 구버전 안내에서 옛 이름을 바꾸면 사용자가 제어판에서 찾을 항목 이름이 틀려진다. 이관 코드의 존폐는 0305 C-10·C-11 승인 건이다 | 설계자 판단 (rev.2 C1에서 범위 명시) | ACTIVE | — |
 | D-006 | 저장소명 `orca-skin`과 머지된 마이그레이션 SQL은 그대로 둔다 | 0225 D-011(저장소명 유지) · `app/AGENTS.md` 마이그레이션 수정 금지 | 0225 · AGENTS | ACTIVE | — |
 | D-007 | 옛 표기 재유입을 막는 **검사기**를 `app/scripts/`에 두고 `npm test`와 `ci.yml`에서 돌린다 | 2,738건을 한 번 바꾸고 끝내면 다음 커밋부터 다시 섞인다. 허용 예외는 목록에 등록해야 통과한다(fail-closed) | 설계자 판단 | ACTIVE | — |
 | D-008 | GitHub 저장소 Variables 이름 변경은 **사람이 한다** — 3개(§5 표) | 워크플로 파일은 이번에 바꾸지만 저장소 설정값은 에이전트 권한 밖이다 | 설계자 판단 | ACTIVE | — |
@@ -59,6 +59,18 @@
 
 - N4의 근거: 채널 이름은 preload와 main이 같은 빌드에서 함께 나가는 내부 배선이고 저장·표시되지 않는다(§8). 긴 꼴은 117개 문자열을 15자씩 늘릴 뿐이다.
 - 한 토큰이 N2와 N3에 모두 걸리면 **값이면 N2, 이름이면 N3**다 — `const OO_PLUGIN_NAME = PRODUCT_SLUG`처럼 이름은 `OO_`, 값은 긴 꼴이다.
+
+### r1 구현 중 설계 정정 (규범 행 — rev.2)
+
+구현 중 실측에서 조사 1건이 틀렸고 분모 3건이 좁았다. ACTIVE Decision의 방향은 바뀌지 않았다.
+
+| # | 정정한 행 | 정정 전 | 정정 후 | 관측 |
+|---|---|---|---|---|
+| C1 | D-005 · AC4 · EP-09 | 유지 대상 = 이관 5파일 + SQL | 이관 입력 6파일 + SQL 1 + 과거 이름을 서술하는 현재 문서 4 = **11파일** | `rebase-path.test.ts`는 옛 루트 → 새 루트 재기준을 시험한다 — 일괄 변환이 두 인자를 같은 값으로 만들어 테스트가 green인 채 의미를 잃었다. `release-operations.md` "구버전 수동 제거" 절은 제어판 항목 이름 `"orca"`를 안내한다 |
+| C2 | EP-01 규칙 칸 | 6분기 | **7분기** — ⑦ 범위 밖 추적 파일을 가리키는 경로 조각은 그 파일의 실제 이름일 때 hit이 아니다 | 현재 문서가 지난 기록 9개 경로(`docs/etc/study/opencode/…-migration-guide.md` 등)를 링크한다. D-003이 그 파일 이름을 고정하므로 링크도 옛 이름이어야 한다 — 바꾸면 `check-doc-inventory --check`가 끊긴 링크로 red |
+| C3 | §8 "sourceKind·sourceId는 저장되지 않는다" · §5 표 | 저장 안 됨 | **`sourceId`는 설정 `skillEnabled`의 키 접두사로 저장된다**(`scan.ts` `skillEnabledKey` = `<sourceId>/<name>`) | D-002(호환 없음)에 따라 옛 키를 읽지 않는다 — 사용자가 꺼 둔 제품 스킬 토글이 기본값(켜짐)으로 돌아간다. §5 표에 행 추가 |
+| C4 | EP-07 자리 목록 | 값 리터럴 30 + env 접두사 4 | 값 리터럴 **34줄**(검색 재실행 — lint 재포맷과 `extension-sources.ts` 라벨 키 포함) + env 접두사 4 + **OpenCode 관리 MCP alias 접두사 1**(`opencode/v1/managed-mcp.ts` `managedMcpAlias`) | alias `orcinus_orca_<b\|u>_<hash>`는 OpenCode 도구 이름·권한 패턴의 접두사다. 원 목록에 없었다 |
+| C5 | AT-02 테스트의 옛 이름 음성 단언 | (명시 없음) | `product-identity.test.ts`는 옛 리터럴을 직접 적지 않고 `LEGACY_PRODUCT_SLUG`에서 만든다 | 그 파일이 허용 목록에 오르면 AC4의 "옛 이름을 읽는 분기 없음"을 테스트 파일이 흐린다 |
 
 ### 갱신 메모
 
@@ -108,6 +120,8 @@
 | 프롬프트 표식 4군 | `ORCA_ATTACHMENT_*` · `ORCA_DIFF_REQUIREMENT*` · `ORCA_PLAN_FEEDBACK_*` · `ORCA_PLAN_COMMENT_*` → `ORCINUS_ORCA_…` | 모델 | 표식은 모델에 보내기만 하고 다시 읽지 않는다 — 옛 대화에는 옛 표식이 텍스트로 남는다 |
 | MCP 비밀 합성 변수 | `ORCA_MCP_<이름>_AUTH` → `ORCINUS_ORCA_MCP_<이름>_AUTH` | 새로 추가하는 MCP 서버 | 기존 서버는 저장된 변수 이름을 계속 쓴다(`store.ts:111` — 기존 이름 우선). 새 서버만 새 접두사 |
 | OpenCode 관리 MCP env | `ORCA_MCP_<alias>_<n>` → `ORCINUS_ORCA_MCP_…` | OpenCode 자식 프로세스 | 실행 때마다 다시 만든다 — 구현자가 저장 여부를 확인한다(§10 EP-07) |
+| OpenCode 관리 MCP alias | `orca_<b\|u>_<hash>` → `orcinus_orca_<b\|u>_<hash>` | OpenCode가 보는 MCP 서버·도구 이름 | 실행 때마다 다시 만든다. 옛 OpenCode 세션 기록에는 옛 도구 이름이 남는다 (rev.2 C4) |
+| 스킬 켜짐/꺼짐 설정 키 | `orca/<스킬>` → `orcinus-orca/<스킬>` | 제품 스킬을 꺼 둔 사용자 | **꺼 둔 제품 스킬이 다시 켜진다** — 옛 키를 읽지 않는다(D-002). 설정 화면에서 다시 끄면 된다 (rev.2 C3) |
 | 테스트·진단 환경변수 | `ORCA_TEST_TIME_SCALE` · `ORCA_TEST_IO_MODE` · `ORCA_SPAWN_TRACE` 등 → `ORCINUS_ORCA_…` | 개발자 셸 · CI | 옛 이름으로 설정한 값은 무시되고 기본값이 쓰인다 |
 | GitHub Variables | `ORCA_CI_TIMEOUT_MINUTES` · `ORCA_RELEASE_TIMEOUT_MINUTES` · `ORCA_TEST_TIME_SCALE` → `ORCINUS_ORCA_…` | CI | 사람이 저장소 설정에서 바꾼다(D-008) |
 | 모델에 보내는 시스템 머리글 | `# Orca` · `Orca version:` → `# Orcinus orca` · `Orcinus orca version:` | 모델 | 모델이 제품을 새 이름으로 부른다 |
@@ -145,7 +159,7 @@
 | R-01 | AT-01 / AC1 | 범위 안 추적 파일에서 허용 목록 밖의 옛 표기가 0건이다 | `gate: node app/scripts/check-product-naming.mjs` exit 0. 주어 = 대소문자 구분 `orca\|Orca\|ORCA`에서 허용 꼴(§10 EP-01)을 뺀 것 | 저장소 추적 파일 전체 → 검사기 |
 | R-02 | AT-02 / AC2 | 이름 규칙 N1~N4가 대표 자리에서 **새 꼴로 있다** | `product-identity.test.ts` 양성 단언 — preload가 `'oo'` 키로 노출 · 채널이 전부 `oo:`이고 수가 생성물과 같다 · 표식 4군이 `ORCINUS_ORCA_` · `sourceKind`가 `'orcinus-orca'` · 시스템 머리글이 표시명 SSOT 파생 | preload `exposeInMainWorld` → renderer `window.oo` · `shared/ipc.ts` `CHANNELS` |
 | R-03 | AT-03 / AC3 | 앱 동작이 바뀌지 않는다 | 변경 전후 `vitest run` 케이스 수가 같고(이름 테스트 블록 제외) 전부 green · `npm run lint` · `npm run typecheck` · `node --test scripts/*.test.mjs` green. 테스트를 지우거나 skip하지 않는다 | 기존 테스트가 닿는 전 경로 |
-| R-04 | AT-04 / AC4 | 옛 이름을 읽는 호환 분기가 없다 | AC1의 허용 목록에 이관 5파일·마이그레이션 SQL 외 항목이 없다 — 검사기 자체 테스트가 "허용 목록 파일 집합 = 고정 집합"을 단언 | 허용 목록 → 검사기 |
+| R-04 | AT-04 / AC4 | 옛 이름을 읽는 호환 분기가 없다 | AC1의 허용 목록 파일 집합이 고정 11파일(이관 입력 6 · 마이그레이션 SQL 1 · 과거 이름을 서술하는 문서 4, rev.2 C1)과 같다 — 검사기 자체 테스트가 집합 일치를 단언 | 허용 목록 → 검사기 |
 | R-05 | AT-05 / AC5 | 0225 이관이 그대로 동작한다 | `LEGACY_PRODUCT_SLUG === 'orca'` 단언 유지 · `migrate-legacy.test.ts`·`legacy-paths.test.ts` 케이스 수 불변·green(DB 로드 케이스는 환경 기준선으로 분리) | `index.ts` 부팅 → 이관 모듈 |
 | R-06 | AT-06 / AC6 | 현재 문서가 새 이름을 쓰고 지난 기록은 그대로다 | AC1 검사기가 문서 범위도 본다 · `node app/scripts/check-doc-inventory.mjs --check` green · `git diff --stat <base>` 에서 D-003 경로 변경 0(이 handoff 디렉토리 제외) | 문서 파일 → 검사기·문서 가드 |
 | R-07 | AT-07 / AC7 | 운영 문서가 사람이 바꿀 외부 설정을 새 이름으로 안내한다 | `product-identity.test.ts` — `docs/guides/release-operations.md`가 새 Variables 이름 3개를 포함 | 문서 → 운영자 |
@@ -207,7 +221,7 @@
 | preload 노출 키와 전역 타입 선언이 따로 산다 | `preload/index.ts:454` `exposeInMainWorld('orca', orca)` · `preload/index.d.ts:5` `orca: OrcaApi` |
 | 프롬프트 표식은 쓰기 전용이다 — 상수를 읽는 곳이 조립 함수뿐이고 파서가 없다 | `rg "START_SENTINEL\|END_SENTINEL" app/src -g '!*.test.*'` → 조립 3파일 안 15줄 |
 | 표식의 이스케이프는 상수가 아니라 **별도 리터럴**을 쓴다 | `diff-requirements.ts:15-17` · `attachment-prompt.ts:25-26`(종료 쪽 2개) · `plan-feedback.ts:27-28` |
-| `sourceKind`·`sourceId`·`origin`의 `'orca'`는 저장되지 않는다 — DTO와 화면 분기에만 쓰인다 | `rg "sourceId" app/src/main/infra/settings-store.ts app/src/main/infra/db` → 0건 |
+| ~~`sourceKind`·`sourceId`·`origin`의 `'orca'`는 저장되지 않는다~~ → **`sourceId`는 설정 `skillEnabled` 키의 접두사로 저장된다**(rev.2 C3). `sourceKind`·`origin`은 DTO와 화면 분기에만 쓰인다 | `features/extensions/common/skills/scan.ts` `skillEnabledKey` · `app/handlers/skills.ts:71`. 원 검색은 `sourceId` 문자열만 찾아 템플릿으로 만든 키를 놓쳤다 |
 | MCP 비밀 변수 이름은 서버 추가 때 한 번 합성하고 이후 기존 이름을 우선한다 | `features/extensions/common/mcp/store.ts:43` · `:111` |
 | 산출물 영수증 type과 도구 이름은 생산자·소비자가 리터럴을 각자 쥔다 | `artifacts/service.ts:33·224` ↔ `history/writer.ts:63` · `artifacts/tool.ts:29·30` ↔ `db/artifact-queries.ts:134` |
 | `ErrorCard`·`errorCategoryKey`는 대소문자 무시로 세면 걸린다 — 주어를 대소문자 구분으로 둔다 | `git ls-files app \| grep -i orca` 에 `ErrorCard.tsx` |
@@ -269,15 +283,15 @@ main 소비자    같은 리터럴(별도 사본)       같은 새 리터럴
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| MD-01 / VP-01·VP-08 · **EP-01** | 검사기 규칙 — 분기 6: ① 주어 hit → 위반 ② 허용 꼴 5종(`orcinus-orca`·`orcinus_orca`·`Orcinus orca`·`OrcinusOrca`·`ORCINUS_ORCA`)은 hit 아님 ③ `orca-skin`은 hit 아님 ④ 허용 목록 `{file, token, count}`와 실제 개수가 같으면 통과 ⑤ 다르면(±) 위반 ⑥ 범위 밖 경로(D-003)는 읽지 않는다 | 검사기 파일 | 검사기 | 6분기 — UT 입력: ①`const orcaX` ②꼴마다 1줄(5입력) ③`orca-skin` 1줄 ④등록 1·실제 1 ⑤등록 1·실제 2, 등록 2·실제 1 ⑥`docs/handoff/x.md`에 옛 표기 | `node --test app/scripts/check-product-naming.test.mjs` | 옛 표기가 CI를 통과한다. **선언 경계**: 바이너리·`node_modules`·추적되지 않는 파일은 보지 않는다 · 대소문자가 섞인 꼴은 주어 밖 — 트리에서 그 꼴은 `ErrorCard`·`ErrorCardProps`·`ErrorCategory`·`errorCall`·`errorCategoryKey` 5종 35건뿐이고 제품 이름이 아니다(`git grep -nIi orca -- app/src app/scripts .github \| grep -v "orca\|Orca\|ORCA"`) |
+| MD-01 / VP-01·VP-08 · **EP-01** | 검사기 규칙 — 분기 7(rev.2 C2): ① 주어 hit → 위반 ② 허용 꼴 5종(`orcinus-orca`·`orcinus_orca`·`Orcinus orca`·`OrcinusOrca`·`ORCINUS_ORCA`)은 hit 아님 ③ `orca-skin`은 hit 아님 ④ 허용 목록 `{file, token, count}`와 실제 개수가 같으면 통과 ⑤ 다르면(±) 위반 ⑥ 범위 밖 경로(D-003)는 읽지 않는다 ⑦ 범위 밖 추적 파일의 경로 조각(옛 표기가 든 마디, 옛 이름 그 자체인 폴더는 `부모/마디/`)은 hit 아님 — 그 파일이 추적 목록에서 사라지면 다시 hit | 검사기 파일 | 검사기 | 7분기 — UT 입력: ①`const orcaX` ②꼴마다 1줄(5입력) ③`orca-skin` 1줄 ④등록 1·실제 1 ⑤등록 1·실제 2, 등록 2·실제 1 ⑥`docs/handoff/x.md`에 옛 표기 ⑦실재하는 범위 밖 링크 → 통과 · 같은 링크인데 추적 목록에 없음 → 위반 · 폴더 이름만(`부모/` 없이) → 위반 · 경로 옆의 옛 표기 → 위반 | `node --test app/scripts/check-product-naming.test.mjs` | 옛 표기가 CI를 통과한다. **선언 경계**: 바이너리·`node_modules`·추적되지 않는 파일은 보지 않는다 · 대소문자가 섞인 꼴은 주어 밖 — 트리에서 그 꼴은 `ErrorCard`·`ErrorCardProps`·`ErrorCategory`·`errorCall`·`errorCategoryKey` 5종 35건뿐이고 제품 이름이 아니다(`git grep -nIi orca -- app/src app/scripts .github \| grep -v "orca\|Orca\|ORCA"`) |
 | SD-01 / VP-05 · **EP-02** | preload 노출 키 = renderer 전역 이름 = `oo` | `preload/index.ts` | preload | 3자리 — `preload/index.ts:454` 키 · `preload/index.d.ts:5` 선언 · `renderer/src/shared/logging.ts:9` `Window['…']` | `grep -rn "exposeInMainWorld\|interface Window\|Window\['" app/src --include=*.ts -r \| grep -v test` | 화면의 모든 main 호출이 `undefined` 접근으로 죽는다 |
 | SD-01 / VP-02·VP-05 · **EP-03** | 채널 접두사 `oo:` · 수 = 생성물 | `shared/ipc.ts` `CHANNELS` | 계약 파일 | 3자리 — `shared/ipc.ts`(117 리터럴) · `scripts/check-doc-inventory.mjs:44` 정규식 · `docs/IPC_CONTRACT.md` 채널 표 | `grep -c "'orca:" app/src/shared/ipc.ts` · `grep -n "orca:" app/scripts/check-doc-inventory.mjs` | 문서 가드가 채널 0개로 세거나 문서가 코드와 어긋난다 |
 | AR-01 / VP-06 · **EP-04** | 산출물 영수증 type | 없음(사본 3) | main | 3자리 — `artifacts/service.ts:33`(타입) · `:224`(생산) · `history/writer.ts:63`(소비) | `grep -rn "artifact\.published" app/src --include=*.ts \| grep -v test` | 게시해도 대화에 산출물 카드가 연결되지 않는다 |
 | AR-01 / VP-06 · **EP-05** | 산출물 도구 이름 = `mcp__<서버 id>__publish_artifact` | 없음(사본 3) | main | 3자리 — `artifacts/tool.ts:29`·`:30`(생산) · `db/artifact-queries.ts:134`(소비) | `grep -rn "orca_artifacts" app/src --include=*.ts \| grep -v test` | 게시 기록이 도구 호출과 연결되지 않는다 |
 | MD-02 / VP-09 · **EP-06** | 표식 상수와 이스케이프 리터럴이 같은 접두사 | 파일별 | 조립 함수 | 17자리(줄) — `diff-requirements.ts:4·5·6·7·15·16·17` · `attachment-prompt.ts:18·19·25·26` · `plan-feedback.ts:9·10·11·12·27·28`. 이스케이프 줄은 찾는 리터럴과 바꿔 넣는 `_ESCAPED` 리터럴을 함께 쥔다 | `grep -n "ORCA_" app/src/main/adapters/common/diff-requirements.ts app/src/main/adapters/common/attachment-prompt.ts app/src/main/adapters/claude/plan-feedback.ts` → 7+4+6 = 17줄 | 사용자 입력에 든 표식 문자열이 이스케이프되지 않아 모델이 가짜 블록을 진짜로 읽는다 |
-| AR-01 / VP-06 · **EP-07** | 출처 값 `'orcinus-orca'` · MCP env 접두사 | `shared/ipc.ts:1210` 유니온 | main 생산 → renderer 소비 | 값 리터럴 30자리(§8 31줄 − preload 키 1) + env 접두사 4자리(`mcp/store.ts:44` · `opencode/v1/managed-mcp.ts:43` · `opencode/v1/diagnostics.ts:34·37`) | §8 `'orca'` 명령 · `grep -rn "ORCA_MCP_" app/src --include=*.ts \| grep -v test` | 유니온 타입 자리는 typecheck가 잡는다. `string` 타입 자리(구현자가 표시)는 관리 스킬·MCP가 "사용자 것"으로 분류되지 않는다 |
+| AR-01 / VP-06 · **EP-07** | 출처 값 `'orcinus-orca'` · MCP env 접두사 | `shared/ipc.ts:1210` 유니온 | main 생산 → renderer 소비 | 값 리터럴 34줄(rev.2 C4 — 구현 뒤 검색 재실행) + env 접두사 4자리(`mcp/store.ts:44` · `opencode/v1/managed-mcp.ts:43` · `opencode/v1/diagnostics.ts:34·37`) + alias 접두사 1자리(`opencode/v1/managed-mcp.ts` `managedMcpAlias`) | §8 `'orca'` 명령 · `grep -rn "ORCA_MCP_" app/src --include=*.ts \| grep -v test` | 유니온 타입 자리는 typecheck가 잡는다. `string` 타입 자리(구현자가 표시)는 관리 스킬·MCP가 "사용자 것"으로 분류되지 않는다 |
 | AR-02 / VP-07 · **EP-08** | env 이름: 읽는 쪽 = 설정하는 쪽 | `scripts/test-time.mjs` · `test-pools.mjs` | 스크립트 ↔ 워크플로 ↔ 문서 | 구현자가 명령으로 고정 — 읽기(`process.env`) · 워크플로 `env:`·`vars.` 10줄 · `app/AGENTS.md`·`docs/guides` 서술 | `git grep -n "ORCA_[A-Z_]*" -- app/scripts app/vitest.config.ts .github app/AGENTS.md docs/guides` | CI가 설정한 배율·모드가 무시되고 기본값으로 돈다 |
-| R-05 / VP-04 · **EP-09** | 이관 리터럴 불변 | `shared/product.ts:18` | 이관 모듈 | 6파일(허용 목록) — `shared/product.ts` · `infra/config/migrate-legacy.ts`(+test) · `app/legacy-paths.ts`(+test) · `migrations/0032_*.sql` | `node app/scripts/check-product-naming.mjs --report-allowed` | 0225 이전 설치본이 이관되지 않는다 |
+| R-05 / VP-04 · **EP-09** | 이관 리터럴 불변 | `shared/product.ts:18` | 이관 모듈 | 허용 목록 11파일(rev.2 C1) — `shared/product.ts` · `infra/config/migrate-legacy.ts`(+test) · `infra/config/rebase-path.ts`(+test) · `app/legacy-paths.test.ts` · `migrations/0032_*.sql` · `docs/guides/release-operations.md` · `docs/arch/backend/{overview,security,provider-runtime}.md` | `node app/scripts/check-product-naming.mjs --report-allowed` | 0225 이전 설치본이 이관되지 않는다 |
 
 - **EP-07 oracle**: 생산자 → 소비자를 잇는 기존 테스트의 fixture 값을 새 값으로 바꾼 뒤 green이어야 한다. 대상 — `attachMenuModel` 테스트(스킬이 `skill` 타입으로 분류) · `scan` 테스트(`canToggle`) · `Composer.native-menu.test.ts`. 구현자가 30자리 각각이 어느 테스트의 실행 구간에 드는지 `[구현자 기입]` 표에 적고, 어느 테스트에도 들지 않는 `string` 타입 자리는 테스트를 더한다.
 - **EP-04·05 oracle**: 생산 함수의 실제 출력을 소비 함수에 넣는 테스트. 기존 케이스가 리터럴을 fixture로 각자 쥐고 있으면 한쪽 출력을 다른 쪽 입력으로 잇는 1케이스를 더한다(파일 `features/artifacts/service.test.ts` 또는 `history/writer.test.ts` — 진입: 게시 → 영수증 문자열 → 파서, 관측: `publicationId`).
