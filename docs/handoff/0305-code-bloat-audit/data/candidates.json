@@ -1,0 +1,465 @@
+{
+ "lenses": [
+  {
+   "id": "L1",
+   "method": "채널: preload 메서드 → `shared/api/ipc.ts` 래퍼 → renderer 호출부(`rg -U`) · feature: import 처 · export: 식별자 일치 스캔 · 이벤트·파트: 생산자 `rg` · 설정 키·스키마 필드: 읽는 곳 `rg`",
+   "denominator": "채널 117 · feature 14 · prod export 중 외부 prod 참조 0인 646 · 이벤트 변형 31 · 설정 키 24",
+   "count": 11
+  },
+  {
+   "id": "L4",
+   "method": "추적 5건의 단계 전수 + 시나리오 31건의 진입 핸들러·경로 파일을 읽고 과잉 범주 X1~X7 판정",
+   "denominator": "추적 단계 46 · 시나리오 31",
+   "count": 6
+  },
+  {
+   "id": "L5",
+   "method": "`adapters/{claude,opencode}`·`chat/harnesses/{claude,opencode}` 의 같은 이름 파일 쌍에서 12자 초과 비주석 줄의 겹침 측정(35% 이상 · 12줄 이상)",
+   "denominator": "같은 이름 파일 27쌍",
+   "count": 1
+  }
+ ],
+ "candidates": [
+  {
+   "id": "C-01",
+   "title": "백그라운드 작업 \"전체 중단\" 경로",
+   "bucket": "main/features/chat",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": [
+    "0231"
+   ],
+   "preserve": "개별 작업 중단(S-10)은 그대로 동작한다. 전체 중단 버튼은 화면에 없다",
+   "evidence": "`chatApi.stopAllBackgroundTasks` renderer 호출부 0 · `background-controller.ts:259-336` `stopAll` · `send.ts:115` `isStoppingAll` 게이트 · `docs/arch/backend/background-tasks.md:25` \"현재 renderer에는\" 호출 없음",
+   "saving": {
+    "prod": 80,
+    "test": 0,
+    "basis": "`stopAll` 78줄 + `stoppingAll` 집합·게이트. 채널·스키마·preload·api 래퍼는 다른 버킷이라 미산입, 테스트 미산정"
+   },
+   "risk": "중간 — main·preload API를 남긴 결정을 뒤집는다",
+   "approval": "required"
+  },
+  {
+   "id": "C-02",
+   "title": "백그라운드 원본 출력 읽기 경로",
+   "bucket": "main/infra/(root)",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": [
+    "0231"
+   ],
+   "preserve": "작업 상태·요약 표시(S-10)는 그대로다. 원본 출력 읽기 화면은 없다",
+   "evidence": "`chatApi.readBackgroundOutput` renderer 호출부 0 · `background-controller.ts:338-355` `read` · `infra/background-output.ts:101-119,171-193` `read`·`readSnapshot` 은 그 경로만 호출",
+   "saving": {
+    "prod": 42,
+    "test": 0,
+    "basis": "`BackgroundOutputStore.read`·`readSnapshot` 줄 수. `capture`·`removeSnapshot` 은 다른 호출부가 있어 제외, 테스트 미산정"
+   },
+   "risk": "중간 — 캡처된 스냅샷을 읽는 유일한 경로다",
+   "approval": "required"
+  },
+  {
+   "id": "C-03",
+   "title": "산출물 폴더 열기 채널",
+   "bucket": "main/app/handlers",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": [
+    "0223"
+   ],
+   "preserve": "산출물 개별 보기·저장·탐색기에서 보기(S-19)는 그대로다",
+   "evidence": "`artifactApi.openFolder` renderer 호출부 0 · `handlers/artifacts.ts:96` · i18n 문자열만 남음",
+   "saving": {
+    "prod": 9,
+    "test": 0,
+    "basis": "핸들러 9줄"
+   },
+   "risk": "낮음",
+   "approval": "required"
+  },
+  {
+   "id": "C-04",
+   "title": "`provider:list` 채널",
+   "bucket": "main/app/handlers",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o '0[0-9]{3}' app/src/main/app/handlers/providers.ts → 0건"
+   },
+   "preserve": "연결 상태 표시(S-02)는 `provider:state` 로 그대로다",
+   "evidence": "`providerApi.list` renderer 호출부 0(`rg -U 'providerApi\\s*\\??\\.\\s*list\\b'`) · `handlers/providers.ts:46`",
+   "saving": {
+    "prod": 2,
+    "test": 0,
+    "basis": "핸들러 1문장 + import"
+   },
+   "risk": "낮음",
+   "approval": "required"
+  },
+  {
+   "id": "C-05",
+   "title": "미사용 camera feature",
+   "bucket": "renderer/features/camera/components",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o '0[0-9]{3}' app/src/renderer/src/features/camera → 0건"
+   },
+   "preserve": "없음 — 화면 어디에서도 열리지 않는다",
+   "evidence": "`rg 'CameraView|features/camera' app/src/renderer -g '!*.test.*'` → 자기 파일 2건뿐 · 라우터에 경로 없음(`app/router.tsx`)",
+   "saving": {
+    "prod": 174,
+    "test": 0,
+    "basis": "`CameraView.tsx` 174줄(버킷 prod 전체)"
+   },
+   "risk": "낮음 — PRD 향후 범위일 수 있다",
+   "approval": "required"
+  },
+  {
+   "id": "C-06",
+   "title": "어디서도 참조하지 않는 export 16개",
+   "bucket": "shared/(root)",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": {
+    "unknown": true,
+    "search": "cd app && node ../docs/handoff/0305-code-bloat-audit/scan/lens-exports.mjs"
+   },
+   "preserve": "없음 — 참조가 없다",
+   "evidence": "`relativeToDownloads`·`gitExecutable`·`branchExists`·`useBackendState`·`VISIBLE_TILE_REGISTRY`·`PanelButton`·`DISABLED_HATCH_CLASS`·`ArtifactTrashRequest`·`LOG_LEVELS`·`shared/plugin-catalog.ts` 타입 6·`PluginPresentation` — 식별자 일치 스캔 16/646",
+   "saving": {
+    "prod": 20,
+    "test": 0,
+    "basis": "이 버킷(shared)에 속한 8개의 선언 줄 수 추정. 나머지 8개는 다른 버킷이라 미산입"
+   },
+   "risk": "낮음",
+   "approval": "required"
+  },
+  {
+   "id": "C-07",
+   "title": "테스트만 쓰는 prod export 50개",
+   "bucket": "main/features/auth",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": {
+    "unknown": true,
+    "search": "cd app && node ../docs/handoff/0305-code-bloat-audit/scan/lens-exports.mjs"
+   },
+   "preserve": "없음 — 제품 경로에서 불리지 않는다. 테스트가 같은 동작을 공개 진입점으로 단언해야 한다",
+   "evidence": "예: `createMemoryGrantPersistence`(tests 15)·`patSpec`(5)·`warmFileSqlite`(8)·`confluenceTools`(4)·`jiraTools`(3)·`scanOffenders`(4) 등 50/646. `*.testlib.ts` 의 7개는 테스트 지원 파일이라 제외 대상",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 항목마다 테스트 전용 seam인지 죽은 코드인지 후속 plan에서 분류"
+   },
+   "risk": "중간 — 테스트 seam으로 의도된 것이 섞여 있다",
+   "approval": "required"
+  },
+  {
+   "id": "C-08",
+   "title": "생산자 없는 `structured_output` 파트",
+   "bucket": "renderer/features/chat/harnesses",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o '0[0-9]{3}' StructuredOutputCard.tsx → 0건"
+   },
+   "preserve": "없음 — 어떤 하네스도 이 파트를 내지 않는다",
+   "evidence": "`rg \"type: 'structured_output'\" app/src/main -g '!*.test.*'` → 0 · `shared/ipc.ts:1533` \"모델 정의만 두고 … 도입 시 채운다(seam)\" · `StructuredOutputCard.tsx` 24줄 · `parts.ts:558`",
+   "saving": {
+    "prod": 24,
+    "test": 0,
+    "basis": "카드 컴포넌트 줄 수. `parts.ts`·registry·DB 타입의 분기는 다른 버킷"
+   },
+   "risk": "낮음 — 향후 seam을 지운다",
+   "approval": "required"
+  },
+  {
+   "id": "C-09",
+   "title": "읽는 곳·쓰는 곳 없는 설정 키 `projectMcpChoices`",
+   "bucket": "shared/(root)",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": {
+    "unknown": true,
+    "search": "rg -n 'projectMcpChoices' app/src -g '!*.test.*' → 스키마·타입 3건뿐"
+   },
+   "preserve": "없음",
+   "evidence": "`shared/protocol.ts:778` · `shared/ipc.ts:1157,1179` 외 참조 0",
+   "saving": {
+    "prod": 3,
+    "test": 0,
+    "basis": "선언 3줄"
+   },
+   "risk": "낮음 — 저장 파일에 남은 값은 스키마가 무시",
+   "approval": "required"
+  },
+  {
+   "id": "C-10",
+   "title": "0225 이관 코드(DB·git 단계)",
+   "bucket": "main/app/(root)",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": [
+    "0225",
+    "0292"
+   ],
+   "preserve": "이미 이관을 마친 설치본은 그대로 동작한다. 0225 이전 데이터 폴더에서 직접 올라오는 사용자는 이관을 받지 못한다",
+   "evidence": "`main/app/legacy-paths.ts` 163줄 · `legacy-paths.test.ts` 250줄 · 부팅마다 실행되는 일회성 이관",
+   "saving": {
+    "prod": 163,
+    "test": 250,
+    "basis": "파일 줄 수"
+   },
+   "risk": "높음 — 0292가 \"유지\"로 결정했다",
+   "decisionChange": true,
+   "approval": "required"
+  },
+  {
+   "id": "C-11",
+   "title": "0225 이관 코드(파일시스템 단계)",
+   "bucket": "main/infra/config",
+   "lens": "L1",
+   "type": "remove",
+   "scenarios": [],
+   "origin": [
+    "0225",
+    "0292"
+   ],
+   "preserve": "C-10 과 같다",
+   "evidence": "`infra/config/migrate-legacy.ts` 206줄 · `migrate-legacy.test.ts` 215줄",
+   "saving": {
+    "prod": 206,
+    "test": 215,
+    "basis": "파일 줄 수"
+   },
+   "risk": "높음 — C-10 과 한 묶음",
+   "decisionChange": true,
+   "approval": "required"
+  },
+  {
+   "id": "C-12",
+   "title": "전송 1회에 같은 세션 행을 6번 조회·3중 검증",
+   "bucket": "main/app/chat-turn",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-05",
+    "S-11"
+   ],
+   "origin": [
+    "0179",
+    "0188",
+    "0211"
+   ],
+   "preserve": "없는 원본·다른 하네스·다른 작업 종류로 보내면 오류 문구가 뜨고 전송되지 않는다",
+   "evidence": "`getSessionById`: `send.ts:83,163` · `resolve-turn.ts:72,74,104,160` (+`:248`) · 원본 존재 검증이 `send.ts:164`·`resolve-turn.ts:77`·`:85 checkContinuitySource`·`:160` 에 중복 · 하네스 불일치가 `send.ts:86` 과 `:176` 에 중복",
+   "saving": {
+    "prod": 40,
+    "test": 0,
+    "basis": "중복 조회·검증 분기를 한 번의 조회 결과로 합칠 때의 추정. 테스트 미산정"
+   },
+   "risk": "중간 — 오류 문구가 분기마다 다르다(문구 통일은 사용자 관측 변화)",
+   "excess": [
+    "X4",
+    "X6"
+   ]
+  },
+  {
+   "id": "C-13",
+   "title": "production 이 항상 주입하는 의존성의 optional 선언과 fallback 분기",
+   "bucket": "main/app/chat-turn",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-01",
+    "S-04",
+    "S-11",
+    "S-12"
+   ],
+   "origin": [
+    "0262"
+   ],
+   "preserve": "같은 화면·같은 동작. 테스트는 production 조립과 같은 의존성으로 들어간다",
+   "evidence": "`context.ts:55-56` `harnessRuntime?`·`runtimeModelCatalog?` · `chat-turn/deps.ts:35,41` · `runtimeModelCatalog?.` 6건·`activity?.` 6건·`deps.background?.` 2건·`ctx.settings?.` 2건 · `handlers/misc.ts` agentList 의 `ctx.harnessRuntime ? … : fallback` · `handlers/session.ts` hooks 4개 전부 optional — 주입은 `bootstrap.ts:686,833,894,1159,1161,1289`",
+   "saving": {
+    "prod": 15,
+    "test": 0,
+    "basis": "이 버킷의 `?.`·fallback 분기 추정. 다른 버킷(handlers) 몫은 미산입"
+   },
+   "risk": "낮음 — 테스트 조립을 고쳐야 한다",
+   "excess": [
+    "X4"
+   ]
+  },
+  {
+   "id": "C-14",
+   "title": "응답 중 입력 대기 프로토콜의 표면",
+   "bucket": "main/features/chat",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-07",
+    "S-09"
+   ],
+   "origin": [
+    "0056",
+    "0060",
+    "0066",
+    "0067",
+    "0151",
+    "0152",
+    "0154",
+    "0250"
+   ],
+   "preserve": "응답 중 보낸 입력이 대기열에 보이고, 취소·즉시 보내기가 되며, 다음 턴에 순서대로 전달된다",
+   "evidence": "`pending-message-queue.ts` 610줄 · public 메서드 26개(`rg -n \"^  (async )?[a-zA-Z]+\\(\" …`) · 테스트 742줄 · 호출 파일은 `chat-turn/*` 와 `turn-coordinator.ts`",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 시나리오가 요구하는 전이(대기·취소·즉시 보내기·전달·되돌림)와 26개 메서드의 대응을 후속 plan에서 실측"
+   },
+   "risk": "높음 — 0151~0154가 고친 순서·고아 결함이 이 상태들에 걸려 있다",
+   "excess": [
+    "X2",
+    "X3"
+   ]
+  },
+  {
+   "id": "C-15",
+   "title": "`handleChatSend` 의 상태 전달 클로저와 중복 준비 호출",
+   "bucket": "main/app/chat-turn",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-05",
+    "S-06",
+    "S-07"
+   ],
+   "origin": [
+    "0188",
+    "0190",
+    "0210",
+    "0211",
+    "0301"
+   ],
+   "preserve": "전송·중단·이어 보내기의 결과가 같다",
+   "evidence": "`send.ts` 한 함수가 약 560줄 · `getActiveTurn`/`setActiveTurn`/`getInitialBatches`/`setInitialBatches` 4개 클로저로 상태 공유 · `prepareAgentExtensionProfile` 2회 · 하네스 `instructions` 설정 2회 읽기",
+   "saving": {
+    "prod": 0,
+    "test": 0,
+    "basis": "미추정 — 구조 변경이라 줄 수보다 분기 수가 줄어든다"
+   },
+   "risk": "높음 — 정리 순서(`finally` 3단)가 취소·소유자 소멸 경로에 걸려 있다",
+   "excess": [
+    "X3",
+    "X6"
+   ]
+  },
+  {
+   "id": "C-16",
+   "title": "개발용 mock 어댑터 분기가 전송 경로에 있음",
+   "bucket": "main/app/chat-turn",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-31"
+   ],
+   "origin": [
+    "0003",
+    "0134",
+    "0204",
+    "0211"
+   ],
+   "preserve": "개발 빌드의 mock 재생(S-31)은 그대로다",
+   "evidence": "`send.ts:71,102` 가 매 전송마다 `ctx.mockAdapter && ctx.debugMock.enabled` 를 2회 판정 · `bootstrap.ts:890` 은 DEV 에서만 `MockAdapter` 생성 · `mock-scenarios.ts` 828줄은 정적 import",
+   "saving": {
+    "prod": 4,
+    "test": 0,
+    "basis": "어댑터 선택을 registry 한 곳으로 옮길 때의 추정"
+   },
+   "risk": "낮음",
+   "excess": [
+    "X5"
+   ]
+  },
+  {
+   "id": "C-17",
+   "title": "컨텍스트 파일 권한 가드 중복",
+   "bucket": "main/app/handlers",
+   "lens": "L4",
+   "type": "restructure",
+   "scenarios": [
+    "S-17"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o '0[0-9]{3}' app/src/main/app/handlers/files.ts"
+   },
+   "preserve": "허용되지 않은 경로는 열리지 않는다",
+   "evidence": "`handlers/files.ts` `recordedContextDirectories` 와 `recordedAttachmentFiles` 가 같은 세션 조회 + `sessionContextPolicy(…).allowContextFileOpen` 가드를 각각 가진다",
+   "saving": {
+    "prod": 7,
+    "test": 0,
+    "basis": "가드 1벌 줄 수"
+   },
+   "risk": "낮음",
+   "excess": [
+    "X4",
+    "X6"
+   ]
+  },
+  {
+   "id": "C-18",
+   "title": "Claude·OpenCode `AssistantSegment` 중복",
+   "bucket": "renderer/features/chat/harnesses",
+   "lens": "L5",
+   "type": "restructure",
+   "scenarios": [
+    "S-04",
+    "S-05"
+   ],
+   "origin": {
+    "unknown": true,
+    "search": "rg -o '0[0-9]{3}' …/transcript/AssistantSegment.tsx"
+   },
+   "preserve": "두 하네스의 응답 본문이 지금과 같이 보인다",
+   "evidence": "같은 이름 파일 27쌍의 줄 겹침 측정 — 35% 이상 겹치는 쌍은 `transcript/AssistantSegment.tsx` 1쌍(22줄, 71%)",
+   "saving": {
+    "prod": 20,
+    "test": 0,
+    "basis": "겹치는 줄 수"
+   },
+   "risk": "낮음 — 기존 진단이 \"이름이 비슷하다고 합치지 않는다\"를 경계로 뒀다"
+  }
+ ],
+ "approvals": [
+  "C-01",
+  "C-02",
+  "C-03",
+  "C-04",
+  "C-05",
+  "C-06",
+  "C-07",
+  "C-08",
+  "C-09",
+  "C-10",
+  "C-11"
+ ]
+}
