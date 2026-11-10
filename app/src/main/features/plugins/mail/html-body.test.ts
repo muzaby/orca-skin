@@ -135,7 +135,7 @@ describe('decodeHtmlBytes (0302 AC17)', () => {
   })
 })
 
-// 0302 ΔV1 EP-06′ — charset 탐지 창과 디코딩 입력 길이를 구분한다.
+// 0302 ΔV2 EP-06″ — charset 탐지 창과 디코딩 입력 길이를 구분한다.
 describe('decodeHtmlBytes (0302 AC18)', () => {
   it.each([
     ['(g1) declared EUC-KR', '<meta charset="euc-kr">', Buffer.from('b0e1b7d0', 'hex')],
@@ -143,9 +143,9 @@ describe('decodeHtmlBytes (0302 AC18)', () => {
     ['(g3) undeclared EUC-KR fallback', '', Buffer.from('b0e1b7d0', 'hex')]
   ])('decodes the entire input through %s', (_path, declaration, marker) => {
     const filler = `<p>${'f'.repeat(4 * HTML_CHARSET_SNIFF_BYTES)}</p>`
-    // 표지는 마지막 바이트들이다. 앞부분만 디코딩하면 표지가 사라진다.
+    // 표지는 마지막 바이트들이다. 전체 결과를 비교해 앞·뒤·중간 누락을 모두 잡는다.
     const bytes = Buffer.concat([Buffer.from(`${declaration}${filler}`, 'ascii'), marker])
     expect(bytes.byteLength).toBeGreaterThan(4 * HTML_CHARSET_SNIFF_BYTES)
-    expect(decodeHtmlBytes(bytes)).toContain('결론')
+    expect(decodeHtmlBytes(bytes)).toBe(`${declaration}${filler}결론`)
   })
 })
