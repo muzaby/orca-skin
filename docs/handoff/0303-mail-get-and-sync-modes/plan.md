@@ -13,7 +13,7 @@
 | 구현 주체 | 사용자 결정 대기 — 도구 추가는 기능 구현(기본 Codex). Codex 부재 환경이면 사용자 지시로 Claude |
 | V mode | `Baseline V` — 명시적으로 상속할 V 없음 |
 | 기준 V | `none` |
-| 이번 V revision | `V1` |
+| 이번 V revision | `V1 rev.2` — rev.1(`e67b718`, 구현 전)에서 파라미터 이름만 변경(D-015). 동작·노드·pair 불변 |
 | 유효 V | `V1` |
 | 기준 커밋 | `e7991dd` (0302 r1 구현 포함, 0302는 검증 대기). 이 plan은 0302의 `bodySource`·`noBodyMails`·`skippedMails`·RETR 원문 fixture hook 위에 선다 |
 
@@ -47,11 +47,11 @@
 | ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
 |---|---|---|---|---|---|
 | D-001 | `mail_search`의 입력 스키마·결과 필드·snippet 300자·정렬·상한을 바꾸지 않는다 | "Search는 유지" | 사용자 | ACTIVE | — |
-| D-002 | 새 도구 `mail_get`: 입력 `{ mailId, offset?, length? }`, 로컬 캐시만 읽는다. `readOnlyHint:true`·`idempotentHint:true`·`openWorldHint:false` — 승인 없이 호출된다 | "Get 추가. 본문 전체 조회 기능 제공". 승인은 `readOnlyHint`가 정한다(`adapters/common/runtime-tool-policy.ts:25`), `mail_search`와 같은 등급 | 사용자 + 조사 | ACTIVE | — |
-| D-003 | `offset`·`length`의 단위는 **문자(UTF-16 code unit)**다. `offset`은 0부터, 응답은 `totalChars`와 `nextOffset`(다음 호출의 offset, 끝이면 `null`)을 준다 | 라인 단위는 한 줄이 한 문단인 본문(HTML 변환 결과·줄바꿈 없는 평문)에서 한 번의 응답 크기를 묶지 못하고, 줄 중간에서 이어 읽으려면 결국 문자 offset이 필요하다. 문자 단위는 항상 이어 읽을 수 있다. 모델은 `nextOffset`만 따라가면 된다 | 설계자 판단(요구 3 "offset, length 개념") | ACTIVE — **사용자 거부 가능**: 라인 단위를 원하면 구현 전 지시 | — |
-| D-004 | `length` 기본 **8,000**, 최대 **16,000** 문자. 상수는 `body-window.ts` 한 곳(`MAIL_GET_DEFAULT_LENGTH`·`MAIL_GET_MAX_LENGTH`) | 사용자: "100값을 제안하는 것이 아님" — 값은 설계자 몫. 기준은 기존 `mail_search` 응답 상한 ≈31KB(0237 §14)와 같은 자릿수. HTML 본문 최대(변환 입력 128Ki자)도 기본값으로 십수 회에 다 읽힌다 | 설계자 판단 | ACTIVE — 값 조정은 사용자 지시로 | — |
-| D-005 | 창 경계는 code point를 가르지 않는다. 시작이 low surrogate면 한 칸 앞으로, 끝이 pair를 가르면 한 칸 앞으로 당긴다. 그 결과 빈 창이 되면(요청 길이 1이 pair에 걸림) pair 전체를 준다. 응답 `offset`·`length`는 실제 값이다 | 이모지가 반쪽으로 잘려 깨진 문자가 모델에 가지 않게 한다 | 설계자 판단 | ACTIVE | — |
-| D-006 | `mail_get` 응답: `{ mailId, date, from, to, cc, subject, bodySource, totalChars, offset, length, text, nextOffset, attachmentCount, attachments, attachmentsTruncated? }`. 메타데이터는 매 호출에 싣는다(무상태). 첨부 manifest는 메일당 10건 상한 + `attachmentsTruncated` — `mail_search`와 같은 형상 | 모델이 이전 호출을 기억하지 않아도 되고, 첨부 조회(`mail_getAttachment`)로 바로 이어진다 | 설계자 판단 | ACTIVE | — |
+| D-002 | 새 도구 `mail_get`: 입력 `{ mailId, offset?, maxChars? }`, 로컬 캐시만 읽는다. `readOnlyHint:true`·`idempotentHint:true`·`openWorldHint:false` — 승인 없이 호출된다 | "Get 추가. 본문 전체 조회 기능 제공". 승인은 `readOnlyHint`가 정한다(`adapters/common/runtime-tool-policy.ts:25`), `mail_search`와 같은 등급 | 사용자 + 조사 | ACTIVE | — |
+| D-003 | `offset`·`maxChars`의 단위는 **문자(UTF-16 code unit)**다. `offset`은 0부터, 응답은 `totalChars`와 `nextOffset`(다음 호출의 offset, 끝이면 `null`)을 준다 | 라인 단위는 한 줄이 한 문단인 본문(HTML 변환 결과·줄바꿈 없는 평문)에서 한 번의 응답 크기를 묶지 못하고, 줄 중간에서 이어 읽으려면 결국 문자 offset이 필요하다. 문자 단위는 항상 이어 읽을 수 있다. 모델은 `nextOffset`만 따라가면 된다 | 설계자 판단(요구 3 "offset, length 개념") | ACTIVE — 사용자 확인(rev.2): "Offset, length는 개념적인것" | — |
+| D-004 | `maxChars` 기본 **8,000**, 최대 **16,000** 문자. 상수는 `body-window.ts` 한 곳(`MAIL_GET_DEFAULT_CHARS`·`MAIL_GET_MAX_CHARS`) | 사용자: "100값을 제안하는 것이 아님" — 값은 설계자 몫. 기준은 기존 `mail_search` 응답 상한 ≈31KB(0237 §14)와 같은 자릿수. HTML 본문 최대(변환 입력 128Ki자)도 기본값으로 십수 회에 다 읽힌다 | 설계자 판단 | ACTIVE — 값 조정은 사용자 지시로 | — |
+| D-005 | 창 경계는 code point를 가르지 않는다. 시작이 low surrogate면 한 칸 앞으로, 끝이 pair를 가르면 한 칸 앞으로 당긴다. 그 결과 빈 창이 되면(요청 길이 1이 pair에 걸림) pair 전체를 준다. 응답 `offset`·`maxChars`는 실제 값이다 | 이모지가 반쪽으로 잘려 깨진 문자가 모델에 가지 않게 한다 | 설계자 판단 | ACTIVE | — |
+| D-006 | `mail_get` 응답: `{ mailId, date, from, to, cc, subject, bodySource, totalChars, offset, returnedChars, text, nextOffset, attachmentCount, attachments, attachmentsTruncated? }`. 메타데이터는 매 호출에 싣는다(무상태). 첨부 manifest는 메일당 10건 상한 + `attachmentsTruncated` — `mail_search`와 같은 형상 | 모델이 이전 호출을 기억하지 않아도 되고, 첨부 조회(`mail_getAttachment`)로 바로 이어진다 | 설계자 판단 | ACTIVE | — |
 | D-007 | `mailId`가 `^[1-9][0-9]*$`가 아니거나 그 메일이 없으면 `{ error: 'mail_not_found' }` + `isError`. `offset`이 본문 길이 이상이면 오류가 아니라 `text:''`·`nextOffset:null` | `Number('1e2')` 같은 느슨한 변환으로 다른 메일이 조회되지 않게 한다. 끝을 넘긴 offset은 "다 읽었다"는 정상 신호 | 설계자 판단 | ACTIVE | — |
 | D-008 | `mail_sync` 입력 `mode?: 'incremental' \| 'full'`, 기본 `incremental`. `incremental`은 현행 동작 그대로(5분 freshness 포함) | "Sync는 부분 갱신, 전체 (재)갱신 할 수 있도록" — 부분 = 증분(§2 추론) | 사용자 + 추론 | ACTIVE — "부분"의 뜻이 다르면 사용자 정정 | — |
 | D-009 | `full`: freshness를 건너뛰고, 서버 UIDL 전부를 대상으로 TOP → 14일 경계 판정 → RETR → 덮어쓰기 저장한다. **지우지 않는다** — 서버에 없는 캐시 메일은 그대로 남고(ledger `missing`), 보호 판정(bulk loss)·연속 old-header 중단·메시지별 파싱 격리는 증분과 같다 | "(재)갱신"은 다시 받기다. 삭제까지 하면 서버 장애 순간의 full이 캐시를 날린다. 0237 D-007·D-026·D-047·D-062와 0302 D-009를 그대로 적용 | 사용자 + 설계자 | ACTIVE | — |
@@ -59,10 +59,12 @@
 | D-011 | 동시 호출 규칙: 진행 중 동기화가 `full`이면 어떤 요청이든 합류한다. 진행 중이 `incremental`이고 요청도 `incremental`이면 합류한다. 진행 중이 `incremental`인데 요청이 `full`이면 **그 동기화가 끝난 뒤 full을 새로 돈다**. 합류한 호출자는 실제 돈 `mode`를 결과에서 본다 | 현재는 모드가 없어 무조건 합류한다(`tools.ts:45-85`). full 요청이 증분 결과를 받으면 재갱신이 조용히 안 된 것이다. full ⊇ incremental | 설계자 판단 | ACTIVE | — |
 | D-012 | 새 도구는 도구 목록 **맨 뒤**에 둔다: `[mail_sync, mail_search, mail_getAttachment, mail_get]` | 기존 mail 테스트 14곳이 `implementations[0..2]` 위치로 부른다(§8) — 순서를 바꾸면 무관한 테스트가 깨진다 | 조사 | ACTIVE | — |
 | D-013 | 스키마 변경·마이그레이션·새 의존성 없음 | 본문은 이미 `body_text`에 전부 저장돼 있다 | 조사 | ACTIVE | — |
+| D-015 | 파라미터 이름: 입력은 `offset`·`maxChars`, 응답은 `offset`·`returnedChars`·`totalChars`·`nextOffset`. rev.1의 입력 `length`·응답 `length`를 대체한다 | 사용자: "Offset, length는 개념적인것. 더 나은 파라미터 이름이 있으면 거기에 맞춰라". `maxChars`는 단위(문자)와 "상한"(경계 보정·본문 끝에서 더 짧게 올 수 있음)을 이름이 말한다. `offset`은 응답의 `nextOffset`과 짝이라 유지. 응답의 길이는 요청값과 헷갈리지 않게 `returnedChars` | 사용자 + 설계자 | ACTIVE | ← rev.1 이름 |
 | D-014 | 서버 descriptor `instructions`와 `mail_sync`·`mail_get` 설명에 사용법을 적는다: 검색 뒤 본문이 더 필요하면 `mail_get`, `nextOffset`으로 이어 읽기, `full`은 사용자가 전체 재갱신을 원하거나 캐시 본문이 비정상일 때만 | full은 보존 기간 전체를 다시 받는다 — 모델이 습관적으로 쓰면 서버 부하(0237 D-008의 취지) | 설계자 판단 | ACTIVE | — |
 
 ### 갱신 메모
 
+- rev.2 (2026-11-10): 사용자 지시로 이름 변경 — 입력 `length` → `maxChars`, 응답 `length` → `returnedChars`, 상수 `MAIL_GET_*_LENGTH` → `MAIL_GET_*_CHARS`. `ACTIVE 결정 ↔ AC 대조: 충돌 0`(D-015→AC1·AC3·AC4·AC5, 나머지 매핑 불변).
 - V1 신규. 0302(검증 대기)의 산출 위에 서지만 그 V를 상속하지 않는다 — 0302 pair는 0302 verify가 닫는다.
 - `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001→AC16, D-002→AC1·AC9·AC18, D-003→AC1~AC3, D-004→AC4, D-005→AC5, D-006→AC1·AC7·AC8, D-007→AC4·AC6, D-008→AC10·AC17, D-009→AC11~AC14, D-010→AC10·AC11, D-011→AC15, D-012→AC18, D-013→AC20, D-014→AC18.
 
@@ -97,7 +99,7 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 | 시작 상태/이벤트 | 시스템 동작 | 사용자/소비자에게 보이는 결과 |
 |---|---|---|
 | `mail_get(mailId)` — 본문이 기본 길이보다 긺 | 앞 8,000자 창 | `text`·`totalChars`·`nextOffset:8000` |
-| `mail_get(mailId, offset, length)` | 그 창(D-005 경계 보정) | 실제 `offset`·`length`·`nextOffset` |
+| `mail_get(mailId, offset, maxChars)` | 그 창(D-005 경계 보정) | 실제 `offset`·`returnedChars`·`nextOffset` |
 | 마지막 창 | 끝까지 | `nextOffset:null` |
 | `offset ≥ totalChars` | 빈 창 | `text:''`·`nextOffset:null` (오류 아님) |
 | 본문 없는 메일(`bodySource:'none'`) | — | `text:''`·`totalChars:0`·`nextOffset:null`·첨부 manifest |
@@ -124,9 +126,10 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
-| offset·length 단위(D-003) | **예 — 도구 공개 계약** | 지금 고정(문자). 사용자 거부권 명시 |
+| offset·maxChars 단위(D-003) | **예 — 도구 공개 계약** | 지금 고정(문자). 사용자 거부권 명시 |
 | 결과 필드 이름 `mode`·`updatedMails`·`totalChars`·`nextOffset` | **예 — 도구 공개 계약** | 지금 고정 |
 | 도구 이름 `mail_get` | **예** | 지금 고정(사용자 "Get 추가") |
+| 파라미터 이름(D-015) | **예 — 도구 공개 계약** | 지금 고정: `offset`·`maxChars` / `returnedChars`·`totalChars`·`nextOffset` |
 | 길이 상수 값(D-004) | 아니오 — 상수 한 곳 | 사용자 지시로 조정 |
 
 ## 7. Requirements / Acceptance — `R ↔ AT`
@@ -135,11 +138,11 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | AT-01 / AC1 | 기본 길이보다 긴 본문을 `mail_get(mailId)`로 부르면 `text`가 본문 앞 8,000자, `totalChars`가 본문 길이, `offset:0`, `length:8000`, `nextOffset:8000`이고 `date`·`from`·`to`·`cc`·`subject`·`bodySource`가 그 메일의 값이다 | 통합: 서로 다른 from·to·cc·subject를 가진 20,000자 평문 메일 동기화 → 검색으로 얻은 `mailId`로 호출 → 각 필드 단언 | `mail_get` handler → `manager.getMail` → `store.getMail` → `sliceBody` |
+| R-01 | AT-01 / AC1 | 기본 길이보다 긴 본문을 `mail_get(mailId)`로 부르면 `text`가 본문 앞 8,000자, `totalChars`가 본문 길이, `offset:0`, `returnedChars:8000`, `nextOffset:8000`이고 `date`·`from`·`to`·`cc`·`subject`·`bodySource`가 그 메일의 값이다 | 통합: 서로 다른 from·to·cc·subject를 가진 20,000자 평문 메일 동기화 → 검색으로 얻은 `mailId`로 호출 → 각 필드 단언 | `mail_get` handler → `manager.getMail` → `store.getMail` → `sliceBody` |
 | R-01 | AT-01 / AC2 | `nextOffset`을 따라 `null`까지 부르면 `text`를 이은 것이 저장 본문 전체와 같다 | 통합: 위 메일을 기본 길이로 3회(8,000·8,000·4,000) → 이어 붙인 문자열 = 원문 본문 · 마지막 `nextOffset:null` | 같은 경로 |
-| R-01 | AT-01 / AC3 | `offset`·`length`를 주면 `text`가 본문의 그 구간이다 | `body-window.test.ts`: `sliceBody(text, 37, 113)` = `text.slice(37, 150)` 등 3구간 · 통합 1구간 | `sliceBody` |
-| R-01 | AT-01 / AC4 | `length` 생략 = 8,000 · `length`가 16,000을 넘으면 스키마가 거부하고 handler 직접 호출은 16,000으로 자른다 · `offset ≥ totalChars`는 `text:''`·`length:0`·`nextOffset:null` · 상수 값이 8,000/16,000이다 | `body-window.test.ts` 경계 케이스 · `tools.test.ts`: `z.object(inputSchema).safeParse({ mailId:'1', length:16001 })` 실패, `offset:-1`·`length:0`·소수 실패 | `mail_get` inputSchema → `sliceBody` |
-| R-01 | AT-01 / AC5 | 창 경계가 surrogate pair를 가르지 않는다: 끝이 pair 중간이면 그 앞에서 끊고 `nextOffset`이 pair 시작을 가리킨다 · 시작이 pair 중간이면 pair 시작부터 준다 · 길이 1 요청이 pair에 걸리면 pair 전체(길이 2)를 준다 | `body-window.test.ts`: `'ab😀cd'`류 입력 3케이스 — `text`에 lone surrogate 없음(`isWellFormed()`), `offset`·`length`·`nextOffset` 값 단언 | `sliceBody` |
+| R-01 | AT-01 / AC3 | `offset`·`maxChars`를 주면 `text`가 본문의 그 구간이다 | `body-window.test.ts`: `sliceBody(text, 37, 113)` = `text.slice(37, 150)` 등 3구간 · 통합 1구간 | `sliceBody` |
+| R-01 | AT-01 / AC4 | `maxChars` 생략 = 8,000 · `maxChars`가 16,000을 넘으면 스키마가 거부하고 handler 직접 호출은 16,000으로 자른다 · `offset ≥ totalChars`는 `text:''`·`returnedChars:0`·`nextOffset:null` · 상수 값이 8,000/16,000이다 | `body-window.test.ts` 경계 케이스 · `tools.test.ts`: `z.object(inputSchema).safeParse({ mailId:'1', maxChars:16001 })` 실패, `offset:-1`·`returnedChars:0`·소수 실패 | `mail_get` inputSchema → `sliceBody` |
+| R-01 | AT-01 / AC5 | 창 경계가 surrogate pair를 가르지 않는다: 끝이 pair 중간이면 그 앞에서 끊고 `nextOffset`이 pair 시작을 가리킨다 · 시작이 pair 중간이면 pair 시작부터 준다 · 길이 1 요청이 pair에 걸리면 pair 전체(길이 2)를 준다 | `body-window.test.ts`: `'ab😀cd'`류 입력 3케이스 — `text`에 lone surrogate 없음(`isWellFormed()`), `offset`·`maxChars`·`nextOffset` 값 단언 | `sliceBody` |
 | R-01 | AT-01 / AC6 | 없는 메일과 `'abc'`·`'1e2'`·`'0'`·`'-1'`·`'1.5'`·`' 1'`은 `error:'mail_not_found'`·`isError:true`이고 응답에 userData 경로가 없다 | 통합: id 100번 메일이 존재하는 상태에서 `'1e2'`가 그 메일을 돌려주지 않음을 포함해 각 입력 단언 | handler → `manager.getMail` |
 | R-01 | AT-01 / AC7 | `bodySource:'none'` 메일은 `text:''`·`totalChars:0`·`nextOffset:null`, `'attachment'` 메일은 첨부 유래 본문과 manifest 1건을 준다 | 통합: 0302의 `mailRaw.none`·`mailRaw.attachment` 재사용 | 같은 경로 |
 | R-01 | AT-01 / AC8 | 첨부 12건 메일의 `mail_get`은 `attachmentCount:12`·`attachments` 10건·`attachmentsTruncated:true`, 3건 메일은 3건·플래그 없음 | `store/index.test.ts` 신규 | `store.getMail` |
@@ -192,7 +195,7 @@ mail_sync(mode: 'full')    → freshness 생략 → 서버 UIDL 전부: TOP → 
 | VP-04 | SD-01 ↔ ST-01 | REQUIRED | `증분 완료 → (5분 안) full → UIDL → 보호 → 전 UIDL TOP → 경계 → RETR → upsert → lastSyncAt` · `서버 소실 → full → 캐시 유지` | 통합 AC11·AC12·AC13·AC14 | not selected | EP-03 (자리 7) |
 | VP-05 | AR-01 ↔ IT-01 | REQUIRED | `store.getMail(mailId) → row(account 한정) → 필드 매핑 → manifest(10 상한)` | `store/index.test.ts` AC8 + 필드 매핑 케이스 | not selected — 필드 값이 서로 달라 맞바꿈이 보인다 | EP-02 (자리 8) |
 | VP-06 | AR-02 ↔ IT-02 | REQUIRED | `handler mode → flight.mode → manager.sync 인자 → 결과.mode` | `tools-lifecycle.test.ts` AC15·AC17 · 통합 AC10·AC11 | required — flight 합류 판정을 "항상 합류"(현행)로 되돌리는 변이를 EP-04 두 자리에 각각(AC15 red 기대) | EP-04 (자리 2) |
-| VP-07 | MD-01 ↔ UT-01 | REQUIRED | `sliceBody(text, offset?, length?)` | `body-window.test.ts` AC3·AC4·AC5 | not selected | EP-01 (자리 6) |
+| VP-07 | MD-01 ↔ UT-01 | REQUIRED | `sliceBody(text, offset?, maxChars?)` | `body-window.test.ts` AC3·AC4·AC5 | not selected | EP-01 (자리 6) |
 | VP-08 | MD-02 ↔ UT-02 | REQUIRED | `syncPlan(mode)` · `joinsRunningSync(running, requested)` · `normalizeSyncMode(input)` | `sync-mode.test.ts` 전 조합 | not selected | EP-04 판정표 |
 | VP-09 | INH-MAIL ↔ 기존 ST | REGRESSION | 동기화 루프·tools flight·store를 고친다 | 기존 mail 14파일(갱신한 단언 3곳 포함) green | not selected | — |
 
@@ -266,8 +269,8 @@ mail_sync({mode?}) → normalizeSyncMode → tools.sync(mode, signal)
                  → TOP → decideIngest → RETR → parse(격리) → saveMessage(upsert)
                  → { synced, mode, newMails, updatedMails, noBodyMails, skippedMails, … }
 
-mail_get({mailId, offset?, length?}) → withManager(m => m.getMail(mailId, offset, length))
-   manager.getMail: store.getMail(mailId) → null ? null : { …meta, ...sliceBody(bodyText, offset, length), manifest }
+mail_get({mailId, offset?, maxChars?}) → withManager(m => m.getMail(mailId, offset, maxChars))
+   manager.getMail: store.getMail(mailId) → null ? null : { …meta, ...sliceBody(bodyText, offset, maxChars), manifest }
    handler: null → mail_not_found
 ```
 
@@ -286,10 +289,10 @@ mail_get({mailId, offset?, length?}) → withManager(m => m.getMail(mailId, offs
 
 | 모듈/레이어 | 책임 | 입력/출력 | 누가 import/호출 |
 |---|---|---|---|
-| `mail/body-window.ts` (신규, 순수) | 길이 상수 · `sliceBody` | `(text, offset?, length?) → { offset, length, text, totalChars, nextOffset }` | `sync-manager.ts`·`tools.ts`(상수) |
+| `mail/body-window.ts` (신규, 순수) | 길이 상수 · `sliceBody` | `(text, offset?, maxChars?) → { offset, returnedChars, text, totalChars, nextOffset }` | `sync-manager.ts`·`tools.ts`(상수) |
 | `mail/sync-mode.ts` (신규, 순수) | `MailSyncMode` 값·`normalizeSyncMode`·`syncPlan`·`joinsRunningSync` | — | `tools.ts`·`sync-manager.ts`·`types.ts`(타입) |
 | `mail/store/index.ts` | `getMail(mailId)` · manifest 공용 헬퍼 | `string → StoredMail \| null` | `sync-manager.ts` |
-| `mail/sync-manager.ts` | `sync(signal?, onStage?, mode?)` · `getMail(mailId, offset?, length?)` | — | `tools.ts` |
+| `mail/sync-manager.ts` | `sync(signal?, onStage?, mode?)` · `getMail(mailId, offset?, maxChars?)` | — | `tools.ts` |
 | `mail/tools.ts` | 도구 4개 · 입력 정규화 · mode별 flight | — | 배포 조립 |
 
 전부 `features/plugins` 슬라이스 내부. `sync-mode.ts`·`body-window.ts`는 런타임 의존 0이라 unit 풀이다(0237 ΔV4의 `retention-window.ts`와 같은 seam 패턴).
@@ -298,9 +301,9 @@ mail_get({mailId, offset?, length?}) → withManager(m => m.getMail(mailId, offs
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| MD-01 / VP-07 | **EP-01** 창 계산 | `body-window.ts` `sliceBody` | 구현자 | 자리 6: ① offset 기본 0·음수/비정수 → 0 ② length 기본값 ③ length 상한 clamp·하한 1 ④ 시작 code point 보정 ⑤ 끝 code point 보정(+빈 창이면 pair 확장) ⑥ `nextOffset` = 끝 < total ? 끝 : null. **규칙 칸 분기 9**: (a) 생략 → `[0, 8000)` (b) 지정 구간 (c) length > 16,000 → 16,000 (d) length < 1·비정수 → 기본값 (e) offset ≥ total → `text:''`·`length:0`·`nextOffset:null` (f) 끝이 total에 닿음 → `nextOffset:null` (g) 끝이 pair 중간 → 한 칸 앞 (h) 시작이 low surrogate → 한 칸 앞 (i) 길이 1이 pair에 걸림 → 길이 2 | `rg -n "MAIL_GET_\|charCodeAt\|nextOffset\|Math\.(min\|max)" app/src/main/features/plugins/mail/body-window.ts` | 창이 어긋나면 이어 읽은 본문에 누락·중복. 상한이 빠지면 한 응답이 본문 전체 |
-| MD-01 / VP-07 UT 입력 칸 | — | — | — | 본문 `T` = 위치마다 다른 20,000자. (a) `sliceBody(T)` (b) `(T,37,113)`·`(T,8000,8000)`·`(T,19990,5)` (c) `(T,0,99999)` → length 16,000 (d) `(T,0,0)`·`(T,0,2.5)`·`(T,0,-3)` → 8,000 (e) `(T,20000)`·`(T,99999)` (f) `(T,16000)` → length 4,000·null (g) `'ab😀cd'`,`(0,3)` → `'ab'`·next 2 (h) `(3,2)` → offset 2·`'😀'` (i) `(2,1)` → `'😀'`·length 2·next 4. 추가: offset `-5`·`1.7` → 0 | — | — |
-| AR-01 / VP-01·VP-05 | **EP-02** `mail_get` 운반 | `types.ts` `MailBodyPage` | 구현자 | 자리 8: ① `store.getMail` SQL(`WHERE m.id=? AND m.account_id=?`) ② mailId 형식 검사 `^[1-9][0-9]*$` ③ row → 메타 매핑(date·from·to·cc·subject·bodySource 6필드) ④ manifest 헬퍼(10 상한·truncated) ⑤ `manager.getMail`의 `sliceBody` 호출과 DTO 조립 ⑥ handler 입력 정규화(offset·length가 number일 때만 전달) ⑦ handler null → `mail_not_found` ⑧ descriptor·implementation 항목(스키마: `mailId` min 1 · `offset` int ≥0 · `length` int 1..16,000) | `rg -n "getMail\|mail_get\|mail_not_found\|MailBodyPage" app/src/main/features/plugins/mail -g '!*.test.ts'` | 계정 한정이 빠지면 다른 계정 메일 노출(현재 DB는 계정별이라 잠재). 형식 검사가 빠지면 `'1e2'`가 100번 메일을 연다 |
+| MD-01 / VP-07 | **EP-01** 창 계산 | `body-window.ts` `sliceBody` | 구현자 | 자리 6: ① offset 기본 0·음수/비정수 → 0 ② maxChars 기본값 ③ maxChars 상한 clamp·하한 1 ④ 시작 code point 보정 ⑤ 끝 code point 보정(+빈 창이면 pair 확장) ⑥ `nextOffset` = 끝 < total ? 끝 : null. **규칙 칸 분기 9**: (a) 생략 → `[0, 8000)` (b) 지정 구간 (c) maxChars > 16,000 → 16,000 (d) maxChars < 1·비정수 → 기본값 (e) offset ≥ total → `text:''`·`returnedChars:0`·`nextOffset:null` (f) 끝이 total에 닿음 → `nextOffset:null` (g) 끝이 pair 중간 → 한 칸 앞 (h) 시작이 low surrogate → 한 칸 앞 (i) 길이 1이 pair에 걸림 → 길이 2 | `rg -n "MAIL_GET_\|charCodeAt\|nextOffset\|Math\.(min\|max)" app/src/main/features/plugins/mail/body-window.ts` | 창이 어긋나면 이어 읽은 본문에 누락·중복. 상한이 빠지면 한 응답이 본문 전체 |
+| MD-01 / VP-07 UT 입력 칸 | — | — | — | 본문 `T` = 위치마다 다른 20,000자. (a) `sliceBody(T)` (b) `(T,37,113)`·`(T,8000,8000)`·`(T,19990,5)` (c) `(T,0,99999)` → returnedChars 16,000 (d) `(T,0,0)`·`(T,0,2.5)`·`(T,0,-3)` → 8,000 (e) `(T,20000)`·`(T,99999)` (f) `(T,16000)` → returnedChars 4,000·null (g) `'ab😀cd'`,`(0,3)` → `'ab'`·next 2 (h) `(3,2)` → offset 2·`'😀'` (i) `(2,1)` → `'😀'`·returnedChars 2·next 4. 추가: offset `-5`·`1.7` → 0 | — | — |
+| AR-01 / VP-01·VP-05 | **EP-02** `mail_get` 운반 | `types.ts` `MailBodyPage` | 구현자 | 자리 8: ① `store.getMail` SQL(`WHERE m.id=? AND m.account_id=?`) ② mailId 형식 검사 `^[1-9][0-9]*$` ③ row → 메타 매핑(date·from·to·cc·subject·bodySource 6필드) ④ manifest 헬퍼(10 상한·truncated) ⑤ `manager.getMail`의 `sliceBody` 호출과 DTO 조립 ⑥ handler 입력 정규화(offset·maxChars가 number일 때만 전달) ⑦ handler null → `mail_not_found` ⑧ descriptor·implementation 항목(스키마: `mailId` min 1 · `offset` int ≥0 · `maxChars` int 1..16,000) | `rg -n "getMail\|mail_get\|mail_not_found\|MailBodyPage" app/src/main/features/plugins/mail -g '!*.test.ts'` | 계정 한정이 빠지면 다른 계정 메일 노출(현재 DB는 계정별이라 잠재). 형식 검사가 빠지면 `'1e2'`가 100번 메일을 연다 |
 | AR-01 UT 입력 칸 | — | — | — | ③ from·to·cc·subject·date·bodySource가 서로 다른 메일 ④ 첨부 12건·3건·0건 ② AC6 입력 6종 + id 100 메일 존재 ⑥ `handler({mailId, offset:'5'})` → offset 무시(0) | — | — |
 | AR-02·SD-01 / VP-02·VP-04 | **EP-03** `mode` 운반과 full 의미 | `sync-mode.ts` | 구현자 | 자리 7: ① `mail_sync` inputSchema `mode: z.enum(['incremental','full']).optional()` ② handler `normalizeSyncMode(input.mode)` ③ `withManager` 안 `manager.sync(signal, undefined, mode)` ④ `manager.sync` 시그니처 기본값 `'incremental'` ⑤ freshness 분기: `!plan.bypassFreshness && isFresh(…)` ⑥ 루프 대상 선택: `plan.refetchKnown \|\| fresh.includes(uidl)` ⑦ 결과 `mode`·`newMails`/`updatedMails` 분리 집계(active ledger 여부) | `rg -n "mode\|syncPlan\|bypassFreshness\|refetchKnown\|updatedMails\|reconciled\.fresh" app/src/main/features/plugins/mail/sync-manager.ts app/src/main/features/plugins/mail/tools.ts` | ⑤만 되면 full이 접속은 하되 새 메일만 받고, ⑥만 되면 5분 안 full이 `fresh`로 끝난다 — 둘 다 "full이 조용히 증분" |
 | MD-02 / VP-06·VP-08 | **EP-04** 동시 호출 판정 | `sync-mode.ts` `joinsRunningSync` | 구현자 | 자리 2: ① `tools.ts` flight 판정(합류 / 종료 대기 후 재판정) ② `sync-manager.ts` `inFlight` 판정(같은 함수 사용). **판정표 4칸**: (incremental, incremental) → 합류 · (full, incremental) → 합류 · (full, full) → 합류 · (incremental, full) → 대기 후 실행 | `rg -n "joinsRunningSync\|inFlight" app/src/main/features/plugins/mail -g '!*.test.ts'` | ①이 무조건 합류면 full 요청이 증분 결과를 받는다(재갱신 무음 실패) |
@@ -323,14 +326,14 @@ mail_get({mailId, offset?, length?}) → withManager(m => m.getMail(mailId, offs
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
-| `app/src/main/features/plugins/mail/body-window.ts` (신규) | 창 계산 | `MAIL_GET_DEFAULT_LENGTH = 8_000` · `MAIL_GET_MAX_LENGTH = 16_000` · `sliceBody` — EP-01 | 순수 단위 |
+| `app/src/main/features/plugins/mail/body-window.ts` (신규) | 창 계산 | `MAIL_GET_DEFAULT_CHARS = 8_000` · `MAIL_GET_MAX_CHARS = 16_000` · `sliceBody` — EP-01 | 순수 단위 |
 | `…/mail/body-window.test.ts` (신규) | — | AC3·AC4·AC5 + EP-01 입력 칸 · 상수 값 단언 | unit |
 | `…/mail/sync-mode.ts` (신규) | 모드 판정 | `export type MailSyncMode = 'incremental' \| 'full'` · `normalizeSyncMode(value: unknown)` · `syncPlan(mode)` · `joinsRunningSync(running, requested)` | 순수 단위 |
 | `…/mail/sync-mode.test.ts` (신규) | — | EP-04 판정표 + MD-02 입력 칸 | unit |
 | `…/mail/types.ts` | 타입 | `MailBodyPage`(D-006 필드) · `synced:true` 분기에 `readonly mode: MailSyncMode; readonly updatedMails: number` | typecheck |
 | `…/mail/store/index.ts` | 조회 | `getMail(mailId: string): StoredMail \| null`(메타 + `bodyText` 전체 + manifest) · search의 manifest 매핑을 헬퍼로 추출해 공유(검색의 전체 50 상한 로직은 search에 남긴다) — EP-02 ①~④ | io |
 | `…/mail/store/index.test.ts` | — | AC8 · 필드 매핑 · 형식 검사 · 기존 search 테스트 무변경 | io |
-| `…/mail/sync-manager.ts` | 동기화·조회 | `sync(signal?, onStage?, mode = 'incremental')` — EP-03 ④~⑦·EP-04 ② · `getMail(mailId, offset?, length?)` — EP-02 ⑤ | 통합 |
+| `…/mail/sync-manager.ts` | 동기화·조회 | `sync(signal?, onStage?, mode = 'incremental')` — EP-03 ④~⑦·EP-04 ② · `getMail(mailId, offset?, maxChars?)` — EP-02 ⑤ | 통합 |
 | `…/mail/tools.ts` | 도구 | `mail_sync` 스키마·handler·mode별 flight(EP-03 ①~③·EP-04 ①) · `mail_get` 항목(EP-02 ⑥~⑧·EP-05) · `instructions`·설명 문구(D-014) | mock manager |
 | `…/mail/tools.test.ts` | — | AC4·AC16·AC17·AC18(기존 "exactly three" 케이스를 넷으로 갱신) | unit |
 | `…/mail/tools-lifecycle.test.ts` | — | AC15·AC17 | unit |
@@ -377,7 +380,7 @@ flight 구현 지침(`tools.ts`): flight 레코드에 `mode`를 둔다. `sync(mo
 ## 14. 성능 / 상한 / 최적화
 
 - `mail_get` 1회 응답: 본문 ≤ 16,000자 + 메타 + manifest 10건(≈3.3KB) — UTF-8로 최대 ≈ 51KB(한글 3바이트). 기본 8,000자는 ≈ 27KB로 `mail_search` 상한(≈31KB)과 같은 자릿수.
-- 본문 전체 읽기 호출 수: `ceil(totalChars / length)`. HTML 유래 본문은 변환 입력 128Ki자라 출력이 그 이하 → 기본값으로 최대 17회, 최대값으로 9회.
+- 본문 전체 읽기 호출 수: `ceil(totalChars / maxChars)`. HTML 유래 본문은 변환 입력 128Ki자라 출력이 그 이하 → 기본값으로 최대 17회, 최대값으로 9회.
 - `store.getMail`은 호출마다 `body_text` 전체를 읽고 JS에서 자른다. 본문 수백 KB × 호출 수 — SQLite 로컬 읽기라 무시 가능. SQL `substr`는 code point 단위라 UTF-16 offset과 어긋나므로 쓰지 않는다.
 - full 요청 수: `UIDL 1 + TOP K + RETR K′` (K = 서버 메일 중 연속 old-header 중단 전까지, K′ = 14일 안). 증분 최초 동기화와 같은 규모다(0237 §14).
 
