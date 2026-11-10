@@ -105,3 +105,11 @@ describe('r4 Work menu actual modes', () => {
       ).toEqual(['default', 'bypass'])
   })
 })
+
+it.each(['work', 'code'] as const)('0304 resolved aliases expose automatic mode for %s', (kind) => {
+  const model = { alias: 'haiku', model: 'haiku', isCustom: false }
+  expect(
+    modeMenuOptions({ ...model, resolvedModel: 'claude-haiku-5-5' }, kind).map((m) => m.mode)
+  ).toContain('auto_classified')
+  expect(modeMenuOptions(model, kind).map((m) => m.mode)).not.toContain('auto_classified')
+})

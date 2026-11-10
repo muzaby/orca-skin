@@ -323,6 +323,7 @@ export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 export interface AgentModelView {
   alias: string
   model: string | null
+  resolvedModel?: string
   isCustom: boolean
   oneMillionContext: boolean
   isDefault: boolean

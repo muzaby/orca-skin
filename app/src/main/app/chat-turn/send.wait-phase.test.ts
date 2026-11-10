@@ -106,6 +106,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
   const deps = {
     ctx: {
       db: {
+        updateSessionProviderKey: vi.fn(),
         getProject: vi.fn(() => null),
         ensurePathProject: vi.fn((row) => ({ ...row, cwd_key: row.cwdKey })),
         getSessionById: () => ({

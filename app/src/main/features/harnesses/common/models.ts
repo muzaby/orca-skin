@@ -28,6 +28,22 @@ export function modelNameForFamily(
   models: ParsedModel[],
   alias: string | null | undefined
 ): string | undefined {
+  const selected = selectedModelForFamily(models, alias)
+  return selected ? modelIdentity(selected) : undefined
+}
+
+export function permissionModelForFamily(
+  models: ParsedModel[],
+  alias: string | null | undefined
+): string | undefined {
+  const selected = selectedModelForFamily(models, alias)
+  return selected ? (selected.resolvedModel ?? modelIdentity(selected)) : undefined
+}
+
+function selectedModelForFamily(
+  models: ParsedModel[],
+  alias: string | null | undefined
+): ParsedModel | undefined {
   if (models.length === 0) return undefined
   const wanted = alias?.trim()
   // identity 우선 — `X` 와 `X[1m]` 을 구분해야 사용자가 고른 쪽이 실행된다.
@@ -41,7 +57,7 @@ export function modelNameForFamily(
   const selected = byIdentity ?? byLegacy ?? models.find((model) => model.isDefault) ?? models[0]
   if (!selected) return undefined
   // 반환값 = 선택 식별자와 **같은 문자열**이다. 두 값이 갈라질 자리를 만들지 않는다.
-  return modelIdentity(selected)
+  return selected
 }
 
 export function defaultModelFamily(models: ParsedModel[]): string | null {

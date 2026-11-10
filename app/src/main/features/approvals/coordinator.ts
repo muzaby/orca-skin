@@ -88,8 +88,7 @@ export class ApprovalCoordinator {
       this.respond(req)
     )
 
-    // live는 실제 채널 모델로 정착하고 SDK 성공 후 적용값을 회신한다.
-    // idle은 종류별 선택만 저장한다. 다음 send가 해소한 실제 모델로 다시 검사한다.
+    // 선택은 다음 턴의 설정이다. live가 그대로 받을 때만 SDK에 적용한다.
     handle(
       CHANNELS.permissionSetMode,
       SetPermissionModeSchema,
@@ -102,12 +101,17 @@ export class ApprovalCoordinator {
           const kind = turn?.agentKind ?? getSessionKind(sessionId)
           if (!kind || (turn && !turn.live)) return undefined
           const live = turn?.live
-          const applied = turn?.live
-            ? coerceAutoPermissionModeForModelName(mode, turn.live.spawnedModel, kind)
-            : permissionModeForAgent(mode, kind)
-          if (turn?.live) {
+          const selection = permissionModeForAgent(mode, kind)
+          if (
+            live &&
+            coerceAutoPermissionModeForModelName(
+              selection,
+              live.spawnedPermissionModel ?? live.spawnedModel,
+              kind
+            ) === selection
+          ) {
             try {
-              await turn.live.setPermissionMode(applied)
+              await live.setPermissionMode(selection)
               if (
                 supervisor.getBySession(sessionId) !== turn ||
                 turn.live !== live ||
@@ -118,8 +122,8 @@ export class ApprovalCoordinator {
               return undefined
             }
           }
-          void permissionModes.setMode(sessionId, applied)
-          return applied
+          void permissionModes.setMode(sessionId, selection)
+          return selection
         })()
         this.modeUpdates.set(sessionId, update)
         try {

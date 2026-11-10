@@ -160,3 +160,26 @@ describe('coerceAutoPermissionMode (AT-12·AT-14 · D-010)', () => {
     )
   })
 })
+
+describe('0304 resolved permission evidence', () => {
+  it.each(['work', 'code'] as const)('uses evidence priority for %s', (kind) => {
+    const fallback = kind === 'work' ? 'default' : 'accept_edits'
+    expect(
+      coercePermissionMode(
+        'auto_classified',
+        { alias: 'haiku', model: 'haiku', resolvedModel: 'claude-haiku-5-5' },
+        kind
+      )
+    ).toBe('auto_classified')
+    expect(coercePermissionMode('auto_classified', { alias: 'haiku', model: 'haiku' }, kind)).toBe(
+      fallback
+    )
+    expect(
+      coercePermissionMode(
+        'auto_classified',
+        { alias: 'haiku', model: 'claude-haiku-5-5', resolvedModel: 'claude-haiku-4-5' },
+        kind
+      )
+    ).toBe(fallback)
+  })
+})

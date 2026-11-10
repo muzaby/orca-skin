@@ -1,5 +1,5 @@
 import {
-  CLAUDE_MODEL_FAMILIES,
+  resolveClaudeModelAlias,
   parseClaudeModelName,
   type ClaudeNameFamily
 } from '../../../shared/harnesses/claude/model-policy'
@@ -76,9 +76,7 @@ export function resolveCliModel(
     lookup('ANTHROPIC_MODEL') ||
     (typeof settingsModel === 'string' ? settingsModel : undefined)
   if (!selected) return undefined
-  const alias = selected.replace(/\[1m\]/gi, '').toLowerCase()
-  if (!(CLAUDE_MODEL_FAMILIES as readonly string[]).includes(alias)) return selected
-  return lookup(`ANTHROPIC_DEFAULT_${alias.toUpperCase()}_MODEL`) || selected
+  return resolveClaudeModelAlias(selected, lookup)
 }
 
 function enabled(value?: string): boolean {

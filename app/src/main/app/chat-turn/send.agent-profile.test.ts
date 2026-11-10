@@ -116,6 +116,7 @@ function harness(cwd: string, pluginPath = plugin) {
     releaseChain: vi.fn()
   }
   const db = {
+    updateSessionProviderKey: vi.fn(),
     getSessionById: () => ({ agent_kind: mocks.sourceKind }),
     getProjectContextForSession: () => null,
     getProject: () => null,

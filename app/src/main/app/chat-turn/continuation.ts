@@ -16,6 +16,7 @@ export interface ContinuationSettings {
   // 생긴다(구 listen 이 env 를 생략했다).
   prepared: PreparedHarnessConfig
   model?: string | undefined
+  permissionModel?: string
   permissionMode?: TurnRequest['permissionMode']
 }
 
@@ -43,6 +44,9 @@ export function buildListenRequest(input: {
     extensions: continuation.extensions,
     ...(continuation.permissionMode ? { permissionMode: continuation.permissionMode } : {}),
     signal: input.signal,
+    ...(continuation.permissionModel !== undefined
+      ? { permissionModel: continuation.permissionModel }
+      : {}),
     ...(continuation.model !== undefined ? { model: continuation.model } : {}),
     ...preparedFields(continuation.prepared),
     ...pickFrameDelegates(input.base)
@@ -76,6 +80,9 @@ export function buildFlushRequest(input: {
     // 0126/0188: respawn 대비 **신선한 settings + env** 로 교체 — 해석 실패(undefined)면
     // 원본 유지(보수적).
     ...preparedFields(continuation.prepared),
+    ...(continuation.permissionModel !== undefined
+      ? { permissionModel: continuation.permissionModel }
+      : {}),
     ...(continuation.model !== undefined ? { model: continuation.model } : {})
   }
   delete request.forkFrom

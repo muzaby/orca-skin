@@ -11,6 +11,7 @@ export interface ModelSelection {
   // 빠뜨리면 haiku 판정이 조용히 false 가 되므로 타입이 세 생산 지점을 모두 강제한다.
   // `null` = 아직 모델이 정해지지 않음(default hydration 대기).
   modelAlias: string | null
+  resolvedModel?: string
 }
 
 // 선택 식별자의 정본은 `shared/model-identity.ts` 다(0215 D-007) — main 의 동명 함수와 **같은
@@ -31,6 +32,7 @@ export function defaultSelection(
       providerKey: agent.key,
       modelFamily: model ? modelKey(model) : null,
       modelAlias: model ? model.alias : null,
+      ...(model?.resolvedModel !== undefined ? { resolvedModel: model.resolvedModel } : {}),
       adapter: agent.adapter,
       provider: agent.provider
     }
@@ -65,11 +67,17 @@ export function selectionLabel(selection: ModelSelection | null): string | null 
 export function selectedModelShape(
   agents: AgentEnvironment[],
   selection: ModelSelection | null
-): { alias: string; model: string | null; isCustom: boolean } | null {
+): { alias: string; model: string | null; isCustom: boolean; resolvedModel?: string } | null {
   if (!selection?.modelFamily) return null
   const agent = agents.find((a) => a.key === selection.providerKey)
   const model = agent?.models.find((m) => modelKey(m) === selection.modelFamily)
-  if (model) return { alias: model.alias, model: model.model, isCustom: model.isCustom }
+  if (model)
+    return {
+      alias: model.alias,
+      model: model.model,
+      isCustom: model.isCustom,
+      ...(model.resolvedModel !== undefined ? { resolvedModel: model.resolvedModel } : {})
+    }
   // 카탈로그에서 못 찾으면(하이드레이션 지연·기여 회수) custom 여부도 확인할 수 없다.
   // 선택 문자열만으로 지원을 추측하지 않고 미확정으로 돌려준다.
   return null

@@ -39,3 +39,12 @@ describe('setModel — 강등 시 main 동기화 (AT-13)', () => {
     expect(mode()).toBe('accept_edits')
   })
 })
+
+it('0304 keeps automatic approval with resolved alias evidence', () => {
+  chatActions.setModel('claude-anthropic', 'haiku', 'haiku', 'claude', {
+    resolvedModel: 'claude-haiku-5-5'
+  })
+  chatActions.setPermissionMode('auto_classified')
+  expect(mode()).toBe('auto_classified')
+  expect(useChatStore.getState().sessions.s.session.modelResolved).toBe('claude-haiku-5-5')
+})

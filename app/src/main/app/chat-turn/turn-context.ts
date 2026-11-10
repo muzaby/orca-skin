@@ -15,6 +15,19 @@ import type { ResolvedHarnessSettings } from '../../adapters/common/harness-conf
 import type { SessionControl } from '../../features/sessions/session-chain-lease'
 import { isFilesystemRoot } from '../../../shared/absolute-path'
 
+// Record a resolved idle send without clearing legacy metadata when no model was resolved.
+export function sessionModelRecordFor(input: {
+  sessionId?: string | null
+  resolved: { providerKey: string | null; model?: string }
+}): { id: string; providerKey: string | null; model: string } | null {
+  if (!input.sessionId || input.resolved.model === undefined) return null
+  return {
+    id: input.sessionId,
+    providerKey: input.resolved.providerKey,
+    model: input.resolved.model
+  }
+}
+
 // 턴-로컬 상태의 단일 초기값 — 신규 턴과 자동 연속 턴이 공유한다. TurnContext 에 턴-로컬
 // 필드를 더하면 여기에만 더한다(턴 간 계승/차이가 있는 것은 각 호출부가 명시).
 function freshTurnLocalState<W>(

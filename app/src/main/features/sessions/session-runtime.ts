@@ -271,6 +271,7 @@ export class SessionRuntime implements ManagedRuntime {
   // (예: sonnet→haiku) chat-turn 이 respawn 을 판정한다. 라이브 setModel(/model)은 이미 스폰된
   // 서브프로세스의 실제 생성 모델을 바꾸지 못하므로(실측), 모델 변경도 콜드 spawn 이 필요하다.
   private spawnedModelValue: string | undefined
+  private spawnedPermissionModelValue: string | undefined
   private spawnedFingerprint: string | undefined
   private spawnedRuntimeToolsRevisionValue: number | undefined
   private spawnedManagedMcpRevisionValue: number | undefined
@@ -313,6 +314,10 @@ export class SessionRuntime implements ManagedRuntime {
   // (같은 provider 내) 모델 변경 respawn 을 판정한다. channelAlive 인 동안만 유효.
   get spawnedModel(): string | undefined {
     return this.spawnedModelValue
+  }
+
+  get spawnedPermissionModel(): string | undefined {
+    return this.spawnedPermissionModelValue
   }
 
   // 0188 — spawn 당시 **최종 env** 의 비교값. 내용 해석은 하지 않는다(불투명 문자열) — 판정은
@@ -518,6 +523,7 @@ export class SessionRuntime implements ManagedRuntime {
     // 부재 시에만 계산한다(주입 경로 밖에서 만든 요청).
     this.spawnedFingerprint = req.envFingerprint ?? harnessEnvFingerprint(req.env)
     this.spawnedModelValue = req.model
+    this.spawnedPermissionModelValue = req.permissionModel ?? req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
     this.spawnedManagedMcpRevisionValue = this.managedMcpRevision(req.extensions.managedMcp)
     this.spawnedAgentProfileKeyValue = req.extensions.agentProfileKey
@@ -782,6 +788,7 @@ export class SessionRuntime implements ManagedRuntime {
         this.spawnedSettings = undefined
         this.spawnedFingerprint = undefined
         this.spawnedModelValue = undefined
+        this.spawnedPermissionModelValue = undefined
         this.spawnedRuntimeToolsRevisionValue = undefined
         this.spawnedManagedMcpRevisionValue = undefined
         this.spawnedAgentProfileKeyValue = undefined

@@ -2,6 +2,7 @@
 export interface ParsedModel {
   alias: string
   model: string | null
+  resolvedModel?: string
   isCustom: boolean
   oneMillionContext: boolean
   isDefault: boolean

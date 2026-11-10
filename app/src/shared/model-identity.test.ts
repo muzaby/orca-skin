@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { supportsAutoPermission, parseClaudeModelName } from './harnesses/claude/model-policy'
+import {
+  supportsAutoPermission,
+  parseClaudeModelName,
+  resolveClaudeModelAlias
+} from './harnesses/claude/model-policy'
 import { modelIdentity, sameModelIdentity } from './model-identity'
 
 describe('0246 AC5 — shared Claude name parser', () => {
@@ -91,5 +95,28 @@ describe('modelIdentity — 선택 식별자 = SDK 모델 문자열 (AT-09)', ()
   it('model 이 null 이면 bare alias 를 쓴다 — 모델명을 추측하지 않는다', () => {
     expect(modelIdentity({ alias: 'haiku', model: null, oneMillionContext: false })).toBe('haiku')
     expect(modelIdentity({ alias: 'opus', model: null, oneMillionContext: true })).toBe('opus[1m]')
+  })
+})
+
+describe('0304 alias evidence', () => {
+  const env: Record<string, string> = {
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-5-5',
+    ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-5-5',
+    ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-5-5',
+    ANTHROPIC_DEFAULT_FABLE_MODEL: 'claude-fable-5-5'
+  }
+  it.each(['haiku', 'sonnet', 'opus', 'fable', 'Haiku[1m]'])(
+    'resolves only the exact family %s',
+    (name) => {
+      expect(resolveClaudeModelAlias(name, (key) => env[key])).toBe(
+        env[`ANTHROPIC_DEFAULT_${name.replace(/\[1m\]/i, '').toUpperCase()}_MODEL`]
+      )
+    }
+  )
+  it.each([undefined, ''])('keeps alias without env evidence (%s)', (value) => {
+    expect(resolveClaudeModelAlias('haiku', () => value)).toBe('haiku')
+  })
+  it.each(['claudecode-haiku-5.5', 'my-haiku'])('keeps non-alias %s', (name) => {
+    expect(resolveClaudeModelAlias(name, () => 'claude-haiku-5-5')).toBe(name)
   })
 })

@@ -143,6 +143,7 @@ export function Composer({
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
   const modelAlias = useChatSession((s) => s.modelAlias)
+  const modelResolved = useChatSession((s) => s.modelResolved)
   const turnProviderKey = useChatSession((s) => s.turnProviderKey)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
@@ -195,25 +196,38 @@ export function Composer({
     // 선택이 없거나 원천이 사라졌으면(런타임 contribution 회수 포함) default 로 되돌린다.
     if (!providerKey || !selectionExists(agents, providerKey, modelFamily)) {
       const next = draftSelection(agents, backend, restrictModelFallback)
-      if (next) setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter)
+      if (next)
+        setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter, {
+          resolvedModel: next.resolvedModel
+        })
       return
     }
     if (modelFamily != null) {
       const agent = agents.find((a) => a.key === providerKey)
       const model = agent?.models.find((m) => modelKey(m) === modelFamily)
-      if (agent && model && modelAlias !== model.alias)
-        setModel(providerKey, modelFamily, model.alias, agent.adapter)
+      if (
+        agent &&
+        model &&
+        (modelAlias !== model.alias || modelResolved !== (model.resolvedModel ?? null))
+      )
+        setModel(providerKey, modelFamily, model.alias, agent.adapter, {
+          resolvedModel: model.resolvedModel
+        })
       return
     }
     // provider 만 복원된 상태 — 그 provider 의 default 모델로 채운다.
     const agent = agents.find((a) => a.key === providerKey)
     const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
-    if (agent && model) setModel(providerKey, modelKey(model), model.alias, agent.adapter)
+    if (agent && model)
+      setModel(providerKey, modelKey(model), model.alias, agent.adapter, {
+        resolvedModel: model.resolvedModel
+      })
   }, [
     agents,
     backend,
     restrictModelFallback,
     modelAlias,
+    modelResolved,
     modelFamily,
     providerKey,
     setModel,
@@ -436,7 +450,8 @@ export function Composer({
               selection.providerKey,
               selection.modelFamily,
               selection.modelAlias,
-              selection.adapter
+              selection.adapter,
+              { resolvedModel: selection.resolvedModel }
             )
             setModelMenuOpen(false)
           }}

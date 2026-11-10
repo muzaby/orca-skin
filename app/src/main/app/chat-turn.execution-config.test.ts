@@ -183,6 +183,7 @@ function install(
       runtimeModelCatalog,
       // A saved conversation and a continuation read the key history stored for it.
       db: {
+        updateSessionProviderKey: vi.fn(),
         getSessionById: (id: string) =>
           id === 'session-1' || id === 'saved'
             ? {

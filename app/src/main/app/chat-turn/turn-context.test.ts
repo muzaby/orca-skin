@@ -379,3 +379,17 @@ it('carries the actual resolved model, separately from the title model, into con
   expect(turn.modelFamily).toBe('claude-sonnet-4-6[1m]')
   expect(makeContinuationTurn(turn).modelFamily).toBe('claude-sonnet-4-6[1m]')
 })
+
+describe('0304 session model record', () => {
+  it('records only existing sessions with a resolved model', async () => {
+    const { sessionModelRecordFor } = await import('./turn-context')
+    expect(
+      sessionModelRecordFor({ sessionId: 's1', resolved: { providerKey: 'pk-b', model: 'haiku' } })
+    ).toEqual({ id: 's1', providerKey: 'pk-b', model: 'haiku' })
+    expect(
+      sessionModelRecordFor({ sessionId: 's1', resolved: { providerKey: null, model: 'haiku' } })
+    ).toEqual({ id: 's1', providerKey: null, model: 'haiku' })
+    expect(sessionModelRecordFor({ sessionId: 's1', resolved: { providerKey: 'pk-b' } })).toBeNull()
+    expect(sessionModelRecordFor({ resolved: { providerKey: 'pk-b', model: 'haiku' } })).toBeNull()
+  })
+})

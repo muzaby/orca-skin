@@ -1,0 +1,319 @@
+{
+  "baseline": {
+    "commit": "eb5ecdb6",
+    "files": 940,
+    "total": 8853,
+    "passed": 8815,
+    "failed": 27,
+    "skipped": 11
+  },
+  "final": {
+    "files": 943,
+    "total": 8909,
+    "passed": 8871,
+    "failed": 27,
+    "skipped": 11
+  },
+  "failureComparison": {
+    "new": [],
+    "resolved": [],
+    "changedTestSourceFailures": []
+  },
+  "runtime": {
+    "fullVitest": "installed Electron in Node mode (Node v22.22.1, SQLite ABI 140)",
+    "env": [
+      "ELECTRON_RUN_AS_NODE=1",
+      "PATH prefix /tmp/0304-node-runtime (node symlink to installed Electron)"
+    ],
+    "nativeRebuild": false,
+    "execution": "local subprocesses and loopback available"
+  },
+  "commands": {
+    "vitest": "./node_modules/.bin/vitest run --maxWorkers=4 --reporter=json (runtime env above)",
+    "scripts": "node --test scripts/*.test.mjs",
+    "lint": "npm run lint -- --no-fix",
+    "typecheck": "npm run typecheck",
+    "guards": [
+      "node scripts/check-migrations-appendonly.mjs",
+      "node scripts/check-doc-inventory.mjs --check",
+      "node scripts/check-test-budgets.mjs"
+    ]
+  },
+  "gates": {
+    "lint": {
+      "errors": 0,
+      "warnings": 2
+    },
+    "typecheck": "node/web/test passed",
+    "scripts": {
+      "passed": 827,
+      "failed": 0,
+      "suites": 46
+    },
+    "migrationGuard": "passed",
+    "inventoryGuard": "passed",
+    "budgetGuard": "passed",
+    "fullVitest": "baseline-equivalent; process exit 1"
+  },
+  "mutations": {
+    "total": 70,
+    "red": 70,
+    "green": 0,
+    "skipped": 0,
+    "specResultIdDifference": [],
+    "restoration": "mutation runner hash check passed"
+  },
+  "sourceSnapshot": {
+    "files": 2139,
+    "sha256": "a77a3d0cff58b7410909f23a547929e75f065c102766f947ca0bd6cba60d761e",
+    "differences": []
+  },
+  "regressionOracles": [
+    {
+      "file": "src/renderer/src/app/boot/steps.test.ts",
+      "status": "passed",
+      "cases": 9
+    },
+    {
+      "file": "src/main/app/bootstrap.settings-early.test.ts",
+      "status": "passed",
+      "cases": 2
+    }
+  ],
+  "changedTestSources": [
+    "app/src/main/app/chat-turn-continuation.test.ts",
+    "app/src/main/app/chat-turn.execution-config.test.ts",
+    "app/src/main/app/chat-turn.returned-input.test.ts",
+    "app/src/main/app/chat-turn/continuation.test.ts",
+    "app/src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts",
+    "app/src/main/app/chat-turn/send.agent-profile.test.ts",
+    "app/src/main/app/chat-turn/send.busy.test.ts",
+    "app/src/main/app/chat-turn/send.permission-mode.test.ts",
+    "app/src/main/app/chat-turn/send.wait-phase.test.ts",
+    "app/src/main/app/chat-turn/send.worktree.test.ts",
+    "app/src/main/app/chat-turn/turn-context.test.ts",
+    "app/src/main/features/approvals/coordinator.permission.test.ts",
+    "app/src/main/features/harnesses/claude/model-parser.test.ts",
+    "app/src/main/features/harnesses/common/models.test.ts",
+    "app/src/main/features/sessions/session-runtime.test.ts",
+    "app/src/renderer/src/features/chat/components/Composer.selection.test.ts",
+    "app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.test.ts",
+    "app/src/renderer/src/features/chat/harnesses/common/composer/composerWiring.test.ts",
+    "app/src/renderer/src/features/chat/reducer/chatReducer.model.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.bootGate.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.lastCwd.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.modelPermission.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.project.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.test.ts",
+    "app/src/renderer/src/features/update/store/updateStore.bootGate.test.ts",
+    "app/src/renderer/src/shared/errors/reportSites.registry.test.ts",
+    "app/src/shared/model-identity.test.ts",
+    "app/src/shared/permission-mode.test.ts"
+  ],
+  "baselineFailures": [
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::exposes runtime-native watch files and applies external project choices only after idle reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::pins deployed MCP files for same-cwd peers and reloads until the final owner closes",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reconciles plugin choices through the actual adapter while preserving provider flags",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/claude/adapter.native-plugins.test.ts::reports a reconciled plugin revision as applied but not a later external edit",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::applies session-only inline flags and reloads actual plugin state while preserving sibling flags",
+      "signature": "AssertionError: expected [ { …(6) }, { …(6) } ] to match object [ { …(3) }, { …(3) } ]"
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::commits a plugin choice only after verified reload and restores flags and commands when persistence fails",
+      "signature": "Error: expected [Function] to throw error including 'save failed' but got '이 플러그인은 프로젝트별 제어를 지원하지 않습니다.'"
+    },
+    {
+      "case": "src/main/adapters/claude/native-resources.test.ts::waits for durable persistence and serializes subsequent plugin mutations",
+      "signature": "Error: STACK_TRACE_ERROR"
+    },
+    {
+      "case": "src/main/adapters/claude/project-reconciliation.test.ts::projects native plugin flag false during external reconciliation",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/claude/project-reconciliation.test.ts::shows external selection with actual status immediately, waits for idle, and never saves it back",
+      "signature": "AssertionError: expected 'restart-required' to be 'applied' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/common/git-root.test.ts::finds the nearest Git ancestor through three nested directories and falls back to cwd",
+      "signature": "AssertionError: expected '/tmp' to be '/tmp/orca-git-root-do8dAi/a/b/c' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition keeps one process for A/B, waits for native completion, and fences same-directory reacquisition",
+      "signature": "AssertionError: expected [ …(3) ] to deeply equal [ 'C:/one', 'C:/one', 'C:/two' ]"
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.instances.test.ts::Owned server, directory lifecycle and actual SDK composition retires failed cleanup without killing B and reports only a safe error before new generation startup",
+      "signature": "AssertionError: expected '/tmp/orca-0304-validation/app/C:/two' to be 'C:/two' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.persistent.test.ts::exposes native resources from the live channel client and its directory without mutations",
+      "signature": "AssertionError: expected '/tmp/orca-0304-validation/app/C:/nati…' to be 'C:/native-B' // Object.is equality"
+    },
+    {
+      "case": "src/main/adapters/opencode/v1/adapter.test.ts::OpenCode adapter with the real installed SDK and injected HTTP/SSE transport subscribes before sending, scopes the turn and leaves admission to the runtime",
+      "signature": "AssertionError: expected '/tmp/orca-0304-validation/app/C:/work' to be 'C:/work' // Object.is equality"
+    },
+    {
+      "case": "src/main/app/bootstrap.native-history.test.ts::applies nav plugin choices to draft and stored-session commands and resources",
+      "signature": "AssertionError: expected [] to deeply equal [ 'fixture:review' ]"
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::does not start a native server after caller cancellation or session scope change during preparation",
+      "signature": "Error: expected [Function] to throw error including 'session changed' but got 'Composer directory must be absolute'"
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::prepares draft and saved directory with the same production settings and env resolution as turns",
+      "signature": "Error: Composer directory must be absolute"
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::preserves the acquire failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }"
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::preserves the configuration failure stage through the registered catalog handler",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to deeply equal { part: 'plugins', …(2) }"
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::returns prepared plugin and agent parts through IPC before blocked MCP/models without a session",
+      "signature": "AssertionError: expected { part: 'plugins', …(2) } to match object { Object (part, value) }"
+    },
+    {
+      "case": "src/main/app/composer-catalog.test.ts::wires the public handler through the production resolver and returns its shutdown cleanup",
+      "signature": "Error: expected { part: 'agents', …(2) } to deeply equal { part: 'agents', value: [], …(1) }"
+    },
+    {
+      "case": "src/main/app/composer-preparation-service.test.ts::shares targets across catalog resources and warmup through the production assembly",
+      "signature": "Error: Composer directory must be absolute"
+    },
+    {
+      "case": "src/main/app/handlers/session-resources.claude-assembly.test.ts::reconciles external plugin selections and publishes the final state through the real watcher",
+      "signature": "AssertionError: expected [ [ 'a@m', true, 'enabled' ], …(2) ] to deeply equal [ [ 'a@m', false, 'disabled' ], …(2) ]"
+    },
+    {
+      "case": "src/main/app/project-resource-sync.test.ts::detects real file creation and atomic replacement without starting a runtime, and closes its watcher",
+      "signature": "AssertionError: expected last \"vi.fn()\" call to have been called with [ ObjectContaining{…} ]"
+    },
+    {
+      "case": "src/main/infra/git/git-safety.test.ts::Git execution safety never runs a cwd executable through relative PATH entries",
+      "signature": "Error: Command failed: /tmp/orca-git-safety-P09Knh/git /tmp/orca-git-safety-P09Knh/marker.cjs"
+    },
+    {
+      "case": "src/main/infra/test-environment.hostile.test.ts::합성 사내 호스트에서 대표 테스트가 통과하고 홈이 바뀌지 않는다",
+      "signature": "AssertionError: "
+    }
+  ],
+  "changedFiles": [
+    "app/src/main/adapters/claude/context-policy.ts",
+    "app/src/main/adapters/common/turn.ts",
+    "app/src/main/app/chat-turn-continuation.test.ts",
+    "app/src/main/app/chat-turn-continuation.ts",
+    "app/src/main/app/chat-turn.execution-config.test.ts",
+    "app/src/main/app/chat-turn.returned-input.test.ts",
+    "app/src/main/app/chat-turn/continuation.test.ts",
+    "app/src/main/app/chat-turn/continuation.ts",
+    "app/src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts",
+    "app/src/main/app/chat-turn/resolve-turn.ts",
+    "app/src/main/app/chat-turn/send.agent-profile.test.ts",
+    "app/src/main/app/chat-turn/send.busy.test.ts",
+    "app/src/main/app/chat-turn/send.permission-mode.test.ts",
+    "app/src/main/app/chat-turn/send.ts",
+    "app/src/main/app/chat-turn/send.wait-phase.test.ts",
+    "app/src/main/app/chat-turn/send.worktree.test.ts",
+    "app/src/main/app/chat-turn/turn-context.test.ts",
+    "app/src/main/app/chat-turn/turn-context.ts",
+    "app/src/main/contracts/ports.ts",
+    "app/src/main/features/approvals/coordinator.permission.test.ts",
+    "app/src/main/features/approvals/coordinator.ts",
+    "app/src/main/features/harnesses/claude/model-parser.test.ts",
+    "app/src/main/features/harnesses/claude/model-parser.ts",
+    "app/src/main/features/harnesses/common/model-types.ts",
+    "app/src/main/features/harnesses/common/models.test.ts",
+    "app/src/main/features/harnesses/common/models.ts",
+    "app/src/main/features/history/writer.ts",
+    "app/src/main/features/sessions/session-runtime.test.ts",
+    "app/src/main/features/sessions/session-runtime.ts",
+    "app/src/renderer/src/features/chat/components/Composer.selection.test.ts",
+    "app/src/renderer/src/features/chat/components/Composer.tsx",
+    "app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+    "app/src/renderer/src/features/chat/components/composer/modelSelection.test.ts",
+    "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/Controls.tsx",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.test.ts",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+    "app/src/renderer/src/features/chat/harnesses/common/composer/composerWiring.test.ts",
+    "app/src/renderer/src/features/chat/reducer/chatReducer.model.test.ts",
+    "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.bootGate.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.lastCwd.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.modelPermission.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.project.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.test.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.testHarness.ts",
+    "app/src/renderer/src/features/chat/store/chatStore.ts",
+    "app/src/renderer/src/features/update/store/updateStore.bootGate.test.ts",
+    "app/src/renderer/src/features/update/store/updateStore.ts",
+    "app/src/renderer/src/shared/errors/reportSites.registry.test.ts",
+    "app/src/shared/harnesses/claude/model-policy.ts",
+    "app/src/shared/ipc.ts",
+    "app/src/shared/model-identity.test.ts",
+    "app/src/shared/permission-mode.test.ts",
+    "app/src/shared/permission-mode.ts",
+    "docs/IPC_CONTRACT.md",
+    "docs/arch/backend/persistence.md",
+    "docs/arch/backend/provider-runtime.md",
+    "docs/arch/frontend/rendering.md",
+    "docs/handoff/0304-boot-race-auto-permission-alias/enforcement-search.json",
+    "docs/handoff/0304-boot-race-auto-permission-alias/mutation-results.tsv",
+    "docs/handoff/0304-boot-race-auto-permission-alias/mutation-spec.jsonl",
+    "docs/handoff/0304-boot-race-auto-permission-alias/plan.md",
+    "docs/handoff/0304-boot-race-auto-permission-alias/validation-results.json",
+    "docs/handoff/INDEX.md"
+  ],
+  "acceptance": {
+    "met": [
+      "AC1",
+      "AC2",
+      "AC3",
+      "AC3b",
+      "AC4",
+      "AC5",
+      "AC6",
+      "AC7",
+      "AC8",
+      "AC9",
+      "AC10",
+      "AC12",
+      "AC14",
+      "AC15",
+      "AC16",
+      "AC17"
+    ],
+    "pending": [
+      "AC13 Windows installed application and actual SDK"
+    ],
+    "superseded": [
+      "AC11"
+    ],
+    "metCount": 16,
+    "total": 17
+  }
+}

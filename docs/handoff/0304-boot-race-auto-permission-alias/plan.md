@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 버그리포트 3건(부트 레이스 · 답변 중 자동 승인 강등 · alias 자동 승인 미노출) |
-| 상태 | READY |
+| 상태 | IMPL_DONE |
 | V mode | `Delta V` |
 | 기준 V | `0304:V1 rev.2@eb5ecdb6` — `origin/main` 조상 확인 |
 | 이번 V revision | `ΔV1` — 구현 전 선택 객체 운반 목록 정정. 사용자 결정은 V1 rev.2 유지 |
@@ -502,82 +502,202 @@ settings env / runtimeEnv → model-parser(resolvedModel) → toAgentEnvironment
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의: D-001~D-004·D-007~D-009·D-011 유지. 실행 식별자와 권한 증거를 분리했고 observer는 변경하지 않았다.
+- 정정: 구현 전 ΔV1로 renderer 선택 객체의 운반 8자리를 보충하고 AC15의 옛 쓰기 수치를 바로잡았다. 규범 정정은 별도 설계 커밋이다.
+- 충돌: 없음. `send.permission-mode.test.ts`는 기록 인자를 raw payload와 다르게 주고 runtime 진입 전 관측한다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+아래 경로는 `app/src/` 기준이다. EP-2는 ΔV1 목록을 사용한다.
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01·04·13 | EP-1 부팅 순서 | chat cwd · update state | 2/2 | `chatStore.bootGate.test.ts:0304 waits for main-ready`·`leaves readiness failure`·`reports a cwd failure`; `updateStore.bootGate.test.ts:0304 update lookup waits` | ready 보류 중 microtask를 보내도 0회, resolve 뒤 각 1회. reject는 조회·보고 0 | 없음 |
+| VP-02·06 | EP-2 producer·wire·선택·소비 | V1 ①~⑤ + ΔV1 ⑥~⑬ | 13/13 | `model-parser.test.ts:0304 alias evidence`; `common/models.test.ts:retains evidence on the agent wire`; `modelSelection.test.ts:0304 default selection`; `Composer.selection.test.ts:0304 carries alias evidence` 4입력·menu click·real Claude control; `chatStore.modelPermission.test.ts:0304 keeps automatic approval`; `gate:typecheck:web`(wire·control 타입) | alias=`haiku`, evidence=`claude-haiku-5-5`. Composer는 첫 setModel 인자도 관측하여 후속 hydration의 보정을 구분 | 없음 |
+| VP-02·05·07·09·12 | EP-3 권한 정착·운반 | shared · send 2 · request · continuation 3경로 · reducer 3 | 8/8 | `permission-mode.test.ts:0304 resolved permission evidence`; `send.permission-mode.test.ts:0304 resolved send`·`automatic continuation rechecks`; `continuation.test.ts:0304 both automatic requests`; `chat-turn-continuation.test.ts:0304 carries fresh or fallback`; `chatReducer.model.test.ts:0304 cached navigation`·`agent-kind changes` | 명시 모델과 alias·다른 계열 evidence를 구별. fresh/fallback·두 kind·비자격 증거 우선순위 입력 | 없음 |
+| VP-03·10 | EP-4 선택·live·runtime | 저장/응답 · 조건부 SDK · spawn 기록/해제 | 3/3 | `coordinator.permission.test.ts` 5행·resolved alias/bypass·SDK failure·직렬화; `session-runtime.test.ts:SessionRuntime spawn model 기록` 3케이스 | old 4.5 + auto는 SDK 0회·저장/응답 auto. alias 5.5는 auto 1회. push는 기존 증거 유지, teardown/사망 해제 | 없음 |
+| VP-08 | EP-6 alias SSOT | shared 함수 · adapter 위임 | 2/2 | `model-identity.test.ts:0304 alias evidence`; `context-policy.test.ts` | 계열 4종·대소문자·1m·env 없음/빈 값·비alias 입력 | 없음 |
+| VP-16 | EP-7 메모리 선택 | 캐시 재진입 · 캐시 없는 로드 | 2/2 | `chatReducer.model.test.ts:0304 cached navigation keeps unsent chips` | DB sonnet 4.5와 선택 haiku 5.5/auto를 구별. 재진입 보존, 새 로드 null/default | 없음 |
+| VP-17 | EP-8 전송 기록 | helper · idle send 기록 | 2/2 | `turn-context.test.ts:0304 session model record`; `send.permission-mode.test.ts:records resolved model before runtime`·`does not record` 3입력; `send.busy.test.ts` busy no-write | session-1 / pk-b / haiku / 숫자 시각. payload selected-family와 구별. 실패·모델 없음·새 세션·busy는 0 | 없음 |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(r1)
+- 분모: EP-1 2 + EP-2 13 + EP-3 8 + EP-4 3 + EP-6 2 + EP-7 2 + EP-8 2 = **32/32**. EP-3 ⑤의 continuation 3파일과 EP-4 ③의 기록·해제는 각 하위 자리까지 관측했다.
+- §10 자리 목록 밖에서 본 운반 자리: ΔV1의 선택 객체 8자리. `ModelMenu.onPick`·`defaultSelection`·`selectedModelShape`·Composer 4곳·store dispatch다. 초기 전체 gate의 legacy 4인자 소스 가드도 현재 옵션 계약으로 갱신했다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(r1).
+- 검색 차집합: `∅([enforcement-search.json](enforcement-search.json): 기대/실제 파일 집합을 양방향 차감)`.
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | EP-1 bootGate 2파일 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | EP-2·EP-3 위 좌표 + modes.test | not selected |
+| VP-03 | REQUIRED | SELF_PASS | coordinator.permission.test | fallback 적용·저장/응답 강등 변이 red |
+| VP-04 | REQUIRED | SELF_PASS | bootGate 2파일 보류 promise | not selected |
+| VP-05 | REQUIRED | SELF_PASS | coordinator.permission + send.permission-mode | not selected |
+| VP-06 | REQUIRED | SELF_PASS | parser → common/models wire + 실제 Composer·store | wire spread 제거 red |
+| VP-07 | REQUIRED | SELF_PASS | resolve-turn.runtime-catalog + send + continuation 2파일 + session-runtime | listen/flush evidence 제거 각각 red |
+| VP-08 | REQUIRED | SELF_PASS | model-identity + context-policy | not selected |
+| VP-09 | REQUIRED | SELF_PASS | shared/permission-mode | not selected |
+| VP-10 | REQUIRED | SELF_PASS | coordinator.permission | VP-03과 공유 |
+| VP-11 | SUPERSEDED | 해당 없음 | D-008로 폐기 | 해당 없음 |
+| VP-12 | REQUIRED | SELF_PASS | chatReducer.model + chatStore.modelPermission | not selected |
+| VP-13 | REQUIRED | SELF_PASS | bootGate 2파일 | not selected |
+| VP-14 | REGRESSION | SELF_PASS | renderer boot/steps.test 기존 필수 스텝 | 전체 vitest 포함 |
+| VP-15 | REGRESSION | SELF_PASS | bootstrap.settings-early.test | 전체 vitest 포함 |
+| VP-16 | REQUIRED | SELF_PASS | chatReducer.model 캐시/새 로드 | not selected |
+| VP-17 | REQUIRED | SELF_PASS | turn-context helper + send 실제 순서 + busy | 기록 순서·provider/model 맞바꿈 red |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+[mutation-spec.jsonl](mutation-spec.jsonl)이 심은 원문·변이·oracle의 정본이고, [mutation-results.tsv](mutation-results.tsv)가 행별 관측이다.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| `EP6-function` | 열거 sweep | 최초 | vitest 5 failed · 69 passed (74) | 잡음(red) |
+| `EP6-nonalias` | 열거 sweep | 최초 | vitest 2 failed · 72 passed (74) | 잡음(red) |
+| `EP6-case` | 열거 sweep | 최초 | vitest 1 failed · 73 passed (74) | 잡음(red) |
+| `EP6-suffix` | 열거 sweep | 최초 | vitest 1 failed · 73 passed (74) | 잡음(red) |
+| `EP6-fallback` | 열거 sweep | 최초 | vitest 2 failed · 72 passed (74) | 잡음(red) |
+| `EP6-delegate` | 열거 sweep | 최초 | vitest 7 failed · 52 passed (59) | 잡음(red) |
+| `EP2-settings` | 열거 sweep | 최초 | vitest 1 failed · 46 passed (47) | 잡음(red) |
+| `EP2-runtime` | 열거 sweep | 최초 | vitest 1 failed · 46 passed (47) | 잡음(red) |
+| `EP2-attach` | 열거 sweep | 최초 | vitest 2 failed · 45 passed (47) | 잡음(red) |
+| `EP2-wire` | 선택 증거 | 최초 | vitest 1 failed · 6 passed (7) | 잡음(red) |
+| `EP3-selected-evidence` | 열거 sweep | 최초 | vitest 5 failed · 2 passed (7) | 잡음(red) |
+| `EP3-shared` | 열거 sweep | 최초 | vitest 2 failed · 15 passed (17) | 잡음(red) |
+| `EP3-priority` | 열거 sweep | 최초 | vitest 2 failed · 15 passed (17) | 잡음(red) |
+| `EP3-send-settle` | 열거 sweep | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP3-auto-settle` | 열거 sweep | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP3-send-request` | 선택 증거 | 최초 | vitest 2 failed · 12 passed (14) | 잡음(red) |
+| `EP3-send-fallback` | 열거 sweep | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP3-resolver` | 열거 sweep | 최초 | vitest 1 failed · 6 passed (7) | 잡음(red) |
+| `EP3-cont-request-0` | 선택 증거 | 최초 | vitest 2 failed · 6 passed (8) | 잡음(red) |
+| `EP3-cont-request-1` | 선택 증거 | 최초 | vitest 1 failed · 7 passed (8) | 잡음(red) |
+| `EP3-cont-fresh` | 열거 sweep | 최초 | vitest 1 failed · 10 passed (11) | 잡음(red) |
+| `EP3-cont-fallback` | 열거 sweep | 최초 | vitest 1 failed · 10 passed (11) | 잡음(red) |
+| `EP3-cont-output` | 열거 sweep | 최초 | vitest 2 failed · 9 passed (11) | 잡음(red) |
+| `EP4-runtime-record` | 열거 sweep | 최초 | vitest 2 failed · 88 passed (90) | 잡음(red) |
+| `EP4-runtime-fallback` | 열거 sweep | 최초 | vitest 1 failed · 89 passed (90) | 잡음(red) |
+| `EP4-runtime-clear` | 열거 sweep | 최초 | vitest 2 failed · 88 passed (90) | 잡음(red) |
+| `EP4-selection-store` | 선택 증거 | 최초 | vitest 4 failed · 7 passed (11) | 잡음(red) |
+| `EP4-selection-response` | 선택 증거 | 최초 | vitest 6 failed · 5 passed (11) | 잡음(red) |
+| `EP4-live-gate` | 열거 sweep | 최초 | vitest 4 failed · 7 passed (11) | 잡음(red) |
+| `EP4-live-fallback-call` | 열거 sweep | 최초 | vitest 1 failed · 10 passed (11) | 잡음(red) |
+| `EP4-live-evidence` | 열거 sweep | 최초 | vitest 1 failed · 10 passed (11) | 잡음(red) |
+| `EP3-reducer-agent` | 열거 sweep | 최초 | vitest 1 failed · 16 passed (17) | 잡음(red) |
+| `EP3-reducer-permission` | 열거 sweep | 최초 | vitest 1 failed · 16 passed (17) | 잡음(red) |
+| `EP3-reducer-model` | 열거 sweep | 최초 | vitest 1 failed · 16 passed (17) | 잡음(red) |
+| `EP3-reducer-field` | 열거 sweep | 최초 | vitest 2 failed · 15 passed (17) | 잡음(red) |
+| `EP7-cache` | 열거 sweep | 최초 | vitest 2 failed · 15 passed (17) | 잡음(red) |
+| `EP7-restart` | 열거 sweep | 최초 | vitest 1 failed · 16 passed (17) | 잡음(red) |
+| `EP1-cwd-ready` | 열거 sweep | 최초 | vitest 2 failed · 1 passed (3) | 잡음(red) |
+| `EP1-cwd-invoke` | 열거 sweep | 최초 | vitest 2 failed · 1 passed (3) | 잡음(red) |
+| `EP1-cwd-report` | 열거 sweep | 최초 | vitest 1 failed · 2 passed (3) | 잡음(red) |
+| `EP2-store` | 열거 sweep | 최초 | vitest 1 failed · 3 passed (4) | 잡음(red) |
+| `EP1-update-ready` | 열거 sweep | 최초 | vitest 2 failed (2) | 잡음(red) |
+| `EP1-update-invoke` | 열거 sweep | 최초 | vitest 1 failed · 1 passed (2) | 잡음(red) |
+| `EP1-update-reject` | 열거 sweep | 최초 | vitest 1 failed · 1 passed (2) | 잡음(red) |
+| `EP2-default-selection` | 열거 sweep | 최초 | vitest 1 failed · 5 passed (6) | 잡음(red) |
+| `EP2-menu-shape` | 열거 sweep | 최초 | vitest 1 failed · 5 passed (6) | 잡음(red) |
+| `EP2-menu-pick` | 열거 sweep | 최초 | vitest 1 failed · 11 passed (12) | 잡음(red) |
+| `EP2-composer-default` | 새 구조적 oracle + sweep | 최초 | vitest 2 failed · 14 passed (16) | 잡음(red) |
+| `EP2-composer-alias` | 새 구조적 oracle + sweep | 최초 | vitest 3 failed · 13 passed (16) | 잡음(red) |
+| `EP2-composer-hydrate` | 새 구조적 oracle + sweep | 최초 | vitest 2 failed · 14 passed (16) | 잡음(red) |
+| `EP2-composer-pick` | 새 구조적 oracle + sweep | 최초 | vitest 2 failed · 14 passed (16) | 잡음(red) |
+| `EP2-composer-evidence-only` | 열거 sweep | 최초 | vitest 1 failed · 11 passed (12) | 잡음(red) |
+| `EP8-helper-session` | 열거 sweep | 최초 | vitest 1 failed · 29 passed (30) | 잡음(red) |
+| `EP8-helper-model` | 열거 sweep | 최초 | vitest 1 failed · 29 passed (30) | 잡음(red) |
+| `EP8-record-call` | 열거 sweep | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP8-record-provider` | 선택 증거 | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP8-record-model` | 선택 증거 | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP8-record-order` | 선택 증거 | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP2-mode-menu` | 열거 sweep | 최초 | vitest 5 failed · 7 passed (12) | 잡음(red) |
+| `VP03-fallback-applied` | 선택 증거 | 최초 | vitest 5 failed · 6 passed (11) | 잡음(red) |
+| `EP2-wire-type` | 열거 sweep | 최초 | src/renderer/src/features/chat/components/composer/modelSelection.ts(79,70): error TS2339: Property 'resolvedModel' does not exist on type 'AgentModelView'. | 잡음(red) |
+| `EP2-control-type` | 열거 sweep | 최초 | src/renderer/src/features/chat/components/Composer.selection.test.ts(285,43): error TS2353: Object literal may only specify known properties, and 'resolvedModel' does not exist in type '{ alias: strin | 잡음(red) |
+| `EP2-control-input` | 열거 sweep | 최초 | vitest 1 failed · 11 passed (12) | 잡음(red) |
+| `EP2-no-evidence-field` | 열거 sweep | 최초 | vitest 2 failed · 45 passed (47) | 잡음(red) |
+| `EP3-shared-fallback` | 열거 sweep | 최초 | vitest 3 failed · 14 passed (17) | 잡음(red) |
+| `EP4-runtime-getter` | 열거 sweep | 최초 | vitest 2 failed · 88 passed (90) | 잡음(red) |
+| `EP4-kind-selection` | 열거 sweep | 최초 | vitest 1 failed · 10 passed (11) | 잡음(red) |
+| `EP8-null-record` | 열거 sweep | 최초 | vitest 5 failed · 9 passed (14) | 잡음(red) |
+| `EP3-send-legacy` | 열거 sweep | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
+| `EP3-auto-legacy` | 열거 sweep | 최초 | vitest 1 failed · 13 passed (14) | 잡음(red) |
 
-- **분모 검산**: …
-- **덮개 회귀**: 해당 없음(r1)
+- **분모 검산**: 선택 증거 10 · 인용 변이 0 · 새 구조적 oracle 4 · 그 밖 sweep 56 = 표 행 70. spec ID 집합과 결과 ID 집합의 양방향 차집합 ∅. red 70, green·SKIP 0.
+- **덮개 회귀**: 해당 없음(r1). 임시 변이는 하네스의 원문 해시 검사로 전부 원복했다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 유지. cwd 실패는 기존 `loadFailed` 보고 경로를 사용하며 report registry가 이벤트·title을 관측 | 새 문구 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 해당 없음. 부팅 조회 순서·순수 helper만 변경. runtime 증거는 기존 spawn/teardown 지점에 동반 | runtime 수명 테스트 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | main-ready 실패 → 조회 생략; ready 뒤 cwd 실패 → loadFailed 1건 | bootGate reject 케이스 |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | readiness 실패는 BootScreen, cwd 실패는 기존 토스트, SDK 실패는 기존 permissionModeError 경로 | AC13 실제 앱 대기 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | cwdSelectionRevision·권한 요청 세대 가드 유지. lastCwd/project 및 coordinator retired turn 테스트 포함 | 추가 상태·캐시 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 선택 객체 재조립 시 evidence가 사라짐 | ΔV1으로 전수 열거 후 구현·첫 setModel 인자 관측 | ModelMenu·modelSelection·Composer 4자리 |
+| 2 | 새 DB 쓰기로 기존 send fixture가 실행 전에 중단됨 | 해당 fixture에 메타 쓰기 포트를 추가. production fallback을 넣지 않음 | execution-config·returned-input·send profile/wait/worktree 회귀 |
+| 3 | 실행 전 기록 뒤 spawn 실패면 아직 실행하지 않은 모델이 DB에 남음 | D-011의 전송 시점 계약 유지 | plan §17; helper·send 테스트 |
+| 4 | 기존 Composer 소스 가드가 인자를 정확히 네 개로 고정 | 앞의 네 슬롯 검사는 유지하고 다섯째 resolvedModel 옵션을 추가 검사. 네 자리 모두 제거 변이 red | composerWiring.test.ts·EP2-composer 4행 |
+| 5 | env 다른 레이어의 alias 덮어쓰기와 실제 SDK status는 순수 테스트 범위 밖 | 선언 경계 유지, AC13 대기 | plan §10 경계·AC13 |
 
 ### 설계 대비 명시적 차이
 
-- …
+- 변경: 부트 readiness reject는 `.then`의 reject callback으로 소비하여 기존 catch ordinal을 보존했다. cwd reject는 새 toast catch로 등록했다.
+- 변경: 모델 선택 규칙을 `selectedModelForFamily` 내부 함수로 공유해 실행 이름과 권한 증거가 같은 항목을 고르게 했다. 외부 입력·선택 우선순위는 같다.
+- 유지: 모델 증거 필드는 메모리에만 존재한다. 새로운 저장소·캐시·의존성은 없다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 추가 캐시 없음 | EP-2 기존 카탈로그 snapshot 사용 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 동일 순수 선택 helper를 두 consumer가 읽음 | common/models 두 결과·구별 계열 테스트 |
+| 재진입 | hydration이 누락된 첫 선택을 뒤늦게 보정해도 검사가 통과할 수 있음 | Composer 첫 호출 options와 최종 state를 함께 단언; 4 진입 변이 |
+| 다른 무효화 축 | runtime 채널 해제 뒤 낡은 evidence 잔류 | session-runtime teardown·stream death 증거 해제 테스트 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출** | … |
-| **추가·수정 테스트의 subtree 규칙** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | 65파일(구현 전 설계 정정 포함). 전체 목록은 [validation-results.json](validation-results.json)의 `changedFiles`. boot 순서·alias evidence 전 경로·live 선택·send 메타 기록·관련 계약 문서 |
+| 실행 명령 | migration append-only · doc-inventory --check · test-budgets · lint · typecheck 3종 · 파일 필터 없는 vitest · node --test scripts/*.test.mjs. 실행 환경·실패 목록은 [validation-results.json](validation-results.json) |
+| **관측한 게이트 산출** | lint 0 error·2 warning, node/web/test 타입 검사·가드 3종 통과. 전체 vitest 943파일: 8,871 passed·27 failed·11 skipped; 실패 27건은 기준선과 양방향 차집합 ∅. script 827/827 passed |
+| **추가·수정 테스트의 subtree 규칙** | 추가·수정 테스트 소스 29파일. 시간 예산 전역 가드 통과; 호스트 env는 기존 setup 격리 또는 명시 주입; 풀 소스 가드 827 script 테스트 통과. 전체 vitest의 unit 실행 결과도 아래 비교에 포함 |
+| V-pair 자기확인 | REQUIRED 14 SELF_PASS · REGRESSION 2 SELF_PASS · 폐기 1(VP-11). 독립 verify는 수행하지 않음 |
+| 강제 지점 전수 | 32/32; 검색 출력 차집합 ∅([enforcement-search.json](enforcement-search.json): 기대/실제 파일 집합을 양방향 차감) |
+| **AC 자기보고**(`Criteria-Met`) | 아래 표: 기계 16 충족, 사람 AC13 대기 |
+| **합계 검산** | ✅16 · ⚠️1 · ❌0 = 총17 |
+| 블로커 / 역질문 | 제품 결정 질문 없음. AC13 Windows 설치본·실제 SDK 실기 대기 |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 자기 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC1·AC2 | ✅ | bootGate cwd/update 보류→resolve 0→1회 |
+| AC3·AC3b | ✅ | readiness reject 조회·보고 0, cwd reject loadFailed 1 |
+| AC4 | ✅ | parseRuntimeModels haiku 원문 + 5.5 evidence |
+| AC5 | ✅ | modes 두 kind + 실제 Claude control 메뉴 |
+| AC6 | ✅ | store SET_MODEL evidence → 선택 auto 유지 |
+| AC7 | ✅ | send request와 발행 권한 auto |
+| AC8 | ✅ | 공용 모델 버전·custom 거부 기존/추가 케이스 |
+| AC9·AC10 | ✅ | live 비자격 호출 0·선택 auto; env 해석 alias live auto |
+| AC12 | ✅ | request.model=haiku, context-policy 기존 CLI 해석 유지 |
+| AC14·AC15 | ✅ | 캐시 재진입 네 칩 값 유지, 새 로드 last_model/null/default |
+| AC16·AC17 | ✅ | runtime 진입 전 기존 세션 기록 1, 실패/모델 없음/새 세션/busy 0 |
+| AC13 | ⚠️ | Windows 설치본·실제 SDK 조합은 미실행 |
+
+- 합계는 AC ID 집합 `{1,2,3,3b,4,5,6,7,8,9,10,12,14,15,16,17}` 16건과 AC13 1건에서 셌다. 폐기 AC11은 분모에서 제외했다.
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: `r1`
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 최초 구현(r1). D-008·D-009·D-011의 사용자 정정을 유지했다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: EP-2 producer→consumer 계약은 있었으나 선택 객체 재조립 목록이 빠져 ΔV1으로 구현 전 정정했다.
+- 반복해서 부딪히는 환경 한계: Node 24에서는 Electron ABI 140 SQLite가 로드되지 않았다. 설치된 Electron의 Node 모드(v22.22.1)로 DB 32케이스를 통과했고 native 모듈을 재빌드하지 않았다. sandbox 밖 비교로 로컬 git·loopback EPERM을 제거했다.
+- 현재 라운드·impl 턴: `r1`(verify 횟수 0). 다음 주체는 독립 검증자다.
 
 ---
 

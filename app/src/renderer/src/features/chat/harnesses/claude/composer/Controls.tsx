@@ -12,7 +12,7 @@ import { defaultEffortForModel } from '../../../../../../../shared/harnesses/cla
 export function ClaudeModeControl({
   model
 }: {
-  model: { alias: string; model: string | null; isCustom: boolean } | null
+  model: { alias: string; model: string | null; resolvedModel?: string; isCustom: boolean } | null
 }): React.JSX.Element {
   const { tr } = useI18n()
   const permissionMode = useChatSession((s) => s.permissionMode)

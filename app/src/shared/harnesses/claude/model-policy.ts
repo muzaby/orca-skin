@@ -1,6 +1,16 @@
 // Discovery 분류와 권한 판정이 같은 계열을 인식한다. 기본 alias 목록과는 별개다.
 export const CLAUDE_MODEL_FAMILIES = ['sonnet', 'opus', 'haiku', 'fable'] as const
 
+// Keep execution identifiers intact; callers use the resolved name only as evidence.
+export function resolveClaudeModelAlias(
+  model: string,
+  lookup: (key: string) => string | undefined
+): string {
+  const alias = model.replace(/\[1m\]/gi, '').toLowerCase()
+  if (!(CLAUDE_MODEL_FAMILIES as readonly string[]).includes(alias)) return model
+  return lookup(`ANTHROPIC_DEFAULT_${alias.toUpperCase()}_MODEL`) || model
+}
+
 export const CLAUDE_NAME_FAMILIES = [...CLAUDE_MODEL_FAMILIES, 'mythos'] as const
 export type ClaudeNameFamily = (typeof CLAUDE_NAME_FAMILIES)[number]
 

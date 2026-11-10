@@ -6,7 +6,9 @@ const workProfilePluginPath = resolve('resources/claude-plugins/work-profile')
 const mocks = vi.hoisted(() => ({
   acquireTurnRuntime: vi.fn(),
   buildTurnContext: vi.fn(),
-  buildTurnRequest: vi.fn((...args: [unknown, unknown]) => ({ args })),
+  buildTurnRequest: vi.fn(
+    (...args: [unknown, unknown]) => args[1] as import('../../adapters/common/turn').TurnRequest
+  ),
   sendChatEvent: vi.fn(),
   startNew: vi.fn(),
   startResume: vi.fn(),
@@ -14,10 +16,15 @@ const mocks = vi.hoisted(() => ({
   // resume 턴의 세션행. `null` 이면 신규 세션 축이다. 0210 은 이 값이 `payload.cwd` 와 **다를 때**
   // 어느 쪽을 읽는지가 계약이라, 두 출처가 같은 값이면 그 계약을 구별할 수 없다.
   sessionMeta: {
-    value: null as { cwd: string | null; project_id: string | null; provider_key: null } | null
+    value: null as {
+      cwd: string | null
+      project_id: string | null
+      provider_key: string | null
+    } | null
   },
   // 0215 — 이 턴이 실제로 쓰는 SDK 모델 문자열. main 은 alias 를 갖지 않으므로 보정의 유일한 입력이다.
   resolvedModel: { value: undefined as string | undefined },
+  permissionModel: { value: undefined as string | undefined },
   agentKind: { value: 'code' as 'code' | 'work' }
 }))
 
@@ -47,6 +54,8 @@ vi.mock('./resolve-turn', () => ({
       continuityLang: null,
       resolved: {
         prepared: { providerSettings: { snapshot: true }, env: { SNAPSHOT: 'yes' } },
+        providerKey: 'pk-b',
+        permissionModel: mocks.permissionModel.value,
         model: mocks.resolvedModel.value
       },
       sessionMeta: mocks.sessionMeta.value,
@@ -86,6 +95,7 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 }))
 
 import { handleChatSend } from './send'
+import { resolveTurn } from './resolve-turn'
 import { runTurnWithContinuations } from './post-turn'
 import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
@@ -147,6 +157,9 @@ function makeHarness(sessionId?: string) {
   const deps = {
     ctx: {
       db: {
+        updateSessionProviderKey: vi.fn(),
+        getProject: vi.fn(() => null),
+        ensurePathProject: vi.fn((row: { id: string }) => row),
         getSessionById: () => ({
           cwd: null,
           project_id: null,
@@ -207,6 +220,7 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     vi.clearAllMocks()
     mocks.sessionMeta.value = null
     mocks.resolvedModel.value = undefined
+    mocks.permissionModel.value = undefined
     mocks.agentKind.value = 'code'
     vi.mocked(normalizeAttachments).mockResolvedValue({
       attachmentTexts: [],
@@ -313,6 +327,7 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
   })
   it('automatic continuation rechecks the current selection and actual resolved model', async () => {
     mocks.agentKind.value = 'work'
+    mocks.permissionModel.value = 'claude-sonnet-5-5'
     const { setMode } = await run('claude-sonnet-4-6', 'auto_classified')
     const next = vi.mocked(runTurnWithContinuations).mock.calls.at(-1)![0].prepareContinuation
     vi.mocked(prepareAutomaticContinuation).mockResolvedValue({
@@ -325,6 +340,25 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     expect(setMode).toHaveBeenLastCalledWith('session-1', 'default')
     setMode('session-1', 'bypass')
     expect((await next('session-1')).permissionMode).toBe('bypass')
+    expect(prepareAutomaticContinuation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fallbackPermissionModel: 'claude-sonnet-5-5' })
+    )
+    vi.mocked(prepareAutomaticContinuation).mockResolvedValue({
+      model: 'haiku',
+      permissionModel: 'claude-haiku-5-5',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      prepared: { envFingerprint: 'fresh', runtimeEnvFingerprint: 'fresh' },
+      shouldRespawn: true
+    })
+    setMode('session-1', 'auto_classified')
+    expect((await next('session-1')).permissionMode).toBe('auto_classified')
+    vi.mocked(prepareAutomaticContinuation).mockResolvedValue({
+      model: 'claude-sonnet-5-5',
+      extensions: { skills: [], hooks: { normalized: {} } },
+      prepared: { envFingerprint: 'fresh', runtimeEnvFingerprint: 'fresh' },
+      shouldRespawn: true
+    })
+    expect((await next('session-1')).permissionMode).toBe('auto_classified')
   })
   it('haiku 면 두 지점이 모두 accept_edits 를 읽는다', async () => {
     const { setMode, requestMode } = await run('claude-haiku-4-5', 'auto_classified')
@@ -376,3 +410,79 @@ describe('handleChatSend — 지원하지 않는 권한 모드 보정 (AT-14)', 
     }
   )
 })
+
+describe('0304 resolved send', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.sessionMeta.value = null
+    mocks.agentKind.value = 'code'
+    mocks.permissionModel.value = undefined
+  })
+  it('records resolved model before runtime and carries separate alias evidence', async () => {
+    const h = makeHarness('session-1')
+    mocks.sessionMeta.value = { cwd: null, project_id: null, provider_key: 'pk-a' }
+    mocks.resolvedModel.value = 'haiku'
+    mocks.permissionModel.value = 'claude-haiku-5-5'
+    const setMode = vi.fn()
+    h.deps.permissionModes = { setMode, getCurrentMode: () => 'auto_classified' } as never
+    mocks.acquireTurnRuntime.mockImplementationOnce(async () => {
+      expect(h.deps.ctx.db.updateSessionProviderKey).toHaveBeenCalledExactlyOnceWith(
+        'session-1',
+        'pk-b',
+        expect.any(Number),
+        'haiku'
+      )
+      return {
+        ok: true,
+        runtime: { close: vi.fn(), channelAlive: true, markAborted: vi.fn() },
+        extensions: { skills: [], hooks: { normalized: {} } }
+      }
+    })
+    await handleChatSend(h.deps as never, { sender: h.sender } as never, {
+      sessionId: 'session-1',
+      text: 'work',
+      modelFamily: 'selected-family',
+      permissionMode: 'auto_classified',
+      attachmentViews: []
+    })
+    expect(mocks.acquireTurnRuntime).toHaveBeenCalledTimes(1)
+    expect(mocks.buildTurnRequest.mock.calls.at(-1)?.[1]).toMatchObject({
+      model: 'haiku',
+      permissionModel: 'claude-haiku-5-5',
+      permissionMode: 'auto_classified'
+    })
+    expect(h.deps.ctx.db.updateSessionProviderKey).toHaveBeenCalledTimes(1)
+    expect(setMode).toHaveBeenCalledWith('session-1', 'auto_classified')
+    expect(mocks.sendChatEvent).toHaveBeenCalledWith(h.sender, {
+      type: 'session.updated',
+      sessionId: 'session-1',
+      patch: { permissionMode: 'auto_classified' }
+    })
+  })
+})
+
+it.each(['new', 'no-model', 'resolution-failed'] as const)(
+  '0304 does not record %s',
+  async (reason) => {
+    vi.clearAllMocks()
+    mocks.resolvedModel.value = reason === 'no-model' ? undefined : 'haiku'
+    mocks.permissionModel.value = undefined
+    const h = makeHarness(reason === 'new' ? undefined : 'session-1')
+    mocks.acquireTurnRuntime.mockResolvedValueOnce({
+      ok: false,
+      error: { category: 'stream_error', message: 'stop', retryable: false }
+    })
+    if (reason === 'resolution-failed')
+      vi.mocked(resolveTurn).mockResolvedValueOnce({
+        ok: false,
+        error: { category: 'stream_error', message: 'resolution failed', retryable: false }
+      })
+    await handleChatSend(h.deps as never, { sender: h.sender } as never, {
+      ...(reason === 'new' ? {} : { sessionId: 'session-1' }),
+      text: 'work',
+      attachmentViews: []
+    })
+    expect(h.deps.ctx.db.updateSessionProviderKey).not.toHaveBeenCalled()
+    expect(mocks.acquireTurnRuntime).toHaveBeenCalledTimes(reason === 'resolution-failed' ? 0 : 1)
+  }
+)

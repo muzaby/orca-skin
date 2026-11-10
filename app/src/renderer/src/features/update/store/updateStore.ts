@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { UpdateProgress, UpdateState } from '../../../../../shared/ipc'
-import { updateApi } from '../../../shared/api/ipc'
+import { bootApi, updateApi } from '../../../shared/api/ipc'
 import type { UiMessage } from '../../../shared/i18n'
 
 const initialState: UpdateState = {
@@ -151,6 +151,12 @@ export const updateActions = {
 export async function initUpdate(): Promise<void> {
   // 더미 모드가 켜져 있으면 실 IPC 상태가 mock 을 덮어쓰지 않게 skip.
   if (useUpdateStore.getState().dummyMode) return
+  // BootScreen owns readiness failure; avoid invoking an unregistered handler.
+  const ready = await bootApi.whenReady().then(
+    () => true,
+    () => false
+  )
+  if (!ready) return
   try {
     const next = await updateApi.state()
     if (useUpdateStore.getState().dummyMode) return

@@ -37,6 +37,7 @@ interface AutomaticContinuationResolution {
   providerKey: string | null
   prepared: PreparedHarnessConfig
   model?: string
+  permissionModel?: string
 }
 
 interface PreparedAutomaticContinuation {
@@ -45,6 +46,7 @@ interface PreparedAutomaticContinuation {
   // 같은 값으로 전달한다.
   prepared: PreparedHarnessConfig
   model?: string
+  permissionModel?: string
   shouldRespawn: boolean
 }
 
@@ -54,6 +56,7 @@ export async function prepareAutomaticContinuation(input: {
   providerKey: string | null
   modelFamily: string | null
   fallbackModel: string | undefined
+  fallbackPermissionModel?: string
   extraDirs?: readonly string[]
   resolveProvider: (request: {
     providerKey: string | null
@@ -67,11 +70,13 @@ export async function prepareAutomaticContinuation(input: {
   })
   const extensions = input.buildExtensions()
   const model = resolved.model ?? input.fallbackModel
+  const permissionModel = resolved.permissionModel ?? input.fallbackPermissionModel
 
   return {
     extensions,
     prepared: resolved.prepared,
     ...(model !== undefined ? { model } : {}),
+    ...(permissionModel !== undefined ? { permissionModel } : {}),
     shouldRespawn: decideRespawn(
       respawnInputs({
         runtime: input.runtime,
