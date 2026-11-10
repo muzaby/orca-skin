@@ -12,9 +12,9 @@
 | 일자 | 2026-11-10 |
 | 매핑 | 사용자 버그리포트 3건(부트 레이스 · 답변 중 자동 승인 강등 · alias 자동 승인 미노출) |
 | 상태 | READY |
-| V mode | `Baseline V` |
-| 기준 V | `none` |
-| 이번 V revision | `V1 rev.2` — rev.1의 D-005·D-006을 D-008로 대체(구현 전 사용자 정정) |
+| V mode | `Delta V` |
+| 기준 V | `0304:V1 rev.2@eb5ecdb6` — `origin/main` 조상 확인 |
+| 이번 V revision | `ΔV1` — 구현 전 선택 객체 운반 목록 정정. 사용자 결정은 V1 rev.2 유지 |
 | 유효 V | `V1 rev.2 + ΔV1` |
 
 # Part I — Product & UX Contract
@@ -158,7 +158,7 @@
 
 ## 7-A. V / Trace Matrix
 
-- V mode 판정: 상속할 명시 V 없음 → Baseline V.
+- V1 기준선 판정: 당시 상속할 명시 V 없음 → Baseline V. 아래 registry는 V1 rev.2이고 이번 유효 계약은 ΔV1 절을 덧씌운다.
 - 기준 V 상속 근거: 없음.
 - `SUPERSEDED`로 분해한 pair: VP-11(MD-04↔UT-04, AC11) → 폐기. 선택 적대 증거 없음. 목적(재강등 없음)은 VP-10의 AC9 "비자격이면 live 호출 0"이 든다.
 - 변경이 시작되는 수준: Baseline이라 해당 없음.
