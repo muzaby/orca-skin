@@ -501,4 +501,11 @@ main 소비자    같은 리터럴(별도 사본)       같은 새 리터럴
 
 ## [검증자 기입] 파생 이슈
 
-(검증 턴에 채운다)
+r1 verify 결과 `RETURN_TO_PLAN`. 상세·재현은 [`verify.md`](verify.md) §3.
+
+| # | 분류 | 상태 | 출처 계약 | 내용 | 대응 방향(제안) |
+|---|---|---|---|---|---|
+| F1 | 현재 결함 | open · BLOCKING | D-004 N4 · §11 "코드 식별자 인용은 새 이름" | `GLOSSARY.md:67` 노출 키 `'orcinus-orca'`(코드는 `'oo'`) · `TRD.md:170·172`·`IPC_CONTRACT.md:374` 채널 접두사 `orcinus-orca:`(N4는 `oo:`) | 4곳을 코드 이름으로 정정 |
+| F2 | 이행 결함 | open · BLOCKING | §10 EP-08 "워크플로 `env:`·`vars.` 10줄" · VP-07 | `test-pools-experiment.yml:40` env 이름 변이가 어느 테스트에도 안 걸린다(V18) | 그 워크플로의 env·vars 이름을 단언하는 oracle 추가(`ci.yml`·`release.yml`은 `test-time.test.mjs`가 이미 잠금) |
+| F3 | 확장 후보 · PLAN_GAP | open · 설계자 | D-001·D-003·§6 | `docs/spec/{AGENTS.md,claude/agent-sdk/INDEX.md,opencode/INDEX.md}`의 `Orca` 산문 5줄 — §6 범위에도 D-003 제외에도 없음 · `app/.gitignore:162` 옛 캐시 폴더 이름 | 항목마다 범위 편입 또는 경계 선언. `docs/spec/`는 원문 미러 편집 금지 규칙과 얽혀 사용자 결정 가능성 |
+| F5 | 동치 | closed | §10 EP-05 `:30` | `connectorId`는 이름 합성에 안 쓰여 값 변경이 동작에 영향 없음(V07 green) | 구현 보고 `3/3`의 `:30`은 oracle 없음으로 정정 |
