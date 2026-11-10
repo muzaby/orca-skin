@@ -94,11 +94,12 @@ export function planApprovedMode(kind: AgentKind): NormalizedPermissionMode {
 // 메뉴·상태 전이·실제 실행이 같은 함수를 소비한다. 모드 어휘 자체는 SDK 호환 6종을 유지한다.
 export function coercePermissionMode(
   mode: NormalizedPermissionMode,
-  model: { alias: string; model: string | null } | null,
+  model: { alias: string; model: string | null; resolvedModel?: string | null } | null,
   kind: AgentKind
 ): NormalizedPermissionMode {
   const allowed = permissionModeForAgent(mode, kind)
-  if (allowed !== 'auto_classified' || supportsAutoPermission(model?.model)) return allowed
+  if (allowed !== 'auto_classified' || supportsAutoPermission(model?.resolvedModel ?? model?.model))
+    return allowed
   return agentPermissionPolicy[kind].autoUnsupportedMode
 }
 

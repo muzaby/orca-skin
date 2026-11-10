@@ -29,6 +29,7 @@ import {
   type NormalizedPermissionMode
 } from '../../../../../shared/permission-mode'
 import {
+  bootApi,
   chatApi,
   concurrencyApi,
   permissionApi,
@@ -1911,7 +1912,7 @@ function setModel(
   modelFamily: string | null,
   modelAlias: string | null,
   adapter?: string | null,
-  options?: { explicitHarness?: boolean }
+  options?: { explicitHarness?: boolean; resolvedModel?: string }
 ): void {
   const key = getState().activeKey
   const beforeSession = getActiveChatSession()
@@ -1921,6 +1922,7 @@ function setModel(
     providerKey,
     modelFamily,
     modelAlias,
+    modelResolved: options?.resolvedModel,
     adapter,
     explicitHarness: options?.explicitHarness
   })
@@ -2213,20 +2215,36 @@ export function bootstrapChat(): () => void {
   // 앱 부트 시 cwd 1회 조회 — init 이벤트가 오면 같은 값으로 덮어쓰기. 이후 생성되는
   // 엔트리는 cwdCache 로 주입받는다.
   const cwdRevision = cwdSelectionRevision
-  void sessionApi.cwd().then((cwd) => {
-    if (cwdRevision !== cwdSelectionRevision) return
-    cwdCache = cwd
-    setState((s) => ({
-      sessions: Object.fromEntries(
-        Object.entries(s.sessions).map(([k, entry]) => [
-          k,
-          entry.session.sessionId == null && entry.session.cwd == null && !entry.cwdSelected
-            ? { ...entry, session: { ...entry.session, cwd } }
-            : entry
-        ])
-      )
-    }))
-  })
+  void bootApi.whenReady().then(
+    () =>
+      sessionApi
+        .cwd()
+        .then((cwd) => {
+          if (cwdRevision !== cwdSelectionRevision) return
+          cwdCache = cwd
+          setState((s) => ({
+            sessions: Object.fromEntries(
+              Object.entries(s.sessions).map(([k, entry]) => [
+                k,
+                entry.session.sessionId == null && entry.session.cwd == null && !entry.cwdSelected
+                  ? { ...entry, session: { ...entry.session, cwd } }
+                  : entry
+              ])
+            )
+          }))
+        })
+        .catch((error) =>
+          reportError({
+            event: 'chat.cwd.load-failed',
+            scope: 'chat',
+            title: 'loadFailed',
+            error
+          })
+        ),
+    () => {
+      /* BootScreen owns main-ready failure. */
+    }
+  )
 
   // 선호 언어 1회 조회(0127) — continuity draft 의 언어 스냅샷 소스. 시드 전 draft 는 ko 폴백.
   void settingsApi.get().then((s) => {

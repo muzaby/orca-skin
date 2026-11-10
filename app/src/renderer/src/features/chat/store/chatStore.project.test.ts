@@ -43,6 +43,7 @@ describe('project landing cwd', () => {
     const unsubscribe = (): void => {}
     vi.stubGlobal('window', {
       orca: {
+        boot: { whenReady: async () => undefined },
         chat: { onEvent: () => unsubscribe, onBackgroundEvent: () => unsubscribe },
         session: { cwd: () => ready, onTitle: () => unsubscribe },
         settings: { get: async () => ({}), set: async () => ({}) },
@@ -53,6 +54,10 @@ describe('project landing cwd', () => {
     const cleanup = bootstrapChat()
     resolve('C:\\OneDrive\\Desktop')
     await ready
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
     expect(current().cwd).toBe('C:\\Project')
     expect(useChatStore.getState().sessions.s.session.cwd).toBeNull()
     chatActions.newChat()

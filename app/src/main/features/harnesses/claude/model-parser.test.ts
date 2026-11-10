@@ -443,3 +443,35 @@ describe('Fable family classification', () => {
     }
   })
 })
+
+describe('0304 alias evidence preserves execution identity', () => {
+  it('resolves runtime aliases without rewriting model', () => {
+    expect(
+      parseRuntimeModels({
+        availableModels: ['haiku'],
+        runtimeEnv: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-5-5' }
+      })
+    ).toEqual([
+      {
+        alias: 'haiku',
+        model: 'haiku',
+        resolvedModel: 'claude-haiku-5-5',
+        isCustom: false,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ])
+    expect(parseRuntimeModels({ availableModels: ['haiku'] })[0]).not.toHaveProperty(
+      'resolvedModel'
+    )
+  })
+  it('resolves discovered settings aliases and leaves versioned names alone', () => {
+    const models = parseClaudeModels({
+      availableModels: ['haiku', 'my-haiku'],
+      env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-5-5' }
+    })
+    expect(models.find((m) => m.model === 'haiku')?.resolvedModel).toBe('claude-haiku-5-5')
+    expect(models.find((m) => m.model === 'claude-haiku-5-5')).not.toHaveProperty('resolvedModel')
+    expect(models.find((m) => m.model === 'my-haiku')).not.toHaveProperty('resolvedModel')
+  })
+})

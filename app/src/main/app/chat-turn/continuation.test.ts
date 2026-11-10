@@ -13,6 +13,7 @@ import type { DiffRequirementAnchor } from '../../../shared/ipc'
 const continuation = {
   extensions: { skills: [] } as unknown as TurnRequest['extensions'],
   model: 'sonnet-next',
+  permissionModel: 'claude-sonnet-5-5',
   prepared: {
     providerSettings: { blob: 'fresh' } as never,
     env: { ANTHROPIC_AUTH_TOKEN: 'fresh-token' },
@@ -81,6 +82,7 @@ describe('buildListenRequest', () => {
     // 신선한 확장/모델/설정을 쓰고 cwd 는 원 턴을 유지한다.
     expect(request.extensions).toBe(continuation.extensions)
     expect(request.model).toBe('sonnet-next')
+    expect(request.permissionModel).toBe('claude-sonnet-5-5')
     expect(request.cwd).toBe('/workspace')
     expect(request.signal).toBe(signal)
   })
@@ -228,4 +230,22 @@ describe('W4 flush turns keep the retry reopen delegates of the original request
     expect(request.canReopenInitialSubmission).toBe(canReopenInitialSubmission)
     expect(request.reopenInitialSubmission).toBe(reopenInitialSubmission)
   })
+})
+
+it('0304 both automatic requests replace stale permission evidence', () => {
+  const base = { ...baseRequest(), permissionModel: 'claude-opus-4-5' }
+  const signal = new AbortController().signal
+  expect(buildListenRequest({ base, sessionId: 's-1', signal, continuation }).permissionModel).toBe(
+    'claude-sonnet-5-5'
+  )
+  expect(
+    buildFlushRequest({
+      base,
+      sessionId: 's-1',
+      signal,
+      continuation,
+      batch: { uuid: 'b', ids: ['b'], text: 'next', createdAt: 1 },
+      preludes: []
+    }).permissionModel
+  ).toBe('claude-sonnet-5-5')
 })

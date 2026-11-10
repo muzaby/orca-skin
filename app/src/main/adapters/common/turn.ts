@@ -172,6 +172,8 @@ export interface TurnRequest {
   providerSettings?: ResolvedHarnessSettings
   // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
   model?: string
+  // Permission evidence only; never substitutes the execution identifier.
+  permissionModel?: string
   // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일
   // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
   // 자기 SDK 의 권한 메커니즘(claude 는 canUseTool)으로 어댑트한다. router 가 broker

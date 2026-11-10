@@ -149,6 +149,7 @@ function install() {
       harnessRuntime,
       runtimeModelCatalog,
       db: {
+        updateSessionProviderKey: vi.fn(),
         getSessionById: (id: string) =>
           id === 's1' || id === 'n1'
             ? {

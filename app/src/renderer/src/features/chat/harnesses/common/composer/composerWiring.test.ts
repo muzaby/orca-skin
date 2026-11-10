@@ -1,10 +1,8 @@
 // 0215 ΔV1 · VP-21 (AR-04 ↔ IT · §10 EP-20·EP-21) — `Composer` 가 선택 모델에서 파생한 값을
 // 메뉴/스토어로 **공급하는지**를 관측한다.
 //
-// 왜 소스 단언인가(D-018): 이 배선은 `Popover` 안에 있고 `Popover` 는 `createPortal(…,
-// document.body)` 다. vitest 설정이 `environment: 'node'` 라 `typeof document === 'undefined'`
-// 이고 portal 은 `Target container is not a DOM element` 로 던진다 — 마운트 관측이 불가능하다.
-// 대체 수단(DOM 환경 도입)은 신규 의존성이라 plan D-020 에서 OPEN 이다.
+// 이 스위트는 호출 자리와 인자 순서를 소스에서 전수 검사한다.
+// 실제 모델 선택·권한 메뉴는 Composer.selection.test.ts의 fake DOM으로 관측한다.
 //
 // 한계: 식별자 rename 에 취약하다. 다만 그때는 단언이 깨져 **red 로 드러나므로 침묵이 아니다**
 // (§10 EP-20 `실패 의미`).
@@ -127,10 +125,10 @@ describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토�
     }
   })
 
-  // D-022 — `setModel` 은 4슬롯 **순서 계약**이다. 한 슬롯만 단언하면 형제 슬롯 오염이
+  // D-022 — `setModel` 앞의 4슬롯은 **순서 계약**이다. 다섯째는 모델 해석 증거 옵션이다. 한 슬롯만 단언하면 형제 슬롯 오염이
   // 침묵한다: arg3 을 alias 로 둔 채 arg2 만 alias 로 바꾸면 `selectionExists` 가 거짓이 되어
   // 복구 effect 가 사용자 선택을 default 로 되돌린다(verify r2 V-5 · §8 F-23).
-  it('축③ setModel 호출 전건이 (providerKey, modelFamily, modelAlias, adapter) 를 그 순서로 넘긴다', () => {
+  it('축③ setModel 호출 전건이 네 선택 슬롯과 해석 모델 옵션을 넘긴다', () => {
     const calls = callArgs(SOURCE, 'setModel')
     // 분모 고정(§10 EP-20b) — 호출부가 늘면 이 줄이 red 가 되어 새 지점도 검사에 들어온다.
     expect(calls).toHaveLength(4)
@@ -141,9 +139,18 @@ describe('0215 AT-23 — Composer 가 선택 모델 파생값을 메뉴/스토�
       { name: 'modelAlias', re: /([Aa]lias$)/ },
       { name: 'adapter', re: /adapter$/ }
     ]
+    const RESOLVED_MODELS = [
+      'next.resolvedModel',
+      'model.resolvedModel',
+      'model.resolvedModel',
+      'selection.resolvedModel'
+    ]
     for (const [i, call] of calls.entries()) {
       const args = topLevelArgs(call)
-      expect(args, `호출 ${i + 1} 의 인자 수`).toHaveLength(4)
+      expect(args, `호출 ${i + 1} 의 인자 수`).toHaveLength(5)
+      expect(args[4].replace(/\s+/g, ''), `호출 ${i + 1} 의 해석 모델 옵션`).toBe(
+        `{resolvedModel:${RESOLVED_MODELS[i]}}`
+      )
       for (const [slot, { name, re }] of SLOTS.entries()) {
         expect(args[slot], `호출 ${i + 1} 의 ${slot + 1}번째 슬롯이 ${name} 이 아니다`).toMatch(re)
       }

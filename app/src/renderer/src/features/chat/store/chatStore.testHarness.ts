@@ -48,6 +48,7 @@ export function installChatStoreHarness(
   const permissionSetMode = vi.fn().mockImplementation(async ({ mode }) => mode)
   vi.stubGlobal('window', {
     orca: {
+      boot: { whenReady: async () => undefined },
       chat: {
         send: chatSend,
         cancel: vi.fn(),

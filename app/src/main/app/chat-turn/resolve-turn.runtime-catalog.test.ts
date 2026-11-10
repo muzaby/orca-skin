@@ -66,8 +66,8 @@ describe('turn setup with the runtime model catalog', () => {
   it('uses the Gate-warmed cache without another augmenter fetch', async () => {
     let now = 0
     const fetchContribution = vi.fn(async () => ({
-      runtimeEnv: {},
-      availableModels: ['claude-sonnet-corp'],
+      runtimeEnv: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-5-5' },
+      availableModels: ['haiku'],
       validUntil: 60_000
     }))
     const runtime = createHarnessRuntimeConfigService({
@@ -102,13 +102,14 @@ describe('turn setup with the runtime model catalog', () => {
         agentKind: 'code',
         sessionId: null,
         providerKey: contribution.key,
-        modelFamily: 'claude-sonnet-corp'
+        modelFamily: 'haiku'
       }
     )
 
     expect(resolved).toMatchObject({
       providerKey: contribution.key,
-      model: 'claude-sonnet-corp'
+      model: 'haiku',
+      permissionModel: 'claude-haiku-5-5'
     })
     expect(fetchContribution).toHaveBeenCalledTimes(1)
 
@@ -126,7 +127,7 @@ describe('turn setup with the runtime model catalog', () => {
         agentKind: 'code',
         sessionId: null,
         providerKey: contribution.key,
-        modelFamily: 'claude-sonnet-corp'
+        modelFamily: 'haiku'
       }
     )
     expect(fetchContribution).toHaveBeenCalledTimes(1)

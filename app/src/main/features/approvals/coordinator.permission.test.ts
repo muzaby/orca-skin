@@ -28,13 +28,18 @@ import { CHANNELS } from '../../../shared/ipc'
 function setup(
   kind: AgentKind | undefined,
   model?: string,
-  live = true
+  live = true,
+  permissionModel?: string
 ): {
   current: {
     turn:
       | {
           agentKind: AgentKind
-          live: { spawnedModel: string | undefined; setPermissionMode: ReturnType<typeof vi.fn> }
+          live: {
+            spawnedModel: string | undefined
+            spawnedPermissionModel?: string
+            setPermissionMode: ReturnType<typeof vi.fn>
+          }
         }
       | undefined
   }
@@ -45,7 +50,12 @@ function setup(
   const setPermissionMode = vi.fn().mockResolvedValue(undefined)
   const setMode = vi.fn()
   const turn =
-    kind && live ? { agentKind: kind, live: { spawnedModel: model, setPermissionMode } } : undefined
+    kind && live
+      ? {
+          agentKind: kind,
+          live: { spawnedModel: model, spawnedPermissionModel: permissionModel, setPermissionMode }
+        }
+      : undefined
   const current = { turn }
   new ApprovalCoordinator().registerHandlers(
     { getBySession: () => current.turn } as never,
@@ -63,15 +73,16 @@ function setup(
 beforeEach(() => hooks.clear())
 describe('r4 live permission actual model and applied response', () => {
   it.each([
-    ['work', 'claude-sonnet-4-5', 'default', 'default'],
-    ['code', 'claude-sonnet-4-5', 'accept_edits', 'accept_edits'],
+    ['work', 'claude-sonnet-4-5', 'auto_classified', undefined],
+    ['code', 'claude-sonnet-4-5', 'auto_classified', undefined],
     ['work', 'claude-sonnet-4-6', 'auto_classified', 'auto_classified'],
-    ['work', undefined, 'default', 'default'],
-    ['code', 'corp-sonnet-9', 'accept_edits', 'accept_edits']
+    ['work', undefined, 'auto_classified', undefined],
+    ['code', 'corp-sonnet-9', 'auto_classified', undefined]
   ] as const)('%s %s settles %s', async (kind, model, expected, sdk) => {
     const h = setup(kind, model)
     expect(await h.invoke('auto_classified')).toBe(expected)
-    expect(h.setPermissionMode).toHaveBeenCalledWith(sdk)
+    if (sdk === undefined) expect(h.setPermissionMode).not.toHaveBeenCalled()
+    else expect(h.setPermissionMode).toHaveBeenCalledExactlyOnceWith(sdk)
     expect(h.setMode).toHaveBeenCalledWith('s', expected)
   })
   it('idle keeps selected auto until next resolved send; Work hidden values become manual', async () => {
@@ -129,4 +140,13 @@ describe('r4 Main live request lifetime', () => {
     expect(await request).toBeUndefined()
     expect(h.setMode).not.toHaveBeenCalled()
   })
+})
+
+it('0304 applies auto to a resolved alias and bypass to an older live model', async () => {
+  const alias = setup('work', 'haiku', true, 'claude-haiku-5-5')
+  expect(await alias.invoke('auto_classified')).toBe('auto_classified')
+  expect(alias.setPermissionMode).toHaveBeenCalledExactlyOnceWith('auto_classified')
+  const older = setup('code', 'claude-sonnet-4-5')
+  expect(await older.invoke('bypass')).toBe('bypass')
+  expect(older.setPermissionMode).toHaveBeenCalledExactlyOnceWith('bypass')
 })

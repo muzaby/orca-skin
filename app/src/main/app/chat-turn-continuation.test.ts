@@ -190,3 +190,21 @@ describe('automatic continuation keeps the selected extra directory scope', () =
     }
   )
 })
+
+it.each([true, false])('0304 carries fresh or fallback permission evidence (%s)', async (fresh) => {
+  const result = await prepareAutomaticContinuation({
+    runtime: runtime(1, 'haiku'),
+    providerKey: 'team-a',
+    modelFamily: 'haiku',
+    fallbackModel: 'haiku',
+    fallbackPermissionModel: 'claude-haiku-5-5',
+    resolveProvider: async () => ({
+      providerKey: 'team-a',
+      prepared: preparedConfig(),
+      ...(fresh ? { model: 'sonnet', permissionModel: 'claude-sonnet-5-5' } : {})
+    }),
+    buildExtensions: () => extensions(1)
+  })
+  expect(result.model).toBe(fresh ? 'sonnet' : 'haiku')
+  expect(result.permissionModel).toBe(fresh ? 'claude-sonnet-5-5' : 'claude-haiku-5-5')
+})

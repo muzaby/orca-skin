@@ -155,7 +155,8 @@ export class HistoryWriter {
   // 소비 확정 = 응답 경계. 진행 중 어시스턴트 메시지(소비 전 응답)를 먼저 마감·리셋해 user row
   // 가 그 뒤 idx 로 정렬되고, 이후 어시스턴트 파트는 ensureAssistantMessage 가 새 메시지로
   // 만든다 → 재로드 정렬 [응답-전][user][응답-후] = 라이브와 동일. preview/provider_key 갱신도
-  // 커밋 시점 소유(0067 — send 시점 선영속 제거).
+  // preview·메시지는 커밋 시점 소유. provider_key·last_model은 기존 세션 idle send에서
+  // 먼저 기록하며 여기서는 같은 턴 값으로 갱신한다.
   commitUserMessage(
     turn: TurnContext,
     batch: {

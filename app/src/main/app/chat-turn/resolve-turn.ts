@@ -22,6 +22,7 @@ import {
 import {
   defaultModelFamily,
   modelNameForFamily,
+  permissionModelForFamily,
   toAgentEnvironments
 } from '../../features/harnesses/common/models'
 import { harnessModule } from '../harnesses/registry'
@@ -213,6 +214,7 @@ export interface ResolvedTurnProvider {
   prepared: PreparedHarnessConfig
   providerKey: string | null
   model?: string
+  permissionModel?: string
   titleModel?: string
 }
 
@@ -293,6 +295,7 @@ export async function resolveTurnProvider(
     (selected.key === meta?.provider_key ? meta.last_model : null) ??
     defaultModelFamily(models)
   const model = modelNameForFamily(models, modelFamily)
+  const permissionModel = permissionModelForFamily(models, modelFamily)
   // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
   // settings 레이어 resolveTitleModel 에 둔다).
   const titleModel = harnessModule(req.adapter.id).resolveTitleModel(models)
@@ -300,6 +303,7 @@ export async function resolveTurnProvider(
     providerKey: selected.key,
     prepared,
     ...(model ? { model } : {}),
+    ...(permissionModel !== undefined ? { permissionModel } : {}),
     ...(titleModel ? { titleModel } : {})
   }
 }

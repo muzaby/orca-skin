@@ -188,3 +188,56 @@ it('keeps unsupported Claude and OpenCode defaults separate', () => {
     }).permissionMode
   ).toBe(initialChatState.permissionMode)
 })
+
+it('0304 cached navigation keeps unsent chips; a fresh load restores the sent model', () => {
+  const session = {
+    id: 's',
+    backend: 'claude' as const,
+    agentKind: 'code' as const,
+    title: 's',
+    providerKey: 'pk-a',
+    modelFamily: 'claude-sonnet-4-5',
+    messages: []
+  }
+  const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+  const selected = chatReducer(loaded, {
+    type: 'SET_MODEL',
+    providerKey: 'pk-b',
+    modelFamily: 'haiku',
+    modelAlias: 'haiku',
+    modelResolved: 'claude-haiku-5-5',
+    adapter: 'claude'
+  })
+  const auto = chatReducer(selected, { type: 'SET_PERMISSION_MODE', mode: 'auto_classified' })
+  expect(
+    chatReducer(auto, { type: 'LOAD_SESSION', session, preserveLocalState: true })
+  ).toMatchObject({
+    providerKey: 'pk-b',
+    modelFamily: 'haiku',
+    modelAlias: 'haiku',
+    modelResolved: 'claude-haiku-5-5',
+    permissionMode: 'auto_classified'
+  })
+  expect(chatReducer(auto, { type: 'LOAD_SESSION', session })).toMatchObject({
+    providerKey: 'pk-a',
+    modelFamily: 'claude-sonnet-4-5',
+    modelResolved: null,
+    permissionMode: 'accept_edits'
+  })
+})
+it('0304 agent-kind changes use resolved alias evidence', () => {
+  const state = chatReducer(
+    { ...initialChatState, agentKind: 'code' },
+    {
+      type: 'SET_MODEL',
+      providerKey: 'pk-b',
+      modelFamily: 'haiku',
+      modelAlias: 'haiku',
+      modelResolved: 'claude-haiku-5-5',
+      adapter: 'claude'
+    }
+  )
+  expect(chatReducer(state, { type: 'SET_AGENT_KIND', kind: 'work' }).permissionMode).toBe(
+    'auto_classified'
+  )
+})

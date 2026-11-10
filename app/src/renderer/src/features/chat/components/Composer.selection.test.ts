@@ -39,7 +39,7 @@ vi.mock('../harnesses/registries/composer', async (original) => {
       Status: () => null,
       Requests: () => null,
       AboveInput: () => null,
-      ModeControl: () => null,
+      ModeControl: backend === 'claude' ? composerHarness(backend).ModeControl : () => null,
       EffortControl: () => null,
       Chip: ({ label, onClick }: { label: string; onClick: () => void }) =>
         createElement('button', { 'data-model-label': true, onClick }, label)
@@ -47,8 +47,13 @@ vi.mock('../harnesses/registries/composer', async (original) => {
   }
 })
 vi.mock('../harnesses/common/composer/ComposerInputController', () => ({
-  ComposerInputController: ({ controlsEnd }: { controlsEnd: import('react').ReactNode }) =>
+  ComposerInputController: ({
+    controlsStart,
     controlsEnd
+  }: {
+    controlsStart: import('react').ReactNode
+    controlsEnd: import('react').ReactNode
+  }) => createElement('div', null, controlsStart, controlsEnd)
 }))
 vi.mock('./composer/GitRow', () => ({ GitRow: () => null }))
 import { createElement } from 'react'
@@ -88,6 +93,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   dom.unmount()
+  vi.restoreAllMocks()
   seedLandingBackend(null)
   vi.unstubAllGlobals()
   vi.useRealTimers()
@@ -245,3 +251,131 @@ it.each(['new', 'fork'] as const)(
     }
   }
 )
+
+it.each(['default', 'hydrate', 'alias', 'evidence'] as const)(
+  '0304 carries alias evidence through Composer %s',
+  (source) => {
+    const fakeWindow = window
+    installChatStoreHarness({
+      sessionId: null,
+      backend: 'claude',
+      agentKind: 'work',
+      ...(source === 'default' ? {} : { providerKey: 'claude-local' }),
+      ...(source === 'alias' || source === 'evidence'
+        ? { modelFamily: 'haiku', modelAlias: source === 'alias' ? null : 'haiku' }
+        : {})
+    })
+    const orca = window.orca
+    vi.stubGlobal('window', fakeWindow)
+    Object.assign(window, { orca })
+    catalog.agents = [
+      {
+        ...agent('claude'),
+        models: [
+          {
+            alias: 'haiku',
+            model: 'haiku',
+            resolvedModel: 'claude-haiku-5-5',
+            isCustom: false,
+            isDefault: true,
+            oneMillionContext: false
+          }
+        ]
+      }
+    ]
+    const controlModel: NonNullable<
+      Parameters<
+        typeof import('../harnesses/claude/composer/Controls').ClaudeModeControl
+      >[0]['model']
+    > = { alias: 'haiku', model: 'haiku', resolvedModel: 'claude-haiku-5-5', isCustom: false }
+    catalog.agents[0].models[0] = { ...catalog.agents[0].models[0], ...controlModel }
+    const setModel = vi.spyOn(chatActions, 'setModel')
+    render()
+    expect(setModel.mock.calls[0]?.[4]?.resolvedModel).toBe('claude-haiku-5-5')
+    expect(getActiveChatSession()).toMatchObject({
+      modelFamily: 'haiku',
+      modelAlias: 'haiku',
+      modelResolved: 'claude-haiku-5-5',
+      permissionMode: 'auto_classified'
+    })
+  }
+)
+it('0304 a model menu click carries evidence through the selection object', () => {
+  const fakeWindow = window
+  installChatStoreHarness({ sessionId: null, backend: 'claude', agentKind: 'work' })
+  const orca = window.orca
+  vi.stubGlobal('window', fakeWindow)
+  Object.assign(window, { orca })
+  catalog.agents = [
+    {
+      ...agent('claude'),
+      models: [
+        {
+          alias: 'sonnet',
+          model: 'claude-sonnet-4-5',
+          isCustom: false,
+          isDefault: true,
+          oneMillionContext: false
+        },
+        {
+          alias: 'haiku',
+          model: 'haiku',
+          resolvedModel: 'claude-haiku-5-5',
+          isCustom: false,
+          isDefault: false,
+          oneMillionContext: false
+        }
+      ]
+    }
+  ]
+  const setModel = vi.spyOn(chatActions, 'setModel')
+  render()
+  dom.click(dom.query('[data-model-label]')!)
+  const target = dom
+    .queryAll('[role="menuitemradio"]')
+    .find((node) => node.textContent.includes('haiku'))!
+  expect(target).toBeDefined()
+  dom.click(target)
+  expect(setModel.mock.calls.find((call) => call[1] === 'haiku')?.[4]?.resolvedModel).toBe(
+    'claude-haiku-5-5'
+  )
+  expect(getActiveChatSession()).toMatchObject({
+    modelFamily: 'haiku',
+    modelResolved: 'claude-haiku-5-5',
+    permissionMode: 'auto_classified'
+  })
+})
+
+it('0304 the real Claude control opens automatic approval for a resolved alias', () => {
+  const fakeWindow = window
+  installChatStoreHarness({ sessionId: null, backend: 'claude', agentKind: 'work' })
+  const orca = window.orca
+  vi.stubGlobal('window', fakeWindow)
+  Object.assign(window, { orca })
+  catalog.agents = [
+    {
+      ...agent('claude'),
+      models: [
+        {
+          alias: 'haiku',
+          model: 'haiku',
+          resolvedModel: 'claude-haiku-5-5',
+          isCustom: false,
+          isDefault: true,
+          oneMillionContext: false
+        }
+      ]
+    }
+  ]
+  render()
+  const mode = dom
+    .queryAll('[aria-haspopup="menu"]')
+    .find((node) => node.textContent.includes('chat.composer.modes.workAutoLabel'))!
+  expect(mode).toBeDefined()
+  dom.click(mode)
+  expect(
+    dom
+      .queryAll('[role="menuitemradio"]')
+      .some((node) => node.textContent.includes('chat.composer.modes.workAutoLabel'))
+  ).toBe(true)
+})

@@ -203,4 +203,6 @@ POP3 Mail Plugin은 Core `orcinus-orca.db`와 분리된 계정별 `mail.db`를 `
 
 ## sessions.provider_key (0008, handoff 0010)
 
-`0008_provider_key.sql` 은 `sessions.provider_key TEXT` nullable 컬럼을 추가한다. 이 값은 마지막 턴에 사용된 provider key 기록이며 세션의 adapter 잠금 제약은 기존 `sessions.backend` 가 담당한다. 자격 토큰은 평문·해시 어느 형태로도 DB 에 저장하지 않는다.
+`0008_provider_key.sql` 은 `sessions.provider_key TEXT` nullable 컬럼을 추가한다. 세션의 adapter 잠금 제약은 `sessions.backend`가 담당한다. 자격 토큰은 평문·해시 어느 형태로도 DB에 저장하지 않는다.
+
+기존 세션의 idle 전송은 모델 해석을 마친 직후 실행 전에 `provider_key`·`last_model`을 함께 기록한다. 새 세션은 SDK init에서 기록하고 이후 echo 커밋에서도 같은 턴 값을 기록한다. busy 큐 전송·보내지 않은 칩 변경은 기록하지 않으며 preview·메시지는 echo 커밋 시점에 남긴다.

@@ -189,7 +189,7 @@ describe('handleChatSend busy submission', () => {
         mockAdapter: null,
         debugMock: { enabled: false },
         registry: { getActive: () => ({ id: 'claude' }) },
-        db: { getSessionById: () => ({ agent_kind: 'code' }) }
+        db: { getSessionById: () => ({ agent_kind: 'code' }), updateSessionProviderKey: vi.fn() }
       },
       supervisor: { acquireChain, getChainByKey: (key: string) => leases.getByKey(key) },
       pendingMessages: queue,
@@ -236,6 +236,7 @@ describe('handleChatSend busy submission', () => {
     }))
     completeNormalization({ attachmentTexts, attachmentImages: [], attachmentViews: storedViews })
     await request
+    expect(deps.ctx.db.updateSessionProviderKey).not.toHaveBeenCalled()
     expect(order).toEqual(['admitted', 'listen-released', 'next-microtask:1'])
     expect(queue.pending('s1')).toEqual([
       expect.objectContaining({

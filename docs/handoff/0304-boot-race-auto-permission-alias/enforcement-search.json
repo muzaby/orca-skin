@@ -1,0 +1,552 @@
+{
+  "EP1": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "(sessionApi\\s*\\.cwd|updateApi\\s*\\.state)\\(",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 2,
+    "expectedFiles": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/renderer/src/features/update/store/updateStore.ts"
+    ],
+    "actualFiles": [
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/renderer/src/features/update/store/updateStore.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/renderer/src/features/update/store/updateStore.ts",
+        "line": 161,
+        "text": "const next = await updateApi.state()"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 2220,
+        "text": "sessionApi\n        .cwd()"
+      }
+    ]
+  },
+  "EP2": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "resolvedModel|modelResolved",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 32,
+    "expectedFiles": [
+      "app/src/main/features/harnesses/claude/model-parser.ts",
+      "app/src/main/features/harnesses/common/model-types.ts",
+      "app/src/main/features/harnesses/common/models.ts",
+      "app/src/renderer/src/features/chat/components/Composer.tsx",
+      "app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+      "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/Controls.tsx",
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/shared/ipc.ts",
+      "app/src/shared/permission-mode.ts"
+    ],
+    "actualFiles": [
+      "app/src/main/features/harnesses/claude/model-parser.ts",
+      "app/src/main/features/harnesses/common/model-types.ts",
+      "app/src/main/features/harnesses/common/models.ts",
+      "app/src/renderer/src/features/chat/components/Composer.tsx",
+      "app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+      "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/Controls.tsx",
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/store/chatStore.ts",
+      "app/src/shared/ipc.ts",
+      "app/src/shared/permission-mode.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/shared/permission-mode.ts",
+        "line": 97,
+        "text": "model: { alias: string; model: string | null; resolvedModel?: string | null } | null,"
+      },
+      {
+        "file": "app/src/shared/permission-mode.ts",
+        "line": 101,
+        "text": "if (allowed !== 'auto_classified' || supportsAutoPermission(model?.resolvedModel ?? model?.model))"
+      },
+      {
+        "file": "app/src/shared/ipc.ts",
+        "line": 326,
+        "text": "resolvedModel?: string"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 1915,
+        "text": "options?: { explicitHarness?: boolean; resolvedModel?: string }"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 1925,
+        "text": "modelResolved: options?.resolvedModel,"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 293,
+        "text": "modelResolved: string | null"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 504,
+        "text": "modelResolved: null,"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 663,
+        "text": "modelResolved?: string | null"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 861,
+        "text": "resolvedModel: state.modelResolved"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1472,
+        "text": "modelResolved: null,"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1629,
+        "text": "resolvedModel: state.modelResolved"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1672,
+        "text": "modelResolved: action.modelResolved ?? null,"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1681,
+        "text": "resolvedModel: action.modelResolved"
+      },
+      {
+        "file": "app/src/main/features/harnesses/common/models.ts",
+        "line": 40,
+        "text": "return selected ? (selected.resolvedModel ?? modelIdentity(selected)) : undefined"
+      },
+      {
+        "file": "app/src/main/features/harnesses/common/model-types.ts",
+        "line": 5,
+        "text": "resolvedModel?: string"
+      },
+      {
+        "file": "app/src/main/features/harnesses/claude/model-parser.ts",
+        "line": 125,
+        "text": "const resolvedModel = resolveClaudeModelAlias(identity, lookup)"
+      },
+      {
+        "file": "app/src/main/features/harnesses/claude/model-parser.ts",
+        "line": 126,
+        "text": "return resolvedModel === identity ? model : { ...model, resolvedModel }"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+        "line": 79,
+        "text": "model: { alias: string; model: string | null; resolvedModel?: string; isCustom?: boolean } | null,"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/harnesses/claude/composer/Controls.tsx",
+        "line": 15,
+        "text": "model: { alias: string; model: string | null; resolvedModel?: string; isCustom: boolean } | null"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+        "line": 14,
+        "text": "resolvedModel?: string"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+        "line": 35,
+        "text": "...(model?.resolvedModel !== undefined ? { resolvedModel: model.resolvedModel } : {}),"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+        "line": 70,
+        "text": "): { alias: string; model: string | null; isCustom: boolean; resolvedModel?: string } | null {"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/composer/modelSelection.ts",
+        "line": 79,
+        "text": "...(model.resolvedModel !== undefined ? { resolvedModel: model.resolvedModel } : {})"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+        "line": 71,
+        "text": "...(model.resolvedModel !== undefined"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/composer/ModelMenu.tsx",
+        "line": 72,
+        "text": "? { resolvedModel: model.resolvedModel }"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 146,
+        "text": "const modelResolved = useChatSession((s) => s.modelResolved)"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 201,
+        "text": "resolvedModel: next.resolvedModel"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 211,
+        "text": "(modelAlias !== model.alias || modelResolved !== (model.resolvedModel ?? null))"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 214,
+        "text": "resolvedModel: model.resolvedModel"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 223,
+        "text": "resolvedModel: model.resolvedModel"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 230,
+        "text": "modelResolved,"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 454,
+        "text": "{ resolvedModel: selection.resolvedModel }"
+      }
+    ]
+  },
+  "EP3-coercion": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "coercePermissionMode\\(|coerceAutoPermissionModeForModelName\\(",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 12,
+    "expectedFiles": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/features/approvals/coordinator.ts",
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/shared/permission-mode.ts"
+    ],
+    "actualFiles": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/features/approvals/coordinator.ts",
+      "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/shared/permission-mode.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/shared/permission-mode.ts",
+        "line": 95,
+        "text": "export function coercePermissionMode("
+      },
+      {
+        "file": "app/src/shared/permission-mode.ts",
+        "line": 107,
+        "text": "export function coerceAutoPermissionModeForModelName("
+      },
+      {
+        "file": "app/src/shared/permission-mode.ts",
+        "line": 112,
+        "text": "return coercePermissionMode(mode, { alias: '', model: modelName ?? null }, kind)"
+      },
+      {
+        "file": "app/src/main/features/approvals/coordinator.ts",
+        "line": 107,
+        "text": "coerceAutoPermissionModeForModelName("
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 535,
+        "text": "permissionMode: coercePermissionMode(DEFAULT_PERMISSION_MODE, null, DEFAULT_AGENT_KIND),"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 856,
+        "text": "permissionMode: coercePermissionMode("
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1499,
+        "text": "permissionMode: coercePermissionMode("
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1624,
+        "text": "permissionMode: coercePermissionMode("
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1674,
+        "text": "permissionMode: coercePermissionMode("
+      },
+      {
+        "file": "app/src/main/app/chat-turn/send.ts",
+        "line": 554,
+        "text": "const permissionMode = coerceAutoPermissionModeForModelName("
+      },
+      {
+        "file": "app/src/main/app/chat-turn/send.ts",
+        "line": 696,
+        "text": "const settled = coerceAutoPermissionModeForModelName("
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/harnesses/claude/composer/modes.ts",
+        "line": 86,
+        "text": ": coercePermissionMode(option.mode, model, kind) === option.mode"
+      }
+    ]
+  },
+  "EP6": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "ANTHROPIC_DEFAULT_\\$\\{",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 1,
+    "expectedFiles": [
+      "app/src/shared/harnesses/claude/model-policy.ts"
+    ],
+    "actualFiles": [
+      "app/src/shared/harnesses/claude/model-policy.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/shared/harnesses/claude/model-policy.ts",
+        "line": 11,
+        "text": "return lookup(`ANTHROPIC_DEFAULT_${alias.toUpperCase()}_MODEL`) || model"
+      }
+    ]
+  },
+  "EP7": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "preserveLocalState",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 4,
+    "expectedFiles": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+    ],
+    "actualFiles": [
+      "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+      "app/src/renderer/src/features/chat/store/chatStore.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 1737,
+        "text": "dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/store/chatStore.ts",
+        "line": 1781,
+        "text": "preserveLocalState: true"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 692,
+        "text": "| { type: 'LOAD_SESSION'; session: LoadedSession; preserveLocalState?: boolean }"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/reducer/chatReducer.ts",
+        "line": 1459,
+        "text": "if (action.preserveLocalState && state.sessionId === action.session.id) {"
+      }
+    ]
+  },
+  "EP8-write": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "updateSessionProviderKey\\(",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 4,
+    "expectedFiles": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/features/history/writer.ts",
+      "app/src/main/infra/db/queries.ts"
+    ],
+    "actualFiles": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/features/history/writer.ts",
+      "app/src/main/infra/db/queries.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/main/infra/db/queries.ts",
+        "line": 579,
+        "text": "updateSessionProviderKey("
+      },
+      {
+        "file": "app/src/main/features/history/writer.ts",
+        "line": 187,
+        "text": "this.db.updateSessionProviderKey("
+      },
+      {
+        "file": "app/src/main/features/history/writer.ts",
+        "line": 354,
+        "text": "this.db.updateSessionProviderKey("
+      },
+      {
+        "file": "app/src/main/app/chat-turn/send.ts",
+        "line": 294,
+        "text": "ctx.db.updateSessionProviderKey("
+      }
+    ]
+  },
+  "EP8-helper": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "sessionModelRecordFor",
+      "app/src",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 3,
+    "expectedFiles": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/app/chat-turn/turn-context.ts"
+    ],
+    "actualFiles": [
+      "app/src/main/app/chat-turn/send.ts",
+      "app/src/main/app/chat-turn/turn-context.ts"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/main/app/chat-turn/turn-context.ts",
+        "line": 19,
+        "text": "export function sessionModelRecordFor(input: {"
+      },
+      {
+        "file": "app/src/main/app/chat-turn/send.ts",
+        "line": 36,
+        "text": "import { buildTurnContext, resolveTurnCwd, sessionModelRecordFor } from './turn-context'"
+      },
+      {
+        "file": "app/src/main/app/chat-turn/send.ts",
+        "line": 292,
+        "text": "const modelRecord = sessionModelRecordFor({ sessionId: payload.sessionId, resolved })"
+      }
+    ]
+  },
+  "Composer-calls": {
+    "command": [
+      "rg",
+      "--json",
+      "-U",
+      "-n",
+      "setModel\\(",
+      "app/src/renderer/src/features/chat/components/Composer.tsx",
+      "--glob",
+      "!*.test.*",
+      "--glob",
+      "!*.testfixture.*"
+    ],
+    "matchCount": 4,
+    "expectedFiles": [
+      "app/src/renderer/src/features/chat/components/Composer.tsx"
+    ],
+    "actualFiles": [
+      "app/src/renderer/src/features/chat/components/Composer.tsx"
+    ],
+    "missingFiles": [],
+    "extraFiles": [],
+    "matches": [
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 200,
+        "text": "setModel(next.providerKey, next.modelFamily, next.modelAlias, next.adapter, {"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 213,
+        "text": "setModel(providerKey, modelFamily, model.alias, agent.adapter, {"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 222,
+        "text": "setModel(providerKey, modelKey(model), model.alias, agent.adapter, {"
+      },
+      {
+        "file": "app/src/renderer/src/features/chat/components/Composer.tsx",
+        "line": 449,
+        "text": "setModel("
+      }
+    ]
+  }
+}

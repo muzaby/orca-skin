@@ -33,6 +33,7 @@ it('keeps the chosen path when the boot query finishes late', async () => {
   })
   const unsubscribe = (): void => {}
   Object.assign(window.orca, {
+    boot: { whenReady: async () => undefined },
     chat: { ...window.orca.chat, onEvent: () => unsubscribe, onBackgroundEvent: () => unsubscribe },
     session: { cwd: () => ready, onTitle: () => unsubscribe },
     concurrency: { onEvent: () => unsubscribe },
@@ -42,6 +43,8 @@ it('keeps the chosen path when the boot query finishes late', async () => {
   chatActions.setPendingCwd('C:/new-choice')
   finish('C:/old-default')
   await ready
+  await Promise.resolve()
+  await Promise.resolve()
   chatActions.newChat()
   expect(getActiveChatSession().cwd).toBe('C:/new-choice')
   cleanup()

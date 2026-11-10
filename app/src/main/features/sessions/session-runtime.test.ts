@@ -1570,10 +1570,13 @@ describe('SessionRuntime spawn model 기록(0128)', () => {
   it('콜드 스폰이 model 을 기록하고, pushTurn 후속 턴은 기록을 바꾸지 않는다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
-    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    const f1 = collect(
+      runtime.send({ ...req(), model: 'sonnet', permissionModel: 'claude-sonnet-5-5' })
+    )
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
     expect(runtime.spawnedModel).toBe('sonnet')
+    expect(runtime.spawnedPermissionModel).toBe('claude-sonnet-5-5')
 
     // 후속 턴이 다른 model 을 실어도 pushTurn 경로는 spawn-바운드 기록을 갱신하지 않는다
     // (라이브 setModel 은 실제 생성 모델을 못 바꾸므로 respawn 판정은 chat-turn 이 소유).
@@ -1581,6 +1584,7 @@ describe('SessionRuntime spawn model 기록(0128)', () => {
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f2
     expect(runtime.spawnedModel).toBe('sonnet')
+    expect(runtime.spawnedPermissionModel).toBe('claude-sonnet-5-5')
   })
 
   it('teardownChannel() 은 기록을 해제하고, respawn 이 새 model 을 기록한다', async () => {
@@ -1596,28 +1600,35 @@ describe('SessionRuntime spawn model 기록(0128)', () => {
       },
       classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
     })
-    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    const f1 = collect(
+      runtime.send({ ...req(), model: 'sonnet', permissionModel: 'claude-sonnet-5-5' })
+    )
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
     runtime.teardownChannel()
     expect(runtime.spawnedModel).toBeUndefined()
+    expect(runtime.spawnedPermissionModel).toBeUndefined()
 
     const f2 = collect(runtime.send({ ...req(), model: 'haiku' }))
     second.emit({ type: 'telemetry', sessionId: 's1' })
     await f2
     expect(spawns).toBe(2)
     expect(runtime.spawnedModel).toBe('haiku')
+    expect(runtime.spawnedPermissionModel).toBe('haiku')
   })
 
   it('채널 스트림 사망(finishPump)도 기록을 해제한다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
-    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    const f1 = collect(
+      runtime.send({ ...req(), model: 'sonnet', permissionModel: 'claude-sonnet-5-5' })
+    )
     ch.liveTurn.close()
     await f1
     expect(runtime.channelAlive).toBe(false)
     expect(runtime.spawnedModel).toBeUndefined()
+    expect(runtime.spawnedPermissionModel).toBeUndefined()
   })
 })
 

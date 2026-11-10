@@ -76,7 +76,7 @@ const agentMenuOptions = {
 } satisfies Record<AgentKind, ModeOption[]>
 
 export function modeMenuOptions(
-  model: { alias: string; model: string | null; isCustom?: boolean } | null,
+  model: { alias: string; model: string | null; resolvedModel?: string; isCustom?: boolean } | null,
   kind: AgentKind
 ): ModeOption[] {
   const options = agentMenuOptions[kind]

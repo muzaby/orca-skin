@@ -14,7 +14,10 @@
 // 순수 함수 — fs 비의존, vitest 대상.
 
 import { isRecord } from '../../../../shared/obj'
-import { CLAUDE_MODEL_FAMILIES } from '../../../../shared/harnesses/claude/model-policy'
+import {
+  CLAUDE_MODEL_FAMILIES,
+  resolveClaudeModelAlias
+} from '../../../../shared/harnesses/claude/model-policy'
 import { modelIdentity, sameModelIdentity } from '../../../../shared/model-identity'
 import type { ParsedModel } from '../common/model-types'
 
@@ -95,7 +98,7 @@ export function parseClaudeModels(settings: {
 
   markDefaultModel(listed, explicit)
 
-  return listed
+  return withResolvedAliases(listed, (key) => modelValue(env[key]))
 }
 
 // Runtime discovery는 settings의 alias 폴백을 쓰지 않는다. 최종 목록에 명시 모델을 넣은 뒤
@@ -104,10 +107,24 @@ export function parseRuntimeModels(config: {
   availableModels?: unknown
   runtimeEnv?: Readonly<Record<string, string>>
 }): ParsedModel[] {
-  return normalizeAvailableModels(
-    availableModelsOf(config) ?? [],
-    explicitModelOf(config.runtimeEnv?.ANTHROPIC_MODEL)
+  return withResolvedAliases(
+    normalizeAvailableModels(
+      availableModelsOf(config) ?? [],
+      explicitModelOf(config.runtimeEnv?.ANTHROPIC_MODEL)
+    ),
+    (key) => config.runtimeEnv?.[key]
   )
+}
+
+function withResolvedAliases(
+  models: ParsedModel[],
+  lookup: (key: string) => string | undefined
+): ParsedModel[] {
+  return models.map((model) => {
+    const identity = modelIdentity(model)
+    const resolvedModel = resolveClaudeModelAlias(identity, lookup)
+    return resolvedModel === identity ? model : { ...model, resolvedModel }
+  })
 }
 
 export function normalizeAvailableModels(

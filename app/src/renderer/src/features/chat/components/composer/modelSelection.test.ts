@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
-import { defaultSelection, selectionExists, selectionLabel } from './modelSelection'
+import {
+  defaultSelection,
+  selectionExists,
+  selectionLabel,
+  selectedModelShape
+} from './modelSelection'
 
 const agents: AgentEnvironment[] = [
   {
@@ -87,5 +92,29 @@ describe('runtime model selection', () => {
     expect(defaultSelection([agent], null)?.modelFamily).toBe('sonnet-a')
     expect(selectionExists([agent], agent.key, 'sonnet-b')).toBe(true)
     expect(selectionExists([agent], agent.key, 'private-v1')).toBe(true)
+  })
+})
+
+it('0304 default selection and menu shape retain resolved evidence', () => {
+  const row = {
+    key: 'claude-team',
+    adapter: 'claude',
+    supported: true,
+    models: [
+      {
+        alias: 'haiku',
+        model: 'haiku',
+        resolvedModel: 'claude-haiku-5-5',
+        isCustom: false,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ]
+  }
+  const selection = defaultSelection([row], 'claude')
+  expect(selection).toMatchObject({ modelFamily: 'haiku', resolvedModel: 'claude-haiku-5-5' })
+  expect(selectedModelShape([row], selection)).toMatchObject({
+    model: 'haiku',
+    resolvedModel: 'claude-haiku-5-5'
   })
 })

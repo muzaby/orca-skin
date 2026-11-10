@@ -68,6 +68,9 @@ export function ModelMenu({
                     providerKey: agent.key,
                     modelFamily: modelId,
                     modelAlias: model.alias,
+                    ...(model.resolvedModel !== undefined
+                      ? { resolvedModel: model.resolvedModel }
+                      : {}),
                     adapter: agent.adapter
                   })
                 }

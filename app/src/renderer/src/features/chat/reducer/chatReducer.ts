@@ -290,6 +290,7 @@ export interface ChatState {
   // 선택 모델의 계열(0215) — `modelFamily` 는 SDK 식별자라 alias 를 잃는다. `자동` 권한 강등이
   // `ANTHROPIC_DEFAULT_HAIKU_MODEL` 로 선언한(이름에 haiku 가 없는) 계열까지 보려면 필요하다.
   modelAlias: string | null
+  modelResolved: string | null
   // 0119: 진행 중 턴이 실제로 쓰는 provider 스냅샷 — BEGIN_TURN 에서 providerKey 를 고정,
   // 턴 종료(telemetry/turn.aborted/error/CANCEL_CHAT)에 초기화. SET_MODEL 이 providerKey 를
   // inflight 중에도 덮어쓰므로, steer 게이트(경계 판정)는 이 스냅샷과 선택값을 비교한다.
@@ -500,6 +501,7 @@ export const initialChatState: ChatState = {
   providerKey: null,
   modelFamily: null,
   modelAlias: null,
+  modelResolved: null,
   turnProviderKey: null,
   effort: 'high',
   cwd: null,
@@ -658,6 +660,7 @@ export type ChatAction =
       modelFamily: string | null
       // **선택 필드가 아니다**(0215) — 빠뜨리면 haiku 판정이 조용히 false 가 된다.
       modelAlias: string | null
+      modelResolved?: string | null
       adapter?: string | null
       explicitHarness?: boolean
     }
@@ -852,7 +855,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         agentKind: parseAgentKind(action.kind),
         permissionMode: coercePermissionMode(
           state.permissionMode,
-          { alias: state.modelAlias ?? '', model: state.modelFamily },
+          {
+            alias: state.modelAlias ?? '',
+            model: state.modelFamily,
+            resolvedModel: state.modelResolved
+          },
           action.kind
         ),
         permissionModeError: false,
@@ -1462,6 +1469,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 providerKey: action.session.providerKey ?? null,
                 modelFamily: action.session.modelFamily ?? null,
                 modelAlias: null,
+                modelResolved: null,
                 harnessAgent: undefined,
                 modelVariant: undefined,
                 rightPanelTiles: rightPanelColumnsForAgent([], agentKind, action.session.backend)
@@ -1615,7 +1623,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         permissionMode: coercePermissionMode(
           action.mode,
-          { alias: state.modelAlias ?? '', model: state.modelFamily },
+          {
+            alias: state.modelAlias ?? '',
+            model: state.modelFamily,
+            resolvedModel: state.modelResolved
+          },
           state.agentKind
         ),
         permissionModeError: false,
@@ -1657,12 +1669,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.providerKey,
         modelFamily: action.modelFamily,
         modelAlias: action.modelAlias,
+        modelResolved: action.modelResolved ?? null,
         effort: selectionChanged ? defaultEffortForModel(action.modelFamily) : state.effort,
         permissionMode: coercePermissionMode(
           backend && HARNESS_CAPABILITIES[backend].permissionModes && !state.permissionModeExplicit
             ? DEFAULT_PERMISSION_MODE
             : state.permissionMode,
-          { alias: action.modelAlias ?? '', model: action.modelFamily },
+          {
+            alias: action.modelAlias ?? '',
+            model: action.modelFamily,
+            resolvedModel: action.modelResolved
+          },
           kind
         ),
         permissionModeError: false

@@ -33,7 +33,7 @@ import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { prepareAutomaticContinuation } from '../chat-turn-continuation'
 import { admitChatSend, attachmentFailure, foreignPreparingLease, leaseKeyFor } from './admission'
-import { buildTurnContext, resolveTurnCwd } from './turn-context'
+import { buildTurnContext, resolveTurnCwd, sessionModelRecordFor } from './turn-context'
 import { resolveTurn, resolveTurnProvider } from './resolve-turn'
 import { acquireTurnRuntime } from './runtime-entry'
 import { enqueueTurnPrompt, reserveOnBusySession } from './enqueue'
@@ -289,6 +289,15 @@ export async function handleChatSend(
       effectiveText,
       native
     } = resolution.value
+    const modelRecord = sessionModelRecordFor({ sessionId: payload.sessionId, resolved })
+    if (modelRecord) {
+      ctx.db.updateSessionProviderKey(
+        modelRecord.id,
+        modelRecord.providerKey,
+        Date.now(),
+        modelRecord.model
+      )
+    }
     let boundProjectId = requestedProjectId
     let projectCreated = false
 
@@ -544,7 +553,7 @@ export async function handleChatSend(
     // 실제 해소된 모델과 세션 종류에서 요청 여부와 무관하게 실행 권한을 정착한다.
     const permissionMode = coerceAutoPermissionModeForModelName(
       payload.permissionMode ?? DEFAULT_PERMISSION_MODE,
-      resolved.model,
+      resolved.permissionModel ?? resolved.model,
       agentKind
     )
     const publishPermissionMode = (sessionId: string): void => {
@@ -614,6 +623,9 @@ export async function handleChatSend(
         envFingerprint: resolved.prepared.envFingerprint,
         ...ifPresent('providerSettings', resolved.prepared.providerSettings),
         ...(resolved.model !== undefined ? { model: resolved.model } : {}),
+        ...(resolved.permissionModel !== undefined
+          ? { permissionModel: resolved.permissionModel }
+          : {}),
         requestApproval,
         onPermissionModeChanged: permissionModeObserver.report,
         onProviderEvent: (event) => deps.background?.observe(event),
@@ -667,6 +679,7 @@ export async function handleChatSend(
               providerKey: getActiveTurn().providerKey,
               modelFamily: payload.modelFamily ?? null,
               fallbackModel: request.model,
+              fallbackPermissionModel: request.permissionModel,
               extraDirs: getActiveTurn().extraDirs,
               resolveProvider: ({ providerKey, modelFamily }) =>
                 resolveTurnProvider(ctx, {
@@ -682,7 +695,7 @@ export async function handleChatSend(
             const selected = permissionModes.getCurrentMode(sessionId)
             const settled = coerceAutoPermissionModeForModelName(
               selected,
-              prepared.model,
+              prepared.permissionModel ?? prepared.model,
               agentKind
             )
             if (settled !== selected) {

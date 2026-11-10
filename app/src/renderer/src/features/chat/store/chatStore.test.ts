@@ -1540,6 +1540,7 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
   const seedLanguage = async (language: string): Promise<void> => {
     vi.stubGlobal('window', {
       orca: {
+        boot: { whenReady: async () => undefined },
         chat: {
           send: chatSend,
           cancel: vi.fn(),
