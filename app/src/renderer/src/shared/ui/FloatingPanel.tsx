@@ -92,24 +92,6 @@ export function PanelSection({ label }: { label: string }): React.JSX.Element {
   )
 }
 
-export function PanelButton({
-  label,
-  onClick
-}: {
-  label: string
-  onClick: () => void
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="cursor-default rounded-md border-[0.5px] border-floating-panel-border bg-floating-panel-control px-2.5 py-1.5 text-left font-medium text-floating-panel-text transition-colors hover:bg-floating-panel-control-hover"
-    >
-      {label}
-    </button>
-  )
-}
-
 export function PanelToggle({
   label,
   value,

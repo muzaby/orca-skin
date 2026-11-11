@@ -3,7 +3,6 @@ import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
 import { ClaudeToolGroup as ToolGroup } from './ToolGroup'
 import { ReasoningBlock } from './ReasoningBlock'
 import { ErrorCard } from './ErrorCard'
-import { StructuredOutputCard } from './StructuredOutputCard'
 import { WorkToolTimeline } from './WorkToolTimeline'
 import { AskExchange } from './AskExchange'
 import { CompactBoundaryMarker } from '../../common/transcript/CompactBoundaryMarker'
@@ -30,8 +29,6 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
       )
     case 'ask':
       return <AskExchange call={seg.call} />
-    case 'structured':
-      return <StructuredOutputCard value={seg.value} />
     case 'text':
       return <Markdown source={seg.text} />
     case 'error':

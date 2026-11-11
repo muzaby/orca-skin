@@ -69,7 +69,6 @@ src/renderer/
     │   ├── skills/                  # ExtensionsCatalogView + customize/ (tabs·list·detail·모달들),
     │   │                            #   useCustomizeSkills·useMcpServers·useProviders, extensionsModalStore, AddMcpServerModal
     │   ├── engine/                  # AgentEnvironmentView(구 EngineView), EngineFormModal(단일 화면, 0090), EngineCard, EngineModelList
-    │   ├── camera/                  # CameraView
     │   ├── captures/                # CapturesView
     │   └── debug/                   # (dev 전용) DebugPanel(Tweaks 컨트롤 흡수), useDebugMock — MockAdapter 하네스 UI. OverlayLayer 가 `import.meta.env.DEV` 게이트로 마운트
     │

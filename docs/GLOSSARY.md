@@ -95,7 +95,7 @@
 - ❌ **"Conversation"** → **Session** 으로 통일.
 - ❌ **"Thread"** (대화 의미) → **Session** 으로 통일.
 - ❌ **"Chat"** (도메인 객체로) → **Session** 으로 통일. "Chat 화면" 처럼 *UI 영역 이름* 으로는 허용 (단, 컴포넌트 이름은 `ChatTile` — 아래 *Pane* 항목 참조).
-- ❌ **"Pane"** — DOM Architecture 의 마크업 슬롯에 없는 어휘. **Tile** (단일 tile) / **Screen** (도메인 화면) 으로 분리한다. 구 `ChatPane` 은 `ChatTile`, 구 `CameraPane` 은 `CameraView`(`features/camera/components/CameraView.tsx`). `app-frame-pane-host` / `app-frame-pane-row` 는 *복수 tile 의 가로 행* 을 가리키는 구조 마커로만 사용한다.
+- ❌ **"Pane"** — DOM Architecture 의 마크업 슬롯에 없는 어휘. **Tile** (단일 tile) / **Screen** (도메인 화면) 으로 분리한다. 구 `ChatPane` 은 `ChatTile`. `app-frame-pane-host` / `app-frame-pane-row` 는 *복수 tile 의 가로 행* 을 가리키는 구조 마커로만 사용한다.
 - ❌ **"Titlebar"** (셸 헤더 의미로) — `Header` 로 통일. `app-frame-titlebar` 는 *tile 내부 헤더* 만을 가리킨다.
 - ❌ **"Token"** (UI 청크 의미로) → **Delta** 로 통일. LLM token count 의미로는 사용 허용 (`inputTokens` / `outputTokens`).
 - ❌ **"SSO 모듈"**(0130) · **"Auth provider"**(0157) · **"Connector"**(0157) · **"Auth binding"**(0157) · **"Provider 선언"**(0181) → 전부 **`AuthDefinition` + `AuthMethod` + `Grant`** 로 통일 (0188). 구 어휘가 가리키던 계약(`contracts/{sso,auth-method,connector,internal-api}.ts`)과 채널(`oo:sso:*`·`oo:auth:*`·`oo:plugin:*`)은 전부 제거됐다.

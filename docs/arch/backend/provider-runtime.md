@@ -345,7 +345,6 @@ type AppMessagePart =
   | { type: 'tool_result'; toolRunId: string; result: unknown; isError: boolean; durationMs?: number }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }
-  | { type: 'structured_output'; value: unknown }
   | { type: 'error'; error: unknown }
 ```
 
@@ -603,4 +602,4 @@ interface ConfigManager {
 | AuthStore | §9 |
 | AuditLog | §10 |
 | ErrorClassifier | §6 |
-| 정규화 Persistence (AppMessagePart) | §7 — ✅ 구현 (message_parts + reasoning. file/diff/structured_output·blob 분리는 seam) |
+| 정규화 Persistence (AppMessagePart) | §7 — ✅ 구현 (message_parts + reasoning. file/diff·blob 분리는 seam) |

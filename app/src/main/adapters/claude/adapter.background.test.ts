@@ -97,7 +97,7 @@ describe('0231 Claude provider lane', () => {
         patch: { status: 'completed', is_backgrounded: false, total_paused_ms: 0, description: '' }
       }
     )
-    const { batches, provider } = await collect()
+    const { provider } = await collect()
     expect(provider).toContainEqual(
       expect.objectContaining({
         type: 'background.snapshot',
@@ -116,9 +116,6 @@ describe('0231 Claude provider lane', () => {
         })
       })
     )
-    expect(
-      batches.flatMap((b) => b.events).some((event) => event.type === 'subagent.backgroundSet')
-    ).toBe(false)
   })
 
   it('keeps model content and complete structured Agent/Bash results independently', async () => {

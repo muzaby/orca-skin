@@ -5,7 +5,7 @@
 // I/O 에서 떼어 단위 테스트로 고정하는 이유가 이것이다.
 
 import { mkdir, writeFile } from 'node:fs/promises'
-import { join, resolve, sep } from 'node:path'
+import { join, resolve } from 'node:path'
 import { downloadsDir, isWithinDir } from '../../../infra/config/paths'
 
 // 첨부가 저장되는 하위 디렉터리. 변환기가 만드는 Markdown 의 상대 경로가 이 이름을 가리킨다.
@@ -129,10 +129,4 @@ export class DownloadStore {
   get root(): string {
     return this.dir
   }
-}
-
-// 경로를 로그·결과에 실을 때 홈 디렉터리를 노출하지 않도록 줄인다.
-export function relativeToDownloads(path: string): string {
-  const root = downloadsDir()
-  return isWithinDir(path, root) ? path.slice(root.length + sep.length) : path
 }

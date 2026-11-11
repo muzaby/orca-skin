@@ -17,8 +17,7 @@ import type {
   BackgroundTaskRequest,
   PromoteBackgroundTaskRequest,
   ReadBackgroundOutputRequest,
-  ReadBackgroundOutputResponse,
-  StopAllBackgroundTasksResult
+  ReadBackgroundOutputResponse
 } from '../../../../shared/background-task'
 import type {
   ComposerCatalogInvalidated,
@@ -66,7 +65,6 @@ import type {
   ProviderConnectRequest,
   ProviderConnectionInfo,
   ProviderContinueRequest,
-  ProviderInfo,
   ProviderLoginRequest,
   ProviderPlatformState,
   ProviderReauthRequest,
@@ -124,10 +122,6 @@ export const chatApi = {
     window.oo.chat.stopBackgroundTask(req),
   promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
     window.oo.chat.promoteBackgroundTask(req),
-  stopAllBackgroundTasks: (req: {
-    sessionId: string
-    generation: string
-  }): Promise<StopAllBackgroundTasksResult> => window.oo.chat.stopAllBackgroundTasks(req),
   readBackgroundOutput: (req: ReadBackgroundOutputRequest): Promise<ReadBackgroundOutputResponse> =>
     window.oo.chat.readBackgroundOutput(req),
   send: (req: SendChatMessage): Promise<void> => window.oo.chat.send(req),
@@ -326,7 +320,6 @@ export const updateApi = {
 // 구 `authApi`·`pluginApi` 두 표면을 하나로 합친 자리(0181). 게이트 화면과 카탈로그 provider
 // 탭이 같은 API 를 쓴다 — 앱 로그인과 서비스 연결의 차이는 `ProviderInfo.kind` 뿐이다.
 export const providerApi = {
-  list: (): Promise<ProviderInfo[]> => window.oo.provider.list(),
   state: (): Promise<ProviderPlatformState> => window.oo.provider.state(),
   login: (req: ProviderLoginRequest): Promise<ProviderStepInfo> => window.oo.provider.login(req),
   continue: (req: ProviderContinueRequest): Promise<ProviderStepInfo> =>
@@ -370,6 +363,5 @@ export const artifactApi = {
   reveal: (req: ArtifactTargetRequest): Promise<ArtifactActionResult> =>
     window.oo.artifacts.reveal(req),
   trash: (req: ArtifactTargetRequest): Promise<ArtifactTrashResult> =>
-    window.oo.artifacts.trash(req),
-  openFolder: (): Promise<ArtifactActionResult> => window.oo.artifacts.openFolder()
+    window.oo.artifacts.trash(req)
 }

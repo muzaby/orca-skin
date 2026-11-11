@@ -4,8 +4,7 @@ const api = vi.hoisted(() => ({
   status: vi.fn(),
   save: vi.fn(),
   reveal: vi.fn(),
-  trash: vi.fn(),
-  openFolder: vi.fn()
+  trash: vi.fn()
 }))
 vi.mock('../../../shared/api/ipc', () => ({ artifactApi: api }))
 import {

@@ -22,7 +22,7 @@ import {
   replaceExport,
   saveWithoutOverwrite
 } from '../../features/artifacts/export-files'
-import { handle, handlePlain } from '../../infra/ipc/handle'
+import { handle } from '../../infra/ipc/handle'
 
 type ArtifactHandlers = Pick<
   ArtifactService,
@@ -93,16 +93,6 @@ export function registerArtifactHandlers(
       }
     }
   )
-  handlePlain(CHANNELS.artifactOpenFolder, async (_req, event): Promise<ArtifactActionResult> => {
-    assertSender(event)
-    try {
-      const error = await shell.openPath(await service.openFolderPath())
-      return error ? { ok: false, reason: 'open-failed' } : { ok: true }
-    } catch (error) {
-      return { ok: false, reason: reasonOf(error) }
-    }
-  })
-
   handle(
     CHANNELS.artifactSave,
     ArtifactSaveRequestSchema,

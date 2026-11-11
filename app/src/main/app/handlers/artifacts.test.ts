@@ -168,8 +168,7 @@ describe('artifact IPC file actions', () => {
     ['artifactPreview', { sessionId: 's', publicationId: 'p' }],
     ['artifactSave', { sessionId: 's', publicationIds: ['p'] }],
     ['artifactReveal', { sessionId: 's', publicationId: 'p' }],
-    ['artifactTrash', { sessionId: 's', publicationId: 'p' }],
-    ['artifactOpenFolder', undefined]
+    ['artifactTrash', { sessionId: 's', publicationId: 'p' }]
   ] as const)(
     'rejects an untrusted sender before any service or native action: %s',
     async (channel, request) => {
@@ -247,10 +246,5 @@ describe('artifact IPC file actions', () => {
     })
     expect(service.revealPath).toHaveBeenCalledWith('s', 'old')
     expect(mocks.reveal).toHaveBeenCalledWith(join(root, 'report.md'))
-  })
-  it('reports native open failures instead of false success', async () => {
-    const { call } = await setup()
-    mocks.openPath.mockResolvedValueOnce('native failure')
-    expect(await call('artifactOpenFolder')).toEqual({ ok: false, reason: 'open-failed' })
   })
 })

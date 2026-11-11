@@ -53,10 +53,6 @@ export function subscribeBackend(): () => void {
 
 // ── selector 훅 ──────────────────────────────────────────────────────────────
 
-export function useBackendState<T>(selector: (s: BackendStoreState) => T): T {
-  return useBackendStore(selector)
-}
-
 export function useInstallerOpen(): boolean {
   return useBackendStore((s) => s.installerOpen)
 }

@@ -5,7 +5,6 @@ import {
   BackgroundStateSchema,
   StopBackgroundTaskSchema,
   PromoteBackgroundTaskSchema,
-  StopAllBackgroundTasksSchema,
   ReadBackgroundOutputSchema
 } from '../../../shared/protocol'
 import { BackgroundController } from '../../features/chat/background-controller'
@@ -61,9 +60,6 @@ export function registerBackgroundHandlers(deps: ChatDeps): BackgroundController
   )
   handle(CHANNELS.chatPromoteBackgroundTask, PromoteBackgroundTaskSchema, 'reject', (req) =>
     controller.promote(req)
-  )
-  handle(CHANNELS.chatStopAllBackgroundTasks, StopAllBackgroundTasksSchema, 'reject', (req) =>
-    controller.stopAll(req)
   )
   handle(CHANNELS.chatReadBackgroundOutput, ReadBackgroundOutputSchema, 'reject', (req) =>
     controller.read(req)

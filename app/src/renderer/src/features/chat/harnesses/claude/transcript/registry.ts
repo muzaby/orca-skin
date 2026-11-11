@@ -21,8 +21,8 @@ import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation
 
 // 렌더 카드의 시맨틱 종류 (rendering.md §1.6 정본 taxonomy). 도구 이름이 아니라 "무엇을
 // 보여주는가" 로 분류한다. 본 레지스트리는 *도구 본문*(tool_call 파트)만 다루므로 그중
-// terminal·file_preview·diff·ask·generic 만 등록한다. error / structured_output 은 비-도구
-// 파트라 AssistantMessage 가 전용 카드(ErrorCard/StructuredOutputCard)로 직접 렌더한다.
+// terminal·file_preview·diff·ask·generic 만 등록한다. error 는 비-도구
+// 파트라 AssistantMessage 가 전용 카드(ErrorCard)로 직접 렌더한다.
 // search · agent_task · session_graph · context_injection · approval · telemetry 는 OpenCode/
 // 별도 표면 전용이라 여기선 seam(미등록).
 export type RenderableKind =
@@ -38,7 +38,6 @@ export type RenderableKind =
   | 'task_list'
   | 'session_graph'
   | 'context_injection'
-  | 'structured_output'
   | 'error'
   | 'telemetry'
   // 비정본 실용 kind: 미지 도구 fallback / AskUserQuestion 컴팩트 본문.

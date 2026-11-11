@@ -118,18 +118,24 @@ it('reads native defaults without copying them and keeps supported explicit choi
 })
 
 it('does not reactivate legacy choice bytes or accept writes through settings.patch', () => {
+  // `projectMcpChoices` 는 스키마에서 사라진 구 키다 — 남은 바이트가 로드를 막거나 다른 키를
+  // 지우면 안 되고, patch 로 되살아나서도 안 된다.
   const legacy = {
     nativeExtensionChoices: { claude: { 'plugin:old': true } },
-    projectMcpChoices: { '/A': { docs: false } }
+    projectMcpChoices: { '/A': { docs: false } },
+    language: 'English'
   }
   const backend = { store: { ...legacy } as Record<string, unknown> }
   const settings = new SettingsStore('test', backend)
-  settings.getAll()
+  expect(settings.getAll().language).toBe('English')
+  expect(settings.getAll()).not.toHaveProperty('projectMcpChoices')
   expect(extensionControl().global('claude')).toEqual({})
   settings.patch({ nativeExtensionChoices: {} } as never)
-  settings.patch({ projectMcpChoices: {} } as never)
+  settings.patch({ projectMcpChoices: { '/B': { docs: true } } } as never)
   expect(backend.store.nativeExtensionChoices).toBeUndefined()
-  expect(backend.store.projectMcpChoices).toEqual(legacy.projectMcpChoices)
+  expect(settings.getAll()).not.toHaveProperty('projectMcpChoices')
+  expect(settings.getAll().language).toBe('English')
+  expect(JSON.stringify(backend.store)).not.toContain('/B')
 })
 
 it('saves and closes in the same synchronous section as the busy check', async () => {

@@ -24,7 +24,6 @@ export const en: typeof ko = {
     loading: 'Loading task state…',
     refresh: 'Refresh',
     stop: 'Request stop',
-    stopAll: 'Stop all execution',
     waiting: 'Wait for result',
     cancelWait: 'Cancel wait',
     completed: 'Completed',
@@ -574,16 +573,6 @@ export const en: typeof ko = {
       full: 'Full'
     }
   },
-  camera: {
-    title: 'Hardware control',
-    exposure: 'Exposure',
-    analogGain: 'Analog gain',
-    digitalGain: 'Digital gain',
-    qualityMetrics: 'Quality metrics',
-    capture: 'Capture',
-    sequence: 'Sequence',
-    futureScopeTitle: 'Out of v1 scope — Future Scope (PRD §9)'
-  },
   errors: {
     toast: {
       unexpected: 'An unexpected error occurred',
@@ -787,7 +776,6 @@ export const en: typeof ko = {
       saveAll: 'Save all',
       reveal: 'Show in Explorer',
       refresh: 'Check again',
-      openFolder: 'Open storage folder',
       trash: 'Move to Recycle Bin',
       trashTitle: 'Move this file to the Recycle Bin?',
       trashMessage:
@@ -841,7 +829,6 @@ export const en: typeof ko = {
     },
     transcript: {
       reasoning: 'Reasoning',
-      structuredOutput: 'Structured output',
       incompleteResponse: 'The response was not completed',
       showMore: 'Show more',
       showLess: 'Show less',

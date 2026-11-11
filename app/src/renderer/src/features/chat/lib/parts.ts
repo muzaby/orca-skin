@@ -504,7 +504,6 @@ export type MessageSegment =
   | { kind: 'tools'; calls: ToolCall[] } // 연속 non-Ask 도구 병합 → 1 ToolGroup
   | { kind: 'ask'; call: ToolCall } // AskUserQuestion 은 개별 AskExchange
   | { kind: 'text'; text: string } // 연속 text 이어붙임 → 1 Markdown
-  | { kind: 'structured'; value: unknown } // 개별 카드
   | { kind: 'error'; error: unknown } // 개별 카드
   | { kind: 'compact'; trigger?: 'manual' | 'auto'; preTokens?: number; postTokens?: number } // 압축 경계 구분선(0064, post=0065 r2)
   | { kind: 'fork' } // 분기 경계 구분선(0064 r5) — 복사된 원본 이력과 새 대화 사이
@@ -555,8 +554,6 @@ export function messageSegments(
       } else {
         segments.push((current = { kind: 'tools', calls: [call] }))
       }
-    } else if (p.type === 'structured_output') {
-      segments.push((current = { kind: 'structured', value: p.value }))
     } else if (p.type === 'error') {
       segments.push((current = { kind: 'error', error: p.error }))
     } else if (p.type === 'compact_boundary') {
@@ -650,8 +647,6 @@ function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSe
     }
     case 'ask':
       return prev.kind === 'ask' && toolCallEquals(prev.call, next.call) ? prev : next
-    case 'structured':
-      return prev.kind === 'structured' && prev.value === next.value ? prev : next
     case 'error':
       return prev.kind === 'error' && prev.error === next.error ? prev : next
     case 'compact':

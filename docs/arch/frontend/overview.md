@@ -85,7 +85,7 @@
 | i18n | Phase 4 | ✅ 완료 (0096/0097) | `shared/i18n/` — i18next + react-i18next 리소스 번들. 언어 전환은 사이드바 사용자 버튼 플라이아웃 |
 | **ToolRendererRegistry (semantic kind)** | 스테이지 C1 | ✅ 구현 | `features/chat/harnesses/claude/transcript/registry.ts` — Claude 도구 본문. OpenCode는 전용 view decoder와 카드 선택. rendering.md §1.6 |
 | **승인 UI (plan · tool · ask) + PermissionModeController 연동** | 스테이지 C2 | ✅ 승인 3종 구현 · 단일 카드 일반화 미착수 | `ApprovalCard`(plan) + `ToolApprovalBody`·`AskUserQuestionCard`(additive). ux-domains.md §1.6 |
-| **StructuredOutput / Streaming lifecycle** | Phase 4 / Future | ✅ StructuredOutputCard·reasoning 라이브 스트리밍 구현 · 📐 lifecycle 정규화(dedup/재연결/절단) 미착수 | rendering.md §1.7·§1.8 |
+| **StructuredOutput / Streaming lifecycle** | Phase 4 / Future | ✅ reasoning 라이브 스트리밍 구현 · StructuredOutput 은 생산자가 없어 파트·카드를 두지 않는다 · 📐 lifecycle 정규화(dedup/재연결/절단) 미착수 | rendering.md §1.7·§1.8 |
 | **부팅 오케스트레이션 (BootScreen)** | Phase 4 | ✅ 완료 (0077) | `app/boot/` — bootStore + steps + `oo:boot:report` 진단 |
 | **사용량 한도 UI (도넛 팝오버·설정 탭·provider별 한도)** | Phase 4 | ✅ 완료 (0079~0082) | `UsagePanel`(rendering.md §1.9) + `features/settings/`(Usage/ProviderUsage 탭) + `features/cost/` provider 요약. 파생 SSOT `shared/usage/limits.ts` |
 | **인앱 업데이트 UX** | Phase 4 | ✅ 완료 (0085/0086) | `features/update/` — 헤더 조건부 업데이트 버튼+파란 뱃지, `UpdateDialog`(사용자 게이트), dev 더미 토글(DebugPanel) |

@@ -232,13 +232,12 @@ export const SteerSendNowSchema = z.object({ sessionId: z.string().min(1) })
 export const CancelChatSchema = z.object({ sessionId: z.string() })
 
 export const BackgroundStateSchema = z.object({ sessionId: z.string().min(1) })
-export const StopAllBackgroundTasksSchema = BackgroundStateSchema.extend({
-  generation: z.string().min(1)
-})
-export const StopBackgroundTaskSchema = StopAllBackgroundTasksSchema.extend({
+export const StopBackgroundTaskSchema = BackgroundStateSchema.extend({
+  generation: z.string().min(1),
   taskId: z.string().min(1)
 })
-export const PromoteBackgroundTaskSchema = StopAllBackgroundTasksSchema.extend({
+export const PromoteBackgroundTaskSchema = BackgroundStateSchema.extend({
+  generation: z.string().min(1),
   // Empty targets mean "all foreground tasks" to the SDK. Reject instead of trimming.
   toolUseId: z
     .string()
@@ -775,7 +774,6 @@ export const SettingsSchema = z.object({
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
   nativeExtensionChoices: NativeExtensionChoicesSchema.optional(),
-  projectMcpChoices: z.record(z.string(), z.record(z.string(), z.boolean())).optional(),
   authBypass: z.boolean().default(false),
   // 선호 언어 — LLM 응답 언어. 시스템 프롬프트 '# User' 헤더의 Preferred language 로
   // 매 턴 주입된다(ExtensionBuilder). UI 표시 언어(uiLocale)와 별개 개념.

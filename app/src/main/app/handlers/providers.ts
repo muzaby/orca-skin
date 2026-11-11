@@ -19,14 +19,13 @@ import {
   ProviderReauthRequestSchema,
   ProviderRevokeRequestSchema,
   type ProviderConnectionInfo,
-  type ProviderInfo,
   type ProviderPlatformState,
   type ProviderStepInfo
 } from '../../../shared/protocol'
 import type { AuthRuntime } from '../../contracts/auth'
 import type { Gate } from '../../features/gate'
 import { handle, handlePlain } from '../../infra/ipc/handle'
-import { connectionList, connectionState, type ConnectionViewSource } from '../connection-views'
+import { connectionState, type ConnectionViewSource } from '../connection-views'
 
 export interface ConnectionHandlerDeps {
   auth: AuthRuntime
@@ -43,7 +42,6 @@ export interface ConnectionHandlerDeps {
 export function registerConnectionHandlers(deps: ConnectionHandlerDeps): void {
   const { auth, gate, connections } = deps
 
-  handlePlain<ProviderInfo[]>(CHANNELS.providerList, () => connectionList(auth, connections))
   // 게이트 판정용 초기 스냅샷. 같은 채널로 이후 변화가 push 되므로 renderer 는 한 번 invoke 한
   // 뒤 구독만 유지한다(구 auth 의 status/stateEvent 2채널 동기화 버그 회피).
   handlePlain<ProviderPlatformState>(CHANNELS.providerState, () =>

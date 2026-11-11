@@ -29,7 +29,6 @@ export const CHANNELS = {
   chatBackgroundEvent: 'oo:chat:backgroundEvent',
   chatStopBackgroundTask: 'oo:chat:stopBackgroundTask',
   chatPromoteBackgroundTask: 'oo:chat:promoteBackgroundTask',
-  chatStopAllBackgroundTasks: 'oo:chat:stopAllBackgroundTasks',
   chatReadBackgroundOutput: 'oo:chat:readBackgroundOutput',
   chatCancel: 'oo:chat:cancel',
   chatStopSubagent: 'oo:chat:stopSubagent',
@@ -75,7 +74,6 @@ export const CHANNELS = {
   artifactSave: 'oo:artifact:save',
   artifactReveal: 'oo:artifact:reveal',
   artifactTrash: 'oo:artifact:trash',
-  artifactOpenFolder: 'oo:artifact:openFolder',
   // 컴포저 브랜치 칩(작업 경로의 git 상태·브랜치 목록·전환). 작업 경로가 git 저장소가 아니면
   // status 가 `isRepo:false` 를 돌려주고 renderer 는 칩 자체를 렌더하지 않는다.
   gitSnapshot: 'oo:git:snapshot',
@@ -160,7 +158,6 @@ export const CHANNELS = {
   logEmit: 'oo:log:emit',
   // provider 플랫폼 (0181) — 구 auth 7 + plugin 4 채널을 6개로 대체한다. 인증 대상은
   // `Provider` 선언 하나이고, 게이트·LLM·사내 서비스가 `kind` 로만 갈린다.
-  providerList: 'oo:provider:list',
   providerLogin: 'oo:provider:login',
   providerContinue: 'oo:provider:continue',
   providerReauth: 'oo:provider:reauth',
@@ -727,20 +724,6 @@ export type NormalizedEvent =
       // history writer 영속의 유일한 신호 — renderer 는 스스로 background 를 추론하지 않는다.
       background?: boolean
     }
-  // SDK `background_tasks_changed` 정규화(0212 AR-02) — **레벨 신호**다. edge(started/settled)
-  // 와 짝지어 읽지 않고 **매 payload 로 집합을 교체**한다: 놓친 bookend 가 "실행 중" 표시를
-  // 영구 고착시키지 못하게 하는 것이 이 신호의 존재 이유다(SDK 주석).
-  //
-  // 세 제약이 함께 온다. ① payload 는 `task_id` 만 싣고 Orcinus orca 의 표시·중단 키는 `tool_use_id` 라
-  // **매핑된 것만** 실어 보낸다(EP-06 — 매핑 없는 항목은 애초에 추적 대상이 아니다). ② 프로세스
-  // 단위 레벨이라 **시작 시점에는 아무것도 오지 않는다** → 첫 payload 는 기준선일 뿐 아무것도
-  // 정착시키지 않는다(EP-07). ③ edge 와의 순서가 미정의라 상관시키지 않는다.
-  | {
-      type: 'subagent.backgroundSet'
-      sessionId: string
-      // 변화 후 살아 있는 background 태스크 전량 중 `task_id → tool_use_id` 매핑이 있는 것.
-      toolUseIds: string[]
-    }
   | {
       type: 'telemetry'
       sessionId: string
@@ -1154,7 +1137,6 @@ export interface Settings {
   skillEnabled: Record<string, boolean>
   /** Main-owned global SDK choices, persisted across restarts; excluded from SettingsPatch. */
   nativeExtensionChoices?: Partial<Record<Backend, Record<string, boolean>>>
-  projectMcpChoices?: Record<string, Record<string, boolean>>
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
   // (디버그 패널에서 토글, DEV 전용).
   authBypass: boolean
@@ -1176,7 +1158,7 @@ export interface Settings {
 
 export type SettingsPatch = Omit<
   Partial<Settings>,
-  'scheduler' | 'harnesses' | 'nativeExtensionChoices' | 'projectMcpChoices'
+  'scheduler' | 'harnesses' | 'nativeExtensionChoices'
 > & {
   harnesses?: {
     [K in keyof import('./harness').HarnessSettings]?: Partial<
@@ -1530,7 +1512,7 @@ export interface SubagentTaskMeta {
 
 // 정규화 메시지 파트(provider-runtime.md §7) — persistence·wire·reducer 공통 SSOT.
 // claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
-// file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
+// file / diff 는 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
 export type AppMessagePart =
   | ResponseBoundaryPart
   | { type: 'artifact'; artifact: ArtifactRef; parentToolRunId?: string }
@@ -1567,7 +1549,6 @@ export type AppMessagePart =
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }
-  | { type: 'structured_output'; value: unknown }
   | { type: 'error'; error: unknown }
   // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
   | { type: 'attachment'; attachments: AttachmentView[] }

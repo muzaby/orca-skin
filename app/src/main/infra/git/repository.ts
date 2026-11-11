@@ -50,15 +50,6 @@ export async function validateBranchName(
 ): Promise<boolean> {
   return (await gateway.read(repoRoot, ['check-ref-format', '--branch', branch])).ok
 }
-export async function branchExists(
-  repoRoot: string,
-  branch: string,
-  gateway: GitGateway = gitGateway
-): Promise<boolean> {
-  return (await gateway.read(repoRoot, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]))
-    .ok
-}
-
 export async function listBranchRefs(
   repoRoot: string,
   base: string,
