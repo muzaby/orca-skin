@@ -615,6 +615,87 @@ bootstrap ctx → handlers/misc · chat-turn/resolve-turn · handlers/engine    
 - 반복해서 부딪히는 환경 한계: Electron 바이너리가 없으면 `electron`을 import하는 테스트가 파일째 죽어 조립 변경의 영향이 가려진다. 이번 환경에서는 `install.js`가 성공했다.
 - 현재 라운드·impl 턴: `r1`.
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: verify r1 파생 이슈 1(이행 결함)만 닫는다. 규범 행 변경 없음.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+불변식: 읽기 전용 key의 캐시 없음은 그 key를 읽는 자리마다 오류로 끝난다. 성립 자리는 `isReadOnly ? cached : resolve` 삼항 2곳(`rg -n 'harnessRuntime\.cached\(' main -g '!*.test.*'` → `misc.ts:72` · `resolve-turn.ts:274`)이다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-12 | 런타임 구성 의존성 필수 | EP-12 (9) | 9/9 | EP-12 검색 2종 → 0건(r2 재실행). 캐시 없음 분기: `misc.ts`는 verify V09 red(기존 좌표 유지) · `resolve-turn.ts:276`은 신규 `resolve-turn.runtime-catalog.test.ts:'rejects a runtime-managed key whose Gate cache is missing instead of resolving it'` | `cached()` → `undefined`(부재가 구별 값) · 오류 문구에 key `claude-corp` · `resolve` 미호출 단언 | — |
+| 그 밖 pair | r1과 같음 | — | — | production 코드 변경 0(`git diff --stat` = 테스트 1파일). verify r1이 PASS로 판정한 좌표 그대로 | — | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: V11 1건(이행 결함) — 이번 턴에 닫음(아래).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-12 | REQUIRED | SELF_PASS | 위 표 | required — V04·V05(호출 대체) · V06(인자 맞바꿈) red |
+| VP-01~08 · 10 · 15 · 16 | REQUIRED | SELF_PASS(유지) | r1 표 좌표 — 이번 diff가 닿지 않음 | r1과 같음 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+하네스 `mutate.py`, oracle `vitest run src/main/app/chat-turn`(426케이스). 원복 확인 "모든 파일 원문 그대로".
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V11 `resolve-turn.ts:276` `!config` 오류 제거 | 닫는 이슈 1의 인용 변이 | verify r1 못 잡음 | 1 failed(신규 케이스) | 잠김 |
+| V04 `resolve-turn.ts` 항상 `resolve` | verify r1 `잡음` 행 — 같은 oracle 파일(하한 ④) | 잡음 (1) | 2 failed | 잠김 |
+| V05 `resolve-turn.ts` 항상 `cached` | 같음 | 잡음 (31) | 31 failed | 잠김 |
+| V12 `resolve-turn.ts` `merge` 제거 | 같음 | 잡음 (4) | 5 failed | 잠김 |
+| V06 `resolve-turn.ts` `harnessId`↔`modelProviderId` | VP-12 선택 증거 — verify r1이 실행하지 못한 행 | 미실행 | 14 failed | 잠김 |
+
+- **분모 검산**: `선택 증거 1(V06) · 인용 변이 1(V11) · 새 oracle 0 · 덮개 회귀 재실행 3(V04·V05·V12) = 표 행 5`.
+- **덮개 회귀**: 없음 — 이전 `잡음` 3행 모두 red 유지.
+- r1 S08("6 failed")이 verify에서 재현되지 않은 이유는 확인하지 못했다. r1 spec 파일이 남아 있지 않다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — production 변경 0 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 변화 없음 | — |
+| 그 밖 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | AC17 test 순증이 +7 → **+45**로 늘었다(신규 케이스 38줄) | ⚠️ 보고만 — plan §7이 설계자 판단으로 위임 | `git diff --numstat 197ca62 -- app/src`: test +232/−187 |
+
+### 설계 대비 명시적 차이
+
+- 없음. 만료·공유·재진입·다른 무효화 축 모두 해당 없음 — 대체 메커니즘이 없다.
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/app/chat-turn/resolve-turn.runtime-catalog.test.ts` 1개(+38줄) |
+| 실행 명령 | §19 전체 — 마지막 수정 뒤 트리에서 |
+| **관측한 게이트 산출** | 가드 4종 exit 0 · lint 0 error / 2 warning · typecheck 0 error · vitest 946파일 중 933 passed / 9 failed, 8963케이스 중 22 failed(r1 대비 +1 passed). 실패 22건은 verify r1의 실패 목록과 `diff` 빈 출력 — verify가 `197ca62`와 차집합 0·Windows 경로 환경으로 분리한 집합 · `node --test` 868/868 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 1개 수정 · `check-test-budgets.mjs` ok · `[test-pools]` 0 · 시간 값·git·자식 프로세스 추가 없음 |
+| V-pair 자기확인 | `SELF_PASS 12 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | VP-12 9/9 |
+| **AC 자기보고** | AC12 ✅(V11 red · 신규 케이스) · AC1~8·10·15·16·18 ✅(r1 관측, 이번 diff 미접촉 · gate 재실행 동일) · AC17 ⚠️ prod **−497** ✅ / test **+45** — 조건(≤0) 미달 · AC19 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 13 · ⚠️ 2 · ❌ 0 = 총 15` |
+| 블로커 / 역질문 | AC17 test 상한은 설계자 판단 필요. D-011 OPEN 그대로 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: r1이 `SELF_PASS`로 적은 VP-12의 같은 자리다 — r1 S08 보고가 verify에서 재현되지 않았다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: VP-12 oracle 칸이 "자리마다 3입력"으로 요구하고 있었다.
+- 반복해서 부딪히는 환경 한계: 없음(이번 세션은 Electron·better-sqlite3 설치 상태).
+- 현재 라운드·impl 턴: `r2`.
+
 ---
 
 ## [검증자 기입] 파생 이슈
