@@ -53,6 +53,10 @@
 | D-009 | C-26(턴 조정기 선택적 호출)은 이번에 구현하지 않는다 | 13곳 중 `hasCanonical?`·`getState?` 4곳이 보류된 C-34의 전환 스위치이고, 나머지는 계약 타입이 다른 구현자에게도 열려 있다(§8) | 설계자 조사 | ACTIVE | — |
 | D-010 | C-37은 1단계(`onStage` 제거)만, C-38은 1단계(props 필수화)만 한다 | C-37 2단계는 0303 EP-04 테스트가 잠근 manager 합류를 지운다 · C-38 2단계는 절감 추정이 없다 | 설계자 조사 | ACTIVE | — |
 | D-012 | C-06은 16개 중 8개만 지운다. `shared/plugin-catalog.ts` alias 6개 · `PluginPresentation` · `DISABLED_HATCH_CLASS`는 남긴다 | alias 7개는 파일 주석이 "기존 Plugin 배포 소스·외부 import를 보존"이라 적은 포크 호환 표면이다(`plugin-catalog.ts:1` · `pluginPresentation.ts:1`). 빗금 상수는 `dom-architecture.md:157`이 공용 규칙으로 지목한다 | r1 구현 중 발견 → 설계 정정 | ACTIVE | — |
+| D-013 | C-37(`onStage` 제거)을 하지 않는다 | `mail.integration.test.ts`의 "cancellation after MIME parsing reports cancelled and never commits that message"가 단계 콜백으로 `persist` 시점에 취소를 건다 — 지우면 그 시점을 만들 수단이 없다. V1의 "테스트 참조 0"은 인자 이름으로만 센 값이었다 | r1 구현 중 발견 → 설계 정정 | ACTIVE | — |
+| D-014 | C-38(diff props 필수화)을 하지 않는다 | SSR 렌더 테스트 7파일이 props 6개씩을 새로 받아야 해 코드가 순증하고, 콜백 6자리는 SSR로 관측할 수 없다(D-006 위배) | r1 구현 중 발견 → 설계 정정 | ACTIVE | — |
+| D-015 | C-16(mock 판정 한 곳)을 하지 않는다 | 두 판정 사이에 admission과 세션 조회가 있어 합치려면 순수 함수 seam이 필요하고, seam+테스트가 줄이는 2줄보다 크다. `./admission`을 통째로 mock하는 send 테스트 2파일도 고쳐야 한다 | r1 구현 중 발견 → 설계 정정 | ACTIVE | — |
+| D-016 | C-30(로그인 콜백 필수화)을 하지 않는다 | `no-stray-auth-subscribe.test.ts`의 `BRIDGE_FORWARD`(`/\.\s*onSnapshot\s*\(/`)가 `deps.onSnapshot(` 호출을 카탈로그 직접 전달로 잡는다. 통과시키려면 가드 허용 목록에 `login.ts`를 넣어야 하고 절감은 0줄이다 | r1 구현 중 발견 → 설계 정정 | ACTIVE | — |
 | D-011 | C-02(백그라운드 원본 출력 읽기)의 제거 범위 | 읽기만 지우면 `capture`가 아무도 읽지 않는 스냅샷을 계속 쓴다(§4). 읽기만 / 캡처까지 / 보류 중 사용자 결정 필요 | 설계자 조사 | OPEN | — |
 
 ### 갱신 메모
@@ -62,6 +66,7 @@
 - D-011이 OPEN인 동안 C-02는 이번 범위 밖이다. 답이 오면 ΔV로 넣는다 — 나머지 14건의 구현을 막지 않는다.
 - D-008·D-009·D-010은 사용자가 고른 묶음에서 후보를 뺀 설계자 판단이다. 근거는 §4·§8이고, 사용자가 되돌리면 ΔV로 넣는다.
 - r1 구현 중 정정(규범 행만, 구현과 다른 커밋): D-012 추가 · AC5·EP-05 16→8 · EP-03 허용 예외 · EP-16 자리 목록 확장. D-012는 승인된 범위를 줄이는 쪽이라 사용자가 되돌릴 수 있다.
+- r1 구현 중 정정 2(규범 행만): D-013~D-016 추가 — C-37·C-38·C-16·C-30 철회. AC9·AC11·AC13·AC14와 VP-09·11·13·14 · EP-09·11·13·14를 철회로 표기했다. AC15·VP-15·EP-15는 훅이 이미 관측 플러그인을 합친다는 사실에 맞춰 고쳤다. 남는 구현 대상은 11건(H-A 8 · C-13 · C-17 · C-39)이고 AC 총수는 15다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0.
   - D-002("9건 전부") ↔ AC1~AC8: 8건이 AC를 갖고 C-02만 D-011(OPEN)로 빠진다.
   - D-004("보류") ↔ AC12: `hasCanonical`·`window.oo` 래퍼를 건드리는 AC 없음 — `rg 'hasCanonical|api/ipc' §7` 대조.
@@ -147,13 +152,13 @@ UI 변화는 없다. 관측자는 앱 사용자(화면이 그대로다)와 코�
 | R-06 | AC6 (C-08) | `structured_output` 파트 타입·세그먼트·카드가 없다. text·tool·error·compact 파트의 세그먼트화는 지금과 같다 | `parts.test.ts`의 세그먼트 케이스에서 structured 입력만 뺀 기대가 green · EP-06 0건 | DB `message_parts` → `parts.ts` 세그먼트 → `AssistantSegment` |
 | R-07 | AC7 (C-09) | 설정 스키마·타입에 `projectMcpChoices`가 없다. 그 키가 남은 구 설정 파일도 로드되고 다른 키 값이 유지되며, `settings.patch`로 그 키를 쓸 수 없다 | `extension-catalog.test.ts` "does not reactivate legacy choice bytes…"를 고쳐 로드 성공·다른 키 유지·patch 무시를 단언 · EP-07 0건 | 설정 파일 → `SettingsStore.getAll` |
 | R-08 | AC8 (C-32) | `subagent.backgroundSet` 이벤트 변형이 없다. 서브에이전트 시작·정착 이벤트 처리는 지금과 같다 | `turn-coordinator.test.ts`의 서브에이전트 정착 케이스 green(backgroundSet 입력 케이스 3건은 삭제) · EP-08 0건 | 어댑터 이벤트 → coordinator → `chatStore` |
-| R-09 | AC9 (C-16) | 어댑터 선택이 한 판정이다: DEV mock이 켜졌으면 payload의 하네스와 무관하게 mock, 아니면 세션에 묶인 하네스 → payload 하네스 → 활성 하네스 순 | 신규 단위 테스트 4분기(§7-A VP-09) | `chat:send` → `handleChatSend` 1단계 |
+| R-09 | AC9 (C-16) | 철회 — D-015 | — | — |
 | R-10 | AC10 (C-17) | 컨텍스트 열기 정책 가드가 한 벌이다: 세션 없음·정책 불허면 디렉토리와 첨부 목록이 모두 비고, 허용이면 각각 기록된 목록이다 | `files.contextDirectory.test.ts` + 신규 케이스(§7-A VP-10) | `files:openContextFile` → `contextFileScope` |
-| R-11 | AC11 (C-30) | 로그인 서비스의 `onStep`·`onSnapshot`이 필수 의존성이다. 로그인 단계 전이와 스냅샷 통지(`revoked`·`expired`·`verified`·`credential-committed`)는 지금과 같다 | `login.test.ts` 기존 통지 케이스 green + 통지 원인별 단언(§7-A VP-11) | `provider:login` → `LoginService` → `runtime.ts:209-210` publish |
+| R-11 | AC11 (C-30) | 철회 — D-016 | — | — |
 | R-12 | AC12 (C-13) | `harnessRuntime`·`runtimeModelCatalog`·`background`가 필수다. 모델 목록과 턴 준비는 읽기 전용 key면 캐시, 아니면 resolve, 캐시가 없으면 오류다 | `misc.runtime-catalog.test.ts` · `resolve-turn` 테스트의 3분기(§7-A VP-12) · EP-12 0건 | `agent:list` → `misc.ts` · `chat:send` → `resolveTurnProvider` |
-| R-13 | AC13 (C-37) | 메일 동기화에 단계 콜백이 없다. 동기화 결과·취소·오류는 지금과 같다 | `sync-manager.test.ts` · `mail.integration.test.ts` green(호출 인자만 변경) · EP-13 0건 | 메일 도구 → `tools.ts sync` → `manager.sync` |
-| R-14 | AC14 (C-38) | diff 리뷰의 요구사항 props 6개가 필수다. 초안 변경·추가·선택·삭제 콜백이 지금과 같은 인자로 불린다 | `diffRequirementSelection.render.test.ts` · `fileDiffRequirementReveal.test.ts` · `diffTileWiring.test.ts` green + 콜백 4종 단언(§7-A VP-14) | `DiffTileContent` → `DiffReview` → `FileDiffSection` |
-| R-15 | AC15 (C-39) | 유효 플러그인 id 집합 = 멘션 자동완성이 낸 id ∪ 관측된 네이티브 플러그인 id(관리형 MCP 포함 여부는 `includeManagedMcp`) | `ComposerInputController.test.ts` 2분기(§7-A VP-15) | 컴포저 입력 → `validPluginIds` → 칩 판정 |
+| R-13 | AC13 (C-37) | 철회 — D-013 | — | — |
+| R-14 | AC14 (C-38) | 철회 — D-014 | — | — |
+| R-15 | AC15 (C-39) | 컴포저의 유효 플러그인 id 집합은 멘션 훅이 낸 집합 하나다. 그 집합은 provider 후보와 세션에서 관측한 플러그인을 모두 담고, 후보를 끈 상태에서도 관측한 플러그인은 유효하다 | `useMentionAutocomplete.test.ts` 신규 케이스 3입력(§7-A VP-15) | 컴포저 입력 → `useMentionAutocomplete` → `validPluginIds` → 칩 판정 |
 | R-16 | AC16 | `IPC_CONTRACT.md`에 삭제한 채널 3행이 없고, `background-tasks.md`·`layers.md`·`ux-domains.md`·`design-components.md`·`design-system.md`가 삭제된 것을 현재형으로 서술하지 않는다 | `node scripts/check-doc-inventory.mjs --check` green · EP-16 0건 | 문서 |
 | R-17 | AC17 | prod 코드가 순감한다. 테스트 코드는 순증하지 않는다 | `git diff --numstat <설계 커밋>..HEAD -- app/src` 를 prod/test로 갈라 합산 — prod 순증감 < 0 · test 순증감 ≤ 0 | 해당 없음 |
 | R-18 | AC18 | §19 게이트가 green이거나 실패가 기준선과 같은 환경 서명이다 | §19 명령 산출 | CI |
@@ -199,13 +204,13 @@ UI 변화는 없다. 관측자는 앱 사용자(화면이 그대로다)와 코�
 | VP-06 | R-06 ↔ AT-06 | REQUIRED | DB part row → `parts.ts` `segmentAssistantParts` → Claude·OpenCode `AssistantSegment` | `parts.test.ts:'error / structured_output 는 개별 세그먼트, 빈 text 는 스킵'`을 error·빈 text 입력으로 고친 케이스 · `projection.test.ts`·`Timeline.render.test.ts`·`workActivity.test.ts`에서 structured 입력 행만 제거 | not selected | EP-06 (9자리) |
 | VP-07 | R-07 ↔ AT-07 | REQUIRED | 설정 파일 → `SettingsStore` 생성 → `getAll` · `patch` | `extension-catalog.test.ts:'does not reactivate legacy choice bytes…'` — 입력: `projectMcpChoices`와 다른 키 1개(기본값과 다른 값)가 든 구 store. 단언: `getAll()` 성공 · 다른 키 값 유지 · `patch({projectMcpChoices})` 뒤 `getAll()`에 그 키 없음 | not selected | EP-07 (3자리) |
 | VP-08 | R-08 ↔ AT-08 | REQUIRED | Claude 어댑터 이벤트 → `turn-coordinator` 이벤트 루프 → `chatStore` `onChatEvent` | `turn-coordinator.test.ts`의 `subagentStarted`·settled 케이스(backgroundSet 없는 것) green · `gate:npm run typecheck`(판별 유니온 소진) | not selected | EP-08 (2자리) |
-| VP-09 | MD-01 ↔ UT-01 | REQUIRED | `handleChatSend` 1단계 → 신규 순수 함수 `selectTurnAdapter`(`admission.ts`) | 신규 `admission.test.ts` 4입력: ① mock 있음·enabled → mock(payload.backend가 다른 하네스여도) ② mock 있음·disabled·세션 backend=B → B ③ mock null·payload.backend=B·활성=A → B ④ 셋 다 없음·활성=A → A. 추가: registry에 없는 backend → `null` | not selected | EP-09 (2자리) |
+| VP-09 | MD-01 ↔ UT-01 | 철회 — D-015 | — | — | — | — |
 | VP-10 | MD-02 ↔ UT-02 | REQUIRED | `files:openContextFile` → `contextFileScope` → 가드 | `files.contextDirectory.test.ts` 기존 케이스 + 신규 3입력: 세션 없음 → 디렉토리 `[]`·첨부 `[]` · 정책 불허 세션 → 둘 다 `[]`(DB에 cwd·첨부 기록이 있어도) · 허용 세션 → 디렉토리 목록과 첨부 목록이 서로 다른 값 | not selected | EP-10 (2자리) |
-| VP-11 | R-11 ↔ AT-11 | REQUIRED | `provider:login` → `LoginService` → `deps.onStep`·`deps.onSnapshot` → `runtime.ts` publish | `login.test.ts`: 통지 9자리마다 원인 값을 구별해 단언 — `onStep(null)`(취소) · `onStep(step)`(진행·실패) · `onSnapshot(id,'revoked')` · `'expired'`(2자리) · `'verified'` · 전달받은 `cause` · `'credential-committed'` | required — 맞바꿈: `'expired'`↔`'verified'`(`login.ts:363,365`) | EP-11 (9자리) |
+| VP-11 | R-11 ↔ AT-11 | 철회 — D-016 | — | — | — | — |
 | VP-12 | AR-02 ↔ IT-02 | REQUIRED | `bootstrap.ts` ctx 조립 → `misc.ts agentList` · `resolve-turn.ts resolveTurnProvider` · `engine.ts` 무효화 | `misc.runtime-catalog.test.ts` · resolve-turn 테스트 — 자리마다 3입력: 읽기 전용 key → `cached` 호출·`resolve` 미호출 · 일반 key → `resolve(target)` 호출(인자 `harnessId`·`modelProviderId`를 서로 다른 값으로) · 읽기 전용 key인데 캐시 없음 → 오류. `engine.ipc.test.ts`: CRUD 뒤 `invalidate(key,'harness-settings-crud')`·`runtimeModelCatalog.invalidate(key)` 호출 | required — 호출 대체 `resolve`→`cached`, 인자 맞바꿈 `harnessId`↔`modelProviderId`(0262 r4·r6에서 같은 자리가 미잠금이었다) — 자리: `misc.ts` · `resolve-turn.ts` 각각 | EP-12 (9자리) |
-| VP-13 | R-13 ↔ AT-13 | REQUIRED | 메일 도구 → `tools.ts sync` → `manager.sync(signal, mode)` | `sync-manager.test.ts` · `mail.integration.test.ts`(EP-04 케이스 포함) · `tools.sync.test.ts` — `mode` 인자가 2번째 자리로 온 뒤에도 `'full'`·`'incremental'` 구별 케이스가 green | required — 맞바꿈: `tools.ts`의 `mode` 인자를 지움(기본값 `incremental`로 폴백) → full 케이스 red | EP-13 (3자리) |
-| VP-14 | R-14 ↔ AT-14 | REQUIRED | `DiffTileContent` → `DiffReview` → `FileDiffSection` → 본문·행 컴포넌트 → 콜백 | `diffRequirementSelection.render.test.ts` · `fileDiffRequirementReveal.test.ts` · `diffTileWiring.test.ts` — 콜백 6자리(`:625,826,830,841,884,901`)마다 구별 인자: 초안 변경(본문 문자열) · 초안 취소(`null`) · 추가(제출 객체) · 선택(id A) · 삭제(id B≠A) | required — 맞바꿈: `onSelectRequirement`↔`onRemoveRequirement` 전달(`DiffReview.tsx`) | EP-14 (6자리) |
-| VP-15 | MD-03 ↔ UT-03 | REQUIRED | `ComposerInputController` → `observedPlugins` → `validPluginIds` → 칩 판정 | `ComposerInputController.test.ts` 2입력: `includeManagedMcp=false` → 네이티브 플러그인 id만 유효(관리형 id는 무효) · `true` → 둘 다 유효. 멘션 자동완성이 낸 id와 겹치지 않는 값으로 채운다 | not selected | EP-15 (1자리) |
+| VP-13 | R-13 ↔ AT-13 | 철회 — D-013 | — | — | — | — |
+| VP-14 | R-14 ↔ AT-14 | 철회 — D-014 | — | — | — | — |
+| VP-15 | MD-03 ↔ UT-03 | REQUIRED | `ComposerInputController` `observedPlugins` → `useMentionAutocomplete(…, includePlugins, observedPlugins)` → `validPluginIds` → 칩 판정 | `useMentionAutocomplete.test.ts:'keeps observed plugins valid whether or not provider candidates are included'` 3입력: 후보 포함 + 관측 있음 → 둘 다 유효 · 후보 끔 + 관측 있음 → 관측만 유효 · 후보 끔 + 관측 없음 → 빈 집합. 관측 id는 provider id와 겹치지 않는 값 | not selected | EP-15 (1자리) |
 | VP-16 | R-16 ↔ AT-16 | REQUIRED | 문서 | `gate:node scripts/check-doc-inventory.mjs --check` · EP-16 검색 0건 | not selected | EP-16 (12자리) |
 
 ### 현재 변경의 운영 gate
@@ -331,13 +336,13 @@ bootstrap ──주입──> ctx.harnessRuntime ──> isReadOnly ? cached : r
 | EP-06 / VP-06 | `structured_output` 없음 | `shared/ipc.ts:1570` 멤버(+`:1533` 주석 정정) · `infra/db/types.ts:20` · `lib/parts.ts:507` 세그먼트 kind · `:558-559` 분기 · `:653-654` 비교 · `claude/transcript/StructuredOutputCard.tsx`(파일) · `claude/…/AssistantSegment.tsx:6,34` · `claude/…/registry.ts:41`(+`:24-25` 주석) · `opencode/…/AssistantSegment.tsx:33-` case(+i18n `chat.transcript.structuredOutput` 미사용 시 삭제) = 9 | `rg -n "structured_output\|StructuredOutputCard\|kind: 'structured'\|case 'structured'" .` → 0건. 허용: `migrations/0004_message_parts.sql` 주석 · `structuredOutput`(도구 결과 필드 — 다른 개념) | 같음 |
 | EP-07 / VP-07 | `projectMcpChoices` 없음 | `shared/protocol.ts:778` · `shared/ipc.ts:1157` · `:1179` = 3 | `rg -n projectMcpChoices . -g '!*.test.*'` → 0건. 허용: VP-07 테스트의 구 store 입력 | 구 파일 로드 실패가 가장 나쁜 상태 — VP-07이 본다 |
 | EP-08 / VP-08 | `subagent.backgroundSet` 없음 | `shared/ipc.ts:726-743` 변형과 그 주석 · `chatStore.ts:978-983` case와 주석 = 2 | `rg -n backgroundSet .` → 0건(테스트 포함 — 관련 케이스 삭제) | 같음 |
-| EP-09 / VP-09 | 어댑터 선택 1판정 | `send.ts:70-71` · `:101-107` = 2 | `rg -n 'mockAdapter' main/app/chat-turn -g '!*.test.*'` → `send.ts` 1건(`selectTurnAdapter` 호출 인자) | mock이 꺼졌는데 mock으로 가거나 그 반대 |
+| EP-09 / VP-09 | 철회 — D-015 | — | — | — |
 | EP-10 / VP-10 | 컨텍스트 가드 1벌 | `files.ts:54-60` · `:73-79` = 2 | `rg -c 'allowContextFileOpen' main/app/handlers/files.ts` → 1 | 한쪽 목록만 정책을 우회 |
-| EP-11 / VP-11 | `onStep`·`onSnapshot` 필수 | `login.ts:107,108` 선언 · 호출 `:249,253,324,358,363,365,663,974,987` = 9(호출) | `rg -n 'deps\.on(Step\|Snapshot)\?' main/features/auth` → 0건 · `rg -n 'on(Step\|Snapshot)\?:' main/features/auth/login.ts` → 0건 | 통지 누락 — 화면이 로그인 단계를 못 따라간다 |
+| EP-11 / VP-11 | 철회 — D-016 | — | — | — |
 | EP-12 / VP-12 | 런타임 구성 의존성 필수 | `context.ts:55,56` 선언 · `misc.ts:56` · `:71-76` · `engine.ts:30,45,46,53` · `resolve-turn.ts:237` · `:275-279` · `deps.ts:41` `background?` · `send.ts:631` `background?.observe` · `send.ts:198,268` `ctx.settings?.` = 9 | `rg -n 'harnessRuntime\?\|runtimeModelCatalog\?\|deps\.background\?\|ctx\.settings\?\.' main -g '!*.test.*'` → 0건 · `rg -n 'ctx\.harnessRuntime\s*$\|ctx\.harnessRuntime \?' main -g '!*.test.*'` → 0건 | 읽기 전용 key가 resolve로 가면 턴마다 네트워크(0291 D-008 위반) |
-| EP-13 / VP-13 | `onStage` 없음 | `sync-manager.ts:40` 타입 시그니처 · `:82` 매개변수와 호출 9줄(`:95,98,112,119,163,173,192` 외 재귀 `:88`) · `types.ts:157` `MailSyncStageEvent` · `tools.ts:66` 인자 = 3(파일) | `rg -n 'onStage\|MailSyncStageEvent' main` → 0건 | `mode`가 기본값으로 폴백하면 full 동기화가 incremental로 돈다 — VP-13 변이 |
-| EP-14 / VP-14 | diff props 6개 필수 | 선언: `DiffReview.tsx:28-30,43-49` · `FileDiffSection.tsx:52-66,206-238,534-540,596-602,701,800-801,866` · 호출 `:625,826,830,841,884,901` = 6(호출) | `rg -n '(activeRequirementId\|selectionVersion\|onSelectRequirement\|onDraftChange\|onAddRequirement\|onRemoveRequirement)\?[:.]' renderer/src/features/chat/harnesses/common/rightpanel -g '!*.test.*'` → 0건 | 콜백이 조용히 안 불린다 |
-| EP-15 / VP-15 | 플러그인 목록 1회 계산 | `ComposerInputController.tsx:238-248` = 1 | `rg -c 'nativePluginMentions\(' …/ComposerInputController.tsx` → 2(`observedPlugins` 안의 2호출뿐) | 관리형 MCP id가 꺼진 상태에서 유효로 판정 |
+| EP-13 / VP-13 | 철회 — D-013 | — | — | — |
+| EP-14 / VP-14 | 철회 — D-014 | — | — | — |
+| EP-15 / VP-15 | 유효 플러그인 id의 출처 1곳 | `ComposerInputController.tsx`의 `validPluginIds` memo(삭제) → `mentionAutocomplete.validPluginIds` 전달 = 1 | `rg -c 'nativePluginMentions\(' …/ComposerInputController.tsx` → 2(`observedPlugins` 안의 2호출뿐) · `rg -n 'validPluginIds' …/ComposerInputController.tsx` → 1건 | 관측한 플러그인의 칩이 풀린다. `includeManagedMcp` → `observedPlugins` 조립은 이번에 바꾸지 않는 기존 코드다(선언 경계 6) |
 | EP-16 / VP-16 | 문서가 현재 상태 | `IPC_CONTRACT.md` 채널 3행 · 이벤트 `subagent.backgroundSet` 행 · `projectMcpChoices` 2곳 · `GLOSSARY.md:98` · `arch/backend/background-tasks.md:25,27` · `provider-runtime.md` §7 타입·요약 행 · `arch/frontend/{layers,ux-domains,design-system,overview}.md` · `design-components.md`(PanelButton·StructuredOutputCard·CameraView 3행) · `rendering.md` §1.6·§1.7 현재 코드 서술 · `generated/inventory.md` 재생성 = 12(문서) | `cd docs && rg -n 'stopAllBackgroundTasks\|artifact:openFolder\|provider:list\|features/camera\|CameraView\|backgroundSet\|projectMcpChoices\|PanelButton' . -g '!handoff/**' -g '!archive/**' -g '!etc/**'` → 0건. `StructuredOutputCard`·`structured_output`은 `rendering.md` §1.6·§1.7의 목표 설계 서술과 벤더 미러(`spec/**`·`claude-code-spec.md`)에 남는다 | 문서가 없는 채널·feature를 안내 |
 
 - **선언 경계**:
@@ -345,7 +350,8 @@ bootstrap ──주입──> ctx.harnessRuntime ──> isReadOnly ? cached : r
   2. VP-07에서 구 설정 파일의 `projectMcpChoices` 바이트가 디스크에 남는지 지워지는지는 정하지 않는다. 계약은 "로드 성공 · 다른 키 유지 · patch로 못 씀"이다.
   3. PRD §9의 카메라 향후 범위(`PRD.md:214`)는 고치지 않는다 — 제품 의도이고 구현 서술이 아니다.
   4. C-06 삭제로 고아가 되는 2차 심볼은 lint·typecheck가 보고하는 것만 지운다. 보고되지 않는 미사용 export는 0305 C-07(H-E) 범위다.
-  5. EP-11·EP-12·EP-14의 "필수"는 타입 계약이다. `as never`·부분 캐스트로 조립한 테스트가 런타임에 `undefined`를 넘기는 것까지 막지는 않는다 — 그런 조립은 typecheck:test가 보고하는 것만 고친다.
+  6. `ComposerInputController`가 `includeManagedMcp`에 따라 `observedPlugins`를 조립하는 식은 이번 diff가 건드리지 않는다. 컨트롤러 단위 렌더 테스트가 없어 그 조립의 잠금은 이번 범위가 아니다.
+  5. EP-12의 "필수"는 타입 계약이다. `as never`·부분 캐스트로 조립한 테스트가 런타임에 `undefined`를 넘기는 것까지 막지는 않는다 — 그런 조립은 typecheck:test가 보고하는 것만 고친다.
 - 열린 입력 집합을 판정하는 산출물: 해당 없음.
 - 같은 규칙의 SSOT: 어댑터 선택 = `selectTurnAdapter` 한 곳 · 컨텍스트 정책 = `contextSession` 한 곳.
 - 선택적 필드의 의미: 이번 변경 뒤 EP-11·12·14의 필드는 `undefined`를 받지 않는다. `activeRequirementId`는 `string | null` 필수다(`null` = 선택 없음).
@@ -365,7 +371,7 @@ bootstrap ──주입──> ctx.harnessRuntime ──> isReadOnly ? cached : r
 
 - 삭제는 표적만 한다. 표적을 지워 미사용이 된 import·지역 헬퍼·타입은 lint/typecheck가 가리키는 대로 따라 지운다(`stopAll`이 혼자 쓰던 헬퍼 등). 따라 지운 것은 구현 보고에 나열한다.
 - 테스트는 지우는 능력만 단언하던 케이스를 삭제하고, 유지 동작을 함께 보던 케이스는 유지 동작 단언만 남긴다. 삭제한 케이스 수를 파일별로 보고한다.
-- C-13 테스트 조립: fallback 분기에 기대던 테스트는 `HarnessRuntimeConfigService`·`RuntimeModelCatalog` 포트의 fake를 준다. fake는 `resolve`·`cached`·`isReadOnly`·`merge`·`invalidate`만 구현하고, 공용 fixture 1개로 둔다(테스트 파일마다 복붙 금지).
+- C-13 테스트 조립: fallback 분기에 기대던 테스트는 공용 fixture `main/app/runtime-config.testfixture.ts`의 `passthroughRuntimeConfig()`를 조립에 편다(테스트 파일마다 복붙 금지). 런타임 관리 key·캐시 분기를 시험하는 테스트는 그 위에 자기 fake를 덮어쓴다.
 - `sync(signal, mode)`로 시그니처가 바뀐다 — 2번째 자리가 `mode`다. 테스트 47호출의 `undefined` 자리 인자를 지운다.
 
 ### 테스트 가능성
