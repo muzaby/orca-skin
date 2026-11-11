@@ -74,11 +74,3 @@ export async function listWorktrees(
   const result = await gateway.read(repoRoot, ['worktree', 'list', '--porcelain'])
   return result.ok ? parseWorktreeList(result.stdout) : null
 }
-
-export async function repairWorktree(
-  repoRoot: string,
-  worktreeRoot: string,
-  gateway: GitGateway = gitGateway
-): Promise<GitRunResult> {
-  return gateway.mutate(repoRoot, (write) => write(repoRoot, ['worktree', 'repair', worktreeRoot]))
-}

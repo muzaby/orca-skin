@@ -22,7 +22,7 @@
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
-import { LEGACY_PRODUCT_SLUG, PRODUCT_SLUG } from '../../../shared/product'
+import { PRODUCT_SLUG } from '../../../shared/product'
 
 // 모든 OS 동일하게 ~/.config/orcinus-orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
 export function ooConfigDir(): string {
@@ -37,18 +37,6 @@ export function ooConfigDir(): string {
 // prod 번들에서 dead-code 제거되게 한다.
 export function devUserDataDir(appDataDir: string): string {
   return join(appDataDir, `${PRODUCT_SLUG}-dev`)
-}
-
-// ── 레거시(0225 이전) 루트 — **이관 모듈 전용** ────────────────────────────────
-// 여기서 조립만 하고, 소비는 `migrate-legacy.ts` 한 파일이 독점한다. 다른 파일이 이 둘을
-// import 하면 D-010("전환 후 옛 경로를 정상 저장소나 자동 fallback 으로 쓰지 않는다")이 깨지고
-// `product-identity.test.ts` 의 import 그래프 전수 단언이 red 가 된다(§10 EP-05).
-export function legacyConfigDir(): string {
-  return join(homedir(), '.config', LEGACY_PRODUCT_SLUG)
-}
-
-export function legacyUserDataDir(appDataDir: string, isDev: boolean): string {
-  return join(appDataDir, isDev ? `${LEGACY_PRODUCT_SLUG}-dev` : LEGACY_PRODUCT_SLUG)
 }
 
 // 격리 worktree 루트. `<userData>` 가 아니라 `ooConfigDir()` 하위다(0210 D-102) — 저장소

@@ -5,7 +5,7 @@
 // (0306 plan D-004): 산문 = 표시명, 저장·전송되는 값 = 슬러그 꼴, 코드 식별자·IPC 채널 = 짧은 꼴.
 // 이 검사기는 "옛 표기가 없다"만 본다 — 새 꼴이 제자리에 있는지는 `product-identity.test.ts` 가 본다.
 //
-// 모르는 자리는 막는다(fail-closed). 옛 이름을 일부러 써야 하는 자리(0225 이관의 입력 · 구버전 안내)는
+// 모르는 자리는 막는다(fail-closed). 옛 이름을 일부러 써야 하는 자리(구버전 안내 · 머지된 마이그레이션)는
 // `ALLOWED` 에 `{file, form, count, reason}` 으로 등록한다. 개수가 늘어도 줄어도 실패한다 — 지운
 // 예외는 목록에서도 지워야 한다.
 //
@@ -46,37 +46,10 @@ export const EXCLUDED = [
   '.agents/skills/*/references/'
 ]
 
-const LEGACY_INPUT = '0225 이관의 입력 — 옛 디스크 이름 (0306 D-005)'
 const LEGACY_FACT = '과거 이름을 사실로 서술 (0306 D-005)'
 
 /** 옛 표기를 일부러 쓰는 자리. `count` 는 그 파일의 그 꼴 개수와 정확히 같아야 한다. */
 export const ALLOWED = [
-  { file: 'app/src/shared/product.ts', form: 'lower', count: 1, reason: LEGACY_INPUT },
-  {
-    file: 'app/src/main/infra/config/migrate-legacy.ts',
-    form: 'lower',
-    count: 2,
-    reason: LEGACY_INPUT
-  },
-  {
-    file: 'app/src/main/infra/config/migrate-legacy.test.ts',
-    form: 'lower',
-    count: 32,
-    reason: LEGACY_INPUT
-  },
-  { file: 'app/src/main/app/legacy-paths.test.ts', form: 'lower', count: 5, reason: LEGACY_INPUT },
-  {
-    file: 'app/src/main/infra/config/rebase-path.ts',
-    form: 'lower',
-    count: 2,
-    reason: LEGACY_INPUT
-  },
-  {
-    file: 'app/src/main/infra/config/rebase-path.test.ts',
-    form: 'lower',
-    count: 19,
-    reason: LEGACY_INPUT
-  },
   {
     file: 'app/src/main/infra/db/migrations/0032_native_session_recovery.sql',
     form: 'title',
@@ -89,9 +62,9 @@ export const ALLOWED = [
     count: 4,
     reason: '0300 증거 스크립트(범위 밖 지난 기록)가 읽는 환경변수 이름 (0306 D-003)'
   },
-  { file: 'docs/guides/release-operations.md', form: 'lower', count: 7, reason: LEGACY_FACT },
+  { file: 'docs/guides/release-operations.md', form: 'lower', count: 19, reason: LEGACY_FACT },
   { file: 'docs/guides/release-operations.md', form: 'title', count: 1, reason: LEGACY_FACT },
-  { file: 'docs/arch/backend/overview.md', form: 'lower', count: 4, reason: LEGACY_FACT },
+  { file: 'docs/arch/backend/overview.md', form: 'lower', count: 1, reason: LEGACY_FACT },
   { file: 'docs/arch/backend/security.md', form: 'lower', count: 1, reason: LEGACY_FACT },
   { file: 'docs/arch/backend/provider-runtime.md', form: 'title', count: 1, reason: LEGACY_FACT }
 ]

@@ -11,7 +11,6 @@ export const APP_ERROR_TITLES = [
   'sendFailed',
   'sessionOpenFailed',
   'bootStepDegraded',
-  'legacyMigrationFailed',
   'mcpServerSkipped',
   'extensionsFailed',
   'authPersistenceUnavailable',

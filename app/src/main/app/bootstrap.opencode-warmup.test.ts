@@ -66,7 +66,7 @@ vi.mock('../infra/config/paths', async (original) => ({
   ooConfigDir: () => fixture.root,
   mcpJsonPath: () => `${fixture.root}/mcp.json`
 }))
-vi.mock('../infra/db', () => ({ initDb: () => ({}), getDbConnection: () => null }))
+vi.mock('../infra/db', () => ({ initDb: () => ({}) }))
 vi.mock('../features/chat/recovery', () => ({
   recoverSessionHistory: () => ({ toolResultsWritten: 0 })
 }))

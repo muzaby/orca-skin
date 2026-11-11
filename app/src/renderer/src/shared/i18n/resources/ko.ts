@@ -590,7 +590,6 @@ export const ko = {
       sendFailed: '메시지를 전송하지 못했습니다',
       sessionOpenFailed: '대화를 열지 못했습니다',
       bootStepDegraded: '앱의 일부 기능을 준비하지 못했습니다',
-      legacyMigrationFailed: '기존 데이터를 옮기지 못했습니다',
       mcpServerSkipped: 'MCP 서버를 준비하지 못했습니다',
       extensionsFailed: '확장 기능을 준비하지 못했습니다',
       authPersistenceUnavailable: '인증 정보를 저장할 수 없습니다',

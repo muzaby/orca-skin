@@ -71,7 +71,6 @@ Electron App
 │   │   ├── auth-resume.ts      # 부팅 복원 순서 — gate 우선 → 나머지 병렬 → push 1회 (0188)
 │   │   ├── connection-views.ts # Auth descriptor/snapshot → 기존 GUI DTO (0188 compat mapper)
 │   │   ├── daily-gate.ts       # 실행 중 날짜 경계의 게이트 해제 배선 (0255, ADR-008)
-│   │   ├── legacy-paths.ts     # 구 `orca` 설정 루트 이관 뒤 DB 저장 경로 재기준·이동 worktree 복구 (0225)
 │   │   ├── error-report-sink.ts · error-report-drain.ts  # 오류 toast 의 창 전달·drain (0242, observability.md §7)
 │   │   ├── artifact-sender.ts  # 게시 알림 → renderer (0223)
 │   │   ├── harnesses/ · runtime-model-startup.ts · settings-reactions.ts
@@ -155,11 +154,9 @@ Electron App
 3. bootstrap.start()                        # 각 단계 = bootReport.step* 래핑. 창(4)은 이 promise 를 기다리지 않는다 (0109)
    0. 동기 구간(첫 await 전)                 # 창보다 먼저 끝난다 — 부팅 게이트 밖 renderer 가 즉시 부르는 채널
       - registerSettingsReadHandler           # oo:settings:get — TweakProvider 첫 테마 읽기 (0244)
-      - legacy-migration (critical)          # 이관 등급 확인
       - 인증 스택 + registerConnectionHandlers # oo:provider:state 등 게이트 판정 채널 (0181/0188)
    a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(infra/db/migrations/) + 재시작 잔재 정착
-   a-2. legacy-paths                        # 구 `orca` 저장 경로에서 이관된 경우 저장된 cwd·worktree 경로 재기준 + 이동 worktree 복구 (app/legacy-paths.ts, 0225)
-   a-3. chat-recovery                       # recoverSessionHistory — 미완료 도구 호출 정착 + FTS text-cache 공백 복구 (features/chat/recovery, persistence.md §1.3)
+   a-2. chat-recovery                       # recoverSessionHistory — 미완료 도구 호출 정착 + FTS text-cache 공백 복구 (features/chat/recovery, persistence.md §1.3)
    b. cost-recompute (critical)             # new UsageTracker(db, …) → 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
    c. new Scheduler(DbRunRecorder)          # 'usage-recompute' job 등록(action = cost.recordAndBroadcast 주입)
       → scheduler.applySettings(settings.scheduler)  # croner 스케줄 시작 (0091, 실패 시 비활성 시작)
@@ -240,7 +237,6 @@ Electron App
 | 사내 서비스 Plugin (`features/plugins/{confluence,jira,mail}`) | Phase 4 | ✅ 완료 (0188·0236·0237·0248) | 자격증명 Plugin 과 로그인 프리 Plugin 이 같은 binding(`app/deployment/plugins.ts`)으로 등록 — [auth.md §7](./auth.md) |
 | 전역 오류 보고(toast) (`infra/error-report`) | Phase 4 | ✅ 완료 (0242) | main/renderer 공통 `reportError` → 토스트 — observability.md §7 |
 | 일일 로그인 게이트 (`features/gate/daily.ts` · `app/daily-gate.ts`) | Phase 4 | ✅ 완료 (0255) | 실행 중 로컬 날짜 경계에서 통과 해제 — [ADR-008](../../decisions/008-daily-login-gate.md) · auth.md §5.3 |
-| 저장 경로 이관 (`infra/config/migrate-legacy.ts` · `app/legacy-paths.ts`) | Phase 4 | ✅ 완료 (0225) | 구 `orca` 설정 루트 → `orcinus-orca` 이관(critical `legacy-migration`) 뒤 DB 저장 경로 재기준·이동 worktree 복구(비-critical `legacy-paths`, §3.1) |
 | 폐쇄망 spawn env 주입점 (`app/deployment/spawn-env.ts`) | Phase 4 | ✅ 완료 (0207) | 배포가 `SPAWN_ENV_INJECTOR` 를 채우면 모든 Harness+ModelProvider subprocess env 에 실린다(최상위 레이어, 기본 배포는 비움). host-managed provider 표식(0200)은 `adapters/common/harness-config.ts` 가 조립 — security.md "Agent provider auth token" |
 
 > 이 표는 코드 변경 시 함께 갱신한다.

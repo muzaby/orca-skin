@@ -94,8 +94,6 @@ import { UsageTracker } from '../features/usage/tracker'
 import { WorktreeService } from '../features/worktrees/service'
 import { BrowserSessionStore } from '../infra/browser-session'
 import { TypedBus } from '../infra/bus'
-import type { MigrationReport } from '../infra/config/migrate-legacy'
-import { migrationBlocksBoot } from '../infra/config/migrate-legacy'
 import { loadOoConfig } from '../infra/config/oo-config'
 import {
   ensureConfigDir,
@@ -105,7 +103,7 @@ import {
   sourcesSkillsDir
 } from '../infra/config/paths'
 import { SecretStore } from '../infra/config/secret-store'
-import { getDbConnection, initDb } from '../infra/db'
+import { initDb } from '../infra/db'
 import { errorMessage } from '../infra/errors'
 import {
   broadcastChatEvent,
@@ -167,7 +165,6 @@ import {
   parseHarnessRuntimeModels,
   scaffoldHarnessSettings
 } from './harnesses/registry'
-import { rebaseStoredPaths, repairMovedWorktrees } from './legacy-paths'
 import { createManagedMcp } from './managed-mcp'
 import { createNativeHistoryRefresh } from './native-history'
 import {
@@ -259,16 +256,7 @@ export class Bootstrap {
   private titles?: TitleGenerator
   private dailyGate?: { dispose(): void }
 
-  constructor(
-    private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean,
-    // `main/index.ts` 모듈 스코프의 이관 결과(0225). DB 를 열기 전에 등급을 확인한다.
-    private readonly legacyMigration: MigrationReport = {
-      moved: [],
-      conflicts: [],
-      failed: [],
-      configRoots: { legacy: '', current: '' }
-    }
-  ) {}
+  constructor(private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean) {}
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -451,22 +439,6 @@ export class Bootstrap {
     // 쓰기(`settings:set`)는 스케줄러가 필요해 `register(ctx)` 에 남는다.
     registerSettingsReadHandler(this.settings)
 
-    // ── 0225 이관 등급 확인: **DB·store 를 열기 전에** ────────────────────────────
-    // DB 3종(`*.db`·`-wal`·`-shm`) 이동 실패만 여기서 부팅을 막는다(D-018). WAL 만 남고 DB 가
-    // 옮겨진 상태로 DB 를 열면 WAL 꼬리가 조용히 유실되기 때문이다. 나머지 실패는
-    // `index.ts` 가 이미 경고로 남겼고 다음 부팅이 멱등하게 재시도한다(D-017).
-    this.bootReport.stepSync(
-      'legacy-migration',
-      { critical: true, label: '데이터 이관 확인' },
-      () => {
-        if (!migrationBlocksBoot(this.legacyMigration)) return
-        const detail = this.legacyMigration.failed
-          .filter((failure) => failure.critical)
-          .map((failure) => `${failure.from} → ${failure.to}: ${failure.message}`)
-          .join('; ')
-        throw new Error(`데이터 이관에 실패했습니다 — 앱을 다시 실행해 주세요. ${detail}`)
-      }
-    )
     if (this.stopped) return
     const installation = this.bootReport.step(
       'adapter-registry',
@@ -602,37 +574,6 @@ export class Bootstrap {
           this.activeDbWriteCount = Math.max(0, this.activeDbWriteCount - 1)
         }
       })
-    )
-    // 저장된 절대경로를 새 설정 루트로 다시 적고, 옮겨진 워크트리의 git 링크를 고친다(0225).
-    // **핸들러 등록 이전**이다 — 세션 재개가 옛 경로를 보기 전에, 그리고 다음 `worktree add` 의
-    // 자동 prune 이 워크트리를 파괴하기 전에 끝나야 한다.
-    await this.bootReport.step(
-      'legacy-paths',
-      { critical: false, label: '저장 경로 이관' },
-      async () => {
-        const connection = getDbConnection()
-        const { legacy, current } = this.legacyMigration.configRoots
-        if (!connection || legacy === '' || current === '') return
-        const report = await repairMovedWorktrees(rebaseStoredPaths(connection, legacy, current))
-        const log = getLogger().child('boot')
-        if (report.repairTargets.length > 0 || report.repairFailed.length > 0) {
-          log.info('legacy.paths.rebased', {
-            ...report.counts,
-            repaired: report.repaired.length,
-            repairFailed: report.repairFailed.length
-          })
-        }
-        for (const failure of report.repairFailed) {
-          reportError({
-            event: 'legacy.worktree.repair.failed',
-            scope: 'boot',
-            title: 'legacyMigrationFailed',
-            level: 'warn',
-            detail: failure.message,
-            data: failure
-          })
-        }
-      }
     )
     const recovered = this.bootReport.stepSync(
       'chat-recovery',

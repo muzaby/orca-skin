@@ -72,7 +72,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F29 | **컨텍스트 · 사용량 보강** | `adapters/claude/context-policy.ts` · `provider_usage_periods` | 게이트웨이 1M 판정 · 프록시 `message_delta` usage 폴백 · 원격 일/월 내역. [adapters.md](arch/backend/adapters.md) §1.3 · rendering.md §1.9 | 0245·0247·0251 |
 | F30 | **탐색 · 입력 UX** | `sessionsStore` · `chat:steerSendNow` | nav 구획(고정됨→프로젝트→최근) · 세션 상태 아이콘 · 응답 중 입력 즉시 보내기. state.md §1.1·§1.6 · [runtime-ipc.md](arch/backend/runtime-ipc.md) §1.4 | 0203·0233·0249·0250·0254 |
 | F31 | **표시 · 환경설정 polish** | `GeneralTab` · `TooltipHost` · `CascadeMenu` | 대화 텍스트 크기·너비 · 툴팁 · 버블 접기 · `+` 계단식 메뉴 · Edit 진행 중 미리보기 · MCP 상세 토글. ux-domains.md §1.2·§1.3-b | 0217·0229·0256·0257·0259 |
-| F32 | **앱 이름 · 안정성** | `app/legacy-paths.ts` · `infra/config/paths.ts` | `orcinus-orca` 이름·저장 경로 이관 · 로고 · 실행 시간 상한 제거 · 테마 부팅 경쟁 해소. [release-operations.md](guides/release-operations.md) | 0225·0227·0243·0244 |
+| F32 | **앱 이름 · 안정성** | `shared/product.ts` · `infra/config/paths.ts` | `orcinus-orca` 이름·저장 경로 · 로고 · 실행 시간 상한 제거 · 테마 부팅 경쟁 해소. [release-operations.md](guides/release-operations.md) | 0225·0227·0243·0244 |
 
 **비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 [ARCHITECTURE.md](./ARCHITECTURE.md) / [IPC_CONTRACT.md](./IPC_CONTRACT.md) 참조. 위 표는 *기능 정의* 에만 집중.
 

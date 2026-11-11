@@ -9,7 +9,7 @@ import { createGitGateway } from '../infra/git/gateway'
 import { resolveGitCommand } from '../infra/git/git-executable'
 import { gitCheckout } from '../infra/git/git-cli'
 import { gitSnapshot } from '../infra/git/git-snapshot'
-import { repairWorktree, removeWorktree, deleteBranch } from '../infra/git/worktree'
+import { removeWorktree, deleteBranch } from '../infra/git/worktree'
 import { WorktreeService } from '../features/worktrees/service'
 import {
   createRepo,
@@ -124,10 +124,9 @@ describe('Git entry point execution budgets and write policy', () => {
       'worktree'
     ])
     expect(gateway.generation()).toBe(1)
-    expect((await repairWorktree(cwd, row.worktreeRoot, gateway)).ok).toBe(true)
     expect((await removeWorktree({ repoRoot: cwd, path: row.worktreeRoot }, gateway)).ok).toBe(true)
     expect((await deleteBranch({ repoRoot: cwd, branch: row.branch }, gateway)).ok).toBe(true)
-    expect(gateway.generation()).toBe(4)
+    expect(gateway.generation()).toBe(3)
     assertPolicies(calls)
   })
 
