@@ -440,6 +440,133 @@ session:load(LoadedSession.activity) → chatReducer LOAD_SESSION → 같은 경
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 > 필드와 표의 열은 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md)의 `[구현자 기입]` 절을 그대로 쓴다.
 
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: §9 TO-BE · §11 표 그대로 구현했다. `activityOf`는 export하지 않고 reducer 진입으로만 관측한다.
+- 이견 / 현실성 문제:
+  - §14 단계 지도의 prod 추정(약 −48)은 실측 −29다. `activityOf`·`IDLE_ACTIVITY`·`ChatActivityState` 타입이 추정(22줄)보다 길다(34줄) — prettier가 `Pick` 8필드를 한 줄에 하나씩 편다. AC4는 부호만 요구하므로 충족이다.
+  - §7 AC4 주의사항의 테스트 순증 상한 60줄을 넘었다(+146). 사유는 구현 보고 행.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | EP-01 쓰기 자리 | reducer 43줄 — 타입 8 · 초기값 8 · 가드 1 · 라이브 쓰기 8 · 중단 1 · 로드 비교 1 · 보존 복사 8 · hydrate 복사 8 | 35/43 | §10 검색 → reducer 0줄(76 → 0). 초기값 → `chatReducer.listen.test.ts`:'스냅샷 없는 세션 로드는 activity 를 초기값으로 둔다' · 가드 → `statusLine.waitPhase.test.ts`:'renders waiting facts alongside waitPhase and ignores stale activity revisions' · 라이브 → `chatReducer.listen.test.ts`:'스냅샷 8필드를 activity 로 옮긴다' · 중단 → 같은 파일:'CANCEL_CHAT 은 listening 을 낙관적으로 내린다' · 로드 비교·보존 → 같은 파일:'load 응답보다 최신 live revision이 먼저 도착하면 hydration이 되감지 않는다'·'같은 revision 의 세션 로드는 스냅샷을 쓴다 — 로컬 유지는 더 새로울 때만' · hydrate → 같은 파일:'hydrate 는 로컬 진실이 없으므로 스냅샷으로 inflight·listening·counts 를 세운다 (AC10)' | 라이브·hydrate: 8필드(revision 7 · `streaming` · `listening` · `{kind}` · 건수 4·2·1·3 — 서로 다른 값 → `activity` `toEqual`) · 중단: `transport`(나머지 7필드가 초기값과 다른 입력 → `toEqual`) · 보존: `activity` 참조(로컬 5 대 로드 4 → revision·transport) | 타입 8줄 — 직접 oracle 없음(typecheck만) |
+| VP-02 | EP-01 읽기 자리 | store 18줄(점유 술어 5 · 잔여 수 1 · selector 타입 6 · 본문 6) · 소비 3파일 15줄 | 26/33 | §10 검색 → store·소비 3파일 0줄. 점유 → `chatStore.listen.test.ts`:'transport %s → 점유 %s · 응답 중 %s'·`chatStore.sessionDirectory.test.ts`:'rejects busy state %j before IPC' · 잔여 수 → `statusLine.waitPhase.test.ts`:'잔여 수 selector 는 activity.residualCount 를 낸다' · selector 본문·`PendingAssistantStatus` → 같은 파일:'상태 줄은 activity 의 건수 4필드를 각자의 문구로 낸다'·'derives the waiting label from the transport: ready and listening wait, idle does not'·'renders the exact Korean text for all 9 ChatWaitPhase variants…' · `PendingSteerTurn` → `pendingSteerControls.test.ts`:'실제 두 버튼은 서로 다른 액션에 전달되고 취소만 composer draft를 복원한다' | 점유: `transport` 3값 → 술어 3개 반환 · 잔여: 2(형제 5·3) → 렌더 `2` · view: 건수 1·5·2·4 → title 문구 4건(전달 확인은 5−2=3) · 즉시 보내기: `foreground` `streaming`/그 밖 → 버튼 종류 | selector 타입 6줄(→ `ActivityView` 1줄) · `pendingSteerControls.ts` 인자 타입 1줄 — typecheck만 |
+| VP-03 | EP-01 전체 | 76줄 5파일 | 76/76 | `rg -n "activity(Transport\|…\|BackgroundTaskCount)\b" app/src -g '!*.test.*' -g '!*.testHarness.*' -g '!*.testfixture.*'` → 0줄(테스트 glob 포함해도 0줄) · `gate:npm run typecheck` error 0 | 운반 항 없음(음성 검색) | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음. 변경 전 §10 검색 출력(76줄)과 목록의 차집합 0을 구현 전에 다시 확인했다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 위 표 VP-01 행 | required — (a)~(e) 5건 red |
+| VP-02 | REQUIRED | SELF_PASS | 위 표 VP-02 행 | required — (f)~(j) 5건 red |
+| VP-03 | REQUIRED | SELF_PASS | `gate:rg` 0줄 · `gate:npm run typecheck` | not selected — 양성 짝은 VP-01·VP-02 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스 `mutate.py`, oracle은 §18 테스트 10파일(113케이스). 마지막 테스트 수정 뒤 44건을 다시 돌렸다 — 44 red, 실행 뒤 `git diff`가 실행 전과 같다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `activityOf` `queuedCount`↔`deliveryPendingCount` 맞바꿈 | VP-01 선택 증거 (a) | 최초 | 4 | 잠김 |
+| `activityOf` `waitPhase` 항 제거 | VP-01 (b) | 최초 | 5 | 잠김 |
+| `CANCEL_CHAT`의 `activity` 줄 제거 | VP-01 (c) | 최초 | 2 | 잠김 |
+| 로드 보존 분기가 스냅샷을 쓰게 맞바꿈 | VP-01 (d) | 최초 | 3 | 잠김 |
+| revision 가드 `<=` → `<` | VP-01 (e) | 최초 | 1 | 잠김 |
+| `sessionListening` → `=== 'listening'` | VP-02 (f) | 최초 | 7 | 잠김 |
+| `useChatResidualSteer` → `queuedCount` | VP-02 (g) | 최초 | 1 | 잠김 |
+| `useChatActivity` `listening: false` | VP-02 (h) | 최초 | 1 | 잠김 |
+| `PendingSteerTurn` selector `'idle'` 고정 | VP-02 (i) | 최초 | 3 | 잠김 |
+| `useChatActivity` `queuedCount`↔`backgroundTaskCount` | VP-02 (j) | 최초 | 1 | 잠김 |
+| `IDLE_ACTIVITY` `transport` → `listening` · `backgroundTaskCount` → 1 (2건) | sweep — §10 자리(초기값) | 최초 | 14 · 1 | 잠김 |
+| revision 가드 줄 제거 | sweep — §10 자리 | 최초 | 4 | 잠김 |
+| 라이브 `activity: activityOf(ev)` 제거 | sweep — §10 자리 | 최초 | 22 | 잠김 |
+| 중단이 `IDLE_ACTIVITY`에서 시작(7필드 초기화) | sweep — 규칙 칸 M4 | 최초 | 1 | 잠김 |
+| 로드 비교를 `false` 고정 | sweep — §10 자리 | 최초 | 5 | 잠김 |
+| 로드 비교 `>` → `>=` | sweep — 규칙 칸 M6("M5 아님") | 최초 | 첫 실행 0 → 테스트 추가 뒤 1 | **잠금 없음 — 테스트 추가** → 잠김 |
+| 보존 `activity: state.activity` 제거 | sweep — §10 자리 | 최초 | 2 | 잠김 |
+| hydrate 줄 제거 · `state.activity`로 맞바꿈 (2건) | sweep — §10 자리 | 최초 | 4 · 4 | 잠김 |
+| 스냅샷 없는 로드가 `state.activity`를 넘김 | sweep — 규칙 칸 M7 | 최초 | 2 | 잠김 |
+| 캐시 재열기가 스냅샷을 반영 | sweep — 규칙 칸 M8 | 최초 | 1 | 잠김 |
+| `activityOf` `residualCount`↔`backgroundTaskCount` · `deliveryPendingCount`↔`residualCount` (2건) | sweep — 형제 슬롯 맞바꿈 | 최초 | 6 · 2 | 잠김 |
+| `activityOf` `revision` 0 · `foreground` `idle` · `transport` `idle` 고정 (3건) | sweep — §10 자리(필드별) | 최초 | 11 · 5 · 15 | 잠김 |
+| `activityOf` 건수 4필드 각각 0 고정 (4건) | sweep — §10 자리(필드별) | 최초 | 4 · 3 · 5 · 3 | 잠김 |
+| `sessionResponding` → `!== 'idle'` | sweep — 형제 슬롯 맞바꿈 | 최초 | 3 | 잠김 |
+| `sessionBusy`의 점유 항 제거 · `sessionListening` `false` 고정 (2건) | sweep — path edge | 최초 | 8 · 14 | 잠김 |
+| `useChatResidualSteer` → `deliveryPendingCount` | sweep — 형제 슬롯 맞바꿈 | 최초 | 1 | 잠김 |
+| `useChatActivity` `deliveryPendingCount`↔`residualCount` | sweep — 형제 슬롯 맞바꿈 | 최초 | 첫 실행 0 → 테스트 추가 뒤 1 | **잠금 없음 — 테스트 추가** → 잠김 |
+| `useChatActivity` `waitPhase` 항 제거 · `foreground` `idle` 고정 (2건) | sweep — §10 자리(필드별) | 최초 | 2 · 2 | 잠김 |
+| `useChatActivity` 건수 4필드 각각 0 고정 (4건) | sweep — §10 자리(필드별) | 최초 | `queuedCount` 1 · `backgroundTaskCount` 2 · `deliveryPendingCount`·`residualCount`는 첫 실행 0 → 테스트 추가 뒤 각 1 | 2건 잠김 · 2건 **잠금 없음 — 테스트 추가** → 잠김 |
+| `PendingAssistantStatus`의 `activity` prop 제거 | sweep — path edge | 최초 | 5 | 잠김 |
+| `pendingSteerControls`의 `foreground === 'streaming'` 항 제거 | sweep — 규칙 칸 C4 | 최초 | 2 | 잠김 |
+
+- **분모 검산**: `선택 증거 10 · 인용 변이 0 · 새 oracle 0 · sweep 34 = 고장 44` (표는 같은 자리의 형제를 묶어 31행).
+- 첫 실행에서 통과한 4건과 더한 테스트:
+  - 로드 비교 `>=`: 같은 revision의 로드는 M6(스냅샷 사용)인데 입력이 없었다 → `chatReducer.listen.test.ts`:'같은 revision 의 세션 로드는 스냅샷을 쓴다 — 로컬 유지는 더 새로울 때만'.
+  - view의 `deliveryPendingCount`·`residualCount` 3건: C3 규칙 칸은 6필드인데 입력 칸이 `queuedCount`·`backgroundTaskCount`뿐이었다 → `statusLine.waitPhase.test.ts`:'상태 줄은 activity 의 건수 4필드를 각자의 문구로 낸다'.
+  - 두 케이스의 기대값은 변경 전 코드에서 재실행하지 않았다 — 해당 식(`>` 비교 · `deriveActivityLabel`)이 이번 diff에서 이름만 바뀌었음을 diff로 확인했다. 신규 4건(①~④)은 §7 주의사항대로 옛 이름으로 먼저 써서 변경 전 코드에서 green(2파일 23케이스)을 봤다.
+- **덮개 회귀**: 해당 없음 — 직전 verify가 없다. 0308 VP-10의 (h)(i)(j)는 VP-02에 다시 등록된 그대로 red다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구·상태 없음 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 실패 경로를 만들지 않았다 | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 해당 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 그대로 — revision 가드(M3)와 로드 보존(M5)이 red로 잠겨 있다 | — |
+| 상태 줄이 불필요하게 다시 그려지지 않는가 | `useMemo`를 걷었지만 selector의 `useShallow`가 같은 값에 같은 객체를 준다. `waitPhase` 키가 있다 없다 하는 전환은 shallow 비교가 다르게 보지만 그때는 값도 바뀐 것이다 | 선언 경계 1 그대로(테스트 없음) |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | C3 입력 칸이 규칙 칸(6필드)보다 좁다 — `deliveryPendingCount`·`residualCount`가 실제 store 렌더에서 관측되지 않았다 | ✅ 선조치 — 규칙 칸을 따라 입력을 더했다 | sweep 3건 첫 실행 green → 테스트 추가 뒤 red |
+| 2 | 같은 revision의 세션 로드(중단 직후 재로드)가 어느 분기인지 입력이 없었다 | ✅ 선조치 — M6 "M5 아님"을 따라 입력을 더했다 | sweep 1건 첫 실행 green → 추가 뒤 red |
+| 3 | 중단 직후 같은 revision의 스냅샷으로 다시 로드하면 낙관적으로 내린 `transport`가 `listening`으로 돌아온다 | ⚠️ 보고만 — 변경 전부터의 동작이고(`>` 비교 그대로) 2번 케이스가 그 현재 동작을 고정한다. 옳은지는 제품 판단이다 | `chatReducer.ts` LOAD_SESSION의 `preserveNewerLiveActivity` |
+| 4 | `chatStore.sessionDirectory.test.ts`의 `it.each` 블록이 prettier 재배치로 줄 전체가 바뀌었다 | ✅ 그대로 둠 — `npm run lint`(`--fix`)가 만든 서식이고 케이스 본문은 같다 | diff +15 −14 |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것: 없음(메커니즘 차이 없음). 테스트 2건을 plan의 신규 4건 위에 더했다(위 1·2).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 메커니즘을 바꾸지 않았다 | — |
+| 공유 | `initialChatState.activity`가 `IDLE_ACTIVITY` 한 객체를 여러 세션이 함께 가리킨다(plan §12가 이미 적은 TO-BE). reducer에 그 객체를 제자리 수정하는 줄이 없다 — 쓰기 4자리 모두 새 객체 | sweep "중단이 `IDLE_ACTIVITY`에서 시작" red · M1·M4 좌표 |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | prod 5 · 테스트 10 — §18 목록과 같다(`git diff --name-only` 15파일) |
+| 실행 명령 | §19 전부 — 가드 4종 · `npm run lint` · `npm run typecheck` · 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
+| **관측한 게이트 산출**(마지막 수정 뒤) | 가드 4종 exit 0(`[test-budgets] 19 real-git suites ok` · `[product-naming] OK` · `[doc-inventory] links ok`) · lint error 0 · warning 2(손대지 않은 `Timeline.tsx:57`·`useTranscriptVirtualizer.ts:22`의 `react-hooks/incompatible-library`) · typecheck error 0 · vitest 942파일 8806케이스 — 통과 8356 · 실패 320(68파일) · `node --test` 868 pass · 0 fail. **기준선 분리**: 변경 전 같은 명령의 실패 집합(68파일 · 케이스 식별자 347줄)과 `comm` 차집합이 양방향 0줄이고, 서명은 `better_sqlite3.node` `Module did not self-register`·NODE_MODULE_VERSION 불일치(Electron ABI로 깔린 바인딩)와 `Electron failed to install correctly`다. plan §19가 적은 기준선(29파일)과 수가 다르다 — 이 환경은 `npm ci`의 postinstall이 바인딩을 Electron ABI로 남겼다. `[test-pools]` 가드 출력 0건 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 10파일 · 시간 예산(`check-test-budgets` exit 0) · 호스트 격리(home·env 접근 추가 없음) · 풀 분류(io 신호 추가 0 — `rg "child_process\|runGit\|better-sqlite3\|process.env.TZ\|FORCED_IO"` 10파일 0줄, 전부 unit) 위반 0 |
+| V-pair 자기확인 | `SELF_PASS 3 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | VP-03 기준 76/76(옛 이름 0줄). 직접 oracle 좌표가 있는 자리는 61/76 — 남긴 15줄은 타입 선언(typecheck만) |
+| **AC 자기보고**(`Criteria-Met`) | 5/6 — AC1 ✅ `chatReducer.listen.test.ts` 18케이스 green(M1~M8 좌표) · AC2 ✅ C1~C4 좌표 green · AC3 ✅ EP-01 검색 0줄 · typecheck error 0 · AC4 ✅ `git diff --numstat` prod +71 −100 = **−29** / 테스트 +207 −61 = **+146** · AC5 ✅ 위 게이트 행 · AC6 ⚠️ 사람 실기 대기 |
+| AC4 테스트 순증 사유(60줄 초과) | 신규 6케이스 약 95줄(plan 4건 + sweep이 요구한 2건) · M4·M6의 8필드 `toEqual` 전환 약 20줄 · 부분 상태 입력을 `{ ...initialChatState.activity, … }` 객체로 바꾸며 늘어난 줄과 import 약 30줄. 저장소 전체로는 +117줄이다 — prod는 줄었지만 이번 handoff 합계는 순증이다 |
+| **합계 검산** | `✅ 5 · ⚠️ 1 · ❌ 0 = 총 6` |
+| 블로커 / 역질문 | 없음. 사용자 보고 대상: 감량이 추정(−48)보다 작다(−29) · 테스트 포함 합계는 +117 · D-011(C-23 채택 규칙을 바꿀지) |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(첫 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: sweep 첫 실행의 통과 4건은 모두 규칙 칸보다 좁은 입력 칸이었다(C3 6필드 중 2필드 · M6 "M5 아님"의 같은 revision). plan READY self-review의 "규칙 칸 분기마다 입력이 있다" 항목은 체크돼 있었다.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리·better-sqlite3 Node ABI 부재 — DB를 여는 68파일이 변경과 무관하게 실패한다. AC6 실기 불가.
+- 현재 라운드·impl 턴: `r1`.
+
 ---
 
 ## [검증자 기입] 파생 이슈
