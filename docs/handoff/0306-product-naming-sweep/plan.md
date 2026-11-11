@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | PR 미생성 |
-| 상태 | IMPL_DONE (r3 — ΔV2 구현, 검증 대기) |
+| 상태 | PASS (r3 verify · 기계 범위 — AC9·AC10 사람) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0225 V1은 "코드 식별자 불변"(EP-11)을 잠갔고 이번 작업은 그 결정을 뒤집는다. 일부 변경이 아니라 반대 방향이라 상속하지 않는다 |
 | 이번 V revision | `ΔV2` — r2 verify 뒤 정정 G1. 기준 = `V1` rev.3(`206409f`) + `ΔV1`(`a6cfaec`) |
