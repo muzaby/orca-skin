@@ -32,17 +32,6 @@ export function daysInMonth(now: number | Date = Date.now()): number {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
 }
 
-// 오늘 포함, 이달의 남은 일수. (월말일 당일이면 1.)
-export function monthDaysLeft(now: number | Date = Date.now()): number {
-  const d = toDate(now)
-  return daysInMonth(d) - d.getDate() + 1
-}
-
-// 오늘 포함, 이번 주(월~일)의 남은 일수. 월요일=7, 일요일=1.
-export function weekDaysLeft(now: number | Date = Date.now()): number {
-  return 7 - mondayIndex(toDate(now))
-}
-
 // 이번 주(월~일, 월요일 시작) 7일 중 keep 을 만족하는 일수. 아래 두 export 의 공용 루프.
 function countWeekDays(now: number | Date, keep: (day: Date, d: Date) => boolean): number {
   const d = toDate(now)
@@ -62,10 +51,4 @@ const sameMonth = (day: Date, d: Date): boolean =>
 // 비경계 주=7. 오늘은 항상 이번 주·이번 달에 있으므로 최소 1.
 export function weekDaysInMonth(now: number | Date = Date.now()): number {
   return countWeekDays(now, sameMonth)
-}
-
-// 이번 주(월~일) 중 '오늘이 속한 달' 에 속하면서 오늘까지 경과한 일수(오늘 포함).
-// 외부 리포트 폴백(로컬 월사용≈0)에서 주간 몫을 배분할 때 쓴다.
-export function weekDaysElapsedInMonth(now: number | Date = Date.now()): number {
-  return countWeekDays(now, (day, d) => sameMonth(day, d) && day.getDate() <= d.getDate())
 }

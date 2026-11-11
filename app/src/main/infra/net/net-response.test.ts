@@ -1,7 +1,7 @@
 // 0174 — Chromium 전송 결과 변환. `net.fetch` 가 못 하는 "3xx 를 돌려주기" 의 순수부.
 
 import { describe, expect, it } from 'vitest'
-import { flattenHeaders, locationOf, redirectFacts, toResponse } from './net-response'
+import { flattenHeaders, redirectFacts, toResponse } from './net-response'
 
 describe('flattenHeaders', () => {
   it('배열 헤더를 소문자 단일 값으로 평탄화한다', () => {
@@ -64,28 +64,5 @@ describe('redirect 이벤트 → 3xx 응답 합성', () => {
     // Electron 응답 헤더는 배열이다 — 평탄화 없이 넣으면 Response 가 던진다.
     const res = toResponse({ status: 200, headers: { 'X-Multi': ['a', 'b'] } }, null)
     expect(res.headers.get('x-multi')).toBe('a, b')
-  })
-})
-
-describe('locationOf', () => {
-  it('상대 Location 을 현재 URL 기준으로 절대화한다', () => {
-    const facts = { status: 302, headers: { location: '/adfs/ls' } }
-    expect(locationOf(facts, 'https://wiki.corp/me')).toBe('https://wiki.corp/adfs/ls')
-  })
-
-  it('절대 Location 은 그대로 쓴다', () => {
-    const facts = { status: 302, headers: { location: 'https://adfs.corp/ls' } }
-    expect(locationOf(facts, 'https://wiki.corp/me')).toBe('https://adfs.corp/ls')
-  })
-
-  it('3xx 가 아니면 다음 홉이 없다', () => {
-    expect(locationOf({ status: 200, headers: { location: '/x' } }, 'https://wiki.corp')).toBeNull()
-    // 304 는 재요청 대상이 아니다.
-    expect(locationOf({ status: 304, headers: { location: '/x' } }, 'https://wiki.corp')).toBeNull()
-  })
-
-  it('Location 이 없거나 해석 불가면 null 이다', () => {
-    expect(locationOf({ status: 302, headers: {} }, 'https://wiki.corp')).toBeNull()
-    expect(locationOf({ status: 302, headers: { location: '::' } }, 'not-a-url')).toBeNull()
   })
 })

@@ -84,28 +84,6 @@ export function isWithinDir(child: string, parent: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
 }
 
-// 프로젝트명을 디렉토리 세그먼트로 안전화. 공백류→'_'(사용자 의도), 그 외 비안전 문자→'-',
-// 양끝 구두점 정리, 길이 cap. 빈 결과는 'project' 폴백.
-export function safeProjectName(name: string): string {
-  const safe = name
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^A-Za-z0-9_.-]+/g, '-')
-    .replace(/^[-_.]+|[-_.]+$/g, '')
-    .slice(0, 40)
-  return safe === '' ? 'project' : safe
-}
-
-// 프로젝트 ID 단축(git short-hash 風) — 하이픈 제거 후 앞 8자. 이름 충돌 시 디렉토리 구분자.
-export function shortProjectId(id: string): string {
-  return id.replace(/-/g, '').slice(0, 8)
-}
-
-// 프로젝트 소속 세션의 파생 디렉토리명: `<안전화한 이름>-<프로젝트ID8>`.
-export function workspaceDirName(project: { id: string; name: string }): string {
-  return `${safeProjectName(project.name)}-${shortProjectId(project.id)}`
-}
-
 // Desktop is supplied by Electron's app.getPath so redirected/OneDrive folders are respected.
 export function getWorkspacePath(
   project: { cwd?: string | null } | null | undefined,
