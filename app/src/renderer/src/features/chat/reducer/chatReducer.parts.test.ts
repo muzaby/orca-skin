@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
-import { partsText, partsReasoning, partsToolCalls, partsAttachments } from '../lib/parts'
+import { partsText, partsToolCalls, partsAttachments } from '../lib/parts'
 import type { AttachmentView, NormalizedEvent, LoadedSession } from '../../../../../shared/ipc'
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({
@@ -69,7 +69,9 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(partsText(s.messages[0].parts)).toBe('안녕')
     const a = s.messages[1]
     expect(a.role).toBe('assistant')
-    expect(partsReasoning(a.parts)).toEqual([{ text: '생각', signature: 'sig' }])
+    expect(a.parts.filter((part) => part.type === 'reasoning')).toEqual([
+      { type: 'reasoning', text: '생각', signature: 'sig' }
+    ])
     expect(partsText(a.parts)).toBe('완료')
     expect(partsToolCalls(a.parts)).toEqual([
       {
@@ -138,7 +140,9 @@ describe('chatReducer — AppMessagePart 모델', () => {
         signature: 'sig'
       }
     ])
-    expect(partsReasoning(s.messages[1].parts)).toEqual([{ text: '먼저 확인', signature: 'sig' }])
+    expect(s.messages[1].parts.filter((part) => part.type === 'reasoning')).toEqual([
+      { type: 'reasoning', text: '먼저 확인', signature: 'sig' }
+    ])
   })
 
   it('COMMIT_PENDING_TEXT 가 잔여 라이브 텍스트를 text 파트로 굳히고, 빈 텍스트는 no-op', () => {

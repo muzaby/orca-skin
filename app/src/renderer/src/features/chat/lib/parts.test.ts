@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   partsText,
-  partsReasoning,
   partsToolCalls,
-  partsErrors,
   partsAttachments,
   partsArtifacts,
   childMessageForParentToolRunId,
@@ -104,15 +102,6 @@ describe('parts selectors', () => {
       { type: 'text', text: 'b' }
     ]
     expect(partsText(parts)).toBe('ab')
-  })
-
-  it('partsReasoning 은 reasoning 파트를 순서대로, signature 보존', () => {
-    const parts: AppMessagePart[] = [
-      { type: 'reasoning', text: 'r1', signature: 's1' },
-      { type: 'text', text: 'x' },
-      { type: 'reasoning', text: 'r2' }
-    ]
-    expect(partsReasoning(parts)).toEqual([{ text: 'r1', signature: 's1' }, { text: 'r2' }])
   })
 
   it('partsToolCalls 는 tool_call 을 같은 toolRunId 의 tool_result 와 페어링한다', () => {
@@ -471,14 +460,6 @@ describe('parts selectors', () => {
     expect(modelDisplayLabel('haiku')).toBe('Haiku')
     // 미인식 패밀리는 원형 보존.
     expect(modelDisplayLabel('gpt-4o')).toBe('gpt-4o')
-  })
-
-  it('partsErrors 는 error 파트의 payload 를 모은다', () => {
-    const parts: AppMessagePart[] = [
-      { type: 'text', text: 'x' },
-      { type: 'error', error: { category: 'stream_error', message: 'boom' } }
-    ]
-    expect(partsErrors(parts)).toEqual([{ category: 'stream_error', message: 'boom' }])
   })
 })
 

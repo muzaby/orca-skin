@@ -1270,9 +1270,7 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
   // 구 경로에서는 중단 클릭이 트래커를 즉시 해제해 이 조건이 부수적으로 거짓이 됐다. D-005 가
   // 확정까지 추적을 유지하면서 그 부수 효과가 사라져 명시 게이트가 필요해졌다.
   it('사용자가 중단한 태스크의 settled 는 영수증이 관측됐어도 background 미부여', async () => {
-    // 영수증은 **중단 클릭 이전에** 관측됐다 — 그래서 tracker 에 직접 심는다. 스트림 안에
-    // receipt 이벤트를 두면 coerceStoppedToolCompletion 이 그것을 먼저 aborted 로 바꿔
-    // markAsyncLaunched 자체가 일어나지 않고, 그러면 이 게이트가 판정에 참여하지 못한다.
+    // 영수증은 **중단 클릭 이전에** 관측됐다 — 그래서 tracker 에 직접 심는다.
     const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])
     const tracker = new BackgroundTaskTracker()
     tracker.markAsyncLaunched('s1', 'a1')

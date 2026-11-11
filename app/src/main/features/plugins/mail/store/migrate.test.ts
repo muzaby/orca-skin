@@ -4,12 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { openFileDatabase } from '../../../../infra/db/file-database'
 import { warmFileSqlite } from '../../../../infra/db/warm-file-sqlite'
-import {
-  MAIL_MIGRATIONS,
-  MAIL_MIGRATION_NAMES,
-  applyMailMigrations,
-  applyMigrationList
-} from './migrate'
+import { MAIL_MIGRATIONS, applyMailMigrations, applyMigrationList } from './migrate'
 
 const roots: string[] = []
 beforeAll(warmFileSqlite)
@@ -35,7 +30,7 @@ describe('applyMailMigrations', () => {
           name: string
         }[]
       ).map((row) => row.name)
-      expect(applied).toEqual([...MAIL_MIGRATION_NAMES])
+      expect(applied).toEqual(MAIL_MIGRATIONS.map((migration) => migration.name))
     } finally {
       db.close()
     }

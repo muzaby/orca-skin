@@ -3,7 +3,6 @@
 // config(L1) 의 가장 낮은 위치에 둬, 상위(deploy·settings) 가 하향으로만 의존하게 한다.
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { isRecord } from '../../../shared/obj'
 
@@ -31,20 +30,6 @@ export function readJsonObjectSync(path: string, invalid: () => Error): Record<s
   let text: string
   try {
     text = readFileSync(path, 'utf8')
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
-    throw invalid()
-  }
-  return parseJsonObject(text, invalid)
-}
-
-export async function readJsonObject(
-  path: string,
-  invalid: () => Error
-): Promise<Record<string, unknown>> {
-  let text: string
-  try {
-    text = await readFile(path, 'utf8')
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {}
     throw invalid()

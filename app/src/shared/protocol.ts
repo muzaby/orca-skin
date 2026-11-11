@@ -271,12 +271,6 @@ export const SetPermissionModeSchema = z.object({
 
 export const HarnessRecheckSchema = z.object({ backend: BackendSchema })
 export const StartInstallSchema = z.object({ backend: BackendSchema })
-export const UpdateInstallResultSchema = z.object({
-  ok: z.boolean(),
-  reason: z.enum(['not-ready', 'not-idle', 'internal-error']).optional(),
-  message: z.string().optional()
-})
-
 export const DebugMockPatchSchema = z
   .object({
     enabled: z.boolean(),

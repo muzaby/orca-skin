@@ -3,38 +3,6 @@ import { gitApi } from '../../../../../shared/api/ipc'
 import type { GitSnapshotRequest } from '../../../reducer/chatReducer'
 import { chatActions, turnEndTick, useChatSession } from '../../../store/chatStore'
 
-interface GitSnapshotQueryPoint {
-  identity: string
-  tick: number
-  refreshTick?: number
-}
-
-// 저장소·브랜치 **이름** 조회의 계기 (0211 ΔV5 D-101, §10 EP-42).
-//
-// 이름은 세션의 식별이지 에이전트 작업의 산출이 아니다. 이것까지 턴 종료에 묶으면 앱을 다시
-// 켠 세션에서 `gitRowView` 가 `status?.isRepo` 를 못 읽어 컴포저 git 행이 **통째로 사라진다**.
-export function gitStatusQueryReason(
-  previous: GitSnapshotQueryPoint | null,
-  next: GitSnapshotQueryPoint
-): 'initial' | 'identity' | 'turn-end' | 'manual' | null {
-  if (!previous) return 'initial'
-  if (previous.identity !== next.identity) return 'identity'
-  if ((next.refreshTick ?? 0) > (previous.refreshTick ?? 0)) return 'manual'
-  return next.tick > previous.tick ? 'turn-end' : null
-}
-
-// 변경 목록은 Stop hook의 턴 종료 또는 명시적인 새로 고침 때 조회한다.
-// 마운트/세션 전환 자체는 조회하지 않으며, 다른 세션의 카운터 증가를 계기로 쓰지 않는다.
-export function gitSummaryQueryReason(
-  previous: { tick: number; refreshTick?: number; identity?: string } | null,
-  next: { tick: number; refreshTick?: number; identity?: string }
-): 'turn-end' | 'manual' | null {
-  if (!previous) return null
-  if (previous.identity !== next.identity) return null
-  if ((next.refreshTick ?? 0) > (previous.refreshTick ?? 0)) return 'manual'
-  return next.tick > previous.tick ? 'turn-end' : null
-}
-
 export function gitSnapshotRequestKey(cwd: string | null, sessionId: string | null): string {
   return JSON.stringify([cwd, sessionId])
 }

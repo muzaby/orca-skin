@@ -19,8 +19,3 @@ export function quoteSnippet(quote: string, max = 60): string {
   if (normalized.length <= max) return normalized
   return normalized.slice(0, max - 1).trimEnd() + '…'
 }
-
-// 전송 가능 여부 — 본문 있는 코멘트가 1개 이상이거나 note 가 비어있지 않으면 true.
-export function hasSendablePlanFeedback(comments: PlanComment[], note: string): boolean {
-  return comments.some((c) => c.body.trim() !== '') || note.trim() !== ''
-}
