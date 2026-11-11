@@ -16,13 +16,7 @@ import { isRecord } from './obj'
 // 과거 세션에만 남아 있다 — 이름 술어에는 포함되지만 구조화 패치는 오지 않는다(0228 D-010).
 export const FILE_EDIT_TOOL_NAMES = ['Write', 'Edit', 'MultiEdit'] as const
 
-export type FileEditToolName = (typeof FILE_EDIT_TOOL_NAMES)[number]
-
 export const FILE_EDIT_TOOL_NAME_SET: ReadonlySet<string> = new Set(FILE_EDIT_TOOL_NAMES)
-
-export function isFileEditToolName(name: string): name is FileEditToolName {
-  return FILE_EDIT_TOOL_NAME_SET.has(name)
-}
 
 // 구조화 패치를 **실어 영속하는** 도구. `Write` 는 입력 `content` 가 이미 파일 전체라 1번 줄부터
 // 세는 현재 렌더가 정확하고, 실으면 같은 본문을 두 번 영속한다(0228 D-009).

@@ -35,7 +35,7 @@ Orcinus orca는 검증 엔지니어가 긴 대화·코드·작업 결과를 읽�
 | Orcinus orca 공통·Claude | `bg-bg`, `bg-sidebar`, `bg-panel`, `bg-bg2`, `text-ink` | 셸·카탈로그·설정·프로젝트·공통 채팅 표면의 기본 |
 | OpenCode 전용 chrome | `oc-*` | OpenCode 컨트롤·요청 dock·전용 도구 행·패널 내부에서 해당 하네스 구현을 따른다. |
 | OpenCode 공유 본문 | 공통 transcript 배경·활자·Markdown + 하네스별 색 | 전체 채팅 배경을 임의로 `oc-background`로 치환하지 않는다. [렌더링 계약](rendering.md)의 하네스 전용 표시 참조. |
-| 카메라·이미지 검사 | `stage-*`, Bayer·Histogram | 뷰포트·엔지니어링 표시용. 일반 설정·모달로 확장하지 않는다. |
+| 카메라·이미지 검사 | `stage-*` | 뷰포트·엔지니어링 표시용. 일반 설정·모달로 확장하지 않는다. |
 | 개발 도구 | `floating-panel-*` | FloatingPanel과 DebugPanel 전용. 일반 제품 카드에 유리 효과를 가져오지 않는다. |
 
 ### 2.2 공통 시맨틱 팔레트
@@ -170,7 +170,7 @@ label과 입력을 연결하고 오류를 해당 필드 가까이에 배치한�
 | 산출물·뷰어 | ArtifactCards·ArtifactViewer. 미리보기·코드·복사·저장·오류·재시도는 기존 요청 수명 계약을 따른다. HTML preview 보안 경계를 스타일 변경으로 우회하지 않는다. |
 | 사용량·차트 | Meter·UsageCircle·TokensPerDayChart. 같은 단위·기간·임계값을 쓰고 툴팁은 공통 표면을 따른다. |
 | 인증·설치·업데이트 | GateLogin·InstallerDialog·UpdateDialog. 작업 상태·진행률·실패 복구·재시작 동작을 명확히 한다. |
-| 캡처 | BayerPattern·Histogram은 이미지 내용과 chrome을 분리한다. CapturesView의 Future Scope 안내를 실제 연결·캡처 기능처럼 표시하지 않는다. |
+| 캡처 | CapturesView의 Future Scope 안내를 실제 연결·캡처 기능처럼 표시하지 않는다. |
 
 전체 대응과 코드 링크는 [컴포넌트 카탈로그](design-components.md)에 있다.
 상태 수명·데이터 흐름은 [state.md](state.md), [rendering.md](rendering.md), [ux-domains.md](ux-domains.md)를 따른다.

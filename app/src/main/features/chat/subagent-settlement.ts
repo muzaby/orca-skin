@@ -97,11 +97,3 @@ export function createSubagentSettlementEvents({
 
   return events
 }
-
-export function coerceStoppedToolCompletion(
-  _stoppedSubagents: ReadonlySet<string>,
-  ev: Extract<NormalizedEvent, { type: 'tool.call.completed' }>
-): Extract<NormalizedEvent, { type: 'tool.call.completed' }> {
-  // A stop request is not evidence that this completed tool was interrupted.
-  return ev
-}

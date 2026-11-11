@@ -13,14 +13,12 @@ import { createAuthRuntime } from '../features/auth/runtime'
 import { createGate } from '../features/gate'
 import type { AuthResult } from '../features/auth/login'
 import {
-  affectedRuntimeModelAuthIds,
   createRuntimeModelAuthChangeHandler,
   createRuntimeModelAuthInvalidator,
   createRuntimeModelAuthResume,
   createRuntimeModelReconcileSnapshot,
   createRuntimeModelReconcileVerified,
   createRuntimeModelSnapshotReader,
-  invalidateRuntimeModelsForAuth,
   startRuntimeModelCatalogAfterDeploy
 } from './runtime-model-startup'
 
@@ -194,39 +192,11 @@ describe('runtime model startup', () => {
     expect(log).toEqual(['push', 'reconcile:gate', 'push'])
   })
 
-  it('returns every Auth owner of invalidated canonical contribution keys', () => {
-    expect(
-      affectedRuntimeModelAuthIds(
-        [' ORCINUS-ORCA-SHARED '],
-        [
-          {
-            authId: 'a',
-            key: 'orcinus-orca-shared',
-            harnessId: 'orcinus-orca',
-            modelProviderId: 'a'
-          },
-          {
-            authId: 'b',
-            key: 'ORCINUS-ORCA-SHARED',
-            harnessId: 'orcinus-orca',
-            modelProviderId: 'b'
-          },
-          {
-            authId: 'c',
-            key: 'orcinus-orca-other',
-            harnessId: 'orcinus-orca',
-            modelProviderId: 'c'
-          }
-        ]
-      )
-    ).toEqual(['a', 'b'])
-  })
-
-  it('reconciles every Auth owner after invalidating shared contribution keys', () => {
+  it('reconciles each Auth owner of a canonically matching contribution once, with its own snapshot', () => {
     const invalidated: string[] = []
-    const reconciled: string[] = []
-    invalidateRuntimeModelsForAuth({
-      keys: [' ORCINUS-ORCA-SHARED '],
+    const reconciled: unknown[] = []
+    const invalidateForAuth = createRuntimeModelAuthInvalidator({
+      invalidatedKeys: { x: [' ORCINUS-ORCA-SHARED '] },
       contributions: [
         {
           authId: 'a',
@@ -234,15 +204,48 @@ describe('runtime model startup', () => {
           harnessId: 'orcinus-orca',
           modelProviderId: 'a'
         },
-        { authId: 'b', key: 'ORCINUS-ORCA-SHARED', harnessId: 'orcinus-orca', modelProviderId: 'b' }
+        {
+          authId: 'b',
+          key: 'ORCINUS-ORCA-SHARED',
+          harnessId: 'orcinus-orca',
+          modelProviderId: 'b'
+        },
+        { authId: 'c', key: 'orcinus-orca-other', harnessId: 'orcinus-orca', modelProviderId: 'c' },
+        { authId: 'a', key: 'Orcinus-Orca-Shared', harnessId: 'orcinus-orca', modelProviderId: 'a' }
       ],
       invalidate: (key) => invalidated.push(key),
       snapshotOf: (authId) => ({ authId }) as never,
-      reconcile: (authId) => reconciled.push(authId)
+      reconcile: (authId, snapshot) => reconciled.push([authId, snapshot])
     })
 
+    invalidateForAuth('x')
+
     expect(invalidated).toEqual([' ORCINUS-ORCA-SHARED '])
-    expect(reconciled).toEqual(['a', 'b'])
+    expect(reconciled).toEqual([
+      ['a', { authId: 'a' }],
+      ['b', { authId: 'b' }]
+    ])
+  })
+
+  it('invalidates every key before reconciling, and does nothing for an unrelated Auth', () => {
+    const log: string[] = []
+    const invalidateForAuth = createRuntimeModelAuthInvalidator({
+      invalidatedKeys: { x: ['first', 'second'] },
+      contributions: [
+        { authId: 'a', key: 'first', harnessId: 'orcinus-orca', modelProviderId: 'a' },
+        { authId: 'b', key: 'second', harnessId: 'orcinus-orca', modelProviderId: 'b' }
+      ],
+      invalidate: (key) => log.push(`inv:${key}`),
+      snapshotOf: (authId) => ({ authId }) as never,
+      reconcile: (authId) => log.push(`rec:${authId}`)
+    })
+
+    invalidateForAuth('x')
+    expect(log).toEqual(['inv:first', 'inv:second', 'rec:a', 'rec:b'])
+
+    log.length = 0
+    invalidateForAuth('none')
+    expect(log).toEqual([])
   })
 
   it('derives invalidated keys from the full deployment declarations', () => {

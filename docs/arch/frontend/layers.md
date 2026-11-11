@@ -84,7 +84,7 @@ src/renderer/
     │   └── ui/                      # Icon, Status, Popover, CopyIconButton, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom),
     │                                #   Modal(공용 모달 셸, 0093 일반화), ConfirmDialogHost+confirmDialogStore(삭제 확인, 0083), RenameInput(0083),
     │                                #   Meter·UsageCircle·usageTone(사용량 시각화, 0079/0080), AutoGrowTextarea, ReadingColumn, OoLogo, Button, Toggle,
-    │                                #   markdown/(Markdown·CodeBlock — features/chat 에는 StreamingMarkdown 만 잔류), elapsed, mock, BayerPattern, Histogram
+    │                                #   markdown/(Markdown·CodeBlock — features/chat 에는 StreamingMarkdown 만 잔류), elapsed, mock
     │
     └── styles/                      ✅
         ├── tokens.css               # Tailwind @theme + [data-theme] 스코프 (white 루트 기본값 + dark)
