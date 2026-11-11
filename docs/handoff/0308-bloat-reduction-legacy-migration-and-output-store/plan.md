@@ -522,21 +522,128 @@ adapter → BackgroundEvent(task·call·snapshot·control·connection) → journ
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 > 필드와 표의 열은 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md)의 `[구현자 기입]` 절을 그대로 쓴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+- 동의 / 그대로 진행: M1 → M2 → M3 순서, 단계마다 커밋했다. D-001~D-014와 충돌하는 구현 없음.
+- 이견 / 현실성 문제: §19 "설계 환경에 `node_modules` 없음"은 구현 환경에서 해소했다 — `npm ci --ignore-scripts` + `npm rebuild better-sqlite3`(Node ABI)로 DB 스위트까지 실행했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
-## [구현자 기입] Product/UX 파생 검토
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01·VP-03 | EP-01 이관 심볼 부재 | 19파일 | 19/19 | EP-01 `rg -c …` → 출력 0줄(목록과 차집합 0) · `product-identity.test.ts:"prod 소스에 이관 심볼이 없다 (음성 스윕)"` · `"진입점이 로깅을 첫 배선으로 초기화한다…"` · `"부팅 단계가 DB 초기화 → …"` · `git-execution.test.ts:"prepares without baseRef in four executions…"` | 운반 항 없음(삭제). 변이 a~d가 red | — |
+| VP-02 | EP-02 오류 제목 부재 | 6파일 7줄 | 7/7 | `rg -c legacyMigrationFailed app/src` → 0줄 · `error-report.registry.test.ts:"detects removed report M1…"` 외 전건 · `i18n/resources/resources.test.ts` green | 운반 항 없음(삭제) | — |
+| VP-04 | EP-03 문서 | 6자리 | 6/6 | EP-03 `rg -n …` → 0줄 · `product-identity.test.ts:"자동 이관을 약속하지 않고 수동 이전 절을 갖는다 (0308 AC5)"` · `"수동 이전이 옛 이름 → 새 이름 대응 7개를 적는다…"` | 대응 7개(옛 → 새 파일명 문자열) · 변이 e·f·f2 red | — |
+| VP-04 | EP-04 이름 검사기 | 9행 | 9/9 | `gate:node scripts/check-product-naming.mjs` → `OK — 2226파일 · 허용 7항목` · `check-product-naming.test.mjs` 40 pass | 문서 개수 lower 7→19 · 4→1 | — |
+| VP-05~VP-08 | EP-05 출력 읽기·보존 부재 | 18파일 | 18/18 | EP-05 `rg -c …` → 2줄: `background-task.test.ts`(VP-07 입력) · `background.integration.test.ts`(부재 단언 — 아래 차이) · 좌표는 아래 V-pair 표 | 운반 항 없음(삭제) | — |
+| VP-09 | EP-06 문서 | 8자리 | 8/8 | EP-06 `rg -n …` → 0줄 · `gate:node scripts/check-doc-inventory.mjs --check` → `generated doc ok (9 items, 113 channels)` | 해당 없음 | — |
+| VP-10 | EP-07 `listening` 필드 | 14자리 | 14/14 | EP-07 명령 → 9줄 = 유지 6 + 파생 호출 2(`chatStore.ts:1122`·`:2336`) + 타입 1(`:2323`). 필드 자리 14는 0 | `activityTransport`(idle·ready·listening) → 점유·응답 중 boolean · `chatStore.listen.test.ts:"transport %s → 점유 %s · 응답 중 %s"` | — |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+- §10 자리 목록 밖에서 본 운반 자리:
+  - `app/AGENTS.md:158`이 `LEGACY_PRODUCT_SLUG`와 "0225 이관의 입력"을 지침으로 적고 있었다 — EP-01 범위(`app/src app/scripts`) 밖이다. 분류: 구현 세부(낡은 지침) → 선조치.
+  - `check-product-naming.mjs:8` 주석의 같은 문구 → 선조치.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `product-identity.test.ts` 신규 3건 | required — a·b·c·d 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | `error-report.registry.test.ts` 등록 전건 · `resources.test.ts` | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `git-execution.test.ts:"prepares without baseRef…"` — generation 1 → 3 | not selected |
+| VP-04 | REQUIRED | SELF_PASS | `product-identity.test.ts` 운영 문서 신규 2건 · `check-product-naming.test.mjs:"마이그레이션 SQL 1 + …"` | required — e·f red (+ f2) |
+| VP-05 | REQUIRED | SELF_PASS | `background-controller.test.ts` 5건 · `background.channels.test.ts:"상태 조회·개별 중단·전환 채널만 등록한다"` | required — g red |
+| VP-06 | REQUIRED | SELF_PASS | `background-controller.test.ts:"records a finished task with a file output reference without copying or journaling its output"` | not selected (sweep k red) |
+| VP-07 | REQUIRED | SELF_PASS | `background-task.test.ts:"stop ACK and a legacy journal output event do not change completed result"` | not selected (sweep p red) |
+| VP-08 | REGRESSION | SELF_PASS | `session.delete.native-history.test.ts` — journal·parts·binding 단언 green(SQLite 로드 상태에서 실행) | not selected |
+| VP-09 | REQUIRED | SELF_PASS | `gate:check-doc-inventory.mjs --check` | not selected |
+| VP-10 | REQUIRED | SELF_PASS | `chatStore.listen.test.ts` 3분기 · `"ready 점유 중 예약한 전송이 거절되면…"` · `chatStore.sessionDirectory.test.ts` `it.each` · `statusLine.waitPhase.test.ts:"derives the waiting label from the transport…"` | required — h·i·j red |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스: `mutate.py` — spec 17행, 실행 뒤 원복 확인.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| a `paths.ts` — `legacyConfigDir` 함수 되살림 | VP-01 선택 증거 | 최초 | product-identity 1 | 잠김 |
+| b `index.ts` — `initLog()`를 `installErrorReportSink()` 뒤로 | VP-01 선택 증거 | 최초 | 1 | 잠김 |
+| c `bootstrap.ts` — `db-init` critical → false | VP-01 선택 증거 | 최초 | 1 | 잠김 |
+| d `bootstrap.ts` — `chat-recovery` 단계 이름 변경(부재) | VP-01 선택 증거(순서 변이의 재앵커 — 단계 본문을 옮기는 대신 표식을 없앰) | 최초 | 1 | 잠김 |
+| e `release-operations.md` — 수동 이전 표제 제거 | VP-04 선택 증거 | 최초 | 1 | 잠김 |
+| f 같은 문서 — store 대응 1개 제거 | VP-04 선택 증거 | 최초 | 1 | 잠김 |
+| f2 같은 문서 — 자동 이관 문장 되살림 | 새 oracle 민감도 | 최초 | 1 | 잠김 |
+| g `background.ts` — 중단 채널 등록 제거 | VP-05 선택 증거 | 최초 | background.channels 1 | 잠김 |
+| k `background-controller.ts` — `publish` 호출 제거 | sweep — VP-06 path edge | 최초 | 2 | 잠김 |
+| l 같은 파일 — `disposed.add` 제거 | sweep — VP-08 path edge | 최초 | 1 | 잠김 |
+| p `background-task.ts` — 모르는 type에서 기록 변경 | sweep — 규칙 칸 "모르는 type" | 최초 | 1 | 잠김 |
+| h `chatStore.ts` — `sessionListening`을 `=== 'listening'`으로 | VP-10 선택 증거(형제 맞바꿈) | 최초 | 6 | 잠김 |
+| i 같은 파일 — 폴더 가드의 점유 항 제거 | VP-10 선택 증거 · EP-07 `:1206` | 최초 | 1 | 잠김 |
+| j 같은 파일 — selector 파생을 `false` 고정 | VP-10 선택 증거 · EP-07 `:2333` | 최초 | 1 | 잠김 |
+| m 같은 파일 — 예약 판정 인자를 `false` 고정 | sweep — EP-07 `:1122` | 최초 | 5 | 잠김 |
+| n 같은 파일 — `busy`를 `cur.inflight`로 | sweep — EP-07 `:1116` | 최초 | 처음 green → 테스트 추가 뒤 1 | **잠금 없음 → 테스트 추가** → 잠김 |
+| o `chatReducer.ts` — `CANCEL_CHAT`의 transport 초기화 제거 | sweep — EP-07 `:1420` | 최초 | 2 | 잠김 |
+
+- **분모 검산**: `선택 증거 10(a·b·c·d·e·f·g·h·i·j) · 인용 변이 0 · 새 oracle 1(f2) · sweep 6(k·l·p·m·n·o) = 표 행 17`.
+- sweep에서 변이를 심지 않은 열거 항목: EP-01·EP-02·EP-05의 삭제 자리(지울 코드가 남아 있지 않다 — 부재는 검색 0줄과 변이 a가 본다) · EP-07 쓰기 자리 `:517`·`:1256`·`:1271`·`:1556`·`:1572`(필드와 함께 삭제됨).
+- **덮개 회귀**: 해당 없음 — 이전 라운드 없음. 삭제한 테스트가 잠그던 것은 삭제한 코드뿐이다(`legacy-paths`·`migrate-legacy`·`rebase-path`·`startup-sequence`·`background-output` 5파일과 컨트롤러 캡처 3케이스).
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구는 운영 문서의 수동 이전 절뿐이다. 앱 문구는 2개 삭제(ko·en 오류 제목) | — |
+| seam을 만들려고 production을 재배치했는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. "옛 이름 폴더만 있다" 행이 유일한 새 결과다 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | **보인다** — v0.3.1에서 올라온 사용자는 안내 없이 빈 앱을 본다. 앱 안에는 옛 폴더가 있다는 표시가 없다 | D-002·D-003의 결과. 앱 안 안내는 범위 밖 — 사용자 판단용으로 적는다 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — `activityRevision` 비교는 그대로다(`chatReducer.ts` `chat.activity`) | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `send`의 `busy`(EP-07 `:1116`)를 `inflight`만으로 바꿔도 전 스위트 green이었다 — 변경 전 코드에서도 같은 공백이다 | ✅ 선조치 — `chatStore.listen.test.ts:"ready 점유 중 예약한 전송이 거절되면…"` 추가 | 변이 n: green → red |
+| 2 | `error-report.registry.test.ts`의 `slots` 서수 표가 삭제 2건 뒤 밀린다(§10에 없던 세부) | ✅ 선조치 — `M1:0·M2:1·M10:3` | 등록 테스트 전건 green |
+| 3 | `BackgroundController.dispose`가 부르던 `this.state(sessionId)`(journal → tracker 복원)를 지웠다 — 스냅샷 삭제용 읽기였다 | ✅ 선조치 | prod 호출부 `bootstrap.ts`가 바로 뒤에 `backgroundTasks.dispose`를 부른다 · `bootstrap.native-history.test.ts` green |
+| 4 | `app/AGENTS.md:158`의 낡은 지침 2문구 | ✅ 선조치 | `rg LEGACY_PRODUCT_SLUG app` → 0 |
+| 5 | 수동 이전 절차가 실기 미검증이다(암호화 저장소·내장 스킬 마커) | ⚠️ 보고만 — AC7 | plan D-013 |
+| 6 | 개발 빌드의 `<userData>/background-outputs` 잔존 파일 | ⚠️ 보고만 — 선언 경계 2 | — |
 
 ### 설계 대비 명시적 차이
 
-## [구현자 기입] 구현 보고
+- VP-01 ②의 `new Bootstrap(` 단언을 "인자 1개" 정규식으로 더했다(plan은 `initLog` 순서만 적었다) — 생성자 인자 삭제를 직접 본다.
+- EP-05 "구현 뒤 1곳만 남는다" ↔ 실제 2곳: `background.integration.test.ts`에 실제 mapper·DB 경로로 `background.output`이 journal에 없음을 단언하는 줄을 남겼다. AC9의 통합 경로 oracle이다.
+- VP-10 `ready` 분기 좌표를 기존 케이스 수정 대신 `it.each` 3행으로 새로 만들었다.
 
-## [구현자 기입] Review Signals — 사실만
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시·시간 값 없음 | — |
+| 공유 | 해당 없음 — 새 공유 상태 없음. `sessionListening`은 순수 함수 | AC13 3분기 |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `git diff --stat <설계 커밋>..HEAD` — M1 28파일(+117 −1307) · M2 25파일(+128 −905) · M3 9파일 |
+| 실행 명령 | `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` · `npm run lint` · `npm run typecheck` · 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
+| **관측한 게이트 산출** | 가드 4종 OK(`append-only ok` · `113 channels` · `허용 7항목` · `19 real-git suites ok`) · lint 0 error·2 warning(기존 `react-hooks/incompatible-library`) · typecheck 3구성 오류 0 · vitest 942파일·8800케이스 중 8767 pass·22 fail · `node --test` 868 pass·0 fail |
+| 기준선 분리 | 변경 전 트리(`11a3594`)를 같은 환경·같은 `node_modules`로 실행: 946파일·8839케이스·22 fail. 실패 케이스 집합의 차집합(head − base) = ∅, 실패 파일 29 = 29(차집합 ∅). 원인은 electron 바이너리 부재(`Electron failed to install correctly`) 등 환경이다 |
+| **추가·수정 테스트의 subtree 규칙** | 추가·수정 테스트 24파일 · `check-test-budgets` OK · 전체 실행에서 `[test-pools]` 가드 실패 0(새 실패 0) · 새 타이머·git·자식 프로세스 없음 |
+| V-pair 자기확인 | `SELF_PASS 10 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 81/81 자리(19 + 7 + 6 + 9 + 18 + 8 + 14) |
+| **AC 자기보고** | AC1 ✅ EP-01 0줄 · 신규 2건 green / AC2 ✅ 순서 케이스 green(변이 c·d red). `bootstrap.harness.test.ts`는 electron 부재로 이 환경에서 실행 불가(기준선도 같음) / AC3 ✅ EP-02 0줄 / AC4 ✅ generation 3 / AC5 ✅ 문서 케이스 2건 · EP-03 0줄 / AC6 ✅ 검사기 OK / AC7 ⚠️ 사람 실기 / AC8 ✅ 컨트롤러 5건 + 채널 집합 / AC9 ✅ 신규 케이스 / AC10 ✅ 과거 이벤트 케이스 / AC11 ✅ session.delete 케이스 / AC12 ✅ EP-06 0줄 · inventory OK / AC13 ✅ 3분기 + 소비 4곳 / AC14 ✅ `git diff --numstat 11a3594..HEAD -- app/src`: prod +27 −1025(순 −998) · test +248 −1161(순 −913) / AC15 ✅ 위 게이트 / AC16 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 14 · ⚠️ 2 · ❌ 0 = 총 16` |
+| 블로커 / 역질문 | 없음. 사용자 판단 대기: D-012(`outputRefs` 유지) · D-013(수동 절차 형태) · 앱 안 안내 부재(Product/UX 표 4행) |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(r1).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 변이 n의 공백은 plan VP-10 소비 ①이 "전송 케이스에 `ready` 입력"을 적었으나 기존 `ready` 전송 케이스가 `busy` 항을 구별하지 않았다 — sweep이 찾았다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리 부재로 `Bootstrap` 실행 테스트 불가(실패 29파일 중 다수).
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 
