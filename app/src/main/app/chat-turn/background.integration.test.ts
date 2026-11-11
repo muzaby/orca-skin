@@ -8,7 +8,6 @@ import { ClaudeBackgroundMapper } from '../../adapters/claude/background'
 import { BackgroundController } from '../../features/chat/background-controller'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import { HistoryWriter } from '../../features/history/writer'
-import { BackgroundOutputStore } from '../../infra/background-output'
 import { DbQueries } from '../../infra/db/queries'
 import { applyMigrations } from '../../infra/db/migrate'
 import type { TurnContext } from '../../contracts/turn'
@@ -104,9 +103,7 @@ it('journals before relay, captures late terminal output, and reloads without ra
         expect(db.background.list(event.sessionId).length).toBeGreaterThan(0)
         published.push(event)
       },
-      runtime: () => undefined,
-      roots: () => [directory],
-      outputs: new BackgroundOutputStore(join(directory, 'snapshots'))
+      runtime: () => undefined
     }
     const controller = new BackgroundController(deps)
     const mapper = new ClaudeBackgroundMapper({ sdkVersion: '0.3.267' })
@@ -149,23 +146,9 @@ it('journals before relay, captures late terminal output, and reloads without ra
       status: 'completed',
       output_file: path
     })
-    await vi.waitFor(() =>
-      expect(
-        Object.values(Object.values(controller.state('s').tasks)[0].outputSnapshots)
-      ).toHaveLength(1)
-    )
     const task = Object.values(controller.state('s').tasks)[0]
-    const ref = task.outputRefs![0]
-    const result = await controller.read({
-      sessionId: 's',
-      generation: mapper.generation,
-      taskId: 't',
-      outputId: ref.id,
-      offset: 0,
-      maxBytes: 64,
-      view: 'snapshot'
-    })
-    expect(result.text).toContain('<script>unsafe()</script>')
+    expect(task.outputRefs![0]).toMatchObject({ field: 'output_file', value: path, kind: 'file' })
+    expect(db.background.list('s').map((event) => event.type)).not.toContain('background.output')
     expect(JSON.stringify(published)).not.toContain('RAW_ONLY')
     expect(JSON.stringify(db.background.list('s', true))).toContain('RAW_ONLY')
     expect(db.loadParts('s')).toEqual([])

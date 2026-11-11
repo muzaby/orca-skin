@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { resolve } from 'node:path'
 import {
   applyBackgroundEvent,
   backgroundKey,
@@ -12,13 +11,8 @@ import {
   type BackgroundTaskRequest,
   type PromoteBackgroundTaskRequest,
   type BackgroundSessionState,
-  type ReadBackgroundOutputRequest,
-  type ReadBackgroundOutputResponse,
-  type BackgroundTaskRecord,
-  type BackgroundOutputRef,
   type BackgroundEventSource
 } from '../../../shared/background-task'
-import type { BackgroundOutputStore } from '../../infra/background-output'
 import type { BackgroundTaskTracker } from './background-tasks'
 
 const RUNTIME_RESPONSE_TIMEOUT_MS = 15_000
@@ -55,14 +49,10 @@ interface Dependencies {
   load(sessionId: string): BackgroundEvent[]
   publish(event: BackgroundEvent): void
   runtime(sessionId: string): BackgroundRuntime | undefined
-  roots(sessionId: string): string[]
-  outputs: Pick<BackgroundOutputStore, 'read' | 'capture' | 'readSnapshot'> &
-    Partial<Pick<BackgroundOutputStore, 'removeSnapshot'>>
 }
 
 export class BackgroundController {
   private sequence = 0
-  private readonly captures = new Set<string>()
   private readonly disposed = new Set<string>()
   private readonly promoting = new Set<string>()
   private readonly stopTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -95,8 +85,6 @@ export class BackgroundController {
       } catch {
         /* a closed renderer cannot invalidate a committed event */
       }
-      if (event.type === 'background.task' || event.type === 'background.call')
-        this.captureCompleted(event.sessionId)
     })
   }
 
@@ -219,122 +207,12 @@ export class BackgroundController {
     }
   }
 
-  dispose(sessionId: string, options: { preserveOutputSnapshots?: boolean } = {}): void {
-    const state = this.state(sessionId)
+  dispose(sessionId: string): void {
     this.disposed.add(sessionId)
     for (const [key, timer] of this.stopTimers)
       if (JSON.parse(key)[0] === sessionId) {
         clearTimeout(timer)
         this.stopTimers.delete(key)
       }
-    if (!options.preserveOutputSnapshots) {
-      for (const task of Object.values(state.tasks)) {
-        for (const snapshot of Object.values(task.outputSnapshots))
-          void this.deps.outputs.removeSnapshot?.(snapshot.id)
-      }
-    }
-  }
-
-  async read(req: ReadBackgroundOutputRequest): Promise<ReadBackgroundOutputResponse> {
-    const state = this.state(req.sessionId)
-    const task = state.tasks[backgroundKey(req.generation, req.taskId)]
-    const ref = task?.outputRefs?.find((item) => item.id === req.outputId)
-    const denied = {
-      status: 'denied' as const,
-      offset: req.offset,
-      nextOffset: req.offset,
-      view: req.view ?? ('current' as const)
-    }
-    if (!task || !ref || this.outputDenied(state, task, ref)) return denied
-    if (req.view === 'snapshot') {
-      const snapshot = task.outputSnapshots[req.outputId]
-      if (!snapshot) return { ...denied, status: 'missing' }
-      return this.deps.outputs.readSnapshot(snapshot, req)
-    }
-    return this.deps.outputs.read(ref, this.deps.roots(req.sessionId), req)
-  }
-
-  private captureCompleted(sessionId: string): void {
-    const state = this.state(sessionId)
-    for (const task of Object.values(state.tasks)) {
-      if (task.generation !== state.generation || !isBackgroundTerminal(task.status)) continue
-      for (const ref of task.outputRefs ?? []) {
-        if (
-          ref.kind !== 'file' ||
-          this.outputDenied(state, task, ref) ||
-          task.outputSnapshots[ref.id]
-        )
-          continue
-        const key = JSON.stringify([sessionId, task.generation, task.taskId, ref.id])
-        if (this.captures.has(key)) continue
-        this.captures.add(key)
-        const base = {
-          type: 'background.output' as const,
-          sessionId,
-          taskId: task.taskId,
-          outputId: ref.id
-        }
-        void this.deps.outputs
-          .capture(ref, this.deps.roots(sessionId))
-          .then(
-            (snapshot) => {
-              if (this.disposed.has(sessionId)) {
-                void this.deps.outputs.removeSnapshot?.(snapshot.id)
-                return
-              }
-              try {
-                this.observe({ ...base, source: this.source(task.generation), snapshot })
-              } catch {
-                void this.deps.outputs.removeSnapshot?.(snapshot.id)
-                const error: BackgroundEvent = {
-                  ...base,
-                  source: this.source(task.generation),
-                  error: '출력 보존 기록을 저장하지 못했습니다.'
-                }
-                this.deps.tracker.observe(error)
-                try {
-                  this.deps.publish(error)
-                } catch {
-                  /* best-effort operational failure */
-                }
-              }
-            },
-            () => {
-              this.observe({
-                ...base,
-                source: this.source(task.generation),
-                error: '출력을 보존하지 못했습니다.'
-              })
-            }
-          )
-          .catch(() => {})
-          .finally(() => this.captures.delete(key))
-      }
-    }
-  }
-
-  private outputDenied(
-    state: BackgroundSessionState,
-    task: BackgroundTaskRecord,
-    ref: BackgroundOutputRef
-  ): boolean {
-    if (ref.canRead === false) return true
-    const call = task.toolUseId
-      ? state.calls[backgroundKey(task.generation, task.toolUseId)]
-      : undefined
-    if (call?.canReadOutputFile === false) return true
-    const normalized = (value: string): string =>
-      process.platform === 'win32' ? resolve(value).toLowerCase() : resolve(value)
-    const path = normalized(ref.value)
-    return [...Object.values(state.calls), ...Object.values(state.tasks)].some(
-      (owner) =>
-        owner.generation === task.generation &&
-        owner.outputRefs?.some(
-          (candidate) =>
-            candidate.kind === 'file' &&
-            candidate.canRead === false &&
-            normalized(candidate.value) === path
-        )
-    )
   }
 }

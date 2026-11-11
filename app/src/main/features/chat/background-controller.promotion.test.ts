@@ -34,9 +34,7 @@ function fixture(toolName = 'Bash'): Fixture {
     },
     load: () => [],
     publish: vi.fn(),
-    runtime: () => runtime,
-    roots: () => [],
-    outputs: {} as never
+    runtime: () => runtime
   })
   let sequence = 0
   const source = (): BackgroundEventSource => ({

@@ -211,7 +211,7 @@ describe('canonical background state', () => {
     expect(state.connection).toBe('connected')
     expect(state.liveTaskIds).toEqual([])
   })
-  it('stop ACK and output failure do not change completed result', () => {
+  it('stop ACK and a legacy journal output event do not change completed result', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), task('a', 'completed'))
     state = applyBackgroundEvent(state, {
       type: 'background.control',
@@ -220,19 +220,18 @@ describe('canonical background state', () => {
       taskId: 'a',
       state: 'acknowledged'
     })
+    const before = state.tasks[backgroundKey('g1', 'a')]
+    // 0308 이전 빌드의 journal 에 남은 출력 보존 이벤트 — 타입에는 없지만 DB 에서 그대로 읽힌다.
     state = applyBackgroundEvent(state, {
       type: 'background.output',
       sessionId: 's',
       source: source(),
       taskId: 'a',
       outputId: 'o',
-      error: 'missing'
-    })
-    expect(state.tasks[backgroundKey('g1', 'a')]).toMatchObject({
-      status: 'completed',
-      stop: { state: 'acknowledged' },
-      outputErrors: { o: 'missing' }
-    })
+      snapshot: { id: 'snapshot', capturedAt: 1, size: 4, sha256: 'hash', partial: false }
+    } as never)
+    expect(state.tasks[backgroundKey('g1', 'a')]).toEqual(before)
+    expect(before).toMatchObject({ status: 'completed', stop: { state: 'acknowledged' } })
   })
   it('reinitialize requires a fresh snapshot to restore connected state', () => {
     let state = applyBackgroundEvent(emptyBackgroundState(), {

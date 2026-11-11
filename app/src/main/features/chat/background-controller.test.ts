@@ -3,49 +3,66 @@ import { BackgroundController } from './background-controller'
 import { BackgroundTaskTracker } from './background-tasks'
 import { backgroundKey, type BackgroundEvent } from '../../../shared/background-task'
 
-it.each([false, true])(
-  'disposes delivery while preserving archived output only when requested: %s',
-  (preserveOutputSnapshots) => {
-    const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
-    const events: BackgroundEvent[] = [
-      {
-        type: 'background.task',
-        sessionId: 's',
-        source,
-        taskId: 't',
-        phase: 'notification',
-        patch: { status: 'completed' }
-      },
-      {
-        type: 'background.output',
-        sessionId: 's',
-        source: { ...source, sequence: 2 },
-        taskId: 't',
-        outputId: 'out',
-        snapshot: { id: 'snapshot', capturedAt: 1, size: 4, sha256: 'hash', partial: false }
-      }
-    ]
-    const removeSnapshot = vi.fn(async () => {})
-    const persist = vi.fn()
-    const controller = new BackgroundController({
-      tracker: new BackgroundTaskTracker(),
-      persist,
-      load: () => events,
-      publish: vi.fn(),
-      runtime: () => undefined,
-      roots: () => [],
-      outputs: { removeSnapshot } as never
-    })
-    const before = controller.state('s')
-    if (preserveOutputSnapshots) controller.dispose('s', { preserveOutputSnapshots: true })
-    else controller.dispose('s')
-    if (preserveOutputSnapshots) expect(removeSnapshot).not.toHaveBeenCalled()
-    else expect(removeSnapshot).toHaveBeenCalledExactlyOnceWith('snapshot')
-    controller.observe({ ...events[0], source: { ...source, sequence: 3 } })
-    expect(persist).not.toHaveBeenCalled()
-    expect(controller.state('s')).toEqual(before)
-  }
-)
+it('disposes delivery: a later event is neither persisted nor applied', () => {
+  const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
+  const events: BackgroundEvent[] = [
+    {
+      type: 'background.task',
+      sessionId: 's',
+      source,
+      taskId: 't',
+      phase: 'notification',
+      patch: { status: 'completed' }
+    }
+  ]
+  const persist = vi.fn()
+  const controller = new BackgroundController({
+    tracker: new BackgroundTaskTracker(),
+    persist,
+    load: () => events,
+    publish: vi.fn(),
+    runtime: () => undefined
+  })
+  const before = controller.state('s')
+  controller.dispose('s')
+  controller.observe({ ...events[0], source: { ...source, sequence: 3 } })
+  expect(persist).not.toHaveBeenCalled()
+  expect(controller.state('s')).toEqual(before)
+})
+
+it('records a finished task with a file output reference without copying or journaling its output', async () => {
+  const persisted: string[] = []
+  const published: string[] = []
+  const controller = new BackgroundController({
+    tracker: new BackgroundTaskTracker(),
+    persist: (event, done) => {
+      persisted.push(event.type)
+      done()
+    },
+    load: () => [],
+    publish: (event) => published.push(event.type),
+    runtime: () => undefined
+  })
+  controller.observe({
+    type: 'background.task',
+    sessionId: 's',
+    source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+    taskId: 't',
+    phase: 'notification',
+    patch: {
+      status: 'completed',
+      outputRefs: [{ id: 'out', field: 'output_file', value: 'C:/allowed/file', kind: 'file' }]
+    }
+  })
+  await Promise.resolve()
+  expect(persisted).toEqual(['background.task'])
+  expect(published).toEqual(['background.task'])
+  const task = Object.values(controller.state('s').tasks)[0]
+  expect(task.status).toBe('completed')
+  expect(task.outputRefs).toEqual([
+    { id: 'out', field: 'output_file', value: 'C:/allowed/file', kind: 'file' }
+  ])
+})
 
 it('bounds a stop request whose SDK never acknowledges it', async () => {
   vi.useFakeTimers()
@@ -55,9 +72,7 @@ it('bounds a stop request whose SDK never acknowledges it', async () => {
       persist: (_event, done) => done(),
       load: () => [],
       publish: () => {},
-      runtime: () => ({ generation: 'g', stopTask: () => new Promise<void>(() => {}) }),
-      roots: () => [],
-      outputs: {} as never
+      runtime: () => ({ generation: 'g', stopTask: () => new Promise<void>(() => {}) })
     })
     controller.observe({
       type: 'background.snapshot',
@@ -91,9 +106,7 @@ it('keeps stop ACK distinct from terminal, rejects unknown tasks and never relay
     },
     load: () => [],
     publish,
-    runtime: () => ({ generation: 'g', stopTask }),
-    roots: () => [],
-    outputs: {} as never
+    runtime: () => ({ generation: 'g', stopTask })
   })
   const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
   controller.observe({
@@ -138,9 +151,7 @@ it.each([
       persist: (_event, committed) => committed(),
       load: () => [],
       publish: () => {},
-      runtime: () => ({ generation: runtimeGeneration, stopTask }),
-      roots: () => [],
-      outputs: {} as never
+      runtime: () => ({ generation: runtimeGeneration, stopTask })
     })
     // Both generations actually own this ID: an unknown-task check cannot satisfy the oracle.
     for (const gen of ['old', 'new']) {
@@ -174,9 +185,7 @@ it('stops the current recorded task even when history has the same task ID', asy
     persist: (_event, committed) => committed(),
     load: () => [],
     publish: () => {},
-    runtime: () => ({ generation: 'new', stopTask }),
-    roots: () => [],
-    outputs: {} as never
+    runtime: () => ({ generation: 'new', stopTask })
   })
   for (const generation of ['old', 'new']) {
     controller.observe({
@@ -203,9 +212,7 @@ it('restores history without treating old live membership as current', () => {
     persist: () => {},
     load: () => events,
     publish: () => {},
-    runtime: () => undefined,
-    roots: () => [],
-    outputs: {} as never
+    runtime: () => undefined
   })
   expect(controller.state('s')).toMatchObject({
     connection: 'disconnected',
@@ -213,146 +220,6 @@ it('restores history without treating old live membership as current', () => {
     liveTaskIds: []
   })
   expect(Object.values(controller.state('s').tasks)[0].taskId).toBe('t')
-})
-
-it('never lets historical output capture take ownership of the current generation', async () => {
-  const capture = vi.fn(async () => ({
-    id: 'snapshot',
-    capturedAt: 1,
-    size: 1,
-    sha256: 'hash',
-    partial: false
-  }))
-  const controller = new BackgroundController({
-    tracker: new BackgroundTaskTracker(),
-    persist: (_event, done) => done(),
-    load: () => [
-      {
-        type: 'background.task',
-        sessionId: 's',
-        source: { generation: 'old', sequence: 1, receivedAt: 1, replay: false },
-        taskId: 'past',
-        phase: 'notification',
-        patch: {
-          status: 'completed',
-          outputRefs: [{ id: 'out', field: 'output_file', value: 'C:/allowed/file', kind: 'file' }]
-        }
-      }
-    ],
-    publish: () => {},
-    runtime: () => undefined,
-    roots: () => [],
-    outputs: { capture } as never
-  })
-  controller.observe({
-    type: 'background.task',
-    sessionId: 's',
-    source: { generation: 'new', sequence: 1, receivedAt: 2, replay: false },
-    taskId: 'current',
-    phase: 'started',
-    patch: { status: 'running' }
-  })
-  await Promise.resolve()
-  expect(controller.state('s').generation).toBe('new')
-  expect(capture).not.toHaveBeenCalled()
-})
-
-it('preserves a call output denial when a later task publishes another reference to the same file', async () => {
-  const read = vi.fn()
-  const capture = vi.fn()
-  const controller = new BackgroundController({
-    tracker: new BackgroundTaskTracker(),
-    persist: (_event, done) => done(),
-    load: () => [],
-    publish: () => {},
-    runtime: () => undefined,
-    roots: () => [],
-    outputs: { read, capture } as never
-  })
-  const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
-  controller.observe({
-    type: 'background.call',
-    sessionId: 's',
-    source,
-    toolUseId: 'c',
-    phase: 'returned',
-    patch: {
-      canReadOutputFile: false,
-      outputRefs: [
-        {
-          id: 'call-output',
-          field: 'outputFile',
-          value: 'C:/allowed/file',
-          kind: 'file',
-          canRead: false
-        }
-      ]
-    }
-  })
-  controller.observe({
-    type: 'background.task',
-    sessionId: 's',
-    source: { ...source, sequence: 2 },
-    taskId: 't',
-    toolUseId: 'c',
-    phase: 'notification',
-    patch: {
-      status: 'completed',
-      outputRefs: [
-        { id: 'task-output', field: 'output_file', value: 'C:/allowed/file', kind: 'file' }
-      ]
-    }
-  })
-  expect(
-    await controller.read({
-      sessionId: 's',
-      generation: 'g',
-      taskId: 't',
-      outputId: 'task-output',
-      offset: 0,
-      maxBytes: 64
-    })
-  ).toMatchObject({ status: 'denied' })
-  expect(read).not.toHaveBeenCalled()
-  expect(capture).not.toHaveBeenCalled()
-})
-
-it('removes an orphan snapshot if its journal insert fails and keeps the task terminal', async () => {
-  const removeSnapshot = vi.fn(async () => {})
-  const controller = new BackgroundController({
-    tracker: new BackgroundTaskTracker(),
-    persist: (event, done) => {
-      if (event.type === 'background.output') throw new Error('db write failed')
-      done()
-    },
-    load: () => [],
-    publish: () => {},
-    runtime: () => undefined,
-    roots: () => [],
-    outputs: {
-      capture: async () => ({
-        id: 'snapshot',
-        capturedAt: 1,
-        size: 1,
-        sha256: 'hash',
-        partial: false
-      }),
-      removeSnapshot
-    } as never
-  })
-  controller.observe({
-    type: 'background.task',
-    sessionId: 's',
-    source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
-    taskId: 't',
-    phase: 'notification',
-    patch: {
-      status: 'completed',
-      outputRefs: [{ id: 'out', field: 'output_file', value: 'C:/allowed/file', kind: 'file' }]
-    }
-  })
-  await vi.waitFor(() => expect(removeSnapshot).toHaveBeenCalledWith('snapshot'))
-  expect(Object.values(controller.state('s').tasks)[0].status).toBe('completed')
 })
 
 it('turns an individual stop ACK without terminal evidence into an explicit unconfirmed state', async () => {
@@ -364,9 +231,7 @@ it('turns an individual stop ACK without terminal evidence into an explicit unco
       persist: (_event, committed) => committed(),
       load: () => [],
       publish: () => {},
-      runtime: () => ({ generation: 'g', stopTask: async () => {} }),
-      roots: () => [],
-      outputs: {} as never
+      runtime: () => ({ generation: 'g', stopTask: async () => {} })
     })
     controller.observe({
       type: 'background.snapshot',

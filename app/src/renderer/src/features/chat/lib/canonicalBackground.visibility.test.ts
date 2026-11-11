@@ -31,8 +31,6 @@ const task = (patch: Partial<BackgroundTaskRecord> = {}): BackgroundTaskRecord =
   lastSeenAt: 1,
   liveMembership: 'unknown',
   terminalEvidence: [],
-  outputSnapshots: {},
-  outputErrors: {},
   ...patch
 })
 const state = (): BackgroundSessionState => ({
