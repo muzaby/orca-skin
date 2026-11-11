@@ -82,6 +82,21 @@ describe('initial submission reopen delegates use the commit key and claims', ()
     }
   )
 
+  it('W5 announces every message id of a committed batch and nothing when the commit is refused', () => {
+    const f = assemble({ dbSessionId: 's1', queueKey: 'q-other' })
+    f.queue.enqueue('s1', { text: 'm1' }, 1, 'm1')
+    f.queue.enqueue('s1', { text: 'm2' }, 2, 'm2')
+    f.setBatches([f.queue.reserveHeld('s1', 'u1', 'chain-1')!])
+    expect(f.request.commitInitialSubmission!()).toBe(true)
+    const announced = [
+      { type: 'message.submitted', sessionId: 's1', ids: ['m1', 'm2'], submitted: true }
+    ]
+    expect(f.send.mock.calls.map((call) => call[1])).toEqual(announced)
+    f.queue.confirm('s1', { kind: 'echo', uuid: 'u1' })
+    expect(f.request.commitInitialSubmission!()).toBe(false)
+    expect(f.send.mock.calls.map((call) => call[1])).toEqual(announced)
+  })
+
   it('W3 follows the current initial batches through the getter', () => {
     const f = assemble({ dbSessionId: 's1', queueKey: 'q-other' })
     const old = f.reserve('m1')
