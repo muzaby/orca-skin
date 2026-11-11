@@ -241,6 +241,44 @@ describe('turn setup with the runtime model catalog', () => {
     expect(resolved.providerKey).toBeNull()
   })
 
+  it('rejects a runtime-managed key whose Gate cache is missing instead of resolving it', async () => {
+    const resolve = vi.fn()
+    const cached = vi.fn(() => undefined)
+    await expect(
+      resolveTurnProvider(
+        {
+          ...passthroughRuntimeConfig(),
+          harnessSettings: { list: () => [] },
+          runtimeModelCatalog: {
+            merge: () => [
+              {
+                key: contribution.key,
+                adapter: 'claude',
+                provider: 'corp',
+                models: [],
+                source: 'runtime',
+                readOnly: true
+              }
+            ],
+            isReadOnly: (key: string) => key === contribution.key
+          },
+          harnessRuntime: { cached, resolve },
+          db: { getSessionById: () => undefined },
+          mcp: { resolver: () => () => undefined }
+        } as never,
+        {
+          adapter: adapter(),
+          agentKind: 'code',
+          sessionId: null,
+          providerKey: contribution.key,
+          modelFamily: null
+        }
+      )
+    ).rejects.toThrow(`Runtime model cache is unavailable for "${contribution.key}"`)
+    expect(cached).toHaveBeenCalledWith(contribution.key)
+    expect(resolve).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['resolved', true],
     ['unresolved', false]
