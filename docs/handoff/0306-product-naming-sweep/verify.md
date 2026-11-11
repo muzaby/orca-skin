@@ -10,8 +10,8 @@
 | 대상 커밋/range | `499d354..703c36b` (설계 `7114768`·`b4b0501`·`206409f` · 구현 `703c36b`) |
 | 구현 전 plan 기준 | `206409f`(rev.3 READY). 구현 커밋의 plan 변경은 `[구현자 기입]`·상태 칸뿐 — 규범 행 변경 없음 |
 | V mode / 유효 V | `Baseline V: V1` rev.3 |
-| 라운드 | 1 |
-| 상태 | **RETURN_TO_PLAN** |
+| 라운드 | 1 (아래 §r2 = 2회째 verify, 라운드 2) |
+| 상태 | r1 **RETURN_TO_PLAN** → r2 **RETURN_TO_PLAN** (§r2) |
 | 확장 창 | verify 1회째 — 창 안. ΔV로 다시 열린 노드 없음 |
 | 독립 축(⑥) | ① 범위 밖 전수 재검색(검사기와 다른 경로 `git grep`) ② 문서가 인용하는 코드 이름 ↔ 실제 코드 대조 — 발견 2건(아래 F1·F4) |
 | 열거 sweep(⑦) | **전수 아님** — 변이 18건(아래). EP-06 이스케이프 6줄 중 1줄 · EP-07 값 34줄 중 0줄 · EP-02 d.ts·`logging.ts` 미시도. 못 본 자리는 못 봤다고 적는다 |
@@ -115,3 +115,89 @@
 **RETURN_TO_PLAN** — PLAN_GAP 1(F3)이 있어 설계자가 먼저다. 동시에 막는 결함 2건(F1 현재 · F2 이행)이 있어 설계자 정정 뒤 구현이 이어진다.
 
 설계자에게 넘길 것: F3 항목별 편입/경계 선언(`docs/spec` 4파일 · `app/.gitignore`). 구현자에게 넘길 것: F1(문서 인용 4곳을 코드와 일치시키고 가능하면 AT-02에 `GLOSSARY` 노출 키 단언) · F2(`test-pools-experiment.yml` env 이름 oracle).
+
+
+---
+
+# r2 — verify 2회째 (라운드 2)
+
+**RETURN_TO_PLAN** — r1 F1·F2·F3은 닫혔고 `PLAN_GAP` 1건(F6, 확장 후보·창 안)만 남았다. 막는 이행·현재 결함 0.
+
+## r2-0. 기준선 · 확장 창
+
+- 대상 `a6cfaec..df0883a`(설계 `a6cfaec` · 구현 `df0883a`). 구현 커밋의 plan diff는 메타 상태 칸과 `[구현자 기입]` r2 절뿐 — 규범 행 변경 없음(`git diff a6cfaec df0883a -- plan.md`).
+- 확장 창: verify **2회째 — 창 안**. ΔV1 NEW·CHANGED 노드(MD-01 ⑥·R-02·AR-02·AR-01 EP-05)도 이번 verify가 그 뒤 첫 회차.
+- plan validity: ΔV1 pair마다 production path·자리 목록·oracle 있음. EP-08 7자리·EP-05 2자리·EP-10 8건 목록 고정. PLAN_GAP 없음(F6은 구현이 아니라 잠금 공백).
+- 독립 축(⑥): 검사기 파일 항목 일치 방식(`excludes`)과 EP-10 테스트의 문서 범위 5곳 — 발견 1건(F6).
+
+## r2-1. 재측정 (이번 턴, `npm ci --ignore-scripts` + `npm rebuild better-sqlite3`, `sqlite ok`)
+
+| 항목 | 관측 |
+|---|---|
+| 이름 검사기 | `OK — 2236파일 · 허용 13항목` |
+| 문서 가드 · 예산 · 마이그레이션 | doc-inventory prose+links OK(117채널) · test-budgets 20 suites OK · no-copies OK(append-only는 `v*` 태그 없어 skip) |
+| lint · typecheck | lint error 0 · warning 2 · `git status` 변화 0 · typecheck error 0 |
+| `node --test scripts/*.test.mjs` | 868 pass · 0 fail |
+| 전체 vitest | 945파일: 29 failed 파일 · **22 failed / 8797 passed / 11 skipped**. 서명: `Electron failed to install` 3건 등 Electron·Windows 경로 전제 |
+| 기준선 분리 | 이번에 `a6cfaec` worktree 재실행은 **하지 않았다**. 근거: r2 diff에 production 코드 0(`app/src` 변경은 `product-identity.test.ts` 1개), 실패 29파일에 수정 파일 없음. r1 verify가 `499d354`와 22건 일치를 확인했고 케이스 수 8795→8797 = EP-10 2케이스 |
+| D-003 경로 diff | `git diff --name-only 499d354 df0883a` → handoff 디렉토리·INDEX뿐 |
+| 잔여 옛 표기(엄격화) | 제외 8종을 뺀 `git grep -nIE "orca|Orca|ORCA"` 잔여 = 허용 12파일 + 범위 밖 파일을 가리키는 경로·옛 이름 서술 6줄(`docs/INDEX.md:96` · `TRD.md:242·248·503` · `adapters.md:182` · `overview.md:74·161`) — 전부 EP-01 ⑦ 또는 허용 목록, 검사기 OK와 일치 |
+
+## r2-2. 고장 이력 (하네스 `mutate.py`, spec 36행, 원복 "모든 파일 원문 그대로")
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 잡은 것 | 분류 |
+|---|---|---|---|---|---|---|
+| W01~W08 | `EXCLUDED` 항목 | 제거 | 8종 각각 제거 | 잡음 8/8 | 검사기 테스트 2~5 | — |
+| W09·W10 | `inScope` | 고정값 | 항상 false / true | 잡음 | 20 / 12 | — |
+| W11 | `excludes` `*` 마디 | 다른 값 | `[^/]+` → `.*` | 잡음 | 1 | — |
+| W12 | `readTracked` | 제거 | 심볼릭 링크 분기 | 잡음 | gate exit 1 | — |
+| **W13** | `excludes` 파일 항목 | 다른 값 | 파일 항목 일치 `===` → `startsWith` | **못 잡음** | 없음 | **확장 후보 F6** |
+| W20~W23 | `ci.yml`·`release.yml` 4자리 | 다른 값 | env·vars 이름 | 잡음 4/4 | `test-time.test.mjs` 각 1 | — |
+| W24~W27 | 실측 워크플로 `:35`·`:40`·`:42` | 다른 값 | 이름 · vars 이름 | 잡음 4/4 | `test-pools.test.mjs` 신규 1케이스 | — |
+| W28 | 실측 `:40` 값 | 맞바꿈 | 모드 값 → `vars.…TIME_SCALE` | 잡음 | 같은 케이스 | — |
+| W30·W31 | EP-05 `:29`·`:134` | 다른 값 | 서버 id · 도구 이름 | 잡음 | 1 · 6 | — |
+| W40~W43 | E2·E3 4파일 | 다른 값 | 옛 표기로 되돌림 | 잡음 4/4 | gate exit 1 | — |
+| W50~W52 | EP-10 문서 3자리(노출 키 1·채널 꼴 2) | 다른 값 | 긴 꼴로 되돌림 | 잡음 3/3 | `product-identity.test.ts` 각 1 | — |
+| W60~W64 | EP-10 ② 범위 5곳 | 제거(삽입) | `orcinus-orca:x:y` 를 `app/src/{renderer,main}/AGENTS.md`·`docs/guides/AGENTS.md`·`docs/spec/AGENTS.md`·루트 `AGENTS.md`에 | 잡음 5/5 | 각 1 | — |
+
+- 못 본 것: EP-10 채널 꼴 6건 중 3건·r1 V01~V04·EP-06 이스케이프 6줄·EP-07 값 34줄은 이번에 재시도하지 않았다(이번 diff가 닿지 않음 — 구현 보고 M23~M28 등에 의존).
+
+## r2-3. Finding disposition
+
+| ID | 분류 | disposition | 근거 |
+|---|---|---|---|
+| F1 | 현재 결함 | **closed** | `git grep -noIE "orcinus-orca:[a-zA-Z*{]+"`(범위 문서) 0건 · 노출 키 인용 `'oo'` · W50~W52 red |
+| F2 | 이행 결함 | **closed** | 실측 3자리 oracle 신설 — W24~W28 red (r1 V18 = W25) |
+| F3 | 확장 후보 | **closed** | E1~E3 구현 — 검사기 OK 2236파일, W40~W43 red, `docs/spec` 3파일 `Orcinus orca` |
+| F6 | 확장 후보 | **PLAN_GAP(창 안)** | W13: `excludes`의 파일 항목 일치(`path === entry`)를 `startsWith`로 바꿔도 검사기 테스트 40건과 gate가 green. 원문 인용 불가 — EP-01 ⑥ 입력은 "제외 8종 + 목록 밖 4종"이고 `README.md`로 시작하는 다른 파일(`README.md.orig`)은 입력에 없다. 현재 결함도 아니다 — `git ls-files \| grep -E '^README\.md.'` 0건. 규칙이 "그 밖의 추적 파일은 전부 읽는다"를 주어로 쓴다는 해석이 필요해 확장으로 둔다 |
+
+설계자 선택(ΔV2): ① `README.md.x` 류 1입력(위반 기대)을 EP-01 ⑥ 입력에 채택 — 입력 1개 추가로 닫힘 ② 경계 선언(파일 항목은 정확 일치가 아니어도 무방, 현재 트리에 그 형태 없음). 코드 수정이 필요하면 구현자 몫이다.
+
+## r2-4. V-pair closeout
+
+| Pair | 결과 | 직접 oracle 좌표 · 관측 |
+|---|---|---|
+| VP-01 | PASS | `gate: node scripts/check-product-naming.mjs` OK · 엄격화 재검색 잔여 = 허용·⑦ 해당뿐 |
+| VP-08 | PASS | `check-product-naming.test.mjs` 40 pass — W01~W12 red. W13은 F6 |
+| VP-02 | PASS | `product-identity.test.ts` 42 pass — W50~W52·W60~W64 red |
+| VP-07 | PASS | EP-08 7자리: `test-time.test.mjs` 4자리(W20~W23) · `test-pools.test.mjs:'작업 env 가 스크립트가 읽는 이름으로…'` 3자리(W24~W28) |
+| VP-06 | PASS | EP-05 2자리 W30·W31 red. EP-04·EP-07은 r1 좌표(이번 diff가 닿지 않음) |
+| VP-03 | PASS | §r2-1 — production diff 0, 실패 집합은 환경 서명(기준선 재실행은 안 함, 위 표) |
+| VP-04·05·09 | INHERITED PASS | r1 §4 좌표 유지 — 이번 diff가 닿지 않아 재실행 안 함 |
+
+## r2-5. Repository operation checks
+
+- 커밋 `df0883a` trailer: `Agent`·`Handoff`·`Status: implemented`·`Criteria-Met: 8/10`·`Criteria-Pending`·`Verified-By: pending` 반환 — 허용값 준수. 인용 해시 `7114768`·`b4b0501`·`206409f`·`703c36b`·`8b345fb`·`a6cfaec`·`df0883a` 전부 `commit`. `origin/main` ref가 이 환경에 없어 `main` 조상 여부는 확인하지 못했다.
+- AC 합계 `✅8 · ⚠️2 = 10` 행과 일치. `[구현자 기입]` r2 일곱 필드 모두 있음 · 강제 지점 표가 EP-01 ⑥·EP-05·EP-08·EP-10 자리 전부를 담았다.
+- 사람: AC9·AC10 그대로. 순수 로직 전부 기계 검증.
+
+## r2-6. Review Signals — 사실만
+
+- r1의 이행 결함 F2와 같은 증상(워크플로 이름 자리 oracle 부재)은 재발하지 않았다.
+- r2의 발견 1건(F6)은 ⑥ 독립 축에서 나왔고 같은 파일 r1 변이(V01~V04)와 다른 분기(`excludes`)다 — 열거된 규칙 칸 분기가 아니라 ΔV1이 새로 만든 일치 함수의 하위 분기.
+- 반복된 환경 한계: Electron 미설치(22건), 설치본 실기 불가.
+- 이번 verify로 라운드 2 종료 → 라운드 3. 다음 verify는 3회째로 창 밖이다.
+
+## r2-7. 결론
+
+**RETURN_TO_PLAN** — F6 하나. 설계자가 ΔV2로 ①(입력 1개 채택) 또는 ②(경계 선언)를 정한다. ①이면 구현 턴이 입력을 더하고, ②면 구현 없이 verify로 갈 수 있다. 그 밖의 pair·gate는 전부 PASS라 F6만 닫히면 PASS 후보다.

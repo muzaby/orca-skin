@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | PR 미생성 |
-| 상태 | IMPL_DONE (r2 — ΔV1 구현, 검증 대기) |
+| 상태 | RETURN_TO_PLAN (r2 verify — F6 확장 후보, 설계자 차례) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0225 V1은 "코드 식별자 불변"(EP-11)을 잠갔고 이번 작업은 그 결정을 뒤집는다. 일부 변경이 아니라 반대 방향이라 상속하지 않는다 |
 | 이번 V revision | `ΔV1` — r1 verify 뒤 정정 E1~E5. 기준 = `V1` rev.3(`206409f`) |
@@ -654,3 +654,10 @@ r1 verify 결과 `RETURN_TO_PLAN`. 상세·재현은 [`verify.md`](verify.md) §
 | F2 | 이행 결함 | open · BLOCKING — 분모는 ΔV1 EP-08(실측 3자리) | §10 EP-08 "워크플로 `env:`·`vars.` 10줄" · VP-07 | `test-pools-experiment.yml:40` env 이름 변이가 어느 테스트에도 안 걸린다(V18) | 그 워크플로의 env·vars 이름을 단언하는 oracle 추가(`ci.yml`·`release.yml`은 `test-time.test.mjs`가 이미 잠금) |
 | F3 | 확장 후보 · PLAN_GAP | 채택 — ΔV1 E1·E2·E3 (구현 대기) | D-001·D-003·§6 | `docs/spec/{AGENTS.md,claude/agent-sdk/INDEX.md,opencode/INDEX.md}`의 `Orca` 산문 5줄 — §6 범위에도 D-003 제외에도 없음 · `app/.gitignore:162` 옛 캐시 폴더 이름 | 항목마다 범위 편입 또는 경계 선언. `docs/spec/`는 원문 미러 편집 금지 규칙과 얽혀 사용자 결정 가능성 |
 | F5 | 동치 | closed | §10 EP-05 `:30` | `connectorId`는 이름 합성에 안 쓰여 값 변경이 동작에 영향 없음(V07 green) | 구현 보고 `3/3`의 `:30`은 oracle 없음으로 정정 |
+
+r2 verify(2회째) 결과 `RETURN_TO_PLAN`. 상세·재현은 [`verify.md`](verify.md) §r2.
+
+| # | 분류 | 상태 | 출처 계약 | 내용 | 대응 방향(제안) |
+|---|---|---|---|---|---|
+| F1·F2·F3 | — | closed (r2) | ΔV1 E1~E5 | 변이 W01~W12·W20~W31·W40~W52·W60~W64 전부 red | — |
+| F6 | 확장 후보 · PLAN_GAP | open — 창 안 | EP-01 ⑥ "그 밖의 추적 파일은 전부 읽는다" | `check-product-naming.mjs` `excludes` 파일 항목 `path === entry` → `startsWith` 변이(W13)가 40케이스·gate에서 green. `README.md.x` 류 입력 없음. 트리에는 그 형태 0건 | ΔV2로 입력 1개 채택 또는 경계 선언 |
