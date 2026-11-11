@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-11 |
 | 매핑 | 0305 분할안 H-D(C-25 전부 · C-14 2단계). H-D의 나머지는 §4에서 제외 |
-| 상태 | READY (ΔV1 — verify r1 RETURN_TO_PLAN 정정) |
+| 상태 | IMPL_DONE (r2) |
 | V mode | `Baseline V` → `Delta V`(ΔV1) |
 | 기준 V | `none` — 0151·0166·0301의 대기열 V는 문서로 상속하지 않고, 그 테스트를 VP-05가 회귀로 다시 닫는다 |
 | 이번 V revision | `ΔV1` — 기준 `V1`(설계 커밋 `1582d12`, PR 브랜치 좌표) |
@@ -689,6 +689,94 @@ AC4는 문장이 그대로다 — "열린 배치"의 입력이 P5에 없던 것�
 - 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: §8의 lint 선례 인용은 그 줄의 변수가 뒤에서 쓰이는지 확인하지 않았다. AC7의 test 조건은 0307(AC17)·0309에 이어 세 번째로 ⚠️다 — 잠금을 먼저 넣는 감량 작업에서 test 순감 조건이 맞은 적이 없다.
 - 반복해서 부딪히는 환경 한계: 전체 vitest 기준선 실패 29파일(0309·0310과 같은 환경) · Electron 바이너리 부재로 AC9 불가.
 - 현재 라운드·impl 턴: `r1`.
+
+## [구현자 기입] 설계 리뷰 — r2
+
+- 동의 / 그대로 진행: §20 ΔV1 전부. K4·P5·W5 입력과 변이 (m)~(p)를 적힌 대로 넣었다.
+- 이견 / 현실성 문제: 없음. P5는 §20의 "단언 추가" 쪽으로 기존 케이스에 이어 붙였다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+r2 diff는 테스트 3파일뿐이다(`git diff --numstat` prod 0줄). §10 자리 목록은 ΔV1에서 그대로라 검색 5종 출력이 r1과 같다(EP-01·02·04 0줄 · EP-03 4+7 · EP-05 5+2+1, 목록과 차 0).
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 제거 이름·`commit` 호출·문서 표기 부재 | EP-01·EP-02·EP-04 | 유지 3/3 | 검색 3종 0줄 · `gate:npm run typecheck` error 0 | 부재 계약 | — |
+| VP-02 | claim 일치·상태 전이 | EP-03 정의 4자리 | 4/4 | r1 좌표 + `pending-message-queue.test.ts`:'K4 no claim method matches a claim with more message ids' | `ids` `['a','b']`≠`['a','b','c']` → 네 메서드 `false`·알림 0 | — |
+| VP-03 | 공개 형태·재발급·잔여 수 | EP-05 5+2+1 | 5/5 · 2/2 · 1/1 | r1 좌표 + `session-activity-projector.test.ts`:'interrupt 생존 attempt만 residual로 세고…'(확정 뒤 단언) | 같은 `uuid` `a1`의 배치 상태 제출됨→확정됨 → `residualCount` 1→0 | — |
+| VP-04 | 콜백 → 대기열 배선 | EP-03 호출 7자리 | 7/7 | r1 좌표 + `turn-request.reopen.test.ts`:'W5 announces every message id of a committed batch and nothing when the commit is refused' | `ids` `['m1','m2']`(2개 — `slice(0,1)`과 구별) · 확정 성공/거부 → 발신 payload 목록 | — |
+| VP-05 | 종단 회귀 | 0 | 0/0 | 전체 vitest 실패 식별자가 r1 head와 `diff` 0줄 | 운반 항 없음 | `chat-turn.continuity.test.ts` — 환경 한계(r1과 같다) |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: x5(이행) → P5 확정 뒤 단언 · x4 → K4 'more message ids' · x6·x11 → W5(채택된 확장 — D-013). 넷 다 red.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 검색 0줄 · typecheck 0 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 위 K 좌표 | (a)~(f)·(k)·(n) red |
+| VP-03 | REQUIRED | SELF_PASS | 위 P 좌표 | (g)·(h)×2·(j)·(m) red |
+| VP-04 | REQUIRED | SELF_PASS | 위 W 좌표 | (i)·(l)×5·(o)·(p) red |
+| VP-05 | REGRESSION | SELF_PASS | 전체 vitest 실패 집합 차 0 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+verify r1의 spec 30행을 그대로 다시 돌렸다(`mutate.py --cwd app`, oracle 376케이스, 종료 뒤 변이 잔여 0). 30행 전부 red다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `messageCountForAttempts`의 `!isOpen(batch.state) \|\|` 제거 | (m) · verify x5 · D1 | 못 잡음 | projector 1건 | 잠김 |
+| `sameIds`의 길이 비교 제거 | (n) · verify x4 | 못 잡음 | K4 1건 | 잠김 |
+| `commitInitialSubmission`의 `committed &&` 제거 | (o) · verify x6 | 못 잡음 | W5 1건 | 잠김 |
+| 제출 확정 발신의 `batch.ids.slice(0, 1)` | (p) · verify x11 | 못 잡음 | W5 1건 | 잠김 |
+| verify r1의 `잡음` 26행(a·b·uuid·c·d·e·f1·f2·k·x1·x3·x7·x8·x9·x13·g·j·h1·h2·i·l0~l4·x10) | 하한 ④ 범위 — 오라클 파일 3개를 고쳤다 | 잡음 | 행마다 1~34건 | 잠김(red → red 26/26) |
+
+- **분모 검산**: `선택 증거 4((m)(n)(o)(p)) · 인용 변이 0(위 넷과 같은 행) · 새 oracle 0 · 재실행 26 = 표 행 30`.
+- **덮개 회귀**: 0건 — 이전 `잡음` 26행이 전부 red로 남았다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구·상태 | 해당 없음 — 테스트만 바뀌었다 | — |
+| production 재배치 | 해당 없음 — prod diff 0 | — |
+| 새 실패 경로 | 해당 없음 | — |
+| "아무 일도 안 일어남" | 해당 없음 | — |
+| 늦은 응답의 화면 되돌림 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | test가 r1보다 24줄 더 늘었다(누적 순증 150) | ⚠️ 보고 — AC7(ΔV1)의 보고 의무. 늘어난 항목: K4 1행(1줄) · P5 확정 단언(8줄) · W5 케이스(15줄) | `git diff --numstat 1582d12 -- app/src` test +224 −74 |
+
+### 설계 대비 명시적 차이
+
+- 해당 없음 — r2는 §20의 입력을 그대로 넣었다. r1의 `toPublic` 차이는 D-014로 설계에 반영됐다.
+
+## [구현자 기입] 구현 보고 — r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | test 3(`pending-message-queue.test.ts` · `session-activity-projector.test.ts` · `turn-request.reopen.test.ts`) · prod 0 |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · 필터 없는 `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · AC6 diff · `mutate.py` 30행 |
+| **관측한 게이트 산출**(마지막 수정 뒤) | 가드 4종 OK · lint error 0·warning 2(기존) · typecheck `error TS` 0줄 · vitest 940파일 중 29 fail, 8,793케이스 중 22 fail — 실패 식별자가 r1 head·`1582d12`와 `diff` 0줄(Electron 바이너리·DB 바인딩 부재) · `[test-pools]` 0줄 · `node --test` 868/868. lint 뒤 `git status`는 내 3파일뿐 |
+| **추가·수정 테스트의 subtree 규칙** | 수정 3파일 · 시간 예산 위반 0(`check-test-budgets` OK) · 풀 분류 위반 0 · 호스트 격리 위반 0(순수 메모리 대기열) |
+| V-pair 자기확인 | `SELF_PASS 5 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | EP-01~EP-05 r1과 같음(위 표) |
+| **AC 자기보고**(`Criteria-Met`) | 8/9 — AC1 ✅ 검색 0줄 · AC2 ✅ K·W5 green + (n)(o)(p) red · AC3 ✅ P1 green · AC4 ✅ P5 확정 뒤 0 + (m) red · AC5 ✅ 실패 집합 차 0 · AC6 ✅ AC6 명령 0줄 · AC7 ✅(ΔV1) prod +84 −132(순감 48), test +224 −74(순증 150, 항목은 위) · AC8 ✅ · AC9 ⚠️ 사람 실기 대기 |
+| **합계 검산** | `✅ 8 · ⚠️ 1 · ❌ 0 = 총 9` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 아니오 — r1에 없던 입력 분기 넷이다.
+- 막았어야 할 plan 지침·AC: AC4 "열린 배치"가 V1 P5 규칙 칸에 없었다(ΔV1이 옮겼다).
+- 반복 환경 한계: vitest 기준선 29파일 · AC9 불가.
+- 현재 라운드·impl 턴: `r2`.
 
 ---
 
