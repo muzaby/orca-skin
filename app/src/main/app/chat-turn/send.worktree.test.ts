@@ -265,6 +265,31 @@ describe('handleChatSend worktree production wiring', () => {
     )
   })
 
+  it('예약 뒤 준비가 실패하면 그 입력이 대기열에 예약으로도 대기로도 남지 않는다', async () => {
+    const harness = makeHarness()
+    const queue = new PendingMessageQueue()
+    const actualEnqueue = await vi.importActual<typeof import('./enqueue')>('./enqueue')
+    vi.mocked(enqueueTurnPrompt).mockImplementationOnce(actualEnqueue.enqueueTurnPrompt)
+    const runtime = { close: vi.fn(), channelAlive: true, hasSchedules: true, markAborted: vi.fn() }
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime,
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    harness.deps.ctx.ensureExtensionsDeployedForTurn.mockRejectedValueOnce(new Error('deploy'))
+    await handleChatSend(
+      { ...harness.deps, pendingMessages: queue } as never,
+      { sender: harness.sender } as never,
+      { text: 'fail me', clientRequestId: 'failed', attachmentViews: [] }
+    )
+    expect(runTurnWithContinuations).not.toHaveBeenCalled()
+    expect(queue.counts('new:1')).toMatchObject({ queuedCount: 0, deliveryPendingCount: 0 })
+    expect(mocks.sendChatEvent.mock.calls.map(([, event]) => event)).toContainEqual(
+      expect.objectContaining({ type: 'error' })
+    )
+    expect(runtime.close).toHaveBeenCalledOnce()
+  })
+
   it('준비 완료 전에는 context/runtime을 만들지 않고 managed cwd와 extraDirs를 runtime까지 전달한다', async () => {
     const harness = makeHarness()
     let finish!: (value: { kind: 'managed'; worktreeId: string; executionCwd: string }) => void
