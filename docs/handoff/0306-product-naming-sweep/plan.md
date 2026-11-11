@@ -117,7 +117,7 @@
 |---|---|---|---|---|---|
 | G1 | F6 (확장 후보) | EP-01 ⑥ 규칙 칸 · UT 입력 칸 | "제외 목록 경로는 읽지 않는다" — 항목과 경로를 어떻게 맞추는지 적지 않음 | 아래 **일치 규칙 4분기**와 분기별 입력 | **채택.** 일치가 느슨해지면 새 파일이 조용히 검사에서 빠진다 — D-007 fail-closed와 반대 방향이라 경계로 두지 않는다 |
 
-- F6이 지적한 자리 하나만 더하지 않고 `excludes`(`check-product-naming.mjs:99-106`)의 조건·항을 이번 턴에 전부 변이했다. 4변이 중 3개가 테스트 40건 + gate에서 green이었다(X4만 red) — 아래 표의 ⓑⓒⓓ가 그 3개와 F6의 W13이다.
+- F6이 지적한 자리 하나만 더하지 않고 `excludes`(`check-product-naming.mjs:99-106`)의 조건·항을 이번 턴에 전부 변이했다. 4변이 중 3개가 테스트 40건 + gate에서 green이었다(파일 항목을 끝 일치로 바꾼 변이만 red). 아래 표의 M-2·M-3·M-4가 그 3개이고 M-1이 F6의 W13이다.
 - 현재 결함 아님: 현재 코드는 네 분기 모두 규칙대로 동작한다(구현 뒤 입력이 green이어야 한다). 코드 수정 없이 테스트 입력만 더한다.
 
 **ΔV2 node / pair**
@@ -131,10 +131,10 @@
 
 | 분기 | 규칙 | UT 입력 (전부 옛 표기 1줄 → **위반** 기대, `inScope` = true) | 등록 변이 (심을 자리 `excludes`) |
 |---|---|---|---|
-| ⓐ 파일 항목 | 경로 전체가 항목과 같을 때만 제외 | `README.md.orig` · (기존) `app/README.md` | `path === entry` → `path.startsWith(entry)` (verify W13) → red |
-| ⓑ 디렉토리 항목 | 경로 **맨 앞**이 항목일 때만 제외 | `app/project/x.md` · (기존) `docs/handoff.md` | `startsWith` → `includes` → red |
-| ⓒ `*` 항목의 고정 | 패턴은 경로 맨 앞에서 맞춘다 | `app/.agents/skills/a/references/c.md` | 정규식의 `^` 제거 → red |
-| ⓓ `*` 항목의 글자 | `*` 밖 글자는 글자 그대로다(`.`은 점) | `xagents/skills/a/references/c.md` | 특수문자 이스케이프 `.map(…)` 줄 제거 → red |
+| M-1 파일 항목 | 경로 전체가 항목과 같을 때만 제외 | `README.md.orig` · (기존) `app/README.md` | `path === entry` → `path.startsWith(entry)` (verify W13) → red |
+| M-2 디렉토리 항목 | 경로 **맨 앞**이 항목일 때만 제외 | `app/project/x.md` · (기존) `docs/handoff.md` | `startsWith` → `includes` → red |
+| M-3 `*` 항목의 고정 | 패턴은 경로 맨 앞에서 맞춘다 | `app/.agents/skills/a/references/c.md` | 정규식의 `^` 제거 → red |
+| M-4 `*` 항목의 글자 | `*` 밖 글자는 글자 그대로다(`.`은 점) | `xagents/skills/a/references/c.md` | 특수문자 이스케이프 `.map(…)` 줄 제거 → red |
 
 - oracle 좌표: `check-product-naming.test.mjs` `⑥ …` describe의 `제외 항목과 이름만 비슷한 경로는 검사한다` 케이스에 위 신규 4경로를 더한다(파일·테스트명 유지).
 - `*`가 마디 하나라는 분기는 r2 좌표가 이미 잠근다(verify W11 red — 입력 `.agents/skills/a/b/references/c.md`).
