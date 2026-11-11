@@ -191,6 +191,9 @@ describe('SessionActivityProjector', () => {
 
     expect(f.emitted.at(-1)?.residualCount).toBe(1)
     expect(f.projector.current('s').revision).toBe(f.emitted.at(-1)?.revision)
+    f.projector.setResidualAttempts('s', ['unknown'])
+    await flush()
+    expect(f.emitted.at(-1)?.residualCount).toBe(0)
   })
 
   it('projection 승격 뒤 이전 lease 키의 지각 알림도 새 session 키로 흡수한다', async () => {
