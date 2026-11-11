@@ -627,4 +627,8 @@ pending-message-queue.ts
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | … | verify r<N> · VP-… · AC<N> / §10 <N>행 / gate | … | 이행 / 현재 / 확장 / 경계 / 비귀속 | BLOCKING / PLAN_GAP / NON_BLOCKING / NEXT_HANDOFF | open / 구현중 / 해결 / 후보 표 |
+| D1 | P5가 `confirmed` 배치를 입력으로 갖지 않아 `messageCountForAttempts`의 `!isOpen` 항 제거(x5)를 못 잡음 | VP-03 · P5 · R-04 "열린 배치" | `confirmed`된 잔여 `uuid` 배치를 포함한 입력 추가(기대 0) | 이행 | BLOCKING | open |
+| D2 | AC7 "test는 늘지 않는다" ↔ §14 "순증이면 ⚠️ 보고" 모순 | R-07 · §14 | 설계자가 AC7 정정 | plan 내부 불일치 | PLAN_GAP | open |
+| D3 | `sameIds` 길이 항 제거(x4) 못 잡음 — 긴 claim 입력 없음 | VP-02 · K4 | 채택 또는 경계 | 확장 | PLAN_GAP | open |
+| D4 | `committed &&` 제거(x6) 못 잡음 — commit 실패 시 발신 억제 입력 없음 | VP-04 · W 칸 | 채택 또는 경계 | 확장 | PLAN_GAP | open |
+| D5 | 소유권 발신 `ids` 내용 단언 없음(x11) | VP-04 · W1 | 채택 또는 경계 | 확장 | PLAN_GAP | open |
