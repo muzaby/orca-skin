@@ -209,7 +209,6 @@ function admission(
       wc: {} as WebContents,
       pendingMessages: pending,
       activity,
-      chainId: 'chain',
       queueKey,
       getActiveTurn: () => activeTurn,
       getInitialBatches: () => [batch],

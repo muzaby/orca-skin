@@ -1142,7 +1142,7 @@ describe('Claude plugin toggle closes running Claude processes', () => {
       openLive = busy('open-live', 'opencode')
     pendingMessages.enqueue('claude-A', { text: 'queued A' }, 1, 'm-A')
     const batch = pendingMessages.reserveHeld('claude-A', 'attempt-A')!
-    expect(pendingMessages.commit('claude-A', batch.attemptId!, batch.chainId)).toBe(true)
+    expect(pendingMessages.commitMany('claude-A', [batch])).toBe(true)
     activity.setResidualAttempts('claude-A', ['attempt-A'])
     const submitted = vi.spyOn(pendingMessages, 'discardSubmitted')
     try {

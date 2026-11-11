@@ -57,7 +57,6 @@ describe('0250 IT-02 — 도구 경계 입력 무주입', () => {
           setResidualAttempts: vi.fn(),
           setSchedules: vi.fn()
         } as unknown as SessionActivityProjector,
-        chainId: 'chain-1',
         queueKey: 's1',
         getActiveTurn: () => turn,
         getInitialBatches: () => [],

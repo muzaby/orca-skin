@@ -41,7 +41,7 @@ it('carries native IDs separately from queue UUIDs for matched echoes and automa
   const queue = new PendingMessageQueue()
   queue.enqueue('s1', { text: 'next' }, 1, 'steer')
   const batch = queue.reserveHeld('s1')!
-  queue.commit('s1', batch.attemptId!, batch.chainId)
+  queue.commitMany('s1', [batch])
   const deps = makeDeps(
     fakeRuntime([
       [
@@ -622,7 +622,7 @@ describe('Work response boundaries', () => {
     const queue = new PendingMessageQueue()
     queue.enqueue('s1', { text: 'next' }, 1, 'steer')
     const batch = queue.reserveHeld('s1')!
-    queue.commit('s1', batch.attemptId!, batch.chainId)
+    queue.commitMany('s1', [batch])
     const deps = makeDeps(
       fakeRuntime([
         [
@@ -730,7 +730,7 @@ describe('TurnCoordinator requirement commit', () => {
       )
     )
     const batch = pendingMessages.reserveHeld('s1')!
-    pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+    pendingMessages.commitMany('s1', [batch])
     const runtime = fakeRuntime([
       [{ type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid }, telemetry]
     ])
@@ -881,7 +881,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     for (const item of items) {
       pendingMessages.enqueue('s1', { text: item.text }, Date.now(), item.id)
       const batch = pendingMessages.reserveHeld('s1', item.id)!
-      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+      pendingMessages.commitMany('s1', [batch])
     }
     const persistSteer = vi.fn(() => 42)
     const deps = makeDeps(runtime, {
@@ -1043,16 +1043,16 @@ describe('TurnCoordinator.run — 턴-시작 배치 소비 (응답 시작 증거
     const preludes = (opts.preludeIds ?? []).map((id) => {
       pendingMessages.enqueue('s1', { text: `carry-${id}` }, Date.now(), id)
       const batch = pendingMessages.reserveItem('s1', id)!
-      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+      pendingMessages.commitMany('s1', [batch])
       return batch
     })
     pendingMessages.enqueue('s1', { text: 'hello' }, Date.now(), 'p1')
     const mainBatch = pendingMessages.reserveItem('s1', 'p1')!
-    pendingMessages.commit('s1', mainBatch.attemptId!, mainBatch.chainId)
+    pendingMessages.commitMany('s1', [mainBatch])
     for (const id of opts.steerIds ?? []) {
       pendingMessages.enqueue('s1', { text: `steer-${id}` }, Date.now(), id)
       const batch = pendingMessages.reserveHeld('s1', id)!
-      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+      pendingMessages.commitMany('s1', [batch])
     }
     const commitUser = vi.fn(() => 42)
     const deps = makeDeps(runtime, {
@@ -1477,7 +1477,7 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     const pendingMessages = new PendingMessageQueue()
     pendingMessages.enqueue('s1', { text: 'next instruction' }, Date.now(), 'steer-1')
     const batch = pendingMessages.reserveHeld('s1', 'steer-1')!
-    pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+    pendingMessages.commitMany('s1', [batch])
     const deps = makeDeps(
       fakeRuntime([
         [

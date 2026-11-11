@@ -112,7 +112,7 @@ async function runTurn(
   const initialBatch = pendingMessages.reserveItem('draft-key', 'prompt-item')!
   // 이 helper는 SessionRuntime을 우회하는 Coordinator 대역이다. 실제 Runtime이 동기
   // sendMessage 반환 직후 수행하는 accepted commit을 같은 경계에서 모사한다.
-  pendingMessages.commit('draft-key', initialBatch.attemptId!, initialBatch.chainId)
+  pendingMessages.commitMany('draft-key', [initialBatch])
   const coordinator = new TurnCoordinator({
     runtime: fakeRuntime(newSessionId, { text: turn.firstUserText, uuid: 'prompt-item' }),
     bus,

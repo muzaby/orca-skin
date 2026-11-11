@@ -321,7 +321,6 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
         wc: owner,
         pendingMessages,
         activity,
-        chainId: lease.chainId,
         queueKey: 's1',
         getActiveTurn: () => activeTurn,
         getInitialBatches: () => initialBatches,
