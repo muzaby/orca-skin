@@ -60,7 +60,7 @@ describe('session directory action — bound target and persisted scope', () => 
     })
     expect(addDirectory).not.toHaveBeenCalled()
   })
-  it.each([{ inflight: true }, { listening: true }, { loadingSession: true }])(
+  it.each([{ inflight: true }, { activityTransport: 'ready' as const }, { loadingSession: true }])(
     'rejects busy state %j before IPC',
     async (patch) => {
       const entry = useChatStore.getState().sessions.s

@@ -24,14 +24,14 @@ const noticeSettled = (toolUseId = 'p1'): NormalizedEvent => ({
 describe('chatReducer — chat.activity 권위 스냅샷', () => {
   it('started 는 listening + 앵커를 세우고, ended 는 내린다', () => {
     let s = chatReducer(initialChatState, recv(activity(1, 'listening')))
-    expect(s.listening).toBe(true)
+    expect(s.activityTransport).not.toBe('idle')
     expect(s.listenStartedAt).not.toBeNull()
     const anchor = s.listenStartedAt
     // 중복 started 는 앵커를 갱신하지 않는다.
     s = chatReducer(s, recv(activity(1, 'listening')))
     expect(s.listenStartedAt).toBe(anchor)
     s = chatReducer(s, recv(activity(2, 'idle')))
-    expect(s.listening).toBe(false)
+    expect(s.activityTransport).toBe('idle')
     expect(s.listenStartedAt).toBeNull()
   })
 
@@ -40,7 +40,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     s = chatReducer(s, recv(activity(1, 'listening')))
     s = chatReducer(s, recv({ type: 'telemetry', sessionId: 's' } as NormalizedEvent))
     expect(s.inflight).toBe(false)
-    expect(s.listening).toBe(true)
+    expect(s.activityTransport).not.toBe('idle')
     expect(s.listenStartedAt).not.toBeNull()
   })
 
@@ -53,7 +53,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
       recv(activity(1, 'listening'))
     )
     s = chatReducer(s, { type: 'CANCEL_CHAT' })
-    expect(s.listening).toBe(false)
+    expect(s.activityTransport).toBe('idle')
     expect(s.listenStartedAt).toBeNull()
     expect(s.error).toBeUndefined()
   })
@@ -62,7 +62,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     const s = chatReducer(chatReducer(initialChatState, recv(activity(1, 'listening'))), {
       type: 'NEW_CHAT'
     })
-    expect(s.listening).toBe(false)
+    expect(s.activityTransport).toBe('idle')
   })
 
   // ── 0167 AC6(잔여와 직교) 회귀 — verify r1 F1 이 잡은 결함. ──────────────────────────────
@@ -73,7 +73,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
       initialChatState,
       recv(activity(1, 'idle', { deliveryPendingCount: 1, residualCount: 1, queuedCount: 2 }))
     )
-    expect(s.listening).toBe(false)
+    expect(s.activityTransport).toBe('idle')
     expect(s.listenStartedAt).toBeNull()
     // 사실 자체는 스냅샷 필드로 남아 라벨·Notice 가 쓴다.
     expect(s.activityResidualCount).toBe(1)
@@ -86,7 +86,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
       initialChatState,
       recv(activity(1, 'listening', { backgroundTaskCount: 2 }))
     )
-    expect(s.listening).toBe(true)
+    expect(s.activityTransport).not.toBe('idle')
     expect(s.activityBackgroundTaskCount).toBe(2)
   })
 
@@ -102,7 +102,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     // 취소 후 도착한 더 높은 revision 의 'streaming' 스냅샷이 애니메이션을 되살리지 않는다.
     s = chatReducer(s, recv(activity(2, 'idle', { foreground: 'streaming' })))
     expect(s.inflight).toBe(false)
-    expect(s.listening).toBe(false)
+    expect(s.activityTransport).toBe('idle')
     // 라벨용 foreground 는 그대로 반영된다(표시 계층 입력).
     expect(s.activityForeground).toBe('streaming')
   })
@@ -121,7 +121,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
       }
     })
     expect(s.activityRevision).toBe(5)
-    expect(s.listening).toBe(true)
+    expect(s.activityTransport).not.toBe('idle')
   })
 
   it('hydrate 는 로컬 진실이 없으므로 스냅샷으로 inflight·listening·counts 를 세운다 (AC10)', () => {
@@ -143,7 +143,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     })
     expect(s.activityRevision).toBe(7)
     expect(s.inflight).toBe(true) // 재접속 시점에는 BEGIN_TURN 이력이 없다
-    expect(s.listening).toBe(true)
+    expect(s.activityTransport).not.toBe('idle')
     expect(s.listenStartedAt).not.toBeNull()
     expect(s.activityDeliveryPendingCount).toBe(2)
     expect(s.activityResidualCount).toBe(1)
@@ -165,7 +165,7 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
         }) as Extract<NormalizedEvent, { type: 'chat.activity' }>
       }
     })
-    expect(s.listening).toBe(false)
+    expect(s.activityTransport).toBe('idle')
     expect(s.inflight).toBe(false)
     expect(s.activityResidualCount).toBe(1)
   })

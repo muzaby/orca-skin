@@ -42,11 +42,11 @@ describe('턴 종료 tick (AT-71 · §10 EP-46 ④)', () => {
   })
 
   it('`turn.ended` 는 terminal 이 아니다 — 진행 상태를 건드리지 않는다', () => {
-    const busy = { ...initialChatState, inflight: true, listening: true }
+    const busy = { ...initialChatState, inflight: true, activityTransport: 'ready' as const }
     const after = recv(busy, 'turn.ended')
 
     expect(after.inflight).toBe(true)
-    expect(after.listening).toBe(true)
+    expect(after.activityTransport).toBe('ready')
   })
 })
 

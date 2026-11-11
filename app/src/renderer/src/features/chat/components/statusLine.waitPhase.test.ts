@@ -46,6 +46,22 @@ function renderStatusWithSession(session: typeof initialChatState): string {
 }
 
 describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT-04)', () => {
+  // 0308 — 상태줄의 대기 표시는 transport 에서 파생한 점유 값을 받는다(ready 도 점유다).
+  it('derives the waiting label from the transport: ready and listening wait, idle does not', () => {
+    const render = (activityTransport: 'idle' | 'ready' | 'listening'): string =>
+      renderStatusWithSession({
+        ...initialChatState,
+        sessionId: 's1',
+        backend: 'claude',
+        activityForeground: 'idle',
+        turnStartedAt: 1,
+        activityTransport
+      })
+    const idle = render('idle')
+    expect(render('ready')).not.toBe(idle)
+    expect(render('ready')).toBe(render('listening'))
+  })
+
   it('does not invent a wait phase before receiving an activity snapshot', () => {
     const html = renderStatusWithSession({
       ...initialChatState,
