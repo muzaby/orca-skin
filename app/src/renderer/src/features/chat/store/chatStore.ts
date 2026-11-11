@@ -1113,13 +1113,13 @@ function send(
   // 0143: listen 대기(listening) 중에도 main 세션은 busy(턴-후 루프 진행 중) — steer 예약
   // 경로로 보내야 낙관 커밋 vs message.queued 이중 렌더가 없다(main 은 held 로 수용 후
   // 릴리즈 밸브/유예를 거쳐 연속 턴으로 커밋한다).
-  const busy = cur.inflight || cur.listening
+  const busy = sessionBusy(cur)
   // 0153: 예약 경로 판정은 busy 보다 넓다 — **미확정 예약이 남아 있으면** 지금 보내는 메시지는
   // 반드시 그 뒤에 커밋되므로(main 이 적재 순서대로 병합) 낙관 커밋이 항상 틀린다. busy 신호가
   // IPC 로 오는 사이의 창(telemetry 직후 ~ activity snapshot 도착 전)을 이것이 덮는다.
   const queueAsPending = shouldQueueAsPending({
     inflight: cur.inflight,
-    listening: cur.listening,
+    listening: sessionListening(cur),
     pendingCount: snapshot.sessions[sendKey]?.pendingSteer?.length ?? 0
   })
   // 0119: busy 중 provider 경계를 넘는 모델이 선택돼 있으면 steer 예약을 거부한다 —
@@ -1203,8 +1203,7 @@ async function addSessionDirectory(
   if (state.activeKey !== target.key) return { ok: false, reason: 'not-found' }
   if (!sessionContextPolicy(session.agentKind, session.backend).allowDirectoryUpdates)
     return { ok: false, reason: 'not-work' }
-  if (session.inflight || session.listening || session.loadingSession)
-    return { ok: false, reason: 'busy' }
+  if (sessionBusy(session) || session.loadingSession) return { ok: false, reason: 'busy' }
   try {
     const result = await sessionApi.addDirectory({ sessionId: target.sessionId, directory })
     if (result.ok)
@@ -2282,8 +2281,13 @@ export function useChatBusy(): boolean {
   return useChatSession(sessionBusy)
 }
 
-export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boolean {
-  return s.inflight || s.listening
+/** 채널 점유 — ready·listening 모두 입력 예약·세션 변경 가드를 유지한다. 사실은 transport 하나다. */
+export function sessionListening(s: Pick<ChatState, 'activityTransport'>): boolean {
+  return s.activityTransport !== 'idle'
+}
+
+export function sessionBusy(s: Pick<ChatState, 'inflight' | 'activityTransport'>): boolean {
+  return s.inflight || sessionListening(s)
 }
 
 /** 답변 표면 전용. 채널을 유지하며 다음 예약을 기다리는 ready는 응답 중이 아니다. */
@@ -2316,8 +2320,7 @@ export function useChatActivity(): Pick<
   | 'activityBackgroundTaskCount'
   | 'sessionSchedules'
   | 'pendingSessionWakeup'
-  | 'listening'
-> {
+> & { listening: boolean } {
   return useChatStore(
     useShallow((s) => {
       const session = s.sessions[s.activeKey].session
@@ -2330,7 +2333,7 @@ export function useChatActivity(): Pick<
         activityBackgroundTaskCount: session.activityBackgroundTaskCount,
         sessionSchedules: session.sessionSchedules,
         pendingSessionWakeup: session.pendingSessionWakeup,
-        listening: session.listening
+        listening: sessionListening(session)
       }
     })
   )

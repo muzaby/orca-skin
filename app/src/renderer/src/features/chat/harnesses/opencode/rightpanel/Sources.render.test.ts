@@ -23,8 +23,7 @@ beforeEach(() => {
     cwd: 'C:/workspace',
     extraDirs: [],
     messages: [],
-    inflight: false,
-    listening: false
+    inflight: false
   }
 })
 afterEach(() => {

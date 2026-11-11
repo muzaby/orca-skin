@@ -75,7 +75,7 @@ it('rejects a reused draft key, busy/loading drafts, and deleted project IDs', (
   for (const patch of [
     { loadingSession: true },
     { inflight: true },
-    { listening: true },
+    { activityTransport: 'ready' as const },
     { sessionId: 'started' }
   ]) {
     const state = useChatStore.getState()

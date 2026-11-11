@@ -327,9 +327,8 @@ export interface ChatState {
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
-  // 채널 점유 스냅샷. ready와 listening 모두 입력 예약·세션 변경 가드를 유지한다.
-  // 답변 표면은 activityTransport를 함께 읽어 유휴 수신(ready)을 제외한다.
-  listening: boolean
+  // 채널 점유 스냅샷. ready와 listening 모두 입력 예약·세션 변경 가드를 유지하고(`sessionListening`),
+  // 답변 표면은 유휴 수신(ready)을 제외한다(`sessionResponding`).
   activityTransport: 'idle' | 'ready' | 'listening'
   activityRevision: number
   activityForeground: 'idle' | 'preparing' | 'streaming'
@@ -514,7 +513,6 @@ export const initialChatState: ChatState = {
   messages: [],
   sendCount: 0,
   inflight: false,
-  listening: false,
   activityTransport: 'idle',
   activityRevision: 0,
   activityForeground: 'idle',
@@ -1253,7 +1251,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 스냅샷의 `foreground` 는 **라벨 전용**이고, 여기서 `inflight` 를 덮으면
           // BEGIN_TURN/TURN_END_RESET/CANCEL_CHAT 의 낙관적 판정을 뒤늦은 스냅샷이 되돌린다
           // (초기 동기화만 예외 — LOAD_SESSION hydrate 는 로컬 진실이 없으므로 스냅샷을 쓴다).
-          const listening = ev.transport !== 'idle'
           return {
             ...state,
             activityRevision: ev.revision,
@@ -1268,7 +1265,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...(ev.pendingSessionWakeup !== undefined
               ? { pendingSessionWakeup: ev.pendingSessionWakeup }
               : {}),
-            listening,
             listenStartedAt:
               ev.transport === 'listening' ? (state.listenStartedAt ?? Date.now()) : null
           }
@@ -1417,7 +1413,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         ...TURN_END_RESET,
         error: undefined,
-        listening: false,
         activityTransport: 'idle',
         listenStartedAt: null,
         ...childApprovalState(state)
@@ -1553,7 +1548,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               activityResidualCount: state.activityResidualCount,
               activityBackgroundTaskCount: state.activityBackgroundTaskCount,
               inflight: state.inflight,
-              listening: state.listening,
               listenStartedAt: state.listenStartedAt
             }
           : activity
@@ -1569,7 +1563,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 // **hydrate 만 스냅샷으로 inflight 를 세운다** — 세션 전환·재접속 시점에는 로컬
                 // 진실(BEGIN_TURN 이력)이 없기 때문(G-4 초기 동기화). 라이브 스냅샷은 건드리지 않는다.
                 inflight: activity.foreground !== 'idle',
-                listening: activity.transport !== 'idle',
                 listenStartedAt: activity.transport === 'listening' ? Date.now() : null
               }
             : {}),
