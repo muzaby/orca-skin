@@ -20,7 +20,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
 }: PendingSteerTurnProps): React.JSX.Element | null {
   const { appearance } = useTranscriptRuntime()
   const { tr } = useI18n()
-  const activityForeground = useChatSession((s) => s.activityForeground)
+  const foreground = useChatSession((s) => s.activity.foreground)
   if (items.length === 0) return null
   return (
     <div className="group/msg flex flex-col items-end gap-[var(--chat-item-gap)]">
@@ -33,7 +33,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
               {tr('chat.steer.submitted')}
             </span>
           ) : (
-            pendingSteerControls(item, activityForeground).map((kind) => (
+            pendingSteerControls(item, foreground).map((kind) => (
               <button
                 key={kind}
                 type="button"

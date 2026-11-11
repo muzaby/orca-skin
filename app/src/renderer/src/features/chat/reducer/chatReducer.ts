@@ -14,7 +14,7 @@ import type {
   AskQuestionRequest,
   AttachmentView,
   Backend,
-  ChatWaitPhase,
+  ChatActivitySnapshot,
   ClassifiedError,
   DiffRequirementAnchor,
   DiffRequirementItem,
@@ -329,14 +329,7 @@ export interface ChatState {
   messages: Message[]
   // 채널 점유 스냅샷. ready와 listening 모두 입력 예약·세션 변경 가드를 유지하고(`sessionListening`),
   // 답변 표면은 유휴 수신(ready)을 제외한다(`sessionResponding`).
-  activityTransport: 'idle' | 'ready' | 'listening'
-  activityRevision: number
-  activityForeground: 'idle' | 'preparing' | 'streaming'
-  activityWaitPhase: ChatWaitPhase | null
-  activityQueuedCount: number
-  activityDeliveryPendingCount: number
-  activityResidualCount: number
-  activityBackgroundTaskCount: number
+  activity: ChatActivityState
   // listening 구간의 경과시간 앵커 — turnStartedAt 이 TURN_END_RESET 으로 비어도 StatusLine
   // 이 이 값을 폴백으로 쓴다.
   listenStartedAt: number | null
@@ -487,6 +480,42 @@ export interface ChatState {
   continuityLang: ContinuityLang | null
 }
 
+/** main 활동 스냅샷에서 세션 상태가 드는 부분 — 예약 2필드는 병합 규칙이 달라 따로 든다. */
+export type ChatActivityState = Pick<
+  ChatActivitySnapshot,
+  | 'revision'
+  | 'foreground'
+  | 'transport'
+  | 'waitPhase'
+  | 'queuedCount'
+  | 'deliveryPendingCount'
+  | 'residualCount'
+  | 'backgroundTaskCount'
+>
+
+const IDLE_ACTIVITY: ChatActivityState = {
+  revision: 0,
+  foreground: 'idle',
+  transport: 'idle',
+  queuedCount: 0,
+  deliveryPendingCount: 0,
+  residualCount: 0,
+  backgroundTaskCount: 0
+}
+
+function activityOf(snapshot: ChatActivityState): ChatActivityState {
+  return {
+    revision: snapshot.revision,
+    foreground: snapshot.foreground,
+    transport: snapshot.transport,
+    ...(snapshot.waitPhase ? { waitPhase: snapshot.waitPhase } : {}),
+    queuedCount: snapshot.queuedCount,
+    deliveryPendingCount: snapshot.deliveryPendingCount,
+    residualCount: snapshot.residualCount,
+    backgroundTaskCount: snapshot.backgroundTaskCount
+  }
+}
+
 export const initialChatState: ChatState = {
   agentKind: DEFAULT_AGENT_KIND,
   agentKindLocked: false,
@@ -513,14 +542,7 @@ export const initialChatState: ChatState = {
   messages: [],
   sendCount: 0,
   inflight: false,
-  activityTransport: 'idle',
-  activityRevision: 0,
-  activityForeground: 'idle',
-  activityWaitPhase: null,
-  activityQueuedCount: 0,
-  activityDeliveryPendingCount: 0,
-  activityResidualCount: 0,
-  activityBackgroundTaskCount: 0,
+  activity: IDLE_ACTIVITY,
   listenStartedAt: null,
   loadingSession: false,
   turnStartedAt: null,
@@ -1241,7 +1263,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'chat.activity': {
-          if (ev.revision <= state.activityRevision) return state
+          if (ev.revision <= state.activity.revision) return state
           // **`listening` 은 transport 에서만 파생한다**(0167 AC6 — 잔여와 직교). `busy` 를 섞으면
           // 0154 가 **의도적으로 남기는** orphaned 예약 하나로 `sessionBusy` 가 무한 true 가 되어
           // 보고 ②-a(마지막 답변 뒤 애니메이션 지속)를 그대로 재현한다. 대기 이유는 애니메이션이
@@ -1253,14 +1275,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // (초기 동기화만 예외 — LOAD_SESSION hydrate 는 로컬 진실이 없으므로 스냅샷을 쓴다).
           return {
             ...state,
-            activityRevision: ev.revision,
-            activityForeground: ev.foreground,
-            activityWaitPhase: ev.waitPhase ?? null,
-            activityTransport: ev.transport,
-            activityQueuedCount: ev.queuedCount,
-            activityDeliveryPendingCount: ev.deliveryPendingCount,
-            activityResidualCount: ev.residualCount,
-            activityBackgroundTaskCount: ev.backgroundTaskCount,
+            activity: activityOf(ev),
             ...(ev.sessionSchedules !== undefined ? { sessionSchedules: ev.sessionSchedules } : {}),
             ...(ev.pendingSessionWakeup !== undefined
               ? { pendingSessionWakeup: ev.pendingSessionWakeup }
@@ -1413,7 +1428,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         ...TURN_END_RESET,
         error: undefined,
-        activityTransport: 'idle',
+        activity: { ...state.activity, transport: 'idle' },
         listenStartedAt: null,
         ...childApprovalState(state)
       }
@@ -1450,7 +1465,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }))
       const activity = action.session.activity
       const preserveNewerLiveActivity =
-        state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
+        state.sessionId === action.session.id && state.activity.revision > (activity?.revision ?? 0)
       if (action.preserveLocalState && state.sessionId === action.session.id) {
         // Reopening an idle cached conversation refreshes its archive without resetting local UI.
         return {
@@ -1539,27 +1554,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages,
         ...(preserveNewerLiveActivity
           ? {
-              activityRevision: state.activityRevision,
-              activityForeground: state.activityForeground,
-              activityWaitPhase: state.activityWaitPhase,
-              activityTransport: state.activityTransport,
-              activityQueuedCount: state.activityQueuedCount,
-              activityDeliveryPendingCount: state.activityDeliveryPendingCount,
-              activityResidualCount: state.activityResidualCount,
-              activityBackgroundTaskCount: state.activityBackgroundTaskCount,
+              activity: state.activity,
               inflight: state.inflight,
               listenStartedAt: state.listenStartedAt
             }
           : activity
             ? {
-                activityRevision: activity.revision,
-                activityForeground: activity.foreground,
-                activityWaitPhase: activity.waitPhase ?? null,
-                activityTransport: activity.transport,
-                activityQueuedCount: activity.queuedCount,
-                activityDeliveryPendingCount: activity.deliveryPendingCount,
-                activityResidualCount: activity.residualCount,
-                activityBackgroundTaskCount: activity.backgroundTaskCount,
+                activity: activityOf(activity),
                 // **hydrate 만 스냅샷으로 inflight 를 세운다** — 세션 전환·재접속 시점에는 로컬
                 // 진실(BEGIN_TURN 이력)이 없기 때문(G-4 초기 동기화). 라이브 스냅샷은 건드리지 않는다.
                 inflight: activity.foreground !== 'idle',

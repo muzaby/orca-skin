@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { StatusLine } from '../StatusLine'
 import { chatActions, useChatActivity, useChatSession, useLiveText } from '../../store/chatStore'
 export function PendingAssistantStatus(): React.JSX.Element {
@@ -11,37 +10,12 @@ export function PendingAssistantStatus(): React.JSX.Element {
   const activity = useChatActivity()
   const prepareStep = useChatSession((s) => s.worktreePrepareStep)
   const text = useLiveText()
-  // 활동 값이 같으면 같은 객체를 유지해 상태 줄의 파생·번역을 실제 변화에만 묶는다.
-  const activityView = useMemo(
-    () => ({
-      foreground: activity.activityForeground,
-      ...(activity.activityWaitPhase ? { waitPhase: activity.activityWaitPhase } : {}),
-      queuedCount: activity.activityQueuedCount,
-      deliveryPendingCount: activity.activityDeliveryPendingCount,
-      residualCount: activity.activityResidualCount,
-      backgroundTaskCount: activity.activityBackgroundTaskCount,
-      sessionSchedules: activity.sessionSchedules,
-      pendingSessionWakeup: activity.pendingSessionWakeup,
-      listening: activity.listening
-    }),
-    [
-      activity.activityForeground,
-      activity.activityWaitPhase,
-      activity.activityQueuedCount,
-      activity.activityDeliveryPendingCount,
-      activity.activityResidualCount,
-      activity.activityBackgroundTaskCount,
-      activity.sessionSchedules,
-      activity.pendingSessionWakeup,
-      activity.listening
-    ]
-  )
   return (
     <StatusLine
       backend={backend}
       turnStartedAt={turnStartedAt ?? listenStartedAt}
       outputApproxFromText={text}
-      activity={activityView}
+      activity={activity}
       prepareStep={prepareStep}
       onOpenBackground={() =>
         chatActions.setRightPanelTileActive(agentKind === 'work' ? 'task' : 'subagent', true)
