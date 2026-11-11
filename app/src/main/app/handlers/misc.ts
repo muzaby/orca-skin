@@ -53,7 +53,7 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
       .adapters()
       .flatMap((adapter) => ctx.harnessSettings.list(adapter))
     const settings = toAgentEnvironments(entries, supported)
-    const merged = ctx.runtimeModelCatalog?.merge(settings) ?? settings
+    const merged = ctx.runtimeModelCatalog.merge(settings)
     return Promise.all(
       merged.map(async (entry) => {
         const state = availability.find((item) => item.id === entry.adapter)
@@ -68,13 +68,10 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
             harnessId: entry.adapter,
             modelProviderId: entry.provider ?? ''
           }
-          const config = ctx.harnessRuntime
-            ? ctx.runtimeModelCatalog?.isReadOnly(entry.key)
-              ? ctx.harnessRuntime.cached(entry.key)
-              : await ctx.harnessRuntime.resolve(target)
-            : { ...target, runtimeEnv: {}, settings: await ctx.harnessSettings.resolve(target) }
-          if (!config || (!ctx.harnessRuntime && !config.settings))
-            throw new Error('하네스 설정을 읽을 수 없습니다.')
+          const config = ctx.runtimeModelCatalog.isReadOnly(entry.key)
+            ? ctx.harnessRuntime.cached(entry.key)
+            : await ctx.harnessRuntime.resolve(target)
+          if (!config) throw new Error('하네스 설정을 읽을 수 없습니다.')
           const prepared = prepareConfiguredHarnessInput(ctx, config, adapter.agentSpawnEnv('code'))
           return await adapter.catalog(
             entry,

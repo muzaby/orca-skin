@@ -255,6 +255,34 @@ describe.each(['reveal', 'open'] as const)(
       }
     )
 
+    // 첨부 목록도 폴더 목록과 같은 세션 정책을 지난다 — 기록이 있어도 정책이 닫힌 세션에서는 열리지 않는다.
+    it('keeps a registered attachment closed when the session policy denies context opening', async () => {
+      const file = join(root, 'denied-input.md')
+      writeFileSync(file, 'reference')
+      const messageId = queries.appendMessage({
+        sessionId: 'code',
+        role: 'user',
+        content: 'input',
+        createdAt: 1
+      })
+      queries.appendPart({
+        messageId,
+        type: 'attachment',
+        toolRunId: null,
+        payloadJson: JSON.stringify({
+          attachments: [{ path: realpathSync(file), sha256: 'a'.repeat(64) }]
+        })
+      })
+      expect(queries.listSessionAttachmentFiles('code').map((row) => row.path)).toEqual([
+        realpathSync(file)
+      ])
+      await expect(invoke({ path: file, mode: 'reveal', sessionId: 'code' })).rejects.toThrow(
+        '허용되지 않은'
+      )
+      expect(host.reveal).not.toHaveBeenCalled()
+      expect(host.openPath).not.toHaveBeenCalled()
+    })
+
     it('does not follow a registered attachment that is later redirected', async () => {
       const originalDirectory = join(root, 'Stored')
       const replacementDirectory = join(root, 'Replacement')

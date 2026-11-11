@@ -488,19 +488,132 @@ bootstrap ctx → handlers/misc · chat-turn/resolve-turn · handlers/engine    
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md). 필드는 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md)의 `[구현자 기입]` 절을 그대로 쓴다.
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+- 동의 / 그대로 진행: H-A 8건 · C-13 · C-17 · C-39.
+- 이견 / 현실성 문제: 4건 — 설계 정정 커밋 2개로 반영됐다(D-012~D-016). C-06은 16→8, C-37·C-38·C-16·C-30은 철회.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
 
-## [구현자 기입] Product/UX 파생 검토
+검색은 `cd app/src` 기준, 마지막 수정 뒤 트리에서 실행했다.
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 전체 중단 경로 없음 | EP-01 (11) | 11/11 | EP-01 검색 → 0건 · `background-controller.test.ts` 개별 중단 3건 green · `protocol.background.test.ts:'rejects stop without generation'` 외 5 | `generation`: 없는 입력·빈 문자열 → `safeParse().success === false` | — |
+| VP-02 | 폴더 열기 채널 없음 | EP-02 (5) | 5/5 | EP-02 검색 → 0건(`openFolderPath` 서비스만 남음) · `artifacts.test.ts:'rejects exports into the canonical root and reveals only the verified original ID'` | 운반 항 없음 — 삭제 | — |
+| VP-03 | `provider:list` 없음 | EP-03 (4) | 4/4 | EP-03 검색 → SDK 호출 1건(허용 예외)뿐 · `providers.test.ts:'등록 집합이 CHANNELS 의 provider 도메인 전수와 일치한다'` | 운반 항 없음 — 삭제 | — |
+| VP-04 | camera 없음 | EP-04 (4) | 4/4 | EP-04 검색 → 0건 · `gate:npm run typecheck` 0 error | 운반 항 없음 | — |
+| VP-05 | dead export 8 없음 | EP-05 (8) | 8/8 | `lens-exports.mjs` dead 절 10행에 8개 이름 0(남은 10 = D-012 유지 8 + 아래 발견 2) | 운반 항 없음 | — |
+| VP-06 | `structured_output` 없음 | EP-06 (9) | 9/9 | EP-06 검색 → 마이그레이션 SQL 주석 1건(허용)뿐 · `parts.test.ts:'error 는 개별 세그먼트, 빈 text 는 스킵'` | 운반 항 없음 | — |
+| VP-07 | `projectMcpChoices` 없음 | EP-07 (3) | 3/3 | `rg projectMcpChoices . -g '!*.test.*'` → 0건 · `extension-catalog.test.ts:'does not reactivate legacy choice bytes or accept writes through settings.patch'` | 다른 키 `language: 'English'`(기본값 `한국어`와 다름) → 로드·patch 뒤에도 유지 · patch 값 `/B`가 저장소에 없음 | — |
+| VP-08 | `backgroundSet` 없음 | EP-08 (2) | 2/2 | `rg backgroundSet .` → 0건 · `turn-coordinator.test.ts` 서브에이전트 정착 케이스 green | 운반 항 없음 | — |
+| VP-10 | 컨텍스트 가드 1벌 | EP-10 (2) | 2/2 | `rg -c allowContextFileOpen main/app/handlers/files.ts` → 1 · 폴더: `files.contextDirectory.test.ts:'rejects files outside the requested %s Work scope'` · 첨부: `:'keeps a registered attachment closed when the session policy denies context opening'`(신규, reveal·open 두 입구) | 정책 불허 세션 `code`에 첨부 기록을 실제로 넣고(`listSessionAttachmentFiles` 1건 확인) 열기 거부·shell 미호출 단언 | — |
+| VP-12 | 런타임 구성 의존성 필수 | EP-12 (9) | 9/9 | EP-12 검색 2종 → 0건 · `misc.runtime-catalog.test.ts` · `resolve-turn.runtime-catalog.test.ts` · `engine.deployment.test.ts:'invalidates settings, runtime config and the model catalog for the changed key'` | 변이 S01~S13 전부 red(아래 표) — 분기·인자·무효화 호출 각각 | — |
+| VP-15 | 유효 플러그인 id 출처 1곳 | EP-15 (1) | 1/1 | `nativePluginMentions(` 2 · `validPluginIds` 1 · `useMentionAutocomplete.test.ts:'keeps observed plugins valid whether or not provider candidates are included'` | 관측 id `native-only`(provider id `linear`와 다름) → 3입력 결과 `[linear,native-only]`·`[native-only]`·`[]` | 컨트롤러의 `includeManagedMcp` 조립(선언 경계 6) |
+| VP-16 | 문서가 현재 상태 | EP-16 (12) | 11/11 | EP-16 검색 → 0건 · `check-doc-inventory.mjs --check` ok(114 channels). EP-16이 열거한 문서를 세면 11개다(`git diff --name-only -- docs ':!docs/handoff'` → 11) — 표의 `12`는 합계 오기 | 운반 항 없음 | — |
+| VP-09·11·13·14 | 철회 | — | — | D-013~D-016 | — | — |
 
-## [구현자 기입] 구현 보고
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
 
-## [구현자 기입] Review Signals — 사실만
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 위 표 | required — S18·S19 red |
+| VP-02~VP-08 | REQUIRED | SELF_PASS | 위 표 | not selected |
+| VP-10 | REQUIRED | SELF_PASS | 위 표 | not selected — sweep S14~S16 red |
+| VP-12 | REQUIRED | SELF_PASS | 위 표 | required — 호출 대체 S01·S02·S06·S07, 인자 맞바꿈 S04·S09 red |
+| VP-15 | REQUIRED | SELF_PASS | 위 표 | not selected — sweep S17 red |
+| VP-16 | REQUIRED | SELF_PASS | 위 표 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스 `mutate.py`, oracle은 관련 스위트(handlers · chat-turn · 해당 단일 파일). 원복 확인 "모든 파일 원문 그대로".
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| S01 `misc.ts` 읽기 전용 분기 제거(항상 `resolve`) | VP-12 선택 증거 | 최초 | 2 failed | 잠김 |
+| S02 `misc.ts` 항상 `cached` | VP-12 선택 증거 | 최초 | 8 failed | 잠김 |
+| S03 `misc.ts` `!config` 오류 제거 | sweep — 규칙 칸 분기 | 최초 | 1 failed | 잠김 |
+| S04 `misc.ts` `harnessId`↔`modelProviderId` | VP-12 선택 증거 | 최초 | 5 failed | 잠김 |
+| S05 `misc.ts` `merge` 제거 | sweep — §10 자리 | 최초 | 7 failed | 잠김 |
+| S06 `resolve-turn.ts` 항상 `resolve` | VP-12 선택 증거 | 최초 | 7 failed | 잠김 |
+| S07 `resolve-turn.ts` 항상 `cached` | VP-12 선택 증거 | 최초 | 49 failed | 잠김 |
+| S08 `resolve-turn.ts` `!config` 오류 제거 | sweep — 규칙 칸 분기 | 최초 | 6 failed | 잠김 |
+| S09 `resolve-turn.ts` 인자 맞바꿈 | VP-12 선택 증거 | 최초 | 20 failed | 잠김 |
+| S10 `resolve-turn.ts` `merge` 제거 | sweep — §10 자리 | 최초 | 10 failed | 잠김 |
+| S11 `engine.ts` `harnessRuntime.invalidate` 제거 | sweep — §10 자리 | 최초 | 15 failed | 잠김 |
+| S12 `engine.ts` `runtimeModelCatalog.invalidate` 제거 | sweep — §10 자리 | 최초 | 15 failed | 잠김 |
+| S13 `engine.ts` `isReadOnly` 고정 false | sweep — §10 자리 | 최초 | 4 failed | 잠김 |
+| S14 `files.ts` `contextSession` 정책 제거 | sweep — 규칙 칸 분기 | 최초 | 4 failed | 잠김 |
+| S15 `files.ts` 첨부 목록이 가드 우회 | sweep — §10 자리(맞바꿈 대상 형제) | 최초 green | 테스트 추가 뒤 2 failed | 잠김 — 테스트 추가 |
+| S16 `files.ts` 폴더 목록이 가드 우회 | sweep — §10 자리 | 최초 | 4 failed | 잠김 |
+| S17 훅에서 `observedPlugins` 합치기 제거 | sweep — §10 자리 | 최초 | 1 failed | 잠김 |
+| S18 `Stop` 스키마 `generation` 제거 | VP-01 선택 증거 | 최초 | 3 failed | 잠김 |
+| S19 `Promote` 스키마 `generation` 제거 | VP-01 선택 증거 | 최초 | 3 failed | 잠김 |
+| S20 `send.ts` `background.observe` 전달 제거 | sweep — §10 자리 | 최초 | 7 failed | 잠김 |
+| S21 `send.ts` 하네스 지시 읽기 고정 | sweep — §10 자리 | 최초 | 8 failed | 잠김 |
+
+- **분모 검산**: `선택 증거 8(S01·02·04·06·07·09·18·19) · 인용 변이 0 · 새 oracle 0 · sweep 13 = 표 행 21`. 삭제 자리(EP-01~08)는 남은 코드가 없어 변이를 심을 자리가 없다 — 음성 검색과 유지 동작 테스트로 닫았다.
+- **덮개 회귀**: 해당 없음(첫 라운드). 삭제한 테스트는 지운 능력만 보던 것이다 — 전체 중단 2건 · 폴더 열기 1건 · `backgroundSet` 3건과 단언 1줄.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음. 삭제한 오류 문구 1개("백그라운드 작업 전체 중단을 확인하고 있습니다…")는 띄우는 조작이 없었다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 변화 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 변화 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | dead export 7개가 포크 호환 alias, 1개가 문서화된 공용 상수 | 📝 plan 수정 → D-012(설계 정정 커밋 1) | `shared/plugin-catalog.ts:1` 주석 · `dom-architecture.md:157` |
+| 2 | `onStage`가 취소 시점 테스트의 수단 | 📝 plan 수정 → D-013 | `mail.integration.test.ts` "cancellation after MIME parsing…" |
+| 3 | C-38·C-16은 순증, C-30은 가드 충돌 | 📝 plan 수정 → D-014~D-016 | SSR 테스트 7파일 · `./admission` 전체 mock 2파일 · `no-stray-auth-subscribe.test.ts:24` |
+| 4 | 훅이 이미 관측 플러그인을 합쳐 컨트롤러 memo 전체가 중복 | 📝 plan 수정 → AC15·VP-15·EP-15 | `useMentionAutocomplete.ts:160-164` |
+| 5 | Electron 바이너리 없이 돌리면 5개 테스트 파일이 import에서 죽어, C-13으로 깨진 조립 32케이스가 로컬에서 보이지 않았다 | ✅ 선조치 — `node node_modules/electron/install.js` 뒤 재실행해 5파일을 고쳤다 | `native-session` · `resolve-turn.agent` · `send.agent-profile` · `send.harness` · `native-history` |
+| 6 | `BackgroundTaskTracker.applyLiveSet`의 production 호출부 0 — `backgroundSet`이 쓰던 메서드 | ⚠️ 보고만(비귀속 — plan 열거 밖) | `rg applyLiveSet main -g '!*.test.*'` → 선언 2줄뿐 |
+| 7 | camera 삭제로 `BayerPattern`·`Histogram`(shared/ui)이 참조 0이 됐다 | ⚠️ 보고만(선언 경계 4 — `design-system.md`가 지목하는 컴포넌트) | `lens-exports.mjs` dead 절 |
+| 8 | `rendering.md` §1.6·§1.7의 목표 설계 서술에 `StructuredOutputCard`가 남는다 | ⚠️ 보고만 — 현재 코드 서술만 고쳤다. 목표 설계를 지울지는 제품 결정 | `rendering.md:155,174` |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것: 없음 — 차이는 전부 설계 정정 커밋으로 plan에 먼저 반영했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 대체 메커니즘 없음 | — |
+| 공유 | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/**` 68(그중 테스트 31) · 현재 상태 문서 11 · 신규 `runtime-config.testfixture.ts` · `protocol.background.test.ts` |
+| 실행 명령 | §19 전체 — 가드 4종 · `npm run lint` · `npm run typecheck` · 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` |
+| **관측한 게이트 산출** | 가드 4종 ok(doc-inventory 114 channels · product-naming 2235파일 · test-budgets 20 suites) · lint 0 error / 2 warning(변경 전 동일) · typecheck 0 error · vitest 946파일 중 933 passed / 9 failed, 8962케이스 중 22 failed · `node --test` 868/868. 실패 22건은 변경 전 트리에서 같은 파일을 돌린 실패 집합과 차집합 0(양방향)이다 — 어댑터 native·composer catalog 스위트로, 이번 변경 파일이 아니다. 원인은 조사하지 않았다(다른 handoff verify가 같은 22건을 환경 서명으로 기록) |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 31개 수정·추가 · `check-test-budgets.mjs` ok · `[test-pools]` 가드 실패 0(전체 vitest에서 새 실패 0) · 시간 값·git·자식 프로세스 추가 없음 |
+| V-pair 자기확인 | `SELF_PASS 12 / SELF_BLOCKED 0` (철회 4) |
+| 강제 지점 전수 | 69/69 자리 (EP-01~08 46 · EP-10 2 · EP-12 9 · EP-15 1 · EP-16 11) |
+| **AC 자기보고** | AC1~AC8 ✅(위 표 VP-01~08 관측) · AC10 ✅(S14~S16 red) · AC12 ✅(S01~S13 red) · AC15 ✅(S17 red) · AC16 ✅(EP-16 0건) · AC17 ⚠️ prod +61/−558 = **−497** ✅, test +194/−187 = **+7** — 조건(≤0) 미달. 사유: 변이로 찾은 미잠금 3곳의 테스트(첨부 정책 27 · 스키마 26 · 관측 플러그인 17줄)와 공용 fixture 36줄 · AC18 ✅ · AC19 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 13 · ⚠️ 2 · ❌ 0 = 총 15` — 분모는 정정 2로 19 → 15(AC9·11·13·14 철회) |
+| 블로커 / 역질문 | D-011(C-02 범위) OPEN 그대로. AC17 test 조건은 설계자 판단 필요 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 설계 턴이 후보 15건 중 5건의 전제(테스트 참조·호환 주석·가드 정규식·순증 여부)를 구현 전에 확인하지 못했다. 설계 정정 커밋이 2회 나왔다.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리가 없으면 `electron`을 import하는 테스트가 파일째 죽어 조립 변경의 영향이 가려진다. 이번 환경에서는 `install.js`가 성공했다.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

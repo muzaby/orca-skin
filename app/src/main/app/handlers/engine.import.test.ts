@@ -41,7 +41,12 @@ beforeEach(() => {
   h.home = root
   vi.stubEnv('XDG_CONFIG_HOME', '')
   h.handlers.clear()
-  registerEngineHandlers({ deployExtensions: vi.fn(), harnessSettings: { invalidateAll: vi.fn() } })
+  registerEngineHandlers({
+    deployExtensions: vi.fn(),
+    harnessSettings: { invalidateAll: vi.fn() },
+    harnessRuntime: { invalidate: vi.fn() },
+    runtimeModelCatalog: { isReadOnly: () => false, invalidate: vi.fn(async () => {}) }
+  })
 })
 afterEach(() => {
   vi.unstubAllEnvs()

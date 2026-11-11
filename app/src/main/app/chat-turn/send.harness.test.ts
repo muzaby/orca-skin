@@ -11,6 +11,7 @@ import {
 } from '../../features/sessions/session-chain-lease'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { Backend } from '../../../shared/ipc'
+import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
 
 vi.mock('../../features/chat/attachments', () => ({
   normalizeAttachments: vi.fn(async () => ({ attachmentTexts: [], attachmentImages: [] }))
@@ -50,6 +51,8 @@ function fixture(stored?: Backend): {
     db,
     deps: {
       ctx: {
+        ...passthroughRuntimeConfig(),
+        settings: { getAll: () => ({}) },
         debugMock: { enabled: false },
         registry: { getActive: () => adapters.claude, get: (id: Backend) => adapters[id] },
         db
@@ -60,6 +63,7 @@ function fixture(stored?: Backend): {
         releaseChain: (id: string) => leases.release(id)
       },
       pendingMessages,
+      background: { observe: vi.fn() },
       listenRelease: new Map(),
       isUpdateInstallPending: () => false
     } as unknown as Parameters<typeof handleChatSend>[0],

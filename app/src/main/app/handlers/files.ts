@@ -50,14 +50,18 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   const isAllowedDir = (dir: string): boolean =>
     isWithinDir(dir, projectsDir()) || ctx.db.hasSessionWithCwd(dir)
 
-  const recordedContextDirectories = (sessionId: string): string[] => {
+  // 컨텍스트 열기가 허용된 세션 행만 돌려준다 — 디렉토리와 첨부 목록이 같은 정책을 지난다.
+  const contextSession = (sessionId: string): ReturnType<typeof ctx.db.getSessionById> => {
     const session = ctx.db.getSessionById(sessionId)
-    if (
-      !session ||
-      !sessionContextPolicy(parseAgentKind(session.agent_kind), session.backend)
-        .allowContextFileOpen
-    )
-      return []
+    return session &&
+      sessionContextPolicy(parseAgentKind(session.agent_kind), session.backend).allowContextFileOpen
+      ? session
+      : undefined
+  }
+
+  const recordedContextDirectories = (sessionId: string): string[] => {
+    const session = contextSession(sessionId)
+    if (!session) return []
     return [session.cwd, ...parseStoredExtraDirectories(session.extra_dirs)].filter(
       (directory): directory is string =>
         typeof directory === 'string' && isAbsolutePath(directory) && !isFilesystemRoot(directory)
@@ -69,16 +73,10 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
       (recorded) => directoryIdentity(recorded) === directoryIdentity(directory)
     )
 
-  const recordedAttachmentFiles = (sessionId: string): string[] => {
-    const session = ctx.db.getSessionById(sessionId)
-    if (
-      !session ||
-      !sessionContextPolicy(parseAgentKind(session.agent_kind), session.backend)
-        .allowContextFileOpen
-    )
-      return []
-    return ctx.db.listSessionAttachmentFiles(sessionId).map((file) => file.path)
-  }
+  const recordedAttachmentFiles = (sessionId: string): string[] =>
+    contextSession(sessionId)
+      ? ctx.db.listSessionAttachmentFiles(sessionId).map((file) => file.path)
+      : []
   const contextFileScope = { recordedContextDirectories, recordedAttachmentFiles }
 
   const isInsideAllowedDir = (dir: string): boolean => {

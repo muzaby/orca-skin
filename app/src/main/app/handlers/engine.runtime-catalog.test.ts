@@ -135,6 +135,7 @@ describe('engine runtime catalog invalidation wiring', () => {
     registerEngineHandlers({
       deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: vi.fn() },
+      harnessRuntime: { invalidate: vi.fn() },
       runtimeModelCatalog: { isReadOnly, invalidate: vi.fn() }
     })
 

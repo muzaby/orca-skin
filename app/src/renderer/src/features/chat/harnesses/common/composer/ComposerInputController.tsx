@@ -235,17 +235,6 @@ export function ComposerInputController({
     includeManagedMcp && managedMcpAvailability === 'bindings',
     observedPlugins
   )
-  const validPluginIds = useMemo(
-    () =>
-      new Set([
-        ...mentionAutocomplete.validPluginIds,
-        ...nativePluginMentions(native.view).map((plugin) => plugin.id),
-        ...(includeManagedMcp
-          ? nativePluginMentions(native.view, 'orcinus-orca').map((plugin) => plugin.id)
-          : [])
-      ]),
-    [mentionAutocomplete.validPluginIds, native.view, includeManagedMcp]
-  )
   const skillOpen = active && derivedCurrent && autocomplete.open
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
 
@@ -417,7 +406,7 @@ export function ComposerInputController({
                   onKeyDown={onKeyDown}
                   knownSkillNames={knownSkillNames}
                   validFilePaths={mentionAutocomplete.validFilePaths}
-                  validPluginIds={validPluginIds}
+                  validPluginIds={mentionAutocomplete.validPluginIds}
                   placeholder={
                     inflight
                       ? steerBlocked

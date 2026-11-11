@@ -105,6 +105,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
   const sender = new EventEmitter()
   const deps = {
     ctx: {
+      settings: { getAll: () => ({}) },
       db: {
         updateSessionProviderKey: vi.fn(),
         getProject: vi.fn(() => null),
@@ -144,6 +145,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
     backgroundTasks: {},
     activity: { setWaitPhase },
     isUpdateInstallPending: () => false,
+    background: { observe: vi.fn() },
     listenRelease: new Map(),
     settleDeadBackgroundTasks: vi.fn(),
     worktrees: {

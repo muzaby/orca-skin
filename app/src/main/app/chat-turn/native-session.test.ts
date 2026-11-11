@@ -20,6 +20,7 @@ import { DbQueries } from '../../infra/db/queries'
 import type { RouterContext } from '../context'
 import { prepareNativeSession } from './native-session'
 import { resolveTurn } from './resolve-turn'
+import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/config/oo-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
@@ -167,6 +168,7 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const entry = { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local' }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: queries,
       getCwd: cwd,
       mcp: { resolver: () => () => undefined },
@@ -267,6 +269,7 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn(async () => ({ sessionId: 'replacement', freshStart: false }))
     }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: queries,
       getCwd: cwd,
       harnessSettings: { list: () => [] },
@@ -293,6 +296,7 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn(async () => ({ sessionId: 'native-new', freshStart: false }))
     }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: queries,
       getCwd: cwd,
       harnessSettings: { list: () => [] },
@@ -519,6 +523,7 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn()
     }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: queries,
       getCwd: cwd,
       mcp: { resolver: () => () => undefined },
@@ -555,6 +560,7 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn()
     }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: queries,
       getCwd: cwd,
       mcp: { resolver: () => () => undefined },
@@ -584,6 +590,7 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn()
     }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: queries,
       getCwd: cwd,
       mcp: { resolver: () => () => undefined },

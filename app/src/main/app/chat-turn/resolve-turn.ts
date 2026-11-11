@@ -234,17 +234,15 @@ export async function resolveTurnProvider(
 ): Promise<ResolvedTurnProvider> {
   const adapterEnvPatch = req.adapter.agentSpawnEnv(req.agentKind)
   const settings = toAgentEnvironments(ctx.harnessSettings.list(req.adapter.id), [req.adapter.id])
-  const entries = (ctx.runtimeModelCatalog?.merge(settings, req.adapter.id) ?? settings).map(
-    (entry) => ({
-      key: entry.key,
-      harnessId: entry.adapter,
-      modelProviderId: entry.provider ?? entry.key,
-      models: entry.models,
-      // merged 행의 실제 provenance(`source`·`readOnly`)를 catalog 까지 보존한다(0291) —
-      // 다시 조립하면 runtime 행이 settings 행으로 바뀌어 catalog 가 모델을 다시 계산한다.
-      environment: entry
-    })
-  )
+  const entries = ctx.runtimeModelCatalog.merge(settings, req.adapter.id).map((entry) => ({
+    key: entry.key,
+    harnessId: entry.adapter,
+    modelProviderId: entry.provider ?? entry.key,
+    models: entry.models,
+    // merged 행의 실제 provenance(`source`·`readOnly`)를 catalog 까지 보존한다(0291) —
+    // 다시 조립하면 runtime 행이 settings 행으로 바뀌어 catalog 가 모델을 다시 계산한다.
+    environment: entry
+  }))
   const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
   const byKey = (key: string | null | undefined): (typeof entries)[number] | undefined =>
     key ? entries.find((entry) => entry.key === key) : undefined
@@ -272,11 +270,9 @@ export async function resolveTurnProvider(
     modelProviderId: selected.modelProviderId
   }
   // 런타임 관리 key 는 Gate 인증 때 1회 fetch 한 cache 만 읽는다 (D-008) — 턴마다 network 금지.
-  const config = ctx.harnessRuntime
-    ? ctx.runtimeModelCatalog?.isReadOnly(selected.key)
-      ? ctx.harnessRuntime.cached(selected.key)
-      : await ctx.harnessRuntime.resolve(entry)
-    : { ...entry, runtimeEnv: {} }
+  const config = ctx.runtimeModelCatalog.isReadOnly(selected.key)
+    ? ctx.harnessRuntime.cached(selected.key)
+    : await ctx.harnessRuntime.resolve(entry)
   if (!config) throw new Error(`Runtime model cache is unavailable for "${selected.key}"`)
   const prepared = prepareConfiguredHarnessInput(ctx, config, adapterEnvPatch)
 

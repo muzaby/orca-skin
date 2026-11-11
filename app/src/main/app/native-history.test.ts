@@ -12,6 +12,7 @@ import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { resolveTurn } from './chat-turn/resolve-turn'
 import type { RouterContext } from './context'
 import { createNativeHistoryRefresh, nativeHistoryBusy } from './native-history'
+import { passthroughRuntimeConfig } from './runtime-config.testfixture'
 vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
@@ -76,6 +77,7 @@ function setup(backend: 'claude' | 'opencode'): {
   }
   const replace = vi.fn(() => true)
   const ctx = {
+    ...passthroughRuntimeConfig(),
     db: {
       getSessionById: () => meta,
       nativeHistory: {

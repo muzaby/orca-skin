@@ -156,6 +156,7 @@ function makeHarness(sessionId?: string) {
   }
   const deps = {
     ctx: {
+      settings: { getAll: () => ({}) },
       db: {
         updateSessionProviderKey: vi.fn(),
         getProject: vi.fn(() => null),
@@ -197,6 +198,7 @@ function makeHarness(sessionId?: string) {
     backgroundTasks: {},
     activity: {},
     isUpdateInstallPending: () => false,
+    background: { observe: vi.fn() },
     listenRelease: new Map(),
     settleDeadBackgroundTasks: vi.fn(),
     // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.

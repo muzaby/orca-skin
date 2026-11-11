@@ -89,13 +89,22 @@ describe('engine CRUD uses the shared extension deployment queue', () => {
     directDeploy.mockClear()
   })
 
-  it('preserves the existing behavior without optional runtime services', async () => {
+  it('invalidates settings, runtime config and the model catalog for the changed key', async () => {
     const deployExtensions = vi.fn(async () => {})
     const invalidateAll = vi.fn()
-    registerEngineHandlers({ deployExtensions, harnessSettings: { invalidateAll } })
+    const invalidateRuntime = vi.fn()
+    const invalidateCatalog = vi.fn(async () => {})
+    registerEngineHandlers({
+      deployExtensions,
+      harnessSettings: { invalidateAll },
+      harnessRuntime: { invalidate: invalidateRuntime },
+      runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
+    })
     await invoke(CHANNELS.engineDelete, { key: 'claude-corp' })
     expect(deployExtensions).toHaveBeenCalledOnce()
     expect(invalidateAll).toHaveBeenCalledOnce()
+    expect(invalidateRuntime).toHaveBeenCalledWith('claude-corp', 'harness-settings-crud')
+    expect(invalidateCatalog).toHaveBeenCalledWith('claude-corp')
   })
 
   it.each([
