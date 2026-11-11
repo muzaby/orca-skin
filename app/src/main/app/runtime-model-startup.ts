@@ -6,34 +6,8 @@ import type {
 } from '../features/harnesses/common/runtime-catalog'
 import { canonicalAgentKey } from '../features/harnesses/common/models'
 
-export function affectedRuntimeModelAuthIds(
-  keys: Iterable<string>,
-  contributions: readonly RuntimeModelContribution[]
-): AuthId[] {
-  const canonicalKeys = new Set([...keys].map(canonicalAgentKey))
-  return [
-    ...new Set(
-      contributions
-        .filter((item) => canonicalKeys.has(canonicalAgentKey(item.key)))
-        .map((item) => item.authId)
-    )
-  ]
-}
-
-export function invalidateRuntimeModelsForAuth(input: {
-  keys: Iterable<string>
-  contributions: readonly RuntimeModelContribution[]
-  invalidate(key: string): void
-  snapshotOf(authId: AuthId): AuthSnapshot
-  reconcile(authId: AuthId, snapshot: AuthSnapshot): void
-}): void {
-  const keys = [...input.keys]
-  for (const key of keys) input.invalidate(key)
-  for (const authId of affectedRuntimeModelAuthIds(keys, input.contributions)) {
-    input.reconcile(authId, input.snapshotOf(authId))
-  }
-}
-
+// 자격증명이 바뀐 Auth 의 런타임 모델 무효화. 그 Auth 가 선언한 키와 기여한 키를 전부 비운 뒤,
+// 비운 키와 정규화 키가 같은 기여를 가진 모든 Auth 를 한 번씩 현재 snapshot 으로 재조정한다.
 export function createRuntimeModelAuthInvalidator(input: {
   invalidatedKeys: Readonly<Partial<Record<AuthId, readonly string[]>>>
   contributions: readonly RuntimeModelContribution[]
@@ -46,13 +20,14 @@ export function createRuntimeModelAuthInvalidator(input: {
       ...(input.invalidatedKeys[authId] ?? []),
       ...input.contributions.filter((item) => item.authId === authId).map((item) => item.key)
     ])
-    invalidateRuntimeModelsForAuth({
-      keys,
-      contributions: input.contributions,
-      invalidate: input.invalidate,
-      snapshotOf: input.snapshotOf,
-      reconcile: input.reconcile
-    })
+    for (const key of keys) input.invalidate(key)
+    const canonicalKeys = new Set([...keys].map(canonicalAgentKey))
+    const owners = new Set(
+      input.contributions
+        .filter((item) => canonicalKeys.has(canonicalAgentKey(item.key)))
+        .map((item) => item.authId)
+    )
+    for (const owner of owners) input.reconcile(owner, input.snapshotOf(owner))
   }
 }
 
