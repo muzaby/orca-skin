@@ -586,7 +586,6 @@ export const en: typeof ko = {
       sendFailed: 'Could not send the message',
       sessionOpenFailed: 'Could not open the conversation',
       bootStepDegraded: 'Some app features could not be prepared',
-      legacyMigrationFailed: 'Could not migrate existing data',
       mcpServerSkipped: 'Could not prepare an MCP server',
       extensionsFailed: 'Could not prepare extensions',
       authPersistenceUnavailable: 'Authentication storage is unavailable',

@@ -180,16 +180,10 @@ describe('⑦ 범위 밖 추적 파일을 가리키는 경로는 그 파일의 �
 
 describe('허용 목록의 파일 집합은 고정이다 (0306 AC4)', () => {
   // 옛 이름을 읽는 새 분기가 생기면 이 집합이 늘어난다 — 늘리려면 이 테스트도 고쳐야 한다.
-  test('이관 입력 6 + 마이그레이션 SQL 1 + 지난 증거 스크립트의 입력 1 + 과거 이름을 서술하는 문서 4', () => {
+  test('마이그레이션 SQL 1 + 지난 증거 스크립트의 입력 1 + 과거 이름을 서술하는 문서 4', () => {
     assert.deepEqual([...new Set(ALLOWED.map((entry) => entry.file))].sort(), [
       'app/scripts/test-spawn-trace.test.mjs',
-      'app/src/main/app/legacy-paths.test.ts',
-      'app/src/main/infra/config/migrate-legacy.test.ts',
-      'app/src/main/infra/config/migrate-legacy.ts',
-      'app/src/main/infra/config/rebase-path.test.ts',
-      'app/src/main/infra/config/rebase-path.ts',
       'app/src/main/infra/db/migrations/0032_native_session_recovery.sql',
-      'app/src/shared/product.ts',
       'docs/arch/backend/overview.md',
       'docs/arch/backend/provider-runtime.md',
       'docs/arch/backend/security.md',

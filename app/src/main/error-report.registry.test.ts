@@ -25,13 +25,6 @@ const sites = [
     method: 'reportError'
   },
   {
-    id: 'M3',
-    file: 'index.ts',
-    event: 'app.legacy.failed',
-    title: 'legacyMigrationFailed',
-    method: 'reportError'
-  },
-  {
     id: 'M4',
     file: 'app/harnesses/claude/extensions.ts',
     event: 'mcp.server.skipped',
@@ -64,13 +57,6 @@ const sites = [
     file: 'app/bootstrap.ts',
     event: 'auth.declaration.rejected',
     title: 'authDeclarationRejected',
-    method: 'reportError'
-  },
-  {
-    id: 'M9',
-    file: 'app/bootstrap.ts',
-    event: 'legacy.worktree.repair.failed',
-    title: 'legacyMigrationFailed',
     method: 'reportError'
   },
   {
@@ -190,16 +176,14 @@ const root = fileURLToPath(new URL('./', import.meta.url))
 const read = (file: string): string => readFileSync(root + file, 'utf8')
 // Preserve each call's slot, including same-title siblings whose events could be swapped.
 const slots: Record<string, number> = {
-  M1: 1,
-  M2: 2,
-  M3: 0,
+  M1: 0,
+  M2: 1,
   M4: 0,
   M5: 1,
   M6: 0,
   M7: 1,
   M8: 2,
-  M9: 3,
-  M10: 4,
+  M10: 3,
   M11: 0,
   M12: 0,
   M13: 0,
