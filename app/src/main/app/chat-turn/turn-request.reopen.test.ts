@@ -54,6 +54,7 @@ describe('initial submission reopen delegates use the commit key and claims', ()
     // The commit announced ownership for a stored session; the reopen must not announce anything.
     const ownership = f.send.mock.calls.length
     expect(ownership).toBe(options.dbSessionId ? 1 : 0)
+    if (options.dbSessionId) expect(f.send.mock.calls[0][1]).toMatchObject({ submitted: true })
     expect(f.request.canReopenInitialSubmission!()).toBe(true)
     expect(f.request.canSubmitInitial!()).toBe(false)
     expect(f.request.reopenInitialSubmission!()).toBe(true)
