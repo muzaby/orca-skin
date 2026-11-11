@@ -167,9 +167,9 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | 채널 | 도입 시점 | 사유 |
 |---|---|---|
 | `oo:backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드 운영, 선택 호출자 없음 |
-| `orcinus-orca:message:*` (list / append / delete) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist (IPC_CONTRACT §2.14) |
+| `oo:message:*` (list / append / delete) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist (IPC_CONTRACT §2.14) |
 | ~~`oo:session:list` / `:load` / `:delete`~~ | **구현됨** | 로컬 DB 기반 — SDK `listSessions`/`loadSession` 은 쓰지 않는다 (IPC_CONTRACT §2.7) |
-| ~~`orcinus-orca:credentials:set` / `:hasKey`~~ | **폐기** | 자격증명은 `provider` 도메인(IPC_CONTRACT §2.13-c)과 Auth vault 가 소유 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
+| ~~`oo:credentials:set` / `:hasKey`~~ | **폐기** | 자격증명은 `provider` 도메인(IPC_CONTRACT §2.13-c)과 Auth vault 가 소유 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `oo:skills:reload` | **Future** | 핫리로드 도입 시 |
 
 > **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락): 채널·도메인 전수와 개수의 SSOT 는 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 와 [생성물 인벤토리](generated/inventory.md) 다. 구 `runtime` 채널(Python uv 런타임)은 renderer 소비처 부재로 제거됐다(handoff 0012 · IPC_CONTRACT §2.11).

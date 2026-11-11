@@ -140,7 +140,7 @@ Electron App
 │       └── settings-store.ts   # electron-store 영속화 (+settings-migration.ts, persistence.md §1.2)
 │
 ├── Preload (src/preload/index.ts)
-│   └── contextBridge.exposeInMainWorld('orcinus-orca', api) — window.oo 노출 (IPC_CONTRACT §2)
+│   └── contextBridge.exposeInMainWorld('oo', api) — window.oo 노출 (IPC_CONTRACT §2)
 │
 └── Renderer (src/renderer/) → ../frontend/ 참조
 ```

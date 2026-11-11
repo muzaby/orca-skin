@@ -1,11 +1,11 @@
-// check-product-naming.mjs 단위 테스트 (0306 EP-01 — 규칙 6분기).
+// check-product-naming.mjs 단위 테스트 (0306 EP-01 — 규칙 7분기, ⑥은 ΔV1 E1).
 // 옛 표기는 리터럴로 적지 않는다 — 이 파일도 검사 범위다. `FORMS` 에서 가져와 입력을 만든다.
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   ALLOWED,
+  EXCLUDED,
   FORMS,
-  SCOPE,
   findOld,
   inScope,
   pathShapes,
@@ -89,8 +89,10 @@ describe('④⑤ 허용 목록은 개수를 양방향으로 대조한다', () =>
   })
 })
 
-describe('⑥ 범위 밖은 읽지 않는다', () => {
-  for (const path of [
+describe('⑥ 제외 목록 밖의 추적 파일은 전부 읽는다', () => {
+  const old = `${lower} ${title} ${upper}`
+  // 제외 항목마다 그 아래 경로 하나 — 항목을 지우면 그 입력이 위반이 된다.
+  const excludedPaths = [
     'docs/handoff/0001-x/plan.md',
     'docs/archive/a.md',
     'docs/decisions/adr.md',
@@ -98,20 +100,38 @@ describe('⑥ 범위 밖은 읽지 않는다', () => {
     'chats/chat1.md',
     'project/index.html',
     'README.md',
-    'app/package-lock.json'
-  ]) {
-    test(path, () => {
+    '.agents/skills/handoff-review/references/corpus.md'
+  ]
+
+  test('입력은 제외 항목과 1:1 이다', () => {
+    assert.equal(excludedPaths.length, EXCLUDED.length)
+    for (const entry of EXCLUDED) {
+      const rest = EXCLUDED.filter((other) => other !== entry)
+      assert.equal(excludedPaths.filter((path) => inScope(path, rest)).length, 1, entry)
+    }
+  })
+
+  for (const path of excludedPaths) {
+    test(`제외: ${path}`, () => {
       assert.equal(inScope(path), false)
-      assert.deepEqual(run([{ path, text: `${lower} ${title} ${upper}` }]), [])
+      assert.deepEqual(run([{ path, text: old }]), [])
     })
   }
 
-  test('범위 안 경로는 읽는다', () => {
+  // 어떤 목록에도 적힌 적 없는 경로 — 등록 없이 검사된다.
+  for (const path of ['tools/x.md', 'x.txt', 'docs/spec/v/INDEX.md', 'app/.gitignore']) {
+    test(`검사: ${path}`, () => {
+      assert.equal(inScope(path), true)
+      assert.equal(run([{ path, text: old }]).length, 3)
+    })
+  }
+
+  test('제외 항목과 이름만 비슷한 경로는 검사한다', () => {
     for (const path of [
-      'app/src/a.ts',
-      'app/scripts/b.mjs',
-      '.github/workflows/ci.yml',
-      'AGENTS.md'
+      'app/README.md',
+      'docs/handoff.md',
+      '.agents/skills/handoff-review/SKILL.md',
+      '.agents/skills/a/b/references/c.md'
     ])
       assert.equal(inScope(path), true, path)
   })
@@ -125,7 +145,7 @@ describe('⑦ 범위 밖 추적 파일을 가리키는 경로는 그 파일의 �
   const guide = `docs/etc/study/opencode/${lower}-migration-guide.md`
   const folder = `docs/etc/study/${lower}/README.md`
   const tracked = [guide, folder, `docs/handoff/0009-${lower}-config/plan.md`, SCOPED]
-  const check = (text) => scan([{ path: 'docs/TRD.md', text }], [], SCOPE, tracked).violations
+  const check = (text) => scan([{ path: 'docs/TRD.md', text }], [], EXCLUDED, tracked).violations
 
   test('실재하는 범위 밖 파일 링크 → 통과', () => {
     assert.deepEqual(check(`[연구](etc/study/opencode/${lower}-migration-guide.md)`), [])
@@ -139,7 +159,7 @@ describe('⑦ 범위 밖 추적 파일을 가리키는 경로는 그 파일의 �
 
   test('파일이 없어지면 같은 링크가 위반이 된다', () => {
     const text = `[연구](etc/study/opencode/${lower}-migration-guide.md)`
-    assert.equal(scan([{ path: 'docs/TRD.md', text }], [], SCOPE, [folder]).violations.length, 1)
+    assert.equal(scan([{ path: 'docs/TRD.md', text }], [], EXCLUDED, [folder]).violations.length, 1)
   })
 
   test('경로 옆의 옛 표기는 그대로 위반', () => {
@@ -172,7 +192,7 @@ describe('허용 목록의 파일 집합은 고정이다 (0306 AC4)', () => {
 
   test('모든 항목이 범위 안이고 사유를 갖는다', () => {
     for (const entry of ALLOWED) {
-      assert.equal(inScope(entry.file, SCOPE), true, entry.file)
+      assert.equal(inScope(entry.file), true, entry.file)
       assert.ok(entry.reason.length > 0)
       assert.ok(entry.count > 0)
     }
