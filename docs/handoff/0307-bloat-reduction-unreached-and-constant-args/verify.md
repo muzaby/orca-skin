@@ -103,3 +103,69 @@ V06(인자 맞바꿈 `resolve-turn.ts` 자리)은 spec에서 빠졌다 — 시�
 ## 15. 결론
 
 **FAIL** — VP-12 한 자리(`resolve-turn.ts`)의 규칙 칸 분기가 잠겨 있지 않다. 나머지 pair·gate는 PASS이고 기준선 분리 두 조건을 충족했다. 다음 주체: 구현자(Claude). 다음 구현 턴은 파생 이슈 1을 닫고 AC17 test 수치를 다시 보고한다.
+
+---
+
+# r2 검증 (verify 2회째)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 판정 | **PASS** (기계 범위) — 막는 발견 0 · `PLAN_GAP` 0. AC17 test 상한(설계자)·AC19 실기(사람)는 남는다 |
+| 대상 | impl r2 = `dd24f6f`. production 코드 변경 0 — `resolve-turn.runtime-catalog.test.ts` +38줄 |
+| 확장 창 | verify **2회째** (창 안). ΔV 없음. plan 규범 행은 r2 커밋이 바꾸지 않았다(`[구현자 기입]` 추가뿐) |
+| 못 본 것 | AC19 사람 실기. `origin/main` 부재로 좌표의 `main` 조상 여부 |
+
+## 고장 이력 (`mutate.py`, oracle `vitest run src/main/app/chat-turn` 426케이스, 원복 확인 "모든 파일 원문 그대로")
+
+| ID | 파일 | 종류 | 바꾼 내용 | 직전 | 결과 | 분류 |
+|---|---|---|---|---|---|---|
+| V11 | `resolve-turn.ts:276` | 제거(① 닫는 이슈 인용 변이) | `!config` 오류 제거 | 못 잡음 | **잡음 (1 failed)** | — |
+| V04 | 같은 파일 | 호출 대체(③④) | 항상 `resolve` | 잡음 | 잡음 (2) | — |
+| V05 | 같은 파일 | 호출 대체(④) | 항상 `cached` | 잡음 | 잡음 (31) | — |
+| V12 | 같은 파일 | 제거(④) | `merge` 제거 | 잡음 | 잡음 (5) | — |
+| V06 | 같은 파일 | 인자 맞바꿈(r1 미실행) | `cached(selected.key)` → `cached(entry.harnessId)` | 미실행 | 잡음 (4) | — |
+| V28 | 같은 파일 | 독립(⑥) | 오류 문구에서 key 제거 | — | 잡음 (1) | — |
+| V29 | 같은 파일 | 독립(⑥) | `!config && false` | — | 잡음 (1) | — |
+| V30 | 같은 파일 | 맞바꿈(⑤·⑥) | `isReadOnly(selected.key)` → `isReadOnly(entry.modelProviderId)` | — | 잡음 (2) | — |
+
+- 덮개 회귀 없음(이전 `잡음` 행 전부 red 유지). 독립 축 ⑥ 3건(V28·V29·V30) 시도, 새 결함 0.
+- `못 잡음` 0. 직전 이슈 1은 닫혔다 — 인용 변이 V11이 신규 케이스 `rejects a runtime-managed key whose Gate cache is missing instead of resolving it`에서 red.
+- VP-12 오류 분기 자리별 oracle: `misc.ts` = r1 V09 red(이번 diff 미접촉) · `resolve-turn.ts:276` = 위 V11 red. 자리 2/2.
+
+## gate (이번 턴 재현)
+
+| gate | 관측 |
+|---|---|
+| 가드 4종 | migrations(첫 릴리스 skip 메시지) · doc-inventory links ok · product-naming ok(2235파일) · test-budgets ok(20 suites) |
+| lint · typecheck | 0 error · 2 warning(r1과 동일) · typecheck exit 0 |
+| 전체 vitest | 946파일: 9 failed · 933 passed · 4 skipped / 8963케이스: 22 failed · 8929 passed. 실패 9파일은 r1 목록과 같은 파일(adapters/claude·opencode · composer-* · session-resources), 신호는 Windows 경로·플랫폼 가정. r2 diff는 테스트 1파일 추가라 r1 기준선 분리(차집합 ∅)를 그대로 승계 |
+| `node --test scripts/*.test.mjs` | 868/868 |
+
+gate 뒤 `git status` 빈 출력.
+
+## AC
+
+`✅ 13 · ⚠️ 2 · ❌ 0 = 총 15`. AC12 ✅로 복귀. AC17: prod −497 ✅ / test +45(신규 38줄 + fixture 36줄 − 삭제분, `numstat` 분류 기준에 따라 +9~+45로 읽힘 — 합 adds 293은 일치) — 조건 ≤0 미달, plan §7 위임대로 **설계자 상한 판정 필요**. AC19 사람 실기.
+
+## Repository operation
+
+- INDEX 대상 커밋 좌표에 `dd24f6f`(r2) 추가, `git cat-file -t` = `commit`. trailer 파싱 확인(Agent·Handoff·Status·Criteria-*·Verified-By).
+- `main` 병합 전이라 archive 이동은 AC17 상한·AC19 실기·D-011 뒤.
+
+## 파생 이슈
+
+| # | 이슈 | 분류 | disposition |
+|---|---|---|---|
+| 1 | r1 이슈 1(`resolve-turn.ts` 오류 분기 미잠금) | 이행 결함 | **닫힘** (V11 red) |
+| 2 | `applyLiveSet` production 호출 0 | 비귀속 | NEXT_HANDOFF(독립) 후보 — 사용자 요청 시 |
+
+## Review Signals
+
+- r1 FAIL 원인(구현자 S08 vs 검증 V11 불일치)이 같은 변이 재실행으로 해소됐다. 이번엔 구현자 r2 보고 V11 red와 일치.
+- 독립 축 ⑥ 3건, 새 결함 0. 반복된 환경 한계: Windows 경로 가정 실패 22건(변경 무관).
+
+## 결론
+
+**PASS** (기계 범위). 다음 주체: 사람 — AC17 test 상한 판정(설계), AC19 실기, D-011.
