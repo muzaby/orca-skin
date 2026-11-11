@@ -188,7 +188,6 @@ export function concurrencyFixture(
       wc: owner,
       pendingMessages,
       activity,
-      chainId: lease.chainId,
       queueKey: 's1',
       getActiveTurn: () => activeTurn,
       getInitialBatches: () => initialBatches,

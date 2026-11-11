@@ -28,7 +28,6 @@ function assemble(options: { dbSessionId: string | null; queueKey: string }): {
       wc: { isDestroyed: () => false, send } as unknown as WebContents,
       pendingMessages: queue,
       activity: {} as SessionActivityProjector,
-      chainId: 'chain-1',
       queueKey: options.queueKey,
       getActiveTurn: () => turn,
       getInitialBatches: () => batches,

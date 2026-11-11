@@ -27,11 +27,8 @@ interface PendingMessage extends PendingMessagePayload {
 //               구 구조에는 이 상태가 없어 echo 유실이 **표현도 탐지도 불가**했다.
 type BatchState = 'submitting' | 'submitted' | 'confirmed' | 'orphaned'
 
-interface SubmissionAttempt {
-  messageIds: string[]
-  attemptId: string
-  chainId: string
-}
+// 제출 확정·재개방이 지목하는 배치 — 호출자는 받은 배치를 그대로 넘긴다.
+type BatchClaim = Pick<SteerFlushBatch, 'uuid' | 'chainId' | 'ids'>
 
 export type PendingQueueMutation =
   { kind: 'changed'; sessionId: string } | { kind: 'rekey'; oldKey: string; newKey: string }
@@ -41,21 +38,23 @@ type ConfirmSignal =
   { kind: 'echo'; uuid?: string; text?: string } | { kind: 'model-output'; uuids: string[] }
 
 interface TrackedBatch extends SteerFlushBatch {
-  attemptId: string
   chainId: string
   state: BatchState
   // 롤백 복원 원본 — push 가 거부되면 이 항목들이 held 로 되돌아간다(AC4).
   items: PendingMessage[]
 }
 
-function toBatch(items: PendingMessage[], attemptId: string, chainId: string): SteerFlushBatch {
+function toBatch(
+  items: PendingMessage[],
+  uuid: string,
+  chainId: string
+): SteerFlushBatch & { chainId: string } {
   const attachmentTexts = items.flatMap((item) => item.attachmentTexts ?? [])
   const attachmentImages = items.flatMap((item) => item.attachmentImages ?? [])
   const requirements = items.flatMap((item) => item.requirements ?? [])
   const attachmentViews = items.flatMap((item) => item.attachmentViews ?? [])
   return {
-    uuid: attemptId,
-    attemptId,
+    uuid,
     chainId,
     ids: items.map((item) => item.id),
     text: items.map((item) => item.text).join('\n\n'),
@@ -71,7 +70,6 @@ function toBatch(items: PendingMessage[], attemptId: string, chainId: string): S
 function toPublic(batch: TrackedBatch): SteerFlushBatch {
   return {
     uuid: batch.uuid,
-    attemptId: batch.attemptId,
     chainId: batch.chainId,
     ids: batch.ids,
     text: batch.text,
@@ -155,10 +153,6 @@ export class PendingMessageQueue {
     this.frozen = true
   }
 
-  get isFrozen(): boolean {
-    return this.frozen
-  }
-
   enqueue(
     sessionId: string,
     payload: PendingMessagePayload,
@@ -237,7 +231,7 @@ export class PendingMessageQueue {
   // 취소는 no-op 이라(sdk.d.ts:3487), "대표 uuid 1개 = 배치 1개" 가 provider 모델과 정합이다.
   reserveHeld(
     sessionId: string,
-    attemptId: string = randomUUID(),
+    uuid: string = randomUUID(),
     chainId: string = randomUUID()
   ): SteerFlushBatch | undefined {
     if (this.frozen) return undefined
@@ -245,7 +239,7 @@ export class PendingMessageQueue {
     if (!items || items.length === 0) return undefined
     this.heldBySession.delete(sessionId)
     const ordered = [...items].sort((a, b) => a.createdAt - b.createdAt)
-    const batch = toBatch(ordered, attemptId, chainId)
+    const batch = toBatch(ordered, uuid, chainId)
     this.track(sessionId, batch, ordered)
     return batch
   }
@@ -288,20 +282,7 @@ export class PendingMessageQueue {
     return true
   }
 
-  commit(sessionId: string, attemptId: string, chainId?: string): boolean {
-    const batch = (this.trackedBySession.get(sessionId) ?? []).find(
-      (candidate) =>
-        candidate.attemptId === attemptId &&
-        candidate.state === 'submitting' &&
-        (chainId === undefined || candidate.chainId === chainId)
-    )
-    if (!batch) return false
-    batch.state = 'submitted'
-    this.changed(sessionId)
-    return true
-  }
-
-  commitMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+  commitMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
     const batches = this.trackedBySession.get(sessionId) ?? []
     const selected = selectAttempts(batches, attempts, ['submitting', 'submitted'])
     if (selected.some((batch) => batch === undefined)) return false
@@ -315,7 +296,7 @@ export class PendingMessageQueue {
     return true
   }
 
-  canCommitMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+  canCommitMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
     const batches = this.trackedBySession.get(sessionId) ?? []
     return !selectAttempts(batches, attempts, ['submitting']).some((batch) => batch === undefined)
   }
@@ -323,7 +304,7 @@ export class PendingMessageQueue {
   // 재시도 재개방 검사 — 상태를 바꾸지 않는다. claim 전부가 아직 이 턴의 전송 단계
   // (`submitting`·`submitted`)에 있어야 참이다. confirmed·orphaned·rollback(held)·다른 claim이
   // 하나라도 있으면 그 입력은 이미 다른 경로로 갔으므로 재전송하지 않는다.
-  canReopenMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+  canReopenMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
     const batches = this.trackedBySession.get(sessionId) ?? []
     return !selectAttempts(batches, attempts, ['submitting', 'submitted']).some(
       (batch) => batch === undefined
@@ -332,7 +313,7 @@ export class PendingMessageQueue {
 
   // 재시도 재개방 — 같은 검사 후 `submitted` 를 `submitting` 으로 되돌려 다음 spawn 의
   // admission(`canCommitMany`)을 통과시킨다. 하나라도 검사에 실패하면 아무것도 바꾸지 않는다.
-  reopenMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+  reopenMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
     const batches = this.trackedBySession.get(sessionId) ?? []
     const selected = selectAttempts(batches, attempts, ['submitting', 'submitted'])
     if (selected.some((batch) => batch === undefined)) return false
@@ -460,7 +441,7 @@ export class PendingMessageQueue {
   messageCountForAttempts(sessionId: string, attemptIds: ReadonlySet<string>): number {
     const ids = new Set<string>()
     for (const batch of this.trackedBySession.get(sessionId) ?? []) {
-      if (!isOpen(batch.state) || !attemptIds.has(batch.attemptId)) continue
+      if (!isOpen(batch.state) || !attemptIds.has(batch.uuid)) continue
       for (const id of batch.ids) ids.add(id)
     }
     return ids.size
@@ -474,25 +455,14 @@ export class PendingMessageQueue {
     const carried = (this.trackedBySession.get(sessionId) ?? []).filter((b) => isOpen(b.state))
     const held = this.heldBySession.get(sessionId) ?? []
     this.heldBySession.delete(sessionId)
-    const next: TrackedBatch[] = carried.map((b) => {
-      const attemptId = randomUUID()
-      return {
-        ...b,
-        uuid: attemptId,
-        attemptId,
-        chainId,
-        state: 'submitting' as const
-      }
-    })
+    const next: TrackedBatch[] = carried.map((b) => ({
+      ...b,
+      uuid: randomUUID(),
+      chainId,
+      state: 'submitting' as const
+    }))
     for (const item of held) {
-      const attemptId = randomUUID()
-      next.push({
-        ...toBatch([item], attemptId, chainId),
-        attemptId,
-        chainId,
-        state: 'submitting',
-        items: [item]
-      })
+      next.push({ ...toBatch([item], randomUUID(), chainId), state: 'submitting', items: [item] })
     }
     if (next.length > 0) this.trackedBySession.set(sessionId, next)
     else this.trackedBySession.delete(sessionId)
@@ -536,11 +506,13 @@ export class PendingMessageQueue {
     return hit.map(toPublic)
   }
 
-  private track(sessionId: string, batch: SteerFlushBatch, items: PendingMessage[]): void {
+  private track(
+    sessionId: string,
+    batch: SteerFlushBatch & { chainId: string },
+    items: PendingMessage[]
+  ): void {
     const batches = this.trackedBySession.get(sessionId) ?? []
-    const attemptId = batch.attemptId ?? batch.uuid
-    const chainId = batch.chainId ?? randomUUID()
-    batches.push({ ...batch, attemptId, chainId, state: 'submitting', items: [...items] })
+    batches.push({ ...batch, state: 'submitting', items: [...items] })
     this.trackedBySession.set(sessionId, batches)
     this.changed(sessionId)
   }
@@ -593,16 +565,16 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
 
 function selectAttempts(
   batches: readonly TrackedBatch[],
-  attempts: readonly SubmissionAttempt[],
+  attempts: readonly BatchClaim[],
   states: readonly BatchState[]
 ): Array<TrackedBatch | undefined> {
   return attempts.map((attempt) =>
     batches.find(
       (batch) =>
-        batch.attemptId === attempt.attemptId &&
+        batch.uuid === attempt.uuid &&
         batch.chainId === attempt.chainId &&
         states.includes(batch.state) &&
-        sameIds(batch.ids, attempt.messageIds)
+        sameIds(batch.ids, attempt.ids)
     )
   )
 }
