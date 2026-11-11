@@ -68,17 +68,10 @@ function toBatch(
 
 // 추적 필드(state/items)를 벗긴 공개 배치 — 호출자는 계약 타입만 본다.
 function toPublic(batch: TrackedBatch): SteerFlushBatch {
-  return {
-    uuid: batch.uuid,
-    chainId: batch.chainId,
-    ids: batch.ids,
-    text: batch.text,
-    createdAt: batch.createdAt,
-    ...(batch.attachmentTexts ? { attachmentTexts: batch.attachmentTexts } : {}),
-    ...(batch.attachmentImages ? { attachmentImages: batch.attachmentImages } : {}),
-    ...(batch.requirements ? { requirements: batch.requirements } : {}),
-    ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
-  }
+  const rest: Partial<TrackedBatch> = { ...batch }
+  delete rest.state
+  delete rest.items
+  return rest as SteerFlushBatch
 }
 
 // payload 스크럽(AC8) — 폐기 시 본문/첨부(base64 수 MB)를 즉시 덮어쓴다. 다른 곳이 같은 객체를
@@ -282,48 +275,58 @@ export class PendingMessageQueue {
     return true
   }
 
-  commitMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
-    const batches = this.trackedBySession.get(sessionId) ?? []
-    const selected = selectAttempts(batches, attempts, ['submitting', 'submitted'])
-    if (selected.some((batch) => batch === undefined)) return false
-    let changed = false
-    for (const batch of selected as TrackedBatch[]) {
-      if (batch.state !== 'submitting') continue
-      batch.state = 'submitted'
-      changed = true
-    }
-    if (changed) this.changed(sessionId)
-    return true
+  commitMany(sessionId: string, claims: readonly BatchClaim[]): boolean {
+    return this.move(sessionId, claims, 'submitted')
   }
 
-  canCommitMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
-    const batches = this.trackedBySession.get(sessionId) ?? []
-    return !selectAttempts(batches, attempts, ['submitting']).some((batch) => batch === undefined)
+  canCommitMany(sessionId: string, claims: readonly BatchClaim[]): boolean {
+    return this.claimed(sessionId, claims, (state) => state === 'submitting') !== undefined
   }
 
   // 재시도 재개방 검사 — 상태를 바꾸지 않는다. claim 전부가 아직 이 턴의 전송 단계
   // (`submitting`·`submitted`)에 있어야 참이다. confirmed·orphaned·rollback(held)·다른 claim이
   // 하나라도 있으면 그 입력은 이미 다른 경로로 갔으므로 재전송하지 않는다.
-  canReopenMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
-    const batches = this.trackedBySession.get(sessionId) ?? []
-    return !selectAttempts(batches, attempts, ['submitting', 'submitted']).some(
-      (batch) => batch === undefined
-    )
+  canReopenMany(sessionId: string, claims: readonly BatchClaim[]): boolean {
+    return this.claimed(sessionId, claims, awaitsReceipt) !== undefined
   }
 
   // 재시도 재개방 — 같은 검사 후 `submitted` 를 `submitting` 으로 되돌려 다음 spawn 의
   // admission(`canCommitMany`)을 통과시킨다. 하나라도 검사에 실패하면 아무것도 바꾸지 않는다.
-  reopenMany(sessionId: string, attempts: readonly BatchClaim[]): boolean {
+  reopenMany(sessionId: string, claims: readonly BatchClaim[]): boolean {
+    return this.move(sessionId, claims, 'submitting')
+  }
+
+  // claim 전부가 허용 상태의 추적 배치와 일치할 때만 그 배치들을 돌려준다(전부 아니면 무).
+  private claimed(
+    sessionId: string,
+    claims: readonly BatchClaim[],
+    allowed: (state: BatchState) => boolean
+  ): TrackedBatch[] | undefined {
     const batches = this.trackedBySession.get(sessionId) ?? []
-    const selected = selectAttempts(batches, attempts, ['submitting', 'submitted'])
-    if (selected.some((batch) => batch === undefined)) return false
-    let changed = false
-    for (const batch of selected as TrackedBatch[]) {
-      if (batch.state !== 'submitted') continue
-      batch.state = 'submitting'
-      changed = true
+    const selected: TrackedBatch[] = []
+    for (const claim of claims) {
+      const batch = batches.find(
+        (b) =>
+          b.uuid === claim.uuid &&
+          b.chainId === claim.chainId &&
+          allowed(b.state) &&
+          sameIds(b.ids, claim.ids)
+      )
+      if (!batch) return undefined
+      selected.push(batch)
     }
-    if (changed) this.changed(sessionId)
+    return selected
+  }
+
+  private move(
+    sessionId: string,
+    claims: readonly BatchClaim[],
+    to: 'submitting' | 'submitted'
+  ): boolean {
+    const moved = this.claimed(sessionId, claims, awaitsReceipt)?.filter((b) => b.state !== to)
+    if (!moved) return false
+    for (const batch of moved) batch.state = to
+    if (moved.length > 0) this.changed(sessionId)
     return true
   }
 
@@ -561,22 +564,6 @@ function receiptSettled(state: BatchState): boolean {
 
 function sameIds(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id, index) => id === b[index])
-}
-
-function selectAttempts(
-  batches: readonly TrackedBatch[],
-  attempts: readonly BatchClaim[],
-  states: readonly BatchState[]
-): Array<TrackedBatch | undefined> {
-  return attempts.map((attempt) =>
-    batches.find(
-      (batch) =>
-        batch.uuid === attempt.uuid &&
-        batch.chainId === attempt.chainId &&
-        states.includes(batch.state) &&
-        sameIds(batch.ids, attempt.ids)
-    )
-  )
 }
 
 export type { SteerFlush, SteerFlushBatch }
