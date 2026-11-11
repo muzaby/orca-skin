@@ -16,8 +16,6 @@ export const MAIL_MIGRATIONS: readonly MailMigration[] = [
   { name: '0002_mail_body_source', sql: migration0002 }
 ]
 
-export const MAIL_MIGRATION_NAMES = MAIL_MIGRATIONS.map((migration) => migration.name)
-
 // 마이그레이션 한 건의 SQL 과 `_migrations` 기록을 한 트랜잭션으로 적용한다 (0302 D-006).
 // `ALTER TABLE … ADD COLUMN` 은 재실행이 `duplicate column` 으로 실패한다 — 기록 전에 중단되면
 // 그 계정 store 가 다시 열리지 않는다. 실패하면 스키마 변경도 기록도 남지 않는다.

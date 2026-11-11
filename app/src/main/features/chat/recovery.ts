@@ -1,5 +1,4 @@
 import type { DbQueries } from '../../infra/db'
-import type { DanglingToolCallRow } from '../../infra/db/types'
 
 export const ABORTED_TOOL_RESULT_PAYLOAD = JSON.stringify({
   result: { reason: 'aborted', message: '중단되었습니다' },
@@ -87,16 +86,4 @@ export function recoverSessionHistory(
     rebuildIncompleteMessageContent(db, sessionId !== undefined ? { sessionId } : {})
   }
   return recoverDanglingToolCalls(db, options)
-}
-
-export function groupDanglingToolCallsByMessage(
-  rows: readonly DanglingToolCallRow[]
-): Map<number, DanglingToolCallRow[]> {
-  const grouped = new Map<number, DanglingToolCallRow[]>()
-  for (const row of rows) {
-    const current = grouped.get(row.message_id) ?? []
-    current.push(row)
-    grouped.set(row.message_id, current)
-  }
-  return grouped
 }

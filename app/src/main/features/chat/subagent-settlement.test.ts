@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NormalizedEvent } from '../../../shared/ipc'
-import { coerceStoppedToolCompletion, createSubagentSettlementEvents } from './subagent-settlement'
+import { createSubagentSettlementEvents } from './subagent-settlement'
 
 describe('createSubagentSettlementEvents', () => {
   it('stopped 서브에이전트는 부모 Task 와 열린 child 도구를 aborted 로 정착한다', () => {
@@ -65,40 +65,6 @@ describe('createSubagentSettlementEvents', () => {
         isError: false
       }
     ])
-  })
-
-  it('중단 요청 이후에도 부모/child의 실제 완료 결과를 보존한다', () => {
-    const stopped = new Set(['agent-1'])
-
-    expect(
-      coerceStoppedToolCompletion(stopped, {
-        type: 'tool.call.completed',
-        sessionId: 's1',
-        toolRunId: 'agent-1',
-        result: 'completed anyway',
-        isError: false
-      })
-    ).toMatchObject({
-      toolRunId: 'agent-1',
-      result: 'completed anyway',
-      isError: false
-    })
-
-    expect(
-      coerceStoppedToolCompletion(stopped, {
-        type: 'tool.call.completed',
-        sessionId: 's1',
-        toolRunId: 'child-1',
-        parentToolRunId: 'agent-1',
-        result: 'child completed anyway',
-        isError: false
-      })
-    ).toMatchObject({
-      toolRunId: 'child-1',
-      parentToolRunId: 'agent-1',
-      result: 'child completed anyway',
-      isError: false
-    })
   })
 })
 

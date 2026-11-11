@@ -57,7 +57,6 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [shared/theme/TweakProvider.tsx](../../../app/src/renderer/src/shared/theme/TweakProvider.tsx) — `TweakProvider` | 루트 테마·폰트·읽기 설정 적용. 컴포넌트별 테마 상태를 만들지 않는다. |
 | [shared/ui/AuthKindChoices.tsx](../../../app/src/renderer/src/shared/ui/AuthKindChoices.tsx) — `AuthKindChoices` | 인증 방식 선택을 같은 크기·선택 상태로 표시하고 옵션 label을 제공한다. |
 | [shared/ui/AutoGrowTextarea.tsx](../../../app/src/renderer/src/shared/ui/AutoGrowTextarea.tsx) — `AutoGrowTextarea` | 자동 높이·줄 수·입력 글꼴을 유지한다. 새 textarea 높이 계산을 복제하지 않는다. |
-| [shared/ui/BayerPattern.tsx](../../../app/src/renderer/src/shared/ui/BayerPattern.tsx) — `BayerPattern` | 센서 이미지 표시용 stage 배경·그리드·표적. 일반 카드 장식으로 사용하지 않는다. |
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
 | [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. heading은 MenuTitle로 렌더하며 키보드 탐색에서 건너뛴다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
 | [shared/ui/CatalogListRow.tsx](../../../app/src/renderer/src/shared/ui/CatalogListRow.tsx) — `CatalogListRow` | 아이콘→제목·메타→행 동작 위계. 선택/hover를 구별하고 제목과 동작 버튼을 중첩하지 않는다. |
@@ -68,7 +67,6 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [shared/ui/ArcSpinner.tsx](../../../app/src/renderer/src/shared/ui/ArcSpinner.tsx) — `ArcSpinner` | 세션 행과 OpenCode 에이전트 팝업이 같은 회색 원호를 공유한다. `Icon spinner`·12px·`text-ink3`·`animate-spin`·`motion-reduce:animate-none`을 유지한다. |
 | [shared/ui/ErrorToastHost.tsx](../../../app/src/renderer/src/shared/ui/ErrorToastHost.tsx) — `ErrorToastHost` | toast 역할 토큰·설명·닫기·동작 영역·축소 모션을 유지한다. |
 | [shared/ui/FloatingPanel.tsx](../../../app/src/renderer/src/shared/ui/FloatingPanel.tsx) — `FloatingPanel`, `PanelSection`, `PanelToggle`, `PanelRadio`, `PanelSelect`, `PanelSlider` | 개발 패널 전용 floating-panel 토큰·드래그·접기를 사용한다. 제품 modal보다 높은 z를 일반화하지 않는다. |
-| [shared/ui/Histogram.tsx](../../../app/src/renderer/src/shared/ui/Histogram.tsx) — `Histogram` | stage 배경 위 RGB 채널 분포. 현재 생성 샘플을 실제 센서 데이터처럼 설명하지 않는다. |
 | [shared/ui/Icon.tsx](../../../app/src/renderer/src/shared/ui/Icon.tsx) — `Icon` | 등록된 SVG·currentColor·size API를 사용하고 임의 아이콘 세트를 추가하지 않는다. |
 | [shared/ui/KebabButton.tsx](../../../app/src/renderer/src/shared/ui/KebabButton.tsx) — `KebabButton` | 행·카드의 보조 메뉴 진입점. 번역된 tooltip·접근성 이름과 메뉴 anchor를 유지한다. |
 | [shared/ui/MenuItem.tsx](../../../app/src/renderer/src/shared/ui/MenuItem.tsx) — `MenuItem`, `MenuTitle` | MenuItem·MenuTitle로 메뉴 행·설명·섹션 위계를 공유한다. MenuTitle의 leading 슬롯에 출처 브랜드 로고를, afterLabel 슬롯에 제목 바로 뒤 진행 표시를, trailing 슬롯에 우측 보조 항목을 넣으며 제목은 선택 대상이 아니다. 파괴적 항목은 danger. disabled에서도 일반 커서(cursor-default)를 유지하며 회색 표시와 입력 차단을 적용한다. |

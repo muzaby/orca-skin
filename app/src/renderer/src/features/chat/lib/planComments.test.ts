@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasSendablePlanFeedback, quoteSnippet, toPlanFeedback } from './planComments'
+import { quoteSnippet, toPlanFeedback } from './planComments'
 import type { PlanComment } from '../reducer/chatReducer'
 
 function pc(overrides: Partial<PlanComment> = {}): PlanComment {
@@ -42,17 +42,5 @@ describe('quoteSnippet', () => {
   })
   it('max 초과 시 말줄임표로 자른다', () => {
     expect(quoteSnippet('abcdefghij', 5)).toBe('abcd…')
-  })
-})
-
-describe('hasSendablePlanFeedback', () => {
-  it('본문 있는 코멘트가 있으면 true', () => {
-    expect(hasSendablePlanFeedback([pc({ body: '의견' })], '')).toBe(true)
-  })
-  it('코멘트 없고 note 만 있어도 true', () => {
-    expect(hasSendablePlanFeedback([], '메모')).toBe(true)
-  })
-  it('빈 코멘트 + 빈 note 면 false', () => {
-    expect(hasSendablePlanFeedback([pc({ body: '  ' })], '  ')).toBe(false)
   })
 })

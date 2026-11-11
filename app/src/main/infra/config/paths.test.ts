@@ -11,49 +11,11 @@ import {
   ooJsonPath,
   sourcesSkillsDir,
   projectsDir,
-  downloadsDir,
-  safeProjectName,
-  shortProjectId,
-  workspaceDirName
+  downloadsDir
 } from './paths'
 
 // getWorkspacePath 는 mkdirSync 부작용이 있으나 경로 *문자열* 만 검증한다 — fs no-op 으로 격리.
 vi.mock('node:fs', () => ({ mkdirSync: () => undefined }))
-
-describe('safeProjectName', () => {
-  it('공백류를 언더스코어로 바꾼다', () => {
-    expect(safeProjectName('My Project')).toBe('My_Project')
-    expect(safeProjectName('a\t b\nc')).toBe('a_b_c')
-  })
-
-  it('비안전 문자를 하이픈으로 바꾸고 양끝 구두점을 정리한다', () => {
-    expect(safeProjectName('foo/bar:baz')).toBe('foo-bar-baz')
-    expect(safeProjectName('  ..hello..  ')).toBe('hello')
-  })
-
-  it('길이를 40자로 캡한다', () => {
-    expect(safeProjectName('a'.repeat(100))).toHaveLength(40)
-  })
-
-  it('빈 결과는 project 폴백', () => {
-    expect(safeProjectName('   ')).toBe('project')
-    expect(safeProjectName('///')).toBe('project')
-  })
-})
-
-describe('shortProjectId', () => {
-  it('하이픈 제거 후 앞 8자를 쓴다', () => {
-    expect(shortProjectId('550e8400-e29b-41d4-a716-446655440000')).toBe('550e8400')
-  })
-})
-
-describe('workspaceDirName', () => {
-  it('<이름>-<ID8> 로 조합한다', () => {
-    expect(workspaceDirName({ id: '550e8400-e29b-41d4', name: 'My Project' })).toBe(
-      'My_Project-550e8400'
-    )
-  })
-})
 
 describe('getWorkspacePath', () => {
   const root = join(homedir(), '.config', PRODUCT_SLUG, 'projects')

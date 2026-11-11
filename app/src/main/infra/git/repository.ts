@@ -1,17 +1,10 @@
 import { realpath } from 'node:fs/promises'
 import { normalize } from 'node:path'
 import { gitGateway, type GitGateway } from './gateway'
-import { headName, headOid, isGitOid, probeRepo } from './probe'
+import { headOid, isGitOid, probeRepo } from './probe'
 
 export async function canonicalPath(path: string): Promise<string> {
   return normalize(await realpath(path))
-}
-export async function resolveRepoRoot(
-  cwd: string,
-  gateway: GitGateway = gitGateway
-): Promise<string | null> {
-  const probe = await probeRepo(cwd, gateway)
-  return probe.kind === 'repo' ? probe.root : null
 }
 export async function resolveHead(
   cwd: string,
@@ -19,13 +12,6 @@ export async function resolveHead(
 ): Promise<string | null> {
   const probe = await probeRepo(cwd, gateway)
   return probe.kind === 'repo' ? headOid(probe.head) : null
-}
-export async function resolveHeadRef(
-  cwd: string,
-  gateway: GitGateway = gitGateway
-): Promise<string | null> {
-  const probe = await probeRepo(cwd, gateway)
-  return probe.kind === 'repo' ? headName(probe.head) : null
 }
 export async function resolveBranchOid(
   cwd: string,

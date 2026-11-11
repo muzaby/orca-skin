@@ -124,7 +124,7 @@ SDK `init.output_style` 표시값이 아닌 실제 모델 요청의 style 본문
 
 | 가이드 전제 | Orcinus orca 현실 |
 |---|---|
-| 3장 "대화마다 고유 cwd" | 현재 cwd 는 **프로젝트 단위**다 — `Bootstrap.getCwd(projectId)`(`app/bootstrap.ts`·`app/context.ts`)가 프로젝트 미소속이면 `projects/default`, 소속이면 `projects/<이름>-<프로젝트ID8>` 을 준다. **대화(세션)마다 고유 cwd 는 아니다** — Future Scope. `excludeDynamicSections:false` 결정은 유효하나 근거는 "동적섹션 유지" 자체이지 per-session cwd 가 아님 |
+| 3장 "대화마다 고유 cwd" | 현재 cwd 는 **프로젝트 단위**다 — `Bootstrap.getCwd(projectId)`(`app/bootstrap.ts`·`app/context.ts`)가 프로젝트에 지정된 `cwd` 가 있으면 그 폴더를, 없거나 프로젝트 미소속이면 기본 작업 폴더(바탕화면 — `getWorkspacePath`, `infra/config/paths.ts`)를 준다. **대화(세션)마다 고유 cwd 는 아니다** — Future Scope. `excludeDynamicSections:false` 결정은 유효하나 근거는 "동적섹션 유지" 자체이지 per-session cwd 가 아님 |
 | 6장 VOLATILE = 날짜·**메모리 스냅샷** → 첫 user 메시지 | Orcinus orca 에 **메모리 기능 없음**. 날짜는 preset 동적섹션이 이미 주입. 현재 격리할 volatile preamble 자체가 없음 → 미구현(기능 도입 시 재검토) |
 | 5.3 `src/agent/systemPrompt/` 경로 | Orcinus orca 엔 미존재. main feature 슬라이스에 맞춰 `features/extensions/common/system-header.ts`(빌더 동일 slice)로 매핑 |
 

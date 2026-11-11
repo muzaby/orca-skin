@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   carriesFileEditPatch,
   fileEditPatchLines,
-  isFileEditToolName,
   readFileEditStructuredPatch
 } from './file-edit-tool'
 
@@ -21,12 +20,6 @@ const hunk = {
 }
 
 describe('편집 도구 이름', () => {
-  it('카드가 diff 로 그리는 3종만 참이다', () => {
-    expect(['Write', 'Edit', 'MultiEdit'].every(isFileEditToolName)).toBe(true)
-    expect(isFileEditToolName('Read')).toBe(false)
-    expect(isFileEditToolName('NotebookEdit')).toBe(false)
-  })
-
   it('구조화 패치를 싣는 도구는 Edit 뿐이다 (0228 D-009)', () => {
     expect(carriesFileEditPatch('Edit')).toBe(true)
     expect(carriesFileEditPatch('Write')).toBe(false)
