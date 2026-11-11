@@ -60,20 +60,21 @@ describe('session directory action — bound target and persisted scope', () => 
     })
     expect(addDirectory).not.toHaveBeenCalled()
   })
-  it.each([{ inflight: true }, { activityTransport: 'ready' as const }, { loadingSession: true }])(
-    'rejects busy state %j before IPC',
-    async (patch) => {
-      const entry = useChatStore.getState().sessions.s
-      useChatStore.setState({
-        sessions: { s: { ...entry, session: { ...entry.session, ...patch } } }
-      })
-      expect(await chatActions.addSessionDirectory(target, 'C:/chosen')).toEqual({
-        ok: false,
-        reason: 'busy'
-      })
-      expect(addDirectory).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    { inflight: true },
+    { activity: { ...initialChatState.activity, transport: 'ready' as const } },
+    { loadingSession: true }
+  ])('rejects busy state %j before IPC', async (patch) => {
+    const entry = useChatStore.getState().sessions.s
+    useChatStore.setState({
+      sessions: { s: { ...entry, session: { ...entry.session, ...patch } } }
+    })
+    expect(await chatActions.addSessionDirectory(target, 'C:/chosen')).toEqual({
+      ok: false,
+      reason: 'busy'
+    })
+    expect(addDirectory).not.toHaveBeenCalled()
+  })
   it('does not apply a late response to the new active session', async () => {
     const gate = deferred()
     addDirectory.mockReturnValue(gate.promise)

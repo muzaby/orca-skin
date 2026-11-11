@@ -6,6 +6,7 @@ import { Exchange } from '../../harnesses/claude/transcript/Exchange'
 import { TranscriptView } from './TranscriptView'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import { groupExchanges, type Turn } from '../../lib/turns'
+import { initialChatState } from '../../reducer/chatReducer'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
 import { useChatStore } from '../../store/chatStore'
 import { acquireArtifacts, refreshArtifactList, useArtifactStore } from '../../store/artifactStore'
@@ -70,7 +71,11 @@ function render(element: ReactElement): string {
 }
 
 beforeEach(() => {
-  installChatStoreHarness({ inflight: true, turnStartedAt: 1, activityForeground: 'streaming' })
+  installChatStoreHarness({
+    inflight: true,
+    turnStartedAt: 1,
+    activity: { ...initialChatState.activity, foreground: 'streaming' }
+  })
   useChatStore.setState((state) => ({
     sessions: { s: { ...state.sessions.s, live: { text: 'live-body', reasoning: '' } } }
   }))

@@ -1,4 +1,4 @@
-import type { ChatState } from '../../../reducer/chatReducer'
+import type { ChatActivityState } from '../../../reducer/chatReducer'
 
 export type PendingSteerControl = 'send-now' | 'cancel'
 
@@ -15,7 +15,7 @@ interface PendingSteerControlActions {
 
 export function pendingSteerControls(
   item: PendingSteerControlItem,
-  foreground: ChatState['activityForeground']
+  foreground: ChatActivityState['foreground']
 ): PendingSteerControl[] {
   if (item.submitted === true) return []
   return foreground === 'streaming' && item.sendNowRequested !== true

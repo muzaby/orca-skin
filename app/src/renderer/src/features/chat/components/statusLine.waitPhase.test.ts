@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatActivitySnapshot, ChatWaitPhase } from '../../../../../shared/ipc'
 import { chatReducer, initialChatState } from '../reducer/chatReducer'
-import { useChatStore } from '../store/chatStore'
+import { useChatResidualSteer, useChatStore } from '../store/chatStore'
 import { PendingAssistantStatus } from './transcript/PendingAssistantStatus'
 
 vi.mock('../../../shared/ui/elapsed', async (original) => ({
@@ -45,21 +45,58 @@ function renderStatusWithSession(session: typeof initialChatState): string {
   return renderToStaticMarkup(createElement(PendingAssistantStatus))
 }
 
+function ResidualProbe(): React.JSX.Element {
+  return createElement('output', null, String(useChatResidualSteer()))
+}
+
 describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT-04)', () => {
   // 0308 — 상태줄의 대기 표시는 transport 에서 파생한 점유 값을 받는다(ready 도 점유다).
   it('derives the waiting label from the transport: ready and listening wait, idle does not', () => {
-    const render = (activityTransport: 'idle' | 'ready' | 'listening'): string =>
+    const render = (transport: 'idle' | 'ready' | 'listening'): string =>
       renderStatusWithSession({
         ...initialChatState,
         sessionId: 's1',
         backend: 'claude',
-        activityForeground: 'idle',
         turnStartedAt: 1,
-        activityTransport
+        activity: { ...initialChatState.activity, transport }
       })
     const idle = render('idle')
     expect(render('ready')).not.toBe(idle)
     expect(render('ready')).toBe(render('listening'))
+  })
+
+  it('잔여 수 selector 는 activity.residualCount 를 낸다', () => {
+    renderStatusWithSession({
+      ...initialChatState,
+      sessionId: 's1',
+      activity: {
+        ...initialChatState.activity,
+        residualCount: 2,
+        queuedCount: 5,
+        deliveryPendingCount: 3
+      }
+    })
+    expect(renderToStaticMarkup(createElement(ResidualProbe))).toBe('<output>2</output>')
+  })
+
+  it('상태 줄은 activity 의 건수 4필드를 각자의 문구로 낸다', () => {
+    const html = renderStatusWithSession({
+      ...initialChatState,
+      sessionId: 's1',
+      turnStartedAt: 1,
+      activity: {
+        ...initialChatState.activity,
+        foreground: 'streaming',
+        queuedCount: 1,
+        deliveryPendingCount: 5,
+        residualCount: 2,
+        backgroundTaskCount: 4
+      }
+    })
+    // 잔여는 전달 확인의 부분집합이라 차감돼 보인다(5 − 2).
+    expect(html).toContain(
+      'title="전달 확인 중 3건 · 입력 대기 1건 · 중단 후 전달 대기 2건 · 백그라운드 작업 4건"'
+    )
   })
 
   it('does not invent a wait phase before receiving an activity snapshot', () => {
@@ -67,7 +104,7 @@ describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT
       ...initialChatState,
       sessionId: 's1',
       backend: 'opencode',
-      activityForeground: 'streaming',
+      activity: { ...initialChatState.activity, foreground: 'streaming' },
       turnStartedAt: 1
     })
 
@@ -147,10 +184,10 @@ describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT
         waitPhase: { kind: 'server' }
       })
     })
-    expect(stale.activityWaitPhase).toEqual({ kind: 'model' })
+    expect(stale.activity.waitPhase).toEqual({ kind: 'model' })
   })
 
-  it('hydrates activityWaitPhase on LOAD_SESSION and preserves newer live activityWaitPhase', () => {
+  it('hydrates activity.waitPhase on LOAD_SESSION and preserves newer live activity.waitPhase', () => {
     const hydrated = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',
       session: {
@@ -167,7 +204,7 @@ describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT
         })
       }
     })
-    expect(hydrated.activityWaitPhase).toEqual({ kind: 'model' })
+    expect(hydrated.activity.waitPhase).toEqual({ kind: 'model' })
 
     const liveNewer = chatReducer(hydrated, {
       type: 'RECV_EVENT',
@@ -193,7 +230,7 @@ describe('PendingAssistantStatus waitPhase rendering and reducer wiring (0296 IT
         })
       }
     })
-    expect(preserved.activityWaitPhase).toEqual({ kind: 'send' })
-    expect(preserved.activityRevision).toBe(5)
+    expect(preserved.activity.waitPhase).toEqual({ kind: 'send' })
+    expect(preserved.activity.revision).toBe(5)
   })
 })
