@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
-import { scaleMs } from './test-time.mjs'
+import { TEST_TIME_SCALE_ENV, scaleMs } from './test-time.mjs'
 import {
   FORCED_IO,
   IO_RULES,
@@ -21,6 +21,7 @@ import {
   finishGitAllowances,
   installIoGitGuard,
   IO_MODES,
+  IO_MODE_ENV,
   buildProjects,
   classifyTestSource,
   partitionTestFiles,
@@ -595,4 +596,31 @@ assert.deepEqual(await pending, { stdout: 'out', stderr: 'err' })
     { encoding: 'utf8', timeout: scaleMs(20_000) }
   )
   assert.equal(result.status, 0, result.stderr)
+})
+
+describe('실측 워크플로의 env·Variables 이름 (0306 EP-08)', () => {
+  // 워크플로는 이름을 문자열로 쥔다 — 스크립트 상수와 어긋나면 설정한 모드·배율이 조용히 무시된다.
+  const workflow = readFileSync(
+    join(APP, '..', '.github', 'workflows', 'test-pools-experiment.yml'),
+    'utf8'
+  )
+  const literal = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  test('작업 env 가 스크립트가 읽는 이름으로 모드와 배율을 넘기고 작업 상한이 CI 변수를 읽는다', () => {
+    assert.match(
+      workflow,
+      new RegExp(`^      ${literal(IO_MODE_ENV)}: ${literal('${{ matrix.mode }}')}$`, 'm')
+    )
+    assert.match(
+      workflow,
+      new RegExp(
+        `^      ${literal(TEST_TIME_SCALE_ENV)}: ${literal(`\${{ vars.${TEST_TIME_SCALE_ENV} }}`)}$`,
+        'm'
+      )
+    )
+    assert.match(
+      workflow,
+      /^ {4}timeout-minutes: \$\{\{ fromJSON\(vars\.ORCINUS_ORCA_CI_TIMEOUT_MINUTES \|\| '90'\) \}\}$/m
+    )
+  })
 })

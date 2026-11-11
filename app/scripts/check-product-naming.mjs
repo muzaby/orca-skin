@@ -11,7 +11,7 @@
 //
 // 이 파일은 옛 표기를 리터럴로 갖지 않는다(자기 자신이 검사 범위다) — 조각을 이어 만든다.
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { lstatSync, readFileSync, readlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,33 +30,20 @@ const ALLOWED_SHAPES = new RegExp(`${NEW_HEAD}[-_ ]?${OLD}|${OLD}-skin`, 'gi')
 const SUBJECT = new RegExp(Object.values(FORMS).join('|'), 'g')
 const FORM_OF = Object.fromEntries(Object.entries(FORMS).map(([form, text]) => [text, form]))
 
-/** 검사 범위 — 저장소 루트 기준. 디렉토리는 `/` 로 끝난다. (0306 plan §6) */
-export const SCOPE = [
-  'app/src/',
-  'app/scripts/',
-  'app/package.json',
-  'app/electron-builder.yml',
-  'app/electron.vite.config.ts',
-  'app/vitest.config.ts',
-  'app/eslint.config.mjs',
-  '.github/workflows/',
-  'AGENTS.md',
-  'app/AGENTS.md',
-  'app/src/main/AGENTS.md',
-  'app/src/renderer/AGENTS.md',
-  'docs/AGENTS.md',
-  'docs/INDEX.md',
-  'docs/ARCHITECTURE.md',
-  'docs/GLOSSARY.md',
-  'docs/IPC_CONTRACT.md',
-  'docs/PRD.md',
-  'docs/TRD.md',
-  'docs/claude-code-spec.md',
-  'docs/claude-taskxxx-spec.md',
-  'docs/opencode-sdk-spec.md',
-  'docs/arch/',
-  'docs/guides/',
-  'docs/generated/'
+/**
+ * 검사 제외 목록 — 저장소 루트 기준. 디렉토리는 `/` 로 끝나고 `*` 는 경로 마디 하나다.
+ * 지난 기록은 당시 코드·커밋과 맞아야 해서 고치지 않는다(0306 D-003). **이 목록에 없는 추적 파일은
+ * 전부 검사한다** — 새 경로는 등록 없이 검사 범위에 든다.
+ */
+export const EXCLUDED = [
+  'docs/handoff/',
+  'docs/archive/',
+  'docs/decisions/',
+  'docs/etc/',
+  'chats/',
+  'project/',
+  'README.md',
+  '.agents/skills/*/references/'
 ]
 
 const LEGACY_INPUT = '0225 이관의 입력 — 옛 디스크 이름 (0306 D-005)'
@@ -109,8 +96,17 @@ export const ALLOWED = [
   { file: 'docs/arch/backend/provider-runtime.md', form: 'title', count: 1, reason: LEGACY_FACT }
 ]
 
-export function inScope(path, scope = SCOPE) {
-  return scope.some((entry) => (entry.endsWith('/') ? path.startsWith(entry) : path === entry))
+function excludes(entry, path) {
+  if (!entry.includes('*')) return entry.endsWith('/') ? path.startsWith(entry) : path === entry
+  const pattern = entry
+    .split('*')
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+    .join('[^/]+')
+  return new RegExp(`^${pattern}`).test(path)
+}
+
+export function inScope(path, excluded = EXCLUDED) {
+  return !excluded.some((entry) => excludes(entry, path))
 }
 
 /**
@@ -118,10 +114,10 @@ export function inScope(path, scope = SCOPE) {
  * (0306 D-003) 현재 문서의 링크는 그 파일의 실제 이름을 써야 한다 — 링크가 실재를 가리키는 동안만 통과한다.
  * 옛 표기가 든 경로 마디마다: 마디가 옛 이름 그 자체면 `부모/마디/` 를, 아니면 확장자를 뗀 마디를 낸다.
  */
-export function pathShapes(paths, scope = SCOPE) {
+export function pathShapes(paths, excluded = EXCLUDED) {
   const shapes = new Set()
   for (const path of paths) {
-    if (inScope(path, scope)) continue
+    if (inScope(path, excluded)) continue
     const segments = path.split('/')
     segments.forEach((segment, index) => {
       const stem = segment.replace(/\.[A-Za-z0-9]+$/, '')
@@ -158,13 +154,13 @@ export function findOld(text, shapes = []) {
  * @param {string[]} tracked 저장소의 추적 경로 전체 — 범위 밖 파일을 가리키는 링크 판정에 쓴다
  * @returns {{ violations: string[], counted: Map<string, number> }}
  */
-export function scan(files, allowed = ALLOWED, scope = SCOPE, tracked = []) {
-  const shapes = pathShapes(tracked, scope)
+export function scan(files, allowed = ALLOWED, excluded = EXCLUDED, tracked = []) {
+  const shapes = pathShapes(tracked, excluded)
   const violations = []
   const counted = new Map()
   const expected = new Map(allowed.map((entry) => [`${entry.file}\0${entry.form}`, entry.count]))
   for (const { path, text } of files) {
-    if (!inScope(path, scope)) continue
+    if (!inScope(path, excluded)) continue
     if (text.includes('\0')) continue // 바이너리
     for (const hit of findOld(text, shapes)) {
       const key = `${path}\0${hit.form}`
@@ -183,6 +179,11 @@ export function scan(files, allowed = ALLOWED, scope = SCOPE, tracked = []) {
   return { violations, counted }
 }
 
+/** 심볼릭 링크는 따라가지 않고 링크가 적은 대상 경로를 본다 — 대상이 추적 파일이면 그 파일로 따로 검사된다. */
+function readTracked(file) {
+  return lstatSync(file).isSymbolicLink() ? readlinkSync(file) : readFileSync(file, 'utf8')
+}
+
 function main() {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' })
@@ -190,8 +191,8 @@ function main() {
     .filter(Boolean)
   const files = tracked
     .filter((path) => inScope(path))
-    .map((path) => ({ path, text: readFileSync(join(root, path), 'utf8') }))
-  const { violations, counted } = scan(files, ALLOWED, SCOPE, tracked)
+    .map((path) => ({ path, text: readTracked(join(root, path)) }))
+  const { violations, counted } = scan(files, ALLOWED, EXCLUDED, tracked)
   if (process.argv.includes('--report-allowed')) {
     for (const entry of ALLOWED) {
       const actual = counted.get(`${entry.file}\0${entry.form}`) ?? 0

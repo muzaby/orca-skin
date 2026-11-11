@@ -360,6 +360,40 @@ describe('이름 규칙 (0306)', () => {
     expect(header).toContain('${PRODUCT_DISPLAY_NAME} version: ')
   })
 
+  // 현재 문서 — `docs/` 에서 지난 기록(0306 D-003)을 뺀 것과 에이전트 가이드. 일괄 치환은 문서 속
+  // 코드 이름 인용을 긴 꼴로 바꾸기 쉽고, 그 결과는 옛 표기가 아니라 이름 검사기를 통과한다.
+  const PAST_RECORDS = ['handoff', 'archive', 'decisions', 'etc'].map(
+    (dir) => join(REPO_ROOT, 'docs', dir) + sep
+  )
+  const currentDocs = [
+    ...walk(
+      join(REPO_ROOT, 'docs'),
+      (file) => file.endsWith('.md') && !PAST_RECORDS.some((dir) => file.startsWith(dir))
+    ),
+    join(REPO_ROOT, 'AGENTS.md'),
+    join(APP_ROOT, 'AGENTS.md'),
+    join(APP_ROOT, 'src', 'main', 'AGENTS.md'),
+    join(APP_ROOT, 'src', 'renderer', 'AGENTS.md')
+  ].map((file) => ({ file, text: readFileSync(file, 'utf8') }))
+
+  it('현재 문서가 인용하는 preload 노출 키가 코드의 실제 키와 같다 (EP-10)', () => {
+    const actual = /exposeInMainWorld\('([^']+)'/.exec(read('src', 'preload', 'index.ts'))?.[1]
+    expect(actual).toBe('oo')
+    const quoted = currentDocs.flatMap(({ file, text }) =>
+      [...text.matchAll(/exposeInMainWorld\('([^']*)'/g)].map((match) => ({ file, key: match[1] }))
+    )
+    expect(quoted.length).toBeGreaterThanOrEqual(1)
+    expect(quoted.filter(({ key }) => key !== actual)).toEqual([])
+  })
+
+  it('현재 문서에 슬러그를 접두사로 쓴 채널 꼴이 없다 — 채널 접두사는 `oo:` 다 (EP-10 · N4)', () => {
+    const channelShape = new RegExp(`${PRODUCT_SLUG}:[a-zA-Z*{]+`, 'g')
+    const found = currentDocs.flatMap(({ file, text }) =>
+      (text.match(channelShape) ?? []).map((shape) => `${file}: ${shape}`)
+    )
+    expect(found).toEqual([])
+  })
+
   it('레거시 슬러그 상수가 옛 이름을 그대로 갖는다 — 이관의 source 가 여기서 나온다', () => {
     // 옛 이름은 새 슬러그의 마지막 마디다. 리터럴로 적지 않고 관계로 잠근다.
     expect(LEGACY_PRODUCT_SLUG).toBe(PRODUCT_SLUG.split('-')[1])

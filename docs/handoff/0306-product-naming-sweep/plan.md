@@ -10,7 +10,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | PR 미생성 |
-| 상태 | READY (ΔV1 — r1 verify `RETURN_TO_PLAN` 뒤 규범 정정) |
+| 상태 | IMPL_DONE (r2 — ΔV1 구현, 검증 대기) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0225 V1은 "코드 식별자 불변"(EP-11)을 잠갔고 이번 작업은 그 결정을 뒤집는다. 일부 변경이 아니라 반대 방향이라 상속하지 않는다 |
 | 이번 V revision | `ΔV1` — r1 verify 뒤 정정 E1~E5. 기준 = `V1` rev.3(`206409f`) |
@@ -536,6 +536,113 @@ main 소비자    같은 리터럴(별도 사본)       같은 새 리터럴
 - plan 조사가 템플릿으로 조립되는 저장 키를 `sourceId` 문자열 검색으로만 찾아 놓쳤다(C3).
 - plan의 "유지 대상"이 코드 5파일로만 열거돼 문서·링크·지난 스크립트의 입력이 구현 중 세 번 추가됐다(C1·C2·C6).
 - 이 환경은 Electron 바이너리를 받을 수 없어 `dev`/`build`와 설치본 실기는 하지 못했다(AC10).
+
+## [구현자 기입] 설계 리뷰 — r2
+
+- 구현자 = Claude(비기능 작업). 이번 턴은 규범 행을 고치지 않았다 — `git diff` 의 plan 변경은 메타 상태 칸과 `[구현자 기입]` r2 절뿐이다.
+- ΔV1 E1~E5를 그대로 수행했다. E1 뒤 검사기 잔여는 plan 예측(`docs/spec` 3파일 5줄 + `app/.gitignore` 1줄)과 같은 6건이었고 E2·E3 적용 뒤 0이다.
+- 자리 검색 재실행이 ΔV1 목록과 일치한다 — EP-10 ① 2줄 · ② 6건(정정 전) · EP-08 11줄(운반 7 + 주석·설명 4) · EP-05 3줄(`:30` 라벨 포함). 차집합 ∅.
+- plan에 없던 구현 세부 2건은 아래 "놓친 잠재 문제" #1·#2에 적었다. PLAN_GAP 0.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01·VP-08 | EP-01 ⑥ `inScope` | 1 | 1/1 | `check-product-naming.test.mjs` `⑥ 제외 목록 밖의 추적 파일은 전부 읽는다` — `제외: <경로>` 8케이스 · `검사: <경로>` 4케이스 · `입력은 제외 항목과 1:1 이다` | 제외 항목마다 다른 경로 — 항목 1개 제거 시 그 입력만 red(M01~M08) · 항상 `false`/`true` → red 20 / 12(M09·M10) | — |
+| VP-01·VP-08 | EP-01 ①~⑤·⑦ (INHERITED — diff가 같은 파일을 건드림) | 6 | 6/6 | 같은 파일 describe ①~⑤·⑦ — r1 verify V01~V04 재실행 전부 red(1·9·1·3) | r1과 같음 | — |
+| VP-06 | EP-05 도구 이름 | 2 | 2/2 | `:29` → `features/artifacts/tool.test.ts:'always exposes only path/title and the single source of publishing instructions'`(V08 red 1) · `:134` → `infra/db/artifact-queries.test.ts:'attaches to original call, not the latest assistant; replay is idempotent'` 외 8(V09 red 9) | 서버 id ↔ `x_artifacts` | `tool.ts:30`은 자리가 아니다(ΔV1 E5) |
+| VP-07 | EP-08 env·Variables 이름 | 7 | 7/7 | `ci.yml:31`·`release.yml:27` → `test-time.test.mjs:'작업 상한은 저장소 변수 또는 기존값 × 3 이다'` · `ci.yml:81`·`release.yml:66` → `test-time.test.mjs:'두 Test 단계가 배율 변수를 넘긴다'` · 실측 `:35`·`:40`·`:42` → `test-pools.test.mjs:'작업 env 가 스크립트가 읽는 이름으로 모드와 배율을 넘기고 작업 상한이 CI 변수를 읽는다'`(신규) | 이름을 `XX_…`로 → 자리마다 red 1(M30~M33·V16·V17·M37·M38) · `:40`↔`:42` 키 맞바꿈 red(M34) · `:40` 값 `matrix.repeat` red(M35) | Variables 저장소 설정은 사람(AC9) |
+| VP-02 | EP-10 문서 속 코드 이름 인용 | 6줄 8건 | 8/8 | 노출 키 2건 → `product-identity.test.ts:'현재 문서가 인용하는 preload 노출 키가 코드의 실제 키와 같다 (EP-10)'` · 채널 꼴 6건 → `product-identity.test.ts:'현재 문서에 슬러그를 접두사로 쓴 채널 꼴이 없다 — 채널 접두사는 `oo:` 다 (EP-10 · N4)'` | 8건을 한 건씩 긴 꼴로 되돌림 → 건마다 red 1(M20·M21·M23~M28) · 삽입 red(M22) · preload 키 `xx` → red 2(M29) | — |
+
+- 정정 뒤 검색: `git grep -noIE "orcinus-orca:[a-zA-Z*{]+"`(현재 문서 범위) → 0건 · `exposeInMainWorld('` 인용 2줄 모두 `'oo'`.
+- E2·E3(자리 목록 없음 — 검사기 gate가 oracle): 6줄을 한 줄씩 옛 표기로 되돌림 → `gate: node scripts/check-product-naming.mjs` red 6/6(M40~M45).
+
+### V-pair 자기확인
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED (CHANGED) | SELF_PASS | `gate: node app/scripts/check-product-naming.mjs` → OK 2,236파일 · 허용 13항목 | VP-08이 든다 |
+| VP-08 | REQUIRED (CHANGED) | SELF_PASS | `check-product-naming.test.mjs` 40 pass | 제외 항목 제거 8/8 red · `inScope` 고정 red |
+| VP-02 | REQUIRED (CHANGED) | SELF_PASS | `product-identity.test.ts` 42 pass(`이름 규칙 (0306)` 10케이스) | EP-10 ①② 등록 변이 red |
+| VP-07 | REQUIRED (CHANGED) | SELF_PASS | 위 표 7자리 좌표 | 실측 3자리 이름 변이 red(V18 재실행 = M30 red) |
+| VP-06 | REQUIRED (CHANGED — EP-05 목록만) | SELF_PASS | 위 표 EP-05 2자리. EP-04·EP-07은 r1 좌표 유지(이번 diff가 닿지 않음 — 재실행 안 함) | V08·V09 재실행 red |
+| VP-03 | REQUIRED (INHERITED) | SELF_PASS | 전체 gate — 실패 집합 변경 전후 차집합 ∅ | not selected |
+| VP-04·VP-05·VP-09 | INHERITED | 유지 — 이번 diff가 닿지 않음 | r1 verify §4 좌표(전체 vitest에서 실패 집합 밖) | 재실행 안 함 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+하네스 `mutate.py`, spec 46행. 실행 뒤 `git status` 변경 파일 수는 실행 전과 같다(원복 확인 출력 "모든 파일 원문 그대로").
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M01~M08 `EXCLUDED` 항목 1개 제거(8종) | VP-08 등록 변이 · sweep EP-01 ⑥ | 최초 | 검사기 테스트 2~5 (그 항목의 `제외:` 케이스 포함) | 잡음 8/8 |
+| M09·M10 `inScope` → 항상 `false` / `true` | VP-08 등록 변이 | 최초 | 20 / 12 | 잡음 |
+| M11·M12 `*` 마디를 `.*`로 · 파일 항목을 끝 일치로 | 이번 diff의 조건 자리 | 최초 | 각 1(`제외 항목과 이름만 비슷한 경로는 검사한다`) | 잡음 |
+| M46 심볼릭 링크 분기 제거 | 이번 diff의 조건 자리 | 최초 | `gate: check-product-naming.mjs` exit 1(`.claude/skills` 읽기 실패) | 잡음 |
+| V01~V04 검사기 ③·꼴·⑦·④⑤ | 직전 verify `잡음` 행(같은 파일) | 잡음 | 1 · 9 · 1 · 3 | 잡음 유지 |
+| M20·M21 문서 노출 키 → 긴 꼴 · M29 preload 키 → `xx` | VP-02 EP-10 ① 등록 변이 | 최초 | 1 · 1 · 2 | 잡음 |
+| M22 문서에 `<슬러그>:x:y` 삽입 · M23~M28 채널 꼴 6건 되돌림 | VP-02 EP-10 ② 등록 변이 · sweep | 최초 | 각 1 | 잡음 7/7 |
+| M30~M33 실측 워크플로 이름 → `XX_…`(`:40`·`:42` 키·`:42` vars·`:35`) | VP-07 EP-08 등록 변이 · F2 인용 V18 | V18 못 잡음 | 각 1 | 잡음 4/4 |
+| M34 `:40`↔`:42` 키 맞바꿈 · M35 `:40` 값 교체 · M36 스크립트 상수 변경 | sweep — 형제 슬롯 | 최초 | 1 · 1 · 4 | 잡음 |
+| V16·V17·M37·M38 `ci`·`release` 4자리 | 직전 verify `잡음` 행 · sweep EP-08 | 잡음(V16·V17) | 각 1 | 잡음 유지 |
+| V08·V09 산출물 도구 이름 생산·소비 | sweep EP-05 | 잡음 | 1 · 9 | 잡음 유지 |
+| M40~M45 E2·E3 6줄 되돌림 | sweep — 검사기 gate 민감도 | 최초 | gate exit 1 × 6 | 잡음 6/6 |
+
+- 검산: 선택 증거 17(VP-08 M01~M10 = 10 · VP-02 M20·M22 = 2 · VP-07 M30~M33 = 4 · VP-06 소비 V09 = 1) · 인용 변이 1(F2의 V18 = M30, 선택 증거와 겹침) · 새 oracle 3(⑥ 블록 · EP-10 2케이스 · EP-08 1케이스 — 위 변이가 민감도 검사) · sweep 나머지 29 = spec 46행(표는 12묶음).
+- `못 잡음` 0 · `동치` 0.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 화면·모델 대면 문구를 만들지 않았다 | — |
+| seam을 만들려고 production을 재배치했는가 | 해당 없음 — production 코드(`app/src/**` 비테스트) diff 0 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "옛 표기가 든 커밋 → 검사기 exit 1" 행. 주어가 넓어졌다 — 목록에 없던 경로(`tools/`·루트 파일·`.agents/skills/*/SKILL.md`)도 같은 행으로 실패한다 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 아니오 — 검사기는 `파일:줄`과 규칙 문서 경로를 낸다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 범위를 추적 파일 전체로 넓히면 추적된 심볼릭 링크(`.claude/skills` → 디렉토리)를 읽다 `EISDIR`로 죽는다 | ✅ 선조치 — 링크는 따라가지 않고 링크가 적은 대상 경로 문자열을 검사한다 | 분기 제거 변이 M46 → gate exit 1 |
+| 2 | `app/AGENTS.md` scripts 절이 검사기 범위를 "코드와 현재 문서"로 서술했다 — E1 뒤 사실과 다르다 | ✅ 선조치 — "지난 기록을 뺀 추적 파일 전체"로 정정 | 문서가 낡은 경우(`docs/AGENTS.md` 판별 표) |
+| 3 | EP-10 테스트의 "범위 문서"는 `docs/**/*.md`(지난 기록 4폴더 제외) + 에이전트 가이드 4개다 — plan 검색 명령은 `docs`의 모든 확장자를 본다 | ⚠️ 보고만 — `docs`의 비-md 추적 파일에 해당 꼴 0건(`git grep` 재실행 출력이 전부 `.md`) | 확장 후보 아님 — 현재 트리에 그 형태 없음 |
+| 4 | E1으로 검사 파일이 2,163 → 2,236으로 늘었다. 새로 든 73파일에서 옛 표기는 E2·E3의 6줄뿐이었다 | 해당 없음 — 관측 기록 | 검사기 출력 |
+| 5 | r1 #8(문서만 바꾼 PR에서는 CI가 검사기를 돌리지 않는다)은 그대로다 — E2 대상 `docs/spec`도 같다 | ⚠️ 보고만 — 비귀속(CI 경로 필터) | `ci.yml` paths |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 설계가 지정한 메커니즘을 바꾸지 않았다 | — |
+| 공유 | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 제외 목록의 `*` 마디 일치를 정규식으로 구현했다(plan은 표기만 적음) — 마디 둘을 건너뛰는 경로는 제외되지 않는다 | EP-01 ⑥ · M11 red |
+
+## [구현자 기입] 구현 보고 — r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 13(+plan·INDEX) — 검사기 2(`check-product-naming.mjs`·`.test.mjs`) · 테스트 2(`test-pools.test.mjs`·`product-identity.test.ts`) · 문서 8(`GLOSSARY`·`TRD`·`IPC_CONTRACT`·`arch/backend/overview`·`docs/spec` 3·`app/AGENTS.md`) · `app/.gitignore` |
+| 실행 명령 | `app/`에서 `node scripts/check-migrations-appendonly.mjs` · `check-doc-inventory.mjs --check` · `check-product-naming.mjs` · `check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` |
+| **관측한 게이트 산출** | 이름 검사기 OK(2,236파일 · 허용 13항목) · 문서 가드 OK(링크 전부 해석) · 예산 가드 OK(20 suites) · 마이그레이션 가드 skip(이전 `v*` 태그 없음) · lint error 0 · warning 2 · lint가 바꾼 파일 0 · typecheck error 0 · vitest 945파일: 22 failed / 8,797 passed / 11 skipped · `node --test` 868 pass / 0 fail |
+| 기준선 분리 | 변경 전 커밋 worktree(같은 `node_modules`, better-sqlite3 Node ABI) vitest 22 failed / 8,795 passed. 실패 목록 64줄 vs 64줄 `comm -3` **0줄**. 순증 2케이스 = EP-10 2. 서명: `Electron failed to install correctly` 3 · Windows 경로 전제·호스트 의존 단언 — 이번 턴이 수정한 테스트 3파일은 실패 집합에 없다 |
+| 추가·수정 테스트의 subtree 규칙 | 3파일(`git diff --name-only`). vitest 대상은 `product-identity.test.ts` 1개 — unit 풀(자식 프로세스·SQLite 없음, 전체 실행 green) · 예산 가드 위반 0(시간 값 추가 없음). `*.test.mjs` 2개는 `node --test` 대상이고 시간 값·git 실행을 더하지 않았다 |
+| V-pair 자기확인 | CHANGED 5쌍 + VP-03 `SELF_PASS 6 / SELF_BLOCKED 0` · INHERITED 3쌍 유지 |
+| 강제 지점 전수 | EP-01 ⑥ 1/1(①~⑤·⑦ 6/6 재실행) · EP-05 2/2 · EP-08 7/7 · EP-10 8/8 |
+| **AC 자기보고** | AC1 ✅ 검사기 OK — 주어 = 제외 목록 밖 추적 파일 전체 · AC2 ✅ `이름 규칙 (0306)` 10케이스 pass(EP-10 2 포함) · AC3 ✅ 실패 집합 차집합 0줄 · AC4 ✅ `허용 목록의 파일 집합은 고정이다` pass(12파일) · AC5 ✅ `레거시 슬러그 상수…` pass, 이관 테스트는 실패 집합 밖 · AC6 ✅ 문서 가드 OK, `git diff --name-only`에서 D-003 경로 = 이 handoff plan·INDEX뿐 · AC7 ✅ `저장소 Variables 의 새 이름 3개를 안내한다` pass · AC8 ✅ 검사기 테스트 40 pass · AC9 ⚠️ 사람 · AC10 ⚠️ 사람 |
+| **합계 검산** | `✅ 8 · ⚠️ 2 · ❌ 0 = 총 10` (분모 r1과 같음) |
+| 파생 이슈 대응 | F1 — 6줄 8건 정정 + EP-10 2케이스(M20~M29 red) · F2 — 실측 3자리 oracle(M30~M35 red) · F3 — E1·E2·E3 구현(M01~M10·M40~M45 red). 상태 칸은 검증자가 갱신한다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 라운드 2 · impl 턴 `r2`.
+- r1의 F1(문서 속 코드 이름 인용)은 r1 plan §10이 "리뷰 대상(선언 경계)"로 둔 형태였고 r1 구현 턴은 그 형태를 트리에서 찾아보지 않았다.
+- r1의 F2는 §10 EP-08 자리 목록이 "구현자가 명령으로 고정"으로 열려 있던 행이다.
+- 반복된 환경 한계: Electron 미설치(같은 22건), 설치본 실기 불가(AC10).
 
 ## [검증자 기입] 파생 이슈
 

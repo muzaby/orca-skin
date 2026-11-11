@@ -64,7 +64,7 @@
 |---|---|
 | **Main Process** | Electron 의 Node.js 환경. BrowserWindow / IPC 핸들러 / SDK 호출 / 파일 시스템 / 설정 저장 담당. |
 | **Renderer Process** | Electron 의 Chromium sandbox 환경. React UI 렌더링 담당. Node API 직접 접근 불가. |
-| **Preload** | Main 과 Renderer 사이의 다리. `contextBridge.exposeInMainWorld('orcinus-orca', ...)` 로 화이트리스트된 API 만 노출. |
+| **Preload** | Main 과 Renderer 사이의 다리. `contextBridge.exposeInMainWorld('oo', ...)` 로 화이트리스트된 API 만 노출. |
 | **IPC** | Inter-Process Communication. Main ↔ Renderer 메시지 채널. `oo:<domain>:<action>` 명명. |
 | **contextBridge** | Electron API. preload 스크립트가 sandboxed renderer 에 안전하게 함수를 노출하는 도구. |
 | **window.oo** | Renderer 에서 IPC 호출을 위한 단일 진입점. 노출 표면은 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. |
@@ -98,7 +98,7 @@
 - ❌ **"Pane"** — DOM Architecture 의 마크업 슬롯에 없는 어휘. **Tile** (단일 tile) / **Screen** (도메인 화면) 으로 분리한다. 구 `ChatPane` 은 `ChatTile`, 구 `CameraPane` 은 `CameraView`(`features/camera/components/CameraView.tsx`). `app-frame-pane-host` / `app-frame-pane-row` 는 *복수 tile 의 가로 행* 을 가리키는 구조 마커로만 사용한다.
 - ❌ **"Titlebar"** (셸 헤더 의미로) — `Header` 로 통일. `app-frame-titlebar` 는 *tile 내부 헤더* 만을 가리킨다.
 - ❌ **"Token"** (UI 청크 의미로) → **Delta** 로 통일. LLM token count 의미로는 사용 허용 (`inputTokens` / `outputTokens`).
-- ❌ **"SSO 모듈"**(0130) · **"Auth provider"**(0157) · **"Connector"**(0157) · **"Auth binding"**(0157) · **"Provider 선언"**(0181) → 전부 **`AuthDefinition` + `AuthMethod` + `Grant`** 로 통일 (0188). 구 어휘가 가리키던 계약(`contracts/{sso,auth-method,connector,internal-api}.ts`)과 채널(`orcinus-orca:sso:*`·`orcinus-orca:auth:*`·`orcinus-orca:plugin:*`)은 전부 제거됐다.
+- ❌ **"SSO 모듈"**(0130) · **"Auth provider"**(0157) · **"Connector"**(0157) · **"Auth binding"**(0157) · **"Provider 선언"**(0181) → 전부 **`AuthDefinition` + `AuthMethod` + `Grant`** 로 통일 (0188). 구 어휘가 가리키던 계약(`contracts/{sso,auth-method,connector,internal-api}.ts`)과 채널(`oo:sso:*`·`oo:auth:*`·`oo:plugin:*`)은 전부 제거됐다.
 - ❌ **"설치형 플러그인"** (auth 문맥에서) — 확장의 축은 "선언형이냐 코드냐" 가 아니라 **"빌드 타임 내장이냐 런타임 MCP 냐"** 다 (0157). 인증 provider·내장 도구는 빌드 타임, 그 외 서비스 연동은 MCP. 런타임 임의 코드 로딩은 금지.
 - ❌ **"Capture"** — Orcinus orca 의 도메인 카탈로그에서 제외 (사용자 결정). `features/captures/components/CapturesView.tsx` 코드는 남아있으나 문서·논의에서는 거론하지 않는다.
 - ❌ **"Provider"** (LLM 백엔드 의미로) — 위 "LLM Provider" 와 동일. 단, 예외가 **둘** 있다: ⓐ `orcinus-orca.json` 의 `agents[].provider` 는 claude SDK 가 쓰는 클라우드 제공자(`anthropic`/`bedrock`/`vertex`) 필드명, ⓑ **인증 대상**(0188 부터 `AuthDefinition`) — 위 §1 표제어. 후자는 LLM 백엔드가 아니라 *인증 상대* 이며, `kind:'llm'` 인 경우에도 그것이 가리키는 것은 "모델 게이트웨이와의 인증 관계" 이지 백엔드 자체가 아니다. 문맥이 섞일 자리에서는 **"인증 provider"** / **"Backend"** 로 풀어 쓴다.
