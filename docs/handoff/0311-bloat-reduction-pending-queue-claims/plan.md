@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-11 |
 | 매핑 | 0305 분할안 H-D(C-25 전부 · C-14 2단계). H-D의 나머지는 §4에서 제외 |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0151·0166·0301의 대기열 V는 문서로 상속하지 않고, 그 테스트를 VP-05가 회귀로 다시 닫는다 |
 | 이번 V revision | `V1` |
@@ -495,115 +495,128 @@ pending-message-queue.ts
 > **모든 impl 턴(재구현·사용자 요구 변경)이 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다: 빠진 필드는 조사하지 않은 것과 구분되지 않는다(impl §9).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 — r1
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·II 전부. §10 자리 수(EP-01 70줄 12파일 · EP-02 19줄 7파일 · EP-04 1줄)가 착수 시 재실행값과 일치했다.
+- 이견 / 현실성 문제: §8 "나머지 펼침으로 필드를 빼는 꼴은 lint를 통과한다"가 틀렸다 — `native-sync.ts:122`의 `raw`는 뒤에서 쓰인다. 쓰지 않는 형제는 `@typescript-eslint/no-unused-vars` error다. 아래 `설계 대비 명시적 차이`.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
-
-> `§10`의 `언제 강제` 칸은 **하나의 불변식이 성립해야 하는 지점 목록**이다. 한 지점만 닫아도
-> 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
-> **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
-> 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
-> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
-> 열거 항목(§10 자리·path edge·규칙 칸 분기·등록 변이)마다 기본 변이 1개는 oracle 종류와 무관하게 돌린다(impl §3 sweep). 그 밖의 직접 oracle에는 mutation을 더 발명하지 않는다.
-> **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §9).
-> **`닫은 지점`은 §10 항목이 아니라 §10이 고정한 자리로 세고, 기록된 자리 검색 명령을 다시 돌린 출력과 목록의 차집합을 적는다** — 목록이 없거나 출력과 갈리거나 술어가 불변식의 주어가 아니거나 범위가 지적이 인용한 파일로 좁으면 `PLAN_GAP`이다(impl §2).
-> **닫은 자리마다 직접 oracle 좌표(`파일:테스트명` / 실패 의미 red를 관측한 `gate:<명령>`)를 적는다** — typecheck·코드 읽기·일회성 실측만 있는 자리는 `남긴 곳`에 적고 세지 않는다(impl §2).
-> **좌표는 그 테스트의 실행 구간(들어간 곳 → 관측한 곳, mock한 path 구성요소 제외) 안의 자리만 닫는다** — 안쪽 export로 들어가거나 한쪽 끝을 mock하거나 내부 상태만 단언하거나 production 조립이 주입하는 의존성을 빼 다른 분기를 탄 테스트가 건너뛴 자리는 `남긴 곳`이다. 운반 값을 기본값·빈 값·형제와 같은 값으로만 준 좌표, 자리 규칙이 적은 분기 중 입력이 없는 분기가 있는 좌표도 그 자리를 닫지 않는다(impl §2).
-> **`§10이 적은 지점`은 그 pair의 §10 자리 전부다** — 재구현 턴에도 지목된 자리만 적지 않고, 닫지 않은 자리는 `남긴 곳`에 남긴다(impl §9).
-> **`운반 항 · 구별 값 · 관측`은 닫힘으로 센 행마다 그 자리가 넘기는 항, 테스트의 구별 입력, 좌표가 관측하는 곳을 적는다** — 셋 중 하나가 빠진 항은 `남긴 곳`이고, 호출·분기를 바꾼 변이의 red로 인자 항을 채우지 않는다(`docs/handoff/AGENTS.md §공통 V`).
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | commit: `key`(형제와 다른 값 → 저장 결과 단언) · … / 운반 항 없음 | — |
+| VP-01 | 제거 이름·`commit` 호출·문서 표기 부재 | EP-01 70줄 12파일 · EP-02 19줄 7파일 · EP-04 1줄 | 70/70 · 19/19 · 1/1 | §10 EP-01·EP-02·EP-04 명령 → 착수 70·19·1줄, 종료 0·0·0줄(차집합 = 전부 제거) · `gate:npm run typecheck` error 0 | 운반 항 없음(부재 계약) — 양성 짝은 VP-02 K4 | — |
+| VP-02 | claim 일치·상태 전이 | EP-03 정의 4자리 | 4/4 | §10 EP-03 명령 → 정의 4줄(`pending-message-queue.ts:278,282,289,295`), 목록과 차 0 · K1·K2·K3·K4·K8 = `pending-message-queue.test.ts`:'K1 commits every submitting claim…' · 'K2 accepts already submitted claims…' · 'K3 refuses to commit when one claim is %s…'(4) · 'K4 no claim method matches a claim with %s'(5) · 'Q8 accepts an empty claim list' · K6·K7 = 같은 파일 Q1~Q7 | `uuid` `u1`≠`other` · `chainId` `chain-1`≠`other`·없음 · `ids` `['a','b']`≠`['a']`·`['b','a']` → 네 메서드 반환값과 알림 수 · 상태 4종(확정·orphaned·대기·폐기) → 첫 claim의 `canCommitMany` | — |
+| VP-03 | 공개 형태·재발급·잔여 수 | EP-05 `toPublic` 호출 5자리 + 재발급 2자리 + 잔여 1자리 | 5/5 · 2/2 · 1/1 | §10 EP-05 명령 → `toPublic` 호출 `:358,371,400,473,509` · 재발급 `:463,468` · 잔여 `:447`, 목록과 차 0 · P1 = 'P1 %s returns contract fields only'(6 — `confirm` 2갈래 포함) · P3 = 'takeForRespawn 은 미확정 예약 재전달 + held 아이템 배치를 시간순으로 회수한다' · 'takeForRespawn 이 새 chainId 를 붙이면…(ABA 차단)' · P5 = `session-activity-projector.test.ts`:'interrupt 생존 attempt만 residual로 세고…' | 첨부 있는 배치 `a`와 없는 배치 `b` → `Object.keys` · 옛 `uuid` `batch-1`·항목 id `b` → 새 `uuid`에 없음 · 잔여 `['a1','a1','unknown']` → 1, `['unknown']` → 0 | — |
+| VP-04 | 콜백 → 대기열 배선 | EP-03 호출 7자리 | 7/7 | §10 EP-03 명령 → `turn-request.ts:86,93,105,113,118` · `send.ts:635,761`, 목록과 차 0 · `turn-request.reopen.test.ts`:'W1 …'·'W2 …'(키) · 'W3 follows the current initial batches through the getter' · 'W4 %s rollback returns the input to held…'(2) · `send.worktree.test.ts`:'확장 준비 await 중 취소한 최초 입력만 복원하고…'(`:635`) · '예약 뒤 준비가 실패하면 그 입력이 대기열에 예약으로도 대기로도 남지 않는다'(`:761`) | DB id `s1`≠큐 키 `q-other` → 대기열 상태 · 배치 `m1`→`m2` 교체 → 판정 · 발신 payload `submitted` true/false | — |
+| VP-05 | 종단 회귀 | 0 | 0/0 | 파일 필터 없는 vitest — 실패 집합이 변경 전과 양방향 차 0 · 인용 7파일 중 이 환경에서 도는 6파일 green(`chat-turn.continuity.test.ts`는 변경 전에도 Electron 바이너리 부재로 파일 실패) | 운반 항 없음 | `chat-turn.continuity.test.ts` — 환경 한계 |
 
-- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 분류(impl §7): 목록 미고정 → PLAN_GAP · 현재 결함 → 선조치 또는 PLAN_GAP · 확장 후보 → 확장 창이 열려 있으면 PLAN_GAP 가능, 닫혔으면 보고 · 비귀속 → 별도 finding
-- 직전 verify 고장 이력의 `못 잡음` 행: 없음 / ID → 잡은 테스트 `파일:테스트명`(재실행 결과) 또는 `동치` 근거·확인 실행 — 분류가 이행·현재 결함이거나 설계자가 채택한 확장 행은 이번 턴에 닫는다. 후보 표로 간 행과 `경계` 행은 제외
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(r1 — verify 이력 없음).
 
-**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다. 이전 라운드 상태를 유지로 옮기는 행도 좌표를 인용하고, 좌표 없이 났던 `SELF_PASS`는 이번 턴에 재판정한다(impl §2).
+**V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | `파일:테스트명` … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-01 | REQUIRED | SELF_PASS | EP-01·02·04 0줄 · typecheck error 0 | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 위 K1~K8 좌표 | required — (a)·(b)·(c)·(d)·(e)·(f)·(k) 전부 red |
+| VP-03 | REQUIRED | SELF_PASS | 위 P1·P3·P5 좌표 | required — (g)·(h) 2자리·(j) 전부 red |
+| VP-04 | REQUIRED | SELF_PASS | 위 W1~W4·`send.worktree` 좌표 | required — (i)·(l) 5자리 전부 red |
+| VP-05 | REGRESSION | SELF_PASS | 전체 vitest 실패 집합 차 0 | not selected |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 — r1
 
-> **열거 sweep**: 열거 항목(§10 자리·path edge·규칙 칸 분기·등록 변이)마다 기본 변이 1개(제거 — 계약이 다른 형제 슬롯이 있으면 맞바꿈을 더함)를
-> 심어 red인지 본다(impl §3, 하네스 `.agents/skills/handoff-verify/scripts/mutate.py`). 그 위에 pair가 선택한 적대 증거·
-> 파생 이슈의 인용 변이·이번 턴에 만든 구조적 proxy·0건/전수·배선 oracle의 민감도를 심는다. 규칙 칸 분기는 그 칸을 구현한
-> diff 자리(조건·조기 반환·후보를 합치는 항)마다 제거 변이를 심어 찾는다. 그 밖의 hunk에는 mutation을
-> 새로 발명하지 않는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
+하네스 `mutate.py --cwd app`(종료 뒤 `git status` — 변이 잔여 0). oracle은 `features/chat` 전체 + `turn-request.reopen.test.ts` + `retry-submission.test.ts`(`send.ts` 두 행은 `src/main/app` + `features/chat` + `features/sessions`)이고, 변경 전 실패 집합에 없는 실패가 하나라도 나면 red로 읽었다.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가(제거 / 형제와 맞바꿈) | `sweep — §10 자리 / path edge / 규칙 칸 분기(diff 자리)` / `재앵커 — 원 ID` / `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | red / green / 최초 | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 테스트 추가** / 동치 — 근거·확인 실행 |
+| `claimed`의 `ids` 일치 항 제거 | VP-02 (a) · sweep | 최초 | K4·Q7 3건 | 잠김 |
+| `claimed`의 `chainId` 일치 항 제거 | VP-02 (b) · sweep | 최초 | K4·Q7 3건 | 잠김 |
+| `claimed`의 `uuid` 일치 항 제거 | sweep(일치 항) | 최초 | K4 1건 | 잠김 |
+| `claimed`의 상태 항을 항상 참으로 | sweep(일치 항) | 최초 | 10건(`retry-submission` D 외) | 잠김 |
+| `move`의 술어를 `isOpen`으로 | VP-02 (c) | 최초 | 3건(`retry-submission` D · Q5 외) | 잠김 |
+| `claimed`가 일치하는 것만 모아 반환(부분 전이) | VP-02 (d) | 최초 | 24건 | 잠김 |
+| `canCommitMany` 술어를 `awaitsReceipt`로 | VP-02 (e) | 최초 | W1 외 3건 | 잠김 |
+| `commitMany`의 목표를 `submitting`으로 | VP-02 (f) · 하한 ⑤ | 최초 | 17건 | 잠김 |
+| `reopenMany`의 목표를 `submitted`로 | VP-02 (f) · 하한 ⑤ | 최초 | 8건 | 잠김 |
+| `move`가 바뀐 것이 없어도 알림 | VP-02 (k) | 최초 | Q2 외 3건 | 잠김 |
+| `move`의 `state !== to` 필터 제거 | sweep(diff 자리) | 최초 | 5건 | 잠김 |
+| `toPublic`이 배치를 그대로 반환 | VP-03 (g) | 최초 | P1 6건 | 잠김 |
+| `toPublic`의 `delete rest.state` 제거 | sweep(diff 자리) | 최초 | P1 6건 | 잠김 |
+| `toPublic`의 `delete rest.items` 제거 | sweep(diff 자리) | 최초 | P1 6건 | 잠김 |
+| 이월 배치의 `uuid` 재발급 제거 | VP-03 (h) 자리 1 | 최초 | 2건 | 잠김 |
+| 대기 항목 배치의 `uuid`를 항목 id로 | VP-03 (h) 자리 2 | 최초 | 1건 | 잠김 |
+| 이월 배치의 `chainId` 재발급 제거 | sweep(형제 항) | 최초 | ABA 외 2건 | 잠김 |
+| 잔여 수의 `uuid` 대조 제거 | VP-03 (j) | 최초 | projector 1건 | 잠김 |
+| `reserveItem`의 `uuid`를 새 값으로 | sweep(P2) | 최초 | 17건 | 잠김 |
+| `buildTurnRequest`가 배치를 조립 시점에 캡처 | VP-04 (i) | 최초 | 10건(W3 포함) | 잠김 |
+| 세션 키를 `queueKey`로 고정 — 제출 가능 | VP-04 (l) 자리 1 | 최초 | W1 2건 | 잠김 |
+| 같은 변이 — 제출 확정 | (l) 자리 2 | 최초 | W1 외 3건 | 잠김 |
+| 같은 변이 — 되돌림 | (l) 자리 3 | 최초 | W4 2건 | 잠김 |
+| 같은 변이 — 재개방 가능 | (l) 자리 4 | 최초 | W1 2건 | 잠김 |
+| 같은 변이 — 재개방 | (l) 자리 5 | 최초 | W1 2건 | 잠김 |
+| 되돌림의 `uuid`를 다른 값으로(`turn-request.ts`) | sweep(EP-03 호출) | 최초 | `retry-submission` H 1건 | 잠김 |
+| 제출 확정 발신의 `submitted`를 `false`로 | sweep(path edge) | 최초 — 처음엔 green | W1 1건(단언 1줄 추가 뒤) | 잠김 |
+| 되돌림 발신의 `submitted`를 `true`로 | sweep(path edge) · 하한 ⑤ | 최초 | W4 1건 | 잠김 |
+| `send.ts:635` 되돌림의 `uuid`를 `'x'`로 | sweep(EP-03 호출) | 최초 | `send.worktree` 1건 | 잠김 |
+| `send.ts:761` 되돌림의 `uuid`를 `'x'`로 | sweep(EP-03 호출) | 최초 — 처음엔 green | `send.worktree` 1건(케이스 1개 추가 뒤) | 잠김 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K · sweep S = 표 행 T` — sweep S는 열거 항목 수와 같아야 한다. 행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다(impl §9).
-- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 / N건 → 사유와 함께 적는다. 분모는 직전 verify 고장 이력의 `잡음` 행 중 하한 ④와 같은 범위이고, 원문이 옮겨 갔으면 재앵커한 행이다. 장치를 교체·삭제했으면 구 장치가 잡던 자리가 새 장치의 하한이다(impl §3).
+- **분모 검산**: `선택 증거 16((a)(b)(c)(d)(e)(f)×2(g)(h)×2(i)(j)(k)(l)×5) · 인용 변이 0 · 새 oracle 0 · sweep 14 = 표 행 30`.
+- **덮개 회귀**: 0건(r1 — 이전 라운드 없음). 지운 `commit` 전용 케이스는 없다 — 19곳 모두 다른 동작의 준비 단계였고 `commitMany`로 바꿔 단언을 그대로 뒀다. 지운 단언은 `expect(q.isFrozen).toBe(true)` 1줄이고 그 케이스의 `app_closing` 단언은 남는다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 — r1
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 / … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 문구·상태 추가 0 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — `send.ts`는 인자 1줄과 폴백 2곳만 바뀌었고 `try`/`finally` 구조 diff 0 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. `chainId` 없는 claim의 불일치(D-010)는 제품 경로에서 만들 수 없다(§10 선언 경계) | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 변화 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 변화 없음 — 이월 재발급(P3)이 그대로다 | — |
 
-> 범위 밖이라 이번에 고치지 않더라도 **적는다** — 적지 않으면 그 선택지가 존재한 적도 없게 된다.
-
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r1
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
-
-> 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
-> 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
-> 어느 절을 어떻게 바꿔야 하는지를 함께 적는다.
+| 1 | `toPublic`을 나머지 펼침으로 쓰면 쓰지 않는 형제 변수가 lint error다(§8의 선례 인용이 틀렸다) | ✅ 선조치 — 얕은 복사 뒤 `state`·`items`를 `delete`. 키 집합은 같다 | `npx eslint …pending-message-queue.ts` error 2 → 0 · P1 6건 green |
+| 2 | `send.ts:761`(준비 실패 정리의 되돌림)을 잠그는 테스트가 없었다 — 변경 전에도 같다 | ✅ 선조치 — `send.worktree.test.ts`에 케이스 1개 추가 | 추가 전 변이 green → 추가 뒤 red |
+| 3 | W1이 제출 확정 발신의 횟수만 보고 `submitted` 값을 보지 않았다 | ✅ 선조치 — 단언 1줄 추가 | 추가 전 변이 green → 추가 뒤 red |
+| 4 | test가 126줄 순증했다 — AC7의 "test는 늘지 않는다" 미달 | ⚠️ 보고만 — §14가 예정한 처리. 늘어난 것은 K·P·W 잠금과 #2의 케이스다 | `git diff --numstat 1582d12 -- app/src` test +200 −74 |
+| 5 | `send.worktree.test.ts`의 `makeHarness('session-1')`은 세션 id와 큐 키(`new:1`)가 다르다 — production은 같다(`leaseKeyFor`). 그래서 `send.ts:764-770`의 "저장된 세션의 `message.cancelled` 발신" 갈래를 이 하네스로 잴 수 없었다 | ⚠️ 보고만 — 비귀속(이번 diff가 닿지 않은 줄). #2는 새 세션 흐름으로 되돌림 자체만 잠갔다 | 저장된 세션으로 쓴 첫 시도에서 `deliveryPendingCount` 1 — 하네스의 키 불일치 |
+| 6 | 전체 vitest가 변경 전에도 29파일 실패한다(Electron 바이너리 부재 외 단언 실패 포함) | ⚠️ 보고만 — 비귀속. 29파일 중 이번에 만진 것은 `chat-turn.continuity.test.ts` 1개이고 변경 전후 모두 파일 로드 실패다 | 아래 구현 보고 게이트 행 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 / …
-
-> 차이가 있으면 **대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 한 줄씩** 적고, 그 축에서 다시 확인한
-> AC·§10 행을 관측과 함께 남긴다. 한 축만 적은 보고는 나머지 축도 조사한 것처럼 보인다(impl §7).
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: D-005(e)·§9 TO-BE의 `const { state, items, ...rest } = batch`를 `{ ...batch }` 복사 + `delete` 2줄로 구현했다(위 1). 줄 수는 14 → 6이다(plan 추정 4).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … / 해당 없음 + 근거 | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … / 해당 없음 + 근거 | … |
-| 재진입 | … / 해당 없음 + 근거 | … |
-| 다른 무효화 축 | … / 해당 없음 + 근거 | … |
+| 만료 | 해당 없음 — 값 복사다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 얕은 복사라 첨부 배열 참조를 추적 배치와 공유한다 — 변경 전 필드별 복사도 같은 참조를 넘겼다. `scrubBatch`는 배열을 새 빈 배열로 대입하므로 반환된 배치의 내용을 지우지 않는다(변경 전과 같다) | AC3 P1 · `pending-message-queue.test.ts`:'세션 전량을 제거하고 payload 를 스크럽한다' green |
+| 재진입 | 해당 없음 — 동기 순수 함수 | — |
+| 다른 무효화 축 | `TrackedBatch`에 추적 필드가 늘면 `delete`를 더하지 않는 한 새 필드가 샌다 — 나머지 펼침도 같다. P1의 키 집합 대조가 red로 잡는다(§17 리스크 3행) | AC3 P1 |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 — r1
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님 · 마지막 수정 뒤 실행) | `ci.yml` 단계 전부의 로컬 대응(파일 필터 없는 테스트) — 테스트 N파일 / M케이스 · error·warning 수 · 돌리지 못한 단계와 이유 · 기준선 분리 근거(변경 전 실패 집합과 차집합 ∅ + 환경 원인, `docs/handoff/AGENTS.md §판정 범위와 운영 gate`) |
-| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only`로 뽑은 테스트 파일 N · 규칙별 위반 0(app: 시간 예산·호스트 격리·풀 분류) · 그 파일들의 규칙 가드 실패 0 — 테스트를 건드리지 않았으면 `해당 없음` |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
+| 변경 파일 | prod 4(`pending-message-queue.ts` · `turn.ts` · `turn-request.ts` · `send.ts`) · test 14 · 문서 1 — `git diff --name-only 1582d12` |
+| 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` · `node scripts/ensure-sqlite-abi.mjs node` · 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · EP-01·02·04 검색 · AC6 diff · `mutate.py` |
+| **관측한 게이트 산출**(마지막 수정 뒤) | 가드 4종 OK(`append-only check skipped (first release)` · `links ok` · `product-naming OK 2222파일` · `18 real-git suites ok`) · lint error 0·warning 2(기존) · typecheck error 0 · vitest 940파일 중 911 pass·29 fail, 8,791케이스 중 22 fail · `node --test` 868/868. **기준선**: 변경 전 같은 명령 29파일·22케이스 fail, 실패 식별자 42줄의 차집합 양방향 0(`diff` 출력 0줄). 원인은 Electron 바이너리 부재 외 손대지 않은 파일의 단언 실패 — 비귀속. 돌리지 못한 단계: 없음(SQLite는 Node ABI로 재빌드) |
+| **추가·수정 테스트의 subtree 규칙** | 수정 테스트 14파일 · 시간 예산 위반 0(`check-test-budgets` OK) · 호스트 격리 위반 0 · 풀 분류 위반 0(전체 vitest 로그에 `[test-pools]` 0줄) |
+| V-pair 자기확인 | `SELF_PASS 5 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | EP-01 70/70 · EP-02 19/19 · EP-04 1/1 · EP-03 정의 4/4·호출 7/7 · EP-05 5/5·2/2·1/1 |
+| **AC 자기보고**(`Criteria-Met`) | 7/9 — AC1 ✅ 검색 3종 0줄 · AC2 ✅ K1~K8 green + 변이 11행 red · AC3 ✅ P1 6건 green + 변이 3행 red · AC4 ✅ P3·P5 green + 변이 4행 red · AC5 ✅ 인용 테스트 단언 변경 없이 green(환경 한계 1파일 제외), 실패 집합 차 0 · AC6 ✅ AC6 명령 + 어댑터·coordinator·projector·`features/sessions` diff 0줄 · AC7 ⚠️ prod +84 −132(순감 48 ≥ 45), **test +200 −74(순증 126)** · AC8 ✅ 기준선 차집합 0 · AC9 ⚠️ 사람 실기 대기 |
+| **합계 검산** | `✅ 7 · ⚠️ 2 · ❌ 0 = 총 9` |
+| 블로커 / 역질문 | 없음. 사용자 선택지 2건 — D-001(다음 묶음: H-G · H-J) · D-008(renderer 예약 판정을 걷는 동작 변경). AC7의 test 조건은 설계자 판단 필요 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-> 원인 분류(A~F)와 지침 변경은 `handoff-review`가 한다.
-
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k` (verify 3·6회째 FAIL/RETURN_TO_PLAN 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`. verify 9회째가 PASS가 아니면 `verify/CLOSED` 종료)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(r1).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: §8의 lint 선례 인용은 그 줄의 변수가 뒤에서 쓰이는지 확인하지 않았다. AC7의 test 조건은 0307(AC17)·0309에 이어 세 번째로 ⚠️다 — 잠금을 먼저 넣는 감량 작업에서 test 순감 조건이 맞은 적이 없다.
+- 반복해서 부딪히는 환경 한계: 전체 vitest 기준선 실패 29파일(0309·0310과 같은 환경) · Electron 바이너리 부재로 AC9 불가.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 
