@@ -11,7 +11,7 @@
 | 구현 전 plan 기준 | `206409f`(rev.3 READY). 구현 커밋의 plan 변경은 `[구현자 기입]`·상태 칸뿐 — 규범 행 변경 없음 |
 | V mode / 유효 V | `Baseline V: V1` rev.3 |
 | 라운드 | 1 (아래 §r2 = 2회째 verify, 라운드 2) |
-| 상태 | r1 **RETURN_TO_PLAN** → r2 **RETURN_TO_PLAN** (§r2) |
+| 상태 | r1 **RETURN_TO_PLAN** → r2 **RETURN_TO_PLAN** (§r2) → r3 **PASS** (§r3) |
 | 확장 창 | verify 1회째 — 창 안. ΔV로 다시 열린 노드 없음 |
 | 독립 축(⑥) | ① 범위 밖 전수 재검색(검사기와 다른 경로 `git grep`) ② 문서가 인용하는 코드 이름 ↔ 실제 코드 대조 — 발견 2건(아래 F1·F4) |
 | 열거 sweep(⑦) | **전수 아님** — 변이 18건(아래). EP-06 이스케이프 6줄 중 1줄 · EP-07 값 34줄 중 0줄 · EP-02 d.ts·`logging.ts` 미시도. 못 본 자리는 못 봤다고 적는다 |
@@ -201,3 +201,88 @@
 ## r2-7. 결론
 
 **RETURN_TO_PLAN** — F6 하나. 설계자가 ΔV2로 ①(입력 1개 채택) 또는 ②(경계 선언)를 정한다. ①이면 구현 턴이 입력을 더하고, ②면 구현 없이 verify로 갈 수 있다. 그 밖의 pair·gate는 전부 PASS라 F6만 닫히면 PASS 후보다.
+
+
+---
+
+# r3 — verify 3회째 (라운드 3)
+
+**PASS (기계 범위)** — 막는 발견 0. 사람 판정은 AC9·AC10만 남는다. 설계자 = 구현자 = 검증자라 plan validity는 자기 설계 감사다.
+
+## r3-0. 기준선 · 확장 창
+
+- 대상 `df0883a..32fe1b0`(r2 verify `d313035` · ΔV2 설계 `426eab7`·`cc712e6` · 구현 `32fe1b0`). 구현 커밋의 plan diff는 상태 칸과 `[구현자 기입]` r3 절뿐 — Decision·AC·V·§10 규범 행 삭제 0(`git diff 426eab7 32fe1b0 -- plan.md`의 삭제 행 = 상태 칸 1줄).
+- 확장 창: verify **3회째 — 창 밖**. ΔV2의 새 열거 항목(M-1~M-4)은 출처가 F6(r2 verify 확장 후보, 설계자 채택)이고 창 안 마지막 설계 턴에서 열거됐다. 창 밖 ΔV 아님.
+- plan validity: ΔV2는 pair(VP-08)·자리(`excludes` 1자리)·분기 4개·입력·등록 변이를 갖는다. PLAN_GAP 없음.
+- 독립 축(⑥): `excludes` 하위 분기의 **등록 목록 밖 변이 14종**(X01~X14: 파일 항목 맞바꿈 4·디렉토리 항목 3·`*` 마디·앵커·꼬리·이스케이프·`.some`→`.every`·`*` 분기 무력화).
+
+## r3-1. 재측정 (이번 턴)
+
+| 항목 | 관측 |
+|---|---|
+| 코드 diff | `git diff --name-only df0883a 32fe1b0 -- app` → `app/scripts/check-product-naming.test.mjs` 1개. 검사기 `.mjs` diff 0, `app/src` diff 0 |
+| 이름 검사기 | `OK — 2236파일 · 허용 13항목` · 검사기 테스트 40 pass(케이스 수 불변 — 입력만 추가) |
+| `node --test scripts/*.test.mjs` | 868 pass · 0 fail |
+| lint · typecheck | lint error 0 · warning 2 · `git status` 변화 0 · typecheck(`tsc` 3종 포함 test) exit 0 |
+| 문서 · 예산 가드 | doc-inventory prose+links OK · test-budgets `20 real-git suites ok` |
+| 전체 vitest | 945파일: **29 failed 파일 · 22 failed / 8797 passed / 11 skipped** — r2 실행과 수치 동일. production diff 0이라 기준선 worktree 재실행은 하지 않았다(r2와 같은 근거 · 22건 각각은 읽지 않음) |
+| D-003 경로 diff | `499d354..32fe1b0` 중 D-003 경로 = `docs/handoff/` 파일뿐(이 handoff · INDEX) |
+| 새 입력 단언 | `check-product-naming.test.mjs:'제외 항목과 이름만 비슷한 경로는 검사한다'` — 입력 4개 각각 `inScope === true` + 옛 표기 3꼴 → 위반 3건(`assert.equal(…, path)`) |
+
+## r3-2. 고장 이력 (`mutate.py`, oracle `node --test scripts/check-product-naming.test.mjs`, 원복 "모든 파일 원문 그대로" · `git status` 빈 출력)
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 잡은 것 | 분류 |
+|---|---|---|---|---|---|---|
+| X01 | `excludes` 파일 항목 | 다른 값 | `===` → `startsWith` (= r2 W13·M-1) | 잡음 | `…이름만 비슷한…` 1 | — |
+| X02 | 디렉토리 항목 | 다른 값 | `startsWith` → `includes` (M-2) | 잡음 | 1 | — |
+| X03 | 파일 항목 | 맞바꿈 | `===` → `endsWith` | 잡음 | 1 | — |
+| X04 | 파일 항목 | 다른 값 | `===` → `includes` | 잡음 | 1 | — |
+| X05 | 디렉토리 항목 | 다른 값 | `startsWith` → `===` | 잡음 | 10 | — |
+| X06 | 디렉토리 항목 | 맞바꿈 | `startsWith` → `endsWith` | 잡음 | 10 | — |
+| X07 | `*` 치환 | 다른 값 | `[^/]+` → `.+` | 잡음 | 1 | — |
+| **X08** | `*` 치환 | 다른 값 | `[^/]+` → `[^/]*` | **못 잡음** | 없음 | **동치** — 아래 |
+| X09 | 정규식 앵커 | 제거 | `^` 제거 (M-3) | 잡음 | 1 | — |
+| X10 | 정규식 앵커 | 다른 값 | `$` 추가(꼬리 고정) | 잡음 | 2 | — |
+| X11 | 이스케이프 | 제거 | `.map(…)` 줄 제거 (M-4) | 잡음 | 1 | — |
+| X12 | 이스케이프 문자 집합 | 제거 | `.` 제외 | 잡음 | 1 | — |
+| X13 | `inScope` | 뒤집기 | `.some` → `.every` | 잡음 | 12 | — |
+| X14 | `excludes` 분기 | 고정값 | `*` 분기 무력화(`if (false)`) | 잡음 | 1 | — |
+| R01~R08 | `EXCLUDED` 항목 | 제거 | 8종 각각 (직전 W01~W08 재실행, ③④) | 잡음 8/8 | 검사기 테스트 2~5 | — |
+| R20·R21 | `inScope` | 고정값 | 항상 false / true (W09·W10) | 잡음 | 20 / 12 | — |
+
+- **X08 동치 근거**: `*`가 빈 문자열이면 경로에 빈 마디(`//`)가 있어야 맞는데 git 추적 경로에는 빈 마디가 없다. `EXCLUDED`의 `*` 항목은 `.agents/skills/*/references/` 1개(`check-product-naming.mjs:46`)이고 `*`는 마디 전체다. 열거 원문(M-1~M-4·`*`가 한 마디)에 빈 마디 분기가 없어 이행 결함도 아니다.
+- ③ 직전 `못 잡음` W13 = X01 → 이제 red(r2 `못 잡음` 해소). ④ W11(`*` → `.*`) = X07 재앵커로 red 유지.
+- 못 본 것: 검사기 `pathShapes`·`findOld`·허용 개수 대조는 이번 diff가 닿지 않아 재시도하지 않았다(r1 V01~V04 · r2 W12 좌표 유지).
+
+## r3-3. Finding disposition
+
+| ID | 분류 | disposition | 근거 |
+|---|---|---|---|
+| F6 | 확장 후보(r2) | **closed** | M-1~M-4 = X01·X02·X09·X11 red. 형제 변이 X03~X06·X10·X12 red |
+| — | 이행 결함 · 현재 결함 | 0 | 열거 원문(AC · §10 EP-01 ⑥ 일치 규칙 4분기 · 등록 변이 4 · gate) 전부 충족 |
+| — | 확장 후보 | 0 | X01~X14 중 `못 잡음` 1(X08)은 동치 |
+
+## r3-4. V-pair closeout
+
+| Pair | 결과 | 직접 oracle 좌표 · 관측 |
+|---|---|---|
+| VP-08 | PASS | `check-product-naming.test.mjs:'제외 항목과 이름만 비슷한 경로는 검사한다'` — M-1 `README.md.orig` · M-2 `app/project/x.md` · M-3 `app/.agents/skills/a/references/c.md` · M-4 `xagents/skills/a/references/c.md`. 입력마다 분기에서만 갈리는 값(경로 조각이 항목과 비슷하되 다름) · X01·X02·X09·X11 red |
+| VP-01 | PASS | `gate: node scripts/check-product-naming.mjs` OK 2236파일 |
+| VP-03 | PASS | §r3-1 — 실패 집합은 r2와 수치 동일, production diff 0 |
+| VP-02·04·05·06·07·09 | INHERITED PASS | r2 §r2-4 좌표 유지 — 이번 diff가 닿지 않음(`git diff --name-only df0883a 32fe1b0 -- app` 1파일). 이번 턴에 재실행하지 않았다 |
+
+## r3-5. Repository operation checks
+
+- 커밋 `32fe1b0` trailer: `Agent: claude`·`Handoff`·`Status: implemented`·`Criteria-Met: 8/10`·`Criteria-Pending`·`Verified-By: pending` 반환 — 허용값 준수. 인용 해시 11개(`7114768`~`32fe1b0`) 전부 `commit`. `origin/main` ref가 이 환경에 없어 `main` 조상 여부는 확인하지 못했다(PR 미생성 — 병합 뒤 교정).
+- `[구현자 기입]` r3 일곱 필드 모두 있음 · 강제 지점 표가 EP-01 ⑥ 4분기 전부를 담았다. AC 합계 `✅8 · ⚠️2 = 10` 행과 일치(AC2·4~7은 이번 diff가 닿지 않아 전체 gate로만 재확인).
+- 사람: **AC9**(GitHub Variables 3개 이름 변경) · **AC10**(설치본 부팅·대화·산출물 게시). 순수 로직은 전부 기계 검증했다.
+
+## r3-6. Review Signals — 사실만
+
+- r2 F6와 같은 증상(일치 함수 하위 분기의 잠금 공백)은 ΔV2가 분기 4개를 열거한 뒤 재발하지 않았다. 등록 목록 밖 독립 축 14종 중 `못 잡음` 1은 동치.
+- 반복된 환경 한계: Electron 미설치(22건), 설치본 실기 불가.
+- 발견 분류: 이행 0 · 현재 0 · 확장 0 · 경계 0 · 비귀속 0 · 동치 1(X08).
+
+## r3-7. 결론
+
+**PASS (기계 범위)** — 모든 REQUIRED·REGRESSION pair와 필수 gate PASS. 사람 판정(AC9·AC10) 뒤 archive로 옮긴다.
