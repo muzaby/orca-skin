@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-11 |
 | 매핑 | 0305 분할안 H-E(C-07 + 고아 2파일) · H-I(C-29) |
-| 상태 | READY |
+| 상태 | IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0202의 런타임 모델 배선 V는 이번에 바꾸지 않는 자리(D-007)만 덮는다 |
 | 이번 V revision | `V1` |
@@ -436,115 +436,122 @@ createRuntimeModelAuthInvalidator(input)(authId)
 - [x] 문장 규칙 — 표 칸 3줄·문단 3문장.
 
 ---
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 — r1
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·II 전부. §8 분류표·§10 자리 수(EP-01 149줄 35파일·prod 36줄)가 착수 시 재실행값과 일치했다.
+- 이견 / 현실성 문제: 없음. §8 제거 표에 없던 폐포 1건(`redirectLocationOf`)이 §11-2 절차에서 나왔다 — 아래 `놓친 잠재 문제` 1.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
-
-> `§10`의 `언제 강제` 칸은 **하나의 불변식이 성립해야 하는 지점 목록**이다. 한 지점만 닫아도
-> 대표 경로 AC는 통과하므로 게이트 green은 전수를 뜻하지 않는다.
-> **각 행의 `재현 명령 / 관측`은 이번 턴에 실제로 실행한 것만 적는다** — 산출물에서 표식을 다시
-> 찾지 못하면 그 행은 닫힌 것이 아니다.
-> **그 관측이 구조적 proxy·0건/전수 스윕·배선 존재 oracle이고 이번 턴에 장치를 만들거나 고쳤다면,
-> 등록된 결함을 심어 실패하는지 먼저 확인한다** — 눈이 없는 장치의 `0건`은 전수의 증거가 아니다.
-> 열거 항목(§10 자리·path edge·규칙 칸 분기·등록 변이)마다 기본 변이 1개는 oracle 종류와 무관하게 돌린다(impl §3 sweep). 그 밖의 직접 oracle에는 mutation을 더 발명하지 않는다.
-> **`전건`·`미분류 0`·`잔여 0` 행의 관측은 차집합이다** — 총계·합계는 그 주장을 반증할 수 없다(impl §9).
-> **`닫은 지점`은 §10 항목이 아니라 §10이 고정한 자리로 세고, 기록된 자리 검색 명령을 다시 돌린 출력과 목록의 차집합을 적는다** — 목록이 없거나 출력과 갈리거나 술어가 불변식의 주어가 아니거나 범위가 지적이 인용한 파일로 좁으면 `PLAN_GAP`이다(impl §2).
-> **닫은 자리마다 직접 oracle 좌표(`파일:테스트명` / 실패 의미 red를 관측한 `gate:<명령>`)를 적는다** — typecheck·코드 읽기·일회성 실측만 있는 자리는 `남긴 곳`에 적고 세지 않는다(impl §2).
-> **좌표는 그 테스트의 실행 구간(들어간 곳 → 관측한 곳, mock한 path 구성요소 제외) 안의 자리만 닫는다** — 안쪽 export로 들어가거나 한쪽 끝을 mock하거나 내부 상태만 단언하거나 production 조립이 주입하는 의존성을 빼 다른 분기를 탄 테스트가 건너뛴 자리는 `남긴 곳`이다. 운반 값을 기본값·빈 값·형제와 같은 값으로만 준 좌표, 자리 규칙이 적은 분기 중 입력이 없는 분기가 있는 좌표도 그 자리를 닫지 않는다(impl §2).
-> **`§10이 적은 지점`은 그 pair의 §10 자리 전부다** — 재구현 턴에도 지목된 자리만 적지 않고, 닫지 않은 자리는 `남긴 곳`에 남긴다(impl §9).
-> **`운반 항 · 구별 값 · 관측`은 닫힘으로 센 행마다 그 자리가 넘기는 항, 테스트의 구별 입력, 좌표가 관측하는 곳을 적는다** — 셋 중 하나가 빠진 항은 `남긴 곳`이고, 호출·분기를 바꾼 변이의 red로 인자 항을 채우지 않는다(`docs/handoff/AGENTS.md §공통 V`).
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | commit: `key`(형제와 다른 값 → 저장 결과 단언) · … / 운반 항 없음 | — |
+| VP-01 | 제거 이름 부재 · 유지 39이름 | EP-01 149줄 35파일 | 149/149 | §10 EP-01 명령 `-- app/src` → 착수 149줄, 종료 0줄(차집합 = 전부 제거) · `gate:node …/lens-exports.mjs` → dead 8 · testOnly 31, §8 K1~K7과 집합 차 양방향 0 · `gate:npm run typecheck` exit 0 | 운반 항 없음(부재 계약) — 집합 대조가 유지 이름의 양성 짝 | — |
+| VP-02 | L1~L5 | 5자리 | 5/5 | L1 `chatReducer.parts.test.ts`:'message.reasoning 완성 블록이 영속 reasoning 파트로 커밋된다' 외 1 · L2 `migrate.test.ts`:'records every applied migration in the shared _migrations meta' · L3 `gitSnapshotPlan.test.ts` 2건 · L4 `gitQueryReason.test.ts`:'계기의 배선' 3건 · L5 `repository.test.ts`:'브랜치 목록은 full ref를 한 번에 읽고 실패를 구별한다' | L1 `signature: 'sig'`(부재·고정값과 구별) → 파트 배열 · L2 마이그레이션 이름 2개 → `_migrations` 행 · L4 `/repo-a`≠`/repo-b` → 키 · L5 base `work/a` → `read` 인자 | — |
+| VP-03 | 무효화 규칙 I1~I6 | EP-03 3자리(키 합집합 식·비우기 루프·재조정 루프) | 3/3 | §10 EP-03 명령 → 5줄(`canonicalAgentKey` import 1 + 식 2 + 루프 2), 목록 3자리와 차 0 · I1 `runtime-model-startup.test.ts`:'derives invalidated keys from the full deployment declarations' · I2·I3·I5 :'reconciles each Auth owner of a canonically matching contribution once, with its own snapshot' · I4·I6 :'invalidates every key before reconciling, and does nothing for an unrelated Auth' | 키: 선언 `runtime-env` ≠ 기여 `shared` → `invalidate` 인자 열 · 소유: 트리거 `x` ≠ 소유 `a`·`b`, 비일치 `c` → `reconcile` 인자 쌍 · snapshot: `{authId: id}` → 둘째 인자 | — |
+| VP-04 | 한 줄 팩토리 3개·가드 | 0 | 0/0 | `git diff 5b9c6f5..HEAD -- app/src/main/app/no-stray-auth-subscribe.test.ts app/src/main/app/bootstrap.ts` 0줄 · `runtime-model-startup.ts` diff hunk 2개(`-9,28`·`-49,7`)가 세 팩토리 밖 · 두 테스트 파일 32케이스 green | 운반 항 없음 | — |
+| VP-05 | 문서의 제거 이름 | EP-02 5줄 3파일 + `system-prompt.md:127` | 6/6 | §10 EP-02 명령 → 착수 5줄, 종료 0줄 · `gate:node scripts/check-doc-inventory.mjs --check` → `links ok` | 운반 항 없음 | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 분류(impl §7): 목록 미고정 → PLAN_GAP · 현재 결함 → 선조치 또는 PLAN_GAP · 확장 후보 → 확장 창이 열려 있으면 PLAN_GAP 가능, 닫혔으면 보고 · 비귀속 → 별도 finding
-- 직전 verify 고장 이력의 `못 잡음` 행: 없음 / ID → 잡은 테스트 `파일:테스트명`(재실행 결과) 또는 `동치` 근거·확인 실행 — 분류가 이행·현재 결함이거나 설계자가 채택한 확장 행은 이번 턴에 닫는다. 후보 표로 간 행과 `경계` 행은 제외
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(r1 — verify 이력 없음).
 
-**V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다. 이전 라운드 상태를 유지로 옮기는 행도 좌표를 인용하고, 좌표 없이 났던 `SELF_PASS`는 이번 턴에 재판정한다(impl §2).
+**V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | `파일:테스트명` … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-01 | REQUIRED | SELF_PASS | EP-01 0줄 · 집합 대조 exit 0 · typecheck exit 0 | required — (a) red(`missing=[patSpec]`) · (b) red(dead 집합 extra) |
+| VP-02 | REQUIRED | SELF_PASS | 위 L1~L5 좌표 | required — (c)·(d)·(e)·(f) 전부 red |
+| VP-03 | REQUIRED | SELF_PASS | 위 I1~I6 좌표 | required — (g)~(l) 전부 red |
+| VP-04 | REGRESSION | SELF_PASS | `no-stray-auth-subscribe.test.ts` 전체 · `runtime-model-startup.test.ts` 기존 케이스 | not selected — diff 0 |
+| VP-05 | REQUIRED | SELF_PASS | EP-02 0줄 · 문서 가드 `links ok` | not selected — 가드가 링크를 직접 해석 |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 — r1
 
-> **열거 sweep**: 열거 항목(§10 자리·path edge·규칙 칸 분기·등록 변이)마다 기본 변이 1개(제거 — 계약이 다른 형제 슬롯이 있으면 맞바꿈을 더함)를
-> 심어 red인지 본다(impl §3, 하네스 `.agents/skills/handoff-verify/scripts/mutate.py`). 그 위에 pair가 선택한 적대 증거·
-> 파생 이슈의 인용 변이·이번 턴에 만든 구조적 proxy·0건/전수·배선 oracle의 민감도를 심는다. 규칙 칸 분기는 그 칸을 구현한
-> diff 자리(조건·조기 반환·후보를 합치는 항)마다 제거 변이를 심어 찾는다. 그 밖의 hunk에는 mutation을
-> 새로 발명하지 않는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
+하네스 `mutate.py --cwd app`(종료 뒤 `git status` — 변이 잔여 0). oracle은 각 행의 테스트 파일 또는 집합 대조 스크립트(`lens-exports.mjs` 출력의 이름 집합을 §8 39이름과 비교)다.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가(제거 / 형제와 맞바꿈) | `sweep — §10 자리 / path edge / 규칙 칸 분기(diff 자리)` / `재앵커 — 원 ID` / `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | red / green / 최초 | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 테스트 추가** / 동치 — 근거·확인 실행 |
+| `credential.ts` `patSpec`의 `export` 제거 | VP-01 선택 증거 (a) | 최초 | 집합 대조 `missing=[patSpec]` | 잠김 |
+| `net-response.ts` 끝에 `locationOf` 되살림 | VP-01 선택 증거 (b) | 최초 | 집합 대조 dead extra 1 | 잠김 |
+| `chatReducer.ts:1027` `signature` 항 제거 | VP-02 (c) · sweep L1 | 최초 | `chatReducer.parts.test.ts` 2건 | 잠김 |
+| 같은 줄 `signature: 'fixed'`(고정값) | sweep L1 | 최초 | 같은 파일 2건 | 잠김 |
+| `migrate.ts:33` `record(…)` 제거 | VP-02 (d) · sweep L2 | 최초 | `migrate.test.ts` 2건 | 잠김 |
+| `planGitSnapshotQuery` 첫 분기 `includeSummary: true` | VP-02 (e) · sweep L3 | 최초 | `gitSnapshotPlan.test.ts` 1건 | 잠김 |
+| 훅 deps에서 `refreshTick` 제거 | VP-02 (f) · sweep L4 | 최초 | `gitQueryReason.test.ts` 1건 | 잠김 |
+| `gitSnapshotTriggerKey`가 cwd 대신 `null` | sweep L4(키 분기) | 최초 | 같은 파일 1건 | 잠김 |
+| 훅 파일에 `sessionBusy` 추가 | sweep L4(`busy` 분기) | 최초 | 같은 파일 1건 | 잠김 |
+| `listBranchRefs` 인자 `refs/heads/${base}-*` 제거 | sweep L5 | 최초 | `repository.test.ts` 1건 | 잠김 |
+| 선언 키 항 제거 | VP-03 (g) · sweep EP-03 | 최초 | `runtime-model-startup.test.ts` 3건 | 잠김 |
+| 기여 키 항 제거 | VP-03 (h) · sweep EP-03 | 최초 | 1건 | 잠김 |
+| 정규화 비교를 원문 비교로 | VP-03 (i) | 최초 | 2건 | 잠김 |
+| 소유 인증 `Set`을 배열로 | VP-03 (j) | 최초 | 1건 | 잠김 |
+| 재조정을 비우기 앞으로 | VP-03 (k) | 최초 | 1건 | 잠김 |
+| `snapshotOf(owner)` → `snapshotOf(authId)` | VP-03 (l) | 최초 | 1건 | 잠김 |
+| 비우기 루프 제거 | sweep EP-03 | 최초 | 3건 | 잠김 |
+| 재조정 루프 제거 | sweep EP-03 | 최초 | 3건 | 잠김 |
+| 기여 키 항의 `authId === authId` 필터 제거 | sweep 규칙 칸 분기(diff 자리) I1 | 최초 | 3건 | 잠김 |
+| 선언 키 `?? []` 폴백 제거 | sweep diff 자리 I6 | 최초 | 1건 | 잠김 |
+| 키 집합의 `canonicalAgentKey` 제거 | sweep diff 자리 I2 | 최초 | 1건 | 잠김 |
+| `reconcile(owner, …)` → `reconcile(authId, …)`(형제 맞바꿈) | sweep 하한 ⑤ | 최초 | 3건 | 잠김 |
+| 소유 인증 필터 제거 | sweep diff 자리 I2(다르다 분기) | 최초 | 2건 | 잠김 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K · sweep S = 표 행 T` — sweep S는 열거 항목 수와 같아야 한다. 행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다(impl §9).
-- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 / N건 → 사유와 함께 적는다. 분모는 직전 verify 고장 이력의 `잡음` 행 중 하한 ④와 같은 범위이고, 원문이 옮겨 갔으면 재앵커한 행이다. 장치를 교체·삭제했으면 구 장치가 잡던 자리가 새 장치의 하한이다(impl §3).
+- **분모 검산**: `선택 증거 12((a)~(l)) · 인용 변이 0 · 새 oracle 0 · sweep 11 = 표 행 23`. sweep 11 = L1 고정값 1 + L4 분기 2 + L5 1 + EP-03 루프 2 + diff 자리 4 + 맞바꿈 1이고, (c)~(h) 6행은 sweep의 자리 제거 변이를 겸한다.
+- **덮개 회귀**: 0건(r1 — 이전 라운드 없음). 지운 테스트가 잡던 자리는 지운 함수뿐이다.
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 — r1
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 / … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 문구·상태 추가 0 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — 세 함수를 한 클로저로 합쳤고 `try`·`finally`·`await`가 없다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음 — `invalidate`·`reconcile` 예외는 전과 같이 전파(§13) | — |
+| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | 변화 없음 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 무효화는 동기 실행 | — |
 
-> 범위 밖이라 이번에 고치지 않더라도 **적는다** — 적지 않으면 그 선택지가 존재한 적도 없게 된다.
-
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r1
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
-
-> 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
-> 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
-> 어느 절을 어떻게 바꿔야 하는지를 함께 적는다.
+| 1 | `locationOf`를 지우자 `redirectLocationOf`가 새 고아가 됐다 — §8 제거 표·EP-01 패턴에 없는 이름 | ✅ 선조치 — §11-2·D-011 폐포 규칙대로 삭제(주석 포함 16줄). D-006 ②·③ 해당 없음 | M1 직후 스캐너 `dead 9`(K7 8 + 이 이름) → 삭제 뒤 `dead 8` · `git grep -w redirectLocationOf -- app docs/arch docs/guides` 0줄 |
+| 2 | 삭제 잔여 import 2건 — `recovery.ts`의 `DanglingToolCallRow`, `repository.ts`의 `headName` | ✅ 선조치 — import 제거. 두 심볼은 다른 prod 파일이 쓴다 | typecheck `TS6133` 2건 → 0건 |
+| 3 | `repository.test.ts`에 실-git 케이스가 0이 돼 픽스처 import·72s 예산·`afterEach` 정리가 잔여물이 됐다 | ✅ 선조치 — 함께 제거. 파일이 io → unit 풀로 옮겨진다 | `check-test-budgets` `18 real-git suites ok` · 전체 vitest에서 이 파일 green |
+| 4 | `json-file.test.ts`의 케이스가 `await` 0이 돼 `async`가 잔여 | ✅ 선조치 — `async` 제거 | lint error 0 |
+| 5 | M2 테스트 고쳐 쓰기(2건)가 M1 커밋에 실렸다 — §11은 M2 단계로 적었다 | ⚠️ 보고만 — 순서 요구(합치기 전 코드에서 green)는 지켜졌고 커밋 귀속만 다르다 | M1 커밋 트리에서 `runtime-model-startup.test.ts` 15케이스 green 뒤 M2 |
+| 6 | 전체 vitest가 변경 전에도 29파일 실패한다 — Electron 바이너리 부재 3파일 외에 단언 실패(`'restart-required'`↔`'applied'` 7건 등)가 섞여 있다 | ⚠️ 보고만 — 비귀속. 29파일 중 이번에 만진 파일 0 | 아래 구현 보고 게이트 행 |
+| 7 | `design-system.md`의 “카메라 stage” 역할 행이 소비자 없는 `stage-*` 토큰만 가리킨다 | ⚠️ 보고만 — D-010·§17 리스크 4행. 사용자 판단 | `git grep -n 'stage-' -- app/src/renderer/src ':!*.css'` 0줄 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음 / …
-
-> 차이가 있으면 **대체물이 갖고 원본이 갖지 않던 실패 모드를 축마다 한 줄씩** 적고, 그 축에서 다시 확인한
-> AC·§10 행을 관측과 함께 남긴다. 한 축만 적은 보고는 나머지 축도 조사한 것처럼 보인다(impl §7).
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 메커니즘 차이 없음. 범위 차이는 위 1(폐포 +1 이름)뿐이다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … / 해당 없음 + 근거 | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … / 해당 없음 + 근거 | … |
-| 재진입 | … / 해당 없음 + 근거 | … |
-| 다른 무효화 축 | … / 해당 없음 + 근거 | … |
+| 만료 | 해당 없음 — 대체 메커니즘 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 — r1
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님 · 마지막 수정 뒤 실행) | `ci.yml` 단계 전부의 로컬 대응(파일 필터 없는 테스트) — 테스트 N파일 / M케이스 · error·warning 수 · 돌리지 못한 단계와 이유 · 기준선 분리 근거(변경 전 실패 집합과 차집합 ∅ + 환경 원인, `docs/handoff/AGENTS.md §판정 범위와 운영 gate`) |
-| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only`로 뽑은 테스트 파일 N · 규칙별 위반 0(app: 시간 예산·호스트 격리·풀 분류) · 그 파일들의 규칙 가드 실패 0 — 테스트를 건드리지 않았으면 `해당 없음` |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
+| 변경 파일 | prod 17(수정 15 · 삭제 2) · test 18(수정 16 · 삭제 2) · 문서 4 — `git diff --name-only 5b9c6f5..HEAD` |
+| 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` · `node scripts/ensure-sqlite-abi.mjs node` · 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · `lens-exports.mjs` · EP-01·EP-02 검색 · `mutate.py` |
+| **관측한 게이트 산출**(마지막 수정 뒤) | 가드 4종 OK(`no-copies ok` · `product-naming OK 2222파일` · `18 real-git suites ok` · `links ok`) · lint error 0·warning 2(기존 `incompatible-library`) · typecheck exit 0 · vitest 940파일 중 907 pass·29 fail·4 skip, 8,771케이스 중 22 fail · `node --test` 868/868. **기준선**: 변경 전 같은 명령 942파일 중 29 fail·22케이스 fail, 실패 식별자 집합 42줄의 차집합 양방향 0, 실패 29파일 ∩ 변경 파일 0. 원인은 Electron 바이너리 부재(`Electron failed to install correctly` 3) 외 미분류 단언 실패 — 손대지 않은 파일이라 비귀속. 돌리지 못한 단계: 없음(SQLite는 Node ABI로 재빌드해 DB 스위트 실행) |
+| **추가·수정 테스트의 subtree 규칙** | 수정 테스트 16파일 · 시간 예산 위반 0(`check-test-budgets` OK) · 호스트 격리 위반 0 · 풀 분류 위반 0(전체 vitest에서 16파일 실패 0, `[test-pools]` 출력 0줄) |
+| V-pair 자기확인 | `SELF_PASS 5 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | EP-01 149/149 · L 5/5 · EP-03 3/3 · EP-02 6/6 |
+| **AC 자기보고**(`Criteria-Met`) | 8/9 — AC1 ✅ EP-01 0줄·제거 이름이 스캐너 목록에 0 · AC2 ✅ dead 8·testOnly 31 집합 일치 · AC3 ✅ L1~L5 좌표 green + 변이 9행 red · AC4 ✅ I1~I6 3케이스 green + 변이 13행 red, 무효화 export 1개 · AC5 ✅ 가드·bootstrap diff 0 · AC6 ✅ EP-02 0줄·`links ok`·`system-prompt.md` cwd 문장 정정 · AC7 ✅ `git diff --numstat 5b9c6f5..HEAD -- app/src` prod +11 −368(순감 357) · test +70 −455(순감 385) · AC8 ✅ 기준선 차집합 0 · AC9 ⚠️ 사람 실기 대기 |
+| **합계 검산** | `✅ 8 · ⚠️ 1 · ❌ 0 = 총 9` |
+| 블로커 / 역질문 | 없음. 사용자 선택지 3건 — D-007(한 줄 클로저 3개 걷기) · D-009(`classifyAppCommand` 제거) · `stage-*` 토큰과 문서 역할 행 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
-> 원인 분류(A~F)와 지침 변경은 `handoff-review`가 한다.
-
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k` (verify 3·6회째 FAIL/RETURN_TO_PLAN 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`. verify 9회째가 PASS가 아니면 `verify/CLOSED` 종료)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(r1).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: 폐포 1건은 §11-2가 예정한 절차로 잡혔다.
+- 반복해서 부딪히는 환경 한계: 전체 vitest 기준선 실패 29파일(0309와 같은 환경) · Electron 바이너리 부재로 AC9 불가.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 
