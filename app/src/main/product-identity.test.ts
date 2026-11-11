@@ -1,24 +1,19 @@
 // 제품 식별자 계약(0225 · 0306) — 이름의 SSOT 와 그 사본들이 어긋나지 않는지 본다.
 //
-// 옛 이름 리터럴은 이 파일에 직접 적지 않는다 — `LEGACY_PRODUCT_SLUG` 에서 만든다. 옛 표기
+// 옛 이름 리터럴은 이 파일에 직접 적지 않는다 — 슬러그의 마지막 마디에서 만든다. 옛 표기
 // 재유입은 `scripts/check-product-naming.mjs` 가 트리 전체에서 막는다(0306 D-007).
 //
 // 여기서만 할 수 있는 단언이 셋이다.
 //   ① 빌드 설정 2개 파일(`package.json`·`electron-builder.yml`)은 코드에서 import 할 수 없어
 //      값을 복제한다. 파일을 파싱해 SSOT 와 대조하는 것이 그 사본을 검증된 사본으로 만든다.
-//   ② 표시명·레거시 상수의 **전수 스윕**은 파일 트리를 읽어야 성립한다.
+//   ② 표시명·옛 저장 경로의 **전수 스윕**은 파일 트리를 읽어야 성립한다.
 //   ③ 모듈 사설 상수(store name·마커)는 electron 을 물어 import 할 수 없다 — 소스 텍스트로 본다.
 //      구조적 proxy 이므로 각 단언은 "새 표기가 있다" 와 "옛 리터럴이 없다" 를 **함께** 본다.
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, posix, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  APP_USER_MODEL_ID,
-  LEGACY_PRODUCT_SLUG,
-  PRODUCT_DISPLAY_NAME,
-  PRODUCT_SLUG
-} from '../shared/product'
+import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../shared/product'
 
 // vitest cwd = `app/`.
 const APP_ROOT = process.cwd()
@@ -45,8 +40,9 @@ function relative(file: string): string {
     .join(posix.sep)
 }
 
-// 옛 표기 — 음성 단언의 재료. 리터럴로 적으면 이름 검사기에 걸린다.
-const OLD = LEGACY_PRODUCT_SLUG
+// 옛 표기 — 음성 단언의 재료. 옛 이름은 새 슬러그의 마지막 마디다(리터럴로 적으면 이름
+// 검사기에 걸린다).
+const OLD = PRODUCT_SLUG.split('-')[1]
 const OLD_TITLE = OLD[0].toUpperCase() + OLD.slice(1)
 
 const PROD_SOURCE = (file: string): boolean =>
@@ -174,34 +170,55 @@ describe('표시명 (EP-04)', () => {
   })
 })
 
-// ── ③ 레거시 경로 상수의 소비자 — §10 EP-05 / D-010 ───────────────────────────
-describe('레거시 경로 상수 (EP-05)', () => {
-  const LEGACY_SYMBOLS = /legacyConfigDir|legacyUserDataDir/
+// ── ③ 옛 저장 경로 — 0308 EP-01 ───────────────────────────────────────────────
+// 앱은 옛 이름 폴더를 읽지도 옮기지도 않는다(0308 D-002). 이관이 쓰던 심볼이 prod 소스에
+// 되살아나면 그것이 곧 옛 경로를 다시 조립하는 코드다.
+describe('옛 저장 경로 (0308 EP-01)', () => {
+  const MIGRATION_SYMBOLS = new RegExp(
+    [
+      'migrate' + 'Legacy',
+      'migration' + 'BlocksBoot',
+      'Migration' + 'Report',
+      'legacy' + 'Migration',
+      'rebase' + 'StoredPaths',
+      'repair' + 'MovedWorktrees',
+      'rebase' + 'UnderRoot',
+      'run' + 'StartupSequence',
+      'legacy' + 'ConfigDir',
+      'legacy' + 'UserDataDir',
+      'LEGACY_' + 'PRODUCT_SLUG',
+      'repair' + 'Worktree',
+      'get' + 'DbConnection'
+    ].join('|')
+  )
 
-  it('prod 코드에서 이 둘을 언급하는 파일은 정의 1 + 이관 모듈 1 뿐이다 (음성 스윕)', () => {
+  it('prod 소스에 이관 심볼이 없다 (음성 스윕)', () => {
     const files = walk(join(APP_ROOT, 'src'), PROD_SOURCE)
-      .filter((file) => LEGACY_SYMBOLS.test(readFileSync(file, 'utf8')))
+      .filter((file) => MIGRATION_SYMBOLS.test(readFileSync(file, 'utf8')))
       .map(relative)
-      .sort()
-    expect(files).toEqual([
-      'src/main/infra/config/migrate-legacy.ts',
-      'src/main/infra/config/paths.ts'
-    ])
+    expect(files).toEqual([])
   })
 
-  it('이관 모듈이 두 함수를 실제로 호출한다 (양성 — 스윕이 0건인 이유가 "아무도 안 쓴다" 가 아님)', () => {
-    const source = read('src', 'main', 'infra', 'config', 'migrate-legacy.ts')
-    expect(source).toContain('legacyConfigDir()')
-    expect(source).toContain('legacyUserDataDir(input.appDataDir, input.isDev)')
+  it('진입점이 로깅을 첫 배선으로 초기화한다 (양성 — 스윕이 보는 파일이 실제 진입점이다)', () => {
+    const index = read('src', 'main', 'index.ts')
+    const log = index.indexOf('= initLog()')
+    expect(log).toBeGreaterThan(-1)
+    expect(log).toBeLessThan(index.indexOf('installErrorReportSink()'))
+    expect(index).toMatch(/new Bootstrap\(\s*createArtifactSenderCheck\([^;]*?\)\s*\)\n/)
   })
 
-  it('이관 모듈이 읽기 전용 폴백을 공개 API 로 노출하지 않는다', () => {
-    const exported = [
-      ...read('src', 'main', 'infra', 'config', 'migrate-legacy.ts').matchAll(
-        /^export (?:function|const) (\w+)/gm
-      )
-    ].map((match) => match[1])
-    expect(exported).toEqual(['migrateLegacyRoots', 'migrationBlocksBoot'])
+  it('부팅 단계가 DB 초기화 → 미완료 도구 호출 복구 → 핸들러 등록 순서이고 이관 단계가 없다', () => {
+    const bootstrap = read('src', 'main', 'app', 'bootstrap.ts')
+    const dbInit = bootstrap.indexOf("'db-init'")
+    const recovery = bootstrap.indexOf("'chat-recovery'")
+    const handlers = bootstrap.indexOf('registerChatHandlers({')
+    expect(dbInit).toBeGreaterThan(-1)
+    expect(recovery).toBeGreaterThan(dbInit)
+    expect(handlers).toBeGreaterThan(recovery)
+    expect(bootstrap).toMatch(/'db-init', \{ critical: true,/)
+    expect(bootstrap).toMatch(/'chat-recovery',\s*\{ critical: true,/)
+    expect(bootstrap).not.toContain("'legacy-" + "migration'")
+    expect(bootstrap).not.toContain("'legacy-" + "paths'")
   })
 })
 
@@ -393,12 +410,6 @@ describe('이름 규칙 (0306)', () => {
     )
     expect(found).toEqual([])
   })
-
-  it('레거시 슬러그 상수가 옛 이름을 그대로 갖는다 — 이관의 source 가 여기서 나온다', () => {
-    // 옛 이름은 새 슬러그의 마지막 마디다. 리터럴로 적지 않고 관계로 잠근다.
-    expect(LEGACY_PRODUCT_SLUG).toBe(PRODUCT_SLUG.split('-')[1])
-    expect(LEGACY_PRODUCT_SLUG).not.toBe(PRODUCT_SLUG)
-  })
 })
 
 // ── ⑥ 운영 문서 — §10 EP-12 ───────────────────────────────────────────────────
@@ -415,51 +426,31 @@ describe('운영 문서 (EP-12)', () => {
     expect(doc).toContain(`## 구버전(${OLD}) 수동 제거`)
   })
 
+  it('자동 이관을 약속하지 않고 수동 이전 절을 갖는다 (0308 AC5)', () => {
+    expect(doc).toContain('### 데이터 수동 이전')
+    expect(doc).not.toContain('최초 실행이 새 자리로 옮기')
+    expect(doc).toContain('자동으로 옮기지 않는다')
+  })
+
+  it('수동 이전이 옛 이름 → 새 이름 대응 7개를 적는다 (0308 AC5 — DB 3종 · store 4종)', () => {
+    const renamed = [
+      '.db',
+      '.db-wal',
+      '.db-shm',
+      '-settings.json',
+      '-secrets.json',
+      '-provider-grants.json',
+      '-provider-oauth.json'
+    ]
+    for (const suffix of renamed) {
+      expect(doc).toContain(`\`${OLD}${suffix}\` → \`${PRODUCT_SLUG}${suffix}\``)
+    }
+  })
+
   it('저장소 Variables 의 새 이름 3개를 안내한다 (0306 AC7)', () => {
     const prefix = PRODUCT_SLUG.toUpperCase().replace('-', '_')
     for (const name of ['CI_TIMEOUT_MINUTES', 'RELEASE_TIMEOUT_MINUTES', 'TEST_TIME_SCALE']) {
       expect(doc).toContain(`\`${prefix}_${name}\``)
     }
-  })
-})
-
-// ── ⑦ 이관 배선 — §10 EP-07 · EP-06 · EP-08 의 **호출부** ─────────────────────
-// 단위(`migrationBlocksBoot`·`rebaseStoredPaths`·`repairMovedWorktrees`)는 각자의 스위트가
-// 잠근다. 여기서 잠그는 것은 **그것을 부르는 줄** 이다 — 배선을 지운 회귀는 단위 테스트를
-// 전건 통과한 채로 지나간다. 이 환경에서는 electron 바이너리가 없어 `Bootstrap` 을 실행할 수
-// 없으므로 소스 순서로 본다(구조적 proxy).
-describe('이관 배선 (EP-06 · EP-07 · EP-08)', () => {
-  const index = read('src', 'main', 'index.ts')
-  const bootstrap = read('src', 'main', 'app', 'bootstrap.ts')
-
-  it('index.ts 가 이관을 startup sequence 로 부르고 결과를 Bootstrap 에 넘긴다', () => {
-    expect(index).toContain('runStartupSequence({')
-    expect(index).toContain('migrateLegacy: () =>')
-    expect(index).toContain('migrateLegacyRoots({')
-    // 결과를 넘기지 않으면 부팅 차단 게이트가 영원히 no-op 이다.
-    expect(index).toMatch(/new Bootstrap\([\s\S]*?legacyMigration\s*\)/)
-  })
-
-  it('부팅 차단 게이트가 critical 이고 DB 오픈보다 앞에 있다 (D-018)', () => {
-    const gate = bootstrap.indexOf("'legacy-migration'")
-    const dbInit = bootstrap.indexOf("'db-init'")
-    expect(gate).toBeGreaterThan(-1)
-    expect(dbInit).toBeGreaterThan(-1)
-    expect(gate).toBeLessThan(dbInit)
-    // **이 단계 자신의 옵션** 을 본다. `gate`~`dbInit` 구간을 통째로 훑으면 그 사이의 다른
-    // critical 단계가 대신 통과시켜 강등을 놓친다(실측: MUT-K 가 그렇게 새어 나갔다).
-    expect(bootstrap).toMatch(/'legacy-migration',\s*\{ critical: true,/)
-    expect(bootstrap.slice(gate, dbInit)).toContain('migrationBlocksBoot(this.legacyMigration)')
-  })
-
-  it('rebase·repair 단계가 DB 오픈 뒤·핸들러 등록 앞에 있다', () => {
-    const dbInit = bootstrap.indexOf("'db-init'")
-    const step = bootstrap.indexOf("'legacy-paths'")
-    const handlers = bootstrap.indexOf('registerChatHandlers({')
-    expect(step).toBeGreaterThan(dbInit)
-    expect(step).toBeLessThan(handlers)
-    const body = bootstrap.slice(step, handlers)
-    expect(body).toContain('rebaseStoredPaths(connection, legacy, current)')
-    expect(body).toContain('repairMovedWorktrees(')
   })
 })

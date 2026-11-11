@@ -54,7 +54,7 @@ vi.mock('../infra/config/paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infra/config/paths')>()),
   ooConfigDir: () => fixture.root
 }))
-vi.mock('../infra/db', () => ({ initDb: () => ({}), getDbConnection: () => null }))
+vi.mock('../infra/db', () => ({ initDb: () => ({}) }))
 vi.mock('../features/chat/recovery', () => ({
   recoverSessionHistory: () => ({ toolResultsWritten: 0 })
 }))

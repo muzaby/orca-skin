@@ -66,17 +66,35 @@ Orcinus orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 �
 
 0.3.x 까지의 설치본은 제품 식별자가 `orca`(appId `com.orca.app`)였다. 0225 가 `appId` 를 바꾸면서
 **신버전은 구버전을 덮어쓰지 않고 나란히 설치된다** — 제어판에 항목이 둘 보이고 시작 메뉴에도
-바로가기가 둘 남는다. 데이터는 신버전 최초 실행이 새 자리로 옮기므로 대화·설정·워크트리는
-그대로 열린다.
+바로가기가 둘 남는다. **신버전은 구버전 데이터를 자동으로 옮기지 않는다** — 그대로 실행하면 빈
+앱으로 시작하고 옛 폴더는 손대지 않은 채 남는다. 대화·설정을 이어 쓰려면 아래 수동 이전을 한다.
 
-릴리스 노트에 아래를 그대로 안내한다.
+### 데이터 수동 이전
 
-1. 신버전 `orcinus-orca-<ver>-setup.exe` 를 설치하고 **한 번 실행해 데이터 이관을 마친다**
-   (기존 세션 목록이 보이면 끝난 것이다).
-2. 구버전 앱이 떠 있으면 종료한다 — 떠 있는 동안에는 옛 폴더가 잠겨 이관이 미뤄진다.
-3. 제어판 → 앱 → **"orca"** 항목을 제거한다. 신버전 항목은 **"Orcinus orca"** 로 표시된다.
-4. 제거 후에도 남는 잔여 폴더는 지워도 된다: `%APPDATA%\orca` · `%LOCALAPPDATA%\orca-updater` ·
-   `~/.config/orca`. 이관이 끝났다면 셋 다 비어 있거나 옮겨지지 않은 잔여물만 남는다.
+릴리스 노트에 아래를 그대로 안내한다. 신버전을 먼저 실행했다면 새로 생긴
+`%APPDATA%\orcinus-orca` · `~/.config/orcinus-orca` 를 치우고 시작한다.
+
+1. 구버전·신버전 앱을 모두 종료한다 — 떠 있으면 DB 파일이 잠긴다.
+2. `%APPDATA%\orca` 폴더 이름을 `orcinus-orca` 로 바꾼다.
+3. 그 안의 파일 이름을 바꾼다.
+
+   | 대상 | 이름 변경 |
+   | --- | --- |
+   | DB | `orca.db` → `orcinus-orca.db` · `orca.db-wal` → `orcinus-orca.db-wal` · `orca.db-shm` → `orcinus-orca.db-shm` (뒤 둘은 있을 때만) |
+   | 설정·자격증명 | `orca-settings.json` → `orcinus-orca-settings.json` · `orca-secrets.json` → `orcinus-orca-secrets.json` · `orca-provider-grants.json` → `orcinus-orca-provider-grants.json` · `orca-provider-oauth.json` → `orcinus-orca-provider-oauth.json` |
+
+4. `~/.config/orca` 의 `orca.json` 과 `sources/` 를 `~/.config/orcinus-orca` 로 **복사**하고, 복사본에서
+   `orca.json` 을 `orcinus-orca.json` 으로, `sources/skills/.orca-builtin.json` 을
+   `.orcinus-orca-builtin.json` 으로 바꾼다.
+5. `~/.config/orca` 는 **지우지 않는다** — 기존 대화의 작업 폴더와 격리 워크트리가 그 안을 가리킨다.
+   앱은 DB 에 저장된 경로를 다시 쓰지 않는다.
+6. 신버전을 실행해 기존 세션 목록이 보이는지 확인한다.
+
+### 구버전 앱 제거
+
+1. 제어판 → 앱 → **"orca"** 항목을 제거한다. 신버전 항목은 **"Orcinus orca"** 로 표시된다.
+2. 제거 후에도 남는 `%LOCALAPPDATA%\orca-updater` 는 지워도 된다. `~/.config/orca` 는 위 5번 때문에
+   기존 대화를 더 쓰지 않을 때만 지운다.
 
 > **자동 제거는 하지 않는다** (0225 D-013). NSIS 커스텀 언인스톨 스크립트로 남의 제품 GUID 를
 > 지우는 경로는 되돌리기 어렵고, 같은 이름의 다른 Orca 제품을 지울 위험이 있다.
