@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { chatActions, getActiveChatSession, useChatStore } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
+import { initialChatState } from '../reducer/chatReducer'
 afterEach(() => vi.unstubAllGlobals())
 const setup = (): ReturnType<typeof installChatStoreHarness> => {
   const ipc = installChatStoreHarness()
@@ -75,7 +76,7 @@ it('rejects a reused draft key, busy/loading drafts, and deleted project IDs', (
   for (const patch of [
     { loadingSession: true },
     { inflight: true },
-    { activityTransport: 'ready' as const },
+    { activity: { ...initialChatState.activity, transport: 'ready' as const } },
     { sessionId: 'started' }
   ]) {
     const state = useChatStore.getState()

@@ -47,6 +47,7 @@ import {
   ownTurnIdentity
 } from '../lib/concurrencyNotice'
 import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/composerDraft'
+import type { ActivityView } from '../lib/activityLabel'
 import { promoteComposer } from '../lib/composerPromotion'
 import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
 import { toPlanFeedback } from '../lib/planComments'
@@ -57,6 +58,7 @@ import {
   chatReducer,
   initialChatState,
   type ChatAction,
+  type ChatActivityState,
   type ChatState,
   type DiffRequirementDraft,
   type DiffViewOptions,
@@ -2282,17 +2284,19 @@ export function useChatBusy(): boolean {
 }
 
 /** 채널 점유 — ready·listening 모두 입력 예약·세션 변경 가드를 유지한다. 사실은 transport 하나다. */
-export function sessionListening(s: Pick<ChatState, 'activityTransport'>): boolean {
-  return s.activityTransport !== 'idle'
+type TransportState = { activity: Pick<ChatActivityState, 'transport'> }
+
+export function sessionListening(s: TransportState): boolean {
+  return s.activity.transport !== 'idle'
 }
 
-export function sessionBusy(s: Pick<ChatState, 'inflight' | 'activityTransport'>): boolean {
+export function sessionBusy(s: Pick<ChatState, 'inflight'> & TransportState): boolean {
   return s.inflight || sessionListening(s)
 }
 
 /** 답변 표면 전용. 채널을 유지하며 다음 예약을 기다리는 ready는 응답 중이 아니다. */
-export function sessionResponding(s: Pick<ChatState, 'inflight' | 'activityTransport'>): boolean {
-  return s.inflight || s.activityTransport === 'listening'
+export function sessionResponding(s: Pick<ChatState, 'inflight'> & TransportState): boolean {
+  return s.inflight || s.activity.transport === 'listening'
 }
 
 export function useChatResponding(): boolean {
@@ -2307,30 +2311,22 @@ export function turnEndTick(s: Pick<ChatState, 'turnEndTick'>): number {
 
 // 중단 잔여 수(0151 r2) — >0 이면 컴포저가 "세션 전체 중단" 을 제시한다.
 export function useChatResidualSteer(): number {
-  return useChatSession((s) => s.activityResidualCount)
+  return useChatSession((s) => s.activity.residualCount)
 }
 
-export function useChatActivity(): Pick<
-  ChatState,
-  | 'activityForeground'
-  | 'activityWaitPhase'
-  | 'activityQueuedCount'
-  | 'activityDeliveryPendingCount'
-  | 'activityResidualCount'
-  | 'activityBackgroundTaskCount'
-  | 'sessionSchedules'
-  | 'pendingSessionWakeup'
-> & { listening: boolean } {
+/** 상태 줄 view — 값이 같으면 같은 객체를 준다(`useShallow`). */
+export function useChatActivity(): ActivityView {
   return useChatStore(
     useShallow((s) => {
       const session = s.sessions[s.activeKey].session
+      const { activity } = session
       return {
-        activityForeground: session.activityForeground,
-        activityWaitPhase: session.activityWaitPhase,
-        activityQueuedCount: session.activityQueuedCount,
-        activityDeliveryPendingCount: session.activityDeliveryPendingCount,
-        activityResidualCount: session.activityResidualCount,
-        activityBackgroundTaskCount: session.activityBackgroundTaskCount,
+        foreground: activity.foreground,
+        ...(activity.waitPhase ? { waitPhase: activity.waitPhase } : {}),
+        queuedCount: activity.queuedCount,
+        deliveryPendingCount: activity.deliveryPendingCount,
+        residualCount: activity.residualCount,
+        backgroundTaskCount: activity.backgroundTaskCount,
         sessionSchedules: session.sessionSchedules,
         pendingSessionWakeup: session.pendingSessionWakeup,
         listening: sessionListening(session)

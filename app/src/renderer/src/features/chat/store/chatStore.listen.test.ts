@@ -62,7 +62,7 @@ describe('chatStore — chat.activity 라우팅', () => {
     ['ready', true, false],
     ['listening', true, true]
   ] as const)('transport %s → 점유 %s · 응답 중 %s', (transport, occupied, responding) => {
-    const state = { inflight: false, activityTransport: transport }
+    const state = { inflight: false, activity: { transport } }
     expect(sessionListening(state)).toBe(occupied)
     expect(sessionBusy(state)).toBe(occupied)
     expect(sessionResponding(state)).toBe(responding)
@@ -112,7 +112,7 @@ describe('chatStore — chat.activity 라우팅', () => {
     expect(session().inflight).toBe(false)
     expect(sessionBusy(session())).toBe(false)
     // 잔여 수는 그대로 노출돼 Composer 의 '세션 전체 중단' 안내가 뜬다.
-    expect(session().activityResidualCount).toBe(1)
+    expect(session().activity.residualCount).toBe(1)
   })
 
   it('잔여만 남은 상태의 send 는 그래도 예약 경로다 — 0153 의 pendingCount 규칙 유지', () => {

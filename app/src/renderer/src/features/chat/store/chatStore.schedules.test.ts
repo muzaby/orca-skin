@@ -72,7 +72,7 @@ describe('session scheduling receive path', () => {
     })
     expect(sessionBusy(loaded)).toBe(true)
     expect(sessionResponding(loaded)).toBe(false)
-    expect(loaded.activityTransport).toBe('ready')
+    expect(loaded.activity.transport).toBe('ready')
     expect(loaded.listenStartedAt).toBeNull()
     expect(loaded.sessionSchedules).toEqual(schedules)
     const stale = chatReducer(loaded, {
@@ -92,8 +92,8 @@ describe('session scheduling receive path', () => {
       session: { id: 'other', agentKind: 'work', backend: 'claude', title: null, messages: [] }
     })
     expect(sessionBusy(other)).toBe(false)
-    expect(other.activityTransport).toBe('idle')
-    expect(chatReducer(loaded, { type: 'CANCEL_CHAT' }).activityTransport).toBe('idle')
+    expect(other.activity.transport).toBe('idle')
+    expect(chatReducer(loaded, { type: 'CANCEL_CHAT' }).activity.transport).toBe('idle')
   })
 
   beforeEach(() => {

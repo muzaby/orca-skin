@@ -126,9 +126,12 @@ describe('0232 Spark background action', () => {
         agentKind,
         sessionId: key,
         turnStartedAt: 1,
-        activityForeground: 'streaming' as const,
-        activityQueuedCount: 1,
-        activityBackgroundTaskCount: 1,
+        activity: {
+          ...initialChatState.activity,
+          foreground: 'streaming' as const,
+          queuedCount: 1,
+          backgroundTaskCount: 1
+        },
         rightPanelTiles: []
       }
       const sessions = { [key]: { session, live: { text: '', reasoning: '' }, subagentMeta: {} } }
