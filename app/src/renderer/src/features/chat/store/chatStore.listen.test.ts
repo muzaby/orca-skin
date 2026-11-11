@@ -1,10 +1,11 @@
 // 0143 — listen 대기 UX 의 store 계약: busy 라우팅(steer 예약), 자식 이벤트 BEGIN_TURN 제외,
 // 백그라운드 완료 통지 dispatch. 하네스는 chatStore.testHarness 공용(0149).
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   chatActions,
   ingestChatEvent,
   sessionBusy,
+  sessionListening,
   sessionResponding,
   useChatStore
 } from './chatStore'
@@ -55,13 +56,35 @@ describe('chatStore — chat.activity 라우팅', () => {
     expect(sessionResponding(session())).toBe(false)
   })
 
+  // 0308 — 채널 점유는 transport 하나에서 파생한다. ready 가 형제 술어(sessionResponding)와 갈린다.
+  it.each([
+    ['idle', false, false],
+    ['ready', true, false],
+    ['listening', true, true]
+  ] as const)('transport %s → 점유 %s · 응답 중 %s', (transport, occupied, responding) => {
+    const state = { inflight: false, activityTransport: transport }
+    expect(sessionListening(state)).toBe(occupied)
+    expect(sessionBusy(state)).toBe(occupied)
+    expect(sessionResponding(state)).toBe(responding)
+  })
+
+  it('ready 점유 중 예약한 전송이 거절되면 그 예약을 걷는다 — 낙관 버블 정리 경로가 아니다', async () => {
+    ingestChatEvent(activity(1, 'ready'))
+    flushRaf()
+    chatSend.mockRejectedValueOnce(new Error('rejected'))
+    expect(chatActions.send('거절될 예약')).toBe(true)
+    expect(useChatStore.getState().sessions.s.pendingSteer).toHaveLength(1)
+    await vi.waitFor(() => expect(useChatStore.getState().sessions.s.pendingSteer).toHaveLength(0))
+    expect(session().messages).toHaveLength(0)
+  })
+
   it('transport 스냅샷이 listening 상태를 굴린다', () => {
     ingestChatEvent(activity(1, 'listening'))
     flushRaf()
-    expect(session().listening).toBe(true)
+    expect(sessionListening(session())).toBe(true)
     ingestChatEvent(activity(2, 'idle'))
     flushRaf()
-    expect(session().listening).toBe(false)
+    expect(sessionListening(session())).toBe(false)
   })
 
   it('listening 중 send 는 steer 예약(pendingSteer) — 낙관 커밋/BEGIN_TURN 없음', () => {
@@ -85,7 +108,7 @@ describe('chatStore — chat.activity 라우팅', () => {
     // 체인이 끝나고 orphaned 예약만 남은 상태(0154 가 의도적으로 유지하는 상태).
     ingestChatEvent(activity(2, 'idle', { deliveryPendingCount: 1, residualCount: 1 }))
     flushRaf()
-    expect(session().listening).toBe(false)
+    expect(sessionListening(session())).toBe(false)
     expect(session().inflight).toBe(false)
     expect(sessionBusy(session())).toBe(false)
     // 잔여 수는 그대로 노출돼 Composer 의 '세션 전체 중단' 안내가 뜬다.
@@ -135,7 +158,7 @@ describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
     ingestChatEvent({ type: 'telemetry', sessionId: 's', usage: {} } as NormalizedEvent)
     flushRaf()
     expect(session().inflight).toBe(false)
-    expect(session().listening).toBe(false)
+    expect(sessionListening(session())).toBe(false)
 
     // 이 창에서 새 메시지(999 상당) — 낙관 커밋이면 잔여보다 앞에 서게 된다.
     const ok = chatActions.send('999')
