@@ -567,7 +567,6 @@ export async function handleChatSend(
         wc,
         pendingMessages,
         activity,
-        chainId: lease.chainId,
         queueKey,
         getActiveTurn,
         getInitialBatches: () => initialBatches,
@@ -633,7 +632,7 @@ export async function handleChatSend(
         // SDK에 넘기기 전이므로 이 배치만 복원한다. 중단 뒤 새로 들어온 held 입력은 남긴다.
         const cancelledIds: string[] = []
         for (const batch of initialBatches) {
-          if (!pendingMessages.rollback(queueKey, batch.attemptId ?? batch.uuid)) continue
+          if (!pendingMessages.rollback(queueKey, batch.uuid)) continue
           for (const id of batch.ids) {
             if (pendingMessages.cancel(queueKey, id)) cancelledIds.push(id)
           }
@@ -759,7 +758,7 @@ export async function handleChatSend(
     if (!cleanupDone) {
       const key = leaderTurn?.dbSessionId ?? leaderTurn?.queueKey ?? provisionalKey
       for (const batch of initialBatches) {
-        pendingMessages.rollback(key, batch.attemptId ?? batch.uuid)
+        pendingMessages.rollback(key, batch.uuid)
       }
       const restored = pendingMessages.cancelAllHeld(key)
       if (restored.length > 0 && payload.sessionId) {

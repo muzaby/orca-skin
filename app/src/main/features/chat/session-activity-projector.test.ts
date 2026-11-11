@@ -154,7 +154,7 @@ describe('SessionActivityProjector', () => {
     const f = fixture()
     f.queue.enqueue('s', { text: 'hello' }, 1, 'm1')
     const batch = f.queue.reserveHeld('s', 'a1', 'c1')!
-    f.queue.commit('s', batch.attemptId!, batch.chainId)
+    f.queue.commitMany('s', [batch])
     await flush()
 
     expect(f.emitted).toHaveLength(1)
@@ -185,7 +185,7 @@ describe('SessionActivityProjector', () => {
     const f = fixture()
     f.queue.enqueue('s', { text: 'one' }, 1, 'm1')
     const batch = f.queue.reserveHeld('s', 'a1', 'c1')!
-    f.queue.commit('s', batch.attemptId!, batch.chainId)
+    f.queue.commitMany('s', [batch])
     f.projector.setResidualAttempts('s', ['a1', 'a1', 'unknown'])
     await flush()
 

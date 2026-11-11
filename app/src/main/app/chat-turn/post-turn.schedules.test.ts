@@ -171,7 +171,6 @@ function fixture(options: { activeChain?: boolean } = {}) {
       wc: owner,
       pendingMessages,
       activity,
-      chainId: lease.chainId,
       queueKey: 's1',
       getActiveTurn: () => activeTurn,
       getInitialBatches: () => initialBatches,
@@ -567,7 +566,7 @@ describe('0243 interruption delivery through real runtime and handlers', () => {
     try {
       f.pendingMessages.enqueue('s1', { text: 'unconsumed message' }, 1, 'residual-message')
       const batch = f.pendingMessages.reserveHeld('s1', 'residual-attempt')!
-      expect(f.pendingMessages.commit('s1', batch.attemptId!, batch.chainId)).toBe(true)
+      expect(f.pendingMessages.commitMany('s1', [batch])).toBe(true)
       f.activity.setResidualAttempts('s1', ['residual-attempt'])
       await ipc.handlers.get(CHANNELS.chatDiscardSession)!(
         { sender: f.turn.owner },

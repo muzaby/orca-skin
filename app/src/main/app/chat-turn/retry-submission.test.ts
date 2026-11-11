@@ -41,31 +41,23 @@ function endingLive(...events: NormalizedEvent[]): LiveTurn {
 const promptText = (call: unknown): string => (call as [{ text: string }])[0].text
 
 function setup(): ReturnType<typeof concurrencyFixture> & {
-  claims: () => Array<{ messageIds: string[]; attemptId: string; chainId: string }>
   samples: string[]
   errors: () => string[]
   retries: () => number
 } {
   vi.useFakeTimers()
   const f = concurrencyFixture({ initial: 'question' })
-  const claims = (): Array<{ messageIds: string[]; attemptId: string; chainId: string }> =>
-    f.initialBatches().map((batch) => ({
-      messageIds: batch.ids,
-      attemptId: batch.attemptId ?? batch.uuid,
-      chainId: batch.chainId!
-    }))
   const samples: string[] = []
   f.pendingMessages.subscribe(() => {
     samples.push(
       f.pendingMessages.hasSubmitted('s1')
         ? 'submitted'
-        : f.pendingMessages.canCommitMany('s1', claims())
+        : f.pendingMessages.canCommitMany('s1', f.initialBatches())
           ? 'submitting'
           : 'other'
     )
   })
   return Object.assign(f, {
-    claims,
     samples,
     errors: () =>
       f.events

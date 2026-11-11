@@ -3,20 +3,14 @@ import { PendingMessageQueue } from './pending-message-queue'
 
 const msg = (text: string): { text: string } => ({ text })
 
-type Batch = NonNullable<ReturnType<PendingMessageQueue['reserveHeld']>>
-const claim = (batch: Batch): { messageIds: string[]; attemptId: string; chainId: string } => ({
-  messageIds: batch.ids,
-  attemptId: batch.attemptId!,
-  chainId: batch.chainId!
-})
-const BATCH_KEYS = ['attemptId', 'chainId', 'createdAt', 'ids', 'text', 'uuid']
+const BATCH_KEYS = ['chainId', 'createdAt', 'ids', 'text', 'uuid']
 
 function accept(
   q: PendingMessageQueue,
   sessionId: string,
   batch: NonNullable<ReturnType<PendingMessageQueue['reserveHeld']>>
 ): typeof batch {
-  expect(q.commit(sessionId, batch.attemptId!, batch.chainId)).toBe(true)
+  expect(q.commitMany(sessionId, [batch])).toBe(true)
   return batch
 }
 
@@ -49,21 +43,13 @@ describe('PendingMessageQueue', () => {
     const batch = q.reserveHeld('s', 'batch-1', 'chain-1')
     expect(batch).toEqual({
       uuid: 'batch-1',
-      attemptId: 'batch-1',
       chainId: 'chain-1',
       ids: ['a', 'b'],
       text: 'first\n\nsecond',
       createdAt: 10
     })
     // 공개 배치에는 추적 필드(origin/state/items)가 새지 않는다.
-    expect(Object.keys(batch!).sort()).toEqual([
-      'attemptId',
-      'chainId',
-      'createdAt',
-      'ids',
-      'text',
-      'uuid'
-    ])
+    expect(Object.keys(batch!).sort()).toEqual(['chainId', 'createdAt', 'ids', 'text', 'uuid'])
     // held 는 비고(취소 불가 영역으로 이동), 빈 큐 재호출은 undefined(게이트 no-op).
     expect(q.pending('s')).toHaveLength(0)
     expect(q.reserveHeld('s')).toBeUndefined()
@@ -250,11 +236,11 @@ describe('PendingMessageQueue', () => {
     it('**텍스트 폴백은 submitting 을 확정하지 않는다** — 아직 안 나간 예약을 오확정할 수 있다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('같은 본문'), 1, 'a')
-      q.reserveHeld('s', 'batch-1', 'chain-1') // submitting
+      const batch = q.reserveHeld('s', 'batch-1', 'chain-1')! // submitting
       // uuid 없는 replay 폴백은 전송이 확정된 것만 대상으로 한다.
       expect(q.confirm('s', { kind: 'echo', text: '같은 본문' })).toEqual([])
       // 같은 배치도 commit 을 받으면 폴백으로 확정된다(경계가 상태에만 있음을 고정).
-      q.commit('s', 'batch-1', 'chain-1')
+      q.commitMany('s', [batch])
       expect(q.confirm('s', { kind: 'echo', text: '같은 본문' }).map((b) => b.ids)).toEqual([['a']])
     })
 
@@ -347,10 +333,10 @@ describe('PendingMessageQueue', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('이월 대상'), 1, 'a')
       accept(q, 's', q.reserveHeld('s', 'attempt-1', 'chain-old')!)
-      // 채널 사망 → 새 체인으로 이월(attemptId·chainId 재발급, messageIds 보존).
+      // 채널 사망 → 새 체인으로 이월(uuid·chainId 재발급, ids 보존).
       const carried = q.takeForRespawn('s', 'chain-new')
       expect(carried.map((b) => b.ids)).toEqual([['a']])
-      for (const batch of carried) q.commit('s', batch.attemptId!, batch.chainId)
+      for (const batch of carried) q.commitMany('s', [batch])
 
       // 뒤늦게 끝난 **이전** 체인의 강등은 새 체인 예약을 orphaned 로 내리면 안 된다.
       expect(q.orphanUnconfirmed('s', 'chain-old')).toEqual([])
@@ -457,15 +443,10 @@ describe('PendingMessageQueue', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
       const batch = q.reserveHeld('s', 'attempt-1', 'chain-1')!
-      const attempt = {
-        messageIds: batch.ids,
-        attemptId: batch.attemptId!,
-        chainId: batch.chainId!
-      }
-      expect(q.canCommitMany('s', [attempt])).toBe(true)
+      expect(q.canCommitMany('s', [batch])).toBe(true)
       q.discardSubmitted('s', ['attempt-1'])
-      expect(q.canCommitMany('s', [attempt])).toBe(false)
-      expect(q.commitMany('s', [attempt])).toBe(false)
+      expect(q.canCommitMany('s', [batch])).toBe(false)
+      expect(q.commitMany('s', [batch])).toBe(false)
     })
   })
 
@@ -505,21 +486,12 @@ describe('PendingMessageQueue', () => {
     expect(batches.map((batch) => batch.uuid)).not.toContain('b')
     expect(batches.every((batch) => batch.chainId === 'respawn-chain')).toBe(true)
     expect(batches.map((batch) => batch.text)).toEqual(['flushed-lost', 'held-late'])
-    expect(q.canCommitMany('s', batches.map(claim))).toBe(true)
+    expect(q.canCommitMany('s', batches)).toBe(true)
     expect(q.pending('s')).toHaveLength(0)
     // 재전달분은 새 턴의 프렐류드/프롬프트가 되므로 origin 이 turn-open 으로 재스탬프된다(AC1).
     // 재스탬프가 필요한 이유는 **첫 모델 출력을 확정 신호로 열어야** 하기 때문이다 — steer 로
     // 남겨두면 model-output 이 확정하지 못해(D2 비대칭) 새 턴이 이 배치를 영영 커밋하지 못한다.
-    expect(
-      q.commitMany(
-        's',
-        batches.map((batch) => ({
-          messageIds: batch.ids,
-          attemptId: batch.attemptId!,
-          chainId: batch.chainId!
-        }))
-      )
-    ).toBe(true)
+    expect(q.commitMany('s', batches)).toBe(true)
     expect(
       q
         .confirm('s', {
@@ -626,7 +598,6 @@ describe('PendingMessageQueue', () => {
     it('freeze 후 enqueue 는 app_closing 으로 거부된다', () => {
       const q = new PendingMessageQueue()
       q.freeze()
-      expect(q.isFrozen).toBe(true)
       expect(() => q.enqueue('s', msg('late'), 1, 'a')).toThrow('app_closing')
     })
 
@@ -654,7 +625,7 @@ describe('PendingMessageQueue', () => {
 })
 
 describe('retry reopen (canReopenMany / reopenMany)', () => {
-  type Claim = { messageIds: string[]; attemptId: string; chainId: string }
+  type Claim = NonNullable<ReturnType<PendingMessageQueue['reserveItem']>>
   function setup(): {
     q: PendingMessageQueue
     claims: Claim[]
@@ -663,10 +634,7 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg('one'), 1, 'a')
     q.enqueue('s', msg('two'), 2, 'b')
-    const claims = ['a', 'b'].map((id) => {
-      const batch = q.reserveItem('s', id, 'chain-1')!
-      return { messageIds: batch.ids, attemptId: batch.attemptId!, chainId: batch.chainId! }
-    })
+    const claims = ['a', 'b'].map((id) => q.reserveItem('s', id, 'chain-1')!)
     let count = 0
     q.subscribe((mutation) => {
       if (mutation.kind === 'changed' && mutation.sessionId === 's') count += 1
@@ -703,7 +671,7 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
 
   it('Q3 reopens a mix of submitting and submitted claims to all submitting', () => {
     const { q, claims } = setup()
-    expect(q.commit('s', claims[0].attemptId, claims[0].chainId)).toBe(true)
+    expect(q.commitMany('s', [claims[0]])).toBe(true)
     both(q, claims, true)
     expect(q.hasSubmitted('s')).toBe(false)
     expect(q.canCommitMany('s', claims)).toBe(true)
@@ -712,11 +680,11 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
   it('Q4 refuses when one claim is confirmed and changes nothing', () => {
     const { q, claims, changes } = setup()
     expect(q.commitMany('s', claims)).toBe(true)
-    q.confirm('s', { kind: 'echo', uuid: claims[1].attemptId })
+    q.confirm('s', { kind: 'echo', uuid: claims[1].uuid })
     const before = changes()
     both(q, claims, false)
     expect(changes()).toBe(before)
-    expect(q.submittedUuids('s')).toEqual([claims[0].attemptId])
+    expect(q.submittedUuids('s')).toEqual([claims[0].uuid])
   })
 
   it('Q5 refuses when one claim is orphaned and changes nothing', () => {
@@ -730,7 +698,7 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
 
   it('Q6 refuses a claim already rolled back to held and keeps it held', () => {
     const { q, claims } = setup()
-    expect(q.rollback('s', claims[0].attemptId)).toBe(true)
+    expect(q.rollback('s', claims[0].uuid)).toBe(true)
     both(q, claims, false)
     expect(q.pending('s').map((item) => item.id)).toEqual(['a'])
     expect(q.canCommitMany('s', [claims[1]])).toBe(true)
@@ -740,7 +708,7 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
     const { q, claims } = setup()
     expect(q.commitMany('s', claims)).toBe(true)
     both(q, [{ ...claims[0], chainId: 'other-chain' }], false)
-    both(q, [{ ...claims[0], messageIds: ['z'] }], false)
+    both(q, [{ ...claims[0], ids: ['z'] }], false)
     expect(q.submittedUuids('s')).toHaveLength(2)
   })
 
@@ -780,8 +748,8 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
       q.enqueue('s', msg('two'), 2, 'b')
-      const first = claim(q.reserveItem('s', 'a', 'chain-1')!)
-      const second = claim(q.reserveItem('s', 'b', 'chain-2')!)
+      const first = q.reserveItem('s', 'a', 'chain-1')!
+      const second = q.reserveItem('s', 'b', 'chain-2')!
       if (state === 'confirmed') q.confirm('s', { kind: 'echo', uuid: 'b' })
       if (state === 'orphaned') q.orphanUnconfirmed('s', 'chain-2')
       if (state === 'held') q.rollback('s', 'b')
@@ -796,16 +764,16 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
   )
 
   it.each([
-    ['another uuid', { attemptId: 'other' }],
+    ['another uuid', { uuid: 'other' }],
     ['another chain', { chainId: 'other' }],
-    ['no chain', { chainId: undefined as unknown as string }],
-    ['fewer message ids', { messageIds: ['a'] }],
-    ['reordered message ids', { messageIds: ['b', 'a'] }]
+    ['no chain', { chainId: undefined }],
+    ['fewer message ids', { ids: ['a'] }],
+    ['reordered message ids', { ids: ['b', 'a'] }]
   ])('K4 no claim method matches a claim with %s', (_name, patch) => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg('one'), 1, 'a')
     q.enqueue('s', msg('two'), 2, 'b')
-    const own = claim(q.reserveHeld('s', 'u1', 'chain-1')!)
+    const own = q.reserveHeld('s', 'u1', 'chain-1')!
     let changes = 0
     q.subscribe(() => (changes += 1))
     const other = [{ ...own, ...patch }]

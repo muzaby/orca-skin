@@ -40,7 +40,6 @@ export interface SteerFlushBatch extends SteerFlush {
   // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 병합 배치는 신규
   // uuid, 턴 프롬프트/프렐류드 아이템 단위 배치는 item id 를 그대로 쓴다(renderer 정합).
   uuid: string
-  attemptId?: string
   chainId?: string
 }
 

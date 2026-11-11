@@ -69,7 +69,7 @@ Decision rationale: [ADR-007](../../decisions/007-queued-input-next-turn.md).
 | 진입 / 동작 | 전달 경로 | 대기 항목 |
 |---|---|---|
 | 유휴 세션 전송 | `chat:send` → `reserveItem` → 최초 프롬프트 또는 `pushTurn` | 즉시 예약 |
-| 응답 중 전송 | `chat:send` → held → 응답 종료 → post-turn `reserveHeld('turn-open')` → 다음 턴 | 응답 종료까지 취소 가능 |
+| 응답 중 전송 | `chat:send` → held → 응답 종료 → post-turn `reserveHeld(sessionId)` → 다음 턴 | 응답 종료까지 취소 가능 |
 | 즉시 보내기 | `chat:steerSendNow` → `decideSendNow` → `interruptResponse` → 잔여 드레인 → post-turn flush | 대기 전부를 입력 순서대로 병합 |
 
 도구 경계에서는 held를 회수하지 않는다. '즉시 보내기'는 진행 중 응답이 있을 때만 interrupt하며, 대기·세션 체인·백그라운드 작업은 유지한다. 수신 대기 중 CLI 자동 응답도 같은 판정을 사용하고, 유휴 수신·턴 사이·준비 중이면 아무것도 끊지 않는다.

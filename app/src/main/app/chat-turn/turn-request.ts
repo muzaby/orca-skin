@@ -17,7 +17,6 @@ interface TurnRequestDeps {
   wc: WebContents
   pendingMessages: PendingMessageQueue
   activity: SessionActivityProjector
-  chainId: string
   /** 세션 id 확정 전의 큐 키(renderer clientKey 파생). */
   queueKey: string
   getActiveTurn: () => TurnContext<WebContents>
@@ -74,31 +73,24 @@ export function buildTurnRequest(
     | 'isSubagentBlocked'
   >
 ): TurnRequest {
-  const { pendingMessages, activity, chainId, queueKey } = deps
+  const { pendingMessages, activity, queueKey } = deps
 
   // 소유권 표시(0151 AC12) — 입력 인계와 롤백이 같은 인자로 부르게 한다.
   const sendOwnership = (sessionId: string, ids: string[], submitted: boolean): void => {
     sendSubmitted(deps.wc, sessionId, ids, submitted)
   }
-  const batchClaims = (): Array<{
-    messageIds: string[]
-    attemptId: string
-    chainId: string
-  }> =>
-    deps.getInitialBatches().map((batch) => ({
-      messageIds: batch.ids,
-      attemptId: batch.attemptId ?? batch.uuid,
-      chainId: batch.chainId ?? chainId
-    }))
 
   return {
     ...fields,
     canSubmitInitial: () =>
-      pendingMessages.canCommitMany(deps.getActiveTurn().dbSessionId ?? queueKey, batchClaims()),
+      pendingMessages.canCommitMany(
+        deps.getActiveTurn().dbSessionId ?? queueKey,
+        deps.getInitialBatches()
+      ),
     commitInitialSubmission: () => {
       const activeTurn = deps.getActiveTurn()
       const sid = activeTurn.dbSessionId ?? queueKey
-      const committed = pendingMessages.commitMany(sid, batchClaims())
+      const committed = pendingMessages.commitMany(sid, deps.getInitialBatches())
       if (committed && activeTurn.dbSessionId) {
         for (const batch of deps.getInitialBatches()) {
           sendOwnership(activeTurn.dbSessionId, batch.ids, true)
@@ -110,10 +102,7 @@ export function buildTurnRequest(
       const activeTurn = deps.getActiveTurn()
       const sid = activeTurn.dbSessionId ?? queueKey
       for (const batch of deps.getInitialBatches()) {
-        if (
-          pendingMessages.rollback(sid, batch.attemptId ?? batch.uuid) &&
-          activeTurn.dbSessionId
-        ) {
+        if (pendingMessages.rollback(sid, batch.uuid) && activeTurn.dbSessionId) {
           sendOwnership(activeTurn.dbSessionId, batch.ids, false)
         }
       }
@@ -121,9 +110,15 @@ export function buildTurnRequest(
     // 재시도 재개방은 commit 과 같은 세션 키·claim 을 본다. 소유권 표시는 그대로 두므로
     // (renderer 에는 여전히 전송됨) 이벤트를 보내지 않는다.
     canReopenInitialSubmission: () =>
-      pendingMessages.canReopenMany(deps.getActiveTurn().dbSessionId ?? queueKey, batchClaims()),
+      pendingMessages.canReopenMany(
+        deps.getActiveTurn().dbSessionId ?? queueKey,
+        deps.getInitialBatches()
+      ),
     reopenInitialSubmission: () =>
-      pendingMessages.reopenMany(deps.getActiveTurn().dbSessionId ?? queueKey, batchClaims()),
+      pendingMessages.reopenMany(
+        deps.getActiveTurn().dbSessionId ?? queueKey,
+        deps.getInitialBatches()
+      ),
     captureInterruptReceipt: () => {
       const sid = deps.getActiveTurn().dbSessionId
       if (!sid) return undefined

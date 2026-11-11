@@ -61,10 +61,10 @@ describe('Work response boundary composition', () => {
       const queue = new PendingMessageQueue()
       queue.enqueue('s1', { text: 'initial' }, 1, 'first')
       const first = queue.reserveHeld('s1')!
-      queue.commit('s1', first.attemptId!, first.chainId)
+      queue.commitMany('s1', [first])
       queue.enqueue('s1', { text: 'steer' }, 2, 'second')
       const second = queue.reserveHeld('s1')!
-      queue.commit('s1', second.attemptId!, second.chainId)
+      queue.commitMany('s1', [second])
       const runtime = {
         send: async function* () {
           yield text
