@@ -3,6 +3,14 @@ import { PendingMessageQueue } from './pending-message-queue'
 
 const msg = (text: string): { text: string } => ({ text })
 
+type Batch = NonNullable<ReturnType<PendingMessageQueue['reserveHeld']>>
+const claim = (batch: Batch): { messageIds: string[]; attemptId: string; chainId: string } => ({
+  messageIds: batch.ids,
+  attemptId: batch.attemptId!,
+  chainId: batch.chainId!
+})
+const BATCH_KEYS = ['attemptId', 'chainId', 'createdAt', 'ids', 'text', 'uuid']
+
 function accept(
   q: PendingMessageQueue,
   sessionId: string,
@@ -497,6 +505,7 @@ describe('PendingMessageQueue', () => {
     expect(batches.map((batch) => batch.uuid)).not.toContain('b')
     expect(batches.every((batch) => batch.chainId === 'respawn-chain')).toBe(true)
     expect(batches.map((batch) => batch.text)).toEqual(['flushed-lost', 'held-late'])
+    expect(q.canCommitMany('s', batches.map(claim))).toBe(true)
     expect(q.pending('s')).toHaveLength(0)
     // 재전달분은 새 턴의 프렐류드/프롬프트가 되므로 origin 이 turn-open 으로 재스탬프된다(AC1).
     // 재스탬프가 필요한 이유는 **첫 모델 출력을 확정 신호로 열어야** 하기 때문이다 — steer 로
@@ -736,7 +745,121 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
   })
 
   it('Q8 accepts an empty claim list', () => {
-    const { q } = setup()
+    const { q, changes } = setup()
     both(q, [], true)
+    expect(q.canCommitMany('s', [])).toBe(true)
+    expect(q.commitMany('s', [])).toBe(true)
+    expect(changes()).toBe(0)
+  })
+
+  it('K1 commits every submitting claim with one notice and then stops admitting them', () => {
+    const { q, claims, changes } = setup()
+    expect(q.canCommitMany('s', claims)).toBe(true)
+    expect(q.canReopenMany('s', claims)).toBe(true)
+    expect(changes()).toBe(0)
+    expect(q.commitMany('s', claims)).toBe(true)
+    expect(q.submittedUuids('s')).toEqual(['a', 'b'])
+    expect(changes()).toBe(1)
+    expect(q.canCommitMany('s', claims)).toBe(false)
+    expect(changes()).toBe(1)
+  })
+
+  it('K2 accepts already submitted claims and notifies only when one moved', () => {
+    const { q, claims, changes } = setup()
+    expect(q.commitMany('s', [claims[0]])).toBe(true)
+    expect(q.commitMany('s', claims)).toBe(true)
+    expect(q.submittedUuids('s')).toEqual(['a', 'b'])
+    expect(changes()).toBe(2)
+    expect(q.commitMany('s', claims)).toBe(true)
+    expect(changes()).toBe(2)
+  })
+
+  it.each(['confirmed', 'orphaned', 'held', 'discarded'] as const)(
+    'K3 refuses to commit when one claim is %s and leaves the other submitting',
+    (state) => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      q.enqueue('s', msg('two'), 2, 'b')
+      const first = claim(q.reserveItem('s', 'a', 'chain-1')!)
+      const second = claim(q.reserveItem('s', 'b', 'chain-2')!)
+      if (state === 'confirmed') q.confirm('s', { kind: 'echo', uuid: 'b' })
+      if (state === 'orphaned') q.orphanUnconfirmed('s', 'chain-2')
+      if (state === 'held') q.rollback('s', 'b')
+      if (state === 'discarded') q.discardSubmitted('s', ['b'])
+      let changes = 0
+      q.subscribe(() => (changes += 1))
+      expect(q.commitMany('s', [first, second])).toBe(false)
+      expect(changes).toBe(0)
+      expect(q.hasSubmitted('s')).toBe(false)
+      expect(q.canCommitMany('s', [first])).toBe(true)
+    }
+  )
+
+  it.each([
+    ['another uuid', { attemptId: 'other' }],
+    ['another chain', { chainId: 'other' }],
+    ['no chain', { chainId: undefined as unknown as string }],
+    ['fewer message ids', { messageIds: ['a'] }],
+    ['reordered message ids', { messageIds: ['b', 'a'] }]
+  ])('K4 no claim method matches a claim with %s', (_name, patch) => {
+    const q = new PendingMessageQueue()
+    q.enqueue('s', msg('one'), 1, 'a')
+    q.enqueue('s', msg('two'), 2, 'b')
+    const own = claim(q.reserveHeld('s', 'u1', 'chain-1')!)
+    let changes = 0
+    q.subscribe(() => (changes += 1))
+    const other = [{ ...own, ...patch }]
+    expect(q.canCommitMany('s', other)).toBe(false)
+    expect(q.commitMany('s', other)).toBe(false)
+    expect(q.canReopenMany('s', other)).toBe(false)
+    expect(q.reopenMany('s', other)).toBe(false)
+    expect(changes).toBe(0)
+    expect(q.canCommitMany('s', [own])).toBe(true)
+  })
+})
+
+describe('public batch shape', () => {
+  it.each([
+    [
+      'confirm by echo',
+      (q: PendingMessageQueue) =>
+        ['a', 'b'].flatMap((uuid) => q.confirm('s', { kind: 'echo', uuid }))
+    ],
+    [
+      'confirm by model output',
+      (q: PendingMessageQueue) => q.confirm('s', { kind: 'model-output', uuids: ['a', 'b'] })
+    ],
+    [
+      'drainConfirmed',
+      (q: PendingMessageQueue) => {
+        q.confirm('s', { kind: 'model-output', uuids: ['a', 'b'] })
+        return q.drainConfirmed('s')
+      }
+    ],
+    ['orphanUnconfirmed', (q: PendingMessageQueue) => q.orphanUnconfirmed('s')],
+    ['discardSubmitted', (q: PendingMessageQueue) => q.discardSubmitted('s', ['a', 'b'])],
+    ['takeForRespawn', (q: PendingMessageQueue) => q.takeForRespawn('s', 'chain-2')]
+  ])('P1 %s returns contract fields only', (_name, take) => {
+    const q = new PendingMessageQueue()
+    q.enqueue(
+      's',
+      {
+        text: 'one',
+        attachmentTexts: [{ name: 'n' } as never],
+        requirements: [{ id: 'r' } as never]
+      },
+      1,
+      'a'
+    )
+    q.enqueue('s', msg('two'), 2, 'b')
+    q.reserveItem('s', 'a', 'chain-1')
+    q.reserveItem('s', 'b', 'chain-1')
+    const [withAttachments, plain] = take(q)
+    expect(withAttachments.ids).toEqual(['a'])
+    expect(Object.keys(withAttachments).sort()).toEqual(
+      [...BATCH_KEYS, 'attachmentTexts', 'requirements'].sort()
+    )
+    expect(plain.ids).toEqual(['b'])
+    expect(Object.keys(plain).sort()).toEqual(BATCH_KEYS)
   })
 })

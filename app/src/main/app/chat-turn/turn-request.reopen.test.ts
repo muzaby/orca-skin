@@ -62,6 +62,26 @@ describe('initial submission reopen delegates use the commit key and claims', ()
     expect(f.send.mock.calls.length).toBe(ownership)
   })
 
+  it.each([
+    ['W1 a stored session', { dbSessionId: 's1', queueKey: 'q-other' }],
+    ['W2 a new session', { dbSessionId: null, queueKey: 'new:1' }]
+  ])(
+    'W4 %s rollback returns the input to held and announces it only with a session id',
+    (_name, options) => {
+      const f = assemble(options)
+      f.setBatches([f.reserve('m1')])
+      f.request.rollbackInitialSubmission!()
+      expect(
+        f.queue.pending(options.dbSessionId ?? options.queueKey).map((item) => item.id)
+      ).toEqual(['m1'])
+      expect(f.send.mock.calls.map((call) => call[1])).toEqual(
+        options.dbSessionId
+          ? [{ type: 'message.submitted', sessionId: 's1', ids: ['m1'], submitted: false }]
+          : []
+      )
+    }
+  )
+
   it('W3 follows the current initial batches through the getter', () => {
     const f = assemble({ dbSessionId: 's1', queueKey: 'q-other' })
     const old = f.reserve('m1')
