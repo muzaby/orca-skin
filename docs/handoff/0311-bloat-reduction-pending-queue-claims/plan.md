@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-11 |
 | 매핑 | 0305 분할안 H-D(C-25 전부 · C-14 2단계). H-D의 나머지는 §4에서 제외 |
-| 상태 | IMPL_DONE (r1) |
-| V mode | `Baseline V` |
+| 상태 | READY (ΔV1 — verify r1 RETURN_TO_PLAN 정정) |
+| V mode | `Baseline V` → `Delta V`(ΔV1) |
 | 기준 V | `none` — 0151·0166·0301의 대기열 V는 문서로 상속하지 않고, 그 테스트를 VP-05가 회귀로 다시 닫는다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` — 기준 `V1`(설계 커밋 `1582d12`, PR 브랜치 좌표) |
+| 유효 V | `V1 + ΔV1`(§20) |
 | 구현 주체 | Claude (비기능 작업 — root `AGENTS.md` 협업 워크플로우) |
 | 조사 기준 커밋 | `c72103b` (`git cat-file -t` → commit · PR 브랜치 좌표, `main` 조상 여부 미확인) |
 
@@ -487,6 +487,78 @@ pending-message-queue.ts
 - [x] `ACTIVE 결정 ↔ AC` 대조 결과를 갱신 메모에 적었다 — 충돌 0.
 - [x] 문장 규칙 — 표 칸 3줄·문단 3문장.
 
+
+## 20. Delta V1 — verify r1 `RETURN_TO_PLAN` 정정
+
+기준은 `V1`(`1582d12`)이고 입력은 [`verify.md`](verify.md) §13 D1~D5다. 아래 행만 바뀌고 나머지 V1은 그대로다. 구 행은 지우지 않았다 — 같은 ID의 V1 행을 이 절이 대체한다.
+
+### 결정
+
+| ID | 결정 | 이유 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-012 | AC7의 test 조건을 "늘지 않는다"에서 "순증을 수치·항목과 함께 보고한다"로 바꾼다. prod 순감 45줄 이상은 그대로다 | V1의 AC7과 §14가 모순이었다(verify D2). 감량 목표는 제품 코드이고(D-003) 잠금을 줄여 맞추지 않는다(D-002) | 설계자 판단 · verify D2 | ACTIVE | V1 AC7의 test 절을 대체 |
+| D-013 | 확장 후보 D3·D4·D5를 전부 채택한다 | 셋 다 이번에 claim 인자가 바뀐 호출 경로(`claimed` 일치 · 제출 확정 발신) 위의 분기이고, 잠금 비용이 입력 1줄 + 케이스 1개다 | 설계자 판단 · verify D3~D5 | ACTIVE | — |
+| D-014 | `toPublic`은 얕은 복사 뒤 `state`·`items`를 `delete`하는 꼴이다 | 나머지 펼침의 쓰지 않는 형제 변수는 lint error다 — §8의 `native-sync.ts:122` 인용은 그 변수가 뒤에서 쓰이는 줄이었다(구현자 r1 설계 리뷰) | 구현자 보고 · verify §12 | ACTIVE | D-005(e)·§9 TO-BE의 `toPublic` 줄을 대체. AC3은 불변 |
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-012 ↔ AC7(ΔV1): test 절이 보고 의무로 바뀌어 §14와 같은 문장이다. D-013 ↔ AC2·AC4: K4·W5·P5 입력이 는다. D-014 ↔ AC3: 키 집합 기준 불변.
+
+### 바뀌는 AC
+
+| R | AT / AC | 동작 기준 | 검증 수단 | provenance |
+|---|---|---|---|---|
+| R-07 | AC7 | prod 순감이 45줄 이상이다. test 순증은 허용하고 수치와 늘어난 항목(잠금 이름)을 보고한다 | `git diff --numstat 1582d12..HEAD -- app/src`를 prod/test로 갈라 합산 + `[구현자 기입]`의 항목 목록 | CHANGED(V1 AC7 대체) |
+| R-02 | AC2 | V1 문장 그대로 + 제출 확정이 거부되면 소유권 표시를 보내지 않고, 보낼 때는 배치의 메시지 id 전부를 싣는다 | 아래 W5 | CHANGED(문장 추가) |
+
+AC4는 문장이 그대로다 — "열린 배치"의 입력이 P5에 없던 것이 D1(이행 결함)이고, 아래 P5 행이 그 분기를 규칙 칸으로 옮긴다.
+
+### Node / Pair 변경
+
+| Node / Pair | provenance | 변경 |
+|---|---|---|
+| MD-01 · UT-01 / VP-02 | CHANGED | K4에 "claim의 `ids`가 더 길다" 분기 추가 · 변이 (n) |
+| MD-02 · UT-02 / VP-03 | CHANGED | P5에 "잔여 `uuid`가 확정된 배치를 가리킨다" 분기 추가 · 변이 (m) |
+| AR-01 · IT-01 / VP-04 | CHANGED | W5 추가(제출 확정 발신의 조건과 `ids`) · 변이 (o)·(p) |
+| R-07 · AT-07 | CHANGED | AC7 문장(D-012). pair 없음 — §19가 닫는다(V1과 같다) |
+| VP-01 · VP-05 | INHERITED | 변경 없음. VP-05는 r2 diff가 테스트 파일뿐이면 r1 좌표 참조 |
+
+§10 자리 목록(EP-01~EP-05)은 그대로다 — verify r1이 검색 5종을 다시 돌려 목록과 차집합 0을 확인했다. 새 자리는 없고 기존 자리의 규칙 분기와 입력만 는다.
+
+### 규칙 칸 ↔ UT 입력 칸 (추가·대체 행)
+
+| 규칙 | 분기 | 입력 | 기대 | 좌표 |
+|---|---|---|---|---|
+| K4 일치 항 | V1의 5분기 + **`ids`가 더 길다** | V1 K4 픽스처에서 `[{...own, ids: ['a','b','c']}]` | 네 메서드 모두 `false` · 알림 0 · `canCommitMany('s', [own])` 참 | `pending-message-queue.test.ts` 'K4 …'의 `it.each`에 행 추가 |
+| P5 잔여 수 | V1의 3분기 + **잔여 `uuid`의 배치가 확정됨(열려 있지 않다)** | V1 P5 입력 뒤 `queue.confirm('s', { kind: 'echo', uuid: 'a1' })` → `setResidualAttempts('s', ['a1'])` | `residualCount` 0 | `session-activity-projector.test.ts` 'interrupt 생존 attempt만 …'에 단언 추가 또는 케이스 1개 |
+| W5 제출 확정 발신 | 확정 성공 + 세션 id 있음 / **확정 거부** | 저장된 세션(`dbSessionId: 's1'`, `queueKey: 'q-other'`)에서 메시지 `m1`·`m2`를 적재해 `reserveHeld('s1', 'u1', 'chain-1')`로 병합 예약 → `commitInitialSubmission()`. 이어서 `confirm('s1', { kind: 'echo', uuid: 'u1' })` 뒤 다시 `commitInitialSubmission()` | 첫 호출 `true` · 발신 payload가 `{ type: 'message.submitted', sessionId: 's1', ids: ['m1','m2'], submitted: true }`와 같다(1회). 둘째 호출 `false` · 발신 수 그대로 | `turn-request.reopen.test.ts` 추가 W5 |
+
+- P5의 기대 0은 변경 전 코드에서도 같다 — `!isOpen(batch.state)`는 `1582d12`에도 있던 조건이다(`pending-message-queue.ts:463` 당시 줄).
+- W5가 병합 배치를 쓰는 이유: 메시지 1개짜리 배치는 `ids.slice(0, 1)`과 원본이 같아 `ids` 항이 구별되지 않는다.
+
+### 등록 변이 (추가)
+
+| ID | 자리 | 변이 | 기대 red |
+|---|---|---|---|
+| (m) | `messageCountForAttempts`(`pending-message-queue.ts:447`) | `!isOpen(batch.state) \|\|` 제거 | P5 |
+| (n) | `sameIds`(`:567`) | `a.length === b.length &&` 제거 | K4(더 긴 `ids`) |
+| (o) | `turn-request.ts` `commitInitialSubmission` | `committed &&` 제거 | W5(둘째 호출) |
+| (p) | 같은 자리 발신 | `batch.ids` → `batch.ids.slice(0, 1)` | W5(첫 호출) |
+
+### 선언 경계 (추가)
+
+- 제출 확정이 거부됐고 세션 id가 없는 조합은 W5가 다루지 않는다 — 발신 조건이 `committed && dbSessionId`라 두 항 중 하나만 거짓이어도 0회이고, 세션 id 없는 쪽은 V1 W1(새 세션, 발신 0)이 잠근다.
+
+### r2 구현 범위
+
+- 테스트만 바뀐다: K4 1행 · P5 단언 · W5 1케이스. prod diff는 0이어야 한다(바뀌면 `[구현자 기입]`에 이유).
+- verify r1 D1(BLOCKING)은 위 P5 행으로 닫는다. (m)~(p)를 `mutate.py`로 심어 red를 확인한다.
+- 게이트는 §19 그대로. AC7은 ΔV1 문장으로 보고한다.
+
+### ΔV1 self-review
+
+- [x] 파생 이슈 5건 전부 처리 — D1 → P5 행(이행, 구현이 닫음) · D2 → D-012 · D3 → K4 행 · D4·D5 → W5 행.
+- [x] 채택 3건마다 규칙 분기 · 입력 · 기대 · 좌표 · 변이가 있다 — 위 두 표.
+- [x] 인용 실재: `turn-request.reopen.test.ts`의 `assemble`은 `queue`·`send`·`setBatches`를 돌려준다(`:20-43`) · W4는 이미 payload 전체를 대조한다(`:77-81`) · K4 `it.each`(`pending-message-queue.test.ts:766-772`) · P5 케이스(`session-activity-projector.test.ts:184`).
+- [x] 확장 창: verify 1회째 뒤의 설계 턴이다 — 채택이 허용되는 턴.
 
 ---
 
