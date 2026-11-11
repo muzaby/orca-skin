@@ -20,8 +20,7 @@ import type {
   BackgroundTaskRequest,
   PromoteBackgroundTaskRequest,
   ReadBackgroundOutputRequest,
-  ReadBackgroundOutputResponse,
-  StopAllBackgroundTasksResult
+  ReadBackgroundOutputResponse
 } from '../shared/background-task'
 import type {
   ComposerCatalogInvalidated,
@@ -70,7 +69,6 @@ import {
   type ProviderConnectRequest,
   type ProviderConnectionInfo,
   type ProviderContinueRequest,
-  type ProviderInfo,
   type ProviderLoginRequest,
   type ProviderPlatformState,
   type ProviderReauthRequest,
@@ -155,11 +153,6 @@ const oo = {
       ipcRenderer.invoke(CHANNELS.chatStopBackgroundTask, req),
     promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatPromoteBackgroundTask, req),
-    stopAllBackgroundTasks: (req: {
-      sessionId: string
-      generation: string
-    }): Promise<StopAllBackgroundTasksResult> =>
-      ipcRenderer.invoke(CHANNELS.chatStopAllBackgroundTasks, req),
     readBackgroundOutput: (
       req: ReadBackgroundOutputRequest
     ): Promise<ReadBackgroundOutputResponse> =>
@@ -253,8 +246,7 @@ const oo = {
     reveal: (req: ArtifactTargetRequest): Promise<ArtifactActionResult> =>
       ipcRenderer.invoke(CHANNELS.artifactReveal, req),
     trash: (req: ArtifactTargetRequest): Promise<ArtifactTrashResult> =>
-      ipcRenderer.invoke(CHANNELS.artifactTrash, req),
-    openFolder: (): Promise<ArtifactActionResult> => ipcRenderer.invoke(CHANNELS.artifactOpenFolder)
+      ipcRenderer.invoke(CHANNELS.artifactTrash, req)
   },
   files: {
     list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
@@ -378,7 +370,6 @@ const oo = {
   // provider 플랫폼 (0181) — 로그인 게이트 + 카탈로그 provider 탭. `state` 는 초기 스냅샷
   // invoke 와 변화 구독이 **같은 채널**이다(main 이 같은 객체를 양방향으로 나른다).
   provider: {
-    list: (): Promise<ProviderInfo[]> => ipcRenderer.invoke(CHANNELS.providerList),
     state: (): Promise<ProviderPlatformState> => ipcRenderer.invoke(CHANNELS.providerState),
     login: (req: ProviderLoginRequest): Promise<ProviderStepInfo> =>
       ipcRenderer.invoke(CHANNELS.providerLogin, req),

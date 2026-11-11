@@ -11,7 +11,6 @@ import { ForkBoundaryMarker } from '../../common/transcript/ForkBoundaryMarker'
 import { SubagentNoticeRow } from '../../common/transcript/SubagentNoticeRow'
 import { OpenCodeToolGroup } from './ToolGroup'
 import { OpenCodeText } from './Text'
-import { OutputPanel } from './ToolBody'
 
 export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
   segment: seg,
@@ -20,7 +19,6 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element | null {
-  const { tr } = useI18n()
   switch (seg.kind) {
     case 'text':
       return <OpenCodeText source={seg.text} />
@@ -30,18 +28,6 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
       return <OpenCodeToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
     case 'ask':
       return <OpenCodeAskExchange call={seg.call} />
-    case 'structured':
-      return (
-        <div data-component="opencode-structured">
-          <p className="mb-[8px] text-caption text-oc-muted">
-            {tr('chat.transcript.structuredOutput')}
-          </p>
-          <OutputPanel
-            text={typeof seg.value === 'string' ? seg.value : stringify(seg.value)}
-            label={tr('chat.transcript.structuredOutput')}
-          />
-        </div>
-      )
     case 'error':
       return <OpenCodeError error={seg.error} />
     case 'compact':

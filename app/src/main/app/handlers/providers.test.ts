@@ -21,7 +21,6 @@ vi.mock('electron', () => ({
 const { registerConnectionHandlers } = await import('./providers')
 
 const EXPECTED = [
-  CHANNELS.providerList,
   CHANNELS.providerState,
   CHANNELS.providerLogin,
   CHANNELS.providerContinue,

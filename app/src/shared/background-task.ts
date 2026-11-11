@@ -204,10 +204,6 @@ export interface ReadBackgroundOutputResponse {
   view: 'current' | 'snapshot'
   error?: string
 }
-export interface StopAllBackgroundTasksResult {
-  residualTaskIds: string[]
-  unknown: boolean
-}
 export function backgroundKey(generation: string, id: string): string {
   return JSON.stringify([generation, id])
 }

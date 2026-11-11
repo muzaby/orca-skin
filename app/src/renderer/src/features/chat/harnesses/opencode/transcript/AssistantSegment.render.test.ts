@@ -116,7 +116,6 @@ describe('harness transcript routing', () => {
           result: { output: { answers: { 'Which?': 'First' } }, isError: false }
         }
       },
-      { kind: 'structured', value: { answer: 42 } },
       { kind: 'error', error: { category: 'unknown', message: 'native error' } },
       { kind: 'compact', trigger: 'auto', preTokens: 100, postTokens: 20 },
       { kind: 'fork' },
@@ -148,7 +147,6 @@ describe('harness transcript routing', () => {
         .get()
     ).toEqual(['reasoning'])
     expect($('[data-component="opencode-error"]').text()).toContain('native error')
-    expect($('[data-component="opencode-structured"]').text()).toContain('42')
   })
   it('preserves native metadata through live reducer and session reload', () => {
     let state = chatReducer({ ...initialChatState, backend: 'opencode' }, { type: 'BEGIN_TURN' })

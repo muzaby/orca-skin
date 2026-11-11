@@ -38,8 +38,6 @@ export interface LogRecord extends LogInput {
   windowId?: number
 }
 
-export const LOG_LEVELS: readonly LogLevel[] = ['error', 'warn', 'info', 'debug']
-
 // 이벤트 명명 규칙: `<domain>.<operation>.<state>` — 소문자 시작 세그먼트 2~5개, 점 구분.
 // 예: app.start.completed · db.migration.failed · chat.turn.started
 export const LOG_EVENT_PATTERN = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*){1,4}$/

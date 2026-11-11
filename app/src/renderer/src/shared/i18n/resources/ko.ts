@@ -24,7 +24,6 @@ export const ko = {
     loading: '작업 상태를 불러오는 중…',
     refresh: '새로고침',
     stop: '중단 요청',
-    stopAll: '모든 실행 중단',
     waiting: '결과 기다리기',
     cancelWait: '대기 취소',
     completed: '완료',
@@ -578,16 +577,6 @@ export const ko = {
       full: '전체'
     }
   },
-  camera: {
-    title: '하드웨어 제어',
-    exposure: '노출 (Exposure)',
-    analogGain: '아날로그 게인',
-    digitalGain: '디지털 게인',
-    qualityMetrics: '품질 메트릭',
-    capture: '캡처',
-    sequence: '시퀀스',
-    futureScopeTitle: 'v1 비대상 — Future Scope (PRD §9)'
-  },
   errors: {
     toast: {
       unexpected: '예기치 않은 오류가 발생했습니다',
@@ -791,7 +780,6 @@ export const ko = {
       saveAll: '모두 저장',
       reveal: '탐색기에서 보기',
       refresh: '다시 확인',
-      openFolder: '보관 폴더 열기',
       trash: '휴지통으로 이동',
       trashTitle: '파일을 휴지통으로 이동할까요?',
       trashMessage:
@@ -848,7 +836,6 @@ export const ko = {
     },
     transcript: {
       reasoning: '사고 과정',
-      structuredOutput: '구조화 출력',
       incompleteResponse: '응답이 완료되지 않았습니다',
       showMore: '더 보기',
       showLess: '간략히 보기',

@@ -105,7 +105,7 @@
 | (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 — electron-store 동기화. 더미 업데이트·wire log·로그인 게이트 우회(`authBypass`) 토글 포함. |
 | (SearchModal) `features/sessions/components/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
 
-> **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
+> **CapturesView** 는 `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
 >
 > **Sidebar nav 구성**: 정본은 `app/navItems.ts` — 새 대화 · 프로젝트 · 아티팩트 · 엔진 & 모델 · 플러그인. 자동화/captures 는 _Future Scope 로 nav 미노출_ — 향후 nav 복귀 가능.
 

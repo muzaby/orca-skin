@@ -10,33 +10,33 @@
 
 | 항목 | 수 | 정본 |
 |---|---|---|
-| IPC 채널 | **117** | `app/src/shared/ipc.ts` |
+| IPC 채널 | **114** | `app/src/shared/ipc.ts` |
 | IPC 도메인 | **28** | `app/src/shared/ipc.ts` |
-| NormalizedEvent variant | **30** | `app/src/shared/ipc.ts` |
-| settings 키 | **24** | `app/src/shared/protocol.ts` |
+| NormalizedEvent variant | **29** | `app/src/shared/ipc.ts` |
+| settings 키 | **23** | `app/src/shared/protocol.ts` |
 | main 수직 슬라이스 | **15** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
 | IPC 핸들러 | **22** | `app/src/main/app/handlers/` |
 | DB 마이그레이션 | **34** | `app/src/main/infra/db/migrations/` |
-| renderer feature | **14** | `app/src/renderer/src/features/` |
+| renderer feature | **13** | `app/src/renderer/src/features/` |
 
 ## 내역
 
-### IPC 채널 (117)
+### IPC 채널 (114)
 
-`oo:agent:list` · `oo:artifact:catalog` · `oo:artifact:list` · `oo:artifact:openFolder` · `oo:artifact:preview` · `oo:artifact:reveal` · `oo:artifact:save` · `oo:artifact:setPinned` · `oo:artifact:status` · `oo:artifact:trash` · `oo:backend:list` · `oo:boot:report` · `oo:boot:whenReady` · `oo:chat:backgroundEvent` · `oo:chat:backgroundState` · `oo:chat:backgroundSubagent` · `oo:chat:cancel` · `oo:chat:discardSession` · `oo:chat:event` · `oo:chat:promoteBackgroundTask` · `oo:chat:readBackgroundOutput` · `oo:chat:send` · `oo:chat:steerCancel` · `oo:chat:steerSendNow` · `oo:chat:stopAllBackgroundTasks` · `oo:chat:stopBackgroundTask` · `oo:chat:stopSubagent` · `oo:composer:catalog` · `oo:composer:catalog-invalidated` · `oo:composer:catalog-release` · `oo:concurrency:event` · `oo:cost:refreshUsage` · `oo:cost:setProviderLimit` · `oo:cost:usage` · `oo:cost:usageEvent` · `oo:cost:usageStats` · `oo:debug:getMock` · `oo:debug:setMock` · `oo:engine:add` · `oo:engine:delete` · `oo:engine:importUserSettings` · `oo:engine:read` · `oo:engine:update` · `oo:error:drain` · `oo:error:reportEvent` · `oo:error:revealLog` · `oo:extensions:catalog` · `oo:extensions:changed` · `oo:extensions:managed-mcp-changed` · `oo:extensions:open` · `oo:extensions:opencode-plugins-changed` · `oo:extensions:setEnabled` · `oo:files:list` · `oo:files:openContextFile` · `oo:files:openPath` · `oo:files:pickAttachments` · `oo:files:pickDirectory` · `oo:files:readAttachment` · `oo:git:branches` · `oo:git:checkout` · `oo:git:diffPatch` · `oo:git:snapshot` · `oo:harness:availability` · `oo:harness:recheck` · `oo:install:start` · `oo:install:status` · `oo:log:emit` · `oo:mcp:add` · `oo:mcp:delete` · `oo:mcp:list` · `oo:mcp:update` · `oo:notify:show` · `oo:permission:respond` · `oo:permission:setMode` · `oo:project:create` · `oo:project:delete` · `oo:project:list` · `oo:project:listSessions` · `oo:project:setPinned` · `oo:project:update` · `oo:provider:connect` · `oo:provider:continue` · `oo:provider:list` · `oo:provider:login` · `oo:provider:reauth` · `oo:provider:revoke` · `oo:provider:state` · `oo:search:messages` · `oo:session:addDirectory` · `oo:session:cwd` · `oo:session:delete` · `oo:session:list` · `oo:session:load` · `oo:session:native-resources` · `oo:session:native-resources-changed` · `oo:session:refresh` · `oo:session:rename` · `oo:session:setPinned` · `oo:session:titleEvent` · `oo:settings:get` · `oo:settings:set` · `oo:skills:author` · `oo:skills:list` · `oo:skills:open` · `oo:skills:remove` · `oo:skills:setEnabled` · `oo:skills:showInFolder` · `oo:skills:upload` · `oo:update:check` · `oo:update:download` · `oo:update:progressEvent` · `oo:update:quitAndInstall` · `oo:update:state` · `oo:update:stateEvent` · `oo:window:close` · `oo:window:maximize` · `oo:window:minimize`
+`oo:agent:list` · `oo:artifact:catalog` · `oo:artifact:list` · `oo:artifact:preview` · `oo:artifact:reveal` · `oo:artifact:save` · `oo:artifact:setPinned` · `oo:artifact:status` · `oo:artifact:trash` · `oo:backend:list` · `oo:boot:report` · `oo:boot:whenReady` · `oo:chat:backgroundEvent` · `oo:chat:backgroundState` · `oo:chat:backgroundSubagent` · `oo:chat:cancel` · `oo:chat:discardSession` · `oo:chat:event` · `oo:chat:promoteBackgroundTask` · `oo:chat:readBackgroundOutput` · `oo:chat:send` · `oo:chat:steerCancel` · `oo:chat:steerSendNow` · `oo:chat:stopBackgroundTask` · `oo:chat:stopSubagent` · `oo:composer:catalog` · `oo:composer:catalog-invalidated` · `oo:composer:catalog-release` · `oo:concurrency:event` · `oo:cost:refreshUsage` · `oo:cost:setProviderLimit` · `oo:cost:usage` · `oo:cost:usageEvent` · `oo:cost:usageStats` · `oo:debug:getMock` · `oo:debug:setMock` · `oo:engine:add` · `oo:engine:delete` · `oo:engine:importUserSettings` · `oo:engine:read` · `oo:engine:update` · `oo:error:drain` · `oo:error:reportEvent` · `oo:error:revealLog` · `oo:extensions:catalog` · `oo:extensions:changed` · `oo:extensions:managed-mcp-changed` · `oo:extensions:open` · `oo:extensions:opencode-plugins-changed` · `oo:extensions:setEnabled` · `oo:files:list` · `oo:files:openContextFile` · `oo:files:openPath` · `oo:files:pickAttachments` · `oo:files:pickDirectory` · `oo:files:readAttachment` · `oo:git:branches` · `oo:git:checkout` · `oo:git:diffPatch` · `oo:git:snapshot` · `oo:harness:availability` · `oo:harness:recheck` · `oo:install:start` · `oo:install:status` · `oo:log:emit` · `oo:mcp:add` · `oo:mcp:delete` · `oo:mcp:list` · `oo:mcp:update` · `oo:notify:show` · `oo:permission:respond` · `oo:permission:setMode` · `oo:project:create` · `oo:project:delete` · `oo:project:list` · `oo:project:listSessions` · `oo:project:setPinned` · `oo:project:update` · `oo:provider:connect` · `oo:provider:continue` · `oo:provider:login` · `oo:provider:reauth` · `oo:provider:revoke` · `oo:provider:state` · `oo:search:messages` · `oo:session:addDirectory` · `oo:session:cwd` · `oo:session:delete` · `oo:session:list` · `oo:session:load` · `oo:session:native-resources` · `oo:session:native-resources-changed` · `oo:session:refresh` · `oo:session:rename` · `oo:session:setPinned` · `oo:session:titleEvent` · `oo:settings:get` · `oo:settings:set` · `oo:skills:author` · `oo:skills:list` · `oo:skills:open` · `oo:skills:remove` · `oo:skills:setEnabled` · `oo:skills:showInFolder` · `oo:skills:upload` · `oo:update:check` · `oo:update:download` · `oo:update:progressEvent` · `oo:update:quitAndInstall` · `oo:update:state` · `oo:update:stateEvent` · `oo:window:close` · `oo:window:maximize` · `oo:window:minimize`
 
 ### IPC 도메인 (28)
 
-`chat 14` · `session 11` · `artifact 9` · `provider 7` · `skills 7` · `extensions 6` · `files 6` · `project 6` · `update 6` · `cost 5` · `engine 5` · `git 4` · `mcp 4` · `composer 3` · `error 3` · `window 3` · `boot 2` · `debug 2` · `harness 2` · `install 2` · `permission 2` · `settings 2` · `agent 1` · `backend 1` · `concurrency 1` · `log 1` · `notify 1` · `search 1`
+`chat 13` · `session 11` · `artifact 8` · `skills 7` · `extensions 6` · `files 6` · `project 6` · `provider 6` · `update 6` · `cost 5` · `engine 5` · `git 4` · `mcp 4` · `composer 3` · `error 3` · `window 3` · `boot 2` · `debug 2` · `harness 2` · `install 2` · `permission 2` · `settings 2` · `agent 1` · `backend 1` · `concurrency 1` · `log 1` · `notify 1` · `search 1`
 
-### NormalizedEvent variant (30)
+### NormalizedEvent variant (29)
 
-`ChatActivitySnapshot` · `artifact.published` · `error` · `input.echo` · `input.received` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `output.captured` · `permission.requested` · `permission.resolved` · `response.boundary` · `session.compacted` · `session.schedules` · `session.updated` · `subagent.backgroundSet` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.retracted` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
+`ChatActivitySnapshot` · `artifact.published` · `error` · `input.echo` · `input.received` · `message.cancelled` · `message.committed` · `message.completed` · `message.delta` · `message.queued` · `message.reasoning` · `message.reasoning.delta` · `message.submitted` · `output.captured` · `permission.requested` · `permission.resolved` · `response.boundary` · `session.compacted` · `session.schedules` · `session.updated` · `subagent.task` · `telemetry` · `tool.call.completed` · `tool.call.retracted` · `tool.call.started` · `turn.aborted` · `turn.ended` · `turn.retrying` · `worktree.preparing`
 
-### settings 키 (24)
+### settings 키 (23)
 
-`accountInstructions` · `appFont` · `authBypass` · `harnesses` · `language` · `lastAgentKind` · `lastBackend` · `lastCwd` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `nativeExtensionChoices` · `notifyOnComplete` · `projectMcpChoices` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `transcriptTextSize` · `transcriptWidth` · `uiLocale` · `windowBounds`
+`accountInstructions` · `appFont` · `authBypass` · `harnesses` · `language` · `lastAgentKind` · `lastBackend` · `lastCwd` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `nativeExtensionChoices` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `transcriptTextSize` · `transcriptWidth` · `uiLocale` · `windowBounds`
 
 ### main 수직 슬라이스 (15)
 
@@ -54,7 +54,7 @@
 
 `0001_initial` · `0002_projects` · `0003_messages_fts` · `0004_message_parts` · `0005_usage_events` · `0006_turn_usage` · `0007_title_source` · `0008_provider_key` · `0009_message_complete` · `0010_session_cwd` · `0011_session_lineage` · `0012_provider_limits` · `0013_schedules` · `0014_provider_usage_report_cache` · `0015_pinned` · `0016_turn_model_context_window` · `0017_session_extra_dirs` · `0018_managed_worktrees` · `0019_session_baseline` · `0020_session_baseline_ref` · `0021_artifacts` · `0022_session_agent_kind` · `0023_session_agent_kind_code` · `0024_artifact_preview_formats` · `0025_artifact_catalog` · `0026_project_paths` · `0027_background_events` · `0028_provider_usage_periods` · `0029_native_history` · `0030_native_history_cursor` · `0031_turn_context_usage` · `0032_native_session_recovery` · `0033_session_last_model` · `0034_native_snapshot_raw`
 
-### renderer feature (14)
+### renderer feature (13)
 
-`artifacts` · `backend` · `camera` · `captures` · `chat` · `cost` · `debug` · `engine` · `projects` · `providers` · `sessions` · `settings` · `skills` · `update`
+`artifacts` · `backend` · `captures` · `chat` · `cost` · `debug` · `engine` · `projects` · `providers` · `sessions` · `settings` · `skills` · `update`
 

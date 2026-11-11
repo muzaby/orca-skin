@@ -67,7 +67,7 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [shared/ui/CopyIconButton.tsx](../../../app/src/renderer/src/shared/ui/CopyIconButton.tsx) — `CopyIconButton` | 복사·완료 피드백·tooltip을 재사용하며 아이콘 크기를 인접 액션과 맞춘다. 복사 텍스트는 문자열 또는 클릭 시 계산하는 함수로 받는다. |
 | [shared/ui/ArcSpinner.tsx](../../../app/src/renderer/src/shared/ui/ArcSpinner.tsx) — `ArcSpinner` | 세션 행과 OpenCode 에이전트 팝업이 같은 회색 원호를 공유한다. `Icon spinner`·12px·`text-ink3`·`animate-spin`·`motion-reduce:animate-none`을 유지한다. |
 | [shared/ui/ErrorToastHost.tsx](../../../app/src/renderer/src/shared/ui/ErrorToastHost.tsx) — `ErrorToastHost` | toast 역할 토큰·설명·닫기·동작 영역·축소 모션을 유지한다. |
-| [shared/ui/FloatingPanel.tsx](../../../app/src/renderer/src/shared/ui/FloatingPanel.tsx) — `FloatingPanel`, `PanelSection`, `PanelButton`, `PanelToggle`, `PanelRadio`, `PanelSelect`, `PanelSlider` | 개발 패널 전용 floating-panel 토큰·드래그·접기를 사용한다. 제품 modal보다 높은 z를 일반화하지 않는다. |
+| [shared/ui/FloatingPanel.tsx](../../../app/src/renderer/src/shared/ui/FloatingPanel.tsx) — `FloatingPanel`, `PanelSection`, `PanelToggle`, `PanelRadio`, `PanelSelect`, `PanelSlider` | 개발 패널 전용 floating-panel 토큰·드래그·접기를 사용한다. 제품 modal보다 높은 z를 일반화하지 않는다. |
 | [shared/ui/Histogram.tsx](../../../app/src/renderer/src/shared/ui/Histogram.tsx) — `Histogram` | stage 배경 위 RGB 채널 분포. 현재 생성 샘플을 실제 센서 데이터처럼 설명하지 않는다. |
 | [shared/ui/Icon.tsx](../../../app/src/renderer/src/shared/ui/Icon.tsx) — `Icon` | 등록된 SVG·currentColor·size API를 사용하고 임의 아이콘 세트를 추가하지 않는다. |
 | [shared/ui/KebabButton.tsx](../../../app/src/renderer/src/shared/ui/KebabButton.tsx) — `KebabButton` | 행·카드의 보조 메뉴 진입점. 번역된 tooltip·접근성 이름과 메뉴 anchor를 유지한다. |
@@ -240,7 +240,6 @@ Orcinus orca 공통 팔레트와 기존 Claude 활자·카드·메뉴를 따른�
 | [features/chat/harnesses/claude/transcript/PendingAssistant.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/PendingAssistant.tsx) — `PendingAssistant` | 대기 spinner·문구를 하네스 기본 상태 행과 일치시킨다. |
 | [features/chat/harnesses/claude/transcript/ReasoningBlock.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/ReasoningBlock.tsx) — `ReasoningBlock` | 추론 제목·상태·접힘·본문을 낮은 강조 표면으로 구별한다. |
 | [features/chat/harnesses/claude/transcript/ScrollController.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/ScrollController.tsx) — `ClaudeScrollController` | 읽기/선택 중 자동 추종 해제·최신 이동·세션별 복원을 유지한다. 색상/장식 책임을 넣지 않는다. |
-| [features/chat/harnesses/claude/transcript/StructuredOutputCard.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/StructuredOutputCard.tsx) — `StructuredOutputCard` | 구조화 결과의 제목·상태·필드·원문을 중립 카드 위계로 표시한다. |
 | [features/chat/harnesses/claude/transcript/Timeline.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx) — `ClaudeTranscriptView` | 하네스별 가상화·행/교환 key·읽기 열·스크롤과 선택을 보존한다. |
 | [features/chat/harnesses/claude/transcript/ToolCard.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/ToolCard.tsx) — `ToolCard` | 도구 아이콘·제목·상태·펼침·본문의 위계를 유지하고 실행과 완료를 구별한다. |
 | [features/chat/harnesses/claude/transcript/ToolGroup.tsx](../../../app/src/renderer/src/features/chat/harnesses/claude/transcript/ToolGroup.tsx) — `ClaudeToolGroup` | 같은 목적의 도구를 요약 행과 펼침으로 묶고 상태·개수를 표시한다. |
@@ -313,7 +312,6 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [features/artifacts/components/ArtifactCatalogRow.tsx](../../../app/src/renderer/src/features/artifacts/components/ArtifactCatalogRow.tsx) — `ArtifactCatalogRow` | CatalogListRow에 파일 종류·제목·위치·시각·상태·메뉴를 같은 슬롯으로 제공한다. |
 | [features/artifacts/components/ArtifactsView.tsx](../../../app/src/renderer/src/features/artifacts/components/ArtifactsView.tsx) — `ArtifactsView` | CatalogTabs·CatalogSearch·행·뷰어 pane. 목록/상세 폭과 빈/로딩 상태를 유지한다. |
-| [features/camera/components/CameraView.tsx](../../../app/src/renderer/src/features/camera/components/CameraView.tsx) — `Metric`, `CameraView` | stage 뷰포트·검사 컨트롤·지표 구획을 유지하고 데이터/조작의 대비를 분리한다. |
 | [features/captures/components/CapturesView.tsx](../../../app/src/renderer/src/features/captures/components/CapturesView.tsx) — `CapturesView` | Future Scope 안내 화면. 중앙 아이콘·serif 제목·설명·참조 메타의 위계를 유지하고 미구현 목록·미리보기를 동작하는 UI처럼 제시하지 않는다. |
 | [features/debug/components/DebugPanel.tsx](../../../app/src/renderer/src/features/debug/components/DebugPanel.tsx) — `DebugPanel` | FloatingPanel과 feature별 debug 슬롯 조립. dev 전용 외형을 일반 설정에 복제하지 않는다. |
 

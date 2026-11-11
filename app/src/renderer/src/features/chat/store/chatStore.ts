@@ -976,12 +976,6 @@ function receive(ev: NormalizedEvent): void {
       }
       return
 
-    // background 레벨 신호(0212 AR-02)는 **main 이 소비한다** — coordinator 가 집합을 교체하고
-    // 빠진 항목을 정착시키면, 그 정착이 기존 경로로 renderer 에 온다. 여기서 reducer 로 흘리면
-    // 레벨 payload 마다 상태 dispatch 가 한 번씩 헛돈다.
-    case 'subagent.backgroundSet':
-      return
-
     default:
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
   }

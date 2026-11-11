@@ -89,7 +89,6 @@ describe('OpenCode timeline projection', () => {
           toolName: 'AskUserQuestion',
           args: { questions: [] }
         },
-        { type: 'structured_output', value: { ok: true } },
         { type: 'error', error: { message: 'failed' } },
         { type: 'compact_boundary', trigger: 'auto' },
         { type: 'fork_boundary' },
@@ -102,7 +101,6 @@ describe('OpenCode timeline projection', () => {
       'text',
       'tools',
       'ask',
-      'structured',
       'error',
       'compact',
       'fork',

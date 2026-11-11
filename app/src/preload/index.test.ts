@@ -265,15 +265,13 @@ it('artifact actions preserve session and publication IDs on dedicated channels'
   await api.artifacts.save(batch)
   await api.artifacts.reveal(target)
   await api.artifacts.trash(target)
-  await api.artifacts.openFolder()
   expect(harness.invoke.mock.calls).toEqual([
     [CHANNELS.artifactList, { sessionId: target.sessionId }],
     [CHANNELS.artifactStatus, batch],
     [CHANNELS.artifactPreview, target],
     [CHANNELS.artifactSave, batch],
     [CHANNELS.artifactReveal, target],
-    [CHANNELS.artifactTrash, target],
-    [CHANNELS.artifactOpenFolder]
+    [CHANNELS.artifactTrash, target]
   ])
 })
 

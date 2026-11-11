@@ -112,18 +112,6 @@ export async function handleChatSend(
     })
     return
   }
-  if (payload.sessionId && deps.background?.isStoppingAll(payload.sessionId)) {
-    sendChatEvent(event.sender, {
-      type: 'error',
-      sessionId: payload.sessionId,
-      error: makeClassifiedError(
-        'capability_unsupported',
-        '백그라운드 작업 전체 중단을 확인하고 있습니다. 잠시 후 다시 보내세요.',
-        { retryable: true }
-      )
-    })
-    return
-  }
   // admitChatSend 가 hasActiveAdapter 를 이미 통과시켰다.
   const activeAdapter = adapter
   if (

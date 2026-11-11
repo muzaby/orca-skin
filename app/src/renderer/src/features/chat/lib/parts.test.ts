@@ -541,16 +541,12 @@ describe('messageSegments', () => {
     ])
   })
 
-  it('error / structured_output 는 개별 세그먼트, 빈 text 는 스킵', () => {
+  it('error 는 개별 세그먼트, 빈 text 는 스킵', () => {
     const parts: AppMessagePart[] = [
       { type: 'text', text: '' },
-      { type: 'structured_output', value: { a: 1 } },
       { type: 'error', error: { message: 'boom' } }
     ]
-    expect(messageSegments(parts)).toEqual([
-      { kind: 'structured', value: { a: 1 } },
-      { kind: 'error', error: { message: 'boom' } }
-    ])
+    expect(messageSegments(parts)).toEqual([{ kind: 'error', error: { message: 'boom' } }])
   })
 
   it('빈/공백 reasoning 파트는 스킵한다(빈 사고 카드 방지)', () => {

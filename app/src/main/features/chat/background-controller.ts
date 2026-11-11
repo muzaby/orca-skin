@@ -14,7 +14,6 @@ import {
   type BackgroundSessionState,
   type ReadBackgroundOutputRequest,
   type ReadBackgroundOutputResponse,
-  type StopAllBackgroundTasksResult,
   type BackgroundTaskRecord,
   type BackgroundOutputRef,
   type BackgroundEventSource
@@ -44,12 +43,6 @@ async function withTimeout<T>(pending: Promise<T>, message: string): Promise<T> 
   }
 }
 
-function liveResidual(state: BackgroundSessionState, generation: string): string[] {
-  return state.liveTaskIds.filter(
-    (id) => !isBackgroundTerminal(state.tasks[backgroundKey(generation, id)]?.status)
-  )
-}
-
 interface BackgroundRuntime {
   identity?: object
   generation?: string
@@ -69,12 +62,10 @@ interface Dependencies {
 
 export class BackgroundController {
   private sequence = 0
-  private readonly stoppingAll = new Set<string>()
   private readonly captures = new Set<string>()
   private readonly disposed = new Set<string>()
   private readonly promoting = new Set<string>()
   private readonly stopTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private readonly snapshotVersions = new Map<string, number>()
   constructor(private readonly deps: Dependencies) {}
 
   state(sessionId: string): BackgroundSessionState {
@@ -98,10 +89,6 @@ export class BackgroundController {
     this.state(event.sessionId)
     this.deps.persist(event, () => {
       if (event.type === 'provider.message') return
-      if (event.type === 'background.snapshot' && !event.source.replay) {
-        const key = JSON.stringify([event.sessionId, event.source.generation])
-        this.snapshotVersions.set(key, (this.snapshotVersions.get(key) ?? 0) + 1)
-      }
       this.deps.tracker.observe(event)
       try {
         this.deps.publish(event)
@@ -121,10 +108,6 @@ export class BackgroundController {
       replay: false,
       uuid: `host:${randomUUID()}`
     }
-  }
-
-  private snapshotVersion(sessionId: string, generation: string): number {
-    return this.snapshotVersions.get(JSON.stringify([sessionId, generation])) ?? 0
   }
 
   private runtimeFor(req: BackgroundTaskRequest): BackgroundRuntime {
@@ -236,10 +219,6 @@ export class BackgroundController {
     }
   }
 
-  isStoppingAll(sessionId: string): boolean {
-    return this.stoppingAll.has(sessionId)
-  }
-
   dispose(sessionId: string, options: { preserveOutputSnapshots?: boolean } = {}): void {
     const state = this.state(sessionId)
     this.disposed.add(sessionId)
@@ -253,85 +232,6 @@ export class BackgroundController {
         for (const snapshot of Object.values(task.outputSnapshots))
           void this.deps.outputs.removeSnapshot?.(snapshot.id)
       }
-    }
-  }
-
-  async stopAll(req: {
-    sessionId: string
-    generation: string
-  }): Promise<StopAllBackgroundTasksResult> {
-    if (this.stoppingAll.has(req.sessionId))
-      throw new Error('background-task: stop all already in progress')
-    this.stoppingAll.add(req.sessionId)
-    try {
-      const requested = new Set<string>()
-      const initialSnapshot = this.snapshotVersion(req.sessionId, req.generation)
-      const pendingLaunch = (state: BackgroundSessionState): boolean =>
-        Object.values(state.calls).some(
-          (call) => call.generation === req.generation && call.awaitingTask
-        )
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const state = this.state(req.sessionId)
-        if (
-          state.generation !== req.generation ||
-          !state.liveKnown ||
-          state.connection !== 'connected'
-        )
-          return { residualTaskIds: state.liveTaskIds, unknown: true }
-        const ids = liveResidual(state, req.generation)
-        if (
-          !ids.length &&
-          !pendingLaunch(state) &&
-          this.snapshotVersion(req.sessionId, req.generation) > initialSnapshot
-        )
-          return { residualTaskIds: [], unknown: false }
-        await Promise.all(
-          ids
-            .filter((id) => !requested.has(id))
-            .map(async (taskId) => {
-              requested.add(taskId)
-              try {
-                await this.stop({ ...req, taskId })
-              } catch {
-                /* each task records its own failure */
-              }
-            })
-        )
-        const before = this.snapshotVersion(req.sessionId, req.generation)
-        await new Promise<void>((resolve) => {
-          const finish = (): void => {
-            clearTimeout(timer)
-            unsubscribe()
-            resolve()
-          }
-          const unsubscribe = this.deps.tracker.subscribe((sid) => {
-            if (sid === req.sessionId && this.snapshotVersion(sid, req.generation) > before)
-              finish()
-          })
-          const timer = setTimeout(finish, 2000)
-        })
-      }
-      const state = this.state(req.sessionId)
-      const residualTaskIds = liveResidual(state, req.generation)
-      for (const taskId of residualTaskIds)
-        this.observe({
-          type: 'background.control',
-          ...req,
-          taskId,
-          source: this.source(req.generation),
-          state: 'unconfirmed'
-        })
-      return {
-        residualTaskIds,
-        unknown:
-          !state.liveKnown ||
-          state.connection !== 'connected' ||
-          state.generation !== req.generation ||
-          pendingLaunch(state) ||
-          this.snapshotVersion(req.sessionId, req.generation) === initialSnapshot
-      }
-    } finally {
-      this.stoppingAll.delete(req.sessionId)
     }
   }
 

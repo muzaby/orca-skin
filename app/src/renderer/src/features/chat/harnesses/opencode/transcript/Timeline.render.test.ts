@@ -96,7 +96,6 @@ describe('OpenCode production Timeline rendering', () => {
           toolName: 'AskUserQuestion',
           args: { questions: [] }
         },
-        { type: 'structured_output', value: { answer: 42 } },
         { type: 'error', error: { message: 'Oops' } },
         { type: 'compact_boundary', trigger: 'auto' },
         { type: 'fork_boundary' },
@@ -114,7 +113,6 @@ describe('OpenCode production Timeline rendering', () => {
       'tools',
       'tools',
       'ask',
-      'structured',
       'error',
       'compact',
       'fork',

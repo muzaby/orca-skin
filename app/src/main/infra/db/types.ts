@@ -17,7 +17,6 @@ type MessagePartType =
   | 'tool_result'
   | 'file'
   | 'diff'
-  | 'structured_output'
   | 'error'
   | 'attachment'
   | 'artifact'

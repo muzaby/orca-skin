@@ -92,7 +92,6 @@ describe('Work response projection', () => {
     { type: 'reasoning', text: 'thought' },
     { ...tool, toolRunId: 'q', toolName: 'AskUserQuestion' },
     { type: 'error', error: 'problem' },
-    { type: 'structured_output', value: { safe: true } },
     { type: 'compact_boundary', trigger: 'manual', preTokens: 1 },
     { type: 'fork_boundary' }
   ])('keeps text outside a group when protected $type separates the next tool', (protectedPart) => {

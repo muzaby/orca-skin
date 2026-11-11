@@ -130,6 +130,3 @@ export function gitCommand(): Promise<GitCommand | null> {
       throw error
     }))
 }
-export async function gitExecutable(): Promise<string | null> {
-  return (await gitCommand())?.file ?? null
-}

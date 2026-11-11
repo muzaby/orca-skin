@@ -54,7 +54,6 @@ export interface ArtifactStatusRequest extends ArtifactListRequest {
   publicationIds: string[]
 }
 export type ArtifactSaveRequest = ArtifactStatusRequest
-export type ArtifactTrashRequest = ArtifactTargetRequest
 
 export type ArtifactTrashResult =
   | { outcome: 'trashed'; deletionRecorded: boolean }

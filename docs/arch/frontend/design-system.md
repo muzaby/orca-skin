@@ -170,7 +170,7 @@ label과 입력을 연결하고 오류를 해당 필드 가까이에 배치한�
 | 산출물·뷰어 | ArtifactCards·ArtifactViewer. 미리보기·코드·복사·저장·오류·재시도는 기존 요청 수명 계약을 따른다. HTML preview 보안 경계를 스타일 변경으로 우회하지 않는다. |
 | 사용량·차트 | Meter·UsageCircle·TokensPerDayChart. 같은 단위·기간·임계값을 쓰고 툴팁은 공통 표면을 따른다. |
 | 인증·설치·업데이트 | GateLogin·InstallerDialog·UpdateDialog. 작업 상태·진행률·실패 복구·재시작 동작을 명확히 한다. |
-| 카메라·캡처 | CameraView·BayerPattern·Histogram은 이미지 내용과 chrome을 분리한다. 현재 카메라 목업과 CapturesView의 Future Scope 안내를 실제 연결·캡처 기능처럼 표시하지 않는다. |
+| 캡처 | BayerPattern·Histogram은 이미지 내용과 chrome을 분리한다. CapturesView의 Future Scope 안내를 실제 연결·캡처 기능처럼 표시하지 않는다. |
 
 전체 대응과 코드 링크는 [컴포넌트 카탈로그](design-components.md)에 있다.
 상태 수명·데이터 흐름은 [state.md](state.md), [rendering.md](rendering.md), [ux-domains.md](ux-domains.md)를 따른다.
