@@ -36,9 +36,7 @@ function fixture(): SkillFixture {
     },
     load: () => journal,
     publish,
-    runtime: () => undefined,
-    roots: () => [],
-    outputs: { read: vi.fn(), capture: vi.fn(), readSnapshot: vi.fn() }
+    runtime: () => undefined
   }
   const controller = new BackgroundController(deps)
   const receive = (raw: unknown): void => {

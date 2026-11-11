@@ -20,9 +20,9 @@ task patch의 누락 필드는 기존 값을 유지하고 false·0·빈 문자�
 
 ## 제어
 
-`BackgroundController`는 세션·generation·taskId를 검증한 후 실제 `stopTask`를 호출한다. 요청·ACK·오류·종료 미확인을 작업 종료와 분리한다. 전체 중단은 새 입력을 잠시 보류하고 최신 live 집합을 제한된 횟수만 다시 확인한 뒤 남은 대상과 현재성 미확인을 반환한다.
+`BackgroundController`는 세션·generation·taskId를 검증한 후 실제 `stopTask`를 호출한다. 요청·ACK·오류·종료 미확인을 작업 종료와 분리한다.
 
-Code 패널은 개별 중단만 제공한다. 원본 출력 읽기는 main·preload API에 남아 있지만 현재 renderer에는 이를 호출하는 출력 viewer가 없다.
+Code 패널은 개별 중단만 제공한다.
 
 SDK 요청 응답과 ACK 이후 종료 확인은 각각 제한 시간을 가지며, 시간이 지나면 재시도 가능한 미확인 상태가 된다.
 
@@ -36,12 +36,10 @@ Code의 foreground 셸 단건 전환은 `BackgroundController.promote`가 현재
 
 ## 출력
 
-Renderer는 경로 대신 기록된 outputId를 요청한다. main이 세션 cwd·명시적인 추가 디렉토리·앱 전용 임시 디렉토리 아래의 실제 파일 경로를 검증한다. `canReadOutputFile:false`는 직접 읽기를 거부하고 URI는 자동으로 가져오지 않는다. 심볼릭 링크·정션으로 허용 루트를 벗어나거나 디렉토리를 파일로 읽는 요청도 거부한다.
+어댑터는 SDK 메시지가 알려 준 출력 위치(`output_file`·`transcriptDir`·리소스 링크)를 작업·호출 기록의 `outputRefs`로 남긴다. 앱은 그 파일을 읽거나 복사하지 않는다 — 출력을 읽는 채널도 보존 저장소도 없다. URI는 자동으로 가져오지 않는다.
 
-Claude query의 `CLAUDE_CODE_TMPDIR`는 앱 임시 루트로 고정하며 `options.env`와 명시 settings.env에서 같은 값을 사용한다. Windows SDK 내부 출력도 그 아래 `claude`에 생성된다. 부모 프로세스의 TEMP/TMP/TMPDIR는 바꾸지 않는다. 같은 파일의 다른 출력 참조가 도착해도 기존 읽기 거부는 유지한다.
+Claude query의 `CLAUDE_CODE_TMPDIR`는 앱 임시 루트로 고정하며 `options.env`와 명시 settings.env에서 같은 값을 사용한다. Windows SDK 내부 출력도 그 아래 `claude`에 생성된다. 부모 프로세스의 TEMP/TMP/TMPDIR는 바꾸지 않는다.
 
-현재 파일은 페이지당 최대 64KiB를 읽으며 파일 교체와 축소를 cursor로 구분한다. 완료 출력은 `<userData>/background-outputs`에 최대 16MiB를 확보하고 확보 바이트의 SHA-256·크기·시각·부분 여부를 기록한다. 스냅샷 실패는 작업의 성공/실패를 변경하지 않는다. 대화 목록 제거는 실행·메모리 상태만 정리하고 journal과 이미 보관한 출력 파일을 유지한다. 세션 보관 정책은 [persistence.md](./persistence.md)를 따른다.
+대화 목록 제거는 실행·메모리 상태만 정리하고 journal을 유지한다. 세션 보관 정책은 [persistence.md](./persistence.md)를 따른다.
 
-UTF-8 문자가 페이지 끝이나 성장 중인 파일 끝에서 잘리면 남은 바이트가 도착할 때까지 보류한다. 파일을 확보한 뒤 DB 참조 기록에 실패하면 그 보존 파일만 정리하고 확보 실패를 표시한다.
-
-우측 패널의 카드·선택 상세와 원본 출력 보존은 분리한다. Code 카드에는 실행 결과를 붙이지 않고 셸 상세는 ToolCard 본문만 표시한다. 원본 출력은 읽기 API와 보존 상태에 남으며 표시한 텍스트를 실행하지 않는다. 원본 형식과 상세 계약은 [`shared/background-task.ts`](../../../app/src/shared/background-task.ts)와 [`IPC 계약`](../../IPC_CONTRACT.md)을 따른다.
+Code 카드에는 실행 결과를 붙이지 않고 셸 상세는 ToolCard 본문만 표시한다. 상태 형식과 상세 계약은 [`shared/background-task.ts`](../../../app/src/shared/background-task.ts)와 [`IPC 계약`](../../IPC_CONTRACT.md)을 따른다.

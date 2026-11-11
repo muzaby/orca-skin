@@ -235,9 +235,7 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
       identity: runtime,
       generation: runtime.providerGeneration,
       stopTask: (taskId) => runtime.stopTask(taskId)
-    }),
-    roots: () => [],
-    outputs: {} as never
+    })
   })
   const activity = new SessionActivityProjector({
     queue: pendingMessages,

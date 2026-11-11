@@ -449,9 +449,7 @@ describe('native history bootstrap callbacks', () => {
     const discard = vi.spyOn(supervisor, 'discardRuntime').mockReturnValue(true)
     const clear = vi.spyOn(activity, 'clear')
     fixture.hooks?.onSessionDisposed?.('removed-session')
-    expect(fixture.disposeBackground).toHaveBeenCalledExactlyOnceWith('removed-session', {
-      preserveOutputSnapshots: true
-    })
+    expect(fixture.disposeBackground).toHaveBeenCalledExactlyOnceWith('removed-session')
     expect(forget).toHaveBeenCalledExactlyOnceWith('removed-session')
     expect(discard).toHaveBeenCalledExactlyOnceWith('removed-session')
     expect(clear).toHaveBeenCalledExactlyOnceWith('removed-session')

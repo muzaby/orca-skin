@@ -875,9 +875,7 @@ function stateTask(generation: string, taskId: string): BackgroundTaskRecord {
     lastSeenAt: 1_700_000_000_000,
     liveMembership: 'included' as const,
     status: 'running',
-    terminalEvidence: [],
-    outputSnapshots: {},
-    outputErrors: {}
+    terminalEvidence: []
   }
 }
 

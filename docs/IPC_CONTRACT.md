@@ -57,7 +57,6 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 | `oo:chat:backgroundEvent` | main → renderer | `BackgroundEvent` | DB 커밋 뒤 전달하는 task/call/snapshot/connection/control/output 이벤트. `provider.message`는 전달하지 않는다. |
 | `oo:chat:stopBackgroundTask` | renderer → main | `{sessionId,generation,taskId}` → void | 현재 세대의 기록된 대상만 제어. ACK는 실제 종료와 다르다. |
 | `oo:chat:promoteBackgroundTask` | renderer → main | `{sessionId,generation,toolUseId}` → void | 현재 연결의 등록된 foreground Bash/PowerShell을 동일 실행 그대로 단건 전환한다. 빈 ID·이전 세대·중복·비대상은 거부한다. SDK false/예외·15초 응답 제한도 reject하며 늦은 응답은 다른 runtime에 반영하지 않는다. |
-| `oo:chat:readBackgroundOutput` | renderer → main | `{sessionId,generation,taskId,outputId,offset,maxBytes,view?,cursor?}` → `ReadBackgroundOutputResponse` | 경로 입력 금지. maxBytes는 1…65536, view는 current/snapshot. 상태는 available/partial/missing/denied/remote/changed/truncated다. |
 
 타입은 `app/src/shared/background-task.ts`, 동작 정본은 [백그라운드 작업 아키텍처](arch/backend/background-tasks.md)를 따른다. `PermissionAction.providerRequest`는 SDK requestId·toolUseId·agentId와 query generation을 승인 요청에 연결하며 일반 메시지 FIFO를 식별자로 사용하지 않는다.
 

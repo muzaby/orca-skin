@@ -18,9 +18,7 @@ import type {
   BackgroundEvent,
   BackgroundSessionState,
   BackgroundTaskRequest,
-  PromoteBackgroundTaskRequest,
-  ReadBackgroundOutputRequest,
-  ReadBackgroundOutputResponse
+  PromoteBackgroundTaskRequest
 } from '../shared/background-task'
 import type {
   ComposerCatalogInvalidated,
@@ -153,10 +151,6 @@ const oo = {
       ipcRenderer.invoke(CHANNELS.chatStopBackgroundTask, req),
     promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatPromoteBackgroundTask, req),
-    readBackgroundOutput: (
-      req: ReadBackgroundOutputRequest
-    ): Promise<ReadBackgroundOutputResponse> =>
-      ipcRenderer.invoke(CHANNELS.chatReadBackgroundOutput, req),
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
     cancelSteer: (req: CancelSteer): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatSteerCancel, req),

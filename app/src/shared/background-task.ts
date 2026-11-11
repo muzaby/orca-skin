@@ -60,13 +60,6 @@ export interface BackgroundCallPatch {
   usage?: unknown
 }
 type Envelope = { sessionId: string; source: BackgroundEventSource }
-export interface BackgroundOutputSnapshot {
-  id: string
-  capturedAt: number
-  size: number
-  sha256: string
-  partial: boolean
-}
 export type BackgroundEvent = Envelope &
   (
     | {
@@ -103,13 +96,6 @@ export type BackgroundEvent = Envelope &
         state: 'requested' | 'acknowledged' | 'failed' | 'unconfirmed'
         error?: string
       }
-    | {
-        type: 'background.output'
-        taskId: string
-        outputId: string
-        snapshot?: BackgroundOutputSnapshot
-        error?: string
-      }
   )
 export type ProviderMessageEvent = Envelope & {
   type: 'provider.message'
@@ -137,8 +123,6 @@ export interface BackgroundTaskRecord extends BackgroundTaskIdentity, Background
     updatedAt: number
     error?: string
   }
-  outputSnapshots: Record<string, BackgroundOutputSnapshot>
-  outputErrors: Record<string, string>
 }
 export interface BackgroundCallRecord extends BackgroundCallPatch {
   backgroundObserved?: boolean
@@ -180,29 +164,6 @@ export interface PromoteBackgroundTaskRequest {
   sessionId: string
   generation: string
   toolUseId: string
-}
-export interface BackgroundOutputCursor {
-  identity: string
-  size: number
-  mtimeMs: number
-}
-export interface ReadBackgroundOutputRequest extends BackgroundTaskRequest {
-  outputId: string
-  offset: number
-  maxBytes: number
-  view?: 'current' | 'snapshot'
-  cursor?: BackgroundOutputCursor
-}
-export interface ReadBackgroundOutputResponse {
-  status: 'partial' | 'available' | 'missing' | 'denied' | 'remote' | 'changed' | 'truncated'
-  text?: string
-  offset: number
-  nextOffset: number
-  size?: number
-  cursor?: BackgroundOutputCursor
-  eof?: boolean
-  view: 'current' | 'snapshot'
-  error?: string
 }
 export function backgroundKey(generation: string, id: string): string {
   return JSON.stringify([generation, id])
@@ -289,9 +250,7 @@ function freshTask(taskId: string, source: BackgroundEventSource): BackgroundTas
     firstSeenAt: source.receivedAt,
     lastSeenAt: source.receivedAt,
     liveMembership: 'unknown',
-    terminalEvidence: [],
-    outputSnapshots: {},
-    outputErrors: {}
+    terminalEvidence: []
   }
 }
 export function backgroundEventKey(event: BackgroundEvent | ProviderMessageEvent): string {
@@ -542,15 +501,6 @@ export function applyBackgroundEvent(
         ...(event.error !== undefined ? { error: event.error } : {})
       }
     }
-  } else if (event.type === 'background.output') {
-    record = {
-      ...record,
-      outputSnapshots: { ...record.outputSnapshots },
-      outputErrors: { ...record.outputErrors }
-    }
-    if (event.snapshot) record.outputSnapshots[event.outputId] = event.snapshot
-    if (event.error !== undefined) record.outputErrors[event.outputId] = event.error
-    else if (event.snapshot) delete record.outputErrors[event.outputId]
   }
   next.tasks[key] = record
   return next
