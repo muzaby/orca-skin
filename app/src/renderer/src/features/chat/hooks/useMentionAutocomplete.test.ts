@@ -60,13 +60,23 @@ vi.mock('../../../shared/api/ipc', () => ({
 
 import { useMentionAutocomplete, type UseMentionAutocomplete } from './useMentionAutocomplete'
 
+// 컴포저가 넘기는 뒤쪽 두 인자(플러그인 후보 포함 여부 · 세션에서 관측한 플러그인).
+const probe: { includePlugins?: boolean; observed?: readonly { id: string; label: string }[] } = {}
+
 function HookProbe(
   text: string,
   caret: number,
   cwd: string | null,
   active: boolean
 ): UseMentionAutocomplete {
-  return useMentionAutocomplete(text, caret, cwd, active)
+  return useMentionAutocomplete(
+    text,
+    caret,
+    cwd,
+    active,
+    probe.includePlugins,
+    probe.observed?.map((plugin) => ({ kind: 'plugin' as const, ...plugin }))
+  )
 }
 
 function render(
@@ -421,5 +431,23 @@ describe('mention autocomplete provider sources (AC10 · AC19 · AC23)', () => {
     const inactive = render('plain', '/repo', 5, false)
     expect(h.off).toHaveBeenCalledTimes(1)
     expect([...inactive.validPluginIds]).toEqual([])
+  })
+
+  // 컴포저의 칩 판정은 이 집합 하나만 본다 — 세션에서 관측한 플러그인이 여기 없으면 칩이 풀린다.
+  it('keeps observed plugins valid whether or not provider candidates are included', async () => {
+    h.providerState.mockResolvedValue({ providers: [provider('linear')] })
+    try {
+      probe.observed = [{ id: 'native-only', label: 'Native' }]
+      render('plain')
+      await flush()
+      expect([...render('plain').validPluginIds]).toEqual(['linear', 'native-only'])
+      probe.includePlugins = false
+      expect([...render('plain').validPluginIds]).toEqual(['native-only'])
+      probe.observed = undefined
+      expect([...render('plain').validPluginIds]).toEqual([])
+    } finally {
+      probe.includePlugins = undefined
+      probe.observed = undefined
+    }
   })
 })

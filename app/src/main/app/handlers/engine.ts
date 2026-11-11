@@ -27,11 +27,8 @@ import {
 
 interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
   harnessSettings: Pick<RouterContext['harnessSettings'], 'invalidateAll'>
-  harnessRuntime?: Pick<NonNullable<RouterContext['harnessRuntime']>, 'invalidate'>
-  runtimeModelCatalog?: Pick<
-    NonNullable<RouterContext['runtimeModelCatalog']>,
-    'isReadOnly' | 'invalidate'
-  >
+  harnessRuntime: Pick<RouterContext['harnessRuntime'], 'invalidate'>
+  runtimeModelCatalog: Pick<RouterContext['runtimeModelCatalog'], 'isReadOnly' | 'invalidate'>
 }
 
 async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): Promise<void> {
@@ -42,15 +39,15 @@ async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): P
     // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
     // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
     ctx.harnessSettings.invalidateAll()
-    ctx.harnessRuntime?.invalidate(key, 'harness-settings-crud')
-    await ctx.runtimeModelCatalog?.invalidate(key)
+    ctx.harnessRuntime.invalidate(key, 'harness-settings-crud')
+    await ctx.runtimeModelCatalog.invalidate(key)
   }
 }
 
 export function registerEngineHandlers(ctx: EngineHandlerContext): void {
   const assertMutable = (key: string): string => {
     const canonical = canonicalProviderKey(key, [...HARNESS_IDS])
-    if (ctx.runtimeModelCatalog?.isReadOnly(canonical)) {
+    if (ctx.runtimeModelCatalog.isReadOnly(canonical)) {
       throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }
     return canonical

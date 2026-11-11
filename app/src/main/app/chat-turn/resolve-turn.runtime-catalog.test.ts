@@ -4,6 +4,7 @@ import { createRuntimeModelCatalog } from '../../features/harnesses/common/runti
 import { resolveTurnProvider } from './resolve-turn'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { AdapterSpawnEnvPatch } from '../../adapters/common/harness-config'
+import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
 
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../../infra/log', () => ({
@@ -29,6 +30,7 @@ describe('turn setup with the runtime model catalog', () => {
     const catalog = vi.fn(async (entry) => ({ ...entry, models: [] }))
     const resolved = await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () => [
             { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local', models: [] }
@@ -91,6 +93,7 @@ describe('turn setup with the runtime model catalog', () => {
 
     const resolved = await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: { list: () => [] },
         runtimeModelCatalog: catalog,
         harnessRuntime: runtime,
@@ -116,6 +119,7 @@ describe('turn setup with the runtime model catalog', () => {
     now = 120_000
     await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: { list: () => [] },
         runtimeModelCatalog: catalog,
         harnessRuntime: runtime,
@@ -158,6 +162,7 @@ describe('turn setup with the runtime model catalog', () => {
 
     const resolved = await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () => [
             {
@@ -208,6 +213,7 @@ describe('turn setup with the runtime model catalog', () => {
 
     const resolved = await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () => [
             {
@@ -242,6 +248,7 @@ describe('turn setup with the runtime model catalog', () => {
     const agentSpawnEnv = vi.fn((agentKind: 'code' | 'work') => ({ SESSION_KIND: agentKind }))
     const result = await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () =>
             resolved
@@ -327,6 +334,7 @@ describe('OpenCode runtime catalog turns (0291 EP-06)', () => {
     const adapterCatalog = vi.fn(async (entry, config) => openCodeCatalog(entry, config))
     const resolved = await resolveTurnProvider(
       {
+        ...passthroughRuntimeConfig(),
         harnessSettings: { list: () => [] },
         runtimeModelCatalog: catalog,
         harnessRuntime: runtime,

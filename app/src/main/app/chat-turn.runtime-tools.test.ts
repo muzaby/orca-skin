@@ -74,6 +74,7 @@ vi.mock('../features/chat/turn-coordinator', () => ({
 }))
 
 import { registerChatHandlers } from './chat-turn'
+import { passthroughRuntimeConfig } from './runtime-config.testfixture'
 
 function runtime(
   revision: number,
@@ -235,6 +236,7 @@ function installHarness(options: {
 
   registerChatHandlers({
     ctx: {
+      ...passthroughRuntimeConfig(),
       mockAdapter: null,
       debugMock: { enabled: false },
       registry: { getActive: () => adapter },

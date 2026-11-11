@@ -183,7 +183,7 @@ export async function handleChatSend(
   const agentKind = identity.kind
   let outputFiles: TurnExtensions['outputFiles']
   const withOutputs = (baseExtensions: TurnExtensions): TurnExtensions => {
-    const instructions = ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions
+    const instructions = ctx.settings.getAll().harnesses?.[activeAdapter.id]?.instructions
     const extensions = instructions
       ? {
           ...baseExtensions,
@@ -253,7 +253,7 @@ export async function handleChatSend(
       activeAdapter,
       { ...payload, agentKind },
       JSON.stringify(normalizedAttachments) +
-        (ctx.settings?.getAll().harnesses?.[activeAdapter.id]?.instructions ?? ''),
+        (ctx.settings.getAll().harnesses?.[activeAdapter.id]?.instructions ?? ''),
       ...(activeAdapter.reportsWaitPhases === true
         ? [
             {
@@ -616,7 +616,7 @@ export async function handleChatSend(
           : {}),
         requestApproval,
         onPermissionModeChanged: permissionModeObserver.report,
-        onProviderEvent: (event) => deps.background?.observe(event),
+        onProviderEvent: (event) => deps.background.observe(event),
         permissionMode,
         planApprovalMode: planApprovedMode(agentKind),
         ...(payload.effort ? { effort: payload.effort } : {}),

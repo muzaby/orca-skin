@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { resolveTurn } from './resolve-turn'
 import { recoverSessionHistory } from '../../features/chat/recovery'
+import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
 
 vi.mock('../../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
 vi.mock('../../infra/config/oo-config', () => ({ appEnv: () => ({}) }))
@@ -11,6 +12,7 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
   async (sourceField) => {
     let source = { agent_kind: 'code', backend: 'opencode', project_id: null, cwd: '/workspace' }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: { getSessionById: () => source },
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
@@ -48,6 +50,7 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
       cwd: '/workspace'
     }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: { getSessionById: () => source },
       harnessSettings: { list: () => [] },
       settings: { getAll: () => ({ language: 'ko' }) },
@@ -82,6 +85,7 @@ it.each(['code', 'corrupt'])(
     const agentSpawnEnv = vi.fn(() => ({}))
     let source = { agent_kind: 'work', backend: 'claude', project_id: null, cwd: '/workspace' }
     const ctx = {
+      ...passthroughRuntimeConfig(),
       db: { getSessionById: () => source },
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }

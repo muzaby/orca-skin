@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/protocol'
 import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
+import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
 
 const callbacks = vi.hoisted(() => new Map<string, () => unknown>())
 
@@ -27,6 +28,7 @@ describe('agent:list runtime catalog wiring', () => {
 
   it('uses the runtime catalog to hide a colliding settings row', async () => {
     registerMiscHandlers({
+      ...passthroughRuntimeConfig(),
       registry: {
         list: () => [{ id: 'claude', installed: true, usable: true }],
         get: () => null,
@@ -72,6 +74,7 @@ describe('agent:list runtime catalog wiring', () => {
     }))
     const resolve = vi.fn(async () => ({ settings: { model: 'native/model' } }))
     registerMiscHandlers({
+      ...passthroughRuntimeConfig({ resolve }),
       registry: {
         list: () => [
           { id: 'claude', installed: true, usable: true },
@@ -169,6 +172,7 @@ describe('agent:list OpenCode runtime rows (0291)', () => {
       credentialRevision: 1
     })
     registerMiscHandlers({
+      ...passthroughRuntimeConfig(),
       registry: {
         list: () => [
           { id: 'claude', installed: true, usable: true },
@@ -212,6 +216,7 @@ it.each(['missing', 'unsupported', 'failed'] as const)(
     const catalog = vi.fn(),
       state = { usable: false }
     registerMiscHandlers({
+      ...passthroughRuntimeConfig(),
       registry: {
         list: () => [
           { id: 'claude', installed: true, usable: true },

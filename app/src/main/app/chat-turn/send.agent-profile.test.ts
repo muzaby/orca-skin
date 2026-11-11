@@ -10,6 +10,7 @@ import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { DbQueries } from '../../infra/db'
 import type { Settings } from '../../../shared/ipc'
 import type { NativeSessionPreparation } from './native-session'
+import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
 
 const mocks = vi.hoisted(() => ({
   sendChatEvent: vi.fn(),
@@ -139,6 +140,8 @@ function harness(cwd: string, pluginPath = plugin) {
   const extensions: TurnExtensions[] = []
   const deps = {
     ctx: {
+      ...passthroughRuntimeConfig(),
+      settings: { getAll: () => ({}) },
       db,
       extensions: builder,
       workProfilePluginPath: pluginPath,
@@ -159,6 +162,7 @@ function harness(cwd: string, pluginPath = plugin) {
     backgroundTasks: {},
     activity: {},
     isUpdateInstallPending: () => false,
+    background: { observe: vi.fn() },
     listenRelease: new Map(),
     settleDeadBackgroundTasks: vi.fn(),
     worktrees: {

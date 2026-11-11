@@ -52,6 +52,6 @@ export interface RouterContext {
   // augmenter 에만 AuthId 를 닫은 closure 로 간다(D-010).
   //
   // 동적 구성이 없는 하네스의 기존 동작을 유지한다.
-  harnessRuntime?: HarnessRuntimeConfigService
-  runtimeModelCatalog?: RuntimeModelCatalog
+  harnessRuntime: HarnessRuntimeConfigService
+  runtimeModelCatalog: RuntimeModelCatalog
 }
