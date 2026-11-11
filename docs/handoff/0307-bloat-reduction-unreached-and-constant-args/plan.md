@@ -52,6 +52,7 @@
 | D-008 | C-12(세션 행 6회 조회·3중 검증)는 이번에 구현하지 않는다 | 재실측에서 전제가 틀렸다 — 조회 사이에 `await`가 있어 재조회가 삭제·변경 경쟁 가드다(§4·§8) | 설계자 조사 | ACTIVE | — |
 | D-009 | C-26(턴 조정기 선택적 호출)은 이번에 구현하지 않는다 | 13곳 중 `hasCanonical?`·`getState?` 4곳이 보류된 C-34의 전환 스위치이고, 나머지는 계약 타입이 다른 구현자에게도 열려 있다(§8) | 설계자 조사 | ACTIVE | — |
 | D-010 | C-37은 1단계(`onStage` 제거)만, C-38은 1단계(props 필수화)만 한다 | C-37 2단계는 0303 EP-04 테스트가 잠근 manager 합류를 지운다 · C-38 2단계는 절감 추정이 없다 | 설계자 조사 | ACTIVE | — |
+| D-012 | C-06은 16개 중 8개만 지운다. `shared/plugin-catalog.ts` alias 6개 · `PluginPresentation` · `DISABLED_HATCH_CLASS`는 남긴다 | alias 7개는 파일 주석이 "기존 Plugin 배포 소스·외부 import를 보존"이라 적은 포크 호환 표면이다(`plugin-catalog.ts:1` · `pluginPresentation.ts:1`). 빗금 상수는 `dom-architecture.md:157`이 공용 규칙으로 지목한다 | r1 구현 중 발견 → 설계 정정 | ACTIVE | — |
 | D-011 | C-02(백그라운드 원본 출력 읽기)의 제거 범위 | 읽기만 지우면 `capture`가 아무도 읽지 않는 스냅샷을 계속 쓴다(§4). 읽기만 / 캡처까지 / 보류 중 사용자 결정 필요 | 설계자 조사 | OPEN | — |
 
 ### 갱신 메모
@@ -60,6 +61,7 @@
 - 변경된 결정: 0292의 0225 이관 "유지" → D-003(사용자 승인). 실행은 H-C.
 - D-011이 OPEN인 동안 C-02는 이번 범위 밖이다. 답이 오면 ΔV로 넣는다 — 나머지 14건의 구현을 막지 않는다.
 - D-008·D-009·D-010은 사용자가 고른 묶음에서 후보를 뺀 설계자 판단이다. 근거는 §4·§8이고, 사용자가 되돌리면 ΔV로 넣는다.
+- r1 구현 중 정정(규범 행만, 구현과 다른 커밋): D-012 추가 · AC5·EP-05 16→8 · EP-03 허용 예외 · EP-16 자리 목록 확장. D-012는 승인된 범위를 줄이는 쪽이라 사용자가 되돌릴 수 있다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0.
   - D-002("9건 전부") ↔ AC1~AC8: 8건이 AC를 갖고 C-02만 D-011(OPEN)로 빠진다.
   - D-004("보류") ↔ AC12: `hasCanonical`·`window.oo` 래퍼를 건드리는 AC 없음 — `rg 'hasCanonical|api/ipc' §7` 대조.
@@ -141,7 +143,7 @@ UI 변화는 없다. 관측자는 앱 사용자(화면이 그대로다)와 코�
 | R-02 | AC2 (C-03) | 산출물 폴더 열기 채널이 없다. 탐색기에서 보기는 검증된 원본만 연다 | 기존 `artifacts.test.ts` reveal 케이스 green · artifact 채널 등록 집합 = `CHANNELS` artifact 도메인 전수 · EP-02 0건 | `artifact:reveal` → `shell.showItemInFolder` |
 | R-03 | AC3 (C-04) | `provider:list` 채널이 없다. `provider:state`는 첫 스냅샷에 복원 진행 여부를 싣는다 | `providers.test.ts` "등록 집합이 CHANNELS 의 provider 도메인 전수와 일치한다" · "첫 스냅샷에도…" green · EP-03 0건 | `provider:state` → `connectionState` |
 | R-04 | AC4 (C-05) | camera feature와 그 i18n 네임스페이스가 없다. 다른 화면의 라우팅·번들은 그대로다 | EP-04 0건 · `resources.test.ts`의 ko/en 키 대칭 green · typecheck:web | `app/router.tsx` (경로 없음 — 삭제뿐) |
-| R-05 | AC5 (C-06) | 참조 없는 export 16개의 선언이 없다 | `lens-exports.mjs` dead 목록에 16개 이름 0건 · typecheck 3종 | 해당 없음 — 참조 0 |
+| R-05 | AC5 (C-06) | 참조 없는 export 8개(D-012)의 선언이 없다 | `lens-exports.mjs` dead 목록에 8개 이름 0건 · typecheck 3종 | 해당 없음 — 참조 0 |
 | R-06 | AC6 (C-08) | `structured_output` 파트 타입·세그먼트·카드가 없다. text·tool·error·compact 파트의 세그먼트화는 지금과 같다 | `parts.test.ts`의 세그먼트 케이스에서 structured 입력만 뺀 기대가 green · EP-06 0건 | DB `message_parts` → `parts.ts` 세그먼트 → `AssistantSegment` |
 | R-07 | AC7 (C-09) | 설정 스키마·타입에 `projectMcpChoices`가 없다. 그 키가 남은 구 설정 파일도 로드되고 다른 키 값이 유지되며, `settings.patch`로 그 키를 쓸 수 없다 | `extension-catalog.test.ts` "does not reactivate legacy choice bytes…"를 고쳐 로드 성공·다른 키 유지·patch 무시를 단언 · EP-07 0건 | 설정 파일 → `SettingsStore.getAll` |
 | R-08 | AC8 (C-32) | `subagent.backgroundSet` 이벤트 변형이 없다. 서브에이전트 시작·정착 이벤트 처리는 지금과 같다 | `turn-coordinator.test.ts`의 서브에이전트 정착 케이스 green(backgroundSet 입력 케이스 3건은 삭제) · EP-08 0건 | 어댑터 이벤트 → coordinator → `chatStore` |
@@ -193,7 +195,7 @@ UI 변화는 없다. 관측자는 앱 사용자(화면이 그대로다)와 코�
 | VP-02 | R-02 ↔ AT-02 | REQUIRED | `artifactApi.reveal` → preload → `handlers/artifacts.ts` reveal → `service.openFolderPath`·`revealPath` | `artifacts.test.ts:'rejects exports into the canonical root and reveals only the verified original ID'` · 같은 파일의 채널 등록 전수 케이스(`:172` 표에서 `artifactOpenFolder` 행 삭제) | not selected — 직접 행동 oracle | EP-02 (5자리) |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | `providerApi.state` → preload → `handlers/providers.ts` | `providers.test.ts:'등록 집합이 CHANNELS 의 provider 도메인 전수와 일치한다'` · `:'첫 스냅샷에도 복원 진행 여부를 싣는다'` | not selected | EP-03 (4자리) |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | 해당 없음 — import 처 0 | `gate:npm run typecheck` · `resources.test.ts` ko/en 대칭 | not selected | EP-04 (4자리) |
-| VP-05 | R-05 ↔ AT-05 | REQUIRED | 해당 없음 — 참조 0 | `gate:node ../docs/handoff/0305-code-bloat-audit/scan/lens-exports.mjs` 의 dead 절에 16개 이름 0 · `gate:npm run typecheck` | not selected | EP-05 (16자리) |
+| VP-05 | R-05 ↔ AT-05 | REQUIRED | 해당 없음 — 참조 0 | `gate:node ../docs/handoff/0305-code-bloat-audit/scan/lens-exports.mjs` 의 dead 절에 8개 이름 0 · `gate:npm run typecheck` | not selected | EP-05 (8자리) |
 | VP-06 | R-06 ↔ AT-06 | REQUIRED | DB part row → `parts.ts` `segmentAssistantParts` → Claude·OpenCode `AssistantSegment` | `parts.test.ts:'error / structured_output 는 개별 세그먼트, 빈 text 는 스킵'`을 error·빈 text 입력으로 고친 케이스 · `projection.test.ts`·`Timeline.render.test.ts`·`workActivity.test.ts`에서 structured 입력 행만 제거 | not selected | EP-06 (9자리) |
 | VP-07 | R-07 ↔ AT-07 | REQUIRED | 설정 파일 → `SettingsStore` 생성 → `getAll` · `patch` | `extension-catalog.test.ts:'does not reactivate legacy choice bytes…'` — 입력: `projectMcpChoices`와 다른 키 1개(기본값과 다른 값)가 든 구 store. 단언: `getAll()` 성공 · 다른 키 값 유지 · `patch({projectMcpChoices})` 뒤 `getAll()`에 그 키 없음 | not selected | EP-07 (3자리) |
 | VP-08 | R-08 ↔ AT-08 | REQUIRED | Claude 어댑터 이벤트 → `turn-coordinator` 이벤트 루프 → `chatStore` `onChatEvent` | `turn-coordinator.test.ts`의 `subagentStarted`·settled 케이스(backgroundSet 없는 것) green · `gate:npm run typecheck`(판별 유니온 소진) | not selected | EP-08 (2자리) |
@@ -204,7 +206,7 @@ UI 변화는 없다. 관측자는 앱 사용자(화면이 그대로다)와 코�
 | VP-13 | R-13 ↔ AT-13 | REQUIRED | 메일 도구 → `tools.ts sync` → `manager.sync(signal, mode)` | `sync-manager.test.ts` · `mail.integration.test.ts`(EP-04 케이스 포함) · `tools.sync.test.ts` — `mode` 인자가 2번째 자리로 온 뒤에도 `'full'`·`'incremental'` 구별 케이스가 green | required — 맞바꿈: `tools.ts`의 `mode` 인자를 지움(기본값 `incremental`로 폴백) → full 케이스 red | EP-13 (3자리) |
 | VP-14 | R-14 ↔ AT-14 | REQUIRED | `DiffTileContent` → `DiffReview` → `FileDiffSection` → 본문·행 컴포넌트 → 콜백 | `diffRequirementSelection.render.test.ts` · `fileDiffRequirementReveal.test.ts` · `diffTileWiring.test.ts` — 콜백 6자리(`:625,826,830,841,884,901`)마다 구별 인자: 초안 변경(본문 문자열) · 초안 취소(`null`) · 추가(제출 객체) · 선택(id A) · 삭제(id B≠A) | required — 맞바꿈: `onSelectRequirement`↔`onRemoveRequirement` 전달(`DiffReview.tsx`) | EP-14 (6자리) |
 | VP-15 | MD-03 ↔ UT-03 | REQUIRED | `ComposerInputController` → `observedPlugins` → `validPluginIds` → 칩 판정 | `ComposerInputController.test.ts` 2입력: `includeManagedMcp=false` → 네이티브 플러그인 id만 유효(관리형 id는 무효) · `true` → 둘 다 유효. 멘션 자동완성이 낸 id와 겹치지 않는 값으로 채운다 | not selected | EP-15 (1자리) |
-| VP-16 | R-16 ↔ AT-16 | REQUIRED | 문서 | `gate:node scripts/check-doc-inventory.mjs --check` · EP-16 검색 0건 | not selected | EP-16 (8자리) |
+| VP-16 | R-16 ↔ AT-16 | REQUIRED | 문서 | `gate:node scripts/check-doc-inventory.mjs --check` · EP-16 검색 0건 | not selected | EP-16 (12자리) |
 
 ### 현재 변경의 운영 gate
 
@@ -323,9 +325,9 @@ bootstrap ──주입──> ctx.harnessRuntime ──> isReadOnly ? cached : r
 |---|---|---|---|---|
 | EP-01 / VP-01 | 전체 중단 경로 없음 | `shared/ipc.ts:32` 상수 · `shared/protocol.ts:235` 스키마(접기) · `shared/background-task.ts:207` 결과 타입 · `preload/index.ts:24,158-162` · `renderer/…/api/ipc.ts:21,127-130` · `chat-turn/background.ts:8,65-67` · `background-controller.ts:17` import · `:72` 집합 · `:239-241` `isStoppingAll` · `:259-336` `stopAll` · `chat-turn/send.ts:115-125` 게이트 = 11 | `rg -n 'StopAllBackgroundTasks\|stopAllBackgroundTasks\|isStoppingAll\|stoppingAll\|controller\.stopAll' . ` → 0건. i18n `stopAll` 키(ko·en)도 삭제 | 미도달 경로가 남는다 |
 | EP-02 / VP-02 | 폴더 열기 채널 없음 | `shared/ipc.ts:78` · `preload/index.ts:257` · `api/ipc.ts:374` · `handlers/artifacts.ts:96-` 핸들러 · i18n `openFolder`(artifact 네임스페이스 ko:794·en:790) = 5 | `rg -n 'artifactOpenFolder\|artifacts\.openFolder\|openFolder:' . -g '!*.test.*'` → 0건. 허용: `openFolderPath`(서비스) · skills 네임스페이스의 `openFolder` 키가 있으면 그 줄 | 같음 |
-| EP-03 / VP-03 | `provider:list` 없음 | `shared/ipc.ts:163` · `preload/index.ts:381` · `api/ipc.ts:329` · `handlers/providers.ts:46` = 4 | `rg -n 'providerList\|provider\.list\(' .` → 0건 | 같음 |
+| EP-03 / VP-03 | `provider:list` 없음 | `shared/ipc.ts:163` · `preload/index.ts:381` · `api/ipc.ts:329` · `handlers/providers.ts:46` = 4 | `rg -n 'providerList\|provider\.list\(' .` → 0건. 허용: OpenCode SDK 호출 `client.provider.list(`(`adapters/opencode/v1/composer-catalog.ts`) | 같음 |
 | EP-04 / VP-04 | camera feature 없음 | `features/camera/index.ts` · `features/camera/components/CameraView.tsx` · i18n `camera` 네임스페이스 ko:581- · en:577- = 4 | `rg -n "CameraView\|features/camera\|'camera\.\|^  camera: \{" renderer` → 0건. 허용: `Icon.tsx`의 `cam` 경로 | 같음 |
-| EP-05 / VP-05 | dead export 16 없음 | §8 C-06의 16개 선언(파일은 `lens-exports.mjs` dead 절) = 16 | `lens-exports.mjs` dead 절에서 16개 이름 0. 선언을 지워 고아가 된 import·지역 값은 lint가 잡는 대로 지운다 | 같음 |
+| EP-05 / VP-05 | dead export 8 없음(D-012) | `relativeToDownloads` · `gitExecutable` · `branchExists` · `useBackendState` · `VISIBLE_TILE_REGISTRY` · `PanelButton` · `ArtifactTrashRequest` · `LOG_LEVELS` = 8 | `lens-exports.mjs` dead 절에서 8개 이름 0. 선언을 지워 고아가 된 import·지역 값은 lint가 잡는 대로 지운다 | 같음 |
 | EP-06 / VP-06 | `structured_output` 없음 | `shared/ipc.ts:1570` 멤버(+`:1533` 주석 정정) · `infra/db/types.ts:20` · `lib/parts.ts:507` 세그먼트 kind · `:558-559` 분기 · `:653-654` 비교 · `claude/transcript/StructuredOutputCard.tsx`(파일) · `claude/…/AssistantSegment.tsx:6,34` · `claude/…/registry.ts:41`(+`:24-25` 주석) · `opencode/…/AssistantSegment.tsx:33-` case(+i18n `chat.transcript.structuredOutput` 미사용 시 삭제) = 9 | `rg -n "structured_output\|StructuredOutputCard\|kind: 'structured'\|case 'structured'" .` → 0건. 허용: `migrations/0004_message_parts.sql` 주석 · `structuredOutput`(도구 결과 필드 — 다른 개념) | 같음 |
 | EP-07 / VP-07 | `projectMcpChoices` 없음 | `shared/protocol.ts:778` · `shared/ipc.ts:1157` · `:1179` = 3 | `rg -n projectMcpChoices . -g '!*.test.*'` → 0건. 허용: VP-07 테스트의 구 store 입력 | 구 파일 로드 실패가 가장 나쁜 상태 — VP-07이 본다 |
 | EP-08 / VP-08 | `subagent.backgroundSet` 없음 | `shared/ipc.ts:726-743` 변형과 그 주석 · `chatStore.ts:978-983` case와 주석 = 2 | `rg -n backgroundSet .` → 0건(테스트 포함 — 관련 케이스 삭제) | 같음 |
@@ -336,7 +338,7 @@ bootstrap ──주입──> ctx.harnessRuntime ──> isReadOnly ? cached : r
 | EP-13 / VP-13 | `onStage` 없음 | `sync-manager.ts:40` 타입 시그니처 · `:82` 매개변수와 호출 9줄(`:95,98,112,119,163,173,192` 외 재귀 `:88`) · `types.ts:157` `MailSyncStageEvent` · `tools.ts:66` 인자 = 3(파일) | `rg -n 'onStage\|MailSyncStageEvent' main` → 0건 | `mode`가 기본값으로 폴백하면 full 동기화가 incremental로 돈다 — VP-13 변이 |
 | EP-14 / VP-14 | diff props 6개 필수 | 선언: `DiffReview.tsx:28-30,43-49` · `FileDiffSection.tsx:52-66,206-238,534-540,596-602,701,800-801,866` · 호출 `:625,826,830,841,884,901` = 6(호출) | `rg -n '(activeRequirementId\|selectionVersion\|onSelectRequirement\|onDraftChange\|onAddRequirement\|onRemoveRequirement)\?[:.]' renderer/src/features/chat/harnesses/common/rightpanel -g '!*.test.*'` → 0건 | 콜백이 조용히 안 불린다 |
 | EP-15 / VP-15 | 플러그인 목록 1회 계산 | `ComposerInputController.tsx:238-248` = 1 | `rg -c 'nativePluginMentions\(' …/ComposerInputController.tsx` → 2(`observedPlugins` 안의 2호출뿐) | 관리형 MCP id가 꺼진 상태에서 유효로 판정 |
-| EP-16 / VP-16 | 문서가 현재 상태 | `IPC_CONTRACT.md:60,230,525` 행 삭제 · `arch/backend/background-tasks.md:25,27` 전체 중단 서술 정정 · `arch/frontend/layers.md:72` · `ux-domains.md:108` · `design-components.md:316` · `design-system.md:173` camera 서술 정정 · `generated/inventory.md` 재생성 = 8 | `rg -n 'stopAllBackgroundTasks\|artifact:openFolder\|provider:list\|features/camera' docs -g '!handoff/**' -g '!archive/**' -g '!etc/**'` → 0건 | 문서가 없는 채널·feature를 안내 |
+| EP-16 / VP-16 | 문서가 현재 상태 | `IPC_CONTRACT.md` 채널 3행 · 이벤트 `subagent.backgroundSet` 행 · `projectMcpChoices` 2곳 · `GLOSSARY.md:98` · `arch/backend/background-tasks.md:25,27` · `provider-runtime.md` §7 타입·요약 행 · `arch/frontend/{layers,ux-domains,design-system,overview}.md` · `design-components.md`(PanelButton·StructuredOutputCard·CameraView 3행) · `rendering.md` §1.6·§1.7 현재 코드 서술 · `generated/inventory.md` 재생성 = 12(문서) | `cd docs && rg -n 'stopAllBackgroundTasks\|artifact:openFolder\|provider:list\|features/camera\|CameraView\|backgroundSet\|projectMcpChoices\|PanelButton' . -g '!handoff/**' -g '!archive/**' -g '!etc/**'` → 0건. `StructuredOutputCard`·`structured_output`은 `rendering.md` §1.6·§1.7의 목표 설계 서술과 벤더 미러(`spec/**`·`claude-code-spec.md`)에 남는다 | 문서가 없는 채널·feature를 안내 |
 
 - **선언 경계**:
   1. `background-tasks.md`의 "원본 출력 읽기" 서술과 `readBackgroundOutput` 사슬은 D-011이 닫힐 때까지 그대로다 — EP-01·EP-16 검색에서 `readBackgroundOutput`은 대상이 아니다.
