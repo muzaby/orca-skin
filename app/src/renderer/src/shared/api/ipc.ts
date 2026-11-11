@@ -15,9 +15,7 @@ import type {
   BackgroundEvent,
   BackgroundSessionState,
   BackgroundTaskRequest,
-  PromoteBackgroundTaskRequest,
-  ReadBackgroundOutputRequest,
-  ReadBackgroundOutputResponse
+  PromoteBackgroundTaskRequest
 } from '../../../../shared/background-task'
 import type {
   ComposerCatalogInvalidated,
@@ -122,8 +120,6 @@ export const chatApi = {
     window.oo.chat.stopBackgroundTask(req),
   promoteBackgroundTask: (req: PromoteBackgroundTaskRequest): Promise<void> =>
     window.oo.chat.promoteBackgroundTask(req),
-  readBackgroundOutput: (req: ReadBackgroundOutputRequest): Promise<ReadBackgroundOutputResponse> =>
-    window.oo.chat.readBackgroundOutput(req),
   send: (req: SendChatMessage): Promise<void> => window.oo.chat.send(req),
   cancelSteer: (req: CancelSteer): Promise<void> => window.oo.chat.cancelSteer(req),
   sendSteerNow: (req: SteerSendNow): Promise<void> => window.oo.chat.sendSteerNow(req),

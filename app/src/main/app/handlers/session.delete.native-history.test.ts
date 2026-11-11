@@ -6,7 +6,6 @@ import Database from 'better-sqlite3'
 import { CHANNELS } from '../../../shared/ipc'
 import { BackgroundController } from '../../features/chat/background-controller'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
-import { BackgroundOutputStore } from '../../infra/background-output'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import type { RouterContext } from '../context'
@@ -55,14 +54,6 @@ describe('session removal preserves native and archived files through the real h
       await writeFile(nativeFile, '{"sessionId":"s1","message":"native history"}\n')
       await writeFile(workingFile, '# Worktree stays\n')
       await writeFile(logFile, 'completed process output\n')
-      const outputs = new BackgroundOutputStore(path.join(root, 'outputs'))
-      const output = await outputs.capture(
-        { id: 'output', field: 'output_file', value: logFile, kind: 'file' },
-        [worktree]
-      )
-      const outputFile = path.join(root, 'outputs', output.id)
-      const removeSnapshot = vi.spyOn(outputs, 'removeSnapshot')
-
       const db = new Database(':memory:')
       connections.push(db)
       db.pragma('foreign_keys = ON')
@@ -106,18 +97,10 @@ describe('session removal preserves native and archived files through the real h
         phase: 'notification',
         patch: { status: 'completed' }
       })
-      queries.background.append({
-        type: 'background.output',
-        sessionId: 's1',
-        source: { ...source, sequence: 2 },
-        taskId: 'task',
-        outputId: 'output',
-        snapshot: output
-      })
       const journal = queries.background.list('s1')
       const parts = queries.loadParts('s1')
       const binding = queries.getManagedWorktreeBySession('s1')
-      expect(journal).toHaveLength(2)
+      expect(journal).toHaveLength(1)
       expect(parts).toHaveLength(1)
       expect(binding).toMatchObject({ id: 'worktree', worktree_root: worktree })
       const controller = new BackgroundController({
@@ -128,9 +111,7 @@ describe('session removal preserves native and archived files through the real h
           done()
         },
         publish: vi.fn(),
-        runtime: () => undefined,
-        roots: () => [worktree],
-        outputs
+        runtime: () => undefined
       })
       const patch = vi.fn()
       const runtimeCleanup = vi.fn(() => {
@@ -144,7 +125,7 @@ describe('session removal preserves native and archived files through the real h
         } as unknown as RouterContext,
         {
           onSessionDisposed: (id) => {
-            controller.dispose(id, { preserveOutputSnapshots: true })
+            controller.dispose(id)
             runtimeCleanup()
           }
         }
@@ -164,7 +145,6 @@ describe('session removal preserves native and archived files through the real h
         expect(patch).toHaveBeenCalledWith({ lastSessionId: null })
       }
       expect(runtimeCleanup).toHaveBeenCalledOnce()
-      expect(removeSnapshot).not.toHaveBeenCalled()
       expect(queries.background.list('s1')).toEqual(journal)
       expect(queries.loadParts('s1')).toEqual(parts)
       expect(queries.getManagedWorktreeBySession('s1')).toEqual(binding)
@@ -174,7 +154,6 @@ describe('session removal preserves native and archived files through the real h
       expect((await stat(worktree)).isDirectory()).toBe(true)
       expect(await readFile(workingFile, 'utf8')).toBe('# Worktree stays\n')
       expect(await readFile(logFile, 'utf8')).toBe('completed process output\n')
-      expect(await readFile(outputFile, 'utf8')).toBe('completed process output\n')
       expect(db.pragma('foreign_key_check')).toEqual([])
     }
   )

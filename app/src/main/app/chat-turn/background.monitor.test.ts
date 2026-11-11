@@ -20,7 +20,6 @@ import {
   type BackgroundEvent,
   type BackgroundCallRecord,
   type BackgroundTaskRecord,
-  type ReadBackgroundOutputResponse,
   type ProviderMessageEvent
 } from '../../../shared/background-task'
 
@@ -46,7 +45,6 @@ interface MonitorFixture {
   journal: (BackgroundEvent | ProviderMessageEvent)[]
   published: BackgroundEvent[]
   stopTask: Mock<(id: string) => Promise<void>>
-  read: Mock<() => Promise<ReadBackgroundOutputResponse>>
   envelope(): { session_id: string; uuid: ReturnType<typeof randomUUID> }
   receive(raw: unknown): void
   launch(input: MonitorInput, output: MonitorOutput): void
@@ -64,13 +62,6 @@ function fixture(): MonitorFixture {
   const journal: (BackgroundEvent | ProviderMessageEvent)[] = []
   const published: BackgroundEvent[] = []
   const stopTask = vi.fn<(id: string) => Promise<void>>(async () => {})
-  const read = vi.fn<() => Promise<ReadBackgroundOutputResponse>>(async () => ({
-    status: 'available' as const,
-    offset: 0,
-    nextOffset: 12,
-    text: 'event output',
-    view: 'current' as const
-  }))
   const controller = new BackgroundController({
     tracker,
     persist: (event, done) => {
@@ -81,9 +72,7 @@ function fixture(): MonitorFixture {
     publish: (event) => {
       published.push(event)
     },
-    runtime: () => ({ generation: mapper.generation, stopTask }),
-    roots: () => ['C:/monitor-fixture'],
-    outputs: { read, capture: () => new Promise<never>(() => {}), readSnapshot: vi.fn() }
+    runtime: () => ({ generation: mapper.generation, stopTask })
   })
   const envelope = (): ReturnType<MonitorFixture['envelope']> => ({
     session_id: sessionId,
@@ -148,7 +137,6 @@ function fixture(): MonitorFixture {
     journal,
     published,
     stopTask,
-    read,
     envelope,
     receive,
     launch,
@@ -229,22 +217,6 @@ it.each([
     expect(f.tracker.hasPending(sessionId)).toBe(false)
     const ref = f.task().outputRefs![0]
     expect(ref).toMatchObject({ field: 'output_file', value: outputFile, kind: 'file' })
-    expect(f.read).not.toHaveBeenCalled()
-    await expect(
-      f.controller.read({
-        sessionId,
-        generation: f.mapper.generation,
-        taskId,
-        outputId: ref.id,
-        offset: 0,
-        maxBytes: 100
-      })
-    ).resolves.toMatchObject({ text: 'event output' })
-    expect(f.read).toHaveBeenCalledWith(
-      ref,
-      ['C:/monitor-fixture'],
-      expect.objectContaining({ taskId })
-    )
   }
 )
 

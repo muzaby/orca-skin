@@ -1230,7 +1230,7 @@ export class Bootstrap {
     registerSessionHandlers(ctx, {
       isSessionBusy: (sessionId) => supervisor.hasSession(sessionId),
       onSessionDisposed: (sessionId) => {
-        background.dispose(sessionId, { preserveOutputSnapshots: true })
+        background.dispose(sessionId)
         persistence.forgetProviderSession(sessionId)
         // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가
         // child 교체 중이어도 runtime을 직접 소유하므로 삭제된 세션이 뒤늦게 영속화를 재개하지 않는다.

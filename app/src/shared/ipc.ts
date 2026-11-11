@@ -29,7 +29,6 @@ export const CHANNELS = {
   chatBackgroundEvent: 'oo:chat:backgroundEvent',
   chatStopBackgroundTask: 'oo:chat:stopBackgroundTask',
   chatPromoteBackgroundTask: 'oo:chat:promoteBackgroundTask',
-  chatReadBackgroundOutput: 'oo:chat:readBackgroundOutput',
   chatCancel: 'oo:chat:cancel',
   chatStopSubagent: 'oo:chat:stopSubagent',
   // 서브에이전트(Task) 단위 foreground → background 전환(0212 R-07). 중단과 다른 축이다 —
