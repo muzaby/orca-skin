@@ -10,11 +10,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-10 |
 | 매핑 | PR 미생성 |
-| 상태 | RETURN_TO_PLAN (r2 verify — F6 확장 후보, 설계자 차례) |
+| 상태 | READY (ΔV2 — r2 verify `RETURN_TO_PLAN` 뒤 규범 정정) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0225 V1은 "코드 식별자 불변"(EP-11)을 잠갔고 이번 작업은 그 결정을 뒤집는다. 일부 변경이 아니라 반대 방향이라 상속하지 않는다 |
-| 이번 V revision | `ΔV1` — r1 verify 뒤 정정 E1~E5. 기준 = `V1` rev.3(`206409f`) |
-| 유효 V | `V1` rev.3 + `ΔV1` |
+| 이번 V revision | `ΔV2` — r2 verify 뒤 정정 G1. 기준 = `V1` rev.3(`206409f`) + `ΔV1`(`a6cfaec`) |
+| 유효 V | `V1` rev.3 + `ΔV1` + `ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -109,12 +109,45 @@
 - **AC 변경**: AC1 주어 "범위 안 추적 파일" → "제외 목록 밖 추적 파일 전체". AC2에 EP-10 2케이스 추가. AC4(허용 12파일)·그 밖 AC는 그대로다.
 - **F1의 문서 정정 값**: 노출 키 2줄은 `'oo'`. 채널 꼴 6건은 `oo:<도메인>:…` — 폐기·미래 채널 서술이어도 접두사 규칙은 같다(N4).
 
+### ΔV2 — r2 verify 뒤 규범 정정
+
+출처는 [`verify.md`](verify.md) §r2-3 F6이다. verify 2회째 뒤라 열거 원문을 늘릴 수 있는 마지막 설계 턴이다. ACTIVE Decision·AC는 바뀌지 않았다.
+
+| # | 출처 | 정정한 행 | 정정 전 | 정정 후 | 판정 · 관측 |
+|---|---|---|---|---|---|
+| G1 | F6 (확장 후보) | EP-01 ⑥ 규칙 칸 · UT 입력 칸 | "제외 목록 경로는 읽지 않는다" — 항목과 경로를 어떻게 맞추는지 적지 않음 | 아래 **일치 규칙 4분기**와 분기별 입력 | **채택.** 일치가 느슨해지면 새 파일이 조용히 검사에서 빠진다 — D-007 fail-closed와 반대 방향이라 경계로 두지 않는다 |
+
+- F6이 지적한 자리 하나만 더하지 않고 `excludes`(`check-product-naming.mjs:99-106`)의 조건·항을 이번 턴에 전부 변이했다. 4변이 중 3개가 테스트 40건 + gate에서 green이었다(X4만 red) — 아래 표의 ⓑⓒⓓ가 그 3개와 F6의 W13이다.
+- 현재 결함 아님: 현재 코드는 네 분기 모두 규칙대로 동작한다(구현 뒤 입력이 green이어야 한다). 코드 수정 없이 테스트 입력만 더한다.
+
+**ΔV2 node / pair**
+
+| Node · Pair | provenance | 내용 |
+|---|---|---|
+| MD-01 / VP-08 | CHANGED | EP-01 ⑥에 일치 규칙 4분기와 입력이 더해진다. ΔV1의 제외 8입력·검사 4입력은 그대로 |
+| 그 밖 | INHERITED | r2 verify PASS 좌표 유지(`verify.md` §r2-4) |
+
+**ΔV2 §10 — EP-01 ⑥ 일치 규칙** (ΔV1 EP-01 ⑥ 행에 더한다. 자리 = 검사기 `excludes` 1자리)
+
+| 분기 | 규칙 | UT 입력 (전부 옛 표기 1줄 → **위반** 기대, `inScope` = true) | 등록 변이 (심을 자리 `excludes`) |
+|---|---|---|---|
+| ⓐ 파일 항목 | 경로 전체가 항목과 같을 때만 제외 | `README.md.orig` · (기존) `app/README.md` | `path === entry` → `path.startsWith(entry)` (verify W13) → red |
+| ⓑ 디렉토리 항목 | 경로 **맨 앞**이 항목일 때만 제외 | `app/project/x.md` · (기존) `docs/handoff.md` | `startsWith` → `includes` → red |
+| ⓒ `*` 항목의 고정 | 패턴은 경로 맨 앞에서 맞춘다 | `app/.agents/skills/a/references/c.md` | 정규식의 `^` 제거 → red |
+| ⓓ `*` 항목의 글자 | `*` 밖 글자는 글자 그대로다(`.`은 점) | `xagents/skills/a/references/c.md` | 특수문자 이스케이프 `.map(…)` 줄 제거 → red |
+
+- oracle 좌표: `check-product-naming.test.mjs` `⑥ …` describe의 `제외 항목과 이름만 비슷한 경로는 검사한다` 케이스에 위 신규 4경로를 더한다(파일·테스트명 유지).
+- `*`가 마디 하나라는 분기는 r2 좌표가 이미 잠근다(verify W11 red — 입력 `.agents/skills/a/b/references/c.md`).
+- **선언 경계**: 제외 목록에 지금 없는 항목 꼴(`*`가 든 파일 항목 · `**` · 끝이 `/`가 아닌 디렉토리)은 다루지 않는다 — `EXCLUDED` 8항목에 그 꼴 0건(`check-product-naming.mjs:38-47`). 항목을 더할 때 그 꼴이면 그때 규칙을 더한다.
+- 구현 범위: `app/scripts/check-product-naming.test.mjs` 1파일. gate는 §19 그대로다.
+
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-008 전부(신규 handoff).
 - 변경된 결정: 0225 D-012("과거 기록·코드 식별자는 무차별 치환하지 않는다") 중 **코드 식별자** 부분을 D-001이 대체한다. **과거 기록** 부분은 D-003으로 유지된다.
 - 유지되는 기존 결정: 0225 D-001(표시 `Orcinus orca` · 파일 `orcinus-orca`) · D-010(옛 경로 fallback 금지) · D-011(저장소명) · D-016(`productName` 키 금지).
 - ΔV1 대조: D-003(지난 기록 불변) ↔ E1 제외 목록 = 같은 8경로 · D-005(허용 12파일) ↔ E2·E3 = 허용 추가 없이 고친다 · D-004 N4 ↔ EP-10 ② = 같은 방향. 충돌 0.
+- ΔV2 대조: D-007(fail-closed 검사기) ↔ G1 = 같은 방향 · D-003(제외 8경로) ↔ 일치 규칙 = 목록 불변, 맞추는 방식만 고정. AC 변경 없음. 충돌 0.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. 대조한 쌍 —
   - D-002("호환 없음") ↔ AC4("옛 이름을 읽는 분기 0") → 같은 방향.
   - D-005("옛 디스크 이름 유지") ↔ AC1(검사기 0건) → AC1의 허용 목록에 이관 5파일이 등록돼 충돌하지 않는다. AC5가 D-005를 양성으로 잠근다.
@@ -660,4 +693,4 @@ r2 verify(2회째) 결과 `RETURN_TO_PLAN`. 상세·재현은 [`verify.md`](veri
 | # | 분류 | 상태 | 출처 계약 | 내용 | 대응 방향(제안) |
 |---|---|---|---|---|---|
 | F1·F2·F3 | — | closed (r2) | ΔV1 E1~E5 | 변이 W01~W12·W20~W31·W40~W52·W60~W64 전부 red | — |
-| F6 | 확장 후보 · PLAN_GAP | open — 창 안 | EP-01 ⑥ "그 밖의 추적 파일은 전부 읽는다" | `check-product-naming.mjs` `excludes` 파일 항목 `path === entry` → `startsWith` 변이(W13)가 40케이스·gate에서 green. `README.md.x` 류 입력 없음. 트리에는 그 형태 0건 | ΔV2로 입력 1개 채택 또는 경계 선언 |
+| F6 | 확장 후보 · PLAN_GAP | 채택 — ΔV2 G1 (구현 대기) | EP-01 ⑥ "그 밖의 추적 파일은 전부 읽는다" | `check-product-naming.mjs` `excludes` 파일 항목 `path === entry` → `startsWith` 변이(W13)가 40케이스·gate에서 green. `README.md.x` 류 입력 없음. 트리에는 그 형태 0건 | ΔV2로 입력 1개 채택 또는 경계 선언 |
