@@ -159,4 +159,4 @@ sketch
 resources/bin/
 
 # better-sqlite3 ABI 보장 마커 — scripts/ensure-sqlite-abi.mjs 가 로컬 node/electron ABI 상태를 기록
-node_modules/.cache/orca/
+node_modules/.cache/orcinus-orca/

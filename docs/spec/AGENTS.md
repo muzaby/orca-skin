@@ -15,7 +15,7 @@
 | 층 | 위치 | 편집 | 무엇 |
 |---|---|---|---|
 | **원문 미러** | `docs/spec/<vendor>/**` | **금지** (덮어쓰기만) | 벤더가 발행한 그대로 |
-| **해설 미러** | `docs/<vendor>-*-spec.md` | 가능 | Orca 채택 표기(✅/❌/⏳)·정리표·**안정된 절 번호** |
+| **해설 미러** | `docs/<vendor>-*-spec.md` | 가능 | Orcinus orca 채택 표기(✅/❌/⏳)·정리표·**안정된 절 번호** |
 
 해설 미러는 절 번호를 *안정*시켜 다른 문서가 인용해도 깨지지 않게 한다. 원문 미러는 절 번호
 안정성을 보장하지 않는다.
@@ -30,7 +30,7 @@
 | Claude (Anthropic) — Agent SDK | `claude/agent-sdk/` | [code.claude.com/docs/ko/agent-sdk](https://code.claude.com/docs/ko/agent-sdk/) | 2026-05-18 | [`claude/agent-sdk/INDEX.md`](claude/agent-sdk/INDEX.md) (파일별 인덱스) |
 | OpenCode — JS/TS SDK·HTTP Server | `opencode/` | [v1.18.27 문서 출처·해시](opencode/INDEX.md) | 2026-09-03 | [`../opencode-sdk-spec.md`](../opencode-sdk-spec.md) |
 
-> Orca 는 Claude Code 를 **Agent SDK 의 `query()`** 로 구동한다
+> Orcinus orca 는 Claude Code 를 **Agent SDK 의 `query()`** 로 구동한다
 > (`app/src/main/adapters/claude.ts`). CLI 플래그 문서는 SDK 가 그 CLI 를 감싸므로 여전히
 > 1차 출처다.
 
@@ -38,7 +38,7 @@
 
 **들어간다**: 벤더가 발행한 *공식 문서 페이지* 의 원문(가능하면 마크다운).
 
-**안 들어간다**: Orca 의 결정·채택 표기·해설·요약(→ 해설 미러) · 비공식 블로그·커뮤니티 가이드·발췌.
+**안 들어간다**: Orcinus orca 의 결정·채택 표기·해설·요약(→ 해설 미러) · 비공식 블로그·커뮤니티 가이드·발췌.
 
 ## 동기화 절차
 

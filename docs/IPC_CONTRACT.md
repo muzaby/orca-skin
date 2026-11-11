@@ -371,7 +371,7 @@ interface McpServer {
 
 ### 2.11 Runtime — **제거됨 (handoff 0012)**
 
-구 `orcinus-orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 `query().options.env` 구성은 [security.md](arch/backend/security.md) "Agent provider auth token" 절이 정본이다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
+구 `oo:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 `query().options.env` 구성은 [security.md](arch/backend/security.md) "Agent provider auth token" 절이 정본이다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
 
 ### 2.12 Cost (Phase 3++)
 

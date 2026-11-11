@@ -10,7 +10,7 @@ MDX는 웹사이트의 import·절대 URL·예제를 그대로 포함한다. 독
 | [LICENSE](LICENSE) | [v1.18.27 MIT License](https://raw.githubusercontent.com/anomalyco/opencode/v1.18.27/LICENSE) | 원저작권·복제 허가 고지 |
 
 원문과 설치 패키지가 다르면 버전·import 표면을 먼저 구분한다. 원문의 잘못된 예제를 미러에서 수정하지 말고 [SDK 해설](../../opencode-sdk-spec.md)에 차이와 배포 타입 근거를 기록한다.
-Orca 적용 방안은 [마이그레이션 연구](../../etc/study/opencode/orca-migration-guide.md)이며 채택된 제품 계약이 아니다.
+Orcinus orca 적용 방안은 [마이그레이션 연구](../../etc/study/opencode/orca-migration-guide.md)이며 채택된 제품 계약이 아니다.
 
 ## 원문 무결성
 
