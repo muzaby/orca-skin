@@ -131,9 +131,16 @@ describe('⑥ 제외 목록 밖의 추적 파일은 전부 읽는다', () => {
       'app/README.md',
       'docs/handoff.md',
       '.agents/skills/handoff-review/SKILL.md',
-      '.agents/skills/a/b/references/c.md'
-    ])
+      '.agents/skills/a/b/references/c.md',
+      // 일치 규칙 (0306 ΔV2): 파일 항목은 경로 전체 · 디렉토리 항목은 맨 앞 · `*` 항목은 맨 앞 고정 · 글자 그대로
+      'README.md.orig',
+      'app/project/x.md',
+      'app/.agents/skills/a/references/c.md',
+      'xagents/skills/a/references/c.md'
+    ]) {
       assert.equal(inScope(path), true, path)
+      assert.equal(run([{ path, text: old }]).length, 3, path)
+    }
   })
 
   test('바이너리는 건너뛴다', () => {
