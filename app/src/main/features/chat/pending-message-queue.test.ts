@@ -768,6 +768,7 @@ describe('retry reopen (canReopenMany / reopenMany)', () => {
     ['another chain', { chainId: 'other' }],
     ['no chain', { chainId: undefined }],
     ['fewer message ids', { ids: ['a'] }],
+    ['more message ids', { ids: ['a', 'b', 'c'] }],
     ['reordered message ids', { ids: ['b', 'a'] }]
   ])('K4 no claim method matches a claim with %s', (_name, patch) => {
     const q = new PendingMessageQueue()
