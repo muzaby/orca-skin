@@ -621,3 +621,5 @@ bootstrap ctx → handlers/misc · chat-turn/resolve-turn · handlers/engine    
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| 1 | `resolve-turn.ts:276` 캐시 없음 오류 분기를 잠그는 테스트 없음 (V11 변이 못 잡음) | VP-12 oracle 칸 · §10 EP-12 | `resolve-turn.runtime-catalog.test.ts`에 읽기 전용 key·캐시 없음 → 오류 케이스 추가, V11 red 확인 | 이행 결함 | BLOCKING · open |
+| 2 | `applyLiveSet` production 호출 0 | — | 보고만 | 비귀속 | NEXT_HANDOFF(독립) 후보 |
