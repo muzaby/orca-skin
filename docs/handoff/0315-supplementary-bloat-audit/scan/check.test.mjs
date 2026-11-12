@@ -102,7 +102,7 @@ test('UT-02 green: 전부 유효한 입력은 위반 0 · 대기 0', () => {
 /** [이름, 기대 규칙, 변이(data) — md 를 직접 바꾸려면 문자열 변환 함수를 반환]. */
 const RED = [
   ['K1 구간 1개 삭제', 'K1', (d) => void d.areas.pop()],
-  ['K1 모르는 구간', 'K1', (d) => void (d.areas[0].id = 'A9')],
+  ['K1 모르는 구간', 'K1', (d) => void (d.areas[0].id = 'A9'), /모르는 구간 A9/],
   ['K1 X8 칸 삭제', 'K1', (d) => void delete d.areas[2].verdicts.X8],
   ['K1 L6 칸 삭제', 'K1', (d) => void delete d.areas[3].verdicts.L6],
   ['K1 값 형식', 'K1', (d) => void (d.areas[2].verdicts.X1 = 'x')],
@@ -123,6 +123,8 @@ const RED = [
   ['K3 모르는 lens', 'K3', (d) => void (d.candidates[0].lens = 'L9')],
   ['K3 모르는 area', 'K3', (d) => void (d.candidates[0].area = 'A9')],
   ['K3 id 중복', 'K3', (d) => void (d.candidates[1].id = 'B-01')],
+  ['K3 id 형식', 'K3', (d) => void (d.candidates[0].id = 'X-1'), /id 형식/],
+  ['K3 모르는 approval', 'K3', (d) => void (d.candidates[0].approval = 'maybe'), /모르는 approval/],
   ['K4 자리 형식', 'K4', (d) => void (d.candidates[0].sites[1] = 'no-line')],
   ['K4 파일 미실재', 'K4', (d) => void (d.candidates[0].sites[1] = 'app/src/none.ts:1')],
   ['K4 줄 초과', 'K4', (d) => void (d.candidates[0].sites[1] = `${A1.file}:99999`)],
@@ -139,7 +141,7 @@ const RED = [
   ['K6 verdict enum 밖', 'K6', (d) => void (d.candidates[0].conditions.perf.verdict = 'x')],
   ['K6 evidence 빈 값', 'K6', (d) => void (d.candidates[0].conditions.ui.evidence = '')],
   ['K7 구간 칸의 유령 ID', 'K7', (d) => void (d.areas[0].verdicts.X3 = ['B-99'])],
-  ['K7 단위의 유령 ID', 'K7', (d) => void (d.units[0].l6 = ['B-99'])],
+  ['K7 단위의 유령 ID', 'K7', (d) => void (d.units[0].l6 = ['B-01', 'B-99']), /단위 A1\/unit_A1 가 없는 후보 B-99/],
   ['K7 구간 칸 area 불일치', 'K7', (d) => void (d.areas[1].verdicts.L6 = ['B-01'])],
   ['K7 단위 area 불일치', 'K7', (d) => void (d.units[1].l6 = ['B-01'])],
   ['K7 범주 불일치', 'K7', (d) => void (d.areas[0].verdicts.X3 = ['B-02'])],
@@ -161,7 +163,7 @@ const RED = [
   ['K10 최상위 미지 키', 'K10', (d) => void (d.x = 1)]
 ]
 
-for (const [name, rule, mutate] of RED) {
+for (const [name, rule, mutate, message] of RED) {
   test(`UT-02 red ${name}`, () => {
     const data = greenData()
     const mdEdit = mutate(data)
@@ -169,11 +171,20 @@ for (const [name, rule, mutate] of RED) {
     if (typeof mdEdit === 'function') assert.notEqual(md, mdOf(greenData()), 'md 변이가 적용되지 않았다')
     const { violations } = run(data, md)
     assert.ok(
-      violations.some((v) => v.startsWith(`${rule}:`)),
+      violations.some((v) => v.startsWith(`${rule}:`) && (message ? message.test(v) : true)),
       `${rule} 위반이 없다: ${JSON.stringify(violations)}`
     )
   })
 }
+
+test('UT-02 red K2 기준 커밋에 구간 파일이 없다', () => {
+  const data = greenData()
+  const { violations } = check(data, {
+    fileAt: (p) => (p === AREAS[5].file ? null : (FILES.get(p) ?? null)),
+    auditMd: mdOf(data)
+  })
+  assert.ok(violations.some((v) => /^K2: 기준 커밋에 .*map\.ts 없음/.test(v)), JSON.stringify(violations))
+})
 
 test('UT-02 hotEntry: null 은 유효하고 진입 심볼도 유효하다', () => {
   const data = greenData()
