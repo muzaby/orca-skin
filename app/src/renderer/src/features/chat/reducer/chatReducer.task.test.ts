@@ -341,4 +341,25 @@ describe('0212 — 라이브 상태 표식 (AT-18·19·26)', () => {
     expect(settled.pausedTaskIds).toEqual([])
     expect(settled.backgroundingTaskIds).toEqual([])
   })
+
+  // 0316 T-01 — 표식마다 다른 값을 넣어 맞바꿈을 가르고, 없던 id 는 참조 보존(셀렉터 memo)을 본다.
+  it('정착은 그 id 만 표식에서 빼고, 없던 id 면 표식 배열 참조를 그대로 둔다', () => {
+    const live: ChatState = {
+      ...initialChatState,
+      stoppingTaskIds: ['s1', 'a1'],
+      pausedTaskIds: ['p1', 'a1'],
+      backgroundingTaskIds: ['g1', 'a1'],
+      backgroundedTaskIds: ['b1', 'a1']
+    }
+    const settled = chatReducer(live, recv(completed('a1')))
+    expect(settled.stoppingTaskIds).toEqual(['s1'])
+    expect(settled.pausedTaskIds).toEqual(['p1'])
+    expect(settled.backgroundingTaskIds).toEqual(['g1'])
+    // 전환 완료 표식은 정착이 건드리지 않는다.
+    expect(settled.backgroundedTaskIds).toBe(live.backgroundedTaskIds)
+    const unrelated = chatReducer(live, recv(completed('zz')))
+    expect(unrelated.stoppingTaskIds).toBe(live.stoppingTaskIds)
+    expect(unrelated.pausedTaskIds).toBe(live.pausedTaskIds)
+    expect(unrelated.backgroundingTaskIds).toBe(live.backgroundingTaskIds)
+  })
 })

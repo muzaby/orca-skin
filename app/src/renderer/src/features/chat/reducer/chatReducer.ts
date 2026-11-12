@@ -1118,12 +1118,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           const stoppingTaskIds = withoutId(state.stoppingTaskIds, ev.toolRunId)
           // 라이브 상태 표식들도 같은 자리에서 끝난다(0212) — 정착한 태스크는 일시정지도
           // 전환 중도 아니다. 배열 identity 는 내용이 안 바뀌면 유지한다(memo 보존).
-          const pausedTaskIds = state.pausedTaskIds.includes(ev.toolRunId)
-            ? state.pausedTaskIds.filter((id) => id !== ev.toolRunId)
-            : state.pausedTaskIds
-          const backgroundingTaskIds = state.backgroundingTaskIds.includes(ev.toolRunId)
-            ? state.backgroundingTaskIds.filter((id) => id !== ev.toolRunId)
-            : state.backgroundingTaskIds
+          const pausedTaskIds = withoutId(state.pausedTaskIds, ev.toolRunId)
+          const backgroundingTaskIds = withoutId(state.backgroundingTaskIds, ev.toolRunId)
           return {
             ...state,
             retry: undefined,
