@@ -23,7 +23,6 @@ import type { TurnContext } from '../../contracts/turn'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { turnPolicyFor, type TurnKind } from './turn-policy'
 import type { BackgroundTaskPort } from './background-tasks'
-import { isAsyncLaunchedPayload } from '../../../shared/subagent'
 import type { BackgroundSessionState } from '../../../shared/background-task'
 import {
   settleOpenToolRuns,
@@ -87,7 +86,7 @@ export interface TurnCoordinatorDeps<W> {
   // 합성 error·turn.retrying·steer.flushed(forward, 영속 안 함).
   persist: TurnPersistSink<W>
   forward: TurnEventSink<W>
-  // 세션 승격 포트 — 새 세션 첫 턴의 pending→bySession 전환만 필요(전체 레지스트리 아님).
+  // 세션 승격 포트 — 새 세션 첫 턴의 pending→세션 키 전환만 필요(전체 레지스트리 아님).
   // 구조적 타입으로 features/sessions 직접 참조를 끊는다(수직 슬라이스 경계, 0062).
   registry: { promote(turn: TurnContext<W>, sessionId: string): void }
   classifyError: (err: unknown, phase: string) => ClassifiedError
@@ -133,12 +132,12 @@ export class TurnCoordinator<W = unknown> {
   // 구독자(history) throw 는 턴 실패로 전파되고 catch 경로가 남은 실행을 `failed` 로 정착한다.
   private readonly streamEmit: TurnEmit<W> = (turn, ev) => this.emit(turn, ev)
 
-  // 보존 판정에 쓸 정본 상태 — 정본이 없는 세션(legacy 추적)은 `undefined` 로 넘겨 백그라운드
-  // 여부를 모른다는 사실을 선별이 알게 한다(D-015). `getState` 는 정본이 없어도 빈 상태를 돌려준다.
+  // 보존 판정에 쓸 정본 상태. 세션 id 가 아직 없으면 물을 대상이 없어 `undefined` 다 — 선별은
+  // 그때 백그라운드 여부를 모른다고 보고 부모 있는 실행을 남긴다. 정본 이벤트를 못 본 세션은
+  // 빈 상태를 받는다.
   private canonicalBackground(turn: TurnContext<W>): BackgroundSessionState | undefined {
     const sessionId = turn.dbSessionId
-    if (!sessionId || !this.deps.backgroundTasks.hasCanonical?.(sessionId)) return undefined
-    return this.deps.backgroundTasks.getState?.(sessionId)
+    return sessionId ? this.deps.backgroundTasks.getState(sessionId) : undefined
   }
 
   cancelSteer(sessionId: string, id: string): boolean {
@@ -286,7 +285,7 @@ export class TurnCoordinator<W = unknown> {
         turn,
         this.settleEmit,
         'aborted',
-        turn.dbSessionId ? this.deps.backgroundTasks.getState?.(turn.dbSessionId) : undefined
+        turn.dbSessionId ? this.deps.backgroundTasks.getState(turn.dbSessionId) : undefined
       )
       try {
         persist.finalizeTurn?.(turn)
@@ -330,15 +329,12 @@ export class TurnCoordinator<W = unknown> {
                 rawEv.type === 'session.updated'
                   ? { ...rawEv, patch: { ...rawEv.patch, agentKind: turn.agentKind } }
                   : rawEv
-              // settled background enrich(0143) — async_launched 영수증이 관측된 태스크의 권위
-              // 정착에 background:true 를 실어 renderer 완료 통지·writer 영속(subagent_notice)의
-              // 권위 신호로 삼는다. 트래커 해제(아래)보다 먼저 판정해야 하며, 해제 후 지각 도착한
-              // 중복 settled 는 관측이 이미 사라져 미부여된다(통지 중복 차단).
+              // settled background enrich(0143) — 정본이 실제 백그라운드로 본 태스크의 권위 정착에
+              // background:true 를 실어 renderer 완료 통지·writer 영속(subagent_notice)의 권위
+              // 신호로 삼는다. 판정은 정본 호출·작업 기록이다(`isAsyncLaunched`).
               //
-              // **사용자가 중단한 태스크는 제외한다**(0143 결정, 0204 §10 EP-06 로 명시 게이트화):
-              // 자기 행위의 완료 통지는 소음이다. 구 경로는 중단 클릭이 트래커를 즉시 해제해
-              // 이 조건이 부수적으로 거짓이 됐지만, 0204 D-005 가 확정까지 추적을 유지하면서
-              // 그 부수 효과가 사라졌다 — stoppedSubagents 를 직접 본다.
+              // **사용자가 중단한 태스크는 제외한다**(0143 결정, 0204 §10 EP-06): 자기 행위의 완료
+              // 통지는 소음이다 — stoppedSubagents 를 직접 본다.
               const ev =
                 coerced.type === 'subagent.task' &&
                 coerced.phase === 'settled' &&
@@ -484,24 +480,8 @@ export class TurnCoordinator<W = unknown> {
                 turn.askPendingIds.push(ev.toolRunId)
                 persist.flushAskAnswers(turn, turn.owner)
               }
-              // 백그라운드 태스크 추적(0136) — started 등록 / settled 해제. chat-turn 턴-후 루프의
-              // listen 턴 개시 조건 소스. foreground 태스크도 started→settled 가 턴 안에서 왕복해
-              // 자연 소거된다.
-              if (ev.type === 'subagent.task' && turn.dbSessionId) {
-                if (ev.phase === 'started') {
-                  this.deps.backgroundTasks.started(turn.dbSessionId, ev.toolUseId)
-                } else if (ev.phase === 'settled') {
-                  this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolUseId)
-                }
-              }
-              // background_tasks_changed 레벨 신호(0212 R-04) — 살아 있는 전량으로 **집합을
-              // 교체**하고, 추적에는 있는데 payload 에 없는 항목을 정착시킨다. edge(started/
-              // settled)를 놓쳐도 "실행 중" 표시가 영구 고착되지 않게 하는 것이 이 신호의 목적이다.
-              // 첫 payload 는 기준선이라 아무것도 정착시키지 않는다(§10 EP-07).
-              //
-              // watchdog(STOP_SETTLE_TIMEOUT_MS)을 대체하지 않는다(D-011) — 레벨은 **채널이 살아
-              // 있을 때만** 오고 watchdog 은 채널이 죽는 축을 막는다. 둘은 직교한다.
-              // Live snapshots are consumed exclusively by the provider lane.
+              // 백그라운드 상태(대기·live 집합·레벨 신호)는 provider 경로가 정본 이벤트로만 만든다.
+              // 여기서는 `subagent.task`·도구 결과로 그 상태를 짐작하지 않는다.
               // 서브에이전트(Task) task_id 매핑 — stopSubagent 가 toolUseId 로 찾는다. 이미 중단
               // 클릭된 서브에이전트면 도착 즉시 라이브 정지.
               if (ev.type === 'subagent.task' && ev.taskId) {
@@ -511,7 +491,7 @@ export class TurnCoordinator<W = unknown> {
                     turn.live,
                     ev.toolUseId,
                     ev.taskId,
-                    // per-task 관측(0143) — 영수증이 확인된 태스크만 backgroundTask 선행을 생략.
+                    // 정본이 백그라운드로 본 태스크만 backgroundTask 선행을 생략한다(0143).
                     turn.dbSessionId
                       ? this.deps.backgroundTasks.isAsyncLaunched(turn.dbSessionId, ev.toolUseId)
                       : false
@@ -534,17 +514,6 @@ export class TurnCoordinator<W = unknown> {
                 )
               } else if (ev.type === 'tool.call.completed') {
                 turn.openToolRuns.delete(ev.toolRunId)
-                // 부모 Task 의 권위 결과(비-런치 영수증) 도착도 정착으로 본다(0136) — foreground
-                // 에이전트가 task_notification 없이 끝나는 경로의 추적 고착 방지. 일반 도구 id 는
-                // 추적에 없어 no-op. 런치 영수증(async_launched)은 아직 실행 중 — 해제하지 않고
-                // **background 확정 관측**으로 기록한다(0143 — stop 분기·settled enrich 의 신호).
-                if (turn.dbSessionId) {
-                  if (isAsyncLaunchedPayload(ev.result)) {
-                    this.deps.backgroundTasks.markAsyncLaunched(turn.dbSessionId, ev.toolRunId)
-                  } else {
-                    this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolRunId)
-                  }
-                }
               }
               // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
               // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).
@@ -590,7 +559,7 @@ export class TurnCoordinator<W = unknown> {
               turn,
               this.settleEmit,
               'failed',
-              turn.dbSessionId ? this.deps.backgroundTasks.getState?.(turn.dbSessionId) : undefined
+              turn.dbSessionId ? this.deps.backgroundTasks.getState(turn.dbSessionId) : undefined
             )
             // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
             log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })

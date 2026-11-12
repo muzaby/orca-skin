@@ -6,12 +6,13 @@ describe('0250 abortResumePolicy', () => {
     expect(abortResumePolicy(undefined)).toEqual({ resume: false })
   })
 
-  it('예약 유지 Stop은 태스크를 중지하고 재개한다', () => {
-    expect(abortResumePolicy('reception')).toEqual({ resume: true, stopTasks: true })
+  // 0314 — 중단은 백그라운드 수신을 보존한다. 정책은 체인 재개 여부만 답한다.
+  it('예약 유지 Stop은 재개한다', () => {
+    expect(abortResumePolicy('reception')).toEqual({ resume: true })
   })
 
-  it('즉시 보내기는 태스크를 유지하고 재개한다', () => {
-    expect(abortResumePolicy('send-now')).toEqual({ resume: true, stopTasks: false })
+  it('즉시 보내기는 재개한다', () => {
+    expect(abortResumePolicy('send-now')).toEqual({ resume: true })
   })
 })
 

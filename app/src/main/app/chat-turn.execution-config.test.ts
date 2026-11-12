@@ -275,14 +275,9 @@ function install(
       disposeAll: vi.fn()
     },
     backgroundTasks: {
-      hasCanonical: vi.fn(() => false),
       hasPending: vi.fn(() => false),
-      hasAny: vi.fn(() => false),
       count: vi.fn(() => 0),
-      ids: vi.fn(() => new Set<string>()),
-      clear: vi.fn(),
-      isAsyncLaunched: vi.fn(() => false),
-      settled: vi.fn()
+      isAsyncLaunched: vi.fn(() => false)
     },
     activity: { setTransport: vi.fn(), setResidualAttempts: vi.fn(), clear: vi.fn() },
     isUpdateInstallPending: () => false,

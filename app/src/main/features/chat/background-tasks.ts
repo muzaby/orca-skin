@@ -1,16 +1,9 @@
-// 세션별 미정착 백그라운드 서브에이전트 추적(0136, 0143 기본화) — CLI 2.1.198+ 는 서브에이전트가
-// 기본 백그라운드로 돌아(런치 영수증 즉시 반환 + 진짜 종료는 task_notification), 메인 턴 result
-// 이후에도 "아직 끝나지 않은 작업" 이 세션에 남는다. chat-turn 의 턴-후 루프가 이 추적을 조회해
-// listen 턴(입력 push 없는 프레임 소비)을 열지 판정한다.
+// 세션별 백그라운드 상태 보관소. 원천은 어댑터가 낸 정본 이벤트(`BackgroundEvent`) 하나이고
+// (`observe` — BackgroundController 가 넘긴다), 여기서는 순수 reducer 로 접은 상태를 세션별로
+// 들고 선택자와 변경 구독만 제공한다. 이벤트를 해석하거나 종료를 지어내지 않는다.
 //
-// 등록/해제는 TurnCoordinator 가 이벤트 루프에서 수행한다: subagent.task started → started,
-// subagent.task settled → settled, 부모 Task 의 권위 tool_result(비-런치 영수증) → settled(벨트).
-// 에지 신호 유실 대비 정리는 호출자(chat-turn) 소관 — 콜드 spawn 전 clear(스폰 = in-process
-// 태스크 소멸), listen 턴이 채널 사망으로 끝나면 합성 정착 후 clear.
-//
-// asyncLaunched(0143): foreground 태스크도 task_started/settled 를 왕복하므로 membership 은
-// background 판별 신호가 아니다 — **async_launched 런치 영수증 관측**(부모 tool_result)만이
-// "실제 백그라운드" 의 정확한 신호다. stopLiveSubagent 분기·settled background enrich 가 읽는다.
+// 정본 이벤트를 한 번도 못 본 세션은 빈 상태다 — 대기 아님 · 개수 0 · isAsyncLaunched false ·
+// waitForTask 즉시 `settled`. 계약 정본은 docs/arch/backend/background-tasks.md.
 
 import {
   applyBackgroundEvent,
@@ -23,25 +16,15 @@ import {
   type BackgroundSessionState
 } from '../../../shared/background-task'
 
+// coordinator 가 트래커에게 요구하는 표면 — 읽기뿐이다.
 export interface BackgroundTaskPort {
-  hasCanonical?(sessionId: string): boolean
-  getState?(sessionId: string): BackgroundSessionState
-  started(sessionId: string, toolUseId: string): void
-  settled(sessionId: string, toolUseId: string): void
-  markAsyncLaunched(sessionId: string, toolUseId: string): void
+  getState(sessionId: string): BackgroundSessionState
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
-  // 레벨 신호 적용 → 정착시켜야 할 id(0212). 판정만 하고 방출은 호출부가 한다.
-  applyLiveSet(sessionId: string, liveIds: readonly string[]): string[]
-}
-
-const EMPTY: ReadonlySet<string> = new Set()
-
-interface TaskState {
-  asyncLaunched: boolean
 }
 
 export class BackgroundTaskTracker implements BackgroundTaskPort {
   private readonly canonical = new Map<string, BackgroundSessionState>()
+  private readonly listeners = new Set<(sessionId: string) => void>()
 
   observe(event: BackgroundEvent): void {
     const previous = this.getState(event.sessionId)
@@ -51,159 +34,58 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     this.changed(event.sessionId)
   }
 
-  getState(sessionId: string): BackgroundSessionState {
-    return this.canonical.get(sessionId) ?? emptyBackgroundState()
-  }
-
-  hasCanonical(sessionId: string): boolean {
-    return this.canonical.has(sessionId)
-  }
-
-  hasPending(sessionId: string): boolean {
-    const state = this.canonical.get(sessionId)
-    return state ? backgroundPending(state) : this.hasAny(sessionId)
-  }
-
   restore(sessionId: string, state: BackgroundSessionState): void {
     if (this.canonical.has(sessionId)) return
     this.canonical.set(sessionId, state)
     this.changed(sessionId)
   }
-  private readonly bySession = new Map<string, Map<string, TaskState>>()
-  private readonly listeners = new Set<(sessionId: string) => void>()
-  // 레벨 신호(background_tasks_changed)의 기준선이 세워진 세션(0212 SD-02). 프로세스 단위
-  // 레벨이라 **시작 시점에는 아무것도 오지 않는다** — 첫 payload 를 받기 전에는 이 신호로
-  // 무엇도 정착시킬 수 없고, 첫 payload 조차 기준선일 뿐이다.
-  private readonly levelEstablished = new Set<string>()
+
+  getState(sessionId: string): BackgroundSessionState {
+    return this.canonical.get(sessionId) ?? emptyBackgroundState()
+  }
+
+  // 복원 가드 전용(BackgroundController) — 선택자는 정본 유무로 경로를 가르지 않는다.
+  hasCanonical(sessionId: string): boolean {
+    return this.canonical.has(sessionId)
+  }
 
   subscribe(listener: (sessionId: string) => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
 
-  started(sessionId: string, toolUseId: string): void {
-    if (this.canonical.has(sessionId)) return
-    let map = this.bySession.get(sessionId)
-    if (!map) {
-      map = new Map()
-      this.bySession.set(sessionId, map)
-    }
-    // 재started(진행 갱신 경합)에도 기존 asyncLaunched 관측을 보존한다.
-    if (!map.has(toolUseId)) {
-      map.set(toolUseId, { asyncLaunched: false })
-      this.changed(sessionId)
-    }
+  // 턴-후 루프의 listen 판정. 표시용 개수(`count`)와 다를 수 있다 — 영수증만 온 호출·중단
+  // 확정 대기는 live 집합 밖에서도 대기다.
+  hasPending(sessionId: string): boolean {
+    return backgroundPending(this.getState(sessionId))
   }
 
-  settled(sessionId: string, toolUseId: string): void {
-    if (this.canonical.has(sessionId)) return
-    const map = this.bySession.get(sessionId)
-    if (!map) return
-    if (!map.delete(toolUseId)) return
-    if (map.size === 0) this.bySession.delete(sessionId)
-    this.changed(sessionId)
-  }
-
-  // 부모 Task tool_result 가 async_launched 런치 영수증으로 도착 — 실제 백그라운드 실행 확정.
-  // 미등록 상태(영수증이 task_started 보다 먼저 관찰되는 순서 역전)에도 등록해 기록한다.
-  markAsyncLaunched(sessionId: string, toolUseId: string): void {
-    if (this.canonical.has(sessionId)) return
-    let map = this.bySession.get(sessionId)
-    if (!map) {
-      map = new Map()
-      this.bySession.set(sessionId, map)
-    }
-    const state = map.get(toolUseId)
-    if (state) {
-      if (state.asyncLaunched) return
-      state.asyncLaunched = true
-    } else map.set(toolUseId, { asyncLaunched: true })
-    this.changed(sessionId)
-  }
-
-  isAsyncLaunched(sessionId: string, toolUseId: string): boolean {
-    const state = this.canonical.get(sessionId)
-    if (state?.generation) {
-      const call = state.calls[backgroundKey(state.generation, toolUseId)]
-      const task = call?.taskId
-        ? state.tasks[backgroundKey(state.generation, call.taskId)]
-        : undefined
-      return (
-        call?.mode === 'background' ||
-        task?.isBackgrounded === true ||
-        task?.liveMembership === 'included'
-      )
-    }
-    return this.bySession.get(sessionId)?.get(toolUseId)?.asyncLaunched === true
-  }
-
-  /**
-   * background_tasks_changed 레벨 신호를 적용하고 **정착시켜야 할 toolUseId 를 돌려준다**
-   * (0212 §10 EP-07). 정착 방출은 `settle.ts` 가 소유하므로 여기서는 판정만 한다 —
-   * 트래커는 electron·버스 비의존을 유지한다.
-   *
-   * 첫 payload 는 **기준선일 뿐 아무것도 정착시키지 않는다.** 프로세스 단위 레벨이라 이 세션의
-   * CLI 가 (재)기동한 직후 살아 있는 태스크가 payload 에 안 실릴 수 있고, 그것을 정착으로 읽으면
-   * 시작 직후 멀쩡히 도는 태스크가 죽는다.
-   *
-   * REPLACE 다 — edge 와 짝지어 읽지 않는다. 반환값은 `추적 중 − payload` 차집합이다.
-   */
-  applyLiveSet(sessionId: string, liveIds: readonly string[]): string[] {
-    const first = !this.levelEstablished.has(sessionId)
-    this.levelEstablished.add(sessionId)
-    if (first) return []
-    const live = new Set(liveIds)
-    const map = this.bySession.get(sessionId)
-    if (!map) return []
-    return [...map.keys()].filter((id) => !live.has(id))
-  }
-
-  // CLI 프로세스 (재)기동 경계 — 레벨을 미확립으로 되돌린다(0212 D-012). 그러지 않으면 구
-  // 프로세스의 집합이 새 프로세스의 태스크를 죽인다. `clear` 가 이 경계를 이미 지나므로
-  // (콜드 spawn 전 정리 · 채널 사망 정착) 거기서도 함께 부른다.
-  resetLevel(sessionId: string): void {
-    this.levelEstablished.delete(sessionId)
-  }
-
-  ids(sessionId: string): ReadonlySet<string> {
-    const state = this.canonical.get(sessionId)
-    if (state)
-      return new Set(
-        Object.values(state.tasks)
-          .filter(
-            (task) =>
-              task.generation === state.generation &&
-              !isBackgroundTerminal(task.status) &&
-              task.toolUseId
-          )
-          .map((task) => task.toolUseId!)
-      )
-    const map = this.bySession.get(sessionId)
-    if (!map || map.size === 0) return EMPTY
-    return new Set(map.keys())
-  }
-
-  // 존재 여부만 필요한 곳(턴-후 루프의 매 반복)이 Set 을 새로 만들지 않게 한다.
-  hasAny(sessionId: string): boolean {
-    const state = this.canonical.get(sessionId)
-    if (state) return backgroundPending(state)
-    const map = this.bySession.get(sessionId)
-    return map !== undefined && map.size > 0
-  }
-
+  // 표시용 live 작업 수 — snapshot(레벨 신호)이 세운 현재 집합에서 ambient 를 뺀 것.
   count(sessionId: string): number {
-    const state = this.canonical.get(sessionId)
-    if (state) return countedBackgroundTaskIds(state).length
-    return this.bySession.get(sessionId)?.size ?? 0
+    return countedBackgroundTaskIds(this.getState(sessionId)).length
   }
 
-  // 특정 태스크가 **정착할 때까지** 기다린다(0204 D-011). 종료 신호는 SDK stream 이 이미 나르는
-  // task_notification(completed/failed/stopped)이고, 그 셋은 전부 `settled` 로 수렴한다 —
-  // 채널 사망/앱 종료의 합성 정착(`clear`)도 같은 자리를 지난다. 주기적 TaskOutput polling 을
-  // 쓰지 않는 이유가 이것이다(명세 §2).
+  // 실제 백그라운드 실행인가 — 현재 세대의 호출 모드, 연결된 작업의 `isBackgrounded`·live 포함
+  // 중 하나로 답한다. 중단 분기(backgroundTask 선행 생략)와 완료 통지 표식이 읽는다.
+  isAsyncLaunched(sessionId: string, toolUseId: string): boolean {
+    const state = this.getState(sessionId)
+    if (!state.generation) return false
+    const call = state.calls[backgroundKey(state.generation, toolUseId)]
+    const task = call?.taskId
+      ? state.tasks[backgroundKey(state.generation, call.taskId)]
+      : undefined
+    return (
+      call?.mode === 'background' ||
+      task?.isBackgrounded === true ||
+      task?.liveMembership === 'included'
+    )
+  }
+
+  // 특정 작업의 **종료 통지를 기다린다**(0204 D-011). 종료는 정본 `background.task` 의 terminal
+  // status 로만 안다 — 주기적 polling 을 쓰지 않는다. 채널이 죽어도 종료를 지어내지 않으므로
+  // 그때는 `timeout` 이고, 상한은 호출부가 소유한다(반드시 준다).
   //
-  // 이미 추적에 없으면 즉시 `settled` — 정착이 먼저 관측된 경합에서 영원히 걸리지 않는다.
-  // `timeoutMs` 는 밀리초이며 호출부가 상한을 소유한다(미지정 = 무기한 대기 없음: 반드시 준다).
+  // 정본이 없는 세션은 기다릴 대상이 없어 즉시 `settled` 다.
   waitForTask(
     sessionId: string,
     toolUseId: string,
@@ -211,7 +93,7 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
   ): Promise<'settled' | 'timeout'> {
     const completed = (): boolean => {
       const state = this.canonical.get(sessionId)
-      if (!state) return !this.bySession.get(sessionId)?.has(toolUseId)
+      if (!state) return true
       const record = Object.values(state.tasks).find(
         (task) => task.generation === state.generation && task.toolUseId === toolUseId
       )
@@ -237,15 +119,8 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     })
   }
 
-  clear(sessionId: string): void {
-    this.resetLevel(sessionId)
-    if (this.bySession.delete(sessionId)) this.changed(sessionId)
-  }
-
   dispose(sessionId: string): void {
     this.canonical.delete(sessionId)
-    this.bySession.delete(sessionId)
-    this.levelEstablished.delete(sessionId)
     this.changed(sessionId)
   }
 

@@ -30,8 +30,7 @@ function assemble(options: { dbSessionId: string | null; queueKey: string }): {
       activity: {} as SessionActivityProjector,
       queueKey: options.queueKey,
       getActiveTurn: () => turn,
-      getInitialBatches: () => batches,
-      settleDeadBackgroundTasks: async () => {}
+      getInitialBatches: () => batches
     },
     { sessionId: options.dbSessionId, text: 'x', cwd: '/w', extensions: { skills: [] } as never }
   )

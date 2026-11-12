@@ -20,9 +20,8 @@ interface RuntimeEntryDeps {
   lease: SessionChainLease<WebContents>
   adapter: RuntimeSessionAdapter
   buildExtensions: () => TurnExtensions
-  settleDeadBackgroundTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
   // 핸들을 **인출한 순간** 호출자에게 공개한다. 반환값으로만 넘기면 이 함수가 그 뒤에서
-  // throw 할 때(확장 조립·미정착 태스크 정착) 호출자의 finally 가 닫을 대상을 못 본다.
+  // throw 할 때(확장 조립) 호출자의 finally 가 닫을 대상을 못 본다.
   // `leaderTurn` 과 같은 축이다 — 등록·인출과 반납 조건 대입이 한 지점이어야 한다.
   onRuntimeAcquired?: (runtime: SessionRuntime) => void
 }
@@ -93,14 +92,6 @@ export async function acquireTurnRuntime(
     )
   ) {
     runtime.teardownChannel()
-  }
-
-  // 0136 — 콜드 spawn 경계 = in-process 백그라운드 태스크 소멸. 이전 채널이 남긴 미정착
-  // 태스크를 정착·정리해 렌더 '실행 중' 고착과 무의미한 listen 턴 개시를 막는다.
-  if (input.sessionId && !runtime.channelAlive) {
-    await deps.settleDeadBackgroundTasks(turn, input.sessionId)
-    // 활성화는 이미 끝났으므로 핸들을 돌려준다 — 호출자의 finally 가 반납한다.
-    if (lease.controller.signal.aborted) return { ok: false, runtime }
   }
 
   return { ok: true, runtime, extensions }

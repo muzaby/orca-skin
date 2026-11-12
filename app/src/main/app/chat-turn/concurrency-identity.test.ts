@@ -5,7 +5,36 @@ import {
 } from '../../../shared/concurrency-order.testfixture'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
+import type { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import { concurrencyFixture } from './concurrency-identity.testfixture'
+
+// 정본 시드 — 어댑터 `providerEvents` 가 들어오는 진입점(`observe`)으로 live 집합을 세운다.
+let backgroundSeedSequence = 0
+function seedLiveBackgroundSnapshot(
+  tracker: BackgroundTaskTracker,
+  sessionId: string,
+  taskIds: string[]
+): void {
+  backgroundSeedSequence += 1
+  tracker.observe({
+    type: 'background.snapshot',
+    sessionId,
+    tasks: taskIds.map((taskId) => ({ taskId })),
+    source: {
+      generation: 'seed',
+      sequence: backgroundSeedSequence,
+      receivedAt: backgroundSeedSequence,
+      replay: false
+    }
+  })
+}
+function seedLiveBackgroundTask(
+  tracker: BackgroundTaskTracker,
+  sessionId: string,
+  taskId: string
+): void {
+  seedLiveBackgroundSnapshot(tracker, sessionId, [taskId])
+}
 
 const terminal: NormalizedEvent = { type: 'telemetry', sessionId: 's1' }
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
@@ -75,14 +104,15 @@ describe('IT-03 coordinator identity snapshots and real Stop/send-now handlers',
   it('listen receives the accounting project but does not enter the tracker', async () => {
     const f = concurrencyFixture()
     const run = vi.spyOn(f.coordinator, 'run')
-    f.backgroundTasks.started('s1', 'background')
+    seedLiveBackgroundTask(f.backgroundTasks, 's1', 'background')
     const running = f.run()
     try {
       f.emit(terminal)
       await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(2))
       expect(run.mock.calls[1][2]).toEqual({ sharedPathProjectId: 'p1', kind: 'listen' })
       expect(f.concurrency).toEqual(expectedLists('P2'))
-      f.backgroundTasks.clear('s1')
+      // 다음 snapshot 에서 빠지면 더는 대기가 아니다 — 중단 뒤 루프가 listen 을 다시 열지 않는다.
+      seedLiveBackgroundSnapshot(f.backgroundTasks, 's1', [])
       await f.stop()
       f.emit(terminal)
       await running
