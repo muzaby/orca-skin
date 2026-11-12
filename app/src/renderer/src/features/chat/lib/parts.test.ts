@@ -408,6 +408,66 @@ describe('parts selectors', () => {
     expect(subagentTasksFromMessages(m)).toBe(before)
   })
 
+  // 0316 T-07 — child 메시지도 같은 캐시 규칙이다. 키는 메시지 배열, 칸은 부모 tool run 마다 하나.
+  const childText = (text: string, parentToolRunId: string): AppMessagePart => ({
+    type: 'text',
+    text,
+    parentToolRunId
+  })
+
+  it('같은 메시지 배열·같은 부모의 child 메시지는 한 번만 만든다', () => {
+    const m = [assistant([agentCall('top-agent'), childText('답', 'top-agent')])]
+    const first = childMessageForParentToolRunId(m, 'top-agent')
+    expect(first?.parts).toEqual([{ type: 'text', text: '답' }])
+    expect(childMessageForParentToolRunId(m, 'top-agent')).toBe(first)
+  })
+
+  it('child 메시지는 부모마다 따로 든다', () => {
+    const m = [
+      assistant([agentCall('a'), agentCall('b'), childText('a 답', 'a'), childText('b 답', 'b')])
+    ]
+    const a = childMessageForParentToolRunId(m, 'a')
+    const b = childMessageForParentToolRunId(m, 'b')
+    expect(a?.parts).toEqual([{ type: 'text', text: 'a 답' }])
+    expect(b?.parts).toEqual([{ type: 'text', text: 'b 답' }])
+    expect(childMessageForParentToolRunId(m, 'a')).toBe(a)
+    expect(childMessageForParentToolRunId(m, 'b')).toBe(b)
+  })
+
+  it('메시지 배열이 바뀌면 child 메시지를 새로 만들고 이전 배열의 칸은 그대로 둔다', () => {
+    const m = [assistant([agentCall('top-agent'), childText('첫 답', 'top-agent')])]
+    const before = childMessageForParentToolRunId(m, 'top-agent')
+    const m2 = [...m, assistant([childText('둘째 답', 'top-agent')])]
+    const after = childMessageForParentToolRunId(m2, 'top-agent')
+    expect(after).not.toBe(before)
+    expect(after?.parts).toEqual([
+      { type: 'text', text: '첫 답' },
+      { type: 'text', text: '둘째 답' }
+    ])
+    expect(childMessageForParentToolRunId(m, 'top-agent')).toBe(before)
+  })
+
+  // `null` 은 `toBe` 로 다시 계산했는지 가를 수 없다 — 파트를 읽은 횟수로 본다.
+  it('child 가 없는 부모(null)도 칸에 들어 다시 전 파트를 돌지 않는다', () => {
+    let reads = 0
+    const parts = [agentCall('top-agent')]
+    const m = [
+      {
+        role: 'assistant' as const,
+        createdAt: 1,
+        get parts() {
+          reads++
+          return parts
+        }
+      }
+    ]
+    expect(childMessageForParentToolRunId(m, 'top-agent')).toBeNull()
+    const afterFirst = reads
+    expect(afterFirst).toBeGreaterThan(0)
+    expect(childMessageForParentToolRunId(m, 'top-agent')).toBeNull()
+    expect(reads).toBe(afterFirst)
+  })
+
   it('isAsyncLaunchedResult 는 백그라운드 launched 결과만 true, deriveSubagentTaskStatus 는 running 으로 본다', () => {
     const launched = {
       output: { status: 'async_launched', agentId: 'agent-1', description: 'x', prompt: 'y' },

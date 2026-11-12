@@ -27,10 +27,7 @@ export function InlineSubagentDetail({
     () => subagentTasksFromMessages(messages, true).find((item) => item.toolUseId === toolRunId),
     [messages, toolRunId]
   )
-  const childMessage = useMemo(
-    () => childMessageForParentToolRunId(messages, toolRunId),
-    [messages, toolRunId]
-  )
+  const childMessage = childMessageForParentToolRunId(messages, toolRunId)
   const meta = useSubagentMeta(toolRunId)
   useEffect(() => {
     let current = true

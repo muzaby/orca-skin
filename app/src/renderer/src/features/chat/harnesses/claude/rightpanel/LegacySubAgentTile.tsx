@@ -136,11 +136,7 @@ export function LegacySubAgentContent(): React.JSX.Element {
     [messages, panel]
   )
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
-  // 전 파트를 도는 조회 — 선택과 메시지가 그대로면 다시 돌지 않는다.
-  const childMessage = useMemo(
-    () => (selectedId ? childMessageForParentToolRunId(messages, selectedId) : null),
-    [messages, selectedId]
-  )
+  const childMessage = selectedId ? childMessageForParentToolRunId(messages, selectedId) : null
   // 진행 중 서브에이전트 상세에서 메인 transcript 와 동일한 프로세싱 표시(StatusLine)를 버블
   // 아래에 띄우기 위한 경과 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각).
   const selectedMeta = useSubagentMeta(selectedId ?? '')
