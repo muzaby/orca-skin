@@ -661,6 +661,50 @@ describe('0243 interruption delivery through real runtime and handlers', () => {
   )
 })
 
+// 0314 EP-02 — 사용자 Stop 의 정착(`interruptResponse`)도 정본 상태로 보존 집합을 판정한다.
+describe('0314 Stop settles open tools against canonical background state', () => {
+  it('정본 백그라운드 호출의 후손은 남기고 나머지 열린 실행만 중단으로 마감한다', async () => {
+    const f = fixture()
+    f.backgroundTasks.observe({
+      type: 'background.call',
+      sessionId: 's1',
+      toolUseId: 'bg',
+      phase: 'returned',
+      patch: { mode: 'background', status: 'async_launched' },
+      source: { generation: 'seed', sequence: 1, receivedAt: 1, replay: false }
+    })
+    const running = f.run()
+    try {
+      f.emit(
+        {
+          type: 'tool.call.started',
+          sessionId: 's1',
+          toolRunId: 'bg-child',
+          toolName: 'Bash',
+          args: {},
+          parentToolRunId: 'bg'
+        },
+        {
+          type: 'tool.call.started',
+          sessionId: 's1',
+          toolRunId: 'plain',
+          toolName: 'Bash',
+          args: {}
+        }
+      )
+      await tick()
+      await f.stop()
+      expect(
+        f.events.flatMap((ev) => (ev.type === 'tool.call.completed' ? [ev.toolRunId] : []))
+      ).toEqual(['plain'])
+      expect([...f.turn.openToolRuns.keys()]).toEqual(['bg-child'])
+    } finally {
+      f.cleanup()
+      await running
+    }
+  })
+})
+
 describe('scheduled reception after Stop', () => {
   it('예약 없이 백그라운드 작업만 기다려도 ready이며 즉시 재개한다', async () => {
     const f = fixture()
@@ -1052,6 +1096,23 @@ describe('0239 — 포그라운드 태스크와 턴 후 판정', () => {
       expect(steps.at(-1)).toMatchObject({ step: 'break', haveTasks: false })
       // 표시 수(`count`)는 판정과 별개 필드다 — live 집합 기준이라 포그라운드는 0 이다.
       expect(steps.at(-1)).toMatchObject({ taskCount: f.backgroundTasks.count('s1') })
+    } finally {
+      setRootLogger(null)
+      f.cleanup()
+      await running
+    }
+  })
+
+  it('0314 — live 집합에 작업이 있으면 listen 을 열고 로그 taskCount 는 그 수다', async () => {
+    const { logger, steps } = spyLogger()
+    setRootLogger(logger)
+    const f = fixture()
+    seedLiveBackgroundTask(f.backgroundTasks, 's1', 'background1')
+    const running = f.run()
+    try {
+      f.emit({ type: 'telemetry', sessionId: 's1' })
+      await tick()
+      expect(steps.at(-1)).toMatchObject({ step: 'listen', haveTasks: true, taskCount: 1 })
     } finally {
       setRootLogger(null)
       f.cleanup()

@@ -6,6 +6,10 @@
 
 `ClaudeBackgroundMapper`는 SDK 메시지를 원본 `provider.message`와 해석된 `BackgroundEvent`로 나눈다. `SessionRuntime`은 이 경로를 일반 턴 프레임과 draining 판정보다 먼저 소비한다. 메인 result·턴 취소·listen 종료는 작업의 종료 증거가 아니다. 프로세스 종료는 연결 상태에 기록한다.
 
+백그라운드 상태의 원천은 정본 이벤트 하나다. Claude(`ClaudeBackgroundMapper`)와 OpenCode(`OpenCodeActivityMapper`)는 하네스 신호를 어댑터 안에서 `BackgroundEvent`로 정규화해 `providerEvents`로만 백그라운드 사실을 낸다. main은 `subagent.task`나 도구 결과로 백그라운드 상태를 추적하지 않는다 — `subagent.task`는 transcript 카드 정착과 중단 요청의 id 상관표에만 쓴다. OpenCode는 child 세션 등록·백그라운드 표시와 같은 호출에서 `background.call`·`background.task`를 낸다.
+
+정본 이벤트를 한 번도 내지 않은 세션은 빈 상태다 — 대기 아님, 개수 0, 백그라운드 판정 false이고 중단 확정 대기는 즉시 끝난다. DEV 전용 mock 어댑터(`adapters/claude/mock*.ts`)는 정본 이벤트를 내지 않으므로 그 세션의 백그라운드 시나리오는 빈 상태로 동작한다.
+
 `HistoryWriter.persistProviderEvent`는 원본과 작업 이벤트를 전용 DB journal에 먼저 커밋한다. 세션 init보다 먼저 온 이벤트는 세션 행 생성까지 보관한다. 원본은 일반 transcript·FTS·wire log·renderer 채널로 전달하지 않는다. 새 프로세스는 별도 generation을 갖고, 재로드된 journal은 과거 이력으로 복원한다.
 
 `BackgroundTaskTracker`의 상태 정본은 shared의 순수 reducer다. taskId, toolUseId, agentId는 서로 다른 식별자다. 명시적 연결이 없는 Agent 실행 영수증은 호출에 남으며 임의 taskId를 만들지 않는다. 최신 전체 snapshot은 첫 수신부터 live 집합을 교체하고 snapshot에만 있는 작업도 표시한다. 집합에서 빠진 사실은 terminal 상태를 만들지 않는다. 비동기 작업의 대기 여부와 비ambient live 개수는 별도로 계산한다. Spark 개수는 shared `countedBackgroundTaskIds`의 길이이며 live 현재성이 미확립이면 빈 집합이다. renderer도 이 집합을 백그라운드 증거로 읽고 과거 관측을 보존한다. live 현재성이 확립된 정상 상태에서는 실행 중 작업 집합과 Spark 집합이 같다. live 포함 전의 실행 영수증, 첫 live 전의 시작·재연결, live 갱신 전의 종료 통지는 일시 차이를 만들 수 있다.
