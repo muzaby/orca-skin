@@ -12,10 +12,10 @@
 | 일자 | 2026-11-12 |
 | 매핑 | 0305 분할안 H-H 3단계(C-34 — 구현) · C-26 중 스위치 4곳(구현) · 후보 39건 종결 장부 |
 | 상태 | READY |
-| V mode | `Baseline V` |
+| V mode | `Baseline V + ΔV1` |
 | 기준 V | `none` — 0231의 백그라운드 V를 상속하지 않는다. 정본 reducer의 기존 동작은 §7-A가 기존 테스트 좌표로 `REGRESSION`에 올린다 |
-| 이번 V revision | `V1 rev.3` — rev.1(구현 없이 종결)·rev.2(mock 매퍼 포함)에 대한 구현·검증은 0회다. 턴 2·턴 3의 사용자 결정으로 다시 썼다 |
-| 유효 V | `V1 rev.3` |
+| 이번 V revision | `ΔV1` — verify 1회째(RETURN_TO_PLAN) D1~D4 정정(§7-B). 사용자 요구 변경이 아니다. `V1 rev.3` — rev.1(구현 없이 종결)·rev.2(mock 매퍼 포함)에 대한 구현·검증은 0회다. 턴 2·턴 3의 사용자 결정으로 다시 썼다 |
+| 유효 V | `V1 rev.3 + ΔV1` |
 | 구현 주체 | Claude (비기능 — 리팩토링. root `AGENTS.md` 협업 워크플로우) |
 | 조사 기준 커밋 | `2479aa4` (`git cat-file -t` → commit · `git merge-base --is-ancestor 2479aa4 origin/main` 성공) |
 
@@ -76,6 +76,8 @@
 | D-021 | child 메시지 파생(`childMessageForParentToolRunId`)의 공유 캐시는 종결이 아니라 후속 handoff로 이월한다 | "종결이 아니라 핸드오프 이월" · "G9가 renderer 변경을 금지하므로 이번 핸드오프에서 고칠 수 없다" | 사용자 | ACTIVE | 장부 C표 · INDEX 후보 표 |
 | D-022 | mock의 정본 전환은 SDK 메시지 층 mock으로 하고 후속 handoff로 둔다. 이번에는 mock 코드를 바꾸지 않는다 | "Mock 매퍼가 claude 매퍼를 손으로 복제한다. 막으려했던 파편화가 mock 안에서 다시 생긴다. sdk층 mock 핸드오프 예정으로 둘 것." | 사용자 | ACTIVE | 장부 C표 · INDEX 후보 표 |
 | D-023 | 구 추적과 스위치 제거는 0314에서 진행한다. 그 사이 mock의 백그라운드 시나리오가 DEV에서 저하되는 것을 받아들인다 | 질의 1 답 "0314에서 제거 진행" | 사용자 | ACTIVE | 저하 범위는 §5 · §10 경계 1 |
+| D-024 | verify 1회째 확장 후보 중 `turn-coordinator.ts:532` 운반 자리(D1)와 tracker `dispose` 통지(D2-a)를 채택한다 — EP-02′ 6자리 고정 · 규칙 D5 | 창 안 확장 후보는 설계자가 채택 또는 경계를 정한다(`docs/handoff/AGENTS.md §판정 범위와 운영 gate`). `:532`는 잠긴 `:414`와 같은 값을 운반하는 형제 자리다. `dispose` 경로는 구현 보고 설계 차이 7(`canonical.get` 부재 판정)이 만든 동작이다 | 설계자 판단 | ACTIVE | §7-B |
+| D-025 | tracker `restore` 가드(D2-b)·`observe` 동치 가드(D2-c)·앱 종료 정착(`bootstrap.ts:946`)은 잠그지 않는다 — 선언 경계 8~10 | production 호출처가 같은 조건을 먼저 검사하거나(`restore`) 구독자가 상태로 멱등이라(`observe`) 관측 출력이 없다. 종료 정착은 이 handoff diff 0이고 스위치가 아니다 | 설계자 판단 | ACTIVE | §7-B · §10 경계 8~10 |
 
 ### 갱신 메모
 
@@ -83,6 +85,8 @@
 - 턴 3 diff: D-006·D-012·D-019를 SUPERSEDED로 바꾸고 D-020~D-023을 더했다. D-011(원칙)은 남는다 — production 어댑터에서 성립하고 mock은 D-022가 후속으로 닫는다.
 - `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-011 ↔ AC5·AC6 · D-013 ↔ AC3 · D-014 ↔ AC4 · D-015·D-023 ↔ AC5·AC6 · D-016 ↔ AC6(`?.(` 9) · D-004·D-010·D-020·D-021·D-022 ↔ AC11 · D-005 ↔ AC8·AC9·AC10 · D-018 ↔ AC9 · D-022 ↔ AC15(mock 파일 diff 0).
 - OPEN 0. 설계자 해석·판단(D-020 · "4곳" 해석 · D-017)은 완료 보고에서 사용자에게 알린다.
+- ΔV1 diff(verify 1회째 뒤): D-024·D-025를 더했다. 대체한 결정 없음 — 사용자 결정 변경이 아니라 창 안 확장 후보 처분과 plan 내부 정합이다.
+- ΔV1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-024 ↔ AC4(규칙 D5 — 24분기) · AC7(EP-02′ `:532` 좌표가 Claude·OpenCode 정착 대상 불변을 잠근다) · D-025 ↔ §10 경계 8~10(AC 의무 없음) · D-017 ↔ AC7′(기대값 변경 허용 범위에 경계 1을 더했다 — D-017을 넓히지 않는다) · D-018 ↔ AC9(ΔV1은 renderer·shared 변경을 요구하지 않는다).
 
 ## 4. 요구 비판적 검토
 
@@ -210,7 +214,7 @@
 ### AC 검증 주의사항
 
 - AC5는 음성 게이트(G7)만으로 닫지 않는다. "정본으로 답한다"는 양성 단언(AC4)과 짝이다 — 구 분기를 지우고 정본 분기까지 깨뜨리면 G7은 green이다.
-- AC7에서 구 API 시드를 정본 시드로 옮길 때 기대값을 고치지 않는다. 기대값이 달라지는 케이스는 D-017(합성 정착 소멸)에 해당할 때만 허용하고 대응표(AC8)에 적는다.
+- AC7에서 구 API 시드를 정본 시드로 옮길 때 기대값을 고치지 않는다. 기대값이 달라지는 케이스는 D-017(합성 정착 소멸)에 해당할 때만 허용하고 대응표(AC8)에 적는다. **→ ΔV1 AC7′(§7-B)가 대체한다.**
 - AC3의 "증명"은 테스트가 열거한 입력 범위의 증명이다. 범위 밖은 §10 경계 3이다.
 - AC1·AC2·AC14는 rev.3에서 삭제했다(mock 전환이 범위에서 빠졌다). 번호는 재사용하지 않는다.
 - 사람 실기 없음. 프로덕션 화면은 바뀌지 않는다(AC9). DEV mock 저하(§5)는 의도된 결과라 실기 대상이 아니다.
@@ -237,8 +241,8 @@
 | Pair | 좌 ↔ 우 | requiredness | production path | 강제 지점 N · oracle | 적대 증거 |
 |---|---|---|---|---|---|
 | VP-03 | MD-03 ↔ UT-03 | REQUIRED | SDK `Event` → `OpenCodeActivity.map` → `providerEvents` | EP-06 — 4자리 · `activity.test.ts` 신규 | required — 0건 주장. (f) `:173` `background.task` push 제거 (g) `:219` `background.call` push 제거 (h) `:112` 완료 통지 push 제거 |
-| VP-04 | MD-01 ↔ UT-04 | REQUIRED | `tracker.observe(events)` → `isAsyncLaunched`·`hasPending`·`count`·`waitForTask` | A1~A6 · B1~B9 · C1~C4 · D1~D4 — 23분기 · §10 좌표 | required — 맞바꿈. (i) A2 `call.mode` 항 제거 (j) A4를 `'excluded'`로 (k) `hasPending`을 `count() > 0`으로 대체 (l) 정본 없음일 때 `waitForTask`를 대기로 |
-| VP-05 | AR-01·AR-02 ↔ IT-02 | REQUIRED | 어댑터 이벤트 → `TurnCoordinator.run` 루프 → emit · tracker 선택자 읽기 | EP-01·EP-02·EP-07 — 4 + 4 + 9자리 · `turn-coordinator.test.ts`(정본 시드) | required — 0건 주장. (m) `canonicalBackground`가 항상 `undefined` 반환 (n) `:347` enrich 조건의 `isAsyncLaunched` 항 제거 |
+| VP-04 | MD-01 ↔ UT-04 | REQUIRED | `tracker.observe(events)` → `isAsyncLaunched`·`hasPending`·`count`·`waitForTask` | A1~A6 · B1~B9 · C1~C4 · D1~D4 — 23분기 · §10 좌표 **→ ΔV1 VP-04′(§7-B) 24분기** | required — 맞바꿈. (i) A2 `call.mode` 항 제거 (j) A4를 `'excluded'`로 (k) `hasPending`을 `count() > 0`으로 대체 (l) 정본 없음일 때 `waitForTask`를 대기로 |
+| VP-05 | AR-01·AR-02 ↔ IT-02 | REQUIRED | 어댑터 이벤트 → `TurnCoordinator.run` 루프 → emit · tracker 선택자 읽기 | EP-01·EP-02·EP-07 — 4 + 4 + 9자리 · `turn-coordinator.test.ts`(정본 시드) **→ ΔV1 VP-05′(§7-B)** | required — 0건 주장. (m) `canonicalBackground`가 항상 `undefined` 반환 (n) `:347` enrich 조건의 `isAsyncLaunched` 항 제거 |
 | VP-06 | SD-01 ↔ ST-01 | REQUIRED | `coordinator.run` 종료 → `runPostTurn` 루프 → `hasPending` → `decidePostTurnStep` → listen/break | EP-03 — 18자리(삭제) · `post-turn.schedules.test.ts` · `chat-turn.returned-input.test.ts` · `concurrency-identity.test.ts` | required — 삭제가 순서를 바꿀 수 있다. (o) `haveTasks`를 `false` 고정 → listen 케이스 red |
 | VP-07 | R-01 ↔ AT-01 | REQUIRED | 사용자 조작 → renderer(불변) → IPC(불변) → main | G9 1자리 · AC7 스위트 | (p) `app/src/renderer` 아래 한 줄 변경 → G9 red |
 | VP-08 | R-02 ↔ AT-02 | REQUIRED | 감사 데이터·후속 plan → `ledger.md` | L1~L5 — 5자리 · G1·G2·G4 | required — 전수 주장. (q) A표 한 행 삭제 (r) 분류 맞바꿈 (s) A-2 귀속 칸 비움 (t) 없는 Decision 좌표 |
@@ -247,6 +251,108 @@
 ### 현재 변경의 운영 gate
 
 §19 G5·G6·G10~G13. `app/**`를 바꾸므로 `app/AGENTS.md` 로컬 확인 목록 전부가 적용된다.
+
+## 7-B. ΔV1 — verify 1회째 정정 (2026-11-12)
+
+판정: verify 1회째 `RETURN_TO_PLAN`의 D1~D4를 닫는다. 확장 후보 2건 채택 · 2건 경계 · plan 정정 2건이다. 사용자 요구 변경이 아니므로 다시 열리는 확장 창은 없다(다음 verify는 2회째로 창 안).
+
+### 처분
+
+| verify # | 분류 | 처분 | 근거 |
+|---|---|---|---|
+| D1 `turn-coordinator.ts:532` | 확장 | 채택(D-024) — EP-02′ 운반 자리를 검색으로 다시 열거해 6자리로 고정, `:532` 좌표 신설 | `:532`는 잠긴 `:414`와 같은 helper 값(`canonicalBackground(turn)`)을 운반하는 형제 자리다. §4 검토 표의 "child 도구 정착 대상" 차이가 그 값에서 갈린다 |
+| D2-a `dispose` 통지 | 확장 | 채택(D-024) — 규칙 D5 | production 호출처 `bootstrap.ts:1239`(세션 삭제 hook). 대기 중 폐기가 즉시 끝나는 것은 `waitForTask`의 `canonical.get` 부재 판정(구현 보고 설계 차이 7)이 만든 동작이다 |
+| D2-b `restore` 가드 | 확장 | 경계 9(D-025) | 유일 호출처가 같은 조건을 동기로 먼저 검사한다(§10 경계 9) |
+| D2-c `observe` 동치 가드 | 확장 | 경계 10(D-025) | 구독자 2곳이 상태로 멱등이다(§10 경계 10) |
+| D3 EP-02·EP-07 좌표 | plan 내부 불일치 | 정정 — EP-02′·EP-07′ 자리별 좌표 | 이번 설계 턴에 자리마다 변이를 심어 red로 관측한 케이스다(아래 두 표, 하네스 실행 후 `git status` 깨끗) |
+| D4 AC7 주의 | plan 내부 불일치 | 정정 — AC7′ | 아래 |
+
+### AC7′ — AC7 주의사항 둘째 문장 대체
+
+AC7에서 구 API 시드를 정본 시드로 옮길 때 기대값을 고치지 않는다. 기대값이 달라지는 케이스는 D-017(합성 정착 소멸) 또는 §10 경계 1(정본 없는 세션은 빈 상태를 받아 열린 child 도구도 정착 대상이 된다)에 해당할 때만 허용하고 대응표(AC8)에 근거를 적는다. AC7의 동작 기준·검증 수단·도달 경로는 그대로다.
+
+### VP-04′ — 규칙 D5 추가 (MD-01 `CHANGED`)
+
+| 분기 | 입력 | 기대 | 좌표 |
+|---|---|---|---|
+| D5 | `waitForTask` 대기 중 그 세션이 `dispose`된다 — 정본에 그 `toolUseId`의 작업이 있고 종료 통지는 없다 | `timeoutMs` 전에 `settled` — 폐기된 세션은 기다릴 대상이 없다 | `background-tasks.test.ts` 신규. `timeoutMs`는 `scaleMs`로 충분히 길게 줘 `timeout`과 구별한다 |
+
+- 분기 수: 24 = A 6 + B 9 + C 4 + D 5.
+- 등록 변이 (u): `background-tasks.ts:124` `dispose`의 `this.changed(sessionId)` 제거 → D5 red. verify 1회째 `X-dispose`(25 green)와 같은 변이다.
+
+### VP-05′ — EP-02′ (EP-02 대체)
+
+규칙은 같다 — 정본 유무로 경로를 가르지 않고 정착 선별은 정본 상태를 받는다. 자리 = 스위치 삭제 4자리(EP-02 그대로 — `gate:G8`) + **정본 상태 운반 6자리**.
+
+- 자리 검색: `rg -n "canonicalBackground\(turn\)|backgroundTasks\.getState\(" app/src/main -g '!*.test.*'` → 6줄.
+- 교차 검산: `rg -n "settleOpenToolRuns\(|settleOrphanToolRuns\(" app/src/main -g '!*.test.*'` → 7호출 = 운반 5(`turn-coordinator.ts:288,414,532,562` · `index.ts:75`) + 제외 2. helper `:140`은 `:414`·`:532`가 받는 값의 원천이라 따로 센다.
+
+| 자리 | 정착 경로 | 직접 oracle 좌표 (`describe > it`) |
+|---|---|---|
+| `turn-coordinator.ts:140` | helper — 세션 id가 있으면 `getState` | `turn-coordinator.test.ts`:"0239 — 결과 없이 끝난 도구 정착 > AC3 경로 — coordinator 는 정본 상태로 보존 집합을 판정한다" · 같은 describe "AC3 경로 — 정본 이벤트가 없는 세션은 빈 상태로 판정해 부모 있는 실행도 정착한다" |
+| `:288` | abort 정착 | `turn-coordinator.test.ts`:"TurnCoordinator — 정본 선택자 소비 자리 (0314) > abort 정착은 정본 백그라운드 호출의 후손을 남기고 나머지 열린 실행만 마감한다" |
+| `:414` | telemetry·error terminal 직전 정착 | `:140`과 같은 두 케이스 |
+| `:532` | terminal 없이 끝난 스트림의 정착 | **신규** — "0239 — 결과 없이 끝난 도구 정착" describe에 2입력(아래) |
+| `:562` | fail 정착 | `turn-coordinator.test.ts`:"TurnCoordinator — 정본 선택자 소비 자리 (0314) > fail 정착은 정본 백그라운드 호출의 후손을 남기고 나머지 열린 실행만 마감한다" |
+| `index.ts:75` | Stop(중단 영수증) 정착 | `post-turn.schedules.test.ts`:"0314 Stop settles open tools against canonical background state > 정본 백그라운드 호출의 후손은 남기고 나머지 열린 실행만 중단으로 마감한다" |
+
+`:532` 신규 좌표의 입력 — 둘 다 스트림이 telemetry·error 없이 끝나고 중단하지 않는다(`AC2 — terminal 없이 끝난 스트림은 합성 telemetry 전에 정착한다`와 같은 진입):
+
+| 입력 | 기대 `forwarded` | 가르는 변이 |
+|---|---|---|
+| (a) tracker에 정본 `background.call` `bg`(`mode:'background'`) · `started('bg-child','bg')` · `started('orphan-child','gone')` | `started:bg-child` · `started:orphan-child` · `completed:orphan-child:no_result` · `telemetry` | 빈 상태 맞바꿈(`bg-child`도 정착) · `undefined`(`orphan-child` 미정착) |
+| (b) 정본 없음 · `started('p')` · `started('child','p')` | `started:p` · `started:child` · `completed:p:no_result` · `completed:child:no_result` · `telemetry` | `undefined`(`child` 미정착) |
+
+제외 2자리 — 정본 상태를 운반하지 않는다:
+
+| 자리 | 제외 근거 |
+|---|---|
+| `turn-coordinator.ts:363` `retracted` | `orphanToolRunIds`가 `retracted`면 background를 보지 않고 지정 id만 고른다(`settle.ts:102-105`) |
+| `bootstrap.ts:946` 앱 종료 | 선언 경계 8 |
+
+등록 변이 — 운반 6자리마다 두 개(⑤ 형제 값 맞바꿈 포함). 자리마다 둘 다 red여야 한다.
+
+| ID | 바꾸는 것 | 이번 설계 턴 관측 |
+|---|---|---|
+| (v) | 운반 값 → `undefined` | `:140` red 2 · `:288` red 1 · `:414` red 2 · `:562` red 1 · `index.ts:75` red 1 · `:532` **green** → 위 신규 좌표 |
+| (w) | 운반 값 → 빈 상태(`emptyBackgroundState()`) | 측정 안 함 — 구현자가 6자리 전부 측정하고 green인 자리는 같은 케이스에 구별 입력을 더한다 |
+
+### VP-05′ — EP-07′ oracle 좌표 (EP-07 oracle 칸 대체)
+
+자리 9개는 EP-07 그대로다. boolean 자리는 두 방향을 둔다. 좌표는 이번 설계 턴에 그 변이로 red가 된 케이스다.
+
+| 자리 | 변이 | 좌표 (`describe > it`) |
+|---|---|---|
+| `turn-coordinator.ts:343` `isAsyncLaunched`(settled enrich) | → `false` | `turn-coordinator.test.ts`:"TurnCoordinator — settled background enrich + listen 회계 (0143) > 정본이 백그라운드로 본 태스크의 settled 는 background:true 로 emit 된다(통지 게이팅)" |
+| 〃 | → `true` | 같은 describe "정본이 포그라운드로 본 태스크와 정본에 없는 태스크의 settled 는 background 미부여" |
+| `turn-coordinator.ts:496` `isAsyncLaunched`(중단 뒤 task id) | → `false` | `turn-coordinator.test.ts`:"TurnCoordinator — 정본 선택자 소비 자리 (0314) > 중단 클릭 뒤 task id 가 도착하면 정본이 background 로 본 태스크는 backgroundTask 선행이 [] 다" |
+| 〃 | → `true` | 같은 describe "중단 클릭 뒤 task id 가 도착하면 정본이 foreground 로 본 태스크는 backgroundTask 선행이 [\"a1\"] 다" |
+| `stop-subagent.ts:77` `isAsyncLaunched` | → `false` | `stop-subagent.test.ts`:"stopSubagentTask — 요청 (AC12·AC16) > 이미 background 로 뜬 태스크는 backgroundTask 선행을 건너뛰고 stopTask 로 직행한다" |
+| 〃 | → `true` | 같은 describe "taskId 미상은 실패가 아니다 — backgroundTask 만 하고 coordinator 에 넘긴다" |
+| `app/chat-turn/post-turn.ts:104` `hasPending` | → `false` | `post-turn.schedules.test.ts`:"0239 — 포그라운드 태스크와 턴 후 판정 > 대조 — 백그라운드 태스크가 남으면 수신을 연다(ready)" |
+| `app/chat-turn/index.ts:162` `hasPending` | → `false` | `post-turn.schedules.test.ts`:"0239 — 포그라운드 태스크와 턴 후 판정 > 대조 — 백그라운드 태스크가 남은 Stop 은 수신을 잇는다(0143)" |
+| `app/chat-turn/post-turn.ts:101` `count` | → `0` | `post-turn.schedules.test.ts`:"0239 — 포그라운드 태스크와 턴 후 판정 > 0314 — live 집합에 작업이 있으면 listen 을 열고 로그 taskCount 는 그 수다" |
+| `session-activity-projector.ts:232` `count` | → `0` | `session-activity-projector.test.ts`:"SessionActivityProjector > foreground·transport·background를 같은 권위 스냅샷에서 계산한다" |
+| `stop-subagent.ts:88` `waitForTask` | → 즉시 `settled` | `stop-subagent.test.ts`:"stopSubagentTask — watchdog (AC15) > 확정이 없으면 확인 불가를 반환하고 실행 결과를 합성하지 않는다" |
+| `background-controller.ts:74` `getState` | → 빈 상태 | `background-controller.test.ts`:"keeps stop ACK distinct from terminal, rejects unknown tasks and never relays raw" |
+
+### ΔV1 pair 변경 요약
+
+| Pair | 변경 | requiredness | 강제 지점 N |
+|---|---|---|---|
+| VP-04′ | 규칙 D5 · 등록 변이 (u) | REQUIRED | 24분기 |
+| VP-05′ | EP-02′(4 + 6자리) · EP-07′ 좌표 · 등록 변이 (v)(w) | REQUIRED | EP-01 8 + EP-02′ 10 + EP-07 9 |
+| VP-03 · VP-06~09 | 변경 없음 | 그대로 | 그대로 |
+
+다음 구현 턴(`r2`)의 의무는 세 가지다 — `:532` 신규 2입력 · 규칙 D5 신규 케이스 · 변이 (u)(v)(w) 실행. production 코드 변경은 요구하지 않는다. 운영 gate는 §19 그대로다(테스트 파일을 고치므로 G10~G13 전부).
+
+### ΔV1 self-review
+
+- 정정 범위: Ledger D-024·D-025 · AC7′ · VP-04′ · VP-05′(EP-02′·EP-07′) · §10 경계 8~10. 원 행은 지우지 않고 "→ ΔV1" 표지로 supersede했다.
+- 분모 고정: EP-02′는 지적된 `:532` 하나가 아니라 검색 명령으로 운반 자리 6을 다시 열거했고, 교차 검산(정착 호출 7 = 운반 5 + 제외 2)과 맞췄다.
+- 규칙 칸 ↔ 입력 칸: D5 1분기 1입력 · `:532` 2입력(빈 상태·`undefined` 둘 다 가른다).
+- 경계 8~10은 판독으로 측정한 사실만 적었다 — 호출처 수·구독자 수는 위 `rg` 출력, 동기·멱등은 인용한 줄이다.
+- AC 게이트: AC7′은 행동 기준이 아니라 허용 범위 문장이고 AC7 행동 기준을 바꾸지 않는다. AC4는 규칙 D가 D5를 포함하므로 문장 변경 없이 넓어진다.
 
 # Part II — Technical Design
 
@@ -398,6 +504,8 @@ B3·B5·B6·B7은 reducer 수준 기존 좌표다(VP-09). tracker 수준에서 `
 | D3 | `waitForTask` — 정본에 그 `toolUseId`의 작업이 있고 종료 통지가 오지 않음 | `timeout` → `stopSubagentTask`가 `onWatchdog` 호출 뒤 reject | `background-tasks.test.ts` 신규(정본 시드) + 기존 `stop-subagent.test.ts` |
 | D4 | `waitForTask` — 정본 없음 / 종료 통지 도착 | 즉시 `settled` / 통지 시 `settled` | `background-tasks.test.ts` 신규 2입력 |
 
+D5(대기 중 세션 폐기)는 ΔV1 §7-B가 더한다.
+
 ### 규칙 O — OpenCode 불변식 입력 (VP-03 · UT `activity.test.ts`)
 
 | 입력 | 기대 |
@@ -416,11 +524,11 @@ O1~O4·O6 뒤 공통 단언: `ownedSessions()`가 돌려주는 child마다 지�
 | ID / pair | 규칙 | 누가 | 언제 강제(자리) | 자리 검색 (`app/src/main`, `-g '!*.test.*'`) | 실패 의미 |
 |---|---|---|---|---|---|
 | EP-01 / VP-05 | main은 normalized 이벤트로 tracker에 쓰지 않는다 | 구현자 | 삭제 4자리 `turn-coordinator.ts:492,494,543,545` + 정리 4자리 `send.ts:507` · `settle.ts:177,180,217` | `rg -n "backgroundTasks\.(started\|settled\|markAsyncLaunched\|clear)\(\|tracker\.(settled\|clear\|ids)\("` → 0 | 원천이 둘로 남는다 |
-| EP-02 / VP-05 | 정본 유무로 경로를 가르지 않는다. `getState`는 필수다 | 구현자 | 스위치 4자리 `settle.ts:176` · `turn-coordinator.ts:140` · `index.ts:78,93` + `getState` 4자리 `turn-coordinator.ts:141,289,593` · `index.ts:112` | `rg -n "hasCanonical"` → 2줄(tracker 정의 · `background-controller.ts:62`) · `rg -n "getState\?\."` → 0 | 죽은 분기가 남거나, child 도구 정착 대상이 달라진다(§4) |
+| EP-02 / VP-05 | 정본 유무로 경로를 가르지 않는다. `getState`는 필수다 | 구현자 | 스위치 4자리 `settle.ts:176` · `turn-coordinator.ts:140` · `index.ts:78,93` + `getState` 4자리 `turn-coordinator.ts:141,289,593` · `index.ts:112` | `rg -n "hasCanonical"` → 2줄(tracker 정의 · `background-controller.ts:62`) · `rg -n "getState\?\."` → 0 | 죽은 분기가 남거나, child 도구 정착 대상이 달라진다(§4). **→ ΔV1 EP-02′(§7-B)가 대체한다** |
 | EP-03 / VP-06 | 합성 정착 deps가 없다 | 구현자 | 18자리 — `index.ts` 4 · `deps.ts` 2 · `runtime-entry.ts` 2 · `post-turn.ts` 4 · `turn-request.ts` 2 · `send.ts` 4 | `rg -n "settleDeadBackgroundTasks\|stopAndSettleAbortedTasks\|settleTrackedTasks\|settleTaskSubset\|stopTasks"` → 0 | 항상 no-op인 호출이 남는다 |
 | EP-04 / VP-04 | tracker에 구 추적 표면이 없다 | 구현자 | `background-tasks.ts` — 멤버 10(`bySession`·`levelEstablished`·`started`·`settled`·`markAsyncLaunched`·`applyLiveSet`·`resetLevel`·`clear`·`ids`·`hasAny`) | `rg -n "bySession\|levelEstablished\|applyLiveSet\|resetLevel\|markAsyncLaunched" features/chat/background-tasks.ts features/chat/turn-coordinator.ts` → 0 | 구 추적이 남는다 |
 | EP-06 / VP-03 | OpenCode의 child 등록·표시는 정본 push와 한 호출에 있다 | (코드 불변) 검증자 | 4자리 — `activity.ts:112,173,219` push · `:169` 표시 | §8 전수 조사 표의 두 명령 | 정본 없는 백그라운드 작업 — 스위치 제거의 동치가 깨진다 |
-| EP-07 / VP-05 | 선택자 소비처는 정본 답을 받는다 | 구현자 | 9자리 — `isAsyncLaunched` 3 · `hasPending` 2 · `count` 2 · `waitForTask` 1 · `controller.state`의 `getState` 1 | §8 표의 세 명령 | 소비처가 낡은 의미를 가정한다 |
+| EP-07 / VP-05 | 선택자 소비처는 정본 답을 받는다 | 구현자 | 9자리 — `isAsyncLaunched` 3 · `hasPending` 2 · `count` 2 · `waitForTask` 1 · `controller.state`의 `getState` 1 | §8 표의 세 명령 | 소비처가 낡은 의미를 가정한다. **oracle 좌표는 ΔV1 EP-07′(§7-B)** |
 | L1~L6 / VP-08 | 장부 완전성(A표 ID·분류 · A-2 집합·배타 귀속 · Decision 실재 · C표 이월 2행 ↔ INDEX 후보 표) | 구현자 | `ledger.md` 표 4개 · `INDEX.md` 후보 표 | G1·G2·G4·G14 | 후보·단계가 귀속 없이 남거나 이월이 보드에서 사라진다 |
 
 ### 선언 경계 — 게이트가 green인 채로 남는 차이
@@ -432,6 +540,9 @@ O1~O4·O6 뒤 공통 단언: `ownedSessions()`가 돌려주는 child마다 지�
 5. D-011의 "모든 하네스가 어댑터 안에서 정본으로 정규화한다"는 Claude·OpenCode에서만 성립한다. mock은 후속 handoff까지 예외다(D-022).
 6. 장부 게이트(G1·G2·G4)는 귀속의 존재와 좌표 실재만 본다. Decision 문장이 그 단계를 가리키는지는 검증자 대조다.
 7. 0307~0313 verify의 PASS는 "기계 범위"다. 장부의 `DONE`은 사람 실기 완료를 뜻하지 않는다 — 장부 머리에 적는다.
+8. (ΔV1) 앱 종료 정착 `bootstrap.ts:946`은 정본 상태를 넘기지 않아 부모 있는 열린 실행을 정착하지 않는다. 이 handoff가 바꾸지 않은 자리이고(`git diff --stat 2479aa4..880abf7 -- app/src/main/app/bootstrap.ts` → 출력 없음) 정본 유무를 묻는 스위치가 아니다 — EP-02′ 제외 자리.
+9. (ΔV1) tracker `restore`의 `has` 가드(`background-tasks.ts:38`)는 잠그지 않는다. 유일 production 호출처(`rg -n "tracker\.restore\(" app/src/main -g '!*.test.*'` → `background-controller.ts:71` 1건)가 같은 조건 `hasCanonical`을 `:62`에서 동기로 먼저 검사한다(`load`는 동기 반환 — `:49`).
+10. (ΔV1) tracker `observe`의 동치 조기 반환(`background-tasks.ts:32`)은 잠그지 않는다. 구독자는 2곳이고(`rg -n "backgroundTasks\.subscribe\(|this\.subscribe\(" app/src/main -g '!*.test.*'` → `session-activity-projector.ts:55` · `background-tasks.ts:112`) 둘 다 상태로 멱등이다 — projector는 같은 스냅샷을 내지 않고(`session-activity-projector.ts:217` `sameActivity`), `waitForTask`는 상태만 읽고 `finish`가 1회다(`background-tasks.ts:104-106`). 판독 근거이며 구독자 쪽 중복 통지 테스트는 없다.
 
 ## 11. 구현 설계
 
@@ -824,3 +935,5 @@ console.log("G14 C표",c,"INDEX 0314 행",i);process.exit(c===2&&i===2?0:1)
 | D2 | `background-tasks.ts` `dispose`의 `changed`(`:123`) · `restore`의 `has` 가드(`:38`) · `observe`의 동치 조기 반환(`:32`) 미잠금 — `X-dispose`·`X-restore`·`X-observe-eq` 25 green | 확장 | `PLAN_GAP` | 설계자: 규칙 칸 추가(채택) 또는 경계 |
 | D3 | §10 EP-02·EP-07 oracle 좌표가 "§8 표의 세 명령"뿐 — 구현자가 보충한 좌표로 닫힘 확인 | plan 내부 불일치 | `PLAN_GAP`(표 정정) | 설계자: 구현 보고 강제 지점 표의 좌표를 §10에 옮긴다 |
 | D4 | AC7 주의사항 "기대값 변경은 D-017만"이 §4 검토 표·경계 1보다 좁다 | plan 내부 불일치 | `PLAN_GAP`(문장 정정) | 설계자: 경계 1에 맞춘다 |
+
+설계자 처분(ΔV1 — §7-B): D1 채택(EP-02′) · D2 `dispose` 채택(규칙 D5) · `restore`·`observe` 경계 9·10 · D3 정정(EP-02′·EP-07′ 좌표) · D4 정정(AC7′). 다음은 구현 턴 `r2`다.
