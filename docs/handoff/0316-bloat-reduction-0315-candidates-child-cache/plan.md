@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-12 |
 | 매핑 | 0315 통과 후보 7건(B-01·B-05·B-06·B-07·B-08·B-09·B-10) · 0314 D-021 이월(child 메시지 파생 캐시) |
-| 상태 | READY |
+| 상태 | READY → impl/IMPL_DONE (r1) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0315의 V는 감사 산출물(검사기) 계약이라 코드 계약을 상속하지 않는다. 0313 요약 캐시 테스트는 VP-07이 회귀로 다시 닫는다 |
 | 이번 V revision | `V1` |
@@ -703,84 +703,121 @@ ChatState.messages ─ parts 캐시 ─ child Message ─ AssistantMessage(memo)
 > **모든 impl 턴(재구현·사용자 요구 변경)이 같은 이름의 필드를 다시 채운다** — 표제(`… (r2)`, 같은 라운드 추가 턴이면 `… (r2.2)`)만 바꾸고 필드와 표의 열을 줄이지 않는다.
 > 해당 없는 필드는 지우지 말고 `해당 없음`으로 남긴다: 빠진 필드는 조사하지 않은 것과 구분되지 않는다(impl §9).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- 동의 / 그대로 진행: Part I·II와 §11 단계 표대로 M1~M4를 묶음마다 커밋했다. 이름은 시제품과 같다(`ClaudeResultWire` · `cachedByMessages` · `deriveChildMessage`).
+- 시제품과 다른 점(주석만): B-10 위 주석 2줄(시제품 1줄) · 캐시 helper의 적중 판정 위 주석 1줄 추가 → M3 −42(시제품 −43) · M4 +9(시제품 +8). 둘 다 AC10(a) 임계 안(M3 ≤ −40 · M4 ≤ +10).
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+검색은 커밋된 HEAD(`git show HEAD:<파일>`)에 돌렸다 — 출력이 §10 "변경 후" 값과 전부 같다(차집합 0).
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | … | … | … | … | … |
+| VP-01 | 정착 표식 해제·참조 보존 | S1 정의 · S2 중단 · S3 일시정지 · S4 전환 중 (4) | 4/4 | EP-01 → 3줄 모두 `withoutId(` · 정의 1. S1 → T-01(무관 id `toBe`) · S2 → `'부모 Task 결과가 도착하면 중단 대기가 풀린다 — …'`·T-01 · S3·S4 → `'정착(부모 Task 권위 결과)이 오면 라이브 표식이 함께 끝난다'`·T-01 | 배열 원천: 표식마다 `['s1'│'p1'│'g1'│'b1','a1']` → 결과 `toEqual`·`toBe` | — |
+| VP-02 | 종료 한 본문 | S1·S2 라벨 · S3 디스패치 · S4 `resetLive` · S5 게이트 (5) | 5/5 | EP-02 → 라벨 240·241 연속 · `resetLive` 1 · 게이트 2(telemetry 포함). S1 → `'pending draft cancel 은 gate 를 …'` · S2·S3·S4 → `'error 는 잔여 라이브 프리뷰를 …'` · S5 → `'init 전 sessionId 없는 error …'`(세션 없음)·T-02 2건(폴백) | 게이트 조건: sessionId 없음 / `'s-unpromoted'`(모르는 id) → `pendingNewChatKey`·전송 수 | — |
+| VP-03 | default 전달 | S1 turn.retrying · S2 chat.activity (2) | 2/2 | EP-03 → `default:` 1줄. S1 → `chatStore.planOwner.test.ts:'다음 queued draft를 …'`(`retry?.attempt` 1) · S2 → `chatStore.listen.test.ts:'transport 스냅샷이 listening 상태를 굴린다'` 외 | 이벤트 type 두 가지 → reducer 상태 | — |
+| VP-04 | 이름 하나로 동행 규칙 | S1 기록 · S2 조회 · S3 편집 판정 · S4 structuredOutput · S5 result · S6 Task 집합 제거 · S7 편집 집합 제거 (7) | 7/7 | EP-04 → 6줄 · 집합 `app/src` 0 · 규칙 7줄. S1·S2 → `map.fileEdit.test.ts` 3건(tool_use 경로) · S3 → `'Edit tool_result 에 structuredPatch 만 …'` · S4 → `'Write/MultiEdit 에는 싣지 않는다 …'`·`'일반 도구도 …(0231)'` · S5 → `'백그라운드 런치 영수증 …(0136)'`·T-04 · S6·S7 → EP-04 음성 0 + `'TaskXXX tool_result 에 SDK 구조화 출력을 …(0204)'`(양성) | 이름: Edit·Write·MultiEdit·Agent·Task·TaskCreate·Read·없음 → `structuredOutput`·`result` | — |
+| VP-05 | wire 선언 한 벌 | S1 선언 · S2 캐스트 · S3 인자 (3) | 3/3 | EP-05 → 필드 3줄 · 캐스트·인자 모두 `ClaudeResultWire`. S1~S3 → `gate: tsc -p tsconfig.node.json`(t01·t02 TS2339) · 런타임 → `'result → telemetry 가 cost·duration·num_turns·캐시 토큰을 정규화한다'` 외 R5 | 선언 필드 제거 → 두 자리의 읽기가 각각 TS2339 | — |
+| VP-06 | 델타 조립 한 벌 | S1·S2 판별 · S3 type · S4 문자열 가드 · S5 child (5) | 5/5 | EP-06 → 5줄. S1·S3 → `'stream_event(text_delta) → message.delta'` · S2 → `'stream_event(thinking_delta) → …'` · S4 → T-06 · S5 → `map.background-metadata.test.ts:'routes child text and thinking deltas to their parent tool'` | 본문 `'hi'`·`'음...'`·`42`·`null` · 부모 `'agent'` | — |
+| VP-07 | 배열 파생 캐시 | S1 칸 확보 · S2 적중 · S3 저장 · S4 child 래퍼 · S5 요약 래퍼 (5) | 5/5 | EP-07 → 4줄. S1·S3 → T-07a·`'같은 메시지 배열의 요약은 한 번만 만든다'` · S2 → T-07d · S4 → T-07a·b·c · S5 → `'중첩 포함 여부마다 따로 든다'` | 배열 identity(같음/새 배열) · 부모 `a`/`b` · `includeNested` 둘 · `parts` getter 읽기 수 | — |
+| VP-08 | 소비처가 캐시 export를 바로 부름 | S1 AgentViews · S2 인라인 상세 · S3 레거시 타일 (3) | 3/3 | EP-08 → 정의 1+호출 3 · 소비처 `useMemo` 0. S1 → T-08a·`Panel.render.test.ts:'renders grouped agents …'` · S2 → T-08b · S3 → `CanonicalBackgroundContent.wiring.test.ts:'구 모델 선택은 상세와 child 대화를 그린다'` | 같은 배열 2회·새 배열 1회 → 반환 identity · child 파트 id `'nested-agent'`/`'none'` | — |
+| VP-09 | 핫패스 연산 수 | S1 이름 조회 · S2 집합 연산 · S3 델타 비교 (3) | 3/3 | EP-09 → 1 · 0 · 2. S1 → `gate:` g01(조회 하나 추가 → red) · S2 → EP-04 집합 0과 같은 술어 · S3 → `gate:` g03(type 재비교 → red) | 조회·비교 개수 | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(verify 전)
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(verify 전).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | T-01 · 위 표 | m01~m05 red · s01 red |
+| VP-02 | REQUIRED | SELF_PASS | T-02 · 위 표 | m06~m11 red |
+| VP-03 | REQUIRED | SELF_PASS | 위 표 | m12·m13 red |
+| VP-04 | REQUIRED | SELF_PASS | T-04 · 위 표 | n01~n07·n13 red · s02·s03 red · s04 동치 |
+| VP-05 | REQUIRED | SELF_PASS | typecheck gate · R5 | t01·t02 red |
+| VP-06 | REQUIRED | SELF_PASS | T-06 · 위 표 | n08~n12·n14 red |
+| VP-07 | REQUIRED | SELF_PASS | T-07a~d · 0313 셋 | c01~c05 red · s05 red |
+| VP-08 | REQUIRED | SELF_PASS | T-08a·T-08b · 위 표 | c06~c08 red · s06 동치 |
+| VP-09 | REQUIRED | SELF_PASS | VP-01~08 좌표 + 기준선 집합 대조 + EP-09 | g01·g03 red |
+| VP-10 | REQUIRED | SELF_BLOCKED | AC10·AC11 측정 통과 | AC12 사람 실기 대기 — 이 환경은 Electron 바이너리를 받지 못한다 |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스 `mutate.py`로 마지막 커밋 트리에 45건을 심었다. 원문은 실제 코드에 재앵커했다(시제품과 문자열이 같아 옮긴 자리 0). 끝난 뒤 `git status` 출력 없음.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | … | … | … |
+| m01 `withoutId` 가드 제거 · m02·m03 일시정지·전환 중 호출 제거 · m04·m05 원천 맞바꿈 | VP-01 선택 증거 | 최초 | 1 · 2 · 2 · 1 · 1 | 잠김 |
+| s01 중단 표식 호출 제거 | sweep — EP-01 S2 | 최초 | 2 | 잠김 |
+| m06·m07 라벨 제거 · m08 폴백 항 · m09 세션 없음 항 · m10 `resetLive` · m11 디스패치 | VP-02 선택 증거 | 최초 | 4 · 3 · 2 · 3 · 2 · 7 | 잠김 |
+| m12 `turn.retrying` 버림 · m13 `chat.activity` 버림 | VP-03 선택 증거 | 최초 | 1 · 14 | 잠김 |
+| n01 판정 false · n02 판정 이름 있으면 true · n03·n04 Write·MultiEdit 항 · n05·n06 Task·Agent 항 · n07 조회 고정 · n13 기록 제거 | VP-04 선택 증거 | 최초 | 3 · 19 · 1 · 1 · 1 · 1 · 6 · 5 | 잠김 |
+| s02 `fileEditPatch` → `null` · s03 structuredOutput의 편집 분기 → `false` | sweep — EP-04 S3·S4 | 최초 | 2 · 3 | 잠김 |
+| s04 `toolName !== undefined && …` → `carriesFileEditPatch(toolName ?? '')` | sweep — EP-04 S3 규칙 분기(가드 제거는 타입 진단 잔여물이라 `?? ''`로 밀었다) | 최초 | 0 (905 green) | 동치 — 술어가 `name === 'Edit'`(`shared/file-edit-tool.ts:23-25`)라 `''`·`undefined`가 같은 결과 |
+| n08 type 맞바꿈 · n09 필드 맞바꿈 · n10 child 전달 제거 · n11 thinking 분기 제거 · n12 문자열 가드 → `!== undefined` · n14 판별 맞바꿈 | VP-06 선택 증거 | 최초 | 2 · 3 · 1 · 2 · 1 · 3 | 잠김 |
+| t01 `num_turns` · t02 `queued_turn_count` 선언 제거 | VP-05 선택 증거 | 최초 | TS2339 (`map.ts:901` · `:810`) | 잠김 |
+| g01 result 규칙에 이름 조회 하나 추가 · g03 type을 다시 비교 | 새 oracle — EP-09 gate 민감도 | 최초 | gate exit 1 · exit 1 | 잠김(테스트는 green인 변화라 gate만 잡는다) |
+| c01 child 캐시 우회 · c02 child 키 붕괴 · c03 적중 truthy · c04 요약 키 붕괴 · c05 저장 제거 | VP-07 선택 증거 | 최초 | 5 · 2 · 1 · 1 · 8 | 잠김 |
+| s05 칸 등록(`cache.set`) 제거 | sweep — EP-07 S1 | 최초 | 8 | 잠김 |
+| c06 인라인 child null · c07 레거시 child null · c08 AgentDetail child null | VP-08 선택 증거 | 최초 | 1 · 1 · 2 | 잠김 |
+| s06 레거시 `selectedId ?` 분기 → `childMessageForParentToolRunId(messages, selectedId ?? '')` | sweep — EP-08 S3 규칙 분기 | 최초 | 0 (996 green) | 동치 — 선택이 없으면 목록을 그려 child를 쓰지 않고, `''`를 부모로 가진 파트는 없다(`readParentToolRunId`가 빈 값을 버린다 · `map.ts:250-253`) |
 
-- **분모 검산**: …
-- **덮개 회귀**: …
+- **분모 검산**: `선택 증거 37 · 인용 변이 0 · 새 oracle 2 · sweep 6 = 표 행 45` — 잡음 43 · 동치 2 · 못 잡음 0.
+- sweep 범위: §10 자리 37개(EP-01~EP-09)마다 위 행 중 하나 이상이 닿는다. EP-04 S6·S7은 지운 자리라 기본 변이 대신 음성 검색 0과 R4-f 양성 단언으로 본다. EP-09 S2는 EP-04 집합 검색과 같은 술어다. 규칙 칸 36행은 §10 좌표의 입력으로 전부 실행된다(새 입력 T-01·T-02·T-04·T-06·T-07·T-08a·T-08b).
+- **덮개 회귀**: 해당 없음 — 이전 verify 없음. 설계 시점 변이 37건은 이번에도 전부 잡음(m08·n05·n12·c01~c03·c06은 설계 시점 못 잡음 → 새 테스트로 잠김).
 
-## [구현자 기입] Product/UX 파생 검토
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 새 문구·상태 0 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — `useMemo`를 걷어도 `childMessage`·`messages`·`selectedId`가 같은 컴포넌트 스코프에 있다 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 0 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 — 종료 이벤트의 대기열 전진은 T-02가 본다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 캐시 키가 배열 identity라 새 커밋(새 배열)은 새로 계산한다 — T-07c | — |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | `normalizeResultTelemetry` 위 기존 주석의 첫 문단이 문장 중간에서 끊긴다(`… modelUsage 키(…)가` 다음 줄이 다른 문장) | ⚠️ 보고만 — 비귀속(이번 diff 밖 기존 상태) | `map.ts` B-09 선언 바로 아래 주석 |
+| 2 | 이월분 helper가 0313 요약 캐시의 저장 꼴(튜플 → `Map`)을 바꿨다 | ✅ plan D-009 그대로 — 0313 테스트 셋 green, c04·c05 red | `parts.test.ts` 0313 세 케이스 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것: 없음(주석 줄 수만 위 설계 리뷰대로 다르다).
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 대체물 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 대체물 없음(공유 캐시는 plan 설계 그대로) | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 | — |
 
-## [구현자 기입] 구현 보고
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님 · 마지막 수정 뒤 실행) | … |
-| **추가·수정 테스트의 subtree 규칙** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
+| 변경 파일 | prod 6: `chatReducer.ts` · `chatStore.ts` · `adapters/claude/map.ts` · `lib/parts.ts` · `InlineSubagentDetail.tsx` · `LegacySubAgentTile.tsx`. test 6: `chatReducer.task.test.ts` · `chatStore.test.ts` · `map.test.ts` · `parts.test.ts` · `InlineSubagentDetail.test.ts` · 신규 `opencode/rightpanel/AgentViews.cache.test.ts` |
+| 실행 명령 | §19 전부 — 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음) · `node --test "scripts/*.test.mjs"` · EP-01~EP-09 · AC10 명령 · `mutate.py` 45건 |
+| **관측한 게이트 산출**(마지막 수정 뒤 실행) | migrations OK(34·2) · doc-inventory OK(링크 해석) · product-naming OK(2,227파일) · test-budgets OK(18) · lint 0 error · 2 warning(변경 전과 같은 `Timeline.tsx`·`useTranscriptVirtualizer.ts`) · lint 뒤 트리 변화 0 · typecheck 3종 exit 0 · `node --test` 868/868 · vitest 944파일 중 실패 68파일·320케이스 · 통과 8,386(기준선 8,376 + 새 케이스 10). 실패 식별자 347행이 기준선(`098acf8`)과 같다(`comm` 양방향 0) — 서명: sqlite 바인딩 162 · Electron 미설치 3 · `C:/` 경로 21 · 기준선과 같은 타임아웃 1 |
+| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only 354fe8a..HEAD -- '*.test.ts'` → 6파일. 추가 줄의 시간 예산·호스트·풀 신호(`timeout`·`setTimeout`·`scaleMs`·`child_process`·`spawn(`·`runGit`·`createRepo`·`better-sqlite3`·`process.env`·`HOME`·`FORCED_IO`·가짜 시계·`Date.now`) 0건 · `check-test-budgets` OK · vitest 출력 `[test-pools]` 0건 · 6파일 모두 실패 목록 밖 |
+| V-pair 자기확인 | `SELF_PASS 9 / SELF_BLOCKED 1`(VP-10 — AC12 실기) |
+| 강제 지점 전수 | 37/37 (EP-01 4 · EP-02 5 · EP-03 2 · EP-04 7 · EP-05 3 · EP-06 5 · EP-07 5 · EP-08 3 · EP-09 3) |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ✅ T-01 green·m01~m05·s01 red · AC2 ✅ T-02 2건·m06~m11 red · AC3 ✅ m12·m13 red · AC4 ✅ EP-04 집합 0·n01~n07·n13·s02·s03 red · AC5 ✅ EP-05 필드 3·t01·t02 red · AC6 ✅ T-06·n08~n12·n14 red · AC7 ✅ T-07 4건·c01~c05·s05 red · AC8 ✅ T-08a·T-08b·c06~c08 red · AC9 ✅ EP-09 1·0·2·g01·g03 red · AC10 ✅ (a) M1 −4 · M2 −13 · M3 −42 · 7건 −59 · M4 +9 (b) prod hunk 26개가 §10 자리·주석·import에만 (c) 커밋 4개의 prod 파일이 묶음 것뿐 (d) 삭제된 `it(` 0 · AC11 ✅ 위 게이트 · AC12 ⚠️ 사람 실기 대기 |
+| **합계 검산** | `✅ 11 · ⚠️ 1 · ❌ 0 = 총 12` — 분모 12는 plan §7과 같다 |
+| 블로커 / 역질문 | 없음. AC12는 사람 실기(§19 (a)~(f)) |
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1)
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가: …
-- 반복해서 부딪히는 환경 한계: …
-- 현재 라운드·impl 턴: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 해당 없음 — 설계 시점에 시제품·변이로 못 잡던 10건을 먼저 찾아 plan에 테스트로 넣었고, 구현 sweep에서 새 못 잡음 0.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리·sqlite 네이티브 바인딩 부재(egress 차단) — vitest 실패 68파일은 변경 전과 같은 집합. AC12 실기를 이 환경에서 못 한다.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 
