@@ -211,7 +211,7 @@ export function SubAgentTaskList({
   backgroundedIds: backgrounded = EMPTY_IDS,
   stopErrors
 }: {
-  tasks: SubagentTaskSummary[]
+  tasks: readonly SubagentTaskSummary[]
   stoppingIds: ReadonlySet<string>
   // 0212 — SDK 가 `paused` 로 말한 집합 / 이미(또는 전환 중) background 인 집합. 기본값을 둬서
   // 기존 렌더 테스트가 인자를 늘리지 않고도 그대로 돈다.
