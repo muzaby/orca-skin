@@ -387,3 +387,162 @@ describe('OpenCode owned activity', () => {
     expect(completed.events.some((value) => value.type === 'turn.ended')).toBe(false)
   })
 })
+
+// 0314 — "백그라운드 작업이 있으면 정본 이벤트가 있다"(plan §10 규칙 O). main 은 정본 없는
+// 세션을 빈 상태로 읽으므로, child 등록·백그라운드 표시가 정본 push 와 한 호출에 있어야 한다.
+describe('OpenCode background invariant (0314 O1~O6)', () => {
+  type Mapped = ReturnType<OpenCodeActivityMapper['map']>
+  function rooted(): OpenCodeActivityMapper {
+    const mapper = new OpenCodeActivityMapper('s1', 'prompt-1')
+    mapper.map(event('message.updated', { sessionID: 's1', info: assistantMessage() }))
+    return mapper
+  }
+  function taskPart(
+    callID: string,
+    status: 'pending' | 'running' | 'error',
+    metadata: Record<string, unknown>
+  ): ReturnType<typeof editTool> {
+    const state =
+      status === 'pending'
+        ? { status, input: {}, raw: '', metadata }
+        : status === 'running'
+          ? { status, input: {}, metadata, time: { start: 1 } }
+          : { status, input: {}, error: 'boom', metadata, time: { start: 1, end: 2 } }
+    return editTool({ tool: 'task', callID, state: state as never })
+  }
+  const update = (mapper: OpenCodeActivityMapper, part: ReturnType<typeof editTool>): Mapped =>
+    mapper.map(event('message.part.updated', { sessionID: 's1', part, time: 1 }))
+  // 공통 단언 — 등록된 child 마다 그 부모 toolUseId 의 `background.call` 이 이미 나왔다.
+  function expectOwnedChildrenHaveCalls(
+    mapper: OpenCodeActivityMapper,
+    seen: Mapped['providerEvents'],
+    parents: Record<string, string>
+  ): void {
+    const children = mapper.ownedSessions().filter((id) => id !== 's1')
+    expect(children.sort()).toEqual(Object.keys(parents).sort())
+    for (const child of children)
+      expect(seen).toContainEqual(
+        expect.objectContaining({ type: 'background.call', toolUseId: parents[child] })
+      )
+  }
+
+  it('O1 — 첫 관측이 백그라운드 task 면 같은 호출이 task started 와 background call 을 낸다', () => {
+    const mapper = rooted()
+    const out = update(mapper, taskPart('t1', 'running', { sessionId: 'c1', background: true }))
+    expect(out.providerEvents).toMatchObject([
+      {
+        type: 'background.task',
+        toolUseId: 't1',
+        phase: 'started',
+        patch: { status: 'running', isBackgrounded: true, agentId: 'c1' }
+      },
+      { type: 'background.call', toolUseId: 't1', patch: { mode: 'background' } }
+    ])
+    expectOwnedChildrenHaveCalls(mapper, out.providerEvents, { c1: 't1' })
+  })
+
+  it('O2 — 포그라운드로 먼저 관측된 child 가 나중에 백그라운드가 되면 그 호출이 task started 를 낸다', () => {
+    const mapper = rooted()
+    const first = update(mapper, taskPart('t1', 'running', { sessionId: 'c1' }))
+    expect(first.providerEvents).toMatchObject([
+      { type: 'background.call', toolUseId: 't1', patch: { mode: 'foreground' } }
+    ])
+    expectOwnedChildrenHaveCalls(mapper, first.providerEvents, { c1: 't1' })
+    const later = update(mapper, taskPart('t1', 'running', { sessionId: 'c1', background: true }))
+    expect(later.providerEvents).toMatchObject([
+      { type: 'background.task', toolUseId: 't1', phase: 'started' },
+      { type: 'background.call', toolUseId: 't1', patch: { mode: 'background' } }
+    ])
+    expectOwnedChildrenHaveCalls(mapper, [...first.providerEvents, ...later.providerEvents], {
+      c1: 't1'
+    })
+  })
+
+  it('O3 — 백그라운드 task 가 error 로 오면 같은 호출이 error 통지를 낸다', () => {
+    const mapper = rooted()
+    const out = update(mapper, taskPart('t1', 'error', { sessionId: 'c1', background: true }))
+    expect(out.providerEvents).toMatchObject([
+      {
+        type: 'background.task',
+        toolUseId: 't1',
+        phase: 'notification',
+        patch: { status: 'error', isBackgrounded: true }
+      },
+      { type: 'background.call', toolUseId: 't1', phase: 'returned' }
+    ])
+    // error 로 정착한 child 는 소유 목록에서 빠진다 — 남은 child 가 없어도 단언은 성립한다.
+    expectOwnedChildrenHaveCalls(mapper, out.providerEvents, {})
+  })
+
+  it('O4 — 백그라운드 bash 는 background call 을 낸다', () => {
+    const mapper = rooted()
+    const out = update(
+      mapper,
+      editTool({
+        tool: 'bash',
+        callID: 'sh1',
+        state: {
+          status: 'running',
+          input: { command: 'npm run dev' },
+          metadata: { background: true },
+          time: { start: 1 }
+        }
+      })
+    )
+    expect(out.providerEvents).toMatchObject([
+      { type: 'background.call', toolUseId: 'sh1', toolName: 'Bash', patch: { mode: 'background' } }
+    ])
+    expectOwnedChildrenHaveCalls(mapper, out.providerEvents, {})
+  })
+
+  it('O5 — pending task 는 child 를 등록하지 않고 정본 이벤트도 내지 않는다', () => {
+    const mapper = rooted()
+    const out = update(mapper, taskPart('t1', 'pending', { sessionId: 'c1', background: true }))
+    expect(out.providerEvents).toEqual([])
+    expect(mapper.ownedSessions()).toEqual(['s1'])
+  })
+
+  it('O6 — 백그라운드 child 의 완료 입력은 그 status 의 통지를 낸다', () => {
+    const mapper = rooted()
+    const launch = update(mapper, taskPart('t1', 'running', { sessionId: 'c1', background: true }))
+    expectOwnedChildrenHaveCalls(mapper, launch.providerEvents, { c1: 't1' })
+    // 완료 입력은 현재 프롬프트 뒤에 온 사용자 메시지의 synthetic 파트로만 받아들인다.
+    for (const [id, created] of [
+      ['prompt-1', 1],
+      ['feed', 3]
+    ] as const)
+      mapper.map(
+        event('message.updated', {
+          sessionID: 's1',
+          info: {
+            id,
+            sessionID: 's1',
+            role: 'user',
+            time: { created },
+            agent: 'build',
+            model: { providerID: 'p', modelID: 'm' }
+          }
+        })
+      )
+    const done = mapper.map(
+      event('message.part.updated', {
+        sessionID: 's1',
+        time: 3,
+        part: textPart('<task id="c1" state="error"><task_result>Nope</task_result></task>', {
+          id: 'feed-part',
+          messageID: 'feed',
+          synthetic: true
+        })
+      })
+    )
+    expect(done.providerEvents).toMatchObject([
+      {
+        type: 'background.task',
+        taskId: 'opencode:["c1","t1"]',
+        toolUseId: 't1',
+        phase: 'notification',
+        patch: { status: 'error', isBackgrounded: true }
+      }
+    ])
+  })
+})
