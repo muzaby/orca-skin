@@ -171,7 +171,12 @@ describe('SessionActivityProjector', () => {
     f.foreground.set('s', 'streaming')
     f.notifyLease('session:s')
     f.projector.setTransport('s', 'listening')
-    f.background.started('s', 'task-1')
+    f.background.observe({
+      type: 'background.snapshot',
+      sessionId: 's',
+      tasks: [{ taskId: 'task-1' }],
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
+    })
     await flush()
 
     expect(f.emitted.at(-1)).toMatchObject({

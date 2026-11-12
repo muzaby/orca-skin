@@ -14,7 +14,7 @@ import type { HostNonExecutionKind } from '../../../shared/tool-outcome'
 
 // 정착에서 제외할 열린 실행 — 현재 세대의 백그라운드·원격 호출, 태스크를 기다리는 호출,
 // live 포함·`isBackgrounded:true` 태스크의 부모 호출과 그 후손(0231). 이들은 턴이 끝나도 계속
-// 실행되므로 합성 결과로 덮지 않는다. 정본 상태가 없으면 아무것도 알 수 없어 빈 집합이다.
+// 실행되므로 합성 결과로 덮지 않는다. 상태를 받지 못하면(세션 id 미확정) 빈 집합이다.
 function preservedToolRuns<W>(
   turn: TurnContext<W>,
   background: BackgroundSessionState | undefined
@@ -89,7 +89,8 @@ export function settleOpenToolRuns<W>(
 
 // 결과 없이 끝난 도구의 host 정착(0239 D-004·D-006·D-015) — 이벤트 종류만 고르는 순수 선별.
 //   no_result  턴 terminal 직전. 보존 집합 밖의 열린 실행을 **부모 상태와 관계없이** 고른다.
-//              정본 상태가 없으면 백그라운드 여부를 알 수 없어 부모 있는 실행은 남긴다.
+//              상태를 받지 못하면(세션 id 미확정) 백그라운드 여부를 알 수 없어 부모 있는
+//              실행은 남긴다.
 //   retracted  SDK 공개 철회 신호가 지목한 id 중 **아직 열린 것만** 고른다. 결과가 이미 온 도구의
 //              실행 사실은 지우지 않는다(D-006).
 export function orphanToolRunIds<W>(
@@ -157,86 +158,11 @@ export function settleSubagentTask<W>(
   }
 }
 
-// 추적 중인 백그라운드 서브에이전트 전체를 한 상태로 정착시킨다(0149 — 구 chat-turn 의
-// settleDeadBackgroundTasks/stopAndSettleAbortedTasks 쌍둥이 통합). 두 경로의 차이는
-// status/summary 와 "실행 중인 태스크를 실제로 중지하는가" 뿐이라 옵션으로 받는다.
-//
-// 합성 settled 는 **두 번** 흘린다: settleSubagentTask 가 부모 Task/열린 child 를 권위
-// tool_result 로 마감하고, 이어지는 emit 이 settled 자체를 버스로 보내 writer 의
-// subagent_notice 영속과 renderer transient 메타 갱신이 라이브 경로와 같은 길을 타게 한다.
-// 이 순서·쌍 방출이 두 경로에서 갈라지지 않도록 여기 한 곳이 소유한다.
-export async function settleTrackedTasks<W>(
-  turn: TurnContext<W>,
-  emit: TurnEmit<W>,
-  sessionId: string,
-  tracker: BackgroundTaskSettleSource,
-  opts: { status: 'failed' | 'stopped'; summary: string; stopLive: boolean }
-): Promise<void> {
-  // Canonical tasks retain their last observed outcome when a channel disappears.
-  if (tracker.hasCanonical?.(sessionId)) return
-  const ids = [...tracker.ids(sessionId)]
-  if (ids.length === 0) return
-  await settleTaskSubset(turn, emit, sessionId, tracker, ids, opts)
-  tracker.clear(sessionId)
-}
-
-/**
- * 추적 중인 태스크 **일부**를 정착시킨다 — 나머지 추적은 그대로 남는다(0212 R-04 레벨 REPLACE).
- * 전량 정착(`settleTrackedTasks`)과 방출 순서·쌍을 공유해야 두 경로가 갈라지지 않으므로 같은
- * 루프를 쓴다. 차이는 마감 범위뿐이다 — 여기서는 `clear` 대신 id 별 `settled` 를 부른다.
- */
-export async function settleTaskSubset<W>(
-  turn: TurnContext<W>,
-  emit: TurnEmit<W>,
-  sessionId: string,
-  tracker: SubsetSettleSource,
-  ids: readonly string[],
-  opts: { status: 'failed' | 'stopped'; summary: string; stopLive: boolean }
-): Promise<void> {
-  for (const toolUseId of ids) {
-    if (opts.stopLive) {
-      await stopLiveSubagent(
-        turn.live,
-        toolUseId,
-        turn.subagentTaskIds.get(toolUseId),
-        tracker.isAsyncLaunched(sessionId, toolUseId)
-      )
-    }
-    const settled = {
-      type: 'subagent.task',
-      sessionId,
-      toolUseId,
-      phase: 'settled',
-      status: opts.status,
-      // 턴-후 루프까지 살아남은 추적 = 백그라운드 대기물(0143) — 완료 통지 게이팅.
-      background: true,
-      summary: opts.summary
-    } as const
-    settleSubagentTask(turn, emit, settled)
-    emit(turn, settled)
-    tracker.settled(sessionId, toolUseId)
-  }
-}
-
-// 부분집합 정착이 트래커에게 요구하는 최소 표면. 대상 id 를 호출부가 주므로 `ids`/`clear` 는
-// 필요 없다 — coordinator 의 `BackgroundTaskPort` 가 그대로 만족한다(구조적 포트).
-interface SubsetSettleSource {
-  isAsyncLaunched(sessionId: string, toolUseId: string): boolean
-  settled(sessionId: string, toolUseId: string): void
-}
-
-// 전량 정착이 요구하는 표면(구현은 BackgroundTaskTracker).
-interface BackgroundTaskSettleSource extends SubsetSettleSource {
-  hasCanonical?(sessionId: string): boolean
-  ids(sessionId: string): ReadonlySet<string>
-  clear(sessionId: string): void
-}
-
 // foreground Task 는 먼저 background control-request 로 루트 턴에서 분리해야 stopTask 가 실제
 // 작업 취소로 이어진다. 이미 background 로 시작된 경우에는 불필요한 backgroundTask 를 건너뛴다.
-// alreadyBackground(0143) — 전역 플래그가 아니라 **per-task async_launched 영수증 관측 여부**
-// (BackgroundTaskTracker.isAsyncLaunched)를 받는다: 관측됨 = 이미 백그라운드 task 로 분리돼
-// stopTask 직행, 미관측(foreground 또는 영수증 이전) = backgroundTask 선행(보수적 현행 동작).
+// alreadyBackground(0143) — 전역 플래그가 아니라 **태스크별 정본 판정**
+// (BackgroundTaskTracker.isAsyncLaunched)을 받는다: 백그라운드 = 이미 분리돼 stopTask 직행,
+// 아니면(foreground 또는 정본 관측 이전) backgroundTask 선행(보수적 현행 동작).
 export async function stopLiveSubagent(
   live: GovernedLiveTurn | null,
   toolUseId: string,

@@ -58,7 +58,6 @@ function makeDeps(runtime: ReturnType<typeof makeRuntime>) {
     buildExtensions: vi.fn(
       () => ({ runtimeTools: { revision: TOOLS_REVISION } }) as unknown as TurnExtensions
     ),
-    settleDeadBackgroundTasks: vi.fn(async () => undefined),
     onRuntimeAcquired: vi.fn()
   }
 }
@@ -112,23 +111,19 @@ describe('acquireTurnRuntime — worktree 소실 폴백은 살아 있는 채널�
   it('폴백 턴이면 teardownChannel 을 정확히 한 번 부른다', async () => {
     const runtime = makeRuntime()
 
-    const deps = await acquire(runtime, { executionCwdRecovered: true })
+    await acquire(runtime, { executionCwdRecovered: true })
 
     expect(runtime.teardownChannel).toHaveBeenCalledOnce()
     expect(runtime.channelAlive).toBe(false)
-    // 0136 — 콜드 spawn 경계에서 미정착 태스크를 정리한다. teardown 이 실제로 일어났다는
-    // 하류 관측이기도 하다(spy 호출만 보면 채널 상태는 안 보인다).
-    expect(deps.settleDeadBackgroundTasks).toHaveBeenCalledOnce()
   })
 
   it('폴백이 아니면 부르지 않는다 — 이 방향이 없으면 항상 내리는 구현도 초록이다', async () => {
     const runtime = makeRuntime()
 
-    const deps = await acquire(runtime, { executionCwdRecovered: false })
+    await acquire(runtime, { executionCwdRecovered: false })
 
     expect(runtime.teardownChannel).not.toHaveBeenCalled()
     expect(runtime.channelAlive).toBe(true)
-    expect(deps.settleDeadBackgroundTasks).not.toHaveBeenCalled()
   })
 
   it('필드가 없으면 폴백이 아닌 것으로 읽는다 — 자동 연속 턴이 그 경로다', async () => {
@@ -158,7 +153,7 @@ describe('acquireTurnRuntime — saved extra directory scope', () => {
         sessionProviderKey: PROVIDER
       })
       expect(runtime.teardownChannel).toHaveBeenCalledTimes(changed ? 1 : 0)
-      expect(deps.settleDeadBackgroundTasks).toHaveBeenCalledTimes(changed ? 1 : 0)
+      expect(runtime.channelAlive).toBe(!changed)
     }
   )
 })

@@ -40,6 +40,34 @@ import { sendChatEvent } from '../../infra/ipc/send'
 import { buildTurnRequest } from './turn-request'
 import { reserveOnBusySession } from './enqueue'
 
+// 정본 시드 — 어댑터 `providerEvents` 가 들어오는 진입점(`observe`)으로 live 집합을 세운다.
+let backgroundSeedSequence = 0
+function seedLiveBackgroundSnapshot(
+  tracker: BackgroundTaskTracker,
+  sessionId: string,
+  taskIds: string[]
+): void {
+  backgroundSeedSequence += 1
+  tracker.observe({
+    type: 'background.snapshot',
+    sessionId,
+    tasks: taskIds.map((taskId) => ({ taskId })),
+    source: {
+      generation: 'seed',
+      sequence: backgroundSeedSequence,
+      receivedAt: backgroundSeedSequence,
+      replay: false
+    }
+  })
+}
+function seedLiveBackgroundTask(
+  tracker: BackgroundTaskTracker,
+  sessionId: string,
+  taskId: string
+): void {
+  seedLiveBackgroundSnapshot(tracker, sessionId, [taskId])
+}
+
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 const schedules = [{ id: 'cron1', schedule: '*/5 * * * *', recurring: true, prompt: 'check' }]
 
@@ -173,8 +201,7 @@ function fixture(options: { activeChain?: boolean } = {}) {
       activity,
       queueKey: 's1',
       getActiveTurn: () => activeTurn,
-      getInitialBatches: () => initialBatches,
-      settleDeadBackgroundTasks: async () => {}
+      getInitialBatches: () => initialBatches
     },
     {
       sessionId: 's1',
@@ -185,7 +212,6 @@ function fixture(options: { activeChain?: boolean } = {}) {
   )
   let beforePrepare: (() => Promise<void>) | undefined
   const listenRelease = new Map<string, () => void>()
-  const stopAndSettleAbortedTasks = vi.fn(async () => {})
   const run = (): Promise<void> =>
     runTurnWithContinuations(
       {
@@ -205,8 +231,6 @@ function fixture(options: { activeChain?: boolean } = {}) {
             shouldRespawn: false
           }
         },
-        settleDeadBackgroundTasks: async () => {},
-        stopAndSettleAbortedTasks,
         getActiveTurn: () => activeTurn,
         setActiveTurn: (next) => {
           activeTurn = next
@@ -232,7 +256,6 @@ function fixture(options: { activeChain?: boolean } = {}) {
     live,
     sendMessage,
     eventsAtPush,
-    stopAndSettleAbortedTasks,
     pushed,
     pendingMessages,
     listenRelease,
@@ -387,7 +410,7 @@ describe('0250 queued input and send now through real runtime and handlers', () 
       for (const action of ['send-now', 'stop'] as const) {
         vi.mocked(sendChatEvent).mockClear()
         const f = fixture()
-        f.backgroundTasks.started('s1', 'background1')
+        seedLiveBackgroundTask(f.backgroundTasks, 's1', 'background1')
         const running = f.run()
         try {
           if (phase === 'listen') {
@@ -409,7 +432,6 @@ describe('0250 queued input and send now through real runtime and handlers', () 
           expect(f.lease.controller.signal.aborted).toBe(false)
           f.emit({ type: 'telemetry', sessionId: 's1' })
           await tick()
-          expect(f.stopAndSettleAbortedTasks).toHaveBeenCalledTimes(action === 'stop' ? 1 : 0)
           expect(f.backgroundTasks.hasPending('s1')).toBe(true)
           expect(f.pushed).toEqual(action === 'send-now' ? ['continue'] : [])
           if (action === 'send-now') {
@@ -451,7 +473,7 @@ describe('0250 queued input and send now through real runtime and handlers', () 
     '0250 subsequent Stop — %s 준비 중 후속 Stop은 즉시 보내기의 태스크 유지 정책을 바꾼다',
     async (step) => {
       const f = fixture()
-      f.backgroundTasks.started('s1', 'background1')
+      seedLiveBackgroundTask(f.backgroundTasks, 's1', 'background1')
       let release!: () => void
       const preparing = new Promise<void>((resolve) => {
         release = resolve
@@ -483,7 +505,6 @@ describe('0250 queued input and send now through real runtime and handlers', () 
         expect(f.lease.controller.signal.aborted).toBe(false)
         release()
         await tick()
-        expect(f.stopAndSettleAbortedTasks).toHaveBeenCalledTimes(1)
         expect(f.active()).not.toBe(f.turn)
         expect(f.active().controller.signal.aborted).toBe(false)
         expect(f.pushed).toEqual([])
@@ -643,7 +664,7 @@ describe('0243 interruption delivery through real runtime and handlers', () => {
 describe('scheduled reception after Stop', () => {
   it('예약 없이 백그라운드 작업만 기다려도 ready이며 즉시 재개한다', async () => {
     const f = fixture()
-    f.backgroundTasks.started('s1', 'background1')
+    seedLiveBackgroundTask(f.backgroundTasks, 's1', 'background1')
     const running = f.run()
     try {
       f.emit({ type: 'telemetry', sessionId: 's1' })

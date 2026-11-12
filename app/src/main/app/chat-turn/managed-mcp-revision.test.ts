@@ -75,8 +75,7 @@ it.each(['opencode', 'claude'] as const)(
       adapter,
       buildExtensions: build,
       supervisor: { acquireRuntime: () => runtime, activateChain: () => true },
-      lease: { leaseId: 'distinct-lease', controller: new AbortController() },
-      settleDeadBackgroundTasks: vi.fn(async () => {})
+      lease: { leaseId: 'distinct-lease', controller: new AbortController() }
     } as unknown as Parameters<typeof acquireTurnRuntime>[0]
     const prepared = { envFingerprint: '', runtimeEnvFingerprint: undefined }
     const input = {
@@ -202,8 +201,7 @@ it('applies new revisions to user and continuation turns', async () => {
     adapter,
     buildExtensions: build,
     supervisor: { acquireRuntime: () => runtime, activateChain: () => true },
-    lease: { leaseId: 'lease', controller: new AbortController() },
-    settleDeadBackgroundTasks: vi.fn(async () => {})
+    lease: { leaseId: 'lease', controller: new AbortController() }
   } as unknown as Parameters<typeof acquireTurnRuntime>[0]
   const prepared = { runtimeEnvFingerprint: undefined, envFingerprint: '' }
   const input = {

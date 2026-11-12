@@ -211,8 +211,7 @@ function admission(
       activity,
       queueKey,
       getActiveTurn: () => activeTurn,
-      getInitialBatches: () => [batch],
-      settleDeadBackgroundTasks: async () => {}
+      getInitialBatches: () => [batch]
     },
     {
       sessionId,

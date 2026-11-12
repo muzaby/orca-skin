@@ -5,7 +5,7 @@
 //
 //   요청 → (renderer '중단 중') → stopTask → task_notification(stopped) → 정착 → '중단됨'
 //        ↘ 요청 실패(throw) → renderer '진행 중' 복구 + 사유
-//        ↘ 확정 없음 → watchdog 이 합성 정착 → '중단됨' (고착 없음)
+//        ↘ 확정 없음 → watchdog 발화 후 reject → renderer '진행 중' 복구 (합성 정착 없음)
 //
 // app 컴포지션 루트가 아니라 여기 사는 이유: 이 흐름은 배선이 아니라 판정이고, IPC 없이
 // 단위 테스트할 수 있어야 한다(`src/main/AGENTS.md §작업 규칙 1`).
@@ -21,7 +21,6 @@ export const STOP_SETTLE_TIMEOUT_MS = 15_000
 // 이 흐름이 트래커에게 요구하는 최소 표면(구조적 포트 — 구현은 BackgroundTaskTracker).
 export interface StopSubagentTracker {
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
-  settled(sessionId: string, toolUseId: string): void
   waitForTask(
     sessionId: string,
     toolUseId: string,
@@ -57,7 +56,7 @@ async function requestLiveSubagentStop(
 }
 
 /**
- * 중단 요청 → 확정 대기 → (필요 시) watchdog 합성 정착.
+ * 중단 요청 → 확정 대기 → 확정이 없으면 watchdog 발화 뒤 reject.
  *
  * throw 하면 요청 자체가 실패한 것이다 — 호출부(IPC 핸들러)는 그대로 reject 해 renderer 가
  * '진행 중' 으로 복구하게 한다. 중단 표식(`stoppedSubagents`·`blockedSubagents`)도 되돌린다:
@@ -74,7 +73,7 @@ export async function stopSubagentTask<W>(
   if (subagentType) turn.blockedSubagents.add(subagentType)
   turn.stoppedSubagents.add(toolUseId)
   const sessionId = turn.dbSessionId ?? req.sessionId
-  // per-task background 관측(0143) — 정착이 관측까지 지우므로 **정착 전에** 읽는다.
+  // 태스크별 백그라운드 판정(0143) — 정본 호출·작업 기록이 답한다.
   const alreadyBackground = deps.tracker.isAsyncLaunched(sessionId, toolUseId)
 
   try {

@@ -147,7 +147,6 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
     isUpdateInstallPending: () => false,
     background: { observe: vi.fn() },
     listenRelease: new Map(),
-    settleDeadBackgroundTasks: vi.fn(),
     worktrees: {
       hasManagedWorktree: () => false,
       prepare: vi.fn(),
