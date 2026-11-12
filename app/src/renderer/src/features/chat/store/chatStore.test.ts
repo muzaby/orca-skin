@@ -586,6 +586,29 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     ).toEqual(['A', 'B', 'C'])
   })
 
+  // 0316 T-02 — sessionId 가 있어도 아직 승격 전이면 pending draft 로 폴백한다(pendingFallback).
+  // 그 종료도 게이트를 풀어야 한다 — 풀지 않으면 대기 중 새 채팅 전송이 영영 나가지 않는다.
+  it.each([
+    {
+      type: 'error' as const,
+      sessionId: 's-unpromoted',
+      error: { category: 'stream_error' as const, message: 'fallback boom', retryable: true }
+    },
+    { type: 'turn.aborted' as const, sessionId: 's-unpromoted', reason: 'user_cancelled' as const }
+  ])('승격 전 낯선 sessionId 의 $type 도 pending draft 로 폴백해 큐를 진행한다', (terminal) => {
+    mockDraftIds('a', 'b')
+    chatActions.send('A')
+    chatActions.newChat()
+    chatActions.send('B')
+
+    ingestChatEvent(terminal)
+
+    const st = useChatStore.getState()
+    expect(st.pendingNewChatKey).toBe('draft:b')
+    expect(chatSend).toHaveBeenCalledTimes(2)
+    expect(st.sessions['draft:a'].session.inflight).toBe(false)
+  })
+
   it('init 전 sessionId 없는 error 는 pending draft 에 라우팅하고 큐를 진행한다', () => {
     mockDraftIds('a', 'b')
     chatActions.send('A')

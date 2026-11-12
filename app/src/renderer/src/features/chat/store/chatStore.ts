@@ -773,10 +773,6 @@ function receive(ev: NormalizedEvent): void {
       patchLive(key, (live) => (live.reasoning !== '' ? { ...live, reasoning: '' } : live))
       return
 
-    case 'turn.retrying':
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      return
-
     case 'subagent.task':
       // 우측 패널·AgentTaskRow 표시용 transient 메타 흡수 + **백그라운드 완료 통지**(0143) —
       // settled+background(main 권위 게이팅)만 reducer 로 넘겨 subagent_notice 파트를 커밋한다
@@ -850,10 +846,6 @@ function receive(ev: NormalizedEvent): void {
         ...(ev.origin ? { origin: ev.origin } : {}),
         ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
       })
-      return
-
-    case 'chat.activity':
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       return
 
     case 'session.schedules':
@@ -943,11 +935,6 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'turn.aborted':
-      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      resetLive(key)
-      if (!evSessionId || pendingFallback) releaseNewChatGate(key)
-      return
-
     case 'error':
       // 턴 중단 — 미완 라이브 프리뷰는 커밋하지 않고 버린다(기존 동작 동형).
       // 폴백 라우팅(승격 실패)으로 끝난 턴도 새-채팅 게이트를 해제한다(r2).
