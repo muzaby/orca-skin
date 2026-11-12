@@ -925,6 +925,102 @@ console.log("G14 C표",c,"INDEX 0314 행",i);process.exit(c===2&&i===2?0:1)
 - 환경 한계: Electron 바이너리 다운로드 차단(20파일 import 실패) · Linux에서 Windows 경로 가정 테스트 9파일 실패. 두 서명 모두 변경 전후 같다.
 - 변이 하나(`pt-delete`)가 동기 무한 루프를 만들어 하네스 기본 타임아웃(900초)을 다 썼다. 이후 실행은 `--timeout 120`을 줬다.
 
+## [구현자 기입] 설계 리뷰 — r2
+
+판정: ΔV1(§7-B)대로 구현했다. `PLAN_GAP` 0 · 선조치 1 · 설계 대비 차이 1.
+
+| # | 분류 | 무엇을 봤나 | 처리 |
+|---|---|---|---|
+| 1 | 설계 대비 차이(변이 표기) | 등록 변이 (w) "빈 상태(`emptyBackgroundState()`)"는 `turn-coordinator.ts`·`index.ts`에 import가 없어 그대로 심으면 타입 오류 잔여물이 생긴다 | 같은 값을 내는 `backgroundTasks.getState('__none__')`(정본 없는 세션 → `emptyBackgroundState()`, `background-tasks.ts:44`)로 심었다 |
+| 2 | 선조치(D5 관측) | D5를 `resolves.toBe('settled')`로 쓰면 `dispose` 통지가 없어도 `timeout`이 끝날 때까지 기다린다 | 마이크로태스크 한 번 뒤의 `outcome`을 단언해 timeout과 시간으로도 구별한다 |
+
+설계 대비 차이 1의 실패 모드 재유도 — 만료·공유·재진입·다른 무효화 모두 해당 없음: 변이 값 표기만 바꿨고 production 코드는 바꾸지 않았다(`git diff --stat -- app/src ':!*.test.*'` → 출력 없음).
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r2
+
+판정: ΔV1이 바꾼 VP-04′·VP-05′를 닫았다. 나머지 행은 r1 표 그대로이고 좌표를 재실행으로 확인했다(아래 잠금 표 ④).
+
+| ID / pair | §10이 적은 지점 | 닫은 수 | 검색 재실행 ↔ 목록 차집합 | 직접 oracle 좌표 | 자기 상태 |
+|---|---|---|---|---|---|
+| EP-01 / VP-05 | 쓰기 4 + 정리 4 | 8/8 | `rg` → 0줄(r1과 같음) | `gate:G7` | SELF_PASS |
+| EP-02′ / VP-05′ | 스위치 4 + 운반 6 | 10/10 | 운반 검색 → 6줄(`index.ts:75` · `turn-coordinator.ts:140,288,414,532,562`) · 정착 호출 7 = 운반 5 + 제외 2. 차집합 ∅ | 스위치: `gate:G8`. 운반: §7-B EP-02′ 표 좌표 + `:532` 신규 2케이스 "AC3 경로 — terminal 없이 끝난 스트림도 정본 상태로 보존 집합을 판정한다" · "…정본 없는 세션은 부모 있는 실행도 정착한다" | SELF_PASS |
+| EP-03 / VP-06 | 18자리 | 18/18 | `rg` → 0줄 | `gate:G7` | SELF_PASS |
+| EP-04 / VP-04′ | 멤버 10 | 10/10 | `rg` → 0줄 | `gate:G7` | SELF_PASS |
+| EP-06 / VP-03 | 4자리(코드 불변) | 4/4 | 변경 없음 | `activity.test.ts` O1~O6(r1) | SELF_PASS |
+| EP-07 / VP-05′ | 9자리 | 9/9 | r1과 같음 | §7-B EP-07′ 표 좌표 | SELF_PASS |
+| L1~L6 / VP-08 | 장부 표 4 + INDEX 후보 표 | 5/5 | 장부·후보 표 변경 없음 | `gate:G1·G2·G4·G14`(r1) | SELF_PASS |
+
+규칙 칸 분기(VP-04′) 24/24 — r1 23분기 + D5 "D5 — 대기 중 세션이 폐기되면 timeout 전에 settled 다"(`background-tasks.test.ts`). 남긴 곳: 없음. VP-09는 `app/src/shared` diff 0으로 SELF_PASS.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 — r2
+
+판정: 변이 22개 전부 잡음. `mutate.py` 실행 뒤 `# 원복 확인: 모든 파일 원문 그대로` · `git status`는 테스트 2파일만 수정.
+
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 | 출처 |
+|---|---|---|---|---|---|
+| u | `background-tasks.ts:124` `dispose`의 `changed` | 제거 | 잡음(1) | D5 | 등록 VP-04′ · verify `X-dispose` |
+| v140 · w140 | `turn-coordinator.ts:140` helper | 빈 값 · 맞바꿈(빈 상태) | 잡음(4 · 2) | AC3 경로 4케이스 / "coordinator 는 정본 상태로…" · ":532 (a)" | 등록 VP-05′ |
+| v288 · w288 | `:288` abort 정착 | 빈 값 · 맞바꿈 | 잡음(1 · 1) | "abort 정착은 정본 백그라운드 호출의 후손을…" | 등록 VP-05′ |
+| v414 · w414 | `:414` terminal 직전 정착 | 빈 값 · 맞바꿈 | 잡음(2 · 1) | AC3 경로 기존 2케이스 | 등록 VP-05′ |
+| v532 · w532 | `:532` terminal 없는 스트림 정착 | 빈 값 · 맞바꿈 | 잡음(2 · 1) | 신규 2케이스 / (a) | 등록 VP-05′ · verify `n532` |
+| v562 · w562 | `:562` fail 정착 | 빈 값 · 맞바꿈 | 잡음(1 · 1) | "fail 정착은…" | 등록 VP-05′ |
+| vidx75 · widx75 | `index.ts:75` Stop 정착 | 빈 값 · 맞바꿈 | 잡음(1 · 1) | `post-turn.schedules.test.ts` "정본 백그라운드 호출의 후손은 남기고…" | 등록 VP-05′ |
+| i · j · k · l · A3 · W-rec · X-count-swap | `background-tasks.ts` 선택자 | verify r1 행 그대로 | 잡음(2·1·6·2·1·1·7) | 규칙 A·B·C·D | ④ — oracle 파일 `background-tasks.test.ts` 수정 |
+| n343F · n496F | `turn-coordinator.ts:343,496` | 고정값 `false` | 잡음(2 · 1) | EP-07′ 표 좌표 | ④ — oracle 파일 `turn-coordinator.test.ts` 수정 |
+
+검산: `선택 증거 13(u · v·w × 6) · 인용 변이 2(X-dispose = u · n532 = v532 — 선택 증거와 같은 행) · 새 oracle 0 · ④ 재실행 9 = 표 변이 22`(13 + 9). sweep: 이번 diff는 테스트만 추가해 새 규칙 칸 구현 자리가 없다 — ΔV1 열거 항목(D5 · 운반 6자리)은 위 등록 변이가 곧 기본 변이(제거·맞바꿈)다. 경계 9·10 행(`X-restore`·`X-observe-eq`)은 의무 아님 — 돌리지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 — r2
+
+판정: 해당 없음 — production 코드 diff 0, 테스트 3케이스 추가뿐이다. 새 문구·상태·실패 경로 없음.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
+
+| # | 분류 | 발견 | 대응 |
+|---|---|---|---|
+| 1 | 비귀속 | D5 변이 상태에서 `waitForTask` 타이머(`scaleMs(1_000)`)는 테스트 끝 뒤에도 남아 resolve된다 — `unref`라 프로세스를 붙잡지 않는다(`background-tasks.ts:118`) | 고치지 않는다. 정상 코드에서는 `finish`가 타이머를 지운다 |
+| 2 | 다중 저장 | 판정 사본은 `plan.md` 이 절과 INDEX 행 두 곳이다 | 둘 다 이번 턴에 갱신했다 |
+
+## [구현자 기입] 구현 보고 — r2
+
+판정: `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12`(AC3~AC13·AC15 — 분모는 r1과 같다. ΔV1은 AC를 더하지 않았고 AC7은 주의사항만 AC7′로 바뀌었다).
+
+| AC | 상태 | 이번 턴 관측 |
+|---|---|---|
+| AC3 | ✅ | `activity.test.ts` 전체 vitest에서 green(코드·테스트 불변) |
+| AC4 | ✅ | `background-tasks.test.ts` 26/26 · 규칙 24분기 · 변이 u·i·j·k·l red |
+| AC5 | ✅ | G7 `rg` 3개 → 0줄 |
+| AC6 | ✅ | G8 `hasCanonical` 2줄 · `?.(` 9 |
+| AC7 | ✅ | `turn-coordinator.test.ts` 86/86 · EP-02′ 변이 12개 red · 기대값 변경 0(신규 케이스만) |
+| AC8 | ✅ | 이번 턴 삭제 케이스 0(`git diff -- '*.test.*' | grep -c '^-  it('` → 0) |
+| AC9 | ✅ | G9 출력 없음 |
+| AC10 | ✅ | production diff 0 |
+| AC11 | ✅ | 장부·INDEX 후보 표 변경 없음 — r1 G1·G2·G4·G14 결과 유지 |
+| AC12 | ✅ | 문서 변경 없음 · G5 `links ok` |
+| AC13 | ✅ | 아래 게이트 |
+| AC15 | ✅ | G15 출력 없음 |
+
+게이트(마지막 수정 뒤 트리):
+
+| ID | 관측 |
+|---|---|
+| G5 | `check-doc-inventory --check` — `links ok` |
+| G10 | lint 0 error · 2 warning(renderer 기존) — 트리 변화 없음 · typecheck `error TS` 0 |
+| G11 | append-only ok · `product-naming OK — 2226파일` · `test-budgets 18 real-git suites ok · all budget sites scaled` |
+| G12 | 필터 없는 `vitest run` — 943파일 중 29 failed · 22 failed 케이스 · 총 8827(r1 8824 + 3). 실패 파일 집합은 r1 verify 실행과 `diff` 0줄 — Electron 미설치 20 · Windows 경로 가정 9 |
+| G13 | `node --test scripts/*.test.mjs` 868 pass · 0 fail |
+
+테스트 소스 규칙(수정 2파일 `background-tasks.test.ts` · `turn-coordinator.test.ts`): `test-budgets` 위반 0(신규 `timeoutMs`는 `scaleMs(1_000)`) · vitest 로그 `test-pools` 0건 · 새 io 신호 0.
+
+커밋: 테스트 · 구현 보고 — (r2 구현 — 좌표는 INDEX).
+
+## [구현자 기입] Review Signals — 사실만 — r2
+
+- 라운드·턴: r2(round 2 첫 impl 턴). verify 1회.
+- 이번에 닫은 것은 verify 1회째 확장 후보 채택 2건(`n532`·`X-dispose`)이다 — r1의 같은 축(정본 상태 운반 자리) 중 형제 자리 하나가 비어 있었다.
+- 막았어야 할 plan 지침: V1 EP-02가 운반 자리를 helper와 `getState` 줄로만 열거했고 helper 호출처를 세지 않았다(ΔV1이 검색으로 고정).
+- 환경 한계: r1과 같다(Electron 바이너리 차단 · Windows 경로 가정).
+
 ## [검증자 기입] 파생 이슈
 
 ### verify 1회째 — RETURN_TO_PLAN (`verify.md` §13 이관)
