@@ -115,7 +115,7 @@ export function backgroundTaskDisplay(
 export function projectLegacyBackgroundPanel(
   tasks: readonly SubagentTaskSummary[],
   panel?: BackgroundPanelState
-): SubagentTaskSummary[] {
+): readonly SubagentTaskSummary[] {
   return tasks.filter((task) => !panel?.dismissedLegacy?.includes(task.toolUseId))
 }
 

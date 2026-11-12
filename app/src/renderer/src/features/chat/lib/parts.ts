@@ -290,10 +290,40 @@ export function subagentTaskDescription(
   return undefined
 }
 
+// 요약 캐시 — 메시지 배열 identity 가 키다(0313 D-013). 소비처들이 이미 `useMemo([messages])` 로
+// 같은 identity 를 무효화 기준으로 쓴다. 칸은 `includeNested` 값마다 하나([최상위만, 중첩 포함]).
+// WeakMap 이라 배열이 버려지면 항목도 함께 사라진다 — 상한·명시 정리가 필요 없다.
+type SubagentTaskCacheEntry = [
+  top?: readonly SubagentTaskSummary[],
+  nested?: readonly SubagentTaskSummary[]
+]
+const subagentTaskCache = new WeakMap<readonly Message[], SubagentTaskCacheEntry>()
+
+// 서브에이전트 요약(SSOT). 전 파트를 여러 번 도는 파생이라 같은 메시지 배열에는 한 번만 계산한다 —
+// 화면에 뜬 소비처(에이전트 행·인라인 상세·타일·패널)가 같은 결과 배열을 함께 든다. 그래서
+// 반환은 읽기 전용이다(D-012): 한 곳이 고치면 다른 화면이 바뀐다.
 export function subagentTasksFromMessages(
-  messages: Message[],
+  messages: readonly Message[],
   includeNested = false
-): SubagentTaskSummary[] {
+): readonly SubagentTaskSummary[] {
+  let entry = subagentTaskCache.get(messages)
+  if (!entry) {
+    entry = []
+    subagentTaskCache.set(messages, entry)
+  }
+  const slot = includeNested ? 1 : 0
+  const cached = entry[slot]
+  if (cached) return cached
+  // 계산 뒤에 저장한다 — 파생이 던지면 칸은 빈 채로 남는다.
+  const derived = deriveSubagentTasks(messages, includeNested)
+  entry[slot] = derived
+  return derived
+}
+
+function deriveSubagentTasks(
+  messages: readonly Message[],
+  includeNested: boolean
+): readonly SubagentTaskSummary[] {
   const allParts = messages.flatMap((m) => m.parts)
   const resultByRun = resultMap(allParts)
   // 최상위 tool_call → 그 파트가 속한 메시지의 createdAt. flatMap 은 메시지 경계를 잃으므로
