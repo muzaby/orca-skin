@@ -6,6 +6,10 @@ import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { selectBackgroundItem, useBackgroundStore } from '../../../store/backgroundStore'
 import { useChatStore } from '../../../store/chatStore'
 import { chatApi } from '../../../../../shared/api/ipc'
+import { TranscriptRuntimeProvider } from '../../common/transcript/TranscriptRuntime'
+import { assistantRuntime } from '../../registries/assistant'
+import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../../lib/parts'
+import type { Message } from '../../../reducer/chatReducer'
 import {
   applyBackgroundEvent,
   backgroundKey,
@@ -39,6 +43,17 @@ vi.mock('react/jsx-dev-runtime', async (original) => {
       harness.nodes.push({ type: args[0], props: args[1] as Props })
       return actual.jsxDEV(...args)
     }
+  }
+})
+
+// 0313 AC2 — 구 모델 파생의 호출 횟수를 센다. 실제 구현을 그대로 통과시키므로 기존 케이스의
+// 동작은 같다. 타일은 이 export 를 부르므로 실행 구간 안이다.
+vi.mock('../../../lib/parts', async (original) => {
+  const actual = await original<typeof import('../../../lib/parts')>()
+  return {
+    ...actual,
+    subagentTasksFromMessages: vi.fn(actual.subagentTasksFromMessages),
+    childMessageForParentToolRunId: vi.fn(actual.childMessageForParentToolRunId)
   }
 })
 
@@ -86,12 +101,46 @@ function render(header = false, legacy = false): string {
   backgroundInitial.panels = useBackgroundStore.getState().panels
   chatInitial.sessions = useChatStore.getState().sessions
   chatInitial.activeKey = useChatStore.getState().activeKey
+  // production 조립(`RightPanel`)과 같은 runtime 을 준다 — 구 모델 상세가 child 대화를 그릴 때 읽는다.
   return renderToStaticMarkup(
     createElement(
-      header ? SubAgentTileHeader : legacy ? SubAgentTileContent : CanonicalBackgroundContent
+      TranscriptRuntimeProvider,
+      { value: assistantRuntime('claude') },
+      createElement(
+        header ? SubAgentTileHeader : legacy ? SubAgentTileContent : CanonicalBackgroundContent
+      )
     )
   )
 }
+
+// 구 모델 메시지와 선택을 심는다 — 새 배열을 대입한다(요약 캐시의 키는 배열 identity).
+function seedLegacy(messages: Message[], selectedSubagentTaskId: string | null): void {
+  useChatStore.setState((store) => ({
+    sessions: {
+      ...store.sessions,
+      [sessionId]: {
+        ...store.sessions[sessionId],
+        session: { ...store.sessions[sessionId].session, messages, selectedSubagentTaskId }
+      }
+    }
+  }))
+}
+
+const legacyDetail: Message[] = [
+  {
+    role: 'assistant',
+    createdAt: 1,
+    parts: [
+      {
+        type: 'tool_call',
+        toolRunId: 'legacy-detail-id',
+        toolName: 'Agent',
+        args: { description: 'legacy detail' }
+      },
+      { type: 'text', text: 'child body', parentToolRunId: 'legacy-detail-id' }
+    ]
+  }
+]
 
 function node(type: string, field: string, value: unknown): Props {
   const match = harness.nodes.find((item) => item.type === type && item.props[field] === value)
@@ -221,6 +270,44 @@ describe('canonical background production callbacks', () => {
     expect(JSON.stringify(useChatStore.getState().sessions[sessionId].session.messages)).toBe(
       original
     )
+  })
+  it('정본으로 그릴 때 구 모델 요약을 계산하지 않는다', () => {
+    seed(withTask())
+    // 구 모델 에이전트와 그 선택이 남아 있어도 정본 화면은 그것을 읽지 않는다.
+    seedLegacy(legacyDetail, 'legacy-detail-id')
+    const canonicalOnly = render()
+    vi.mocked(subagentTasksFromMessages).mockClear()
+    vi.mocked(childMessageForParentToolRunId).mockClear()
+    const body = render(false, true)
+    expect(body).toBe(canonicalOnly)
+    expect(body).toContain(`data-background-task="${taskId}"`)
+    expect(body).not.toContain('child body')
+    const header = render(true)
+    expect(header).toContain('백그라운드 작업')
+    expect(header).not.toContain('aria-label="목록으로"')
+    expect(header).not.toContain('legacy detail')
+    expect(subagentTasksFromMessages).not.toHaveBeenCalled()
+    expect(childMessageForParentToolRunId).not.toHaveBeenCalled()
+  })
+  it('구 모델 선택은 상세와 child 대화를 그린다', () => {
+    seed(emptyBackgroundState())
+    seedLegacy(legacyDetail, 'legacy-detail-id')
+    const body = render(false, true)
+    expect(body).toContain('child body')
+    expect(body).not.toContain('data-background-group=')
+    const header = render(true)
+    expect(header).toContain('aria-label="목록으로"')
+    expect(header).toContain('legacy detail')
+    // 정본 view 자체가 없는 세션도 같은 구 모델 화면이다(view 가 비어 있는 것과 다른 입력).
+    useBackgroundStore.setState({ sessions: {} })
+    expect(render(false, true)).toBe(body)
+    expect(render(true)).toBe(header)
+    // 선택이 없으면 같은 메시지로 목록과 기본 제목이 뜬다 — 상세 분기와 구별되는 입력.
+    seedLegacy(legacyDetail, null)
+    const list = render(false, true)
+    expect(list).toContain('data-background-group="running"')
+    expect(list).not.toContain('child body')
+    expect(render(true)).not.toContain('aria-label="목록으로"')
   })
   it('independently collapses the two groups and clears only terminal cards through the real controls', () => {
     const state = applyBackgroundEvent(withTask(), {
