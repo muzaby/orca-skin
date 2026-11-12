@@ -580,33 +580,239 @@ G3은 rev.1의 `app/**` diff 0 게이트였고 D-003과 함께 폐기했다(G9�
 
 ---
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 — r1
 
-(구현 턴에 기입)
+판정: 설계대로 구현했다. `PLAN_GAP` 0. 선조치 6건 · 설계 대비 차이 2건 · 검증자/설계자 확인 요청 2건을 아래에 적는다.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+| # | 분류 | 무엇을 봤나 | 처리 |
+|---|---|---|---|
+| 1 | 선조치(검색 술어) | EP-04 검색이 무관한 주석 1줄에 걸렸다 — 조사 기준 커밋의 `turn-coordinator.ts:89` "pending→bySession 전환"(세션 승격 포트 설명) | 주석을 "pending→세션 키 전환"으로 고쳤다. 지금 EP-04 `rg` → 0줄 |
+| 2 | 선조치(분모) | §8 "구 API를 쓰는 테스트 5파일"은 `f.background.started(`(`session-activity-projector.test.ts:174`)와 deps fake 키를 세지 않았다 | 손댄 테스트 소스는 22파일이다(`git diff --name-only 2479aa4 -- 'app/**/*.test.*' 'app/**/*.testfixture.*'` → 22) |
+| 3 | 선조치(이름) | plan의 `OpenCodeActivity`는 실제 클래스 `OpenCodeActivityMapper`다(`activity.ts:53`) | 테스트·문서에 실제 이름을 썼다 |
+| 4 | 선조치(귀결) | 합성 정착 deps를 지우면 `buildTurnRequest`의 `onChannelRetired` 콜백 본문이 빈다 | 콜백을 지웠다. `TurnRequest.onChannelRetired`(선택)와 `session-runtime.ts:847` 호출은 남는다 — 아래 파생 6 |
+| 5 | 선조치(죽은 줄) | `post-turn.ts` 재개 블록의 `await`가 사라져 뒤따르던 `if (lease.controller.signal.aborted) break`가 while 조건 직후라 도달 불가다 | 함께 지웠다. `delete activeTurn.abortContinuation`은 남겼다 |
+| 6 | 선조치(D2 좌표) | 규칙 D2의 기존 케이스가 있다 | `background-controller.test.ts`:"turns an individual stop ACK without terminal evidence into an explicit unconfirmed state" |
+| 7 | 설계 대비 차이 | `waitForTask`의 "정본 없음" 판정을 `getState().generation`이 아니라 `canonical.get()` 부재로 뒀다 | replay 이벤트만 본 세션(정본 항목은 있고 `generation` 없음)은 변경 전에 대기였다. `generation`으로 가르면 그 세션이 즉시 `settled`로 바뀐다 — 프로덕션 동작 보존을 골랐다 |
+| 8 | 설계 대비 차이 | M0 커밋은 테스트만, 정본 읽기 자리 6곳의 잠금은 M2 커밋에 들어갔다 | sweep이 M1 뒤에 `못 잡음`을 냈기 때문이다(잠금 표) |
+| 9 | 확인 요청 | AC7 주의사항은 기대값 변경을 D-017에만 허용한다. `turn-coordinator.test.ts`의 0239 "정본이 없으면 부모 있는 실행은 두고…" 케이스는 스위치 제거로 기대값이 바뀐다(`completed:child:no_result` 추가) | §4 검토 표와 §10 경계 1이 적은 귀결이라 기대값을 바꾸고 케이스명을 고쳤다. AC7 주의사항 문장이 경계 1보다 좁다 |
+| 10 | 확인 요청 | "추적 해제 후 지각 도착한 중복 settled 는 background 미부여" 케이스는 구 추적의 해제 부수효과를 단언했다 | 지웠다(대응표 T8). 정본 세션에서는 0231부터 이 억제가 없다 — 정본은 종료 뒤에도 `isAsyncLaunched`가 true다 |
 
-(구현 턴에 기입)
+설계 대비 차이 7의 실패 모드 재유도:
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+| 축 | 대체물(`canonical.get` 부재)에만 있는 실패 모드 | 다시 확인한 행 |
+|---|---|---|
+| 만료 | 해당 없음 — 항목은 `dispose`에서만 지워진다(`background-tasks.ts:122`) | — |
+| 공유 | `restore`가 넣은 상태도 "정본 있음"이다. 그 세션의 `waitForTask`는 종료 증거를 요구한다 | D3·D4(`background-tasks.test.ts`) — 변경 전과 같은 분기 |
+| 재진입 | 해당 없음 — 동기 판정이다 | — |
+| 다른 무효화 | 대기 중 `dispose`가 오면 `changed`가 불려 `completed()`가 true가 된다(정본 없음) | 변경 전에도 `!state` 분기로 같았다. 직접 케이스는 없다(남긴 곳 아님 — §10 밖) |
 
-(구현 턴에 기입)
+## [구현자 기입] 강제 지점 전수 (§10 대조) — r1
 
-## [구현자 기입] Product/UX 파생 검토
+판정: 7행 전부 닫았다. 자리 수는 §10의 검색 명령을 다시 돌려 셌다(`app/src/main`, `-g '!*.test.*'`).
 
-(구현 턴에 기입)
+| ID / pair | §10이 적은 지점 | 닫은 수 | 검색 재실행 ↔ 목록 차집합 | 직접 oracle 좌표 | 자기 상태 |
+|---|---|---|---|---|---|
+| EP-01 / VP-05 | 쓰기 4 + 정리 4 | 8/8 | `rg` → 0줄. 차집합 ∅ | `gate:G7` + `turn-coordinator.test.ts`:"subagent.task·런치 영수증·권위 결과는 tracker 상태를 만들지 않는다" | SELF_PASS |
+| EP-02 / VP-05 | 스위치 4 + `getState` 4 | 8/8 | `hasCanonical` → 2줄(`background-tasks.ts:48` · `background-controller.ts:62`) · `getState\?\.` → 0 · `?.(` → 9 | `gate:G8` + 자리별: `:140` → "AC3 경로 — 정본 이벤트가 없는 세션은 빈 상태로 판정해…" · `:288`·`:562` → "abort/fail 정착은 정본 백그라운드 호출의 후손을 남기고…"(`it.each` 2) · `index.ts:75` → `post-turn.schedules.test.ts`:"정본 백그라운드 호출의 후손은 남기고 나머지 열린 실행만 중단으로 마감한다" | SELF_PASS |
+| EP-03 / VP-06 | 18자리(삭제) | 18/18 | `rg` → 0줄. 차집합 ∅ | `gate:G7` + `post-turn.schedules.test.ts` · `chat-turn.returned-input.test.ts` · `concurrency-identity.test.ts` 전건 green | SELF_PASS |
+| EP-04 / VP-04 | 멤버 10 | 10/10 | `rg` → 0줄(설계 리뷰 1의 주석 정정 뒤) | `gate:G7` + 규칙 A~D 케이스(아래 행) | SELF_PASS |
+| EP-06 / VP-03 | 4자리(코드 불변) | 4/4 | push 3(`activity.ts:112,173,219`) · 등록 1 · 표시 1 — 목록과 같음 | `activity.test.ts` "OpenCode background invariant (0314 O1~O6)" 6케이스 | SELF_PASS |
+| EP-07 / VP-05 | 9자리 | 9/9 | `isAsyncLaunched` 호출 3(`turn-coordinator.ts:343,496` · `stop-subagent.ts:77`) · `hasPending` 2(`post-turn.ts:104` · `index.ts:162`) · `count` 2(`post-turn.ts:101` · `session-activity-projector.ts:232`) · `waitForTask` 1(`stop-subagent.ts:88`) · `controller.state` 1(`background-controller.ts:74`). `settle.ts:202`는 함수와 함께 삭제 | 자리마다 변이 red(잠금 표 EP07-*) — 케이스명은 잠금 표 | SELF_PASS |
+| L1~L6 / VP-08 | 장부 표 4 + INDEX 후보 표 | 5/5 | G1 `39 14/9/16 위반 0` · G2 `58 위반 0` · G4 `좌표 35 위반 0` · G14 `C표 2 · INDEX 2` | `gate:G1·G2·G4·G14`(명령 전문은 구현 보고) | SELF_PASS |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+규칙 칸 분기(VP-04) — 23분기 전부 입력이 있다:
 
-(구현 턴에 기입)
+| 규칙 | 좌표 (`features/chat/background-tasks.test.ts` — 표시 없으면 신규) |
+|---|---|
+| A1~A6 | "규칙 A — …" 6케이스. A4는 포함 → true와 제외 → false를 한 케이스에서 본다 |
+| B1·B2·B4·B8·B9 | "규칙 B — …" B1 · "B4 → B2" · B8 · B9(`it.each` requested·acknowledged) |
+| B3·B5·B6·B7 | plan이 든 `shared/background-task.test.ts` 기존 4케이스 + tracker 진입 케이스 3개(B3 · B5 · "B6 · B7")를 더했다 |
+| C1~C4 | "규칙 C — …" 4케이스 |
+| D1·D3·D4 | "규칙 D — …" D1 · D3 · D4 3케이스(정본 없음 · 통지 도착 · 다른 세션/작업) |
+| D2 | `background-controller.test.ts` 기존 케이스(설계 리뷰 6) |
 
-## [구현자 기입] 구현 보고
+남긴 곳: 없음. pair 자기 상태 — VP-03·04·05·06·07·08 `SELF_PASS`, VP-09(REGRESSION)는 `app/src/shared` diff 0 + `shared/background-task.test.ts` green으로 `SELF_PASS`.
 
-(구현 턴에 기입 — `삭제 케이스 대응표`(AC8) 포함)
+## [구현자 기입] 이번 라운드 수정의 잠금 — r1
 
-## [구현자 기입] Review Signals — 사실만
+판정: 변이 49개 중 잡음 47 · 동치 1 · 중단 1. 처음에 `못 잡음`이던 6개는 테스트를 더해 다시 돌려 red를 봤다. 하네스는 `mutate.py`(vitest 대상) + 장부 변이용 인라인 스크립트이고 끝난 뒤 `git status`는 깨끗했다.
 
-(구현 턴에 기입)
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 / 비고 | 출처 |
+|---|---|---|---|---|---|
+| f | `activity.ts:173` task push | 제거 | 잡음(5 failed) | O1·O2·O3 | 등록 VP-03 |
+| g | `activity.ts:219` call push | 제거 | 잡음(7) | O1~O4 | 등록 VP-03 |
+| h | `activity.ts:112` 완료 통지 push | 제거 | 잡음(2) | O6 | 등록 VP-03 |
+| EP06-169 · EP06-set | 표시 대입 · child 등록 | 제거 | 잡음(1 · 9) | O2 · O1 | sweep |
+| O-mode-swap · O5-pending · O3-error | 모드 삼항 · pending 조기 반환 · error 분기 | 맞바꿈·제거·고정값 | 잡음(5 · 1 · 1) | O1·O4 · O5 · O3 | sweep |
+| i | A2 `call.mode` 항 | 제거 | 잡음(2) | A2 | 등록 VP-04 |
+| j | A4 `'included'` → `'excluded'` | 맞바꿈 | 잡음(1) | A4 | 등록 VP-04 |
+| A3 · A4-rm · A6 | `isBackgrounded` 항 · live 항 · 세대 키 | 제거·호출 대체 | 잡음(1 · 1 · 1) | A3 · A4 · A6 | sweep |
+| A1 | `if (!state.generation) return false` | 제거 | **동치** | 세대가 없으면 `backgroundKey(undefined, …)` 키의 호출이 없어 같은 false다. 확인 실행 24/24 green | sweep |
+| k | `hasPending` → `count() > 0` | 호출 대체 | 잡음(6) | B5·B9·"B6 · B7" 외 | 등록 VP-04 |
+| B-const · C-count · observe | `hasPending`·`count` 상수 · 저장 제거 | 고정값·제거 | 잡음(8 · 4 · 20) | 규칙 B·C·D | sweep |
+| l | 정본 없음 `waitForTask` → 대기 | 뒤집기 | 잡음(1) | D4 "정본이 없으면…" | 등록 VP-04 |
+| D3 · D4-notify · unsub-settled | 종료 판정 상수 2 · 구독 해제 | 고정값·제거 | 잡음(3 · 1 · 1) | D3 · D4 · "대기가 settled·timeout 어느 쪽으로 끝나도…" | sweep |
+| m | `canonicalBackground` → 항상 `undefined` | 고정값 | 잡음(2) | "AC3 경로 — coordinator 는 정본 상태로…" · "…빈 상태로 판정해…" | 등록 VP-05 |
+| n | `:343` enrich의 `isAsyncLaunched` → `true` / `false` | 고정값 | 잡음(1 / 2) | "정본이 포그라운드로 본…" / "정본이 백그라운드로 본…" | 등록 VP-05 + sweep |
+| EP07-496 | `:496` 라이브 정지 분기 → `true` / `false` | 고정값 | 못 잡음 → **잡음(1 / 1)** | 신규 "중단 클릭 뒤 task id 가 도착하면…"(`it.each` 2) | sweep |
+| EP02-288 · EP02-562 | 중단·실패 정착의 `getState` → `undefined` | 빈 값 | 못 잡음 → **잡음(1 · 1)** | 신규 "abort/fail 정착은…" | sweep |
+| EP02-idx75 | `index.ts:75` Stop 정착의 `getState` → `undefined` | 빈 값 | 못 잡음 → **잡음(1)** | 신규 `post-turn.schedules.test.ts`:"정본 백그라운드 호출의 후손은 남기고…" | sweep |
+| EP07-pt101 | `post-turn.ts:101` 로그 `taskCount` → 0 | 고정값 | 못 잡음 → **잡음(1)** | 신규 "0314 — live 집합에 작업이 있으면 listen 을 열고 로그 taskCount 는 그 수다". 기존 케이스는 값이 0이라 기본값과 구별되지 않았다 | sweep |
+| EP07-idx162 · proj232 · stop77(양방향) · stop88 · ctrl74 | 나머지 선택자 소비 자리 | 고정값·다른 값 | 잡음(5 · 3 · 1/1 · 2 · 39) | `post-turn.schedules` · `session-activity-projector` · `stop-subagent` · `background-controller` 기존 케이스 | sweep |
+| o | `haveTasks` → `false` | 고정값 | 잡음(12) | `post-turn.schedules`·`concurrency-identity` listen 케이스 | 등록 VP-06 |
+| resume-policy | `abortResumePolicy` → `{resume:false}` | 고정값 | 잡음(19) | `post-turn.test.ts` 외 | sweep |
+| pt-delete | `delete activeTurn.abortContinuation` | 제거 | **중단** | 턴-후 루프가 동기 무한 반복해 vitest가 끝나지 않는다(하네스 타임아웃). 단언 red가 아니다 — §10 밖 자리라 분모에 넣지 않고 사실만 적는다 | 재량 |
+| p | `app/src/renderer` 한 줄 추가 | 다른 값 | 잡음 | `gate:G9` 출력 2줄 | 등록 VP-07 |
+| q · r · s · t | 장부 A행 삭제 · 분류 맞바꿈 · 귀속 칸 비움 · 없는 좌표 | 제거·맞바꿈·빈 값·다른 값 | 잡음(exit 1 × 4) | G1 · G1 · G2 · G4 | 등록 VP-08 |
+| s2 · A-2 행 삭제 · C행 삭제 · INDEX 후보 행 삭제 | 귀속 양쪽 채움 외 | 다른 값·제거 | 잡음(exit 1 × 4) | G2 · G2 · G14 · G14 | 새 oracle 민감도 |
+
+검산: `선택 증거 15(f g h · i j k l · m n · o · p · q r s t) · 인용 변이 0 · 새 oracle 4(G1·G2·G4·G14 — 민감도 변이 8) · sweep 25 + 재량 1 = 변이 49`. 덮개 회귀 대조 대상(이전 verify의 `잡음` 행)은 r1이라 없다.
+
+## [구현자 기입] Product/UX 파생 검토 — r1
+
+판정: 프로덕션 화면 변화 0(renderer·preload·shared diff 0 — G9). 새 사용자 대면 문자열 0.
+
+| 질문 | 관측 |
+|---|---|
+| 새 문구·상태에 소비자가 있는가 | 새 문구 없음. 지운 문구 2개(합성 정착 요약 "채널이 종료되어…" · "사용자가 대기를 중단해…")는 정본 없는 세션에서만 나갔다 |
+| 이번 실패 경로가 Part I 상태표의 어느 행인가 | "정본 이벤트를 한 번도 못 본 세션 → 빈 상태" 한 행이다. 규칙 A1·B1·D4가 그 행을 잠근다 |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | DEV mock에서만 그렇다 — 정착 없는 백그라운드 작업이 `실행 중`으로 남는다(§5 저하 표 1행 · D-023). 프로덕션 어댑터는 해당 없음 |
+| 늦게 도착한 응답이 화면을 되돌리는가 | 해당 없음 — 합성 이벤트를 지웠을 뿐 새 이벤트를 만들지 않는다 |
+| 로딩·빈 상태·취소·재시도 | listen 중 Stop은 백그라운드 수신을 보존한다. 정본 세션에서는 0231부터 같은 동작이고 `background-tasks.md` "메인 응답 취소는 백그라운드 수신을 보존한다"와 같다 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 — r1
+
+| # | 분류 | 발견 | 대응 |
+|---|---|---|---|
+| 1 | 이행(선조치) | 정본 읽기 자리 4곳(`turn-coordinator.ts:288,496,562` · `index.ts:75`)과 로그 개수 1곳이 변경 전부터 어느 테스트에도 잠기지 않았다 — sweep `못 잡음` 6 | 테스트 4케이스(입력 7) 추가. 다시 돌려 red 확인 |
+| 2 | 이행(선조치) | 삭제한 `waitForTask` 케이스 중 "resolve 후 구독을 해제한다"는 동작이 남는다 | 정본 시드로 옮겼다(대응표 W6) |
+| 3 | 경계(§10 경계 1) | mock 세션은 정본이 없어 턴 종료 때 child 도구가 `실행되지 않음`으로 정착한다 | 고치지 않는다 — SDK층 mock handoff 소관(INDEX 후보 표) |
+| 4 | 경계(§10 경계 4) | `await` 4자리가 사라져 턴-후 루프의 마이크로태스크 순서가 한 틱씩 준다 | VP-06 스위트 green. 그 스위트 밖 겹침 순서는 재지 않았다 |
+| 5 | 비귀속 | `StopSubagentDeps.settle`은 선언·주입만 있고 `stopSubagentTask` 본문이 부르지 않는다(`stop-subagent.ts:33`) | 변경 전부터 그렇다. 고치지 않았다 |
+| 6 | 비귀속(이번 변경이 드러냄) | `TurnRequest.onChannelRetired`를 채우는 production 코드가 0이 됐다(`rg -n "onChannelRetired" app/src/main -g '!*.test.*'` → 선언 1 + 전달 목록 1 + 호출 1) | 남겼다 — 계약 타입(`adapters/common/turn.ts:213`) 정리는 범위 밖이다 |
+| 7 | 비귀속 | 정본 세션에서 같은 태스크의 `settled`가 두 번 오면 둘 다 `background:true`다(설계 리뷰 10) | 0231부터의 동작이다. 중복 통지가 실제로 나는지는 재지 않았다 |
+| 8 | 다중 저장 | 이번 판정이 사는 곳은 `plan.md`·`ledger.md`·INDEX 보드 세 곳이다 | 셋 다 이번 턴에 갱신했다 |
+
+## [구현자 기입] 구현 보고 — r1
+
+판정: `✅ 12 · ⚠️ 0 · ❌ 0 = 총 12`(AC3~AC13·AC15 — AC1·AC2·AC14는 rev.3에서 삭제).
+
+| AC | 상태 | 이번 턴에 재현한 관측 |
+|---|---|---|
+| AC3 | ✅ | `activity.test.ts` 13/13 green · 변이 f·g·h red |
+| AC4 | ✅ | `background-tasks.test.ts` 25/25 green · 변이 i·j·k·l red |
+| AC5 | ✅ | G7 `rg` 3개 → 0줄 · 양성 케이스 "…tracker 상태를 만들지 않는다" green |
+| AC6 | ✅ | G8 → `hasCanonical` 2줄 · `rg -c "\?\.\(" turn-coordinator.ts` → 9 |
+| AC7 | ✅ | 전체 vitest 실패 집합 − 기준선 = ∅(아래 G12). 기대값 변경 1건은 설계 리뷰 9 |
+| AC8 | ✅ | 삭제 케이스 대응표(아래) — 삭제 32 = 대체 23 + 소멸 9 |
+| AC9 | ✅ | G9 출력 없음 |
+| AC10 | ✅ | G7 쓰기 0 · `git diff --stat --diff-filter=A 2479aa4 -- app/src ':!*.test.*'` → 출력 없음 · production 11파일 `+75 −403` |
+| AC11 | ✅ | G1 `39 14/9/16 위반 0` · G2 `58 위반 0` · G4 `좌표 35 위반 0` · G14 `2 · 2` |
+| AC12 | ✅ | `rg -n "legacy 추적" docs/arch` → 0 · `background-tasks.md` "## 수신과 상태" 2·3문단 · G5 exit 0 |
+| AC13 | ✅ | 아래 게이트 표 |
+| AC15 | ✅ | G15 출력 없음 |
+
+게이트(마지막 수정 뒤 트리):
+
+| ID | 관측 |
+|---|---|
+| G5 | `check-doc-inventory.mjs --check` exit 0 — `links ok` |
+| G6 | 커밋마다 `git log -1 --format='%(trailers:only=true)'`가 적은 키를 돌려줬다 |
+| G10 | `npm run lint` 0 error · 2 warning(renderer 기존 `react-hooks/incompatible-library`) · `npm run typecheck` `error TS` 0 |
+| G11 | append-only exit 0 · `[product-naming] OK — 2226파일` · `[test-budgets] 18 real-git suites ok · all budget sites scaled` |
+| G12 | 파일 필터 없는 `vitest run` — 943파일 중 29 failed · 22 failed 케이스. 기준선(`2479aa4` + M0 테스트)도 29 · 22이고 파일·케이스 차집합 ∅ |
+| G13 | `node --test scripts/*.test.mjs` — 868 pass · 0 fail |
+
+G12 기준선 29파일의 서명(전부 환경 — Linux 컨테이너 + Electron 바이너리 미설치):
+
+- `Electron failed to install correctly` 20파일 — `app/bootstrap.{artifacts,harness,shutdown}` · `app/chat-turn/{discard,resolve-turn.agent,send.agent-profile,send.busy,send.harness,native-session}` · `app/chat-turn.continuity` · `app/harnesses/{registry,registry.preferences}` · `app/harnesses/claude/{extensions,extensions.native-paths}` · `app/deployment/opencode-connection-deployment` · `app/managed-mcp-claude-regression` · `app/native-history` · `app/work-profile.{runtime,integration}` · renderer `planMode.render`.
+- Windows 경로 가정(`C:/…`이 POSIX에서 상대 경로) 9파일 — `adapters/opencode/v1/{adapter,adapter.persistent,adapter.instances}` · `adapters/claude/{adapter.native-plugins,native-resources,project-reconciliation}` · `app/{composer-catalog,composer-preparation-service}` · `app/handlers/session-resources.claude-assembly`.
+- 이 가운데 이번에 손댄 파일은 `send.agent-profile.test.ts` 하나다(fake의 deps 키 1줄 삭제). 실패는 import 단계의 Electron 서명이고 가드 위반이 아니다.
+- `better-sqlite3`는 `npm rebuild better-sqlite3`(Node ABI)로 맞춰 DB 스위트를 실제로 돌렸다. 앞뒤로 뒤집지 않았다.
+
+테스트 소스 규칙(22파일): `check-test-budgets` 위반 0 · unit 풀 가드 `[test-pools]` 출력 0건 · 새 io 신호 0(자식 프로세스·git·SQLite 추가 없음) · 인라인 케이스 타임아웃 0. 신규 `timeoutMs` 값은 `scaleMs(…)`를 지나거나 시간 초과 자체를 시험하는 5·20ms다(기존 케이스와 같은 값 — 게이트 통과).
+
+돌리지 못한 단계: `npm ci`의 Electron postinstall · `npm test`의 `pretest` ABI 훅(egress 차단 — `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 사용). windows-latest CI가 최종 판정이다.
+
+커밋: M0(테스트 잠금) · M1(제거) · M2(문서·장부·읽기 자리 잠금) · 구현 보고 — (r1 구현 — 좌표는 INDEX).
+
+### 삭제 케이스 대응표 (AC8)
+
+`git diff 2479aa4 -- 'app/src/**/*.test.*'`의 삭제 `it(` 32건. 대체는 같은 동작을 정본 시드로 단언하는 케이스이고, 소멸은 동작 자체가 없어진 것이다.
+
+| # | 파일 · 지운 케이스 | 처리 | 대체 케이스 / 소멸 근거 |
+|---|---|---|---|
+| B1~B4 | `background-tasks.test.ts` "BackgroundTaskTracker (0136)" 4건(started·settled·세션 격리·no-op) | 소멸 4 | 구 추적 표면 삭제(D-015 · EP-04). 대기·개수의 정본 답은 규칙 B·C |
+| A1~A5 | 같은 파일 "asyncLaunched (0143)" 5건 | 대체 5 | 규칙 A1~A6(관측 기록 → A2 · 순서 역전 → A3 · 미등록 → A1 · 재started 보존 → A3·A4 · 해제 뒤 false → A4 제외·A6) |
+| W1~W6 | 같은 파일 "waitForTask (0204)" 6건 | 대체 5 · 소멸 1 | 정착 resolve → D4 통지 · 추적 없음 즉시 → D4 정본 없음 · timeout → D3 · 다른 세션/태스크 → D4 셋째 · 구독 해제 → "대기가 settled·timeout 어느 쪽으로 끝나도…". "clear 에도 resolve"는 소멸(합성 정착 — D-017) |
+| L1~L7 | 같은 파일 "applyLiveSet (0212)" 7건 | 대체 4 · 소멸 3 | 레벨 교체 → C1·C2 · 포함 항목 유지 → C1 · 세대 경계 → C4 · 재시작 뒤 복귀 → C3. "첫 payload 는 기준선"·"세션마다 기준선"·"resetLevel"은 소멸 — 정본은 첫 snapshot부터 교체한다(규칙 C1 · `background-tasks.md`) |
+| P1·P2 | `post-turn.test.ts` `abortResumePolicy` 2건 | 대체 2 | "예약 유지 Stop은 재개한다" · "즉시 보내기는 재개한다" — `stopTasks` 항만 사라졌다(D-017) |
+| T1~T3 | `turn-coordinator.test.ts` "백그라운드 태스크 추적 (0136)" 3건 | 대체 3 | "subagent.task·런치 영수증·권위 결과는 tracker 상태를 만들지 않는다"(세 입력을 한 케이스에 — AR-02의 반대 방향 단언) |
+| T4~T6 | 같은 파일 enrich 3건(영수증 관측·미관측·중단) | 대체 3 | "정본이 백그라운드로 본…" · "정본이 포그라운드로 본…과 정본에 없는…" · "사용자가 중단한 … 정본이 백그라운드로 봤어도…". 양성 짝 "중단하지 않은…"은 케이스명을 유지하고 시드만 옮겼다 |
+| T7 | 같은 파일 "추적 해제 후 지각 도착한 중복 settled…" | 소멸 1 | 구 추적의 해제 부수효과(D-015). 설계 리뷰 10 |
+| T8 | 같은 파일 0239 "정본이 없으면 부모 있는 실행은 두고…" | 대체 1(기대값 변경) | "…빈 상태로 판정해 부모 있는 실행도 정착한다" — 설계 리뷰 9. `undefined` 분기는 `settle.test.ts`:"settleOrphanToolRuns" 기존 케이스가 본다 |
+
+검산: B 4 · A 5 · W 6 · L 7 · P 2 · T 8 = 32건 = `git diff`의 삭제 `it(` 32줄. 소멸 4 + 1 + 3 + 1 = 9 · 대체 5 + 5 + 4 + 2 + 3 + 3 + 1 = 23 · 9 + 23 = 32.
+
+케이스가 아니라 단언만 지운 곳(동작 소멸 — D-017): `post-turn.schedules.test.ts`의 `stopAndSettleAbortedTasks` 호출 수 단언 2줄 · `runtime-entry.test.ts`의 `settleDeadBackgroundTasks` 호출 단언 3줄(1줄은 `runtime.channelAlive` 단언으로 교체) · `send.worktree.test.ts`의 `clear` 호출 단언 1줄 · `stop-subagent.test.ts`의 `tracker.settled` 미호출 단언 4줄(표면 삭제).
+
+전체 케이스 수: 기준선 8,842 → 8,824(vitest 총계). 구 추적 케이스가 준 만큼이고, 신규 정본 케이스는 `background-tasks.test.ts` 25 · `activity.test.ts` +6 · `turn-coordinator.test.ts` +4(입력 7) · `post-turn.schedules.test.ts` +2다.
+
+### 게이트 명령 전문 (G1·G2·G4·G14)
+
+저장소 루트에서 실행한다. `H=docs/handoff; L=$H/0314-0305-derivative-closeout/ledger.md`.
+
+```sh
+# G1 — A표 ID·분류 ↔ candidates.json · plan §5 고정 분류
+node -e '
+const fs=require("fs");const [L,P,C]=process.argv.slice(1);
+const seg=(t,n)=>t.split("<!-- table:"+n+" -->")[1].split("<!-- /table:"+n+" -->")[0].split("\n").filter(l=>/^\| C-\d\d /.test(l)).map(l=>l.split("|").slice(1,-1).map(c=>c.trim()));
+const rows=seg(fs.readFileSync(L,"utf8"),"A");const led=new Map(rows.map(r=>[r[0],r[2].replace(/`/g,"")]));
+const want=new Map();for(const l of fs.readFileSync(P,"utf8").split("\n")){const m=/^\| `(DONE|PARTIAL|CLOSED)` \| (.*) \| (\d+) \|$/.exec(l);if(m)for(const id of m[2].match(/C-\d\d/g))want.set(id,m[1]);}
+const ids=JSON.parse(fs.readFileSync(C,"utf8")).candidates.map(c=>c.id);
+const bad=[...ids.filter(i=>!led.has(i)).map(i=>"장부에 없음 "+i),...[...led.keys()].filter(i=>!ids.includes(i)).map(i=>"데이터에 없음 "+i),...ids.filter(i=>led.get(i)!==want.get(i)).map(i=>"분류 불일치 "+i),...(rows.length!==led.size?["중복 행"]:[])];
+const n=k=>[...led.values()].filter(v=>v===k).length;
+console.log("G1",rows.length,n("DONE")+"/"+n("PARTIAL")+"/"+n("CLOSED"),"위반",bad.length,bad.join(" · "));process.exit(bad.length||rows.length!==39||n("DONE")!==14||n("PARTIAL")!==9||n("CLOSED")!==16?1:0)
+' $L $H/0314-0305-derivative-closeout/plan.md $H/0305-code-bloat-audit/data/candidates.json
+# G2 — A-2표 (후보, 단계) ↔ audit.md gen:decomposition · 귀속 배타
+node -e '
+const fs=require("fs");const [L,A]=process.argv.slice(1);
+const cells=l=>l.split("|").slice(1,-1).map(c=>c.trim());
+const rows=fs.readFileSync(L,"utf8").split("<!-- table:A-2 -->")[1].split("<!-- /table:A-2 -->")[0].split("\n").filter(l=>/^\| C-\d\d /.test(l)).map(cells);
+const src=fs.readFileSync(A,"utf8").split("<!-- gen:decomposition -->")[1].split("<!-- /gen:decomposition -->")[0].split("\n").filter(l=>/^\| C-\d\d/.test(l)).map(cells).map(r=>r[0].slice(0,4)+"#"+r[1]);
+const keys=rows.map(r=>r[0]+"#"+r[1]);
+const bad=[...src.filter(k=>!keys.includes(k)).map(k=>"장부에 없음 "+k),...keys.filter(k=>!src.includes(k)).map(k=>"감사에 없음 "+k),...(new Set(keys).size!==keys.length?["중복 행"]:[]),...rows.filter(r=>[r[3],r[4]].filter(c=>c==="—").length!==1||[r[3],r[4]].some(c=>c==="")).map(r=>"귀속 비배타 "+r[0]+"#"+r[1])];
+console.log("G2",rows.length,"위반",bad.length,bad.join(" · "));process.exit(bad.length||rows.length!==58?1:0)
+' $L $H/0305-code-bloat-audit/audit.md
+# G4 — 장부의 NNNN D-NNN 좌표마다 그 plan의 "| D-NNN |" 줄 수 = 1
+node -e '
+const fs=require("fs");const [L,H]=process.argv.slice(1);
+const coords=[...new Set(fs.readFileSync(L,"utf8").match(/\b\d{4} D-\d{3}\b/g))];
+const dirs=fs.readdirSync(H);const bad=[];
+for(const c of coords){const [n,d]=c.split(" ");const dir=dirs.filter(x=>x.startsWith(n+"-"));
+const hit=dir.length===1?fs.readFileSync(H+"/"+dir[0]+"/plan.md","utf8").split("\n").filter(l=>l.startsWith("| "+d+" |")).length:-1;if(hit!==1)bad.push(c+"→"+hit);}
+console.log("G4 좌표",coords.length,"위반",bad.length,bad.join(" · "));process.exit(bad.length||!coords.length?1:0)
+' $L $H
+# G14 — C표 행 수 · INDEX 후보 표의 출처 0314 행 수
+node -e '
+const fs=require("fs");const [L,I]=process.argv.slice(1);
+const c=fs.readFileSync(L,"utf8").split("<!-- table:C -->")[1].split("<!-- /table:C -->")[0].split("\n").filter(l=>l.startsWith("| ")&&!/^\| (항목|---)/.test(l)).length;
+const i=fs.readFileSync(I,"utf8").split("## 새 handoff 후보")[1].split("\n## ")[0].split("\n").filter(l=>/^\| 0314 \|/.test(l)).length;
+console.log("G14 C표",c,"INDEX 0314 행",i);process.exit(c===2&&i===2?0:1)
+' $L $H/INDEX.md
+```
+
+장부 귀속에서 설계자 고정 분류 밖으로 구현자가 정한 것: A-2표 58행의 구현/종결 귀속과 비고다. 한 단계가 일부만 구현된 3행(C-14 2 · C-26 2 · C-36 2)은 한쪽에 귀속하고 비고에 나머지를 적었다 — G2의 배타 조건 때문이다. Decision 문장이 그 단계를 가리키는지는 검증자 대조다(§10 경계 6).
+
+## [구현자 기입] Review Signals — 사실만 — r1
+
+- 라운드·턴: r1(첫 구현 턴). verify 0회.
+- 이번에 닫은 불변식은 이전 라운드가 없어 반복 축 판정 대상이 아니다.
+- plan §10 자리 검색 1건이 무관한 주석에 걸렸다(EP-04 `bySession` — 술어가 삭제 대상 멤버 이름이고 같은 낱말이 다른 뜻으로 쓰였다).
+- plan §8의 "구 API를 쓰는 테스트" 분모(5파일)가 실제 수정 파일(22)보다 좁았다 — 검색 식이 `tracker.`·`backgroundTasks.` 접두만 봤다.
+- EP-07·EP-02의 읽기 자리 5곳은 plan이 좌표를 "§8 표의 세 명령"으로만 적었고, sweep 전에는 직접 oracle이 없었다.
+- 환경 한계: Electron 바이너리 다운로드 차단(20파일 import 실패) · Linux에서 Windows 경로 가정 테스트 9파일 실패. 두 서명 모두 변경 전후 같다.
+- 변이 하나(`pt-delete`)가 동기 무한 루프를 만들어 하네스 기본 타임아웃(900초)을 다 썼다. 이후 실행은 `--timeout 120`을 줬다.
 
 ## [검증자 기입] 파생 이슈
 
