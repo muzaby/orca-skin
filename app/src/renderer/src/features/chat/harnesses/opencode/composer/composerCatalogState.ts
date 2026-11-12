@@ -1,7 +1,8 @@
-import type {
-  ComposerCatalogData,
-  ComposerCatalogPart,
-  ComposerCatalogScope
+import {
+  composerScopeKey,
+  type ComposerCatalogData,
+  type ComposerCatalogPart,
+  type ComposerCatalogScope
 } from '../../../../../../../shared/composer-catalog'
 import type { NativeComposerCatalog } from '../../../../../../../shared/native-resources'
 import { sessionApi } from '../../../../../shared/api/ipc'
@@ -107,11 +108,7 @@ export class ComposerCatalogState {
   }
 
   private stale(epoch: number, owner: string): boolean {
-    return (
-      this.disposed ||
-      epoch !== this.epoch ||
-      (owner !== this.owner && owner !== this.previousOwner)
-    )
+    return epoch !== this.epoch || (owner !== this.owner && owner !== this.previousOwner)
   }
 
   private failedSlot<K extends ComposerCatalogPart>(
@@ -156,16 +153,9 @@ export class ComposerCatalogState {
       .composerCatalog({ owner, scope: this.scope, part, refresh })
       .then((result) => {
         if (this.stale(epoch, owner)) return
-        if (result.part !== part) throw new Error('Unexpected composer catalog part')
-        if ('status' in result) {
-          // Cancellation is an ownership outcome, never a successful empty catalog.
-          this.snapshot = {
-            ...this.snapshot,
-            [part]: this.failedSlot(part)
-          }
-          this.publish()
-          return
-        }
+        // Cancellation is an ownership outcome, never a successful empty catalog.
+        if (result.part !== part || 'status' in result)
+          throw new Error('Unexpected composer catalog result')
         if (this.retired.has(result.generation)) return
         if (this.generation && this.generation !== result.generation) {
           this.retired.add(this.generation)
@@ -218,15 +208,7 @@ export class ComposerCatalogState {
 
 const states = new Map<string, ComposerCatalogState>()
 const stateKey = (scope: ComposerCatalogScope, identity?: number): string =>
-  JSON.stringify([
-    identity,
-    scope.backend,
-    scope.sessionId,
-    scope.cwd,
-    scope.projectId,
-    scope.providerKey,
-    scope.agentKind
-  ])
+  JSON.stringify([identity, composerScopeKey(scope)])
 onComposerPromotion(({ identity, before, after }) => {
   if (
     before.backend !== 'opencode' ||

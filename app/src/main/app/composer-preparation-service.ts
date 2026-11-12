@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
 import {
-  ComposerCatalogCancelled,
-  ComposerCatalogOwners,
-  composerScopeKey
-} from './composer-catalog-owner'
+  composerScopeKey,
+  type ComposerCatalogLease,
+  type ComposerCatalogScope
+} from '../../shared/composer-catalog'
+import { ComposerCatalogCancelled, ComposerCatalogOwners } from './composer-catalog-owner'
 import { getLogger } from '../infra/log/registry'
 
 export interface ComposerPreparationTarget {

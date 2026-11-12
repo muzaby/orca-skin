@@ -181,16 +181,19 @@ it('coalesces retry, keeps data on error and accepts successful empty data', asy
     value: r.part === 'models' ? [{ id: 'team/model', variants: ['deep'] }] : [],
     generation: 'g'
   }))
+  const listener = vi.fn()
   const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
-    remove = state.subscribe(vi.fn())
+    remove = state.subscribe(listener)
   await flush()
   const gate = Promise.withResolvers<ComposerCatalogResult>()
   api.composerCatalog.mockReturnValueOnce(gate.promise)
   state.retry('models')
   state.retry('models')
   expect(api.composerCatalog).toHaveBeenCalledTimes(3)
+  listener.mockClear()
   gate.reject(new Error('offline'))
   await flush()
+  expect(listener).toHaveBeenCalledTimes(1)
   expect(state.getSnapshot().models).toEqual({
     status: 'error',
     value: [{ id: 'team/model', variants: ['deep'] }]
@@ -203,8 +206,10 @@ it('coalesces retry, keeps data on error and accepts successful empty data', asy
     { part: 'agents', value: [], generation: 'g' }
   ] satisfies ComposerCatalogResult[]) {
     api.composerCatalog.mockResolvedValueOnce(response)
+    listener.mockClear()
     state.retry('models')
     await flush()
+    expect(listener).toHaveBeenCalledTimes(2)
     expect(state.getSnapshot().models).toEqual(
       'status' in response || response.part !== 'models'
         ? failed
