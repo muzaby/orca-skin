@@ -6,7 +6,7 @@
 // 그린다 — 두 타일이 같은 것을 그리던 중복을 없앴다(0204 D-017·D-019 supersede).
 //
 // 서브에이전트의 상태 규칙(`backgroundBoardStatus`·`canStopBackgroundStatus`·`canBackgroundStatus`)
-// 은 **여기 남는다** — `SubAgentTileContent` 가 `SubagentTaskSummary` 를 들고 직접 부른다.
+// 은 **여기 남는다** — `LegacySubAgentTile` 이 `SubagentTaskSummary` 를 들고 직접 부른다.
 //
 // **왜 fold 인가**: 일반 Task 의 상태는 어디에도 저장돼 있지 않다. main 에 Task 스토어를 두면
 // 세션별 격리·재로드 복원·다중 창을 전부 다시 만들어야 하는데, transcript 는 그 셋을 이미

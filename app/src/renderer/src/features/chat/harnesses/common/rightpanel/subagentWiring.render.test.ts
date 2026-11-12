@@ -24,12 +24,21 @@ const activeSession = (): ChatState => {
   return init.sessions[init.activeKey]!.session
 }
 
-const pristine = { messages: activeSession().messages, errors: activeSession().taskStopErrors }
+const pristine = {
+  messages: activeSession().messages,
+  errors: activeSession().taskStopErrors,
+  stopping: activeSession().stoppingTaskIds,
+  paused: activeSession().pausedTaskIds,
+  backgrounded: activeSession().backgroundedTaskIds
+}
 
 afterEach(() => {
   const session = activeSession()
   session.messages = pristine.messages
   session.taskStopErrors = pristine.errors
+  session.stoppingTaskIds = pristine.stopping
+  session.pausedTaskIds = pristine.paused
+  session.backgroundedTaskIds = pristine.backgrounded
 })
 
 const backgroundMessages = (toolRunId: string, description: string): Message[] => [
@@ -70,5 +79,41 @@ describe('0215 AT-24 — `SubAgentTileContent` 가 세션의 taskStopErrors 를 
     // 구분되지 않는다. 빈 상태 문구가 사라졌다는 것이 시드 도달의 증거다.
     const html = renderTile({ stopErrors: {} })
     expect(html).not.toContain('백그라운드 작업이 없습니다')
+  })
+})
+
+// 0313 — 구 모델 본문이 새 파일로 옮겨졌다. 래퍼가 라이브 표식 세 집합을 목록 View 로 흘리는
+// 배선은 View 를 직접 렌더하는 테스트(`taskSurface0212`)로는 보이지 않는다 — 컨테이너로 본다.
+describe('0313 — 타일 컨테이너가 중단 대기·일시정지·백그라운드 전환 집합을 목록 View 로 흘린다', () => {
+  const renderWith = (patch: Partial<ChatState>): string => {
+    Object.assign(activeSession(), patch)
+    return renderTile({ stopErrors: {} })
+  }
+  const toBackground = 'aria-label="로그 파서 조사 백그라운드로 보내기"'
+
+  it('표식이 없으면 실행 중 라벨과 전환·중단 버튼이 뜬다 — 대조', () => {
+    const html = renderWith({})
+    expect(html).not.toContain('중단 중…')
+    expect(html).not.toContain('일시정지')
+    expect(html).toContain(toBackground)
+    expect(html).toContain('aria-label="중단"')
+  })
+
+  it('중단 대기 집합에 있으면 중단 중 라벨을 보이고 중단 버튼을 감춘다', () => {
+    const html = renderWith({ stoppingTaskIds: ['bg1'] })
+    expect(html).toContain('중단 중…')
+    expect(html).not.toContain('aria-label="중단"')
+  })
+
+  it('일시정지 집합에 있으면 일시정지 라벨을 보인다', () => {
+    const html = renderWith({ pausedTaskIds: ['bg1'] })
+    expect(html).toContain('일시정지')
+    expect(html).not.toContain('중단 중…')
+  })
+
+  it('백그라운드로 옮긴 집합에 있으면 전환 버튼이 없다', () => {
+    const html = renderWith({ backgroundedTaskIds: ['bg1'] })
+    expect(html).not.toContain(toBackground)
+    expect(html).toContain('aria-label="중단"')
   })
 })
