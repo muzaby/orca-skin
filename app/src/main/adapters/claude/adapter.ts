@@ -45,7 +45,12 @@ import type { NativeHistoryRequest, NativeHistoryResult } from '../common/native
 import { recoveredPrompt } from '../common/recovery'
 import { isRiskyTool } from '../common/risky-tools'
 import { runtimeApprovalToolNames } from '../common/runtime-tool-policy'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText, TurnRequest } from '../common/turn'
+import type {
+  ExtractedAttachmentImage,
+  ExtractedAttachmentText,
+  TurnContinuation,
+  TurnRequest
+} from '../common/turn'
 import type {
   CompleteRequest,
   LiveTurn,
@@ -506,10 +511,7 @@ export class ClaudeAdapter implements SessionAdapter {
       permissionMode,
       model,
       effort,
-      isSubagentBlocked,
-      attachmentTexts = [],
-      attachmentImages = [],
-      requirements = []
+      isSubagentBlocked
     } = req
 
     let appliedOutputStyle = this.preferences?.()?.outputStyle ?? DEFAULT_CLAUDE_OUTPUT_STYLE
@@ -544,12 +546,9 @@ export class ClaudeAdapter implements SessionAdapter {
     // pushTurn 으로 전달하며, 도구 경계에서는 입력을 회수하거나 주입하지 않는다.
     // 스폰 초기 입력 = 프렐류드(채널 사망 후 이월 배치 — 각자 uuid 로 개별 echo→커밋) 다음에
     // 본 프롬프트. CLI 는 턴 시작에 전부 coalesce 해 개별 user 메시지로 소비한다(명세 C9).
-    const batchContent = (b: {
-      text: string
-      attachmentTexts?: typeof attachmentTexts
-      attachmentImages?: typeof attachmentImages
-      requirements?: typeof requirements
-    }): TurnInputContent =>
+    const batchContent = (
+      b: Pick<TurnContinuation, 'text' | 'attachmentTexts' | 'attachmentImages' | 'requirements'>
+    ): TurnInputContent =>
       buildTurnContent(
         b.text,
         b.attachmentTexts ?? [],
@@ -559,12 +558,7 @@ export class ClaudeAdapter implements SessionAdapter {
     const initialInputs = [
       ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
       {
-        content: buildTurnContent(
-          recoveredPrompt(req.recovery?.history, text),
-          attachmentTexts,
-          attachmentImages,
-          requirements
-        ),
+        content: batchContent({ ...req, text: recoveredPrompt(req.recovery?.history, text) }),
         ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
       }
     ]
@@ -1048,15 +1042,7 @@ export class ClaudeAdapter implements SessionAdapter {
           await handle.applyFlagSettings({ outputStyle })
           appliedOutputStyle = outputStyle
         }
-        return pushInput(
-          buildTurnContent(
-            next.text,
-            next.attachmentTexts ?? [],
-            next.attachmentImages ?? [],
-            next.requirements ?? []
-          ),
-          next.promptUuid
-        )
+        return pushInput(batchContent(next), next.promptUuid)
           ? { kind: 'accepted' as const }
           : { kind: 'rejectedBeforeAccept' as const, reason: 'stream_closed' as const }
       },
