@@ -6,7 +6,7 @@ import type {
   ComposerCatalogResult,
   ComposerCatalogScope
 } from '../../../../../../../shared/composer-catalog'
-import { ComposerCatalogState } from './composerCatalogState'
+import { ComposerCatalogState, composerCatalogState } from './composerCatalogState'
 import { composerModelStore } from './composerModelStore'
 const api = vi.hoisted(() => ({
   composerCatalog: vi.fn(),
@@ -195,6 +195,22 @@ it('coalesces retry, keeps data on error and accepts successful empty data', asy
     status: 'error',
     value: [{ id: 'team/model', variants: ['deep'] }]
   })
+  const failed = { status: 'error', value: [{ id: 'team/model', variants: ['deep'] }] }
+  for (const response of [
+    { part: 'models', value: [{ id: 'team/model', variants: ['deep'] }], generation: 'g' },
+    { part: 'models', status: 'error', failure: { stage: 'models', reason: 'network' } },
+    { part: 'models', value: [{ id: 'team/model', variants: ['deep'] }], generation: 'g' },
+    { part: 'agents', value: [], generation: 'g' }
+  ] satisfies ComposerCatalogResult[]) {
+    api.composerCatalog.mockResolvedValueOnce(response)
+    state.retry('models')
+    await flush()
+    expect(state.getSnapshot().models).toEqual(
+      'status' in response || response.part !== 'models'
+        ? failed
+        : { status: 'ready', value: response.value }
+    )
+  }
   api.composerCatalog.mockResolvedValueOnce({ part: 'models', value: [], generation: 'g' })
   state.retry('models')
   await flush()
@@ -240,6 +256,99 @@ it('discards retired and unmounted responses without automatic reconnect', async
   next.resolve({ part: 'agents', value: [{ name: 'late' }], generation: 'new' })
   await flush()
   expect(state.getSnapshot().agents.value).toEqual([{ name: 'current' }])
+})
+
+it('discards a failure that arrives after the last subscriber left', async () => {
+  vi.useFakeTimers()
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) => ({
+    part: r.part,
+    value: r.part === 'models' ? [{ id: 'team/model', variants: ['deep'] }] : [],
+    generation: 'g'
+  }))
+  for (const settle of [
+    (gate: PromiseWithResolvers<ComposerCatalogResult>) =>
+      gate.resolve({ part: 'models', status: 'cancelled' }),
+    (gate: PromiseWithResolvers<ComposerCatalogResult>) => gate.reject(new Error('offline'))
+  ]) {
+    const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
+      remove = state.subscribe(vi.fn())
+    await flush()
+    const late = Promise.withResolvers<ComposerCatalogResult>()
+    api.composerCatalog.mockReturnValueOnce(late.promise)
+    state.retry('models')
+    const before = state.getSnapshot()
+    expect(before.models.status).toBe('loading')
+    remove()
+    await vi.runOnlyPendingTimersAsync()
+    settle(late)
+    await flush()
+    expect(state.getSnapshot()).toBe(before)
+  }
+})
+
+it('discards a response requested before an invalidation whatever its generation', async () => {
+  vi.useFakeTimers()
+  let invalidate!: (value: ComposerCatalogInvalidated) => void
+  api.onComposerCatalogInvalidated.mockImplementation((callback) => {
+    invalidate = callback
+    return vi.fn()
+  })
+  const gate = Promise.withResolvers<ComposerCatalogResult>()
+  api.composerCatalog.mockImplementation(async (r: ComposerCatalogRequest) =>
+    r.part === 'agents' ? gate.promise : { part: 'models', value: [], generation: 'old' }
+  )
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
+    remove = state.subscribe(vi.fn())
+  await flush()
+  invalidate({ owner: api.composerCatalog.mock.calls[0][0].owner, generation: 'old' })
+  gate.resolve({ part: 'agents', value: [{ name: 'unseen' }], generation: 'unseen' })
+  await flush()
+  expect(state.getSnapshot().agents).toEqual({ status: 'error' })
+  remove()
+  await vi.runOnlyPendingTimersAsync()
+})
+
+it('accepts the previous owner after a promotion and discards any older owner', async () => {
+  vi.useFakeTimers()
+  api.onComposerCatalogInvalidated.mockReturnValue(vi.fn())
+  const agents = Promise.withResolvers<ComposerCatalogResult>()
+  const plugins = Promise.withResolvers<ComposerCatalogResult>()
+  let models = 0
+  api.composerCatalog.mockImplementation((r: ComposerCatalogRequest) =>
+    r.part === 'agents'
+      ? agents.promise
+      : r.part === 'plugins'
+        ? plugins.promise
+        : models++
+          ? new Promise<ComposerCatalogResult>(() => undefined)
+          : Promise.resolve({ part: 'models', value: [], generation: 'g' })
+  )
+  const state = new ComposerCatalogState(scope, undefined, createComposerAgentStore(vi.fn())),
+    remove = state.subscribe(vi.fn())
+  await flush()
+  state.promote({ ...scope, sessionId: 'first' })
+  agents.resolve({ part: 'agents', value: [{ name: 'previous-owner' }], generation: 'g' })
+  await flush()
+  expect(state.getSnapshot().agents).toEqual({
+    status: 'ready',
+    value: [{ name: 'previous-owner' }]
+  })
+  state.retry('plugins')
+  state.promote({ ...scope, sessionId: 'second' })
+  state.promote({ ...scope, sessionId: 'third' })
+  plugins.resolve({ part: 'plugins', value: [], generation: 'g' })
+  await flush()
+  expect(state.getSnapshot().plugins).toEqual({ status: 'loading' })
+  remove()
+  await vi.runOnlyPendingTimersAsync()
+})
+
+it('keys shared state by identity and scope', () => {
+  const one = composerCatalogState(scope, 1)
+  expect(composerCatalogState({ ...scope }, 1)).toBe(one)
+  expect(composerCatalogState(scope, 2)).not.toBe(one)
+  expect(composerCatalogState({ ...scope, cwd: 'C:/other' }, 1)).not.toBe(one)
 })
 
 it('keeps the new generation when an older part resolves in the same epoch', async () => {
@@ -369,6 +478,7 @@ it('leaves the agent cache empty after failed or cancelled reads', async () => {
     const off = state.subscribe(vi.fn())
     await flush()
     expect(cache.getState().agents).toEqual(cwd === 'C:/C' ? [] : undefined)
+    expect(state.getSnapshot().agents.status).toBe(cwd === 'C:/C' ? 'ready' : 'error')
     off()
     await vi.runOnlyPendingTimersAsync()
   }
