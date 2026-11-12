@@ -294,6 +294,18 @@ describe('규칙 D — 채널 사망과 확정 없는 중단 (0314)', () => {
     await expect(waiting).resolves.toBe('settled')
   })
 
+  it('D5 — 대기 중 세션이 폐기되면 timeout 전에 settled 다', async () => {
+    const tracker = seeded(task('t', 'started', { status: 'running', isBackgrounded: true }, 'tu'))
+    const waiting = tracker.waitForTask('s', 'tu', { timeoutMs: scaleMs(1_000) })
+    let outcome: string | undefined
+    void waiting.then((value) => (outcome = value))
+    await Promise.resolve()
+    expect(outcome).toBeUndefined()
+    tracker.dispose('s')
+    await Promise.resolve()
+    expect(outcome).toBe('settled')
+  })
+
   it('대기가 settled·timeout 어느 쪽으로 끝나도 구독을 남기지 않는다', async () => {
     const tracker = seeded(task('t', 'started', { status: 'running', isBackgrounded: true }, 'tu'))
     const subscribe = vi.spyOn(tracker, 'subscribe')
