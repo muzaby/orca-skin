@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import type { Options, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { PRODUCT_SLUG } from '../../../shared/product'
+import type { DiffRequirementAnchor } from '../../../shared/ipc'
+import { formatDiffRequirementsPrompt } from '../common/diff-requirements'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText, TurnRequest } from '../common/turn'
 
 const { queryMock, setModel } = vi.hoisted(() => {
@@ -49,6 +51,18 @@ const image: ExtractedAttachmentImage = {
   mimeType: 'image/png',
   sourceKind: 'clipboard',
   data: 'QUJD'
+}
+const requirement: DiffRequirementAnchor = {
+  sessionId: 'session',
+  baselineCommit: 'abc123',
+  filePath: 'src/app.ts',
+  oldLine: null,
+  newLine: 4,
+  hunkHeader: '@@ -1,3 +1,4 @@',
+  contextBefore: ['before'],
+  contextAfter: ['after'],
+  comment: 'rename this',
+  createdAt: 1
 }
 
 beforeEach(() => vi.clearAllMocks())
@@ -156,7 +170,8 @@ describe('0245 AC21 — three actual query input paths', () => {
           textAttachment('C:/Temp/orcinus-orca/first reference.md'),
           textAttachment('C:/Temp/orcinus-orca/second.txt')
         ],
-        attachmentImages: [image]
+        attachmentImages: [image],
+        requirements: [requirement]
       }
       const req = base({
         ...(path === 'initial' ? attachments : {}),
@@ -169,15 +184,18 @@ describe('0245 AC21 — three actual query input paths', () => {
       const input = args.prompt[Symbol.asyncIterator]()
       if (path === 'pushTurn') await input.next()
       if (path === 'pushTurn')
-        expect(await live.pushTurn!(attachments)).toEqual({ kind: 'accepted' })
+        expect(await live.pushTurn!({ ...attachments, promptUuid: 'p-1' })).toEqual({
+          kind: 'accepted'
+        })
       const message = (await input.next()).value as SDKUserMessage
       expect(message.message.content).toEqual([
         { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'QUJD' } },
         {
           type: 'text',
-          text: `${path}\n\n@"C:/Temp/orcinus-orca/first reference.md"\n@"C:/Temp/orcinus-orca/second.txt"`
+          text: `${path}\n\n@"C:/Temp/orcinus-orca/first reference.md"\n@"C:/Temp/orcinus-orca/second.txt"\n\n${formatDiffRequirementsPrompt([requirement])}`
         }
       ])
+      if (path === 'pushTurn') expect(message.uuid).toBe('p-1')
       expect(args.options.additionalDirectories).toContain(resolve(tmpdir(), PRODUCT_SLUG))
       live.close()
     })
