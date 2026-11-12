@@ -359,6 +359,55 @@ describe('parts selectors', () => {
     ])
   })
 
+  // 0313 AC1 — 요약은 메시지 배열당(그리고 includeNested 값당) 한 번만 계산한다. 계산은 매번
+  // 새 배열을 만들므로 반환 동일성(`toBe`)이 "다시 계산하지 않았다"의 직접 관측이다.
+  const agentCall = (toolRunId: string, parentToolRunId?: string): AppMessagePart => ({
+    type: 'tool_call',
+    toolRunId,
+    toolName: 'Agent',
+    args: { description: toolRunId },
+    ...(parentToolRunId ? { parentToolRunId } : {})
+  })
+  const assistant = (
+    parts: AppMessagePart[]
+  ): { role: 'assistant'; createdAt: number; parts: AppMessagePart[] } => ({
+    role: 'assistant',
+    createdAt: 1,
+    parts
+  })
+
+  it('같은 메시지 배열의 요약은 한 번만 만든다', () => {
+    const m = [assistant([agentCall('top-agent')])]
+    const first = subagentTasksFromMessages(m)
+    expect(first).toMatchObject([{ toolUseId: 'top-agent', status: 'running' }])
+    expect(subagentTasksFromMessages(m)).toBe(first)
+  })
+
+  it('중첩 포함 여부마다 따로 든다', () => {
+    const m = [assistant([agentCall('top-agent'), agentCall('child-agent', 'top-agent')])]
+    const top = subagentTasksFromMessages(m, false)
+    const nested = subagentTasksFromMessages(m, true)
+    expect(top.map((task) => task.toolUseId)).toEqual(['top-agent'])
+    expect(nested.map((task) => task.toolUseId)).toEqual(['top-agent', 'child-agent'])
+    expect(subagentTasksFromMessages(m, false)).toBe(top)
+    expect(subagentTasksFromMessages(m, true)).toBe(nested)
+  })
+
+  it('메시지 배열이 바뀌면 새로 계산한다', () => {
+    const m = [assistant([agentCall('top-agent')])]
+    const before = subagentTasksFromMessages(m)
+    const m2 = [
+      ...m,
+      assistant([{ type: 'tool_result', toolRunId: 'top-agent', result: 'done', isError: false }])
+    ]
+    const after = subagentTasksFromMessages(m2)
+    expect(after).not.toBe(before)
+    expect(before).toMatchObject([{ status: 'running' }])
+    expect(after).toMatchObject([{ toolUseId: 'top-agent', status: 'completed' }])
+    // 이전 배열의 칸은 그대로다 — 새 배열의 계산이 덮지 않는다.
+    expect(subagentTasksFromMessages(m)).toBe(before)
+  })
+
   it('isAsyncLaunchedResult 는 백그라운드 launched 결과만 true, deriveSubagentTaskStatus 는 running 으로 본다', () => {
     const launched = {
       output: { status: 'async_launched', agentId: 'agent-1', description: 'x', prompt: 'y' },
