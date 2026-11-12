@@ -816,4 +816,11 @@ console.log("G14 C표",c,"INDEX 0314 행",i);process.exit(c===2&&i===2?0:1)
 
 ## [검증자 기입] 파생 이슈
 
-(검증 턴에 기입)
+### verify 1회째 — RETURN_TO_PLAN (`verify.md` §13 이관)
+
+| # | finding | 분류 | disposition | 후속 |
+|---|---|---|---|---|
+| D1 | `turn-coordinator.ts:532` `no_result` 정착의 `canonicalBackground(turn)` 호출처 미잠금 — 변이 `n532` 84 green(형제 `:414`는 red) | 확장 | `PLAN_GAP` | 설계자: §10 EP-02에 자리 추가(채택) 또는 경계 |
+| D2 | `background-tasks.ts` `dispose`의 `changed`(`:123`) · `restore`의 `has` 가드(`:38`) · `observe`의 동치 조기 반환(`:32`) 미잠금 — `X-dispose`·`X-restore`·`X-observe-eq` 25 green | 확장 | `PLAN_GAP` | 설계자: 규칙 칸 추가(채택) 또는 경계 |
+| D3 | §10 EP-02·EP-07 oracle 좌표가 "§8 표의 세 명령"뿐 — 구현자가 보충한 좌표로 닫힘 확인 | plan 내부 불일치 | `PLAN_GAP`(표 정정) | 설계자: 구현 보고 강제 지점 표의 좌표를 §10에 옮긴다 |
+| D4 | AC7 주의사항 "기대값 변경은 D-017만"이 §4 검토 표·경계 1보다 좁다 | plan 내부 불일치 | `PLAN_GAP`(문장 정정) | 설계자: 경계 1에 맞춘다 |
