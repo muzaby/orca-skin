@@ -144,7 +144,7 @@
 | 0296 | 확장 후보(`NEXT_HANDOFF`) | `send.wait-phase.test.ts` IT-03 하네스 | 새 세션 `clientKey`가 `'new:1'`로 고정되어 a3를 `payload.sessionId ?? 'new:1'`로 바꿔도 green(`clientKey` 경로 값 미구별) | 다른 handoff에서 그 형태가 코드에 나타날 때 | [verify.md r3 파생 이슈 1](0296-opencode-wait-phases/verify.md) |
 | 0299 | 비귀속(`NEXT_HANDOFF` 독립) | `docs/IPC_CONTRACT.md:267` | `orca:session:native-resources` 행의 `string|null` 미이스케이프로 7셀 — 렌더에서 뒤쪽 셀 손실. 같은 문서 다른 표는 정상 | 사용자 요청 또는 문서 표 파싱 가드 도입 | [verify r2 D4](0299-concurrency-notice-turn-end-flicker/verify.md) |
 | 0302 | 확장 후보(`NEXT_HANDOFF`) | `html-body.ts` `decodeHtmlBytes` | 결과 `.trim()`(앞·뒤 공백 제거)을 세 경로 모두 못 잡음 — 열거 입력이 공백을 운반하지 않음. `htmlToBodyText`가 어차피 trim해 본문 영향 0 | 다른 handoff에서 그 형태가 코드에 나타날 때 | [verify r3 F4](0302-mail-html-body-fallback/verify.md) |
-| 0314 | 이월(사용자 결정 2026-11-12) | DEV mock 어댑터 `app/src/main/adapters/claude/mock*.ts` | SDK 메시지 층 mock — mock이 SDK 꼴 메시지를 내고 실제 Claude 매퍼를 지나 정본 이벤트를 얻게 한다. 0314가 구 추적을 걷어 mock의 백그라운드 시나리오(정착 없는 작업·중단·완료 통지 표식)가 DEV에서 저하된 상태다 | 사용자 요청(예정) | [plan.md D-022·D-023 · §5 저하 범위](0314-0305-derivative-closeout/plan.md) |
+| 0314 | 이월(사용자 결정 2026-11-12) | DEV mock 어댑터 `app/src/main/adapters/claude/mock*.ts` | SDK 메시지 층 mock — mock이 SDK 꼴 메시지를 내고 실제 Claude 매퍼를 지나 정본 이벤트를 얻게 한다. 0314가 구 추적을 걷어 mock의 백그라운드 시나리오(정착 없는 작업·중단·완료 통지 표식)가 DEV에서 저하된 상태다. **0305 계열 제외 — 사용자 결정 2026-11-12. DEV mock 백그라운드 저하(0314 D-023)는 수용** | 사용자 요청(예정) | [plan.md D-022·D-023 · §5 저하 범위](0314-0305-derivative-closeout/plan.md) |
 | 0314 | 이월(사용자 결정 2026-11-12) | renderer `lib/parts.ts` `childMessageForParentToolRunId` | child 메시지 파생의 공유 캐시 — 호출 3곳 중 `AgentViews.tsx:68`이 메모 없이 렌더마다 전 파트를 돈다. 0314는 renderer diff 0이라 고치지 않았다 | 사용자 요청(예정) | [plan.md D-021 · §5 이월 항목](0314-0305-derivative-closeout/plan.md) |
 
 ## 진행 중 작업 메모
