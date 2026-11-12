@@ -1578,6 +1578,43 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     ])
   })
 
+  // 0314 ΔV1 EP-02′ — terminal 없이 끝난 스트림의 정착(합성 telemetry 직전)도 같은 정본 상태를
+  // 받는다. 정본 백그라운드 호출의 후손은 남기고(빈 상태와 구별), 부모가 정본에 없는 실행은
+  // 정착한다(`undefined` 와 구별).
+  it('AC3 경로 — terminal 없이 끝난 스트림도 정본 상태로 보존 집합을 판정한다', async () => {
+    const tracker = new BackgroundTaskTracker()
+    tracker.observe({
+      type: 'background.call',
+      sessionId: 's1',
+      source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+      toolUseId: 'bg',
+      phase: 'returned',
+      patch: { mode: 'background', status: 'async_launched' }
+    })
+    const deps = makeDeps(
+      fakeRuntime([[started('bg-child', 'bg'), started('orphan-child', 'gone')]]),
+      { backgroundTasks: tracker }
+    )
+    await run([], deps)
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:bg-child',
+      'started:orphan-child',
+      'completed:orphan-child:no_result',
+      'telemetry'
+    ])
+  })
+
+  it('AC3 경로 — terminal 없이 끝난 스트림에서 정본 없는 세션은 부모 있는 실행도 정착한다', async () => {
+    const deps = await run([started('p'), started('child', 'p')])
+    expect(forwarded(deps).map(shape)).toEqual([
+      'started:p',
+      'started:child',
+      'completed:p:no_result',
+      'completed:child:no_result',
+      'telemetry'
+    ])
+  })
+
   it('AC4 — 철회는 열린 id 만 즉시 정착하고 내부 이벤트는 버스에 닿지 않는다', async () => {
     const deps = await run([
       started('a'),
