@@ -199,3 +199,68 @@ root `PAIR_FAIL` 0 · `BLOCKED_BY` 0. 이번 라운드는 최초 검증이라 �
 - 현재 변경 운영 gate: PASS(G12는 구현 보고 기준선과 수치 일치로 갈음 — 변경 전 재실행 없음).
 - 남은 사람 확인: 없음. 장부 Decision 문장 ↔ 단계 의미(경계 6)는 표본도 못 봤다.
 - 다음 단계: 설계자가 D1~D4를 판정한다. 채택하면 §10에 자리 추가 후 구현 턴(`r2`), 경계로 선언하면 규범 변경만으로 verify 2회째.
+
+---
+
+# r2 검증 (2026-11-12)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 range | `7c6b474..77d0def` (테스트 `7eaf52d` · 보고 `77d0def`) — production diff 0 |
+| 유효 V | `V1 rev.3 + ΔV1` |
+| 상태 | **PASS** (기계 범위) |
+| 확장 창 | verify 2회째 — 창 안. ΔV1은 사용자 요구 변경이 아니라 창을 다시 열지 않았다 |
+| 기준선 | plan diff = ΔV1 설계(`7c6b474`)와 구현자 기입 절뿐. Decision·AC 완화 없음 |
+
+## 판정 근거
+
+- `git diff 7c6b474..HEAD -- app/src` = 테스트 2파일(D5 1케이스 · `:532` 2케이스). production 변경 0.
+- plan validity: ΔV1이 EP-02′ 6자리·EP-07′ 좌표를 자리별로 고정했고 D5 입력이 규칙 칸과 1:1이다. `PLAN_GAP` 0.
+
+## 고장 이력 (이번 턴 재현)
+
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|
+| u | `background-tasks.ts:124` `dispose`의 `changed` | 제거 | 잡음(1) | D5 | ① |
+| u-delete | `:123` `canonical.delete` | 제거(⑥) | 잡음(1) | D5 | ⑥ |
+| v140·w140 | `turn-coordinator.ts:140` | 빈 값 · 맞바꿈 | 잡음(4 · 2) | AC3 경로 | ①⑤ |
+| v288·w288 | `:288` | 〃 | 잡음(1 · 1) | abort 정착 | ①⑤ |
+| v532·w532 | `:532` | 〃 | 잡음(2 · 1) | 신규 2케이스 | ①⑤ |
+| v562·w562 | `:562` | 〃 | 잡음(1 · 1) | fail 정착 | ①⑤ |
+| vidx75·widx75 | `index.ts:75` | 〃 | 잡음(1 · 1) | `post-turn.schedules` | ①⑤ |
+| X-532-swap414 | `:532` | 다른 값(`dbSessionId` 제거) ⑥ | 잡음(2) | 신규 2케이스 | ⑥ |
+| X-restore | `background-tasks.ts:38` | 제거 | 못 잡음(26 green) | — | 경계 9(`restore` 호출처가 `hasCanonical`을 먼저 검사) |
+
+검산: 시도 15 = 잡음 14 · 못 잡음 1(경계) · 동치 0. `mutate.py` 종료 뒤 `# 원복 확인: 모든 파일 원문 그대로` · `git status` 깨끗. ③(직전 `못 잡음` 행): `n532`·`X-dispose`는 v532·u로 닫힘, `X-restore`·`X-observe-eq`는 경계 9·10(`observe` 변이는 이번에 돌리지 않음 — 경계). ④: 직전 `잡음` 행 중 이번 diff가 닿은 oracle 파일(`background-tasks.test.ts`·`turn-coordinator.test.ts`) 자리를 v/w·u로 재실행했고 덮개 회귀 0.
+
+## Pair · AC · gate
+
+| 항목 | 결과 | 관측 |
+|---|---|---|
+| VP-04′ | PASS | `background-tasks.test.ts` 26/26 · 24분기 · u red |
+| VP-05′ (EP-02′ 10 · EP-07′ 9 · EP-01 8) | PASS | `turn-coordinator.test.ts` 86/86 · v/w 운반 6자리 12변이 전부 red |
+| VP-03·06·07·08·09 | PASS | r1 PASS 유지 — production·장부 diff 0, G9·G15 출력 없음 |
+| AC | ✅ 12 · ⚠️ 0 · ❌ 0 = 12 | 자기보고·trailer(`12/12`)·INDEX 일치 |
+| lint · typecheck · typecheck:test | PASS | 0 error · 2 warning(기존) · 트리 변화 없음 |
+| 전체 vitest(필터 없음) | 기준선과 동일 | 943파일 중 29 failed · 22 케이스 · 총 8827(r1 8824 + 3). r1 검증과 파일·케이스 수 일치, 환경 서명(Electron 미설치 · Windows 경로) |
+| `check-doc-inventory --check` · `node --test scripts/*.test.mjs` | PASS | prose·links ok · 868 pass 0 fail |
+
+못 본 것: 구현자 장부 변이 q~t, `observe` 동치 가드 변이(경계 10), 변경 전 기준 실행.
+
+## Repository operation checks
+
+- trailer 3커밋(`7c6b474`·`7eaf52d`·`77d0def`) `git log --format='%(trailers:only=true)'`로 파싱됨. `7eaf52d`의 `partial 11/12`는 중간 커밋이고 최종 `77d0def`가 `12/12`.
+- 좌표: 전부 `git cat-file -t` commit. `origin/main`에는 아직 없다(`880abf7` 조상 아님) — 병합 뒤 `main` 해시로 교정(비귀속 N1 유지).
+- AGENTS.md 변경 없음. 사람 실기 없음(plan §7).
+
+## 파생 이슈 · Review Signals
+
+- 막는 발견 0 · 이행 0 · 현재 0 · 확장 0. 독립 축(⑥) 변이 2건 모두 잡음.
+- r1 D1~D4는 ΔV1 처분대로 닫혔다(D1·D2-a 채택 → 구현·red 확인 · D2-b·c 경계 · D3·D4 plan 정정).
+- 설계자 = 구현자 = 검증자 — 사각 공유 한계는 r1과 같고, ⑥ 축으로 보완했다.
+
+## 결론
+
+**PASS** (V1 rev.3 + ΔV1 · r2 · 기계 범위). 다음 주체 없음 — 사람 실기 없는 handoff라 보드에서 archive로 옮긴다.
