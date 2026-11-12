@@ -175,6 +175,7 @@ it('reports a dead native generation and reacquires only on explicit retry', asy
     await expect(
       call(sender, { ...req, scope: { ...req.scope, cwd: 'C:/wrong' } })
     ).resolves.toMatchObject({ status: 'error', failure: { stage: 'owner' } })
+    expect(prepare).toHaveBeenCalledTimes(2)
   } finally {
     close()
   }
