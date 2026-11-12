@@ -410,3 +410,120 @@ SubAgentTileHeader   ── 정본 여부 ─┬─ 정본 헤더(같은 파일)
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 > 필드와 표의 열은 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md)의 `[구현자 기입]` 절을 그대로 쓴다.
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: §11의 M1(캐시·타입)·M2(모델 선택·파일 분리)를 그대로 구현했다. 캐시 키·저장(D-013)·반환 타입(D-012)·새 파일(D-014) 변경 없음.
+- 이견 / 현실성 문제: §7-A VP-04의 oracle 칸이 든 기존 테스트는 EP-01 5자리 중 `AgentTaskRow.tsx:49`·`InlineSubagentDetail.tsx:27` 두 자리를 보지 않는다 — 두 호출을 `undefined`로 바꿔도 `src/renderer` 전체가 변경 전과 같은 결과(5 failed · 3,386 passed)였다. 테스트 2파일을 더해 닫았다(아래 #1).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 요약 캐시 K1~K3 | EP-01 5자리(캐시는 정의 1곳) | K 3/3 | `vitest run lib/parts.test.ts` → 28 passed · `parts.test.ts`:"같은 메시지 배열의 요약은 한 번만 만든다" · "중첩 포함 여부마다 따로 든다" · "메시지 배열이 바뀌면 새로 계산한다" | 배열 identity(다른 배열 `m2` → `not.toBe` + 상태 `completed`) · `includeNested`(child 에이전트 유무로 길이 1↔2) · 반환 동일성 | — |
+| VP-04 | 요약은 `subagentTasksFromMessages`로만 | EP-01 5자리 | 5/5 | `rg -n "subagentTasksFromMessages\(" app/src/renderer/src -g '!*.test.*'` → 정의 1 + 호출 5(`LegacySubAgentTile.tsx:86,135` · `AgentTaskRow.tsx:49` · `InlineSubagentDetail.tsx:27` · `opencode/rightpanel/model.ts:36`), 목록과 차집합 0 | 아래 자리별 행 | — |
+| VP-04 · 타일 본문 `:135` | 〃 | 〃 | ✓ | `CanonicalBackgroundContent.wiring.test.ts`:"uses the same group controls…" · "구 모델 선택은 상세와 child 대화를 그린다" | 메시지의 에이전트 설명(`still running`·`legacy detail`) → 목록·상세 마크업 | — |
+| VP-04 · 타일 헤더 `:86` | 〃 | 〃 | ✓ | 같은 파일 "구 모델 선택은…"의 헤더 단언 | 선택 id의 설명 `legacy detail` → 헤더 마크업 | — |
+| VP-04 · `AgentTaskRow.tsx:49` | 〃 | 〃 | ✓ | `AgentTaskRow.render.test.ts`(신규) 2건 | 결과 메타 모델(형제 호출과 다른 값 `Haiku`↔`Opus`) · child 도구(`Bash`·2) → 행 마크업 | — |
+| VP-04 · `InlineSubagentDetail.tsx:27` | 〃 | 〃 | ✓ | `InlineSubagentDetail.test.ts`(신규) 3건 — 상세 구현은 대역, 관측은 상세에 넘긴 `task` | 최상위 id · 중첩 id(중첩 포함으로만 찾음) · 없는 id → `data-detail-task`·활동 없음 문구 | 상세 구현(`SubAgentTaskDetail`) 내부는 이 좌표 밖 — 타일 T3이 본다 |
+| VP-04 · `opencode/model.ts:36` | 〃 | 〃 | ✓ | `harnesses/opencode/rightpanel/activity.integration.test.ts` 외 — 호출을 빈 배열로 바꾸면 12 failed | 에이전트 목록 → 패널 모델 | — |
+| VP-02 | 정본 여부 판정 | EP-02 2자리(본문·헤더 선택) | 2/2 | `rg -n "hasCanonicalBackground\(" app/src/renderer/src -g '!*.test.*'` → 정의 1 + 사용 2(`SubAgentTileContent.tsx:23,70`), 차집합 0 · T1·T4 → `…wiring.test.ts`:"정본으로 그릴 때 구 모델 요약을 계산하지 않는다" · T2·T6 → "uses the same group controls…" · T2′ → `rightPanelTiles.render.test.ts`·`subagentWiring.render.test.ts` · T3·T5 → "구 모델 선택은 상세와 child 대화를 그린다" | 정본 상태(작업 있음 / 빈 상태 / view 없음 세 입력) · 구 모델 선택 id(있음 / 없음 / 지운 항목) → 본문·헤더 마크업, 요약·child 조회 호출 수 | 선언 경계 1(구독 수·렌더 횟수)·5(child 메모 호출 수) |
+| VP-03 | 읽기 전용 · 한 파일 | EP-03 3자리 | 3/3 | `rg -n "SubagentTaskSummary\[\]" …` → 9줄 중 `parts.ts:348`(지역 누적) 외 8줄 `readonly` · `rg -l "projectLegacyBackgroundPanel\(" …/harnesses -g '!*.test.*'` → `LegacySubAgentTile.tsx` 1파일 · `gate:npm run typecheck:web` — 반환값 `.reverse()`·prop `.pop()`·거른 목록 `.pop()`을 심으면 각각 TS2339 | 반환 타입 · `tasks` prop 타입 · 파일 위치 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 타일 래퍼 → 목록 View의 `stoppingIds`·`pausedIds`·`backgroundedIds` 전달(옮긴 줄, 내용 불변). 변경 전부터 지워도 green이었다 → 확장 후보(열거 밖 잠금 공백)이나 테스트 4건으로 선조치했다(아래 #2).
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 — verify 0회.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `parts.test.ts` 신규 3건 | required — (a) 3 failed · (b) 1 failed · (c) 7 failed |
+| VP-02 | REQUIRED | SELF_PASS | `…wiring.test.ts` 신규 2건 + 기존 3파일 | required — (d) 본문 2·헤더 1 failed · (e) 6 · (f) 8 · (g) 본문 1·헤더 1 · (h) 본문 1·헤더 1 |
+| VP-03 | REQUIRED | SELF_PASS | `gate:npm run typecheck:web` · EP-03 검색 | not selected — 타입 위반 3종을 심어 TS2339 관측 |
+| VP-04 | REQUIRED | SELF_PASS | 위 자리별 5행 | not selected — 자리마다 제거 변이 red(sweep) |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스 `mutate.py`, 원복 확인 "모든 파일 원문 그대로". 변이는 마지막 테스트 수정 전에 돌렸고, 그 뒤 수정은 테스트 입력 추가뿐이다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `parts.ts` 캐시 저장 줄 제거 | VP-01 (a) | 최초 | K1 외 3 | 잠김 |
+| `parts.ts` 칸 번호를 0 고정 | VP-01 (b) | 최초 | K2 1 | 잠김 |
+| `parts.ts` 키를 모듈 단일 칸으로 | VP-01 (c) | 최초 | K3 외 7 | 잠김 |
+| `parts.ts` 적중 반환 제거 · 항목 등록 제거 · 계산 인자를 `false` 고정 | sweep — 규칙 칸 분기(diff 자리) 3 | 최초 | 3 · 3 · 1 | 잠김 |
+| `parts.ts` 칸 번호 맞바꿈(`0:1`) | sweep — diff 자리 | 최초 | 0 | 동치 — 읽기·쓰기가 같은 식을 쓰는 내부 번호다. 28 passed |
+| 타일 선택 조건을 view 존재만으로 (본문 · 헤더) | VP-02 (d) 2자리 | 최초 | 2 · 1 | 잠김 |
+| 타일 두 분기 맞바꿈 (본문 (e) · 헤더 (f)) | VP-02 (e)(f) | 최초 | 6 · 8 | 잠김 |
+| 선택 컴포넌트에서 구 모델 요약 계산 (본문 · 헤더) | VP-02 (g) 2자리 | 최초 | 1 · 1 | 잠김 |
+| 구 모델 `projectLegacyBackgroundPanel` 제거 (본문 · 헤더) | VP-02 (h) 2자리 | 최초 | 1 · 1 | 잠김 |
+| 타일 선택을 `true`/`false` 고정 (본문 2 · 헤더 2) | sweep — EP-02 자리 4 | 최초 | 5 · 1 · 1 · 7 | 잠김 |
+| view 없음을 정본으로(`=== undefined ||`) (본문 · 헤더) | sweep — 규칙 칸 분기 T2′ 2 | 최초 | 7 · **0** | 본문 잠김 · 헤더 **잠금 없음 → 입력 추가** 뒤 1 failed |
+| 요약 호출 제거 — 타일 본문 · 헤더 · OpenCode 모델 | sweep — EP-01 자리 3 | 최초 | 5 · 1 · 12 | 잠김 |
+| 요약 호출 제거 — `AgentTaskRow` · `InlineSubagentDetail` | sweep — EP-01 자리 2 | 최초 | **0 · 0** | **잠금 없음 → 테스트 2파일 추가** 뒤 2 · 2 failed |
+| `AgentTaskRow` 첫 항목 고정 · `InlineSubagentDetail` 첫 항목 고정 · 중첩 제외 | sweep — 형제 맞바꿈 3 | 최초 | 1 · 2 · 1 | 잠김 |
+| 구 모델 child 조회를 `null` · 선택 상세 분기 제거 · 헤더 선택 조건 뒤집기 | sweep — 규칙 칸 분기 T3·T5 3 | 최초 | 1 · 1 · 1 | 잠김 |
+| 정본 헤더 투영 제거 · 투영의 `panel` 인자 제거 | sweep — VP-02 path edge 2 | 최초 | 6 · 1 | 잠김 |
+| 래퍼 → 목록 `stopErrors` 빈 객체 | sweep — 옮긴 배선 1 | 최초 | 1 | 잠김 |
+| 래퍼 → 목록 `stoppingIds` · `pausedIds` · `backgroundedIds` 제거 | sweep — 옮긴 배선 3 | 최초 | **0 · 0 · 0** | **잠금 없음 → 테스트 4건 추가** 뒤 각 1 failed |
+| 반환값 `.reverse()` · `tasks` prop `.pop()` · 거른 목록 `.pop()` | sweep — EP-03 자리 3 | 최초 | `typecheck:web` TS2339 ×3 | 잠김 |
+
+- **분모 검산**: `선택 증거 11(등록 8종, (d)(g)(h)는 본문·헤더 2자리씩) · 인용 변이 0 · 새 oracle 0 · sweep 30 = 표 행 41`. 결과 `잡음 40 · 동치 1`. 처음 `못 잡음` 6건은 전부 테스트를 더해 red로 바뀌었다.
+- **덮개 회귀**: 0건 — 이전 라운드 없음. 삭제·교체한 테스트 없음(`git diff --numstat` test 삭제 6줄은 import 경로 4 + `render`·`pristine` 헬퍼 재작성 2 — 지운 케이스 0).
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음 — 새 문구·상태 0. 마크업은 옮기기만 했다 | T1이 정본 본문을 단독 렌더와 `toBe`로, T3·T5가 구 모델 마크업을 변경 전 코드에서 먼저 green으로 확인 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치는 seam이 아니라 설계(D-014)다. 옮긴 컴포넌트에 `finally`·정리 코드·지역 상태 없음(`useMemo`뿐) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. 캐시는 계산 뒤 저장이라 파생이 던지면 다음 호출이 다시 계산한다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 — 중단 실패 문구 배선은 그대로(`subagentWiring.render.test.ts` 3건 + 변이 red) | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 경로 변경 없음. 모델 전환은 §5 전이표 1행 그대로 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | VP-04 oracle 칸의 기존 테스트가 EP-01의 `AgentTaskRow`·`InlineSubagentDetail` 두 자리를 보지 않는다 | ✅ 선조치 — `AgentTaskRow.render.test.ts`(2건)·`InlineSubagentDetail.test.ts`(3건) 추가. 📝 plan 제안: §7-A VP-04 oracle 칸에 두 파일을 적는다 | 제거 변이가 `src/renderer` 전체에서 대조군과 같은 결과였다. 두 테스트는 변경 전 코드에서도 5 passed |
+| 2 | 타일 래퍼가 목록 View로 넘기는 라이브 표식 3집합이 변경 전부터 잠겨 있지 않았다(확장 후보) | ✅ 선조치 — `subagentWiring.render.test.ts`에 4건 추가 | 변경 전 코드에서 7 passed, 변이 3종 각 1 failed |
+| 3 | 헤더의 "정본 view 없음 + 구 모델 선택" 분기에 입력이 없었다(§10 T2′는 본문만 적는다) | ✅ 선조치 — T3 케이스에 view 제거 입력 추가(규칙 칸을 따라 입력을 더함) | 변이 `S-T2p-hdr` 0 → 1 failed |
+| 4 | 메시지 배열을 제자리에서 고친 뒤 다시 요약을 구하는 테스트(§17 리스크) | 발견 0 — 조치 없음 | 전체 vitest 실패 집합이 변경 전과 차집합 0 |
+| 5 | 캐시된 요약 배열은 메시지 배열이 살아 있는 동안 남는다 — `chatStore.sessions`는 크기 제한이 없다(`app/AGENTS.md` 메모리 캐시) | ⚠️ 보고만 — §14가 적은 범위(배열당 최대 2개)이고 세션 캐시 상한은 Future Scope다 | `parts.ts`의 `WeakMap` |
+
+### 설계 대비 명시적 차이
+
+- 정본 헤더(`CanonicalSubAgentHeader`)는 view가 없으면 기본 제목으로 떨어진다. 선택 컴포넌트가 정본일 때만 올리므로 닿지 않는 방어 분기다 — 타입 때문에 둔다.
+- `…wiring.test.ts`의 `render`가 `TranscriptRuntimeProvider`(production `RightPanel`과 같은 `assistantRuntime('claude')`)로 감싼다. §11은 "`seed`·`render`를 그대로 쓴다"였으나 T3의 구 모델 상세가 runtime을 읽는다. 기존 10케이스는 그대로 green이다.
+- T1 본문 단언에 "마크업이 단독 렌더와 `toBe`"를 썼다(§10 T1 그대로). 메커니즘 대체는 없다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — plan이 지정한 `WeakMap`·배열 identity 그대로 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 캐시를 export하지 않는다. 결과 배열은 `readonly` | EP-03 변이 3종 TS2339 |
+| 재진입 | 해당 없음 — 파생은 동기·순수 | — |
+| 다른 무효화 축 | 해당 없음 — 무효화는 배열 identity 하나(K3) | K3 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | prod: `lib/parts.ts` · `lib/canonicalBackground.ts`(반환 타입) · `lib/taskBoard.ts`(주석) · `harnesses/claude/rightpanel/SubAgentTileContent.tsx`(385 → 73줄) · `LegacySubAgentTile.tsx`(신규 350줄). test 9파일: `parts.test.ts` · `…wiring.test.ts` · `subagentWiring.render.test.ts` · import 경로 4파일 · 신규 2파일. 문서: `design-components.md` 2행 |
+| 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` · `npm run lint` · `npm run typecheck` · 가드 4종 · `./node_modules/.bin/vitest run`(필터 없음, json reporter) · `node --test "scripts/*.test.mjs"` · `mutate.py` 5회 |
+| **관측한 게이트 산출**(마지막 수정 뒤) | lint 0 error · 2 warning(기존 `react-hooks/incompatible-library`) · typecheck 3종 error 0 · 가드 4종 exit 0(`[test-budgets] 18 real-git suites ok` · `[product-naming] OK — 2223파일` · doc-inventory links ok · migrations skipped) · `node --test` 868 pass / 0 fail · vitest 943파일 / 8,813케이스 — passed 8,363 · failed 320(68파일) |
+| 기준선 분리 | 변경 전(`68797c0`) 같은 명령: 941파일 / 8,799케이스 · failed 320(68파일). 실패 식별자 340개(파일 수준 포함)의 양방향 차집합 ∅. 68파일 중 39는 `better_sqlite3.node` ABI, 20은 `Electron failed to install`, 9는 전부 손대지 않은 `src/main`의 경로·환경 단언(`adapters/opencode/v1` 3 · `adapters/claude` 3 · `app/composer-*` 2 · `handlers/session-resources.claude-assembly` 1 — 비귀속) — 이번 변경이 만진 파일의 실패 0 |
+| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only 68797c0 -- app`의 테스트 9파일 · 시간 예산 위반 0(`check-test-budgets` exit 0, 타이머·git 미사용) · 호스트 격리 위반 0(홈·env 미사용) · 풀 분류 위반 0(전부 unit 풀에서 green, 자식 프로세스·DB 없음) |
+| V-pair 자기확인 | `SELF_PASS 4 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | EP-01 5/5 · EP-02 2/2 · EP-03 3/3 |
+| **AC 자기보고** | AC1 ✅ `parts.test.ts` 28 passed(신규 3) · AC2 ✅ T1·T4 호출 0회(변경 전 코드에서는 "called 2 times"로 red) · AC3 ✅ 기존 5건 + T3·T5 green(M2 전 코드에서 먼저 green) · AC4 ✅ 기존 회귀 green + 신규 5건 · AC5 ✅ typecheck 0 · EP-03 검색 · AC6 ✅ 위 게이트 행 · AC7 ✅ `git diff --numstat 68797c0 -- app/src` → prod +419 −351 · test +409 −6 · AC8 ⚠️ 사람 실기(일괄 목록, 판정을 막지 않음) |
+| **합계 검산** | `✅ 7 · ⚠️ 1 · ❌ 0 = 총 8` — 분모 변경 없음 |
+| 블로커 / 역질문 | 없음. D-008·D-010·D-011(범위 선택)은 설계자 판단이라 사용자 확인 대상이다(§3 갱신 메모) |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` — M1 · M2 · 구현 보고 3커밋 |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 — 첫 라운드.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: VP-04가 "소비처 코드는 바뀌지 않는다"로 적대 증거를 선택하지 않았고 oracle 칸의 기존 테스트가 5자리 중 2자리를 보지 않았다. sweep의 자리별 제거 변이에서 드러났다.
+- 반복해서 부딪히는 환경 한계: electron 바이너리 없음 · better-sqlite3 ABI — vitest 68파일 고정 실패. `components/transcript/planMode.render.test.ts`가 electron 로드로 파일 수준 실패라, 그 디렉토리를 oracle로 쓴 변이는 exit code로 판정할 수 없어 실패 케이스 수로 다시 쟀다.
+- 현재 라운드·impl 턴: `r1`.
