@@ -1,0 +1,829 @@
+{
+  "base": "c1af29f",
+  "progress": {
+    "P1": true,
+    "P2": false,
+    "P3": false,
+    "P4": false
+  },
+  "areas": [],
+  "units": [
+    {
+      "area": "A1",
+      "name": "RECV_EVENT",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "session.schedules",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "session.updated",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "worktree.preparing",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "message.reasoning",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "response.boundary",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "output.captured",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "message.completed",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "tool.call.started",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "tool.call.completed",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "turn.retrying",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "session.compacted",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "telemetry",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "permission.requested",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "permission.resolved",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "chat.activity",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "subagent.task",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "turn.ended",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "turn.aborted",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A1",
+      "name": "error",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A2",
+      "name": "LOAD_SESSION",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "dispatchTo",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "patchEntry",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "userBubbleText",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "hasCommittedClientId",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "isTerminalWithoutSession",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "TURN_ACTIVITY_EVENTS",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "shouldBeginTurn",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "resolveSessionKey",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "resolveApprovalOwner",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "receiveDeltaBatch",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "setState",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "sendNewChatPayload",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "releaseNewChatGate",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "promotePendingNewChat",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "receive",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "message.completed",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "message.reasoning",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "turn.retrying",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "subagent.task",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "message.queued",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "message.committed",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "chat.activity",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "session.schedules",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "message.submitted",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "message.cancelled",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "telemetry",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "turn.ended",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "permission.requested",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "turn.aborted",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "error",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "session.updated",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "coalescer",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A3",
+      "name": "ingestChatEvent",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "choices",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "callerClient",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "release",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "events",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "prepare",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "commands",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "agents",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "models",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "mcp",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "plugins",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "rememberCommands",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "directory",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "signal",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "ready",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "offer",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "connectEvents",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "startEvents",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "fail",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "resourceActivityChanged",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "reconcileConnections",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "close",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "configureResourceActivity",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "acquire",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "finish",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A4",
+      "name": "retireAll",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "vaultKeysOf",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "load",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "save",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "createMemoryGrantPersistence",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "restore",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "entry",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "records",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "credentialRevision",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "isVerified",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "markVerified",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "get",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "put",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "revoke",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "deleteVaultKeys",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "status",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "markExpired",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "settleExpired",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "settleExpiry",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "authKind",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "isCurrentGrant",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "isCurrentUnexpiredGrant",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "refreshTokenSecret",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "secret",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "flush",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A5",
+      "name": "persist",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "receivedOrigin",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "RETRACTION_MEMORY_LIMIT",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "retractedToolRuns",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "rememberToolRuns",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "accrueSubagentMeta",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "mapTaskSystem",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "num",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "assignNums",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "usageSnapshot",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "readParentToolRunId",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "hasSingleToolResult",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "applyPendingScheduleReceipt",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "asyncLaunchReceipt",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "asStringList",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "mapTaskUpdated",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "claudeToNormalized",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "input.echo",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "input.received",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "message.completed",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "message.reasoning",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "tool.call.started",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "tool.call.completed",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "session.compacted",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "mapClaudeMessage",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "system",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "stream_event",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "assistant",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "user",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "result",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "overrideContext",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "normalizeResultTelemetry",
+      "l6": null,
+      "basis": ""
+    },
+    {
+      "area": "A6",
+      "name": "applyCumulativeUsageDelta",
+      "l6": null,
+      "basis": ""
+    }
+  ],
+  "candidates": []
+}
