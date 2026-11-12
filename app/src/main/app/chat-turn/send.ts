@@ -434,7 +434,6 @@ export async function handleChatSend(
                   extensionProfile
                 )
               ),
-            settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
             // turn 과 같은 축 — 인출 즉시 공개해야 이 다음 await 가 reject 해도
             // 바깥 finally 가 핸들을 닫는다.
             onRuntimeAcquired: (acquired) => {
@@ -502,9 +501,6 @@ export async function handleChatSend(
     onOwnerGone = (): void => {
       runtime.markAborted('user_cancelled')
       controller.abort()
-      // 창이 사라지면 in-process 백그라운드 태스크도 함께 죽는다 — 추적을 남기면 그 세션에
-      // 다시 send 하기 전까지 영영 회수되지 않는다(0149).
-      if (turn.dbSessionId) backgroundTasks.clear(turn.dbSessionId)
     }
     wc.once('destroyed', onOwnerGone)
     wc.once('render-process-gone', onOwnerGone)
@@ -569,8 +565,7 @@ export async function handleChatSend(
         activity,
         queueKey,
         getActiveTurn,
-        getInitialBatches: () => initialBatches,
-        settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks
+        getInitialBatches: () => initialBatches
       },
       {
         sessionId: payload.sessionId,
@@ -695,8 +690,6 @@ export async function handleChatSend(
             }
             return { ...prepared, permissionMode: settled }
           },
-          settleDeadBackgroundTasks: deps.settleDeadBackgroundTasks,
-          stopAndSettleAbortedTasks: deps.stopAndSettleAbortedTasks,
           getActiveTurn,
           setActiveTurn: (next) => {
             activeTurn = next

@@ -23,7 +23,6 @@ import {
   SessionActivityProjector,
   sessionForeground
 } from '../../features/chat/session-activity-projector'
-import { settleTrackedTasks } from '../../features/chat/settle'
 import { TurnCoordinator } from '../../features/chat/turn-coordinator'
 import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
@@ -284,28 +283,6 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     persistResponseBoundaries: () => true,
     classifyError: (error, phase) => adapter.classifyError(error, phase)
   })
-  const settleDeadBackgroundTasks = (
-    turn: TurnContext<WebContents>,
-    sessionId: string
-  ): Promise<void> =>
-    settleTrackedTasks(
-      turn,
-      (current, ev) => bus.emit('turn.event', { turn: current, ev }),
-      sessionId,
-      backgroundTasks,
-      { status: 'failed', summary: 'Channel closed.', stopLive: false }
-    )
-  const stopAndSettleAbortedTasks = (
-    turn: TurnContext<WebContents>,
-    sessionId: string
-  ): Promise<void> =>
-    settleTrackedTasks(
-      turn,
-      (current, ev) => bus.emit('turn.event', { turn: current, ev }),
-      sessionId,
-      backgroundTasks,
-      { status: 'stopped', summary: 'User stopped waiting.', stopLive: true }
-    )
   const listenRelease = new Map<string, () => void>()
   let initialBatches: SteerFlushBatch[] = []
   let beforePrepare: (() => Promise<void>) | undefined
@@ -323,8 +300,7 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
         activity,
         queueKey: 's1',
         getActiveTurn: () => activeTurn,
-        getInitialBatches: () => initialBatches,
-        settleDeadBackgroundTasks
+        getInitialBatches: () => initialBatches
       },
       {
         sessionId: 's1',
@@ -355,8 +331,6 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
             shouldRespawn: false
           }
         },
-        settleDeadBackgroundTasks,
-        stopAndSettleAbortedTasks,
         getActiveTurn: () => activeTurn,
         setActiveTurn: (next) => (activeTurn = next),
         setInitialBatches: (next) => (initialBatches = next)

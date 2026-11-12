@@ -59,8 +59,7 @@ describe('0250 IT-02 — 도구 경계 입력 무주입', () => {
         } as unknown as SessionActivityProjector,
         queueKey: 's1',
         getActiveTurn: () => turn,
-        getInitialBatches: () => [],
-        settleDeadBackgroundTasks: async () => {}
+        getInitialBatches: () => []
       },
       {
         sessionId: 's1',

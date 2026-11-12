@@ -190,8 +190,7 @@ export function concurrencyFixture(
       activity,
       queueKey: 's1',
       getActiveTurn: () => activeTurn,
-      getInitialBatches: () => initialBatches,
-      settleDeadBackgroundTasks: async () => {}
+      getInitialBatches: () => initialBatches
     },
     {
       sessionId: 's1',
@@ -203,7 +202,6 @@ export function concurrencyFixture(
   )
   let beforePrepare: (() => Promise<void>) | undefined
   const listenRelease = new Map<string, () => void>()
-  const stopAndSettleAbortedTasks = vi.fn(async () => {})
   const run = (): Promise<void> =>
     runTurnWithContinuations(
       {
@@ -223,8 +221,6 @@ export function concurrencyFixture(
             shouldRespawn: false
           }
         },
-        settleDeadBackgroundTasks: async () => {},
-        stopAndSettleAbortedTasks,
         getActiveTurn: () => activeTurn,
         setActiveTurn: (next) => {
           activeTurn = next
@@ -254,7 +250,6 @@ export function concurrencyFixture(
     live,
     sendMessage,
     eventsAtPush,
-    stopAndSettleAbortedTasks,
     pushed,
     pendingMessages,
     listenRelease,

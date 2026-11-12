@@ -37,8 +37,6 @@ interface PostTurnDeps {
   prepareContinuation: (
     sessionId: string
   ) => Promise<ContinuationSettings & { shouldRespawn: boolean }>
-  settleDeadBackgroundTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
-  stopAndSettleAbortedTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
   getActiveTurn: () => TurnContext<WebContents>
   setActiveTurn: (turn: TurnContext<WebContents>) => void
   setInitialBatches: (batches: SteerFlushBatch[]) => void
@@ -77,16 +75,6 @@ export async function runTurnWithContinuations(
     listenPhaseSessionId = null
     activity.setTransport(sessionId, 'idle')
   }
-  // listen 종료부와 다음 루프 상단이 같은 중단을 보더라도 태스크 정착은 턴마다 한 번만 한다.
-  const settledAbortedTurns = new WeakSet<TurnContext<WebContents>>()
-  const settleAbortedTasksOnce = async (
-    abortedTurn: TurnContext<WebContents>,
-    sessionId: string
-  ): Promise<void> => {
-    if (settledAbortedTurns.has(abortedTurn)) return
-    await deps.stopAndSettleAbortedTasks(abortedTurn, sessionId)
-    settledAbortedTurns.add(abortedTurn)
-  }
 
   try {
     // 준비 중 중단된 입력은 전송하지 않는다. 예약 유지 Stop이면 아래에서 새 수신 child를 연다.
@@ -104,18 +92,7 @@ export async function runTurnWithContinuations(
       const resumePolicy = abortResumePolicy(activeTurn.abortContinuation)
       const resumeAborted = activeTurn.controller.signal.aborted && resumePolicy.resume
       if (activeTurn.controller.signal.aborted && !resumeAborted) break
-      if (resumeAborted) {
-        delete activeTurn.abortContinuation
-        if (resumePolicy.resume && resumePolicy.stopTasks) {
-          await settleAbortedTasksOnce(activeTurn, sessionId)
-        }
-        if (lease.controller.signal.aborted) break
-      }
-      // 채널이 죽었으면 in-process 백그라운드 태스크도 소멸 — 정착·정리(고착 방지, 0136).
-      if (!runtime.channelAlive) {
-        await deps.settleDeadBackgroundTasks(activeTurn, sessionId)
-        if (lease.controller.signal.aborted) break
-      }
+      if (resumeAborted) delete activeTurn.abortContinuation
       // 다음 스텝 판정(순수, 0143) — pushTurn 은 "CLI 유휴 + 백로그 없음" 채널에서만.
       // 미확정 예약(0154) — pending() 은 held 만 반환하므로 "CLI 에 넘겨놓고 echo 를 기다리는
       // 중" 이라는 상태는 별도로 읽어야 한다. 이 입력이 없어서 턴 체인이 그 상태를 못 보고 끊겼다.
@@ -238,13 +215,6 @@ export async function runTurnWithContinuations(
           } finally {
             deps.listenRelease.delete(sessionId)
             supervisor.release(listenTurn)
-          }
-          // 사용자 중단(0143, 사용자 확정) — 대기 종료와 함께 실행 중 태스크도 중지·정착한다.
-          if (listenTurn.controller.signal.aborted) {
-            const listenAbortPolicy = abortResumePolicy(listenTurn.abortContinuation)
-            if (!listenAbortPolicy.resume || listenAbortPolicy.stopTasks) {
-              await settleAbortedTasksOnce(listenTurn, sessionId)
-            }
           }
           continue
         }

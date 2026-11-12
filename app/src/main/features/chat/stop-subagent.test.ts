@@ -38,7 +38,6 @@ function turnWith(opts: { live?: LiveStub | null; taskId?: string; subagentType?
 function trackerStub(overrides: Partial<StopSubagentTracker> = {}): StopSubagentTracker {
   return {
     isAsyncLaunched: vi.fn(() => true),
-    settled: vi.fn(),
     waitForTask: vi.fn(async () => 'settled' as const),
     ...overrides
   }
@@ -56,7 +55,6 @@ describe('stopSubagentTask — 요청 (AC12·AC16)', () => {
 
     // 0143 의 낙관 정착이 사라졌다 — 확정 전에는 transcript 를 건드리지 않는다(D-005).
     expect(settle).not.toHaveBeenCalled()
-    expect(tracker.settled).not.toHaveBeenCalled()
     expect(tracker.waitForTask).toHaveBeenCalledWith('sess-1', 'a1', {
       timeoutMs: STOP_SETTLE_TIMEOUT_MS
     })
@@ -141,7 +139,6 @@ describe('stopSubagentTask — watchdog (AC15)', () => {
     ).rejects.toThrow('termination unconfirmed')
 
     expect(onWatchdog).toHaveBeenCalledWith({ sessionId: 'sess-1', toolUseId: 'a1', timeoutMs: 5 })
-    expect(tracker.settled).not.toHaveBeenCalled()
     expect(settle).not.toHaveBeenCalled()
   })
 
@@ -151,6 +148,5 @@ describe('stopSubagentTask — watchdog (AC15)', () => {
     const onWatchdog = vi.fn()
     await stopSubagentTask(turn, req, { tracker, settle: vi.fn(), onWatchdog })
     expect(onWatchdog).not.toHaveBeenCalled()
-    expect(tracker.settled).not.toHaveBeenCalled()
   })
 })

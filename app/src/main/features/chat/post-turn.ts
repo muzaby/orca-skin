@@ -5,12 +5,11 @@
 // 구조적으로 차단한다.
 import type { AbortContinuation } from '../../contracts/turn'
 
-type AbortResumePolicy = { resume: false } | { resume: true; stopTasks: boolean }
+type AbortResumePolicy = { resume: boolean }
 
-// 응답 중단의 의도를 한 곳에서 해석한다. 즉시 보내기는 체인과 백그라운드 작업을 유지한다.
+// 응답 중단 뒤 체인을 이어 갈지를 한 곳에서 해석한다. 백그라운드 수신은 어느 쪽이든 보존한다.
 export function abortResumePolicy(continuation: AbortContinuation | undefined): AbortResumePolicy {
-  if (continuation === undefined) return { resume: false }
-  return { resume: true, stopTasks: continuation === 'reception' }
+  return { resume: continuation !== undefined }
 }
 
 type PostTurnStep = 'listen' | 'flush' | 'break'

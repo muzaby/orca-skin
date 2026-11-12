@@ -21,8 +21,6 @@ interface TurnRequestDeps {
   queueKey: string
   getActiveTurn: () => TurnContext<WebContents>
   getInitialBatches: () => SteerFlushBatch[]
-  /** 채널이 내려갔을 때 미정착 백그라운드 태스크를 정착·정리한다. */
-  settleDeadBackgroundTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
 }
 
 // 중단 영수증 화해(0151 AC11) — still_queued 에는 우리가 보낸 적 없는 내부 uuid(cron 트리거·
@@ -67,7 +65,6 @@ export function buildTurnRequest(
     | 'canReopenInitialSubmission'
     | 'reopenInitialSubmission'
     | 'captureInterruptReceipt'
-    | 'onChannelRetired'
     | 'onSessionSchedules'
     | 'onWaitPhase'
     | 'isSubagentBlocked'
@@ -124,11 +121,6 @@ export function buildTurnRequest(
       if (!sid) return undefined
       const submittedAtInterrupt = pendingMessages.submittedUuids(sid)
       return (receipt) => reconcileInterrupt(activity, sid, receipt, submittedAtInterrupt)
-    },
-    onChannelRetired: () => {
-      const activeTurn = deps.getActiveTurn()
-      const sid = activeTurn.dbSessionId
-      if (sid) void deps.settleDeadBackgroundTasks(activeTurn, sid)
     },
     onSessionSchedules: (sessionId, schedules, pendingWakeup) =>
       activity.setSchedules(sessionId, schedules, pendingWakeup),

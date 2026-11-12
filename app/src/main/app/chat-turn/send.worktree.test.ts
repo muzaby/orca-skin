@@ -194,7 +194,6 @@ function makeHarness(sessionId?: string) {
     isUpdateInstallPending: () => false,
     background: { observe: vi.fn() },
     listenRelease: new Map(),
-    settleDeadBackgroundTasks: vi.fn(),
     // 0210 — resume 턴은 준비 전에 worktree 소실을 먼저 판정한다. 기본값은 '살아 있다'.
     worktrees: {
       hasManagedWorktree: vi.fn(() => false),
@@ -678,8 +677,6 @@ describe('handleChatSend worktree production wiring', () => {
     'owner %s는 실행을 중단하고 최종 반납 뒤 listener가 남지 않는다',
     async (eventName) => {
       const harness = makeHarness('session-1')
-      const clear = vi.fn()
-      harness.deps.backgroundTasks = { clear }
       const runtime = { close: vi.fn(), channelAlive: true, markAborted: vi.fn() }
       mocks.acquireTurnRuntime.mockResolvedValue({
         ok: true,
@@ -700,7 +697,6 @@ describe('handleChatSend worktree production wiring', () => {
       })
 
       expect(runtime.markAborted).toHaveBeenCalledExactlyOnceWith('user_cancelled')
-      expect(clear).toHaveBeenCalledExactlyOnceWith('session-1')
       expect(harness.supervisor.releaseRuntime).toHaveBeenCalledExactlyOnceWith(
         'session-1',
         runtime

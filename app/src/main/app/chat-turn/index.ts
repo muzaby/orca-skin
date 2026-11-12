@@ -24,11 +24,7 @@ import {
 import type { TurnEmit } from '../../contracts/bus-events'
 import type { TurnContext } from '../../contracts/turn'
 import { abortTurn } from '../../features/chat/abort'
-import {
-  settleOpenToolRuns,
-  settleSubagentTask,
-  settleTrackedTasks
-} from '../../features/chat/settle'
+import { settleOpenToolRuns, settleSubagentTask } from '../../features/chat/settle'
 import { stopSubagentTask } from '../../features/chat/stop-subagent'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { sendChatEvent } from '../../infra/ipc/send'
@@ -64,52 +60,19 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
     }
   }
 
-  // 0136 — 세션별 미정착 백그라운드 서브에이전트 추적(coordinator 가 갱신, 턴-후 루프가 조회)
-  // + listen 턴 릴리즈 밸브(세션 키 — busy send 예약이 listen 프레임을 닫아 즉시 연속 턴 전환).
+  // listen 턴 릴리즈 밸브(세션 키 — busy send 예약이 listen 프레임을 닫아 즉시 연속 턴 전환, 0136).
   const listenRelease = new Map<string, () => void>()
-
-  // 0136 — 채널이 내려간 세션에 미정착 백그라운드 태스크가 남으면(in-process 라 채널과 함께
-  // 소멸) 합성 settled(failed)로 부모 Task/열린 child 를 정착해 '실행 중' 영구 고착을 막고
-  // 추적을 비운다. 정착 이벤트는 turn.event 버스로 흐르므로 재로드 복원까지 일관된다.
-  const settleDeadBackgroundTasks = (
-    turn: TurnContext<WebContents>,
-    sessionId: string
-  ): Promise<void> =>
-    backgroundTasks.hasCanonical(sessionId)
-      ? Promise.resolve()
-      : settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
-          status: 'failed',
-          summary: '채널이 종료되어 서브에이전트가 중단되었습니다.',
-          stopLive: false
-        })
-
-  // listen 대기 중 사용자 중단(0143, 사용자 확정) — 대기만 끊지 않고 실행 중 백그라운드 태스크도
-  // 함께 중단한다(stopTask + 합성 stopped 정착). 대안(태스크 유지)은 다음 send 의 draining
-  // teardown 으로 태스크가 어차피 소리 없이 죽어 '실행 중' 거짓 표시만 남긴다.
-  const stopAndSettleAbortedTasks = (
-    turn: TurnContext<WebContents>,
-    sessionId: string
-  ): Promise<void> =>
-    backgroundTasks.hasCanonical(sessionId)
-      ? Promise.resolve()
-      : settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
-          status: 'stopped',
-          summary: '사용자가 대기를 중단해 백그라운드 서브에이전트를 중지했습니다.',
-          stopLive: true
-        })
 
   const runtimeDeps: ChatRuntimeDeps = {
     ...deps,
     background,
-    settleDeadBackgroundTasks,
-    stopAndSettleAbortedTasks,
     listenRelease
   }
 
   // Stop과 즉시 보내기는 같은 정착/영속/통지 순서를 쓴다. held와 체인 정책은 호출자가 정한다.
   const interruptResponse = (turn: TurnContext<WebContents>, sessionId: string): void => {
     abortTurn(turn, 'user_cancelled')
-    settleOpenToolRuns(turn, emitTurn, 'aborted', backgroundTasks.getState?.(sessionId))
+    settleOpenToolRuns(turn, emitTurn, 'aborted', backgroundTasks.getState(sessionId))
     persistence.finalizeTurn(turn)
     turn.abortAcknowledged = true
     sendChatEvent(turn.owner, {

@@ -1169,42 +1169,27 @@ describe('TurnCoordinator.run — retry', () => {
   })
 })
 
-describe('TurnCoordinator — 백그라운드 태스크 추적 (0136)', () => {
-  it('subagent.task started→settled 를 tracker 에 반영한다', async () => {
-    const runtime = fakeRuntime([
-      [subagentStarted('a1'), subagentStarted('a2'), subagentSettled('a1'), telemetry]
-    ])
-    const tracker = new BackgroundTaskTracker()
-    const deps = makeDeps(runtime, { backgroundTasks: tracker })
-    const turn = makeTurn()
-    turn.dbSessionId = 's1'
+// 0314 — coordinator 는 `subagent.task`·도구 결과로 백그라운드 상태를 만들지 않는다(AR-02). 상태의
+// 원천은 provider 경로가 넘긴 정본 이벤트뿐이고, coordinator 는 선택자만 읽는다.
+const backgroundCall = (
+  toolUseId: string,
+  mode: 'foreground' | 'background'
+): Parameters<BackgroundTaskTracker['observe']>[0] => ({
+  type: 'background.call',
+  sessionId: 's1',
+  toolUseId,
+  phase: 'returned',
+  patch: { mode, status: mode === 'background' ? 'async_launched' : 'completed' },
+  source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
+})
+const settledBackgroundFlags = (deps: CoordDeps): Array<boolean | undefined> =>
+  (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
+    .map((c) => c[1] as NormalizedEvent)
+    .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
+    .map((ev) => (ev as { background?: boolean }).background)
 
-    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    // a1 은 settled, a2 는 미정착으로 남는다.
-    expect([...tracker.ids('s1')]).toEqual(['a2'])
-  })
-
-  it('부모 Task 의 권위 결과(비-런치 영수증) tool.call.completed 도 정착으로 본다', async () => {
-    const started = subagentStarted('a1')
-    const completed = {
-      type: 'tool.call.completed',
-      sessionId: 's1',
-      toolRunId: 'a1',
-      result: { summary: 'done' },
-      isError: false
-    } as unknown as NormalizedEvent
-    const runtime = fakeRuntime([[started, completed, telemetry]])
-    const tracker = new BackgroundTaskTracker()
-    const deps = makeDeps(runtime, { backgroundTasks: tracker })
-    const turn = makeTurn()
-    turn.dbSessionId = 's1'
-
-    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    expect(tracker.ids('s1').size).toBe(0)
-  })
-
-  it('런치 영수증(async_launched) tool.call.completed 는 추적을 해제하지 않고 background 관측을 기록한다', async () => {
-    const started = subagentStarted('a1')
+describe('TurnCoordinator — 백그라운드 상태를 짐작하지 않는다 (0314)', () => {
+  it('subagent.task·런치 영수증·권위 결과는 tracker 상태를 만들지 않는다', async () => {
     const receipt = {
       type: 'tool.call.completed',
       sessionId: 's1',
@@ -1212,68 +1197,78 @@ describe('TurnCoordinator — 백그라운드 태스크 추적 (0136)', () => {
       result: { status: 'async_launched', agentId: 'x' },
       isError: false
     } as unknown as NormalizedEvent
-    const runtime = fakeRuntime([[started, receipt, telemetry]])
+    const completed = {
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 'a3',
+      result: { summary: 'done' },
+      isError: false
+    } as unknown as NormalizedEvent
+    const runtime = fakeRuntime([
+      [
+        subagentStarted('a1'),
+        receipt,
+        subagentStarted('a2'),
+        subagentSettled('a2'),
+        subagentStarted('a3'),
+        completed,
+        telemetry
+      ]
+    ])
     const tracker = new BackgroundTaskTracker()
+    const changed = vi.fn()
+    tracker.subscribe(changed)
     const deps = makeDeps(runtime, { backgroundTasks: tracker })
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
     await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    // 런치 영수증은 "실행 중" — settled 로 오해하지 않는다. 0143: background 확정 관측 기록.
-    expect([...tracker.ids('s1')]).toEqual(['a1'])
-    expect(tracker.isAsyncLaunched('s1', 'a1')).toBe(true)
+    expect(changed).not.toHaveBeenCalled()
+    expect(tracker.hasCanonical('s1')).toBe(false)
+    expect(tracker.hasPending('s1')).toBe(false)
+    expect(tracker.count('s1')).toBe(0)
+    expect(tracker.isAsyncLaunched('s1', 'a1')).toBe(false)
   })
 })
 
 describe('TurnCoordinator — settled background enrich + listen 회계 (0143)', () => {
-  it('영수증 관측 태스크의 settled 는 background:true 로 emit 된다(통지 게이팅)', async () => {
-    const receipt = {
-      type: 'tool.call.completed',
-      sessionId: 's1',
-      toolRunId: 'a1',
-      result: { status: 'async_launched', agentId: 'x' },
-      isError: false
-    } as unknown as NormalizedEvent
-    const runtime = fakeRuntime([
-      [subagentStarted('a1'), receipt, subagentSettled('a1'), telemetry]
-    ])
-    const tracker = new BackgroundTaskTracker()
-    const deps = makeDeps(runtime, { backgroundTasks: tracker })
-    const turn = makeTurn()
-    turn.dbSessionId = 's1'
-
-    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
-      .map((c) => c[1] as NormalizedEvent)
-      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
-    expect(settledForwards).toHaveLength(1)
-    expect((settledForwards[0] as { background?: boolean }).background).toBe(true)
-    expect(tracker.ids('s1').size).toBe(0)
-  })
-
-  it('영수증 미관측(foreground) 태스크의 settled 는 background 미부여', async () => {
+  it('정본이 백그라운드로 본 태스크의 settled 는 background:true 로 emit 된다(통지 게이팅)', async () => {
     const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])
     const tracker = new BackgroundTaskTracker()
+    tracker.observe(backgroundCall('a1', 'background'))
     const deps = makeDeps(runtime, { backgroundTasks: tracker })
     const turn = makeTurn()
     turn.dbSessionId = 's1'
 
     await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
-      .map((c) => c[1] as NormalizedEvent)
-      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
-    expect(settledForwards).toHaveLength(1)
-    expect((settledForwards[0] as { background?: boolean }).background).toBeUndefined()
+    expect(settledBackgroundFlags(deps)).toEqual([true])
+  })
+
+  it('정본이 포그라운드로 본 태스크와 정본에 없는 태스크의 settled 는 background 미부여', async () => {
+    const runtime = fakeRuntime([
+      [
+        subagentStarted('a1'),
+        subagentSettled('a1'),
+        subagentStarted('a2'),
+        subagentSettled('a2'),
+        telemetry
+      ]
+    ])
+    const tracker = new BackgroundTaskTracker()
+    tracker.observe(backgroundCall('a1', 'foreground'))
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
+    expect(settledBackgroundFlags(deps)).toEqual([undefined, undefined])
   })
 
   // 0204 §10 EP-06(2) — 사용자가 중단한 태스크는 완료 통지를 만들지 않는다(0143 결정).
-  // 구 경로에서는 중단 클릭이 트래커를 즉시 해제해 이 조건이 부수적으로 거짓이 됐다. D-005 가
-  // 확정까지 추적을 유지하면서 그 부수 효과가 사라져 명시 게이트가 필요해졌다.
-  it('사용자가 중단한 태스크의 settled 는 영수증이 관측됐어도 background 미부여', async () => {
-    // 영수증은 **중단 클릭 이전에** 관측됐다 — 그래서 tracker 에 직접 심는다.
+  it('사용자가 중단한 태스크의 settled 는 정본이 백그라운드로 봤어도 background 미부여', async () => {
     const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])
     const tracker = new BackgroundTaskTracker()
-    tracker.markAsyncLaunched('s1', 'a1')
+    tracker.observe(backgroundCall('a1', 'background'))
     const deps = makeDeps(runtime, { backgroundTasks: tracker })
     const turn = makeTurn()
     turn.dbSessionId = 's1'
@@ -1281,51 +1276,33 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
     turn.stoppedSubagents.add('a1')
 
     await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
-      .map((c) => c[1] as NormalizedEvent)
-      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
-    expect(settledForwards).toHaveLength(1)
-    expect((settledForwards[0] as { background?: boolean }).background).toBeUndefined()
+    expect(settledBackgroundFlags(deps)).toEqual([undefined])
   })
 
-  // 같은 조건에서 중단만 없으면 background:true 다 — 위 단언이 게이트 때문임을 고정하는 양성 짝.
+  // 중단 표식은 태스크별이다 — 같은 턴의 중단하지 않은 백그라운드 태스크는 그대로 받는다.
   it('중단하지 않은 태스크는 같은 조건에서 background:true 를 받는다', async () => {
-    const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])
-    const tracker = new BackgroundTaskTracker()
-    tracker.markAsyncLaunched('s1', 'a1')
-    const deps = makeDeps(runtime, { backgroundTasks: tracker })
-    const turn = makeTurn()
-    turn.dbSessionId = 's1'
-
-    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    const settledForwards = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
-      .map((c) => c[1] as NormalizedEvent)
-      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
-    expect((settledForwards[0] as { background?: boolean }).background).toBe(true)
-  })
-
-  it('추적 해제 후 지각 도착한 중복 settled 는 background 미부여(통지 중복 차단)', async () => {
-    const receipt = {
-      type: 'tool.call.completed',
-      sessionId: 's1',
-      toolRunId: 'a1',
-      result: { status: 'async_launched', agentId: 'x' },
-      isError: false
-    } as unknown as NormalizedEvent
     const runtime = fakeRuntime([
-      [subagentStarted('a1'), receipt, subagentSettled('a1'), subagentSettled('a1'), telemetry]
+      [
+        subagentStarted('a1'),
+        subagentSettled('a1'),
+        subagentStarted('a2'),
+        subagentSettled('a2'),
+        telemetry
+      ]
     ])
     const tracker = new BackgroundTaskTracker()
+    tracker.observe(backgroundCall('a1', 'background'))
+    tracker.observe({
+      ...backgroundCall('a2', 'background'),
+      source: { generation: 'g', sequence: 2, receivedAt: 2, replay: false }
+    })
     const deps = makeDeps(runtime, { backgroundTasks: tracker })
     const turn = makeTurn()
     turn.dbSessionId = 's1'
+    turn.stoppedSubagents.add('a1')
 
     await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
-    const flags = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
-      .map((c) => c[1] as NormalizedEvent)
-      .filter((ev) => ev.type === 'subagent.task' && ev.phase === 'settled')
-      .map((ev) => (ev as { background?: boolean }).background)
-    expect(flags).toEqual([true, undefined])
+    expect(settledBackgroundFlags(deps)).toEqual([undefined, true])
   })
 
   it('listen 턴은 activeTurns 회계에 계상하지 않는다', async () => {
@@ -1523,12 +1500,15 @@ describe('0239 — 결과 없이 끝난 도구 정착', () => {
     ])
   })
 
-  it('AC3 경로 — 정본이 없으면 부모 있는 실행은 두고 부모 없는 실행만 정착한다', async () => {
+  // 0314 — 정본 유무로 경로를 가르지 않는다. 정본 이벤트를 못 본 세션은 빈 상태라 보존할
+  // 백그라운드 호출이 없고, 부모 있는 실행도 결과 없이 끝난 도구로 정착한다(plan §10 경계 1).
+  it('AC3 경로 — 정본 이벤트가 없는 세션은 빈 상태로 판정해 부모 있는 실행도 정착한다', async () => {
     const deps = await run([started('p'), started('child', 'p'), telemetry])
     expect(forwarded(deps).map(shape)).toEqual([
       'started:p',
       'started:child',
       'completed:p:no_result',
+      'completed:child:no_result',
       'telemetry'
     ])
   })

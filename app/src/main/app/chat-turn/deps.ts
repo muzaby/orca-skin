@@ -6,7 +6,6 @@
 
 import type { WebContents } from 'electron'
 import type { MainBus } from '../../contracts/bus-events'
-import type { TurnContext } from '../../contracts/turn'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import type { BackgroundTaskTracker } from '../../features/chat/background-tasks'
@@ -39,10 +38,6 @@ export type NormalizedAttachments = Awaited<ReturnType<typeof normalizeAttachmen
 
 export interface ChatRuntimeDeps extends ChatDeps {
   background: BackgroundController
-  /** 채널 사망으로 소멸한 백그라운드 태스크를 합성 settled(failed)로 정착한다 (0136). */
-  settleDeadBackgroundTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
-  /** listen 대기 중 사용자 중단 — 실행 중 태스크도 stopTask + 합성 stopped 로 정착 (0143). */
-  stopAndSettleAbortedTasks: (turn: TurnContext<WebContents>, sessionId: string) => Promise<void>
   /** 세션 키별 listen 프레임 릴리즈 밸브 — busy send 예약 직후 즉시 연속 턴으로 전환시킨다. */
   listenRelease: Map<string, () => void>
 }

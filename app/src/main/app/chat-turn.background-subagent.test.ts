@@ -39,7 +39,7 @@ function install(turn: Turn): void {
     persistence: { flushAskAnswers: vi.fn(), finalizeTurn: vi.fn() },
     permissionModes: { setMode: vi.fn() },
     pendingMessages: { cancelAllHeld: vi.fn(() => []) },
-    backgroundTasks: { clear: vi.fn(), settled: vi.fn(), isAsyncLaunched: vi.fn(() => false) },
+    backgroundTasks: { isAsyncLaunched: vi.fn(() => false) },
     activity: { setTransport: vi.fn(), setResidualAttempts: vi.fn(), clear: vi.fn() },
     isUpdateInstallPending: () => false
   } as never)
