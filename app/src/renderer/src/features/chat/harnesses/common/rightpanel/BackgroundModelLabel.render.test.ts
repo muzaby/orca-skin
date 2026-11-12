@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { BackgroundModelLabel } from './BackgroundModelLabel'
-import { SubAgentTaskList } from '../../claude/rightpanel/SubAgentTileContent'
+import { SubAgentTaskList } from '../../claude/rightpanel/LegacySubAgentTile'
 import { useChatStore } from '../../../store/chatStore'
 import { subagentTasksFromMessages } from '../../../lib/parts'
 
