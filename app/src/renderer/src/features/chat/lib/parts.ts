@@ -246,10 +246,40 @@ export function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<Tool
   return resultByRun
 }
 
+// 메시지 배열 파생 캐시 — 배열 identity 가 키이고(0313 D-013) 칸은 파생 인자마다 하나다. reducer 는
+// 메시지 배열을 제자리에서 바꾸지 않으므로 같은 배열이면 같은 결과다. WeakMap 이라 배열이 버려지면
+// 항목도 함께 사라진다 — 상한·명시 정리가 필요 없다. 반환은 화면끼리 공유하므로 고치지 않는다.
+function cachedByMessages<K, V>(
+  cache: WeakMap<readonly Message[], Map<K, V>>,
+  messages: readonly Message[],
+  key: K,
+  derive: (messages: readonly Message[], key: K) => V
+): V {
+  let slots = cache.get(messages)
+  if (!slots) {
+    slots = new Map()
+    cache.set(messages, slots)
+  }
+  // `null` 결과도 칸에 든다 — 비었는지는 `undefined` 로만 가른다.
+  const cached = slots.get(key)
+  if (cached !== undefined) return cached
+  // 계산 뒤에 저장한다 — 파생이 던지면 칸은 빈 채로 남는다.
+  const derived = derive(messages, key)
+  slots.set(key, derived)
+  return derived
+}
+
+const childMessageCache = new WeakMap<readonly Message[], Map<string, Message | null>>()
+
+// 부모 tool run 의 child 트랜스크립트. 전 파트를 도는 조회라 같은 배열·같은 부모에는 한 번만 만든다.
 export function childMessageForParentToolRunId(
-  messages: Message[],
+  messages: readonly Message[],
   parentToolRunId: string
 ): Message | null {
+  return cachedByMessages(childMessageCache, messages, parentToolRunId, deriveChildMessage)
+}
+
+function deriveChildMessage(messages: readonly Message[], parentToolRunId: string): Message | null {
   const parts: AppMessagePart[] = []
   for (const message of messages) {
     for (const part of message.parts) {
@@ -290,14 +320,11 @@ export function subagentTaskDescription(
   return undefined
 }
 
-// 요약 캐시 — 메시지 배열 identity 가 키다(0313 D-013). 소비처들이 이미 `useMemo([messages])` 로
-// 같은 identity 를 무효화 기준으로 쓴다. 칸은 `includeNested` 값마다 하나([최상위만, 중첩 포함]).
-// WeakMap 이라 배열이 버려지면 항목도 함께 사라진다 — 상한·명시 정리가 필요 없다.
-type SubagentTaskCacheEntry = [
-  top?: readonly SubagentTaskSummary[],
-  nested?: readonly SubagentTaskSummary[]
-]
-const subagentTaskCache = new WeakMap<readonly Message[], SubagentTaskCacheEntry>()
+// 요약 캐시 — 칸은 `includeNested` 값마다 하나다(최상위만 · 중첩 포함).
+const subagentTaskCache = new WeakMap<
+  readonly Message[],
+  Map<boolean, readonly SubagentTaskSummary[]>
+>()
 
 // 서브에이전트 요약(SSOT). 전 파트를 여러 번 도는 파생이라 같은 메시지 배열에는 한 번만 계산한다 —
 // 화면에 뜬 소비처(에이전트 행·인라인 상세·타일·패널)가 같은 결과 배열을 함께 든다. 그래서
@@ -306,18 +333,7 @@ export function subagentTasksFromMessages(
   messages: readonly Message[],
   includeNested = false
 ): readonly SubagentTaskSummary[] {
-  let entry = subagentTaskCache.get(messages)
-  if (!entry) {
-    entry = []
-    subagentTaskCache.set(messages, entry)
-  }
-  const slot = includeNested ? 1 : 0
-  const cached = entry[slot]
-  if (cached) return cached
-  // 계산 뒤에 저장한다 — 파생이 던지면 칸은 빈 채로 남는다.
-  const derived = deriveSubagentTasks(messages, includeNested)
-  entry[slot] = derived
-  return derived
+  return cachedByMessages(subagentTaskCache, messages, includeNested, deriveSubagentTasks)
 }
 
 function deriveSubagentTasks(

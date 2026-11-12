@@ -36,9 +36,23 @@ vi.mock('../../../../../shared/i18n', async (original) => ({
   ...(await original<typeof import('../../../../../shared/i18n')>()),
   useI18n: () => ({ tr: (key: string) => key })
 }))
+// 0316 T-08b — 상세에 넘기는 child 대화도 기록한다(파트 id 목록, 없으면 'none').
 vi.mock('../rightpanel/SubAgentTaskDetail', () => ({
-  SubAgentTaskDetail: ({ task }: { task: SubagentTaskSummary }) =>
-    createElement('div', { 'data-detail-task': task.toolUseId, 'data-detail-status': task.status })
+  SubAgentTaskDetail: ({
+    task,
+    childMessage
+  }: {
+    task: SubagentTaskSummary
+    childMessage: Message | null
+  }) =>
+    createElement('div', {
+      'data-detail-task': task.toolUseId,
+      'data-detail-status': task.status,
+      'data-detail-child':
+        childMessage?.parts
+          .map((part) => ('toolRunId' in part ? part.toolRunId : part.type))
+          .join(',') ?? 'none'
+    })
 }))
 
 const activeSession = (): ChatState => {
@@ -98,6 +112,8 @@ describe('0313 — 인라인 상세가 세션 요약에서 자기 작업을 찾�
     const detail = dom.query('[data-detail-task]')
     expect(detail?.getAttribute('data-detail-task')).toBe('top-agent')
     expect(detail?.getAttribute('data-detail-status')).toBe('completed')
+    // 자기 child 대화(중첩 에이전트 호출)를 함께 넘긴다.
+    expect(detail?.getAttribute('data-detail-child')).toBe('nested-agent')
     dom.unmount()
   })
 
@@ -106,6 +122,7 @@ describe('0313 — 인라인 상세가 세션 요약에서 자기 작업을 찾�
     const detail = dom.query('[data-detail-task]')
     expect(detail?.getAttribute('data-detail-task')).toBe('nested-agent')
     expect(detail?.getAttribute('data-detail-status')).toBe('running')
+    expect(detail?.getAttribute('data-detail-child')).toBe('none')
     dom.unmount()
   })
 
