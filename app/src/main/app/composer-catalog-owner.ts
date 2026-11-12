@@ -1,9 +1,10 @@
-import type {
-  ComposerCatalogInvalidated,
-  ComposerCatalogLease,
-  ComposerCatalogRequest,
-  ComposerCatalogResult,
-  ComposerCatalogScope
+import {
+  composerScopeKey,
+  type ComposerCatalogInvalidated,
+  type ComposerCatalogLease,
+  type ComposerCatalogRequest,
+  type ComposerCatalogResult,
+  type ComposerCatalogScope
 } from '../../shared/composer-catalog'
 import { ComposerCatalogError } from './composer-catalog-error'
 import { getLogger } from '../infra/log/registry'
@@ -12,17 +13,6 @@ export class ComposerCatalogCancelled extends Error {
   constructor(readonly reason: 'owner-left' | 'superseded' | 'shutdown' = 'owner-left') {
     super('Composer observation cancelled')
   }
-}
-
-export function composerScopeKey(scope: ComposerCatalogScope): string {
-  return JSON.stringify([
-    scope.backend,
-    scope.sessionId,
-    scope.cwd,
-    scope.projectId,
-    scope.providerKey,
-    scope.agentKind
-  ])
 }
 
 /** Cancellation settles the observer even when the native acquisition ignores its signal. */
@@ -70,17 +60,15 @@ export class ComposerCatalogOwners {
     invalidated: (event: ComposerCatalogInvalidated) => void
   ): Promise<ComposerCatalogResult> {
     if (this.closed) throw new Error('Composer preparation closed')
-    let owners = this.entries.get(sender)
-    if (!owners) this.entries.set(sender, (owners = new Map()))
-    let entry = owners.get(request.owner)
+    let entry = this.entries.get(sender)?.get(request.owner)
     const scope = composerScopeKey(request.scope)
     if (entry && entry.scope !== scope) throw new Error('Composer owner scope mismatch')
     if (entry?.lease?.signal.aborted) {
       void this.release(sender, request.owner).catch(() => undefined)
-      owners = this.entries.get(sender)
-      if (!owners) this.entries.set(sender, (owners = new Map()))
       entry = undefined
     }
+    let owners = this.entries.get(sender)
+    if (!owners) this.entries.set(sender, (owners = new Map()))
     if (!entry) {
       const controller = new AbortController()
       const owned: Owner = {

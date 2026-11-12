@@ -217,6 +217,38 @@ it('cancels only the leaving waiter and releases a late shared acquisition once'
   await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
 })
 
+it('shares one resolution per scope and resolves another scope separately', async () => {
+  const resolve = vi.fn(
+    async (scope: import('../../shared/composer-catalog').ComposerCatalogScope) => ({
+      key: String(scope.cwd),
+      acquire: async () => ({
+        generation: String(scope.cwd),
+        signal: new AbortController().signal,
+        release: async () => {},
+        read: async () => [] as never
+      })
+    })
+  )
+  const service = new ComposerPreparationService(resolve)
+  cleanups.push(() => service.close())
+  const scope = {
+    backend: 'opencode' as const,
+    sessionId: null,
+    cwd: 'C:/same',
+    projectId: null,
+    providerKey: null,
+    agentKind: 'code' as const
+  }
+  const signal = new AbortController().signal
+  const leases = await Promise.all([
+    service.acquire(scope, signal),
+    service.acquire({ ...scope }, signal),
+    service.acquire({ ...scope, cwd: 'C:/other' }, signal)
+  ])
+  expect(resolve).toHaveBeenCalledTimes(2)
+  expect(leases.map((lease) => lease.generation)).toEqual(['C:/same', 'C:/same', 'C:/other'])
+})
+
 it('rejects unavailable OpenCode preparation before resolving or acquiring a native server', async () => {
   const get = vi.fn()
   const prepared = createComposerPreparation({

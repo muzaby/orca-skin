@@ -14,6 +14,16 @@ export interface ComposerCatalogScope {
   providerKey: string | null
   agentKind: AgentKind
 }
+export function composerScopeKey(scope: ComposerCatalogScope): string {
+  return JSON.stringify([
+    scope.backend,
+    scope.sessionId,
+    scope.cwd,
+    scope.projectId,
+    scope.providerKey,
+    scope.agentKind
+  ])
+}
 export interface ComposerCatalogRequest {
   owner: string
   scope: ComposerCatalogScope
