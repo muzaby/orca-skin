@@ -492,9 +492,136 @@ ComposerCatalogScope ─ composerScopeKey ─ owner 항목 범위 · 준비 해�
 
 ---
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-(구현 턴에서 채운다 — `plan.template.md`의 `[구현자 기입]` 절 전부)
+- 동의 / 그대로 진행: D-005 다섯 조각을 §11대로 구현했다. prod 순감은 설계 실측과 같은 −34다(`git diff --numstat 943a520 -- app/src` prod `+47 −81`).
+- 이견 / 현실성 문제: 좌표 둘이 규칙을 잠그지 못했다 — §10 X1 "`:207` 기존"은 epoch 항을 지워도 green이었고(`retired`가 같은 응답을 거른다), X3 "`composer-promotion.test.ts:157` 기존"은 `previousOwner` 항을 지워도 green이었다. 규칙 칸을 따라 입력을 더했다(아래 놓친 문제 1·2).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 한 입력 묶음의 네 필드 | prelude · 처음 · 후속 (3) | 3/3 | EP-01 검색 → 정의 1(`:1074`) · 헬퍼 본문 1(`:552`) · `batchContent(` 3(`:559,561,1045`) · 좌표 `adapter.context-policy.test.ts` `0245 AC21 … initial/prelude/pushTurn delegates text…` 세 케이스 + `adapter.fork.test.ts` `recreates an expired conversation…` | 본문 = 경로 이름 · 텍스트 첨부 2 · 이미지 1 · diff 요구 1 · 후속 `promptUuid: 'p-1'` → SDK user 메시지 `content`·`uuid` 단언 | — |
+| VP-02 | 실패 → 실패 슬롯 | `.then` throw 조건 · `.catch` 슬롯 대입 (2) | 2/2 | EP-02 검색 → 2줄(`:157,181`) · 좌표 `composerCatalogState.test.ts` `coalesces retry, keeps data on error…`(F2·F3·F4) · `leaves the agent cache empty…`(F1) · `discards a failure that arrives after the last subscriber left`(F5) | 직전 값 `team/model`이 있는 슬롯에 오류 응답·거절·부분 불일치 → 슬롯 `{status:'error', value: 직전 값}`과 listener 호출 수 단언 | — |
+| VP-03 | 낡은 응답을 버린다 | `stale` 본문 · `dispose`의 `epoch++` (2) | 2/2 | EP-03 검색 → `stale` 정의 `:110-111` · 호출 `:155,178` · `dispose` `:198` · 좌표 `composerCatalogState.test.ts` `discards a response requested before an invalidation whatever its generation`(X1) · `accepts the previous owner after a promotion and discards any older owner`(X2·X3) · `discards retired and unmounted responses…`(X4) | X1: 무효화한 세대와 다른 세대 `unseen`의 값 응답 → 슬롯 `error` 유지 · X2/X3: 승격 1회 뒤 직전 소유자 값 → `ready`, 승격 2회 더 뒤 옛 소유자 값 → `loading` 유지 | — |
+| VP-04 | 범위 키 | 정의 1 · 호출 3 (`owner.read` · `service.acquire` · `stateKey`) | 4/4 | EP-04 검색 → 정의 1(`shared/composer-catalog.ts:17`) · 필드 나열은 그 정의와 §8이 사본이 아니라고 적은 `composer-catalog.ts:51` · 좌표 `shared/composer-catalog.test.ts` `serializes the six scope fields…`(Q1) · `composerCatalogState.test.ts` `keys shared state by identity and scope`(Q2·Q3) · `handlers/composer-catalog.test.ts` `reports a dead native generation…`(owner 호출) · `composer-preparation-service.test.ts` `shares one resolution per scope…`(service 호출) | 여섯 필드가 서로 다른 값 → 반환 문자열 일치 · identity 1↔2, cwd 다름 → `toBe`/`not.toBe` · cwd만 다른 범위 → `resolve` 2회·세대 문자열 | — |
+| VP-05 | 소유자 항목 확보 | `read` 머리 블록 (1) | 1/1 | EP-05 검색 → `read` 머리 3줄(`:63,70,71`) · 좌표 `handlers/composer-catalog.test.ts` `reports a dead native generation and reacquires only on explicit retry`(E1~E4) | sender 4·소유자 1 → `prepare` 호출 수 1→2→2, `a.release` 1회, 종료 뒤 `b.release` 1회, 범위 다름 → `failure.stage: 'owner'` | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음. EP-01~05 검색 출력과 §10 목록의 차집합 0줄(위 행의 검색 결과).
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음 — verify 0회.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 위 표 VP-01 좌표 | required — (a)~(f) 6/6 red |
+| VP-02 | REQUIRED | SELF_PASS | 위 표 VP-02 좌표 | required — (g)(h)(i) 3/3 red |
+| VP-03 | REQUIRED | SELF_PASS | 위 표 VP-03 좌표 | required — (j)(k)(l) 3/3 red |
+| VP-04 | REQUIRED | SELF_PASS | 위 표 VP-04 좌표 | required — (m)(n)(o)(p) 4/4 red |
+| VP-05 | REQUIRED | SELF_PASS | 위 표 VP-05 좌표 | required — (q)(r)(s)(t) 4/4 red |
+| VP-06 | REGRESSION | SELF_PASS | 파일 필터 없는 `vitest run` 실패 식별자 집합이 변경 전과 같다(347 ↔ 347, 양방향 차집합 0줄) | not selected — 집합 대조 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스 `mutate.py`로 심고 원복을 `git status`로 확인했다. oracle은 VP-01이 `adapter.context-policy.test.ts` + `adapter.fork.test.ts`, VP-02·03이 `composerCatalogState.test.ts` + `composer-promotion.test.ts` + `shared/composer-catalog.test.ts`, VP-05가 `handlers/composer-catalog.test.ts`다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `adapter.ts:554` `b.attachmentTexts ?? []` → `[]` | VP-01 (a) | 최초 | 세 경로 3건 | 잠김 |
+| `adapter.ts:555` `b.attachmentImages ?? []` → `[]` | VP-01 (b) | 최초 | 세 경로 3건 | 잠김 |
+| `adapter.ts:556` `b.requirements ?? []` → `[]` | VP-01 (c) | 설계 실측 green | 세 경로 3건 | 잠김 — M1이 요구 입력 추가 |
+| `adapter.ts:561` 처음 경로 → `batchContent(req)` | VP-01 (d) | 최초 | 1건 | 잠김 |
+| `adapter.ts:561` `...req` 제거 | VP-01 (e) | 최초 | 1건 | 잠김 |
+| `adapter.ts:1045` `next.promptUuid` 제거 | VP-01 (f) | 최초 | 1건 | 잠김 — M1이 uuid 단언 추가 |
+| `adapter.ts:559` prelude → `batchContent({ text: b.text })` | sweep — §10 자리 | 최초 | 1건 | 잠김 |
+| `adapter.ts:1045` 후속 → `batchContent({ text: next.text })` | sweep — §10 자리 | 최초 | 1건 | 잠김 |
+| `adapter.ts:553` `b.text` → `''` | sweep — path edge | 최초 | 4건 | 잠김 |
+| `adapter.ts:561` 복구 이력 → 고정값 `'x'` | sweep — 규칙 칸 분기 T2/T3 | 최초 | 2건 | 잠김 |
+| `State.ts:157` `\|\| 'status' in result` 제거 | VP-02 (g) | 최초 | 4건 | 잠김 |
+| `State.ts:157` `result.part !== part \|\|` 제거 | VP-02 (h) | 최초 | 1건 | 잠김 |
+| `State.ts:179-182` `.catch` 슬롯 대입 제거 | VP-02 (i) | 최초 | 4건 | 잠김 |
+| `State.ts:178` `.catch`의 낡음 검사 제거 | sweep — path edge | 최초 | 1건 | 잠김 |
+| `State.ts:155` `.then`의 낡음 검사 제거 | sweep — path edge | 최초 | 2건 | 잠김 |
+| `State.ts:183` `.catch`의 `publish()` 제거 | sweep — path edge | 1차 green | 1건 | **잠금 없음 → 테스트 추가**(listener 호출 수) 뒤 잠김 |
+| `State.ts:111` `epoch !== this.epoch` 항 제거 | VP-03 (j) | 변경 전 green | 2건 | **잠금 없음 → 테스트 추가**(X1) 뒤 잠김 |
+| `State.ts:111` 소유자 항 전체 제거 | VP-03 (k) | 변경 전 green | 1건 | **잠금 없음 → 테스트 추가**(X2) 뒤 잠김 |
+| `State.ts:111` `owner !== this.previousOwner` 제거 | sweep — 규칙 칸 분기 X3 | 변경 전 green | 1건 | **잠금 없음 → 테스트 추가**(X3) 뒤 잠김 |
+| `State.ts:111` `owner !== this.owner` 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 20건 | 잠김 |
+| `State.ts:198` `dispose`의 `this.epoch++` 제거 | VP-03 (l) | 변경 전 green(`disposed` 항이 덮음) | 1건 | 잠김 |
+| `shared/composer-catalog.ts` `scope.sessionId` 제거 | VP-04 (m) | 최초 | 2건 | 잠김 |
+| 같은 파일 `scope.agentKind` 제거 | VP-04 (n) | 최초 | 1건 | 잠김 |
+| `State.ts:211` `stateKey`에서 `identity` 제거 | VP-04 (o) | 최초 | 1건 | 잠김 |
+| `State.ts:211` `stateKey`에서 정본 키 제거 | VP-04 (p) | 최초 | 4건 | 잠김 |
+| `shared` 키에서 `backend` · `cwd` · `projectId` · `providerKey` 제거 (4행) | sweep — 규칙 칸 분기 Q1 | 최초 | 1 · 3 · 1 · 2건 | 잠김 4/4 |
+| `shared` 키의 `sessionId` ↔ `cwd` 맞바꿈 | sweep — 형제 슬롯 | 최초 | 1건 | 잠김 |
+| `owner.ts:64` `composerScopeKey(request.scope)` → `''` | sweep — §10 자리 | 최초 | 1건 | 잠김 |
+| `service.ts:47` `composerScopeKey(scope)` → `''` | sweep — §10 자리 | 1차 실패 7 = 기준선 7 | 1건 | **잠금 없음 → 테스트 추가**(`shares one resolution per scope…`) 뒤 잠김 |
+| `owner.ts:65` 범위 대조 줄 제거 | VP-05 (q) | 최초 | 1건 | 잠김 |
+| `owner.ts:67` `void this.release(…)` 제거 | VP-05 (r) | 최초 | 1건 | 잠김 |
+| `owner.ts:68` `entry = undefined` 제거 | VP-05 (s) | 최초 | 1건 | 잠김 |
+| `owner.ts:70-71` 표 확보를 죽은 준비 놓기 앞으로 | VP-05 (t) | 최초 | 1건 | 잠김 |
+| `owner.ts:71` `this.entries.set` 제거 | sweep — path edge | 최초 | 7건 | 잠김 |
+
+- **분모 검산**: `선택 증거 20 · 인용 변이 0 · 새 oracle 0 · sweep 17 = 표 행 37`(네 필드 행은 4행으로 센다).
+- **덮개 회귀**: 0건 — 이전 verify 없음. `stale()`에서 지운 `disposed` 항이 잡던 자리(구독 해제 뒤 응답)는 (l)과 F5 테스트가 잡는다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구·상태 없음 — throw 메시지 `Unexpected composer catalog result`는 같은 체인의 `.catch`가 삼킨다(`State.ts:177`) | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음. `owner.ts` `read` 머리의 `owners`는 선언 위치만 내려갔고 뒤 사용처(`owners.set`, `:82`)는 그 아래다 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "컴포저 목록 조회 실패(S-05)" 행 — 새 경로가 아니라 기존 거절 경로로의 합류 | 없음 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 실패 슬롯 대입 뒤 `publish()`가 돈다 — sweep에서 잠금이 없어 listener 호출 수 단언을 더했다 | 없음 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | X1·X2·X4·F5 테스트가 스냅샷 유지를 단언한다 | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | X1 좌표(`:207` 기존)가 epoch 항을 잠그지 못했다 — 같은 응답을 `retired`가 먼저 거른다 | ✅ 선조치 — 무효화한 세대와 다른 세대의 응답 입력 추가 | 변경 전 코드에 (j) → 30건 green |
+| 2 | X2·X3 좌표(`composer-promotion.test.ts:157`)가 소유자 항 둘을 잠그지 못했다 | ✅ 선조치 — `composerCatalogState.test.ts`에 승격 1회/3회 단계 케이스 추가 | 변경 전 코드에 (k)·`previousOwner` 제거 → 30건 green |
+| 3 | `service.ts:47` 키 호출 자리를 보는 테스트가 Linux에서 도는 것이 없었다 | ✅ 선조치 — `shares one resolution per scope…` 추가 | 키를 `''`로 바꿔도 실패 7 = 기준선 7 |
+| 4 | `.catch`의 `publish()`를 지워도 green이었다 | ✅ 선조치 — listener 호출 수 단언(재시도마다 2, 거절 1) | sweep 1차 33건 green |
+| 5 | Q1 테스트는 M1에 넣을 수 없다 — 변경 전 `shared/`에 그 함수가 없다 | ✅ 선조치 — M3 커밋에 함께 넣었다 | §11 단계 표는 M1에 "§10 입력 칸의 테스트"를 둔다 |
+| 6 | test 순증이 §14 추정(약 45줄)보다 크다 — `+187 −5` | ⚠️ 보고만 — AC7은 test 증감 보고만 요구한다 | 위 1~4의 입력 추가 |
+
+### 설계 대비 명시적 차이
+
+- F5를 `:207` 케이스 끝이 아니라 별도 케이스로 두고 부분을 `models`로 잡았다 — 직전 값이 있어야 "버림"과 "오류 슬롯"이 구별된다(agents는 캐시가 비면 두 결과가 같은 `{status:'error'}`다). 취소 응답과 거절을 둘 다 넣었다.
+- X2·X3 좌표를 `composer-promotion.test.ts`가 아니라 `composerCatalogState.test.ts`로 잡았다(위 2).
+- throw 메시지가 `Unexpected composer catalog part` → `… result`로 바뀌었다. 읽는 곳은 없다.
+- 메커니즘(헬퍼·키·판정 구조)은 plan §11 그대로라 대체물이 없다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 메커니즘 대체 없음 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 범위 키는 순수 함수이고 상태가 없다 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 — 실패 반영 지연(D-012)은 plan §13이 사건별로 적었고 F5·X1이 본다 | — |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | prod 5 — `adapter.ts` · `shared/composer-catalog.ts` · `composer-catalog-owner.ts` · `composer-preparation-service.ts` · `composerCatalogState.ts` / test 5 — `adapter.context-policy.test.ts` · `composerCatalogState.test.ts` · `handlers/composer-catalog.test.ts` · `composer-preparation-service.test.ts` · 신규 `shared/composer-catalog.test.ts` |
+| 실행 명령 | §19 전부 — `npm run lint` · `npm run typecheck` · 가드 4종 · 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
+| **관측한 게이트 산출** | lint 0 error · 2 warning(손대지 않은 파일의 `react-hooks/incompatible-library`) · typecheck 0 error · 가드 4종 exit 0 · vitest 941파일 / 8,799케이스 중 실패 320 · `node --test` 868 pass / 0 fail.<br>기준선 분리: 변경 전 같은 명령의 실패 식별자 347 ↔ 변경 후 347, 양방향 차집합 0줄. 원인은 `better_sqlite3.node` 부재와 `C:/` 경로(`app/AGENTS.md` 환경 서명).<br>`npm ci`는 `--ignore-scripts`로 돌렸고 `npm test`·build는 돌리지 않았다(Electron ABI egress). |
+| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only 943a520 -- app/src`의 테스트 5파일 · 시간 예산 가드 exit 0 · `[test-pools]` 출력 0줄 · 호스트 설정·실제 타이머 값 사용 0(가짜 타이머만). 수정한 `composer-preparation-service.test.ts`의 기존 실패 1건은 `C:/same` 경로 케이스이고 이번에 더한 케이스는 green이다 |
+| V-pair 자기확인 | `SELF_PASS 6 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 12/12 (3 + 2 + 2 + 4 + 1) |
+| **AC 자기보고**(`Criteria-Met`) | 8/9.<br>AC1 ✅ `adapter.context-policy.test.ts` 세 케이스 + fork 케이스 green, 변이 10 red · AC2 ✅ F1~F5 케이스 green, 변이 6 red · AC3 ✅ X1~X4 green, 변이 5 red · AC4 ✅ 정의 1줄(`shared/composer-catalog.ts:17`), Q1~Q3 green, 변이 11 red · AC5 ✅ E1~E4 green, 변이 5 red.<br>AC6 ✅ `git diff 943a520 -- app/src/main/adapters/opencode` · `adapter.turnEnd.test.ts` 0줄, `adapter.ts` hunk 5개(변경 전 줄 `:48` import · `:509` 구조 분해 · `:547` 헬퍼 타입 · `:562` 처음 · `:1051` 후속) · AC7 ✅ prod `+47 −81` = −34(≥ 28), test `+187 −5` · AC8 ✅ 위 게이트 행 · AC9 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 8 · ⚠️ 1 · ❌ 0 = 총 9` |
+| 블로커 / 역질문 | 없음. 완료 보고에 올릴 선택지는 plan 갱신 메모대로 D-008(오류 꼬리의 요약) · D-009(OpenCode 채널) · D-010(응답 범위 재개)이다 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — 첫 라운드.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: plan §8이 "(g)~(t)는 설계 시점에 돌리지 못했다"고 적고 M1에 넘겼다. 그 변이와 sweep 가운데 다섯(j · k · `previousOwner` 항 · service 호출 · `.catch` publish)이 `못 잡음`이었고 "기존" 좌표 둘이 민감하지 않았다.
+- 반복해서 부딪히는 환경 한계: `C:/` 경로 테스트(`composer-catalog.test.ts` 6건 · `composer-preparation-service.test.ts` 1건)를 Linux에서 못 본다. DB 로드 스위트도 같다.
+- 현재 라운드·impl 턴: `r1`.
 
 ## [검증자 기입] 파생 이슈
 
