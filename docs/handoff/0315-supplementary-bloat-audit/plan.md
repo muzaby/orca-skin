@@ -532,9 +532,116 @@ X8은 D-007의 한계 안에서만 후보가 된다 — 책임을 가르는 것�
 
 ---
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-(impl 턴에서 채운다 — 필드는 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md) `[구현자 기입]` 전부)
+- 동의 / 그대로 진행: Part I 전부 · §10 EP-01~EP-09 · §11 단계 P1~P4. 구간·단위 분모(6구간 · 136단위)는 `--units` 출력과 차집합 0이었다.
+- 이견 / 현실성 문제: §9 전제 표의 `agentsRule` 근거 범위("AGENTS·`docs/arch/**`·`docs/decisions/**`")가 B-02에서 좁았다 — 그 형태를 유지하기로 한 결정이 handoff Decision(0309 D-012)에만 있었다. 아래 놓친 잠재 문제 1번.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 구간 → 범주·렌즈 판정 (EP-01) | 6구간 × 11칸 = 66 | 66/66 | `gate:node …/scan/check.mjs --check` → `위반 0 · 대기 0` · 변이 D1(A4.X8 삭제) → `K1: A4.X8 판정 없음` | 칸 값 · 칸 삭제 → K1 | — |
+| VP-01·VP-06 | 구간 → 판정 단위 (EP-02) | 136단위 · 패턴 5 + 규칙 2 | 136/136 · 7/7 | `node …/scan/check.mjs --units \| wc -l` → 136(A1 20 · A2 1 · A3 33 · A4 25 · A5 25 · A6 32 — §8 표와 차집합 0) · 변이 D2·D3 red(K2) · `scan/check.test.mjs` "UT-01 P1"~"U7" 8케이스 | 단위 이름 · 삭제·유령 추가 → K2 양방향 | — |
+| VP-02 | 후보 필수 칸 (EP-03) | 12칸 × 후보 10 = 120 | 120/120 | 같은 gate · "UT-02 red K3 필수 칸 … 제거" 12케이스 · 변이 D5(자리를 테스트 파일로) → K4 · D6(유령 ID) → K7 | 칸별 제거 → K3 | — |
+| VP-02 | 전제 칸 (EP-04) | 3칸 × 후보 10 = 30 | 30/30 | 같은 gate · "UT-02 red K5 전제 … 제거" 3케이스 · 변이 D4(B-05.formLock 삭제) → K5 | 칸별 제거 → K5 · `verdict: 'ok'` · 빈 근거 | — |
+| VP-07 | 검사 규칙 (EP-05) | red 조건 40 | 40/40 | `node --test …/scan/*.test.mjs` → tests 97 · pass 97 · "UT-02 red …" 74케이스 + green 1 + 대기 2 | 조건마다 red 입력(메시지까지 단언 4건) | — |
+| VP-03·VP-08 | 중단 규칙 (EP-06) | 축 갈래 6 + 조합 5 = 11 | 11/11 | "UT-03 I1·G1" · "I2·G2" · "I3" · "W1" · "W2" · "W3" · "G3" · "G4" · "G5" 9케이스 · 경계 29/30 양쪽 · 변이 D9(B-01 전제 뒤집기) → P 7→6 · H 4→3 | 축 값 · 갈래별 입력 | — |
+| VP-03 | 핫패스 진입 심볼 (EP-07) | 6심볼 | 6/6 | `git show c1af29f:<파일> \| grep -n` — `chatStore.ts:998·698·543` · `map.ts:373` · `session-context.ts:290·347` · "UT-02 red K8 hotEntry 미지 심볼" | 심볼 이름 · `send` → K8 | — |
+| VP-02 | 대상 제외 (EP-08) | 패턴 5 | 5/5 | "UT-02 red K4 제외 패턴 …" 5케이스(패턴마다 다른 경로) | 경로 · 패턴별 입력 → K4 | — |
+| VP-05 | 판정 사본 (EP-09) | 3곳(`audit.md` 블록 · `verify.md` · INDEX 비고) | 2/3 | `grep -c '^<!-- gen:' …/audit.md` → 5 · 변이 D7(문자 수정)·D8(블록 삭제) → K10 · INDEX 비고는 수치 없이 링크만 | 블록 본문 · 문자 1개 → K10 | `verify.md` 판정 절 — 검증 턴 산출 |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:node …/scan/check.mjs --check` | D1·D2·D3 red |
+| VP-02 | REQUIRED | SELF_PASS | 같은 gate | D4·D5·D6 red · 전제 근거 명령 재실행은 검증자 몫 — 구현자는 작성 시 실행했다 |
+| VP-03 | REQUIRED | SELF_PASS(기계 범위) | `scan/check.test.mjs` UT-03 · `gate:… --ruling` → `impl: 1건 · wideAudit: 연다 · reasons: [W1]` · AC10은 사람 | D9: P 7→6 · H 4→3 |
+| VP-04 | REQUIRED | SELF_PASS | `gate:git diff --stat c1af29f..HEAD -- app .github` → 0줄 | not selected |
+| VP-05 | REQUIRED | SELF_PASS | 같은 gate(K10) | D7·D8 red |
+| VP-06 | REQUIRED | SELF_PASS | `scan/check.test.mjs` "UT-01 …" 8케이스 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | `scan/check.test.mjs` "UT-02 …" | not selected |
+| VP-08 | REQUIRED | SELF_PASS | `scan/check.test.mjs` "UT-03 …" | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `check.mjs`의 `red('K…')`·`wait('K…')` 호출 51줄 각각을 무효화 | sweep — EP-05 규칙 칸 분기(diff 자리) | 최초 | 줄마다 "UT-02 red …" 1건 이상 | 잠김 51/51 — 첫 실행에서 5줄이 green이라 테스트 3건을 더하고 2건의 단언을 메시지까지 좁혔다(모르는 구간 · 구간 파일 부재 · id 형식 · 모르는 approval · 단위의 유령 ID) |
+| `UNIT_PATTERNS` 5개 각각 제거 · P2 제어문 제외 제거 · U6 범위 무시 · U7 중복 허용 | sweep — EP-02 | 최초 | "UT-01 P1"~"U7" | 잠김 8/8 |
+| 줄당 첫 일치 `break` 제거 | sweep — EP-02 | 최초 | 0 | 동치 — 다섯 패턴의 선두가 배타(`function` / 2칸+식별자`(` / 공백+`case` / 2칸+`if (msg.type` / `const`)라 한 줄이 둘에 걸리지 않는다. 확인: 제거 상태에서 `--units` → 136 그대로 |
+| `EXCLUDED` 패턴 5개 각각 제거 | sweep — EP-08 | 최초 | "UT-02 red K4 제외 패턴 …" | 잠김 5/5 |
+| `passes` 세 항 제거 · `H`의 lens·hotEntry 항 제거 · 경계 `>=`→`>` · I1 뒤집기 · I2↔I3 맞바꿈 · W1·W2 제거 · W3 뒤집기 · 묶음 2종 | sweep — EP-06 | 최초 | "UT-03 …" | 잠김 13/13 |
+| 대기 판정 → 항상 red / 항상 pending | sweep — §11 대기 모드 | 최초 | "UT-02 대기 …" 2건 · "UT-02 red K1 …" | 잠김 2/2 |
+| 데이터 변이 D1~D8 · D9 | VP-01·02·03·05 선택 증거 | 최초 | `check()` 위반 1건 이상 · `ruling()` 입력 변화 | 잠김 9/9 |
+
+- **분모 검산**: `선택 증거 9 · 인용 변이 0 · 새 oracle 0 · sweep 80 = 표 행 89`. sweep 80 = 규칙 호출 51 + 추출 9 + 제외 5 + 판정 13 + 대기 2. 결과: 잡음 79 · 동치 1.
+- **덮개 회귀**: 해당 없음(이전 라운드 없음).
+- 하네스: 변이 스크립트는 일회용(scratchpad)이라 저장소에 없다. 검증자는 `mutate.py` 또는 같은 방식으로 다시 돌린다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `audit.md` 요약·관찰 절과 생성 블록 5개를 사용자와 verify가 읽는다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — `app/**` diff 0 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 검사 red → §5 "검사 red" 행 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | `--check`가 위반마다 `RED K…` 줄을 내고 exit 1 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+- 통과하지 못한 후보 3건이 왜 걸렸는지 `audit.md` 요약에 한 줄씩 적었다. B-03·B-04는 "잠금 테스트를 먼저 더하면 통과"라는 조건부 상태다 — 중단 규칙은 이것을 통과로 세지 않는다.
+- 감량이 0이라 후보가 아닌 중복 5건(O-1~O-5)을 `audit.md` §5에 따로 두었다. O-1(main↔renderer 파트 조립)은 이미 필드가 갈라져 있어 사용자가 넓은 감사의 범위를 정할 때 볼 항목이다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `agentsRule`의 근거 범위가 handoff Decision을 포함하지 않는다. B-02의 형태는 0309 D-012(ACTIVE)가 유지하기로 했는데 plan §9 범위(AGENTS·arch·decisions)의 `rg`로는 0건에 가깝게 나온다 | 📝 plan 수정 제안 — §9 전제 표 `agentsRule` 행에 "후보 자리를 인용한 handoff plan의 ACTIVE Decision"을 더한다. 이번 턴은 B-02를 `blocks`로 두고 근거에 두 사실을 함께 적었다(보수 쪽) | `0309 plan.md:56` · `0314 ledger.md` C-31 행 |
+| 2 | 한 후보는 `area`가 하나인데 B-02의 자리는 A1·A3 양쪽이다. K7이 구간 칸 ↔ 후보 `area` 일치를 요구해 A3.L1 칸은 B-02를 가리킬 수 없다 | ✅ 선조치 — B-02를 A1 소속으로 두고 A3 구간·단위 근거에 "B-02(A1 소속)가 함께 가진다"고 적었다 | `audit.json` `areas[2].basis` |
+| 3 | `none` 단위의 L6 근거를 §9는 "판정 주어·필드 이름으로 `rg`"라고 했다. 136단위마다 주어를 따로 뽑지 않고 단위 이름을 검색 키로 일괄 실행했다 | ⚠️ 보고만 — 근거 칸은 "읽기 메모 + `git grep -F '<단위 이름>'`의 같은 파일 줄 수·반대 프로세스 파일 수"다. 짝이 있다고 판단한 단위는 메모에 `파일:줄`을 적었다 | `audit.md` §6 |
+| 4 | `hotEntry`를 "진입 심볼에서 닿는가"로만 읽으면 실패·수명주기 경로(A4 `fail`)와 타입 선언(B-09)도 핫패스가 된다 | ✅ 선조치 — "정상 스트림의 이벤트 처리 중 실행되는 자리"만 진입 심볼을 적고, 타입 선언·미도달 분기·세션 열기는 `null`로 두었다. 후보마다 `perf` 근거에 호출 사슬을 적었다 | D-009 · EP-03 `hotEntry` 줄 |
+| 5 | 감량이 0 이하인 중복은 K8(prod ≥ 1) 때문에 후보로 못 올린다 | ✅ 선조치 — `audit.md` §5 관찰 O-1~O-5로 남겼다 | D-007 |
+| 6 | INDEX 후보 표 0308 행(`sessionBusy` 소비처 미잠금)과 같은 종류의 공백을 B-03·B-04에서 봤다 — 바꿀 분기를 지나는 테스트가 없다 | ⚠️ 보고만 — 두 후보를 `ui: risk`로 두었다. 테스트 추가는 감사 범위 밖이다(D-001) | `audit.json` B-03·B-04 `conditions.ui` |
+
+### 설계 대비 명시적 차이
+
+- K9 "승인 블록": plan은 승인 블록의 정본을 정하지 않았다. `audit.md` `ruling` 생성 블록의 승인 목록 표를 파싱해 `remove` 집합과 비교하게 구현했다.
+- 검사 반환값: `check()`가 위반 목록 대신 `{violations, pending}`을 돌려준다(§11 대기 모드).
+- 놓친 잠재 문제 1·3·4번.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시·시간 의존 없음 | — |
+| 공유 | K9가 `audit.md` 블록에 기대므로 블록이 없으면 K9도 함께 red(이중 보고) | AC9·K10 — 변이 D8에서 K10 red 관측 |
+| 재진입 | 해당 없음 — 일회 실행 | — |
+| 다른 무효화 축 | `progress`를 `false`로 되돌리면 빈 판정이 다시 대기로 내려간다 | "UT-02 대기 …" 2건 · 현재 `progress` 4개 모두 `true` · `--check` → 대기 0 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `…/scan/check.mjs` · `…/scan/check.test.mjs` · `…/data/audit.json` · `…/audit.md` · `plan.md`(`[구현자 기입]`) · `docs/handoff/INDEX.md` |
+| 실행 명령 | §7-A 운영 gate 5개 |
+| **관측한 게이트 산출** | 감사 검사 `[0315-audit] 단위 136 · 후보 10 · 위반 0 · 대기 0` · 검사기 테스트 `tests 97 · pass 97 · fail 0` · 문서 가드 `links ok` · 무변경 `git diff --stat c1af29f..HEAD -- app .github` 0줄 · trailer는 커밋 뒤 확인. 돌리지 못한 단계 없음 — `app` lint·typecheck·test는 gate가 아니다(§19) |
+| **추가·수정 테스트의 subtree 규칙** | 해당 없음 — 테스트는 `docs/handoff/` 아래 `node --test` 1파일이고 `app` 테스트 규칙의 대상이 아니다 |
+| V-pair 자기확인 | `SELF_PASS 8 / SELF_BLOCKED 0` |
+| 강제 지점 전수 | 9행 중 8행 전수 · EP-09는 2/3(`verify.md`는 검증 턴 산출) |
+| **AC 자기보고** | AC1 ✅ 66칸(`--check` 위반 0 · D1 red) · AC2 ✅ 136단위(D2·D3 red) · AC3 ✅ 120칸 · AC4 ✅ 30칸(D4 red) · AC5 ✅ 조건 20칸 + `preserve`·`keepStructure`(K3·K6 케이스) · AC6 ✅ 자리 28개 중 제외 패턴 0(D5 red) · AC7 ✅ `--ruling` → `1건 · 연다 · [W1]` + UT-03 9케이스 · AC8 ✅ 0줄 · AC9 ✅ 블록 5(D7·D8 red) · AC11 ✅ K7(D6 red) · AC10 ⚠️ 사람 |
+| **합계 검산** | `✅ 10 · ⚠️ 1 · ❌ 0 = 총 11` |
+| 블로커 / 역질문 | 없음. 사용자 확인 대상: 놓친 잠재 문제 1번(`agentsRule` 범위)을 plan에 반영할지 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음(첫 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: sweep 첫 실행의 `못 잡음` 5건은 "조건마다 red 입력"이 규칙 접두(`K3:`)만 단언해, 같은 규칙의 다른 조건이 대신 red를 낸 경우였다.
+- 반복해서 부딪히는 환경 한계: 없음.
+- 현재 라운드·impl 턴: `r1` (P1 커밋 1 + P2~P4 커밋 1 — 같은 턴).
 
 ## [검증자 기입] 파생 이슈
 
