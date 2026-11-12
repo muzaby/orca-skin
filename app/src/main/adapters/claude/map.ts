@@ -19,7 +19,6 @@ import type { ReceivedMessageOrigin, SessionSchedule } from '../../../shared/ses
 import { withReceivedInputFormat } from '../../../shared/received-input'
 import { isAsyncLaunchedPayload } from '../../../shared/subagent'
 import { carriesFileEditPatch, readFileEditStructuredPatch } from '../../../shared/file-edit-tool'
-import { isTaskToolName } from '../../../shared/task-tool'
 import { pickPrimaryModel, primaryModelScore } from '../../../shared/usage/primary-model'
 import { readToolResultMeta } from '../../../shared/tool-outcome'
 import { makeClassifiedError } from '../../infra/errors'
@@ -111,13 +110,8 @@ export interface MapContext {
   // 싣지 않고 오는 경우의 폴백 본문이다 — 서브에이전트 child 텍스트는 담지 않는다(계획의
   // 저자가 아니다). `undefined` = 이번 턴에 서술 없음 = 폴백 불가.
   lastAssistantText?: string
-  // 구조화 출력을 실을 tool_use id 집합(0204). tool_result 는 도구 이름을 싣지 않는데 실을지는
-  // **이름으로만** 판정되므로(TaskXXX 한정) 앞선 tool_use 에서 본 판정 결과를 여기 기억한다.
-  // 이름이 아니라 멤버십만 담는다 — 소비처는 "이 run 이 Task 도구였나" 하나다.
-  taskToolRunIds?: Set<string>
-  // 구조화 패치를 실을 편집 도구 tool_use id 집합(0228). 위와 같은 이유로 이름을 기억한다 —
-  // tool_result 는 도구 이름을 싣지 않는다. Task 집합과 배타라 한 결과에 두 의미가 섞이지 않는다.
-  fileEditToolRunIds?: Set<string>
+  // tool_use id → 도구 이름. tool_result 는 도구 이름을 싣지 않으므로 결과의 동행 규칙(편집 패치
+  // 0228 · 런치 영수증 0136)은 앞선 tool_use 에서 본 이름으로 판정한다.
   toolNames?: Map<string, string>
   // wire uuid → 그 assistant 메시지가 낸 tool_use id(0239 EP-03 ①). SDK 공개 철회 신호
   // (`model_refusal_fallback.retracted_message_uuids`·`assistant.supersedes`)는 wire uuid 만 싣는다 —
@@ -501,23 +495,18 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
       }
       return []
     }
-    if (ev?.delta?.type === 'text_delta' && typeof ev.delta.text === 'string') {
+    // 텍스트·사고 델타는 이벤트 type 과 읽는 필드만 다르다. 종류 비교 결과를 담아 다시 쓰므로
+    // 델타마다 비교 횟수는 두 분기로 적던 때와 같다.
+    const delta = ev?.delta
+    const isText = delta?.type === 'text_delta'
+    const text = isText ? delta.text : delta?.type === 'thinking_delta' ? delta.thinking : undefined
+    if (typeof text === 'string') {
       return [
         {
-          type: 'message.delta',
+          type: isText ? 'message.delta' : 'message.reasoning.delta',
           sessionId: ctx.sessionId,
           ...(parentToolRunId ? { parentToolRunId } : {}),
-          delta: { text: ev.delta.text }
-        }
-      ]
-    }
-    if (ev?.delta?.type === 'thinking_delta' && typeof ev.delta.thinking === 'string') {
-      return [
-        {
-          type: 'message.reasoning.delta',
-          sessionId: ctx.sessionId,
-          ...(parentToolRunId ? { parentToolRunId } : {}),
-          delta: { text: ev.delta.thinking }
+          delta: { text }
         }
       ]
     }
@@ -607,17 +596,6 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
         if (toolRunId && toolName) {
           ctx.toolNames ??= new Map()
           ctx.toolNames.set(toolRunId, toolName)
-          // TaskXXX 결과에 구조화 출력을 실으려면 tool_result 시점에 이름이 필요하다(0204).
-          // 그 도구만 기억해 맵이 턴 길이에 비례해 자라지 않게 한다.
-          if (isTaskToolName(toolName)) {
-            if (!ctx.taskToolRunIds) ctx.taskToolRunIds = new Set()
-            ctx.taskToolRunIds.add(toolRunId)
-          }
-          // 편집 결과의 줄번호 정본도 tool_result 시점에 이름이 필요하다(0228 D-006).
-          if (carriesFileEditPatch(toolName)) {
-            if (!ctx.fileEditToolRunIds) ctx.fileEditToolRunIds = new Set()
-            ctx.fileEditToolRunIds.add(toolRunId)
-          }
           if (
             parentToolRunId === undefined &&
             (toolName === 'CronCreate' ||
@@ -669,6 +647,8 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
         // 부모 Task tool_result 면 누산한 서브에이전트 메타(모델·시간·도구수)를 실어 영속.
         const meta = ctx.subagentMeta?.get(toolRunId)
         const scheduleCall = ctx.pendingScheduleCalls?.get(toolRunId)
+        const toolName = ctx.toolNames?.get(toolRunId)
+        const fileEdit = toolName !== undefined && carriesFileEditPatch(toolName)
         // TaskXXX 도구면 SDK 구조화 출력을 동행시킨다(0204 §10 EP-01). tool_use_result 는
         // 메시지당 1개라 tool_result 블록이 정확히 1개일 때만 귀속이 명확하다(영수증과 동일 규칙).
         const toolUseResult = singleToolResult
@@ -676,9 +656,7 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
           : undefined
         // 편집 도구는 SDK 원본을 그대로 싣지 않고 `structuredPatch` 만 투영한다(0228 D-007) —
         // `originalFile` 은 편집 전 파일 전체라 결과 파트가 파일 크기만큼 커진다.
-        const fileEditPatch = ctx.fileEditToolRunIds?.has(toolRunId)
-          ? readFileEditStructuredPatch(toolUseResult)
-          : null
+        const fileEditPatch = fileEdit ? readFileEditStructuredPatch(toolUseResult) : null
         // 비실행 사유(0239 EP-01 ①) — CLI 가 wrapper 에 tool_use_id 별로 찍는다. 검증을 통과한
         // 값만 싣고, 부재·형식 오류는 싣지 않는다(현행 표시, D-002).
         const nonExecution = readToolResultMeta(
@@ -686,9 +664,9 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
           toolRunId
         )
         const structuredOutput =
-          ctx.toolNames?.get(toolRunId) === 'Write' || ctx.toolNames?.get(toolRunId) === 'MultiEdit'
+          toolName === 'Write' || toolName === 'MultiEdit'
             ? undefined
-            : ctx.fileEditToolRunIds?.has(toolRunId)
+            : fileEdit
               ? fileEditPatch
                 ? { structuredPatch: fileEditPatch }
                 : undefined
@@ -698,9 +676,7 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
           sessionId: ctx.sessionId,
           toolRunId,
           result:
-            ctx.toolNames?.get(toolRunId) === 'Agent' || ctx.toolNames?.get(toolRunId) === 'Task'
-              ? (launchReceipt ?? p.content)
-              : p.content,
+            toolName === 'Agent' || toolName === 'Task' ? (launchReceipt ?? p.content) : p.content,
           isError: p.is_error === true,
           ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
           ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {}),
@@ -776,37 +752,7 @@ function mapClaudeMessage(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
     // 중복 result 는 위에서 제외했다. 이번 턴 관측만 판정에 쓰고 다음 턴으로 넘기지 않는다.
     const turn = ctx.turnUsage
     ctx.turnUsage = undefined
-    const r = msg as unknown as {
-      user_message_uuid?: unknown
-      user_message_uuids?: unknown
-      queued_turn_count?: unknown
-      total_cost_usd?: number
-      duration_ms?: number
-      num_turns?: number
-      usage?: {
-        input_tokens?: number
-        output_tokens?: number
-        cache_read_input_tokens?: number
-        cache_creation_input_tokens?: number
-      }
-      is_error?: boolean
-      subtype?: string
-      result?: unknown
-      errors?: unknown
-      error?: unknown
-      message?: string
-      modelUsage?: Record<
-        string,
-        {
-          costUSD?: number
-          inputTokens?: number
-          outputTokens?: number
-          cacheReadInputTokens?: number
-          cacheCreationInputTokens?: number
-          contextWindow?: number
-        }
-      >
-    }
+    const r = msg as unknown as ClaudeResultWire
     const telemetry = normalizeResultTelemetry(r)
     if (telemetry) applyCumulativeUsageDelta(telemetry, ctx)
     // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
@@ -905,12 +851,11 @@ function overrideContext(telemetry: ProviderReportedTelemetry, snapshot: UsageSn
     telemetry.cacheCreationTokens = snapshot.cacheCreationTokens
 }
 
-// modelUsage 에서 도넛 분모의 귀속 모델(primary)을 고른다 — **실사용량(input+cache_read+
-// cache_creation) 최대 엔트리**. 입력측 모델 문자열(spawnedModel=alias / message.model)과
-// SDK 가 돌려주는 modelUsage 키(해석된 ID, 예: bedrock `global.anthropic.claude-sonnet-5`)가
-// SDKResultMessage 의 사용량/비용을 ProviderReportedTelemetry 로 정규화. 의미있는 필드가 하나도
-// 없으면 undefined 반환(어댑터가 usage 를 생략 → 현행 빈 telemetry 와 동일). num 가드로 NaN 차단.
-function normalizeResultTelemetry(r: {
+// SDKResultMessage 의 wire 형태 — 호출부 좁히기와 telemetry 정규화가 이 선언 하나를 읽는다.
+type ClaudeResultWire = {
+  user_message_uuid?: unknown
+  user_message_uuids?: unknown
+  queued_turn_count?: unknown
   total_cost_usd?: number
   duration_ms?: number
   num_turns?: number
@@ -920,6 +865,12 @@ function normalizeResultTelemetry(r: {
     cache_read_input_tokens?: number
     cache_creation_input_tokens?: number
   }
+  is_error?: boolean
+  subtype?: string
+  result?: unknown
+  errors?: unknown
+  error?: unknown
+  message?: string
   modelUsage?: Record<
     string,
     {
@@ -931,7 +882,14 @@ function normalizeResultTelemetry(r: {
       contextWindow?: number
     }
   >
-}): ProviderReportedTelemetry | undefined {
+}
+
+// modelUsage 에서 도넛 분모의 귀속 모델(primary)을 고른다 — **실사용량(input+cache_read+
+// cache_creation) 최대 엔트리**. 입력측 모델 문자열(spawnedModel=alias / message.model)과
+// SDK 가 돌려주는 modelUsage 키(해석된 ID, 예: bedrock `global.anthropic.claude-sonnet-5`)가
+// SDKResultMessage 의 사용량/비용을 ProviderReportedTelemetry 로 정규화. 의미있는 필드가 하나도
+// 없으면 undefined 반환(어댑터가 usage 를 생략 → 현행 빈 telemetry 와 동일). num 가드로 NaN 차단.
+function normalizeResultTelemetry(r: ClaudeResultWire): ProviderReportedTelemetry | undefined {
   const out: ProviderReportedTelemetry = {}
 
   assignNums(out, {

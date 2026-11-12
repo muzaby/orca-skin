@@ -309,6 +309,16 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  // 0316 T-06 — 텍스트·사고 델타의 본문 문자열 가드. 본문이 문자열이 아니면 내보내지 않는다.
+  it('본문이 문자열이 아닌 text·thinking 델타는 내보내지 않는다', () => {
+    for (const delta of [
+      { type: 'text_delta', text: 42 },
+      { type: 'thinking_delta', thinking: null }
+    ]) {
+      expect(claudeToNormalized(sdk({ type: 'stream_event', event: { delta } }), ctx())).toEqual([])
+    }
+  })
+
   it('stream_event(signature_delta) → [] (스트림에서 무시)', () => {
     expect(
       claudeToNormalized(
@@ -510,6 +520,33 @@ describe('claudeToNormalized', () => {
         isError: false
       }
     ])
+  })
+
+  // 0316 T-04 — 구 이름 `Task` 도 런치 영수증을 result 로 싣는다. 이름은 앞선 tool_use 에서 기억한
+  // 것이다(직접 대입하지 않는다 — 이름 기록 경로까지 실행 구간에 둔다).
+  it('구 이름 Task 의 런치 영수증도 앞선 tool_use 이름으로 판정해 result 로 싣는다 (0136)', () => {
+    const receipt = { status: 'async_launched', agentId: 'a2', description: 'x', prompt: 'y' }
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', id: 't1', name: 'Task', input: {} }] }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: receipt,
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'Task launched', is_error: false }
+          ]
+        }
+      }),
+      c
+    )
+    expect(out[0]).toMatchObject({ type: 'tool.call.completed', result: receipt })
   })
 
   // 0204 §10 EP-01 — 구조화 출력은 TaskXXX 결과에만 실린다. `result` 는 모델용 wire content 라
