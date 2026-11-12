@@ -1231,6 +1231,71 @@ describe('TurnCoordinator — 백그라운드 상태를 짐작하지 않는다 (
   })
 })
 
+// 0314 EP-02·EP-07 — coordinator 의 정본 읽기 자리. 중단·실패 정착은 정본이 백그라운드로 본 호출의
+// 후손을 덮지 않고, 중단 클릭 뒤 도착한 task id 의 라이브 정지는 정본 판정으로 분기한다.
+describe('TurnCoordinator — 정본 선택자 소비 자리 (0314)', () => {
+  const toolStarted = (id: string, parent?: string): NormalizedEvent => ({
+    type: 'tool.call.started',
+    sessionId: 's1',
+    toolRunId: id,
+    toolName: 'Bash',
+    args: {},
+    ...(parent ? { parentToolRunId: parent } : {})
+  })
+  const settledToolRuns = (deps: CoordDeps): string[] =>
+    (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls
+      .map((c) => c[1] as NormalizedEvent)
+      .flatMap((ev) => (ev.type === 'tool.call.completed' ? [ev.toolRunId] : []))
+
+  it.each(['abort', 'fail'] as const)(
+    '%s 정착은 정본 백그라운드 호출의 후손을 남기고 나머지 열린 실행만 마감한다',
+    async (mode) => {
+      const tracker = new BackgroundTaskTracker()
+      tracker.observe(backgroundCall('bg', 'background'))
+      const turn = makeTurn()
+      turn.dbSessionId = 's1'
+      const runtime = fakeRuntime([])
+      runtime.send = async function* () {
+        yield toolStarted('bg-child', 'bg')
+        yield toolStarted('plain')
+        if (mode === 'abort') turn.controller.abort()
+        else throw new Error('stream failed')
+      }
+      const deps = makeDeps(runtime, { backgroundTasks: tracker })
+      deps.persist.finalizeTurn = vi.fn()
+
+      await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
+      expect(settledToolRuns(deps)).toEqual(['plain'])
+      expect([...turn.openToolRuns.keys()]).toEqual(['bg-child'])
+    }
+  )
+
+  it.each([
+    ['background', []],
+    ['foreground', ['a1']]
+  ] as const)(
+    '중단 클릭 뒤 task id 가 도착하면 정본이 %s 로 본 태스크는 backgroundTask 선행이 %j 다',
+    async (mode, expectedBackgroundCalls) => {
+      const tracker = new BackgroundTaskTracker()
+      tracker.observe(backgroundCall('a1', mode))
+      const runtime = fakeRuntime([
+        [{ ...subagentStarted('a1'), taskId: 'task-9' } as NormalizedEvent, telemetry]
+      ])
+      const backgroundTask = vi.fn<(toolUseId: string) => Promise<boolean>>(async () => true)
+      const stopTask = vi.fn(async () => {})
+      Object.assign(runtime, { backgroundTask, stopTask })
+      const deps = makeDeps(runtime, { backgroundTasks: tracker })
+      const turn = makeTurn()
+      turn.dbSessionId = 's1'
+      turn.stoppedSubagents.add('a1')
+
+      await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
+      await vi.waitFor(() => expect(stopTask).toHaveBeenCalledWith('task-9'))
+      expect(backgroundTask.mock.calls.map((call) => call[0])).toEqual(expectedBackgroundCalls)
+    }
+  )
+})
+
 describe('TurnCoordinator — settled background enrich + listen 회계 (0143)', () => {
   it('정본이 백그라운드로 본 태스크의 settled 는 background:true 로 emit 된다(통지 게이팅)', async () => {
     const runtime = fakeRuntime([[subagentStarted('a1'), subagentSettled('a1'), telemetry]])

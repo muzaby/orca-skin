@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { scaleMs } from '../../../../scripts/test-time.mjs'
 import { BackgroundTaskTracker } from './background-tasks'
 import {
@@ -292,6 +292,19 @@ describe('규칙 D — 채널 사망과 확정 없는 중단 (0314)', () => {
     expect(outcome).toBeUndefined()
     tracker.observe(task('t', 'notification', { status: 'completed' }, 'tu'))
     await expect(waiting).resolves.toBe('settled')
+  })
+
+  it('대기가 settled·timeout 어느 쪽으로 끝나도 구독을 남기지 않는다', async () => {
+    const tracker = seeded(task('t', 'started', { status: 'running', isBackgrounded: true }, 'tu'))
+    const subscribe = vi.spyOn(tracker, 'subscribe')
+    const settled = tracker.waitForTask('s', 'tu', { timeoutMs: scaleMs(1_000) })
+    const timedOut = tracker.waitForTask('s', 'other', { timeoutMs: 5 })
+    await expect(timedOut).resolves.toBe('timeout')
+    tracker.observe(task('t', 'notification', { status: 'completed' }, 'tu'))
+    await expect(settled).resolves.toBe('settled')
+    expect(subscribe).toHaveBeenCalledTimes(2)
+    const listeners = (tracker as unknown as { listeners: Set<unknown> }).listeners
+    expect(listeners.size).toBe(0)
   })
 
   it('D4 — 다른 세션·다른 작업의 종료 통지에는 깨어나지 않는다', async () => {
