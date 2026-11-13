@@ -121,14 +121,15 @@ export class OpenCodeAdapter implements SessionAdapter {
     snapshot: ManagedMcpSnapshot | undefined = this.managedMcp?.snapshot(),
     observer?: { serverStarting?: () => void }
   ): Promise<OpenCodeClientLease> {
+    const directory = cwd || nativeWorkingDirectory()
+    const environment = { ...process.env, ...env }
     const bridge = snapshot && this.managedMcp ? await this.managedMcp.acquire(snapshot) : undefined
     let projection: ReturnType<typeof projectManagedMcp> | undefined
     let defaults: Record<string, boolean>
     let server: Awaited<ReturnType<OpenCodeServer['acquire']>>
     try {
-      const environment = { ...process.env, ...env }
       const [native, global] = await Promise.all([
-        configuredOpenCodeResources(cwd || nativeWorkingDirectory(), environment),
+        configuredOpenCodeResources(directory, environment),
         globalOpenCodeResources(environment)
       ])
       defaults = Object.fromEntries(
@@ -186,18 +187,13 @@ export class OpenCodeAdapter implements SessionAdapter {
       }
       const lease = await this.contexts.acquire(
         server,
-        cwd || nativeWorkingDirectory(),
+        directory,
         () => {
           server.release?.()
           void bridge?.release().catch(() => undefined)
         },
         { choices, defaults },
-        openCodeDiscovery.key(
-          'configured',
-          cwd || nativeWorkingDirectory(),
-          { ...process.env, ...env },
-          'false'
-        )
+        openCodeDiscovery.key('configured', directory, environment, 'false')
       )
       const mapMcpResources = (
         items: import('../../../../shared/native-resources').NativeResource[]
