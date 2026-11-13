@@ -1,0 +1,601 @@
+{
+ "base": "1168b67",
+ "progress": {
+  "P1": true,
+  "P2": false,
+  "P3": false,
+  "P4": false
+ },
+ "areas": [],
+ "units": [
+  {
+   "area": "F01",
+   "name": "reportMcpFailure",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "agentSpawnEnv",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "describe",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "executableIdentity",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "isInstalled",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "listProviderModels",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "extensionsChanged",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "restartRevision",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "resourceActivityChanged",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "configureResourceActivity",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "reconcileConnections",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "close",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "client",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "complete",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "recoverSession",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "sendMessage",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "readHistory",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "classifyError",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "reportDisposeFailure",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F01",
+   "name": "reportError",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "probe",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "context",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "hash",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "probes",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "dependency",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "discoveryReadFile",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "discoveryRealpath",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "discoveryStat",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "key",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "valid",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "invalidate",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "hold",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "watch",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "poll",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "prune",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F02",
+   "name": "openCodeDiscovery",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "resourceActivityChanged",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "waitForActivity",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "connected",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "activate",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "observeActivity",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "safe",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "resource",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "connect",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "read",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "reconcileChoices",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "waitBounded",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "reconcile",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "choices",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "pending",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "preview",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "status",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "apply",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F03",
+   "name": "applyChoices",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "CLI_VERSION",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "CLI_TIMEOUT_MS",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "CLI_MAX_BUFFER",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "CLI_STDERR_LINE_LIMIT",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "isSupportedOpenCodeCliVersion",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "runOpenCodeCli",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "lastStderrLine",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "resolveOpenCodeExecutable",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "executable",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "readVersion",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "probeVersion",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "executableIdentity",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "installed",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "acquire",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "retireAll",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "terminate",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "start",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "assertCliVersion",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "listModels",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "databasePath",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "readDatabasePath",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F04",
+   "name": "close",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F05",
+   "name": "answerFor",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F05",
+   "name": "AskUserQuestionCard",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F05",
+   "name": "useEffect",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F06",
+   "name": "CanonicalBackgroundContent",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F06",
+   "name": "useEffect",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F06",
+   "name": "BackgroundTaskCard",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F06",
+   "name": "BackgroundCallCard",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F06",
+   "name": "CanonicalBackgroundDetail",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F07",
+   "name": "stopErrorText",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F07",
+   "name": "LegacySubAgentHeader",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F07",
+   "name": "LegacySubAgentContent",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F07",
+   "name": "SubAgentTaskList",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F08",
+   "name": "ComparisonMenu",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F08",
+   "name": "ViewMenu",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F08",
+   "name": "GitContextBar",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F10",
+   "name": "ko",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F11",
+   "name": "CascadeMenu",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F11",
+   "name": "HANDLED_KEYS",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F11",
+   "name": "CascadeBody",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F11",
+   "name": "useEffect",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F11",
+   "name": "CascadePanel",
+   "l6": null,
+   "basis": ""
+  },
+  {
+   "area": "F11",
+   "name": "useLayoutEffect",
+   "l6": null,
+   "basis": ""
+  }
+ ],
+ "candidates": []
+}
