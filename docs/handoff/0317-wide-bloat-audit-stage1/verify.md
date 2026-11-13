@@ -317,3 +317,129 @@ audit.json 의 단위 밖 명령 중 N 을 적은 20개(W-01~W-06 17 · 구간 3
 - 후보 표로 간 확장 후보: 1행(D3). 고칠 의무·재실행 의무 없음.
 - pair: REQUIRED PASS 9 · root PAIR_FAIL 1(VP-02) · BLOCKED_BY 0 · PLAN_GAP 0.
 - 남은 사람 확인: AC10(W-03·W-04 UI 판정).
+
+---
+
+# r4 검증 (verify 4회째 · 확장 창 밖)
+
+## 판정
+
+**PASS (기계 범위)** — 막는 발견 0. r3 D1(이행)·D2(현재)는 닫혔다 — 같은 명령 재실행이 W-02 `formLock` 7파일 · F06 `L5` 2파일로 정정된 근거와 같다. REQUIRED pair 10 전부 PASS · PLAN_GAP 0. 남은 것은 사람 확인 AC10(W-03·W-04 UI `risk`) 하나이고 판정 입력값은 불변(`0305 계열 종료`(잠정) · `sum` 19 · `total` 34 · i18n 6건 55키 120줄)이다. 다음 주체는 사람이다.
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 회차 | verify 4회째(창 밖) · 라운드 4. 3회째 FAIL 뒤 `handoff-review`는 rev.4 설계 턴이 `DIAGNOSE_ONLY`로 수행(plan rev.4 self-review) |
+| 기준선 | 구현 `d301fc5` · 직전 설계 `a6997d5`(둘 다 `git cat-file -t` commit · `origin/main`=`22b39d6` 조상 **아님** — 브랜치 `ccr-ec55d8c5-gb1cpf`, main 병합 뒤 교정) · 기준 `1168b67` 조상 yes |
+| plan 변경 | `git diff a6997d5 d301fc5 -- plan.md` 삭제 0줄 · `[구현자 기입] (r4)` 추가뿐 — Decision·AC·§10·V 불변 |
+| 대상 diff | `audit.json` 11줄(근거 칸) · `audit.md` 생성 블록 재렌더 + §6 절 2개 · plan · INDEX 1줄. `check.mjs`·`check.test.mjs`·`app`·`.github` 0줄 |
+| 구현 주체 | Claude(D-011) · 설계자 = 검증자 = Claude |
+
+## 관측 (이번 턴)
+
+| 명령 | 관측 |
+|---|---|
+| `--check` | `단위 98 · 후보 12 · 위반 0 · 대기 0` |
+| `node --test scan/*.test.mjs` | tests 134 · pass 134 · fail 0 · cancelled 0 · skipped 0 |
+| `--ruling` | `0305 계열 종료` · sum 19 · total 34 · i18n 6·55·120(r3와 같음) |
+| 문서 가드(`cd app`) | generated 9 items 113 channels · prose · links ok |
+| AC8 · 작업 트리 | `git diff --stat 1168b67 -- app .github` 0줄 · 모든 변이 전후 `git status --short` 0줄 |
+
+## 근거 N 재실행 (r3 D1·D2의 닫힘 — 구현자 스크립트가 아니라 이번 턴 독립 구현)
+
+| 집합 | 방법 | 결과 |
+|---|---|---|
+| 단위 밖 `git` 명령(후보 17 + 구간 2) | `audit.json` 근거 칸의 `git grep` 명령 17개를 정규식으로 뽑아 셸에서 그대로 실행, 출력 줄·파일 수를 적힌 N과 대조 | 17/17 일치 — W-02 `formLock` 7 · F06 `L5` 2(`tiles.tsx:22` `useBackgroundStore`·`:30` `sessionPanelModel(messages, background)` 확인) · W-06 `agentsRule` 3 · W-02 `ui` 56줄(server.ts 8 · updater.ts 3, `updater.ts:75` 다른 함수) |
+| 단위 98행 × 세 수 | 근거 문장을 정규식으로 파싱해 `git grep -n -w`(구현자는 `-c`)로 줄·타 파일·반대 프로세스 파일 수를 다시 셈 | 98/98 일치 · 불일치 0(r3 D6의 3행 + 자기 발견 1행 포함) |
+| 문구 중복 통계 | `audit.md` §6 스니펫 그대로 | `ko.ts 100 252` · `en.ts 89 228` = 근거 |
+| 구간 근거 줄 번호·횟수 주장 | F01 `reportedMcpFailures` 128 · claude `adapter.ts` 1,126줄 · F02 178·192·236·284·299 · F03 119·172·207·256·311·332 · F04 195·242-244·265-267·395·종료 문구 4 · F07 135·191·245 · F08 90·102 · F11 97-98·137·174-175·214·306·313 · `shared/i18n/index.ts:46-47` | 전부 `git show 1168b67:` 줄과 일치 |
+| 옛 값 잔존 | `grep -noE '→ 6파일\|249개\|223개\|문구 88개' audit.md audit.json` | 0. `main 타 파일 15` 두 줄은 다른 단위(discovery-cache.ts 1줄)의 값이고 위 98/98 재계수가 맞다고 확인 |
+
+## 고장 이력 (이번 턴 시도 12 · 실행 12 + SKIP 1)
+
+판정은 `--check` 종료 코드 · `--ruling` 출력. diff가 `check.mjs`를 닿지 않아 r3 코드 변이(VS·VP·VB·VT·VF · `check()` 51)는 하한 ④ 범위 밖이라 다시 심지 않았다.
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 근거 | 분류 |
+|---|---|---|---|---|---|---|
+| V4-K1 | F04 `X8` 판정 | 빈 값 | `"none"`→`""` | 잡음 | `K10`(사본 불일치) — 이전 R-D1 `K1,K10`과 같은 방향 | — |
+| V4-K4 | W-12 자리 | 다른 값 | `ko.ts:410`→`ko.test.ts:410` | 잡음 | `K10` | — |
+| V4-R-D2 · V4-R-D3 | 단위 이름 | 다른 값 | 단위 1행 이름 변경(없는 단위·빠진 단위) | 잡음 2/2 | `K10` | — |
+| V4-D15 | ruling 블록 | 다른 값 | `19줄`→`18줄`(생성 블록 안, `audit.md:31`) | 잡음 | `K10` | — |
+| V4-R-S1 | W-06 `raceGuard` | 뒤집기 | `clear`→`blocks` | 잡음 | `--ruling` `sum` 19 소멸 | — |
+| V4-K5 | W-02 `formLock` | 뒤집기 | `blocks`→`clear` | 잡음 | `K10`(ruling 사본) — W-02 가 걸림 칸이라 `sum`은 불변 | — |
+| V4-N1 · V4-N2 · V4-K10a | 근거 N 문장 | 다른 값 | `7파일`→`6파일` · `타 파일 17·3`→`15·2` · `3·2회`→`4·2회` | 잡음 3/3(`K10`) — 단 사본을 `--write`로 맞추면 green | 선언 경계 2 | 경계 |
+| V4-N1w | W-02 `formLock` | 다른 값 | `7파일`→`6파일` + `--write` | green(`--check` 위반 0) | 근거 N의 옳고 그름은 gate 밖 — plan 선언 경계 2. r4 구현 #7이 같은 사실을 적었고 이번 턴은 N 재실행(위 표)으로 닫았다 | 경계 |
+| V4-SW1 | W-05 `raceGuard`↔`formLock` | 맞바꿈 | spec 원문 불일치로 SKIP | — | r3 SW1(W-02) 은 이번 diff가 닿지 않아 재실행 대상 아님 | — |
+
+- 검산: 시도 12 = 잡음 10(K1 · K4 · R-D2 · R-D3 · D15 · R-S1 · K5 · N1 · N2 · K10a) · 경계 1(N1w) · SKIP 1(SW1) · `못 잡음` 0 · `동치` 0. N1·N2·K10a 의 red 는 사본 불일치(`K10`)이고 `--write` 로 맞추면 green(N1w)이라 경계 2의 같은 사실이다.
+- ③ 직전 `못 잡음`·`동치`: `동치` 3행(VS15·U-break·P2-mods)은 `check.mjs`가 무변경이라 재실행해도 같다(코드 근거 불변). `못 잡음` 9행은 후보 표(0317 행)로 가 제외.
+- 소거 변이 잔여물: JS 모듈이라 해당 없음. 원복: `mutate.py` "모든 파일 원문 그대로" 3회 + `git checkout -- $D`(V4-N1w) 뒤 `git status --short` 0줄 · `--check` 위반 0.
+
+## 독립 축(⑥)
+
+| 축 | 방법 | 결과 |
+|---|---|---|
+| 98단위 짝 검색 독립 재계수 | 구현자 스크립트(scratch)와 다른 구현 — 근거 문장 파싱 · `-n` 줄 집계 · 프로세스 루트를 대상 11행 순서로 도출 | 불일치 0/98 |
+| 줄 번호 주장 | 위 표 — 구현자가 센 12개 외 F02·F03·F11·F07·F08 포함 30여 자리 | 전부 일치 |
+| 사본 동기 한계 | N 문장 변이 + `--write` | green — 선언 경계 2(발견 아님) |
+| 손글 요약 절 | `audit.md:16` "prod **19줄**"은 생성 블록 밖 — `19줄`→`18줄`(occ 0)이 `--check` green | 경계 — 요약 절 문장 사본은 K10 대상이 아니다. 값은 현재 `--ruling`과 같다(19) |
+
+발견: 이행 0 · 현재 0 · 확장 0 · 경계 2(N 옳고 그름 gate 밖 · 요약 절 손글 사본) · 비귀속 1(D7 유지).
+
+## V-pair closeout
+
+| Pair | 결과 | 직접 oracle · 이번 관측 |
+|---|---|---|
+| VP-01 | PASS | `--check` · V4-K1·R-D2·R-D3 red · 단위 98/98 재계수 |
+| VP-02 | PASS | `--check` · V4-K4·K5 · 후보 17명령 N 17/17 일치(D1 닫힘) |
+| VP-03 | PASS(기계 범위) | UT-03 134 통과 · `--ruling` · V4-R-S1 · AC10 사람 |
+| VP-04 | PASS | `git diff --stat 1168b67 -- app .github` 0줄 |
+| VP-05 | PASS | K10 · V4-D15 red · `gen:` 5 |
+| VP-06 | PASS | K11 · `--targets` 11행(`audit.md` §8 표와 같음) · `check.mjs` 무변경 |
+| VP-07~VP-10 | PASS | UT 134/134 · `check.test.mjs`·`check.mjs` 0줄 변경(r3 변이 잠금 그대로) |
+
+- 합계: REQUIRED 10 PASS · PAIR_FAIL 0 · BLOCKED_BY 0 · PLAN_GAP 0.
+- **AC 재측정**: `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` — ✅ AC1~9·11·12·13 · ⚠️ AC10(사람). 자기보고 `Criteria-Met: 12/13`과 같고 본문·trailer·INDEX가 같다.
+
+### 현재 변경의 운영 gate
+
+| Gate | 결과 |
+|---|---|
+| 감사 검사 · 검사기 UT | PASS(위 관측) |
+| 문서 가드 | PASS — links ok |
+| trailer | PASS — `git log -1 --format='%(trailers:only=true)' d301fc5` Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By·Co-Authored-By·Claude-Session 8키 · 값 허용 |
+| 무변경(AC8) | PASS — 0줄 |
+
+## 판정 입력값 · 사람 확인
+
+`--ruling` — `0305 계열 종료` · `sum` 19 < 30 · P: W-01(4) · W-05(6) · W-06(9) · 걸림 W-02(3 formLock) · W-03(4 ui) · W-04(8 ui) · `total` 34 · i18n 6건 55키 120줄. 판정을 가르는 것은 W-03·W-04 UI `risk` 둘이며 둘 다 `safe`면 `다음 단계 사용자 결정`(sum 31). 근거 사실(렌더 3파일 7회 · KEY 0 · 복사·대입 0)은 r3에서 재현됐고 r4 diff가 이 칸을 바꾸지 않았다. **AC10은 사람이 확인한다** — 종료면 종료 확인, 아니면 W-03·W-04를 감량 대상으로 볼지 결정.
+
+## Repository operation checks
+
+- **대상 커밋 좌표(검증자 기입)** — `git cat-file -t` 전부 commit. `origin/main`(`22b39d6`) 조상: `948d9fa`·`0533f83`·`9cbffae`·`4c17c49`·`5be1094`·`04b3e0a`·`9aff8f6`·`22b39d6` 예. **아니오(브랜치에만)**: `4b45cb0`(rev.3 설계) · `ea33f5f`(r3) · `2217d44`(r3 verify) · `a6997d5`(rev.4 설계) · `d301fc5`(r4 구현) — main 병합 뒤 교정.
+- INDEX: 상태 `verify/PASS(기계 범위)` · 다음 주체 `사람` 하나 · 라운드 칸 4(PASS라 종료 — 끝난 FAIL 3 + 1) · 비고 5줄 이내. archive 이동은 AC10 뒤.
+- 구현 `[구현자 기입] (r4)` 일곱 필드 전수 존재 · 강제 지점 표가 pair §10 자리 전부와 `남긴 곳`(EP-09 `verify.md`)을 담음. 마지막 줄 합계 `12 ✅ · 1 ⚠️ = 13` 일치.
+- 후보 표: 0317 확장 후보 1행 유지(D3 — 고칠 의무 없음). 0315 "넓은 감사 1단계" 행의 결과 기입(plan §13)은 AC10 확정 뒤 — 잠정값을 정본에 적지 않는다.
+
+## 구현자 코멘트 · 못 본 것
+
+| 구현자 코멘트(r4) | 판단 |
+|---|---|
+| 같은 축 9건을 함께 고침(단위 4행 · 통계 2 · 서술 2 · F05) | 재현 — 단위 98/98 · 통계 · 서술 일치. 선조치로 타당 |
+| 표식·삭제 실험 미재실행(`node_modules` 없음) | 타당 — 근거 문장은 r3 verify §3·§4 재현값과 같고 이번 diff가 그 칸을 닿지 않음. 이번 턴도 재실행하지 않았다 |
+
+못 본 것: 표식 실험(W-01·W-05·W-06 그물)·55키 삭제 실험 재실행(r3 재현값에 의존) · W-01·W-05·W-06 합친 뒤 실제 줄 수(전 줄 수·`printWidth`까지만) · `chat.*` 키의 main 조립(선언 경계 10) · W-03·W-04 합쳤을 때 동작 동일성 · 문구 통계의 원 스크립트(§6 스니펫으로 대체 확인).
+
+## Review Signals — 사실만
+
+- r1·r2·r3·r4 모두 "근거의 수 ≠ 재실행" 축이었다. r4에서 처음으로 구간·단위·후보·통계 전수를 독립 구현으로 재계수해 불일치 0이었다.
+- 관련 plan 지침: VP-02 "N 일치" · AC4 "명령+N". r3 verify가 지목한 재실행 범위(§13)를 r4 구현이 그대로 수행했다. 사용자 결정 변경 근거 없음.
+- 환경: `app/node_modules` 없음(표식·삭제 실험 미재실행 — r3와 같은 한계) · `origin/main` ref 있음.
+- 독립 축(⑥) 발견 수: 이행 0 · 현재 0 · 확장 0 · 경계 2.
+
+## 결론
+
+- **PASS(r4, 기계 범위).** verify 4회째 · 창 밖 · 막는 발견 0.
+- 남은 사람 확인: AC10(W-03·W-04 UI `risk` — 종료 확정 또는 다음 단계 결정).
+- 후보 표로 간 확장 후보: D3 1행(변동 없음).
