@@ -184,6 +184,7 @@ Orcinus orca 본문·버블·의미 상태 토큰을 사용한다. 메시지별 
 |---|---|
 | [features/chat/harnesses/common/rightpanel/ArtifactPreviewContent.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/ArtifactPreviewContent.tsx) — `ArtifactPreviewContent` | 형식별 미리보기·코드·이미지 표면을 재사용하고 HTML sandbox·네트워크 차단 경계를 보존한다. |
 | [features/chat/harnesses/common/rightpanel/ArtifactViewer.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/ArtifactViewer.tsx) — `ArtifactViewer` | 파일 제목·탭·복사·저장·확대·닫기·로딩/오류/재시도를 같은 viewer chrome으로 제공한다. |
+| [features/chat/harnesses/common/rightpanel/BackgroundCard.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/BackgroundCard.tsx) — `BackgroundCard` | 백그라운드 작업·호출 카드의 공용 틀(점·제목 행·카드 전체 열기)이다. 카드 안 버튼의 키 입력은 카드를 열지 않는다. 접근성 이름은 호출부가 번역해 넘긴다. |
 | [features/chat/harnesses/common/rightpanel/BackgroundModelLabel.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/BackgroundModelLabel.tsx) — `BackgroundModelLabel` | 모델명·보조 메타를 작은 라벨로 표시하고 긴 이름을 축약한다. |
 | [features/chat/harnesses/common/rightpanel/BackgroundTaskGroup.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/BackgroundTaskGroup.tsx) — `BackgroundTaskGroup` | 작업 묶음의 제목·개수·진행·펼침을 같은 타일 행으로 표시한다. |
 | [features/chat/harnesses/common/rightpanel/ChangedNavigationSidebar.tsx](../../../app/src/renderer/src/features/chat/harnesses/common/rightpanel/ChangedNavigationSidebar.tsx) — `ChangedNavigationSidebar` | 변경 파일·디렉터리의 선택/hover·들여쓰기·증감 표시를 정렬한다. |

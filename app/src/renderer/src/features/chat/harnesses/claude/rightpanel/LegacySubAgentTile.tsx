@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { SubAgentTaskDetail } from '../../common/rightpanel/SubAgentTaskDetail'
 import { projectLegacyBackgroundPanel } from '../../../lib/canonicalBackground'
+import { BackgroundCard } from '../../common/rightpanel/BackgroundCard'
 import { BackgroundModelLabel } from '../../common/rightpanel/BackgroundModelLabel'
 import { BackgroundTaskGroup } from '../../common/rightpanel/BackgroundTaskGroup'
 import {
@@ -234,30 +235,14 @@ export function SubAgentTaskList({
                 paused
               )
               return (
-                // 카드 전체가 대화록 열기 트리거. 내부에 중단 버튼(중첩 버튼 불가)을 두기 위해
-                // <button> 대신 role="button" div 로 두고 키보드 동작을 유지한다.
-                <div
+                <BackgroundCard
                   key={task.toolUseId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={open}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      open()
-                    }
-                  }}
-                  aria-label={tr('chat.subagentTile.openTranscriptAria', {
+                  title={task.description}
+                  ariaLabel={tr('chat.subagentTile.openTranscriptAria', {
                     description: task.description
                   })}
-                  className="group/subagent cursor-pointer rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
+                  onOpen={open}
                 >
-                  <div className="flex min-w-0 items-center gap-g3">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
-                    <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
-                      {task.description}
-                    </span>
-                  </div>
                   <div className="mt-g1 pl-5 text-footnote text-ink3">
                     <BackgroundModelLabel
                       toolUseId={task.toolUseId}
@@ -335,7 +320,7 @@ export function SubAgentTaskList({
                       {stopErrorText(tr, stopErrors[backgroundTaskKey(task.toolUseId)]!)}
                     </div>
                   )}
-                </div>
+                </BackgroundCard>
               )
             })}
           </BackgroundTaskGroup>

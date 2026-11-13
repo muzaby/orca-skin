@@ -12,6 +12,7 @@ import {
 } from '../../../../../../../shared/background-task'
 import { canStopBackgroundTask } from '../../../lib/backgroundPresentation'
 import { isAgentTaskName } from '../../../lib/parts'
+import { BackgroundCard } from '../../common/rightpanel/BackgroundCard'
 import { BackgroundModelLabel } from '../../common/rightpanel/BackgroundModelLabel'
 import { BackgroundTaskGroup } from '../../common/rightpanel/BackgroundTaskGroup'
 import { InlineSubagentDetail } from '../../common/transcript/InlineSubagentDetail'
@@ -36,8 +37,7 @@ import {
   backgroundCallTitle,
   backgroundCallToToolCall,
   backgroundElapsedSeconds,
-  requestBackgroundTaskStop,
-  shouldActivateBackgroundCard
+  requestBackgroundTaskStop
 } from '../../../lib/canonicalBackground'
 
 const DISPLAY_LABEL: Record<BackgroundDisplayStatus, MessageKey> = {
@@ -206,30 +206,15 @@ export function BackgroundTaskCard({
     task.isBackgrounded === false
       ? 'foreground'
       : (call?.mode ?? (task.liveMembership === 'included' ? 'background' : undefined))
+  const title = task.description || call?.toolName || task.taskType || task.taskId
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (shouldActivateBackgroundCard(event)) {
-          event.preventDefault()
-          onOpen?.()
-        }
-      }}
-      aria-label={tr('chat.subagentTile.openTranscriptAria', {
-        description: task.description || call?.toolName || task.taskType || task.taskId
-      })}
-      className="group/subagent cursor-pointer rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
+    <BackgroundCard
+      title={title}
+      ariaLabel={tr('chat.subagentTile.openTranscriptAria', { description: title })}
+      onOpen={onOpen}
       data-background-task={task.taskId}
       data-background-generation={task.generation}
     >
-      <div className="flex min-w-0 items-center gap-g3">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
-        <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
-          {task.description || call?.toolName || task.taskType || task.taskId}
-        </span>
-      </div>
       <div
         className={`mt-g1 pl-5 text-footnote ${display.status === 'failed' ? 'text-bad' : 'text-ink3'}`}
       >
@@ -292,7 +277,7 @@ export function BackgroundTaskCard({
           {task.stop?.error || error}
         </p>
       )}
-    </div>
+    </BackgroundCard>
   )
 }
 
@@ -311,30 +296,15 @@ function BackgroundCallCard({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const display = backgroundCallDisplay(state, call, transcript)
+  const title = backgroundCallTitle(call)
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (shouldActivateBackgroundCard(event)) {
-          event.preventDefault()
-          onOpen()
-        }
-      }}
-      aria-label={tr('chat.subagentTile.openTranscriptAria', {
-        description: backgroundCallTitle(call)
-      })}
-      className="group/subagent cursor-pointer rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
+    <BackgroundCard
+      title={title}
+      ariaLabel={tr('chat.subagentTile.openTranscriptAria', { description: title })}
+      onOpen={onOpen}
       data-background-call={call.toolUseId}
       data-background-generation={call.generation}
     >
-      <div className="flex min-w-0 items-center gap-g3">
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
-        <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
-          {backgroundCallTitle(call)}
-        </span>
-      </div>
       <div
         className={`mt-g1 pl-5 text-footnote ${display.status === 'failed' ? 'text-bad' : 'text-ink3'}`}
       >
@@ -355,7 +325,7 @@ function BackgroundCallCard({
           {tr('chat.subagentTile.viewTranscript')}
         </span>
       </div>
-    </div>
+    </BackgroundCard>
   )
 }
 
