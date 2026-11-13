@@ -436,31 +436,164 @@ client() → discovery 키 = 조회 키 : 같은 상수에서 나오므로 조�
 
 ## [구현자 기입] 설계 리뷰
 
-(구현 턴)
+### r1
+
+- 동의 / 그대로 진행: §9 TO-BE 세 축(i18n · `client()` 지역 상수 둘 · 패널 작업별 한 벌)을 그대로 구현했다. D-008(W-06 제외)·D-003(W-12 유지)도 그대로다 — `GitContextBar.tsx` diff 0줄, `engine.subtitle` 잔존(`keyset.mjs` 승인 밖 삭제 0).
+- 이견 / 현실성 문제: 없음. §8의 "삭제 줄 59 + import 1줄"은 도구 출력 기준이고, 실제 diff는 파일당 −65/+6이다 — strip이 남긴 묶음 끝 쉼표 5곳을 `npm run lint`(prettier `trailingComma: none`)가 고쳤다. 잎 집합·값은 같다(`keyset.mjs` 값 바뀜 0).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
-(구현 턴)
+### r1
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 / EP-01 | 승인 54키만, 두 파일에서 같이 | 108잎 + import 2줄 | 108/108 + 2/2 | `node …/scan/keyset.mjs 3e7e6fc` → 파일마다 `잎 1173 → 1119 · 지운 잎 54 · 남은 승인 키 0 · 승인 밖 삭제 0 · 새 키 0 · 값 바뀜 0 · 빈 묶음 0`, `ko↔en 키 집합 차이 0`, exit 0 · import → `gate:npm run lint`(V6 red 관측) | 잎 경로·값 — 기준 커밋 잎 집합과의 양방향 차집합 · import — 변이 V6에서 `no-unused-vars` error 2 | — |
+| VP-02·04 / EP-02 | 다섯 자리가 같은 폴더·환경 | S1~S5 (5) + 정의 2 | 5/5 | `grep -n -E 'directory\|environment' adapter.ts`의 `client()` 구간 → 정의 124·125, 읽는 자리 132(S1·S2)·133(S2)·190(S3)·196(S4·S5) — 목록과 차집합 0 · 좌표: `adapter.instances.test.ts:'reads resources, holds discovery and scopes requests with %s'`(4케이스) · S3는 `'sends default POST directory and workspace…'`도 | 폴더: `cwd`=`/fixture/explicit-project`(홈과 다름을 단언) / `undefined` / `''` → `run`·`hold` 키의 폴더 항 + 요청 `x-opencode-directory` · 환경: `XDG_STATE_HOME` 표식(`process.env` 값과 다름을 단언) / `env` 없음 → 키의 환경 항 | — |
+| VP-03·05 / EP-03 | 한 작업의 한 벌이 묶음·카드에 같은 값 | S1~S6 (6) + 횟수 S7 | 6/6 + 1/1 | `grep -n -E 'callForBackgroundTask\|backgroundTaskDisplay\|transcriptResults\.get\|persistedModels\.get' CanonicalBackgroundContent.tsx` → 한 벌 91·92·93, 카드 134·135·136(그 밖 85·116·150·151·187은 호출 쪽·상세·카드 내부 — 변경 전부터 있던 줄) · 좌표: `CanonicalBackgroundContent.render.test.ts:'joins a task to a call under another toolUseId for grouping, transcript and model'`(S1·S2·S5·S6) · `'keeps a foreground task running until its joined call returns'`·`'moves terminal background work to completed…'`(S3·S4) · `'looks up the call of each listed task at most once per render'`(S7) | 호출: 작업 둘의 호출 이름을 `Agent`/`Task`로 다르게 → 카드 제목 · 대화록: 분기 ③에서 호출 쪽 키에 `no_result`, 작업 쪽 키에 미실행 표식 없는 결과 → `실행되지 않음` · 모델: 작업 쪽 키 Haiku / 호출 쪽 키 Sonnet → `Haiku 4.5` · 묶음: `data-background-group`별 작업 ID 목록 | — |
+| VP-06 | 저장소 형태 | 0 — 운반 자리 없음 | — | AC7~AC9 명령(구현 보고) | 운반 항 없음 | — |
+| VP-07 | 사람이 보는 화면 | 0 — 사람 | — | AC10 실기 대기 | 운반 항 없음 | AC10 |
+
+- §10 자리 목록 밖에서 본 운반 자리: 1건 — `store/backgroundStore.ts:73·75`가 같은 작업에 `callForBackgroundTask`를 두 번 부른다. 0317 W-05 자리 목록(이 컴포넌트)에 없고 이번 path(`CanonicalBackgroundContent` → 카드)도 아니다 → **비귀속**(인접 개선), 고치지 않았다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 — verify 0회.
+- 규칙 분기 입력: EP-02 폴더 2(있음 · 없음=`undefined`와 `''`) × 환경 2(있음 · 없음) = `it.each` 4행. EP-03 분기 ①(`mixedBackgroundState` — 작업·호출 `toolUseId` 같음) · ②(`task-two` — 작업에 `toolUseId` 없음) · ③(`task-one` — 작업 쪽 `orphan-one`, 호출 쪽 `call-one`) · ④(`mixedBackgroundState`의 `done` — 호출 없음).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:keyset.mjs` · `gate:npm run typecheck` · `resources.test.ts:'ko↔en 리프 키 집합 일치'` | required — V1~V6 전부 red(잠금 표) |
+| VP-02 | REQUIRED | SELF_PASS | `adapter.instances.test.ts:'reads resources, holds discovery and scopes requests with %s'` | required — A1~A12 전부 red |
+| VP-03 | REQUIRED | SELF_PASS | `CanonicalBackgroundContent.render.test.ts`의 신규 3케이스 + 기존 `:'moves terminal background work to completed…'` | required — P 17건 중 red 14 · 동치 3 |
+| VP-04 | REQUIRED | SELF_PASS | VP-02 좌표(진입 `adapter.client` → 관측 discovery 키·HTTP 요청) | not selected — VP-02와 같은 좌표 |
+| VP-05 | REQUIRED | SELF_PASS | VP-03 좌표 + `'looks up the call of each listed task at most once per render'` | not selected — VP-03과 같은 좌표 |
+| VP-06 | REQUIRED | SELF_PASS | `gate:` AC7·AC8·AC9 git 명령(구현 보고의 출력) | not selected — 명령 출력이 직접 관측 |
+| VP-07 | REQUIRED | SELF_BLOCKED | 사람 실기(AC10) | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
-(구현 턴)
+### r1
+
+하네스 `mutate.py`(A·P) · 사본/작업 트리 수동 실행(V). oracle은 A = `vitest run …/adapter.instances -t "reads resources|sends default POST"`(변이 없이 5 passed 확인), P = `vitest run …/CanonicalBackgroundContent.render`(변이 없이 42 passed 확인). 실행 뒤 `git status`로 원복을 확인했다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V1 아무것도 지우지 않음(기준 커밋 두 파일) | VP-01 선택 증거 | 최초 | `keyset.mjs` `남은 승인 키` 108줄 · exit 1 | 잠김 |
+| V2 `background.title` 추가 삭제(두 파일) | VP-01 선택 증거 | 최초 | `승인 밖 삭제 1` × 2 | 잠김 |
+| V3 `background.loading` 값 변경 | VP-01 선택 증거 | 최초 | `값 바뀜: background.loading` · exit 1 | 잠김 |
+| V4 `en.ts`만 기준 커밋으로 | VP-01 선택 증거 | 최초 | `ko↔en 키 집합 차이 54` · `resources.test.ts:'ko↔en 리프 키 집합 일치'` 1 failed | 잠김 |
+| V5 `skills.list: {}` 껍데기 | VP-01 선택 증거 | 최초 | `빈 묶음 1` · exit 1 | 잠김 |
+| V6 `PRODUCT_SLUG` import 복원(두 파일) | VP-01 선택 증거 | 최초 | `eslint` `no-unused-vars` error 2 | 잠김 |
+| A1 `adapter.ts:132` 조회 폴더 → `nativeWorkingDirectory()` | VP-02 선택 증거(S1 맞바꿈) | 최초 | 2 failed / 5 | 잠김 |
+| A2 `:132` 조회 환경 → `process.env` | VP-02 선택 증거(S2 맞바꿈) | 최초 | 2 failed | 잠김 |
+| A3 `:133` 전역 조회 환경 → `process.env` | sweep — §10 자리(S2 둘째 인자) | 최초 | 2 failed | 잠김 |
+| A4 `:190` 컨텍스트 폴더 → `nativeWorkingDirectory()` | VP-02 선택 증거(S3) | 최초 | 3 failed | 잠김 |
+| A5 `:196` 키 폴더 → `nativeWorkingDirectory()` | VP-02 선택 증거(S4) | 최초 | 2 failed | 잠김 |
+| A6 `:196` 키 환경 → `process.env` | VP-02 선택 증거(S5) | 최초 | 2 failed | 잠김 |
+| A7 `:124` `cwd \|\| home` → home 고정 | VP-02 선택 증거(정의 고정값) | 최초 | 3 failed | 잠김 |
+| A8 `:125` `{...env, ...process.env}` | VP-02 선택 증거(정의 뒤집기) | 최초 | 2 failed | 잠김 |
+| A9 `:124` `\|\|` → `??` | sweep — 규칙 칸 분기(빈 문자열) | 최초 | 1 failed(`an empty directory…`) | 잠김 |
+| A10 `:125` `...env` 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 2 failed | 잠김 |
+| A11 `:196` 키 `'false'` → `'true'` | sweep — §10 자리(형제 슬롯 맞바꿈) | 최초 | 4 failed | 잠김 |
+| A12 `:125` `...process.env` 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 2 failed | 잠김 |
+| P1 `…Content.tsx:91` `call` → `undefined` | VP-03 선택 증거(S1) | 최초 | 2 failed / 42 | 잠김 |
+| P2 `:92` 대화록 키 순서 뒤집기 | VP-03 선택 증거(S2) | 최초 | 1 failed | 잠김 |
+| P2b `:92` `?? task.toolUseId` 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 0 failed | 동치 — 작업의 대화록 결과는 `call?.phase === 'returned'` 가지에서만 읽힌다(`canonicalBackground.ts:92-101`). 호출이 없으면 어떤 키로 찾아도 쓰이지 않는다. 확인 실행 42 passed |
+| P2c `:92` 키 → `''` | sweep — §10 자리(S2 빈 값) | 최초 | 1 failed | 잠김 |
+| P3 `:93` `settled` → `false` | VP-03 선택 증거(S3) | 최초 | 7 failed | 잠김 |
+| P3b `:93` 판정에서 `transcript` 인자 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 0 failed | 동치 — `settled`는 대화록 결과와 무관하다. 대화록을 읽는 가지는 항상 `settled: true`를 돌려준다(`canonicalBackground.ts:92-101`). 확인 실행 42 passed |
+| P3c `:93` 판정의 `call` → `undefined` | sweep — §10 자리(S1 빈 값) | 최초 | 0 failed | 동치 — 기본 인자가 같은 호출을 다시 찾는다(`canonicalBackground.ts:82`). 그 재조회는 모듈 안이라 AC6 단언 범위 밖(§7 주의사항). 확인 실행 42 passed |
+| P4 `:113` 비교 `!==` | VP-03 선택 증거(S4) | 최초 | 7 failed | 잠김 |
+| P5a `:134` 카드 `call` → `rows[0].call` | VP-03 선택 증거(S5 맞바꿈) | 최초 | 1 failed | 잠김 |
+| P5b `:135` 카드 `transcript` → `rows[0].transcript` | sweep — §10 자리(S5 맞바꿈) | 최초 | 1 failed | 잠김 |
+| P5c `:134` 카드 `call` → `undefined` | sweep — §10 자리(S5 제거) | 최초 | 1 failed | 잠김 |
+| P5d `:135` 카드 `transcript` → `undefined` | sweep — §10 자리(S5 제거) | 최초 | 1 failed | 잠김 |
+| P6 `:136` 모델 키 순서 뒤집기 | VP-03 선택 증거(S6) | 최초 | 1 failed | 잠김 |
+| P6b `:136` `?? call?.toolUseId` 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 1 failed | 잠김 |
+| P6c `:136` `task.toolUseId ??` 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | 1 failed | 잠김 |
+| P7 `:134` 카드 `call` → `callForBackgroundTask(state, task)` | VP-03 선택 증거(S7) | 최초 | 1 failed(`looks up the call…`) | 잠김 |
+| P7b `:113` 거르기에서 호출·판정 재계산 | sweep — §10 자리(S7 형제) | 최초 | 1 failed | 잠김 |
+
+- **분모 검산**: `선택 증거 20(EP-01 6 · EP-02 7 · EP-03 7) · 인용 변이 0 · 새 oracle 0 · sweep 15(EP-02 5 · EP-03 10) = 표 행 35`. 새 구조 oracle인 AC6 횟수 테스트의 민감도는 P7·P7b가 본다.
+- **덮개 회귀**: 0건 — 이전 라운드가 없고 교체·삭제한 장치도 없다.
+- 첫 P sweep 17건은 폐기하고 다시 돌렸다 — 원인은 Review Signals.
 
 ## [구현자 기입] Product/UX 파생 검토
 
-(구현 턴)
+### r1
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구·상태 없음 — 지운 54키는 읽는 곳 0(typecheck 오류 0) | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치는 `client()` 상수 둘을 bridge 확보 앞으로 올린 것뿐이다. `catch`가 보는 `bridge`·`server`는 그대로다(`adapter.ts:126·165·233`) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. `homedir()`가 던지면 bridge를 잡기 전에 거절된다 — §5 error 행·§13과 같다 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 해당 없음 — 실패 표시 경로 불변 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 패널은 한 렌더 안 동기 계산, `client()` 상수는 호출마다 새로 만든다 | — |
+| 로딩·빈 상태에서 무엇이 보이는가 | 변경 없음 — `rows`는 조기 반환(로딩·상세) 뒤에서 만든다(`…Content.tsx:90`) | — |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
-(구현 턴)
+### r1
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | strip 도구가 묶음의 마지막 잎을 지우면 앞 잎에 쉼표가 남는다 | ✅ 선조치 — `npm run lint`(prettier)가 파일당 5줄을 고쳤다 | `git diff --numstat` 두 파일 `6 65` · `keyset.mjs` 값 바뀜 0 |
+| 2 | `backgroundStore.ts:73·75`에 같은 이중 호출 찾기가 있다 | ⚠️ 보고만 — 비귀속(0317 자리 목록 밖) | `git grep -n 'callForBackgroundTask(' -- src ':!*.test.*'` |
+| 3 | 대화록 키의 `?? task.toolUseId` 폴백은 작업 카드에서 결과에 닿지 않는다(P2b 동치) | ⚠️ 보고만 — 변경 전부터 있던 항이고 지우면 범위 밖 감량이다(D-007) | `canonicalBackground.ts:92-101` |
+| 4 | 이 Linux 환경은 변경 전에도 vitest 68파일 320케이스가 red다. 그중 `adapter.instances.test.ts`의 2케이스는 이번에 수정한 파일 안이다 | ⚠️ 보고만 — 두 조건 충족: 실패 집합 차집합 양방향 0 · 원인이 다른 OS 경로(`'C:/two'`를 Linux가 상대 경로로 해석) | 구현 보고 gate 행 |
+
+### 설계 대비 명시적 차이
+
+- EP-02 신규 케이스를 `adapter.test.ts`가 아니라 `adapter.instances.test.ts`에 뒀다 — S3 기존 좌표와 같은 `fixture()`(가짜 서버·`requests`)를 써야 요청 `directory`를 함께 볼 수 있다. §11의 `adapter*.test.ts` 범위 안이다.
+- EP-03 S7을 `vi.spyOn`이 아니라 `vi.mock`으로 감싼 계수 래퍼로 관측한다 — ESM 이름 import는 `spyOn`으로 가로챌 수 없다. 래퍼는 원본을 그대로 부른다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 래퍼는 상태가 계수 하나뿐이다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | `vi.mock`이 파일 전체에 걸려 같은 파일 42케이스가 모두 래퍼를 지난다. 계수는 S7 케이스가 렌더 직전에 0으로 되돌린다 | 파일 42 passed · P7·P7b red |
+| 재진입 | 해당 없음 — 동기 렌더 | — |
+| 다른 무효화 축 | `afterEach`의 `vi.restoreAllMocks()`가 래퍼를 풀지 않는다(`vi.fn`이 아닌 일반 함수) | 케이스 순서와 무관하게 42 passed |
 
 ## [구현자 기입] 구현 보고
 
-(구현 턴)
+### r1
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | prod 4 — `ko.ts`·`en.ts`·`adapter.ts`·`CanonicalBackgroundContent.tsx` · test 2 — `adapter.instances.test.ts`·`CanonicalBackgroundContent.render.test.ts` · 문서 — 본 plan `[구현자 기입]`·`INDEX.md` |
+| 실행 명령 | §19 목록 전부. 기준선은 `git worktree`로 설계 커밋(`3e7e6fc`) 트리에서 같은 `vitest run`을 돌렸다 |
+| **관측한 게이트 산출**(마지막 수정 뒤) | `lint` error 0 · warning 2(기존 `react-hooks/incompatible-library` 2파일, 변경 밖) · `typecheck` 3종 오류 0 · 가드 4종 OK(`product-naming 2227파일` · `test-budgets 18 real-git suites ok`) · `node --test` 868 pass / 0 fail · `keyset.mjs` exit 0 |
+| vitest(파일 필터 없음) | 944파일 8,844케이스 · red 68파일 320케이스. 기준선 944파일 8,837케이스 · red 68파일 320케이스. **실패 집합 차집합: head−base 0 · base−head 0.** 환경 서명: `Electron failed to install correctly` 20파일 · `better_sqlite3.node` ABI 7파일 · 나머지는 Windows 경로 단언 |
+| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only 3e7e6fc..HEAD -- '*.test.*'` → 2파일. 시간 값 0(`check-test-budgets` OK) · 호스트 격리 — `homedir()`·`process.env.XDG_STATE_HOME`은 setup의 임시 루트 값을 읽기만 한다 · 풀 — `adapter.instances.test.ts` io(기존) · `CanonicalBackgroundContent.render.test.ts` unit(자식 프로세스·git 없음). 두 파일의 가드 실패 0 |
+| V-pair 자기확인 | `SELF_PASS 6 / SELF_BLOCKED 1`(VP-07 사람 실기) |
+| 강제 지점 전수 | EP-01 110/110 · EP-02 5/5 · EP-03 7/7 |
+| **AC 자기보고**(`Criteria-Met`) | 9/10 — 아래 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+| AC | 판정 | 이번 턴 관측 |
+|---|---|---|
+| AC1 | ✅ | `keyset.mjs 3e7e6fc` → 두 파일 `지운 잎 54 · 남은 승인 키 0 · 승인 밖 삭제 0 · 새 키 0 · 빈 묶음 0` · exit 0 |
+| AC2 | ✅ | 같은 실행 `값 바뀜 0` · `ko↔en 키 집합 차이 0` · `vitest run src/renderer/src/shared/i18n` 2파일 18 passed |
+| AC3 | ✅ | `typecheck` 오류 0 · `lint` error 0 · vitest 실패 집합 − 기준선 = 0줄 |
+| AC4 | ✅ | `adapter.instances.test.ts` 신규 4케이스 + `'sends default POST…'` = 5 passed · A1~A12 red |
+| AC5 | ✅ | `CanonicalBackgroundContent.render.test.ts` 42 passed(신규 3) · P 14건 red · 3건 동치 |
+| AC6 | ✅ | `'looks up the call of each listed task at most once per render'` passed · P7·P7b red |
+| AC7 | ✅ | `git diff --numstat 3e7e6fc..HEAD -- app/src ':!*.test.*'` → 4파일 `5 9`·`11 20`·`6 65`·`6 65`(추가 삭제) · `grep -cE '^[+-]export '` → 0 |
+| AC8 | ✅ | `git diff --stat 3e7e6fc..HEAD -- …/GitContextBar.tsx` → 0줄 |
+| AC9 | ✅ | `git log --name-only 3e7e6fc..HEAD -- app` → i18n 커밋 = 리소스 2파일만 · 코드 커밋 = `adapter.ts`·`…Content.tsx`와 그 테스트 2파일 |
+| AC10 | ⚠️ | 사람 실기 대기 — 이 환경은 Electron 바이너리가 없어 `npm run dev`를 띄울 수 없다 |
+
+- **합계 검산**: `✅ 9 · ⚠️ 1 · ❌ 0 = 총 10`.
 
 ## [구현자 기입] Review Signals — 사실만
 
-(구현 턴)
+### r1
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 — 첫 라운드.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 해당 없음.
+- 반복해서 부딪히는 환경 한계: 2건. (1) 시간 초과로 백그라운드로 넘어간 `npm run lint`(`--fix`)가 그 사이 고친 테스트 파일을 옛 내용으로 덮어썼다 — 그 상태에서 돈 첫 P sweep은 oracle이 변이 전부터 red라 17건 모두 무효였고, 전체 vitest의 기준선 차집합(+1)에서 드러나 테스트를 복구한 뒤 sweep과 마지막 gate를 다시 돌렸다. (2) Linux에서 vitest 68파일이 변경 전부터 red다.
+- 현재 라운드·impl 턴: `r1`(verify 0회).
 
 ---
 
