@@ -87,6 +87,12 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
       />
     )
   }
+  const rows = tasks.map((task) => {
+    const call = callForBackgroundTask(state, task)
+    const transcript = transcriptResults.get(call?.toolUseId ?? task.toolUseId ?? '')
+    const { settled } = backgroundTaskDisplay(state, task, call, transcript)
+    return { task, call, transcript, settled }
+  })
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3" data-background-tasks>
       {state.connection !== 'connected' && (
@@ -104,18 +110,7 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
         <p className="text-footnote text-t6">{tr('background.empty')}</p>
       )}
       {(['running', 'completed'] as const).map((group) => {
-        const groupedTasks = tasks.filter(
-          (task) =>
-            backgroundTaskDisplay(
-              state,
-              task,
-              callForBackgroundTask(state, task),
-              transcriptResults.get(
-                callForBackgroundTask(state, task)?.toolUseId ?? task.toolUseId ?? ''
-              )
-            ).settled ===
-            (group === 'completed')
-        )
+        const groupedTasks = rows.filter((row) => row.settled === (group === 'completed'))
         const groupedCalls = calls.filter(
           (call) =>
             backgroundCallDisplay(state, call, transcriptResults.get(call.toolUseId)).settled ===
@@ -130,19 +125,15 @@ export function CanonicalBackgroundContent(): React.JSX.Element {
             onToggle={() => toggleBackgroundGroup(sessionId, group)}
             onClear={() => dismissCompletedBackgroundItems(sessionId, [], transcriptResults)}
           >
-            {groupedTasks.map((task) => (
+            {groupedTasks.map(({ task, call, transcript }) => (
               <BackgroundTaskCard
                 key={backgroundKey(task.generation, task.taskId)}
                 sessionId={sessionId}
                 state={state}
                 task={task}
-                call={callForBackgroundTask(state, task)}
-                transcript={transcriptResults.get(
-                  callForBackgroundTask(state, task)?.toolUseId ?? task.toolUseId ?? ''
-                )}
-                persistedModel={persistedModels.get(
-                  task.toolUseId ?? callForBackgroundTask(state, task)?.toolUseId ?? ''
-                )}
+                call={call}
+                transcript={transcript}
+                persistedModel={persistedModels.get(task.toolUseId ?? call?.toolUseId ?? '')}
                 onOpen={() =>
                   selectBackgroundItem(sessionId, {
                     kind: 'task',

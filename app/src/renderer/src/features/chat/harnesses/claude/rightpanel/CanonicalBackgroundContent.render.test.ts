@@ -29,6 +29,18 @@ import {
   type BackgroundTaskRecord
 } from '../../../../../../../shared/background-task'
 
+const lookups = vi.hoisted(() => ({ count: 0 }))
+vi.mock('../../../lib/canonicalBackground', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/canonicalBackground')>()
+  return {
+    ...actual,
+    callForBackgroundTask: (...args: Parameters<typeof actual.callForBackgroundTask>) => {
+      lookups.count++
+      return actual.callForBackgroundTask(...args)
+    }
+  }
+})
+
 function renderState(
   state: BackgroundSessionState,
   selection?: BackgroundSelection,
@@ -344,6 +356,105 @@ describe('canonical background task cards', () => {
       })
     )
     expect(cleared('[data-background-call], [data-background-call-detail]')).toHaveLength(0)
+  })
+  function splitIdentityState(): BackgroundSessionState {
+    const source = { generation: 'g', sequence: 1, receivedAt: 1, replay: false }
+    let state = emptyBackgroundState()
+    for (const [index, name] of ['one', 'two'].entries()) {
+      const toolName = index ? 'Task' : 'Agent'
+      state = applyBackgroundEvent(state, {
+        type: 'background.call',
+        sessionId: 's',
+        source: { ...source, sequence: index * 2 + 1 },
+        phase: 'returned',
+        toolUseId: `call-${name}`,
+        toolName,
+        input: { run_in_background: true }
+      })
+      state = applyBackgroundEvent(state, {
+        type: 'background.task',
+        sessionId: 's',
+        source: { ...source, sequence: index * 2 + 2 },
+        phase: 'started',
+        taskId: `task-${name}`,
+        patch: { status: 'running', isBackgrounded: false }
+      })
+      state.calls[backgroundKey('g', `call-${name}`)].taskId = `task-${name}`
+    }
+    return state
+  }
+  const resultPart = (
+    toolRunId: string,
+    model: string,
+    nonExecution?: { source: 'host'; kind: 'no_result' } | { source: 'sdk'; kind: 'cancelled' }
+  ): Message['parts'][number] => ({
+    type: 'tool_result',
+    toolRunId,
+    result: 'x',
+    isError: true,
+    subagentMeta: { model },
+    ...(nonExecution ? { nonExecution } : {})
+  })
+  it('joins a task to a call under another toolUseId for grouping, transcript and model', () => {
+    const state = splitIdentityState()
+    state.tasks[backgroundKey('g', 'task-one')].toolUseId = 'orphan-one'
+    const one = state.tasks[backgroundKey('g', 'task-one')]
+    const two = state.tasks[backgroundKey('g', 'task-two')]
+    expect(one.toolUseId).toBe('orphan-one')
+    expect(two.toolUseId).toBeUndefined()
+    expect(state.calls[backgroundKey('g', 'call-two')].model).toBeUndefined()
+    const messages: Message[] = [
+      {
+        role: 'assistant',
+        createdAt: 1,
+        parts: [
+          resultPart('call-one', 'claude-sonnet-4-5-20250929', {
+            source: 'host',
+            kind: 'no_result'
+          }),
+          resultPart('orphan-one', 'claude-haiku-4-5-20251001'),
+          resultPart('call-two', 'claude-opus-4-1-20250805', { source: 'sdk', kind: 'cancelled' })
+        ]
+      }
+    ]
+    const $ = load(renderState(state, undefined, messages))
+    const card = (id: string): string =>
+      $(`[data-background-group="completed"] [data-background-task="${id}"]`).text()
+    expect($('[data-background-group="running"] [data-background-task]')).toHaveLength(0)
+    // 작업 쪽 toolUseId 에는 호출이 없다 — taskId 로 찾은 호출의 대화록 결과와 작업 쪽 키의 모델을 쓴다.
+    expect(card('task-one')).toMatch(/^Agent/)
+    expect(card('task-one')).toContain('실행되지 않음')
+    expect(card('task-one')).toContain('Haiku 4.5')
+    expect(card('task-one')).not.toContain('Sonnet')
+    // toolUseId 가 없는 작업은 호출 쪽 키로 대화록 결과와 모델을 찾는다.
+    expect(card('task-two')).toMatch(/^Task/)
+    expect(card('task-two')).toContain('취소됨')
+    expect(card('task-two')).toContain('Opus 4.1')
+    expect(card('task-two')).not.toContain('Haiku')
+  })
+  it('keeps a foreground task running until its joined call returns', () => {
+    const state = splitIdentityState()
+    state.calls[backgroundKey('g', 'call-two')].phase = 'started'
+    const $ = load(renderState(state))
+    expect(
+      $('[data-background-group="completed"] [data-background-task]')
+        .map((_, element) => $(element).attr('data-background-task'))
+        .get()
+    ).toEqual(['task-one'])
+    expect(
+      $('[data-background-group="running"] [data-background-task]')
+        .map((_, element) => $(element).attr('data-background-task'))
+        .get()
+    ).toEqual(['task-two'])
+  })
+  it('looks up the call of each listed task at most once per render', () => {
+    const state = mixedBackgroundState()
+    const listed = load(renderState(state))('[data-background-task]').length
+    expect(listed).toBeGreaterThan(2)
+    lookups.count = 0
+    renderState(state)
+    expect(lookups.count).toBeGreaterThan(0)
+    expect(lookups.count).toBeLessThanOrEqual(listed)
   })
   it('shows the observed child model instead of Agent or its requested model', () => {
     const state = applyBackgroundEvent(emptyBackgroundState(), {
