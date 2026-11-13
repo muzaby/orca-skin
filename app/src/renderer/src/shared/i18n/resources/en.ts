@@ -2,7 +2,7 @@ import type { AppErrorTitle } from '../../../../../shared/app-error'
 // 영어 UI 카탈로그(0096). `typeof ko` 선언으로 ko 와의 키 패리티(누락/초과)를 컴파일 타임에
 // 강제한다 — 새 키는 항상 ko.ts 에 먼저 추가하고 여기 번역을 채운다.
 
-import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../../../../shared/product'
 import type { ko } from './ko'
 
 export const en: typeof ko = {
@@ -180,7 +180,6 @@ export const en: typeof ko = {
   },
   gate: {
     title: 'Sign in',
-    subtitle: 'Sign in with your corporate account to continue.',
     signIn: 'Sign in',
     signingIn: 'Signing in…',
     resuming: 'Signing in automatically with the existing session…',
@@ -200,29 +199,12 @@ export const en: typeof ko = {
   skills: {
     pageTitle: 'Plugins',
     rail: { skills: 'Skills', mcp: 'MCP', providers: 'Plugins' },
-    list: {
-      addAria: 'Add'
-    },
     table: {
-      skill: 'Skill',
-      mcp: 'MCP server',
-      lastUpdated: 'Last updated',
       author: 'Author',
-      status: 'Status',
-      transport: 'Transport',
       user: 'User',
       noSkills: 'No registered skills.',
       noMcp: 'No registered MCP servers.',
-      noProviders: 'No registered connections.',
-      provider: 'Connection',
-      providerAuth: 'Auth method'
-    },
-    groups: {
-      activeMcp: 'Active MCP',
-      inactiveMcp: 'Inactive MCP',
-      gateProviders: 'App sign-in',
-      llmProviders: 'Models',
-      serviceProviders: 'Internal services'
+      noProviders: 'No registered connections.'
     },
     provider: {
       status: {
@@ -260,7 +242,6 @@ export const en: typeof ko = {
       version: 'Version',
       license: 'License'
     },
-    view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
     detail: {
       toggleAria: 'Enable {{name}}',
       tryInChat: 'Try in chat',
@@ -276,14 +257,12 @@ export const en: typeof ko = {
       removeConfirmBody: `This removes the following folder from ${PRODUCT_DISPLAY_NAME} skill sources. Confirm once more to continue.`
     },
     addMenu: {
-      create: 'Create skill',
       author: 'Write skill instructions',
       upload: 'Upload skill'
     },
     author: {
       title: 'Write skill instructions',
       name: 'Skill name',
-      desc: 'Description',
       descPlaceholder: 'Generates a weekly status report from recent work.',
       instructions: 'Instructions',
       instructionsPlaceholder:
@@ -360,12 +339,7 @@ export const en: typeof ko = {
     retry: 'Try again',
     title: 'Projects',
     newProject: 'New project',
-    blurb:
-      'Projects group conversations into categories and automatically inject your system instructions into every new conversation in the project.',
-    noInstructions: 'No instructions',
     emptyTitle: 'No projects yet',
-    emptyDesc:
-      'Create a project to keep related conversations in one place, with your instructions automatically applied to every new conversation.',
     createFirst: 'Create your first project',
     create: {
       title: 'New project',
@@ -386,8 +360,7 @@ export const en: typeof ko = {
       pin: 'Pin',
       pinAria: 'Pin project',
       menuAria: 'Project menu',
-      editInstructions: 'Edit instructions',
-      updated: 'Updated'
+      editInstructions: 'Edit instructions'
     },
     instructionsCard: {
       title: 'Instructions',
@@ -406,7 +379,6 @@ export const en: typeof ko = {
     subtitle: 'Provider settings environment',
     addEngine: 'Add engine',
     catalogFailed: 'Could not load the model catalog.',
-    blurb: `The Composer model menu is built from the provider settings in <c>~/.config/${PRODUCT_SLUG}/sources/settings</c>. After editing, the model menu refreshes without restarting the app.`,
     emptyState: 'No providers registered. Add an engine to configure a harness and model provider.',
     deleteConfirm: 'Delete provider {{name}}?',
     card: { unsupportedAdapter: 'Unsupported adapter', readOnly: 'Read-only' },
@@ -757,19 +729,14 @@ export const en: typeof ko = {
       forbidden: 'This file is not available in this conversation',
       unsafe: 'Could not verify a safe file location',
       tooLarge: 'The file exceeds the size limit',
-      title: 'Artifacts',
       actions: 'File actions',
       bytes: '{{count}} bytes',
       working: 'Working',
-      checking: 'Checking',
-      available: 'File available',
       missing: 'File missing — it may have been deleted or moved',
       unavailable: 'Cannot access file',
       changed: 'The source file was changed or moved to another location',
-      trashedAt: 'Moved to Recycle Bin at: {{time}}',
       save: 'Save as',
       download: 'Download',
-      document: 'Document',
       fileLabel: 'File',
       artifactLabel: 'Artifact',
       saveAll: 'Save all',
@@ -780,13 +747,8 @@ export const en: typeof ko = {
       trashMessage:
         'The publication record will remain. Other conversations referencing this file will also lose access to it.',
       failed: 'Could not complete the file action. Please check again.',
-      saveComplete: 'Save results',
       tooMany: 'Save up to 50 files at once. Please save files individually.',
-      skipped: 'Skipped — please check file status',
-      done: 'Done',
-      trashed: 'Moved to Recycle Bin',
       trashedUnrecorded: 'Moved to Recycle Bin, but could not save the action history.',
-      empty: 'No published artifacts',
       loading: 'Loading artifacts',
       listFailed: 'Could not load artifacts',
       retainedOnSessionDelete: 'Stored artifact files will be kept.'
@@ -946,7 +908,6 @@ export const en: typeof ko = {
       sourceOpenFailed: 'Could not open the file.',
       sourceMissing: 'The file does not exist. It may have been deleted or moved.',
       directoryBusy: 'Add a folder after the current work finishes.',
-      directoryPicking: 'Choosing a folder…',
       directoryFailed: 'Could not add the folder. Please try again.',
       openDirectory: 'Open folder: {{name}}',
       directoryOpenFailed:
@@ -968,10 +929,7 @@ export const en: typeof ko = {
       detail: {
         status: 'Status',
         description: 'Description',
-        blockedBy: 'Blocked by',
-        elapsed: 'Elapsed',
-        lastTool: 'Last tool',
-        toolUses: 'Tool uses'
+        blockedBy: 'Blocked by'
       },
       sections: {
         scheduled: 'Scheduled',
@@ -993,26 +951,19 @@ export const en: typeof ko = {
       backToList: 'Back to list',
       headerTitle: 'Tasks',
       badgeAria: '{{count}} finished tasks not yet reviewed',
-      backgroundBadge: 'background',
       blockedByValue: 'needs #{{ids}}',
-      stoppedReason: 'Stopped by you',
-      failedReason: 'The execution session ended',
       stopFailed: 'Could not stop the task',
       backgroundFailed: 'Could not move the task to the background',
-      toBackground: 'To background',
       toBackgroundAria: 'Move {{description}} to the background',
       toBackgroundTitle: 'Moves this to the background. The task keeps running.',
       unsupported: 'The connected Claude Code does not support the task list tools.',
       unsupportedVersion: 'Installed version: {{version}}',
-      noChildActivity: 'No child activity recorded for this task.',
-      emptyDesc: 'Tasks Claude creates and background work it starts will appear here.',
-      openDetailAria: 'Open details for {{description}}'
+      emptyDesc: 'Tasks Claude creates and background work it starts will appear here.'
     },
     taskTool: {
       created: 'Created',
       updated: 'Updated',
       listed: 'Listed all',
-      fetched: 'Fetched',
       removed: 'Removed',
       failed: 'Failed',
       subject: 'Subject',
@@ -1092,7 +1043,6 @@ export const en: typeof ko = {
       send: 'Send',
       sendEnter: 'Send (Enter)',
       diffRequirementTrayAria: 'Diff requirements',
-      diffRequirementTrayLabel: '{{count}} diff requirements',
       diffRequirementUnlocated: 'Relocate before sending',
       diffRequirementRemoveAria: 'Remove diff requirement: {{comment}}',
       permissionModeTitle: 'Permission mode',
@@ -1211,8 +1161,7 @@ export const en: typeof ko = {
         task: 'Tasks',
         diff: 'Changes',
         process: 'Background processes',
-        source: 'Sources',
-        artifacts: 'Artifacts'
+        source: 'Sources'
       },
       diffAllChanges: 'All changes',
       diffEmpty: 'Nothing to show.',
@@ -1221,14 +1170,11 @@ export const en: typeof ko = {
       diffNotSynced: 'Refresh to load changes, or wait for the turn to finish.',
       diffRefresh: 'Refresh',
       diffLoadFailed: 'Could not load changes. Refresh to try again.',
-      diffCollapsedNotice: 'Files are collapsed for large diffs. Select a file to expand it.',
       diffOpenFile: 'Reveal in file explorer',
       diffOpenFileAria: 'Reveal in file explorer: {{path}}',
       diffFileToggleAria: 'Expand or collapse {{path}}',
       diffFileBinary: 'Binary file — no preview available.',
       diffFileTooLarge: 'File is too large to preview.',
-      diffFileUnavailable: 'No preview available.',
-      diffSessionChanges: 'Changes',
       diffBaselineHead: 'current HEAD',
       diffBaselineNone: 'no baseline',
       diffSessionFilesTruncated: 'Session file list limited',
@@ -1248,14 +1194,11 @@ export const en: typeof ko = {
       diffNoSessionChange: 'No change against the session baseline.',
       diffPatchUnavailable: 'Could not load the changes. Refresh to try again.',
       diffContextLimited: 'Limited context — expansion stops at what was loaded.',
-      diffExpandGap: 'Show {{count}} more above',
       diffRequirementAddAria: 'Add diff requirement: {{line}}',
       diffRequirementDraftPlaceholder: 'Requirement for this line…',
       diffRequirementDraftInputAria: 'Diff requirement content',
       diffRequirementDraftLineLabel: 'Line {{line}}',
       diffRequirementDraftSubmit: 'Add',
-      diffRequirementDraftCancel: 'Cancel',
-      diffRequirementMarkerLabel: 'Requirement',
       closeTile: 'Close {{label}}',
       panelResizeAria: 'Resize right panel',
       rowResizeAria: 'Resize panel row',
@@ -1269,8 +1212,6 @@ export const en: typeof ko = {
       planEmptyDescOpenCode: 'It will appear here as OpenCode explores and builds a plan.',
       planSelectHint: 'Select text to leave feedback for Claude',
       planSelectHintOpenCode: 'Select text to leave feedback for OpenCode',
-      reservedTitle: 'Reserved tile',
-      reservedDesc: 'This area is reserved for an upcoming auxiliary panel feature.',
       commentViewAria: 'View comment',
       commentCreateAria: 'Write comment: {{quote}}',
       commentEditAria: 'Edit comment: {{quote}}',
