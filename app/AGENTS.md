@@ -164,7 +164,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 | 워크플로우 | 트리거 | 동작 |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `main` push + 모든 PR (둘 다 paths `app/**`·`.github/workflows/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → 문서 인벤토리 가드 → 제품 이름 가드 → 테스트 예산 가드 → lint → typecheck → test. PR CI 추가(0113 — 0088 "PR CI 없음" supersede), 로컬 게이트는 유지 |
-| `.github/workflows/test-pools-experiment.yml` | 수동 dispatch(러너·모드·반복 입력)만 | 모드별 vitest 실측 행렬(0298) — npm ci → ABI(node) → vitest(기본 reporter: 파일별 `|project|` 줄 + Duration 분해) → `node --test`(dot). 게이트가 아니다 |
+| `.github/workflows/test-pools-experiment.yml` | 수동 dispatch(러너·모드·반복 입력)만 | 모드별 vitest 실측 행렬(0298) — npm ci → ABI(node) → vitest(기본 reporter: 파일별 `\|project\|` 줄 + Duration 분해) → `node --test`(dot). 게이트가 아니다 |
 | `.github/workflows/release.yml` | `v*` 태그 push (수동 dispatch = 항상 dry-run) | 버전 검증(fail-fast) → 게이트 → NSIS `build:win` → GitHub Release **즉시 게시**(installer·latest.yml·blockmap) → sha512 검증 |
 
 - 릴리스 절차·수동 체크리스트·롤백 정본은 [`../docs/guides/release-operations.md`](../docs/guides/release-operations.md).
