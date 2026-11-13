@@ -745,6 +745,138 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 - 환경 한계: `app/node_modules` 미설치 — `typescript` 를 쓸 수 없어 i18n 키를 일회용 파서로 뽑았다. 이 세션에는 `origin/main` ref 가 있어 기준 커밋의 조상 여부를 확인할 수 있었다.
 - 세션 중단: 작업자 프로세스가 한 번 재시작됐다 — 산출 파일과 일회용 스크립트가 남아 있어 P4 검사 단계부터 이어갔다.
 
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: Part I · §10 EP-01~EP-10 그대로. 이번 라운드의 계약은 파생 이슈 1(출처 VP-02 · AC4) — W-08 `formLock` 근거가 사실과 달랐다.
+- 이견 / 현실성 문제: i18n 후보의 전제·조건 근거 다수가 "키마다 경계 일치로 검색"이라는 서술이라 재실행할 명령이 없었다(AC4 "명령+N"). 불변식 — **"0건" 근거는 주어의 모든 참조 형태로 센 재실행 가능한 명령+N이다** — 으로 올려 i18n 6건 전부와 W-01~W-06의 0건·그물 주장에 적용했다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음. W-08 분리(W-12)는 §9 4단계 "같은 부모 아래 키들은 한 후보로 묶을 수 있다"의 재량 안이다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 구간 → 범주·렌즈 판정 (EP-01) | 11구간 × 11칸 = 121 | 121/121 | `gate:node …/scan/check.mjs --check` → `위반 0 · 대기 0` · R-D1(F04.X8 삭제) → `RED K1` · D04(F10.L1 에서 W-12 제거) → `RED K7` | 칸 값 · 삭제 → K1 · 지목 빠짐 → K7 | — |
+| VP-01·VP-07 | 구간 → 판정 단위 (EP-02) | 98단위 · 패턴 5 + 규칙 2 | 98/98 · 7/7 | `--units \| wc -l` → 98 · R-D2·R-D3 → `RED K2` · `scan/check.test.mjs` "UT-01 P1"~"U7"(그대로 통과) | 단위 이름 · 삭제·유령 → K2 양방향 | — |
+| VP-02 | 후보 필수 칸 (EP-03) | 12칸 × 12건 + i18n 2칸 × 6건 = 156 | 156/156 | 같은 gate(K3·K4·K8·K9·K12 위반 0) · D02·D03·D05·D06·D07·D08 red · "UT-02 red K3 필수 칸 … 제거" 12건 · "UT-02 red K12 …" 9건 | 칸마다 제거·형식 오류 입력 · W-12 신설분 6칸 변이 | — |
+| VP-02 | 전제 확인 칸 (EP-04) | 3칸 × 12건 = 36 | 36/36 | 같은 gate(K5) · D01(W-12 formLock 삭제) → `RED K5` | 칸 삭제 → K5 | — |
+| VP-02 | 대상 제외 (EP-08) | 패턴 5 | 5/5 | D05(W-12 자리 → `AgentEnvironmentView.count.test.ts:66`) → `RED K4` · "UT-02 red K4 제외 패턴 …" 5건 | 패턴마다 1경로 | — |
+| VP-08 | 검사 규칙 (EP-05) | red 조건 46 | 46/46 | `node --test …/scan/*.test.mjs` → tests 127 · pass 127(r1 114 + i18n 도구 13) · `check()` 본문 무변경(diff 는 새 함수·CLI 만) | 조건마다 그 조건만 깨는 입력 | — |
+| VP-03·VP-09 | 감량 합 판정 (EP-06) | 갈래 4 + 경계 2 | 6/6 | "UT-03 R1"~"R4" · `--ruling` → `0305 계열 종료 · sum 19 · total 34 · i18n 6건 55키 120줄` · R-S1 sum 19→10 · D08 K12(sum 19 그대로) · D11 W-12 pass False→True(sum 그대로) | `sum`·`P`·`i18n.items[].pass` 가 데이터에 민감 · i18n 이 합에 새지 않음 | — |
+| VP-03 | 핫패스 심볼 (EP-07) | 심볼 3 | 3/3 | 무변경 — "UT-02 EP-07: 핫패스 심볼은 …" 통과 | 목록 `deepEqual` | — |
+| VP-05 | 판정 사본 일치 (EP-09) | 사본 3곳 | 2/3 | `grep -c '^<!-- gen:' audit.md` → 5 · D15(ruling 숫자 1자) · R-M2(premises 블록 삭제) → `RED K10` · D12(승인 표 W-12 행) → `RED K9` · INDEX 비고의 판정 입력값 문자열 = `--ruling` verdict | 블록 바이트 비교 | `verify.md` 판정 절 — verify 턴 산출 |
+| VP-06·VP-10 | 대상 목록 유도 (EP-10) | 11파일 · 규칙 7 | 11/11 · 7/7 | `--targets` → 11행 · R-C1(AREAS F11 삭제) → `RED K11` · R-C2(READ_0315 1줄 삭제) → `RED K11` · "UT-04 T1"~"T7" 통과 | 규칙마다 통과·제외 입력 쌍 | — |
+
+### V-pair 자기확인 (r2)
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:check.mjs --check` | required — R-D1·R-D2·R-D3 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | 같은 gate | required — D01·D05·R-D6·D02 전부 red. 통과 후보 근거 재실행은 검증자 몫 |
+| VP-03 | REQUIRED | SELF_PASS(기계 범위) | "UT-03 R1~R4" · `--ruling` | required — R-S1 sum 19→10 · D08 K12 red(합 불변). AC10은 사람 |
+| VP-04 | REQUIRED | SELF_PASS | `gate:git diff --stat 1168b67 -- app .github` → 0줄(작업 트리 포함) | not selected — 직접 관측 |
+| VP-05 | REQUIRED | SELF_PASS | `--check`(K10) | required — D15·R-M2 red |
+| VP-06 | REQUIRED | SELF_PASS | `--check`(K11) · `--targets` | required — R-C1·R-C2 red |
+| VP-07 | REQUIRED | SELF_PASS | "UT-01 P1"~"U7" | not selected — 행동 oracle |
+| VP-08 | REQUIRED | SELF_PASS | "UT-02 green"·"UT-02 red …" | not selected — 행동 oracle |
+| VP-09 | REQUIRED | SELF_PASS | "UT-03 R1"~"R4" | not selected — 행동 oracle |
+| VP-10 | REQUIRED | SELF_PASS | "UT-04 T1"~"T7" | not selected — 행동 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+판정: 57건을 심어 57건이 잡혔다(경계 1건 포함). 파생 이슈 1의 닫힘 관측은 I-1 — 체인 색인을 빼면 W-12의 테스트 참조가 보고에서 사라진다. 실행 뒤 `git status` 는 산출 4파일 변경만 남았고 `--check` 는 `위반 0` 이다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V-MA W-08 formLock clear→blocks · V-MB F06.L6→none · V-MC W-05 prod 6→0 | 직전 verify 이력(M-A·M-B·M-C) | 잡음 | `RED K10`(W-08 pass True→False) · `RED K7·K10` · `RED K8·K10`(sum 19→13) | 잡음 — 덮개 회귀 0 |
+| V-MD W-03 ui risk→safe | 직전 verify 이력(M-D) | 경계 | sum 19→23 · P 에 W-03 · `RED K10` | 경계(선언 경계 2 — 판정 유지) |
+| R-D1 F04.X8 삭제 · R-D2 단위 1행 삭제 · R-D3 유령 단위 | VP-01 선택 증거 | r1 D1·D2·D3 잡음 | `RED K1` · `RED K2` · `RED K2` | 잡음 |
+| D01 W-12 formLock 삭제 · D05 W-12 자리→테스트 파일 · R-D6 F10.L1 유령 W-13 · D02 W-12 dynamicPrefix 삭제 | VP-02 선택 증거 | (W-12 신설) | `RED K5` · `RED K4` · `RED K7` · `RED K12` | 잡음 |
+| R-S1 통과 후보 W-06 raceGuard→blocks · D08 W-12 i18nKeys 삭제 | VP-03 선택 증거 | r1 S1 잡음 | sum 19→10(P W-01·W-05) · `RED K12`(sum 19 그대로 — 합에 새지 않음) | 잡음 |
+| D15 ruling 블록 숫자 1자 · R-M2 premises 블록 삭제 | VP-05 선택 증거 | r1 M1·M2 잡음 | `RED K10` · `RED K10` | 잡음 |
+| R-C1 AREAS F11 삭제 · R-C2 READ_0315 1줄 삭제 | VP-06 선택 증거(check.mjs 를 고친 라운드) | r1 C1·C2 잡음 | `RED K1·K2·K10·K11` · `RED K11` | 잡음 |
+| D03 W-12 approval 삭제 · D04 F10.L1 에서 W-12 제거 · D06 W-12 prod 0 · D07 W-12 area F01 | sweep EP-03·EP-01(이번 변경이 닿은 W-12·F10 칸) | — | `RED K9` · `RED K7·K10` · `RED K8`(+`--i18n` 감량 2≠0) · `RED K4·K7·K12` | 잡음 |
+| D11 W-12 formLock blocks→clear · D12 승인 표 W-12 행 삭제 | sweep EP-06·EP-09 | — | i18n W-12 pass False→True(sum 그대로) · `RED K9·K10` | 잡음 |
+| D09 W-08 키+`engine.subtitle` · D10 W-08 prod 18 · D13 W-07 키−1 · D14 W-12 sites−1 | sweep EP-03 i18n 칸 | — | `RED K10`(렌더 사본만) · `--i18n` 정합 red 4/4 | 잡음 |
+| D09w·D10w·D13w·D14w 위 4건 + `--write`(사본 맞춤) | 새 oracle(`--i18n` 정합) | — | `--check` green 4/4 · `--i18n` red 4/4(감량 18≠16·sites 2/0 · 16≠18 · 38≠40·유도−audit `skills.author.desc` · sites 1/0) | 잡음 — K1~K12 밖이고 `--i18n` 만 잡는다(놓친 잠재 문제 4) |
+| N01~N25 i18n 도구 형태별 제거·뒤집기(체인 색인 · `?.` · 대괄호 · code 보기 문자열/주석 · comments 보기 · 대괄호 키 예외 · 복수형 · `translation:` · 조상 끝 점 · 2단 조상 · 조상 객체 · 루트 제한 · 머리 분류 · 꼬리 · 문서 접두 낱말 · 조상.* · 따옴표 키 · satisfies · 공유 줄 every→some · 빈 객체 전파 · 자식 0 가드 · import 정리 · 빈 import 줄 · 줄 번호) | 새 oracle(이번 턴에 만든 0건·전수 스캐너의 민감도) | — | `node --test …/check.test.mjs` 25/25 red — 각 형태의 UT("i18n i18nRefs prop/string/ancestorString/ancestorProp/template/bare" · "codeViews" · "catalogTree" · "catalogRemoval" · "stripCatalog" · "REF_FORMS") | 잡음 |
+| I-1 체인 색인 제거(N01) 뒤 `--i18n` | 파생 이슈 1 닫힘 관측 | — | W-12 `test 정적 1` → `0` | 잡음 — 고친 근거가 새 `prop` 형태에 기댄다 |
+
+- 검산: 선택 증거 13(R-D1·R-D2·R-D3·D01·D05·R-D6·D02·R-S1·D08·D15·R-M2·R-C1·R-C2) · 인용 변이 0(발견 1은 변이를 인용하지 않았다 — 닫힘 관측은 I-1) · 새 oracle 30(N01~N25 · D09w·D10w·D13w·D14w · I-1) · sweep 10(D03·D04·D06·D07·D09·D10·D11·D12·D13·D14) · 직전 verify 이력 4(V-MA~V-MD) = 표의 57건.
+- `check()`·`render()`·`ruling()`·`extractUnits()`·`deriveTargets()` 본문은 바꾸지 않아 r1 의 K1~K12·EP-02 조건별 변이는 다시 심지 않았다 — check.mjs 를 고친 라운드라 pair 선택 증거(R-*)만 다시 돌렸다.
+
+근거 실험(변이 아님 — 산출 근거에 인용):
+
+| 실험 | 방법 | 관측 |
+|---|---|---|
+| E1 · E2 · E3 키 삭제 | 기준 커밋 사본(`git archive 1168b67 app docs AGENTS.md` + `npm ci --ignore-scripts`)에 `--i18n-strip`(E1 은 import 정리 없이) → `tsc` · eslint · `vitest run src/renderer src/main/product-identity.test.ts` | E1(55키): TS 오류 3(`AgentEnvironmentView.count.test.ts:66` TS2339 · `ko.ts:6`·`en.ts:5` TS6133 `PRODUCT_SLUG`) · eslint 오류 2. E2(+import 정리): TS2339 1건만. E3(54키): typecheck 3종 0 · eslint 오류 0(prettier 끝 쉼표 경고 10) · vitest 423파일 3,444케이스 실패 집합 = 기준선(새 0 · 사라짐 0). E2 vitest 도 기준선과 같다 |
+| QC · QC2 QuestionCard 표식 | throw 표식(QC) → 파일 기록 표식(QC2, `process.getBuiltinModule('node:fs')`)을 본문 첫 줄 · `onRootKeyDown` 첫 줄 · W-04 세 갱신 함수 진입·조기 반환 뒤에 심고 `vitest run src/renderer` | 렌더 7회(`Composer.activity` 1 · `Composer.approvalQueue` 4 · `WorkActivity.questionIpc` 2 — QC 의 throw 실패 3파일과 같다) · KEY 0 · W04a 1(`WorkActivity.questionIpc`, 조기 반환 쪽) · 조기 반환 뒤 0 · W04b 0 · W04c 0 |
+| QC3 통과 후보 그물 | 같은 파일 기록 표식을 W-01 두 try 구간 · W-05 거르기(109)·카드 props(139) · W-06 네 콜백에 심고 `vitest run src/renderer src/main/adapters/opencode/v1/adapter` | W-01 adapter 테스트 4파일 · W-05 CanonicalBackgroundContent render·spark·wiring 3파일 · W-06 `GitContextBar.actions.test.ts` 가 네 콜백 모두 |
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — audit.md 요약의 i18n 줄(W-12 걸림)과 §6 재현 절차를 verify·사용자가 읽는다 | — |
+| 승인 목록이 사용자를 오도하지 않는가 | W-08 을 7키로 두고 `blocks` 로 고치면 걸리지 않은 6키까지 걸림으로 보인다 — W-12 로 떼어 걸린 키 1개만 걸림으로 보인다 | — |
+| 판정이 한 값으로만 보여 경계가 숨지 않는가 | 숨지 않음 — 요약 둘째 줄이 W-03·W-04 기준과 31줄 뒤집힘을 그대로 싣고, 근거가 "렌더하는 테스트 3파일은 있으나 그 분기를 지나지 않는다"로 정확해졌다 | verify 가 W-03·W-04 UI 칸을 재판정 |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | `--i18n-strip` 에 작업 트리 `app/`·리소스 없는 디렉터리를 주면 exit 2 와 한 줄 안내(관측: 두 경우 모두 exit 2 · `git status app` 0줄) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "검사 red" 행 그대로 — 새 CLI 는 판정·검사에 끼지 않는 근거 도구다 | — |
+| 늦게 도착한 응답·seam 재배치 | 해당 없음 — 일회 실행 · `app` diff 0 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | W-03·W-04 UI 근거 "이 컴포넌트를 지나는 테스트가 없다 — 0파일"이 사실과 달랐다 — 부모 Composer 경유로 렌더하는 테스트 3파일 7회 | ✅ 선조치 — 판정(`risk`)은 0315 기준(바꿀 분기를 지나는 테스트)대로 그대로이고, 근거를 파일 기록 표식 관측(KEY 0 · W-04 복사·대입 0)으로 다시 썼다 | QC · QC2 |
+| 2 | W-11 의 테스트 조상 문자열 1건(`ChatTitleBar.render.test.ts:100` · 쓰임 `:131 not.toContain(TILE_LABEL + 'artifacts')`) | ✅ 근거에 적음 — 아티팩트 타일이 메뉴에 없음을 키 문자열로 단언하는 결과 단언이라 형태 잠금이 아니다 | E3 vitest 실패 집합 = 기준선 |
+| 3 | W-08 의 `engine.blurb` 는 `PRODUCT_SLUG` 의 유일한 사용처라 지우면 import 정리가 따른다 | ✅ `keepStructure` 에 적음(줄 수 0) | E1 TS6133 · eslint `no-unused-vars` |
+| 4 | i18n 후보의 데이터 정합(`i18nKeys` ↔ `sites` ↔ `saving` ↔ 유도 집합)은 K1~K12 밖이다 — 사본을 다시 렌더하면 `--check` green | ⚠️ 보고만 — 확장 후보(AC13 은 두 칸의 존재만 열거). 확장 창이 열려 있어(verify 1회) 설계자가 K 규칙으로 채택하거나 경계로 둘 수 있다. 지금은 `--i18n` 이 잡는다 | D09w·D10w·D13w·D14w |
+| 5 | r1 F10 근거의 "참조 0 164 · 접두사 109"가 도구 값 157 · 102 와 다르다 | ✅ 선조치 — 차이 7키는 `chat.activity.*`(prod 의 IPC 채널 이름 `'chat.activity'` 와 조상 문자열 일치). 후보 55는 같다. 근거를 도구 값과 정의로 고쳤다 | `--i18n` 유도 줄 · 일회용 대조 스크립트 |
+| 6 | 스캐너 첫 판은 문자열·주석 안의 점 경로를 멤버 체인(`prop`)으로 셌다 | ✅ 선조치 — 코드 보기 두 벌(`codeViews`)로 고쳤다. 실제 `--i18n` 출력은 고치기 전후 같았다(후보 영향 0) | UT 2건 red 로 발견 · 출력 `diff` 0 |
+| 7 | 실험 환경의 기준선 실패 — better-sqlite3 바인딩 없음(`settlement.integration` 5케이스) · Electron 바이너리 없음(`planMode.render` 스위트) · 사본에 `.gitattributes` 없음(`sparkCss` 1케이스) · main adapter 테스트의 Windows 경로 단언(4케이스, Linux 원인) | 경계 — 실험은 같은 사본의 기준선과의 차집합으로만 판정했다 | `vt-base2` 대 E2·E3 |
+| 8 | `LegacySubAgentTile.tsx:245` 카드 키 판정(r1 #5) | ⚠️ 비귀속 그대로 | r1 |
+
+- 발견 분류: 이행 결함 1(#1 — AC5 근거 사실 오류, 선조치) · 현재 0 · 확장 1(#4 — 보고만) · 경계 1(#7) · 비귀속 1(#8). #2·#3·#5·#6 은 이번 턴이 만든 근거·도구의 정확성 보강이다.
+
+### 설계 대비 명시적 차이 (r2)
+
+| 차이 | 내용 | 영향 |
+|---|---|---|
+| §11 차이 표 밖의 check.mjs 추가 | 순수 함수 `catalogTree` · `catalogRemoval` · `stripCatalog` · `codeViews` · `refIndex` · `i18nRefs` · `CATALOG_ROOTS` · `REF_FORMS` + CLI `--i18n` · `--i18n-strip` | `check()`·`render()`·`ruling()`·`extractUnits()`·`deriveTargets()` 무변경 — K1~K12 · EP-01~EP-10 계약 불변. 새 함수는 UT 13건이 잠근다 |
+| W-08 분리 | `engine.subtitle` 을 W-12 로 | §9 4단계 재량. i18n 집계 5건 → 6건(키 55 · 120줄 그대로) |
+| r1 일회용 파서 → `catalogTree` | 들여쓰기 기반 → 문자열·템플릿·주석을 건너뛰는 토크나이저 | 잎 1,173 · ko↔en 차집합 0 · 삭제 줄 120 이 r1 값과 같다 |
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 기준 커밋 `1168b67` 고정(`git cat-file --batch`) | 선언 경계 9 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | `--i18n-strip` 은 받은 디렉터리의 두 리소스 파일을 덮어쓴다 | AC8 — 작업 트리 `app/`·리소스 없는 디렉터리는 거부(exit 2 · `git status app` 0줄) |
+| 재진입 | 해당 없음 — 일회 실행 | — |
+| 다른 무효화 | 형태 목록이 모르는 참조(별칭 import `import { ko as k }` 등)는 "참조 0"을 과소로 만든다 | `--i18n` 이 리소스 import 파일 12곳을 함께 내고 전부 `{ ko }`·`{ en }` 이름 그대로다(별칭 0). 삭제 실험 E3 의 typecheck 0 이 타입 경로를 함께 덮는다 |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `…/scan/check.mjs` · `…/scan/check.test.mjs` · `…/data/audit.json` · `…/audit.md` · `…/plan.md`(이 절) · `docs/handoff/INDEX.md` |
+| 실행 명령 | `node …/scan/check.mjs --check` · `--targets` · `--units` · `--ruling` · `--i18n` · `--i18n-strip <사본>/app …` · `node --test …/scan/*.test.mjs` · `cd app && node scripts/check-doc-inventory.mjs --check` · `git diff --stat 1168b67 -- app .github` · 삭제·표식 실험(위 근거 실험 표) |
+| **관측한 게이트 산출**(마지막 수정 뒤 실행) | `--check` → `단위 98 · 후보 12 · 위반 0 · 대기 0` · `node --test` → tests 127 · pass 127 · fail 0 · `--targets` 11행 · `--units` 98 · `--ruling` → `0305 계열 종료 · sum 19 · total 34 · i18n 6·55·120` · 무변경 → 0줄(작업 트리 포함). 문서 가드는 INDEX 갱신 뒤 실행(커밋 메시지 직전) |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 1(`…/scan/check.test.mjs`) — `app/` 밖이라 app 테스트 규칙(시간 예산·호스트 격리·풀 분류) 대상이 아니다. 새 13건은 순수 입력만 쓴다(자식 프로세스·네트워크·파일 0) |
+| V-pair 자기확인 | SELF_PASS 10 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP-01 121/121 · EP-02 98/98·7/7 · EP-03 156/156 · EP-04 36/36 · EP-05 46/46 · EP-06 6/6 · EP-07 3/3 · EP-08 5/5 · EP-09 2/3(`verify.md` 는 verify 턴) · EP-10 11/11·7/7 |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ✅ K1 위반 0 · AC2 ✅ K2 위반 0·`--units` 98 · AC3 ✅ K3·K4·K8·K9 위반 0(후보 12) · AC4 ✅ K5 위반 0(36칸) · i18n 6건의 전제 근거가 `--i18n` 명령+N · AC5 ✅ K6 위반 0 · W-03·W-04 UI 근거 표식 관측 · AC6 ✅ K4 제외 패턴 위반 0 · AC7 ✅ UT-03 4건 + `--ruling` 출력 · AC8 ✅ 0줄 · AC9 ✅ K10 위반 0·생성 블록 5 · AC10 ⚠️ 사람 · AC11 ✅ K7 위반 0 · AC12 ✅ K11 위반 0·`--targets` 11행 · AC13 ✅ K12 위반 0(i18n 6건 모두 두 칸) |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` — AC 분모 13 그대로(r1 과 같다) |
+| 파생 이슈 1 | 계약(VP-02 · AC4) 성립 — W-12 `formLock: blocks`(근거 `--i18n` test 정적 1 · E2 TS2339) · 나머지 54키는 형태 4종으로 다시 세어 test 정적 참조 0(W-11 의 조상 문자열 1건은 결과 단언 — 근거에 적음) · 닫힘 관측 I-1 |
+| 블로커 / 역질문 | 없음. 확장 후보 1(놓친 잠재 문제 4)은 설계자 판단 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 라운드·턴 라벨: r2(라운드 2 첫 impl 턴). verify 1회(r1 FAIL) 뒤다.
+- 이전 라운드와 같은 축: 예 — 발견 1(0건 근거가 주어의 일부 형태만 셌다)과 같은 축을 W-03·W-04 UI 근거(이름 검색 0 ≠ 그 분기를 지나는 테스트 0)에서 다시 봤다.
+- 관련 plan 지침: §9 i18n 표 2단계는 "전체 키 경로 문자열 … 고정 문자열로 찾는다"만 적었고, §9 `formLock` 의 "자리의 심볼을 참조하는 `*.test.*`"는 i18n 키에서 심볼이 무엇인지(문자열 · `ko.<경로>` 체인 · 조상) 정하지 않았다. UI 칸의 "지나는 테스트" 기준은 plan 문장이 아니라 0315 선례다.
+- 환경 한계: `app/node_modules` 미설치 — 실험은 scratch 사본에 `npm ci --ignore-scripts` 로 설치해 돌렸다(better-sqlite3·Electron 미빌드 · Linux 경로). 이 세션에는 `origin/main` ref 가 없다.
+- 자기 발견: 이행 결함 1(선조치) · 확장 1(보고만) — 둘 다 이번 턴의 독립 재측정(표식 실험 · 다시 렌더한 데이터 변이)에서 나왔다.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 출처 | 상태 | 내용 |
