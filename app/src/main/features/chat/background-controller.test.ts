@@ -249,3 +249,37 @@ it('turns an individual stop ACK without terminal evidence into an explicit unco
     vi.useRealTimers()
   }
 })
+
+// 0319 W3 — 세션 정리는 그 세션의 대기 중인 중단 확인 타이머만 해제한다. 다른 세션의 타이머는 남아
+// 15초 뒤 `unconfirmed` 를 낸다.
+it('disposes only its own session pending stop confirmation timer', async () => {
+  vi.useFakeTimers()
+  try {
+    const controller = new BackgroundController({
+      tracker: new BackgroundTaskTracker(),
+      persist: (_event, committed) => committed(),
+      load: () => [],
+      publish: () => {},
+      runtime: () => ({ generation: 'g', stopTask: async () => {} })
+    })
+    for (const sessionId of ['s', 't']) {
+      controller.observe({
+        type: 'background.snapshot',
+        sessionId,
+        source: { generation: 'g', sequence: 1, receivedAt: 1, replay: false },
+        tasks: [{ taskId: 'task' }]
+      })
+      await controller.stop({ sessionId, generation: 'g', taskId: 'task' })
+    }
+    expect(vi.getTimerCount()).toBe(2)
+    controller.dispose('s')
+    expect(vi.getTimerCount()).toBe(1)
+    await vi.advanceTimersByTimeAsync(15_000)
+    const stopState = (sessionId: string): string | undefined =>
+      Object.values(controller.state(sessionId).tasks)[0].stop?.state
+    expect(stopState('t')).toBe('unconfirmed')
+    expect(stopState('s')).toBe('acknowledged')
+  } finally {
+    vi.useRealTimers()
+  }
+})
