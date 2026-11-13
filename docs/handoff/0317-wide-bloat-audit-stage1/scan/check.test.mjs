@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { AREAS, BLOCKS, BUCKETS, CELLS, READ_0315, check, collectRead, deriveTargets, extractUnits, passes, render, ruling, writeBlocks } from './check.mjs'
+import { AREAS, BLOCKS, BUCKETS, CELLS, HOT_ENTRIES, READ_0315, check, collectRead, deriveTargets, extractUnits, passes, render, ruling, writeBlocks } from './check.mjs'
 
 // ── UT-01 ───────────────────────────────────────────────────────────────────
 const names = (text, ranges = [[1, 99]]) => extractUnits(text, ranges).map((u) => u.name)
@@ -217,6 +217,15 @@ test('UT-02 hotEntry: null 은 유효하고 진입 심볼도 유효하다', () =
   const data = greenData()
   data.candidates[0].hotEntry = 'LegacySubAgentContent'
   assert.deepEqual(run(data).violations, [])
+})
+
+test('UT-02 EP-07: 핫패스 심볼은 messages 를 구독하는 컴포넌트 셋이고 셋 다 유효하다', () => {
+  assert.deepEqual(HOT_ENTRIES, ['CanonicalBackgroundContent', 'LegacySubAgentHeader', 'LegacySubAgentContent'])
+  for (const symbol of HOT_ENTRIES) {
+    const data = greenData()
+    data.candidates[0].hotEntry = symbol
+    assert.deepEqual(run(data).violations, [], symbol)
+  }
 })
 
 test('UT-02 대기: 완료 선언 전의 빈 판정은 red 가 아니라 pending 이다', () => {
