@@ -500,84 +500,122 @@ sessionBusy·dispose                                     : 코드 불변, 테스
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: …
-- ACTIVE Decision과 충돌하는 설계 발견: …
+### r1
+
+- 동의 / 그대로 진행: §9 TO-BE 세 축 그대로 — W1 `BackgroundCard`(훅 0) + 세 호출부 · W2 이스케이프·`<br>` 병합 · W3 테스트만. D-014 순서(특성 테스트 단독 커밋 → 공용화)대로 커밋했다.
+- 이견 / 현실성 문제: 없음. §10 EP-01 S2·S3 `구별 입력` 칸이 세대 속성의 형제 값(세션의 현재 세대 `state.generation`)을 적지 않았다 — sweep C7이 green이라 입력을 더했다(§[놓친 잠재 문제] 1, 선조치).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
+### r1
+
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-01 / EP-01 | … | S1~S4 (4) | … | … | … | … |
-| VP-08 / EP-02 | … | S1~S5 (5) | … | … | … | … |
-| VP-09 / EP-03 | … | S1·S2 (2) | … | … | … | … |
-| VP-06 / EP-04 | … | 8행 | … | … | … | … |
+| VP-01·02·03 / EP-01 | 세 카드 한 틀 · 카드 자신의 키·클릭만 연다 | S1 구 · S2 정본 작업 · S3 정본 호출 · S4 틀 (4) | 4/4 | `git grep -n '<BackgroundCard' -- app/src/renderer ':!*.test.*'` → 3(`CanonicalBackgroundContent.tsx:211`·`:301` · `LegacySubAgentTile.tsx:238`) · `git grep -c 'group/subagent cursor-pointer' …` → `BackgroundCard.tsx:1` — 목록과 차집합 0. 좌표: `backgroundCardFrame.render.test.ts:'legacy subagent card keeps the frame'`(S1) · `:'canonical task card keeps the frame with the %s title'` 4케이스(S2) · `:'canonical call card keeps the frame'`(S3) · `backgroundCard.interaction.test.ts:'legacy card: key %j …'`·`'canonical cards: key %j …'` 각 5 · `'opens each card by click'` · `'carries the record generation, not the session generation'` · `'a task card rendered without onOpen only prevents its own Enter'`(S4 ⑥) | S1 `title`·`ariaLabel`=`구 모델 조사`(→ 접두 문자열) · `onOpen` → `selectSubagentTask('legacy-run')` 인자. S2 제목 4분기 — 뒤 후보를 채운 입력(`설명 제목`/`Grep`/`local_bash`/`task-4`) · `data-background-task`=`task-N`·세대 `gen-frame`, 이전 세대 입력 `gen-keys`≠세션 `gen-next`. S3 `echo pending`·`call-only`, 이전 세대 `gen-keys`. S4 키 5분기 × 3종 + ⑥ · 클릭 → `preventDefault` 횟수·선택 함수 인자 | — |
+| VP-08·10 / EP-02 | 소비처가 inflight ∨ ready·listening 을 점유로 본다 | S1 `chatStore.ts:1614` · S2 `:1718` · S3 `:1754` · S4 `:2270` · S5 `useDirectoryPicker.ts:47` (5) | 5/5 | `git grep -n -E 'sessionBusy\(\|useChatSession\(sessionBusy\)' -- app/src/renderer ':!*.test.*'` → 8줄 = 소비처 7 + 정의(`:2280`), 잡음 3(`:1105`·`:1195`·`:1245`)을 뺀 5 — 목록과 차집합 0. 좌표: `chatStore.busyGuards.test.ts:'does not open while the session is %s'`(3)+`'opens when the session is idle'`(S1) · `'keeps the cached entry authoritative when it was %s at request time'`(3)+`'applies the load and refreshes when the cached entry is idle'`(S2) · `'skips the lazy refresh when the session becomes %s before it starts'`(3)·`'drops a refresh result when the session becomes %s while it is pending'`(3)+`'applies a pending refresh result when the session stays idle'`(S3 두 시점) · `'reads %s as busy=%s'`(4, S4) · `useDirectoryPicker.busy.test.ts:'0319 W3 — a session that becomes %s while picking …'`(4, S5) | 자리마다 ① `inflight:true`·idle ② `ready` ③ `listening` ④ idle 대조 → S1 `startHandoff()` 반환·`chat.send` 호출 수 / S2 `messages`·`refresh` 호출 수 / S3 `refresh` 호출 수·적용 결과 / S4 선택자 값 / S5 `addSessionDirectory` 인자 | — |
+| VP-09·10 / EP-03 | `dispose(s)`가 s의 대기 타이머만 해제 | S1 `background-controller.ts:214` · S2 `:213` (2) | 2/2 | `git grep -n -E 'clearTimeout\|stopTimers' -- app/src/main/features/chat/background-controller.ts` → `dispose` 구간 212·213·214·215 — 목록과 차집합 0. 좌표: `background-controller.test.ts:'disposes only its own session pending stop confirmation timer'` | 세션 `s`·`t` 둘 다 ACK → `dispose('s')` → `vi.getTimerCount()` 2→1(S1) · 15초 뒤 `t`=`unconfirmed`·`s`=`acknowledged`(S2) | `stopTimers.delete`(W3-B1 경계) |
+| VP-06·07 / EP-04 | 표 칸 수 · 내용 보존 | 8행 | 8/8 | `node …/scan/tables.mjs --base 0d76cf0 --head 0d76cf0 <3파일>` → broken 8 · W2 커밋 뒤 `--base 9e56355^ --head 9e56355` → 파일마다 `broken 0 · unknown 0` · `preserve changed 1/1/6 · broken at base 1/1/6` | IPC `:263` · app/AGENTS `:167` · INDEX `0187`·`0183`·`0182`·`0181`·`0161`·`0104` → 칸 수·되돌린 원문 대조 | — |
 
-- §10 자리 목록 밖에서 본 운반 자리: …
-- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드)
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음(첫 라운드).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-01~VP-12 | … | … | … | … |
+| VP-01 | REQUIRED | SELF_PASS | EP-01 행 좌표 | required — F1~F7·C1~C5·L1·L2 14/14 red(아래 표) |
+| VP-02 | REQUIRED | SELF_PASS | `backgroundCard.interaction.test.ts` 키·클릭 케이스 | not selected — VP-01 좌표 |
+| VP-03 | REQUIRED | SELF_PASS | `backgroundCardFrame.render.test.ts` 6케이스 + 기존 렌더 스위트(하네스 130파일 981케이스 green) | required — 특성 테스트가 공용화 전 코드(`dcaea48`의 제품 파일)에서 6/6 green, 커밋 `dcaea48` 뒤 그 파일 diff 0줄 |
+| VP-04 | REGRESSION | SELF_PASS | `CanonicalBackgroundContent.render.test.ts:'activates only the card itself, never a nested stop control keyboard event'` green | not selected |
+| VP-05 | REQUIRED | SELF_PASS | `gate:` AC5~AC8 명령(구현 보고) | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `gate:tables.mjs` AC9·AC10 | VP-07 |
+| VP-07 | REQUIRED | SELF_PASS | G1~G7 이 턴 재실행 | required — 7/7 red |
+| VP-08 | REQUIRED | SELF_PASS | EP-02 행 좌표 | required — 17/17 red |
+| VP-09 | REQUIRED | SELF_PASS | EP-03 행 좌표 | required — l2·l3 2/2 red |
+| VP-10 | REQUIRED | SELF_PASS | VP-08·09 좌표 + AC17 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | `gate:` AC18·AC19 | not selected |
+| VP-12 | REQUIRED | SELF_BLOCKED | 사람 실기(AC20) | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+### r1
+
+하네스 `mutate.py`, 오라클 — W1 `vitest run src/renderer/src/features/chat/harnesses`(기준 130파일 981케이스 green) · W3 renderer 두 파일(23케이스) · W3 main `background-controller.test.ts`(14케이스) · W2 `tables.mjs`.
+
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| … | … | 최초 | … | … |
+| `BackgroundCard.tsx` — F1 `{...data}` 제거 · F2 `aria-label={title}` · F3 판정 → 키만 · F4 `preventDefault` 제거 · F5 `onOpen?.()` 제거 · F6 `onClick` 제거 · F7 제목 span ↔ `ariaLabel` | VP-01 선택 증거(EP-01 S4) | 최초 | F1 42 · F2 6 · F3 7 · F4 7 · F5 6 · F6 4 · F7 6 | 잠김 7/7 |
+| 같은 파일 — F8 판정 → `true` · F9 `onOpen?.()` → `onOpen!()` · F10 `role` 제거 · F11 `tabIndex` 제거 · F12 `{children}` 제거 | sweep — 규칙 칸 분기 ③④⑤·⑥ diff 자리 / §10 자리 S4 | 최초 | F8 9 · F9 1(⑥) · F10 19 · F11 7 · F12 40 | 잠김 5/5 |
+| `CanonicalBackgroundContent.tsx` — C1 제목 → `taskId` · C2 `data-background-call` → `call.generation` · C3 `data-background-task` → `data-background-call` · C4·C5 `onOpen` 제거(작업·호출) | VP-01 선택 증거(EP-01 S2·S3) | 최초 | C1 6 · C2 13 · C3 31 · C4 6 · C5 5 | 잠김 5/5 |
+| 같은 파일 — C1a~C1d 제목 후보 하나씩 제거 · C1e `toolName`↔`taskType` 순서 맞바꿈 | sweep — 규칙 칸 분기(제목 4분기) diff 자리 | 최초 | C1a 3 · C1b 2 · C1c 1 · C1d 1 · C1e 1 | 잠김 5/5 |
+| 같은 파일 — C6 작업 `ariaLabel` 설명 → `taskId` · C8 호출 제목 → `toolUseId` · C9 호출 세대 → `toolUseId` | sweep — §10 자리 S2·S3 운반 항 | 최초 | C6 3 · C8 1 · C9 1 | 잠김 3/3 |
+| 같은 파일 — C7 작업 세대 → `state.generation ?? task.generation` · C10 호출 세대 → `state.generation ?? call.generation` | sweep — 형제 값 맞바꿈(⑤) | 최초 | C7 첫 실행 **green** → 입력 추가(커밋 `test(chat): … 레코드 세대 …`) 뒤 C7 1 · C10 1 | 잠금 없음 → 테스트 추가 → 잠김 2/2 |
+| `LegacySubAgentTile.tsx` — L1 `onOpen` 제거 · L2 `title` 빈 값 · L3 `ariaLabel` 설명 → `toolUseId` | VP-01 선택 증거(L1·L2) · sweep(L3) | 최초 | L1 3 · L2 4 · L3 1 | 잠김 3/3 |
+| `chatStore.ts:1614` — S1a → `inflight` · S1b → `sessionResponding` · S1c → `sessionListening` | VP-08 선택 증거 | 최초 | 2 · 1 · 1 | 잠김 3/3 |
+| `:1718` — S2a·S2b·S2c 같은 셋 · S2d 가드 제거 | VP-08 선택 증거 | 최초 | 2 · 1 · 1 · 3 | 잠김 4/4 |
+| `:1754` — S3a·S3b·S3c 같은 셋 | VP-08 선택 증거 | 최초 | 4 · 2 · 2 | 잠김 3/3 |
+| `:1756`·`:1758` — S3d 갱신 전 판정 제거 · S3e 응답 뒤 판정 제거 | sweep — 규칙 칸 분기(S3 두 시점) | 최초 | 3 · 3 | 잠김 2/2 |
+| `:2270` — S4a·S4b·S4c 같은 셋 | VP-08 선택 증거 | 최초 | 2 · 1 · 1 | 잠김 3/3 |
+| `useDirectoryPicker.ts:47` — S5a → `inflight` · S5b → `sessionResponding` 의미 · S5c → `sessionListening` 의미 · S5d 가드 제거 | VP-08 선택 증거 | 최초 | 2 · 1 · 1 · 3 | 잠김 4/4 |
+| `background-controller.ts` — l2 `clearTimeout` 제거 · l3 세션 일치 조건 제거 | VP-09 선택 증거 | 최초(0308 이력 `못 잡음`) | 1 · 1 | 잠김 2/2 |
+| 같은 파일 — l4 `stopTimers.delete` 제거 | sweep — §10 W3-B1 경계 | 최초 | 0 (14 green) | 동치 — 타이머는 이미 해제됐고 지도는 private, 관측 동작 없음(plan W3-B1) |
+| `tables.mjs` 판정 — G1 범위 행 미수정 · G2 글자 삭제 · G3 줄 추가 · G4 머리 없는 파이프 줄 · G5 구분 행 칸 수 · G6 인용 표 · G7 역슬래시 두 개 + 파이프(산문·표 본문) | VP-07 선택 증거 | 설계 턴 관측 | G1 `broken 1` · G2·G3 preserve 위반 1 · G4~G7 `unknown` 5(G7 두 자리) | 잠김 7/7 |
 
-- **분모 검산**: …
-- **덮개 회귀**: 해당 없음(첫 라운드)
+- **분모 검산**: `선택 증거 40(EP-01 14 · EP-02 17 · EP-03 2 · EP-04 7) · 인용 변이 0 · 새 oracle 0 · sweep 19(F8~F12 5 · C1a~e 5 · C6~C10 5 · L3 1 · S3d·S3e 2 · l4 1) = 표 행 59`. 잠김 58 · 동치 1(l4).
+- **덮개 회귀**: 해당 없음(첫 라운드). 0308 이력의 `못 잡음` x3·x4·x5·l2는 이번에 S1a·S2a·S3a·l2로 red가 됐다.
 
 ## [구현자 기입] Product/UX 파생 검토
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
-| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
-| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … | … |
-| 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
-| 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 0 — 접근성 이름은 기존 키(`chat.subagentTile.openTranscriptAria`) 그대로 | 없음 |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — 틀만 옮겼고 `open`·`onOpen` 클로저는 호출부에 남는다 | 없음 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 0. 바뀐 경로(안쪽 버튼 키)는 §5 표 2행 | 없음 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 고친 결함이 바로 그것이었다 — 안쪽 `중단` Enter가 대화록만 열고 중단은 안 됐다. 이제 기본 동작이 막히지 않는다(테스트 `preventDefault` 0회). 실제 브라우저 활성은 AC20 | AC20 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | W3가 잠근 S2·S3·S5가 바로 그 계약이다(점유 중 늦은 기록·갱신·폴더 결과 미적용) | 없음 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | … | … |
+| 1 | 세대 속성(`data-background-generation`)을 세션 현재 세대로 바꿔도 통과했다 — 테스트의 작업·호출과 세션이 같은 세대였다 | ✅ 선조치 — 이전 세대 레코드 입력 테스트 추가(입력 칸이 규칙 칸보다 좁음, §2) | sweep C7 green → 추가 뒤 C7·C10 red. 공용화 전 코드에서도 green(구조 무관) |
+| 2 | §10 EP-01 S2·S3 `구별 입력`에 형제 값 `state.generation`이 없다 | 📝 plan 수정 제안 — 다음 설계 턴에 S2·S3 구별 입력 칸에 "세션 세대와 다른 레코드 세대"를 적는다. 이번 턴 테스트가 이미 덮어 새 의무는 0 | 위 1 |
+| 3 | `docs/handoff/AGENTS.md:130` 표가 아직 깨져 있다 | ⚠️ 보고만 — plan D-010 범위 밖, `handoff-review` Tier 2 메타 수정 대상 | `tables.mjs docs/handoff/AGENTS.md` → broken 1 |
+| 4 | `useDirectoryPicker.busy.test.ts`는 store를 교체하지 않아야 돈다 — 같은 파일에 store 교체 테스트가 들어오면 깨진다 | ✅ 선조치 — 파일 머리 주석과 첫 단언 `expect(useChatStore.getState()).toBe(initial)`로 전제를 드러냈다 | 테스트 본문 |
 
 ### 설계 대비 명시적 차이
 
-- plan이 지정한 것과 다르게 구현한 것과 그 이유: …
+- plan이 지정한 것과 다르게 구현한 것과 그 이유: 없음. 특성 테스트의 정본 작업 카드 4분기는 패널이 아니라 export된 `BackgroundTaskCard` 단독 렌더로 넣었다 — 같은 제품 컴포넌트(S2 자리)이고 패널의 표시 거르기 규칙에 기대지 않으려는 선택이다.
 
 | 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
 |---|---|---|
-| 만료 | … | … |
-| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | … | … |
-| 재진입 | … | … |
-| 다른 무효화 축 | … | … |
+| 만료 | 해당 없음 — 메커니즘을 바꾸지 않았다 | — |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 같은 이유 | — |
+| 재진입 | 해당 없음 — 같은 이유 | — |
+| 다른 무효화 축 | 해당 없음 — 같은 이유 | — |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님 · 마지막 수정 뒤 실행) | … |
-| **추가·수정 테스트의 subtree 규칙** | … |
-| V-pair 자기확인 | … |
-| 강제 지점 전수 | … |
-| **AC 자기보고**(`Criteria-Met`) | … |
-| **합계 검산** | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 변경 파일 | prod 3 — `BackgroundCard.tsx`(신규 42줄) · `CanonicalBackgroundContent.tsx` · `LegacySubAgentTile.tsx` / 테스트 5 — `backgroundCardFrame.render.test.ts` · `backgroundCard.interaction.test.ts` · `chatStore.busyGuards.test.ts` · `useDirectoryPicker.busy.test.ts`(신규 4) · `background-controller.test.ts`(케이스 1) / 문서 4 — `design-components.md` · `IPC_CONTRACT.md` · `app/AGENTS.md` · `INDEX.md`. 구현 커밋 5개(아래 AC18) |
+| 실행 명령 | `app/`에서 `node scripts/check-migrations-appendonly.mjs` · `check-doc-inventory.mjs --check` · `check-product-naming.mjs` · `check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` / 루트에서 `tables.mjs`(AC9·AC10) · sweep `mutate.py` 53회(C7 재실행 포함) + 장치 변이 G1~G7 7회 |
+| **관측한 게이트 산출**(exit code 아님 · 마지막 수정 뒤 실행) | migrations `append-only ok since v0.3.1` · doc-inventory `generated doc ok · prose ok · links ok` · naming `OK — 2232파일` · budgets `18 real-git suites ok · all budget sites scaled` · lint error 0 · warning 2(`opencode/transcript/Timeline.tsx:57` · `hooks/useTranscriptVirtualizer.ts:22` — 손대지 않은 파일, `react-hooks/incompatible-library`) · lint가 쓴 파일 0(`git status` 깨끗) · typecheck 3종 오류 0 · vitest 948파일 — 실패 68파일 · 320케이스, 통과 8436(기준선 8393 + 새 테스트 43) · `node --test` 868/868 |
+| 기준선 분리 | 실패 68파일 집합 = 변경 전(`04f3eb7` 사본) 집합 — `comm` 양방향 차집합 ∅. 원인은 better-sqlite3 Electron ABI 바인딩·Electron 로드(`app/AGENTS.md` 환경 서명). 추가·수정한 테스트 파일은 실패 집합에 없다 |
+| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only 0d76cf0 HEAD -- '*.test.ts'` → 5파일. 시간 예산 — `check-test-budgets` ok(가짜 시계 진행만, `vi.waitFor`에 `scaleMs` 없음) · 호스트 격리 — 실제 홈·호스트 설정을 읽지 않음(S5는 `window` stub) · 풀 분류 — 자식 프로세스·git·SQLite 0, unit 가드 실패 0 |
+| V-pair 자기확인 | `SELF_PASS 11 / SELF_BLOCKED 1`(VP-12 사람) |
+| 강제 지점 전수 | 19/19 — EP-01 4/4 · EP-02 5/5 · EP-03 2/2 · EP-04 8/8 |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ✅ 키 5분기 × 3종 green · 공용화 전 코드에서 구 카드 안쪽 Enter·Space 2 red / AC2 ✅ `'opens each card by click'` / AC3 ✅ 특성 6/6, `dcaea48` 뒤 diff 0줄 / AC4 ✅ 하네스 130파일 981 green · 실패 집합 = 기준선 / AC5 ✅ 틀 클래스 `BackgroundCard.tsx:1` · `<BackgroundCard` 3 · 카드 키 판정 4줄(`ToolCard:140`·`TranscriptActionRow:29`·`canonicalBackground:346`·`CascadeMenu:310`) / AC6 ✅ 틀 훅 0 · `=>` 줄 +2/−3 · 제목 식 1 · `backgroundCallTitle(call)` 1 / AC7 ✅ numstat 14/44 · 6/21 · 42/0 = +62/−65 · `+export function BackgroundCard` 1 / AC8 ✅ 카탈로그 1행 · 링크 ok / AC9 ✅ 3파일 broken 0 · unknown 0 / AC10 ✅ preserve 1/1/6 / AC11 ✅ 문서 테스트 3파일 18 · `node --test` 2파일 25 / AC12~AC15 ✅ EP-02 좌표 / AC16 ✅ EP-03 좌표 / AC17 ✅ prod 3파일 diff 0줄 / AC18 ✅ 아래 커밋 순서 / AC19 ✅ 위 게이트 / AC20 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 19 · ⚠️ 1 · ❌ 0 = 총 20` — 분모 20(plan §7과 같음) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` — 순서: 특성 테스트 → 틀 공용화·결함 수정 → W2 문서 → W3 테스트 → sweep 세대 입력 → 이 보고 |
 
 ## [구현자 기입] Review Signals — 사실만
 
-- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: …
-- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
-- 반복해서 부딪히는 환경 한계: …
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 첫 라운드. 0308이 비귀속으로 남긴 `못 잡음` 4행(x3·x4·x5·l2)을 닫았다.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: EP-01 S2·S3 구별 입력 칸이 형제 값(세션 세대)을 적지 않았다 — 구현 턴 sweep의 형제 맞바꿈(⑤)이 잡았다.
+- 반복해서 부딪히는 환경 한계: 이 환경은 Electron ABI로 재빌드돼 DB 로드 스위트가 node에서 실패한다(기준선 68파일, 0318과 같음).
 - 현재 라운드·impl 턴: `r1`
 
 ---
