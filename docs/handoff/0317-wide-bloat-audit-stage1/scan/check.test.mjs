@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { AREAS, BLOCKS, BUCKETS, CELLS, HOT_ENTRIES, READ_0315, check, collectRead, deriveTargets, extractUnits, passes, render, ruling, writeBlocks } from './check.mjs'
+import { AREAS, BLOCKS, BUCKETS, CATALOG_ROOTS, CELLS, codeViews, HOT_ENTRIES, READ_0315, REF_FORMS, catalogRemoval, catalogTree, check, collectRead, deriveTargets, extractUnits, i18nRefs, passes, refIndex, render, ruling, stripCatalog, writeBlocks } from './check.mjs'
 
 // ── UT-01 ───────────────────────────────────────────────────────────────────
 const names = (text, ranges = [[1, 99]]) => extractUnits(text, ranges).map((u) => u.name)
@@ -383,4 +383,155 @@ test('UT-04 T7: READ_0315 는 0315 검사기 AREAS 의 파일 집합과 같다',
   const block = src.slice(src.indexOf('export const AREAS'), src.indexOf('export const CELLS'))
   const files = new Set([...block.matchAll(/file: `([^`]+)`/g)].map((m) => expand(m[1])))
   assert.deepEqual([...files].sort(), [...READ_0315].sort())
+})
+
+// ── i18n 근거 도구(r2 — verify r1 발견 1) — catalogTree · catalogRemoval · refIndex · i18nRefs ──────────
+const CATALOG = [
+  "import { X } from './x'", //                                   1
+  '// 머리 주석 { 중괄호 }', //                                     2
+  'export const ko = {', //                                       3
+  '  a: {', //                                                    4
+  "    b: 'B',", //                                               5
+  '    \'needs-auth\': "N",', //                                  6
+  '    // 주석 — 세지 않는다', //                                  7
+  '    c:', //                                                    8
+  "      '여러 줄 값',", //                                       9
+  '    t: `템플릿 ${X} {중괄호} ${fn({ k: 1 })}`,', //            10
+  "    rail: { x: 'X', y: 'Y' }", //                              11
+  '  },', //                                                      12
+  '  toast: {', //                                                13
+  "    e1: 'E, 쉼표'", //                                         14
+  '  } satisfies Record<A, string>,', //                          15
+  "  z: 'Z'", //                                                  16
+  '}' //                                                          17
+].join('\n')
+
+test('i18n catalogTree: 잎 키·객체와 줄 범위 — 따옴표 키 · 여러 줄 값 · 템플릿 안 중괄호 · 한 줄 객체 · satisfies 꼬리', () => {
+  const tree = catalogTree(CATALOG)
+  assert.equal(tree.name, 'ko')
+  assert.deepEqual(
+    tree.leaves.map((l) => [l.path, l.from, l.to]),
+    [
+      ['a.b', 5, 5],
+      ['a.needs-auth', 6, 6],
+      ['a.c', 8, 9],
+      ['a.t', 10, 10],
+      ['a.rail.x', 11, 11],
+      ['a.rail.y', 11, 11],
+      ['toast.e1', 14, 14],
+      ['z', 16, 16]
+    ]
+  )
+  assert.deepEqual(
+    tree.objects.map((o) => [o.path, o.from, o.to]),
+    [
+      ['a.rail', 11, 11],
+      ['a', 4, 12],
+      ['toast', 13, 15]
+    ]
+  )
+  assert.equal(tree.leaves.find((l) => l.path === 'toast.e1').value, "'E, 쉼표'")
+  assert.equal(catalogTree('export const en: typeof ko = {\n  q: { r: 1 }\n}').leaves[0].path, 'q.r')
+})
+test('i18n catalogTree: 모르는 형태(펼침 · 계산 키 · 축약 속성 · 선언 없음)는 throw 한다', () => {
+  assert.throws(() => catalogTree('export const ko = {\n  ...base,\n  a: 1\n}'), /모르는 속성 형태/)
+  assert.throws(() => catalogTree("export const ko = {\n  [k]: 'v'\n}"), /모르는 속성 형태/)
+  assert.throws(() => catalogTree('export const ko = {\n  a,\n  b: 1\n}'), /콜론 없음/)
+  assert.throws(() => catalogTree('const ko = {}'), /선언이 없다/)
+})
+test('i18n catalogRemoval: 지워지는 줄 — 공유 줄은 남고 · 빈 객체는 함께 · 여러 줄 값 · 주석 제외 · 없는 키 보고', () => {
+  const tree = catalogTree(CATALOG)
+  assert.deepEqual(catalogRemoval(tree, ['a.b']), { lines: [5], sites: [5], missing: [], objects: [] })
+  assert.deepEqual(catalogRemoval(tree, ['a.c']).lines, [8, 9])
+  assert.deepEqual(catalogRemoval(tree, ['a.rail.x']).lines, [])
+  assert.deepEqual(catalogRemoval(tree, ['a.rail.x', 'a.rail.y']), { lines: [11], sites: [11, 11], missing: [], objects: ['a.rail'] })
+  assert.deepEqual(catalogRemoval(tree, ['toast.e1']), { lines: [13, 14, 15], sites: [14], missing: [], objects: ['toast'] })
+  assert.deepEqual(catalogRemoval(tree, ['nope', 'z']), { lines: [16], sites: [16], missing: ['nope'], objects: [] })
+  const whole = catalogRemoval(tree, ['a.b', 'a.needs-auth', 'a.c', 'a.t', 'a.rail.x', 'a.rail.y'])
+  assert.deepEqual(whole.lines, [4, 5, 6, 8, 9, 10, 11, 12])
+  assert.deepEqual(whole.objects, ['a.rail', 'a'])
+})
+
+test('i18n codeViews: 주석은 두 보기에서 · 문자열·템플릿 정적 부분은 code 보기에서 가린다 — ${} 안·대괄호 키는 코드로 남는다', () => {
+  const text = "a('x.y') // ko.c.d\n`t.${ko.e.f}.u` /* ko.g\n.h */ ko['i']\n/['\"]/.test(z) && ko.j.k"
+  const { comments, code } = codeViews(text)
+  assert.equal(comments.length, text.length)
+  assert.equal(code.split('\n').length, text.split('\n').length)
+  const sp = (n) => ' '.repeat(n)
+  const tail = `\n${sp(5)} ko['i']\n/['"]/.test(z) && ko.j.k`
+  assert.equal(comments, `a('x.y')${sp(10)}\n\`t.\${ko.e.f}.u\`${sp(8)}${tail}`)
+  assert.equal(code, `a('${sp(3)}')${sp(10)}\n\`${sp(2)}\${ko.e.f}${sp(2)}\`${sp(8)}${tail}`)
+})
+const forms = (files, key) => i18nRefs(refIndex(files), key).map((h) => `${h.form}@${h.path}:${h.line}`)
+test('i18n i18nRefs string: 키 경로와 같은 따옴표 문자열 — 복수형 접미사 · translation: 접두 포함, 더 긴 키는 아니다', () => {
+  const files = [{ path: 'src/x.ts', text: "tr('a.b')\nt(\"a.b_other\")\nt(`translation:a.b`)\ntr('a.bX')\ntr('a.b.c')" }]
+  assert.deepEqual(forms(files, 'a.b').sort(), ['string@src/x.ts:1', 'string@src/x.ts:2', 'string@src/x.ts:3'])
+})
+test('i18n i18nRefs prop: 키 경로를 담은 멤버 체인 — 점 · ?. · 정적 대괄호 · 호출 뒤 · 줄바꿈 · 문자열 메서드, 더 긴 이름은 아니다', () => {
+  const text = ['ko.a.b', 'en?.a?.b', "ko['a'][\"b\"]", 'foo().a.b', 'ko', '  .a', '  .b', 'ko.a.b.trim()', 'ko.a.bX', 'ko.a.c'].join('\n')
+  assert.deepEqual(forms([{ path: 's.test.ts', text }], 'a.b').sort(), [
+    'prop@s.test.ts:1',
+    'prop@s.test.ts:2',
+    'prop@s.test.ts:3',
+    'prop@s.test.ts:4',
+    'prop@s.test.ts:5',
+    'prop@s.test.ts:8'
+  ])
+})
+test('i18n i18nRefs ancestorString: 조상 경로 문자열 — 2단 이상은 그대로·끝 점, 1단은 끝 점만', () => {
+  const text = ["x('a.b')", "x('a.b.')", "x('a.')", "x('a')", "x('a.bc')"].join('\n')
+  assert.deepEqual(forms([{ path: 'x.ts', text }], 'a.b.c').sort(), ['ancestorString@x.ts:1', 'ancestorString@x.ts:2', 'ancestorString@x.ts:3'])
+})
+test('i18n i18nRefs ancestorProp: ko/en 에서 시작해 조상에서 끝나는 체인(통째·계산 접근) — 형제 접근·다른 루트는 아니다', () => {
+  assert.deepEqual(CATALOG_ROOTS, ['ko', 'en'])
+  const text = ['use(ko.a.b)', 'ko.a.b[k]', 'Object.keys(en.a)', 'ko.a.b.d', 'x.a.b', 'ko.a.bc'].join('\n')
+  assert.deepEqual(forms([{ path: 'x.test.ts', text }], 'a.b.c').sort(), ['ancestorProp@x.test.ts:1', 'ancestorProp@x.test.ts:2', 'ancestorProp@x.test.ts:3'])
+})
+test('i18n i18nRefs template: 점으로 끝나는 머리 · 점을 담은 다른 머리 · 점으로 시작하는 꼬리 — 점 없는 머리는 아니다', () => {
+  const text = ['tr(`a.${k}`)', 'tr(`a.b${s}`)', 'tr(`${p}.c`)', 'tr(`x${k}`)', 'tr(`q.${k}`)'].join('\n')
+  assert.deepEqual(forms([{ path: 't.ts', text }], 'a.bc'), ['templateHead@t.ts:1', 'templateHeadLoose@t.ts:2'])
+  assert.deepEqual(forms([{ path: 't.ts', text }], 'a.b.c'), ['templateHead@t.ts:1', 'templateHeadLoose@t.ts:2', 'templateTail@t.ts:3'])
+})
+test('i18n i18nRefs bare: 문서(.md)의 점 경로 낱말 — 키 · 접두 루트 · 조상 · 조상.* , 더 긴 낱말은 아니다', () => {
+  const text = ['`a.b.c` 를 쓴다', 'ko.a.b.c 접근', '`a.b.*` 묶음', 'a.b.cd 는 다르다', '파일 docs/a.b.c 경로'].join('\n')
+  assert.deepEqual(forms([{ path: 'docs/d.md', text }], 'a.b.c').sort(), ['bare@docs/d.md:1', 'bare@docs/d.md:2', 'bareAncestor@docs/d.md:3'])
+  assert.deepEqual(forms([{ path: 'docs/d.ts', text: '// a.b.c 를 쓴다' }], 'a.b.c'), [])
+})
+test('i18n REF_FORMS: 형태 목록이 i18nRefs 가 내는 형태와 같다(분류 누락 없음)', () => {
+  const files = [
+    { path: 'p.ts', text: "tr('a.b.c')\nko.a.b.c\nx('a.b')\nuse(ko.a.b)\ntr(`a.${k}`)\ntr(`a.b${s}`)\ntr(`${p}.c`)" },
+    { path: 'd.md', text: '`a.b.c` · `a.b.*`' }
+  ]
+  const seen = new Set(i18nRefs(refIndex(files), 'a.b.c').map((h) => h.form))
+  assert.deepEqual([...seen].sort(), [...REF_FORMS.STATIC, ...REF_FORMS.TEMPLATE, ...REF_FORMS.DOC].sort())
+})
+test('i18n stripCatalog: 삭제 줄을 빼고 · 더 쓰지 않는 import 이름을 목록에서 뺀다(목록이 비면 줄째) · type import 는 그대로', () => {
+  const text = [
+    "import { A, B } from './p'",
+    "import { C } from './c'",
+    "import type { T } from './t'",
+    'export const ko: T = {',
+    '  g: {',
+    '    x: `${B} 붙임`,',
+    "    y: 'Y',",
+    '    w: `${C}`',
+    '  },',
+    '  a: `${A}`',
+    '}'
+  ].join('\n')
+  const one = stripCatalog(text, ['g.x'])
+  assert.deepEqual(one.lines, [6])
+  assert.deepEqual(one.droppedImports, ['B'])
+  assert.equal(one.text.split('\n')[0], "import { A } from './p'")
+  assert.deepEqual(catalogTree(one.text).leaves.map((l) => l.path), ['g.y', 'g.w', 'a'])
+  const two = stripCatalog(text, ['g.w'])
+  assert.deepEqual(two.droppedImports, ['C'])
+  assert.equal(two.text.split('\n').length, text.split('\n').length - 2)
+  assert.ok(two.text.includes("import type { T } from './t'"))
+  assert.deepEqual(stripCatalog(text, ['g.y']).droppedImports, [])
+})
+test('i18n catalogRemoval: 원래 빈 객체는 다른 키를 지워도 남는다(자식 0 은 "전부 지워짐"이 아니다)', () => {
+  const tree = catalogTree("export const ko = {\n  e: {},\n  f: 'F'\n}")
+  assert.deepEqual(tree.objects.map((o) => o.path), ['e'])
+  assert.deepEqual(catalogRemoval(tree, ['f']), { lines: [3], sites: [3], missing: [], objects: [] })
 })
