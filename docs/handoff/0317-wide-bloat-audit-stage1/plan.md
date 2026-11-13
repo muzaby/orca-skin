@@ -905,6 +905,131 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 - 환경 한계: `app/node_modules` 미설치 — 실험은 scratch 사본에 `npm ci --ignore-scripts` 로 설치해 돌렸다(better-sqlite3·Electron 미빌드 · Linux 경로). 이 세션에는 `origin/main` ref 가 없다.
 - 자기 발견: 이행 결함 1(선조치) · 확장 1(보고만) — 둘 다 이번 턴의 독립 재측정(표식 실험 · 다시 렌더한 데이터 변이)에서 나왔다.
 
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 동의 / 그대로 진행: D-017(경계 11) · §9 rev.3 문장 · 선언 경계 11·12. K13은 만들지 않았다 — `--check`는 데이터↔유도 정합을 여전히 보지 않는다.
+- 이견 / 현실성 문제: rev.3 메타·INDEX의 "새 구현 의무 0"이 틀렸다. 형태 표 해석 칸과 §9 2단계·`formLock` 범위 규칙을 판정하는 코드가 `i18nReport` CLI 껍질 안에 있었다. 형태 표가 인용한 UT는 `i18nRefs`의 검출만 실행해 그 판정 자리가 실행 구간 밖이었다 — 기준선 변이 G1~G7이 7/7 `못 잡음`(UT 127 · `--check` green).
+- 처리: 입력 칸이 규칙 칸보다 좁은 경우라 규칙 칸을 따라 입력을 더했다(선조치). 판정을 순수 함수로 떼어 UT 7건을 붙였고, plan 규범 행은 바꾸지 않았다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 구간 → 범주·렌즈 판정 (EP-01) | 11구간 × 11칸 = 121 | 121/121 | `gate:node …/scan/check.mjs --check` → `위반 0 · 대기 0` · R-D1(F04.X8 삭제) → `check exit 1 K1·K10` | 칸 삭제 → K1 | — |
+| VP-01·VP-07 | 구간 → 판정 단위 (EP-02) | 98단위 · 패턴 5 + 규칙 2 | 98/98 · 7/7 | `--units \| wc -l` → 98 · R-D2·R-D3 → `K2·K10` · `check.test.mjs` "UT-01 P1"~"U7" 통과 | 단위 삭제·유령 → K2 양방향 | — |
+| VP-02 | 후보 필수 칸 (EP-03) | 12칸 × 12건 + i18n 2칸 × 6건 = 156 | 156/156 | 같은 gate(K3·K4·K8·K9·K12 위반 0) · D05 → `K4·K10` · D02 → `K12·K10` | 칸 제거 → 해당 K | — |
+| VP-02 | 전제 확인 칸 (EP-04) | 3칸 × 12건 = 36 | 36/36 | 같은 gate(K5 위반 0) · D01(W-12 formLock 삭제) → `K5·K10` | 칸 삭제 → K5 | — |
+| VP-02 | 대상 제외 (EP-08) | 패턴 5 | 5/5 | D05(W-12 자리 → `AgentEnvironmentView.count.test.ts:66`) → `K4` · "UT-02 red K4 제외 패턴 …" 5건 통과 | 패턴마다 1경로 | — |
+| VP-08 | 검사 규칙 (EP-05) | red 조건 46 | 46/46 | `node --test …/scan/*.test.mjs` → tests 134 · pass 134 · `check()` 본문 무변경(diff는 i18n 함수·CLI만) | 조건마다 그 조건만 깨는 입력 | — |
+| VP-03·VP-09 | 감량 합 판정 (EP-06) | 갈래 4 + 경계 2 | 6/6 | "UT-03 R1"~"R4" 통과 · `--ruling` → `0305 계열 종료 · sum 19 · P W-01,W-05,W-06 · i18n 6·120` · R-S1 sum 19→10 · D08 sum 19 그대로(i18n 5·118) | `sum`·`P`·`i18n` 이 데이터에 민감 · i18n 이 합에 새지 않음 | — |
+| VP-03 | 핫패스 심볼 (EP-07) | 심볼 3 | 3/3 | 무변경 — "UT-02 EP-07: 핫패스 심볼은 …" 통과 | 목록 `deepEqual` | — |
+| VP-05 | 판정 사본 일치 (EP-09) | 사본 3곳 | 2/3 | `grep -c '^<!-- gen:' audit.md` → 5 · D15 → `K10` · R-M2 → `K10` · INDEX 비고 판정 문자열 = `--ruling` verdict | 블록 바이트 비교 | `verify.md` 판정 절 — verify 턴 산출 |
+| VP-06·VP-10 | 대상 목록 유도 (EP-10) | 11파일 · 규칙 7 | 11/11 · 7/7 | `--targets` → 11행 · R-C1 → `K11·K1·K2·K10` · R-C2 → `K11` · "UT-04 T1"~"T7" 통과 | 규칙마다 통과·제외 입력 쌍 | — |
+| (VP-02 근거 도구) | §9 rev.3 규칙 칸 — 형태 표 4행 · 2단계·`formLock` 범위 · 1단계 · 복수형 · 집계 | 형태 STATIC 4 · TEMPLATE 3 · DOC 2 · 그 밖(경계 12) · 범위 분기 9 · 1단계 분기 5 · 접미사 6 · 집계 분기 4 | 전부 · S-6만 `동치` | 새 UT 7: "i18n i18nScopes" · "i18n deriveI18n STATIC" · "…TEMPLATE·DOC" · "…1단계" · "…키" · "…부분 문자열" · "i18n refTally" · sweep 37 중 36 red | 형태마다 그 형태만 내는 키 · 접미사마다 잎 · 범위마다 경로 1개 | 그 밖 형태 — 선언 경계 12 |
+
+- 범위 분기 9 = 코드 확장자 포함(`.json` 등) · 제외(`.css`·`.md`) · 루트 3종 밖 · test 패턴 4(`.test.`·`.testfixture.`·`app/scripts/`·eslint 설정) · 리소스 2파일 · prod = `app/src/` 조건. 마지막 하나가 S-6 `동치`다 — 루트 안에서 `app/src/` 밖인 경로는 전부 test 패턴에 걸린다.
+- 1단계 분기 5 = renderer/src 루트 · shared 루트 · 머리 꼴(점으로 끝남) · 번역 키 접두사 거르기 · STATIC 우선.
+
+### V-pair 자기확인 (r3)
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:check.mjs --check` | required — R-D1·R-D2·R-D3 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | 같은 gate · §9 근거 도구는 새 UT 7 | required — D01·D05·R-D6·D02 전부 red. 통과 후보 근거 재실행은 검증자 몫 |
+| VP-03 | REQUIRED | SELF_PASS(기계 범위) | "UT-03 R1~R4" · `--ruling` | required — R-S1 sum 19→10 · D08 K12 red(합 불변). AC10은 사람 |
+| VP-04 | REQUIRED | SELF_PASS | `gate:git diff --stat 1168b67 -- app .github` → 0줄(작업 트리 포함) | not selected — 직접 관측 |
+| VP-05 | REQUIRED | SELF_PASS | `--check`(K10) | required — D15·R-M2 red |
+| VP-06 | REQUIRED | SELF_PASS | `--check`(K11) · `--targets` | required — R-C1·R-C2 red |
+| VP-07 | REQUIRED | SELF_PASS | "UT-01 P1"~"U7" | not selected — 행동 oracle |
+| VP-08 | REQUIRED | SELF_PASS | "UT-02 green"·"UT-02 red …" | not selected — 행동 oracle |
+| VP-09 | REQUIRED | SELF_PASS | "UT-03 R1"~"R4" | not selected — 행동 oracle |
+| VP-10 | REQUIRED | SELF_PASS | "UT-04 T1"~"T7" | not selected — 행동 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+판정: 57건을 심어 55건이 잡혔고 1건은 `동치`, 1건(M-D)은 경계다. 기준선 G1~G7은 고치기 전 7/7 `못 잡음`이었다. 실행 뒤 `git status`는 r3 변경 두 파일만 남았고 `--check`는 `위반 0`이다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| G1 STATIC 판정을 TEMPLATE 으로 · G2 1단계 prefixed 분기 제거 · G3 리소스 2파일 제외 제거 · G4 non-prod TEMPLATE 도 셈 · G5 1단계 범위 제한 제거 · G6 복수형 접미사 `_zero`만 · G7 `.testfixture.` 제거 | sweep — rev.3 형태 표·§9 규칙 칸을 구현한 자리(재앵커: `i18nReport` → `deriveI18n`·`i18nScopes`·`refTally`·`i18nBase`·`isI18nTest`) | 이번 턴 고치기 전 7/7 `못 잡음`(UT 127 · `--check` green) | UT red 7/7 | 잡음 |
+| F-S1~F-S4 STATIC 형태마다 목록에서 제거 | sweep — 형태 표 STATIC 행 | — | UT red 4/4("i18n deriveI18n STATIC" · "i18n REF_FORMS") | 잡음 |
+| F-SW1 `ancestorProp` STATIC→TEMPLATE · F-SW2 `templateTail` TEMPLATE→STATIC · F-SW3 `bare` DOC→STATIC · F-SW4 `templateHead` TEMPLATE→DOC | sweep ⑤ — 형태 표 행 사이 맞바꿈(합집합 유지) | — | UT red 4/4. "i18n REF_FORMS" 단독은 4/4 green(pass 1) — 새 UT만 잡는다 | 잡음 |
+| S-1 `.json` 제외 · S-2 `app/scripts/` 제외 · S-3 eslint 설정 제외 · S-4 `.test.` 제외 · S-5 루트 제한 제거 · S-7 확장자 제한 제거 | sweep — §9 2단계·`formLock` 범위 | — | UT red 6/6("i18n i18nScopes") | 잡음 |
+| S-6 prod 의 `p.startsWith('app/src/')` 제거 | sweep — 같은 범위 | — | green | 동치 — 루트 안에서 `app/src/` 밖은 `app/scripts/**`·eslint 설정뿐이고 둘 다 `isI18nTest` 참. UT 입력 `app/scripts/g.mjs`·`app/eslint.config.mjs`가 test 에만 남는다 |
+| P-1 머리 끝 점 조건 제거 · P-2 번역 키 접두사 거르기 제거 · P-3 prefixed 를 STATIC 보다 먼저 · P-4 `some`→`every` · P-5 shared 루트 제거 · P-6 renderer 루트 제거 | sweep — §9 1단계·우선순위 | — | UT red 6/6("i18n deriveI18n 1단계" · "…STATIC") | 잡음 |
+| B-zero · B-one · B-two · B-few · B-many · B-other 접미사마다 제거 | sweep — §9 2단계 "`_zero`~`_other`" | — | UT red 6/6("i18n deriveI18n 키") | 잡음 |
+| T-1 `step1` 고정 0 · T-2 prod TEMPLATE 을 prod 로 · T-3 rule 범위 제거 | sweep — `formLock`·`agentsRule` 근거 집계 | — | UT red 3/3("i18n refTally") | 잡음 |
+| W-1 = G1 · W-2 = G4 · W-3 = G3 을 심고 `--i18n` 출력을 리팩토링 전과 비교 | 새 oracle — `--i18n`이 순수 함수를 거치는가(배선) | — | `cmp` red 3/3 | 잡음 |
+| R-D1 F04.X8 삭제 · R-D2 단위 1행 삭제 · R-D3 유령 단위 | VP-01 선택 증거 | r2 잡음 | `K1·K10` · `K2·K10` · `K2·K10` | 잡음 |
+| D01 W-12 formLock 삭제 · D05 W-12 자리→테스트 파일 · R-D6 F10.L1 유령 W-13 · D02 W-12 dynamicPrefix 삭제 | VP-02 선택 증거 | r2 잡음 | `K5·K10` · `K4·K10` · `K7·K10` · `K12·K10` | 잡음 |
+| R-S1 W-06 raceGuard→blocks · D08 W-12 i18nKeys 삭제 | VP-03 선택 증거 | r2 잡음 | sum 19→10(P W-01·W-05) · `K12·K10` + sum 19 그대로(i18n 5·118) | 잡음 |
+| D15 ruling 블록 `19줄`→`18줄` · R-M2 premises 블록 삭제 | VP-05 선택 증거 | r2 잡음 | `K10` · `K10` | 잡음 |
+| R-C1 AREAS F11 삭제 · R-C2 READ_0315 1줄 삭제 | VP-06 선택 증거(check.mjs 를 고친 라운드) | r2 잡음 | `K11·K1·K2·K10` · `K11` | 잡음 |
+| M-A W-08 formLock→blocks · M-B F06.L6→none · M-C W-05 prod 6→0 · M-D W-03 ui→safe | 이전 verify 이력(r1) | r2 V-MA~V-MD 잡음·경계 | `K10`(sum 19) · `K7·K10` · `K8·K10` · `K10` + sum 19→23 | 잡음 · M-D 경계(선언 경계 2) |
+
+- 검산: 선택 증거 13(R-D1·R-D2·R-D3·D01·D05·R-D6·D02·R-S1·D08·D15·R-M2·R-C1·R-C2) · 인용 변이 0(이번 턴이 닫는 파생 이슈 없음) · 새 oracle 3(W-1~W-3) · sweep 37(G7 · F-S4 · F-SW4 · S7 · P6 · B6 · T3) · 이전 verify 이력 4(M-A~M-D) = 표의 57건.
+- 하네스: `mutate.py`(G·F·S·P·B·T·W — spec은 scratch) · 데이터 변이 러너(R-·D·M- — 원복은 git이 아니라 실행 전 스냅샷으로 했다. 커밋 전 r3 변경을 지키기 위해서다).
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음 — `--i18n` 출력은 리팩토링 전과 바이트 동일(sha1 `b58047a…` 양쪽) | — |
+| 승인 목록·i18n 집계가 바뀌었는가 | 아니오 — `--ruling` i18n 6건·55키·120줄 · `audit.json`·`audit.md` 무변경 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 그대로 — `--check` 는 `RED K…` 줄, `--i18n-strip` 거부는 exit 2(r2) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음 — 새 실패 경로 없음(순수 함수 추출) | — |
+| 늦게 도착한 응답·seam 재배치 | seam 재배치 있음 — 옮긴 것은 계산뿐이고 CLI의 git 읽기·출력 순서는 그대로다(`--i18n`·`--i18n-strip` 출력 diff 0) | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | rev.3 형태 표·§9 범위 규칙의 판정 자리가 인용 UT의 실행 구간 밖이었다 — plan 의 "새 구현 의무 0"과 어긋남 | ✅ 선조치 — `i18nScopes`·`deriveI18n`·`refTally`·`i18nBase`·`isI18nTest`로 떼어 UT 7 추가. plan 메타 문장은 설계자 영역이라 고치지 않았다 | G1~G7 고치기 전 7/7 못 잡음 → 뒤 7/7 잡음 |
+| 2 | 선언 경계 12가 "별칭 import는 세지 않는다"고 적었지만 별칭으로 잎에 접근하면 `prop`(루트 무관)이 센다 — 빠지는 것은 별칭으로 조상 객체를 통째로 넘기는 형태뿐이다 | ⚠️ 보고만 — 경계가 실제보다 넓게 적혀 판정 영향 없음. 문장 정정은 설계자 몫 | `i18nRefs` 관측: `k.a.b` → `["prop"]` · `use(k.a)` → `[]` · `use(ko.a)` → `["ancestorProp"]` |
+| 3 | prod 조건의 `p.startsWith('app/src/')`가 중복 항이다(S-6 `동치`) | ⚠️ 보고만 — 계약 문장("prod = `app/src/**`")을 코드에 그대로 남기려고 지우지 않았다 | S-6 green · 루트 3종 중 `app/src/` 밖은 전부 test 패턴 |
+| 4 | `--i18n`은 여전히 보고 도구다(exit 0) — 데이터↔유도 정합은 gate 밖 | 경계 — 선언 경계 11(D-017). K13은 만들지 않았다 | `--i18n` exit 0 · `유도−audit.json ∅` · `audit.json−유도 ∅` |
+| 5 | `LegacySubAgentTile.tsx:245` 카드 키 판정(r1 #5) | ⚠️ 비귀속 그대로 | r1 |
+
+- 발견 분류: 이행 1(#1 — 규칙 칸보다 좁은 입력, 선조치) · 현재 0 · 확장 0 · 경계 1(#4) · 비귀속 1(#5). #2·#3은 plan 문장 정밀도 보고다.
+
+### 설계 대비 명시적 차이 (r3)
+
+| 차이 | 내용 | 영향 |
+|---|---|---|
+| §11 차이 표 밖의 check.mjs 추가 | 순수 함수·상수 `I18N_KO`·`I18N_EN`·`i18nBase`·`isI18nTest`·`i18nScopes`·`deriveI18n`·`refTally` — `i18nReport`·`i18nStrip`이 이를 부른다 | `check()`·`render()`·`ruling()`·`extractUnits()`·`deriveTargets()` 무변경 — K1~K12·EP-01~EP-10 계약 불변 |
+| 복수형 접미사 정규식 한 곳으로 | `i18nReport`·`i18nStrip`에 따로 있던 같은 정규식을 `i18nBase` 하나로 | `--i18n-strip` 출력·생성 파일이 옛 본문과 동일(diff 0) |
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 기준 커밋 `1168b67` 고정 | 선언 경계 9 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 새 함수는 상태가 없다. `i18nReport`와 UT가 함께 부르고 비울 것이 없다 | `--i18n` 출력 sha1 동일 |
+| 재진입 | 해당 없음 — 일회 실행 | — |
+| 다른 무효화 | 추출이 출력 순서·내용을 바꿀 수 있다 | `--i18n` 46줄 바이트 동일 · `--i18n-strip all` stdout·ko.ts·en.ts 동일 |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `…/scan/check.mjs` · `…/scan/check.test.mjs` · `…/plan.md`(이 절) · `docs/handoff/INDEX.md` |
+| 실행 명령 | `node …/scan/check.mjs --check` · `--targets` · `--units` · `--ruling` · `--i18n` · `--i18n-strip <scratch> all`(옛·새 본문 비교) · `node --test …/scan/*.test.mjs` · `mutate.py`(G·F·S·P·B·T·W) · 데이터 변이 러너(R-·D·M-) · `cd app && node scripts/check-doc-inventory.mjs --check` · `git diff --stat 1168b67 -- app .github` |
+| **관측한 게이트 산출**(마지막 수정 뒤 실행) | `--check` → `단위 98 · 후보 12 · 위반 0 · 대기 0` · `node --test` → tests 134 · pass 134 · fail 0 · `--targets` 11행 · `--units` 98 · `--ruling` → `0305 계열 종료 · sum 19 · total 34 · i18n 6·55·120` · 무변경 → 0줄(작업 트리 포함). 문서 가드는 INDEX 갱신 뒤 실행 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 1(`…/scan/check.test.mjs`) — `app/` 밖이라 app 테스트 규칙(시간 예산·호스트 격리·풀 분류) 대상이 아니다. 새 7건은 순수 입력만 쓴다(자식 프로세스·네트워크·파일 0) |
+| V-pair 자기확인 | SELF_PASS 10 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP-01 121/121 · EP-02 98/98·7/7 · EP-03 156/156 · EP-04 36/36 · EP-05 46/46 · EP-06 6/6 · EP-07 3/3 · EP-08 5/5 · EP-09 2/3(`verify.md` 는 verify 턴) · EP-10 11/11·7/7 · §9 rev.3 규칙 칸 전부(S-6 `동치`) |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ✅ K1 위반 0 · AC2 ✅ K2 위반 0·`--units` 98 · AC3 ✅ K3·K4·K8·K9 위반 0(후보 12) · AC4 ✅ K5 위반 0(36칸) · AC5 ✅ K6 위반 0 · AC6 ✅ K4 제외 패턴 위반 0 · AC7 ✅ UT-03 4건 + `--ruling` 출력 · AC8 ✅ 0줄 · AC9 ✅ K10 위반 0·생성 블록 5 · AC10 ⚠️ 사람 · AC11 ✅ K7 위반 0 · AC12 ✅ K11 위반 0·`--targets` 11행 · AC13 ✅ K12 위반 0(i18n 6건 모두 두 칸) |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` — AC 분모 13 그대로(r2 와 같다) |
+| 블로커 / 역질문 | 없음. 놓친 잠재 문제 #2(경계 12 문장)는 설계자 판단 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 라운드·턴 라벨: r3(라운드 3 첫 impl 턴). 보드는 rev.3 뒤 "규범 변경만 — 구현 없음 → verify"였고, 사용자가 `/handoff-impl`을 불러 이 턴이 열렸다.
+- 이번에 닫은 것: rev.3 설계 턴이 새로 쓴 규칙 칸(형태 표·§9 범위)의 인용 UT가 판정 자리를 실행하지 않았다. 같은 설계 턴이 "새 구현 의무 0"이라고 적었고, 구현 턴의 sweep 기준선(G1~G7 7/7 못 잡음)에서 드러났다.
+- 이전 라운드와 같은 축: 부분적으로 같다 — r1·r2도 i18n 근거의 "검사가 보는 범위"가 축이었다(r1 형태 누락 · r2 데이터 정합). 이번에는 근거 도구의 판정 코드가 UT 밖이었다.
+- 관련 plan 지침: `handoff-plan` §5-A "자리별 직접 oracle 좌표 — 자리가 실행 구간 안" · `docs/handoff/AGENTS.md §공통 V` 실행 구간 정의.
+- 환경: `git fetch origin main` 뒤 `origin/main` ref 있음 — 기준 커밋 조상 확인 가능.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 출처 | 상태 | 내용 |
