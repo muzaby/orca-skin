@@ -10,13 +10,13 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-13 |
 | 매핑 | INDEX 후보 표 3행 승격 — 0317 독립 버그 후보(`LegacySubAgentTile.tsx:245`) · 0299 비귀속(`IPC_CONTRACT.md` 표) · 0308 독립(`sessionBusy` 소비처·`dispose` 잠금 공백) |
-| 상태 | READY |
+| 상태 | READY (ΔV1) |
 | 구현 주체 | Claude (비기능 — 버그수정·구조 감량·테스트 잠금·문서 정정) |
-| V mode | `Baseline V` |
+| V mode | `Baseline V` → `Delta V`(ΔV1) |
 | 기준 V | `none` — 세 후보는 감사·검증의 발견이라 상속할 구현 V가 없다 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
-| 재측정 기준 | 작업 트리 = `04f3eb7`(이 설계 직전 `main` 계열 커밋). 시제작은 scratchpad worktree에서 하고 작업 트리에 남기지 않았다 |
+| 이번 V revision | `ΔV1` — 기준 `V1`(설계 커밋 `0d76cf0`) |
+| 유효 V | `V1 + ΔV1`(§20) |
+| 재측정 기준 | V1 — 작업 트리 = `04f3eb7`(이 설계 직전 `main` 계열 커밋). 시제작은 scratchpad worktree에서 하고 작업 트리에 남기지 않았다 · ΔV1 — `c133270`(verify r1 커밋, `git cat-file -t` → commit · PR 브랜치 좌표, `main` 조상 아님). 변이는 `mutate.py`로 심고 원복했다 |
 
 작업은 셋이다. **W1** 백그라운드 카드 키 처리 결함 + 카드 틀 공용화 · **W2** 현재 상태 문서의 표 깨짐 · **W3** 세션 점유 가드·세션 정리의 잠금 테스트.
 
@@ -56,7 +56,7 @@
 | D-009 | W2 범위는 현재 상태 문서의 표 깨짐 전수다 — `docs/IPC_CONTRACT.md` 1행 · `app/AGENTS.md` 1행 · `docs/handoff/INDEX.md` 6행. 0299 후보 행 자체(같은 결함)는 이 설계 커밋이 승격하며 고친다 | 같은 결함 계열(§8 W2) | 설계자 — D-001 범위 해석 | ACTIVE | — |
 | D-010 | 과거 증거 문서(`docs/archive/` · 지난 handoff `plan.md`/`verify.md` · `docs/etc/` · `chats/` · `project/`)의 표는 고치지 않는다. `docs/handoff/AGENTS.md:130`은 handoff 지침이라 `handoff-review` Tier 2 경로로 따로 다룬다 | root `AGENTS.md` 원칙 1 "과거 문서를 현재 사양처럼 쓰지 마라" · `docs/handoff/AGENTS.md §카브아웃` | 설계자 | ACTIVE | — |
 | D-011 | W2의 INDEX `0187`·`0183`·`0182`·`0181` 행처럼 셀 구분자로 덧붙인 둘째 비고 칸은 비고 칸 안의 `<br>`로 합친다. 글자는 바꾸지 않는다 | 머리 행보다 많은 칸은 렌더에서 버려진다(GFM) — 이스케이프로는 못 살린다 | 설계자 | ACTIVE | — |
-| D-012 | W3 범위는 `sessionBusy` 계약의 잠기지 않은 소비처 전수와 `dispose`의 해제 2자리다 — 0308 후보 4자리 + 이번 재열거로 찾은 3자리(`useChatBusy` 선택자 · `useDirectoryPicker` 현재성 · `dispose` 세션 일치) | 후보 행 "소비처 3곳"은 0308이 `chatStore.ts`만 본 결과다(§8 W3) | 설계자 — D-001 범위 해석 | ACTIVE | — |
+| D-012 | W3 범위는 `sessionBusy` 계약의 잠기지 않은 소비처 전수와 `dispose`의 해제 2자리다 — 0308 후보 4자리 + 이번 재열거로 찾은 3자리(`useChatBusy` 선택자 · `useDirectoryPicker` 현재성 · `dispose` 세션 일치) | 후보 행 "소비처 3곳"은 0308이 `chatStore.ts`만 본 결과다(§8 W3) | 설계자 — D-001 범위 해석 | SUPERSEDED | D-016(§20 ΔV1) |
 | D-013 | W3는 테스트만 더한다 — prod 코드 diff 0 | 정의는 이미 하나다(`chatStore.ts:2280`). 고칠 동작이 없다(D-003) | 설계자 | ACTIVE | — |
 | D-014 | W1 특성 테스트(틀 마크업)는 틀 공용화보다 **앞 커밋**에 넣고, 공용화 커밋은 그 테스트를 바꾸지 않는다 | 변경 전 마크업에서 뜬 기준이어야 UI 회귀(D-004)를 판정한다 | 설계자 | ACTIVE | — |
 | D-015 | W2 판정 장치 `scan/tables.mjs`는 이 설계 커밋에 포함한다(구현 산출 아님) | 0318 `scan/keyset.mjs` 선례 — 기준을 구현 전에 고정한다 | 설계자 | ACTIVE | — |
@@ -65,6 +65,7 @@
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-015 (첫 설계 턴).
 - 변경된 결정: 없음. D-009·D-012는 후보 행보다 범위를 넓힌다 — 같은 결함을 재열거로 더 찾았기 때문이다. 사용자가 후보 행 그대로를 원하면 ΔV로 좁힌다.
+- ΔV1(§20): D-016·D-017 추가 · D-012 → SUPERSEDED(D-016). 근거는 verify r1 D1과 §20 재측정.
 - **`ACTIVE 결정 ↔ AC` 대조: 충돌 0** — D-001 ↔ AC1·AC9·AC12 · D-002 ↔ AC5 · D-003 ↔ AC4·AC10 · D-004 ↔ AC3·AC4·AC20 · D-005 ↔ AC6 · D-006 ↔ AC5·AC7·AC8 · D-007 ↔ AC5 · D-008 ↔ AC6 · D-009 ↔ AC9 · D-010 ↔ §10 선언 경계 W2-B1 · D-011 ↔ AC10 · D-012 ↔ AC12~AC16 · D-013 ↔ AC17 · D-014 ↔ AC18 · D-015 ↔ AC9·AC10.
 
 ## 4. 요구 비판적 검토
@@ -493,6 +494,147 @@ sessionBusy·dispose                                     : 코드 불변, 테스
 - [x] structural proxy — AC5·AC7은 D-002·D-006의 형태 계약이고 동작은 AC1~AC4가 따로 잠근다. AC6은 성능 조건의 정적 관측 + DOM 동일.
 - [x] 부팅/등록 변경 없음 · 외부 계약 없음 · one-way door 없음.
 - [x] 문장 규칙 — 판정 먼저, 표 칸 3줄 이내.
+
+## 20. Delta V1 — verify r1 `RETURN_TO_PLAN` 정정
+
+기준은 `V1`(`0d76cf0`)이고 입력은 [`verify.md`](verify.md) §13 D1과 `[구현자 기입]` 놓친 잠재 문제 2다. 아래 행만 바뀌고 나머지 V1은 그대로다. 구 행은 지우지 않았다 — 같은 ID의 V1 행을 이 절이 대체한다.
+
+### D1 재측정 — 렌더러 전체 스위트
+
+verify r1은 EP-02 오라클 두 파일로만 쟀다. 다른 기존 테스트가 이웃 항을 잠그는지 가르려고 EP-02 다섯 술어의 항을 하나씩 지우고, `vitest run src/renderer` 전체의 실패 집합에서 기준 집합을 뺐다. 기준 집합은 6건이다 — `settlement.integration.test.ts` 5케이스 · `planMode.render.test.ts` 파일 1(Electron 설치 서명).
+
+| 술어 · 자리 | 항 · `파일:줄` | 변이 | 기준 밖 실패 | 처리 |
+|---|---|---|---|---|
+| `startHandoff` 가드 (EP-02 S1) | `!src?.sessionId` `chatStore.ts:1613` | H1 | 0 | 채택 T1 |
+| | `src.loadingSession` `:1615` (verify N12) | H2 | 0 | 채택 T2 |
+| | continuity `:1616` | H3 | 1 — `chatStore.harness.test.ts:'rejects OpenCode continuity through %s'`(startHandoff) | T3 — 기존 좌표 |
+| | 사용자 턴 < 2 `:1619` | H4 | 0 | 채택 T4 |
+| | `pendingNewChatKey != null` `:1621` | H5 | 0 | 채택 T5 |
+| 캐시 재진입 가드 (S2) | `hasCachedHistory &&` `:1718` (verify N6) | N6 | 0 | 채택 T6 |
+| | `sessionBusy` 인자 = 요청 시점 엔트리 `:1718` | R1 | 0 | 입력 추가 — EP-02 S2(아래) |
+| 지연 갱신 `current()` (S3) | `isCurrent()` `:1752` (verify N8) | N8 | 2 — `chatStore.native-history.test.ts:'rejects late lazy results after %s'`(live · new-load) | T7 — 기존 좌표 |
+| | `activeKey === sessionId` `:1753` (verify N7) | N7 | 2 — 같은 파일 `'cancels an unstarted lazy check on navigation'` · `'rejects late lazy results after %s'`(leave) | T8 — 기존 좌표 |
+| 폴더 선택 `current()` (S5) | `active.current` `useDirectoryPicker.ts:42` | P1 | 0 | 경계 W3-B3 |
+| | `state.activeKey === target.key` `:43` | P2 | 0 | 채택 T9 |
+| | `!!session` `:44` | P3 | 0 | 채택 T10 |
+| | `session.sessionId === target.sessionId` `:45` (verify N9a) | N9a | 0 | 채택 T11 |
+| | `!session.loadingSession` `:46` (verify N9b) | N9b | 0 | 채택 T12 |
+| 술어 밖 — `isCurrent()` 호출·본문 | 로드 응답 `if (!isCurrent())` `:1710` | K1 | 5 — `chatStore.native-history.test.ts` 'accepts only the newest request …' 외 4 | 경계 W3-B4 |
+| | 본문 `:1701` 요청 동일성 · `:1702` 엔트리 존재 · `:1703` 본문 동일성 · `:1704` live 동일성 · `:1705` `liveChanged` | I1~I5 | I1 0 · I2 0 · I3 1 · I4 0 · I5 2 | 경계 W3-B4 |
+
+- 재현: `mutate.py` spec(무변이 기준 1 + 변이 20) · 행마다 `./node_modules/.bin/vitest run src/renderer --reporter=json --outputFile=…` → 실패한 `파일 :: 케이스` 집합 비교 · 원복 확인.
+- verify가 못 잡음으로 적은 6자리 중 N7·N8은 다른 기존 테스트가 잡는다 — verify가 EP-02 두 파일만 오라클로 썼기 때문이다.
+
+### 결정
+
+| ID | 결정 | 이유 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-016 | W3 범위는 `sessionBusy` 소비처 5곳(EP-02) · 그 다섯 술어에 직접 쓰인 나머지 항 12자리(EP-05 — 새 잠금 9 · 기존 잠금 3) · `dispose` 해제 2자리(EP-03)다 | verify r1 D1(확장 후보, 창 안)을 같은 술어의 직접 항 전부로 한 번에 닫는다 — 하나씩 더하면 다음 verify가 인접 항을 연다(0262). 새 잠금은 EP-02와 같은 하네스의 입력 1행씩이고, `startHandoff`의 로딩·전송 대기 항은 UI 가드(`ConversationStatus.tsx:58-64` — 세션 id·점유·사용자 턴)가 보지 않는 유일한 방어다 | 설계자 판단 · verify D1 · 창 안 원칙("목록 안팎 모두 고침" 2026-10-19 — `docs/handoff/AGENTS.md §판정 범위와 운영 gate`) | ACTIVE | D-012를 대체 |
+| D-017 | 술어 밖과 언마운트 경로는 경계다 — `isCurrent()`의 호출·본문(W3-B4) · 폴더 선택 언마운트 경로(W3-B3) | `isCurrent()`는 세 자리가 함께 부르는 별개 함수(로드 요청 현재성)라 본문까지 넓히면 분모가 호출 그래프를 따라 열린다. 언마운트 경로는 정리 효과가 SSR에서 돌지 않아 경로 좌표를 만들 수 없다 | 설계자 판단 · 이 절 재측정 | ACTIVE | — |
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-016 ↔ AC12~AC15(ΔV1) — 채택 항이 동작 기준에 들어간다. D-013 ↔ AC17 — r2도 테스트만이다. D-017 ↔ W3-B3·W3-B4.
+
+### 바뀌는 AC
+
+| R | AT / AC | 동작 기준 | 검증 수단 | provenance |
+|---|---|---|---|---|
+| R-05 | AT-05 / AC12 | `startHandoff`는 확정 세션이 아니거나 · 점유(`inflight`·채널 `ready`·`listening`)이거나 · 로딩 중이거나 · continuity를 지원하지 않는 하네스이거나 · 사용자 턴이 2 미만이거나 · 다른 새 채팅 전송이 대기 중이면 거부하고 보내지 않는다. 모두 아니면 연다 | §10 EP-02 S1 · EP-05 T1~T5 | CHANGED(V1 AC12 대체) |
+| R-05 | AT-05 / AC13 | V1 문장 그대로 + 캐시 없이 로딩 중인 엔트리는 요청 시점에 점유여도 불러온 기록을 적용한다 | EP-02 S2 · EP-05 T6 | CHANGED(문장 추가) |
+| R-05 | AT-05 / AC14 | V1 문장 그대로 + 그 로드 요청이 현재가 아니면(`isCurrent()` 거짓) 응답 결과를 적용하지 않고, 활성 세션이 바뀌면 시작 전에는 IPC를 부르지 않고 응답 뒤에는 결과를 버린다 | EP-02 S3 · EP-05 T7·T8 | CHANGED(문장 추가) |
+| R-05 | AT-05 / AC15 | V1 문장 그대로 + 폴더 고르기는 고르는 동안 활성 세션이 바뀌거나 · 그 엔트리가 사라지거나 · 세션 id가 바뀌거나 · 로딩에 들어가도 결과를 적용하지 않는다. 엔트리가 사라져도 `pick()`은 예외 없이 끝난다 | EP-02 S4·S5 · EP-05 T9~T12 | CHANGED(문장 추가) |
+
+AC 수는 20 그대로다. AC16·AC17은 문장이 같다. 고친 네 행은 동작 기준 · 검증 수단 · 도달 경로(V1 행 그대로)를 갖고, 거부·미적용 기준은 EP-02의 양성 대조와 짝이다.
+
+### Node / Pair 변경
+
+| Node / Pair | provenance | 변경 |
+|---|---|---|
+| R-05 · AT-05 / VP-10 | CHANGED | AC12~AC15 문장(D-016). 좌표에 EP-05를 더한다 |
+| MD-05 · UT-05 / VP-13 | NEW · REQUIRED | EP-05 — 다섯 술어의 직접 항 12자리 |
+| MD-02 · UT-02 / VP-08 | CHANGED | EP-02 S2 `구별 입력`에 요청 시점과 응답 시점의 점유가 다른 입력 · 등록 변이 R1(아래). 자리·규칙·좌표 파일 불변 |
+| AR-01 · IT-01 / VP-01 | INHERITED | §10 EP-01 S2·S3 `구별 입력` 칸 문장만 정정 — 의무 불변, r1 좌표가 이미 충족(아래) |
+| VP-02~07 · VP-09 · VP-11 · VP-12 | INHERITED | 변경 없음. r2 diff가 W3 테스트 2파일뿐이면 r1 좌표를 참조한다 |
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-13 | MD-05 ↔ UT-05 | REQUIRED | 진입점(`chatActions.startHandoff` · `chatActions.loadSession` → `refresh` · `useDirectoryPicker(true).pick`) → 술어 항 → 결과(`chat.send` 호출 · `messages` · 갱신 IPC · `addSessionDirectory` 호출 · `pick()` 정착) | EP-05 자리별 좌표 | required — 새 잠금 9자리의 항 제거 변이가 이 턴 렌더러 전체에서 기준 밖 실패 0이었다(위 표). 같은 변이의 red가 방향 증거다 | EP-05 (12자리) |
+
+### §10 EP-05 — 자리 · 규칙 분기 · oracle (NEW)
+
+| V pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|
+| VP-13·10 / EP-05 | EP-02 다섯 술어의 `sessionBusy` 밖 직접 항이 각자의 조건에서 거부·미적용한다(T6만 적용한다) | 각 술어 — `chatStore.ts` `startHandoff`·`loadSession`·`refresh` · `useDirectoryPicker.ts` `pick` | 12자리 — 아래 표 | 아래 두 명령. `chatStore.ts` 11줄 − `startForkDraft`(`:1559-1561`, 점유 술어 없음 — EP-02 밖) 3 = 8 · `useDirectoryPicker.ts` 5줄 − `:42`(W3-B3) = 4 | 확정 전·로딩 중·전송 대기 중에 핸드오프가 열리거나, 로딩 자리표시가 점유라 불러온 기록을 버리거나, 낡은 갱신이 화면을 덮거나, 고르는 사이 바뀐 세션에 폴더가 붙거나 예외가 난다 |
+
+```bash
+grep -n -E "^    (!src\?\.sessionId|src\.loadingSession) \|\|$|^    !HARNESS_CAPABILITIES\[src\.backend \?\? 'claude'\]\.continuity$|role === 'user'\)\.length < 2\) return false$|pendingNewChatKey != null\) return false$|hasCachedHistory && sessionBusy|^      (isCurrent\(\)|getState\(\)\.activeKey === sessionId) &&$" app/src/renderer/src/features/chat/store/chatStore.ts
+grep -n -E '^        (active\.current|state\.activeKey === target\.key|!!session|session\.sessionId === target\.sessionId|!session\.loadingSession) &&$' app/src/renderer/src/features/chat/hooks/useDirectoryPicker.ts
+```
+
+규칙(분기 12): `startHandoff`는 T1 확정 세션 아님 · T2 로딩 중 · T3 continuity 미지원 · T4 사용자 턴 < 2 · T5 전송 대기 중 하나면 `false`이고 `chat.send` 0회다. `loadSession`은 T6 캐시 없음(로딩 자리표시)이면 요청 시점 점유여도 불러온 기록을 적용한다. 지연 갱신은 T7 `isCurrent()`가 거짓이면 응답 결과를 적용하지 않고, T8 활성 세션이 바뀌면 시작 전에는 IPC를 부르지 않고 응답 뒤에는 결과를 버린다. 폴더 선택은 고르는 동안 T9 활성 키 바뀜 · T10 엔트리 사라짐 · T11 세션 id 바뀜 · T12 로딩 시작이면 `addSessionDirectory` 0회이고, T10은 `pick()`이 예외 없이 끝난다.
+
+| 자리 | 운반 값 | oracle 좌표 | 구별 입력 | 등록 변이 |
+|---|---|---|---|---|
+| T1 `chatStore.ts:1613` | 확정 세션 아님 → 거부 | 신규 — `store/chatStore.busyGuards.test.ts`, `chatActions.startHandoff()` 반환 `false` · `chat.send` 0회 | EP-02 S1 idle 입력에서 `sessionId: null`만 바꾼다 | H1 항 제거 |
+| T2 `:1615` | 로딩 중 → 거부 | 같음 | `loadingSession: true`만 바꾼다 | H2 항 제거 |
+| T3 `:1616` | continuity 미지원 → 거부 | 기존 — `chatStore.harness.test.ts:'rejects OpenCode continuity through %s'`(startHandoff 행) | `backend: 'opencode'` · 사용자 턴 2 · 비점유 | H3 항 제거 |
+| T4 `:1619` | 사용자 턴 < 2 → 거부 | 신규 — busyGuards, T1과 같은 관측 | 메시지를 `user q1 · assistant a1`(사용자 턴 1)로만 바꾼다 | H4 줄 제거 |
+| T5 `:1621` | 전송 대기 → 거부 | 같음 | 설치 뒤 `useChatStore.setState({ pendingNewChatKey: 'draft:pending' })`만 더한다 | H5 줄 제거 |
+| T6 `:1718` | 캐시 없음 → 점유여도 적용 | 신규 — busyGuards, `chatActions.loadSession('s')` 뒤 `messages` | `s` 엔트리를 로딩 자리표시(`loadingSession: true` · 본문 `[]`)로 두고 ①~③ 점유, 활성 키는 다른 세션 → 기대 `snapshot('native').messages` | N6 항 제거 |
+| T7 `:1752` | `isCurrent()` 거짓 → 응답 결과 미적용 | 기존 — `chatStore.native-history.test.ts:'rejects late lazy results after %s'`(live · new-load 행) | 그 케이스 입력 그대로 | N8 항 제거 |
+| T8 `:1753` | 활성 세션 바뀜 → 시작 전 IPC 0회 · 응답 뒤 미적용 | 기존 — 같은 파일 `'cancels an unstarted lazy check on navigation'`(시작 전) · `'rejects late lazy results after %s'`(leave 행, 응답 뒤) | 그 케이스 입력 그대로 | N7 항 제거 |
+| T9 `useDirectoryPicker.ts:43` | 활성 키 바뀜 → 미적용 | 신규 — `hooks/useDirectoryPicker.busy.test.ts`, `addSessionDirectory` 호출 0 | 고르는 동안 초기 상태의 `activeKey`를 다른 키로 바꾼다(점유 ④) | P2 항 제거 |
+| T10 `:44` | 엔트리 사라짐 → 미적용·예외 없음 | 신규 — 같은 파일, `pick()` 이행(`resolves`) · 호출 0 | 고르는 동안 활성 엔트리를 `sessions`에서 지운다 | P3 항 제거 |
+| T11 `:45` | 세션 id 바뀜 → 미적용 | 신규 — 같은 파일, 호출 0 | 고르는 동안 `sessionId`를 `'other'`로 바꾼다 | N9a 항 제거 |
+| T12 `:46` | 로딩 시작 → 미적용 | 신규 — 같은 파일, 호출 0 | 고르는 동안 `loadingSession: true`로 바꾼다 | N9b 항 제거 |
+
+- 양성 대조는 EP-02 좌표를 그대로 쓴다 — S1 `'opens when the session is idle'` · S2 `'applies the load and refreshes when the cached entry is idle'` · S5 `idle` 행. T 입력은 그 입력에서 한 항만 바꾼다(`installChatStoreHarness` 기본값 `sessionId: 's'`·`pendingNewChatKey: null` — `chatStore.testHarness.ts:69·75`).
+- T9~T12는 S5 파일의 방식대로 store를 교체하지 않고 초기 상태 객체를 제자리에서 바꾼 뒤 되돌린다(§10 EP-02 S5 주석).
+- 기존 좌표 3자리(T3·T7·T8)는 r2의 새 의무가 아니다. 등록 변이로 red만 다시 확인한다.
+
+### 바뀌는 §10 행 — EP-02 S2 `구별 입력`
+
+규칙 칸은 V1 그대로 "요청 시점 엔트리 점유 → 적용 안 함"이다. V1 입력은 점유가 요청부터 응답까지 같아, `sessionBusy`의 인자를 응답 시점 엔트리로 바꿔도(R1) 렌더러 전체가 기준 밖 실패 0이었다(위 표) — 입력 칸이 규칙 칸의 "요청 시점"보다 좁다.
+
+| 자리 | V1 `구별 입력` | ΔV1 `구별 입력` | 등록 변이 (추가) |
+|---|---|---|---|
+| S2 캐시 재진입 가드 (`chatStore.ts:1718`) | 캐시 엔트리 ①~④, 활성 키는 다른 세션 | V1 + 요청 시점 ①~③ → 불러오기 응답 전에 ④로 바뀜 → 적용하지 않고(`messages` = 캐시 본문) 지연 갱신도 하지 않는다(`refresh` 0회). 본문·live 동일성은 그대로 둔다(`occupy`) | R1 `sessionBusy(request.entry.session)` → `sessionBusy(getState().sessions[sessionId].session)` |
+
+### 바뀌는 §10 행 — EP-01 S2·S3 `구별 입력`
+
+| 자리 | V1 `구별 입력` | ΔV1 `구별 입력` | 근거 · 의무 |
+|---|---|---|---|
+| S2 정본 작업 호출부 | `taskId`·`generation`이 서로·호출 카드 값과 다른 문자열 · 제목 분기마다 앞 값을 비운 입력 | V1 + 레코드 세대가 세션의 현재 세대(`state.generation`)와 다른 입력 | 운반 항 `data-background-generation`의 형제 값이 입력 칸에 없었다(구현자 r1 놓친 잠재 문제 2 · verify r1 C7s red). 의무 불변 — r1 좌표 `backgroundCard.interaction.test.ts:'carries the record generation, not the session generation'`가 충족 |
+| S3 정본 호출 호출부 | 호출만 있는 작업 없음 입력(`command` 있음), `toolUseId` ≠ `generation` | V1 + 레코드 세대 ≠ 세션 현재 세대 | 같음 |
+
+### 선언 경계 (추가)
+
+- **W3-B3**: 폴더 선택의 언마운트 경로 — 정리 효과(`useDirectoryPicker.ts:28-33`)가 `active.current`를 내리고 `current()`(`:42`)가 읽는다 — 는 경로 좌표를 만들 수 없다. SSR 탐침에서는 효과와 정리가 돌지 않아 `active.current`가 늘 `true`이고, 클라이언트 렌더러 의존성이 없다(`app/package.json`에 `jsdom`·`happy-dom`·`react-test-renderer`·`@testing-library/*` 0). 도입은 사용자 승인이다(`app/AGENTS.md §의존성 정책`). P1 제거 변이는 기준 밖 실패 0 — 잠금 없이 남는다.
+- **W3-B4**: `isCurrent()`(`chatStore.ts:1700-1705`)의 본문 5항과 술어 밖 호출 자리(로드 응답 `:1710` · 오류 `:1731`) — 세 자리가 함께 부르는 별개 함수(로드 요청 현재성)이고 EP-05의 채택 기준(§10 자리 술어에 직접 쓰인 항) 밖이다. 측정: K1 5 · I3 1(`'preserves an optimistic send made while a refresh is pending'`) · I5 2(`'rejects a snapshot even before an already received delta reaches its animation frame'` · `'rejects late lazy results after %s'` live)는 기존 테스트가 잡고, I1 요청 동일성 · I2 엔트리 존재 · I4 live 동일성은 기준 밖 실패 0이다. `:1731`은 재지 않았다.
+
+### §6 미룬 항목 (추가)
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| `isCurrent()` 본문 중 잠기지 않은 항(요청 동일성 · 엔트리 존재 · live 동일성) · 폴더 선택 언마운트 경로 | 아니오 — prod 변경 없이 테스트만 더하면 된다 | 완료 보고에서 후속 handoff 후보로 제안(사용자 결정) |
+
+### r2 구현 범위
+
+- 테스트만 바뀐다 — `chatStore.busyGuards.test.ts`에 T1·T2·T4·T5·T6 · EP-02 S2 요청 시점 입력 · `useDirectoryPicker.busy.test.ts`에 T9~T12. prod diff 0(D-013 · AC17).
+- 등록 변이 13개(H1~H5 · N6 · N8 · N7 · P2 · P3 · N9a · N9b · R1)를 `mutate.py`로 심어 red를 확인한다. 오라클은 두 파일(+T3·T7·T8은 기존 좌표 파일)이고, 마지막에 렌더러 전체로 기준 밖 실패 0을 본다.
+- 게이트는 §19 그대로. `[구현자 기입]`은 r2 표제로 다시 채운다.
+- 시제작(scratchpad worktree, 작업 트리에 남기지 않음): 새 입력 14케이스(T1·T2·T4 3 · T5 1 · T6 3 · S2 요청 시점 3 · T9·T11·T12 3 · T10 1)가 HEAD에서 green(두 파일 37케이스) · 등록 변이 10개(H1·H2·H4·H5·N6·R1·P2·P3·N9a·N9b) 전부 red · `tsc -p tsconfig.web.json`·eslint 두 파일 오류 0.
+- 시제작에서 본 함정: 표 행을 `as const`로 쓰면 `messages`가 readonly라 `installChatStoreHarness` 인자에서 tsc 오류다 — `it.each<[string, Partial<ChatState>]>`로 쓴다. T9·T10은 `activeKey`와 엔트리를 되돌려야 다음 케이스의 `getState() === initial` 단언이 선다.
+
+### ΔV1 self-review
+
+- [x] D1 6자리 처리 — N12 → T2 · N6 → T6 · N9a·N9b → T11·T12 · N7·N8 → T7·T8(기존 좌표, 재측정). 같은 술어의 나머지 직접 항(H1·H3·H4·H5·P2·P3)도 한 번에 열거했다.
+- [x] 채택 자리마다 규칙 분기 · 입력 · 기대 · 좌표 · 변이가 있다 — EP-05 규칙 12분기 ↔ 표 12행.
+- [x] 자리 검색 명령을 이 턴에 실행했다 — `chatStore.ts` 11줄(`:1559·1560·1561·1613·1615·1616·1619·1621·1718·1752·1753`) · `useDirectoryPicker.ts` 5줄(`:42~46`) → 제외 4 → 12, 표와 차집합 0.
+- [x] 경계 2건은 측정 근거를 적었다 — W3-B3 SSR 정리 효과 미실행 · 의존성 0(`package.json` 검색) · P1 변이 / W3-B4 재측정 표.
+- [x] 인용 실재: `ConversationStatus.tsx:58-64` · `chatStore.harness.test.ts:'rejects OpenCode continuity through %s'` · `chatStore.native-history.test.ts` 케이스명 · `chatStore.testHarness.ts:69·75` 기본값 · `shared/harness.ts:21` OpenCode `continuity: false`.
+- [x] 확장 창: verify 1회째 뒤의 설계 턴이라 채택이 허용된다. 다음 verify가 2회째 — 창 안 마지막이다.
+- [x] 고친 AC 네 행이 §5 AC 게이트를 다시 통과한다 — 행마다 동작 기준 · 검증 수단 · 도달 경로, 음성 기준은 양성 대조와 짝.
+- [x] 구현 가능성 — 위 시제작으로 새 입력·등록 변이·타입 검사를 이 턴에 관측했다.
 
 ---
 
