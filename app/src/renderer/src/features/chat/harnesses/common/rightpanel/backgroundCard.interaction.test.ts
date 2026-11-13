@@ -111,14 +111,14 @@ function canonicalState(): BackgroundSessionState {
   return state
 }
 
-function canonicalCards(): Props[] {
+function canonicalCards(state = canonicalState()): Props[] {
   const initial = useChatStore.getInitialState()
   const session = initial.sessions[initial.activeKey].session
   const priorId = session.sessionId
   const backgrounds = useBackgroundStore.getInitialState()
   const priorViews = backgrounds.sessions
   session.sessionId = 's'
-  backgrounds.sessions = { s: { state: canonicalState(), loading: false } }
+  backgrounds.sessions = { s: { state, loading: false } }
   try {
     return cards(() => renderToStaticMarkup(createElement(CanonicalBackgroundContent)))
   } finally {
@@ -179,6 +179,25 @@ describe('0319 W1 — background card keyboard and click', () => {
     expect(select.mock.calls).toEqual([['legacy-run']])
     for (const card of canonicalCards()) (card.onClick as () => void)()
     expect(vi.mocked(selectBackgroundItem).mock.calls).toEqual(OPENED_CANONICAL)
+  })
+
+  // 세대 속성은 카드가 그리는 레코드의 세대다 — 세션의 현재 세대와 다른 입력이어야 둘을 가른다.
+  it('carries the record generation, not the session generation', () => {
+    const state = applyBackgroundEvent(canonicalState(), {
+      type: 'background.connection',
+      sessionId: 's',
+      state: 'connected',
+      source: { generation: 'gen-next', sequence: 3, receivedAt: 3, replay: false }
+    })
+    expect(state.generation).toBe('gen-next')
+    const generations = canonicalCards(state).map((card) => [
+      card['data-background-task'] ?? card['data-background-call'],
+      card['data-background-generation']
+    ])
+    expect(generations).toEqual([
+      ['task-keys', 'gen-keys'],
+      ['call-keys', 'gen-keys']
+    ])
   })
 
   it('a task card rendered without onOpen only prevents its own Enter', () => {
