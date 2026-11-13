@@ -97,7 +97,7 @@
      "W-04"
     ]
    },
-   "basis": "1-325 전부 읽음. L6: 입력칸 판정 3회(W-03) · 한 칸 교체 조립 3회(W-04) — 둘 다 이 컴포넌트를 지나는 테스트가 없어 UI 칸에 걸린다. X3: `built`·`canSubmit`·`isLast` 는 렌더마다 파생한다(저장 상태 아님). X1: `onSubmit` 의 둘째 인자 `response` 는 여기서 넘기지 않으나 타입은 호출자 계약이다. L5: 반대 하네스 `opencode/composer/QuestionDock.tsx` 와의 상태 로직 2벌은 0305 C-35 로 이미 올랐고 닫혔다(CLOSED, 0314 D-004) — 다시 올리지 않는다"
+   "basis": "1-325 전부 읽음. L6: 입력칸 판정 3회(W-03) · 한 칸 교체 조립 3회(W-04) — 둘 다 바꿀 분기를 실행하는 테스트가 없어 UI 칸에 걸린다(렌더하는 테스트는 부모 Composer 경유 3파일 7회 — W-03 UI 칸). X3: `built`·`canSubmit`·`isLast` 는 렌더마다 파생한다(저장 상태 아님). X1: `onSubmit` 의 둘째 인자 `response` 는 여기서 넘기지 않으나 타입은 호출자 계약이다. L5: 반대 하네스 `opencode/composer/QuestionDock.tsx` 와의 상태 로직 2벌은 0305 C-35 로 이미 올랐고 닫혔다(CLOSED, 0314 D-004) — 다시 올리지 않는다"
   },
   {
    "id": "F06",
@@ -116,7 +116,7 @@
      "W-05"
     ]
    },
-   "basis": "1-410 전부 읽음. L6: 작업별 호출·대화록 찾기 되풀이(W-05, 핫패스). X5: `DISPLAY_LABEL` 은 12칸 중 11칸이 `background.<상태>` 그대로지만 0096 라벨맵 패턴(shared/i18n/index.ts:46-47 — 키를 타입으로 잠근다)이라 남긴다. X6: 그 밖의 반복 계산 없음. L5: `opencode/rightpanel/` 에 정본 백그라운드 표시가 없다(`git grep -l useBackgroundStore 1168b67 -- app/src/renderer/src/features/chat/harnesses/opencode` → 0) — 짝 없음. 관찰 O-6: `BackgroundTaskCard`·`BackgroundCallCard` 의 카드 틀(role=button div · 점+제목 행)이 같다 — 두 자리만으로는 틀 컴포넌트가 더 길다(약 −4줄), 셋째 자리(F07)는 키 판정이 달라 합치지 못한다"
+   "basis": "1-410 전부 읽음. L6: 작업별 호출·대화록 찾기 되풀이(W-05, 핫패스). X5: `DISPLAY_LABEL` 은 12칸 중 11칸이 `background.<상태>` 그대로지만 0096 라벨맵 패턴(shared/i18n/index.ts:46-47 — 키를 타입으로 잠근다)이라 남긴다. X6: 그 밖의 반복 계산 없음. L5: `git grep -l useBackgroundStore 1168b67 -- app/src/renderer/src/features/chat/harnesses/opencode` → 2파일(`rightpanel/tiles.tsx` · `rightpanel/tiles.memo.test.ts`). prod 인 `tiles.tsx:22` 는 저장소 상태를 `sessionPanelModel(messages, background)`(:30)의 입력으로 넘기는 소비자이고 작업·호출 카드를 그리는 정본 백그라운드 표시가 아니다 — 짝 없음. 관찰 O-6: `BackgroundTaskCard`·`BackgroundCallCard` 의 카드 틀(role=button div · 점+제목 행)이 같다 — 두 자리만으로는 틀 컴포넌트가 더 길다(약 −4줄), 셋째 자리(F07)는 키 판정이 달라 합치지 못한다"
   },
   {
    "id": "F07",
@@ -169,7 +169,7 @@
     "L5": "none",
     "L6": "none"
    },
-   "basis": "1-1425 읽음(150자 넘는 6줄은 앞 150자만). 판정 단위 0 — `export const en: typeof ko` 는 P5 에 걸리지 않는다. 키 1,173개가 `ko.ts` 와 같은 집합이다(파서 대조 차집합 0 · `typeof ko` 가 컴파일 타임에 강제). L1: 미사용 키 후보는 F10 이 갖는다(W-07~W-12 의 자리에 이 파일 줄이 함께 든다). L6: 같은 값이 여러 키에 있는 문구 88개(관련 키 223개)는 표면별 이름공간 + 동적 접두사 소비라 F10 과 같은 이유로 후보가 아니다. L5: 하네스 공용(`shared/`). X1~X8: 문자열 표라 해당 형태 없음"
+   "basis": "1-1425 읽음(150자 넘는 6줄은 앞 150자만). 판정 단위 0 — `export const en: typeof ko` 는 P5 에 걸리지 않는다. 키 1,173개가 `ko.ts` 와 같은 집합이다(파서 대조 차집합 0 · `typeof ko` 가 컴파일 타임에 강제). L1: 미사용 키 후보는 F10 이 갖는다(W-07~W-12 의 자리에 이 파일 줄이 함께 든다). L6: 같은 값이 여러 키에 있는 문구 89개(관련 키 228개 — 세는 법은 audit.md §6)는 표면별 이름공간 + 동적 접두사 소비라 F10 과 같은 이유로 후보가 아니다. L5: 하네스 공용(`shared/`). X1~X8: 문자열 표라 해당 형태 없음"
   },
   {
    "id": "F10",
@@ -193,7 +193,7 @@
     "L5": "none",
     "L6": "none"
    },
-   "basis": "1-1434 전부 읽음. L1: 읽는 곳 없는 키 55개(W-07~W-12) — 절차는 동적 접두사 목록 → 정적 참조 0 → 접두사 대조이고 `node docs/handoff/0317-wide-bloat-audit-stage1/scan/check.mjs --i18n` 이 한 번에 재현한다. 동적 접두사: `git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄 16개, 그중 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`). 키(복수형 접미사 뗌) 1,161개 중 prod 정적 참조(문자열 · 멤버 체인 · 조상 문자열 · ko/en 조상 객체)가 있는 키 1,004 · 0인 키 157 — 그중 102개는 이 접두사로 쓰여 후보가 아니다(`background.` 30 · `errors.toast.` 21 · `chat.nativeResources.` 10 등) · 남은 55개가 후보이고 후보 키 집합과 양방향 차집합 ∅. r1 의 164·109 는 `chat.activity.*` 7키를 참조 0 · 접두사 쪽으로 센 값이다 — 이 도구는 IPC 채널 이름 `'chat.activity'` 와의 조상 문자열 일치로 '참조 있음'에 센다(어느 쪽이든 후보 밖). L6: 같은 값이 여러 키에 있는 문구 100개(관련 키 249개 — `'실행 중'` 7키 · `'완료'` 7키)는 표면마다 이름공간을 나눈 것이고 상태 라벨 묶음은 표면별 동적 접두사(`background.` · `chat.opencode.panel.processStatus.` · `chat.toolMeta.agentStatus.`)로 읽힌다 — 합치면 표면마다 키 변환이 필요해 감량이 0 이하. X1~X8: 문자열 표라 해당 형태 없음. L5: 하네스 공용"
+   "basis": "1-1434 전부 읽음. L1: 읽는 곳 없는 키 55개(W-07~W-12) — 절차는 동적 접두사 목록 → 정적 참조 0 → 접두사 대조이고 `node docs/handoff/0317-wide-bloat-audit-stage1/scan/check.mjs --i18n` 이 한 번에 재현한다. 동적 접두사: `git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄 16개, 그중 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`). 키(복수형 접미사 뗌) 1,161개 중 prod 정적 참조(문자열 · 멤버 체인 · 조상 문자열 · ko/en 조상 객체)가 있는 키 1,004 · 0인 키 157 — 그중 102개는 이 접두사로 쓰여 후보가 아니다(`background.` 30 · `errors.toast.` 21 · `chat.nativeResources.` 10 등) · 남은 55개가 후보이고 후보 키 집합과 양방향 차집합 ∅. r1 의 164·109 는 `chat.activity.*` 7키를 참조 0 · 접두사 쪽으로 센 값이다 — 이 도구는 IPC 채널 이름 `'chat.activity'` 와의 조상 문자열 일치로 '참조 있음'에 센다(어느 쪽이든 후보 밖). L6: 같은 값이 여러 키에 있는 문구 100개(관련 키 252개 — `'실행 중'` 7키 · `'완료'` 7키 · 세는 법은 audit.md §6)는 표면마다 이름공간을 나눈 것이고 상태 라벨 묶음은 표면별 동적 접두사(`background.` · `chat.opencode.panel.processStatus.` · `chat.toolMeta.agentStatus.`)로 읽힌다 — 합치면 표면마다 키 변환이 필요해 감량이 0 이하. X1~X8: 문자열 표라 해당 형태 없음. L5: 하네스 공용"
   },
   {
    "id": "F11",
@@ -292,7 +292,7 @@
    "l6": [
     "W-01"
    ],
-   "basis": "폴더·환경 조립 3·2회(W-01) · `git grep -w 'client'`(test 제외): adapter.ts 14줄 · main 타 파일 15 · renderer+shared 2파일"
+   "basis": "폴더·환경 조립 3·2회(W-01) · `git grep -w 'client'`(test 제외): adapter.ts 14줄 · main 타 파일 17 · renderer+shared 3파일"
   },
   {
    "area": "F01",
@@ -340,13 +340,13 @@
    "area": "F02",
    "name": "probe",
    "l6": "none",
-   "basis": "타입 멤버 선언(13) — 구현은 36-63 · `git grep -w 'probe'`(test 제외): discovery-cache.ts 6줄 · main 타 파일 30 · renderer+shared 2파일"
+   "basis": "타입 멤버 선언(13) — 구현은 36-63 · `git grep -w 'probe'`(test 제외): discovery-cache.ts 6줄 · main 타 파일 31 · renderer+shared 2파일"
   },
   {
    "area": "F02",
    "name": "context",
    "l6": "none",
-   "basis": "`git grep -w 'context'`(test 제외): discovery-cache.ts 4줄 · main 타 파일 56 · renderer+shared 36파일"
+   "basis": "`git grep -w 'context'`(test 제외): discovery-cache.ts 4줄 · main 타 파일 57 · renderer+shared 36파일"
   },
   {
    "area": "F02",
@@ -773,7 +773,7 @@
    "area": "F10",
    "name": "ko",
    "l6": "none",
-   "basis": "리소스 표 전체 — 같은 값 문구는 구간 근거(표면별 이름공간) · `git grep -w 'ko'`(test 제외): ko.ts 4줄 · renderer 타 파일 9 · main+shared 7파일"
+   "basis": "리소스 표 전체 — 같은 값 문구는 구간 근거(표면별 이름공간) · `git grep -w 'ko'`(test 제외): ko.ts 4줄 · renderer 타 파일 10 · main+shared 7파일"
   },
   {
    "area": "F11",
@@ -887,7 +887,7 @@
     },
     "formLock": {
      "verdict": "blocks",
-     "evidence": "`git grep -l 'readVersion:' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.testfixture.ts'` → 6파일(server.test.ts · server.list-models.test.ts · server.database-path.test.ts · adapter.test.ts · adapter.instances.test.ts · opencode-retention.testfixture.ts)이 `readVersion` 칸으로 버전을 주입한다. server.test.ts:235·244 는 `readVersion` 호출 횟수를 단언한다"
+     "evidence": "`git grep -l 'readVersion:' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.testfixture.ts'` → 7파일(server.test.ts · server.list-models.test.ts · server.database-path.test.ts · adapter.test.ts · adapter.instances.test.ts · opencode-retention.testfixture.ts · app/chat-turn/opencode-runtime.test.ts)이 `readVersion` 칸으로 버전을 주입한다. server.test.ts:235·244 는 `readVersion` 호출 횟수를 단언한다"
     },
     "agentsRule": {
      "verdict": "clear",
@@ -897,7 +897,7 @@
    "conditions": {
     "ui": {
      "verdict": "safe",
-     "evidence": "prod 조립은 두 칸을 모두 비운다(`git grep -n -E \"readVersion|runCli\" 1168b67 -- app/src` 의 non-test 자리는 server.ts 뿐) — 화면 동작은 그대로다"
+     "evidence": "prod 조립은 두 칸을 모두 비운다(`git grep -n -E \"readVersion|runCli\" 1168b67 -- app/src` → 56줄, non-test 는 server.ts 8줄 · app/updater.ts 3줄이고 `updater.ts:75` 의 `readVersion(info)` 는 업데이트 정보에서 버전을 읽는 다른 함수다 — 주입 칸을 채우는 non-test 자리 0) — 화면 동작은 그대로다"
     },
     "perf": {
      "verdict": "equal_or_better",
@@ -1067,7 +1067,7 @@
     },
     "agentsRule": {
      "verdict": "clear",
-     "evidence": "`git grep -n -E 'setViewOpen|GitContextBar' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → docs/arch/frontend/design-components.md:193 카탈로그 행 1줄(형태 규칙 아님) · state.md:113 은 새로 고침의 조회 범위만 정한다"
+     "evidence": "`git grep -n -E 'setViewOpen|GitContextBar' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → 3줄 — docs/arch/frontend/design-components.md:193 카탈로그 행(형태 규칙 아님) · rendering.md:233 은 확대 상태를 헤더 props 로 전달받는다는 것만 · state.md:113 은 새로 고침의 조회 범위만 정한다"
     }
    },
    "conditions": {
