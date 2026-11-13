@@ -3,7 +3,7 @@
 // 계약 정본: ../plan.md §10 (EP-01~EP-10). 0315 scan/check.mjs 를 복사해 plan §11 의 차이 7행만 고쳤다. 순수 함수는 git·파일 시스템을 받지 않는다.
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const BASE = '1168b67'
@@ -484,6 +484,363 @@ export function check(data, facts) {
   return { violations, pending }
 }
 
+// ── i18n 미사용 키 근거(D-016 · plan §9 i18n 표) ────────────────────────────
+// check()(K1~K12)와 별개인 근거 생성 도구다(r2 — verify r1 발견 1). 키가 참조되는 형태를 형태별로
+// 세어 후보 근거의 "참조 0" 주장을 재실행 가능한 명령(`--i18n`) 하나로 만든다.
+
+const lineIndex = (text) => {
+  const starts = [0]
+  for (let i = 0; i < text.length; i++) if (text[i] === '\n') starts.push(i + 1)
+  return (pos) => {
+    let lo = 0
+    let hi = starts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (starts[mid] <= pos) lo = mid
+      else hi = mid - 1
+    }
+    return lo + 1
+  }
+}
+const IDENT = /[A-Za-z_$][\w$]*/y
+
+function skipQuoted(text, i) {
+  for (let j = i + 1; j < text.length; j++) {
+    if (text[j] === '\\') j++
+    else if (text[j] === text[i]) return j + 1
+    else if (text[j] === '\n') break
+  }
+  throw new Error(`닫히지 않은 문자열 @${i}`)
+}
+function skipTemplate(text, i) {
+  for (let j = i + 1; j < text.length; j++) {
+    if (text[j] === '\\') j++
+    else if (text[j] === '`') return j + 1
+    else if (text[j] === '$' && text[j + 1] === '{') j = skipBalanced(text, j + 1) - 1
+  }
+  throw new Error(`닫히지 않은 템플릿 @${i}`)
+}
+function skipComment(text, j) {
+  if (text[j] !== '/') return j
+  if (text[j + 1] === '/') {
+    const end = text.indexOf('\n', j)
+    return end < 0 ? text.length : end
+  }
+  if (text[j + 1] === '*') {
+    const end = text.indexOf('*/', j + 2)
+    if (end < 0) throw new Error(`닫히지 않은 주석 @${j}`)
+    return end + 2
+  }
+  return j
+}
+function skipBalanced(text, i) {
+  let depth = 0
+  for (let j = i; j < text.length; j++) {
+    const c = text[j]
+    const after = skipComment(text, j)
+    if (after !== j) j = after - 1
+    else if (c === "'" || c === '"') j = skipQuoted(text, j) - 1
+    else if (c === '`') j = skipTemplate(text, j) - 1
+    else if ('{(['.includes(c)) depth++
+    else if ('})]'.includes(c) && --depth === 0) return j + 1
+  }
+  throw new Error(`닫히지 않은 괄호 @${i}`)
+}
+function skipWs(text, i) {
+  for (;;) {
+    while (i < text.length && /\s/.test(text[i])) i++
+    const after = skipComment(text, i)
+    if (after === i) return i
+    i = after
+  }
+}
+/** 값 식의 끝(마지막 토큰 다음 위치). 깊이 0 의 `,`·`}` 에서 멈춘다 · `satisfies`/`as` 뒤 타입의 `<>` 는 괄호로 센다. */
+function skipValue(text, i) {
+  let j = i
+  let last = i
+  let typeMode = false
+  let angle = 0
+  while (j < text.length) {
+    const c = text[j]
+    const after = skipComment(text, j)
+    if (/\s/.test(c)) j++
+    else if (after !== j) j = after
+    else if (angle === 0 && (c === ',' || c === '}')) break
+    else {
+      if (c === "'" || c === '"') j = skipQuoted(text, j)
+      else if (c === '`') j = skipTemplate(text, j)
+      else if ('{(['.includes(c)) j = skipBalanced(text, j)
+      else if (typeMode && (c === '<' || c === '>')) {
+        angle += c === '<' ? 1 : -1
+        j++
+      } else if (/[A-Za-z_$]/.test(c)) {
+        IDENT.lastIndex = j
+        const word = IDENT.exec(text)[0]
+        if (word === 'satisfies' || word === 'as') typeMode = true
+        j += word.length
+      } else j++
+      last = j
+    }
+  }
+  return last
+}
+
+/**
+ * 카탈로그 본문(`export const <이름>[: 타입] = { … }`)의 잎 키와 객체를 줄 범위와 함께 낸다.
+ * 키는 식별자 또는 따옴표 문자열 · 값은 문자열·템플릿·객체·그 밖의 식. 펼침·계산 키·축약 속성은 모르는 형태라 throw 한다.
+ */
+export function catalogTree(text) {
+  const head = /export const (\w+)(?:\s*:[^=]*)?\s*=\s*\{/.exec(text)
+  if (!head) throw new Error('카탈로그 선언이 없다')
+  const lineOf = lineIndex(text)
+  const leaves = []
+  const objects = []
+  const parseObject = (open, path, keyAt) => {
+    let i = open + 1
+    for (;;) {
+      i = skipWs(text, i)
+      if (text[i] === '}') {
+        if (path) objects.push({ path, from: lineOf(keyAt), to: lineOf(i) })
+        return i + 1
+      }
+      if (text[i] === ',') {
+        i++
+        continue
+      }
+      const keyAt2 = i
+      let key
+      if (text[i] === "'" || text[i] === '"') {
+        const end = skipQuoted(text, i)
+        key = text.slice(i + 1, end - 1)
+        i = end
+      } else {
+        IDENT.lastIndex = i
+        const m = IDENT.exec(text)
+        if (!m || m.index !== i) throw new Error(`모르는 속성 형태 @${lineOf(i)}줄`)
+        key = m[0]
+        i += key.length
+      }
+      i = skipWs(text, i)
+      if (text[i] !== ':') throw new Error(`모르는 속성 형태(콜론 없음) @${lineOf(i)}줄`)
+      i = skipWs(text, i + 1)
+      const child = path ? `${path}.${key}` : key
+      if (text[i] === '{') i = skipValue(text, parseObject(i, child, keyAt2))
+      else {
+        const end = skipValue(text, i)
+        leaves.push({ path: child, from: lineOf(keyAt2), to: lineOf(end - 1), value: text.slice(i, end) })
+        i = end
+      }
+    }
+  }
+  parseObject(head.index + head[0].length - 1, '', head.index)
+  return { name: head[1], leaves, objects }
+}
+
+/**
+ * 잎 키 집합을 지울 때 사라지는 줄. 같은 줄에 남는 속성이 있으면 그 줄은 남고, 자식이 전부 지워진 객체는 함께 지운다.
+ * 주석·빈 줄은 세지 않는다. 반환 `{ lines, sites(키마다 첫 줄), missing(카탈로그에 없는 키), objects(함께 지워지는 객체) }`.
+ */
+export function catalogRemoval(tree, keys) {
+  const leafByPath = new Map(tree.leaves.map((l) => [l.path, l]))
+  const present = keys.filter((k) => leafByPath.has(k))
+  const removed = new Set(present)
+  const parentOf = (p) => (p.includes('.') ? p.slice(0, p.lastIndexOf('.')) : '')
+  const children = new Map()
+  for (const n of [...tree.leaves, ...tree.objects]) {
+    const parent = parentOf(n.path)
+    if (!children.has(parent)) children.set(parent, [])
+    children.get(parent).push(n.path)
+  }
+  const deepestFirst = [...tree.objects].sort((a, b) => b.path.split('.').length - a.path.split('.').length)
+  for (const o of deepestFirst) {
+    const ch = children.get(o.path) ?? []
+    if (ch.length > 0 && ch.every((c) => removed.has(c))) removed.add(o.path)
+  }
+  const occupants = new Map()
+  const occupy = (line, id) => {
+    if (!occupants.has(line)) occupants.set(line, new Set())
+    occupants.get(line).add(id)
+  }
+  for (const l of tree.leaves) for (let n = l.from; n <= l.to; n++) occupy(n, l.path)
+  for (const o of tree.objects) {
+    occupy(o.from, o.path)
+    occupy(o.to, o.path)
+  }
+  const lines = [...occupants]
+    .filter(([, ids]) => [...ids].every((id) => removed.has(id)))
+    .map(([n]) => n)
+    .sort((a, b) => a - b)
+  return {
+    lines,
+    sites: present.map((k) => leafByPath.get(k).from),
+    missing: keys.filter((k) => !leafByPath.has(k)),
+    objects: tree.objects.filter((o) => removed.has(o.path)).map((o) => o.path)
+  }
+}
+
+/**
+ * 잎 키를 지운 카탈로그 본문 — catalogRemoval 의 줄을 빼고, 본문에서 더 쓰지 않는 이름 import(`import { … } from`)를
+ * 목록에서 뺀다(목록이 비면 그 줄을 지운다). 반환 `{ text, lines, droppedImports }`.
+ */
+export function stripCatalog(text, keys) {
+  const { lines } = catalogRemoval(catalogTree(text), keys)
+  const drop = new Set(lines)
+  const kept = text.split('\n').filter((_, i) => !drop.has(i + 1))
+  const droppedImports = []
+  const out = []
+  for (let i = 0; i < kept.length; i++) {
+    const m = /^import \{([^}]*)\} from (.+)$/.exec(kept[i])
+    if (!m) {
+      out.push(kept[i])
+      continue
+    }
+    const rest = [...kept.slice(0, i), ...kept.slice(i + 1)].join('\n')
+    const specs = m[1].split(',').map((s) => s.trim()).filter(Boolean)
+    const keep = specs.filter((s) => new RegExp(`\\b${s.split(/\s+as\s+/).pop().replace(/^type\s+/, '')}\\b`).test(rest))
+    droppedImports.push(...specs.filter((s) => !keep.includes(s)))
+    if (keep.length > 0) out.push(keep.length === specs.length ? kept[i] : `import { ${keep.join(', ')} } from ${m[2]}`)
+  }
+  return { text: out.join('\n'), lines, droppedImports }
+}
+
+/**
+ * 본문의 두 보기(길이·줄바꿈 보존). comments: 주석만 공백 · code: 주석과 문자열·템플릿 정적 부분까지 공백(`${…}` 안은 코드로 둔다).
+ * 같은 줄에서 닫히지 않는 따옴표·닫히지 않는 백틱은 문자로 본다(정규식 리터럴 안의 따옴표).
+ */
+export function codeViews(text) {
+  const comments = text.split('')
+  const code = text.split('')
+  const blank = (arr, from, to) => {
+    for (let k = from; k < to; k++) if (arr[k] !== '\n') arr[k] = ' '
+  }
+  const scanTemplate = (i) => {
+    const marks = []
+    let j = i + 1
+    let segStart = j
+    while (j < text.length) {
+      if (text[j] === '\\') j += 2
+      else if (text[j] === '`') {
+        marks.push([segStart, j])
+        for (const [a, b] of marks) blank(code, a, b)
+        return j + 1
+      } else if (text[j] === '$' && text[j + 1] === '{') {
+        marks.push([segStart, j])
+        j = scanCode(j + 2, true)
+        segStart = j
+      } else j++
+    }
+    return i + 1
+  }
+  const scanCode = (i, inExpr) => {
+    let depth = 0
+    while (i < text.length) {
+      const ch = text[i]
+      if (ch === '/' && (text[i + 1] === '/' || text[i + 1] === '*')) {
+        const end = skipComment(text, i)
+        blank(comments, i, end)
+        blank(code, i, end)
+        i = end
+      } else if (ch === "'" || ch === '"') {
+        let j = i + 1
+        while (j < text.length && text[j] !== ch && text[j] !== '\n') j += text[j] === '\\' ? 2 : 1
+        if (text[j] === ch) {
+          const index = /\[\s*$/.test(text.slice(Math.max(0, i - 8), i)) && /^\s*\]/.test(text.slice(j + 1, j + 9))
+          if (!index) blank(code, i + 1, j)
+          i = j + 1
+        } else i++
+      } else if (ch === '`') i = scanTemplate(i)
+      else {
+        if (inExpr && ch === '{') depth++
+        else if (inExpr && ch === '}') {
+          if (depth === 0) return i + 1
+          depth--
+        }
+        i++
+      }
+    }
+    return i
+  }
+  scanCode(0, false)
+  return { comments: comments.join(''), code: code.join('') }
+}
+
+const CHAIN = /[A-Za-z_$][\w$]*(?:\s*\??\.\s*[A-Za-z_$][\w$]*|\s*(?:\?\.)?\[\s*(['"])[\w$-]+\1\s*\])+/g
+const CHAIN_SPLIT = /\s*\??\.\s*|\s*(?:\?\.)?\[\s*['"]|['"]\s*\]/
+/** 리소스 객체로 보는 루트 이름 — 조상 객체 통째·계산 접근 형태(`ancestorProp`)에만 쓴다. */
+export const CATALOG_ROOTS = ['ko', 'en']
+
+/**
+ * 키 모양 표식 색인. 코드(`.md` 밖): 점을 담은 따옴표 문자열 · 멤버 체인(점·`?.`·정적 대괄호) · 템플릿 머리/꼬리.
+ * 문서(`.md`): 점 경로 낱말. `files` = [{path, text}].
+ */
+export function refIndex(files) {
+  const idx = { strings: new Map(), chains: new Map(), rooted: new Map(), heads: [], tails: [], words: new Map() }
+  const put = (map, k, loc) => {
+    if (!map.has(k)) map.set(k, [])
+    map.get(k).push(loc)
+  }
+  for (const { path, text } of files) {
+    const lineOf = lineIndex(text)
+    if (path.endsWith('.md')) {
+      for (const m of text.matchAll(/(?<![\w$./-])[A-Za-z_$][\w$-]*(?:\.[A-Za-z_$][\w$-]*)+(?:\.\*)?/g))
+        put(idx.words, m[0], { path, line: lineOf(m.index), text: m[0] })
+      continue
+    }
+    const view = codeViews(text)
+    for (const m of view.comments.matchAll(/(['"`])([\w.:-]+)\1/g)) if (m[2].includes('.')) put(idx.strings, m[2], { path, line: lineOf(m.index), text: m[0] })
+    for (const m of view.code.matchAll(CHAIN)) {
+      const segs = m[0].split(CHAIN_SPLIT).filter(Boolean)
+      const loc = { path, line: lineOf(m.index), text: m[0].replace(/\s+/g, '') }
+      for (let a = 0; a < segs.length; a++) for (let b = a + 2; b <= segs.length; b++) put(idx.chains, segs.slice(a, b).join('.'), loc)
+      if (CATALOG_ROOTS.includes(segs[0])) put(idx.rooted, segs.slice(1).join('.'), loc)
+    }
+    for (const m of view.comments.matchAll(/`([\w.:-]*)\$\{/g)) if (m[1].includes('.')) idx.heads.push({ path, line: lineOf(m.index), head: m[1] })
+    for (const m of view.comments.matchAll(/\}([\w.:-]*)`/g)) if (m[1].startsWith('.') && m[1].length > 1) idx.tails.push({ path, line: lineOf(m.index), tail: m[1] })
+  }
+  return idx
+}
+
+const PLURAL = ['', '_zero', '_one', '_two', '_few', '_many', '_other', '_plural']
+/** 형태 이름 — 정적 참조(STATIC) · 템플릿 조립(TEMPLATE) · 문서 언급(DOC). */
+export const REF_FORMS = {
+  STATIC: ['string', 'prop', 'ancestorString', 'ancestorProp'],
+  TEMPLATE: ['templateHead', 'templateHeadLoose', 'templateTail'],
+  DOC: ['bare', 'bareAncestor']
+}
+
+/**
+ * 키 하나가 색인에 나타나는 자리를 형태별로 낸다.
+ * string: 키 경로와 같은 따옴표 문자열(복수형 접미사 · `translation:` 접두 포함) · prop: 키 경로를 담은 멤버 체인(루트 무관) ·
+ * ancestorString: 조상 경로 문자열(2단 이상은 그대로, 1단은 끝 점 붙은 것만 — 끝 점 형태는 2단 이상도) ·
+ * ancestorProp: ko/en 에서 시작해 조상에서 끝나는 체인(통째·계산 접근) · templateHead: 점으로 끝나는 머리(plan §9 1단계 형태) ·
+ * templateHeadLoose: 점을 담되 점으로 끝나지 않는 머리 · templateTail: 점으로 시작하는 꼬리 · bare/bareAncestor: 문서 낱말.
+ */
+export function i18nRefs(idx, key) {
+  const segs = key.split('.')
+  const ancestors = segs.slice(0, -1).map((_, i) => segs.slice(0, i + 1).join('.'))
+  const hits = []
+  const add = (form, locs) => {
+    for (const loc of locs ?? []) hits.push({ form, ...loc })
+  }
+  for (const v of [...PLURAL.map((s) => key + s), `translation:${key}`]) add('string', idx.strings.get(v))
+  add('prop', idx.chains.get(key))
+  for (const a of ancestors) {
+    if (a.includes('.')) add('ancestorString', idx.strings.get(a))
+    add('ancestorString', idx.strings.get(`${a}.`))
+    add('ancestorProp', idx.rooted.get(a))
+  }
+  for (const h of idx.heads)
+    if (key.startsWith(h.head)) hits.push({ form: h.head.endsWith('.') ? 'templateHead' : 'templateHeadLoose', path: h.path, line: h.line, text: h.head })
+  for (const t of idx.tails) if (key.endsWith(t.tail)) hits.push({ form: 'templateTail', path: t.path, line: t.line, text: t.tail })
+  add('bare', idx.words.get(key))
+  for (const [word, locs] of idx.words) if (word.endsWith(`.${key}`)) add('bare', locs)
+  for (const a of ancestors.filter((x) => x.includes('.'))) {
+    add('bareAncestor', idx.words.get(a))
+    add('bareAncestor', idx.words.get(`${a}.*`))
+  }
+  return hits
+}
+
 // ── CLI 껍질 ────────────────────────────────────────────────────────────────
 function main(argv) {
   const here = dirname(fileURLToPath(import.meta.url))
@@ -522,6 +879,8 @@ function main(argv) {
   const dataPath = join(root, 'data', 'audit.json')
   const mdPath = join(root, 'audit.md')
   const data = JSON.parse(readFileSync(dataPath, 'utf8'))
+  if (mode === '--i18n') return i18nReport({ repo, fileAt, data })
+  if (mode === '--i18n-strip') return i18nStrip({ repo, fileAt, data, args: argv.slice(1) })
   if (mode === '--ruling') {
     console.log(JSON.stringify(ruling(data.candidates ?? []), null, 2))
     return 0
@@ -540,8 +899,182 @@ function main(argv) {
     )
     return violations.length === 0 ? 0 : 1
   }
-  console.error('usage: check.mjs --check | --write | --units | --ruling | --targets')
+  console.error('usage: check.mjs --check | --write | --units | --ruling | --targets | --i18n')
   return 2
+}
+
+/**
+ * `--i18n-strip <app 디렉터리> <W-ID…|all> [--except 키,키]` — 삭제 실험용. 기준 커밋의 ko.ts·en.ts 에서 고른 i18n 후보 키를
+ * 지운 본문을 그 디렉터리(기준 커밋 사본)에 쓴다. 지운 뒤 다시 파싱해 "남은 키 = 전체 − 지운 잎"을 양방향 차집합으로 본다.
+ */
+function i18nStrip({ repo, fileAt, data, args }) {
+  const [dir, ...rest] = args
+  const exceptAt = rest.indexOf('--except')
+  const except = exceptAt >= 0 ? rest[exceptAt + 1].split(',') : []
+  const ids = rest.filter((x, i) => !x.startsWith('--') && !(exceptAt >= 0 && i === exceptAt + 1))
+  if (!dir || ids.length === 0) {
+    console.error('usage: check.mjs --i18n-strip <app 디렉터리> <W-ID…|all> [--except 키,키]')
+    return 2
+  }
+  if (resolve(dir) === join(repo, 'app') || !existsSync(join(dir, `${S}i18n/resources/ko.ts`.replace(/^app\//, '')))) {
+    console.error('기준 커밋 사본의 app 디렉터리만 받는다(작업 트리 app/ · 리소스 파일이 없는 디렉터리는 거부)')
+    return 2
+  }
+  const picked = data.candidates.filter((c) => Array.isArray(c.i18nKeys) && (ids.includes('all') || ids.includes(c.id)))
+  const bases = picked.flatMap((c) => c.i18nKeys).filter((k) => !except.includes(k))
+  let ok = true
+  for (const name of ['ko', 'en']) {
+    const path = `${S}i18n/resources/${name}.ts`
+    const text = fileAt(path)
+    const all = catalogTree(text).leaves.map((l) => l.path)
+    const leaves = all.filter((p) => bases.includes(p.replace(/_(?:zero|one|two|few|many|other)$/, '')))
+    const stripped = stripCatalog(text, leaves)
+    const left = catalogTree(stripped.text).leaves.map((l) => l.path)
+    const expected = all.filter((p) => !leaves.includes(p))
+    const gap = expected.filter((p) => !left.includes(p)).length + left.filter((p) => !expected.includes(p)).length
+    if (gap > 0 || leaves.length !== bases.length) ok = false
+    writeFileSync(join(dir, path.replace(/^app\//, '')), stripped.text)
+    console.log(`${name}.ts: 후보 ${picked.map((c) => c.id).join(',')} · 키 ${bases.length} · 잎 ${leaves.length} · 삭제 줄 ${stripped.lines.length} · 뺀 import ${stripped.droppedImports.join(',') || '없음'} · 남은 잎 ${left.length} · 기대와 차집합 ${gap}`)
+  }
+  return ok ? 0 : 1
+}
+
+/** `--i18n` — i18n 미사용 키 근거 보고(기준 커밋 트리 · prod/test/rule 세 범위). */
+function i18nReport({ repo, fileAt, data }) {
+  const KO = `${S}i18n/resources/ko.ts`
+  const EN = `${S}i18n/resources/en.ts`
+  const koTree = catalogTree(fileAt(KO))
+  const enTree = catalogTree(fileAt(EN))
+  const koKeys = koTree.leaves.map((l) => l.path)
+  const enKeys = enTree.leaves.map((l) => l.path)
+  const diff = (a, b) => a.filter((x) => !new Set(b).has(x))
+  const ls = (...paths) =>
+    execFileSync('git', ['ls-tree', '-r', '--name-only', BASE, '--', ...paths], { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+      .split('\n')
+      .filter(Boolean)
+  const readMany = (paths) => {
+    if (paths.length === 0) return []
+    const out = execFileSync('git', ['cat-file', '--batch'], { cwd: repo, input: paths.map((p) => `${BASE}:${p}`).join('\n') + '\n', maxBuffer: 1024 * 1024 * 1024 })
+    const files = []
+    let pos = 0
+    for (const path of paths) {
+      const nl = out.indexOf(10, pos)
+      const header = out.subarray(pos, nl).toString()
+      if (header.endsWith(' missing')) throw new Error(`기준 커밋에 없다 ${path}`)
+      const size = Number(header.split(' ')[2])
+      files.push({ path, text: out.subarray(nl + 1, nl + 1 + size).toString('utf8') })
+      pos = nl + 1 + size + 1
+    }
+    return files
+  }
+  const CODE = /\.(?:[cm]?[jt]sx?|json)$/
+  const isTest = (p) => /\.test\.|\.testfixture\./.test(p) || p.startsWith('app/scripts/') || p === 'app/eslint.config.mjs'
+  const appPaths = ls('app/src', 'app/scripts', 'app/eslint.config.mjs').filter((p) => CODE.test(p))
+  const RULE_HANDOFF = /^docs\/handoff\/03(?:0[5-9]|1[0-6])-[^/]+\/plan\.md$|^docs\/handoff\/0314-0305-derivative-closeout\/ledger\.md$/
+  const scopes = {
+    prod: readMany(appPaths.filter((p) => p.startsWith('app/src/') && !isTest(p) && p !== KO && p !== EN)),
+    test: readMany(appPaths.filter(isTest)),
+    rule: readMany(
+      ls('AGENTS.md', 'app/AGENTS.md', 'app/src/main/AGENTS.md', 'app/src/renderer/AGENTS.md', 'docs/arch', 'docs/decisions', 'docs/handoff').filter(
+        (p) => p.endsWith('.md') && (!p.startsWith('docs/handoff/') || RULE_HANDOFF.test(p))
+      )
+    )
+  }
+  const idx = Object.fromEntries(Object.entries(scopes).map(([k, files]) => [k, refIndex(files)]))
+  const loc = (h) => `${h.path.replace(/^app\/src\/renderer\/src\//, 'r/').replace(/^app\/src\//, 'src/')}:${h.line}`
+  const PLURAL_SUFFIX = /_(?:zero|one|two|few|many|other)$/
+  const baseOf = (k) => k.replace(PLURAL_SUFFIX, '')
+  const leavesOf = (tree, bases) => tree.leaves.map((l) => l.path).filter((p) => bases.includes(baseOf(p)))
+  const out = (s) => console.log(s)
+
+  out(`[i18n] 기준 ${BASE} · 잎 키 ko ${koKeys.length} · en ${enKeys.length} · ko−en ${diff(koKeys, enKeys).length} · en−ko ${diff(enKeys, koKeys).length}`)
+  out(`[i18n] 범위 파일 prod ${scopes.prod.length} · test ${scopes.test.length} · rule ${scopes.rule.length}`)
+
+  // plan §9 1단계 — 명령 범위(renderer/src + shared, test 제외)의 `접두사.${` 머리
+  const step1 = []
+  for (const f of scopes.prod) {
+    if (!f.path.startsWith('app/src/renderer/src/') && !f.path.startsWith('app/src/shared/')) continue
+    const lineOf = lineIndex(f.text)
+    for (const m of f.text.matchAll(/`([A-Za-z0-9_.]+\.)\$\{/g)) step1.push({ path: f.path, line: lineOf(m.index), head: m[1] })
+  }
+  const step1Heads = [...new Set(step1.map((s) => s.head))].sort()
+  const keyHeads = step1Heads.filter((h) => koKeys.some((k) => k.startsWith(h)))
+  out(`[i18n] 1단계 줄 ${new Set(step1.map(loc)).size} · 접두사 ${step1Heads.length} · 번역 키 접두사 ${keyHeads.length}: ${keyHeads.join(' ')}`)
+  out(`[i18n] 1단계 번역 키가 아닌 접두사: ${diff(step1Heads, keyHeads).join(' ') || '없음'}`)
+
+  // 유도 — prod 정적 참조 0 ∧ 1단계 접두사 밖
+  const bases = [...new Set(koKeys.map(baseOf))]
+  const referenced = []
+  const prefixed = []
+  const eligible = []
+  for (const b of bases) {
+    if (i18nRefs(idx.prod, b).some((h) => REF_FORMS.STATIC.includes(h.form))) referenced.push(b)
+    else if (keyHeads.some((h) => b.startsWith(h))) prefixed.push(b)
+    else eligible.push(b)
+  }
+  const audited = data.candidates.filter((c) => Array.isArray(c.i18nKeys)).flatMap((c) => c.i18nKeys)
+  out(`[i18n] 유도: 키(복수형 접미사 뗌) ${bases.length} · prod 정적 참조 있음 ${referenced.length} · 0 ${prefixed.length + eligible.length}(1단계 접두사로 쓰임 ${prefixed.length} · 후보 자격 ${eligible.length})`)
+  const leafCount = (set) => koKeys.filter((k) => set.includes(baseOf(k))).length
+  out(`[i18n] 유도(잎 기준): 0 ${leafCount(prefixed) + leafCount(eligible)}(1단계 접두사로 쓰임 ${leafCount(prefixed)} · 후보 자격 ${leafCount(eligible)})`)
+  out(`[i18n] 1단계 접두사별(키 · 잎): ${keyHeads.map((h) => `${h} ${prefixed.filter((b) => b.startsWith(h)).length}·${koKeys.filter((k) => k.startsWith(h) && prefixed.includes(baseOf(k))).length}`).join(' · ')}`)
+  out(`[i18n] 유도−audit.json: ${diff(eligible, audited).join(' ') || '∅'}`)
+  out(`[i18n] audit.json−유도: ${diff(audited, eligible).join(' ') || '∅'}`)
+
+  const consumers = Object.entries(scopes).flatMap(([scope, files]) =>
+    files.filter((f) => /from ['"][^'"]*(?:i18n\/resources|\.)\/(?:ko|en)['"]/.test(f.text)).map((f) => `${scope}:${loc({ path: f.path, line: 0 }).replace(/:0$/, '')}`)
+  )
+  out(`[i18n] 리소스 모듈을 import 하는 파일 ${consumers.length}: ${consumers.join(' ')}`)
+  const textReaders = Object.entries(scopes).flatMap(([scope, files]) =>
+    files.filter((f) => /(?:resources\/|['"])(?:ko|en)\.ts['"]/.test(f.text)).map((f) => `${scope}:${loc({ path: f.path, line: 0 }).replace(/:0$/, '')}`)
+  )
+  out(`[i18n] 카탈로그 원문을 읽는 파일 ${textReaders.length}: ${textReaders.join(' ')}`)
+
+  // 후보별
+  const all = { ko: new Set(), en: new Set() }
+  for (const c of data.candidates.filter((x) => Array.isArray(x.i18nKeys))) {
+    const koRm = catalogRemoval(koTree, leavesOf(koTree, c.i18nKeys))
+    const enRm = catalogRemoval(enTree, leavesOf(enTree, c.i18nKeys))
+    koRm.lines.forEach((n) => all.ko.add(n))
+    enRm.lines.forEach((n) => all.en.add(n))
+    const sites = [...koRm.sites.map((n) => `${KO}:${n}`), ...enRm.sites.map((n) => `${EN}:${n}`)]
+    const missing = c.i18nKeys.filter((k) => leavesOf(koTree, [k]).length === 0)
+    out(`\n== ${c.id} 키 ${c.i18nKeys.length} · 삭제 줄 ko ${koRm.lines.length} + en ${enRm.lines.length} = ${koRm.lines.length + enRm.lines.length}(audit ${c.saving.prod}) · 함께 비는 객체 ${koRm.objects.join(' ') || '없음'}`)
+    out(`   sites 유도−audit ${diff(sites, c.sites).length} · audit−유도 ${diff(c.sites, sites).length} · 카탈로그에 없는 키 ${missing.join(' ') || '0'}`)
+    const tally = { prod: 0, test: 0, rule: 0, template: 0, step1: 0 }
+    for (const key of c.i18nKeys) {
+      const rows = []
+      const seen = new Set()
+      for (const scope of ['prod', 'test', 'rule']) {
+        for (const h of i18nRefs(idx[scope], key)) {
+          seen.add(`${h.path}:${h.line}`)
+          const kind = REF_FORMS.TEMPLATE.includes(h.form) ? 'template' : scope
+          if (scope !== 'prod' && REF_FORMS.TEMPLATE.includes(h.form)) continue
+          tally[kind]++
+          rows.push(`${scope} ${h.form} ${loc(h)} «${h.text}»`)
+        }
+      }
+      if (keyHeads.some((h) => key.startsWith(h))) tally.step1++
+      for (const [scope, files] of Object.entries(scopes)) {
+        for (const f of files) {
+          let at = f.text.indexOf(key)
+          while (at >= 0) {
+            const line = f.text.slice(0, at).split('\n').length
+            if (!seen.has(`${f.path}:${line}`)) {
+              const text = f.text.split('\n')[line - 1].trim().slice(0, 110)
+              rows.push(`${scope} substr ${loc({ path: f.path, line })} «${text}»`)
+              seen.add(`${f.path}:${line}`)
+            }
+            at = f.text.indexOf(key, at + key.length)
+          }
+        }
+      }
+      for (const r of rows) out(`   ${key} — ${r}`)
+    }
+    out(`   합계 prod 정적 ${tally.prod} · test 정적 ${tally.test} · rule 문서 ${tally.rule} · prod 템플릿 ${tally.template} · 1단계 접두사 겹침 ${tally.step1}`)
+  }
+  const together = (tree) => catalogRemoval(tree, leavesOf(tree, audited)).lines.length
+  out(`\n[i18n] 후보 전부를 함께 지울 때 삭제 줄 ko ${together(koTree)} + en ${together(enTree)} = ${together(koTree) + together(enTree)}(후보별 줄의 합집합 ${all.ko.size + all.en.size})`)
+  return 0
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) process.exit(main(process.argv.slice(2)))
