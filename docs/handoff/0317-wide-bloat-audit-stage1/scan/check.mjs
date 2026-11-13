@@ -841,6 +841,79 @@ export function i18nRefs(idx, key) {
   return hits
 }
 
+// ── §9 i18n 유도(plan rev.3 참조 형태 표) — 순수 함수. `--i18n` 은 기준 커밋에서 파일을 모아 넘기기만 한다 ──
+export const I18N_KO = `${S}i18n/resources/ko.ts`
+export const I18N_EN = `${S}i18n/resources/en.ts`
+const I18N_CODE = /\.(?:[cm]?[jt]sx?|json)$/
+const PLURAL_SUFFIX = /_(?:zero|one|two|few|many|other)$/
+/** §9 i18n 2단계의 키 — 잎 경로에서 복수형 접미사(`_zero`~`_other`)를 뗀 것. */
+export const i18nBase = (key) => key.replace(PLURAL_SUFFIX, '')
+/** §9 `formLock` 의 test 범위 — `*.test.*` · `*.testfixture.*` · `app/scripts/**` · `app/eslint.config.mjs`. */
+export const isI18nTest = (p) => /\.test\.|\.testfixture\./.test(p) || p.startsWith('app/scripts/') || p === 'app/eslint.config.mjs'
+
+/**
+ * §9 i18n 범위 — 경로 목록 → `{ prod, test }`(입력 순서 유지). 둘 다 `app/src/**` · `app/scripts/**` · `app/eslint.config.mjs` 의
+ * 코드 파일(`.[cm]?[jt]sx?` · `.json`)만 본다. prod = `app/src/**` 의 test 아닌 파일에서 리소스 2파일을 뺀 것 · test = `isI18nTest`.
+ */
+export function i18nScopes(paths) {
+  const inRoots = (p) => p.startsWith('app/src/') || p.startsWith('app/scripts/') || p === 'app/eslint.config.mjs'
+  const code = paths.filter((p) => inRoots(p) && I18N_CODE.test(p))
+  return {
+    prod: code.filter((p) => p.startsWith('app/src/') && !isI18nTest(p) && p !== I18N_KO && p !== I18N_EN),
+    test: code.filter(isI18nTest)
+  }
+}
+
+/** §9 i18n 1단계 명령의 범위 — prod 중 이 접두사 아래 파일. */
+const STEP1_ROOTS = ['app/src/renderer/src/', 'app/src/shared/']
+
+/**
+ * §9 i18n 1~3단계 — `koText`(ko.ts 본문) · `prod`([{path, text}] — `i18nScopes` 의 prod 파일) → 유도.
+ * 키(`i18nBase`)마다 prod 에 STATIC 형태 참조가 1개라도 있으면 referenced, 아니고 1단계 번역 키 접두사로 시작하면 prefixed,
+ * 둘 다 아니면 eligible(후보 자격)이다. TEMPLATE·DOC 형태는 판정에 쓰지 않는다(형태 표 — 보고만).
+ */
+export function deriveI18n({ koText, prod }) {
+  const keys = catalogTree(koText).leaves.map((l) => l.path)
+  const step1 = []
+  for (const f of prod) {
+    if (!STEP1_ROOTS.some((root) => f.path.startsWith(root))) continue
+    const lineOf = lineIndex(f.text)
+    for (const m of f.text.matchAll(/`([A-Za-z0-9_.]+\.)\$\{/g)) step1.push({ path: f.path, line: lineOf(m.index), head: m[1] })
+  }
+  const heads = [...new Set(step1.map((s) => s.head))].sort()
+  const keyHeads = heads.filter((h) => keys.some((k) => k.startsWith(h)))
+  const idx = refIndex(prod)
+  const bases = [...new Set(keys.map(i18nBase))]
+  const referenced = []
+  const prefixed = []
+  const eligible = []
+  for (const b of bases) {
+    if (i18nRefs(idx, b).some((h) => REF_FORMS.STATIC.includes(h.form))) referenced.push(b)
+    else if (keyHeads.some((h) => b.startsWith(h))) prefixed.push(b)
+    else eligible.push(b)
+  }
+  return { keys, step1, heads, keyHeads, idx, bases, referenced, prefixed, eligible }
+}
+
+/**
+ * 후보 키 하나의 형태별 집계 — `idx` = `{ prod, test, rule }` 색인. prod 의 TEMPLATE 은 `template` 로 세고 다른 범위의 TEMPLATE 은
+ * 세지 않는다(`counted: false`). 그 밖은 범위 이름으로 센다 — test 는 `formLock` 근거(STATIC), rule 은 `agentsRule` 근거(DOC).
+ * `step1` = 1단계 번역 키 접두사로 시작하면 1. 반환 `{ tally, hits }` — hits 는 세지 않은 적중까지 담는다.
+ */
+export function refTally({ idx, key, keyHeads }) {
+  const tally = { prod: 0, test: 0, rule: 0, template: 0, step1: keyHeads.some((h) => key.startsWith(h)) ? 1 : 0 }
+  const hits = []
+  for (const scope of ['prod', 'test', 'rule']) {
+    for (const h of i18nRefs(idx[scope], key)) {
+      const template = REF_FORMS.TEMPLATE.includes(h.form)
+      const counted = !(template && scope !== 'prod')
+      hits.push({ scope, counted, ...h })
+      if (counted) tally[template ? 'template' : scope]++
+    }
+  }
+  return { tally, hits }
+}
+
 // ── CLI 껍질 ────────────────────────────────────────────────────────────────
 function main(argv) {
   const here = dirname(fileURLToPath(import.meta.url))
@@ -927,7 +1000,7 @@ function i18nStrip({ repo, fileAt, data, args }) {
     const path = `${S}i18n/resources/${name}.ts`
     const text = fileAt(path)
     const all = catalogTree(text).leaves.map((l) => l.path)
-    const leaves = all.filter((p) => bases.includes(p.replace(/_(?:zero|one|two|few|many|other)$/, '')))
+    const leaves = all.filter((p) => bases.includes(i18nBase(p)))
     const stripped = stripCatalog(text, leaves)
     const left = catalogTree(stripped.text).leaves.map((l) => l.path)
     const expected = all.filter((p) => !leaves.includes(p))
@@ -941,8 +1014,8 @@ function i18nStrip({ repo, fileAt, data, args }) {
 
 /** `--i18n` — i18n 미사용 키 근거 보고(기준 커밋 트리 · prod/test/rule 세 범위). */
 function i18nReport({ repo, fileAt, data }) {
-  const KO = `${S}i18n/resources/ko.ts`
-  const EN = `${S}i18n/resources/en.ts`
+  const KO = I18N_KO
+  const EN = I18N_EN
   const koTree = catalogTree(fileAt(KO))
   const enTree = catalogTree(fileAt(EN))
   const koKeys = koTree.leaves.map((l) => l.path)
@@ -967,56 +1040,38 @@ function i18nReport({ repo, fileAt, data }) {
     }
     return files
   }
-  const CODE = /\.(?:[cm]?[jt]sx?|json)$/
-  const isTest = (p) => /\.test\.|\.testfixture\./.test(p) || p.startsWith('app/scripts/') || p === 'app/eslint.config.mjs'
-  const appPaths = ls('app/src', 'app/scripts', 'app/eslint.config.mjs').filter((p) => CODE.test(p))
+  const scopePaths = i18nScopes(ls('app/src', 'app/scripts', 'app/eslint.config.mjs'))
   const RULE_HANDOFF = /^docs\/handoff\/03(?:0[5-9]|1[0-6])-[^/]+\/plan\.md$|^docs\/handoff\/0314-0305-derivative-closeout\/ledger\.md$/
   const scopes = {
-    prod: readMany(appPaths.filter((p) => p.startsWith('app/src/') && !isTest(p) && p !== KO && p !== EN)),
-    test: readMany(appPaths.filter(isTest)),
+    prod: readMany(scopePaths.prod),
+    test: readMany(scopePaths.test),
     rule: readMany(
       ls('AGENTS.md', 'app/AGENTS.md', 'app/src/main/AGENTS.md', 'app/src/renderer/AGENTS.md', 'docs/arch', 'docs/decisions', 'docs/handoff').filter(
         (p) => p.endsWith('.md') && (!p.startsWith('docs/handoff/') || RULE_HANDOFF.test(p))
       )
     )
   }
-  const idx = Object.fromEntries(Object.entries(scopes).map(([k, files]) => [k, refIndex(files)]))
+  const derived = deriveI18n({ koText: fileAt(KO), prod: scopes.prod })
+  const idx = { prod: derived.idx, test: refIndex(scopes.test), rule: refIndex(scopes.rule) }
   const loc = (h) => `${h.path.replace(/^app\/src\/renderer\/src\//, 'r/').replace(/^app\/src\//, 'src/')}:${h.line}`
-  const PLURAL_SUFFIX = /_(?:zero|one|two|few|many|other)$/
-  const baseOf = (k) => k.replace(PLURAL_SUFFIX, '')
-  const leavesOf = (tree, bases) => tree.leaves.map((l) => l.path).filter((p) => bases.includes(baseOf(p)))
+  const leavesOf = (tree, bases) => tree.leaves.map((l) => l.path).filter((p) => bases.includes(i18nBase(p)))
   const out = (s) => console.log(s)
 
   out(`[i18n] 기준 ${BASE} · 잎 키 ko ${koKeys.length} · en ${enKeys.length} · ko−en ${diff(koKeys, enKeys).length} · en−ko ${diff(enKeys, koKeys).length}`)
   out(`[i18n] 범위 파일 prod ${scopes.prod.length} · test ${scopes.test.length} · rule ${scopes.rule.length}`)
 
-  // plan §9 1단계 — 명령 범위(renderer/src + shared, test 제외)의 `접두사.${` 머리
-  const step1 = []
-  for (const f of scopes.prod) {
-    if (!f.path.startsWith('app/src/renderer/src/') && !f.path.startsWith('app/src/shared/')) continue
-    const lineOf = lineIndex(f.text)
-    for (const m of f.text.matchAll(/`([A-Za-z0-9_.]+\.)\$\{/g)) step1.push({ path: f.path, line: lineOf(m.index), head: m[1] })
-  }
-  const step1Heads = [...new Set(step1.map((s) => s.head))].sort()
-  const keyHeads = step1Heads.filter((h) => koKeys.some((k) => k.startsWith(h)))
+  // plan §9 1단계 — 명령 범위(renderer/src + shared, test 제외)의 `접두사.${` 머리(deriveI18n)
+  const { step1, heads: step1Heads, keyHeads } = derived
   out(`[i18n] 1단계 줄 ${new Set(step1.map(loc)).size} · 접두사 ${step1Heads.length} · 번역 키 접두사 ${keyHeads.length}: ${keyHeads.join(' ')}`)
   out(`[i18n] 1단계 번역 키가 아닌 접두사: ${diff(step1Heads, keyHeads).join(' ') || '없음'}`)
 
-  // 유도 — prod 정적 참조 0 ∧ 1단계 접두사 밖
-  const bases = [...new Set(koKeys.map(baseOf))]
-  const referenced = []
-  const prefixed = []
-  const eligible = []
-  for (const b of bases) {
-    if (i18nRefs(idx.prod, b).some((h) => REF_FORMS.STATIC.includes(h.form))) referenced.push(b)
-    else if (keyHeads.some((h) => b.startsWith(h))) prefixed.push(b)
-    else eligible.push(b)
-  }
+  // 유도 — prod 정적 참조 0 ∧ 1단계 접두사 밖(deriveI18n)
+  const { bases, referenced, prefixed, eligible } = derived
   const audited = data.candidates.filter((c) => Array.isArray(c.i18nKeys)).flatMap((c) => c.i18nKeys)
   out(`[i18n] 유도: 키(복수형 접미사 뗌) ${bases.length} · prod 정적 참조 있음 ${referenced.length} · 0 ${prefixed.length + eligible.length}(1단계 접두사로 쓰임 ${prefixed.length} · 후보 자격 ${eligible.length})`)
-  const leafCount = (set) => koKeys.filter((k) => set.includes(baseOf(k))).length
+  const leafCount = (set) => koKeys.filter((k) => set.includes(i18nBase(k))).length
   out(`[i18n] 유도(잎 기준): 0 ${leafCount(prefixed) + leafCount(eligible)}(1단계 접두사로 쓰임 ${leafCount(prefixed)} · 후보 자격 ${leafCount(eligible)})`)
-  out(`[i18n] 1단계 접두사별(키 · 잎): ${keyHeads.map((h) => `${h} ${prefixed.filter((b) => b.startsWith(h)).length}·${koKeys.filter((k) => k.startsWith(h) && prefixed.includes(baseOf(k))).length}`).join(' · ')}`)
+  out(`[i18n] 1단계 접두사별(키 · 잎): ${keyHeads.map((h) => `${h} ${prefixed.filter((b) => b.startsWith(h)).length}·${koKeys.filter((k) => k.startsWith(h) && prefixed.includes(i18nBase(k))).length}`).join(' · ')}`)
   out(`[i18n] 유도−audit.json: ${diff(eligible, audited).join(' ') || '∅'}`)
   out(`[i18n] audit.json−유도: ${diff(audited, eligible).join(' ') || '∅'}`)
 
@@ -1044,16 +1099,12 @@ function i18nReport({ repo, fileAt, data }) {
     for (const key of c.i18nKeys) {
       const rows = []
       const seen = new Set()
-      for (const scope of ['prod', 'test', 'rule']) {
-        for (const h of i18nRefs(idx[scope], key)) {
-          seen.add(`${h.path}:${h.line}`)
-          const kind = REF_FORMS.TEMPLATE.includes(h.form) ? 'template' : scope
-          if (scope !== 'prod' && REF_FORMS.TEMPLATE.includes(h.form)) continue
-          tally[kind]++
-          rows.push(`${scope} ${h.form} ${loc(h)} «${h.text}»`)
-        }
+      const one = refTally({ idx, key, keyHeads })
+      for (const k of Object.keys(tally)) tally[k] += one.tally[k]
+      for (const h of one.hits) {
+        seen.add(`${h.path}:${h.line}`)
+        if (h.counted) rows.push(`${h.scope} ${h.form} ${loc(h)} «${h.text}»`)
       }
-      if (keyHeads.some((h) => key.startsWith(h))) tally.step1++
       for (const [scope, files] of Object.entries(scopes)) {
         for (const f of files) {
           let at = f.text.indexOf(key)

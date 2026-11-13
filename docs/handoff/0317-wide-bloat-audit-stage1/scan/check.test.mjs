@@ -2,7 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { AREAS, BLOCKS, BUCKETS, CATALOG_ROOTS, CELLS, codeViews, HOT_ENTRIES, READ_0315, REF_FORMS, catalogRemoval, catalogTree, check, collectRead, deriveTargets, extractUnits, i18nRefs, passes, refIndex, render, ruling, stripCatalog, writeBlocks } from './check.mjs'
+import { AREAS, BLOCKS, BUCKETS, CATALOG_ROOTS, CELLS, codeViews, HOT_ENTRIES, I18N_EN, I18N_KO, READ_0315, REF_FORMS, catalogRemoval, catalogTree, check, collectRead, deriveI18n, deriveTargets, extractUnits, i18nBase, i18nRefs, i18nScopes, passes, refIndex, refTally, render, ruling, stripCatalog, writeBlocks } from './check.mjs'
 
 // ── UT-01 ───────────────────────────────────────────────────────────────────
 const names = (text, ranges = [[1, 99]]) => extractUnits(text, ranges).map((u) => u.name)
@@ -534,4 +534,110 @@ test('i18n catalogRemoval: 원래 빈 객체는 다른 키를 지워도 남는�
   const tree = catalogTree("export const ko = {\n  e: {},\n  f: 'F'\n}")
   assert.deepEqual(tree.objects.map((o) => o.path), ['e'])
   assert.deepEqual(catalogRemoval(tree, ['f']), { lines: [3], sites: [3], missing: [], objects: [] })
+})
+
+// ── §9 i18n 유도(plan rev.3 참조 형태 표 · 2단계 범위 · formLock) — r3 ─────────
+const catalogOf = (lines) => ['export const ko = {', ...lines, '}'].join('\n')
+const RSRC = 'app/src/renderer/src/'
+const formsAt = (idx, key) => i18nRefs(idx, key).map((h) => h.form)
+
+test('i18n i18nScopes: prod = app/src 의 test 아닌 코드(리소스 2파일 제외) · test = *.test.* · *.testfixture.* · app/scripts · eslint 설정 · 그 밖은 어느 쪽도 아니다', () => {
+  const paths = [
+    'app/src/main/a.ts',
+    `${RSRC}b.tsx`,
+    'app/src/shared/c.json',
+    'app/src/main/d.mjs',
+    'app/src/main/a.test.ts',
+    'app/src/main/f.testfixture.ts',
+    'app/scripts/g.mjs',
+    'app/eslint.config.mjs',
+    I18N_KO,
+    I18N_EN,
+    `${RSRC}x.css`,
+    'app/src/main/README.md',
+    'app/scripts/notes.md',
+    'app/vitest.config.ts',
+    'docs/x.test.ts'
+  ]
+  assert.deepEqual(i18nScopes(paths), {
+    prod: ['app/src/main/a.ts', `${RSRC}b.tsx`, 'app/src/shared/c.json', 'app/src/main/d.mjs'],
+    test: ['app/src/main/a.test.ts', 'app/src/main/f.testfixture.ts', 'app/scripts/g.mjs', 'app/eslint.config.mjs']
+  })
+  assert.deepEqual([I18N_KO, I18N_EN], [`${RSRC}shared/i18n/resources/ko.ts`, `${RSRC}shared/i18n/resources/en.ts`])
+})
+
+test('i18n deriveI18n STATIC: 4형태는 형태마다 하나만 있어도 referenced · 참조 없는 키는 eligible', () => {
+  const koText = catalogOf(["  s: { a: 'A' },", "  p: { a: 'A' },", "  as: { g: { a: 'A' } },", "  ap: { g: { a: 'A' } },", "  free: { a: 'A' }"])
+  const d = deriveI18n({ koText, prod: [{ path: `${RSRC}x.ts`, text: "tr('s.a')\nko.p.a\nx('as.g')\nuse(ko.ap.g)" }] })
+  assert.deepEqual(d.referenced, ['s.a', 'p.a', 'as.g.a', 'ap.g.a'])
+  assert.deepEqual(d.eligible, ['free.a'])
+  assert.deepEqual(d.prefixed, [])
+  assert.deepEqual(
+    ['s.a', 'p.a', 'as.g.a', 'ap.g.a'].map((k) => formsAt(d.idx, k)),
+    [['string'], ['prop'], ['ancestorString'], ['ancestorProp']]
+  )
+})
+
+test('i18n deriveI18n TEMPLATE·DOC: 그 형태만 있는 키는 eligible — 후보 제외는 1단계 접두사만 한다', () => {
+  const koText = catalogOf(["  t: { a: 'A' },", "  u: { vw: 'V' },", "  x: { tail: 'T' },", "  d: { a: 'D' }"])
+  const prod = [
+    { path: 'app/src/main/m.ts', text: 'tr(`t.${k}`)\ntr(`u.v${s}`)\ntr(`${p}.tail`)' },
+    { path: 'app/src/main/n.md', text: '`d.a` 설명' }
+  ]
+  const d = deriveI18n({ koText, prod })
+  assert.deepEqual(d.eligible, ['t.a', 'u.vw', 'x.tail', 'd.a'])
+  assert.deepEqual([d.referenced, d.prefixed, d.keyHeads], [[], [], []])
+  assert.deepEqual(
+    ['t.a', 'u.vw', 'x.tail', 'd.a'].map((k) => formsAt(d.idx, k)),
+    [['templateHead'], ['templateHeadLoose'], ['templateTail'], ['bare']]
+  )
+})
+
+test('i18n deriveI18n 1단계: renderer/src·shared 의 `머리.${` 가 키의 접두사면 prefixed · main 의 같은 꼴·점으로 안 끝나는 머리는 아니다 · STATIC 이 먼저다', () => {
+  const koText = catalogOf(["  bg: { on: 'On', off: 'Off' },", "  sh: { x: 'X' },", "  mn: { y: 'Y' },", "  loose: { z: 'Z' },", "  both: { k: 'K' }"])
+  const prod = [
+    { path: `${RSRC}r.ts`, text: "tr(`bg.${s}`)\ntr(`both.${s}`)\ntr('both.k')\ntr(`zz.${s}`)\ntr(`loose${s}`)" },
+    { path: 'app/src/shared/s.ts', text: 't(`sh.${k}`)' },
+    { path: 'app/src/main/m.ts', text: 't(`mn.${k}`)' }
+  ]
+  const d = deriveI18n({ koText, prod })
+  assert.deepEqual(d.step1.map((s) => `${s.path}:${s.line}:${s.head}`), [`${RSRC}r.ts:1:bg.`, `${RSRC}r.ts:2:both.`, `${RSRC}r.ts:4:zz.`, 'app/src/shared/s.ts:1:sh.'])
+  assert.deepEqual(d.heads, ['bg.', 'both.', 'sh.', 'zz.'])
+  assert.deepEqual(d.keyHeads, ['bg.', 'both.', 'sh.'])
+  assert.deepEqual(d.prefixed, ['bg.on', 'bg.off', 'sh.x'])
+  assert.deepEqual(d.referenced, ['both.k'])
+  assert.deepEqual(d.eligible, ['mn.y', 'loose.z'])
+})
+
+test('i18n deriveI18n 키: 복수형 접미사(_zero~_other)를 뗀 경로 — 복수형 잎은 한 키 · 참조는 뗀 경로로 센다 · _plural 은 접미사가 아니다', () => {
+  const koText = catalogOf(['  n: {', "    c_one: '1',", "    c_other: 'N',", "    d_zero: '0',", "    d_two: '2',", "    d_few: 'F',", "    d_many: 'M',", "    e: 'E',", "    y_plural: 'P'", '  }'])
+  const d = deriveI18n({ koText, prod: [{ path: `${RSRC}x.ts`, text: "tr('n.c', { count })" }] })
+  assert.equal(d.keys.length, 8)
+  assert.deepEqual(d.bases, ['n.c', 'n.d', 'n.e', 'n.y_plural'])
+  assert.deepEqual(d.referenced, ['n.c'])
+  assert.deepEqual(d.eligible, ['n.d', 'n.e', 'n.y_plural'])
+  assert.deepEqual(
+    ['n.c_one', 'n.c_other', 'n.d_zero', 'n.d_two', 'n.d_few', 'n.d_many', 'n.e', 'n.y_plural'].map(i18nBase),
+    ['n.c', 'n.c', 'n.d', 'n.d', 'n.d', 'n.d', 'n.e', 'n.y_plural']
+  )
+})
+
+test('i18n deriveI18n 부분 문자열: 더 긴 키·자손 경로의 문자열과 체인은 참조가 아니다', () => {
+  const d = deriveI18n({ koText: catalogOf(["  k: { a: 'A' }"]), prod: [{ path: `${RSRC}x.ts`, text: "tr('k.ab')\nko.k.abc\nx('k.a.b')" }] })
+  assert.deepEqual([d.referenced, d.eligible], [[], ['k.a']])
+})
+
+test('i18n refTally: prod STATIC → prod · prod TEMPLATE → template · test STATIC → test(formLock) · test TEMPLATE 은 세지 않는다 · rule DOC → rule · 1단계 접두사 → step1', () => {
+  const idx = {
+    prod: refIndex([{ path: 'app/src/main/p.ts', text: "tr('a.b')\ntr(`a.${k}`)" }]),
+    test: refIndex([{ path: 'app/src/x.test.ts', text: 'expect(ko.a.b)\ntr(`a.${k}`)' }]),
+    rule: refIndex([{ path: 'docs/r.md', text: '`a.b` 언급' }])
+  }
+  const r = refTally({ idx, key: 'a.b', keyHeads: ['a.'] })
+  assert.deepEqual(r.tally, { prod: 1, test: 1, rule: 1, template: 1, step1: 1 })
+  assert.deepEqual(
+    r.hits.map((h) => `${h.scope}:${h.form}:${h.counted}`),
+    ['prod:string:true', 'prod:templateHead:true', 'test:prop:true', 'test:templateHead:false', 'rule:bare:true']
+  )
+  assert.equal(refTally({ idx, key: 'a.b', keyHeads: [] }).tally.step1, 0)
 })
