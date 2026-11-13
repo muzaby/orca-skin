@@ -747,4 +747,6 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 
 ## [검증자 기입] 파생 이슈
 
-(verify 턴에서 채운다)
+| # | 출처 | 상태 | 내용 |
+|---|---|---|---|
+| 1 | VP-02 · AC4 | open BLOCKING | W-08 `formLock` 근거 "테스트 0파일" 오류 — `engine.subtitle` 이 `AgentEnvironmentView.count.test.ts:66` 에서 `ko.engine.subtitle` 로 참조됨. `blocks` 로 정정 + 나머지 키를 프로퍼티 접근 형태까지 재검색. 상세 [verify.md §11](verify.md) |
