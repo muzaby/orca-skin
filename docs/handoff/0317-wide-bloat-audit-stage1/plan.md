@@ -11,7 +11,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0315의 V를 상속하지 않는다. 0315에서 가져오는 것은 방법·스키마·검사 규칙의 본문이다(§8·§11) |
-| 이번 V revision | `V1` |
+| 이번 V revision | `V1 rev.2` — 구현 전 사용자 결정(D-016)으로 EP-03·EP-05·EP-06·AC7을 정정하고 AC13을 더했다 |
 | 유효 V | `V1` |
 | 기준 커밋 | `1168b67` (`git cat-file -t` = commit · `git merge-base --is-ancestor 1168b67 origin/main` 성공 — `origin/main` HEAD) |
 
@@ -40,11 +40,14 @@
 | 명시 요구 | "방법•필수 칸(전체 3칸•Ui•성능)•범주 x8•렌즈 L6은 0315와 같다." | 턴 1 |
 | 명시 요구 | "감사만 하고 구현은 하지 않는다." | 턴 1 |
 | 명시 요구 | "Verify:에서 판정해라: 통과 후보 감량 합이 30줄 미만이면 0305 계열 종료, 30줄 이상이면 다음단계를 사용자레게 올린다." | 턴 1 |
+| 명시 결정 | "I18n 미사용 키는 별도 집계로 기록하고 30줄 문턱에 넣지 않는다. 후보에는 "동덕 키 접두사와 겹치지 잉ㅎ음" 근거를 필수로 둠. 승인 목록에는 올림(remove라 d-012)" | 턴 2 |
 | 승계 결정 | "1단계는 덜 읽은 4버킷(chat/harnessses•adapters/opencode•app/cchat-turn•renderer/shared)의 prod 300줄 이상 파일만 대상으로 하고" | `0315 verify.md §13` |
 | 추론 의도 | "전체 3칸"은 0315의 전제 3칸(`raceGuard`·`formLock`·`agentsRule`)이다 | 0315 D-005 — "필수 칸"이 붙은 3칸은 그것뿐이다 |
 | 추론 의도 | "읽지 않은 것"은 파일 단위다 — 0305·0315의 읽은 파일 기록에 이름이 없는 파일(D-003) | 요구 문장의 "파일 중 … 읽지 않은 것" · 기록 자리는 §8 |
 | 추론 의도 | "0305 계열 종료"면 통과 후보도 구현 handoff로 만들지 않고 감사 문서에 기록으로 남긴다(D-008) | "종료"와 "다음단계를 … 올린다"가 두 갈래의 전부다 |
 | 추론 의도 | "통과 후보"는 0315 D-008의 정의다 | `0315 verify.md §13` "0315 D-008 통과 정의 승계" |
+| 추론 의도 | "동덕 키 접두사"는 동적 키 접두사다 — 템플릿 리터럴로 조립하는 번역 키의 고정 앞부분(예: `` tr(`background.${mode}`) ``의 `background.`) | `git grep` 23줄(§8) |
+| 추론 의도 | "I18n 미사용 키"는 F09·F10의 L1 `remove` 후보다. 한 키는 `ko.ts`·`en.ts` 두 자리를 가진 후보 하나다 | `en.ts:8` `typeof ko` 패리티 |
 
 ## 3. Decision Ledger
 
@@ -65,13 +68,15 @@
 | D-013 | 0305 `C-NN`·0315 `B-NN`으로 이미 오른 형태는 다시 후보로 올리지 않는다. 구간 근거 칸에 그 ID와 종결 상태를 적는다 | 설계자 해석 — 같은 형태를 두 번 세면 감량 합이 부풀고, 닫힌 후보는 닫은 Decision이 `agentsRule`을 막는다 | `0314 ledger.md` | ACTIVE | — |
 | D-014 | `agentsRule`의 근거 범위에 0305 계열 handoff(0305~0316)의 ACTIVE Decision과 `0314 ledger.md`를 더한다 | 0315 verify 발견 1 "후속 감사가 이 범위를 쓰면 plan에서 정한다" | `0315 verify.md §10` | ACTIVE | — |
 | D-015 | 핫패스 = 스트림 이벤트마다 다시 실행되는 자리 — 대상 파일에서는 `messages` 구독을 가진 컴포넌트 3개다(§10 EP-07). 판정(D-008)에는 쓰지 않고 성능 칸의 근거 의무에만 쓴다 | 0315 D-009를 대상 파일에 옮긴 설계자 해석 | §8 | ACTIVE | — |
+| D-016 | i18n 미사용 키 후보는 별도 집계로 기록하고 30줄 문턱의 합(`sum`)에 넣지 않는다. 그 후보는 "동적 키 접두사와 겹치지 않음" 근거가 필수이고 `remove`라 승인 목록에 오른다(D-012) | "I18n 미사용 키는 별도 집계로 기록하고 30줄 문턱에 넣지 않는다. 후보에는 … 근거를 필수로 둠. 승인 목록에는 올림(remove라 d-012)" | 턴 2 | ACTIVE | D-008의 `sum` 범위를 좁힌다(대체 아님) |
 
 ### 갱신 메모
 
 - 턴 1에서 추가된 결정: D-001~D-015 (신규 handoff).
+- 턴 2 diff(V1 rev.2 — 구현 전 사용자 결정): D-016 추가. D-008의 판정 갈래는 그대로이고 `sum`에 드는 후보만 좁아졌다. 나머지 ACTIVE 15건은 그대로다.
 - OPEN: 없음.
 - 0315에서 승계하지 않은 결정: 0315 D-015(두 축 중단 규칙)와 D-002(6구간). 판정은 D-008이, 대상은 D-002~D-004가 대신한다.
-- `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001 ↔ AC8 · D-002·D-003·D-004 ↔ AC12 · D-005 ↔ AC1~AC5 · D-006 ↔ AC6 · D-007·D-008 ↔ AC7 · D-009 ↔ AC10 · D-012 ↔ AC3(`approval`) · D-013·D-014 ↔ §9 방법(선언 경계 2 — 감사자 판단) · D-015 ↔ AC3(`hotEntry`) · D-010·D-011 ↔ §19.
+- `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001 ↔ AC8 · D-002·D-003·D-004 ↔ AC12 · D-005 ↔ AC1~AC5 · D-006 ↔ AC6 · D-007·D-008 ↔ AC7 · D-009 ↔ AC10 · D-012 ↔ AC3(`approval`) · D-013·D-014 ↔ §9 방법(선언 경계 2 — 감사자 판단) · D-015 ↔ AC3(`hotEntry`) · D-016 ↔ AC7·AC13 · D-010·D-011 ↔ §19.
 
 ## 4. 요구 비판적 검토
 
@@ -81,7 +86,7 @@
 | "0305·0315가 읽지 않은"을 기계로 가를 수 있는가 | 가를 수 있다 — 기록 자리 3곳 | 0305 `deep.json`·`reviews.json`의 `read` 합집합 51파일 · 0315 `AREAS` 5파일(§8) |
 | 일부만 읽힌 파일이 빠지는 것이 요구에 맞는가 | 요구 문장대로 파일 단위로 둔다(D-003) | 빠지는 7파일 중 4파일이 부분 열람이다 — `channel.ts` 1-374 · `ComposerInputController.tsx` 1-355 · `FileDiffSection.tsx` 511-915 개요 · `ipc.ts` 110줄(`0305 deep.json` 근거 칸). 선언 경계 8 |
 | `chat-turn` 버킷에서 대상이 0건인 것이 맞는가 | 맞다 | 300줄 이상 2파일(`send.ts` 769 · `resolve-turn.ts` 319)이 모두 `reviews.json` `read`에 있다 |
-| i18n 리소스 2파일(`en.ts`·`ko.ts`)을 대상에 두는가 | 둔다 — 규칙의 출력이다 | 손으로 빼면 "명령으로 고정"(D-004)이 깨진다. 판정은 감사가 낸다 |
+| i18n 리소스 2파일(`en.ts`·`ko.ts`)을 대상에 두는가 | 둔다 — 규칙의 출력이다 | 손으로 빼면 "명령으로 고정"(D-004)이 깨진다. 미사용 키는 문턱 밖 별도 집계다(D-016, 턴 2) |
 | 이미 기존 코드가 충족하는가 | 해당 없음 | 산출은 문서다 |
 | 더 작은 해법이 있는가 | 검사기 없이 표만 쓰는 방법은 채택하지 않았다 | 0315와 같은 이유 — 필수 칸·단위 전수는 눈으로 세면 빠진다 |
 | 선행 자료의 주장을 코드와 대조했는가 | 대조함 | `0315 verify.md §13`의 참고 실측 6·6·2·4를 기준 커밋에서 다시 세어 같은 값을 얻었다(§8) |
@@ -108,6 +113,7 @@
 | 감사 완료 · 통과 후보 0 | verify가 `0305 계열 종료`를 적는다 | 후속 handoff 없음 |
 | 통과 후보 있음 · 감량 합 30 미만 | verify가 `0305 계열 종료`를 적는다 | 후속 handoff 없음 — 통과 후보는 `audit.md`에 기록으로 남는다 |
 | 통과 후보 감량 합 30 이상 | verify가 `다음 단계 사용자 결정`을 적고 통과 후보·합·승인 목록을 올린다 | 사용자가 다음 단계(구현·2단계 감사) 여부를 정한다 |
+| i18n 미사용 키 후보가 있음(위 세 갈래 어디서든) | 판정과 별도로 i18n 집계(후보 수 · 키 수 · 줄 수)와 승인 목록을 적는다. `sum`은 바뀌지 않는다 | 판정 옆에 i18n 집계 한 줄 — 제거 여부는 사용자가 승인 목록에서 정한다 |
 | 검사 red | 다음 단계로 넘어가지 않는다 | 감사 미완 — INDEX가 `impl/IN_PROGRESS` |
 
 ### 파생 UX / 엣지케이스
@@ -138,11 +144,12 @@
 | R-02 | AC5 | 후보마다 조건 2칸(UI·성능)의 판정과 근거, 보존하는 동작(`preserve`)과 구조(`keepStructure`)가 있다 | 검사 K6: 칸 누락·enum 밖·빈 근거면 red | `candidates[].conditions` → 검사 |
 | R-02 | AC6 | 어떤 후보의 자리도 테스트·script·CI·SDK 층 mock 파일이 아니다 | 검사 K4: 자리가 EP-08 제외 패턴 5개 중 하나에 걸리면 red | `candidates[].sites` → 검사 |
 | R-02 | AC11 | 구간 칸·단위 판정이 가리키는 후보가 실재하고 구간·렌즈·범주가 서로 맞으며, 모든 후보가 구간 칸 1곳 이상에서(L6 후보는 단위 1곳 이상에서도) 가리켜진다 | 검사 K7: 유령 ID · 구간 불일치 · 렌즈·범주 불일치 · 고아 후보면 red | `areas`·`units` ↔ `candidates` → 검사 |
-| R-03 | AC7 | 판정이 감사 데이터의 함수로 나온다 — `ruling(candidates)`가 통과 후보 `P` · 감량 합 · 판정(`0305 계열 종료` / `다음 단계 사용자 결정`)을 낸다 | UT-03: EP-06 갈래 3개마다 입력 1건 이상 → 기대 판정 · verify가 통과 후보 전부의 근거를 재현한 뒤 `--ruling` 출력을 `verify.md`에 적는다 | `candidates` → `ruling()` → `audit.md` `ruling` 블록 → verify |
+| R-03 | AC7 | 판정이 감사 데이터의 함수로 나온다 — `ruling(candidates)`가 통과 후보 `P` · 감량 합 · 판정(`0305 계열 종료` / `다음 단계 사용자 결정`)과 문턱 밖 i18n 집계를 낸다 | UT-03: EP-06 갈래 4개마다 입력 1건 이상 → 기대 판정 · verify가 통과 후보 전부의 근거를 재현한 뒤 `--ruling` 출력을 `verify.md`에 적는다 | `candidates` → `ruling()` → `audit.md` `ruling` 블록 → verify |
 | R-03 | AC10 | 사용자가 판정을 확인한다 — 종료면 종료 확인, 30 이상이면 다음 단계 결정 | 사람 — `audit.md`·`verify.md` 열람 | `verify.md` → 사용자 |
 | R-04 | AC8 | 감사는 제품·CI 코드를 바꾸지 않는다 | `git diff --stat 1168b67..HEAD -- app .github` 출력 0줄 | git |
 | R-05 | AC9 | `audit.md`의 생성 블록은 `audit.json`을 렌더한 결과와 같다 | 검사 K10: 생성 블록 ≠ 렌더 결과 · 필수 블록 누락이면 red | `audit.json` → `render()` → `audit.md` |
 | R-06 | AC12 | 감사 구간의 파일 집합이 EP-10 규칙으로 기준 커밋에서 유도한 대상 집합과 같다 | 검사 K11: 유도 집합과 `AREAS` 파일 집합의 양방향 차집합 ≠ ∅이면 red · `--targets` 출력이 §8 표 11행과 같다 | 기준 커밋 트리 + 0305·0315 읽은 파일 기록 → `deriveTargets()` → `AREAS` 대조 |
+| R-02 | AC13 | i18n 미사용 키 후보는 키 목록(`i18nKeys`)과 "동적 키 접두사와 겹치지 않음" 근거(`dynamicPrefix`)를 가지며 F09·F10의 L1 `remove` 후보는 전부 그 두 칸을 가진다 | 검사 K12: 두 칸 중 하나만 있음 · 빈 값 · 구간·렌즈·유형 불일치 · F09·F10의 L1 `remove`인데 `i18nKeys` 없음이면 red. 승인 표시는 K9 | `candidates` → 검사 |
 
 ### AC 검증 주의사항
 
@@ -163,7 +170,7 @@
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
 | R-01 | R | §7 AC1·AC2 구간·단위 판정 전수 | NEW | — |
-| R-02 | R | §7 AC3~AC6·AC11 후보·전제·조건·대상 제외·연결 | NEW | — |
+| R-02 | R | §7 AC3~AC6·AC11·AC13 후보·전제·조건·대상 제외·연결·i18n 근거 | NEW | — |
 | R-03 | R | §7 AC7·AC10 감량 합 판정 | NEW | — |
 | R-04 | R | §7 AC8 무변경 | NEW | — |
 | R-05 | R | §7 AC9 문서 = 데이터 | NEW | — |
@@ -172,8 +179,8 @@
 | AR-01 | AR | §9 `audit.json` → 렌더 → `audit.md` 사본 경계 | NEW | — |
 | IT-01 | IT | 검사 K10 | NEW | — |
 | MD-01 | MD | §10 EP-02 `extractUnits()` 추출 규칙 | NEW | — |
-| MD-02 | MD | §10 EP-05 `check()` 규칙 K1~K11 | NEW | — |
-| MD-03 | MD | §10 EP-06 `ruling()` 갈래 3 | NEW | — |
+| MD-02 | MD | §10 EP-05 `check()` 규칙 K1~K12 | NEW | — |
+| MD-03 | MD | §10 EP-06 `ruling()` 갈래 4 | NEW | — |
 | MD-04 | MD | §10 EP-10 `deriveTargets()` 규칙 7 | NEW | — |
 | UT-01~UT-04 | UT | `scan/check.test.mjs` | NEW | — |
 
@@ -184,14 +191,14 @@ SD 레벨은 두지 않는다 — end-to-end 상태·수명주기를 가진 실�
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | 기준 커밋 11파일 → `extractUnits` → `audit.json` `areas`·`units` → K1·K2 | `gate:node …/scan/check.mjs --check` | required — 전수 주장. 변이: 구간 판정 칸 1개 삭제 · 단위 1행 삭제 · 없는 단위 1행 추가 → red | EP-01(121칸) · EP-02(98단위) |
-| VP-02 | R-02 ↔ AT-02 | REQUIRED | 감사 판단 → `candidates` → K3~K9 | 같은 gate | required — 구조 proxy. 변이: 전제 칸 1개 삭제 · 자리를 테스트 파일로 교체 · 유령 후보 ID 지목 → red. 검증자가 **통과 후보 전부**와 통과하지 못한 후보 최대 3건의 전제 근거 명령을 재실행해 N 일치를 본다 | EP-03(12칸) · EP-04(3칸) · EP-08(5패턴) |
-| VP-03 | R-03 ↔ AT-03 | REQUIRED | `candidates` → `ruling()` → `audit.md` `ruling` 블록 → `verify.md` 판정 | `scan/check.test.mjs` UT-03 · `gate:node …/scan/check.mjs --ruling` · 사람(AC10) | required — 판정이 데이터에 민감한지. 변이: 통과 후보 1건의 전제 1칸을 `blocks`로 뒤집기 → `P`·합 변화. 검증자가 L6 `none` 단위 5개의 짝 검색을 재실행한다 | EP-06(갈래 3 · 경계 2) · EP-07(3심볼) |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | 감사 판단 → `candidates` → K3~K9·K12 | 같은 gate | required — 구조 proxy. 변이: 전제 칸 1개 삭제 · 자리를 테스트 파일로 교체 · 유령 후보 ID 지목 · i18n 후보의 `dynamicPrefix` 삭제 → red. 검증자가 **통과 후보 전부**와 통과하지 못한 후보 최대 3건의 전제 근거 명령을 재실행해 N 일치를 본다 | EP-03(12칸 + i18n 2칸) · EP-04(3칸) · EP-08(5패턴) |
+| VP-03 | R-03 ↔ AT-03 | REQUIRED | `candidates` → `ruling()` → `audit.md` `ruling` 블록 → `verify.md` 판정 | `scan/check.test.mjs` UT-03 · `gate:node …/scan/check.mjs --ruling` · 사람(AC10) | required — 판정이 데이터에 민감한지. 변이: 통과 후보 1건의 전제 1칸을 `blocks`로 뒤집기 → `P`·합 변화 · i18n 후보 1건의 `i18nKeys` 삭제 → K12 red(합에 새지 않음). 검증자가 L6 `none` 단위 5개의 짝 검색과 동적 접두사 검색을 재실행한다 | EP-06(갈래 4 · 경계 2) · EP-07(3심볼) |
 | VP-04 | R-04 ↔ AT-04 | REQUIRED | 작업 트리 → `git diff` | `gate:git diff --stat 1168b67..HEAD -- app .github` | not selected — 직접 관측 | 0 — 부재 단언이라 강제 자리 없음 |
 | VP-05 | R-05 ↔ AT-05 · AR-01 ↔ IT-01 | REQUIRED | `audit.json` → `render()` → `audit.md` 생성 블록 | `gate:node …/scan/check.mjs --check`(K10) | required — 변이: 생성 블록 문자 1개 수정 · 블록 1개 삭제 → red | EP-09(사본 3곳) |
 | VP-06 | R-06 ↔ AT-06 | REQUIRED | 기준 커밋 트리 · 읽은 파일 기록 3곳 → `deriveTargets()` → `AREAS` 대조(K11) | `gate:node …/scan/check.mjs --check`(K11) · `gate:node …/scan/check.mjs --targets` | required — 전수 주장. 변이: `AREAS`에서 1파일 삭제 · `AREAS`에 대상 아닌 파일 1개 추가 → red | EP-10(11파일 · 규칙 7) |
 | VP-07 | MD-01 ↔ UT-01 | REQUIRED | 파일 본문·구간 → `extractUnits()` → 단위 집합 | `scan/check.test.mjs` — EP-02 패턴 P1~P5 각각 1입력 + U6·U7 각각 1입력 | not selected — 행동 oracle | EP-02 패턴 5 + 규칙 2 |
-| VP-08 | MD-02 ↔ UT-02 | REQUIRED | fixture 데이터 → `check()` → 위반 목록 | `scan/check.test.mjs` — K1~K11의 red 조건마다 1입력 + 전부 유효한 green 1 | not selected — 행동 oracle | EP-05(조건 42) |
-| VP-09 | MD-03 ↔ UT-03 | REQUIRED | 후보 배열 → `ruling()` → 판정 | `scan/check.test.mjs` — EP-06 갈래마다 입력(표의 UT 입력 칸) | not selected — 행동 oracle | EP-06(갈래 3 · 경계 2) |
+| VP-08 | MD-02 ↔ UT-02 | REQUIRED | fixture 데이터 → `check()` → 위반 목록 | `scan/check.test.mjs` — K1~K12의 red 조건마다 1입력 + 전부 유효한 green 1 | not selected — 행동 oracle | EP-05(조건 46) |
+| VP-09 | MD-03 ↔ UT-03 | REQUIRED | 후보 배열 → `ruling()` → 판정 | `scan/check.test.mjs` — EP-06 갈래마다 입력(표의 UT 입력 칸) | not selected — 행동 oracle | EP-06(갈래 4 · 경계 2) |
 | VP-10 | MD-04 ↔ UT-04 | REQUIRED | 파일 목록·줄 수·읽은 집합 → `deriveTargets()` → 대상 집합 | `scan/check.test.mjs` — EP-10 규칙 T1~T7 각각 입력(표의 UT 입력 칸) | not selected — 행동 oracle | EP-10 규칙 7 |
 
 ### 현재 변경의 운영 gate
@@ -222,6 +229,8 @@ SD 레벨은 두지 않는다 — end-to-end 상태·수명주기를 가진 실�
 | 0316이 대상 파일 하나를 고쳤다 | `git diff --stat c1af29f 1168b67 -- <11파일>` → `LegacySubAgentTile.tsx` 1파일(+1 −5). 기준 커밋은 그 뒤다 |
 | INDEX 후보 표의 0262 행이 `adapters/opencode`와 겹친다 | `0262 plan.md:4017` 종료 이관 목록. 승격 조건이 "사용자 요청"이라 범위에 넣지 않고 `formLock` 근거를 채울 때 입력으로 읽는다 |
 | 0305 범주 X1~X7 정의 | `docs/handoff/0305-code-bloat-audit/plan.md:323-329` |
+| 템플릿 리터럴로 조립하는 번역 키 호출이 renderer prod에 있다 | ``git grep -n -E '\b(t\|tr)\(`[^`]*\$\{' 1168b67 -- app/src/renderer/src`` (test 제외) → 23줄 — 예: `CanonicalBackgroundContent.tsx:94` `` tr(`background.${state.connection}`) `` |
+| 변수로 키를 넘기는 호출도 있다 — 키 문자열이 `t(` 밖에 있을 수 있다 | ``git grep -n -E "\b(t\|tr)\([a-zA-Z_][a-zA-Z0-9_.]*[,)]" 1168b67 -- app/src/renderer/src`` (test 제외) → 60줄 |
 
 ### 전수 조사 — 대상 파일과 판정 단위
 
@@ -329,6 +338,19 @@ git show 1168b67:<11파일> → (감사자) → data/audit.json
 - F09·F10(i18n 리소스): 두 파일의 키 구조 중복은 `typeof ko`가 강제하는 번역 패리티다. L6 후보로 올리려면 한 언어 안에서 같은 문구·같은 조립이 되풀이되는 자리를 근거로 댄다.
 - 이미 오른 형태(D-013): 0305 `C-NN`·0315 `B-NN`과 같은 자리·같은 중복이면 후보로 올리지 않고 구간 근거에 `C-35(CLOSED, 0314 D-004)`처럼 적는다.
 
+i18n 미사용 키(D-016 · F09·F10의 L1):
+
+| 단계 | 하는 일 | 근거로 남기는 것 |
+|---|---|---|
+| 1 동적 접두사 목록 | 템플릿 리터럴의 고정 앞부분을 전수로 뽑는다 — 범위 `app/src/renderer/src` + `app/src/shared`, non-test | 명령 ``git grep -n -E '`[A-Za-z0-9_.]+\.\$\{' 1168b67 -- <범위>``와 N, 뽑은 접두사 목록을 F10 구간 `L1` 근거 칸에 적는다 |
+| 2 정적 참조 | `ko.ts`의 잎 키마다 전체 키 경로 문자열(복수형 접미사 `_one`·`_other` 등은 뗀 경로)을 같은 범위에서 고정 문자열로 찾는다 | 참조 0인 키만 다음 단계로 간다 |
+| 3 접두사 대조 | 참조 0인 키가 1의 접두사 중 어느 것으로도 시작하지 않는지 본다 | 겹치면 후보가 아니다 — 구간 근거에 "동적 접두사 `<접두사>`로 쓰임"으로 적는다 |
+| 4 후보 | 남은 키를 후보로 올린다. 같은 부모 아래 키들은 한 후보로 묶을 수 있다 | `i18nKeys`(키 경로 배열) · `dynamicPrefix`(1의 명령+N과 "겹치는 접두사 0"을 보인 대조 결과) · `sites`(`ko.ts`·`en.ts` 각 줄) |
+
+- 이 후보는 `area: F10` · `lens: L1` · `type: remove` · `approval: required`다. `saving.prod`는 `ko.ts`·`en.ts`에서 지워지는 줄 수의 합이다.
+- 전제 3칸·조건 2칸은 다른 후보와 똑같이 채운다 — `formLock`에는 그 키를 참조하는 테스트(`*.test.*`의 키 문자열)를 적는다.
+- F09·F10의 다른 형태(한 언어 안의 문구·조립 중복)는 i18n 미사용 키가 아니다. L6·L4 후보로 올리고 `sum`에 든다.
+
 과잉 범주 X1~X7은 0305 정의를 그대로 쓴다(`0305 plan.md:323-329`). X8은 0315 정의다:
 
 | # | 범주 | 후보가 되는 형태 |
@@ -353,10 +375,10 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 |---|---|---|---|---|---|---|
 | EP-01 / VP-01 | 구간 → 범주·렌즈 판정 | `check.mjs` `AREAS` | 검사 K1 | 구간 11 × 칸 11 = 121칸 | §8 대상 표 11행 × 아래 칸 목록 11 | 판정 없이 넘어간 범주·렌즈 |
 | EP-02 / VP-01·VP-07 | 구간 → 판정 단위 | `check.mjs` `extractUnits()` | 검사 K2 · UT-01 | 단위 98개(§8 표의 구간별 수) · 추출 패턴 5 + 규칙 2 | `node …/scan/check.mjs --units \| wc -l` → 98 | L6 짝을 찾지 않고 넘어간 판정·조립 |
-| EP-03 / VP-02 | 후보 필수 칸 | `audit.json` 스키마 | 검사 K3·K4·K8·K9 | 칸 12 × 후보 수 | 아래 칸 목록 12 | 근거 없는 후보가 합에 든다 |
+| EP-03 / VP-02 | 후보 필수 칸 | `audit.json` 스키마 | 검사 K3·K4·K8·K9·K12 | 칸 12 × 후보 수 + i18n 2칸 × i18n 후보 수 | 아래 칸 목록 12 + 조건부 2 | 근거 없는 후보가 합에 든다 · 동적으로 쓰이는 키가 제거 승인 목록에 오른다 |
 | EP-04 / VP-02 | 전제 확인 칸 | 같은 스키마 | 검사 K5 | 칸 3 × 후보 수 | 아래 칸 목록 3 | 전제를 확인하지 않은 후보가 통과로 세어짐 |
-| EP-05 / VP-08 | 검사 규칙 | `check.mjs` `check()` | UT-02 | 규칙 K1~K11의 red 조건 42개(아래) | 아래 규칙 표의 조건 수 합 | 검사가 green인데 표가 불완전 |
-| EP-06 / VP-03·VP-09 | 감량 합 판정 | `check.mjs` `ruling()` | UT-03 · verify | 갈래 3 + 경계 입력 2(아래) | 아래 갈래 표 3행 | 데이터와 다른 판정 — 계열이 잘못 끝나거나 잘못 이어짐 |
+| EP-05 / VP-08 | 검사 규칙 | `check.mjs` `check()` | UT-02 | 규칙 K1~K12의 red 조건 46개(아래) | 아래 규칙 표의 조건 수 합 | 검사가 green인데 표가 불완전 |
+| EP-06 / VP-03·VP-09 | 감량 합 판정 | `check.mjs` `ruling()` | UT-03 · verify | 갈래 4 + 경계 입력 2(아래) | 아래 갈래 표 4행 | 데이터와 다른 판정 — 계열이 잘못 끝나거나 잘못 이어짐 · i18n 줄 수가 문턱에 섞임 |
 | EP-07 / VP-03 | 핫패스 진입 심볼 | `check.mjs` `HOT_ENTRIES` | 검사 K8 | 심볼 3: `CanonicalBackgroundContent` · `LegacySubAgentHeader` · `LegacySubAgentContent` | `git grep -n 's\.messages' 1168b67 -- <11파일>` → 3줄(`:61` · `:80` · `:120`), 각 줄을 품은 함수 정의 `:58` · `:75` · `:116` | 성능 근거 없이 핫패스 후보가 통과 |
 | EP-08 / VP-02 | 대상 제외 | `check.mjs` `EXCLUDED` | 검사 K4 | 패턴 5(아래) | 아래 패턴 목록 5 | D-006 대상 밖 파일이 후보로 오름 |
 | EP-09 / VP-05 | 판정 사본 일치 | `audit.json` | 검사 K10 · verify | 사본 3곳: `audit.md` 생성 블록 · `verify.md` 판정 절 · `INDEX.md` 비고 | `rg -c '^<!-- gen:' …/audit.md` → 5 · `verify.md`는 `--ruling` 출력 인용 · INDEX 0317 행 | 문서와 데이터가 다른 말을 함 |
@@ -379,7 +401,7 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 - 단위는 `구간 ID + 이름`으로 식별한다. P2는 2칸 들여쓴 호출식(`useEffect(` 등)도 잡는다 — 그 이름도 단위로 두고 근거 칸에 그 호출들이 하는 일을 적는다(분모는 이 규칙의 출력이다).
 - 본문은 작업 트리가 아니라 `git show 1168b67:<파일>`에서 읽는다.
 
-**EP-03 후보 필수 칸** (0315와 같다): `id`(`W-NN`) · `area`(F01~F11) · `lens`(L1·L4·L5·L6) · `type`(`merge`·`restructure`·`remove`) · `sites`(`파일:줄` 배열) · `duplicate` · `preserve` · `keepStructure` · `saving`(`{prod, basis}` — `prod`는 1 이상 정수) · `hotEntry`(EP-07 심볼 또는 `null`) · `premises`(EP-04) · `conditions`(`{ui:{verdict,evidence}, perf:{verdict,evidence}}`). 조건부 필수: `excess`(X1~X8 배열) — `lens=L4`면 1개 이상. 선택 칸: `approval`(`required`/`none`) — `type=remove`면 `required`가 필수다.
+**EP-03 후보 필수 칸** (0315와 같다): `id`(`W-NN`) · `area`(F01~F11) · `lens`(L1·L4·L5·L6) · `type`(`merge`·`restructure`·`remove`) · `sites`(`파일:줄` 배열) · `duplicate` · `preserve` · `keepStructure` · `saving`(`{prod, basis}` — `prod`는 1 이상 정수) · `hotEntry`(EP-07 심볼 또는 `null`) · `premises`(EP-04) · `conditions`(`{ui:{verdict,evidence}, perf:{verdict,evidence}}`). 조건부 필수: `excess`(X1~X8 배열) — `lens=L4`면 1개 이상. 선택 칸: `approval`(`required`/`none`) — `type=remove`면 `required`가 필수다. i18n 조건부 필수(D-016): `i18nKeys`(키 경로 배열, 1개 이상) · `dynamicPrefix`(근거 문자열) — `area`∈{F09,F10} ∧ `lens=L1` ∧ `type=remove`인 후보는 둘 다 필수이고 그 밖의 후보는 둘 다 가질 수 없다.
 
 - enum: `premises.*.verdict` = `clear`·`blocks` · `conditions.ui.verdict` = `safe`·`risk` · `conditions.perf.verdict` = `equal_or_better`·`worse`·`unknown`.
 - `saving.prod`는 non-test 제품 코드 줄 수다. 한 후보가 여러 구간에 걸치면 `area`는 자리가 가장 많은 구간이고 감량은 한 번만 센다.
@@ -387,7 +409,7 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 
 **EP-04 전제 칸**: `premises.raceGuard` · `premises.formLock` · `premises.agentsRule` — 각각 `{verdict, evidence}`. 판정 기준은 §9 표다.
 
-**EP-05 검사 규칙** (규칙 칸 ↔ UT-02 red 입력 1:1, 전부 유효한 입력 1건은 green). K1~K10은 0315와 같고 구간 집합만 F01~F11이다.
+**EP-05 검사 규칙** (규칙 칸 ↔ UT-02 red 입력 1:1, 전부 유효한 입력 1건은 green). K1~K10은 0315와 같고 구간 집합만 F01~F11이다(K3의 허용 키에 `i18nKeys`·`dynamicPrefix`가 든다).
 
 | # | red 조건 | 조건 수 | UT-02 입력 |
 |---|---|---:|---|
@@ -402,26 +424,29 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 | K9 | `type=remove`인데 `approval≠required` / 승인 블록과 `remove` 집합 불일치 | 2 | `approval` 삭제 · 승인 블록에서 1행 삭제 |
 | K10 | `audit.md` 생성 블록 ≠ 렌더 결과 / 필수 블록 5개 중 누락 / 최상위 미지 키 | 3 | 문자 1개 수정 · 블록 삭제 · 최상위 키 `x` 추가 |
 | K11 | 유도 대상인데 `AREAS`에 없는 파일 / `AREAS`에 있는데 유도 대상이 아닌 파일 | 2 | `facts`에 대상 조건을 만족하는 파일 1개 추가 · `AREAS` 파일 1개를 `facts`의 읽은 집합에 추가 |
+| K12 | `area`∈{F09,F10} ∧ `lens=L1` ∧ `type=remove`인데 `i18nKeys` 없음·빈 배열 / `i18nKeys`가 있는데 그 세 조건 중 하나라도 아님 / `i18nKeys`가 있는데 `dynamicPrefix` 없음·빈 값 / `dynamicPrefix`가 있는데 `i18nKeys` 없음 | 4 | F10·L1·`remove` 후보에서 `i18nKeys` 삭제 · `i18nKeys: []` · `i18nKeys`를 가진 후보의 `area`를 F01로 · `lens`를 L6으로 · `type`을 `merge`로 · `dynamicPrefix` 삭제 · `dynamicPrefix: ""` · i18n 아닌 후보에 `dynamicPrefix` 추가 |
 
-조건 수 합 = 4 + 5 + 4 + 6 + 3 + 3 + 6 + 4 + 2 + 3 + 2 = 42 = EP-05 분모.
+조건 수 합 = 4 + 5 + 4 + 6 + 3 + 3 + 6 + 4 + 2 + 3 + 2 + 4 = 46 = EP-05 분모.
 
-**EP-06 감량 합 판정** (D-007·D-008 · 규칙 칸 ↔ UT-03 입력 1:1). 통과 후보 `P` = 전제 3칸 모두 `clear` ∧ `ui=safe` ∧ `perf=equal_or_better`. `sum` = `P`의 `saving.prod` 합(`P` = ∅이면 0). `LIMIT` = 30.
+**EP-06 감량 합 판정** (D-007·D-008·D-016 · 규칙 칸 ↔ UT-03 입력 1:1). `I` = `i18nKeys`를 가진 후보(i18n 미사용 키). 통과 후보 `P` = `I`가 아닌 후보 중 전제 3칸 모두 `clear` ∧ `ui=safe` ∧ `perf=equal_or_better`. `sum` = `P`의 `saving.prod` 합(`P` = ∅이면 0). `LIMIT` = 30. R1~R3은 `I`를 뺀 후보로만 계산한다.
 
 | # | 조건 | 판정 | UT-03 입력 |
 |---|---|---|---|
 | R1 | `P` = ∅ | `0305 계열 종료` (`sum` 0) | 후보 0건 · 후보 2건 모두 전제 1칸 `blocks`(각 40줄) · 후보 1건 `perf=unknown` 50줄 · 후보 1건 `ui=risk` 50줄 |
 | R2 | `P` ≠ ∅ ∧ `sum` < 30 | `0305 계열 종료` | 통과 2건(20줄 · 9줄, `sum` 29) · 통과 1건 5줄 + 막힌 1건 100줄(`sum` 5) |
 | R3 | `sum` ≥ 30 | `다음 단계 사용자 결정` | 통과 2건(15줄 · 15줄, `sum` 30 — 각각은 30 미만) · 통과 1건 30줄 · 통과 1건 31줄 + 막힌 1건 1줄 |
+| R4 | `I` ≠ ∅ | 판정은 R1~R3 그대로 · `I`는 `sum`·`total`에 들지 않고 i18n 집계에 든다 | `I` 1건 100줄(전제·조건 통과)만 → R1 종료 · `sum` 0 · i18n 집계 100 · 통과 29줄 + `I` 5줄 → R2 종료 · `sum` 29 · 통과 30줄 + `I` 40줄 → R3 · `sum` 30 · `I` 1건 전제 `blocks` → i18n 집계에 남고 통과 표시만 다름 |
 
 - 경계 입력 2: `sum` 29는 종료, 30은 사용자 결정이다(R2·R3 입력이 양쪽을 갖는다). 합으로 판정하므로 "각 후보가 30 미만"인 입력(15 + 15)이 R3에 든다 — 0315의 후보별 소형 판정과 다르다.
-- `ruling()`은 `{verdict, sum, limit, P, blocked, total}`을 낸다 — `P`는 통과 후보 ID와 각 `saving.prod`, `blocked`는 통과하지 못한 후보 ID와 걸린 칸, `total`은 전체 후보의 `saving.prod` 합(민감도 표시용)이다. 판정은 저장하지 않고 렌더 때 계산한다.
+- `ruling()`은 `{verdict, sum, limit, P, blocked, total, i18n}`을 낸다 — `P`는 통과 후보 ID와 각 `saving.prod`, `blocked`는 `I` 밖에서 통과하지 못한 후보 ID와 걸린 칸, `total`은 `I`를 뺀 전체 후보의 `saving.prod` 합(민감도 표시용)이다. 판정은 저장하지 않고 렌더 때 계산한다.
+- `i18n` = `{candidates, keys, prod, items}` — `I`의 후보 수 · `i18nKeys` 길이 합 · `saving.prod` 합 · 후보별 `{id, keys, prod, pass}`. `pass`는 `P`와 같은 조건(전제 3칸·조건 2칸)이다. `I`가 ∅이면 0·0·0·빈 배열이다.
 - `hotEntry`·`lens`는 판정에 쓰지 않는다(D-015).
 
 **EP-07 핫패스 심볼**: 위 표의 3개. 대상 파일의 다른 컴포넌트·main 4파일의 함수는 `hotEntry: null`이다.
 
 **EP-08 제외 패턴** (0315와 같다 · 자리 경로에 대해 하나라도 일치하면 red): `\.test\.[cm]?[jt]sx?$` · `\.testfixture\.` · `^app/scripts/` · `^\.github/` · `^app/src/main/adapters/claude/mock`.
 
-**EP-09 생성 블록 5개**: `areas`(구간 × 11칸 + 근거) · `units`(구간별 단위 · L6 판정 · 근거) · `candidates`(필수 칸 + 통과 여부) · `premises`(후보 × 전제 3칸 · 조건 2칸) · `ruling`(판정 · `sum` · `P` · `total` · 승인 목록).
+**EP-09 생성 블록 5개**: `areas`(구간 × 11칸 + 근거) · `units`(구간별 단위 · L6 판정 · 근거) · `candidates`(필수 칸 + 통과 여부) · `premises`(후보 × 전제 3칸 · 조건 2칸) · `ruling`(판정 · `sum` · `P` · `total` · i18n 집계 · 승인 목록 — i18n 후보도 `remove`라 승인 목록에 든다).
 
 **EP-10 대상 유도 규칙** (D-002·D-003 · 규칙 칸 ↔ UT-04 입력 1:1). `deriveTargets({files, read})` — `files`는 `[{path, lines}]`(기준 커밋 트리 전체), `read`는 읽은 파일 경로 집합이다. 파일이 T1~T6을 모두 통과하면 대상이다.
 
@@ -456,13 +481,14 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 7. `formLock`의 "형태를 잠그는가"는 감사자가 테스트 본문을 읽고 내린다. 검사는 근거 문자열의 존재만 본다.
 8. "읽은 파일"은 D-003의 기록 3곳에 이름이 있는 파일이다. 일부 구간만 읽힌 4파일(`channel.ts` · `ComposerInputController.tsx` · `FileDiffSection.tsx` · `ipc.ts`)의 나머지 구간과, 기록 없이 실제로는 읽혔을 수 있는 파일은 다루지 않는다.
 9. 대상은 기준 커밋 `1168b67`의 줄 수로 고정한다. 그 뒤 `main`에서 300줄을 넘거나 밑돈 파일은 다루지 않는다.
+10. 동적 키 접두사는 §9 i18n 표 1단계 명령이 잡는 형태(템플릿 리터럴의 `접두사.${…}`)까지다. 문자열 연결·객체에서 꺼낸 키 조각·main 프로세스가 만들어 보내는 키처럼 그 명령이 잡지 못하는 조립은 다루지 않는다 — 그래서 i18n 후보는 감사가 제거를 정하지 않고 승인 목록에만 오른다(D-012·D-016).
 
 ## 11. 구현 설계
 
 | 신규 파일 | 책임 | 내용 | 테스트 seam |
 |---|---|---|---|
 | `…/scan/check.mjs` | 대상 유도·추출·검사·렌더·판정 | 0315 `scan/check.mjs`를 복사해 아래 차이만 고친다. 순수 함수 `deriveTargets` · `collectRead` · `extractUnits` · `check` · `render` · `ruling` + CLI 껍질(`--check`·`--write`·`--units`·`--ruling`·`--targets`) | 여섯 함수 단위 |
-| `…/scan/check.test.mjs` | UT-01~UT-04 | 0315 테스트를 복사해 UT-03을 EP-06 갈래 3으로 바꾸고 K11·UT-04를 더한다 | `node --test` |
+| `…/scan/check.test.mjs` | UT-01~UT-04 | 0315 테스트를 복사해 UT-03을 EP-06 갈래 4로 바꾸고 K11·K12·UT-04를 더한다 | `node --test` |
 | `…/data/audit.json` | 감사 정본 | `{base, progress, areas[], units[], candidates[]}` | 검사 |
 | `…/audit.md` | 사용자 문서 | 진행표 · 요약 · 생성 블록 5 · 재현 방법 | 검사 K10 |
 
@@ -473,9 +499,10 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 | 1 | `BASE` | `c1af29f` | `1168b67` |
 | 2 | `AREAS` | A1~A6(줄 범위) | F01~F11(파일 전체 — `ranges: [[1, 줄 수]]`) |
 | 3 | `HOT_ENTRIES` | 6심볼 | EP-07의 3심볼 |
-| 4 | `ruling()` · `ruling` 블록 렌더 | 두 축 · `bundles` · `H` | EP-06 — `verdict` · `sum` · `P` · `blocked` · `total` |
+| 4 | `ruling()` · `ruling` 블록 렌더 | 두 축 · `bundles` · `H` | EP-06 — `verdict` · `sum` · `P` · `blocked` · `total` · `i18n` |
 | 5 | 후보 `id` 접두 | `B-` | `W-` |
 | 6 | 신규 | — | `BUCKETS` · `READ_0315` · `deriveTargets()` · `collectRead()` · K11 · `--targets` |
+| 7 | 후보 선택 칸 · 검사 | `excess`·`approval` | 그 둘 + `i18nKeys`·`dynamicPrefix` · K12 |
 
 스키마(0315와 같다): `areas[] = {id, verdicts{X1..X8,L1,L5,L6}, basis}` · `units[] = {area, name, l6, basis}` · `candidates[]` = EP-03.
 
@@ -544,6 +571,7 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 | 감사자가 전제를 낙관해 통과 후보를 부풀린다 | VP-02 — verify가 통과 후보 **전부**의 전제 근거 명령을 재실행한다 |
 | 감사자가 전제를 비관해 합을 30 밑으로 눌러 계열을 끝낸다 | verify가 통과하지 못한 후보 최대 3건을 재현하고(VP-02) `total`이 30 이상이면 막힌 후보의 걸린 칸을 `verify.md`에 전부 적는다 |
 | i18n 2파일이 읽는 양의 절반을 차지한다 | 대상에서 빼지 않는다(D-004). 단위가 1개라 판정 칸은 22칸 + 1단위다 |
+| 동적으로 쓰이는 번역 키를 미사용으로 올린다 | `dynamicPrefix` 근거 필수(K12) · 승인 목록(K9) · 선언 경계 10. 문턱 밖이라 판정에는 영향이 없다(D-016) |
 | 부분 열람 4파일의 나머지가 감사 밖에 남는다 | 선언 경계 8 — 최종 보고에 적어 사용자가 다음 단계에서 정한다 |
 | P2 패턴이 `useEffect` 같은 호출식을 단위로 잡는다 | 분모를 좁히지 않고 근거 칸에 그 호출들이 하는 일을 적는다(EP-02) |
 
@@ -565,29 +593,29 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 
 ## READY self-review
 
-- [x] Decision Ledger — ACTIVE 15 · OPEN 0 · SUPERSEDED 0.
+- [x] Decision Ledger — ACTIVE 16 · OPEN 0 · SUPERSEDED 0.
 - [x] Part I만으로 완료 상태를 설명한다 — §1 성공 한 문장 · §5 상태 표.
 - [x] 조건절·이유절을 원문으로 인용했다 — §2·§3의 따옴표 문장. 오기("전체 3칸")는 추론 행에 적었다.
 - [x] 사용자 결정과 코드 사실을 구분했다 — 설계자 해석 4건(D-003·D-013·D-014·D-015)은 출처 칸에 표시했다.
 - [x] 수치·전칭·앵커 실측 — §8 검산 절(18 · 7 · 11 · 6,145 · 98 · 51 · 5).
 - [x] 저장소 규칙·후보 표 겹침 확인 — §8의 0262 행 · §16.
-- [x] 각 AC가 동작 기준·검증 수단·경로를 가진다 — §7 12행.
+- [x] 각 AC가 동작 기준·검증 수단·경로를 가진다 — §7 13행.
 - [x] Baseline V — §7-A.
 - [x] 모든 NEW node에 같은 레벨 REQUIRED pair — R-01~06 ↔ VP-01~06 · AR-01 ↔ VP-05 · MD-01~04 ↔ VP-07~10.
 - [x] INHERITED node 없음.
 - [x] 각 pair의 경로·분모·oracle 좌표 — Pair registry · §10.
-- [x] 규칙 칸 ↔ UT 입력 칸 — EP-02 7행 · EP-05 11행(조건 42) · EP-06 3행 + 경계 2 · EP-10 7행.
-- [x] 선언 경계 9건 · 열린 입력은 fail-closed(K3·K10) · 대상 유도는 규칙 통과만 대상.
+- [x] 규칙 칸 ↔ UT 입력 칸 — EP-02 7행 · EP-05 12행(조건 46) · EP-06 4행 + 경계 2 · EP-10 7행.
+- [x] 선언 경계 10건 · 열린 입력은 fail-closed(K3·K10) · 대상 유도는 규칙 통과만 대상.
 - [x] 운영 gate 5개 — 문서 가드는 이번 턴 기준선에서 `links ok` 관측.
 - [x] 사람 실기로 미룬 순수 로직 없음 — 판정은 UT-03, 대상 유도는 UT-04.
 - [x] structural proxy — AC 주의사항 4번째 줄과 VP-02·VP-03의 재현 의무로 보완.
 - [x] 방향 일치 — K2·K11은 양방향 차집합 · K7은 고아 후보와 유령 ID 양쪽에 red.
 - [x] 정책 파라미터 — `sum`(통과 후보 prod 줄 합 · 정수) `< 30` · 판정 enum 2값.
-- [x] 참조 구현 coverage — 0315 `check.mjs` 대비 차이 6행(§11). K1~K10·EP-02·EP-03·EP-04·EP-08은 그대로다.
+- [x] 참조 구현 coverage — 0315 `check.mjs` 대비 차이 7행(§11). K1~K10·EP-02·EP-03·EP-04·EP-08은 그대로다.
 - [x] 신규 모듈의 강제 지점·seam — §11.
 - [x] producer/consumer — §12.
 - [x] 상한 — 읽는 양 6,145줄 · CI 부하 0.
-- [x] 본문 교차검증 — §3 갱신 메모의 대조 줄. EP-05 분모는 Pair registry·§10 표·규칙 표 합계 세 곳 모두 42, 단위 98과 대상 11은 §8 표·§10·Pair registry에서 같다.
+- [x] 본문 교차검증 — §3 갱신 메모의 대조 줄. EP-05 분모는 Pair registry·§10 표·규칙 표 합계 세 곳 모두 46, 단위 98과 대상 11은 §8 표·§10·Pair registry에서 같다.
 - [x] 문장 규칙 — 판정 먼저 · 표 위주.
 
 ---
