@@ -3,7 +3,7 @@ import type { AppErrorTitle } from '../../../../../shared/app-error'
 // t() 키를 강제). en.ts 는 `typeof ko` 로 선언해 양방향 키 패리티를 컴파일 타임에 보장한다.
 // 값은 기존 하드코딩 문자열을 그대로 옮긴 것 — ko 표시 결과는 마이그레이션 전후 동일해야 한다.
 
-import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../../../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../../../../shared/product'
 
 export const ko = {
   harnessUnavailable: {
@@ -179,7 +179,6 @@ export const ko = {
   },
   gate: {
     title: '사내 로그인',
-    subtitle: '계속하려면 사내 계정으로 로그인하세요.',
     signIn: '로그인',
     signingIn: '로그인 중…',
     resuming: '기존 세션으로 자동 로그인하는 중…',
@@ -199,29 +198,12 @@ export const ko = {
   skills: {
     pageTitle: '플러그인',
     rail: { skills: '스킬', mcp: 'MCP', providers: '플러그인' },
-    list: {
-      addAria: '추가'
-    },
     table: {
-      skill: '스킬',
-      mcp: 'MCP 서버',
-      lastUpdated: '마지막 업데이트',
       author: '작성자',
-      status: '상태',
-      transport: '전송 방식',
       user: '사용자',
       noSkills: '등록된 스킬이 없습니다.',
       noMcp: '등록된 MCP 서버가 없습니다.',
-      noProviders: '등록된 연결이 없습니다.',
-      provider: '연결',
-      providerAuth: '인증 방식'
-    },
-    groups: {
-      activeMcp: '활성 MCP',
-      inactiveMcp: '비활성 MCP',
-      gateProviders: '앱 로그인',
-      llmProviders: '모델',
-      serviceProviders: '사내 서비스'
+      noProviders: '등록된 연결이 없습니다.'
     },
     // provider 플랫폼 (0181) — 앱 로그인·모델 자격증명·사내 서비스 연결이 같은 화면을 쓴다.
     provider: {
@@ -262,7 +244,6 @@ export const ko = {
       version: '버전',
       license: '라이선스'
     },
-    view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
     // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면
     // 그 패키지의 서버가 전부 목록에서 사라진다 — 이유를 여기서 읽을 수 있어야 한다.
     detail: {
@@ -280,14 +261,12 @@ export const ko = {
       removeConfirmBody: `이 작업은 ${PRODUCT_DISPLAY_NAME} 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.`
     },
     addMenu: {
-      create: '스킬 만들기',
       author: '스킬 지침 작성',
       upload: '스킬 업로드'
     },
     author: {
       title: '스킬 지침 작성',
       name: '스킬 이름',
-      desc: '설명',
       descPlaceholder: '최근 작업에서 주간 현황 보고서를 생성합니다.',
       instructions: '지침',
       instructionsPlaceholder:
@@ -364,12 +343,7 @@ export const ko = {
     retry: '다시 시도',
     title: '프로젝트',
     newProject: '새 프로젝트',
-    blurb:
-      '프로젝트는 대화를 카테고리로 묶고, 지정한 시스템 지침을 해당 프로젝트의 모든 새 대화에 자동 주입합니다.',
-    noInstructions: '지침 없음',
     emptyTitle: '아직 프로젝트가 없어요',
-    emptyDesc:
-      '프로젝트를 만들면 관련된 대화를 한곳에 모으고, 지정한 지침이 모든 새 대화에 자동으로 적용됩니다.',
     createFirst: '첫 프로젝트 만들기',
     create: {
       title: '새 프로젝트',
@@ -390,8 +364,7 @@ export const ko = {
       pin: '고정',
       pinAria: '프로젝트 고정',
       menuAria: '프로젝트 메뉴',
-      editInstructions: '지침 편집',
-      updated: '업데이트'
+      editInstructions: '지침 편집'
     },
     instructionsCard: {
       title: '지침',
@@ -410,7 +383,6 @@ export const ko = {
     subtitle: 'provider settings 환경',
     addEngine: '엔진 추가',
     catalogFailed: '모델 목록을 불러오지 못했습니다.',
-    blurb: `<c>~/.config/${PRODUCT_SLUG}/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.`,
     emptyState: '등록된 공급자가 없습니다. 엔진 추가에서 하네스와 모델 공급자를 설정하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
     card: { unsupportedAdapter: '미지원 adapter', readOnly: '읽기 전용' },
@@ -761,19 +733,14 @@ export const ko = {
       forbidden: '이 대화에서 파일을 사용할 수 없습니다',
       unsafe: '안전한 파일 위치를 확인할 수 없습니다',
       tooLarge: '파일이 허용 크기를 초과했습니다',
-      title: '산출물',
       actions: '파일 작업',
       bytes: '{{count}} 바이트',
       working: '처리 중',
-      checking: '확인 중',
-      available: '파일 있음',
       missing: '파일 없음 — 삭제되었거나 이동되었습니다',
       unavailable: '파일에 접근할 수 없음',
       changed: '원본 파일이 변경되었거나 다른 위치로 옮겨졌습니다',
-      trashedAt: '휴지통으로 이동한 시각: {{time}}',
       save: '다른 이름으로 저장',
       download: '다운로드',
-      document: '문서',
       fileLabel: '파일',
       artifactLabel: '아티팩트',
       saveAll: '모두 저장',
@@ -784,13 +751,8 @@ export const ko = {
       trashMessage:
         '게시 기록은 남습니다. 이 파일을 참조하는 다른 대화에서도 파일을 사용할 수 없게 됩니다.',
       failed: '파일 작업을 완료하지 못했습니다. 다시 확인해 주세요.',
-      saveComplete: '저장 결과',
       tooMany: '한 번에 50개까지 저장할 수 있습니다. 개별 저장을 이용해 주세요.',
-      skipped: '건너뜀 — 파일 상태를 확인해 주세요',
-      done: '완료했습니다',
-      trashed: '휴지통으로 이동했습니다',
       trashedUnrecorded: '휴지통으로 이동했습니다. 이동 이력을 저장하지 못했습니다.',
-      empty: '게시된 산출물이 없습니다',
       loading: '산출물을 불러오는 중',
       listFailed: '산출물을 불러오지 못했습니다',
       retainedOnSessionDelete: '저장된 산출물 파일은 유지됩니다.'
@@ -953,7 +915,6 @@ export const ko = {
       sourceOpenFailed: '파일을 열지 못했습니다.',
       sourceMissing: '파일이 없습니다. 삭제되었거나 이동되었을 수 있습니다.',
       directoryBusy: '작업이 끝난 뒤 폴더를 추가할 수 있습니다.',
-      directoryPicking: '폴더 선택 중…',
       directoryFailed: '폴더를 추가하지 못했습니다. 다시 시도해 주세요.',
       openDirectory: '폴더 열기: {{name}}',
       directoryOpenFailed:
@@ -975,10 +936,7 @@ export const ko = {
       detail: {
         status: '상태',
         description: '설명',
-        blockedBy: '의존성',
-        elapsed: '경과',
-        lastTool: '최근 작업',
-        toolUses: '도구 사용'
+        blockedBy: '의존성'
       },
       sections: {
         scheduled: '예정',
@@ -1000,26 +958,19 @@ export const ko = {
       backToList: '목록으로',
       headerTitle: '작업',
       badgeAria: '확인하지 않은 완료 {{count}}건',
-      backgroundBadge: 'background',
       blockedByValue: '#{{ids}} 완료 필요',
-      stoppedReason: '사용자에 의해 중단됨',
-      failedReason: '실행 세션이 종료되었습니다',
       stopFailed: '중단하지 못했습니다',
       backgroundFailed: '백그라운드로 보내지 못했습니다',
-      toBackground: '백그라운드로',
       toBackgroundAria: '{{description}} 백그라운드로 보내기',
       toBackgroundTitle: '백그라운드로 보냅니다. 작업은 계속 실행됩니다.',
       unsupported: '연결된 Claude Code 가 할 일 목록 도구를 지원하지 않습니다.',
       unsupportedVersion: '설치된 버전: {{version}}',
-      noChildActivity: '이 작업에 기록된 하위 활동이 없습니다.',
-      emptyDesc: 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.',
-      openDetailAria: '{{description}} 상세 보기'
+      emptyDesc: 'Claude 가 Task 를 만들거나 백그라운드 작업을 시작하면 여기에 표시됩니다.'
     },
     taskTool: {
       created: '생성',
       updated: '갱신',
       listed: '전체 조회',
-      fetched: '조회',
       removed: '삭제',
       failed: '실패',
       subject: '제목',
@@ -1098,7 +1049,6 @@ export const ko = {
       send: '전송',
       sendEnter: '전송 (Enter)',
       diffRequirementTrayAria: 'Diff 요구사항',
-      diffRequirementTrayLabel: 'Diff 요구사항 {{count}}개',
       diffRequirementUnlocated: '위치 확인 필요',
       diffRequirementRemoveAria: 'Diff 요구사항 제거: {{comment}}',
       permissionModeTitle: '권한 모드',
@@ -1217,8 +1167,7 @@ export const ko = {
         task: '작업',
         diff: '변경사항',
         process: '백그라운드 프로세스',
-        source: '소스',
-        artifacts: '산출물'
+        source: '소스'
       },
       diffAllChanges: '모든 변경사항',
       diffEmpty: '표시할 변경 사항이 없습니다.',
@@ -1227,14 +1176,11 @@ export const ko = {
       diffNotSynced: '새로 고침을 누르거나 턴이 끝나면 표시됩니다.',
       diffRefresh: '새로 고침',
       diffLoadFailed: '변경사항을 불러오지 못했습니다. 새로 고침으로 다시 시도해 주세요.',
-      diffCollapsedNotice: '대량 diff의 경우 파일이 축소되어 있습니다. 파일을 선택하면 펼칩니다.',
       diffOpenFile: '탐색기에서 보기',
       diffOpenFileAria: '탐색기에서 보기: {{path}}',
       diffFileToggleAria: '{{path}} 펼치기/접기',
       diffFileBinary: '바이너리 파일이라 미리보기를 표시할 수 없습니다.',
       diffFileTooLarge: '파일이 너무 커서 미리보기를 표시할 수 없습니다.',
-      diffFileUnavailable: '미리보기를 표시할 수 없습니다.',
-      diffSessionChanges: '변경사항',
       diffBaselineHead: '현재 HEAD',
       diffBaselineNone: '기준 없음',
       diffSessionFilesTruncated: '세션 파일 목록 제한됨',
@@ -1254,14 +1200,11 @@ export const ko = {
       diffNoSessionChange: '세션 기준 변경 없음',
       diffPatchUnavailable: '변경 내용을 불러오지 못했습니다. 새로고침해 주세요.',
       diffContextLimited: '문맥이 제한돼 있습니다 — 불러온 범위까지만 펼쳐집니다.',
-      diffExpandGap: '위로 {{count}}개 더 표시',
       diffRequirementAddAria: 'Diff 요구사항 추가: {{line}}',
       diffRequirementDraftPlaceholder: '이 줄에 전달할 요구사항…',
       diffRequirementDraftInputAria: 'Diff 요구사항 내용',
       diffRequirementDraftLineLabel: '{{line}}번 줄',
       diffRequirementDraftSubmit: '추가',
-      diffRequirementDraftCancel: '취소',
-      diffRequirementMarkerLabel: '요구사항',
       closeTile: '{{label}} 닫기',
       panelResizeAria: '우측 패널 크기 조절',
       rowResizeAria: '패널 행 크기 조절',
@@ -1275,8 +1218,6 @@ export const ko = {
       planEmptyDescOpenCode: 'OpenCode가 탐색하며 계획을 세우면 여기에 표시됩니다.',
       planSelectHint: '텍스트를 선택해 Claude에게 의견을 남기세요',
       planSelectHintOpenCode: '텍스트를 선택해 OpenCode에게 의견을 남기세요',
-      reservedTitle: '예약된 타일입니다',
-      reservedDesc: '이 영역은 다음 보조 패널 기능을 위해 비워두었습니다.',
       commentViewAria: '코멘트 보기',
       commentCreateAria: '코멘트 작성: {{quote}}',
       commentEditAria: '코멘트 편집: {{quote}}',
