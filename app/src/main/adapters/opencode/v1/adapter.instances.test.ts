@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { homedir } from 'node:os'
+import { resolve } from 'node:path'
 import type { ChildProcess, spawn } from 'node:child_process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Event } from '@opencode-ai/sdk/v2/client'
@@ -13,7 +14,8 @@ import {
   textPart
 } from './adapter.testfixture'
 import { OpenCodeInstances } from './instance-lifecycle'
-import { sameNativePath } from './native-storage'
+import { nativePathKey, sameNativePath } from './native-storage'
+import { openCodeDiscovery } from './discovery-cache'
 import { reportError } from '../../../infra/error-report'
 
 vi.mock('../../../infra/error-report', () => ({ reportError: vi.fn() }))
@@ -321,6 +323,66 @@ describe('Owned server, directory lifecycle and actual SDK composition', () => {
     f.finish(f.disposals[0])
     await releasing
   })
+
+  it.each([
+    ['an explicit directory and environment', '/fixture/explicit-project', true],
+    ['an explicit directory without environment', '/fixture/explicit-project', false],
+    ['no directory with environment', undefined, true],
+    ['an empty directory without environment', '', false]
+  ] as const)(
+    'reads resources, holds discovery and scopes requests with %s',
+    async (_label, cwd, withEnv) => {
+      const f = fixture()
+      const run = vi.spyOn(openCodeDiscovery, 'run')
+      const hold = vi.spyOn(openCodeDiscovery, 'hold')
+      const inherited = process.env.XDG_STATE_HOME
+      const marker = '/fixture/marker-state'
+      expect(inherited).toBeTruthy()
+      expect(inherited).not.toBe(marker)
+      expect(resolve('/fixture/explicit-project')).not.toBe(resolve(homedir()))
+      const lease = await f.adapter.client(
+        {},
+        withEnv ? { XDG_STATE_HOME: marker } : undefined,
+        cwd
+      )
+      const directory = nativePathKey(cwd || homedir())
+      const state = withEnv ? marker : inherited
+      const read = (
+        key: unknown
+      ): { kind: string; directory: string; state?: string; scope: string } => {
+        const [kind, where, env, scope] = JSON.parse(String(key)) as [
+          string,
+          string,
+          [string, string][],
+          string
+        ]
+        return { kind, directory: where, state: new Map(env).get('XDG_STATE_HOME'), scope }
+      }
+      const reads = run.mock.calls
+        .map(([key]) => read(key))
+        .filter((entry) => entry.kind === 'configured')
+      expect(reads).toHaveLength(2)
+      expect(reads).toContainEqual({ kind: 'configured', directory, state, scope: 'false' })
+      expect(reads).toContainEqual({
+        kind: 'configured',
+        directory: nativePathKey(homedir()),
+        state,
+        scope: 'true'
+      })
+      expect(hold.mock.calls.map(([key]) => read(key))).toEqual([
+        { kind: 'configured', directory, state, scope: 'false' }
+      ])
+      await lease.client.session.create({ workspace: 'workspace-one' })
+      const post = f.requests.find((r) => new URL(r.url).pathname === '/session')!
+      expect(
+        sameNativePath(
+          decodeURIComponent(post.headers.get('x-opencode-directory')!),
+          cwd || homedir()
+        )
+      ).toBe(true)
+      await lease.release()
+    }
+  )
 
   it.each(['complete', 'recover', 'history', 'channel'] as const)(
     'returns the %s consumer before idle expiry and retains the server until native completion',
