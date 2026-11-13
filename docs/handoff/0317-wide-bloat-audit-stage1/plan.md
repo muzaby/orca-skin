@@ -5,13 +5,13 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0317-wide-bloat-audit-stage1` |
-| 작성자 | Claude Code |
+| 작성자 | Claude Code · rev.4 정합 정정: Codex(사용자 `handoff-plan 317`) |
 | 일자 | 2026-11-13 |
 | 매핑 | 사용자 `/handoff-plan` — 0315 AC10 결정에 따른 넓은 감사 1단계. 감사만 하고 구현은 하지 않는다 |
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0315의 V를 상속하지 않는다. 0315에서 가져오는 것은 방법·스키마·검사 규칙의 본문이다(§8·§11) |
-| 이번 V revision | `V1 rev.3` — r2 verify RETURN_TO_PLAN의 확장 후보 1(i18n 데이터 정합)을 선언 경계 11로 둔다(D-017). §9 i18n 2단계·`formLock` 문장을 r2 구현 정의와 맞춘다. 새 구현 의무 0(규범 변경만) · rev.2는 구현 전 사용자 결정(D-016) — EP-03·EP-05·EP-06·AC7 정정 · AC13 추가 |
+| 이번 V revision | `V1 rev.4` — §9 형태 표·선언 경계 12를 실제 STATIC 판정과 맞춘다(출처: plan 내부 정합). rev.3의 D-017·경계 11과 기존 V 노드·pair·AC는 유지한다. r3 FAIL의 근거 오류 2건은 r4 구현에서 닫는다 |
 | 유효 V | `V1` |
 | 기준 커밋 | `1168b67` (`git cat-file -t` = commit · `git merge-base --is-ancestor 1168b67 origin/main` 성공 — rev.3에서 `git fetch origin main` 뒤 재확인, `origin/main` = `22b39d6`) |
 
@@ -76,6 +76,7 @@
 - 턴 1에서 추가된 결정: D-001~D-015 (신규 handoff).
 - 턴 2 diff(V1 rev.2 — 구현 전 사용자 결정): D-016 추가. D-008의 판정 갈래는 그대로이고 `sum`에 드는 후보만 좁아졌다. 나머지 ACTIVE 15건은 그대로다.
 - rev.3 diff(r2 verify RETURN_TO_PLAN 뒤 설계 턴 — plan 동결 전 마지막 턴): D-017 추가. 확장 후보 1은 경계 11로 닫혀 새 열거 의무가 0이다. §9 i18n 2단계·`formLock` 문장 정정의 출처는 plan 내부 정합이다(r2 구현 정의 · r1 verify §7 부분 문자열 오탐 3 · r2 `[구현자 기입]` Review Signals). 나머지 ACTIVE 16건은 그대로다.
+- rev.4 diff(사용자 `handoff-plan 317`): D-001~D-017 전부 유지, 신규 결정 0. r3 구현 보고 #2와 verify r3 §11이 지목한 경계 12의 과도한 제외 문장을 정정한다(아래 rev.4 self-review). `ACTIVE 결정 ↔ AC 대조: 충돌 0` — 아래 매핑을 다시 대조했고 D-010·D-011의 구현 주체·단독 수행도 유지한다.
 - OPEN: 없음.
 - 0315에서 승계하지 않은 결정: 0315 D-015(두 축 중단 규칙)와 D-002(6구간). 판정은 D-008이, 대상은 D-002~D-004가 대신한다.
 - `ACTIVE 결정 ↔ AC 대조: 충돌 0` — D-001 ↔ AC8 · D-002·D-003·D-004 ↔ AC12 · D-005 ↔ AC1~AC5 · D-006 ↔ AC6 · D-007·D-008 ↔ AC7 · D-009 ↔ AC10 · D-012 ↔ AC3(`approval`) · D-013·D-014 ↔ §9 방법(선언 경계 2 — 감사자 판단) · D-015 ↔ AC3(`hotEntry`) · D-016 ↔ AC7·AC13 · D-017 ↔ AC13(K12는 두 칸의 존재만 — 정합은 선언 경계 11) · D-010·D-011 ↔ §19.
@@ -352,14 +353,14 @@ i18n 미사용 키(D-016 · F09·F10의 L1):
 - 이 후보는 `area: F10` · `lens: L1` · `type: remove` · `approval: required`다. `saving.prod`는 `ko.ts`·`en.ts`에서 지워지는 줄 수의 합이다.
 - 전제 3칸·조건 2칸은 다른 후보와 똑같이 채운다 — `formLock`에는 같은 STATIC 4형태로 test 범위(`*.test.*`·`*.testfixture.*`·`app/scripts/**`·`app/eslint.config.mjs`)에서 센 참조를 적는다. `ko.<경로>` 체인(`prop`)도 참조다(r1 verify 발견 1 · rev.3 정합).
 
-참조 형태 표(rev.3 — `--i18n`이 판정하는 열린 입력을 `REF_FORMS`로 고정한다. 정의는 `scan/check.mjs` `i18nRefs`):
+참조 형태 표(rev.3 정의 · rev.4 경계 설명 정정 — `--i18n`이 판정하는 열린 입력을 `REF_FORMS`로 고정한다. 정의는 `scan/check.mjs` `i18nRefs`):
 
 | 형태 | 해석 | 쓰는 곳 · 기존 UT |
 |---|---|---|
 | STATIC `string`·`prop`·`ancestorString`·`ancestorProp` | 참조 — prod에 1개라도 있으면 후보가 아니다 | 2단계 · `formLock` · `check.test.mjs` "i18n i18nRefs string"·"prop"·"ancestorString"·"ancestorProp" |
 | TEMPLATE `templateHead`·`templateHeadLoose`·`templateTail` | 보고만 — 후보 제외는 1단계 접두사가 한다 | 후보별 근거 행 · "i18n i18nRefs template" |
 | DOC `bare`·`bareAncestor` | 보고만 — rule 범위 문서 언급 | `agentsRule` 근거 · "i18n i18nRefs bare" |
-| 그 밖(별칭 import · 루트 계산 접근 · 문자열 연결로 만든 키) | 참조로 세지 않는다 | 선언 경계 12 |
+| STATIC에 걸리지 않는 형태(별칭의 조상 객체 전달 · 루트 계산 접근 · 키/조상 경로가 드러나지 않는 문자열 연결) | 참조로 세지 않는다. 별칭 잎 접근은 `prop`, 조상 문자열이 드러나는 연결은 `ancestorString`이 센다 | 선언 경계 12 · rev.4 정합 정정 |
 - F09·F10의 다른 형태(한 언어 안의 문구·조립 중복)는 i18n 미사용 키가 아니다. L6·L4 후보로 올리고 `sum`에 든다.
 
 과잉 범주 X1~X7은 0305 정의를 그대로 쓴다(`0305 plan.md:323-329`). X8은 0315 정의다:
@@ -494,7 +495,8 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 9. 대상은 기준 커밋 `1168b67`의 줄 수로 고정한다. 그 뒤 `main`에서 300줄을 넘거나 밑돈 파일은 다루지 않는다.
 10. 동적 키 접두사는 §9 i18n 표 1단계 명령이 잡는 형태(템플릿 리터럴의 `접두사.${…}`)까지다. 문자열 연결·객체에서 꺼낸 키 조각·main 프로세스가 만들어 보내는 키처럼 그 명령이 잡지 못하는 조립은 다루지 않는다 — 그래서 i18n 후보는 감사가 제거를 정하지 않고 승인 목록에만 오른다(D-012·D-016).
 11. i18n 후보의 `i18nKeys`·`sites`·`saving.prod`가 §9 i18n 유도(`--i18n`)와 같은지는 검사 K1~K12가 보지 않는다 — 값을 바꾸고 `--write`로 사본을 맞추면 `--check`가 green이다(r2 verify M-E · rev.3 재현: W-07 `saving.prod` 40→38 → exit 0, `--i18n` `40(audit 38)`). 기준 커밋 데이터에서 같은 형태는 0이다 — rev.3 `--i18n`: `유도−audit.json ∅` · `audit.json−유도 ∅` · 6건 `sites` 차집합 0/0 · 줄 수 6/6 일치 · 함께 지울 때 120 = 후보별 합 120. 실제 데이터가 유도와 다르면 경계가 아니라 현재 결함(§5 i18n 집계·승인 목록 오류)이다(D-017).
-12. §9 i18n 2단계는 STATIC 4형태 밖의 참조 — 별칭 import(`import { ko as k }`) · 루트 계산 접근(`ko[x]`) · 문자열 연결로 만든 키 — 를 세지 않는다. 기준 커밋에서 셋 다 0이다(rev.3: `git grep -n -E "import \{[^}]*\b(ko|en) as " 1168b67 -- app/src` → 0 · test·리소스 2파일 밖 `\b(ko|en)\s*\[` → 0 · test 밖 점으로 끝나는 따옴표 문자열 뒤 `+` → 0). 이 형태가 후보 키를 실제로 쓰는 자리가 나오면 현재 결함이다.
+12. §9 i18n 2단계는 STATIC 4형태 밖의 참조를 세지 않는다. 키 `a.b`에 대해 별칭 잎 접근 `k.a.b`는 `prop`, `use(ko.a)`·`use(en.a)`는 `ancestorProp`가 세지만, 별칭 조상 전달 `use(k.a)`·루트 계산 접근 `ko[x]`·`tr('a' + '.b')`는 세지 않는다. `tr('a.' + 'b')`는 조상 문자열 `a.`가 드러나 `ancestorString`이 센다(rev.4 직접 실행 — 아래 self-review).
+    - rev.3의 "별칭 import·문자열 연결을 세지 않는다"와 "셋 다 0"은 이 문장으로 대체한다(출처: plan 내부 정합, r3 구현 보고 #2). 기준 커밋에서 별칭 import 0 · test·리소스 밖 루트 계산 접근 0 · test 밖 점으로 끝나는 문자열 연결은 2곳이며, 둘은 경로 검사와 폼 오류 주소다(아래 재현 표). 이 검색은 모든 문자열 조립의 부재를 입증하지 않으며, STATIC 밖 형태가 후보 키를 실제로 쓰면 현재 결함이라는 기존 처리는 유지한다.
 
 ## 11. 구현 설계
 
@@ -584,7 +586,7 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 | 감사자가 전제를 낙관해 통과 후보를 부풀린다 | VP-02 — verify가 통과 후보 **전부**의 전제 근거 명령을 재실행한다 |
 | 감사자가 전제를 비관해 합을 30 밑으로 눌러 계열을 끝낸다 | verify가 통과하지 못한 후보 최대 3건을 재현하고(VP-02) `total`이 30 이상이면 막힌 후보의 걸린 칸을 `verify.md`에 전부 적는다 |
 | i18n 2파일이 읽는 양의 절반을 차지한다 | 대상에서 빼지 않는다(D-004). 단위가 1개라 판정 칸은 22칸 + 1단위다 |
-| 동적으로 쓰이는 번역 키를 미사용으로 올린다 | `dynamicPrefix` 근거 필수(K12) · 승인 목록(K9) · 선언 경계 10·11·12(rev.3 실측 0). 문턱 밖이라 판정에는 영향이 없다(D-016) |
+| 동적으로 쓰이는 번역 키를 미사용으로 올린다 | `dynamicPrefix` 근거 필수(K12) · 승인 목록(K9) · 선언 경계 10·11·12(경계 12의 재측정은 rev.4 self-review). 문턱 밖이라 판정에는 영향이 없다(D-016) |
 | 부분 열람 4파일의 나머지가 감사 밖에 남는다 | 선언 경계 8 — 최종 보고에 적어 사용자가 다음 단계에서 정한다 |
 | P2 패턴이 `useEffect` 같은 호출식을 단위로 잡는다 | 분모를 좁히지 않고 근거 칸에 그 호출들이 하는 일을 적는다(EP-02) |
 
@@ -604,7 +606,7 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 - D-010: impl·verify 턴도 서브·백그라운드 에이전트를 쓰지 않는다.
 - 사람 실기: AC10.
 
-## READY self-review
+## READY self-review — 이전 기록(최신 관측은 rev.4 self-review)
 
 - [x] Decision Ledger — ACTIVE 16 · OPEN 0 · SUPERSEDED 0.
 - [x] Part I만으로 완료 상태를 설명한다 — §1 성공 한 문장 · §5 상태 표.
@@ -645,6 +647,68 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 | gate(편집 뒤 트리) | `--check` 단위 98 · 후보 12 · 위반 0 · 대기 0 · `node --test` 127/127 · AC8 `git diff --stat 1168b67 -- app .github` 0줄(작업 트리 포함) |
 | 판정 입력값 | `--ruling` → `0305 계열 종료` · `sum` 19(P W-01 4 · W-05 6 · W-06 9) · `total` 34 · i18n 6건·55키·120줄. AC10(W-03·W-04 UI — 둘 다 `safe`면 31)은 그대로 사람 몫이다 |
 | 인용 앵커 | `verify.md` `# r2 검증` · `## 발견`(r2) · `## 7. 독립 축(⑥)`(r1) 실재 |
+
+### rev.4 self-review — 정합 정정과 r4 재개
+
+**READY.** §9·경계 12의 설명만 실제 판정으로 정정했으며 새 구현 의무는 없다. 마지막 verify r3의 **FAIL**과 미해결 D1·D2는 유지하므로 다음 주체는 Claude(구현 r4)다.
+
+| 대조 대상 | 이번 턴 관측 / 처리 |
+|---|---|
+| 사용자 요청 | `ccr-160f6d72-4ilo9v`로 전환 후 `handoff-plan 317` 수행. 제품 결정 변경은 없고 감사·구현·검증 역할은 기존 계약대로다 |
+| 동결 뒤 변경 출처 | plan 내부 정합 — r3 `[구현자 기입] 놓친 잠재 문제` #2 · `verify.md` r3 §11. 과도한 제외 설명을 대체하며 새로운 지원 형태·UT 의무는 추가하지 않는다 |
+| 상속과 V 영향 | V1 rev.3의 Decision·AC·node·pair·EP 목록을 유지. `NEW`·`CHANGED` node 0이므로 새 Delta V pair 없음; 경계 설명의 개정은 V1 rev.4로 남긴다 |
+| 공개된 실패 | D1 `readVersion:` 검색 7파일 · D2 `useBackgroundStore` 검색 2파일을 다시 관측. `audit.json`·`audit.md`는 이번 설계 턴에서 고치지 않아 파생 이슈 2·3은 open 그대로다 |
+| 창 밖 확장 | verify r3 D3(근거 도구 UT 입력 공백)는 INDEX 후보 표에 유지. 이번 정합 정정으로 채택하거나 확장 창을 다시 열지 않는다 |
+| 사람 확인 | AC10 유지. 현재 입력값 `sum` 19이며 W-03·W-04를 모두 `safe`로 바꾸면 31이라는 기존 민감도도 유지한다 |
+
+#### 경계 12 재현
+
+`scan/check.mjs`의 `i18nRefs(refIndex([{path: 'app/src/x.ts', text}]), 'a.b')`를 직접 실행했다. 아래는 새 수용 기준이 아니라 기존 함수가 하는 일을 대조한 관측이다.
+
+| `text` | 반환 형태 |
+|---|---|
+| `k.a.b` | `prop` |
+| `use(k.a)` | 없음 |
+| `use(ko.a)` · `use(en.a)` | 각각 `ancestorProp` |
+| `ko[x]` · `tr('a' + '.b')` | 각각 없음 |
+| `tr('a.' + 'b')` | `ancestorString` |
+
+기준 커밋 검색 범위는 `app/src`의 `.[cm]?[jt]sx?`다. 두 번째 검색은 test·testfixture·리소스 2파일을, 세 번째는 test·testfixture를 제외했다.
+
+| 검색(Python `re`, 기준 `git show 1168b67:<파일>`) | N | 의미 |
+|---|---:|---|
+| `import\s*\{[^}]*\b(?:ko\|en)\s+as\s` | 0 | 별칭 조상 전달을 정당화할 별칭 import가 이 범위에 없음 |
+| `\b(?:ko\|en)\s*\[` | 0 | 루트 계산 접근 검색 결과 없음 |
+| `['"][^'"\n]*\.['"]\s*\+` | 2 | `main/adapters/claude/plugin-catalog.ts:139`의 `'..' + sep` · `renderer/src/features/engine/harnesses/opencode/ProviderForm.tsx:89`의 `row.row + '.' + String(field.key)`; i18n 키 참조가 아님 |
+
+#### handoff-review 진단 — 지침 유지
+
+발동은 verify 3회째 FAIL과 근거 N 불일치의 재발이다. 모드는 **DIAGNOSE_ONLY** — 사용자 요청은 `handoff-plan 317`이며, 진단 결과는 이번 설계의 입력으로 기록한다. SKILL·template·AGENTS·corpus·regression-coverage는 변경하지 않는다.
+
+| 원인 분류 | 증거 / 이미 있는 방어 | 판단 |
+|---|---|---|
+| B — 실행 누락 | r3 D1·D2는 같은 명령으로 각각 7·2가 재현된다. `handoff-impl` §6은 지적을 불변식으로 올려 형제 행까지 전수 적용하고, §9는 닫힘마다 이번 턴 관측을 붙이도록 한다 | r2의 "0건" 재측정이 구간 근거와 양수 N까지 닿지 않았다. 같은 규칙 추가 대신 r3 verify §13의 재실행 범위를 따른다 |
+| B — 검증 누락 | verify r1·r2의 "못 본 것"에 통과 후보 전제 전수 재실행이 남아 있다. VP-02는 이미 "통과 후보 전부 + 그 밖 최대 3건"의 N 일치를 요구한다 | 명령·계약 부족이 아니다. r4에서도 필수 재현을 열람이나 `--check` green으로 대신하지 않는다 |
+| F — 문서 결함 | 경계 12의 제외 설명과 `i18nRefs` 실행 결과가 다르다. `handoff-plan` §4·§7은 코드 우선 조사와 문서 정합 대조를 이미 요구한다 | 이번 설계 정정으로 처리. plan 스킬 변경 근거 없음 |
+
+- 지침 변경안: 없음. 지침 delta가 없어 회귀 Tier·6-A·6-B·6-C는 적용 대상이 아니며, 회귀 검증을 수행했다고 주장하지 않는다.
+- 분류·상태 전환: D1은 이행, D2는 현재 결함, D3는 창 밖 확장이라는 r3 판정을 유지한다. 판정 의미 변경·verify 정정·verify 횟수 증가 없음; review 진단은 완료했고 다음은 r4 구현이다.
+- 한계: 이 진단은 실패 원인을 분류한 것이며 r4 구현의 근거 정정·전수 재현이나 독립 verify를 대신하지 않는다.
+
+#### r4에 넘기는 작업
+
+범위 정본은 `verify.md` r3 §13과 아래 open 파생 이슈 2·3이다. W-02 근거의 N·파일 목록과 F06 L5의 N·소비자 설명을 정정한 뒤 `--write`로 사본을 맞추고, 같은 절이 지목한 N 대조 명령 집합을 재열거·재실행한다. `--check`·기존 UT·문서 가드·AC8을 확인하고 `[구현자 기입]`에 관측과 차집합을 남긴 뒤 verify로 넘긴다.
+
+설계 턴의 게이트 관측은 아래와 같다(구현 완료·verify PASS를 뜻하지 않는다).
+
+| 항목 | 관측 |
+|---|---|
+| 계약 대조 | ACTIVE Decision 17 · AC 13 · pair 10 · EP-01~EP-10 · K1~K12 조건 46 유지. Decision/AC/pair/강제 지점 목록의 변경 전후 차집합 0 |
+| 기준선 | `git fetch origin main` 뒤 `git cat-file -t 1168b67` = commit · `git merge-base --is-ancestor 1168b67 origin/main` 성공 |
+| 대상 / 판정 | `--targets` 11파일 · `--ruling` `0305 계열 종료`(잠정), `sum` 19 · `total` 34 · i18n 6건·55키·120줄 |
+| 편집 뒤 gate | `--check` 단위 98 · 후보 12 · 위반 0 · 대기 0; `node --test` 134/134; `cd app && node scripts/check-doc-inventory.mjs --check` generated/prose/links 모두 통과. `git diff --check` 통과 · AC8 diff 0 |
+
+실행 환경: 기본 샌드박스에서 Node의 `spawnSync git`이 `EPERM`으로 실패해 검사·UT·문서 가드를 샌드박스 밖에서 실행했다. 문서 가드는 처음 저장소 루트에서 실행해 경로 오류가 났고, 정본 명령의 작업 디렉터리 `app/`에서 재실행해 통과했다.
 
 ---
 
