@@ -620,9 +620,130 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 
 ---
 
-## [구현자 기입]
+## [구현자 기입] 설계 리뷰 (r1)
 
-(impl 턴에서 채운다 — 필드는 `plan.template.md`의 `[구현자 기입]` 7절)
+- 동의 / 그대로 진행: Part I 전부 · §10 EP-01~EP-10 · §11 단계 P1~P4. 대상 11파일·단위 98개는 `--targets`·`--units` 출력과 §8 표의 차집합이 0이었다.
+- 이견 / 현실성 문제: 없음. 다만 판정 입력값이 UI 칸의 한 기준("지나는 테스트가 없으면 `risk`")에 걸린다 — 아래 놓친 잠재 문제 1번.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 구간 → 범주·렌즈 판정 (EP-01) | 11구간 × 11칸 = 121 | 121/121 | `gate:node …/scan/check.mjs --check` → `위반 0 · 대기 0` · 변이 D1(F04.X8 삭제) → `RED K1: F04.X8 판정 없음` | 칸 값 · 칸 삭제 → K1 | — |
+| VP-01·VP-07 | 구간 → 판정 단위 (EP-02) | 98단위 · 패턴 5 + 규칙 2 | 98/98 · 7/7 | `node …/scan/check.mjs --units \| wc -l` → 98(F01 20 · F02 16 · F03 18 · F04 22 · F05 3 · F06 5 · F07 4 · F08 3 · F09 0 · F10 1 · F11 6 — §8 표와 차집합 0) · D2·D3 red(K2) · `scan/check.test.mjs` "UT-01 P1"~"U7" | 단위 이름 · 삭제·유령 추가 → K2 양방향 | — |
+| VP-02 | 후보 필수 칸 (EP-03) | 12칸 × 11건 + i18n 2칸 × 5건 = 142 | 142/142 | 같은 gate(K3·K4·K8·K9·K12) · D5·D7·D8·D9·D11·D12 red · `scan/check.test.mjs` "UT-02 red K3 필수 칸 … 제거" 12건 · "UT-02 red K12 …" 9건 | 칸마다 제거 입력 · `i18nKeys`·`dynamicPrefix` 는 삭제·빈 값·엉뚱한 후보 입력 | — |
+| VP-02 | 전제 확인 칸 (EP-04) | 3칸 × 11건 = 33 | 33/33 | 같은 gate(K5) · D4 red · "UT-02 red K5 전제 … 제거" 3건 | 칸 3개 각각 제거 | — |
+| VP-02 | 대상 제외 (EP-08) | 패턴 5 | 5/5 | D5(자리 → `adapter.test.ts`) → `RED K4` · "UT-02 red K4 제외 패턴 …" 5건 | 패턴마다 1경로 | — |
+| VP-08 | 검사 규칙 (EP-05) | red 조건 46 | 46/46 | `node --test …/scan/*.test.mjs` → tests 114 · pass 114 · "UT-02 red …" 입력이 조건마다 1건 이상(K11 3건 · K12 9건 포함) | 조건마다 그 조건만 깨는 입력 → 해당 K 접두 위반 단언 | — |
+| VP-03·VP-09 | 감량 합 판정 (EP-06) | 갈래 4 + 경계 2 | 6/6 | "UT-03 R1"·"R2"·"R3"·"R4" · 경계 29(R2)·30(R3) · `--ruling` → `0305 계열 종료 · sum 19 · total 34` · 변이 C3·C4·C5 red | `sum`·`total`·`P`·`blocked`·`i18n` 를 `deepEqual` — 15+15=30 입력이 "후보별 30 미만"과 "합 30"을 가른다 | — |
+| VP-03 | 핫패스 심볼 (EP-07) | 심볼 3 | 3/3 | `git grep -n 's\.messages' 1168b67 -- <11파일>` → 3줄(`:61`·`:80`·`:120`) · "UT-02 EP-07: 핫패스 심볼은 …" · C21 재실행 red | 심볼마다 `hotEntry` 로 넣어 위반 0 · 목록 `deepEqual` | — |
+| VP-05 | 판정 사본 일치 (EP-09) | 사본 3곳 | 2/3 | `grep -c '^<!-- gen:' audit.md` → 5 · M1·M2·M3 red(K10·K9) · INDEX 0317 행은 판정 문자열 없이 링크만 | 블록 본문 바이트 비교 | `verify.md` 판정 절 — verify 턴 산출 |
+| VP-06·VP-10 | 대상 목록 유도 (EP-10) | 11파일 · 규칙 7 | 11/11 · 7/7 | `node …/scan/check.mjs --targets` → 11행(§8 표와 같다) · C1(AREAS 에서 F11 삭제)·C2(READ_0315 한 줄 삭제) → `--check` red · "UT-04 T1"~"T7" 8건 · "UT-02 red K11 …" 3건 · C11~C20 red | 규칙마다 통과·제외 입력 쌍(299/300 · 같은 이름 다른 버킷 · 역순) | — |
+
+### V-pair 자기확인
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:check.mjs --check` | required — D1·D2·D3 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | 같은 gate | required — D4·D5·D6·D7 전부 red. 통과 후보 근거 재실행은 검증자 몫 |
+| VP-03 | REQUIRED | SELF_PASS(기계 범위) | "UT-03 R1~R4" · `--ruling` | required — S1(W-06 전제 뒤집기) → `sum` 19 → 10 · D8(i18nKeys 삭제) → K12 red. AC10은 사람 |
+| VP-04 | REQUIRED | SELF_PASS | `gate:git diff --stat 1168b67..HEAD -- app .github` → 0줄 | not selected — 직접 관측 |
+| VP-05 | REQUIRED | SELF_PASS | `--check`(K10) | required — M1·M2 red |
+| VP-06 | REQUIRED | SELF_PASS | `--check`(K11) · `--targets` | required — C1·C2 red |
+| VP-07 | REQUIRED | SELF_PASS | "UT-01 P1"~"U7" | not selected — 행동 oracle |
+| VP-08 | REQUIRED | SELF_PASS | "UT-02 green"·"UT-02 red …" | not selected — 행동 oracle |
+| VP-09 | REQUIRED | SELF_PASS | "UT-03 R1"~"R4" | not selected — 행동 oracle |
+| VP-10 | REQUIRED | SELF_PASS | "UT-04 T1"~"T7" | not selected — 행동 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+판정: 42건을 심어 41건이 처음부터 red였고, 1건(C21)은 테스트를 더해 red로 만들었다. 실행 뒤 `git status` 는 산출 파일 변경만 남았고 `--check` 는 `위반 0`이다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| D1 `audit.json` F04.X8 칸 삭제 | VP-01 선택 증거 · sweep EP-01 | — | `RED K1: F04.X8 판정 없음` | 잡음 |
+| D2 단위 1행 삭제 · D3 없는 단위 추가 | VP-01 선택 증거 · sweep EP-02 | — | `RED K2` 각 1 | 잡음 |
+| D4 W-05 `formLock` 삭제 · D10 W-06 `perf` 삭제 | VP-02 선택 증거 · sweep EP-04 | — | `RED K5` · `RED K6` | 잡음 |
+| D5 W-01 자리를 테스트 파일로 | VP-02 선택 증거 · sweep EP-08 | — | `RED K4` | 잡음 |
+| D6 F01.X1 유령 ID · D13 F08.L6 을 `none` 으로(고아 후보) | VP-02 선택 증거 · sweep K7 | — | `RED K7` 각 1 | 잡음 |
+| D7 W-07 `dynamicPrefix` 삭제 · D8 W-09 `i18nKeys` 삭제 · D9 W-08 `approval` 삭제 | VP-02·VP-03 선택 증거 · sweep EP-03 i18n 칸 | — | `RED K12` · `RED K12` · `RED K9` | 잡음 |
+| D11 W-05 `hotEntry: receive` · D12 W-01 `prod: 0` · D14 최상위 키 추가 | sweep K8·K10 | — | `RED K8` 2 · `RED K10` | 잡음 |
+| M1 ruling 블록 문자 수정 · M2 premises 블록 삭제 · M3 승인 표 W-10 행 삭제 | VP-05 선택 증거 · sweep EP-09 | — | `RED K10` 2 · `RED K9` | 잡음 |
+| S1 W-06 `raceGuard` → `blocks` | VP-03 선택 증거(판정 민감도) | — | `--ruling` `sum` 19 → 10 · `P` 3 → 2 · 판정 그대로 | 잡음 |
+| S2 W-03·W-04 `ui` → `safe` | 이번 턴 추가(판정 경계) | — | `--ruling` `sum` 19 → 31 · 판정 `다음 단계 사용자 결정` | 잡음 — 판정이 이 두 칸에 민감함을 보인다 |
+| C1 `check.mjs` AREAS 에서 F11 삭제 · C2 READ_0315 에서 `session-context.ts` 삭제 | VP-06 선택 증거 · sweep EP-10 | — | `--check` red(K2·K10 · K11) | 잡음 |
+| C3 `sum < LIMIT` → `<=` · C4 i18n 을 합에 포함 · C5 `total` 을 전체 후보로 · C23 `passes` 의 ui 조건 제거 | sweep EP-06 규칙 칸(diff 자리) | — | UT-03 3 · 2 · 1 · 2건 fail | 잡음 |
+| C6~C10 K12 조건 넷 제거 · i18n 구간을 F10 만 | sweep EP-05 K12(diff 자리) | — | "UT-02 red K12 …" 2 · 3 · 2 · 1 · 1건 fail | 잡음 |
+| C11·C12 K11 두 방향 제거 | sweep EP-05 K11(diff 자리) | — | "UT-02 red K11 …" 1 · 2건 fail | 잡음 |
+| C13~C20 `deriveTargets` T1~T6 · `collectRead` T7 항 제거·변경 | sweep EP-10 규칙 칸(diff 자리) | — | UT-04·UT-02 K11 1~2건 fail(각각) | 잡음 |
+| C21 HOT_ENTRIES 에서 `LegacySubAgentHeader` 제거 | sweep EP-07 | — | 처음 0건 → "UT-02 EP-07: 핫패스 심볼은 …" 추가 뒤 1건 fail | 잡음(테스트 추가) |
+| C22 후보 id 접두 `W` → `B` | sweep §11 차이 5 | — | 5건 fail("UT-02 green" 등) | 잡음 |
+
+- 검산: 선택 증거 13(D1~D8·M1·M2·S1·C1·C2) · 인용 변이 0 · 새 oracle 0 · sweep 29(D9~D14·M3·S2·C3~C23) = 표 행 42.
+- K1~K10·EP-02 의 조건별 제거 변이는 0315 r1 이 같은 본문에 돌린 것이라 다시 심지 않았다 — 그 본문은 `diff` 로 0315 `check.mjs` 와 대조해 §11 차이 밖의 변경이 아래 "설계 대비 명시적 차이"뿐임을 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `audit.md` §요약·ruling 블록을 verify 와 사용자가 읽는다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 — `app` diff 0 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | "검사 red" 행 — K1~K12 위반이면 `--check` exit 1 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 보이지 않음 — 위반마다 `RED K…:` 한 줄 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 일회 실행 | — |
+| 판정이 사용자에게 한 값으로만 보여 경계가 숨지 않는가 | 숨지 않음 — ruling 블록이 `전체 후보 합 34줄`과 걸린 칸을 함께 싣고 요약 둘째 줄이 뒤집히는 조건을 적는다 | verify 가 W-03·W-04 UI 칸을 재판정 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 판정이 UI 칸의 한 기준에 걸린다 — W-03·W-04(12줄)를 `safe`로 보면 `sum` 31로 판정이 뒤집힌다 | ⚠️ 보고만(판정은 verify·사용자) — 0315 B-03·B-04 기준("지나는 테스트가 없으면 `risk`")을 그대로 적용했다 | S2 · `git grep -l -E 'AskUserQuestionCard\|QuestionCard' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.test.tsx'` → 0파일 |
+| 2 | `sum` 19는 선언 경계 3의 재계산 구간(25~34) 밖이지만 `total` 34는 30을 넘는다 | ⚠️ 보고만 — plan §17 셋째 행대로 verify 가 걸린 후보의 걸린 칸을 전부 적는다 | `--ruling` `total: 34` |
+| 3 | i18n 정적 참조를 plan §9(`app/src/renderer/src` + `app/src/shared`)보다 넓은 `app/src` 전체에서 찾았다 | ✅ 선조치(구현 세부) — main 이 키 문자열을 보내는 경우(`messageKey`)까지 덮어 "미사용"이 더 좁아지는 쪽이다. 동적 접두사 목록은 plan 범위 그대로다 | `audit.md` §6 · 후보 `conditions.ui.evidence` |
+| 4 | 동적 접두사 명령이 잡지 못하는 조립(문자열 연결·main 이 만든 키) | 경계 — 선언 경계 10. 이번 턴 관측: `t(`/`tr(` 안의 문자열 연결 0줄 | `git grep -n -E "\\b(t\|tr)\\([^)]*' ?\\+ " 1168b67 -- app/src` → 0 |
+| 5 | `LegacySubAgentTile.tsx:245` 카드 키 판정이 `target === currentTarget` 을 보지 않는다(F06 은 본다) | ⚠️ 비귀속 finding — 감량과 무관한 기존 동작 차이. `app` 무변경(D-001)이라 고치지 않았다 | `audit.md` F07 근거 O-7 · `canonicalBackground.ts:346` |
+| 6 | `en.ts` 의 150자 넘는 6줄은 앞 150자만 읽었다 | ⚠️ 보고만 — 긴 줄은 문장 값이고 키 구조는 파서로 전수 대조했다(`ko`↔`en` 잎 키 1,173개 차집합 0) | F09 구간 근거 |
+
+- 발견 분류: 이행 0 · 현재 0 · 확장 0 · 경계 1(#4) · 비귀속 1(#5).
+
+### 설계 대비 명시적 차이
+
+| 차이 | 내용 | 영향 |
+|---|---|---|
+| §11 차이 표 밖의 `check.mjs` 변경 | `SMALL_LIMIT` → `LIMIT` 이름 · `LIMIT_LINES`(300) 상수 · `premises` 블록에 "동적 키 접두사와 겹치지 않는다" 열 · `candidates` 블록 통과 칸에 `i18n 키 N개(문턱 밖)` 표기 | 렌더 열이 하나 늘었다. K10 이 그대로 잠근다 |
+| L6 `none` 단위의 근거 | 단위 이름 검색(§9 가 정한 하한) + 단위별 한 줄 메모 | 선언 경계 1 |
+| i18n 키 추출 | 저장소에 `typescript` 모듈이 설치돼 있지 않아 들여쓰기 기반 파서를 일회용으로 썼다(산출물 아님) | 키 수 1,173 · `ko`↔`en` 차집합 0 · 중복 키 0 으로 자기검산 |
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 기준 커밋 `1168b67` 고정 | 선언 경계 9 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 해당 없음 — 산출은 자기 디렉토리 파일뿐 | AC8 `git diff --stat` 0줄 |
+| 재진입 | 해당 없음 — 일회 실행 검사기 | — |
+| 다른 무효화 축 | 일회용 파서가 한 줄 객체(`view: { a, b }`)를 잎으로 잘못 세던 것을 고쳤다(키 1,163 → 1,173, 후보 54 → 55) | `ko`↔`en` 차집합 0 · 한 줄 객체 25개를 자식 키로 전개 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `…/scan/check.mjs` · `…/scan/check.test.mjs` · `…/data/audit.json` · `…/audit.md` · `…/plan.md`(이 절) · `docs/handoff/INDEX.md` |
+| 실행 명령 | `node …/scan/check.mjs --check` · `--targets` · `--units` · `--ruling` · `node --test …/scan/*.test.mjs` · `cd app && node scripts/check-doc-inventory.mjs --check` · `git diff --stat 1168b67..HEAD -- app .github` |
+| **관측한 게이트 산출**(마지막 수정 뒤 실행) | `--check` → `단위 98 · 후보 11 · 위반 0 · 대기 0` · `node --test` → tests 114 · pass 114 · fail 0 · 문서 가드 → `links ok` · 무변경 → 0줄. `app` gate(lint·typecheck·vitest)는 대상이 아니다(plan §19 — `app` diff 0) |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 1(`…/scan/check.test.mjs`) — `app/` 밖이라 app 테스트 규칙(시간 예산·호스트 격리·풀 분류) 대상이 아니다. 자식 프로세스·네트워크 사용 0 |
+| V-pair 자기확인 | SELF_PASS 10 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP-01 121/121 · EP-02 98/98 · EP-03 142/142 · EP-04 33/33 · EP-05 46/46 · EP-06 6/6 · EP-07 3/3 · EP-08 5/5 · EP-09 2/3(`verify.md` 는 verify 턴) · EP-10 11/11·7/7 |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ✅ `--check` K1 위반 0 · AC2 ✅ K2 위반 0·`--units` 98 · AC3 ✅ K3·K4·K8·K9 위반 0 · AC4 ✅ K5 위반 0(33칸) · AC5 ✅ K6 위반 0 · AC6 ✅ K4 제외 패턴 위반 0 · AC7 ✅ UT-03 4건 + `--ruling` 출력 · AC8 ✅ `git diff --stat` 0줄 · AC9 ✅ K10 위반 0·생성 블록 5 · AC10 ⚠️ 사람 · AC11 ✅ K7 위반 0 · AC12 ✅ K11 위반 0·`--targets` 11행 · AC13 ✅ K12 위반 0(i18n 후보 5건 모두 두 칸) |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` |
+| 블로커 / 역질문 | 없음. 판정 경계(놓친 잠재 문제 1번)는 verify·사용자 몫 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 라운드·턴 라벨: r1(첫 impl 턴). 설계 턴은 V1 → rev.2(D-016) → 오타 정정 3회였고 verify 는 0회다.
+- 이전 라운드와 같은 축: 해당 없음(첫 라운드).
+- 관련 plan 지침: 통과 여부가 "지나는 테스트 유무"에 걸리는 기준은 plan 문장이 아니라 0315 r1 의 감사 선례(B-03·B-04)에서 왔다.
+- 환경 한계: `app/node_modules` 미설치 — `typescript` 를 쓸 수 없어 i18n 키를 일회용 파서로 뽑았다. 이 세션에는 `origin/main` ref 가 있어 기준 커밋의 조상 여부를 확인할 수 있었다.
+- 세션 중단: 작업자 프로세스가 한 번 재시작됐다 — 산출 파일과 일회용 스크립트가 남아 있어 P4 검사 단계부터 이어갔다.
 
 ## [검증자 기입] 파생 이슈
 

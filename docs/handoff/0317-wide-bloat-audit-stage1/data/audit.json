@@ -2,600 +2,1466 @@
  "base": "1168b67",
  "progress": {
   "P1": true,
-  "P2": false,
-  "P3": false,
-  "P4": false
+  "P2": true,
+  "P3": true,
+  "P4": true
  },
- "areas": [],
+ "areas": [
+  {
+   "id": "F01",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": [
+     "W-01"
+    ]
+   },
+   "basis": "1-399 전부 읽음. L6: `client()` 의 폴더·환경 조립 되풀이(W-01). X1~X4·X6·X7: 읽는 곳 없는 필드·중복 가드 0 — `reportedMcpFailures` 128개 상한은 같은 실패의 반복 알림을 막는 유일한 자리다. X5: 포트 전달 메서드 6개(`executableIdentity`·`isInstalled`·`listProviderModels`·`resourceActivityChanged`·`configureResourceActivity`·`reconcileConnections`)는 `SessionAdapter` 구현이 내부 두 객체로 나누는 자리라 남긴다. X8: `client()` 126줄이 bridge·서버·컨텍스트 세 자원의 획득과 해제 짝을 한 곳에서 맞춘다 — 가르면 해제 경로가 늘어 감량이 0 이하. L5: 반대 하네스 `adapters/claude/adapter.ts`(1,126줄)와 같은 포트를 구현하나 SDK 가 달라 본문이 겹치지 않는다(`agentSpawnEnv` 는 여기서 `{}` 한 줄). 관찰 O-1: `managedMcpReferences`·`managedMcpMentions` 가 같은 `Object.fromEntries([...identities]…)` 꼴이지만 거르기가 달라 합쳐도 0~1줄"
+  },
+  {
+   "id": "F02",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-315 전부 읽음. 후보 0. X1: `discoveryReadFile` 의 안 쓰는 `_encoding` 인자는 `pluginDescription(path, readFile)` 에 `readFile` 꼴로 넘기기 위한 시그니처다(plugin-installation.ts:49) — 남긴다. X3: `probes`(모듈 전역)와 `entries`(인스턴스)는 다른 사실(파일별 탐침 · 범위별 결과)을 든다. X4·X6: 38·45줄의 같은 시간 비교는 `await fileFingerprints` 뒤의 재확인이다. X7: `discoveryCheckMs` 한 값을 탐침·검증·감시가 함께 쓴다 — 중첩 대기 아님. L5: `adapters/claude/` 에 같은 역할 파일 없음(`git grep -l FingerprintWatch 1168b67 -- app/src/main/adapters/claude` → 0) — 짝 없음. 관찰 O-2: `void this.poll().catch(() => undefined)` 두 번(236·239) · `entry.epoch++; entry.ready = false` 두 번(192-193 · 284-285) · `key.startsWith('[\"installation\"')` 두 번(178·299) — 각각 합쳐도 0~1줄이라 후보가 아니다"
+  },
+  {
+   "id": "F03",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-335 전부 읽음. 후보 0. X4·L6: `safe(false)` 재확인(172·174·238)과 `JSON.stringify(choices)` 비교(207·256·332)는 모두 `await`·직렬 큐(`run`) 뒤의 재확인이다 — 중복이 아니다. X7: 500ms 활동 대기(189) · 2초 유계 대기(203) · 120초 연결 상한(119·311)은 대상이 다르다(제출 진입 · 초기 연결 · 개별 MCP). X1: 생성자 인자 8개 중 기본값 둘(`idle`·`defaults`)은 prod 조립(session-context.ts:182)이 넘긴다. X8: 한 클래스가 선택 적용·연결 시도·읽기를 `tail` 한 줄로 직렬화한다 — 가르면 직렬화 자리가 둘이 된다. L5: `adapters/claude/mcp-config.ts` 는 설정 변환만 하고 연결 제어가 없다 — 짝 없음. 관찰 O-3: `AbortSignal.any([this.signal, AbortSignal.timeout(120_000)])` 두 번(119·311) — 합쳐도 0줄"
+  },
+  {
+   "id": "F04",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": [
+     "W-02"
+    ],
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-485 전부 읽음. X5: CLI 실행 주입 자리 둘(W-02 — 형태 잠금에 걸림). X4: `isSupportedOpenCodeCliVersion` 판정 두 자리(195·395)는 결과가 다르다(상태 보고 · 시작 거부). X3: `entries`·`ownedEntries` 는 다른 집합이다(키로 찾는 현재 항목 · 종료 책임이 남은 항목 — `retire` 뒤에도 소유는 남는다). X7: 시작 15초 · CLI 60초 · taskkill 5초는 대상이 다르다. L5: Claude 는 SDK 가 프로세스를 띄워 서버 풀이 없다 — 짝 없음. 관찰 O-4: `entries` 에서 빼고-종료하고-소유에서 빼는 세 문장이 두 번(242-244 · 265-267) — 메서드로 빼면 +2줄. 관찰 O-5: 종료 문구 `'OpenCode 서버 관리자가 종료되었습니다.'` 4회 — 상수로 빼도 0줄"
+  },
+  {
+   "id": "F05",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": [
+     "W-03",
+     "W-04"
+    ]
+   },
+   "basis": "1-325 전부 읽음. L6: 입력칸 판정 3회(W-03) · 한 칸 교체 조립 3회(W-04) — 둘 다 이 컴포넌트를 지나는 테스트가 없어 UI 칸에 걸린다. X3: `built`·`canSubmit`·`isLast` 는 렌더마다 파생한다(저장 상태 아님). X1: `onSubmit` 의 둘째 인자 `response` 는 여기서 넘기지 않으나 타입은 호출자 계약이다. L5: 반대 하네스 `opencode/composer/QuestionDock.tsx` 와의 상태 로직 2벌은 0305 C-35 로 이미 올랐고 닫혔다(CLOSED, 0314 D-004) — 다시 올리지 않는다"
+  },
+  {
+   "id": "F06",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": [
+     "W-05"
+    ]
+   },
+   "basis": "1-410 전부 읽음. L6: 작업별 호출·대화록 찾기 되풀이(W-05, 핫패스). X5: `DISPLAY_LABEL` 은 12칸 중 11칸이 `background.<상태>` 그대로지만 0096 라벨맵 패턴(shared/i18n/index.ts:46-47 — 키를 타입으로 잠근다)이라 남긴다. X6: 그 밖의 반복 계산 없음. L5: `opencode/rightpanel/` 에 정본 백그라운드 표시가 없다(`git grep -l useBackgroundStore 1168b67 -- app/src/renderer/src/features/chat/harnesses/opencode` → 0) — 짝 없음. 관찰 O-6: `BackgroundTaskCard`·`BackgroundCallCard` 의 카드 틀(role=button div · 점+제목 행)이 같다 — 두 자리만으로는 틀 컴포넌트가 더 길다(약 −4줄), 셋째 자리(F07)는 키 판정이 달라 합치지 못한다"
+  },
+  {
+   "id": "F07",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-346 전부 읽음. 후보 0. X5: `STATUS_KEY` 는 F06 의 `DISPLAY_LABEL` 과 같은 0096 라벨맵 패턴이라 남긴다. X6·L6: `projectLegacyBackgroundPanel` 이 `LegacySubAgentContent`(135)와 `SubAgentTaskList`(191)에서 이어 두 번 돈다 — 목록은 props 만 읽는 View 라 렌더 테스트 5파일이 직접 그리고, 한쪽을 빼도 1줄이다. `formatDurationLabel`·`formatTokenLabel`·`stopErrors[…]` 의 인접 2회 호출은 상수로 올리면 줄이 는다. L5: `opencode/rightpanel/AgentViews.tsx` 는 OpenCode 하위 에이전트 표시로 자료 모델이 다르다 — 짝 없음. 이 파일 전체는 구 모델 표시이고 0313 D-009 가 전부 남기기로 했다. 관찰 O-7: 카드의 키 판정(245)은 `target === currentTarget` 을 보지 않아 F06 의 `shouldActivateBackgroundCard` 와 다르다 — 안쪽 버튼에서 Enter 를 누르면 카드도 열린다(감량 대상 아님, 동작 차이 기록)"
+  },
+  {
+   "id": "F08",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": [
+     "W-06"
+    ]
+   },
+   "basis": "1-328 전부 읽음. L6: `⋮` 메뉴 콜백의 닫고-부르기 4회(W-06). X5: `ViewMenu` 의 콜백 props 다섯 개는 항목 정본(`diffViewMenuItems.ts`)과 행동을 가르는 자리다(125-130 주석 · D-106) — 남긴다. X6: `comparison.kind === 'commit' && comparison.sha === commit.sha` 두 번(90·102)은 상수로 올려도 0줄. L5: 하네스 공용(`common/`)"
+  },
+  {
+   "id": "F09",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-1425 읽음(150자 넘는 6줄은 앞 150자만). 판정 단위 0 — `export const en: typeof ko` 는 P5 에 걸리지 않는다. 키 1,173개가 `ko.ts` 와 같은 집합이다(파서 대조 차집합 0 · `typeof ko` 가 컴파일 타임에 강제). L1: 미사용 키 후보는 F10 이 갖는다(W-07~W-11 의 자리에 이 파일 줄이 함께 든다). L6: 같은 값이 여러 키에 있는 문구 88개(관련 키 223개)는 표면별 이름공간 + 동적 접두사 소비라 F10 과 같은 이유로 후보가 아니다. L5: 하네스 공용(`shared/`). X1~X8: 문자열 표라 해당 형태 없음"
+  },
+  {
+   "id": "F10",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": [
+     "W-07",
+     "W-08",
+     "W-09",
+     "W-10",
+     "W-11"
+    ],
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-1434 전부 읽음. L1: 읽는 곳 없는 키 55개(W-07~W-11) — 절차는 동적 접두사 목록 → 정적 참조 0 → 접두사 대조다. 동적 접두사: `git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄 16개, 그중 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`). 정적 참조 0인 키 164개 중 109개는 이 접두사로 쓰여 후보가 아니다(`background.` 30 · `errors.toast.` 21 · `chat.nativeResources.` 10 등). L6: 같은 값이 여러 키에 있는 문구 100개(관련 키 249개 — `'실행 중'` 7키 · `'완료'` 7키)는 표면마다 이름공간을 나눈 것이고 상태 라벨 묶음은 표면별 동적 접두사(`background.` · `chat.opencode.panel.processStatus.` · `chat.toolMeta.agentStatus.`)로 읽힌다 — 합치면 표면마다 키 변환이 필요해 감량이 0 이하. X1~X8: 문자열 표라 해당 형태 없음. L5: 하네스 공용"
+  },
+  {
+   "id": "F11",
+   "verdicts": {
+    "X1": "none",
+    "X2": "none",
+    "X3": "none",
+    "X4": "none",
+    "X5": "none",
+    "X6": "none",
+    "X7": "none",
+    "X8": "none",
+    "L1": "none",
+    "L5": "none",
+    "L6": "none"
+   },
+   "basis": "1-343 전부 읽음. 후보 0. X1: `CascadeBody` 의 `autoFocus`·`initialState` 는 prod 호출부(`CascadeMenu` 45-52)가 넘기지 않는 렌더 테스트용 자리다(67 주석 · CascadeMenu.test.ts 등 3파일) — 테스트는 감사 대상이 아니라 남긴다. X4: 보조 토글의 키 가드(313)는 `disabled`(306)와 같은 조건이나 같은 줄이라 0줄. L6: `void onSelect(action); if (closeOnSelect) onClose()` 두 번(97-98 · 174-175) — 헬퍼로 빼면 1줄, 선택자 문자열 두 번(137·214)은 0줄이라 후보가 아니다. L5: 하네스 공용(`shared/`)"
+  }
+ ],
  "units": [
   {
    "area": "F01",
    "name": "reportMcpFailure",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "실패 알림 조립 — `reportDisposeFailure`(391)와 이벤트·문구가 달라 짝 아님 · `git grep -w 'reportMcpFailure'`(test 제외): adapter.ts 3줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "agentSpawnEnv",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'agentSpawnEnv'`(test 제외): adapter.ts 1줄 · main 타 파일 5 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "describe",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "포트 메서드명 — 다른 어댑터의 같은 이름은 포트 구현 · `git grep -w 'describe'`(test 제외): adapter.ts 1줄 · main 타 파일 13 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "executableIdentity",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'executableIdentity'`(test 제외): adapter.ts 2줄 · main 타 파일 5 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "isInstalled",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'isInstalled'`(test 제외): adapter.ts 1줄 · main 타 파일 5 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "listProviderModels",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'listProviderModels'`(test 제외): adapter.ts 1줄 · main 타 파일 2 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "extensionsChanged",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'extensionsChanged'`(test 제외): adapter.ts 1줄 · main 타 파일 4 · renderer+shared 1파일"
   },
   {
    "area": "F01",
    "name": "restartRevision",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'restartRevision'`(test 제외): adapter.ts 2줄 · main 타 파일 3 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "resourceActivityChanged",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'resourceActivityChanged'`(test 제외): adapter.ts 2줄 · main 타 파일 4 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "configureResourceActivity",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'configureResourceActivity'`(test 제외): adapter.ts 2줄 · main 타 파일 3 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "reconcileConnections",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'reconcileConnections'`(test 제외): adapter.ts 2줄 · main 타 파일 3 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "close",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "포트 메서드명 · `git grep -w 'close'`(test 제외): adapter.ts 3줄 · main 타 파일 62 · renderer+shared 37파일"
   },
   {
    "area": "F01",
    "name": "client",
-   "l6": null,
-   "basis": ""
+   "l6": [
+    "W-01"
+   ],
+   "basis": "폴더·환경 조립 3·2회(W-01) · `git grep -w 'client'`(test 제외): adapter.ts 14줄 · main 타 파일 15 · renderer+shared 2파일"
   },
   {
    "area": "F01",
    "name": "complete",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "보조 세션 생성→질의→삭제 — `recoverSession` 과 `session.create` 인자가 달라 짝 아님 · `git grep -w 'complete'`(test 제외): adapter.ts 1줄 · main 타 파일 21 · renderer+shared 8파일"
   },
   {
    "area": "F01",
    "name": "recoverSession",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "복구 세션 생성 — `complete` 와 권한 인자가 다름 · `git grep -w 'recoverSession'`(test 제외): adapter.ts 1줄 · main 타 파일 4 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "sendMessage",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'sendMessage'`(test 제외): adapter.ts 1줄 · main 타 파일 8 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "readHistory",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'readHistory'`(test 제외): adapter.ts 1줄 · main 타 파일 5 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "classifyError",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "포트 메서드명 · `git grep -w 'classifyError'`(test 제외): adapter.ts 1줄 · main 타 파일 6 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "reportDisposeFailure",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'reportDisposeFailure'`(test 제외): adapter.ts 3줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F01",
    "name": "reportError",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'reportError'`(test 제외): adapter.ts 3줄 · main 타 파일 17 · renderer+shared 38파일"
   },
   {
    "area": "F02",
    "name": "probe",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "타입 멤버 선언(13) — 구현은 36-63 · `git grep -w 'probe'`(test 제외): discovery-cache.ts 6줄 · main 타 파일 30 · renderer+shared 2파일"
   },
   {
    "area": "F02",
    "name": "context",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'context'`(test 제외): discovery-cache.ts 4줄 · main 타 파일 56 · renderer+shared 36파일"
   },
   {
    "area": "F02",
    "name": "hash",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'hash'`(test 제외): discovery-cache.ts 2줄 · main 타 파일 10 · renderer+shared 1파일"
   },
   {
    "area": "F02",
    "name": "probes",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'probes'`(test 제외): discovery-cache.ts 6줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "dependency",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'dependency'`(test 제외): discovery-cache.ts 14줄 · main 타 파일 3 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "discoveryReadFile",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'discoveryReadFile'`(test 제외): discovery-cache.ts 1줄 · main 타 파일 4 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "discoveryRealpath",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'discoveryRealpath'`(test 제외): discovery-cache.ts 1줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "discoveryStat",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'discoveryStat'`(test 제외): discovery-cache.ts 1줄 · main 타 파일 2 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "key",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "범위 키 조립 — 호출 5곳이 종류만 다르게 넘긴다 · `git grep -w 'key'`(test 제외): discovery-cache.ts 32줄 · main 타 파일 120 · renderer+shared 191파일"
   },
   {
    "area": "F02",
    "name": "valid",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "의존 서명 재검증 — `await` 뒤 재확인 · `git grep -w 'valid'`(test 제외): discovery-cache.ts 3줄 · main 타 파일 19 · renderer+shared 10파일"
   },
   {
    "area": "F02",
    "name": "invalidate",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'invalidate'`(test 제외): discovery-cache.ts 1줄 · main 타 파일 15 · renderer+shared 2파일"
   },
   {
    "area": "F02",
    "name": "hold",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'hold'`(test 제외): discovery-cache.ts 1줄 · main 타 파일 3 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "watch",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'watch'`(test 제외): discovery-cache.ts 4줄 · main 타 파일 5 · renderer+shared 1파일"
   },
   {
    "area": "F02",
    "name": "poll",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "감시 재조회 — 236·239 두 호출은 관찰 O-2 · `git grep -w 'poll'`(test 제외): discovery-cache.ts 3줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "prune",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "묶음 판정 178·299 는 관찰 O-2 · `git grep -w 'prune'`(test 제외): discovery-cache.ts 2줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F02",
    "name": "openCodeDiscovery",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'openCodeDiscovery'`(test 제외): discovery-cache.ts 1줄 · main 타 파일 7 · renderer+shared 0파일"
   },
   {
    "area": "F03",
    "name": "resourceActivityChanged",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'resourceActivityChanged'`(test 제외): mcp-control.ts 1줄 · main 타 파일 4 · renderer+shared 0파일"
   },
   {
    "area": "F03",
    "name": "waitForActivity",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'waitForActivity'`(test 제외): mcp-control.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F03",
    "name": "connected",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'connected'`(test 제외): mcp-control.ts 3줄 · main 타 파일 12 · renderer+shared 10파일"
   },
   {
    "area": "F03",
    "name": "activate",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'activate'`(test 제외): mcp-control.ts 2줄 · main 타 파일 6 · renderer+shared 4파일"
   },
   {
    "area": "F03",
    "name": "observeActivity",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'observeActivity'`(test 제외): mcp-control.ts 1줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F03",
    "name": "safe",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "안전 판정 한 벌 — 172·174·238·160·188·207 이 모두 이 함수를 부른다 · `git grep -w 'safe'`(test 제외): mcp-control.ts 7줄 · main 타 파일 7 · renderer+shared 6파일"
   },
   {
    "area": "F03",
    "name": "resource",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'resource'`(test 제외): mcp-control.ts 4줄 · main 타 파일 9 · renderer+shared 7파일"
   },
   {
    "area": "F03",
    "name": "connect",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "연결 시도 — 119 의 신호 조립은 관찰 O-3 · `git grep -w 'connect'`(test 제외): mcp-control.ts 6줄 · main 타 파일 14 · renderer+shared 8파일"
   },
   {
    "area": "F03",
    "name": "read",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'read'`(test 제외): mcp-control.ts 1줄 · main 타 파일 70 · renderer+shared 26파일"
   },
   {
    "area": "F03",
    "name": "reconcileChoices",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'reconcileChoices'`(test 제외): mcp-control.ts 3줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F03",
    "name": "waitBounded",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "유계 대기 — `waitForActivity` 와 깨우는 조건이 달라 짝 아님 · `git grep -w 'waitBounded'`(test 제외): mcp-control.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F03",
    "name": "reconcile",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'reconcile'`(test 제외): mcp-control.ts 1줄 · main 타 파일 10 · renderer+shared 2파일"
   },
   {
    "area": "F03",
    "name": "choices",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "선택 합성 한 벌 — 호출 6곳 · `git grep -w 'choices'`(test 제외): mcp-control.ts 18줄 · main 타 파일 14 · renderer+shared 5파일"
   },
   {
    "area": "F03",
    "name": "pending",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'pending'`(test 제외): mcp-control.ts 13줄 · main 타 파일 56 · renderer+shared 34파일"
   },
   {
    "area": "F03",
    "name": "preview",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'preview'`(test 제외): mcp-control.ts 2줄 · main 타 파일 13 · renderer+shared 10파일"
   },
   {
    "area": "F03",
    "name": "status",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'status'`(test 제외): mcp-control.ts 13줄 · main 타 파일 82 · renderer+shared 96파일"
   },
   {
    "area": "F03",
    "name": "apply",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`applyChoices` 를 감싸 실패 표식만 든다 · `git grep -w 'apply'`(test 제외): mcp-control.ts 3줄 · main 타 파일 4 · renderer+shared 3파일"
   },
   {
    "area": "F03",
    "name": "applyChoices",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "해제 적용 — 311 의 신호 조립은 관찰 O-3 · `git grep -w 'applyChoices'`(test 제외): mcp-control.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "CLI_VERSION",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'CLI_VERSION'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "CLI_TIMEOUT_MS",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'CLI_TIMEOUT_MS'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "CLI_MAX_BUFFER",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'CLI_MAX_BUFFER'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "CLI_STDERR_LINE_LIMIT",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'CLI_STDERR_LINE_LIMIT'`(test 제외): server.ts 3줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "isSupportedOpenCodeCliVersion",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'isSupportedOpenCodeCliVersion'`(test 제외): server.ts 3줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "runOpenCodeCli",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'runOpenCodeCli'`(test 제외): server.ts 4줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "lastStderrLine",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'lastStderrLine'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "resolveOpenCodeExecutable",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'resolveOpenCodeExecutable'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "executable",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'executable'`(test 제외): server.ts 32줄 · main 타 파일 6 · renderer+shared 2파일"
   },
   {
    "area": "F04",
    "name": "readVersion",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "의존성 선언 칸(123)과 캐시 메서드(152) — 주입 자리는 W-02(L4) · `git grep -w 'readVersion'`(test 제외): server.ts 6줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "probeVersion",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'probeVersion'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "executableIdentity",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'executableIdentity'`(test 제외): server.ts 1줄 · main 타 파일 5 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "installed",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'installed'`(test 제외): server.ts 6줄 · main 타 파일 18 · renderer+shared 6파일"
   },
   {
    "area": "F04",
    "name": "acquire",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "항목 정리 세 문장 두 번은 관찰 O-4 · `git grep -w 'acquire'`(test 제외): server.ts 1줄 · main 타 파일 19 · renderer+shared 2파일"
   },
   {
    "area": "F04",
    "name": "retireAll",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'retireAll'`(test 제외): server.ts 1줄 · main 타 파일 3 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "terminate",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "종료 한 벌 — 호출 4곳 · `git grep -w 'terminate'`(test 제외): server.ts 6줄 · main 타 파일 1 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "start",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'start'`(test 제외): server.ts 3줄 · main 타 파일 29 · renderer+shared 72파일"
   },
   {
    "area": "F04",
    "name": "assertCliVersion",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "버전 판정 — `installed`(195)와 결과가 달라 짝 아님 · `git grep -w 'assertCliVersion'`(test 제외): server.ts 3줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "listModels",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'listModels'`(test 제외): server.ts 1줄 · main 타 파일 4 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "databasePath",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "경로 캐시 — 443-448 의 재조회는 `await` 뒤 재확인 · `git grep -w 'databasePath'`(test 제외): server.ts 1줄 · main 타 파일 5 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "readDatabasePath",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'readDatabasePath'`(test 제외): server.ts 2줄 · main 타 파일 0 · renderer+shared 0파일"
   },
   {
    "area": "F04",
    "name": "close",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`git grep -w 'close'`(test 제외): server.ts 2줄 · main 타 파일 62 · renderer+shared 37파일"
   },
   {
    "area": "F05",
    "name": "answerFor",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "답 조립 한 벌 — 호출 1곳(67) · `git grep -w 'answerFor'`(test 제외): QuestionCard.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F05",
    "name": "AskUserQuestionCard",
-   "l6": null,
-   "basis": ""
+   "l6": [
+    "W-03",
+    "W-04"
+   ],
+   "basis": "입력칸 판정 3회(W-03) · 한 칸 교체 3회(W-04) · `git grep -w 'AskUserQuestionCard'`(test 제외): QuestionCard.tsx 1줄 · renderer 타 파일 3 · main+shared 0파일"
   },
   {
    "area": "F05",
    "name": "useEffect",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "P2 가 잡은 호출식 — 타이머 정리(53)와 첫 옵션 포커스(61), 서로 다른 일 · `git grep -w 'useEffect'`(test 제외): QuestionCard.tsx 3줄 · renderer 타 파일 84 · main+shared 0파일"
   },
   {
    "area": "F06",
    "name": "CanonicalBackgroundContent",
-   "l6": null,
-   "basis": ""
+   "l6": [
+    "W-05"
+   ],
+   "basis": "작업별 호출·대화록 찾기 되풀이(W-05) · `git grep -w 'CanonicalBackgroundContent'`(test 제외): CanonicalBackgroundContent.tsx 1줄 · renderer 타 파일 1 · main+shared 0파일"
   },
   {
    "area": "F06",
    "name": "useEffect",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "P2 가 잡은 호출식 — 상태 미확보 시 조회 1곳(67) · `git grep -w 'useEffect'`(test 제외): CanonicalBackgroundContent.tsx 2줄 · renderer 타 파일 84 · main+shared 0파일"
   },
   {
    "area": "F06",
    "name": "BackgroundTaskCard",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "카드 틀은 관찰 O-6 · `git grep -w 'BackgroundTaskCard'`(test 제외): CanonicalBackgroundContent.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F06",
    "name": "BackgroundCallCard",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "카드 틀은 관찰 O-6 · `git grep -w 'BackgroundCallCard'`(test 제외): CanonicalBackgroundContent.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F06",
    "name": "CanonicalBackgroundDetail",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "상세 분기 — 목록 카드와 조립이 다름 · `git grep -w 'CanonicalBackgroundDetail'`(test 제외): CanonicalBackgroundContent.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F07",
    "name": "stopErrorText",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "실패 문구 조립 한 벌 — 호출 1곳(335) · `git grep -w 'stopErrorText'`(test 제외): LegacySubAgentTile.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F07",
    "name": "LegacySubAgentHeader",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "구독 4줄이 `LegacySubAgentContent` 와 같으나 훅으로 빼면 0~2줄 · `git grep -w 'LegacySubAgentHeader'`(test 제외): LegacySubAgentTile.tsx 1줄 · renderer 타 파일 1 · main+shared 0파일"
   },
   {
    "area": "F07",
    "name": "LegacySubAgentContent",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "위와 같음 · `git grep -w 'LegacySubAgentContent'`(test 제외): LegacySubAgentTile.tsx 1줄 · renderer 타 파일 1 · main+shared 0파일"
   },
   {
    "area": "F07",
    "name": "SubAgentTaskList",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "`projectLegacyBackgroundPanel` 이어 두 번은 구간 근거(1줄) · `git grep -w 'SubAgentTaskList'`(test 제외): LegacySubAgentTile.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F08",
    "name": "ComparisonMenu",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "선택 판정 2회는 구간 근거(0줄) · `git grep -w 'ComparisonMenu'`(test 제외): GitContextBar.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F08",
    "name": "ViewMenu",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "항목→콜백 분배 한 벌 · `git grep -w 'ViewMenu'`(test 제외): GitContextBar.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F08",
    "name": "GitContextBar",
-   "l6": null,
-   "basis": ""
+   "l6": [
+    "W-06"
+   ],
+   "basis": "닫고-부르기 4회(W-06) · `git grep -w 'GitContextBar'`(test 제외): GitContextBar.tsx 1줄 · renderer 타 파일 2 · main+shared 0파일"
   },
   {
    "area": "F10",
    "name": "ko",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "리소스 표 전체 — 같은 값 문구는 구간 근거(표면별 이름공간) · `git grep -w 'ko'`(test 제외): ko.ts 4줄 · renderer 타 파일 9 · main+shared 7파일"
   },
   {
    "area": "F11",
    "name": "CascadeMenu",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "Popover 껍데기 · `git grep -w 'CascadeMenu'`(test 제외): CascadeMenu.tsx 1줄 · renderer 타 파일 1 · main+shared 0파일"
   },
   {
    "area": "F11",
    "name": "HANDLED_KEYS",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "처리 키 집합 한 벌 · `git grep -w 'HANDLED_KEYS'`(test 제외): CascadeMenu.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F11",
    "name": "CascadeBody",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "선택 후 닫기 두 번은 구간 근거(1줄) · `git grep -w 'CascadeBody'`(test 제외): CascadeMenu.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F11",
    "name": "useEffect",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "P2 가 잡은 호출식 — 열 때 포커스(124)와 키 이동 포커스(132) · `git grep -w 'useEffect'`(test 제외): CascadeMenu.tsx 3줄 · renderer 타 파일 84 · main+shared 0파일"
   },
   {
    "area": "F11",
    "name": "CascadePanel",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "행 조립 한 벌 · `git grep -w 'CascadePanel'`(test 제외): CascadeMenu.tsx 2줄 · renderer 타 파일 0 · main+shared 0파일"
   },
   {
    "area": "F11",
    "name": "useLayoutEffect",
-   "l6": null,
-   "basis": ""
+   "l6": "none",
+   "basis": "P2 가 잡은 호출식 — 하위 패널 배치 1곳(211) · `git grep -w 'useLayoutEffect'`(test 제외): CascadeMenu.tsx 2줄 · renderer 타 파일 21 · main+shared 0파일"
   }
  ],
- "candidates": []
+ "candidates": [
+  {
+   "id": "W-01",
+   "area": "F01",
+   "lens": "L6",
+   "type": "merge",
+   "sites": [
+    "app/src/main/adapters/opencode/v1/adapter.ts:131",
+    "app/src/main/adapters/opencode/v1/adapter.ts:189",
+    "app/src/main/adapters/opencode/v1/adapter.ts:197",
+    "app/src/main/adapters/opencode/v1/adapter.ts:129",
+    "app/src/main/adapters/opencode/v1/adapter.ts:198"
+   ],
+   "duplicate": "`client()` 한 함수가 작업 폴더(`cwd || nativeWorkingDirectory()`)를 세 번(131·189·197), 실행 환경(`{ ...process.env, ...env }`)을 두 번(129·198) 조립한다",
+   "preserve": "설정 리소스 조회·세션 컨텍스트 확보·discovery 키가 같은 폴더와 같은 환경 값을 쓴다. 조회 실패 때 bridge 가 풀린다",
+   "keepStructure": "`client()` 함수와 두 try 블록 그대로 — 폴더·환경을 bridge 확보(124) 앞의 지역 상수 둘로 올리고 세 자리가 그 상수를 읽는다",
+   "saving": {
+    "prod": 4,
+    "basis": "195-200 여섯 줄(`openCodeDiscovery.key(…)` 인자 네 줄 풀어쓰기)이 한 줄이 된다(−5) · 지역 상수 `directory` 한 줄 추가(+1) · 129 는 자리만 옮긴다(0)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "세 자리 사이에 `await` 가 있다(130·158·187) — 그러나 뒤 자리는 상태를 다시 확인하지 않는다: `nativeWorkingDirectory(cwd)` 는 `resolve(cwd || homedir())`(native-storage.ts:23-25)이고, `process.env` 를 실행 중에 쓰는 prod 자리는 `git grep -n -E 'process\\.env\\.[A-Za-z_]+ = |process\\.env\\[[^]]+\\] = |Object\\.assign\\(process\\.env' 1168b67 -- app/src`(test 제외) → 0"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'cwd \\|\\| nativeWorkingDirectory|openCodeDiscovery\\.key' 1168b67 -- 'app/src/**/*.test.ts' app/scripts app/eslint.config.mjs` → 1줄(discovery-cache 테스트의 키 생성 호출 — `client()` 의 인자 형태를 단언하지 않는다)"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'nativeWorkingDirectory|openCodeDiscovery' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → 0"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "세 자리의 식이 글자 단위로 같고 값의 원천(`cwd`·`env`·`process.env`·홈 폴더)이 호출 동안 바뀌지 않는다. 회귀 그물: adapter.test.ts · adapter.instances.test.ts 가 `client()` 를 지난다"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "`nativeWorkingDirectory()` 호출 최대 3 → 1, `process.env` 전개 2 → 1. 턴마다 한 번 도는 경로다(`sendMessage` → `client`)"
+    }
+   }
+  },
+  {
+   "id": "W-02",
+   "area": "F04",
+   "lens": "L4",
+   "excess": [
+    "X5"
+   ],
+   "type": "restructure",
+   "sites": [
+    "app/src/main/adapters/opencode/v1/server.ts:123",
+    "app/src/main/adapters/opencode/v1/server.ts:126",
+    "app/src/main/adapters/opencode/v1/server.ts:164",
+    "app/src/main/adapters/opencode/v1/server.ts:415"
+   ],
+   "duplicate": "CLI 실행을 바꿔 끼우는 주입 자리가 둘이다 — 버전 조회는 `deps.readVersion`(123·164), 모델 목록은 `deps.runCli`(126·415). 둘 다 같은 `runOpenCodeCli` 를 대신하고, `db path` 조회(464)는 어느 쪽도 쓰지 않는다",
+   "preserve": "버전 판정·모델 목록·저장 경로 조회의 결과와 오류 문구",
+   "keepStructure": "`OpenCodeServerDependencies` 와 `probeVersion` 은 남는다 — `readVersion` 한 칸만 `runCli` 로 합친다",
+   "saving": {
+    "prod": 3,
+    "basis": "의존성 선언 한 줄(123) · `probeVersion` 의 삼항 두 줄(164-165)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "주입 자리 선택은 생성자 인자다 — 비동기 경계와 무관"
+    },
+    "formLock": {
+     "verdict": "blocks",
+     "evidence": "`git grep -l 'readVersion:' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.testfixture.ts'` → 6파일(server.test.ts · server.list-models.test.ts · server.database-path.test.ts · adapter.test.ts · adapter.instances.test.ts · opencode-retention.testfixture.ts)이 `readVersion` 칸으로 버전을 주입한다. server.test.ts:235·244 는 `readVersion` 호출 횟수를 단언한다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'readVersion|runCli' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → 0"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "prod 조립은 두 칸을 모두 비운다(`git grep -n -E \"readVersion|runCli\" 1168b67 -- app/src` 의 non-test 자리는 server.ts 뿐) — 화면 동작은 그대로다"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "실행 경로는 같은 `runOpenCodeCli` 한 번이다"
+    }
+   }
+  },
+  {
+   "id": "W-03",
+   "area": "F05",
+   "lens": "L6",
+   "type": "merge",
+   "sites": [
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx:156",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx:169",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx:177"
+   ],
+   "duplicate": "`onRootKeyDown` 한 핸들러가 \"이벤트가 기타 입력칸에서 났는가\"(`e.target instanceof HTMLTextAreaElement`)를 세 번 판정한다",
+   "preserve": "기타 입력칸 안에서는 숫자키 선택·Enter 제출·좌우 이동이 동작하지 않는다",
+   "keepStructure": "핸들러의 네 분기 순서 그대로 — 판정을 지역 상수 하나로 올린다",
+   "saving": {
+    "prod": 4,
+    "basis": "165-170 여섯 줄 조건이 한 줄이 된다(−5) · 상수 한 줄 추가(+1)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "`git show 1168b67:app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx | sed -n '149,186p' | grep -c await` → 0 — 한 동기 핸들러 안의 세 식"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "`git grep -l -E 'AskUserQuestionCard|QuestionCard' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.test.tsx'` → 0파일 — 형태를 잠그는 테스트가 없다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'HTMLTextAreaElement|onRootKeyDown' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → 0"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "risk",
+     "evidence": "식은 같지만 이 컴포넌트를 지나는 테스트가 없다 — `git grep -l -E 'AskUserQuestionCard|QuestionCard' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.test.tsx'` → 0파일. 키보드 분기의 회귀를 판정할 그물이 없다(0315 B-03·B-04 와 같은 기준)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "`instanceof` 판정 최대 3 → 1"
+    }
+   }
+  },
+  {
+   "id": "W-04",
+   "area": "F05",
+   "lens": "L6",
+   "type": "merge",
+   "sites": [
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx:98",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx:116",
+    "app/src/renderer/src/features/chat/harnesses/claude/composer/QuestionCard.tsx:123"
+   ],
+   "duplicate": "\"배열을 복사해 한 칸만 바꾼다\"는 조립을 세 번 풀어 쓴다 — 기타 입력 비우기(98-103) · 기타 입력 갱신(116-120) · 선택 비우기(123-128)",
+   "preserve": "단일 선택에서 옵션과 기타 입력이 서로를 비우고, 바뀌지 않으면 같은 배열 참조를 돌려준다",
+   "keepStructure": "`toggle`·`changeOther` 두 함수 그대로 — 파일 안 헬퍼 `replaceAt` 하나를 더한다. `toggle` 의 다중 선택 갱신(85-95)은 건드리지 않는다",
+   "saving": {
+    "prod": 8,
+    "basis": "세 자리 17줄(6 + 5 + 6)이 한 줄씩 3줄이 된다(−14) · 헬퍼 5줄 + 빈 줄 1(+6)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "세 자리 모두 `setState` 갱신 함수 안의 동기 계산이다 — `await` 0"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "`git grep -l -E 'AskUserQuestionCard|QuestionCard' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.test.tsx'` → 0파일"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'replaceAt|setPicks|setOther' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → 0"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "risk",
+     "evidence": "123-128 은 모든 행을 복사하고(`prev.map((p) => p.slice())`) 합친 꼴은 한 칸만 바꾼다 — 행을 제자리에서 고치는 곳은 `toggle` 의 자기 복사본뿐이라 결과는 같아 보이나, 이 컴포넌트를 지나는 테스트가 없다(`git grep -l -E 'AskUserQuestionCard|QuestionCard' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.test.tsx'` → 0파일)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "선택 비우기의 행 복사 수가 질문 수 → 0"
+    }
+   }
+  },
+  {
+   "id": "W-05",
+   "area": "F06",
+   "lens": "L6",
+   "type": "merge",
+   "sites": [
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:112",
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:113",
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:139",
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:140",
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:144",
+    "app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx:109"
+   ],
+   "duplicate": "작업 한 건의 호출 찾기(`callForBackgroundTask(state, task)`)를 렌더 한 번에 묶음 거르기에서 묶음마다 2회(112·114), 카드 props 에서 3회(139·141·144) 되풀이하고, 대화록 결과 찾기(`transcriptResults.get(…)`)를 같은 식으로 두 번(113-115 · 140-142) 조립한다",
+   "preserve": "작업이 실행 중·완료 묶음에 지금과 같이 나뉘고 카드가 같은 호출·대화록 결과·모델을 받는다. `persistedModel` 의 키 순서(`task.toolUseId` 먼저)는 그대로다",
+   "keepStructure": "`CanonicalBackgroundContent` · `BackgroundTaskCard` 와 그 props 그대로 — 묶음 순회 앞에서 작업마다 `{ task, call, transcript, settled }` 한 벌을 만든다",
+   "saving": {
+    "prod": 6,
+    "basis": "거르기 107-118 열두 줄이 한 줄(−11) · 카드 props 139-145 일곱 줄이 세 줄(−4) · 작업별 한 벌 조립 9줄 추가(+9)"
+   },
+   "hotEntry": "CanonicalBackgroundContent",
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "`git show 1168b67:app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx | sed -n '58,174p' | grep -c await` → 0 — 한 렌더 패스 안의 동기 계산이고 `state`·`transcriptResults` 는 그 패스 동안 같은 값이다"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "`git grep -c -E 'callForBackgroundTask|backgroundTaskDisplay' 1168b67 -- 'app/src/**/*.test.ts'` → 3파일 16줄 — 전부 함수 결과 단언이다. 호출 횟수 단언은 `git grep -n -E 'toHaveBeenCalledTimes|mock\\.calls' 1168b67 -- app/src/renderer/src/features/chat/harnesses/claude/rightpanel/CanonicalBackgroundContent.*.test.ts` → 0"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'callForBackgroundTask' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → 0. docs/arch/frontend/rendering.md:19 는 표시 규칙만 정한다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "합치는 식이 같은 인자의 같은 순수 함수다(canonicalBackground.ts:148-158). 회귀 그물: CanonicalBackgroundContent.wiring.test.ts 가 묶음 분류와 카드 출현을 단언한다(220-365줄의 `data-background-group`·`data-background-task` 단언)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "`CanonicalBackgroundContent` 렌더(메시지가 바뀔 때마다 — `:61` 구독) → 작업마다 `callForBackgroundTask` 최대 7회 → 1회, `backgroundTaskDisplay` 2회 → 1회. `callForBackgroundTask` 는 `toolUseId` 가 없으면 `state.calls` 전체를 훑는다(canonicalBackground.ts:156)"
+    }
+   }
+  },
+  {
+   "id": "W-06",
+   "area": "F08",
+   "lens": "L6",
+   "type": "merge",
+   "sites": [
+    "app/src/renderer/src/features/chat/harnesses/common/rightpanel/GitContextBar.tsx:303",
+    "app/src/renderer/src/features/chat/harnesses/common/rightpanel/GitContextBar.tsx:308",
+    "app/src/renderer/src/features/chat/harnesses/common/rightpanel/GitContextBar.tsx:312",
+    "app/src/renderer/src/features/chat/harnesses/common/rightpanel/GitContextBar.tsx:320"
+   ],
+   "duplicate": "`⋮` 메뉴 콜백 넷이 \"메뉴를 닫고(`setViewOpen(false)`) 동작을 부른다\"를 각각 풀어 쓴다(303-306 · 308-311 · 312-318 · 320-323)",
+   "preserve": "목록 토글·모두 접기·모두 펼치기·새로 고침이 메뉴를 닫은 뒤 같은 인자로 같은 동작을 부르고, 표시 옵션(`onSetView`)은 메뉴를 닫지 않는다",
+   "keepStructure": "`ViewMenu` 와 그 props 다섯 개 그대로 — `GitContextBar` 안에 닫고-부르기 래퍼 하나를 둔다",
+   "saving": {
+    "prod": 9,
+    "basis": "콜백 넷 19줄(4 + 4 + 7 + 4)이 6줄(1 + 1 + 3 + 1)이 된다(−13) · 래퍼 4줄 추가(+4)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "네 콜백 모두 클릭 핸들러 안의 연속 동기 문장이다 — `await` 0"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'setViewOpen|closeView' 1168b67 -- 'app/src/**/*.test.ts'` → 0. diffPanel0211dv6.render.test.ts:145-153 은 이 파일 소스에서 `→` 와 라벨 표식의 순서만, diffPanelDesign.test.ts 는 className 만 읽는다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'setViewOpen|GitContextBar' 1168b67 -- AGENTS.md app/AGENTS.md app/src/main/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions docs/handoff/03{05..16}-*/plan.md docs/handoff/0314-0305-derivative-closeout/ledger.md` → docs/arch/frontend/design-components.md:193 카탈로그 행 1줄(형태 규칙 아님) · state.md:113 은 새로 고침의 조회 범위만 정한다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "닫기 → 동작 순서와 인자가 그대로다. 회귀 그물: GitContextBar.actions.test.ts — \"메뉴의 마지막 새로 고침이 세션 조회를 요청한다\" · \"모든 파일 펼치기는 지금 패치의 파일 전부를 담고, 접기는 집합을 비운다\" · \"사이드바를 켜는 자리 말고 다른 상태를 건드리지 않는다\""
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "렌더마다 만드는 클로저 수가 같다(4). 호출 수 변화 없음"
+    }
+   }
+  },
+  {
+   "id": "W-07",
+   "area": "F10",
+   "lens": "L1",
+   "type": "remove",
+   "approval": "required",
+   "sites": [
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:203",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:206",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:207",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:208",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:210",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:211",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:216",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:217",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:220",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:221",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:222",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:223",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:224",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:265",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:283",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:290",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:204",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:207",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:208",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:209",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:211",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:212",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:217",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:218",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:221",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:222",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:223",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:224",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:225",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:263",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:279",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:286"
+   ],
+   "i18nKeys": [
+    "skills.list.addAria",
+    "skills.table.skill",
+    "skills.table.mcp",
+    "skills.table.lastUpdated",
+    "skills.table.status",
+    "skills.table.transport",
+    "skills.table.provider",
+    "skills.table.providerAuth",
+    "skills.groups.activeMcp",
+    "skills.groups.inactiveMcp",
+    "skills.groups.gateProviders",
+    "skills.groups.llmProviders",
+    "skills.groups.serviceProviders",
+    "skills.view.selectItem",
+    "skills.view.backAria",
+    "skills.addMenu.create",
+    "skills.author.desc"
+   ],
+   "dynamicPrefix": "`git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄, 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`) — 이 후보의 키 17개 중 그 접두사로 시작하는 키 0개(대조: 키마다 15개 접두사 `startsWith`)",
+   "duplicate": "플러그인 화면(`skills.*`) 번역 키 17개를 읽는 곳이 없다 — `skills.list.addAria` · `skills.table.skill` · `skills.table.mcp` · `skills.table.lastUpdated` · `skills.table.status` · `skills.table.transport` · `skills.table.provider` · `skills.table.providerAuth` · `skills.groups.activeMcp` · `skills.groups.inactiveMcp` · `skills.groups.gateProviders` · `skills.groups.llmProviders` · `skills.groups.serviceProviders` · `skills.view.selectItem` · `skills.view.backAria` · `skills.addMenu.create` · `skills.author.desc`",
+   "preserve": "화면 문구는 그대로다 — 이 키들을 그리는 자리가 없다. `ko.ts`·`en.ts` 의 키 집합이 같게 남는다",
+   "keepStructure": "두 리소스 파일과 나머지 키 구조 그대로 — 키가 전부 빠지는 묶음 `skills.groups` · `skills.list` · `skills.view` 은 묶음째 지운다",
+   "saving": {
+    "prod": 40,
+    "basis": "`ko.ts` 16줄 + `en.ts` 16줄(키 17개의 값 줄) + 빈 묶음 껍데기 8줄"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "정적 리소스 표다 — 비동기 경계가 없다"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "키 경로를 담은 테스트·스크립트 0파일(`app/src/**/*.test.*`·`*.testfixture.*`·`app/scripts` 를 키마다 경계 일치로 검색). resources.test.ts 는 ko↔en 키 집합 일치와 보간 자리만 본다 — 두 파일에서 함께 지우면 그대로 통과한다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'i18n|ko\\.ts' 1168b67 -- AGENTS.md app/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions` → 위치·스택 안내 6줄(layers.md:77 · design-system.md:205 · overview.md:39·85 등), 키 보존 규칙 0. resources.test.ts:36-46 은 쓰지 않는 라벨이 빠져 있음을 단언하는 선례다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "전체 키 경로의 정적 참조 0 — `app/src` 의 non-test `.ts`·`.tsx`(리소스 두 파일 제외)에서 키마다 경계 일치 검색, 복수형 접미사는 떼고 검색. 문자열 연결로 키를 만드는 호출도 0(`git grep -n -E \"\\\\b(t|tr)\\\\([^)]*' ?\\\\+ \" 1168b67 -- app/src`)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "번들에 실리는 문자열이 줄 뿐이다"
+    }
+   }
+  },
+  {
+   "id": "W-08",
+   "area": "F10",
+   "lens": "L1",
+   "type": "remove",
+   "approval": "required",
+   "sites": [
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:182",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:367",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:369",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:371",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:394",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:410",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:413",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:183",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:363",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:365",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:367",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:390",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:406",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:409"
+   ],
+   "i18nKeys": [
+    "gate.subtitle",
+    "projects.blurb",
+    "projects.noInstructions",
+    "projects.emptyDesc",
+    "projects.hero.updated",
+    "engine.subtitle",
+    "engine.blurb"
+   ],
+   "dynamicPrefix": "`git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄, 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`) — 이 후보의 키 7개 중 그 접두사로 시작하는 키 0개(대조: 키마다 15개 접두사 `startsWith`)",
+   "duplicate": "로그인·프로젝트·엔진 화면(`gate.*`·`projects.*`·`engine.*`) 번역 키 7개를 읽는 곳이 없다 — `gate.subtitle` · `projects.blurb` · `projects.noInstructions` · `projects.emptyDesc` · `projects.hero.updated` · `engine.subtitle` · `engine.blurb`",
+   "preserve": "화면 문구는 그대로다 — 이 키들을 그리는 자리가 없다. `ko.ts`·`en.ts` 의 키 집합이 같게 남는다",
+   "keepStructure": "두 리소스 파일과 나머지 키 구조 그대로",
+   "saving": {
+    "prod": 18,
+    "basis": "`ko.ts` 9줄 + `en.ts` 9줄(키 7개의 값 줄)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "정적 리소스 표다 — 비동기 경계가 없다"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "키 경로를 담은 테스트·스크립트 0파일(`app/src/**/*.test.*`·`*.testfixture.*`·`app/scripts` 를 키마다 경계 일치로 검색). resources.test.ts 는 ko↔en 키 집합 일치와 보간 자리만 본다 — 두 파일에서 함께 지우면 그대로 통과한다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'i18n|ko\\.ts' 1168b67 -- AGENTS.md app/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions` → 위치·스택 안내 6줄(layers.md:77 · design-system.md:205 · overview.md:39·85 등), 키 보존 규칙 0. resources.test.ts:36-46 은 쓰지 않는 라벨이 빠져 있음을 단언하는 선례다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "전체 키 경로의 정적 참조 0 — `app/src` 의 non-test `.ts`·`.tsx`(리소스 두 파일 제외)에서 키마다 경계 일치 검색, 복수형 접미사는 떼고 검색. 문자열 연결로 키를 만드는 호출도 0(`git grep -n -E \"\\\\b(t|tr)\\\\([^)]*' ?\\\\+ \" 1168b67 -- app/src`)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "번들에 실리는 문자열이 줄 뿐이다"
+    }
+   }
+  },
+  {
+   "id": "W-09",
+   "area": "F10",
+   "lens": "L1",
+   "type": "remove",
+   "approval": "required",
+   "sites": [
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:764",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:768",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:769",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:773",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:776",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:787",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:789",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:790",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:791",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:793",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:760",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:764",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:765",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:769",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:772",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:783",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:785",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:786",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:787",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:789"
+   ],
+   "i18nKeys": [
+    "chat.artifacts.title",
+    "chat.artifacts.checking",
+    "chat.artifacts.available",
+    "chat.artifacts.trashedAt",
+    "chat.artifacts.document",
+    "chat.artifacts.saveComplete",
+    "chat.artifacts.skipped",
+    "chat.artifacts.done",
+    "chat.artifacts.trashed",
+    "chat.artifacts.empty"
+   ],
+   "dynamicPrefix": "`git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄, 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`) — 이 후보의 키 10개 중 그 접두사로 시작하는 키 0개(대조: 키마다 15개 접두사 `startsWith`)",
+   "duplicate": "산출물 타일(`chat.artifacts.*`) 번역 키 10개를 읽는 곳이 없다 — `chat.artifacts.title` · `chat.artifacts.checking` · `chat.artifacts.available` · `chat.artifacts.trashedAt` · `chat.artifacts.document` · `chat.artifacts.saveComplete` · `chat.artifacts.skipped` · `chat.artifacts.done` · `chat.artifacts.trashed` · `chat.artifacts.empty`",
+   "preserve": "화면 문구는 그대로다 — 이 키들을 그리는 자리가 없다. `ko.ts`·`en.ts` 의 키 집합이 같게 남는다",
+   "keepStructure": "두 리소스 파일과 나머지 키 구조 그대로",
+   "saving": {
+    "prod": 20,
+    "basis": "`ko.ts` 10줄 + `en.ts` 10줄(키 10개의 값 줄)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "정적 리소스 표다 — 비동기 경계가 없다"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "키 경로를 담은 테스트·스크립트 0파일(`app/src/**/*.test.*`·`*.testfixture.*`·`app/scripts` 를 키마다 경계 일치로 검색). resources.test.ts 는 ko↔en 키 집합 일치와 보간 자리만 본다 — 두 파일에서 함께 지우면 그대로 통과한다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'i18n|ko\\.ts' 1168b67 -- AGENTS.md app/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions` → 위치·스택 안내 6줄(layers.md:77 · design-system.md:205 · overview.md:39·85 등), 키 보존 규칙 0. resources.test.ts:36-46 은 쓰지 않는 라벨이 빠져 있음을 단언하는 선례다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "전체 키 경로의 정적 참조 0 — `app/src` 의 non-test `.ts`·`.tsx`(리소스 두 파일 제외)에서 키마다 경계 일치 검색, 복수형 접미사는 떼고 검색. 문자열 연결로 키를 만드는 호출도 0(`git grep -n -E \"\\\\b(t|tr)\\\\([^)]*' ?\\\\+ \" 1168b67 -- app/src`)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "번들에 실리는 문자열이 줄 뿐이다"
+    }
+   }
+  },
+  {
+   "id": "W-10",
+   "area": "F10",
+   "lens": "L1",
+   "type": "remove",
+   "approval": "required",
+   "sites": [
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:956",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:979",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:980",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:981",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1003",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1005",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1006",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1009",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1014",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1016",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1022",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:949",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:972",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:973",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:974",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:996",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:998",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:999",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1002",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1007",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1009",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1015"
+   ],
+   "i18nKeys": [
+    "chat.taskTile.directoryPicking",
+    "chat.taskTile.detail.elapsed",
+    "chat.taskTile.detail.lastTool",
+    "chat.taskTile.detail.toolUses",
+    "chat.taskTile.backgroundBadge",
+    "chat.taskTile.stoppedReason",
+    "chat.taskTile.failedReason",
+    "chat.taskTile.toBackground",
+    "chat.taskTile.noChildActivity",
+    "chat.taskTile.openDetailAria",
+    "chat.taskTool.fetched"
+   ],
+   "dynamicPrefix": "`git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄, 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`) — 이 후보의 키 11개 중 그 접두사로 시작하는 키 0개(대조: 키마다 15개 접두사 `startsWith`)",
+   "duplicate": "작업 타일(`chat.taskTile.*`·`chat.taskTool.*`) 번역 키 11개를 읽는 곳이 없다 — `chat.taskTile.directoryPicking` · `chat.taskTile.detail.elapsed` · `chat.taskTile.detail.lastTool` · `chat.taskTile.detail.toolUses` · `chat.taskTile.backgroundBadge` · `chat.taskTile.stoppedReason` · `chat.taskTile.failedReason` · `chat.taskTile.toBackground` · `chat.taskTile.noChildActivity` · `chat.taskTile.openDetailAria` · `chat.taskTool.fetched`",
+   "preserve": "화면 문구는 그대로다 — 이 키들을 그리는 자리가 없다. `ko.ts`·`en.ts` 의 키 집합이 같게 남는다",
+   "keepStructure": "두 리소스 파일과 나머지 키 구조 그대로",
+   "saving": {
+    "prod": 22,
+    "basis": "`ko.ts` 11줄 + `en.ts` 11줄(키 11개의 값 줄)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "정적 리소스 표다 — 비동기 경계가 없다"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "키 경로를 담은 테스트·스크립트 0파일(`app/src/**/*.test.*`·`*.testfixture.*`·`app/scripts` 를 키마다 경계 일치로 검색). resources.test.ts 는 ko↔en 키 집합 일치와 보간 자리만 본다 — 두 파일에서 함께 지우면 그대로 통과한다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'i18n|ko\\.ts' 1168b67 -- AGENTS.md app/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions` → 위치·스택 안내 6줄(layers.md:77 · design-system.md:205 · overview.md:39·85 등), 키 보존 규칙 0. resources.test.ts:36-46 은 쓰지 않는 라벨이 빠져 있음을 단언하는 선례다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "전체 키 경로의 정적 참조 0 — `app/src` 의 non-test `.ts`·`.tsx`(리소스 두 파일 제외)에서 키마다 경계 일치 검색, 복수형 접미사는 떼고 검색. 문자열 연결로 키를 만드는 호출도 0(`git grep -n -E \"\\\\b(t|tr)\\\\([^)]*' ?\\\\+ \" 1168b67 -- app/src`)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "번들에 실리는 문자열이 줄 뿐이다"
+    }
+   }
+  },
+  {
+   "id": "W-11",
+   "area": "F10",
+   "lens": "L1",
+   "type": "remove",
+   "approval": "required",
+   "sites": [
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1101",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1221",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1230",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1236",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1237",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1257",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1263",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1264",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1278",
+    "app/src/renderer/src/shared/i18n/resources/ko.ts:1279",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1095",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1215",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1224",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1230",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1231",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1251",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1257",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1258",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1272",
+    "app/src/renderer/src/shared/i18n/resources/en.ts:1273"
+   ],
+   "i18nKeys": [
+    "chat.composer.diffRequirementTrayLabel",
+    "chat.rightpanel.tiles.artifacts",
+    "chat.rightpanel.diffCollapsedNotice",
+    "chat.rightpanel.diffFileUnavailable",
+    "chat.rightpanel.diffSessionChanges",
+    "chat.rightpanel.diffExpandGap",
+    "chat.rightpanel.diffRequirementDraftCancel",
+    "chat.rightpanel.diffRequirementMarkerLabel",
+    "chat.rightpanel.reservedTitle",
+    "chat.rightpanel.reservedDesc"
+   ],
+   "dynamicPrefix": "`git grep -n -E '`[A-Za-z0-9_.]+\\.\\$\\{' 1168b67 -- app/src/renderer/src app/src/shared`(test 제외) → 27줄, 번역 키 접두사 15개(`artifactCatalog.` · `background.` · `chat.activity.` · `chat.agent.` · `chat.artifactViewer.` · `chat.messageOrigin.` · `chat.nativeResources.` · `chat.opencode.explorationCount.` · `chat.opencode.panel.processStatus.` · `chat.opencode.tool.` · `chat.toolMeta.agentStatus.` · `chat.worktreePrepare.` · `errors.toast.` · `harness.waitPhase.` · `harnessUnavailable.`) — 이 후보의 키 10개 중 그 접두사로 시작하는 키 0개(대조: 키마다 15개 접두사 `startsWith`)",
+   "duplicate": "변경사항 패널·컴포저(`chat.rightpanel.*`·`chat.composer.*`) 번역 키 10개를 읽는 곳이 없다 — `chat.composer.diffRequirementTrayLabel` · `chat.rightpanel.tiles.artifacts` · `chat.rightpanel.diffCollapsedNotice` · `chat.rightpanel.diffFileUnavailable` · `chat.rightpanel.diffSessionChanges` · `chat.rightpanel.diffExpandGap` · `chat.rightpanel.diffRequirementDraftCancel` · `chat.rightpanel.diffRequirementMarkerLabel` · `chat.rightpanel.reservedTitle` · `chat.rightpanel.reservedDesc`",
+   "preserve": "화면 문구는 그대로다 — 이 키들을 그리는 자리가 없다. `ko.ts`·`en.ts` 의 키 집합이 같게 남는다",
+   "keepStructure": "두 리소스 파일과 나머지 키 구조 그대로",
+   "saving": {
+    "prod": 20,
+    "basis": "`ko.ts` 10줄 + `en.ts` 10줄(키 10개의 값 줄)"
+   },
+   "hotEntry": null,
+   "premises": {
+    "raceGuard": {
+     "verdict": "clear",
+     "evidence": "정적 리소스 표다 — 비동기 경계가 없다"
+    },
+    "formLock": {
+     "verdict": "clear",
+     "evidence": "키 경로를 담은 테스트·스크립트 0파일(`app/src/**/*.test.*`·`*.testfixture.*`·`app/scripts` 를 키마다 경계 일치로 검색). resources.test.ts 는 ko↔en 키 집합 일치와 보간 자리만 본다 — 두 파일에서 함께 지우면 그대로 통과한다"
+    },
+    "agentsRule": {
+     "verdict": "clear",
+     "evidence": "`git grep -n -E 'i18n|ko\\.ts' 1168b67 -- AGENTS.md app/AGENTS.md app/src/renderer/AGENTS.md docs/arch docs/decisions` → 위치·스택 안내 6줄(layers.md:77 · design-system.md:205 · overview.md:39·85 등), 키 보존 규칙 0. resources.test.ts:36-46 은 쓰지 않는 라벨이 빠져 있음을 단언하는 선례다"
+    }
+   },
+   "conditions": {
+    "ui": {
+     "verdict": "safe",
+     "evidence": "전체 키 경로의 정적 참조 0 — `app/src` 의 non-test `.ts`·`.tsx`(리소스 두 파일 제외)에서 키마다 경계 일치 검색, 복수형 접미사는 떼고 검색. 문자열 연결로 키를 만드는 호출도 0(`git grep -n -E \"\\\\b(t|tr)\\\\([^)]*' ?\\\\+ \" 1168b67 -- app/src`)"
+    },
+    "perf": {
+     "verdict": "equal_or_better",
+     "evidence": "번들에 실리는 문자열이 줄 뿐이다"
+    }
+   }
+  }
+ ]
 }
