@@ -1034,4 +1034,7 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 
 | # | 출처 | 상태 | 내용 |
 |---|---|---|---|
-| 1 | VP-02 · AC4 | open BLOCKING | W-08 `formLock` 근거 "테스트 0파일" 오류 — `engine.subtitle` 이 `AgentEnvironmentView.count.test.ts:66` 에서 `ko.engine.subtitle` 로 참조됨. `blocks` 로 정정 + 나머지 키를 프로퍼티 접근 형태까지 재검색. 상세 [verify.md §11](verify.md) |
+| 1 | VP-02 · AC4 | closed (r2·r3 확인) | W-08 `formLock` 근거 "테스트 0파일" 오류 — W-12(`engine.subtitle`)로 분리·`blocks`. 인용 변이 M-A(W-08 formLock→blocks) `K10` red · W-12 test 정적 1 = `AgentEnvironmentView.count.test.ts:66` · 삭제 실험 E1 `tsc` TS2339 1건. 상세 [verify.md §11](verify.md)·r3 §9 |
+| 2 | VP-02 · AC4 | open BLOCKING (r3) | W-02 `premises.formLock` 근거 "→ 6파일(…)"인데 같은 명령 `git grep -l 'readVersion:' 1168b67 -- 'app/src/**/*.test.ts' 'app/src/**/*.testfixture.ts'` 가 7파일 — 누락 `app/src/main/app/chat-turn/opencode-runtime.test.ts`. 계약: VP-02 "N 일치" · 대응 방향(제안): N·파일 목록 정정 → `--write`. 판정 `blocks`·`sum` 불변. [verify.md r3 D1](verify.md) |
+| 3 | AC1 · 현재 산출물 | open BLOCKING (r3) | F06 `L5` 근거 "`git grep -l useBackgroundStore … harnesses/opencode` → 0 — 짝 없음"인데 같은 명령이 2파일(`opencode/rightpanel/tiles.tsx:22` prod · `tiles.memo.test.ts:5` test). 계약: 근거의 "0건"은 재실행하면 0(r1 파생 이슈 1 의 불변식). 대응 방향(제안): N 정정 · `tiles.tsx` 가 `sessionPanelModel` 입력으로 쓰는 소비자임을 적음 → `--write`. [verify.md r3 D2](verify.md) |
+| 4 | VP-02 근거 도구(§9 rev.3) | NEXT_HANDOFF(확장) — 후보 표 | `--i18n` 판정 함수 UT 입력 공백 9행(`refTally` 슬롯 맞바꿈 · 1단계 접두사 `includes` · `keyHeads` 거르기 · 머리 중복 · 복수형 `$` 앵커 · DOC `bareAncestor` · EP-02 P5 `export`). 고칠 의무 없음. [verify.md r3 D3](verify.md) |
