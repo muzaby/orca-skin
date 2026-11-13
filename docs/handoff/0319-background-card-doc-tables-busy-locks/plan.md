@@ -624,4 +624,4 @@ sessionBusy·dispose                                     : 코드 불변, 테스
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — |
+| D1 | `sessionBusy` 이웃 조건 6자리(캐시 재진입 `hasCachedHistory` · `current()` `isCurrent`·`activeKey` · `startHandoff` `loadingSession` · 폴더 선택 `sessionId` 일치·`loadingSession`)를 지워도 EP-02 오라클 green | VP-08 | 설계자 채택(자리·구별 입력) 또는 경계 선언 | 확장 | PLAN_GAP | open |
