@@ -1094,6 +1094,134 @@ X8은 책임을 가르는 것만으로 줄이 늘면 후보가 아니다(`saving
 - 관련 plan 지침: `handoff-plan` §5-A "자리별 직접 oracle 좌표 — 자리가 실행 구간 안" · `docs/handoff/AGENTS.md §공통 V` 실행 구간 정의.
 - 환경: `git fetch origin main` 뒤 `origin/main` ref 있음 — 기준 커밋 조상 확인 가능.
 
+## [구현자 기입] 설계 리뷰 (r4)
+
+- 동의 / 그대로 진행: rev.4(§9 형태 표·경계 12 정정) · Decision 17 · AC 13 · pair 10 · EP-01~EP-10 그대로. 이번 턴의 계약은 파생 이슈 2(VP-02 · AC4)와 3(AC1 · 현재 산출물)이다.
+- 불변식: **근거에 적힌 수는 그 근거가 적은 방법으로 다시 세면 같은 수다.** r1·r2의 "0건 근거" 불변식을 0이 아닌 N · 구간 근거 · 단위 근거 · 명령 없이 적힌 통계까지 넓혔다.
+- 적용 범위: `audit.json`의 수를 가진 근거 전부 — 구간 11 · 단위 98 · 후보 12. D1·D2 밖에서 같은 종류 9건이 더 나와 함께 고쳤다(아래 놓친 잠재 문제).
+- 이견 / ACTIVE Decision과 충돌: 없음. plan 규범 행·`check.mjs`·`check.test.mjs`는 바꾸지 않았다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r4)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | 구간 → 범주·렌즈 판정 (EP-01) | 11구간 × 11칸 = 121 | 121/121 | `gate:node …/scan/check.mjs --check` → `위반 0 · 대기 0` · R-D1 → `K1,K10` · N-2(F06 `basis` 빈 값) → `K1,K10` | 칸 삭제·근거 빈 값 → K1 | — |
+| VP-01·VP-07 | 구간 → 판정 단위 (EP-02) | 98단위 · 패턴 5 + 규칙 2 | 98/98 · 7/7 | `--units \| wc -l` → 98 · R-D2·R-D3 → `K2,K10` · N-3(F01 `client` `basis` 빈 값) → `K2,K10` · "UT-01 P1"~"U7" 통과 | 단위 삭제·유령·근거 빈 값 → K2 | — |
+| VP-02 | 후보 필수 칸 (EP-03) | 12칸 × 12건 + i18n 2칸 × 6건 = 156 | 156/156 | 같은 gate(K3·K4·K8·K9·K12 위반 0) · D05 → `K4,K10` · D02 → `K10,K12` · N-4(W-02 `ui` 근거 빈 값) → `K6,K10` | 칸 제거 → 해당 K | — |
+| VP-02 | 전제 확인 칸 (EP-04) | 3칸 × 12건 = 36 | 36/36 | 같은 gate(K5 위반 0) · D01 → `K5,K10` · N-1(W-02 `formLock` 근거 빈 값)·N-5(W-06 `agentsRule` 근거 빈 값) → `K5,K10` | 칸 삭제·근거 빈 값 → K5 | 근거 N의 옳고 그름은 gate 밖(선언 경계 2) — 이번 턴은 재실행으로 닫았다(아래 N 대조) |
+| VP-02 | 대상 제외 (EP-08) | 패턴 5 | 5/5 | D05 → `K4` · "UT-02 red K4 제외 패턴 …" 5건 통과 | 패턴마다 1경로 | — |
+| VP-08 | 검사 규칙 (EP-05) | red 조건 46 | 46/46 | `node --test …/scan/*.test.mjs` → tests 134 · pass 134 · `git diff a6997d5 -- …/scan` 0줄 | 조건마다 그 조건만 깨는 입력 | — |
+| VP-03·VP-09 | 감량 합 판정 (EP-06) | 갈래 4 + 경계 2 | 6/6 | "UT-03 R1"~"R4" 통과 · `--ruling` → `0305 계열 종료 · sum 19 · total 34 · i18n 6·55·120` · R-S1 sum 19→10 · D08 sum 19(i18n 5·54·118) | `sum`·`P`·`i18n` 이 데이터에 민감 | — |
+| VP-03 | 핫패스 심볼 (EP-07) | 심볼 3 | 3/3 | 무변경 — "UT-02 EP-07: 핫패스 심볼은 …" 통과 | 목록 `deepEqual` | — |
+| VP-05 | 판정 사본 일치 (EP-09) | 사본 3곳 | 2/3 | `grep -c '^<!-- gen:' audit.md` → 5 · D15·R-M2 → `K10` · V-01~V-11(정정 문자열을 옛 값으로) → `K10` 11/11 · INDEX 비고 판정 문자열 = `--ruling` verdict | 블록 바이트 비교 | `verify.md` 판정 절 — verify 턴 산출 |
+| VP-06·VP-10 | 대상 목록 유도 (EP-10) | 11파일 · 규칙 7 | 11/11 · 7/7 | `--targets` → 11행 · R-C1 → `K1,K2,K10,K11` · R-C2 → `K11` · "UT-04 T1"~"T7" 통과 | 규칙마다 통과·제외 입력 쌍 | — |
+
+### 근거 N 대조 — 정정 뒤 재실행 (파생 이슈 2·3의 닫힘 관측)
+
+| 근거 집합 | 세는 법 | 정정 전 불일치 | 정정 뒤 차집합 |
+|---|---|---|---|
+| 단위 밖 `git` 명령 20개(후보 17 · 구간 3) | 근거 칸의 명령을 그대로 실행해 줄·파일 수를 적힌 N과 대조 | 2 — W-02 `formLock` 6≠7 · F06 `L5` 0≠2 | 0/20 |
+| 단위 98행 × 세 수 | `git grep -c -w` · `.ts`·`.tsx` non-test · 프로세스 루트(`audit.md` §6) | 4행 — F01 `client` 15·2≠17·3 · F02 `probe` 30≠31 · F02 `context` 56≠57 · F10 `ko` 9≠10 | 0/98 |
+| i18n 6건 × 네 수(prod·test·rule·키 수) | `--i18n` 후보별 `합계` 줄 | 0 | 0/6 · 템플릿 0 · 접두사 겹침 0 |
+| 문구 중복 통계 2건 | `catalogTree` 잎 값 원문 일치(`audit.md` §6) | 2 — F10 249≠252 · F09 88·223≠89·228 | 0/2 |
+| 서술만 있던 N 2건 | 같은 근거 칸의 명령 | W-06 `agentsRule` 2줄 서술≠3줄 · W-02 `ui` "server.ts 뿐"≠server.ts 8 + updater.ts 3 | 0/2 |
+
+- 구간 근거의 줄 번호·횟수 주장 12개도 다시 셌다 — F01 1,126줄·128 · F02 236·239 / 192-193·284-285 / 178·299 · F03 172·174·238 / 207·256·332 / 119·311 · F04 195·395 / 문구 4회 · F07 135·191 / 5파일 · F08 90·102 · F11 97-98·174-175 / 3파일: 전부 일치.
+
+### V-pair 자기확인 (r4)
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `gate:check.mjs --check` | required — R-D1·R-D2·R-D3 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | 같은 gate · N 대조 표(차집합 0) | required — D01·D05·R-D6·D02 전부 red. 통과 후보 표식 실험 재실행은 검증자 몫 |
+| VP-03 | REQUIRED | SELF_PASS(기계 범위) | "UT-03 R1~R4" · `--ruling` | required — R-S1 sum 19→10 · D08 `K10,K12`(합 불변). AC10은 사람 |
+| VP-04 | REQUIRED | SELF_PASS | `gate:git diff --stat 1168b67 -- app .github` → 0줄(작업 트리 포함) | not selected — 직접 관측 |
+| VP-05 | REQUIRED | SELF_PASS | `--check`(K10) | required — D15·R-M2 red |
+| VP-06 | REQUIRED | SELF_PASS | `--check`(K11) · `--targets` | required — R-C1·R-C2 red |
+| VP-07 | REQUIRED | SELF_PASS | "UT-01 P1"~"U7" | not selected — 행동 oracle · 본문 무변경 |
+| VP-08 | REQUIRED | SELF_PASS | "UT-02 green"·"UT-02 red …" | not selected — 행동 oracle · 본문 무변경 |
+| VP-09 | REQUIRED | SELF_PASS | "UT-03 R1"~"R4" | not selected — 행동 oracle · 본문 무변경 |
+| VP-10 | REQUIRED | SELF_PASS | "UT-04 T1"~"T7" | not selected — 행동 oracle · 본문 무변경 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4)
+
+판정: 36건을 심어 36건이 잡혔다. 덮개 회귀 0(r3 verify `잡음` 행 중 이번 diff가 닿은 데이터 행 7건 전부 그대로 red). 실행 뒤 `git status --short`는 산출 2파일뿐이고 `--check`는 `위반 0`이다.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 검사 | 결과 |
+|---|---|---|---|---|
+| R-D1 F04.X8 삭제 · R-D2 단위 1행 삭제 · R-D3 유령 단위 | VP-01 선택 증거 | r3 잡음 | `K1,K10` · `K2,K10` · `K2,K10` | 잡음 |
+| D01 W-12 formLock 삭제 · D05 W-12 자리→테스트 파일 · R-D6 F10.L1 유령 W-13 · D02 W-12 dynamicPrefix 삭제 | VP-02 선택 증거 | r3 잡음 | `K5,K10` · `K4,K10` · `K7,K10` · `K10,K12` | 잡음 |
+| R-S1 W-06 raceGuard→blocks · D08 W-12 i18nKeys 삭제 | VP-03 선택 증거 | r3 잡음 | sum 19→10(P W-01·W-05) · `K10,K12` + sum 19(i18n 5·54·118) | 잡음 |
+| D15 ruling 블록 `19줄`→`18줄` · R-M2 premises 블록 삭제 | VP-05 선택 증거 | r3 잡음 | `K10` · `K10` | 잡음 |
+| R-C1 AREAS F11 삭제 · R-C2 `READ_0315` `session-context.ts` 줄 | VP-06 선택 증거 | r3 잡음 | `K1,K2,K10,K11` · `K11` | 잡음 |
+| M-A W-08 formLock→blocks · M-B F06.L6→none · M-C W-05 prod 6→0 | r3 verify 이력(④ — 데이터 행) | 잡음 | `K10` · `K7,K10` · `K8,K10`(sum 13) | 잡음 |
+| SW1 W-02 raceGuard↔formLock 판정 · SW2 W-03↔W-04 prod · SW3 W-01 area→F08 · SW4 W-12 자리 ko↔en | r3 verify 이력(⑤ 형제 슬롯) | 잡음 | `K10` · `K10` · `K4,K7,K10` · `K10` | 잡음 |
+| N-1 W-02 formLock 근거 빈 값 · N-2 F06 basis 빈 값 · N-3 F01 `client` basis 빈 값 · N-4 W-02 ui 근거 빈 값 · N-5 W-06 agentsRule 근거 빈 값 | sweep — 이번 diff가 닿은 칸 종류마다 제거 | — | `K5,K10` · `K1,K10` · `K2,K10` · `K6,K10` · `K5,K10` | 잡음 |
+| V-01~V-11 정정한 11줄을 한 줄씩 옛 값으로(`--write` 없이) | sweep — EP-09 사본(이번 diff 자리 전부) | — | `K10` 11/11 | 잡음 |
+
+- 검산: 선택 증거 13 · 인용 변이 0(파생 이슈 2·3은 변이를 인용하지 않았다 — 닫힘 관측은 N 대조 표) · 새 oracle 0 · sweep 16(N-1~N-5 · V-01~V-11) · 이전 verify 이력 7(M-A~M-C · SW1~SW4) = 표의 36건.
+- `check.mjs`·`check.test.mjs` 무변경이라 r3 verify의 코드 변이(VS·VP·VB·VT·VF · `check()` 51 등)는 diff가 닿지 않아 다시 심지 않았다. 경계 행(M-D·M-D2·M-E·WS1~4)과 후보 표로 간 확장 9행도 제외다.
+- 하네스: scratch 데이터 변이 러너 — 실행 전 스냅샷으로 원복하고 끝에 `--check` exit 0을 확인했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `audit.md` §2·§4·§5의 정정된 근거와 §6의 세는 법 두 절을 verify·사용자가 읽는다 | — |
+| 판정·승인 목록·i18n 집계가 바뀌었는가 | 아니오 — `--ruling` verdict·`sum` 19·`total` 34·i18n 6·55·120 · `--i18n` sha1 `b58047add57d` 그대로 | — |
+| 정정이 판정 칸을 뒤집는가 | 아니오 — W-02 `formLock`은 7파일이어도 `blocks` · F06 `L5`는 `none`(짝 없음) · W-06 `agentsRule` `clear` · W-02 `ui` `safe` | verify가 F06 `L5` "소비자 ≠ 표시" 해석을 재판정 |
+| 같은 사실의 다른 사본 | 옛 수는 `audit.md` 어디에도 남지 않았다(`grep -c '→ 6파일\|249개\|223개\|문구 88개' audit.md` → 0) · 요약 절은 이 수들을 싣지 않는다 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 · 새 실패 경로 · 늦은 응답 · seam 재배치 | 해당 없음 — 코드 무변경 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 단위 근거 4행의 타 파일 수가 재실행과 다르다(verify r3 D6은 3행 — F01 `client`는 `none` 단위가 아니라 그 집계 밖이었다) | ✅ 선조치 — 4행 정정 · 세는 법을 `audit.md` §6에 명령으로 적음 | 정정 전 `bad 4 of 98` → 뒤 `bad 0 of 98` |
+| 2 | 단위 근거 문장의 `git grep -w`가 확장자·프로세스 루트를 적지 않아 재실행 정의가 없었다 | ✅ 선조치 — §6에 `.ts`·`.tsx` non-test · 루트 정의. 확장자 필터 없이 세면 `context` 58 · `ko` 11이다 | 94/98행이 이 정의로 원 수치와 일치 |
+| 3 | 문구 중복 통계에 명령이 없었고 수가 달랐다(F10 249 · F09 88·223) | ✅ 선조치 — 252 · 89·228로 정정, §6에 재현 스니펫 | 스니펫 출력 `ko.ts 100 252` · `en.ts 89 228` |
+| 4 | W-06 `agentsRule` 근거가 3줄 중 2줄만 서술 · W-02 `ui`가 `updater.ts`의 동명 함수를 빼고 "server.ts 뿐" | ✅ 선조치 — 3줄 전부 · `updater.ts:75` 구분을 적음. 판정 불변 | 명령 출력 3줄 · non-test 11줄(8 + 3) |
+| 5 | F05 구간 근거 "이 컴포넌트를 지나는 테스트가 없어"가 r2에서 고친 W-03·W-04 UI 근거(렌더 3파일 7회)와 어긋난 채 남아 있었다 | ✅ 선조치 — "바꿀 분기를 실행하는 테스트가 없어"로 맞춤 | 같은 사실의 사본 — r2 놓친 잠재 문제 1의 형제 자리 |
+| 6 | 표식 실험·삭제 실험의 관측(W-01·W-05·W-06 그물 · QC2 · E1~E3)은 이번 턴에 다시 돌리지 않았다 | ⚠️ 보고만 — `app/node_modules`가 없고 r3 verify §3·§4가 사본에서 재현한 값과 근거 문장이 같다 | r3 verify 표식 실험 표 |
+| 7 | 근거 N의 옳고 그름은 여전히 gate 밖이다 — 수를 틀리게 고치고 `--write`하면 `--check` green | 경계 — 선언 경계 2. 이번 턴은 scratch 스크립트 재실행으로 닫았고 도구로 만들지 않았다(plan 동결 · 새 열거 의무 없음) | V-01~V-11은 사본 불일치(`K10`)만 잡는다 |
+| 8 | `LegacySubAgentTile.tsx:245` 카드 키 판정(r1 #5) | ⚠️ 비귀속 그대로 | r1 |
+
+- 발견 분류: 이행 1(D1) · 현재 1(D2) · 경계 안 정확성 보강 5(#1~#5 — verify r3 D6 + 자기 발견 F01 `client`·F05) · 경계 1(#7) · 비귀속 1(#8).
+
+### 설계 대비 명시적 차이 (r4)
+
+| 차이 | 내용 | 영향 |
+|---|---|---|
+| `audit.md` §6에 절 2개 추가 | 단위 근거 세는 법 · 문구 중복 통계 세는 법 | 생성 블록 밖 손글 — K10 대상 아님. 계약·판정 불변 |
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 공유 · 재진입 · 다른 무효화 | 해당 없음 — 메커니즘 대체 없음(근거 문장 정정과 문서 절 추가뿐) | AC8 0줄 · `git diff a6997d5 -- …/scan` 0줄 |
+
+## [구현자 기입] 구현 보고 (r4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `…/data/audit.json`(11줄) · `…/audit.md`(생성 블록 재렌더 + §6) · `…/plan.md`(이 절) · `docs/handoff/INDEX.md` |
+| 실행 명령 | `node …/scan/check.mjs --write` · `--check` · `--targets` · `--units` · `--ruling` · `--i18n` · `node --test …/scan/*.test.mjs` · scratch N 대조 3종 · 데이터 변이 러너 · `cd app && node scripts/check-doc-inventory.mjs --check` · `git diff --stat 1168b67 -- app .github` |
+| **관측한 게이트 산출**(마지막 수정 뒤 실행) | `--check` → `단위 98 · 후보 12 · 위반 0 · 대기 0` · `node --test` → tests 134 · pass 134 · fail 0 · `--ruling` → `0305 계열 종료 · sum 19 · total 34 · i18n 6·55·120` · `--i18n` sha1 `b58047add57d` · 문서 가드 generated·prose·links ok · 무변경 0줄. `app` gate는 대상이 아니다(plan §19) |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 0 — `git diff --name-only a6997d5`에 `*.test.*` 없음 |
+| V-pair 자기확인 | SELF_PASS 10 / SELF_BLOCKED 0 |
+| 강제 지점 전수 | EP-01 121/121 · EP-02 98/98·7/7 · EP-03 156/156 · EP-04 36/36 · EP-05 46/46 · EP-06 6/6 · EP-07 3/3 · EP-08 5/5 · EP-09 2/3(`verify.md`는 verify 턴) · EP-10 11/11·7/7 |
+| **AC 자기보고**(`Criteria-Met`) | AC1 ✅ K1 위반 0 · F06 `L5` 명령 재실행 2 = 근거 2 · AC2 ✅ K2 위반 0 · 단위 N 0/98 불일치 · AC3 ✅ K3·K4·K8·K9 위반 0 · AC4 ✅ K5 위반 0 · W-02 명령 재실행 7 = 근거 7 · `git` 명령 0/20 불일치 · AC5 ✅ K6 위반 0 · AC6 ✅ K4 제외 패턴 위반 0 · AC7 ✅ UT-03 + `--ruling` · AC8 ✅ 0줄 · AC9 ✅ K10 위반 0·`gen:` 5 · AC10 ⚠️ 사람 · AC11 ✅ K7 위반 0 · AC12 ✅ K11 위반 0·`--targets` 11행 · AC13 ✅ K12 위반 0 |
+| **합계 검산** | `✅ 12 · ⚠️ 1 · ❌ 0 = 총 13` — AC 분모 13 그대로 |
+| 파생 이슈 2·3 | 계약 성립(자기보고) — 2: 같은 명령 7파일 = 근거 "7파일" + 목록에 `app/chat-turn/opencode-runtime.test.ts` · 3: 같은 명령 2파일 = 근거 "2파일" + `tiles.tsx:22` 소비자 서술 |
+| 블로커 / 역질문 | 없음. AC10(W-03·W-04 UI `risk`)은 그대로 사용자 확인 |
+| 대상 커밋 | `(r4 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r4)
+
+- 라운드·턴 라벨: r4(라운드 4 첫 impl 턴). verify 3회(FAIL · RETURN_TO_PLAN · FAIL) 뒤이고 rev.4 설계 턴이 `handoff-review` 진단(`DIAGNOSE_ONLY`)을 마쳤다.
+- 이전 라운드와 같은 축: 예 — r1(W-08 "0파일") · r2 자기 발견(W-03·W-04 "0파일") · r3(W-02 6≠7 · F06 0≠2)과 같은 "근거의 수 ≠ 재실행"이다. 이번 전수에서 같은 축 9건이 더 나왔다.
+- 관련 plan 지침: VP-02 "N 일치" · AC4 "명령+N" · §9 L6 "실제로 돌린 명령과 N". 단위 근거의 확장자·루트와 문구 통계의 세는 법은 plan·audit 어디에도 없었다.
+- 환경: `origin/main` ref 있음(`22b39d6`) · `app/node_modules` 없음 — 표식·삭제 실험 미재실행.
+- 이번 턴의 재실행 스크립트는 scratch에만 있다(산출물 아님).
+
 ## [검증자 기입] 파생 이슈
 
 | # | 출처 | 상태 | 내용 |
