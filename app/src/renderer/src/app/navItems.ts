@@ -17,6 +17,13 @@ export const SIDEBAR_NAV = [
     isActive: (p: string) => p === '/projects'
   },
   {
+    // 예약 작업. `clock` 의 path 가 Material Symbols `schedule` 이다.
+    icon: 'clock',
+    labelKey: 'sidebar.nav.scheduled',
+    path: '/scheduled',
+    isActive: (p: string) => p === '/scheduled'
+  },
+  {
     icon: 'doc',
     labelKey: 'sidebar.nav.artifacts',
     path: '/artifacts',

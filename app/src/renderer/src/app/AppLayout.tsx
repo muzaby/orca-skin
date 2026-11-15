@@ -10,6 +10,7 @@ import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import { useChatRouteSync } from './hooks/useChatRouteSync'
 import { useChatSessionsSync } from './hooks/useChatSessionsSync'
 import { useCompletionNotifier } from './hooks/useCompletionNotifier'
+import { useScheduledPromptRelay } from './hooks/useScheduledPromptRelay'
 import { useSessionCompletion } from './hooks/useSessionCompletion'
 import { useSessionHandlers } from './hooks/useSessionHandlers'
 import { useSidebarSlots } from './hooks/useSidebarSlots'
@@ -28,6 +29,7 @@ export function AppLayout(): React.JSX.Element {
   useChatRouteSync()
   useChatSessionsSync()
   useCompletionNotifier()
+  useScheduledPromptRelay()
   const handlers = useSessionHandlers()
   useSessionCompletion(handlers.currentSessionId)
   const onDeleteProject = useProjectDeletion()

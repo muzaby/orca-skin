@@ -1,0 +1,112 @@
+// 새 작업 모달 본문 — 필드 구성과 명령 종류·트리거 선택에 따른 조건부 입력.
+// 모달 셸은 portal 이라 본문(`ScheduleTaskForm`)을 직접 그린다.
+
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it } from 'vitest'
+import type { PromptExecution } from '../../../../../shared/scheduled-tasks'
+import { emptyForm, type ScheduleFormState } from '../lib/scheduleForm'
+import { ScheduleTaskForm } from './ScheduleTaskModal'
+
+const execution: PromptExecution = {
+  backend: 'claude',
+  agentKind: 'work',
+  providerKey: 'claude:team',
+  modelFamily: 'claude-sonnet-5-5',
+  effort: 'low',
+  permissionMode: 'plan'
+}
+const projects = [
+  { id: 'p-folder', name: '카메라 검증', cwd: 'C:\\work\\cam' },
+  { id: 'p-flat', name: '메모', cwd: null }
+]
+
+const render = (patch: Partial<ScheduleFormState>): string =>
+  renderToStaticMarkup(
+    createElement(ScheduleTaskForm, {
+      form: { ...emptyForm(), ...patch },
+      projects,
+      // 슬롯이 받은 값을 그대로 드러내 운반을 본다.
+      renderExecutionPicker: (value) =>
+        createElement('div', {
+          'data-picker': '',
+          'data-permission': value?.permissionMode ?? 'none',
+          'data-model': value?.modelFamily ?? 'none'
+        }),
+      onChange: () => undefined
+    })
+  )
+
+describe('ScheduleTaskForm — 필드 구성', () => {
+  it('제목·프로젝트·트리거·명령 입력과 두 명령 종류를 그린다', () => {
+    const html = render({})
+    expect(html).toContain('예: 아침 버그 요약')
+    expect(html).toContain('프로젝트 선택')
+    expect(html).toContain('카메라 검증')
+    expect(html).toContain('메모 (폴더 없음)')
+    expect(html).toContain('data-schedule-trigger=""')
+    expect(html).toMatch(/data-schedule-kind="prompt"[^>]*>프롬프트</)
+    expect(html).toMatch(/data-schedule-kind="shell"[^>]*>shell 명령</)
+  })
+
+  it('프롬프트일 때만 실행 설정 입력이 보이고 저장된 값을 받는다', () => {
+    const prompt = render({ kind: 'prompt', execution })
+    expect(prompt).toContain('data-schedule-form="prompt"')
+    expect(prompt).toContain('data-permission="plan"')
+    expect(prompt).toContain('data-model="claude-sonnet-5-5"')
+    expect(prompt).toMatch(/role="radio"[^>]*aria-checked="true"[^>]*data-schedule-kind="prompt"/)
+    expect(prompt).toContain('실행할 때마다 에이전트가 할 일을 적어 주세요')
+    expect(prompt).not.toContain('PowerShell')
+
+    const shell = render({ kind: 'shell', execution })
+    expect(shell).toContain('data-schedule-form="shell"')
+    expect(shell).not.toContain('data-picker')
+    expect(shell).not.toContain('data-schedule-execution')
+    expect(shell).toMatch(/role="radio"[^>]*aria-checked="true"[^>]*data-schedule-kind="shell"/)
+    expect(shell).toContain('예: npm run nightly-check')
+    expect(shell).toContain('PowerShell')
+  })
+
+  it('shell 인데 폴더 없는 프로젝트면 사유를 알린다', () => {
+    expect(render({ kind: 'shell', projectId: 'p-flat' })).toContain(
+      'shell 명령은 폴더가 있는 프로젝트에서만 실행할 수 있습니다.'
+    )
+    expect(render({ kind: 'shell', projectId: 'p-folder' })).not.toContain('role="alert"')
+    expect(render({ kind: 'prompt', projectId: 'p-flat' })).not.toContain('role="alert"')
+  })
+})
+
+describe('ScheduleTaskForm — 트리거', () => {
+  const selectCount = (html: string): number =>
+    html.split('data-schedule-trigger')[1]!.split('</select>').length - 1
+
+  it('매시간은 주기만 고른다', () => {
+    const html = render({ triggerKind: 'hourly' })
+    expect(selectCount(html)).toBe(1)
+    expect(html).not.toMatch(/GMT[+-]\d/)
+    expect(html).not.toContain('data-schedule-day')
+  })
+
+  it('매일은 시각과 로컬 오프셋을 보인다', () => {
+    const html = render({ triggerKind: 'daily', at: { hour: 9, minute: 30 } })
+    expect(selectCount(html)).toBe(2)
+    expect(html).toMatch(/<option value="9:30" selected="">09:30<\/option>/)
+    expect(html).toMatch(/GMT[+-]\d/)
+  })
+
+  it('매주는 요일 하나와 시각을 고른다', () => {
+    const html = render({ triggerKind: 'weekly', day: 3 })
+    expect(selectCount(html)).toBe(3)
+    expect(html).toMatch(/<option value="3" selected="">수<\/option>/)
+  })
+
+  it('사용자 지정은 요일 다중 선택과 시각을 보인다', () => {
+    const html = render({ triggerKind: 'custom', days: [1, 5] })
+    expect(html.match(/data-schedule-day="/g)).toHaveLength(7)
+    expect(html).toMatch(/aria-pressed="true" data-schedule-day="1"/)
+    expect(html).toMatch(/aria-pressed="true" data-schedule-day="5"/)
+    expect(html).toMatch(/aria-pressed="false" data-schedule-day="2"/)
+    expect(html).toContain('매주 반복')
+    expect(html).toMatch(/GMT[+-]\d/)
+  })
+})

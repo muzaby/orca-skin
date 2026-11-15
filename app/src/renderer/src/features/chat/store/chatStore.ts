@@ -10,6 +10,7 @@ import {
 } from '../../../../../shared/agent-kind'
 import { sessionContextPolicy } from '../../../../../shared/agent-session-policy'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
+import type { PromptExecution } from '../../../../../shared/scheduled-tasks'
 import { HARNESS_CAPABILITIES, supportsAgentKind } from '../../../../../shared/harness'
 import type {
   ActiveTurnRef,
@@ -579,6 +580,21 @@ function sendNewChatPayload(payload: SendChatMessage): void {
   )
 }
 
+// 새 대화 전송의 직렬화 판정 — 준비 중인 새 대화가 없으면 바로 보내고, 있으면 큐에 선다.
+// 새 세션을 여는 전송(`send` · `startDetachedChat`)이 같은 규칙을 쓴다.
+function newChatGate(
+  s: Pick<ChatStoreState, 'pendingNewChatKey' | 'newChatQueue'>,
+  draftKey: string,
+  payload: SendChatMessage
+): {
+  dispatch: boolean
+  patch: Pick<ChatStoreState, 'pendingNewChatKey'> | Pick<ChatStoreState, 'newChatQueue'>
+} {
+  return s.pendingNewChatKey == null
+    ? { dispatch: true, patch: { pendingNewChatKey: draftKey } }
+    : { dispatch: false, patch: { newChatQueue: [...s.newChatQueue, { key: draftKey, payload }] } }
+}
+
 function releaseNewChatGate(expectedKey: string): void {
   let nextPayload: SendChatMessage | null = null
   setState((s) => {
@@ -1076,19 +1092,9 @@ function send(
       // 새-채팅 슬롯에서 보낸 경우에만 슬롯을 재생성한다 — fork draft(draft: 키) 전송이
       // 기존 __new__ 슬롯(사용자의 모델/모드 선택)을 리셋하지 않게.
       if (activeKey === NEW_CHAT_KEY) sessions[NEW_CHAT_KEY] = freshEntry(cur.pendingProjectId)
-      if (s.pendingNewChatKey == null) {
-        shouldDispatch = true
-        return {
-          sessions,
-          activeKey: draftKey,
-          pendingNewChatKey: draftKey
-        }
-      }
-      return {
-        sessions,
-        activeKey: draftKey,
-        newChatQueue: [...s.newChatQueue, { key: draftKey, payload }]
-      }
+      const gate = newChatGate(s, draftKey, payload)
+      shouldDispatch = gate.dispatch
+      return { sessions, activeKey: draftKey, ...gate.patch }
     })
     if (shouldDispatch) sendNewChatPayload(payload)
     return true
@@ -1599,6 +1605,83 @@ function startForkDraft(): boolean {
   return true
 }
 
+// 분리 시작 — 보고 있는 대화를 바꾸지 않고 새 대화의 첫 턴을 보낸다(예약 프롬프트가 쓴다).
+// 직렬화와 낙관 커밋은 `send` 의 새 세션 경로와 같고, 다른 점은 `activeKey` 를 건드리지 않는
+// 것 하나다. 세션 id 가 발급되면 resolve, 발급 전에 턴이 끝나면 reject 한다.
+function startDetachedChat(input: {
+  projectId: string
+  text: string
+  execution: PromptExecution
+}): Promise<{ sessionId: string }> {
+  const text = input.text.trim()
+  if (text === '') return Promise.reject(new Error('empty_text'))
+  const { execution } = input
+  const draftKey = `draft:${crypto.randomUUID()}`
+  const requestId = crypto.randomUUID()
+  const settings = {
+    backend: execution.backend,
+    agentKind: execution.agentKind,
+    permissionMode: execution.permissionMode,
+    providerKey: execution.providerKey,
+    modelFamily: execution.modelFamily,
+    // 노력 미지정은 키를 싣지 않는다(= 모델 기본값).
+    ...(execution.effort ? { effort: execution.effort } : {})
+  }
+  const payload: SendChatMessage = {
+    ...settings,
+    sessionId: null,
+    projectId: input.projectId,
+    text,
+    attachments: [],
+    attachmentViews: [],
+    // 작업 폴더는 main 이 프로젝트에서 파생한다.
+    cwd: null,
+    clientKey: draftKey,
+    clientRequestId: requestId
+  }
+  const base = freshEntry(input.projectId)
+  const draft: SessionEntry = {
+    ...base,
+    clientKey: draftKey,
+    session: chatReducer(chatReducer({ ...base.session, ...settings }, { type: 'BEGIN_TURN' }), {
+      type: 'APPEND_COMMITTED_USER_MESSAGE',
+      text,
+      clientId: requestId
+    })
+  }
+  let shouldDispatch = false
+  setState((s) => {
+    const gate = newChatGate(s, draftKey, payload)
+    shouldDispatch = gate.dispatch
+    return { sessions: { ...s.sessions, [draftKey]: draft }, ...gate.patch }
+  })
+  const started = detachedStartOutcome(draftKey)
+  if (shouldDispatch) sendNewChatPayload(payload)
+  return started
+}
+
+// 분리 시작한 draft 의 결말을 스토어에서 읽는다. 승격은 엔트리를 세션 id 키로 옮기되
+// `clientKey` 를 보존하므로 그것으로 따라간다. 결말이 나면 구독을 끊는다.
+function detachedStartOutcome(draftKey: string): Promise<{ sessionId: string }> {
+  return new Promise((resolve, reject) => {
+    const unsubscribe = useChatStore.subscribe((s) => {
+      const draft = s.sessions[draftKey]
+      if (draft) {
+        // 아직 세션 id 를 기다리는 중.
+        if (draft.session.inflight) return
+        reject(new Error(draft.session.error?.message ?? 'start_failed'))
+      } else {
+        const promoted = Object.entries(s.sessions).find(
+          ([, entry]) => entry.clientKey === draftKey
+        )
+        if (promoted) resolve({ sessionId: promoted[0] })
+        else reject(new Error('start_failed'))
+      }
+      unsubscribe()
+    })
+  })
+}
+
 // 핸드오프 — 클릭 = 즉시 물질화(사용자 정정, plan r2). 빈 draft 엔트리로 전환하고
 // handoffFrom send 를 즉시 발행한다(text 는 main 이 /compact 자동 메시지로 조립·대체).
 // 자동 메시지는 message.queued(pending)→echo 커밋(message.committed)으로, 압축 완료는
@@ -2044,6 +2127,7 @@ export const chatActions = {
   initializeProjectCwd,
   startForkDraft,
   startHandoff,
+  startDetachedChat,
   activateContinuityDraft,
   discardContinuityDraft,
   setPendingCwd,

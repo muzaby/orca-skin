@@ -262,6 +262,13 @@ export const SEMANTIC_DELAYS = [
       "가짜 타이머 아래 명령 시간 초과 계약값 — 'slow' 응답(25_000)은 이보다 짧고 'command-timeout' 은 이것을 넘긴다"
   },
   {
+    file: 'main/infra/shell/shell-runner.test.ts',
+    value: '600_000',
+    count: 1,
+    reason:
+      '가짜 타이머 아래 shell 제한 시간 계약값 — advanceTimersByTimeAsync 로 그 경계 앞뒤를 본다'
+  },
+  {
     file: 'main/infra/test-environment.test.ts',
     value: '1_500',
     count: 1,

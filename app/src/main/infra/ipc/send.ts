@@ -2,7 +2,7 @@
 // 타깃 전송(chatEvent·installStatus)을 한 곳에 모은다. 버스 팬아웃 이득이 없는 renderer push 는
 // 여기 직접 호출을 유지한다(bus-events.ts 주석 참조 — 과도한 버스화 금지).
 
-import { webContents, type WebContents } from 'electron'
+import { BrowserWindow, webContents, type WebContents } from 'electron'
 import {
   CHANNELS,
   type ConcurrencyEvent,
@@ -16,6 +16,7 @@ import {
 } from '../../../shared/ipc'
 
 import type { BackgroundEvent } from '../../../shared/background-task'
+import type { ScheduledPromptStart } from '../../../shared/scheduled-tasks'
 import type {
   ExtensionsChanged,
   NativeResourcesChanged,
@@ -62,6 +63,20 @@ function broadcast(channel: string, payload: unknown): void {
   for (const wc of webContents.getAllWebContents()) {
     if (!wc.isDestroyed()) wc.send(channel, payload)
   }
+}
+
+// 예약 작업 — 작업·실행 상태가 바뀌었다는 신호만 보낸다(목록은 renderer 가 다시 읽는다).
+export function broadcastScheduledTasksChanged(): void {
+  broadcast(CHANNELS.scheduleChanged, null)
+}
+
+// 예약 프롬프트의 새 대화 시작 요청. 새 대화는 한 창이 맡아야 하므로 방송하지 않고 첫 창에만
+// 보낸다. 보낼 창이 없으면 false.
+export function sendScheduledPromptStart(payload: ScheduledPromptStart): boolean {
+  const wc = BrowserWindow.getAllWindows().find((win) => !win.isDestroyed())?.webContents
+  if (!wc || wc.isDestroyed()) return false
+  wc.send(CHANNELS.schedulePromptStart, payload)
+  return true
 }
 
 export function broadcastConcurrency(ev: ConcurrencyEvent): void {

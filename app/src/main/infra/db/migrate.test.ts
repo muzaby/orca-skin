@@ -55,7 +55,8 @@ const EXPECTED_MIGRATIONS = [
   '0031_turn_context_usage',
   '0032_native_session_recovery',
   '0033_session_last_model',
-  '0034_native_snapshot_raw'
+  '0034_native_snapshot_raw',
+  '0035_scheduled_tasks'
 ]
 
 const APPLIED_SQL = [

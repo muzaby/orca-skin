@@ -100,6 +100,14 @@ import type {
   SetGlobalNativeResourceResult
 } from '../../../../shared/native-resources'
 import type { NormalizedPermissionMode } from '../../../../shared/permission-mode'
+import type {
+  RunNowResult,
+  ScheduledPromptReport,
+  ScheduledPromptStart,
+  ScheduledRun,
+  ScheduledTask,
+  ScheduledTaskInput
+} from '../../../../shared/scheduled-tasks'
 // 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
 import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
 
@@ -271,6 +279,24 @@ export const projectApi = {
     window.oo.project.setPinned(id, pinned),
   listSessions: (projectId: string): Promise<SessionListItem[]> =>
     window.oo.project.listSessions(projectId)
+}
+
+// 예약 작업.
+export const scheduleApi = {
+  list: (): Promise<ScheduledTask[]> => window.oo.schedule.list(),
+  create: (req: ScheduledTaskInput): Promise<ScheduledTask> => window.oo.schedule.create(req),
+  update: (req: ScheduledTaskInput & { id: string }): Promise<ScheduledTask> =>
+    window.oo.schedule.update(req),
+  delete: (id: string): Promise<void> => window.oo.schedule.delete(id),
+  setEnabled: (id: string, enabled: boolean): Promise<void> =>
+    window.oo.schedule.setEnabled(id, enabled),
+  runNow: (id: string): Promise<RunNowResult> => window.oo.schedule.runNow(id),
+  listRuns: (id: string): Promise<ScheduledRun[]> => window.oo.schedule.listRuns(id),
+  reportPrompt: (report: ScheduledPromptReport): Promise<void> =>
+    window.oo.schedule.reportPrompt(report),
+  onChanged: (handler: () => void): (() => void) => window.oo.schedule.onChanged(handler),
+  onPromptStart: (handler: (payload: ScheduledPromptStart) => void): (() => void) =>
+    window.oo.schedule.onPromptStart(handler)
 }
 
 export const windowApi = {

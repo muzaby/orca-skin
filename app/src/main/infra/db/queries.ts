@@ -26,6 +26,7 @@ import { UsageQueries } from './usage-queries'
 import { ArtifactQueries } from './artifact-queries'
 import { BackgroundTaskQueries } from './background-task-queries'
 import { NativeHistoryQueries } from './native-history-queries'
+import { ScheduledTaskQueries } from './scheduled-task-queries'
 import { isWithinDir } from '../config/paths'
 import { getLogger } from '../log/registry'
 
@@ -34,6 +35,7 @@ export class DbQueries {
   readonly artifacts: ArtifactQueries
   readonly background: BackgroundTaskQueries
   readonly nativeHistory: NativeHistoryQueries
+  readonly scheduledTasks: ScheduledTaskQueries
   private readonly db: Database.Database
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
@@ -280,6 +282,7 @@ export class DbQueries {
     this.artifacts = new ArtifactQueries(db)
     this.background = new BackgroundTaskQueries(db)
     this.nativeHistory = new NativeHistoryQueries(db)
+    this.scheduledTasks = new ScheduledTaskQueries(db)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
       SET title = @title, title_source = 'user', updated_at = @updatedAt
