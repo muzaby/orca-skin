@@ -13,8 +13,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 옛 0287 V는 `main`에 없어 상속하지 않고 증거로만 읽는다 |
-| 이번 V revision | `V1` (정정 1 — 구현 중 발견한 plan 내부 불일치 3건, §3 갱신 메모) |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` — 사용자 요구 변경(모달 디자인, D-011). V1 정정 1 위에 적용, §20 |
+| 유효 V | `V1` + `ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -52,6 +52,7 @@
 | D-008 | 목록 관리 기능: 켜기/끄기 토글 · 편집·삭제 · 지금 실행 · 실행 이력 보기 | — | 0287 질의 응답 | ACTIVE | — |
 | D-009 | "현재 코드베이스를 기준하여 다시 구현해야 한다. … 현재 코드베이스 기준으로 엄격하게 마이그레이션 돼야한다. 또한 쓸데없는 코드 구성을 제거하고, 모듈화 및 재사용을 현재 코드베이스의 규칙에 맞춰 진행하라. 마이그레이션 시 새 핸드오프 번호를 할당하라" | "현재 코드베이슨 최적화 작업이 진행되 것이다. 이것을 기준하여 plan 및 impl 이 다시 진행돼야 한다." | 이번 세션 턴 1 | ACTIVE | — |
 | D-010 | "같은 개념의 마이그레이션이라도 현재의 코드베이스를 기반하여 재고려돼야한다. 필요시 재구연이 따라야 할 것" | — | 이번 세션 턴 2 | ACTIVE | — |
+| D-011 | "antigravity의 스케쥴 생성 디자인이다. 모달의 구성 및 디자인을 첨부 스크린샷을 참조하여 구성/배치/디자인을 유사하게 구현하라. 단 컬러 테마, 디자인 토큰, orca-skin이 사용하는 디자인 양식을 준수할 것. create, cancel 버튼 배치는 현 상태가 좋다. 모달의 디자인을 예시처럼 더 현대적으로 표현할 것" | 참조: [`assets/modal-ref-custom.png`](assets/modal-ref-custom.png) · [`assets/modal-ref-daily.png`](assets/modal-ref-daily.png) | 이번 세션 턴 3 | ACTIVE | D-003의 구성 요소는 유지, 배치·표현만 바꾼다 |
 
 ### 갱신 메모
 
@@ -535,6 +536,48 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 - [x] 부팅/등록 기존 소비처 — §12.
 - [x] 상한·one-way door — §14·§17.
 - [x] ACTIVE ↔ AC 대조 — §3.
+
+## 20. ΔV1 — 모달 디자인 (D-011, 사용자 요구 변경)
+
+- 판정: 제품 동작·저장 계약·IPC는 그대로다. 바뀌는 것은 `ScheduleTaskModal`·`TriggerFields`·`ExecutionSettingsPicker`의 배치와 표현, 그리고 공용 모달 클래스 3개 추가다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-011↔AC26·AC27. D-003(구성 요소)·D-007(shell에서 권한·모델 숨김)은 AC3이 계속 본다.
+
+### 참조 디자인에서 가져오는 것 / 가져오지 않는 것
+
+| 참조의 요소 | 이번 설계 | 근거 |
+|---|---|---|
+| 맨 위 큰 제목 입력("Untitled") — 테두리 없는 한 줄 | 가져온다. 모달 헤더 제목과 `제목` 라벨을 없애고 큰 입력이 그 자리를 갖는다. 대화상자 이름은 `aria-label`로 남긴다 | 참조 상단 |
+| 제목 아래 한 줄 — 실행 위치 + 모델 선택 칩, 그 밑 안내 한 줄 | 가져온다. 프로젝트·모델·작업 종류·노력·권한을 알약형 선택 칩 한 줄로 둔다. 안내 자리에는 기존 사유 문구(프로젝트 없음·shell 폴더 필요) | D-003 구성 유지 |
+| 섹션 라벨(`Trigger`·`Instructions`) — 옅은 색, 카드 위 | 가져온다 | 참조 |
+| 트리거 카드 — 시계 + `Scheduled`, 알약형 주기 선택, 사용자 지정은 안쪽 카드에 `Repeat every`·요일 원형 버튼 묶음·시각·`GMT` | 가져온다. 요일 버튼은 한 알약 용기 안의 원형 토글이다 | 참조 1 |
+| 명령 입력 — 둥근 카드형 textarea | 가져온다. 명령 종류(프롬프트/shell) 전환은 섹션 라벨 오른쪽에 둔다 | D-004 |
+| 우상단 `Cancel`·`Create` | **가져오지 않는다** — "create, cancel 버튼 배치는 현 상태가 좋다" | D-011 |
+| 참조의 색·글꼴·그림자 | **가져오지 않는다** — 시맨틱 토큰(`bg-fill-*`·`border-border`·`text-ink*`·`rounded-r*`)과 기존 `Button`·`Modal`·`Icon`만 쓴다 | D-011 · `app/src/renderer/AGENTS.md` |
+
+### 추가 AC
+
+| R | AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-07 | AC26 | 모달 본문이 위에서부터 ① 제목 입력(라벨 없는 큰 입력) ② 프로젝트·실행 설정 칩 한 줄 ③ `트리거` 섹션 ④ `명령` 섹션 순서이고, 사용자 지정 트리거는 요일 7개가 한 묶음(`role="group"`) 안에 있다. 종류별 조건부 필드(AC3)와 트리거 선택 수(AC4)는 그대로다 | render 테스트: 마커의 출현 순서 · 제목 입력의 `aria-label` · 기존 AC3·AC4 케이스 전부 green | `ScheduleTaskModal` → `ScheduleTaskForm` |
+| R-07 | AC27 | 실제 창에서 참조와 구성·배치가 닮았고 white/dark 두 테마에서 대비·초점 링·긴 프로젝트명 줄바꿈이 깨지지 않는다 | 사람 실기 | `npm run dev` |
+
+### Node / Pair (증분)
+
+| Node | 레벨 | 계약 | provenance |
+|---|---|---|---|
+| R-07 | R | 모달 배치·표현(AC26·27) | NEW |
+| MD-09 | MD | `ScheduleTaskForm` 마크업 구조 · 공용 클래스 `MODAL_SELECT`·`MODAL_SECTION_LABEL`·`MODAL_CARD` | NEW |
+| R-02 | R | 모달 필드·트리거(AC3·4·6) | INHERITED — 같은 컴포넌트를 고친다 |
+
+| Pair | left ↔ right | req | production path | 직접 oracle | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-21 | R-07 ↔ AT(AC26·27) | REQUIRED | `ScheduleTaskModal` → `ScheduleTaskForm` → `TriggerFields` | `features/schedules/components/scheduleTaskModal.render.test.ts` 신규 케이스(순서·`aria-label`·요일 묶음) · AC27 사람 실기 | not selected | 0 |
+| VP-22 | MD-09 ↔ UT-09 | REQUIRED | `ScheduleTaskForm` | VP-21과 같은 좌표 | not selected | 0 |
+| VP-02 | R-02 ↔ AT(AC3·4·6) | REGRESSION | V1 그대로 | `scheduleTaskModal.render.test.ts` 기존 7케이스 · `scheduleForm.test.ts` | not selected | EP-1 ① |
+
+- 변경 파일: `shared/ui/Modal.tsx`(클래스 3개 추가) · `features/schedules/components/{ScheduleTaskModal,TriggerFields}.tsx` · `features/chat/components/ExecutionSettingsPicker.tsx` · i18n `schedules.modal.*`(제목 접근성 이름) · `docs/arch/frontend/design-components.md` 해당 행.
+- 선언 경계: 색·간격의 시각 품질은 자동 좌표가 없다(AC27). picker 화면 자체는 V1과 같이 실기다.
+- gate: V1 §19와 같다.
 
 ---
 
