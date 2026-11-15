@@ -13,8 +13,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 옛 0287 V는 `main`에 없어 상속하지 않고 증거로만 읽는다 |
-| 이번 V revision | `ΔV1` — 사용자 요구 변경(모달 디자인, D-011). V1 정정 1 위에 적용, §20 |
-| 유효 V | `V1` + `ΔV1` |
+| 이번 V revision | `ΔV2` — 사용자 요구 변경(설정 칩·메뉴, D-012~D-014), §21. 앞선 `ΔV1`(§20) 위에 적용 |
+| 유효 V | `V1` + `ΔV1` + `ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -53,6 +53,9 @@
 | D-009 | "현재 코드베이스를 기준하여 다시 구현해야 한다. … 현재 코드베이스 기준으로 엄격하게 마이그레이션 돼야한다. 또한 쓸데없는 코드 구성을 제거하고, 모듈화 및 재사용을 현재 코드베이스의 규칙에 맞춰 진행하라. 마이그레이션 시 새 핸드오프 번호를 할당하라" | "현재 코드베이슨 최적화 작업이 진행되 것이다. 이것을 기준하여 plan 및 impl 이 다시 진행돼야 한다." | 이번 세션 턴 1 | ACTIVE | — |
 | D-010 | "같은 개념의 마이그레이션이라도 현재의 코드베이스를 기반하여 재고려돼야한다. 필요시 재구연이 따라야 할 것" | — | 이번 세션 턴 2 | ACTIVE | — |
 | D-011 | "antigravity의 스케쥴 생성 디자인이다. 모달의 구성 및 디자인을 첨부 스크린샷을 참조하여 구성/배치/디자인을 유사하게 구현하라. 단 컬러 테마, 디자인 토큰, orca-skin이 사용하는 디자인 양식을 준수할 것. create, cancel 버튼 배치는 현 상태가 좋다. 모달의 디자인을 예시처럼 더 현대적으로 표현할 것" | 참조: [`assets/modal-ref-custom.png`](assets/modal-ref-custom.png) · [`assets/modal-ref-daily.png`](assets/modal-ref-daily.png) | 이번 세션 턴 3 | ACTIVE | D-003의 구성 요소는 유지, 배치·표현만 바꾼다 |
+| D-012 | "프로젝트, 모델, 코드/워크, 노력, 권한.. 을 구성하는 영역의 구성이 현대적이지 않다. 팝업되는 메뉴와 각 컴포넌트의 너비가 항목에 비례에 너무 크게 배치된 점과 무작정 나열까지.. 최악이다. 팝업되는 메뉴는 컴포저에서 사용하던 형태를 사용하라." | 네이티브 `select` 를 없앤다 | 이번 세션 턴 4 | ACTIVE | D-011의 "선택 칩" 표현을 구체화 |
+| D-013 | "스케쥴 생성 모달의 '프로젝트' 팝업의 경우, 컴포저의 버튼에서 보여지는 팝업을 그대로 가져올 것" | — | 이번 세션 턴 5 | ACTIVE | — |
+| D-014 | "스케쥴 페이지에서 나열되는 항목들에서 '코드' 아이콘은 nav의 세션에서 사용하고 있는 '코드' 아이콘으로 변경할 것. 그리고 modal 안에서 '워크/코드' 팝업의 코드 또한 요구 아이콘으로 변경할 것" | nav 세션의 코드 아이콘 = `agentPresentation.code.navIcon`(`terminal2`) | 이번 세션 턴 5 | ACTIVE | — |
 
 ### 갱신 메모
 
@@ -577,6 +580,39 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 - 변경 파일: `shared/ui/Modal.tsx`(클래스 3개 추가) · `features/schedules/components/{ScheduleTaskModal,TriggerFields}.tsx` · `features/chat/components/ExecutionSettingsPicker.tsx` · i18n `schedules.modal.*`(제목 접근성 이름) · `docs/arch/frontend/design-components.md` 해당 행.
 - 선언 경계: 색·간격의 시각 품질은 자동 좌표가 없다(AC27). picker 화면 자체는 V1과 같이 실기다.
+- gate: V1 §19와 같다.
+
+## 21. ΔV2 — 설정 칩과 메뉴 (D-012~D-014, 사용자 요구 변경)
+
+- 판정: 동작·저장 계약은 그대로다. 모달의 모든 선택(프로젝트·모델·작업 종류·노력·권한·주기·요일·시각)이 네이티브 `select` 대신 내용 너비의 칩이고, 펼치는 메뉴는 컴포저의 것이다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-012↔AC28, D-013↔AC29, D-014↔AC30. D-007(shell에서 권한·모델 숨김)은 AC3이 계속 본다.
+
+| 대상 | 이번 설계 | 재사용 |
+|---|---|---|
+| 모델·노력·권한 메뉴 | 컴포저 메뉴 그대로 | `ModelMenu`·`EffortMenu`·`ModeMenu`·`modeMenuOptions` |
+| 실행 설정 칩 | 테두리 하나를 나눠 쓰는 묶음(모델·종류·노력·권한). 노력은 Claude 하네스만, 권한은 `permissionModes` 하네스만 | 신규 `shared/ui/MenuChip.tsx`(칩 + Popover, Esc는 메뉴만 닫음) |
+| 프로젝트 칩·메뉴 | 컴포저 프로젝트 버튼의 칩·메뉴(검색 · 폴더 행 · `프로젝트 추가`)를 그대로 쓴다. 메뉴 본문을 `ProjectMenuPanel`로 떼어 컴포저와 예약 모달이 함께 쓴다 | 신규 `features/chat/components/ProjectMenuPanel.tsx` · `ProjectPickerChip.tsx` · `chipSurface('outlined')` |
+| 예약 모달의 `프로젝트 추가` | 폴더를 고르면 그 경로로 프로젝트를 만들고(이미 있으면 그것) 선택한다 | `fileApi.pickDirectory` · `projectApi.create({ cwd })` — pages가 주입 |
+| 트리거 선택(주기·요일·시각) | 값 하나를 고르는 칩 + 체크 목록 메뉴 | `MenuChip` · `MenuItem` |
+| 코드 아이콘 | 목록 행의 shell 작업 아이콘과 작업 종류 메뉴·칩의 `코드`를 `terminal2`로 | `agentPresentation.code.navIcon` |
+
+- 폴더 없는 프로젝트: 컴포저 메뉴는 폴더 있는 프로젝트만 보인다. 예약 모달은 프롬프트 작업이 폴더 없는 프로젝트를 쓸 수 있어 그 행도 보이고 `폴더 없음` 태그를 단다 — 메뉴 형태는 같다.
+
+| R | AC | 동작 기준 | 검증 수단 | 경로 |
+|---|---|---|---|---|
+| R-08 | AC28 | 모달 안에 `<select>`가 없고, 실행 설정은 한 묶음 안의 칩(모델·종류·노력·권한)이며 각 칩은 컴포저 메뉴를 펼친다 | render: `<select` 0 · 묶음 마커 안 칩 수(Claude work 4 · OpenCode 1) | `ExecutionSettingsPicker` |
+| R-08 | AC29 | 프로젝트 칩은 컴포저와 같은 칩이고 메뉴는 검색·프로젝트 행·`프로젝트 추가`를 가진다. 행을 고르면 그 id가 폼에 들어가고, 추가는 고른 폴더의 프로젝트 id를 넣는다 | `ProjectMenuPanel` 상호작용 테스트(검색 필터·선택·추가) · 컴포저 기존 `project-picker` 테스트 2파일 REGRESSION | `ProjectPickerChip` → `ProjectMenuPanel` |
+| R-08 | AC30 | shell 작업 행과 작업 종류의 `코드`가 nav 세션과 같은 아이콘이다 | render: 행 아이콘 path = `terminal2` | `ScheduleRow` · `ExecutionSettingsPicker` |
+| R-08 | AC31 | 실제 창에서 칩 너비가 내용만큼이고 메뉴가 컴포저와 같게 보인다 | 사람 실기 | `npm run dev` |
+
+| Pair | left ↔ right | req | 직접 oracle | §10 |
+|---|---|---|---|---|
+| VP-23 | R-08 ↔ AT(AC28~31) | REQUIRED | `scheduleTaskModal.render.test.ts` · 신규 `features/chat/components/projectMenuPanel.test.ts` · `schedulesScreen.render.test.ts` · AC31 실기 | 0 |
+| VP-24 | MD-04′(`ProjectMenuPanel` 추출) ↔ UT | REQUIRED | 신규 `projectMenuPanel.test.ts` | 0 |
+| VP-25 | 컴포저 프로젝트 선택 ↔ UT | REGRESSION | `pages/NewChatLandingPage.project-picker.test.ts` · `pages/ProjectLandingPage.project-picker.test.ts` | 0 |
+| VP-19 | MD-07 ↔ UT-07 | REGRESSION | `features/chat/lib/executionSettings.test.ts` | 0 |
+
+- 선언 경계: 칩·메뉴의 시각 품질은 AC31 실기다.
 - gate: V1 §19와 같다.
 
 ---
