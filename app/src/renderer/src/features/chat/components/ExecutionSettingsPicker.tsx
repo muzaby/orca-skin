@@ -9,7 +9,7 @@ import type { NormalizedPermissionMode } from '../../../../../shared/permission-
 import type { PromptExecution } from '../../../../../shared/scheduled-tasks'
 import { useAgents } from '../../../shared/hooks/useAgents'
 import { useI18n, type MessageKey } from '../../../shared/i18n'
-import { MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
+import { MODAL_SELECT } from '../../../shared/ui/Modal'
 import { EFFORT_LABEL_KEYS } from '../harnesses/claude/composer/effort'
 import {
   executionAgentKinds,
@@ -56,100 +56,96 @@ export function ExecutionSettingsPicker({
 
   return (
     <>
-      <label className="block min-w-40">
-        <div className={MODAL_LABEL}>{tr('schedules.modal.model')}</div>
+      <select
+        aria-label={tr('schedules.modal.model')}
+        title={tr('schedules.modal.model')}
+        data-execution-model=""
+        value={current}
+        onChange={(event) => {
+          const option = options.find((item) => item.value === event.target.value)
+          onChange(option ? executionForModel(option, value) : null)
+        }}
+        className={MODAL_SELECT}
+      >
+        <option value="">{tr('schedules.modal.modelPlaceholder')}</option>
+        {/* 카탈로그에서 사라진 저장값도 보이게 둔다 — 조용히 다른 모델로 바뀌지 않게. */}
+        {value && !known && (
+          <option value={current}>{value.modelFamily ?? value.providerKey}</option>
+        )}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {value && kinds.length > 1 && (
         <select
-          data-execution-model=""
-          value={current}
-          onChange={(event) => {
-            const option = options.find((item) => item.value === event.target.value)
-            onChange(option ? executionForModel(option, value) : null)
-          }}
-          className={MODAL_INPUT}
+          aria-label={tr('schedules.modal.agentKind')}
+          title={tr('schedules.modal.agentKind')}
+          data-execution-kind=""
+          value={value.agentKind}
+          onChange={(event) =>
+            onChange(
+              executionForKind(
+                { ...value, agentKind: event.target.value as AgentKind },
+                value.permissionMode
+              )
+            )
+          }
+          className={MODAL_SELECT}
         >
-          <option value="">{tr('schedules.modal.modelPlaceholder')}</option>
-          {/* 카탈로그에서 사라진 저장값도 보이게 둔다 — 조용히 다른 모델로 바뀌지 않게. */}
-          {value && !known && (
-            <option value={current}>{value.modelFamily ?? value.providerKey}</option>
-          )}
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          {kinds.map((kind) => (
+            <option key={kind} value={kind}>
+              {kind === 'code' ? 'Code' : 'Work'}
             </option>
           ))}
         </select>
-      </label>
-      {value && kinds.length > 1 && (
-        <label className="block">
-          <div className={MODAL_LABEL}>{tr('schedules.modal.agentKind')}</div>
-          <select
-            data-execution-kind=""
-            value={value.agentKind}
-            onChange={(event) =>
-              onChange(
-                executionForKind(
-                  { ...value, agentKind: event.target.value as AgentKind },
-                  value.permissionMode
-                )
-              )
-            }
-            className={MODAL_INPUT}
-          >
-            {kinds.map((kind) => (
-              <option key={kind} value={kind}>
-                {kind === 'code' ? 'Code' : 'Work'}
-              </option>
-            ))}
-          </select>
-        </label>
       )}
       {value && (
         <>
-          <label className="block">
-            <div className={MODAL_LABEL}>{tr('schedules.modal.effort')}</div>
-            <select
-              data-execution-effort=""
-              value={value.effort ?? ''}
-              onChange={(event) => {
-                const effort = event.target.value as EffortLevel | ''
-                onChange(withExecutionEffort(value, effort || undefined))
-              }}
-              className={MODAL_INPUT}
-            >
-              <option value="">{tr('schedules.modal.effortDefault')}</option>
-              {EFFORTS.map((effort) => (
-                <option key={effort} value={effort}>
-                  {tr(EFFORT_LABEL_KEYS[effort])}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <div className={MODAL_LABEL}>{tr('schedules.modal.permission')}</div>
-            <select
-              data-execution-permission=""
-              value={value.permissionMode}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  permissionMode: event.target.value as NormalizedPermissionMode
-                })
-              }
-              className={MODAL_INPUT}
-            >
-              {/* 정책 메뉴 밖의 저장값도 보이게 둔다. */}
-              {!modes.includes(value.permissionMode) && (
-                <option value={value.permissionMode}>
-                  {tr(MODE_LABEL_KEYS[value.permissionMode])}
-                </option>
-              )}
-              {modes.map((mode) => (
-                <option key={mode} value={mode}>
-                  {tr(MODE_LABEL_KEYS[mode])}
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            aria-label={tr('schedules.modal.effort')}
+            title={tr('schedules.modal.effort')}
+            data-execution-effort=""
+            value={value.effort ?? ''}
+            onChange={(event) => {
+              const effort = event.target.value as EffortLevel | ''
+              onChange(withExecutionEffort(value, effort || undefined))
+            }}
+            className={MODAL_SELECT}
+          >
+            <option value="">{tr('schedules.modal.effortDefault')}</option>
+            {EFFORTS.map((effort) => (
+              <option key={effort} value={effort}>
+                {tr(EFFORT_LABEL_KEYS[effort])}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={tr('schedules.modal.permission')}
+            title={tr('schedules.modal.permission')}
+            data-execution-permission=""
+            value={value.permissionMode}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                permissionMode: event.target.value as NormalizedPermissionMode
+              })
+            }
+            className={MODAL_SELECT}
+          >
+            {/* 정책 메뉴 밖의 저장값도 보이게 둔다. */}
+            {!modes.includes(value.permissionMode) && (
+              <option value={value.permissionMode}>
+                {tr(MODE_LABEL_KEYS[value.permissionMode])}
+              </option>
+            )}
+            {modes.map((mode) => (
+              <option key={mode} value={mode}>
+                {tr(MODE_LABEL_KEYS[mode])}
+              </option>
+            ))}
+          </select>
         </>
       )}
     </>

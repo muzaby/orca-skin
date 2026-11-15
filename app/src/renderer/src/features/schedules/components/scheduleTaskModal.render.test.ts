@@ -76,6 +76,42 @@ describe('ScheduleTaskForm — 필드 구성', () => {
   })
 })
 
+describe('ScheduleTaskForm — 배치', () => {
+  const order = (html: string, markers: string[]): number[] =>
+    markers.map((marker) => html.indexOf(marker))
+
+  it('큰 제목 입력 → 설정 칩 한 줄 → 트리거 → 명령 순서로 놓인다', () => {
+    const html = render({ kind: 'prompt', execution })
+    const positions = order(html, [
+      'data-schedule-title=""',
+      'data-schedule-settings=""',
+      'data-schedule-trigger=""',
+      'data-schedule-command=""'
+    ])
+    expect(positions.every((position) => position >= 0)).toBe(true)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+    // 제목은 쌓인 라벨 없이 접근성 이름만 갖는다.
+    expect(html).toMatch(/<input[^>]*data-schedule-title=""[^>]*aria-label="제목"/)
+    expect(html).not.toMatch(/<label/)
+  })
+
+  it('프로젝트와 실행 설정이 같은 칩 줄에 있고 그 밑에 안내가 한 줄 있다', () => {
+    const html = render({ kind: 'prompt', execution })
+    const row = html.split('data-schedule-settings=""')[1]!.split('data-schedule-trigger')[0]!
+    expect(row).toMatch(/<select[^>]*aria-label="프로젝트"/)
+    expect(row).toContain('data-picker')
+    expect(row).toContain('고른 프로젝트 폴더에서, 고른 모델과 권한으로 실행합니다.')
+    expect(render({ kind: 'shell' })).toContain('고른 프로젝트 폴더에서 명령을 실행합니다.')
+  })
+
+  it('사용자 지정 요일은 한 묶음 안의 토글 일곱 개다', () => {
+    const html = render({ triggerKind: 'custom', days: [1] })
+    const group = html.split('data-schedule-days=""')[1]!.split('</div>')[0]!
+    expect(html).toMatch(/role="group"[^>]*aria-label="요일"[^>]*data-schedule-days=""/)
+    expect(group.match(/data-schedule-day="/g)).toHaveLength(7)
+  })
+})
+
 describe('ScheduleTaskForm — 트리거', () => {
   const selectCount = (html: string): number =>
     html.split('data-schedule-trigger')[1]!.split('</select>').length - 1

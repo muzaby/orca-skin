@@ -1,6 +1,6 @@
 import { useI18n } from '../../../shared/i18n'
 import { Icon } from '../../../shared/ui/Icon'
-import { MODAL_INPUT } from '../../../shared/ui/Modal'
+import { MODAL_CARD, MODAL_SELECT } from '../../../shared/ui/Modal'
 import {
   WEEKDAYS,
   type TimeOfDay,
@@ -10,14 +10,15 @@ import {
 import { TIME_OPTIONS, timeKey, toggleDay, type ScheduleFormState } from '../lib/scheduleForm'
 import { formatTimeOfDay, utcOffsetLabel, WEEKDAY_LABEL_KEYS } from '../lib/triggerLabel'
 
-const SELECT = `${MODAL_INPUT} w-auto py-1.5 pr-7`
-
 const FREQUENCY_KEYS = {
   hourly: 'schedules.modal.everyHour',
   daily: 'schedules.modal.everyDay',
   weekly: 'schedules.modal.everyWeek',
   custom: 'schedules.modal.custom'
 } as const
+
+// 선택 칩 사이에 놓이는 이음말("요일"·"시각").
+const INLINE_WORD = 'text-[13px] text-ink2'
 
 interface TriggerFieldsProps {
   form: Pick<ScheduleFormState, 'triggerKind' | 'day' | 'days' | 'at'>
@@ -29,6 +30,7 @@ export function TriggerFields({ form, onChange }: TriggerFieldsProps): React.JSX
   const { tr } = useI18n()
   const timeSelect = (
     <>
+      <span className={INLINE_WORD}>{tr('schedules.modal.at')}</span>
       <select
         aria-label={tr('schedules.modal.at')}
         value={timeKey(form.at)}
@@ -36,7 +38,7 @@ export function TriggerFields({ form, onChange }: TriggerFieldsProps): React.JSX
           const at = TIME_OPTIONS.find((option) => timeKey(option) === event.target.value)
           if (at) onChange({ at })
         }}
-        className={SELECT}
+        className={MODAL_SELECT}
       >
         {withCurrentTime(form.at).map((option) => (
           <option key={timeKey(option)} value={timeKey(option)}>
@@ -48,9 +50,9 @@ export function TriggerFields({ form, onChange }: TriggerFieldsProps): React.JSX
     </>
   )
   return (
-    <div data-schedule-trigger="" className="rounded-r4 border border-border p-3">
-      <div className="mb-2.5 flex items-center gap-1.5 text-footnote text-ink">
-        <Icon name="clock" size={14} className="text-ink3" />
+    <div data-schedule-trigger="" className={`${MODAL_CARD} p-3.5`}>
+      <div className="mb-3 flex items-center gap-2 text-[13.5px] text-ink">
+        <Icon name="clock" size={16} className="text-ink2" />
         {tr('schedules.modal.scheduled')}
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -58,7 +60,7 @@ export function TriggerFields({ form, onChange }: TriggerFieldsProps): React.JSX
           aria-label={tr('schedules.modal.frequency')}
           value={form.triggerKind}
           onChange={(event) => onChange({ triggerKind: event.target.value as TriggerSpec['kind'] })}
-          className={SELECT}
+          className={MODAL_SELECT}
         >
           {(Object.keys(FREQUENCY_KEYS) as TriggerSpec['kind'][]).map((kind) => (
             <option key={kind} value={kind}>
@@ -67,46 +69,57 @@ export function TriggerFields({ form, onChange }: TriggerFieldsProps): React.JSX
           ))}
         </select>
         {form.triggerKind === 'weekly' && (
-          <select
-            aria-label={tr('schedules.modal.on')}
-            value={form.day}
-            onChange={(event) => onChange({ day: Number(event.target.value) as Weekday })}
-            className={SELECT}
-          >
-            {WEEKDAYS.map((day) => (
-              <option key={day} value={day}>
-                {tr(WEEKDAY_LABEL_KEYS[day])}
-              </option>
-            ))}
-          </select>
+          <>
+            <span className={INLINE_WORD}>{tr('schedules.modal.on')}</span>
+            <select
+              aria-label={tr('schedules.modal.on')}
+              value={form.day}
+              onChange={(event) => onChange({ day: Number(event.target.value) as Weekday })}
+              className={MODAL_SELECT}
+            >
+              {WEEKDAYS.map((day) => (
+                <option key={day} value={day}>
+                  {tr(WEEKDAY_LABEL_KEYS[day])}
+                </option>
+              ))}
+            </select>
+          </>
         )}
         {(form.triggerKind === 'daily' || form.triggerKind === 'weekly') && timeSelect}
       </div>
       {form.triggerKind === 'custom' && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2 rounded-r4 border border-border p-2.5">
-          <span className="text-caption text-ink3">{tr('schedules.modal.repeatWeekly')}</span>
-          <div role="group" aria-label={tr('schedules.modal.on')} className="flex gap-1">
-            {WEEKDAYS.map((day) => {
-              const on = form.days.includes(day)
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  aria-pressed={on}
-                  data-schedule-day={day}
-                  onClick={() => onChange({ days: toggleDay(form.days, day) })}
-                  className={`size-7 rounded-full border text-caption hide-focus-ring ring-focus transition-colors ${
-                    on
-                      ? 'border-border-strong bg-fill-uncontained-active font-medium text-ink'
-                      : 'border-transparent text-ink3 hover:bg-fill-uncontained-hover'
-                  }`}
-                >
-                  {tr(WEEKDAY_LABEL_KEYS[day])}
-                </button>
-              )
-            })}
+        <div className={`${MODAL_CARD} mt-3 flex flex-col gap-3 p-3`}>
+          <span className={INLINE_WORD}>{tr('schedules.modal.repeatWeekly')}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={INLINE_WORD}>{tr('schedules.modal.on')}</span>
+            <div
+              role="group"
+              aria-label={tr('schedules.modal.on')}
+              data-schedule-days=""
+              className="flex gap-0.5 rounded-full border border-border bg-fill-contained-hover p-0.5"
+            >
+              {WEEKDAYS.map((day) => {
+                const on = form.days.includes(day)
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    aria-pressed={on}
+                    data-schedule-day={day}
+                    onClick={() => onChange({ days: toggleDay(form.days, day) })}
+                    className={`size-7 rounded-full border text-caption hide-focus-ring ring-focus transition-colors ${
+                      on
+                        ? 'border-border-strong bg-panel font-medium text-ink'
+                        : 'border-transparent text-ink3 hover:text-ink'
+                    }`}
+                  >
+                    {tr(WEEKDAY_LABEL_KEYS[day])}
+                  </button>
+                )
+              })}
+            </div>
+            {timeSelect}
           </div>
-          {timeSelect}
         </div>
       )}
     </div>

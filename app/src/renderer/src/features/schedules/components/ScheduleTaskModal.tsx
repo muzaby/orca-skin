@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '../../../shared/i18n'
-import { Modal, ModalActions, MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
+import {
+  Modal,
+  ModalActions,
+  MODAL_CARD,
+  MODAL_SECTION_LABEL,
+  MODAL_SELECT
+} from '../../../shared/ui/Modal'
 import {
   SCHEDULE_COMMAND_MAX,
   SCHEDULE_TITLE_MAX,
@@ -75,9 +81,10 @@ function ScheduleTaskModalOpen({
   return (
     <Modal
       open
-      title={tr(initial ? 'schedules.modal.editTitle' : 'schedules.modal.createTitle')}
+      // 헤더 제목 대신 본문 맨 위의 큰 제목 입력이 그 자리를 갖는다.
+      ariaLabel={tr(initial ? 'schedules.modal.editTitle' : 'schedules.modal.createTitle')}
       onClose={onClose}
-      width={560}
+      width={600}
       busy={busy}
       footer={
         <ModalActions
@@ -115,7 +122,7 @@ interface ScheduleTaskFormProps {
 
 const KIND_KEYS = { prompt: 'schedules.kindPrompt', shell: 'schedules.kindShell' } as const
 
-// 모달 본문 — 제목 → 프로젝트·실행 설정 → 트리거 → 명령. 상태를 갖지 않는다.
+// 모달 본문 — 큰 제목 입력 → 프로젝트·실행 설정 칩 한 줄 → 트리거 → 명령. 상태를 갖지 않는다.
 export function ScheduleTaskForm({
   form,
   projects,
@@ -132,26 +139,25 @@ export function ScheduleTaskForm({
   const needsFolder = form.kind === 'shell' && project != null && !project.cwd
 
   return (
-    <div data-schedule-form={form.kind} className="flex flex-col gap-4">
-      <label className="block">
-        <div className={MODAL_LABEL}>{tr('schedules.modal.title')}</div>
+    <div data-schedule-form={form.kind} className="flex flex-col gap-5">
+      <div>
         <input
           ref={titleRef}
+          data-schedule-title=""
+          aria-label={tr('schedules.modal.title')}
           value={form.title}
           onChange={(event) => onChange({ title: event.target.value })}
           maxLength={SCHEDULE_TITLE_MAX}
           placeholder={tr('schedules.modal.titlePlaceholder')}
-          className={MODAL_INPUT}
+          className="w-full border-0 bg-transparent p-0 font-serif text-[24px] font-medium tracking-[-0.01em] text-ink outline-none placeholder:text-ink3"
         />
-      </label>
-
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="block min-w-40 flex-1">
-          <div className={MODAL_LABEL}>{tr('schedules.modal.project')}</div>
+        <div data-schedule-settings="" className="mt-3 flex flex-wrap items-center gap-2">
           <select
+            aria-label={tr('schedules.modal.project')}
+            title={tr('schedules.modal.project')}
             value={form.projectId ?? ''}
             onChange={(event) => onChange({ projectId: event.target.value || null })}
-            className={MODAL_INPUT}
+            className={MODAL_SELECT}
           >
             <option value="">{tr('schedules.modal.projectPlaceholder')}</option>
             {projects.map((item) => (
@@ -160,36 +166,41 @@ export function ScheduleTaskForm({
               </option>
             ))}
           </select>
-        </label>
-        {form.kind === 'prompt' && (
-          <div data-schedule-execution="" className="flex flex-wrap items-end gap-3">
-            {renderExecutionPicker(form.execution, (execution) => onChange({ execution }))}
-          </div>
+          {form.kind === 'prompt' && (
+            <div data-schedule-execution="" className="contents">
+              {renderExecutionPicker(form.execution, (execution) => onChange({ execution }))}
+            </div>
+          )}
+        </div>
+        {needsFolder ? (
+          <p role="alert" className="mt-2 text-caption text-danger">
+            {tr('schedules.modal.shellNeedsFolder')}
+          </p>
+        ) : (
+          <p className="mt-2 text-caption text-ink3">
+            {tr(
+              projects.length === 0
+                ? 'schedules.modal.noProjects'
+                : form.kind === 'shell'
+                  ? 'schedules.modal.shellProjectHint'
+                  : 'schedules.modal.projectHint'
+            )}
+          </p>
         )}
       </div>
-      {projects.length === 0 && (
-        <p className="-mt-2 text-caption text-ink3">{tr('schedules.modal.noProjects')}</p>
-      )}
-      {needsFolder && (
-        <p role="alert" className="-mt-2 text-caption text-danger">
-          {tr('schedules.modal.shellNeedsFolder')}
-        </p>
-      )}
 
       <div>
-        <div className={MODAL_LABEL}>{tr('schedules.modal.trigger')}</div>
+        <div className={MODAL_SECTION_LABEL}>{tr('schedules.modal.trigger')}</div>
         <TriggerFields form={form} onChange={onChange} />
       </div>
 
-      <div>
-        <div className="mb-1.5 flex items-center gap-3">
-          <span className="text-[12.5px] font-medium text-ink">
-            {tr('schedules.modal.command')}
-          </span>
+      <div data-schedule-command="">
+        <div className="mb-2 flex items-center gap-3">
+          <span className="text-footnote text-ink2">{tr('schedules.modal.command')}</span>
           <div
             role="radiogroup"
             aria-label={tr('schedules.modal.command')}
-            className="ml-auto flex gap-1 rounded-r4 border border-border p-0.5"
+            className="ml-auto flex gap-0.5 rounded-full border border-border bg-fill-contained p-0.5"
           >
             {(Object.keys(KIND_KEYS) as ScheduleKind[]).map((kind) => (
               <button
@@ -199,7 +210,7 @@ export function ScheduleTaskForm({
                 aria-checked={form.kind === kind}
                 data-schedule-kind={kind}
                 onClick={() => onChange({ kind })}
-                className={`rounded-r3 px-2.5 py-1 text-caption hide-focus-ring ring-focus transition-colors ${
+                className={`rounded-full px-3 py-1 text-caption hide-focus-ring ring-focus transition-colors ${
                   form.kind === kind
                     ? 'bg-fill-uncontained-active font-medium text-ink'
                     : 'text-ink3 hover:text-ink'
@@ -221,10 +232,12 @@ export function ScheduleTaskForm({
               ? 'schedules.modal.promptPlaceholder'
               : 'schedules.modal.shellPlaceholder'
           )}
-          className={`${MODAL_INPUT} resize-none leading-[1.6] ${form.kind === 'shell' ? 'font-mono' : ''}`}
+          className={`${MODAL_CARD} block w-full resize-y px-3.5 py-3 text-[13px] leading-[1.6] text-ink outline-none placeholder:text-ink3 focus:border-border-strong ${
+            form.kind === 'shell' ? 'font-mono' : ''
+          }`}
         />
         {form.kind === 'shell' && (
-          <p className="mt-1 text-caption text-ink3">{tr('schedules.modal.shellHint')}</p>
+          <p className="mt-1.5 text-caption text-ink3">{tr('schedules.modal.shellHint')}</p>
         )}
       </div>
     </div>

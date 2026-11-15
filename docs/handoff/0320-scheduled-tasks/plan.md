@@ -719,6 +719,98 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1.2)
+
+- 동의 / 그대로 진행: §20 ΔV1 전체.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.2)
+
+ΔV1의 pair(VP-21·22)는 §10 자리가 0이다(운반 값 없음 — 배치·표현). REGRESSION VP-02의 EP-1 ①(`scheduleForm.validateForm`)은 이번 diff가 닿지 않았다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-21·22 | AC26 배치 | 0 | 해당 없음 | `scheduleTaskModal.render.test.ts` `ScheduleTaskForm — 배치` 3케이스 | 운반 항 없음 | AC27 시각 품질 |
+| VP-02 | EP-1 ① | 1 | 1/1(유지) | `scheduleForm.test.ts`(r1과 같은 좌표, 파일 무변경) · 슬롯 운반은 `scheduleTaskModal.render.test.ts:'프롬프트일 때만 실행 설정 입력이 보이고 저장된 값을 받는다'` | `permissionMode: 'plan'`·`modelFamily` → 슬롯 마커 속성 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-21 | REQUIRED | SELF_BLOCKED | `features/schedules/components/scheduleTaskModal.render.test.ts` `ScheduleTaskForm — 배치`(3) | AC27 사람 실기 대기 |
+| VP-22 | REQUIRED | SELF_PASS | 같은 좌표 | not selected |
+| VP-02 | REGRESSION | SELF_PASS | 같은 파일 기존 7케이스 · `scheduleForm.test.ts` | not selected |
+| 그 밖의 V1 pair | — | r1 상태 유지 | r1 표의 좌표 — 이번 diff가 닿은 파일은 `ScheduleTaskModal`·`TriggerFields`·`ExecutionSettingsPicker`·`Modal`·i18n뿐 | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.2)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| D01 제목 입력의 `aria-label` 제거 | sweep — AC26 ① | 최초 | 1건 | 잠김 |
+| D02 안내 문구 두 종류 맞바꿈 | sweep — AC26 ②(형제 슬롯) | 최초 | 1건 | 잠김 |
+| D03 요일 묶음의 `role="group"` 제거 | sweep — AC26 요일 묶음 | 최초 | 1건 | 잠김 |
+| D04 실행 설정 슬롯 렌더 제거 | sweep — AC26 ② · VP-02 | 최초 | 2건 | 잠김 |
+| D05 프로젝트 칩의 접근성 이름을 제목으로 바꿈 | sweep — AC26 ② | 최초 | 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 5 = 표 행 5`.
+- **덮개 회귀**: r1 sweep 중 이번 diff가 닿은 파일의 행은 없다(r1 spec은 이 세 화면 파일을 변이 대상으로 삼지 않았다). 그 화면의 r1 좌표 7케이스는 그대로 green.
+
+## [구현자 기입] Product/UX 파생 검토 (r1.2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — `projectHint`·`shellProjectHint`는 칩 줄 아래 안내로 쓰인다(D02). `effortDefault`는 라벨이 사라져 `노력: 기본값`으로 바꿨다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 변화 없음. shell 폴더 사유는 안내 줄 자리에 `role="alert"`로 대신 뜬다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 | — |
+
+- 쌓인 라벨을 없앴으므로 칩의 뜻은 선택된 값과 `title` 툴팁·`aria-label`로만 전달된다. 권한 칩(`기본`·`계획` 등)이 라벨 없이 읽히는지는 AC27에서 본다.
+- 모달 헤더 제목(`새 작업`/`작업 편집`)이 화면에서 사라졌다 — 생성과 편집은 확인 버튼 문구(`만들기`/`저장`)로만 구별된다. 참조 디자인과 같은 구성이다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 칩 배경을 반투명 토큰으로 두면 네이티브 `select` 펼침 목록이 dark 테마에서 바탕과 섞일 수 있다 | ✅ 선조치: 단색 토큰(`bg-fill-contained-hover`)을 썼다 | 실제 창 확인은 AC27 |
+| 2 | 작업 트리에 `app/package.json`·`package-lock.json`의 `better-sqlite3` 버전 변경이 있다 — 이번 세션이 만든 것이 아니다 | ⚠️ 보고만 — 커밋에 넣지 않았다 | `git diff app/package.json` |
+
+### 설계 대비 명시적 차이
+
+- plan이 지정한 것과 다르게 구현한 것: 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 공유 · 재진입 · 다른 무효화 축 | 해당 없음 — 차이 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1.2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `shared/ui/Modal.tsx`(클래스 3) · `features/schedules/components/{ScheduleTaskModal,TriggerFields}.tsx` · `features/chat/components/ExecutionSettingsPicker.tsx` · i18n ko/en · 테스트 1 · 문서 2(`design-components.md`·`design-system.md`) |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음) |
+| **관측한 게이트 산출** | 전체 vitest 966파일 중 920 pass · 44 fail · 2 skip(Electron ABI에서 실행). 실패 44파일은 전부 io 풀의 main 스위트이고 서명은 `The module … was compiled against a different Node.js version`(48회)과 그 뒤따름이다 — 이번 diff 파일(renderer·문서)과 교집합 0, 같은 트리의 r1 최종 실행(Node ABI)은 실패 0이었다. renderer 스위트 실패 0 · lint `0 errors, 2 warnings`(r1과 같은 기존 2건) · typecheck error 0 · 가드 4종 통과 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 1파일(`scheduleTaskModal.render.test.ts`) — 시간 값·프로세스·SQLite 없음, 위반 0 |
+| V-pair 자기확인 | ΔV1: `SELF_PASS 2 / SELF_BLOCKED 1`(VP-21 — AC27 실기) |
+| 강제 지점 전수 | ΔV1 0자리 · VP-02 1/1 유지 |
+| **AC 자기보고**(`Criteria-Met`) | 25/27 — r1의 ✅24에 AC26 ✅(배치 3케이스 + 기존 7케이스 green). ⚠️ AC23·AC27(사람 실기) |
+| **합계 검산** | `✅ 25 · ⚠️ 2 · ❌ 0 = 총 27` — ΔV1이 AC 2건을 더해 분모가 25 → 27로 바뀌었다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(사용자 요구 변경 턴).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 해당 없음.
+- 반복해서 부딪히는 환경 한계: heredoc 안 작은따옴표가 든 스크립트가 셸에서 깨진다(r1과 같음).
+- 현재 라운드·impl 턴: `r1.2`(사용자 요구 변경 — review 턴 수에 세지 않는다).
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

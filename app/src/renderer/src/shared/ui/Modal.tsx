@@ -86,6 +86,13 @@ export const MODAL_LABEL = 'mb-1.5 block text-[12.5px] font-medium text-ink'
 export const MODAL_INPUT =
   'w-full rounded-r4 border border-border bg-bg px-3 py-2 text-[13px] text-ink outline-none placeholder:text-ink3 focus:border-border-strong'
 
+// 한 줄에 여러 선택을 늘어놓는 모달 폼용 — 알약형 선택 칩 · 섹션 라벨 · 입력을 묶는 카드.
+// 예약 작업 모달이 첫 소비처다.
+export const MODAL_SELECT =
+  'h-8 max-w-full cursor-pointer rounded-r5 border border-border bg-fill-contained-hover px-2.5 text-[13px] font-medium text-ink outline-none transition-colors hover:border-border-strong focus-visible:border-border-strong'
+export const MODAL_SECTION_LABEL = 'mb-2 block text-footnote text-ink2'
+export const MODAL_CARD = 'rounded-r7 border border-border bg-bg'
+
 // 모달 하단 액션 버튼 한 쌍. danger=true 는 파괴적 확정(삭제 등)에 rust 솔리드 버튼.
 export function ModalActions({
   onCancel,
