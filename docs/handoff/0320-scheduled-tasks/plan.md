@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 옛 0287 V는 `main`에 없어 상속하지 않고 증거로만 읽는다 |
-| 이번 V revision | `V1` |
+| 이번 V revision | `V1` (정정 1 — 구현 중 발견한 plan 내부 불일치 3건, §3 갱신 메모) |
 | 유효 V | `V1` |
 
 # Part I — Product & UX Contract
@@ -58,6 +58,7 @@
 - 이번 턴에서 새로 추가된 결정: D-009·D-010. D-001~D-008은 옛 plan에서 원문 그대로 승계.
 - 변경된 결정: 없음. D-009·D-010은 제품 동작이 아니라 구현 기준을 정한다.
 - D-010에 따른 재고려 결과는 §4 표와 §9 Delta — 옛 구현 대비 구조 변경 7건(T1~T7).
+- V1 정정 1(구현 r1 중, 규범 행만): ① EP-8 ①의 검색 술어 `orca:`가 제품 슬러그 `orcinus-orca:`까지 잡았다(`rg -c "orca:" app/src` → 기존 파일 다수) → 주어를 예약 채널로 좁혔다. ② VP-03의 AC11 좌표가 정적 렌더로는 메뉴 클릭을 관측할 수 없는 자리를 가리켰다 → 확인→삭제 순수 함수 좌표로 바꾸고 메뉴 전달은 선언 경계 5로 뺐다. ③ `Bootstrap.start()`를 실제로 지나는 스위트가 있었다(`bootstrap.opencode-warmup.test.ts`) → VP-09 좌표에 더하고 선언 경계 3을 `send.ts`로 좁혔다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·2, D-002↔AC2·3, D-003↔AC3·4·6, D-004↔AC3·14·15, D-005↔AC12, D-006↔AC12, D-007↔AC3·14·15, D-008↔AC9·10·11·17·18, D-009·D-010↔AC24·AC25.
 
 ## 4. 요구 비판적 검토
@@ -205,13 +206,13 @@
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT(AC1·2) | REQUIRED | `Sidebar` → `SIDEBAR_NAV` → `AppRouter` → `SchedulesScreen` | `renderer/src/app/navItems.test.ts` 신규 케이스 · 이관 `features/schedules/components/schedulesScreen.render.test.ts`(loading/empty/목록) | not selected | 0 |
 | VP-02 | R-02 ↔ AT(AC3·4·6) | REQUIRED | `ScheduleTaskModal` → `scheduleForm` → `scheduleApi.create` | 이관 `scheduleTaskModal.render.test.ts` · VP-15 좌표 | not selected | EP-1 ① |
-| VP-03 | R-03 ↔ AT(AC7~11·17) | REQUIRED | handlers → service → queries / 타이머 | VP-06·VP-08 좌표 · AC11 확인 요청은 `schedulesScreen.render.test.ts` 신규 케이스 | not selected | EP-3 |
+| VP-03 | R-03 ↔ AT(AC7~11·17) | REQUIRED | handlers → service → queries / 타이머 | VP-06·VP-08 좌표 · AC11 "확인 뒤 삭제"는 신규 `features/schedules/lib/taskActions.test.ts`(확인 요청 → 확인 전 삭제 0 → 확인 후 그 id 삭제) | not selected | EP-3 |
 | VP-04 | R-04 ↔ AT(AC12~16·18~21) | REQUIRED | 발화 → runner → shell/relay → 이력 → push → store | VP-07·12·13·14 좌표 + 이관 `runHistory.render.test.ts`·`schedulesStore.test.ts` | not selected | EP-1·4·5·7 |
 | VP-05 | R-05 ↔ AT(AC22·23) | REQUIRED | 문서 gate · `npm run dev` | `gate:node scripts/check-doc-inventory.mjs --check` · `shared/ipc-documentation.test.ts` · 사람 실기 | not selected | 0 |
 | VP-06 | SD-01 ↔ ST-01 | REQUIRED | `createScheduledTasks` → `service.start` → `startCron`(실제 croner·가짜 타이머) → runner → 저장소 | 이관 `main/app/scheduled-tasks.lifecycle.test.ts` — production 조립 함수 그대로, 인메모리 저장소·주입 shell | required — 배선 존재 oracle. 변이: `start`에서 복원 루프 제거 · `sync`의 `enabled` 조건 뒤집기 | EP-3 (5) |
 | VP-07 | SD-02 ↔ ST-02 | REQUIRED | runner → `PromptRelay.request` → push → `relayScheduledPrompt` → `startDetachedChat` → `report` → 종결 | 이관 `renderer/src/app/hooks/useScheduledPromptRelay.test.ts` · `main/features/scheduled-tasks/prompt-relay.test.ts` | required — 필드 운반. 변이: 자리 ①③④⑤에서 `permissionMode`→기본값, `providerKey`→다른 값 | EP-1 (5) |
 | VP-08 | AR-01 ↔ IT-01 | REQUIRED | `ipcMain` 핸들러 → zod → service/relay | 이관 `main/app/handlers/scheduled-tasks.test.ts` — 채널별 정상·무효 페이로드 | not selected | EP-2 · EP-7 |
-| VP-09 | AR-02 ↔ IT-02 | REQUIRED | `Bootstrap` → `createScheduledTasks` / `shutdown` → `dispose` | VP-06 좌표(조립 함수) · `dispose` 순서는 `runner.test.ts` | not selected | EP-3 ① |
+| VP-09 | AR-02 ↔ IT-02 | REQUIRED | `Bootstrap` → `createScheduledTasks` / `shutdown` → `dispose` | VP-06 좌표(조립 함수) · `main/app/bootstrap.opencode-warmup.test.ts` 신규 케이스(실제 `Bootstrap.start`/`shutdown` — 복원 시작·핸들러 등록·`dispose`가 `stopAll` 앞) | not selected | EP-3 ① |
 | VP-10 | AR-03 ↔ IT-03 | REQUIRED | migration → `ScheduledTaskQueries` | 이관 `main/infra/db/scheduled-task-queries.test.ts`(io 풀·Node ABI) — CRUD·FK SET NULL·CASCADE·보존 | not selected | EP-1 ② |
 | VP-11 | AR-04 ↔ IT-04 | REQUIRED | `SchedulesPage` → `SchedulesView` props | 이관 `pages/SchedulesPage.render.test.ts` | not selected | EP-1 ① |
 | VP-12 | MD-02 ↔ UT-02 | REQUIRED | `runShellCommand` | 이관 `main/infra/shell/shell-runner.test.ts` | not selected | EP-6 |
@@ -380,12 +381,13 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 | EP-5 · MD-03 / VP-13 | `running` 이력은 반드시 종결된다 | `runner.finishRun` | 10자리: shell ① exit ② spawn 오류 ③ 제한 시간 / prompt ④ 보고 ok ⑤ 보고 error ⑥ 창 없음 ⑦ 보고 시간 초과 / ⑧ 부팅 stale 정리 ⑨ `dispose` ⑩ `cancel`(삭제) | `rg -n "finishRun\(\|failRunningRuns\(" main` | 행이 영원히 `실행 중`이고 `지금 실행`이 막힌다 |
 | EP-6 · MD-02 / VP-12 | shell 실행 4항: 파일+인자(플랫폼) · `cwd` · 제한 시간 · 출력 상한 | `shell-runner.ts` | 1자리 4항 | `rg -n "spawn" main/infra/shell` | 다른 폴더에서 실행되거나 멈추지 않는다 |
 | EP-7 · AR-01 / VP-08 | 상태 변경은 `changed`를 방송한다 | `onChanged` | 7자리: create · update · delete · setEnabled · run 시작 · run 종결 · skipped 기록 | `rg -n "onChanged\(\)" main/features/scheduled-tasks` | 목록이 낡은 상태를 보인다 |
-| EP-8 · R-06 / AC24 | 옛 구성이 남지 않는다 | — | 8식 전부 0: ① `rg "orca:\|window\.orca" app/src` ② `rg "SchedulerPort\|scheduledTaskJobKey" app/src` ③ `rg "unregister" app/src/main/features/scheduler` ④ `ls features/scheduled-tasks/{ports,registry}.ts` ⑤ `rg "shared/scheduled-tasks" app/src/main/infra/shell` ⑥ `rg "detachedStarts\|settleDetachedStart" app/src` ⑦ `ls migrations/0034_scheduled_tasks.sql` ⑧ `ls docs/handoff/0287-scheduled-tasks` | (좌동) | 두 벌의 구성이 공존한다 |
+| EP-8 · R-06 / AC24 | 옛 구성이 남지 않는다 | — | 8식 전부 0: ① `rg "orca:schedule\|window\.orca" app/src` ② `rg "SchedulerPort\|scheduledTaskJobKey" app/src` ③ `rg "unregister" app/src/main/features/scheduler` ④ `ls features/scheduled-tasks/{ports,registry}.ts` ⑤ `rg "shared/scheduled-tasks" app/src/main/infra/shell` ⑥ `rg "detachedStarts\|settleDetachedStart" app/src` ⑦ `ls migrations/0034_scheduled_tasks.sql` ⑧ `ls docs/handoff/0287-scheduled-tasks` | (좌동) | 두 벌의 구성이 공존한다 |
 
 - 선언 경계 1 — OpenCode 에이전트·variant: `PromptExecution`은 `harnessAgent`·`modelVariant`를 싣지 않는다. OpenCode 작업은 그 둘의 기본값으로 실행된다. 근거: 두 필드는 `SendChatMessage`의 선택 필드다(`shared/ipc.ts:909-910`).
 - 선언 경계 2 — 전송 IPC 자체의 reject: `chatApi.send`가 reject하면 draft는 종결 이벤트를 받지 않아 대기가 main의 보고 시간 초과로 끝난다(이력 `report_timeout`). 일반 `send`도 같은 자리에서 게이트를 풀지 않는다(`chatStore.ts:571-580` — `reportError`만).
-- 선언 경계 3 — electron 방송·창 선택(`infra/ipc/send.ts`)과 `bootstrap.ts`의 조립 호출 줄은 자동 좌표가 없다. `send.ts`는 `electron`을 import한다. AC23 실기가 본다.
+- 선언 경계 3 — electron 방송·창 선택(`infra/ipc/send.ts`의 두 함수)과 `bootstrap.ts`가 조립에 넘기는 인자 값(`projects`·`runShell`·`sendPromptStart`·`onChanged`)은 자동 좌표가 없다. `send.ts`는 `electron`을 import하고, bootstrap 스위트는 조립 모듈을 대체해 호출 순서만 본다. AC23 실기가 본다.
 - 선언 경계 4 — 게이트(로그인 전)·부팅 중에는 릴레이 구독자가 없어 그 사이 프롬프트 발화는 `report_timeout`이 된다(비범위 §6).
+- 선언 경계 5 — 행 메뉴의 항목 클릭 → `onRunNow`/`onEdit`/`onDelete` 전달(`ScheduleRow`의 Popover)과 preload 브리지는 자동 좌표가 없다. 이 feature의 render 테스트는 정적 마크업이라 닫힌 Popover의 클릭을 낼 수 없다(`schedulesScreen.render.test.ts` — `renderToStaticMarkup`). AC23 실기가 본다.
 - 열린 입력 집합 판정 산출물: 해당 없음.
 - SSOT 공유: 제목·명령 길이와 사유 코드는 `shared/scheduled-tasks.ts`, main 상한은 `limits.ts`.
 - 선택적 필드: `effort` 부재 = 모델 기본값. `projectId: null` = 프로젝트 삭제됨 → 실행 실패.
@@ -525,7 +527,7 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 - [x] NEW·CHANGED node 전부 REQUIRED pair(VP-01~19), 접촉한 INHERITED MD-08은 REGRESSION(VP-20).
 - [x] pair별 경로·§10 분모·좌표. 적대 증거는 VP-06·07·20만 선택.
 - [x] 규칙 칸 분기 ↔ 입력: EP-4 2분기·EP-5 10자리·AC13 3경우·AC14 2플랫폼이 각 좌표의 입력으로 열거됐다.
-- [x] 선언 경계 4건 — 각 근거 좌표와 함께.
+- [x] 선언 경계 5건 — 각 근거 좌표와 함께.
 - [x] 운영 gate 열거.
 - [x] 사람 실기로 미룬 순수 로직 없음 — 옛 구현이 남긴 picker 로직은 VP-19로 내렸다.
 - [x] structural proxy 단독 AC 없음 — AC24는 양성 좌표와 짝.
