@@ -13,8 +13,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 옛 0287 V는 `main`에 없어 상속하지 않고 증거로만 읽는다 |
-| 이번 V revision | `ΔV2` — 사용자 요구 변경(설정 칩·메뉴, D-012~D-014), §21. 앞선 `ΔV1`(§20) 위에 적용 |
-| 유효 V | `V1` + `ΔV1` + `ΔV2` |
+| 이번 V revision | `ΔV3` — 사용자 요구 변경(상세를 우측 패널로, D-015), §22. `ΔV1`(§20)·`ΔV2`(§21) 위에 적용 |
+| 유효 V | `V1` + `ΔV1` + `ΔV2` + `ΔV3` |
 
 # Part I — Product & UX Contract
 
@@ -56,6 +56,7 @@
 | D-012 | "프로젝트, 모델, 코드/워크, 노력, 권한.. 을 구성하는 영역의 구성이 현대적이지 않다. 팝업되는 메뉴와 각 컴포넌트의 너비가 항목에 비례에 너무 크게 배치된 점과 무작정 나열까지.. 최악이다. 팝업되는 메뉴는 컴포저에서 사용하던 형태를 사용하라." | 네이티브 `select` 를 없앤다 | 이번 세션 턴 4 | ACTIVE | D-011의 "선택 칩" 표현을 구체화 |
 | D-013 | "스케쥴 생성 모달의 '프로젝트' 팝업의 경우, 컴포저의 버튼에서 보여지는 팝업을 그대로 가져올 것" | — | 이번 세션 턴 5 | ACTIVE | — |
 | D-014 | "스케쥴 페이지에서 나열되는 항목들에서 '코드' 아이콘은 nav의 세션에서 사용하고 있는 '코드' 아이콘으로 변경할 것. 그리고 modal 안에서 '워크/코드' 팝업의 코드 또한 요구 아이콘으로 변경할 것" | nav 세션의 코드 아이콘 = `agentPresentation.code.navIcon`(`terminal2`) | 이번 세션 턴 5 | ACTIVE | — |
+| D-015 | "항목 클릭시 아래로 전개되는 내용을 우측패널로 전개되도록 변경하라. 플러그인 페이지의 스킬 탭 -> 항목 참조" | 참조 = `ExtensionsCatalogView`의 `ExtensionDetailPane`(크기 조절·펼치기·닫기·Esc) | 이번 세션 턴 6 | ACTIVE | D-008의 "실행 이력 보기" 자리를 행 아래에서 우측 패널로 옮긴다 |
 
 ### 갱신 메모
 
@@ -613,6 +614,32 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 | VP-19 | MD-07 ↔ UT-07 | REGRESSION | `features/chat/lib/executionSettings.test.ts` | 0 |
 
 - 선언 경계: 칩·메뉴의 시각 품질은 AC31 실기다.
+- gate: V1 §19와 같다.
+
+## 22. ΔV3 — 상세를 우측 패널로 (D-015, 사용자 요구 변경)
+
+- 판정: 행을 누르면 아래로 펼치던 실행 이력을 플러그인 스킬 탭과 같은 우측 상세 패널로 연다. 동작·저장 계약은 그대로다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-015↔AC32·AC33. D-008(지금 실행·편집·삭제·이력)은 패널 안에서도 유지된다.
+
+| 대상 | 이번 설계 | 재사용 |
+|---|---|---|
+| 패널 셸 | 스킬 탭의 `ExtensionDetailPane` 셸(크기 조절·펼치기·닫기·Esc)을 `shared/ui/DetailSidePane.tsx`로 올려 두 feature가 함께 쓴다. `ExtensionDetailPane`은 그 셸에 자기 data 표식만 얹는다 | `ResizableSidePane` · `PanelExpandButton` · `PanelCloseButton` |
+| 패널 본문 | 신규 `features/schedules/components/ScheduleDetail.tsx` — 제목·사용 토글·메뉴(지금 실행·편집·삭제) · 메타(트리거·프로젝트·다음 실행·명령 종류) · 명령 본문 · 실행 이력 | `SkillDetail`의 머리줄·`Meta` 배치 · 기존 `RunHistoryPanel` |
+| 목록 | `data-side-pane-host` · 선택 행 강조 · 패널을 펼치면 목록 `inert` · 패널이 열리면 목록 여백을 줄인다 · 닫으면 연 행으로 초점 복귀 | `ExtensionsCatalogView`와 같은 규칙 |
+| `지금 실행` | 그 작업을 선택해 패널에서 새 실행이 보이게 한다 | — |
+
+| R | AC | 동작 기준 | 검증 수단 | 경로 |
+|---|---|---|---|---|
+| R-09 | AC32 | 행을 누르면 목록 아래가 아니라 우측 패널이 열리고 그 작업의 메타·명령·실행 이력을 보인다. 같은 행을 다시 누르거나 닫기·Esc면 패널이 닫힌다. 목록 행 사이에는 펼침 영역이 없다 | render: 선택 전 패널 0 · 선택 뒤 패널 1(작업 id 표식)·이력 영역 · 목록 `<li>` 수 = 작업 수 | `SchedulesScreen` → `DetailSidePane` → `ScheduleDetail` |
+| R-09 | AC33 | 스킬 탭의 패널은 같은 셸로 바뀌어도 동작이 같다 | 플러그인 카탈로그 기존 테스트 REGRESSION | `ExtensionsCatalogView` → `ExtensionDetailPane` → `DetailSidePane` |
+| R-09 | AC34 | 실제 창에서 패널 크기 조절·펼치기·초점 복귀가 스킬 탭과 같다 | 사람 실기 | `npm run dev` |
+
+| Pair | left ↔ right | req | 직접 oracle | §10 |
+|---|---|---|---|---|
+| VP-26 | R-09 ↔ AT(AC32·34) | REQUIRED | `schedulesScreen.render.test.ts` 신규 케이스 · 신규 `scheduleDetail.render.test.ts` · AC34 실기 | 0 |
+| VP-27 | 스킬 탭 상세 패널 ↔ UT | REGRESSION | `features/skills/**` 카탈로그·상세 테스트 | 0 |
+
+- 선언 경계: 크기 조절 드래그·펼치기 애니메이션은 AC34 실기다(`ResizableSidePane` 자체 테스트가 있다).
 - gate: V1 §19와 같다.
 
 ---
