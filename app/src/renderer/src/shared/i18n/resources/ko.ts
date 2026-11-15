@@ -395,6 +395,9 @@ export const ko = {
       day5: '금',
       day6: '토'
     },
+    detail: {
+      nextRun: '다음 실행'
+    },
     history: {
       title: '실행 이력',
       empty: '아직 실행한 적이 없습니다.',

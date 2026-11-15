@@ -391,6 +391,9 @@ export const en: typeof ko = {
       day5: 'Fri',
       day6: 'Sat'
     },
+    detail: {
+      nextRun: 'Next run'
+    },
     history: {
       title: 'Run history',
       empty: 'No runs yet.',

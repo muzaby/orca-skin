@@ -399,3 +399,29 @@ it.each(['present', 'loading', 'failed'] as const)(
     expect(status[0].textContent).toContain('스킬')
   }
 )
+
+it('opens the selected skill in the shared detail side pane with its tab and item markers', async () => {
+  const scope = globalThis as { ResizeObserver?: unknown }
+  const original = scope.ResizeObserver
+  scope.ResizeObserver = class {
+    observe = vi.fn()
+    disconnect = vi.fn()
+  }
+  try {
+    dom.render(createElement(ExtensionsCatalogView))
+    await flush()
+    tab(1)
+    const row = dom.query('[data-extensions-row="agents/review"]')
+    expect(row).not.toBeNull()
+    dom.click(row!.querySelector('[aria-pressed]')!)
+    await flush()
+    const panel = dom.query('[data-extension-detail-panel="skills"]')
+    expect(panel).not.toBeNull()
+    expect(panel!.props['data-extension-detail-id']).toBeTruthy()
+    dom.click(dom.query('[data-behavior="extension-detail:close"]')!)
+    await flush()
+    expect(dom.query('[data-extension-detail-panel]')).toBeNull()
+  } finally {
+    scope.ResizeObserver = original
+  }
+})
