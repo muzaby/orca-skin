@@ -965,6 +965,92 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1.4)
+
+- 동의 / 그대로 진행: §22 ΔV3 전체.
+- 이견 / 현실성 문제: 없음.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.4)
+
+ΔV3 pair(VP-26)는 §10 자리가 0이다. REGRESSION VP-27은 스킬 탭 기존 테스트에 패널 표식 케이스를 더해 닫았다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-26 | AC32 | 0 | 해당 없음 | 신규 `features/schedules/components/schedulesScreen.detail.test.ts`(4 — 실제 클릭으로 열기·바꾸기·닫기·패널 안 토글) | 운반 항: 선택 작업 id(`t2`) → 패널 표식·`loadRuns` 인자·`onSetEnabled` 인자 | Esc 닫기 — 셸이 `ownerDocument.querySelector`를 쓰는데 fake DOM이 지원하지 않는다(AC34 실기) |
+| VP-27 | AC33 | 0 | 해당 없음 | `ExtensionsCatalogView.interaction.test.ts:'opens the selected skill in the shared detail side pane with its tab and item markers'` + 기존 11케이스 | 표식 `data-extension-detail-panel="skills"`·`-id` | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-26 | REQUIRED | SELF_BLOCKED | 위 표 좌표 | AC34 사람 실기 대기 |
+| VP-27 | REGRESSION | SELF_PASS | 위 표 좌표 | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.4)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V01 선택이 상태를 안 바꿈 · V02 닫기가 선택을 안 지움 · V03 같은 행 재클릭이 닫지 않음 · V04 행 선택 강조 없음 · V05 `data-state` 고정 | sweep — AC32 목록 쪽 자리 | 최초 | 4 · 2 · 1 · 1 · 1건 | 잠김 |
+| V06 패널 토글 값 뒤집기 · V07 패널 닫기 무시 · V08 명령 본문 제거 · V09 이력 조회 id 비움 | sweep — AC32 패널 쪽 자리 | 최초 | 각 1건 | 잠김 |
+| V10 공용 셸이 표식을 버림 | sweep — `DetailSidePane` | 최초 | 2건(두 소비처) | 잠김 |
+| V11 스킬 탭이 표식을 안 넘김 | sweep — VP-27 | 최초 | **처음 green** → 케이스 추가 뒤 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 11 = 표 행 11`, 전부 red.
+- **덮개 회귀**: 해당 없음 — 이번에 지운 행 아래 펼침에는 잠금 테스트가 없었다(`schedulesScreen.render.test.ts`는 정적 렌더라 펼침을 보지 않았다).
+
+## [구현자 기입] Product/UX 파생 검토 (r1.4)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | `schedules.detail.nextRun`은 패널 메타 라벨이다(V08과 같은 화면) | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 스킬 탭의 패널 셸을 `shared/ui/DetailSidePane`으로 옮겼다. 초점·Esc·크기 조절 처리는 그대로 옮겼고 스킬 탭 12케이스 green | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 새 실패 경로 없음. 패널이 열린 작업을 삭제하면 목록에서 사라지며 패널도 닫힌다(선택 id가 목록에 없으면 패널을 그리지 않는다) | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | `지금 실행`은 그 작업의 패널을 열어 새 실행 행이 보이게 한다 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 이력 조회는 기존 stale 가드를 그대로 쓴다(`RunHistoryPanel`) | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.4)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 스킬 탭의 패널 표식(`data-extension-detail-*`)에는 소비자도 테스트도 없었다 | ✅ 선조치: 셸을 옮기며 표식 전달을 잠그는 케이스를 더했다(V11) | `rg data-extension-detail app/src` → 컴포넌트 1곳 |
+| 2 | 패널을 연 행으로 초점을 돌릴 때 `HTMLElement` 판정을 쓰지 않는다 — 테스트 환경에 전역이 없다 | ✅ 선조치: 그 시점의 `activeElement`를 그대로 기억한다 | — |
+
+### 설계 대비 명시적 차이
+
+- 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 공유 · 재진입 · 다른 무효화 축 | 공유: 셸을 두 카탈로그가 함께 쓴다 — 셸은 상태가 없고(폭·펼침은 호출자가 가짐) 서로 영향이 없다 | V10 red가 두 소비처 모두에서 났다 |
+
+## [구현자 기입] 구현 보고 (r1.4)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규: `shared/ui/DetailSidePane.tsx` · `features/schedules/components/ScheduleDetail.tsx` + 테스트 1. 수정: `ExtensionDetailPane`(셸 사용) · `SchedulesScreen`(선택·패널) · `ScheduleRow`(펼침 제거) · i18n · 스킬 탭 테스트 1 · 문서 1 |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음) |
+| **관측한 게이트 산출** | 전체 vitest 969파일 중 923 pass · 44 fail · 2 skip — unit 풀 실패 0. io 44파일은 r1.3과 같은 환경 서명(실행 중인 앱이 `better_sqlite3.node`를 잡아 Node ABI 재빌드 불가)이고 이번 diff는 renderer·문서뿐이다 · lint `0 errors, 2 warnings`(기존 2건) · typecheck error 0 · 가드 4종 통과 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 2파일 — 가짜 타이머만, 시간 값·프로세스·SQLite 없음. 위반 0 |
+| V-pair 자기확인 | ΔV3: `SELF_PASS 1 / SELF_BLOCKED 1`(VP-26 — AC34 실기) |
+| 강제 지점 전수 | ΔV3 0자리 |
+| **AC 자기보고**(`Criteria-Met`) | 30/34 — r1.3의 ✅28에 AC32·AC33 ✅. ⚠️ AC23·AC27·AC31·AC34(사람 실기) |
+| **합계 검산** | `✅ 30 · ⚠️ 4 · ❌ 0 = 총 34` — ΔV3가 AC 3건을 더해 분모가 31 → 34로 바뀌었다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1.4 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.4)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(사용자 요구 변경 턴).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: 해당 없음.
+- 반복해서 부딪히는 환경 한계: fake DOM이 `ownerDocument.querySelector`·`ResizeObserver`·`HTMLElement`를 갖지 않는다.
+- 현재 라운드·impl 턴: `r1.4`(사용자 요구 변경).
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
