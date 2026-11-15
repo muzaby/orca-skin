@@ -142,7 +142,7 @@ hover로 나타나는 조작에는 키보드 focus 진입 시의 노출도 제�
 
 ### 5.3 입력·폼·모달
 
-폼 입력은 Modal의 `MODAL_LABEL`·`MODAL_INPUT`, 자동 높이 입력은 AutoGrowTextarea, 이름 변경은 RenameInput을 재사용한다.
+폼 입력은 Modal의 `MODAL_LABEL`·`MODAL_INPUT`(한 줄에 선택을 늘어놓을 때는 `MODAL_SELECT` 칩과 `MODAL_SECTION_LABEL`·`MODAL_CARD`), 자동 높이 입력은 AutoGrowTextarea, 이름 변경은 RenameInput을 재사용한다.
 label과 입력을 연결하고 오류를 해당 필드 가까이에 배치한다.
 설정 화면은 SettingsGroup·SettingsRow·SettingsSelect로 행·설명의 위계를 유지한다.
 
