@@ -47,6 +47,7 @@ app 또는 pages 조립은 하향 의존만 허용한다. 페이지는 feature U
 | [pages/PluginsPage.tsx](../../../app/src/renderer/src/pages/PluginsPage.tsx) — `PluginsPage` | 페이지 조립만 담당한다. 해당 feature의 화면·catalog·pane·읽기 열을 재사용하고 도메인 로직·별도 팔레트를 넣지 않는다. |
 | [pages/ProjectLandingPage.tsx](../../../app/src/renderer/src/pages/ProjectLandingPage.tsx) — `ProjectLandingPage` | 페이지 조립만 담당한다. 해당 feature의 화면·catalog·pane·읽기 열을 재사용하고 도메인 로직·별도 팔레트를 넣지 않는다. |
 | [pages/ProjectsPage.tsx](../../../app/src/renderer/src/pages/ProjectsPage.tsx) — `ProjectsPage` | 페이지 조립만 담당한다. 해당 feature의 화면·catalog·pane·읽기 열을 재사용하고 도메인 로직·별도 팔레트를 넣지 않는다. |
+| [pages/SchedulesPage.tsx](../../../app/src/renderer/src/pages/SchedulesPage.tsx) — `SchedulesPage` | 페이지 조립만 담당한다. 프로젝트 목록·실행 설정 입력·대화 열기를 schedules feature에 props로 넘긴다. |
 
 ## 공통 UI·테마
 
@@ -103,6 +104,7 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [features/chat/components/ChatTitleBar.tsx](../../../app/src/renderer/src/features/chat/components/ChatTitleBar.tsx) — `ChatTitleBar` | 폴더 아이콘→제목·rename·우측 도구 배치. 텍스트 truncation과 메뉴 클릭 영역을 보존한다. |
 | [features/chat/components/ChatView.tsx](../../../app/src/renderer/src/features/chat/components/ChatView.tsx) — `ChatView` | 세션별 채팅·타일 조립. 배경·테마를 세션마다 새로 정의하지 않는다. |
 | [features/chat/components/Composer.tsx](../../../app/src/renderer/src/features/chat/components/Composer.tsx) — `ComposerPanelStackView`, `Composer` | 공통 입력 controller와 하네스 표면 조립. 전환 시 초안·첨부·IME를 보존한다. |
+| [features/chat/components/ExecutionSettingsPicker.tsx](../../../app/src/renderer/src/features/chat/components/ExecutionSettingsPicker.tsx) — `ExecutionSettingsPicker` | 세션 상태와 무관한 제어형 모델·작업 종류·노력·권한 선택. 모달 라벨·입력 클래스를 쓰고 선택 규칙은 `lib/executionSettings.ts`가 갖는다. |
 | [features/chat/components/CwdButton.tsx](../../../app/src/renderer/src/features/chat/components/CwdButton.tsx) — `CwdButton` | 작업 경로 진입 버튼의 축약·전체 경로 확인·키보드 이름을 유지한다. |
 | [features/chat/components/LandingProjectPicker.tsx](../../../app/src/renderer/src/features/chat/components/LandingProjectPicker.tsx) — `LandingProjectPicker` | `/new`와 프로젝트 랜딩의 양 하네스에서 프로젝트 검색·폴더 목록·선택 강조와 체크·추가 버튼을 표시한다. Popover·MenuItem·Nav 폴더 Icon을 재사용하고 검색 초점·닫기 복귀·긴 이름 말줄임을 유지한다. |
 | [features/chat/components/CwdPanel.tsx](../../../app/src/renderer/src/features/chat/components/CwdPanel.tsx) — `CwdPanel` | 작업 경로·추가 디렉터리 선택. 경로는 mono·긴 값은 안전한 줄바꿈. |
@@ -347,6 +349,11 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 | [features/projects/components/ProjectLandingHeader.tsx](../../../app/src/renderer/src/features/projects/components/ProjectLandingHeader.tsx) — `ProjectLandingHeader` | 프로젝트 돌아가기·상단 chrome을 작은 중립 툴바로 유지한다. |
 | [features/projects/components/ProjectsScreen.tsx](../../../app/src/renderer/src/features/projects/components/ProjectsScreen.tsx) — `ProjectsScreen` | 카탈로그 제목·총계·추가·탭·검색·목록·상세를 같은 읽기 위계로 구성한다. |
 | [features/projects/components/ProjectsView.tsx](../../../app/src/renderer/src/features/projects/components/ProjectsView.tsx) — `ProjectsView` | 프로젝트 화면 조립. 목록·선택·상세 데이터는 feature 안에서 소유한다. |
+| [features/schedules/components/SchedulesScreen.tsx](../../../app/src/renderer/src/features/schedules/components/SchedulesScreen.tsx) — `SchedulesScreen` | 프로젝트 카탈로그와 같은 골격 — 제목·총계·추가·탭·검색·목록. 행을 펼치면 실행 이력이 그 아래에 열린다. |
+| [features/schedules/components/ScheduleRow.tsx](../../../app/src/renderer/src/features/schedules/components/ScheduleRow.tsx) — `ScheduleRow` | CatalogListRow에 트리거 요약·프로젝트·다음 실행·사용 토글·메뉴(지금 실행·편집·삭제)를 둔다. 꺼짐·실행 중·프로젝트 소실을 구별한다. |
+| [features/schedules/components/ScheduleTaskModal.tsx](../../../app/src/renderer/src/features/schedules/components/ScheduleTaskModal.tsx) — `ScheduleTaskModal` | 공통 Modal 입력으로 제목·프로젝트·실행 설정 슬롯·트리거·명령을 받는다. 명령 종류에 따라 실행 설정과 안내가 바뀌고 저장 실패는 모달 안에서 알린다. |
+| [features/schedules/components/TriggerFields.tsx](../../../app/src/renderer/src/features/schedules/components/TriggerFields.tsx) — `TriggerFields` | 주기 선택에 따라 요일·시각 입력이 나타나는 트리거 카드. 요일 다중 선택은 누름 상태 버튼이다. |
+| [features/schedules/components/RunHistory.tsx](../../../app/src/renderer/src/features/schedules/components/RunHistory.tsx) — `RunHistory` | 실행별 상태·시각·출처·사유·종료 코드와 출력 블록 또는 대화 열기를 낮은 강조 카드로 나열한다. |
 | [features/projects/components/SidebarCard.tsx](../../../app/src/renderer/src/features/projects/components/SidebarCard.tsx) — `SidebarCard` | 프로젝트 보조 정보의 제목·설명·동작 간격을 맞춘다. |
 | [features/sessions/components/PinnedProjectsSection.tsx](../../../app/src/renderer/src/features/sessions/components/PinnedProjectsSection.tsx) — `PinnedProjectsSectionView`, `PinnedProjectChildren`, `PinnedProjectsSection` | 고정 프로젝트 구획의 이름·펼침·세션 행 밀도를 sidebar와 맞춘다. |
 | [features/sessions/components/PinnedSection.tsx](../../../app/src/renderer/src/features/sessions/components/PinnedSection.tsx) — `PinnedSectionView`, `PinnedSection` | 고정 대화·구획 제목·정렬·활성 행 표시를 유지한다. |

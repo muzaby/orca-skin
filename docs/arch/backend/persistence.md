@@ -90,6 +90,7 @@
 | `0031_turn_context_usage.sql` | 마지막 모델 스텝의 컨텍스트 사용량과 한도를 턴 합산 원장과 구분해 보관한다. |
 | `0032_native_session_recovery.sql` | 원본 보관 만료 시 replacement native ID·보관 경계·첫 입력 영수증을 영속한다. |
 | `0033_session_last_model.sql` | 세션의 마지막 사용 모델(`last_model`)을 nullable로 보존한다. provider와 같은 UPDATE로 저장하고 앱 재시작의 Composer 복원에 사용한다. |
+| `0035_scheduled_tasks.sql` | 사용자 예약 작업 정의(`scheduled_tasks`)와 실행 이력(`scheduled_task_runs`). 프로젝트 삭제는 `project_id`만 비우고 작업 삭제는 이력을 함께 지운다. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)
@@ -119,6 +120,8 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 | `provider_usage_periods` / `provider_usage_period_models` | 원격 일/월 합계·기간별 모델 집합. 표시 합성은 [IPC 계약 §2.12](../../IPC_CONTRACT.md#212-cost-phase-3)를 따른다. |
 | `session_lineage` | fork/handoff 계보 (0051) |
 | `schedule_runs` | scheduler job 실행 이력 (0091) |
+| `scheduled_tasks` | 사용자 예약 작업. 트리거·명령은 JSON 열(`trigger_json`·`action_json`, 형태는 `shared/scheduled-tasks.ts`)이고 재시작 복원의 정본이다. |
+| `scheduled_task_runs` | 예약 작업 실행 이력 — 출처·상태·사유·대화 id·종료 코드·출력 꼬리. 작업당 최근 실행만 보존한다. |
 | `messages_fts` | FTS5 가상 테이블 (content + sessionId 인덱싱. rank 정렬. `toFtsMatch` 가 토큰마다 `*` wildcard 부착.) |
 
 프로젝트는 선택한 시작 폴더를 nullable `cwd`에 저장하며 `cwd_key`의 부분 UNIQUE 인덱스로 같은 정규화 경로를 재사용한다. Windows 경로의 대소문자·구분자·끝 구분자는 식별에 영향을 주지 않고, 이름이 같아도 경로가 다르면 별개다. 경로 정규화는 lexical 비교이며 심볼릭 링크를 다른 실제 경로로 바꾸지 않는다. 시작 폴더와 격리 worktree의 실행 cwd는 별도 값이다. 신규 전송은 실행 준비가 성공한 뒤 프로젝트를 ensure하고 SDK 확인 시 세션에 연결한다. SDK 시작이 실패하면 준비된 빈 프로젝트가 남을 수 있다. 기존 경로 없는 프로젝트·미분류 세션은 강제 재분류하지 않는다.

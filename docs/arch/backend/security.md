@@ -203,14 +203,14 @@ POP3 Mail Plugin은 HTTP가 아닌 메일 전송을 사용한다. `node:net`·`n
 | `loopback-callback.ts` (0181) | OAuth 루프백 콜백 1회성 리스너(127.0.0.1, RFC 8252). node `http` 만 쓴다 | — |
 | `vault.ts` | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
 
-### 1.10 Git 실행과 Plugin 호스트 프로그램 경계
+### 1.10 Git 실행과 Plugin 호스트 프로그램 경계 · 예약 shell 명령
 
 Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실행한다. 실행 파일은 절대 PATH 항목에서 찾은 절대 경로이며 cwd에 의존하는 빈·상대 항목은 제외한다. 성공한 실행 파일 경로만 메모하고 실패한 탐색은 다음 요청에서 다시 시도한다.
 
 읽기는 `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 적용하며 전역 동시 실행을 제한한다. 같은 세대의 동일한 진행 중 요청만 공유하고 완료 결과는 저장하지 않는다. 쓰기는 저장소별 mutation queue를 사용하며 성공·실패 모두 세대를 전진시킨다. diff/log는 외부 diff·textconv 실행을 차단한다. Git 실행기 직접 import는 ESLint 경계가 제한한다.
 
-`child_process`·`node:child_process` 정적·동적 import는 소유 로컬 서버 모듈(`adapters/opencode/v1/server.ts`), Git gateway·runner와
-`src/main/features/plugins/**`에서 허용한다. 그 밖 main의 실행 경계는 유지하며, Plugin도
+`child_process`·`node:child_process` 정적·동적 import는 소유 로컬 서버 모듈(`adapters/opencode/v1/server.ts`), Git gateway·runner,
+예약 shell 실행기(`infra/shell/shell-runner.ts`)와 `src/main/features/plugins/**`에서 허용한다. 그 밖 main의 실행 경계는 유지하며, Plugin도
 `infra/git/runner`를 직접 import할 수 없다. Plugin은 호스트에 설치된 프로그램을 직접 실행하고
 인자·timeout·취소·출력 처리를 소유한다. 공용 호스트 실행기를 추가하지 않는다.
 
@@ -219,6 +219,19 @@ Git 명령은 `infra/git/gateway.ts`를 거쳐 `runner.ts`의 `execFile`로 실�
 선택을 맡기지 않는다. 실행에는 timeout과 호출 취소 signal을 적용하고 출력량을 제한한다.
 프로그램이 사용한 로컬 키·인증 파일 내용은 로그·도구 결과로 반환하지 않는다. 실제 exe
 Plugin의 테스트는 그 프로그램을 추가하는 작업이 소유한다.
+
+**예약 shell 명령**(`infra/shell/shell-runner.ts`)은 위 호스트 프로그램 규칙의 예외다.
+사용자가 예약 작업에 직접 적은 명령 문자열을 셸에 그대로 넘기는 것이 기능이므로 셸을 거친다 —
+Windows는 `powershell.exe -NoProfile -NonInteractive -Command`, 그 외는 `/bin/sh -c`다.
+
+| 항목 | 값 |
+|---|---|
+| 명령의 출처 | 예약 작업에 저장된 사용자 입력뿐이다. 앱이 조립하거나 모델 출력을 넣지 않는다. |
+| 작업 폴더 | 작업이 가리키는 프로젝트의 폴더. 폴더 없는 프로젝트는 생성·수정에서 거부하고 실행도 하지 않는다. |
+| 환경 | 앱 프로세스 환경을 상속한다. vault·MCP 인증값 등 앱이 보관한 비밀을 주입하지 않는다. |
+| 상한 | 제한 시간과 출력 꼬리 보관 크기를 호출자가 정한다(값은 `features/scheduled-tasks/limits.ts`). 앱 종료·작업 삭제 시 프로세스를 종료한다. |
+| 진입 | `oo:schedule:*` 채널의 zod 검증을 지난 요청만 저장된다. 이 채널은 renderer가 임의 명령을 예약·즉시 실행할 수 있는 표면이므로 renderer 무결성(§1.1·§1.5·§1.6)에 의존한다. |
+| 소비자 | 컴포지션 루트(`app/bootstrap.ts`)가 예약 작업 실행기에만 넘긴다. feature는 실행기를 import하지 않는다. |
 
 로그인 프리 연결 로직(배포 `LoginFreeDefinition.connect`)은 프로세스 실행 능력을 받지 않는다.
 받는 것은 `HostHarnessPort`의 고정 질의 둘(설치 확인·모델 목록)뿐이고 실행은 하네스 adapter가 소유한다.

@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import type { AppErrorReport } from '../shared/app-error'
 import type {
+  RunNowResult,
+  ScheduledPromptReport,
+  ScheduledPromptStart,
+  ScheduledRun,
+  ScheduledTask,
+  ScheduledTaskInput
+} from '../shared/scheduled-tasks'
+import type {
   ArtifactActionResult,
   ArtifactCatalogItem,
   ArtifactListRequest,
@@ -327,6 +335,26 @@ const oo = {
       ipcRenderer.invoke(CHANNELS.projectSetPinned, { id, pinned }),
     listSessions: (projectId: string): Promise<SessionListItem[]> =>
       ipcRenderer.invoke(CHANNELS.projectListSessions, { projectId })
+  },
+  // 예약 작업.
+  schedule: {
+    list: (): Promise<ScheduledTask[]> => ipcRenderer.invoke(CHANNELS.scheduleList),
+    create: (req: ScheduledTaskInput): Promise<ScheduledTask> =>
+      ipcRenderer.invoke(CHANNELS.scheduleCreate, req),
+    update: (req: ScheduledTaskInput & { id: string }): Promise<ScheduledTask> =>
+      ipcRenderer.invoke(CHANNELS.scheduleUpdate, req),
+    delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.scheduleDelete, { id }),
+    setEnabled: (id: string, enabled: boolean): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.scheduleSetEnabled, { id, enabled }),
+    runNow: (id: string): Promise<RunNowResult> =>
+      ipcRenderer.invoke(CHANNELS.scheduleRunNow, { id }),
+    listRuns: (id: string): Promise<ScheduledRun[]> =>
+      ipcRenderer.invoke(CHANNELS.scheduleListRuns, { id }),
+    reportPrompt: (report: ScheduledPromptReport): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.schedulePromptReport, report),
+    onChanged: (handler: () => void): (() => void) => subscribe(CHANNELS.scheduleChanged, handler),
+    onPromptStart: (handler: (payload: ScheduledPromptStart) => void): (() => void) =>
+      subscribe(CHANNELS.schedulePromptStart, handler)
   },
   // 커스텀 타이틀바 (frame:false) 의 WinControls 가 호출. macOS 는 OS traffic light 사용으로
   // 호출 자체가 없으나 채널은 플랫폼 공통으로 노출.

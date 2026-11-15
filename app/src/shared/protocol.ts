@@ -26,6 +26,14 @@ import {
   UPDATE_CHECK_INTERVAL_HOURS
 } from './ipc'
 import type { LogInput, SerializedError as LogSerializedError } from './logging'
+import {
+  isValidTrigger,
+  SCHEDULE_COMMAND_MAX,
+  SCHEDULE_TITLE_MAX,
+  type ScheduledPromptReport,
+  type ScheduledTaskInput,
+  type TriggerSpec
+} from './scheduled-tasks'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
 
 export const AgentKindSchema = z.enum(AGENT_KINDS)
@@ -439,6 +447,59 @@ export const SetProjectPinnedSchema = z.object({
 })
 
 export const ListProjectSessionsSchema = z.object({ projectId: z.string().min(1) })
+
+// 예약 작업. 트리거의 값 범위는 `isValidTrigger` 한 곳이 갖고 여기서는 형태만 받는다 —
+// 폼·타이머 등록(`triggerToCron`)과 같은 규칙을 쓰기 위해서다.
+const TimeOfDaySchema = z.object({ hour: z.number().int(), minute: z.number().int() })
+export const TriggerSpecSchema = z
+  .discriminatedUnion('kind', [
+    z.object({ kind: z.literal('hourly') }),
+    z.object({ kind: z.literal('daily'), at: TimeOfDaySchema }),
+    z.object({ kind: z.literal('weekly'), day: z.number().int(), at: TimeOfDaySchema }),
+    z.object({ kind: z.literal('custom'), days: z.array(z.number().int()), at: TimeOfDaySchema })
+  ])
+  .refine((value) => isValidTrigger(value as TriggerSpec), '트리거가 올바르지 않습니다')
+  .transform((value) => value as TriggerSpec)
+
+const ScheduledCommandSchema = z
+  .string()
+  .max(SCHEDULE_COMMAND_MAX)
+  .refine((value) => value.trim().length > 0)
+
+const ScheduledTaskFields = {
+  title: z.string().trim().min(1).max(SCHEDULE_TITLE_MAX),
+  projectId: z.string().min(1),
+  trigger: TriggerSpecSchema,
+  action: z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('prompt'),
+      text: ScheduledCommandSchema,
+      execution: z.object({
+        backend: BackendSchema,
+        agentKind: AgentKindSchema,
+        providerKey: z.string().min(1),
+        modelFamily: z.string().min(1).nullable(),
+        effort: EffortLevelSchema.optional(),
+        permissionMode: NormalizedPermissionModeSchema
+      })
+    }),
+    z.object({ kind: z.literal('shell'), command: ScheduledCommandSchema })
+  ])
+}
+// 출력 형을 공유 타입에 고정한다 — 핸들러가 캐스트 없이 유스케이스로 넘긴다.
+export const CreateScheduledTaskSchema: z.ZodType<ScheduledTaskInput, unknown> =
+  z.object(ScheduledTaskFields)
+export const UpdateScheduledTaskSchema: z.ZodType<ScheduledTaskInput & { id: string }, unknown> =
+  z.object({ id: z.string().min(1), ...ScheduledTaskFields })
+export const ScheduledTaskIdSchema = z.object({ id: z.string().min(1) })
+export const SetScheduledTaskEnabledSchema = z.object({
+  id: z.string().min(1),
+  enabled: z.boolean()
+})
+export const ScheduledPromptReportSchema: z.ZodType<ScheduledPromptReport, unknown> = z.union([
+  z.object({ runId: z.number().int(), ok: z.literal(true), sessionId: z.string().min(1) }),
+  z.object({ runId: z.number().int(), ok: z.literal(false), error: z.string().max(2000) })
+])
 
 // 대화 검색 (Phase 3++) — limit 상한 100 은 UI 가 한 번에 보여줄 최대 행 보호선.
 // q 최대 길이 200 은 한 모달 입력어로 합리적인 상한 (FTS5 query string 자체에는

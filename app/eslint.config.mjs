@@ -247,6 +247,9 @@ export default defineConfig(
       'src/main/infra/git/runner.ts',
       'src/main/adapters/opencode/v1/server.ts',
       'src/main/features/plugins/**',
+      // 예약 shell 명령 — 사용자가 적은 명령을 셸로 실행하는 것이 기능 자체다.
+      // 경계는 docs/arch/backend/security.md §1.10.
+      'src/main/infra/shell/shell-runner.ts',
       '**/*.test.ts',
       '**/*.testfixture.ts'
     ],

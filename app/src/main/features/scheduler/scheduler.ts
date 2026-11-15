@@ -1,9 +1,8 @@
 import { publishErrorReport } from '../../infra/error-report'
-import { Cron } from 'croner'
 import type { Settings } from '../../../shared/protocol'
 import { errorMessage } from '../../infra/errors'
 import { getLogger } from '../../infra/log/registry'
-import { assertValidCron } from '../../infra/cron'
+import { assertValidCron, startCron } from '../../infra/cron'
 import type { JobAction, JobKey, RunRecorder, ScheduleSpec } from './types'
 
 // cron 잡과 interval 잡을 같은 표면으로 감싼다 — unschedule/stopAll/nextRun 이 분기하지 않게.
@@ -54,7 +53,7 @@ export class Scheduler {
     this.scheduled.set(key, {
       handle:
         'cron' in spec
-          ? cronHandle(spec.cron, fire)
+          ? startCron(spec.cron, fire)
           : intervalHandle(spec.intervalMs, this.now, fire),
       spec
     })
@@ -150,11 +149,6 @@ function sameSpec(a: ScheduleSpec, b: ScheduleSpec): boolean {
   if (a.enabled !== b.enabled) return false
   if ('cron' in a) return 'cron' in b && a.cron === b.cron
   return 'intervalMs' in b && a.intervalMs === b.intervalMs
-}
-
-function cronHandle(cron: string, fire: () => void): JobHandle {
-  const job = new Cron(cron, { protect: true }, fire)
-  return { stop: () => job.stop(), nextRun: () => job.nextRun() }
 }
 
 // croner 의 interval 옵션은 "실행 사이의 *최소* 간격" 이라 패턴과 합성돼야 하고 첫 발화가

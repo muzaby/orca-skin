@@ -538,6 +538,144 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: Part I 전체, T1~T7, §9 조립(`createScheduledTasks`).
+- 이견 / 현실성 문제: plan 내부 불일치 3건을 구현 중 찾아 설계 커밋(V1 정정 1)으로 먼저 고쳤다 — §3 갱신 메모.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+자리 검색은 §10 명령을 이번 턴 마지막 트리에서 다시 돌렸다. 좌표 경로는 `app/src/` 기준.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-07 | EP-1 실행 설정 운반 | ①폼 ②직렬화 ③runner ④릴레이 ⑤전송 (5) | 5/5 | `rg "execution\b\|action_json\|actionJson"` → `scheduleForm.ts:122` · `scheduled-task-queries.ts:66·170·188` · `runner.ts:159` · `useScheduledPromptRelay.ts:35` · `chatStore.ts:1622-1628`. ① `scheduleForm.test.ts` ② `scheduled-task-queries.test.ts:'작업을 저장한 그대로 돌려준다'` ③ `runner.test.ts` ④ `useScheduledPromptRelay.test.ts` ⑤ `chatStore.detached.test.ts:'작업의 설정 그대로 새 대화를 전송하고…'` | 6필드+`projectId`+`text`. 구별 값 `work`·`low`·`plan`/`bypass`·`claude:team`. 관측: 각 자리의 출력 객체 `toEqual` | — |
+| VP-16 | EP-2 트리거 검증·변환 | ①zod ②`service.sync` ③폼 (3) | 3/3 | `rg "triggerToCron\|isValidTrigger\|TriggerSpecSchema"` → `protocol.ts:461·472` · `service.ts:129` · `scheduleForm.ts:113`. ① `shared/scheduled-tasks.test.ts` · `handlers/scheduled-tasks.test.ts:'무효 페이로드를 거부한다: 요일 없는 사용자 지정'` ② `scheduled-tasks.lifecycle.test.ts:'편집으로 트리거를 바꾸면…'` ③ `scheduleForm.test.ts` | trigger 4형태. 관측: cron 문자열·`nextRunAt`·zod 결과 | — |
+| VP-06 | EP-3 저장 ↔ 타이머 | ①start ②create ③update ④setEnabled ⑤delete (5) | 5/5 | `rg "this\.(sync\|stop)\(" service.ts` → 52·60·96·127·143(60은 `dispose`, 127은 `sync` 안의 교체 정지). 전부 `scheduled-tasks.lifecycle.test.ts`(실제 croner 발화 수) | 작업 id·enabled·trigger. 관측: 가짜 시계 진행 뒤 실행 명령 목록·`nextRunAt`·타이머 수 | — |
+| VP-13 | EP-4 겹침 금지 | ①schedule→skipped ②manual→거부 (2) | 2/2 | `rg "\.fire\(" main` → `service.ts:103·130`. `runner.test.ts:'실행 중 예약 발화는 건너뜀 이력만…'`·`'실행 중 수동 실행은 거부만…'` | origin. 관측: `runShell` 호출 수·이력 행·방송 수 | — |
+| VP-13 | EP-5 running 종결 | 10자리 | 10/10 | `rg "finishRun\(\|failRunningRuns\("` → `runner.ts:94·95·107·120`, 전부 `runner.ts:167` 하나로 모임. ①②③④⑤⑨⑩⑧ `runner.test.ts` · ⑥⑦ `prompt-relay.test.ts` · ⑧ 부팅 경로는 `lifecycle:'재시작하면 남은 실행 중 이력을…'` | status·error·sessionId·exitCode. 관측: 이력 행 | — |
+| VP-12 | EP-6 shell 4항 | 1자리 4항 | 4/4항 | `rg "spawn" infra/shell` → `shell-runner.ts:97`. `infra/shell/shell-runner.test.ts` 8케이스 · 상한 전달은 `runner.test.ts:'프로젝트 폴더에서 명령을 실행하고…'` | 파일·인자(win32/linux)·cwd·제한 시간·출력 상한. 관측: 주입 spawn 인자·kill 수·출력 길이 | 실제 `powershell.exe`는 AC23 |
+| VP-08 | EP-7 변경 방송 | 7자리 | 7/7 | `rg "onChanged\(\)"` → `service.ts:99·145` · `runner.ts:82·92·172`. `lifecycle:'작업이 바뀔 때마다 변경을 알린다'`(4) · `runner.test.ts`(시작·종결·skipped) | 관측: `onChanged` 호출 수 | electron 방송은 선언 경계 3 |
+| AC24 | EP-8 옛 구성 0 | 8식 | 8/8 | 8식 전부 0줄(①은 정정된 술어 `orca:schedule\|window\.orca`). 양성 짝: `cron.test.ts` · `lifecycle`(조립) · `chatStore.detached.test.ts` · `executionSettings.test.ts` | 운반 항 없음 | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음. EP-3 검색 출력 5줄 중 2줄(60·127)은 목록의 자리가 아니라 그 자리들이 쓰는 내부 호출이다 — 차집합 0.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(첫 라운드).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `renderer/src/app/navItems.test.ts:'예약됨 메뉴는 프로젝트 다음에…'` · `schedulesScreen.render.test.ts` | not selected |
+| VP-02 | REQUIRED | SELF_PASS | `scheduleTaskModal.render.test.ts` · `scheduleForm.test.ts` | not selected |
+| VP-03 | REQUIRED | SELF_PASS | `main/app/scheduled-tasks.lifecycle.test.ts` · `handlers/scheduled-tasks.test.ts` · `features/schedules/lib/taskActions.test.ts` | not selected |
+| VP-04 | REQUIRED | SELF_PASS | VP-07·12·13·14 좌표 + `runHistory.render.test.ts` · `schedulesStore.test.ts` | not selected |
+| VP-05 | REQUIRED | SELF_BLOCKED | `gate:check-doc-inventory --check` 통과 · `shared/ipc-documentation.test.ts` green | AC23 사람 실기 대기 |
+| VP-06 | REQUIRED | SELF_PASS | `main/app/scheduled-tasks.lifecycle.test.ts`(10) | required — S20·S21 red |
+| VP-07 | REQUIRED | SELF_PASS | `useScheduledPromptRelay.test.ts` · `prompt-relay.test.ts` | required — S01·02·05·06·08·09·12·13 red |
+| VP-08 | REQUIRED | SELF_PASS | `main/app/handlers/scheduled-tasks.test.ts`(16) | not selected |
+| VP-09 | REQUIRED | SELF_PASS | lifecycle + `bootstrap.opencode-warmup.test.ts:'restores scheduled tasks once the DB is open…'` | not selected — S69~S72 red |
+| VP-10 | REQUIRED | SELF_PASS | `main/infra/db/scheduled-task-queries.test.ts`(10, Node ABI에서 실행) | not selected |
+| VP-11 | REQUIRED | SELF_PASS | `pages/SchedulesPage.render.test.ts` | not selected |
+| VP-12 | REQUIRED | SELF_PASS | `main/infra/shell/shell-runner.test.ts` | not selected |
+| VP-13 | REQUIRED | SELF_PASS | `main/features/scheduled-tasks/runner.test.ts`(19) | not selected |
+| VP-14 | REQUIRED | SELF_PASS | `features/chat/store/chatStore.detached.test.ts`(8) | not selected |
+| VP-15 | REQUIRED | SELF_PASS | `features/schedules/lib/scheduleForm.test.ts` | not selected |
+| VP-16 | REQUIRED | SELF_PASS | `shared/scheduled-tasks.test.ts` | not selected |
+| VP-17 | REQUIRED | SELF_PASS | `main/features/scheduler/scheduler.test.ts:'registers a cron schedule and exposes nextRun'` | not selected — S68 red |
+| VP-18 | REQUIRED | SELF_PASS | `main/infra/cron.test.ts`(4) | not selected |
+| VP-19 | REQUIRED | SELF_PASS | `features/chat/lib/executionSettings.test.ts`(9) | not selected |
+| VP-20 | REGRESSION | SELF_PASS | `features/chat/store/chatStore.test.ts`(68케이스 스위트 — S59에서 15건, S60에서 9건 red) | required — S59·S60 red |
+
+## [구현자 기입] 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`로 한 번에 하나씩 심고 되돌렸다(`# 원복 확인: 모든 파일 원문 그대로`).
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| S01·S02 폼 · S05·S06 runner · S08·S09 릴레이 · S12·S13 전송 — `permissionMode`→기본값 / `providerKey`→다른 값·맞바꿈 | VP-07 선택 증거(자리 ①③④⑤) | 최초 | 1~4건씩 | 잠김 |
+| S20 `start` 복원 루프 제거 · S21 `enabled` 조건 뒤집기 | VP-06 선택 증거 | 최초 | 2 · 6건 | 잠김 |
+| S59·S60 `newChatGate`의 `dispatch` 뒤집기(두 분기) | VP-20 선택 증거 | 최초 | 15 · 9건 | 잠김 |
+| S69 `service.start()` 제거 · S70 `dispose` 제거 · S71 핸들러 등록 제거 · S72 `dispose`↔`stopAll` 순서 맞바꿈 | 배선 oracle 민감도(이번 턴 신규) | 최초 | 각 1건 | 잠김 |
+| S03·S04·S07·S10·S11·S14~S16 | sweep — EP-1 자리(직렬화·text·projectId·effort·agentKind) | 최초 | 1~3건씩 | 잠김 |
+| S17~S19 | sweep — EP-2 3자리 | 최초 | 6 · 4 · 1건 | 잠김 |
+| S22~S27 | sweep — EP-3(create·update·setEnabled·delete·교체 정지·dispose) | 최초 | 1~5건씩 | 잠김 |
+| S28·S29 | sweep — EP-4 2분기 | 최초 | 2 · 3건 | 잠김 |
+| S30·S32~S39·S41~S43 | sweep — EP-5 자리와 `execute` 분기 | 최초 | 1~2건씩 | 잠김 |
+| S40 종결 가드의 `runId` 비교 제거 | sweep — 규칙 칸 분기(diff 자리) | 최초 | **처음 green** → 테스트 추가 뒤 1건 | 잠김(`runner.test.ts:'중단된 실행의 늦은 결과가…'`) |
+| S44~S53 | sweep — EP-6 4항 + runner의 상한·cwd·명령 전달 | 최초 | 1~7건씩 | 잠김 |
+| S54·S55·S57·S58 | sweep — EP-7 | 최초 | 1~3건씩 | 잠김 |
+| S56 skipped 기록의 방송 제거 | sweep — EP-7 자리 | 최초 | **처음 green** → 단언 추가 뒤 1건 | 잠김 |
+| S61~S64 분리 시작(`activeKey` 변경·대기 조건·승격 id·소실 reject) | sweep — VP-14 path edge | 최초 | 1~4건씩 | 잠김 |
+| S65 결말 뒤 구독 해제 제거 | sweep — VP-14 path edge | 최초 | **처음 green** → 테스트 교체 뒤 1건 | 잠김 |
+| S66~S68 `startCron` stop·nextRun · `Scheduler` cron 분기 | sweep — VP-17·18 | 최초 | 1~7건씩 | 잠김 |
+| S73 핸들러 update→create 호출 대체 | sweep — VP-08 path edge | 최초 | **처음 green** → 테스트 추가 뒤 1건 | 잠김(`'수정은 새 작업을 만들지 않는다…'`) |
+| S74~S76 핸들러 인자 | sweep — VP-08 | 최초 | 1~2건씩 | 잠김 |
+| S77·S78 nav 아이콘·활성 판정 | sweep — VP-01 | 최초 | **처음 green**(테스트 케이스를 옮기지 않았다) → 케이스 추가 뒤 각 1건 | 잠김 |
+| S79~S94 store 재조회 · picker 규칙 4 · 삭제 확인 · 보고 `runId` · 보존 수 · 종결 가드(SQL) · `lastRun` 출력 · 프로젝트 규칙 · origin · 조립 배선 2 · 보고 변환 · 페이지 cwd | sweep — 나머지 path edge | 최초 | 1~4건씩 | 잠김 |
+| (S31) `ok` 판정의 `result.error == null` 항 제거 | sweep | 최초 | green | 동치 — 띄우지 못한 프로세스는 `exitCode: null`이라 앞 항이 거른다(`shell-runner.ts`의 `done(null, …)` 두 자리). 중복 항을 코드에서 지웠다 |
+
+- **분모 검산**: `선택 증거 12(VP-06 2 · VP-07 8 · VP-20 2) · 인용 변이 0 · 새 oracle 4(S69~S72) · sweep 77 = 표 행 93`, 전부 red. S31은 코드에서 항을 지워 변이 대상이 사라졌다.
+- **덮개 회귀**: 해당 없음(첫 라운드).
+
+## [구현자 기입] Product/UX 파생 검토
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 있음 — 사유 코드 9종 전부 `runErrorKey` → `schedules.history.errors.*`(`runHistory.render.test.ts:'사유 코드 전부에 문구가 있다'`). 옛 `schedules.actionFailed` 키는 소비자가 없어 옮기지 않았다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | `send`의 게이트 판정만 `newChatGate`로 뺐다. `shouldDispatch`는 같은 스코프에서 채워진다 | `chatStore.test.ts` 68케이스 green |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 전부 표에 있다(옛 구현이 빠뜨린 2행은 이번 plan §5에 들어가 있다) | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 토글·삭제·지금 실행 실패는 오류 토스트, 저장 실패는 모달 안 문구. **지금 실행이 `started:false`로 돌아오면 표시가 없다** — 메뉴 항목이 `running`이면 비활성이라 창이 좁다 | ⚠️ 보고만 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 이력 조회는 stale 플래그로 버린다. 목록 `refresh`는 순서 보장이 없어 연속 push에서 한 박자 낡은 목록이 잠깐 보일 수 있다(다음 push가 고친다) | ⚠️ 보고만 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `bootstrap.opencode-warmup.test.ts`가 빈 DB 객체로 실제 `start()`를 지나 9건 red | ✅ 선조치: 조립·핸들러 모듈을 대체하고 그 자리에 배선 순서 케이스를 더했다 | 전체 vitest에서 발견 |
+| 2 | 테스트 예산 가드가 `shell-runner.test.ts`의 제한 시간 값을 잡았다 | ✅ 선조치: 가짜 시계 아래 계약값이라 `SEMANTIC_DELAYS`에 등록 | `check-test-budgets.mjs` |
+| 3 | 분리 시작한 draft가 승격 전까지 사이드바 draft 행에 보일 수 있다 | ⚠️ 보고만 | `useDraftSessionRows` — AC23 실기에서 확인 |
+| 4 | 릴레이 훅은 `AppLayout`에 있어 게이트·부팅 중 발화는 2분 뒤 `report_timeout` | ⚠️ 보고만 | 선언 경계 4 |
+| 5 | `ExecutionSettingsPicker`의 화면 자체(`select` 4개)는 자동 테스트가 없다 — 규칙만 `executionSettings.test.ts`가 본다 | ⚠️ 남긴 곳 | AC23 실기 |
+
+### 설계 대비 명시적 차이
+
+- `ScheduledTaskService`가 `runner.reconcileStaleRuns()`를 `start()` 안에서 부른다(plan §13의 순서 그대로, 호출 위치만 service). 조립 함수가 따로 부르지 않게 했다.
+- 삭제 확인을 `SchedulesView`에서 `lib/taskActions.ts`로 뺐다(순수 함수 좌표를 얻기 위해 — plan 정정 1의 ②).
+- `runner.ts`의 `ok` 판정에서 중복 항 하나를 지웠다(S31).
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 캐시·TTL 없음 | — |
+| 공유 | `startCron`을 `Scheduler`와 예약 작업이 함께 쓴다. 타이머 객체는 호출마다 따로라 서로 멈출 수 없다 | `cron.test.ts:'멈춘 뒤에는 발화하지 않고…'` · `scheduler.test.ts` 13케이스 green |
+| 재진입 | `sync`는 먼저 옛 타이머를 멈춘다 — 같은 작업에 두 번 불려도 타이머는 하나 | S26 red(`lifecycle:'편집으로 트리거를 바꾸면 새 시각에만 발화한다'`) |
+| 다른 무효화 축 | 분리 시작의 대기는 스토어 구독이라, draft 엔트리가 다른 경로로 지워지면 `start_failed`로 끝난다 | `chatStore.detached.test.ts:'세션 id 없이 대화가 지워지면 실패한다'` |
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 31 · 신규 21항목(`git status --short`). 신규: slice `features/scheduled-tasks/{limits,runner,service,prompt-relay,index}` · `app/scheduled-tasks.ts` · `handlers/scheduled-tasks.ts` · `infra/shell` · `infra/db/{scheduled-task-queries,migrations/0035}` · `shared/scheduled-tasks.ts` · renderer `features/schedules/**`·`pages/SchedulesPage`·릴레이 훅·`ExecutionSettingsPicker`·`lib/executionSettings` + 테스트. 삭제: 옛 `ports.ts`·`registry.ts`(+test)·`0034_scheduled_tasks.sql`·`docs/handoff/0287-scheduled-tasks/` |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음, Node ABI) · `node --test scripts/*.test.mjs` |
+| **관측한 게이트 산출** | 전체 vitest 966파일 중 964 pass · 2 skip · 실패 0 / 9,170케이스 중 9,167 pass · 1 expected fail · 2 skip(Node ABI — DB 스위트 포함) · lint `0 errors, 2 warnings`(둘 다 손대지 않은 `Timeline.tsx`·`useTranscriptVirtualizer.ts`) · typecheck 3구성 error 0 · migrations `append-only ok` · doc-inventory `generated doc ok … links ok` · product-naming `OK` · test-budgets `all budget sites scaled` · `node --test` 868 중 863 pass · 5 fail |
+| 기준선 분리 | `node --test` 5건은 `ERR_UNKNOWN_FILE_EXTENSION ".ts"`(`vitest.config.ts`·`temp-repo.testfixture.ts`를 node가 직접 import — 이 PC의 Node `v22.15.1`). 세 파일 모두 손대지 않았고, 내 `scripts/` 변경을 stash한 트리에서도 같은 5건이 난다(그때는 등록 누락 1건이 더해져 6건) |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 소스 22파일. 시간 예산 위반 0(`check-test-budgets` 통과, 의미 값 1건 등록) · 풀 분류 위반 0(전체 실행에서 `[test-pools]` 0줄) · 호스트 격리: 홈·env를 읽는 테스트 없음 |
+| V-pair 자기확인 | `SELF_PASS 19 / SELF_BLOCKED 1`(VP-05 — AC23 실기) |
+| 강제 지점 전수 | 36/36 자리(EP-1 5 · EP-2 3 · EP-3 5 · EP-4 2 · EP-5 10 · EP-6 4항 · EP-7 7) + EP-8 8식 0줄 |
+| **AC 자기보고**(`Criteria-Met`) | 24/25 — ✅ AC1~AC22·AC24·AC25(좌표는 위 표). ⚠️ AC23(사람 실기) |
+| **합계 검산** | `✅ 24 · ⚠️ 1 · ❌ 0 = 총 25` |
+| 블로커 / 역질문 | 없음. 결정권자 확인 대상: 놓친 문제 #3·#4 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(첫 라운드).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: plan §11은 `navItems.test.ts` 케이스를 "신규"로 적었으나 구현자가 nav 항목만 옮기고 케이스를 빠뜨렸다 — sweep(S77·S78)이 잡았다.
+- 반복해서 부딪히는 환경 한계: Git Bash에서 `python3`가 Store 스텁이라 `python`을 써야 한다 · `mutate.py`는 Windows에서 `PYTHONUTF8=1` 없이 oracle 출력 디코딩(cp949)으로 죽는다 · heredoc 안 작은따옴표가 깨져 스크립트를 파일로 써서 실행했다.
+- 현재 라운드·impl 턴: `r1`
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

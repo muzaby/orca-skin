@@ -83,6 +83,9 @@ import { createHarnessRuntimeConfigService } from '../features/harnesses/common/
 import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
+import { runShellCommand } from '../infra/shell/shell-runner'
+import { createScheduledTasks, type ScheduledTasks } from './scheduled-tasks'
+import { registerScheduledTaskHandlers } from './handlers/scheduled-tasks'
 import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
 import { deriveLeaseGateState } from '../features/sessions/restart-gate'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
@@ -110,7 +113,9 @@ import {
   broadcastConcurrency,
   broadcastNativeResourcesChanged,
   broadcastProviderState,
-  sendChatEvent
+  broadcastScheduledTasksChanged,
+  sendChatEvent,
+  sendScheduledPromptStart
 } from '../infra/ipc/send'
 import { getLogger, setLogDebug } from '../infra/log'
 import { netFetch } from '../infra/net/net-fetch'
@@ -249,6 +254,7 @@ export class Bootstrap {
   private artifacts?: ArtifactService
   private updates: UpdateController | null = null
   private scheduler?: Scheduler
+  private scheduledTasks?: ScheduledTasks
   // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
   private pendingMessages?: PendingMessageQueue
   private activity?: SessionActivityProjector
@@ -835,6 +841,7 @@ export class Bootstrap {
       harnessRuntime,
       runtimeModelCatalog
     }
+    this.startScheduledTasks(ctx.db)
     this.register(ctx)
     this.openCodeWarmup = new OpenCodeWarmup({
       service: this.composerPreparation!,
@@ -857,6 +864,27 @@ export class Bootstrap {
       this.updateOpenCodeGlobalWatch(ctx, false)
     })
     app.on('browser-window-focus', this.onHarnessFocus)
+  }
+
+  // 사용자 예약 작업 — 저장된 작업의 타이머를 다시 걸고 핸들러를 등록한다.
+  private startScheduledTasks(db: RouterContext['db']): void {
+    const scheduledTasks = (this.scheduledTasks = createScheduledTasks({
+      store: db.scheduledTasks,
+      projects: (projectId) => {
+        const project = db.getProject(projectId)
+        return project ? { cwd: project.cwd ?? null } : undefined
+      },
+      runShell: runShellCommand,
+      sendPromptStart: sendScheduledPromptStart,
+      onChanged: broadcastScheduledTasksChanged,
+      // 사용자가 고칠 수 있는 것은 그 작업의 편집뿐이라 토스트 없이 로그로 남긴다.
+      onRestoreError: (task, error) =>
+        getLogger()
+          .child('scheduler')
+          .warn('scheduler.task.restore.failed', { taskId: task.id, message: String(error) })
+    }))
+    scheduledTasks.service.start()
+    registerScheduledTaskHandlers(scheduledTasks.service, scheduledTasks.relay)
   }
 
   restartGateState(): RestartGateState {
@@ -924,6 +952,8 @@ export class Bootstrap {
     this.dailyGate?.dispose()
     void this.artifacts?.close()
     this.titles?.dispose()
+    // 실행 중 예약 작업을 먼저 끝낸다 — 자식 프로세스 종료와 이력 종결은 DB 가 열려 있을 때.
+    this.scheduledTasks?.dispose()
     this.scheduler?.stopAll()
     if (!this.supervisor || !this.bus) {
       // 조기 반환 경로에서도 미커밋 payload 는 반드시 스크럽한다.

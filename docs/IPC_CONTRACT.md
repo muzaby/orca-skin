@@ -11,7 +11,7 @@
 ## 1. 명명 규칙
 
 - 형식: `oo:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인: `harness`, `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `extensions`, `skills`, `files`, `git`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
+- 도메인: `harness`, `artifact` · `chat`, `composer`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `extensions`, `skills`, `files`, `git`, `session`, `project`, `schedule`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `error`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -26,7 +26,7 @@
 
 ## 2. 채널 카탈로그
 
-도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `composer`(§2.1-c) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `extensions`(§2.5-a) · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steerSendNow`) · `composer`(§2.1-c) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `extensions`(§2.5-a) · `skills` · `files` · `artifact`(§2.6-a) · `git`(§2.6-b) · `session` · `project` · `schedule`(예약 작업 — §2.7-b) · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`) · `error`(§2.13-d — `reportEvent`·`drain`·`revealLog`).
 
 > **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
 > 앱 로그인·서비스 연결·LLM 자격증명·로그인 프리 Plugin 이 **같은 채널 묶음**을 쓴다 — view 분류는
@@ -287,6 +287,26 @@ Claude의 `commands`는 실행 채널의 실제 목록을 우선하며, 채널 �
 `Project.cwd`는 프로젝트의 시작 경로이며 경로 없는 프로젝트는 `null`이다. 새 대화 기본값은 Electron `app.getPath('desktop')`이고 프로젝트 landing은 저장된 cwd를 우선한다. 신규 전송은 격리 준비가 끝난 뒤 격리 전 선택 경로로 프로젝트를 생성·연결하고 `session.updated.patch.projectId`로 실제 연결을 알린다. patch에서 projectId가 생략되면 기존 값을 유지한다. 같은 경로의 Windows 대소문자·끝 구분자 차이는 같은 프로젝트이며 이름은 유일키가 아니다. 명시한 기존 경로 없는 프로젝트를 기본 폴더에서 시작하면 기존 ID와 지침을 유지하고, 다른 폴더를 선택하면 해당 경로 프로젝트를 쓴다. 재개는 기록된 세션 cwd·projectId를 유지한다.
 
 실제 프로젝트를 새로 만든 최초 세션 확정 이벤트에만 선택 필드 `projectCreated: true`를 추가한다. 이 필드는 nav 자동 펼침을 위한 일회성 비영속 신호이며 기존 프로젝트 재사용·재개·초기 목록 로딩에는 보내지 않는다.
+
+### 2.7-b 예약 작업
+
+사용자가 만든 주기 실행 단위다. 타입 정본은 `app/src/shared/scheduled-tasks.ts`, 요청 스키마는 `app/src/shared/protocol.ts`.
+
+| 채널 | 방향 | 요청 | 응답 | 설명 |
+|---|---|---|---|---|
+| `oo:schedule:list` | R→M (invoke) | — | `ScheduledTask[]` | 예약 작업 전체. `nextRunAt`·`running`·`lastRun`(출력 제외)은 조회 시점에 main이 합성한다. |
+| `oo:schedule:create` | R→M (invoke) | `ScheduledTaskInput` = `{ title; projectId; trigger: TriggerSpec; action: ScheduledTaskAction }` | `ScheduledTask` | 저장하고 사용 상태로 타이머를 건다. 프로젝트는 필수이고 shell 명령은 폴더가 있는 프로젝트만 받는다. |
+| `oo:schedule:update` | R→M (invoke) | `ScheduledTaskInput & { id }` | `ScheduledTask` | 전체 교체. 타이머를 새 트리거로 다시 건다. |
+| `oo:schedule:delete` | R→M (invoke) | `{ id }` | `Promise<void>` | 타이머 정지 → 진행 중 실행 중단 → 작업·이력 삭제. |
+| `oo:schedule:setEnabled` | R→M (invoke) | `{ id; enabled }` | `Promise<void>` | 끄면 발화하지 않는다. |
+| `oo:schedule:runNow` | R→M (invoke) | `{ id }` | `RunNowResult` | 즉시 1회 실행. 예약 시각은 바뀌지 않는다. 같은 작업이 실행 중이면 `{ started: false, reason: 'running' }`. |
+| `oo:schedule:listRuns` | R→M (invoke) | `{ id }` | `ScheduledRun[]` | 최근 실행(최신순, 출력 포함). 무효 요청은 빈 목록. |
+| `oo:schedule:promptReport` | R→M (invoke) | `ScheduledPromptReport` | `Promise<void>` | `promptStart`에 대한 결과 — 발급된 세션 id 또는 실패 사유. 대기 중이 아닌 `runId`는 무시한다. |
+| `oo:schedule:changed` | M→R (push) | `null` | — | 작업·실행 상태가 바뀌었다. renderer는 목록을 다시 읽는다. |
+| `oo:schedule:promptStart` | M→R (push, 한 창) | `ScheduledPromptStart` = `{ runId; projectId; text; execution }` | — | 예약 프롬프트의 새 대화 시작 요청. 받은 창이 `oo:chat:send`로 전송하고 `promptReport`로 답한다. |
+
+- 프롬프트 실행은 main이 턴을 직접 열지 않는다. 받은 창이 평소의 새 대화 경로로 전송하고, 보고 있는 대화는 바뀌지 않는다.
+- 실행 이력의 `error`는 알려진 사유 코드(`SCHEDULE_RUN_ERROR`)이거나 프로세스·하네스가 낸 메시지 원문이다.
 
 ### 2.8 Window (Phase 3+)
 

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { ChatPage } from '../pages/ChatPage'
 import { NewChatLandingPage } from '../pages/NewChatLandingPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
+import { SchedulesPage } from '../pages/SchedulesPage'
 import { ProjectLandingPage } from '../pages/ProjectLandingPage'
 import { AgentPage } from '../pages/AgentPage'
 import { CapturesPage } from '../pages/CapturesPage'
@@ -17,6 +18,7 @@ import { BootRedirector } from './BootRedirector'
 // - `/chat/:sessionId` : ChatPage (useParams 로 sessionId 획득 → useChatRouteSync 가 로드)
 // - `/projects` : 프로젝트 목록
 // - `/projects/:projectId` : ProjectLandingPage
+// - `/scheduled` : 예약 작업 목록
 // - 그 외       : `/new` 로 fallback
 export function AppRouter({
   artifactCatalog,
@@ -32,6 +34,7 @@ export function AppRouter({
       <Route path="/chat" element={<Navigate to="/new" replace />} />
       <Route path="/chat/:sessionId" element={<ChatPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
+      <Route path="/scheduled" element={<SchedulesPage />} />
       <Route path="/artifacts" element={<ArtifactsPage {...artifactCatalog} />} />
       <Route path="/plugins" element={<PluginsPage />} />
       <Route

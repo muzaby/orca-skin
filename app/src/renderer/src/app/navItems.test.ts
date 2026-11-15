@@ -22,6 +22,20 @@ describe('SIDEBAR_NAV', () => {
     expect(en.sidebar.nav.plugins).toBeTruthy()
   })
 
+  // 예약 작업 메뉴. `clock` 의 path 가 Material Symbols `schedule` 이다.
+  it('예약됨 메뉴는 프로젝트 다음에 있고 목록 경로에서만 활성이다', () => {
+    const paths = SIDEBAR_NAV.map((entry) => entry.path)
+    expect(paths.indexOf('/scheduled')).toBe(paths.indexOf('/projects') + 1)
+    const item = SIDEBAR_NAV.find((entry) => entry.path === '/scheduled')!
+    expect(item.icon).toBe('clock')
+    expect(item.isActive('/scheduled')).toBe(true)
+    expect(item.isActive('/scheduled/x')).toBe(false)
+    expect(item.isActive('/projects')).toBe(false)
+    expect(ko.sidebar.nav.scheduled).toBe('예약됨')
+    expect(en.sidebar.nav.scheduled).toBe('Scheduled')
+    expect(ko.schedules.newTask).toBe('새 작업')
+  })
+
   it('아티팩트 메뉴는 갤러리 경로를 열고 활성 상태를 표시한다', () => {
     const item = SIDEBAR_NAV.find((entry) => entry.path === '/artifacts')!
     expect(item.isActive('/artifacts')).toBe(true)

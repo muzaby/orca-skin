@@ -3,6 +3,7 @@ export { AutomaticFeedDebugSection } from './components/AutomaticFeedDebugSectio
 export { ChatTile } from './components/ChatTile'
 export { ChatView } from './components/ChatView'
 export { Composer } from './components/Composer'
+export { ExecutionSettingsPicker } from './components/ExecutionSettingsPicker'
 export { RightPanel } from './components/rightpanel/RightPanel'
 export { ArtifactViewer } from './harnesses/common/rightpanel/ArtifactViewer'
 export { OpenCodeWordmark } from './harnesses/opencode/Wordmark'

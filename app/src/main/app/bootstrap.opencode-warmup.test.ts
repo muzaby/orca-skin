@@ -92,8 +92,24 @@ vi.mock('../features/scheduler', () => ({
   Scheduler: class {
     register = vi.fn()
     applySettings = vi.fn()
-    stopAll = vi.fn()
+    stopAll = vi.fn(() => void scheduled.events.push('scheduler.stop'))
   }
+}))
+// 사용자 예약 작업 — 조립·핸들러 등록·종료 순서만 기록한다(조립 자체는 수명주기 테스트가 본다).
+const scheduled = vi.hoisted(() => ({ events: [] as string[], stores: [] as unknown[] }))
+vi.mock('./scheduled-tasks', () => ({
+  createScheduledTasks: (deps: { store: unknown }) => {
+    scheduled.stores.push(deps.store)
+    return {
+      service: { start: () => void scheduled.events.push('start') },
+      relay: { report: () => undefined },
+      dispose: () => void scheduled.events.push('dispose')
+    }
+  }
+}))
+vi.mock('./handlers/scheduled-tasks', () => ({
+  registerScheduledTaskHandlers: (service: unknown, relay: unknown) =>
+    void scheduled.events.push(service && relay ? 'handlers' : 'handlers:missing')
 }))
 vi.mock('../features/gate', () => ({
   selectGateMembers: () => ({ members: [], blocked: [] }),
@@ -413,6 +429,17 @@ it('does not warm a different last backend and closes a pending warmup from Boot
   fixture.change()
   models.resolve()
   expect(requests.some((path) => path.startsWith('/session'))).toBe(false)
+})
+
+it('restores scheduled tasks once the DB is open and stops them before the scheduler on shutdown', async () => {
+  const bootstrap = boot()
+  scheduled.events.length = 0
+  scheduled.stores.length = 0
+  await bootstrap.start()
+  expect(scheduled.events).toEqual(['start', 'handlers'])
+  expect(scheduled.stores).toHaveLength(1)
+  bootstrap.shutdown()
+  expect(scheduled.events).toEqual(['start', 'handlers', 'dispose', 'scheduler.stop'])
 })
 
 it('overlaps the deferred install check with DB initialization, joins before finish, and removes focus listener', async () => {
