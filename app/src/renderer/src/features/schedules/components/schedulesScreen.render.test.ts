@@ -29,7 +29,7 @@ const render = (props: Partial<SchedulesScreenProps>): string =>
       loading: false,
       revision: 0,
       projects: [{ id: 'p1', name: '카메라 검증', cwd: 'C:\\work\\cam' }],
-      renderExecutionPicker: () => null,
+      pickers: { project: () => null, execution: () => null },
       onCreate: async () => undefined,
       onUpdate: async () => undefined,
       onDelete: () => undefined,
@@ -89,5 +89,34 @@ describe('SchedulesScreen', () => {
     const orphan = render({ tasks: [task({ projectId: null })] })
     expect(orphan).toMatch(/data-schedule-project-missing=""[^>]*>프로젝트가 삭제되었습니다</)
     expect(orphan).not.toContain('카메라 검증')
+  })
+})
+
+describe('SchedulesScreen — 작업 종류 아이콘', () => {
+  // terminal_2 — nav 세션 행의 코드 글리프.
+  const CODE_NAV_PATH =
+    'M480-160v-80h320v80H480ZM220-320l-56-56 183-184-183-184 56-56 240 240-240 240Z'
+
+  it('shell 작업 행은 nav 세션과 같은 코드 아이콘이다', () => {
+    expect(render({ tasks: [task()] })).toContain(CODE_NAV_PATH)
+    expect(
+      render({
+        tasks: [
+          task({
+            action: {
+              kind: 'prompt',
+              text: 'x',
+              execution: {
+                backend: 'claude',
+                agentKind: 'work',
+                providerKey: 'k',
+                modelFamily: 'm',
+                permissionMode: 'default'
+              }
+            }
+          })
+        ]
+      })
+    ).not.toContain(CODE_NAV_PATH)
   })
 })

@@ -4,7 +4,8 @@
 
 import { create } from 'zustand'
 import type { Project } from '../../../../../shared/ipc'
-import { projectApi } from '../../../shared/api/ipc'
+import { basenameForDisplay } from '../../../../../shared/path-basename'
+import { fileApi, projectApi } from '../../../shared/api/ipc'
 
 interface ProjectsStoreState {
   list: Project[]
@@ -35,6 +36,16 @@ async function createProject(name: string, instructions: string): Promise<Projec
   return created
 }
 
+// 폴더를 골라 그 경로의 프로젝트를 돌려준다. main 이 같은 경로의 기존 프로젝트를 재사용하므로
+// 이미 있는 폴더를 골라도 새로 생기지 않는다. 취소면 null.
+async function addFromDirectory(): Promise<Project | null> {
+  const cwd = await fileApi.pickDirectory()
+  if (!cwd) return null
+  const project = await projectApi.create({ name: basenameForDisplay(cwd), instructions: '', cwd })
+  await initProjects()
+  return project
+}
+
 async function update(id: string, patch: { name?: string; instructions?: string }): Promise<void> {
   await projectApi.update({ id, ...patch })
   await initProjects()
@@ -55,6 +66,7 @@ async function setPinned(id: string, pinned: boolean): Promise<void> {
 export const projectsActions = {
   refresh: initProjects,
   create: createProject,
+  addFromDirectory,
   update,
   remove,
   setPinned

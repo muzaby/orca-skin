@@ -847,6 +847,97 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1.3)
+
+- 동의 / 그대로 진행: §21 ΔV2 전체.
+- 이견 / 현실성 문제: 없음. 프로젝트 슬롯을 추가하며 schedules의 슬롯 prop을 `renderExecutionPicker` 하나에서 `pickers: { project, execution }` 하나로 묶었다(View·Screen·Modal·Form 전달 경로 그대로).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.3)
+
+ΔV2 pair(VP-23·24)는 §10 자리가 0이다. REGRESSION VP-25·VP-19의 좌표는 그대로 green이다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-23 | AC28~30 | 0 | 해당 없음 | `executionSettingsPicker.render.test.ts`(3) · `projectPickerChip.test.ts`(4) · `schedulesScreen.render.test.ts:'shell 작업 행은 nav 세션과 같은 코드 아이콘이다'` · `scheduleTaskModal.render.test.ts`(프로젝트 슬롯이 `projectId`를 받음) · `SchedulesPage.render.test.ts`(프로젝트 목록·폴더 유무 전달) | 운반 항: 프로젝트 id(`p-beta`·`p-new`) → `onChange` | AC31 시각 |
+| VP-25 | 컴포저 프로젝트 선택 | 0 | 해당 없음 | `pages/{NewChatLandingPage,ProjectLandingPage}.project-picker.test.ts` 21케이스 green(추출 전후 같음) | — | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음(verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-23 | REQUIRED | SELF_BLOCKED | 위 표 좌표 | AC31 사람 실기 대기 |
+| VP-24 | REQUIRED | SELF_PASS | `features/chat/components/projectPickerChip.test.ts`(패널을 실제로 펼쳐 검색·선택·추가) | not selected |
+| VP-25 | REGRESSION | SELF_PASS | `pages/NewChatLandingPage.project-picker.test.ts` · `pages/ProjectLandingPage.project-picker.test.ts` | not selected |
+| VP-19 | REGRESSION | SELF_PASS | `features/chat/lib/executionSettings.test.ts` | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| E01 코드 아이콘을 `icon`으로 되돌림 · E05 행 아이콘 `terminal` | sweep — AC30 두 자리 | 최초 | 1 · 1건 | 잠김 |
+| E02 노력 칩을 하네스 무관하게 · E03 권한 칩을 하네스 무관하게 · E04 종류 칩을 종류 1개여도 | sweep — AC28 규칙 칸 3분기 | 최초 | 각 1건 | 잠김 |
+| P01 선택이 `onChange`를 안 부름 · P02 취소된 추가도 닫음 · P03 검색 무시 · P04 체크 표시 없음 · P05 폴더 없음 태그 없음 · P06 고른 이름 대신 자리표시 | sweep — AC29 `ProjectPickerChip` 자리 | 최초 | 각 1건 | 잠김 |
+| P07 경로 검색 제거 · P08 추가 클릭 무시 · P09 Esc가 닫지 않음 | sweep — `ProjectMenuPanel` 자리(두 소비처) | 최초 | 1 · 7 · 1건 | 잠김 |
+| L01 컴포저 선택 뒤 닫지 않음 · L02 로딩 상태 전달 제거 | sweep — 컴포저 배선(VP-25) | 최초 | 4 · 2건 | 잠김 |
+| S01 모달이 프로젝트 슬롯에 고른 값을 안 넘김 · S02 페이지가 프로젝트 목록을 안 넘김 | sweep — 슬롯 운반 | 최초 | 각 1건 | 잠김 |
+
+- **분모 검산**: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 18 = 표 행 18`, 전부 red.
+- **덮개 회귀**: ΔV1 변이 D01·D03은 이번 diff가 닿은 파일이라 다시 돌렸다(D05의 프로젝트 `select`는 슬롯으로 옮겨져 재앵커 = S01). D01·D02·D03을 다시 돌려 셋 다 red(각 1건).
+
+## [구현자 기입] Product/UX 파생 검토 (r1.3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | `noFolderTag`는 프로젝트 메뉴 행 태그로 쓰인다(P05). 소비자가 사라진 `effortDefault`·`projectNoFolder`·`MODAL_SELECT`는 지웠다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 컴포저 프로젝트 메뉴 본문을 `ProjectMenuPanel`로 옮겼다. 검색 초점은 패널이 열릴 때(마운트) 잡고, 닫을 때 검색어 초기화·초점 복귀는 여전히 `LandingProjectPicker.close`가 한다 | 컴포저 테스트 21케이스 green |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | `프로젝트 추가` 실패(폴더 대화상자·생성 실패) — 오류 토스트(`actionFailed`). 표의 "저장 실패" 행과 같은 처리 | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 추가를 취소하면 메뉴가 그대로 열려 있다(P02) | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 추가 중에는 행·추가가 비활성이다 | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `MenuChip`이 렌더 중 ref를 넘긴다는 lint error(`react-hooks/refs`) | ✅ 선조치: 초점 복귀를 effect로 옮겼다 | `npm run lint` |
+| 2 | 모달 안의 Popover는 Esc에 모달까지 닫힐 수 있다 | ✅ 선조치: `MenuChip`은 캡처 단계에서 Esc를 받아 메뉴만 닫는다. 프로젝트 메뉴는 패널의 기존 Esc 처리(`stopPropagation`)를 쓴다 | 실기 AC31 |
+| 3 | 작업 트리의 `app/package.json`·`package-lock.json` `better-sqlite3` 버전 변경은 이번 세션이 만들지 않았다 | ⚠️ 보고만 — 커밋하지 않았다 | `git diff app/package.json` |
+
+### 설계 대비 명시적 차이
+
+- 없음.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 공유 · 재진입 · 다른 무효화 축 | 공유: `ProjectMenuPanel`을 컴포저와 예약 모달이 함께 쓴다 — 패널은 상태를 갖지 않아 서로 영향이 없다 | VP-25 21케이스 · `projectPickerChip.test.ts` 4케이스 |
+
+## [구현자 기입] 구현 보고 (r1.3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규: `shared/ui/MenuChip.tsx` · `features/chat/components/{ProjectMenuPanel,ProjectPickerChip}.tsx` · `features/chat/lib/projectMenuItems.ts` + 테스트 2. 수정: `ExecutionSettingsPicker` · `LandingProjectPicker` · chat 배럴 · `projectsStore`(`addFromDirectory`) · schedules `ScheduleTaskModal`·`TriggerFields`·`ScheduleRow`·`SchedulesScreen`·`SchedulesView`·배럴 · `pages/SchedulesPage` · `shared/ui/Modal` · i18n · 테스트 3 · 문서 2 |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음, Node ABI) |
+| **관측한 게이트 산출** | 전체 vitest 968파일 중 922 pass · 44 fail · 2 skip. 실패 44파일은 전부 io 풀(SQLite·실제 프로세스)이고 unit 풀 실패는 0이다. Node ABI 재빌드가 `EBUSY/EPERM … better_sqlite3.node`(실행 중인 앱이 바이너리를 잡고 있음)로 막혀 Electron ABI 그대로 돌았다 — r1 최종 실행(Node ABI, 같은 DB 스위트)은 실패 0이었고 이번 diff는 renderer·문서뿐이다 · lint `0 errors, 2 warnings`(기존 2건) · typecheck error 0 · 가드 4종 통과 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 5파일 — `projectPickerChip.test.ts`는 가짜 타이머만 쓰고 시간 값 없음 · 프로세스·SQLite 없음. 위반 0(`check-test-budgets` 통과) |
+| V-pair 자기확인 | ΔV2: `SELF_PASS 3 / SELF_BLOCKED 1`(VP-23 — AC31 실기) |
+| 강제 지점 전수 | ΔV2 0자리 |
+| **AC 자기보고**(`Criteria-Met`) | 28/31 — r1.2의 ✅25에 AC28·29·30 ✅. ⚠️ AC23·AC27·AC31(사람 실기) |
+| **합계 검산** | `✅ 28 · ⚠️ 3 · ❌ 0 = 총 31` — ΔV2가 AC 4건을 더해 분모가 27 → 31로 바뀌었다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1.3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음(사용자 요구 변경 턴).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: ΔV1 AC26은 배치 순서만 잠갔고 "선택 컨트롤이 무엇인가"(네이티브 `select`)는 열거하지 않았다 — 사용자 지적으로 ΔV2가 됐다.
+- 반복해서 부딪히는 환경 한계: 작은따옴표가 든 heredoc · Windows의 sqlite ABI 전환(r1과 같음).
+- 현재 라운드·impl 턴: `r1.3`(사용자 요구 변경).
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

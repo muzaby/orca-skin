@@ -1,35 +1,38 @@
 // 제어형 실행 설정 입력 — 모델·작업 종류·노력·권한을 한 값(`PromptExecution`)으로 고른다.
 // 예약 작업 모달이 pages 슬롯으로 쓴다. 컴포저와 달리 세션 상태를 읽지 않는다 — 고른 값은
-// 호출자가 갖고, 선택 규칙은 `lib/executionSettings.ts` 가 갖는다.
+// 호출자가 갖고, 선택 규칙은 `lib/executionSettings.ts` 가 갖는다. 펼치는 메뉴는 컴포저의
+// 것(`ModelMenu`·`ModeMenu`·`EffortMenu`)을 그대로 쓴다.
 
 import { useEffect } from 'react'
 import type { AgentKind } from '../../../../../shared/agent-kind'
-import type { EffortLevel } from '../../../../../shared/ipc'
-import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import { HARNESS_CAPABILITIES } from '../../../../../shared/harness'
+import { defaultEffortForModel } from '../../../../../shared/harnesses/claude/model-effort'
 import type { PromptExecution } from '../../../../../shared/scheduled-tasks'
 import { useAgents } from '../../../shared/hooks/useAgents'
-import { useI18n, type MessageKey } from '../../../shared/i18n'
-import { MODAL_SELECT } from '../../../shared/ui/Modal'
+import { useI18n } from '../../../shared/i18n'
+import { HarnessLogo } from '../../../shared/ui/HarnessLogo'
+import { Icon, type IconName } from '../../../shared/ui/Icon'
+import { MENU_CHIP_GROUP, MenuChip } from '../../../shared/ui/MenuChip'
+import { MenuItem, MenuTitle } from '../../../shared/ui/MenuItem'
 import { EFFORT_LABEL_KEYS } from '../harnesses/claude/composer/effort'
+import { EffortMenu } from '../harnesses/claude/composer/EffortMenu'
+import { ModeMenu } from '../harnesses/claude/composer/ModeMenu'
+import { modeMenuOptions, permissionModeLabelKey } from '../harnesses/claude/composer/modes'
+import { agentPresentation } from '../lib/agentPresentation'
 import {
   executionAgentKinds,
   executionForKind,
   executionForModel,
   executionModelOptions,
   executionOptionValue,
-  executionPermissionModes,
   withExecutionEffort
 } from '../lib/executionSettings'
+import { ModelMenu } from './composer/ModelMenu'
+import { selectedModelShape, type ModelSelection } from './composer/modelSelection'
 
-const EFFORTS = Object.keys(EFFORT_LABEL_KEYS) as EffortLevel[]
-
-const MODE_LABEL_KEYS: Record<NormalizedPermissionMode, MessageKey> = {
-  default: 'chat.composer.modes.default.label',
-  accept_edits: 'chat.composer.modes.accept_edits.label',
-  plan: 'chat.composer.modes.plan.label',
-  dont_ask: 'chat.composer.modes.dont_ask.label',
-  bypass: 'chat.composer.modes.bypass.label',
-  auto_classified: 'chat.composer.modes.auto_classified.label'
+// 작업 종류 아이콘 — 코드는 nav 세션과 같은 글리프를 쓴다.
+function agentKindIcon(kind: AgentKind): IconName {
+  return kind === 'code' ? agentPresentation.code.navIcon : agentPresentation[kind].icon
 }
 
 interface ExecutionSettingsPickerProps {
@@ -49,105 +52,118 @@ export function ExecutionSettingsPicker({
   useEffect(() => {
     if (value == null && fallback) onChange(executionForModel(fallback, null))
   }, [value, fallback?.value]) // eslint-disable-line react-hooks/exhaustive-deps
-  const current = executionOptionValue(value)
-  const known = options.some((option) => option.value === current)
+  const current = options.find((option) => option.value === executionOptionValue(value))
+  const selection: ModelSelection | null = value
+    ? {
+        providerKey: value.providerKey,
+        modelFamily: value.modelFamily,
+        modelAlias: null,
+        adapter: value.backend
+      }
+    : null
   const kinds = value ? executionAgentKinds(value) : []
-  const modes = value ? executionPermissionModes(value) : []
+  const effort = value?.effort ?? defaultEffortForModel(value?.modelFamily)
 
   return (
-    <>
-      <select
-        aria-label={tr('schedules.modal.model')}
+    <div data-execution-settings="" className={MENU_CHIP_GROUP}>
+      <MenuChip
+        segment
         title={tr('schedules.modal.model')}
-        data-execution-model=""
-        value={current}
-        onChange={(event) => {
-          const option = options.find((item) => item.value === event.target.value)
-          onChange(option ? executionForModel(option, value) : null)
-        }}
-        className={MODAL_SELECT}
+        muted={value == null}
+        leading={value && <HarnessLogo backend={value.backend} className="size-3.5 shrink-0" />}
+        // 카탈로그에서 사라진 저장값도 원문으로 보인다 — 조용히 다른 모델로 바뀌지 않게.
+        label={
+          current?.label ??
+          value?.modelFamily ??
+          value?.providerKey ??
+          tr('schedules.modal.modelPlaceholder')
+        }
       >
-        <option value="">{tr('schedules.modal.modelPlaceholder')}</option>
-        {/* 카탈로그에서 사라진 저장값도 보이게 둔다 — 조용히 다른 모델로 바뀌지 않게. */}
-        {value && !known && (
-          <option value={current}>{value.modelFamily ?? value.providerKey}</option>
-        )}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {value && kinds.length > 1 && (
-        <select
-          aria-label={tr('schedules.modal.agentKind')}
-          title={tr('schedules.modal.agentKind')}
-          data-execution-kind=""
-          value={value.agentKind}
-          onChange={(event) =>
-            onChange(
-              executionForKind(
-                { ...value, agentKind: event.target.value as AgentKind },
-                value.permissionMode
+        {(close) => (
+          <ModelMenu
+            agents={agents}
+            sessionBackend={null}
+            selection={selection}
+            onPick={(picked) => {
+              const option = options.find(
+                (item) =>
+                  item.execution.providerKey === picked.providerKey &&
+                  item.execution.modelFamily === picked.modelFamily
               )
-            )
-          }
-          className={MODAL_SELECT}
-        >
-          {kinds.map((kind) => (
-            <option key={kind} value={kind}>
-              {kind === 'code' ? 'Code' : 'Work'}
-            </option>
-          ))}
-        </select>
-      )}
-      {value && (
-        <>
-          <select
-            aria-label={tr('schedules.modal.effort')}
-            title={tr('schedules.modal.effort')}
-            data-execution-effort=""
-            value={value.effort ?? ''}
-            onChange={(event) => {
-              const effort = event.target.value as EffortLevel | ''
-              onChange(withExecutionEffort(value, effort || undefined))
+              if (option) onChange(executionForModel(option, value))
+              close()
             }}
-            className={MODAL_SELECT}
-          >
-            <option value="">{tr('schedules.modal.effortDefault')}</option>
-            {EFFORTS.map((effort) => (
-              <option key={effort} value={effort}>
-                {tr(EFFORT_LABEL_KEYS[effort])}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label={tr('schedules.modal.permission')}
-            title={tr('schedules.modal.permission')}
-            data-execution-permission=""
-            value={value.permissionMode}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                permissionMode: event.target.value as NormalizedPermissionMode
-              })
-            }
-            className={MODAL_SELECT}
-          >
-            {/* 정책 메뉴 밖의 저장값도 보이게 둔다. */}
-            {!modes.includes(value.permissionMode) && (
-              <option value={value.permissionMode}>
-                {tr(MODE_LABEL_KEYS[value.permissionMode])}
-              </option>
-            )}
-            {modes.map((mode) => (
-              <option key={mode} value={mode}>
-                {tr(MODE_LABEL_KEYS[mode])}
-              </option>
-            ))}
-          </select>
-        </>
+          />
+        )}
+      </MenuChip>
+      {value && kinds.length > 1 && (
+        <MenuChip
+          segment
+          title={tr('schedules.modal.agentKind')}
+          icon={agentKindIcon(value.agentKind)}
+          label={tr(agentPresentation[value.agentKind].label)}
+        >
+          {(close) => (
+            <div role="none" className="flex w-[200px] flex-col">
+              <MenuTitle>{tr('schedules.modal.agentKind')}</MenuTitle>
+              {kinds.map((kind) => (
+                <MenuItem
+                  key={kind}
+                  role="menuitemradio"
+                  aria-checked={kind === value.agentKind}
+                  icon={agentKindIcon(kind)}
+                  onClick={() => {
+                    onChange(executionForKind({ ...value, agentKind: kind }, value.permissionMode))
+                    close()
+                  }}
+                >
+                  <span className="min-w-0 flex-1 text-[13px] font-medium text-ink">
+                    {tr(agentPresentation[kind].label)}
+                  </span>
+                  {kind === value.agentKind && <Icon name="check" size={12} />}
+                </MenuItem>
+              ))}
+            </div>
+          )}
+        </MenuChip>
       )}
-    </>
+      {value?.backend === 'claude' && (
+        <MenuChip
+          segment
+          title={tr('schedules.modal.effort')}
+          label={tr(EFFORT_LABEL_KEYS[effort])}
+        >
+          {(close) => (
+            <EffortMenu
+              effort={effort}
+              defaultEffort={defaultEffortForModel(value.modelFamily)}
+              onPick={(next) => {
+                onChange(withExecutionEffort(value, next))
+                close()
+              }}
+            />
+          )}
+        </MenuChip>
+      )}
+      {value && HARNESS_CAPABILITIES[value.backend].permissionModes && (
+        <MenuChip
+          segment
+          align="end"
+          title={tr('schedules.modal.permission')}
+          label={tr(permissionModeLabelKey(value.permissionMode, value.agentKind))}
+        >
+          {(close) => (
+            <ModeMenu
+              mode={value.permissionMode}
+              options={modeMenuOptions(selectedModelShape(agents, selection), value.agentKind)}
+              onPick={(permissionMode) => {
+                onChange({ ...value, permissionMode })
+                close()
+              }}
+            />
+          )}
+        </MenuChip>
+      )}
+    </div>
   )
 }
