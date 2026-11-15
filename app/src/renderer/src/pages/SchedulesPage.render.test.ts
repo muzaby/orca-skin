@@ -11,6 +11,7 @@ const captured = vi.hoisted(() => ({ onOpenSession: null as null | ((id: string)
 
 vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }))
 vi.mock('../features/projects', () => ({
+  projectsActions: { addFromDirectory: vi.fn() },
   useProjectsState: (select: (state: unknown) => unknown) =>
     select({
       list: [
@@ -20,6 +21,17 @@ vi.mock('../features/projects', () => ({
     })
 }))
 vi.mock('../features/chat', () => ({
+  ProjectPickerChip: (props: {
+    projects: { id: string; cwd: string | null }[]
+    value: string | null
+  }) =>
+    createElement('div', {
+      'data-component': 'ProjectPickerChip',
+      'data-value': props.value ?? 'none',
+      'data-projects': props.projects
+        .map((item) => `${item.id}:${item.cwd ? 'dir' : 'flat'}`)
+        .join(',')
+    }),
   ExecutionSettingsPicker: (props: { value: PromptExecution | null }) =>
     createElement('div', {
       'data-component': 'ExecutionSettingsPicker',
@@ -32,7 +44,7 @@ vi.mock('../features/schedules', async () => {
   return {
     SchedulesView: (props: {
       projects: never
-      renderExecutionPicker: never
+      pickers: never
       onOpenSession: (id: string) => void
     }) => {
       captured.onOpenSession = props.onOpenSession
@@ -50,7 +62,7 @@ vi.mock('../features/schedules', async () => {
           }
         },
         projects: props.projects,
-        renderExecutionPicker: props.renderExecutionPicker,
+        pickers: props.pickers,
         onChange: () => undefined
       })
     }
@@ -66,8 +78,9 @@ beforeEach(() => {
 describe('SchedulesPage', () => {
   it('프로젝트 목록이 모달 선택지가 되고 폴더 유무가 전달된다', () => {
     const html = renderToStaticMarkup(createElement(SchedulesPage))
-    expect(html).toMatch(/<option value="p-folder">카메라 검증<\/option>/)
-    expect(html).toMatch(/<option value="p-flat">메모 \(폴더 없음\)<\/option>/)
+    expect(html).toContain(
+      'data-component="ProjectPickerChip" data-value="none" data-projects="p-folder:dir,p-flat:flat"'
+    )
   })
 
   it('chat 의 실행 설정 입력이 프롬프트 모드 슬롯에 값과 함께 그려진다', () => {

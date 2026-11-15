@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useI18n } from '../../../shared/i18n'
-import {
-  Modal,
-  ModalActions,
-  MODAL_CARD,
-  MODAL_SECTION_LABEL,
-  MODAL_SELECT
-} from '../../../shared/ui/Modal'
+import { Modal, ModalActions, MODAL_CARD, MODAL_SECTION_LABEL } from '../../../shared/ui/Modal'
 import {
   SCHEDULE_COMMAND_MAX,
   SCHEDULE_TITLE_MAX,
@@ -30,13 +24,22 @@ export type RenderExecutionPicker = (
   value: PromptExecution | null,
   onChange: (value: PromptExecution | null) => void
 ) => ReactNode
+// 프로젝트 칩·메뉴 — 컴포저 프로젝트 버튼과 같은 것을 pages 가 넣는다.
+export type RenderProjectPicker = (
+  value: string | null,
+  onChange: (projectId: string) => void
+) => ReactNode
+export interface SchedulePickers {
+  project: RenderProjectPicker
+  execution: RenderExecutionPicker
+}
 
 interface ScheduleTaskModalProps {
   open: boolean
   // 있으면 편집, 없으면 생성.
   initial?: ScheduledTaskRecord
   projects: readonly ScheduleProject[]
-  renderExecutionPicker: RenderExecutionPicker
+  pickers: SchedulePickers
   onSubmit: (input: ScheduledTaskInput) => Promise<void>
   onClose: () => void
 }
@@ -50,7 +53,7 @@ export function ScheduleTaskModal(props: ScheduleTaskModalProps): React.JSX.Elem
 function ScheduleTaskModalOpen({
   initial,
   projects,
-  renderExecutionPicker,
+  pickers,
   onSubmit,
   onClose
 }: ScheduleTaskModalProps): React.JSX.Element {
@@ -99,7 +102,7 @@ function ScheduleTaskModalOpen({
       <ScheduleTaskForm
         form={form}
         projects={projects}
-        renderExecutionPicker={renderExecutionPicker}
+        pickers={pickers}
         onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
         autoFocusTitle
       />
@@ -115,7 +118,7 @@ function ScheduleTaskModalOpen({
 interface ScheduleTaskFormProps {
   form: ScheduleFormState
   projects: readonly ScheduleProject[]
-  renderExecutionPicker: RenderExecutionPicker
+  pickers: SchedulePickers
   onChange: (patch: Partial<ScheduleFormState>) => void
   autoFocusTitle?: boolean
 }
@@ -126,7 +129,7 @@ const KIND_KEYS = { prompt: 'schedules.kindPrompt', shell: 'schedules.kindShell'
 export function ScheduleTaskForm({
   form,
   projects,
-  renderExecutionPicker,
+  pickers,
   onChange,
   autoFocusTitle = false
 }: ScheduleTaskFormProps): React.JSX.Element {
@@ -152,23 +155,12 @@ export function ScheduleTaskForm({
           className="w-full border-0 bg-transparent p-0 font-serif text-[24px] font-medium tracking-[-0.01em] text-ink outline-none placeholder:text-ink3"
         />
         <div data-schedule-settings="" className="mt-3 flex flex-wrap items-center gap-2">
-          <select
-            aria-label={tr('schedules.modal.project')}
-            title={tr('schedules.modal.project')}
-            value={form.projectId ?? ''}
-            onChange={(event) => onChange({ projectId: event.target.value || null })}
-            className={MODAL_SELECT}
-          >
-            <option value="">{tr('schedules.modal.projectPlaceholder')}</option>
-            {projects.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.cwd ? item.name : tr('schedules.modal.projectNoFolder', { name: item.name })}
-              </option>
-            ))}
-          </select>
+          <span data-schedule-project="" className="contents">
+            {pickers.project(form.projectId, (projectId) => onChange({ projectId }))}
+          </span>
           {form.kind === 'prompt' && (
             <div data-schedule-execution="" className="contents">
-              {renderExecutionPicker(form.execution, (execution) => onChange({ execution }))}
+              {pickers.execution(form.execution, (execution) => onChange({ execution }))}
             </div>
           )}
         </div>

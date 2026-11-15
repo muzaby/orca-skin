@@ -27,12 +27,15 @@ const render = (patch: Partial<ScheduleFormState>): string =>
       form: { ...emptyForm(), ...patch },
       projects,
       // 슬롯이 받은 값을 그대로 드러내 운반을 본다.
-      renderExecutionPicker: (value) =>
-        createElement('div', {
-          'data-picker': '',
-          'data-permission': value?.permissionMode ?? 'none',
-          'data-model': value?.modelFamily ?? 'none'
-        }),
+      pickers: {
+        project: (value) => createElement('div', { 'data-project-picker': value ?? 'none' }),
+        execution: (value) =>
+          createElement('div', {
+            'data-picker': '',
+            'data-permission': value?.permissionMode ?? 'none',
+            'data-model': value?.modelFamily ?? 'none'
+          })
+      },
       onChange: () => undefined
     })
   )
@@ -41,9 +44,10 @@ describe('ScheduleTaskForm — 필드 구성', () => {
   it('제목·프로젝트·트리거·명령 입력과 두 명령 종류를 그린다', () => {
     const html = render({})
     expect(html).toContain('예: 아침 버그 요약')
-    expect(html).toContain('프로젝트 선택')
-    expect(html).toContain('카메라 검증')
-    expect(html).toContain('메모 (폴더 없음)')
+    // 프로젝트 칩은 pages 가 넣는 슬롯이고 고른 값을 받는다.
+    expect(html).toContain('data-project-picker="none"')
+    expect(render({ projectId: 'p-folder' })).toContain('data-project-picker="p-folder"')
+    expect(html).not.toContain('<select')
     expect(html).toContain('data-schedule-trigger=""')
     expect(html).toMatch(/data-schedule-kind="prompt"[^>]*>프롬프트</)
     expect(html).toMatch(/data-schedule-kind="shell"[^>]*>shell 명령</)
@@ -98,7 +102,7 @@ describe('ScheduleTaskForm — 배치', () => {
   it('프로젝트와 실행 설정이 같은 칩 줄에 있고 그 밑에 안내가 한 줄 있다', () => {
     const html = render({ kind: 'prompt', execution })
     const row = html.split('data-schedule-settings=""')[1]!.split('data-schedule-trigger')[0]!
-    expect(row).toMatch(/<select[^>]*aria-label="프로젝트"/)
+    expect(row).toContain('data-project-picker=')
     expect(row).toContain('data-picker')
     expect(row).toContain('고른 프로젝트 폴더에서, 고른 모델과 권한으로 실행합니다.')
     expect(render({ kind: 'shell' })).toContain('고른 프로젝트 폴더에서 명령을 실행합니다.')
@@ -113,27 +117,35 @@ describe('ScheduleTaskForm — 배치', () => {
 })
 
 describe('ScheduleTaskForm — 트리거', () => {
-  const selectCount = (html: string): number =>
-    html.split('data-schedule-trigger')[1]!.split('</select>').length - 1
+  // 트리거 카드 안의 선택 칩과 각 칩이 보이는 현재 값.
+  const choices = (html: string): Record<string, string> =>
+    Object.fromEntries(
+      [
+        ...html
+          .split('data-schedule-trigger')[1]!
+          .split('data-schedule-command')[0]!
+          .matchAll(
+            /data-schedule-choice="(\w+)"[\s\S]*?<span class="min-w-0 truncate[^"]*">([^<]*)</g
+          )
+      ].map((match) => [match[1]!, match[2]!])
+    )
 
   it('매시간은 주기만 고른다', () => {
     const html = render({ triggerKind: 'hourly' })
-    expect(selectCount(html)).toBe(1)
+    expect(choices(html)).toEqual({ frequency: '매시간' })
     expect(html).not.toMatch(/GMT[+-]\d/)
     expect(html).not.toContain('data-schedule-day')
   })
 
   it('매일은 시각과 로컬 오프셋을 보인다', () => {
     const html = render({ triggerKind: 'daily', at: { hour: 9, minute: 30 } })
-    expect(selectCount(html)).toBe(2)
-    expect(html).toMatch(/<option value="9:30" selected="">09:30<\/option>/)
+    expect(choices(html)).toEqual({ frequency: '매일', time: '09:30' })
     expect(html).toMatch(/GMT[+-]\d/)
   })
 
   it('매주는 요일 하나와 시각을 고른다', () => {
     const html = render({ triggerKind: 'weekly', day: 3 })
-    expect(selectCount(html)).toBe(3)
-    expect(html).toMatch(/<option value="3" selected="">수<\/option>/)
+    expect(choices(html)).toEqual({ frequency: '매주', day: '수', time: '09:00' })
   })
 
   it('사용자 지정은 요일 다중 선택과 시각을 보인다', () => {
@@ -143,6 +155,7 @@ describe('ScheduleTaskForm — 트리거', () => {
     expect(html).toMatch(/aria-pressed="true" data-schedule-day="5"/)
     expect(html).toMatch(/aria-pressed="false" data-schedule-day="2"/)
     expect(html).toContain('매주 반복')
+    expect(choices(html)).toEqual({ frequency: '사용자 지정', time: '09:00' })
     expect(html).toMatch(/GMT[+-]\d/)
   })
 })

@@ -8,18 +8,18 @@ import {
   useSchedulesState
 } from '../store/schedulesStore'
 import { SchedulesScreen } from './SchedulesScreen'
-import type { RenderExecutionPicker } from './ScheduleTaskModal'
+import type { SchedulePickers } from './ScheduleTaskModal'
 
 interface SchedulesViewProps {
-  // 프로젝트 목록·실행 설정 입력·대화 열기는 다른 feature 의 것이라 pages 가 넘긴다.
+  // 프로젝트 목록·프로젝트/실행 설정 입력·대화 열기는 다른 feature 의 것이라 pages 가 넘긴다.
   projects: readonly ScheduleProject[]
-  renderExecutionPicker: RenderExecutionPicker
+  pickers: SchedulePickers
   onOpenSession: (sessionId: string) => void
 }
 
 export function SchedulesView({
   projects,
-  renderExecutionPicker,
+  pickers,
   onOpenSession
 }: SchedulesViewProps): React.JSX.Element {
   const { tr } = useI18n()
@@ -36,7 +36,7 @@ export function SchedulesView({
       loading={loading}
       revision={revision}
       projects={projects}
-      renderExecutionPicker={renderExecutionPicker}
+      pickers={pickers}
       onCreate={schedulesActions.create}
       onUpdate={schedulesActions.update}
       onDelete={(task) => confirmTaskDeletion(task, tr)}

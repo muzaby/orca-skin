@@ -65,7 +65,7 @@ export function ScheduleRow({
         openProps={{ onClick: onToggleExpanded, 'aria-expanded': expanded }}
         icon={
           <Icon
-            name={task.action.kind === 'shell' ? 'terminal' : 'chat'}
+            name={task.action.kind === 'shell' ? 'terminal2' : 'chat'}
             size={20}
             className={`shrink-0 ${task.enabled ? 'text-ink3' : 'text-ink3 opacity-50'}`}
           />

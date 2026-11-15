@@ -13,14 +13,14 @@ import type {
 import type { ScheduleProject } from '../lib/scheduleForm'
 import { RunHistoryPanel } from './RunHistory'
 import { ScheduleRow } from './ScheduleRow'
-import { ScheduleTaskModal, type RenderExecutionPicker } from './ScheduleTaskModal'
+import { ScheduleTaskModal, type SchedulePickers } from './ScheduleTaskModal'
 
 export interface SchedulesScreenProps {
   tasks: ScheduledTask[]
   loading: boolean
   revision: number
   projects: readonly ScheduleProject[]
-  renderExecutionPicker: RenderExecutionPicker
+  pickers: SchedulePickers
   onCreate: (input: ScheduledTaskInput) => Promise<void>
   onUpdate: (input: ScheduledTaskInput & { id: string }) => Promise<void>
   onDelete: (task: ScheduledTask) => void
@@ -44,7 +44,7 @@ export function SchedulesScreen({
   loading,
   revision,
   projects,
-  renderExecutionPicker,
+  pickers,
   onCreate,
   onUpdate,
   onDelete,
@@ -189,7 +189,7 @@ export function SchedulesScreen({
         open={editing != null}
         initial={editing != null && editing !== 'new' ? editing : undefined}
         projects={projects}
-        renderExecutionPicker={renderExecutionPicker}
+        pickers={pickers}
         onClose={closeModal}
         onSubmit={async (input) => {
           if (editing != null && editing !== 'new') {
