@@ -4,7 +4,7 @@
 // 확정해야 하는 것들**을 한 단위로 모은다. 각 조각이 서로를 참조하기 때문이다 — continuity
 // 메타가 provider 폴백과 cwd 계승과 제목 마커 언어를 동시에 정한다.
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { ClassifiedError } from '../../../shared/ipc'
 import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityLangFor, type ContinuityLang } from '../../../shared/continuity-lang'
@@ -62,7 +62,7 @@ interface ResolvedTurn {
 
 export async function resolveTurn(
   ctx: RouterContext,
-  supervisor: RuntimeSupervisor<WebContents>,
+  supervisor: RuntimeSupervisor<ClientRef>,
   adapter: TurnPreparationAdapter,
   payload: SendChatPayload,
   recoveryExtra = '',

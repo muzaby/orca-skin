@@ -1,6 +1,6 @@
 // SDK 관측 권한 → 현재 세션의 controller/renderer. 초기 init은 history의 세션 확정 뒤
 // 적용하고, 모드만 바뀐 보고로 세션 생성·continuity 처리를 다시 실행하지 않는다(0249 ΔV3).
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 import type { TurnContext } from '../../contracts/turn'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
@@ -9,7 +9,7 @@ import { sendChatEvent } from '../../infra/ipc/send'
 type ObservedTurn = Pick<TurnContext, 'dbSessionId' | 'controller'>
 
 export function createPermissionModeObserver(deps: {
-  wc: WebContents
+  wc: ClientRef
   permissionModes: PermissionModeController
   getActiveTurn: () => ObservedTurn
 }): {
@@ -28,7 +28,7 @@ export function createPermissionModeObserver(deps: {
   }
   const current = (): ObservedTurn | undefined => {
     const turn = deps.getActiveTurn()
-    return turn.controller.signal.aborted || deps.wc.isDestroyed() ? undefined : turn
+    return turn.controller.signal.aborted || deps.wc.isClosed() ? undefined : turn
   }
 
   return {

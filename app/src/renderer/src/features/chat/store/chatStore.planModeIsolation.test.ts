@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../../../../main/contracts/client'
 import type {
   ApprovalResolution,
   NormalizedEvent,
@@ -52,9 +52,9 @@ describe('0249 independent X2 — plan acceptance ownership and child mode isola
       const permissionModes = new PermissionModeController()
       await permissionModes.setMode('s', 'plan')
       const controller = new AbortController()
-      const turn = { dbSessionId: 's', agentKind: 'code', controller } as TurnContext<WebContents>
+      const turn = { dbSessionId: 's', agentKind: 'code', controller } as TurnContext<ClientRef>
       const request = createApprovalRequester({
-        wc: {} as WebContents,
+        wc: {} as ClientRef,
         approvals: {
           isSessionAllowed: () => false,
           register: (id: string, _turn: unknown, signal: AbortSignal) =>
@@ -227,9 +227,9 @@ describe('0249 independent X2 — plan acceptance ownership and child mode isola
         dbSessionId: 's',
         agentKind: 'code',
         controller: new AbortController()
-      } as TurnContext<WebContents>
+      } as TurnContext<ClientRef>
       const request = createApprovalRequester({
-        wc: {} as WebContents,
+        wc: {} as ClientRef,
         approvals: {
           register: (id: string, _turn: unknown, signal: AbortSignal) =>
             broker.register(id, signal, { behavior: 'deny' })

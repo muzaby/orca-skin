@@ -9,7 +9,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, vi } from 'vitest'
+import { afterAll, beforeEach, vi } from 'vitest'
 import { HERMETIC_GIT_CONFIG, hermeticDirectories, hermeticTestEnv } from './test-host.mjs'
 import { scaledWaitForOptions } from './test-time.mjs'
 
@@ -40,5 +40,19 @@ afterAll(() => {
     rmSync(root, { recursive: true, force: true, maxRetries: 3 })
   } catch {
     // Windows EBUSY 등 — 임시 폴더 잔여만 남는다.
+  }
+})
+
+// ④ main 테스트의 요청·통지 전송 (0324) — 테스트가 전송을 정하지 않았으면 셸 전송(`ipcMain`·
+//    `webContents`)을 건다. `electron` 은 테스트가 mock 한 것을 쓴다. mock 하지 않은 파일은
+//    Electron 을 못 읽어 건너뛰고, 그런 파일은 핸들러 등록·창 통지를 부르지 않는다.
+beforeEach(async () => {
+  const transport = await import('../src/main/infra/ipc/transport.ts')
+  if (transport.hasIpcTransport()) return
+  try {
+    const electron = await import('../src/main/infra/ipc/electron-transport.ts')
+    transport.setIpcTransport(electron.createElectronTransport({ isTrusted: () => true }))
+  } catch {
+    // Electron 을 읽지 못하는 테스트 — 전송이 필요 없다.
   }
 })

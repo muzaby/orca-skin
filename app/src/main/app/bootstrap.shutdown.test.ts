@@ -1,3 +1,4 @@
+import type { ClientRef } from '../contracts/client'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { stripCommentsAndStrings } from '../infra/source-scan'
@@ -30,8 +31,8 @@ describe('Bootstrap turn event registration', () => {
   function setup(): {
     order: string[]
     recordTurnUsage: Mock<(turn: TurnContext) => void>
-    bus: MainBus<Electron.WebContents>
-    turn: TurnContext<Electron.WebContents>
+    bus: MainBus<ClientRef>
+    turn: TurnContext<ClientRef>
     persistence: HistoryWriter
   } {
     const order: string[] = []
@@ -52,15 +53,15 @@ describe('Bootstrap turn event registration', () => {
     const bootstrap = Object.create(Bootstrap.prototype) as {
       registerTurnEvents(
         ctx: Pick<RouterContext, 'db' | 'cost'>,
-        bus: MainBus<Electron.WebContents>
+        bus: MainBus<ClientRef>
       ): HistoryWriter
     }
-    const bus = new TypedBus<OoBusEvents<Electron.WebContents>>()
+    const bus = new TypedBus<OoBusEvents<ClientRef>>()
     const persistence = bootstrap.registerTurnEvents(ctx, bus)
     const turn = {
       currentAssistantMessageId: 42,
       owner: { isDestroyed: () => false, send: () => order.push('relay') }
-    } as unknown as TurnContext<Electron.WebContents>
+    } as unknown as TurnContext<ClientRef>
     return { order, recordTurnUsage, bus, turn, persistence }
   }
 

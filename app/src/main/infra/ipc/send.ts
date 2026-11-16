@@ -2,7 +2,6 @@
 // 타깃 전송(chatEvent·installStatus)을 한 곳에 모은다. 버스 팬아웃 이득이 없는 renderer push 는
 // 여기 직접 호출을 유지한다(bus-events.ts 주석 참조 — 과도한 버스화 금지).
 
-import { BrowserWindow, webContents, type WebContents } from 'electron'
 import {
   CHANNELS,
   type ConcurrencyEvent,
@@ -23,6 +22,7 @@ import type {
   OpenCodePluginsChanged
 } from '../../../shared/native-resources'
 import type { UsageDelta } from '../../../shared/usage/limits'
+import { ipcTransport, type ClientRef } from './transport'
 import { wireLog } from './wire-log'
 
 export function broadcastHarnessAvailability(state: HarnessAvailability): void {
@@ -49,9 +49,9 @@ export function broadcastBackgroundEvent(event: BackgroundEvent): void {
 // wire 플래그 정본은 wire-log.ts(electron 비의존, 0068) — 기존 import 경로 무회귀 re-export.
 export { setWireLog } from './wire-log'
 
-export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
+export function sendChatEvent(client: ClientRef, ev: NormalizedEvent): void {
   wireLog(ev.type, ev)
-  if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
+  client.send(CHANNELS.chatEvent, ev)
 }
 
 export function broadcastChatEvent(ev: NormalizedEvent): void {
@@ -59,11 +59,9 @@ export function broadcastChatEvent(ev: NormalizedEvent): void {
   broadcast(CHANNELS.chatEvent, ev)
 }
 
-// owner 무관 전-창 팬아웃 — 살아있는 webContents 전부에 push.
-function broadcast(channel: string, payload: unknown): void {
-  for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(channel, payload)
-  }
+// owner 무관 전-창 팬아웃 — 열려 있는 창 전부에 push.
+export function broadcast(channel: string, payload: unknown): void {
+  for (const client of ipcTransport().clients()) client.send(channel, payload)
 }
 
 // 예약 작업 — 작업·실행 상태가 바뀌었다는 신호만 보낸다(목록은 renderer 가 다시 읽는다).
@@ -74,9 +72,9 @@ export function broadcastScheduledTasksChanged(): void {
 // 예약 프롬프트의 새 대화 시작 요청. 새 대화는 한 창이 맡아야 하므로 방송하지 않고 첫 창에만
 // 보낸다. 보낼 창이 없으면 false.
 export function sendScheduledPromptStart(payload: ScheduledPromptStart): boolean {
-  const wc = BrowserWindow.getAllWindows().find((win) => !win.isDestroyed())?.webContents
-  if (!wc || wc.isDestroyed()) return false
-  wc.send(CHANNELS.schedulePromptStart, payload)
+  const client = ipcTransport().primaryClient()
+  if (!client || client.isClosed()) return false
+  client.send(CHANNELS.schedulePromptStart, payload)
   return true
 }
 
@@ -93,8 +91,8 @@ export function broadcastConcurrency(ev: ConcurrencyEvent): void {
   broadcast(CHANNELS.concurrencyEvent, ev)
 }
 
-export function sendInstallStatus(wc: WebContents, st: InstallStatus): void {
-  if (!wc.isDestroyed()) wc.send(CHANNELS.installStatus, st)
+export function sendInstallStatus(client: ClientRef, st: InstallStatus): void {
+  client.send(CHANNELS.installStatus, st)
 }
 
 export function broadcastSessionTitle(ev: SessionTitleEvent): void {

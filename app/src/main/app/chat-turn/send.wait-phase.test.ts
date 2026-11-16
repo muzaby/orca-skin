@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EventEmitter } from 'node:events'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 import type { ChatWaitPhase } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
 
@@ -102,7 +102,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
     releaseChain: vi.fn(),
     releaseRuntime: vi.fn()
   }
-  const sender = new EventEmitter()
+  const sender = fakeClient()
   const deps = {
     ctx: {
       settings: { getAll: () => ({}) },

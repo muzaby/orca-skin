@@ -1,4 +1,4 @@
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import { describe, expect, it, vi } from 'vitest'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
 import { CHANNELS, type NormalizedEvent } from '../../../shared/ipc'
@@ -54,7 +54,7 @@ vi.mock('../../infra/ipc/send', () => ({
 vi.setConfig(scaledBudget({ testTimeout: 15_000 }))
 
 type Prompt = { messageID: string; parts: Array<{ type: string; text?: string }> }
-type UserCommit = Parameters<NonNullable<TurnPersistSink<WebContents>['commitUserMessage']>>[1]
+type UserCommit = Parameters<NonNullable<TurnPersistSink<ClientRef>['commitUserMessage']>>[1]
 const waitFor = (assertion: () => void): Promise<void> =>
   vi.waitFor(assertion, { timeout: 5000, interval: 10 })
 
@@ -186,8 +186,8 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     server
   })
   const runtime = new SessionRuntime(adapter)
-  const owner = { id: 1 } as WebContents
-  const supervisor = new RuntimeSupervisor<WebContents>()
+  const owner = { id: 1 } as ClientRef
+  const supervisor = new RuntimeSupervisor<ClientRef>()
   const lease = supervisor.acquireChain({
     agentKind: 'code',
     logicalKey: sessionLeaseKey('s1'),
@@ -216,7 +216,7 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     subagentTypes: new Map(),
     blockedSubagents: new Set(),
     stoppedSubagents: new Set()
-  } as unknown as TurnContext<WebContents>
+  } as unknown as TurnContext<ClientRef>
   supervisor.startResume('s1', activeTurn)
   supervisor.activateChain(lease.leaseId, runtime, null, activeTurn)
   const pendingMessages = new PendingMessageQueue()
@@ -248,9 +248,9 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
   })
   const events: NormalizedEvent[] = []
   const commits: UserCommit[] = []
-  const bus = new TypedBus<OoBusEvents<WebContents>>()
+  const bus = new TypedBus<OoBusEvents<ClientRef>>()
   bus.on('turn.event', ({ ev }) => events.push(ev))
-  const persistence: TurnPersistSink<WebContents> = {
+  const persistence: TurnPersistSink<ClientRef> = {
     persist: () => {},
     flushAskAnswers: () => {},
     finalizeTurn: () => {},

@@ -1192,6 +1192,108 @@ gate(마지막 수정 뒤 트리):
 
 ---
 
+## [구현자 기입] r1.4 — 밀린 gate · 영속 파일 잠금 · 창 참조와 전송 계층 (미완료 중단)
+
+**판정: 미완료(partial). 사용자 지시(2026-11-16 "더이상 작업하지 마라")로 멈췄다.** 단계 4 본체의 첫 조각(창 참조·전송 선택·채널 소유 표·수명 상태·고아 선별)까지 만들었고 프로세스 분리 자체는 시작하지 않았다 — 앱은 여전히 한 프로세스로 돈다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| EP-1 (d)·(g)·(l) 허용 파일 · EP-9 SSOT 위치 · EP-10′ 묶음 | `PLAN_GAP` — rev 3.1(§7-C)로 정정됨 | `infra` 는 `contracts` 를 import 하지 못하고, `handle.ts` 가 `ipcMain` 을 물면 호스트 그래프가 가드 (f) 에 걸린다 |
+| 수명 이벤트의 원천(EP-11) | `PLAN_GAP` — 열림(§7-C "열린 설계 항목") | 합성 `error` 는 버스를 타지 않는다. `lifecycle-emitter` 는 만들지 않았다 |
+| `RequestEvent.trusted` 의 포트 전송 쪽 자리 | `PLAN_GAP` — 열림(§7-C) | 셸 전송은 요청마다 판정한다. 포트 서버가 받는 자리가 §10 에 없다 |
+| 테스트의 전송 설치 | 구현 세부 | `scripts/vitest-setup.mjs` 가 전송이 없으면 셸 전송을 건다(테스트가 mock 한 `electron` 사용). `ipcMain`·`webContents` 를 mock 하던 테스트 62파일을 고치지 않기 위해서다 |
+| r1.3 회귀 1건 | 선조치 | `planMode.render.test.ts` 가 준비 단계 없이 `sendMessage` 를 불렀다. 이 환경에서는 Electron 미설치로 파일이 로드되지 않아 가려져 있었다 — `sendPrepared` 로 고쳤다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-13 (3) | 세 스토어의 `cwd` | 3/3 | `infra/settings-store.cwd.test.ts` · `infra/config/secret-store.cwd.test.ts` · `features/auth/store-file.cwd.test.ts`(grant·OAuth 2케이스) + 가드 (l) 실제 트리 위반 0 |
+| EP-1 (12) | 가드 (l) | 판정 1/1 | `scripts/check-ui-thread.test.mjs` "(l) 영속 파일" 10케이스. 실제 트리의 남은 위반은 (c) 1 · (e) 226 · (f) 2(진입점 없음) — 단계 4 본체·5 대기 |
+| EP-9 (4) | 대상 지정 전송 · 방송 · 직접 순회 2 | 4/4 (셸 전송 한정) | `infra/ipc/send.test.ts` 10케이스 · `infra/ipc/electron-transport.test.ts` 14케이스. 남긴 곳: 호스트 포트 전송(`ClientRef` 의 포트 구현)·preload 구독 분배 |
+| EP-8 (3) | preload 선택 · 셸 등록 · 호스트 등록 | 0/3 | 소유 표(`shared/channel-owner.ts`)와 테스트만 있다. 소비 자리 셋은 미착수 |
+| EP-11 (5) | 수명 이벤트 5종 | 0/5 | 스키마(`shared/host-protocol.ts`)와 셸 쪽 `LifecycleState`(+테스트 9케이스)만 있다. 호스트가 내는 자리와 소비자(`updater`·`tray-residency`) 배선 없음 |
+| EP-12 (4) | 호스트 종료 처리 | 0/4 | `app/shell/orphans.ts`(선별·종료, 테스트 9케이스)만 있다. `host-supervisor` 없음 |
+| EP-14 (6) | 셸 상태 | 4/6 | r1.3 과 같다. `index.ts` 의 네 소비 자리는 여전히 테스트가 없다 |
+| EP-4·5·6·10′ | — | 0 | 미착수 |
+
+V-pair 자기 상태: VP-35 = `SELF_PASS`(등록 변이 E13-2g). VP-06′·VP-34 는 r1.3 그대로(`E7-12` 재실행으로 보강). 그 밖은 올리지 않았다.
+
+### 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`. 원복은 매번 "모든 파일 원문 그대로".
+
+| 묶음 | 행 | 결과 |
+|---|---|---|
+| `E7-12`(r1.3 미확인분) | 1 | 잡음 — `adapter.native-plugins.test.ts:"carries the prepared global plugin defaults…"` |
+| EP-13 `E13-1`~`E13-6g`(등록 변이 `E13-2g` 포함) | 9 | 전부 잡음 — 스토어별 테스트 또는 가드 (l) |
+| EP-14 `E14-1`~`E14-14` | 14 | 전부 잡음 — `shell-state.test.ts` |
+| 전송 `T-1`~`T-37` | 37 | 잡음 35 · 동치 2(`T-33`·`T-35` — 닫힌 참조는 재사용되지 않아 죽은 줄이라 지웠다). `T-24`·`T-25`·`T-28` 은 처음에 못 잡아 `send.worktree.test.ts` 에 2케이스를 더하고 실패 지점 단언을 핸들러 밖으로 뺀 뒤 잡음 |
+| 수명 상태 `L-1`~`L-22` · 고아 `O-1`~`O-10` · 소유 표 `C-1`~`C-4` | 36 | 전부 잡음 |
+
+검산: `선택 증거 1(E13-2g) · 인용 변이 1(E7-12) · 새 oracle 0 · sweep 95 = 표 행 97`. VP-21 의 등록 변이(호스트 채널 1개를 `'shell'` 로 → `preload/index.test.ts` red)는 preload 가 아직 표를 쓰지 않아 돌리지 못했다 — `C-1` 은 소유 표 테스트가 잡은 것이지 그 pair 를 닫지 않는다.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 개발 중 새로고침 | 창이 소유한 진행 중 턴이 취소로 끝난다(B15). 패키징된 앱은 영향 없다. 화면 확인은 못 했다 |
+| 창 닫힘 뒤의 통지 | 닫힌 창으로의 전송은 예외 없이 버려진다(`send.test.ts`). 사용자에게 보이는 변화 없음 |
+| 예약 프롬프트 시작 | 대상은 지금처럼 먼저 열린 창 하나다(`primaryClient`) |
+
+### 놓친 잠재 문제 + 대응
+
+- 기준선에서 Electron 미설치로 **로드되지 않던 테스트 파일이 변경의 회귀를 가린다.** `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 주면 `require('electron')` 이 CI 처럼 경로 문자열을 돌려줘 그 파일들이 실행된다. 이 방식으로 기준선 실패 29파일을 다시 돌려 r1.3 회귀 1건과 r1.4 의 테스트 대역 2파일(`send.agent-profile`·`send.harness`)을 찾아 고쳤다. **변경 전 커밋의 같은 방식 기준선은 끝내지 못했다**(중단) — 남은 9파일의 실패가 환경 원인인지는 확인되지 않았다.
+- `handlers/misc.ts` 의 알림 포커스 판정은 셸 전송의 `contentsOf` 를 직접 쓴다 — 호스트로 옮길 때 셸 서비스(창 포커스)로 바뀌어야 하는 임시 배선이다.
+- `scripts/vitest-setup.mjs` 의 기본 전송은 `vi.resetModules()` 뒤 모듈 최상위에서 핸들러를 등록하는 테스트에는 닿지 않는다. 지금 그런 테스트의 실패는 0 이다.
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 밀린 gate (r1.3 분) | 실행 | 아래 표 |
+| 4 경로 주입 잠금 | 구현 | 스토어별 테스트 3 + `infra/electron-store.testfixture.ts` · 가드 (l) · `shell-state-file.ts` 의 (a) 등록 |
+| 4 창 참조·전송 선택 | 구현(셸 전송) | `infra/ipc/{transport,electron-transport}.ts` · `contracts/client.ts` · `handle.ts`·`send.ts` 가 전송을 주입받음 · `WebContents` 타입 14파일 → `ClientRef` · 수명 리스너 5자리 → `onClosed` · `index.ts` 가 전송을 건다 |
+| 4 채널 소유 표·프로토콜·수명 상태·고아 선별 | 일부(순수 모듈만) | `shared/{channel-owner,host-protocol}.ts` · `app/shell/{lifecycle-state,orphans}.ts` + 테스트 |
+| 4 나머지(호스트 포트 서버·`entry`·셸 서비스 8종·Electron 어댑터 13파일·`host-supervisor`·`boot`·preload 포트·`lifecycle-emitter`·`chatStore` 종료 반영·번들 입력·가드 (e)(f) 통과) · 5 · 7 · `ci.yml` | 미착수 | — |
+
+AC 자기보고(검증 증거 아님, 분모 38): ✅ AC5~AC14 · AC21′ · AC37 = 12 · ⚠️ AC2·AC3·AC4·AC24·AC25·AC28·AC29·AC35·AC36·AC38 = 10(판정·순수 모듈은 있고 배선 전) · ❌ 16. `✅ 12 · ⚠️ 10 · ❌ 16 = 총 38`.
+
+gate:
+
+| gate | 관측 |
+|---|---|
+| r1.3 트리 — 전체 `vitest run` | 986파일 — 953 pass · 29 fail / 22케이스 fail · 오류 1. `FAIL` 줄 42 — r1.2 기준선과 같은 수. 오류 1건(`native-resources.test.ts`)은 r1.3 이전 커밋에서도 같다 |
+| r1.3 트리 — 가드 4종 · `node --test scripts/*.test.mjs` | 전부 exit 0 · tests 947 · pass 944 · todo 3 |
+| 전송 조각 뒤 — 전체 `vitest run` | 989파일 — 28 fail / 24케이스. 기준선 대비 새 `FAIL` 줄 2(`planMode.render` — 위 r1.3 회귀, 고침) · 사라진 줄 2 |
+| `node --test scripts/check-ui-thread.test.mjs` | tests 90 · pass 87 · todo 3 |
+| **마지막 트리에서 돌리지 못한 것** | `npm run lint`(중단 — 일부 실행됐을 수 있다) · `npm run typecheck` · 전체 `vitest run` · `node --test scripts/*.test.mjs` 전체 · 가드 4종. 마지막 전체 실행 뒤에 바뀐 것: 채널 소유 표·프로토콜·수명 상태·고아 선별(신규 파일, 개별 스위트 38케이스 green) · `planMode.render`·`send.agent-profile`·`send.harness` 테스트 수정 · 죽은 줄 2 제거. **잇는 구현자가 먼저 돌린다** |
+
+테스트 소스 규칙의 파일별 판정: 하지 못했다(위 gate 미실행에 포함).
+
+대상 커밋: `(r1.4 구현 일부 — 좌표는 INDEX)`.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.4`(미완료 중단) — verify 0회. 사용자 요구 변경 턴(r1.3)을 빼면 이 라운드의 impl 턴은 3이다.
+- 자리 검색의 한 줄 정규식이 여러 줄 import 를 놓쳤다(EP-10′ 분모) — r1 의 EP-7·EP-10 과 같은 축(검색 술어가 실제보다 좁다)이다.
+- Electron 미설치 환경에서 파일 단위 로드 실패가 기준선에 들어가 그 파일의 회귀를 가렸다(r1.3 → r1.4 에서 1건 발견).
+- 한 턴에 단계 4 본체를 끝내지 못했다. 남은 범위는 아래 목록이다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. 마지막 트리의 gate 전부(위 "돌리지 못한 것"). vitest 는 `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 준 실행도 함께 돌리고, 변경 전 커밋의 같은 실행과 `FAIL` 줄 집합을 뺀다.
+2. 설계 턴: §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 전송의 `trusted`)을 정한다.
+3. 호스트 포트 전송: `ClientRef` 의 포트 구현과 요청 서버(`{ id, channel, payload }` → `{ id, ok, value | error }`), preload 의 소유 표 기반 전송 선택·포트 교체·통지 구독 분배(AC24·AC25·AC33, VP-21 등록 변이).
+4. 셸 서비스 8종(`app/shell/services.ts` + 호스트 쪽 클라이언트)과 Electron 값 import 파일의 이주. `safeStorage` 가 비동기가 되며 `SecretStore.get`/`set` 호출부가 연쇄로 바뀐다 — §12 의 분모를 먼저 고정한다. `infra/browser-session.ts`(로그인 창·파티션 세션)는 셸에 남기고 포트를 통해 부르는 설계가 필요하다.
+5. `host-supervisor`(fork·ready·포트 중개·exit·고아 정리·재기동 3회·shutdown 3초) · `boot` · `lifecycle-emitter` · `agent-host/entry` · `index.ts` 축소 · `updater`/`tray-residency` 의 입력을 `LifecycleState` 로 · `chatStore` 의 호스트 종료·재연결 반영 · `electron.vite.config.ts` 입력.
+6. 단계 5(데이터 호스트·세션 로드 조각) → 단계 7(문서·`AGENTS.md` 넷·ADR-012·`IPC_CONTRACT.md`) → `check-ui-thread.test.mjs` 의 `todo` 3건 제거와 `ci.yml` 가드 단계.
+7. IMPL_DONE 전: 열거 원문 sweep 전수 · 테스트 소스 규칙의 파일별 판정 · 사람 실기 AC22·AC23 안내.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

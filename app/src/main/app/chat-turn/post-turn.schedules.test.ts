@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import { CHANNELS, type ChatActivitySnapshot, type NormalizedEvent } from '../../../shared/ipc'
 import { sessionLeaseKey } from '../../../shared/lease-key'
 import type { TurnContext } from '../../contracts/turn'
@@ -112,8 +112,8 @@ function fixture(options: { activeChain?: boolean } = {}) {
     complete: async () => '',
     classifyError: (error) => makeClassifiedError('stream_error', String(error))
   })
-  const owner = { id: 1 } as WebContents
-  const supervisor = new RuntimeSupervisor<WebContents>()
+  const owner = { id: 1 } as ClientRef
+  const supervisor = new RuntimeSupervisor<ClientRef>()
   const lease = supervisor.acquireChain({
     agentKind: 'work',
     logicalKey: sessionLeaseKey('s1'),
@@ -137,7 +137,7 @@ function fixture(options: { activeChain?: boolean } = {}) {
     subagentTypes: new Map(),
     blockedSubagents: new Set(),
     stoppedSubagents: new Set()
-  } as unknown as TurnContext<WebContents>
+  } as unknown as TurnContext<ClientRef>
   supervisor.startResume('s1', turn)
   if (options.activeChain !== false) supervisor.activateChain(lease.leaseId, runtime, null, turn)
   const pendingMessages = new PendingMessageQueue()
@@ -154,7 +154,7 @@ function fixture(options: { activeChain?: boolean } = {}) {
     emit: (snapshot) => activityEvents.push(snapshot)
   })
   const events: NormalizedEvent[] = []
-  const bus = new TypedBus<OoBusEvents<WebContents>>()
+  const bus = new TypedBus<OoBusEvents<ClientRef>>()
   bus.on('turn.event', ({ ev }) => {
     events.push(ev)
   })
@@ -598,7 +598,10 @@ describe('0243 interruption delivery through real runtime and handlers', () => {
           .mocked(sendChatEvent)
           .mock.calls.filter(([, event]) => event.type === 'message.cancelled')
       ).toEqual([
-        [f.turn.owner, { type: 'message.cancelled', sessionId: 's1', ids: ['residual-message'] }]
+        [
+          expect.objectContaining({ id: f.turn.owner.id }),
+          { type: 'message.cancelled', sessionId: 's1', ids: ['residual-message'] }
+        ]
       ])
       expect(f.activity.current('s1').residualCount).toBe(0)
     } finally {

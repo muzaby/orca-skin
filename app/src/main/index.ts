@@ -16,6 +16,8 @@ import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeDb } from './infra/db'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
 import { handlePlain } from './infra/ipc/handle'
+import { createElectronTransport } from './infra/ipc/electron-transport'
+import { setIpcTransport } from './infra/ipc/transport'
 import { startLoopStallMonitor } from './infra/perf/stall-monitor'
 import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
@@ -35,6 +37,21 @@ if (import.meta.env.DEV) {
 
 // 로깅 싱글턴 초기화 (0123) — userData 리다이렉트 *이후*·다른 모든 배선 이전이다.
 const rootLog = initLog()
+
+// second-instance 핸들러가 포커스할 메인 창 참조. createWindow 에서 채우고 closed 에서 비운다.
+let mainWindowRef: BrowserWindow | null = null
+const rendererUrl =
+  is.dev && process.env['ELECTRON_RENDERER_URL']
+    ? process.env['ELECTRON_RENDERER_URL']
+    : 'app://renderer/'
+
+// 요청·통지의 전송을 정한다(0324) — 핸들러 등록보다 앞이어야 한다. 파일 작업 요청의 신뢰 판정
+// (현재 앱 창의 최상위 문서인가)은 요청마다 여기서 한다.
+setIpcTransport(
+  createElectronTransport({
+    isTrusted: createArtifactSenderCheck(() => mainWindowRef?.webContents ?? null, rendererUrl)
+  })
+)
 installErrorReportSink()
 registerErrorHandlers()
 registerLogHandlers()
@@ -43,13 +60,6 @@ startLoopStallMonitor('main')
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: Bootstrap | null = null
-
-// second-instance 핸들러가 포커스할 메인 창 참조. createWindow 에서 채우고 closed 에서 비운다.
-let mainWindowRef: BrowserWindow | null = null
-const rendererUrl =
-  is.dev && process.env['ELECTRON_RENDERER_URL']
-    ? process.env['ELECTRON_RENDERER_URL']
-    : 'app://renderer/'
 
 // 단일 인스턴스 강제 — 패키징 빌드 한정. 이미 실행 중인 인스턴스가 있으면 락 획득에 실패하고
 // 두 번째 프로세스는 아래 app.quit() 으로 즉시 종료된다. dev(electron-vite HMR 재시작)에서는
@@ -263,9 +273,7 @@ app.whenReady().then(async () => {
   // 윈도우 생성 이전에 app:// 핸들러를 부착해 renderer 로딩이 바로 받쳐지도록.
   registerAppProtocol()
 
-  const router = new Bootstrap(
-    createArtifactSenderCheck(() => mainWindowRef?.webContents ?? null, rendererUrl)
-  )
+  const router = new Bootstrap((event) => event.trusted)
   routerRef = router
   // 창 먼저(0109) — start() 의 DB 마이그레이션/스킬 시드/확장 배포를 기다리지 않고 셸을
   // 띄운다. renderer 부트 오케스트레이터의 첫 스텝(main-ready)이 이 게이트 invoke 로 완료를

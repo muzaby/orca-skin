@@ -1,4 +1,4 @@
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import {
   CHANNELS,
   ComposerCatalogReleaseSchema,
@@ -14,24 +14,18 @@ export type ComposerCatalogRegistration = (() => void) & { invalidate(): void }
 export function registerComposerCatalogHandlers(
   owners: ComposerCatalogOwners
 ): ComposerCatalogRegistration {
-  const windows = new Map<WebContents, () => void>()
-  const watch = (sender: WebContents): void => {
+  // 창이 닫히거나 문서가 새로 읽히면 그 창의 구독을 놓는다. 새 문서는 새 참조로 다시 등록된다.
+  const windows = new Map<ClientRef, () => void>()
+  const watch = (sender: ClientRef): void => {
     if (windows.has(sender)) return
-    const clear = (): void => owners.releaseSender(sender.id)
-    const navigate = (_event: unknown, _url: string, inPlace: boolean, main: boolean): void => {
-      if (main && !inPlace) clear()
-    }
+    let unwatch = (): void => {}
     const dispose = (): void => {
-      clear()
-      sender.removeListener('destroyed', dispose)
-      sender.removeListener('render-process-gone', clear)
-      sender.removeListener('did-start-navigation', navigate)
-      windows.delete(sender)
+      if (!windows.delete(sender)) return
+      unwatch()
+      owners.releaseSender(sender.id)
     }
     windows.set(sender, dispose)
-    sender.once('destroyed', dispose)
-    sender.on('render-process-gone', clear)
-    sender.on('did-start-navigation', navigate)
+    unwatch = sender.onClosed(dispose)
   }
   handle(
     CHANNELS.composerCatalog,
@@ -41,8 +35,7 @@ export function registerComposerCatalogHandlers(
       watch(event.sender)
       try {
         return await owners.read(event.sender.id, request, (value) => {
-          if (!event.sender.isDestroyed())
-            event.sender.send(CHANNELS.composerCatalogInvalidated, value)
+          event.sender.send(CHANNELS.composerCatalogInvalidated, value)
         })
       } catch (error) {
         if (error instanceof ComposerCatalogCancelled)

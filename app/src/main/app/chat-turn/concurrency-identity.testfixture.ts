@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import {
   CHANNELS,
   type ChatActivitySnapshot,
@@ -92,9 +92,9 @@ export function concurrencyFixture(
     complete: async () => '',
     classifyError: (error) => makeClassifiedError('stream_error', String(error))
   })
-  const owner = { id: 1 } as WebContents
+  const owner = { id: 1 } as ClientRef
   const concurrency: ConcurrencyEvent[] = []
-  const supervisor = new RuntimeSupervisor<WebContents>({
+  const supervisor = new RuntimeSupervisor<ClientRef>({
     activeTurns: new ActiveTurnTracker((event) => concurrency.push(event))
   })
   const lease = supervisor.acquireChain({
@@ -121,7 +121,7 @@ export function concurrencyFixture(
     subagentTypes: new Map(),
     blockedSubagents: new Set(),
     stoppedSubagents: new Set()
-  } as unknown as TurnContext<WebContents>
+  } as unknown as TurnContext<ClientRef>
   supervisor.startResume('s1', turn)
   supervisor.activateChain(lease.leaseId, runtime, null, turn)
   const pendingMessages = new PendingMessageQueue()
@@ -138,7 +138,7 @@ export function concurrencyFixture(
     emit: (snapshot) => activityEvents.push(snapshot)
   })
   const events: NormalizedEvent[] = []
-  const bus = new TypedBus<OoBusEvents<WebContents>>()
+  const bus = new TypedBus<OoBusEvents<ClientRef>>()
   bus.on('turn.event', ({ ev }) => {
     events.push(ev)
   })

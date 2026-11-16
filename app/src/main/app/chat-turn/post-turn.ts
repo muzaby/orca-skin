@@ -5,7 +5,7 @@
 // 다음 프롬프트로) · `break`(종료). 판정 자체는 순수 모듈(`features/chat/post-turn`)이 갖고,
 // 여기는 그 판정에 따른 실행·정착·신호만 한다.
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnCoordinator } from '../../features/chat/turn-coordinator'
@@ -25,10 +25,10 @@ import { buildFlushRequest, buildListenRequest, type ContinuationSettings } from
 import { makeContinuationTurn } from './turn-context'
 
 interface PostTurnDeps {
-  coordinator: TurnCoordinator<WebContents>
+  coordinator: TurnCoordinator<ClientRef>
   runtime: SessionRuntime
-  lease: SessionChainLease<WebContents>
-  supervisor: RuntimeSupervisor<WebContents>
+  lease: SessionChainLease<ClientRef>
+  supervisor: RuntimeSupervisor<ClientRef>
   activity: SessionActivityProjector
   pendingMessages: PendingMessageQueue
   backgroundTasks: BackgroundTaskTracker
@@ -37,8 +37,8 @@ interface PostTurnDeps {
   prepareContinuation: (
     sessionId: string
   ) => Promise<ContinuationSettings & { shouldRespawn: boolean }>
-  getActiveTurn: () => TurnContext<WebContents>
-  setActiveTurn: (turn: TurnContext<WebContents>) => void
+  getActiveTurn: () => TurnContext<ClientRef>
+  setActiveTurn: (turn: TurnContext<ClientRef>) => void
   setInitialBatches: (batches: SteerFlushBatch[]) => void
   /** 직전 턴이 연 입력 배치 — 실패로 held 에 되돌아간 자기 입력을 자동 재전송하지 않기 위해 본다. */
   getInitialBatches?: () => SteerFlushBatch[]
@@ -46,7 +46,7 @@ interface PostTurnDeps {
 
 export async function runTurnWithContinuations(
   deps: PostTurnDeps,
-  turn: TurnContext<WebContents>,
+  turn: TurnContext<ClientRef>,
   request: TurnRequest,
   sharedPathProjectId: string | null
 ): Promise<void> {

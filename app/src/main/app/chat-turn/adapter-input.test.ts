@@ -3,7 +3,7 @@ import { loadClaudeSdk } from '../../adapters/claude/sdk'
 // 테스트는 app 레이어에 두어 어댑터가 app/features를 참조하지 않도록 한다.
 import { describe, expect, it, vi } from 'vitest'
 import type { Options, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { TurnContext } from '../../contracts/turn'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
@@ -48,10 +48,10 @@ describe('0250 IT-02 — 도구 경계 입력 무주입', () => {
     const turn = {
       dbSessionId: 's1',
       blockedSubagents: new Set<string>()
-    } as TurnContext<WebContents>
+    } as TurnContext<ClientRef>
     const request = buildTurnRequest(
       {
-        wc: { isDestroyed: () => false, send: vi.fn() } as unknown as WebContents,
+        wc: { isDestroyed: () => false, send: vi.fn() } as unknown as ClientRef,
         pendingMessages,
         activity: {
           setResidualAttempts: vi.fn(),
