@@ -3,6 +3,7 @@
 // 않으므로 infra 에 두고 컴포지션 루트가 넘긴다. 상한(제한 시간·출력 크기)은 호출자가 정한다.
 
 import { spawn as nodeSpawn } from 'node:child_process'
+import { parseProcessTable, processTableCommand, type ProcessRow } from './process-table'
 
 export interface ShellRunResult {
   exitCode: number | null
@@ -155,4 +156,53 @@ export function runShellCommand(input: ShellRunInput): Promise<ShellRunResult> {
     if (input.signal?.aborted) kill()
     else input.signal?.addEventListener('abort', kill, { once: true })
   })
+}
+
+// 지금 떠 있는 프로세스의 pid·부모 pid (0324 EP-12 — 죽은 호스트의 고아 선별). 목록을 못 얻으면
+// 던진다 — 호출자(`reapOrphans`)가 기록하고 건너뛴다.
+export async function listProcesses(input: {
+  cwd: string
+  timeoutMs: number
+  platform?: NodeJS.Platform
+  run?: (input: ShellRunInput) => Promise<ShellRunResult>
+}): Promise<ProcessRow[]> {
+  const platform = input.platform ?? process.platform
+  const result = await (input.run ?? runShellCommand)({
+    command: processTableCommand(platform),
+    cwd: input.cwd,
+    timeoutMs: input.timeoutMs,
+    maxOutputBytes: 8 * 1024 * 1024,
+    platform
+  })
+  if (result.error) throw new Error(`프로세스 목록 실패: ${result.error}`)
+  if (result.exitCode !== 0 || result.truncated) {
+    throw new Error(`프로세스 목록 실패: exit ${String(result.exitCode)}`)
+  }
+  return parseProcessTable(result.output)
+}
+
+// pid 하나를 그 자손까지 끝낸다. Windows 는 `taskkill /T /F`, POSIX 는 프로세스 그룹 → 그 프로세스.
+export function killPidTree(
+  pid: number,
+  platform: NodeJS.Platform = process.platform
+): Promise<void> {
+  if (platform === 'win32') {
+    return new Promise((resolve, reject) => {
+      const killer = nodeSpawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore'
+      })
+      killer.on('error', reject)
+      killer.on('exit', (code) =>
+        code === 0 ? resolve() : reject(new Error(`taskkill exit ${String(code)}`))
+      )
+    })
+  }
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch {
+    // 그룹 대표가 아니면 그 프로세스만 끝낸다.
+    process.kill(pid, 'SIGKILL')
+  }
+  return Promise.resolve()
 }
