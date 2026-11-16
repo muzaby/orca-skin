@@ -3,8 +3,7 @@
 // 구현은 `electron-services.ts` 가 만들어 넘긴다.
 
 import type { ShellToHost } from '../../../shared/host-protocol'
-import type { ShellServicesPort } from '../../infra/shell-services'
-import { createShellClient } from '../agent-host/shell-client'
+import { createShellClient, type ShellClient } from '../agent-host/shell-client'
 import {
   SHELL_SERVICE_ARGS,
   isShellServiceName,
@@ -58,11 +57,12 @@ export function createShellServiceServer(
 }
 
 // 셸과 호스트가 한 프로세스인 동안의 포트 — 프로세스 경계와 같은 클라이언트·서버를 메모리에서
-// 잇는다. 인자 검증과 오류 문장이 경계를 둔 뒤와 같다.
+// 잇는다. 인자 검증과 오류 문장이 경계를 둔 뒤와 같다. 셸 → 호스트 통지(`wake`)는 반환한
+// 클라이언트의 `receive` 로 넣는다.
 export function connectShellServicesInProcess(
   impl: ShellServiceImpl,
   onError?: (name: string, error: unknown) => void
-): ShellServicesPort {
+): ShellClient {
   const server = createShellServiceServer({
     impl,
     reply: (message) => {

@@ -7,7 +7,8 @@ import type { ShellServicesPort } from '../../infra/shell-services'
 import type {
   ShellServiceArgs,
   ShellServiceName,
-  ShellServiceResults
+  ShellServiceResults,
+  WakeReason
 } from '../../../shared/shell-services'
 
 export interface ShellClient extends ShellServicesPort {
@@ -17,7 +18,6 @@ export interface ShellClient extends ShellServicesPort {
   ): Promise<ShellServiceResults[N]>
   // 셸이 보낸 메시지 중 이 클라이언트 몫(`service.result`·`wake`)이면 처리하고 true.
   receive(message: ShellToHost): boolean
-  onWake(listener: () => void): () => void
   // 셸과의 연결이 끊겼다 — 기다리는 호출을 모두 실패시키고 이후 호출은 바로 실패한다.
   close(reason: string): void
 }
@@ -31,7 +31,7 @@ export function createShellClient(deps: { post(message: HostToShell): void }): S
   let nextId = 0
   let closedReason: string | null = null
   const pending = new Map<number, Pending>()
-  const wakeListeners = new Set<() => void>()
+  const wakeListeners = new Set<(reason: WakeReason) => void>()
 
   return {
     call(name, ...args) {
@@ -44,7 +44,7 @@ export function createShellClient(deps: { post(message: HostToShell): void }): S
     },
     receive(message) {
       if (message.type === 'wake') {
-        for (const listener of [...wakeListeners]) listener()
+        for (const listener of [...wakeListeners]) listener(message.reason)
         return true
       }
       if (message.type !== 'service.result') return false

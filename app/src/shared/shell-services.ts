@@ -39,6 +39,10 @@ export const SHELL_SERVICE_ARGS = {
   'notify.show': z.tuple([NotifyOptions])
 } as const
 
+// 셸 → 호스트 `wake` 의 원인. 원인마다 듣는 쪽이 다르다(창 포커스만 보는 재확인이 있다).
+export const WAKE_REASONS = ['resume', 'unlock-screen', 'window-focus'] as const
+export type WakeReason = (typeof WAKE_REASONS)[number]
+
 export type ShellServiceName = keyof typeof SHELL_SERVICE_ARGS
 export type ShellServiceArgs<N extends ShellServiceName> = z.infer<(typeof SHELL_SERVICE_ARGS)[N]>
 

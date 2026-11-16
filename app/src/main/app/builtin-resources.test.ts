@@ -27,13 +27,13 @@ describe('resolveBuiltinSkillsDir', () => {
 })
 
 describe('resolveWorkProfilePluginDir', () => {
-  it('passes actual Electron host paths through the Bootstrap RouterContext wiring', () => {
+  it('passes the host environment paths through the Bootstrap RouterContext wiring (0324 — 경로는 fork 인자)', () => {
     // Bounded call-site contract: resolver unit tests cannot observe incorrect host inputs.
     const source = stripCommentsAndStrings(
       readFileSync(new URL('./bootstrap.ts', import.meta.url), 'utf8')
     )
     expect(source).toMatch(
-      /workProfilePluginPath:\s*resolveWorkProfilePluginDir\(\{\s*isPackaged:\s*app\.isPackaged,\s*resourcesPath:\s*process\.resourcesPath,\s*appPath:\s*app\.getAppPath\(\)\s*\}\)/
+      /workProfilePluginPath:\s*resolveWorkProfilePluginDir\(\{\s*isPackaged:\s*hostEnvironment\(\)\.isPackaged,\s*resourcesPath:\s*process\.resourcesPath,\s*appPath:\s*hostEnvironment\(\)\.appPath\s*\}\)/
     )
   })
 
