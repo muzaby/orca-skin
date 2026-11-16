@@ -34,6 +34,11 @@ export class ApprovalCoordinator {
   // abort)가 정확한 턴을 향하게 한다. broker settle 시 정리.
   private readonly turnsByApproval = new Map<string, TurnContext>()
 
+  constructor(
+    // 승인이 등록될 때마다 그 턴의 세션(미확정이면 null)으로 부른다(0324 EP-11).
+    private readonly pendingListener?: (sessionId: string | null) => void
+  ) {}
+
   isSessionAllowed(sessionId: string, toolName: string): boolean {
     return this.sessionAllowedTools.get(sessionId)?.has(toolName) ?? false
   }
@@ -46,6 +51,7 @@ export class ApprovalCoordinator {
     signal: AbortSignal
   ): Promise<ApprovalResolution> {
     this.turnsByApproval.set(approvalId, turn)
+    this.pendingListener?.(turn.dbSessionId ?? null)
     return this.broker
       .register(approvalId, signal, { behavior: 'deny' })
       .finally(() => this.turnsByApproval.delete(approvalId))
