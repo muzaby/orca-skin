@@ -1284,7 +1284,7 @@ gate:
 | `node --test scripts/*.test.mjs` | tests 958 · pass 955 · fail 0 · todo 3 |
 | `./node_modules/.bin/vitest run` (필터 없음) | 992파일 — 961 pass · 27 fail · 4 skip / 9305케이스 — 9271 pass · 22 fail · 오류 1 |
 | 기준선 대조(r1.3 트리의 같은 명령) | 새 `FAIL` 줄 0(`comm -13` 0줄) · 사라진 줄 2(`chat-turn.continuity`·`planMode.render` — 로드 실패가 풀렸다). vitest 로그의 `[test-pools]` 0줄 |
-| `node scripts/check-ui-thread.mjs` | exit 1 · 229건 — (c) 1 · (e) 226 · (f) 2. 단계 4 본체·5 대기분이다(`ci.yml` 미연결) |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 230건 — (c) 1 · (e) 226 · (f) 2 · 문서 대조 1. 단계 4 본체·5·7 대기분이다(`ci.yml` 미연결) |
 | 돌리지 못한 것 | `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 준 전체 실행과 변경 전 커밋의 같은 실행 대조 · 테스트 소스 규칙의 파일별 판정(예산 가드와 `[test-pools]` 0줄만 봤다) |
 
 대상 커밋: `(r1.4 구현 일부 — 좌표는 INDEX)`.
