@@ -23,7 +23,14 @@ let manager: LogManager | null = null
 let transport: FileTransport | null = null
 let rootLogger: AppLogger | null = null
 
-const MAIN_SOURCE: LogSource = { process: 'main' }
+// 프로세스마다 자기 파일에 쓴다(0324 AC46) — 한 파일을 여러 프로세스가 돌려 쓰면 로테이션이 서로를
+// 덮는다. 셸은 예전 이름을 그대로 쓴다.
+export type LogHostProcess = 'main' | 'agent-host' | 'data-host'
+const LOG_BASE_NAMES: Record<LogHostProcess, string> = {
+  main: 'application.jsonl',
+  'agent-host': 'agent-host.jsonl',
+  'data-host': 'data-host.jsonl'
+}
 
 // 로거 내부 장애 보고 전용 emergency 채널 — 로거 재귀 호출 금지 불변식의 유일한 콘솔 출구.
 function emergency(message: string): void {
@@ -44,10 +51,13 @@ function mirrorToConsole(record: LogRecord): void {
   )
 }
 
-export function initLog(): AppLogger {
+export function initLog(process: LogHostProcess = 'main'): AppLogger {
   if (rootLogger) return rootLogger
-  const dir = join(ooConfigDir(), 'logs')
-  transport = new FileTransport({ dir, onInternalError: emergency })
+  transport = new FileTransport({
+    dir: logDirectory(),
+    baseName: LOG_BASE_NAMES[process],
+    onInternalError: emergency
+  })
   manager = new LogManager({
     transport,
     appVersion: hostEnvironment().appVersion,
@@ -56,7 +66,7 @@ export function initLog(): AppLogger {
     consoleMirror: import.meta.env.DEV ? mirrorToConsole : undefined,
     onInternalError: emergency
   })
-  rootLogger = manager.logger('main', MAIN_SOURCE)
+  rootLogger = manager.logger(process, { process })
   setRootLogger(rootLogger)
   return rootLogger
 }
@@ -84,8 +94,13 @@ export function flushLogSync(): void {
   manager?.flushSync()
 }
 
+// 모든 프로세스의 로그 파일이 모이는 폴더.
+export function logDirectory(): string {
+  return join(ooConfigDir(), 'logs')
+}
+
 export function currentLogFilePath(): string {
-  return transport?.filePath ?? logFilePath(join(ooConfigDir(), 'logs'))
+  return transport?.filePath ?? logFilePath(logDirectory())
 }
 
 export function closeLog(): void {
