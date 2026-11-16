@@ -2237,6 +2237,96 @@ AC 자기보고(검증 증거 아님, 분모 38): r1.7 과 같다 — `✅ 12 ·
 
 ---
 
+## [구현자 기입] r1.9 — 두 호스트 인프라 · 비밀 캐시 이주 (미완료 — 사용량으로 중단, 다른 에이전트가 잇는다)
+
+**판정: 미완료(partial).** rev 4.1 의 인프라(피어 계약·피어 링크·두 호스트 수명·채널 소유 3분할·포트 클라이언트·가드 (e2)(e3)′)를 만들고 테스트로 잠갔다. 아직 어디에도 배선하지 않았다 — 앱은 여전히 한 프로세스의 `Bootstrap` 으로 돈다. 동작 이주는 비밀 캐시(EP-18) 하나를 끝냈다. 사용자 지시: "인프라 구조를 먼저 완성 → 개별 동작을 인프라 위로 이주 → 대체된 구현은 과감히 삭제".
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 가드 (e2)(e3)′ 의 규칙 id | 구현 세부 | 새 id(`e2`·`e3`)를 만들면 경로 표 문서와 함께 바뀌어야 한다. 규칙 (e) 안에 세 그래프 판정을 두고 실패 문장에 `e2 에이전트 호스트`·`e3 데이터 호스트` 를 싣는다 |
+| 피어 메서드의 인자 모양 | 구현 세부 — 이음매 | `shared/peer-protocol.ts` 는 메서드 이름·방향·봉투만 고정한다. F2·F4 의 개별 조회·실행은 `data.query`·`agent.call`·`data.write` 의 `op` 이름으로 받는다(`PeerOpSchema`). 표는 조립 분리 때 채운다 |
+| 감독자 훅 | 구현 세부 | `onReady`·`post()` 를 더했다 — `boot.ts` 가 준비를 알고 피어 포트·`peer.unavailable` 을 보내야 한다 |
+| 비밀 저장소의 사본 수 | 현재 결함 — 선조치 | `McpStore` 와 `Bootstrap` 이 같은 비밀 파일을 각자 열었다. 메모리 캐시를 두면 두 사본이 갈라지므로 `Bootstrap` 이 하나를 열어 `McpStore`·vault 에 넘긴다 |
+| 봉인 대기 중 경쟁 | 선조치 | `settleGrant` 의 세대 확인과 커밋 사이에 `await` 가 생겼다 → 봉인 뒤 세대를 다시 확인한다. vault 색인의 읽고-고쳐-쓰기·`McpStore` 의 add/update/remove 는 줄을 세운다 |
+| vault 삭제 | 동작 보존 | 값·메타는 그 자리에서 지우고 색인만 줄을 선다 — 해제 직후 값이 남지 않는다. 동기 실패도 거부로 돌려준다 |
+| 깨어남 재시도의 소비자 | 구현 세부 | 다시 풀리면 `pushConnectionState`(인증 상태 재방송) |
+| 부팅 시 `await secrets.load()` | 남김 — 조립 분리 때 결정 | 한 프로세스에서는 봉인기가 마이크로태스크로만 답해 창의 첫 `oo:provider:state` 보다 먼저 끝난다. 데이터 호스트에서는 해제가 IPC 를 타므로 연결 핸들러를 `load()` 앞에 등록하고 핸들러가 준비를 기다리게 해야 한다(0109 조기 등록 제약) |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-19 두 호스트 수명 | 7 | 7/7 (단위) | `app/shell/boot.test.ts` 7케이스(기동 · 데이터 실패 상한 · 에이전트 실패 상한 · 에이전트 사망 · 데이터 사망 · 종료 순서 · `peer.ensure`). 셸 `index.ts` 배선은 0 |
+| EP-21 확보 여부 | 4 | 링크 0/4 · 규칙 칸 5/5 | 규칙 칸은 `infra/ipc/peer-link.test.ts` `requestEnsured (EP-21)` 4 + 미연결 즉시 거부 1. 자리 4개(`agentLink.request`/`requestEnsured`)는 데이터 조립이 없어 0 |
+| EP-2′ 피어 계측 | 10 | 공통 1 / 3 | `peer-link.ts` 가 받은 메시지 처리를 `source:'peer'` 로 잰다(`peer-link.test.ts` 마지막 케이스). 수신기 3파일이 없어 자리별 좌표는 0 |
+| EP-8′ 채널 소유 | 4 | 표 1/4 | `shared/channel-owner.ts` 3값 + `channel-owner.test.ts`. preload 선택·셸/에이전트/데이터 등록은 0 |
+| EP-1 (e)′·(e3)′ | 3 그래프 | 3/3 (가드) | `scripts/check-ui-thread.test.mjs` `(e2)(e3) 호스트 그래프` 10케이스. 두 진입점이 없어 실제 트리에서는 "진입점 파일이 없다"가 남는다 |
+| EP-18 비밀 캐시 | 16 + 6 | 22/22 | 읽기·존재는 메모리 사본(`secret-store.test.ts` 7분기) · 쓰기 6자리 await(`login.ts` 2 · `auth/store.ts` 2 · `mcp/store.ts` 2) — `login.test.ts`·`runtime.test.ts`·`store.test.ts`·`mcp/store.test.ts` green |
+| EP-15·16·17·20·22 · EP-4′ | — | 0 | 미착수 |
+
+V-pair 자기 상태: 올린 것 없음(배선 전이라 production path 가 닿지 않는다).
+
+### 이번 라운드 수정의 잠금
+
+변이 하네스(`mutate.py`)는 돌리지 않았다 — 사용량 한도로 중단. 새 oracle 은 아래 테스트 파일이고 각 규칙 칸 분기에 입력이 하나씩 있다. 검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 6 · sweep 0 = 표 행 0`. **이어받는 구현자가 sweep 을 돌려야 한다** — 대상: `boot.ts`(7분기) · `peer-link.ts`(순서·닫힘·ensure·계측) · `secret-store.ts`(7분기) · vault 빠른 경로 · `settleGrant` 세대 재확인 · 가드 (e2)(e3)′.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자가 보는 변화 | 키체인이 잠긴 채 켠 뒤 잠금을 풀면 그 비밀이 다시 풀리고 연결 상태가 갱신된다(전에는 재시작까지 `unknown`). 그 밖에는 같다 |
+| 봉인 실패 | 전과 같이 거부 — `auth.login.vault-write-failed` 로그와 입력 폼 |
+
+### 놓친 잠재 문제 + 대응
+
+- `Criteria-Met` 은 r1.8 의 12 를 분모 49 로 옮기고 EP-18 의 AC45 를 1 더한 자기보고다 — AC 별로 다시 세지 않았다.
+- 문서(`security.md` §1.4-b 의 비밀 경로, `execution-model.md` 의 규칙 (e) 설명)는 고치지 않았다(단계 7).
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 4a 피어 계약 | 구현 | `shared/peer-protocol.ts` + 테스트 · `host-protocol.ts` 에 `peer.connect`·`peer.unavailable`·`peer.ensure`, `ready` 의 언어 사본은 선택 필드(F5) |
+| 4a 피어 링크 | 구현 | `infra/ipc/peer-link.ts` + 테스트(순서·닫힘·방향 거부·`requestEnsured`·재연결·계측) · `StallSource` 에 `'peer'` |
+| 4d 두 호스트 수명 | 구현(미배선) | `app/shell/boot.ts` + 테스트 · 감독자 `onReady`·`post` · `shutdownHosts` 를 에이전트 → 데이터로 뒤집음 · `host-link.ts` 가 `peer.ensure` 를 받음 |
+| 4e 채널 소유·포트 클라이언트 | 표만 | `channel-owner.ts` 3값(셸 12 · 에이전트 43 · 데이터 68 — `notifyShow` 는 셸) · `preload/host-port.ts` 가 호스트 이름을 받음. preload 교체는 미착수 |
+| 4h 가드 | 구현 | (e) 안에 (e2)(e3)′ |
+| 4f 비밀 캐시 | 구현·배선 | `infra/config/secret-store.ts`(순수 캐시) · `secret-file.ts`(electron-store) · `infra/config/crypto.ts` **삭제** · vault·auth·MCP 비동기 쓰기 · `Bootstrap` 이 하나를 열고 `load()`·깨어남 재시도 |
+| 4b·4c·4g·5·7 | 미착수 | 아래 "잇는 사람에게" |
+
+AC 자기보고(검증 증거 아님, 분모 49 — rev 4.1 로 바뀜): `✅ 13 · ⚠️ 12 · ❌ 24 = 총 49`(r1.8 의 ✅12 + AC45).
+
+**r1.9 gate** — 마지막 트리에서 전부 돌리지 못했다.
+
+| gate | 관측 |
+|---|---|
+| `npm run typecheck` | `error TS` 0줄 |
+| eslint(변경 파일) | 0 error |
+| `node --test scripts/check-ui-thread.test.mjs` | tests 101 · pass 98 · fail 0 · todo 3 |
+| vitest(영향 스위트) | shell·peer·channel-owner·preload 156/156 · config·vault·auth·MCP·deployment 등 115파일 중 실패 2파일(`bootstrap.shutdown`·`bootstrap.harness` — "Electron failed to install", 변경 전 트리에서도 같음) + `session-resources.claude-assembly` 1케이스(16초 시간 초과, 변경 전 트리에서도 같음) |
+| 전체 vitest · `node --test scripts/*.test.mjs` · 예산/이름/인벤토리 가드 | **돌리지 않음** — 다음 구현자가 IMPL_DONE 전에 돌린다 |
+
+환경: `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 `npm rebuild better-sqlite3`(Node ABI)로 DB 스위트를 돌렸다.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.9`(미완료) — verify 0회. 같은 라운드의 verify 없는 impl 턴이 3을 넘었다(r1.3~r1.9) — `handoff-review` 신호 조건이다(사용자 요구 변경 턴 제외 여부는 검증자가 가린다).
+- 한 프로세스 안의 사본 두 개(`McpStore`·`Bootstrap` 의 비밀 저장소)가 캐시 도입에서 드러났다 — §7-F 조사 표는 소비 자리만 셌고 저장소 인스턴스 수는 세지 않았다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. **4g 로그 분리**(작음) — `infra/log` `initLog(<프로세스>)` 로 프로세스별 파일, `handlers/error.ts` 의 로그 열기 → 로그 폴더(AC46).
+2. **4b·4c 조립 분리**(가장 큼) — `Bootstrap` 을 `app/data-host/{entry,bootstrap}.ts`·`app/agent-host/{entry,bootstrap}.ts` 로. 순서 권고: ① 호스트 공용 런타임(fork 인자 → `setHostEnvironment`, `process.parentPort` ↔ `ShellClient`, `createPortTransport` → `setIpcTransport`, `peer.connect` → `createPeerLink().attach`, `shutdown`, `setStallThread`) ② 설정 사본(EP-17, `settings-mirror.ts`) ③ 저장 송신기·수신기(EP-15 9분기 — `turn.event` 를 버스에서 피어로, 수신기는 사용량 → 이력) ④ 실행 쪽 DB 호출 33곳을 `data.query`/`data.write` 로(EP-16) ⑤ `bootstrap.ts` 의 DB·설정 20자리 소속 결정(EP-20) ⑥ 교차 요청(활동 조회·런타임 폐기·네이티브 이력·예약 셸 명령, EP-21 확보 여부).
+3. **4d 셸 배선** — `index.ts` 를 `createHostBoot` 로: `utilityProcess.fork` → `HostProcess`, `MessageChannelMain` → `createChannel`, 창마다 `BootClient`(호스트별 `webContents.postMessage('oo:<host>-host:port', …)`), `bootWhenReady` = `boot.whenReady()`, `will-quit` = `boot.shutdown()`. `CHANNELS` 에 호스트별 port/exited/connect 채널, electron-vite main 입력에 두 진입점.
+4. **4e preload 3분할** — `CHANNEL_OWNER` 로 `ipcRenderer` / 에이전트 포트 / 데이터 포트 선택(요청·송신·구독), `channel-registration.test.ts`.
+5. **대체된 구현 삭제** — 분리가 끝나면 `bootstrap.ts`(한 덩어리 조립)와 그 `toShell` `ready` 송신, 셸의 `connectShellServicesInProcess` 경로를 지운다.
+6. **5 세션 로드**(데이터 호스트 채널이 조각 전송) → **7 문서**(`execution-model.md`·`security.md`·`IPC_CONTRACT.md`·AGENTS) → 가드 실제 트리 exit 0 → `ci.yml` 에 가드 단계.
+7. 변이 sweep(위 "이번 라운드 수정의 잠금") · 전체 gate · `[구현자 기입]` 일곱 필드 · INDEX `impl/IMPL_DONE`.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
