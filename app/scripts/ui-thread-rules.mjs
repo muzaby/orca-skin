@@ -267,7 +267,11 @@ export const ALLOWED = {
     agent: {
       entry: `${MAIN}app/agent-host/entry.ts`,
       dirs: [`${MAIN}infra/db/`],
-      files: [`${MAIN}infra/settings-store.ts`, `${MAIN}infra/config/secret-store.ts`],
+      files: [
+        `${MAIN}infra/settings-store.ts`,
+        `${MAIN}infra/config/secret-store.ts`,
+        `${MAIN}infra/config/secret-file.ts`
+      ],
       packages: ['better-sqlite3', 'electron-store']
     },
     data: {
@@ -317,7 +321,7 @@ export const ALLOWED = {
     module: 'electron-store',
     files: [
       `${MAIN}infra/settings-store.ts`,
-      `${MAIN}infra/config/secret-store.ts`,
+      `${MAIN}infra/config/secret-file.ts`,
       `${MAIN}features/auth/store-file.ts`,
       `${MAIN}app/shell/shell-state-file.ts`
     ]

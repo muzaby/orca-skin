@@ -22,6 +22,7 @@ import { createManagedMcp } from '../../managed-mcp'
 import { retentionTransport } from '../../opencode-retention.testfixture'
 import { OpenCodeMcpReconcile } from './mcp-reconcile'
 import { OpenCodeWarmup } from './warmup'
+import { memorySecrets } from '../../../infra/config/memory-secrets.testfixture'
 const boundary = vi.hoisted(() => ({
   root: '',
   handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
@@ -112,8 +113,8 @@ beforeEach(async () => {
       return (settings = { ...settings, ...patch })
     }
   }
-  mcp = new McpStore(store as unknown as SettingsStore, '/unused-user-data')
-  mcp.add({ name: 'user', transport: 'stdio', command: 'fixture-user', enabled: false })
+  mcp = new McpStore(store as unknown as SettingsStore, memorySecrets())
+  await mcp.add({ name: 'user', transport: 'stdio', command: 'fixture-user', enabled: false })
   const plugin = createPluginBinding({
     auth: {
       authId: 'builtin',
