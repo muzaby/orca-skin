@@ -1372,6 +1372,97 @@ gate:
 6. 단계 5(데이터 호스트·세션 로드 조각) → 단계 7(문서·`AGENTS.md` 넷·ADR-012·`IPC_CONTRACT.md`) → `check-ui-thread.test.mjs` 의 `todo` 3건 제거와 `ci.yml` 가드 단계.
 7. IMPL_DONE 전: 열거 원문 sweep 전수 · 테스트 소스 규칙의 파일별 판정 · 사람 실기 AC22·AC23 안내.
 
+## [구현자 기입] r1.5 — 밀린 대조 · 호스트 포트 서버 · 수명 이벤트의 원천과 수신 (미완료)
+
+**판정: 미완료(partial).** rev 3.2 가 닫은 두 항목을 구현했다 — 호스트 포트 서버(요청·통지·신뢰 판정)와 수명 이벤트 방출·수신. 앱은 여전히 한 프로세스로 돌고, 호스트가 낸 알림은 같은 프로세스의 셸 수신기로 바로 간다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 승인 대기의 세션 식별자 | 구현 세부 | 세션 확정 전 턴의 승인은 `dbSessionId` 가 null 이다 — 알리지 않는다. 그 턴은 lease 로 이미 활성이라 게이트 판정은 같다(`lifecycle-emitter.test.ts` "세션 미확정이면 보내지 않는다") |
+| 채널 오류의 자리 | 구현 세부 — §7-D 조사 표보다 한 곳 많다 | 스트림 소비는 둘이다: 장수명 `finishPump` 와 턴 스코프 `consumeTurnScoped`(`rg -n "for await \(const batch of live.eventBatches" session-runtime.ts` → 2). 둘 다에 걸었다 |
+| 채널 오류의 전달 수단 | 구현 세부 | 런타임 메서드가 아니라 턴 요청의 위임 콜백(`TurnRequest.onChannelFailed`)이다. 런타임은 턴을 넘어 재사용되고, 위임 콜백은 매 send·연속 턴마다 갈아 끼워진다(`FRAME_DELEGATE_KEYS`) |
+| 사용자 취소 뒤의 스트림 오류 | 구현 세부 | `harness.exited` 로 알리지 않는다 — 취소는 하네스가 끊긴 것이 아니다. §7-D 규칙 칸은 "오류 종료 1건 · 정상 종료 0건"만 적는다 → 아래 확장 보고 |
+| 포트 서버의 `postMessage` | 구현 세부 | 가드 (g) 의 허용 파일에 `port-server.ts` 가 없다. 포트를 `HostPort` 인터페이스로 받고 실제 `postMessage` 는 `entry.ts` 가 감싼다(미작성) — 허용 목록은 바꾸지 않았다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-11 호스트 쪽 (5) | lease 구독 → 시작·종료 | 2/2 | `agent-host/lifecycle-emitter.test.ts` 앞 5케이스 + `bootstrap.native-history.test.ts:"lease 변화·승인 등록·세션 폐기·채널 오류를 셸에 수명 이벤트로 알린다"` |
+| EP-11 | 승인 등록 | 1/1 | `features/approvals/coordinator.pending.test.ts` 2케이스 + 위 bootstrap 케이스 |
+| EP-11 | 세션 폐기 | 1/1 | 위 bootstrap 케이스 |
+| EP-11 | 채널 오류 | 1/1 | `session-runtime.test.ts` 5케이스(오류·정상·취소 × 두 소비 경로) · `chat-turn/turn-request.channel-failed.test.ts` · `chat-turn.runtime-tools.test.ts:"routes the actual send request channel failure…"` · 위 bootstrap 케이스 |
+| EP-11 셸 쪽 | 수신 → `LifecycleState` | 수신기만 | `shell/host-link.test.ts` 4케이스. 남긴 곳: `updater`·`tray-residency` 가 아직 `LifecycleState` 를 읽지 않는다(AC28 의 뒤 절반) · `index.ts` 의 수신기 조립은 테스트가 없다 |
+| EP-9 (5) | 포트 서버의 연결 등록(`trusted`) | 1/1 | `agent-host/port-server.test.ts` 10케이스(규칙 칸 5분기 전부). 남긴 곳: 셸이 포트를 넘기며 판정하는 쪽(`host-supervisor`)·preload 구독 분배 |
+| EP-14 (6) | `ready` 의 `uiLocale` · `onPatch` 알림 | 방출·수신 2/2 | `lifecycle-emitter.test.ts:"uiLocale 패치만 셸에 알린다"` · `host-link.test.ts` 2케이스. 남긴 곳: `bootstrap.ts` 의 `ready` 송신과 `onPatch` 구독 자리는 테스트가 없다 · `index.ts` 네 소비 자리(r1.3 과 같다) |
+| EP-8·EP-12·EP-4·5·6·10′ | — | r1.4 와 같다 | 미착수 |
+
+자리 검색(§7-D): `rg -n "lifecycle\.(leasesChanged|approvalPending|sessionEnded|harnessExited)\(" app/src/main --glob '!*.test.*'` → 4줄(`bootstrap.ts`). 목록과의 차집합 0.
+
+V-pair 자기 상태: 올린 것 없음. VP-26 은 호스트 쪽만 닫혔고 소비자 배선이 남아 `SELF_PASS` 가 아니다. VP-24 는 preload 쪽이 없다.
+
+### 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`. 원복은 매번 "모든 파일 원문 그대로".
+
+| 묶음 | 행 | 결과 |
+|---|---|---|
+| 포트 서버 `P-1`~`P-16`·`P-3b` | 17 | 잡음 16 · 동치 1(`P-3` — 닫힘은 한 번뿐이고 재연결은 새 참조를 넣기 전에 옛 참조를 닫아 조건이 죽은 코드였다. 조건을 지우고 `P-3b`(삭제 자체 제거)로 다시 잡음) |
+| 방출기 `E-1`~`E-9` | 9 | 전부 잡음 |
+| 셸 수신기 `H-1`~`H-5` | 5 | 전부 잡음 |
+| Bootstrap 배선 `B-1`~`B-5`(맞바꿈 `B-5` 포함) | 5 | 전부 잡음 — `bootstrap.native-history.test.ts` |
+| 런타임 `R-1`~`R-6` | 6 | 잡음 6. `R-2`·`R-5`·`R-6` 은 처음에 못 잡아 정상 종료·취소 케이스 3개를 더한 뒤 잡음 |
+| 턴 요청 `T-1`·`T-2` · 승인 `C-1`·`C-2` · send 전달 `S-1` | 5 | 잡음 5. `S-1` 은 처음에 못 잡아 `chat-turn.runtime-tools.test.ts` 에 1케이스를 더한 뒤 잡음 |
+
+검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 47 = 표 행 47`. VP-21 의 등록 변이는 preload 가 아직 소유 표를 쓰지 않아 이번에도 돌리지 못했다.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자가 보는 변화 | 없음. 수명 상태는 아직 어떤 판정도 바꾸지 않는다(소비자 미배선) |
+| 트레이 언어 | 사본 갱신이 `index.ts` 의 직접 구독에서 호스트 알림 경유로 바뀌었다. 구독은 `start()` 의 첫 `await` 앞에서 건다 — 부팅이 실패해도 언어 변경은 따라간다 |
+| 형식이 틀린 호스트 메시지 | 버리고 `shell.host-message.invalid` 경고 1건. 화면 변화 없음 |
+
+### 놓친 잠재 문제 + 대응
+
+- `bootstrap.ts` 가 `app/agent-host/lifecycle-emitter` 를 import 한다. 지금은 한 프로세스라 문제가 없지만 방출기의 자리는 호스트 조립(`Bootstrap`) 안이 맞다 — `entry.ts` 가 생기면 `toShell` 만 포트 송신으로 바뀐다.
+- Bootstrap 을 생성자 없이 만드는 테스트(`Object.create(Bootstrap.prototype)`)가 있어 방출기를 지연 생성으로 두고 `toShell` 을 선택 호출로 불렀다. production 조립은 항상 생성자를 지난다.
+- 확장 보고(확장 창 열림 — verify 0회): §7-D EP-11 규칙 칸에 "사용자 취소 뒤의 스트림 오류 → 0건" 분기가 없다. 구현과 테스트(`session-runtime.test.ts` 2케이스)는 있다. 설계자가 규칙 칸에 올릴지 정한다 — 이 턴은 멈추지 않았다.
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 밀린 대조(r1.4 분) | 실행 | 아래 gate 표 첫 행 |
+| 4 포트 프로토콜 | 구현 | `shared/host-protocol.ts` — 창↔호스트 요청·응답·통지, 셸→호스트(`client.connect`·`shutdown`·`update.prepare-install`) |
+| 4 호스트 포트 서버 | 구현 | `app/agent-host/port-server.ts` + 테스트 10 |
+| 4 수명 이벤트 방출·수신 | 구현(소비자 제외) | `app/agent-host/lifecycle-emitter.ts` · `app/shell/host-link.ts` · `Bootstrap` 의 네 원천 배선 · `TurnRequest.onChannelFailed` · `ApprovalCoordinator` 생성자 인자 · `index.ts` 가 수신기를 건다 |
+| 4 나머지(`entry`·셸 서비스 8종·Electron 어댑터 이주·`host-supervisor`·`boot`·preload 포트·`updater`/트레이 입력 교체·`chatStore`·번들 입력·가드 (e)(f)) · 5 · 7 · `ci.yml` | 미착수 | — |
+
+AC 자기보고(검증 증거 아님, 분모 38): r1.4 와 같다 — `✅ 12 · ⚠️ 10 · ❌ 16 = 총 38`. AC25·AC28 은 ⚠️ 그대로다(호스트 쪽 절반이 늘었다).
+
+gate — 결과는 이 절 끝의 "r1.5 마지막 트리 gate" 표.
+
+대상 커밋: `(r1.5 구현 일부 — 좌표는 INDEX)`.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.5`(미완료) — verify 0회. 사용자 요구 변경 턴(r1.3)을 빼면 이 라운드의 impl 턴은 4다 — 다음 구현 턴 전에 `handoff-review` 조건(3 초과)에 해당한다.
+- 자리 조사가 한 곳 적었다(스트림 소비 경로 2 중 1) — r1·r1.4 의 "검색 술어가 실제보다 좁다"와 같은 축이다. 이번에는 테스트가 red 로 드러냈다.
+- 테스트 대역이 production 클래스의 새 메서드를 갖지 않아 3번 구조를 바꿨다(런타임 메서드 → 위임 콜백, 승인 구독 → 생성자 인자, 필드 → 지연 생성).
+- Electron 미설치로 로드되지 않는 파일이 변이 판정을 가렸다(`S-1` 의 첫 red 는 로드 실패였다) — r1.4 와 같은 환경 한계다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. `handoff-review`(impl 턴 3 초과) 뒤에 잇는다.
+2. `app/shell/host-supervisor.ts`(fork·ready·`client.connect` 와 신뢰 판정·exit·고아 정리·재기동 3회·shutdown 3초) + `boot.ts` — 순수 모듈과 테스트부터.
+3. preload 의 소유 표 기반 전송 선택·포트 교체·통지 분배(AC24·AC25·AC33, VP-21 등록 변이).
+4. 셸 서비스 8종과 Electron 값 import 파일 이주 → `agent-host/entry.ts` → `index.ts` 축소 · `updater`/트레이의 입력을 `LifecycleState` 로 · `chatStore` 반영 · 번들 입력.
+5. 단계 5 → 단계 7 → 가드 `todo` 3건 제거와 `ci.yml` 연결 → 열거 원문 sweep 전수 · 사람 실기 AC22·AC23 안내.
+
 ---
 
 ## [검증자 기입] 파생 이슈

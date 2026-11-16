@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => ({
     request: {
       model?: string
       extensions: unknown
+      onChannelFailed?: () => void
       onProviderEvent?: (event: BackgroundEvent) => void
     }
     kind?: string
@@ -235,6 +236,7 @@ function installHarness(options: {
   }
 
   registerChatHandlers({
+    onHarnessExited: harnessExited,
     ctx: {
       ...passthroughRuntimeConfig(),
       mockAdapter: null,
@@ -291,7 +293,23 @@ async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<
   expect(harness.errors, 'chat preparation and execution must not emit an error').toEqual([])
 }
 
+const harnessExited = vi.fn<(sessionId: string | null) => void>()
+
 describe('registerChatHandlers runtime-tool continuation wiring (0158)', () => {
+  // 0324 EP-11 — 실제 send 조립이 채널 오류를 `harness.exited` 원천으로 잇는다.
+  it('routes the actual send request channel failure to the harness-exited sink', async () => {
+    installHarness({
+      runtimeRevision: 2,
+      extensionRevisions: [2],
+      defaultModel: 'sonnet',
+      selectedModel: 'opus',
+      steps: ['break']
+    })
+    harnessExited.mockClear()
+    await send()
+    harness.requests[0].request.onChannelFailed?.()
+    expect(harnessExited).toHaveBeenCalledTimes(1)
+  })
   it('VP-A1 routes the actual send request provider callback to the background controller', async () => {
     installHarness({
       runtimeRevision: 2,

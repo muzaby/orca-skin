@@ -34,3 +34,58 @@ export const HostToShellSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('shell.mirror'), mirror: ShellMirrorSchema })
 ])
 export type HostToShell = z.infer<typeof HostToShellSchema>
+
+// ── 창 ↔ 에이전트 호스트 포트 (EP-8 · EP-9) ─────────────────────────────────────────────────
+// 창마다 포트 하나다. preload 가 요청·단방향 송신을 보내고, 호스트가 응답과 통지를 보낸다.
+
+// 창 → 호스트.
+export const ClientToHostSchema = z.discriminatedUnion('kind', [
+  // 응답이 있는 요청. `id` 는 그 포트 안에서만 유일하면 된다.
+  z.object({
+    kind: z.literal('invoke'),
+    id: z.number().int().nonnegative(),
+    channel: z.string().min(1),
+    payload: z.unknown().optional()
+  }),
+  // 응답 없는 단방향 송신.
+  z.object({ kind: z.literal('send'), channel: z.string().min(1), payload: z.unknown().optional() })
+])
+export type ClientToHost = z.infer<typeof ClientToHostSchema>
+
+// 호스트 → 창.
+export const HostToClientSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('result'),
+    id: z.number().int().nonnegative(),
+    ok: z.literal(true),
+    value: z.unknown().optional()
+  }),
+  z.object({
+    kind: z.literal('result'),
+    id: z.number().int().nonnegative(),
+    ok: z.literal(false),
+    error: z.string()
+  }),
+  z.object({
+    kind: z.literal('event'),
+    channel: z.string().min(1),
+    payload: z.unknown().optional()
+  })
+])
+export type HostToClient = z.infer<typeof HostToClientSchema>
+
+// 셸 → 호스트 메시지.
+export const ShellToHostSchema = z.discriminatedUnion('type', [
+  // 창의 포트를 함께 넘긴다. `trusted` 는 셸이 넘기는 시점에 한 번 판정한 값이다 — 호스트는
+  // 창과 URL 을 볼 수 없다.
+  z.object({
+    type: z.literal('client.connect'),
+    clientId: z.number().int(),
+    trusted: z.boolean()
+  }),
+  // 정상 종료 요청. 호스트는 정리한 뒤 스스로 끝난다.
+  z.object({ type: z.literal('shutdown') }),
+  // 업데이트 설치 직전 — 쉬는 런타임을 닫는다.
+  z.object({ type: z.literal('update.prepare-install') })
+])
+export type ShellToHost = z.infer<typeof ShellToHostSchema>

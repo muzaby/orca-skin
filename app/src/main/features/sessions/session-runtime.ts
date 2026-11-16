@@ -26,6 +26,7 @@ const FRAME_DELEGATE_KEYS = [
   'requestApproval',
   'captureInterruptReceipt',
   'onChannelRetired',
+  'onChannelFailed',
   'onSessionSchedules',
   'onPermissionModeChanged',
   'onProviderEvent'
@@ -281,7 +282,6 @@ export class SessionRuntime implements ManagedRuntime {
     private readonly adapter: RuntimeSessionAdapter,
     private readonly closePolicy: ClosePolicy = 'persistent'
   ) {}
-
   // Persistent 정책 핸들만 idle 보존·cross-turn 재사용 대상(Supervisor.releaseRuntime 판정).
   get reusable(): boolean {
     return this.closePolicy === 'persistent'
@@ -573,7 +573,10 @@ export class SessionRuntime implements ManagedRuntime {
       }
       if (!terminal) this.status.markLive()
     } catch (err) {
-      if (!this.cancelled) this.status.markError(null)
+      if (!this.cancelled) {
+        this.status.markError(null)
+        this.delegate.onChannelFailed?.()
+      }
       throw err
     } finally {
       this.retireChannel(live)
@@ -721,6 +724,7 @@ export class SessionRuntime implements ManagedRuntime {
   // 채널 스트림 종료(정상=입력 close/서브프로세스 종료, 예외=스트림 에러) — 활성 프레임을 마감
   // 하고 채널을 내린다. 다음 send 는 spawn(resume) 콜드 패스.
   private finishPump(err: unknown): void {
+    if (err != null && !this.cancelled) this.delegate.onChannelFailed?.()
     this.pumpRunning = false
     this.draining = false
     this.cliBusy = false

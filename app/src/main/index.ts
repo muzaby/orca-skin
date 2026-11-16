@@ -23,6 +23,8 @@ import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
 import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
 import type { ShellState } from './app/shell/shell-state'
+import { createHostMessageSink } from './app/shell/host-link'
+import { LifecycleState } from './app/shell/lifecycle-state'
 import { openShellState } from './app/shell/shell-state-file'
 
 // dev(`npm run dev`) 데이터를 실제 설치본과 격리한다. userData 는 app.getName()(dev·prod 모두
@@ -273,7 +275,18 @@ app.whenReady().then(async () => {
   // 윈도우 생성 이전에 app:// 핸들러를 부착해 renderer 로딩이 바로 받쳐지도록.
   registerAppProtocol()
 
-  const router = new Bootstrap((event) => event.trusted)
+  // 셸이 쓰는 상태는 셸 상태 파일 하나다(0324 D-029). UI 언어는 설정이 정본이고 여기는 사본이다.
+  const shellState = openShellState(app.getPath('userData'))
+  // 셸은 턴·세션 상태를 호스트가 보낸 수명 이벤트로만 안다(0324 EP-11).
+  const lifecycleState = new LifecycleState()
+  const router = new Bootstrap(
+    (event) => event.trusted,
+    createHostMessageSink({
+      lifecycle: lifecycleState,
+      mirrorUiLocale: (uiLocale) => shellState.mirrorUiLocale(uiLocale),
+      onInvalid: () => rootLog.warn('shell.host-message.invalid')
+    })
+  )
   routerRef = router
   // 창 먼저(0109) — start() 의 DB 마이그레이션/스킬 시드/확장 배포를 기다리지 않고 셸을
   // 띄운다. renderer 부트 오케스트레이터의 첫 스텝(main-ready)이 이 게이트 invoke 로 완료를
@@ -281,12 +294,6 @@ app.whenReady().then(async () => {
   // 이전에 등록돼야 한다(등록 전 도착 invoke 는 reject 되므로).
   const started = router.start()
   handlePlain(CHANNELS.bootWhenReady, () => started)
-  // 셸이 쓰는 상태는 셸 상태 파일 하나다(0324 D-029). UI 언어는 설정이 정본이고 여기는 사본이다 —
-  // 설정이 바뀌면 사본을 맞춘다.
-  const shellState = openShellState(app.getPath('userData'))
-  router.settings.onPatch((next, changedKeys) => {
-    if (changedKeys.includes('uiLocale')) shellState.mirrorUiLocale(next.uiLocale)
-  })
   const mainWindow = createWindow(shellState)
   // 트레이 상주 (0322) — Windows 에서 창 닫기는 종료가 아니라 숨김이다. 창을 먼저 만든다:
   // 트레이 생성 실패는 프로그램 오류라 잡지 않는데, 그때 창 없는 프로세스가 남으면 안 된다.
