@@ -31,7 +31,14 @@ export const HostToShellSchema = z.discriminatedUnion('type', [
   // DB 마이그레이션까지 끝나 요청을 받을 수 있다.
   z.object({ type: z.literal('ready'), mirror: ShellMirrorSchema }),
   z.object({ type: z.literal('lifecycle'), event: LifecycleEventSchema }),
-  z.object({ type: z.literal('shell.mirror'), mirror: ShellMirrorSchema })
+  z.object({ type: z.literal('shell.mirror'), mirror: ShellMirrorSchema }),
+  // 셸 서비스 요청(EP-10). 이름·인자는 `shell-services.ts` 가 검증한다.
+  z.object({
+    type: z.literal('service.call'),
+    id: z.number().int().nonnegative(),
+    name: z.string().min(1),
+    args: z.array(z.unknown())
+  })
 ])
 export type HostToShell = z.infer<typeof HostToShellSchema>
 
@@ -86,6 +93,16 @@ export const ShellToHostSchema = z.discriminatedUnion('type', [
   // 정상 종료 요청. 호스트는 정리한 뒤 스스로 끝난다.
   z.object({ type: z.literal('shutdown') }),
   // 업데이트 설치 직전 — 쉬는 런타임을 닫는다.
-  z.object({ type: z.literal('update.prepare-install') })
+  z.object({ type: z.literal('update.prepare-install') }),
+  // 셸 서비스 응답. 성공이면 `value`, 실패면 `error` 다(판별 값을 하나로 둔다).
+  z.object({
+    type: z.literal('service.result'),
+    id: z.number().int().nonnegative(),
+    ok: z.boolean(),
+    value: z.unknown().optional(),
+    error: z.string().optional()
+  }),
+  // 시스템이 깨어났다(절전 해제·화면 잠금 해제·창 포커스) — 호스트의 재확인 신호.
+  z.object({ type: z.literal('wake') })
 ])
 export type ShellToHost = z.infer<typeof ShellToHostSchema>
