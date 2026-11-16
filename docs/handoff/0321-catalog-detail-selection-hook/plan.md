@@ -11,8 +11,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0320 ΔV3의 VP-26·VP-27은 REGRESSION으로만 참조 |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` — 사용자 요구 추가(성능 동등 이상, D-005), §20 |
+| 유효 V | `V1` + `ΔV1` |
 | 기준 트리 | 0320 r1.4 구현(`feat/0320-scheduled-tasks`, `main` 미병합) — 좌표는 검증자 기입 |
 
 # Part I — Product & UX Contract
@@ -32,6 +32,8 @@
 | 명시 요구(선행) | "플러그인 페이지의 스킬 탭 -> 항목 참조"(0320 D-015) · 목록 규칙은 "`ExtensionsCatalogView`와 같은 규칙"(0320 §22) | 0320 plan |
 | 추론 의도 | "선택 수명 규칙" = 직전 검토의 벗어난 부분 1~3(삭제 뒤 닫기 · 탭 전환 해제 · 초점 복귀 경합·대안). 사용자가 그 답의 용어를 그대로 썼다 | 이번 세션 턴 1~2 |
 | 추론 의도 | "어설픈 프레임워크/자동화 금지" = 옵션 객체·reducer·상태 머신·사용 강제용 스캔 테스트·lint 규칙을 만들지 않는다 | 턴 3 |
+| 명시 요구 | "성능은 현재와 비교해 최소 등등 이상이어야 한다." | 이번 세션 턴 4 |
+| 추론 의도 | "성능" = 상세 패널 상호작용이 만드는 런타임 작업량(렌더·예약 프레임·DOM 조회·마운트 작업). 코드 크기는 턴 3의 "코드비대화 금지"가 따로 맡는다(AC7) | 턴 3·4 |
 
 ## 3. Decision Ledger
 
@@ -41,12 +43,13 @@
 | D-002 | hook은 옵션 인자 없는 함수 하나다. 사용 강제용 스캔 테스트·lint 규칙·codegen을 만들지 않는다 | "어설픈 프레임워크/자동화 금지" | 턴 3 | ACTIVE | — |
 | D-003 | 규칙의 정본은 스킬 탭의 현재 동작이다. 예약 작업 화면이 그에 맞춰진다 | 0320 D-015 · §22 | 0320 | ACTIVE(상속) | — |
 | D-004 | 범위는 검토 1~3이다. 4(본문 여백·명령 상자 스타일)·5(`Meta` 복제)는 선택 수명이 아니라 제외한다 | 검토 "벗어난 부분" 표 | 턴 1~2 | ACTIVE | — |
+| D-005 | 성능은 현재 이상 — 상호작용마다 런타임 작업량이 기준 트리 이하다 | "성능은 현재와 비교해 최소 등등 이상이어야 한다." | 턴 4 | ACTIVE | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-004.
-- 변경된 결정: 없음.
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001↔AC1~AC6 · D-002↔§11(옵션·effect 없음)·AC7 · D-003↔AC1~AC4 · D-004↔§6 비범위.
+- V1(턴 3): D-001~D-004.
+- ΔV1(턴 4): D-005 추가(보완 — 기존 결정 변경 없음). §20.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-001↔AC1~AC6 · D-002↔§11(옵션·effect 없음)·AC7·AC11 · D-003↔AC1~AC4 · D-004↔§6 비범위 · D-005↔AC10·AC11.
 
 ## 4. 요구 비판적 검토
 
@@ -54,7 +57,7 @@
 |---|---|---|
 | 원인을 겨냥하는가 | 타당 — 결함 1~3은 규칙이 화면 코드에만 있어 옮길 때 빠졌다 | `SchedulesScreen.tsx:84-95`(select·closeDetail) vs `ExtensionsCatalogView.tsx:70-89`(closeDetail·removeDetail) |
 | 이미 충족되는가 | 아니오 — `shared/`에 선택 상태 hook이 없다 | `rg -l -e originRef -e selectionEpoch app/src/renderer/src/shared` → 0 |
-| 더 작은 해법 | 예약 작업에 세 규칙을 또 복사하면 셋째 소비처에서 다시 갈라진다. hook은 두 화면의 사본을 지워 hook 크기를 상쇄한다(§14 실측 순증 +4) | §14 |
+| 더 작은 해법 | 예약 작업에 세 규칙을 또 복사하면 셋째 소비처에서 다시 갈라진다. hook은 두 화면의 사본을 지워 hook 크기를 상쇄한다(§14 실측 순증 +7) | §14 |
 | 선행 자료 대조 | 검토의 "스킬 탭은 삭제가 끝나면 닫고, 탭을 바꾸면 비우고, 연 행이 사라지면 선택된 탭으로 초점"을 코드로 재확인 | `ExtensionsCatalogView.tsx:70-89·111-117` · `catalogSelection.ts:24-27` |
 | 기존 결정 충돌 | 없음 — 0320 AC32(같은 행 재클릭·닫기·Esc로 닫힘)는 화면에 남는다 | 0320 §22 |
 
@@ -108,7 +111,7 @@
 | R-02 | AT-04 / AC4 | 플러그인 카탈로그: 열기(접힌 채) · 닫기(연 행 초점) · 탭 전환(선택 해제, 초점은 탭, 돌아와도 닫힘) · 스킬·MCP 삭제(닫힘, 초점은 선택된 탭) · MCP 이름 변경 저장(새 id로 열린 채, 펼침 유지)이 지금과 같다 | IT(E0~E8) | `CustomizeList`·`CustomizeTabs`·`SkillDetail`·`McpDetail`·`AddMcpServerModal` → hook |
 | (MD-01) | UT-01 / AC5 | hook이 §10 EP-0 규칙 표(B1~B9)대로 동작한다 | UT | `useCatalogDetail` |
 | (AR-03) | IT-03 / AC6 | 두 화면은 선택 수명을 `useCatalogDetail`에서만 가져온다 — 화면에 rAF 초점 복귀·epoch·origin ref 사본이 없고 `catalogSelection.ts`에 선택 reducer가 없다 | gate G1~G3 + AC1~AC4 행동 | — |
-| (AR-03) | IT-03 / AC7 | prod 순증 ≤ +8줄 — `app/src` 테스트 제외, 새 hook 포함. hook(+56)을 지운 사본이 상쇄하고 남는 몫은 예약 작업에 없던 규칙 배선이다(§14 실측 +4) | gate G4 | — |
+| (AR-03) | IT-03 / AC7 | prod 순증 ≤ +10줄 — `app/src` 테스트 제외, 새 hook 포함. hook을 지운 사본이 상쇄하고 남는 몫은 예약 작업에 없던 규칙 배선이다(§14 실측 +7, ΔV1에서 ≤ +8 → ≤ +10) | gate G4 | — |
 | (AR-03) | IT-03 / AC8 | `rendering.md` 카탈로그 문단과 `design-components.md` `DetailSidePane` 행이 hook을 가리킨다 | gate G5 | — |
 | R-03 | AT-05 / AC9 | 실제 창(white/dark)에서 두 화면의 닫기 뒤·삭제 뒤 초점 링 위치가 AC1·AC3·AC4와 같다 | 사람 실기 | `npm run dev` |
 
@@ -179,7 +182,7 @@
 | 삭제 확인은 콜백형이다(`onConfirm`) — 완료 시점을 화면이 모른다 | `taskActions.ts:20-35` · `confirmDialogStore.ts:7-16` |
 | `remove`는 목록을 다시 읽은 뒤 resolve한다 | `schedulesStore.ts:59-62` · `useCustomizeSkills.ts:68-70` · `useMcpServers.ts:80-86` |
 | 같은 모양 선례: `useCatalogSearch` — `close` = 초점 복귀, `reset` = 초점 유지 | `shared/hooks/useCatalogSearch.ts:21-28` |
-| 하네스 선택자는 `[name="value"]`만 지원 — 인용 없는 `[role=tab]`은 throw | `renderHarness.testfixture.ts:153-158` |
+| 하네스 선택자는 `[name="value"]`만 지원 — 인용 없는 `[role=tab]`은 throw. 그래서 스킬 탭의 현재 대안 초점 줄(`[role=tab][aria-selected=true]`)은 어떤 테스트도 실행하지 못했다(설계 턴 실측: `Error: unsupported selector`) | `renderHarness.testfixture.ts:153-158` · `ExtensionsCatalogView.tsx:81` |
 | 하네스는 `window.requestAnimationFrame`·`cancelAnimationFrame`만 stub | `renderHarness.testfixture.ts:704-707` |
 | lint: `eslint-plugin-react-hooks ^7` recommended — render 중 ref 접근·effect 안 setState 금지 | `app/package.json:77` · `eslint.config.mjs:30` |
 | 레이어: `shared/hooks/`는 도메인 무관 hook 자리, features → shared만 | `docs/arch/frontend/layers.md:122` · `app/src/renderer/AGENTS.md` 4-layer |
@@ -271,8 +274,8 @@ export function useCatalogDetail(listRef: RefObject<HTMLElement | null>): Catalo
 | B | 규칙 | UT 입력 → 관측 |
 |---|---|---|
 | B1 | `open(id, origin)` → `selectedId=id` · `expanded=false` | `setExpanded(true)` 뒤 `open('b', btnB)` → `'b'` · `false` |
-| B2 | `close()` → `selectedId=null` · `expanded=false` · 다음 프레임에 연 자리로 초점(연결돼 있을 때). `origin`을 생략한 `open`은 그 순간 초점 요소가 연 자리다 | `btnA`에 초점 → `open('a')`(생략) → 다른 버튼 초점 → `close()` → 프레임 전 그대로 · 프레임 뒤 `btnA` |
-| B3 | 연 자리가 끊겼거나 `null`이면 `listRef` 안의 `[role="tab"][aria-selected="true"]` | 탭 2개(하나만 선택) · `btnA` 제거 뒤 `close()` → 선택된 탭(선택 안 된 탭 아님) |
+| B2 | `close()` → `selectedId=null` · `expanded=false` · 다음 프레임에 연 자리로 초점(연결돼 있을 때) · 이때 목록을 조회하지 않는다. `origin`을 생략한 `open`은 그 순간 초점 요소가 연 자리다 | `btnA`에 초점 → `open('a')`(생략) → 다른 버튼 초점 → `close()` → 프레임 전 그대로 · 프레임 뒤 `btnA` · `querySelectorAll`·`closest` 0회 |
+| B3 | 연 자리가 끊겼거나 `null`일 때만 `listRef` 안의 `[role="tab"][aria-selected="true"]`를 찾는다 | 탭 2개(하나만 선택) · `btnA` 제거 뒤 `close()` → 선택된 탭(선택 안 된 탭 아님) |
 | B4 | 둘 다 없으면 초점 이동 없음 · 예외 없음 | 탭 없는 목록 · 연 자리 제거 → `close()` → 초점 그대로 |
 | B5 | `open`·`reset`은 대기 중 초점 복귀를 취소한다 | `close()` 직후 같은 프레임 `open('b', btnB)` → 프레임 뒤 초점 ≠ `btnA` · `close()` 직후 `reset()` → 초점 그대로 |
 | B6 | `reset()` → `selectedId=null` · `expanded=false` · 초점 이동 없음 | `open` → `setExpanded(true)` → 탭 초점 → `reset()` → 프레임 뒤 초점 = 탭 |
@@ -331,8 +334,9 @@ export function useCatalogDetail(listRef: RefObject<HTMLElement | null>): Catalo
 | G1 음성 | 두 화면에 rAF 초점 복귀·epoch·origin ref 사본 | 0줄 |
 | G2 음성 | `catalogSelection.ts`에 선택 reducer·타입 | 0줄 |
 | G3 양성 | `useCatalogDetail(` 정의·호출(테스트 제외) | 3줄(정의 1 · 두 화면) |
-| G4 감량 | prod 순증(테스트·testfixture 제외, 새 hook 포함) | ≤ +8 |
+| G4 감량 | prod 순증(테스트·testfixture 제외, 새 hook 포함) | ≤ +10 |
 | G5 문서 | 두 문서의 hook 언급 | 각 1줄 |
+| G6 마운트 작업 | hook의 effect·리스너(ΔV1) | 0줄 |
 
 ```bash
 # G1~G3: app/src/renderer/src 에서
@@ -345,6 +349,8 @@ rg -n 'useCatalogDetail\(' . --glob '!*.test.ts'
 git diff --numstat <READY> HEAD -- app/src ':(exclude)*.test.ts' ':(exclude)*.testfixture.ts' \
   | awk '{s += $1 - $2} END {print s}'
 rg -n useCatalogDetail docs/arch/frontend/rendering.md docs/arch/frontend/design-components.md
+# G6: app/src/renderer/src 에서
+rg -n -e useEffect -e useLayoutEffect -e addEventListener shared/hooks/useCatalogDetail.ts
 ```
 
 ### 등록 변이
@@ -366,7 +372,7 @@ rg -n useCatalogDetail docs/arch/frontend/rendering.md docs/arch/frontend/design
 
 | 변경/신규 파일 | 변경 내용 | 테스트 |
 |---|---|---|
-| `shared/hooks/useCatalogDetail.ts` (신규) | §10 계약. `useState` 2(선택·펼침) + `useRef` 3(현재 선택·연 자리·대기 프레임). ref는 콜백 안에서만 읽고 쓴다. `useEffect`·`useCallback`·옵션 인자 없음. 언마운트 뒤 남은 프레임은 `isConnected`·`listRef.current`가 비어 무해하다 | `shared/hooks/useCatalogDetail.test.ts` B1~B9 — `useReducedMotion.test.ts`처럼 Consumer 컴포넌트를 하네스로 렌더 |
+| `shared/hooks/useCatalogDetail.ts` (신규) | §10 계약. `useState` 2(선택·펼침) + `useRef` 3(현재 선택·연 자리·대기 프레임). ref는 콜백 안에서만 읽고 쓴다. `useEffect`·`useCallback`·옵션 인자 없음. 대안 탭은 연 자리가 끊겼을 때만 조회한다(ΔV1). 언마운트 뒤 남은 프레임은 `isConnected`·`listRef.current`가 비어 무해하다 | `shared/hooks/useCatalogDetail.test.ts` B1~B9 — `useReducedMotion.test.ts`처럼 Consumer 컴포넌트를 하네스로 렌더 |
 | `features/skills/components/customize/ExtensionsCatalogView.tsx` | `selection`(객체) → `tab` 상태 + `selection = useCatalogDetail(listRef)`. E0~E8. `removeDetail`·`selectionEpoch`·`originRef`·`expanded` 상태 삭제. 삭제는 `remove(…).then(() => selection.closeIf(id))`. rename의 `tab === 'mcp'` 검사는 `rename`의 선택 검사로 대체(탭을 바꾸면 선택이 비므로 같은 결과) | `ExtensionsCatalogView.interaction.test.ts` 신규 4: ① 수명 순서(열기→펼침 `inert`→닫기 초점·같은 탭→다시 열면 접힘→탭 전환 해제·초점 탭) ② 스킬 삭제 ③ MCP 삭제 ④ MCP 이름 변경. `skillApi.remove`·`mcpApi.list/delete/update`를 hoisted mock으로 |
 | `features/skills/lib/catalogSelection.ts` | `CatalogSelection`·`INITIAL_CATALOG_SELECTION`·`selectTab`·`openDetail`·`back` 삭제, `INITIAL_CATALOG_TAB: CatalogTab = 'providers'` 추가 | `catalogSelection.test.ts`: 탭 순서 케이스 유지 · '첫 진입은 플러그인 탭이다' → `INITIAL_CATALOG_TAB` · reducer 2케이스 삭제(규칙은 B1·B6·E3로 이동) |
 | `features/schedules/components/SchedulesScreen.tsx` | `selectedId`·`expanded`·`originRef`·`select`·`closeDetail` 삭제 → hook. S0~S8을 자리마다 hook 직접 호출로(도우미 없음). `onDelete` prop 타입 변경 | `schedulesScreen.detail.test.ts` 신규 3: ① 수명 순서(펼침 `inert`→닫기·Esc 초점→다시 열면 접힘→탭 전환 해제) ② 지금 실행 ③ 삭제 콜백(행·패널·다른 작업) + describe `SchedulesView — 삭제 뒤 패널`(D1·D3) |
@@ -401,8 +407,9 @@ rg -n useCatalogDetail docs/arch/frontend/rendering.md docs/arch/frontend/design
 
 ## 14. 성능 / 상한 / 최적화
 
-- 구조 목표(AC7 ≤ +8) 지도 — 설계 턴에 scratchpad에서 TO-BE를 시제작해 prettier로 정렬한 뒤 `git diff --no-index --numstat`으로 쟀다(커밋하지 않음): hook +56 · `ExtensionsCatalogView` −29 · `catalogSelection.ts` −17 · `SchedulesScreen` −7 · `taskActions` +1 · `SchedulesView` 0 → Σ +4.
+- 구조 목표(AC7 ≤ +10) 지도 — 설계 턴에 scratchpad에서 TO-BE를 시제작해 prettier로 정렬한 뒤 `git diff --no-index --numstat`으로 쟀다(커밋하지 않음): hook +59 · `ExtensionsCatalogView` −29 · `catalogSelection.ts` −17 · `SchedulesScreen` −7 · `taskActions` +1 · `SchedulesView` 0 → Σ +7(ΔV1 지연 조회 반영).
 - 같은 시제작에서 EP-1·EP-2 검색 출력은 18줄·14줄이고 줄마다 자리 하나로 갈렸다(차집합 0).
+- 런타임 작업량(D-005)은 §20 표 — 상호작용마다 기준 트리 이하. 코드 크기는 AC7이 맡고, 참고로 바뀐 모듈의 minified 합은 11,118 → 11,256 B(+138 B, `esbuild --minify` 파일별)다.
 - 요청·출력 상한: 해당 없음.
 
 ## 15. 외부 구현 포트 / 문서 계약
@@ -444,8 +451,53 @@ rg -n useCatalogDetail docs/arch/frontend/rendering.md docs/arch/frontend/design
 - 적용 가이드: `app/AGENTS.md:157`(테스트를 바꾼 변경의 로컬 확인) · `app/src/renderer/AGENTS.md`.
 - 환경: 이 컨테이너에는 `app/node_modules`가 없다 — 구현 턴에서 `npm ci`(electron postinstall 403은 `app/AGENTS.md §ABI 제약 환경`대로 분리 보고).
 - 명령(`app/`): `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-product-naming.mjs` · `node scripts/check-test-budgets.mjs` · `npm run lint` · `npm run typecheck` · 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs`.
-- EP-4 G1~G5 · 등록 변이 X1~X5 · 열거 sweep.
+- EP-4 G1~G6 · EP-5 측정점 19 · 등록 변이 X1~X7 · 열거 sweep.
 - 사람 실기: AC9.
+
+## 20. ΔV1 — 성능 동등 이상 (D-005, 사용자 요구 추가)
+
+- 판정: 상호작용마다 런타임 작업량이 기준 트리 이하여야 한다. 설계 턴 시제작은 19 측정점 중 18점이 같거나 적고, 예약 작업 삭제 완료 1점만 새 동작 몫으로 늘어 스킬 탭과 같은 값이 된다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-005↔AC10·AC11. D-003(스킬 탭 규칙)이 삭제 완료의 상한을 정한다.
+- 바뀐 노드: R-04·AT-06(NEW) · MD-01(CHANGED — B2·B3 지연 조회) · AR-03(CHANGED — G4 ≤ +10, G6 신설). 나머지 V1 노드는 그대로다.
+
+| R | AC | 동작 기준 | 검증 수단 | 경로 |
+|---|---|---|---|---|
+| R-04 | AC10 | 두 화면의 상호작용마다 화면 렌더·예약 프레임·DOM 조회가 아래 표의 기준값 이하다. 예약 작업 삭제 완료는 새 동작이라 같은 규칙을 가진 스킬 탭 삭제 완료 값(2·1·1)을 상한으로 쓴다 | IT 작업량 단언(EP-5) · X6 | 입력 → 화면 → `useCatalogDetail` → 렌더·rAF·조회 |
+| R-04 | AC11 | hook은 effect·리스너를 만들지 않아 마운트 작업이 늘지 않는다(표 M0 같음) | G6 · EP-5 M0 · X7 | 마운트 |
+
+### EP-5 — 작업량 측정점 (R-04 / VP-12) · 19점 · `렌더·프레임·조회`
+
+| 측정점 | 예약 작업: 기준 → 시제작 | 스킬 탭: 기준 → 시제작 |
+|---|---|---|
+| M0 마운트 | 1·0·0 → 1·0·0 | 2·0·0 → 2·0·0 |
+| 1 행 열기 | 3·0·1 → 3·0·1 | 2·0·1 → 2·0·1 |
+| 2 다른 행 | 3·0·1 → 3·0·1 | 2·0·1 → 2·0·1 |
+| 3 펼치기 | 1·0·0 → 1·0·0 | 1·0·0 → 1·0·0 |
+| 4 닫기(펼친 채) | 1·1·0 → 1·1·0 | 1·1·0 → 1·1·0 |
+| 5 같은 행 다시 | 1·1·0 → 1·1·0 (닫힘) | 1·0·0 → 0·0·0 (열린 채) |
+| 6 탭 전환(열린 채) | 1·0·0 → 1·0·0 (이제 닫힘) | 1·0·0 → 1·0·0 |
+| 7 같은 탭(닫힌 채) | 0·0·0 → 0·0·0 | 1·0·0 → 0·0·0 |
+| 8 지금 실행(행 메뉴) | 3·0·1 → 3·0·1 | — |
+| 9 삭제 완료 | 1·0·0 → 2·1·1 (새 동작 — 상한 2·1·1) | 2·1·1 → 2·1·1 |
+
+- 측정 창: 대상 노드를 찾은 뒤 시작 → 동작 → 테스트 `flush()` → `dom.frame()` 1회 → 끝. 단언용 조회는 창 밖에서 한다.
+- 렌더 = 화면을 감싼 카운터 컴포넌트 실행 수(하네스 렌더 패스) · 프레임 = `window.requestAnimationFrame` 호출 수 · 조회 = `FakeNode.prototype.querySelectorAll`·`closest` 호출 수.
+- 삭제 완료 입력: 예약 = 잡아 둔 `onDeleted` 호출 + 그 작업을 뺀 목록으로 다시 렌더 · 스킬 탭 = 확인 모달 `제거` 클릭(`skillApi.remove`가 줄어든 목록을 돌려줌).
+- 기준값 출처: V1 READY 트리를 scratchpad worktree에서 같은 창으로 잰 값. 스킬 탭 9번만 대안 선택자 한 줄을 인용 형태로 바꿔 쟀다(하네스 제약 — 실제 Chromium에서는 같은 선택자).
+- 단언: 측정점마다 `≤ 기준값`(예약 9번은 `≤ 2·1·1`). 테스트에 표를 두고 출처(0321 기준 트리 실측)를 주석으로 단다. 공용 헬퍼는 만들지 않는다 — 두 IT 파일에 각자 스파이 3개와 카운터 래퍼.
+
+| Pair | left ↔ right | req | 직접 oracle | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| VP-12 | R-04 ↔ AT-06(AC10·AC11) | REQUIRED | `schedulesScreen.detail.test.ts` 작업량 단언(M0·1~9) · `ExtensionsCatalogView.interaction.test.ts` 작업량 단언(M0·1~7·9) · G6 | required — X6 · X7 | EP-5(19) |
+| VP-08 | MD-01 ↔ UT-01 | REQUIRED(CHANGED) | B2 조회 0회 입력 추가 | X6 | EP-0 |
+| VP-07 | AR-03 ↔ IT-03 | REQUIRED(CHANGED) | G4 ≤ +10 · G6 | X7 | EP-4(6) |
+
+| ID | 자리 | 변이 | 기대(설계 턴 확인) |
+|---|---|---|---|
+| X6 | hook `close` | 연 자리를 확인하기 전에 대안 탭을 조회(즉시 조회) | 닫기 조회 0 → 1(예약 4·5, 스킬 탭 4) — 시제작에서 확인 |
+| X7 | hook 본문 | `useEffect` 추가(예: 언마운트 때 프레임 취소) | G6 = 1 |
+
+- 선언 경계: 렌더 안 함수 할당 수(hook이 렌더마다 함수 6개를 만든다 — 렌더 수가 같으면 측정 대상 아님) · 실제 React에서 비동기 완료가 같은 커밋으로 묶이는지(하네스는 flush 단위로 센다) · 번들 바이트(AC7이 코드 크기를 맡는다).
 
 ## READY self-review
 
@@ -464,6 +516,7 @@ rg -n useCatalogDetail docs/arch/frontend/rendering.md docs/arch/frontend/design
 - [x] 사람 실기로 미룬 순수 로직 없음(AC9는 실제 focus 적용만).
 - [x] 음성 게이트 G1·G2는 양성 G3·행동 AC와 짝.
 - [x] 게이트 명령이 `app/AGENTS.md:157`과 같다.
+- [x] ΔV1: D-005 원문 인용 · NEW/CHANGED 노드마다 REQUIRED pair · 기준값은 실측(19점) · X6 방향을 시제작에서 확인(0 → 1).
 
 ---
 
