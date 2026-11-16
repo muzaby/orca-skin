@@ -219,16 +219,22 @@ describe('(c) `loadSession`', () => {
 
 describe('(d) `ipcMain` 등록', () => {
   for (const method of ['handle', 'on', 'once', 'handleOnce']) {
-    it(`\`handle.ts\` 밖의 \`ipcMain.${method}(\` 는 exit 1`, () => {
+    it(`셸 전송 밖의 \`ipcMain.${method}(\` 는 exit 1`, () => {
       fails('d', {
         'src/main/app/shell/extra.ts': `declare const ipcMain: any\nipcMain.${method}('oo:x', () => 1)\n`
       })
     })
   }
 
-  it('`handle.ts` 안의 등록은 exit 0', () => {
+  it('등록 함수 파일(`handle.ts`)도 `ipcMain` 을 직접 부르면 exit 1', () => {
+    fails('d', {
+      'src/main/infra/ipc/handle.ts': "declare const ipcMain: any\nipcMain.handle('a', () => 1)\n"
+    })
+  })
+
+  it('셸 전송(`electron-transport.ts`) 안의 등록은 exit 0', () => {
     passes({
-      'src/main/infra/ipc/handle.ts':
+      [ALLOWED.d.files[0]]:
         "declare const ipcMain: any\nipcMain.handle('a', () => 1)\nipcMain.on('b', () => 1)\n"
     })
   })

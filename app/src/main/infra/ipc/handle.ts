@@ -4,7 +4,7 @@
 //   { fallback } — 무해 폴백 반환. 무효 입력을 조용히 무시해도 안전한 채널 (조회·목록류).
 // main→renderer send 이벤트는 검증하지 않는다(형상 보증은 어댑터 정규화 — IPC_CONTRACT §1).
 
-import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { ipcTransport, type RequestEvent } from './transport'
 import { getLogger } from '../log/registry'
 import { recordStall, stallThread } from '../perf/stall-monitor'
 
@@ -53,9 +53,9 @@ export function handle<T, R>(
   channel: string,
   schema: SafeParser<T>,
   invalid: InvalidPolicy<R>,
-  fn: (data: T, event: IpcMainInvokeEvent) => Promise<R> | R
+  fn: (data: T, event: RequestEvent) => Promise<R> | R
 ): void {
-  const listener = async (event: IpcMainInvokeEvent, raw: unknown): Promise<R> => {
+  const listener = async (event: RequestEvent, raw: unknown): Promise<R> => {
     const parsed = schema.safeParse(raw)
     if (!parsed.success) {
       // 무효 payload 가 조용히 사라지지 않게 warn 으로 가시화(0124 AC6) — suppress(60s 창)가
@@ -71,17 +71,17 @@ export function handle<T, R>(
     }
     return fn(parsed.data, event)
   }
-  ipcMain.handle(channel, timed(channel, listener))
+  ipcTransport().handle(channel, timed(channel, listener))
 }
 
 // 입력이 없거나(인자 무시) 검증을 소비처(store 내부 zod)가 담당하는 채널.
 export function handlePlain<R>(
   channel: string,
-  fn: (raw: unknown, event: IpcMainInvokeEvent) => Promise<R> | R
+  fn: (raw: unknown, event: RequestEvent) => Promise<R> | R
 ): void {
-  ipcMain.handle(
+  ipcTransport().handle(
     channel,
-    timed(channel, (event: IpcMainInvokeEvent, raw: unknown) => fn(raw, event))
+    timed(channel, (event: RequestEvent, raw: unknown) => fn(raw, event))
   )
 }
 
@@ -90,12 +90,12 @@ export function handlePlain<R>(
 export function on<T>(
   channel: string,
   schema: SafeParser<T>,
-  fn: (data: T, event: IpcMainEvent) => void,
-  onInvalid?: (event: IpcMainEvent) => void
+  fn: (data: T, event: RequestEvent) => void,
+  onInvalid?: (event: RequestEvent) => void
 ): void {
-  ipcMain.on(
+  ipcTransport().on(
     channel,
-    timed(channel, (event: IpcMainEvent, raw: unknown) => {
+    timed(channel, (event: RequestEvent, raw: unknown) => {
       const parsed = schema.safeParse(raw)
       if (!parsed.success) {
         onInvalid?.(event)

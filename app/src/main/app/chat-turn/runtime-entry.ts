@@ -4,7 +4,7 @@
 // 다만 **살아 있는 채널을 그대로 쓰면 안 되는 경우가 넷** 있어서 여기서 한 번에 판정한다.
 // 판정 자체는 순수 모듈(`features/sessions/respawn-policy`)이 갖고, 여기는 입력 수집과 실행만.
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnExtensions } from '../../adapters/common/turn'
 import type { PreparedHarnessConfig } from '../../adapters/common/harness-config'
@@ -16,8 +16,8 @@ import type { SessionChainLease } from '../../features/sessions/session-chain-le
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 
 interface RuntimeEntryDeps {
-  supervisor: RuntimeSupervisor<WebContents>
-  lease: SessionChainLease<WebContents>
+  supervisor: RuntimeSupervisor<ClientRef>
+  lease: SessionChainLease<ClientRef>
   adapter: RuntimeSessionAdapter
   buildExtensions: () => TurnExtensions
   // 핸들을 **인출한 순간** 호출자에게 공개한다. 반환값으로만 넘기면 이 함수가 그 뒤에서
@@ -36,7 +36,7 @@ type RuntimeEntry =
 
 export async function acquireTurnRuntime(
   deps: RuntimeEntryDeps,
-  turn: TurnContext<WebContents>,
+  turn: TurnContext<ClientRef>,
   input: {
     sessionId: string | null
     resolved: {

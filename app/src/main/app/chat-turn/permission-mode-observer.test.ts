@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import { CHANNELS } from '../../../shared/ipc'
 import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import { createPermissionModeObserver } from './permission-mode-observer'
@@ -9,12 +9,12 @@ vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 function fixture(sessionId: string | null = 's1'): {
   observer: ReturnType<typeof createPermissionModeObserver>
   controller: PermissionModeController
-  owner: { isDestroyed: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> }
+  owner: { isClosed: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> }
   turn: { controller: AbortController; dbSessionId: string | null }
   replace: (sessionId: string | null) => void
 } {
   const controller = new PermissionModeController('default')
-  const owner = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+  const owner = { isClosed: vi.fn(() => false), send: vi.fn() }
   const turn = { controller: new AbortController(), dbSessionId: sessionId }
   let active = turn
   return {
@@ -22,7 +22,7 @@ function fixture(sessionId: string | null = 's1'): {
     owner,
     turn,
     observer: createPermissionModeObserver({
-      wc: owner as unknown as WebContents,
+      wc: owner as unknown as ClientRef,
       permissionModes: controller,
       getActiveTurn: () => active
     }),
@@ -85,7 +85,7 @@ describe('0249 VP-37 — 실제 권한 보고의 세션 소유권과 확정 순�
     expect(aborted.controller.getCurrentMode('s1')).toBe('default')
     expect(aborted.owner.send).not.toHaveBeenCalled()
     const destroyed = fixture()
-    destroyed.owner.isDestroyed.mockReturnValue(true)
+    destroyed.owner.isClosed.mockReturnValue(true)
     destroyed.observer.report('s1', 'bypass')
     expect(destroyed.controller.getCurrentMode('s1')).toBe('default')
     expect(destroyed.owner.send).not.toHaveBeenCalled()

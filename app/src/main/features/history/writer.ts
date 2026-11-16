@@ -3,7 +3,7 @@
 // telemetry(턴 종료)에서 reset 한다. AskUserQuestion tool_result 합성(flushAskAnswers)도
 // 영속 책임이라 여기 둔다.
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
@@ -233,7 +233,7 @@ export class HistoryWriter {
   // AskUserQuestion 답변과 tool_use id 를 명시 ID로 페어링해 tool_result 를 합성한다(SDK 가
   // answers 를 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
   // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
-  flushAskAnswers(turn: TurnContext, wc: WebContents): void {
+  flushAskAnswers(turn: TurnContext, wc: ClientRef): void {
     for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length;) {
       const a = turn.pendingAskAnswers[answerIndex]
       const pendingIndex = turn.askPendingIds.indexOf(a.toolUseId)

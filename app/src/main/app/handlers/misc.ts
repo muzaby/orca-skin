@@ -19,6 +19,7 @@ import { toAgentEnvironments } from '../../features/harnesses/common/models'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'
+import { contentsOf } from '../../infra/ipc/electron-transport'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOoConfig } from '../../infra/config/oo-config'
@@ -109,7 +110,8 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
   // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,
   // "창 비활성일 때만" 게이트는 여기(main)가 담당한다(포커스 판정의 authoritative 출처).
   handle(CHANNELS.notifyShow, NotifyShowSchema, 'reject', (req, event): void => {
-    const win = BrowserWindow.fromWebContents(event.sender)
+    const contents = contentsOf(event.sender)
+    const win = contents ? BrowserWindow.fromWebContents(contents) : null
     if (win?.isFocused()) return
     if (Notification.isSupported()) {
       new Notification({ title: req.title, body: req.body }).show()

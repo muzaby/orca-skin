@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../../../../main/contracts/client'
 import { claudeToNormalized, type MapContext } from '../../../../../main/adapters/claude/map'
 import {
   TurnCoordinator,
@@ -78,7 +78,7 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           })
         sdkMessages.push({ type: 'result', subtype: 'success', usage: {} })
         const events = sdkMessages.flatMap((raw) => claudeToNormalized(raw as SDKMessage, context))
-        const owner = {} as WebContents
+        const owner = {} as ClientRef
         const turn = {
           agentKind: 'code',
           controller: new AbortController(),
@@ -96,7 +96,7 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           subagentTypes: new Map(),
           blockedSubagents: new Set(),
           stoppedSubagents: new Set()
-        } as unknown as TurnContext<WebContents>
+        } as unknown as TurnContext<ClientRef>
         const runtime = {
           send: async function* () {
             yield* events
@@ -105,14 +105,14 @@ describe('0239 SDK to persisted and rendered settlement', () => {
         } as unknown as CoordinatorRuntime
         let live = chatReducer(initialChatState, { type: 'BEGIN_TURN' })
         const delivered: NormalizedEvent[] = []
-        const forward = (_owner: WebContents, event: NormalizedEvent): void => {
+        const forward = (_owner: ClientRef, event: NormalizedEvent): void => {
           delivered.push(event)
           live = chatReducer(live, { type: 'RECV_EVENT', event })
         }
-        const bus = new TypedBus<OoBusEvents<WebContents>>()
+        const bus = new TypedBus<OoBusEvents<ClientRef>>()
         bus.on('turn.event', ({ turn, ev }) => writer.persist(turn, ev), { critical: true })
         bus.on('turn.event', ({ ev }) => forward(owner, ev))
-        await new TurnCoordinator<WebContents>({
+        await new TurnCoordinator<ClientRef>({
           runtime,
           bus,
           persist: writer,

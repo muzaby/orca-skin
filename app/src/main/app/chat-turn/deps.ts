@@ -4,7 +4,7 @@
 // `registerChatHandlers` 가 만드는 턴-공통 헬퍼와 listen 프레임 릴리즈 맵을 더한 것이다.
 // 두 층을 가른 이유는 send 경로가 후자만 알면 되고, 전자는 배선의 관심사이기 때문이다.
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { MainBus } from '../../contracts/bus-events'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
@@ -21,8 +21,8 @@ import type { BackgroundController } from '../../features/chat/background-contro
 
 export interface ChatDeps {
   ctx: RouterContext
-  supervisor: RuntimeSupervisor<WebContents>
-  bus: MainBus<WebContents>
+  supervisor: RuntimeSupervisor<ClientRef>
+  bus: MainBus<ClientRef>
   approvals: ApprovalCoordinator
   persistence: HistoryWriter
   permissionModes: PermissionModeController

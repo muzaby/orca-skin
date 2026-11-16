@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import type { ChildProcess, spawn } from 'node:child_process'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import { createOpenCodeAdapter } from '../../adapters/opencode'
@@ -203,10 +203,10 @@ function admission(
   const queueKey = sessionId ?? 'draft'
   const item = pending.enqueue(queueKey, { text: 'Hello' })
   const batch = pending.reserveItem(queueKey, item.id, 'chain')!
-  const activeTurn = { dbSessionId: sessionId } as TurnContext<WebContents>
+  const activeTurn = { dbSessionId: sessionId } as TurnContext<ClientRef>
   const request = buildTurnRequest(
     {
-      wc: {} as WebContents,
+      wc: {} as ClientRef,
       pendingMessages: pending,
       activity,
       queueKey,

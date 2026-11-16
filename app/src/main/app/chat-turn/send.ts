@@ -13,7 +13,7 @@
 //  ③ `activeTurn`·`initialBatches` 는 **게터로** 넘긴다 — 자동 연속 턴과 finally 정리가 함께
 //     보는 가변 상태라, 값으로 캡처하면 연속 턴에서 콜백이 옛 턴을 본다.
 
-import type { IpcMainInvokeEvent, WebContents } from 'electron'
+import type { ClientRef, RequestEvent } from '../../contracts/client'
 import { ifPresent } from '../../../shared/obj'
 import {
   coerceAutoPermissionModeForModelName,
@@ -51,7 +51,7 @@ import { prepareAgentExtensionProfile } from '../harnesses/registry'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
-  event: IpcMainInvokeEvent,
+  event: RequestEvent,
   raw: unknown
 ): Promise<void> {
   const {
@@ -230,15 +230,16 @@ export async function handleChatSend(
   // lease CAS 직후의 논리 admission 시각 (위 ②).
   const leaderAdmittedAt = lease.admittedAt
 
-  let leaderTurn: TurnContext<WebContents> | null = null
+  let leaderTurn: TurnContext<ClientRef> | null = null
   let leaderRuntime: SessionRuntime | null = null
   let cleanupDone = false
   let initialBatches: SteerFlushBatch[] = []
   let onOwnerGone: (() => void) | null = null
   let unlinkResponseAbort = (): void => {}
   const abortPreparing = (): void => lease.controller.abort()
-  event.sender.once('destroyed', abortPreparing)
-  event.sender.once('render-process-gone', abortPreparing)
+  // 창이 닫히거나 문서가 새로 읽히면 준비를 멈춘다.
+  let unwatchPreparing = event.sender.onClosed(abortPreparing)
+  let unwatchOwner = (): void => {}
   const reportWaitPhase = (phase: ChatWaitPhase | null): void => {
     if (activeAdapter.reportsWaitPhases !== true) return
     activity?.setWaitPhase?.(provisionalKey, phase)
@@ -355,7 +356,7 @@ export async function handleChatSend(
         else lease.controller.signal.addEventListener('abort', abortResponse, { once: true })
         unlinkResponseAbort = () =>
           lease.controller.signal.removeEventListener('abort', abortResponse)
-        return buildTurnContext<WebContents>({
+        return buildTurnContext<ClientRef>({
           agentKind,
           controller,
           owner: event.sender,
@@ -492,8 +493,8 @@ export async function handleChatSend(
     if (lease.controller.signal.aborted) return
 
     const wc = event.sender
-    wc.removeListener('destroyed', abortPreparing)
-    wc.removeListener('render-process-gone', abortPreparing)
+    unwatchPreparing()
+    unwatchPreparing = () => {}
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다. 여기는 abortTurn(turn) 이 아니라 runtime 을 직접 mark
     // 한다 — coordinator.run 이 turn.live=runtime 을 세우기 *전* 에 owner 가 사라질 수 있어,
@@ -502,11 +503,10 @@ export async function handleChatSend(
       runtime.markAborted('user_cancelled')
       controller.abort()
     }
-    wc.once('destroyed', onOwnerGone)
-    wc.once('render-process-gone', onOwnerGone)
+    unwatchOwner = wc.onClosed(onOwnerGone)
 
     // ── 10. 가로축 구동체 + 승인 배선 (위 ③ — 활성 턴은 게터로) ─────────────
-    const coordinator = new TurnCoordinator<WebContents>({
+    const coordinator = new TurnCoordinator<ClientRef>({
       runtime,
       bus,
       persist: persistence,
@@ -518,8 +518,8 @@ export async function handleChatSend(
       backgroundTasks,
       persistResponseBoundaries: (kind) => resolveAgentProfile(kind).persistResponseBoundaries
     })
-    let activeTurn: TurnContext<WebContents> = turn
-    const getActiveTurn = (): TurnContext<WebContents> => activeTurn
+    let activeTurn: TurnContext<ClientRef> = turn
+    const getActiveTurn = (): TurnContext<ClientRef> => activeTurn
 
     const requestApproval = createApprovalRequester({
       wc,
@@ -740,12 +740,8 @@ export async function handleChatSend(
     })
   } finally {
     // 등록 뒤 요청 조립이 실패해 실행 try에 못 들어가도 체인 스코프에서 회수한다.
-    if (onOwnerGone) {
-      event.sender.removeListener('destroyed', onOwnerGone)
-      event.sender.removeListener('render-process-gone', onOwnerGone)
-    }
-    event.sender.removeListener('destroyed', abortPreparing)
-    event.sender.removeListener('render-process-gone', abortPreparing)
+    unwatchOwner()
+    unwatchPreparing()
     unlinkResponseAbort()
     activity?.setWaitPhase?.(leaderTurn?.dbSessionId ?? provisionalKey, null)
     if (!cleanupDone) {

@@ -20,6 +20,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }))
 
 import { ClaudeAdapter } from '../../../../../../main/adapters/claude/adapter'
+import { sendPrepared } from '../../../../../../main/adapters/claude/prepared.testfixture'
 import type { LiveTurn } from '../../../../../../main/adapters/common/types'
 import { HistoryWriter } from '../../../../../../main/features/history/writer'
 import { partFromRow } from '../../../../../../main/infra/ipc/dto'
@@ -203,7 +204,7 @@ describe('0249 ΔV3 VP-35 — 계획 입력의 라이브/재로드 도구 카드
         }
         if (order === 'started-first') await approve(options)
       }
-      const live = new ClaudeAdapter().sendMessage({
+      const live = await sendPrepared(new ClaudeAdapter(), {
         sessionId: 'plan-session',
         text: 'submit plan',
         cwd: root,

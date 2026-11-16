@@ -10,7 +10,7 @@ import { reportError } from '../../infra/error-report'
 // **배럴이자 진입점이다** — 기존 `import { registerChatHandlers } from '../chat-turn'` 이 그대로
 // 해석되도록 디렉토리 index 로 둔다(무회귀 분해, `src/main/AGENTS.md §작업 규칙`).
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import { randomUUID } from 'node:crypto'
 import { CHANNELS } from '../../../shared/ipc'
 import {
@@ -45,7 +45,7 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
 
   // settle(취소·서브에이전트 중단) 정착 이벤트를 turn.event 버스로 방출 — 스트리밍과 동일
   // 파이프라인. fault-isolated: 정리 중 구독자 throw 가 핸들러를 깨지 않게 격리한다.
-  const emitTurn: TurnEmit<WebContents> = (turn, ev) => {
+  const emitTurn: TurnEmit<ClientRef> = (turn, ev) => {
     try {
       bus.emit('turn.event', { turn, ev })
     } catch (err) {
@@ -70,7 +70,7 @@ export function registerChatHandlers(deps: ChatDeps): BackgroundController {
   }
 
   // Stop과 즉시 보내기는 같은 정착/영속/통지 순서를 쓴다. held와 체인 정책은 호출자가 정한다.
-  const interruptResponse = (turn: TurnContext<WebContents>, sessionId: string): void => {
+  const interruptResponse = (turn: TurnContext<ClientRef>, sessionId: string): void => {
     abortTurn(turn, 'user_cancelled')
     settleOpenToolRuns(turn, emitTurn, 'aborted', backgroundTasks.getState(sessionId))
     persistence.finalizeTurn(turn)

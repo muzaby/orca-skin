@@ -31,7 +31,7 @@ import { sameSessionBinding } from './session-binding'
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
-import type { IpcMainInvokeEvent } from 'electron'
+import type { ClientRef, RequestEvent } from '../contracts/client'
 import { app, powerMonitor, shell } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
@@ -234,7 +234,7 @@ export class Bootstrap {
   }
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
-  private supervisor?: RuntimeSupervisor<Electron.WebContents>
+  private supervisor?: RuntimeSupervisor<ClientRef>
   private closeComposerCatalog?: import('./handlers/composer-catalog').ComposerCatalogRegistration
   private preparedMcpResources?: PreparedMcpResources
   private openCodeMcpReconcile?: OpenCodeMcpReconcile
@@ -245,7 +245,7 @@ export class Bootstrap {
   private stopAvailability?: () => void
   private readonly onHarnessFocus = (): void => this.registry.focusRecheck()
   private claudeGlobalWatch?: FingerprintWatch
-  private bus?: MainBus<Electron.WebContents>
+  private bus?: MainBus<ClientRef>
   private activeDbWriteCount = 0
   private isIndexing = false
   private artifacts?: ArtifactService
@@ -259,7 +259,7 @@ export class Bootstrap {
   private titles?: TitleGenerator
   private dailyGate?: { dispose(): void }
 
-  constructor(private readonly isTrustedArtifactSender: (event: IpcMainInvokeEvent) => boolean) {}
+  constructor(private readonly isTrustedArtifactSender: (event: RequestEvent) => boolean) {}
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -958,7 +958,7 @@ export class Bootstrap {
     }
     const bus = this.bus
     // 열린 도구를 'aborted' 합성 tool_result 로 정착 → turn.event 버스로 방출(history 구독자가 영속).
-    const emit = (turn: TurnContext<Electron.WebContents>, ev: NormalizedEvent): void => {
+    const emit = (turn: TurnContext<ClientRef>, ev: NormalizedEvent): void => {
       try {
         bus.emit('turn.event', { turn, ev })
       } catch (e) {
@@ -983,7 +983,7 @@ export class Bootstrap {
 
   private registerTurnEvents(
     ctx: Pick<RouterContext, 'db' | 'cost'>,
-    bus: MainBus<Electron.WebContents>
+    bus: MainBus<ClientRef>
   ): HistoryWriter {
     // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
     // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에
@@ -1072,7 +1072,7 @@ export class Bootstrap {
   private register(ctx: RouterContext): void {
     this.registerArtifacts(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
-    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
+    const supervisor = (this.supervisor = new RuntimeSupervisor<ClientRef>({
       activeTurns: new ActiveTurnTracker((event) => {
         broadcastConcurrency(event)
         this.updateStateChanged()
@@ -1085,7 +1085,7 @@ export class Bootstrap {
       this.updateStateChanged()
       this.projectResourceSync?.leasesChanged()
     })
-    const bus = (this.bus = new TypedBus<OoBusEvents<Electron.WebContents>>())
+    const bus = (this.bus = new TypedBus<OoBusEvents<ClientRef>>())
     const persistence = this.registerTurnEvents(ctx, bus)
 
     const approvals = new ApprovalCoordinator()

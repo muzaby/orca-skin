@@ -7,7 +7,7 @@
 // **활성 턴을 값이 아니라 게터로 받는다.** 자동 연속 턴(0067 AC7)이 같은 채널에서 후속
 // TurnContext 로 이어지므로, 고정 turn 을 캡처하면 연속 턴에서 승인이 옛 턴에 붙는다.
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import { randomUUID } from 'node:crypto'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
 import { planApprovedMode } from '../../../shared/permission-mode'
@@ -20,12 +20,12 @@ import type { TurnContext } from '../../contracts/turn'
 import { sendChatEvent } from '../../infra/ipc/send'
 
 interface ApprovalRequesterDeps {
-  wc: WebContents
+  wc: ClientRef
   approvals: ApprovalCoordinator
   permissionModes: PermissionModeController
   persistence: HistoryWriter
   /** 세션-레벨 인디렉션 — 호출 시점의 활성 턴을 읽는다. */
-  getActiveTurn: () => TurnContext<WebContents>
+  getActiveTurn: () => TurnContext<ClientRef>
 }
 
 export function createApprovalRequester(

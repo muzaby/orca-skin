@@ -1,3 +1,4 @@
+import type { ClientRef } from '../../contracts/client'
 import type {
   DraftNativeResourcesRequest,
   NativeCommand,
@@ -32,7 +33,7 @@ export function registerSessionResourceHandlers({
   projectSync?: ProjectResourceSync
   preparedMcp?: import('../harnesses/opencode/prepared-mcp-resources').PreparedMcpResources
 }): (request: ResourceRequest) => Promise<NativeResources> {
-  const senders = new WeakSet<Electron.WebContents>()
+  const senders = new WeakSet<ClientRef>()
   const observations = new WeakMap<GovernedLiveTurn, NativeResources>()
   const read = async (
     sessionId: string,
@@ -155,11 +156,8 @@ export function registerSessionResourceHandlers({
             preparedMcp?.releaseSender(event.sender.id)
             projectSync?.releasePrefix(`${event.sender.id}:`)
           }
-          event.sender.once('destroyed', clear)
-          event.sender.on('render-process-gone', clear)
-          event.sender.on('did-start-navigation', (_event, _url, inPlace, main) => {
-            if (main && !inPlace) clear()
-          })
+          // 닫힌 참조는 다시 요청하지 않는다 — 새 문서는 새 참조로 온다.
+          event.sender.onClosed(clear)
         }
       }
       if (observation && projectSync) {
@@ -170,13 +168,10 @@ export function registerSessionResourceHandlers({
           return { state: 'disconnected', items: [] }
         }
         projectSync.observe(owner, scope, (resources) => {
-          if (!event.sender.isDestroyed())
-            event.sender.send(
-              CHANNELS.sessionNativeResourcesChanged,
-              'sessionId' in scope
-                ? { sessionId: scope.sessionId, resources }
-                : { scope, resources }
-            )
+          event.sender.send(
+            CHANNELS.sessionNativeResourcesChanged,
+            'sessionId' in scope ? { sessionId: scope.sessionId, resources } : { scope, resources }
+          )
         })
         return { state: 'disconnected', items: [] }
       }

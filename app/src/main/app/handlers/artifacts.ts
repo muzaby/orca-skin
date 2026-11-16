@@ -1,4 +1,5 @@
-import { dialog, shell, type IpcMainInvokeEvent } from 'electron'
+import { dialog, shell } from 'electron'
+import type { RequestEvent } from '../../contracts/client'
 import { realpath } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import {
@@ -28,7 +29,7 @@ type ArtifactHandlers = Pick<
   ArtifactService,
   'listLatest' | 'status' | 'preview' | 'trash' | 'readForExport' | 'revealPath' | 'openFolderPath'
 >
-export type ArtifactSenderCheck = (event: IpcMainInvokeEvent) => boolean
+export type ArtifactSenderCheck = (event: RequestEvent) => boolean
 
 function reasonOf(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
@@ -51,7 +52,7 @@ export function registerArtifactHandlers(
   isTrustedSender: ArtifactSenderCheck,
   catalog: Pick<ArtifactCatalog, 'list' | 'setPinned'>
 ): void {
-  const assertSender = (event: IpcMainInvokeEvent): void => {
+  const assertSender = (event: RequestEvent): void => {
     if (!isTrustedSender(event)) throw new Error('forbidden')
   }
   handle(CHANNELS.artifactCatalog, ArtifactCatalogRequestSchema, 'reject', (_req, event) => {

@@ -1,3 +1,4 @@
+import type { ClientRef } from '../contracts/client'
 import { loadClaudeSdk } from '../adapters/claude/sdk'
 import { errorReportHub } from '../infra/error-report'
 import { extensionControl } from './extension-control'
@@ -290,7 +291,7 @@ afterEach(() => {
 
 function register(realBootstrap?: Bootstrap): {
   ctx: RouterContext
-  supervisor: RuntimeSupervisor<Electron.WebContents>
+  supervisor: RuntimeSupervisor<ClientRef>
   activity: SessionActivityProjector
   forget: ReturnType<typeof vi.fn>
   registry?: AdapterRegistry
@@ -301,7 +302,7 @@ function register(realBootstrap?: Bootstrap): {
     register(ctx: RouterContext): void
     registerArtifacts(ctx: RouterContext): void
     registerTurnEvents(): HistoryWriter
-    supervisor: RuntimeSupervisor<Electron.WebContents>
+    supervisor: RuntimeSupervisor<ClientRef>
     activity: SessionActivityProjector
     extensionChoices: ReturnType<typeof extensionControl>
     registry?: AdapterRegistry
@@ -1062,7 +1063,7 @@ describe('Claude plugin toggle closes running Claude processes', () => {
     busy(
       sessionId: string,
       backend: 'claude' | 'opencode'
-    ): { runtime: ManagedRuntime & { closed: number }; turn: TurnContext<Electron.WebContents> }
+    ): { runtime: ManagedRuntime & { closed: number }; turn: TurnContext<ClientRef> }
   } {
     fixture.stopAtSession = false
     vi.spyOn(harnessModule('claude'), 'globalResources').mockResolvedValue([plugin])
@@ -1093,13 +1094,13 @@ describe('Claude plugin toggle closes running Claude processes', () => {
         return runtime
       },
       busy: (sessionId, backend) => {
-        const owner = {} as Electron.WebContents
+        const owner = {} as ClientRef
         const turn = {
           controller: new AbortController(),
           owner,
           live: null,
           dbSessionId: sessionId
-        } as unknown as TurnContext<Electron.WebContents>
+        } as unknown as TurnContext<ClientRef>
         const { lease } = registered.supervisor.acquireChain({
           backend,
           logicalKey: `session:${sessionId}`,
@@ -1325,7 +1326,7 @@ it('forwards each activity and lease change to project sync and the OpenCode adm
       backend: 'opencode',
       logicalKey: 'session:signal-lease',
       sessionId: 'signal-lease',
-      owner: {} as Electron.WebContents,
+      owner: {} as ClientRef,
       requestedProviderKey: null
     })
     expect(leaseTick).toHaveBeenCalledOnce()

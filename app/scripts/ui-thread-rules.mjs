@@ -28,7 +28,7 @@ export const RULES = {
   d: {
     title: '`ipcMain` 직접 등록',
     ask: '`src/main/infra/ipc/handle.ts`',
-    route: '`handle` · `handlePlain` · `on`'
+    route: '`handle` · `handlePlain` · `on` (`ipcMain` 은 `infra/ipc/electron-transport.ts` 만)'
   },
   e: {
     title: '셸의 import 경계',
@@ -254,7 +254,8 @@ export const ALLOWED = {
     name: 'loadSession',
     files: [`${MAIN}app/data-host/session-load.ts`, `${MAIN}app/chat-turn/native-session.ts`]
   },
-  d: { files: [`${MAIN}infra/ipc/handle.ts`] },
+  // (d) `ipcMain` 을 직접 부르는 유일한 파일 — 등록 API 는 `handle.ts` 의 세 함수다.
+  d: { files: [`${MAIN}infra/ipc/electron-transport.ts`] },
   // (e) 셸 진입점에서 값 import 로 닿으면 안 되는 곳.
   e: {
     entry: `${MAIN}index.ts`,
@@ -272,6 +273,7 @@ export const ALLOWED = {
     files: [
       `${MAIN}infra/ipc/send.ts`,
       `${MAIN}infra/ipc/transport.ts`,
+      `${MAIN}infra/ipc/electron-transport.ts`,
       `${MAIN}app/shell/host-supervisor.ts`,
       `${MAIN}app/agent-host/entry.ts`,
       `${MAIN}app/data-host/entry.ts`

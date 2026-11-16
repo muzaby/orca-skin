@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 import { resolve } from 'node:path'
 
 const workProfilePluginPath = resolve('resources/claude-plugins/work-profile')
@@ -149,11 +150,7 @@ function makeHarness(sessionId?: string) {
     // resume 축은 신규 축보다 정리 경로가 길다 — 세션 id 가 있어야 도달하는 반납이 둘 더 있다.
     releaseRuntime: vi.fn()
   }
-  const sender = {
-    once: vi.fn(),
-    removeListener: vi.fn(),
-    isDestroyed: vi.fn(() => false)
-  }
+  const sender = fakeClient()
   const deps = {
     ctx: {
       settings: { getAll: () => ({}) },

@@ -1,5 +1,5 @@
-import { EventEmitter } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 import { handleChatSend } from './send'
 import { resolveTurn } from './resolve-turn'
 import { normalizeAttachments } from '../../features/chat/attachments'
@@ -35,7 +35,7 @@ function fixture(stored?: Backend): {
   pendingMessages: PendingMessageQueue
   db: { getSessionById: ReturnType<typeof vi.fn> }
 } {
-  const sender = new EventEmitter()
+  const sender = fakeClient()
   const adapters = { claude: { id: 'claude' as const }, opencode: { id: 'opencode' as const } }
   const leases = new SessionChainLeaseRegistry()
   const acquire = vi.fn((input) => leases.acquire(input))
