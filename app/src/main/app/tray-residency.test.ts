@@ -188,6 +188,8 @@ describe('installTrayResidency — 트레이 표면 (EP-02 · EP-05)', () => {
 
     menu[1].click()
     expect(h.app.quit).toHaveBeenCalledOnce()
+    // 실제 app.quit 은 App 인스턴스 메서드다 — 분리 참조로 부르면 바인딩이 깨진다 (ΔV4).
+    expect(h.app.quit.mock.contexts[0]).toBe(h.app)
     expect(h.open).toHaveBeenCalledOnce()
   })
 
@@ -232,6 +234,8 @@ describe('installTrayResidency — 트레이 표면 (EP-02 · EP-05)', () => {
     expect(h.open).toHaveBeenCalledOnce()
     menu[1].click()
     expect(h.app.quit).toHaveBeenCalledOnce()
+    // 다시 만든 메뉴의 종료도 app 에 묶인 채 부른다 (ΔV4).
+    expect(h.app.quit.mock.contexts[0]).toBe(h.app)
   })
 })
 

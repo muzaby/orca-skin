@@ -682,6 +682,93 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 - 반복해서 부딪히는 환경 한계: Electron 바이너리 부재로 `index.ts` 조립과 실제 트레이를 실행할 수 없다.
 - 현재 라운드·impl 턴: `r1`.
 
+## [구현자 기입] 설계 리뷰 (r2)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 아니다 — r1은 판정·표면·라벨, r2는 메뉴 `종료` 콜백의 `app` 바인딩(ΔV4).
+- 막았어야 할 plan 지침이 있었는가: ΔV4 §23 조사 줄의 검색 명령이 r1 ΔV3과 같은 형태(같은 파일의 타입 선언까지 셈)로 틀렸다. 출력 4 ↔ 서술 3 — 별도 설계 커밋으로 정정했다(아래 놓친 잠재 문제 #1).
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 부재 — `index.ts` 조립과 실제 `app.quit` 바인딩은 실행할 수 없다.
+- 현재 라운드·impl 턴: `r2`.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+좌표의 파일은 전부 `app/src/main/app/tray-residency.test.ts`다. 이번 diff는 EP-02 둘째 항목의 규칙 칸(ΔV4)만 건드렸다. 나머지 행은 r1 좌표를 그대로 인용하며, 케이스 이름도 그대로 있다(16 passed).
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | EP-01 닫기 판정 | `close` 리스너 (1) | 1/1 | `rg -c "\.on\('close'"` → 1 · r1 좌표 유지(AC1·B5·AC4×2·AC5·AC6×2) | r1과 같음 | — |
+| VP-01 | EP-02 트레이 표면 | 메뉴 항목 2 · `click` 1 · 툴팁 1 (4) | 4/4 | `rg -c "label: labels\.\|\.on\('click'\|\.setToolTip\("` → 4 · 둘째 항목 바인딩(ΔV4) → `'AC2 — %s: 메뉴는 두 항목뿐…'`(ko·en) · `'AC11 — UI 언어가 바뀌면…'` | `quit.mock.contexts[0]` `toBe(h.app)` — `h.app` = `deps.app`으로 넘긴 그 객체(`setup`의 `app,` · `:92`) | — |
+| VP-01 | EP-02 생성 분기 | 성공 / 전파 | 2/2 | r1 좌표 유지(`'AC7 — …'`) | r1과 같음 | — |
+| VP-01 | EP-04 정리 | `will-quit` 리스너 (1) | 1/1 | `rg -c "\.on\('will-quit'"` → 1 · r1 좌표 유지 | r1과 같음 | — |
+| VP-01 | EP-05 라벨 언어 | 라벨 선택 · `onPatch` 구독 (2) | 2/2 | `rg -c "\.getAll\(\)\|\.onPatch\("` → 2 · r1 좌표 유지 | r1과 같음 | — |
+| VP-03 | EP-03 조립 | `installTrayResidency(` · `.attach(` (2) | 0/2 | `rg -o … app/src/main/index.ts \| wc -l` → 2(존재만) | 기계 좌표 없음 — 경계 B1 | 2자리 — 사람 실기 §19 |
+
+- 자리 검색 출력과 목록의 차집합: EP-01·02·04·05·03 = 1·4·1·2·2, 목록과 같다(차집합 0).
+- ΔV4 규칙 칸의 입력 3(AC2 `ko`·`en` · AC11 재구성 메뉴)이 모두 단언을 갖는다. M16을 심으면 정확히 이 3케이스가 red다(`AssertionError: expected { label: '종료', … } to be { on: …}`).
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: X1(채택된 확장) → 이번 턴 M16으로 닫음(red 3). `동치` 행 X5 → 경계 B7로 선언되어 의무 아님.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 위 표 (16케이스 passed) | required — M1~M16 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | `'숨김 → 열기 → 종료 시작 → 닫힘 통과 → 정리 순서로 한 인스턴스가 지난다'`(passed, 이번 diff 밖) | not selected |
+| VP-03 | REQUIRED | SELF_BLOCKED | 없음 — 사람 실기(B1) | not selected |
+| VP-04 | REQUIRED | SELF_BLOCKED | 없음 — 사람 실기 §19 | not selected |
+| VP-05 | REGRESSION | SELF_PASS | `native-settings-lifecycle.test.ts`(전체 실행에서 실패 0) + `'AC4 — before-quit 2회…'` | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+하네스 `mutate.py`, oracle은 `vitest run src/main/app/tray-residency.test.ts`, 자리는 `tray-residency.ts`다. 두 spec 모두 끝에 "모든 파일 원문 그대로"가 찍혔고 `git status`에는 테스트 파일 1개만 남았다. diff가 oracle 파일을 건드렸으므로 직전 verify `잡음` 행을 전부 다시 돌렸다(하한 ④).
+
+| ID | 자리 | 종류 | 바꾼 내용 | 결과 | 출처 |
+|---|---|---|---|---|---|
+| M16 | :77 | 호출 대체 | `click: deps.app.quit` | red 3(AC2 ko·en · AC11) | ΔV4 등록 · X1 인용 |
+| M16b | :77 | 호출 대체 | `deps.app.quit.call(undefined)` | red 3 | 새 단언의 민감도(this 없음) |
+| M2a · M9 · M12 · S3 · S5 · S6 · S9 | :76~:82 · :22 | 맞바꿈·다른 값·제거 | r1 verify와 같은 원문 | red 3·3·3·3·4·4·4 | ④ 재실행 |
+| M13 · M14 · M15 | :85 · :73 · :86 | 제거·고정값·제거 | 같음 | red 1·2·1 | ④ |
+| M1 · M3 · M4 · M5 · M6 · M7 · M8 · M10 · M11 | :102 · :66 · :103 · :71 · :83 · :98 · :92 · :88 · :104 | r1 verify와 같음 | 같음 | red 4·2·3·1·2·1·2·3·3 | ④ |
+| S1 · S2 · S4 · S7 · S8 | :81 · :81 · :97 · :83 · :92 | 같음 | 같음 | red 1·1·2·2·2 | ④ |
+| X2 · X3 · X4 · X6 | :73 · :88 · :98 · :102 | 뒤집기 | 같음 | red 1·3·1·4 | ④ |
+
+- 검산: 선택 증거 16(M1~M16) · 인용 변이 1(X1 = M16과 같은 원문이라 같은 행) · 새 oracle 1(M16b) · ④ 재실행 13(S1~S9 · X2·X3·X4·X6) = 행 30(16 + 1 + 13). 결과는 red 30 · 못 잡음 0.
+- 덮개 회귀: 직전 `잡음` 28행 모두 red 그대로다(red → green 0). X5(`동치`)는 경계 B7이라 다시 돌리지 않았다.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+- 사용자 대면 문자열·상태 변경: 없음. production 코드 diff 0(`git diff --stat` → 테스트 파일 1개, +4줄).
+- 실패 경로: 없음 — 바인딩이 깨지면 실제 앱에서 `종료`가 아무 일도 하지 않는 모습이 된다. 그 상태를 이번 단언이 잠근다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+| # | 문제 | 분류 | 대응 |
+|---|---|---|---|
+| 1 | ΔV4 §23 조사 줄의 검색 명령 `click:`이 `:28` 타입 선언까지 세어 출력이 4였다(서술 3) | plan 내부 불일치. 단 조사 서술이고 §10 목록·AC와는 무관하다 | 설계 커밋을 따로 만들어 정정했다(술어 `click: () => deps.` → 3). 구현 커밋과 분리했다 |
+
+### 설계 대비 명시적 차이
+- 없음. §23 구현 의무 "`toEqual([h.app])`류 단언"은 `toBe(h.app)`(동일성)로 썼다 — `toEqual`은 사본 객체로도 통과하기 때문이다. 같은 계약을 더 엄격하게 쓴 것이다.
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 `app/src/main/app/tray-residency.test.ts`(+4줄: AC2 단언 1 · AC11 단언 1 · 주석 2) |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음, json reporter) · `node --test scripts/*.test.mjs` · `mutate.py` 30행 |
+| **관측한 게이트 산출** | 가드 4종 exit 0 · lint 0 error·2 warning(renderer 기존 파일) · typecheck exit 0·`error TS` 0 · `node --test` pass 868·fail 0 · vitest 971파일 중 69 failed / 9096케이스 중 330 failed·8636 passed |
+| 기준선 분리 | 변경 전 트리(`git stash`)의 같은 명령: 69파일·330케이스 failed. 실패 파일·케이스 집합의 차집합 양방향 0. 원인은 r1과 같은 환경 계열(better-sqlite3 ABI · Electron 미설치). `tray-residency`·`native-settings` 실패 0 |
+| 돌리지 못한 단계 | `npm test`(pretest ABI 전환)·Windows CI·`npm run dev` 실기 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 1 · 시간 예산 위반 0(`check-test-budgets` exit 0, 시간 값 없음) · 호스트 격리 위반 0 · 풀 = unit(io 신호 없음, 가드 실패 0) |
+| V-pair 자기확인 | `SELF_PASS 3 / SELF_BLOCKED 2`(VP-03·VP-04 사람 실기) |
+| 강제 지점 전수 | 8/10 — 남긴 2자리는 EP-03(`index.ts`, 사람 실기) |
+| **AC 자기보고** | AC1~AC8·AC11 ✅ — 16 passed(AC2·AC11은 바인딩 단언 포함) · AC10 ✅ — `check-doc-inventory --check` exit 0(문서 diff 0) · AC9 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 10 · ⚠️ 1 · ❌ 0 = 총 11` — 분모 11은 r1과 같다 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 아니다(바인딩은 새 축). 검색 명령이 타입 선언까지 세는 문제는 ΔV3과 같은 형태로 다시 났다(설계 서술).
+- 막았어야 할 plan 지침: 설계 시점에 검색 명령을 돌려 출력을 확인했어야 했다 — ΔV4는 트리에 파일이 있었는데도 서술값이 틀렸다.
+- 반복해서 부딪히는 환경 한계: Electron 부재.
+- 현재 라운드·impl 턴: `r2`.
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
