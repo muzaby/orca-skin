@@ -14,12 +14,11 @@ import {
   type BackendListResult,
   type DebugMockState
 } from '../../../shared/protocol'
-import { BrowserWindow, Notification } from 'electron'
 import { toAgentEnvironments } from '../../features/harnesses/common/models'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'
-import { contentsOf } from '../../infra/ipc/electron-transport'
+import { shellServices } from '../../infra/shell-services'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOoConfig } from '../../infra/config/oo-config'
@@ -108,14 +107,14 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
   })
 
   // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,
-  // "창 비활성일 때만" 게이트는 여기(main)가 담당한다(포커스 판정의 authoritative 출처).
-  handle(CHANNELS.notifyShow, NotifyShowSchema, 'reject', (req, event): void => {
-    const contents = contentsOf(event.sender)
-    const win = contents ? BrowserWindow.fromWebContents(contents) : null
-    if (win?.isFocused()) return
-    if (Notification.isSupported()) {
-      new Notification({ title: req.title, body: req.body }).show()
-    }
+  // "창 비활성일 때만" 게이트는 셸이 담당한다(포커스 판정의 authoritative 출처).
+  handle(CHANNELS.notifyShow, NotifyShowSchema, 'reject', async (req, event): Promise<void> => {
+    // 포커스 판정과 알림은 셸 서비스가 한다(0324 EP-10) — 창 id 는 요청을 보낸 창이다.
+    await shellServices().call('notify.show', {
+      clientId: event.sender.id,
+      title: req.title,
+      body: req.body
+    })
   })
 
   if (import.meta.env.DEV) {

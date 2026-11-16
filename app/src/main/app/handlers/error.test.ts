@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { join, dirname } from 'node:path'
 import { CHANNELS } from '../../../shared/ipc'
+import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 import { registerErrorHandlers } from './error'
 
 const mocks = vi.hoisted(() => ({
@@ -12,8 +13,7 @@ const mocks = vi.hoisted(() => ({
   open: vi.fn()
 }))
 vi.mock('electron', () => ({
-  ipcMain: { handle: mocks.handle },
-  shell: { showItemInFolder: mocks.reveal, openPath: mocks.open }
+  ipcMain: { handle: mocks.handle }
 }))
 vi.mock('node:fs', () => ({ existsSync: mocks.exists }))
 vi.mock('../../infra/log', () => ({ currentLogFilePath: mocks.path, flushLogSync: mocks.flush }))
@@ -24,6 +24,11 @@ beforeEach(() => {
   mocks.path.mockReturnValue(path)
   mocks.exists.mockReturnValue(true)
   mocks.open.mockResolvedValue('')
+  // 로그 열기는 셸 서비스로 간다(0324 EP-10).
+  installFakeShellServices({
+    'external.showItemInFolder': mocks.reveal,
+    'external.openPath': mocks.open
+  })
   registerErrorHandlers()
 })
 function reveal(): Promise<void> {

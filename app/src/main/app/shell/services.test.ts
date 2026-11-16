@@ -11,7 +11,7 @@ import {
 } from '../../../shared/host-protocol'
 import { SHELL_SERVICE_ARGS, type ShellServiceImpl } from '../../../shared/shell-services'
 import { createShellClient } from '../agent-host/shell-client'
-import { createShellServiceServer } from './services'
+import { connectShellServicesInProcess, createShellServiceServer } from './services'
 
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 6; i++) await Promise.resolve()
@@ -267,5 +267,26 @@ describe('셸 서비스 클라이언트', () => {
     client.receive({ type: 'wake' })
     await flush()
     expect([a, b]).toEqual([1, 2])
+  })
+})
+
+describe('한 프로세스 연결', () => {
+  it('같은 검증을 거쳐 셸 구현을 부르고 오류를 같은 문장으로 돌려준다', async () => {
+    const calls: Array<[string, unknown[]]> = []
+    const impl = fakeImpl(calls)
+    impl['external.openExternal'] = () => {
+      throw new Error('막힘')
+    }
+    const errors: string[] = []
+    const port = connectShellServicesInProcess(impl, (name) => errors.push(name))
+    await expect(port.call('secrets.decrypt', 'Y2lwaGVy')).resolves.toBe('plain')
+    await expect(port.call('external.openExternal', 'https://example.com')).rejects.toThrow(
+      'Error: 막힘'
+    )
+    await expect(port.call('external.openPath', '' as unknown as string)).rejects.toThrow(
+      '셸 서비스 인자가 틀렸다: external.openPath'
+    )
+    expect(calls).toEqual([['secrets.decrypt', ['Y2lwaGVy']]])
+    expect(errors).toEqual(['external.openExternal'])
   })
 })

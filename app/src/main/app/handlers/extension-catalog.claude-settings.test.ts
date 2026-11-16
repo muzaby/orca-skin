@@ -12,8 +12,7 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
       f.handlers.set(channel, callback)
-  },
-  shell: { openPath: vi.fn(), showItemInFolder: vi.fn() }
+  }
 }))
 vi.mock('electron-store', () => ({ default: class {} }))
 vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
@@ -21,6 +20,13 @@ vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
 import { reportError } from '../../infra/error-report'
 import { extensionControl } from '../extension-control'
 import { registerExtensionCatalogHandlers } from './extension-catalog'
+import { installFakeShellServices } from '../../infra/shell-services.testfixture'
+
+// 폴더 열기는 셸 서비스로 간다(0324 EP-10).
+installFakeShellServices({
+  'external.openPath': vi.fn(),
+  'external.showItemInFolder': vi.fn()
+})
 
 let home: string
 const write = (path: string, value: unknown): void => {
