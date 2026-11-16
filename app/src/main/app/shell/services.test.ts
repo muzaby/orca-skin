@@ -256,17 +256,18 @@ describe('셸 서비스 클라이언트', () => {
     await expect(waiting).rejects.toThrow('셸 서비스 실패')
   })
 
-  it('wake 는 구독자 전부에 알리고, 해제한 구독자는 받지 않는다', async () => {
+  it('wake 는 원인과 함께 구독자 전부에 알리고, 해제한 구독자는 받지 않는다', async () => {
     const client = createShellClient({ post: () => {} })
-    let a = 0
-    let b = 0
-    const offA = client.onWake(() => (a += 1))
-    client.onWake(() => (b += 1))
-    expect(client.receive({ type: 'wake' })).toBe(true)
+    const a: string[] = []
+    const b: string[] = []
+    const offA = client.onWake((reason) => a.push(reason))
+    client.onWake((reason) => b.push(reason))
+    expect(client.receive({ type: 'wake', reason: 'resume' })).toBe(true)
     offA()
-    client.receive({ type: 'wake' })
+    client.receive({ type: 'wake', reason: 'window-focus' })
     await flush()
-    expect([a, b]).toEqual([1, 2])
+    expect(a).toEqual(['resume'])
+    expect(b).toEqual(['resume', 'window-focus'])
   })
 })
 

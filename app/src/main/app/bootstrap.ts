@@ -34,7 +34,8 @@ import { sameSessionBinding } from './session-binding'
 import type { ClientRef, RequestEvent } from '../contracts/client'
 import type { HostToShell } from '../../shared/host-protocol'
 import { createLifecycleEmitter, type LifecycleEmitter } from './agent-host/lifecycle-emitter'
-import { app, powerMonitor, shell } from 'electron'
+import { hostEnvironment } from '../infra/host-environment'
+import { shellServices } from '../infra/shell-services'
 import { mkdir } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { parseAgentKind } from '../../shared/agent-kind'
@@ -186,8 +187,8 @@ import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
-  private readonly dataDirectory = app.getPath('userData')
-  readonly settings = new SettingsStore(app.getVersion(), { cwd: this.dataDirectory })
+  private readonly dataDirectory = hostEnvironment().userData
+  readonly settings = new SettingsStore(hostEnvironment().appVersion, { cwd: this.dataDirectory })
   readonly mcp = new McpStore(this.settings, this.dataDirectory)
   private readonly extensionChoices = extensionControl({
     get: () => this.settings.getAll().nativeExtensionChoices,
@@ -246,6 +247,7 @@ export class Bootstrap {
   private openCodeGlobalWatch?: OpenCodeGlobalWatch
   private stopAvailability?: () => void
   private readonly onHarnessFocus = (): void => this.registry.focusRecheck()
+  private stopHarnessFocus?: () => void
   private claudeGlobalWatch?: FingerprintWatch
   private bus?: MainBus<ClientRef>
   private activeDbWriteCount = 0
@@ -279,9 +281,9 @@ export class Bootstrap {
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
-      isPackaged: app.isPackaged,
+      isPackaged: hostEnvironment().isPackaged,
       resourcesPath: process.resourcesPath,
-      appPath: app.getAppPath()
+      appPath: hostEnvironment().appPath
     })
   }
 
@@ -387,7 +389,7 @@ export class Bootstrap {
       oauth: new OAuthRunner({
         states: new OAuthStateStore(oauthStates),
         // 인가는 **기본 브라우저**에서 돈다(RFC 8252) — 사용자가 주소창과 인증서를 직접 본다.
-        openExternal: (url) => shell.openExternal(url),
+        openExternal: (url) => shellServices().call('external.openExternal', url),
         // `redirect:'window'` 분기는 게이트와 **같은 창 구현**을 쓴다 — 두 벌이면 allowlist
         // 차단·ERR_ABORTED 처리 같은 규칙이 갈린다.
         window: {
@@ -541,16 +543,8 @@ export class Bootstrap {
       now: Date.now,
       setTimer: (callback, ms) => setTimeout(callback, ms),
       clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-      subscribeWake: (check) => {
-        powerMonitor.on('resume', check)
-        powerMonitor.on('unlock-screen', check)
-        app.on('browser-window-focus', check)
-        return () => {
-          powerMonitor.off('resume', check)
-          powerMonitor.off('unlock-screen', check)
-          app.off('browser-window-focus', check)
-        }
-      }
+      // 절전 해제·화면 잠금 해제·창 포커스 — 셸이 알린다(0324 EP-10).
+      subscribeWake: (check) => shellServices().onWake(() => check())
     })
 
     // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
@@ -735,14 +729,14 @@ export class Bootstrap {
       db,
       () => this.skillsCache,
       () => this.settings.getAll(),
-      app.getVersion(),
+      hostEnvironment().appVersion,
       // Orcinus orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
       // 경로는 각 플러그인 레이아웃을 소유한 feature 렌더러의 헬퍼에서 파생한다(이중 정의 방지).
       harnessPluginRoots,
       runtimeTools,
       this.managedMcp.source
     )
-    this.defaultCwd = app.getPath('desktop')
+    this.defaultCwd = hostEnvironment().desktop
     await this.bootReport.step('workspace', { critical: false, label: '기본 작업공간 보장' }, () =>
       mkdir(this.defaultCwd, { recursive: true })
     )
@@ -835,9 +829,9 @@ export class Bootstrap {
       cost,
       extensions,
       workProfilePluginPath: resolveWorkProfilePluginDir({
-        isPackaged: app.isPackaged,
+        isPackaged: hostEnvironment().isPackaged,
         resourcesPath: process.resourcesPath,
-        appPath: app.getAppPath()
+        appPath: hostEnvironment().appPath
       }),
       harnessSettings,
       getSkills: () => this.skillsCache,
@@ -877,7 +871,10 @@ export class Bootstrap {
       this.openCodeWarmup?.update()
       this.updateOpenCodeGlobalWatch(ctx, false)
     })
-    app.on('browser-window-focus', this.onHarnessFocus)
+    // 창 포커스만 본다 — 절전 해제는 이 재확인의 원인이 아니다(0324 EP-10).
+    this.stopHarnessFocus = shellServices().onWake((reason) => {
+      if (reason === 'window-focus') this.onHarnessFocus()
+    })
     // 준비 완료에 현재 UI 언어를 싣는다 — 셸의 사본이 어긋나 있으면 여기서 맞는다(B14).
     this.toShell?.({ type: 'ready', mirror: { uiLocale: this.settings.getAll().uiLocale } })
   }
@@ -935,7 +932,8 @@ export class Bootstrap {
   private createUpdateController(): UpdateController {
     if (this.updates) return this.updates
     const updater =
-      loadElectronAutoUpdater({ reportUnavailable: app.isPackaged }) ?? createNoopUpdater()
+      loadElectronAutoUpdater({ reportUnavailable: hostEnvironment().isPackaged }) ??
+      createNoopUpdater()
     this.updates = new UpdateController({
       updater,
       restartGateState: () => this.restartGateState(),
@@ -951,7 +949,7 @@ export class Bootstrap {
   shutdown(): void {
     if (this.stopped) return
     this.stopped = true
-    app.removeListener('browser-window-focus', this.onHarnessFocus)
+    this.stopHarnessFocus?.()
     this.stopAvailability?.()
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
@@ -1046,7 +1044,7 @@ export class Bootstrap {
               (process.platform === 'win32' ? file.path.toLowerCase() : file.path) ===
                 inputSource && file.sha256 === hash
           ),
-      trashItem: (path) => shell.trashItem(path)
+      trashItem: (path) => shellServices().call('external.trashItem', path)
     }))
     ctx.runtimeTools.add(
       createArtifactToolServer(artifacts, (sessionId, artifact) =>
