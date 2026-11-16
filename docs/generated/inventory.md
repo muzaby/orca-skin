@@ -15,7 +15,7 @@
 | NormalizedEvent variant | **29** | `app/src/shared/ipc.ts` |
 | settings 키 | **23** | `app/src/shared/protocol.ts` |
 | main 수직 슬라이스 | **16** | `app/src/main/features/` |
-| main contracts 모듈 | **5** | `app/src/main/contracts/` |
+| main contracts 모듈 | **6** | `app/src/main/contracts/` |
 | IPC 핸들러 | **23** | `app/src/main/app/handlers/` |
 | DB 마이그레이션 | **35** | `app/src/main/infra/db/migrations/` |
 | renderer feature | **14** | `app/src/renderer/src/features/` |
@@ -42,9 +42,9 @@
 
 `agents` · `approvals` · `artifacts` · `auth` · `chat` · `extensions` · `gate` · `harnesses` · `history` · `orchestration` · `plugins` · `scheduled-tasks` · `scheduler` · `sessions` · `usage` · `worktrees`
 
-### main contracts 모듈 (5)
+### main contracts 모듈 (6)
 
-`auth` · `bus-events` · `ports` · `session-state` · `turn`
+`auth` · `bus-events` · `client` · `ports` · `session-state` · `turn`
 
 ### IPC 핸들러 (23)
 
