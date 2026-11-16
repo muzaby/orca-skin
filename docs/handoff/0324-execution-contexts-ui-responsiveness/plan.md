@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` |
+| 이번 V revision | `V1` rev 2 — 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -22,7 +22,7 @@
 ## 1. Context / 목표
 
 - 해결하려는 문제: 입력 크기에 비례하는 계산과 읽기가 UI를 맡는 두 스레드(renderer 메인 스레드, main 프로세스)에서 한 번에 돈다 — 구문 강조 1,000줄이 renderer를 약 1초, part 1만 개 세션 로드가 main을 약 150ms 막는다(§8 실측).
-- 완료 후 달라지는 것: 실행 주체마다 맡는 일과 금지가 문서와 가드로 고정되고, 구문 강조·diff 계산은 renderer Web Worker가, 세션 본문 읽기는 데이터 호스트 프로세스가 맡으며, 남은 멈춤은 `perf.stall` 기록으로 드러난다.
+- 완료 후 달라지는 것: main 은 창·OS·수명 감독만 하는 셸이 되고, 턴·세션·DB 쓰기는 에이전트 호스트 프로세스가, 세션 본문 읽기는 데이터 호스트 프로세스가, 구문 강조·diff 계산은 renderer 계산 워커가 맡는다. 남은 멈춤은 `perf.stall` 기록으로 드러난다.
 - 성공을 사용자 관점에서 한 문장으로: 큰 코드·큰 diff·큰 세션을 여는 동안에도 스크롤·입력·창 조작이 끊기지 않고, 늦는 결과는 로딩 표시나 강조 없는 원문으로 먼저 보인다.
 
 ## 2. 사용자 의도 / 요구 출처
@@ -36,8 +36,17 @@
 | 명시 요구 | 반응성 수치: "리눅스 top half 혹은 vscode 기준등 범용적인 기준을 확인하고 제안하라" | 턴 2 답 1 |
 | 명시 요구 | 범위: "한 handoff에 전부" — 선택지 문구는 "역할 규칙·계측·renderer 워커·main 데이터 프로세스·세션 로드 조각 전달까지 0324 하나에 담는다" | 턴 2 답 2 |
 | 명시 요구 | main 쪽 워커: "별도 프로세스 + 직접 포트" — `utilityProcess` 가 읽기 전용 DB 연결을 갖고 결과는 `MessagePort` 로 renderer 에 바로 간다 | 턴 2 답 3 |
+| 명시 요구 | "원자적으로 풀어낼 수 없다면 … handlechatsend를 dosendchathandle(비동기/스레드)에 넘기고 실패처리나 메시지를 기다리는 형태로 가야하는 것 아닌지?" | 턴 6 |
+| 명시 요구 | "Main은 수명 관리라 훅을 포함할 거고, 훅에서 db쓰기같은게 발생하면 또 유틸리치프로세스에 이야와면 되는것 아닌지?" | 턴 7-1 |
+| 명시 요구 | "시큐리티의 경우는 업데이트를 해도 좋다. 단 이 방안이 일반적으로 허용된다면. 아니면 스레드로 전개하면 문제 해결아닌가?" | 턴 7-2 |
+| 명시 요구 | "현재의 계약에서만 생각하지 말 것. 완성된 형태를 기준하라. 그리고 완성된 형태가 일반적으로 논의되는 구조인지릉 검토할 것" | 턴 7-3 |
+| 명시 요구 | "하네스 프로세스는 hook으로 상태를 알릴 수 있지 않은지?" | 턴 7-4 |
+| 명시 요구 | "(에이전트=adapter)프로세스가 죽으면 시그널에 의 해 main 이 받고 세션 종료(에러알림/예외처리)하고 상태를 변경하면 된다" | 턴 8-1 |
+| 명시 요구 | "git/shell 등은 도구 프로세스가 소유하면 안되나? 무엇이 문제인지?" | 턴 9-1 |
+| 명시 요구 | "고아 하네스가 에이전트 호스트 자식이라면 고아하네스 종료 후 세션 중단으로 예외처리할 것." | 턴 9-2 |
+| 명시 요구 | "설계관점에서 범용적인 대응을 따른다." · "하나의 핸드오프로" | 턴 9-3·9-4 |
+| 추론 의도 | 턴 9-1 의 "도구 프로세스가 소유"는 "git·셸을 누가 띄우고 감시하는가"의 답으로 읽는다 — 프로세스는 자신을 띄울 수 없으므로 띄우는 쪽을 정해야 한다 → D-023 | 턴 8 답의 "소유자 미정" ↔ 턴 9-1 |
 | 추론 의도 | "(로딩표시 제외)"는 "결과가 늦어 로딩 표시가 뜨는 것은 버벅임으로 세지 않는다"로 읽는다. 로딩 표시가 떠 있는 동안에도 조작은 반응해야 한다 | 턴 1 문장의 괄호 위치 |
-| 추론 의도 | "한 handoff에 전부"의 "전부"는 선택지가 열거한 다섯 항목이다. 턴 스트림을 main 밖으로 옮기는 세션 호스트는 그 열거에 없었다 → D-010 | 턴 2 답 2의 선택지 문구 |
 
 ## 3. Decision Ledger
 
@@ -47,23 +56,36 @@
 | D-002 | 앱 조작 시 버벅임이 구조적으로 없어야 한다. 로딩 표시는 버벅임이 아니다 | "구조적으로 앱 버벅임이 없애야 함. (로딩표시 제외)" | 턴 1 | ACTIVE | — |
 | D-003 | main·renderer 역할을 VS Code 사례 기준으로 재정의한다 | "첨부 vscode의 사례를 검토하고 … 재정의하라" | 턴 1 | ACTIVE | — |
 | D-004 | 추가 워커(스레드/프로세스)의 운영 방식을 정한다. 규모는 Orcinus orca 수준에 맞춘다 | "Orcinus orca의 수준에 맞춰 검토할 것" | 턴 1 | ACTIVE | — |
-| D-005 | 역할 규칙·계측·renderer 워커·main 데이터 프로세스·세션 로드 조각 전달을 이 handoff 하나에 담는다 | "한 handoff에 전부" | 턴 2 | ACTIVE | 설계자 권고(분할)는 기각됐다 |
-| D-006 | main 의 대량 읽기는 `utilityProcess` 가 읽기 전용 연결로 하고 결과는 `MessagePort` 로 renderer 에 직접 간다 | "별도 프로세스 + 직접 포트" | 턴 2 | ACTIVE | — |
+| D-005 | 역할 규칙·계측·renderer 워커·main 데이터 프로세스·세션 로드 조각 전달을 이 handoff 하나에 담는다 | "한 handoff에 전부" | 턴 2 | SUPERSEDED | D-022 |
+| D-006 | 대량 읽기는 `utilityProcess`(데이터 호스트)가 읽기 전용 연결로 하고 결과는 `MessagePort` 로 renderer 에 직접 간다 | "별도 프로세스 + 직접 포트" | 턴 2 | ACTIVE | — |
 | D-007 | 반응성 예산: UI 스레드의 한 작업은 **50ms** 를 넘지 않는다. **160ms** 이상은 심각으로 기록한다. UI 스레드에 남는 반복 작업은 **5ms** 마다 양보한다 | "범용적인 기준을 확인하고 제안하라" — 근거는 §4-A | 턴 2 + 설계자 | ACTIVE (사용자 거부 가능) | — |
 | D-008 | 입력 크기에 상한이 없는 계산·읽기는 UI 스레드에 두지 않는다. UI 스레드에 남기려면 입력 상한을 상수로 두고 그 상한에서의 비용을 잰다 | D-002 를 기계가 검사할 수 있는 규칙으로 옮긴 것 | 설계자 | ACTIVE | — |
 | D-009 | 워커·호스트가 실패하면 강조 없는 원문 또는 오류 표시로 남는다. UI 스레드에서 같은 계산을 대신 돌리는 대체 경로를 두지 않는다 | 첨부 문서 사례 C 의 fallback — "fallback에서는 renderer가 계산을 수행한다" | 턴 1 첨부 + 설계자 | ACTIVE | 연구 문서 §5.2 "main 의 기존 경로로 한 번 대체"를 대체 |
-| D-010 | 턴 스트림(SDK 메시지 해석·정규화·저장·전달)은 main 에 둔다. 세션 호스트 프로세스는 만들지 않는다 | DB 단건 쓰기 0.064ms(§8). `perf.stall` 이 스트리밍 중 main 멈춤을 보이면 다시 연다 | 설계자 | ACTIVE (사용자 거부 가능) | — |
+| D-010 | 턴 스트림(SDK 메시지 해석·정규화·저장·전달)은 main 에 둔다. 세션 호스트 프로세스는 만들지 않는다 | DB 단건 쓰기 0.064ms(§8) | 설계자 | SUPERSEDED | D-015·D-016 |
 | D-011 | 세션 본문은 조각으로 받아 **한 번에** 화면에 반영한다. 앞부분부터 보이는 점진 표시는 하지 않는다 | 점진 표시는 스크롤 위치·미완료 표시의 제품 동작을 바꾼다 | 설계자 | ACTIVE (사용자 거부 가능) | — |
 | D-012 | 구문 강조는 **32,000자** 이하 코드에만 적용한다. 지금 상한은 200,000자다 | 강조 결과를 DOM 에 넣는 일은 UI 스레드에 남고 1,000줄(35,696자)에서 26ms 다(§8) | 설계자 | ACTIVE (사용자 거부 가능 — 화면 동작 변경) | — |
 | D-013 | 계측 결과는 기존 로컬 로그(JSONL)에만 남긴다. 외부 전송과 새 화면은 만들지 않는다 | 텔레메트리는 PRD §11 미정 항목이다 | 설계자 | ACTIVE | — |
+| D-015 | 설계는 현재 계약이 아니라 완성된 형태를 기준으로 한다. 완성된 형태는 일반적으로 논의되는 구조여야 한다 | "현재의 계약에서만 생각하지 말 것. 완성된 형태를 기준하라" — 검토 결과 §4-B | 턴 7-3 | ACTIVE | D-010 대체 |
+| D-016 | 턴 실행부(어댑터·SDK 호출·세션 런타임·정규화·게이트 훅 반환)는 **에이전트 호스트** 프로세스가 갖는다. 핸들러를 짧게 쪼갤 수 없으면 실행 위치를 옮긴다 | "원자적으로 풀어낼 수 없다면 … 넘기고 실패처리나 메시지를 기다리는 형태" | 턴 6 | ACTIVE | D-010 대체 |
+| D-017 | main 은 수명 관리와 수명 상태 통지의 수신을 갖는다. 그 처리에서 생기는 DB 쓰기 같은 일은 호스트에 넘긴다 | "Main은 수명 관리라 훅을 포함할 거고 … 유틸리치프로세스에 이야와면" | 턴 7-1 | ACTIVE | — |
+| D-018 | 비밀의 봉인·해제는 main 만 하고, 풀린 값은 에이전트 호스트에 전달할 수 있다. `security.md` 를 갱신한다 | "업데이트를 해도 좋다. 단 이 방안이 일반적으로 허용된다면" — 허용 판정 §4-B | 턴 7-2 | ACTIVE | — |
+| D-019 | main 안의 `worker_threads` 는 쓰지 않는다 | Electron 문서: 스레드에서 Electron 모듈을 못 쓰고 네이티브 모듈이 위험하다. renderer 로 직접 가는 포트를 줄 수 없다(§4-B) | 턴 7-2 + 설계자 | ACTIVE | — |
+| D-020 | 호스트·하네스의 상태는 수명 이벤트로 main 에 알린다. 프로세스가 죽으면 종료 신호를 받은 쪽이 세션을 오류로 끝내고 상태를 바꾼다 | "hook으로 상태를 알릴 수 있지 않은지" · "시그널에 의 해 main 이 받고 세션 종료(에러알림/예외처리)" | 턴 7-4·8-1 | ACTIVE | — |
+| D-021 | 에이전트 호스트가 죽으면 남은 하네스를 종료한 뒤 그 세션들을 중단으로 처리한다 | "고아하네스 종료 후 세션 중단으로 예외처리할 것" | 턴 9-2 | ACTIVE | — |
+| D-022 | 완성된 형태 전체를 이 handoff 하나에 담는다 | "하나의 핸드오프로" | 턴 9-4 | ACTIVE | D-005 대체. 설계자 권고(세 단계)는 기각됐다 |
+| D-023 | git·셸 같은 도구 프로세스는 에이전트 호스트가 띄운다 | 띄우는 코드(`infra/git`·`infra/shell`)가 호스트로 가고, VS Code 도 git 을 확장 호스트에서 띄운다 | 턴 9-1 + 설계자 | ACTIVE | — |
+| D-024 | 설계에서 갈리는 곳은 범용적인 대응을 따른다 | "설계관점에서 범용적인 대응을 따른다" | 턴 9-3 | ACTIVE | — |
+| D-025 | DB 쓰기 주체는 **에이전트 호스트** 하나다. 데이터 호스트는 읽기 전용이다 | 쓰기 호출 287곳(§8)이 동기 API 를 쓴다 — 쓰기를 다른 프로세스에 두면 전부 비동기 요청이 된다. 쓰는 코드와 쓰기 연결을 같은 프로세스에 두는 것이 단일 쓰기 주체의 범용형이다 | 설계자(D-024 적용) | ACTIVE (사용자 거부 가능) | 턴 8 답의 "데이터 호스트 = 유일한 쓰기 주체"를 정정 |
+| D-026 | 포트는 preload 가 갖는다. renderer 코드가 쓰는 `window.oo` API 는 바뀌지 않는다 | 포트를 페이지의 메인 월드에 내주지 않는다. renderer 변경을 전송 계층에 가둔다 | 설계자 | ACTIVE | — |
+| D-027 | 이번에 만드는 수명 이벤트는 다섯 가지다(턴 시작·턴 종료·승인 대기·세션 종료·하네스 종료). 하네스 훅의 등록 계약은 0323 이 이 위에 만든다 | 0323 D-001·D-002 가 그 계약의 범위다 | 설계자 | ACTIVE | — |
 | D-014 | diff 줄 계산은 두 입력의 줄 수 합이 **400** 이하면 UI 스레드에서, 넘으면 워커에서 한다. 넘는 입력의 도구 카드 머리 증감 수는 표시하지 않는다 | 작은 diff 마다 로딩 표시가 깜빡이지 않게 한다. 2,546줄·절반 변경이 415ms 다(§8) | 설계자 | ACTIVE (사용자 거부 가능 — 화면 동작 변경) | — |
 
 ### 갱신 메모
 
-- 이번 턴에서 새로 추가된 결정: D-001~D-014 (최초 작성).
-- 변경된 결정: 없음.
-- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: 해당 없음(최초).
-- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-002 ↔ AC8·AC15·AC22(조작 반응) · D-005 ↔ AC1~AC22(다섯 항목 전부에 AC) · D-006 ↔ AC15·AC18 · D-007 ↔ AC5·AC6·AC7(50/160 상수) · D-008 ↔ AC2·AC3·AC4 · D-009 ↔ AC12·AC18 · D-010 ↔ §10 선언 경계 B3 · D-011 ↔ AC16 · D-012 ↔ AC8 · D-013 ↔ AC5 · D-014 ↔ AC10.
+- 이번 턴에서 새로 추가된 결정: D-015~D-027 (rev 2). D-001~D-014 는 rev 1.
+- 변경된 결정: D-005 → D-022 ("하나의 핸드오프로"의 범위가 완성된 형태 전체로 넓어졌다) · D-010 → D-015·D-016 (사용자가 완성된 형태를 기준으로 지시).
+- 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001~D-004 · D-006~D-009 · D-011~D-014.
+- **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-002 ↔ AC8·AC15·AC22·AC24(조작 반응) · D-006 ↔ AC15·AC18 · D-007 ↔ AC5·AC6·AC7(50/160 상수) · D-008 ↔ AC2·AC3·AC4 · D-009 ↔ AC12·AC18 · D-011 ↔ AC16 · D-012 ↔ AC8 · D-013 ↔ AC5 · D-014 ↔ AC10 · D-016 ↔ AC24·AC25 · D-017·D-020·D-027 ↔ AC28 · D-018 ↔ AC27 · D-019 ↔ AC26(스레드 미사용은 가드 규칙 (f)) · D-021 ↔ AC29 · D-022 ↔ AC1~AC33 · D-023 ↔ AC26 · D-025 ↔ AC30 · D-026 ↔ AC24.
 
 ## 4. 요구 비판적 검토
 
@@ -75,7 +97,7 @@
 | 선행 자료의 주장을 코드와 대조했는가 | 대조함 — 2건 정정 | 연구 문서의 "전부 미측정"은 §8 실측으로 대체. "DB 쓰기를 그대로 둔다"는 0.064ms 로 확인. "턴 정규화는 이벤트당 가볍다"는 미측정이라 D-010 에 조건을 달았다 |
 | ACTIVE 결정·기존 채택 결정과 충돌하는가 | 계약 변경 2건 | `oo:session:load`·`oo:session:refresh` 응답에서 세션 본문이 빠진다 — `IPC_CONTRACT.md` 를 같이 고친다(D-006 의 귀결) |
 
-- 사용자에게 올릴 결정: 없음. D-007·D-010·D-011·D-012·D-014 는 설계자 제안이라 거부할 수 있다.
+- 사용자에게 올릴 결정: 없음. D-007·D-011·D-012·D-014·D-025 는 설계자 제안이라 거부할 수 있다.
 - 코드 조사로 닫은 사실: §8.
 
 ### 4-A. D-007 의 근거 — 범용 기준
@@ -89,6 +111,24 @@
 | VS Code 느린 작업 감지 | `longtask` 관측값이 기준 PC 에서 약 160ms(`perfBaseline * 10`) 이상이면 프로파일을 뜬다 | `rendererAutoProfiler.ts` · `timerService.ts` | 심각 기록 기준 160ms |
 
 `w3c.github.io`·`web.dev` 는 이 세션의 네트워크 허용 목록 밖이라 열지 못했다 — W3C 수치는 같은 명세의 GitHub 저장소 README 로 확인했다.
+
+### 4-B. D-015 의 검토 — 완성된 형태가 일반적인 구조인가
+
+판정: 일반적이다. "권한을 쥔 얇은 셸 + 서비스 프로세스 + UI"는 아래 넷에 공통인 형태다.
+
+| 사례 | 같은 모양 | 출처 |
+|---|---|---|
+| Chromium | 브라우저 프로세스가 권한·수명을 쥐고 기능은 서비스·유틸리티 프로세스에 둔다 | 첨부 분석 §1 실행 주체 표 |
+| VS Code | main 이 확장 호스트·shared process·파일 감시 프로세스를 띄우고 포트만 넘긴다. "main은 시작·연결·종료·비정상 종료 처리를 맡고, 정상 확장 프로토콜 데이터를 매번 main JS가 중계하지 않는다" | 첨부 분석 §3 |
+| Electron | `utilityProcess` 는 "child process with Node.js and Message ports enabled". MessagePort 튜토리얼은 worker process·reply streams 를 사용 사례로 들고 "without the performance overhead of relaying via the main process" 라고 적는다 | `electron/electron` `docs/api/utility-process.md` · `docs/tutorial/message-ports.md` |
+| 비밀 전달 | VS Code 는 봉인·해제를 main 이 하고 풀린 값을 확장 호스트에 전달한다. Orcinus orca 도 이미 실행 값을 하네스 자식 프로세스의 환경으로 넘긴다 | `security.md` §1.4-b |
+
+| 검토한 대안 | 판정 | 근거 |
+|---|---|---|
+| main 안의 `worker_threads` | 기각(D-019) | "none of Electron's built-in modules can be used in a multi-threaded environment" · 네이티브 모듈은 "crashes and memory corruptions" — `docs/tutorial/multithreading.md`. 이 문서는 Web Worker 기준이라 main 의 `worker_threads` 에 그대로 적용되는지는 확인하지 못했다 |
+| 무거운 조각만 데이터 호스트로 | 기각 | 새로 생기는 무거운 조각을 매번 찾아야 한다. 턴 준비 경로에서 이미 네 곳을 놓쳤다(§8) |
+| 쓰기 주체를 데이터 호스트에 | 기각(D-025) | 쓰기 호출 287곳이 비동기 요청으로 바뀐다 |
+| 호스트의 네트워크 요청 | 가능 | `net` 은 Main·Utility 둘 다에서 쓴다. `net.fetch` 는 기본 세션에서 나간다 — `docs/api/net.md`. 파티션 세션이 필요한 요청은 main 의 셸 서비스가 한다 |
 
 ## 5. 동작 / 사용자 흐름
 
@@ -115,36 +155,41 @@
 | 세션 로드 중 다른 세션 클릭 | 앞 요청 취소, 남은 조각 미전송 | 새 세션의 로딩 표시 |
 | 호스트 비정상 종료 | 진행 중 요청 실패, 다음 요청에서 다시 띄움 | 기존 "대화 열기 실패" 오류 표시 |
 | UI 스레드가 50ms 이상 멈춤 | `perf.stall` 로그 1건 | 화면 변화 없음 |
+| 메시지 전송 | preload 가 에이전트 호스트 포트로 보낸다. main 은 이 요청을 처리하지 않는다 | 지금과 같다 — 내 메시지가 즉시 보이고 응답이 스트리밍된다 |
+| 에이전트 호스트 비정상 종료 | main 이 남은 하네스를 끝내고 모든 창에 알린다. 진행 중이던 세션은 중단으로 처리된다 | 진행 중 세션에 오류 알림, 입력창은 다시 쓸 수 있다. 다음 전송에서 호스트가 다시 뜬다 |
+| 하네스 비정상 종료 | 에이전트 호스트가 그 세션만 오류로 끝내고 수명 이벤트를 보낸다 | 그 세션에 기존 오류 표시 |
+| 앱 시작 | main 이 창을 띄우고 에이전트 호스트를 띄운다. 호스트가 DB 마이그레이션을 한다 | 기존 부팅 화면 → 본 화면. 호스트 기동 실패는 부팅 오류 화면 |
+| 앱 종료 | main 이 호스트에 종료를 요청하고 3초 안에 안 끝나면 강제 종료한다 | 지금과 같다 |
 
 ### 파생 UX / 엣지케이스
 
 - loading / empty / error: 강조 대기는 원문, 큰 diff 대기는 로딩 표시, 세션 대기는 기존 `loadingSession` 표시를 쓴다. 새 문구는 큰 diff 로딩 1종뿐이다(`ko.ts`).
 - cancel / retry / close / restart: 취소는 요청 번호 폐기다. 세션 로드 실패의 재시도는 지금처럼 다시 여는 것이다. 창이 닫히면 워커가 끝나고, 앱이 끝나면 main 이 호스트를 내린다.
-- concurrency / multi-session: 워커는 창마다 1, 호스트는 앱에 1 이다. 창이 둘이면 호스트 포트도 둘이다.
+- concurrency / multi-session: 계산 워커는 창마다 1, 에이전트 호스트와 데이터 호스트는 앱에 1 씩이다. 창마다 호스트별 포트를 하나씩 갖는다. 한 에이전트 호스트 안에서 세션끼리 서로를 늦출 수는 있지만 창 조작은 막지 않는다.
 - keyboard / a11y / theme: 테마가 바뀌면 캐시 키가 달라져 다시 요청한다. 큰 diff 로딩 표시는 `role="status"` 를 갖는다.
 - 외부환경/오프라인/폐쇄망: 새 네트워크 요청과 새 의존성이 없다.
 
 ## 6. 범위 / 비범위
 
-- **범위**: 실행 주체 계약 문서와 가드 · `perf.stall` 계측 · renderer 계산 워커(구문 강조·diff 토큰·diff 줄) · 데이터 호스트 프로세스와 세션 로드/갱신 이주 · 턴 시작의 동기 플러그인 카탈로그 읽기 제거.
-- **비범위**: 세션 호스트 프로세스(D-010) · 세션 본문의 점진 표시(D-011) · Markdown 변환의 워커 이주 · 긴 코드의 줄 가상화 · 검색·사용량 집계의 호스트 이주 · 델타 송신 묶기 · 계측 화면과 외부 전송(D-013) · 0323 의 훅·패널.
+- **범위**: 실행 주체 계약 문서와 가드 · `perf.stall` 계측 · renderer 계산 워커(구문 강조·diff 토큰·diff 줄) · 에이전트 호스트 프로세스(지금의 main 로직 전체 이주, main 은 셸) · 데이터 호스트 프로세스와 세션 로드/갱신 이주 · 수명 이벤트 다섯 가지 · 호스트·하네스 종료 처리 · 턴 시작의 동기 플러그인 카탈로그 읽기 제거.
+- **비범위**: 하네스 훅의 등록 계약과 우측 패널 확장(0323, D-027) · 세션·하네스별로 에이전트 호스트를 여럿 두는 것 · 세션 본문의 점진 표시(D-011) · Markdown 변환의 워커 이주 · 긴 코드의 줄 가상화 · 검색·사용량 집계의 호스트 이주 · 델타 송신 묶기 · 계측 화면과 외부 전송(D-013) · 0323 의 훅·패널.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
 | 검색·사용량 집계의 호스트 이주 | 아니오 — 호스트 프로토콜에 서비스 종류를 더하면 된다 | `perf.stall` 이 보이면 후속 |
-| 세션 호스트 프로세스 | 아니오 — 지금 만들지 않아 묶이는 계약이 없다 | D-010 조건 |
+| 에이전트 호스트를 여럿으로 | 아니오 — 창·호스트 사이 계약이 포트 단위라 호스트 수와 무관하다 | 스트리밍끼리의 지연이 `perf.stall`(`thread:'agent-host'`)에 보이면 후속 |
 | Markdown 변환(3.3만 자 50~95ms) | 아니오 | §10 선언 경계 B1, 후속 후보 |
 
 ## 7. Requirements / Acceptance — `R ↔ AT`
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | AT-01 / AC1 | 실행 주체 5종의 맡는 일·금지·예산·워커 운영이 한 문서에 있고 main·renderer 가이드가 그 규칙을 갖는다 | `node scripts/check-doc-inventory.mjs --check` green · 문서의 금지 행마다 강제 수단(AC2~AC4 가드 이름 또는 "강제 없음")이 적혀 있음을 검증자가 대조 | `docs/INDEX.md` → `docs/arch/execution-model.md` → `app/src/{main,renderer}/AGENTS.md` |
+| R-01 | AT-01 / AC1 | 실행 주체 7종의 맡는 일·금지·예산·워커 운영이 한 문서에 있고 main·renderer 가이드가 그 규칙을 갖는다 | `node scripts/check-doc-inventory.mjs --check` green · 문서의 금지 행마다 강제 수단(AC2~AC4 가드 이름 또는 "강제 없음")이 적혀 있음을 검증자가 대조 | `docs/INDEX.md` → `docs/arch/execution-model.md` → `app/src/{main,renderer}/AGENTS.md` · `security.md` §1.4-b |
 | R-02 | AT-02 / AC2 | `src/main` 에 등록되지 않은 Node 동기 API 이름(`fs`·`child_process` 의 `*Sync`)을 쓰면 가드가 실패한다. 등록 개수가 실제보다 많아도 적어도 실패한다 | `scripts/check-ui-thread.test.mjs` — 미등록 추가 → exit 1 · 등록 초과 → exit 1 · 등록 일치 → exit 0 | `ci.yml` 가드 단계 · `npm test` |
 | R-02 | AT-03 / AC3 | renderer 에서 허용 경로 밖 모듈이 `shiki`·`shiki/*`·`diff` 의 값을 import 하면 가드가 실패한다. `import type` 은 통과한다 | 같은 테스트 — 값 import → exit 1 · type import → exit 0 · 허용 경로의 값 import → exit 0 | 같다 |
 | R-02 | AT-04 / AC4 | `features/history/reader` 의 `loadSession` 을 등록된 자리 밖에서 import 하면 가드가 실패한다 | 같은 테스트 — 미등록 import → exit 1 | 같다 |
-| R-03 | AT-05 / AC5 | main 이벤트 루프가 50ms 이상 멈추면 `perf.stall` 이 `thread:'main'`·`durationMs`·`severity` 로 남는다. 160ms 이상이면 `severity:'severe'` 다. 한 관측 창에 1건만 남는다 | `infra/perf/stall-monitor.test.ts` — 지연 표본 49/50/159/160 → 기록 없음/`long`/`long`/`severe` · 한 창에 표본 3개 → 기록 1건(최댓값) | `bootstrap.ts` 시작 → `monitorEventLoopDelay` → 로거 |
-| R-03 | AT-06 / AC6 | IPC 핸들러의 동기 구간이 50ms 이상이면 채널 이름과 함께 `perf.stall` 이 남는다. `handle`·`handlePlain`·`on` 모두 그렇고, `handle.ts` 밖에서 `ipcMain` 에 직접 등록하는 자리는 없다 | `infra/ipc/handle.test.ts` — 주입한 시계로 60ms 걸리는 핸들러 → 채널 이름이 실린 기록 1건, 세 등록 함수 각각 · 가드 규칙 (d) — `handle.ts` 밖의 `ipcMain` 등록 → exit 1 | renderer invoke → `handle()` → 핸들러 |
+| R-03 | AT-05 / AC5 | main 과 에이전트 호스트의 이벤트 루프가 50ms 이상 멈추면 `perf.stall` 이 `thread:'main'`/`'agent-host'`·`durationMs`·`severity` 로 남는다. 160ms 이상이면 `severity:'severe'` 다. 한 관측 창에 1건만 남는다 | `infra/perf/stall-monitor.test.ts` — 지연 표본 49/50/159/160 → 기록 없음/`long`/`long`/`severe` · 한 창에 표본 3개 → 기록 1건(최댓값) | 셸 시작·호스트 시작 → `monitorEventLoopDelay` → 로거 |
+| R-03 | AT-06 / AC6 | 요청 핸들러(셸의 IPC·호스트의 포트 요청)의 동기 구간이 50ms 이상이면 채널 이름과 함께 `perf.stall` 이 남는다. `handle`·`handlePlain`·`on` 모두 그렇고, `handle.ts` 밖에서 `ipcMain` 에 직접 등록하는 자리는 없다 | `infra/ipc/handle.test.ts` — 주입한 시계로 60ms 걸리는 핸들러 → 채널 이름이 실린 기록 1건, 세 등록 함수 각각 · 가드 규칙 (d) — `handle.ts` 밖의 `ipcMain` 등록 → exit 1 | renderer invoke → `handle()` → 핸들러 |
 | R-03 | AT-07 / AC7 | renderer 메인 스레드의 50ms 이상 작업이 `thread:'renderer'` 로 같은 형식에 남는다. 1초에 1건을 넘지 않는다 | `shared/perf/longTaskReporter.test.ts` — long task 항목 5개를 1초 안에 주입 → emit 1건(`count:5`, 최댓값) | `main.tsx` → `PerformanceObserver('longtask')` → `oo:log:emit` |
 | R-04 | AT-08 / AC8 | 코드 블록 강조는 워커 응답 전에는 원문, 응답 후에는 색상이다. 32,000자 초과 코드는 요청하지 않는다 | `CodeBlock.render.test.ts` — 가짜 계산 클라이언트 응답 전 `<pre>` 원문 · 응답 후 응답 HTML · 32,001자 → 요청 0회 | `Markdown` → `CodeBlock` → `computeClient` → 워커 |
 | R-04 | AT-09 / AC9 | diff 구문 토큰이 워커에서 계산돼 줄에 붙는다 | `useDiffSyntax` 테스트 — 가짜 클라이언트가 준 토큰이 old/new 축별로 해당 줄에 매핑 | `FileDiffSection` → `useDiffSyntax` → `computeClient` |
@@ -156,19 +201,29 @@
 | R-05 | AT-15 / AC15 | 세션을 열면 본문이 호스트 → renderer 포트로 오고, 조립한 결과는 지금의 `loadSession` 결과와 같다 | `app/data-host/session-load.test.ts`(io) — 같은 DB 픽스처에서 `loadSession()` 결과와 `조각 전송 → 조립` 결과가 `toEqual`(native 이력 있는 세션·없는 세션·없는 id) | 사이드바 클릭 → `chatStore.loadSession` → `sessionApi.load` → 호스트 |
 | R-05 | AT-16 / AC16 | 한 조각은 part 500개를 넘지 않는다. part 가 500개를 넘는 메시지 하나는 혼자 한 조각이다. renderer 는 마지막 조각 뒤에 한 번만 스토어에 반영한다 | `shared/data-host-chunks.test.ts` — 1,200 part → 조각별 part 수 ≤ 500 · 700 part 메시지 → 단독 조각 · `chatStore` 테스트 — 조각 3개 수신 동안 `LOAD_SESSION` 0회, 끝에 1회 | 같다 |
 | R-05 | AT-17 / AC17 | 진행 중 로드가 취소되면 호스트는 다음 조각부터 보내지 않고, renderer 는 그 요청의 늦은 조각을 버린다 | `session-load.test.ts` — 조각 1 뒤 취소 → 조각 2 미전송 · `dataHostClient.test.ts` — 취소한 요청 번호의 조각 → 조립 결과 없음, 다른 요청 정상 | 세션 A 로드 중 세션 B 클릭 |
-| R-05 | AT-18 / AC18 | 호스트는 첫 요청에 뜬다. 비정상 종료하면 진행 중 요청이 실패하고 다음 요청에서 다시 뜬다. 앱 종료 때 `closeDb` 보다 먼저 내려간다. main 이 대신 읽지 않는다 | `app/data-host/supervisor.test.ts` — 가짜 프로세스로: 요청 전 fork 0회 · exit 이벤트 → 종료 통지 1회 · 다음 connect → fork 2회째 · `shutdown()` 호출 순서 기록 | `bootstrap.ts` → `DataHostSupervisor` |
-| R-05 | AT-19 / AC19 | 세션 갱신도 본문을 호스트에서 받는다. `oo:session:load`·`oo:session:refresh` 의 main 응답에는 메시지 배열이 없다 | `handlers/session.load.test.ts` — 두 채널 응답에 `messages` 키 없음 · `activity` 는 있음 · `compactLegacyRaw` 가 응답 전에 1회 호출 | `chatStore` 의 `refresh()` → `sessionApi.refresh` → 호스트 |
+| R-05 | AT-18 / AC18 | 데이터 호스트는 첫 요청에 뜬다. 비정상 종료하면 진행 중 요청이 실패하고 다음 요청에서 다시 뜬다. 앱 종료 때 에이전트 호스트보다 먼저 내려간다. 다른 프로세스가 대신 읽지 않는다 | `app/shell/host-supervisor.test.ts` — 가짜 프로세스로: 요청 전 fork 0회 · exit 이벤트 → 종료 통지 1회 · 다음 connect → fork 2회째 · `shutdown()` 호출 순서 기록 | 셸 → `HostSupervisor`(데이터 호스트) |
+| R-05 | AT-19 / AC19 | 세션 갱신도 본문을 호스트에서 받는다. `oo:session:load`·`oo:session:refresh` 의 응답(에이전트 호스트가 답한다)에는 메시지 배열이 없다 | `handlers/session.load.test.ts` — 두 채널 응답에 `messages` 키 없음 · `activity` 는 있음 · `compactLegacyRaw` 가 응답 전에 1회 호출 | `chatStore` 의 `refresh()` → `sessionApi.refresh` → 호스트 |
 | R-05 | AT-20 / AC20 | 호스트는 DB 를 읽기 전용으로 연다. 호스트 요청은 스키마 검증을 통과해야 처리된다 | `session-load.test.ts`(io) — 호스트 연결로 쓰기 실행 → `SQLITE_READONLY` · 형식이 틀린 요청 → `error` 응답, 조회 0회 | 호스트 `entry.ts` |
 | R-06 | AT-21 / AC21 | 턴을 시작할 때 플러그인 카탈로그를 비동기로 읽는다. 결과는 지금과 같다 | `adapters/claude` 기존 카탈로그 테스트를 비동기 진입점으로 — 같은 픽스처에서 같은 카탈로그 · AC2 가드에서 `plugin-catalog.ts` 등록 0 | `chat:send` → `adapter.ts` 턴 셋업 |
-| R-07 | AT-22 / AC22 | Windows 실기 6개 시나리오에서 main·renderer 의 `perf.stall` 이 0건이다. 선언 경계(B1~B4·B8)의 경로에서 난 기록은 경계로 적는다 | 사람 실기 — §19 시나리오를 수행하고 로그에서 `perf.stall` 을 센다 | 설치본 또는 `npm run dev` |
-| R-07 | AT-23 / AC23 | 패키징한 앱에서 워커와 호스트가 실제로 뜬다 — 코드 블록에 색이 입혀지고 세션이 열린다 | 사람 실기 — `build:win` 산출물에서 코드 블록 강조 1회, 세션 열기 1회, 로그에 워커·호스트 오류 0건 | NSIS 설치본 |
+| R-07 | AT-22 / AC22 | Windows 실기 8개 시나리오에서 main·renderer 의 `perf.stall` 이 0건이다. 선언 경계(B1·B2·B8)의 경로에서 난 기록은 경계로 적는다 | 사람 실기 — §19 시나리오를 수행하고 로그에서 `perf.stall` 을 센다 | 설치본 또는 `npm run dev` |
+| R-07 | AT-23 / AC23 | 패키징한 앱에서 계산 워커와 두 호스트가 실제로 뜬다 — 코드 블록에 색이 입혀지고, 세션이 열리고, 메시지를 보내면 응답이 온다 | 사람 실기 — `build:win` 산출물에서 강조 1회·세션 열기 1회·전송 1회, 로그에 워커·호스트 오류 0건 | NSIS 설치본 |
+| R-08 | AT-24 / AC24 | 모든 요청 채널은 셸 또는 에이전트 호스트 중 정확히 한 곳이 처리한다. 호스트 채널의 요청은 preload → 호스트 포트로 가고 main JS 를 지나지 않는다. `window.oo` 의 형상은 그대로다 | `shared/channel-owner.ts` 가 `Record<keyof typeof CHANNELS, 'shell' \| 'host'>` 라 빠진 채널은 typecheck 실패 · `preload/index.test.ts` — 호스트 채널 호출 → 포트 전송 1회·`ipcRenderer.invoke` 0회, 셸 채널은 반대 · 기존 `index.d.ts` 타입 불변 | `window.oo.chat.send` → preload → 포트 → 호스트 `handle()` |
+| R-08 | AT-25 / AC25 | 턴 이벤트를 포함한 호스트발 통지는 호스트 → 창 포트로 직접 간다. 창이 사라지면 그 창으로의 전송은 조용히 버려진다 | `infra/ipc/send.test.ts` — 가짜 클라이언트 2개에 `sendChatEvent`·`broadcast` → 소유 창만/전부 수신 · 닫힌 클라이언트 → 예외 없음, 전송 0 | `bus 'turn.event'` → relay → `ClientRef.send` → preload 구독자 |
+| R-08 | AT-26 / AC26 | 셸(`src/main/index.ts` 에서 닿는 모듈)은 `features`·`adapters`·`infra/db`·`better-sqlite3`·`worker_threads` 를 import 하지 않는다. 호스트 쪽 모듈은 `electron` 의 값 import 를 셸 서비스 어댑터 밖에서 하지 않는다 | 가드 규칙 (e)·(f) — 위반 픽스처 → exit 1, 실제 트리 → exit 0 | `ci.yml` 가드 단계 |
+| R-08 | AT-27 / AC27 | 호스트는 권한 있는 작업을 셸 서비스로만 한다 — 비밀 봉인·해제 · 대화상자 · 외부 열기 · 알림 · 창 포커스 · 전원 이벤트 · 파티션 세션 요청 · 업데이트 제어. 요청은 스키마 검증을 통과해야 처리된다 | `app/shell/services.test.ts` — 서비스 8종 각각: 올바른 요청 → 가짜 Electron 호출 1회와 응답 · 형식이 틀린 요청 → 오류 응답, 호출 0 | 호스트 `infra/config/crypto.ts` → 셸 서비스 포트 → `safeStorage` |
+| R-08 | AT-28 / AC28 | 에이전트 호스트는 수명 이벤트 다섯 가지를 main 에 보낸다. 업데이트 재시작 게이트와 트레이 종료 판정은 그 이벤트로 만든 상태만 본다 | `app/shell/lifecycle-state.test.ts` — 이벤트 열(턴 시작 2·종료 1) → 활성 턴 1 · 승인 대기 → 대기 표시 · 하네스 종료 → 그 세션 비활성 · 기존 재시작 게이트 테스트가 이 상태로 green | 호스트 버스 → 수명 통지 → 셸 `LifecycleState` → `updater`·`tray-residency` |
+| R-08 | AT-29 / AC29 | 에이전트 호스트가 비정상 종료하면 main 은 그 호스트를 부모로 둔 프로세스를 모두 끝내고, 창에 종료를 알리고, 수명 상태를 비운다. renderer 는 진행 중이던 세션을 중단으로 표시하고 입력을 받는다. 다음 요청에서 호스트가 다시 뜬다 | `app/shell/host-supervisor.test.ts` — 가짜 프로세스 목록(자식 2·무관 1) + exit → 자식 2만 kill, 통지 1회, 다음 connect → fork 2회째 · `chatStore` 테스트 — 종료 통지 → busy 세션이 오류 메시지 1건과 함께 idle | `utilityProcess` `exit` → `HostSupervisor` |
+| R-08 | AT-30 / AC30 | DB 를 쓰기로 여는 프로세스는 에이전트 호스트 하나다. 마이그레이션도 호스트가 한다. 호스트가 죽은 뒤 다시 뜨면 끊긴 도구 호출과 미완료 메시지가 지금의 복구 규칙으로 정리된다 | 가드 규칙 (e)(셸의 `better-sqlite3` 0) · AC20(데이터 호스트 읽기 전용) · 기존 `features/chat/recovery` 테스트 — 턴 중간에 끊긴 DB 픽스처 → 재기동 뒤 `recoverSessionHistory` 가 정리 | 호스트 `entry.ts` → `initDb` |
+| R-08 | AT-31 / AC31 | 창은 에이전트 호스트가 준비된 뒤에 본 화면으로 넘어간다. 기동 실패는 부팅 오류로 보인다 | `app/shell/boot.test.ts` — 호스트 `ready` 전 `bootWhenReady` 미해결 · `ready` 뒤 해결 · 기동 실패 → reject 와 부팅 보고 1건 | `index.ts` → `HostSupervisor.start` → `oo:boot:when-ready` |
+| R-08 | AT-32 / AC32 | 앱 종료 때 main 은 에이전트 호스트에 종료를 요청하고, 호스트는 예약 작업 → 스케줄러 → DB 닫기 순으로 정리한다. 3초 안에 끝나지 않으면 main 이 강제 종료한다 | `host-supervisor.test.ts` — 종료 요청 → 정상 종료 시 kill 0회 · 3초 무응답(가짜 시계) → kill 1회 · 호스트 `shutdown` 호출 순서 기록 | `will-quit` → `HostSupervisor.shutdown` |
+| R-08 | AT-33 / AC33 | 에이전트 호스트가 다시 뜨면 열려 있던 창은 새 포트를 받고 세션 목록과 활성 세션을 다시 읽는다 | `preload/index.test.ts` — 두 번째 포트 수신 → 이후 요청이 새 포트로 감 · `chatStore` 테스트 — 재연결 통지 → 목록 재조회 1회·활성 세션 `loadSession` 1회 | `HostSupervisor` 재기동 → 창 포트 재전달 |
 
 ### AC 검증 주의사항
 
 - 기존 테스트 재사용: `CodeBlock.render.test.ts`·`handle.test.ts`·`session.load.test.ts` 는 실재한다(`ls` 확인). 새 단언은 이 파일들에 더한다.
-- 사람 실기 항목: AC22·AC23 은 실제 Chromium 프레임과 Electron 프로세스 생성이 관측 대상이다. 이 저장소의 에이전트 환경은 Electron 바이너리를 받지 못한다(`app/AGENTS.md` 제약 환경). 순수 로직은 AC5~AC20 으로 내렸다.
+- 사람 실기 항목: AC22·AC23 은 실제 Chromium 프레임과 Electron 프로세스 생성·종료가 관측 대상이다. 고아 하네스 종료(AC29)의 실제 OS 동작도 실기 시나리오 8 이 본다. 이 저장소의 에이전트 환경은 Electron 바이너리를 받지 못한다(`app/AGENTS.md` 제약 환경). 순수 로직은 AC5~AC20 으로 내렸다.
 - N회/총량 기준: AC5·AC7 의 "1건"은 관측 창 하나의 기록 수다. sink 는 로거 하나이고 호출부는 모니터 1곳·리포터 1곳이다.
-- 총량/0건 기준: AC22 의 0건은 §10 선언 경계 B1~B4·B8 의 경로를 뺀 수다. 경계 경로의 기록은 실기 보고에 따로 적는다.
+- 총량/0건 기준: AC22 의 0건은 §10 선언 경계 B1·B2·B8 의 경로를 뺀 수다. 경계 경로의 기록은 실기 보고에 따로 적는다.
 
 ## 7-A. V / Trace Matrix
 
@@ -181,10 +236,20 @@
 
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
 |---|---|---|---|---|
-| R-01~R-07 | R | §7 | NEW | — |
-| AT-01~AT-23 | AT | §7 | NEW | — |
+| R-01~R-08 | R | §7 | NEW | — |
+| AT-01~AT-33 | AT | §7 | NEW | — |
 | SD-01 | SD | 계산 요청 수명주기 — §5·§13 | NEW | — |
 | SD-02 | SD | 세션 로드 수명주기(티켓 → 포트 → 조각 → 반영 / 취소 / 호스트 종료) — §5·§13 | NEW | — |
+| SD-04 | SD | 에이전트 호스트 수명주기(기동 → 준비 → 창 연결 → 비정상 종료·고아 정리 → 재기동 → 종료) — §5·§13 | NEW | — |
+| AR-06 | AR | 채널 소유 표와 preload 전송 선택 — §10 EP-8 | NEW | — |
+| AR-07 | AR | 호스트 쪽 창 참조(`ClientRef`)와 통지 전송 — §10 EP-9 | CHANGED | `infra/ipc/send.ts` 의 `WebContents` 전송 |
+| AR-08 | AR | 셸 서비스 계약 — §10 EP-10 | NEW | — |
+| AR-09 | AR | 수명 이벤트 계약 — §10 EP-11 | NEW | — |
+| AR-10 | AR | 셸·호스트 import 경계 — §10 EP-1 (e)(f) | NEW | — |
+| MD-06 | MD | 수명 상태 축약(`LifecycleState`) — §11 | NEW | — |
+| MD-07 | MD | 고아 프로세스 선별 — §11 | NEW | — |
+| SD-05 | SD | 턴 이벤트 파이프라인 구독 순서(usage → history → title → relay) | INHERITED | `features/chat/turn-coordinator.test.ts` |
+| SD-06 | SD | 업데이트 재시작 게이트·트레이 상주 판정 | INHERITED | `shared/update-restart.ts` 테스트 · 0322 plan |
 | AR-01 | AR | 계산 클라이언트 ↔ 워커 메시지 계약 — §10 EP-3 | NEW | — |
 | AR-02 | AR | main 감독자 ↔ 호스트 ↔ renderer 클라이언트 계약 — §10 EP-5·EP-6 | NEW | — |
 | AR-03 | AR | IPC 등록 함수의 계측 경계 — §10 EP-2 | NEW | — |
@@ -202,24 +267,35 @@
 | Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | `docs/INDEX.md` → `execution-model.md` → 두 `AGENTS.md` | `gate:node scripts/check-doc-inventory.mjs --check` | not selected — 문서 대조 | 0 + 문서 산출 |
-| VP-02 | R-02 ↔ AT-02~04 | REQUIRED | 소스 트리 → `check-ui-thread.mjs` → exit code → `ci.yml` | 신규 `scripts/check-ui-thread.test.mjs` — 규칙 4종 × 분기(§10 EP-1 규칙 칸) | required — 0건 가드라 눈이 있는지 확인. 변이: 등록 표에서 1행 삭제 → red | EP-1 (4) |
+| VP-02 | R-02 ↔ AT-02~04 | REQUIRED | 소스 트리 → `check-ui-thread.mjs` → exit code → `ci.yml` | 신규 `scripts/check-ui-thread.test.mjs` — 규칙 6종 × 분기(§10 EP-1 규칙 칸) | required — 0건 가드라 눈이 있는지 확인. 변이: 등록 표에서 1행 삭제 → red | EP-1 (6) |
 | VP-03 | R-03 ↔ AT-05~07 | REQUIRED | 멈춤 → 모니터/등록 함수/리포터 → 로거 | AC5·AC6·AC7 의 세 테스트 파일 | not selected — 값 단언 | EP-2 (7) |
 | VP-04 | R-04 ↔ AT-08~14 | REQUIRED | 컴포넌트 → 훅 → `computeClient` → 워커 → 응답 → 상태 | AC8~AC14 의 테스트 | not selected — 행동 단언 | EP-3 (9) |
-| VP-05 | R-05 ↔ AT-15~20 | REQUIRED | 클릭 → `sessionApi.load` → main 티켓 → 호스트 → 조각 → 조립 → `LOAD_SESSION` | AC15~AC20 의 테스트 | not selected — 동치·값 단언 | EP-4 (3) · EP-5 (2) · EP-6 (5) |
+| VP-05 | R-05 ↔ AT-15~20 | REQUIRED | 클릭 → `sessionApi.load` → 에이전트 호스트 티켓 → 데이터 호스트 → 조각 → 조립 → `LOAD_SESSION` | AC15~AC20 의 테스트 | not selected — 동치·값 단언 | EP-4 (3) · EP-5 (2) · EP-6 (5) |
 | VP-06 | R-06 ↔ AT-21 | REQUIRED | `chat:send` → `adapter.ts` 턴 셋업 → 카탈로그 | 기존 카탈로그 테스트(비동기 진입점) + `gate:node scripts/check-ui-thread.mjs` | not selected | EP-7 (1) |
 | VP-07 | R-07 ↔ AT-22·23 | REQUIRED | 실제 앱 | 사람 실기 §19 | not selected | 0 + 실기 |
 | VP-08 | SD-01 ↔ ST-01 | REQUIRED | 요청 → 대기 → 전송 → 응답/취소/실패 → 소비자 상태 | `client.test.ts` — 수명주기 전이 6종(전송·응답·대기 취소·실행 취소·실패·차단) | not selected | EP-3 과 공유 |
-| VP-09 | SD-02 ↔ ST-02 | REQUIRED | 티켓 → 포트 → begin → chunk* → end / cancel / exit | `session-load.test.ts` + `dataHostClient.test.ts` + `supervisor.test.ts` | not selected | EP-5·EP-6 과 공유 |
+| VP-09 | SD-02 ↔ ST-02 | REQUIRED | 티켓 → 포트 → begin → chunk* → end / cancel / exit | `session-load.test.ts` + `dataHostClient.test.ts` + `host-supervisor.test.ts` | not selected | EP-5·EP-6 과 공유 |
 | VP-10 | AR-01 ↔ IT-01 | REQUIRED | `client.ts` ↔ `compute.worker.ts` 메시지 | 신규 `shared/compute/worker/handler.test.ts` — 요청 3종을 실제 처리 함수에 넣어 응답 형식을 `client` 의 파서로 읽음 | not selected | EP-3 (종류 3) |
 | VP-11 | AR-02 ↔ IT-02 | REQUIRED | `dataHostClient` ↔ `session-load` 서비스 메시지 | `session-load.test.ts` — 서비스가 낸 메시지를 `dataHostClient` 조립기에 그대로 넣음 | not selected | EP-6 (5) |
 | VP-12 | AR-03 ↔ IT-03 | REQUIRED | `ipcMain.handle` 등록 → 계측 → 핸들러 | `handle.test.ts` — 세 등록 함수 | required — 등록 함수 하나만 계측해도 대표 테스트는 통과. 변이: `handlePlain` 의 계측 제거 → red | EP-2 (7) |
-| VP-13 | AR-04 ↔ IT-04 | REQUIRED | 실제 트리 → 가드 | `gate:node scripts/check-ui-thread.mjs` 를 실제 트리에 실행 → exit 0 | not selected | EP-1 (4) |
+| VP-13 | AR-04 ↔ IT-04 | REQUIRED | 실제 트리 → 가드 | `gate:node scripts/check-ui-thread.mjs` 를 실제 트리에 실행 → exit 0 | not selected | EP-1 (6) |
 | VP-14 | AR-05 ↔ IT-05 | REQUIRED | `handlers/session.ts` → preload → `shared/api/ipc.ts` | `session.load.test.ts` + `preload/index.test.ts` | not selected | EP-4 (3) |
 | VP-15 | MD-01 ↔ UT-01 | REQUIRED | `client.ts` 내부 | `client.test.ts` | not selected | EP-3 과 공유 |
 | VP-16 | MD-02 ↔ UT-02 | REQUIRED | `data-host-chunks.ts` | `data-host-chunks.test.ts` — 규칙 칸 분기 4종(§10 EP-6) | not selected | EP-6 과 공유 |
 | VP-17 | MD-03 ↔ UT-03 | REQUIRED | `stall-monitor.ts` | `stall-monitor.test.ts` — 49/50/159/160 | not selected | EP-2 과 공유 |
 | VP-18 | MD-04 ↔ UT-04 | REQUIRED | `check-ui-thread.mjs` | `check-ui-thread.test.mjs` | VP-02 와 같다 | EP-1 과 공유 |
 | VP-19 | MD-05 ↔ UT-05 | REQUIRED | `inline.ts` · `CodeBlock.tsx` | `inline.test.ts` — 400/401 · `CodeBlock.render.test.ts` — 32,000/32,001 | not selected | EP-3 과 공유 |
+| VP-21 | R-08 ↔ AT-24~33 | REQUIRED | 창 → preload → 호스트 포트 → 핸들러 → 버스 → 창 포트 / 셸 서비스 / 수명 통지 | AC24~AC33 의 테스트 | required — 채널 소유 표가 한쪽으로 쏠려도 대표 테스트는 통과. 변이: 호스트 채널 1개를 `'shell'` 로 → `preload/index.test.ts` red | EP-8 (3) · EP-9 (4) · EP-10 (8) · EP-11 (5) |
+| VP-22 | SD-04 ↔ ST-04 | REQUIRED | fork → ready → connect → exit → 고아 정리 → 통지 → 재 fork → shutdown | `host-supervisor.test.ts` — 전이 7종 | not selected | EP-12 (4) |
+| VP-23 | AR-06 ↔ IT-06 | REQUIRED | `CHANNELS` → `channel-owner.ts` → preload `invoke` 선택 → 셸 `handle` / 호스트 `handle` | `gate:npm run typecheck`(표의 전수) + `preload/index.test.ts` + 신규 `channel-registration.test.ts` — 표의 소유자와 실제 등록 프로세스의 차집합 0 | not selected | EP-8 (3) |
+| VP-24 | AR-07 ↔ IT-07 | REQUIRED | `sendChatEvent`·`broadcast*` → `ClientRef.send` → preload 구독 분배 | `send.test.ts` + `preload/index.test.ts` | not selected | EP-9 (4) |
+| VP-25 | AR-08 ↔ IT-08 | REQUIRED | 호스트 어댑터 → 셸 서비스 포트 → Electron API | `services.test.ts` — 호스트 쪽 클라이언트와 셸 쪽 서버를 한 채널로 묶어 8종 왕복 | not selected | EP-10 (8) |
+| VP-26 | AR-09 ↔ IT-09 | REQUIRED | 호스트 버스·종료 감시 → 수명 통지 → `LifecycleState` → 소비자 | `lifecycle-state.test.ts` + 호스트 쪽 `lifecycle-emitter.test.ts` — 정규화 이벤트 열 → 수명 이벤트 열 | not selected | EP-11 (5) |
+| VP-27 | AR-10 ↔ IT-10 | REQUIRED | 실제 트리 → 가드 (e)(f) | `gate:node scripts/check-ui-thread.mjs` | VP-02 와 같다 | EP-1 (6) |
+| VP-28 | MD-06 ↔ UT-06 | REQUIRED | `lifecycle-state.ts` | `lifecycle-state.test.ts` — §10 EP-11 규칙 칸 분기 | not selected | EP-11 과 공유 |
+| VP-29 | MD-07 ↔ UT-07 | REQUIRED | `orphans.ts` | `orphans.test.ts` — 부모 일치·불일치·손자·빈 목록 | not selected | EP-12 와 공유 |
+| VP-30 | SD-05 ↔ ST-05 | REGRESSION | 호스트로 옮긴 뒤의 `turn.event` 구독 순서 | 기존 `turn-coordinator.test.ts` 순서 회귀 케이스 | not selected | 0 + 기존 보호 재사용 |
+| VP-31 | SD-06 ↔ ST-06 | REGRESSION | 수명 상태 → 재시작 게이트·트레이 종료 판정 | 기존 `update-restart` 테스트 · `tray-residency` 테스트 — 입력원만 `LifecycleState` 로 | not selected | 0 + 기존 보호 재사용 |
 | VP-20 | SD-03 ↔ ST-03 | REGRESSION | 로드 대기 중 라이브 이벤트 → `liveChanged` → 로드 결과 폐기 | 기존 `chatStore.native-history.test.ts` · `chatStore.listen.test.ts` — 전송 수단만 바뀐 뒤에도 green | not selected | 0 + 기존 보호 재사용 |
 
 ### 현재 변경의 운영 gate
@@ -252,6 +328,11 @@
 | 턴 시작에 플러그인 카탈로그를 동기로 읽는다. 비동기 판이 같은 파일에 있다 | `adapters/claude/adapter.ts:609` · `plugin-catalog.ts:273`·`:321` |
 | `app://` 스킴은 standard·secure 로 등록돼 있고 자산은 파일로 응답한다 | `main/index.ts:134~160` |
 | renderer 의 새 디렉토리는 `shared` 요소 안에 둬야 boundaries 설정을 안 고친다 | `eslint.config.mjs:69~78` |
+| `electron` 을 값으로 import 하는 main 파일은 17개이고 `features`·`adapters` 에는 없다(타입 import 만) | `rg -n "from 'electron'" app/src/main --glob '!*.test.*'` |
+| 턴 준비 경로에 입력 크기에 비례하는 동기 작업이 네 곳 있다 | `native-sync.ts:21`(스냅샷 `JSON.parse`) · `native-session.ts:55`(`loadSession` + 재직렬화) · `attachments.ts`(인라인 32MiB 디코드) · `adapter.ts:609`(카탈로그 순회) |
+| renderer 는 전송 결과를 기다리지 않고 실패도 `error` 이벤트로 받는다 | `chatStore.ts:573` `void chatApi.send(payload).catch(…)` · `send.ts` 의 `sendChatEvent(event.sender, { type: 'error', … })` |
+| 턴이 창을 `WebContents` 로 직접 든다 | `WebContents`·`IpcMainInvokeEvent` 타입을 쓰는 파일 24개(`app/chat-turn` 11) |
+| 끊긴 턴의 복구 규칙이 이미 있다 | `features/chat/recovery.ts:73` `recoverSessionHistory` |
 | 외부 SDK/API | shiki 1.29.2 `codeToHtml`·`codeToTokens`(패키지 타입) · Electron 39 `utilityProcess.fork`·`MessageChannelMain`(TRD 스택) · Node `perf_hooks.monitorEventLoopDelay` |
 
 ### 전수 조사
@@ -265,6 +346,12 @@
 | IPC 등록 함수 | `rg -n "^export function" app/src/main/infra/ipc/handle.ts` | 3 | `handle`·`handlePlain`·`on` |
 | `ipcMain` 직접 등록 | `rg -n "ipcMain\.(handle\|on\|once\|handleOnce)\(" app/src/main --glob '!*.test.*'` | 7 | `handle.ts` 3 · `index.ts` 4 |
 | 계산된 이름으로 동기 API 접근 | `rg -n "\[['\"\`][^\]]*Sync" app/src/main --glob '!*.test.*'` | 2 | 둘 다 타입 인덱스 `LoadedSession['nativeSync']` — 동기 API 접근 0 |
+| preload 의 전송 호출 | `rg -c "ipcRenderer\.(invoke\|on\|send)\(" app/src/preload/index.ts` | 108 | invoke 105 · on 2 · send 1 |
+| 채널 상수 | `rg -c "^\s+[a-zA-Z]+: 'oo:" app/src/shared/ipc.ts` | 123 | 채널 소유 표의 분모 |
+| main → 창 통지 자리 | `rg -c "broadcast\(\|wc\.send\(" app/src/main/infra/ipc/send.ts` · `rg -n "getAllWebContents" app/src/main --glob '!*.test.*'` | 17 · 3 | `send.ts` 17줄 + `bootstrap.ts:649`·`:1155` 직접 순회 2 |
+| DB 호출 자리 | `rg -o "\b(ctx\.db\|deps\.db\|this\.db\|db)\.[a-zA-Z]+(\.[a-zA-Z]+)?\(" app/src/main --glob '!*.test.*'` | 287 | 전부 동기 API |
+| Electron 값 import 파일 | `rg -l "^import (?!type).*from 'electron'" -P app/src/main --glob '!*.test.*'` | 17 | 셸에 남거나 셸 서비스 어댑터가 되는 파일 |
+| main 소스 규모 | `find app/src/main -name '*.ts'` (테스트 제외 / 테스트) | 437 / 488 | 옮기는 대상의 크기 |
 | 워커·계측 | `rg -n 'new Worker\(\|utilityProcess\|worker_threads\|monitorEventLoopDelay\|PerformanceObserver' app/src --glob '!*.test.*'` | 1 | 주석 1건 — 실사용 0 |
 
 ### 수치 / 전칭 표현 검산
@@ -282,6 +369,7 @@
 | 세션 part 조회 + 행별 `JSON.parse` + 직렬화 | 1,000 / 10,000 / 50,000 part | 15 / 150 / 800ms |
 | SQLite 단건 쓰기(WAL, `synchronous=NORMAL`) | 1건 | 0.064ms |
 | `MessagePort` 왕복 | 500 / 10,000 part | 4.5 / 49ms |
+| base64 디코드 / 같은 크기 문자열 복제 | 32MiB | 30ms / 53ms |
 | 읽기 전용 연결 | 쓰기 문 준비 가능 · 실행은 `SQLITE_READONLY` · WAL 커밋 행 보임 · 읽는 중 쓰기 안 막힘 | 4건 모두 관측 |
 | shiki 조각 실행 | 100줄씩 `grammarState` 로 이어 붙인 토큰이 통째 실행과 같다 | 2,547줄 일치 |
 
@@ -309,32 +397,34 @@
 
 ### TO-BE — 변경 후 목표 구조와 동작 경로
 
-- 관련 V node: SD-01·SD-02·AR-01~AR-05.
-- 변경 후 책임 소유자: 아래 표.
+- 관련 V node: SD-01·SD-02·SD-04·AR-01~AR-10.
+- 변경 후 책임 소유자: 아래 표. 이름은 사용자와 확정한 것이다(턴 8~9).
 - 변경 후 오류/취소/정리 경로: §13.
-- 유지하는 기존 메커니즘: 델타 코얼레서 · `isCurrent()`/`liveChanged` 보호 · `handle()` 의 zod 검증 · 로거. 대체하는 메커니즘: renderer 의 직접 `shiki` 호출 · main 의 세션 본문 응답.
+- 유지하는 기존 메커니즘: 델타 코얼레서 · `isCurrent()`/`liveChanged` 보호 · `handle()` 의 zod 검증 · `turn.event` 구독 순서 · `recoverSessionHistory` · 로거. 대체하는 메커니즘: renderer 의 직접 `shiki` 호출 · 세션 본문 응답 · `ipcMain`/`webContents` 를 통한 요청·통지 전송(호스트 채널에 한해 포트로).
 
-| 실행 주체 | 종류 | 수·수명 | 맡는다 | 맡지 않는다 |
-|---|---|---|---|---|
-| main | Electron main | 1 | 창·OS·권한·IPC 라우팅·프로세스 수명·턴 구동·순서가 중요한 단건 쓰기 | 입력 크기에 비례하는 읽기와 계산 · 등록되지 않은 동기 파일 API · 화면 갱신 지시 |
-| renderer 메인 스레드 | Chromium renderer | 창마다 1 | UI 상태·그리기 예약·결과 반영·상한 있는 계산 | `shiki` 실행 · 상한 없는 diff 계산 |
-| 계산 워커 | Web Worker | 창마다 1, 첫 요청에 생성, 창과 함께 종료 | 구문 강조 · diff 토큰 · diff 줄 | 상태 소유 · IPC |
-| 데이터 호스트 | `utilityProcess` | 앱에 1, 첫 요청에 생성, 앱 종료 때 종료 | 읽기 전용 연결로 세션 본문 조회·조립·조각 전송 | 쓰기 · 권한 판정 |
-| 하네스·git | 자식 프로세스(기존) | 그대로 | 에이전트 실행 · git | — |
+| # | 실행 주체 | 종류 | 수·수명 | 띄우는 쪽 | 맡는다 | 맡지 않는다 |
+|---|---|---|---|---|---|---|
+| 1 | main(셸) | Electron main | 1 | OS | 창·트레이·업데이트·`app://` 응답, 셸 서비스(비밀 봉인·해제·대화상자·외부 열기·알림·파티션 세션 요청), 호스트 수명 감독, 포트 중개, 수명 상태 보유 | 턴·세션·DB·하네스·git — `features`·`adapters`·`infra/db` 를 import 하지 않는다 |
+| 2 | renderer | Chromium renderer | 창마다 1 | main | UI 상태·그리기 예약·결과 반영·상한 있는 계산 | `shiki` 실행 · 상한 없는 diff 계산 |
+| 3 | 계산 워커 | Web Worker | 창마다 1, 첫 요청에 생성 | renderer | 구문 강조 · diff 토큰 · diff 줄 | 상태 소유 · IPC |
+| 4 | 에이전트 호스트 | `utilityProcess` | 앱에 1, 부팅 때 생성 | main | 지금의 `Bootstrap` 전체 — 요청 핸들러, 어댑터·SDK 호출, 세션 런타임, 정규화, 게이트 훅 반환, 이력 쓰기(DB 쓰기 연결), 스케줄러, 도구 프로세스 기동 | Electron 창·OS API 직접 호출 |
+| 5 | 데이터 호스트 | `utilityProcess` | 앱에 1, 첫 요청에 생성 | main | 읽기 전용 연결로 세션 본문 조회·조립·조각 전송 | 쓰기 · 권한 판정 |
+| 6 | 하네스 | 자식 프로세스 | 세션·하네스마다 | 에이전트 호스트(SDK 경유) | 모델 호출 · 도구 실행 | — |
+| 7 | 도구 프로세스 | 자식 프로세스 | 필요할 때 | git·셸은 에이전트 호스트, MCP 서버는 하네스 | git 조회 · 예약 셸 작업 · MCP 서버 | — |
 
 ```text
-[CodeBlock mount]  → useHighlightedHtml → computeClient.request('highlight.html')
-                   → (캐시 hit: 즉시) / 워커 postMessage → 응답 → setState
-[큰 diff]          → useDiffLines → 400 이하: diffLinesWithinCap (동기)
-                                  → 초과: computeClient.request('diff.lines') → 응답
-[세션 클릭]        → sessionApi.load
-                   → invoke oo:session:load → main: compactLegacyRaw → { activity } (작다)
-                   → dataHostClient.request('session.load')
-                        (포트 없으면 invoke oo:data-host:connect → main 이 fork + 포트 2개 전달)
-                   → host: loadSession() → begin → chunk × n → end  (MessagePort, main 미경유)
-                   → renderer: 조립 → activity 병합 → LOAD_SESSION 1회
-[턴 시작]          → main: await readClaudePluginCatalogAsync()
-[멈춤]             → stall-monitor / handle() / longTaskReporter → perf.stall 로그
+[전송]      window.oo.chat.send → preload: 채널 소유 표 = host → 에이전트 호스트 포트
+            → 호스트 handle() → handleChatSend (지금 코드 그대로, 호스트 안에서)
+            → 어댑터 → 하네스 → 정규화 → bus 'turn.event' (usage → history → title → relay)
+            → ClientRef.send → 창 포트 → preload 구독자 → ingestChatEvent → rAF
+[권한 작업] 호스트 crypto/dialog/open → 셸 서비스 포트 → main: safeStorage·dialog·shell
+[수명]      호스트 → main: turn.started · turn.ended · approval.pending · session.ended · harness.exited
+            → LifecycleState → 업데이트 재시작 게이트 · 트레이 종료 판정
+[세션 클릭] sessionApi.load → 에이전트 호스트 oo:session:load: compactLegacyRaw → { activity }
+            → 데이터 호스트 포트: begin → chunk × n → end → 조립 → LOAD_SESSION 1회
+[강조·diff] CodeBlock → computeClient → 계산 워커 → 응답 → setState
+[호스트 사망] utilityProcess exit → main: 고아 하네스 종료 → 창 통지 → LifecycleState 비움 → 다음 요청에 재기동
+[멈춤]      stall-monitor(main·에이전트 호스트) / handle() / longTaskReporter → perf.stall 로그
 ```
 
 ### AS-IS → TO-BE Delta
@@ -342,11 +432,15 @@
 | 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 구현·검증 연결 |
 |---|---|---|---|---|
 | 책임/소유권 | 강조·diff = renderer 메인 스레드 | 계산 워커 | D-008 | AR-01 / VP-04·VP-10 · `shared/compute/**` |
+| 책임/소유권 | 턴·세션·DB 쓰기·핸들러 = main | 에이전트 호스트 | D-016·D-025 | AR-06~AR-10 / VP-21~VP-27 · `app/agent-host/**`·`app/shell/**` |
 | 책임/소유권 | 세션 본문 = main | 데이터 호스트 | D-006 | AR-02 / VP-05·VP-11 · `app/data-host/**` |
+| data/control flow | 요청·턴 이벤트가 `ipcMain`·`webContents` 로 main JS 를 지난다 | preload ↔ 호스트 포트 직접 | D-016·D-026 | AR-06·AR-07 / VP-23·VP-24 |
+| state/contract | 턴 상태를 main 이 메모리에서 직접 읽는다 | 수명 이벤트로 받은 `LifecycleState` | D-020 | AR-09 / VP-26·VP-31 |
+| error/lifecycle | 프로세스 하나 — 죽으면 앱이 죽는다 | 호스트 사망 → 고아 정리 → 세션 중단 → 재기동 | D-021 | SD-04 / VP-22·VP-29 |
 | data/control flow | 세션 본문이 main JS 를 지난다 | 호스트 → renderer 포트 직접 | D-006 | SD-02 / VP-09 |
 | state/contract | `oo:session:load` → `LoadedSession \| null` | `SessionLoadTicket` + 호스트 메시지 | D-006 | AR-05 / VP-14 · `shared/ipc.ts`·`shared/data-host.ts` |
 | error/lifecycle | 강조 계산은 취소 불가 | 대기 취소·실행 중 교체·3회 실패 차단 | D-009 | SD-01 / VP-08 |
-| error/lifecycle | 호스트 없음 | 지연 기동·종료 통지·재기동·종료 순서 | D-006 | SD-02 / VP-09 · `supervisor.ts` |
+| error/lifecycle | 호스트 없음 | 지연 기동·종료 통지·재기동·종료 순서 | D-006 | SD-02 / VP-09 · `app/shell/host-supervisor.ts` |
 | test seam/관측점 | 계측 없음 | `perf.stall`(main 루프·IPC 동기 구간·renderer long task) | D-002 | MD-03·AR-03 / VP-03·VP-12 |
 | test seam/관측점 | 배치 규칙이 문서에 없다 | `check-ui-thread.mjs` 가 CI 에서 강제 | D-008 | AR-04 / VP-02·VP-13 |
 
@@ -361,24 +455,38 @@
 | `renderer shared/compute/inline.ts` | 상한 있는 동기 diff(`diff` 값 import 허용 파일) | 문자열 → `DiffLine[] \| null` | diff 소비처 |
 | `renderer shared/api/dataHost.ts` | 포트 획득·요청 번호·조립·취소 | `sessionId` → `LoadedSession \| null` | `shared/api/ipc.ts` 의 `sessionApi` |
 | `renderer shared/perf/longTaskReporter.ts` | long task 묶음 보고 | 관측 항목 → `logEmit` | `main.tsx` |
-| `main infra/perf/stall-monitor.ts` | 루프 지연 판정과 기록(시계·표본원 주입) | 표본 → 로그 | `bootstrap.ts` |
+| `src/shared/channel-owner.ts` | 채널별 처리 프로세스 SSOT | `CHANNELS` 키 → `'shell' \| 'host'` | preload · 등록 테스트 |
+| `src/shared/host-protocol.ts` | 포트 요청·응답·통지·수명 이벤트·셸 서비스의 zod 스키마 | 메시지 | 셸 · 호스트 · preload |
+| `main contracts/client.ts` | 창 참조 `ClientRef`(`id`·`send`·`isClosed`·`onClosed`) — `WebContents` 를 대신한다 | 타입 | `WebContents` 타입을 쓰던 24파일 |
+| `main infra/ipc/{handle,send,transport}.ts` | 등록·통지의 전송 선택 — 셸에서는 `ipcMain`, 호스트에서는 포트 서버 | 핸들러 ↔ 메시지 | 모든 핸들러 등록부 |
+| `main app/agent-host/entry.ts` | 호스트 진입점 — 포트 서버·셸 서비스 클라이언트를 만들고 `Bootstrap` 을 시작 | `parentPort` 메시지 | electron-vite main 의 입력 |
+| `main app/agent-host/lifecycle-emitter.ts` | 정규화 이벤트·하네스 종료 → 수명 이벤트 | 버스 → 셸 통지 | `Bootstrap` |
+| `main app/shell/host-supervisor.ts` | 두 호스트의 fork·ready·포트 중개·exit·재기동·shutdown | 창 → 포트 | `index.ts` |
+| `main app/shell/services.ts` | 셸 서비스 8종의 서버 | 요청 → Electron API | `host-supervisor` |
+| `main app/shell/lifecycle-state.ts` | 수명 이벤트 → 상태(활성 턴·승인 대기·세션 활동) | 이벤트 → 조회 | `updater`·`tray-residency` |
+| `main app/shell/orphans.ts` | 죽은 호스트를 부모로 둔 프로세스 선별·종료(프로세스 목록 함수 주입) | pid → kill 대상 | `host-supervisor` |
+| `main infra/perf/stall-monitor.ts` | 루프 지연 판정과 기록(시계·표본원 주입) | 표본 → 로그 | 셸 `index.ts` · 호스트 `entry.ts` |
 | `main infra/ipc/handle.ts` | 세 등록 함수의 동기 구간 계측 | 핸들러 → 로그 | 모든 핸들러 등록부 |
-| `main app/data-host/supervisor.ts` | fork·포트 중개·종료 통지·shutdown | `webContents` → 포트 | `bootstrap.ts`·`handlers/session.ts` |
-| `main app/data-host/entry.ts` | 호스트 진입점 — 읽기 전용 연결·요청 검증·서비스 호출 | 포트 메시지 | electron-vite main 의 두 번째 입력 |
+| `main app/data-host/entry.ts` | 데이터 호스트 진입점 — 읽기 전용 연결·요청 검증·서비스 호출 | 포트 메시지 | electron-vite main 의 두 번째 입력 |
 | `main app/data-host/session-load.ts` | `loadSession` 호출·조각 전송·조각 사이 취소 확인 | 요청 → 메시지 열 | `entry.ts` |
-| `app/scripts/check-ui-thread.mjs` | 규칙 4종 판정과 등록 표 | 트리 → exit code | `ci.yml`·`npm test` |
+| `app/scripts/check-ui-thread.mjs` | 규칙 6종 판정과 등록 표 | 트리 → exit code | `ci.yml`·`npm test` |
 
 ## 10. 계약 / 타입 / 강제 지점
 
 | V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| AR-04 / VP-02·13·18 **EP-1** | UI 스레드 금지 규칙 4종 | `check-ui-thread.mjs` 의 등록 표 | 가드 | 4자리 — (a) `src/main` 의 동기 API 이름 (b) renderer 의 계산 라이브러리 값 import (c) `loadSession` import (d) `ipcMain` 직접 등록 | `node scripts/check-ui-thread.mjs --list` → 규칙별 발견 목록 | 등록 밖 사용이 CI 를 통과한다 |
-| AR-03 / VP-03·12·17 **EP-2** | 멈춤 기록 `perf.stall` | `infra/perf/stall-monitor.ts` 의 기록 함수 | main | 7자리 — 등록 함수 `handle`·`handlePlain`·`on` + `index.ts:234`·`:237`·`:241`·`:280` 의 직접 등록(→ `handlePlain`) | §8 의 `ipcMain` 직접 등록 `rg` → 7 | 느린 핸들러가 채널 이름 없이 묻힌다 |
+| AR-04 / VP-02·13·18 **EP-1** | 실행 위치 규칙 6종 | `check-ui-thread.mjs` 의 등록 표 | 가드 | 6자리 — (a) `src/main` 의 동기 API 이름 (b) renderer 의 계산 라이브러리 값 import (c) `loadSession` import (d) `ipcMain` 직접 등록 (e) 셸 import 그래프 (f) 호스트의 `electron` 값 import·`worker_threads` | `node scripts/check-ui-thread.mjs --list` → 규칙별 발견 목록 | 등록 밖 사용이 CI 를 통과한다 |
+| AR-03 / VP-03·12·17 **EP-2** | 멈춤 기록 `perf.stall` | `infra/perf/stall-monitor.ts` 의 기록 함수 | 셸·호스트 | 7자리 — 등록 함수 `handle`·`handlePlain`·`on` + `index.ts:234`·`:237`·`:241`·`:280` 의 직접 등록(→ `handlePlain`) | §8 의 `ipcMain` 직접 등록 `rg` → 7 | 느린 핸들러가 채널 이름 없이 묻힌다 |
 | AR-01 / VP-04·08·10·15·19 **EP-3** | UI 스레드에서 사라지는 계산 호출 | `shared/compute/client.ts` | renderer | 9자리 — `CodeBlock.tsx:57`·`:65` · `diffSyntax.ts:20`·`:25` · `DiffBody.tsx:26`·`:31`·`:36` · `filePresentation.ts:9` · `toolMeta.ts:185` | §8 전수 조사의 두 `rg` — 정의·`syntax.ts`·`unifiedDiffLines.ts:7` 을 뺀 9 | 그 자리가 UI 스레드에서 계속 계산한다 |
-| AR-05 / VP-05·14 **EP-4** | 세션 본문을 main 응답에 싣지 않는다 | `shared/ipc.ts` 의 `SessionLoadTicket` | main | 3자리 — `session.ts:70`·`:92`·`native-session.ts:55` | `rg -n "loadSession\(" app/src/main --glob '!*.test.*'` → 정의 빼고 3 | 본문이 main 을 지난다 |
-| AR-02 / VP-05·09 **EP-5** | 호스트 포트 전달 | `supervisor.ts` | main·preload | 2자리 — `supervisor.connect` 의 두 `postMessage` · preload 의 포트 전달 | 구현 뒤 `rg -n "dataHostPort" app/src` | 포트가 한쪽에만 간다 → 요청이 영원히 대기 |
+| AR-05 / VP-05·14 **EP-4** | 세션 본문을 요청 응답에 싣지 않는다 | `shared/ipc.ts` 의 `SessionLoadTicket` | 에이전트 호스트 | 3자리 — `session.ts:70`·`:92`·`native-session.ts:55` | `rg -n "loadSession\(" app/src/main --glob '!*.test.*'` → 정의 빼고 3 | 본문 조회가 턴 스트림과 같은 스레드에서 돈다 |
+| AR-02 / VP-05·09 **EP-5** | 데이터 호스트 포트 전달 | `host-supervisor.ts` | main·preload | 2자리 — `connect` 의 두 `postMessage` · preload 의 포트 수신 | 구현 뒤 `rg -n "dataHostPort" app/src` | 포트가 한쪽에만 간다 → 요청이 영원히 대기 |
 | AR-02 / VP-05·09·11·16 **EP-6** | 호스트 메시지 5종 | `shared/data-host.ts` | 호스트·renderer | 5자리 — `begin`·`chunk`·`end`·`error`·`cancel` | 구현 뒤 `rg -n "type: '(begin\|chunk\|end\|error\|cancel)'" app/src/shared/data-host.ts` | 조립 불일치·취소 무시 |
-| VP-06 **EP-7** | 턴 시작 카탈로그는 비동기 | `plugin-catalog.ts` | main | 1자리 — `adapter.ts:609` | `rg -n "readClaudePluginCatalog\b" app/src/main --glob '!*.test.*'` | 턴 시작마다 디렉토리 순회가 main 을 막는다 |
+| VP-06 **EP-7** | 턴 시작 카탈로그는 비동기 | `plugin-catalog.ts` | main | 1자리 — `adapter.ts:609` | `rg -n "readClaudePluginCatalog\b" app/src/main --glob '!*.test.*'` | 턴 시작마다 디렉토리 순회가 호스트의 스트림을 막는다 |
+| AR-06 / VP-21·23 **EP-8** | 채널마다 처리 프로세스가 하나다 | `shared/channel-owner.ts` | preload·셸·호스트 | 3자리 — preload 의 `invoke` 선택 · 셸의 등록 · 호스트의 등록 | `rg -n "channelOwner\|CHANNEL_OWNER" app/src --glob '!*.test.*'` | 요청이 받는 쪽 없는 프로세스로 가 영원히 대기한다 |
+| AR-07 / VP-21·24 **EP-9** | 호스트발 통지는 `ClientRef` 로 간다 | `contracts/client.ts` | 호스트 | 4자리 — `send.ts` 의 대상 지정 전송 · 방송 · `bootstrap.ts:649`·`:1155` 의 직접 순회 2 | §8 의 통지 자리 두 `rg` | 통지가 창에 닿지 않는다 |
+| AR-08 / VP-21·25 **EP-10** | 권한 작업은 셸 서비스로만 | `shared/host-protocol.ts` | 호스트·셸 | 8자리 — 비밀 봉인·해제(`infra/config/crypto.ts`) · 대화상자(`handlers/files.ts`·`artifacts.ts`) · 외부 열기(`shell.*` 5파일) · 알림·창 포커스(`handlers/misc.ts`) · 전원 이벤트(`bootstrap.ts`) · 파티션 세션 요청(`infra/browser-session.ts`·`net-request.ts`) · 업데이트 제어(`updater.ts`) · 경로·버전(`app.getPath`·`getVersion`) | §8 의 Electron 값 import `rg` → 17파일을 8종에 배정, 미배정 0 | 호스트가 없는 API 를 불러 기동 중 죽는다 |
+| AR-09 / VP-21·26·28 **EP-11** | 수명 이벤트 5종 | `shared/host-protocol.ts` | 호스트 → 셸 | 5자리 — `turn.started`·`turn.ended`·`approval.pending`·`session.ended`·`harness.exited` | 구현 뒤 `rg -n "type: '(turn\.started\|turn\.ended\|approval\.pending\|session\.ended\|harness\.exited)'" app/src/shared/host-protocol.ts` | 재시작 게이트·트레이 판정이 낡은 상태를 본다 |
+| SD-04 / VP-22·29 **EP-12** | 호스트 종료 처리 | `app/shell/host-supervisor.ts` | main | 4자리 — 에이전트 호스트 exit · 데이터 호스트 exit · 정상 shutdown · 3초 초과 강제 종료 | 구현 뒤 `rg -n "\.on\('exit'" app/src/main/app/shell` | 고아 하네스가 남거나 세션이 busy 로 굳는다 |
 
 **EP-1 규칙 칸** (가드의 판정 — 분기마다 `check-ui-thread.test.mjs` 입력 1개):
 
@@ -398,27 +506,38 @@
 | (c) | 등록된 파일(`app/data-host/session-load.ts`·`app/chat-turn/native-session.ts`)의 import | exit 0 |
 | (d) `ipcMain` 등록 | `infra/ipc/handle.ts` 밖의 `ipcMain.handle(`·`.on(`·`.once(`·`.handleOnce(` | exit 1 |
 | (d) | `infra/ipc/handle.ts` 안의 등록 | exit 0 |
+| (e) 셸 그래프 | `src/main/index.ts` 에서 값 import 로 닿는 모듈이 `src/main/features/**`·`src/main/adapters/**`·`src/main/infra/db/**`·`better-sqlite3` 에 있다 | exit 1 |
+| (e) | 같은 대상을 `import type` 으로만 닿는다 | exit 0 |
+| (e) | 동적 `import()` 로 닿는다 | exit 1 |
+| (f) 호스트 | `src/main/app/agent-host/entry.ts`·`app/data-host/entry.ts` 에서 닿는 모듈이 등록된 셸 서비스 어댑터 밖에서 `electron` 값을 import | exit 1 |
+| (f) | `src/main` 어디서든 `worker_threads`·`node:worker_threads` import | exit 1 |
+| (f) | 호스트에서 쓸 수 있는 `electron` 값(`net`)을 등록된 파일(`infra/net/net-fetch.ts`)이 import | exit 0 |
 
-- 가드는 열린 입력 집합을 판정한다 → **fail-closed 로 설계한다.** (a)의 이름 집합은 Node 가 정한다(`Object.keys(require('node:fs'))`·`child_process` 중 `Sync` 로 끝나는 것 — 실행 시 계산). 같은 이름의 로컬 함수(`native-settings-file.ts:75` 의 `readSync`)도 걸리며, 등록하거나 이름을 바꾼다. (b)는 모듈 지정자 문자열(`'shiki'`·`'shiki/…'`·`'diff'`)이 `import type` 이 아닌 문장에 나오면 실패다 — 모르는 import 형태는 실패 쪽으로 떨어진다.
+- 가드는 열린 입력 집합을 판정한다 → **fail-closed 로 설계한다.** (e)·(f)의 import 목록은 정규식이 아니라 TypeScript 의 `ts.preProcessFile` 로 뽑는다(devDependency 로 이미 있다) — 해석하지 못한 지정자(계산된 `import(x)`)는 실패다. (a)의 이름 집합은 Node 가 정한다(`Object.keys(require('node:fs'))`·`child_process` 중 `Sync` 로 끝나는 것 — 실행 시 계산). 같은 이름의 로컬 함수(`native-settings-file.ts:75` 의 `readSync`)도 걸리며, 등록하거나 이름을 바꾼다. (b)는 모듈 지정자 문자열(`'shiki'`·`'shiki/…'`·`'diff'`)이 `import type` 이 아닌 문장에 나오면 실패다 — 모르는 import 형태는 실패 쪽으로 떨어진다.
 - 등록 표는 `{ file, count, class, reason }` 이다. `class` 는 `boot`(부팅·마이그레이션 전용) · `single-file`(파일 하나의 읽기·쓰기·존재 확인) · `capped`(상한 상수 있음) · `tooling`(프로덕션 경로 아님) 넷이다. 초기 등록은 §8 의 25파일에서 `plugin-catalog.ts` 를 뺀 24파일이다.
+- **EP-11 규칙 칸** (`LifecycleState` — `lifecycle-state.test.ts` 입력): `turn.started` → 그 세션 활성 · 같은 세션 `turn.ended` → 비활성 · `approval.pending` → 승인 대기 표시, 그 세션의 `turn.ended` 가 지운다 · `session.ended` → 그 세션의 모든 표시 제거 · `harness.exited` → 그 세션 비활성 + 오류 표시 · 호스트 exit → 전체 비움 · 모르는 세션의 `turn.ended` → 변화 없음.
+- **EP-12 규칙 칸** (`host-supervisor.test.ts` 입력): 에이전트 호스트 비정상 exit → 고아 종료 → 통지 → 상태 비움, 순서대로 · 데이터 호스트 exit → 통지만(고아 정리 없음) · shutdown 중 exit → 통지 0 · shutdown 3초 초과 → kill 1회 · 재기동 실패 3회 연속 → 더 띄우지 않고 부팅 오류 통지.
 - **EP-6 규칙 칸** (조각 분할 — `data-host-chunks.test.ts` 입력): part 합이 500 이하인 세션 → 조각 1 · 1,200 part(메시지당 10) → 조각 3, 각 ≤ 500 · part 700 인 메시지 하나 → 단독 조각 · 메시지 0개 → `begin` + `end`, 조각 0.
 - **선언 경계** (측정한 것만):
   - B1 — Markdown 변환은 renderer 메인 스레드에 남는다: 33,441자에서 51~95ms(§8). 이 handoff 는 `perf.stall` 로 드러내기만 한다.
   - B2 — 강조 HTML 과 원문의 DOM 삽입은 UI 스레드에 남는다: 강조 1,000줄 26ms, 원문 5,092줄 35ms(§8). 강조는 32,000자 상한으로 막고 원문 `<pre>` 에는 상한이 없다.
-  - B3 — 턴 스트림은 main 에 남는다(D-010): 단건 쓰기 0.064ms(§8). 이벤트 하나의 크기에는 상한이 없다(`rendering.md` §1.8 "버퍼 상한이 없다").
-  - B4 — `native-session.ts:55` 의 `loadSession` 은 main 에 남는다: 턴 시작의 복구 경로이고 화면 조작 경로가 아니다. 비용은 세션 로드와 같다(1만 part 150ms).
+  - B3 — 한 에이전트 호스트가 모든 세션의 스트림을 맡는다: 한 세션의 무거운 턴 준비(스냅샷 파싱 23MB 에서 24ms, §8)가 다른 세션의 스트리밍을 그만큼 늦춘다. 창 조작은 막지 않는다. `perf.stall`(`thread:'agent-host'`)이 기록한다.
+  - B4 — `native-session.ts:55` 의 `loadSession` 은 에이전트 호스트에서 돈다: 턴 시작의 복구 경로다. 비용은 세션 로드와 같고(1만 part 150ms) B3 과 같은 영향이다.
   - B5 — `handle()` 계측은 핸들러의 첫 `await` 전 동기 구간만 잰다. 그 뒤의 멈춤은 루프 모니터가 채널 이름 없이 잡는다.
   - B6 — 조각 하나의 바이트 크기에는 상한이 없다: part 하나가 수 MB 면 그 조각의 역직렬화가 길어진다.
   - B7 — 가드 (a)는 이름 토큰을 본다: `fs['read' + 'FileSync']` 같은 계산된 접근은 잡지 못한다. 트리에 그런 형태는 0 이다(§8 전수 조사).
+  - B9 — 고아 선별은 "부모 pid = 죽은 호스트 pid"로 한다: 하네스가 다시 띄운 손자 프로세스는 그 하네스를 끝낼 때 OS 의 트리 종료(`taskkill /T`)에 맡긴다. 호스트가 죽은 직후 pid 가 재사용된 무관한 프로세스를 잡을 가능성은 재지 않았다 — 선별은 호스트 exit 처리 안에서 즉시 1회만 한다.
+  - B10 — 호스트가 죽는 순간 메모리에만 있던 이벤트(저장 전 델타·진행 중 도구 호출)는 사라진다. DB 는 SQLite 트랜잭션 단위로 일관되고, 끊긴 자리는 `recoverSessionHistory` 가 다음 기동에서 정리한다(D-024 — 범용 대응은 "원자적 쓰기 + 재기동 복구"다).
   - B8 — unified patch 파싱은 UI 스레드에 남는다: 1.30MB 에서 10ms(§8). `PATCH_INLINE_MAX_CHARS=1_000_000` 을 넘는 patch 는 파싱하지 않고 기존 파싱 실패 폴백(원문 표시)으로 간다.
 - 같은 규칙이 여러 레이어에 있다면 SSOT: 예산 수치는 `src/shared/perf-budget.ts`, 조각 상한과 메시지 스키마는 `src/shared/data-host.ts` 한 곳이다. 강조 상한 `HIGHLIGHT_MAX_CHARS=32_000` · diff 상한 `DIFF_INLINE_MAX_LINES=400` · patch 상한 `PATCH_INLINE_MAX_CHARS=1_000_000` 은 `shared/compute/limits.ts` 한 곳이다.
 - `실패 의미`에 "다른 게이트가 막는다"를 적었다면: 해당 없음.
+- 비밀의 경계(D-018): 봉인된 값만 디스크에 있고 해제는 셸 서비스가 한다. 풀린 값은 요청한 호출의 응답으로만 호스트에 가고 로그·수명 이벤트에 싣지 않는다 — `wire-log` 의 redact 규칙이 셸 서비스 메시지에도 걸린다.
 - 선택적 필드의 `true/false/undefined` 의미: `SessionLoadTicket.activity` 는 지금의 `LoadedSession.activity` 와 같다 — 없으면 "활동 정보 없음"이고 소비자는 지금처럼 다룬다.
-- 외부 SDK 경계의 실제 요구 타입/의미: `utilityProcess.fork(modulePath, args, { serviceName })` 의 자식은 `process.parentPort` 로 받는다. `MessagePortMain` 은 `start()` 를 불러야 메시지가 흐른다. preload 는 받은 포트를 `window.postMessage(msg, window.location.origin, ports)` 로 메인 월드에 넘긴다.
+- 외부 SDK 경계의 실제 요구 타입/의미: `utilityProcess.fork(modulePath, args, { serviceName })` 의 자식은 `process.parentPort` 로 받는다(`process.type === 'utility'`). `MessagePortMain` 은 `start()` 를 불러야 메시지가 흐른다. preload 는 `ipcRenderer.on(…, (e) => e.ports[0])` 로 받은 포트를 자기 격리 월드 안에 두고 메인 월드에 넘기지 않는다(D-026). 호스트의 `net.fetch` 는 기본 세션에서 나가고 커스텀 프로토콜을 지원하지 않는다.
 
 ## 11. 구현 설계
 
-구현 순서는 표의 단계 번호를 따른다. 단계마다 게이트를 돌리고 다음으로 간다.
+구현 순서는 표의 단계 번호를 따른다. 단계마다 게이트를 돌리고 다음으로 간다. 단계 4 가 가장 크다 — 로직을 고치지 않고 **조립 위치와 전송만** 바꾼다(`Bootstrap` 이 호스트에서 뜨고, Electron 호출 17파일이 셸 서비스를 부른다).
 
 | 단계 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|---|
@@ -432,14 +551,23 @@
 | 3 | `shared/ui/markdown/{CodeBlock.tsx,syntax.ts}` | 강조 소비 | `syntax.ts` 의 하이라이터 생성을 `worker/` 로 옮기고 `isLang` 등 순수 판정만 남긴다. `CodeBlock` 은 `useHighlightedHtml` 로 받는다 | 기존 렌더 테스트 |
 | 3 | `features/chat/lib/{diffSyntax,diffLines,toolMeta,unifiedDiffLines}.ts` · `hooks/useDiffSyntax.ts` · 신규 `hooks/useDiffLines.ts` · `DiffBody.tsx` · `filePresentation.ts` | diff 소비 | jsdiff 호출을 `inline.ts`/워커로. 순수 함수 소비처는 상한 초과 시 `null` 을 받는다. `parsePatch` 는 `inline.ts` 의 상한 있는 함수로 옮긴다(B8) | 순수 단위 |
 | 3 | `electron.vite.config.ts` | 워커 번들 | `renderer.worker.format = 'es'` | 사람 실기(AC23) |
-| 4 | `src/shared/data-host.ts` | 메시지 계약·분할·조립 | 신규 | 순수 단위 |
-| 4 | `src/main/app/data-host/{supervisor,entry,session-load}.ts` | 호스트 | 신규. `supervisor` 는 fork 함수·채널 생성 함수를 주입받는다. `entry` 는 DB 경로를 인자로 받는다 | 순수 단위(`supervisor`) · io(`session-load`) |
-| 4 | `electron.vite.config.ts` | 호스트 번들 | `main.build.rollupOptions.input` 에 `data-host` 진입점 추가 | 사람 실기(AC23) |
-| 4 | `src/shared/ipc.ts` · `protocol.ts` · `preload/index.ts` · `renderer shared/api/{ipc,dataHost}.ts` | 응답 계약·포트 | `SessionLoadTicket` · `RefreshSessionResult.updated` 에서 `session` 제거 · `CHANNELS.dataHostConnect`·`dataHostPort`·`dataHostExited` 추가 | 기존 preload·핸들러 테스트 |
-| 4 | `src/main/app/handlers/session.ts` · `bootstrap.ts` | 핸들러·수명 | 두 핸들러가 티켓만 돌려준다. `shutdown()` 은 `closeDb` 앞에서 호스트를 내린다 | 기존 핸들러 테스트 |
-| 4 | `features/chat/store/chatStore.ts` | 취소 배선 | `loadSession`·`refresh` 가 `AbortSignal` 을 넘기고 `sessionLoads` 교체·삭제 때 abort 한다 | 기존 스토어 테스트 |
-| 5 | `adapters/claude/{adapter,plugin-catalog}.ts` | 비동기 카탈로그 | `adapter.ts:609` 를 `await readClaudePluginCatalogAsync` 로, 동기 판 삭제 | 기존 카탈로그 테스트 |
-| 6 | `docs/arch/execution-model.md` · `docs/decisions/012-execution-contexts.md` · `docs/INDEX.md` · `IPC_CONTRACT.md` · `arch/frontend/rendering.md` §1.3 · `arch/backend/{overview,runtime-ipc,security}.md` · 두 `AGENTS.md` · `app/AGENTS.md` CI 표 | 문서 | 현재 상태로 갱신. 수치는 상수 경로로 적는다 | 문서 가드 |
+| 4 | `src/shared/{channel-owner,host-protocol}.ts` | 채널 소유 표·포트 메시지 스키마 | 신규. 123개 채널 전부에 소유자를 적는다 — 셸은 창 조작·트레이·업데이트·부팅 대기·호스트 연결, 나머지는 호스트 | typecheck · 순수 단위 |
+| 4 | `src/main/contracts/client.ts` + `WebContents` 타입을 쓰는 24파일 | 창 참조 | `WebContents`·`IpcMainInvokeEvent` 타입을 `ClientRef`·`RequestEvent` 로 바꾼다. 동작 변경 없음 | 기존 테스트(가짜 창 → 가짜 `ClientRef`) |
+| 4 | `src/main/infra/ipc/{handle,send,transport}.ts` | 전송 선택 | `handle`·`handlePlain`·`on`·통지 함수가 주입된 전송(셸 = `ipcMain`/`webContents`, 호스트 = 포트 서버)을 쓴다. `bootstrap.ts:649`·`:1155` 의 직접 순회는 `send.ts` 의 방송으로 | 순수 단위(가짜 전송) |
+| 4 | `src/main/app/agent-host/{entry,shell-client,lifecycle-emitter}.ts` | 호스트 조립 | 신규. `entry` 가 포트 서버·셸 서비스 클라이언트를 만들고 `Bootstrap.start()` 를 부른다. 경로·버전은 fork 인자로 받는다 | 순수 단위(`lifecycle-emitter`·`shell-client`) |
+| 4 | Electron 값 import 17파일 | 셸 서비스 어댑터 | `infra/config/crypto.ts`·`handlers/{files,artifacts,skills,error,extension-catalog,misc}.ts`·`infra/browser-session.ts`·`net-request.ts`·`updater.ts`·`infra/{db,log}/index.ts`·`bootstrap.ts` 의 Electron 호출을 주입된 셸 서비스 호출로 바꾼다 | 기존 테스트 + `services.test.ts` |
+| 4 | `src/main/app/shell/{host-supervisor,services,lifecycle-state,orphans,boot}.ts` · `src/main/index.ts` · `tray-residency.ts` · `updater.ts` | 셸 | 신규 + `index.ts` 축소. 창·트레이·`app://`·업데이트 UI·호스트 감독만 남는다. 재시작 게이트와 트레이 판정은 `LifecycleState` 를 본다 | 순수 단위(Electron 주입) |
+| 4 | `src/preload/index.ts` | 전송 선택 | `invoke(channel)` 가 소유 표로 `ipcRenderer.invoke` 또는 호스트 포트 요청을 고른다. 통지 구독도 같다. 포트 재수신 시 교체하고 미응답 요청은 실패시킨다. `window.oo` 형상 불변 | 기존 `preload/index.test.ts` |
+| 4 | `features/chat/store/chatStore.ts` · `shared/i18n/ko.ts` | 호스트 종료 반영 | 종료 통지 → busy 세션을 오류 메시지와 함께 idle 로. 재연결 통지 → 목록·활성 세션 재조회 | 기존 스토어 테스트 |
+| 4 | `electron.vite.config.ts` · `scripts/check-ui-thread.mjs` | 번들·가드 | main 입력에 `agent-host` 진입점. 가드 규칙 (e)(f) 추가 | 사람 실기(AC23) · `node --test` |
+| 5 | `src/shared/data-host.ts` | 메시지 계약·분할·조립 | 신규 | 순수 단위 |
+| 5 | `src/main/app/data-host/{entry,session-load}.ts` | 데이터 호스트 | 신규. 감독은 단계 4 의 `host-supervisor` 가 한다. `entry` 는 DB 경로를 인자로 받는다 | io(`session-load`) |
+| 5 | `electron.vite.config.ts` | 호스트 번들 | `main.build.rollupOptions.input` 에 `data-host` 진입점 추가 | 사람 실기(AC23) |
+| 5 | `src/shared/ipc.ts` · `protocol.ts` · `preload/index.ts` · `renderer shared/api/{ipc,dataHost}.ts` | 응답 계약·포트 | `SessionLoadTicket` · `RefreshSessionResult.updated` 에서 `session` 제거 · `CHANNELS.dataHostConnect`·`dataHostPort`·`dataHostExited` 추가 | 기존 preload·핸들러 테스트 |
+| 5 | `src/main/app/handlers/session.ts` | 핸들러 | 두 핸들러가 티켓만 돌려준다(에이전트 호스트에서 돈다) | 기존 핸들러 테스트 |
+| 5 | `features/chat/store/chatStore.ts` | 취소 배선 | `loadSession`·`refresh` 가 `AbortSignal` 을 넘기고 `sessionLoads` 교체·삭제 때 abort 한다 | 기존 스토어 테스트 |
+| 6 | `adapters/claude/{adapter,plugin-catalog}.ts` | 비동기 카탈로그 | `adapter.ts:609` 를 `await readClaudePluginCatalogAsync` 로, 동기 판 삭제 | 기존 카탈로그 테스트 |
+| 7 | `docs/arch/execution-model.md` · `docs/decisions/012-execution-contexts.md` · `docs/INDEX.md` · `IPC_CONTRACT.md` · `arch/frontend/rendering.md` §1.3 · `arch/backend/{overview,runtime-ipc,security}.md` · 두 `AGENTS.md` · `app/AGENTS.md` CI 표 | 문서 | 현재 상태로 갱신. 수치는 상수 경로로 적는다 | 문서 가드 |
 
 ### 계산 클라이언트의 규칙 (MD-01)
 
@@ -456,17 +584,31 @@
 
 | 단계 | 누가 | 내용 |
 |---|---|---|
-| 티켓 | main `oo:session:load` | `compactLegacyRaw` → `{ activity }` 반환. 본문을 읽지 않는다 |
-| 연결 | renderer → main `oo:data-host:connect` | 호스트가 없으면 fork. `MessageChannelMain` 의 한쪽은 호스트에, 다른 쪽은 요청한 `webContents` 에 보낸다 |
+| 티켓 | 에이전트 호스트 `oo:session:load` | `compactLegacyRaw` → `{ activity }` 반환. 본문을 읽지 않는다 |
+| 연결 | preload → main `oo:data-host:connect` | 데이터 호스트가 없으면 fork. `MessageChannelMain` 의 한쪽은 호스트에, 다른 쪽은 요청한 창의 preload 에 보낸다 |
 | 요청 | renderer → 호스트 | `{ type:'session.load', requestId, sessionId }` — zod 검증 실패는 `error` |
 | 응답 | 호스트 → renderer | `begin{head}` → `chunk{seq, messages}` × n → `end{messageCount}`. 세션이 없으면 `end{missing:true}` |
 | 양보 | 호스트 | 조각 사이에 매크로태스크 1회를 넘겨 `cancel` 을 받는다 |
 | 조립 | renderer | `seq` 가 0 부터 이어지고 메시지 수가 `messageCount` 와 같으면 `LoadedSession` 을 만든다. 어긋나면 실패 |
 | 반영 | `chatStore` | 지금의 `isCurrent()` 판정 뒤 `LOAD_SESSION` 1회. 조각 수신 중에는 스토어를 건드리지 않는다 |
 
+### 에이전트 호스트의 규칙 (SD-04 · AR-06~AR-09)
+
+| 항목 | 규칙 |
+|---|---|
+| 기동 | main 이 `app.whenReady` 뒤 창 생성과 함께 fork 한다. 호스트는 DB 를 열고 마이그레이션한 뒤 `ready` 를 보낸다. 백업 진행 통지는 지금처럼 부팅 화면에 간다 |
+| 창 연결 | 창마다 `MessageChannelMain` 하나 — 한쪽은 호스트(창 id 와 함께), 한쪽은 preload. 호스트는 그 포트를 `ClientRef` 로 등록하고 닫히면 지운다 |
+| 요청 | `{ id, channel, payload }` → `{ id, ok, value \| error }`. 검증·정책(`reject`/`fallback`)은 지금의 `handle()` 그대로다 |
+| 통지 | `{ channel, payload }`. 대상 지정은 `ClientRef`, 방송은 등록된 전부 |
+| 셸 서비스 | 호스트 → main 요청 8종(§10 EP-10). 응답 전까지 호출한 코드는 기다린다 — 동기 Electron 호출이던 자리(`safeStorage`)는 비동기가 된다 |
+| 수명 이벤트 | 호스트 버스의 정규화 이벤트에서 만든다 — 턴의 첫 이벤트 → `turn.started`, `telemetry`·`error`·취소 → `turn.ended`, 승인 요청 → `approval.pending`, 세션 폐기 → `session.ended`, 하네스 스트림이 종료 없이 끊김 → `harness.exited` |
+| 비정상 종료 | main: 고아 종료(부모 pid 일치 → `taskkill /T /F` 또는 `kill`) → 모든 창에 `oo:agent-host:exited` → `LifecycleState` 비움. 다음 호스트 채널 요청이 재기동을 부른다 |
+| 재기동 | 연속 3회 실패하면 더 띄우지 않고 부팅 오류를 알린다. 성공하면 열려 있는 창에 새 포트와 `oo:agent-host:ready` 를 보낸다 |
+| 종료 | `will-quit` → 데이터 호스트 종료 → 에이전트 호스트에 `shutdown` → 예약 작업 `dispose` → `Scheduler.stopAll()` → `closeDb` → exit. 3초 초과 시 kill |
+
 ### 테스트 가능성
 
-- electron/DB/native 의존부와 분리할 **별도 순수 파일**: `stall-monitor.ts`(코어) · `shared/data-host.ts` · `shared/compute/client.ts` · `shared/compute/worker/handler.ts` · `supervisor.ts`(fork·채널 주입). `entry.ts`·`compute.worker.ts` 는 배선만 갖고 단위 테스트 대상이 아니다 — AC23 이 닫는다.
+- electron/DB/native 의존부와 분리할 **별도 순수 파일**: `stall-monitor.ts`(코어) · `shared/data-host.ts` · `shared/compute/client.ts` · `shared/compute/worker/handler.ts` · `host-supervisor.ts`(fork·채널·프로세스 목록·시계 주입) · `lifecycle-state.ts` · `orphans.ts` · `infra/ipc/transport.ts`. 두 호스트의 `entry.ts` 와 `compute.worker.ts` 는 배선만 갖고 단위 테스트 대상이 아니다 — AC23 이 닫는다.
 - 기존 메커니즘 재사용 시 형상/시점 적합성: `logEmit` 은 단방향 `send` 라 long task 보고가 응답을 기다리지 않는다. `isCurrent()` 는 `await sessionApi.load` 의 길이와 무관하게 성립한다.
 - 순서를 관측할 훅/로그/주입 경계: `shutdown()` 의 호스트 종료 → `closeDb` 순서는 주입한 가짜의 호출 기록으로 본다.
 - 풀 분류: `session-load.test.ts` 는 SQLite 를 쓰므로 io, 나머지 신규 테스트는 unit 이다(`app/AGENTS.md` vitest 풀 분류).
@@ -490,26 +632,30 @@
 |---|---|---|
 | `sessionApi.load` 호출부(`chatStore.ts:1792`) | 반환 형상은 그대로, 대기 시간만 달라진다 | AC15·VP-20 |
 | `sessionApi.refresh` 호출부(`chatStore.ts:1840`) | `updated` 응답에 `session` 이 없다 → 호스트에서 다시 받는다 | AC19 |
-| `shutdown()` 순서(`index.ts` will-quit → `closeDb`) | 호스트 종료가 `closeDb` 앞에 선다 | AC18 |
+| `shutdown()` 순서(`index.ts` will-quit → `closeDb`) | `closeDb` 는 에이전트 호스트 안에서 돈다. main 은 종료를 요청하고 기다린다 | AC32 |
+| `turn.event` 구독 순서(`bootstrap.ts:1006~1017`) | 호스트 안에서 그대로 등록된다 | VP-30 |
+| 업데이트 재시작 게이트·트레이 종료 판정 | 입력이 main 메모리의 턴 상태에서 `LifecycleState` 로 바뀐다 | AC28·VP-31 |
+| `safeStorage` 를 동기로 부르던 호출부(`infra/config/crypto.ts` 소비처) | 비동기가 된다 — 호출부를 전수로 `await` 로 바꾼다. 구현자는 `rg -n "encryptString\|decryptString\|crypto\." app/src/main --glob '!*.test.*'` 로 분모를 고정해 보고한다 | AC27 |
+| `window.oo` 를 쓰는 renderer 코드 전부 | 형상 불변 — 전송만 바뀐다 | AC24 |
 | `ci.yml` 단계 목록과 `app/AGENTS.md` CI 표 | 가드 단계 1개 추가 | AC1 |
 | `getHighlighter` 소비처 2곳 | 워커 쪽으로 옮겨져 renderer 메인 번들에서 사라진다 | AC3·AC8·AC9 |
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: 워커는 첫 계산 요청, 호스트는 첫 `oo:data-host:connect` 에 만든다. 모니터는 `bootstrap` 시작 때 켠다.
+- 생성/시작: 계산 워커는 첫 계산 요청, 에이전트 호스트는 부팅, 데이터 호스트는 첫 `oo:data-host:connect` 에 만든다. 멈춤 모니터는 셸과 에이전트 호스트가 각각 시작 때 켠다.
 - 취소/중단: 계산은 §11 취소 규칙. 세션 로드는 `AbortSignal` → `cancel` 메시지 → 호스트가 다음 조각부터 중단.
 - 종료/quit/crash/renderer-gone: 창이 닫히면 워커가 함께 끝난다. `webContents` 가 사라지면 호스트 쪽 포트가 닫힌다. 호스트가 죽으면 main 이 `oo:data-host:exited` 를 모든 창에 보내고 클라이언트는 진행 중 요청을 reject 한 뒤 포트를 버린다.
 - retry/timeout/partial failure: 호스트 요청은 30초 안에 `end`·`error` 가 없으면 실패다. 자동 재시도는 없다 — 사용자가 다시 연다.
-- cleanup/rollback: `shutdown()` 은 예약 작업 `dispose` → `Scheduler.stopAll()` → 호스트 종료 → `closeDb` 순이다.
-- **다중 저장소 쓰기**: 해당 없음 — 호스트는 읽기 전용이고 새 쓰기 경로가 없다. 산출 문서의 상태 사본은 이 plan 의 메타와 `INDEX.md` 행 두 곳이다.
+- cleanup/rollback: 종료 순서는 §11 에이전트 호스트의 규칙 "종료" 행이다. 에이전트 호스트 비정상 종료의 처리 순서는 같은 표의 "비정상 종료" 행이다.
+- **다중 저장소 쓰기**: 새 쓰기 경로가 없다 — DB 쓰기 연결은 에이전트 호스트 하나이고 쓰는 코드와 순서는 지금과 같다. 설정 파일(`orcinus-orca.json`·봉인된 비밀)도 호스트가 쓰고 main 은 쓰지 않는다. 산출 문서의 상태 사본은 이 plan 의 메타와 `INDEX.md` 행 두 곳이다.
 
 ## 14. 성능 / 상한 / 최적화
 
-- 새 출력의 `원천 상한 × 배치 상한`: `perf.stall` 은 main 창당 1건/초 + renderer 창당 1건/초다. 조각은 part 500개 × 조각 수(세션 part 수 / 500)다.
+- 새 출력의 `원천 상한 × 배치 상한`: `perf.stall` 은 main 1건/초 + 에이전트 호스트 1건/초 + renderer 창당 1건/초다. 조각은 part 500개 × 조각 수(세션 part 수 / 500)다.
 - 새 요청 수의 `원천 상한 × 배치 상한`: 계산 요청은 화면에 놓인 코드 블록 수(가상 스크롤이 제한)이고 워커 동시 실행은 1 이다. 호스트 요청은 세션 열기·갱신당 1 이다.
 - 구조적 목표: 해당 없음.
 - 캐시/snapshot/호출 축소로 잃는 부수 효과와 회귀 테스트: 강조 캐시는 테마를 키에 넣어 테마 전환 뒤 옛 색이 남지 않는다 — `client.test.ts` 에 "테마만 다른 요청은 전송된다" 케이스를 둔다.
-- 메모리: 호스트 프로세스 1개와 창당 워커 1개가 는다. 워커는 shiki 문법 11종을 한 벌 더 갖는다(renderer 메인 번들에서는 빠진다).
+- 메모리: 프로세스 2개(에이전트 호스트·데이터 호스트)와 창당 워커 1개가 는다. 늘어나는 양은 재지 않았다 — 실기 AC23 에서 작업 관리자 값을 함께 적는다. 워커는 shiki 문법 11종을 한 벌 더 갖는다(renderer 메인 번들에서는 빠진다).
 
 ## 15. 외부 구현 포트 / 문서 계약 (해당 시)
 
@@ -529,6 +675,10 @@
 | 코드에서 셀 수 있는 수치를 문서에 적지 않는다 | root `AGENTS.md` 원칙 4 | §11 단계 6 | 유지 — arch 문서는 상수 경로를 적는다 |
 | 연구 문서 §5.2 "main 의 기존 경로로 한 번 대체" | `vscode-comparison-and-proposal.md` | D-009 | 변경 — 대체 경로는 멈춤의 원인이라 두지 않는다 |
 | 0323 D-015 "역할·워커 작업 우선" | 0323 plan | D-001 | 유지 |
+| 내장 서비스 credential 은 main 에 유지한다 | `app/AGENTS.md` 보안 베이스라인 · `security.md` §1.4-b | D-018 · §10 비밀의 경계 | 변경 — 사용자가 갱신을 허용했다. 봉인·해제는 main, 풀린 값은 에이전트 호스트까지 |
+| 구독 등록 순서는 `app/bootstrap.ts` 한 곳이 소유한다 | `app/src/main/AGENTS.md` 단일 턴 이벤트 파이프라인 | §12 | 유지 — `Bootstrap` 이 호스트에서 뜰 뿐이다 |
+| 원격 요청은 Chromium `net.fetch` 단일 스택 | ADR-003 · `app/src/main/AGENTS.md` | §4-B · §10 EP-10 | 유지 — 호스트도 `net.fetch` 를 쓰고 파티션 세션 요청은 셸 서비스가 한다 |
+| Windows 창 닫기 = 트레이 상주, 종료 중 통과 | 0322 plan | AC28·VP-31 | 유지 — 판정 입력만 바뀐다. 0322 는 검증 대기 중이라 구현 순서를 §17 에 적었다 |
 
 ## 17. 리스크 / 트레이드오프
 
@@ -537,17 +687,23 @@
 | 워커·호스트의 실제 기동은 에이전트 환경에서 실행할 수 없다 | 배선 파일을 얇게 두고 로직을 주입 가능한 순수 파일에 둔다. 실기는 AC23 |
 | 세션 로드가 두 번의 왕복(티켓 → 호스트)이 된다 | 작은 세션에서 수 ms 가 는다. 그 사이의 라이브 이벤트는 기존 `liveChanged` 가 막는다(VP-20) |
 | 32,000자 초과 코드가 강조 없이 보인다 | D-012 — 사용자가 거부하면 줄 블록 단위 점진 반영으로 다시 설계한다 |
-| 한 handoff 의 AC 가 23건이다 | D-005. §11 의 6단계 순서로 구현하고 단계마다 게이트를 돌린다 |
+| 한 handoff 의 AC 가 33건이다 | D-022. §11 의 7단계 순서로 구현하고 단계마다 게이트를 돌린다. 25건 기준을 넘는 것은 사용자 결정이다 |
+| 단계 4 가 main 의 조립 전체를 건드린다(소스 437파일 중 Electron 값 import 17·창 타입 24·테스트 488) | 로직을 고치지 않고 조립 위치·전송·창 타입만 바꾼다. 가드 (e)(f)가 경계를 잠근다 |
+| `safeStorage` 호출이 비동기가 되며 호출부가 연쇄로 바뀐다 | §12 의 분모 고정 항목. 호출부가 예상보다 넓으면 구현자가 PLAN_GAP 으로 돌린다 |
+| 0322(트레이 상주)가 검증 대기 중이고 같은 파일(`index.ts`·`tray-residency.ts`)을 고친다 | 0322 가 PASS 한 뒤 단계 4 를 시작한다. 단계 1~3 은 겹치지 않아 먼저 할 수 있다 |
+| 고아 선별이 pid 재사용에 취약할 수 있다 | B9 — exit 처리 안에서 즉시 1회. 실기 시나리오 8 이 확인한다 |
+| 한 에이전트 호스트가 모든 세션을 맡아 세션끼리 늦출 수 있다 | B3 — 창 조작은 막지 않는다. `perf.stall` 로 본다 |
 | 실행 중 강조가 길면 뒤 요청이 기다린다 | 짧은 것 먼저 + 취소 시 워커 교체. 기다리는 동안은 원문이라 조작은 막히지 않는다 |
-| 호스트가 renderer 에서 온 요청을 직접 받는다 | 요청마다 zod 검증, 서비스는 세션 읽기 1종, 연결은 읽기 전용 |
+| 호스트가 창에서 온 요청을 직접 받는다 | 요청마다 지금의 zod 검증을 그대로 거친다. 포트는 preload 가 쥐고 페이지에 내주지 않는다(D-026) |
 
-- 되돌리기 어려운 결정: `oo:session:load`·`oo:session:refresh` 응답 형상 변경(같은 릴리스 안의 main·renderer 만 쓰므로 버전 호환 문제는 없다) · 프로세스 1개 추가.
+- 되돌리기 어려운 결정: 프로세스 구조(main 셸 + 호스트 2개) — 이후의 모든 main 코드가 이 경계를 전제로 쓰인다 · `oo:session:load`·`oo:session:refresh` 응답 형상 변경(같은 릴리스 안의 코드만 쓰므로 버전 호환 문제는 없다).
 - 신규 의존성: 없음 → 사용자 승인 불필요.
 
 ## 18. 영향 받는 파일 / 문서
 
-- `app/src/shared/{perf-budget,data-host,ipc,protocol}.ts`
+- `app/src/shared/{perf-budget,data-host,channel-owner,host-protocol,ipc,protocol}.ts`
 - `app/src/main/infra/{perf/stall-monitor,ipc/handle}.ts` · `app/src/main/app/{bootstrap.ts,handlers/session.ts,data-host/*}` · `app/src/main/adapters/claude/{adapter,plugin-catalog}.ts`
+- `app/src/main/{index.ts,contracts/client.ts,infra/ipc/{handle,send,transport}.ts,app/agent-host/*,app/shell/*,app/tray-residency.ts,app/updater.ts}` · Electron 값 import 17파일 · `WebContents` 타입 24파일(§8)
 - `app/src/preload/index.ts`
 - `app/src/renderer/src/{main.tsx,shared/compute/**,shared/perf/**,shared/api/{ipc,dataHost}.ts,shared/ui/markdown/{CodeBlock.tsx,syntax.ts}}`
 - `app/src/renderer/src/features/chat/{lib/{diffSyntax,diffLines,toolMeta}.ts,hooks/{useDiffSyntax,useDiffLines}.ts,store/chatStore.ts}` · `DiffBody.tsx` · `filePresentation.ts` · `shared/i18n/ko.ts`
@@ -570,32 +726,34 @@
 | 4 | part 5,000개 이상인 세션을 여는 동안 다른 세션이 스트리밍 중이다 | 스트리밍 글자가 멈추지 않고 창을 끌 수 있다 |
 | 5 | 세션 10개를 빠르게 번갈아 누른다 | 마지막에 누른 세션이 열린다. 입력창 타이핑이 끊기지 않는다 |
 | 6 | 스트리밍 중에 창을 최대화·복원하고 입력창에 타이핑한다 | 끊김이 없다 |
+| 7 | 앱을 다시 켠 뒤 큰 세션(native 이력 있음)에 이어서 보내고, 보낸 직후 창을 끈다 | 창이 바로 따라온다. 다른 세션의 스트리밍이 잠깐 늦을 수 있다(B3) |
+| 8 | 스트리밍 중에 작업 관리자로 에이전트 호스트 프로세스를 끝낸다 | 그 세션에 오류 알림, 입력창 사용 가능, 하네스 프로세스가 남지 않는다, 다음 전송이 된다 |
 
-- 사람 실기(AC23): `npm run build:win` 산출물을 설치해 시나리오 1·4 를 한 번씩 수행한다.
+- 사람 실기(AC23): `npm run build:win` 산출물을 설치해 시나리오 1·4 와 전송 1회를 수행하고, 작업 관리자의 프로세스별 메모리를 적는다.
 
 ## READY self-review
 
-- [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — D-001~D-014, OPEN 0.
+- [x] Decision Ledger 의 ACTIVE/SUPERSEDED/OPEN 이 여러 턴의 결정을 보존한다 — D-001~D-027, SUPERSEDED 2(D-005·D-010), OPEN 0.
 - [x] Part I 만 읽어도 사용자/제품 완료 상태가 이해된다 — §1·§5 상태표.
 - [x] 조건절·이유절·제거/유지 요구를 임의 재해석하지 않았다 — "(로딩표시 제외)"·"전부"의 해석은 §2 추론 의도에 따로 적었다.
-- [x] Product/UX 의 각 핵심 동작이 AC 와 Technical Design 에 연결된다 — §5 상태표 10행 ↔ AC5~AC20.
+- [x] Product/UX 의 각 핵심 동작이 AC 와 Technical Design 에 연결된다 — §5 상태표 15행 ↔ AC5~AC33.
 - [x] Technical Design 에 AS-IS 와 TO-BE 가 모두 있고 같은 축으로 작성되어 있다 — §9 네 경로.
-- [x] AS-IS → TO-BE Delta 의 각 변경이 구현 파일/모듈 또는 AC 에 추적 가능하다 — Delta 8행 모두 V 칸 보유.
-- [x] AS-IS 에서 사라진 책임은 삭제/이동/대체 중 무엇인지 TO-BE 에 명시했다 — 강조·세션 본문은 이동, 동기 카탈로그는 삭제.
+- [x] AS-IS → TO-BE Delta 의 각 변경이 구현 파일/모듈 또는 AC 에 추적 가능하다 — Delta 12행 모두 V 칸 보유.
+- [x] AS-IS 에서 사라진 책임은 삭제/이동/대체 중 무엇인지 TO-BE 에 명시했다 — 강조·세션 본문·턴 실행부는 이동, 동기 카탈로그는 삭제.
 - [x] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다 — §8. 전칭 1건("모든 invoke 가 등록 함수를 지난다")은 반례 4로 정정했다.
-- [x] 각 AC 가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다 — §7 23행.
+- [x] 각 AC 가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다 — §7 33행.
 - [x] Baseline V 를 썼고 유효 V 를 재구성할 수 있다 — V1.
-- [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW/CHANGED node 에 같은 레벨 REQUIRED pair 가 있다 — R 7·SD 2·AR 5·MD 5 ↔ VP-01~VP-19.
-- [x] 영향받은 INHERITED node 는 REGRESSION 이다 — SD-03 ↔ VP-20.
-- [x] 각 pair 의 경로·§10 분모·oracle 좌표가 있고 적대 증거는 VP-02·VP-12·VP-18 만 선택했다.
-- [x] 규칙 칸의 분기마다 UT 입력 칸에 그 분기로 가는 입력이 있다 — EP-1 14분기 · EP-6 4분기 · AC5 4표본 · AC10 2표본.
-- [x] 선언 경계를 §10 에 적었다 — B1~B8. 가드는 fail-closed 다.
+- [x] 변경 효과에 필요한 레벨을 선택했고 모든 NEW/CHANGED node 에 같은 레벨 REQUIRED pair 가 있다 — R 8·SD 3·AR 10·MD 7 ↔ VP-01~VP-19·VP-21~VP-29.
+- [x] 영향받은 INHERITED node 는 REGRESSION 이다 — SD-03 ↔ VP-20 · SD-05 ↔ VP-30 · SD-06 ↔ VP-31.
+- [x] 각 pair 의 경로·§10 분모·oracle 좌표가 있고 적대 증거는 VP-02·VP-12·VP-18·VP-21·VP-27 만 선택했다.
+- [x] 규칙 칸의 분기마다 UT 입력 칸에 그 분기로 가는 입력이 있다 — EP-1 20분기 · EP-6 4분기 · EP-11 7분기 · EP-12 5분기 · AC5 4표본 · AC10 2표본.
+- [x] 선언 경계를 §10 에 적었다 — B1~B10. 가드는 fail-closed 다.
 - [x] INDEX `## 새 handoff 후보` 표에서 겹치는 행을 확인했다 — `chatStore.ts` 를 짚는 0308 행 1건은 이미 0319 로 승격됐고 그 형태(`sessionBusy` 소비처 잠금)는 이번 변경이 만들지 않는다. 그 밖에 겹치는 행 0.
 - [x] 현재 변경 산출물의 운영 gate 가 열거됐다 — §7-A 4행.
 - [x] 사람 실기로 미룬 순수 로직이 없다 — 실기는 프레임과 프로세스 기동뿐이다.
 - [x] semantic 목표가 structural proxy 만으로 검증되지 않는다 — "UI 스레드에서 강조하지 않는다"는 가드(AC3)와 행동(AC8·AC12)을 짝지었다.
 - [x] 신규 계약의 SSOT·강제 지점·테스트 seam 이 있다 — §9 책임표·§10.
-- [x] 부팅/등록 변경의 기존 소비처를 전수 확인했다 — §12 5행.
+- [x] 부팅/등록 변경의 기존 소비처를 전수 확인했다 — §12 10행.
 - [x] producer/consumer 양쪽 의미를 확인했다 — §12.
 - [x] 상한·총량·one-way door 를 필요한 곳에서 계산했다 — §14·§17.
 - [x] 게이트 명령이 대상 subtree 의 현재 `AGENTS.md` 와 충돌하지 않는다 — §19.
