@@ -1444,7 +1444,24 @@ V-pair 자기 상태: 올린 것 없음. VP-26 은 호스트 쪽만 닫혔고 �
 
 AC 자기보고(검증 증거 아님, 분모 38): r1.4 와 같다 — `✅ 12 · ⚠️ 10 · ❌ 16 = 총 38`. AC25·AC28 은 ⚠️ 그대로다(호스트 쪽 절반이 늘었다).
 
-gate — 결과는 이 절 끝의 "r1.5 마지막 트리 gate" 표.
+**r1.5 마지막 트리 gate** — 이 환경은 `better-sqlite3` 를 Node ABI 로 빌드해 DB 스위트도 돈다(r1.4 까지는 미빌드). `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 준 실행이 CI 처럼 Electron import 파일을 로드한다.
+
+| gate | 관측 |
+|---|---|
+| 밀린 대조(r1.4 트리 ↔ 0324 이전 커밋 `bbb3953~1`, CI 흉내 방식) | 992파일 9 fail / 22케이스 ↔ 974파일 9 fail / 22케이스. 실패 파일 집합의 차집합 0줄(양방향 `comm`) — r1~r1.4 가 만든 실패는 없다 |
+| 첫 실행의 red | `npm run lint` error 5(추가한 테스트 4파일의 반환 타입·`require-yield`) · `typecheck` 1(`chat-turn.runtime-tools.test.ts` 대역 타입) · CI 흉내 vitest 의 새 `FAIL` 1(`product-identity.test.ts` — 진입점 생성자 형태를 글자로 단언). 셋 다 고쳤다 |
+| 가드 4종 | 전부 exit 0 |
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | error 0 |
+| `node --test scripts/*.test.mjs` | tests 958 · pass 955 · fail 0 · todo 3 |
+| `vitest run` (CI 흉내 방식, 필터 없음) | 997파일 — 10 fail / 23케이스 · 오류 1. 기준선 9파일 대비 새 `FAIL` 1(위 `product-identity` — 고친 뒤 그 파일 40케이스 green), 나머지 9파일은 기준선과 같다. `[test-pools]` 0줄 |
+| `vitest run` (일반 방식) | 997파일 — 28 fail / 23케이스 · 오류 1. CI 흉내 방식에 없는 18파일은 Electron 미설치로 로드되지 않는 파일이다(서명 `Electron failed to install correctly`) |
+| 고친 뒤 재실행 | `product-identity.test.ts` 40 pass · `typecheck` error 0 · 예산·제품 이름 가드 exit 0. **전체 vitest 는 이 수정 뒤 다시 돌리지 않았다** — 수정은 테스트 파일 한 줄(정규식)이다 |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 230건(r1.4 와 같은 수) — 단계 4 본체·5·7 대기분, `ci.yml` 미연결 |
+
+기준선 9파일(변경 전에도 같은 실패, 이번 턴이 손대지 않은 파일): `adapters/claude/{adapter.native-plugins,native-resources,project-reconciliation}` · `adapters/opencode/v1/adapter{,.instances,.persistent}` · `app/{composer-catalog,composer-preparation-service}` · `app/handlers/session-resources.claude-assembly`. 원인은 확인하지 않았다 — 환경 원인이라는 근거가 없어 비귀속 기존 실패로만 적는다.
+
+테스트 소스 규칙의 파일별 판정(추가·수정 10파일 — `port-server`·`lifecycle-emitter`·`host-link`·`turn-request.channel-failed`·`coordinator.pending`·`session-runtime`·`bootstrap.harness`·`bootstrap.native-history`·`chat-turn.runtime-tools`·`product-identity`): 시간 예산 — `check-test-budgets` exit 0, 새 타이머 값 0 · 호스트 격리 — 홈·env 접근 추가 0 · 풀 분류 — 전체 실행의 `[test-pools]` 0줄.
 
 대상 커밋: `(r1.5 구현 일부 — 좌표는 INDEX)`.
 
