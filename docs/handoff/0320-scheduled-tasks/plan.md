@@ -1137,6 +1137,116 @@ EP-9 규칙 칸 ↔ UT 입력 칸:
 
 ---
 
+---
+
+## [구현자 기입] 설계 리뷰 (r2)
+
+- 동의 / 그대로 진행: §23 ΔV4 전체 — E1~E3 채택분과 r2 작업 목록 D1~D5.
+- 이견 / 현실성 문제: 없음. D4의 방식은 §23이 구현 재량으로 둔 대로 "프로세스 트리 종료 + 종료 요청 뒤 `exit` 시점 확정"을 골랐다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r2)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-26′ | EP-9 행·패널 조작 | 21자리(R1~R6 · P1~P6 · S1~S9) | 21/21 | `rg -n "onRunNow\(\|onEdit\(\|onDelete\(\|onSetEnabled\(\|setEditing\(\|disabled=\{task\.running\}\|on=\{task\.enabled\}\|inert=" --glob '!*.test.ts' features/schedules/components` → 24줄 = 21 + 제외 3(`:97`·`:128`·`:176`), 차집합 ∅. 좌표 `schedulesScreen.detail.test.ts`: R1·P1·R2·P2·S2·S6 `'토글은 그 작업의 사용 상태를 보이고…'` · R4~R6·S3~S5 `'행 메뉴의 지금 실행·편집·삭제는…'` · P4·P5·S7·S8 `'패널 메뉴의 지금 실행·편집·삭제는…'` · P6·S9 `'패널 메뉴의 삭제는…'` · R3·P3 `'실행 중인 작업의 지금 실행은…'` · S1 `'패널을 펼치면 목록이 inert…'` | 대상 `t2`(첫 작업 `t1`과 구별) · `t2` disabled/running(형제는 반대) · 편집 모달 제목 `'둘째'`. 관측: 콜백 인자·`aria-checked`·`disabled`·`inert` 노드 수 | — |
+| VP-07′ | EP-1 `text` 정리 위치 | 5자리(규칙만 바뀜) | 5/5 | ③ `runner.test.ts:'프롬프트 본문을 저장된 그대로(앞뒤 공백 포함) 넘긴다'` · ④ `useScheduledPromptRelay.test.ts:'시작 요청의 본문을 앞뒤 공백까지 그대로 시작 함수에 넘긴다'` · ⑤ `chatStore.detached.test.ts:'작업의 설정 그대로 새 대화를…'`(payload + 낙관 커밋 parts). ①② r1 좌표 유지 | `'  점검 \n'` → ③④ 그대로, ⑤ `'  새 버그를 요약해 줘  '` → `'새 버그를 요약해 줘'` | — |
+| VP-17′ | cron 가지 → `startCron` | 0 | 해당 없음 | `scheduler.test.ts:'cron 스케줄의 다음 실행은 cron 식이 정한 시각이다'` — 09:20 고정 → `nextRun` = 10:00 | — | — |
+| VP-12 | EP-6 4항 + D2·D4 | 1자리 4항 | 4/4항 | D2 `shell-runner.test.ts:'win32 는 PowerShell…'`(마지막 인자 전체 문자열·인자 수 4) · D4 `shell-runner.process.test.ts:'제한 시간이 지나면 자손까지 끝내고…'`(io, 실제 `/bin/sh`) + `shell-runner.test.ts:'제한 시간 종료는 프로세스 트리를 끝내고…'`·`'종료를 요청하지 않았으면 exit 만으로…'`·`'POSIX 는 새 프로세스 그룹으로…'` | 제한 300ms → 실측 305ms(수정 전 30015ms) · 손자 pid 종료 확인 | win32 `taskkill` 가지는 이 Linux 컨테이너에서 실행하지 못했다 — CI(windows-latest) 몫 |
+| VP-13 | EP-5 ① 규칙 칸 `timedOut` 분기 (D3) | EP-5 10자리 중 ① | 1/1 | `runner.test.ts:'제한 시간을 넘긴 실행은 종료 코드가 0 이어도 제한 시간 초과로 실패한다'` | `exitCode 0 ∧ timedOut` → `error=timeout` | — |
+| VP-06 | EP-5 ⑩ 삭제 → cancel edge (D1) | ⑩ | 1/1 | `scheduled-tasks.lifecycle.test.ts:'실행 중인 작업을 지우면 그 실행의 shell 을 중단시키고…'` — `createScheduledTasks` 진입 | 지운 작업 signal `aborted` · 형제 작업 signal 미중단 · `list()` 남은 작업만 `running` | — |
+| VP-26′ | AC32 본문 (D5) | 0(§10 자리 아님) | 해당 없음 | `'패널 메타는 그 작업의…'` · `'실행 중·일시 중지·프로젝트 삭제를…'` · `'이력의 대화 열기는…'` | 트리거 요약 · `카메라 검증` · 다음 실행 시각 · `shell 명령` / `실행 중`·`일시 중지`·`프로젝트가 삭제되었습니다` / `session-5` | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 19행 중 이행 8(V07·V35·W11·X01~X04·X08) · 채택 확장 8(V46·V55·D03~D06·X05·X06) → 16/16 red. 동치 2(V28·V37)·경계 1(X07)은 의무 아님(재실행 green 그대로).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-06 | REQUIRED | SELF_PASS | 위 lifecycle 좌표 + r1 좌표 | V01·V02 red(재실행) |
+| VP-07′ | REQUIRED | SELF_PASS | 위 EP-1 좌표 | V45·R02·R03·R05·R07 red(재실행) |
+| VP-12 | REQUIRED | SELF_PASS | 위 shell 좌표 | not selected |
+| VP-13 | REQUIRED | SELF_PASS | 위 runner 좌표 | not selected |
+| VP-17′ | REQUIRED | SELF_PASS | 위 scheduler 좌표 | V55 red |
+| VP-20 | REGRESSION | SELF_PASS | `chatStore.test.ts` | R01 red(재실행) |
+| VP-26′ | REQUIRED | SELF_BLOCKED | 위 EP-9·AC32 좌표 | AC34 사람 실기 대기 |
+| VP-21~25 | REQUIRED·REGRESSION | r1.2·r1.3 상태 유지 | r1.2·r1.3 표의 좌표 — 이번 diff는 그 파일을 건드리지 않았다(`git diff --name-only`에 ΔV1·ΔV2 화면 파일 0) | — |
+| 그 밖의 V1 pair | — | r1 상태 유지 | r1 표 좌표 · 아래 ④ 재실행 79행 red | — |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r2)
+
+하네스 `mutate.py`로 125행을 한 번에 돌렸다(spec = verify r1의 98행 + EP-9·D4 27행). 끝에 `# 원복 확인: 모든 파일 원문 그대로`, 뒤 `git status`에 자기 변경 파일만.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| V07 `service.delete`의 `runner.cancel` 제거 | D1 인용 변이 | 못 잡음 | lifecycle `'실행 중인 작업을 지우면…'` | 잠김 |
+| V35 UTF-8 접두 제거 | D2 인용 변이 | 못 잡음 | `shell-runner.test.ts` 1건 | 잠김 |
+| W11 `ok` 식의 `!timedOut` 제거 | D3 인용 변이 | 못 잡음 | `runner.test.ts` 1건 | 잠김 |
+| X01~X04 메타 4칸 · X08 `onOpenSession` 무시 | D5 인용 변이 | 못 잡음 | `schedulesScreen.detail.test.ts` 1~2건씩 | 잠김 |
+| V46 runner `text.trim()` | E1 채택 | 못 잡음 | `runner.test.ts` 1건 | 잠김 |
+| V55 cron 가지 → interval | E3 채택 | 못 잡음 | `scheduler.test.ts` 1건 | 잠김 |
+| D03~D06 · X05 · X06 패널 메뉴·토글·`inert`·비활성 | E2 채택 | 못 잡음 | `schedulesScreen.detail.test.ts` 1~3건씩 | 잠김 |
+| R1~R6 · P1~P6 · S1 · S2 · S3a(`select` 제거) · S3b · S4~S9 | sweep — EP-9 21자리(S3은 두 항) | 최초 | 1~3건씩 | 잠김 |
+| K1 `exit` 확정 제거 · K2 `detached: false` · K3 그룹 kill → 셸만 · K4 트리 종료 → `child.kill()` · K5 중복 종료 가드 제거 | 새 oracle 민감도(D4) | 최초 | K1 1건 · K2 2건 · K3 1건 · K4 2건 · K5 1건(oracle = `infra/shell`·slice·lifecycle 50케이스) | 잠김 |
+| verify r1 `잡음` 79행 재실행(④ — oracle 파일·`shell-runner.ts`가 바뀌어 전부) | 덮개 회귀 확인 | 잡음 | 각 행 1~19건 | 잠김 — red → green 0 |
+| V28 · V37 | ③ 동치 행 재실행 | 동치 | green | 동치 그대로(도달 불가 가드 — verify r1 근거) |
+| X07 `font-mono` | ③ 경계 행 | 경계 | green | 경계(AC34 시각) |
+
+- **분모 검산**: `선택 증거 0(재실행은 ④에 포함) · 인용 변이 8(D1~D5) · 채택 확장 8 · 새 oracle 5(K1~K5) · sweep 22(EP-9) · ④ 재실행 79 · ③ 재실행 3 = 표 행 125`, red 122 · green 3(V28·V37·X07).
+- **덮개 회귀**: verify r1 red 79행 → 이번 79행 red. red → green 0.
+
+## [구현자 기입] Product/UX 파생 검토 (r2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 없음. 문서 `security.md` 상한 행에 "셸과 그 자손 프로세스를 함께 종료"를 적었다 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | `kill()`이 `killRequested`를 세운 뒤 주입 가능한 `killTreeImpl`을 부른다. `done()`의 타이머·신호 정리는 그대로 | `shell-runner.test.ts` 12케이스 |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 제한 시간 → "shell이 제한 시간을 넘으면 … `실패: 제한 시간 초과`" 행. 이제 실제로 제한 시간 시점에 끝난다(305ms/300ms) | — |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 이전에는 손자 프로세스가 있으면 이력이 `실행 중`으로 남아 `지금 실행`이 막혔다 — 해소 | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 종료 요청 뒤 `exit`로 확정한 실행에 늦은 `close`가 와도 `settled`라 무시 | `'제한 시간 종료는 프로세스 트리를 끝내고…'` |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 종료한 손자는 컨테이너처럼 거둘 init이 없으면 좀비로 남아 `process.kill(pid, 0)`이 성공한다 | ✅ 테스트가 `/proc/<pid>/stat`의 `Z`를 죽은 것으로 본다 | 첫 실행에서 red |
+| 2 | POSIX `detached: true`는 앱이 비정상 종료(크래시)하면 그룹이 남을 수 있다 — 정상 종료·삭제는 `dispose`/`cancel`이 그룹을 죽인다 | ⚠️ 보고만 | 비정상 종료 시 자식 처리는 이전(비분리)에도 보장이 없었다 |
+| 3 | win32 `taskkill /T /F`는 이 환경에서 실행하지 못했다 | ⚠️ CI(windows-latest)에서 `shell-runner.process.test.ts`가 PowerShell `ping -n 30`으로 같은 경로를 지난다 | — |
+| 4 | 출력 꼬리를 바이트로 자를 때 UTF-8 다중 바이트 문자가 잘릴 수 있다 | ⚠️ 보고만 — 범위 밖(AC15는 길이·표시만) | `append`의 `subarray` |
+
+### 설계 대비 명시적 차이
+
+- 없음 — D4 방식은 §23이 재량으로 둔 범위 안이다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 재진입 | 종료 요청이 두 번(시간 초과 + 중단 신호) 와도 `killRequested`가 한 번만 부른다 | K5 red |
+| 공유 | 프로세스 그룹은 그 실행 하나의 것 — 다른 작업의 실행과 공유하지 않는다 | lifecycle 실행 중 삭제 케이스(형제 signal 미중단) |
+| 다른 무효화 축 | 종료를 요청하지 않은 정상 종료는 여전히 `close`까지 기다린다 | `'종료를 요청하지 않았으면 exit 만으로…'` |
+
+## [구현자 기입] 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정: `main/infra/shell/shell-runner.ts`(트리 종료·`exit` 확정·`detached`) · 테스트 7(`shell-runner.test.ts`·`runner.test.ts`·`scheduled-tasks.lifecycle.test.ts`·`scheduler.test.ts`·`useScheduledPromptRelay.test.ts`·`chatStore.detached.test.ts`·`schedulesScreen.detail.test.ts`) · 문서 `docs/arch/backend/security.md`. 신규: `main/infra/shell/shell-runner.process.test.ts` |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음, Node ABI) · `node --test scripts/*.test.mjs` |
+| **관측한 게이트 산출** | vitest 970파일 중 957 pass · 9 fail · 4 skip / 9204케이스 중 9170 pass · 22 fail · 1 expected fail · 11 skip — 실패 9파일·22케이스는 verify r1이 `d324a9f`에서 잰 기준선과 같은 집합(`adapters/claude/*` 3 · `adapters/opencode/v1/*` 3 · `composer-catalog` · `composer-preparation-service` · `session-resources.claude-assembly`)이고 이번 diff 파일과 교집합 0 · lint `0 errors, 2 warnings`(기존 2건) · typecheck 3구성 error 0 · migrations·doc-inventory·product-naming·test-budgets 통과 · `node --test` 868/868 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 8파일. 시간 예산: `check-test-budgets` 통과(실제 시간 값은 `timeoutMs: 300`·`scaleMs(2000)` — 가드가 받아들였다) · 풀: `shell-runner.process.test.ts`만 io(`node:child_process` import, 실행 로그 `\|io\|`), 나머지 unit에서 `[test-pools]` 0줄 · 호스트 격리: 홈·env 읽기 0 |
+| V-pair 자기확인 | `SELF_PASS 6 / SELF_BLOCKED 1`(VP-26′ — AC34 실기) + 나머지 이전 상태 유지 |
+| 강제 지점 전수 | EP-9 21/21 · EP-1 5/5(규칙 정정) · EP-5 ①⑩ 보강 · EP-6 4/4항 |
+| **AC 자기보고**(`Criteria-Met`) | 31/35 — ✅ AC1~AC22 · AC24~AC26 · AC28~AC30 · AC32 · AC33 · AC35. ⚠️ AC23·AC27·AC31·AC34(사람 실기). AC14·AC15·AC32는 D2·D3·D4·D5로 이번 턴 재관측 |
+| **합계 검산** | `✅ 31 · ⚠️ 4 · ❌ 0 = 총 35` — ΔV4가 AC35를 더해 분모 34 → 35 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 첫 재구현 — verify r1 D1~D5·E1~E3.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: D4는 AC15가 이미 요구했지만 r1 oracle이 주입 spawn만 써서 실제 프로세스 트리를 지나지 않았다. E2는 선언 경계 5의 근거(정적 마크업)가 r1.4 하네스 도입 뒤 낡았다.
+- 반복해서 부딪히는 환경 한계: 컨테이너에 좀비를 거둘 init이 없다 · Windows 경로(`taskkill`)는 이 환경에서 못 돈다.
+- 현재 라운드·impl 턴: `r2`
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
