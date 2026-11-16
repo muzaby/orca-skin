@@ -46,6 +46,7 @@ import { createPluginBinding } from './deployment/plugins'
 import { createManagedMcp } from './managed-mcp'
 import { registerMcpHandlers } from './handlers/mcp'
 import { CHANNELS } from '../../shared/ipc'
+import { memorySecrets } from '../infra/config/memory-secrets.testfixture'
 
 it('projects stored MCP and authenticated plugin bindings', async () => {
   storage.servers = {
@@ -57,7 +58,7 @@ it('projects stored MCP and authenticated plugin bindings', async () => {
     getAll: () => state,
     patch: (patch: object) => Object.assign(state, patch)
   } as unknown as SettingsStore
-  const mcp = new McpStore(settings, '/unused-user-data')
+  const mcp = new McpStore(settings, memorySecrets(storage.secrets))
   let valid = true
   let credentialRevision = 3
   const auth = (authId: string, origin: string): PluginAuth => ({

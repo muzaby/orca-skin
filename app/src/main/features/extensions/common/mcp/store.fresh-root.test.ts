@@ -14,8 +14,9 @@ vi.mock('../../../../infra/config/secret-store', () => ({
   }
 }))
 import { McpStore } from './store'
+import { memorySecrets } from '../../../../infra/config/memory-secrets.testfixture'
 
-it('adds a server when the sources mcp directory does not exist', () => {
+it('adds a server when the sources mcp directory does not exist', async () => {
   const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-mcp-fresh-'))
   target.file = join(root, 'sources', 'mcp', 'mcp.json')
   let settings = { mcpEnabled: {}, mcpMeta: {} }
@@ -27,10 +28,10 @@ it('adds a server when the sources mcp directory does not exist', () => {
         return settings
       }
     } as unknown as SettingsStore,
-    '/unused-user-data'
+    memorySecrets()
   )
   try {
-    store.add({ name: 'docs', transport: 'http', url: 'https://example.test/mcp' })
+    await store.add({ name: 'docs', transport: 'http', url: 'https://example.test/mcp' })
     expect(JSON.parse(readFileSync(target.file, 'utf8'))).toEqual({
       mcpServers: { docs: { type: 'http', url: 'https://example.test/mcp' } }
     })

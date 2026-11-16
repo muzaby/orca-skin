@@ -4,8 +4,8 @@
 //   1. **kind metadata 보존** — api-key / pat / token 을 같은 opaque 문자열로 뭉개지 않고
 //      종류·발급 시각을 함께 저장한다. 요청에 싣는 방식은 여기서 추론하지 않는다 —
 //      `AuthSpec.present` 가 선언한다.
-//   2. **복호화 실패와 부재의 구분** — safeStorage 는 쓰기가 fail-closed(throw), 읽기는 null
-//      강등이라 비대칭이다(`infra/config/crypto.ts`). 그 강등 자체는 유지하되(키체인 잠김 하나로
+//   2. **복호화 실패와 부재의 구분** — 봉인은 쓰기가 fail-closed(거부), 읽기는 없음으로
+//      강등이라 비대칭이다(`infra/config/secret-store.ts`). 그 강등 자체는 유지하되(키체인 잠김 하나로
 //      앱이 죽지 않도록) `read()` 가 어느 쪽인지 알려줘 호출부가 grant 상태를 'unknown' 으로
 //      둘 수 있게 한다. **조용한 미인증 진행을 막는 것**이 목적이다.
 //
@@ -73,8 +73,9 @@ export type CredentialRead =
 export interface Vault {
   get(name: string): string | null
   read(name: string): CredentialRead
-  set(name: string, value: string, meta: CredentialMeta): void
-  delete(name: string): void
+  // 쓰기·삭제는 봉인을 기다린다(0324 EP-18) — 색인도 봉인해 쓰므로 삭제도 비동기다.
+  set(name: string, value: string, meta: CredentialMeta): Promise<void>
+  delete(name: string): Promise<void>
   // 이 vault 가 들고 있는 이름 전부. 어떤 grant 도 가리키지 않는 고아를 부팅에서 치우기 위해
   // 필요하다(r8) — SecretStore 에 열거가 없어 index 를 대신 읽는다.
   names(): string[]
@@ -94,8 +95,34 @@ export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFI
       return []
     }
   }
-  const writeIndex = (names: readonly string[]): void => {
+  const writeIndex = (names: readonly string[]): void | Promise<void> =>
     store.set(indexKey, JSON.stringify([...new Set(names)]))
+  // 색인은 읽고-고쳐-쓴다. 봉인을 기다리는 사이에 다른 쓰기가 같은 색인을 읽으면 한쪽 이름이 빠진다 —
+  // 이 vault 의 쓰기·삭제를 한 줄로 세운다. 단계는 실행 시점에 읽도록 함수로 받는다(색인을 미리
+  // 읽지 않는다). 앞선 쓰기가 없고 저장소가 동기로 답하면 그 자리에서 끝낸다 — 메모리 저장소가
+  // 같은 차례를 지키면서 마이크로태스크를 건너뛴다.
+  type Step = () => void | Promise<void>
+  let tail: Promise<void> | null = null
+  const runFrom = (steps: readonly Step[], index: number): void | Promise<void> => {
+    for (let at = index; at < steps.length; at++) {
+      const result = steps[at]()
+      if (result instanceof Promise) return result.then(() => runFrom(steps, at + 1))
+    }
+  }
+  const serial = (steps: readonly Step[]): Promise<void> => {
+    let result: void | Promise<void>
+    try {
+      result = tail ? tail.then(() => runFrom(steps, 0)) : runFrom(steps, 0)
+    } catch (error) {
+      return Promise.reject(error)
+    }
+    if (!(result instanceof Promise)) return Promise.resolve()
+    const settled = result.catch(() => {})
+    tail = settled
+    void settled.then(() => {
+      if (tail === settled) tail = null
+    })
+    return result
   }
 
   return {
@@ -110,19 +137,29 @@ export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFI
       return store.get(key(name)) ?? null
     },
     set(name, value, meta) {
-      // 쓰기는 fail-closed — safeStorage 불가 시 crypto.encrypt 가 throw 한다(강등 저장 금지).
+      // 쓰기는 fail-closed — 봉인할 수 없으면 저장소가 거부한다(강등 저장 금지).
       //
       // **index 를 마지막에 쓴다.** 앞 두 쓰기 중 하나가 실패하면 이름이 index 에 없어
       // `read()` 가 `absent` 로 답한다 — 반쯤 쓰인 자리가 `undecryptable` 로 보이지 않는다.
       // 자격증명 교체가 이 키를 덮어쓰는 일은 없다(위 `versionedVaultKey` 근거).
-      store.set(metaKey(name), JSON.stringify(meta))
-      store.set(key(name), value)
-      writeIndex([...readIndex(), name])
+      return serial([
+        () => store.set(metaKey(name), JSON.stringify(meta)),
+        () => store.set(key(name), value),
+        () => writeIndex([...readIndex(), name])
+      ])
     },
     delete(name) {
-      store.delete(key(name))
-      store.delete(metaKey(name))
-      writeIndex(readIndex().filter((n) => n !== name))
+      // 값·메타는 그 자리에서 지운다(봉인이 필요 없다) — 해제 직후에 값이 남지 않는다. 색인만 봉인해
+      // 다시 쓰므로 줄을 선다. 그 사이 `read()` 가 `undecryptable` 로 답할 수 있지만 지우는 이름은
+      // 이미 어떤 grant 도 가리키지 않는다.
+      // 동기 실패도 거부로 돌려준다 — 호출자는 `.catch` 하나로 받는다.
+      try {
+        store.delete(key(name))
+        store.delete(metaKey(name))
+      } catch (error) {
+        return Promise.reject(error)
+      }
+      return serial([() => writeIndex(readIndex().filter((n) => n !== name))])
     },
     names() {
       return readIndex()

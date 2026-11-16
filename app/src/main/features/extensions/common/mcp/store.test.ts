@@ -28,6 +28,7 @@ vi.mock('../../../../infra/config/secret-store', () => ({
 
 import { McpStore } from './store'
 import type { SettingsStore } from '../../../../infra/settings-store'
+import { memorySecrets } from '../../../../infra/config/memory-secrets.testfixture'
 
 const baseSettings = {
   mcpEnabled: {} as Record<string, boolean>,
@@ -49,7 +50,7 @@ describe('McpStore 캐시 (0092)', () => {
   })
 
   it('enabledConfig 반복 호출은 mcp.json 을 1회만 파싱한다', () => {
-    const store = new McpStore(fakeSettings(), '/unused-user-data')
+    const store = new McpStore(fakeSettings(), memorySecrets())
 
     expect(store.enabledConfig()).toEqual({ gh: { command: 'gh-mcp' } })
     expect(store.enabledConfig()).toEqual({ gh: { command: 'gh-mcp' } })
@@ -58,25 +59,25 @@ describe('McpStore 캐시 (0092)', () => {
     expect(readMcpFile).toHaveBeenCalledTimes(1)
   })
 
-  it('CRUD(write) 후 enabledConfig 는 재파싱 없이 신선값을 반환한다', () => {
-    const store = new McpStore(fakeSettings(), '/unused-user-data')
+  it('CRUD(write) 후 enabledConfig 는 재파싱 없이 신선값을 반환한다', async () => {
+    const store = new McpStore(fakeSettings(), memorySecrets())
     store.enabledConfig()
 
-    store.add({ name: 'api', transport: 'http', url: 'https://x' })
+    await store.add({ name: 'api', transport: 'http', url: 'https://x' })
     expect(writeMcpFile).toHaveBeenCalledTimes(1)
 
     const config = store.enabledConfig()
     expect(Object.keys(config).sort()).toEqual(['api', 'gh'])
     expect(readMcpFile).toHaveBeenCalledTimes(1)
 
-    store.remove('gh')
+    await store.remove('gh')
     expect(store.enabledConfig()).toEqual({ api: { type: 'http', url: 'https://x' } })
     expect(readMcpFile).toHaveBeenCalledTimes(1)
   })
 
-  it('비밀만 주고 변수 이름을 안 주면 제품 접두사로 합성한다 (0306 EP-07)', () => {
-    const store = new McpStore(fakeSettings(), '/unused-user-data')
-    store.add({ name: 'my-api', transport: 'http', url: 'https://x', auth: 'token' })
+  it('비밀만 주고 변수 이름을 안 주면 제품 접두사로 합성한다 (0306 EP-07)', async () => {
+    const store = new McpStore(fakeSettings(), memorySecrets())
+    await store.add({ name: 'my-api', transport: 'http', url: 'https://x', auth: 'token' })
     expect(store.list().find((server) => server.name === 'my-api')?.authEnvKey).toBe(
       'ORCINUS_ORCA_MCP_MY_API_AUTH'
     )
