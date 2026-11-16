@@ -7,6 +7,7 @@ import { reportError } from '../../infra/error-report'
 import type { TurnRequest } from '../common/turn'
 import { ClaudeAdapter } from './adapter'
 import { loadClaudeSdk } from './sdk'
+import { sendPrepared } from './prepared.testfixture'
 
 const { query } = vi.hoisted(() => ({
   query: vi.fn(() => ({
@@ -66,8 +67,8 @@ const request = (): TurnRequest => ({
   env: { CLAUDE_CONFIG_DIR: root },
   extensions: { skills: [], hooks: { normalized: {} } }
 })
-const send = (adapter: ClaudeAdapter): Options => {
-  const live = adapter.sendMessage(request())
+const send = async (adapter: ClaudeAdapter): Promise<Options> => {
+  const live = await sendPrepared(adapter, request())
   const options = (query.mock.calls.at(-1) as unknown as [{ options: Options }])[0].options
   live.close()
   return options
@@ -78,20 +79,20 @@ const roots = (options: Options): string[] =>
 describe('Claude spawn with empty or broken native settings', () => {
   it.each(['', '﻿', '  \n', 'null'])(
     'spawns silently when ~/.claude/settings.json content is %j',
-    (text) => {
+    async (text) => {
       write(join(root, 'settings.json'), text)
       const adapter = new ClaudeAdapter()
-      expect(roots(send(adapter))).toEqual([first, second])
+      expect(roots(await send(adapter))).toEqual([first, second])
       expect(reportError).not.toHaveBeenCalled()
     }
   )
 
-  it('spawns without a broken settings file and warns once across sends', () => {
+  it('spawns without a broken settings file and warns once across sends', async () => {
     const file = join(root, 'settings.json')
     write(file, '{"enabledPlugins":{"first@m":true},"token":"private-value",}')
     const adapter = new ClaudeAdapter()
-    expect(roots(send(adapter))).toEqual([first, second])
-    expect(roots(send(new ClaudeAdapter()))).toEqual([first, second])
+    expect(roots(await send(adapter))).toEqual([first, second])
+    expect(roots(await send(new ClaudeAdapter()))).toEqual([first, second])
     expect(query).toHaveBeenCalledTimes(2)
     expect(reportError).toHaveBeenCalledOnce()
     expect(vi.mocked(reportError).mock.calls[0][0]).toMatchObject({
@@ -101,10 +102,10 @@ describe('Claude spawn with empty or broken native settings', () => {
     expect(JSON.stringify(vi.mocked(reportError).mock.calls)).not.toContain('private-value')
   })
 
-  it('leaves out only the plugin whose manifest is broken', () => {
+  it('leaves out only the plugin whose manifest is broken', async () => {
     const manifest = join(first, '.claude-plugin/plugin.json')
     write(manifest, '{"name":"first",')
-    const options = send(new ClaudeAdapter())
+    const options = await send(new ClaudeAdapter())
     expect(roots(options)).toEqual([second])
     expect(reportError).toHaveBeenCalledOnce()
     expect(vi.mocked(reportError).mock.calls[0][0]).toMatchObject({

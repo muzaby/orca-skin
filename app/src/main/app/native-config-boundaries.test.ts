@@ -3,10 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { configuredClaudeResources } from '../adapters/claude/configured-resources'
-import {
-  readClaudePluginCatalog,
-  readClaudePluginCatalogAsync
-} from '../adapters/claude/plugin-catalog'
+import { readClaudePluginCatalogAsync } from '../adapters/claude/plugin-catalog'
 import { claudePluginProjectRoot } from '../adapters/claude/project-path'
 import {
   claudeProjectSettingsFiles,
@@ -38,7 +35,7 @@ it('carries BOM JSON through synchronous and asynchronous plugin catalogs', asyn
     join(native, 'settings.json'),
     '\uFEFF' + JSON.stringify({ enabledPlugins: { 'bom@market': true } })
   )
-  expect(readClaudePluginCatalog(cwd, native).defaults).toEqual({ 'bom@market': true })
+  expect((await readClaudePluginCatalogAsync(cwd, native)).defaults).toEqual({ 'bom@market': true })
   expect((await readClaudePluginCatalogAsync(cwd, native)).defaults).toEqual({ 'bom@market': true })
 })
 it('carries BOM JSON through native project settings', async () => {

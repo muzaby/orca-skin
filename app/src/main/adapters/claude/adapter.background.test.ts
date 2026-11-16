@@ -25,13 +25,14 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
 import type { LiveTurn, ProviderMessageBatch } from '../common/types'
+import { sendPrepared } from './prepared.testfixture'
 
 async function collect(): Promise<{
   live: LiveTurn
   batches: ProviderMessageBatch[]
   provider: NonNullable<ProviderMessageBatch['providerEvents']>
 }> {
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: 's1',
     text: 'hello',
     cwd: '/tmp',

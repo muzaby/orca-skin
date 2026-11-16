@@ -9,6 +9,7 @@ import {
 } from '../../adapters/claude/native-history.testfixture'
 import type { DbQueries } from '../../infra/db'
 import { prepareNativeSession } from './native-session'
+import { sendPrepared } from '../../adapters/claude/prepared.testfixture'
 
 const { query } = vi.hoisted(() => ({ query: vi.fn() }))
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
@@ -78,7 +79,7 @@ describe('Claude session continuation after a restart (no live channel)', () => 
       expect(recover).not.toHaveBeenCalled()
       if (!result.ok) throw new Error('expected a prepared native session')
       query.mockReturnValue({ close: vi.fn(), setPermissionMode: vi.fn(), interrupt: vi.fn() })
-      const live = adapter.sendMessage({
+      const live = await sendPrepared(adapter, {
         sessionId: result.value.nativeSessionId!,
         cwd,
         text: 'next input',

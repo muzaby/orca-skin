@@ -31,8 +31,9 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
+import { sendPrepared } from './prepared.testfixture'
 
-function optionsFor(cwd: string): { cwd?: string } {
+async function optionsFor(cwd: string): Promise<{ cwd?: string }> {
   queryMock.mockClear()
   const req: TurnRequest = {
     sessionId: null,
@@ -40,19 +41,19 @@ function optionsFor(cwd: string): { cwd?: string } {
     cwd,
     extensions: { skills: [], hooks: { normalized: {} } }
   }
-  new ClaudeAdapter().sendMessage(req)
+  await sendPrepared(new ClaudeAdapter(), req)
   return (queryMock.mock.calls[0]?.[0] as { options: { cwd?: string } }).options
 }
 
 describe('ClaudeAdapter — TurnRequest.cwd 가 SDK 옵션 cwd 다 (AC5)', () => {
-  it('격리 worktree 경로를 그대로 넘긴다', () => {
-    expect(optionsFor('/managed/repoid/wtid/packages/web').cwd).toBe(
+  it('격리 worktree 경로를 그대로 넘긴다', async () => {
+    expect((await optionsFor('/managed/repoid/wtid/packages/web')).cwd).toBe(
       '/managed/repoid/wtid/packages/web'
     )
   })
 
-  it('원본 checkout 경로와 구별된다 — 두 값이 같은 자리로 가지 않는다', () => {
-    expect(optionsFor('/source/repo').cwd).toBe('/source/repo')
+  it('원본 checkout 경로와 구별된다 — 두 값이 같은 자리로 가지 않는다', async () => {
+    expect((await optionsFor('/source/repo')).cwd).toBe('/source/repo')
   })
 })
 

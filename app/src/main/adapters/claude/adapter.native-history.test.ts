@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFile, rm } from 'node:fs/promises'
 import { ClaudeAdapter } from './adapter'
 import { HISTORY_SESSION_ID as sessionId, nativeHistoryFixture } from './native-history.testfixture'
+import { sendPrepared } from './prepared.testfixture'
 
 const { query } = vi.hoisted(() => ({ query: vi.fn() }))
 vi.mock('@anthropic-ai/claude-agent-sdk', async (importOriginal) => ({
@@ -44,7 +45,7 @@ describe('ClaudeAdapter native history port', () => {
     expect(query).not.toHaveBeenCalled()
     const close = vi.fn()
     query.mockReturnValue({ close, setPermissionMode: vi.fn(), interrupt: vi.fn() })
-    const live = adapter.sendMessage({
+    const live = await sendPrepared(adapter, {
       sessionId,
       cwd: f.cwd,
       text: 'explicit next input',

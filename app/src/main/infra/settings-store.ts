@@ -33,16 +33,21 @@ export class SettingsStore {
   private cached: Settings | null = null
   private readonly listeners: SettingsPatchListener[] = []
 
+  // `source` 는 파일을 둘 디렉토리(`cwd`) 또는 테스트용 인메모리 backend 다. 경로를 생략할 수
+  // 없다 — `electron-store` 는 `app` 이 없는 프로세스에서 `cwd` 없이 열면 예외 없이 다른
+  // 디렉토리에 쓴다(0324 D-031).
   constructor(
-    private readonly currentAppVersion = 'unknown',
-    backend?: RawSettingsBackend
+    private readonly currentAppVersion: string,
+    source: RawSettingsBackend | { cwd: string }
   ) {
     this.store =
-      backend ??
-      new Store<Raw>({
-        name: `${PRODUCT_SLUG}-settings`,
-        defaults: SettingsSchema.parse({}) as Raw
-      })
+      'cwd' in source
+        ? new Store<Raw>({
+            name: `${PRODUCT_SLUG}-settings`,
+            cwd: source.cwd,
+            defaults: SettingsSchema.parse({}) as Raw
+          })
+        : source
   }
 
   // 최초 접근 시 1회만 디스크 마이그레이션+쓰기, 이후 read 는 메모리 캐시.

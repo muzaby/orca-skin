@@ -47,6 +47,7 @@ vi.mock('./streaming-input', async (importOriginal) => {
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import type { LiveTurn } from '../common/types'
+import { sendPrepared } from './prepared.testfixture'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -71,11 +72,11 @@ afterEach(() => {
 })
 
 describe('Claude output style', () => {
-  const spawnStyle = (
+  const spawnStyle = async (
     preferences?: () => import('../../../shared/harness').ClaudePreferences,
     providerStyle = 'Learning'
-  ): LiveTurn => {
-    const channel = new ClaudeAdapter(undefined, undefined, preferences).sendMessage({
+  ): Promise<LiveTurn> => {
+    const channel = await sendPrepared(new ClaudeAdapter(undefined, undefined, preferences), {
       ...baseReq(),
       providerSettings: {
         providerKey: 'fixture',
@@ -87,14 +88,14 @@ describe('Claude output style', () => {
     channels.push(channel)
     return channel
   }
-  it('starts new queries with the configured style over provider settings', () => {
-    spawnStyle(() => ({ instructions: '', outputStyle: 'Proactive' }))
+  it('starts new queries with the configured style over provider settings', async () => {
+    await spawnStyle(() => ({ instructions: '', outputStyle: 'Proactive' }))
     const options = (queryMock.mock.calls[0][0] as { options: { settings: string } }).options
     expect(JSON.parse(options.settings)).toMatchObject({
       outputStyle: 'Proactive',
       sentinel: 'kept'
     })
-    spawnStyle()
+    await spawnStyle()
     expect(
       JSON.parse((queryMock.mock.calls[1][0] as { options: { settings: string } }).options.settings)
         .outputStyle
@@ -102,7 +103,7 @@ describe('Claude output style', () => {
   })
   it('applies a changed style once before the next turn input', async () => {
     let outputStyle: import('../../../shared/harness').ClaudeOutputStyle = 'Concise'
-    const channel = spawnStyle(() => ({ instructions: '', outputStyle }))
+    const channel = await spawnStyle(() => ({ instructions: '', outputStyle }))
     await channel.pushTurn!({ text: 'unchanged' })
     expect(applyFlagSettings).not.toHaveBeenCalled()
     calls.length = 0
@@ -126,7 +127,7 @@ describe('Claude output style', () => {
   })
   it('does not push or remember a rejected style update', async () => {
     let outputStyle: import('../../../shared/harness').ClaudeOutputStyle = 'Concise'
-    const channel = spawnStyle(() => ({ instructions: '', outputStyle }))
+    const channel = await spawnStyle(() => ({ instructions: '', outputStyle }))
     outputStyle = 'Learning'
     applyFlagSettings.mockRejectedValueOnce(new Error('style rejected'))
     await expect(channel.pushTurn!({ text: 'next' })).rejects.toThrow('style rejected')

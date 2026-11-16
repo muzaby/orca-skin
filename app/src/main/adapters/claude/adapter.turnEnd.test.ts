@@ -49,6 +49,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: h.queryMock }))
 
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
+import { sendPrepared } from './prepared.testfixture'
 
 const INIT = { type: 'system', subtype: 'init', session_id: 's1', model: 'm' }
 const ASSISTANT = {
@@ -92,7 +93,7 @@ function stopCallback(): HookCallback {
 async function run(script: Step[], request = req()): Promise<NormalizedEvent[][]> {
   h.state.script = script
   h.state.options = null
-  const live = new ClaudeAdapter().sendMessage(request)
+  const live = await sendPrepared(new ClaudeAdapter(), request)
   const batches: NormalizedEvent[][] = []
   for await (const batch of live.eventBatches) batches.push(batch.events)
   return batches
@@ -538,7 +539,7 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
       ASSISTANT,
       RESULT
     ]
-    const live = new ClaudeAdapter().sendMessage({
+    const live = await sendPrepared(new ClaudeAdapter(), {
       ...req(),
       preludes: [{ ids: ['p'], text: 'prelude', uuid: 'p', createdAt: 1 }]
     })
@@ -583,7 +584,7 @@ describe('claude.ts 턴 종료 배선 (D25·D26 · VP-72 · EP-46 ①②)', () =
       ASSISTANT,
       RESULT
     ]
-    const live = new ClaudeAdapter().sendMessage(req())
+    const live = await sendPrepared(new ClaudeAdapter(), req())
     const input = h.queryMock.mock.calls[0][0].prompt![Symbol.asyncIterator]()
     expect(await input.next()).toMatchObject({
       done: false,

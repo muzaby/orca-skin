@@ -10,6 +10,7 @@ import type { GovernedLiveTurn } from '../../contracts/ports'
 import { ProjectResourceSync } from '../project-resource-sync'
 import { registerSessionResourceHandlers } from './session-resources'
 import { scaleMs } from '../../../../scripts/test-time.mjs'
+import { sendPrepared } from '../../adapters/claude/prepared.testfixture'
 const fx = vi.hoisted(() => ({
   enabled: new Set<string>(),
   messages: [] as SDKMessage[],
@@ -76,13 +77,13 @@ it(
         names.map((name) => [`${name}@m`, [{ scope: 'user', installPath: join(fx.root, name) }]])
       )
     })
-    const live = new ClaudeAdapter().sendMessage({
+    const live = (await sendPrepared(new ClaudeAdapter(), {
       sessionId: null,
       cwd,
       text: 'x',
       env: { CLAUDE_CONFIG_DIR: root },
       extensions: { skills: [], hooks: { normalized: {} } }
-    }) as unknown as GovernedLiveTurn
+    })) as unknown as GovernedLiveTurn
     const snapshots: NativeResources[] = []
     const reader: { read?: (request: { sessionId: string }) => Promise<NativeResources> } = {}
     const target = {

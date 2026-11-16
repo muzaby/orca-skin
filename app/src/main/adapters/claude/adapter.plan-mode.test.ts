@@ -30,6 +30,7 @@ import { ClaudeAdapter, makeCanUseTool } from './adapter'
 import type { ApprovalResolution, NormalizedEvent, PermissionAction } from '../../../shared/ipc'
 import { NORMALIZED_MODES } from '../../../shared/permission-mode'
 import { toClaudePermissionMode } from '../../../shared/harnesses/claude/permission-mode'
+import { sendPrepared } from './prepared.testfixture'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -90,7 +91,7 @@ async function setup(
   const actions: PermissionAction[] = []
   const modes: unknown[][] = []
   const approvalSignals: (AbortSignal | undefined)[] = []
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: 's',
     text: 'plan',
     cwd: root,

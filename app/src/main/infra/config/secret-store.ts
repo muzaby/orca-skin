@@ -9,7 +9,12 @@ import { PRODUCT_SLUG } from '../../../shared/product'
 type Raw = Record<string, unknown>
 
 export class SecretStore {
-  private readonly store = new Store<Raw>({ name: `${PRODUCT_SLUG}-secrets`, defaults: {} })
+  private readonly store: Store<Raw>
+
+  // `cwd` 는 필수다 — 생략하면 `app` 이 없는 프로세스에서 다른 디렉토리에 쓴다(0324 D-031).
+  constructor(cwd: string) {
+    this.store = new Store<Raw>({ name: `${PRODUCT_SLUG}-secrets`, cwd, defaults: {} })
+  }
 
   // env-var 이름 → 평문 비밀. 미존재/복호화 실패 시 undefined.
   get(name: string): string | undefined {

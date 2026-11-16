@@ -19,13 +19,16 @@ it('adds a server when the sources mcp directory does not exist', () => {
   const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-mcp-fresh-'))
   target.file = join(root, 'sources', 'mcp', 'mcp.json')
   let settings = { mcpEnabled: {}, mcpMeta: {} }
-  const store = new McpStore({
-    getAll: () => settings,
-    patch: (next: object) => {
-      settings = { ...settings, ...next }
-      return settings
-    }
-  } as unknown as SettingsStore)
+  const store = new McpStore(
+    {
+      getAll: () => settings,
+      patch: (next: object) => {
+        settings = { ...settings, ...next }
+        return settings
+      }
+    } as unknown as SettingsStore,
+    '/unused-user-data'
+  )
   try {
     store.add({ name: 'docs', transport: 'http', url: 'https://example.test/mcp' })
     expect(JSON.parse(readFileSync(target.file, 'utf8'))).toEqual({

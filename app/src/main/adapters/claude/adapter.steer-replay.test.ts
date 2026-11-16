@@ -26,6 +26,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
+import { sendPrepared } from './prepared.testfixture'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -38,11 +39,11 @@ const baseReq = (): TurnRequest => ({
 })
 
 describe('ClaudeAdapter — steer echo replay 플래그 (0060 D5)', () => {
-  it('sendMessage 는 --replay-user-messages 를 extraArgs(bare flag)로 항상 전달한다', () => {
+  it('sendMessage 는 --replay-user-messages 를 extraArgs(bare flag)로 항상 전달한다', async () => {
     // CLI 는 이 플래그 없이는 mid-turn drain 된 steer 를 user echo 로 되돌리지 않는다
     // (직렬화 게이트 기본 off) — echo 기반 커밋(D1)의 전제 조건이라 회귀를 고정한다.
     const adapter = new ClaudeAdapter()
-    adapter.sendMessage(baseReq())
+    await sendPrepared(adapter, baseReq())
 
     expect(queryMock).toHaveBeenCalledTimes(1)
     const call = queryMock.mock.calls[0]?.[0] as
