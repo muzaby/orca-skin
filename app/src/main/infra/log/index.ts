@@ -5,7 +5,6 @@
 // 루트 조립은 `infra/config/paths` 의 `ooConfigDir()` 하나가 소유한다 — 0225 이전에는 여기서
 // 독립 하드코딩해 설정 루트 정의가 둘이었고, 한쪽만 고치면 로그가 옛 루트에 남는다.
 
-import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { ooConfigDir } from '../config/paths'
@@ -13,6 +12,7 @@ import type { LogInput, LogRecord } from '../../../shared/logging'
 import { FileTransport, logFilePath } from './file-transport'
 import { LogManager, type AppLogger, type LogSource } from './log-manager'
 import { setRootLogger } from './registry'
+import { hostEnvironment } from '../host-environment'
 
 export type { AppLogger, LogSource } from './log-manager'
 export { runWithLogContext, currentCorrelationId, type LogContext } from './log-context'
@@ -50,7 +50,7 @@ export function initLog(): AppLogger {
   transport = new FileTransport({ dir, onInternalError: emergency })
   manager = new LogManager({
     transport,
-    appVersion: app.getVersion(),
+    appVersion: hostEnvironment().appVersion,
     sessionId: randomUUID(),
     dev: import.meta.env.DEV,
     consoleMirror: import.meta.env.DEV ? mirrorToConsole : undefined,

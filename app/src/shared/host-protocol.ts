@@ -4,6 +4,7 @@
 // 알림(D-032 — 수명 이벤트가 아니다).
 
 import { z } from 'zod'
+import { WAKE_REASONS } from './shell-services'
 
 const SessionId = z.string().min(1)
 
@@ -103,6 +104,6 @@ export const ShellToHostSchema = z.discriminatedUnion('type', [
     error: z.string().optional()
   }),
   // 시스템이 깨어났다(절전 해제·화면 잠금 해제·창 포커스) — 호스트의 재확인 신호.
-  z.object({ type: z.literal('wake') })
+  z.object({ type: z.literal('wake'), reason: z.enum(WAKE_REASONS) })
 ])
 export type ShellToHost = z.infer<typeof ShellToHostSchema>
