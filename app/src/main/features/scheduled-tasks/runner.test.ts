@@ -301,3 +301,34 @@ describe('ScheduledTaskRunner — 종료·정리', () => {
     })
   })
 })
+
+describe('ScheduledTaskRunner — r2 보강', () => {
+  // 제한 시간을 넘긴 셸이 종료 신호를 잡고 0 으로 끝나도 성공이 아니다(AC15).
+  it('제한 시간을 넘긴 실행은 종료 코드가 0 이어도 제한 시간 초과로 실패한다', async () => {
+    const { store, runner, shell } = setup()
+    runner.fire('task-shell', 'schedule')
+    shell.resolve({ ...SHELL_OK, exitCode: 0, timedOut: true })
+    await settle()
+    expect(store.runs[0]).toMatchObject({
+      status: 'error',
+      error: SCHEDULE_RUN_ERROR.timeout,
+      exitCode: 0
+    })
+  })
+
+  // 본문 앞뒤 공백 정리는 renderer 의 새 대화 시작 한 곳이 한다 — 실행기는 저장값 그대로 넘긴다.
+  it('프롬프트 본문을 저장된 그대로(앞뒤 공백 포함) 넘긴다', () => {
+    const { store, runner, promptCalls } = setup()
+    store.insertTask(
+      promptTask({ id: 'task-padded', action: { ...promptAction(), text: '  점검 \n' } })
+    )
+    runner.fire('task-padded', 'manual')
+    expect(promptCalls.map((call) => call.text)).toEqual(['  점검 \n'])
+  })
+})
+
+function promptAction(): Extract<ReturnType<typeof promptTask>['action'], { kind: 'prompt' }> {
+  const action = promptTask().action
+  if (action.kind !== 'prompt') throw new Error('prompt fixture')
+  return action
+}

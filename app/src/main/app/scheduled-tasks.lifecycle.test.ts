@@ -218,3 +218,42 @@ describe('예약 작업 수명주기', () => {
     expect(() => service.update({ ...hourly('x'), id: 'missing' })).toThrow()
   })
 })
+
+describe('예약 작업 수명주기 — 실행 중 삭제', () => {
+  // 상태 전이 "실행 중인 작업을 삭제 → 실행 중단"(plan §5 · EP-5 ⑩)을 유스케이스 진입점에서 본다.
+  it('실행 중인 작업을 지우면 그 실행의 shell 을 중단시키고 다시 실행 중으로 보지 않는다', async () => {
+    const store = new MemoryScheduledTaskStore()
+    const signals: AbortSignal[] = []
+    const app = createScheduledTasks({
+      store,
+      projects: (id) => (id === 'project-a' ? { cwd: 'C:\\work\\a' } : undefined),
+      // 끝나지 않는 shell — 중단 신호가 와야만 결과를 낸다.
+      runShell: ({ signal }) =>
+        new Promise((resolve) => {
+          if (signal) signals.push(signal)
+          signal?.addEventListener('abort', () =>
+            resolve({ exitCode: null, output: '', truncated: false, timedOut: false, error: null })
+          )
+        }),
+      sendPromptStart: () => false,
+      onChanged: () => {}
+    })
+    booted.push({ ...app, commands: [], changed: vi.fn(), restoreErrors: [] })
+    app.service.start()
+    const { id } = app.service.create(hourly('echo slow'))
+    expect(app.service.runNow(id)).toEqual({ started: true })
+    expect(signals).toHaveLength(1)
+    expect(signals[0]!.aborted).toBe(false)
+    // 다른 작업은 같은 삭제에 영향받지 않는다.
+    const other = app.service.create(hourly('echo other'))
+    app.service.runNow(other.id)
+    expect(signals).toHaveLength(2)
+
+    app.service.delete(id)
+
+    expect(signals[0]!.aborted).toBe(true)
+    expect(signals[1]!.aborted).toBe(false)
+    expect(app.service.list().map((task) => [task.id, task.running])).toEqual([[other.id, true]])
+    expect(store.runs.filter((run) => run.taskId === id)).toEqual([])
+  })
+})

@@ -46,6 +46,23 @@ describe('Scheduler', () => {
     scheduler.stopAll()
   })
 
+  // cron 가지는 그 식의 다음 시각으로 타이머를 건다 — 간격 타이머로 바뀌면 시각이 달라진다.
+  it('cron 스케줄의 다음 실행은 cron 식이 정한 시각이다', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 0, 6, 9, 20, 0))
+      const scheduler = new Scheduler(new MemoryRecorder())
+      scheduler.register('usage-recompute', () => {})
+      scheduler.schedule('usage-recompute', { cron: '0 */1 * * *', enabled: true })
+      expect(scheduler.nextRun('usage-recompute')?.getTime()).toBe(
+        new Date(2026, 0, 6, 10, 0, 0).getTime()
+      )
+      scheduler.stopAll()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // 0179 — cron 검증은 `infra/cron` 이 소유한다(구 `cron-validate.ts` 재노출 셸 제거).
   // 잘못된 표현식이 조용히 등록되면 그 잡은 영영 발화하지 않으므로 등록 시점에 던져야 한다.
   it('잘못된 cron 표현식은 등록 시점에 거부한다', () => {

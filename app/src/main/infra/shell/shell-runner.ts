@@ -14,18 +14,29 @@ export interface ShellRunResult {
 }
 
 interface ChildLike {
+  pid?: number
   stdout: { on(event: 'data', listener: (chunk: Buffer) => void): unknown } | null
   stderr: { on(event: 'data', listener: (chunk: Buffer) => void): unknown } | null
   on(event: 'error', listener: (error: Error) => void): unknown
-  on(event: 'close', listener: (code: number | null) => void): unknown
+  on(event: 'close' | 'exit', listener: (code: number | null) => void): unknown
   kill(): boolean
 }
 
 export type SpawnLike = (
   file: string,
   args: string[],
-  options: { cwd: string; windowsHide: boolean; stdio: ['ignore', 'pipe', 'pipe'] }
+  options: {
+    cwd: string
+    windowsHide: boolean
+    // POSIX 에서는 새 프로세스 그룹을 만들어 종료 시 자손까지 한 번에 끝낸다.
+    detached: boolean
+    stdio: ['ignore', 'pipe', 'pipe']
+  }
 ) => ChildLike
+
+// 셸과 그 자손 전체를 끝낸다. 셸만 죽이면 자손이 출력 파이프를 잡고 있어 실행이 제한 시간을
+// 넘겨서도 끝나지 않는다.
+export type KillTree = (child: ChildLike, platform: NodeJS.Platform) => void
 
 export interface ShellRunInput {
   command: string
@@ -36,6 +47,7 @@ export interface ShellRunInput {
   signal?: AbortSignal
   platform?: NodeJS.Platform
   spawnImpl?: SpawnLike
+  killTreeImpl?: KillTree
 }
 
 // PowerShell 은 콘솔 코드페이지로 출력하므로(한국어 Windows = cp949) UTF-8 로 고정해 받는다.
@@ -53,15 +65,40 @@ export function shellInvocation(
     : { file: '/bin/sh', args: ['-c', command] }
 }
 
+export const killProcessTree: KillTree = (child, platform) => {
+  const pid = child.pid
+  try {
+    if (pid != null && platform === 'win32') {
+      // /T = 자식 프로세스까지, /F = 강제.
+      const killer = nodeSpawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore'
+      })
+      killer.on('error', () => child.kill())
+      return
+    }
+    if (pid != null) {
+      // 음수 pid = 그 프로세스 그룹(`detached: true` 로 만든 그룹) 전체.
+      process.kill(-pid, 'SIGKILL')
+      return
+    }
+  } catch {
+    // 그룹이 이미 없거나 권한이 없으면 셸만이라도 끝낸다.
+  }
+  child.kill()
+}
+
 export function runShellCommand(input: ShellRunInput): Promise<ShellRunResult> {
   const max = input.maxOutputBytes
-  const { file, args } = shellInvocation(input.platform ?? process.platform, input.command)
+  const platform = input.platform ?? process.platform
+  const { file, args } = shellInvocation(platform, input.command)
   return new Promise((resolve) => {
     let chunks: Buffer[] = []
     let size = 0
     let truncated = false
     let timedOut = false
     let settled = false
+    let killRequested = false
     let child: ChildLike | undefined
     const append = (chunk: Buffer): void => {
       chunks.push(chunk)
@@ -74,7 +111,9 @@ export function runShellCommand(input: ShellRunInput): Promise<ShellRunResult> {
       truncated = true
     }
     const kill = (): void => {
-      child?.kill()
+      if (!child || killRequested) return
+      killRequested = true
+      ;(input.killTreeImpl ?? killProcessTree)(child, platform)
     }
     const timer = setTimeout(() => {
       timedOut = true
@@ -97,6 +136,7 @@ export function runShellCommand(input: ShellRunInput): Promise<ShellRunResult> {
       child = (input.spawnImpl ?? (nodeSpawn as unknown as SpawnLike))(file, args, {
         cwd: input.cwd,
         windowsHide: true,
+        detached: platform !== 'win32',
         stdio: ['ignore', 'pipe', 'pipe']
       })
     } catch (e) {
@@ -107,6 +147,11 @@ export function runShellCommand(input: ShellRunInput): Promise<ShellRunResult> {
     child.stderr?.on('data', append)
     child.on('error', (error) => done(null, error.message))
     child.on('close', (code) => done(code, null))
+    // 종료를 요청한 뒤에는 파이프가 닫히기를 기다리지 않는다 — 남은 자손이 파이프를 잡아도
+    // 셸이 끝난 시점에 결과를 확정한다.
+    child.on('exit', (code) => {
+      if (killRequested) done(code, null)
+    })
     if (input.signal?.aborted) kill()
     else input.signal?.addEventListener('abort', kill, { once: true })
   })
