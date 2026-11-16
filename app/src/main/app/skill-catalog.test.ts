@@ -7,6 +7,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
 import { registerSkillsHandlers } from './handlers/skills'
 import { readSkillCatalog } from './skill-catalog'
+import { installFakeShellServices } from '../infra/shell-services.testfixture'
 
 vi.mock('node:fs', async (original) => {
   const actual = await original<typeof import('node:fs')>()
@@ -28,9 +29,10 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, fn: (event: unknown, raw: unknown) => unknown) =>
       handlers.set(channel, fn)
-  },
-  shell: { showItemInFolder }
+  }
 }))
+// 폴더 열기는 셸 서비스로 간다(0324 EP-10).
+installFakeShellServices({ 'external.showItemInFolder': showItemInFolder })
 
 const roots: string[] = []
 afterEach(async () => {

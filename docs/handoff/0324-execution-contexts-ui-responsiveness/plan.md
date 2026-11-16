@@ -1632,6 +1632,102 @@ AC 자기보고(검증 증거 아님, 분모 38): AC18·AC32 가 ❌ → ⚠️(
 
 ---
 
+## [구현자 기입] r1.7 — 셸 서비스 표·서버·클라이언트 · 핸들러 6파일 이주 (미완료)
+
+**판정: 미완료(partial).** 셸 서비스 경로(표·셸 서버·호스트 클라이언트·한 프로세스 연결)를 만들고, 외부 열기·대화상자·알림을 부르던 핸들러 6파일을 그 포트로 옮겼다. 한 프로세스인 동안은 같은 검증을 거쳐 그 자리에서 셸 구현을 부르므로 동작은 같다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 셸 서비스의 메서드 목록 | 구현 세부 | §10 EP-10 은 8종의 범주와 파일 배정만 적는다. 범주 안의 메서드는 이주 대상 파일이 실제로 부르는 API 로 정했다 — `shared/shell-services.ts` 10개(비밀 3 · 대화상자 2 · 외부 열기 4 · 알림 1)와 셸 → 호스트 `wake` |
+| 포트의 자리 | 구현 세부 | `infra/shell-services.ts` 의 `setShellServices`/`shellServices()` — 전송 선택(`infra/ipc/transport.ts`)과 같은 모양이다. 셸은 `connectShellServicesInProcess`, 호스트 진입점은 `shell-client` 를 넣는다 |
+| 대화상자의 부모 창 | 구현 세부 — 동작 보존 | 지금 코드는 부모 없이 띄운다. `clientId: null` 로 같게 두었다(`artifacts.test.ts` 가 `null` 을 단언) |
+| 셸이 넘기는 옵션 | 구현 세부 | 셸은 인자를 스키마로 해석한 값만 Electron 에 넘긴다 — 선언 밖 키는 버려진다(`services.test.ts` "셸 구현에는 스키마가 정한 키만 간다") |
+| 비밀 봉인의 비동기 전환(AC27) | 미착수 — 다음 조각 | `SecretStore.get` 의 동기 소비가 `vault`·`AuthStore`·MCP `resolver`(턴 조립의 동기 `resolveMcpConfig`)까지 닿는다. §12 의 "호출부 전수 `await`" 를 한 조각으로 다룬다 |
+| `contentsOf` | 제거 | 소비처가 `misc.ts` 하나였고 이주로 0 이 됐다. 그 테스트의 닫힘 단언은 "닫힌 뒤 새 참조"로 바꿨다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-10′ (8) | 비밀 봉인·해제 | 경로만 | `services.test.ts` 왕복. 남긴 곳: `infra/config/crypto.ts` 가 아직 `safeStorage` 를 직접 부른다 |
+| EP-10′ | 대화상자 | 1/1 | `files.openPath.test.ts` "선택 대화상자 — 셸 서비스로 창 없이 띄운다" 3 · `artifacts.test.ts`(`clientId: null` 단언) |
+| EP-10′ | 외부 열기(`shell.*` 5파일) | 5파일 중 5 | `error.test.ts` · `skills.test.ts` · `extension-catalog.test.ts`(MCP 케이스 추가) · `files.contextDirectory.test.ts`·`files.openPath.test.ts` · `artifacts.test.ts`. 남긴 곳: `bootstrap.ts` 의 `shell.openExternal`·`shell.trashItem`(Bootstrap 조각) |
+| EP-10′ | 알림·창 포커스 | 1/1 | `misc-split.test.ts` "알림은 보낸 창의 id 와 함께 셸 서비스로 간다" |
+| EP-10′ | 전원 이벤트 | 경로만 | `services.test.ts` "wake 는 구독자 전부에…". 남긴 곳: `bootstrap.ts` 의 `powerMonitor` 구독 |
+| EP-10′ | 파티션 세션 요청 · 업데이트 제어 · 경로·버전 | 0 | 미착수 |
+| EP-12 · EP-8 · EP-11 · EP-9 · EP-14 | — | r1.6 과 같다 | — |
+
+Electron 값 import 남은 파일(`rg -l` 한 줄 + 여러 줄 import): 셸 3(`index.ts`·`app/shell/electron-services.ts`·`infra/ipc/electron-transport.ts`) · 호스트 허용 1(`infra/net/net-fetch.ts`) · 이주 대상 8(`app/bootstrap.ts`·`app/error-report-sink.ts`·`app/updater.ts`·`infra/browser-session.ts`·`infra/config/crypto.ts`·`infra/db/index.ts`·`infra/log/index.ts`·`infra/net/net-request.ts`). 이번 턴에 빠진 파일 6(`handlers/{artifacts,error,extension-catalog,files,misc,skills}.ts`).
+
+V-pair 자기 상태: 올린 것 없음. VP-25 는 범주 8 중 3 만 이주됐다.
+
+### 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`. 원복은 매번 "모든 파일 원문 그대로".
+
+| 묶음 | 행 | 결과 |
+|---|---|---|
+| 셸 서버 `V-1`~`V-12` · 클라이언트 `L-1`~`L-16` · 수신 분기 `H-6`·`H-7` | 30 | 잡음 28 · 동치 2. `V-3`(검증 전 인자 전달)·`H-7`(배열 아닌 인자)은 1케이스씩 더한 뒤 잡음. 동치 `L-8`·`L-15` — 이미 끝난 호출 항목을 지우는 줄이라 관측이 같고 메모리만 다르다 |
+| 핸들러 이주 `M-*`(형제 서비스 맞바꿈 · `clientId` 값 · 알림 인자 맞바꿈) | 23 | 잡음 23. `M-files-showOpen-0/1`·`M-files-client-0/1`·`M-ext-*` 6행은 처음에 기준선 실패 1건만 red 였다(`session-resources.claude-assembly`) — 대화상자 3케이스와 MCP 열기 1케이스를 더하고 기준선 파일을 뺀 oracle 로 다시 잡음 |
+| 한 프로세스 연결·포트 선택 `I-1`~`I-5` | 5 | 잡음 5 |
+
+검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 58 = 표 행 58`.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자가 보는 변화 | 없음 — 같은 Electron 호출을 같은 인자로 부른다 |
+| 빈 경로 열기 | 셸 서비스의 경로 인자가 빈 문자열이면 거부한다. 이주한 자리는 모두 앞에서 실재 경로를 확인한 뒤라 지금 경로로는 생기지 않는다 |
+| 셸 구현 오류 | 지금처럼 핸들러가 거부한다. 문장 앞에 오류 이름이 붙는다(`Error: …`) — renderer 는 지금도 `Error invoking remote method …` 접두를 받으므로 화면 문구는 그대로다 |
+
+### 놓친 잠재 문제 + 대응
+
+- 이번 턴에 기준선 실패 파일이 oracle 실행 집합 안에 있어 변이 판정이 가려졌다. 이후 sweep 은 기준선 9파일을 뺀 oracle 로 돌린다.
+- 같은 세션에서 `git checkout` 으로 작업 중 파일 하나를 되돌렸다가 다시 적용했다(`extension-catalog.ts`). 최종 diff 와 테스트로 확인했다.
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 4 셸 서비스 경로 | 구현 | `shared/shell-services.ts` · `shared/host-protocol.ts`(`service.call`·`service.result`·`wake`) · `app/shell/{services,electron-services}.ts` · `app/agent-host/shell-client.ts` · `infra/shell-services.ts` + 테스트 17 |
+| 4 핸들러 이주 | 6파일 | 위 표 |
+| 4 나머지(비밀 봉인 비동기 전환 · `bootstrap.ts` 의 외부 열기·전원 · 파티션 세션 · 경로·버전 fork 인자 · 셸 배선 · preload 교체 · `entry` · `index.ts` 축소 · `chatStore`) · 5 · 7 | 미착수 | — |
+
+AC 자기보고(검증 증거 아님, 분모 38): r1.6 과 같다 — `✅ 12 · ⚠️ 12 · ❌ 14 = 총 38`. AC27 은 ❌ 그대로다(비밀 봉인 미이주).
+
+**r1.7 마지막 트리 gate** — vitest 는 `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 준 CI 흉내 방식, DB 스위트 포함(Node ABI).
+
+| gate | 관측 |
+|---|---|
+| 첫 실행의 red | 전체 vitest 의 새 `FAIL` 1(`app/skill-catalog.test.ts` — 이주한 `skillsShowInFolder` 가 셸 서비스를 정하지 않은 채 불렸다: `셸 서비스가 정해지지 않았다`). 테스트에 가짜 포트를 넣어 고쳤다 |
+| 가드 4종 | 전부 exit 0 |
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | `error TS` 0줄 |
+| `node --test scripts/*.test.mjs` | tests 958 · pass 955 · fail 0 · todo 3 |
+| `vitest run` (CI 흉내, 필터 없음, 고친 뒤 재실행) | 1003파일 — 9 fail / 22케이스 · 오류 1 · 990 pass. 실패 파일 집합 ↔ 기준선 9파일의 차집합 0줄(양방향 `comm -3`) · `[test-pools]` 0줄 |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 230건(같은 수 — 가드 (f) 는 호스트 진입점이 없어 아직 그래프를 세지 않는다) |
+
+테스트 소스 규칙의 파일별 판정(추가·수정 13파일 — `skill-catalog.test.ts` 포함): 시간 예산 — `check-test-budgets` exit 0 · 호스트 격리 — 홈·env 접근 추가 0 · 풀 분류 — 위 표의 `[test-pools]` 줄 수.
+
+대상 커밋: `(r1.7 구현 일부 — 좌표는 INDEX)`.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.7`(미완료) — verify 0회.
+- 변이 판정이 기준선 실패에 가려졌다 — r1.5 의 Electron 미설치 로드 실패와 같은 축(oracle 실행 집합에 무관한 red 가 섞임)이다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. 비밀 봉인 비동기 전환(AC27) — `rg -n "encryptString|decryptString|crypto\." app/src/main --glob '!*.test.*'` 로 분모를 고정하고 `SecretStore` → `vault` → `AuthStore`·MCP `resolver` 를 전수 `await` 로.
+2. `bootstrap.ts` 의 `shell.*`·`powerMonitor` → 셸 서비스 · 경로·버전을 fork 인자로(`infra/db`·`infra/log`·`updater`).
+3. 파티션 세션 요청(`browser-session`·`net-request`).
+4. 셸 배선 · 세 채널 · preload 교체 · `entry` · `index.ts` 축소 · `chatStore` → 단계 5 → 7.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
