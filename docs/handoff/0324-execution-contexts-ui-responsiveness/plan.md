@@ -1269,9 +1269,23 @@ gate:
 | r1.3 트리 — 가드 4종 · `node --test scripts/*.test.mjs` | 전부 exit 0 · tests 947 · pass 944 · todo 3 |
 | 전송 조각 뒤 — 전체 `vitest run` | 989파일 — 28 fail / 24케이스. 기준선 대비 새 `FAIL` 줄 2(`planMode.render` — 위 r1.3 회귀, 고침) · 사라진 줄 2 |
 | `node --test scripts/check-ui-thread.test.mjs` | tests 90 · pass 87 · todo 3 |
-| **마지막 트리에서 돌리지 못한 것** | `npm run lint`(중단 — 일부 실행됐을 수 있다) · `npm run typecheck` · 전체 `vitest run` · `node --test scripts/*.test.mjs` 전체 · 가드 4종. 마지막 전체 실행 뒤에 바뀐 것: 채널 소유 표·프로토콜·수명 상태·고아 선별(신규 파일, 개별 스위트 38케이스 green) · `planMode.render`·`send.agent-profile`·`send.harness` 테스트 수정 · 죽은 줄 2 제거. **잇는 구현자가 먼저 돌린다** |
+| **중단 시점에 돌리지 못한 것** (아래 "r1.4 마지막 트리 gate" 에서 실행) | `npm run lint`(중단 — 일부 실행됐을 수 있다) · `npm run typecheck` · 전체 `vitest run` · `node --test scripts/*.test.mjs` 전체 · 가드 4종. 마지막 전체 실행 뒤에 바뀐 것: 채널 소유 표·프로토콜·수명 상태·고아 선별(신규 파일, 개별 스위트 38케이스 green) · `planMode.render`·`send.agent-profile`·`send.harness` 테스트 수정 · 죽은 줄 2 제거. **잇는 구현자가 먼저 돌린다** |
 
 테스트 소스 규칙의 파일별 판정: 하지 못했다(위 gate 미실행에 포함).
+
+**r1.4 마지막 트리 gate** — 위 "돌리지 못한 것"을 중단 뒤 사용자 지시로 전부 돌렸다. 첫 실행에서 red 2건이 나와 고친 뒤 다시 돌린 값이다.
+
+| gate | 관측 |
+|---|---|
+| 첫 실행의 red 2건 | `npm run typecheck` — `infra/ipc/send.test.ts:38` TS2352(캐스트) · `check-doc-inventory --check` — `docs/generated/inventory.md` stale. 캐스트를 고치고 인벤토리를 재생성했다 |
+| 가드 4종 | 전부 exit 0 — `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` |
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | error 0 |
+| `node --test scripts/*.test.mjs` | tests 958 · pass 955 · fail 0 · todo 3 |
+| `./node_modules/.bin/vitest run` (필터 없음) | 992파일 — 961 pass · 27 fail · 4 skip / 9305케이스 — 9271 pass · 22 fail · 오류 1 |
+| 기준선 대조(r1.3 트리의 같은 명령) | 새 `FAIL` 줄 0(`comm -13` 0줄) · 사라진 줄 2(`chat-turn.continuity`·`planMode.render` — 로드 실패가 풀렸다). vitest 로그의 `[test-pools]` 0줄 |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 229건 — (c) 1 · (e) 226 · (f) 2. 단계 4 본체·5 대기분이다(`ci.yml` 미연결) |
+| 돌리지 못한 것 | `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 준 전체 실행과 변경 전 커밋의 같은 실행 대조 · 테스트 소스 규칙의 파일별 판정(예산 가드와 `[test-pools]` 0줄만 봤다) |
 
 대상 커밋: `(r1.4 구현 일부 — 좌표는 INDEX)`.
 
