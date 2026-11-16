@@ -1,4 +1,4 @@
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import { describe, expect, it, vi } from 'vitest'
 import type { SteerFlushBatch } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
@@ -22,10 +22,10 @@ function assemble(options: { dbSessionId: string | null; queueKey: string }): {
   const turn = {
     dbSessionId: options.dbSessionId,
     blockedSubagents: new Set<string>()
-  } as unknown as TurnContext<WebContents>
+  } as unknown as TurnContext<ClientRef>
   const request = buildTurnRequest(
     {
-      wc: { isDestroyed: () => false, send } as unknown as WebContents,
+      wc: { isDestroyed: () => false, send } as unknown as ClientRef,
       pendingMessages: queue,
       activity: {} as SessionActivityProjector,
       queueKey: options.queueKey,

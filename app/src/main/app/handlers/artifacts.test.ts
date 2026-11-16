@@ -2,13 +2,13 @@ import { mkdtemp, mkdir, readFile, writeFile, rm, link, readdir } from 'node:fs/
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi, type Mocked } from 'vitest'
-import type { IpcMainInvokeEvent } from 'electron'
+import type { RequestEvent } from '../../contracts/client'
 import type { ArtifactService } from '../../features/artifacts/service'
 import type { ArtifactCatalog } from '../../features/artifacts/catalog'
 import { CHANNELS } from '../../../shared/ipc'
 
 const mocks = vi.hoisted(() => ({
-  handlers: new Map<string, (req?: unknown, event?: IpcMainInvokeEvent) => Promise<unknown>>(),
+  handlers: new Map<string, (req?: unknown, event?: RequestEvent) => Promise<unknown>>(),
   save: vi.fn(),
   open: vi.fn(),
   reveal: vi.fn(),
@@ -23,11 +23,11 @@ vi.mock('../../infra/ipc/handle', () => ({
     channel: string,
     schema: { parse: (arg: unknown) => unknown },
     _policy: unknown,
-    handler: (req: unknown, event: IpcMainInvokeEvent) => Promise<unknown>
+    handler: (req: unknown, event: RequestEvent) => Promise<unknown>
   ) => mocks.handlers.set(channel, async (req, event) => handler(schema.parse(req), event!)),
   handlePlain: (
     channel: string,
-    handler: (req: unknown, event: IpcMainInvokeEvent) => Promise<unknown>
+    handler: (req: unknown, event: RequestEvent) => Promise<unknown>
   ) => mocks.handlers.set(channel, async (req, event) => handler(req, event!))
 }))
 import { registerArtifactHandlers } from './artifacts'
@@ -47,7 +47,7 @@ async function setup(): Promise<{
   catalog: Mocked<TestCatalog>
   dest: string
   root: string
-  trusted: ReturnType<typeof vi.fn<(event: IpcMainInvokeEvent) => boolean>>
+  trusted: ReturnType<typeof vi.fn<(event: RequestEvent) => boolean>>
   call(key: keyof typeof CHANNELS, req?: unknown): Promise<unknown>
 }> {
   const dest = await mkdtemp(join(tmpdir(), 'orcinus-orca-artifact-export-'))
@@ -73,12 +73,12 @@ async function setup(): Promise<{
     revealPath: vi.fn(async () => join(root, 'report.md')),
     openFolderPath: vi.fn(async () => root)
   }
-  const event = {} as IpcMainInvokeEvent
+  const event = {} as RequestEvent
   const catalog: Mocked<TestCatalog> = {
     list: vi.fn(() => []),
     setPinned: vi.fn(() => ({ ok: true }))
   }
-  const trusted = vi.fn((candidate: IpcMainInvokeEvent) => candidate === event)
+  const trusted = vi.fn((candidate: RequestEvent) => candidate === event)
   registerArtifactHandlers(service, trusted, catalog)
   return {
     service,

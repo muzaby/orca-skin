@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { IpcMainInvokeEvent, WebContents } from 'electron'
+import type { ClientRef, RequestEvent } from '../../contracts/client'
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import { SessionChainLeaseRegistry } from '../../features/sessions/session-chain-lease'
@@ -26,7 +26,7 @@ const attachments = { attachmentTexts: [], attachmentImages: [] }
 
 describe('queued requirement display payload', () => {
   it('turn-open queued event preserves the same anchors delivered to the provider batch', () => {
-    const sender = {} as WebContents
+    const sender = {} as ClientRef
     const result = enqueueTurnPrompt({
       wc: sender,
       pendingMessages: new PendingMessageQueue(),
@@ -53,9 +53,9 @@ describe('queued requirement display payload', () => {
   })
 
   it('busy queued event preserves comments while the unchanged provider queue waits', () => {
-    const sender = {} as WebContents
+    const sender = {} as ClientRef
     const pendingMessages = new PendingMessageQueue()
-    const { lease } = new SessionChainLeaseRegistry<WebContents>().acquire({
+    const { lease } = new SessionChainLeaseRegistry<ClientRef>().acquire({
       logicalKey: 's1',
       sessionId: 's1',
       owner: sender,
@@ -63,7 +63,7 @@ describe('queued requirement display payload', () => {
     })
     reserveOnBusySession(
       { pendingMessages, listenRelease: new Map() },
-      { sender } as IpcMainInvokeEvent,
+      { sender } as RequestEvent,
       's1',
       's1',
       lease,

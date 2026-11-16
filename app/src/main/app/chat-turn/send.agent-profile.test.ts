@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EventEmitter } from 'node:events'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 import { mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -94,7 +94,7 @@ const plugin = resolve('resources/claude-plugins/work-profile')
 // Preserve the inferred mock signatures used by the individual failure scenarios.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function harness(cwd: string, pluginPath = plugin) {
-  const sender = new EventEmitter()
+  const sender = fakeClient()
   const roots = Object.freeze(['/existing/plugin'])
   const controller = new AbortController()
   const supervisor = {

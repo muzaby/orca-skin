@@ -1,7 +1,7 @@
 // 0301 ΔV1·ΔV2 VP-16 — 시작 단계에서 보내지 못한 턴 입력의 회수(§10 J′ · J1 · D-017).
 // `chat:send` 실제 핸들러 + 실제 TurnCoordinator·SessionRuntime·PendingMessageQueue 를 잇는다.
 // held 상태가 판정 입력이라 큐는 mock 하지 않는다. SDK 경계(adapter.sendMessage)만 대체한다.
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../contracts/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -130,7 +130,7 @@ function install() {
     })
   // 실제 supervisor — 진행 중 체인에 같은 세션으로 보낸 입력이 busy 예약이 되려면 lease 가 실재해야
   // 한다. 런타임 생성만 SDK 경계(sendMessage)를 가진 SessionRuntime 으로 바꾼다.
-  const supervisor = new RuntimeSupervisor<WebContents>()
+  const supervisor = new RuntimeSupervisor<ClientRef>()
   const acquire = supervisor.acquireRuntime.bind(supervisor)
   vi.spyOn(supervisor, 'acquireRuntime').mockImplementation(((sessionId: string | null) =>
     acquire(sessionId, newRuntime)) as typeof supervisor.acquireRuntime)

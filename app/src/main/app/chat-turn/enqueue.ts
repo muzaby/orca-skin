@@ -4,7 +4,7 @@
 // 커밋(user row 영속·preview/provider_key·renderer 승격)은 echo 관측 단일 경로(coordinator)가
 // 소유한다. 여기서 하는 일은 적재와 예약, 그리고 pending-first 렌더 신호뿐이다.
 
-import type { IpcMainInvokeEvent, WebContents } from 'electron'
+import type { ClientRef, RequestEvent } from '../../contracts/client'
 import type { AttachmentView, DiffRequirementAnchor } from '../../../shared/ipc'
 import type { SteerFlushBatch } from '../../adapters/common/turn'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
@@ -20,7 +20,7 @@ interface EnqueueResult {
 }
 
 export function enqueueTurnPrompt(input: {
-  wc: WebContents
+  wc: ClientRef
   pendingMessages: PendingMessageQueue
   queueKey: string
   chainId: string
@@ -83,10 +83,10 @@ export function reserveOnBusySession(
     /** 세션 키별 listen 프레임 릴리즈 밸브. */
     listenRelease: Map<string, () => void>
   },
-  event: IpcMainInvokeEvent,
+  event: RequestEvent,
   queueKey: string,
   sessionId: string | undefined,
-  lease: SessionChainLease<WebContents>,
+  lease: SessionChainLease<ClientRef>,
   data: BusyReservePayload,
   na: NormalizedAttachments
 ): void {
@@ -121,7 +121,7 @@ export function reserveOnBusySession(
 }
 // 신규·busy 입력은 같은 내용과 queued wire를 만든다. 예약·respawn·listen 정책은 호출부 소유.
 function enqueueMessage(input: {
-  wc: WebContents
+  wc: ClientRef
   pendingMessages: PendingMessageQueue
   queueKey: string
   sessionId: string | null | undefined
@@ -164,9 +164,9 @@ function enqueueMessage(input: {
 
 // 소유권 표시(0151 AC12) 발신 단일 지점 — held(취소 가능) ↔ submitted(전달됨, 취소 불가) 전이를
 // renderer 에 알린다. 버스 미경유 직행(message.queued 동렬 — 미영속 UI 상태). 턴 핸들러(활성 턴의
-// wc)와 steerCancel 핸들러(event.sender)가 서로 다른 WebContents 를 쓰므로 인자로 받는다.
+// wc)와 steerCancel 핸들러(event.sender)가 서로 다른 ClientRef 를 쓰므로 인자로 받는다.
 export function sendSubmitted(
-  wc: WebContents,
+  wc: ClientRef,
   sessionId: string,
   ids: string[],
   submitted: boolean

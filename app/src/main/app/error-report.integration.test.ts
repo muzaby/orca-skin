@@ -46,7 +46,13 @@ describe('main → IPC → renderer reporting', () => {
       ([channel]) => channel === CHANNELS.errorDrain
     )![1]
     let onReport: ((r: AppErrorReport) => void) | undefined
-    const sender = { id: 42, once: vi.fn() }
+    const sender = {
+      id: 42,
+      once: vi.fn(),
+      on: vi.fn(),
+      removeListener: vi.fn(),
+      isDestroyed: () => false
+    }
     const send = vi.fn((channel, report) => {
       expect(channel).toBe(CHANNELS.errorReportEvent)
       onReport?.(report)

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { ApprovalResolution, NormalizedEvent, PermissionAction } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnRequest } from '../../adapters/common/turn'
@@ -22,7 +22,7 @@ vi.mock('../../infra/ipc/send', () => ({ sendChatEvent }))
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
 function owner(sessionId: string | null): {
-  turn: TurnContext<WebContents>
+  turn: TurnContext<ClientRef>
   request: ReturnType<typeof createApprovalRequester>
   register: MockInstance<ApprovalCoordinator['register']>
   setMode: MockInstance<PermissionModeController['setMode']>
@@ -33,14 +33,14 @@ function owner(sessionId: string | null): {
     dbSessionId: sessionId,
     controller: new AbortController(),
     pendingAskAnswers: []
-  } as unknown as TurnContext<WebContents>
+  } as unknown as TurnContext<ClientRef>
   const approvals = new ApprovalCoordinator()
   const register = vi.spyOn(approvals, 'register')
   const modes = new PermissionModeController()
   const setMode = vi.spyOn(modes, 'setMode')
   const persist = vi.fn()
   const request = createApprovalRequester({
-    wc: {} as WebContents,
+    wc: {} as ClientRef,
     approvals,
     permissionModes: modes,
     persistence: { persist, flushAskAnswers: vi.fn() } as unknown as HistoryWriter,

@@ -4,7 +4,7 @@
 // 함께 보는 가변 상태다 — 값으로 캡처하면 연속 턴에서 콜백이 옛 턴을 보고(0067 AC7) 롤백
 // fence 가 어긋난다(0166 D7 과 같은 결함).
 
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../../adapters/common/turn'
 import type { TurnContext } from '../../contracts/turn'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
@@ -14,12 +14,12 @@ import { getLogger } from '../../infra/log'
 import { sendSubmitted } from './enqueue'
 
 interface TurnRequestDeps {
-  wc: WebContents
+  wc: ClientRef
   pendingMessages: PendingMessageQueue
   activity: SessionActivityProjector
   /** 세션 id 확정 전의 큐 키(renderer clientKey 파생). */
   queueKey: string
-  getActiveTurn: () => TurnContext<WebContents>
+  getActiveTurn: () => TurnContext<ClientRef>
   getInitialBatches: () => SteerFlushBatch[]
 }
 

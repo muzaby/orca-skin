@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
-import type { WebContents } from 'electron'
+import type { ClientRef } from '../../contracts/client'
 import type { ApprovalResolution, NormalizedEvent, PermissionAction } from '../../../shared/ipc'
 import type { TurnRequest } from '../../adapters/common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
@@ -18,16 +18,16 @@ vi.mock('../../infra/ipc/send', () => ({ sendChatEvent }))
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
-function turn(sessionId: string): TurnContext<WebContents> {
+function turn(sessionId: string): TurnContext<ClientRef> {
   return {
     agentKind: 'code',
     dbSessionId: sessionId,
     controller: new AbortController(),
     pendingAskAnswers: []
-  } as unknown as TurnContext<WebContents>
+  } as unknown as TurnContext<ClientRef>
 }
 
-function requester(active: TurnContext<WebContents>): {
+function requester(active: TurnContext<ClientRef>): {
   request: ReturnType<typeof createApprovalRequester>
   persist: ReturnType<typeof vi.fn>
   register: MockInstance<ApprovalCoordinator['register']>
@@ -42,7 +42,7 @@ function requester(active: TurnContext<WebContents>): {
   const setMode = vi.spyOn(permissionModes, 'setMode')
   const persist = vi.fn()
   const request = createApprovalRequester({
-    wc: {} as WebContents,
+    wc: {} as ClientRef,
     approvals,
     permissionModes,
     persistence: { persist, flushAskAnswers: vi.fn() } as unknown as HistoryWriter,

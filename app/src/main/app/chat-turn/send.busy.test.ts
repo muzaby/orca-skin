@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { IpcMainInvokeEvent, WebContents } from 'electron'
+import type { ClientRef, RequestEvent } from '../../contracts/client'
 import type { DiffRequirementAnchor } from '../../../shared/ipc'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import {
@@ -25,9 +25,9 @@ describe('handleChatSend busy submission', () => {
   it.each([undefined, 'work'] as const)(
     'accepts an inherited/equal Work request while preparing (%s)',
     async (agentKind) => {
-      const owner = {} as WebContents
+      const owner = {} as ClientRef
       const queue = new PendingMessageQueue()
-      const leases = new SessionChainLeaseRegistry<WebContents>()
+      const leases = new SessionChainLeaseRegistry<ClientRef>()
       const key = clientLeaseKey('draft1')
       const first = leases.acquire({
         logicalKey: key,
@@ -52,7 +52,7 @@ describe('handleChatSend busy submission', () => {
         listenRelease: new Map(),
         isUpdateInstallPending: () => false
       } as unknown as ChatRuntimeDeps
-      await handleChatSend(deps, { sender: owner } as IpcMainInvokeEvent, {
+      await handleChatSend(deps, { sender: owner } as RequestEvent, {
         sessionId: null,
         projectId: null,
         text: 'follow-up',
@@ -71,7 +71,7 @@ describe('handleChatSend busy submission', () => {
   it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
     'rejects explicit mismatch with the %s DB identity before any lease is created',
     async (sourceField) => {
-      const owner = {} as WebContents
+      const owner = {} as ClientRef
       const acquireChain = vi.fn()
       const dbRead = vi.fn(() => ({ agent_kind: 'work' }))
       vi.mocked(normalizeAttachments).mockResolvedValueOnce({
@@ -88,7 +88,7 @@ describe('handleChatSend busy submission', () => {
         supervisor: { acquireChain, getChainByKey: vi.fn() },
         isUpdateInstallPending: () => false
       } as unknown as ChatRuntimeDeps
-      await handleChatSend(deps, { sender: owner } as IpcMainInvokeEvent, {
+      await handleChatSend(deps, { sender: owner } as RequestEvent, {
         sessionId: null,
         projectId: null,
         text: 'different kind',
@@ -109,9 +109,9 @@ describe('handleChatSend busy submission', () => {
   it.each([false, true])(
     'rejects mismatched birth before lease admission and queue mutation (confirmed=%s)',
     async (confirmed) => {
-      const owner = {} as WebContents
+      const owner = {} as ClientRef
       const queue = new PendingMessageQueue()
-      const leases = new SessionChainLeaseRegistry<WebContents>()
+      const leases = new SessionChainLeaseRegistry<ClientRef>()
       const sessionId = confirmed ? 's1' : null
       const logicalKey = confirmed ? sessionLeaseKey('s1') : clientLeaseKey('draft1')
       leases.acquire({
@@ -139,7 +139,7 @@ describe('handleChatSend busy submission', () => {
         listenRelease: new Map(),
         isUpdateInstallPending: () => false
       } as unknown as ChatRuntimeDeps
-      await handleChatSend(deps, { sender: owner } as IpcMainInvokeEvent, {
+      await handleChatSend(deps, { sender: owner } as RequestEvent, {
         sessionId,
         projectId: null,
         text: 'must not queue',
@@ -160,9 +160,9 @@ describe('handleChatSend busy submission', () => {
   )
   it('normalizes before admission, then synchronously queues the full payload and releases listen', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(100)
-    const owner = {} as WebContents
+    const owner = {} as ClientRef
     const queue = new PendingMessageQueue()
-    const leases = new SessionChainLeaseRegistry<WebContents>()
+    const leases = new SessionChainLeaseRegistry<ClientRef>()
     const leaseInput = {
       logicalKey: sessionLeaseKey('s1'),
       sessionId: 's1',
@@ -211,7 +211,7 @@ describe('handleChatSend busy submission', () => {
     const attachmentViews = [
       { id: 'attachment', name: 'note.txt', mimeType: 'text/plain', kind: 'file' as const }
     ]
-    const request = handleChatSend(deps, { sender: owner } as IpcMainInvokeEvent, {
+    const request = handleChatSend(deps, { sender: owner } as RequestEvent, {
       sessionId: 's1',
       projectId: null,
       text: 'queued text',
