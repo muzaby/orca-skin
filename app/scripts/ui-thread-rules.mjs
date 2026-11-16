@@ -31,9 +31,10 @@ export const RULES = {
     route: '`handle` · `handlePlain` · `on` (`ipcMain` 은 `infra/ipc/electron-transport.ts` 만)'
   },
   e: {
-    title: '셸의 import 경계',
-    ask: '에이전트 호스트',
-    route: '수명 이벤트 → `LifecycleState` · DB 는 호스트의 `ctx.db`'
+    title: '프로세스별 import 경계 (셸 · 에이전트 호스트 · 데이터 호스트)',
+    ask: '그 일을 소유한 호스트',
+    route:
+      '셸: 수명 이벤트 → `LifecycleState` · 에이전트: 피어 링크(`data.query`·`data.write`) · 데이터: 피어 링크(`agent.call`)'
   },
   f: {
     title: '호스트의 Electron 값 import · `worker_threads`',
@@ -256,11 +257,30 @@ export const ALLOWED = {
   },
   // (d) `ipcMain` 을 직접 부르는 유일한 파일 — 등록 API 는 `handle.ts` 의 세 함수다.
   d: { files: [`${MAIN}infra/ipc/electron-transport.ts`] },
-  // (e) 셸 진입점에서 값 import 로 닿으면 안 되는 곳.
+  // (e) 프로세스별 import 경계 (0324 EP-1 (e)′ · (e3)′). 진입점에서 값 import 로 닿으면 안 되는 곳.
+  // (e1) 셸 · (e2) 에이전트 호스트(실행 — DB·설정·비밀 파일 없음) · (e3) 데이터 호스트(상태 — 하네스
+  // 구현·프로세스 기동·SDK 없음. `adapters/common/` 은 zod·타입·순수 함수라 허용한다).
   e: {
     entry: `${MAIN}index.ts`,
     dirs: [`${MAIN}features/`, `${MAIN}adapters/`, `${MAIN}infra/db/`],
-    packages: ['better-sqlite3', 'worker_threads', 'node:worker_threads']
+    packages: ['better-sqlite3', 'worker_threads', 'node:worker_threads'],
+    agent: {
+      entry: `${MAIN}app/agent-host/entry.ts`,
+      dirs: [`${MAIN}infra/db/`],
+      files: [`${MAIN}infra/settings-store.ts`, `${MAIN}infra/config/secret-store.ts`],
+      packages: ['better-sqlite3', 'electron-store']
+    },
+    data: {
+      entry: `${MAIN}app/data-host/entry.ts`,
+      dirs: [`${MAIN}adapters/`],
+      exceptDirs: [`${MAIN}adapters/common/`],
+      packages: [
+        'child_process',
+        'node:child_process',
+        '@anthropic-ai/claude-agent-sdk',
+        '@opencode-ai/sdk'
+      ]
+    }
   },
   // (f) 호스트 진입점에서 닿는 모듈 중 `electron` 값을 import 해도 되는 파일.
   f: {

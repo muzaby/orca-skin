@@ -1,0 +1,87 @@
+// 데이터 호스트 ↔ 에이전트 호스트 피어 계약 (0324 AR-13 · EP-15 · EP-16 · EP-20 · F1~F4).
+//
+// 두 호스트는 셸이 중개한 포트 하나로 이야기한다. 한 포트의 도착 순서가 곧 처리 순서다 — 턴 저장
+// 스트림(F1)의 순서가 저장 순서이고, 받는 쪽은 메시지를 도착한 차례대로 동기로 처리한다.
+//
+// 봉투는 셋이다: 응답이 있는 `request` · 응답 `result` · 응답 없는 `notify`. 메서드 이름은 아래 표에
+// 있는 것만 받는다 — 모르는 이름·틀린 봉투는 스키마에서 거부한다. 메서드별 인자의 모양은 받는 쪽의
+// 핸들러가 자기 스키마로 다시 본다(이 표는 방향과 봉투 종류만 고정한다).
+
+import { z } from 'zod'
+
+// 메서드 표. `from` 은 보내는 호스트, `kind` 는 봉투다.
+export const PEER_METHODS = {
+  // ── F1 턴 저장 스트림 (에이전트 → 데이터) ─────────────────────────────────────
+  // 턴 시작 — 저장이 읽는 턴의 정적 필드.
+  'turn.begin': { from: 'agent', kind: 'notify' },
+  // 턴 이벤트 하나. 화면 중계는 이 응답을 기다리지 않는다(D-039).
+  'turn.event': { from: 'agent', kind: 'notify' },
+  // 질문 도구의 답.
+  'turn.askAnswers': { from: 'agent', kind: 'notify' },
+  // 사용자 메시지 커밋 — 응답은 DB 가 만든 메시지 id(없으면 null).
+  'turn.commitUser': { from: 'agent', kind: 'request' },
+  // 턴 끝 — 진행 중 어시스턴트 메시지를 마감한다.
+  'turn.end': { from: 'agent', kind: 'notify' },
+  // 백그라운드 작업 기록 — 응답 뒤에만 창에 공개한다.
+  'provider.event': { from: 'agent', kind: 'request' },
+  // 제공자 세션 잊기 — 이후 그 세션의 백그라운드 기록 0.
+  'provider.forget': { from: 'agent', kind: 'notify' },
+  // 데이터 호스트가 한 턴의 저장에 실패했다 — 에이전트 호스트가 그 턴을 오류로 끝낸다.
+  'turn.persistFailed': { from: 'data', kind: 'notify' },
+
+  // ── F2 턴 준비 조회 (에이전트 → 데이터) ───────────────────────────────────────
+  // 실행 쪽 코드의 DB·비밀 조회는 모두 이 한 메서드로 간다. `op` 가 데이터 호스트의 조회 표 이름이다.
+  'data.query': { from: 'agent', kind: 'request' },
+
+  // ── F3 설정 사본 (데이터 → 에이전트) ─────────────────────────────────────────
+  'settings.snapshot': { from: 'data', kind: 'notify' },
+  'settings.patch': { from: 'data', kind: 'notify' },
+  // 설정 쓰기 요청 — 사본은 패치 통지로만 바뀐다.
+  'settings.write': { from: 'agent', kind: 'request' },
+
+  // ── F4 교차 요청 ─────────────────────────────────────────────────────────────
+  // 데이터 → 에이전트: 실행 쪽이 가진 것. `op` 가 에이전트 호스트의 실행 표 이름이다.
+  'agent.call': { from: 'data', kind: 'request' },
+  // 에이전트 → 데이터: 실행 쪽이 내는 쓰기(제목·작업 트리·분기 복사·확장 빌더 기록 등).
+  'data.write': { from: 'agent', kind: 'request' },
+  // 에이전트 호스트의 오류 보고·부팅 단계(D-042) — 데이터 호스트가 모아 창에 준다.
+  'report.error': { from: 'agent', kind: 'notify' },
+  'report.boot': { from: 'agent', kind: 'notify' }
+} as const satisfies Record<string, { from: PeerSide; kind: 'request' | 'notify' }>
+
+export type PeerSide = 'agent' | 'data'
+export type PeerMethod = keyof typeof PEER_METHODS
+export type PeerRequestMethod<S extends PeerSide> = {
+  [M in PeerMethod]: (typeof PEER_METHODS)[M] extends { from: S; kind: 'request' } ? M : never
+}[PeerMethod]
+export type PeerNotifyMethod<S extends PeerSide> = {
+  [M in PeerMethod]: (typeof PEER_METHODS)[M] extends { from: S; kind: 'notify' } ? M : never
+}[PeerMethod]
+
+const METHOD_NAMES = Object.keys(PEER_METHODS) as [PeerMethod, ...PeerMethod[]]
+const Method = z.enum(METHOD_NAMES)
+const Id = z.number().int().nonnegative()
+
+export const PeerMessageSchema = z.union([
+  z.object({ kind: z.literal('request'), id: Id, method: Method, payload: z.unknown().optional() }),
+  z.object({ kind: z.literal('notify'), method: Method, payload: z.unknown().optional() }),
+  z.object({
+    kind: z.literal('result'),
+    id: Id,
+    ok: z.literal(true),
+    value: z.unknown().optional()
+  }),
+  z.object({ kind: z.literal('result'), id: Id, ok: z.literal(false), error: z.string() })
+])
+export type PeerMessage = z.infer<typeof PeerMessageSchema>
+
+// 받은 메시지가 보낸 쪽의 방향·봉투와 맞는가. 맞지 않으면 받는 쪽이 거부한다.
+export function peerMessageFits(message: PeerMessage, from: PeerSide): boolean {
+  if (message.kind === 'result') return true
+  const spec = PEER_METHODS[message.method]
+  return spec.from === from && spec.kind === message.kind
+}
+
+// F2·F4 의 `op` 봉투 — 조회·실행 표의 이름과 인자.
+export const PeerOpSchema = z.object({ op: z.string().min(1), args: z.array(z.unknown()) })
+export type PeerOp = z.infer<typeof PeerOpSchema>

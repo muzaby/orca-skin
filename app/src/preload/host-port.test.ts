@@ -3,8 +3,8 @@
 import { describe, expect, it } from 'vitest'
 import type { ClientToHost } from '../shared/host-protocol'
 import {
-  HOST_EXITED_ERROR,
-  HOST_REPLACED_ERROR,
+  hostExitedError,
+  hostReplacedError,
   createHostPortClient,
   type ClientPort
 } from './host-port'
@@ -33,7 +33,7 @@ const flush = async (): Promise<void> => {
 
 function setup(): { client: ReturnType<typeof createHostPortClient>; connects: () => number } {
   let connects = 0
-  const client = createHostPortClient({ requestConnect: () => (connects += 1) })
+  const client = createHostPortClient({ host: 'agent', requestConnect: () => (connects += 1) })
   return { client, connects: () => connects }
 }
 
@@ -122,9 +122,9 @@ describe('createHostPortClient — 포트가 없을 때', () => {
     const afterExit = track(client.invoke('oo:b'))
     client.hostExited()
     await flush()
-    expect(queued.state()).toBe(`err:${HOST_EXITED_ERROR}`)
-    expect(inFlight.state()).toBe(`err:${HOST_EXITED_ERROR}`)
-    expect(afterExit.state()).toBe(`err:${HOST_EXITED_ERROR}`)
+    expect(queued.state()).toBe(`err:${hostExitedError('agent')}`)
+    expect(inFlight.state()).toBe(`err:${hostExitedError('agent')}`)
+    expect(afterExit.state()).toBe(`err:${hostExitedError('agent')}`)
     expect(port.closed).toBe(1)
   })
 
@@ -133,7 +133,7 @@ describe('createHostPortClient — 포트가 없을 때', () => {
     const queued = track(client.invoke('oo:a'))
     client.hostExited()
     await flush()
-    expect(queued.state()).toBe(`err:${HOST_EXITED_ERROR}`)
+    expect(queued.state()).toBe(`err:${hostExitedError('agent')}`)
     const port = new FakePort()
     client.attachPort(port)
     expect(port.sent).toEqual([])
@@ -199,7 +199,7 @@ describe('createHostPortClient — 포트 교체', () => {
     client.attachPort(second)
     track(client.invoke('oo:b'))
     await flush()
-    expect(pending.state()).toBe(`err:${HOST_REPLACED_ERROR}`)
+    expect(pending.state()).toBe(`err:${hostReplacedError('agent')}`)
     expect(first.closed).toBe(1)
     expect(second.closed).toBe(0)
     expect(first.sent.map((m) => m.channel)).toEqual(['oo:a'])
@@ -277,5 +277,11 @@ describe('createHostPortClient — 통지', () => {
     port.reply({ kind: 'result', id: 0, ok: true, value: 'twice' })
     await flush()
     expect(result.state()).toBe('ok:"real"')
+  })
+
+  it('데이터 호스트 포트의 실패 문장은 데이터 호스트를 가리킨다', () => {
+    expect(hostExitedError('data')).toBe('데이터 호스트가 종료됐다')
+    expect(hostReplacedError('data')).toBe('데이터 호스트가 다시 연결됐다')
+    expect(hostExitedError('agent')).toBe('에이전트 호스트가 종료됐다')
   })
 })
