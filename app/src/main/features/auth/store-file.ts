@@ -45,6 +45,8 @@ const PENDING_KEY = 'pending'
 // 당겨 둔 만큼을 도로 쓴다 — OAuth pending 은 실제 OAuth 로그인이 돌 때만 읽힌다.
 function createRecordPersistence<T>(options: {
   name: string
+  // 파일을 둘 디렉토리(`userData`). 생략할 수 없다(0324 D-031).
+  cwd: string
   key: string
   parse: (raw: unknown) => ParsedRecordMap<T>
   // 파일을 못 열면 메모리로 내려앉는다 — 이 프로세스 안에서는 동작하고, 재시작을 못 넘긴다.
@@ -57,7 +59,11 @@ function createRecordPersistence<T>(options: {
   const open = (): Store<Record<string, unknown>> | null => {
     if (store !== null || unavailable) return store
     try {
-      store = new Store<Record<string, unknown>>({ name: options.name, defaults: {} })
+      store = new Store<Record<string, unknown>>({
+        name: options.name,
+        cwd: options.cwd,
+        defaults: {}
+      })
     } catch (error) {
       unavailable = true
       options.onUnavailable(error)
@@ -116,10 +122,12 @@ function createRecordPersistence<T>(options: {
 }
 
 export function createOAuthStatePersistence(
+  cwd: string,
   onUnavailable: (error: unknown) => void
 ): OAuthStatePersistencePort {
   const inner = createRecordPersistence<PendingAuthorization>({
     name: OAUTH_STORE_NAME,
+    cwd,
     key: PENDING_KEY,
     parse: parsePendingRecords,
     onUnavailable
@@ -130,10 +138,12 @@ export function createOAuthStatePersistence(
 }
 
 export function createGrantPersistence(
+  cwd: string,
   onUnavailable: (error: unknown) => void
 ): GrantPersistencePort {
   return createRecordPersistence<Grant>({
     name: STORE_NAME,
+    cwd,
     key: RECORDS_KEY,
     parse: parseGrantRecords,
     onUnavailable

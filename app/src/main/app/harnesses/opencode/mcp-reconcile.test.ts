@@ -112,7 +112,7 @@ beforeEach(async () => {
       return (settings = { ...settings, ...patch })
     }
   }
-  mcp = new McpStore(store as unknown as SettingsStore)
+  mcp = new McpStore(store as unknown as SettingsStore, '/unused-user-data')
   mcp.add({ name: 'user', transport: 'stdio', command: 'fixture-user', enabled: false })
   const plugin = createPluginBinding({
     auth: {

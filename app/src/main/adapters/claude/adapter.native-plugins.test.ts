@@ -9,6 +9,7 @@ import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
 import type { LiveTurn } from '../common/types'
 import { ClaudeAdapter } from './adapter'
 import { nativePluginId } from './configured-resources'
+import { sendPrepared } from './prepared.testfixture'
 
 const fixture = vi.hoisted(() => ({
   messages: [] as SDKMessage[],
@@ -68,7 +69,7 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 
-it('applies current global plugin choices to every new query while live queries keep theirs', () => {
+it('applies current global plugin choices to every new query while live queries keep theirs', async () => {
   write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
   const original = readFileSync(join(root, 'settings.json'), 'utf8')
   let enabled = true
@@ -102,20 +103,20 @@ it('applies current global plugin choices to every new query while live queries 
     JSON.parse(
       String((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.settings)
     ).enabledPlugins['frontend-design@inline']
-  const first = adapter.sendMessage(request)
+  const first = await sendPrepared(adapter, request)
   expect(flag()).toBe(true)
   expect((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.skills).toContain(
     'claude:native'
   )
   enabled = false
-  const peer = adapter.sendMessage(request)
+  const peer = await sendPrepared(adapter, request)
   expect(flag()).toBe(false)
-  const other = adapter.sendMessage({ ...request, cwd: join(temp, 'other') })
+  const other = await sendPrepared(adapter, { ...request, cwd: join(temp, 'other') })
   expect(flag()).toBe(false)
   first.close()
   first.close()
   enabled = true
-  const remaining = adapter.sendMessage(request)
+  const remaining = await sendPrepared(adapter, request)
   expect(flag()).toBe(true)
   expect(
     JSON.parse(String((fixture.query.mock.calls[0][0] as { options: Options }).options.settings))
@@ -124,7 +125,7 @@ it('applies current global plugin choices to every new query while live queries 
   enabled = false
   peer.close()
   remaining.close()
-  const fresh = adapter.sendMessage(request)
+  const fresh = await sendPrepared(adapter, request)
   expect(flag()).toBe(false)
   other.close()
   fresh.close()
@@ -193,7 +194,7 @@ it.each([null, 'resume-native-B'])(
       }
     }
     const adapter = new ClaudeAdapter()
-    const live = adapter.sendMessage(request)
+    const live = await sendPrepared(adapter, request)
     const options = (fixture.query.mock.calls[0][0] as { options: Options }).options
     expect(options.plugins).toEqual([
       { type: 'local', path: injected },
@@ -219,7 +220,7 @@ it.each([null, 'resume-native-B'])(
     expect(result?.items.map((item) => item.name)).toEqual(['frontend@market'])
     live.close()
     write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
-    const resumed = adapter.sendMessage({ ...request, sessionId: 'next-resume' })
+    const resumed = await sendPrepared(adapter, { ...request, sessionId: 'next-resume' })
     const next = (fixture.query.mock.calls[1][0] as { options: Options }).options
     expect(next.plugins).toEqual([
       { type: 'local', path: injected },
@@ -232,7 +233,7 @@ it.each([null, 'resume-native-B'])(
 )
 
 it('reconciles plugin choices through the actual adapter while preserving provider flags', async () => {
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: null,
     cwd,
     text: 'Hello',
@@ -268,7 +269,7 @@ it('reconciles plugin choices through the actual adapter while preserving provid
 })
 
 it('exposes runtime-native watch files and applies external project choices only after idle reconciliation', async () => {
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: null,
     cwd,
     text: 'Hello',
@@ -316,7 +317,7 @@ it('preserves externally selected plugin states across follow-up turns, new adap
     },
     extensions: { skills: [], hooks: { normalized: {} } }
   }
-  const first = new ClaudeAdapter().sendMessage(request)
+  const first = await sendPrepared(new ClaudeAdapter(), request)
   const sdk = fixture.query.mock.results[0].value
   sdk.reloadPlugins.mockResolvedValue({
     plugins: [{ name: 'frontend-design', path: plugin }],
@@ -334,13 +335,13 @@ it('preserves externally selected plugin states across follow-up turns, new adap
     enabledPlugins: { 'sibling@market': true, 'frontend@market': true }
   })
   first.close()
-  const resumed = new ClaudeAdapter().sendMessage({ ...request, sessionId: 'cold-resume' })
+  const resumed = await sendPrepared(new ClaudeAdapter(), { ...request, sessionId: 'cold-resume' })
   const options = (fixture.query.mock.calls[1][0] as { options: Options }).options
   expect(JSON.parse(String(options.settings)).enabledPlugins['frontend-design@inline']).toBe(true)
   expect((await resumed.nativeResources!()).items[0].enabled).toBe(true)
   await selectPlugin(resumed, false)
   resumed.close()
-  const restarted = new ClaudeAdapter().sendMessage({
+  const restarted = await sendPrepared(new ClaudeAdapter(), {
     ...request,
     providerSettings: {
       ...request.providerSettings,
@@ -373,12 +374,12 @@ it('pins deployed MCP files for same-cwd peers and reloads until the final owner
     ((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.plugins ?? [])
       .filter((entry) => entry.type === 'local')
       .map((entry) => entry.path)
-  const first = adapter.sendMessage(request)
+  const first = await sendPrepared(adapter, request)
   const oldPath = files()[0]
   write(join(injected, '.mcp.json'), { mcpServers: { next: {} } })
   await snapshots.publish([injected])
   await first.pushTurn!({ text: 'next turn' })
-  const peer = adapter.sendMessage({ ...request, sessionId: 'cold-resume' })
+  const peer = await sendPrepared(adapter, { ...request, sessionId: 'cold-resume' })
   expect(files()[0]).toBe(oldPath)
   expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
     mcpServers: { old: {} }
@@ -391,16 +392,16 @@ it('pins deployed MCP files for same-cwd peers and reloads until the final owner
     return { plugins: [], commands: [], agents: [], mcpServers: [], error_count: 0 }
   })
   await selectPlugin(peer, false)
-  const other = adapter.sendMessage({ ...request, cwd: join(temp, 'other') })
+  const other = await sendPrepared(adapter, { ...request, cwd: join(temp, 'other') })
   expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
     mcpServers: { next: {} }
   })
   first.close()
-  const remaining = adapter.sendMessage(request)
+  const remaining = await sendPrepared(adapter, request)
   expect(files()[0]).toBe(oldPath)
   peer.close()
   remaining.close()
-  const fresh = adapter.sendMessage(request)
+  const fresh = await sendPrepared(adapter, request)
   expect(files()[0]).not.toBe(oldPath)
   expect(JSON.parse(readFileSync(join(files()[0], '.mcp.json'), 'utf8'))).toEqual({
     mcpServers: { next: {} }
@@ -411,7 +412,7 @@ it('pins deployed MCP files for same-cwd peers and reloads until the final owner
 })
 
 it('reports a reconciled plugin revision as applied but not a later external edit', async () => {
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: null,
     cwd,
     text: 'Hello',
@@ -441,3 +442,54 @@ it('reports a reconciled plugin revision as applied but not a later external edi
 
 // Exercise the warm channel path; sdk.test.ts covers the cold import boundary.
 await loadClaudeSdk()
+
+// 0324 EP-7′ — 스폰 경계는 준비 결과만 쓴다.
+it('refuses to spawn a turn that was not prepared', () => {
+  expect(() =>
+    new ClaudeAdapter().sendMessage({
+      sessionId: null,
+      cwd,
+      text: 'unprepared',
+      env: { CLAUDE_CONFIG_DIR: root },
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+  ).toThrow('Claude turn was not prepared')
+  expect(fixture.query).not.toHaveBeenCalled()
+})
+
+it('does not read the plugin catalog for a turn cancelled before preparation', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  await expect(
+    new ClaudeAdapter().prepareTurn(
+      {
+        sessionId: null,
+        cwd,
+        text: 'cancelled',
+        env: { CLAUDE_CONFIG_DIR: root },
+        extensions: { skills: [], hooks: { normalized: {} } }
+      },
+      controller.signal
+    )
+  ).rejects.toMatchObject({ name: 'AbortError' })
+})
+
+it('carries the prepared global plugin defaults into the spawned query settings', async () => {
+  // 설치되지 않은 키는 설치 항목의 플래그로 덮이지 않는다 — 기본값이 그대로 실려야 보인다.
+  write(join(root, 'settings.json'), {
+    enabledPlugins: { 'frontend@market': true, 'absent@market': true }
+  })
+  const live = await sendPrepared(new ClaudeAdapter(), {
+    sessionId: null,
+    cwd,
+    text: 'hello',
+    env: { CLAUDE_CONFIG_DIR: root },
+    extensions: { skills: [], hooks: { normalized: {} } }
+  })
+  const settings = JSON.parse(
+    String((fixture.query.mock.calls.at(-1)![0] as { options: Options }).options.settings)
+  ) as { enabledPlugins: Record<string, boolean> }
+  expect(settings.enabledPlugins['absent@market']).toBe(true)
+  expect(settings.enabledPlugins['frontend-design@inline']).toBe(true)
+  live.close()
+})

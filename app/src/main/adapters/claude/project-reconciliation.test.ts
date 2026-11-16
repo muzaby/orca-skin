@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { NativeResource } from '../../../shared/native-resources'
 import { claudeNativeResources } from './native-resources'
-import { readClaudePluginCatalog } from './plugin-catalog'
+import { readClaudePluginCatalogAsync } from './plugin-catalog'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
 import { readClaudeProjectSettings } from './project-settings'
 let temp: string, cwd: string, root: string, plugin: string
@@ -27,7 +27,7 @@ beforeEach(() => {
   })
 })
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
-function fixture(): {
+async function fixture(): Promise<{
   reconcile: ClaudeProjectReconciliation
   resources: ReturnType<typeof claudeNativeResources>
   query: {
@@ -38,8 +38,8 @@ function fixture(): {
   }
   persist: ReturnType<typeof vi.fn>
   revision(): string
-} {
-  const plugins = readClaudePluginCatalog(cwd, root, {}, true)
+}> {
+  const plugins = await readClaudePluginCatalogAsync(cwd, root, {}, true)
   let enabled = true
   const persist = vi.fn()
   const query = {
@@ -82,7 +82,7 @@ function fixture(): {
   }
 }
 it('shows external selection with actual status immediately, waits for idle, and never saves it back', async () => {
-  const f = fixture()
+  const f = await fixture()
   const file = join(cwd, '.claude/settings.local.json')
   json(file, { enabledPlugins: { 'p@m': false }, permissions: { allow: ['keep'] } })
   const bytes = readFileSync(file, 'utf8')
@@ -107,7 +107,7 @@ it('shows external selection with actual status immediately, waits for idle, and
 it.each(['plugin-mcp', 'definition', 'approval', 'unknown-plugin'])(
   'defers %s to normal reclamation without an SDK mutation',
   async (change) => {
-    const f = fixture()
+    const f = await fixture()
     if (change === 'plugin-mcp') json(join(plugin, '.mcp.json'), { mcpServers: { owned: {} } })
     json(
       join(cwd, '.claude/settings.local.json'),
@@ -134,7 +134,7 @@ it('isolates project approvals from user MCP and detects revision changes before
   const r = new ClaudeProjectReconciliation({
     cwd,
     root,
-    plugins: readClaudePluginCatalog(cwd, root),
+    plugins: await readClaudePluginCatalogAsync(cwd, root),
     list: async () => items,
     set
   })
@@ -149,7 +149,7 @@ it('isolates project approvals from user MCP and detects revision changes before
 })
 
 it('acknowledges only its own persisted change and leaves external edits pending', async () => {
-  const { reconcile, revision } = fixture()
+  const { reconcile, revision } = await fixture()
   const local = join(cwd, '.claude/settings.local.json')
   expect(reconcile.covers(revision())).toBe(true)
   json(local, { enabledPlugins: { 'p@m': false } })
@@ -167,7 +167,7 @@ it('acknowledges only its own persisted change and leaves external edits pending
 it.each([[], {}, true, false])(
   'projects native plugin flag %j during external reconciliation',
   async (flag) => {
-    const f = fixture()
+    const f = await fixture()
     json(join(cwd, '.claude/settings.local.json'), { enabledPlugins: { 'p@m': flag } })
     expect(f.reconcile.preview(await f.resources.list())[0].enabled).toBe(flag !== false)
     expect(await f.reconcile.reconcile(f.revision(), () => true)).toBe('applied')

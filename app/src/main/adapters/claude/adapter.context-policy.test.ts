@@ -28,6 +28,7 @@ const { queryMock, setModel } = vi.hoisted(() => {
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 
 import { ClaudeAdapter } from './adapter'
+import { sendPrepared } from './prepared.testfixture'
 
 const gateway = { ANTHROPIC_BASE_URL: 'https://llm.example.test' }
 const base = (overrides: Partial<TurnRequest> = {}): TurnRequest => ({
@@ -69,10 +70,10 @@ beforeEach(() => vi.clearAllMocks())
 afterEach(() => vi.unstubAllEnvs())
 
 describe('0245 AC3 — all three execution model sites and model changes', () => {
-  it('normalizes the spawn model without changing env, settings or the request identity', () => {
+  it('normalizes the spawn model without changing env, settings or the request identity', async () => {
     const env = Object.freeze({ ...gateway, CLAUDE_CODE_AUTO_COMPACT_WINDOW: '123456' })
     const req = base({ model: 'gw-opus-4.7', env })
-    const live = new ClaudeAdapter().sendMessage(req)
+    const live = await sendPrepared(new ClaudeAdapter(), req)
     const options = queryMock.mock.calls[0][0].options
     expect(options.model).toBe('gw-opus-4.7[1m]')
     expect(options.env).toMatchObject(env)
@@ -88,7 +89,7 @@ describe('0245 AC3 — all three execution model sites and model changes', () =>
       ANTHROPIC_DEFAULT_OPUS_MODEL: 'gw-opus-4.7',
       ANTHROPIC_DEFAULT_SONNET_MODEL: 'internal-llm'
     }
-    const live = new ClaudeAdapter().sendMessage(base({ model: 'sonnet', env }))
+    const live = await sendPrepared(new ClaudeAdapter(), base({ model: 'sonnet', env }))
     expect(queryMock.mock.calls[0][0].options.model).toBe('sonnet')
     await live.pushTurn!({ text: 'next', model: 'opus' })
     await live.pushTurn!({ text: 'back', model: 'sonnet' })
@@ -97,7 +98,10 @@ describe('0245 AC3 — all three execution model sites and model changes', () =>
   })
 
   it('resolves a different model for every LiveTurn.setModel control call', async () => {
-    const live = new ClaudeAdapter().sendMessage(base({ model: 'internal-llm', env: gateway }))
+    const live = await sendPrepared(
+      new ClaudeAdapter(),
+      base({ model: 'internal-llm', env: gateway })
+    )
     await live.setModel('gw-opus-4.7')
     await live.setModel('claude-opus-4-6')
     await live.setModel('gw-fable-5')
@@ -114,7 +118,8 @@ describe('0245 AC3 — all three execution model sites and model changes', () =>
       model: 'gw-fable-5',
       env: { ...gateway, ANTHROPIC_DEFAULT_OPUS_MODEL: 'gw-opus-4.7' }
     }
-    const live = new ClaudeAdapter().sendMessage(
+    const live = await sendPrepared(
+      new ClaudeAdapter(),
       base({
         env: undefined,
         providerSettings: {
@@ -135,8 +140,9 @@ describe('0245 AC3 — all three execution model sites and model changes', () =>
     live.close()
   })
 
-  it('uses ANTHROPIC_MODEL from the prepared env before settings model (AC20)', () => {
-    const live = new ClaudeAdapter().sendMessage(
+  it('uses ANTHROPIC_MODEL from the prepared env before settings model (AC20)', async () => {
+    const live = await sendPrepared(
+      new ClaudeAdapter(),
       base({
         env: { ...gateway, ANTHROPIC_MODEL: 'gw-opus-4.7' },
         providerSettings: {
@@ -151,8 +157,8 @@ describe('0245 AC3 — all three execution model sites and model changes', () =>
     live.close()
   })
 
-  it('preserves default-model delegation and injects no compact/window override', () => {
-    const live = new ClaudeAdapter().sendMessage(base())
+  it('preserves default-model delegation and injects no compact/window override', async () => {
+    const live = await sendPrepared(new ClaudeAdapter(), base())
     const options = queryMock.mock.calls[0][0].options
     expect(options).not.toHaveProperty('model')
     expect(options.env).not.toHaveProperty('CLAUDE_CODE_AUTO_COMPACT_WINDOW')
@@ -179,7 +185,7 @@ describe('0245 AC21 — three actual query input paths', () => {
           ? { preludes: [{ ...attachments, ids: ['prelude'], uuid: 'prelude', createdAt: 1 }] }
           : {})
       })
-      const live = new ClaudeAdapter().sendMessage(req)
+      const live = await sendPrepared(new ClaudeAdapter(), req)
       const args = queryMock.mock.calls[0][0]
       const input = args.prompt[Symbol.asyncIterator]()
       if (path === 'pushTurn') await input.next()

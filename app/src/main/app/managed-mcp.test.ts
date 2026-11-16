@@ -57,7 +57,7 @@ it('projects stored MCP and authenticated plugin bindings', async () => {
     getAll: () => state,
     patch: (patch: object) => Object.assign(state, patch)
   } as unknown as SettingsStore
-  const mcp = new McpStore(settings)
+  const mcp = new McpStore(settings, '/unused-user-data')
   let valid = true
   let credentialRevision = 3
   const auth = (authId: string, origin: string): PluginAuth => ({

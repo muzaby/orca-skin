@@ -20,7 +20,8 @@ import { startLoopStallMonitor } from './infra/perf/stall-monitor'
 import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
 import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
-import type { SettingsStore } from './infra/settings-store'
+import type { ShellState } from './app/shell/shell-state'
+import { openShellState } from './app/shell/shell-state-file'
 
 // dev(`npm run dev`) 데이터를 실제 설치본과 격리한다. userData 는 app.getName()(dev·prod 모두
 // `orcinus-orca`)에서 파생돼 같은 폴더로 해석되므로, dev 에서만 sibling `orcinus-orca-dev` 로
@@ -156,8 +157,8 @@ function registerAppProtocol(): void {
 
 const DEFAULT_BOUNDS = { width: 900, height: 670 }
 
-function createWindow(settings: SettingsStore): BrowserWindow {
-  const saved = settings.getAll().windowBounds
+function createWindow(shellState: ShellState): BrowserWindow {
+  const saved = shellState.windowBounds()
   // 커스텀 타이틀바 — HTML 헤더로 직접 그린다. macOS 는 traffic light 만 OS 가
   // 그리도록 `titleBarStyle: 'hidden'` + `trafficLightPosition` 으로 36px 헤더 안에
   // 수직 중앙. Windows/Linux 는 frameless, WinControls 가 minimize/maximize/close 를 그린다.
@@ -199,7 +200,7 @@ function createWindow(settings: SettingsStore): BrowserWindow {
   // 종료 직전 윈도우 위치/크기를 영속화. minimize/maximize 상태는 보존 대상 아님.
   mainWindow.on('close', () => {
     if (mainWindow.isMinimized() || mainWindow.isMaximized()) return
-    settings.patch({ windowBounds: mainWindow.getBounds() })
+    shellState.saveWindowBounds(mainWindow.getBounds())
   })
 
   installExternalNavigation(mainWindow.webContents, (url) => shell.openExternal(url))
@@ -272,7 +273,13 @@ app.whenReady().then(async () => {
   // 이전에 등록돼야 한다(등록 전 도착 invoke 는 reject 되므로).
   const started = router.start()
   handlePlain(CHANNELS.bootWhenReady, () => started)
-  const mainWindow = createWindow(router.settings)
+  // 셸이 쓰는 상태는 셸 상태 파일 하나다(0324 D-029). UI 언어는 설정이 정본이고 여기는 사본이다 —
+  // 설정이 바뀌면 사본을 맞춘다.
+  const shellState = openShellState(app.getPath('userData'))
+  router.settings.onPatch((next, changedKeys) => {
+    if (changedKeys.includes('uiLocale')) shellState.mirrorUiLocale(next.uiLocale)
+  })
+  const mainWindow = createWindow(shellState)
   // 트레이 상주 (0322) — Windows 에서 창 닫기는 종료가 아니라 숨김이다. 창을 먼저 만든다:
   // 트레이 생성 실패는 프로그램 오류라 잡지 않는데, 그때 창 없는 프로세스가 남으면 안 된다.
   // 위치 저장 `close` 리스너(createWindow)가 숨김 판정보다 먼저 등록되는 순서도 여기서 정해진다.
@@ -284,7 +291,7 @@ app.whenReady().then(async () => {
     buildMenu: (items) => Menu.buildFromTemplate(items),
     tooltip: PRODUCT_DISPLAY_NAME,
     open: focusMainWindow,
-    settings: router.settings
+    settings: shellState
   }).attach(mainWindow)
   try {
     await started
@@ -295,10 +302,12 @@ app.whenReady().then(async () => {
     return
   }
   rootLog.info('app.start.completed')
+  // 설정이 다른 경로로 바뀌었을 수 있다 — 준비가 끝나면 사본을 정본에 맞춘다(B14).
+  shellState.mirrorUiLocale(router.settings.getAll().uiLocale)
   void router.runBackgroundUpdateCheck()
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(router.settings)
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(shellState)
   })
 })
 

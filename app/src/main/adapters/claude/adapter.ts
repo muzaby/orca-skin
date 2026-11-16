@@ -2,7 +2,11 @@ import { deferClaudeQuery, loadClaudeSdk } from './sdk'
 import { DEFAULT_CLAUDE_OUTPUT_STYLE, type ClaudePreferences } from '../../../shared/harness'
 import { extensionChoices } from '../common/extension-control'
 import { claudeNativeResources } from './native-resources'
-import { claudePluginDefaults, readClaudePluginCatalog } from './plugin-catalog'
+import {
+  claudePluginDefaults,
+  readClaudePluginCatalogAsync,
+  type ClaudePluginCatalog
+} from './plugin-catalog'
 import { persistClaudePluginState } from './plugin-state'
 import { pluginPathKey } from './project-path'
 import { ClaudeProjectReconciliation } from './project-reconciliation'
@@ -336,6 +340,21 @@ export function makeCanUseTool(
   }
 }
 
+// `prepareTurn` 이 스폰 전에 읽어 둔 것. `sendMessage` 는 디스크의 플러그인 설정을 다시 읽지 않는다.
+interface ClaudeTurnPreparation {
+  readonly kind: 'claude-turn'
+  readonly pluginDefaults: Record<string, boolean>
+  readonly plugins: ClaudePluginCatalog
+}
+
+// 준비 없이 온 요청은 실패다 — 동기 읽기로 대신하지 않는다(스폰 경계에 디렉토리 순회를 되돌린다).
+function claudePreparation(value: unknown): ClaudeTurnPreparation {
+  if ((value as ClaudeTurnPreparation | undefined)?.kind !== 'claude-turn') {
+    throw new Error('Claude turn was not prepared')
+  }
+  return value as ClaudeTurnPreparation
+}
+
 export class ClaudeAdapter implements SessionAdapter {
   private readonly extensionSnapshots = new Map<
     string,
@@ -442,8 +461,7 @@ export class ClaudeAdapter implements SessionAdapter {
   // 동안 열려있는 AsyncIterable 로 넘겨, result 후에도 서브프로세스가 살아남아 후속 턴을
   // `pushTurn`(라이브 setter + content push)으로 이어받는다. 스트림 절단(1 프레임=1 턴)은
   // SessionRuntime 몫이고, 입력 close 는 세션 폐기(LRU 축출·종료·respawn 경계·에러)에서만.
-  sendMessage(req: TurnRequest): LiveTurn {
-    const key = pluginPathKey(req.cwd)
+  async prepareTurn(req: TurnRequest, signal: AbortSignal): Promise<ClaudeTurnPreparation> {
     const nativeRoot = claudeNativePaths(
       envLookup(req.env, req.providerSettings?.settings, process.env),
       undefined,
@@ -451,13 +469,27 @@ export class ClaudeAdapter implements SessionAdapter {
     ).root
     const choices = this.extensionControl?.global('claude') ?? {}
     const flags = extensionChoices(choices, 'plugin')
-    const plugins = claudePluginDefaults(nativeRoot, {
+    const pluginDefaults = claudePluginDefaults(nativeRoot, {
       ...req.providerSettings?.settings,
       enabledPlugins: {
         ...(req.providerSettings?.settings?.enabledPlugins as Record<string, unknown>),
         ...flags
       }
     })
+    signal.throwIfAborted()
+    const plugins = await readClaudePluginCatalogAsync(
+      req.cwd,
+      nativeRoot,
+      req.providerSettings?.settings ?? {},
+      true,
+      pluginDefaults
+    )
+    return { kind: 'claude-turn', pluginDefaults, plugins }
+  }
+
+  sendMessage(req: TurnRequest): LiveTurn {
+    const prepared = claudePreparation(req.prepared)
+    const key = pluginPathKey(req.cwd)
     let snapshot = this.extensionSnapshots.get(key)
     if (!snapshot) {
       const deployment = this.pluginSnapshots?.capture(req.extensions.pluginRoots ?? [])
@@ -487,7 +519,7 @@ export class ClaudeAdapter implements SessionAdapter {
           extensions: { ...req.extensions, skills: owned.skills, pluginRoots: owned.pluginRoots }
         },
         release,
-        plugins
+        prepared
       )
     } catch (error) {
       release()
@@ -498,8 +530,9 @@ export class ClaudeAdapter implements SessionAdapter {
   private openChannel(
     req: TurnRequest,
     releaseExtensions: () => void,
-    pluginDefaults: Record<string, boolean>
+    prepared: ClaudeTurnPreparation
   ): LiveTurn {
+    const { pluginDefaults, plugins: nativePlugins } = prepared
     const {
       sessionId,
       text,
@@ -606,13 +639,6 @@ export class ClaudeAdapter implements SessionAdapter {
     // 실행 전 편집 미리보기(0229) — 가드 훅과 **같은 입력**으로 루트를 턴당 1회 푼다. 편집이 쓸 수
     // 없는 경로는 미리보기로도 읽지 않는다.
     const nativePaths = claudeNativePaths(contextEnv, undefined, cwd)
-    const nativePlugins = readClaudePluginCatalog(
-      cwd,
-      nativePaths.root,
-      settings,
-      true,
-      pluginDefaults
-    )
     // Local SDK roots use @inline; their marketplace keys cannot disable them.
     const nativePluginFlags = {
       ...pluginDefaults,

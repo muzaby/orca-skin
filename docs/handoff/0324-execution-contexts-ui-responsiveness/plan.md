@@ -85,6 +85,7 @@
 | D-030 | 턴 시작의 비동기 읽기는 어댑터의 **준비 단계**에서 하고, 판정 → spawn 은 지금처럼 동기로 둔다 | "준비 단계 추가" — `sendMessage` 를 비동기로 바꾸는 안과 범위 제외 안을 두고 고른 답 | 턴 11 | ACTIVE | — |
 | D-031 | 호스트가 여는 `electron-store` 파일은 주입받은 `userData` 절대 경로(`cwd`)로만 연다. `cwd` 없는 생성은 가드가 막는다 | utility 프로세스 형상에서 `cwd` 없이 열면 예외 없이 다른 디렉토리에 쓴다(§7-B 조사) | 설계자(D-024 적용) | ACTIVE | — |
 | D-032 | main 이 필요한 설정값은 UI 언어 하나다. 호스트가 알리고 main 은 자기 상태 파일에 사본을 둔다 | 트레이 라벨은 호스트가 뜨기 전에도 마지막 언어로 보여야 한다. 수명 이벤트 다섯 가지(D-027)와 별개 메시지다 | 설계자 | ACTIVE (사용자 거부 가능) | — |
+| D-033 | 설정의 소유 프로세스를 다시 정한다 — "실행자가 설정을 가진다. SDK 실행에 쓰는 환경설정이 아니면 main" 과 "유틸리티 프로세스가 관리하는 형태가 더 나을 수도 있다" 사이 | "실행자가 설정을 가지는 게 맞다. 에이전트 호스트가 sdk를 싱행할때 사용하는 환경설정이 아니라면 main 이 가지는게 맞다 -> 유틸리티 프로세스가 관리하는 형태가 더 나을수도 있겠다. 제안하라" — 설계자의 제안과 사용자 확정이 필요하다. D-029·D-032·EP-13·EP-14·AC36·AC38 이 영향을 받는다 | 턴 12 | **OPEN** | 확정되면 D-029 를 유지 또는 대체 |
 
 ### 갱신 메모
 
@@ -1041,6 +1042,105 @@ gate(마지막 수정 뒤 트리에서 얻은 것만 적는다):
 - plan 의 자리 검색 술어 2건이 실제보다 좁았다 — EP-7 은 호출 함수가 동기인지 보지 않았고, EP-10 은 `electron` 직접 import 만 세어 `electron-store` 3파일이 빠졌다.
 - 이 환경은 Electron 바이너리가 없어 워커·호스트 기동을 실행할 수 없다. better-sqlite3 는 `npm rebuild` 로 Node ABI 빌드가 됐다.
 - impl 턴 `r1.2`(gate 만) — verify 0회. plan 의 EP-10 분모는 "Electron API 를 부르는 파일"을 셌고 "같은 파일을 두 프로세스가 여는가"는 세지 않았다.
+
+---
+
+## [구현자 기입] r1.3 — 단계 6′ 구현 · 단계 4 의 셸 상태·경로 주입 일부 (미완료 중단)
+
+**판정: 미완료(partial). 사용자 지시(토큰 한계)로 멈췄다. 턴 12 의 사용자 발언(D-033 OPEN)이 EP-13·EP-14 의 전제를 다시 열었다 — 보드를 `plan/DRAFT` 로 돌린다.** 아래 일곱 필드는 r1.3 분이다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| D-033(턴 12) — 설정의 소유 프로세스 | `PLAN_GAP` — 사용자 결정 대기 | rev 3 은 "설정 파일 = 호스트, 창 위치·언어 사본 = main" 으로 갈랐다. 사용자가 그 뒤 "SDK 실행용이 아닌 설정은 main" 과 "유틸리티 프로세스가 관리" 를 함께 말하고 제안을 요구했다. 설계 턴이 안을 내고 확정받는다 |
+| §7-B "`claudeInstallationExists` 를 `configured-resources.ts` 로 옮기고 등록" | 설계 대비 차이 — 선조치 | 유일한 소비 자리(`configured-resources.ts:134`)가 이미 `async` 함수 안이라 `fs/promises` 의 `stat` 로 바꿨다. 동기 호출이 없어 등록 행도 없다. 실패 모드 축: 만료·공유·재진입 해당 없음(단발 조회) · 무효화 — `E7-13` 이 잠근다 |
+| §7-B "셸 상태 = `app/shell/shell-state.ts` 한 파일" | 설계 대비 차이 — 구현 세부 | 판정(`shell-state.ts`)과 `electron-store` 배선(`shell-state-file.ts`)을 갈랐다. `electron-store` 를 무는 파일은 이 환경의 vitest 가 import 하지 못한다. 가드 (l) 의 등록 파일은 `shell-state-file.ts` 가 된다 |
+| §7-B "어댑터 `prepareTurn` 의 abort 확인" | 구현 세부 | 읽기 **앞**에서만 `signal.throwIfAborted()` 한다. 읽기 뒤의 취소는 런타임 `prepareSpawn` 이 본다(`E7-2`) — 같은 판정을 두 곳에 두지 않았다 |
+| Claude 어댑터 테스트의 `sendMessage` 직접 호출 | 구현 세부 | 26파일의 호출을 `prepared.testfixture.ts` 의 `sendPrepared`(준비 → `sendMessage`)로 옮겼다. 동기 카탈로그를 부르던 테스트 3파일은 `readClaudePluginCatalogAsync` 로 옮겼다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-7′ (3) | 런타임 `prepareTurn` 호출 · Claude `prepareTurn` · `openChannel` 소비 | 3/3 | 자리 1 `features/sessions/session-runtime.prepare.test.ts` 6케이스 · 자리 2 `adapters/claude/plugin-catalog.test.ts`(비동기 진입점) + `adapter.native-plugins.test.ts:"does not read the plugin catalog for a turn cancelled before preparation"` · 자리 3 `adapter.native-plugins.test.ts:"loads enabled native skills…"`·`"carries the prepared global plugin defaults…"`·`"refuses to spawn a turn that was not prepared"`. 검색 `rg -n "prepareTurn\|\.prepared\b" app/src/main --glob '!*.test.*' --glob '!*.testfixture.*'` → 타입 2 · 런타임 2 · 어댑터 2 |
+| EP-13 (3) | 세 스토어의 `cwd` | 코드 3/3 · 닫은 수 **0/3** | `cwd` 를 필수 인자로 바꿨다(`settings-store.ts`·`secret-store.ts`·`store-file.ts`, `McpStore` 경유 1 포함 `new Store` 4곳 모두 `cwd`). 남긴 곳: 스토어별 "임시 디렉토리에 쓴다" 테스트 3 · 가드 (l) — 좌표가 없어 닫은 수에 세지 않는다 |
+| EP-14 (6) | 창 위치 읽기·저장 · 트레이 읽기·구독 · `ready` 의 언어 · `onPatch` 알림 | 4/6 | 판정은 `app/shell/shell-state.test.ts` 7케이스(규칙 칸 5분기). `index.ts` 의 네 소비 자리는 `ShellState` 로 바꿨다. 남긴 곳: 호스트 `ready` 페이로드·`shell.mirror` 메시지(단계 4 본체) — 지금은 한 프로세스라 `index.ts` 가 `router.settings.onPatch` 로 직접 사본을 맞춘다. **`index.ts` 배선에는 테스트가 없다** |
+| EP-1 (12) | 가드 (l) | 0 | 미착수. `shell-state-file.ts` 의 `readFileSync` 1건도 (a) 등록 표에 아직 없다 |
+| EP-4·5·6·8~12 · EP-10′ | — | 0 | 단계 4 본체·5 미착수 |
+
+V-pair 자기 상태: VP-06′ · VP-34 = `SELF_PASS`(아래 잠금 표). VP-33·35·36 과 나머지는 올리지 않았다.
+
+### 이번 라운드 수정의 잠금
+
+하네스 `mutate.py` · spec 13행. Claude 어댑터 스위트는 이 환경에서 기준선이 red(10건)라 oracle 은 "실패 테스트 집합이 기준선과 같은가"로 판정했다.
+
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 |
+|---|---|---|---|---|
+| E7-1 | `session-runtime.ts` 준비 호출 | 제거 | 잡음 | `session-runtime.prepare.test.ts` 4건 |
+| E7-2 | 준비 뒤 취소 판정 | 제거 | 잡음 | "준비 중 취소되면…" |
+| E7-3 | 실패 시 롤백 | 제거 | 잡음 | 2건 |
+| E7-4 | `prepared` 전달 | 제거 | 잡음 | "준비가 돌려준 값을…" |
+| E7-5 | 준비 ↔ 판정 순서 | 뒤집기 | 잡음 | 순서 단언 |
+| E7-6 | 취소 신호 원천 | 다른 값 | 잡음 | "준비 중 취소되면…" |
+| E7-7 **등록 변이** | `openChannel` 이 빈 카탈로그 사용 | 빈 값 | 잡음 | `adapter.native-plugins.test.ts` 9건 |
+| E7-8 | 준비 가드 | 제거 | 잡음 | "refuses to spawn…" |
+| E7-9 | 준비 전 abort 확인 | 제거 | 잡음 | "does not read the plugin catalog…" |
+| E7-10 | `capturedDefaults` 인자 | 제거 | 잡음 | "applies current global plugin choices…" |
+| E7-11 | `includeDisabled` | 뒤집기 | 잡음 | 3건 |
+| E7-12 | 준비 결과의 `pluginDefaults` | 빈 값 | **못 잡음 → 테스트 추가, 재실행 못 함** | `"carries the prepared global plugin defaults…"` 를 더했고 단독 실행은 green 이다. 변이를 다시 심어 red 를 보지는 못했다(중단) |
+| E7-13 | `configured-resources.ts` 디렉토리 확인 | 제거 | 잡음 | `configured-resources.test.ts:"omits installations whose directory no longer exists"` |
+
+검산: `선택 증거 1(E7-7) · 인용 변이 0 · 새 oracle 0 · sweep 12 = 표 행 13`. 원복은 하네스가 "모든 파일 원문 그대로"로 보고했다. **EP-13·EP-14 자리에는 sweep 을 돌리지 않았다.**
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 준비 실패(카탈로그를 읽지 못함) | 지금까지 `sendMessage` 가 던지던 같은 오류가 한 단계 앞(`prepareSpawn`)에서 던져진다. `engine.spawn.started`·`failed` 로그는 남지 않는다 — 호출자(coordinator)의 실패 표시는 그대로다 |
+| 준비 중 취소 | 새 오류 문자열 `submission_cancelled:before-spawn`. 소비자가 이 문자열을 화면에 어떻게 옮기는지는 확인하지 못했다 — `submission_stale:*` 와 같은 경로를 탄다고 가정했다(미검증) |
+| 창 위치·트레이 언어 | 첫 실행에서 기존 설정 파일의 값을 이어받는다. 화면 확인은 못 했다(Electron 실행 불가) |
+
+### 놓친 잠재 문제 + 대응
+
+- `submission_cancelled:before-spawn` 의 소비 경로 미확인(위). 검증자가 `features/chat` 의 오류 분류에서 이 접두사를 확인해야 한다.
+- 설정 스키마의 `windowBounds` 는 이제 아무도 쓰지 않는다(B12). 사용자가 D-033 을 "main 이 설정을 갖는다"로 정하면 이관이 필요 없어져 `ShellState` 의 이관 분기가 죽은 코드가 된다.
+- `index.ts` 가 `router.settings.onPatch` 를 직접 구독한다 — 단계 4 에서 호스트 메시지로 바뀔 임시 배선이다. 가드 (e)(셸 그래프의 설정 스토어 import 0)는 아직 성립하지 않는다.
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 6′ 준비 단계 | 구현 | `adapters/common/{types,turn}.ts` · `contracts/ports.ts` · `features/sessions/session-runtime.ts`(`prepareSpawn`) · `adapters/claude/{adapter,plugin-catalog,configured-resources}.ts` · 동기 카탈로그 삭제 · 테스트 `session-runtime.prepare.test.ts` + `prepared.testfixture.ts` |
+| 4 셸 상태 | 일부 | `app/shell/{shell-state,shell-state-file}.ts` + 테스트 · `index.ts` 소비 4곳 · `shared/protocol.ts` 의 `WindowBoundsSchema` export |
+| 4 경로 주입 | 일부(테스트 없음) | 세 스토어와 `McpStore` 가 `userData` 를 받는다. `Bootstrap` 이 `app.getPath('userData')` 를 넘긴다 |
+| 4 본체(채널 소유·`ClientRef`·셸 서비스·감독자·preload 포트) · 5 · 7 · 가드 (l) | 미착수 | — |
+
+AC 자기보고(검증 증거 아님, 분모 38): ✅ AC5~AC14 · AC21′ = 11 · ⚠️ AC2·AC3·AC4·AC35·AC36·AC37·AC38 = 7(판정·코드는 있고 실제 트리 가드·좌표·호스트 배선 전) · ❌ 20. `✅ 11 · ⚠️ 7 · ❌ 20 = 총 38`. r1 의 분모 35 와 직접 비교하지 않는다.
+
+gate(마지막 수정 뒤 트리):
+
+| gate | 관측 |
+|---|---|
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | error 0 |
+| 관련 스위트 vitest(`adapters/claude`·`features/{sessions,extensions,auth}`·`infra`·`app/{shell,harnesses,handlers}` 외 4파일) | 239파일 — 228 pass · 9 fail / 2434케이스 — 11 fail. r1.2 기준선 실패 집합과의 차집합(`comm -13`) 0줄 |
+| **돌리지 못한 것** | 파일 필터 없는 전체 `vitest run`(두 번 시도, 두 번 다 프로세스가 중간에 종료됨 — exit 137) · `node --test scripts/*.test.mjs` · 가드 4종 · 테스트 소스 규칙의 파일별 판정. **잇는 구현자가 먼저 돌린다** |
+
+대상 커밋: `(r1.3 구현 일부 — 좌표는 INDEX)`.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.3`(미완료 중단) — verify 0회, 이 라운드의 impl 턴은 3이다. 다음 재구현 전 `handoff-review` 문턱(3 초과)에 닿는다 — r1.2 는 gate 전용 턴, r1.3 은 사용자 결정(턴 11)에 따른 턴이다.
+- 설정 소유는 턴 11 에 한 번 정했고 턴 12 에 다시 열렸다. 구현이 그 사이에 EP-13·EP-14 일부를 만들었다.
+- 이 환경에서 전체 vitest 가 r1.2 에는 끝났고(130초) r1.3 에는 두 번 exit 137 로 끊겼다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. 설계 턴: D-033 을 사용자와 확정하고 EP-13·EP-14·AC36·AC38 을 유지 또는 대체한다.
+2. 밀린 gate 전부(위 "돌리지 못한 것")와 `E7-12` 재실행.
+3. EP-13 스토어별 테스트 3 · 가드 (l) · `shell-state-file.ts` 의 (a) 등록.
+4. 단계 4 본체 → 5 → 7 → `ci.yml` 에 가드 연결(`check-ui-thread.test.mjs` 의 `todo` 3건 제거).
 
 ---
 

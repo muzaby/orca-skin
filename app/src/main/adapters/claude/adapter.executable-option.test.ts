@@ -46,6 +46,7 @@ vi.mock('./executable', () => ({ resolveClaudeExecutable: () => SENTINEL }))
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import { getTemporaryFilesPath } from '../../infra/config/temp-path'
+import { sendPrepared } from './prepared.testfixture'
 
 // Native catalog discovery must not read the developer's installed plugins.
 const isolatedConfig = join(tmpdir(), `orcinus-orca-executable-config-${randomUUID()}`)
@@ -61,7 +62,7 @@ function optionsOfFirstCall(): Options {
 }
 
 describe('claudeExecutableOption 배선', () => {
-  it('sendMessage 경로가 해석 결과를 SDK 로 넘긴다', () => {
+  it('sendMessage 경로가 해석 결과를 SDK 로 넘긴다', async () => {
     queryMock.mockClear()
     const req: TurnRequest = {
       sessionId: null,
@@ -70,7 +71,7 @@ describe('claudeExecutableOption 배선', () => {
       cwd: '/ws/project',
       extensions: { skills: [], hooks: { normalized: {} } }
     }
-    new ClaudeAdapter().sendMessage(req)
+    await sendPrepared(new ClaudeAdapter(), req)
     expect(optionsOfFirstCall().pathToClaudeCodeExecutable).toBe(SENTINEL)
   })
 
@@ -95,7 +96,7 @@ describe('Claude 공통 실행 옵션', () => {
       }
       const adapter = new ClaudeAdapter()
       queryMock.mockClear()
-      adapter.sendMessage({
+      await sendPrepared(adapter, {
         sessionId: null,
         text: 'fixture',
         cwd: '/ws/project',
@@ -159,7 +160,7 @@ describe('Claude 공통 실행 옵션', () => {
         ]
       ])
     }
-    const live = new ClaudeAdapter().sendMessage({
+    const live = await sendPrepared(new ClaudeAdapter(), {
       sessionId: null,
       text: 'hello',
       cwd: '/ws/project',
@@ -186,7 +187,7 @@ describe('Claude 공통 실행 옵션', () => {
     }
   })
 
-  it('대화 query는 plugin과 메모리 도구를 계속 소비한다', () => {
+  it('대화 query는 plugin과 메모리 도구를 계속 소비한다', async () => {
     const pluginRoot = mkdtempSync(join(tmpdir(), 'orcinus-orca-query-plugin-'))
     try {
       mkdirSync(join(pluginRoot, '.claude-plugin'))
@@ -214,7 +215,7 @@ describe('Claude 공통 실행 옵션', () => {
         ])
       }
       queryMock.mockClear()
-      new ClaudeAdapter().sendMessage({
+      await sendPrepared(new ClaudeAdapter(), {
         sessionId: null,
         text: 'hello',
         cwd: '/ws/project',
@@ -248,7 +249,7 @@ describe('Claude 공통 실행 옵션', () => {
       await adapter.complete({ prompt: 'title', providerSettings, env })
       const completion = optionsOfFirstCall()
       queryMock.mockClear()
-      adapter.sendMessage({
+      await sendPrepared(adapter, {
         sessionId: null,
         text: 'hello',
         cwd: '/ws/project',
@@ -315,7 +316,7 @@ describe('Claude 공통 실행 옵션', () => {
         .mockResolvedValueOnce({ behavior: 'allow', updatedInput: { command: 'approved command' } })
         .mockResolvedValueOnce({ behavior: 'deny', message: 'fixture deny' })
       queryMock.mockClear()
-      new ClaudeAdapter().sendMessage({
+      await sendPrepared(new ClaudeAdapter(), {
         sessionId: null,
         text: 'hello',
         cwd: '/ws/project',
@@ -369,7 +370,7 @@ describe('Claude 공통 실행 옵션', () => {
 
   it.each(['process', 'app', 'provider', 'runtime', 'custom'])(
     '%s의 명시 env를 실제 설정 조립부터 query까지 보존한다',
-    (highest) => {
+    async (highest) => {
       const layers = ['process', 'app', 'provider', 'runtime', 'custom']
       const values = layers.map((layer, index) => {
         const env: Record<string, string> = {}
@@ -392,7 +393,7 @@ describe('Claude 공통 실행 옵션', () => {
         customEnv: () => values[4]
       })
       queryMock.mockClear()
-      new ClaudeAdapter().sendMessage({
+      await sendPrepared(new ClaudeAdapter(), {
         sessionId: null,
         text: 'hello',
         cwd: '/ws/project',
@@ -426,17 +427,17 @@ describe('allowDangerouslySkipPermissions (0261 AC3 · EP-01)', () => {
   it.each([
     ['default', 'default'],
     ['bypass', 'bypassPermissions']
-  ] as const)('대화 query 는 명시 모드(%s)와 함께 플래그를 싣는다', (mode, sdk) => {
+  ] as const)('대화 query 는 명시 모드(%s)와 함께 플래그를 싣는다', async (mode, sdk) => {
     queryMock.mockClear()
-    new ClaudeAdapter().sendMessage({ ...base, permissionMode: mode })
+    await sendPrepared(new ClaudeAdapter(), { ...base, permissionMode: mode })
     const options = optionsOfFirstCall()
     expect(options.permissionMode).toBe(sdk)
     expect(options.allowDangerouslySkipPermissions).toBe(true)
   })
 
-  it('모드를 명시하지 않은 대화 query 는 플래그도 싣지 않는다', () => {
+  it('모드를 명시하지 않은 대화 query 는 플래그도 싣지 않는다', async () => {
     queryMock.mockClear()
-    new ClaudeAdapter().sendMessage(base)
+    await sendPrepared(new ClaudeAdapter(), base)
     const options = optionsOfFirstCall()
     expect(options).not.toHaveProperty('permissionMode')
     expect(options).not.toHaveProperty('allowDangerouslySkipPermissions')

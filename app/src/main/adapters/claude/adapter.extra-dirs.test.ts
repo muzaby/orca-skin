@@ -43,6 +43,7 @@ import type { TurnRequest } from '../common/turn'
 import type { RuntimeToolContext } from '../common/runtime-tools'
 import type { LiveTurn } from '../common/types'
 import type { NormalizedEvent } from '../../../shared/ipc'
+import { sendPrepared } from './prepared.testfixture'
 
 const guardHookMock = vi.mocked(makeWorkspaceGuardHook)
 const AUTOMATIC_TEMP = resolve(tmpdir(), 'orcinus-orca')
@@ -54,10 +55,12 @@ const baseReq = (): TurnRequest => ({
   extensions: { skills: [], hooks: { normalized: {} } }
 })
 
-function capture(req: TurnRequest): { option: unknown; guardArg: unknown; live: LiveTurn } {
+async function capture(
+  req: TurnRequest
+): Promise<{ option: unknown; guardArg: unknown; live: LiveTurn }> {
   queryMock.mockClear()
   guardHookMock.mockClear()
-  const live = new ClaudeAdapter().sendMessage(req)
+  const live = await sendPrepared(new ClaudeAdapter(), req)
   const call = queryMock.mock.calls[0]?.[0] as
     { options: { additionalDirectories?: string[] } } | undefined
   return {
@@ -68,29 +71,29 @@ function capture(req: TurnRequest): { option: unknown; guardArg: unknown; live: 
 }
 
 describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 본다 (AC11)', () => {
-  it('참조가 동일하다 — 값 복사본이 아니다', () => {
+  it('참조가 동일하다 — 값 복사본이 아니다', async () => {
     const extraDirs = ['/tmp/refs', '/tmp/docs']
-    const { option, guardArg } = capture({ ...baseReq(), extraDirs })
+    const { option, guardArg } = await capture({ ...baseReq(), extraDirs })
 
     expect(option).toEqual([...extraDirs, AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
   })
 
-  it('Code 요청도 앱 임시 루트를 공유 배열로 자동 허용한다', () => {
-    const { option, guardArg } = capture(baseReq())
+  it('Code 요청도 앱 임시 루트를 공유 배열로 자동 허용한다', async () => {
+    const { option, guardArg } = await capture(baseReq())
 
     expect(option).toEqual([AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
   })
 
-  it('가드 훅은 cwd 를 workspace 루트로 함께 받는다', () => {
-    capture({ ...baseReq(), extraDirs: ['/tmp/refs'] })
+  it('가드 훅은 cwd 를 workspace 루트로 함께 받는다', async () => {
+    await capture({ ...baseReq(), extraDirs: ['/tmp/refs'] })
     expect(guardHookMock.mock.calls[0]?.[0]).toBe('/tmp/work')
   })
 
-  it('uses the execution environment native root for the actual workspace guard', () => {
+  it('uses the execution environment native root for the actual workspace guard', async () => {
     const nativeRoot = resolve('fixture-custom-claude')
-    capture({ ...baseReq(), env: { CLAUDE_CONFIG_DIR: nativeRoot } })
+    await capture({ ...baseReq(), env: { CLAUDE_CONFIG_DIR: nativeRoot } })
     expect(guardHookMock.mock.calls[0]?.[2]).toBe(nativeRoot)
   })
 
@@ -107,7 +110,7 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
     request.extraDirs = extraDirs
     request.runtimeToolContext = context
     request.extensions.outputFiles = { directory: AUTOMATIC_TEMP, capture: captured }
-    const { option, guardArg, live } = capture(request)
+    const { option, guardArg, live } = await capture(request)
     expect(option).toEqual(['/tmp/refs', AUTOMATIC_TEMP])
     expect(guardArg).toBe(option)
     expect(extraDirs).toEqual(['/tmp/refs'])
@@ -160,7 +163,7 @@ describe('ClaudeAdapter — extraDirs 는 옵션과 가드가 같은 배열을 �
   })
 
   it('앱 임시 루트는 통과시키고 OS Temp 부모와 형제는 자동 허용하지 않는다', async () => {
-    capture(baseReq())
+    await capture(baseReq())
     const args = queryMock.mock.calls[0][0] as {
       options: { hooks: Record<string, { hooks: ((...args: unknown[]) => Promise<unknown>)[] }[]> }
     }

@@ -29,6 +29,7 @@ import { ExtensionBuilder } from '../features/extensions/common/builder'
 import { applyMigrations } from '../infra/db/migrate'
 import { DbQueries } from '../infra/db/queries'
 import { prepareAgentExtensionProfile } from './harnesses/registry'
+import { sendPrepared } from '../adapters/claude/prepared.testfixture'
 
 it('composes Work only into the SDK header while retaining Code execution, tools, plugins and approval', async () => {
   const root = mkdtempSync(join(tmpdir(), 'orcinus-orca-profile-query-'))
@@ -81,7 +82,7 @@ it('composes Work only into the SDK header while retaining Code execution, tools
         resolve('resources/claude-plugins/work-profile')
       )
       const extensions = builder.build(null, null, profile)
-      const live = adapter.sendMessage({
+      const live = await sendPrepared(adapter, {
         sessionId: null,
         text: 'same user prompt',
         cwd: root,

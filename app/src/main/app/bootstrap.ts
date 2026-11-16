@@ -184,13 +184,13 @@ import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
-  readonly settings = new SettingsStore(app.getVersion())
-  readonly mcp = new McpStore(this.settings)
+  private readonly dataDirectory = app.getPath('userData')
+  readonly settings = new SettingsStore(app.getVersion(), { cwd: this.dataDirectory })
+  readonly mcp = new McpStore(this.settings, this.dataDirectory)
   private readonly extensionChoices = extensionControl({
     get: () => this.settings.getAll().nativeExtensionChoices,
     set: (choices) => this.settings.setNativeExtensionChoices(choices)
   })
-  private readonly dataDirectory = app.getPath('userData')
   private readonly pluginSnapshots = new PluginSnapshots(
     join(this.dataDirectory, 'runtime-plugins')
   )
@@ -329,7 +329,7 @@ export class Bootstrap {
 
     // 영속을 못 열면 어댑터가 스스로 메모리로 내려앉고 사유만 알려 준다 — 게이트 판정은
     // 계속돼야 하므로 부팅을 세우지 않는다.
-    const persistence = createGrantPersistence((error) => {
+    const persistence = createGrantPersistence(this.dataDirectory, (error) => {
       reportError({
         event: 'auth.persistence.unavailable',
         scope: 'auth',
@@ -347,7 +347,7 @@ export class Bootstrap {
     // OAuth 인가 pending 은 grant 와 **다른 파일**에 앉는다(수명이 분 단위 대 재로그인까지).
     // 영속을 못 열면 메모리로 내려앉되, 그 경우 앱 재시작을 건너뛴 콜백만 대조된다.
     // 파일은 실제 OAuth 로그인이 돌 때 열린다 — 이 단계는 DB 앞으로 당겨 둔 자리다.
-    const oauthStates = createOAuthStatePersistence((error) => {
+    const oauthStates = createOAuthStatePersistence(this.dataDirectory, (error) => {
       reportError({
         event: 'auth.oauth.persistence.unavailable',
         scope: 'auth',
@@ -449,7 +449,7 @@ export class Bootstrap {
       () => this.registry.refreshInstallState()
     )
     void installation.catch(() => undefined)
-    const secretStore = new SecretStore()
+    const secretStore = new SecretStore(this.dataDirectory)
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
 

@@ -6,7 +6,6 @@ import { reportError } from '../../infra/error-report'
 import {
   claudePluginDefaults,
   configuredClaudeCommands,
-  readClaudePluginCatalog,
   readClaudePluginCatalogAsync
 } from './plugin-catalog'
 vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
@@ -65,7 +64,7 @@ describe('native plugin catalog', () => {
       write(join(child, '.claude/settings.local.json'), {
         enabledPlugins: { 'bundle@market': true }
       })
-      const sync = readClaudePluginCatalog(child, root)
+      const sync = await readClaudePluginCatalogAsync(child, root)
       const asyncCatalog = await readClaudePluginCatalogAsync(child, root)
       expect(asyncCatalog).toEqual(sync)
       expect(asyncCatalog.commands.map((command) => command.name)).toEqual(
@@ -75,7 +74,7 @@ describe('native plugin catalog', () => {
       expect(await configuredClaudeCommands(child, {})).toEqual(asyncCatalog.commands)
     }
   )
-  it('reads defaults from settings alone without traversing installed plugin trees', () => {
+  it('reads defaults from settings alone without traversing installed plugin trees', async () => {
     const path = plugin('bundle')
     write(join(root, 'settings.json'), {
       enabledPlugins: { active: true, off: false, array: [], object: {} }
@@ -84,7 +83,7 @@ describe('native plugin catalog', () => {
       plugins: { active: [{ scope: 'user', installPath: path }] }
     })
     const overrides = { enabledPlugins: { active: false, extra: true } }
-    const expected = readClaudePluginCatalog(cwd, root, overrides, true).defaults
+    const expected = (await readClaudePluginCatalogAsync(cwd, root, overrides, true)).defaults
     vi.mocked(readFileSync).mockClear()
     vi.mocked(readdirSync).mockClear()
     expect(claudePluginDefaults(root, overrides)).toEqual(expected)
@@ -111,24 +110,24 @@ describe('native plugin catalog', () => {
     expect(readFileSync).not.toHaveBeenCalled()
     expect(readdirSync).not.toHaveBeenCalled()
     expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
-      readClaudePluginCatalog(cwd, root)
+      await readClaudePluginCatalogAsync(cwd, root)
     )
     write(join(cwd, '.claude/settings.local.json'), { enabledPlugins: { 'bundle@market': false } })
     expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
-      readClaudePluginCatalog(cwd, root)
+      await readClaudePluginCatalogAsync(cwd, root)
     )
     expect(await readClaudePluginCatalogAsync(cwd, root, {}, true)).toEqual(
-      readClaudePluginCatalog(cwd, root, {}, true)
+      await readClaudePluginCatalogAsync(cwd, root, {}, true)
     )
     write(join(root, 'settings.json'), '{"secret":"private-value"')
     vi.mocked(reportError).mockClear()
     expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(
-      readClaudePluginCatalog(cwd, root)
+      await readClaudePluginCatalogAsync(cwd, root)
     )
     expect(reportError).toHaveBeenCalledOnce()
     expect(JSON.stringify(vi.mocked(reportError).mock.calls)).not.toContain('private-value')
   })
-  it('selects active installations by scope and precedence and refreshes every read', () => {
+  it('selects active installations by scope and precedence and refreshes every read', async () => {
     const active = plugin('frontend-design')
     const disabled = plugin('disabled')
     const project = plugin('project-native')
@@ -163,7 +162,7 @@ describe('native plugin catalog', () => {
         'missing@market': [{ scope: 'user', installPath: join(temp, 'missing') }]
       }
     })
-    const result = readClaudePluginCatalog(cwd, root)
+    const result = await readClaudePluginCatalogAsync(cwd, root)
     expect(result.roots).toEqual([active, project])
     expect(result.skills).toEqual([
       'frontend-design:frontend-design',
@@ -174,13 +173,17 @@ describe('native plugin catalog', () => {
       /private|installPath|SECRET|model|skillPath/
     )
     expect(
-      readClaudePluginCatalog(cwd, root, { enabledPlugins: { 'project@market': false } }).roots
+      (
+        await readClaudePluginCatalogAsync(cwd, root, {
+          enabledPlugins: { 'project@market': false }
+        })
+      ).roots
     ).toEqual([active, project])
     write(join(root, 'settings.json'), { enabledPlugins: { 'frontend@market': false } })
-    expect(readClaudePluginCatalog(cwd, root).roots).toEqual([project])
+    expect((await readClaudePluginCatalogAsync(cwd, root)).roots).toEqual([project])
   })
 
-  it('discovers declared skill paths and legacy commands with descriptions, hints and invocation policy', () => {
+  it('discovers declared skill paths and legacy commands with descriptions, hints and invocation policy', async () => {
     const path = plugin('bundle')
     write(join(path, '.claude-plugin/plugin.json'), {
       name: 'bundle',
@@ -204,7 +207,7 @@ describe('native plugin catalog', () => {
     write(join(root, 'plugins/installed_plugins.json'), {
       plugins: { 'bundle@market': [{ scope: 'user', installPath: path }] }
     })
-    const result = readClaudePluginCatalog(cwd, root)
+    const result = await readClaudePluginCatalogAsync(cwd, root)
     expect(result.skills).toContain('bundle:internal')
     expect(result.commands.map((command) => command.name)).not.toContain('bundle:internal')
     expect(result.commands).toContainEqual({
@@ -222,7 +225,7 @@ describe('native plugin catalog', () => {
     expect(result.commands.some((command) => command.name === 'bundle:manual')).toBe(true)
   })
 
-  it('reports invalid configuration without its contents and leaves absent installations empty', () => {
+  it('reports invalid configuration without its contents and leaves absent installations empty', async () => {
     const empty = {
       defaults: {},
       roots: [],
@@ -231,10 +234,10 @@ describe('native plugin catalog', () => {
       files: [],
       installations: []
     }
-    expect(readClaudePluginCatalog(cwd, root)).toEqual(empty)
+    expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(empty)
     write(join(root, 'settings.json'), '{"secret":"private-value"')
     vi.mocked(reportError).mockClear()
-    expect(readClaudePluginCatalog(cwd, root)).toEqual(empty)
+    expect(await readClaudePluginCatalogAsync(cwd, root)).toEqual(empty)
     expect(reportError).toHaveBeenCalledOnce()
     expect(vi.mocked(reportError).mock.calls[0][0]).toMatchObject({
       event: 'claude.native-settings.skipped',
@@ -246,7 +249,7 @@ describe('native plugin catalog', () => {
   })
 })
 
-it('excludes local installs from child cwd and selects the nearest project without relying on git root', () => {
+it('excludes local installs from child cwd and selects the nearest project without relying on git root', async () => {
   const outer = plugin('outer')
   const inner = plugin('inner')
   const local = plugin('local')
@@ -262,10 +265,12 @@ it('excludes local installs from child cwd and selects the nearest project witho
       'local@market': [{ scope: 'local', projectPath: cwd, installPath: local }]
     }
   })
-  expect(readClaudePluginCatalog(cwd, root).roots).toEqual([outer, local])
-  expect(readClaudePluginCatalog(join(cwd, 'child'), root).roots).toEqual([outer])
-  expect(readClaudePluginCatalog(join(cwd, 'nested', 'child'), root).roots).toEqual([inner])
-  expect(readClaudePluginCatalog(join(cwd + '-sibling'), root).roots).toEqual([])
+  expect((await readClaudePluginCatalogAsync(cwd, root)).roots).toEqual([outer, local])
+  expect((await readClaudePluginCatalogAsync(join(cwd, 'child'), root)).roots).toEqual([outer])
+  expect((await readClaudePluginCatalogAsync(join(cwd, 'nested', 'child'), root)).roots).toEqual([
+    inner
+  ])
+  expect((await readClaudePluginCatalogAsync(join(cwd + '-sibling'), root)).roots).toEqual([])
 })
 
 describe('Claude settings read policy at every catalog reader site', () => {
@@ -307,7 +312,7 @@ describe('Claude settings read policy at every catalog reader site', () => {
     ...[0, 1, 2, 3].map((index): [string, () => string, Reader] => [
       `P281 readClaudePluginCatalog document ${index}`,
       () => documents()[index],
-      () => readClaudePluginCatalog(cwd, root)
+      async () => await readClaudePluginCatalogAsync(cwd, root)
     ]),
     ...[0, 1, 2, 3].map((index): [string, () => string, Reader] => [
       `P331 readClaudePluginCatalogAsync document ${index}`,
@@ -346,7 +351,10 @@ describe('Claude settings read policy at every catalog reader site', () => {
   const manifests: Array<
     [string, (root: string) => Promise<{ roots: string[] }> | { roots: string[] }]
   > = [
-    ['P295 readClaudePluginCatalog manifest', () => readClaudePluginCatalog(cwd, root)],
+    [
+      'P295 readClaudePluginCatalog manifest',
+      async () => await readClaudePluginCatalogAsync(cwd, root)
+    ],
     ['P345 readClaudePluginCatalogAsync manifest', () => readClaudePluginCatalogAsync(cwd, root)]
   ]
   it.each(manifests)('%s: an empty manifest keeps the plugin silently', async (_site, read) => {

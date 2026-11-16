@@ -479,6 +479,8 @@ export class SessionRuntime implements ManagedRuntime {
     // 채널이 턴을 넘어도 현재 턴의 콜백이 호출되게 한다. spawn 경계는 카탈로그(0124) 기록 —
     // sendMessage 동기 호출이 spawn 경계이며, 이후 스트림 실패는 chat.turn.failed 가 담당한다.
     // admission 은 spawn 기록·도구 컨텍스트보다 먼저다 — 띄우지 않은 시도를 started 로 남기지 않는다.
+    // 준비는 판정보다 앞이다 — 준비 중 바뀐 상태를 판정이 보고, 판정과 spawn 사이에는 await 가 없다.
+    const prepared = await this.prepareSpawn(req)
     if (req.canSubmitInitial && !req.canSubmitInitial()) {
       req.rollbackInitialSubmission?.()
       throw new Error('submission_stale:before-spawn')
@@ -493,7 +495,9 @@ export class SessionRuntime implements ManagedRuntime {
     })
     this.runtimeToolContext = toolContext
     try {
-      spawned = this.adapter.sendMessage(this.wrapRequest(req))
+      spawned = this.adapter.sendMessage(
+        this.wrapRequest(prepared === undefined ? req : { ...req, prepared })
+      )
       if (req.commitInitialSubmission && !req.commitInitialSubmission()) {
         spawned.close()
         throw new Error('submission_stale:initial')
@@ -534,6 +538,22 @@ export class SessionRuntime implements ManagedRuntime {
       return
     }
     yield* this.consumeTurnScoped(spawned)
+  }
+
+  // 어댑터의 비동기 준비 단계. 취소(턴 중단·채널 회수·런타임 폐기)는 신호로 전달하고, 끝났을 때
+  // 취소돼 있으면 띄우지 않는다. 실패·취소 모두 최초 제출을 되돌리고 던진다.
+  private async prepareSpawn(req: TurnRequest): Promise<unknown> {
+    if (!this.adapter.prepareTurn) return undefined
+    // 턴 중단(채널 없음)·채널 회수·런타임 폐기는 모두 이 신호를 abort 한다(`markAborted`·`retireChannel`).
+    const signal = this.channelController.signal
+    try {
+      const prepared = await this.adapter.prepareTurn(req, signal)
+      if (signal.aborted || this.cancelled) throw new Error('submission_cancelled:before-spawn')
+      return prepared
+    } catch (err) {
+      req.rollbackInitialSubmission?.()
+      throw err
+    }
   }
 
   // 턴-스코프 소비(0067 이전 동작 보존) — terminal 에서 핸들을 닫는다(mock/oneshot).
