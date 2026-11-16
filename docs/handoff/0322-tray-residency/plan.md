@@ -1,0 +1,470 @@
+# Plan — 0322-tray-residency
+
+> 절차 정본은 [`handoff-plan/SKILL.md`](../../../.agents/skills/handoff-plan/SKILL.md), 협업/상태 머신은 [`docs/handoff/AGENTS.md`](../AGENTS.md).
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| slug | `0322-tray-residency` |
+| 작성자 | Claude Code |
+| 일자 | 2026-11-16 |
+| 매핑 | TRD §10 anchor "시스템 트레이" |
+| 상태 | READY |
+| V mode | `Baseline V` |
+| 기준 V | `none` |
+| 이번 V revision | `V1` |
+| 유효 V | `V1` |
+
+# Part I — Product & UX Contract
+
+## 1. Context / 목표
+
+- 해결하려는 문제: Windows에서 창의 X를 누르면 프로세스가 끝난다(`app/src/main/index.ts:289-293`). 진행 중 턴·예약 작업이 함께 끝난다.
+- 완료 후 달라지는 것: X는 창만 숨기고 앱은 트레이 아이콘으로 남는다. 트레이 메뉴 `열기`·`종료`로 창을 되찾거나 앱을 끝낸다.
+- 성공을 사용자 관점에서 한 문장으로: X를 눌러도 앱이 살아 있고, 트레이에서 다시 열거나 끝낼 수 있다.
+
+## 2. 사용자 의도 / 요구 출처
+
+| 구분 | 내용 | 출처 |
+|---|---|---|
+| 명시 요구 | "'x'닫기 버튼 클릭시, 이제 프로세스 종료를 하지 않는다. 트레이아이콘으로 상주하도록 변경. Tray icon 메뉴에서는 열기, 종료 두 개 메뉴만 제공하라." | 라이브 세션 2026-11-16 |
+| 명시 요구 | 헤더 메뉴 `종료` 항목도 X와 같이 "트레이로 숨김" | 라이브 세션 질의 응답 2026-11-16 |
+| 명시 요구 | 적용 플랫폼은 "Windows만" | 라이브 세션 질의 응답 2026-11-16 |
+| 추론 의도 | 트레이 아이콘 좌클릭은 `열기`와 같다 (추론 — Windows 관례) | D-005 |
+| 추론 의도 | 트레이를 만들지 못하면 상주하지 않는다 (추론 — 되찾을 길 없는 숨은 창 방지) | D-006 |
+
+## 3. Decision Ledger
+
+| ID | 결정 | 이유/조건 | 출처 | 상태 | 대체 관계 |
+|---|---|---|---|---|---|
+| D-001 | 창 닫기(X)는 프로세스를 끝내지 않고 창을 숨긴다. 앱은 트레이 아이콘으로 상주한다 | "이제 프로세스 종료를 하지 않는다. 트레이아이콘으로 상주하도록 변경" | 사용자 2026-11-16 | ACTIVE | — |
+| D-002 | 트레이 메뉴는 `열기`·`종료` 두 항목만 갖는다 | "열기, 종료 두 개 메뉴만 제공하라" | 사용자 2026-11-16 | ACTIVE | — |
+| D-003 | 헤더 메뉴 `종료` 항목은 X와 같이 창을 트레이로 숨긴다. IPC 채널을 새로 만들지 않는다 | 질의 응답 "트레이로 숨김" | 사용자 2026-11-16 | ACTIVE | — |
+| D-004 | 상주는 Windows(`win32`)에만 적용한다. macOS·Linux는 현재 동작 그대로다 | 질의 응답 "Windows만" | 사용자 2026-11-16 | ACTIVE | — |
+| D-005 | 트레이 아이콘 좌클릭은 `열기`와 같은 동작이다 | 설계자 추론 — 메뉴 항목이 아니라 D-002와 충돌하지 않는다 | 설계자 | ACTIVE | — |
+| D-006 | 트레이 생성이 실패하면 X는 기존처럼 앱을 끝낸다 | 설계자 추론 — 숨은 창을 되찾을 수단이 없는 상태를 만들지 않는다 | 설계자 | ACTIVE | — |
+| D-007 | 트레이 메뉴 라벨은 한국어 `열기`·`종료` 고정이다 | 설계자 추론 — 사용자가 라벨을 한국어로 지정했다. `uiLocale='en'` 반영은 §10 선언 경계 | 설계자 | ACTIVE | — |
+
+### 갱신 메모
+
+- 이번 턴에서 새로 추가된 결정: D-001~D-007 (신규 handoff).
+- 변경된 결정: 없음.
+- 추론 결정 D-005·D-006·D-007은 사용자가 뒤집으면 ΔV로 정정한다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·AC4·AC5·AC9 · D-002↔AC2 · D-003↔AC9(단계 4, renderer diff 0) · D-004↔AC6 · D-005↔AC3 · D-006↔AC7 · D-007↔AC2.
+
+## 4. 요구 비판적 검토
+
+| 질문 | 판단 | 근거 |
+|---|---|---|
+| 요구가 원인을 겨냥하는가 | 타당 | 종료 원인은 `window-all-closed → app.quit()` 한 곳(`index.ts:289-293`) |
+| 이미 기존 코드가 충족하는가 | 아니오 | `rg "Tray" app/src/main` → 0건 |
+| 더 작은 해법이 있는가 | 없음 | `window-all-closed`만 막으면 창이 파괴돼 되살릴 때 창 컨트롤 IPC가 중복 등록된다(`index.ts:219-234` 주석). 닫기를 숨김으로 바꾸는 쪽이 작다 |
+| 선행 자료를 코드와 대조했는가 | 대조함 | TRD §10 "(anchor) 시스템 트레이 — UI/Main 진입점 미지정"(`docs/TRD.md:499`) — 이번에 사용자가 진입점을 정했다 |
+| 기존 채택 결정과 충돌하는가 | 1건 조정 | 종료 경로가 `before-quit` 지연(`native-settings-lifecycle.ts:30-44`)과 업데이트 설치(`updater.ts:194`)를 지난다 — 둘 다 숨김에 막히면 안 된다(AC4) |
+
+- 사용자에게 올릴 결정: 없음 (헤더 `종료`·적용 플랫폼은 질의로 닫았다).
+- 코드 조사로 닫은 사실: §8.
+
+## 5. 동작 / 사용자 흐름
+
+```text
+[X 클릭 · 헤더 '종료' · Alt+F4]            (Windows)
+  → 창과 작업표시줄 버튼이 사라진다. 트레이 아이콘은 남는다. 프로세스·진행 중 턴·예약 작업 유지
+  → [트레이 좌클릭 | 메뉴 '열기' | 앱 재실행]  → 같은 창이 같은 상태로 다시 보인다
+  → [트레이 메뉴 '종료']                      → 기존 종료 절차(저장 드레인 → 정리) 뒤 프로세스 종료, 아이콘 제거
+```
+
+### 상태와 전이
+
+| 시작 상태/이벤트 | 시스템 동작 | 사용자에게 보이는 결과 |
+|---|---|---|
+| 창 표시 중 · 닫기 요청 (Windows, 트레이 있음) | 창 위치·크기 저장(기존) 뒤 닫기를 취소하고 창을 숨긴다 | 창 사라짐 · 트레이 아이콘 유지 |
+| 상주 중 · 트레이 좌클릭 또는 `열기` | 최소화 복원 → 표시 → 포커스(`focusMainWindow`) | 창 복귀 |
+| 상주 중 · 앱 재실행(설치본) | 기존 `second-instance` 경로가 같은 창을 표시 | 창 복귀, 새 프로세스 없음 |
+| 임의 상태 · 트레이 `종료` | `app.quit()` → 기존 종료 절차 | 프로세스 종료 · 아이콘 제거 |
+| 임의 상태 · 업데이트 "재시작 후 설치" | 종료가 시작된 뒤의 닫기는 숨기지 않는다 | 설치·재시작 진행 |
+| Windows 로그오프·재시작 | 세션 종료 통지 뒤의 닫기는 숨기지 않는다 | OS 종료를 막지 않는다 |
+| 트레이 생성 실패 (Windows) | 오류를 로그에 남기고 상주하지 않는다 | X = 기존처럼 종료 |
+| macOS·Linux | 변경 없음 | 현재 동작 그대로 |
+
+### 파생 UX / 엣지케이스
+
+- loading / empty / error: 트레이 생성 실패만 해당 — 위 표.
+- close / restart: 최소화 상태에서 닫기(작업표시줄 메뉴)도 숨김이고, `열기`가 복원까지 한다(`index.ts:65`).
+- concurrency: 종료 드레인 중(첫 `before-quit`이 취소된 구간)의 X는 숨기지 않고 닫는다 — 어차피 종료 중이다.
+- 상주 중 renderer: 숨은 창은 최소화된 창과 같은 조건으로 계속 돈다. 진행 중 턴·예약 작업의 프롬프트 전달 경로는 바뀌지 않는다.
+- 헤더 메뉴 라벨: `종료`(`ko.ts:1352`) 라벨은 그대로 둔다 — 라벨 변경 요청이 없다(§6).
+- keyboard / a11y / theme: 해당 없음 (renderer diff 0).
+
+## 6. 범위 / 비범위
+
+- **범위**: Windows 닫기 → 숨김 · 트레이 아이콘과 2항목 메뉴 · 종료 경로 보존 · 관련 문서 3곳.
+- **비범위**: renderer 변경 · IPC 채널 추가 · 설정 토글("닫기 시 종료") · 첫 숨김 안내 풍선 · macOS/Linux.
+
+| 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| 헤더 `종료` 라벨이 숨김 동작과 어긋남 | 아니오 | 보고 — 사용자 판단 |
+| OS 알림 클릭 시 숨은 창 열기 (`handlers/misc.ts:112-116`은 클릭 처리 없음) | 아니오 | 후속 |
+| 트레이 라벨의 `uiLocale` 반영 | 아니오 | 후속 (D-007) |
+
+## 7. Requirements / Acceptance — `R ↔ AT`
+
+AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 `installTrayResidency`에 가짜 포트를 넘겨 관측한다. 프로덕션 도달 경로는 `index.ts` 조립(EP-03) → 같은 함수다.
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-01 | AC1 | Windows에서 트레이가 있고 종료 중이 아니면 닫기는 취소되고 창이 숨는다 | `platform:'win32'` → 창 `close` 발화 → `preventDefault` 1회 · `hide` 1회 | X/헤더 종료 → `oo:window:close` → `mainWindow.close()` → `close` |
+| R-02 | AC2 | 트레이 메뉴는 `열기`·`종료` 순서의 두 항목뿐이고 각각 창 열기·앱 종료를 한다 | `buildMenu` 인자의 라벨 배열 `toEqual(['열기','종료'])` · `열기` click → `open` 1·`quit` 0 · `종료` click → `quit` 1·`open` 0 | 트레이 우클릭 메뉴 |
+| R-02 | AC3 | 트레이 아이콘 좌클릭은 창을 연다 | 트레이 `click` 발화 → `open` 1회 · `quit` 0회 | 트레이 좌클릭 |
+| R-03 | AC4 | 종료가 시작된 뒤의 닫기는 숨기지 않는다 | `before-quit` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | 트레이 종료 · `updater.quitAndInstall` → `app.quit()` |
+| R-03 | AC5 | OS 세션 종료 통지 뒤의 닫기는 숨기지 않는다 | 창 `session-end` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | Windows 로그오프·재시작 |
+| R-04 | AC6 | Windows가 아니면 트레이를 만들지 않고 닫기를 숨기지 않는다 | `platform:'darwin'`·`'linux'` 각각 → `createTray` 0회 · `close` → `preventDefault` 0 | macOS·Linux 부팅 |
+| R-05 | AC7 | 트레이 생성이 실패하면 설치는 던지지 않고, 실패를 보고하고, 닫기를 숨기지 않는다 | `createTray`가 던짐 → `failed(같은 오류)` 1회 · `close` → `preventDefault` 0 | Windows 부팅 |
+| R-06 | AC8 | 프로세스 종료 때 트레이 아이콘을 없앤다 | `will-quit` 발화 → `tray.destroy` 1회. 트레이가 없으면(AC6·AC7 입력) 던지지 않는다 | `will-quit` |
+| R-01~06 | AC9 | 실제 Windows에서 §19 실기 8단계가 관측된다 | 사람 실기 — §19 | 설치본 또는 `npm run dev` |
+| R-07 | AC10 | 문서 3곳이 새 동작을 현재형으로 서술한다 | `node scripts/check-doc-inventory.mjs --check` 통과 + §18 문서 행의 문장 존재 | 문서 |
+
+### AC 검증 주의사항
+
+- 기존 테스트 재사용: 없음. `native-settings-lifecycle.test.ts`는 회귀 gate로만 돈다(본 변경이 그 파일을 고치지 않는다).
+- 사람 실기 항목: AC9 — 실제 셸 트레이·작업표시줄·OS 세션 종료는 Electron 런타임 밖에서 관측할 수 없다. 판정 로직은 AC1~AC8로 전부 내렸다.
+- 총량/0건 기준: AC2의 "두 항목뿐"은 길이 포함 `toEqual`로 본다 — 세 번째 항목 추가가 red여야 한다.
+
+## 7-A. V / Trace Matrix
+
+- V mode 판정: Baseline V — 상속할 V가 없다.
+- 기준 V 상속 근거: 없음.
+- `SUPERSEDED` pair 이관: 해당 없음.
+- 변경이 시작되는 수준: Baseline이라 해당 없음.
+
+### Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 |
+|---|---|---|---|---|
+| R-01~R-07 | R | §7 | NEW | — |
+| AT-01 | AT | §7 AC9 · §19 실기 | NEW | — |
+| SD-01 | SD | §5 상태 전이 — 상주/종료 중 두 상태의 수명주기 | NEW | — |
+| ST-01 | ST | AC1→AC3→AC4→AC8을 한 설치 인스턴스에서 차례로 | NEW | — |
+| AR-01 | AR | §9 — `index.ts` 조립이 Electron 객체를 포트로 넘기는 경계 | NEW | — |
+| IT-01 | IT | §19 실기 단계 1·2·5 (조립 2자리) | NEW | — |
+| MD-01 | MD | §10 EP-01·EP-02·EP-04 — `installTrayResidency` 규칙 | NEW | — |
+| UT-01 | UT | AC1~AC8 | NEW | — |
+| SD-02 | SD | 종료 드레인(`registerNativeSettingsQuit`) | INHERITED | `native-settings-lifecycle.ts:20-45` |
+
+### Pair registry
+
+| Pair | left ↔ right | requiredness | production path | 직접 oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-01 | MD-01 ↔ UT-01 | REQUIRED | `installTrayResidency` → 포트 리스너 → `preventDefault`/`hide`/`open`/`quit`/`destroy` | 신규 `tray-residency.test.ts` — AC1~AC8, 분기 입력은 §10 | M1~M9 (§10 아래) — 판정이 조건식 하나라 방향 확인 필요 | EP-01(1) · EP-02(4) · EP-04(1) |
+| VP-02 | SD-01 ↔ ST-01 | REQUIRED | 설치 → `close`(숨김) → 트레이 `click` → `before-quit` → `close`(통과) → `will-quit` | 같은 파일의 수명주기 1케이스 — 한 인스턴스에서 순서대로 `hide` 1 → `open` 1 → `preventDefault` 총 1 → `destroy` 1 | not selected — 단계별 관측이 직접 oracle | EP-01·EP-04 재사용 (0 추가) |
+| VP-03 | AR-01 ↔ IT-01 | REQUIRED | `whenReady` → `installTrayResidency({app, createTray:new Tray…})` → `createWindow` → `residency.attach(mainWindow)` | 사람 실기 §19 단계 1(attach)·2(install·open)·5(quit) | not selected — 기계 좌표 없음(§10 선언 경계 B1) | EP-03(2) |
+| VP-04 | R-01~06 ↔ AT-01 | REQUIRED | X → IPC → `close` → 숨김 → 트레이 → 복귀/종료 | 사람 실기 §19 전 단계 | not selected | 0 — 하위 pair가 자리를 갖는다 |
+| VP-05 | SD-02 ↔ 기존 ST | REGRESSION | `before-quit` 2회 발화(드레인 전후) → 최종 종료 | `native-settings-lifecycle.test.ts:'defers actual before-quit events once until accepted saves finish, then permits final quit'` + AC4 입력 "`before-quit` 2회 뒤 `close`" | not selected | 0 — 그 파일 diff 0 |
+
+### 현재 변경의 운영 gate
+
+| Gate | 적용 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| `app/` subtree | `app/src/main/**` 수정 + 테스트 추가 | §19 | 이번 변경이 유발한 실패만 blocking |
+| 문서 인벤토리 | `docs/**` 3곳 수정 | `node scripts/check-doc-inventory.mjs --check` | 같음 |
+| message-bus | 커밋 trailer | `git log -1 --format='%(trailers:only=true)'` | 파싱 0건이면 blocking |
+
+---
+
+# Part II — Technical Design
+
+## 8. Research — 현재 코드와 계약
+
+| 발견 / 제약 | 근거 |
+|---|---|
+| 종료 원인은 비-darwin `window-all-closed → app.quit()` | `app/src/main/index.ts:289-293` |
+| X와 헤더 `종료`는 같은 IPC를 부른다 | `WinControls.tsx:55` · `Header.tsx:153` → `oo:window:close` → `index.ts:230-232` |
+| `close` 리스너가 이미 창 위치·크기를 저장한다 | `index.ts:195-198` |
+| `focusMainWindow`는 복원·`show()`·포커스를 이미 한다 | `index.ts:62-68` |
+| `second-instance`는 설치본에서만 걸리고 `focusMainWindow`를 부른다 | `index.ts:51-59` |
+| 창 컨트롤 IPC는 `createWindow` 안에서 1회 등록 — 창을 다시 만들면 중복 등록 | `index.ts:219-234` |
+| `before-quit`은 첫 발화를 취소하고 드레인 뒤 `app.quit()`을 다시 부른다 | `native-settings-lifecycle.ts:30-44` |
+| 업데이트 설치는 `updater.quitAndInstall(false, true)` | `app/src/main/app/updater.ts:194` |
+| `index.ts`는 모듈 부작용 때문에 import하는 테스트가 없다 | `infra/browser-window-devtools.test.ts:3-6` |
+| 순수 구조 포트로 Electron 수명주기를 시험한 선례 | `native-settings-lifecycle.ts:20-27` + 동명 테스트 |
+| 아이콘 자산은 1254×1254 PNG, 이미 `?asset`으로 import | `index.ts:8` · `file resources/logo.png` |
+| 표시명 상수 | `app/src/shared/product.ts` `PRODUCT_DISPLAY_NAME` |
+| 외부 API (Electron 39) | `Tray`: `new Tray(image)` · `setToolTip` · `setContextMenu` · `'click'` · `destroy()`. `Menu.buildFromTemplate`. `BrowserWindow` `'session-end'`(Windows). 이 환경은 `node_modules` 미설치(`ls node_modules` → 0)라 타입을 대조하지 못했다 — 구현자가 `node_modules/electron/electron.d.ts`로 확인하고, 다르면 `PLAN_GAP`으로 보고한다 |
+
+### 전수 조사
+
+| 대상 | 검색/방법 | N | 의미 |
+|---|---|---:|---|
+| 프로세스 종료 호출 | `rg "app\.quit\(|app\.exit|app\.relaunch" app/src/main` (테스트 제외) | 3 | `index.ts:53`(락 실패) · `:291`(전 창 닫힘) · `native-settings-lifecycle.ts:42`(드레인 뒤) — 전부 `before-quit`을 지난다 |
+| `before-quit` 리스너 | `rg "before-quit" app/src/main` (테스트 제외) | 1 | `native-settings-lifecycle.ts:30` — 종료를 영구 취소하는 리스너 없음 |
+| 창 닫기 IPC 소비처 | `rg "windowApi\.close" app/src/renderer` | 2 | `WinControls.tsx:55` · `Header.tsx:153` |
+| 창 표시·숨김 호출 | `rg "\.show\(\)|\.hide\(\)|\.focus\(\)" app/src/main` (테스트 제외) | 4 | `index.ts:66·67·191` + 알림 `misc.ts:115`(창 아님) |
+| 트레이 사용 | `rg "new Tray\(" app/src/main` | 0 | 신규 |
+
+### 수치 / 전칭 표현 검산
+
+- "종료 경로는 전부 `before-quit`을 지난다": `app.quit()` 3자리 + `quitAndInstall`(electron-updater가 `app.quit()` 호출) — `app.exit` 0건이라 반례 없음.
+- 문서 앵커: `docs/TRD.md:499` · `docs/IPC_CONTRACT.md:319` · `docs/arch/backend/overview.md:58` 존재 확인.
+
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
+
+### AS-IS
+
+- 관련 V node: SD-01, AR-01
+- 책임 소유자: `index.ts` 단독.
+
+```text
+X / 헤더 종료 → oo:window:close → mainWindow.close()
+  → 'close'(위치 저장) → 창 파괴 → 'window-all-closed' → app.quit()
+  → 'before-quit'(드레인) → 'will-quit'(shutdown · closeLog · closeDb)
+```
+
+### TO-BE
+
+- 관련 V node: SD-01, AR-01, MD-01
+- 책임 소유자: 판정·메뉴·수명주기 = 신규 `app/tray-residency.ts`(Electron import 없음). Electron 객체 생성·주입 = `index.ts`.
+- 유지: `close`의 위치 저장 · `window-all-closed` · `before-quit` 드레인 · `will-quit` 정리 · `focusMainWindow` · 창 컨트롤 IPC.
+
+```text
+whenReady → installTrayResidency(포트) ─ win32면 createTray() · 메뉴[열기, 종료] · 'click'→open
+createWindow → residency.attach(mainWindow)
+
+X / 헤더 종료 → oo:window:close → mainWindow.close()
+  → 'close'(위치 저장) → 'close'(상주 판정)
+       ├ 상주 ∧ ¬종료중 → preventDefault + hide          (프로세스 유지)
+       └ 그 밖           → 통과 → 기존 종료 경로
+트레이 click / '열기' → focusMainWindow
+트레이 '종료' → app.quit() → 'before-quit'(종료중 = true · 드레인) → 창 닫힘(통과) → 'will-quit'(tray.destroy · 기존 정리)
+```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | V / 연결 |
+|---|---|---|---|---|
+| 책임 | `index.ts`가 닫기=종료 | 판정은 `tray-residency.ts`, 조립은 `index.ts` | 시험 가능한 seam | MD-01 / VP-01 |
+| control flow | 닫기 → 파괴 → 종료 | 닫기 → 숨김 (종료 중이면 통과) | D-001 | SD-01 / VP-02 · AC1·AC4·AC5 |
+| state | 없음 | `resident`(설치 시 확정) · `quitting`(단방향 false→true) | 종료 경로 보존 | EP-01 |
+| lifecycle | 정리 = shutdown·log·db | + `tray.destroy()` | 유령 아이콘 방지 | EP-04 / AC8 |
+| 조립 | — | `index.ts` 2자리 | 주입 | AR-01 / VP-03 · EP-03 |
+
+### 핵심 책임 분리
+
+| 모듈 | 책임 | 입력/출력 | 누가 호출 |
+|---|---|---|---|
+| `app/tray-residency.ts` | 상주 여부 확정 · 메뉴 구성 · 닫기 판정 · 트레이 정리 | 구조 포트 → `{ attach(win) }` | `index.ts` |
+| `index.ts` | `Tray`·`Menu`·`nativeImage`·`focusMainWindow`·로거를 포트로 묶어 넘김 | — | Electron |
+
+## 10. 계약 / 타입 / 강제 지점
+
+```ts
+// app/src/main/app/tray-residency.ts — electron 을 import 하지 않는다
+export const TRAY_MENU_LABELS = { open: '열기', quit: '종료' } as const
+export interface TrayMenuItem { label: string; click: () => void }
+export interface TrayPort<M> {
+  setToolTip(text: string): void
+  setContextMenu(menu: M): void
+  on(event: 'click', listener: () => void): unknown
+  destroy(): void
+}
+export interface ResidentWindowPort {
+  on(event: 'close', listener: (event: { preventDefault(): void }) => void): unknown
+  on(event: 'session-end', listener: () => void): unknown
+  hide(): void
+}
+export function installTrayResidency<M>(deps: {
+  platform: NodeJS.Platform
+  app: { on(event: 'before-quit' | 'will-quit', listener: () => void): unknown; quit(): void }
+  createTray(): TrayPort<M>              // 던질 수 있다
+  buildMenu(items: TrayMenuItem[]): M
+  tooltip: string
+  open(): void
+  failed(error: unknown): void
+}): { attach(win: ResidentWindowPort): void }
+```
+
+| V node / pair | 계약 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| MD-01 / VP-01 — EP-01 | 닫기 판정: `resident ∧ ¬quitting`이면 `preventDefault`+`hide`, 아니면 아무것도 하지 않는다 | `tray-residency.ts` | `attach`의 `close` 리스너 | 1자리 — `attach` 안 `close` 리스너 | `rg -n "'close'" app/src/main/app/tray-residency.ts` → 1 | 숨겨야 할 때 종료되거나, 종료해야 할 때 숨어 종료·업데이트·로그오프가 막힌다 |
+| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 항목 `열기→open` · `종료→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label:|'click'|setToolTip" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
+| AR-01 / VP-03 — EP-03 | 조립: 설치 1회(`whenReady`, `createWindow` 앞) · 창마다 `attach` | `index.ts` | 부팅 | 2자리 — `installTrayResidency(` 호출 · `.attach(mainWindow)` 호출 | `rg -n "installTrayResidency\(|\.attach\(" app/src/main/index.ts` → 2 | 모듈이 green이어도 실제 앱은 X로 종료된다 |
+| MD-01 / VP-01 — EP-04 | 정리: `will-quit`에서 만든 트레이만 `destroy` | `tray-residency.ts` | 종료 | 1자리 — `will-quit` 리스너 | `rg -n "'will-quit'" app/src/main/app/tray-residency.ts` → 1 | 종료 뒤 트레이에 유령 아이콘 |
+
+검색 명령은 구현 뒤 트리 기준이다(현재는 전부 0 — 신규 파일). 구현자는 출력과 목록의 차집합 0을 보고한다.
+
+**EP-01 규칙 분기 ↔ UT 입력 (1:1)**
+
+| # | 분기 | 입력 | 기대 |
+|---|---|---|---|
+| B1 | 상주 ∧ 종료 중 아님 | `win32` · 트레이 성공 · `close` | `preventDefault` 1 · `hide` 1 (AC1) |
+| B2 | 종료 중 (`before-quit`) | B1 + `before-quit` 1회, 그리고 2회(드레인 전후) 각각 뒤 `close` | 둘 다 0 (AC4) |
+| B3 | 종료 중 (`session-end`) | B1 + 창 `session-end` 뒤 `close` | 둘 다 0 (AC5) |
+| B4 | 비상주 — 플랫폼 | `darwin` · `linux` 각각 · `close` | 둘 다 0 · `createTray` 0 (AC6) |
+| B5 | 비상주 — 트레이 실패 | `win32` · `createTray` 던짐 · `close` | 둘 다 0 · `failed` 1 (AC7) |
+| B6 | 숨김 반복 | B1에서 `close` 2회 | `preventDefault` 2 · `hide` 2 — 숨김이 `quitting`을 켜지 않는다 |
+
+**EP-04 분기**: 트레이 있음 → `destroy` 1 / 트레이 없음(B4·B5 입력) → `will-quit`이 던지지 않고 `destroy` 0.
+
+**등록 변이 (VP-01, 심을 자리 = `tray-residency.ts`)**
+
+| ID | 변이 | 종류 | red여야 하는 AC |
+|---|---|---|---|
+| M1 | 판정에서 `¬quitting` 항 제거 | 제거 | AC4 · AC5 |
+| M2 | 메뉴 두 항목의 `click` 맞바꿈 | 맞바꿈 | AC2 |
+| M3 | `platform === 'win32'` 조건 제거 | 제거 | AC6 |
+| M4 | `preventDefault()` 호출 제거 | 제거 | AC1 |
+| M5 | `createTray` 실패의 `catch` 제거 | 제거 | AC7 |
+| M6 | 트레이 `click` 리스너 제거 | 제거 | AC3 |
+| M7 | `session-end` 리스너 제거 | 제거 | AC5 |
+| M8 | `destroy()` 호출 제거 | 제거 | AC8 |
+| M9 | 메뉴에 세 번째 항목 추가 | 다른 값 | AC2 |
+| M10 | `before-quit` 리스너 제거 | 제거 | AC4 |
+| M11 | `hide()` 호출 제거 | 제거 | AC1 |
+
+- **선언 경계**
+  - B1 — `index.ts` 조립 2자리(EP-03)는 vitest 실행 구간 밖이다. `index.ts`를 import하는 테스트가 없고(§8), 좌표는 사람 실기 §19뿐이다.
+  - B2 — `quitting`은 되돌리지 않는다. `before-quit` 뒤 종료가 영구 취소되는 경로는 다루지 않는다: `before-quit` 리스너 1개가 `finally`에서 항상 `app.quit()`을 다시 부른다(`native-settings-lifecycle.ts:40-43`).
+  - B3 — 메뉴 라벨은 `uiLocale`을 따르지 않는다(D-007).
+  - B4 — 창이 없는 상태의 `열기`는 아무것도 하지 않는다(`index.ts:64`). Windows에서 창은 종료 때만 파괴되므로 상주 중에는 도달하지 않는다.
+  - B5 — macOS·Linux 동작은 판정하지 않는다(D-004). AC6은 "건드리지 않음"만 잠근다.
+- 열린 입력 집합을 판정하는 산출물: 해당 없음.
+- 같은 규칙의 여러 레이어: 없음 — 판정은 `close` 리스너 한 곳. X·헤더·Alt+F4가 모두 `close` 이벤트로 모인다.
+- 외부 SDK 경계: `index.ts`가 `createTray: () => new Tray(…)`, `buildMenu: (items) => Menu.buildFromTemplate(items)`로 넘긴다. `as any`/`as never` 없이 구조적으로 맞아야 한다 — 안 맞으면 `PLAN_GAP`.
+
+## 11. 구현 설계
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/src/main/app/tray-residency.ts` (신규) | §10 계약 | `resident = platform==='win32' && 트레이 생성 성공`. 실패는 `failed(err)`. `before-quit`·`session-end` → `quitting = true`. `will-quit` → `tray?.destroy()` | 순수 — electron import 없음 |
+| `app/src/main/app/tray-residency.test.ts` (신규) | AC1~AC8 · VP-02 수명주기 | 가짜 `app`/트레이/창 포트(리스너 맵 + `vi.fn`) | unit 풀 |
+| `app/src/main/index.ts` | 조립 | `import { Tray, Menu, nativeImage }` 추가. `whenReady`에서 `registerAppProtocol()` 뒤·`createWindow` 앞에 설치. `createWindow`에서 기존 `close` 리스너(`:195`) **뒤에** `residency.attach(mainWindow)` | 사람 실기 |
+| `docs/TRD.md` §10 | anchor 갱신 | "시스템 트레이" 항목을 구현 완료로 표기 | — |
+| `docs/IPC_CONTRACT.md:319` | 채널 의미 | `oo:window:close` 설명에 "Windows에서는 창을 숨기고 트레이에 상주" 추가 | doc-inventory gate |
+| `docs/arch/backend/overview.md` | 현재 상태 | `index.ts` 서술에 트레이 상주와 `app/tray-residency.ts` 추가(이력 서술 금지) | doc-inventory gate |
+
+`index.ts` 조립 세부:
+
+- `createTray`: `new Tray(nativeImage.createFromPath(logo).resize({ width: 32, height: 32 }))` — 1254px 원본을 셸에 그대로 넘기지 않는다. 선명도는 §19 단계 8.
+- `tooltip`: `PRODUCT_DISPLAY_NAME`. `open`: `focusMainWindow`. `failed`: `rootLog.error('app.tray.create-failed', err)`.
+- 트레이 인스턴스 참조는 모듈(`tray-residency.ts` 클로저)이 쥔다 — GC로 아이콘이 사라지지 않게 한다.
+- `window-all-closed`(`:289-293`)·`will-quit`(`:306-312`)·창 컨트롤 IPC는 고치지 않는다.
+
+### 테스트 가능성
+
+- 분리할 순수 파일: `tray-residency.ts` — `electron`·`index.ts`를 import하지 않는다(import graph 절단).
+- 기존 메커니즘 재사용: `native-settings-lifecycle.ts`의 구조 포트 패턴과 같은 형상이다.
+- 순서 관측: VP-02가 한 인스턴스의 호출 로그 배열로 본다.
+
+## 12. End-to-end 영향
+
+```text
+X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-residency 판정 → hide | 통과
+```
+
+- producer 기준: `close` 이벤트. consumer 파생 규칙: 없음 — renderer는 숨김을 알 필요가 없다.
+
+### 부팅/등록/초기화 변경 시 기존 소비처
+
+| 기존 소비처 | 영향 | 회귀 AC |
+|---|---|---|
+| `registerNativeSettingsQuit` (`before-quit`) | 리스너가 하나 더 붙는다. 새 리스너는 `preventDefault`를 부르지 않아 드레인 순서와 무관 | VP-05 · AC4(2회 입력) |
+| `will-quit` 정리 (`index.ts:306`) | 리스너가 하나 더 붙는다. 서로 독립 | AC8 |
+| `close` 위치 저장 (`index.ts:195`) | 숨길 때마다도 저장된다(먼저 등록돼 먼저 실행) | AC9 단계 2 |
+| 예약 작업·스케줄러 | 상주 중에도 계속 발화 — 의도된 결과 | — |
+
+## 13. Lifecycle / 오류 / 정리
+
+- 생성/시작: `whenReady`에서 1회. 락을 못 얻은 두 번째 인스턴스는 `:248`에서 먼저 반환하므로 트레이를 만들지 않는다.
+- 종료: `before-quit`(플래그) → 창 닫힘 통과 → `window-all-closed` → `will-quit`(`destroy`).
+- 오류: 트레이 생성 실패 → 로그 + 비상주(D-006).
+- renderer-gone: 창은 파괴되지 않는다. 변경 없음.
+- 다중 저장소 쓰기: 해당 없음.
+
+## 14. 성능 / 상한 / 최적화
+
+- 해당 없음 — 트레이 1개, 리스너 4개(`before-quit`·`will-quit`·`close`·`session-end`).
+
+## 15. 외부 구현 포트 / 문서 계약
+
+- 해당 없음.
+
+## 16. 기존 결정·규칙과의 관계
+
+| 기존 결정/규칙 | 출처 | 본문에서 건드리는 문장 | 결과 |
+|---|---|---|---|
+| TRD §10 "(anchor) 시스템 트레이 — 진입점 미지정" | `docs/TRD.md:499` | §11 문서 행 | 변경 — 사용자가 진입점을 정했다(D-001·D-002) |
+| 종료 전 저장 드레인 | `native-settings-lifecycle.ts` | §12 소비처 표 | 유지 |
+| main 레이어 DAG — `app`은 컴포지션 루트 | `app/src/main/AGENTS.md` | §11 신규 파일 위치 `app/` | 유지 |
+| 창 보안 옵션·DevTools | `browser-window-devtools.test.ts` | 창 생성자 인자 diff 0 | 유지 |
+| IPC 변경 절차 | `IPC_CONTRACT.md §6` | 채널 추가 0 · §2 설명만 갱신 | 유지 |
+| "croner — 앱 실행 중만 발화" | `app/AGENTS.md` 스택 표 | §12 | 유지 — 상주 중도 "실행 중"이다 |
+| 신규 의존성 승인 | `app/AGENTS.md` | 추가 0 (`Tray`·`Menu`는 electron 내장) | 유지 |
+
+## 17. 리스크 / 트레이드오프
+
+| 리스크 | 완화/결정 |
+|---|---|
+| 숨김이 Windows 로그오프·재시작을 막는다 | `session-end` → `quitting`(AC5). 실제 OS 동작은 §19 단계 7 |
+| 숨김이 업데이트 설치를 막는다 | `before-quit` → `quitting`(AC4). §19 단계 6 |
+| 사용자가 앱이 꺼졌다고 오해 | 안내 풍선은 비범위(§6) — 요청 없음 |
+| Electron 타입이 §10 포트와 다르다 | 구현자가 타입 대조 후 `PLAN_GAP` 보고(§8) |
+| dev 재시작 시 유령 아이콘 | `will-quit` `destroy`(AC8). 강제 종료 시 잔상은 Windows 셸 특성 |
+
+- 되돌리기 어려운 결정: 없음 — 채널·스키마·저장 형식 변경 0.
+- 신규 의존성: 없음.
+
+## 18. 영향 받는 파일 / 문서
+
+- `app/src/main/app/tray-residency.ts` · `tray-residency.test.ts` (신규)
+- `app/src/main/index.ts`
+- `docs/TRD.md` · `docs/IPC_CONTRACT.md` · `docs/arch/backend/overview.md`
+
+## 19. 게이트
+
+- 적용할 하위 가이드: `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드` · `§로컬 확인`.
+- 환경 제약: 설계 턴 환경은 `node_modules` 미설치 — 아래 명령은 구현자가 실행한다.
+- 가드: `node scripts/check-migrations-appendonly.mjs` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-product-naming.mjs` · `node scripts/check-test-budgets.mjs`
+- 정적: `npm run lint` · `npm run typecheck`
+- 테스트: 파일 필터 없는 `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs`
+- 사람 실기 (AC9, Windows — 단계 3·6은 설치본):
+  1. X 클릭 → 창과 작업표시줄 버튼이 사라지고 작업 관리자에 프로세스가 남는다.
+  2. 트레이 아이콘 좌클릭 → 같은 창이 같은 위치·크기·대화 상태로 돌아온다. 메뉴 `열기`도 같다.
+  3. 상주 중 앱을 다시 실행 → 숨은 창이 돌아오고 프로세스가 늘지 않는다.
+  4. 헤더 메뉴 `종료` → 단계 1과 같은 결과.
+  5. 트레이 우클릭 → 항목이 `열기`·`종료` 둘뿐이다. `종료` → 프로세스가 끝나고 아이콘이 사라진다.
+  6. 업데이트 "재시작 후 설치" → 설치되고 새 버전이 뜬다.
+  7. 상주 중 Windows 로그오프 → "앱이 종료를 방해" 화면 없이 진행된다.
+  8. 트레이 아이콘이 100%·150% 배율에서 식별된다.
+
+## READY self-review
+
+- [x] Decision Ledger가 결정을 보존한다 — D-001~D-007, 추론 3건 표시.
+- [x] Part I만으로 완료 상태가 읽힌다 — §5 상태 전이 8행.
+- [x] 조건절을 재해석하지 않았다 — "두 개 메뉴만"은 AC2 길이 단언 + M9.
+- [x] 사용자 결정과 조사 사실을 갈랐다 — 질의 2건(D-003·D-004), 나머지는 §8.
+- [x] AS-IS·TO-BE·Delta가 같은 축이다 — §9.
+- [x] 수치·전칭을 실측했다 — §8 전수 조사 5행.
+- [x] 저장소 규칙·후보 표 확인 — 후보 표에 `index.ts`·창 수명과 겹치는 행 0(`awk '/새 handoff 후보/,0' INDEX.md | rg -i "index\.ts|window|tray|quit"` → 무관 1행).
+- [x] 각 AC가 행동 단언·검증 수단·도달 경로를 갖는다 — §7.
+- [x] Baseline V, NEW node 전부 같은 레벨 REQUIRED pair — VP-01~04. 영향받은 INHERITED는 REGRESSION(VP-05).
+- [x] pair마다 경로·§10 자리·검색 명령·좌표 — EP-01~04 (자리 8).
+- [x] 규칙 칸 분기 ↔ UT 입력 — EP-01 B1~B6, EP-04 2분기.
+- [x] 선언 경계 B1~B5, 열린 입력 집합 산출물 아님.
+- [x] 운영 gate 3행.
+- [x] 사람 실기로 미룬 순수 로직 없음 — 판정·메뉴·정리는 AC1~AC8.
+- [x] structural proxy만으로 검증하는 AC 없음 — AC10만 문서 존재이고 대상이 문서다.
+- [x] "쓰인다" 불변식의 장치가 제거에 red — M1~M11, 형제 맞바꿈 M2.
+- [x] 배타 상태: `resident`는 설치 시 확정, `quitting`은 단방향.
+- [x] 부팅 등록 변경의 기존 소비처 — §12 4행.
+- [x] 게이트 명령이 `app/AGENTS.md`와 일치.
+- [x] `ACTIVE 결정 ↔ AC` 대조를 §3에 적었다 — 충돌 0.
+- [x] 산출물 문장 규칙.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md). 필드 뼈대는 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md)의 `[구현자 기입]` 절을 그대로 복사해 채운다.
+
+## [검증자 기입] 파생 이슈
+
+| # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
+|---|---|---|---|---|---|---|
