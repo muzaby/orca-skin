@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installTestHostEnvironment } from '../host-environment.testfixture'
-import { closeLog, currentLogFilePath, flushLogSync, initLog } from './index'
+import { closeLog, currentLogFilePath, flushLogSync, initLog, logDirectory } from './index'
 
 const mocks = vi.hoisted(() => ({ configDir: vi.fn() }))
 vi.mock('../config/paths', () => ({ ooConfigDir: mocks.configDir }))
@@ -29,5 +29,21 @@ describe('current log file path', () => {
     expect(readFileSync(currentLogFilePath(), 'utf8')).toContain('9.8.7-log')
     closeLog()
     expect(currentLogFilePath()).toBe(expected)
+  })
+
+  // 0324 AC46 — 프로세스마다 자기 파일에 쓴다. 한 폴더에 모인다.
+  it.each([
+    ['main', 'application.jsonl'],
+    ['agent-host', 'agent-host.jsonl'],
+    ['data-host', 'data-host.jsonl']
+  ] as const)('%s 프로세스는 %s 에 쓰고 레코드에 프로세스 이름을 싣는다', (process, file) => {
+    dir = mkdtempSync(join(tmpdir(), 'orcinus-orca-log-process-'))
+    mocks.configDir.mockReturnValue(dir)
+    initLog(process).error('test.process.failed', new Error('boom'))
+    flushLogSync()
+    expect(currentLogFilePath()).toBe(join(dir, 'logs', file))
+    expect(logDirectory()).toBe(join(dir, 'logs'))
+    const record = JSON.parse(readFileSync(join(dir, 'logs', file), 'utf8').trim())
+    expect(record.process).toBe(process)
   })
 })
