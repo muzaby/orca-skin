@@ -10,10 +10,10 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-16 |
 | 매핑 | 없음 |
-| 상태 | DRAFT |
+| 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4 **DRAFT** — §7-F: 실행과 상태의 분리(B, D-034~D-037). OPEN 4건(O-1~O-4) 사용자 결정 대기, AC·V·§10 미확정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -90,15 +90,18 @@
 | D-035 | DB 의 유일한 소유자(연결·쓰기·마이그레이션·복구)는 **데이터 호스트**다 | 같은 출처. D-025 의 비용 근거를 다시 셌다 — 실행 쪽 코드의 DB 호출은 33곳이고 242곳은 데이터 호스트 안에서 동기로 남는다(§7-F 조사) | 턴 16 + 설계자 | ACTIVE | D-025 대체 |
 | D-036 | 설정·비밀·인증 파일은 데이터 호스트가 단독으로 열고 쓴다. 에이전트 호스트는 설정의 읽기 전용 사본을 받는다. main 은 창 위치와 UI 언어 사본만 갖는다(D-029·D-032 유지) | 같은 출처 — 앱 상태는 상태 호스트에 둔다 | 턴 16 + 설계자 | ACTIVE | D-033 대체 |
 | D-037 | 데이터 호스트는 앱 시작 때 뜬다. 큰 세션 본문은 데이터 호스트 → renderer 포트로 직접 간다 | DB 소유자라 첫 요청까지 미룰 수 없다. D-006 의 "별도 프로세스 + 직접 포트"는 유지되고 "읽기 전용 연결"만 바뀐다 | 턴 16 + 설계자 | ACTIVE | D-006 대체 |
-| O-1 | 인증(로그인 흐름·토큰 갱신·인증 요청·게이트)의 자리 | 데이터 호스트(앱 상태와 함께) 또는 에이전트 호스트(VS Code 처럼 실행 쪽) — §7-F OPEN 표 | 설계자 질의 | OPEN | — |
-| O-2 | 턴 이벤트 저장이 실패했을 때 | 비동기 저장 뒤 실패면 턴을 오류로 끝냄 또는 저장 확인 뒤 화면 중계 | 설계자 질의 | OPEN | — |
-| O-3 | 데이터 호스트의 비밀 해제 방식 | 기동 때 한 번 풀어 두고 못 푼 것은 깨어날 때 다시 시도 또는 읽을 때마다 셸에 요청 | 설계자 질의 | OPEN | — |
-| O-4 | 데이터 호스트가 턴 도중 죽었을 때 진행 중 턴 | 즉시 오류로 끝냄 또는 다시 뜰 때까지 저장을 쌓아 두고 이어 저장 | 설계자 질의 | OPEN | — |
+| D-038 | 인증(로그인 흐름·토큰 갱신·인증 요청·게이트)·사용량 조회·플러그인은 **데이터 호스트**가 갖는다. 턴은 준비 단계에서 자격증명을 받는다 | O-1 답 "데이터 호스트" — 소비처 중 게이트·사용량 조회·플러그인이 실행이 아니다 | 턴 16 | ACTIVE | O-1 닫음 |
+| D-039 | 턴 이벤트의 화면 중계는 저장을 기다리지 않는다(비동기 저장). 저장이 실패하면 그 턴을 오류로 끝낸다. 사용자 메시지 커밋(메시지 id)과 백그라운드 기록("기록 뒤 공개")만 응답을 기다린다 | O-2 답 "비동기 저장, 실패 시 턴 오류" · 기다리는 두 종류는 지금 계약이 응답 값을 쓴다(`turn-coordinator.ts:185`·`writer.ts:87` 주석) | 턴 16 + 설계자 | ACTIVE | O-2 닫음 |
+| D-040 | 데이터 호스트는 기동 때 비밀을 셸 서비스로 한 번 풀어 메모리에 둔다. 못 푼 것은 깨어남(절전 해제·화면 잠금 해제)마다 다시 시도한다. 쓰기는 봉인한 뒤에만 저장한다 | O-3 답 "기동 때 풀어 두고 깨어날 때 재시도" | 턴 16 | ACTIVE | O-3 닫음 |
+| D-041 | 데이터 호스트가 턴 도중 죽으면 에이전트 호스트는 진행 중 턴을 오류로 끝낸다. 다시 뜬 데이터 호스트가 복구 규칙으로 정리한다 | O-4 답 "진행 중 턴을 오류로 끝냄" | 턴 16 | ACTIVE | O-4 닫음 |
+| D-042 | 프로세스마다 자기 로그 파일에 쓴다. 오류 보고와 부팅 단계는 데이터 호스트가 모아 창에 준다 | 세 프로세스가 한 JSONL 파일에 동시에 쓰면 줄이 섞인다. VS Code 도 프로세스별 로그 파일이다(D-024) | 설계자 | ACTIVE (사용자 거부 가능) | — |
 
 ### 갱신 메모
 
 - 턴 14~16(rev 4 DRAFT): 사용자가 에이전트 호스트의 역할을 다시 물었고(턴 14 "에이전트 호스트는 sdk cli 실행 전용이 아니었는지?"), VS Code 사례와 비교한 뒤(턴 15 "이것과 비교하면 어떤 형태가 적절한지?" · "B에 비해 a의 장점은?") B 를 골랐다(턴 16 "b로 진행하라. 상세 설정을 다시 확인하자"). D-006·D-025·D-033 → D-037·D-035·D-036, D-034 신규, OPEN 4건(O-1~O-4). 확정 전이라 AC·V·§10 은 아직 바뀌지 않았다 — 바뀔 행은 §7-F "바뀌는 AC" 표.
 - rev 4 DRAFT `ACTIVE 결정 ↔ AC` 대조: 충돌 4 — D-035 ↔ AC30("DB 를 쓰기로 여는 프로세스는 에이전트 호스트") · D-037 ↔ AC18("첫 요청에 뜬다")·AC20("읽기 전용") · D-036 ↔ AC37(호스트 = 에이전트 호스트로 읽힘). 모두 §7-F 확정 때 대체할 AC 다. 그 사이 구현은 멈춘다.
+- 턴 16(rev 4 READY): OPEN 4건을 사용자가 모두 추천안으로 답했다 → D-038~D-041. 설계자 결정 D-042(프로세스별 로그·오류 보고 모으기) 추가.
+- rev 4 READY `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-034 ↔ AC41 · D-035 ↔ AC20′·AC30′ · D-036 ↔ AC37′·AC42 · D-037 ↔ AC18′·AC19′ · D-038 ↔ AC24′(인증 채널 = 데이터)·AC41 · D-039 ↔ AC40 · D-040 ↔ AC45 · D-041 ↔ AC44 · D-042 ↔ AC46·AC47. DRAFT 의 충돌 4건은 AC18′·AC20′·AC30′·AC37′ 로 대체됐다.
 
 - 턴 13: D-033 을 OPEN → ACTIVE 로 닫았다. 내용은 D-029 의 유지라 AC·V pair·§10 행은 바뀌지 않았다 — OPEN 0.
 
@@ -624,108 +627,238 @@ r1.6 이 preload 전송을 만들려다 멈춘 자리다. §11 단계 4 의 prel
 
 ---
 
-## 7-F. V1 rev 4 — 실행과 상태의 분리 (B) — **DRAFT**
+## 7-F. V1 rev 4 — 실행과 상태의 분리 (B)
 
-**판정: DRAFT.** 사용자가 B 를 골랐다(D-034~D-037). 이 절은 프로세스별 책임·채널 배치·호스트 사이 흐름·수명의 안이다. OPEN 4건(O-1~O-4)의 답을 받은 뒤 AC·V·§10 을 확정해 READY 로 올리고, 그때 아래 "대체 범위"의 구 행을 이 절로 대체한다. 확정 전까지 구현은 멈춘다.
+**판정: READY.** 사용자가 B 를 골랐고(턴 14~16, D-034~D-037) OPEN 4건을 추천안으로 닫았다(D-038~D-041). 이 절이 아래 "대체 범위"의 구 행을 대체한다. 계산 워커·멈춤 계측·가드 (a)~(d)(g)~(l)·수명 이벤트 다섯 가지·셸 서비스·포트 클라이언트·감독자의 행은 그대로다.
 
 ### 조사
 
 | 대상 | 검색 / 방법 | N | 의미 |
 |---|---|---:|---|
 | DB 호출 자리(§8 과 같은 술어) | `rg -o "\b(ctx\.db\|deps\.db\|this\.db\|db)\.[a-zA-Z]+(\.[a-zA-Z]+)?\(" app/src/main --glob '!*.test.*'` | 287 | §8 과 같다 |
-| 그중 실행 쪽으로 가는 파일 | 같은 술어를 `app/chat-turn`·`features/chat/title-generation.ts`·`features/orchestration`·`features/worktrees`·`app/composer-catalog.ts`·`app/harnesses`·`features/extensions` 에 | 33 | B 에서 호스트 사이 요청이 되는 자리. `adapters/opencode/v1/native-cursor.ts` 3 은 opencode 자체 DB 라 뺐다 |
+| 그중 실행 쪽으로 가는 파일 | 같은 술어를 `app/chat-turn`·`features/chat/title-generation.ts`·`features/orchestration`·`features/worktrees`·`app/composer-catalog.ts`·`app/harnesses`·`features/extensions` 에 | 33 | 파일별 14·3·4·7·2·1·2. 호스트 사이 요청이 된다. `adapters/opencode/v1/native-cursor.ts` 3 은 opencode 자체 DB 라 뺐다 |
 | 데이터 호스트에서 동기로 남는 파일 | 같은 술어를 `features/history`·`features/usage`·`features/chat/recovery.ts`·`app/handlers`·`app/native-history.ts`·`features/scheduler`·`features/plugins`·`infra/db` 에 | 242 | 저장·조회 코드는 DB 와 함께 옮겨 지금 그대로 동기다 |
-| `bootstrap.ts` | 같은 술어 | 9 | 조립이 두 호스트로 나뉘며 함께 나뉜다. 33 + 3 + 242 + 9 = 287 |
-| 턴 저장이 읽고 쓰는 턴 필드 | `rg -o "turn\.[a-zA-Z]+" features/history/writer.ts features/usage/tracker.ts features/chat/title-generation.ts` | 29종 | 저장 쪽만 쓰는 필드(`currentAssistantMessageId`·`assistantText`·`pendingUserText`·`responseBoundary` 등)는 데이터 호스트의 저장 상태로 옮긴다 |
-| 실행 쪽과 공유하는 저장 필드 | `rg -l "\.(openToolRuns\|askPendingIds\|pendingAskAnswers)\b"` | 3필드 | `openToolRuns`(조정기·`settle`·재시작 게이트) · `askPendingIds`(조정기) · `pendingAskAnswers`(승인 흐름이 넣는다). 저장 스트림에 실어 데이터 호스트가 자기 사본을 만든다 |
-| `turn.dbSessionId` 의 소비 | `rg -n "\.dbSessionId" --glob '!*.test.*' \| grep -v writer.ts` | 65 | 값은 하네스가 낸 세션 id(`ev.sessionId`, `writer.ts:313`)라 DB 가 만들지 않는다 — 실행 쪽이 같은 이벤트에서 직접 정한다 |
-| 설정 읽기 | `rg -c "settings\.(getAll\|patch\|onPatch)\("` | 36 / 10파일 | 실행 쪽은 `chat-turn/send` 2·`resolve-turn` 1·`settings-reactions` 1 과 `bootstrap` 11 의 일부 — 읽기 전용 사본으로 충분하다 |
-| 세션 로드 응답의 활동 상태 | `app/handlers/session.ts:74`·`:103` | 2 | 응답이 실행 쪽 활동 상태(`getActivity`)를 싣는다 — 호스트를 건너는 조합이다(F5) |
-| 플러그인 도구 경로 | `features/extensions/common/mcp/bridge.ts` | 1 | 하네스는 앱이 띄운 로컬 HTTP MCP 서버에 직접 붙어 플러그인 도구를 부른다 — 그 서버가 어느 호스트에 있어도 경로가 같다 |
-| 핸들러 등록 | `rg -U -o "\b(handle\|handlePlain\|on)\(\s*CHANNELS\.[a-zA-Z]+" app/src/main/app app/src/main/infra` | 135 | 아래 채널 배치 표의 출처(파일별) |
+| `bootstrap.ts` 의 DB·설정 자리 | 같은 술어 · `rg -n "settings\.(getAll\|patch\|onPatch)\(" app/src/main/app/bootstrap.ts` | 9 · 11 | 조립이 나뉘며 자리마다 소속이 정해진다(EP-20). 33 + 3 + 242 + 9 = 287 |
+| 턴 저장 입력 자리 | `rg -n "persistence\??\.(persist\|flushAskAnswers\|persistProviderEvent\|finalizeTurn\|forgetProviderSession)\(\|persist\.commitUserMessage\?\.\(\|\.recordTurnUsage\(" app/src/main --glob '!*.test.*'` | 9 | EP-15 의 자리 목록 |
+| 저장이 실행 쪽에 돌려주는 값 | `turn-coordinator.ts:185`·`:373` · `writer.ts:87~96` | 2종 | 사용자 메시지 커밋은 DB 가 만든 메시지 id 를 `message.committed` 에 싣는다 · 백그라운드 이벤트는 기록한 뒤에만 공개한다(`committed()` 콜백) |
+| 실행 쪽과 공유하는 저장 필드 | `rg -l "\.(openToolRuns\|askPendingIds\|pendingAskAnswers)\b"` | 3필드 | `openToolRuns`(조정기·`settle`·재시작 게이트) · `askPendingIds`(조정기) · `pendingAskAnswers`(승인 흐름). 각 호스트가 같은 입력 열에서 자기 사본을 만든다(MD-09) |
+| `turn.dbSessionId` 의 소비 | `rg -n "\.dbSessionId" --glob '!*.test.*' \| grep -v writer.ts` | 65 | 값은 하네스의 세션 id(`writer.ts:313`)라 실행 쪽이 같은 이벤트에서 직접 정한다 |
+| 실행 쪽 설정 읽기 | `rg -n "settings\.(getAll\|patch\|onPatch)\(" app/src/main/app/chat-turn app/src/main/app/settings-reactions.ts` | 4 | 사본으로 충분하다(EP-17) |
+| 비밀 저장소 소비 | `rg -n "\b(store\|secrets\|opts\.secrets\|this\.secrets)\.(get\|set\|has\|delete)\(" app/src/main/infra/vault.ts app/src/main/features/extensions/common/mcp/{store,resolver}.ts` | 17줄 | 주석 1(`resolver.ts:4`)을 뺀 16자리 — EP-18 |
+| 봉인 쓰기를 따라 비동기가 되는 자리 | `rg -n "vault\.(set\|delete)\(" app/src/main --glob '!*.test.*'` | 7줄 | 주석 1(`auth/store.ts:273`)을 뺀 6자리 — EP-18 |
+| 세션 갱신의 네이티브 이력 | `app/native-history.ts` | 1 | 읽기는 하네스 어댑터(`adapter.readHistory`), 기록은 DB — 두 호스트를 건넌다(F4) |
+| 플러그인 도구 경로 | `features/extensions/common/mcp/bridge.ts` | 1 | 하네스는 앱이 띄운 로컬 HTTP MCP 서버에 직접 붙는다 — 데이터 호스트가 띄워도 경로가 같다 |
+| 핸들러 등록 | `rg -U -o "\b(handle\|handlePlain\|on)\(\s*CHANNELS\.[a-zA-Z]+" app/src/main/app app/src/main/infra` | 135 | 채널 배치 표의 출처 |
 
 ### 프로세스별 책임
 
 | 프로세스 | 갖는 것 | 갖지 않는 것 |
 |---|---|---|
-| 셸 (Electron main) | 창·트레이·`app://`·자동 업데이트 · 두 호스트의 감독(기동·포트 중개·종료·재기동·고아 정리) · 셸 서비스(비밀 봉인·대화상자·외부 열기·알림·전원·파티션 세션) · 셸 상태 파일 | DB·설정 파일·턴·업무 핸들러 |
-| 데이터 호스트 (utility, 상태 호스트) | DB 단독 · 설정·비밀·인증 파일 · 턴 저장(사용량 집계 → 이력 저장, 지금 순서) · 세션·프로젝트·검색·산출물·첨부·예약 작업의 저장과 핸들러 · 큰 세션 조각 전송 · 기동·재기동 때 복구 | SDK·CLI·하네스·git·셸 프로세스 |
-| 에이전트 호스트 (utility, 실행 호스트) | 어댑터·SDK·하네스 프로세스 · 세션 런타임 · 턴 정규화·버스·창 중계 · 제목 생성 · git·셸 도구 프로세스(D-023) · 하네스 네이티브 자원(확장 카탈로그·세션 리소스·작성기 카탈로그·엔진 설정)·확장 배포·하네스 설치와 가용성 | DB 연결·설정/비밀/인증 파일 |
-| 창 | renderer + 계산 워커(단계 3, 그대로) | — |
+| 셸 (Electron main) | 창·트레이·`app://`·자동 업데이트 · 두 호스트의 감독(기동·포트 중개·종료·재기동·고아 정리) · 셸 서비스 · 셸 상태 파일 | DB·설정 파일·턴·업무 핸들러 |
+| 데이터 호스트 (utility, 상태 호스트) | DB 단독 · 설정·비밀·인증 파일 · 인증·게이트·사용량 조회·플러그인(D-038) · 턴 저장(사용량 → 이력) · 세션·프로젝트·검색·산출물·첨부·예약 작업·MCP·스킬 · 큰 세션 조각 전송 · 기동·재기동 때 복구 · 오류 보고와 부팅 단계 모음(D-042) | SDK·CLI·하네스·git·셸 프로세스 |
+| 에이전트 호스트 (utility, 실행 호스트) | 어댑터·SDK·하네스 프로세스 · 세션 런타임 · 턴 정규화·버스·창 중계 · 제목 생성 · git·셸 도구 프로세스(D-023) · 하네스 네이티브 자원 · 확장 배포 · 하네스 설치와 가용성 | DB 연결·설정/비밀/인증 파일 |
+| 창 | renderer + 계산 워커 | — |
 
-### 채널 배치 — 등록 파일 기준
+### 채널 배치
 
-| 묶음 | 등록 파일(채널 수) | 소유 | 근거 |
-|---|---|---|---|
-| 턴·런타임 | `chat-turn/index.ts`(7) · `chat-turn/background.ts`(3) | 에이전트 | 세션 런타임 |
-| 하네스 | `misc.ts` 의 `backendList`·`harnessRecheck`·`agentList`·`installStart` · `engine.ts`(5) · `extension-catalog.ts`(3) · `session-resources.ts`(1) · `composer-catalog.ts`(2) | 에이전트 | 하네스 모듈·네이티브 파일 |
-| git | `git.ts`(4) | 에이전트 | 도구 프로세스(D-023) |
-| 세션·프로젝트·검색·첨부 | `session.ts`(8) · `project.ts`(6) · `files.ts`(7) | 데이터 | DB·첨부 범위 판정 |
-| 앱 상태 | `artifacts.ts`(8) · `settings.ts`(2) · `mcp.ts`(4) · `skills.ts`(7) · `cost.ts`(4) · `scheduled-tasks.ts`(8) | 데이터 | 앱 상태 |
-| 인증 | `providers.ts`(5) + 상태 통지 | O-1 | — |
-| 셸 | `update.ts`(4) · `log.ts`(1) · `bootWhenReady` · `notifyShow`(셸 서비스만 부른다) | 셸 | 창·OS |
-| 나머지 | `error.ts`(2) · `boot.ts`(1) · `misc.ts` 의 디버그(2) | 확정 때 | 오류 보고·부팅 보고는 프로세스마다 생긴다 — 모으는 자리를 확정 때 정한다 |
+| 묶음 | 등록 파일(채널 수) | 소유 |
+|---|---|---|
+| 턴·런타임 | `chat-turn/index.ts`(7) · `chat-turn/background.ts`(3) | 에이전트 |
+| 하네스 | `misc.ts` 의 `backendList`·`harnessRecheck`·`agentList`·`installStart`·디버그 2 · `engine.ts`(5) · `extension-catalog.ts`(3) · `session-resources.ts`(1) · `composer-catalog.ts`(2) | 에이전트 |
+| git | `git.ts`(4) | 에이전트 |
+| 세션·프로젝트·검색·첨부 | `session.ts`(8) · `project.ts`(6) · `files.ts`(7) | 데이터 |
+| 앱 상태·인증 | `artifacts.ts`(8) · `settings.ts`(2) · `mcp.ts`(4) · `skills.ts`(7) · `cost.ts`(4) · `scheduled-tasks.ts`(8) · `providers.ts`(5) + 연결 상태 통지 · `error.ts`(2) · `boot.ts`(1) | 데이터 |
+| 셸 | `update.ts`(4) · `log.ts`(1) · `bootWhenReady` · `notifyShow`(셸 서비스만 부른다) | 셸 |
 
-### 호스트 사이 흐름
+### 호스트 사이 흐름 — 피어 포트(셸이 중개, 두 호스트 중 어느 쪽이든 다시 뜨면 새로 잇는다)
 
 | # | 흐름 | 방향 | 내용 |
 |---|---|---|---|
-| F1 | 턴 저장 스트림 | 에이전트 → 데이터(셸이 중개한 전용 포트) | `turn.begin`(턴 키·정적 필드) → `turn.event`(순번·정규화 이벤트) × n → `turn.input`(승인 답처럼 실행 쪽이 넣는 저장 입력) → `turn.end`. 데이터 호스트가 사용량 집계 → 이력 저장을 지금 순서로 돈다. 실패 처리는 O-2 |
-| F2 | 턴 준비 조회 | 에이전트 → 데이터(요청·응답) | 세션·프로젝트 메타 · 연속성 입력 · MCP 해석 결과 · 자격증명(O-1·O-3). 준비 단계(D-030)라 이미 비동기 자리다. 실행 쪽 DB 호출 33곳이 F2·F4 로 바뀐다 |
-| F3 | 설정 사본 | 데이터 → 에이전트 | 연결 때 전체, 이후 패치. 실행 쪽은 사본을 동기로 읽는다 |
-| F4 | 실행 명령 | 데이터 → 에이전트(요청·응답) | 세션 삭제·숨김 전 런타임 폐기 · 예약 작업의 셸 명령 실행(D-023) |
-| F5 | 활동 상태 | 에이전트 → 창 | 세션 로드 응답은 데이터 호스트가 본문만 준다. 창이 에이전트 호스트의 활동 상태와 합친다 |
-| F6 | UI 언어 사본 | 데이터 → 셸 | 지금 에이전트 호스트가 보내는 `ready`·`shell.mirror` 를 데이터 호스트가 보낸다(D-032 유지 — 보내는 쪽만 바뀐다) |
+| F1 | 턴 저장 스트림 | 에이전트 → 데이터 | `turn.begin`(턴 키·저장이 읽는 정적 필드) → `turn.event` × n · `turn.askAnswers` · `turn.commitUser`(응답: 메시지 id) · `turn.end` / `provider.event`(응답 뒤 공개) · `provider.forget`. 한 포트의 순서가 곧 저장 순서다. 실패 응답은 그 턴을 오류로 끝낸다(D-039) |
+| F2 | 턴 준비 조회 | 에이전트 → 데이터 | 세션·프로젝트 메타 · 연속성 입력 · MCP 해석 결과(브리지 주소 포함) · 자격증명. 준비 단계(D-030)에서 받는다. 실행 쪽 DB 호출 33곳이 F2·F4 요청이 된다 |
+| F3 | 설정 사본 | 데이터 → 에이전트 | 연결 때 전체, 이후 패치 |
+| F4 | 교차 요청 | 양방향 | 데이터 → 에이전트: 세션 활동 조회 · 런타임 폐기(삭제·숨김 전) · 네이티브 이력 읽기 · 예약 작업의 셸 명령 실행 / 에이전트 → 데이터: 제목 기록 · 실행 쪽 쓰기(작업 트리·분기 복사·확장 빌더 기록) · 오류 보고·부팅 단계 전달 |
+| F5 | UI 언어 사본 | 데이터 → 셸 | `ready`·`shell.mirror` 를 데이터 호스트가 보낸다(D-032 유지 — 보내는 쪽만 바뀐다) |
 
-### 수명
+### Requirements / Acceptance — rev 4
 
-| 상황 | 순서 |
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-05 | AT-18′ / AC18′ | 데이터 호스트는 앱 시작 때 뜨고 마이그레이션·복구 뒤 준비를 알린다. 비정상 종료하면 셸이 창에 알리고 바로 다시 띄운다(연속 기동 실패 3회면 부팅 오류). 앱 종료 때 에이전트 호스트 다음에 내려간다 | `app/shell/boot.test.ts` — 시작 → 데이터 fork 1 · 데이터 exit → 통지 1·fork 2회째 · `host-supervisor.test.ts` — `shutdownHosts` 호출 순서 에이전트 → 데이터 | `index.ts` → `boot.ts` → 데이터 `HostSupervisor` |
+| R-05 | AT-19′ / AC19′ | `oo:session:load`·`refresh` 는 데이터 호스트가 받아 본문을 조각으로 창 포트에 보낸다. 활동 상태는 데이터 호스트가 에이전트 호스트에 물어 싣고, 에이전트 호스트가 없으면 쉬는 상태다. 갱신의 네이티브 이력 읽기는 에이전트 호스트가 한다 | `app/data-host/session-load.test.ts`(io) — 조각 계약(AC15~AC17) · 가짜 에이전트 링크: 활동 응답 → 실림 · 미연결 → 쉬는 상태 · 갱신 → 네이티브 읽기 요청 1 뒤 기록 | 창 → 데이터 포트 → `session` 핸들러 → 에이전트 링크 |
+| R-05 | AT-20′ / AC20′ | DB 연결은 데이터 호스트 하나다. 데이터 호스트에 오는 요청(창·피어 포트)은 스키마 검증을 통과해야 처리된다 | 가드 (e1)(e2) 위반 픽스처 → exit 1 · `port-server.test.ts` 형식 오류 → `ok:false`·핸들러 0 · `shared/peer-protocol.test.ts` 형식 오류 → 거부 | 데이터 호스트 `entry.ts` |
+| R-08 | AT-24′ / AC24′ | 모든 요청 채널은 셸·에이전트 호스트·데이터 호스트 중 정확히 한 곳이 처리한다. 호스트 채널은 preload → 그 호스트 포트로 가고 main JS 를 지나지 않는다. `window.oo` 형상 그대로 | `channel-owner.ts` 가 `Record<keyof typeof CHANNELS, 'shell'\|'agent'\|'data'>`(typecheck) · `preload/index.test.ts` — 소유자별 전송 1·나머지 0(요청·송신·구독) · `channel-registration.test.ts` — 표 ↔ 실제 등록 프로세스 차집합 0 | `window.oo.*` → preload → 포트 |
+| R-08 | AT-27′ / AC27′ | 호스트의 권한 작업은 셸 서비스로만 한다 — 비밀 봉인·해제 · 대화상자 · 외부 열기 · 알림 · 깨어남 · 파티션 세션. 요청은 스키마 검증을 통과해야 처리된다 | `app/shell/services.test.ts` — 이름마다 왕복 1 · 형식 오류 → 거부·구현 호출 0 | 호스트 → 셸 서비스 포트 → Electron |
+| R-08 | AT-29′ / AC29′ | 에이전트 호스트가 비정상 종료하면 셸은 고아 프로세스를 끝내고 창에 알리고 수명 상태를 비운다. 데이터 호스트는 그 호스트의 열린 턴을 즉시 마감한다(끊긴 도구 호출·미완료 메시지). renderer 는 진행 중 세션을 중단으로 표시하고 입력을 받는다. 다음 요청에서 다시 뜬다 | `host-supervisor.test.ts`(있음) · `app/data-host/persistence-receiver.test.ts`(io) — 열린 턴 2 + 피어 포트 닫힘 → 복구 규칙 결과 · `chatStore` 테스트 — 종료 통지 → busy 세션 오류 1·idle | `utilityProcess` exit → 감독자 / 피어 포트 닫힘 → 수신기 |
+| R-08 | AT-30′ / AC30′ | DB 소유·마이그레이션·복구는 데이터 호스트다. 다시 뜨면 끊긴 도구 호출과 미완료 메시지가 지금의 복구 규칙으로 정리된다 | 가드 (e1)(e2) · 기존 `features/chat/recovery` 테스트 · `app/data-host/boot.test.ts` — `initDb` → 복구 → 준비 순서 기록 | 데이터 `entry.ts` → `initDb` |
+| R-08 | AT-31′ / AC31′ | 창은 두 호스트가 준비된 뒤 본 화면으로 넘어간다. 어느 호스트든 기동 실패는 부팅 오류로 보인다 | `boot.test.ts` — 데이터만 준비 → `bootWhenReady` 미해결 · 둘 다 → 해결 · 데이터 실패 → 에이전트 fork 0·거부 · 에이전트 실패 → 거부 | `index.ts` → `boot.ts` |
+| R-08 | AT-32′ / AC32′ | 앱 종료: 에이전트 호스트(런타임 정지 → 저장 스트림 비움) → 데이터 호스트(예약 작업 → 스케줄러 → DB 닫기). 각 3초 넘으면 강제 종료 | `host-supervisor.test.ts` — `shutdownHosts` 순서 · `agent-host/shutdown.test.ts`·`data-host/shutdown.test.ts` — 정리 순서 기록 | `will-quit` → `shutdownHosts` |
+| R-08 | AT-33′ / AC33′ | 어느 호스트가 다시 뜨든 열린 창은 그 호스트의 새 포트를 받고 세션 목록·활성 세션을 다시 읽는다. 피어 포트도 새로 이어진다 | `preload/host-port.test.ts`(포트 교체, 있음) · `boot.test.ts` — 재기동 → 피어 포트 재연결 1 · `chatStore` 재연결 테스트 | 감독자 재기동 → 포트 재전달 |
+| R-10 | AT-37′ / AC37′ | 데이터 호스트가 여는 설정·비밀·인증 파일은 fork 인자 `userData` 아래다. `cwd` 없는 `electron-store` 생성은 가드에서 실패한다 | 세 스토어 테스트(있음) · 가드 (l) | 데이터 호스트 조립 |
+| R-10 | AT-38′ / AC38′ | 트레이 라벨은 데이터 호스트가 알린 UI 언어를 따른다. 호스트가 뜨기 전에는 마지막으로 알려진 언어다 | `shell-state.test.ts`(있음) · `host-link.test.ts` — 데이터 호스트의 `ready`·`shell.mirror` → 언어 사본 | 데이터 `onPatch` → 셸 |
+| R-11 | AT-39 / AC39 | 턴 저장 입력은 데이터 호스트에서 지금과 같은 결과로 저장된다 — 같은 입력 열을 지금의 한 프로세스 경로로 저장한 DB 와 같다(부모 도구 연결·질문 답·사용자 메시지·백그라운드 기록 포함) | `persistence-receiver.test.ts`(io) — 입력 열 4종(일반 응답·중첩 도구·질문 답·백그라운드) × (지금 경로 / 스트림) DB 덤프 `toEqual` | 에이전트 버스 → 송신기 → 피어 포트 → 수신기 → `UsageTracker`·`HistoryWriter` |
+| R-11 | AT-40 / AC40 | 턴 이벤트의 화면 중계는 저장 응답을 기다리지 않는다. 저장 실패 응답이 오면 그 턴을 오류로 끝낸다(런타임 취소 1·오류 이벤트 1·이후 그 턴의 저장 메시지 0). 사용자 메시지 커밋과 백그라운드 기록은 응답을 받은 뒤 공개한다 | `app/agent-host/persistence-sender.test.ts` — EP-15 규칙 칸 9분기 | 에이전트 버스 → 송신기 |
+| R-11 | AT-41 / AC41 | 실행 쪽 코드는 DB·설정 파일·비밀 저장소를 직접 열지 않는다. 턴 준비의 세션·프로젝트 메타·연속성 입력·MCP 해석 결과·자격증명은 데이터 호스트에서 받는다 | 가드 (e2) · `chat-turn` 준비 테스트 — 가짜 데이터 링크가 준 값이 `TurnContext`·스폰 환경에 실림(구별 값) | 에이전트 `prepareTurn` → 데이터 링크 |
+| R-11 | AT-42 / AC42 | 에이전트 호스트는 설정을 데이터 호스트가 보낸 사본으로 읽는다. 연결 때 전체를, 바뀌면 패치를 받는다. 쓰기는 데이터 호스트에 요청하고 사본은 패치 통지로만 바뀐다 | `app/agent-host/settings-mirror.test.ts` — EP-17 규칙 칸 4분기 | 데이터 `onPatch` → 피어 포트 → 사본 |
+| R-11 | AT-43 / AC43 | 세션 삭제·숨김은 그 세션의 런타임을 먼저 폐기한 뒤 DB 를 바꾼다. 에이전트 호스트가 없으면 폐기 없이 진행한다 | 데이터 `session` 핸들러 테스트 — 가짜 에이전트 링크: 폐기 → DB 변경 순서 · 미연결 → DB 변경만 | 창 → 데이터 포트 → 에이전트 링크 |
+| R-11 | AT-44 / AC44 | 데이터 호스트가 턴 도중 죽으면 에이전트 호스트는 진행 중 턴을 모두 오류로 끝낸다. 응답을 기다리던 커밋은 실패한다 | `persistence-sender.test.ts` — 피어 포트 닫힘 → 활성 턴 2 취소·오류 각 1·`message.committed` 0 | 피어 포트 닫힘 → 송신기 |
+| R-11 | AT-45 / AC45 | 데이터 호스트는 기동 때 비밀을 셸 서비스로 한 번 풀어 둔다. 못 푼 비밀은 `undecryptable` 이고 깨어남(절전 해제·화면 잠금 해제)마다 다시 풀기를 시도한다. 쓰기는 봉인한 뒤에만 저장하고, 봉인할 수 없으면 저장하지 않고 실패한다 | `infra/config/secret-store.test.ts` — EP-18 규칙 칸 7분기 | 데이터 조립 → `SecretStore` → 셸 서비스 |
+| R-11 | AT-46 / AC46 | 프로세스마다 자기 로그 파일에 쓴다. 로그 열기는 로그 폴더를 연다 | `infra/log/index.test.ts` — 프로세스 이름별 파일 · `error.test.ts` — 폴더 열기 | 각 진입점 `initLog(<프로세스>)` |
+| R-11 | AT-47 / AC47 | 에이전트 호스트의 오류 보고와 부팅 단계는 데이터 호스트로 모여 창에 간다 | `app/agent-host/report-forwarder.test.ts` — 오류 1·부팅 단계 1 → 피어 메시지 각 1 · 데이터 `boot` 보고 테스트 — 두 호스트 단계가 합쳐진 보고 | 에이전트 `reportError` → 피어 포트 → 데이터 허브 |
+
+AC 총수는 38 → **47** 이다(AC18·19·20·24·27·29·30·31·32·33·37·38 은 ′ 판으로 대체, AC39~AC47 추가).
+
+### Node · Pair — rev 4 (Baseline V1 의 rev 정정, 새 Delta V 아님)
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 / 대체 |
+|---|---|---|---|---|
+| R-05 · R-08 · R-10 | R | 위 AC′ | CHANGED | §7 · §7-B |
+| R-11 · AT-39~47 | R · AT | 실행과 상태의 분리 | NEW | — |
+| SD-02′ | SD | 세션 로드 수명주기 — 데이터 호스트가 바로 응답, 티켓 없음 | CHANGED | SD-02 |
+| SD-04′ | SD | 두 호스트 수명주기 — EP-19 | CHANGED | SD-04 |
+| SD-05′ | SD | 턴 이벤트 순서 — 에이전트 버스(저장 송신 → 제목 → 중계) · 데이터 호스트(사용량 → 이력) | CHANGED | SD-05 |
+| SD-07 | SD | 저장 스트림 수명주기 — EP-15 | NEW | — |
+| AR-02′ | AR | 감독자 ↔ 두 호스트 ↔ 창 클라이언트 · 피어 포트 중개 | CHANGED | AR-02 |
+| AR-05 | AR | 세션 로드 티켓 계약 | SUPERSEDED | → AR-13(세션 로드는 데이터 호스트 채널이 됐다) |
+| AR-06′ | AR | 채널 소유 3분할 — EP-8′ | CHANGED | AR-06 |
+| AR-10′ | AR | 프로세스별 import 경계 — EP-1 (e1)~(e3) | CHANGED | AR-10 |
+| AR-12′ | AR | 영속 파일의 소유 = 데이터 호스트 | CHANGED | AR-12 |
+| AR-13 | AR | 피어 계약(F1~F4) — EP-15·EP-16·EP-20 | NEW | — |
+| AR-14 | AR | 설정 사본 — EP-17 | NEW | — |
+| MD-09 | MD | 저장 쪽 턴 상태 — 공유 필드 사본 | NEW | — |
+| MD-10 | MD | 비밀 캐시 — EP-18 | NEW | — |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-05′ | R-05 ↔ AT-15~17·18′~20′ | REQUIRED | 클릭 → `sessionApi.load` → 데이터 포트 → 조각 → 조립 → `LOAD_SESSION` | AC15~AC17·AC18′~AC20′ 의 테스트 | not selected | EP-4′·EP-19 |
+| VP-14 | AR-05 ↔ IT-05 | SUPERSEDED | — | AC19 의 "응답에 메시지 배열 없음" 단언은 AC19′(VP-05′)·VP-39 로 간다 | — | — |
+| VP-21′ | R-08 ↔ AT-24′~33′ | REQUIRED | 창 → preload → 호스트 포트 → 핸들러 / 셸 서비스 / 수명 통지 / 피어 | AC24′~AC33′ 의 테스트 | required — 소유 표의 에이전트 채널 1개를 `'data'` 로 → `preload/index.test.ts` red | EP-8′·EP-9·EP-10′·EP-11·EP-19 |
+| VP-33′ | R-10 ↔ AT-36·37′·38′ | REQUIRED | rev 3 과 같고 알림 주체만 데이터 호스트 | AC36·AC37′·AC38′ | not selected | EP-13·EP-14 |
+| VP-37 | R-11 ↔ AT-39~47 | REQUIRED | 에이전트 버스·준비·설정·교차 요청 → 피어 포트 → 데이터 호스트 | AC39~AC47 의 테스트 | not selected | EP-15~EP-18·EP-20 |
+| VP-09′ | SD-02′ ↔ ST-02′ | REQUIRED | 요청 → begin → chunk* → end / cancel / 데이터 호스트 종료 | `session-load.test.ts` · `dataHostClient.test.ts` | not selected | EP-4′ |
+| VP-22′ | SD-04′ ↔ ST-04′ | REQUIRED | 데이터 fork → ready → 에이전트 fork → ready → 피어 → 창 → 종료/비정상 종료/재기동 | `boot.test.ts` — EP-19 규칙 칸 6분기 · `host-supervisor.test.ts` | not selected | EP-19 (6) |
+| VP-30′ | SD-05′ ↔ ST-05′ | REQUIRED | 에이전트 `turn.event` 구독 순서 · 데이터 수신기의 사용량 → 이력 | `agent-host/bootstrap` 순서 테스트(송신 → 제목 → 중계) · `persistence-receiver.test.ts` — 사용량이 이력의 `currentAssistantMessageId` 를 리셋 전에 읽음 | not selected | EP-15 |
+| VP-38 | SD-07 ↔ ST-07 | REQUIRED | begin → event* → end · 실패 · 포트 닫힘 | `persistence-sender.test.ts`·`persistence-receiver.test.ts` | required — 동치 비교가 대표 열만 보면 메시지 종류 하나가 빠져도 통과한다. 변이: 수신기의 `turn.askAnswers` 분기 제거 → AC39(질문 답 열) red | EP-15 (9) |
+| VP-11′ | AR-02′ ↔ IT-02′ | REQUIRED | 감독자 → 피어 포트 중개 → 두 호스트 | `boot.test.ts` — 재기동마다 피어 포트 1쌍 | not selected | EP-19 |
+| VP-23′ | AR-06′ ↔ IT-06′ | REQUIRED | `CHANNELS` → `channel-owner.ts` → preload 선택 → 세 등록 | `gate:npm run typecheck` · `preload/index.test.ts` · `channel-registration.test.ts` | VP-21′ 과 같다 | EP-8′ (4) |
+| VP-27′ | AR-10′ ↔ IT-10′ | REQUIRED | 실제 트리 → 가드 (e1)~(e3) | `gate:node scripts/check-ui-thread.mjs` · `check-ui-thread.test.mjs` — (e1)~(e3) 위반·허용 | required — 0건 가드. 변이: 에이전트 그래프 파일에 `better-sqlite3` import → (e2) red · 데이터 그래프 파일에 `node:child_process` import → (e3) red | EP-1 (e)′ |
+| VP-35′ | AR-12′ ↔ IT-12′ | REQUIRED | fork 인자 `userData` → 데이터 조립 → 세 스토어 | 세 스토어 테스트 + 가드 (l) | rev 3 과 같다 | EP-13 |
+| VP-39 | AR-13 ↔ IT-13 | REQUIRED | 송신기·데이터 링크 ↔ `shared/peer-protocol.ts` ↔ 수신기·에이전트 링크 | `peer-protocol.test.ts` — 메시지 종류마다 한쪽이 만든 메시지를 다른 쪽 파서가 읽음 · 형식 오류 → 거부 | not selected | EP-15·EP-16·EP-20 |
+| VP-40 | AR-14 ↔ IT-14 | REQUIRED | 데이터 `onPatch` → 피어 → 사본 → 실행 쪽 읽기 | `settings-mirror.test.ts` | not selected | EP-17 (4) |
+| VP-41 | MD-09 ↔ UT-09 | REQUIRED | 저장 쪽 턴 상태 | `persistence-receiver.test.ts` — 공유 필드 사본 3종(도구 부모·질문 대기·답 대기) | not selected | EP-15 과 공유 |
+| VP-42 | MD-10 ↔ UT-10 | REQUIRED | `SecretStore` 캐시·봉인 | `secret-store.test.ts` | not selected | EP-18 (16+6) |
+| VP-20 · VP-31 | SD-03 · SD-06 | REGRESSION | rev 3 그대로 | 기존 좌표 | — | — |
+
+### 강제 지점 — rev 4
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-13 · SD-07 / VP-38·39 **EP-15** | 턴 저장 입력은 저장 스트림으로만 | `shared/peer-protocol.ts` | 에이전트 → 데이터 | 9자리 — `bootstrap.ts:1027`(이력 구독) · `:1023`(사용량) · `chat-turn/approval.ts:70`(계획 검토 입력) · `:94`(질문 답) · `chat-turn/background.ts:15`(백그라운드 기록) · `chat-turn/index.ts:76`(턴 끝) · `bootstrap.ts:1280`(제공자 세션 잊기) · `turn-coordinator.ts:185`·`:373`(사용자 메시지 커밋) | 조사 표 "턴 저장 입력 자리" 명령 → 지금 9. 구현 뒤 에이전트 호스트 그래프 0 · `app/data-host/persistence-receiver.ts` 에 메시지 종류별 1 | 저장 입력 하나가 직접 호출로 남아 DB 없는 프로세스에서 던진다 / 빠져 저장되지 않는다 |
+| AR-13 / VP-37·39 **EP-16** | 실행 쪽 DB 호출은 데이터 링크 요청으로 | `app/agent-host/data-link.ts` | 에이전트 | 33자리 — 조사 표 2행의 술어·범위 출력 | 같은 명령 → 구현 뒤 0 · 가드 (e2) 가 import 를 막는다 | 에이전트 호스트가 DB 없이 던진다 |
+| AR-14 / VP-40 **EP-17** | 실행 쪽 설정 읽기는 사본으로 | `app/agent-host/settings-mirror.ts` | 에이전트 | 4자리 — `chat-turn/send.ts:186`·`:257` · `resolve-turn.ts:174` · `settings-reactions.ts:35` | 조사 표 "실행 쪽 설정 읽기" 명령 → 4 | 실행 쪽이 설정 파일을 직접 열어 두 프로세스가 같은 파일을 쓴다 |
+| MD-10 / VP-42 **EP-18** | 읽기는 기동 때 푼 사본, 쓰기는 봉인한 뒤 | `infra/config/secret-store.ts` | 데이터 | 16 + 6자리 — 읽기 `vault.ts:88`·`:103`·`:110`·`mcp/store.ts:126`·`resolver.ts:42` · 존재 `mcp/store.ts:87`·`:115`·`:124` · 봉인 쓰기 `vault.ts:98`·`:118`·`:119`·`mcp/store.ts:127`·`:134` · 삭제 `vault.ts:123`·`:124`·`mcp/store.ts:249` / 비동기가 되는 호출 `auth/login.ts:697`·`:708`·`:949`·`:955`·`auth/store.ts:194`·`:313` | 조사 표의 두 명령 → 17줄(주석 1) · 7줄(주석 1) | 봉인 없이 평문이 디스크에 남는다 / 봉인 실패를 성공으로 알린다 |
+| SD-04′ / VP-22′ **EP-19** | 두 호스트의 수명 순서 | `app/shell/boot.ts` | 셸 | 6자리 — 기동 순서 · 데이터 기동 실패 · 에이전트 기동 실패 · 에이전트 비정상 종료 · 데이터 비정상 종료 · 종료 순서 | 구현 뒤 `rg -n "ensureRunning\|shutdownHosts\|onExited\|onBootFailed" app/src/main/app/shell --glob '!*.test.*'` | 데이터 호스트 없이 에이전트가 떠 저장할 곳이 없다 / DB 를 닫은 뒤 저장이 온다 |
+| AR-13 / VP-37 **EP-20** | 조립의 DB·설정 자리는 소속 호스트에서 | `app/{agent,data}-host/bootstrap.ts` | 두 호스트 | 20자리 — `bootstrap.ts` DB `:842`·`:887`·`:1157`·`:1176`·`:1212`·`:1218`·`:1224`·`:1230`·`:1326` · 설정 `:194`·`:220`·`:308`·`:464`·`:498`·`:664`·`:675`·`:713`·`:731`·`:861`·`:879` | 조사 표 "`bootstrap.ts` 의 DB·설정 자리" 명령 → 9·11. 구현 뒤 `bootstrap.ts` 는 없어지고 자리마다 옮긴 파일을 구현 보고에 적는다 | 에이전트 조립이 DB·설정 파일을 연다(가드 (e2) red) |
+| AR-06′ / VP-23′ **EP-8′** | 채널마다 처리 프로세스가 하나 | `shared/channel-owner.ts` | preload·셸·두 호스트 | 4자리 — preload 전송 선택 · 셸 등록 · 에이전트 등록 · 데이터 등록 | `rg -n "channelOwner\|CHANNEL_OWNER" app/src --glob '!*.test.*'` | 요청이 받는 쪽 없는 프로세스로 간다 |
+| AR-10′ / VP-27′ **EP-1 (e)′** | 프로세스별 import 경계 | 가드 | — | 3규칙 — (e1) 셸 · (e2) 에이전트 · (e3) 데이터 | 가드 `--list` | 다른 프로세스의 의존이 번들에 들어가 기동 중 죽는다 |
+
+**EP-15 규칙 칸** (`persistence-sender.test.ts`·`persistence-receiver.test.ts` 입력 — 분기마다 1):
+
+| 분기 | 기대 |
 |---|---|
-| 기동 | 셸 → 데이터 호스트(마이그레이션·복구·설정 로드 → `ready`) → 에이전트 호스트(설정 사본·준비 → `ready`) → 두 호스트 사이 포트 → 창 포트 → `bootWhenReady` 해결 |
-| 종료 | 에이전트 호스트 먼저(런타임 정지 → 저장 스트림 비움) → 데이터 호스트(예약 작업 → 스케줄러 → DB 닫기). 각 3초 초과 시 강제 종료 — 구현한 `shutdownHosts`(데이터 먼저)를 뒤집는다 |
-| 에이전트 호스트 비정상 종료 | 셸: 고아 정리 → 창 통지 → 수명 상태 비움. 데이터 호스트: 그 호스트의 열린 턴을 즉시 중단으로 마감한다 — 지금은 다음 기동까지 미루는 복구 규칙을 그 자리에서 돈다 |
-| 데이터 호스트 비정상 종료 | 셸: 창 통지 → 재기동(기동 때 복구). 에이전트 호스트의 진행 중 턴은 O-4 |
+| 턴 이벤트(버스) | 송신 뒤 응답을 기다리지 않고 제목 → 중계로 간다 · 데이터 호스트는 사용량 → 이력 순서로 처리 |
+| 계획 검토 도구 입력 | 턴 이벤트와 같은 순서 큐로 간다 |
+| 질문 답 | 에이전트가 자기 `openToolRuns`·`askPendingIds` 를 갱신하고 `tool.call.completed` 를 중계 · 데이터 호스트는 도구 결과 파트를 쓴다(부모 도구 연결 포함) |
+| 사용자 메시지 커밋 | 응답의 메시지 id 로 `message.committed` 중계 · 응답이 `null` 이면 중계 0(지금과 같다) |
+| 턴 끝 | 데이터 호스트가 진행 중 어시스턴트 메시지를 마감 |
+| 백그라운드 기록 | 응답 뒤에만 창에 공개 · 세션이 아직 없으면 보류했다가 세션 생성 뒤 기록 |
+| 제공자 세션 잊기 | 이후 그 세션의 백그라운드 기록 0 |
+| 저장 실패 응답 | 그 턴 런타임 취소 1 · 오류 이벤트 1 · 이후 그 턴의 저장 메시지 0 |
+| 피어 포트 닫힘(데이터 호스트 사망) | 활성 턴 전부 오류 · 기다리던 커밋 실패 → `message.committed` 0 |
 
-### 바뀌는 AC — 확정 때 적용
+**EP-17 규칙 칸** (`settings-mirror.test.ts`):
 
-| AC | 판정 | 바뀌는 내용 |
+| 분기 | 기대 |
+|---|---|
+| 연결 | 전체 사본 → 읽기 = 사본 |
+| 패치 | 그 키만 바뀜 · 구독자 1(바뀐 키 목록) |
+| 사본 전 읽기 | 던진다(fail-closed) — 에이전트 호스트는 사본을 받은 뒤 준비를 알린다 |
+| 쓰기 | 데이터 호스트 요청 → 패치 통지 뒤 사본 갱신 · 요청만으로는 사본이 바뀌지 않는다 |
+
+**EP-18 규칙 칸** (`secret-store.test.ts`, 가짜 셸 서비스):
+
+| 분기 | 기대 |
+|---|---|
+| 기동 해제 성공 | 모든 항목 읽기 = 평문 |
+| 기동 해제 일부 실패 | 그 항목 읽기 → 없음(vault `read` → `undecryptable`) · 나머지 평문 |
+| 깨어남 `resume`·`unlock-screen` | 실패 항목만 다시 해제 · 성공하면 변경 통지 1 |
+| 깨어남 `window-focus` | 다시 해제 0 |
+| 쓰기 | 봉인 요청 1 → 파일 기록 → 사본 갱신 순서 |
+| 봉인 실패 | 파일·사본 무변경 · 거부(fail-closed) |
+| 삭제 | 파일·사본에서 제거 · 봉인 요청 0 |
+
+**EP-19 규칙 칸** (`boot.test.ts`, 가짜 감독자 둘):
+
+| 분기 | 기대 |
+|---|---|
+| 기동 | 데이터 fork → 준비 → 에이전트 fork → 준비 → 피어 포트 1쌍 → 창 포트 → `bootWhenReady` 해결 |
+| 데이터 기동 실패 3회 | 에이전트 fork 0 · 부팅 오류 |
+| 에이전트 기동 실패 3회 | 부팅 오류 · 데이터 호스트 유지 |
+| 에이전트 비정상 종료 | 고아 정리 → 창 통지 → 수명 상태 비움 · 데이터 호스트에 피어 닫힘 · 다음 요청에서 재기동 → 피어 재연결 |
+| 데이터 비정상 종료 | 창 통지 · 에이전트에 피어 닫힘 · 데이터 즉시 재기동 → 창 포트·피어 재연결 |
+| 종료 | 에이전트 종료 완료 뒤 데이터 종료 요청 · 각 3초 |
+
+**EP-1 (e)′ 규칙 칸** (`check-ui-thread.test.mjs`):
+
+| 규칙 | 분기 | 기대 |
 |---|---|---|
-| AC15~AC17 | 유지 | 조각 계약은 그대로다 |
-| AC18 | 대체 | 첫 요청에 뜸 → 앱 시작 때 뜸 · 종료 순서가 뒤집힘 |
-| AC19 | 대체 | `oo:session:load`·`refresh` 를 데이터 호스트가 받는다 — 에이전트 호스트의 티켓을 거치지 않는다 |
-| AC20 | 대체 | 읽기 전용 연결 → 데이터 호스트가 유일한 연결. 요청 스키마 검증은 유지 |
-| AC24 | 변경 | 소유자 둘 → 셋. 창은 호스트마다 포트 하나 |
-| AC27 | 변경 | 비밀 봉인을 요청하는 쪽이 데이터 호스트다(O-3) |
-| AC29 | 변경 | + 데이터 호스트가 그 호스트의 열린 턴을 즉시 마감 |
-| AC30 | 대체 | DB 소유·마이그레이션·복구 = 데이터 호스트 |
-| AC31 | 변경 | 두 호스트가 준비된 뒤 본 화면 |
-| AC32 | 변경 | 종료 순서 에이전트 → 데이터 |
-| AC33 | 변경 | 호스트별 재연결. 데이터 호스트 재기동도 같은 규칙 |
-| AC37·AC38 | 변경 | 설정·비밀·인증 파일과 언어 알림의 주체 = 데이터 호스트 |
-| 신규 | — | F1 저장 스트림(순서·실패 규칙·공유 필드 사본) · F2·F4 요청 계약 · F3 설정 사본 · 데이터 호스트 비정상 종료(O-4) |
+| (e1) | 셸 그래프(`index.ts` 에서 닿는 모듈)의 `features`·`adapters`·`infra/db`·`better-sqlite3`·`worker_threads` import / 없음 | exit 1 / exit 0 |
+| (e2) | 에이전트 그래프(`app/agent-host/entry.ts`)의 `infra/db`·`better-sqlite3`·`electron-store`·`infra/settings-store`·`infra/config/secret-store` import / 없음 | exit 1 / exit 0 |
+| (e3) | 데이터 그래프(`app/data-host/entry.ts`)의 `adapters`·`node:child_process` import / 없음 | exit 1 / exit 0 |
 
-### 이미 구현한 부품의 영향
+**선언 경계** (rev 4):
+
+- B21 — 저장 실패 직전 이벤트가 화면에 먼저 보일 수 있다(D-039). 저장 실패는 디스크·DB 손상 경우다.
+- B22 — 설정 사본은 패치 통지까지 옛 값이다. 설정을 바꾼 직후 시작한 턴이 옛 값을 볼 수 있는 창은 패치 통지 한 번의 전달 시간이다.
+- B23 — 비밀은 데이터 호스트 메모리에 풀린 채 있다(D-018·D-040). 키체인이 잠긴 채 기동하면 깨어남 전까지 그 비밀은 `undecryptable` 이다.
+- B24 — 데이터 호스트가 죽으면 진행 중 턴은 오류로 끝난다(D-041). 다시 보내기는 사용자가 한다.
+- B25 — 큰 세션 조각 전송과 턴 저장이 데이터 호스트의 같은 이벤트 루프를 쓴다. 조각 사이 양보(§11)로 저장이 끼어들며, 저장 지연은 화면을 막지 않는다.
+
+### 구현 설계 — rev 4 (§11 단계 4·5 의 호스트 배치를 대체)
+
+| 단계 | 파일 | 책임 |
+|---|---|---|
+| 4a | `shared/peer-protocol.ts` + 테스트 | F1~F4 메시지 스키마 · 셸 → 호스트 `peer.connect`(포트 동봉) |
+| 4b | `app/data-host/{entry,bootstrap,persistence-receiver,agent-link}.ts` | 데이터 조립 — 지금 `Bootstrap` 의 DB·설정·비밀·인증·게이트·사용량·이력·산출물·예약 작업·플러그인·MCP·스킬 부분과 데이터 채널 핸들러 |
+| 4c | `app/agent-host/{entry,bootstrap,persistence-sender,data-link,settings-mirror,report-forwarder}.ts` | 에이전트 조립 — 레지스트리·하네스·세션 감독·턴·버스(송신 → 제목 → 중계)·git·확장 배포·수명 이벤트 |
+| 4d | `app/shell/boot.ts` · `host-supervisor.ts`(`shutdownHosts` 순서) · `index.ts` | 두 호스트 수명 · 피어 포트 중개 · `bootWhenReady` |
+| 4e | `preload/index.ts` · `shared/channel-owner.ts` | 소유 표 3값 · 호스트별 `host-port` 클라이언트 2 |
+| 4f | `infra/config/secret-store.ts` · `infra/vault.ts` · `features/auth/{login,store}.ts` · `features/extensions/common/mcp/store.ts` | 비밀 캐시·봉인 쓰기 비동기(EP-18) |
+| 4g | `infra/log` · `app/handlers/error.ts` | 프로세스별 로그 파일 · 로그 폴더 열기 |
+| 4h | `scripts/check-ui-thread.mjs`·`ui-thread-rules.mjs` | 가드 (e1)~(e3) |
+| 5 | `app/data-host/session-load.ts` · `shared/data-host.ts` | 세션 로드 — 데이터 호스트 채널이 바로 조각을 보낸다(티켓 없음) |
+
+### 대체 범위
+
+§3 D-006·D-025·D-033 · §7 AC18·AC19·AC20·AC24·AC27·AC29·AC30·AC31·AC32·AC33 · §7-B AC37·AC38 · Node AR-05 · Pair VP-14 · §9 TO-BE 의 호스트 책임 행 · §10 EP-4~EP-6(티켓·데이터 호스트 포트)은 EP-4′(세션 로드 응답 = 데이터 호스트 채널)로 · §11 단계 4·5 의 호스트 배치 · §13 종료 순서.
+
+### 이미 구현한 부품
 
 | 부품 | 영향 |
 |---|---|
-| 감독자(`app/shell/host-supervisor.ts`) | 두 호스트에 그대로 쓴다. `shutdownHosts` 순서를 뒤집고 호스트 사이 포트 중개를 더한다 |
+| 감독자 | 두 호스트에 그대로 쓴다. `shutdownHosts` 순서를 뒤집는다(4d) |
 | 포트 서버 · 창 쪽 포트 클라이언트 | 호스트마다 하나씩 그대로 쓴다 |
-| 수명 이벤트 방출·수신 | 에이전트 호스트에 그대로. `ready`·`shell.mirror` 는 데이터 호스트로 옮긴다 |
-| 셸 서비스 · 핸들러의 Electron 제거 · 호스트 환경 | 그대로 — 핸들러가 어느 호스트에 서든 같은 포트를 쓴다 |
-| `Bootstrap` | 둘로 나눈다 — 확정 뒤 가장 큰 작업이다 |
+| 수명 이벤트 방출·수신 | 에이전트 호스트에 그대로. `ready`·`shell.mirror` 는 데이터 호스트로(F5) |
+| 셸 서비스 · 핸들러의 Electron 제거 · 호스트 환경 | 그대로 |
 
-### 대체 범위 (확정 때)
+### READY self-review — rev 4 (관측)
 
-§3 D-006·D-025·D-033(위 Ledger) · §7 AC18·AC19·AC20·AC30 · §9 TO-BE 의 호스트 책임 행 · §10 EP-4~EP-6(티켓·데이터 호스트 포트) · §11 단계 4·5 의 호스트 배치 · §13 종료 순서. 계산 워커·멈춤 계측·가드·수명 이벤트·셸 서비스·포트 클라이언트 행은 그대로다.
-
-### OPEN — 사용자 결정 4건
-
-| ID | 질문 | 안 A | 안 B | 설계자 추천 |
-|---|---|---|---|---|
-| O-1 | 인증의 자리 | 데이터 호스트 — 인증 파일·게이트·사용량 조회·플러그인과 함께. 턴은 준비 단계에서 자격증명을 받는다 | 에이전트 호스트 — VS Code 처럼 인증 제공자를 실행 쪽에 둔다. 파일만 데이터 호스트 | A — 소비처 중 게이트·사용량 조회·플러그인이 실행이 아니다 |
-| O-2 | 턴 저장 실패 | 비동기 저장 — 스트리밍 지연이 없다. 실패하면 턴을 오류로 끝낸다. 실패 직전 이벤트가 화면에 먼저 보일 수 있다 | 저장 확인 뒤 화면 중계 — 지금과 같은 보장. 이벤트마다 호스트 왕복 | A — 저장 실패는 디스크 고장 같은 드문 경우다 |
-| O-3 | 비밀 해제 | 데이터 호스트 기동 때 한 번 풀어 메모리에 둔다. 키체인이 잠겨 못 푼 것은 깨어남(화면 잠금 해제)마다 다시 시도한다 | 읽을 때마다 셸에 요청 — 인증 상태 확인이 전부 비동기가 된다 | A — 지금의 "읽을 때마다 재시도"를 깨어남 재시도로 대신한다 |
-| O-4 | 데이터 호스트가 턴 도중 죽음 | 진행 중 턴을 오류로 끝낸다. 재기동 뒤 복구 규칙이 정리한다 | 다시 뜰 때까지 저장을 쌓아 두고 이어 저장한다 | A — 단일 쓰기 주체 장애의 범용 대응(D-024) |
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — 갱신 메모의 rev 4 READY 줄.
+- AC 47건 각각 동작 기준·검증 수단·도달 경로를 가진다(위 표 3열). AC 가 25건을 넘는다 — D-022("하나의 핸드오프로")가 나누지 않기로 정했다.
+- 분모: EP-15 9 · EP-16 33 · EP-17 4 · EP-18 16+6 · EP-19 6 · EP-20 20 · EP-8′ 4 · EP-1 (e)′ 3. 검색 명령은 각 행과 조사 표에 있다.
+- 규칙 칸 ↔ 입력 칸: EP-15 9분기 ↔ `persistence-sender/receiver.test.ts` · EP-17 4 ↔ `settings-mirror.test.ts` · EP-18 7 ↔ `secret-store.test.ts` · EP-19 6 ↔ `boot.test.ts` · EP-1 (e)′ 6 ↔ `check-ui-thread.test.mjs`.
+- SUPERSEDED 노드의 증거 이관: AR-05/VP-14 → AC19′(VP-05′)·VP-39.
+- 선택 적대 증거 4(VP-21′·VP-27′·VP-38·VP-23′ 은 VP-21′ 공유) — 이유와 변이는 pair 표.
 
 ---
 
