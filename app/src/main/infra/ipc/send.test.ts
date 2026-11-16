@@ -35,7 +35,7 @@ beforeEach(() => {
 
 afterEach(() => setIpcTransport(null))
 
-const delta: NormalizedEvent = { type: 'text.delta', sessionId: 's1', text: 'a' } as NormalizedEvent
+const delta = { type: 'text.delta', sessionId: 's1', text: 'a' } as unknown as NormalizedEvent
 
 describe('send — 대상 지정', () => {
   it('턴 이벤트는 소유 창에만 간다', () => {
