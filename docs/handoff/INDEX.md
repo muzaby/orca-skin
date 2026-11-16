@@ -146,6 +146,7 @@
 
 | 출처 | 종류 | 대상 | 요약 | 승격 조건 | 상세 |
 | --- | --- | --- | --- | --- | --- |
+| 0324 | 사용자 보류(설계 추천) | 셸 `bootWhenReady` 조건 · renderer 화면 상태 | 데이터 호스트만 준비되면 본 화면을 띄우고 에이전트 호스트 기동 실패는 부팅 오류가 아니라 "전송 불가"로 표시 — 실행 쪽 고장이 과거 대화 열람·검색·설정을 막지 않게 한다. 이번은 as-is(두 호스트 모두 준비, AC31′) | 사용자 요청 | [plan.md §7-G 후속 handoff 추천](0324-execution-contexts-ui-responsiveness/plan.md) |
 | 0262 | 종료 이관(CLOSED) | OpenCode 하네스 | verify 9회 상한 종료로 남은 항목 | 사용자 요청 | [plan.md 종료 이관 목록](0262-opencode-harness/plan.md) |
 | 0294 | 확장 후보(`NEXT_HANDOFF`) | 테스트 예산 게이트 해석기 `app/scripts/test-budget-bindings.mjs` | 계산 키 구조 분해 `{ [k]: x }` 판정(멤버 읽기 `o[k]`는 KM09) · `emptyDestructuring` 잔여 경로 잠금 · 구조 분해 사슬 재귀 상한(r5 800~1200 → r6 200~300단) · 소유 대조·나머지 요소·키 없음 입력 · 원천 유도 중복(`bindingElementSources` ↔ `memberJudgments`) | 그 형태가 테스트 소스에 나타났을 때 또는 사용자 요청 | [verify.md r6-13 E1~E4](0294-slow-runner-hermetic-tests/verify.md) |
 | 0308 | 독립(`NEXT_HANDOFF`) | 렌더러 `chatStore.ts`·`background-controller.ts` | `sessionBusy` 소비처 3곳(`:1626` 핸들러 가드 · `:1729` 캐시 재진입 가드 · `:1765` 현재성 가드)과 `dispose`의 `clearTimeout`이 어떤 테스트에도 잠기지 않음(변경 전 트리에서도 같은 결과) | **승격 → [0319](0319-background-card-doc-tables-busy-locks/plan.md)** (사용자 요청 2026-11-13) | [verify.md §4 x3~x5·l2](0308-bloat-reduction-legacy-migration-and-output-store/verify.md) |
