@@ -32,6 +32,8 @@ import { sameSessionBinding } from './session-binding'
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
 import type { ClientRef, RequestEvent } from '../contracts/client'
+import type { HostToShell } from '../../shared/host-protocol'
+import { createLifecycleEmitter, type LifecycleEmitter } from './agent-host/lifecycle-emitter'
 import { app, powerMonitor, shell } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
@@ -259,7 +261,21 @@ export class Bootstrap {
   private titles?: TitleGenerator
   private dailyGate?: { dispose(): void }
 
-  constructor(private readonly isTrustedArtifactSender: (event: RequestEvent) => boolean) {}
+  // 셸이 아는 턴·세션 상태와 UI 언어 사본의 원천(0324 EP-11·EP-14). lease 집합은 재시작 게이트의
+  // 정본이다 — 오류로 끝난 턴도 lease 해제는 반드시 지난다.
+  private lifecycleRef?: LifecycleEmitter
+  private get lifecycle(): LifecycleEmitter {
+    return (this.lifecycleRef ??= createLifecycleEmitter({
+      leases: () => this.supervisor?.allLeases() ?? [],
+      emit: (message) => this.toShell?.(message)
+    }))
+  }
+
+  constructor(
+    private readonly isTrustedArtifactSender: (event: RequestEvent) => boolean,
+    // 호스트 → 셸 알림(수명 이벤트·UI 언어 사본·준비 완료).
+    private readonly toShell: (message: HostToShell) => void = () => {}
+  ) {}
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -441,6 +457,9 @@ export class Bootstrap {
     // 언어 대신 기본값이 남는다. 읽기는 생성자가 만든 `SettingsStore` 만 필요해 DB·이관과 무관하다.
     // 쓰기(`settings:set`)는 스케줄러가 필요해 `register(ctx)` 에 남는다.
     registerSettingsReadHandler(this.settings)
+    // 셸의 UI 언어 사본(0324 D-032) — 바뀔 때마다 알린다. 부팅이 실패해도 트레이 라벨은 따라가야
+    // 하므로 첫 await 앞에서 건다.
+    this.settings.onPatch((next, changedKeys) => this.lifecycle.settingsPatched(next, changedKeys))
 
     if (this.stopped) return
     const installation = this.bootReport.step(
@@ -859,6 +878,8 @@ export class Bootstrap {
       this.updateOpenCodeGlobalWatch(ctx, false)
     })
     app.on('browser-window-focus', this.onHarnessFocus)
+    // 준비 완료에 현재 UI 언어를 싣는다 — 셸의 사본이 어긋나 있으면 여기서 맞는다(B14).
+    this.toShell?.({ type: 'ready', mirror: { uiLocale: this.settings.getAll().uiLocale } })
   }
 
   // 사용자 예약 작업 — 저장된 작업의 타이머를 다시 걸고 핸들러를 등록한다.
@@ -1082,13 +1103,16 @@ export class Bootstrap {
       capacity: 5
     }))
     supervisor.subscribeLeases(() => {
+      this.lifecycle.leasesChanged()
       this.updateStateChanged()
       this.projectResourceSync?.leasesChanged()
     })
     const bus = (this.bus = new TypedBus<OoBusEvents<ClientRef>>())
     const persistence = this.registerTurnEvents(ctx, bus)
 
-    const approvals = new ApprovalCoordinator()
+    const approvals = new ApprovalCoordinator((sessionId) =>
+      this.lifecycle.approvalPending(sessionId)
+    )
     const permissionModes = new PermissionModeController()
     // 0067 AC10: AdmissionController 폐기 — busy send = pending queue 예약(chat-turn 소유).
     const pendingMessages = (this.pendingMessages = new PendingMessageQueue())
@@ -1123,6 +1147,7 @@ export class Bootstrap {
       pendingMessages,
       backgroundTasks,
       activity,
+      onHarnessExited: (sessionId) => this.lifecycle.harnessExited(sessionId),
       isUpdateInstallPending: () => this.isUpdateInstallPending(),
       prepareOutputFiles: (cwd) =>
         createWorkOutputFiles(this.artifacts!, cwd, (sessionId, artifact) =>
@@ -1261,6 +1286,7 @@ export class Bootstrap {
         pendingMessages.dispose(sessionId)
         backgroundTasks.dispose(sessionId)
         activity.clear(sessionId)
+        this.lifecycle.sessionEnded(sessionId)
       },
       getActivity: (sessionId) => activity.current(sessionId),
       refreshHistory: createNativeHistoryRefresh(ctx, {

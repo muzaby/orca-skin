@@ -565,7 +565,8 @@ export async function handleChatSend(
         activity,
         queueKey,
         getActiveTurn,
-        getInitialBatches: () => initialBatches
+        getInitialBatches: () => initialBatches,
+        onHarnessExited: deps.onHarnessExited
       },
       {
         sessionId: payload.sessionId,

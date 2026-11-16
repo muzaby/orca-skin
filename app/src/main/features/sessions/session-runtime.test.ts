@@ -66,6 +66,12 @@ function live(events: NormalizedEvent[], close = vi.fn()): LiveTurn {
   }
 }
 
+// terminal 없이 오류로 끊기는 스트림.
+async function* dyingBatches(): AsyncGenerator<ProviderMessageBatch> {
+  yield { sequence: 0, events: [] }
+  throw new Error('하네스가 죽었다')
+}
+
 function adapter(turn: LiveTurn): RuntimeSessionAdapter {
   return {
     id: 'claude',
@@ -90,6 +96,33 @@ describe('SessionRuntime', () => {
     await collect(runtime.send(req()))
     expect(close).toHaveBeenCalled()
     expect(runtime.state).toBe('live')
+  })
+
+  // 0324 EP-11 — `harness.exited` 의 원천.
+  it('채널 스트림이 오류로 끝나면 실패 관측자를 한 번 부른다', async () => {
+    const failed = vi.fn()
+    const dying: LiveTurn = {
+      ...live([]),
+      eventBatches: dyingBatches()
+    }
+    const runtime = new SessionRuntime(adapter(dying))
+
+    await expect(collect(runtime.send({ ...req(), onChannelFailed: failed }))).rejects.toThrow(
+      '하네스가 죽었다'
+    )
+
+    expect(failed).toHaveBeenCalledTimes(1)
+    // 형제 위임(채널 종료 통지)과 섞이지 않는다 — 인자 없이 불린다.
+    expect(failed).toHaveBeenCalledWith()
+  })
+
+  it('채널 스트림이 정상으로 끝나면 실패 관측자를 부르지 않는다', async () => {
+    const failed = vi.fn()
+    const runtime = new SessionRuntime(adapter(live([{ type: 'telemetry', sessionId: 's1' }])))
+
+    await collect(runtime.send({ ...req(), onChannelFailed: failed }))
+
+    expect(failed).not.toHaveBeenCalled()
   })
 
   it('keeps retry ownership outside by allowing another send after an empty failed attempt', async () => {
@@ -400,6 +433,81 @@ describe('runtime tool channel context', () => {
       runtimes.forEach((runtime) => runtime.close())
       await Promise.all(running)
     }
+  })
+
+  it('장수명 채널의 스트림이 오류로 끊기면 실패 관측자를 한 번 부른다 (0324 EP-11)', async () => {
+    const failed = vi.fn()
+    const dying: LiveTurn = {
+      ...channelLive().liveTurn,
+      eventBatches: dyingBatches()
+    }
+    const runtime = new SessionRuntime(adapter(dying))
+
+    await expect(collect(runtime.send({ ...req(), onChannelFailed: failed }))).rejects.toThrow(
+      '하네스가 죽었다'
+    )
+
+    expect(failed).toHaveBeenCalledTimes(1)
+  })
+
+  it('사용자가 취소한 뒤 끊긴 턴 스코프 스트림은 실패로 알리지 않는다 (0324 EP-11)', async () => {
+    const failed = vi.fn()
+    let die!: () => void
+    const gate = new Promise<void>((resolve) => (die = resolve))
+    const dying: LiveTurn = {
+      ...live([]),
+      eventBatches: (async function* (): AsyncGenerator<ProviderMessageBatch> {
+        yield { sequence: 0, events: [] }
+        await gate
+        throw new Error('취소 뒤 끊김')
+      })()
+    }
+    const runtime = new SessionRuntime(adapter(dying))
+    const running = collect(runtime.send({ ...req(), onChannelFailed: failed })).catch(() => {})
+    await tick()
+
+    runtime.markAborted('user_cancelled')
+    die()
+    await running
+
+    expect(failed).not.toHaveBeenCalled()
+  })
+
+  it('장수명 채널이 정상으로 닫히면 실패 관측자를 부르지 않는다 (0324 EP-11)', async () => {
+    const failed = vi.fn()
+    const channel = channelLive()
+    const runtime = new SessionRuntime(adapter(channel.liveTurn))
+    const running = collect(runtime.send({ ...req(), onChannelFailed: failed }))
+    await tick()
+
+    channel.liveTurn.close()
+    await running
+
+    expect(failed).not.toHaveBeenCalled()
+  })
+
+  it('사용자가 취소한 뒤 끊긴 장수명 채널은 실패로 알리지 않는다 (0324 EP-11)', async () => {
+    const failed = vi.fn()
+    let die!: () => void
+    const gate = new Promise<void>((resolve) => (die = resolve))
+    const dying: LiveTurn = {
+      ...channelLive().liveTurn,
+      eventBatches: (async function* (): AsyncGenerator<ProviderMessageBatch> {
+        yield { sequence: 0, events: [] }
+        await gate
+        throw new Error('취소 뒤 끊김')
+      })()
+    }
+    const runtime = new SessionRuntime(adapter(dying))
+    const running = collect(runtime.send({ ...req(), onChannelFailed: failed })).catch(() => {})
+    await tick()
+
+    runtime.markAborted('user_cancelled')
+    die()
+    await running
+    await tick()
+
+    expect(failed).not.toHaveBeenCalled()
   })
 
   it('rejects pending session waiters when the provider stream dies', async () => {

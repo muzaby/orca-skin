@@ -47,6 +47,9 @@ vi.mock('../infra/settings-store', () => ({
     getAll(): typeof fixture.settings {
       return fixture.settings
     }
+    onPatch(): () => void {
+      return () => {}
+    }
   }
 }))
 vi.mock('../infra/config/secret-store', () => ({ SecretStore: class {} }))
