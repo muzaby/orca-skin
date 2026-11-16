@@ -10,11 +10,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-15 |
 | 매핑 | 옛 `0287-scheduled-tasks`(브랜치 `a`의 `ce699856` 설계 · `1058886c` 구현 — `main` 미도착)를 현재 `main` 위에 다시 설계 |
-| 상태 | READY |
+| 상태 | READY (ΔV4) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 옛 0287 V는 `main`에 없어 상속하지 않고 증거로만 읽는다 |
-| 이번 V revision | `ΔV3` — 사용자 요구 변경(상세를 우측 패널로, D-015), §22. `ΔV1`(§20)·`ΔV2`(§21) 위에 적용 |
-| 유효 V | `V1` + `ΔV1` + `ΔV2` + `ΔV3` |
+| 이번 V revision | `ΔV4` — verify r1 `RETURN_TO_PLAN` 정정(확장 후보 E1~E3 채택 · 선언 경계 5 축소 · VP-26 좌표 정정), §23. `ΔV1`~`ΔV3` 위에 적용 |
+| 유효 V | `V1` + `ΔV1` + `ΔV2` + `ΔV3` + `ΔV4` |
 
 # Part I — Product & UX Contract
 
@@ -64,6 +64,7 @@
 - 변경된 결정: 없음. D-009·D-010은 제품 동작이 아니라 구현 기준을 정한다.
 - D-010에 따른 재고려 결과는 §4 표와 §9 Delta — 옛 구현 대비 구조 변경 7건(T1~T7).
 - V1 정정 1(구현 r1 중, 규범 행만): ① EP-8 ①의 검색 술어 `orca:`가 제품 슬러그 `orcinus-orca:`까지 잡았다(`rg -c "orca:" app/src` → 기존 파일 다수) → 주어를 예약 채널로 좁혔다. ② VP-03의 AC11 좌표가 정적 렌더로는 메뉴 클릭을 관측할 수 없는 자리를 가리켰다 → 확인→삭제 순수 함수 좌표로 바꾸고 메뉴 전달은 선언 경계 5로 뺐다. ③ `Bootstrap.start()`를 실제로 지나는 스위트가 있었다(`bootstrap.opencode-warmup.test.ts`) → VP-09 좌표에 더하고 선언 경계 3을 `send.ts`로 좁혔다.
+- ΔV4(verify r1 정정, 사용자 결정 변경 없음): 새 Decision 0. `ACTIVE 결정 ↔ AC` 대조 — D-008↔AC35(신규, 행·패널 메뉴), D-005·D-006↔EP-1 규칙 칸 정정(본문 `trim`). 충돌 0.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·2, D-002↔AC2·3, D-003↔AC3·4·6, D-004↔AC3·14·15, D-005↔AC12, D-006↔AC12, D-007↔AC3·14·15, D-008↔AC9·10·11·17·18, D-009·D-010↔AC24·AC25.
 
 ## 4. 요구 비판적 검토
@@ -641,6 +642,91 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 - 선언 경계: 크기 조절 드래그·펼치기 애니메이션은 AC34 실기다(`ResizableSidePane` 자체 테스트가 있다).
 - gate: V1 §19와 같다.
+
+## 23. ΔV4 — verify r1 정정 (확장 후보 채택 · 경계 축소)
+
+- 판정: 제품 동작·저장 계약·IPC는 그대로다. verify r1(창 안 1회째)이 올린 확장 후보 E1~E3를 **전부 채택**하고, 근거가 틀린 선언 경계 5를 줄이며, VP-26의 없는 좌표를 고친다. 새 사용자 결정은 없다.
+- 같은 verify의 BLOCKING D1~D5는 계약이 이미 말한 것이라 규범을 바꾸지 않는다 — 구현 r2가 닫는다(아래 "r2 작업 목록").
+- 확장 창: 이번이 verify 1회째 뒤의 설계 턴이다. 2회째 뒤 설계 턴까지 열거를 늘릴 수 있다.
+
+### 확장 후보 판정
+
+| # | 후보 | 판정 | 근거 |
+|---|---|---|---|
+| E1 | EP-1 "text가 변형 없이" ↔ ⑤ `startDetachedChat`의 `trim`(V46 green) | **채택 — 규칙 칸 정정** | 일반 `send`도 `text.trim()`(`chatStore.ts:1020`) — 같은 규칙이 맞다. 정리는 ⑤ 한 곳에서만 하고 ①~④는 저장값 그대로 운반한다 |
+| E2 | 행·패널의 메뉴 콜백 대상·`지금 실행` 비활성·토글 표시·`inert`(D03~D06·X05·X06 green) | **채택 — AC35 · EP-9 신설** | 선언 경계 5의 근거("정적 마크업이라 닫힌 Popover 클릭을 낼 수 없다")가 r1.4 뒤 틀렸다: `renderHarness.testfixture.ts:327`은 `createPortal`을 그대로 렌더하고, 같은 하네스로 Popover 메뉴를 실제로 누르는 테스트가 있다(`projectPickerChip.test.ts`·`CascadeMenu.flow.test.ts`) |
+| E3 | `Scheduler` cron 가지의 호출 대체(V55 green) | **채택 — VP-17 oracle 강화** | 가짜 시계 고정 시각에서 cron 식 `0 */1 * * *`의 `nextRun`이 다음 정시와 같다고 단언하면 interval 대체가 red가 된다 |
+
+### 정정한 규범 행
+
+| 대상 | 이전(유지·대체) | ΔV4 |
+|---|---|---|
+| EP-1 규칙(SD-02 / VP-07) | "실행 설정 6필드 + `projectId` + `text`가 변형 없이 전송 payload까지 간다" — **SUPERSEDED** | 6필드 + `projectId`는 변형 없이. `text`는 ①~④에서 저장값 그대로, **⑤ `startDetachedChat`에서만 앞뒤 공백을 지운다**(`send`와 같은 규칙). 자리 목록 5자리는 그대로 |
+| EP-1 UT 입력(추가) | — | ③ `runner.test`·④ `useScheduledPromptRelay.test`에 앞뒤 공백이 있는 본문(`'  점검 \n'`) → 출력이 그 문자열 그대로 · ⑤ `chatStore.detached.test`에 같은 본문 → payload `text`·낙관 커밋 메시지가 `'점검'` |
+| 선언 경계 5 | "행 메뉴 클릭 → 콜백 전달과 preload 브리지는 자동 좌표가 없다" — **SUPERSEDED** | 경계 5′: **preload 브리지만** 자동 좌표가 없다(`preload/index.ts`는 `electron`을 import). 행·패널 메뉴 클릭은 EP-9가 잠근다 |
+| VP-26 oracle 좌표 | "`schedulesScreen.render.test.ts` 신규 케이스 · 신규 `scheduleDetail.render.test.ts`" — **SUPERSEDED**(둘 다 만들어지지 않았다) | `features/schedules/components/schedulesScreen.detail.test.ts`(r1.4, 열기·바꾸기·닫기·토글) + 같은 하네스의 패널 본문·메뉴 케이스(EP-9·AC32 아래 입력). 파일 이름은 계약이 아니다 |
+| VP-17 oracle | `scheduler.test.ts:'registers a cron schedule and exposes nextRun'`(Date 여부) — **CHANGED** | 같은 케이스(또는 새 케이스)에서 가짜 시계를 `2026-01-06 09:20` 로컬로 고정하고 `nextRun` = `2026-01-06 10:00` 로컬을 단언 |
+
+### 추가 AC
+
+| R | AC | 동작 기준 | 검증 수단 | 경로 |
+|---|---|---|---|---|
+| R-09 | AC35 | 목록 행과 우측 패널 모두에서 ① 사용 토글은 그 작업의 사용 상태를 보이고 누르면 그 작업에 반대값을 적용 ② 메뉴의 `지금 실행`·`편집`·`삭제`는 그 작업을 대상으로 한다(편집은 그 작업 값으로 모달이 열린다) ③ 그 작업이 실행 중이면 `지금 실행`이 비활성 ④ 목록 행의 `지금 실행`은 그 작업의 패널도 연다 ⑤ 패널을 펼치면 목록이 `inert`, 접으면 아니다 | fake DOM 상호작용 테스트(실제 클릭으로 Popover를 연다) | `SchedulesScreen` → `ScheduleRow`·`DetailSidePane` → `ScheduleDetail` → 콜백 |
+
+AC32의 검증 수단도 보강한다(동작 기준 불변): 패널 본문의 메타 4칸(트리거 요약 · 프로젝트 이름 또는 `프로젝트 없음` · 다음 실행 — 시각 / `실행 중` / `일시 중지` · 명령 종류)과 이력 행의 `대화 열기`가 그 세션 id로 `onOpenSession`을 부르는지 단언한다.
+
+### Node / Pair (증분)
+
+| Node | 레벨 | 계약 | provenance |
+|---|---|---|---|
+| R-09 | R | AC32·AC34 + AC35 | CHANGED (기준: §22 ΔV3) |
+| SD-02 | SD | EP-1 규칙(본문 정리 위치) | CHANGED (기준: §10 V1) |
+| AR-05 | AR | `Scheduler` cron 가지 → `startCron` | CHANGED — oracle만 (기준: §7-A V1) |
+
+| Pair | left ↔ right | req | production path | 직접 oracle | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-26′ | R-09 ↔ AT(AC32·34·35) | REQUIRED | `SchedulesScreen` → `ScheduleRow` / `DetailSidePane` → `ScheduleDetail` → 콜백 | `schedulesScreen.detail.test.ts` + 패널 본문·메뉴 케이스 · AC34 실기 | not selected | EP-9 (21) |
+| VP-07′ | SD-02 ↔ ST-02 | REQUIRED | V1 그대로 | V1 좌표 + 위 EP-1 입력 | V1 등록 변이 유지 | EP-1 (5) |
+| VP-17′ | AR-05 ↔ IT-05 | REQUIRED | `Scheduler.schedule({cron})` → `startCron` | 위 VP-17 oracle | not selected | 0 |
+
+### §10 추가 — EP-9
+
+| V node / pair | 계약 | SSOT | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 (`app/src/renderer/src/features/schedules/components`, 테스트 제외) | 실패 의미 |
+|---|---|---|---|---|---|
+| EP-9 · R-09 / VP-26′ | 행·패널의 조작은 그 작업을 대상으로 하고 상태를 그대로 보인다(AC35) | `SchedulesScreen`의 `task`·`selected` | 21자리 — 행 `ScheduleRow.tsx` R1 토글 표시 `:94` · R2 토글 클릭 `:96` · R3 `지금 실행` 비활성 `:127` · R4 `onRunNow()` `:130` · R5 `onEdit()` `:140` · R6 `onDelete()` `:150` / 패널 `ScheduleDetail.tsx` P1 `:69` · P2 `:71` · P3 `:95` · P4 `:98` · P5 `:108` · P6 `:118` / 화면 `SchedulesScreen.tsx` S1 `inert` `:110` · 행 배선 S2 `:190` · S3 `:194`(+`select`) · S4 `:196` · S5 `:197` · 패널 배선 S6 `:223` · S7 `:224` · S8 `:225` · S9 `:226` | `rg -n "onRunNow\(\|onEdit\(\|onDelete\(\|onSetEnabled\(\|setEditing\(\|disabled=\{task\.running\}\|on=\{task\.enabled\}\|inert=" --glob '!*.test.ts'` → 24줄 중 생성 버튼·모달 닫기 3줄(`:97`·`:128`·`:176` — `setEditing(null\|'new')`)은 이 계약이 아니다 | 다른 작업이 켜지거나 지워지고, 실행 중인 작업을 다시 누를 수 있다 |
+
+EP-9 규칙 칸 ↔ UT 입력 칸:
+
+| 규칙 분기 | 입력 | 관측 |
+|---|---|---|
+| 토글 표시 = 사용 상태 (R1·P1) | 작업 2개: `t1` enabled · `t2` **disabled** | `t2` 행·패널 토글 `aria-checked="false"`, `t1`은 `"true"` |
+| 토글 클릭 = 반대값 · 그 작업 (R2·P2·S2·S6) | `t2`(disabled) 행·패널 토글 클릭 | `onSetEnabled('t2', true)` — `t1`·`false`가 아니다 |
+| 메뉴 대상 = 그 작업 (R4~R6·P4~P6·S3~S5·S7~S9) | 둘째 작업 `t2`의 행 메뉴·패널 메뉴를 각각 열어 세 항목 클릭 | `onRunNow('t2')` · `onDelete` 인자 id `t2` · 편집 모달의 제목 입력 값 = `t2` 제목 |
+| 행 `지금 실행` → 패널 열림 (S3) | 패널이 닫힌 상태에서 `t2` 행 메뉴의 `지금 실행` | 패널 표식 `t2` |
+| 실행 중 → `지금 실행` 비활성 (R3·P3) | `t2` `running: true` · `t1` `running: false` | `t2` 항목 `disabled`·클릭해도 `onRunNow` 0회, `t1`은 활성 |
+| 펼침 → `inert` (S1) | 패널 열고 펼치기 버튼 클릭 → 다시 클릭 | 목록 컨테이너 `inert` true → false |
+
+- 선언 경계(EP-9): 시각(초점 링·애니메이션)과 Esc 닫기는 AC34 실기 그대로.
+
+### r2 작업 목록 (구현자)
+
+| # | 출처 | 할 일 | 계약 |
+|---|---|---|---|
+| D1 | verify r1 | 실행 중 작업을 `service.delete`로 지우면 실행이 중단·종결되는 lifecycle 케이스 | §5 상태 전이 · EP-5 ⑩ — 불변 |
+| D2 | verify r1 | win32 마지막 인자 = UTF-8 접두 + 명령 전체 단언 | AC14 — 불변 |
+| D3 | verify r1 | `timedOut ∧ exitCode 0` 입력 → `status=error`·`error=timeout` | AC15 — 불변 |
+| D4 | verify r1 | 제한 시간이 지나면 손자 프로세스가 파이프를 잡고 있어도 실행을 끝낸다. 회귀는 실제 spawn(io 풀)으로 `sh -c "sleep 4; echo x"` · 제한 300ms → 종결 시각이 제한 + 여유(≤ 1초) 안 | AC15 — 불변. 방식(프로세스 그룹 종료·`exit` 시점 확정 등)은 구현 재량 |
+| D5 | verify r1 | AC32 패널 본문 단언(위 보강) | AC32 — 불변 |
+| E1~E3 | ΔV4 | 위 EP-1 입력 · EP-9 21자리 · VP-17 oracle | ΔV4 |
+
+- gate: V1 §19와 같다. 마지막 gate는 파일 필터 없는 vitest를 **Node ABI에서** 돌려 io 풀까지 포함한다(r1.3·r1.4의 io 44파일 미실행을 반복하지 않는다).
+
+### ΔV4 self-review
+
+- ACTIVE ↔ AC: D-008↔AC35 · D-005·D-006↔EP-1 정정. 충돌 0.
+- EP-9 자리 검색 재실행: 24줄(행 6 · 패널 6 · 화면 12) = 자리 21 + 제외 3(`:97`·`:128`·`:176`). 차집합 ∅.
+- 규칙 칸 6분기 ↔ 입력 6행 1:1.
+- 경계 5′는 `preload/index.ts`의 `electron` import로 측정.
 
 ---
 
