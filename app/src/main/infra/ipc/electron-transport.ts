@@ -55,12 +55,6 @@ export function clientOf(contents: WebContents): ClientRef {
   return ref
 }
 
-// 셸 서비스가 창 자체(포커스 판정 등)를 봐야 할 때만 쓴다.
-export function contentsOf(client: ClientRef): WebContents | null {
-  const contents = (client as Partial<WindowClient>).contents
-  return contents && refs.get(contents) === client ? contents : null
-}
-
 export function createElectronTransport(options: {
   isTrusted: (event: IpcMainInvokeEvent | IpcMainEvent) => boolean
 }): IpcTransport {

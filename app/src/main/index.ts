@@ -25,7 +25,8 @@ import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
 import type { ShellState } from './app/shell/shell-state'
 import { createElectronShellServices } from './app/shell/electron-services'
 import { createHostMessageSink } from './app/shell/host-link'
-import { createShellServiceServer } from './app/shell/services'
+import { connectShellServicesInProcess, createShellServiceServer } from './app/shell/services'
+import { setShellServices } from './infra/shell-services'
 import { LifecycleState } from './app/shell/lifecycle-state'
 import { openShellState } from './app/shell/shell-state-file'
 
@@ -281,6 +282,12 @@ app.whenReady().then(async () => {
   const shellState = openShellState(app.getPath('userData'))
   // 셸은 턴·세션 상태를 호스트가 보낸 수명 이벤트로만 안다(0324 EP-11).
   const lifecycleState = new LifecycleState()
+  // 셸 서비스(0324 EP-10). 호스트 코드는 Electron 권한 작업을 이 포트로 부탁한다 — 한 프로세스인
+  // 동안은 같은 검증을 거쳐 그 자리에서 셸 구현을 부른다.
+  const shellServiceImpl = createElectronShellServices()
+  const onShellServiceError = (name: string, error: unknown): void =>
+    rootLog.warn('shell.service.failed', { name, error: String(error) })
+  setShellServices(connectShellServicesInProcess(shellServiceImpl, onShellServiceError))
   const router = new Bootstrap(
     (event) => event.trusted,
     createHostMessageSink({
@@ -289,10 +296,9 @@ app.whenReady().then(async () => {
       // 셸 서비스(EP-10). 한 프로세스인 동안은 호스트가 이 요청을 보내지 않는다 — 호스트 진입점이
       // 생기면 응답이 `toHost` 로 간다.
       onServiceCall: createShellServiceServer({
-        impl: createElectronShellServices(),
+        impl: shellServiceImpl,
         reply: () => rootLog.warn('shell.service.no-host'),
-        onError: (name, error) =>
-          rootLog.warn('shell.service.failed', { name, error: String(error) })
+        onError: onShellServiceError
       }),
       onInvalid: () => rootLog.warn('shell.host-message.invalid')
     })

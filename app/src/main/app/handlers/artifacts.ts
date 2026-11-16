@@ -1,4 +1,3 @@
-import { dialog, shell } from 'electron'
 import type { RequestEvent } from '../../contracts/client'
 import { realpath } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
@@ -24,6 +23,7 @@ import {
   saveWithoutOverwrite
 } from '../../features/artifacts/export-files'
 import { handle } from '../../infra/ipc/handle'
+import { shellServices } from '../../infra/shell-services'
 
 type ArtifactHandlers = Pick<
   ArtifactService,
@@ -87,7 +87,10 @@ export function registerArtifactHandlers(
     async (req, event): Promise<ArtifactActionResult> => {
       assertSender(event)
       try {
-        shell.showItemInFolder(await service.revealPath(req.sessionId, req.publicationId))
+        await shellServices().call(
+          'external.showItemInFolder',
+          await service.revealPath(req.sessionId, req.publicationId)
+        )
         return { ok: true }
       } catch (error) {
         return { ok: false, reason: reasonOf(error) }
@@ -108,12 +111,16 @@ export function registerArtifactHandlers(
         const single = publicationIds.length === 1
         if (single) {
           const original = await service.revealPath(req.sessionId, publicationIds[0]!)
-          const selected = await dialog.showSaveDialog({ defaultPath: basename(original) })
+          const selected = await shellServices().call('dialog.showSave', {
+            clientId: null,
+            defaultPath: basename(original)
+          })
           if (selected.canceled || !selected.filePath) return { outcome: 'cancelled', items: [] }
           destination = resolve(selected.filePath)
           await assertExportDestination(destination, root)
         } else {
-          const selected = await dialog.showOpenDialog({
+          const selected = await shellServices().call('dialog.showOpen', {
+            clientId: null,
             properties: ['openDirectory', 'createDirectory']
           })
           if (selected.canceled || !selected.filePaths[0])
