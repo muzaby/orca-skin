@@ -7,7 +7,7 @@
 
 import type { TFunction } from 'i18next'
 import type { ToolCall } from '../reducer/chatReducer'
-import { diffLines as jsDiffLines } from 'diff'
+import { diffStatWithinCap } from '../../../shared/compute/inline'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { FILE_EDIT_TOOL_NAME_SET } from '../../../../../shared/file-edit-tool'
 import type { MessageKey } from '../../../shared/i18n'
@@ -178,18 +178,10 @@ export function toolDescription(call: ToolCall, planLabel?: string): string {
   return call.name
 }
 
-// jsdiff 라인 diff → 추가/삭제 라인 카운트.
-function countChanges(oldStr: string, newStr: string): { added: number; removed: number } {
-  let added = 0
-  let removed = 0
-  for (const part of jsDiffLines(oldStr, newStr)) {
-    if (part.added) added += part.count ?? 0
-    else if (part.removed) removed += part.count ?? 0
-  }
-  return { added, removed }
-}
+// 추가/삭제 라인 카운트. 줄 수 합이 상한을 넘으면 세지 않는다(`null`, 0324 D-014).
+const countChanges = diffStatWithinCap
 
-// Write/Edit/MultiEdit 의 diff-stat (+추가 / -삭제 라인). 그 외는 null.
+// Write/Edit/MultiEdit 의 diff-stat (+추가 / -삭제 라인). 그 외와 상한을 넘는 입력은 null.
 export function toolDiffStat(call: ToolCall): { added: number; removed: number } | null {
   const rec = asRecord(call.input)
   if (!rec) return null
@@ -212,6 +204,7 @@ export function toolDiffStat(call: ToolCall): { added: number; removed: number }
         const oldStr = typeof er?.old_string === 'string' ? er.old_string : ''
         const newStr = typeof er?.new_string === 'string' ? er.new_string : ''
         const stat = countChanges(oldStr, newStr)
+        if (!stat) return null
         added += stat.added
         removed += stat.removed
       }

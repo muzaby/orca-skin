@@ -1,4 +1,5 @@
 import type { AppErrorReport } from '../../../../shared/app-error'
+import { errorBridge } from '../api/bridge'
 import { presentErrorReport, reportError } from './reportError'
 
 interface MainErrorApi {
@@ -7,7 +8,7 @@ interface MainErrorApi {
 }
 
 export async function connectMainErrorReports(
-  api: MainErrorApi | undefined = typeof window === 'undefined' ? undefined : window.oo?.error
+  api: MainErrorApi | undefined = errorBridge()
 ): Promise<() => void> {
   if (!api) return () => {}
   const seen = new Set<string>()

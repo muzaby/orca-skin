@@ -2,6 +2,7 @@ import type {
   ArtifactActionResult,
   ArtifactCatalogItem,
   ArtifactListRequest,
+  ArtifactPreviewResult,
   ArtifactRef,
   ArtifactSaveRequest,
   ArtifactSaveResult,
@@ -382,6 +383,8 @@ export const artifactApi = {
   status: (req: ArtifactStatusRequest): Promise<ArtifactStatusItem[]> =>
     window.oo.artifacts.status(req),
   save: (req: ArtifactSaveRequest): Promise<ArtifactSaveResult> => window.oo.artifacts.save(req),
+  preview: (req: ArtifactTargetRequest): Promise<ArtifactPreviewResult> =>
+    window.oo.artifacts.preview(req),
   reveal: (req: ArtifactTargetRequest): Promise<ArtifactActionResult> =>
     window.oo.artifacts.reveal(req),
   trash: (req: ArtifactTargetRequest): Promise<ArtifactTrashResult> =>

@@ -1,16 +1,19 @@
 import { createContext, useEffect, useState, useSyncExternalStore } from 'react'
+import { computeClient } from '../../../shared/compute/client'
 import {
   getThemeSnapshot,
   subscribeTheme,
   type ShikiThemeId
 } from '../../../shared/ui/markdown/themeStore'
 import type { DiffLine } from '../lib/diffLines'
-import { highlightDiffLines, type DiffSyntaxTokens } from '../lib/diffSyntax'
+import { diffTokensRequest, mapDiffTokens, type DiffSyntaxTokens } from '../lib/diffSyntax'
 
 type HighlightedLines = DiffSyntaxTokens
 const EMPTY: HighlightedLines = new Map()
 export const DiffSyntaxContext = createContext<HighlightedLines>(EMPTY)
 
+// diff 줄의 문법 토큰 — 계산 워커가 만든다(0324 AC9). 응답 전·실패·미지원 언어는 빈 맵이라
+// 소비자는 원문을 그린다.
 export function useDiffSyntax(lines: readonly DiffLine[], filePath: string): HighlightedLines {
   const theme = useSyncExternalStore<ShikiThemeId>(
     subscribeTheme,
@@ -25,17 +28,17 @@ export function useDiffSyntax(lines: readonly DiffLine[], filePath: string): Hig
   } | null>(null)
 
   useEffect(() => {
-    let cancelled = false
-    highlightDiffLines(lines, filePath, theme)
-      .then((tokens) => {
-        if (!cancelled) setHighlighted({ lines, filePath, theme, tokens })
-      })
+    const request = diffTokensRequest(lines, filePath, theme)
+    if (!request) return
+    const handle = computeClient().request(request)
+    handle.promise
+      .then((rows) =>
+        setHighlighted({ lines, filePath, theme, tokens: mapDiffTokens(lines, rows) })
+      )
       .catch(() => {
-        // 문법을 로드하지 못해도 diff 원문과 줄 동작은 그대로 사용할 수 있다.
+        // 취소·워커 실패 — diff 원문과 줄 동작은 그대로 사용할 수 있다.
       })
-    return () => {
-      cancelled = true
-    }
+    return () => handle.cancel()
   }, [lines, filePath, theme])
 
   return highlighted?.lines === lines &&

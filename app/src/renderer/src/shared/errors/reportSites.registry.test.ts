@@ -308,7 +308,7 @@ export const sites: Site[] = [
     title: 'attachFailed'
   },
   { file: 'features/chat/hooks/useAttachments.ts', ordinal: 2, line: 133, disposition: 'EXCLUDE' },
-  { file: 'features/chat/hooks/useDiffSyntax.ts', ordinal: 0, line: 33, disposition: 'EXCLUDE' },
+  { file: 'features/chat/hooks/useDiffSyntax.ts', ordinal: 0, line: 36, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/hooks/useDirectoryPicker.ts',
     ordinal: 0,
@@ -730,8 +730,8 @@ export const sites: Site[] = [
     event: 'clipboard.copy.failed',
     title: 'copyFailed'
   },
-  { file: 'shared/ui/markdown/CodeBlock.tsx', ordinal: 0, line: 71, disposition: 'EXCLUDE' },
-  { file: 'shared/ui/markdown/CodeBlock.tsx', ordinal: 1, line: 67, disposition: 'EXCLUDE' }
+  // 강조 요청의 취소·워커 실패 — 원문을 유지한다(0324 D-009).
+  { file: 'shared/compute/useHighlightedHtml.ts', ordinal: 0, line: 22, disposition: 'EXCLUDE' }
 ]
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const read = (file: string): string => readFileSync(root + file, 'utf8')
@@ -761,7 +761,7 @@ function expectedSilent(): string[] {
     'features/chat/harnesses/opencode/composer/composerCatalogState.ts:1',
     'features/chat/harnesses/opencode/composer/composerCatalogState.ts:2',
     'features/chat/harnesses/opencode/composer/composerCatalogState.ts:3',
-    'shared/ui/markdown/CodeBlock.tsx:0'
+    'shared/compute/useHighlightedHtml.ts:0'
   ]
     .map((key) => {
       const split = key.lastIndexOf(':')

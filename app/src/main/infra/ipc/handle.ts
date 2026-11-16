@@ -6,6 +6,33 @@
 
 import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { getLogger } from '../log/registry'
+import { recordStall, stallThread } from '../perf/stall-monitor'
+
+// 동기 구간 계측 (0324 AC6) — 세 등록 함수 모두 리스너가 반환할 때까지(핸들러의 첫 `await` 전)
+// 걸린 시간을 재고, 예산 이상이면 채널 이름과 함께 `perf.stall` 을 남긴다. 그 뒤의 멈춤은
+// 루프 모니터가 채널 이름 없이 잡는다.
+let clock: () => number = () => performance.now()
+
+// 테스트가 시계를 바꾼다. 인자 없이 부르면 실제 시계로 되돌린다.
+export function setHandleClock(next?: () => number): void {
+  clock = next ?? (() => performance.now())
+}
+
+function timed<A extends unknown[], R>(channel: string, listener: (...args: A) => R) {
+  return (...args: A): R => {
+    const startedAt = clock()
+    try {
+      return listener(...args)
+    } finally {
+      recordStall({
+        thread: stallThread(),
+        source: 'ipc',
+        durationMs: clock() - startedAt,
+        label: channel
+      })
+    }
+  }
+}
 
 interface ParseOk<T> {
   success: true
@@ -28,7 +55,7 @@ export function handle<T, R>(
   invalid: InvalidPolicy<R>,
   fn: (data: T, event: IpcMainInvokeEvent) => Promise<R> | R
 ): void {
-  ipcMain.handle(channel, async (event, raw: unknown) => {
+  const listener = async (event: IpcMainInvokeEvent, raw: unknown): Promise<R> => {
     const parsed = schema.safeParse(raw)
     if (!parsed.success) {
       // 무효 payload 가 조용히 사라지지 않게 warn 으로 가시화(0124 AC6) — suppress(60s 창)가
@@ -43,7 +70,8 @@ export function handle<T, R>(
       return invalid.fallback
     }
     return fn(parsed.data, event)
-  })
+  }
+  ipcMain.handle(channel, timed(channel, listener))
 }
 
 // 입력이 없거나(인자 무시) 검증을 소비처(store 내부 zod)가 담당하는 채널.
@@ -51,7 +79,10 @@ export function handlePlain<R>(
   channel: string,
   fn: (raw: unknown, event: IpcMainInvokeEvent) => Promise<R> | R
 ): void {
-  ipcMain.handle(channel, (event, raw: unknown) => fn(raw, event))
+  ipcMain.handle(
+    channel,
+    timed(channel, (event: IpcMainInvokeEvent, raw: unknown) => fn(raw, event))
+  )
 }
 
 // one-way send(renderer→main, 응답 없음) 수신 — invoke 용 handle() 과 대칭인 zod 단일 검증
@@ -62,12 +93,15 @@ export function on<T>(
   fn: (data: T, event: IpcMainEvent) => void,
   onInvalid?: (event: IpcMainEvent) => void
 ): void {
-  ipcMain.on(channel, (event, raw: unknown) => {
-    const parsed = schema.safeParse(raw)
-    if (!parsed.success) {
-      onInvalid?.(event)
-      return
-    }
-    fn(parsed.data, event)
-  })
+  ipcMain.on(
+    channel,
+    timed(channel, (event: IpcMainEvent, raw: unknown) => {
+      const parsed = schema.safeParse(raw)
+      if (!parsed.success) {
+        onInvalid?.(event)
+        return
+      }
+      fn(parsed.data, event)
+    })
+  )
 }

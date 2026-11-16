@@ -1,9 +1,11 @@
-import { useContext, useEffect, useState, useSyncExternalStore } from 'react'
+import { useContext, useSyncExternalStore } from 'react'
 import { CopyIconButton } from '../CopyIconButton'
 import { useI18n } from '../../i18n'
 import { MarkdownStreamingContext } from './streamingContext'
 import { getThemeSnapshot, subscribeTheme, type ShikiThemeId } from './themeStore'
-import { getHighlighter, isLang } from './syntax'
+import { isLang } from './syntax'
+import { HIGHLIGHT_MAX_CHARS } from '../../compute/limits'
+import { useHighlightedHtml } from '../../compute/useHighlightedHtml'
 
 interface CodeBlockProps {
   code: string
@@ -24,10 +26,8 @@ const LINE_NUMBER_CLASSES =
   '[&_.line]:before:mr-4 [&_.line]:before:inline-block [&_.line]:before:w-6 ' +
   '[&_.line]:before:text-right [&_.line]:before:text-ink3 [&_.line]:before:select-none'
 
-/** shiki 비동기 로드 — 첫 마운트 시 plain pre fallback, 로드 후 HTML 교체.
- *  html state 에 어떤 (code, lang, theme) 에 대해 계산됐는지를 함께 저장 —
- *  입력이 바뀌면 자연히 stale 로 간주해 fallback 렌더. 동기 setState 가 없어
- *  `react-hooks/set-state-in-effect` rule 위반을 피한다. */
+/** 구문 강조는 계산 워커가 한다(0324) — 응답 전에는 plain pre, 응답 후 HTML 로 교체한다.
+ *  입력이 바뀌면 이전 결과는 stale 로 보고 다시 원문을 그린다. */
 export function CodeBlock({
   code,
   lang,
@@ -42,42 +42,10 @@ export function CodeBlock({
   // 승격되거나 message.completed 커밋 렌더로 교체되면 streaming=false 로 1회 하이라이트.
   const streaming = useContext(MarkdownStreamingContext)
   const safeLang = lang && isLang(lang) ? lang : 'text'
-  // 출력 뷰어는 큰 파일도 연다. 큰 원문은 그대로 읽되 동기 구문 분석 비용을 제한한다.
-  const highlight = safeLang !== 'text' && !streaming && code.length <= 200_000
-  const [hl, setHl] = useState<{
-    code: string
-    lang: string
-    theme: string
-    html: string
-  } | null>(null)
-
-  useEffect(() => {
-    if (!highlight) return
-    let cancelled = false
-    getHighlighter()
-      .then((h) => {
-        if (cancelled) return
-        try {
-          setHl({
-            code,
-            lang: safeLang,
-            theme,
-            html: h.codeToHtml(code, { lang: safeLang, theme })
-          })
-        } catch {
-          // keep previous html as fallback marker — render path will detect staleness
-        }
-      })
-      .catch(() => {
-        // 문법 로드 실패에도 원문은 읽을 수 있다.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [code, safeLang, theme, highlight])
-
-  const isStale = hl != null && (hl.code !== code || hl.lang !== safeLang || hl.theme !== theme)
-  const html = highlight && !isStale && hl ? hl.html : null
+  // 출력 뷰어는 큰 파일도 연다. 큰 원문은 그대로 읽고 강조는 상한 이하에만 요청한다 — 강조
+  // 결과를 DOM 에 넣는 일이 UI 스레드에 남기 때문이다(0324 D-012).
+  const highlight = safeLang !== 'text' && !streaming && code.length <= HIGHLIGHT_MAX_CHARS
+  const html = useHighlightedHtml(code, safeLang, theme, highlight)
 
   // 헤더에 표시할 언어 라벨 — 지원 언어면 safeLang, 미지원이면 원본 lang 그대로,
   // 언어 헤더가 없으면 `text`(언어 식별자 라벨은 로케일 무관 원문 유지).

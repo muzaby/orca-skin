@@ -6,7 +6,9 @@ import { stringify } from '../../../format'
 import type { OpenCodeFileView, OpenCodeToolView } from '../toolPresentation'
 import { OpenCodeIcon } from '../Icon'
 import { useToolDisclosure } from './viewState'
-import { fileDiffLines, fileName } from './filePresentation'
+import { fileDiffSource, fileName } from './filePresentation'
+import { useDiffLines } from '../../../hooks/useDiffLines'
+import { DiffLinesStatus } from '../../common/transcript/DiffLinesStatus'
 
 export function OutputPanel({
   text,
@@ -67,7 +69,14 @@ function FilePanel({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useToolDisclosure(disclosureKey, true)
-  const lines = useMemo(() => fileDiffLines(file), [file])
+  const source = useMemo(() => fileDiffSource(file), [file])
+  // 훅 순서가 분기하지 않도록 무조건 부른다 — patch 원천이면 빈 쌍이라 비용이 없다.
+  const pair = useDiffLines(
+    source.kind === 'pair' ? source.before : '',
+    source.kind === 'pair' ? source.after : ''
+  )
+  const loading = source.kind === 'pair' && pair.status === 'loading'
+  const lines = source.kind === 'lines' ? source.lines : pair.status === 'ready' ? pair.lines : []
   const added = lines.filter((line) => line.type === 'added').length
   const removed = lines.filter((line) => line.type === 'removed').length
   return (
@@ -101,6 +110,10 @@ function FilePanel({
       </summary>
       {write ? (
         <OutputPanel text={file.after ?? file.patch ?? ''} label={file.path} />
+      ) : loading ? (
+        <div className="border-t border-oc-border">
+          <DiffLinesStatus />
+        </div>
       ) : lines.length > 0 ? (
         <div
           className="max-h-[384px] overflow-auto border-t border-oc-border"
@@ -111,7 +124,7 @@ function FilePanel({
           <DiffTable lines={lines} filePath={file.path} appearance={diffAppearance} />
         </div>
       ) : (
-        <OutputPanel text={file.patch ?? ''} label={file.path} />
+        <OutputPanel text={file.patch ?? file.after ?? ''} label={file.path} />
       )}
     </details>
   )

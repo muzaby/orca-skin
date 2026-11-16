@@ -3,6 +3,10 @@ import type {
   NativeResource,
   NativeResources
 } from '../../../../../shared/native-resources'
+import {
+  onBackgroundEventIfAvailable,
+  onNativeResourcesChangedIfAvailable
+} from '../../../shared/api/bridge'
 import { sessionApi } from '../../../shared/api/ipc'
 import { NATIVE_RESOURCE_FRESH_MS } from '../../../../../shared/native-resources'
 import { reportError } from '../../../shared/errors'
@@ -212,7 +216,7 @@ export function nativeResourceState(
     sessionApi.onManagedMcpChanged?.(() => {
       for (const state of owned.values()) state.managedMcpChanged()
     })
-    window.oo?.session?.onNativeResourcesChanged?.(({ sessionId, scope, resources }) => {
+    onNativeResourcesChangedIfAvailable(({ sessionId, scope, resources }) => {
       for (const state of owned.values()) {
         if (
           (sessionId && state.request === sessionId) ||
@@ -227,7 +231,7 @@ export function nativeResourceState(
           state.accept(resources)
       }
     })
-    window.oo?.chat?.onBackgroundEvent?.((event) => {
+    onBackgroundEventIfAvailable((event) => {
       if (event.type !== 'background.connection') return
       for (const state of owned.values()) {
         if (state.request !== event.sessionId) continue
