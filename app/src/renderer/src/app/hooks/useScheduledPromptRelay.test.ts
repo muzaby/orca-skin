@@ -79,4 +79,18 @@ describe('relayScheduledPrompt', () => {
     })
     expect(report.mock.calls[0]![0].error).toHaveLength(2000)
   })
+
+  // 정리는 새 대화 시작(startDetachedChat)이 한다 — 릴레이는 받은 본문을 그대로 넘긴다.
+  it('시작 요청의 본문을 앞뒤 공백까지 그대로 시작 함수에 넘긴다', async () => {
+    const start = vi.fn().mockResolvedValue({ sessionId: 'session-1' })
+    await relayScheduledPrompt(
+      { ...payload, text: '  점검 \n' },
+      { start, report: vi.fn().mockResolvedValue(undefined) }
+    )
+    expect(start).toHaveBeenCalledExactlyOnceWith({
+      projectId: 'project-a',
+      text: '  점검 \n',
+      execution: payload.execution
+    })
+  })
 })

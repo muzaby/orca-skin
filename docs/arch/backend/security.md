@@ -229,7 +229,7 @@ Windows는 `powershell.exe -NoProfile -NonInteractive -Command`, 그 외는 `/bi
 | 명령의 출처 | 예약 작업에 저장된 사용자 입력뿐이다. 앱이 조립하거나 모델 출력을 넣지 않는다. |
 | 작업 폴더 | 작업이 가리키는 프로젝트의 폴더. 폴더 없는 프로젝트는 생성·수정에서 거부하고 실행도 하지 않는다. |
 | 환경 | 앱 프로세스 환경을 상속한다. vault·MCP 인증값 등 앱이 보관한 비밀을 주입하지 않는다. |
-| 상한 | 제한 시간과 출력 꼬리 보관 크기를 호출자가 정한다(값은 `features/scheduled-tasks/limits.ts`). 앱 종료·작업 삭제 시 프로세스를 종료한다. |
+| 상한 | 제한 시간과 출력 꼬리 보관 크기를 호출자가 정한다(값은 `features/scheduled-tasks/limits.ts`). 제한 시간 초과·앱 종료·작업 삭제 시 셸과 그 자손 프로세스를 함께 종료한다(POSIX는 새 프로세스 그룹에 `SIGKILL`, Windows는 `taskkill /T /F`). |
 | 진입 | `oo:schedule:*` 채널의 zod 검증을 지난 요청만 저장된다. 이 채널은 renderer가 임의 명령을 예약·즉시 실행할 수 있는 표면이므로 renderer 무결성(§1.1·§1.5·§1.6)에 의존한다. |
 | 소비자 | 컴포지션 루트(`app/bootstrap.ts`)가 예약 작업 실행기에만 넘긴다. feature는 실행기를 import하지 않는다. |
 

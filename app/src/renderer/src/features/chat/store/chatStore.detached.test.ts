@@ -54,6 +54,8 @@ describe('chatActions.startDetachedChat', () => {
     expect(draft.inflight).toBe(true)
     expect(draft.pendingProjectId).toBe('project-a')
     expect(draft.messages.map((message) => message.role)).toEqual(['user'])
+    // 앞뒤 공백 정리는 여기 한 곳이다 — 전송 payload 와 낙관 커밋한 메시지가 같은 본문이다.
+    expect(draft.messages[0]!.parts).toEqual([{ type: 'text', text: '새 버그를 요약해 줘' }])
   })
 
   it('노력을 지정하지 않으면 payload 에 싣지 않는다', () => {

@@ -3,7 +3,13 @@
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScheduledTask } from '../../../../../shared/scheduled-tasks'
-import { installFakeDom, type FakeDom } from '../../../shared/ui/renderHarness.testfixture'
+import {
+  installFakeDom,
+  type FakeDom,
+  type FakeNode
+} from '../../../shared/ui/renderHarness.testfixture'
+import { i18n } from '../../../shared/i18n'
+import { formatDateTime, triggerSummary } from '../lib/triggerLabel'
 
 vi.mock('react', async (original) => {
   const { fakeHooks } = await import('../../../shared/ui/renderHarness.testfixture')
@@ -150,5 +156,164 @@ describe('SchedulesScreen — 우측 상세 패널', () => {
     const toggle = dom.query('[data-schedule-detail]')!.querySelectorAll('[role="switch"]')[0]
     dom.click(toggle!)
     expect(props.onSetEnabled).toHaveBeenCalledExactlyOnceWith('t2', false)
+  })
+})
+
+const tr = i18n.t.bind(i18n) as (key: string, options?: Record<string, unknown>) => string
+const rerender = (tasks: ScheduledTask[]): void => {
+  props = { ...props, tasks }
+  dom.render(createElement(SchedulesScreen, props))
+}
+const rowOf = (id: string): FakeNode => dom.query(`[data-schedule-row="${id}"]`)!
+const detail = (): FakeNode => dom.query('[data-schedule-detail]')!
+// 행·패널의 kebab 버튼을 눌러 메뉴를 펼치고 [지금 실행, 편집, 삭제] 항목을 돌려준다.
+const openMenu = (scope: FakeNode): FakeNode[] => {
+  dom.click(scope.querySelector('[aria-haspopup="menu"]')!)
+  const items = scope.querySelectorAll('[role="menuitem"]')
+  expect(items).toHaveLength(3)
+  return items
+}
+const metaValues = (): string[] =>
+  detail()
+    .querySelectorAll('[title]')
+    .map((node) => String(node.props.title))
+
+// verify r1 D5 · ΔV4 AC35(EP-9) — 패널 본문과 행·패널의 조작이 그 작업을 대상으로 한다.
+describe('SchedulesScreen — 패널 본문과 조작 (AC32·AC35)', () => {
+  it('패널 메타는 그 작업의 트리거·프로젝트·다음 실행·명령 종류를 보인다', async () => {
+    openRow('t2')
+    await flush()
+    const t2 = props.tasks[1]!
+    expect(metaValues()).toEqual(
+      expect.arrayContaining([
+        triggerSummary(t2.trigger, tr as never),
+        '카메라 검증',
+        formatDateTime(t2.nextRunAt!, 'ko'),
+        tr('schedules.kindShell')
+      ])
+    )
+  })
+
+  it('실행 중·일시 중지·프로젝트 삭제를 패널 메타가 구별해 보인다', async () => {
+    rerender([task('t1', { running: true }), task('t2', { enabled: false, projectId: 'gone' })])
+    openRow('t1')
+    await flush()
+    expect(metaValues()).toContain(tr('schedules.running'))
+    expect(metaValues()).not.toContain(tr('schedules.paused'))
+    openRow('t2')
+    await flush()
+    expect(metaValues()).toEqual(
+      expect.arrayContaining([tr('schedules.paused'), tr('schedules.projectMissing')])
+    )
+  })
+
+  it('이력의 대화 열기는 그 실행의 세션 id 로 연다', async () => {
+    vi.mocked(props.loadRuns).mockResolvedValue([
+      {
+        id: 9,
+        taskId: 't2',
+        origin: 'schedule',
+        startedAt: 1,
+        finishedAt: 2,
+        status: 'success',
+        error: null,
+        sessionId: 'session-5',
+        exitCode: null,
+        output: null,
+        outputTruncated: false
+      }
+    ])
+    openRow('t2')
+    await flush()
+    const run = dom.query('[data-schedule-run="success"]')!
+    const open = run
+      .querySelectorAll('[type="button"]')
+      .find((node) => node.textContent === tr('schedules.history.openSession'))
+    expect(open).toBeDefined()
+    dom.click(open!)
+    expect(props.onOpenSession).toHaveBeenCalledExactlyOnceWith('session-5')
+  })
+
+  it('토글은 그 작업의 사용 상태를 보이고 누르면 그 작업에 반대값을 적용한다 — 행·패널', async () => {
+    rerender([task('t1'), task('t2', { enabled: false })])
+    const toggleOf = (scope: FakeNode): FakeNode => scope.querySelectorAll('[role="switch"]')[0]!
+    expect(toggleOf(rowOf('t1')).props['aria-checked']).toBe(true)
+    expect(toggleOf(rowOf('t2')).props['aria-checked']).toBe(false)
+    dom.click(toggleOf(rowOf('t2')))
+    expect(props.onSetEnabled).toHaveBeenLastCalledWith('t2', true)
+    openRow('t2')
+    await flush()
+    expect(toggleOf(detail()).props['aria-checked']).toBe(false)
+    dom.click(toggleOf(detail()))
+    expect(props.onSetEnabled).toHaveBeenLastCalledWith('t2', true)
+    expect(props.onSetEnabled).toHaveBeenCalledTimes(2)
+  })
+
+  it('행 메뉴의 지금 실행·편집·삭제는 그 작업을 대상으로 하고, 지금 실행은 그 작업의 패널을 연다', async () => {
+    expect(panel()).toBeNull()
+    const [runNow] = openMenu(rowOf('t2'))
+    dom.click(runNow!)
+    await flush()
+    expect(props.onRunNow).toHaveBeenCalledExactlyOnceWith('t2')
+    expect(panel()).toBe('t2')
+    const [, edit] = openMenu(rowOf('t2'))
+    dom.click(edit!)
+    await flush()
+    expect(dom.query('[data-schedule-title]')!.props.value).toBe('둘째')
+    dom.unmount()
+    dom.render(createElement(SchedulesScreen, props))
+    const [, , remove] = openMenu(rowOf('t2'))
+    dom.click(remove!)
+    expect(props.onDelete).toHaveBeenCalledExactlyOnceWith(props.tasks[1])
+  })
+
+  it('패널 메뉴의 지금 실행·편집·삭제는 패널에 연 작업을 대상으로 한다', async () => {
+    openRow('t2')
+    await flush()
+    const [runNow] = openMenu(detail())
+    dom.click(runNow!)
+    expect(props.onRunNow).toHaveBeenCalledExactlyOnceWith('t2')
+    const [, edit] = openMenu(detail())
+    dom.click(edit!)
+    await flush()
+    expect(dom.query('[data-schedule-title]')!.props.value).toBe('둘째')
+  })
+
+  it('패널 메뉴의 삭제는 패널에 연 작업을 넘긴다', async () => {
+    openRow('t2')
+    await flush()
+    const [, , remove] = openMenu(detail())
+    dom.click(remove!)
+    expect(props.onDelete).toHaveBeenCalledExactlyOnceWith(props.tasks[1])
+  })
+
+  it('실행 중인 작업의 지금 실행은 행·패널 모두 비활성이고 다른 작업은 활성이다', async () => {
+    rerender([task('t1'), task('t2', { running: true })])
+    const [rowRun] = openMenu(rowOf('t2'))
+    expect(rowRun!.props.disabled).toBe(true)
+    dom.click(rowRun!)
+    expect(props.onRunNow).not.toHaveBeenCalled()
+    const [otherRun] = openMenu(rowOf('t1'))
+    expect(otherRun!.props.disabled).toBe(false)
+    openRow('t2')
+    await flush()
+    const [panelRun] = openMenu(detail())
+    expect(panelRun!.props.disabled).toBe(true)
+    dom.click(panelRun!)
+    expect(props.onRunNow).not.toHaveBeenCalled()
+  })
+
+  it('패널을 펼치면 목록이 inert 이고 접으면 아니다', async () => {
+    openRow('t2')
+    await flush()
+    expect(dom.queryAll('[inert]')).toHaveLength(0)
+    dom.click(dom.query('[data-behavior="schedule-detail:expand"]')!)
+    await flush()
+    const inert = dom.queryAll('[inert]')
+    expect(inert).toHaveLength(1)
+    expect(inert[0]!.querySelector('[data-schedule-row="t1"]')).not.toBeNull()
+    dom.click(dom.query('[data-behavior="schedule-detail:expand"]')!)
+    await flush()
+    expect(dom.queryAll('[inert]')).toHaveLength(0)
   })
 })
