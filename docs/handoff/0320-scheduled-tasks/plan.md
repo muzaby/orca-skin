@@ -1249,13 +1249,17 @@ EP-9 규칙 칸 ↔ UT 입력 칸:
 
 ## [검증자 기입] 파생 이슈
 
+verify r1(1회째)·r2(2회째) — 상세는 [`verify.md`](verify.md).
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| D1 | 삭제 시 실행 중단 — `service.delete`→`runner.cancel` edge 미잠금(V07 green) | VP-06·VP-13 · EP-5 ⑩ · §5 상태 전이 "실행 중인 작업을 삭제" | `service.delete`로 실행 중 작업을 지우면 `runShell` signal이 중단되고 이력이 정리되는 lifecycle 케이스 | 이행 | BLOCKING | open |
-| D2 | win32 인자의 UTF-8 출력 고정 미잠금(V35 green) | VP-12 · AC14 · EP-6 | 마지막 인자 = UTF-8 접두 + 명령 전체를 단언 | 이행 | BLOCKING | open |
-| D3 | `timedOut ∧ exitCode 0` 입력 부재(W11 green). 실제 프로세스로 `{"exitCode":0,"timedOut":true}` 재현 | VP-13 · AC15 규칙 칸 | 그 입력으로 `error=timeout`·`status=error` 단언 | 이행 | BLOCKING | open |
-| D4 | 제한 시간 뒤에도 실행이 끝나지 않음 — `sh -c "sleep 4; echo x"` · `timeoutMs=300` → 4007ms(고아 자식이 파이프 보유) | VP-12 · AC15 · D-007 | 프로세스 그룹 종료 또는 `exit` 시점에 결과 확정 + 회귀 테스트(실제 spawn은 io 풀) | 현재 | BLOCKING | open |
-| D5 | 우측 패널 본문 미잠금 — 메타 3칸·`실행 중` 문구·`onOpenSession`(X01~X04·X08 green). plan oracle 파일 `scheduleDetail.render.test.ts` 없음 | VP-26 · AC32·AC18 | 패널 본문 렌더 + 메타·이력·대화 열기 인자 단언 | 이행 | BLOCKING | open |
-| E1 | EP-1 "text 변형 없이" ↔ `startDetachedChat`의 `trim`(V46 green) | EP-1 | 설계자: 계약에 `trim`을 넣거나 경계 선언 | 확장 | PLAN_GAP | open |
-| E2 | 패널 지금 실행·편집·삭제 콜백·토글 표시·`inert` 미잠금(D03~D06·X05·X06) | VP-26 · D-008 · 선언 경계 5 | 설계자: REQUIRED 입력으로 채택 또는 경계 5를 `ScheduleDetail`로 확장 | 확장 | PLAN_GAP | open |
-| E3 | `Scheduler` cron 가지의 호출 대체(V55 green) | VP-17 | 설계자: cron 식 일치 단언 채택 또는 경계 선언 | 확장 | PLAN_GAP | open |
+| D1 | 삭제 시 실행 중단 edge 미잠금(V07) | VP-06 · EP-5 ⑩ | lifecycle 케이스 | 이행 | BLOCKING | **closed** (r2: V07 red) |
+| D2 | win32 UTF-8 접두 미잠금(V35) | VP-12 · AC14 | 마지막 인자 단언 | 이행 | BLOCKING | **closed** (r2: V35 red) |
+| D3 | `timedOut ∧ exitCode 0` 입력 부재(W11) | VP-13 · AC15 | 입력 추가 | 이행 | BLOCKING | **closed** (r2: W11 red · A1 실제 재현) |
+| D4 | 제한 시간 뒤 실행이 안 끝남(4007ms) | VP-12 · AC15 | 트리 종료 + `exit` 확정 | 현재 | BLOCKING | **closed** (r2: A1~A4 · 305ms) |
+| D5 | 패널 본문 미잠금(X01~X04·X08) | VP-26 · AC32·AC18 | 본문 단언 | 이행 | BLOCKING | **closed** (r2: 8변이 red) |
+| E1~E3 | EP-1 trim · 패널·행 조작 · cron 호출 대체 | ΔV4 채택 | — | 확장 | 채택 | **closed** (r2 변이 red) |
+| E4 | 모달·트리거·실행 설정 입력 → 폼 배선 12변이 green(M3·M4·M5·M8·T1~T4·Q2~Q5) | VP-02·21·23 · AC3·AC4·AC28 | 설계자: 자리 목록으로 채택 또는 경계 선언 | 확장 | PLAN_GAP | open |
+| E5 | 모달 `저장`→`onSubmit` · 저장 실패 시 열린 채 문구(M10·M11) | Part I §5 | 설계자: 채택 또는 경계 | 확장 | PLAN_GAP | open |
+| E6 | 안내·0건·툴팁 문구 3자리(M7·N6·O6) | AC27·31 | 설계자: 경계 선언 권고 | 확장 | PLAN_GAP | open |
+| E7 | 종료 세부: SIGKILL 세기(S2) · 정상 종료 뒤 타이머·리스너 정리(S8·S9, pid 재사용 위험) · win32 3자리(S1·S4·S6) · setsid 탈출 손자(A5) | VP-12 · D4 | 설계자: ①②채택 · win32 CI 위임·③④ 경계 | 확장 | PLAN_GAP | open |

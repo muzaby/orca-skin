@@ -279,3 +279,146 @@
 - 운영 gate: 위 표 전부 PASS(전체 vitest는 변경 전과 같은 9파일·22케이스 기준선).
 - 못 본 것: ① ΔV1·ΔV2 path edge 변이(VP-21~25) ② 구현자 sweep spec 재실행 — spec이 저장소에 없다 ③ Windows `powershell.exe` 실제 실행 ④ 화면(white/dark·크기 조절·Esc) ⑤ `executionPermissionModes` production 호출 여부.
 - 다음 단계: 설계자가 E1~E3를 채택하거나 경계로 선언하고 VP-21~25 판정 보류 범위를 이번 변경 범위로 확정한다. 이어서 구현자가 D1~D5를 닫는다(D3은 입력 추가, D1·D2·D5는 테스트 추가, D4는 코드 수정). 규범 행 정정은 구현과 다른 커밋.
+
+---
+
+# 라운드 2 — verify 2회째
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 상태 | **RETURN_TO_PLAN** — 막는 이행·현재 결함 0, 신규 확장 후보 4건(E4~E7)이 창 안(2회째)이라 `PLAN_GAP` |
+| 대상 | 구현 `81146d7`(r2) — 기준선 `ebfdf37`(ΔV4 설계, 설계·구현 커밋 분리). `git diff --stat 8eed0a5 81146d7` = 12파일. 검증 트리는 `345be89`(0322 트레이, 이 handoff 파일과 교집합 0) |
+| 유효 V | `V1 + ΔV1~ΔV4` |
+| 확장 창 | verify 2회째 — 창 안. 이번 설계 턴이 열거를 늘릴 수 있는 **마지막** 턴(plan 동결, `docs/handoff/AGENTS.md` §판정 범위) |
+| 독립 축(⑥) | ① 실제 프로세스 6형태(A1~A6) ② ΔV1·ΔV2 path edge 변이 35(r1 보류분) ③ `shell-runner.ts` diff 자리 변이 18(규칙 칸 분기 sweep) |
+| 구현 주체·문맥 | Claude 구현·설계·검증 동일 에이전트 — 독립성은 ⑥의 실제 프로세스·r1이 못 돈 축이 맡는다 |
+
+## 1. r1 BLOCKING·채택 확장 재판정 (③ — 직전 `못 잡음`·`동치` 행)
+
+| 이슈 | 인용 변이 | r1 | r2 재실행 | 판정 |
+|---|---|---|---|---|
+| D1 | V07 `service.delete`의 `runner.cancel` 제거 | 못 잡음 | red | **closed** |
+| D2 | V35 UTF-8 접두 제거 | 못 잡음 | red | **closed** |
+| D3 | W11 `!timedOut` 제거 | 못 잡음 | red | **closed** |
+| D4 | 실제 프로세스 `sh -c "sleep 4; echo x"` 300ms | 4007ms | A1~A4 아래 | **closed** |
+| D5 | X01·X02·X03·X04·X04b·X08(+X09·X10 신규) | 못 잡음 | 전부 red | **closed** |
+| E1 | V46 runner `text.trim()` + 새 E1-4(훅)·E1-5(`startDetachedChat` trim 제거) | 못 잡음 | red 3 | **closed** |
+| E2 | D03~D06·X05·X06 → EP-9 21자리 R1~R6·P1~P6·S1~S9 | 못 잡음 | 21자리 변이 전부 red(S3 두 항 포함) | **closed** |
+| E3 | V55 cron → interval | 못 잡음 | red | **closed** |
+| 동치 V28·V37 | — | green | green 그대로 | 동치 유지 — 호출이 `fire` 동기 구간 안이라 신호가 미중단(`prompt-relay.ts`·`shell-runner.ts`) |
+| 경계 X07 | — | green | (제외 — 경계 행) | — |
+
+- EP-9 자리 검색 재실행: `rg -n "onRunNow\(|onEdit\(|onDelete\(|onSetEnabled\(|setEditing\(|disabled=\{task\.running\}|on=\{task\.enabled\}|inert=" --glob '!*.test.ts'` → 24줄 = 21 + 제외 3(`SchedulesScreen.tsx:97`·`:128`·`:176`). 차집합 ∅.
+
+## 2. D4 — 실제 프로세스 재현 (⑥, 구현자가 시험한 형태 밖)
+
+`node --experimental-strip-types t6.mts`(`runShellCommand` 직접 호출, 주입 spawn 없음):
+
+| 형태 | 실측 | 판정 |
+|---|---|---|
+| A1 셸은 곧 끝나고 손자가 파이프 보유(`sleep 30 & echo $!`, 400ms) | 401ms · `{exitCode:0,timedOut:true}` · 손자 종료 | 통과. 이 상태가 W11 입력이고 runner가 `실패`로 가른다(W11 red) |
+| A2 `abort` 신호 + 손자(300ms) | 301ms · `exitCode:null` · 손자 종료 | 통과 |
+| A3 제한 시간 직전 출력 | `START` 보존 · 401ms | 통과 |
+| A4 정상 종료 `exit 3` | 2ms · `exitCode:3` | 통과 |
+| A5 `setsid`로 그룹 탈출한 손자 | 401ms로 끝나지만 **손자는 살아 있음** | 그룹 종료의 한계. 실행은 제한 시간에 끝난다(D4 계약 충족) — 확장 E7 |
+| A6 `trap "exit 0" TERM` | 400ms · `exitCode:null` | 통과 |
+
+## 3. 고장 이력 (r2) — 하네스 `mutate.py`, 실행 후 매번 `원복 확인`·`git status` 빈 출력
+
+시도 94(유효) = 잡음 68 · 못 잡음 26. 무효 1(O5 — 변이가 구문 오류). spec은 scratchpad `spec1~5.jsonl`.
+
+| 묶음 | 시도 | 잡음 | 못 잡음 | 분류 |
+|---|---|---|---|---|
+| r1 못 잡음 재실행 + EP-9 21자리 + D5 + K1~K5 (spec1·5) | 41 | 40 | **K5** | K5 → 동치 |
+| ΔV1·ΔV2 path edge (spec2) | 34 | 17 | 17 — **M3·M4·M5·M8·T1~T4·Q2~Q5**(입력→폼 배선 12) · **M10·M11**(저장) · **M7·N6·O6**(문구) | 확장 E4·E5·E6 |
+| `shell-runner.ts` diff 자리 sweep (spec3) | 18 | 10 | **S1·S2·S4·S6·S8·S9**(+V28·V37 동치) | 확장 E7 |
+| E1 ④·⑤ 위치 | 2 | 2 | 0 | — |
+
+| ID | 파일(자리) | 바꾼 내용 | 결과 | 분류 |
+|---|---|---|---|---|
+| K5 | `shell-runner.ts:kill` | `killRequested` 조기 반환 제거 | green | **동치** — `done()`이 타이머·abort 리스너를 지우고(`:117-119`) 둘째 `process.kill(-pid)`는 `ESRCH`를 삼키고 `child.kill()`이 죽은 자식에 무해. 도달 창은 종료 요청과 `exit` 사이뿐 |
+| M3·M4·M5·M8 | `ScheduleTaskModal.tsx` | 프로젝트·실행 설정·종류 토글·본문의 `onChange` 인자 비움/맞바꿈 | green | 확장 E4 |
+| T1~T4 | `TriggerFields.tsx` | 주기·요일·시각·요일 토글의 `onPick`/`onChange` 비움 | green | 확장 E4 |
+| Q2~Q5 | `ExecutionSettingsPicker.tsx` | 권한·노력·종류·모델 선택의 `onChange` 인자 | green | 확장 E4 |
+| M10 | `ScheduleTaskModal.tsx:save` | `onSubmit(result.request)` 제거 | green | 확장 E5 |
+| M11 | 같은 곳 | 저장 실패 `setFailed(true)` 제거 | green | 확장 E5 (Part I §5 `저장 실패는 모달을 닫지 않고 문구를 띄운다`) |
+| M7·N6·O6 | `ScheduleTaskModal`·`ProjectMenuPanel`·`ProjectPickerChip` | 프로젝트 없음 안내·검색 0건 문구·`title` 툴팁 | green | 확장 E6 (문구 3) |
+| S2 | `shell-runner.ts:killProcessTree` | `SIGKILL`→`SIGTERM` | green | 확장 E7 — 실제 테스트 자손은 `sleep`이라 TERM에도 죽는다 |
+| S8·S9 | `shell-runner.ts:done` | abort 리스너 제거·`clearTimeout` 제거 | green | 확장 E7 — S9는 정상 종료 뒤 남은 타이머가 만료 시 `process.kill(-pid)`를 부른다(pid 재사용 시 남의 그룹). r2 이전에는 죽은 자식에 `kill()`이라 무해했다 |
+| S1·S4·S6 | `shell-runner.ts` | `windowsHide`·`taskkill /T /F`·`error` 폴백 | green | 확장 E7 — win32 경로, 이 환경에서 못 돈다 |
+| V28·V37 | r1 동치 행 | — | green | 동치 유지 |
+| 잡음 대표 | S3(트리 폴백 `child.kill()`)·S5(win32 분기 뒤집기)·S7(`timedOut=true`)·V31~V34·V36·V39·V39b | — | red | 열거 원문 sweep(EP-6 4항·규칙 칸) 전부 red |
+
+- 소거 변이 잔여물: 제거 변이는 vitest가 타입 진단을 하지 않아 판정에 영향이 없다(green은 잠금 부재).
+- 형제 슬롯 맞바꿈(⑤): `taskkill` ↔ `process.kill`(S5 red) · `SIGKILL`↔`SIGTERM`(S2 green) · 행 vs 패널 콜백(R·P 쌍 전부 red).
+
+## 4. V-pair closeout (r2)
+
+| Pair | 결과 | 직접 oracle 좌표 · 근거 |
+|---|---|---|
+| VP-06 | PASS | `scheduled-tasks.lifecycle.test.ts:'실행 중인 작업을 지우면…'` — V07 red |
+| VP-12 | PASS | `shell-runner.test.ts` + `shell-runner.process.test.ts`(io) — V35·V31~V34·V36·K1~K4 red. win32 `taskkill`은 이 환경 밖(E7) |
+| VP-13 | PASS | `runner.test.ts` — W11·V46 red |
+| VP-07′ | PASS | ③④⑤ 3자리 E1-4·E1-5·V46 red, ①② 변이 유지 |
+| VP-17′ | PASS | `scheduler.test.ts:'cron 스케줄의 다음 실행은…'` — V55 red |
+| VP-26′ | PASS(AT 기계분) · AC34 사람 | EP-9 21자리·D5 8변이 전부 red |
+| VP-21·VP-22 | PASS | AC26 순서·`aria-label`·요일 묶음 — M1·M2·M9 red |
+| VP-23·VP-24·VP-25 | PASS | AC28~30 — N1~N5·N7·N8·O1~O4·Q1·Q6 red. 단 입력 배선은 E4 |
+| VP-27 | PASS(기존 케이스 green) | `ExtensionsCatalogView.interaction.test.ts` — 이번 턴 변이는 돌리지 않았다 |
+| 그 밖 V1 pair | PASS | 전체 vitest 통과분 + r1 좌표 — r1 `잡음` 79행 spec이 저장소에 없어 그대로 재실행하지 못했고, 위 94변이가 같은 자리들(EP-1·3·4·5·6)을 새로 심었다 |
+
+- **합계 재측정**: `✅ 31 · ⚠️ 4 · ❌ 0 = 총 35` — 구현 보고·trailer `31/35`와 일치. ⚠️ = AC23·27·31·34(사람 실기).
+
+## 5. gate (r2) — 검증 트리 `345be89`
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| 가드 4종 | PASS | migrations(`no previous v* tag` skip) · doc-inventory `9 items, 123 channels`·prose·links ok · product-naming `OK — 2290파일` · test-budgets `18 real-git suites ok` |
+| lint · typecheck | PASS | `eslint .`(`--fix` 없음) 0 errors · 2 warnings(손대지 않은 2파일) · `tsc` 3구성 error TS 0 |
+| 전체 vitest(필터 없음, Node ABI) | PASS(기준선 분리) | 971파일 중 9 fail · 958 pass · 4 skip / 9220케이스 중 22 fail · 9186 pass. 실패 9파일 = r1이 `d324a9f`에서 잰 기준선과 동일(`adapters/claude/*` 3 · `adapters/opencode/v1/*` 3 · `composer-catalog` · `composer-preparation-service` · `session-resources.claude-assembly`), 이번 diff 파일과 교집합 0, 환경 원인 = Linux 경로 전용 단언. `[test-pools]` 0건 |
+| `node --test scripts/*.test.mjs` | PASS | 868/868 |
+| io 풀 | PASS | `shell-runner.process.test.ts`(실제 `/bin/sh`) 포함 통과 — `npm ci`+`npm rebuild better-sqlite3`로 Node ABI 빌드 |
+| trailer | PASS | `git log -1 --format='%(trailers:only=true)' 81146d7` → `Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By` 파싱 |
+
+## 6. Repository operation checks (r2)
+
+- 대상 커밋: `81146d7` `git cat-file -t` = `commit`. **`main` 조상 여부는 확인하지 못했다** — 이 clone에 `origin/main`이 없다(`git merge-base --is-ancestor`가 `Not a valid object name origin/main`). 좌표는 브랜치 해시(`feat/0320-scheduled-tasks`·`ccr-…`)다.
+- `docs/arch/backend/security.md` 1줄(셸과 자손 종료) 갱신 — 현재 상태 서술, 이력 표기 없음.
+- `[구현자 기입] (r2)` 7필드 존재, 강제 지점 표는 pair별 §10 자리 전부와 `남긴 곳` 포함.
+- INDEX 행 갱신: `verify/RETURN_TO_PLAN`·다음 주체 Claude(설계)·라운드 3. 비고 5줄 이내.
+
+## 7. Finding disposition (r2)
+
+| # | finding | 분류 · 근거 | disposition |
+|---|---|---|---|
+| D1~D5 | r1 BLOCKING 5 | §1 표 인용 변이 전부 red · D4 실제 프로세스 통과 | **closed** |
+| E1~E3 | r1 채택 확장 3 | §1 표 | **closed** |
+| E4 | ΔV1·ΔV2 모달·트리거·실행 설정의 입력 → 폼 배선 12변이 green(M3·M4·M5·M8·T1~T4·Q2~Q5). AC3·AC4·AC28 검증 수단이 정적 렌더·순수 함수라 클릭 경로가 어디에도 없다 | **확장** — 열거 원문(AC3 "종류 전환 전후 필드", AC4 "순수 함수", AC28 "칩 수")은 위반 아님 | **PLAN_GAP** — 설계자: EP-9처럼 자리 목록으로 채택하거나 경계 선언 |
+| E5 | 모달 `저장`이 `onSubmit(result.request)`를 부르는지, 실패 시 모달이 열린 채 문구를 띄우는지(M10·M11) 미잠금 | **확장** — Part I §5 문장이 있으나 AC·§10에 열거되지 않음. 코드는 계약대로 | **PLAN_GAP** |
+| E6 | 안내·0건·툴팁 문구 3자리(M7·N6·O6) | **확장** — 문구 수준 | **PLAN_GAP** — 경계 선언 권고(시각·문구는 AC27·31 실기) |
+| E7 | 종료 구현의 세부: ① `SIGKILL` 세기(S2) ② 정상 종료 뒤 타이머·abort 리스너 정리(S8·S9 — pid 재사용 시 남의 프로세스 그룹 위험) ③ win32 `taskkill` 3자리(S1·S4·S6) ④ `setsid` 탈출 손자(A5) | **확장** — D4 계약("제한 시간 안에 끝낸다")은 충족. 새 표면 ②는 r2가 `child.kill()`→`process.kill(-pid)`로 바꾸며 위험이 커진 자리 | **PLAN_GAP** — 설계자: ①② 채택(입력: TERM 무시 자손·정상 종료 뒤 타이머 미발화), ③은 CI(windows-latest) 위임을 경계로 선언, ④는 경계 |
+| N | A5·K5 | 동치/경계 | NON_BLOCKING |
+
+> 새 handoff 후보 표로 간 항목: 없음(창 안).
+
+## 8. 못 본 것
+
+① Windows `powershell.exe`·`taskkill /T /F` 실행(S4·S6, CI 몫) ② VP-27 스킬 탭 패널 변이 ③ r1 `잡음` 79행 spec 그대로 재실행(spec이 저장소에 없다 — 위 94변이로 대체) ④ 화면(white/dark·크기 조절·Esc, AC27·31·34) ⑤ `main` 조상 여부.
+
+## 9. Review Signals — 사실만
+
+- 같은 증상 반복: r1 D1~D5는 전부 닫혔다. r2 신규 확장 4건은 r1이 판정 보류한 ΔV1·ΔV2 축(VP-21~25) 변이를 이번에 처음 돌려 나왔다 — 구현자 sweep은 EP-9 21자리·verify r1 98행·D4 27행만 심었고 ΔV1·ΔV2 path edge 변이는 없다.
+- 설계 지침: ΔV1·ΔV2의 VP-21~25 oracle은 정적 렌더·기존 테스트 이관이라 입력 배선을 열거하지 않았다.
+- 반복된 환경 한계: Windows 경로 CI 몫(r1과 같음).
+- 독립 축(⑥) 발견: 확장 4 · 동치 1 · 이행 0 · 현재 0.
+
+## 10. 결론
+
+- 상태: **RETURN_TO_PLAN** — 이행·현재 결함 0. 신규 확장 후보 E4~E7이 창 안이라 설계자가 먼저(이번이 열거를 늘릴 수 있는 마지막 설계 턴).
+- verify 횟수: 2회째.
+- pair: PASS 전부(VP-26′ AT의 사람 몫 AC34 제외) · root PAIR_FAIL 0 · BLOCKED_BY 0.
+- AC: `✅ 31 · ⚠️ 4 · ❌ 0 = 총 35`.
+- 운영 gate: 전부 PASS(전체 vitest는 기준선 동일 9파일·22케이스).
+- 다음 단계: 설계자가 E4~E7을 항목마다 채택 또는 경계 선언. 채택분만 구현 r3가 닫고, 경계 선언만이면 구현 없이 verify 3회째로 간다(창 밖 — 이행·현재 결함 0이면 PASS 가능).
