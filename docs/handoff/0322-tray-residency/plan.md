@@ -530,7 +530,132 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 ---
 
-> **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md). 필드 뼈대는 [`plan.template.md`](../../../.agents/skills/handoff-plan/plan.template.md)의 `[구현자 기입]` 절을 그대로 복사해 채운다.
+> **[구현자 기입]** 절차 정본은 [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md). 구현 주체는 Claude다 — 사용자가 이 세션에서 구현 턴을 직접 지시했다(`docs/handoff/AGENTS.md §역할 분담`).
+
+## [구현자 기입] 설계 리뷰 (r1)
+
+- 동의 / 그대로 진행: Part I 전부와 §9~§13. Electron 39 타입이 §10 포트와 구조적으로 맞는다 — `npm run typecheck` 0 error, `as any`/`as never` 0.
+- 이견 / 현실성 문제: §10 자리 검색 명령 4개가 같은 파일의 타입 선언까지 세었다 → `PLAN_GAP`으로 멈추고 ΔV3(§22)로 정정한 뒤 재개했다(별도 설계 커밋).
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+좌표의 파일은 전부 `app/src/main/app/tray-residency.test.ts`다.
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-01 | EP-01 닫기 판정 | `close` 리스너 (1) | 1/1 | `rg -c "\.on\('close'"` → 1 · `'AC1 — Windows 에서 종료 중이 아니면…'` · `'B5 — 숨김은…'` · `'AC4 — before-quit %i회…'`(1·2) · `'AC5 — OS 세션 종료…'` · `'AC6 — %s 에서는…'`(darwin·linux) | 이벤트의 `preventDefault`·창 `hide` — 호출 횟수 0/1/2로 분기 구별 | — |
+| VP-01 | EP-02 트레이 표면 | 메뉴 항목 2 · `click` 1 · 툴팁 1 (4) | 4/4 | `rg -c "label: labels\.\|\.on\('click'\|\.setToolTip\("` → 4 · 항목 2 → `'AC2 — %s: 메뉴는 두 항목뿐…'` · click → `'AC3 — 트레이 아이콘 좌클릭…'` · 툴팁 → `'툴팁은 받은 문자열 그대로다'` | 항목: 라벨 배열 + `open`/`quit` 서로 다른 mock · 툴팁: `'Orcinus orca'` 정확 일치 | — |
+| VP-01 | EP-02 생성 분기 | 성공 / 전파 | 2/2 | 성공 = 위 행 · 전파 → `'AC7 — 트레이 생성 실패는 삼키지 않고…'` | 던진 `Error` 인스턴스 동일성(`toThrow(error)`) | — |
+| VP-01 | EP-04 정리 | `will-quit` 리스너 (1) | 1/1 | `rg -c "\.on\('will-quit'"` → 1 · `'AC8 — 프로세스 종료 때…'` · 트레이 없음 분기 → `'AC6 — %s 에서는…'` | `tray.destroy` 0 → 1 · 비-win32는 0 유지 | — |
+| VP-01 | EP-05 라벨 언어 | 라벨 선택 · `onPatch` 구독 (2) | 2/2 | `rg -c "\.getAll\(\)\|\.onPatch\("` → 2 · `'AC2 — %s…'`(ko·en) · `'AC11 — UI 언어가 바뀌면…'` · 비-win32 구독 0 → `'AC6 — %s 에서는…'` | `uiLocale` `ko`≠`en` 라벨 · `changedKeys` `['theme']` vs `['theme','uiLocale']` → `setContextMenu` 1 vs 2 | — |
+| VP-03 | EP-03 조립 | `installTrayResidency(` · `.attach(` (2) | 0/2 | `rg -o "installTrayResidency\(\|\.attach\(" app/src/main/index.ts \| wc -l` → 2 (존재만) | 기계 좌표 없음 — §10 선언 경계 B1 | 2자리 — 사람 실기 §19 단계 1·2·5 |
+
+- 자리 검색 출력과 목록의 차집합: EP-01·02·04·05·03 = 1·4·1·2·2, 목록과 같다(차집합 0).
+- §10 자리 목록 밖에서 본 운반 자리: 없음.
+- 직전 verify 고장 이력의 `못 잡음` 행: 없음 (verify 0회).
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | 위 표 (16케이스 passed) | required — M1~M15 전부 red |
+| VP-02 | REQUIRED | SELF_PASS | `'숨김 → 열기 → 종료 시작 → 닫힘 통과 → 정리 순서로 한 인스턴스가 지난다'` | not selected — 단계별 직접 관측 |
+| VP-03 | REQUIRED | SELF_BLOCKED | 없음 — 사람 실기 대기(B1) | not selected |
+| VP-04 | REQUIRED | SELF_BLOCKED | 없음 — 사람 실기 §19 대기 | not selected |
+| VP-05 | REGRESSION | SELF_PASS | `native-settings-lifecycle.test.ts:'defers actual before-quit events once…'`(passed, 그 파일 diff 0) + `'AC4 — before-quit 2회…'` | not selected |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+하네스: `mutate.py`, oracle = `./node_modules/.bin/vitest run src/main/app/tray-residency.test.ts`. 마지막 테스트 수정 뒤 전 행을 다시 돌렸다. 심은 파일은 전부 `app/src/main/app/tray-residency.ts`.
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M1 `if (quitting) return` 제거 | VP-01 등록 | 최초 | 4 | 잠김 |
+| M2 메뉴 두 `click` 맞바꿈 | VP-01 등록 | 최초 | 4 | 잠김 |
+| M3 `resident = true` | VP-01 등록 | 최초 | 2 | 잠김 |
+| M4 `preventDefault()` 제거 | VP-01 등록 | 최초 | 3 | 잠김 |
+| M5 `createTray()`를 `try/catch`로 삼킴 | VP-01 등록 | 최초 | 1 | 잠김 |
+| M6 트레이 `click` 리스너 제거 | VP-01 등록 | 최초 | 2 | 잠김 |
+| M7 `session-end` 리스너 제거 | VP-01 등록 | 최초 | 1 | 잠김 |
+| M8 `destroy()` 호출 제거 | VP-01 등록 | 최초 | 2 | 잠김 |
+| M9 메뉴 세 번째 항목 추가 | VP-01 등록 | 최초 | 3 | 잠김 |
+| M10 `before-quit` 리스너 제거 | VP-01 등록 | 최초 | 3 | 잠김 |
+| M11 `hide()` 제거 | VP-01 등록 | 최초 | 3 | 잠김 |
+| M12 라벨 표 `ko`↔`en` 맞바꿈 | VP-01 등록 | 최초 | 3 | 잠김 |
+| M13 `onPatch` 구독 제거 | VP-01 등록 | 최초 | 1 | 잠김 |
+| M14 라벨 선택 `'ko'` 고정 | VP-01 등록 | 최초 | 2 | 잠김 |
+| M15 `changedKeys` 조건 제거 | VP-01 등록 | 최초 | 1 | 잠김 |
+| S1 `setToolTip` 호출 제거 | sweep — EP-02 툴팁 | 최초 | 1 | 잠김 |
+| S2 `setToolTip('x')` | sweep — EP-02 툴팁(다른 값) | 최초 | 1 | 잠김 |
+| S3 두 항목의 라벨 맞바꿈 | sweep — EP-02 형제 슬롯 | 최초 | 3 | 잠김 |
+| S4 `attach`의 `if (!resident) return` 제거 | sweep — 규칙 칸 분기 B4(diff 자리) | 최초 | 2 | 잠김 |
+| S5 메뉴 첫 항목 제거 | sweep — EP-02 항목 | 최초 | 4 | 잠김 |
+| S6 메뉴 둘째 항목 제거 | sweep — EP-02 항목 | 최초 | 4 | 잠김 |
+| S7 트레이 `click` → `app.quit()` | sweep — EP-02 click(호출 대체) | 최초 | 2 | 잠김 |
+| S8 `will-quit` 리스너 제거 | sweep — EP-04 | 최초 | 2 | 잠김 |
+| S9 설치 시 `applyMenu()` 제거 | sweep — EP-05 초기 라벨(diff 자리) | 최초 | 4 | 잠김 |
+
+- **분모 검산**: `선택 증거 15 · 인용 변이 0 · 새 oracle 0 · sweep 9 = 표 행 24`. 열거 항목 대응 — EP-01 자리(M1·M4·M11) · EP-02 4자리(M2·M6·S1·S5·S6) · EP-04(M8·S8) · EP-05 2자리(M13·M14) · 규칙 칸 분기(M3·M7·M10·M15·S4·S9) · 생성 분기(M5).
+- EP-03 2자리(`index.ts`)에는 변이를 심지 않았다 — 실행하는 테스트가 없어 green이 자명하다(선언 경계 B1).
+- **덮개 회귀**: 해당 없음 (이전 라운드 없음).
+- 원복 확인: 하네스 출력 "모든 파일 원문 그대로".
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 사용자 대면 문구에 소비자가 있는가 | 있음 — 메뉴 라벨 4개는 `buildMenu` → `setContextMenu`로 간다 | — |
+| seam을 만들려고 production을 재배치했는가 | `createWindow`가 창을 반환하게만 바꿨다. `closed`·`close` 리스너의 스코프는 그대로다 | — |
+| 이번에 만든 실패 경로가 Part I 상태표의 어느 행인가 | "트레이 생성 실패 (Windows)" 행 | — |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 트레이 실패는 `app.unhandled.rejection`으로 보고된다. 다만 사용자가 보는 화면 변화는 실기로만 확인된다 | §19 대상 아님 — 보고만 |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 해당 없음 — 비동기 응답 없음 | — |
+| 숨김 직후 사용자가 앱이 꺼졌다고 오해 | 안내 없음 — §6 비범위 | 보고만 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | §10 검색 명령이 타입 선언을 함께 셌다 | 📝 PLAN_GAP → ΔV3로 정정 | 옛 출력 2·7·2·4 vs 목록 1·4·1·2 |
+| 2 | 저장소에 `uiLocale`이 없는 값이면 라벨 조회가 `undefined` | ⚠️ 보고만 — 도달하지 않는다 | `protocol.ts:829` `z.enum(['ko','en']).catch('ko').default('ko')` |
+| 3 | 트레이 생성이 던지면 `whenReady`의 남은 단계가 건너뛰어진다 | ⚠️ 보고만 — 선언 경계 B6 | §13 |
+| 4 | macOS `activate`로 다시 만든 창은 `attach`되지 않는다 | ⚠️ 보고만 — 비-win32는 숨기지 않는다(B5) | `index.ts` `activate` 핸들러 |
+
+### 설계 대비 명시적 차이
+
+- `app` 포트의 `on`을 유니온 인자 하나가 아니라 이벤트별 오버로드 둘로 선언했다. 계약의 의미는 같다.
+- deps 타입을 `TrayResidencyDeps<M>` 인터페이스로 이름 붙여 export했다.
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 타입 선언 형태만 다르다 | — |
+| 공유 | 해당 없음 | — |
+| 재진입 | 해당 없음 | — |
+| 다른 무효화 축 | 해당 없음 — `typecheck` 0 error로 Electron `App`이 포트를 만족함을 확인 | EP-03 |
+
+## [구현자 기입] 구현 보고 (r1)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `app/src/main/app/tray-residency.ts`(108줄)·`tray-residency.test.ts`(270줄) · 수정 `app/src/main/index.ts` · `docs/TRD.md` · `docs/IPC_CONTRACT.md` · `docs/arch/backend/overview.md` |
+| 실행 명령 | 가드 4종 · `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음) · `node --test scripts/*.test.mjs` · `mutate.py` 24행 |
+| **관측한 게이트 산출** | 가드 4종 exit 0 · lint 0 error·2 warning(renderer 기존 파일) · typecheck 0 error · `node --test` 868/868 · vitest 970파일 중 69 failed·897 passed, 9078케이스 중 330 failed·8617 passed |
+| 기준선 분리 | 변경 전 트리(`git stash -u`)의 같은 명령: 69 failed·896 passed / 330 failed·8601 passed. 실패 파일·케이스 목록의 차집합 ∅. 원인은 환경 — `NODE_MODULE_VERSION`(better-sqlite3가 Electron ABI) 68회 · `Electron failed to install` 3회. `[test-pools]` 0건 |
+| 돌리지 못한 단계 | `npm test`(pretest ABI 전환)·Windows CI·`npm run dev` 실기 — 이 환경은 Electron 바이너리가 없다 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 1(`tray-residency.test.ts`) · 시간 예산 위반 0(`check-test-budgets` exit 0, 타이머 없음) · 호스트 격리 위반 0(home·env 미사용) · 풀 = unit(자식 프로세스·git·SQLite 신호 없음, 가드 실패 0) |
+| V-pair 자기확인 | `SELF_PASS 3 / SELF_BLOCKED 2`(VP-03·VP-04 사람 실기) |
+| 강제 지점 전수 | 8/10 — 남긴 2자리는 EP-03(`index.ts`, 사람 실기) |
+| **AC 자기보고** | AC1~AC8·AC11 ✅ — 해당 케이스 16 passed · AC10 ✅ — `check-doc-inventory --check` exit 0, `rg "tray-residency" docs/TRD.md docs/IPC_CONTRACT.md docs/arch/backend/overview.md` → 3파일 · AC9 ⚠️ 사람 실기 |
+| **합계 검산** | `✅ 10 · ⚠️ 1 · ❌ 0 = 총 11` |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 (첫 라운드).
+- 막았어야 할 plan 지침이 있었는가: 자리 검색 명령을 신규 파일에 대해 썼고 설계 시점에는 돌릴 대상이 없었다. 계약 타입을 같은 파일에 두면 문자열이 겹친다는 점을 설계가 보지 않았다.
+- 반복해서 부딪히는 환경 한계: Electron 바이너리 부재로 `index.ts` 조립과 실제 트레이를 실행할 수 없다.
+- 현재 라운드·impl 턴: `r1`.
 
 ## [검증자 기입] 파생 이슈
 
