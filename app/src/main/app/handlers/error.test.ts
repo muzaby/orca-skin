@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { join, dirname } from 'node:path'
+import { join } from 'node:path'
 import { CHANNELS } from '../../../shared/ipc'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 import { registerErrorHandlers } from './error'
@@ -7,22 +7,19 @@ import { registerErrorHandlers } from './error'
 const mocks = vi.hoisted(() => ({
   handle: vi.fn(),
   flush: vi.fn(),
-  path: vi.fn(),
-  exists: vi.fn(),
+  directory: vi.fn(),
   reveal: vi.fn(),
   open: vi.fn()
 }))
 vi.mock('electron', () => ({
   ipcMain: { handle: mocks.handle }
 }))
-vi.mock('node:fs', () => ({ existsSync: mocks.exists }))
-vi.mock('../../infra/log', () => ({ currentLogFilePath: mocks.path, flushLogSync: mocks.flush }))
-const path = join('test-config', 'logs', 'application.jsonl')
+vi.mock('../../infra/log', () => ({ logDirectory: mocks.directory, flushLogSync: mocks.flush }))
+const directory = join('test-config', 'logs')
 
 beforeEach(() => {
   vi.resetAllMocks()
-  mocks.path.mockReturnValue(path)
-  mocks.exists.mockReturnValue(true)
+  mocks.directory.mockReturnValue(directory)
   mocks.open.mockResolvedValue('')
   // 로그 열기는 셸 서비스로 간다(0324 EP-10).
   installFakeShellServices({
@@ -38,28 +35,17 @@ function reveal(): Promise<void> {
   return handler({})
 }
 describe('error revealLog IPC handler', () => {
-  it('flushes before checking and selecting the current log file', async () => {
+  // 0324 AC46 — 프로세스마다 파일이 달라 한 파일을 고르지 않고 폴더를 연다.
+  it('flushes, then opens the log directory', async () => {
     await reveal()
     expect(mocks.flush).toHaveBeenCalledExactlyOnceWith()
-    expect(mocks.exists).toHaveBeenCalledExactlyOnceWith(path)
-    expect(mocks.reveal).toHaveBeenCalledExactlyOnceWith(path)
-    expect(mocks.open).not.toHaveBeenCalled()
-    expect(mocks.flush.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.exists.mock.invocationCallOrder[0]
-    )
-    expect(mocks.exists.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.reveal.mock.invocationCallOrder[0]
-    )
-  })
-  it('opens the log directory if the file is not present', async () => {
-    mocks.exists.mockReturnValue(false)
-    await reveal()
-    expect(mocks.flush).toHaveBeenCalledTimes(1)
+    expect(mocks.open).toHaveBeenCalledExactlyOnceWith(directory)
     expect(mocks.reveal).not.toHaveBeenCalled()
-    expect(mocks.open).toHaveBeenCalledExactlyOnceWith(dirname(path))
+    expect(mocks.flush.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.open.mock.invocationCallOrder[0]
+    )
   })
   it('rejects an OS folder error instead of reporting success', async () => {
-    mocks.exists.mockReturnValue(false)
     mocks.open.mockResolvedValue('access denied')
     await expect(reveal()).rejects.toThrow('access denied')
   })
