@@ -815,6 +815,14 @@
 | §10 등록 표 class 4종 | 보고만 | 디렉토리 하나를 열거하는 2파일(`extensions/claude/scaffold.ts`·`harnesses/common/settings.ts`)에 맞는 class 가 없어 `single-file` 로 두고 reason 에 적었다 |
 | `perf.stall` 로그 레벨 | 구현 세부 | `info` 로 남긴다. warn/error 는 `RepeatSuppressor`(60초 창, `infra/log/suppress.ts`)가 삼켜 AC5·AC22 의 건수를 셀 수 없다 |
 
+**r1.2 — 코드 변경 없음. 밀린 마지막 gate 를 돌리고 `PLAN_GAP` 근거를 보강했다.** 단계 4·5·6·7 은 여전히 미착수다.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| EP-10 `electron-store` 3파일 — r1 의 "생성자가 실패한다" | 정정 — 실패하지 않고 **다른 경로에 조용히 쓴다** | `electron` 에 `app`·`ipcMain` 이 없는 형상으로 `electron-store@8.2.0` 을 열면 `cwd` 없이는 `~/.config/electron-store-nodejs/r.json` 에, 절대 `cwd` 를 주면 그 디렉토리에 쓴다(Node 프로브 3케이스 모두 예외 0). 호스트가 `cwd` 없이 열면 설정·비밀·인증 파일이 `userData` 밖에 새로 생긴다 |
+| 설정 파일의 쓰기 주체 | `PLAN_GAP` — 단계 4 착수 전 결정 필요 | 셸에 남는 코드가 `SettingsStore` 를 읽고 쓴다 — `index.ts:160`(`windowBounds` 읽기)·`:202`(`patch`) · `tray-residency.ts:73`(`uiLocale`)·`:85`(`onPatch`). `rg -c "settings\.(getAll\|patch\|onPatch)\("` 는 `src/main` 에서 합 35 / 10파일이다. `SettingsStore` 는 메모리 캐시 + 통째 쓰기(`settings-store.ts:51-53`)라 두 프로세스가 같은 파일을 열면 서로의 쓰기를 덮는다. plan 에 소유 프로세스가 없다(`grep -n "windowBounds\|SettingsStore" plan.md` → `[구현자 기입]` 밖 0줄) |
+| EP-7 `await` 자리 | `PLAN_GAP` 유지 — 근거 보강 | 카탈로그 결과는 `openChannel` 의 동기 구간 4곳에서 쓰인다 — `adapter.ts:617`(flags) · `:671-684`(query 옵션, `deferClaudeQuery` 안) · `:835`(`claudeNativeResources`) · `:850`(`ClaudeProjectReconciliation`). 지연 가능한 것은 query 옵션 하나뿐이다 |
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
 | EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
@@ -827,9 +835,13 @@
 
 V-pair 자기 상태: `SELF_PASS` 로 올린 pair 없음 — 열거 원문 sweep 과 등록 변이(VP-02·VP-12·VP-32)를 돌리지 않았다.
 
+r1.2: 닫은 자리 변화 없음 — 위 표 그대로다. `SELF_PASS` 0.
+
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
 미수행. `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 0 = 표 행 0`. 잇는 구현자가 IMPL_DONE 전에 전수로 돌린다.
+
+r1.2: 미수행 — `PLAN_GAP` 으로 `plan/DRAFT` 라 IMPL_DONE 으로 가지 않는다. `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 0 = 표 행 0`.
 
 ## [구현자 기입] Product/UX 파생 검토
 
@@ -840,11 +852,14 @@ V-pair 자기 상태: `SELF_PASS` 로 올린 pair 없음 — 열거 원문 sweep
 | 401줄 이상 diff 의 머리 증감 수 | Claude `toolDiffStat` · opencode `fileChanges` 가 `null` → 표시 없음(D-014). opencode 파일 패널 머리의 `+N −M` 은 워커 결과가 온 뒤에 나타난다 — D-014 는 "도구 카드 머리"만 말해 파일 패널 머리는 계약 밖이다(보고만) |
 | 32,000자 초과 코드 | 강조 요청 없이 원문(D-012). 기존 200,000자 → 32,000자 |
 
+r1.2: 해당 없음 — 사용자 대면 변경 0.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 - 취소된 계산 요청의 promise 는 `ComputeCancelled` 로 reject 된다. 소비 훅 셋(`useHighlightedHtml`·`useDiffSyntax`·`useDiffLines`)이 모두 catch 한다 — 새 소비자가 catch 를 빠뜨리면 unhandled rejection 이다.
 - 워커 번들(`new Worker(new URL(...), { type: 'module' })` + `renderer.worker.format = 'es'`)과 CSP `script-src 'self'` 아래의 실제 기동은 이 환경에서 확인하지 못했다 — AC23.
 - 가드의 "실제 트리 exit 0"·문서 대조 3케이스는 `node:test` 의 `todo` 로 걸어 두었다(실행은 하되 스위트를 막지 않는다). 단계 4·5·7 뒤에 `todo` 를 지우고 `ci.yml` 에 가드 단계를 단다 — 지금은 `ci.yml`·`package.json` 을 고치지 않았다.
+- r1.2: 설정 파일을 셸과 호스트가 함께 열면 창 위치 저장(`index.ts:202`)과 호스트의 설정 변경이 서로를 덮는다 — 위 설계 리뷰의 `PLAN_GAP`. 선조치하지 않았다(소유 프로세스는 계약 결정).
 
 ## [구현자 기입] 구현 보고
 
@@ -872,6 +887,21 @@ gate(마지막 수정 뒤 트리에서 얻은 것만 적는다):
 
 기준선(변경 전 HEAD, better-sqlite3 Node ABI 로 재빌드): vitest 실패 29파일·22케이스 — `src/main/app/**`·`adapters/**` 28파일과 `planMode.render.test.ts`.
 
+**r1.2 gate** — r1 이 돌리지 못한 것을 `ci.yml` 단계의 로컬 대응으로 전부 돌렸다. 트리는 r1 커밋 + lint autofix 1파일(`check-ui-thread.test.mjs` 줄바꿈)이다.
+
+| gate | 관측 |
+|---|---|
+| 가드 4종 | 전부 exit 0 — `check-migrations-appendonly`(태그 없음, skip) · `check-doc-inventory --check`(links ok) · `check-product-naming`(2322파일) · `check-test-budgets`(18 real-git suites) |
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | exit 0 (node·web·test) |
+| `node --test scripts/*.test.mjs` | tests 947 · pass 944 · fail 0 · todo 3 |
+| `./node_modules/.bin/vitest run` (필터 없음) | 984파일 — 951 pass · 29 fail · 4 skip / 9226케이스 — 9192 pass · 22 fail |
+| 기준선 대조 | r1 직전 커밋에서 같은 명령 — 974파일 중 29 fail · 22케이스. `FAIL` 줄 집합 42 대 42, `comm -13`·`comm -23` 둘 다 0줄 |
+| 실패 원인 | 환경 — `Electron failed to install correctly`(바이너리 미설치) · Windows 경로 단언(`C:/work` 가 Linux 에서 상대 경로로 풀림). 이번 변경이 추가·수정한 파일의 실패 0 |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 231건 — 단계 4·5·7 대기분(`ci.yml` 미연결) |
+
+테스트 소스 규칙(r1 이 추가·수정한 테스트 파일): `check-test-budgets` exit 0 · vitest 로그의 `[test-pools]` 0줄.
+
 대상 커밋: `(r1 구현 일부 — 좌표는 INDEX)`.
 
 ## [구현자 기입] Review Signals — 사실만
@@ -879,6 +909,7 @@ gate(마지막 수정 뒤 트리에서 얻은 것만 적는다):
 - 라운드 1 · impl 턴 `r1`(미완료 중단).
 - plan 의 자리 검색 술어 2건이 실제보다 좁았다 — EP-7 은 호출 함수가 동기인지 보지 않았고, EP-10 은 `electron` 직접 import 만 세어 `electron-store` 3파일이 빠졌다.
 - 이 환경은 Electron 바이너리가 없어 워커·호스트 기동을 실행할 수 없다. better-sqlite3 는 `npm rebuild` 로 Node ABI 빌드가 됐다.
+- impl 턴 `r1.2`(gate 만) — verify 0회. plan 의 EP-10 분모는 "Electron API 를 부르는 파일"을 셌고 "같은 파일을 두 프로세스가 여는가"는 세지 않았다.
 
 ---
 
