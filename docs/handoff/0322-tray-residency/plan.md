@@ -13,8 +13,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV3` — §10 자리 검색 명령 4개 정정(§22). ΔV1은 §20, ΔV2는 §21 |
-| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV4` — 메뉴 `종료`의 `app` 바인딩 잠금 채택(§23, verify r1 D1). ΔV1은 §20, ΔV2는 §21, ΔV3은 §22 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
 
 # Part I — Product & UX Contract
 
@@ -53,6 +53,7 @@
 - 이번 턴에서 새로 추가된 결정: D-001~D-007 (신규 handoff).
 - 변경된 결정: D-006 → D-008 (사용자 2턴 — 폴백을 없애고 오류로 취급).
 - 변경된 결정(ΔV2): D-007 → D-009 (사용자 4턴 — 라벨에 i18n 적용).
+- ΔV4(verify r1 D1 채택): Decision 변경 없음 — D-002 `종료`의 잠금만 좁혔다.
 - 추론 결정 D-005와 D-009의 영어 라벨 문구는 사용자가 뒤집으면 ΔV로 정정한다.
 - `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·AC4·AC5·AC9 · D-002↔AC2 · D-003↔AC9(단계 4, renderer diff 0) · D-004↔AC6 · D-005↔AC3 · D-008↔AC7 · D-009↔AC2·AC11.
 
@@ -117,7 +118,7 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AC1 | Windows에서 종료 중이 아니면 닫기는 취소되고 창이 숨는다 | `platform:'win32'` → 창 `close` 발화 → `preventDefault` 1회 · `hide` 1회 | X/헤더 종료 → `oo:window:close` → `mainWindow.close()` → `close` |
-| R-02 | AC2 (ΔV2) | 트레이 메뉴는 두 항목뿐이고 순서대로 창 열기·앱 종료를 한다. 라벨은 `uiLocale`을 따른다 | `uiLocale:'ko'` → 라벨 배열 `toEqual(['열기','종료'])` · `'en'` → `toEqual(['Open','Quit'])`. 두 입력 모두 첫 항목 click → `open` 1·`quit` 0, 둘째 → `quit` 1·`open` 0 | 트레이 우클릭 메뉴 |
+| R-02 | AC2 (ΔV2) | 트레이 메뉴는 두 항목뿐이고 순서대로 창 열기·앱 종료를 한다. 라벨은 `uiLocale`을 따른다 | `uiLocale:'ko'` → 라벨 배열 `toEqual(['열기','종료'])` · `'en'` → `toEqual(['Open','Quit'])`. 두 입력 모두 첫 항목 click → `open` 1·`quit` 0, 둘째 → `quit` 1·`open` 0 · `quit`의 호출 `this` = `deps.app`로 넘긴 객체(`quit.mock.contexts[0]` `toBe`, ΔV4) | 트레이 우클릭 메뉴 |
 | R-02 | AC3 | 트레이 아이콘 좌클릭은 창을 연다 | 트레이 `click` 발화 → `open` 1회 · `quit` 0회 | 트레이 좌클릭 |
 | R-03 | AC4 | 종료가 시작된 뒤의 닫기는 숨기지 않는다 | `before-quit` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | 트레이 종료 · `updater.quitAndInstall` → `app.quit()` |
 | R-03 | AC5 | OS 세션 종료 통지 뒤의 닫기는 숨기지 않는다 | 창 `session-end` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | Windows 로그오프·재시작 |
@@ -125,7 +126,7 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 | R-05 | AC7 (ΔV1) | 트레이 생성 실패는 삼켜지지 않고 호출자에게 그대로 던져진다 | `win32` · `createTray`가 `E`를 던짐 → `installTrayResidency(...)`가 같은 `E`로 던진다(`toThrow(E)`) | Windows 부팅 → `whenReady` reject → `unhandledRejection` 보고 |
 | R-06 | AC8 | 프로세스 종료 때 트레이 아이콘을 없앤다 | `will-quit` 발화 → `tray.destroy` 1회. 트레이가 없으면(AC6 입력) 던지지 않는다 | `will-quit` |
 | R-01~06·R-08 | AC9 | 실제 Windows에서 §19 실기 9단계가 관측된다 | 사람 실기 — §19 | 설치본 또는 `npm run dev` |
-| R-08 | AC11 (ΔV2) | UI 언어를 바꾸면 트레이 메뉴 라벨이 재시작 없이 바뀐다. 다른 설정 변경은 메뉴를 다시 만들지 않는다 | `ko`로 설치 → 저장소가 `'en'`을 돌려주게 한 뒤 `onPatch` 리스너를 `changedKeys:['uiLocale']`로 호출 → `setContextMenu` 2회째 인자의 라벨 `['Open','Quit']`·click 배선 유지. `changedKeys:['theme']` → `setContextMenu` 횟수 불변 | 설정 화면 언어 변경 → `settings:set` → `SettingsStore.onPatch` |
+| R-08 | AC11 (ΔV2) | UI 언어를 바꾸면 트레이 메뉴 라벨이 재시작 없이 바뀐다. 다른 설정 변경은 메뉴를 다시 만들지 않는다 | `ko`로 설치 → 저장소가 `'en'`을 돌려주게 한 뒤 `onPatch` 리스너를 `changedKeys:['uiLocale']`로 호출 → `setContextMenu` 2회째 인자의 라벨 `['Open','Quit']`·click 배선 유지(둘째 항목 `quit`의 `this` = `deps.app`, ΔV4). `changedKeys:['theme']` → `setContextMenu` 횟수 불변 | 설정 화면 언어 변경 → `settings:set` → `SettingsStore.onPatch` |
 | R-07 | AC10 | 문서 3곳이 새 동작을 현재형으로 서술한다 | `node scripts/check-doc-inventory.mjs --check` 통과 + §18 문서 행의 문장 존재 | 문서 |
 
 ### AC 검증 주의사항
@@ -299,7 +300,7 @@ export function installTrayResidency<M>(deps: {
 | V node / pair | 계약 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
 | MD-01 / VP-01 — EP-01 | 닫기 판정: `resident ∧ ¬quitting`이면 `preventDefault`+`hide`, 아니면 아무것도 하지 않는다 | `tray-residency.ts` | `attach`의 `close` 리스너 | 1자리 — `attach` 안 `close` 리스너 | `rg -n "\.on\('close'" app/src/main/app/tray-residency.ts` → 1 | 숨겨야 할 때 종료되거나, 종료해야 할 때 숨어 종료·업데이트·로그오프가 막힌다 |
-| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 첫 항목 `→open` · 둘째 항목 `→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label: labels\.|\.on\('click'|\.setToolTip\(" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
+| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 첫 항목 `→open` · 둘째 항목 `→app.quit`(호출 `this` = `deps.app`, ΔV4) · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label: labels\.|\.on\('click'|\.setToolTip\(" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
 | AR-01 / VP-03 — EP-03 | 조립: 설치 1회(`whenReady`, `createWindow` 바로 뒤) · 그 창에 `attach` | `index.ts` | 부팅 | 2자리 — `installTrayResidency(` 호출 · `.attach(` 호출 | `rg -o "installTrayResidency\(|\.attach\(" app/src/main/index.ts` → 2 | 모듈이 green이어도 실제 앱은 X로 종료된다 |
 | MD-01 / VP-01 — EP-04 | 정리: `will-quit`에서 만든 트레이만 `destroy` | `tray-residency.ts` | 종료 | 1자리 — `will-quit` 리스너 | `rg -n "\.on\('will-quit'" app/src/main/app/tray-residency.ts` → 1 | 종료 뒤 트레이에 유령 아이콘 |
 | MD-01 / VP-01 — EP-05 (ΔV2) | 라벨 언어: 메뉴 라벨 = `TRAY_MENU_LABELS[settings.getAll().uiLocale]`, 패치에 `uiLocale`이 있으면 메뉴를 다시 만들어 `setContextMenu` | `TRAY_MENU_LABELS` | 설치 시 + 설정 변경 시 | 2자리 — 라벨 선택(`getAll()`) · `onPatch` 구독 | `rg -n "\.getAll\(\)|\.onPatch\(" app/src/main/app/tray-residency.ts` → 2 | 영어 UI에 한국어 메뉴가 뜨거나, 언어를 바꿔도 재시작 전까지 옛 라벨이 남는다 |
@@ -319,6 +320,8 @@ export function installTrayResidency<M>(deps: {
 **EP-05 분기 ↔ UT 입력**: `uiLocale` `ko` / `en` 초기 라벨(AC2) · 패치에 `uiLocale` 포함 → 현재 값으로 메뉴 재구성 / 미포함 → 재구성 없음(AC11) · 비-win32 → `onPatch` 호출 0(AC6 입력에 단언 추가).
 
 **EP-02 생성 분기**: 성공 → 표면 4자리 / `createTray`가 던짐 → 같은 오류 전파(AC7).
+
+**EP-02 `종료` 바인딩 (ΔV4)**: 규칙 = 둘째 항목 click이 `app.quit`을 `deps.app`에 묶인 채 부른다. 입력 = AC2 `ko`·`en` 각각의 설치 메뉴 + AC11 재구성 메뉴 → 기대 = `quit.mock.contexts`의 모든 원소가 `deps.app`로 넘긴 객체와 `toBe`.
 
 **EP-04 분기**: 트레이 있음 → `destroy` 1 / 트레이 없음(B4 입력) → `will-quit`이 던지지 않고 `destroy` 0.
 
@@ -341,6 +344,7 @@ export function installTrayResidency<M>(deps: {
 | M13 (ΔV2) | `settings.onPatch` 구독 제거 | 제거 | AC11 |
 | M14 (ΔV2) | 라벨 선택을 `'ko'` 고정으로 | 고정값 | AC2(`en`) · AC11 |
 | M15 (ΔV2) | `changedKeys.includes('uiLocale')` 조건 제거 | 제거 | AC11(`theme` 입력) |
+| M16 (ΔV4) | 둘째 항목을 `click: deps.app.quit`로(분리 참조 — `this` 소실). 심을 자리 = `applyMenu` 안 둘째 항목 1곳(설치·재구성 공용) | 호출 대체 | AC2(`ko`·`en`) · AC11 |
 
 - **선언 경계**
   - B1 — `index.ts` 조립 2자리(EP-03)는 vitest 실행 구간 밖이다. `index.ts`를 import하는 테스트가 없고(§8), 좌표는 사람 실기 §19뿐이다.
@@ -349,6 +353,8 @@ export function installTrayResidency<M>(deps: {
   - B4 — 창이 없는 상태의 `열기`는 아무것도 하지 않는다(`index.ts:64`). Windows에서 창은 종료 때만 파괴되므로 상주 중에는 도달하지 않는다.
   - B5 — macOS·Linux 동작은 판정하지 않는다(D-004). AC6은 "건드리지 않음"만 잠근다.
   - B6 — 트레이 생성 실패 뒤의 앱 상태(창·X 동작·남은 부팅 단계)는 계약하지 않는다(D-008). 예외가 삼켜지지 않는 것만 잠근다(AC7).
+  - B7 (ΔV4) — `open`의 호출 `this`는 판정하지 않는다. production `open`은 자유 함수 `focusMainWindow`(`index.ts:62`)라 `this`·인자를 읽지 않는다 — verify r1 X5 `동치`.
+  - B8 (ΔV4) — 콜백 값이 아닌 직접 호출식(`deps.settings.getAll()`·`deps.app.on(…)`·`tray.setContextMenu(…)` 등)의 바인딩은 판정하지 않는다. ΔV4가 잠그는 것은 포트 메서드가 메뉴 템플릿에 값으로 넘어가는 `종료` 자리뿐이다.
 - 열린 입력 집합을 판정하는 산출물: 해당 없음.
 - 같은 규칙의 여러 레이어: 없음 — 판정은 `close` 리스너 한 곳. X·헤더·Alt+F4가 모두 `close` 이벤트로 모인다.
 - 외부 SDK 경계: `index.ts`가 `createTray: () => new Tray(…)`, `buildMenu: (items) => Menu.buildFromTemplate(items)`로 넘긴다. `as any`/`as never` 없이 구조적으로 맞아야 한다 — 안 맞으면 `PLAN_GAP`.
@@ -527,6 +533,25 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 - 출처: 구현 r1 중 발견한 plan 내부 불일치(검색 출력 ↔ 자리 목록). 같은 파일에 §10 포트 타입 선언이 있어 EP-01·02·04·05의 검색이 타입 선언 줄까지 세었다 — 옛 명령 출력은 2·7·2·4로 목록 1·4·1·2와 달랐다.
 - 정정: 술어를 "리스너 등록·호출 자리"로 좁혔다(`.on('close'` · `label: labels.` · `.on('click'` · `.setToolTip(` · `.on('will-quit'` · `.getAll()` · `.onPatch(`). 타입 선언은 앞에 `.`이 없어 걸리지 않는다.
 - 불변: 자리 목록(10자리)·규칙 칸·AC·등록 변이·pair는 그대로다. 새 의무 0.
+
+## 23. ΔV4 — 메뉴 `종료`의 `app` 바인딩 잠금 (2026-11-16, verify r1 RETURN_TO_PLAN)
+
+- 판정: verify r1 D1(확장 후보, 창 안)을 **채택**한다. 출처 = `verify.md` §4 X1 · §13 D1 — `click: deps.app.quit`(분리 참조)로 바꿔도 16케이스 green이었다.
+- 채택 이유: Electron `app.quit`은 네이티브 `App` 인스턴스 메서드라 분리 호출하면 바인딩이 깨질 수 있는 형태다. 테스트 가짜 `quit`이 `vi.fn`이라 `this`를 보지 않았다. 의무가 단언 1줄·변이 1개라 창 안에서 닫힌다.
+- 조사: 자리 검색 `rg -n "click:|\.on\('click'" app/src/main/app/tray-residency.ts` → 3(`:76` 열기 · `:77` 종료 · `:83` 아이콘). 포트 메서드를 값으로 넘기는 자리 중 `this`가 의미 있는 곳은 `:77` 하나 — `:76`·`:83`의 `open`은 B7. `mock.contexts` 선례: `src/main/features/plugins/mail/store/index.test.ts:386`(vitest `^4.1.7`).
+
+| Node / 행 | provenance | 이전 | ΔV4 |
+|---|---|---|---|
+| R-02 · AC2 | CHANGED | 둘째 항목 → `quit` 1회 | + `quit`의 `this` = `deps.app` (`ko`·`en` 둘 다) |
+| R-08 · AC11 | CHANGED | 재구성 메뉴 click 배선 유지 | + 재구성 메뉴의 `quit` `this` = `deps.app` |
+| MD-01 EP-02 | CHANGED | 둘째 항목 `→app.quit` | 규칙 칸에 바인딩 추가 · 입력 칸 3(AC2×2·AC11). 자리 수 4 그대로 |
+| M16 | NEW | — | `click: deps.app.quit` → AC2·AC11 red |
+| 선언 경계 B7·B8 | NEW | — | `open` 바인딩 · 직접 호출식 바인딩은 판정 밖 |
+
+- 구현 의무(새 의무 1): `tray-residency.test.ts` AC2(`it.each` 두 입력)·AC11 케이스에 `expect(h.app.quit.mock.contexts).toEqual([h.app])`류 단언을 넣는다 — `h.app`은 `installTrayResidency`에 `deps.app`으로 넘긴 그 객체여야 한다(현재 `setup`이 `app`을 그대로 넘김 — 사본이면 단언이 무의미). production 코드(`:77` 화살표)는 이미 맞아 바꾸지 않는다.
+- 자기 잠금: M16을 `:77`에 심어 AC2 두 입력·AC11이 red인지 확인하고, 직전 verify `잡음` 행 중 이번 diff가 닿는 M2a·M9·M12·M14·S3·S5·S6·S9(같은 케이스 단언)를 다시 돌린다.
+- pair: VP-01만 영향(AC2·AC11·EP-02·M16). VP-02~VP-05 문장 변경 없음. EP-01~05 자리 목록·검색 명령 불변.
+- `ACTIVE 결정 ↔ AC` 대조(ΔV4 뒤): 충돌 0 — D-002("열기, 종료 두 개 메뉴") ↔ AC2(길이 2 + `종료` = 실제 `app` 종료) · D-009 ↔ AC11(재구성 뒤에도 같은 바인딩).
 
 ---
 
