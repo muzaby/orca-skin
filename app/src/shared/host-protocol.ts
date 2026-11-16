@@ -1,7 +1,8 @@
-// 셸 ↔ 에이전트 호스트 메시지 계약 (0324 EP-11 · EP-14). 두 프로세스가 같은 스키마로 검증한다.
+// 셸 ↔ 호스트 메시지 계약 (0324 EP-11 · EP-14 · EP-19 · EP-21). 셸과 두 호스트가 같은 스키마로 검증한다.
 //
-// 지금 있는 것은 호스트 → 셸 방향의 두 묶음이다: 수명 이벤트 다섯 가지(D-027)와 UI 언어 사본
-// 알림(D-032 — 수명 이벤트가 아니다).
+// 호스트 → 셸: 준비 · 수명 이벤트 다섯 가지(에이전트 호스트, D-027) · UI 언어 사본(데이터 호스트,
+// D-032·F5) · 셸 서비스 요청 · 반대편 호스트 확보 요청(데이터 호스트, D-044).
+// 셸 → 호스트: 창 포트 · 피어 포트 · 종료 · 서비스 응답 · 깨어남 · 확보 실패.
 
 import { z } from 'zod'
 import { WAKE_REASONS } from './shell-services'
@@ -29,8 +30,8 @@ export type ShellMirror = z.infer<typeof ShellMirrorSchema>
 
 // 호스트 → 셸 메시지.
 export const HostToShellSchema = z.discriminatedUnion('type', [
-  // DB 마이그레이션까지 끝나 요청을 받을 수 있다.
-  z.object({ type: z.literal('ready'), mirror: ShellMirrorSchema }),
+  // 요청을 받을 수 있다(데이터 호스트: 마이그레이션·복구 뒤). 언어 사본은 데이터 호스트만 싣는다.
+  z.object({ type: z.literal('ready'), mirror: ShellMirrorSchema.optional() }),
   z.object({ type: z.literal('lifecycle'), event: LifecycleEventSchema }),
   z.object({ type: z.literal('shell.mirror'), mirror: ShellMirrorSchema }),
   // 셸 서비스 요청(EP-10). 이름·인자는 `shell-services.ts` 가 검증한다.
@@ -39,7 +40,9 @@ export const HostToShellSchema = z.discriminatedUnion('type', [
     id: z.number().int().nonnegative(),
     name: z.string().min(1),
     args: z.array(z.unknown())
-  })
+  }),
+  // 데이터 호스트 → 셸: 실행이 필요한 교차 요청이 왔는데 에이전트 호스트가 없다(D-044).
+  z.object({ type: z.literal('peer.ensure') })
 ])
 export type HostToShell = z.infer<typeof HostToShellSchema>
 
@@ -104,6 +107,10 @@ export const ShellToHostSchema = z.discriminatedUnion('type', [
     error: z.string().optional()
   }),
   // 시스템이 깨어났다(절전 해제·화면 잠금 해제·창 포커스) — 호스트의 재확인 신호.
-  z.object({ type: z.literal('wake'), reason: z.enum(WAKE_REASONS) })
+  z.object({ type: z.literal('wake'), reason: z.enum(WAKE_REASONS) }),
+  // 반대편 호스트와의 피어 포트를 함께 넘긴다. 반대편이 다시 뜰 때마다 새로 온다.
+  z.object({ type: z.literal('peer.connect') }),
+  // 셸이 에이전트 호스트를 띄우지 못했다(기동 실패 상한) — `peer.ensure` 의 답.
+  z.object({ type: z.literal('peer.unavailable') })
 ])
 export type ShellToHost = z.infer<typeof ShellToHostSchema>

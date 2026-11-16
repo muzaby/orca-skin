@@ -1,4 +1,4 @@
-// 창 쪽 에이전트 호스트 포트 클라이언트 (0324 EP-8 · plan §7-E).
+// 창 쪽 호스트 포트 클라이언트 (0324 EP-8′ · plan §7-E). 에이전트 호스트·데이터 호스트마다 하나씩 쓴다.
 //
 // 호스트 채널의 요청·단방향 송신·통지 구독이 모두 여기를 지난다. 셸이 넘긴 포트가 있으면 그
 // 포트로 보내고, 없으면(첫 포트 전 · 호스트 종료 뒤) 줄을 세웠다가 다음 포트에 순서대로 보낸다.
@@ -14,7 +14,11 @@ export interface ClientPort {
   close(): void
 }
 
+export type HostName = 'agent' | 'data'
+
 export interface HostPortClientDeps {
+  // 어느 호스트의 포트인가 — 실패 문장에 실린다.
+  host: HostName
   // 호스트가 죽은 뒤 첫 요청에서 한 번 — 셸에 재기동을 부탁한다.
   requestConnect(): void
 }
@@ -30,8 +34,15 @@ export interface HostPortClient {
   hostExited(): void
 }
 
-export const HOST_EXITED_ERROR = '에이전트 호스트가 종료됐다'
-export const HOST_REPLACED_ERROR = '에이전트 호스트가 다시 연결됐다'
+const HOST_LABEL: Record<HostName, string> = { agent: '에이전트 호스트', data: '데이터 호스트' }
+
+export function hostExitedError(host: HostName): string {
+  return `${HOST_LABEL[host]}가 종료됐다`
+}
+
+export function hostReplacedError(host: HostName): string {
+  return `${HOST_LABEL[host]}가 다시 연결됐다`
+}
 
 type Outgoing =
   | { kind: 'invoke'; channel: string; payload: unknown; settle: Pending }
@@ -43,6 +54,8 @@ interface Pending {
 }
 
 export function createHostPortClient(deps: HostPortClientDeps): HostPortClient {
+  const exitedError = hostExitedError(deps.host)
+  const replacedError = hostReplacedError(deps.host)
   let port: ClientPort | null = null
   let exited = false
   let connectRequested = false
@@ -122,7 +135,7 @@ export function createHostPortClient(deps: HostPortClientDeps): HostPortClient {
       // `exited`·`connectRequested` 는 포트가 없을 때만 읽고 `hostExited` 가 다시 정한다.
       if (previous) {
         previous.close()
-        failAll(replaced, HOST_REPLACED_ERROR)
+        failAll(replaced, replacedError)
       }
       next.onMessage((data) => receive(next, data))
       const waiting = queue
@@ -139,9 +152,9 @@ export function createHostPortClient(deps: HostPortClientDeps): HostPortClient {
       exited = true
       connectRequested = false
       previous?.close()
-      failAll(pending, HOST_EXITED_ERROR)
+      failAll(pending, exitedError)
       for (const item of waiting) {
-        if (item.kind === 'invoke') item.settle.reject(new Error(HOST_EXITED_ERROR))
+        if (item.kind === 'invoke') item.settle.reject(new Error(exitedError))
       }
     }
   }
