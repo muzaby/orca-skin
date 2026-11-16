@@ -7,17 +7,46 @@ function setup(): {
   mirrorUiLocale: ReturnType<typeof vi.fn>
   onReady: ReturnType<typeof vi.fn>
   onInvalid: ReturnType<typeof vi.fn>
+  onServiceCall: ReturnType<typeof vi.fn>
   sink: (raw: unknown) => void
 } {
   const lifecycle = new LifecycleState()
   const mirrorUiLocale = vi.fn()
   const onReady = vi.fn()
   const onInvalid = vi.fn()
-  const sink = createHostMessageSink({ lifecycle, mirrorUiLocale, onReady, onInvalid })
-  return { lifecycle, mirrorUiLocale, onReady, onInvalid, sink }
+  const onServiceCall = vi.fn()
+  const sink = createHostMessageSink({
+    lifecycle,
+    mirrorUiLocale,
+    onReady,
+    onInvalid,
+    onServiceCall
+  })
+  return { lifecycle, mirrorUiLocale, onReady, onInvalid, onServiceCall, sink }
 }
 
 describe('호스트 → 셸 메시지 수신', () => {
+  it('인자가 배열이 아닌 셸 서비스 요청은 버린다', () => {
+    const t = setup()
+    t.sink({ type: 'service.call', id: 1, name: 'secrets.decrypt', args: 'x' })
+    expect(t.onServiceCall).not.toHaveBeenCalled()
+    expect(t.onInvalid).toHaveBeenCalledTimes(1)
+  })
+
+  it('셸 서비스 요청은 서비스 서버로만 간다 (EP-10)', () => {
+    const t = setup()
+    t.sink({ type: 'service.call', id: 4, name: 'secrets.isAvailable', args: [] })
+    expect(t.onServiceCall).toHaveBeenCalledTimes(1)
+    expect(t.onServiceCall).toHaveBeenCalledWith({
+      type: 'service.call',
+      id: 4,
+      name: 'secrets.isAvailable',
+      args: []
+    })
+    expect(t.mirrorUiLocale).not.toHaveBeenCalled()
+    expect(t.onInvalid).not.toHaveBeenCalled()
+  })
+
   it('수명 이벤트는 수명 상태에 반영된다', () => {
     const t = setup()
     t.sink({ type: 'lifecycle', event: { type: 'turn.started', sessionId: 's1' } })
