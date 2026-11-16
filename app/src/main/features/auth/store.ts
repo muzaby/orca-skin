@@ -190,11 +190,8 @@ export class AuthStore {
     for (const [, grant] of persisted) for (const key of vaultKeysOf(grant)) referenced.add(key)
     for (const name of this.vault.names()) {
       if (referenced.has(name)) continue
-      try {
-        this.vault.delete(name)
-      } catch {
-        // 한 자리를 못 지워도 부팅은 계속한다 — 다음 부팅이 다시 시도한다.
-      }
+      // 한 자리를 못 지워도 부팅은 계속한다 — 다음 부팅이 다시 시도한다. 기다리지 않는다.
+      this.vault.delete(name).catch(() => {})
     }
   }
 
@@ -309,13 +306,9 @@ export class AuthStore {
 
   private deleteVaultKeys(authId: AuthId, grant: Grant): void {
     for (const key of vaultKeysOf(grant)) {
-      try {
-        this.vault.delete(key)
-      } catch (error) {
-        // 고아로 남는다. 지워지지 않은 값이 살아 있어도 그것을 가리키는 grant 가 없으므로
-        // 인증에 쓰이지 않는다 — 위생 문제이지 접근 문제가 아니다.
-        this.onVaultCleanupFailed?.(authId, error)
-      }
+      // 고아로 남는다. 지워지지 않은 값이 살아 있어도 그것을 가리키는 grant 가 없으므로
+      // 인증에 쓰이지 않는다 — 위생 문제이지 접근 문제가 아니다. 기다리지 않는다.
+      this.vault.delete(key).catch((error: unknown) => this.onVaultCleanupFailed?.(authId, error))
     }
   }
 

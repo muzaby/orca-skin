@@ -62,7 +62,18 @@ vi.mock('../infra/settings-store', () => ({
     }
   }
 }))
-vi.mock('../infra/config/secret-store', () => ({ SecretStore: class {} }))
+vi.mock('../infra/config/secret-file', () => ({ openSecretFile: () => ({}) }))
+vi.mock('../infra/config/secret-store', () => ({
+  SecretStore: class {
+    load = async (): Promise<void> => {}
+    retryUndecryptable = async (): Promise<void> => {}
+    onChange = (): (() => void) => () => {}
+    get = (): undefined => undefined
+    has = (): boolean => false
+    set = async (): Promise<void> => {}
+    delete = (): void => {}
+  }
+}))
 vi.mock('../infra/config/paths', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../infra/config/paths')>()),
   ooConfigDir: () => fixture.root

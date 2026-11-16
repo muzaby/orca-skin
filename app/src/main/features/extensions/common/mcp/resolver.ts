@@ -23,7 +23,7 @@ import { BINDING_PREFIX, type Resolver } from '../../../../infra/vars'
 import type { SecretStore } from '../../../../infra/config/secret-store'
 
 interface ResolverOptions {
-  secrets: SecretStore
+  secrets: Pick<SecretStore, 'get'>
   // orcinus-orca.json 의 `secrets.envAllowlist`. **정확한 이름 일치만** 허용한다(패턴·접두사 없음).
   envAllowlist?: readonly string[]
   // `${BINDING:<대상>}` 의 토큰 소스 (0181). **미주입이면 모든 대상 참조가 미해결**이다 —
