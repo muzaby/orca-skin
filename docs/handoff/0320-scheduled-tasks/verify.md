@@ -422,3 +422,99 @@
 - AC: `✅ 31 · ⚠️ 4 · ❌ 0 = 총 35`.
 - 운영 gate: 전부 PASS(전체 vitest는 기준선 동일 9파일·22케이스).
 - 다음 단계: 설계자가 E4~E7을 항목마다 채택 또는 경계 선언. 채택분만 구현 r3가 닫고, 경계 선언만이면 구현 없이 verify 3회째로 간다(창 밖 — 이행·현재 결함 0이면 PASS 가능).
+
+
+---
+
+# 라운드 3 — verify 3회째
+
+## 메타 (r3)
+
+| 항목 | 값 |
+|---|---|
+| 상태 | **PASS (기계 범위)** — 이행·현재 결함 0 · 창 밖(3회째)이라 확장 후보는 `NEXT_HANDOFF`. AC23·27·31·34는 사람 실기 |
+| 대상 | 구현 `f9c5ac0`(r3, 테스트 7파일·prod 0) — 기준선 `55a9a0f`(ΔV5 설계, 설계·구현 분리 커밋). `git diff --stat 55a9a0f..f9c5ac0 -- app` = 7파일 |
+| 유효 V | `V1 + ΔV1~ΔV5` |
+| 확장 창 | verify 3회째 — **창 밖**. 새 열거 출처 확인: ΔV5는 r2 확장 후보 채택(출처 = 사용자 결정 아님·plan 정합) — 이번 verify가 새 열거를 판정에 쓰지 않는다 |
+| 독립 축(⑥) | 구현자 47행과 다른 형태의 변이 37행(인자 비움 대신 값 대체·`busy` 가드·win32 pid 없음·사전 abort·실제 `Q1b` 조건) |
+| 구현 주체·문맥 | Claude 설계·구현·검증 동일 — 독립성은 ⑥ 몫 |
+
+## 1. plan validity · 기준선
+
+- `git diff 55a9a0f..f9c5ac0 -- docs/handoff/0320-scheduled-tasks/plan.md` 변경은 `[구현자 기입] (r3)` 추가뿐 — AC·Decision·§10 규범 행 변경 0.
+- EP-10(19자리)·EP-11(5)·EP-12(4+5)·EP-13(8) 자리 검색 재실행 → 22(=19+3)·5·4+5·9(=8+1)줄, 목록과 차집합 ∅. `PLAN_GAP` 0.
+- 구현 보고 "win32 테스트는 unit 풀"(§24와 다름): `app/AGENTS.md` exe 대체 규칙과 맞고 규범 행 영향 0 — 수용.
+
+## 2. 하한 ③ — r2 채택 `못 잡음` 원문 형태 재실행
+
+M3·M4·M5·M8·T1~T4·Q2~Q5·M10·M11·M7·N6·O6·S1(두 자리)·S2·S4·S6·S8·S9 = **전부 red**(`r3.tsv`·`r3b.jsonl`, 실행 후 `git status` 빈 출력). r2 동치 K5·V28·V37은 제외(동치 유지).
+
+## 3. 고장 이력 (r3) — 시도 37 = 잡음 33 · 못 잡음 4
+
+| 묶음 | 시도 | 잡음 | 못 잡음 |
+|---|---|---|---|
+| EP-10 A·B (F0~F6 맞바꿈·빈 값, T1~T4, Q1·Q1b·Q2~Q5) | 22 | 22 | 0 |
+| EP-11 V1·V3·M10·M11 | 4 | 4 | 0 |
+| EP-12 M7·M7b·N6·N6b·O6 | 5 | 5 | 0 |
+| EP-13 S1·S1b·S2·S4·S6·S8·S9·K8 | 8 | 8 | 0 |
+| 독립 축 | 4 | 0 | N-b1 · K5 · K9 · K10 |
+
+| ID | 자리 | 바꾼 내용 | 결과 | 분류 |
+|---|---|---|---|---|
+| N-b1 | `ScheduleTaskModal.tsx:save` | `|| busy` 제거 | green | **확장** — 열거 밖. 확인 버튼이 `canSave`로 비활성이라 사용자 경로 재현 없음 |
+| K5 | `shell-runner.ts:kill` | `killRequested` 제거 | green | **동치**(r2와 같음 — `done()`이 정리, 둘째 `process.kill`은 `ESRCH` 삼킴) |
+| K9 | `shell-runner.ts:killProcessTree` | win32 분기에서 `pid != null` 제거 | green | **확장** — EP-13 K8은 POSIX 무 pid만 열거 |
+| K10 | `shell-runner.ts:runShellCommand` | 이미 중단된 신호 `if (...aborted) kill()` 제거 | green | **확장** — EP-13 K6은 리스너 해제만 열거. 사전 중단 입력 없음 |
+
+## 4. V-pair closeout (r3)
+
+| Pair | 결과 | 직접 oracle 좌표 |
+|---|---|---|
+| VP-02′ | PASS | `scheduleTaskModal.interaction.test.ts` — EP-10 A 12·EP-12 A 4자리 변이 red |
+| VP-23′ | PASS | `executionSettingsPicker.interaction.test.ts` · `projectPickerChip.test.ts` — EP-10 B 5·EP-12 B 5 red |
+| VP-11′ | PASS | `SchedulesPage.render.test.ts:'프로젝트·실행 설정 칩의 선택이…'`(G1·G2는 구현자 sweep red, 이번 턴 개별 변이는 안 돌림 — 관측 범위 한계) |
+| VP-03′ | PASS | `scheduleTaskModal.interaction.test.ts` `저장` 2케이스 — V1·V3·M10·M11 red |
+| VP-12′ | PASS | `shell-runner.test.ts`·`.win32.test.ts`·`.process.test.ts` — EP-13 K1~K8 red |
+| VP-04 · 그 밖 ΔV1~ΔV4 pair | PASS | 전체 vitest 통과분(prod diff 0) |
+| VP-26′ | PASS(AT 기계분) · AC34 사람 | — |
+
+- 합계 재측정: ✅ 35 · ⚠️ 4 · ❌ 0 = 총 39 — 구현 보고·trailer `35/39`와 일치. ⚠️ = AC23·27·31·34.
+
+## 5. gate (r3) — 검증 트리 `f9c5ac0`
+
+| Gate | 관측 |
+|---|---|
+| 가드 4종 | migrations `no-copies ok`(append-only `no previous v* tag` skip) · doc-inventory prose·links ok · product-naming `OK — 2293파일` · test-budgets `18 real-git suites ok` |
+| lint · typecheck | `eslint .` 0 errors·2 warnings(손대지 않은 파일) · `tsc` error TS 0 |
+| 전체 vitest(필터 없음, Node ABI) | 974파일 중 9 fail·961 pass·4 skip / 9247케이스 중 22 fail·9213 pass. 실패 9파일 = r2 기준선과 동일 집합(adapters/claude 3·opencode/v1 3·composer-catalog·composer-preparation-service·session-resources.claude-assembly), 이번 diff와 교집합 0, 환경 원인 = Linux 경로 단언. `[test-pools]` 0건. 미처리 거부 1건도 기준선 파일(`native-resources.test.ts`) |
+| `node --test scripts/*.test.mjs` | 868 pass / 0 fail |
+| 변이 후 트리 | `git status --short` 빈 출력 |
+
+## 6. Repository operation checks (r3)
+
+- trailer: `git log -1 --format='%(trailers:only=true)' f9c5ac0` → `Agent·Handoff·Status·Criteria-Met·Criteria-Pending·Verified-By` 파싱.
+- `f9c5ac0` `git cat-file -t` = commit. **`origin/main` 조상 아님**(`merge-base --is-ancestor` 실패) — 브랜치 `ccr-7a11a678-uq140g` 해시, `main` 병합 전.
+- `[구현자 기입] (r3)` 7필드 존재, 강제 지점 표는 자리 전부(41/41)와 `남긴 곳` 포함. prod·AGENTS.md 변경 0.
+
+## 7. Finding disposition (r3)
+
+| # | finding | 분류 | disposition |
+|---|---|---|---|
+| E4~E7 | r2 채택 확장 | §2 원문 형태 전부 red | **closed** |
+| N-b1 · K9 · K10 | 독립 축 `못 잡음` 3 | 확장(열거 밖) | `NEXT_HANDOFF(확장)` — 후보 표 1행 |
+| 경계 | `setsid` 탈출 손자 · win32 실제 `taskkill` 효과 | plan §24 선언 경계 | 판정 영향 없음 |
+
+## 8. 못 본 것
+
+① Windows 실제 `powershell.exe`·`taskkill` 실행(CI 몫) ② G1·G2 개별 변이(구현자 sweep 47/47에 의존) ③ VP-27 스킬 탭 패널 변이 ④ 화면(AC23·27·31·34 사람 실기) ⑤ `main` 조상 여부(미병합).
+
+## 9. Review Signals — 사실만
+
+- r1 이행 4·현재 1 → r2 이행·현재 0 → r3 이행·현재 0. 확장 후보는 r1 3·r2 4(전부 채택)·r3 3(창 밖 이관).
+- 독립 축(⑥) 발견: 확장 3 · 동치 1 · 이행 0 · 현재 0.
+- 반복 환경 한계: Windows 경로 CI 몫(r1·r2와 같음).
+
+## 10. 결론
+
+- 상태: **PASS (기계 범위)** — 막는 발견 0, 모든 REQUIRED·REGRESSION pair PASS, 운영 gate 기준선 동일. verify 3회째.
+- 남은 것: AC23·27·31·34 사람 실기(UI 시각·Windows) · 새 handoff 후보 1행(N-b1·K9·K10).
