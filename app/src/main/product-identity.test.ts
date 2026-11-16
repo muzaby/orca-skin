@@ -204,7 +204,8 @@ describe('옛 저장 경로 (0308 EP-01)', () => {
     const log = index.indexOf('= initLog()')
     expect(log).toBeGreaterThan(-1)
     expect(log).toBeLessThan(index.indexOf('installErrorReportSink()'))
-    expect(index).toMatch(/new Bootstrap\(\(event\) => event\.trusted\)\n/)
+    // 둘째 인자는 호스트 → 셸 알림의 수신기다(0324).
+    expect(index).toMatch(/new Bootstrap\(\n\s+\(event\) => event\.trusted,\n/)
   })
 
   it('부팅 단계가 DB 초기화 → 미완료 도구 호출 복구 → 핸들러 등록 순서이고 이관 단계가 없다', () => {
