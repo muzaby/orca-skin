@@ -316,7 +316,7 @@ Claude의 `commands`는 실행 채널의 실제 목록을 우선하며, 채널 �
 | ---------------------- | ------------ | -------- | --------------- | ---------------------------------------------------------- |
 | `oo:window:minimize` | R→M (invoke) | —        | `Promise<void>` | 현재 BrowserWindow 최소화 (`mainWindow.minimize()`).       |
 | `oo:window:maximize` | R→M (invoke) | —        | `Promise<void>` | 최대화 토글 (`isMaximized() ? unmaximize() : maximize()`). |
-| `oo:window:close`    | R→M (invoke) | —        | `Promise<void>` | 윈도우 종료 (`mainWindow.close()`).                        |
+| `oo:window:close`    | R→M (invoke) | —        | `Promise<void>` | 윈도우 닫기 요청 (`mainWindow.close()`). Windows 에서는 창을 숨기고 트레이에 상주한다 — 종료는 트레이 메뉴(`app/tray-residency.ts`). |
 
 추가:
 

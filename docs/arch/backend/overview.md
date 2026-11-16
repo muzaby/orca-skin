@@ -55,9 +55,10 @@ main 은 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은
 ```
 Electron App
 ├── Main Process (src/main/) — 5-레이어 app·features·adapters·contracts·infra (하향 의존만, handoff 0062)
-│   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → will-quit(shutdown→closeDb)
+│   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → 트레이 상주 조립 → will-quit(shutdown→closeDb)
 │   ├── app/                    # 컴포지션 루트 (전 레이어 의존 허용 — 유일)
 │   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
+│   │   ├── tray-residency.ts   # Windows 트레이 상주 — 창 닫기=숨김 판정 · 트레이 메뉴(열기·종료, uiLocale) · 종료 중 통과
 │   │   ├── chat-turn/          # 턴 셋업 (0179 분해, 목록은 디렉토리가 진실) — index(배럴·IPC 등록) ·
 │   │   │                       #   send(순서) · admission/turn-context/continuation(순수 판정·조립) ·
 │   │   │                       #   resolve-turn · runtime-entry · respawn-inputs(최초/연속 턴 공용 respawn 입력) ·

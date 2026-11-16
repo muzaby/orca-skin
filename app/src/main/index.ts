@@ -1,5 +1,16 @@
 import { registerNativeSettingsQuit } from './app/native-settings-lifecycle'
-import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import { installTrayResidency } from './app/tray-residency'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  protocol,
+  net,
+  Tray,
+  Menu,
+  nativeImage
+} from 'electron'
 import { installExternalNavigation } from './infra/external-navigation'
 import { join, extname } from 'path'
 import { existsSync } from 'fs'
@@ -16,7 +27,7 @@ import { closeDb } from './infra/db'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
 import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
-import { APP_USER_MODEL_ID } from '../shared/product'
+import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
 import type { SettingsStore } from './infra/settings-store'
 
 // dev(`npm run dev`) 데이터를 실제 설치본과 격리한다. userData 는 app.getName()(dev·prod 모두
@@ -151,7 +162,7 @@ function registerAppProtocol(): void {
 
 const DEFAULT_BOUNDS = { width: 900, height: 670 }
 
-function createWindow(settings: SettingsStore): void {
+function createWindow(settings: SettingsStore): BrowserWindow {
   const saved = settings.getAll().windowBounds
   // 커스텀 타이틀바 — HTML 헤더로 직접 그린다. macOS 는 traffic light 만 OS 가
   // 그리도록 `titleBarStyle: 'hidden'` + `trafficLightPosition` 으로 36px 헤더 안에
@@ -238,6 +249,7 @@ function createWindow(settings: SettingsStore): void {
   // prod: app:// 커스텀 스킴 — 위에 등록한 protocol.handle 이 SPA fallback 을 수행해
   // BrowserRouter 의 deep URL 새로고침을 받쳐준다.
   mainWindow.loadURL(rendererUrl)
+  return mainWindow
 }
 
 // This method will be called when Electron has finished
@@ -266,7 +278,20 @@ app.whenReady().then(async () => {
   // 이전에 등록돼야 한다(등록 전 도착 invoke 는 reject 되므로).
   const started = router.start()
   ipcMain.handle(CHANNELS.bootWhenReady, () => started)
-  createWindow(router.settings)
+  const mainWindow = createWindow(router.settings)
+  // 트레이 상주 (0322) — Windows 에서 창 닫기는 종료가 아니라 숨김이다. 창을 먼저 만든다:
+  // 트레이 생성 실패는 프로그램 오류라 잡지 않는데, 그때 창 없는 프로세스가 남으면 안 된다.
+  // 위치 저장 `close` 리스너(createWindow)가 숨김 판정보다 먼저 등록되는 순서도 여기서 정해진다.
+  installTrayResidency({
+    platform: process.platform,
+    app,
+    // 1254px 원본을 셸에 그대로 넘기지 않는다.
+    createTray: () => new Tray(nativeImage.createFromPath(logo).resize({ width: 32, height: 32 })),
+    buildMenu: (items) => Menu.buildFromTemplate(items),
+    tooltip: PRODUCT_DISPLAY_NAME,
+    open: focusMainWindow,
+    settings: router.settings
+  }).attach(mainWindow)
   try {
     await started
   } catch (err) {
