@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 3.1 — r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 3.2 — §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -487,10 +487,76 @@ r1.4 구현 턴이 올린 규범 행 차이 다섯 건이다. 이 절이 가리�
 - B15 — 개발 중 renderer 를 새로 읽으면(HMR 전체 새로고침·Ctrl+R) 그 창이 소유한 진행 중 턴은 취소로 끝난다. 지금까지는 턴이 계속 돌고 새 문서가 이벤트를 받았다. 패키징된 앱은 새로고침 단축키가 막혀 있다(`optimizer.watchWindowShortcuts`).
 - B16 — 가드 (g) 는 `wc`·`webContents` 의 `.send(` 를 본다: `ClientRef.send(` 를 `send.ts` 밖에서 직접 부르는 것(`handlers/composer-catalog.ts`·`session-resources.ts` 의 2곳)은 잡지 못한다. 두 곳은 rev 2 이전부터 `event.sender.send` 였다.
 
-### 열린 설계 항목 — 다음 설계 턴
+### 열린 설계 항목 — §7-D(rev 3.2)에서 닫았다
 
 - 수명 이벤트의 원천(EP-11): 합성 `error`·`turn.retrying`·`message.committed` 는 버스를 타지 않고 coordinator 의 `forward` sink 로 간다(`app/src/main/AGENTS.md` 단일 턴 이벤트 파이프라인). §11 "호스트 버스의 정규화 이벤트에서 만든다"만으로는 오류로 끝난 턴의 `turn.ended` 를 만들 수 없다. `lifecycle-emitter` 의 입력을 버스 구독 + 런타임 감독자(lease 해제) 중 무엇으로 할지 정해야 한다 — 그때까지 `lifecycle-emitter` 는 만들지 않는다.
 - 파일 작업 요청의 신뢰 판정(`RequestEvent.trusted`): 셸 전송은 요청마다 최상위 프레임을 본다. 포트 전송에서는 셸이 포트를 넘길 때 한 번 판정해 연결에 싣는다 — 단계 4 의 호스트 포트 서버가 이 값을 받는 자리가 §10 에 없다.
+
+## 7-D. V1 rev 3.2 정정 — 수명 이벤트의 원천 · 포트 연결의 신뢰 판정 (§7-C 열린 항목 2건)
+
+§7-C 의 열린 설계 항목 둘을 닫는다. 이 절이 가리키는 구 행(§11 "에이전트 호스트의 규칙"의 수명 이벤트 행 · VP-26 oracle 의 입력 서술 · EP-9 의 자리 수)은 이 절로 대체되고, AC·pair 목록·나머지 행은 rev 3.1 그대로다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| 재시작 게이트의 현재 입력 | `rg -n "deriveLeaseGateState\|allLeases\(" app/src/main --glob '!*.test.*'` | 정의 2 · 호출 2 | 게이트의 정본은 턴 이벤트가 아니라 **lease 집합**이다(`features/sessions/restart-gate.ts` 머리 주석 — 턴 교체 창에서 턴 0개로 보이던 결함의 교정) |
+| lease 변화 통지 | `rg -n "subscribeLeases\(" app/src/main --glob '!*.test.*'` | 정의 1 · 구독 2 | `supervisor.subscribeLeases` — 획득·해제·승격마다 부른다. 오류·취소로 끝난 턴도 lease 해제를 지난다 |
+| lease 의 세션 식별자 | `features/sessions/session-chain-lease.ts:27-28` | 2필드 | `logicalKey` 는 항상 있고 `sessionId` 는 승격 전 `null` 이다 |
+| 승인 대기의 진입점 | `rg -n "approvals\.register\(" app/src/main --glob '!*.test.*'` | 1 | `app/chat-turn/approval.ts:73` → `ApprovalCoordinator.register` |
+| 세션 폐기의 진입점 | `rg -n "onSessionDisposed" app/src/main/app/bootstrap.ts` | 1 | `bootstrap.ts` 의 `onSessionDisposed` 훅 |
+| 하네스 스트림이 오류로 끊기는 자리 | `rg -n "private finishPump" app/src/main/features/sessions/session-runtime.ts` | 1 | `finishPump(err)` 의 `err != null` 분기 — 프레임이 있든 없든 채널이 오류로 내려간다 |
+| 게이트의 나머지 필드 | `rg -n "activeDbWriteCount\|isIndexing" app/src/main --glob '!*.test.*'` | 대입 3 | `activeDbWriteCount` 는 `initDb` 백업 중에만 오른다(호스트 `ready` 전) · `isIndexing` 은 대입 0(상시 false) |
+| 신뢰 판정의 소비 | `rg -n "\.trusted\b" app/src/main --glob '!*.test.*'` | 2 | `index.ts` 의 `Bootstrap((event) => event.trusted)` · `electron-transport.ts` 의 getter. 판정 함수는 `createArtifactSenderCheck`(셸의 창·URL 을 본다) |
+
+### 결정
+
+- **수명 이벤트는 버스가 아니라 네 원천에서 만든다.** `turn.started`·`turn.ended` 는 lease 집합의 변화, `approval.pending` 은 승인 등록, `session.ended` 는 세션 폐기 훅, `harness.exited` 는 채널의 오류 종료다. 근거: 게이트의 기존 정본이 lease 이고(위 표 1행), 합성 `error` 로 끝난 턴도 lease 해제는 반드시 지난다. 버스 구독 순서(VP-30)는 건드리지 않는다.
+- **신뢰 판정은 셸이 포트를 넘길 때 한 번 하고 연결에 싣는다.** 판정에 필요한 창과 URL 은 셸에만 있다. 문서를 새로 읽으면 포트가 끊기고 새 문서는 새 연결을 받으므로(EP-9 닫힘 규칙) 연결당 1회 판정은 문서당 1회 판정과 같다.
+- 셸의 게이트 상태는 `isGenerating = LifecycleState.hasActiveTurns()` 다. `activeToolCallCount` 는 0 으로 둔다 — 도구 실행은 lease 가 살아 있을 때만 있어 `canRestartForUpdate` 의 판정이 같다. `activeDbWriteCount` 는 호스트가 `ready` 전이면 1 이다. `isIndexing` 은 false 다.
+
+### 강제 지점 — rev 3.2
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-09 / VP-21·26 **EP-11** | 수명 이벤트 5종의 원천 | `app/agent-host/lifecycle-emitter.ts` | 호스트 | 5자리(이벤트 종류별, 수는 그대로) — `turn.started`·`turn.ended`: `supervisor.subscribeLeases` 구독 · `approval.pending`: `ApprovalCoordinator.register` · `session.ended`: `onSessionDisposed` · `harness.exited`: `SessionRuntime.finishPump` 의 오류 분기 | 구현 뒤 `rg -n "lifecycle\.(leasesChanged\|approvalPending\|sessionEnded\|harnessExited)\(" app/src/main --glob '!*.test.*'` → 4줄(lease 1줄이 두 이벤트를 낸다) | 오류로 끝난 턴이 셸에 활성으로 남아 업데이트가 영영 설치되지 않는다 |
+| AR-07 / VP-21·24 **EP-9** | 포트 연결의 신뢰 판정 | `shared/host-protocol.ts` 의 연결 메시지 | 셸 → 호스트 | 4 → **5자리** — 기존 4 + 호스트 포트 서버의 연결 등록(`RequestEvent.trusted` = 연결 메시지의 `trusted`) | 구현 뒤 `rg -n "trusted" app/src/main/app/agent-host app/src/main/app/shell --glob '!*.test.*'` | 하위 프레임·외부 문서의 요청이 파일 작업 핸들러에서 신뢰된 것으로 처리된다 |
+
+**EP-11 규칙 칸 — 호스트 쪽** (`app/agent-host/lifecycle-emitter.test.ts` 입력 — 분기마다 1개. 대체: VP-26 oracle 의 "정규화 이벤트 열"):
+
+| 분기 | 기대 |
+|---|---|
+| 세션의 lease 0 → 1 | `turn.started` 1건 |
+| 같은 세션의 lease 가 그대로인 채 변화 통지 | 0건 |
+| 세션의 lease 1 → 0 | `turn.ended` 1건 |
+| 두 세션의 lease 가 섞여 변한다 | 세션별로 따로 — 한 세션의 해제가 다른 세션을 끝내지 않는다 |
+| 승격(`sessionId` 가 `null` → 값) | 새 식별자로 `turn.started` 를 먼저, 옛 식별자(`logicalKey`)로 `turn.ended` 를 나중에 — 활성 수가 0 을 지나지 않는다 |
+| 승인 등록 | `approval.pending` 1건(그 턴의 세션) |
+| 세션 폐기 | `session.ended` 1건 |
+| 채널이 오류로 종료 | `harness.exited` 1건 · 정상 종료(`err` 없음)는 0건 |
+| `uiLocale` 패치 / 다른 키 패치 | 알림 1건 / 0건 (AC38, rev 3 그대로) |
+
+**EP-9 규칙 칸 — 포트 연결** (`app/agent-host/port-server.test.ts` 입력):
+
+| 분기 | 기대 |
+|---|---|
+| `trusted: true` 로 연결된 포트의 요청 | 핸들러가 받은 `event.trusted` 가 true |
+| `trusted: false` 로 연결된 포트의 요청 | false. 요청 페이로드에 `trusted` 를 실어 보내도 false 다 |
+| 같은 창 id 로 새 연결 | 옛 참조는 닫힘 1회 통지, 새 참조가 요청을 받는다 |
+| 포트가 닫힘 | 닫힘 1회 통지 · 그 참조로의 전송 0 |
+| 형식이 틀린 요청 메시지 / 등록 안 된 채널 | 오류 응답(`ok: false`), 핸들러 호출 0 |
+
+**선언 경계** (rev 3.2 추가):
+
+- B17 — 셸의 게이트는 도구 실행 수를 세지 않는다: lease 가 살아 있는 동안만 도구가 돌기 때문이다. lease 없이 도는 도구 실행은 지금 코드에 없다(`openToolRuns` 는 `lease.activeChild` 의 필드다 — `restart-gate.ts:22`).
+- B18 — 신뢰 판정은 연결 시점의 값이다: 같은 문서 안 이동(해시 변경)으로는 다시 판정하지 않는다. 지금의 요청별 판정도 최상위 문서의 URL 을 볼 뿐이라 같은 문서 안에서는 결과가 같다.
+
+### READY self-review — rev 3.2 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-020·D-027 ↔ AC28(다섯 가지와 소비자는 그대로, 원천만 정했다) · D-017 ↔ 게이트가 셸에 남는다.
+- 분모: EP-11 5(그대로) · EP-9 5(+1). 규칙 칸 ↔ 입력 칸: EP-11 호스트 쪽 9분기 ↔ `lifecycle-emitter.test.ts` · EP-9 포트 연결 5분기 ↔ `port-server.test.ts`.
+- node·pair 변경 0: AR-07·AR-09 의 pair(VP-24·VP-26)는 그대로이고 oracle 파일에 `port-server.test.ts` 가 더해진다.
+- 사용자 결정이 필요한 항목 0: 둘 다 내부 배선이고 사용자가 보는 결과는 Part I 그대로다.
 
 ---
 
