@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 3 (턴 13 에 D-033 확정 — 규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 3.1 — r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -445,6 +445,52 @@ AC 총수는 35 → **38** 이다(AC21 은 AC21′ 로 대체, AC36·37·38 추�
 - NEW node ↔ REQUIRED pair: R-10 ↔ VP-33 · AR-11 ↔ VP-34 · AR-12 ↔ VP-35 · MD-08 ↔ VP-36. 대체된 VP-06 의 증거(카탈로그 동치 테스트 · 가드 등록 0)는 VP-06′ 자리 2 와 AC21′ 에 그대로 있다.
 - 기존 규칙과의 관계: `app/AGENTS.md` 의 "`electron-store` 는 채택된 의존성" — 새 의존성 0. `security.md` §1.4-b — 비밀 파일의 위치는 그대로 `userData` 다.
 - 사람 실기: 추가 없음. 창 위치 복원의 실제 화면은 기존 AC23 실기 시나리오가 앱을 두 번 띄울 때 본다.
+
+## 7-C. V1 rev 3.1 정정 — 전송 계층의 자리 (r1.4 `PLAN_GAP`)
+
+r1.4 구현 턴이 올린 규범 행 차이 다섯 건이다. 이 절이 가리키는 구 행(EP-1 의 (d)·(g)·(l) 허용 파일 · EP-9 의 SSOT · EP-10′ 의 묶음)은 이 절로 대체되고, AC·pair·나머지 행은 rev 3 그대로다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| `infra` 가 `contracts` 를 import 할 수 있는가 | `app/src/main/AGENTS.md` 레이어 DAG | 불가 | `infra/ipc/{handle,send}.ts` 가 창 참조 타입을 쓰므로 정의는 infra 에 있어야 한다 |
+| 호스트에서 닿는 `infra/ipc/handle.ts` 의 `electron` 값 import | 가드 (f) 규칙 칸 — 등록 밖 `electron` 값 import 는 exit 1 | 1 | `handle.ts` 가 `ipcMain` 을 물면 호스트 그래프가 (f) 에 걸린다 — `ipcMain` 은 셸 전용 파일로 가야 한다 |
+| Electron 값 import 파일(여러 줄 import 포함) | `rg -l "^import (?!type).*from 'electron'" -P app/src/main --glob '!*.test.*'` → 16 · 여러 줄 import 1(`infra/ipc/electron-transport.ts`) | 17 | 한 줄 정규식은 여러 줄 import 를 놓친다 — 분모는 가드 (f) 의 AST 목록(`--list`)이 정본이다 |
+| `electron-store` 를 무는 파일 | `rg -l "from 'electron-store'" app/src/main --glob '!*.test.*'` | 4 | 셸 상태의 배선은 `app/shell/shell-state-file.ts` 다(r1.3 — `shell-state.ts` 는 판정만 갖고 vitest 가 import 한다) |
+| 창 수명 이벤트를 쓰는 자리 | `rg -n "onClosed\(" app/src/main --glob '!*.test.*' --glob '!*.testfixture.*' --glob '!infra/ipc/*'` | 5 | `chat-turn/send.ts` 2 · `handlers/composer-catalog.ts` 1 · `handlers/session-resources.ts` 1 · `error-report-drain.ts` 1 |
+
+### 강제 지점 — rev 3.1
+
+| V node / pair | 계약/필드 | SSOT | 정정 |
+|---|---|---|---|
+| AR-07 / VP-24 **EP-9** | 창 참조 `ClientRef`·`RequestEvent` | `infra/ipc/transport.ts` (`contracts/client.ts` 는 re-export) | 정의 위치만 바뀐다. 4자리는 그대로다 |
+| AR-07 **EP-9** | 창 참조의 닫힘 | `ClientRef.onClosed` | 닫힘 = 창 파괴 · renderer 프로세스 종료 · 최상위 문서가 새로 읽힘. 포트 전송에서는 문서를 새로 읽으면 포트가 끊기므로 셸 전송도 같은 뜻으로 맞춘다. 닫힌 참조로의 전송은 버리고 새 문서는 새 참조를 받는다 |
+| AR-04 **EP-1 (d)** | `ipcMain` 직접 등록 | `ui-thread-rules.mjs` `ALLOWED.d` | 허용 파일 = `infra/ipc/electron-transport.ts` 하나. 등록 API 는 `handle.ts` 의 `handle`·`handlePlain`·`on` 그대로이고, `handle.ts` 가 `ipcMain` 을 직접 써도 exit 1 이다 |
+| AR-04 **EP-1 (g)** | 창 통지 전송 모듈 | `ALLOWED.g` | `infra/ipc/electron-transport.ts` 추가(셸의 `webContents.send`) |
+| AR-04 **EP-1 (l)** | 영속 파일 등록 | `ALLOWED.l` | 등록 4파일의 넷째는 `app/shell/shell-state-file.ts` 다 |
+| AR-08 **EP-10′** | Electron 값 import 파일의 묶음 | 가드 (f) `--list` | 전송 묶음 = `infra/ipc/electron-transport.ts`·`app/error-report-sink.ts`. `infra/ipc/{handle,send}.ts` 는 Electron 을 import 하지 않는다. 분모는 한 줄 `rg` 가 아니라 가드 (f) 의 목록으로 센다 |
+
+**EP-9 규칙 칸 — 셸 전송의 창 참조** (`infra/ipc/electron-transport.test.ts` 입력):
+
+| 분기 | 기대 |
+|---|---|
+| 같은 창의 두 번째 요청 | 같은 참조 · id 는 창 id |
+| 창 파괴 / renderer 종료 / 최상위 문서 새로 읽힘 | 닫힘 1회 통지 · `isClosed()` true · 창에 건 리스너 0 |
+| 같은 문서 안 이동 / 하위 프레임 이동 | 닫힘 아님 |
+| 문서가 새로 읽힌 뒤의 요청 | 새 참조(같은 id) · 옛 참조로의 전송 0 |
+| 닫힌 참조에 구독 | 즉시 호출 |
+| 구독 없이 방송만 받는 창 | 창에 리스너를 달지 않는다 |
+
+**선언 경계** (rev 3.1 추가):
+
+- B15 — 개발 중 renderer 를 새로 읽으면(HMR 전체 새로고침·Ctrl+R) 그 창이 소유한 진행 중 턴은 취소로 끝난다. 지금까지는 턴이 계속 돌고 새 문서가 이벤트를 받았다. 패키징된 앱은 새로고침 단축키가 막혀 있다(`optimizer.watchWindowShortcuts`).
+- B16 — 가드 (g) 는 `wc`·`webContents` 의 `.send(` 를 본다: `ClientRef.send(` 를 `send.ts` 밖에서 직접 부르는 것(`handlers/composer-catalog.ts`·`session-resources.ts` 의 2곳)은 잡지 못한다. 두 곳은 rev 2 이전부터 `event.sender.send` 였다.
+
+### 열린 설계 항목 — 다음 설계 턴
+
+- 수명 이벤트의 원천(EP-11): 합성 `error`·`turn.retrying`·`message.committed` 는 버스를 타지 않고 coordinator 의 `forward` sink 로 간다(`app/src/main/AGENTS.md` 단일 턴 이벤트 파이프라인). §11 "호스트 버스의 정규화 이벤트에서 만든다"만으로는 오류로 끝난 턴의 `turn.ended` 를 만들 수 없다. `lifecycle-emitter` 의 입력을 버스 구독 + 런타임 감독자(lease 해제) 중 무엇으로 할지 정해야 한다 — 그때까지 `lifecycle-emitter` 는 만들지 않는다.
+- 파일 작업 요청의 신뢰 판정(`RequestEvent.trusted`): 셸 전송은 요청마다 최상위 프레임을 본다. 포트 전송에서는 셸이 포트를 넘길 때 한 번 판정해 연결에 싣는다 — 단계 4 의 호스트 포트 서버가 이 값을 받는 자리가 §10 에 없다.
 
 ---
 
