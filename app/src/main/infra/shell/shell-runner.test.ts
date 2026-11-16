@@ -222,6 +222,63 @@ describe('runShellCommand', () => {
     expect(child.killed).toBe(0)
   })
 
+  // 끝난 실행의 pid 는 다른 프로세스가 다시 받을 수 있다 — 정상 종료 뒤에는 어떤 경로로도 종료를 부르지 않는다.
+  it('정상 종료 뒤에는 제한 시간이 지나도 프로세스 트리 종료를 부르지 않는다', async () => {
+    const child = new FakeChild()
+    const killTreeImpl = vi.fn<KillTree>()
+    const result = runShellCommand({
+      ...LIMITS,
+      command: 'x',
+      cwd: '/w',
+      platform: 'linux',
+      spawnImpl: (() => child) as SpawnLike,
+      killTreeImpl
+    })
+    child.emit('close', 0)
+    await expect(result).resolves.toMatchObject({ exitCode: 0, timedOut: false })
+    await vi.advanceTimersByTimeAsync(LIMITS.timeoutMs * 2)
+    expect(killTreeImpl).not.toHaveBeenCalled()
+  })
+
+  it('정상 종료 뒤 중단 신호가 와도 프로세스 트리 종료를 부르지 않는다', async () => {
+    const child = new FakeChild()
+    const killTreeImpl = vi.fn<KillTree>()
+    const controller = new AbortController()
+    const result = runShellCommand({
+      ...LIMITS,
+      command: 'x',
+      cwd: '/w',
+      platform: 'linux',
+      spawnImpl: (() => child) as SpawnLike,
+      killTreeImpl,
+      signal: controller.signal
+    })
+    child.emit('close', 0)
+    await expect(result).resolves.toMatchObject({ exitCode: 0 })
+    controller.abort()
+    expect(killTreeImpl).not.toHaveBeenCalled()
+  })
+
+  it('셸은 플랫폼과 무관하게 창 없이 띄운다', () => {
+    const seen: { platform: string; windowsHide: boolean }[] = []
+    for (const platform of ['linux', 'win32'] as const) {
+      void runShellCommand({
+        ...LIMITS,
+        command: 'x',
+        cwd: '/w',
+        platform,
+        spawnImpl: ((_file, _args, options) => {
+          seen.push({ platform, windowsHide: options.windowsHide })
+          return new FakeChild()
+        }) as SpawnLike
+      })
+    }
+    expect(seen).toEqual([
+      { platform: 'linux', windowsHide: true },
+      { platform: 'win32', windowsHide: true }
+    ])
+  })
+
   it('종료를 요청하지 않았으면 exit 만으로 끝내지 않고 남은 출력을 기다린다', async () => {
     const child = new FakeChild()
     const result = runShellCommand({

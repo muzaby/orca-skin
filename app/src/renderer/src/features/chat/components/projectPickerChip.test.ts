@@ -18,6 +18,7 @@ vi.mock(
   async () => (await import('../../../shared/ui/renderHarness.testfixture')).fakeReactDom
 )
 vi.mock('../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
+import { ProjectMenuPanel } from './ProjectMenuPanel'
 import { ProjectPickerChip } from './ProjectPickerChip'
 
 const projects = [
@@ -110,5 +111,55 @@ describe('ProjectPickerChip', () => {
     await settle()
     expect(props.onChange).toHaveBeenCalledExactlyOnceWith('p-new')
     expect(dom.query('[data-component="landing-project-menu"]')).toBeNull()
+  })
+
+  // 상태에 맞는 툴팁·빈 상태 문구를 고른다(0320 AC38 · EP-12 B).
+  it('칩 툴팁은 고른 프로젝트 폴더, 고르기 전이나 폴더가 없으면 프로젝트 라벨이다', () => {
+    render({ value: 'p-beta' })
+    expect(find('data-component', 'project-picker-chip').props.title).toBe('D:/Beta')
+    render({ value: null })
+    expect(find('data-component', 'project-picker-chip').props.title).toBe(
+      'schedules.modal.project'
+    )
+    render({ value: 'p-memo' })
+    expect(find('data-component', 'project-picker-chip').props.title).toBe(
+      'schedules.modal.project'
+    )
+  })
+
+  it('행 툴팁은 폴더 경로이고 폴더 없는 행은 툴팁이 없다', () => {
+    render()
+    open()
+    expect(rows().map((row) => row.props.title)).toEqual(['C:/Alpha', 'D:/Beta', undefined])
+  })
+
+  it('검색 결과가 없으면 noMatches, 프로젝트가 없으면 emptyFolders', () => {
+    render()
+    open()
+    const input = find('aria-label', 'projects.search')
+    dom.act(() => (input.props.onChange as (e: unknown) => void)({ target: { value: 'zzz' } }))
+    expect(dom.query('[role="status"]')?.textContent).toBe('projects.noMatches')
+    dom.unmount()
+    render({ projects: [] })
+    open()
+    expect(dom.query('[role="status"]')?.textContent).toBe('projects.emptyFolders')
+  })
+})
+
+describe('ProjectMenuPanel — 빈 상태', () => {
+  it('불러오는 중이면 검색어와 무관하게 loading', () => {
+    dom.render(
+      createElement(ProjectMenuPanel, {
+        items: [],
+        query: 'zzz',
+        onQueryChange: vi.fn(),
+        isSelected: () => false,
+        onSelect: vi.fn(),
+        onAdd: vi.fn(),
+        onClose: vi.fn(),
+        loading: true
+      })
+    )
+    expect(dom.query('[role="status"]')?.textContent).toBe('projects.loading')
   })
 })
