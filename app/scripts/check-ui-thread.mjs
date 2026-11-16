@@ -413,6 +413,34 @@ export function check(options = {}) {
     )
   }
 
+  // (e2)(e3) 두 호스트 그래프 — 진입점이 아직 없으면 닿는 파일이 없다.
+  for (const [label, graph] of [
+    ['e2 에이전트 호스트', allowed.e.agent],
+    ['e3 데이터 호스트', allowed.e.data]
+  ]) {
+    if (!graph) continue
+    const host = reach('e', graph.entry)
+    for (const file of host.seen.keys()) {
+      const banned =
+        inAny(file, graph.dirs ?? []) && !inAny(file, graph.exceptDirs ?? [])
+          ? true
+          : (graph.files ?? []).includes(file)
+      if (!banned) continue
+      found('e', file, 0, `${label}: ${trail(host.seen, file)}`, false)
+      fail('e', file, 0, `(${label})에서 닿는다: ${trail(host.seen, file)}`)
+    }
+    for (const pkg of host.packages) {
+      if (!graph.packages.some((name) => packageMatches(pkg.name, name))) continue
+      found('e', pkg.file, pkg.line, `${label}: ${pkg.name}`, false)
+      fail(
+        'e',
+        pkg.file,
+        pkg.line,
+        `(${label})에서 \`${pkg.name}\` 에 닿는다: ${trail(host.seen, pkg.file)}`
+      )
+    }
+  }
+
   for (const entry of allowed.f.entries) {
     const host = reach('f', entry)
     for (const pkg of host.packages) {

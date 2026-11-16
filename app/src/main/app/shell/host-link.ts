@@ -10,6 +10,8 @@ export interface HostLinkDeps {
   mirrorUiLocale(uiLocale: 'ko' | 'en'): void
   // 호스트가 요청을 받을 수 있게 됐다.
   onReady?(): void
+  // 데이터 호스트가 에이전트 호스트를 띄워 달라고 했다(D-044).
+  onPeerEnsure?(): void
   // 셸 서비스 요청(EP-10) — `createShellServiceServer` 가 받는다.
   onServiceCall(call: ServiceCall): void
   onInvalid?(): void
@@ -31,9 +33,12 @@ export function createHostMessageSink(deps: HostLinkDeps): (raw: unknown) => voi
         deps.mirrorUiLocale(message.mirror.uiLocale)
         return
       case 'ready':
-        // 호스트가 뜨기 전에 다른 경로로 바뀐 언어를 바로잡는다(B14).
-        deps.mirrorUiLocale(message.mirror.uiLocale)
+        // 호스트가 뜨기 전에 다른 경로로 바뀐 언어를 바로잡는다(B14). 데이터 호스트만 싣는다.
+        if (message.mirror) deps.mirrorUiLocale(message.mirror.uiLocale)
         deps.onReady?.()
+        return
+      case 'peer.ensure':
+        deps.onPeerEnsure?.()
         return
       case 'service.call':
         deps.onServiceCall(message)
