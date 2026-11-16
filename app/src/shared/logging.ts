@@ -3,8 +3,8 @@
 
 export type LogLevel = 'error' | 'warn' | 'info' | 'debug'
 
-// 로그 발생 프로세스. utility process 는 현재 미사용 — 도입 시 확장.
-export type LogProcess = 'main' | 'renderer' | 'preload'
+// 로그 발생 프로세스. 셸(`main`)과 두 호스트는 각자 자기 파일에 쓴다(0324 AC46).
+export type LogProcess = 'main' | 'agent-host' | 'data-host' | 'renderer' | 'preload'
 
 // Error 를 파일 로그용으로 보존 직렬화한 형태. IPC 용 평탄화(infra/errors.ts sanitizeCause)와
 // 달리 stack·code·cause 체인을 유지한다.
