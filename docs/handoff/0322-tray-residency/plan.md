@@ -13,8 +13,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV1` — D-006을 D-008로 대체(§20). 구현 전 정정 |
-| 유효 V | `V1 + ΔV1` |
+| 이번 V revision | `ΔV2` — D-007을 D-009로 대체(§21). ΔV1은 §20. 둘 다 구현 전 정정 |
+| 유효 V | `V1 + ΔV1 + ΔV2` |
 
 # Part I — Product & UX Contract
 
@@ -44,15 +44,17 @@
 | D-004 | 상주는 Windows(`win32`)에만 적용한다. macOS·Linux는 현재 동작 그대로다 | 질의 응답 "Windows만" | 사용자 2026-11-16 | ACTIVE | — |
 | D-005 | 트레이 아이콘 좌클릭은 `열기`와 같은 동작이다 | 설계자 추론 — 메뉴 항목이 아니라 D-002와 충돌하지 않는다 | 설계자 | ACTIVE | — |
 | D-006 | 트레이 생성이 실패하면 X는 기존처럼 앱을 끝낸다 | 설계자 추론 — 숨은 창을 되찾을 수단이 없는 상태를 만들지 않는다 | 설계자 | SUPERSEDED | D-008 |
-| D-007 | 트레이 메뉴 라벨은 한국어 `열기`·`종료` 고정이다 | 설계자 추론 — 사용자가 라벨을 한국어로 지정했다. `uiLocale='en'` 반영은 §10 선언 경계 | 설계자 | ACTIVE | — |
+| D-007 | 트레이 메뉴 라벨은 한국어 `열기`·`종료` 고정이다 | 설계자 추론 — 사용자가 라벨을 한국어로 지정했다. `uiLocale='en'` 반영은 §10 선언 경계 | 설계자 | SUPERSEDED | D-009 |
 | D-008 | 트레이 생성 실패는 프로그램 오류다. 대체 동작(비상주 폴백)을 설계하지 않고 예외를 삼키지 않는다 | "트레이 생성 실패는 프로그램 오류로 봐야한다" | 사용자 2026-11-16 (2턴) | ACTIVE | D-006 대체 |
+| D-009 | 트레이 메뉴 라벨은 UI 언어 설정(`uiLocale`)을 따른다 — `ko`: `열기`·`종료`, `en`: `Open`·`Quit`. 설정을 바꾸면 재시작 없이 바뀐다 | "트레이 아이콘 메뉴 라벨은 i18n 적용 안되는가?" → "적용하라". 영어 라벨은 헤더 메뉴 `Quit`(`en.ts:1346`)에 맞춘 설계자 제안 | 사용자 2026-11-16 (4턴) | ACTIVE | D-007 대체 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-007 (신규 handoff).
 - 변경된 결정: D-006 → D-008 (사용자 2턴 — 폴백을 없애고 오류로 취급).
-- 추론 결정 D-005·D-007은 사용자가 뒤집으면 ΔV로 정정한다.
-- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·AC4·AC5·AC9 · D-002↔AC2 · D-003↔AC9(단계 4, renderer diff 0) · D-004↔AC6 · D-005↔AC3 · D-008↔AC7 · D-007↔AC2.
+- 변경된 결정(ΔV2): D-007 → D-009 (사용자 4턴 — 라벨에 i18n 적용).
+- 추론 결정 D-005와 D-009의 영어 라벨 문구는 사용자가 뒤집으면 ΔV로 정정한다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·AC4·AC5·AC9 · D-002↔AC2 · D-003↔AC9(단계 4, renderer diff 0) · D-004↔AC6 · D-005↔AC3 · D-008↔AC7 · D-009↔AC2·AC11.
 
 ## 4. 요구 비판적 검토
 
@@ -107,7 +109,6 @@
 |---|---|---|
 | 헤더 `종료` 라벨이 숨김 동작과 어긋남 | 아니오 | 보고 — 사용자 판단 |
 | OS 알림 클릭 시 숨은 창 열기 (`handlers/misc.ts:112-116`은 클릭 처리 없음) | 아니오 | 후속 |
-| 트레이 라벨의 `uiLocale` 반영 | 아니오 | 후속 (D-007) |
 
 ## 7. Requirements / Acceptance — `R ↔ AT`
 
@@ -116,14 +117,15 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AC1 | Windows에서 종료 중이 아니면 닫기는 취소되고 창이 숨는다 | `platform:'win32'` → 창 `close` 발화 → `preventDefault` 1회 · `hide` 1회 | X/헤더 종료 → `oo:window:close` → `mainWindow.close()` → `close` |
-| R-02 | AC2 | 트레이 메뉴는 `열기`·`종료` 순서의 두 항목뿐이고 각각 창 열기·앱 종료를 한다 | `buildMenu` 인자의 라벨 배열 `toEqual(['열기','종료'])` · `열기` click → `open` 1·`quit` 0 · `종료` click → `quit` 1·`open` 0 | 트레이 우클릭 메뉴 |
+| R-02 | AC2 (ΔV2) | 트레이 메뉴는 두 항목뿐이고 순서대로 창 열기·앱 종료를 한다. 라벨은 `uiLocale`을 따른다 | `uiLocale:'ko'` → 라벨 배열 `toEqual(['열기','종료'])` · `'en'` → `toEqual(['Open','Quit'])`. 두 입력 모두 첫 항목 click → `open` 1·`quit` 0, 둘째 → `quit` 1·`open` 0 | 트레이 우클릭 메뉴 |
 | R-02 | AC3 | 트레이 아이콘 좌클릭은 창을 연다 | 트레이 `click` 발화 → `open` 1회 · `quit` 0회 | 트레이 좌클릭 |
 | R-03 | AC4 | 종료가 시작된 뒤의 닫기는 숨기지 않는다 | `before-quit` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | 트레이 종료 · `updater.quitAndInstall` → `app.quit()` |
 | R-03 | AC5 | OS 세션 종료 통지 뒤의 닫기는 숨기지 않는다 | 창 `session-end` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | Windows 로그오프·재시작 |
 | R-04 | AC6 | Windows가 아니면 트레이를 만들지 않고 닫기를 숨기지 않는다 | `platform:'darwin'`·`'linux'` 각각 → `createTray` 0회 · `close` → `preventDefault` 0 | macOS·Linux 부팅 |
 | R-05 | AC7 (ΔV1) | 트레이 생성 실패는 삼켜지지 않고 호출자에게 그대로 던져진다 | `win32` · `createTray`가 `E`를 던짐 → `installTrayResidency(...)`가 같은 `E`로 던진다(`toThrow(E)`) | Windows 부팅 → `whenReady` reject → `unhandledRejection` 보고 |
 | R-06 | AC8 | 프로세스 종료 때 트레이 아이콘을 없앤다 | `will-quit` 발화 → `tray.destroy` 1회. 트레이가 없으면(AC6 입력) 던지지 않는다 | `will-quit` |
-| R-01~06 | AC9 | 실제 Windows에서 §19 실기 8단계가 관측된다 | 사람 실기 — §19 | 설치본 또는 `npm run dev` |
+| R-01~06·R-08 | AC9 | 실제 Windows에서 §19 실기 9단계가 관측된다 | 사람 실기 — §19 | 설치본 또는 `npm run dev` |
+| R-08 | AC11 (ΔV2) | UI 언어를 바꾸면 트레이 메뉴 라벨이 재시작 없이 바뀐다. 다른 설정 변경은 메뉴를 다시 만들지 않는다 | `ko`로 설치 → 저장소가 `'en'`을 돌려주게 한 뒤 `onPatch` 리스너를 `changedKeys:['uiLocale']`로 호출 → `setContextMenu` 2회째 인자의 라벨 `['Open','Quit']`·click 배선 유지. `changedKeys:['theme']` → `setContextMenu` 횟수 불변 | 설정 화면 언어 변경 → `settings:set` → `SettingsStore.onPatch` |
 | R-07 | AC10 | 문서 3곳이 새 동작을 현재형으로 서술한다 | `node scripts/check-doc-inventory.mjs --check` 통과 + §18 문서 행의 문장 존재 | 문서 |
 
 ### AC 검증 주의사항
@@ -145,12 +147,14 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 |---|---|---|---|---|
 | R-01~R-04·R-06·R-07 | R | §7 | NEW | — |
 | R-05 | R | §7 AC7 — 트레이 생성 실패 = 프로그램 오류 | CHANGED (ΔV1) | V1 R-05(비상주 폴백) 대체 |
+| R-02 | R | §7 AC2 — 라벨이 `uiLocale`을 따름 | CHANGED (ΔV2) | V1 R-02(한국어 고정) 대체 |
+| R-08 | R | §7 AC11 — 언어 변경 즉시 반영 | NEW (ΔV2) | — |
 | AT-01 | AT | §7 AC9 · §19 실기 | NEW | — |
 | SD-01 | SD | §5 상태 전이 — 상주/종료 중 두 상태의 수명주기 | NEW | — |
 | ST-01 | ST | AC1→AC3→AC4→AC8을 한 설치 인스턴스에서 차례로 | NEW | — |
 | AR-01 | AR | §9 — `index.ts` 조립이 Electron 객체를 포트로 넘기는 경계 | NEW | — |
 | IT-01 | IT | §19 실기 단계 1·2·5 (조립 2자리) | NEW | — |
-| MD-01 | MD | §10 EP-01·EP-02·EP-04 — `installTrayResidency` 규칙 | NEW | — |
+| MD-01 | MD | §10 EP-01·EP-02·EP-04·EP-05 — `installTrayResidency` 규칙 | NEW · EP-05는 ΔV2 | — |
 | UT-01 | UT | AC1~AC8 | NEW | — |
 | SD-02 | SD | 종료 드레인(`registerNativeSettingsQuit`) | INHERITED | `native-settings-lifecycle.ts:20-45` |
 
@@ -158,7 +162,7 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 
 | Pair | left ↔ right | requiredness | production path | 직접 oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
 |---|---|---|---|---|---|---|
-| VP-01 | MD-01 ↔ UT-01 | REQUIRED | `installTrayResidency` → 포트 리스너 → `preventDefault`/`hide`/`open`/`quit`/`destroy` | 신규 `tray-residency.test.ts` — AC1~AC8, 분기 입력은 §10 | M1~M9 (§10 아래) — 판정이 조건식 하나라 방향 확인 필요 | EP-01(1) · EP-02(4) · EP-04(1) |
+| VP-01 | MD-01 ↔ UT-01 | REQUIRED | `installTrayResidency` → 포트 리스너 → `preventDefault`/`hide`/`open`/`quit`/`destroy` | 신규 `tray-residency.test.ts` — AC1~AC8·AC11, 분기 입력은 §10 | M1~M15 (§10 아래) — 판정이 조건식 하나라 방향 확인 필요 | EP-01(1) · EP-02(4) · EP-04(1) · EP-05(2) |
 | VP-02 | SD-01 ↔ ST-01 | REQUIRED | 설치 → `close`(숨김) → 트레이 `click` → `before-quit` → `close`(통과) → `will-quit` | 같은 파일의 수명주기 1케이스 — 한 인스턴스에서 순서대로 `hide` 1 → `open` 1 → `preventDefault` 총 1 → `destroy` 1 | not selected — 단계별 관측이 직접 oracle | EP-01·EP-04 재사용 (0 추가) |
 | VP-03 | AR-01 ↔ IT-01 | REQUIRED | `whenReady` → `createWindow` → `installTrayResidency({app, createTray:new Tray…})` → `.attach(창)` | 사람 실기 §19 단계 1(attach)·2(install·open)·5(quit) | not selected — 기계 좌표 없음(§10 선언 경계 B1) | EP-03(2) |
 | VP-04 | R-01~06 ↔ AT-01 | REQUIRED | X → IPC → `close` → 숨김 → 트레이 → 복귀/종료 | 사람 실기 §19 전 단계 | not selected | 0 — 하위 pair가 자리를 갖는다 |
@@ -261,7 +265,11 @@ X / 헤더 종료 → oo:window:close → mainWindow.close()
 
 ```ts
 // app/src/main/app/tray-residency.ts — electron 을 import 하지 않는다
-export const TRAY_MENU_LABELS = { open: '열기', quit: '종료' } as const
+export type TrayLocale = 'ko' | 'en'
+export const TRAY_MENU_LABELS: Record<TrayLocale, { open: string; quit: string }> = {
+  ko: { open: '열기', quit: '종료' },
+  en: { open: 'Open', quit: 'Quit' }
+}
 export interface TrayMenuItem { label: string; click: () => void }
 export interface TrayPort<M> {
   setToolTip(text: string): void
@@ -281,15 +289,20 @@ export function installTrayResidency<M>(deps: {
   buildMenu(items: TrayMenuItem[]): M
   tooltip: string
   open(): void
+  settings: {                            // SettingsStore 가 구조적으로 만족한다 (ΔV2)
+    getAll(): { uiLocale: TrayLocale }
+    onPatch(listener: (next: unknown, changedKeys: readonly string[]) => void): void
+  }
 }): { attach(win: ResidentWindowPort): void }
 ```
 
 | V node / pair | 계약 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
 | MD-01 / VP-01 — EP-01 | 닫기 판정: `resident ∧ ¬quitting`이면 `preventDefault`+`hide`, 아니면 아무것도 하지 않는다 | `tray-residency.ts` | `attach`의 `close` 리스너 | 1자리 — `attach` 안 `close` 리스너 | `rg -n "'close'" app/src/main/app/tray-residency.ts` → 1 | 숨겨야 할 때 종료되거나, 종료해야 할 때 숨어 종료·업데이트·로그오프가 막힌다 |
-| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 항목 `열기→open` · `종료→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label:|'click'|setToolTip" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
+| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 첫 항목 `→open` · 둘째 항목 `→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label:|'click'|setToolTip" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
 | AR-01 / VP-03 — EP-03 | 조립: 설치 1회(`whenReady`, `createWindow` 바로 뒤) · 그 창에 `attach` | `index.ts` | 부팅 | 2자리 — `installTrayResidency(` 호출 · `.attach(` 호출 | `rg -o "installTrayResidency\(|\.attach\(" app/src/main/index.ts` → 2 | 모듈이 green이어도 실제 앱은 X로 종료된다 |
 | MD-01 / VP-01 — EP-04 | 정리: `will-quit`에서 만든 트레이만 `destroy` | `tray-residency.ts` | 종료 | 1자리 — `will-quit` 리스너 | `rg -n "'will-quit'" app/src/main/app/tray-residency.ts` → 1 | 종료 뒤 트레이에 유령 아이콘 |
+| MD-01 / VP-01 — EP-05 (ΔV2) | 라벨 언어: 메뉴 라벨 = `TRAY_MENU_LABELS[settings.getAll().uiLocale]`, 패치에 `uiLocale`이 있으면 메뉴를 다시 만들어 `setContextMenu` | `TRAY_MENU_LABELS` | 설치 시 + 설정 변경 시 | 2자리 — 라벨 선택(`getAll()`) · `onPatch` 구독 | `rg -n "getAll\(\)|onPatch\(" app/src/main/app/tray-residency.ts` → 2 | 영어 UI에 한국어 메뉴가 뜨거나, 언어를 바꿔도 재시작 전까지 옛 라벨이 남는다 |
 
 검색 명령은 구현 뒤 트리 기준이다(현재는 전부 0 — 신규 파일). 구현자는 출력과 목록의 차집합 0을 보고한다.
 
@@ -302,6 +315,8 @@ export function installTrayResidency<M>(deps: {
 | B3 | 종료 중 (`session-end`) | B1 + 창 `session-end` 뒤 `close` | 둘 다 0 (AC5) |
 | B4 | 비상주 — 플랫폼 | `darwin` · `linux` 각각 · `close` | 둘 다 0 · `createTray` 0 (AC6) |
 | B5 | 숨김 반복 | B1에서 `close` 2회 | `preventDefault` 2 · `hide` 2 — 숨김이 `quitting`을 켜지 않는다 |
+
+**EP-05 분기 ↔ UT 입력**: `uiLocale` `ko` / `en` 초기 라벨(AC2) · 패치에 `uiLocale` 포함 → 현재 값으로 메뉴 재구성 / 미포함 → 재구성 없음(AC11) · 비-win32 → `onPatch` 호출 0(AC6 입력에 단언 추가).
 
 **EP-02 생성 분기**: 성공 → 표면 4자리 / `createTray`가 던짐 → 같은 오류 전파(AC7).
 
@@ -322,11 +337,15 @@ export function installTrayResidency<M>(deps: {
 | M9 | 메뉴에 세 번째 항목 추가 | 다른 값 | AC2 |
 | M10 | `before-quit` 리스너 제거 | 제거 | AC4 |
 | M11 | `hide()` 호출 제거 | 제거 | AC1 |
+| M12 (ΔV2) | `TRAY_MENU_LABELS`의 `ko`·`en` 값 맞바꿈 | 맞바꿈 | AC2 |
+| M13 (ΔV2) | `settings.onPatch` 구독 제거 | 제거 | AC11 |
+| M14 (ΔV2) | 라벨 선택을 `'ko'` 고정으로 | 고정값 | AC2(`en`) · AC11 |
+| M15 (ΔV2) | `changedKeys.includes('uiLocale')` 조건 제거 | 제거 | AC11(`theme` 입력) |
 
 - **선언 경계**
   - B1 — `index.ts` 조립 2자리(EP-03)는 vitest 실행 구간 밖이다. `index.ts`를 import하는 테스트가 없고(§8), 좌표는 사람 실기 §19뿐이다.
   - B2 — `quitting`은 되돌리지 않는다. `before-quit` 뒤 종료가 영구 취소되는 경로는 다루지 않는다: `before-quit` 리스너 1개가 `finally`에서 항상 `app.quit()`을 다시 부른다(`native-settings-lifecycle.ts:40-43`).
-  - B3 — 메뉴 라벨은 `uiLocale`을 따르지 않는다(D-007).
+  - B3 — 툴팁은 제품명(`PRODUCT_DISPLAY_NAME`)이라 번역하지 않는다. 라벨 문구는 renderer i18n 리소스와 별개 사본이다 — main은 renderer 리소스를 import할 수 없고(레이어), 두 사본의 일치는 판정하지 않는다.
   - B4 — 창이 없는 상태의 `열기`는 아무것도 하지 않는다(`index.ts:64`). Windows에서 창은 종료 때만 파괴되므로 상주 중에는 도달하지 않는다.
   - B5 — macOS·Linux 동작은 판정하지 않는다(D-004). AC6은 "건드리지 않음"만 잠근다.
   - B6 — 트레이 생성 실패 뒤의 앱 상태(창·X 동작·남은 부팅 단계)는 계약하지 않는다(D-008). 예외가 삼켜지지 않는 것만 잠근다(AC7).
@@ -348,7 +367,7 @@ export function installTrayResidency<M>(deps: {
 `index.ts` 조립 세부:
 
 - `createTray`: `new Tray(nativeImage.createFromPath(logo).resize({ width: 32, height: 32 }))` — 1254px 원본을 셸에 그대로 넘기지 않는다. 선명도는 §19 단계 8.
-- `tooltip`: `PRODUCT_DISPLAY_NAME`. `open`: `focusMainWindow`.
+- `tooltip`: `PRODUCT_DISPLAY_NAME`. `open`: `focusMainWindow`. `settings`: `router.settings` — 키 필터(`uiLocale`)와 라벨 선택은 모듈이 한다.
 - 순서 근거: 창을 먼저 만들어야 트레이 생성이 던져도 창 없는 프로세스가 남지 않는다. `close` 위치 저장 리스너(`:195`)가 먼저 등록되는 순서도 유지된다. `activate`(macOS)로 다시 만든 창은 `attach`하지 않는다 — 비-win32는 숨기지 않는다(경계 B5).
 - 트레이 인스턴스 참조는 모듈(`tray-residency.ts` 클로저)이 쥔다 — GC로 아이콘이 사라지지 않게 한다.
 - `window-all-closed`(`:289-293`)·`will-quit`(`:306-312`)·창 컨트롤 IPC는 고치지 않는다.
@@ -373,6 +392,7 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 |---|---|---|
 | `registerNativeSettingsQuit` (`before-quit`) | 리스너가 하나 더 붙는다. 새 리스너는 `preventDefault`를 부르지 않아 드레인 순서와 무관 | VP-05 · AC4(2회 입력) |
 | `will-quit` 정리 (`index.ts:306`) | 리스너가 하나 더 붙는다. 서로 독립 | AC8 |
+| `SettingsStore.onPatch` (`settings-store.ts:78`, 기존 구독 = `settings-reactions.ts`) | 리스너가 하나 더 붙는다. 저장소는 리스너를 차례로 부르고(`:90`) 새 리스너는 `uiLocale` 외 키에 반응하지 않는다 | AC11 |
 | `close` 위치 저장 (`index.ts:195`) | 숨길 때마다도 저장된다(먼저 등록돼 먼저 실행) | AC9 단계 2 |
 | 예약 작업·스케줄러 | 상주 중에도 계속 발화 — 의도된 결과 | — |
 
@@ -386,7 +406,7 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 ## 14. 성능 / 상한 / 최적화
 
-- 해당 없음 — 트레이 1개, 리스너 4개(`before-quit`·`will-quit`·`close`·`session-end`).
+- 해당 없음 — 트레이 1개, 리스너 5개(`before-quit`·`will-quit`·`close`·`session-end`·`onPatch`). 메뉴 재구성은 언어 변경 때만이다.
 
 ## 15. 외부 구현 포트 / 문서 계약
 
@@ -440,10 +460,11 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
   6. 업데이트 "재시작 후 설치" → 설치되고 새 버전이 뜬다.
   7. 상주 중 Windows 로그오프 → "앱이 종료를 방해" 화면 없이 진행된다.
   8. 트레이 아이콘이 100%·150% 배율에서 식별된다.
+  9. 설정에서 UI 언어를 English로 바꾼다 → 재시작 없이 트레이 메뉴가 `Open`·`Quit`이 된다. 한국어로 되돌리면 `열기`·`종료`.
 
 ## READY self-review
 
-- [x] Decision Ledger가 결정을 보존한다 — D-001~D-008, D-006 SUPERSEDED, 추론 2건 표시.
+- [x] Decision Ledger가 결정을 보존한다 — D-001~D-009, D-006·D-007 SUPERSEDED, 추론 1건 표시.
 - [x] Part I만으로 완료 상태가 읽힌다 — §5 상태 전이 8행.
 - [x] 조건절을 재해석하지 않았다 — "두 개 메뉴만"은 AC2 길이 단언 + M9.
 - [x] 사용자 결정과 조사 사실을 갈랐다 — 질의 2건(D-003·D-004), 나머지는 §8.
@@ -452,13 +473,13 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 - [x] 저장소 규칙·후보 표 확인 — 후보 표에 `index.ts`·창 수명과 겹치는 행 0(`awk '/새 handoff 후보/,0' INDEX.md | rg -i "index\.ts|window|tray|quit"` → 무관 1행).
 - [x] 각 AC가 행동 단언·검증 수단·도달 경로를 갖는다 — §7.
 - [x] Baseline V, NEW node 전부 같은 레벨 REQUIRED pair — VP-01~04. 영향받은 INHERITED는 REGRESSION(VP-05).
-- [x] pair마다 경로·§10 자리·검색 명령·좌표 — EP-01~04 (자리 8).
-- [x] 규칙 칸 분기 ↔ UT 입력 — EP-01 B1~B5, EP-02 생성 2분기, EP-04 2분기.
+- [x] pair마다 경로·§10 자리·검색 명령·좌표 — EP-01~05 (자리 10).
+- [x] 규칙 칸 분기 ↔ UT 입력 — EP-01 B1~B5, EP-02 생성 2분기, EP-04 2분기, EP-05 4분기.
 - [x] 선언 경계 B1~B6, 열린 입력 집합 산출물 아님.
 - [x] 운영 gate 3행.
 - [x] 사람 실기로 미룬 순수 로직 없음 — 판정·메뉴·정리는 AC1~AC8.
 - [x] structural proxy만으로 검증하는 AC 없음 — AC10만 문서 존재이고 대상이 문서다.
-- [x] "쓰인다" 불변식의 장치가 제거에 red — M1~M11, 형제 맞바꿈 M2.
+- [x] "쓰인다" 불변식의 장치가 제거에 red — M1~M15, 형제 맞바꿈 M2·M12.
 - [x] 배타 상태: `resident`는 플랫폼으로 확정, `quitting`은 단방향.
 - [x] 부팅 등록 변경의 기존 소비처 — §12 4행.
 - [x] 게이트 명령이 `app/AGENTS.md`와 일치.
@@ -481,6 +502,25 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 - pair: VP-01(AC7·M5)·VP-03(EP-03 순서)만 영향. VP-02·VP-04·VP-05는 문장 변경 없음.
 - `ACTIVE 결정 ↔ AC` 대조(ΔV1 뒤): 충돌 0 — D-008("예외를 삼키지 않는다") ↔ AC7("같은 `E`로 던진다").
+
+## 21. ΔV2 — 트레이 메뉴 라벨에 i18n 적용 (2026-11-16, 구현 전)
+
+- 출처: 사용자 3·4턴 "트레이 아이콘 메뉴 라벨은 i18n 적용 안되는가?" → "적용하라". 요구 변경이라 라운드는 1 그대로다.
+- 대체: D-007(한국어 고정) → D-009. V1의 AC2 라벨 단언(`['열기','종료']` 단일 입력)·선언 경계 B3("`uiLocale`을 따르지 않는다")·§6 미룬 항목 "라벨의 `uiLocale` 반영"은 폐기했고, 위 본문은 정정된 문장이다.
+- 조사: `uiLocale`은 `z.enum(['ko','en']).default('ko')`(`app/src/shared/protocol.ts:829`). main의 `uiLocale` 소비처는 0(`rg uiLocale app/src/main` → 주석 1건). 변경 통지는 `SettingsStore.onPatch(listener(next, changedKeys))`(`settings-store.ts:78-90`), 같은 포트 형상의 선례는 `settings-reactions.ts:15-17`.
+
+| Node / 행 | provenance | 이전 | ΔV2 |
+|---|---|---|---|
+| R-02 · AC2 | CHANGED | 라벨 한국어 고정 | `ko`·`en` 두 입력 |
+| R-08 · AC11 | NEW | — | 언어 변경 즉시 반영 · 다른 키는 무반응 |
+| MD-01 EP-05 | NEW | — | 2자리 (라벨 선택 · 구독) |
+| §10 포트 | CHANGED | `settings` 없음 | `settings: { getAll, onPatch }` |
+| M12~M15 | NEW | — | 등록 변이 4 |
+| 선언 경계 B3 | CHANGED | 라벨 미번역 | 툴팁 미번역 · renderer 리소스와 별개 사본 |
+| §19 실기 | CHANGED | 8단계 | 9단계 |
+
+- pair: VP-01(AC2·AC11·EP-05·M12~M15)·VP-04(실기 단계 9)만 영향. EP-03 자리 수는 2 그대로다 — `settings`는 설치 호출의 인자다.
+- `ACTIVE 결정 ↔ AC` 대조(ΔV2 뒤): 충돌 0 — D-002("두 개 메뉴만") ↔ AC2(두 언어 모두 길이 2) · D-009 ↔ AC2·AC11.
 
 ---
 
