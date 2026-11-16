@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 2 — 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 3 — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -81,8 +81,15 @@
 | D-027 | 이번에 만드는 수명 이벤트는 다섯 가지다(턴 시작·턴 종료·승인 대기·세션 종료·하네스 종료). 하네스 훅의 등록 계약은 0323 이 이 위에 만든다 | 0323 D-001·D-002 가 그 계약의 범위다 | 설계자 | ACTIVE | — |
 | D-028 | 프로세스 사이 호출과 화면 갱신의 경로를 문서(`AGENTS.md` 포함)에 적고, 경로를 건너뛴 직접 호출을 기계로 막는다 | "이를 준수할 것을 강력하게 제한할 것 … 직접 호출하는 일이 앖도록" | 턴 10 | ACTIVE | — |
 | D-014 | diff 줄 계산은 두 입력의 줄 수 합이 **400** 이하면 UI 스레드에서, 넘으면 워커에서 한다. 넘는 입력의 도구 카드 머리 증감 수는 표시하지 않는다 | 작은 diff 마다 로딩 표시가 깜빡이지 않게 한다. 2,546줄·절반 변경이 415ms 다(§8) | 설계자 | ACTIVE (사용자 거부 가능 — 화면 동작 변경) | — |
+| D-029 | 창 위치처럼 main(셸)이 쓰는 상태는 main 이 소유한다. 설정 파일은 에이전트 호스트만 연다 | "창위치 같은 개념들은 main이 가져야 하는게 마땅한것으로 보인다" — 두 프로세스가 같은 파일을 열면 서로의 쓰기를 덮는다(§7-B 조사) | 턴 11 | ACTIVE | — |
+| D-030 | 턴 시작의 비동기 읽기는 어댑터의 **준비 단계**에서 하고, 판정 → spawn 은 지금처럼 동기로 둔다 | "준비 단계 추가" — `sendMessage` 를 비동기로 바꾸는 안과 범위 제외 안을 두고 고른 답 | 턴 11 | ACTIVE | — |
+| D-031 | 호스트가 여는 `electron-store` 파일은 주입받은 `userData` 절대 경로(`cwd`)로만 연다. `cwd` 없는 생성은 가드가 막는다 | utility 프로세스 형상에서 `cwd` 없이 열면 예외 없이 다른 디렉토리에 쓴다(§7-B 조사) | 설계자(D-024 적용) | ACTIVE | — |
+| D-032 | main 이 필요한 설정값은 UI 언어 하나다. 호스트가 알리고 main 은 자기 상태 파일에 사본을 둔다 | 트레이 라벨은 호스트가 뜨기 전에도 마지막 언어로 보여야 한다. 수명 이벤트 다섯 가지(D-027)와 별개 메시지다 | 설계자 | ACTIVE (사용자 거부 가능) | — |
 
 ### 갱신 메모
+
+- rev 3(턴 11)에서 새로 추가된 결정: D-029·D-030(사용자) · D-031·D-032(설계자). 기존 ACTIVE 결정은 모두 유지된다 — D-027 의 "다섯 가지"는 수명 이벤트의 수이고 D-032 의 언어 알림은 수명 이벤트가 아니다.
+- rev 3 `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-029 ↔ AC36 · D-030 ↔ AC21′ · D-031 ↔ AC37 · D-032 ↔ AC38 · D-026(`window.oo` 형상 불변) ↔ AC36(설정 스키마의 `windowBounds` 키를 지우지 않는다 — B12).
 
 - 이번 턴에서 새로 추가된 결정: D-015~D-027 (rev 2) · D-028 (턴 10). D-001~D-014 는 rev 1.
 - 변경된 결정: D-005 → D-022 ("하나의 핸드오프로"의 범위가 완성된 형태 전체로 넓어졌다) · D-010 → D-015·D-016 (사용자가 완성된 형태를 기준으로 지시).
@@ -206,7 +213,7 @@
 | R-05 | AT-18 / AC18 | 데이터 호스트는 첫 요청에 뜬다. 비정상 종료하면 진행 중 요청이 실패하고 다음 요청에서 다시 뜬다. 앱 종료 때 에이전트 호스트보다 먼저 내려간다. 다른 프로세스가 대신 읽지 않는다 | `app/shell/host-supervisor.test.ts` — 가짜 프로세스로: 요청 전 fork 0회 · exit 이벤트 → 종료 통지 1회 · 다음 connect → fork 2회째 · `shutdown()` 호출 순서 기록 | 셸 → `HostSupervisor`(데이터 호스트) |
 | R-05 | AT-19 / AC19 | 세션 갱신도 본문을 호스트에서 받는다. `oo:session:load`·`oo:session:refresh` 의 응답(에이전트 호스트가 답한다)에는 메시지 배열이 없다 | `handlers/session.load.test.ts` — 두 채널 응답에 `messages` 키 없음 · `activity` 는 있음 · `compactLegacyRaw` 가 응답 전에 1회 호출 | `chatStore` 의 `refresh()` → `sessionApi.refresh` → 호스트 |
 | R-05 | AT-20 / AC20 | 호스트는 DB 를 읽기 전용으로 연다. 호스트 요청은 스키마 검증을 통과해야 처리된다 | `session-load.test.ts`(io) — 호스트 연결로 쓰기 실행 → `SQLITE_READONLY` · 형식이 틀린 요청 → `error` 응답, 조회 0회 | 호스트 `entry.ts` |
-| R-06 | AT-21 / AC21 | 턴을 시작할 때 플러그인 카탈로그를 비동기로 읽는다. 결과는 지금과 같다 | `adapters/claude` 기존 카탈로그 테스트를 비동기 진입점으로 — 같은 픽스처에서 같은 카탈로그 · AC2 가드에서 `plugin-catalog.ts` 등록 0 | `chat:send` → `adapter.ts` 턴 셋업 |
+| R-06 | AT-21 / AC21 — **SUPERSEDED → AC21′ (§7-B)** | 턴을 시작할 때 플러그인 카탈로그를 비동기로 읽는다. 결과는 지금과 같다 | `adapters/claude` 기존 카탈로그 테스트를 비동기 진입점으로 — 같은 픽스처에서 같은 카탈로그 · AC2 가드에서 `plugin-catalog.ts` 등록 0 | `chat:send` → `adapter.ts` 턴 셋업 |
 | R-07 | AT-22 / AC22 | Windows 실기 8개 시나리오에서 main·renderer 의 `perf.stall` 이 0건이다. 선언 경계(B1·B2·B8)의 경로에서 난 기록은 경계로 적는다 | 사람 실기 — §19 시나리오를 수행하고 로그에서 `perf.stall` 을 센다 | 설치본 또는 `npm run dev` |
 | R-07 | AT-23 / AC23 | 패키징한 앱에서 계산 워커와 두 호스트가 실제로 뜬다 — 코드 블록에 색이 입혀지고, 세션이 열리고, 메시지를 보내면 응답이 온다 | 사람 실기 — `build:win` 산출물에서 강조 1회·세션 열기 1회·전송 1회, 로그에 워커·호스트 오류 0건 | NSIS 설치본 |
 | R-09 | AT-34 / AC34 | 일의 종류마다 "누구에게 어떤 경로로 요청하는가"가 경로 표 한 곳에 있고, root·`app`·`main`·`renderer` 의 `AGENTS.md` 가 그 표와 "직접 호출 금지"를 갖는다. 표의 각 경로에는 그것을 강제하는 가드 규칙 이름이 붙어 있다 | `scripts/check-ui-thread.test.mjs` — 가드의 규칙 id 전부가 `docs/arch/execution-model.md` 경로 표에 나온다(차집합 0) · 표의 규칙 id 가 가드에 없으면 실패 · 네 `AGENTS.md` 가 그 문서를 링크 | 에이전트의 진입 순서 `AGENTS.md` → `execution-model.md` |
@@ -275,7 +282,7 @@
 | VP-03 | R-03 ↔ AT-05~07 | REQUIRED | 멈춤 → 모니터/등록 함수/리포터 → 로거 | AC5·AC6·AC7 의 세 테스트 파일 | not selected — 값 단언 | EP-2 (7) |
 | VP-04 | R-04 ↔ AT-08~14 | REQUIRED | 컴포넌트 → 훅 → `computeClient` → 워커 → 응답 → 상태 | AC8~AC14 의 테스트 | not selected — 행동 단언 | EP-3 (9) |
 | VP-05 | R-05 ↔ AT-15~20 | REQUIRED | 클릭 → `sessionApi.load` → 에이전트 호스트 티켓 → 데이터 호스트 → 조각 → 조립 → `LOAD_SESSION` | AC15~AC20 의 테스트 | not selected — 동치·값 단언 | EP-4 (3) · EP-5 (2) · EP-6 (5) |
-| VP-06 | R-06 ↔ AT-21 | REQUIRED | `chat:send` → `adapter.ts` 턴 셋업 → 카탈로그 | 기존 카탈로그 테스트(비동기 진입점) + `gate:node scripts/check-ui-thread.mjs` | not selected | EP-7 (1) |
+| VP-06 | R-06 ↔ AT-21 | REQUIRED | **rev 3 에서 §7-B 의 VP-06′ 로 대체** | — | — | EP-7′ (3) |
 | VP-07 | R-07 ↔ AT-22·23 | REQUIRED | 실제 앱 | 사람 실기 §19 | not selected | 0 + 실기 |
 | VP-08 | SD-01 ↔ ST-01 | REQUIRED | 요청 → 대기 → 전송 → 응답/취소/실패 → 소비자 상태 | `client.test.ts` — 수명주기 전이 6종(전송·응답·대기 취소·실행 취소·실패·차단) | not selected | EP-3 과 공유 |
 | VP-09 | SD-02 ↔ ST-02 | REQUIRED | 티켓 → 포트 → begin → chunk* → end / cancel / exit | `session-load.test.ts` + `dataHostClient.test.ts` + `host-supervisor.test.ts` | not selected | EP-5·EP-6 과 공유 |
@@ -289,7 +296,7 @@
 | VP-17 | MD-03 ↔ UT-03 | REQUIRED | `stall-monitor.ts` | `stall-monitor.test.ts` — 49/50/159/160 | not selected | EP-2 과 공유 |
 | VP-18 | MD-04 ↔ UT-04 | REQUIRED | `check-ui-thread.mjs` | `check-ui-thread.test.mjs` | VP-02 와 같다 | EP-1 과 공유 |
 | VP-19 | MD-05 ↔ UT-05 | REQUIRED | `inline.ts` · `CodeBlock.tsx` | `inline.test.ts` — 400/401 · `CodeBlock.render.test.ts` — 32,000/32,001 | not selected | EP-3 과 공유 |
-| VP-21 | R-08 ↔ AT-24~33 | REQUIRED | 창 → preload → 호스트 포트 → 핸들러 → 버스 → 창 포트 / 셸 서비스 / 수명 통지 | AC24~AC33 의 테스트 | required — 채널 소유 표가 한쪽으로 쏠려도 대표 테스트는 통과. 변이: 호스트 채널 1개를 `'shell'` 로 → `preload/index.test.ts` red | EP-8 (3) · EP-9 (4) · EP-10 (8) · EP-11 (5) |
+| VP-21 (EP-10 은 §7-B 의 EP-10′) | R-08 ↔ AT-24~33 | REQUIRED | 창 → preload → 호스트 포트 → 핸들러 → 버스 → 창 포트 / 셸 서비스 / 수명 통지 | AC24~AC33 의 테스트 | required — 채널 소유 표가 한쪽으로 쏠려도 대표 테스트는 통과. 변이: 호스트 채널 1개를 `'shell'` 로 → `preload/index.test.ts` red | EP-8 (3) · EP-9 (4) · EP-10 (8) · EP-11 (5) |
 | VP-32 | R-09 ↔ AT-34·35 | REQUIRED | 문서 경로 표 ↔ 가드 규칙 표 ↔ 실제 트리 | `check-ui-thread.test.mjs` — 규칙 (g)~(k) 분기(§10 EP-1 규칙 칸) + 문서 대조 케이스 | required — 0건 가드. 변이: 규칙 (h) 의 허용 경로를 `src/renderer/src/**` 로 넓힘 → 위반 픽스처 케이스 red | EP-1 (11) |
 | VP-22 | SD-04 ↔ ST-04 | REQUIRED | fork → ready → connect → exit → 고아 정리 → 통지 → 재 fork → shutdown | `host-supervisor.test.ts` — 전이 7종 | not selected | EP-12 (4) |
 | VP-23 | AR-06 ↔ IT-06 | REQUIRED | `CHANNELS` → `channel-owner.ts` → preload `invoke` 선택 → 셸 `handle` / 호스트 `handle` | `gate:npm run typecheck`(표의 전수) + `preload/index.test.ts` + 신규 `channel-registration.test.ts` — 표의 소유자와 실제 등록 프로세스의 차집합 0 | not selected | EP-8 (3) |
@@ -311,6 +318,130 @@
 | 가드 스크립트 | 테스트와 스크립트를 더한다 | `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` · 신규 `check-ui-thread` | 같다 |
 | 문서 | `docs/arch`·`IPC_CONTRACT.md`·`docs/INDEX.md` 를 고친다 | `check-doc-inventory --check` | 같다 |
 | message-bus | handoff 산출 | 커밋 trailer 파싱 확인 · `INDEX.md` 행 | 같다 |
+
+## 7-B. V1 rev 3 정정 — `PLAN_GAP` 3건 (턴 11)
+
+r1·r1.2 구현 턴이 올린 `PLAN_GAP` 세 건의 규범 행이다. 이 절이 가리키는 구 행(AC21 · VP-06 · EP-7 · EP-10 의 분모 · §11 단계 6)은 이 절로 대체되고, 나머지 행은 rev 2 그대로다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| 카탈로그 결과의 동기 소비 자리 | `rg -n "nativePlugins\|nativePluginFlags" app/src/main/adapters/claude/adapter.ts` | 4곳 | `:617` flags · `:671-684` query 옵션 · `:835` `claudeNativeResources` · `:850` `ClaudeProjectReconciliation` — 채널 조립이 동기라 읽기를 조립 앞으로 빼야 한다 |
+| 어댑터 spawn 호출부 | `rg -n "\.sendMessage\(" app/src/main --glob '!*.test.*' --glob '!*.testfixture.*'` | 1 | `features/sessions/session-runtime.ts:496` — 준비 단계를 부를 유일한 자리 |
+| `plugin-catalog.ts` 의 동기 API | `rg -n "Sync\(" app/src/main/adapters/claude/plugin-catalog.ts` | 4 | `:112` `claudeInstallationExists` · `:122`·`:124` `pluginFiles` · `:310` 동기 카탈로그 |
+| `claudeInstallationExists` 소비처 | `rg -n "claudeInstallationExists" app/src/main --glob '!*.test.*'` | 3줄 | 정의 1 · 동기 카탈로그 1 · `configured-resources.ts:133` 1 |
+| `electron-store` 생성 자리 | `rg -n "new Store<" app/src/main --glob '!*.test.*'` | 3 | `infra/settings-store.ts:42` · `infra/config/secret-store.ts:12` · `features/auth/store-file.ts:60` |
+| utility 형상에서 `electron-store@8.2.0` | `electron` 을 `{ net }` 로 바꿔 끼운 Node 프로브 | 3케이스 | `cwd`+버전 → 그 디렉토리 · `cwd` 만 → 그 디렉토리 · 둘 다 없음 → 예외 없이 `~/.config/electron-store-nodejs/` |
+| 셸에 남는 코드의 설정 접근 | `rg -n "settings\.(getAll\|patch\|onPatch)\b\|deps\.settings\." app/src/main/index.ts app/src/main/app/tray-residency.ts` | 4 | `index.ts:160`(창 위치 읽기)·`:202`(저장) · `tray-residency.ts:73`(언어)·`:85`(변경 구독) |
+| `windowBounds` 의 소비자 | `rg -n "windowBounds" app/src --glob '!*.test.*'` | 5줄 | 타입 1 · 스키마 2 · `index.ts` 2 — renderer 소비 0 |
+| Electron 값 import 파일(재실행) | §8 과 같은 `rg -l … -P` | 18 | rev 2 의 17 + `app/error-report-sink.ts`(`webContents`) |
+
+### Requirements / Acceptance — rev 3
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-06 | AT-21′ / AC21′ | 새 채널을 띄우는 턴은 어댑터의 준비 단계에서 플러그인 카탈로그를 비동기로 읽은 뒤 판정하고 띄운다. 카탈로그 결과는 지금과 같다. 준비가 실패하거나 준비 중 취소되면 띄우지 않는다 | `session-runtime` 테스트 — EP-7′ 규칙 칸 6분기 · `adapters/claude` 카탈로그 테스트를 비동기 진입점으로(같은 픽스처에서 같은 카탈로그) · 가드 (a) 에서 `plugin-catalog.ts` 등록 0 | `chat:send` → `SessionRuntime` 스폰 경로 → `adapter.prepareTurn` → `sendMessage` |
+| R-10 | AT-36 / AC36 | 창 위치는 main 의 셸 상태 파일에 저장되고 다음 실행에서 복원된다. main 은 설정 파일을 쓰지 않는다. 셸 상태 파일이 없는 첫 실행은 기존 설정 파일의 창 위치와 언어를 이어받는다 | `app/shell/shell-state.test.ts` — EP-14 규칙 칸 5분기 · 가드 (e) — 셸 그래프에 `infra/settings-store` 값 import 0 | `index.ts` `createWindow` → `ShellState` |
+| R-10 | AT-37 / AC37 | 호스트가 여는 설정·비밀·인증 파일은 주입받은 `userData` 경로 아래에 있다. `cwd` 없이 `electron-store` 를 만드는 코드는 가드에서 실패한다 | 세 스토어 각각의 테스트 — 임시 디렉토리를 `cwd` 로 주고 쓴 뒤 그 디렉토리의 파일 이름을 단언 · 가드 (l) 분기 4종 | 호스트 `entry.ts` 의 fork 인자 → `Bootstrap` → 세 스토어 |
+| R-10 | AT-38 / AC38 | 트레이 메뉴 라벨은 호스트가 알린 UI 언어를 따른다. 호스트가 뜨기 전에는 마지막으로 알려진 언어다 | `shell-state.test.ts` — 언어 알림 → 저장값과 구독자 호출 · 기존 `tray-residency` 테스트(입력원만 `ShellState`) · `lifecycle-emitter.test.ts` — `uiLocale` 패치 → 알림 1건, 다른 키 패치 → 0건 | 호스트 `SettingsStore.onPatch` → 셸 알림 → `ShellState` → `tray-residency` |
+
+AC 총수는 35 → **38** 이다(AC21 은 AC21′ 로 대체, AC36·37·38 추가).
+
+### Node · Pair — rev 3
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-10 · AT-36~38 | R · AT | 위 표 | NEW | — |
+| AR-11 | AR | 어댑터 준비 단계 포트(`prepareTurn`) — EP-7′ | NEW | — |
+| AR-12 | AR | 영속 파일의 소유 프로세스와 경로 주입 — EP-13·EP-14 | NEW | — |
+| MD-08 | MD | 셸 상태의 읽기·이관·사본 갱신 — EP-14 규칙 칸 | NEW | — |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-06′ | R-06 ↔ AT-21′ | REQUIRED | `chat:send` → `SessionRuntime` 스폰 → `prepareTurn` → 판정 → `sendMessage` → `openChannel` | 자리 1: 신규 `session-runtime.prepare.test.ts`(가짜 어댑터, 6분기) · 자리 2: `plugin-catalog.test.ts` 비동기 진입점 · 자리 3: `adapter.native-plugins.test.ts` — 준비 결과의 플러그인이 query 옵션에 실림(픽스처 플러그인 ≥ 1, 빈 카탈로그와 구별) | required — 준비 결과를 버리고 빈 카탈로그로 조립해도 스폰은 성공한다. 변이: `openChannel` 이 준비 결과 대신 빈 카탈로그를 씀 → 자리 3 red | EP-7′ (3) |
+| VP-33 | R-10 ↔ AT-36~38 | REQUIRED | `createWindow` ↔ `ShellState` ↔ 파일 / 호스트 `onPatch` → 알림 → `ShellState` → 트레이 | AC36~AC38 의 테스트 | not selected — 값 단언 | EP-13 (3) · EP-14 (6) |
+| VP-34 | AR-11 ↔ IT-11 | REQUIRED | `SessionRuntime` ↔ `SessionAdapter.prepareTurn` ↔ `TurnRequest.prepared` | `session-runtime.prepare.test.ts` — 준비가 돌려준 값이 `sendMessage` 인자의 `prepared` 로 그대로 간다(식별 가능한 객체) | not selected | EP-7′ 과 공유 |
+| VP-35 | AR-12 ↔ IT-12 | REQUIRED | fork 인자 `userData` → `Bootstrap` → 세 스토어 생성 · 실제 트리 → 가드 (l) | 세 스토어 테스트 + `gate:node scripts/check-ui-thread.mjs` | required — 0건 가드. 변이: `secret-store.ts` 의 `cwd` 전달 제거 → 가드 (l) red | EP-13 (3) |
+| VP-36 | MD-08 ↔ UT-08 | REQUIRED | `shell-state.ts` | `shell-state.test.ts` — EP-14 규칙 칸 | not selected | EP-14 와 공유 |
+
+### 강제 지점 — rev 3
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-11 / VP-06′·34 **EP-7′** | 스폰 전 비동기 읽기는 준비 단계에서 한다 | `adapters/common/types.ts` 의 `prepareTurn` | `SessionRuntime` · Claude 어댑터 | 3자리 — `session-runtime.ts` 스폰 경로의 `prepareTurn` 호출(판정 앞) · Claude 어댑터 `prepareTurn` 의 비동기 카탈로그 읽기 · `openChannel` 의 준비 결과 소비 | 구현 뒤 `rg -n "prepareTurn\|\.prepared\b" app/src/main --glob '!*.test.*'` | 턴 시작마다 디렉토리 순회가 호스트의 스트림을 막는다 / 준비 결과가 버려져 플러그인 없이 뜬다 |
+| AR-08 / VP-21·25 **EP-10′** | 권한 작업은 셸 서비스로만 | `shared/host-protocol.ts` | 호스트·셸 | 8자리 — rev 2 EP-10 과 같다. 분모만 정정한다: Electron 값 import **18파일** = 셸 전용 1(`index.ts`) + 전송 3(`infra/ipc/{handle,send}.ts`·`app/error-report-sink.ts` — EP-9) + 호스트 허용 1(`infra/net/net-fetch.ts`) + 서비스 어댑터 13 | §8 의 `rg -l … -P` → 18, 네 묶음의 합 18, 미배정 0 | 호스트가 없는 API 를 불러 기동 중 죽는다 |
+| AR-12 / VP-33·35 **EP-13** | 호스트의 영속 파일은 주입된 `userData` 아래 | 호스트 `entry.ts` 의 fork 인자 | 호스트 | 3자리 — `infra/settings-store.ts:42` · `infra/config/secret-store.ts:12` · `features/auth/store-file.ts:60` | `rg -n "new Store<" app/src/main --glob '!*.test.*'` → 구현 뒤 4(셸 상태 1 포함), 모두 `cwd` 있음 | 설정·비밀·인증이 예외 없이 다른 디렉토리에 새로 생긴다 — 사용자는 로그아웃·설정 초기화로 본다 |
+| AR-12 / VP-33·36 **EP-14** | 셸이 쓰는 상태는 셸 상태 파일 하나다 | `app/shell/shell-state.ts` | 셸 · 호스트(언어 알림) | 6자리 — `index.ts` 창 위치 읽기 · 닫을 때 저장 · 트레이의 언어 읽기 · 트레이의 변경 구독 · 호스트 `ready` 페이로드의 `uiLocale` · 호스트 `onPatch` 의 언어 알림 | 구현 뒤 `rg -n "shellState\.\|shell\.mirror" app/src/main --glob '!*.test.*'` | 두 프로세스가 같은 파일을 덮어쓴다 / 트레이가 옛 언어로 남는다 |
+
+**EP-7′ 규칙 칸** (`session-runtime.prepare.test.ts` 입력 — 분기마다 1개):
+
+| 분기 | 기대 |
+|---|---|
+| 준비 성공 → 판정 통과 | `sendMessage` 1회, 인자의 `prepared` 가 준비 반환값과 같은 객체 |
+| 준비 성공 → `canSubmitInitial()` 가 false | `sendMessage` 0회 · `rollbackInitialSubmission` 1회 · `submission_stale:before-spawn` |
+| 준비 reject | `sendMessage` 0회 · `rollbackInitialSubmission` 1회 · 같은 오류가 호출자에게 전파 · `engine.spawn.started` 로그 0건 |
+| 준비 중 취소(런타임 취소·dispose) | `sendMessage` 0회 · `rollbackInitialSubmission` 1회 · 준비에 넘긴 `AbortSignal` 이 abort |
+| `prepareTurn` 이 없는 어댑터 | 지금과 같다 — `sendMessage` 1회, `prepared` 없음 |
+| 살아 있는 채널의 `pushTurn` 경로 | `prepareTurn` 0회 |
+
+- Claude 어댑터의 `openChannel` 은 `prepared` 가 없으면 던진다 — 동기 읽기로 대신하지 않는다(D-009 와 같은 원칙).
+- 판정(`canSubmitInitial`)과 `sendMessage` 사이에는 지금처럼 `await` 가 없다. 준비와 판정 사이에 바뀐 상태는 판정이 본다.
+- `claudeInstallationExists` 는 남은 소비처 `configured-resources.ts` 로 옮기고 가드 (a) 등록 표에 `{ count: 1, class: 'single-file' }` 로 올린다 — `plugin-catalog.ts` 의 등록은 0 이다.
+
+**EP-14 규칙 칸** (`shell-state.test.ts` 입력):
+
+| 분기 | 기대 |
+|---|---|
+| 셸 상태 파일에 창 위치 있음 | 그 값을 돌려준다. 기존 설정 파일을 읽지 않는다 |
+| 셸 상태 파일 없음 · 기존 설정 파일에 `windowBounds`·`uiLocale` 있음 | 두 값을 이어받아 셸 상태 파일에 쓴다. 설정 파일은 바뀌지 않는다(바이트 동일) |
+| 둘 다 없음 · 설정 파일이 JSON 이 아님 | 창 위치 `null` · 언어 기본값. 예외 없음 |
+| 창 위치 저장 | 셸 상태 파일의 `windowBounds` 만 바뀐다 |
+| 언어 알림(같은 값 / 다른 값) | 같은 값 → 쓰기 0·구독자 0 · 다른 값 → 저장 1·구독자 1 |
+
+**가드 규칙 (l)** — EP-1 의 규칙은 11 → 12종이고 경로 표에 행이 하나 는다:
+
+| 규칙 | 분기 | 기대 |
+|---|---|---|
+| (l) 영속 파일 | 등록 4파일(`infra/settings-store.ts`·`infra/config/secret-store.ts`·`features/auth/store-file.ts`·`app/shell/shell-state.ts`) 밖의 `electron-store` 값 import | exit 1 |
+| (l) | 등록 파일의 `new Store({ …, cwd })` — 인자가 객체 리터럴이고 `cwd` 속성이 있다 | exit 0 |
+| (l) | 등록 파일의 `new Store({ … })` — `cwd` 없음 | exit 1 |
+| (l) | 인자가 객체 리터럴이 아니거나 스프레드만 있다 | exit 1 (fail-closed) |
+
+| 하려는 일 | 요청하는 곳 | 경로 | 직접 하면 걸리는 규칙 |
+|---|---|---|---|
+| 설정·비밀·인증을 파일에 둔다 | 에이전트 호스트의 세 스토어(창 상태는 셸의 `ShellState`) | 주입받은 `userData` 를 `cwd` 로 | (l) |
+
+**선언 경계** (rev 3 추가):
+
+- B12 — 설정 스키마의 `windowBounds` 키는 남는다: 호스트는 읽지도 쓰지도 않고 값은 이관 시점에 멈춘다. 스키마에서 지우는 일은 `settings-migration` 변경이라 이 handoff 밖이다.
+- B13 — 준비 단계와 스폰 사이에 디스크의 플러그인 설정이 바뀌면 그 턴은 준비 시점의 카탈로그로 뜬다. 지금도 스폰 뒤의 변경은 `ClaudeProjectReconciliation` 이 맡는다.
+- B14 — 셸 상태 파일의 언어 사본은 호스트가 알리기 전까지 옛 값이다(다른 경로로 설정 파일이 바뀐 경우). 호스트 `ready` 가 바로잡는다.
+
+### 구현 설계 — rev 3
+
+| 단계 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|---|
+| 6′ | `adapters/common/{types,turn}.ts` | 준비 단계 포트 | `SessionAdapter.prepareTurn?(req, signal): Promise<unknown>` · `TurnRequest.prepared?: unknown` | typecheck |
+| 6′ | `features/sessions/session-runtime.ts` | 준비 → 판정 → 스폰 | 스폰 경로에서 `canSubmitInitial` 앞에 `await adapter.prepareTurn?.(…)`. 취소는 준비에 넘긴 `AbortSignal` 로 전달하고, 끝난 뒤 취소 상태면 롤백하고 던진다 | 신규 `session-runtime.prepare.test.ts`(가짜 어댑터) |
+| 6′ | `adapters/claude/{adapter,plugin-catalog,configured-resources}.ts` | 비동기 카탈로그 | `prepareTurn` 이 `readClaudePluginCatalogAsync` 를 부른다. `openChannel` 은 `req.prepared` 를 쓴다. 동기 `readClaudePluginCatalog`·`pluginFiles` 삭제, `claudeInstallationExists` 이동 | 기존 카탈로그·native-plugins 테스트 |
+| 4 | `app/shell/shell-state.ts` | 셸 상태 | 신규. `{ windowBounds, uiLocale }` 을 `<userData>/<slug>-shell-state.json` 에 둔다. 저장소(`get`/`set`)와 기존 설정 파일 읽기 함수를 주입받는 순수 코어 + `electron-store` 배선 | 순수 단위 |
+| 4 | `src/main/index.ts` · `app/tray-residency.ts` | 소비 | `createWindow`·트레이가 `ShellState` 를 받는다(`tray-residency` 의 구조 포트는 그대로 만족) | 기존 테스트 |
+| 4 | `infra/settings-store.ts` · `infra/config/secret-store.ts` · `features/auth/store-file.ts` · `app/bootstrap.ts` | 경로 주입 | 세 생성자가 `cwd` 를 필수 인자로 받는다. `Bootstrap` 이 fork 인자의 `userData` 를 넘긴다 | 스토어별 단위(임시 디렉토리) |
+| 4 | `shared/host-protocol.ts` · `app/agent-host/lifecycle-emitter.ts` | 언어 알림 | 호스트 → 셸 메시지 `shell.mirror{ uiLocale }` 1종. `ready` 페이로드에도 싣는다 | `lifecycle-emitter.test.ts` |
+| 2 | `scripts/{check-ui-thread,ui-thread-rules}.mjs` | 가드 (l) | 규칙·등록 표·안내 메시지 추가 | `node --test` |
+
+- 저장소 분해(다중 쓰기): 창 위치 이관은 셸 상태 파일 **하나**에만 쓴다. 설정 파일은 읽기만 하므로 중간에 죽어도 다음 실행이 같은 이관을 다시 한다 — 허용할 수 없는 조합이 없다.
+- 부팅 순서: 셸 상태 파일은 창 생성 전에 연다(작은 JSON 1개, 가드 (a) 의 `boot` 등록). 호스트의 준비를 기다리지 않는다.
+
+### READY self-review — rev 3 (관측)
+
+- 사용자 결정 복원: D-029 는 원문을 그대로 인용했고 "창 위치 같은 개념"을 셸이 실제로 쓰는 값 둘(`windowBounds`·`uiLocale` 사본)로 한정했다 — 근거는 조사 표의 "셸에 남는 코드의 설정 접근" 4줄.
+- 분모 재열거: EP-7′ 3 · EP-13 3 · EP-14 6 · EP-10′ 8(파일 18 = 1+3+1+13). 검색 명령은 표의 그 칸.
+- 규칙 칸 ↔ 입력 칸: EP-7′ 6분기 ↔ `session-runtime.prepare.test.ts` 6케이스 · EP-14 5분기 ↔ `shell-state.test.ts` 5케이스 · (l) 4분기 ↔ `check-ui-thread.test.mjs` 4케이스.
+- NEW node ↔ REQUIRED pair: R-10 ↔ VP-33 · AR-11 ↔ VP-34 · AR-12 ↔ VP-35 · MD-08 ↔ VP-36. 대체된 VP-06 의 증거(카탈로그 동치 테스트 · 가드 등록 0)는 VP-06′ 자리 2 와 AC21′ 에 그대로 있다.
+- 기존 규칙과의 관계: `app/AGENTS.md` 의 "`electron-store` 는 채택된 의존성" — 새 의존성 0. `security.md` §1.4-b — 비밀 파일의 위치는 그대로 `userData` 다.
+- 사람 실기: 추가 없음. 창 위치 복원의 실제 화면은 기존 AC23 실기 시나리오가 앱을 두 번 띄울 때 본다.
 
 ---
 
@@ -489,10 +620,10 @@
 | AR-05 / VP-05·14 **EP-4** | 세션 본문을 요청 응답에 싣지 않는다 | `shared/ipc.ts` 의 `SessionLoadTicket` | 에이전트 호스트 | 3자리 — `session.ts:70`·`:92`·`native-session.ts:55` | `rg -n "loadSession\(" app/src/main --glob '!*.test.*'` → 정의 빼고 3 | 본문 조회가 턴 스트림과 같은 스레드에서 돈다 |
 | AR-02 / VP-05·09 **EP-5** | 데이터 호스트 포트 전달 | `host-supervisor.ts` | main·preload | 2자리 — `connect` 의 두 `postMessage` · preload 의 포트 수신 | 구현 뒤 `rg -n "dataHostPort" app/src` | 포트가 한쪽에만 간다 → 요청이 영원히 대기 |
 | AR-02 / VP-05·09·11·16 **EP-6** | 호스트 메시지 5종 | `shared/data-host.ts` | 호스트·renderer | 5자리 — `begin`·`chunk`·`end`·`error`·`cancel` | 구현 뒤 `rg -n "type: '(begin\|chunk\|end\|error\|cancel)'" app/src/shared/data-host.ts` | 조립 불일치·취소 무시 |
-| VP-06 **EP-7** | 턴 시작 카탈로그는 비동기 | `plugin-catalog.ts` | main | 1자리 — `adapter.ts:609` | `rg -n "readClaudePluginCatalog\b" app/src/main --glob '!*.test.*'` | 턴 시작마다 디렉토리 순회가 호스트의 스트림을 막는다 |
+| VP-06 **EP-7** — SUPERSEDED → EP-7′ (§7-B) | 턴 시작 카탈로그는 비동기 | `plugin-catalog.ts` | main | 1자리 — `adapter.ts:609` | `rg -n "readClaudePluginCatalog\b" app/src/main --glob '!*.test.*'` | 턴 시작마다 디렉토리 순회가 호스트의 스트림을 막는다 |
 | AR-06 / VP-21·23 **EP-8** | 채널마다 처리 프로세스가 하나다 | `shared/channel-owner.ts` | preload·셸·호스트 | 3자리 — preload 의 `invoke` 선택 · 셸의 등록 · 호스트의 등록 | `rg -n "channelOwner\|CHANNEL_OWNER" app/src --glob '!*.test.*'` | 요청이 받는 쪽 없는 프로세스로 가 영원히 대기한다 |
 | AR-07 / VP-21·24 **EP-9** | 호스트발 통지는 `ClientRef` 로 간다 | `contracts/client.ts` | 호스트 | 4자리 — `send.ts` 의 대상 지정 전송 · 방송 · `bootstrap.ts:649`·`:1155` 의 직접 순회 2 | §8 의 통지 자리 두 `rg` | 통지가 창에 닿지 않는다 |
-| AR-08 / VP-21·25 **EP-10** | 권한 작업은 셸 서비스로만 | `shared/host-protocol.ts` | 호스트·셸 | 8자리 — 비밀 봉인·해제(`infra/config/crypto.ts`) · 대화상자(`handlers/files.ts`·`artifacts.ts`) · 외부 열기(`shell.*` 5파일) · 알림·창 포커스(`handlers/misc.ts`) · 전원 이벤트(`bootstrap.ts`) · 파티션 세션 요청(`infra/browser-session.ts`·`net-request.ts`) · 업데이트 제어(`updater.ts`) · 경로·버전(`app.getPath`·`getVersion`) | §8 의 Electron 값 import `rg` → 17파일을 8종에 배정, 미배정 0 | 호스트가 없는 API 를 불러 기동 중 죽는다 |
+| AR-08 / VP-21·25 **EP-10** — 분모는 EP-10′ (§7-B) | 권한 작업은 셸 서비스로만 | `shared/host-protocol.ts` | 호스트·셸 | 8자리 — 비밀 봉인·해제(`infra/config/crypto.ts`) · 대화상자(`handlers/files.ts`·`artifacts.ts`) · 외부 열기(`shell.*` 5파일) · 알림·창 포커스(`handlers/misc.ts`) · 전원 이벤트(`bootstrap.ts`) · 파티션 세션 요청(`infra/browser-session.ts`·`net-request.ts`) · 업데이트 제어(`updater.ts`) · 경로·버전(`app.getPath`·`getVersion`) | §8 의 Electron 값 import `rg` → 17파일을 8종에 배정, 미배정 0 | 호스트가 없는 API 를 불러 기동 중 죽는다 |
 | AR-09 / VP-21·26·28 **EP-11** | 수명 이벤트 5종 | `shared/host-protocol.ts` | 호스트 → 셸 | 5자리 — `turn.started`·`turn.ended`·`approval.pending`·`session.ended`·`harness.exited` | 구현 뒤 `rg -n "type: '(turn\.started\|turn\.ended\|approval\.pending\|session\.ended\|harness\.exited)'" app/src/shared/host-protocol.ts` | 재시작 게이트·트레이 판정이 낡은 상태를 본다 |
 | SD-04 / VP-22·29 **EP-12** | 호스트 종료 처리 | `app/shell/host-supervisor.ts` | main | 4자리 — 에이전트 호스트 exit · 데이터 호스트 exit · 정상 shutdown · 3초 초과 강제 종료 | 구현 뒤 `rg -n "\.on\('exit'" app/src/main/app/shell` | 고아 하네스가 남거나 세션이 busy 로 굳는다 |
 
@@ -602,7 +733,7 @@
 | 5 | `src/shared/ipc.ts` · `protocol.ts` · `preload/index.ts` · `renderer shared/api/{ipc,dataHost}.ts` | 응답 계약·포트 | `SessionLoadTicket` · `RefreshSessionResult.updated` 에서 `session` 제거 · `CHANNELS.dataHostConnect`·`dataHostPort`·`dataHostExited` 추가 | 기존 preload·핸들러 테스트 |
 | 5 | `src/main/app/handlers/session.ts` | 핸들러 | 두 핸들러가 티켓만 돌려준다(에이전트 호스트에서 돈다) | 기존 핸들러 테스트 |
 | 5 | `features/chat/store/chatStore.ts` | 취소 배선 | `loadSession`·`refresh` 가 `AbortSignal` 을 넘기고 `sessionLoads` 교체·삭제 때 abort 한다 | 기존 스토어 테스트 |
-| 6 | `adapters/claude/{adapter,plugin-catalog}.ts` | 비동기 카탈로그 | `adapter.ts:609` 를 `await readClaudePluginCatalogAsync` 로, 동기 판 삭제 | 기존 카탈로그 테스트 |
+| 6 | `adapters/claude/{adapter,plugin-catalog}.ts` | 비동기 카탈로그 | **rev 3 — §7-B 의 단계 6′ 로 대체** | — |
 | 7 | `docs/arch/execution-model.md` · `docs/decisions/012-execution-contexts.md` · `docs/INDEX.md` · `IPC_CONTRACT.md` · `arch/frontend/rendering.md` §1.3 · `arch/backend/{overview,runtime-ipc,security}.md` · root·`app`·`main`·`renderer` 의 `AGENTS.md` · `app/AGENTS.md` CI 표 | 문서 | 현재 상태로 갱신. 경로 표와 "직접 호출 금지 — 가드 `check-ui-thread` 가 막는다"를 넣는다. 수치는 상수 경로로 적는다 | 문서 가드 · AC34 |
 
 ### 계산 클라이언트의 규칙 (MD-01)
