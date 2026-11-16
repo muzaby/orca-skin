@@ -773,4 +773,4 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| 1 | 메뉴 `종료` click이 `app.quit` 분리 호출(`click: deps.app.quit`, this 소실)로 바뀌어도 16케이스 green — 테스트 `app.quit`이 `vi.fn`이라 `this`를 관측하지 못한다(변이 X1) | VP-01 EP-02 둘째 항목 · `verify.md` §4·§13 D1 | 설계자: 채택(가짜 `app.quit`이 `this === app` 단언 + 등록 변이 추가) 또는 경계 선언 | 확장 | PLAN_GAP(창 안) | open |
+| 1 | 메뉴 `종료` click이 `app.quit` 분리 호출(`click: deps.app.quit`, this 소실)로 바뀌어도 16케이스 green — 테스트 `app.quit`이 `vi.fn`이라 `this`를 관측하지 못한다(변이 X1) | VP-01 EP-02 둘째 항목 · `verify.md` §4·§13 D1 | 설계자: 채택(가짜 `app.quit`이 `this === app` 단언 + 등록 변이 추가) 또는 경계 선언 | 확장 | PLAN_GAP(창 안) → ΔV4 채택 | **closed** (verify r2 — M16·X8·X10 red 3, `verify.md` 라운드 2) |
