@@ -496,7 +496,7 @@ PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies`
 
 Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후).
 
-- **(anchor) 시스템 트레이** — UI/Main 진입점 미지정. Phase 2+ 검토.
+- ~~(anchor) 시스템 트레이~~ — **구현 완료 (0322)**. Windows 에서 창 닫기는 종료가 아니라 숨김이고 앱은 트레이에 상주한다. 트레이 메뉴는 열기·종료(`app/src/main/app/tray-residency.ts`). macOS·Linux 는 대상이 아니다.
 - ~~(anchor) electron-updater + GitHub Releases~~ — **구현 완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollout.
 - ~~(anchor) Auto-update 채널~~ — stable 단일 채널로 출발 (beta 채널 분리는 Future).
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `adapters/` 에 board 어댑터를 두는 자리를 예약(파일 미생성), 네이티브 모듈 (`orcinus-orca-board.node`, libusb) Phase 2~3.
