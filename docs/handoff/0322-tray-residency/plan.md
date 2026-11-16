@@ -13,8 +13,8 @@
 | 상태 | READY |
 | V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` |
-| 이번 V revision | `ΔV2` — D-007을 D-009로 대체(§21). ΔV1은 §20. 둘 다 구현 전 정정 |
-| 유효 V | `V1 + ΔV1 + ΔV2` |
+| 이번 V revision | `ΔV3` — §10 자리 검색 명령 4개 정정(§22). ΔV1은 §20, ΔV2는 §21 |
+| 유효 V | `V1 + ΔV1 + ΔV2 + ΔV3` |
 
 # Part I — Product & UX Contract
 
@@ -298,11 +298,11 @@ export function installTrayResidency<M>(deps: {
 
 | V node / pair | 계약 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
 |---|---|---|---|---|---|---|
-| MD-01 / VP-01 — EP-01 | 닫기 판정: `resident ∧ ¬quitting`이면 `preventDefault`+`hide`, 아니면 아무것도 하지 않는다 | `tray-residency.ts` | `attach`의 `close` 리스너 | 1자리 — `attach` 안 `close` 리스너 | `rg -n "'close'" app/src/main/app/tray-residency.ts` → 1 | 숨겨야 할 때 종료되거나, 종료해야 할 때 숨어 종료·업데이트·로그오프가 막힌다 |
-| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 첫 항목 `→open` · 둘째 항목 `→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label:|'click'|setToolTip" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
+| MD-01 / VP-01 — EP-01 | 닫기 판정: `resident ∧ ¬quitting`이면 `preventDefault`+`hide`, 아니면 아무것도 하지 않는다 | `tray-residency.ts` | `attach`의 `close` 리스너 | 1자리 — `attach` 안 `close` 리스너 | `rg -n "\.on\('close'" app/src/main/app/tray-residency.ts` → 1 | 숨겨야 할 때 종료되거나, 종료해야 할 때 숨어 종료·업데이트·로그오프가 막힌다 |
+| MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 첫 항목 `→open` · 둘째 항목 `→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label: labels\.|\.on\('click'|\.setToolTip\(" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
 | AR-01 / VP-03 — EP-03 | 조립: 설치 1회(`whenReady`, `createWindow` 바로 뒤) · 그 창에 `attach` | `index.ts` | 부팅 | 2자리 — `installTrayResidency(` 호출 · `.attach(` 호출 | `rg -o "installTrayResidency\(|\.attach\(" app/src/main/index.ts` → 2 | 모듈이 green이어도 실제 앱은 X로 종료된다 |
-| MD-01 / VP-01 — EP-04 | 정리: `will-quit`에서 만든 트레이만 `destroy` | `tray-residency.ts` | 종료 | 1자리 — `will-quit` 리스너 | `rg -n "'will-quit'" app/src/main/app/tray-residency.ts` → 1 | 종료 뒤 트레이에 유령 아이콘 |
-| MD-01 / VP-01 — EP-05 (ΔV2) | 라벨 언어: 메뉴 라벨 = `TRAY_MENU_LABELS[settings.getAll().uiLocale]`, 패치에 `uiLocale`이 있으면 메뉴를 다시 만들어 `setContextMenu` | `TRAY_MENU_LABELS` | 설치 시 + 설정 변경 시 | 2자리 — 라벨 선택(`getAll()`) · `onPatch` 구독 | `rg -n "getAll\(\)|onPatch\(" app/src/main/app/tray-residency.ts` → 2 | 영어 UI에 한국어 메뉴가 뜨거나, 언어를 바꿔도 재시작 전까지 옛 라벨이 남는다 |
+| MD-01 / VP-01 — EP-04 | 정리: `will-quit`에서 만든 트레이만 `destroy` | `tray-residency.ts` | 종료 | 1자리 — `will-quit` 리스너 | `rg -n "\.on\('will-quit'" app/src/main/app/tray-residency.ts` → 1 | 종료 뒤 트레이에 유령 아이콘 |
+| MD-01 / VP-01 — EP-05 (ΔV2) | 라벨 언어: 메뉴 라벨 = `TRAY_MENU_LABELS[settings.getAll().uiLocale]`, 패치에 `uiLocale`이 있으면 메뉴를 다시 만들어 `setContextMenu` | `TRAY_MENU_LABELS` | 설치 시 + 설정 변경 시 | 2자리 — 라벨 선택(`getAll()`) · `onPatch` 구독 | `rg -n "\.getAll\(\)|\.onPatch\(" app/src/main/app/tray-residency.ts` → 2 | 영어 UI에 한국어 메뉴가 뜨거나, 언어를 바꿔도 재시작 전까지 옛 라벨이 남는다 |
 
 검색 명령은 구현 뒤 트리 기준이다(현재는 전부 0 — 신규 파일). 구현자는 출력과 목록의 차집합 0을 보고한다.
 
@@ -521,6 +521,12 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 - pair: VP-01(AC2·AC11·EP-05·M12~M15)·VP-04(실기 단계 9)만 영향. EP-03 자리 수는 2 그대로다 — `settings`는 설치 호출의 인자다.
 - `ACTIVE 결정 ↔ AC` 대조(ΔV2 뒤): 충돌 0 — D-002("두 개 메뉴만") ↔ AC2(두 언어 모두 길이 2) · D-009 ↔ AC2·AC11.
+
+## 22. ΔV3 — §10 자리 검색 명령 정정 (2026-11-16, 구현 턴 중 PLAN_GAP)
+
+- 출처: 구현 r1 중 발견한 plan 내부 불일치(검색 출력 ↔ 자리 목록). 같은 파일에 §10 포트 타입 선언이 있어 EP-01·02·04·05의 검색이 타입 선언 줄까지 세었다 — 옛 명령 출력은 2·7·2·4로 목록 1·4·1·2와 달랐다.
+- 정정: 술어를 "리스너 등록·호출 자리"로 좁혔다(`.on('close'` · `label: labels.` · `.on('click'` · `.setToolTip(` · `.on('will-quit'` · `.getAll()` · `.onPatch(`). 타입 선언은 앞에 `.`이 없어 걸리지 않는다.
+- 불변: 자리 목록(10자리)·규칙 칸·AC·등록 변이·pair는 그대로다. 새 의무 0.
 
 ---
 
