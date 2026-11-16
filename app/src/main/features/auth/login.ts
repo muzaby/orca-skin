@@ -611,7 +611,7 @@ export class LoginService {
     definition: AuthDefinition,
     attempt: number,
     candidate: CandidateCredential,
-    writeVault?: () => void,
+    writeVault?: () => Promise<void>,
     cause: AuthSnapshotChangeCause = 'credential-committed'
   ): Promise<SettleOutcome> {
     const probe = await this.probe(definition, candidate)
@@ -630,7 +630,7 @@ export class LoginService {
     // 확인된 값을 **아무도 가리키지 않는 새 키**에 쓴다. 여기서 실패하면 옛 키는 그대로다.
     if (writeVault) {
       try {
-        writeVault()
+        await writeVault()
       } catch (error) {
         this.discardKeys(candidate.grant)
         this.deps.logger?.('auth.login.vault-write-failed', {
@@ -638,6 +638,13 @@ export class LoginService {
           reason: errorMessage(error)
         })
         return { kind: 'rejected', credentialRejected: false }
+      }
+      // 봉인을 기다리는 사이에 새 시도가 시작됐을 수 있다 — 세대를 다시 본다(0324 EP-18).
+      // 이 시도가 쓴 키는 아직 아무 grant 도 가리키지 않으니 지우고 물러난다.
+      if (!this.isCurrentAttempt(definition.id, attempt)) {
+        this.discardKeys(candidate.grant)
+        this.deps.logger?.('auth.login.attempt-superseded', { authId: definition.id })
+        return { kind: 'superseded' }
       }
     }
     // 옛 키는 커밋이 **내구 저장으로** 성립한 뒤에만 지운다.
@@ -678,7 +685,7 @@ export class LoginService {
     authKind: AuthMethodKind,
     value: string,
     principalId?: string
-  ): { candidate: CandidateCredential; writeVault: () => void } {
+  ): { candidate: CandidateCredential; writeVault: () => Promise<void> } {
     const vaultKey = this.newVaultKey(authId, authKind)
     const createdAt = this.clock()
     // 필드 규칙 — 필드마다 한 줄, 빠짐없이 (0194 r4 · `tokenCandidate` 와 같은 형식).
@@ -704,11 +711,9 @@ export class LoginService {
     const kept = new Set(vaultKeysOf(keep))
     for (const name of vaultKeysOf(grant)) {
       if (kept.has(name)) continue
-      try {
-        this.deps.vault.delete(name)
-      } catch {
-        // 못 지워도 정합성은 유지된다 — 아무도 가리키지 않는 자리이고 sweep 이 다시 시도한다.
-      }
+      // 못 지워도 정합성은 유지된다 — 아무도 가리키지 않는 자리이고 sweep 이 다시 시도한다.
+      // 기다리지 않는다: 지울 자리는 이미 어느 grant 도 가리키지 않는다.
+      this.deps.vault.delete(name).catch(() => {})
     }
   }
 
@@ -907,7 +912,7 @@ export class LoginService {
     authKind: AuthMethodKind,
     token: TokenValue,
     previousPrincipalId?: string
-  ): { candidate: CandidateCredential; writeVault: () => void } {
+  ): { candidate: CandidateCredential; writeVault: () => Promise<void> } {
     const vaultKey = this.newVaultKey(authId, authKind)
     const createdAt = this.clock()
     const refreshKey =
@@ -945,14 +950,14 @@ export class LoginService {
       // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가 가리키지 않는
       // 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 — r6 의 `new-access +
       // old-refresh` 혼합 상태가 만들어질 자리가 없다.
-      writeVault: () => {
-        this.deps.vault.set(vaultKey, token.token, {
+      writeVault: async () => {
+        await this.deps.vault.set(vaultKey, token.token, {
           kind: authKind,
           createdAt,
           ...ifPresent('expiresAt', token.expiresAt)
         })
         if (refreshKey !== undefined && token.refreshToken !== undefined) {
-          this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
+          await this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
         }
       }
     }

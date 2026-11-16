@@ -13,19 +13,19 @@ export function registerMcpHandlers(ctx: McpHandlerContext): void {
   handlePlain(CHANNELS.mcpList, (): McpServer[] => ctx.mcp.list())
 
   handlePlain(CHANNELS.mcpAdd, async (raw): Promise<McpServer> => {
-    const result = ctx.mcp.add(raw)
+    const result = await ctx.mcp.add(raw)
     await ctx.deployExtensions()
     return result
   })
 
   handlePlain(CHANNELS.mcpUpdate, async (raw): Promise<McpServer | null> => {
-    const result = ctx.mcp.update(raw)
+    const result = await ctx.mcp.update(raw)
     await ctx.deployExtensions()
     return result
   })
 
   handle(CHANNELS.mcpDelete, DeleteMcpServerSchema, 'reject', async (req): Promise<void> => {
-    ctx.mcp.remove(req.id)
+    await ctx.mcp.remove(req.id)
     await ctx.deployExtensions()
   })
 }
