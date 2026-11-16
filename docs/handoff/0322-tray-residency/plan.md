@@ -538,7 +538,7 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 - 판정: verify r1 D1(확장 후보, 창 안)을 **채택**한다. 출처 = `verify.md` §4 X1 · §13 D1 — `click: deps.app.quit`(분리 참조)로 바꿔도 16케이스 green이었다.
 - 채택 이유: Electron `app.quit`은 네이티브 `App` 인스턴스 메서드라 분리 호출하면 바인딩이 깨질 수 있는 형태다. 테스트 가짜 `quit`이 `vi.fn`이라 `this`를 보지 않았다. 의무가 단언 1줄·변이 1개라 창 안에서 닫힌다.
-- 조사: 자리 검색 `rg -n "click:|\.on\('click'" app/src/main/app/tray-residency.ts` → 3(`:76` 열기 · `:77` 종료 · `:83` 아이콘). 포트 메서드를 값으로 넘기는 자리 중 `this`가 의미 있는 곳은 `:77` 하나 — `:76`·`:83`의 `open`은 B7. `mock.contexts` 선례: `src/main/features/plugins/mail/store/index.test.ts:386`(vitest `^4.1.7`).
+- 조사: 자리 검색 `rg -n "click: \(\) => deps\.|\.on\('click'" app/src/main/app/tray-residency.ts` → 3(`:76` 열기 · `:77` 종료 · `:83` 아이콘). 술어를 "포트를 부르는 click 콜백"(`click: () => deps.`)으로 둔 것은 `:28` 타입 선언 `click: () => void`를 빼기 위해서다 — 구현 r2 중 정정(옛 명령 `click:` 출력 4). 포트 메서드를 값으로 넘기는 자리 중 `this`가 의미 있는 곳은 `:77` 하나 — `:76`·`:83`의 `open`은 B7. `mock.contexts` 선례: `src/main/features/plugins/mail/store/index.test.ts:386`(vitest `^4.1.7`).
 
 | Node / 행 | provenance | 이전 | ΔV4 |
 |---|---|---|---|
