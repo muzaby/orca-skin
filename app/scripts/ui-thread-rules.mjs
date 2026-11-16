@@ -64,6 +64,11 @@ export const RULES = {
     title: 'DB 연결',
     ask: '에이전트 호스트의 `DbQueries`',
     route: '`ctx.db` 주입'
+  },
+  l: {
+    title: '영속 파일(`electron-store`)',
+    ask: '에이전트 호스트의 세 스토어(창 상태는 셸의 `ShellState`)',
+    route: '주입받은 `userData` 를 `cwd` 로 — `new Store({ …, cwd })`'
   }
 }
 
@@ -155,6 +160,12 @@ export const SYNC_REGISTRY = [
     count: 2,
     class: 'single-file',
     reason: '로그 경로 하나의 존재 확인'
+  },
+  {
+    file: `${MAIN}app/shell/shell-state-file.ts`,
+    count: 2,
+    class: 'boot',
+    reason: '셸 상태 파일이 없는 첫 실행에서 기존 설정 파일 하나를 읽는다(창 생성 전)'
   },
   {
     file: `${MAIN}features/extensions/claude/deployer.ts`,
@@ -278,5 +289,15 @@ export const ALLOWED = {
   },
   k: {
     files: [`${MAIN}infra/db/file-database.ts`, `${MAIN}infra/db/warm-file-sqlite.ts`]
+  },
+  // (l) `electron-store` 를 열어도 되는 파일 — 모두 `cwd` 를 주입받아 연다.
+  l: {
+    module: 'electron-store',
+    files: [
+      `${MAIN}infra/settings-store.ts`,
+      `${MAIN}infra/config/secret-store.ts`,
+      `${MAIN}features/auth/store-file.ts`,
+      `${MAIN}app/shell/shell-state-file.ts`
+    ]
   }
 }

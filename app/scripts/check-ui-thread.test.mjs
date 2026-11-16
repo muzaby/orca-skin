@@ -446,6 +446,75 @@ describe('(k) DB 연결', () => {
   })
 })
 
+describe('(l) 영속 파일', () => {
+  const open = (arg) =>
+    `import Store from 'electron-store'\nexport const s = new Store<Record<string, unknown>>(${arg})\n`
+  const registered = ALLOWED.l.files[1]
+
+  it('등록 밖 파일의 `electron-store` 값 import 는 exit 1', () => {
+    fails('l', { 'src/main/features/history/prefs.ts': open("{ name: 'x', cwd: dir }") })
+  })
+
+  it('등록 밖 파일의 `import type` 은 exit 0', () => {
+    passes({
+      'src/main/features/history/prefs.ts':
+        "import type Store from 'electron-store'\nexport type S = Store\n"
+    })
+  })
+
+  it('등록된 네 파일이 `cwd` 를 가진 객체 리터럴로 열면 exit 0', () => {
+    passes(
+      Object.fromEntries(
+        ALLOWED.l.files.map((file, index) => [
+          file,
+          open(index % 2 === 0 ? "{ name: 'x', cwd: dir }" : "{ name: 'x', cwd }")
+        ])
+      )
+    )
+  })
+
+  it('등록 파일이 `cwd` 없이 열면 exit 1', () => {
+    fails('l', { [registered]: open("{ name: 'x', defaults: {} }") })
+  })
+
+  it('한 파일의 두 생성 중 하나만 `cwd` 가 없어도 exit 1', () => {
+    fails('l', {
+      [registered]:
+        "import Store from 'electron-store'\n" +
+        "export const a = new Store({ name: 'a', cwd })\n" +
+        "export const b = new Store({ name: 'b' })\n"
+    })
+  })
+
+  it('인자가 객체 리터럴이 아니면 exit 1', () => {
+    fails('l', { [registered]: open('options') })
+  })
+
+  it('스프레드만 있는 객체 리터럴은 exit 1', () => {
+    fails('l', { [registered]: open('{ ...options }') })
+  })
+
+  it('인자 없이 열면 exit 1', () => {
+    fails('l', {
+      [registered]: "import Store from 'electron-store'\nexport const s = new Store()\n"
+    })
+  })
+
+  it('생성 밖에서 클래스를 값으로 넘기면 exit 1', () => {
+    fails('l', {
+      [registered]:
+        "import Store from 'electron-store'\nexport const make = (C = Store) => new C({ cwd })\n"
+    })
+  })
+
+  it('default import 가 아닌 형태는 exit 1', () => {
+    fails('l', {
+      [registered]:
+        "import * as Store from 'electron-store'\nexport const s = new Store.default({ cwd })\n"
+    })
+  })
+})
+
 describe('문서 대조 (AC34)', () => {
   it('가드의 규칙 id 가 경로 표에 없으면 exit 1', () => {
     const result = fails('doc', {}, { ids: RULE_IDS.filter((id) => id !== 'h') })
