@@ -1728,6 +1728,97 @@ AC 자기보고(검증 증거 아님, 분모 38): r1.6 과 같다 — `✅ 12 ·
 
 ---
 
+## [구현자 기입] r1.8 — Bootstrap·DB·로그의 경로·버전·외부 열기·깨어남 이주 (미완료)
+
+**판정: 미완료(partial).** `bootstrap.ts`·`infra/db`·`infra/log` 가 Electron 을 import 하지 않게 됐다. 경로·버전은 호스트 환경 값으로, 외부 열기·휴지통·깨어남 신호는 셸 서비스로 간다. 비밀 봉인(AC27)은 설계 선택이 남아 멈췄다 — 아래 설계 리뷰 첫 행.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| 비밀 봉인의 비동기 전환 | 사용자 결정 대기 — 두 설계가 모두 유효하다 | §12 는 "호출부를 전수 `await`" 라 적지만, 동기 소비가 `AuthStore.status()`·`secret()`(`features/auth/{runtime,login,authenticated-request,secret-access}.ts` 11곳)과 턴 조립의 동기 MCP `resolver` 까지 닿는다. 대안은 호스트 기동 때 한 번 풀어 메모리에 두는 것이다(D-018 "풀린 값은 호스트에 전달할 수 있다"). 키체인이 잠긴 채 뜨면 재시작 전까지 못 푸는 차이가 있다 |
+| 경로·버전의 자리 | 구현 세부 | `infra/host-environment.ts` 의 `setHostEnvironment`/`hostEnvironment()`. 셸은 로그를 열기 전에 Electron 값으로 정하고, 호스트 진입점은 fork 인자로 정한다(§11 단계 4) |
+| 깨어남 신호의 원인 | 구현 세부 — 동작 보존 | Bootstrap 의 구독이 둘이다: 일일 게이트는 절전 해제·화면 잠금 해제·창 포커스, 하네스 재확인은 창 포커스만. `wake` 에 원인(`resume`·`unlock-screen`·`window-focus`)을 실었다 |
+| `app.getPath('desktop')` 의 시점 | 구현 세부 — 실기 확인 대상 | 전에는 `whenReady` 뒤에 읽었고 이제 모듈 스코프(`initLog` 앞)에서 읽는다. Electron 의 `getPath` 는 준비 전에도 쓸 수 있다고 보았고 이 환경에서는 확인하지 못했다 |
+| `process.resourcesPath` | 남김 — 호스트 진입점 때 확인 | `workProfilePluginPath` 가 그대로 읽는다. utility 프로세스에서도 같은 값인지는 진입점 단계에서 본다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-10′ 경로·버전 | `app.getPath`·`getVersion`·`isPackaged`·`getAppPath` 소비 | 호스트 쪽 3파일 | `app/bootstrap.host-boundary.test.ts` "경로·버전은 호스트 환경에서 읽는다" 7 · `bootstrap.harness.test.ts`(`dataDirectory`) · `builtin-resources.test.ts` · `infra/log/index.test.ts`(로그의 앱 버전). 남긴 곳: `app/updater.ts`(셸 소유 — 업데이트 제어 범주) |
+| EP-10′ 외부 열기 | `bootstrap.ts` 의 `shell.openExternal`·`shell.trashItem` | 2/2 | `bootstrap.host-boundary.test.ts` "외부 열기는 셸 서비스로 간다" |
+| EP-10′ 전원 이벤트 | `powerMonitor`·`browser-window-focus` 구독 2곳 | 2/2 | `daily-gate.wiring.test.ts`(구독·셸의 원인 3종) · `bootstrap.opencode-warmup.test.ts`(창 포커스만 재확인 · 종료 뒤 0) |
+| EP-10′ 비밀 봉인·해제 · 파티션 세션 · 업데이트 제어 | — | 0 | 비밀은 위 결정 대기 · 나머지 미착수 |
+| EP-12 · EP-8 · EP-11 · EP-9 · EP-14 | — | r1.7 과 같다 | — |
+
+Electron 값 import 남은 파일: 셸 3(`index.ts`·`app/shell/electron-services.ts`·`infra/ipc/electron-transport.ts`) · 호스트 허용 1(`infra/net/net-fetch.ts`) · 이주 대상 5(`app/error-report-sink.ts`·`app/updater.ts`·`infra/browser-session.ts`·`infra/config/crypto.ts`·`infra/net/net-request.ts`). 이번 턴에 빠진 파일 3(`app/bootstrap.ts`·`infra/db/index.ts`·`infra/log/index.ts` — `bootstrap.host-boundary.test.ts` "호스트 조립은 Electron 을 import 하지 않는다").
+
+V-pair 자기 상태: 올린 것 없음.
+
+### 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`. oracle 은 기준선 9파일을 뺀 실행 집합이다. 원복은 매번 "모든 파일 원문 그대로".
+
+| 묶음 | 행 | 결과 |
+|---|---|---|
+| 호스트 환경·셸 서비스 배선 `E-1`~`E-18`·`E-20`·`E-21` | 20 | 잡음 20. `E-2`·`E-5`~`E-9`·`E-14`·`E-15`·`E-20` 9행은 처음에 green 이었다 — 대표 테스트가 그 자리를 대역으로 막았다. `bootstrap.host-boundary.test.ts` 를 더해 잡음. `E-21` 은 그 뒤 더한 행(셸의 `desktop` 값) |
+
+`E-19` 는 원문이 맞지 않아 돌지 않았고 표에서 뺐다(같은 자리는 `host-environment.test.ts` "정하기 전에는 던진다"가 본다). 검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 1 · sweep 19 = 표 행 20`.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자가 보는 변화 | 없음 — 같은 값·같은 Electron 호출이다 |
+| 창 포커스 재확인 | 절전 해제·화면 잠금 해제에서는 지금처럼 돌지 않는다(`bootstrap.opencode-warmup.test.ts`) |
+
+### 놓친 잠재 문제 + 대응
+
+- 구조적 oracle(글자 고정)은 같은 뜻의 다른 표기로 바꾸면 red 가 난다 — 리팩토링 때 이 테스트를 함께 고쳐야 한다. 행동으로 관측할 방법(대역 없는 조립)은 호스트 진입점 단계의 IT 가 맡는다.
+- `bootstrap.artifacts.test.ts` 의 쓰지 않는 `shell.trashItem` 대역을 지웠다.
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 4 경로·버전 | 구현 | `infra/host-environment.ts` + `.testfixture.ts` + 테스트 2 · `index.ts` 가 로그 전에 정한다 · `bootstrap.ts`·`infra/db`·`infra/log` 이주 |
+| 4 외부 열기·깨어남 | 구현 | `bootstrap.ts` 의 `openExternal`·`trashItem`·`subscribeWake`·하네스 재확인 · `wake` 원인 · 셸이 원인 3종을 낸다 |
+| 4 비밀 봉인 | 결정 대기 | 위 설계 리뷰 |
+| 4 나머지 · 5 · 7 | 미착수 | r1.7 과 같다 |
+
+AC 자기보고(검증 증거 아님, 분모 38): r1.7 과 같다 — `✅ 12 · ⚠️ 12 · ❌ 14 = 총 38`.
+
+**r1.8 마지막 트리 gate** — vitest 는 CI 흉내 방식, DB 스위트 포함.
+
+| gate | 관측 |
+|---|---|
+| 첫 실행의 red | `typecheck` 1(`shell-services.test.ts` 의 포트 대역에 `onWake` 없음) · vitest 새 `FAIL` 6파일(`bootstrap.{harness,native-history,opencode-warmup}` — 호스트 환경·셸 서비스 미설정 · `builtin-resources`·`daily-gate.wiring` — 옛 배선의 글자 단언 · `infra/log/index` — 호스트 환경 미설정). 모두 고쳤다 |
+| 가드 4종 | 전부 exit 0 |
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | `error TS` 0줄 |
+| `node --test scripts/*.test.mjs` | tests 958 · pass 955 · fail 0 · todo 3 |
+| `vitest run` (CI 흉내, 필터 없음) | 1005파일 — 9 fail / 22케이스 · 오류 1 · 992 pass. 실패 파일 ↔ 기준선 9파일 차집합 0줄 · `[test-pools]` 0줄 |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 230건(같은 수) |
+
+테스트 소스 규칙의 파일별 판정(추가·수정 11파일): 시간 예산 — `check-test-budgets` exit 0 · 호스트 격리 — 홈·env 접근 추가 0 · 풀 분류 — `[test-pools]` 0줄.
+
+대상 커밋: `(r1.8 구현 일부 — 좌표는 INDEX)`.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.8`(미완료) — verify 0회.
+- §12 의 영향 행("호출부 전수 `await`")이 소비처 수를 세지 않아 구현 턴이 설계 선택을 만났다 — r1 의 EP-7·EP-10 "검색 술어가 실제보다 좁다"와 같은 축이다.
+- 컴포지션 루트의 대역이 이주한 자리를 가렸다(변이 9건 green) — r1.7 의 기준선 실패 가림과 다른 원인, 같은 증상(oracle 이 그 자리를 보지 못함)이다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. 비밀 봉인 — 사용자 결정(전수 `await` / 기동 때 한 번 풀어 메모리에 둠)에 따라 `SecretStore`·`vault`·`AuthStore`·MCP `resolver`.
+2. 파티션 세션 요청(`browser-session`·`net-request`) · `error-report-sink` · 업데이트 제어의 셸 이동.
+3. 셸 배선 · 세 채널 · preload 교체 · `entry` · `index.ts` 축소 · `chatStore` → 단계 5 → 7.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
