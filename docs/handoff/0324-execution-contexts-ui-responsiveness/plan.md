@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 3.2 — §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 3.3 — §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -557,6 +557,59 @@ r1.4 구현 턴이 올린 규범 행 차이 다섯 건이다. 이 절이 가리�
 - 분모: EP-11 5(그대로) · EP-9 5(+1). 규칙 칸 ↔ 입력 칸: EP-11 호스트 쪽 9분기 ↔ `lifecycle-emitter.test.ts` · EP-9 포트 연결 5분기 ↔ `port-server.test.ts`.
 - node·pair 변경 0: AR-07·AR-09 의 pair(VP-24·VP-26)는 그대로이고 oracle 파일에 `port-server.test.ts` 가 더해진다.
 - 사용자 결정이 필요한 항목 0: 둘 다 내부 배선이고 사용자가 보는 결과는 Part I 그대로다.
+
+---
+
+## 7-E. V1 rev 3.3 정정 — 창 쪽 호스트 포트 클라이언트 (r1.6 `PLAN_GAP`)
+
+r1.6 이 preload 전송을 만들려다 멈춘 자리다. §11 단계 4 의 preload 행은 "포트 재수신 시 교체하고 미응답 요청은 실패시킨다"만 적고, 포트를 실어 오는 채널 · 첫 포트 전의 요청 · 호스트가 죽은 뒤의 요청 · 재기동을 부르는 신호를 정하지 않았다. 이 절이 그 넷을 정한다. AC·pair 목록은 rev 3.2 그대로다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| 에이전트 호스트용 채널 | `rg -n "agentHost\|agent-host" app/src/shared/ipc.ts` | 0 | §11 이 이름만 적은 `oo:agent-host:exited`·`:ready` 가 `CHANNELS` 에 없다. 재기동을 부르는 preload → 셸 신호도 없다 |
+| 감독자의 재기동 진입점 | `app/shell/host-supervisor.ts` 의 `ensureRunning` · `attach` | 2 | 비정상 종료 뒤에는 자동으로 띄우지 않는다 — 누군가 불러야 한다 |
+| 감독자의 창 통지 | `SupervisedClient.notify('ready' \| 'exited')` | 2 | 준비 통지는 언제나 새 포트 직후다(`becomeReady` · `attach`) |
+| preload 의 호스트 채널 호출 | `rg -c "ipcRenderer\.(invoke\|send\|on)\(" app/src/preload/index.ts` | 다수 | 한 번에 바꿔야 한다 — 호스트 프로세스가 없는 지금 일부만 포트로 보내면 그 요청은 받는 쪽이 없다 |
+
+### 결정
+
+- **포트를 받는 것이 곧 준비다.** 셸은 `oo:agent-host:port`(셸 → preload, 포트는 `event.ports[0]`) 하나로 포트와 준비를 함께 알린다. 별도의 `:ready` 채널은 두지 않는다 — 감독자의 준비 통지는 언제나 새 포트 직후라 둘을 나누면 순서만 생긴다.
+- **재기동은 preload 가 부른다.** 종료 통지(`oo:agent-host:exited`) 뒤 첫 호스트 채널 요청이 `oo:agent-host:connect`(preload → 셸, 단방향) 1회를 보내고 셸은 `ensureRunning` 을 부른다. 감독자가 기동 실패 상한에 닿아 있으면 셸은 바로 종료 통지를 다시 보낸다.
+- **포트가 없을 때의 요청은 줄을 세운다.** 첫 포트 전(창 생성 직후)과 종료 뒤의 요청은 대기열에 넣고 다음 포트에 순서대로 보낸다. 종료 통지는 보낸 요청과 대기열을 모두 실패시킨다 — 기동이 실패해도 요청이 영원히 기다리지 않는다.
+- **세 채널과 preload 배선은 호스트 진입점과 같은 단계에 넣는다.** 이 절의 규칙은 Electron 을 모르는 창 쪽 클라이언트(`preload/host-port.ts`)로 먼저 만들고, `CHANNELS`·`IPC_CONTRACT.md`·`channel-owner.ts`(셋 다 `shell`)·`preload/index.ts` 교체는 `index.ts` 축소와 함께 한다.
+
+### 강제 지점 — rev 3.3
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-06 / VP-21·23 **EP-8** | preload 의 호스트 채널 전송 | `preload/host-port.ts` | preload | 3자리 그대로 — preload 자리의 내용을 정한다: 요청(`invoke`) · 단방향(`send`) · 통지 구독(`on`) 이 모두 이 클라이언트를 지난다 | 배선 뒤 `rg -n "hostPort\.(invoke\|send\|on)\(" app/src/preload --glob '!*.test.*'` | 호스트 채널 요청이 `ipcRenderer` 로 가 받는 쪽이 없다 |
+
+**EP-8 규칙 칸 — 창 쪽 클라이언트** (`preload/host-port.test.ts` 입력 — 분기마다 1개):
+
+| 분기 | 기대 |
+|---|---|
+| 포트가 있을 때 요청 | 그 포트로 `invoke` 1건, 응답 `ok:true` → 값으로 풀림 · `ok:false` → 그 오류 문장으로 거부 |
+| 첫 포트 전의 요청 · 단방향 송신 | 보내지 않고 줄을 선다 → 포트가 오면 들어온 순서대로 보낸다. 연결 요청 0회 |
+| 종료 통지 | 응답을 기다리는 요청과 대기열을 모두 거부 · 포트를 닫는다 |
+| 종료 뒤 첫 요청 | 연결 요청 1회 + 대기열. 둘째 요청은 연결 요청을 더 보내지 않는다 |
+| 새 포트 수신(교체) | 옛 포트에서 응답을 기다리던 요청을 거부하고 옛 포트를 닫는다 · 이후 요청은 새 포트로 |
+| 옛 포트의 늦은 응답 | 무시 |
+| 통지(`kind:'event'`) | 그 채널의 구독자 전부에 페이로드 전달 · 구독 해제 뒤 0 · 포트를 바꿔도 구독은 유지 |
+| 형식이 틀린 메시지 · 모르는 요청 번호 | 무시 |
+
+**선언 경계** (rev 3.3 추가):
+
+- B19 — 대기열에 상한과 제한 시간이 없다: 대기열은 첫 포트 전과 종료 뒤에만 생기고, 둘 다 다음 포트나 다음 종료 통지(기동 실패 포함)로 비워진다.
+- B20 — 종료 통지로 거부된 요청을 다시 보내지 않는다: 그 요청이 호스트에서 이미 처리됐는지 창은 알 수 없다(AC29 의 "세션 중단" 처리와 같다).
+
+### READY self-review — rev 3.3 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-016·D-026 ↔ AC24(경로 그대로, 순서와 실패만 정했다) · D-021 ↔ AC29(종료 통지가 요청을 실패시킨다) · AC33(포트 교체).
+- 분모: EP-8 3(그대로). 규칙 칸 ↔ 입력 칸: 8분기 ↔ `preload/host-port.test.ts`.
+- node·pair 변경 0: VP-23·VP-24 의 oracle 파일에 `preload/host-port.test.ts` 가 더해진다.
+- 사용자 결정이 필요한 항목 0: 내부 배선이다. `window.oo` 형상과 사용자가 보는 결과는 Part I 그대로다.
 
 ---
 
