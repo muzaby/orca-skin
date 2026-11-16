@@ -12,7 +12,8 @@ export const STALL_WINDOW_MS = 1000
 
 export type StallSeverity = 'long' | 'severe'
 export type StallThread = 'main' | 'agent-host' | 'data-host' | 'renderer'
-export type StallSource = 'loop' | 'ipc' | 'longtask'
+// `peer` — 호스트 사이 피어 포트로 받은 메시지의 처리(0324 D-043).
+export type StallSource = 'loop' | 'ipc' | 'peer' | 'longtask'
 
 export const STALL_EVENT = 'perf.stall'
 export const STALL_SCOPE = 'perf'
