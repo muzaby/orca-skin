@@ -308,6 +308,59 @@ export function check(options = {}) {
     }
   }
 
+  // ── (l) 영속 파일 — `electron-store` 는 등록 파일이 `cwd` 를 줘서만 연다 ────────────
+  for (const file of mainFiles) {
+    const { sf, imports } = load(file)
+    const storeImports = imports.filter(
+      (imp) => imp.specifier === allowed.l.module && !imp.typeOnly
+    )
+    if (storeImports.length === 0) continue
+    const registeredFile = inAny(file, allowed.l.files)
+    for (const imp of storeImports) {
+      found('l', file, imp.line, allowed.l.module, registeredFile)
+      if (!registeredFile) fail('l', file, imp.line, `\`${allowed.l.module}\` 값 import`)
+    }
+    if (!registeredFile) continue
+    const local = storeClassName(sf, allowed.l.module)
+    if (local === null) {
+      fail(
+        'l',
+        file,
+        storeImports[0].line,
+        'default import 가 아닌 형태 — 생성 자리를 판정할 수 없다'
+      )
+      continue
+    }
+    let opened = 0
+    visit(sf, (node) => {
+      if (!ts.isIdentifier(node) || node.text !== local) return
+      const parent = node.parent
+      if (ts.isImportClause(parent) || ts.isTypeReferenceNode(parent)) return
+      const line = lineOf(sf, node)
+      if (!ts.isNewExpression(parent) || parent.expression !== node) {
+        fail('l', file, line, `\`${local}\` 를 생성 밖에서 값으로 쓴다 — 판정할 수 없다`)
+        return
+      }
+      opened += 1
+      const arg = parent.arguments?.[0]
+      const hasCwd =
+        arg !== undefined &&
+        ts.isObjectLiteralExpression(arg) &&
+        arg.properties.some(
+          (prop) =>
+            (ts.isPropertyAssignment(prop) || ts.isShorthandPropertyAssignment(prop)) &&
+            (ts.isIdentifier(prop.name) || ts.isStringLiteralLike(prop.name)) &&
+            prop.name.text === 'cwd'
+        )
+      found('l', file, line, `new ${local}`, hasCwd)
+      if (!hasCwd) {
+        fail('l', file, line, `\`new ${local}(\` 의 인자가 \`cwd\` 를 가진 객체 리터럴이 아니다`)
+      }
+    })
+    if (opened === 0)
+      fail('l', file, 0, `\`${allowed.l.module}\` 를 import 하지만 생성 자리가 없다`)
+  }
+
   // ── (e) 셸 그래프 · (f) 호스트 그래프 ───────────────────────────────────────────────
   const reach = (rule, entry) => {
     const seen = new Map() // file → 그 파일에 닿은 경로의 직전 파일
@@ -391,6 +444,22 @@ export function check(options = {}) {
   }
 
   return { violations, findings, syncCounts }
+}
+
+/** `import X from '<module>'` 의 로컬 이름. default import 가 없으면 `null`. */
+function storeClassName(sf, module) {
+  for (const statement of sf.statements) {
+    if (
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteralLike(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text === module &&
+      statement.importClause?.name &&
+      !statement.importClause.isTypeOnly
+    ) {
+      return statement.importClause.name.text
+    }
+  }
+  return null
 }
 
 /** `x.webContents.send(` · `wc.send(` · `getAllWebContents` · `.postMessage(` 이면 그 이름. */
