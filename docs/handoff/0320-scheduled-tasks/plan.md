@@ -10,11 +10,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-15 |
 | 매핑 | 옛 `0287-scheduled-tasks`(브랜치 `a`의 `ce699856` 설계 · `1058886c` 구현 — `main` 미도착)를 현재 `main` 위에 다시 설계 |
-| 상태 | READY (ΔV4) |
+| 상태 | READY (ΔV5) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 옛 0287 V는 `main`에 없어 상속하지 않고 증거로만 읽는다 |
-| 이번 V revision | `ΔV4` — verify r1 `RETURN_TO_PLAN` 정정(확장 후보 E1~E3 채택 · 선언 경계 5 축소 · VP-26 좌표 정정), §23. `ΔV1`~`ΔV3` 위에 적용 |
-| 유효 V | `V1` + `ΔV1` + `ΔV2` + `ΔV3` + `ΔV4` |
+| 이번 V revision | `ΔV5` — verify r2 `RETURN_TO_PLAN` 정정(확장 후보 E4~E6·E7①~③ 채택 · E7④ 경계 · plan 동결), §24. `ΔV1`~`ΔV4` 위에 적용 |
+| 유효 V | `V1` + `ΔV1` + `ΔV2` + `ΔV3` + `ΔV4` + `ΔV5` |
 
 # Part I — Product & UX Contract
 
@@ -727,6 +727,131 @@ EP-9 규칙 칸 ↔ UT 입력 칸:
 - EP-9 자리 검색 재실행: 24줄(행 6 · 패널 6 · 화면 12) = 자리 21 + 제외 3(`:97`·`:128`·`:176`). 차집합 ∅.
 - 규칙 칸 6분기 ↔ 입력 6행 1:1.
 - 경계 5′는 `preload/index.ts`의 `electron` import로 측정.
+
+## 24. ΔV5 — verify r2 정정 (확장 후보 E4~E7 판정 · plan 동결)
+
+- 판정: 제품 동작·저장 계약·IPC는 그대로다. verify r2(창 안 2회째)의 확장 후보 중 **E4·E5·E6 전부와 E7 ①②③을 채택**하고 **E7 ④만 경계로 선언**한다. 새 사용자 결정은 없다.
+- 이번이 verify 2회째 뒤의 설계 턴 — **열거 원문을 늘릴 수 있는 마지막 턴**이다. 이후 새 열거 항목은 출처(현재 결함 · plan 내부 정합 · 사용자 결정)를 적는다.
+- prod 코드 변경은 기대하지 않는다(코드는 계약대로 — verify r2 §7). r3는 테스트로 잠근다. prod를 고치면 그 파일의 기존 pair가 REGRESSION이다.
+
+### 확장 후보 판정
+
+| # | 후보 | 판정 | 근거 |
+|---|---|---|---|
+| E4 | 모달·트리거·실행 설정·페이지 슬롯의 입력 → 폼 배선(M3·M4·M5·M8·T1~T4·Q2~Q5 green) | **채택 — AC36 · EP-10(19자리)** | 사용자가 고른 값이 저장 요청에 들어가는 것이 모달의 목적이다. 같은 하네스(`renderHarness.testfixture.ts`)로 칩 메뉴를 실제로 누를 수 있다(EP-9 선례) |
+| E5 | `저장` → `onSubmit` · 실패 시 열린 채 문구(M10·M11 green) | **채택 — AC37 · EP-11(5자리)** | Part I §5 "저장 실패는 모달을 닫지 않고 문구를 띄운다"(`plan.md:126`)가 이미 제품 문장이다 — AC로 올린다 |
+| E6 | 안내·0건·툴팁 문구(M7·N6·O6 green) | **채택 — AC38 · EP-12(9자리)** | 문구 자체가 아니라 *어느 문구를 고르는가*가 조건 분기다(`ScheduleTaskModal.tsx:173-179` 3분기 · `ProjectMenuPanel.tsx:112-118` 3분기). 순수 로직을 사람 실기로 미루지 않는다. 글자·시각은 AC27·31 그대로 |
+| E7 ① | `SIGKILL` 세기(S2 green) | **채택 — AC39 · EP-13 K4** | TERM을 무시하는 자손이 남으면 D4 계약("자손까지 끝낸다", `docs/arch/backend/security.md`)이 깨진다 |
+| E7 ② | 정상 종료 뒤 타이머·abort 리스너 정리(S8·S9 green) | **채택 — EP-13 K5·K6** | 정리가 빠지면 끝난 실행의 pid로 `process.kill(-pid)`가 나간다(`shell-runner.ts:82`) — pid 재사용 시 남의 프로세스 그룹 |
+| E7 ③ | win32 `taskkill` 3자리(S1·S4·S6 green) | **채택 — EP-13 K1~K3·K7** | Windows CI의 실제 프로세스 테스트는 `timedOut`·시간만 보고 자손 생존은 `if (!isWin)`로 건너뛴다(`shell-runner.process.test.ts:41`) — CI 위임으로 닫히지 않는다. 인자·폴백은 `node:child_process` 대체로 플랫폼 무관하게 관측된다 |
+| E7 ④ | `setsid`로 그룹을 벗어난 손자(A5) | **경계** | 실행 종결 계약은 충족(verify r2 A5: 401ms 종결). 그룹 밖 자손 추적은 cgroup/Job Object 수준이라 이 계약 범위가 아니다 |
+
+### 추가 AC
+
+| R | AC | 동작 기준 | 검증 수단 | 경로 |
+|---|---|---|---|---|
+| R-02 | AC36 | 모달에서 사용자가 바꾼 제목·프로젝트·실행 설정·트리거(주기·요일·시각·지정 요일)·명령 종류·본문이 `저장` 시 저장 요청에 그 값 그대로 들어간다. 실행 설정 칩의 모델·종류·노력·권한 선택도 그 값으로 바뀌고 나머지 필드는 유지된다 | fake DOM 상호작용(칩 메뉴를 실제로 열고 누름) → `onSubmit` 인자 / `onChange` 인자 | `SchedulesPage` 슬롯 → `ScheduleTaskModal` → `ScheduleTaskForm`·`TriggerFields`·`ExecutionSettingsPicker` → `validateForm` → `onSubmit` |
+| R-03 | AC37 | `저장`은 검증된 요청으로 `onSubmit`을 한 번 부르고 성공하면 모달을 닫는다. 실패하면 모달이 열린 채 `저장 실패` 문구가 보이고 입력이 남으며, 다시 저장해 성공하면 문구가 사라지고 닫힌다 | fake DOM: `onSubmit` resolve / reject → resolve | `ScheduleTaskModal.save` |
+| R-08 | AC38 | 모달 안내 문구는 프로젝트 0개 → `noProjects`, shell+폴더 없는 프로젝트 → `shellNeedsFolder` 경고, shell → `shellProjectHint`, 프롬프트 → `projectHint`. 프로젝트 메뉴의 빈 상태는 로딩 → `loading`, 검색 0건 → `noMatches`, 그 밖 → `emptyFolders`. 칩·행 툴팁은 폴더 경로(없으면 칩은 `프로젝트` 라벨, 행은 없음) | fake DOM / render — 분기별 문구 키 | `ScheduleTaskForm` · `ProjectMenuPanel` · `ProjectPickerChip` |
+| R-04 | AC39 | shell 종료는 ① POSIX에서 TERM을 무시하는 자손까지 끝내고 ② win32에서 `taskkill /pid <pid> /T /F`를 창 없이 부르며, 그 실행이 실패하면 셸이라도 끝낸다 ③ 실행이 정상 종료한 뒤에는 제한 시간이 지나거나 중단 신호가 와도 종료를 다시 부르지 않는다 ④ 셸은 양 플랫폼에서 창 없이 띄운다 | 실제 프로세스(io) + 단위(가짜 타이머 · `node:child_process` 대체) | `runShellCommand` → `killProcessTree` |
+
+### Node / Pair (증분)
+
+| Node | 레벨 | 계약 | provenance |
+|---|---|---|---|
+| R-02 | R | AC3·4·6 + AC36 | CHANGED (기준: §6 V1 · §20 ΔV1 INHERITED) |
+| R-03 | R | AC7~11·17 + AC37 | CHANGED (기준: §6 V1) |
+| R-08 | R | AC28~31 + AC38 | CHANGED (기준: §21 ΔV2) |
+| R-04 | R | AC12~16·18~21 + AC39 | CHANGED (기준: §6 V1) |
+| AR-04 | AR | `SchedulesPage` 슬롯 → chat 칩 `onChange` 전달 | CHANGED — §10만 (기준: §7-A V1) |
+| MD-02 | MD | `runShellCommand`·`killProcessTree` | CHANGED (기준: §7-A V1 · ΔV4 r2 D4) |
+
+| Pair | left ↔ right | req | production path | 직접 oracle | 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-02′ | R-02 ↔ AT(AC3·4·6·36·38 모달분) | REQUIRED | `ScheduleTaskModal` → `ScheduleTaskForm`/`TriggerFields`/슬롯 → `setForm` → `validateForm` → `onSubmit` | V1 좌표 + EP-10 A · EP-12 A 입력 | not selected | EP-10 A (12) · EP-12 A (4) |
+| VP-23′ | R-08 ↔ AT(AC28~31·36·38) | REQUIRED | `ExecutionSettingsPicker` → 컴포저 메뉴 `onPick` → `onChange` · `ProjectMenuPanel`/`ProjectPickerChip` 문구 | ΔV2 좌표 + EP-10 B · EP-12 B 입력 | not selected | EP-10 B (5) · EP-12 B (5) |
+| VP-11′ | AR-04 ↔ IT-04 | REQUIRED | `SchedulesPage.pickers` → `ProjectPickerChip`/`ExecutionSettingsPicker` `onChange` | V1 좌표 + EP-10 C 입력 | not selected | EP-10 C (2) |
+| VP-03′ | R-03 ↔ AT(AC7~11·17·37) | REQUIRED | `ModalActions.onConfirm` → `save` → `onSubmit` → `onClose` / `setFailed` | V1 좌표 + EP-11 입력 | not selected | EP-11 (5) |
+| VP-12′ | MD-02 ↔ UT-02 | REQUIRED | `runShellCommand` → `kill` → `killProcessTree` · `done` 정리 | V1·r2 좌표 + EP-13 입력 | not selected | EP-6 · EP-13 (8) |
+| VP-04 | R-04 ↔ AT(AC12~16·18~21·39) | REGRESSION | V1 그대로 | VP-12′ 좌표 | — | — |
+
+- AC38 모달 문구 4자리(EP-12 A)는 VP-02′ path 안이라 VP-02′가 든다.
+- 그 밖 ΔV1~ΔV4 pair는 이번 변경이 prod를 건드리지 않으면 비영향이다. prod를 고치면 그 파일의 pair가 REGRESSION이다.
+
+### §10 추가 — EP-10 · EP-11 · EP-12 · EP-13
+
+자리 검색 명령은 모두 `app/src/`에서, 테스트 파일 제외.
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| EP-10 · R-02·R-08·AR-04 / VP-02′·VP-23′·VP-11′ | 사용자 입력 값이 폼 상태를 거쳐 저장 요청까지 그대로 간다(AC36) | **A 모달·트리거 12** — `ScheduleTaskModal.tsx` F0 패치 병합 `:106` · F1 트리거 전달 `:186` · F2 제목 `:152` · F3 프로젝트 `:159` · F4 실행 설정 `:163` · F5 종류 `:204` · F6 본문 `:218` / `TriggerFields.tsx` T0 `ChoiceChip` `onPick(option)` `:59` · T1 주기 `:114` · T2 요일 `:126` · T3 시각 `:95` · T4 지정 요일 토글 `:151`<br>**B 실행 설정 5** — `ExecutionSettingsPicker.tsx` Q1 기본 모델 채움 `:53` · Q5 모델 `:93` · Q4 종류 `:116` · Q3 노력 `:141` · Q2 권한 `:160`<br>**C 페이지 슬롯 2** — `SchedulesPage.tsx` G1 `:34` · G2 `:39` | `rg -n "onChange\(\|onPick\(\|onChange=\{\|onPick=\{" renderer/src/features/schedules/components/ScheduleTaskModal.tsx renderer/src/features/schedules/components/TriggerFields.tsx renderer/src/features/chat/components/ExecutionSettingsPicker.tsx renderer/src/pages/SchedulesPage.tsx` → 22줄 = 19자리 + 제외 3(`ExecutionSettingsPicker.tsx:87`·`:140`·`:159` — 컴포저 메뉴 `onPick=` 여는 줄, 운반은 다음 줄의 `onChange`) | 고른 값과 다른 값이 저장되거나 저장되지 않는다 |
+| EP-11 · R-03 / VP-03′ | 저장 성공은 요청 1회 + 닫힘, 실패는 열린 채 문구(AC37) | 5자리 — `ScheduleTaskModal.tsx` V1 실패 해제 `:72` · V2 `onSubmit(result.request)` `:74` · V3 `onClose()` `:75` · V4 `setFailed(true)` `:78` · V5 문구 표시 `:109` | `rg -n "onSubmit\(\|onClose\(\)\|setFailed\(\|failed &&" renderer/src/features/schedules/components/ScheduleTaskModal.tsx` → 5줄 = 5자리 | 저장이 안 되거나, 실패가 "아무 일도 안 일어남"으로 보인다 |
+| EP-12 · R-02·R-08 / VP-02′·VP-23′ | 상태에 맞는 안내·빈 상태·툴팁을 고른다(AC38) | **A 모달 4** — `ScheduleTaskModal.tsx` `:169` · `:175` · `:177` · `:178`<br>**B 프로젝트 메뉴·칩 5** — `ProjectMenuPanel.tsx` 행 툴팁 `:98` · `:114` · `:116` · `:117` / `ProjectPickerChip.tsx` 칩 툴팁 `:46` | `rg -n "noProjects\|shellProjectHint\|projectHint\|shellNeedsFolder" renderer/src/features/schedules/components/ScheduleTaskModal.tsx` → 4줄 · `rg -n "projects\.loading\|noMatches\|emptyFolders\|title=" renderer/src/features/chat/components/ProjectMenuPanel.tsx renderer/src/features/chat/components/ProjectPickerChip.tsx` → 5줄 = 9자리 | 상태와 맞지 않는 안내로 사용자가 원인을 오해한다 |
+| EP-13 · MD-02 / VP-12′ | 종료는 자손까지·창 없이·끝난 실행에 다시 나가지 않는다(AC39) | 8자리 — `shell-runner.ts` K1 `taskkill` 인자 `:73` · K2 그 `windowsHide` `:74` · K3 `error` 폴백 `:77` · K4 `SIGKILL` `:82` · K8 pid 없음 폴백 `child.kill()` `:88` · K5 `clearTimeout` `:125` · K6 `removeEventListener` `:126` · K7 셸 `windowsHide` `:138` | `rg -n "process\.kill\|taskkill\|child\.kill\(\|clearTimeout\|removeEventListener\|windowsHide" main/infra/shell/shell-runner.ts` → 9줄 = 8자리 + 제외 1(`:30` — `SpawnLike` 타입 선언) | 자손이 남거나, 끝난 실행의 pid로 남의 프로세스 그룹에 신호가 간다 |
+
+### 규칙 칸 ↔ UT 입력 칸
+
+모든 입력은 기본값·형제 값과 다르게 준다. 관측은 EP-10 A·EP-11은 `onSubmit` 인자, EP-10 B는 `onChange` 인자, EP-10 C는 호출자가 넘긴 콜백의 인자다.
+
+| 자리 | 규칙 분기 | 입력 | 관측 |
+|---|---|---|---|
+| F2 | 제목 | 제목 입력에 `야간 빌드` | `request.title === '야간 빌드'` |
+| F3·G1 | 프로젝트 = 고른 id | (A) 슬롯 stub이 받은 콜백을 `'p2'`로 호출(초기 `'p1'`) · (C) 페이지가 만든 `pickers.project(null, spy)`의 칩 `onChange('p-folder')` | (A) `request.projectId === 'p2'` · (C) `spy('p-folder')` |
+| F4·G2 | 실행 설정 = 고른 값 | (A) 슬롯 stub 콜백을 `permissionMode:'plan'`·`effort:'low'` 값으로 호출 · (C) `pickers.execution(v, spy)`의 칩 `onChange(x)` | (A) `request` 실행 설정이 그 값 · (C) `spy(x)` |
+| F5 | 종류 전환 | 폴더 있는 프로젝트에서 `shell` 라디오 클릭 | `request.kind === 'shell'`, 실행 설정 없음(D-007) |
+| F6 | 본문 | 본문에 `echo hi` | 요청 명령 = `echo hi` |
+| F0 | 패치는 현재 상태에 겹친다 | 제목 → 본문 순서로 두 번 바꿈 | 요청에 둘 다 남는다 |
+| T1·T0·F1 | 주기 = 고른 항목 | 주기 칩 열고 `매주` 클릭(초기 `매일`) | `trigger.kind === 'weekly'` |
+| T2 | 요일 = 고른 항목 | `매주`에서 요일 칩의 기본과 다른 요일 클릭 | `trigger.day` = 그 요일 |
+| T3 | 시각 = 고른 항목 | 시각 칩에서 기본과 다른 `10:30` | `trigger.at = {hour:10, minute:30}` |
+| T4 | 지정 요일 토글 — 없으면 더함 / 있으면 뺌 | `사용자 지정`에서 꺼진 요일 클릭 + 켜진 요일 클릭 | `trigger.days`에 앞 요일 포함·뒤 요일 제외 |
+| Q1 | 값 없음 → 카탈로그 기본 / 값 있음 → 부르지 않음 | `value: null` 렌더 · 저장값 있는 렌더 | `onChange(기본 모델 실행값)` 1회 · 0회 |
+| Q5 | 모델 = 고른 모델, 권한 유지 | `permissionMode:'plan'` 값에서 기본이 아닌 모델 클릭 | 인자의 `providerKey`·`modelFamily` = 고른 모델, `permissionMode:'plan'` |
+| Q4 | 종류 = 고른 종류, 권한 승계 | 종류 2개 모델에서 현재와 다른 종류 클릭 | `agentKind` = 고른 종류 |
+| Q3 | 노력 = 고른 값 | 기본과 다른 `low` 클릭 | `effort: 'low'` |
+| Q2 | 권한 = 고른 값 | `default`에서 `plan` 클릭 | `permissionMode: 'plan'` |
+| V2·V3 | 성공 | 유효한 편집 모달 · `onSubmit` resolve · `저장` 클릭 | `onSubmit` 1회 인자 = 검증된 요청 · `onClose` 1회 |
+| V4·V5 | 실패 → 문구 · 재시도 성공 → 문구 해제 | `onSubmit` reject 후 resolve로 바꿔 다시 `저장` | 1차: `onClose` 0 · `role="alert"` `saveFailed` · 제목 값 유지 / 2차: 문구 없음 · `onClose` 1 |
+| V1 | 재시도 시 실패 해제 | 위 2차 | 위 2차와 같음 |
+| `:175`·`:177`·`:178`·`:169` | 0개 / shell / 프롬프트 / shell+폴더 없음 | `projects: []` · shell+폴더 있음 · 프롬프트+프로젝트 있음 · shell+`cwd:null` 프로젝트 | 각각 `noProjects` · `shellProjectHint` · `projectHint` · `shellNeedsFolder`(`role="alert"`) |
+| `:114`·`:116`·`:117` | 로딩 / 검색 0건 / 그 밖 | `loading` 참 · 일치 없는 검색어 · 검색어 없음+폴더 0 | `projects.loading` · `projects.noMatches` · `projects.emptyFolders` |
+| `:98` | 행 툴팁 = 폴더 경로 / 없으면 없음 | 폴더 있는 행 · 없는 행 | `title` = 경로 · `title` 없음 |
+| `:46` | 칩 툴팁 = 고른 프로젝트 폴더 / 아니면 라벨 | 폴더 있는 프로젝트 선택 · 미선택 | `title` = 경로 · `schedules.modal.project` |
+| K4 | POSIX 그룹을 `SIGKILL`로 | 실제 프로세스(io): 자손이 `trap '' TERM` 뒤 `sleep 30`, 그 pid 출력, 제한 300ms | 자손 생존 false(`alive`) — SIGTERM이면 살아남는다 |
+| K5 | 정상 종료 뒤 타이머 해제 | 가짜 타이머: `close 0`을 제한 전에 내고 시계를 제한 너머로 | `killTreeImpl` 0회 |
+| K6 | 정상 종료 뒤 리스너 해제 | `AbortController` 신호 · `close 0` 뒤 `abort()` | `killTreeImpl` 0회 |
+| K1·K2 | win32 `taskkill` 인자·창 없음 | `node:child_process` 대체 · `killProcessTree({pid:4321,…}, 'win32')` | `spawn('taskkill', ['/pid','4321','/T','/F'], {windowsHide:true,…})` |
+| K3 | `taskkill` 실행 실패 → 셸 종료 / 성공 → 셸 미호출 | 돌려준 프로세스에 `error` 발생 · 발생 없음 | `child.kill` 1회 · 0회 |
+| K8 | pid 없음 → `child.kill()` | `pid: undefined` | `child.kill` 1회 (기존 좌표가 있으면 인용) |
+| K7 | 셸은 창 없이 | 가짜 spawn이 옵션을 기록 · `linux`·`win32` | 둘 다 `windowsHide: true` |
+
+- 표 29행이 EP-10~13 자리 41개(19 · 5 · 9 · 8)를 전부 덮는다(자리 → 행 대응은 self-review). 분기가 둘 이상인 행(T4 · Q1 · V4·V5 · K3 · 모달 문구 4 · 메뉴 문구 3 · `:98` · `:46`)은 분기마다 입력을 나란히 적었다.
+- 테스트 소스는 `app/AGENTS.md` 풀 규칙을 따른다: `node:child_process`를 대체하는 파일과 실제 프로세스 파일은 io 풀 신호를 갖는다 — 기존 unit 파일(`shell-runner.test.ts`)에 섞지 말고 따로 둔다.
+
+### 선언 경계
+
+- EP-13: `setsid`·새 세션으로 프로세스 그룹을 벗어난 자손은 끝내지 않는다 — 실행은 제한 시간에 끝난다(verify r2 A5, 401ms). Windows 실제 `taskkill` 효과는 Windows CI 프로세스 테스트가 시간만 본다(`shell-runner.process.test.ts:41` `if (!isWin)`) — 인자·폴백만 EP-13이 잠근다.
+- EP-10·12: 칩·메뉴의 모양·초점·글자는 AC27·31 실기다. 컴포저 메뉴(`ModelMenu`·`EffortMenu`·`ModeMenu`) 내부의 선택지 계산은 VP-19와 컴포저 테스트 몫이다.
+
+### r3 작업 목록 (구현자)
+
+| # | 할 일 | 계약 |
+|---|---|---|
+| E4 | EP-10 19자리 입력 — 모달(fake DOM, 슬롯 stub)·`ExecutionSettingsPicker`(fake DOM, `useAgents` fixture)·`SchedulesPage`(칩 mock이 `onChange` 캡처) | AC36 |
+| E5 | EP-11 5자리 입력 | AC37 |
+| E6 | EP-12 9자리 입력 | AC38 |
+| E7 | EP-13 K1~K8 — 실제 프로세스(K4) · 가짜 타이머(K5·K6) · `node:child_process` 대체(K1~K3) · 옵션 기록(K7) | AC39 |
+
+- verify r2 고장 이력의 `못 잡음` 중 채택분(M3·M4·M5·M8·T1~T4·Q2~Q5·M10·M11·M7·N6·O6·S1·S2·S4·S6·S8·S9)을 원문 변이로 다시 심어 red를 보인다. S1은 `:74`·`:138` 둘 다에 심는다.
+- gate: V1 §19와 같다. 마지막 gate는 파일 필터 없는 vitest를 Node ABI에서(io 풀 포함).
+- AC 분모 35 → 39(사람 실기 4 그대로).
+
+### ΔV5 self-review
+
+- ACTIVE ↔ AC: D-003·D-012·D-013↔AC36 · D-003↔AC37 · D-013↔AC38 · D-004·D-007↔AC39. 충돌 0. AC36 F5 관측("shell이면 실행 설정 없음")은 D-007과 같은 방향.
+- 자리 검색 재실행(이 턴): EP-10 22줄 = 19 + 제외 3 · EP-11 5 = 5 · EP-12 4+5 = 9 · EP-13 9 = 8 + 제외 1. 각 목록과 차집합 ∅.
+- verify r2 못 잡음 → 자리 대응: M3→F3 · M4→F4 · M5→F5 · M8→F6 · T1~T4→T1·T2·T3·T4 · Q2~Q5→Q2·Q3·Q4·Q5 · M10→V2 · M11→V4 · M7→`:175` · N6→`:116` · O6→`:46` · S1→K2·K7 · S2→K4 · S4→K1 · S6→K3 · S8→K6 · S9→K5. 빠진 채택 행 0.
+- 경계 E7 ④는 verify r2 A5 실측, Windows 효과 경계는 `shell-runner.process.test.ts:41`로 측정.
 
 ---
 
