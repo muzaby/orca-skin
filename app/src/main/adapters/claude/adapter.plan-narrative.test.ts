@@ -32,6 +32,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
+import { sendPrepared } from './prepared.testfixture'
 
 type CanUseTool = (
   toolName: string,
@@ -56,7 +57,7 @@ async function drive(narrative: string | null): Promise<PermissionAction[]> {
     extensions: { skills: [], hooks: { normalized: {} } },
     requestApproval
   }
-  const live = new ClaudeAdapter().sendMessage(req)
+  const live = await sendPrepared(new ClaudeAdapter(), req)
   // 스트림을 끝까지 소비해야 매퍼가 assistant 텍스트를 ctx 에 남긴다.
   for await (const _batch of live.eventBatches) void _batch
   const canUseTool = captured.canUseTool as CanUseTool

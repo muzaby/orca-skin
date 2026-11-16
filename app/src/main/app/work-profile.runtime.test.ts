@@ -24,6 +24,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
 import { ClaudeAdapter } from '../adapters/claude/adapter'
 import { ExtensionBuilder } from '../features/extensions/common/builder'
 import { prepareAgentExtensionProfile } from './harnesses/registry'
+import { sendPrepared } from '../adapters/claude/prepared.testfixture'
 
 let nativeConfig: string
 beforeEach(async () => {
@@ -60,7 +61,7 @@ it('keeps Work questions, denied tools and cancellation on existing SDK control 
       ? { behavior: 'allow' as const, updatedInput: { answers: { Format: 'Markdown' } } }
       : { behavior: 'deny' as const, message: 'fixture denied' }
   )
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: null,
     cwd: resolve('.'),
     env: { CLAUDE_CONFIG_DIR: nativeConfig },
@@ -143,7 +144,7 @@ it('captures checked Work output through the existing PostToolUse hook and outpu
       return artifact
     })
     const signal = new AbortController().signal
-    const live = new ClaudeAdapter().sendMessage({
+    const live = await sendPrepared(new ClaudeAdapter(), {
       env: { CLAUDE_CONFIG_DIR: nativeConfig },
       sessionId: 'session-1',
       cwd: root,
@@ -221,7 +222,7 @@ it('preserves Work background notifications as provider events without asking fo
       patch: { status: 'completed', is_backgrounded: false }
     }
   )
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: 's1',
     cwd: resolve('.'),
     env: { CLAUDE_CONFIG_DIR: nativeConfig },

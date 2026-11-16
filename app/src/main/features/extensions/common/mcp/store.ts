@@ -45,7 +45,7 @@ function synthVar(name: string): string {
 }
 
 export class McpStore {
-  private readonly secrets = new SecretStore()
+  private readonly secrets: SecretStore
   // `${BINDING:<대상>}` 토큰 소스 (0157 → 0181 복구). 구조적 포트라 features 교차 import 가
   // 아니고, 컴포지션 루트가 부팅 시 주입한다. 미주입이면 대상 참조가 해석되지 않는다(서버 드롭).
   private tokens?: (providerId: string) => string | null
@@ -53,7 +53,12 @@ export class McpStore {
   // write() 가 단일 무효화 지점이다. 매 턴(enabledConfig) 디스크 재파싱을 없앤다(0092).
   private cache: OoMcpConfig | null = null
 
-  constructor(private readonly settings: SettingsStore) {}
+  constructor(
+    private readonly settings: SettingsStore,
+    userDataDir: string
+  ) {
+    this.secrets = new SecretStore(userDataDir)
+  }
 
   private read(): OoMcpConfig {
     this.cache ??= readMcpFile().mcpServers

@@ -50,6 +50,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (original) => ({
 
 import type { TurnRequest } from '../common/turn'
 import { ClaudeAdapter } from './adapter'
+import { sendPrepared } from './prepared.testfixture'
 
 const isolatedConfig = join(tmpdir(), `orcinus-orca-live-control-config-${randomUUID()}`)
 beforeEach(() => vi.stubEnv('CLAUDE_CONFIG_DIR', isolatedConfig))
@@ -65,7 +66,7 @@ const baseReq = (): TurnRequest => ({
 describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)', () => {
   it('converts every normalized live permission mode at the native SDK boundary', async () => {
     control.setPermissionMode.mockClear()
-    const live = new ClaudeAdapter().sendMessage(baseReq())
+    const live = await sendPrepared(new ClaudeAdapter(), baseReq())
     for (const mode of [
       'default',
       'accept_edits',
@@ -88,7 +89,7 @@ describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)'
   })
   // 두 번 부르고 값을 다르게 준다 — 한 번이면 인자를 상수로 굳힌 위임도 통과한다.
   it('backgroundTask 는 받은 toolUseId 로 SDK backgroundTasks 를 부르고 반환을 그대로 돌려준다', async () => {
-    const live = new ClaudeAdapter().sendMessage(baseReq())
+    const live = await sendPrepared(new ClaudeAdapter(), baseReq())
 
     expect(await live.backgroundTask('use1')).toBe(true)
     expect(await live.backgroundTask('use2')).toBe(true)
@@ -97,7 +98,7 @@ describe('ClaudeAdapter — live 제어 위임의 인자 (0212 AC25 경로 끝)'
   })
 
   it('stopTask·setModel 도 받은 값을 그대로 넘긴다 — 같은 형상의 형제 위임이다', async () => {
-    const live = new ClaudeAdapter().sendMessage(baseReq())
+    const live = await sendPrepared(new ClaudeAdapter(), baseReq())
 
     await live.stopTask('task-1')
     await live.stopTask('task-2')
@@ -139,7 +140,7 @@ it('wires native status, loaded plugins, injected exclusions and read-only MCP g
     { name: 'native-A', status: 'connected' },
     { name: 'runtime-A', status: 'connected' }
   ])
-  const live = new ClaudeAdapter().sendMessage(request)
+  const live = await sendPrepared(new ClaudeAdapter(), request)
   const iterator = live.eventBatches[Symbol.asyncIterator]()
   try {
     await iterator.next()

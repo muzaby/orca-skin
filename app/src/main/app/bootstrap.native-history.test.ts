@@ -162,6 +162,7 @@ import { SettingsStore } from '../infra/settings-store'
 import { Bootstrap } from './bootstrap'
 import { harnessModule } from './harnesses/registry'
 import * as skillCatalog from './skill-catalog'
+import { sendPrepared } from '../adapters/claude/prepared.testfixture'
 
 it('keeps the newer skill scan in the cache when a pre-mutation scan finishes late', async () => {
   const older = Promise.withResolvers<SkillInfo[]>()
@@ -310,7 +311,7 @@ function register(realBootstrap?: Bootstrap): {
     pendingMessages: PendingMessageQueue
   }
   if (!realBootstrap) {
-    bootstrap.settings = new SettingsStore('test')
+    bootstrap.settings = new SettingsStore('test', { cwd: '/unused-user-data' })
     bootstrap.extensionChoices = extensionControl({
       get: () => bootstrap.settings.getAll().nativeExtensionChoices ?? {},
       set: (choices) => bootstrap.settings.setNativeExtensionChoices(choices)
@@ -391,7 +392,7 @@ it('carries catalog changes through the real bootstrap registry into every new S
     JSON.parse(String((sdk.query.mock.calls.at(-1)![0] as { options: Options }).options.settings))
       .enabledPlugins['fixture@inline']
   try {
-    live.push(adapter.sendMessage(request))
+    live.push(await sendPrepared(adapter, request))
     expect(flag()).toBe(false)
     const set = vi
       .mocked(ipcMain.handle)
@@ -402,9 +403,9 @@ it('carries catalog changes through the real bootstrap registry into every new S
       id: 'fixture',
       enabled: true
     })
-    live.push(adapter.sendMessage({ ...request, cwd: join(temp, 'B') }))
+    live.push(await sendPrepared(adapter, { ...request, cwd: join(temp, 'B') }))
     expect(flag()).toBe(true)
-    live.push(adapter.sendMessage(request))
+    live.push(await sendPrepared(adapter, request))
     expect(flag()).toBe(true)
   } finally {
     for (const turn of live) turn.close()
@@ -800,7 +801,7 @@ it('applies nav plugin choices to draft and stored-session commands and resource
     expect(await catalog({} as Electron.IpcMainInvokeEvent, { backend: 'claude' })).toMatchObject({
       items: []
     })
-    const turn = registry!.get('claude')!.sendMessage({
+    const turn = await sendPrepared(registry!.get('claude')!, {
       sessionId: null,
       cwd,
       text: 'new after deletion',
@@ -985,7 +986,7 @@ it('restores global choices through production Bootstrap into catalogs, new Clau
       expect(await handler(CHANNELS.extensionCatalog)(event, { backend })).toMatchObject({
         items: [expect.objectContaining({ enabled: false })]
       })
-    const turn = two.registry!.get('claude')!.sendMessage({
+    const turn = await sendPrepared(two.registry!.get('claude')!, {
       sessionId: null,
       cwd: temp,
       text: 'restart',

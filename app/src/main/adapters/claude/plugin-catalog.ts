@@ -1,4 +1,3 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeCommand } from '../../../shared/native-resources'
@@ -7,17 +6,12 @@ import { extensionChoices } from '../common/extension-control'
 import { skillMetadata } from '../common/skill-metadata'
 import { claudeNativePaths } from './native-paths'
 import {
-  readClaudePluginManifest,
   readClaudePluginManifestAsync,
   readClaudeSettingsObject,
   readClaudeSettingsObjectAsync
 } from './native-settings-file'
 import { claudePluginEnabled } from './plugin-flag'
-import {
-  claudeLocalSettingsRoot,
-  claudeLocalSettingsRootAsync,
-  pluginPathKey
-} from './project-path'
+import { claudeLocalSettingsRootAsync, pluginPathKey } from './project-path'
 
 export function claudePluginDefaults(
   nativeRoot: string,
@@ -105,33 +99,6 @@ export function selectClaudePlugins(
       installedOnly: flag === undefined
     }
   })
-}
-
-export function claudeInstallationExists(path: string): boolean {
-  try {
-    return statSync(path).isDirectory()
-  } catch {
-    return false
-  }
-}
-
-function pluginFiles(root: string, path: string, skills: boolean): string[] {
-  const child = relative(root, path)
-  if (child === '..' || child.startsWith(`..${sep}`) || isAbsolute(child)) return []
-  try {
-    if (statSync(path).isFile()) return path.endsWith('.md') ? [path] : []
-    // Do not follow directory symlinks recursively: plugin trees may contain cycles.
-    return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
-      const file = join(path, entry.name)
-      if (entry.isDirectory()) return pluginFiles(root, file, skills)
-      return entry.isFile() && (skills ? entry.name === 'SKILL.md' : entry.name.endsWith('.md'))
-        ? [file]
-        : []
-    })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
-  }
 }
 
 async function pluginFilesAsync(root: string, path: string, skills: boolean): Promise<string[]> {
@@ -269,55 +236,7 @@ function settingsPaths(projectRoot: string, nativeRoot: string): string[] {
   ]
 }
 
-/** A fresh metadata snapshot for the synchronous SDK spawn boundary. No writes/imports. */
-export function readClaudePluginCatalog(
-  cwd: string,
-  nativeRoot = claudeNativePaths().root,
-  overrides: Record<string, unknown> = {},
-  includeDisabled = false,
-  capturedDefaults?: Record<string, boolean>
-): ClaudePluginCatalog {
-  const documents = settingsPaths(claudeLocalSettingsRoot(cwd), nativeRoot).map((file, i) =>
-    i === 0 && capturedDefaults ? {} : readClaudeSettingsObject(file)
-  )
-  const { defaults, entries } = catalogSelection(
-    cwd,
-    documents,
-    overrides,
-    includeDisabled,
-    capturedDefaults
-  )
-  const loaded = entries
-    .filter((entry) => claudeInstallationExists(entry.path))
-    .flatMap((entry): LoadedPlugin[] => {
-      const root = resolve(entry.path)
-      // An unreadable manifest excludes only that plugin, as the CLI does.
-      const manifest = readClaudePluginManifest(root)
-      if (!manifest) return []
-      const files = (['commands', 'skills'] as const).flatMap((kind) => [
-        ...new Set(
-          declaredPaths(manifest, kind).flatMap((path) =>
-            pluginFiles(root, resolve(root, path), kind === 'skills')
-          )
-        )
-      ])
-      return [
-        {
-          entry,
-          manifest,
-          files: files.map((file) => {
-            try {
-              return { file, text: readFileSync(file, 'utf8') }
-            } catch {
-              throw new Error('Claude 플러그인 스킬을 읽을 수 없습니다.')
-            }
-          })
-        }
-      ]
-    })
-  return projectCatalog(defaults, loaded)
-}
-
+/** A fresh metadata snapshot read before the SDK spawn boundary. No writes/imports. */
 export async function readClaudePluginCatalogAsync(
   cwd: string,
   nativeRoot = claudeNativePaths().root,

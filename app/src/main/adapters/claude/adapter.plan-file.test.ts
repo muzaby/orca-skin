@@ -31,6 +31,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({ query: queryMock }))
 import { ClaudeAdapter } from './adapter'
 import type { ApprovalResolution, PermissionAction } from '../../../shared/ipc'
 import type { LiveTurn } from '../common/types'
+import { sendPrepared } from './prepared.testfixture'
 
 const roots: string[] = []
 const lives: LiveTurn[] = []
@@ -61,7 +62,7 @@ async function setup(
     actions.push(action)
     return { behavior: 'allow' }
   }
-  const live = new ClaudeAdapter().sendMessage({
+  const live = await sendPrepared(new ClaudeAdapter(), {
     sessionId: 'plan-session',
     text: 'write plan',
     cwd: root,

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { NativeResource } from '../../../shared/native-resources'
@@ -10,7 +11,7 @@ import {
   readClaudePluginManifestAsync,
   readClaudeSettingsObjectAsync
 } from './native-settings-file'
-import { claudeInstallationExists, installedClaudePlugins } from './plugin-catalog'
+import { installedClaudePlugins } from './plugin-catalog'
 import { claudePluginEnabled } from './plugin-flag'
 import { claudeLocalSettingsRoot, pluginPathKey } from './project-path'
 
@@ -130,7 +131,8 @@ async function readConfiguredClaudeResources(
     if (!selected.has(entry.key) || entry.scope === 'managed') selected.set(entry.key, entry)
   for (const entry of globalOnly ? selected.values() : applicable) {
     const { key: name, path: installPath } = entry
-    if (!isAbsolute(installPath) || !claudeInstallationExists(installPath)) continue
+    if (!isAbsolute(installPath)) continue
+    if (!(await stat(installPath).catch(() => null))?.isDirectory()) continue
     const flag = enabledPlugins[name]
     const enabled = claudePluginEnabled(flag)
     const installedOnly = flag === undefined

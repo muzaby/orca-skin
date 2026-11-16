@@ -43,6 +43,7 @@ import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import type { LiveTurn } from '../common/types'
 import type { NormalizedEvent, ProviderReportedTelemetry } from '../../../shared/ipc'
+import { sendPrepared } from './prepared.testfixture'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -75,7 +76,7 @@ describe('ClaudeAdapter — forkFrom (0064)', () => {
         message: { role: 'user', content: 'archived context + hello' }
       }
     ]
-    const live = adapter.sendMessage({
+    const live = await sendPrepared(adapter, {
       ...baseReq(),
       sessionId,
       promptUuid: 'recovery-prompt',
@@ -98,20 +99,20 @@ describe('ClaudeAdapter — forkFrom (0064)', () => {
     )
     live.close()
   })
-  it('forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)', () => {
+  it('forkFrom 을 resume + forkSession:true 로 어댑트한다 (sessionId=null 새 세션 의미론)', async () => {
     const adapter = new ClaudeAdapter()
-    adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session' })
+    await sendPrepared(adapter, { ...baseReq(), forkFrom: 'src-session' })
     expect(lastOptions().resume).toBe('src-session')
     expect(lastOptions().forkSession).toBe(true)
   })
 
-  it('forkFrom 부재 시 기존 resume 경로 무회귀(forkSession 미주입)', () => {
+  it('forkFrom 부재 시 기존 resume 경로 무회귀(forkSession 미주입)', async () => {
     const adapter = new ClaudeAdapter()
-    adapter.sendMessage({ ...baseReq(), sessionId: 'resume-id' })
+    await sendPrepared(adapter, { ...baseReq(), sessionId: 'resume-id' })
     expect(lastOptions().resume).toBe('resume-id')
     expect(lastOptions().forkSession).toBeUndefined()
 
-    adapter.sendMessage(baseReq())
+    await sendPrepared(adapter, baseReq())
     expect(lastOptions().resume).toBeUndefined()
     expect(lastOptions().forkSession).toBeUndefined()
   })
@@ -142,9 +143,9 @@ describe('ClaudeAdapter — handoff 도착 턴 (0127)', () => {
     return undefined
   }
 
-  it('handoff:true 는 query 옵션(resume+forkSession)을 바꾸지 않는다', () => {
+  it('handoff:true 는 query 옵션(resume+forkSession)을 바꾸지 않는다', async () => {
     const adapter = new ClaudeAdapter()
-    adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session', handoff: true })
+    await sendPrepared(adapter, { ...baseReq(), forkFrom: 'src-session', handoff: true })
     expect(lastOptions().resume).toBe('src-session')
     expect(lastOptions().forkSession).toBe(true)
   })
@@ -153,7 +154,7 @@ describe('ClaudeAdapter — handoff 도착 턴 (0127)', () => {
     const adapter = new ClaudeAdapter()
     sdkMessages.queue = inheritedContextStream()
     const usage = await telemetryOf(
-      adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session', handoff: true })
+      await sendPrepared(adapter, { ...baseReq(), forkFrom: 'src-session', handoff: true })
     )
     expect(usage?.inputTokens).toBeUndefined()
     expect(usage?.cacheReadTokens).toBeUndefined()
@@ -164,7 +165,9 @@ describe('ClaudeAdapter — handoff 도착 턴 (0127)', () => {
   it('handoff 미설정 fork 는 기존대로 컨텍스트 usage 를 승계한다 (무회귀)', async () => {
     const adapter = new ClaudeAdapter()
     sdkMessages.queue = inheritedContextStream()
-    const usage = await telemetryOf(adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session' }))
+    const usage = await telemetryOf(
+      await sendPrepared(adapter, { ...baseReq(), forkFrom: 'src-session' })
+    )
     expect(usage?.inputTokens).toBe(1200)
     expect(usage?.cacheReadTokens).toBe(150_000)
   })

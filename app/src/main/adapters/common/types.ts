@@ -129,6 +129,10 @@ export interface SessionAdapter {
   // 라이브 핸들(LiveTurn)을 돌려준다 — `events` 가 provider 중립 NormalizedEvent 스트림(§2),
   // control 메서드는 턴 진행 중 권한 모드 라이브 전환 등에 쓰인다.
   sendMessage(req: TurnRequest): LiveTurn
+  // 새 채널을 띄우기 전의 비동기 준비 단계. 반환값은 같은 요청의 `prepared` 로 `sendMessage` 에
+  // 그대로 실린다 — 스폰 경계(`sendMessage`)는 동기라 디스크 읽기는 여기서 끝낸다.
+  // 살아 있는 채널의 후속 턴(`pushTurn`)에는 부르지 않는다. 없으면 준비할 것이 없는 어댑터다.
+  prepareTurn?(req: TurnRequest, signal: AbortSignal): Promise<unknown>
   // 이 백엔드의 임의 예외를 provider 중립 ClassifiedError 로 정규화한다(provider-runtime.md §6).
   // 오케스트레이션(ipc/chat)이 특정 엔진 분류기를 직접 import 하지 않도록 어댑터가 소유한다 —
   // 어댑터가 자기 id 를 provider 로 채운다. phase 는 발생 단계(예: 'sendMessage').

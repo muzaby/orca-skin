@@ -711,7 +711,7 @@ export const PermissionRespondSchema = z.object({
 
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
-const WindowBoundsSchema = z.object({
+export const WindowBoundsSchema = z.object({
   x: z.number(),
   y: z.number(),
   width: z.number(),

@@ -47,6 +47,7 @@ vi.mock('./streaming-input', async (importOriginal) => {
 import { ClaudeAdapter } from './adapter'
 import type { TurnRequest } from '../common/turn'
 import type { LiveTurn } from '../common/types'
+import { sendPrepared } from './prepared.testfixture'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -59,8 +60,11 @@ const baseReq = (): TurnRequest => ({
 })
 
 const channels: LiveTurn[] = []
-const spawn = (effort: TurnRequest['effort'] = 'high'): LiveTurn => {
-  const channel = new ClaudeAdapter().sendMessage({ ...baseReq(), ...(effort ? { effort } : {}) })
+const spawn = async (effort: TurnRequest['effort'] = 'high'): Promise<LiveTurn> => {
+  const channel = await sendPrepared(new ClaudeAdapter(), {
+    ...baseReq(),
+    ...(effort ? { effort } : {})
+  })
   channels.push(channel)
   return channel
 }
@@ -77,14 +81,14 @@ afterEach(() => {
 })
 
 describe('ClaudeAdapter — effort', () => {
-  it('TurnRequest.effort 를 SDK query options 로 전달한다', () => {
-    spawn('xhigh')
+  it('TurnRequest.effort 를 SDK query options 로 전달한다', async () => {
+    await spawn('xhigh')
     expect(queryMock).toHaveBeenCalledTimes(1)
     expect(queryMock.mock.calls[0]?.[0]).toHaveProperty('options.effort', 'xhigh')
   })
 
   it('0246 AC10 — same spawn effort and undefined do not apply settings', async () => {
-    const channel = spawn('medium')
+    const channel = await spawn('medium')
     await channel.pushTurn!({ text: 'same', effort: 'medium' })
     await channel.pushTurn!({ text: 'unspecified' })
     expect(applyFlagSettings).not.toHaveBeenCalled()
@@ -92,7 +96,7 @@ describe('ClaudeAdapter — effort', () => {
   })
 
   it('0246 AC10 — applies a changed effort exactly once before pushing input', async () => {
-    const channel = spawn()
+    const channel = await spawn()
     expect(await channel.pushTurn!({ text: 'next', effort: 'low' })).toEqual({ kind: 'accepted' })
     expect(applyFlagSettings).toHaveBeenCalledExactlyOnceWith({ effortLevel: 'low' })
     expect(calls).toEqual(['apply', 'push'])
@@ -102,7 +106,7 @@ describe('ClaudeAdapter — effort', () => {
   })
 
   it('0246 AC10 — rejected setter leaves input unsubmitted and retries the same value', async () => {
-    const channel = spawn()
+    const channel = await spawn()
     applyFlagSettings.mockRejectedValueOnce(new Error('fixture setter failure'))
     await expect(channel.pushTurn!({ text: 'retry', effort: 'low' })).rejects.toThrow(
       'fixture setter failure'
@@ -114,8 +118,8 @@ describe('ClaudeAdapter — effort', () => {
   })
 
   it('keeps applied effort local to each channel and waits for setter acknowledgement', async () => {
-    const first = spawn()
-    const second = spawn()
+    const first = await spawn()
+    const second = await spawn()
     let acknowledge: (() => void) | undefined
     applyFlagSettings.mockImplementationOnce(
       () =>
