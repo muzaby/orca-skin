@@ -23,7 +23,7 @@ vi.mock('node:child_process', async () => {
   }
   return { spawn, default: { spawn } }
 })
-import { killProcessTree } from './shell-runner'
+import { killPidTree, killProcessTree } from './shell-runner'
 
 class Shell extends EventEmitter {
   kills = 0
@@ -62,5 +62,31 @@ describe('killProcessTree — win32', () => {
     killProcessTree(shell, 'win32')
     spawned.killers[0]!.emit('error', new Error('spawn taskkill ENOENT'))
     expect(shell.kills).toBe(1)
+  })
+})
+
+describe('killPidTree — win32 (0324 EP-12 고아 종료)', () => {
+  it('taskkill 로 그 pid 의 자손까지 강제로 끝내고, 성공 종료면 풀린다', async () => {
+    const done = killPidTree(4321, 'win32')
+    expect(spawned.calls).toHaveLength(1)
+    expect(spawned.calls[0]).toMatchObject({
+      file: 'taskkill',
+      args: ['/pid', '4321', '/T', '/F'],
+      options: { windowsHide: true }
+    })
+    spawned.killers[0]!.emit('exit', 0)
+    await expect(done).resolves.toBeUndefined()
+  })
+
+  it('taskkill 이 실패 종료하면 거부한다', async () => {
+    const done = killPidTree(4321, 'win32')
+    spawned.killers[0]!.emit('exit', 128)
+    await expect(done).rejects.toThrow('taskkill exit 128')
+  })
+
+  it('taskkill 을 띄우지 못하면 거부한다', async () => {
+    const done = killPidTree(4321, 'win32')
+    spawned.killers[0]!.emit('error', new Error('spawn taskkill ENOENT'))
+    await expect(done).rejects.toThrow('ENOENT')
   })
 })
