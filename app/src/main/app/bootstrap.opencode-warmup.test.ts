@@ -75,7 +75,18 @@ vi.mock('../infra/settings-store', () => ({
     }
   }
 }))
-vi.mock('../infra/config/secret-store', () => ({ SecretStore: class {} }))
+vi.mock('../infra/config/secret-file', () => ({ openSecretFile: () => ({}) }))
+vi.mock('../infra/config/secret-store', () => ({
+  SecretStore: class {
+    load = async (): Promise<void> => {}
+    retryUndecryptable = async (): Promise<void> => {}
+    onChange = (): (() => void) => () => {}
+    get = (): undefined => undefined
+    has = (): boolean => false
+    set = async (): Promise<void> => {}
+    delete = (): void => {}
+  }
+}))
 vi.mock('../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../infra/config/paths')>()),
   ooConfigDir: () => fixture.root,
@@ -375,7 +386,7 @@ it('wires source changes and the runtime activity guard through actual Bootstrap
   expect(guard(fixture.root, true)).toBe(false)
   expect(guard(join(fixture.root, 'different'), false)).toBe(true)
   idle.backgroundTaskCount = 0
-  internal.mcp.add({
+  await internal.mcp.add({
     name: 'bootstrap-tool',
     transport: 'stdio',
     command: 'fixture',
@@ -384,7 +395,7 @@ it('wires source changes and the runtime activity guard through actual Bootstrap
   internal.managedMcp.source.refresh()
   expect(retire).toHaveBeenCalledOnce()
   expect(invalidate).toHaveBeenCalledOnce()
-  internal.mcp.update({ id: 'bootstrap-tool', enabled: true })
+  await internal.mcp.update({ id: 'bootstrap-tool', enabled: true })
   internal.managedMcp.source.refresh()
   expect(retire).toHaveBeenCalledOnce()
   expect(invalidate).toHaveBeenCalledOnce()

@@ -17,7 +17,7 @@ import {
 } from '../../../../../shared/protocol'
 import type { SettingsStore } from '../../../../infra/settings-store'
 import { readMcpFile, writeMcpFile } from './file'
-import { SecretStore } from '../../../../infra/config/secret-store'
+import type { SecretStore } from '../../../../infra/config/secret-store'
 import type { Resolver } from '../../../../infra/vars'
 import { VAR_RE } from '../../../../infra/vars'
 import { makeResolver } from './resolver'
@@ -45,7 +45,6 @@ function synthVar(name: string): string {
 }
 
 export class McpStore {
-  private readonly secrets: SecretStore
   // `${BINDING:<대상>}` 토큰 소스 (0157 → 0181 복구). 구조적 포트라 features 교차 import 가
   // 아니고, 컴포지션 루트가 부팅 시 주입한다. 미주입이면 대상 참조가 해석되지 않는다(서버 드롭).
   private tokens?: (providerId: string) => string | null
@@ -53,11 +52,20 @@ export class McpStore {
   // write() 가 단일 무효화 지점이다. 매 턴(enabledConfig) 디스크 재파싱을 없앤다(0092).
   private cache: OoMcpConfig | null = null
 
+  // 비밀 쓰기는 봉인을 기다린다(0324 EP-18). 그 사이에 다른 변경이 같은 mcp.json 을 읽고 쓰면 한쪽이
+  // 사라지므로 변경(add·update·remove)을 한 줄로 세운다.
+  private mutations: Promise<unknown> = Promise.resolve()
+
+  // 비밀 저장소는 컴포지션 루트가 하나만 열어 vault 와 함께 쓴다 — 같은 파일을 두 사본이 열지 않는다.
   constructor(
     private readonly settings: SettingsStore,
-    userDataDir: string
-  ) {
-    this.secrets = new SecretStore(userDataDir)
+    private readonly secrets: Pick<SecretStore, 'get' | 'has' | 'set' | 'delete'>
+  ) {}
+
+  private serial<T>(run: () => Promise<T> | T): Promise<T> {
+    const next = this.mutations.then(run, run)
+    this.mutations = next.catch(() => {})
+    return next
   }
 
   private read(): OoMcpConfig {
@@ -96,7 +104,7 @@ export class McpStore {
 
   // 정규 소스 항목 + 비밀 사이드 이펙트를 함께 구성한다.
   // auth 평문이 주어지면 secret-store 에 env-var 이름으로 저장하고 소스엔 ${VAR} 만 남긴다.
-  private buildSource(
+  private async buildSource(
     name: string,
     transport: 'stdio' | 'http',
     fields: {
@@ -107,7 +115,7 @@ export class McpStore {
     },
     auth: string | undefined,
     prevAuthVar: string | null
-  ): OoMcpServer {
+  ): Promise<OoMcpServer> {
     // 인증 env-var 이름 결정: 명시 authEnvKey → 기존 var → (비밀 있으면) 합성.
     const explicit =
       fields.authEnvKey && fields.authEnvKey.trim() !== '' ? fields.authEnvKey.trim() : null
@@ -124,14 +132,14 @@ export class McpStore {
       this.secrets.has(prevAuthVar)
     ) {
       const moved = this.secrets.get(prevAuthVar)
-      if (moved !== undefined) this.secrets.set(authVar, moved)
+      if (moved !== undefined) await this.secrets.set(authVar, moved)
       this.deleteSecretIfUnused(prevAuthVar, name)
     }
 
     // 비밀 적용: auth undefined → 미변경. '' → 제거. 그 외 → 저장.
     if (auth !== undefined && authVar) {
       if (auth === '') this.deleteSecretIfUnused(authVar, name)
-      else this.secrets.set(authVar, auth)
+      else await this.secrets.set(authVar, auth)
     }
 
     const placeholder = authVar && hasSecretNow
@@ -148,13 +156,17 @@ export class McpStore {
     }
   }
 
-  add(input: unknown): McpServer {
+  add(input: unknown): Promise<McpServer> {
     const data: CreateMcpServerRequest = CreateMcpServerSchema.parse(input)
+    return this.serial(() => this.addNow(data))
+  }
+
+  private async addNow(data: CreateMcpServerRequest): Promise<McpServer> {
     const servers = this.read()
     if (servers[data.name]) {
       throw new Error(`이미 존재하는 MCP 서버 이름입니다: ${data.name}`)
     }
-    const source = this.buildSource(
+    const source = await this.buildSource(
       data.name,
       data.transport,
       { command: data.command, args: data.args, url: data.url, authEnvKey: data.authEnvKey },
@@ -171,8 +183,12 @@ export class McpStore {
     return this.toDto(data.name, source, patched)
   }
 
-  update(input: unknown): McpServer | null {
+  update(input: unknown): Promise<McpServer | null> {
     const data: UpdateMcpServerRequest = UpdateMcpServerSchema.parse(input)
+    return this.serial(() => this.updateNow(data))
+  }
+
+  private async updateNow(data: UpdateMcpServerRequest): Promise<McpServer | null> {
     const servers = this.read()
     const prevName = data.id
     const prev = servers[prevName]
@@ -189,7 +205,7 @@ export class McpStore {
     const prevArgs = 'url' in prev ? [] : (prev.args ?? [])
     const prevUrl = 'url' in prev ? prev.url : null
 
-    const source = this.buildSource(
+    const source = await this.buildSource(
       nextName,
       transport,
       {
@@ -224,7 +240,11 @@ export class McpStore {
     return this.toDto(nextName, source, patched)
   }
 
-  remove(id: string): void {
+  remove(id: string): Promise<void> {
+    return this.serial(() => this.removeNow(id))
+  }
+
+  private removeNow(id: string): void {
     const servers = this.read()
     const target = servers[id]
     if (!target) return

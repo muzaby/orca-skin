@@ -103,7 +103,8 @@ import {
   ooConfigDir,
   sourcesSkillsDir
 } from '../infra/config/paths'
-import { SecretStore } from '../infra/config/secret-store'
+import { SecretStore, type Sealer } from '../infra/config/secret-store'
+import { openSecretFile } from '../infra/config/secret-file'
 import { initDb } from '../infra/db'
 import { errorMessage } from '../infra/errors'
 import {
@@ -185,11 +186,22 @@ import { registerSettingsReactions } from './settings-reactions'
 import { readSkillCatalog } from './skill-catalog'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 
+// 셸 서비스의 봉인·해제 세 가지 — 비밀 저장소는 Electron 을 모른다(0324 D-018).
+function shellSealer(): Sealer {
+  return {
+    isAvailable: () => shellServices().call('secrets.isAvailable'),
+    encrypt: (plain) => shellServices().call('secrets.encrypt', plain),
+    decrypt: (cipher) => shellServices().call('secrets.decrypt', cipher)
+  }
+}
+
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
   private readonly dataDirectory = hostEnvironment().userData
   readonly settings = new SettingsStore(hostEnvironment().appVersion, { cwd: this.dataDirectory })
-  readonly mcp = new McpStore(this.settings, this.dataDirectory)
+  // 비밀 저장소는 하나다 — vault 와 MCP 가 같은 사본을 쓴다(0324 EP-18). 봉인·해제는 셸 서비스가 한다.
+  private readonly secrets = new SecretStore(openSecretFile(this.dataDirectory), shellSealer())
+  readonly mcp = new McpStore(this.settings, this.secrets)
   private readonly extensionChoices = extensionControl({
     get: () => this.settings.getAll().nativeExtensionChoices,
     set: (choices) => this.settings.setNativeExtensionChoices(choices)
@@ -248,6 +260,8 @@ export class Bootstrap {
   private stopAvailability?: () => void
   private readonly onHarnessFocus = (): void => this.registry.focusRecheck()
   private stopHarnessFocus?: () => void
+  private stopSecretWake?: () => void
+  private stopSecretChange?: () => void
   private claudeGlobalWatch?: FingerprintWatch
   private bus?: MainBus<ClientRef>
   private activeDbWriteCount = 0
@@ -470,7 +484,15 @@ export class Bootstrap {
       () => this.registry.refreshInstallState()
     )
     void installation.catch(() => undefined)
-    const secretStore = new SecretStore(this.dataDirectory)
+    // 비밀은 기동 때 한 번 풀어 둔다(D-040). 인증 스택이 vault 를 읽기 전이어야 한다.
+    // 못 푼 비밀은 절전 해제·화면 잠금 해제마다 다시 푼다 — 창 포커스는 원인이 아니다.
+    await this.secrets.load()
+    if (this.stopped) return
+    this.stopSecretWake = shellServices().onWake((reason) => {
+      if (reason === 'window-focus') return
+      void this.secrets.retryUndecryptable()
+    })
+    const secretStore = this.secrets
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
 
@@ -537,6 +559,8 @@ export class Bootstrap {
       broadcastProviderState(connectionState(auth, gate, connections, resuming()))
       this.openCodeWarmup?.update()
     }
+    // 깨어난 뒤 다시 풀린 비밀은 인증 상태를 바꾼다(`unknown` → 판정) — 화면에 다시 알린다.
+    this.stopSecretChange = this.secrets.onChange(pushConnectionState)
     this.dailyGate = startDailyGate({
       gate,
       pushConnectionState,
@@ -951,6 +975,8 @@ export class Bootstrap {
     this.stopped = true
     this.stopHarnessFocus?.()
     this.stopAvailability?.()
+    this.stopSecretWake?.()
+    this.stopSecretChange?.()
     // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
     // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
     this.pendingMessages?.freeze()
