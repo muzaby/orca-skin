@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type SkillInfo } from '../../../shared/ipc'
+import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 import { registerSkillsHandlers } from './skills'
 
 const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
@@ -17,10 +18,15 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, listener: (event: unknown, raw: unknown) => unknown) =>
       handlers.set(channel, listener)
-  },
-  shell
+  }
 }))
 vi.mock('../../features/extensions/common/skills/sources', () => sources)
+
+// 폴더 열기는 셸 서비스로 간다(0324 EP-10).
+installFakeShellServices({
+  'external.openPath': shell.openPath,
+  'external.showItemInFolder': shell.showItemInFolder
+})
 
 const nativeName = 'superpowers:using-superpowers'
 const skill = (sourceId: string, name: string, enabled = false): SkillInfo => ({

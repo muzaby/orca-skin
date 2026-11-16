@@ -1,4 +1,3 @@
-import { shell } from 'electron'
 import {
   CHANNELS,
   GlobalNativeResourcesSchema,
@@ -15,6 +14,7 @@ import { handle } from '../../infra/ipc/handle'
 import type { ClaudeProcessReset } from '../harnesses/claude/processes'
 import type { MutableExtensionControl } from '../extension-control'
 import { harnessModule } from '../harnesses/registry'
+import { shellServices } from '../../infra/shell-services'
 
 export function registerExtensionCatalogHandlers(
   control: MutableExtensionControl,
@@ -77,8 +77,9 @@ export function registerExtensionCatalogHandlers(
         throw new Error('이 항목의 설정 위치를 열 수 없습니다.')
       const file = await harnessModule(backend).globalResourcePath?.(id, kind)
       if (!file) throw new Error('이 항목의 설정 위치를 열 수 없습니다.')
-      if (kind === 'mcp') shell.showItemInFolder(file)
-      else if (await shell.openPath(file)) throw new Error('플러그인 폴더를 열 수 없습니다.')
+      if (kind === 'mcp') await shellServices().call('external.showItemInFolder', file)
+      else if (await shellServices().call('external.openPath', file))
+        throw new Error('플러그인 폴더를 열 수 없습니다.')
     }
   )
 }

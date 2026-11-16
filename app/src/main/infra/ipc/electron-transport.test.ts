@@ -21,7 +21,7 @@ vi.mock('electron', () => ({
   BrowserWindow: { getAllWindows: () => electron.windows }
 }))
 
-import { clientOf, contentsOf, createElectronTransport } from './electron-transport'
+import { clientOf, createElectronTransport } from './electron-transport'
 import type { ClientRef } from './transport'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- 반환 형상은 구현이 정본이다
@@ -56,7 +56,6 @@ describe('clientOf', () => {
     const contents = fakeContents(7)
     expect(ref(contents)).toBe(ref(contents))
     expect(ref(contents).id).toBe(7)
-    expect(contentsOf(ref(contents))).toBe(contents)
   })
 
   it('구독 전에는 창에 리스너를 달지 않는다', () => {
@@ -85,7 +84,8 @@ describe('clientOf', () => {
     expect(closed).toHaveBeenCalledTimes(1)
     expect(client.isClosed()).toBe(true)
     expect(contents.eventNames()).toEqual([])
-    expect(contentsOf(client)).toBeNull()
+    // 닫힌 참조는 표에서 빠져 다음 요청이 새 참조를 받는다.
+    expect(ref(contents)).not.toBe(client)
   })
 
   it.each([

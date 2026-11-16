@@ -5,6 +5,8 @@ const f = vi.hoisted(() => ({
   native: false,
   handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>(),
   open: vi.fn(async () => ''),
+  reveal: vi.fn(),
+  mcpOpen: false,
   read: vi.fn(),
   path: vi.fn(async () => '/installed/plugin')
 }))
@@ -12,8 +14,7 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
       f.handlers.set(channel, callback)
-  },
-  shell: { openPath: f.open, showItemInFolder: f.open }
+  }
 }))
 vi.mock('electron-store', () => ({ default: class {} }))
 vi.mock('../harnesses/registry', () => ({
@@ -37,7 +38,7 @@ vi.mock('../harnesses/registry', () => ({
           enabled: true,
           status: 'configured',
           canToggle: backend === 'opencode',
-          canOpen: false
+          canOpen: f.mcpOpen
         }
       ]
     },
@@ -47,11 +48,20 @@ vi.mock('../harnesses/registry', () => ({
 import { SettingsStore } from '../../infra/settings-store'
 import { registerExtensionCatalogHandlers } from './extension-catalog'
 import { extensionControl } from '../extension-control'
+import { installFakeShellServices } from '../../infra/shell-services.testfixture'
+
+// 폴더 열기는 셸 서비스로 간다(0324 EP-10).
+installFakeShellServices({
+  'external.openPath': f.open,
+  'external.showItemInFolder': f.reveal
+})
 
 beforeEach(() => {
   f.handlers.clear()
   f.native = false
   f.open.mockClear()
+  f.reveal.mockClear()
+  f.mcpOpen = false
   f.read.mockClear()
 })
 const invoke = async (channel: string, payload: unknown): Promise<NativeResources> =>
@@ -112,6 +122,7 @@ it('reads native defaults without copying them and keeps supported explicit choi
   expect(f.open).not.toHaveBeenCalled()
   await invoke(CHANNELS.extensionOpen, { backend: 'claude', id: 'plugin-id', kind: 'plugin' })
   expect(f.open).toHaveBeenCalledWith('/installed/plugin')
+  expect(f.reveal).not.toHaveBeenCalled()
   const reloaded = new SettingsStore('test', { store: JSON.parse(JSON.stringify(backend.store)) })
   expect(reloaded.getAll().nativeExtensionChoices).toBeUndefined()
   expect(extensionControl().global('claude')).toEqual({})
@@ -189,4 +200,15 @@ it('rejects confirmed: false before planning or saving', async () => {
   ).resolves.toMatchObject({ status: 'applied' })
   expect(processes.plan).toHaveBeenCalledTimes(1)
   expect(save).toHaveBeenCalledExactlyOnceWith('claude', 'plugin:superpowers@market', false)
+})
+
+it('MCP 항목은 설정 파일을 탐색기에서 보여 주고 열지 않는다 (0324 EP-10)', async () => {
+  f.mcpOpen = true
+  registerExtensionCatalogHandlers(extensionControl(), {
+    plan: vi.fn(() => ({ targets: [], busy: 0 })),
+    close: vi.fn()
+  })
+  await invoke(CHANNELS.extensionOpen, { backend: 'claude', id: 'docs', kind: 'mcp' })
+  expect(f.reveal).toHaveBeenCalledExactlyOnceWith('/installed/plugin')
+  expect(f.open).not.toHaveBeenCalled()
 })
