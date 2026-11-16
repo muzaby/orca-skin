@@ -17,7 +17,7 @@ import {
   FIELD_USERNAME
 } from './specs/credential'
 
-// safeStorage 를 대신하는 fake — 봉인 자체는 `infra/config/crypto.ts` 의 책임이라 여기서는
+// 봉인을 대신하는 fake — 봉인 자체는 `infra/config/secret-store.ts`(셸 서비스 봉인기)의 책임이라 여기서는
 // 저장·삭제·열거 의미론만 재현한다.
 function fakeSecretStore(): SecretStorePort & { raw: Map<string, string> } {
   const raw = new Map<string, string>()
