@@ -1535,6 +1535,103 @@ AC 자기보고(검증 증거 아님, 분모 38): r1.4 와 같다 — `✅ 12 ·
 
 ---
 
+## [구현자 기입] r1.6 — 호스트 감독자 · 고아의 OS 목록 · 창 쪽 포트 클라이언트 (미완료)
+
+**판정: 미완료(partial).** 감독자 순수 모듈, 고아를 고르는 OS 프로세스 목록·트리 종료, rev 3.3 의 창 쪽 포트 클라이언트를 만들었다. 셋 다 아직 배선 전이라 앱은 한 프로세스로 돈다. 사용자 지시(2026-11-16 "무시하고 이어서 작업")로 `handoff-review` 없이 이었다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| preload 전송의 채널·대기 규칙 부재 | `PLAN_GAP` → rev 3.3(§7-E)으로 닫음 | `rg -n "agentHost\|agent-host" app/src/shared/ipc.ts` → 0. 포트 전달·재기동 신호·첫 포트 전 요청이 정해져 있지 않았다. 설계 커밋을 따로 했다 |
+| 비정상 종료 처리 중의 기동 요청 | 구현 세부 | 고아 정리(`await`) 사이에 fork 하면 새 포트가 옛 종료 통지보다 먼저 간다. `exiting` 단계를 두고 요청을 처리 뒤로 미뤘다(`host-supervisor.test.ts` "정리하는 사이에 온 기동 요청은 종료 통지가 끝난 뒤에 fork 한다") |
+| 기동 실패 횟수의 기준 | 구현 세부 | §11 "연속 3회 실패"를 준비 메시지 전 exit 로 셌다. 준비 성공이 0 으로 되돌린다 |
+| 프로세스 목록의 자리 | 구현 세부 | 가드 (j) 가 `child_process` 를 3파일로 막는다. `shell-runner.ts` 의 `runShellCommand` 로 `ps`·CIM 을 돌리고 해석은 순수 `process-table.ts` 로 뗐다 — 가드 목록은 바꾸지 않았다 |
+| `HostToClientSchema` | 현재 결함 — 선조치 | r1.5 의 판별 유니온에 `result` 가 둘이라 zod v4 가 첫 해석에서 던진다(`Duplicate discriminator value "result"`). 해석하는 곳이 이번에 처음 생겨 드러났다. 유니온으로 바꿨다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-12 (4) | 에이전트 호스트 exit · 데이터 호스트 exit · 정상 shutdown · 3초 초과 강제 종료 | 감독자 모듈 4/4 | `app/shell/host-supervisor.test.ts`: "에이전트 호스트 exit → 자식만 끝내고 → 창에 알리고 → 상태를 비운다, 순서대로" · "데이터 호스트 exit 는 창에 알리기만 한다" · "종료 요청 뒤 제때 끝나면 kill 하지 않고 창에 알리지 않는다" · "제한 시간 안에 끝나지 않으면 한 번 kill 한다". 남긴 곳: `utilityProcess` 의 `exit` 를 감독자에 잇는 셸 배선 — `rg -n "\.on\('exit'" app/src/main/app/shell` → 0줄(배선 전) |
+| EP-12 규칙 칸 "재기동 실패 3회" | 분기 | 1/1 | 같은 파일 "준비 전에 3번 연속 죽으면…" · "준비에 성공하면 연속 실패 수가 0 이 된다" · "준비된 뒤의 비정상 종료는 연속 실패 수를 늘리지 않는다" |
+| EP-12 의 고아 종료(OS 쪽) | 목록·트리 종료 | 2/2 | `infra/shell/process-table.test.ts` 3 · `shell-runner.process-list.test.ts` 7 · `shell-runner.win32.test.ts` "killPidTree — win32" 3 |
+| EP-8 preload 자리 (rev 3.3 규칙 칸 8분기) | 창 쪽 클라이언트 | 모듈 8/8 | `preload/host-port.test.ts` 18케이스 — 분기마다 입력 1 이상. 남긴 곳: `preload/index.ts` 가 아직 이 클라이언트를 쓰지 않는다(배선 검색 `rg -n "hostPort\.(invoke\|send\|on)\(" app/src/preload --glob '!*.test.*'` → 0줄) |
+| EP-11·EP-9·EP-14 | — | r1.5 와 같다 | 이번 턴 변경 없음 |
+| EP-4·5·6·10′ | — | 미착수 | — |
+
+V-pair 자기 상태: 올린 것 없음. VP-22 는 감독자 모듈만 닫혔고 셸 배선이 없어 `SELF_PASS` 가 아니다. VP-23·VP-24 는 preload 배선이 없다.
+
+### 이번 라운드 수정의 잠금
+
+하네스 `mutate.py`. 원복은 매번 "모든 파일 원문 그대로".
+
+| 묶음 | 행 | 결과 |
+|---|---|---|
+| 감독자 `S-1`~`S-40` | 40 | 잡음 40. `S-9`(실패 판정 고정)·`S-24`(준비 재수신)·`S-27`(기동 중 연결)·`S-39`·`S-40`(상한 값)은 처음에 못 잡아 4케이스를 더한 뒤 잡음 |
+| 프로세스 목록 `K-1`~`K-18`·`K-4b` | 19 | 잡음 18 · 동치 1(`K-4` — CRLF 의 `\r` 은 줄 끝 `\s*` 가 받아 `split` 정규식이 죽은 항이었다. `split('\n')` 로 줄이고 `K-4b`(줄 끝 `\s*` 제거)로 다시 잡음). `K-9` 는 오류 문장을 단언하도록 고친 뒤 잡음. `K-15` 는 prettier 줄바꿈으로 재앵커 |
+| 포트 클라이언트 `C-0`~`C-34`(`C-10` 제외) | 34 | 잡음 29 · 동치 3 · 제거 2. 동치 `C-13`·`C-18r`·`C-34` — 이미 끝난 요청 항목을 지도에서 지우는 줄들이다. 번호는 다시 쓰지 않고 그 포트의 응답은 교체·종료 뒤 무시되므로(`C-9` 잡음) 관측이 같고 메모리만 다르다. 제거 `C-19`·`C-20` — `attachPort` 의 `exited`·`connectRequested` 초기화는 포트가 있는 동안 읽히지 않아 지웠다. `C-25` 는 1케이스를 더한 뒤 잡음. `C-0` 은 이번 결함의 역변이(판별 유니온 복귀) — 잡음 |
+
+`C-10` 은 동작을 바꾸지 않는 대조 줄이라 표에서 뺐다. 검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 93 = 표 행 93`.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자가 보는 변화 | 없음. 세 모듈 모두 배선 전이다 |
+| 호스트 종료 중 요청의 실패 문장 | `HOST_EXITED_ERROR`·`HOST_REPLACED_ERROR` 는 개발자용이다. 화면 문구는 `chatStore` 의 종료 통지 처리(AC29)가 정한다 — 배선 때 오류 문장이 화면에 그대로 나가지 않는지 본다 |
+| 기동 실패 상한 뒤의 요청 | rev 3.3: 셸이 종료 통지를 다시 보내 대기를 실패시킨다. 셸 쪽 응답은 배선 단계 몫이다 |
+
+### 놓친 잠재 문제 + 대응
+
+- 고아 선별의 프로세스 목록은 `runShellCommand` 를 거친다 — Windows 에서 PowerShell 기동이 느리면 종료 통지가 그만큼 늦다. 제한 시간은 호출자가 정한다(배선 때 정할 값). 실패하면 `reapOrphans` 가 기록하고 통지는 그대로 간다.
+- POSIX `killPidTree` 는 그룹 종료가 실패하면 그 프로세스만 끝낸다 — 그룹 대표가 아닌 하네스의 손자는 남을 수 있다(B9 의 "손자는 OS 트리 종료에 맡긴다"는 Windows `taskkill /T` 기준이다). 출시 대상은 Windows 다.
+- 감독자의 `attach` 는 같은 창 id 로 다시 부르면 덮어쓴다. 셸이 문서 재로드마다 `attach` 를 다시 부르는 설계면 포트가 새로 가고, 호스트 포트 서버가 옛 참조를 닫는다(r1.5 `P-` 행).
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 4 감독자 | 구현(순수 모듈) | `app/shell/host-supervisor.ts` + 테스트 29 |
+| 4 고아 OS 쪽 | 구현 | `infra/shell/process-table.ts` · `shell-runner.ts` 의 `listProcesses`·`killPidTree` + 테스트 13 |
+| 4 창 쪽 포트 클라이언트 | 구현(순수 모듈) | `preload/host-port.ts` + 테스트 18 · `shared/host-protocol.ts` 결함 수정 |
+| 4 나머지(`boot.ts`·셸 배선·세 채널·preload 교체·셸 서비스 8종·`entry`·`index.ts` 축소·`updater`/트레이 입력·`chatStore`·번들 입력·가드 (e)(f)) · 5 · 7 · `ci.yml` | 미착수 | — |
+
+AC 자기보고(검증 증거 아님, 분모 38): AC18·AC32 가 ❌ → ⚠️(감독자 모듈은 있고 배선 전). `✅ 12 · ⚠️ 12 · ❌ 14 = 총 38`.
+
+**r1.6 마지막 트리 gate** — 새 컨테이너라 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 `npm rebuild better-sqlite3`(Node ABI)로 DB 스위트까지 돌렸다. vitest 는 `ELECTRON_OVERRIDE_DIST_PATH=/nonexistent` 를 준 CI 흉내 방식이다.
+
+| gate | 관측 |
+|---|---|
+| 첫 실행의 red | `check-test-budgets` 1건(추가한 테스트의 `timeoutMs: 1234`) — 고쳤다. lint·typecheck 는 첫 실행부터 0 error |
+| 가드 4종 | 전부 exit 0 (`check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets`) |
+| `npm run lint` | 0 error · 3 warning(기존 `useVirtualizer` 등) |
+| `npm run typecheck` | `error TS` 0줄 |
+| `node --test scripts/*.test.mjs` | tests 958 · pass 955 · fail 0 · todo 3 |
+| `vitest run` (CI 흉내 방식, 필터 없음) | 1001파일 — 9 fail / 22케이스 · 오류 1 · 988 pass. 실패 파일 집합 ↔ r1.5 기준선 9파일의 차집합 0줄(양방향 `comm -3`) · `[test-pools]` 0줄. r1.5 가 재실행하지 않았던 `product-identity.test.ts` 는 green |
+| `node scripts/check-ui-thread.mjs` | exit 1 · 230건(r1.5 와 같은 수, 이번 턴 파일 0건) — 단계 4 본체·5·7 대기분, `ci.yml` 미연결 |
+
+기준선 9파일은 r1.5 표와 같다(`adapters/claude/{adapter.native-plugins,native-resources,project-reconciliation}` · `adapters/opencode/v1/adapter{,.instances,.persistent}` · `app/{composer-catalog,composer-preparation-service}` · `app/handlers/session-resources.claude-assembly`). 이번 턴도 원인은 확인하지 않았고 비귀속 기존 실패로 적는다.
+
+테스트 소스 규칙의 파일별 판정(추가·수정 5파일 — `host-supervisor`·`process-table`·`shell-runner.process-list`·`shell-runner.win32`·`host-port`): 시간 예산 — `check-test-budgets` exit 0(첫 실행에서 `timeoutMs: 1234` 1건이 걸려 1초 미만 데이터 값으로 고쳤다) · 호스트 격리 — 홈·env 접근 추가 0 · 풀 분류 — 전체 실행의 `[test-pools]` 줄 수는 위 표.
+
+대상 커밋: `(r1.6 구현 일부 — 좌표는 INDEX)`.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.6`(미완료) — verify 0회. `handoff-review` 조건(같은 라운드 impl 턴 3 초과)에 해당하지만 사용자 지시로 건너뛰었다.
+- 설계가 이름만 적고 정하지 않은 계약을 구현 턴이 먼저 만났다(포트 채널·대기 규칙) — r1.4·r1.5 의 열린 설계 항목과 같은 축이다.
+- 앞 턴이 만든 스키마의 결함을 소비자가 생긴 턴에서야 찾았다 — 송신만 하는 쪽의 테스트는 수신 스키마를 해석하지 않았다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. 셸 배선: `utilityProcess` 를 `HostProcess` 로 감싸는 어댑터(가드 (j) 허용 파일 = `host-supervisor.ts`) · `boot.ts` · 세 채널(`CHANNELS`·`channel-owner`·`IPC_CONTRACT.md`) · 기동 실패 상한 뒤의 `connect` 응답.
+2. preload 교체 — 호스트 채널의 `ipcRenderer` 호출을 `host-port` 로(AC24·AC33, VP-21 등록 변이). 호스트 진입점과 같은 단계에 넣는다(§7-E 결정 4).
+3. 셸 서비스 8종 · Electron 값 import 파일 이주 → `agent-host/entry.ts` → `index.ts` 축소 · `updater`/트레이 입력 · `chatStore` 반영 · 번들 입력.
+4. 단계 5 → 단계 7 → 가드 `todo` 3건 제거와 `ci.yml` 연결 → 열거 원문 sweep 전수 · 사람 실기 AC22·AC23 안내.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

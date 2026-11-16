@@ -52,8 +52,8 @@ export const ClientToHostSchema = z.discriminatedUnion('kind', [
 ])
 export type ClientToHost = z.infer<typeof ClientToHostSchema>
 
-// 호스트 → 창.
-export const HostToClientSchema = z.discriminatedUnion('kind', [
+// 호스트 → 창. `result` 가 성공·실패 두 모양이라 판별 유니온(같은 판별 값 금지)이 아니라 유니온이다.
+export const HostToClientSchema = z.union([
   z.object({
     kind: z.literal('result'),
     id: z.number().int().nonnegative(),
