@@ -13,7 +13,6 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('electron', () => ({
   app: { on: vi.fn(), removeListener: vi.fn(), getVersion: () => 'test' },
-  shell: { trashItem: vi.fn() },
   BrowserWindow: { getAllWindows: () => [] },
   ipcMain: {},
   net: {},
