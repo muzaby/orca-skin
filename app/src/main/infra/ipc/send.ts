@@ -22,6 +22,7 @@ import type {
   NativeResourcesChanged,
   OpenCodePluginsChanged
 } from '../../../shared/native-resources'
+import type { UsageDelta } from '../../../shared/usage/limits'
 import { wireLog } from './wire-log'
 
 export function broadcastHarnessAvailability(state: HarnessAvailability): void {
@@ -77,6 +78,15 @@ export function sendScheduledPromptStart(payload: ScheduledPromptStart): boolean
   if (!wc || wc.isDestroyed()) return false
   wc.send(CHANNELS.schedulePromptStart, payload)
   return true
+}
+
+// 사용량 delta — 변경된 scope 만 나간다 (0186).
+export function broadcastUsageDelta(delta: UsageDelta): void {
+  broadcast(CHANNELS.costUsageEvent, delta)
+}
+
+export function broadcastManagedMcpChanged(revision: number): void {
+  broadcast(CHANNELS.managedMcpChanged, { revision })
 }
 
 export function broadcastConcurrency(ev: ConcurrencyEvent): void {

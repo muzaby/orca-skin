@@ -156,6 +156,43 @@ describe('toolDiffStat', () => {
   it('diff 대상 아닌 도구는 null', () => {
     expect(toolDiffStat(call('Bash', { command: 'ls' }))).toBeNull()
   })
+
+  // 0324 AC10 — 줄 수 합이 400 을 넘는 입력은 머리의 증감 수를 세지 않는다.
+  const linesOf = (count: number, prefix: string): string =>
+    Array.from({ length: count }, (_, i) => `${prefix}${i}`).join('\n')
+
+  it('줄 수 합 400 은 세고 401 은 증감 수가 없다 (Edit)', () => {
+    const edit = (oldCount: number, newCount: number): ReturnType<typeof toolDiffStat> =>
+      toolDiffStat(
+        call('Edit', {
+          file_path: 'a',
+          old_string: linesOf(oldCount, 'a'),
+          new_string: linesOf(newCount, 'b')
+        })
+      )
+    expect(edit(200, 200)).toEqual({ added: 200, removed: 200 })
+    expect(edit(200, 201)).toBeNull()
+  })
+
+  it('Write 401 줄은 증감 수가 없다', () => {
+    expect(toolDiffStat(call('Write', { file_path: 'a', content: linesOf(400, 'w') }))).toEqual({
+      added: 400,
+      removed: 0
+    })
+    expect(toolDiffStat(call('Write', { file_path: 'a', content: linesOf(401, 'w') }))).toBeNull()
+  })
+
+  it('MultiEdit 는 한 묶음이라도 상한을 넘으면 증감 수가 없다', () => {
+    const edits = (bigCount: number): unknown => [
+      { old_string: 'x', new_string: 'y' },
+      { old_string: '', new_string: linesOf(bigCount, 'm') }
+    ]
+    expect(toolDiffStat(call('MultiEdit', { file_path: 'a', edits: edits(400) }))).toEqual({
+      added: 401,
+      removed: 1
+    })
+    expect(toolDiffStat(call('MultiEdit', { file_path: 'a', edits: edits(401) }))).toBeNull()
+  })
 })
 
 describe('VERB_KEY / VERB_KEY_ACTIVE / UNIT_KEY (키맵 완전성)', () => {

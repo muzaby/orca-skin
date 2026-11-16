@@ -68,6 +68,7 @@ it('wires the live MCP source into bootstrap consumers and broadcasts only its r
   readChanged(changed.body)
   expect(changedCalls.map(text)).toContain('this.closeComposerCatalog?.invalidate()')
   expect(changedCalls.map(text)).toContain('preparedMcp.invalidate()')
-  const send = changedCalls.find((node) => text(node.expression) === 'wc.send')!
-  expect(send.arguments.map(text)).toEqual(['CHANNELS.managedMcpChanged', '{revision}'])
+  // 창 통지는 전송 모듈이 한다(0324 가드 (g)) — 채널과 payload 형상은 `infra/ipc/send.test.ts` 가 잠근다.
+  const send = changedCalls.find((node) => text(node.expression) === 'broadcastManagedMcpChanged')!
+  expect(send.arguments.map(text)).toEqual(['revision'])
 })

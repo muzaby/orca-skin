@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { stringify } from '../../../../format'
 import { DiffTable } from '../../../common/transcript/DiffTable'
-import { buildDiffLines, type DiffLine } from '../../../../lib/diffLines'
+import { DiffLinesStatus } from '../../../common/transcript/DiffLinesStatus'
+import { useDiffLines } from '../../../../hooks/useDiffLines'
+import type { DiffLine } from '../../../../lib/diffLines'
 import { patchLinesToDiffLines } from '../../../../lib/diffPatchLines'
 import {
   fileEditPatchLines,
@@ -18,36 +20,73 @@ import type { ToolCall } from '../../../../reducer/chatReducer'
 // 1번 줄부터 셀 수밖에 없다. 결과가 오면 예측을 사실로 교체한다 — 진행 중에만 미리보기가 선다.
 // 셋 다 없는 경우(`Write`·`MultiEdit`·구버전·오류 결과)는 입력 쌍 폴백이다(D-009·D-010).
 
-function buildPairLines(call: ToolCall): DiffLine[][] {
+// 줄 묶음 하나의 원천 — 구조화 패치는 이미 줄이고, 입력 쌍은 줄 계산이 필요하다. 쌍의 계산은
+// `useDiffLines` 가 상한에 따라 UI 스레드 또는 계산 워커에서 한다(0324 D-014).
+type DiffBlock = { lines: DiffLine[] } | { oldValue: string; newValue: string }
+
+function buildPairBlocks(call: ToolCall): DiffBlock[] {
   const rec = call.input as Record<string, unknown> | null
   if (!rec || typeof rec !== 'object') return []
   if (call.name === 'Write') {
     const content = typeof rec.content === 'string' ? rec.content : ''
-    return [buildDiffLines('', content)]
+    return [{ oldValue: '', newValue: content }]
   }
   if (call.name === 'Edit') {
     const oldValue = typeof rec.old_string === 'string' ? rec.old_string : ''
     const newValue = typeof rec.new_string === 'string' ? rec.new_string : ''
-    return [buildDiffLines(oldValue, newValue)]
+    return [{ oldValue, newValue }]
   }
   if (call.name === 'MultiEdit' && Array.isArray(rec.edits)) {
     return rec.edits.map((e) => {
       const er = (e ?? {}) as Record<string, unknown>
-      return buildDiffLines(
-        typeof er.old_string === 'string' ? er.old_string : '',
-        typeof er.new_string === 'string' ? er.new_string : ''
-      )
+      return {
+        oldValue: typeof er.old_string === 'string' ? er.old_string : '',
+        newValue: typeof er.new_string === 'string' ? er.new_string : ''
+      }
     })
   }
   return []
 }
 
-function buildBlocks(call: ToolCall): DiffLine[][] {
+export function buildBlocks(call: ToolCall): DiffBlock[] {
   const hunks =
     readFileEditStructuredPatch(call.result?.structuredOutput) ??
     readFileEditStructuredPatch(call.editPreview)
-  if (hunks) return [patchLinesToDiffLines(fileEditPatchLines(hunks))]
-  return buildPairLines(call)
+  if (hunks) return [{ lines: patchLinesToDiffLines(fileEditPatchLines(hunks)) }]
+  return buildPairBlocks(call)
+}
+
+function RawInput({ call }: { call: ToolCall }): React.JSX.Element {
+  return (
+    <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
+      {stringify(call.input)}
+    </pre>
+  )
+}
+
+// 입력 쌍 한 묶음 — 계산 중에는 로딩 표시, 워커 실패에는 도구 입력 원문을 보인다.
+function PairBlock({
+  call,
+  oldValue,
+  newValue,
+  filePath
+}: {
+  call: ToolCall
+  oldValue: string
+  newValue: string
+  filePath?: string
+}): React.JSX.Element {
+  const state = useDiffLines(oldValue, newValue)
+  if (state.status === 'failed') return <RawInput call={call} />
+  return (
+    <div className="overflow-auto rounded-r4 border border-t5">
+      {state.status === 'loading' ? (
+        <DiffLinesStatus />
+      ) : (
+        <DiffTable lines={state.lines} filePath={filePath} />
+      )}
+    </div>
+  )
 }
 
 export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
@@ -58,15 +97,23 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       {blocks.length === 0 ? (
-        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
-          {stringify(call.input)}
-        </pre>
+        <RawInput call={call} />
       ) : (
-        blocks.map((lines, i) => (
-          <div key={i} className="overflow-auto rounded-r4 border border-t5">
-            <DiffTable lines={lines} filePath={filePath} />
-          </div>
-        ))
+        blocks.map((block, i) =>
+          'lines' in block ? (
+            <div key={i} className="overflow-auto rounded-r4 border border-t5">
+              <DiffTable lines={block.lines} filePath={filePath} />
+            </div>
+          ) : (
+            <PairBlock
+              key={i}
+              call={call}
+              oldValue={block.oldValue}
+              newValue={block.newValue}
+              filePath={filePath}
+            />
+          )
+        )
       )}
     </div>
   )

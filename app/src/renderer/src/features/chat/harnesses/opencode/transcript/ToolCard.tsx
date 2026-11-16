@@ -94,7 +94,7 @@ export const OpenCodeToolCard = memo(function OpenCodeToolCard({
               <span className="shrink-0">{tr(`chat.toolMeta.agentStatus.${view.outcome}`)}</span>
             )}
           </span>
-          {view.kind === 'edit' && (changes.added > 0 || changes.removed > 0) && (
+          {view.kind === 'edit' && changes && (changes.added > 0 || changes.removed > 0) && (
             <span
               data-slot="tool-diff-summary"
               className="flex shrink-0 gap-[6px] text-[calc(11px*var(--transcript-text-scale,1))]"

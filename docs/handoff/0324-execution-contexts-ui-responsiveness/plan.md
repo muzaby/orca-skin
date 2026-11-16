@@ -804,17 +804,81 @@
 
 ## [구현자 기입] 설계 리뷰
 
+**r1 — 미완료(partial). 사용자 지시(2026-11-16)로 단계 1~3 에서 멈추고 다른 에이전트가 잇는다.** 단계 4·5·6·7 은 손대지 않았다.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| EP-7 "`adapter.ts:609` 를 `await` 로" | `PLAN_GAP` — 그 경로 멈춤 | `openChannel`(`adapter.ts:497`)과 `sendMessage`(`:446`)는 동기 함수다. 호출부 `session-runtime.ts:496` 은 admission 판정 직후 동기로 spawn 한다 — `await` 를 넣을 자리(포트에 준비 단계 추가·판정과의 순서·준비 중 취소)가 계약 결정이다 |
+| EP-10 "Electron 값 import 17파일을 8종에 배정, 미배정 0" | `PLAN_GAP` — 단계 4 착수 전 정정 필요 | `electron-store` 를 쓰는 3파일(`infra/settings-store.ts`·`infra/config/secret-store.ts`·`features/auth/store-file.ts`)이 분모에 없다. `node_modules/electron-store/index.js:3` 이 `require('electron').app` 으로 경로를 얻어 utility 프로세스에서 생성자가 실패한다. 검색 술어가 직접 import 만 봤다 |
+| §8 "`window.oo` 밖 9곳" | 구현 세부 — 선조치 | 주석·테스트 지원 파일을 뺀 코드 자리는 6곳이다(가드 `--list` (h)). 6곳을 `shared/api` 로 옮겼다 |
+| §10 "(e)(f) import 목록은 `ts.preProcessFile`" | 설계 대비 차이 | `preProcessFile` 은 `import type` 을 가르지 못한다. `ts.createSourceFile` AST 로 뽑았다 — 리터럴이 아닌 지정자·풀 수 없는 상대 경로는 실패다(fail-closed 유지) |
+| §10 등록 표 class 4종 | 보고만 | 디렉토리 하나를 열거하는 2파일(`extensions/claude/scaffold.ts`·`harnesses/common/settings.ts`)에 맞는 class 가 없어 `single-file` 로 두고 reason 에 적었다 |
+| `perf.stall` 로그 레벨 | 구현 세부 | `info` 로 남긴다. warn/error 는 `RepeatSuppressor`(60초 창, `infra/log/suppress.ts`)가 삼켜 AC5·AC22 의 건수를 셀 수 없다 |
+
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-1 (11) | 규칙 (a)~(k) | 판정 11/11 구현 · 실제 트리 green 은 (a)(d)(g)(h)(i)(j)(k) 7 | `scripts/check-ui-thread.test.mjs` 규칙별 describe. 남긴 곳: (b) `lib/unifiedDiffLines.ts` 제외 전부 닫힘 → 실제 트리 위반 0 · (c) `handlers/session.ts:17`(단계 5) · (e) 셸 그래프 전체(단계 4) · (f) 호스트 진입점 없음(단계 4·5) · 문서 대조(단계 7) |
+| EP-2 (7) | 등록 함수 3 + `index.ts` 직접 등록 4 | 7/7 | `infra/ipc/handle.test.ts` "동기 구간 계측" 5케이스 · `rg "ipcMain\." src/main/index.ts` → 0줄 · 가드 (d) |
+| EP-3 (9) | UI 스레드 계산 호출 9 | 9/9 | `CodeBlock.compute.test.ts` · `hooks/useDiffCompute.test.ts` · `lib/toolMeta.test.ts`(401) · `opencode/transcript/filePresentation.test.ts` · 가드 (b) 실제 트리 위반 0 |
+| EP-4·5·6·8~12 | — | 0 | 단계 4·5 미착수 |
+| EP-7 (1) | `adapter.ts:609` | 0/1 | `PLAN_GAP`(위) |
+
+V-pair 자기 상태: `SELF_PASS` 로 올린 pair 없음 — 열거 원문 sweep 과 등록 변이(VP-02·VP-12·VP-32)를 돌리지 않았다.
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
+미수행. `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 0 = 표 행 0`. 잇는 구현자가 IMPL_DONE 전에 전수로 돌린다.
+
 ## [구현자 기입] Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 새 문구 `chat.toolMeta.diffLoading` | 소비자 `harnesses/common/transcript/DiffLinesStatus.tsx`(`role="status"`) → Claude `DiffBody`·opencode `ToolBody`. ko·en 둘 다 추가 |
+| 큰 diff 의 줄 계산 실패(워커 실패) | Claude 는 도구 입력 원문, opencode 는 `patch ?? after` 원문을 보인다 — "아무 일도 안 일어남"이 아니다. 화면 확인은 못 했다(Electron 실행 불가) |
+| 401줄 이상 diff 의 머리 증감 수 | Claude `toolDiffStat` · opencode `fileChanges` 가 `null` → 표시 없음(D-014). opencode 파일 패널 머리의 `+N −M` 은 워커 결과가 온 뒤에 나타난다 — D-014 는 "도구 카드 머리"만 말해 파일 패널 머리는 계약 밖이다(보고만) |
+| 32,000자 초과 코드 | 강조 요청 없이 원문(D-012). 기존 200,000자 → 32,000자 |
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
+- 취소된 계산 요청의 promise 는 `ComputeCancelled` 로 reject 된다. 소비 훅 셋(`useHighlightedHtml`·`useDiffSyntax`·`useDiffLines`)이 모두 catch 한다 — 새 소비자가 catch 를 빠뜨리면 unhandled rejection 이다.
+- 워커 번들(`new Worker(new URL(...), { type: 'module' })` + `renderer.worker.format = 'es'`)과 CSP `script-src 'self'` 아래의 실제 기동은 이 환경에서 확인하지 못했다 — AC23.
+- 가드의 "실제 트리 exit 0"·문서 대조 3케이스는 `node:test` 의 `todo` 로 걸어 두었다(실행은 하되 스위트를 막지 않는다). 단계 4·5·7 뒤에 `todo` 를 지우고 `ci.yml` 에 가드 단계를 단다 — 지금은 `ci.yml`·`package.json` 을 고치지 않았다.
+
 ## [구현자 기입] 구현 보고
 
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 1 계측 | 구현 | `shared/perf-budget.ts` · `infra/perf/stall-monitor.ts` · `infra/ipc/handle.ts` 계측 · `renderer shared/perf/longTaskReporter.ts` · `index.ts` 직접 등록 4곳 → `handlePlain` |
+| 2 가드 | 일부 | `scripts/{check-ui-thread,ui-thread-rules}.mjs` + 테스트 79(pass 76 · todo 3). `window.oo` 6곳·창 통지 직접 순회 2곳 이동. `ci.yml` 미연결 |
+| 3 계산 워커 | 구현 | `renderer shared/compute/**` · 소비처 9자리 이동 · `electron.vite.config.ts` worker format |
+| 4 호스트 이주 | 미착수 | EP-10 `PLAN_GAP` |
+| 5 데이터 호스트 | 미착수 | — |
+| 6 비동기 카탈로그 | 미착수 | EP-7 `PLAN_GAP` |
+| 7 문서 | 미착수 | `execution-model.md`·ADR-012·`AGENTS.md` 넷 없음 |
+
+AC 자기보고(검증 증거 아님): ✅ AC5·AC6·AC7·AC8·AC9·AC10·AC11·AC12·AC13·AC14 · ⚠️ AC2·AC3·AC4·AC35(판정은 있고 실제 트리·CI 연결 전) · ❌ 나머지. `✅ 10 · ⚠️ 4 · ❌ 21 = 총 35`.
+
+gate(마지막 수정 뒤 트리에서 얻은 것만 적는다):
+
+| gate | 관측 |
+|---|---|
+| `npm run lint` | 0 error · 3 warning(기존) |
+| `npm run typecheck` | error 0 — lint 수정 직후 실행. 그 뒤 바뀐 것은 `check-ui-thread.test.mjs` 의 `todo` 표시뿐이다 |
+| `node --test scripts/check-ui-thread.test.mjs` | tests 79 · pass 76 · fail 0 · todo 3 |
+| `vitest run src/renderer` | 447파일 중 실패 2 — `reportSites.registry`(이후 고쳐 281 pass) · `planMode.render`(변경 전 기준선) |
+| **돌리지 못한 것** | 파일 필터 없는 전체 `vitest run` 의 마지막 실행 · `node --test scripts/*.test.mjs` 전체 · 가드 4종(`check-migrations-appendonly`·`check-doc-inventory --check`·`check-product-naming`·`check-test-budgets`) — 사용자 중단. 잇는 구현자가 먼저 돌린다 |
+
+기준선(변경 전 HEAD, better-sqlite3 Node ABI 로 재빌드): vitest 실패 29파일·22케이스 — `src/main/app/**`·`adapters/**` 28파일과 `planMode.render.test.ts`.
+
+대상 커밋: `(r1 구현 일부 — 좌표는 INDEX)`.
+
 ## [구현자 기입] Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1`(미완료 중단).
+- plan 의 자리 검색 술어 2건이 실제보다 좁았다 — EP-7 은 호출 함수가 동기인지 보지 않았고, EP-10 은 `electron` 직접 import 만 세어 `electron-store` 3파일이 빠졌다.
+- 이 환경은 Electron 바이너리가 없어 워커·호스트 기동을 실행할 수 없다. better-sqlite3 는 `npm rebuild` 로 Node ABI 빌드가 됐다.
 
 ---
 

@@ -3,13 +3,11 @@
 // 부여한다. window.oo 부재(테스트·프리뷰)에서도 안전하도록 lazy 접근 + 조용한 no-op.
 
 import type { SerializedError } from '../../../shared/logging'
+import { logBridge } from './api/bridge'
 
 type LogData = Record<string, unknown>
 
-function api(): Window['oo']['log'] | undefined {
-  if (typeof window === 'undefined') return undefined
-  return window.oo?.log
-}
+const api = logBridge
 
 export function toSerializedError(error: unknown): SerializedError {
   if (error instanceof Error) {

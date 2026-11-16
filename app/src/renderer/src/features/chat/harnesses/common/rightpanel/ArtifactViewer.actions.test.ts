@@ -32,7 +32,14 @@ vi.mock('../../../../../shared/i18n', () => ({
   useI18n: () => ({ tr: (key: string) => key }),
   i18n: { t: (key: string) => key }
 }))
-vi.mock('../../../../../shared/api/ipc', () => ({ artifactApi: { save: h.save } }))
+// preview·reveal 은 `shared/api` 를 지난다(0324 가드 (h)) — 실제 모듈처럼 `window.oo` 로 넘긴다.
+vi.mock('../../../../../shared/api/ipc', () => ({
+  artifactApi: {
+    save: h.save,
+    preview: (req: unknown) => window.oo.artifacts.preview(req as never),
+    reveal: (req: unknown) => window.oo.artifacts.reveal(req as never)
+  }
+}))
 import { ArtifactViewer } from './ArtifactViewer'
 import {
   openArtifactViewer,

@@ -903,6 +903,7 @@ export const en: typeof ko = {
       forkHere: 'Fork from here'
     },
     toolMeta: {
+      diffLoading: 'Computing changes…',
       rejected: 'Rejected',
       cancelled: 'Cancelled',
       notExecuted: 'Not executed',

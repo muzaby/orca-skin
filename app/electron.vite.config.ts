@@ -34,6 +34,8 @@ export default defineConfig({
   preload: {},
   renderer: {
     build: { minify: 'esbuild' },
+    // 계산 워커(`shared/compute/worker`)는 동적 import 로 문법을 나눠 싣는다 — 모듈 워커로 낸다.
+    worker: { format: 'es' },
     define: {
       __APP_VERSION__: JSON.stringify(appVersion)
     },

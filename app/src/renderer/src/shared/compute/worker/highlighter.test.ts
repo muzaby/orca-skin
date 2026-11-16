@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import { createHighlighter, createJavaScriptRegexEngine } from 'shiki'
-import { getHighlighter, isLang } from './syntax'
+import { isLang } from '../../ui/markdown/syntax'
+import { getHighlighter } from './highlighter'
 const languages = [
   'typescript',
   'javascript',

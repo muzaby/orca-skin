@@ -4,27 +4,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 type InvokeListener = (event: unknown, raw: unknown) => Promise<unknown>
+type SendListener = (event: unknown, raw: unknown) => void
 const handlers = new Map<string, InvokeListener>()
+const listeners = new Map<string, SendListener>()
 
 vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, listener: InvokeListener) => {
       handlers.set(channel, listener)
     },
-    on: vi.fn()
+    on: (channel: string, listener: SendListener) => {
+      listeners.set(channel, listener)
+    }
   }
 }))
 
-import { handle } from './handle'
+import { handle, handlePlain, on, setHandleClock } from './handle'
 import { setRootLogger, getLogger } from '../log/registry'
 import type { AppLogger } from '../log/log-manager'
 
 const warns: Array<{ event: string; data?: Record<string, unknown> }> = []
+const infos: Array<{ event: string; data?: Record<string, unknown> }> = []
 
 function fakeLogger(): AppLogger {
   const logger: AppLogger = {
     debug: () => {},
-    info: () => {},
+    info: (event, data) => infos.push({ event, ...(data ? { data } : {}) }),
     warn: (event, data) => warns.push({ event, ...(data ? { data } : {}) }),
     error: () => {},
     child: () => logger
@@ -41,11 +46,14 @@ const schema = {
 
 beforeEach(() => {
   handlers.clear()
+  listeners.clear()
   warns.length = 0
+  infos.length = 0
   setRootLogger(fakeLogger())
 })
 
 afterEach(() => {
+  setHandleClock()
   setRootLogger(null)
 })
 
@@ -83,5 +91,79 @@ describe('handle() invalid payload logging (0124 AC6)', () => {
     handle('oo:test:noop', schema, { fallback: 0 }, (data: string) => data.length)
     await expect(handlers.get('oo:test:noop')!({}, 42)).resolves.toBe(0)
     expect(getLogger()).toBeDefined()
+  })
+})
+
+// 0324 AC6 — 등록 함수 셋 모두 핸들러의 동기 구간을 재고, 예산 이상이면 채널 이름을 싣는다.
+describe('동기 구간 계측 (0324 AC6)', () => {
+  // 핸들러가 도는 동안 시계를 `elapsedMs` 만큼 민다.
+  function slowBy(elapsedMs: number): () => void {
+    let now = 1_000
+    setHandleClock(() => now)
+    return () => {
+      now += elapsedMs
+    }
+  }
+  const stall = (
+    channel: string,
+    durationMs: number,
+    severity: string
+  ): { event: string; data: Record<string, unknown> } => ({
+    event: 'perf.stall',
+    data: { thread: 'main', source: 'ipc', durationMs, severity, label: channel }
+  })
+
+  it('handle — 60ms 걸린 핸들러는 채널 이름이 실린 기록 1건을 남긴다', async () => {
+    const spend = slowBy(60)
+    handle('oo:test:slow', schema, 'reject', (data: string) => {
+      spend()
+      return data.length
+    })
+    await expect(handlers.get('oo:test:slow')!({}, 'ab')).resolves.toBe(2)
+    expect(infos).toEqual([stall('oo:test:slow', 60, 'long')])
+  })
+
+  it('handlePlain — 60ms 걸린 핸들러는 채널 이름이 실린 기록 1건을 남긴다', () => {
+    const spend = slowBy(60)
+    handlePlain('oo:test:plain', () => {
+      spend()
+      return 'ok'
+    })
+    expect(handlers.get('oo:test:plain')!({}, undefined)).toBe('ok')
+    expect(infos).toEqual([stall('oo:test:plain', 60, 'long')])
+  })
+
+  it('on — 60ms 걸린 수신 핸들러는 채널 이름이 실린 기록 1건을 남긴다', () => {
+    const spend = slowBy(60)
+    const seen: string[] = []
+    on('oo:test:on', schema, (data: string) => {
+      spend()
+      seen.push(data)
+    })
+    listeners.get('oo:test:on')!({}, 'x')
+    expect(seen).toEqual(['x'])
+    expect(infos).toEqual([stall('oo:test:on', 60, 'long')])
+  })
+
+  it('예산 미만(49ms)은 기록하지 않고 160ms 이상은 severe 다', async () => {
+    const fast = slowBy(49)
+    handlePlain('oo:test:fast', () => fast())
+    handlers.get('oo:test:fast')!({}, undefined)
+    expect(infos).toHaveLength(0)
+
+    const slow = slowBy(160)
+    handlePlain('oo:test:severe', () => slow())
+    handlers.get('oo:test:severe')!({}, undefined)
+    expect(infos).toEqual([stall('oo:test:severe', 160, 'severe')])
+  })
+
+  it('핸들러가 던져도 구간은 기록된다', () => {
+    const spend = slowBy(70)
+    handlePlain('oo:test:throw', () => {
+      spend()
+      throw new Error('boom')
+    })
+    expect(() => handlers.get('oo:test:throw')!({}, undefined)).toThrow('boom')
+    expect(infos).toEqual([stall('oo:test:throw', 70, 'long')])
   })
 })

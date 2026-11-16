@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildDiffLines } from './diffLines'
+import { diffLinesWithinCap } from '../../../shared/compute/inline'
+import type { DiffLine } from './diffLines'
+
+// 상한 이하 입력의 줄 파생 — 계산은 `shared/compute/inline` 이 갖는다(0324).
+const buildDiffLines = (oldValue: string, newValue: string): DiffLine[] =>
+  diffLinesWithinCap(oldValue, newValue)!
 
 describe('줄 파생 (AT-18)', () => {
   it('추가·삭제·유지 세 종류를 낸다', () => {

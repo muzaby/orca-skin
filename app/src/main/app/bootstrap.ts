@@ -32,16 +32,11 @@ import { sameSessionBinding } from './session-binding'
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
 import type { IpcMainInvokeEvent } from 'electron'
-import { app, powerMonitor, shell, webContents } from 'electron'
+import { app, powerMonitor, shell } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { parseAgentKind } from '../../shared/agent-kind'
-import {
-  CHANNELS,
-  type DebugMockState,
-  type NormalizedEvent,
-  type SkillInfo
-} from '../../shared/ipc'
+import { type DebugMockState, type NormalizedEvent, type SkillInfo } from '../../shared/ipc'
 import { PRODUCT_DISPLAY_NAME, PRODUCT_SLUG } from '../../shared/product'
 import type { RestartGateState } from '../../shared/update-restart'
 import type { AuthRuntime, AuthSecretReader } from '../contracts/auth'
@@ -111,9 +106,11 @@ import { errorMessage } from '../infra/errors'
 import {
   broadcastChatEvent,
   broadcastConcurrency,
+  broadcastManagedMcpChanged,
   broadcastNativeResourcesChanged,
   broadcastProviderState,
   broadcastScheduledTasksChanged,
+  broadcastUsageDelta,
   sendChatEvent,
   sendScheduledPromptStart
 } from '../infra/ipc/send'
@@ -646,9 +643,7 @@ export class Bootstrap {
     const cost = new UsageTracker(
       db.usage,
       (delta) => {
-        for (const wc of webContents.getAllWebContents()) {
-          if (!wc.isDestroyed()) wc.send(CHANNELS.costUsageEvent, delta)
-        }
+        broadcastUsageDelta(delta)
       },
       {
         // 전역 월 한도는 Main SettingsStore 가 소유한다(renderer Tweak 은 그 미러). 메모리 캐시라
@@ -1152,9 +1147,7 @@ export class Bootstrap {
         this.closeComposerCatalog?.invalidate()
         preparedMcp.invalidate()
       } else this.openCodeMcpReconcile?.changed()
-      for (const wc of webContents.getAllWebContents()) {
-        if (!wc.isDestroyed()) wc.send(CHANNELS.managedMcpChanged, { revision })
-      }
+      broadcastManagedMcpChanged(revision)
     })
     const resolveResourceTarget = (request: ResourceRequest): ProjectResourceTarget | undefined => {
       const session = 'sessionId' in request ? ctx.db.getSessionById(request.sessionId) : undefined

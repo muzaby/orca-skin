@@ -1,16 +1,6 @@
 import { registerNativeSettingsQuit } from './app/native-settings-lifecycle'
 import { installTrayResidency } from './app/tray-residency'
-import {
-  app,
-  shell,
-  BrowserWindow,
-  ipcMain,
-  protocol,
-  net,
-  Tray,
-  Menu,
-  nativeImage
-} from 'electron'
+import { app, shell, BrowserWindow, protocol, net, Tray, Menu, nativeImage } from 'electron'
 import { installExternalNavigation } from './infra/external-navigation'
 import { join, extname } from 'path'
 import { existsSync } from 'fs'
@@ -25,6 +15,8 @@ import { Bootstrap } from './app/bootstrap'
 import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeDb } from './infra/db'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
+import { handlePlain } from './infra/ipc/handle'
+import { startLoopStallMonitor } from './infra/perf/stall-monitor'
 import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
 import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
@@ -45,6 +37,8 @@ const rootLog = initLog()
 installErrorReportSink()
 registerErrorHandlers()
 registerLogHandlers()
+// 셸 이벤트 루프의 멈춤을 `perf.stall` 로 남긴다 (0324 AC5). 로거가 준비된 직후에 켠다.
+startLoopStallMonitor('main')
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: Bootstrap | null = null
@@ -231,14 +225,14 @@ function createWindow(settings: SettingsStore): BrowserWindow {
   // 채널은 mainWindow 마다 등록되는 것이 아니라 ipcMain 글로벌이라 createWindow 안에서
   // 한 번만 부착. 다중 윈도우 도입 시 router 로 옮긴다.
   const bindWindowControls = (): void => {
-    ipcMain.handle(CHANNELS.windowMinimize, () => {
+    handlePlain(CHANNELS.windowMinimize, () => {
       mainWindow.minimize()
     })
-    ipcMain.handle(CHANNELS.windowMaximize, () => {
+    handlePlain(CHANNELS.windowMaximize, () => {
       if (mainWindow.isMaximized()) mainWindow.unmaximize()
       else mainWindow.maximize()
     })
-    ipcMain.handle(CHANNELS.windowClose, () => {
+    handlePlain(CHANNELS.windowClose, () => {
       mainWindow.close()
     })
   }
@@ -277,7 +271,7 @@ app.whenReady().then(async () => {
   // 대기하므로 "미등록 핸들러 invoke" 창이 구조적으로 닫힌다. 게이트 핸들러는 start() 호출
   // 이전에 등록돼야 한다(등록 전 도착 invoke 는 reject 되므로).
   const started = router.start()
-  ipcMain.handle(CHANNELS.bootWhenReady, () => started)
+  handlePlain(CHANNELS.bootWhenReady, () => started)
   const mainWindow = createWindow(router.settings)
   // 트레이 상주 (0322) — Windows 에서 창 닫기는 종료가 아니라 숨김이다. 창을 먼저 만든다:
   // 트레이 생성 실패는 프로그램 오류라 잡지 않는데, 그때 창 없는 프로세스가 남으면 안 된다.

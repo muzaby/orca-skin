@@ -910,6 +910,7 @@ export const ko = {
       forkHere: '여기서 분기'
     },
     toolMeta: {
+      diffLoading: '변경 내용을 계산하는 중…',
       rejected: '거부됨',
       cancelled: '취소됨',
       notExecuted: '실행되지 않음',
