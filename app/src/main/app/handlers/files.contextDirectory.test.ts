@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type OpenPathRequest } from '../../../shared/ipc'
 import { DbQueries } from '../../infra/db/queries'
 import { applyMigrations } from '../../infra/db/migrate'
+import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 
 const host = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, raw: unknown) => unknown>(),
@@ -26,11 +27,14 @@ vi.mock('electron', () => ({
       host.handlers.set(channel, listener)
   },
   BrowserWindow: { fromWebContents: vi.fn() },
-  Notification: { isSupported: () => false },
-  dialog: { showOpenDialog: vi.fn() },
-  shell: { openPath: host.openPath, showItemInFolder: host.reveal }
+  Notification: { isSupported: () => false }
 }))
 const { registerFilesHandlers } = await import('./files')
+// 폴더·파일 열기는 셸 서비스로 간다(0324 EP-10).
+installFakeShellServices({
+  'external.openPath': host.openPath,
+  'external.showItemInFolder': host.reveal
+})
 
 let root: string
 let cwd: string
