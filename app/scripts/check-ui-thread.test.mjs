@@ -299,6 +299,75 @@ describe('(e) 셸 그래프', () => {
   })
 })
 
+describe('(e2)(e3) 호스트 그래프 (EP-1 (e)′ · (e3)′)', () => {
+  const AGENT = ALLOWED.e.agent.entry
+  const DATA = ALLOWED.e.data.entry
+
+  for (const [what, file] of [
+    ['`infra/db`', 'src/main/infra/db/x.ts'],
+    ['설정 파일', 'src/main/infra/settings-store.ts'],
+    ['비밀 파일', 'src/main/infra/config/secret-store.ts']
+  ]) {
+    it(`에이전트 호스트 그래프가 ${what} 에 닿으면 exit 1`, () => {
+      const result = fails('e', {
+        [AGENT]: `import '../../${file.slice('src/main/'.length, -3)}'\n`,
+        [file]: 'export const x = 1\n'
+      })
+      assert.match(result.lines.join('\n'), /e2 에이전트 호스트/)
+    })
+  }
+
+  for (const pkg of ['better-sqlite3', 'electron-store']) {
+    it(`에이전트 호스트 그래프가 \`${pkg}\` 에 닿으면 exit 1`, () => {
+      // 같은 import 가 (k)·(l) 에도 걸린다 — (e) 가 함께 걸리는지만 본다.
+      const result = exitOf({ [AGENT]: `import X from '${pkg}'\nexport const x = X\n` })
+      assert.equal(result.exitCode, 1)
+      assert.ok(rulesOf(result).includes('e'), JSON.stringify(rulesOf(result)))
+      assert.match(result.lines.join('\n'), /e2 에이전트 호스트/)
+    })
+  }
+
+  it('데이터 호스트 그래프가 하네스 구현(`adapters/claude`)을 값으로 import 하면 exit 1', () => {
+    const result = fails('e', {
+      [DATA]: "import '../../adapters/claude/adapter'\n",
+      'src/main/adapters/claude/adapter.ts': 'export const a = 1\n'
+    })
+    assert.match(result.lines.join('\n'), /e3 데이터 호스트/)
+  })
+
+  it('데이터 호스트 그래프가 `adapters/common` 을 import 하면 exit 0', () => {
+    passes({
+      [DATA]: "import '../../adapters/common/mcp-config'\n",
+      'src/main/adapters/common/mcp-config.ts': 'export const c = 1\n'
+    })
+  })
+
+  it('데이터 호스트가 닿는 `adapters/common` 모듈이 `node:child_process` 를 import 하면 exit 1', () => {
+    // 같은 import 가 (j) 에도 걸린다 — (e) 가 함께 걸리는지만 본다.
+    const result = exitOf({
+      [DATA]: "import '../../adapters/common/spawn'\n",
+      'src/main/adapters/common/spawn.ts':
+        "import { spawn } from 'node:child_process'\nexport const s = spawn\n"
+    })
+    assert.equal(result.exitCode, 1)
+    assert.ok(rulesOf(result).includes('e'), JSON.stringify(rulesOf(result)))
+    assert.match(result.lines.join('\n'), /e3 데이터 호스트/)
+  })
+
+  for (const pkg of ['@anthropic-ai/claude-agent-sdk', '@opencode-ai/sdk']) {
+    it(`데이터 호스트 그래프가 SDK \`${pkg}\` 에 닿으면 exit 1`, () => {
+      fails('e', { [DATA]: `import X from '${pkg}'\nexport const x = X\n` })
+    })
+  }
+
+  it('같은 대상을 `import type` 으로만 닿으면 exit 0', () => {
+    passes({
+      [AGENT]: "import type { X } from '../../infra/db/x'\nexport type Y = X\n",
+      'src/main/infra/db/x.ts': 'export type X = number\n'
+    })
+  })
+})
+
 describe('(f) 호스트', () => {
   for (const entry of ALLOWED.f.entries) {
     it(`${entry} 에서 닿는 모듈이 등록 밖에서 \`electron\` 값을 import 하면 exit 1`, () => {
