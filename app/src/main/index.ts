@@ -1,6 +1,16 @@
 import { registerNativeSettingsQuit } from './app/native-settings-lifecycle'
 import { installTrayResidency } from './app/tray-residency'
-import { app, shell, BrowserWindow, protocol, net, Tray, Menu, nativeImage } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  protocol,
+  net,
+  Tray,
+  Menu,
+  nativeImage,
+  powerMonitor
+} from 'electron'
 import { installExternalNavigation } from './infra/external-navigation'
 import { join, extname } from 'path'
 import { existsSync } from 'fs'
@@ -27,6 +37,7 @@ import { createElectronShellServices } from './app/shell/electron-services'
 import { createHostMessageSink } from './app/shell/host-link'
 import { connectShellServicesInProcess, createShellServiceServer } from './app/shell/services'
 import { setShellServices } from './infra/shell-services'
+import { setHostEnvironment } from './infra/host-environment'
 import { LifecycleState } from './app/shell/lifecycle-state'
 import { openShellState } from './app/shell/shell-state-file'
 
@@ -41,6 +52,14 @@ if (import.meta.env.DEV) {
 }
 
 // 로깅 싱글턴 초기화 (0123) — userData 리다이렉트 *이후*·다른 모든 배선 이전이다.
+// 호스트 코드가 읽는 경로·버전(0324 §11 단계 4). 에이전트 호스트가 생기면 같은 값이 fork 인자로 간다.
+setHostEnvironment({
+  userData: app.getPath('userData'),
+  desktop: app.getPath('desktop'),
+  appVersion: app.getVersion(),
+  isPackaged: app.isPackaged,
+  appPath: app.getAppPath()
+})
 const rootLog = initLog()
 
 // second-instance 핸들러가 포커스할 메인 창 참조. createWindow 에서 채우고 closed 에서 비운다.
@@ -287,7 +306,16 @@ app.whenReady().then(async () => {
   const shellServiceImpl = createElectronShellServices()
   const onShellServiceError = (name: string, error: unknown): void =>
     rootLog.warn('shell.service.failed', { name, error: String(error) })
-  setShellServices(connectShellServicesInProcess(shellServiceImpl, onShellServiceError))
+  const shellServicesClient = connectShellServicesInProcess(shellServiceImpl, onShellServiceError)
+  setShellServices(shellServicesClient)
+  // 시스템이 깨어난 신호는 셸이 호스트에 알린다 — 원인마다 듣는 쪽이 다르다.
+  powerMonitor.on('resume', () => shellServicesClient.receive({ type: 'wake', reason: 'resume' }))
+  powerMonitor.on('unlock-screen', () =>
+    shellServicesClient.receive({ type: 'wake', reason: 'unlock-screen' })
+  )
+  app.on('browser-window-focus', () =>
+    shellServicesClient.receive({ type: 'wake', reason: 'window-focus' })
+  )
   const router = new Bootstrap(
     (event) => event.trusted,
     createHostMessageSink({

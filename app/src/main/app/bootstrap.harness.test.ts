@@ -4,7 +4,6 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { app } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthRuntime, AuthSecretReader, AuthSnapshot } from '../contracts/auth'
 import type { AdapterRegistry } from '../adapters/common/registry'
@@ -42,6 +41,17 @@ vi.mock('electron', () => ({
   powerMonitor: {},
   webContents: { getAllWebContents: () => [] }
 }))
+// 경로·버전은 호스트 환경(fork 인자)에서, 깨어남 신호는 셸 서비스에서 온다(0324 §11 단계 4 · EP-10).
+setHostEnvironment({
+  get userData() {
+    return fixture.userData
+  },
+  desktop: '/fixture/desktop',
+  appVersion: 'test',
+  isPackaged: false,
+  appPath: '/fixture/app'
+})
+installFakeShellServices({})
 vi.mock('../infra/settings-store', () => ({
   SettingsStore: class {
     getAll(): typeof fixture.settings {
@@ -109,6 +119,8 @@ import * as harnesses from './harnesses/registry'
 import * as runtimeConfigs from '../features/harnesses/common/runtime-config'
 import * as runtimeCatalogs from '../features/harnesses/common/runtime-catalog'
 import { netFetch } from '../infra/net/net-fetch'
+import { setHostEnvironment } from '../infra/host-environment'
+import { installFakeShellServices } from '../infra/shell-services.testfixture'
 
 const bootstraps: Bootstrap[] = []
 beforeEach(() => {
@@ -130,10 +142,8 @@ function createBootstrap(): Bootstrap {
 describe('Bootstrap harness composition callers', () => {
   it('initializes its actual adapter registry with user data, live preferences and Chromium fetch', () => {
     const create = vi.spyOn(harnesses, 'createAdapterRegistry')
-    const getPath = vi.spyOn(app, 'getPath')
     const bootstrap = createBootstrap()
     expect(create).toHaveBeenCalledOnce()
-    expect(getPath).toHaveBeenCalledExactlyOnceWith('userData')
     const options = create.mock.calls[0][0]
     expect(options.dataDirectory).toBe(fixture.userData)
     expect(options.fetchImpl).toBe(netFetch)

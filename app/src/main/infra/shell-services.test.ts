@@ -11,7 +11,7 @@ describe('shellServices', () => {
   })
 
   it('정한 포트를 돌려주고 null 로 되돌린다', () => {
-    const port: ShellServicesPort = { call: async () => undefined as never }
+    const port: ShellServicesPort = { call: async () => undefined as never, onWake: () => () => {} }
     setShellServices(port)
     expect(shellServices()).toBe(port)
     setShellServices(null)

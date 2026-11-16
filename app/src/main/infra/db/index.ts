@@ -1,10 +1,10 @@
 import type Database from 'better-sqlite3'
-import { app } from 'electron'
 import { join } from 'path'
 import { openFileDatabase } from './file-database'
 import { applyMigrations, type ApplyMigrationsOptions } from './migrate'
 import { DbQueries } from './queries'
 import { PRODUCT_SLUG } from '../../../shared/product'
+import { hostEnvironment } from '../host-environment'
 
 let queries: DbQueries | null = null
 let connection: Database.Database | null = null
@@ -13,7 +13,7 @@ export function initDb(
   options: Pick<ApplyMigrationsOptions, 'onBackupStart' | 'onBackupEnd'> = {}
 ): DbQueries {
   if (queries) return queries
-  const userData = app.getPath('userData')
+  const userData = hostEnvironment().userData
   const databasePath = join(userData, `${PRODUCT_SLUG}.db`)
   // PRAGMA 한 벌(WAL · synchronous=NORMAL(0107) · foreign_keys)은 `openFileDatabase` 가 갖는다 —
   // 코어와 plugin 파일 DB 가 같은 내구성 설정을 쓰게 하는 단일 사본이다. 마이그레이션이 던지면
@@ -24,7 +24,7 @@ export function initDb(
         backup: {
           databasePath,
           backupDir: userData,
-          appVersion: app.getVersion()
+          appVersion: hostEnvironment().appVersion
         },
         onBackupStart: options.onBackupStart,
         onBackupEnd: options.onBackupEnd
