@@ -21,6 +21,8 @@ interface TurnRequestDeps {
   queueKey: string
   getActiveTurn: () => TurnContext<ClientRef>
   getInitialBatches: () => SteerFlushBatch[]
+  /** 하네스 채널이 오류로 끊겼다 — 세션 미확정이면 null. */
+  onHarnessExited?: (sessionId: string | null) => void
 }
 
 // 중단 영수증 화해(0151 AC11) — still_queued 에는 우리가 보낸 적 없는 내부 uuid(cron 트리거·
@@ -66,6 +68,7 @@ export function buildTurnRequest(
     | 'reopenInitialSubmission'
     | 'captureInterruptReceipt'
     | 'onSessionSchedules'
+    | 'onChannelFailed'
     | 'onWaitPhase'
     | 'isSubagentBlocked'
   >
@@ -124,6 +127,7 @@ export function buildTurnRequest(
     },
     onSessionSchedules: (sessionId, schedules, pendingWakeup) =>
       activity.setSchedules(sessionId, schedules, pendingWakeup),
+    onChannelFailed: () => deps.onHarnessExited?.(deps.getActiveTurn().dbSessionId),
     onWaitPhase: (phase) =>
       activity?.setWaitPhase?.(deps.getActiveTurn().dbSessionId ?? queueKey, phase),
     isSubagentBlocked: (st) => st !== undefined && deps.getActiveTurn().blockedSubagents.has(st)

@@ -56,7 +56,10 @@ const fixture = vi.hoisted(() => ({
   peerBroadcasts: vi.fn(),
   refresh: vi.fn(),
   createRefresh: vi.fn(),
-  disposeBackground: vi.fn()
+  disposeBackground: vi.fn(),
+  toShell: vi.fn(),
+  approvalPending: undefined as ((sessionId: string | null) => void) | undefined,
+  harnessExited: undefined as ((sessionId: string | null) => void) | undefined
 }))
 
 const sdk = vi.hoisted(() => ({
@@ -108,10 +111,16 @@ vi.mock('../features/worktrees/service', () => ({ WorktreeService: class {} }))
 vi.mock('../features/approvals/coordinator', () => ({
   ApprovalCoordinator: class {
     registerHandlers = vi.fn()
+    constructor(onPending?: (sessionId: string | null) => void) {
+      fixture.approvalPending = onPending
+    }
   }
 }))
 vi.mock('./chat-turn', () => ({
-  registerChatHandlers: () => ({ dispose: fixture.disposeBackground })
+  registerChatHandlers: (deps: { onHarnessExited?: (sessionId: string | null) => void }) => {
+    fixture.harnessExited = deps.onHarnessExited
+    return { dispose: fixture.disposeBackground }
+  }
 }))
 vi.mock('./native-history', () => ({
   createNativeHistoryRefresh: (...args: Parameters<typeof createNativeHistoryRefresh>) => {
@@ -319,6 +328,7 @@ function register(realBootstrap?: Bootstrap): {
     })
   }
   bootstrap.registerArtifacts = vi.fn()
+  ;(bootstrap as unknown as { toShell: unknown }).toShell = fixture.toShell
   bootstrap.registerTurnEvents = () =>
     ({ forgetProviderSession: forget }) as unknown as HistoryWriter
   if (bootstrap.registry)
@@ -455,6 +465,42 @@ describe('native history bootstrap callbacks', () => {
     expect(forget).toHaveBeenCalledExactlyOnceWith('removed-session')
     expect(discard).toHaveBeenCalledExactlyOnceWith('removed-session')
     expect(clear).toHaveBeenCalledExactlyOnceWith('removed-session')
+    activity.dispose()
+  })
+
+  // 0324 EP-11 — 수명 이벤트의 네 원천이 실제 조립에서 셸 알림으로 이어진다.
+  it('lease 변화·승인 등록·세션 폐기·채널 오류를 셸에 수명 이벤트로 알린다', () => {
+    const { supervisor, activity } = register()
+    fixture.toShell.mockClear()
+    const lifecycle = (): string[] =>
+      fixture.toShell.mock.calls.map(([message]) => {
+        const { type, event } = message as {
+          type: string
+          event?: { type: string; sessionId: string }
+        }
+        return event ? `${event.type}:${event.sessionId}` : type
+      })
+
+    const { lease } = supervisor.acquireChain({
+      logicalKey: 'session:lease-session',
+      sessionId: 'lease-session',
+      owner: {} as ClientRef,
+      requestedProviderKey: null
+    })
+    expect(lifecycle()).toEqual(['turn.started:lease-session'])
+
+    fixture.approvalPending?.('approval-session')
+    fixture.harnessExited?.('failed-session')
+    fixture.hooks?.onSessionDisposed?.('removed-session')
+    supervisor.releaseChain(lease.leaseId)
+
+    expect(lifecycle()).toEqual([
+      'turn.started:lease-session',
+      'approval.pending:approval-session',
+      'harness.exited:failed-session',
+      'session.ended:removed-session',
+      'turn.ended:lease-session'
+    ])
     activity.dispose()
   })
 

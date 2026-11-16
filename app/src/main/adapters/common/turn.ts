@@ -213,6 +213,9 @@ export interface TurnRequest {
   // 채널 화신이 종료/교체되는 순간의 상향 통지. app 계층이 해당 채널에 묶인 백그라운드
   // 작업을 합성 정착한다. token은 관측/멱등 키이며 chat 기능을 sessions가 직접 참조하지 않는다.
   onChannelRetired?: (channelToken: number) => void
+  // 채널 스트림이 오류로 끊겼다(정상 종료·사용자 취소는 아니다). 셸에 알릴 수명 이벤트
+  // `harness.exited` 의 원천이다(0324 EP-11).
+  onChannelFailed?: () => void
   onSessionSchedules?: (
     sessionId: string,
     schedules: import('../../../shared/session-schedules').SessionSchedule[],

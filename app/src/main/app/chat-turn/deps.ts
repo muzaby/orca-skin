@@ -30,6 +30,8 @@ export interface ChatDeps {
   backgroundTasks: BackgroundTaskTracker
   activity: SessionActivityProjector
   isUpdateInstallPending: () => boolean
+  // 하네스 채널이 오류로 내려갔다(0324 EP-11 `harness.exited`). 세션 미확정이면 null 이다.
+  onHarnessExited?: (sessionId: string | null) => void
   worktrees: WorktreeService
   prepareOutputFiles?: (cwd: string) => Promise<NonNullable<TurnExtensions['outputFiles']>>
 }
