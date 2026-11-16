@@ -1055,3 +1055,11 @@ function startCron(cron: string, fire: () => void): CronJob   // 잘못된 식�
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| D1 | 삭제 시 실행 중단 — `service.delete`→`runner.cancel` edge 미잠금(V07 green) | VP-06·VP-13 · EP-5 ⑩ · §5 상태 전이 "실행 중인 작업을 삭제" | `service.delete`로 실행 중 작업을 지우면 `runShell` signal이 중단되고 이력이 정리되는 lifecycle 케이스 | 이행 | BLOCKING | open |
+| D2 | win32 인자의 UTF-8 출력 고정 미잠금(V35 green) | VP-12 · AC14 · EP-6 | 마지막 인자 = UTF-8 접두 + 명령 전체를 단언 | 이행 | BLOCKING | open |
+| D3 | `timedOut ∧ exitCode 0` 입력 부재(W11 green). 실제 프로세스로 `{"exitCode":0,"timedOut":true}` 재현 | VP-13 · AC15 규칙 칸 | 그 입력으로 `error=timeout`·`status=error` 단언 | 이행 | BLOCKING | open |
+| D4 | 제한 시간 뒤에도 실행이 끝나지 않음 — `sh -c "sleep 4; echo x"` · `timeoutMs=300` → 4007ms(고아 자식이 파이프 보유) | VP-12 · AC15 · D-007 | 프로세스 그룹 종료 또는 `exit` 시점에 결과 확정 + 회귀 테스트(실제 spawn은 io 풀) | 현재 | BLOCKING | open |
+| D5 | 우측 패널 본문 미잠금 — 메타 3칸·`실행 중` 문구·`onOpenSession`(X01~X04·X08 green). plan oracle 파일 `scheduleDetail.render.test.ts` 없음 | VP-26 · AC32·AC18 | 패널 본문 렌더 + 메타·이력·대화 열기 인자 단언 | 이행 | BLOCKING | open |
+| E1 | EP-1 "text 변형 없이" ↔ `startDetachedChat`의 `trim`(V46 green) | EP-1 | 설계자: 계약에 `trim`을 넣거나 경계 선언 | 확장 | PLAN_GAP | open |
+| E2 | 패널 지금 실행·편집·삭제 콜백·토글 표시·`inert` 미잠금(D03~D06·X05·X06) | VP-26 · D-008 · 선언 경계 5 | 설계자: REQUIRED 입력으로 채택 또는 경계 5를 `ScheduleDetail`로 확장 | 확장 | PLAN_GAP | open |
+| E3 | `Scheduler` cron 가지의 호출 대체(V55 green) | VP-17 | 설계자: cron 식 일치 단언 채택 또는 경계 선언 | 확장 | PLAN_GAP | open |
