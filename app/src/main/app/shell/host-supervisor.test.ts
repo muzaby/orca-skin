@@ -533,30 +533,61 @@ describe('createHostSupervisor — 정상 종료', () => {
     expect(h.supervisor.phase()).toBe('stopped')
   })
 
-  it('앱 종료는 데이터 호스트를 먼저 내리고 에이전트 호스트를 내린다 (AC18 · AC32)', async () => {
+  it('앱 종료는 에이전트 호스트를 먼저 내리고 그 뒤에 데이터 호스트를 내린다 (AC32′)', async () => {
     const order: string[] = []
-    let releaseData: () => void = () => {}
-    const data = {
+    let releaseAgent: () => void = () => {}
+    const agent = {
       shutdown: () => {
-        order.push('data:start')
+        order.push('agent:start')
         return new Promise<void>((resolve) => {
-          releaseData = () => {
-            order.push('data:end')
+          releaseAgent = () => {
+            order.push('agent:end')
             resolve()
           }
         })
       }
     }
-    const agent = {
+    const data = {
       shutdown: async () => {
-        order.push('agent:start')
+        order.push('data:start')
       }
     }
     const all = shutdownHosts({ data, agent })
     await flush()
-    expect(order).toEqual(['data:start'])
-    releaseData()
+    expect(order).toEqual(['agent:start'])
+    releaseAgent()
     await all
-    expect(order).toEqual(['data:start', 'data:end', 'agent:start'])
+    expect(order).toEqual(['agent:start', 'agent:end', 'data:start'])
+  })
+
+  it('준비 훅은 창에 포트를 넘긴 뒤에 불리고, 준비 전에는 셸 메시지를 보내지 않는다', () => {
+    const forks: FakeProcess[] = []
+    const events: string[] = []
+    const supervisor = createHostSupervisor<Port>({
+      fork: () => {
+        const child = new FakeProcess(4200)
+        forks.push(child)
+        return child
+      },
+      createChannel: () => ({ port1: { name: 'host' }, port2: { name: 'client' } }),
+      clock: new FakeClock(),
+      isReady: (message) => (message as { type?: unknown }).type === 'ready',
+      onBootFailed: () => events.push('boot-failed'),
+      onReady: () => events.push('ready')
+    })
+    supervisor.attach({
+      id: 1,
+      trusted: () => true,
+      deliverPort: () => events.push('port'),
+      notify: (event) => events.push(`client:${event}`)
+    })
+    expect(supervisor.post({ type: 'peer.connect' })).toBe(false)
+    forks[0].emit(READY)
+    expect(events).toEqual(['port', 'client:ready', 'ready'])
+    expect(supervisor.post({ type: 'peer.connect' }, [{ name: 'p' }])).toBe(true)
+    expect(forks[0].posted.at(-1)).toEqual({
+      message: { type: 'peer.connect' },
+      ports: [{ name: 'p' }]
+    })
   })
 })

@@ -51,6 +51,8 @@ export interface HostSupervisorDeps<P> {
   onExited?(): void
   // 연속 기동 실패가 상한에 닿았다. 한 번만 부른다.
   onBootFailed(): void
+  // 준비됐다 — 창마다 새 포트를 넘긴 뒤에 부른다(재기동 포함).
+  onReady?(): void
 }
 
 // `exiting` — 비정상 종료를 처리하는 중(고아 정리 → 창 통지 → 상태 비움). 그 사이의 기동 요청은
@@ -67,6 +69,8 @@ export interface HostSupervisor<P> {
   // 정상 종료를 요청하고 끝날 때까지 기다린다. 제한 시간을 넘기면 강제로 끝낸다.
   shutdown(): Promise<void>
   phase(): Phase
+  // 준비된 호스트에 셸 메시지를 보낸다(피어 포트·확보 실패). 준비 전이면 보내지 않고 false.
+  post(message: unknown, ports?: readonly P[]): boolean
 }
 
 export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSupervisor<P> {
@@ -93,6 +97,7 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
       connect(child, client)
       client.notify('ready')
     }
+    deps.onReady?.()
   }
 
   const handleExit = async (child: HostProcess<P>, pid: number | undefined): Promise<void> => {
@@ -177,15 +182,21 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
       child.postMessage({ type: 'shutdown' })
       return stopPromise
     },
-    phase: () => phase
+    phase: () => phase,
+    post(message, ports) {
+      if (phase !== 'ready' || !current) return false
+      current.postMessage(message, ports)
+      return true
+    }
   }
 }
 
-// 앱 종료 — 데이터 호스트를 먼저 내리고 에이전트 호스트를 내린다(§11 "종료" 행).
+// 앱 종료 — 에이전트 호스트를 먼저 내린다(런타임 정지 → 저장 스트림 비움). 그 뒤 데이터 호스트가
+// 예약 작업 → 스케줄러 → DB 닫기로 정리한다(AC32′). 거꾸로 하면 DB 를 닫은 뒤 저장이 온다.
 export async function shutdownHosts(hosts: {
   data: Pick<HostSupervisor<unknown>, 'shutdown'>
   agent: Pick<HostSupervisor<unknown>, 'shutdown'>
 }): Promise<void> {
-  await hosts.data.shutdown()
   await hosts.agent.shutdown()
+  await hosts.data.shutdown()
 }
