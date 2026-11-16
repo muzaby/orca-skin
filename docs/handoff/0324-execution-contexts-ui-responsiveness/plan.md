@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -22,7 +22,7 @@
 ## 1. Context / 목표
 
 - 해결하려는 문제: 입력 크기에 비례하는 계산과 읽기가 UI를 맡는 두 스레드(renderer 메인 스레드, main 프로세스)에서 한 번에 돈다 — 구문 강조 1,000줄이 renderer를 약 1초, part 1만 개 세션 로드가 main을 약 150ms 막는다(§8 실측).
-- 완료 후 달라지는 것: main 은 창·OS·수명 감독만 하는 셸이 되고, 턴·세션·DB 쓰기는 에이전트 호스트 프로세스가, 세션 본문 읽기는 데이터 호스트 프로세스가, 구문 강조·diff 계산은 renderer 계산 워커가 맡는다. 남은 멈춤은 `perf.stall` 기록으로 드러난다.
+- 완료 후 달라지는 것: main 은 창·OS·수명 감독만 하는 셸이 되고, 턴 실행(SDK·하네스·git·셸)은 에이전트 호스트 프로세스가, DB·설정·비밀·인증과 세션 본문 전송은 데이터 호스트 프로세스가(§7-F), 구문 강조·diff 계산은 renderer 계산 워커가 맡는다. 남은 멈춤은 `perf.stall` 기록으로 드러난다.
 - 성공을 사용자 관점에서 한 문장으로: 큰 코드·큰 diff·큰 세션을 여는 동안에도 스크롤·입력·창 조작이 끊기지 않고, 늦는 결과는 로딩 표시나 강조 없는 원문으로 먼저 보인다.
 
 ## 2. 사용자 의도 / 요구 출처
@@ -95,8 +95,14 @@
 | D-040 | 데이터 호스트는 기동 때 비밀을 셸 서비스로 한 번 풀어 메모리에 둔다. 못 푼 것은 깨어남(절전 해제·화면 잠금 해제)마다 다시 시도한다. 쓰기는 봉인한 뒤에만 저장한다 | O-3 답 "기동 때 풀어 두고 깨어날 때 재시도" | 턴 16 | ACTIVE | O-3 닫음 |
 | D-041 | 데이터 호스트가 턴 도중 죽으면 에이전트 호스트는 진행 중 턴을 오류로 끝낸다. 다시 뜬 데이터 호스트가 복구 규칙으로 정리한다 | O-4 답 "진행 중 턴을 오류로 끝냄" | 턴 16 | ACTIVE | O-4 닫음 |
 | D-042 | 프로세스마다 자기 로그 파일에 쓴다. 오류 보고와 부팅 단계는 데이터 호스트가 모아 창에 준다 | 세 프로세스가 한 JSONL 파일에 동시에 쓰면 줄이 섞인다. VS Code 도 프로세스별 로그 파일이다(D-024) | 설계자 | ACTIVE (사용자 거부 가능) | — |
+| D-043 | 데이터 호스트의 멈춤도 `perf.stall` 로 남긴다(`thread:'data-host'`). 피어 포트로 온 요청의 동기 구간도 같은 50ms 기준으로 잰다 | 동기 DB 호출 242곳이 데이터 호스트의 한 이벤트 루프에 모인다. 여기가 멈추면 메시지 커밋 응답·턴 준비 조회가 줄을 서는데 rev 4 의 계측 대상은 main·에이전트 호스트뿐이다(§7-G 조사) | 설계자(D-024 적용) | ACTIVE (사용자 거부 가능) | — |
+| D-044 | 데이터 호스트가 실행이 필요한 교차 요청(예약 작업의 셸 명령 · 네이티브 이력 읽기)을 보낼 때 에이전트 호스트가 없으면 셸에 기동을 요청한다. 활동 조회와 런타임 폐기는 지금처럼 "없으면 생략"이다 | 재기동은 preload 의 첫 요청만 부른다(§7-E). 창이 숨은 트레이 상주 중에는 그 요청이 오지 않아 예약 셸 명령이 실행되지 못한다 | 설계자(D-024 적용) | ACTIVE (사용자 거부 가능) | — |
+| D-045 | 턴 진행 중 델타는 빠지지 않아야 한다. 턴은 시작한 창의 문서와 수명을 같이하고, 진행 중인 캐시 세션은 로드 결과로 덮지 않는다 — 이 둘을 계약으로 둔다. 턴 이벤트 순번과 "붙기"(스냅샷·실시간 이음)는 지금 도입하지 않고, 창이 여럿이 되거나 턴이 창보다 오래 살게 되는 변경이 먼저 설계한다 | "다시 열면 정상이라도, 턴 진행 중 델타가 빠지면 안된다. 설계조치하라." — 조사 결과 비동기 저장(D-039)으로 스냅샷이 화면보다 뒤처져도 그 스냅샷을 진행 중 세션에 적용하는 경로가 없다(§7-G 조사). 그 뒤 "결롬에 맞게 고치고 plan을 보완하라" | 검토 세션 2026-11-16 + 설계자 | ACTIVE | — |
 
 ### 갱신 메모
+
+- 검토 세션(rev 4.1): rev 4 READY 를 외부 검토한 결과 `PLAN_GAP` 4건을 §7-G 에서 정정했다 — 가드 (e3) 와 현재 코드의 충돌 · 데이터 호스트 계측 누락 · 데이터 호스트발 재기동 주체 없음 · 본문(§1·§5·§6·§9·§13)이 rev 3 서술로 남음. 새 결정 D-043·D-044(설계자) · D-045(사용자 요구 + 조사). 기존 ACTIVE 결정은 모두 유지된다.
+- rev 4.1 `ACTIVE 결정 ↔ AC` 대조: 충돌 0. D-043 ↔ AC5′·AC6′ · D-044 ↔ AC48 · D-045 ↔ AC49 · D-039(비동기 저장) ↔ AC49(진행 중 세션에 스냅샷을 적용하지 않으므로 저장 지연이 화면에 닿지 않는다) · D-034(에이전트 = 실행) ↔ EP-1 (e3)′(`adapters/common` 은 실행 코드가 아니다).
 
 - 턴 14~16(rev 4 DRAFT): 사용자가 에이전트 호스트의 역할을 다시 물었고(턴 14 "에이전트 호스트는 sdk cli 실행 전용이 아니었는지?"), VS Code 사례와 비교한 뒤(턴 15 "이것과 비교하면 어떤 형태가 적절한지?" · "B에 비해 a의 장점은?") B 를 골랐다(턴 16 "b로 진행하라. 상세 설정을 다시 확인하자"). D-006·D-025·D-033 → D-037·D-035·D-036, D-034 신규, OPEN 4건(O-1~O-4). 확정 전이라 AC·V·§10 은 아직 바뀌지 않았다 — 바뀔 행은 §7-F "바뀌는 AC" 표.
 - rev 4 DRAFT `ACTIVE 결정 ↔ AC` 대조: 충돌 4 — D-035 ↔ AC30("DB 를 쓰기로 여는 프로세스는 에이전트 호스트") · D-037 ↔ AC18("첫 요청에 뜬다")·AC20("읽기 전용") · D-036 ↔ AC37(호스트 = 에이전트 호스트로 읽힘). 모두 §7-F 확정 때 대체할 AC 다. 그 사이 구현은 멈춘다.
@@ -123,7 +129,7 @@
 | 선행 자료의 주장을 코드와 대조했는가 | 대조함 — 2건 정정 | 연구 문서의 "전부 미측정"은 §8 실측으로 대체. "DB 쓰기를 그대로 둔다"는 0.064ms 로 확인. "턴 정규화는 이벤트당 가볍다"는 미측정이라 D-010 에 조건을 달았다 |
 | ACTIVE 결정·기존 채택 결정과 충돌하는가 | 계약 변경 2건 | `oo:session:load`·`oo:session:refresh` 응답에서 세션 본문이 빠진다 — `IPC_CONTRACT.md` 를 같이 고친다(D-006 의 귀결) |
 
-- 사용자에게 올릴 결정: 없음. D-007·D-011·D-012·D-014·D-025 는 설계자 제안이라 거부할 수 있다.
+- 사용자에게 올릴 결정: 없음. D-007·D-011·D-012·D-014·D-042·D-043·D-044 는 설계자 제안이라 거부할 수 있다(D-025 는 D-035 로 대체됐다).
 - 코드 조사로 닫은 사실: §8.
 
 ### 4-A. D-007 의 근거 — 범용 기준
@@ -153,7 +159,7 @@
 |---|---|---|
 | main 안의 `worker_threads` | 기각(D-019) | "none of Electron's built-in modules can be used in a multi-threaded environment" · 네이티브 모듈은 "crashes and memory corruptions" — `docs/tutorial/multithreading.md`. 이 문서는 Web Worker 기준이라 main 의 `worker_threads` 에 그대로 적용되는지는 확인하지 못했다 |
 | 무거운 조각만 데이터 호스트로 | 기각 | 새로 생기는 무거운 조각을 매번 찾아야 한다. 턴 준비 경로에서 이미 네 곳을 놓쳤다(§8) |
-| 쓰기 주체를 데이터 호스트에 | 기각(D-025) | 쓰기 호출 287곳이 비동기 요청으로 바뀐다 |
+| 쓰기 주체를 데이터 호스트에 | **채택(D-035, rev 4)** — rev 2 의 기각을 대체 | rev 2 는 "쓰기 호출 287곳이 비동기 요청으로 바뀐다"로 기각했다. 다시 세니 호스트 사이 요청이 되는 것은 실행 쪽 33곳이다(§7-F 조사) |
 | 호스트의 네트워크 요청 | 가능 | `net` 은 Main·Utility 둘 다에서 쓴다. `net.fetch` 는 기본 세션에서 나간다 — `docs/api/net.md`. 파티션 세션이 필요한 요청은 main 의 셸 서비스가 한다 |
 
 ## 5. 동작 / 사용자 흐름
@@ -177,15 +183,18 @@
 | 줄 수 합 400 초과 diff | 워커에 줄 계산 요청 | 본문 자리에 로딩 표시 → diff 표. 머리의 증감 수는 없다 |
 | 강조 요청 중 내용 변경·언마운트 | 요청 취소, 늦은 응답 폐기 | 새 내용의 원문 |
 | 워커 생성 실패·오류 | 오류 1회 기록, 연속 3회 실패하면 창이 닫힐 때까지 요청하지 않음 | 원문 그대로 |
-| 세션 클릭 | main 이 활동 상태만 돌려주고 본문은 호스트가 조각으로 보냄 | 기존 세션 로딩 표시 → 본문 |
+| 세션 클릭 | 데이터 호스트가 활동 상태를 에이전트 호스트에 물어 싣고 본문을 조각으로 보냄(AC19′) | 기존 세션 로딩 표시 → 본문 |
 | 세션 로드 중 다른 세션 클릭 | 앞 요청 취소, 남은 조각 미전송 | 새 세션의 로딩 표시 |
-| 호스트 비정상 종료 | 진행 중 요청 실패, 다음 요청에서 다시 띄움 | 기존 "대화 열기 실패" 오류 표시 |
+| 데이터 호스트 비정상 종료 | 진행 중 요청 실패, 진행 중 턴은 오류로 끝남(D-041). 셸이 바로 다시 띄운다(AC18′) | 기존 "대화 열기 실패" 오류 표시 · 진행 중 세션에 오류 알림 |
+| 진행 중 세션을 떠났다가 돌아옴 | 캐시의 실시간 상태를 그대로 쓴다. 로드 결과로 덮지 않는다(D-045) | 떠나기 전과 이어진 화면 — 빠진 델타 없음 |
+| 턴 도중 창의 문서가 닫힘(파괴·새로 읽힘·renderer 종료) | 그 턴을 중단한다(D-045) | 다시 연 화면에서 그 턴은 중단된 턴 |
 | UI 스레드가 50ms 이상 멈춤 | `perf.stall` 로그 1건 | 화면 변화 없음 |
 | 메시지 전송 | preload 가 에이전트 호스트 포트로 보낸다. main 은 이 요청을 처리하지 않는다 | 지금과 같다 — 내 메시지가 즉시 보이고 응답이 스트리밍된다 |
 | 에이전트 호스트 비정상 종료 | main 이 남은 하네스를 끝내고 모든 창에 알린다. 진행 중이던 세션은 중단으로 처리된다 | 진행 중 세션에 오류 알림, 입력창은 다시 쓸 수 있다. 다음 전송에서 호스트가 다시 뜬다 |
 | 하네스 비정상 종료 | 에이전트 호스트가 그 세션만 오류로 끝내고 수명 이벤트를 보낸다 | 그 세션에 기존 오류 표시 |
-| 앱 시작 | main 이 창을 띄우고 에이전트 호스트를 띄운다. 호스트가 DB 마이그레이션을 한다 | 기존 부팅 화면 → 본 화면. 호스트 기동 실패는 부팅 오류 화면 |
-| 앱 종료 | main 이 호스트에 종료를 요청하고 3초 안에 안 끝나면 강제 종료한다 | 지금과 같다 |
+| 예약 셸 명령의 시각이 됐는데 에이전트 호스트가 없음 | 데이터 호스트가 셸에 기동을 요청하고 연결된 뒤 실행을 맡긴다. 기동이 실패하면 그 실행을 실패로 기록한다(D-044) | 창이 숨어 있어도 예약 작업이 실행된다 |
+| 앱 시작 | main 이 창을 띄우고 데이터 호스트(DB 마이그레이션·복구) → 에이전트 호스트 순으로 띄운다(AC31′) | 기존 부팅 화면 → 본 화면. 호스트 기동 실패는 부팅 오류 화면 |
+| 앱 종료 | main 이 에이전트 호스트 → 데이터 호스트 순으로 종료를 요청하고 각 3초 안에 안 끝나면 강제 종료한다(AC32′) | 지금과 같다 |
 
 ### 파생 UX / 엣지케이스
 
@@ -197,12 +206,13 @@
 
 ## 6. 범위 / 비범위
 
-- **범위**: 실행 주체 계약 문서와 가드 · 경로 표와 직접 호출 금지 가드(D-028) · `perf.stall` 계측 · renderer 계산 워커(구문 강조·diff 토큰·diff 줄) · 에이전트 호스트 프로세스(지금의 main 로직 전체 이주, main 은 셸) · 데이터 호스트 프로세스와 세션 로드/갱신 이주 · 수명 이벤트 다섯 가지 · 호스트·하네스 종료 처리 · 턴 시작의 동기 플러그인 카탈로그 읽기 제거.
-- **비범위**: 하네스 훅의 등록 계약과 우측 패널 확장(0323, D-027) · 세션·하네스별로 에이전트 호스트를 여럿 두는 것 · 세션 본문의 점진 표시(D-011) · Markdown 변환의 워커 이주 · 긴 코드의 줄 가상화 · 검색·사용량 집계의 호스트 이주 · 델타 송신 묶기 · 계측 화면과 외부 전송(D-013) · 0323 의 훅·패널.
+- **범위**: 실행 주체 계약 문서와 가드 · 경로 표와 직접 호출 금지 가드(D-028) · `perf.stall` 계측 · renderer 계산 워커(구문 강조·diff 토큰·diff 줄) · 에이전트 호스트 프로세스(실행 — SDK·하네스·git·셸, main 은 셸) · 데이터 호스트 프로세스(상태 — DB·설정·비밀·인증·업무 핸들러와 세션 로드/갱신, §7-F) · 수명 이벤트 다섯 가지 · 호스트·하네스 종료 처리 · 턴 시작의 동기 플러그인 카탈로그 읽기 제거.
+- **비범위**: 하네스 훅의 등록 계약과 우측 패널 확장(0323, D-027) · 세션·하네스별로 에이전트 호스트를 여럿 두는 것 · 세션 본문의 점진 표시(D-011) · Markdown 변환의 워커 이주 · 긴 코드의 줄 가상화 · 검색·사용량 집계를 별도 프로세스로 더 나누는 것 · 턴 이벤트 순번과 붙기·창을 여럿 두는 것(D-045) · 델타 송신 묶기 · 계측 화면과 외부 전송(D-013) · 0323 의 훅·패널.
 
 | 미룬 항목 | 나중에 하면 더 비싼가 | 처리 |
 |---|---|---|
-| 검색·사용량 집계의 호스트 이주 | 아니오 — 호스트 프로토콜에 서비스 종류를 더하면 된다 | `perf.stall` 이 보이면 후속 |
+| 검색·사용량 집계를 별도 프로세스로 | 아니오 — rev 4 에서 둘 다 데이터 호스트 안에 있다. 더 나누려면 호스트 프로토콜에 서비스 종류를 더하면 된다 | `perf.stall`(`thread:'data-host'`, D-043)이 보이면 후속 |
+| 턴 이벤트 순번과 붙기 | 아니오 — 이벤트에 순번 필드를 더하고 세션 로드에 기준 순번을 싣는 추가 변경이다 | 창이 여럿이 되거나 턴이 창보다 오래 살게 될 때 먼저 설계(D-045 · B26) |
 | 에이전트 호스트를 여럿으로 | 아니오 — 창·호스트 사이 계약이 포트 단위라 호스트 수와 무관하다 | 스트리밍끼리의 지연이 `perf.stall`(`thread:'agent-host'`)에 보이면 후속 |
 | Markdown 변환(3.3만 자 50~95ms) | 아니오 | §10 선언 경계 B1, 후속 후보 |
 
@@ -862,6 +872,142 @@ AC 총수는 38 → **47** 이다(AC18·19·20·24·27·29·30·31·32·33·37·
 
 ---
 
+## 7-G. V1 rev 4.1 정정 — 외부 검토의 `PLAN_GAP` 4건
+
+**판정: READY.** rev 4 의 프로세스 배치·채널 배치·호스트 사이 흐름(F1~F5)은 그대로다. 이 절은 rev 4 를 구현 전에 검토해 찾은 넷을 정정한다 — 가드 (e3) 와 현재 코드의 충돌 · 데이터 호스트 계측 누락 · 데이터 호스트발 재기동 주체 없음 · 진행 중 턴의 델타 보존을 계약으로 올림. 출처는 "plan 내부 정합"(앞의 셋)과 "사용자 결정"(D-045)이다. 구현 전 정정이라 verify 회차는 바뀌지 않는다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| 데이터 호스트로 갈 모듈의 `adapters` import | `rg -c "from '[^']*adapters/[^']*'" features/auth features/plugins features/scheduler features/usage features/history features/extensions/common/mcp app/native-history.ts --glob '!*.test.*'`(`app/src/main` 에서, 합) | 20 | rev 4 의 (e3) "`adapters` import 금지"가 지금 트리에서 red 다 |
+| 그 import 의 대상 모듈 | 같은 범위에 `rg -o "adapters/common/[a-z-]+" -I \| sort \| uniq -c` | 7종 | `runtime-tools` 4 · `native-history` 4 · `mcp-config` 4 · `runtime-tool-policy` 3 · `harness-config` 2 · `managed-mcp` 2 · `recovery` 1. 합 20 — 전부 `adapters/common` 이다 |
+| 하네스별 어댑터 import | 같은 범위에 `rg -n "from '[^']*adapters/(?!common)[^']*'" -P` | 0 | 데이터 쪽 코드는 하네스 구현을 import 하지 않는다 |
+| 그 7종의 값 의존 | 각 파일의 `import`(type 제외) | 3종 | `zod` · `shared/obj` · `node:crypto`. 프로세스 기동·SDK 없음 |
+| SDK 패키지 | `app/package.json` | 2 | `@anthropic-ai/claude-agent-sdk` · `@opencode-ai/sdk`. `@modelcontextprotocol/sdk` 는 MCP 브리지가 쓰므로 금지 대상이 아니다 |
+| 멈춤 기록의 `thread` 값 | `infra/perf/stall-monitor.ts` 의 `StallThread` · AC5 | 2 | `'main'`·`'agent-host'`. 동기 DB 호출 242곳(§7-F 조사)이 모이는 데이터 호스트가 없다 |
+| 재기동을 부르는 자리 | §7-E "재기동은 preload 가 부른다" · `host-supervisor.ts` 의 `ensureRunning` | 1 | 창의 첫 요청뿐이다. 데이터 호스트발 교차 요청(F4)은 부르지 못한다 |
+| 예약 작업의 실행 종류 | `bootstrap.ts:890`·`:891` | 2 | `runShell`(셸 명령 — 에이전트 호스트로 간다, F4) · `sendPromptStart`(창이 맡는다, `send.ts:74` — 창이 없으면 `false`) |
+| 채팅 창 생성 자리 | `rg -n "new BrowserWindow\(" app/src/main` | 2 | `index.ts:199`(메인 창 하나) · `infra/browser-session.ts:172`(인증용 창 — 채팅 문서가 아니다) |
+| 창 닫기 | `app/tray-residency.ts` | — | Windows 에서 닫기는 숨김이다. renderer 문서와 캐시가 그대로 남는다 |
+| 시작 창이 사라질 때의 턴 | `chat-turn/send.ts:502~506` · `infra/ipc/electron-transport.ts:26~35` | 1 | `onOwnerGone` 이 런타임을 `user_cancelled` 로 표시하고 중단한다. 닫힘 = 파괴 · renderer 종료 · 최상위 문서 새로 읽힘(EP-9 와 같은 정의) |
+| 진행 중 캐시 세션의 로드 | `renderer chatStore.ts:1801` | 1 | "Cached live state is authoritative" — 진행 중이면 `LOAD_SESSION` 을 보내지 않는다 |
+| 로드 중 온 이벤트 | `chatStore.ts:1005`·`:1788` | 1 | `liveChanged` 가 그 로드 결과를 버린다(SD-03 · VP-20) |
+| 기존 보호 테스트 | `app/chat-turn/send.worktree.test.ts` '준비 중에 창이 닫히면 체인을 중단하고 턴을 실행하지 않는다' | 1 | 준비 단계의 닫힘은 잠겨 있다. 실행 단계의 닫힘은 AC49 가 더한다 |
+
+### 결정
+
+- **진행 중 턴의 델타 (D-045).** 비동기 저장(D-039)으로 DB 스냅샷은 화면보다 뒤처질 수 있다. 그 스냅샷이 진행 중 세션의 화면에 닿는 경로는 지금 없다 — 턴은 시작한 창의 문서와 함께 끝나고, 같은 문서 안에서는 캐시가 이긴다(조사 표 아래 다섯 행). 그래서 순번·붙기를 넣지 않고 이 두 불변식을 AC49 로 잠근다.
+- **가드 (e3)′.** 금지 대상을 "하네스별 어댑터 · `node:child_process` · SDK 패키지 2종"으로 좁힌다. `adapters/common` 은 허용한다 — 그래프 규칙이라 `adapters/common` 의 모듈이 프로세스 기동이나 SDK 를 끌어오면 그대로 red 다.
+- **데이터 호스트 계측 (D-043).** `StallThread` 에 `'data-host'` 를 더하고 데이터 호스트 진입점이 루프 모니터를 시작한다. 두 호스트의 피어 수신 분기도 `handle()` 과 같은 기록 함수로 동기 구간을 잰다.
+- **에이전트 호스트 확보 (D-044).** 데이터 호스트 → 셸 메시지 `peer.ensure` 를 `HostToShellSchema` 에 더한다. 셸은 에이전트 감독자의 `ensureRunning` 을 부르고, 준비되면 EP-19 의 피어 중개가 그대로 잇는다. 감독자가 기동 실패 상한에 닿아 있으면 셸은 데이터 호스트에 `peer.unavailable` 을 보낸다(§7-E 의 창 쪽 규칙과 같은 모양).
+
+### Requirements / Acceptance — rev 4.1
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-03 | AT-05′ / AC5′ | main·에이전트 호스트·데이터 호스트의 이벤트 루프가 50ms 이상 멈추면 `perf.stall` 이 `thread:'main'`/`'agent-host'`/`'data-host'`·`durationMs`·`severity` 로 남는다. 160ms 이상이면 `severe` 다. 한 관측 창에 1건만 남는다 | `infra/perf/stall-monitor.test.ts`(있음) 의 49/50/159/160·창당 1건 · `record-stall.test.ts` — `thread:'data-host'` 기록 형식 · `app/data-host/boot.test.ts` — 조립이 `'data-host'` 로 모니터 시작 1회 | 셸 시작·두 호스트 진입점 → `startLoopStallMonitor` → 로거 |
+| R-03 | AT-06′ / AC6′ | 요청 처리(셸의 IPC · 호스트의 창 포트 요청 · 두 호스트의 피어 수신)의 동기 구간이 50ms 이상이면 채널 또는 메시지 종류 이름과 함께 `perf.stall` 이 남는다 | `infra/ipc/handle.test.ts`(있음) 세 등록 함수 · `persistence-receiver.test.ts` — 주입 시계로 60ms 걸리는 `turn.event` → 종류 이름이 실린 기록 1 · `agent-link.test.ts`·`data-link.test.ts` — 60ms 걸리는 교차 요청 → 기록 1 | 피어 포트 → 수신 분기 → `recordStall` |
+| R-11 | AT-48 / AC48 | 데이터 호스트가 실행이 필요한 교차 요청(예약 셸 명령 · 네이티브 이력 읽기)을 보낼 때 에이전트 호스트가 없으면 셸에 기동을 요청하고, 연결된 뒤 들어온 순서대로 보낸다. 기동이 실패하면 기다리던 요청은 실패한다. 활동 조회와 런타임 폐기는 기동을 부르지 않는다 | `app/data-host/agent-link.test.ts` — EP-21 규칙 칸 5분기 · `app/shell/boot.test.ts` — `peer.ensure` → 에이전트 `ensureRunning` 1 → 피어 포트 1쌍 · 실패 상한 → `peer.unavailable` 1 | 스케줄러 → `runShell` → 에이전트 링크 → 셸 `peer.ensure` → 감독자 |
+| R-12 | AT-49 / AC49 | 턴을 시작한 창의 문서가 닫히면(파괴 · renderer 종료 · 새로 읽힘) 그 턴은 중단된다. 진행 중인 캐시 세션에 세션 로드 응답이 와도 화면의 메시지는 바뀌지 않는다 | `chat-turn/send` 테스트 — 실행 중 턴의 창 참조 닫힘 → `markAborted('user_cancelled')` 1·`abort` 1 · `agent-host/port-server.test.ts` — 창 포트 닫힘 → 그 `ClientRef.onClosed` 리스너 1 · `chatStore` 테스트 — 진행 중 캐시 세션 + 로드 응답 → `LOAD_SESSION` 0·메시지 배열 같은 참조 | 창 포트 닫힘 → `ClientRef.onClosed` → `onOwnerGone` / `chatStore.loadSession` |
+
+AC 총수는 47 → **49** 다(AC5·AC6 은 ′ 판으로 대체, AC48·AC49 추가).
+
+### Node · Pair — rev 4.1 (Baseline V1 의 rev 정정, 새 Delta V 아님)
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 / 대체 |
+|---|---|---|---|---|
+| R-03 · AT-05′·06′ | R · AT | 멈춤 기록 — 세 프로세스와 피어 수신 | CHANGED | §7 AC5·AC6 |
+| R-11 · AT-48 | R · AT | 실행이 필요한 교차 요청의 호스트 확보 | CHANGED | §7-F |
+| R-12 · AT-49 | R · AT | 진행 중 턴의 델타 보존 | NEW | — |
+| SD-04″ | SD | 두 호스트 수명주기 — EP-19 에 확보 요청 분기 | CHANGED | SD-04′ |
+| AR-03′ | AR | 요청 처리의 계측 경계 — EP-2′ | CHANGED | AR-03 |
+| AR-10″ | AR | 프로세스별 import 경계 — EP-1 (e3)′ | CHANGED | AR-10′ |
+| AR-15 | AR | 데이터 호스트 ↔ 셸 확보 계약(`peer.ensure`·`peer.unavailable`) — EP-21 | NEW | — |
+
+| Pair | left ↔ right | requiredness | production path | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 |
+|---|---|---|---|---|---|---|
+| VP-03′ | R-03 ↔ AT-05′·06′·07 | REQUIRED | 멈춤 → 모니터/등록 함수/피어 수신/리포터 → 로거 | AC5′·AC6′·AC7 의 테스트 | not selected | EP-2′ |
+| VP-12′ | AR-03′ ↔ IT-03′ | REQUIRED | 창 포트 요청·피어 메시지 → 계측 → 처리 | `handle.test.ts` · `persistence-receiver.test.ts` · `agent-link.test.ts` · `data-link.test.ts` 의 60ms 케이스 | VP-12 와 같다 | EP-2′ (10) |
+| VP-37′ | R-11 ↔ AT-39~48 | REQUIRED | rev 4 의 VP-37 + 스케줄러 → 에이전트 링크 → 셸 → 감독자 | AC39~AC48 의 테스트 | not selected | EP-15~EP-18·EP-20·EP-21 |
+| VP-43 | AR-15 ↔ IT-15 | REQUIRED | 데이터 `agent-link` → `HostToShellSchema` → 셸 `host-link` → 감독자 → 피어 중개 → `agent-link` | `agent-link.test.ts` 5분기 · `host-link.test.ts` — `peer.ensure` → 콜백 1 · 형식 오류 → 거부 · `boot.test.ts` 확보 분기 | not selected | EP-21 (4) |
+| VP-22″ | SD-04″ ↔ ST-04″ | REQUIRED | rev 4 의 VP-22′ + 확보 요청 → 재기동 → 피어 재연결 / 실패 상한 → 통지 | `boot.test.ts` — EP-19 규칙 칸 7분기 | not selected | EP-19 (7) |
+| VP-27″ | AR-10″ ↔ IT-10″ | REQUIRED | 실제 트리 → 가드 (e1)·(e2)·(e3)′ | `gate:node scripts/check-ui-thread.mjs` · `check-ui-thread.test.mjs` — (e3)′ 5분기 | required — 0건 가드. 변이: 데이터 그래프 파일에 `adapters/claude` 의 값 import → red · `adapters/common` 파일에 `node:child_process` import → red | EP-1 (e3)′ |
+| VP-44 | R-12 ↔ AT-49 | REQUIRED | 창 포트 닫힘 → `ClientRef.onClosed` → `onOwnerGone` → 런타임 중단 / 세션 클릭 → `loadSession` → 캐시 판정 | AC49 의 세 테스트 | required — "덮지 않는다"는 0건 단언이다. 변이: `chatStore.ts` 의 진행 중 캐시 판정 줄 제거 → `chatStore` 테스트 red | EP-22 (3) |
+| VP-20 | SD-03 ↔ ST-03 | REGRESSION | rev 3 그대로 — 로드 대기 중 라이브 이벤트 → 로드 결과 폐기 | 기존 좌표 | — | — |
+| VP-03 · VP-12 · VP-22′ · VP-27′ · VP-37 | — | SUPERSEDED | — | 위 ′·″ 판이 같은 oracle 을 넘겨받는다. VP-27′ 의 변이 둘 중 (e2) 변이는 VP-27″ 에 남고 (e3) 변이는 위 둘로 바뀐다 | — | — |
+
+### 강제 지점 — rev 4.1
+
+| V node / pair | 계약/필드 | SSOT | 누가 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|---|---|
+| AR-10″ / VP-27″ **EP-1 (e3)′** | 데이터 그래프의 import 경계 | 가드 | — | 1규칙 — (e3)′. (e1)·(e2) 는 rev 4 그대로 | 가드 `--list` | 하네스 구현·SDK·프로세스 기동이 데이터 호스트 번들에 들어간다 |
+| AR-03′ / VP-03′·12′ **EP-2′** | 멈춤 기록 `perf.stall` | `infra/perf/stall-monitor.ts` 의 `recordStall` | 셸·두 호스트 | 10자리 — rev 3 의 7 + 데이터 호스트의 저장 수신(`persistence-receiver.ts`) · 데이터 호스트의 교차 요청 수신(`agent-link.ts`) · 에이전트 호스트의 교차 요청 수신(`data-link.ts`) | 구현 뒤 `rg -n "recordStall\(" app/src/main --glob '!*.test.*'` | 데이터 호스트의 느린 조회가 기록 없이 커밋 응답과 턴 준비를 늦춘다 |
+| SD-04″ / VP-22″ **EP-19** | 두 호스트의 수명 순서 | `app/shell/boot.ts` | 셸 | 7자리 — rev 4 의 6 + 데이터 호스트의 확보 요청 | rev 4 와 같은 명령 | 창이 숨은 동안 에이전트 호스트가 죽으면 예약 셸 명령이 실행되지 않는다 |
+| AR-15 / VP-43 **EP-21** | 데이터 호스트발 교차 요청의 확보 여부 | `app/data-host/agent-link.ts` | 데이터 | 4자리(F4 의 데이터 → 에이전트 요청 종류) — 활동 조회(확보 안 함) · 런타임 폐기(확보 안 함) · 네이티브 이력 읽기(확보) · 예약 셸 명령(확보) | 구현 뒤 `rg -n "agentLink\.(request\|requestEnsured)\(" app/src/main --glob '!*.test.*'` → 4 | 실행 요청이 받는 쪽 없이 버려진다 / 세션을 열기만 해도 에이전트 호스트가 뜬다 |
+| R-12 / VP-44 **EP-22** | 진행 중 턴의 델타 보존 | `chat-turn/send.ts` 의 창 감시 · `chatStore.loadSession` | 에이전트·renderer | 3자리 — 창 감시 등록(`send.ts:506`) · 창 포트 닫힘 → `ClientRef` 닫힘(`agent-host/port-server.ts`) · 진행 중 캐시 판정(`chatStore.ts:1801`) | `rg -n "onClosed\(onOwnerGone\)" app/src/main/app/chat-turn` → 1 · `rg -n "sessionBusy\(request\.entry\.session\)" app/src/renderer` → 1 | 창보다 오래 산 턴의 세션을 스냅샷으로 열어 저장 지연만큼 델타가 빠진다 |
+
+**EP-1 (e3)′ 규칙 칸** (`check-ui-thread.test.mjs` — rev 4 의 (e3) 2분기를 대체):
+
+| 분기 | 기대 |
+|---|---|
+| 데이터 그래프(`app/data-host/entry.ts`)가 `adapters/<하네스>/**` 를 값으로 import | exit 1 |
+| 데이터 그래프가 `adapters/common/**` 를 import | exit 0 |
+| 데이터 그래프가 닿는 모듈(`adapters/common` 포함)이 `node:child_process` 를 import | exit 1 |
+| 데이터 그래프가 `@anthropic-ai/claude-agent-sdk` 또는 `@opencode-ai/sdk` 를 import | exit 1 |
+| 위 넷이 없음 | exit 0 |
+
+**EP-19 규칙 칸 — 추가 분기** (`boot.test.ts`, rev 4 의 6분기에 더한다):
+
+| 분기 | 기대 |
+|---|---|
+| 데이터 호스트의 `peer.ensure` | 에이전트가 떠 있으면 아무 일 없음 · 없으면 `ensureRunning` 1 → 준비 → 피어 포트 1쌍 · 실패 상한이면 데이터 호스트에 `peer.unavailable` 1 |
+
+**EP-21 규칙 칸** (`app/data-host/agent-link.test.ts`, 가짜 셸 링크·가짜 피어 포트):
+
+| 분기 | 기대 |
+|---|---|
+| 연결됨 | 바로 전송 · `peer.ensure` 0 |
+| 미연결 + 확보 요청(예약 셸 명령 · 네이티브 이력 읽기) | `peer.ensure` 1 + 대기. 둘째 요청은 `peer.ensure` 를 더 보내지 않는다 |
+| 대기 중 피어 연결 | 들어온 순서대로 전송 |
+| 대기 중 `peer.unavailable` | 기다리던 요청 모두 거부 — 예약 셸 명령은 실패로 기록, 세션 갱신은 네이티브 읽기 없이 DB 본문으로 끝난다 |
+| 미연결 + 확보 안 함(활동 조회 · 런타임 폐기) | 즉시 "없음" 응답(AC19′·AC43 그대로) · `peer.ensure` 0 |
+
+**선언 경계** (rev 4.1):
+
+- B26 — 턴 이벤트에 순번이 없고 세션 로드에 기준 순번이 없다(D-045). 스냅샷과 실시간 이벤트를 잇는 경로가 없어서다: 채팅 창은 하나이고(`index.ts:199`), 닫기는 숨김이며, 문서가 닫히면 턴이 끝난다(EP-22). 창을 둘 이상 만들거나 턴이 창의 문서보다 오래 살게 하는 변경은 이 경계를 먼저 닫아야 한다 — 그때는 에이전트 호스트가 세션별 순번을 붙여 두 수신처에 보내고, 세션 로드가 같은 피어 포트로 기준 순번을 받아 스냅샷과 실시간을 그 순번에서 나눈다.
+- B27 — 확보를 기다리는 교차 요청에 제한 시간이 없다. 대기는 피어 연결이나 `peer.unavailable`(기동 실패 상한) 중 하나로 끝난다 — B19 와 같은 모양이다.
+- B28 — 예약 **프롬프트**는 창이 맡는다(`send.ts:74`). 창이 없으면 지금처럼 시작하지 못한다. D-044 가 다루는 것은 예약 셸 명령과 네이티브 이력 읽기다.
+
+### 구현 설계 — rev 4.1 (§7-F 구현 설계에 더한다)
+
+| 단계 | 파일 | 책임 |
+|---|---|---|
+| 4a+ | `shared/host-protocol.ts` | `HostToShellSchema` 에 `peer.ensure` · 셸 → 데이터 호스트 `peer.unavailable` |
+| 4b+ | `app/data-host/agent-link.ts` · `entry.ts` | 확보 여부를 요청 종류로 가르는 두 진입점 · 대기열 · `'data-host'` 루프 모니터 시작 |
+| 4b+·4c+ | `app/data-host/persistence-receiver.ts` · `agent-link.ts` · `app/agent-host/data-link.ts` | 피어 수신 분기의 동기 구간 계측(EP-2′) |
+| 4d+ | `app/shell/host-link.ts` · `boot.ts` | `peer.ensure` 수신 → 에이전트 감독자 `ensureRunning` · 실패 상한 → `peer.unavailable` |
+| 4h+ | `scripts/ui-thread-rules.mjs` | (e3)′ — `adapters/common` 허용, 하네스 어댑터·SDK 2종·`node:child_process` 금지 |
+| 1+ | `infra/perf/stall-monitor.ts` | `StallThread` 에 `'data-host'` |
+| 6+ | `chat-turn/send` 테스트 · renderer `chatStore` 테스트 | AC49 의 두 테스트(코드 변경 없음 — 지금 동작을 잠근다) |
+
+### 대체 범위
+
+§7 AC5·AC6 → AC5′·AC6′ · §7-A VP-03·VP-12 → ′ · §7-F VP-22′·VP-27′·VP-37 → ″·′ · §7-F EP-1 (e)′ 규칙 칸의 (e3) 행 · §10 EP-2(자리 7 → 10) · §7-F EP-19(자리 6 → 7). 본문은 rev 4 로 다시 썼다(규범 행 아님): §1 "완료 후 달라지는 것" · §4 설계자 제안 목록 · §4-B "쓰기 주체" 행 · §5 상태표(세션 클릭·데이터 호스트 종료·앱 시작·앱 종료 + 세 행 추가) · §6 범위/비범위와 미룬 항목 · §9 TO-BE 주체 표 4·5행과 경로 그림 · §13 종료 행.
+
+### READY self-review — rev 4.1 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — 갱신 메모의 rev 4.1 줄.
+- AC 49건. 새·바뀐 넷(AC5′·AC6′·AC48·AC49)은 동작 기준·검증 수단·도달 경로를 가진다(위 표).
+- 분모: EP-1 (e3)′ 1규칙 5분기 · EP-2′ 10 · EP-19 7 · EP-21 4 · EP-22 3. 검색 명령은 각 행에 있다.
+- 규칙 칸 ↔ 입력 칸: (e3)′ 5 ↔ `check-ui-thread.test.mjs` · EP-19 7 ↔ `boot.test.ts` · EP-21 5 ↔ `agent-link.test.ts`.
+- SUPERSEDED pair 의 증거 이관: pair 표 마지막 행.
+- 기존 테스트 인용 확인: `send.worktree.test.ts:678`(준비 중 창 닫힘) · `stall-monitor.test.ts`·`record-stall.test.ts`·`handle.test.ts`·`host-link.test.ts`·`port-server.test.ts` 는 실재한다(`ls`·`rg`). 실행 단계 닫힘 케이스와 `chatStore` 케이스는 구현자가 더한다.
+- 같은 대상을 여러 절이 서술하는 자리(종료 순서 — §5·§13·AC32′, 재기동 — §5·§7-E·EP-19·EP-21, 계측 대상 — AC5′·§9 경로 그림)를 나란히 읽어 맞췄다.
+- 실측하지 않은 것: 백그라운드 작업 이벤트(`broadcastBackgroundEvent`)의 로드 순서는 따라가지 않았다. rev 4 가 "기록 뒤 공개"(EP-15)를 유지하므로 D-039 의 영향 밖으로 읽었다.
+
+---
+
 # Part II — Technical Design
 
 ## 8. Research — 현재 코드와 계약
@@ -963,24 +1109,28 @@ AC 총수는 38 → **47** 이다(AC18·19·20·24·27·29·30·31·32·33·37·
 | 1 | main(셸) | Electron main | 1 | OS | 창·트레이·업데이트·`app://` 응답, 셸 서비스(비밀 봉인·해제·대화상자·외부 열기·알림·파티션 세션 요청), 호스트 수명 감독, 포트 중개, 수명 상태 보유 | 턴·세션·DB·하네스·git — `features`·`adapters`·`infra/db` 를 import 하지 않는다 |
 | 2 | renderer | Chromium renderer | 창마다 1 | main | UI 상태·그리기 예약·결과 반영·상한 있는 계산 | `shiki` 실행 · 상한 없는 diff 계산 |
 | 3 | 계산 워커 | Web Worker | 창마다 1, 첫 요청에 생성 | renderer | 구문 강조 · diff 토큰 · diff 줄 | 상태 소유 · IPC |
-| 4 | 에이전트 호스트 | `utilityProcess` | 앱에 1, 부팅 때 생성 | main | 지금의 `Bootstrap` 전체 — 요청 핸들러, 어댑터·SDK 호출, 세션 런타임, 정규화, 게이트 훅 반환, 이력 쓰기(DB 쓰기 연결), 스케줄러, 도구 프로세스 기동 | Electron 창·OS API 직접 호출 |
-| 5 | 데이터 호스트 | `utilityProcess` | 앱에 1, 첫 요청에 생성 | main | 읽기 전용 연결로 세션 본문 조회·조립·조각 전송 | 쓰기 · 권한 판정 |
+| 4 | 에이전트 호스트(실행) | `utilityProcess` | 앱에 1, 데이터 호스트 다음에 생성. 비정상 종료 뒤에는 다음 요청(창 또는 데이터 호스트의 확보 요청)에서 다시 뜬다 | main | 어댑터·SDK 호출 · 세션 런타임 · 정규화·버스·창 중계 · 게이트 훅 반환 · 제목 생성 · git·셸 도구 프로세스 기동 · 하네스 설치·확장 배포 · 에이전트 채널 핸들러 | DB 연결 · 설정/비밀/인증 파일 · Electron 창·OS API 직접 호출 |
+| 5 | 데이터 호스트(상태) | `utilityProcess` | 앱에 1, 앱 시작 때 생성. 비정상 종료하면 바로 다시 뜬다 | main | DB 단독(연결·쓰기·마이그레이션·복구) · 설정·비밀·인증 파일 · 턴 저장 수신 · 인증·사용량·플러그인·예약 작업 · 데이터 채널 핸들러 · 세션 본문 조각 전송 | SDK·하네스·git·셸 프로세스 기동 |
 | 6 | 하네스 | 자식 프로세스 | 세션·하네스마다 | 에이전트 호스트(SDK 경유) | 모델 호출 · 도구 실행 | — |
 | 7 | 도구 프로세스 | 자식 프로세스 | 필요할 때 | git·셸은 에이전트 호스트, MCP 서버는 하네스 | git 조회 · 예약 셸 작업 · MCP 서버 | — |
 
 ```text
-[전송]      window.oo.chat.send → preload: 채널 소유 표 = host → 에이전트 호스트 포트
-            → 호스트 handle() → handleChatSend (지금 코드 그대로, 호스트 안에서)
-            → 어댑터 → 하네스 → 정규화 → bus 'turn.event' (usage → history → title → relay)
-            → ClientRef.send → 창 포트 → preload 구독자 → ingestChatEvent → rAF
+[전송]      window.oo.chat.send → preload: 채널 소유 표 = agent → 에이전트 호스트 포트
+            → 준비: 데이터 링크(F2)로 세션·프로젝트 메타·연속성·MCP·자격증명 → 어댑터 → 하네스
+            → 정규화 → bus 'turn.event' (저장 송신 → 제목 → 중계)
+              ├ 저장 송신 → 피어 포트 F1 → 데이터 호스트: 사용량 → 이력 (응답을 기다리지 않는다)
+              └ 중계 → ClientRef.send → 창 포트 → preload 구독자 → ingestChatEvent → rAF
+[데이터 요청] window.oo.session/settings/… → preload: 소유 표 = data → 데이터 호스트 포트 → handle()
 [권한 작업] 호스트 crypto/dialog/open → 셸 서비스 포트 → main: safeStorage·dialog·shell
-[수명]      호스트 → main: turn.started · turn.ended · approval.pending · session.ended · harness.exited
+[수명]      에이전트 호스트 → main: turn.started · turn.ended · approval.pending · session.ended · harness.exited
             → LifecycleState → 업데이트 재시작 게이트 · 트레이 종료 판정
-[세션 클릭] sessionApi.load → 에이전트 호스트 oo:session:load: compactLegacyRaw → { activity }
-            → 데이터 호스트 포트: begin → chunk × n → end → 조립 → LOAD_SESSION 1회
+[세션 클릭] sessionApi.load → 데이터 호스트 포트: 활동 조회(F4, 에이전트 없으면 쉬는 상태)
+            → begin → chunk × n → end → 조립 → LOAD_SESSION 1회 (진행 중 캐시 세션에는 적용하지 않는다)
 [강조·diff] CodeBlock → computeClient → 계산 워커 → 응답 → setState
-[호스트 사망] utilityProcess exit → main: 고아 하네스 종료 → 창 통지 → LifecycleState 비움 → 다음 요청에 재기동
-[멈춤]      stall-monitor(main·에이전트 호스트) / handle() / longTaskReporter → perf.stall 로그
+[에이전트 사망] exit → main: 고아 하네스 종료 → 창 통지 → LifecycleState 비움 / 데이터 호스트: 열린 턴 마감
+            → 다음 요청(창의 connect 또는 데이터 호스트의 peer.ensure)에 재기동 → 피어 재연결
+[데이터 사망] exit → main: 창 통지 → 즉시 재기동 → 창 포트·피어 재연결 / 에이전트 호스트: 진행 중 턴 오류
+[멈춤]      stall-monitor(main·에이전트 호스트·데이터 호스트) / handle()·피어 수신 / longTaskReporter → perf.stall
 ```
 
 ### AS-IS → TO-BE Delta
@@ -1188,7 +1338,7 @@ AC 총수는 38 → **47** 이다(AC18·19·20·24·27·29·30·31·32·33·37·
 | 수명 이벤트 | 호스트 버스의 정규화 이벤트에서 만든다 — 턴의 첫 이벤트 → `turn.started`, `telemetry`·`error`·취소 → `turn.ended`, 승인 요청 → `approval.pending`, 세션 폐기 → `session.ended`, 하네스 스트림이 종료 없이 끊김 → `harness.exited` |
 | 비정상 종료 | main: 고아 종료(부모 pid 일치 → `taskkill /T /F` 또는 `kill`) → 모든 창에 `oo:agent-host:exited` → `LifecycleState` 비움. 다음 호스트 채널 요청이 재기동을 부른다 |
 | 재기동 | 연속 3회 실패하면 더 띄우지 않고 부팅 오류를 알린다. 성공하면 열려 있는 창에 새 포트와 `oo:agent-host:ready` 를 보낸다 |
-| 종료 | `will-quit` → 데이터 호스트 종료 → 에이전트 호스트에 `shutdown` → 예약 작업 `dispose` → `Scheduler.stopAll()` → `closeDb` → exit. 3초 초과 시 kill |
+| 종료 | `will-quit` → 에이전트 호스트에 `shutdown`(런타임 정지 → 저장 스트림 비움) → 데이터 호스트에 `shutdown` → 예약 작업 `dispose` → `Scheduler.stopAll()` → `closeDb` → exit. 각 3초 초과 시 kill(AC32′) |
 
 ### 테스트 가능성
 
