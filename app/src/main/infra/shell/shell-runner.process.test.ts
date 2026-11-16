@@ -44,4 +44,20 @@ describe('runShellCommand — 실제 프로세스', () => {
       await vi.waitFor(() => expect(alive(pid)).toBe(false))
     }
   })
+
+  // TERM 을 무시하는 자손도 남기지 않는다 — 그룹 종료는 무시할 수 없는 신호여야 한다.
+  it.skipIf(isWin)('TERM 을 무시하는 자손도 제한 시간에 끝낸다', async () => {
+    const result = await runShellCommand({
+      command: `sh -c 'trap "" TERM; exec sleep 30' & echo $!; wait`,
+      cwd: process.cwd(),
+      // 제한 시간 자체를 시험하는 의미 값이다(SEMANTIC_DELAYS).
+      timeoutMs: 300,
+      maxOutputBytes: 4096,
+      spawnImpl: spawn as unknown as SpawnLike
+    })
+    expect(result.timedOut).toBe(true)
+    const pid = Number(result.output.trim())
+    expect(Number.isInteger(pid) && pid > 0).toBe(true)
+    await vi.waitFor(() => expect(alive(pid)).toBe(false))
+  })
 })

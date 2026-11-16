@@ -1372,6 +1372,86 @@ EP-9 규칙 칸 ↔ UT 입력 칸:
 - 반복해서 부딪히는 환경 한계: 컨테이너에 좀비를 거둘 init이 없다 · Windows 경로(`taskkill`)는 이 환경에서 못 돈다.
 - 현재 라운드·impl 턴: `r2`
 
+## [구현자 기입] 설계 리뷰 (r3)
+
+- ΔV5(§24)를 그대로 수행했다. prod 코드 변경 0 — 채택한 41자리는 이미 계약대로 동작했고 테스트만 더했다(`git diff --stat -- app/src` = 테스트 7파일).
+- plan과 다른 점 1건: §24 "`node:child_process`를 대체하는 파일은 io 풀 신호를 갖는다"가 틀렸다. `shell-runner.win32.test.ts`는 spawn을 `vi.mock`으로 대체해 exe를 띄우지 않아 분류기가 `|unit|`로 돌렸다(`vitest --reporter=verbose` 관측). `app/AGENTS.md` "exe 대체" 규칙과 맞으므로 그대로 두었다 — 규범 행(AC·§10)은 영향 없음.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+자리 검색 명령 재실행(이 턴, `app/src/`): EP-10 22줄 = 19 + 제외 3 · EP-11 5줄 · EP-12 4 + 5줄 · EP-13 9줄 = 8 + 제외 1. 각 §10 목록과 차집합 ∅.
+
+| pair | §10이 적은 지점 | N | 닫은 수 | 직접 oracle 좌표 | 남긴 곳 |
+|---|---|---|---|---|---|
+| VP-02′ | EP-10 A F0~F6·T0~T4 | 12 | 12/12 | `scheduleTaskModal.interaction.test.ts` `입력이 저장 요청까지 간다` 5케이스 — F0·F2·F6 `'제목·본문을 차례로 바꾸면 둘 다 요청에 남는다'` · F3·F4 `'프로젝트·실행 설정 슬롯이 넘긴 값이…'` · F5 `'shell 로 바꾸면…'` · T0~T3·F1 `'주기·요일·시각 칩에서 고른 값이 트리거가 된다'`(실제 칩 클릭) · T4 두 분기 `'사용자 지정 요일은 꺼진 요일을 더하고 켜진 요일을 뺀다'` | 없음 |
+| VP-02′ | EP-12 A `:169`·`:175`·`:177`·`:178` | 4 | 4/4 | `scheduleTaskModal.interaction.test.ts` `안내 문구` 4케이스(0개·프롬프트·shell+폴더·shell+폴더 없음) | 없음 |
+| VP-23′ | EP-10 B Q1~Q5 | 5 | 5/5 | `features/chat/components/executionSettingsPicker.interaction.test.ts` 5케이스 — Q1 두 분기(`null`→기본 · 값 있음→0회) · Q2~Q5 칩을 열고 메뉴 항목 클릭 | 없음 |
+| VP-23′ | EP-12 B `:98`·`:114`·`:116`·`:117`·`:46` | 5 | 5/5 | `projectPickerChip.test.ts` — `:46` `'칩 툴팁은…'`(경로·미선택·폴더 없음) · `:98` `'행 툴팁은…'` · `:116`·`:117` `'검색 결과가 없으면 noMatches…'` · `:114` `'ProjectMenuPanel — 빈 상태 > 불러오는 중이면…'` | 없음 |
+| VP-11′ | EP-10 C G1·G2 | 2 | 2/2 | `pages/SchedulesPage.render.test.ts:'프로젝트·실행 설정 칩의 선택이 모달이 넘긴 콜백으로 간다'` | 없음 |
+| VP-03′ | EP-11 V1~V5 | 5 | 5/5 | `scheduleTaskModal.interaction.test.ts` `저장` 2케이스 — V2·V3 `'성공하면…'` · V1·V4·V5 `'실패하면 열린 채 문구를 띄우고…다시 저장해 성공하면…'` | 없음 |
+| VP-12′ | EP-13 K1~K8 | 8 | 8/8 | K4 `shell-runner.process.test.ts:'TERM 을 무시하는 자손도 제한 시간에 끝낸다'`(io, 실제 `/bin/sh`) · K5·K6 `shell-runner.test.ts:'정상 종료 뒤에는 제한 시간이 지나도…'`·`'정상 종료 뒤 중단 신호가 와도…'` · K7 `'셸은 플랫폼과 무관하게 창 없이 띄운다'` · K8 기존 `'제한 시간을 넘기면 프로세스를 종료하고 timedOut 으로 끝난다'`(`FakeChild`에 pid 없음 → `child.kill`) · K1·K2·K3 `shell-runner.win32.test.ts` 2케이스 | 없음 |
+
+- 합: 41/41. V-pair 자기확인: VP-02′·VP-23′·VP-11′·VP-03′·VP-12′ `SELF_PASS`(아래 sweep 행) · VP-04 REGRESSION `SELF_PASS`(같은 좌표 + 전체 vitest) · VP-26′ `SELF_BLOCKED`(AC34 실기, 불변).
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+하네스 `mutate.py`, spec은 scratchpad `r3-sweep.jsonl`(47행). 마지막 수정(prettier·주석) 뒤 트리에서 다시 돌려 **47/47 red**, `# 원복 확인: 모든 파일 원문 그대로`.
+
+| 묶음 | 행 | 결과 | 비고 |
+|---|---|---|---|
+| EP-10 A 제거·빈 값 F0~F6·T1~T4 | 11 | red 11 | verify r2 M3→F3 · M4→F4 · M5→F5 · M8→F6 · T1~T4 원문과 같은 형태 |
+| EP-10 A 맞바꿈 T0(`onPick(option)`→`onPick(value)`) · T4 분기 2(`toggleDay` 항상 더함/항상 뺌) | 3 | red 3 | 규칙 칸 분기 입력 |
+| EP-10 B Q1(제거)·Q1b(`value == null` 조건 제거)·Q2~Q4·Q5(제거)·Q5s(`options[0]` 맞바꿈) | 7 | red 7 | verify r2 Q2~Q5 원문 형태 포함 |
+| EP-10 C G1·G2 | 2 | red 2 | — |
+| EP-11 V1~V5 | 5 | red 5 | verify r2 M10→V2 · M11→V4 |
+| EP-12 A `:169`(문구·조건 2) · `:175`·`:177`·`:178` 맞바꿈 | 5 | red 5 | verify r2 M7→`:175` |
+| EP-12 B `:98` · `:114`·`:116`·`:117` 맞바꿈 · `:46`(폴백 제거·경로 제거 2) | 6 | red 6 | verify r2 N6→`:116` · O6→`:46` |
+| EP-13 K1~K8 | 8 | red 8 | verify r2 S1→K2·K7 · S2→K4 · S4→K1 · S6→K3 · S8→K6 · S9→K5 |
+
+- 검산: `선택 증거 0 · 인용 변이 21(verify r2 채택 못 잡음 행) · 새 oracle 0(구조적 proxy 없음) · sweep 47 = 표 행 47` — 인용 변이 21은 sweep 47 안의 같은 형태 행이라 따로 세지 않았다(위 비고의 대응).
+- 하한 ④(직전 `잡음` 행 재실행): prod 파일 diff 0이고 oracle 파일은 케이스를 더하기만 했다(`git diff` 삭제 3줄 = `SchedulesPage.render.test.ts`의 mock 타입·`captured` 초기화 줄 교체). verify r2 spec(`spec1~5.jsonl`)은 다른 세션 scratchpad라 이 환경에 없어 원문 재실행은 못 했다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 관측 | 처리 |
+|---|---|---|
+| 새 사용자 대면 문구·상태가 있는가 | 없음 — prod diff 0 | 해당 없음 |
+| 실패가 "아무 일도 안 일어남"으로 보이지 않는가 | 저장 실패는 모달 안 `role="alert"` 문구(`'실패하면 열린 채…'` 관측) | 잠금 완료 |
+| 실행 설정 칩에서 고르면 화면 값도 바뀌는가 | 모달 슬롯 표식이 `p1→p2`·`plan`으로 바뀜(`'프로젝트·실행 설정 슬롯이 넘긴 값이…'`) | 잠금 완료 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 |
+|---|---|---|
+| 1 | win32 실제 `taskkill` 효과(자손 생존)는 여전히 Windows에서만 관측된다 | §24 선언 경계 그대로 — 인자·폴백만 잠금 |
+| 2 | K4 테스트는 `/proc`로 좀비를 가른다 — 좀비를 거둘 init 없는 컨테이너에서도 `alive=false` 판정(r2 같은 헬퍼) | 기존 헬퍼 재사용, 추가 대응 없음 |
+
+### 설계 대비 명시적 차이
+
+- `shell-runner.win32.test.ts` 풀 = unit(§24는 io로 적음). 축별: 만료 — 해당 없음(타이머 없음) · 공유 — `vi.mock`은 파일 단위라 다른 파일과 공유 0 · 재진입 — 해당 없음 · 다른 무효화 — unit 가드(`vitest-unit-guard.mjs`)가 실제 spawn을 막으므로 mock이 빠지면 red(안전 방향).
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 테스트만. 신규 3: `main/infra/shell/shell-runner.win32.test.ts` · `features/chat/components/executionSettingsPicker.interaction.test.ts` · `features/schedules/components/scheduleTaskModal.interaction.test.ts`. 수정 4: `shell-runner.test.ts` · `shell-runner.process.test.ts` · `projectPickerChip.test.ts` · `pages/SchedulesPage.render.test.ts`. prod 0 |
+| 실행 명령 | 가드 4종 · `npx eslint .` · `npm run typecheck` · `./node_modules/.bin/vitest run`(필터 없음, Node ABI — `npm rebuild better-sqlite3`) · `node --test scripts/*.test.mjs` |
+| **관측한 게이트 산출** | vitest 974파일 중 961 pass · 9 fail · 4 skip / 9247케이스 중 9213 pass · 22 fail · 1 expected fail · 11 skip. 실패 9파일 = verify r2 기준선과 같은 집합(`adapters/claude/*` 3 · `adapters/opencode/v1/*` 3 · `composer-catalog` · `composer-preparation-service` · `session-resources.claude-assembly`), 이번 diff와 교집합 0 · `[test-pools]` 0줄 · lint `0 errors, 2 warnings`(손대지 않은 `Timeline.tsx`·`useTranscriptVirtualizer.ts`) · typecheck error TS 0 · migrations·doc-inventory·product-naming·test-budgets(`18 real-git suites ok · all budget sites scaled`) 통과 · `node --test` 868 pass / 0 fail |
+| **추가·수정 테스트의 subtree 규칙** | 7파일. 시간 예산: `check-test-budgets` 통과(새 시간 값 `timeoutMs: 300`·`LIMITS.timeoutMs * 2`) · 풀: `shell-runner.process.test.ts`만 io, 나머지 6 unit(`|unit|` 관측) · 호스트 격리: 홈·env 읽기 0 |
+| V-pair 자기확인 | `SELF_PASS 6`(VP-02′·VP-23′·VP-11′·VP-03′·VP-12′·VP-04) · `SELF_BLOCKED 1`(VP-26′ AC34) |
+| 강제 지점 전수 | EP-10 19/19 · EP-11 5/5 · EP-12 9/9 · EP-13 8/8 = 41/41 |
+| **AC 자기보고**(`Criteria-Met`) | 35/39 — ✅ AC1~AC22 · AC24~AC26 · AC28~AC30 · AC32 · AC33 · AC35~AC39. ⚠️ AC23·AC27·AC31·AC34(사람 실기). AC36~AC39는 위 좌표로 이번 턴 관측 |
+| **합계 검산** | `✅ 35 · ⚠️ 4 · ❌ 0 = 총 39` — ΔV5가 AC36~AC39를 더해 분모 35 → 39 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 아니다 — verify r2가 처음 돌린 ΔV1·ΔV2 축(입력 배선)과 r2가 만든 종료 표면.
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: ΔV1·ΔV2의 oracle이 정적 렌더였다(verify r2 §9) — ΔV5가 상호작용 oracle로 바꿨다.
+- 반복해서 부딪히는 환경 한계: Windows 실제 프로세스 경로.
+- 현재 라운드·impl 턴: `r3`
+
 ## [검증자 기입] 파생 이슈
 
 verify r1(1회째)·r2(2회째) — 상세는 [`verify.md`](verify.md).
