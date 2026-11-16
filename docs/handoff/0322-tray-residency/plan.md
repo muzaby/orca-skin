@@ -11,10 +11,10 @@
 | 일자 | 2026-11-16 |
 | 매핑 | TRD §10 anchor "시스템 트레이" |
 | 상태 | READY |
-| V mode | `Baseline V` |
+| V mode | `Baseline V` + `Delta V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` |
-| 유효 V | `V1` |
+| 이번 V revision | `ΔV1` — D-006을 D-008로 대체(§20). 구현 전 정정 |
+| 유효 V | `V1 + ΔV1` |
 
 # Part I — Product & UX Contract
 
@@ -32,7 +32,7 @@
 | 명시 요구 | 헤더 메뉴 `종료` 항목도 X와 같이 "트레이로 숨김" | 라이브 세션 질의 응답 2026-11-16 |
 | 명시 요구 | 적용 플랫폼은 "Windows만" | 라이브 세션 질의 응답 2026-11-16 |
 | 추론 의도 | 트레이 아이콘 좌클릭은 `열기`와 같다 (추론 — Windows 관례) | D-005 |
-| 추론 의도 | 트레이를 만들지 못하면 상주하지 않는다 (추론 — 되찾을 길 없는 숨은 창 방지) | D-006 |
+| 명시 요구 | "트레이 생성 실패는 프로그램 오류로 봐야한다" | 라이브 세션 2026-11-16 (2턴) |
 
 ## 3. Decision Ledger
 
@@ -43,15 +43,16 @@
 | D-003 | 헤더 메뉴 `종료` 항목은 X와 같이 창을 트레이로 숨긴다. IPC 채널을 새로 만들지 않는다 | 질의 응답 "트레이로 숨김" | 사용자 2026-11-16 | ACTIVE | — |
 | D-004 | 상주는 Windows(`win32`)에만 적용한다. macOS·Linux는 현재 동작 그대로다 | 질의 응답 "Windows만" | 사용자 2026-11-16 | ACTIVE | — |
 | D-005 | 트레이 아이콘 좌클릭은 `열기`와 같은 동작이다 | 설계자 추론 — 메뉴 항목이 아니라 D-002와 충돌하지 않는다 | 설계자 | ACTIVE | — |
-| D-006 | 트레이 생성이 실패하면 X는 기존처럼 앱을 끝낸다 | 설계자 추론 — 숨은 창을 되찾을 수단이 없는 상태를 만들지 않는다 | 설계자 | ACTIVE | — |
+| D-006 | 트레이 생성이 실패하면 X는 기존처럼 앱을 끝낸다 | 설계자 추론 — 숨은 창을 되찾을 수단이 없는 상태를 만들지 않는다 | 설계자 | SUPERSEDED | D-008 |
 | D-007 | 트레이 메뉴 라벨은 한국어 `열기`·`종료` 고정이다 | 설계자 추론 — 사용자가 라벨을 한국어로 지정했다. `uiLocale='en'` 반영은 §10 선언 경계 | 설계자 | ACTIVE | — |
+| D-008 | 트레이 생성 실패는 프로그램 오류다. 대체 동작(비상주 폴백)을 설계하지 않고 예외를 삼키지 않는다 | "트레이 생성 실패는 프로그램 오류로 봐야한다" | 사용자 2026-11-16 (2턴) | ACTIVE | D-006 대체 |
 
 ### 갱신 메모
 
 - 이번 턴에서 새로 추가된 결정: D-001~D-007 (신규 handoff).
-- 변경된 결정: 없음.
-- 추론 결정 D-005·D-006·D-007은 사용자가 뒤집으면 ΔV로 정정한다.
-- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·AC4·AC5·AC9 · D-002↔AC2 · D-003↔AC9(단계 4, renderer diff 0) · D-004↔AC6 · D-005↔AC3 · D-006↔AC7 · D-007↔AC2.
+- 변경된 결정: D-006 → D-008 (사용자 2턴 — 폴백을 없애고 오류로 취급).
+- 추론 결정 D-005·D-007은 사용자가 뒤집으면 ΔV로 정정한다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-001↔AC1·AC4·AC5·AC9 · D-002↔AC2 · D-003↔AC9(단계 4, renderer diff 0) · D-004↔AC6 · D-005↔AC3 · D-008↔AC7 · D-007↔AC2.
 
 ## 4. 요구 비판적 검토
 
@@ -85,12 +86,12 @@
 | 임의 상태 · 트레이 `종료` | `app.quit()` → 기존 종료 절차 | 프로세스 종료 · 아이콘 제거 |
 | 임의 상태 · 업데이트 "재시작 후 설치" | 종료가 시작된 뒤의 닫기는 숨기지 않는다 | 설치·재시작 진행 |
 | Windows 로그오프·재시작 | 세션 종료 통지 뒤의 닫기는 숨기지 않는다 | OS 종료를 막지 않는다 |
-| 트레이 생성 실패 (Windows) | 오류를 로그에 남기고 상주하지 않는다 | X = 기존처럼 종료 |
+| 트레이 생성 실패 (Windows) | 예외를 삼키지 않는다 — 전역 미처리 오류 경로(`index.ts:76-85`)로 보고된다 | 오류 보고. 이후 동작은 계약하지 않는다(§10 경계 B6) |
 | macOS·Linux | 변경 없음 | 현재 동작 그대로 |
 
 ### 파생 UX / 엣지케이스
 
-- loading / empty / error: 트레이 생성 실패만 해당 — 위 표.
+- loading / empty / error: 트레이 생성 실패만 해당 — 프로그램 오류(D-008).
 - close / restart: 최소화 상태에서 닫기(작업표시줄 메뉴)도 숨김이고, `열기`가 복원까지 한다(`index.ts:65`).
 - concurrency: 종료 드레인 중(첫 `before-quit`이 취소된 구간)의 X는 숨기지 않고 닫는다 — 어차피 종료 중이다.
 - 상주 중 renderer: 숨은 창은 최소화된 창과 같은 조건으로 계속 돈다. 진행 중 턴·예약 작업의 프롬프트 전달 경로는 바뀌지 않는다.
@@ -114,14 +115,14 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
-| R-01 | AC1 | Windows에서 트레이가 있고 종료 중이 아니면 닫기는 취소되고 창이 숨는다 | `platform:'win32'` → 창 `close` 발화 → `preventDefault` 1회 · `hide` 1회 | X/헤더 종료 → `oo:window:close` → `mainWindow.close()` → `close` |
+| R-01 | AC1 | Windows에서 종료 중이 아니면 닫기는 취소되고 창이 숨는다 | `platform:'win32'` → 창 `close` 발화 → `preventDefault` 1회 · `hide` 1회 | X/헤더 종료 → `oo:window:close` → `mainWindow.close()` → `close` |
 | R-02 | AC2 | 트레이 메뉴는 `열기`·`종료` 순서의 두 항목뿐이고 각각 창 열기·앱 종료를 한다 | `buildMenu` 인자의 라벨 배열 `toEqual(['열기','종료'])` · `열기` click → `open` 1·`quit` 0 · `종료` click → `quit` 1·`open` 0 | 트레이 우클릭 메뉴 |
 | R-02 | AC3 | 트레이 아이콘 좌클릭은 창을 연다 | 트레이 `click` 발화 → `open` 1회 · `quit` 0회 | 트레이 좌클릭 |
 | R-03 | AC4 | 종료가 시작된 뒤의 닫기는 숨기지 않는다 | `before-quit` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | 트레이 종료 · `updater.quitAndInstall` → `app.quit()` |
 | R-03 | AC5 | OS 세션 종료 통지 뒤의 닫기는 숨기지 않는다 | 창 `session-end` 발화 뒤 `close` → `preventDefault` 0 · `hide` 0 | Windows 로그오프·재시작 |
 | R-04 | AC6 | Windows가 아니면 트레이를 만들지 않고 닫기를 숨기지 않는다 | `platform:'darwin'`·`'linux'` 각각 → `createTray` 0회 · `close` → `preventDefault` 0 | macOS·Linux 부팅 |
-| R-05 | AC7 | 트레이 생성이 실패하면 설치는 던지지 않고, 실패를 보고하고, 닫기를 숨기지 않는다 | `createTray`가 던짐 → `failed(같은 오류)` 1회 · `close` → `preventDefault` 0 | Windows 부팅 |
-| R-06 | AC8 | 프로세스 종료 때 트레이 아이콘을 없앤다 | `will-quit` 발화 → `tray.destroy` 1회. 트레이가 없으면(AC6·AC7 입력) 던지지 않는다 | `will-quit` |
+| R-05 | AC7 (ΔV1) | 트레이 생성 실패는 삼켜지지 않고 호출자에게 그대로 던져진다 | `win32` · `createTray`가 `E`를 던짐 → `installTrayResidency(...)`가 같은 `E`로 던진다(`toThrow(E)`) | Windows 부팅 → `whenReady` reject → `unhandledRejection` 보고 |
+| R-06 | AC8 | 프로세스 종료 때 트레이 아이콘을 없앤다 | `will-quit` 발화 → `tray.destroy` 1회. 트레이가 없으면(AC6 입력) 던지지 않는다 | `will-quit` |
 | R-01~06 | AC9 | 실제 Windows에서 §19 실기 8단계가 관측된다 | 사람 실기 — §19 | 설치본 또는 `npm run dev` |
 | R-07 | AC10 | 문서 3곳이 새 동작을 현재형으로 서술한다 | `node scripts/check-doc-inventory.mjs --check` 통과 + §18 문서 행의 문장 존재 | 문서 |
 
@@ -142,7 +143,8 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 
 | Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 |
 |---|---|---|---|---|
-| R-01~R-07 | R | §7 | NEW | — |
+| R-01~R-04·R-06·R-07 | R | §7 | NEW | — |
+| R-05 | R | §7 AC7 — 트레이 생성 실패 = 프로그램 오류 | CHANGED (ΔV1) | V1 R-05(비상주 폴백) 대체 |
 | AT-01 | AT | §7 AC9 · §19 실기 | NEW | — |
 | SD-01 | SD | §5 상태 전이 — 상주/종료 중 두 상태의 수명주기 | NEW | — |
 | ST-01 | ST | AC1→AC3→AC4→AC8을 한 설치 인스턴스에서 차례로 | NEW | — |
@@ -158,7 +160,7 @@ AC1~AC8의 검증 수단은 신규 `app/src/main/app/tray-residency.test.ts`가 
 |---|---|---|---|---|---|---|
 | VP-01 | MD-01 ↔ UT-01 | REQUIRED | `installTrayResidency` → 포트 리스너 → `preventDefault`/`hide`/`open`/`quit`/`destroy` | 신규 `tray-residency.test.ts` — AC1~AC8, 분기 입력은 §10 | M1~M9 (§10 아래) — 판정이 조건식 하나라 방향 확인 필요 | EP-01(1) · EP-02(4) · EP-04(1) |
 | VP-02 | SD-01 ↔ ST-01 | REQUIRED | 설치 → `close`(숨김) → 트레이 `click` → `before-quit` → `close`(통과) → `will-quit` | 같은 파일의 수명주기 1케이스 — 한 인스턴스에서 순서대로 `hide` 1 → `open` 1 → `preventDefault` 총 1 → `destroy` 1 | not selected — 단계별 관측이 직접 oracle | EP-01·EP-04 재사용 (0 추가) |
-| VP-03 | AR-01 ↔ IT-01 | REQUIRED | `whenReady` → `installTrayResidency({app, createTray:new Tray…})` → `createWindow` → `residency.attach(mainWindow)` | 사람 실기 §19 단계 1(attach)·2(install·open)·5(quit) | not selected — 기계 좌표 없음(§10 선언 경계 B1) | EP-03(2) |
+| VP-03 | AR-01 ↔ IT-01 | REQUIRED | `whenReady` → `createWindow` → `installTrayResidency({app, createTray:new Tray…})` → `.attach(창)` | 사람 실기 §19 단계 1(attach)·2(install·open)·5(quit) | not selected — 기계 좌표 없음(§10 선언 경계 B1) | EP-03(2) |
 | VP-04 | R-01~06 ↔ AT-01 | REQUIRED | X → IPC → `close` → 숨김 → 트레이 → 복귀/종료 | 사람 실기 §19 전 단계 | not selected | 0 — 하위 pair가 자리를 갖는다 |
 | VP-05 | SD-02 ↔ 기존 ST | REGRESSION | `before-quit` 2회 발화(드레인 전후) → 최종 종료 | `native-settings-lifecycle.test.ts:'defers actual before-quit events once until accepted saves finish, then permits final quit'` + AC4 입력 "`before-quit` 2회 뒤 `close`" | not selected | 0 — 그 파일 diff 0 |
 
@@ -227,8 +229,8 @@ X / 헤더 종료 → oo:window:close → mainWindow.close()
 - 유지: `close`의 위치 저장 · `window-all-closed` · `before-quit` 드레인 · `will-quit` 정리 · `focusMainWindow` · 창 컨트롤 IPC.
 
 ```text
-whenReady → installTrayResidency(포트) ─ win32면 createTray() · 메뉴[열기, 종료] · 'click'→open
-createWindow → residency.attach(mainWindow)
+whenReady → createWindow() → installTrayResidency(포트) ─ win32면 createTray() · 메뉴[열기, 종료] · 'click'→open
+                          → .attach(창)          (createTray 가 던지면 그대로 전파 — D-008)
 
 X / 헤더 종료 → oo:window:close → mainWindow.close()
   → 'close'(위치 저장) → 'close'(상주 판정)
@@ -275,11 +277,10 @@ export interface ResidentWindowPort {
 export function installTrayResidency<M>(deps: {
   platform: NodeJS.Platform
   app: { on(event: 'before-quit' | 'will-quit', listener: () => void): unknown; quit(): void }
-  createTray(): TrayPort<M>              // 던질 수 있다
+  createTray(): TrayPort<M>              // 던지면 그대로 전파한다 (D-008)
   buildMenu(items: TrayMenuItem[]): M
   tooltip: string
   open(): void
-  failed(error: unknown): void
 }): { attach(win: ResidentWindowPort): void }
 ```
 
@@ -287,7 +288,7 @@ export function installTrayResidency<M>(deps: {
 |---|---|---|---|---|---|---|
 | MD-01 / VP-01 — EP-01 | 닫기 판정: `resident ∧ ¬quitting`이면 `preventDefault`+`hide`, 아니면 아무것도 하지 않는다 | `tray-residency.ts` | `attach`의 `close` 리스너 | 1자리 — `attach` 안 `close` 리스너 | `rg -n "'close'" app/src/main/app/tray-residency.ts` → 1 | 숨겨야 할 때 종료되거나, 종료해야 할 때 숨어 종료·업데이트·로그오프가 막힌다 |
 | MD-01 / VP-01 — EP-02 | 트레이 표면: 메뉴 항목 `열기→open` · `종료→app.quit` · 아이콘 `click→open` · `setToolTip(tooltip)` | `TRAY_MENU_LABELS` | 설치 시 1회 | 4자리 — 메뉴 항목 2 · `click` 1 · 툴팁 1 | `rg -n "label:|'click'|setToolTip" app/src/main/app/tray-residency.ts` → 4 | 메뉴가 엉뚱한 동작을 하거나 항목 수가 D-002와 다르다 |
-| AR-01 / VP-03 — EP-03 | 조립: 설치 1회(`whenReady`, `createWindow` 앞) · 창마다 `attach` | `index.ts` | 부팅 | 2자리 — `installTrayResidency(` 호출 · `.attach(mainWindow)` 호출 | `rg -n "installTrayResidency\(|\.attach\(" app/src/main/index.ts` → 2 | 모듈이 green이어도 실제 앱은 X로 종료된다 |
+| AR-01 / VP-03 — EP-03 | 조립: 설치 1회(`whenReady`, `createWindow` 바로 뒤) · 그 창에 `attach` | `index.ts` | 부팅 | 2자리 — `installTrayResidency(` 호출 · `.attach(` 호출 | `rg -o "installTrayResidency\(|\.attach\(" app/src/main/index.ts` → 2 | 모듈이 green이어도 실제 앱은 X로 종료된다 |
 | MD-01 / VP-01 — EP-04 | 정리: `will-quit`에서 만든 트레이만 `destroy` | `tray-residency.ts` | 종료 | 1자리 — `will-quit` 리스너 | `rg -n "'will-quit'" app/src/main/app/tray-residency.ts` → 1 | 종료 뒤 트레이에 유령 아이콘 |
 
 검색 명령은 구현 뒤 트리 기준이다(현재는 전부 0 — 신규 파일). 구현자는 출력과 목록의 차집합 0을 보고한다.
@@ -300,10 +301,11 @@ export function installTrayResidency<M>(deps: {
 | B2 | 종료 중 (`before-quit`) | B1 + `before-quit` 1회, 그리고 2회(드레인 전후) 각각 뒤 `close` | 둘 다 0 (AC4) |
 | B3 | 종료 중 (`session-end`) | B1 + 창 `session-end` 뒤 `close` | 둘 다 0 (AC5) |
 | B4 | 비상주 — 플랫폼 | `darwin` · `linux` 각각 · `close` | 둘 다 0 · `createTray` 0 (AC6) |
-| B5 | 비상주 — 트레이 실패 | `win32` · `createTray` 던짐 · `close` | 둘 다 0 · `failed` 1 (AC7) |
-| B6 | 숨김 반복 | B1에서 `close` 2회 | `preventDefault` 2 · `hide` 2 — 숨김이 `quitting`을 켜지 않는다 |
+| B5 | 숨김 반복 | B1에서 `close` 2회 | `preventDefault` 2 · `hide` 2 — 숨김이 `quitting`을 켜지 않는다 |
 
-**EP-04 분기**: 트레이 있음 → `destroy` 1 / 트레이 없음(B4·B5 입력) → `will-quit`이 던지지 않고 `destroy` 0.
+**EP-02 생성 분기**: 성공 → 표면 4자리 / `createTray`가 던짐 → 같은 오류 전파(AC7).
+
+**EP-04 분기**: 트레이 있음 → `destroy` 1 / 트레이 없음(B4 입력) → `will-quit`이 던지지 않고 `destroy` 0.
 
 **등록 변이 (VP-01, 심을 자리 = `tray-residency.ts`)**
 
@@ -313,7 +315,7 @@ export function installTrayResidency<M>(deps: {
 | M2 | 메뉴 두 항목의 `click` 맞바꿈 | 맞바꿈 | AC2 |
 | M3 | `platform === 'win32'` 조건 제거 | 제거 | AC6 |
 | M4 | `preventDefault()` 호출 제거 | 제거 | AC1 |
-| M5 | `createTray` 실패의 `catch` 제거 | 제거 | AC7 |
+| M5 (ΔV1) | `createTray()` 호출을 `try/catch`로 감싸 오류를 삼킴 | 다른 값 | AC7 |
 | M6 | 트레이 `click` 리스너 제거 | 제거 | AC3 |
 | M7 | `session-end` 리스너 제거 | 제거 | AC5 |
 | M8 | `destroy()` 호출 제거 | 제거 | AC8 |
@@ -327,6 +329,7 @@ export function installTrayResidency<M>(deps: {
   - B3 — 메뉴 라벨은 `uiLocale`을 따르지 않는다(D-007).
   - B4 — 창이 없는 상태의 `열기`는 아무것도 하지 않는다(`index.ts:64`). Windows에서 창은 종료 때만 파괴되므로 상주 중에는 도달하지 않는다.
   - B5 — macOS·Linux 동작은 판정하지 않는다(D-004). AC6은 "건드리지 않음"만 잠근다.
+  - B6 — 트레이 생성 실패 뒤의 앱 상태(창·X 동작·남은 부팅 단계)는 계약하지 않는다(D-008). 예외가 삼켜지지 않는 것만 잠근다(AC7).
 - 열린 입력 집합을 판정하는 산출물: 해당 없음.
 - 같은 규칙의 여러 레이어: 없음 — 판정은 `close` 리스너 한 곳. X·헤더·Alt+F4가 모두 `close` 이벤트로 모인다.
 - 외부 SDK 경계: `index.ts`가 `createTray: () => new Tray(…)`, `buildMenu: (items) => Menu.buildFromTemplate(items)`로 넘긴다. `as any`/`as never` 없이 구조적으로 맞아야 한다 — 안 맞으면 `PLAN_GAP`.
@@ -335,9 +338,9 @@ export function installTrayResidency<M>(deps: {
 
 | 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
 |---|---|---|---|
-| `app/src/main/app/tray-residency.ts` (신규) | §10 계약 | `resident = platform==='win32' && 트레이 생성 성공`. 실패는 `failed(err)`. `before-quit`·`session-end` → `quitting = true`. `will-quit` → `tray?.destroy()` | 순수 — electron import 없음 |
+| `app/src/main/app/tray-residency.ts` (신규) | §10 계약 | `resident = platform==='win32'`. `createTray`의 예외는 잡지 않는다. `before-quit`·`session-end` → `quitting = true`. `will-quit` → `tray?.destroy()` | 순수 — electron import 없음 |
 | `app/src/main/app/tray-residency.test.ts` (신규) | AC1~AC8 · VP-02 수명주기 | 가짜 `app`/트레이/창 포트(리스너 맵 + `vi.fn`) | unit 풀 |
-| `app/src/main/index.ts` | 조립 | `import { Tray, Menu, nativeImage }` 추가. `whenReady`에서 `registerAppProtocol()` 뒤·`createWindow` 앞에 설치. `createWindow`에서 기존 `close` 리스너(`:195`) **뒤에** `residency.attach(mainWindow)` | 사람 실기 |
+| `app/src/main/index.ts` | 조립 | `import { Tray, Menu, nativeImage }` 추가. `createWindow`가 만든 창을 반환하게 하고, `whenReady`에서 `createWindow(...)` **바로 뒤에** 설치 + `attach(창)`. `try/catch`로 감싸지 않는다 | 사람 실기 |
 | `docs/TRD.md` §10 | anchor 갱신 | "시스템 트레이" 항목을 구현 완료로 표기 | — |
 | `docs/IPC_CONTRACT.md:319` | 채널 의미 | `oo:window:close` 설명에 "Windows에서는 창을 숨기고 트레이에 상주" 추가 | doc-inventory gate |
 | `docs/arch/backend/overview.md` | 현재 상태 | `index.ts` 서술에 트레이 상주와 `app/tray-residency.ts` 추가(이력 서술 금지) | doc-inventory gate |
@@ -345,7 +348,8 @@ export function installTrayResidency<M>(deps: {
 `index.ts` 조립 세부:
 
 - `createTray`: `new Tray(nativeImage.createFromPath(logo).resize({ width: 32, height: 32 }))` — 1254px 원본을 셸에 그대로 넘기지 않는다. 선명도는 §19 단계 8.
-- `tooltip`: `PRODUCT_DISPLAY_NAME`. `open`: `focusMainWindow`. `failed`: `rootLog.error('app.tray.create-failed', err)`.
+- `tooltip`: `PRODUCT_DISPLAY_NAME`. `open`: `focusMainWindow`.
+- 순서 근거: 창을 먼저 만들어야 트레이 생성이 던져도 창 없는 프로세스가 남지 않는다. `close` 위치 저장 리스너(`:195`)가 먼저 등록되는 순서도 유지된다. `activate`(macOS)로 다시 만든 창은 `attach`하지 않는다 — 비-win32는 숨기지 않는다(경계 B5).
 - 트레이 인스턴스 참조는 모듈(`tray-residency.ts` 클로저)이 쥔다 — GC로 아이콘이 사라지지 않게 한다.
 - `window-all-closed`(`:289-293`)·`will-quit`(`:306-312`)·창 컨트롤 IPC는 고치지 않는다.
 
@@ -374,9 +378,9 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 ## 13. Lifecycle / 오류 / 정리
 
-- 생성/시작: `whenReady`에서 1회. 락을 못 얻은 두 번째 인스턴스는 `:248`에서 먼저 반환하므로 트레이를 만들지 않는다.
+- 생성/시작: `whenReady`에서 창 생성 직후 1회. 락을 못 얻은 두 번째 인스턴스는 `:248`에서 먼저 반환하므로 트레이를 만들지 않는다.
 - 종료: `before-quit`(플래그) → 창 닫힘 통과 → `window-all-closed` → `will-quit`(`destroy`).
-- 오류: 트레이 생성 실패 → 로그 + 비상주(D-006).
+- 오류: 트레이 생성 실패 → 예외 전파 → `whenReady` reject → `unhandledRejection` 핸들러가 `app.unhandled.rejection`으로 보고(D-008). `whenReady`의 남은 단계(시작 완료 로그·백그라운드 업데이트 확인)는 실행되지 않는다 — 프로그램 오류의 결과이고 계약하지 않는다(경계 B6).
 - renderer-gone: 창은 파괴되지 않는다. 변경 없음.
 - 다중 저장소 쓰기: 해당 없음.
 
@@ -408,6 +412,7 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 | 숨김이 업데이트 설치를 막는다 | `before-quit` → `quitting`(AC4). §19 단계 6 |
 | 사용자가 앱이 꺼졌다고 오해 | 안내 풍선은 비범위(§6) — 요청 없음 |
 | Electron 타입이 §10 포트와 다르다 | 구현자가 타입 대조 후 `PLAN_GAP` 보고(§8) |
+| 트레이 생성 실패 시 남은 부팅 단계가 건너뛰어진다 | 수용 — D-008. 숨기지 않고 오류로 드러낸다 |
 | dev 재시작 시 유령 아이콘 | `will-quit` `destroy`(AC8). 강제 종료 시 잔상은 Windows 셸 특성 |
 
 - 되돌리기 어려운 결정: 없음 — 채널·스키마·저장 형식 변경 0.
@@ -438,7 +443,7 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 
 ## READY self-review
 
-- [x] Decision Ledger가 결정을 보존한다 — D-001~D-007, 추론 3건 표시.
+- [x] Decision Ledger가 결정을 보존한다 — D-001~D-008, D-006 SUPERSEDED, 추론 2건 표시.
 - [x] Part I만으로 완료 상태가 읽힌다 — §5 상태 전이 8행.
 - [x] 조건절을 재해석하지 않았다 — "두 개 메뉴만"은 AC2 길이 단언 + M9.
 - [x] 사용자 결정과 조사 사실을 갈랐다 — 질의 2건(D-003·D-004), 나머지는 §8.
@@ -448,17 +453,34 @@ X/헤더(renderer, diff 0) → oo:window:close(diff 0) → 'close' → tray-resi
 - [x] 각 AC가 행동 단언·검증 수단·도달 경로를 갖는다 — §7.
 - [x] Baseline V, NEW node 전부 같은 레벨 REQUIRED pair — VP-01~04. 영향받은 INHERITED는 REGRESSION(VP-05).
 - [x] pair마다 경로·§10 자리·검색 명령·좌표 — EP-01~04 (자리 8).
-- [x] 규칙 칸 분기 ↔ UT 입력 — EP-01 B1~B6, EP-04 2분기.
-- [x] 선언 경계 B1~B5, 열린 입력 집합 산출물 아님.
+- [x] 규칙 칸 분기 ↔ UT 입력 — EP-01 B1~B5, EP-02 생성 2분기, EP-04 2분기.
+- [x] 선언 경계 B1~B6, 열린 입력 집합 산출물 아님.
 - [x] 운영 gate 3행.
 - [x] 사람 실기로 미룬 순수 로직 없음 — 판정·메뉴·정리는 AC1~AC8.
 - [x] structural proxy만으로 검증하는 AC 없음 — AC10만 문서 존재이고 대상이 문서다.
 - [x] "쓰인다" 불변식의 장치가 제거에 red — M1~M11, 형제 맞바꿈 M2.
-- [x] 배타 상태: `resident`는 설치 시 확정, `quitting`은 단방향.
+- [x] 배타 상태: `resident`는 플랫폼으로 확정, `quitting`은 단방향.
 - [x] 부팅 등록 변경의 기존 소비처 — §12 4행.
 - [x] 게이트 명령이 `app/AGENTS.md`와 일치.
 - [x] `ACTIVE 결정 ↔ AC` 대조를 §3에 적었다 — 충돌 0.
 - [x] 산출물 문장 규칙.
+
+## 20. ΔV1 — 트레이 생성 실패를 프로그램 오류로 (2026-11-16, 구현 전)
+
+- 출처: 사용자 2턴 "트레이 생성 실패는 프로그램 오류로 봐야한다". 실패가 아니라 요구 변경이라 라운드는 1 그대로다.
+- 대체: D-006(비상주 폴백) → D-008. V1의 AC7("던지지 않고 `failed` 보고·닫기 통과")·EP-01 분기 "비상주 — 트레이 실패"·포트 `failed`·M5("catch 제거")는 폐기했고, 위 본문은 정정된 문장이다.
+
+| Node / 행 | provenance | V1 | ΔV1 |
+|---|---|---|---|
+| R-05 · AC7 | CHANGED | 실패 시 비상주로 계속 | 같은 오류를 던진다 |
+| MD-01 EP-01 | CHANGED | 분기 6 (B5 = 트레이 실패) | 분기 5 — `resident`가 플랫폼만으로 정해진다 |
+| MD-01 EP-02 | CHANGED | — | 생성 분기 2(성공 / 전파) 추가 |
+| AR-01 EP-03 | CHANGED | 설치가 `createWindow` 앞 | `createWindow` 바로 뒤 — 실패해도 창이 있다 |
+| M5 | CHANGED | `catch` 제거 → red | 오류를 삼키는 `try/catch` 추가 → red |
+| 선언 경계 | NEW | — | B6 |
+
+- pair: VP-01(AC7·M5)·VP-03(EP-03 순서)만 영향. VP-02·VP-04·VP-05는 문장 변경 없음.
+- `ACTIVE 결정 ↔ AC` 대조(ΔV1 뒤): 충돌 0 — D-008("예외를 삼키지 않는다") ↔ AC7("같은 `E`로 던진다").
 
 ---
 
