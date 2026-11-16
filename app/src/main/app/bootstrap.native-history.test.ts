@@ -97,6 +97,15 @@ vi.mock('electron', () => ({
   session: {},
   safeStorage: {}
 }))
+// 경로·버전은 호스트 환경(fork 인자)에서, 깨어남 신호는 셸 서비스에서 온다(0324 §11 단계 4 · EP-10).
+setHostEnvironment({
+  userData: 'C:/fixture/user-data',
+  desktop: 'C:/fixture/desktop',
+  appVersion: 'test',
+  isPackaged: false,
+  appPath: 'C:/fixture/app'
+})
+installFakeShellServices({})
 vi.mock('electron-store', () => ({
   default: class {
     get store(): Record<string, unknown> {
@@ -173,6 +182,8 @@ import { Bootstrap } from './bootstrap'
 import { harnessModule } from './harnesses/registry'
 import * as skillCatalog from './skill-catalog'
 import { sendPrepared } from '../adapters/claude/prepared.testfixture'
+import { setHostEnvironment } from '../infra/host-environment'
+import { installFakeShellServices } from '../infra/shell-services.testfixture'
 
 it('keeps the newer skill scan in the cache when a pre-mutation scan finishes late', async () => {
   const older = Promise.withResolvers<SkillInfo[]>()

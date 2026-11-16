@@ -6,7 +6,8 @@
 import type {
   ShellServiceArgs,
   ShellServiceName,
-  ShellServiceResults
+  ShellServiceResults,
+  WakeReason
 } from '../../shared/shell-services'
 
 export interface ShellServicesPort {
@@ -14,6 +15,8 @@ export interface ShellServicesPort {
     name: N,
     ...args: ShellServiceArgs<N>
   ): Promise<ShellServiceResults[N]>
+  // 시스템이 깨어났다(셸이 알린다). 반환값은 구독 해제다.
+  onWake(listener: (reason: WakeReason) => void): () => void
 }
 
 let current: ShellServicesPort | null = null

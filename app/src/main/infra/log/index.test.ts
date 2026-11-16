@@ -2,11 +2,13 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { installTestHostEnvironment } from '../host-environment.testfixture'
 import { closeLog, currentLogFilePath, flushLogSync, initLog } from './index'
 
 const mocks = vi.hoisted(() => ({ configDir: vi.fn() }))
-vi.mock('electron', () => ({ app: { getVersion: () => 'test' } }))
 vi.mock('../config/paths', () => ({ ooConfigDir: mocks.configDir }))
+// 로그의 앱 버전은 호스트 환경에서 읽는다(0324 §11 단계 4).
+installTestHostEnvironment({ appVersion: '9.8.7-log' })
 let dir: string | undefined
 afterEach(() => {
   closeLog()
@@ -24,6 +26,7 @@ describe('current log file path', () => {
     flushLogSync()
     expect(currentLogFilePath()).toBe(expected)
     expect(readFileSync(currentLogFilePath(), 'utf8')).toContain('retained failure')
+    expect(readFileSync(currentLogFilePath(), 'utf8')).toContain('9.8.7-log')
     closeLog()
     expect(currentLogFilePath()).toBe(expected)
   })

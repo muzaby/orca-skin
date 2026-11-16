@@ -43,6 +43,21 @@ vi.mock('electron', () => ({
   powerMonitor: {},
   webContents: { getAllWebContents: () => [] }
 }))
+// 경로·버전은 호스트 환경(fork 인자)에서, 깨어남 신호는 셸 서비스에서 온다(0324 §11 단계 4 · EP-10).
+setHostEnvironment({
+  get userData() {
+    return fixture.root
+  },
+  get desktop() {
+    return fixture.root
+  },
+  appVersion: 'test',
+  isPackaged: false,
+  get appPath() {
+    return fixture.root
+  }
+})
+const shellServices = installFakeShellServices({})
 vi.mock('../infra/settings-store', () => ({
   SettingsStore: class {
     getAll(): typeof fixture.settings {
@@ -149,6 +164,8 @@ import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { BootReportRecorder } from './boot-report'
 import { Bootstrap } from './bootstrap'
 import { createComposerPreparation } from './composer-preparation'
+import { setHostEnvironment } from '../infra/host-environment'
+import { installFakeShellServices } from '../infra/shell-services.testfixture'
 
 const bootstraps: Bootstrap[] = []
 let service: ComposerPreparationService,
@@ -474,16 +491,16 @@ it('overlaps the deferred install check with DB initialization, joins before fin
   expect(
     owned.bootReport.getReport().steps.filter((step) => step.id === 'adapter-registry')
   ).toHaveLength(1)
-  const { app } = await import('electron')
+  // 창 포커스 재확인은 셸의 wake(window-focus)만 듣는다(0324 EP-10).
   const focus = vi.spyOn(owned.registry, 'focusRecheck')
-  const registration = (
-    vi.mocked(app.on).mock.calls as unknown as Array<[string, () => void]>
-  ).findLast(([event]) => event === 'browser-window-focus')!
-  const callback = registration[1]
-  callback()
+  shellServices.wake('resume')
+  shellServices.wake('unlock-screen')
+  expect(focus).not.toHaveBeenCalled()
+  shellServices.wake('window-focus')
   expect(focus).toHaveBeenCalledOnce()
   bootstrap.shutdown()
-  expect(app.removeListener).toHaveBeenCalledWith('browser-window-focus', callback)
+  shellServices.wake('window-focus')
+  expect(focus).toHaveBeenCalledOnce()
 })
 it('finishes boot before the SDK prefetch settles', async () => {
   const sdk = await import('../adapters/claude/sdk')
