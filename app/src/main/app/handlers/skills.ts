@@ -1,6 +1,5 @@
 // 스킬 IPC 7종 — 목록·작성·업로드·활성토글·열기·폴더에서 보기·제거 (0179 에서 misc 에서 분리).
 
-import { shell } from 'electron'
 import { PRODUCT_DISPLAY_NAME } from '../../../shared/product'
 import {
   AuthorSkillSchema,
@@ -18,6 +17,7 @@ import {
 } from '../../features/extensions/common/skills/sources'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
+import { shellServices } from '../../infra/shell-services'
 
 type SkillsHandlerContext = Pick<
   RouterContext,
@@ -78,11 +78,17 @@ export function registerSkillsHandlers(ctx: SkillsHandlerContext): void {
   )
 
   handle(CHANNELS.skillsOpen, SkillTargetSchema, 'reject', async (req): Promise<void> => {
-    await shell.openPath(findSkill(ctx, req.sourceId, req.name).skillPath)
+    await shellServices().call(
+      'external.openPath',
+      findSkill(ctx, req.sourceId, req.name).skillPath
+    )
   })
 
-  handle(CHANNELS.skillsShowInFolder, SkillTargetSchema, 'reject', (req): void => {
-    shell.showItemInFolder(findSkill(ctx, req.sourceId, req.name).skillPath)
+  handle(CHANNELS.skillsShowInFolder, SkillTargetSchema, 'reject', async (req): Promise<void> => {
+    await shellServices().call(
+      'external.showItemInFolder',
+      findSkill(ctx, req.sourceId, req.name).skillPath
+    )
   })
 
   handle(CHANNELS.skillsRemove, SkillTargetSchema, 'reject', async (req): Promise<SkillInfo[]> => {

@@ -15,6 +15,10 @@ import { CHANNELS } from '../../../shared/ipc'
 
 const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
 const shellCalls = vi.hoisted(() => ({ openPath: [] as string[], reveal: [] as string[] }))
+const dialogs = vi.hoisted(() => ({
+  calls: [] as unknown[],
+  result: { canceled: true, filePaths: [] as string[] }
+}))
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -23,20 +27,25 @@ vi.mock('electron', () => ({
     })
   },
   BrowserWindow: { fromWebContents: vi.fn() },
-  Notification: { isSupported: () => false },
-  dialog: { showOpenDialog: vi.fn() },
-  shell: {
-    openPath: vi.fn(async (path: string) => {
-      shellCalls.openPath.push(path)
-      return ''
-    }),
-    showItemInFolder: vi.fn((path: string) => {
-      shellCalls.reveal.push(path)
-    })
-  }
+  Notification: { isSupported: () => false }
 }))
 
 const { registerFilesHandlers } = await import('./files')
+const { installFakeShellServices } = await import('../../infra/shell-services.testfixture')
+// 폴더·파일 열기는 셸 서비스로 간다(0324 EP-10).
+installFakeShellServices({
+  'external.openPath': async (path: string) => {
+    shellCalls.openPath.push(path)
+    return ''
+  },
+  'external.showItemInFolder': (path: string) => {
+    shellCalls.reveal.push(path)
+  },
+  'dialog.showOpen': (options) => {
+    dialogs.calls.push(options)
+    return dialogs.result
+  }
+})
 
 const ROOT = mkdtempSync(join(tmpdir(), 'orcinus-orca-openpath-'))
 const SESSION_CWD = join(ROOT, 'repo')
@@ -58,6 +67,8 @@ beforeEach(() => {
   handlers.clear()
   shellCalls.openPath = []
   shellCalls.reveal = []
+  dialogs.calls = []
+  dialogs.result = { canceled: true, filePaths: [] }
   registerFilesHandlers({
     getCwd: () => SESSION_CWD,
     db: {
@@ -116,5 +127,35 @@ describe('directory 모드 회귀 — 기존 동작이 그대로다', () => {
 
   it('세션과 무관한 디렉토리는 거부한다', async () => {
     await expect(invoke({ path: OUTSIDE, mode: 'directory' })).rejects.toThrow('허용되지 않은')
+  })
+})
+
+describe('선택 대화상자 — 셸 서비스로 창 없이 띄운다 (0324 EP-10)', () => {
+  const pick = (channel: string): Promise<unknown> =>
+    Promise.resolve(handlers.get(channel)!({}, undefined))
+
+  it('폴더 선택은 세션 cwd 에서 시작하고 고른 첫 폴더를 돌려준다', async () => {
+    dialogs.result = { canceled: false, filePaths: [OUTSIDE, SESSION_CWD] }
+    await expect(pick(CHANNELS.filesPickDirectory)).resolves.toBe(OUTSIDE)
+    expect(dialogs.calls).toEqual([
+      { clientId: null, defaultPath: SESSION_CWD, properties: ['openDirectory', 'createDirectory'] }
+    ])
+  })
+
+  it('폴더 선택을 취소하면 null 이다', async () => {
+    await expect(pick(CHANNELS.filesPickDirectory)).resolves.toBeNull()
+  })
+
+  it('첨부 선택은 여러 파일을 허용 확장자로 고르고, 취소하면 빈 목록이다', async () => {
+    await expect(pick(CHANNELS.filesPickAttachments)).resolves.toEqual([])
+    expect(dialogs.calls).toEqual([
+      {
+        clientId: null,
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'Attachments', extensions: ['txt', 'md', 'jpg', 'jpeg', 'png', 'webp', 'gif'] }
+        ]
+      }
+    ])
   })
 })

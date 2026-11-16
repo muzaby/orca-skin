@@ -6,6 +6,7 @@ import type { RequestEvent } from '../../contracts/client'
 import type { ArtifactService } from '../../features/artifacts/service'
 import type { ArtifactCatalog } from '../../features/artifacts/catalog'
 import { CHANNELS } from '../../../shared/ipc'
+import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (req?: unknown, event?: RequestEvent) => Promise<unknown>>(),
@@ -14,10 +15,19 @@ const mocks = vi.hoisted(() => ({
   reveal: vi.fn(),
   openPath: vi.fn(async () => '')
 }))
-vi.mock('electron', () => ({
-  dialog: { showSaveDialog: mocks.save, showOpenDialog: mocks.open },
-  shell: { showItemInFolder: mocks.reveal, openPath: mocks.openPath }
-}))
+// 대화상자·폴더 열기는 셸 서비스로 간다(0324 EP-10) — 창 없이 띄운다(`clientId: null`).
+installFakeShellServices({
+  'dialog.showSave': ({ clientId, ...options }) => {
+    expect(clientId).toBeNull()
+    return mocks.save(options)
+  },
+  'dialog.showOpen': ({ clientId, ...options }) => {
+    expect(clientId).toBeNull()
+    return mocks.open(options)
+  },
+  'external.showItemInFolder': mocks.reveal,
+  'external.openPath': mocks.openPath
+})
 vi.mock('../../infra/ipc/handle', () => ({
   handle: (
     channel: string,

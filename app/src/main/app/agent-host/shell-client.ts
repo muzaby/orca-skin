@@ -3,13 +3,14 @@
 // 셸이 보낸 `wake`(시스템이 깨어났다)도 여기서 구독한다. 이 파일은 Electron 을 모른다.
 
 import type { HostToShell, ShellToHost } from '../../../shared/host-protocol'
+import type { ShellServicesPort } from '../../infra/shell-services'
 import type {
   ShellServiceArgs,
   ShellServiceName,
   ShellServiceResults
 } from '../../../shared/shell-services'
 
-export interface ShellClient {
+export interface ShellClient extends ShellServicesPort {
   call<N extends ShellServiceName>(
     name: N,
     ...args: ShellServiceArgs<N>

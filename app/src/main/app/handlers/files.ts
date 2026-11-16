@@ -15,7 +15,6 @@ import {
   type OpenContextFileResult,
   type SearchHit
 } from '../../../shared/protocol'
-import { dialog, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
@@ -33,6 +32,7 @@ import { directoryIdentity, parseStoredExtraDirectories } from '../../../shared/
 import { parseAgentKind } from '../../../shared/agent-kind'
 import { sessionContextPolicy } from '../../../shared/agent-session-policy'
 import { opensWithDefaultApp, resolveContextFile } from './context-file'
+import { shellServices } from '../../infra/shell-services'
 
 interface FilesHandlerContext extends Pick<RouterContext, 'getCwd'> {
   db: Pick<
@@ -97,7 +97,8 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   )
 
   handlePlain(CHANNELS.filesPickAttachments, async (): Promise<PickedAttachment[]> => {
-    const result = await dialog.showOpenDialog({
+    const result = await shellServices().call('dialog.showOpen', {
+      clientId: null,
       properties: ['openFile', 'multiSelections'],
       filters: [
         { name: 'Attachments', extensions: ['txt', 'md', 'jpg', 'jpeg', 'png', 'webp', 'gif'] }
@@ -114,7 +115,8 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
   })
 
   handlePlain(CHANNELS.filesPickDirectory, async (): Promise<string | null> => {
-    const result = await dialog.showOpenDialog({
+    const result = await shellServices().call('dialog.showOpen', {
+      clientId: null,
       defaultPath: ctx.getCwd(),
       properties: ['openDirectory', 'createDirectory']
     })
@@ -129,7 +131,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     if (req.mode === 'reveal' && req.sessionId !== undefined) {
       const file = await resolveContextFile(contextFileScope, req.sessionId, req.path)
       if (file.state === 'missing') throw new Error('파일이 없습니다.')
-      shell.showItemInFolder(file.target)
+      await shellServices().call('external.showItemInFolder', file.target)
       return
     }
     let target = req.path
@@ -150,7 +152,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     if (req.mode === 'reveal') {
       if (!stat?.isFile()) throw new Error('파일만 탐색기에서 열 수 있습니다.')
       if (!isInsideAllowedDir(dirname(req.path))) throw new Error('허용되지 않은 경로입니다.')
-      shell.showItemInFolder(req.path)
+      await shellServices().call('external.showItemInFolder', req.path)
       return
     }
     if (!stat?.isDirectory()) throw new Error('디렉토리만 열 수 있습니다.')
@@ -160,7 +162,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
         ? isRecordedContextDirectory(req.sessionId, req.path)
         : isAllowedDir(req.path)
     if (!allowed) throw new Error('허용되지 않은 경로입니다.')
-    const error = await shell.openPath(target)
+    const error = await shellServices().call('external.openPath', target)
     if (error) throw new Error(error)
   })
 
@@ -173,12 +175,12 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
       if (file.state === 'missing') return { outcome: 'missing' }
       const target = file.target
       if (!opensWithDefaultApp(target)) {
-        shell.showItemInFolder(target)
+        await shellServices().call('external.showItemInFolder', target)
         return { outcome: 'revealed', reason: 'unsupported-type' }
       }
-      const error = await shell.openPath(target)
+      const error = await shellServices().call('external.openPath', target)
       if (error) {
-        shell.showItemInFolder(target)
+        await shellServices().call('external.showItemInFolder', target)
         return { outcome: 'revealed', reason: 'open-failed' }
       }
       return { outcome: 'opened' }
