@@ -23,7 +23,9 @@ import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
 import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
 import type { ShellState } from './app/shell/shell-state'
+import { createElectronShellServices } from './app/shell/electron-services'
 import { createHostMessageSink } from './app/shell/host-link'
+import { createShellServiceServer } from './app/shell/services'
 import { LifecycleState } from './app/shell/lifecycle-state'
 import { openShellState } from './app/shell/shell-state-file'
 
@@ -284,6 +286,14 @@ app.whenReady().then(async () => {
     createHostMessageSink({
       lifecycle: lifecycleState,
       mirrorUiLocale: (uiLocale) => shellState.mirrorUiLocale(uiLocale),
+      // 셸 서비스(EP-10). 한 프로세스인 동안은 호스트가 이 요청을 보내지 않는다 — 호스트 진입점이
+      // 생기면 응답이 `toHost` 로 간다.
+      onServiceCall: createShellServiceServer({
+        impl: createElectronShellServices(),
+        reply: () => rootLog.warn('shell.service.no-host'),
+        onError: (name, error) =>
+          rootLog.warn('shell.service.failed', { name, error: String(error) })
+      }),
       onInvalid: () => rootLog.warn('shell.host-message.invalid')
     })
   )
