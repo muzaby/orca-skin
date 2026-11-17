@@ -64,6 +64,12 @@ describe('호스트 런타임', () => {
       clientId: 7,
       trusted: true
     })
+    // 신뢰하지 않은 문서의 포트는 그대로 거짓이다(EP-9) — 고정값으로 바꾸면 하위 프레임이 파일 작업을 한다.
+    h.send({ type: 'client.connect', clientId: 8, trusted: false }, [fakePort()])
+    expect(h.connectClient).toHaveBeenLastCalledWith(expect.anything(), {
+      clientId: 8,
+      trusted: false
+    })
     // 넘긴 포트로 쓰는가.
     h.connectClient.mock.calls[0][0].post({ kind: 'event', channel: 'c', payload: 1 })
     expect(port.postMessage).toHaveBeenCalledExactlyOnceWith({

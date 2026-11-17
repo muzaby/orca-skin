@@ -1,0 +1,12 @@
+id	결과	exit	요약
+E11-1	red (기대 일치)	1	vitest 5 failed | 590 passed (595)
+E11-2	red (기대 일치)	1	vitest 3 failed | 592 passed (595)
+E11-3	red (기대 일치)	1	vitest 1 failed | 594 passed (595)
+E11-4	red (기대 일치)	1	vitest 1 failed | 594 passed (595)
+E11-5	red (기대 일치)	1	vitest 1 failed | 594 passed (595)
+E11-6	green (기대 red)	0	vitest 595 passed (595)
+E11-7	red (기대 일치)	1	vitest 1 failed | 594 passed (595)
+E11-8	green (기대 red)	0	vitest 595 passed (595)
+E11-9	green (기대 red)	0	vitest 595 passed (595)
+E11-10	red (기대 일치)	1	vitest 1 failed | 594 passed (595)
+# 원복 확인: 모든 파일 원문 그대로
