@@ -258,6 +258,7 @@ test('native version imports require the facade and cannot cross version trees',
       "import {implementation} from './v1'; void implementation"
     ],
     ['src/main/adapters/opencode/v1/adapter.ts', "import './map'"],
+    ['src/main/adapters/opencode/config.ts', "export {parseOpenCodeModels} from './v1/settings'"],
     [
       'src/renderer/src/features/chat/harnesses/opencode/toolPresentation.ts',
       "export {describeTool} from './v1/toolPresentation'"

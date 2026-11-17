@@ -10,6 +10,7 @@
 | **무엇을** 만드는지 (제품 정의) | [`PRD.md`](PRD.md) |
 | **어떤 기술로** 만드는지 (기능·스택·API 사양) | [`TRD.md`](TRD.md) |
 | **아키텍처 문서 전체 지도** (backend/frontend 파일 맵) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| **실행 모델** — 프로세스 셋(셸·에이전트 호스트·데이터 호스트)이 무슨 일을 하고 어떤 경로로 부탁하는가 · 새 코드를 어디에 두는가 | [`arch/execution-model.md`](arch/execution-model.md) · 결정 근거 [`decisions/012`](decisions/012-execution-contexts.md) · 가드 `app/scripts/check-ui-thread.mjs` |
 | 부트 시퀀스 · main 프로세스 구조 | [`arch/backend/overview.md`](arch/backend/overview.md) |
 | Main 구조·성능 진단 및 경량화 결과 | [`etc/study/main-structure/diagnosis.md`](etc/study/main-structure/diagnosis.md) |
 | 세션 런타임 · 동시성 · IPC 핸들러 구조 | [`arch/backend/runtime-ipc.md`](arch/backend/runtime-ipc.md) |

@@ -55,6 +55,8 @@ new BrowserWindow({
 | **Browser session** | `infra/browser-session.ts` (Electron `Session`, partition `persist:auth.<group>`) | cookie jar. 값이 아니라 **세션**이라 반출되지 않는다 |
 | **Grant** | `features/auth/store.ts` + `store-file.ts`(electron-store) | vault 키·방식·만료. **비밀 없음** |
 
+**비밀을 푸는 곳과 쓰는 곳 (0324).** `safeStorage` 는 셸(Electron main)에만 있다. 데이터 호스트는 기동 때 셸 서비스(`secrets.decrypt`)로 비밀을 한 번 풀어 메모리 사본으로 읽고, 쓰기는 셸 서비스(`secrets.encrypt`)로 봉인한 뒤에만 파일에 남긴다 — 봉인할 수 없으면 저장하지 않고 실패한다. 못 푼 항목은 `undecryptable` 이고 절전 해제·화면 잠금 해제 때 다시 푼다. 에이전트 호스트는 비밀 저장소를 열지 않고 턴 준비 때 필요한 값만 데이터 호스트에서 받는다(`scripts/check-ui-thread.mjs` 가 import 경계를 막는다). 셸 서비스 요청은 스키마 검증을 통과해야 처리된다.
+
 **복호화 실패와 부재를 구분한다.** safeStorage 는 쓰기가 fail-closed(throw), 읽기는 null 강등이라
 비대칭이다. 그 강등은 유지하되(키체인 잠김 하나로 앱이 죽지 않도록) grant 상태를 `unknown` 으로
 남겨 **조용한 미인증 진행**을 막는다.
@@ -148,7 +150,7 @@ connect-src 'self'
   - `Settings.authBypass` 는 **DEV 빌드 전용 우회**로 소비자가 돌아왔다(prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가 사라진다). 토글은 디버그 패널의 "로그인" 그룹이며 **게이트 화면과 메인 셸 양쪽에** 뜬다 — 메인 셸에만 두면 게이트에 막혔을 때 스위치에 도달할 수 없다. 값이 바뀌면 `settings:set` 핸들러가 provider 상태를 push 해 재시작 없이 반영된다.
   - 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다. 로그인 화면은 창 컨트롤(닫기)을 항상 살려 둬 재시도 루프에 갇히지 않게 한다.
 
-> **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 더 이상 없다(0157 — `app/bootstrap.ts` 주석이 근거를 보존한다). 이제 credential 은 Grant·vault 가 소유하고, LLM 백엔드로 나가는 settings env 값은 **사용자가 직접 적은 것만** 남는다(Harness 실행 구성 overlay 는 `options.env` 경로 — §1.4-b 예외 3). 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 원격 사용량 조회는 배포가 `UsageFetcher` 포트(`app/deployment/usage-fetcher.ts`)를 주입할 때만 돈다 — 사용량 전용 확장점은 없다(standardization.md §5.1).
+> **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 더 이상 없다(0157). 이제 credential 은 Grant·vault 가 소유하고, LLM 백엔드로 나가는 settings env 값은 **사용자가 직접 적은 것만** 남는다(Harness 실행 구성 overlay 는 `options.env` 경로 — §1.4-b 예외 3). 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 원격 사용량 조회는 배포가 `UsageFetcher` 포트(`app/deployment/usage-fetcher.ts`)를 주입할 때만 돈다 — 사용량 전용 확장점은 없다(standardization.md §5.1).
 - **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases **즉시 게시**(`v*` 태그 push — [`release-operations.md`](../../guides/release-operations.md); 수동 dispatch 는 dry-run). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
 
 ### 1.8 원격 전송 스택 단일화 — main 은 Node `fetch` 를 쓰지 않는다 (0173 / 0174)
@@ -231,7 +233,7 @@ Windows는 `powershell.exe -NoProfile -NonInteractive -Command`, 그 외는 `/bi
 | 환경 | 앱 프로세스 환경을 상속한다. vault·MCP 인증값 등 앱이 보관한 비밀을 주입하지 않는다. |
 | 상한 | 제한 시간과 출력 꼬리 보관 크기를 호출자가 정한다(값은 `features/scheduled-tasks/limits.ts`). 제한 시간 초과·앱 종료·작업 삭제 시 셸과 그 자손 프로세스를 함께 종료한다(POSIX는 새 프로세스 그룹에 `SIGKILL`, Windows는 `taskkill /T /F`). |
 | 진입 | `oo:schedule:*` 채널의 zod 검증을 지난 요청만 저장된다. 이 채널은 renderer가 임의 명령을 예약·즉시 실행할 수 있는 표면이므로 renderer 무결성(§1.1·§1.5·§1.6)에 의존한다. |
-| 소비자 | 컴포지션 루트(`app/bootstrap.ts`)가 예약 작업 실행기에만 넘긴다. feature는 실행기를 import하지 않는다. |
+| 소비자 | 데이터 호스트의 예약 작업 실행기가 에이전트 호스트에 실행을 요청한다(`runShell` 교차 요청 — 프로세스를 띄우는 쪽은 에이전트 호스트뿐이다, [실행 모델](../execution-model.md)). feature는 실행기를 import하지 않는다. |
 
 로그인 프리 연결 로직(배포 `LoginFreeDefinition.connect`)은 프로세스 실행 능력을 받지 않는다.
 받는 것은 `HostHarnessPort`의 고정 질의 둘(설치 확인·모델 목록)뿐이고 실행은 하네스 adapter가 소유한다.

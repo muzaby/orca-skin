@@ -108,12 +108,33 @@ describe('0319 W3 — cached reopen guard and lazy refresh currency', () => {
       seed(state)
       await chatActions.loadSession('s')
       expect(load).toHaveBeenCalledWith('s')
-      expect(messages()).toEqual(cached)
+      // 0324 AC49 — 진행 중인 캐시 세션에는 로드 응답을 적용하지 않는다: 메시지 배열이 같은 참조다.
+      expect(messages()).toBe(cached)
       flushRaf()
       flushRaf()
       expect(refresh).not.toHaveBeenCalled()
     }
   )
+
+  it('cancels the pending first load of another session and drops its placeholder (0324 AC17)', async () => {
+    seed(IDLE)
+    const cancelLoad = vi.fn()
+    Object.assign(window.oo.session, { cancelLoad })
+    let settle!: (session: LoadedSession | null) => void
+    load.mockReturnValueOnce(new Promise((resolve) => (settle = resolve)))
+    const first = chatActions.loadSession('cold')
+    expect(useChatStore.getState().sessions.cold?.session.loadingSession).toBe(true)
+    await chatActions.loadSession('s')
+    expect(cancelLoad).toHaveBeenCalledExactlyOnceWith('cold')
+    expect(useChatStore.getState().sessions.cold).toBeUndefined()
+    // 취소한 로드의 늦은 응답은 엔트리를 되살리지 않는다.
+    settle({ ...snapshot('late'), id: 'cold' })
+    await first
+    expect(useChatStore.getState().sessions.cold).toBeUndefined()
+    // 캐시가 있는 세션의 재확인은 취소하지 않는다.
+    await chatActions.loadSession('other')
+    expect(cancelLoad).toHaveBeenCalledOnce()
+  })
 
   it('applies the load and refreshes when the cached entry is idle', async () => {
     seed(IDLE)

@@ -480,11 +480,13 @@ it('wires DB load and lazy refresh as separate calls with the same stored sessio
       .mockResolvedValueOnce({ status: 'unchanged' })
     expect(await sessionApi.load('native-session')).toEqual(loaded)
     expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.sessionLoad, {
-      sessionId: 'native-session'
+      sessionId: 'native-session',
+      requestId: expect.any(Number)
     })
     expect(await sessionApi.refresh('native-session')).toEqual({ status: 'unchanged' })
     expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionRefresh, {
-      sessionId: 'native-session'
+      sessionId: 'native-session',
+      requestId: expect.any(Number)
     })
   } finally {
     harness.invoke.mockResolvedValue(undefined)

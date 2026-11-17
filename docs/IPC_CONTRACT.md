@@ -32,6 +32,12 @@
 > 앱 로그인·서비스 연결·LLM 자격증명·로그인 프리 Plugin 이 **같은 채널 묶음**을 쓴다 — view 분류는
 > `ProviderInfo.kind`(`gate`·`llm`·`service`), 인증 체계는 `ProviderInfo.authScheme` 이 가르고 별도 인증 인터페이스가 없다(§2.13-c).
 
+**채널마다 처리하는 프로세스가 하나다.** 방향 칸의 `M` 은 그 채널을 맡은 프로세스 — 셸(Electron main) · 에이전트 호스트 · 데이터 호스트 — 를 뜻하고, 배정의 정본은 `app/src/shared/channel-owner.ts` 다. preload 가 이 표로 전송을 고른다: 셸 채널은 `ipcRenderer`, 호스트 채널은 그 호스트의 포트로 가며 main JS 를 지나지 않는다([실행 모델](./arch/execution-model.md)). `window.oo` 의 형상은 전송과 무관하다.
+
+**`CHANNELS` 밖의 연결 채널** (`shared/host-protocol.ts` — 셸 ↔ preload 전용, renderer 에 노출하지 않는다): `oo:host:connect`(창 문서가 호스트 포트를 요청) · `oo:host:port`(셸이 포트를 전달 — 호스트가 다시 뜨면 새 포트) · `oo:host:exited`(호스트 비정상 종료 통지).
+
+**호스트 → 셸 서비스** (`shared/shell-services.ts` — 호스트만 부르고 요청마다 스키마 검증): `secrets.*`(봉인·해제) · `dialog.*` · `external.*`(외부 열기·휴지통) · `notify.show` · `session.*`(인증용 파티션 세션 — 등록·로그인 창·전송·비우기).
+
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
 ### 2.1 Chat
@@ -64,7 +70,7 @@ Composer의 `dialog`·`drag_drop`·`clipboard` 첨부는 `chat:send` 정규화 �
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 | --- | --- | --- | --- | --- |
-| `oo:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status:'ok'\|'warning'\|'failed'; steps: BootReportStep[]; warnings: string[] }` | main `Bootstrap.start()` 부트 결과의 **완료 리포트 스냅샷**을 조회한다. 실시간 진행률/event 채널이 아니며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다(`whenReady` 게이트 뒤). 조회 실패나 `warning` status 는 앱 진입을 막지 않고 degrade/console warning 으로 남긴다. |
+| `oo:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status:'ok'\|'warning'\|'failed'; steps: BootReportStep[]; warnings: string[] }` | 데이터 호스트가 두 호스트의 단계를 합친 부트 결과의 **완료 리포트 스냅샷**을 조회한다. 실시간 진행률/event 채널이 아니며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다(`whenReady` 게이트 뒤). 조회 실패나 `warning` status 는 앱 진입을 막지 않고 degrade/console warning 으로 남긴다. |
 | `oo:boot:whenReady` | R→M (invoke) | — | `void` (resolve = main 준비 완료 / reject = `start()` 실패) | **main 부팅 완료 게이트** (0109). 창이 `start()` 완료 *이전* 에 뜨므로, renderer 부트 오케스트레이터의 **첫 mandatory 스텝**(`main-ready`)이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝(settings/session 조회 등)을 시작한다 — **부트 스텝이 부르는 invoke 만** 보호한다. 게이트 밖에서 마운트 즉시 부르는 채널은 `start()` 동기 구간에서 조기 등록한다(`oo:settings:get` 0244 · `oo:provider:state` 0181/0188). 핸들러는 `index.ts` 가 `start()` 착수 직후(다른 어떤 핸들러 등록보다 먼저) 등록하고 `start()` promise 를 그대로 반환한다. reject 는 renderer mandatory 규칙에 따라 BootScreen failed UX 로 표면화된다. |
 
 `BootReportStep` = `{ id; label?; status:'ok'\|'warning'\|'failed'; critical; startedAt; finishedAt; durationMs; message? }`. `critical:false` 단계의 실패는 `warning` 으로 기록되며 main 부트를 막지 않는다. `critical:true` 단계의 실패는 main 부트 실패로 전파되며, renderer 는 `whenReady` reject 로 이를 관측한다(0109 이전에는 창 자체가 뜨지 않았다).
@@ -255,8 +261,10 @@ MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' |
 | ------------------------- | ------------ | --------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `oo:session:cwd`        | R→M (invoke) | —                                                               | `Promise<string>`       | 새 대화의 기본 작업 디렉토리(OS Desktop). 프로젝트 landing은 Project.cwd를 우선한다.                                                                                                                                                                                                                                                                                                                                                                                          |
 | `oo:session:list` | R→M (invoke) | — | `SessionListItem[]` | Orcinus orca에서 숨기지 않은 대화 메타 목록(`cwd` 포함), `updatedAt` 내림차순. |
-| `oo:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `Promise<LoadedSession \| null>` | Orcinus orca DB의 본문·저장 backend·cwd·사용량·activity를 먼저 반환한다. 유효한 빈 세션도 정체성을 반환하고 없는/숨긴 세션만 null이다. native 조회나 모델 호출을 기다리지 않는다. |
+| `oo:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string; requestId: number }`(번호는 preload 가 붙인다) | `Promise<LoadedSession \| null>` | Orcinus orca DB의 본문·저장 backend·cwd·사용량·activity를 먼저 반환한다. 유효한 빈 세션도 정체성을 반환하고 없는/숨긴 세션만 null이다. native 조회나 모델 호출을 기다리지 않는다. |
 | `oo:session:refresh` | R→M (invoke) | `LoadSessionRequest` | `Promise<RefreshSessionResult>` | 첫 DB 표시 후 lazy native 조회. `updated + session` / `unchanged` / `busy` / `missing\|unavailable\|migration-required + message`. snapshot·검색·커서를 함께 확정한 결과만 반환하며 raw/sourceKey/cursor는 main에 보관한다. live/삭제/새 조회보다 늦은 응답은 화면에 적용하지 않는다. |
+| `oo:session:load-chunk` | M→R (send) | — | `SessionLoadChunk` = `{ requestId: number; seq: number; messages: AppMessage[] }` (`shared/data-host.ts`) | `load`·`refresh` 응답보다 먼저 오는 본문 조각. preload 가 요청 번호로 모아 응답과 합친다 — `window.oo.session.load`·`refresh` 의 반환 형상은 그대로이고 renderer 는 조각을 보지 않는다. |
+| `oo:session:load-cancel` | R→M (send) | `{ requestId: number }` | — | 진행 중인 첫 본문 로드를 취소한다(`window.oo.session.cancelLoad(sessionId)`). 데이터 호스트는 남은 조각을 보내지 않고 그 호출은 거부로 끝난다. 갱신은 취소하지 않는다. |
 | `oo:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<DeleteSessionResult>` | 실행·승인·대기 입력을 정리하고 Orcinus orca 목록에서만 숨긴다. native 세션·작업 폴더·보관 DB 행·게시 참조는 보존한다. 선택 중인 세션이면 lastSessionId를 해제한다. |
 | `oo:session:rename`     | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>`         | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. 사용자 rename 으로 간주해 DB `title_source='user'` 로 표기한다.                                                                                                                                                                                                                                                                                                                                  |
 | `oo:session:setPinned`  | R→M (invoke) | `SetSessionPinnedSchema` = `{ sessionId: string; pinned: boolean }` | `Promise<void>`    | 0129 — 세션 고정 토글. `pinned=true` 면 `pinned_at=Date.now()`(정렬 키 겸용), false 면 `null`. 좌측 nav "고정됨" 섹션이 `SessionListItem.pinnedAt` 로 파생.                                                                                                                                                                                                                                                                                            |
@@ -656,9 +664,9 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 
 채널을 추가·변경할 때 다음 순서를 따른다:
 
-1. `app/src/shared/ipc.ts` — 채널 상수 + 타입 정의 추가/변경. `NormalizedEvent`/`AppMessagePart` 필드 변경도 이 단계에 포함
+1. `app/src/shared/ipc.ts` — 채널 상수 + 타입 정의 추가/변경. **`app/src/shared/channel-owner.ts` 에 처리 프로세스(`shell`·`agent`·`data`)를 함께 적는다** — 빠지면 typecheck 가 실패하고, 표와 실제 등록이 어긋나면 `app/channel-registration.test.ts` 가 실패한다. `NormalizedEvent`/`AppMessagePart` 필드 변경도 이 단계에 포함
 2. `app/src/shared/protocol.ts` — zod 스키마 추가 (요청 검증 필요 시)
-3. `app/src/main/app/handlers/<domain>.ts`(또는 chat 계열이면 `app/chat-turn/`) — `handle(channel, schema, invalid, fn)` 또는 `handlePlain` 으로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 `Bootstrap.register()` 에서 호출
+3. `app/src/main/app/handlers/<domain>.ts`(또는 chat 계열이면 `app/chat-turn/`) — `handle(channel, schema, invalid, fn)` 또는 `handlePlain` 으로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 그 채널을 맡는 호스트 조립(`app/{data-host,agent-host}/bootstrap.ts`)의 `register()` 에서 호출
 4. `app/src/preload/index.ts` — `window.oo.<domain>.<action>` 노출 추가
 5. Renderer 사용처 (`app/src/renderer/src/shared/api/ipc.ts`, feature provider/hook 또는 컴포넌트)
 6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설 + §2 머리 도메인 목록 갱신). 채널 수는 산문에 쓰지 않는다 — `node app/scripts/check-doc-inventory.mjs` 로 [생성물](./generated/inventory.md)을 재생성한다
