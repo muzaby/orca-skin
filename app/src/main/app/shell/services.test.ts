@@ -10,7 +10,7 @@ import {
   type ShellToHost
 } from '../../../shared/host-protocol'
 import { SHELL_SERVICE_ARGS, type ShellServiceImpl } from '../../../shared/shell-services'
-import { createShellClient } from '../agent-host/shell-client'
+import { createShellClient } from '../host-shell-client'
 import { createShellServiceServer } from './services'
 
 const flush = async (): Promise<void> => {

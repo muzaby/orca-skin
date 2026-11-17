@@ -167,13 +167,32 @@ function wrapPort(port: MessagePort): ClientPort {
   }
 }
 
+// 호스트 수명 통지 (0324 AC29′·AC33′) — 호스트가 죽었다(`exited`) · 죽었던 호스트의 새 포트가 왔다
+// (`reconnected`). 첫 포트는 통지하지 않는다 — 창이 처음 붙은 것이지 다시 붙은 것이 아니다.
+export type HostLifecycleEvent = { host: 'agent' | 'data'; kind: 'exited' | 'reconnected' }
+const hostLifecycleListeners = new Set<(event: HostLifecycleEvent) => void>()
+const hostSeen = { agent: false, data: false }
+const hostLost = { agent: false, data: false }
+function emitHostLifecycle(event: HostLifecycleEvent): void {
+  for (const listener of [...hostLifecycleListeners]) listener(event)
+}
+
 ipcRenderer.on(HOST_PORT_CHANNEL, (event: IpcRendererEvent, payload: { host?: unknown }) => {
   const port = event.ports[0]
   if (!port || (payload?.host !== 'agent' && payload?.host !== 'data')) return
-  hosts[payload.host].attachPort(wrapPort(port))
+  const host = payload.host
+  hosts[host].attachPort(wrapPort(port))
+  const reconnected = hostSeen[host] && hostLost[host]
+  hostSeen[host] = true
+  hostLost[host] = false
+  if (reconnected) emitHostLifecycle({ host, kind: 'reconnected' })
 })
 ipcRenderer.on(HOST_EXITED_CHANNEL, (_event: IpcRendererEvent, payload: { host?: unknown }) => {
-  if (payload?.host === 'agent' || payload?.host === 'data') hosts[payload.host].hostExited()
+  if (payload?.host !== 'agent' && payload?.host !== 'data') return
+  const host = payload.host
+  hosts[host].hostExited()
+  hostLost[host] = true
+  emitHostLifecycle({ host, kind: 'exited' })
 })
 // 이 문서의 포트를 달라 — 새로 읽힌 문서는 옛 포트를 갖고 있지 않다.
 ipcRenderer.send(HOST_CONNECT_CHANNEL, { host: 'all' })
@@ -227,6 +246,15 @@ const oo = {
       subscribe(CHANNELS.errorReportEvent, handler),
     drain: (): Promise<AppErrorReport[]> => invoke(CHANNELS.errorDrain),
     revealLog: (): Promise<void> => invoke(CHANNELS.errorRevealLog)
+  },
+  hosts: {
+    // 호스트가 죽거나 다시 붙으면 부른다(AC29′·AC33′). 반환값은 구독 해제다.
+    onLifecycle: (handler: (event: HostLifecycleEvent) => void): (() => void) => {
+      hostLifecycleListeners.add(handler)
+      return () => {
+        hostLifecycleListeners.delete(handler)
+      }
+    }
   },
   boot: {
     report: (): Promise<BootReport> => invoke(CHANNELS.bootReport),

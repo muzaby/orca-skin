@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../shared/ipc'
+import { PRODUCT_SLUG } from '../../../shared/product'
 import type { ClientRef } from '../../contracts/client'
 import type { TurnContext } from '../../contracts/turn'
 import { createPersistenceSender, PERSIST_PEER_LOST } from './persistence-sender'
@@ -351,6 +352,35 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     h.requests[1]!.resolve(null)
     await flush()
     expect(h.payloads('screen').at(-1)!.ev).toEqual({ type: 'output.captured', sessionId: 's' })
+  })
+
+  it('게시 영수증이 붙은 도구 완료는 확인을 기다리고, 같은 턴의 뒤 중계는 그 뒤로 줄을 선다 (D-049)', async () => {
+    const h = setup()
+    const turn = turnOf()
+    const receipt = JSON.stringify({
+      type: `${PRODUCT_SLUG}.artifact.published`,
+      version: 1,
+      publicationId: 'pub-1'
+    })
+    const ev = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 't',
+      result: receipt,
+      isError: false
+    } as unknown as NormalizedEvent
+    h.sender.onTurnEvent(turn, ev)
+    h.sender.relay(turn, ev)
+    h.sender.onTurnEvent(turn, delta('after'))
+    h.sender.relay(turn, delta('after'))
+    expect(h.requests).toHaveLength(1)
+    expect(h.payloads('screen')).toEqual([])
+    h.requests[0]!.resolve({ id: 'confirmed' })
+    await flush()
+    expect(h.payloads('screen').map((p) => p.ev)).toEqual([
+      { ...ev, artifact: { id: 'confirmed' } },
+      delta('after')
+    ])
   })
 
   it('게시 영수증이 없는 도구 완료는 기다리지 않고 어댑터가 준 참조를 지운다', () => {

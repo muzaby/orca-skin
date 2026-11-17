@@ -11,7 +11,7 @@
 // 받는 분기의 동기 구간은 피어 링크가 `perf.stall`(`source:'peer'`)로 잰다(EP-2′).
 
 import type { NormalizedEvent } from '../../../shared/ipc'
-import type { PeerMethod } from '../../../shared/peer-protocol'
+import type { PeerMethod, TurnBegin } from '../../../shared/peer-protocol'
 import type { TurnContext } from '../../contracts/turn'
 import { resolveAgentProfile } from '../../features/agents/profiles'
 import { recoverSessionHistory } from '../../features/chat/recovery'
@@ -21,34 +21,6 @@ import type { UsageTracker } from '../../features/usage/tracker'
 import type { DbQueries } from '../../infra/db'
 import { getLogger } from '../../infra/log'
 import { errorMessage } from '../../infra/errors'
-
-// 턴 시작 때 한 번 오는 필드(저장이 읽는 정적 값).
-export const TURN_BEGIN_FIELDS = [
-  'pendingUserText',
-  'initialTitle',
-  'pendingProjectId',
-  'lineage',
-  'sessionBaseline',
-  'sessionBaselineRef',
-  'agentKind',
-  'cwd',
-  'extraDirs'
-] as const
-// 턴 도중 실행 쪽이 바꿀 수 있는 필드 — 바뀌면 다음 입력에 실려 온다.
-export const TURN_LIVE_FIELDS = [
-  'dbSessionId',
-  'providerKey',
-  'modelFamily',
-  'isNewSession',
-  'retrying'
-] as const
-
-export interface TurnBegin {
-  turnKey: string
-  // 이 턴이 잠긴 하네스 — 세션 행의 backend 출처다.
-  backend: string
-  fields: Record<string, unknown>
-}
 
 export interface PersistenceReceiver {
   request(method: PeerMethod, payload: unknown): unknown
