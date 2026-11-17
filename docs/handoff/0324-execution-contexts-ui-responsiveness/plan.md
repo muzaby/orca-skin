@@ -2425,6 +2425,50 @@ AC 자기보고: 재집계하지 않았다 — trailer 는 직전 값 `14/49` �
 6. **설계자 확인**: 위 설계 리뷰의 `PLAN_GAP` 후보 5건(G-A~G-D · 산출물 이벤트)을 plan 규범 행에 반영하거나 되돌린다 — 규범 정정은 구현과 다른 커밋.
 7. 전체 gate(`app/AGENTS.md` 로컬 확인 목록) · 변이 sweep(r1.9 부터) · 이 절 갱신 · INDEX `impl/IMPL_DONE`.
 
+## [구현자 기입] r1.12 — 테스트 정리 · 프로세스 경계 가드 통과 · 세션 로드 조각 (미완료 — 토큰 한도로 중단, 다른 에이전트가 잇는다)
+
+**판정: 미완료(partial).** 사용자 지시로 즉시 멈췄다. **마지막 수정 뒤의 typecheck·vitest·lint 는 돌리지 않았다.** 일곱 필드는 채우지 못했다 — 아래는 상태와 다음 순서만이다.
+
+### 구현 보고
+
+| 항목 | 상태 | 산출 / 관측 |
+|---|---|---|
+| r1.11 테스트 타입 오류 | 완료 | `tsc -p tsconfig.test.json` 오류 0(중간 관측). 엔진 테스트는 `engineContext`, 그 밖은 `withDataPort`. 픽스처는 메서드를 원래 객체에 묶고 MCP 해석기 기본값을 둔다 |
+| 지운 `bootstrap.ts` 를 글자로 읽던 테스트 | 완료 | `error-report.registry`·`product-identity`·`daily-gate.wiring`·`builtin-resources`·`worktree-root-wiring`·`login-free`·`opencode-connection` 을 두 호스트 조립·`host-process.ts`·`index.ts` 로 옮겼다. `misc-split` 의 알림 케이스는 지웠다(알림은 셸 `index.ts`) |
+| 비동기가 된 계약의 테스트 | 완료 | `data-link.test.ts`(보낸 조회는 실패 · 이후 조회는 다음 포트로) · `native-history.db`·`session-resources`(읽기 시작을 기다린 뒤 단언) |
+| EP-1 (e)′ 가드 실제 트리 | **완료 — `node scripts/check-ui-thread.mjs` → `check-ui-thread: OK`**(턴 시작 때 100건) | 데이터 호스트가 어댑터·SDK 를 끌어오던 것을 구성 읽기 조립(`app/harnesses/config-registry.ts`·`{claude,opencode}/config.ts`·`adapters/opencode/config.ts`)으로 갈랐다. 셸의 `utilityProcess`·포트 전달·`ipcMain` 은 `app/shell/electron-hosts.ts` 로 옮겼다 |
+| 세션 로드 조각(단계 5 · EP-4′) | 코드·테스트 작성 | `shared/data-host.ts` · `app/data-host/session-load.ts` · `preload/session-load.ts` · 채널 `sessionLoadChunk`·`sessionLoadCancel` · `window.oo.session.cancelLoad` · `chatStore` 의 앞 로드 취소. 테스트 3파일(작성 시점 통과 — 분할 11 · 조립 클라이언트 8 · 호스트 전송 15) |
+| 문서 | 일부 | `docs/arch/execution-model.md` · `docs/decisions/012-execution-contexts.md` · `docs/generated/inventory.md` 재생성(`--check` ok) |
+
+**마지막 전체 vitest(가드 테스트·문서 수정 전 트리)**: 12파일 실패. 9파일은 0324 이전 커밋 `9692a27` 의 이 환경 실패 집합 안이다(어댑터 6 · `composer-catalog` · `composer-preparation-service` · `session-resources.claude-assembly`). **기준선 밖 3파일은 원인을 보지 못했다 — `app/harnesses/registry.test.ts` · `product-identity.test.ts` · `preload/index.test.ts`.** 0324 이전 기준선 자체가 이 환경에서 29파일 실패라(이전 보고의 12와 다르다) 다시 재야 한다.
+
+### 설계 리뷰 — `PLAN_GAP` (규범 행 정정이 필요하다, 이번 턴에 plan 을 고치지 않았다)
+
+| 항목 | 구현이 택한 것 | 고칠 절 |
+|---|---|---|
+| (e3)′ 와 G-B 의 충돌 | 하네스 설정 트리·스킬 목록 읽기가 `adapters/<하네스>/` 에 있어 "하네스별 어댑터 import 금지"가 성립하지 않는다. 가드를 "등록한 구성 읽기 입구로만 들어간다 + 어댑터·서버 구현 파일·SDK·`child_process` 금지"로 바꿨다(`ui-thread-rules.mjs` `e.data.entryFiles`·`files`) | §7-G EP-1 (e3)′ 규칙 칸 |
+| (e2) 와 OpenCode 자체 DB | 에이전트 호스트가 `infra/db/file-database.ts`(범용 SQLite 열기)에 닿는다 — OpenCode 네이티브 이력 읽기. 그 한 파일만 허용했다(`exceptFiles`·`packageFiles`) | §7-F EP-1 (e2) |
+| (f) 호스트의 `electron` 값 | `net-fetch` 가 수동 리다이렉트를 `net-request` 로 보낸다 — `net-request.ts` 를 허용 파일에 더했다 | §10 (f) |
+| (d)(g)(j) 등록 파일 | 셸의 Electron 배선을 `app/shell/electron-hosts.ts` 에, 호스트의 부모 포트 전송을 `app/host-runtime.ts` 에 등록했다 | §10 (d)(g)(j) |
+| 세션 로드 취소 | `window.oo.session.cancelLoad` 를 더했다(AC24′ "형상 그대로"에 추가분). 취소된 첫 로드의 자리표시 엔트리는 지운다 | §11 세션 로드 규칙 · AC17 |
+| r1.11 의 G-A~G-D · 산출물 이벤트 | 그대로 미정 | r1.11 설계 리뷰 |
+
+### 잇는 사람에게 — 다음 순서
+
+1. **gate 를 처음부터 다시 돈다**(프로젝트별 `tsc` · `npm run lint` · 전체 vitest · `node --test scripts/*.test.mjs` · 가드 넷). 위 기준선 밖 3파일부터 본다.
+2. **AC47(하다 멈춤 — 코드 없음)**: `ErrorReportHub` 에 전달 탭을 더해 에이전트 호스트의 보고를 `report.error` 로 보내고 데이터 호스트가 `errorReportHub.publish` 한다. 에이전트 `bootReport.finish()` 뒤 `report.boot` → 데이터 `getBootReport` 가 두 보고를 합친다. 지금 수신기는 둘을 버린다(`persistence-receiver.ts` `report.*`).
+3. **새 모듈 테스트**: 송신기·수신기(EP-15 규칙 칸 9분기 · AC39 입력 열 4종 동치 · AC44) · `host-process.ts` · `channel-registration.test.ts` · 두 조립의 배선(버스 순서 송신 → 제목 → 중계 · 종료 순서 · 설정 읽기 핸들러 첫 문장) · AC49 세 테스트 · `chatStore` 의 앞 로드 취소.
+4. **문서 나머지**: `IPC_CONTRACT.md`(새 채널 둘 · `oo:host:*` · 셸 서비스 `session.*`) · `security.md` §1.4-b · `overview.md`·`runtime-ipc.md` · root·`app`·`main`·`renderer` `AGENTS.md` 의 경로 표 링크(`app/AGENTS.md` 는 아직 `bootstrap.ts` 를 가리킨다) · `docs/INDEX.md` 행 · `ci.yml` 가드 단계 · `check-ui-thread.test.mjs` 의 `todo` 3건 제거.
+5. **plan 규범 정정**(위 `PLAN_GAP` 표 + r1.11 다섯 건) — 구현과 다른 커밋.
+6. 옛 안의 잔재 삭제: `RouterContext` 의 실행 쪽 필드 · `infra/ipc/peer-loopback.testfixture.ts` 의 운영 흔적 확인.
+7. 변이 sweep(r1.9 부터 밀림) → 일곱 필드 보고 → INDEX `impl/IMPL_DONE` → verify.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.12`(미완료) — verify 0회. verify 없는 impl 턴이 r1.3~r1.12 로 이어졌다.
+- 가드 실제 트리 실행은 이번이 처음이었다 — r1.9~r1.11 의 "(e) 구현" 보고는 픽스처 테스트만 본 것이다.
+- 환경: Electron 바이너리 없음. 전체 vitest 한 번에 약 2분 30초.
+
 ---
 
 ## [검증자 기입] 파생 이슈

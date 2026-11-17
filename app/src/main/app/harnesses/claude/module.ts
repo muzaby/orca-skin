@@ -10,32 +10,23 @@ import {
   claudeProjectSettingsFiles,
   readClaudeProjectSettings
 } from '../../../adapters/claude/project-settings'
-import {
-  loadClaudeProviderSettings,
-  readUserClaudeSettings
-} from '../../../adapters/claude/settings'
-import {
-  parseClaudeModels,
-  parseRuntimeModels
-} from '../../../features/harnesses/claude/model-parser'
+import { readUserClaudeSettings } from '../../../adapters/claude/settings'
 import { defaultProvider, resolveTitleModel } from '../../../features/harnesses/claude/model-policy'
 import type { MainHarnessModule } from '../common/contracts'
+import { claudeConfigModule } from './config'
 
 export const claudeMainModule: MainHarnessModule = {
   projectResources: {
     files: claudeProjectSettingsFiles,
     read: async (cwd) => ({ revision: readClaudeProjectSettings(cwd).revision })
   },
-  id: 'claude',
+  ...claudeConfigModule,
   createAdapter: (options) =>
     new ClaudeAdapter(options.extensionControl, options.pluginSnapshots, () =>
       options.preferences('claude')
     ),
   globalResources: globalClaudeResources,
   globalResourcePath: globalClaudeResourcePath,
-  loadSettings: loadClaudeProviderSettings,
-  parseSettingsModels: parseClaudeModels,
-  parseRuntimeModels,
   readUserSettings: readUserClaudeSettings,
   configuredResources: (cwd, choices) => configuredClaudeResources(cwd, undefined, false, choices),
   nativeResourceScope: pluginPathKey,

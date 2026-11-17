@@ -244,7 +244,7 @@ describe('native resource IPC', () => {
     await expect(
       invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
     ).rejects.toThrow('불러오지 못했습니다')
-    let finish!: (items: NativeResource[]) => void
+    let finish: ((items: NativeResource[]) => void) | undefined = undefined
     let runtime: GovernedLiveTurn | undefined = undefined
     registerSessionResourceHandlers({
       lookup: () => runtime,
@@ -254,9 +254,10 @@ describe('native resource IPC', () => {
         })
     })
     const pending = invoke(CHANNELS.sessionNativeResources, { sessionId: 'session-B' })
-    await Promise.resolve()
+    // 구성 읽기는 세션 메타 선읽기(0324) 뒤에 시작한다.
+    await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
     runtime = {} as GovernedLiveTurn
-    finish([])
+    finish!([])
     await expect(pending).rejects.toThrow('바뀌었습니다')
   })
   it('resolves the current session and reads its live resources', async () => {

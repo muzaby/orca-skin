@@ -40,28 +40,28 @@ const sites = [
   },
   {
     id: 'M6',
-    file: 'app/bootstrap.ts',
+    file: 'app/data-host/bootstrap.ts',
     event: 'auth.persistence.unavailable',
     title: 'authPersistenceUnavailable',
     method: 'reportError'
   },
   {
     id: 'M7',
-    file: 'app/bootstrap.ts',
+    file: 'app/data-host/bootstrap.ts',
     event: 'auth.oauth.persistence.unavailable',
     title: 'authPersistenceUnavailable',
     method: 'reportError'
   },
   {
     id: 'M8',
-    file: 'app/bootstrap.ts',
+    file: 'app/data-host/bootstrap.ts',
     event: 'auth.declaration.rejected',
     title: 'authDeclarationRejected',
     method: 'reportError'
   },
   {
     id: 'M10',
-    file: 'app/bootstrap.ts',
+    file: 'app/data-host/bootstrap.ts',
     event: 'scheduler.settings.failed',
     title: 'scheduledJobFailed',
     method: 'reportError'
@@ -271,16 +271,28 @@ describe('main report site registry', () => {
       publishingFiles(['infra/extra.ts', 'publishErrorReport({ title: "unexpected" })'])
     ).not.toEqual(publishingFiles())
   })
-  it('installs both delivery and logging handlers before global handlers and window startup', () => {
-    const text = read('index.ts')
-    for (const call of [
-      'installErrorReportSink()',
-      'registerErrorHandlers()',
-      'registerLogHandlers()'
-    ]) {
-      expect(text.indexOf(call)).toBeGreaterThan(0)
-      expect(text.indexOf(call)).toBeLessThan(text.indexOf("process.on('unhandledRejection'"))
-      expect(text.indexOf(call)).toBeLessThan(text.indexOf('function createWindow('))
+  // 0324 — 창에 보내는 싱크와 오류 채널은 데이터 호스트 조립이, 로그 채널은 셸이 등록한다. 둘 다
+  // 그 프로세스에서 보고가 나올 수 있는 첫 자리보다 앞이다.
+  it('installs delivery in the data host before its first await and logging in the shell before global handlers', () => {
+    const dataHost = read('app/data-host/bootstrap.ts')
+    const start = dataHost.slice(dataHost.indexOf('async start():'))
+    const firstAwait = start.indexOf('await this.')
+    for (const call of ['installErrorReportSink()', 'registerErrorHandlers()']) {
+      expect(start.indexOf(call)).toBeGreaterThan(0)
+      expect(start.indexOf(call)).toBeLessThan(firstAwait)
+      expect(dataHost.split(call)).toHaveLength(2)
+    }
+    const shell = read('index.ts')
+    const logging = shell.indexOf('registerLogHandlers()')
+    expect(logging).toBeGreaterThan(0)
+    expect(logging).toBeLessThan(shell.indexOf("process.on('unhandledRejection'"))
+    expect(logging).toBeLessThan(shell.indexOf('function createWindow('))
+    // 두 호스트의 전역 예외는 진입점이 넘긴 구독으로 같은 보고 경로를 탄다.
+    const hostProcess = read('app/host-process.ts')
+    expect(hostProcess).toMatch(/deps\.onProcessError\?\.\(\(kind, error\) => \{\s*reportError\(/)
+    for (const entry of ['app/data-host/entry.ts', 'app/agent-host/entry.ts']) {
+      expect(read(entry)).toContain("process.on('unhandledRejection'")
+      expect(read(entry)).toContain("process.on('uncaughtException'")
     }
   })
 })

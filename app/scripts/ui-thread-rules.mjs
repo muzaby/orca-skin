@@ -23,12 +23,13 @@ export const RULES = {
   c: {
     title: '세션 본문 조회(`loadSession`)',
     ask: '데이터 호스트',
-    route: '`src/renderer/src/shared/api/dataHost.ts`'
+    route: '`sessionApi.load`·`refresh` → preload 조립(`src/preload/session-load.ts`) → `app/data-host/session-load.ts`'
   },
   d: {
     title: '`ipcMain` 직접 등록',
     ask: '`src/main/infra/ipc/handle.ts`',
-    route: '`handle` · `handlePlain` · `on` (`ipcMain` 은 `infra/ipc/electron-transport.ts` 만)'
+    route:
+      '`handle` · `handlePlain` · `on` (`ipcMain` 은 `infra/ipc/electron-transport.ts` 와 셸의 호스트 포트 채널 `app/shell/electron-hosts.ts` 만)'
   },
   e: {
     title: '프로세스별 import 경계 (셸 · 에이전트 호스트 · 데이터 호스트)',
@@ -39,7 +40,7 @@ export const RULES = {
   f: {
     title: '호스트의 Electron 값 import · `worker_threads`',
     ask: 'main(셸)',
-    route: '셸 서비스 클라이언트(`src/main/app/agent-host/shell-client.ts`)'
+    route: '셸 서비스 클라이언트(`src/main/app/agent-host/shell-client.ts` — 두 호스트가 같이 쓴다)'
   },
   g: {
     title: '창 통지 API',
@@ -48,8 +49,8 @@ export const RULES = {
   },
   h: {
     title: '`window.oo` 접근',
-    ask: '에이전트 호스트(창·OS 는 셸)',
-    route: '`src/renderer/src/shared/api/*`'
+    ask: '채널을 소유한 프로세스(에이전트 호스트 · 데이터 호스트 · 셸)',
+    route: '`src/renderer/src/shared/api/*` → `window.oo` → preload 의 채널 소유 표'
   },
   i: {
     title: '`Worker` 생성',
@@ -59,16 +60,17 @@ export const RULES = {
   j: {
     title: '프로세스 기동',
     ask: '등록된 기동 모듈',
-    route: '`infra/git/runner` · `infra/shell/shell-runner` · 하네스 어댑터 · `host-supervisor`'
+    route:
+      '`infra/git/runner` · `infra/shell/shell-runner` · 하네스 어댑터 · 셸의 `host-supervisor`·`electron-hosts`'
   },
   k: {
     title: 'DB 연결',
-    ask: '에이전트 호스트의 `DbQueries`',
-    route: '`ctx.db` 주입'
+    ask: '데이터 호스트의 `DbQueries`',
+    route: '데이터 호스트 안에서는 `ctx.db` 주입 · 에이전트 호스트에서는 데이터 링크(`data.query`·`data.write`)'
   },
   l: {
     title: '영속 파일(`electron-store`)',
-    ask: '에이전트 호스트의 세 스토어(창 상태는 셸의 `ShellState`)',
+    ask: '데이터 호스트의 세 스토어(창 상태는 셸의 `ShellState`)',
     route: '주입받은 `userData` 를 `cwd` 로 — `new Store({ …, cwd })`'
   }
 }
@@ -155,12 +157,6 @@ export const SYNC_REGISTRY = [
     count: 3,
     class: 'single-file',
     reason: '설정 파일 하나를 읽는다'
-  },
-  {
-    file: `${MAIN}app/handlers/error.ts`,
-    count: 2,
-    class: 'single-file',
-    reason: '로그 경로 하나의 존재 확인'
   },
   {
     file: `${MAIN}app/shell/shell-state-file.ts`,
@@ -256,10 +252,16 @@ export const ALLOWED = {
     files: [`${MAIN}app/data-host/session-load.ts`, `${MAIN}app/chat-turn/native-session.ts`]
   },
   // (d) `ipcMain` 을 직접 부르는 유일한 파일 — 등록 API 는 `handle.ts` 의 세 함수다.
-  d: { files: [`${MAIN}infra/ipc/electron-transport.ts`] },
-  // (e) 프로세스별 import 경계 (0324 EP-1 (e)′ · (e3)′). 진입점에서 값 import 로 닿으면 안 되는 곳.
-  // (e1) 셸 · (e2) 에이전트 호스트(실행 — DB·설정·비밀 파일 없음) · (e3) 데이터 호스트(상태 — 하네스
-  // 구현·프로세스 기동·SDK 없음. `adapters/common/` 은 zod·타입·순수 함수라 허용한다).
+  // 셸 ↔ preload 의 호스트 포트 채널(`CHANNELS` 밖)은 `app/shell/electron-hosts.ts` 가 듣는다.
+  d: { files: [`${MAIN}infra/ipc/electron-transport.ts`, `${MAIN}app/shell/electron-hosts.ts`] },
+  // (e) 프로세스별 import 경계 (0324 EP-1 (e)′ · (e2)′ · (e3)″). 진입점에서 값 import 로 닿으면 안 되는 곳.
+  // (e1) 셸.
+  // (e2)′ 에이전트 호스트(실행) — 앱 DB·설정·비밀 파일이 없다. 범용 SQLite 열기(`file-database.ts`)는
+  //   허용한다: OpenCode 가 자기 저장소(네이티브 DB)를 SQLite 로 두고, 어댑터가 그것을 읽는다. 앱 DB 를
+  //   여는 `infra/db/index.ts` 와 조회 모듈은 그대로 금지다.
+  // (e3)″ 데이터 호스트(상태) — 하네스 구현·프로세스 기동·SDK 가 없다. `adapters/common/` 은 zod·타입·
+  //   순수 함수라 허용한다. 하네스별 폴더에는 등록한 입구(파일만 읽는 구성 읽기 — 설정 트리·스킬·플러그인
+  //   목록)로만 들어가고, 어댑터·서버 구현 파일과 SDK·`child_process` 는 그 안쪽에서 닿아도 실패다.
   e: {
     entry: `${MAIN}index.ts`,
     dirs: [`${MAIN}features/`, `${MAIN}adapters/`, `${MAIN}infra/db/`],
@@ -267,17 +269,33 @@ export const ALLOWED = {
     agent: {
       entry: `${MAIN}app/agent-host/entry.ts`,
       dirs: [`${MAIN}infra/db/`],
+      exceptFiles: [`${MAIN}infra/db/file-database.ts`],
       files: [
         `${MAIN}infra/settings-store.ts`,
         `${MAIN}infra/config/secret-store.ts`,
         `${MAIN}infra/config/secret-file.ts`
       ],
-      packages: ['better-sqlite3', 'electron-store']
+      packages: ['better-sqlite3', 'electron-store'],
+      packageFiles: { 'better-sqlite3': [`${MAIN}infra/db/file-database.ts`] }
     },
     data: {
       entry: `${MAIN}app/data-host/entry.ts`,
       dirs: [`${MAIN}adapters/`],
       exceptDirs: [`${MAIN}adapters/common/`],
+      entryFiles: [
+        `${MAIN}adapters/claude/settings.ts`,
+        `${MAIN}adapters/claude/native-paths.ts`,
+        `${MAIN}adapters/claude/plugin-catalog.ts`,
+        `${MAIN}adapters/opencode/config.ts`
+      ],
+      files: [
+        `${MAIN}adapters/claude/adapter.ts`,
+        `${MAIN}adapters/claude/mock.ts`,
+        `${MAIN}adapters/opencode/index.ts`,
+        `${MAIN}adapters/opencode/v1/index.ts`,
+        `${MAIN}adapters/opencode/v1/adapter.ts`,
+        `${MAIN}adapters/opencode/v1/server.ts`
+      ],
       packages: [
         'child_process',
         'node:child_process',
@@ -289,7 +307,8 @@ export const ALLOWED = {
   // (f) 호스트 진입점에서 닿는 모듈 중 `electron` 값을 import 해도 되는 파일.
   f: {
     entries: [`${MAIN}app/agent-host/entry.ts`, `${MAIN}app/data-host/entry.ts`],
-    electronFiles: [`${MAIN}infra/net/net-fetch.ts`],
+    // `net` 은 Main·Utility 둘 다에서 쓴다. `net-fetch` 는 수동 리다이렉트 요청을 `net-request` 로 보낸다(0174).
+    electronFiles: [`${MAIN}infra/net/net-fetch.ts`, `${MAIN}infra/net/net-request.ts`],
     threads: ['worker_threads', 'node:worker_threads']
   },
   // (g) 창·포트로 직접 보내도 되는 전송 모듈.
@@ -299,8 +318,8 @@ export const ALLOWED = {
       `${MAIN}infra/ipc/transport.ts`,
       `${MAIN}infra/ipc/electron-transport.ts`,
       `${MAIN}app/shell/host-supervisor.ts`,
-      `${MAIN}app/agent-host/entry.ts`,
-      `${MAIN}app/data-host/entry.ts`
+      `${MAIN}app/shell/electron-hosts.ts`,
+      `${MAIN}app/host-runtime.ts`
     ]
   },
   h: { dirs: [`${RENDERER}shared/api/`] },
@@ -311,7 +330,7 @@ export const ALLOWED = {
       `${MAIN}infra/shell/shell-runner.ts`,
       `${MAIN}adapters/opencode/v1/server.ts`
     ],
-    utilityProcess: [`${MAIN}app/shell/host-supervisor.ts`]
+    utilityProcess: [`${MAIN}app/shell/host-supervisor.ts`, `${MAIN}app/shell/electron-hosts.ts`]
   },
   k: {
     files: [`${MAIN}infra/db/file-database.ts`, `${MAIN}infra/db/warm-file-sqlite.ts`]

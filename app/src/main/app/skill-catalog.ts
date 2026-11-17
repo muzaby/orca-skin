@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, sep } from 'node:path'
 import type { SkillInfo } from '../../shared/ipc'
 import { readClaudePluginCatalogAsync } from '../adapters/claude/plugin-catalog'
-import { openCodePluginSkillDirectories, openCodeSkillDirectories } from '../adapters/opencode'
+import { openCodePluginSkillDirectories, openCodeSkillDirectories } from '../adapters/opencode/config'
 import { agentsSkillRoot } from '../features/extensions/common/skills/agents'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/common/skills/scan'
 
