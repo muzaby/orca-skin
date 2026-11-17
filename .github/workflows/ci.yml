@@ -84,3 +84,14 @@ jobs:
         env:
           # 비어 있으면 기본 배율 3 (scripts/test-time.mjs).
           ORCINUS_ORCA_TEST_TIME_SCALE: ${{ vars.ORCINUS_ORCA_TEST_TIME_SCALE }}
+
+      # 실행 모델(0324) — 셸이 띄우는 두 호스트 번들이 실제로 뜨는지. 번들을 만들고(`electron-vite build`)
+      # 셸 대신 데이터 → 에이전트 호스트를 띄워 피어·창 포트 요청·종료 순서를 본다. 단위 테스트는 호스트
+      # 조립을 통째로 띄우지 못해 조립 안의 기동 순서 결함은 여기서만 보인다. 데이터 호스트가 SQLite 를
+      # 열므로 Test 뒤(better-sqlite3 가 node ABI)에 둔다.
+      - name: Host boot smoke (bundle + data → agent host)
+        run: |
+          npx electron-vite build
+          node scripts/smoke-hosts.mjs out/main
+        env:
+          ORCINUS_ORCA_TEST_TIME_SCALE: ${{ vars.ORCINUS_ORCA_TEST_TIME_SCALE }}
