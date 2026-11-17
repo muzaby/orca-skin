@@ -5,8 +5,8 @@
 // 2. 프로세스별 로그 파일 · 이벤트 루프 멈춤 계측(`thread` = 호스트 이름).
 // 3. 창 포트 전송을 IPC 전송으로 정한다 — 핸들러 등록보다 앞이다.
 // 4. 셸 메시지 분배(`startHostRuntime`) · 셸 서비스 클라이언트.
-// 5. 조립을 시작하고, 끝나면 셸에 `ready` 를 보낸다. 시작이 던지면 프로세스를 끝낸다 — 셸의 감독자가
-//    기동 실패로 센다.
+// 5. 조립을 만들고 시작하고, 끝나면 셸에 `ready` 를 보낸다. 생성이나 시작이 던지면 프로세스를 끝낸다 —
+//    셸의 감독자가 기동 실패로 센다.
 //
 // 이 파일은 Electron 을 모른다 — 진입점이 `process.parentPort` 를 넘긴다.
 
@@ -89,7 +89,17 @@ export function runHostProcess(deps: HostProcessDeps): HostAssembly {
     onInvalid: () => log.warn('host.shell-message.invalid', { host: deps.name })
   })
   setShellServices(runtime.shell)
-  const created = deps.create({ shell: runtime.shell, transport, toShell: runtime.toShell })
+  // 조립 생성이 던지면 시작이 던진 것과 같다 — 프로세스를 끝내 셸의 감독자가 기동 실패로 센다. 그냥 두면
+  // 전역 예외 처리기가 삼켜 준비를 알리지 않은 채 멈춘다.
+  let created: HostAssembly
+  try {
+    created = deps.create({ shell: runtime.shell, transport, toShell: runtime.toShell })
+  } catch (error) {
+    log.error('host.start.failed', error, { host: deps.name, stage: 'create' })
+    flushLogSync()
+    deps.exit(1)
+    throw error
+  }
   assembly = created
   created.start().then(
     (ready) => {

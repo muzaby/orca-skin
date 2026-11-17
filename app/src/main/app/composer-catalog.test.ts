@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { EventEmitter } from 'node:events'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ComposerCatalogLease, ComposerCatalogScope } from '../../shared/composer-catalog'
 import { CHANNELS } from '../../shared/ipc'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
@@ -11,15 +10,15 @@ import { resolveComposerPreparation } from './composer-catalog'
 import { createComposerPreparation } from './composer-preparation'
 import type { AgentContext } from './context'
 import { withDataPort } from './data-host/data-port.testfixture'
-const handlers = vi.hoisted(
-  () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-)
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (key: string, handler: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      handlers.set(key, handler)
-  }
-}))
+import { fakeClient } from '../infra/ipc/client.testfixture'
+import { createTestTransport, type TestTransport } from '../infra/ipc/test-transport.testfixture'
+import { setIpcTransport } from '../infra/ipc/transport'
+// 이 채널은 에이전트 호스트가 창 포트로 받는다 — 셸 전송이 아니라 전송 계약(`ClientRef`) 위에서 부른다.
+let transport: TestTransport
+beforeEach(() => {
+  transport = createTestTransport()
+  setIpcTransport(transport)
+})
 vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({ PREVIEW_APP_ENV: 'app-value' }) }))
 
 const cleanups: Array<() => void | Promise<void>> = []
@@ -185,11 +184,12 @@ it.each(['configuration', 'acquire'] as const)(
     if (stage === 'configuration') f.resolve.mockRejectedValueOnce(error)
     else f.capture.mockRejectedValueOnce(error)
     const close = f.preparation.close
-    const sender = Object.assign(new EventEmitter(), { id: 83, isDestroyed: () => false })
+    const sender = fakeClient(83)
     try {
-      const result = await handlers.get(CHANNELS.composerCatalog)!(
-        { sender },
-        { owner: randomUUID(), scope: f.scope, part: 'plugins' }
+      const result = await transport.invoke(
+        CHANNELS.composerCatalog,
+        { owner: randomUUID(), scope: f.scope, part: 'plugins' },
+        sender
       )
       expect(result).toEqual({
         part: 'plugins',
@@ -311,14 +311,10 @@ it('returns prepared plugin and agent parts through IPC before blocked MCP/model
     throw new Error('unexpected endpoint')
   })
   const close = f.preparation.close
-  const sender = Object.assign(new EventEmitter(), {
-    id: 77,
-    isDestroyed: () => false,
-    send: vi.fn()
-  })
+  const sender = fakeClient(77)
   const owner = randomUUID()
   const read = (part: string, refresh = false): Promise<unknown> =>
-    handlers.get(CHANNELS.composerCatalog)!({ sender }, { owner, scope: f.scope, part, refresh })
+    transport.invoke(CHANNELS.composerCatalog, { owner, scope: f.scope, part, refresh }, sender)
   try {
     const mcp = read('mcp')
     const models = read('models')
@@ -403,20 +399,17 @@ it('wires the public handler through the production resolver and returns its shu
     release
   })
   const close = f.preparation.close
-  const sender = Object.assign(new EventEmitter(), {
-    id: 10,
-    isDestroyed: () => false,
-    send: vi.fn()
-  })
+  const sender = fakeClient(10)
   try {
     await expect(
-      handlers.get(CHANNELS.composerCatalog)!(
-        { sender },
+      transport.invoke(
+        CHANNELS.composerCatalog,
         {
           owner: randomUUID(),
           scope: f.scope,
           part: 'agents'
-        }
+        },
+        sender
       )
     ).resolves.toEqual({ part: 'agents', value: [], generation: 'boot-owner' })
     expect(f.capture).toHaveBeenCalledWith(expect.objectContaining({ cwd: 'C:/draft-project' }))
@@ -424,5 +417,6 @@ it('wires the public handler through the production resolver and returns its shu
     close()
   }
   await vi.waitFor(() => expect(release).toHaveBeenCalledOnce())
-  expect(sender.listenerCount('destroyed')).toBe(0)
+  // 정리 뒤에는 그 창의 닫힘 구독을 쥐고 있지 않다.
+  expect(sender.watchers()).toBe(0)
 })
