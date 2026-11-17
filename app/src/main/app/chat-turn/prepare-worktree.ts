@@ -49,7 +49,9 @@ export async function prepareTurnWorktree(input: {
   adapter: Pick<SessionAdapter, 'complete'>
   providerSettings: CompletionInput['providerSettings']
   env: CompletionInput['env']
-  worktrees: Pick<WorktreeService, 'prepare' | 'recoverMissingWorktree' | 'hasManagedWorktree'>
+  worktrees: Pick<WorktreeService, 'prepare' | 'recoverMissingWorktree'> & {
+    hasManagedWorktree(sessionId: string): boolean | Promise<boolean>
+  }
   // 폴백을 사용자 화면에 알린다. 세 번째 쓰기 지점이고 DB 두 쓰기 **뒤**다(§13).
   onRecovered?: (recovered: { sessionId: string; executionCwd: string }) => void
   // 격리 준비 진행 (0211). **신규 격리 경로에서만** 발화한다 — resume·recover·passthrough 는
@@ -83,7 +85,7 @@ export async function prepareTurnWorktree(input: {
     }
     return {
       kind: 'passthrough',
-      isolated: input.worktrees.hasManagedWorktree(input.sessionId),
+      isolated: await input.worktrees.hasManagedWorktree(input.sessionId),
       executionCwd: input.sourceCwd,
       sessionBaseline: null,
       sessionBaselineRef: null
@@ -145,7 +147,7 @@ export async function prepareTurnExecution<TTurn, TEntry>(input: {
     extraDirs: readonly string[] | undefined,
     sessionBaseline: string | null,
     sessionBaselineRef: string | null
-  ) => TTurn
+  ) => TTurn | Promise<TTurn>
   // `executionCwdRecovered` 는 respawn 판정으로 간다 — cwd 는 spawn 시점에 박히므로 살아 있는
   // 채널을 새 경로로 돌릴 방법이 없고, 내려야만 다음 spawn 이 원본 경로에서 뜬다(D-108).
   acquireRuntime: (turn: TTurn, executionCwdRecovered: boolean) => Promise<TEntry>
@@ -156,7 +158,7 @@ export async function prepareTurnExecution<TTurn, TEntry>(input: {
   const prepared = await prepareTurnWorktree(input.worktree)
   if (prepared.kind === 'rejected') return prepared
 
-  const turn = input.buildTurn(
+  const turn = await input.buildTurn(
     prepared.executionCwd,
     input.extraDirs,
     prepared.sessionBaseline,

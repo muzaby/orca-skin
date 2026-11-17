@@ -62,13 +62,13 @@ export async function prepareAutomaticContinuation(input: {
     providerKey: string | null
     modelFamily: string | null
   }) => Promise<AutomaticContinuationResolution>
-  buildExtensions: () => TurnExtensions
+  buildExtensions: () => TurnExtensions | Promise<TurnExtensions>
 }): Promise<PreparedAutomaticContinuation> {
   const resolved = await input.resolveProvider({
     providerKey: input.providerKey,
     modelFamily: input.modelFamily
   })
-  const extensions = input.buildExtensions()
+  const extensions = await input.buildExtensions()
   const model = resolved.model ?? input.fallbackModel
   const permissionModel = resolved.permissionModel ?? input.fallbackPermissionModel
 

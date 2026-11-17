@@ -129,7 +129,13 @@ import { registerChatHandlers } from './chat-turn'
 import { discardSessionWork } from './chat-turn/discard'
 import type { ConnectionViewSource } from './connection-views'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
-import type { RouterContext } from './context'
+import { agentContextOf, type AgentContext, type DataPort, type RouterContext } from './context'
+import { createAgentCallOps } from './agent-host/agent-ops'
+import { createDataLink } from './agent-host/data-link'
+import { createSettingsMirror, type SettingsMirror } from './agent-host/settings-mirror'
+import { createAgentLink } from './data-host/agent-link'
+import { createDataQueryOps, createDataWriteOps } from './data-host/data-ops'
+import { createPeerLoopback } from '../infra/ipc/peer-loopback'
 import { startDailyGate } from './daily-gate'
 import { AUTH_DEFINITIONS, LOGIN_FREE_DEFINITIONS } from './deployment/auth-definitions'
 import { createConnectionSources } from './deployment/connections'
@@ -626,6 +632,7 @@ export class Bootstrap {
         .child('chat')
         .debug('chat.recovery.settled', { ...recovered })
     }
+    const { data, mirror } = this.connectHosts(db)
     // ── Harness 설정 · 실행 구성: **DB 이후, scaffold 이전** ─────────────────────
     // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 settings.json 의 env 블록에
     // **평문으로 병합 기록**하던 경로였다. 이제 credential 은 vault 가 소유하고, settings.json
@@ -693,10 +700,10 @@ export class Bootstrap {
       cost.recompute()
     )
     // 설정이 파생 상태(게이트 판정·사용량 뷰)의 입력인 자리들 — 배선은 한 모듈이 갖는다.
-    registerSettingsReactions(this.settings, {
-      pushConnectionState,
-      cost,
-      openCodeExecutablePath: this.settings.getAll().harnesses?.opencode?.executablePath,
+    registerSettingsReactions(this.settings, { pushConnectionState, cost })
+    // 실행 쪽 반응은 사본의 패치 통지에서 돈다(0324 EP-17).
+    registerSettingsReactions(mirror, {
+      openCodeExecutablePath: mirror.getAll().harnesses?.opencode?.executablePath,
       recheckOpenCode: () => {
         if (!this.stopped) void this.registry.refreshInstallState('opencode').catch(() => undefined)
       }
@@ -750,7 +757,11 @@ export class Bootstrap {
     }
 
     const extensions = new ExtensionBuilder(
-      db,
+      {
+        getProjectContextForSession: (sessionId) =>
+          data.query.getProjectContextForSession(sessionId),
+        getProject: (projectId) => data.query.getProject(projectId)
+      },
       () => this.skillsCache,
       () => this.settings.getAll(),
       hostEnvironment().appVersion,
@@ -871,7 +882,10 @@ export class Bootstrap {
       scheduler,
       runtimeTools,
       harnessRuntime,
-      runtimeModelCatalog
+      runtimeModelCatalog,
+      data,
+      agentSettings: mirror,
+      defaultCwd: () => this.defaultCwd
     }
     this.startScheduledTasks(ctx.db)
     this.register(ctx)
@@ -1026,15 +1040,60 @@ export class Bootstrap {
     this.activity?.dispose()
   }
 
+  // 두 호스트 사이의 경계를 한 프로세스 안에서 잇는다(0324 AR-13). 실행 쪽 코드는 DB·설정을 직접
+  // 부르지 않고 이 링크로 요청한다 — 프로세스를 나누면 루프백 자리에 셸이 중개한 포트가 온다.
+  private connectHosts(db: RouterContext['db']): { data: DataPort; mirror: SettingsMirror } {
+    const ops = { db, defaultCwd: () => this.defaultCwd || hostEnvironment().desktop }
+    const agentLink = createAgentLink({
+      queryOps: createDataQueryOps(ops),
+      writeOps: createDataWriteOps(ops),
+      settings: this.settings,
+      // 한 프로세스인 동안은 에이전트 쪽이 언제나 떠 있다.
+      ensureAgent: () => {}
+    })
+    const mirror: SettingsMirror = createSettingsMirror({
+      requestWrite: (patch) => dataLink.writeSettings(patch)
+    })
+    const dataLink = createDataLink({
+      mirror,
+      // 데이터 → 실행 요청(F4)은 아직 한 프로세스의 직접 호출이다.
+      agentOps: createAgentCallOps({
+        sessionActivity: () => {
+          throw new Error('agent.call 은 아직 배선되지 않았다')
+        },
+        discardSession: () => {
+          throw new Error('agent.call 은 아직 배선되지 않았다')
+        },
+        readNativeHistory: () => Promise.reject(new Error('agent.call 은 아직 배선되지 않았다')),
+        runShell: () => Promise.reject(new Error('agent.call 은 아직 배선되지 않았다')),
+        cancelShell: () => {
+          throw new Error('agent.call 은 아직 배선되지 않았다')
+        }
+      }),
+      onInvalid: () => getLogger().child('peer').warn('peer.message.invalid', { side: 'agent' })
+    })
+    // 사본 전의 읽기는 던진다 — 첫 통지는 다음 마이크로태스크라 같은 값을 먼저 넣어 둔다.
+    mirror.applySnapshot(this.settings.getAll())
+    const ports = createPeerLoopback()
+    agentLink.attach(ports.data)
+    dataLink.attach(ports.agent)
+    return { data: { query: dataLink.query, write: dataLink.write }, mirror }
+  }
+
   private registerTurnEvents(
     ctx: Pick<RouterContext, 'db' | 'cost'>,
+    data: DataPort,
     bus: MainBus<ClientRef>
   ): HistoryWriter {
     // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
     // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에
     // 그 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식을 이 등록 순서 한 곳이 소유한다.
     // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
-    const titles = (this.titles = new TitleGenerator(ctx.db))
+    const titles = (this.titles = new TitleGenerator({
+      getTitleSource: (sessionId) => data.query.getTitleSource(sessionId),
+      updateSessionTitleAuto: (sessionId, title, updatedAt) =>
+        data.write.updateSessionTitleAuto(sessionId, title, updatedAt)
+    }))
     // continuity 도착 물질화(0064 fork/handoff)는 orchestration 슬라이스 구현을 여기서 주입
     // — history↔orchestration 교차 import 차단.
     const persistence = new HistoryWriter(
@@ -1115,6 +1174,8 @@ export class Bootstrap {
   }
 
   private register(ctx: RouterContext): void {
+    // 실행 쪽 코드는 이 묶음만 받는다 — DB 와 설정 저장소가 없다(0324 EP-16·EP-17).
+    const agentCtx: AgentContext = agentContextOf(ctx)
     this.registerArtifacts(ctx)
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<ClientRef>({
@@ -1132,7 +1193,7 @@ export class Bootstrap {
       this.projectResourceSync?.leasesChanged()
     })
     const bus = (this.bus = new TypedBus<OoBusEvents<ClientRef>>())
-    const persistence = this.registerTurnEvents(ctx, bus)
+    const persistence = this.registerTurnEvents(ctx, agentCtx.data, bus)
 
     const approvals = new ApprovalCoordinator((sessionId) =>
       this.lifecycle.approvalPending(sessionId)
@@ -1160,13 +1221,24 @@ export class Bootstrap {
       }
     }))
     // dev 분기는 여기 한 곳에서만 준다 — `paths.ts` 는 순수 함수로 남아 두 값을 다 단위 테스트한다.
-    const worktrees = new WorktreeService(ctx.db, managedWorktreesDir(import.meta.env.DEV))
+    const worktrees = new WorktreeService(
+      {
+        insertManagedWorktree: (row) => agentCtx.data.write.insertManagedWorktree(row),
+        getManagedWorktreeBySession: (sessionId) =>
+          agentCtx.data.query.getManagedWorktreeBySession(sessionId),
+        updateSessionCwd: (sessionId, cwd, updatedAt) =>
+          agentCtx.data.write.updateSessionCwd(sessionId, cwd, updatedAt),
+        deleteManagedWorktree: (id) => agentCtx.data.write.deleteManagedWorktree(id)
+      },
+      managedWorktreesDir(import.meta.env.DEV)
+    )
     const background = registerChatHandlers({
-      ctx,
+      ctx: agentCtx,
       supervisor,
       bus,
       approvals,
       persistence,
+      loadBackgroundEvents: (sessionId) => ctx.db.background?.list(sessionId) ?? [],
       permissionModes,
       pendingMessages,
       backgroundTasks,
@@ -1186,7 +1258,7 @@ export class Bootstrap {
 
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
-    const preparation = createComposerPreparation(ctx)
+    const preparation = createComposerPreparation(agentCtx)
     this.composerPreparation = preparation.service
     this.closeComposerCatalog = preparation.close
     const preparedMcp = (this.preparedMcpResources = preparation.resources)

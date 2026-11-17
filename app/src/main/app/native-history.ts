@@ -3,13 +3,14 @@ import type { ChatActivitySnapshot } from '../../shared/ipc'
 import { restoreRecoveryResult } from '../features/history/native-recovery'
 import { refreshNativeHistory, type NativeSyncResult } from '../features/history/native-sync'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
-import type { RouterContext } from './context'
+import type { AgentContext, RouterContext } from './context'
 import { sessionActivityBusy as nativeHistoryBusy } from './session-activity-busy'
 
 export { nativeHistoryBusy }
 
 export function createNativeHistoryRefresh(
-  ctx: RouterContext,
+  // 기록은 DB(데이터 쪽), 하네스 원본 읽기는 실행 쪽이다 — 두 호스트를 건너는 자리다(0324 F4).
+  ctx: Pick<RouterContext, 'db' | 'getCwd'> & AgentContext,
   runtime: {
     hasSession(sessionId: string): boolean
     hasRuntime(sessionId: string): boolean

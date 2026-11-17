@@ -19,7 +19,7 @@ interface RuntimeEntryDeps {
   supervisor: RuntimeSupervisor<ClientRef>
   lease: SessionChainLease<ClientRef>
   adapter: RuntimeSessionAdapter
-  buildExtensions: () => TurnExtensions
+  buildExtensions: () => TurnExtensions | Promise<TurnExtensions>
   // 핸들을 **인출한 순간** 호출자에게 공개한다. 반환값으로만 넘기면 이 함수가 그 뒤에서
   // throw 할 때(확장 조립) 호출자의 finally 가 닫을 대상을 못 본다.
   // `leaderTurn` 과 같은 축이다 — 등록·인출과 반납 조건 대입이 한 지점이어야 한다.
@@ -61,7 +61,8 @@ export async function acquireTurnRuntime(
     return { ok: false, runtime: null }
   }
 
-  const extensions = deps.buildExtensions()
+  // 프로젝트 지침은 데이터 호스트에서 읽어 온다(0324 EP-16).
+  const extensions = await deps.buildExtensions()
 
   // 살아 있는 채널을 내려야 하는 여섯:
   //  0210 worktree 소실 폴백 — cwd 는 spawn 인자라 살아 있는 프로세스를 새 경로로 돌릴 수 없다.
