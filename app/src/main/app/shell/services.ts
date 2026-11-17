@@ -7,6 +7,7 @@ import { createShellClient, type ShellClient } from '../agent-host/shell-client'
 import {
   SHELL_SERVICE_ARGS,
   isShellServiceName,
+  type ShellServiceContext,
   type ShellServiceImpl
 } from '../../../shared/shell-services'
 
@@ -45,9 +46,14 @@ export function createShellServiceServer(
       fail(`셸 서비스 인자가 틀렸다: ${name}`)
       return
     }
+    // 셸 → 호스트 통지는 요청을 보낸 호스트에게만 간다(그 호스트의 `reply` 다).
+    const context: ShellServiceContext = {
+      notifyLoginNavigated: (loginId, seq, url) =>
+        deps.reply({ type: 'login.navigated', loginId, seq, url })
+    }
     try {
       const method = deps.impl[name] as (...args: readonly unknown[]) => unknown
-      const value = await method(...(parsed.data as readonly unknown[]))
+      const value = await method(...(parsed.data as readonly unknown[]), context)
       deps.reply({ type: 'service.result', id: call.id, ok: true, value })
     } catch (error) {
       deps.onError?.(name, error)
