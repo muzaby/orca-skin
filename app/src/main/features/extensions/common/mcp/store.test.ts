@@ -83,3 +83,77 @@ describe('McpStore 캐시 (0092)', () => {
     )
   })
 })
+
+// 0324 EP-18 — MCP 서버의 인증값은 비밀 저장소(봉인 쓰기)에 두고 mcp.json 에는 변수 참조만 남는다.
+describe('McpStore 비밀 경로 (0324 EP-18)', () => {
+  beforeEach(() => {
+    readMcpFile.mockReset()
+    writeMcpFile.mockReset()
+    readMcpFile.mockReturnValue({ mcpServers: {} })
+  })
+  const VAR = 'ORCINUS_ORCA_MCP_API_AUTH'
+
+  it('비밀이 있는 서버만 hasAuth 다', async () => {
+    const map = new Map<string, string>()
+    const store = new McpStore(fakeSettings(), memorySecrets(map))
+    await store.add({ name: 'api', transport: 'http', url: 'https://x', auth: 'token-A' })
+    expect(map.get(VAR)).toBe('token-A')
+    expect(store.list()[0]).toMatchObject({ authEnvKey: VAR, hasAuth: true })
+    map.delete(VAR)
+    expect(store.list()[0]).toMatchObject({ authEnvKey: VAR, hasAuth: false })
+  })
+
+  it('인증값을 바꾸지 않은 수정은 저장된 비밀의 참조를 그대로 둔다', async () => {
+    const map = new Map<string, string>()
+    const store = new McpStore(fakeSettings(), memorySecrets(map))
+    await store.add({ name: 'api', transport: 'http', url: 'https://x', auth: 'token-A' })
+    await store.update({ id: 'api', url: 'https://y' })
+    expect(store.list()[0]).toMatchObject({ url: 'https://y', authEnvKey: VAR, hasAuth: true })
+    expect(map.get(VAR)).toBe('token-A')
+  })
+
+  it('변수 이름만 바꾸면 비밀을 새 이름으로 옮기고 옛 이름은 지운다', async () => {
+    const map = new Map<string, string>()
+    const store = new McpStore(fakeSettings(), memorySecrets(map))
+    await store.add({ name: 'api', transport: 'http', url: 'https://x', auth: 'token-A' })
+    await store.update({ id: 'api', authEnvKey: 'NEW_AUTH' })
+    expect(map.get('NEW_AUTH')).toBe('token-A')
+    expect(map.has(VAR)).toBe(false)
+    expect(store.list()[0]).toMatchObject({ authEnvKey: 'NEW_AUTH', hasAuth: true })
+  })
+
+  it('봉인 쓰기가 실패하면 추가가 실패하고 mcp.json 을 쓰지 않는다', async () => {
+    const secrets = memorySecrets()
+    secrets.set = async () => {
+      throw new Error('암호화를 사용할 수 없어 인증값을 저장할 수 없습니다.')
+    }
+    const store = new McpStore(fakeSettings(), secrets)
+    await expect(
+      store.add({ name: 'api', transport: 'http', url: 'https://x', auth: 'token-A' })
+    ).rejects.toThrow('암호화')
+    expect(writeMcpFile).not.toHaveBeenCalled()
+  })
+
+  it('서버를 지우면 다른 서버가 쓰지 않는 비밀만 지운다', async () => {
+    const map = new Map<string, string>()
+    const store = new McpStore(fakeSettings(), memorySecrets(map))
+    await store.add({
+      name: 'a',
+      transport: 'http',
+      url: 'https://a',
+      authEnvKey: 'SHARED_AUTH',
+      auth: 'shared-token'
+    })
+    await store.add({
+      name: 'b',
+      transport: 'http',
+      url: 'https://b',
+      authEnvKey: 'SHARED_AUTH',
+      auth: 'shared-token'
+    })
+    await store.remove('a')
+    expect(map.get('SHARED_AUTH')).toBe('shared-token')
+    await store.remove('b')
+    expect(map.has('SHARED_AUTH')).toBe(false)
+  })
+})
