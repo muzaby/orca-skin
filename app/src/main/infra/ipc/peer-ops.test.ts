@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createOpDispatcher, createRemoteOps, unknownOpError } from './peer-ops'
-import { createPeerLoopback } from './peer-loopback'
+import { createPeerLoopback } from './peer-loopback.testfixture'
 import { createPeerLink } from './peer-link'
 
 const flush = async (): Promise<void> => {

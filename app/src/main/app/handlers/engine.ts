@@ -17,7 +17,7 @@ import {
   readHarnessSettings,
   updateHarnessSettings
 } from '../../features/harnesses/common/settings-write'
-import type { RouterContext } from '../context'
+import type { AgentContext, HarnessConfigPort } from '../context'
 import { handle } from '../../infra/ipc/handle'
 import {
   canonicalProviderKey,
@@ -25,10 +25,9 @@ import {
   providerKeyOf
 } from '../../infra/config/provider-key'
 
-interface EngineHandlerContext extends Pick<RouterContext, 'deployExtensions'> {
-  harnessSettings: Pick<RouterContext['harnessSettings'], 'invalidateAll'>
-  harnessRuntime: Pick<RouterContext['harnessRuntime'], 'invalidate'>
-  runtimeModelCatalog: Pick<RouterContext['runtimeModelCatalog'], 'isReadOnly' | 'invalidate'>
+interface EngineHandlerContext extends Pick<AgentContext, 'deployExtensions'> {
+  // 설정 트리 캐시·실행 구성 캐시·카탈로그는 데이터 호스트에 있다(0324 F2).
+  harness: Pick<HarnessConfigPort, 'invalidate' | 'isReadOnly'>
 }
 
 async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): Promise<void> {
@@ -37,17 +36,15 @@ async function refreshHarnessSettings(ctx: EngineHandlerContext, key: string): P
       await ctx.deployExtensions({ throwOnFailure: true })
   } finally {
     // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
-    // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
-    ctx.harnessSettings.invalidateAll()
-    ctx.harnessRuntime.invalidate(key, 'harness-settings-crud')
-    await ctx.runtimeModelCatalog.invalidate(key)
+    // sourceRevision 기준 값을 warm hit 로 계속 돌려준다. 카탈로그도 함께 다시 맞춘다.
+    await ctx.harness.invalidate(key)
   }
 }
 
 export function registerEngineHandlers(ctx: EngineHandlerContext): void {
-  const assertMutable = (key: string): string => {
+  const assertMutable = async (key: string): Promise<string> => {
     const canonical = canonicalProviderKey(key, [...HARNESS_IDS])
-    if (ctx.runtimeModelCatalog.isReadOnly(canonical)) {
+    if (await ctx.harness.isReadOnly(canonical)) {
       throw new Error(`runtime-managed engine is read-only: ${canonical}`)
     }
     return canonical
@@ -57,7 +54,7 @@ export function registerEngineHandlers(ctx: EngineHandlerContext): void {
     CreateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      const canonical = assertMutable(providerKeyOf(req.engine, req.provider))
+      const canonical = await assertMutable(providerKeyOf(req.engine, req.provider))
       const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
       await refreshHarnessSettings(ctx, canonical)
       return result
@@ -69,7 +66,7 @@ export function registerEngineHandlers(ctx: EngineHandlerContext): void {
     UpdateEngineSchema,
     'reject',
     async (req): Promise<EngineWriteResult> => {
-      const canonical = assertMutable(req.key)
+      const canonical = await assertMutable(req.key)
       const result = updateHarnessSettings(req.key, req.settingsJson)
       await refreshHarnessSettings(ctx, canonical)
       return result
@@ -77,15 +74,20 @@ export function registerEngineHandlers(ctx: EngineHandlerContext): void {
   )
 
   handle(CHANNELS.engineDelete, DeleteEngineSchema, 'reject', async (req): Promise<void> => {
-    const canonical = assertMutable(req.key)
+    const canonical = await assertMutable(req.key)
     deleteHarnessSettings(req.key)
     await refreshHarnessSettings(ctx, canonical)
   })
 
-  handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {
-    assertMutable(req.key)
-    return readHarnessSettings(req.key)
-  })
+  handle(
+    CHANNELS.engineRead,
+    ReadEngineSchema,
+    'reject',
+    async (req): Promise<EngineReadResult> => {
+      await assertMutable(req.key)
+      return readHarnessSettings(req.key)
+    }
+  )
 
   handle(
     CHANNELS.engineImportUserSettings,

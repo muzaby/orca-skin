@@ -23,7 +23,8 @@ export function registerSessionResourceHandlers({
   draftCommands = async () => [],
   draftResources = async () => undefined,
   projectSync,
-  preparedMcp
+  preparedMcp,
+  prefetch
 }: {
   lookup: (sessionId: string) => GovernedLiveTurn | undefined
   configuredResources?: (sessionId: string) => Promise<NativeResource[] | undefined>
@@ -32,6 +33,8 @@ export function registerSessionResourceHandlers({
   draftResources?: (request: DraftNativeResourcesRequest) => Promise<NativeResource[] | undefined>
   projectSync?: ProjectResourceSync
   preparedMcp?: import('../harnesses/opencode/prepared-mcp-resources').PreparedMcpResources
+  // 요청을 처리하기 전에 — 세션 메타가 다른 프로세스에 있으면 동기 판정이 읽을 사본을 채운다(0324).
+  prefetch?: (request: ResourceRequest) => Promise<void>
 }): (request: ResourceRequest) => Promise<NativeResources> {
   const senders = new WeakSet<ClientRef>()
   const observations = new WeakMap<GovernedLiveTurn, NativeResources>()
@@ -148,6 +151,7 @@ export function registerSessionResourceHandlers({
     'reject',
     async (request, event): Promise<NativeResources> => {
       const { observation, ...scope } = request
+      await prefetch?.(scope)
       if (observation) {
         preparedMcp?.observe(event.sender.id, observation, scope)
         if (!senders.has(event.sender)) {

@@ -21,11 +21,10 @@ import {
 import {
   defaultModelFamily,
   modelNameForFamily,
-  permissionModelForFamily,
-  toAgentEnvironments
+  permissionModelForFamily
 } from '../../features/harnesses/common/models'
 import { harnessModule } from '../harnesses/registry'
-import { harnessAppEnv, prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
+import { prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 import { SPAWN_ENV_INJECTOR } from '../deployment/spawn-env'
 import { getLogger } from '../../infra/log'
 import { makeClassifiedError } from '../../infra/errors'
@@ -233,8 +232,11 @@ export async function resolveTurnProvider(
   }
 ): Promise<ResolvedTurnProvider> {
   const adapterEnvPatch = req.adapter.agentSpawnEnv(req.agentKind)
-  const settings = toAgentEnvironments(ctx.harnessSettings.list(req.adapter.id), [req.adapter.id])
-  const entries = ctx.runtimeModelCatalog.merge(settings, req.adapter.id).map((entry) => ({
+  const [merged, appEnv] = await Promise.all([
+    ctx.harness.environments([req.adapter.id], req.adapter.id),
+    ctx.harness.appEnv()
+  ])
+  const entries = merged.map((entry) => ({
     key: entry.key,
     harnessId: entry.adapter,
     modelProviderId: entry.provider ?? entry.key,
@@ -258,7 +260,7 @@ export async function resolveTurnProvider(
   if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
   if (!selected) selected = harnessModule(req.adapter.id).defaultProvider(entries)
   if (!selected) {
-    return { providerKey: null, prepared: unresolvedPrepared(ctx, adapterEnvPatch) }
+    return { providerKey: null, prepared: unresolvedPrepared(appEnv, adapterEnvPatch) }
   }
 
   // ── 실행 구성 해석은 **턴당 1회** (0188 D-019) ────────────────────────────────
@@ -270,11 +272,9 @@ export async function resolveTurnProvider(
     modelProviderId: selected.modelProviderId
   }
   // 런타임 관리 key 는 Gate 인증 때 1회 fetch 한 cache 만 읽는다 (D-008) — 턴마다 network 금지.
-  const config = ctx.runtimeModelCatalog.isReadOnly(selected.key)
-    ? ctx.harnessRuntime.cached(selected.key)
-    : await ctx.harnessRuntime.resolve(entry)
+  const config = await ctx.harness.runtimeConfig(entry)
   if (!config) throw new Error(`Runtime model cache is unavailable for "${selected.key}"`)
-  const prepared = prepareConfiguredHarnessInput(ctx, config, adapterEnvPatch)
+  const prepared = prepareConfiguredHarnessInput(appEnv, config, adapterEnvPatch)
 
   const catalog =
     req.adapter.catalog && prepared.providerSettings
@@ -288,7 +288,7 @@ export async function resolveTurnProvider(
   const models = catalog?.models ?? selected.models
   const modelFamily =
     req.modelFamily ??
-    (selected.key === meta?.provider_key ? meta.last_model : null) ??
+    (meta && selected.key === meta.provider_key ? meta.last_model : null) ??
     defaultModelFamily(models)
   const model = modelNameForFamily(models, modelFamily)
   const permissionModel = permissionModelForFamily(models, modelFamily)
@@ -307,11 +307,11 @@ export async function resolveTurnProvider(
 // Harness+ModelProvider entry 를 **못 고른** 턴의 spawn 입력.
 // 조립 규칙은 `prepareUnresolvedHarnessConfig` 가 소유한다.
 function unresolvedPrepared(
-  ctx: AgentContext,
+  appEnv: Record<string, string>,
   adapterEnvPatch: AdapterSpawnEnvPatch
 ): PreparedHarnessConfig {
   return prepareUnresolvedHarnessConfig({
-    appEnv: harnessAppEnv(ctx),
+    appEnv,
     baseEnv: processEnvRecord,
     customEnv: SPAWN_ENV_INJECTOR,
     adapterEnvPatch

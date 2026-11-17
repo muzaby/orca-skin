@@ -17,6 +17,8 @@ export interface SettingsMirror {
   // 데이터 호스트에 쓰기를 요청한다. 사본은 뒤따르는 패치 통지에서 바뀐다.
   patch(input: unknown): Promise<void>
   ready(): boolean
+  // 전체 사본을 받을 때마다(연결마다) 부른다.
+  onSnapshot(listener: (settings: Settings) => void): void
   // 피어 통지 `settings.snapshot` — 연결될 때마다 온다.
   applySnapshot(payload: unknown): void
   // 피어 통지 `settings.patch` — 바뀐 뒤의 전체와 바뀐 최상위 키.
@@ -28,6 +30,7 @@ export function createSettingsMirror(deps: {
 }): SettingsMirror {
   let current: Settings | null = null
   const listeners: SettingsPatchListener[] = []
+  const snapshotListeners: Array<(settings: Settings) => void> = []
 
   return {
     getAll() {
@@ -41,8 +44,13 @@ export function createSettingsMirror(deps: {
       await deps.requestWrite(input)
     },
     ready: () => current !== null,
+    onSnapshot(listener) {
+      snapshotListeners.push(listener)
+    },
     applySnapshot(payload) {
-      current = SettingsSchema.parse(payload)
+      const next = SettingsSchema.parse(payload)
+      current = next
+      for (const listener of snapshotListeners) listener(next)
     },
     applyPatch(payload) {
       const { settings, changedKeys } = payload as { settings: unknown; changedKeys: unknown }

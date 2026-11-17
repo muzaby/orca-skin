@@ -29,6 +29,8 @@ export interface ChatDeps {
   // 백그라운드 작업 기록의 복원 읽기. 기록(`persistence.persistProviderEvent`)과 같은 순서 안에서
   // 동기로 읽는다 — 턴 저장 스트림(0324 EP-15)과 함께 데이터 호스트로 옮긴다.
   loadBackgroundEvents: (sessionId: string) => BackgroundEvent[]
+  // 복원 읽기가 동기라, 기록이 다른 프로세스에 있으면 상태 요청 전에 사본을 채운다(0324).
+  prefetchBackgroundEvents?: (sessionId: string) => Promise<void>
   permissionModes: PermissionModeController
   pendingMessages: PendingMessageQueue
   backgroundTasks: BackgroundTaskTracker
