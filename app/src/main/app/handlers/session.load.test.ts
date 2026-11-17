@@ -23,7 +23,8 @@ vi.mock('../../infra/ipc/handle', () => ({
     _mode: unknown,
     callback: (req: { sessionId: string }) => unknown
   ) => callbacks.set(channel, callback),
-  handlePlain: vi.fn()
+  handlePlain: vi.fn(),
+  on: vi.fn()
 }))
 
 let db: Database.Database

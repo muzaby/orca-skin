@@ -365,9 +365,10 @@ export function check(options = {}) {
   const reach = (rule, entry) => {
     const seen = new Map() // file → 그 파일에 닿은 경로의 직전 파일
     const packages = []
+    const edges = [] // 값 import 한 줄마다 — 금지 구역으로 들어가는 자리를 판정한다
     if (!existsSync(join(root, entry))) {
       fail(rule, entry, 0, '진입점 파일이 없다')
-      return { seen, packages }
+      return { seen, packages, edges }
     }
     const queue = [entry]
     seen.set(entry, null)
@@ -381,13 +382,16 @@ export function check(options = {}) {
           fail(rule, file, imp.line, `\`${imp.specifier}\` 를 파일로 풀 수 없다`)
         } else if (target.package) {
           packages.push({ file, line: imp.line, name: target.package })
-        } else if (target.file && !seen.has(target.file)) {
-          seen.set(target.file, file)
-          queue.push(target.file)
+        } else if (target.file) {
+          edges.push({ from: file, to: target.file, line: imp.line })
+          if (!seen.has(target.file)) {
+            seen.set(target.file, file)
+            queue.push(target.file)
+          }
         }
       }
     }
-    return { seen, packages }
+    return { seen, packages, edges }
   }
   const trail = (seen, file) => {
     const path = []
@@ -420,17 +424,35 @@ export function check(options = {}) {
   ]) {
     if (!graph) continue
     const host = reach('e', graph.entry)
+    const inZone = (file) =>
+      inAny(file, graph.dirs ?? []) &&
+      !inAny(file, graph.exceptDirs ?? []) &&
+      !(graph.exceptFiles ?? []).includes(file)
+    if (graph.entryFiles) {
+      // 금지 구역에는 등록한 입구 파일로만 들어간다. 구역 안의 import 는 자유다 — 그 모듈들이 끌어오는
+      // 것은 아래 `files`(구현 파일)와 `packages`(SDK·프로세스 기동)가 막는다.
+      for (const edge of host.edges) {
+        if (inZone(edge.from) || !inZone(edge.to) || graph.entryFiles.includes(edge.to)) continue
+        found('e', edge.from, edge.line, `${label}: ${edge.to}`, false)
+        fail(
+          'e',
+          edge.from,
+          edge.line,
+          `(${label})에서 등록 밖 입구로 닿는다: ${trail(host.seen, edge.from)} → ${edge.to}`
+        )
+      }
+    }
     for (const file of host.seen.keys()) {
-      const banned =
-        inAny(file, graph.dirs ?? []) && !inAny(file, graph.exceptDirs ?? [])
-          ? true
-          : (graph.files ?? []).includes(file)
-      if (!banned) continue
+      const banned = graph.entryFiles ? false : inZone(file)
+      if (!banned && !(graph.files ?? []).includes(file)) continue
       found('e', file, 0, `${label}: ${trail(host.seen, file)}`, false)
       fail('e', file, 0, `(${label})에서 닿는다: ${trail(host.seen, file)}`)
     }
     for (const pkg of host.packages) {
-      if (!graph.packages.some((name) => packageMatches(pkg.name, name))) continue
+      const name = graph.packages.find((candidate) => packageMatches(pkg.name, candidate))
+      if (!name) continue
+      // 패키지를 열어도 되는 등록 파일(에이전트 호스트의 범용 SQLite 열기 — 하네스 자체 DB).
+      if ((graph.packageFiles?.[name] ?? []).includes(pkg.file)) continue
       found('e', pkg.file, pkg.line, `${label}: ${pkg.name}`, false)
       fail(
         'e',

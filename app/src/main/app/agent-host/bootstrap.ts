@@ -392,7 +392,7 @@ export class AgentBootstrap implements HostAssembly {
     )
     this.register()
     // 데이터 호스트가 필요한 기동 일 — 연결될 때마다(첫 연결에서 배포).
-    this.mirror.onSnapshot(() => {
+    this.mirror.onReplaced(() => {
       if (!this.firstConnection) return
       this.firstConnection = false
       registerSettingsReactions(this.mirror, {

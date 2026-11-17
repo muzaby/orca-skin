@@ -20,7 +20,8 @@ vi.mock('../../infra/ipc/handle', () => ({
     _mode: unknown,
     callback: (request: { sessionId: string }) => Promise<unknown>
   ) => callbacks.set(channel, callback),
-  handlePlain: vi.fn()
+  handlePlain: vi.fn(),
+  on: vi.fn()
 }))
 import { registerSessionHandlers } from './session'
 

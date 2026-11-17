@@ -28,6 +28,7 @@ vi.mock('../../features/harnesses/common/settings-write', () => ({
   readHarnessSettings: vi.fn()
 }))
 import { registerEngineHandlers } from './engine'
+import { engineContext } from '../data-host/data-port.testfixture'
 
 let root: string
 const invoke = (payload?: unknown): Promise<unknown> =>
@@ -41,12 +42,14 @@ beforeEach(() => {
   h.home = root
   vi.stubEnv('XDG_CONFIG_HOME', '')
   h.handlers.clear()
-  registerEngineHandlers({
+  registerEngineHandlers(
+    engineContext({
     deployExtensions: vi.fn(),
     harnessSettings: { invalidateAll: vi.fn() },
     harnessRuntime: { invalidate: vi.fn() },
     runtimeModelCatalog: { isReadOnly: () => false, invalidate: vi.fn(async () => {}) }
-  })
+    })
+  )
 })
 afterEach(() => {
   vi.unstubAllEnvs()
