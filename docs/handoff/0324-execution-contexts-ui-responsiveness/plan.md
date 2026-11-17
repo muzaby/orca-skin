@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.6 — §7-K: verify 1회째 `PLAN_GAP` 2건 정정 — D1(빈 첫 조각) 채택 · D2(D-007 의 5ms 조항) → D-057 + AC51. AC 50 → 51(AC16 → AC16′ · AC51 신규), CHANGED 노드 3(R-01′·MD-02′·AT-16′) · NEW 1(AT-51) · pair 3(VP-01′·VP-05″·VP-16′) · §10 EP-6′(2자리) · EP-25(5자리) · 인용 좌표 표류 8행 정정(AC20′·AC49 검증 수단 · EP-9 규칙 칸 · EP-22′ · B17′ 포함) · 선언 경계 B35~B37. rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.7 — §7-L: verify 2회째 `PLAN_GAP` 3건 — F1(AC51 "값은 적지 않는다"에 oracle 없음) 채택 → AC51′ 숫자 규칙(fail-closed) · F2(part 0 메시지 입력 없음) 채택 → EP-6″ 두 분기 · AC16″ · F3(뜻 문장 맞바꿈) → 경계 B38 — CHANGED 노드 4(AT-16″·AT-51′·MD-02″·UT-02″) · pair 3(VP-01″·VP-05‴·VP-16″) · §10 EP-6″(2) · EP-25′(6) · 등록 변이 X6·X7·v1·v2·k1·k2 · 선언 경계 B38·B39. §7-M: 사용자 실측 결함(sandbox preload 의 `require("zod")` → 빈 창) · 사용자 결정 2건 — 얇은 preload 전환(D-058, D-026 대체) · preload 실패 화면(D-059) — NEW 노드 8 · CHANGED 2 · pair 7(VP-48~51 · VP-21″ · VP-23″ · VP-24′) · §10 EP-26(7) · EP-27(5) · EP-28(5) · EP-29(4) · EP-8″(5) · EP-1 (h)′ · 등록 변이 P1~P5·S1~S4·B1·B2·H1 · 선언 경계 B40~B45. AC 51 → 53(AC52·AC53 신규 · AC16′ → AC16″ · AC24′ → AC24″ · AC51 → AC51′). 열거를 늘릴 수 있는 마지막 설계 턴(verify 2회째 뒤). rev 4.6 — §7-K: verify 1회째 `PLAN_GAP` 2건 정정 — D1(빈 첫 조각) 채택 · D2(D-007 의 5ms 조항) → D-057 + AC51. AC 50 → 51(AC16 → AC16′ · AC51 신규), CHANGED 노드 3(R-01′·MD-02′·AT-16′) · NEW 1(AT-51) · pair 3(VP-01′·VP-05″·VP-16′) · §10 EP-6′(2자리) · EP-25(5자리) · 인용 좌표 표류 8행 정정(AC20′·AC49 검증 수단 · EP-9 규칙 칸 · EP-22′ · B17′ 포함) · 선언 경계 B35~B37. rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -77,7 +77,7 @@
 | D-023 | git·셸 같은 도구 프로세스는 에이전트 호스트가 띄운다 | 띄우는 코드(`infra/git`·`infra/shell`)가 호스트로 가고, VS Code 도 git 을 확장 호스트에서 띄운다 | 턴 9-1 + 설계자 | ACTIVE | — |
 | D-024 | 설계에서 갈리는 곳은 범용적인 대응을 따른다 | "설계관점에서 범용적인 대응을 따른다" | 턴 9-3 | ACTIVE | — |
 | D-025 | DB 쓰기 주체는 **에이전트 호스트** 하나다. 데이터 호스트는 읽기 전용이다 | 쓰기 호출 287곳(§8)이 동기 API 를 쓴다 — 쓰기를 다른 프로세스에 두면 전부 비동기 요청이 된다. 쓰는 코드와 쓰기 연결을 같은 프로세스에 두는 것이 단일 쓰기 주체의 범용형이다 | 설계자(D-024 적용) | SUPERSEDED | D-035 (턴 16 B 채택) |
-| D-026 | 포트는 preload 가 갖는다. renderer 코드가 쓰는 `window.oo` API 는 바뀌지 않는다 | 포트를 페이지의 메인 월드에 내주지 않는다. renderer 변경을 전송 계층에 가둔다 | 설계자 | ACTIVE | — |
+| D-026 | 포트는 preload 가 갖는다. renderer 코드가 쓰는 `window.oo` API 는 바뀌지 않는다 | 포트를 페이지의 메인 월드에 내주지 않는다. renderer 변경을 전송 계층에 가둔다 | 설계자 | SUPERSEDED | D-058 (2026-11-17 사용자 결정 — 포트는 renderer 전송층으로. `window.oo` 형상 불변 조항은 D-058 이 잇는다) |
 | D-027 | 이번에 만드는 수명 이벤트는 다섯 가지다(턴 시작·턴 종료·승인 대기·세션 종료·하네스 종료). 하네스 훅의 등록 계약은 0323 이 이 위에 만든다 | 0323 D-001·D-002 가 그 계약의 범위다 | 설계자 | ACTIVE | — |
 | D-028 | 프로세스 사이 호출과 화면 갱신의 경로를 문서(`AGENTS.md` 포함)에 적고, 경로를 건너뛴 직접 호출을 기계로 막는다 | "이를 준수할 것을 강력하게 제한할 것 … 직접 호출하는 일이 앖도록" | 턴 10 | ACTIVE | — |
 | D-014 | diff 줄 계산은 두 입력의 줄 수 합이 **400** 이하면 UI 스레드에서, 넘으면 워커에서 한다. 넘는 입력의 도구 카드 머리 증감 수는 표시하지 않는다 | 작은 diff 마다 로딩 표시가 깜빡이지 않게 한다. 2,546줄·절반 변경이 415ms 다(§8) | 설계자 | ACTIVE (사용자 거부 가능 — 화면 동작 변경) | — |
@@ -110,9 +110,15 @@
 | D-055 | 기동 중인 호스트가 준비를 알리지 않은 채 셸과 **90초** 동안 메시지를 주고받지 않으면 셸이 그 호스트를 끝내고 기동 실패 1회로 센다(연속 3회면 부팅 오류 — EP-19 그대로). 데이터 호스트가 알린 DB 단계(열기·백업·마이그레이션·복구) 동안은 세지 않는다 | 사용자 승인 — r1.15~r1.17 보고 "준비 제한 시간 도입 여부: 지금은 시작을 끝내지 못하는 호스트가 있으면 부팅이 영원히 멈춥니다" 에 "3건 승인". 값·DB 단계 제외·메시지마다 다시 잡기는 범용 대응(D-024) — systemd `DefaultTimeoutStartSec` 90초 · `EXTEND_TIMEOUT_USEC`. DB 단계를 세면 큰 DB 의 마이그레이션 백업(`VACUUM INTO`)이 끊겨 다시 떠도 끝나지 못한다(§7-J 조사) | 사용자 2026-11-17 + 설계자(D-024 적용) | ACTIVE (값·DB 단계 제외는 사용자 거부 가능) | — |
 | D-056 | renderer 에 호스트 수명 통지 `window.oo.hosts.onLifecycle`(`exited`·`reconnected`)을 더한다(추가분) — 기존 `window.oo` 형상은 그대로다 | AC29′·AC33′ 의 전달 수단(r1.14 설계자 확인 1건). D-052 와 같은 추가분 | 설계자 · r1.14 · 사용자 승인 2026-11-17 "3건 승인" | ACTIVE | D-026 의 추가분 예외 |
 | D-057 | D-007 의 "UI 스레드에 남는 반복 작업은 5ms 마다 양보" 는 UI 스레드(renderer 메인 · 셸)에서 **시간 조각으로 나눠 여러 태스크에 걸쳐 도는 작업**에 걸린다. 한 번에 끝나는 작업(이벤트 처리 · 프레임마다 모은 델타 비우기 · 스토어 반영)은 D-007 의 50ms·160ms 와 D-008 이 맡는다. 지금 그런 작업은 React 의 지연 렌더뿐이고 직접 나눠 도는 코드는 0이다. 규칙은 실행 모델 문서에 강제 수단 `강제 없음` 으로 적고, 간격의 정본은 `shared/perf-budget.ts` `UI_YIELD_INTERVAL_MS` 다 — 직접 나눠 도는 작업을 새로 만들 때 쓴다 | verify 1 D2 — D-007 조항에 대응 AC 가 없었고 상수는 참조 0 이었다. 적용 대상은 D-007 의 근거 행(§4-A React scheduler `frameYieldMs = 5` · VS Code 배경 토큰화)과 같은 형태다. 설치된 scheduler 0.27.0 도 `frameInterval = 5` 다(§7-K 조사) | 설계자(D-007 적용) · verify 1 | ACTIVE (사용자 거부 가능) | D-007 의 적용 범위·강제 수단을 정함 |
+| D-058 | preload 는 얇은 다리다 — 셸 채널 요청·송신·구독(셸 채널만) · 호스트 연결 요청과 종료 통지 · 포트 전달(셸이 넘긴 포트를 `window.postMessage` 로 페이지 메인 월드에 넘긴다) · 파일 경로 · `platform` 만 갖고 `window.ooBridge` 로 노출한다. 호스트 포트·채널 소유 표·포트 클라이언트·세션 조각 조립·메시지 검증(zod)은 renderer 전송층(`renderer/src/shared/api/transport/`)이 갖고, renderer 가 다리 위에 지금과 같은 형상의 `window.oo` 를 만든다. preload 는 `electron` 과 zod 없는 shared 상수만 import 하고, 빌드 산출의 `require` 가 `electron` 하나인지 빌드 뒤 검사가 본다 | 사용자 실측 — sandbox preload 의 `require` 가 `zod` 를 거부해 창이 비었다(§7-M 조사 1·2). 2026-05-13 같은 결함 뒤의 TRD 정책은 관례로만 남았다(조사 4). 구조도(AS-IS · TO-BE)를 본 뒤 "0324에 얇은 preload 전환 포함". 포트를 페이지에 넘기면 전송 코드가 renderer 번들(zod 사용 가능)로 가고 contextBridge 복사가 빠진다 | 사용자 2026-11-17 + 실측 결함 | ACTIVE | D-026 대체 — `window.oo` 형상 불변 조항과 D-052 · D-056 의 추가분을 같은 형상으로 잇는다 |
+| D-059 | preload 가 다리를 노출하지 못하면(`window.ooBridge` 없음) 창은 비지 않고 고정 실패 화면을 보인다 — provider 를 띄우지 않고 다리를 읽지 않는다. 문구는 원인(창과 앱을 잇는 구성 요소를 불러오지 못함)과 할 일(다시 실행 · 계속되면 다시 설치)이다 | 실측 결함에서 preload 가 죽자 provider 가 첫 호출에서 죽고, error boundary 가 없어 트리 전체가 내려갔다. 질문 "`window.oo`가 없을 때 오류 화면을 보이는 대비"에 "이번 0324에 포함" | 사용자 2026-11-17 | ACTIVE (문구·형태는 사용자 거부 가능) | — |
 
 ### 갱신 메모
 
+- 사용자 실측 결함 · 결정 2건(rev 4.7, §7-M): sandbox preload 가 `require("zod")` 에서 죽어 창이 빈다는 보고를 받았고, 사용자가 구조도를 본 뒤 얇은 preload 전환을 0324 에 넣기로 했다(D-058 — D-026 대체). preload 실패 화면도 이번에 넣는다(D-059). AC 51 → 53(AC52 · AC53 신규 · AC24′ → AC24″).
+- rev 4.7(§7-M) `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-058 ↔ AC52 · AC24″(호스트 채널은 전송층 → 포트) · D-026 의 형상 불변 조항(D-058 이 잇는다) ↔ AC24″ "`window.oo` 형상 그대로" · D-052 · D-056(추가분) ↔ AC17 · EP-27 ④ · D-059 ↔ AC53 · D-009(대체 계산 없음) ↔ AC53(오류 표시만) · D-028(경로 문서 + 기계 강제) ↔ EP-28 · EP-1 (h)′ · D-011 ↔ AC16″(조립 위치만 옮긴다).
+- verify 2회째(rev 4.7, §7-L): `RETURN_TO_PLAN` 의 `PLAN_GAP` 3건을 §7-L 에서 정했다 — F1(plan 내부 정합) 채택: AC51′ 숫자 규칙(fail-closed) · F2(확장 · 창 안) 채택: part 0 메시지 두 분기(EP-6″ · AC16″) · F3(확장 · 창 안) → 경계 B38. 새 결정 0 — 셋 다 검증 범위 판단이다. 열거 원문을 늘릴 수 있는 마지막 설계 턴이다.
+- rev 4.7 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-011 ↔ AC16″(조립된 한 벌을 한 번 받는다 — 점진 표시 없음 그대로, part 0 규칙은 조각 경계만 정한다) · D-057 ↔ AC51′(적용 대상 `시간 조각`·강제 수단 `강제 없음` 그대로) · D-007 ↔ AC51′(기준값의 정본은 `perf-budget.ts` 그대로 — 숫자 규칙이 문서 사본을 막는다).
 - verify 1회째(rev 4.6): `RETURN_TO_PLAN` 의 `PLAN_GAP` 2건을 §7-K 에서 정정했다 — D1(확장 후보 · 창 안) 채택: 조각 분할 규칙 칸에 첫 메시지 상한 초과 분기 · D2(plan 내부 정합): D-057 신규 + AC51. 같은 절에서 인용 좌표 표류 8행을 정정하고(파일 이동·삭제 뒤 남은 이름) 선언 경계 B35~B37 을 더했다. AC 50 → 51.
 - rev 4.6 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-007 ↔ AC5·AC6·AC7(50·160·관측 창) · AC51(5ms — 적용 대상과 강제 수단은 D-057) · D-057 ↔ AC51 · D-011 ↔ AC16′(조각을 보지 않는 renderer 가 조립된 한 벌을 한 번 받는다 — 점진 표시 없음 그대로) · D-055 ↔ AC50(B35·B36 은 기존 동작을 적은 경계 — 기준 그대로) · D-045 ↔ AC49(검증 수단 파일 이름만).
 - 사용자 결정(rev 4.5): "3건 승인" — 준비 제한 시간 도입(D-055 신규) · D-049 승인(상태만) · `window.oo.hosts` 추가분 승인(D-056 신규). §7-J — AC 49 → 50(AC50), 노드 R-13·AR-16·MD-11 · pair VP-45~47 · §10 EP-24(12자리) · 선언 경계 B33·B34.
@@ -1472,6 +1478,348 @@ AC 총수 50 → **51**.
 - 선택 적대 증거: VP-01′ 변이 5(차집합 대조의 방향) · VP-16′ 변이 1(C1 — verify 1 의 못 잡음).
 - 선언 경계 B35·B36·B37 은 조사 3~6·8·9행의 측정이고, B17′ 은 두 근거 줄을 `rg` 로 확인했다.
 - 인용 기존 테스트 실재: `data-host.test.ts` 케이스 이름 7 · `preload/session-load.test.ts:53`·`:94` · `host-port-server.test.ts:66`·`:93`·`:120`·`:151` — `grep -n "it("` 로 확인했다.
+
+## 7-L. V1 rev 4.7 정정 — verify 2회째 `PLAN_GAP` 3건(값 없음 술어 · part 0 메시지 · 뜻 문장 경계)
+
+**판정: READY.** 출처는 verify 2회째(`verify.md` R2-13 · `[검증자 기입]` V2-F1~F3)다. F1(plan 내부 정합)은 AC51 의 "값은 적지 않는다"에 숫자 술어를 정해 oracle 을 달고(AC51′), F2(확장 · 창 안)는 part 0 메시지 입력 둘을 규칙 칸에 채택하며(EP-6″ · AC16″), F3(확장 · 창 안)은 경계 B38 로 선언한다. verify 2회째 뒤의 이 턴이 열거 원문을 늘릴 수 있는 마지막 설계 턴이다 — 이후 새 열거 항목은 출처(현재 결함 · plan 내부 정합 · 사용자 결정)를 적는다.
+
+### 조사
+
+| # | 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---|---:|---|
+| 1 | 절의 숫자 (F1) | `awk '/^## 멈춤 계측/{f=1;next} f&&/^## /{f=0} f' docs/arch/execution-model.md \| grep -nE "[0-9]"` | 2줄 | `:107` `기록 1건만` · `:110` `(0324 D-057)`. 기준값은 0 — r2 설계 리뷰 2행과 같다 |
+| 2 | 숫자 술어 후보 (F1) | EP-25 케이스의 `stallSection` 사본 + "줄마다 `\(0\d{3} D-\d{3}\)` 를 지운 뒤 `[0-9]` 가 남은 줄" 사본을 문서 원문·변이·합성 문장에 돌렸다(설계 측정, 저장소 밖) | — | 지금 절 1줄(`1건`) · `1건` → `하나` 뒤 0 · X4 1 · 합성 `(50ms)` 1 · 합성 `1건` 1 · 합성 출처 표기 0. 출처 표기 꼴을 괄호 전체(`\([^)]*\)`)로 넓히면 X4 와 합성 `(50ms)` 가 0 으로 빠진다 |
+| 3 | 절의 수 낱말 (F1) | 같은 awk \| `grep -noE "(한\|두\|세\|네) [가-힣]+\|하나\|둘\|셋\|넷\|다섯\|여러\|오십\|백\|천"` | 6 | `두 호스트` · `한 작업` ×2 · `하나` · `여러` · `한 번에` — 기준값이 아니다 |
+| 4 | 상수 이름의 숫자 (F1) | `rg -n "^export const [A-Z][A-Z0-9_]*_MS\b" app/src/shared/perf-budget.ts` | 4 | 이름 넷에 숫자 0 — ⑥ 이 이름을 막지 않는다 |
+| 5 | part 0 메시지 생산 (F2) | `rg -n "parts: \[\]" app/src/main app/src/shared --glob '!*.test.*' --glob '!*testfixture*'` | 3 | 끝까지 part 0 인 것은 `adapters/claude/native-history-map.ts:186`(이미지만 보낸 사용자 턴) 하나다. `:215` 와 `features/history/native-projection.ts:20` 은 바로 part 를 넣는다 |
+| 6 | part 0 메시지의 도달 (F2) | `native-projection.ts:37-44`(snapshot 메시지를 그대로 옮김) → `features/history/reader.ts:31` → `app/data-host/session-load.ts:73` | 1 경로 | 요청 번호가 있는 로드는 크기와 무관하게 `splitSessionMessages` 를 지난다(`session-load.ts:71-73`) |
+| 7 | 분할 가드 변이 (F2) | `shared/data-host.ts:44-63` 원문 사본에 C1·X6·X7 을 심어 입력별로 돌렸다(설계 측정, 저장소 밖) | — | `0·700`: 원문 `[[0],[700]]` · X6 `[[0,700]]`. `700·0`: 원문 `[[700],[0]]` · X7 `[[700]]`(C1 도 구별). EP-6′ 입력 6개는 X6·X7 을 구별하지 못한다 — verify 2 의 3,699 green 과 같다 |
+| 8 | X7 의 화면 결과 (F2) | `session-load.ts:87` `chunked.messages: session.messages.length` ↔ `assembleSession` 메시지 수 대조(`data-host.ts:85-86`) | 1 | 끝의 part 0 메시지가 조각에서 빠지면 조립이 던져 세션이 열리지 않는다 |
+| 9 | 뜻 문장 ↔ 코드 (F3) | 절 `execution-model.md:105-107`·`:109-110` ↔ `perf-budget.ts:4`·`:6`·`:8-10`·`:12` 주석 · `stallSeverity` `:24-25` | 4/4 같음 | 지금 트리의 맞바꿈 0. 판정 분기는 `stall-monitor.test.ts` '지연 %dms → %s'(49·50·159·160) · '한 창에 표본이 셋이어도 기록은 최댓값 1건이다' 가 잠근다 |
+| 10 | 후보 표 겹침 | `grep -n "data-host\|execution-model\|check-ui-thread\|perf-budget\|session-load" docs/handoff/INDEX.md` | 0 | 이번에 닿는 파일과 겹치는 후보 행 없음 |
+
+### 결정
+
+- **F1 → 채택(oracle 을 단다).** AC51′ — 절 안의 아라비아 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나오고, 그 밖의 숫자는 모두 red 다(fail-closed). 단위·괄호·코드 꼴을 하나씩 열거하는 술어는 열린 입력 집합이라 닫히지 않는다(조사 2행 — 넓은 괄호 꼴이 X4 를 놓친다). 문서의 `기록 1건만` 은 `기록 하나만` 으로 고친다(뜻 그대로).
+- F1 을 검증자 대조로 내리지 않은 이유: 절 스스로 "값은 적지 않는다"를 선언하고, 이름 대조(①~④ — 양성)의 짝인 음성 쪽이며, 판정이 숫자 하나로 닫힌다.
+- **F2 → 채택.** EP-6″ 규칙 칸에 `0·700` · `700·0` 두 분기를 더하고, AC16″ 은 "빈 조각 = 메시지 0개"와 part 0 메시지 규칙을 동작 기준에 적는다. "빈 조각"을 part 0 조각으로 읽으면 `0·700` 의 기대가 X6 의 결과(`[[0,700]]`)로 뒤집히기 때문이다. production 변경 없음 — 가드 둘은 이미 맞다(verify 2 R2-2).
+- **F3 → 경계 B38.** 뜻 문장은 산문이고 뜻의 정본(판정 분기)은 `perf-budget.ts` 와 `stall-monitor.test.ts` 가 잠근다(조사 9행). 낱말 대조로 잠그려면 절을 고정 형식으로 바꿔야 하고, 그래도 맞바꿈 말고는 잡지 못한다.
+- 새 Decision 0 — 셋 다 검증 범위 판단이라 이 절에 둔다. ACTIVE 결정의 내용은 그대로다.
+
+### Requirements / Acceptance — rev 4.7
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-05 | AT-16″ / AC16″ | 한 조각은 part 500개를 넘지 않는다. part 가 500개를 넘는 메시지 하나는 혼자 한 조각이다 — 앞뒤의 part 0 메시지(이미지만 보낸 사용자 턴)도 그 조각에 들지 않는다. 빈 조각(메시지 0개)은 없다 — 첫 메시지가 상한을 넘어도 그 메시지가 첫 조각이다. 조각을 이어 붙이면 입력 메시지 전부다 — 끝의 part 0 메시지도 빠지지 않는다. renderer 는 조각을 보지 않고, 마지막 조각 뒤 조립된 본문 한 벌을 한 번 받는다 | `shared/data-host.test.ts` — EP-6″ 규칙 칸 분할 8분기(part 0 두 분기는 구현자 작성: `0·700` → `[[0],[700]]` · `700·0` → `[[700],[0]]`, 둘 다 이어 붙이면 입력) · 조립 좌표 둘은 AC16′ 의 같은 케이스를 §7-M 이 옮긴 자리 — `renderer/src/shared/api/transport/session-load.test.ts` '요청마다 번호를 싣고, 그 번호의 조각을 순서대로 한 벌로 조립한다' · '조각이 빠진 응답은 거부한다 — 일부만 조립한 본문을 돌려주지 않는다' | `native-history-map.ts:186`(part 0 생산) → `reader.ts` `loadSession` → 데이터 `session-load.ts` `splitSessionMessages` → 조각 통지 → renderer 전송층 `createSessionLoadClient` 조립(§7-M) → `sessionApi.load` → `chatStore.loadSession` |
+| R-01′ | AT-51′ / AC51′ | 실행 모델 문서의 `## 멈춤 계측` 절은 `shared/perf-budget.ts` 의 `*_MS` 상수를 전부, 그리고 그것만 이름으로 가리킨다. 값은 적지 않는다 — 절 안의 아라비아 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다(정본은 그 파일이다). `UI_YIELD_INTERVAL_MS` 가 나오는 문단은 적용 대상 `시간 조각`(UI 스레드에서 나눠 도는 작업)과 강제 수단 `강제 없음` 을 적는다(D-057) | `scripts/check-ui-thread.test.mjs` '실제 트리' — EP-25 케이스(`:771`, 자리 ①~⑤) 그대로 + ⑥ 새 케이스 1(구현자 작성): 합성 3분기 + 실제 트리 → 숫자 남은 줄 0 · 선택 적대 증거 m1~m5 · v1 · v2 · k1 · k2 | 에이전트의 진입 순서 `AGENTS.md` → `execution-model.md` `## 멈춤 계측` → `shared/perf-budget.ts` |
+
+AC 총수 51 그대로(AC16′ → AC16″ · AC51 → AC51′).
+
+### Node · Pair — rev 4.7 (Baseline V1 의 rev 정정, 새 Delta V 아님)
+
+| Node | 수준 | 내용 | provenance | 출처 |
+|---|---|---|---|---|
+| AT-16″ | AT | AC16″ | CHANGED | AT-16′ · F2 |
+| AT-51′ | AT | AC51′ | CHANGED | AT-51 · F1 |
+| MD-02″ | MD | 조각 분할 — part 0 메시지 두 분기(상한 초과 메시지 앞 · 끝)를 더한다 | CHANGED | MD-02′ · F2 |
+| UT-02″ | UT | EP-6″ 규칙 칸 | CHANGED | UT-02′ · F2 |
+
+| Pair | 좌 ↔ 우 | requiredness | production path | 직접 oracle (자리별 좌표) | 선택 적대 증거 | 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-01″ | R-01′ ↔ AT-01·AT-51′ | REQUIRED | VP-01′ 그대로 | AT-01: VP-01′ 그대로 · AT-51′: EP-25 케이스(자리 ①~⑤) + ⑥ 새 케이스(구현자 작성, 자리 ⑥) | required — 차집합·음성 대조라 방향을 변이로 본다: m1~m5 · v1 · v2 · k1 · k2(아래 EP-25′) | EP-25′ (6) |
+| VP-05‴ | R-05 ↔ AT-15·AT-16″·AT-17·AT-18′~AT-20′ | REQUIRED | VP-05″ 그대로 | VP-05″ 그대로 + AC16″ 의 part 0 좌표 둘 | not selected — 행동 oracle | EP-4′ (10) · EP-6″ (2) |
+| VP-16″ | MD-02″ ↔ UT-02″ | REQUIRED | `shared/data-host.ts` `splitSessionMessages` · `assembleSession` | `shared/data-host.test.ts` — EP-6″ 규칙 칸(분할 8 · 조립 5) | required — C1 + verify 2 가 못 잡음으로 관측한 X6 · X7(아래 EP-6″) | EP-6″ (2) |
+
+- 대체: VP-01′ → VP-01″ · VP-05″ → VP-05‴ · VP-16′ → VP-16″. 대체된 pair 의 AC·증거는 새 pair 가 그대로 넘겨받는다(VP-01′ 의 doc-inventory gate·m1~m5 · VP-05″ 의 AC15~AC20′ 좌표 · VP-16′ 의 11분기·C1).
+- 좌 노드 R-01′(§7-K)·R-05(§7)는 INHERITED — 요구는 그대로이고 인수 기준의 문장·oracle 만 바뀐다. 우 노드가 바뀐 pair 라 REQUIRED 로 다시 닫는다.
+- 영향받은 INHERITED 상위: 없음 — production 코드 변경 0(테스트 2파일 · 문서 1낱말).
+
+### 강제 지점 — rev 4.7
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| MD-02″ / VP-16″·VP-05‴ **EP-6″** | EP-6′ + part 0 메시지도 메시지 하나다 — 상한 초과 메시지 앞뒤에 있어도 그 조각에 들지 않고, 끝에 있어도 빠지지 않는다 | 2자리 — EP-6′ 그대로(분할 `splitSessionMessages` · 조립 `assembleSession`) | EP-6′ 그대로 → 2(`data-host.ts:44`·`:73`) | EP-6′ + 상한 초과 메시지가 혼자가 아니다 / 끝 조각이 빠져 조립이 던지고 세션이 열리지 않는다 |
+| R-01′·AT-51′ / VP-01″ **EP-25′** | EP-25 + 절은 값을 적지 않는다 — 숫자는 출처 표기 `(0NNN D-NNN)` 에만 | 6자리 — ①~⑤ EP-25 그대로 / ⑥ 절 본문의 숫자 | EP-25 명령 둘 그대로 · `awk '/^## 멈춤 계측/{f=1;next} f&&/^## /{f=0} f' docs/arch/execution-model.md \| grep -nE "[0-9]"` → 지금 2줄(`:107`·`:110`) · 4w 뒤 1줄(`:110` 출처 표기) | EP-25 + 기준값이 문서에 복제돼 정본과 갈린다. 게이트가 green 인 채로 남는 차이: 뜻 문장(B38) · 숫자를 낱말로 적은 값과 출처 표기 꼴 안의 숫자(B39) |
+
+**EP-6″ 규칙 칸** (`shared/data-host.test.ts` — EP-6′ 를 대체, 분기 11 → 13):
+
+| 분기 | 입력 | 기대 | 좌표 |
+|---|---|---|---|
+| 분할 — 합 ≤ 500 | 메시지 50 × 10 part | 조각 1 = 입력 그대로 | 'part 합이 500 이하인 세션은 조각 하나다' |
+| 분할 — 상한 넘김 | 120 × 10 | 500·500·200 · 이어 붙이면 입력 | '1,200 part(메시지당 10)는 조각 셋이고 각 조각은 500 part 를 넘지 않는다' |
+| 분할 — 상한에 딱 맞음 | 250·250·1 | 500·1 | '상한에 딱 맞는 다음 메시지는 같은 조각에 들어간다' |
+| 분할 — 가운데 메시지가 상한 초과 | 10·700·10 | 10·700·10 · 가운데 조각 = 그 메시지 하나 | 'part 700 인 메시지 하나는 혼자 한 조각이다' |
+| 분할 — 첫 메시지가 상한 초과 | 700·10 | 700·10 — 빈 조각 없음 | '첫 메시지가 상한을 넘어도 빈 조각은 없다 — 그 메시지가 첫 조각이다' |
+| 분할 — **part 0 메시지 뒤 상한 초과 (F2 · `:53` 가드)** | 0·700 | 조각 둘 — 조각마다 메시지별 part 수 `[[0],[700]]`(상한 초과 메시지는 혼자) · 이어 붙이면 입력 | 구현자 작성 |
+| 분할 — **상한 초과 뒤 끝의 part 0 메시지 (F2 · `:61` 끝 조각)** | 700·0 | 조각 둘 — `[[700],[0]]`(끝 메시지가 남는다) · 이어 붙이면 입력 | 구현자 작성 |
+| 분할 — 메시지 0 | `[]` | 조각 0 | '메시지가 없으면 조각이 없다' |
+| 조립 — 정상 | 120 × 10 의 조각 3 | 원래 세션과 같다 | '분할한 조각을 조립하면 원래 세션과 같다' |
+| 조립 — 빈 세션 | 머리의 조각 수 0 · 조각 `[]` | 메시지 `[]` | '메시지가 없는 세션은 조각 없이 조립된다' |
+| 조립 — 조각 수 · 순서 · 메시지 수 어긋남 | 조각 하나 뺌 · 순서 바꿈 · 마지막 조각의 메시지 하나 뺌 | 각각 던진다(문장 셋) | it.each '%s → 던진다' 3행 |
+
+- part 0 메시지는 테스트 픽스처 `message(0, …)` 로 만든다(`parts: []`). 기대는 `chunks.map((chunk) => chunk.map((m) => m.parts.length))` 꼴로 단언한다 — 조각마다 part 합(`partCount`)은 part 0 메시지가 어느 조각에 드는지를 구별하지 못한다(예: `0·0·700` 의 `[[0],[0,700]]` 과 `[[0,0],[700]]` 은 합이 둘 다 `[0, 700]`).
+
+등록 변이 — VP-16″ 선택 적대 증거(자리 `shared/data-host.ts`):
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 분기 |
+|---|---|---|---|
+| C1 | `:53` | `current.length > 0 &&` 제거 | 첫 메시지 상한 초과 · 끝의 part 0 |
+| X6 | `:53` | `current.length > 0` → `parts > 0` | part 0 뒤 상한 초과 |
+| X7 | `:61` | `current.length > 0` → `parts > 0` | 끝의 part 0 |
+
+**EP-25′ 규칙 칸** (`check-ui-thread.test.mjs` '실제 트리' — EP-25 의 4분기 그대로 + ⑥ 3분기):
+
+| 분기 | 입력 | 기대 |
+|---|---|---|
+| ①~⑤ | EP-25 규칙 칸 그대로(실제 트리 · m1~m5) | EP-25 그대로 |
+| ⑥ 출처 표기는 숫자로 세지 않는다 | 합성 `양보한다(0324 D-057).` · 실제 트리(4w 뒤) | 숫자 남은 줄 0 |
+| ⑥ 괄호 안 단위 붙은 값 | 합성 `` `UI_TASK_BUDGET_MS`(50ms) `` | 그 줄을 낸다 |
+| ⑥ 맨 숫자 | 합성 `기록 1건만 남는다` | 그 줄을 낸다 |
+
+- ⑥ 판정: 절 본문(EP-25 의 `stallSection` 범위)을 줄로 나눠 줄마다 `\(0\d{3} D-\d{3}\)` 를 지우고, `[0-9]` 가 남은 줄을 모은다. 남은 줄이 있으면 실패하고 그 줄을 낸다.
+- 합성 입력은 실제 트리와 무관하게 분기를 잠근다 — 실제 트리에는 괄호 안 값이 없어 넓은 괄호 꼴(k2)을 구별하지 못한다(조사 2행).
+
+등록 변이 — VP-01″ 선택 적대 증거(EP-25 의 m1~m5 에 더한다):
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 분기 |
+|---|---|---|---|
+| v1 | `execution-model.md:105` | `` `UI_TASK_BUDGET_MS` `` 바로 뒤에 `(50ms)`(= verify 2 X4) | 괄호 안 단위 붙은 값 |
+| v2 | `execution-model.md:107` | 4w 를 되돌린다(`기록 하나만` → `기록 1건만`) | 맨 숫자 |
+| k1 | ⑥ 판정(구현자 작성 줄) | 출처 표기를 지우는 단계를 없앤다 | 출처 표기 |
+| k2 | ⑥ 판정(구현자 작성 줄) | 출처 표기 꼴을 `\([^)]*\)`(괄호 전체)로 넓힌다 | 괄호 안 단위 붙은 값 |
+
+**선언 경계** (rev 4.7):
+
+- B38 — 멈춤 계측 절의 뜻 문장(기준마다 무엇을 재는가 — 멈춤 · 심각 · 관측 창 · 양보 — 과 React 지연 렌더 설명)은 검증자 대조다. EP-25′ 가 잠그는 것은 이름 집합(①~④) · 양보 문단의 두 낱말(⑤) · 숫자(⑥)뿐이라 뜻 맞바꿈(verify 2 s1)은 green 으로 남는다. 지금 트리의 뜻 문장 넷은 코드와 같고(조사 9행) EP-25 실패 의미 칸의 경계 문장("문단의 나머지 표현(React 지연 렌더 설명)은 검증자 대조다")은 이 경계가 대체한다.
+- B39 — ⑥ 은 아라비아 숫자만 본다. 숫자를 낱말로 적은 값(`오십`)은 세지 않는다 — 지금 절의 수 낱말(조사 3행)은 기준값이 아니다. 출처 표기 꼴 안의 숫자는 값으로 세지 않고, 다른 출처 꼴(`(0087~0089)` 범위 · 번호만 `(0324)`)과 숫자가 든 상수 이름은 지금 절·코드에 없다(조사 1·4행) — 생기면 ⑥ 이 막고(fail-closed) 그때 허용 꼴을 더한다.
+
+### 구현 설계 — rev 4.7
+
+| 단계 | 파일 | AS-IS → TO-BE |
+|---|---|---|
+| 4v | `app/src/shared/data-host.test.ts` | 분할 입력이 모두 part ≥ 1 → EP-6″ part 0 두 분기 2케이스(`0·700` · `700·0`) — 조각마다 메시지별 part 수와 `chunks.flat()` = 입력을 단언한다. production 변경 없음 |
+| 4w | `docs/arch/execution-model.md:107` | `기록 1건만 남는다` → `기록 하나만 남는다`. 다른 문장 그대로 |
+| 4x | `app/scripts/check-ui-thread.test.mjs` '실제 트리' | 이름 집합 · 양보 문단만 대조 → ⑥ 새 케이스 1: 위 판정을 합성 3분기와 실제 트리에 돌리고, 실패 메시지에 숫자가 남은 줄을 낸다 |
+
+- 운영 gate 는 §7-A 표 그대로다 — 문서가 바뀌므로 `check-doc-inventory --check` 가 걸린다.
+- 4w 와 4x 는 같은 커밋이다 — 4w 없이 4x 를 넣으면 실제 트리 단언이 `:107` 로 실패한다(조사 2행).
+
+### 대체 범위
+
+§7-K AC16′ → AC16″ · AC51 → AC51′ · VP-01′ → VP-01″ · VP-05″ → VP-05‴ · VP-16′ → VP-16″ · EP-6′ 규칙 칸 → EP-6″ · EP-25 → EP-25′(⑥ 추가 · 실패 의미 칸의 경계 문장 → B38·B39) · §3 갱신 메모에 rev 4.7 두 줄. EP-22′ · B35~B37 · AC20′·AC49 의 정정 좌표는 그대로다.
+
+### READY self-review — rev 4.7 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — §3 갱신 메모 rev 4.7 줄.
+- 분모: EP-6″ 2(검색 → `data-host.ts:44`·`:73`) · EP-25′ 6(검색 → `perf-budget.ts:5`·`:7`·`:11`·`:13` + 문단 `execution-model.md:109` + 숫자 줄 `:107`·`:110`, 4w 뒤 `:110` 하나) — 이번 턴에 돌렸다.
+- 규칙 칸 ↔ 입력 칸: EP-6″ 13분기 ↔ 기존 케이스 8(분할 6 · 조립 2) + it.each 3 + 구현자 2 · EP-25′ ⑥ 3분기 ↔ 합성 3 + 실제 트리 1.
+- CHANGED 4(AT-16″·AT-51′·MD-02″·UT-02″) ↔ REQUIRED pair 3 — AT-16″ ↔ VP-05‴ · AT-51′ ↔ VP-01″ · MD-02″·UT-02″ ↔ VP-16″. 영향받은 INHERITED 상위 0(production 코드 변경 0).
+- 선택 적대 증거: VP-16″ C1·X6·X7 — 사본 재현으로 새 입력이 변이마다 결과를 바꿈을 봤다(조사 7행) · VP-01″ m1~m5·v1·v2·k1·k2 — k2 는 합성 입력만 구별한다(조사 2행).
+- 선언 경계 B38·B39 는 조사 1·3·4·9행의 측정이다. 경계로 돌린 F3 의 형태(뜻 맞바꿈)는 지금 트리에 0 이다.
+- 인용 실재: `data-host.ts:53`·`:61` · `execution-model.md:105`·`:107`·`:109`·`:110` · `check-ui-thread.test.mjs:771` · `stall-monitor.test.ts` '지연 %dms → %s' · 기존 케이스 이름 8(`data-host.test.ts` `it(` 줄 `:33`·`:40`·`:47`·`:54`·`:61`·`:65`·`:75`·`:81`) — 이번 턴 `grep -n`·`sed -n` 으로 확인했다.
+- 동결: 이 턴 뒤 새 열거 항목은 출처를 적는다 — verify 3회째부터 확장 후보는 후보 표로 간다(`AGENTS.md` §판정 범위와 운영 gate).
+
+## 7-M. V1 rev 4.7 — 얇은 preload 전환 · preload 실패 화면 (사용자 실측 결함 · 사용자 결정 2건)
+
+**판정: READY.** 출처는 사용자 실측 결함(2026-11-17 — sandbox 창의 preload 가 `require("zod")` 에서 죽어 빈 창)과 사용자 결정 둘("0324에 얇은 preload 전환 포함" · preload 실패 화면 "이번 0324에 포함")이다. 현재 결함 + 사용자 결정이라 동결 규칙의 출처를 갖고, §7-L 과 같은 rev 4.7 로 확정한다. 비교 그림은 설계 중 사용자에게 보인 구조도(AS-IS · TO-BE)다.
+
+### 조사
+
+| # | 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---|---:|---|
+| 1 | 실측 결함 재현 | `npx electron-vite build` → `grep -oE 'require\("[^"]+"\)' out/preload/*.js \| sort \| uniq -c` | 2 | `electron` 1 · `zod` 1. 2행이 `const zod = require("zod")` 다(산출 42,025 B) |
+| 2 | sandbox 흉내 실행 | 산출을 `vm` 에서 `require` 는 `electron` 만 주고 나머지는 `module not found: <id>` 로 던지게 실행(설계 측정, 저장소 밖 사본) | — | 지금 산출 `module not found: zod` — 사용자 보고와 같은 문장. 비교용 번들 수정안(`externalizeDeps: false`)은 `oo` 를 노출했다(산출 190,338 B) |
+| 3 | zod 가 preload 에 들어오는 길 | `preload/host-port.ts:8` `HostToClientSchema` · `preload/session-load.ts:11` `SessionLoadChunkSchema` · `preload/index.ts:4-9` `HOST_*_CHANNEL`(`shared/host-protocol.ts`) | 3 | 상수만 가져와도 그 파일의 최상위 zod 평가가 번들에 남는다 — 지금 산출에 쓰이지 않는 `SessionLoadCancelSchema` 의 `zod.z.object(...)` 가 남아 있다 |
+| 4 | 같은 결함의 이력 | `git log origin/main -S"Preload 안전 import 정책" -- docs/TRD.md` → `e2e7a281`(2026-05-13) · `rg -n "out/preload" app/scripts .github` | 1 · 0 | 그때는 상수만 필요한 preload 를 zod 없는 `shared/ipc.ts` 로 고쳤고 TRD §5.3 정책이 됐다. 산출을 보는 자동 검사는 0 |
+| 5 | 지금 preload 의 표면 | `wc -l app/src/preload/{index,host-port,session-load}.ts` · `oo` 객체 읽기 | 556·161·99 | `oo` 최상위 29묶음. 채널 한 줄이 아닌 멤버 5 — `hosts.onLifecycle` · `files.pathForFile`(`webUtils`) · `session.load`·`refresh`·`cancelLoad`(조각 조립) · `log.*`(크기 상한 뒤 `logEmit`) · `platform` |
+| 6 | preload 의 Electron 호출 | `rg -n "ipcRenderer\.(invoke\|send\|on\|off)\(\|exposeInMainWorld\|webUtils\." app/src/preload --glob '!*.test.*'` | 12 | 옛 전송 자리 — 구현 뒤 EP-26 ①~⑦ 로 줄어든다 |
+| 7 | 셸의 포트 전달·연결 처리 | `app/shell/electron-hosts.ts:58` `contents.postMessage(HOST_PORT_CHANNEL, { host }, [port])` · `:70-80` | 1 · 1 | `{host:'all'}` → `detach`+`attach`(두 호스트 새 포트) · `{host:'agent'}` → `connectAgent`. 창이 연결을 요청하기 전에는 포트를 보내지 않는다 |
+| 8 | contextBridge 복사 | `node_modules/electron/electron.d.ts:7047` | 1 | 값은 월드 사이에서 복사된다 — 조립한 세션 본문과 턴 이벤트가 지금은 격리 월드 → 메인 월드로 한 번 더 복사된다(크기는 재지 않았다) |
+| 9 | preload 를 읽는 테스트·설정·가드 | `src/preload/{index,host-port,session-load,harness}.test.ts` · `channel-registration.test.ts:74` · `product-identity.test.ts:326` · `tsconfig.web.json:7` · `tsconfig.test.json:4` · `check-ui-thread.mjs:268-276` | 671·287·159·53줄 · 1 · 1 · 1 · 1 · 1 | 구독 채널을 preload 소스에서 읽는 테스트 · N3 대표 자리(`exposeInMainWorld('oo', oo)` · `oo: OoApi`) · `src/preload/*.d.ts` 참조 · 규칙 (h) |
+| 10 | renderer 쪽 조건 | `vitest.config.ts:14` `environment: 'node'` · `eslint.config.mjs:66` 경계 요소 `src/renderer/src/**` · `shared/api/ipc.ts:95` · `shared/channel-owner.ts:12` | — | node 에 `MessageChannel` 있음 · renderer 가 `src/shared` 값을 import 한다 · `channel-owner.ts` 는 `./ipc` 만 import(zod 0) |
+| 11 | `window.oo` 를 먼저 두는 곳 | `rg -n "window\.oo\s*=" app/src app/scripts --glob '!*.test.*'` | 1 · 3 | production 은 preload 의 비격리 분기(`index.ts:555`) 하나 · 시각 픽스처 3(`harness-entry/main.tsx:107` · `opencode-ui/native.ts:94` · `composer-picker-visual.tsx:9`) |
+| 12 | 이 구조를 적은 문서 | `grep -n preload` 대상 문서 | 13 | `TRD.md:17`·`:218` · `IPC_CONTRACT.md:19`·`:37`·`:264` · `execution-model.md:43`·`:51`·`:54`·`:71`·`:74` · `GLOSSARY.md:68` · `frontend/rendering.md:111` · `frontend/layers.md:83` |
+| 13 | 창 끌기 · 렌더 테스트 선례 | `app/FullFrameShell.tsx:8` `WebkitAppRegion: 'drag'` · `app/tweakConsumers.render.test.ts:3` `renderToStaticMarkup` | 1 · 1 | 실패 화면은 다리 없이 그릴 수 있어야 한다 — `FullFrameShell`·`WinControls` 는 `window.oo` 를 부른다 |
+
+### 결정
+
+- **D-058**(§3 Ledger, D-026 대체) — preload 는 얇은 다리다. 호스트 포트·채널 소유 표·포트 클라이언트·조각 조립·zod 검증은 renderer 전송층(`renderer/src/shared/api/transport/`)이 갖고, renderer 가 다리 위에 지금과 같은 형상의 `window.oo` 를 만든다.
+- **D-059**(§3 Ledger) — 다리가 없으면 고정 실패 화면.
+- 번들 수정(`externalizeDeps: false`)은 쓰지 않는다. 얇은 preload 에는 서드파티 의존이 없고, 기본값(의존을 밖에 둔다)을 두면 의존이 새로 들어올 때 산출에 `require` 가 생겨 EP-28 이 red 가 된다 — 정책 위반이 보인다.
+- `HOST_*_CHANNEL` 상수는 zod 없는 `shared/host-channels.ts` 로 옮긴다(조사 3행). `host-protocol.ts` 는 다시 내보내 셸·호스트의 import 는 그대로다.
+- 포트는 renderer 가 `message` 수신을 등록한 뒤 연결을 요청해 받는다 — 셸은 연결 요청 전에는 포트를 보내지 않는다(조사 7행).
+
+### Requirements / Acceptance — rev 4.7 (얇은 preload)
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-14 | AT-52 / AC52 | `sandbox: true` 창에서 preload 가 끝까지 실행돼 다리 `window.ooBridge` 를 한 번 노출하고 화면이 뜬다. 빌드 산출 `out/preload/` 의 `require` 는 `require("electron")` 하나뿐이고 `import(` 는 없다. 다리는 셸 채널 요청·송신·구독 · 호스트 연결 요청과 종료 통지 · 파일 경로 · `platform` 만 갖고, 셸 채널이 아닌 이름은 거부한다. 호스트 포트는 페이지 메인 월드의 전송층에서 끝나고 renderer 는 다리 위에 지금과 같은 형상의 `window.oo` 를 만든다 | `gate:node scripts/smoke-preload.mjs out/preload`(빌드 뒤 · CI) · `scripts/smoke-preload.test.mjs`(EP-28 규칙 칸) · `src/preload/index.test.ts`(EP-26 규칙 칸) · `renderer/src/shared/api/transport/install.test.ts`(EP-27 규칙 칸) · 사람 실기 — AC23 실기에서 창에 본 화면이 뜬다 | `electron.vite.config.ts` preload → `out/preload/index.js` → `webPreferences.preload`(`main/index.ts:221`, `sandbox: true`) → `exposeInMainWorld('ooBridge')` → `main.tsx` `installOo` → `window.oo` → provider |
+| R-15 | AT-53 / AC53 | preload 가 다리를 노출하지 못하면(`window.ooBridge` 없음) 창은 비지 않고 고정 실패 화면을 보인다 — `role="alert"`, 제목 `앱 창을 연결하지 못했습니다.` · 본문 `창과 앱을 잇는 구성 요소를 불러오지 못했습니다. 앱을 종료하고 다시 실행해 주세요. 계속되면 앱을 다시 설치해 주세요.`(en 번역 함께). provider·라우터를 띄우지 않고 `window.oo`·`window.ooBridge` 를 읽지 않는다. 다리가 있으면 지금처럼 앱을 띄운다 | `transport/install.test.ts`(다리 없음 → `missing`) · `app/rootElement.test.ts`(진입 선택) · `app/BridgeMissingScreen.render.test.ts`(EP-29 규칙 칸) · `gate:npm run typecheck`(문구 키 ko·en — `en: typeof ko`) | `main.tsx` → `installOo()` = `missing` → `rootElement` → `BridgeMissingScreen` |
+| R-08 | AT-24″ / AC24″ | 모든 요청 채널은 셸·에이전트 호스트·데이터 호스트 중 정확히 한 곳이 처리한다. 호스트 채널은 renderer 전송층 → 그 호스트 포트로 가고 main JS 와 preload 를 지나지 않는다. 셸 채널은 preload 다리 → `ipcRenderer` 로 간다. `window.oo` 형상 그대로 | `channel-owner.ts` typecheck · `transport/oo.test.ts` — 소유자별 전송 1 · 나머지 0(요청·송신·구독 — 옮긴 `preload/index.test.ts` 케이스, 이름 그대로) · `src/preload/index.test.ts` — 다리는 셸 채널만 연다 · `channel-registration.test.ts` | `window.oo.*` → 전송층 → 포트 / 다리 → 셸 |
+
+AC 총수 51 → **53**(AC52 · AC53 신규, AC24′ → AC24″).
+
+검증 수단 칸만 바뀌는 행(동작 기준 그대로 — 테스트가 옮겨 가고 케이스 이름은 유지한다):
+
+| AC | 옛 좌표 | rev 4.7 의 좌표 |
+|---|---|---|
+| AC17 | `preload/session-load.test.ts` 취소 케이스 | `transport/session-load.test.ts` '취소하면 번호를 실어 통지하고, 그 요청의 늦은 조각을 버리며, 다른 요청은 정상이다'(나머지 수단 그대로) |
+| AC33′ | `preload/host-port.test.ts`(포트 교체) | `transport/host-port.test.ts` '옛 포트에서 기다리던 요청을 거부하고 옛 포트를 닫는다 · 이후 요청은 새 포트로 (AC33′)'(나머지 그대로) |
+| AC29′·AC33′ 의 전달 수단(D-056) | `preload/index.test.ts` '호스트 수명 통지 — 종료와 그 뒤의 새 포트만 알리고, 구독 해제 뒤에는 알리지 않는다' | `transport/install.test.ts` 같은 이름 |
+
+### Node · Pair — rev 4.7 (얇은 preload, Baseline V1 의 rev 정정)
+
+| Node | 수준 | 내용 | provenance | 출처 |
+|---|---|---|---|---|
+| R-14 | R | sandbox 창에서 preload 가 뜨고 화면이 뜬다 | NEW | 실측 결함 · D-058 |
+| AT-52 | AT | AC52 | NEW | D-058 |
+| R-15 | R | preload 실패 화면 | NEW | D-059 |
+| AT-53 | AT | AC53 | NEW | D-059 |
+| AR-17 | AR | preload 다리 ↔ renderer 전송층 경계 — 다리 허용 · 포트 전달 · 연결 순서 · `window.oo` 설치(EP-26 · EP-27) | NEW | D-058 |
+| IT-17 | IT | EP-26 · EP-27 규칙 칸 | NEW | D-058 |
+| MD-12 | MD | preload 산출 검사(`smoke-preload`) 판정 — 대조 · sandbox 흉내 실행 · 노출 판정(EP-28) | NEW | D-058 |
+| UT-12 | UT | EP-28 규칙 칸 | NEW | D-058 |
+| AR-06″ | AR | 채널 소유 표와 전송 선택 — 선택은 renderer 전송층, preload 다리는 같은 표로 셸 채널만 연다(EP-8″) | CHANGED | AR-06′ · D-058 |
+| AT-24″ | AT | AC24″ | CHANGED | AT-24′ · D-058 |
+
+| Pair | 좌 ↔ 우 | requiredness | production path | 직접 oracle (자리별 좌표) | 선택 적대 증거 | 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-48 | R-14 ↔ AT-52 | REQUIRED | 빌드 → preload 산출 → sandbox 창 → 다리 → `installOo` → `window.oo` → 화면 | `gate:node scripts/smoke-preload.mjs out/preload` · 사람 실기(AC23 — VP-07 과 함께) | not selected — 실제 산출을 실행하는 행동 oracle | EP-26 (7) · EP-27 (5) |
+| VP-49 | AR-17 ↔ IT-17 | REQUIRED | 다리 ↔ `ipcRenderer`(셸 채널) · 셸 `postMessage(port)` → 다리 → `window.postMessage` → 전송층 수신 → `attachPort` · `connectHost` | `src/preload/index.test.ts`(EP-26 규칙 칸) · `transport/install.test.ts`(EP-27 규칙 칸) | required — 걸러 내기가 빠져도 정상 흐름은 통과한다: P1~P5(아래) | EP-26 (7) · EP-27 (5) |
+| VP-50 | MD-12 ↔ UT-12 | REQUIRED | `scripts/smoke-preload.mjs` `checkPreloadOutput` → CLI 종료 코드 | `scripts/smoke-preload.test.mjs`(EP-28 규칙 칸 11분기) | required — 열린 입력을 판정하는 검사기(fail-closed)라 방향을 변이로 본다: S1~S4(아래) | EP-28 (5) |
+| VP-51 | R-15 ↔ AT-53 | REQUIRED | `main.tsx` → `installOo` → `rootElement` → `BridgeMissingScreen` | `transport/install.test.ts`(missing) · `app/rootElement.test.ts` · `app/BridgeMissingScreen.render.test.ts`(EP-29 규칙 칸) | required — B1 · B2(아래) | EP-29 (4) |
+| VP-21″ | R-08 ↔ AT-24″·AT-25~AT-33′ | REQUIRED | 창(renderer 전송층) → 호스트 포트 → 핸들러 / 다리 → 셸 서비스 / 수명 통지 / 피어 | AC24″~AC33′ 의 테스트 | required — 소유 표의 에이전트 채널 1개를 `'data'` 로 → `transport/oo.test.ts` red | EP-8″ · EP-9 · EP-10′ · EP-11 · EP-19 |
+| VP-23″ | AR-06″ ↔ IT-06″ | REQUIRED | `CHANNELS` → `channel-owner.ts` → 전송층 선택 · 다리 판정 → 세 등록 | `gate:npm run typecheck` · `transport/oo.test.ts` · `src/preload/index.test.ts` · `channel-registration.test.ts` | VP-21″ 과 같다 + P1 | EP-8″ (5) |
+| VP-24′ | AR-07 ↔ IT-07 | REQUIRED | `sendChatEvent`·`broadcast*` → `ClientRef.send` → 창 포트 → 전송층 구독 분배 | `send.test.ts` + `transport/oo.test.ts` | not selected | EP-9 (4) |
+
+- 대체: VP-21′ → VP-21″ · VP-23′ → VP-23″ · VP-24 → VP-24′. 대체된 pair 의 AC·증거는 새 pair 가 넘겨받는다 — 옮긴 테스트는 케이스 이름을 유지한다. VP-32 는 그대로이고 규칙 칸 (h) 에 입력 하나를 더한다(아래 EP-1 (h)′).
+- 인용 좌표만 바뀐 pair: VP-09′(`transport/session-load.test.ts`) · VP-05‴(§7-L — AC16″ 조립 좌표).
+- 영향받은 INHERITED 상위: VP-07(AC22 · AC23 사람 실기) — 빌드 산출과 창 쪽 전송이 바뀐다. 실기는 이 변경 뒤 산출로 한다.
+
+### 강제 지점 — rev 4.7 (얇은 preload)
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| AR-17·R-14 / VP-49·VP-48 **EP-26** | preload 는 다리만 노출한다 — import 는 `electron` · `shared/ipc` · `shared/channel-owner` · `shared/host-channels` 뿐 | 7자리 — ① `exposeInMainWorld('ooBridge', bridge)` 1회(다른 키 0) ② 셸 채널 판정(`channelOwner(channel) === 'shell'` 이 아니면 던진다 — `invoke`·`send`·`on` 셋이 지난다) ③ 포트 전달(`HOST_PORT_CHANNEL` → `window.postMessage({ type: HOST_PORT_MESSAGE, host }, '*', [port])`, host 는 agent·data · 포트 1 일 때만) ④ `connectHost(host)` → `ipcRenderer.send(HOST_CONNECT_CHANNEL, { host })`(host 는 all·agent·data) ⑤ `onHostExited(handler)`(agent·data 만 전달 · 해제 함수) ⑥ `pathForFile` → `webUtils.getPathForFile` ⑦ `platform` → `process.platform` | `rg -n "exposeInMainWorld\|ipcRenderer\.(invoke\|send\|on\|off\|removeListener)\(\|webUtils\.\|postMessage\(\|process\.(platform\|contextIsolated)\|channelOwner\(" app/src/preload --glob '!*.test.*'` — 구현 보고에 줄마다 ①~⑦ 을 적는다. 어느 자리에도 들지 않는 줄은 이행 결함 | 셸 채널 밖 이름이 `ipcRenderer` 로 나간다 / 포트가 페이지에 닿지 않아 호스트 요청이 영원히 대기한다 / 엉뚱한 호스트를 다시 띄운다 |
+| AR-17·R-14 / VP-49·VP-48 **EP-27** | renderer 전송층이 다리 위에 `window.oo` 를 만들고 포트를 받는다 | 5자리 — ① `installOo(win)` 세 분기(`present` — `win.oo` 가 이미 있으면 그대로 · `missing` — `win.ooBridge` 가 없으면 아무것도 하지 않음 · `installed`) ② 포트 수신 걸러 내기(`event.source === win` · `data.type === HOST_PORT_MESSAGE` · host 가 agent·data · 포트 1 → `hosts[host].attachPort`) ③ 연결 순서(수신 등록 뒤 `connectHost('all')` 1회) ④ 수명 통지(`onHostExited` → `hostExited()` + `exited` · 죽었던 호스트의 새 포트 → `reconnected` · 첫 포트는 통지 없음) ⑤ 재연결 요청(포트 클라이언트의 `requestConnect` → `connectHost(host)`) | `rg -n "window\.oo\s*=\|ooBridge\|addEventListener\('message'\|connectHost\(\|onHostExited\(" app/src/renderer/src --glob '!*.test.*'` — 구현 보고에 줄마다 ①~⑤ | 포트를 못 받아 요청이 영원히 대기한다 / 다른 창(iframe)이 보낸 포트가 붙는다 / 첫 포트를 잃는다 / 첫 연결을 재연결로 알려 세션을 다시 읽는다 |
+| MD-12 / VP-50 **EP-28** | preload 산출 검사 — fail-closed | 5자리 — ① 대조(산출 `.js` 마다 `\brequire\b` 가 모두 `require("electron")` 꼴 · `import(` 0) ② 흉내 `require`(`electron` 만 — 그 밖은 `module not found: <id>`) ③ 실행 전역(`process`(platform · contextIsolated) · `console` · 타이머 · `queueMicrotask` · `window` · `MessageChannel` 만 — 그 밖은 ReferenceError) ④ 노출 판정(`exposeInMainWorld` 1회 · 키 `ooBridge` · 다리 키 7) ⑤ CLI(발견을 모두 출력하고 하나라도 있으면 종료 코드 1) | 구현 뒤 `rg -n "^export function\|exitCode\|process\.exit\(" app/scripts/smoke-preload.mjs` | sandbox 에서 죽는 preload 가 CI 를 통과한다. 게이트가 green 인 채로 남는 차이: B40 |
+| R-15 / VP-51 **EP-29** | 다리가 없으면 실패 화면 | 4자리 — ① `installOo` 의 `missing`(EP-27 ① 과 같은 함수) ② `rootElement(install, app)`(missing → `BridgeMissingScreen` · installed·present → `app`) ③ `BridgeMissingScreen`(`role="alert"` · 문구 키 둘 · 창 끌기 영역 · `window` 의 다리를 읽지 않음) ④ 문구 키 `boot.bridgeMissingTitle`·`boot.bridgeMissingBody`(ko·en) | 구현 뒤 `rg -n "BridgeMissingScreen\|bridgeMissing" app/src/renderer/src --glob '!*.test.*'` | preload 가 죽으면 빈 창이다 / 다리가 있어도 실패 화면이 뜬다 |
+| AR-06″ / VP-23″ **EP-8″** | 채널마다 처리 프로세스가 하나 | 5자리 — 전송층 선택(`channelOwner`) · 다리 판정(EP-26 ②) · 셸 등록 · 에이전트 등록 · 데이터 등록 | `rg -n "channelOwner\|CHANNEL_OWNER" app/src --glob '!*.test.*'` → 구현 뒤 정의(`shared/channel-owner.ts`) 밖 2줄(전송층 1 · 다리 1). 등록 3자리는 `channel-registration.test.ts` 가 그래프로 본다 | EP-8′ 그대로 |
+
+**EP-26 규칙 칸** (`src/preload/index.test.ts` — 새로 쓴다. `electron` 을 흉내 내고 `exposeInMainWorld` 가 받은 다리를 부른다):
+
+| 분기 | 입력 | 기대 |
+|---|---|---|
+| ① 노출 | 모듈 로드(`contextIsolated` true) | `exposeInMainWorld` 1회 · 키 `ooBridge` · 다리 키 7(`invoke`·`send`·`on`·`connectHost`·`onHostExited`·`pathForFile`·`platform`) |
+| ② 셸 채널 | `invoke(CHANNELS.bootWhenReady)` · `send(CHANNELS.logEmit, x)` · `on(CHANNELS.updateStateEvent, h)` 와 그 해제 | `ipcRenderer.invoke` · `send` · `on` 각 1 · 해제가 `off` 1 |
+| ② 호스트 채널 거부 | `invoke(CHANNELS.chatSend)`(에이전트) · `send(CHANNELS.sessionLoadCancel, x)`(데이터) · `on(CHANNELS.chatEvent, h)`(에이전트) | 각각 던진다 · `ipcRenderer` 호출 0 |
+| ② 표에 없는 이름 | `invoke('oo:nope')` | 던진다 · 호출 0 |
+| ③ 포트 전달 | `HOST_PORT_CHANNEL` 이벤트 `{ host: 'agent' }` + 포트 1 | `window.postMessage({ type: HOST_PORT_MESSAGE, host: 'agent' }, '*', [port])` 1 |
+| ③ 버림 | host 없음 · `'shell'` · 포트 0 | `postMessage` 0 |
+| ④ 연결 요청 | `connectHost('all')` · `('agent')` · `('data')` | `ipcRenderer.send(HOST_CONNECT_CHANNEL, { host })` 각 1 |
+| ④ 거부 | `connectHost('shell')` | 던진다 · `send` 0 |
+| ⑤ 종료 통지 | `onHostExited(h)` 뒤 `HOST_EXITED_CHANNEL` `{ host: 'data' }` · `{ host: 'x' }` · 해제 뒤 `{ host: 'agent' }` | h 가 `'data'` 로 1회 · 나머지 0 |
+| ⑥ 파일 경로 | `pathForFile(file)` | `webUtils.getPathForFile(file)` 의 값 |
+| ⑦ platform | — | `process.platform` 값 |
+
+**EP-27 규칙 칸** (`renderer/src/shared/api/transport/install.test.ts` — `win` 흉내(`message` 이벤트 대상 · `oo` · `ooBridge` 자리)와 흉내 다리, 포트는 Node `MessageChannel`):
+
+| 분기 | 입력 | 기대 |
+|---|---|---|
+| ① 다리 있음 | `win.ooBridge` = 흉내 다리 · `win.oo` 없음 | `installed` · `win.oo` 최상위 키가 지금 preload `oo` 의 29묶음과 같다 · `win.oo.platform` = 다리의 값 |
+| ① 이미 있음 | `win.oo` 가 먼저 있다 | `present` · `win.oo` 그대로 · 다리 호출 0 |
+| ① 다리 없음 | 둘 다 없음 | `missing` · `win.oo` 를 두지 않는다 · 수신 등록 0 |
+| ② 포트 수신 | `message` — `source: win` · `data: { type: HOST_PORT_MESSAGE, host: 'agent' }` · 포트 1 | 에이전트 채널 요청이 그 포트로 간다 |
+| ② 걸러 내기 | `source` 가 다른 창 · `type` 다름 · host `'shell'` · 포트 0 (넷 따로) | 붙지 않는다 — 요청은 줄을 선 채다 |
+| ③ 연결 순서 | 설치 | `message` 수신 등록이 `connectHost('all')` 보다 먼저 · `connectHost('all')` 1회 |
+| ④ 수명 통지 | 첫 포트 → `onHostExited('agent')` → 새 포트 → 해제 → 다시 종료 | `exited` 1 · `reconnected` 1 · 첫 포트·해제 뒤 0 (옮긴 '호스트 수명 통지 …' 케이스) |
+| ⑤ 재연결 요청 | 종료 뒤 첫 에이전트 채널 요청 · 데이터 채널 요청 | `connectHost('agent')` 1 · `connectHost('data')` 1 |
+
+**EP-28 규칙 칸** (`scripts/smoke-preload.test.mjs` — 임시 폴더에 합성 산출을 쓰고 `checkPreloadOutput(dir)` 의 결과 `{ scan, run }` 을 단언한다. 기본 산출 = `"use strict";` · `const electron = require("electron");` · `electron.contextBridge.exposeInMainWorld("ooBridge", { invoke(){}, send(){}, on(){}, connectHost(){}, onHostExited(){}, pathForFile(){}, platform: "win32" });`):
+
+| 분기 | 합성 산출(`index.js`) | 기대 |
+|---|---|---|
+| 통과 | 기본 산출 | scan 0 · run 성공 · 다리 키 7 → 발견 0 |
+| 다른 모듈(보고된 결함) | 기본 산출 2행에 `const zod = require("zod");` | scan 1(그 줄) · run 실패 `module not found: zod` — 둘 다 |
+| 나뉜 조각 | 기본 산출에 `require("./chunk.js");` | scan 1 · run 실패 `module not found: ./chunk.js` |
+| 별칭 | 기본 산출에 `const r = require; r("electron");` | scan 1 · run 성공 — 대조만 잡는다 |
+| 동적 import | 기본 산출에 `function later() { return import("zod") }` | scan 1 · run 성공 — 대조만 잡는다 |
+| 로드 중 던짐 | 기본 산출 끝에 `throw new Error("boom");` | run 실패 `boom` |
+| 모르는 전역 | 기본 산출에 `__dirname.length;` | run 실패 — ReferenceError `__dirname` |
+| 노출 없음 | 노출 줄 제거 | run 실패 — 노출 0 |
+| 다른 키 | 키 `"oo"` | run 실패 — 키 `oo` |
+| 다리 키 빠짐 | `connectHost` 없음 | run 실패 — 빠진 키 `connectHost` |
+| 진입 파일 없음 | 빈 폴더 | 실패 — `index.js` 없음 |
+
+**EP-29 규칙 칸** (renderer — node 환경):
+
+| 분기 | 입력 | 기대 | 좌표 |
+|---|---|---|---|
+| ① missing | EP-27 ① 다리 없음 | `missing` | `transport/install.test.ts` |
+| ② 진입 — missing | `rootElement('missing', 앱 표지)` | `BridgeMissingScreen` 요소 · 앱 표지 아님 | `app/rootElement.test.ts` |
+| ② 진입 — installed · present | `rootElement('installed', 앱 표지)` · `('present', 앱 표지)` | 앱 표지 그대로 | 같은 파일 |
+| ③ 화면 | `renderToStaticMarkup(<BridgeMissingScreen />)` — `window` 없음 | 던지지 않는다 · `role="alert"` · ko 제목 · 본문 | `app/BridgeMissingScreen.render.test.ts` |
+| ④ 문구 키 | ko · en | 두 키가 두 카탈로그에 있다 | `gate:npm run typecheck`(`en: typeof ko`) · `shared/i18n/resources/resources.test.ts` |
+
+**EP-1 규칙 칸 (h)′** (`check-ui-thread.test.mjs` — §10 EP-1 규칙 칸 (h) 행을 대체): `src/renderer/src/shared/api/**` 밖 파일의 `window.oo` · `window.ooBridge` → exit 1. 입력에 `window.ooBridge` 를 읽는 위반 픽스처 1 · `shared/api/` 안의 허용 픽스처 1 을 더한다. 규칙 표 `ui-thread-rules.mjs` (h) 의 제목 · 경로 문장과 실행 모델 경로 표 (h) 행도 같이 고친다.
+
+등록 변이:
+
+| ID | 자리 | 바꾼 내용 | 잡아야 할 분기 |
+|---|---|---|---|
+| P1 | EP-26 ② | 셸 채널 판정 제거 — 모든 이름을 `ipcRenderer` 로 | EP-26 '호스트 채널 거부' |
+| P2 | EP-27 ② | `event.source === win` 검사 제거 | EP-27 '걸러 내기' — 다른 창 |
+| P3 | EP-27 ③ | `connectHost('all')` 를 수신 등록 앞으로 | EP-27 '연결 순서' |
+| P4 | EP-26 ③ | host 검사 제거 | EP-26 '버림' — `'shell'` |
+| P5 | EP-27 ④ | 첫 포트에도 `reconnected` | EP-27 '수명 통지' |
+| S1 | EP-28 ① | 대조 단계 제거 | EP-28 '별칭' · '동적 import' |
+| S2 | EP-28 ② | 흉내 `require` 가 모든 id 에 빈 객체를 준다 | EP-28 '다른 모듈' 의 run 실패 |
+| S3 | EP-28 ④ | 다리 키 검사 제거 | EP-28 '다리 키 빠짐' |
+| S4 | EP-28 ③ | 실행 전역에 `__dirname` 을 더한다 | EP-28 '모르는 전역' |
+| B1 | EP-29 ② | missing 분기 제거 — 언제나 앱 | EP-29 '진입 — missing' |
+| B2 | EP-29 ③ | 화면이 `window.oo.platform` 을 읽는다 | EP-29 '화면' |
+| H1 | EP-1 (h)′ | (h) 판정에서 `ooBridge` 를 뺀다 | (h)′ 위반 픽스처 |
+
+**선언 경계** (rev 4.7 — 얇은 preload):
+
+- B40 — EP-28 의 sandbox 흉내는 모듈 해석(`require` 는 `electron` 만)과 다리 노출만 본다. sandbox 의 그 밖 제한(`process` 필드 · `webFrame` 등)은 흉내 내지 않고 사람 실기(AC23)가 본다. 지금 preload 가 쓰는 전역은 `process.platform` · `process.contextIsolated` · `window`다(`rg -n "process\.\|window\." app/src/preload --glob '!*.test.*'` → 4 — 하나는 `session-load.ts:4` 주석).
+- B41 — 페이지 메인 월드가 호스트 포트를 쥔다(D-058). 페이지 코드는 등록된 호스트 채널에 직접 요청할 수 있다 — 같은 채널은 지금도 `window.oo` 로 부를 수 있고, 호스트가 형식 · 등록 채널 · 창 신뢰를 검증한다(`host-port-server.ts:80-102` · EP-9). 다리는 셸 채널만 연다.
+- B42 — 포트 전달은 같은 창의 `window.postMessage(…, '*', [port])` 다. `event.source === win` 이 다른 창(iframe)의 가짜 포트를 거르고, 같은 창의 페이지 코드가 보낸 가짜 포트는 거르지 못한다(B41 과 같은 신뢰 수준).
+- B43 — 실패 화면에는 창 조작 단추가 없다 — 다리가 없어 창 API 를 부를 수 없다. 창 이동은 끌기 영역, 끝내기는 OS(작업 표시줄 · 트레이)다. 문구와 형태는 사용자 거부 가능(D-059).
+- B44 — 수신 등록 전에 온 포트는 버려진다. 셸은 연결 요청 전에는 포트를 보내지 않고(조사 7행), 연결 요청이 두 호스트의 새 포트를 다시 받는다.
+- B45 — `installOo` 는 `window.oo` 가 이미 있으면 그대로 둔다 — 시각 픽스처 3(조사 11행)이 쓴다. production 에서 `window.oo` 를 두는 자리는 구현 뒤 `install.ts` 하나다.
+
+### 구현 설계 — rev 4.7 (얇은 preload)
+
+| 단계 | 파일 | AS-IS → TO-BE |
+|---|---|---|
+| 4y | `app/src/shared/host-channels.ts`(신규) · `shared/host-protocol.ts` | `HOST_*_CHANNEL` 이 zod 파일에 있다 → zod 없는 파일로 옮기고 `HOST_PORT_MESSAGE`(창 메시지 표지)를 더한다. `host-protocol.ts` 는 다시 내보낸다 |
+| 4z | `app/src/preload/index.ts` 재작성 · `preload/index.d.ts` | 전송·`oo` 객체가 preload 에 있다 → EP-26 ①~⑦ 의 다리만 남는다. `OoBridge` 타입을 내보내고 d.ts 는 `Window.ooBridge?: OoBridge` 만 선언한다. 비격리 분기는 `window.ooBridge` 에 둔다 |
+| 5a | `app/src/renderer/src/shared/api/transport/{host-port,session-load,oo,install}.ts` | `preload/host-port.ts`·`session-load.ts` 를 동작 그대로 옮긴다. `oo.ts` 는 지금 preload 의 `oo` 를 같은 형상으로 만든다(셸 채널은 다리, 호스트 채널은 포트 — `channelOwner` · 로그 크기 상한 포함). `install.ts` 는 EP-27 ①~⑤. `OoApi` 타입은 `oo.ts` 가 낸다 |
+| 5b | `app/src/renderer/src/env.d.ts` · `tsconfig.web.json` · `tsconfig.test.json` | `Window.oo: OoApi` 선언을 renderer 로 옮기고 `src/preload/*.d.ts` 참조를 다리 선언만 남긴다 |
+| 5c | `renderer/src/main.tsx` · `app/rootElement.tsx` · `app/BridgeMissingScreen.tsx` · `shared/i18n/resources/{ko,en}.ts` | `main.tsx` 는 `installOo()` 를 먼저 부르고 `rootElement(설치 결과, <StrictMode><App /></StrictMode>)` 를 그린다(전역 오류 처리기 · 긴 작업 보고 등록은 그 사이 그대로). 실패 화면은 토큰 · `DRAG_STYLE` 꼴 끌기 영역 · 문구 키 2 |
+| 5d | 테스트 이동 | `preload/{host-port,session-load,harness,index}.test.ts` → `transport/{host-port,session-load,oo,install}.test.ts`(케이스 이름 유지 — `harness.test.ts` 는 `oo.test.ts` 로) + 새 `preload/index.test.ts`(EP-26) · `app/rootElement.test.ts` · `app/BridgeMissingScreen.render.test.ts` |
+| 5e | `main/app/channel-registration.test.ts:74` · `main/product-identity.test.ts:326` | 구독 채널을 읽는 파일을 `transport/oo.ts` 로 · N3 대표 자리를 `exposeInMainWorld('ooBridge', bridge)` 와 renderer 의 `oo: OoApi` 선언으로 |
+| 5f | `scripts/check-ui-thread.mjs` · `ui-thread-rules.mjs` · `check-ui-thread.test.mjs` | EP-1 (h)′ |
+| 5g | `scripts/smoke-preload.mjs` + `.test.mjs` · `.github/workflows/ci.yml` · `app/AGENTS.md` | EP-28 · 'Host boot smoke' 다음 단계 'Preload sandbox smoke'(`node scripts/smoke-preload.mjs out/preload`) · 스크립트 목록 · 로컬 확인 목록 · CI 표 |
+| 5h | 문서 | 조사 12행 13자리를 TO-BE 로 — TRD §5.3 정책은 "preload 는 `electron` 과 zod 없는 shared 상수만 import 하고 서드파티 의존을 두지 않는다 · 산출 검사는 `smoke-preload`" · `design-components.md` 에 실패 화면 행 |
+
+- 운영 gate: §7-A 표 + 빌드 뒤 `node scripts/smoke-preload.mjs out/preload`. `node --test scripts/*.test.mjs` 가 `smoke-preload.test.mjs` 를 함께 돈다. 문서가 바뀌므로 `check-doc-inventory --check` 가 걸린다.
+- 순서: 4y → 4z·5a(같은 커밋 — preload 만 바꾸면 창이 `window.oo` 를 잃는다) → 5b~5h. `main.tsx` 는 5a 와 같은 커밋에서 `installOo` 를 부른다.
+
+### 대체 범위
+
+D-026 → D-058 · AC24′ → AC24″ · AC17 · AC33′ · AC29′/AC33′ 전달 수단의 좌표(위 표) · VP-21′ → VP-21″ · VP-23′ → VP-23″ · VP-24 → VP-24′ · VP-09′ oracle 파일 · EP-8′ → EP-8″ · §7-E EP-8 규칙 칸의 테스트 파일(`transport/host-port.test.ts`, 분기 그대로) · §10 EP-1 규칙 칸 (h) → (h)′ · §10 EP-5 의 "preload 의 포트 수신" → EP-26 ③ + EP-27 ② · §5 '메시지 전송' 행의 "preload 가 에이전트 호스트 포트로 보낸다" → "renderer 전송층이 보낸다" · §7-E 의 "재기동은 preload 가 부른다" → EP-27 ⑤. §9 · §10 · §11 의 preload 전송 서술은 실행 모델 문서(AC34)가 정본이다. B19 · B20(창 쪽 대기열)은 모듈이 옮겨 가도 그대로다.
+
+### READY self-review — rev 4.7 (얇은 preload, 관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — §3 갱신 메모 rev 4.7 둘째 줄.
+- 분모: EP-26 7 · EP-27 5 · EP-28 5 · EP-29 4 · EP-8″ 5 — 설계 자리라 구현 뒤 검색 출력의 줄마다 자리 번호를 구현 보고에 적는다. 지금 트리의 옛 자리는 조사 6행 12줄이다.
+- 규칙 칸 ↔ 입력 칸: EP-26 11행 · EP-27 8행 · EP-28 11행 · EP-29 5행 · (h)′ 2 — 행마다 입력을 적었다.
+- NEW 8(R-14·AT-52·R-15·AT-53·AR-17·IT-17·MD-12·UT-12) · CHANGED 2(AR-06″·AT-24″) ↔ REQUIRED pair — VP-48 · VP-51 · VP-49 · VP-50 · VP-23″ · VP-21″. 경로가 바뀐 VP-24′ 도 REQUIRED. 영향받은 INHERITED 상위: VP-07(사람 실기).
+- 선택 적대 증거: VP-49 P1~P5 · VP-50 S1~S4 · VP-51 B1·B2 · VP-32 H1 · VP-21″ 소유 표 변이 — 자리마다 잡아야 할 분기를 적었다.
+- 측정: 조사 1·2(빌드 · sandbox 흉내로 사용자 보고 문장 재현) · 7(셸은 연결 요청 전 포트 0) · 9·12(preload 를 읽는 테스트 · 설정 · 가드 · 문서 자리 전수) · 11(`window.oo` 대입 1 · 픽스처 3).
+- 인용 실재: `preload/session-load.test.ts:53`·`:94`·`:102` · `preload/host-port.test.ts:193` · `preload/index.test.ts:616` 케이스 이름 — 이번 턴 `grep -n "it("` 로 확인했다.
 
 ---
 
