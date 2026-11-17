@@ -3531,7 +3531,10 @@ V-pair 자기 상태: `SELF_PASS` — VP-01′(AT-01 `gate:node scripts/check-do
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| V1-D1 | 첫 메시지만으로 500 part 를 넘으면 `splitSessionMessages` 가 빈 조각을 먼저 만든다 — `shared/data-host.ts:52` `current.length > 0 &&` 제거가 461케이스 green(verify.md §4 C1·C1b) | VP-16 · AC16 · EP-6 규칙 칸 | 규칙 칸에 첫 자리 상한 초과 분기를 채택하거나 경계로 선언 | 확장 | PLAN_GAP | open — 설계자 |
-| V1-D2 | D-007 의 "반복 작업 5ms 양보" 조항에 AC·§10 이 없다 · `UI_YIELD_INTERVAL_MS` 참조 0 | D-007 · VP-03′ | 조항이 덮는 작업과 AC 를 정하거나 범위 밖 선언 + 상수 처리 | plan 내부 정합 | PLAN_GAP | open — 설계자 |
-| V1-D3 | AC16·VP-16·EP-6 의 oracle 파일명 `data-host-chunks.test.ts` ↔ 실재 `shared/data-host.test.ts` | AC16 | 문서 정정 | 비귀속 | NON_BLOCKING | open — D1 과 함께 |
-| V1-D4 | 마감으로 끝난 에이전트 호스트 첫 기동은 창 요청이 있어야 다시 뜬다 · renderer `main-ready` 10초 필수 마감이 90초 마감보다 먼저 부팅 오류를 보인다 | AC50 · AC31′ | 기록 — 제품 판단은 설계자 참고 | 비귀속 | NON_BLOCKING | 기록 |
+| V1-D1 | 첫 메시지만으로 500 part 를 넘으면 `splitSessionMessages` 가 빈 조각을 먼저 만든다 — `shared/data-host.ts:52` `current.length > 0 &&` 제거가 461케이스 green(verify.md §4 C1·C1b) | VP-16 · AC16 · EP-6 규칙 칸 | 규칙 칸에 첫 자리 상한 초과 분기를 채택하거나 경계로 선언 | 확장 | PLAN_GAP | closed — rev 4.6 EP-6′ 채택 · r2 케이스 · verify 2 C1·C1b red |
+| V1-D2 | D-007 의 "반복 작업 5ms 양보" 조항에 AC·§10 이 없다 · `UI_YIELD_INTERVAL_MS` 참조 0 | D-007 · VP-03′ | 조항이 덮는 작업과 AC 를 정하거나 범위 밖 선언 + 상수 처리 | plan 내부 정합 | PLAN_GAP | closed — rev 4.6 D-057·AC51 · verify 2 m1~m5 red |
+| V1-D3 | AC16·VP-16·EP-6 의 oracle 파일명 `data-host-chunks.test.ts` ↔ 실재 `shared/data-host.test.ts` | AC16 | 문서 정정 | 비귀속 | NON_BLOCKING | closed — rev 4.6 인용 좌표 정정 |
+| V1-D4 | 마감으로 끝난 에이전트 호스트 첫 기동은 창 요청이 있어야 다시 뜬다 · renderer `main-ready` 10초 필수 마감이 90초 마감보다 먼저 부팅 오류를 보인다 | AC50 · AC31′ | 기록 — 제품 판단은 설계자 참고 | 비귀속 | NON_BLOCKING | closed — rev 4.6 경계 B35·B36 |
+| V2-F1 | AC51 동작 기준 "(값은 적지 않는다 — 정본은 그 파일이다)" 에 oracle 이 없다 — 절에 `(50ms)` 를 적어도 `node --test` green(verify.md 라운드 2 X4) | VP-01′ · AC51 · EP-25 규칙 칸 | 규칙 칸에 "값 없음" 분기와 판정 술어를 정하거나, AC 동작 기준에서 그 조항을 검증자 대조로 내린다 | plan 내부 정합(oracle 없는 AC 조항) | PLAN_GAP | open — 설계자 |
+| V2-F2 | part 0개 메시지가 끼면 분할 가드 둘(`data-host.ts:53` `current.length > 0` · `:61` 마지막 조각)을 `parts > 0` 으로 바꿔도 3,699케이스 green(X6·X7) — 큰 메시지와 합친 조각 · 끝 메시지 유실 | VP-16′ · EP-6′ 규칙 칸 | 규칙 칸에 part 0 메시지 입력(첫 자리 · 끝 자리) 채택, 또는 경계 선언 | 확장(창 안) | PLAN_GAP | open — 설계자 |
+| V2-F3 | 멈춤 계측 절의 기준 뜻 문장을 맞바꿔도(`UI_TASK_BUDGET_MS` ↔ `STALL_SEVERE_MS` 뜻) green(r2 s1). EP-25 실패 의미 칸의 "문단의 나머지 표현(React 지연 렌더 설명)" 이 기준 문단까지 덮는지는 해석이 필요하다 | VP-01′ · EP-25 | 기준 문단의 뜻 대조를 채택하거나, 실패 의미 칸을 절 전체의 검증자 대조로 넓혀 경계로 적는다 | 확장(창 안) | PLAN_GAP | open — 설계자 |
