@@ -2735,6 +2735,83 @@ V-pair 자기 상태: `SELF_PASS` — VP-27″ · VP-44 · VP-38 · VP-21′(VP-
 - 교차 호스트 값 import 는 rev 4 가드 규칙이 "다른 프로세스의 의존"만 세고 서로의 조립 폴더를 세지 않아 통과했다.
 - 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` + `ensure-sqlite-abi.mjs node` 로 SQLite 스위트가 돈다.
 
+## [구현자 기입] r1.15 — CI 보완 · 에이전트 호스트 기동 결함 · r1.14 "인프라 완성" 정정
+
+**판정: r1.14 의 "인프라 완성"은 틀렸다 — 에이전트 호스트가 실제로 뜨지 못했다.** 생성자가 설정 사본(피어로 온다)을 읽어 던졌고, 진입점의 전역 예외 처리기가 삼켜 준비 없이 멈췄다. 고쳤고, 같은 종류를 잡는 호스트 기동 스모크를 CI 에 넣었다. 마이그레이션은 아래 "남은 이주"가 잔여 업무다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| 에이전트 호스트 기동 | 현재 결함 → 선조치 | `extensionControl` 이 생성 시 `mirror.getAll()` 을 불러 `설정 사본을 아직 받지 못했다`. 셸은 두 호스트가 준비된 뒤에 피어를 잇는다(`boot.ts` `mediatePeer`) — 교착. 처음 쓸 때 읽고 사본 교체·패치에 다시 읽게 고쳤다(`app/extension-control.ts`) |
+| 생성 실패가 정지로 보임 | 현재 결함 → 선조치 | `runHostProcess` 의 `deps.create` 예외가 전역 처리기로 가 삼켜졌다. 이제 로그 → 비움 → `exit(1)`(셸이 기동 실패로 센다) |
+| PR #626 CI 실패 | 이행 결함(운영 gate) → 선조치 | Windows 에서 `composer-catalog.test.ts` 1케이스 — 셸 전송·WebContents 모양 sender 로 호스트 채널을 불러 `listenerCount('destroyed')` 를 봤다. 전송 계약 위로 옮김(`infra/ipc/test-transport.testfixture.ts` · `fakeClient.watchers()`) |
+| r1.14 기준선 분리 | 정정 | 그 파일을 파일 단위로 "환경 실패"로 셌다 — Linux 에서는 6케이스가 `C:/` 경로로 실패해 진짜 실패 1건을 가렸다. 기준선은 케이스 단위로 대조해야 했다 |
+| 호스트 기동 스모크 | `PLAN_GAP` 1건(운영 gate 표) | 번들 + 두 호스트 기동을 보는 gate 가 없었다. `scripts/smoke-hosts.mjs` 를 CI 단계로 더했다 — §7-A "현재 변경의 운영 gate" 표에 행이 필요하다 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 이 적은 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-17 사본 전 읽기(fail-closed) · EP-19 기동 순서 | 기동 경로 1 | 1/1 | `extension-control.test.ts` 'does not read the store until first use…' · `gate:node scripts/smoke-hosts.mjs`(데이터 → 에이전트 준비) |
+| EP-19 기동 실패(생성) | 1 | 1/1 | `host-process.test.ts` '조립 생성이 던지면 …종료 코드 1' |
+| EP-8′ 채널 소유(창 포트) | 스모크의 소유 채널 응답 4 · 남의 채널 거부 1 | 5/5 | `gate:node scripts/smoke-hosts.mjs` |
+
+### 이번 라운드 수정의 잠금
+
+| ID | 자리 | 종류 | 결과 | 잡은 것 |
+|---|---|---|---|---|
+| S01 | `extension-control.ts` 생성 시 읽기 복원 | 다른 값 | 잡음 | 스모크 — 제한 시간 초과(에이전트 준비 없음) |
+| C01 | 카탈로그 핸들러 `unwatch()` | 제거 | 잡음 | `composer-catalog` POSIX 사본 1 red(사본은 검증 뒤 지움) |
+
+검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 2(스모크 · watchers) · sweep 0 = 표 행 2`. 스모크 판정 함수는 `smoke-hosts.test.mjs` 14케이스(실패 분기 12)가 잠근다.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 기동 | r1.14 트리로는 본 화면에 가지 못했다(에이전트 준비 없음 → `bootWhenReady` 미해결). 생성 실패는 이제 기동 실패 3회 → 부팅 오류 화면이다(§5 "앱 시작" 행) |
+
+### 놓친 잠재 문제 + 대응 — 남은 이주(잔여 업무)
+
+| # | 남은 것 | 관측 |
+|---|---|---|
+| 1 | 테스트가 옛 단일 프로세스 전송을 쓴다 | `scripts/vitest-setup.mjs` 가 모든 main 테스트에 셸 전송을 건다. 호스트 채널 핸들러 테스트 30파일이 `ipcMain` 흉내 + WebContents sender 로 돈다(`rg -l ipcMain --glob '*.test.ts'` 34 − 전송 자체 2 − 옮긴 1 − 셸 채널 1). 픽스처는 만들었다 |
+| 2 | 동기 계약을 캐시로 받는 자리 | 에이전트 조립의 `sessionRows`(승인 종류 · 리소스 대상 · Claude 프로세스 리셋 3자리)는 비동기 진입점이 지나갈 때만 채운다. `backgroundEventsCache` 는 한 번 채우고 갱신하지 않는다. 재현은 하지 않았다 |
+| 3 | 조립 안 배선 | 두 조립(818·839줄)을 테스트에서 띄우지 못한다(B29). 스모크는 기동·종료와 요청 4종만 본다. EP-21′ 5자리 좌표 없음 |
+| 4 | 기동 직후의 경합(가설) | 셸이 피어를 넘긴 직후 `whenReady` 를 푼다 — 창의 첫 에이전트 요청이 설정 사본보다 먼저 닿으면 사본을 읽는 핸들러가 던진다. 재현은 하지 않았다 |
+| 5 | 준비 제한 시간 | 감독자에 준비 제한 시간이 없다 — 시작이 끝나지 않는 호스트는 부팅을 영원히 막는다(확장 후보) |
+| 6 | 전수 sweep · 실기 | r1.14 그대로(EP-3~EP-19 · AC22·AC23) |
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| CI 보완 | 완료(로컬) | CI 실패 케이스 이주 · `smoke-hosts.mjs`·`smoke-host-worker.cjs`·`smoke-hosts.test.mjs` · `ci.yml` 스모크 단계(Test 뒤 — SQLite Node ABI) · `app/AGENTS.md` 스크립트·CI 표·로컬 확인 목록 |
+| 기동 결함 | 완료 | `extension-control.ts` · `agent-host/bootstrap.ts` · `host-process.ts` + 테스트 |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0(제품 이름 2421파일) |
+| `npm run lint` | 오류 0 · 경고 3(기존). 스모크 worker 를 `.cjs` 에서 `.mjs` 로 바꿔 `no-require-imports` 5건을 없앴다 |
+| `tsc` node · web · test | 0 · 0 · 0 |
+| `vitest run`(필터 없음) | 1021파일 — 실패 9(Linux 의 `C:/` 경로·Electron 미설치 9파일, 그중 `composer-catalog` 는 이번에 고친 1케이스가 Windows CI 의 유일한 실패였다) · 케이스 통과 9639 |
+| `node --test scripts/*.test.mjs` | 995 / 995 |
+| `npx electron-vite build && node scripts/smoke-hosts.mjs` | 통과 — 데이터 → 에이전트 준비 · 피어 · 요청 5(응답 4·거부 1) · 에이전트 → 데이터 종료 |
+| CI(Windows) | push 뒤 PR #626 에서 확인 — INDEX 비고에 적는다 |
+
+테스트 소스 규칙: 추가·수정 4파일(`composer-catalog.test.ts`·`extension-control.test.ts`·`host-process.test.ts`·`test-transport.testfixture.ts`) — 예산 가드·풀 분류 위반 0.
+
+AC 자기보고: 분모·판정은 r1.14 와 같다(47/49). 다만 r1.14 의 ✅ 는 앱이 실제로 뜨지 않는 트리에서 센 것이라 AC31′(본 화면은 두 호스트가 준비된 뒤)은 r1.14 시점에 거짓이었다 — 이번 턴의 스모크가 첫 관측이다.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.15` — verify 0회.
+- 단위 테스트 9,600여 케이스가 앱이 뜨지 않는 것을 잡지 못했다 — 조립을 띄우는 테스트가 없었다(B29). 첫 실제 기동 시도에서 나왔다.
+- 기준선 분리를 파일 단위로 해 진짜 실패 1건이 환경 실패에 묻혔다(r1.14).
+
 ---
 
 ## [검증자 기입] 파생 이슈
