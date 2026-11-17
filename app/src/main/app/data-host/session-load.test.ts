@@ -17,7 +17,11 @@ import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import { registerSessionLoadHandlers, type SessionLoadHooks } from './session-load'
 
-type Sender = { id: number; send: (channel: string, payload: unknown) => void; isClosed: () => boolean }
+type Sender = {
+  id: number
+  send: (channel: string, payload: unknown) => void
+  isClosed: () => boolean
+}
 type Callback = (request: unknown, event: { sender: Sender }) => unknown
 const registered = vi.hoisted(() => ({
   handlers: new Map<string, (request: never, event: never) => unknown>(),
@@ -162,7 +166,9 @@ describe('세션 본문은 조각으로 가고 조립 결과는 `loadSession` �
   it('없는 id 는 `null` 이고 조각을 보내지 않는다', async () => {
     registerSessionLoadHandlers({ db: queries, getCwd: cwd })
     const c = client()
-    expect(await call(CHANNELS.sessionLoad, { sessionId: '없음', requestId: 1 }, c.sender)).toBeNull()
+    expect(
+      await call(CHANNELS.sessionLoad, { sessionId: '없음', requestId: 1 }, c.sender)
+    ).toBeNull()
     expect(c.chunks).toEqual([])
   })
 
@@ -304,9 +310,9 @@ describe('활동 상태와 갱신 (AC19′)', () => {
       { refreshHistory: async () => sync as never }
     )
     const c = client()
-    expect(await call(CHANNELS.sessionRefresh, { sessionId: 's1', requestId: 0 }, c.sender)).toEqual(
-      expected
-    )
+    expect(
+      await call(CHANNELS.sessionRefresh, { sessionId: 's1', requestId: 0 }, c.sender)
+    ).toEqual(expected)
     expect(c.chunks).toEqual([])
   })
 })

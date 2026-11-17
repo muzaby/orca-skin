@@ -23,7 +23,8 @@ export const RULES = {
   c: {
     title: '세션 본문 조회(`loadSession`)',
     ask: '데이터 호스트',
-    route: '`sessionApi.load`·`refresh` → preload 조립(`src/preload/session-load.ts`) → `app/data-host/session-load.ts`'
+    route:
+      '`sessionApi.load`·`refresh` → preload 조립(`src/preload/session-load.ts`) → `app/data-host/session-load.ts`'
   },
   d: {
     title: '`ipcMain` 직접 등록',
@@ -66,7 +67,8 @@ export const RULES = {
   k: {
     title: 'DB 연결',
     ask: '데이터 호스트의 `DbQueries`',
-    route: '데이터 호스트 안에서는 `ctx.db` 주입 · 에이전트 호스트에서는 데이터 링크(`data.query`·`data.write`)'
+    route:
+      '데이터 호스트 안에서는 `ctx.db` 주입 · 에이전트 호스트에서는 데이터 링크(`data.query`·`data.write`)'
   },
   l: {
     title: '영속 파일(`electron-store`)',

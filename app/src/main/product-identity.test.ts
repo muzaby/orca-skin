@@ -139,7 +139,10 @@ describe('표시명 (EP-04)', () => {
   it('main 의 사용자 대면 문구 7지점이 SSOT 파생이다', () => {
     const sites: [string[], string][] = [
       [['src', 'main', 'app', 'data-host', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 스킬`'],
-      [['src', 'main', 'app', 'data-host', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장`'],
+      [
+        ['src', 'main', 'app', 'data-host', 'bootstrap.ts'],
+        '`${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장`'
+      ],
       [['src', 'main', 'app', 'data-host', 'bootstrap.ts'], '`${PRODUCT_SLUG}.json 로드`'],
       [
         ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts'],
@@ -166,7 +169,9 @@ describe('표시명 (EP-04)', () => {
     expect(read('src', 'main', 'features', 'extensions', 'claude', 'deployer.ts')).not.toContain(
       `'${OLD_TITLE} `
     )
-    expect(read('src', 'main', 'app', 'data-host', 'bootstrap.ts')).not.toContain(`'${OLD}.json 로드'`)
+    expect(read('src', 'main', 'app', 'data-host', 'bootstrap.ts')).not.toContain(
+      `'${OLD}.json 로드'`
+    )
   })
 })
 
@@ -209,7 +214,9 @@ describe('옛 저장 경로 (0308 EP-01)', () => {
     // 두 호스트도 같다(0324) — 호스트 환경 다음, 전송·조립보다 앞에서 자기 이름으로 연다.
     const host = read('src', 'main', 'app', 'host-process.ts')
     const hostLog = host.indexOf('= initLog(deps.name)')
-    expect(hostLog).toBeGreaterThan(host.indexOf('setHostEnvironment(parseHostEnvironment(deps.argv))'))
+    expect(hostLog).toBeGreaterThan(
+      host.indexOf('setHostEnvironment(parseHostEnvironment(deps.argv))')
+    )
     expect(hostLog).toBeLessThan(host.indexOf('setIpcTransport('))
     expect(hostLog).toBeLessThan(host.indexOf('deps.create('))
   })

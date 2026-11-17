@@ -19,9 +19,7 @@ export async function resolveComposerPreparation(
   const adapter = ctx.registry.get(scope.backend)
   if (!adapter?.prepareComposer) throw new Error('Composer preparation unavailable')
   const prepare = adapter.prepareComposer.bind(adapter)
-  const session = scope.sessionId
-    ? await ctx.data.query.getSessionById(scope.sessionId)
-    : undefined
+  const session = scope.sessionId ? await ctx.data.query.getSessionById(scope.sessionId) : undefined
   if (
     scope.sessionId &&
     (!session || session.backend !== scope.backend || session.agent_kind !== scope.agentKind)
