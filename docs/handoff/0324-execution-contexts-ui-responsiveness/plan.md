@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.6 — §7-K: verify 1회째 `PLAN_GAP` 2건 정정 — D1(빈 첫 조각) 채택 · D2(D-007 의 5ms 조항) → D-057 + AC51. AC 50 → 51(AC16 → AC16′ · AC51 신규), CHANGED 노드 3(R-01′·MD-02′·AT-16′) · NEW 1(AT-51) · pair 3(VP-01′·VP-05″·VP-16′) · §10 EP-6′(2자리) · EP-25(5자리) · 인용 좌표 표류 8행 정정(AC20′·AC49 검증 수단 · EP-9 규칙 칸 · EP-22′ · B17′ 포함) · 선언 경계 B35~B37. rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -109,9 +109,12 @@
 | D-054 | 실행 쪽 동기 판정이 읽는 데이터 호스트의 것은 사본으로 두고, 사본이 성립하는 때를 계약으로 둔다 — 세션 메타는 lease 가 바뀔 때마다 이 호스트가 가진 세션을 다시 읽고 동기 판정 직전(Claude 리셋 계획)에 채운다. 세션 종류는 비동기로 묻는다. 백그라운드 기록은 상태 요청·턴 시작에서 받아 첫 복원이 한 번만 쓴다 | 비동기 진입점이 지나갈 때만 채우던 사본이라 유휴 세션의 권한 모드 변경이 무시되고, 리소스 동기화·Claude 리셋이 그 세션을 놓쳤다. 한 번 채운 기록은 갱신되지 않았다 | 설계자(현재 결함 정정) · r1.16 | ACTIVE | — |
 | D-055 | 기동 중인 호스트가 준비를 알리지 않은 채 셸과 **90초** 동안 메시지를 주고받지 않으면 셸이 그 호스트를 끝내고 기동 실패 1회로 센다(연속 3회면 부팅 오류 — EP-19 그대로). 데이터 호스트가 알린 DB 단계(열기·백업·마이그레이션·복구) 동안은 세지 않는다 | 사용자 승인 — r1.15~r1.17 보고 "준비 제한 시간 도입 여부: 지금은 시작을 끝내지 못하는 호스트가 있으면 부팅이 영원히 멈춥니다" 에 "3건 승인". 값·DB 단계 제외·메시지마다 다시 잡기는 범용 대응(D-024) — systemd `DefaultTimeoutStartSec` 90초 · `EXTEND_TIMEOUT_USEC`. DB 단계를 세면 큰 DB 의 마이그레이션 백업(`VACUUM INTO`)이 끊겨 다시 떠도 끝나지 못한다(§7-J 조사) | 사용자 2026-11-17 + 설계자(D-024 적용) | ACTIVE (값·DB 단계 제외는 사용자 거부 가능) | — |
 | D-056 | renderer 에 호스트 수명 통지 `window.oo.hosts.onLifecycle`(`exited`·`reconnected`)을 더한다(추가분) — 기존 `window.oo` 형상은 그대로다 | AC29′·AC33′ 의 전달 수단(r1.14 설계자 확인 1건). D-052 와 같은 추가분 | 설계자 · r1.14 · 사용자 승인 2026-11-17 "3건 승인" | ACTIVE | D-026 의 추가분 예외 |
+| D-057 | D-007 의 "UI 스레드에 남는 반복 작업은 5ms 마다 양보" 는 UI 스레드(renderer 메인 · 셸)에서 **시간 조각으로 나눠 여러 태스크에 걸쳐 도는 작업**에 걸린다. 한 번에 끝나는 작업(이벤트 처리 · 프레임마다 모은 델타 비우기 · 스토어 반영)은 D-007 의 50ms·160ms 와 D-008 이 맡는다. 지금 그런 작업은 React 의 지연 렌더뿐이고 직접 나눠 도는 코드는 0이다. 규칙은 실행 모델 문서에 강제 수단 `강제 없음` 으로 적고, 간격의 정본은 `shared/perf-budget.ts` `UI_YIELD_INTERVAL_MS` 다 — 직접 나눠 도는 작업을 새로 만들 때 쓴다 | verify 1 D2 — D-007 조항에 대응 AC 가 없었고 상수는 참조 0 이었다. 적용 대상은 D-007 의 근거 행(§4-A React scheduler `frameYieldMs = 5` · VS Code 배경 토큰화)과 같은 형태다. 설치된 scheduler 0.27.0 도 `frameInterval = 5` 다(§7-K 조사) | 설계자(D-007 적용) · verify 1 | ACTIVE (사용자 거부 가능) | D-007 의 적용 범위·강제 수단을 정함 |
 
 ### 갱신 메모
 
+- verify 1회째(rev 4.6): `RETURN_TO_PLAN` 의 `PLAN_GAP` 2건을 §7-K 에서 정정했다 — D1(확장 후보 · 창 안) 채택: 조각 분할 규칙 칸에 첫 메시지 상한 초과 분기 · D2(plan 내부 정합): D-057 신규 + AC51. 같은 절에서 인용 좌표 표류 8행을 정정하고(파일 이동·삭제 뒤 남은 이름) 선언 경계 B35~B37 을 더했다. AC 50 → 51.
+- rev 4.6 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-007 ↔ AC5·AC6·AC7(50·160·관측 창) · AC51(5ms — 적용 대상과 강제 수단은 D-057) · D-057 ↔ AC51 · D-011 ↔ AC16′(조각을 보지 않는 renderer 가 조립된 한 벌을 한 번 받는다 — 점진 표시 없음 그대로) · D-055 ↔ AC50(B35·B36 은 기존 동작을 적은 경계 — 기준 그대로) · D-045 ↔ AC49(검증 수단 파일 이름만).
 - 사용자 결정(rev 4.5): "3건 승인" — 준비 제한 시간 도입(D-055 신규) · D-049 승인(상태만) · `window.oo.hosts` 추가분 승인(D-056 신규). §7-J — AC 49 → 50(AC50), 노드 R-13·AR-16·MD-11 · pair VP-45~47 · §10 EP-24(12자리) · 선언 경계 B33·B34.
 - rev 4.5 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-055 ↔ AC50 · AC31′(본 화면 조건 그대로 — 끝나지 않는 기동도 부팅 오류가 된다)·AC18′(데이터 호스트 기동 실패 3회 → 부팅 오류, 마감 종료도 한 번으로 센다) · D-049 ↔ AC40(그대로) · D-056 ↔ AC29′·AC33′(전달 수단) · D-026(형상 그대로) ↔ D-056(추가분).
 - r1.16(rev 4.4): §7-I — EP-4′ 의 자리 목록을 고정했고(plan 내부 정합), 구현이 선조치한 현재 결함 2건(D-053·D-054)을 §10 행으로 올렸다. AC 49 그대로 — 검증 수단 칸만 더했다.
@@ -1334,6 +1337,141 @@ AC 총수 49 → **50**.
 - 규칙 칸 ↔ 입력 칸: EP-24 8분기 ↔ `host-supervisor.test.ts` 8케이스(구현자 작성) · 스모크 판정 분기 ↔ `smoke-hosts.test.mjs`.
 - NEW 노드 3 ↔ REQUIRED pair 3(VP-45~47) · 영향받은 상위 2 ↔ REGRESSION(VP-22″·VP-22).
 - 인용 기존 테스트: `boot.test.ts:169` '에이전트 호스트 기동 실패 상한: whenReady 거부 · 데이터 호스트는 그대로' · `host-supervisor.test.ts:148` '상한은 기동 실패 3회 · 종료 대기 3초다' — `rg` 로 이름 확인. `HostToShellSchema` 를 읽는 셸 싱크의 테스트는 `host-link.test.ts`(`peer.ensure`·`update.check` 케이스가 있다).
+
+## 7-K. V1 rev 4.6 정정 — verify 1회째 `PLAN_GAP` 2건 · 인용 좌표 표류 · 경계 3
+
+**판정: READY.** 출처는 verify 1회째(`verify.md` §13)다. D1 은 확장 후보(창 안)라 채택하고, D2 는 plan 내부 정합(ACTIVE Decision 조항에 AC 없음)이라 결정 D-057 과 AC51 을 더한다. 같은 대조에서 옮겨지거나 지워진 파일을 가리키는 인용 좌표 8행을 정정하고(D3), D4 는 기존 동작이라 경계로 적는다. verify 1회째 뒤라 확장 창은 열려 있고, 열거를 늘릴 수 있는 마지막 설계 턴은 verify 2회째 뒤다.
+
+### 조사
+
+| # | 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---|---:|---|
+| 1 | 빈 첫 조각 가드 | `shared/data-host.ts:52` `current.length > 0 &&` — 제거 변이 C1·C1b 가 461케이스 green(`verify.md` §4) · EP-6 규칙 칸 입력은 700-part 메시지를 가운데에만 둔다(`data-host.test.ts:47-52`) | 1 자리 | 첫 메시지가 상한을 넘으면 빈 조각 `[]` 이 먼저 간다 — 조립 결과는 같고 조각 통지 1 · `chunked.chunks` +1 이 더 생긴다 |
+| 2 | D-007 의 5ms 조항 | `rg -n "UI_YIELD_INTERVAL_MS" app docs --glob '!**/0324-*/**' --glob '!**/node_modules/**'` | 정의 1 · 참조 0 | `perf-budget.ts:9`. 멈춤 계측 절(`execution-model.md:99-104`)은 정본 파일만 가리키고 기준을 적지 않는다. §3 대조 줄은 D-007 ↔ AC5·6·7(50·160)만 잇는다 |
+| 3 | UI 스레드의 직접 시간 조각 코드 | `rg -n "requestIdleCallback\|scheduler\.(postTask\|yield)\|setTimeout\([^,]+,\s*0\)\|setImmediate\|isInputPending\|MessageChannel\(\)" app/src/renderer/src app/src/preload app/src/main/index.ts app/src/main/app/shell --glob '!*.test.*'` | 1 | `composerCatalogState.ts:97` — 구독이 0 이 된 뒤의 지연 폐기라 작업 조각이 아니다 → 0 |
+| 4 | 프레임·시각 기반 반복 | `rg -n "requestAnimationFrame\(" app/src/renderer/src app/src/preload --glob '!*.test.*'` · 같은 범위 `rg -n "performance\.now\(\)"` | 23 · 4 | rAF 는 포커스·스크롤·애니메이션과 델타 모음(`chatStore.ts:998` — 프레임마다 모은 델타를 한 번에 비운다, 나눠 돌지 않는다). `performance.now` 는 시간 측정(부팅 단계 3 · 툴팁 1) → 0 |
+| 5 | React 지연 렌더 | `rg -n "useDeferredValue\(\|startTransition\(\|useTransition\(" app/src/renderer/src --glob '!*.test.*'` · `app/node_modules/scheduler/cjs/scheduler.production.js:112` | 2 | `ComposerInputController.tsx:218` · `ComposerDecorationLayer.tsx:28`. React 19.2.8 · scheduler 0.27.0 이 `frameInterval = 5` 로 양보한다 |
+| 6 | 호스트의 나눠 도는 코드 | `rg -n "setImmediate" app/src/main --glob '!*.test.*' --glob '!*.testfixture.*'` | 3 | `features/chat/attachments.ts:32`(base64 3MB 조각 — 데이터 `handlers/files.ts:201` · 에이전트 `attachments.ts:102`) · `data-host/session-load.ts:40` · `data-host/bootstrap.ts:406`. UI 스레드가 아니다 — 호스트 멈춤은 D-043 `perf.stall` 이 남긴다 |
+| 7 | 인용 좌표 표류 | 이 문서 1~1831행의 백틱 경로 → `git ls-files app` 의 파일 이름 대조 → 같은 이름이 나오는 모든 행 확인 | 유효 행 8 | 아래 정정 표. 나머지(`dataHostClient.test.ts` · `*/shutdown.test.ts` · `crypto.ts` · `shared/api/dataHost.ts` 등)는 rev 4·4.2 가 이미 대체한 행이다 |
+| 8 | 에이전트 호스트 재기동 | `app/shell/boot.ts:94` 데이터 `onExited: () => data.ensureRunning()` · `:110` 에이전트 `onExited: () => deps.onAgentExited?.()` · `app/shell/electron-hosts.ts:74-80` 창 연결 요청 → `connectAgent` · 새 문서 `attach` · `preload/host-port.ts` `enqueue` — 종료 뒤 첫 요청에서만 `requestConnect` | 1 | 에이전트 호스트는 준비 전 종료(마감 종료 포함) 뒤 스스로 다시 뜨지 않는다 |
+| 9 | 화면의 부팅 단계 마감 | `renderer/src/app/boot/steps.ts:23` `mandatoryTimeoutMs: 10_000` · `:154` 필수 단계에 적용 · `main-ready` 는 필수 단계 | 1 | 셸의 준비 마감(90초)보다 먼저 부팅 단계 실패가 화면에 보인다(0077 동작) |
+
+인용 좌표 정정 표(조사 7행):
+
+| plan 행 | 옛 이름 | 지금 | 근거 |
+|---|---|---|---|
+| §7 AC16 · §7-A VP-16 · §10 EP-6 규칙 칸 | `shared/data-host-chunks.ts` · `data-host-chunks.test.ts` | `shared/data-host.ts` · `shared/data-host.test.ts` | 조각 상한·분할·조립이 한 파일에 있다(`SESSION_CHUNK_MAX_PARTS` · `splitSessionMessages` · `assembleSession`) |
+| §7 AC16 의 `chatStore` 단언 | 조각 3개 수신 동안 `LOAD_SESSION` 0회, 끝에 1회 | preload 조립 테스트(아래 AC16′) | 조립이 preload 로 갔다(rev 4.2 AC17) — renderer 는 조각을 받지 않는다 |
+| §7-F AC20′ | `port-server.test.ts` | `app/host-port-server.test.ts` | 포트 전송이 두 호스트 공용 모듈로 옮겨졌다(D-051 · r1.14) |
+| §7-G AC49 · §7-D EP-9 규칙 칸 | `agent-host/port-server.test.ts` | `app/host-port-server.test.ts` | 같다 |
+| §7-G EP-22 | `agent-host/port-server.ts` · `send.ts:506` · `chatStore.ts:1801` | `app/host-port-server.ts:115` · `send.ts:526` · `chatStore.ts:1848` | 파일·줄 이동. EP-22 의 검색 명령 결과는 그대로 1·1 |
+| §7-D B17 | `restart-gate.ts:22` | `contracts/turn.ts:61` · `features/sessions/session-chain-lease.ts:39` | r1.17 이 지운 파일 |
+
+### 결정
+
+- **D1 채택** — 분할 규칙에 "첫 메시지가 상한을 넘어도 빈 조각은 없다"를 더한다(EP-6′). 가드는 이미 코드에 있다(`data-host.ts:52`) — 구현은 테스트 1케이스다.
+- **D2 → D-057**(§3 Ledger) **+ AC51** — 5ms 조항의 적용 대상(UI 스레드에서 시간 조각으로 나눠 도는 작업)·지금의 적용 자리(React 지연 렌더)·강제 수단(`강제 없음`)을 정하고, 멈춤 계측 절이 `perf-budget.ts` 의 기준 상수를 빠짐없이 가리키게 한다. 상수 `UI_YIELD_INTERVAL_MS` 는 정본으로 남는다.
+- **D3** — 인용 좌표 8행을 지금 파일로 정정한다. 분기·기대·동작 기준은 그대로다(AC16 만 D1 때문에 동작 기준이 바뀐다).
+- **D4 → 경계 B35·B36** — 기존 동작(EP-19 · 0077)을 적는다. 기준 변경 0.
+
+### Requirements / Acceptance — rev 4.6
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-05 | AT-16′ / AC16′ | 한 조각은 part 500개를 넘지 않는다. part 가 500개를 넘는 메시지 하나는 혼자 한 조각이다. 빈 조각은 없다 — 첫 메시지가 상한을 넘어도 그 메시지가 첫 조각이다. renderer 는 조각을 보지 않고, 마지막 조각 뒤 조립된 본문 한 벌을 한 번 받는다 | `shared/data-host.test.ts` — EP-6′ 규칙 칸 분할 6분기(첫 자리 분기는 구현자 작성: 700·10 → 700·10) · `preload/session-load.test.ts` '요청마다 번호를 싣고, 그 번호의 조각을 순서대로 한 벌로 조립한다'(조각 2개 뒤 끝 응답 → 세 메시지 한 벌 — 첫 조각에서 끝내면 두 메시지라 다르다) · '조각이 빠진 응답은 거부한다 — 일부만 조립한 본문을 돌려주지 않는다' | 데이터 `session-load.ts` `splitSessionMessages` → 조각 통지 → preload `createSessionLoadClient` 조립 → `sessionApi.load` → `chatStore.loadSession` |
+| R-01′ | AT-51 / AC51 | 실행 모델 문서의 `## 멈춤 계측` 절은 `shared/perf-budget.ts` 의 `*_MS` 상수를 전부, 그리고 그것만 이름으로 가리킨다(값은 적지 않는다 — 정본은 그 파일이다). `UI_YIELD_INTERVAL_MS` 가 나오는 문단은 적용 대상 `시간 조각`(UI 스레드에서 나눠 도는 작업)과 강제 수단 `강제 없음` 을 적는다(D-057) | `scripts/check-ui-thread.test.mjs` '실제 트리' — 구현자 작성 1케이스: 코드 집합(`perf-budget.ts` 의 `^export const <이름>_MS`) = 절 집합(그 절의 백틱 `<이름>_MS`), 차집합 양방향 0 · 양보 문단에 `시간 조각`·`강제 없음` · 선택 적대 증거 변이 5(EP-25 규칙 칸) | 에이전트의 진입 순서 `AGENTS.md` → `execution-model.md` `## 멈춤 계측` → `shared/perf-budget.ts` |
+
+AC 총수 50 → **51**.
+
+검증 수단 칸만 바뀌는 행(동작 기준 그대로):
+
+| AC | 바뀐 칸 | rev 4.6 의 검증 수단 | 이유 |
+|---|---|---|---|
+| AC20′ | `port-server.test.ts` 형식 오류 → | `app/host-port-server.test.ts` '형식이 틀린 요청과 등록 안 된 채널은 오류 응답이고 핸들러를 부르지 않는다'(나머지 두 수단 그대로) | 조사 7행 정정 표 |
+| AC49 | `agent-host/port-server.test.ts` → | `app/host-port-server.test.ts` '포트가 닫히면 닫힘을 한 번 알리고 그 참조로 보내지 않는다'(나머지 두 수단 그대로) | 같다 |
+
+### Node · Pair — rev 4.6 (Baseline V1 의 rev 정정, 새 Delta V 아님)
+
+| Node | 수준 | 내용 | provenance | 출처 |
+|---|---|---|---|---|
+| R-01′ | R | 실행 주체 규칙 문서 — 예산 항목이 멈춤 계측 절의 상수 대조와 D-057 문단까지 간다 | CHANGED | R-01 · D-057 |
+| AT-51 | AT | AC51 | NEW | D-057 |
+| AT-16′ | AT | AC16′ | CHANGED | AT-16 · D1 |
+| MD-02′ | MD | 조각 분할·조립 — 빈 조각 없음 분기를 더한다 | CHANGED | MD-02 · D1 |
+
+| Pair | 좌 ↔ 우 | requiredness | production path | 직접 oracle (자리별 좌표) | 선택 적대 증거 | 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-01′ | R-01′ ↔ AT-01·AT-51 | REQUIRED | `AGENTS.md` → `execution-model.md`(실행 주체 · 경로 표 · `## 멈춤 계측`) → `shared/perf-budget.ts` | AT-01: VP-01 그대로(`gate:node scripts/check-doc-inventory.mjs --check` · 검증자 대조) · AT-51: `check-ui-thread.test.mjs` '실제 트리' EP-25 케이스(구현자 작성) — 자리 ①~⑤ 전부 | required — 차집합 0 대조라 방향을 변이로 본다: EP-25 규칙 칸 변이 5 | EP-25 (5) |
+| VP-05″ | R-05 ↔ AT-15·AT-16′·AT-17·AT-18′~AT-20′ | REQUIRED | VP-05′ 그대로 | VP-05′ 그대로 + AC16′ 의 좌표 셋(위 AC 표) · AC20′ 정정 좌표 | not selected — 행동 oracle | EP-4′ (10) · EP-6′ (2) |
+| VP-16′ | MD-02′ ↔ UT-02′ | REQUIRED | `shared/data-host.ts` `splitSessionMessages` · `assembleSession` | `shared/data-host.test.ts` — EP-6′ 규칙 칸(분할 6 · 조립 5) | required — verify 1 이 못 잡음으로 관측한 변이를 등록한다: `data-host.ts:52` `current.length > 0 &&` 제거 → red | EP-6′ (2) |
+
+- 대체: VP-01 → VP-01′ · VP-05′ → VP-05″ · VP-16 → VP-16′. 대체된 pair 의 AC·증거는 새 pair 가 그대로 넘겨받는다(VP-01 의 doc-inventory gate · VP-05′ 의 AC15~AC20′ 좌표 · VP-16 의 분할 4분기).
+- 영향받은 INHERITED 상위: 없음 — production 코드 변경이 없다(테스트 2파일 · 문서 1 · 주석 1).
+- 인용 좌표만 바뀐 pair(노드·requiredness 그대로): VP-44(AC49 · EP-22′) · VP-24·VP-26(EP-9 규칙 칸의 파일).
+
+### 강제 지점 — rev 4.6
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| MD-02′ / VP-16′·VP-05″ **EP-6′** | 세션 본문 조각 — 한 조각 ≤ 500 part · 상한 넘는 메시지는 단독 · 빈 조각 없음 · 조립은 조각 수·순서·메시지 수가 맞을 때만 | 2자리 — `shared/data-host.ts`: 분할(`splitSessionMessages`) · 조립(`assembleSession`) | `rg -n "export function (splitSessionMessages\|assembleSession)" app/src/shared/data-host.ts` → 2 | 조각 하나가 커져 데이터 호스트와 창이 멈춘다 / 빈 조각 통지가 간다 / 일부만 조립한 본문이 화면에 오른다 |
+| R-01′·AT-51 / VP-01′ **EP-25** | 멈춤 계측 절이 반응성 예산 상수를 빠짐없이 가리키고, 시간 조각 양보의 적용 대상·강제 수단을 적는다(D-057) | 5자리 — 절의 이름 언급: ① `UI_TASK_BUDGET_MS` ② `STALL_SEVERE_MS` ③ `STALL_WINDOW_MS` ④ `UI_YIELD_INTERVAL_MS` / ⑤ ④ 문단의 `시간 조각`·`강제 없음` | `rg -n "^export const [A-Z][A-Z0-9_]*_MS\b" app/src/shared/perf-budget.ts` → 4(①~④) · 구현 뒤 `rg -n "UI_YIELD_INTERVAL_MS" docs/arch/execution-model.md` → ⑤의 문단 | 새 예산 상수가 문서 없이 생기거나 문서가 지운 상수를 가리킨다 / 5ms 조항이 다시 문서에서 사라진다. 게이트가 green 인 채로 남는 차이: 문단의 나머지 표현(React 지연 렌더 설명)은 검증자 대조다 |
+| R-12 / VP-44 **EP-22′** | §7-G EP-22 그대로 — 자리 위치만 지금 파일로 | 3자리 — 창 감시 등록(`chat-turn/send.ts:526`) · 창 포트 닫힘 → `ClientRef` 닫힘(`app/host-port-server.ts:115` `port.onClose(close)`) · 진행 중 캐시 판정(`chatStore.ts:1848`) | `rg -n "onClosed\(onOwnerGone\)" app/src/main/app/chat-turn` → 1 · `rg -n "port\.onClose\(close\)" app/src/main/app/host-port-server.ts` → 1 · `rg -n "sessionBusy\(request\.entry\.session\)" app/src/renderer` → 1 | §7-G EP-22 그대로 |
+
+**EP-6′ 규칙 칸** (`shared/data-host.test.ts` — §10 EP-6 규칙 칸을 대체):
+
+| 분기 | 입력 | 기대 | 좌표 |
+|---|---|---|---|
+| 분할 — 합 ≤ 500 | 메시지 50 × 10 part | 조각 1 = 입력 그대로 | 'part 합이 500 이하인 세션은 조각 하나다' |
+| 분할 — 상한 넘김 | 120 × 10 | 500·500·200 · 이어 붙이면 입력 | '1,200 part(메시지당 10)는 조각 셋이고 각 조각은 500 part 를 넘지 않는다' |
+| 분할 — 상한에 딱 맞음 | 250·250·1 | 500·1 | '상한에 딱 맞는 다음 메시지는 같은 조각에 들어간다' |
+| 분할 — 가운데 메시지가 상한 초과 | 10·700·10 | 10·700·10 · 가운데 조각 = 그 메시지 하나 | 'part 700 인 메시지 하나는 혼자 한 조각이다' |
+| 분할 — **첫 메시지가 상한 초과 (D1)** | 700·10 | 700·10 — 빈 조각 없음 | 구현자 작성 |
+| 분할 — 메시지 0 | `[]` | 조각 0 | '메시지가 없으면 조각이 없다' |
+| 조립 — 정상 | 120 × 10 의 조각 3 | 원래 세션과 같다 | '분할한 조각을 조립하면 원래 세션과 같다' |
+| 조립 — 빈 세션 | 머리의 조각 수 0 · 조각 `[]` | 메시지 `[]` | '메시지가 없는 세션은 조각 없이 조립된다' |
+| 조립 — 조각 수 · 순서 · 메시지 수 어긋남 | 조각 하나 뺌 · 순서 바꿈 · 마지막 조각의 메시지 하나 뺌 | 각각 던진다(문장 셋) | it.each '%s → 던진다' 3행 |
+
+**EP-25 규칙 칸** (`check-ui-thread.test.mjs` '실제 트리' — 입력은 실제 트리와 등록 변이):
+
+| 분기 | 입력 | 기대 |
+|---|---|---|
+| 일치 | 실제 트리 — 절 밖의 `HOST_READY_TIMEOUT_MS`(실행 주체 절)는 세지 않는다 | 통과 |
+| 코드에만 있는 상수 | 변이 m1: 절에서 `UI_YIELD_INTERVAL_MS` 언급 삭제 · 변이 m2: `perf-budget.ts` 끝에 `export const EXTRA_MS = 1` | 실패 — 빠진 이름을 낸다 |
+| 절에만 있는 이름 | 변이 m3: 절에 `` `UI_EXTRA_MS` `` 를 더한다 | 실패 — 없는 상수 이름을 낸다 |
+| 양보 문단의 적용 대상·강제 수단 없음 | 변이 m4: 그 문단의 `시간 조각` 삭제 · 변이 m5: `강제 없음` 삭제 | 실패 |
+
+**EP-9 규칙 칸의 테스트 파일** — §7-D 의 `app/agent-host/port-server.test.ts` → `app/host-port-server.test.ts`. 분기·기대 그대로이고 좌표는 '연결의 신뢰 판정이 요청 이벤트에 실린다 — 요청이 바꿀 수 없다'(true·false 두 분기) · '같은 창이 다시 연결되면 옛 참조를 닫고 새 참조가 요청을 받는다' · '포트가 닫히면 닫힘을 한 번 알리고 그 참조로 보내지 않는다' · '형식이 틀린 요청과 등록 안 된 채널은 오류 응답이고 핸들러를 부르지 않는다'다.
+
+**선언 경계** (rev 4.6):
+
+- B17′ — B17 의 근거만 바꾼다: `openToolRuns` 는 `TurnContext` 의 필드(`contracts/turn.ts:61`)이고 lease 의 `activeChild` 가 `TurnContext` 다(`features/sessions/session-chain-lease.ts:39`). 옛 근거 `restart-gate.ts` 는 r1.17 이 지웠다. B17 의 내용은 그대로다.
+- B35 — 에이전트 호스트는 준비 전 종료(마감 종료 포함) 뒤 스스로 다시 뜨지 않는다. 다음 창 연결 요청(`connectAgent` · 새 문서의 `attach`)이나 데이터 호스트의 `peer.ensure` 가 띄운다(EP-19 · D-044). 그래서 에이전트 호스트의 "연속 3회"는 그 요청 3회를 거치고, 데이터 호스트는 스스로 다시 떠서 요청 없이 3회에 닿는다(조사 8행).
+- B36 — 화면의 부팅 단계 `main-ready` 는 필수 단계라 10초 마감(`renderer/src/app/boot/steps.ts` `BOOT_TIMING_POLICY`, 0077)이 걸리고, 셸의 준비 마감(D-055)보다 먼저 부팅 단계 실패를 보일 수 있다. 이 handoff 는 화면의 부팅 단계 마감을 바꾸지 않는다 — AC50 은 셸의 `bootWhenReady` 거부를 단언한다(조사 9행).
+- B37 — 시간 조각 양보(D-057)는 가드로 강제하지 않는다. 지금 직접 나눠 도는 UI 스레드 코드는 0이고(조사 3·4행), React 지연 렌더는 React 스케줄러가 양보한다(조사 5행). 호스트의 나눠 도는 코드(조사 6행)는 UI 스레드가 아니라 범위 밖이다.
+
+### 구현 설계 — rev 4.6
+
+| 단계 | 파일 | 책임 |
+|---|---|---|
+| 4s | `app/src/shared/data-host.test.ts` | EP-6′ 첫 자리 분기 1케이스 — 입력 700·10 → `chunks.map(partCount)` = 700·10. production 변경 없음 |
+| 4t | `docs/arch/execution-model.md` `## 멈춤 계측` · `app/src/shared/perf-budget.ts` 주석 | 절: 상수 넷을 이름과 뜻으로 가리키는 문장 + 시간 조각 양보 문단(적용 대상 · React 지연 렌더가 같은 간격으로 양보 · `강제 없음`). 값은 쓰지 않는다. 주석: `UI_YIELD_INTERVAL_MS` 의 적용 대상(D-057) — 동작 불변 |
+| 4u | `app/scripts/check-ui-thread.test.mjs` '실제 트리' | EP-25 대조 1케이스 — 정본 파일 둘을 읽어 두 이름 집합과 양보 문단을 비교한다. 절 범위는 `## 멈춤 계측` 부터 다음 `## ` 앞까지다 |
+
+- 운영 gate 는 §7-A 표 그대로다 — 문서가 바뀌므로 `check-doc-inventory --check` 가 이 변경에도 걸린다.
+
+### 대체 범위
+
+§7 AC16 → AC16′ · §7-F AC20′ 와 §7-G AC49 의 검증 수단 칸(파일 이름) · §7-A VP-01 → VP-01′ · §7-F VP-05′ → VP-05″ · §7-A VP-16 → VP-16′ · §10 EP-6 규칙 칸 → EP-6′ · §7-D EP-9 규칙 칸의 테스트 파일 이름 · §7-G EP-22 의 자리 위치 → EP-22′ · §7-D B17 의 근거 → B17′ · §3 갱신 메모의 D-007 대조 줄. §9 1491행과 §10 경로 표의 `shared/api/dataHost.ts` 는 rev 4.2 AC17 정정으로 이미 대체됐다 — 경로 표의 정본은 `execution-model.md`(AC34)다.
+
+### READY self-review — rev 4.6 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — §3 갱신 메모 rev 4.6 줄.
+- 분모: EP-6′ 2(검색 → 2) · EP-25 5(검색 → 4 + 구현 뒤 문단 1) · EP-22′ 3(검색 → 1·1·1) — 이번 턴에 돌렸다.
+- 규칙 칸 ↔ 입력 칸: EP-6′ 11분기 ↔ `data-host.test.ts` 케이스 7(분할 5 · 조립 2) + it.each 3행 + 구현자 1 · EP-25 4분기 ↔ 실제 트리 1 + 변이 5.
+- CHANGED 3(R-01′·AT-16′·MD-02′) · NEW 1(AT-51) ↔ REQUIRED pair 3 — R-01′·AT-51 ↔ VP-01′ · AT-16′ ↔ VP-05″ · MD-02′ ↔ VP-16′. 영향받은 INHERITED 상위 0(production 코드 변경 0).
+- 선택 적대 증거: VP-01′ 변이 5(차집합 대조의 방향) · VP-16′ 변이 1(C1 — verify 1 의 못 잡음).
+- 선언 경계 B35·B36·B37 은 조사 3~6·8·9행의 측정이고, B17′ 은 두 근거 줄을 `rg` 로 확인했다.
+- 인용 기존 테스트 실재: `data-host.test.ts` 케이스 이름 7 · `preload/session-load.test.ts:53`·`:94` · `host-port-server.test.ts:66`·`:93`·`:120`·`:151` — `grep -n "it("` 로 확인했다.
 
 ---
 
