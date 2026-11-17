@@ -11,7 +11,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { pathToFileURL, fileURLToPath } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { MessageChannel, Worker } from 'node:worker_threads'
 import { scaleMs } from './test-time.mjs'
 
@@ -75,7 +75,11 @@ export function runSmoke(outDir, { timeoutMs = scaleMs(BASE_TIMEOUT_MS) } = {}) 
     const finish = () => {
       clearTimeout(timer)
       for (const worker of Object.values(hosts)) void worker.terminate()
-      rmSync(userData, { recursive: true, force: true, maxRetries: 3 })
+      try {
+        rmSync(userData, { recursive: true, force: true, maxRetries: 3 })
+      } catch {
+        // Windows 에서 방금 끝난 worker 의 파일 핸들이 남아 EBUSY 일 수 있다 — 임시 폴더 잔여만 남는다.
+      }
       done(observed)
     }
     const timer = setTimeout(() => {
@@ -162,7 +166,10 @@ export function runSmoke(outDir, { timeoutMs = scaleMs(BASE_TIMEOUT_MS) } = {}) 
   })
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+// 직접 실행했는가 — Windows 는 드라이브 문자 대소문자가 다를 수 있어 경로를 정규화해 비교한다. 비교가
+// 빗나가면 아무것도 하지 않고 exit 0 이 되므로(거짓 통과) 대소문자를 무시한다.
+const entryPath = (path) => resolve(path).toLowerCase()
+if (entryPath(fileURLToPath(import.meta.url)) === entryPath(process.argv[1] ?? '')) {
   const outDir = resolve(process.argv[2] ?? 'out/main')
   const observed = await runSmoke(outDir)
   const failures = evaluate(observed)
