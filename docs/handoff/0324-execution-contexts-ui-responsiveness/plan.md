@@ -3873,6 +3873,128 @@ V-pair 자기 상태: `SELF_PASS` — VP-01′(AT-01 `gate:node scripts/check-do
 - EP-6 규칙 칸은 상한 초과 메시지를 가운데 자리에만 두었다 — verify 1 의 규칙 칸 diff 자리 변이(C1)가 드러냈고 rev 4.6 이 채택했다.
 - 환경: `npm ci` postinstall 이 better-sqlite3 를 Electron ABI 로 빌드해 DB 스위트가 변이 없이도 실패했다 — `node scripts/ensure-sqlite-abi.mjs node` 뒤 sweep·gate 를 다시 돌렸다. Electron 바이너리 없음.
 
+## [구현자 기입] r3 — rev 4.7: part 0 분할 · 절의 숫자(⑥) · 얇은 preload · preload 실패 화면
+
+**판정: 완료 — `impl/IMPL_DONE`.** rev 4.7 의 §7-L(4v~4x)과 §7-M(4y~5h)을 닫았다. 라운드 3 의 첫 impl 턴이다(verify 2회째 `RETURN_TO_PLAN` 뒤). `PLAN_GAP` 0.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| 4v·4w·4x | plan 대로 | part 0 두 분기는 `partsPerMessage`(메시지별 part 수)로 단언한다. `stallSection` 을 describe 범위로 올려 EP-25 케이스와 ⑥ 케이스가 같이 쓴다 — EP-25 케이스의 단언은 그대로다 |
+| 4y `host-channels.ts` | plan 대로 + 타입 1 | `HostConnectTarget`(`HostName \| 'all'`)을 더했다. 표지 값은 `'oo:host:port-message'` — `host-protocol.ts` 가 넷을 다시 내보내 셸·호스트 import 는 그대로다 |
+| 4z 비격리 분기 | 구현 세부 | `index.d.ts` 는 같은 이름의 `index.ts` 옆이라 node 컴파일에 들지 않는다(typecheck:node `TS2339` 로 관측) — `window` 를 캐스팅해 `ooBridge` 에 둔다 |
+| 5a 팩토리 | 구현 세부 | `createOo({ bridge, hosts, onHostLifecycle })` · `installOo(win = window)` — 테스트가 흉내 창을 넘긴다. `createOo` 반환 타입이 곧 `OoApi` 라 `explicit-function-return-type` 1줄을 사유 주석과 함께 끈다 |
+| 5b `Window.oo` 선언 자리 | 구현 세부 | `transport/window.d.ts` — `env.d.ts` 는 스크립트 선언 파일이라 import 를 두면 모듈이 돼 `__APP_VERSION__` 전역이 깨진다. `tsconfig.test.json` 에도 이 파일을 더했다 — main 테스트 `error-report.integration.test.ts` 가 renderer `mainErrorBridge` → `bridge.ts`(`Window['oo']`)를 끌어와 typecheck:test 오류 2 가 났다 |
+| 5c `rootElement` | 구현 세부 | `app/rootElement.ts`(JSX 없이 `createElement`) — plan 의 `.tsx` 대신. `.tsx` 의 비컴포넌트 export 는 react-refresh 경고를 하나 늘린다 |
+| 5d 테스트 이동 | plan 대로 + 입력 추가 | `harness.test.ts` 케이스는 `electron` 흉내 대신 흉내 다리로 다시 썼다(이름 유지). 수명 통지 케이스는 `install.test.ts` 로(이름 유지) — EP-27 ④ 입력 칸대로 구독을 첫 포트 앞에 두고, 종료 없는 교체 · 첫 포트 전 종료 입력을 더했다(`seen` 항 · `lost` 항 분기) |
+| 5e 목록 밖 테스트 1 | 구현 세부(선조치) | `product-identity.test.ts` '현재 문서가 인용하는 preload 노출 키가 코드의 실제 키와 같다 (EP-10)' 의 기대 `oo` → `ooBridge`. 조사 9행 목록에 없었고 첫 실행에서 red 로 드러났다 |
+| 5g 등록 밖 키 | 구현 세부 | EP-28 ④ 는 "다리 키 7" 이라 빠진 키와 함께 등록 밖 키도 막는다(fail-closed) — 입력 1 케이스('다리 등록 밖 키 — 실행이 그 키를 낸다')를 더했다 |
+| 5h 문서 | plan 대로 + 목록 밖 3 | 조사 12행 13자리 · TRD §5.3 정책 · 카탈로그 행. 목록 밖: `arch/backend/overview.md:146`(`exposeInMainWorld('oo', …)` 인용 — EP-10 테스트가 본다) · `IPC_CONTRACT.md` §6 4단계(채널 추가 절차가 옛 preload 파일을 가리켰다) · §7 첫 줄. 코드 주석 4(`channel-owner.ts` · `host-protocol.ts` · `main/index.ts` · `data-host.ts`) |
+| EP-8″ 검색 출력 | 관측 | 4줄 = 자리 2(`preload/index.ts:26` 다리 판정 · `transport/oo.ts:159` 전송층 선택) + import 줄 2(`:11` · `oo.ts:9`). plan 의 "2줄" 은 import 를 세지 않은 값이다 |
+| B45 확인 | 관측 | `rg -n "window\.oo\s*=" app/src --glob '!*.test.*'` 0줄 — 설치는 매개변수 `win` 에 둔다. `rg -n "\.oo\s*=" app/src --glob '!*.test.*'` → `install.ts:76` 하나 |
+| 설계 대비 메커니즘 변경 | 해당 없음 | 포트 전달(`window.postMessage`)·소유 표 선택·수명 통지 모두 plan 의 메커니즘이다 — 대체물 실패 모드 축(만료·공유·재진입·무효화)을 다시 유도할 대상이 없다 |
+
+### 강제 지점 전수 (§10 대조)
+
+검색 명령을 마지막 트리에서 다시 돌렸다. 줄마다 자리 번호를 적고, 목록과 차집합 0 이다(주석 줄은 자리가 아니다).
+
+| EP | 검색 출력 → 자리 | 닫음 | 직접 oracle 좌표 |
+|---|---|---|---|
+| EP-6″ (2) | `data-host.ts:44` 분할 · `:73` 조립 | 2/2 ✅ | `shared/data-host.test.ts` 'part 0 메시지 뒤에 상한을 넘는 메시지가 오면 그 메시지는 혼자 한 조각이다'(X6) · '상한을 넘는 메시지 뒤 끝의 part 0 메시지는 빠지지 않고 다음 조각이다'(X7) + 기존 8케이스 · it.each 3(C1~C10) |
+| EP-25′ (6) | ①~④ `perf-budget.ts:5`·`:7`·`:11`·`:13` ↔ 절의 이름 · ⑤ 문단 `execution-model.md:109` · ⑥ 숫자 줄 — 4w 뒤 `awk … \| grep -nE "[0-9]"` 1줄(`(0324 D-057)` 출처 표기) | 6/6 ✅ | `scripts/check-ui-thread.test.mjs` EP-25 케이스(n1~n3 · m1~m5) · '멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다'(v1 · v2 · k1 · k2) |
+| EP-26 (7) | `preload/index.ts` 13줄 — ① `:77`·`:79` · ② `:26`·`:48`·`:50`·`:54`·`:56` · ③ `:32`·`:35` · ④ `:62` · ⑤ `:40` · ⑥ `:70` · ⑦ `:72` | 7/7 ✅ | `src/preload/index.test.ts` — ① '`exposeInMainWorld` 1회 · 키 `ooBridge` · 다리 키 7' · ② '셸 채널의 요청·송신·구독과 그 해제는 `ipcRenderer` 로 간다' · it.each '%s → 던진다 · `ipcRenderer` 호출 0'(4행) · ③ '셸이 넘긴 에이전트 포트를 같은 창의 메인 월드로 넘긴다' · it.each '%s → 넘기지 않는다'(3행) · ④ it.each '`connectHost(%s)` → 셸 연결 채널 1' · '셸은 연결 대상이 아니다' · ⑤ '에이전트·데이터의 종료만 전달하고 해제 뒤에는 전달하지 않는다' · ⑥⑦ 같은 이름 케이스 2 |
+| EP-27 (5) | `install.ts` 코드 7줄 — ① `:19`(타입)·`:36` · ② `:57` · ③ `:88` · ④ `:70` · ⑤ `:42`·`:44` (`:35`·`:37` 분기는 ① 함수 안) | 5/5 ✅ | `transport/install.test.ts` — ① 3케이스 · ② '이 창이 보낸 에이전트 포트 하나를 …' · it.each '%s → 붙지 않는다 — 요청은 줄을 선 채다'(4행) · ③ "`message` 수신 등록이 `connectHost('all')` 보다 먼저이고 연결 요청은 1회다" · ④ '호스트 수명 통지 — …'(옮긴 케이스) · ⑤ '종료 뒤 첫 요청이 그 호스트의 연결을 요청한다 — 에이전트 · 데이터' |
+| EP-28 (5) | `smoke-preload.mjs:105` `checkPreloadOutput`(① `:41-54` · ② `:65-68` · ③ `:69-79` · ④ `:91-101`) · ⑤ `:119` `exitCode` | 5/5 ✅ | `scripts/smoke-preload.test.mjs` EP-28 규칙 칸 11행 + 등록 밖 키 1 · CLI 2('발견이 없으면 종료 코드 0' · '발견을 모두 출력하고 종료 코드 1') · `gate:node scripts/smoke-preload.mjs out/preload` OK |
+| EP-29 (4) | ① `install.ts:37` · ② `rootElement.ts:8` · ③ `BridgeMissingScreen.tsx:13` · ④ `ko.ts:116-117` · `en.ts:115-116` | 4/4 ✅ | ① '다리가 없으면 아무것도 하지 않는다 — `missing` (EP-29 ①)' · ② `app/rootElement.test.ts` 2케이스 · ③ `app/BridgeMissingScreen.render.test.ts` · ④ `gate:npm run typecheck`(`en: typeof ko`) · `resources.test.ts` |
+| EP-8″ (5) | 전송층 선택 `oo.ts:159` · 다리 판정 `preload/index.ts:26` · 등록 3(셸·에이전트·데이터) | 5/5 ✅ | `transport/oo.test.ts` '요청은 소유 프로세스의 전송 하나로만 간다 — 셸·에이전트·데이터 (AC24′)' · '턴 전송은 에이전트 포트, 세션 목록은 데이터 포트로 간다 (AC24′)' · afterAll 소유 대조 · 다리 판정은 EP-26 ② · 등록 3 은 `channel-registration.test.ts` '채널 소유 표 ↔ 실제 등록 프로세스'(미접촉 — 전체 vitest green) |
+| EP-1 (h)′ | `check-ui-thread.mjs` `windowOoName` · `WINDOW_BRIDGE_NAMES` | ✅ | `check-ui-thread.test.mjs` '`shared/api` 밖의 `window.ooBridge` 는 exit 1' · '`shared/api` 안의 `window.ooBridge` 는 exit 0' + 기존 (h) 4케이스 · `gate:node scripts/check-ui-thread.mjs` OK |
+
+- 규칙 칸 ↔ 입력: EP-6″ 13분기 ↔ 케이스 10 + it.each 3 · EP-25′ ⑥ 3분기 ↔ 합성 3 + 실제 트리 1 · EP-26 11행 ↔ 케이스 17 · EP-27 8행 ↔ 케이스 11 · EP-28 11행 ↔ 케이스 12 + CLI 2 · EP-29 5행 ↔ 좌표 5 · (h)′ 2 ↔ 케이스 2.
+- 옮긴 인용 좌표: AC16″ 조립 · AC17 취소 → `transport/session-load.test.ts`(케이스 이름 그대로) · AC33′ → `transport/host-port.test.ts` · AC29′·AC33′ 전달 수단 → `transport/install.test.ts` 같은 이름 · VP-09′ → `transport/session-load.test.ts`.
+
+V-pair 자기 상태: `SELF_PASS` — VP-01″ · VP-05‴ · VP-16″ · VP-48(기계 범위 — 실창은 AC23 실기) · VP-49 · VP-50 · VP-51 · VP-21″ · VP-23″ · VP-24′ · VP-32((h)′). `SELF_BLOCKED` 0. 영향받은 INHERITED 상위: VP-07(AC22·AC23 사람 실기 — 빌드 산출과 창 쪽 전송이 바뀌었다. 실기는 이 커밋 뒤 산출로 한다).
+
+### 이번 라운드 수정의 잠금
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---:|---|---|
+| EP-6″ — 등록 변이(VP-16″ C1 · X6 · X7) · 분할·조립 규칙 칸 | 2 + ④ 11(C1~C10 · C1b) | 13/13 잡음 | X6·X7 은 verify 2 `못 잡음` → 새 두 케이스가 각각 1건 실패. C1 은 ④ 행 |
+| EP-25′ — 자리 ①~⑥ · 등록 변이(m1~m5 · v1 · v2 · k1 · k2) | 4 + ④ 15(n1~n3 · m1~m5 · T1~T3 · X1 · X2 · X3 · X5) | 19/19 잡음 | v1 = verify 2 X4(`못 잡음` → 잡음). m3 · X2 · X5 · T1 · T2 는 재앵커(4w 낱말 · `stallSection` 들여쓰기) |
+| EP-1 (h)′ — 등록 변이(VP-32 H1) · 판정 분기 | 3 + ④ 21(G1~G20 · G1b) | 23 잡음 · H3 green → 보강 뒤 H3′ 잡음 | H3(원소 꼴 분기 제거) — 기존 케이스가 `window?.oo` 와 `window['oo']` 를 한 입력에 담아 분기를 구별하지 못했다 → 원소 꼴만 든 케이스 |
+| EP-26 — 다리 7자리 · 등록 변이(P1 · P4) · 형제 맞바꿈(E26-4c · 5c) | 19 | 19/19 잡음 | — |
+| EP-27 — 설치 5자리 · 등록 변이(P2 · P3 · P5) · 맞바꿈(1c · 4e · 5a · 5b) | 20 | 19 잡음 · E27-4g green → 보강 뒤 잡음 | E27-4g(`lost[host] = false` 제거) — 다시 붙은 뒤의 교체 입력이 없었다 |
+| EP-8″ · VP-21″ — 전송층 선택 · 소유 표 변이(OWN) · 옮긴 배선 | 8 | 5 잡음 · E8-g green → 보강 뒤 잡음 · 탐색 E8-c · E8-f green → 케이스 추가 뒤 잡음 | E8-g — 흉내 다리의 platform 이 변이 고정값(`'win32'`)과 같았다(운반 값) → `'darwin'`. E8-c(로그 상한) · E8-f(파일 경로 배선)는 옛 preload 에도 잠금이 없던 옮긴 동작이다 |
+| EP-28 — 검사 5자리 · 등록 변이(S1~S4) | 12 | 11 잡음 · E28-0 green → 보강 뒤 잡음 | E28-0(진입 파일 검사 제거) — 읽기 실패도 `index.js` 를 담은 실패라 단언 `/index\.js/` 가 구별하지 못했다 → 문장 단언 |
+| EP-29 — 실패 화면 4자리 · 등록 변이(B1 · B2) | 10 | 8 잡음 · E29-3c green → 보강 뒤 잡음 · E29-m 잔여물 red → m1 · m2 잡음 | E29-3c — 제목이 화면 표지 속성에도 있어 `toContain` 이 속성에 맞았다 → 문단 단언. E29-m 의 red 는 미사용 변수 진단(잔여물)이라 잠금이 아니다 → 잔여물 0 변이 둘 + `rootElement.test.ts` '`main.tsx` 는 `installOo()` 의 결과를 렌더 전에 받아 `rootElement` 에 넘긴다'(구조적 대리) |
+| 4y — 창 메시지 표지 값 | 1 (HC1) | 동치 | 표지는 창 `message` 의 `data.type`, 채널 이름은 `ipcRenderer` 의 것 — 두 값을 비교하는 코드가 없다(`rg -n HOST_PORT_MESSAGE app/src` → 정의 1 · 다시 내보냄 1 · preload 송신 1 · 설치 수신 1). 같은 값으로 바꿔도 206케이스 green |
+| 덮개 회귀 — 옮긴 전송층 재앵커(verify 1 V10~V15 · E4-6~E4-9 · E8-1 · E8-2 · E8p-1) | 13 | 13/13 잡음 | 파일 이동(`preload/` → `transport/`) · 전송 선택 재구성(`route`). E8-3 은 sweep E8-d(취소 송신을 다리로)가 재앵커다 |
+| 보강 재실행 | 9 | 9/9 잡음 | E27-4g′ · E8-g′ · E28-0′ · E29-3c′ · E8-c′ · E8-f′ · H3′ · E29-m1 · E29-m2 |
+
+- ④ verify 2 `잡음` 47행은 이번 diff 가 닿은 oracle(`data-host.test.ts` · `check-ui-thread.test.mjs` · `ui-thread-rules.mjs` · 옮긴 `session-load.test.ts`)의 전부다 — red → green 0. ③ 은 검증자 몫이다(s1 은 경계 B38).
+- 보강(테스트 6파일)은 sweep 뒤다. 보강은 단언을 더하거나 좁히기만 해서 앞선 `잡음` 행이 green 으로 바뀔 수 없고, 바뀐 행 9 는 보강 뒤 트리에서 다시 돌렸다. 매 실행 `# 원복 확인: 모든 파일 원문 그대로` · 끝에 `git status` 깨끗함.
+- 검산: `선택 증거 25(VP-16″ 3 · VP-01″ 9 · VP-49 5 · VP-50 4 · VP-51 2 · VP-32 1 · VP-21″ 1) · 인용 변이 3(V2-F1 X4 = v1 · V2-F2 X6 · X7 — 선택 증거가 겸함) · 새 oracle 4(⑥ 숫자 판정 · `smoke-preload` · (h)′ · `main.tsx` 구조 단언 — 민감도는 k1 · k2 · S1~S4 · H1 · E29-m1 · m2 행이 겸함) · sweep 79 · 보강 9 · ④ 47 · 재앵커 13 = 표 변이 148`. 원본 `evidence/r3-sweep/`(`sweep` · `fixes` · `rerun-v2` · `reanchor` 의 `.jsonl` · `.tsv`).
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 빈 창 결함 | 해소(기계 범위) — 빌드 산출 `out/preload/index.js` 15.35 kB 의 `require` 는 `require("electron")` 1 · `smoke-preload` OK. 변경 전 산출(42.03 kB)에 같은 검사를 돌리면 `[대조] index.js:2 … require("zod")` · `[실행] 로드 중 실패 — Error: module not found: zod`(사용자 보고 문장) |
+| 새 문구의 소비자 | `boot.bridgeMissingTitle`·`boot.bridgeMissingBody` → `BridgeMissingScreen` → `rootElement('missing', …)` → `main.tsx` 첫 렌더. 다리가 있으면 문구는 보이지 않는다 |
+| 실패가 "아무 일도 안 일어남"으로 보이는가 | 다리가 없으면 실패 화면(제목 · 원인 · 할 일). 창 조작 단추는 없다(B43) — 위쪽 끌기 영역만 있다 |
+| 실패 화면의 언어·테마 | 다리가 없으면 설정을 읽을 수 없어 언제나 ko · 기본(white) 테마다 — en 사용자도 한국어 문구를 본다. 구조상 피할 수 없어 기록만 한다(아래 놓친 잠재 문제 2) |
+| `window.oo` 형상 | 최상위 29묶음 그대로(`install.test.ts` 고정 목록) — renderer 호출부 diff 0 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | 실제 Electron 의 격리 월드 → 메인 월드 `window.postMessage(…, '*', [port])` 와 `event.source === window` 판정은 이 환경에서 실행하지 못한다(Electron 바이너리 없음) — `install.test.ts` 는 흉내 이벤트, `smoke-preload` 는 흉내 `window` 다 | AC23 실기에서 창이 뜨고 세션 목록·전송이 되는지로 확인한다(VP-07 · VP-48). Electron 문서의 메인 월드 포트 전달 예시와 같은 꼴이다 |
+| 2 | 실패 화면은 ko 고정 · 기본 테마 | 기록 — 설정을 읽을 다리가 없다. 바꾸려면 preload 없이 읽을 수 있는 언어 원천(예: `navigator.language`)이 필요하다 — 제품 판단(설계자 참고) |
+| 3 | `installOo` 자체가 던지면(다리는 있는데 설치 중 예외) 첫 렌더 전 `main.tsx` 가 멈춰 빈 창이다 | 범위 밖 — INDEX 후보 표의 "최상위 error boundary" 행(D-059 범위 밖)과 같은 축이다 |
+| 4 | 수신 등록 전에 온 포트는 버려진다 | B44 그대로 — 셸은 연결 요청 전 포트를 보내지 않는다(`electron-hosts.ts:70-80`). 새 문서는 설치 때 `'all'` 을 다시 요청한다 |
+
+### 구현 보고
+
+| 단계 | 파일 |
+|---|---|
+| 4v | `app/src/shared/data-host.test.ts` — part 0 두 케이스 · 머리 주석 EP-6″·AC16″ |
+| 4w | `docs/arch/execution-model.md:107` `기록 1건만` → `기록 하나만` |
+| 4x | `app/scripts/check-ui-thread.test.mjs` — ⑥ 케이스 1 · `stallSection` 공유 |
+| 4y | `app/src/shared/host-channels.ts`(신규) · `host-protocol.ts` 다시 내보냄 |
+| 4z | `app/src/preload/index.ts` 다리(556 → 86줄) · `index.d.ts` |
+| 5a | `app/src/renderer/src/shared/api/transport/{host-port,session-load}.ts`(이동, 동작 그대로) · `oo.ts` · `install.ts` · `window.d.ts` |
+| 5b | `tsconfig.test.json` |
+| 5c | `renderer/src/main.tsx` · `app/rootElement.ts` · `app/BridgeMissingScreen.tsx` · `i18n/resources/{ko,en}.ts` |
+| 5d | `transport/{host-port,session-load,oo,install}.test.ts` · 새 `src/preload/index.test.ts` · `app/rootElement.test.ts` · `app/BridgeMissingScreen.render.test.ts` |
+| 5e | `main/app/channel-registration.test.ts` · `main/product-identity.test.ts`(N3 · EP-10) |
+| 5f | `scripts/check-ui-thread.mjs` · `ui-thread-rules.mjs` · `check-ui-thread.test.mjs` |
+| 5g | `scripts/smoke-preload.mjs` + `.test.mjs` · `.github/workflows/ci.yml` 'Preload sandbox smoke' · `app/AGENTS.md`(스크립트 · 로컬 확인 · CI 표) |
+| 5h | `docs/TRD.md` · `IPC_CONTRACT.md` · `GLOSSARY.md` · `arch/execution-model.md` · `arch/frontend/{rendering,layers,design-components}.md` · `arch/backend/overview.md` · 코드 주석 4 |
+| 증거 | `docs/handoff/0324-execution-contexts-ui-responsiveness/evidence/r3-sweep/` |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0 — 마이그레이션 · 문서 인벤토리(`generated doc ok` · prose · links) · 제품 이름 `2444파일` · 테스트 예산 `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | 오류 0 · 경고 3(기존 React Compiler 2 · `DiffBody.tsx` react-refresh 1). 자동 수정은 이번 턴 파일의 줄 감싸기뿐 — 마지막 실행 뒤 트리 변화 0 |
+| `npm run typecheck` | node · web · test exit 0 |
+| `node --test scripts/*.test.mjs` | 74 suites · 1019 / 1019 |
+| `vitest run`(필터 없음) | 1029파일 · 9786케이스 — 실패 22(9파일) · 처리 안 된 오류 1(`native-resources.ts:152` win32 전용). 변경 전 트리(rev 4.7 설계 커밋 worktree) 실패 23(10파일)과 `FAIL` 줄 차집합: 새 실패 ∅ · 변경 전에만 1(`CanonicalBackgroundContent.wiring.test.ts` — 이번 diff 미접촉, 변경 전 한 번만 실패). 남은 9파일은 verify 2 기준선과 같은 win32 전용 경로(`C:/` — `expected '/home/user/orca-skin/app/C:/two' to be 'C:/two'`). `[test-pools]` 0 |
+| `npx electron-vite build` · `smoke-hosts.mjs out/main` · `smoke-preload.mjs out/preload` | `✓ built` 3 · `out/preload/index.js 15.35 kB` · smoke-hosts `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료`(남의 채널 거부 1) · smoke-preload `OK — require 는 electron 뿐 · 다리 \`ooBridge\` 노출(키 7)` · `grep -oE 'require\("[^"]+"\)'` → `require("electron")` 1 |
+
+테스트 소스 규칙: 추가·수정 12파일(`git diff --name-only --diff-filter=AMR 49d6bbad -- 'app/**/*.test.*'`) — vitest 10(`channel-registration` · `product-identity` · `preload/index` · `BridgeMissingScreen.render` · `rootElement` · `transport/{host-port,install,oo,session-load}` · `shared/data-host`) 은 `classifyTestSource` 전부 `unit`(io 신호 0) · `check-test-budgets` 위반 0(시간 값 · `vi.setConfig` 없음 — 필터 테스트의 대기는 순서 표지로 바꿨다) · 전체 실행 `[test-pools]` 0. `node --test` 2(`check-ui-thread.test.mjs` · `smoke-preload.test.mjs`)는 vitest 풀·예산 규칙 대상이 아니다. 지운 파일 1(`preload/harness.test.ts` → `transport/oo.test.ts` 로 옮김).
+
+**AC 자기보고**: ✅ 50 · ⚠️ 3 · ❌ 0 = 총 53. 새 AC52 ⚠️(기계 범위 ✅ — `smoke-preload` gate · EP-26·EP-27·EP-28 좌표. 동작 기준의 "sandbox 창에서 … 화면이 뜬다"는 Electron 바이너리가 없어 AC23 실기로 남는다) · AC53 ✅(EP-29 좌표 4 · typecheck). 바뀐 AC16″ ✅(EP-6″ 좌표 · 옮긴 조립 좌표 2) · AC51′ ✅(EP-25′ ⑥ 케이스) · AC24″ ✅(`transport/oo.test.ts` · `preload/index.test.ts` ② · `channel-registration.test.ts`). 좌표만 옮긴 AC17 · AC29′ · AC33′ ✅(같은 케이스 이름, 이번 전체 vitest green). ⚠️ 나머지 둘은 AC22 · AC23(사람 실기). 그 밖 43 은 이번 턴 전체 vitest · `node --test` 에서 좌표 파일이 통과한 것으로 셌다. 분모가 rev 4.7 에서 51 → 53 으로 바뀌어 r2(49/51)와 직접 비교하지 않는다.
+
+### Review Signals — 사실만
+
+- 라운드 3 · impl 턴 `r3`(verify 2회째 `RETURN_TO_PLAN` 뒤 첫 구현). 확장 창은 닫혔다 — 다음 verify 는 3회째다.
+- 닫은 불변식 3 — part 0 메시지도 메시지 하나다(V2-F2) · 절은 값을 적지 않는다(V2-F1) · preload 는 `electron` 밖의 모듈을 부르지 않는다(사용자 실측 결함). 앞 둘은 r2 와 같은 규칙 칸의 입력 확장, 셋째는 새 축이다.
+- preload 의 sandbox 결함은 2026-05-13 에도 같은 꼴로 났고 그때 정책은 관례(TRD)로만 남았다 — 이번에 산출 검사(`smoke-preload`)가 CI 단계가 됐다.
+- 환경: Electron 바이너리 없음(실창 실기 불가) · better-sqlite3 는 `ensure-sqlite-abi.mjs node` 로 Node ABI.
+
 ---
 
 ## [검증자 기입] 파생 이슈
