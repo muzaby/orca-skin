@@ -34,7 +34,7 @@
 
 **채널마다 처리하는 프로세스가 하나다.** 방향 칸의 `M` 은 그 채널을 맡은 프로세스 — 셸(Electron main) · 에이전트 호스트 · 데이터 호스트 — 를 뜻하고, 배정의 정본은 `app/src/shared/channel-owner.ts` 다. preload 가 이 표로 전송을 고른다: 셸 채널은 `ipcRenderer`, 호스트 채널은 그 호스트의 포트로 가며 main JS 를 지나지 않는다([실행 모델](./arch/execution-model.md)). `window.oo` 의 형상은 전송과 무관하다.
 
-**`CHANNELS` 밖의 연결 채널** (`shared/host-protocol.ts` — 셸 ↔ preload 전용, renderer 에 노출하지 않는다): `oo:host:connect`(창 문서가 호스트 포트를 요청) · `oo:host:port`(셸이 포트를 전달 — 호스트가 다시 뜨면 새 포트) · `oo:host:exited`(호스트 비정상 종료 통지).
+**`CHANNELS` 밖의 연결 채널** (`shared/host-protocol.ts` — 셸 ↔ preload 전용, renderer 에 노출하지 않는다): `oo:host:connect`(창 문서가 호스트 포트를 요청) · `oo:host:port`(셸이 포트를 전달 — 호스트가 다시 뜨면 새 포트) · `oo:host:exited`(호스트 비정상 종료 통지). renderer 는 채널 대신 `window.oo.hosts.onLifecycle` 로 그 결과만 받는다 — 호스트가 죽었다(`exited`) · 죽었던 호스트의 새 포트가 왔다(`reconnected`). 첫 포트는 알리지 않는다. 에이전트 호스트가 죽으면 진행 중 세션은 오류로 끝나고(`chatStore.onHostLifecycle`), 다시 붙으면 세션 목록과 활성 세션을 다시 읽는다(0324 AC29′·AC33′).
 
 **호스트 → 셸 서비스** (`shared/shell-services.ts` — 호스트만 부르고 요청마다 스키마 검증): `secrets.*`(봉인·해제) · `dialog.*` · `external.*`(외부 열기·휴지통) · `notify.show` · `session.*`(인증용 파티션 세션 — 등록·로그인 창·전송·비우기).
 
@@ -525,7 +525,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 ### 2.13-c Provider (0181 — 구 `auth` 7 + `plugin` 4 채널 대체)
 
-앱 로그인(게이트)·LLM 자격증명·사내 서비스 연결·로그인 프리 Plugin을 같은 상태 DTO로 표시하는 채널. 자격증명 대상은 같은 인증 lifecycle을 사용하고, 로그인 프리 대상은 인증 lifecycle에 들어가지 않는다. view 분류는 `ProviderInfo.kind`(`gate`·`llm`·`service`), 인증 체계는 필수 `ProviderInfo.authScheme`(`login-required`·`login-free`)이 구분한다. **prod 에서는** 등록된 `kind:'gate'` provider 가 0개(기본 배포)면 게이트가 **자동 통과**되고, **DEV 빌드는 선언이 0개여도 게이트를 세운다**(컴포지션 루트가 `import.meta.env.DEV` 를 `evaluateGate.alwaysRequired` 로 주입 — 로그인 화면 도달성. 탈출구는 `Settings.authBypass` 우회 토글 하나). **핸들러는 `Bootstrap.start()` 최상단, DB 초기화보다 앞에서 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 게이트 판정에는 DB 가 필요 없다(grant 는 파일+vault).
+앱 로그인(게이트)·LLM 자격증명·사내 서비스 연결·로그인 프리 Plugin을 같은 상태 DTO로 표시하는 채널. 자격증명 대상은 같은 인증 lifecycle을 사용하고, 로그인 프리 대상은 인증 lifecycle에 들어가지 않는다. view 분류는 `ProviderInfo.kind`(`gate`·`llm`·`service`), 인증 체계는 필수 `ProviderInfo.authScheme`(`login-required`·`login-free`)이 구분한다. **prod 에서는** 등록된 `kind:'gate'` provider 가 0개(기본 배포)면 게이트가 **자동 통과**되고, **DEV 빌드는 선언이 0개여도 게이트를 세운다**(컴포지션 루트가 `import.meta.env.DEV` 를 `evaluateGate.alwaysRequired` 로 주입 — 로그인 화면 도달성. 탈출구는 `Settings.authBypass` 우회 토글 하나). **핸들러는 데이터 호스트의 `DataBootstrap.start()` 안, DB 초기화보다 앞에서 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 게이트 판정에는 DB 가 필요 없다(grant 는 파일+vault).
 
 wire 체계의 정본은 `app/src/shared/ipc.ts`의 `ProviderAuthScheme`이고 main은 `AuthScheme`으로 별칭한다. 인증 계약 정본은 `app/src/main/contracts/auth.ts`(`AuthDefinition`·`LoginFreeDefinition`·`AuthMethod`·`Grant`·`BoundAuth`·`LoginFreePluginAuth`), 배포 선언·배선은 `app/src/main/app/deployment/`(빌드타임 — 런타임 동적 등록 없음), 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
 

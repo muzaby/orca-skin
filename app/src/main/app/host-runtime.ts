@@ -12,8 +12,8 @@
 import { ShellToHostSchema, type HostToShell } from '../../shared/host-protocol'
 import type { HostEnvironment } from '../infra/host-environment'
 import type { PeerPort } from '../infra/ipc/peer-link'
-import { createShellClient, type ShellClient } from './agent-host/shell-client'
-import type { ClientConnection, HostPort } from './agent-host/port-server'
+import { createShellClient, type ShellClient } from './host-shell-client'
+import type { ClientConnection, HostPort } from './host-port-server'
 
 // `MessagePortMain` 의 쓰는 부분.
 export interface RawPort {
