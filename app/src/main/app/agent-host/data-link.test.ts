@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SettingsSchema } from '../../../shared/protocol'
 import { createPeerLink, PEER_CLOSED_ERROR } from '../../infra/ipc/peer-link'
-import { createPeerLoopback } from '../../infra/ipc/peer-loopback'
+import { createPeerLoopback } from '../../infra/ipc/peer-loopback.testfixture'
 import * as stall from '../../infra/perf/stall-monitor'
 import { createDataLink } from './data-link'
 import { createSettingsMirror } from './settings-mirror'

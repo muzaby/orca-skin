@@ -4,10 +4,11 @@
 
 import type { DbQueries } from '../../infra/db'
 import type { OpTable, RemoteOps } from '../../infra/ipc/peer-ops'
-import type { DataPort } from '../context'
+import { harnessConfigPort, type DataPort, type HarnessConfigPort } from '../context'
 import {
   createDataQueryOps,
   createDataWriteOps,
+  type DataOpsDeps,
   type DataQueryOps,
   type DataWriteOps
 } from './data-ops'
@@ -27,17 +28,42 @@ function remote<T extends OpTable>(table: T): RemoteOps<T> {
   })
 }
 
+// 하네스 실행 구성 서비스(설정 트리·실행 구성·카탈로그)와 MCP 해석기 — 테스트의 가짜나 실제 객체다.
+export interface FixtureHarnessServices {
+  harnessSettings?: unknown
+  harnessRuntime?: unknown
+  runtimeModelCatalog?: unknown
+  mcp?: unknown
+}
+
+function harnessDeps(services: FixtureHarnessServices): Pick<DataOpsDeps, 'harness' | 'mcp'> {
+  return {
+    ...(services.harnessSettings || services.harnessRuntime || services.runtimeModelCatalog
+      ? {
+          harness: {
+            settings: (services.harnessSettings ?? {}) as never,
+            runtime: (services.harnessRuntime ?? {}) as never,
+            catalog: (services.runtimeModelCatalog ?? {}) as never
+          }
+        }
+      : {}),
+    ...(services.mcp ? { mcp: services.mcp as never } : {})
+  }
+}
+
 export function directDataPort(
   db: unknown,
   options: {
     // 프로젝트 작업 폴더 해석을 테스트가 정한다(없으면 `db.getProject` 에서 푼다).
     getCwd?: (projectId?: string | null) => string
     defaultCwd?: string
+    services?: FixtureHarnessServices
   } = {}
 ): DataPort {
-  const deps = {
+  const deps: DataOpsDeps = {
     db: db as DbQueries,
-    defaultCwd: () => options.defaultCwd ?? FIXTURE_DEFAULT_CWD
+    defaultCwd: () => options.defaultCwd ?? FIXTURE_DEFAULT_CWD,
+    ...harnessDeps(options.services ?? {})
   }
   const query: DataQueryOps = createDataQueryOps(deps)
   const { getCwd } = options
@@ -52,19 +78,43 @@ export function directDataPort(
 // 는 부를 때 읽으므로, 테스트가 나중에 바꿔 끼운 가짜도 그대로 보인다.
 export function withDataPort<T extends object>(
   ctx: T
-): T & { data: DataPort; defaultCwd(): string } {
+): T & { data: DataPort; defaultCwd(): string; harness: HarnessConfigPort } {
   const source = ctx as {
     db?: Record<string, unknown>
     getCwd?: (projectId?: string | null) => string
-  }
+  } & FixtureHarnessServices
   const db = new Proxy(
     {},
     { get: (_target, key) => (source.db as Record<string | symbol, unknown> | undefined)?.[key] }
   )
   const cwd = (projectId?: string | null): string =>
     source.getCwd ? source.getCwd(projectId) : FIXTURE_DEFAULT_CWD
-  return Object.assign(ctx, {
-    data: directDataPort(db, { getCwd: cwd }),
-    defaultCwd: () => cwd(null)
+  // 하네스 서비스는 부를 때 읽는다 — 테스트가 나중에 바꿔 끼운 가짜도 보인다.
+  const late = (key: keyof FixtureHarnessServices): unknown =>
+    new Proxy({}, { get: (_target, name) => (source[key] as Record<string | symbol, unknown> | undefined)?.[name] })
+  const data = directDataPort(db, {
+    getCwd: cwd,
+    services: {
+      harnessSettings: late('harnessSettings'),
+      harnessRuntime: late('harnessRuntime'),
+      runtimeModelCatalog: late('runtimeModelCatalog'),
+      mcp: late('mcp')
+    }
   })
+  return Object.assign(ctx, {
+    data,
+    defaultCwd: () => cwd(null),
+    harness: harnessConfigPort(data)
+  })
+}
+
+// 엔진 핸들러 컨텍스트 — 옛 세 서비스를 데이터 호스트 연산 위의 `harness` 포트로 묶는다.
+export function harnessPortOf(services: FixtureHarnessServices): HarnessConfigPort {
+  return harnessConfigPort(directDataPort({}, { services }))
+}
+
+export function engineContext<T extends { deployExtensions: unknown } & FixtureHarnessServices>(
+  ctx: T
+): { deployExtensions: T['deployExtensions']; harness: HarnessConfigPort } {
+  return { deployExtensions: ctx.deployExtensions, harness: harnessPortOf(ctx) }
 }

@@ -84,6 +84,7 @@ function sameServer(left: RuntimeToolServer, right: RuntimeToolServer): boolean 
 // descriptor 또는 implementation 구조를 바꿔도 내부 상태가 변하지 않게 복사본을 소유한다.
 export class RuntimeToolRegistry implements RuntimeToolSource, RuntimeToolSink {
   private readonly servers = new Map<string, RuntimeToolServer>()
+  private readonly listeners = new Set<(revision: number) => void>()
   private revision = 0
 
   add(server: RuntimeToolServer): void {
@@ -91,12 +92,25 @@ export class RuntimeToolRegistry implements RuntimeToolSource, RuntimeToolSink {
     const existing = this.servers.get(id)
     if (existing && sameServer(existing, server)) return
     this.servers.set(id, copyServer(server))
-    this.revision += 1
+    this.changed()
   }
 
   remove(serverId: string): void {
     if (!this.servers.delete(serverId)) return
+    this.changed()
+  }
+
+  // 등록이 바뀔 때마다 부른다(다른 프로세스의 사본을 갱신한다 — 0324 D-038). 반환값은 구독 해제다.
+  subscribe(listener: (revision: number) => void): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  private changed(): void {
     this.revision += 1
+    for (const listener of [...this.listeners]) listener(this.revision)
   }
 
   snapshot(): RuntimeToolSnapshot {
