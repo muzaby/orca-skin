@@ -5,7 +5,6 @@ import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import { DbQueries } from '../../infra/db/queries'
 import { applyMigrations } from '../../infra/db/migrate'
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 import { HistoryWriter } from './writer'
 
 const artifact: ArtifactRef = {

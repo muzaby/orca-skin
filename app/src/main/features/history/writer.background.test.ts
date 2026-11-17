@@ -1,6 +1,5 @@
 import Database from 'better-sqlite3'
 import { expect, it, vi } from 'vitest'
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 import { HistoryWriter } from './writer'
 import { DbQueries } from '../../infra/db/queries'
 import { applyMigrations } from '../../infra/db/migrate'

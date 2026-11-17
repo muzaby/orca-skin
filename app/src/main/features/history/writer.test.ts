@@ -7,9 +7,6 @@ import { join } from 'node:path'
 
 // writer → infra/ipc/send → electron(webContents) 런타임 체인을 절단 — 이 스위트는
 // electron 바이너리 없이도 돈다(hermetic, 0104 선례). 테스트는 send 를 호출하지 않는다.
-vi.mock('electron', () => ({
-  webContents: { getAllWebContents: (): unknown[] => [] }
-}))
 
 import { HistoryWriter } from './writer'
 import { DbQueries } from '../../infra/db/queries'

@@ -6,8 +6,6 @@ import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
 import { buildTurnRequest } from './turn-request'
 
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
-
 // 0324 EP-11 — `harness.exited` 는 채널이 끊긴 시점의 활성 턴 세션으로 나간다.
 describe('buildTurnRequest 채널 오류 통지', () => {
   function setup(onHarnessExited?: (sessionId: string | null) => void): {

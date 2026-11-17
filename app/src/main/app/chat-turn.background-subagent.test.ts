@@ -1,36 +1,27 @@
 // 0212 AC25(ΔV1) — **관측 지점은 `turn.live.backgroundTask` 포트다.** renderer 경계(`chatApi`)
 // 에서 인자를 세는 단언은 main 핸들러 본문을 지워도 초록이라 이 AC 를 닫지 못한다(r1 verify D3).
-// `ipcMain.handle` 을 맵으로 포획해 실제 등록된 핸들러를 부르는 선례를 그대로 쓴다 —
-// `chat-turn.runtime-tools.test.ts` 가 같은 `registerChatHandlers` 를 이 방식으로 부른다.
+// 실제 등록된 핸들러를 테스트 전송(`invokeChannel`)으로 부른다 — `chat-turn.runtime-tools.test.ts` 가
+// 같은 `registerChatHandlers` 를 이 방식으로 부른다.
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
-
-const harness = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>()
-}))
-
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: vi.fn(
-      (channel: string, handler: (event: unknown, raw: unknown) => Promise<unknown>) => {
-        harness.handlers.set(channel, handler)
-      }
-    )
-  }
-}))
 
 vi.mock('../infra/ipc/send', () => ({
   sendChatEvent: vi.fn(),
   broadcastBackgroundEvent: vi.fn()
 }))
 
+import {
+  invokeChannel,
+  registeredChannels,
+  resetTestTransport
+} from '../infra/ipc/test-transport.testfixture'
 import { registerChatHandlers } from './chat-turn'
 
 type Turn = { live: { backgroundTask: ReturnType<typeof vi.fn> } | null } | undefined
 
 function install(turn: Turn): void {
-  harness.handlers.clear()
+  resetTestTransport()
   registerChatHandlers({
     ctx: {},
     supervisor: { getBySession: vi.fn(() => turn) },
@@ -46,9 +37,7 @@ function install(turn: Turn): void {
 }
 
 function invoke(payload: unknown): Promise<unknown> {
-  const handler = harness.handlers.get(CHANNELS.chatBackgroundSubagent)
-  if (!handler) throw new Error('backgroundSubagent handler was not registered')
-  return handler({ sender: {} }, payload)
+  return invokeChannel(CHANNELS.chatBackgroundSubagent, payload)
 }
 
 function liveTurn(moved: boolean): { live: { backgroundTask: ReturnType<typeof vi.fn> } } {
@@ -56,11 +45,9 @@ function liveTurn(moved: boolean): { live: { backgroundTask: ReturnType<typeof v
 }
 
 describe('registerChatHandlers — chatBackgroundSubagent 배선 (0212 AR-04 · §10 EP-14)', () => {
-  beforeEach(() => harness.handlers.clear())
-
   it('채널을 등록한다', () => {
     install(liveTurn(true))
-    expect(harness.handlers.has(CHANNELS.chatBackgroundSubagent)).toBe(true)
+    expect(registeredChannels()).toContain(CHANNELS.chatBackgroundSubagent)
   })
 
   it('요청받은 toolUseId 로 포트를 정확히 1회 부른다 — 두 요청의 인자가 각각 실린다', async () => {

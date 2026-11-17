@@ -19,23 +19,15 @@ import { registerEngineHandlers } from './engine'
 import { engineContext } from '../data-host/data-port.testfixture'
 import { registerMiscHandlers } from './misc'
 import { withDataPort } from '../data-host/data-port.testfixture'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
 const fixture = vi.hoisted(() => ({
   home: '',
-  rejected: vi.fn(),
-  callbacks: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>()
+  rejected: vi.fn()
 }))
 vi.mock('node:os', async (original) => ({
   ...(await original<typeof import('node:os')>()),
   homedir: () => fixture.home
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (name: string, callback: (event: unknown, raw: unknown) => Promise<unknown>) =>
-      fixture.callbacks.set(name, callback)
-  },
-  BrowserWindow: {},
-  Notification: {}
 }))
 vi.mock('../../infra/log/registry', () => ({
   getLogger: () => ({ child: () => ({ warn: fixture.rejected }) })
@@ -49,7 +41,7 @@ vi.mock('../../infra/ipc/wire-log', () => ({ setWireSink: vi.fn() }))
 vi.mock('../../infra/config/oo-config', () => ({ getOoConfig: () => ({}), appEnv: () => ({}) }))
 
 const invoke = async (channel: string, raw?: unknown): Promise<unknown> =>
-  fixture.callbacks.get(channel)!({}, raw)
+  invokeChannel(channel, raw)
 const deploy = vi.fn(async () => {})
 const acquire = vi.fn()
 const fetchImpl = vi.fn()
@@ -99,7 +91,6 @@ const nativeCatalog = {
 
 beforeEach(() => {
   fixture.home = mkdtempSync(join(tmpdir(), 'orcinus-orca-engine-ipc-'))
-  fixture.callbacks.clear()
   vi.clearAllMocks()
   // Assemble the runtime services the way bootstrap does: production always injects them, and
   // omitting them would run agent:list's fallback branch instead of the production one.

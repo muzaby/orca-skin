@@ -3,15 +3,8 @@ import type { SettingsStore } from '../infra/settings-store'
 import type { PluginAuth } from '../contracts/auth'
 import type { OoMcpConfig } from '../adapters/common/mcp-config'
 const storage = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, input: unknown) => Promise<unknown>>(),
   servers: {} as OoMcpConfig,
   secrets: new Map<string, string>()
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, handler: (event: unknown, input: unknown) => Promise<unknown>) =>
-      storage.handlers.set(channel, handler)
-  }
 }))
 vi.mock('../features/extensions/common/mcp/file', () => ({
   readMcpFile: () => ({ mcpServers: structuredClone(storage.servers) }),
@@ -47,6 +40,7 @@ import { createManagedMcp } from './managed-mcp'
 import { registerMcpHandlers } from './handlers/mcp'
 import { CHANNELS } from '../../shared/ipc'
 import { memorySecrets } from '../infra/config/memory-secrets.testfixture'
+import { invokeChannel } from '../infra/ipc/test-transport.testfixture'
 
 it('projects stored MCP and authenticated plugin bindings', async () => {
   storage.servers = {
@@ -90,7 +84,7 @@ it('projects stored MCP and authenticated plugin bindings', async () => {
   const managed = createManagedMcp(mcp, bindings)
   registerMcpHandlers({ mcp, deployExtensions: async () => managed.source.refresh() })
   const invoke = async (channel: string, input: unknown): Promise<unknown> =>
-    storage.handlers.get(channel)!({}, input)
+    invokeChannel(channel, input)
   const events: number[] = []
   managed.source.subscribe((revision) => events.push(revision))
   try {

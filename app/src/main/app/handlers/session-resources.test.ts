@@ -1,25 +1,14 @@
-import { EventEmitter } from 'node:events'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResource, NativeResources } from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { ProjectResourceSync } from '../project-resource-sync'
 import { registerSessionResourceHandlers } from './session-resources'
-const openPath = vi.hoisted(() => vi.fn(async () => ''))
-const showItemInFolder = vi.hoisted(() => vi.fn())
-const callbacks = vi.hoisted(
-  () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-)
-vi.mock('electron', () => ({
-  shell: { openPath, showItemInFolder },
-  ipcMain: {
-    handle: (name: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      callbacks.set(name, callback)
-  }
-}))
+import { invokeChannel, resetTestTransport } from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 const request = {
   sessionId: 'session-B',
@@ -43,8 +32,7 @@ const snapshot = (): NativeResources => ({
   ]
 })
 const invoke = (channel: string, payload: unknown): Promise<unknown> =>
-  callbacks.get(channel)!({}, payload)
-beforeEach(() => callbacks.clear())
+  invokeChannel(channel, payload)
 afterEach(() => vi.useRealTimers())
 it('returns pending configuration as read-only through the real IPC read', async () => {
   const runtime = {
@@ -87,7 +75,7 @@ it('acquires a scoped observer without an SDK query and releases it on renderer 
   const stop = vi.fn(),
     send = vi.fn(),
     sdk = vi.fn(async () => snapshot())
-  const sender = Object.assign(new EventEmitter(), { id: 4, isDestroyed: () => false, send })
+  const sender = Object.assign(fakeClient(4), { send })
   const readConfigured = vi.fn(async () => snapshot().items)
   let read!: ReturnType<typeof registerSessionResourceHandlers>
   const sync = new ProjectResourceSync({
@@ -109,9 +97,10 @@ it('acquires a scoped observer without an SDK query and releases it on renderer 
       projectSync: sync
     })
     const observe = (active: boolean): Promise<unknown> =>
-      callbacks.get(CHANNELS.sessionNativeResources)!(
-        { sender },
-        { ...scope, observation: { owner: 'panel', active } }
+      invokeChannel(
+        CHANNELS.sessionNativeResources,
+        { ...scope, observation: { owner: 'panel', active } },
+        sender
       )
     await observe(true)
     for (let i = 0; i < 30; i++) await Promise.resolve()
@@ -131,7 +120,7 @@ it('acquires a scoped observer without an SDK query and releases it on renderer 
     await observe(false)
     expect(stop).toHaveBeenCalledOnce()
     await observe(true)
-    sender.emit('destroyed')
+    sender.close()
     expect(stop).toHaveBeenCalledTimes(2)
   } finally {
     sync.close()
@@ -246,6 +235,8 @@ describe('native resource IPC', () => {
     ).rejects.toThrow('불러오지 못했습니다')
     let finish: ((items: NativeResource[]) => void) | undefined = undefined
     let runtime: GovernedLiveTurn | undefined = undefined
+    // 같은 케이스의 두 번째 등록 — 새 전송에 건다(실제 전송은 같은 채널의 두 번째 등록을 거부한다).
+    resetTestTransport()
     registerSessionResourceHandlers({
       lookup: () => runtime,
       configuredResources: () =>
