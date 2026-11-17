@@ -88,3 +88,40 @@ describe('approval plan input persistence', () => {
     expect(setMode).not.toHaveBeenCalled()
   })
 })
+
+// 0324 EP-15 — 질문 답은 승인 직후 저장 스트림의 질문 답 입력으로 간다(`flushAskAnswers`).
+describe('approval ask answers persistence', () => {
+  const ask: PermissionAction = {
+    kind: 'ask_question',
+    request: { requestId: '', questions: [] },
+    providerRequest: { requestId: 'sdk', toolUseId: 'ask-1' }
+  } as unknown as PermissionAction
+  it.each([
+    [{ behavior: 'allow', updatedInput: { answers: { q: 'A' }, response: 'free' } }, 1],
+    [{ behavior: 'deny' }, 0]
+  ] as const)('queues the answer and flushes it once for %j', async (resolution, flushes) => {
+    const turn = {
+      dbSessionId: 's',
+      agentKind: 'code',
+      controller: new AbortController(),
+      pendingAskAnswers: [] as unknown[]
+    }
+    const wc = { id: 3 }
+    const flushAskAnswers = vi.fn()
+    const request = createApprovalRequester({
+      wc,
+      approvals: { register: vi.fn().mockResolvedValue(resolution) },
+      persistence: { persist: vi.fn(), flushAskAnswers },
+      permissionModes: { setMode: vi.fn() },
+      getActiveTurn: () => turn
+    } as never)
+    await request(ask)
+    expect(flushAskAnswers).toHaveBeenCalledTimes(flushes)
+    if (flushes) {
+      expect(flushAskAnswers).toHaveBeenCalledWith(turn, wc)
+      expect(turn.pendingAskAnswers).toEqual([
+        { toolUseId: 'ask-1', answers: { q: 'A' }, response: 'free' }
+      ])
+    }
+  })
+})

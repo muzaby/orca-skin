@@ -644,6 +644,26 @@ it('턴 전송은 에이전트 포트, 세션 목록은 데이터 포트로 간�
   ])
 })
 
+// 호스트 채널의 단방향 전송도 그 호스트의 포트로 간다 — 셸 IPC 로 보내면 받는 쪽이 없다(EP-8 · EP-4′).
+it('세션 로드 취소는 데이터 포트로 간다 — 셸 IPC 로 보내지 않는다', async () => {
+  const api = harness.exposed.get('oo') as OoApi
+  let release!: (value: unknown) => void
+  harness.invoke.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
+  const from = harness.routes.length
+  const sentFrom = harness.sent.length
+  const pending = api.session.load('s-cancel')
+  await vi.waitFor(() =>
+    expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionLoad, 'data'])
+  )
+  api.session.cancelLoad('s-cancel')
+  expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionLoadCancel, 'data'])
+  expect(harness.sent.slice(sentFrom).map(([channel]) => channel)).not.toContain(
+    CHANNELS.sessionLoadCancel
+  )
+  release({ cancelled: true })
+  await expect(pending).rejects.toThrow()
+})
+
 afterAll(() => {
   const wrong = harness.routes.filter(([channel, via]) => ownerOfChannel(channel) !== via)
   expect(wrong).toEqual([])
