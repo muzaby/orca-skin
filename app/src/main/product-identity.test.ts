@@ -321,9 +321,13 @@ describe('이름 규칙 (0306)', () => {
   const ipc = read('src', 'shared', 'ipc.ts')
   const VALUE_PREFIX = PRODUCT_SLUG.toUpperCase().replace('-', '_')
 
-  it('preload 가 전역 키 `oo` 로 API 를 노출하고 타입 선언이 같은 이름을 쓴다 (N3)', () => {
-    expect(read('src', 'preload', 'index.ts')).toContain("exposeInMainWorld('oo', oo)")
-    expect(read('src', 'preload', 'index.d.ts')).toContain('oo: OoApi')
+  // 0324 D-058 — preload 는 다리를 `ooBridge` 로 노출하고 renderer 전송층이 그 위에 `window.oo` 를 만든다.
+  it('preload 가 전역 키 `ooBridge` 로 다리를 노출하고 renderer 의 타입 선언이 `oo` 를 쓴다 (N3)', () => {
+    expect(read('src', 'preload', 'index.ts')).toContain("exposeInMainWorld('ooBridge', bridge)")
+    expect(read('src', 'preload', 'index.d.ts')).toContain('ooBridge?: OoBridge')
+    expect(read('src', 'renderer', 'src', 'shared', 'api', 'transport', 'window.d.ts')).toContain(
+      'oo: OoApi'
+    )
   })
 
   it('IPC 채널이 전부 `oo:` 접두사이고 개수가 생성물과 일치한다 (N4)', () => {
@@ -409,7 +413,8 @@ describe('이름 규칙 (0306)', () => {
 
   it('현재 문서가 인용하는 preload 노출 키가 코드의 실제 키와 같다 (EP-10)', () => {
     const actual = /exposeInMainWorld\('([^']+)'/.exec(read('src', 'preload', 'index.ts'))?.[1]
-    expect(actual).toBe('oo')
+    // 0324 D-058 — preload 는 다리만 `ooBridge` 로 노출한다(`window.oo` 는 renderer 전송층이 만든다).
+    expect(actual).toBe('ooBridge')
     const quoted = currentDocs.flatMap(({ file, text }) =>
       [...text.matchAll(/exposeInMainWorld\('([^']*)'/g)].map((match) => ({ file, key: match[1] }))
     )

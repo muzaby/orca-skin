@@ -79,7 +79,7 @@ const rendererUrl =
     : 'app://renderer/'
 
 // 셸이 처리하는 요청·통지의 전송(0324 EP-8′) — 창 조작·부팅 대기·업데이트·renderer 로그·알림만
-// 셸 몫이다. 나머지 채널은 preload 가 호스트 포트로 보낸다.
+// 셸 몫이다. 나머지 채널은 renderer 전송층이 호스트 포트로 보낸다(0324 D-058).
 setIpcTransport(
   createElectronTransport({
     isTrusted: createArtifactSenderCheck(() => mainWindowRef?.webContents ?? null, rendererUrl)
