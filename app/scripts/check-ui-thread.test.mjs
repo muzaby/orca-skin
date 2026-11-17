@@ -767,6 +767,46 @@ describe('실제 트리', () => {
     assert.deepEqual([...documented].sort(), RULE_IDS)
   })
 
+  // EP-25 (AC51 · D-057): 절 범위는 `## 멈춤 계측` 부터 다음 `## ` 앞까지다 — 절 밖(실행 주체 절의
+  // `HOST_READY_TIMEOUT_MS` 등)은 세지 않는다.
+  it('멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다', async () => {
+    const { readFileSync } = await import('node:fs')
+    const budget = readFileSync(new URL('../src/shared/perf-budget.ts', import.meta.url), 'utf8')
+    const doc = readFileSync(fileURLToPath(new URL(`../../${DOC}`, import.meta.url)), 'utf8')
+    const code = new Set(
+      [...budget.matchAll(/^export const ([A-Z][A-Z0-9_]*_MS)\b/gm)].map((m) => m[1])
+    )
+    assert.ok(code.size > 0, '`perf-budget.ts` 에서 `*_MS` 상수를 찾지 못했다')
+
+    const start = doc.search(/^## 멈춤 계측\s*$/m)
+    assert.ok(start >= 0, '`## 멈춤 계측` 절이 없다')
+    const rest = doc.slice(start + 1)
+    const next = rest.search(/^## /m)
+    const section = next >= 0 ? rest.slice(0, next) : rest
+    assert.ok(!/^## /m.test(section), '절 범위가 다음 `## ` 절까지 넘어갔다')
+    const named = new Set([...section.matchAll(/`([A-Z][A-Z0-9_]*_MS)`/g)].map((m) => m[1]))
+
+    assert.deepEqual(
+      [...code].filter((name) => !named.has(name)),
+      [],
+      '절이 가리키지 않는 상수'
+    )
+    assert.deepEqual(
+      [...named].filter((name) => !code.has(name)),
+      [],
+      '`perf-budget.ts` 에 없는 이름'
+    )
+
+    const yieldParagraphs = section
+      .split(/\n\s*\n/)
+      .filter((paragraph) => paragraph.includes('UI_YIELD_INTERVAL_MS'))
+    assert.ok(yieldParagraphs.length > 0, '`UI_YIELD_INTERVAL_MS` 문단이 없다')
+    for (const paragraph of yieldParagraphs) {
+      assert.ok(paragraph.includes('시간 조각'), '양보 문단에 적용 대상 `시간 조각` 이 없다')
+      assert.ok(paragraph.includes('강제 없음'), '양보 문단에 강제 수단 `강제 없음` 이 없다')
+    }
+  })
+
   it('root·app·main·renderer 의 AGENTS.md 가 경로 표 문서를 링크한다', async () => {
     const { readFileSync } = await import('node:fs')
     for (const file of [

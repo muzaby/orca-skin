@@ -3433,6 +3433,99 @@ V-pair 자기 상태: `SELF_PASS` — VP-45 · VP-46 · VP-47 · VP-22″·VP-22
 
 ---
 
+## [구현자 기입] r2 — rev 4.6 정정 반영: 빈 첫 조각 없음(EP-6′) · 멈춤 계측 절 대조(EP-25)
+
+**판정: 완료 — `impl/IMPL_DONE`.** §7-K 구현 설계 4s·4t·4u 를 닫았다 — 테스트 2파일 · 문서 1 · 주석 1, production 동작 변경 0(`perf-budget.ts` 는 주석만). 라운드 2 의 첫 impl 턴이다(verify 1회).
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| EP-25 oracle 의 절 끝 경계 | 구현 세부 → 자기 검사 1줄 | 절 끝 계산을 지우는 변이(T2)는 실제 트리에서 관측이 같다 — 다음 절(`## 새 코드를 어디에 두는가`)에 `` `*_MS` `` 이름이 0이다(`awk` 0줄). "절 범위는 다음 `## ` 앞까지"(4u)를 `assert.ok(!/^## /m.test(section))` 로 직접 단언해 T2 red |
+| 양보 문단 "그 문단" 의 범위 | 구현 세부 | `UI_YIELD_INTERVAL_MS` 가 나오는 문단 **마다** 두 표현을 요구하고 문단 ≥ 1 을 요구한다. 다른 문단에 이름만 더하는 변이 m6 red |
+| 문서 문장의 수치 | 구현 세부 | 상수 개수(`넷`)와 값을 쓰지 않고 이름만 쓴다 — 개수는 코드에서 셀 수 있다(root 원칙 4) · `check-doc-inventory --check` OK |
+| lint 자동 수정 | 구현 세부 | `npm run lint` 가 `check-ui-thread.test.mjs` 줄바꿈 3곳을 고쳤다(prettier). 그 뒤 트리에서 가드 5 · typecheck · `node --test` · sweep 13 · 가드 행 21 을 다시 돌렸다 |
+| 인용 기존 테스트 실재 | 확인 | AC16′ preload 2 · AC20′·AC49·EP-9 `host-port-server.test.ts` 4 — 전체 vitest JSON 에서 7건 모두 `passed` |
+
+### 강제 지점 전수 (§10 대조)
+
+검색 명령(§7-K 강제 지점 표 · §7-I EP-4′)을 마지막 트리에서 다시 돌렸다 — EP-6′ `44·73` → 2 · EP-25 `perf-budget.ts:5·7·11·13` → 4 + `execution-model.md:108` 문단 1 · EP-22′ `send.ts:526` · `host-port-server.ts:115` · `chatStore.ts:1848` → 1·1·1. 목록과 차집합 0.
+
+| pair · EP | 자리 | 닫음 | 좌표 |
+|---|---|---|---|
+| VP-16′·VP-05″ EP-6′ | 분할 `splitSessionMessages` | ✅ | `shared/data-host.test.ts` '첫 메시지가 500 part 를 넘어도 빈 조각은 없다 — 그 메시지가 첫 조각이다'(C1-r2 red) + 기존 분할 5케이스(C1·C2~C4 red) |
+| VP-16′·VP-05″ EP-6′ | 조립 `assembleSession` | ✅ | '분할한 조각을 조립하면 원래 세션과 같다' · '%s → 던진다' 3행(C5~C7 red) |
+| VP-01′ EP-25 | ① `UI_TASK_BUDGET_MS` · ② `STALL_SEVERE_MS` · ③ `STALL_WINDOW_MS` | ✅ 3 | `check-ui-thread.test.mjs` '실제 트리' '멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 …'(S25-1·2·3 red) |
+| VP-01′ EP-25 | ④ `UI_YIELD_INTERVAL_MS` | ✅ | 같은 케이스(m1 red) |
+| VP-01′ EP-25 | ⑤ ④ 문단의 `시간 조각`·`강제 없음` | ✅ | 같은 케이스(m4·m5 red · 문단마다 m6 red) |
+| VP-05″ EP-4′ | 데이터 `session-load.ts` 6 · preload `session-load.ts` 4 | ✅ 10 | `data-host/session-load.test.ts` · `preload/session-load.test.ts` — verify 1 의 E4-1~E4-10 을 이번 트리에서 재실행 10/10 red |
+| VP-44 EP-22′ | 창 감시 등록 · 포트 닫힘 · 진행 중 캐시 판정 | 위치 확인 | 코드 변경 0 — 검색 1·1·1. 좌표 테스트 전체 vitest green(`host-port-server.test.ts` '포트가 닫히면 …' `passed`). 이번 라운드 REQUIRED 아님 |
+
+EP-6′ 규칙 칸 11분기 ↔ 케이스: 분할 6(합 ≤ 500 · 상한 넘김 · 딱 맞음 · 가운데 초과 · **첫 자리 초과** · 0) · 조립 5(정상 · 빈 세션 · it.each 3) — 11/11. EP-25 규칙 칸 4분기 ↔ 실제 트리 1(통과) + 변이 m1~m5(실패 — m2 는 출력에 `'EXTRA_MS'`, m3 는 `'UI_EXTRA_MS'` 를 낸다).
+
+V-pair 자기 상태: `SELF_PASS` — VP-01′ · VP-05″ · VP-16′. 좌표만 바뀐 VP-24·VP-26·VP-44 는 코드 변경 0 · 좌표 테스트 green. `SELF_BLOCKED` 0.
+
+### 이번 라운드 수정의 잠금
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---:|---|---|
+| EP-25 자리 ①~⑤ · 규칙 칸 4분기(S25-1~3 · m1~m6) | 9 | 9 red | m1~m5 = VP-01′ 선택 증거 · m6 = "문단마다" 하위 분기 |
+| 새 oracle 민감도 — 절 시작(T1 `section`→`doc`) · 절 끝(T2) · 제목 탐색(T3) | 3 | 3 red | T1 은 절 밖 `HOST_READY_TIMEOUT_MS` 로 red — 규칙 칸 '일치' 분기의 입력 |
+| EP-6′ 등록 변이 C1-r2(`data-host.ts:52` `current.length > 0 &&` 제거) | 1 | red(12 중 1 failed) | VP-16′ 선택 증거 — verify 1 못 잡음 → 잡음 |
+| ④ 재실행 — C1~C7 · C1b · G1~G20·G1b · E10-1 | 30 | 30 red · red → green 0 | 이번 diff 의 oracle 파일(`data-host.test.ts` · `check-ui-thread.test.mjs`)과 가드가 읽는 문서. C1·C1b = V1-D1 인용 변이 |
+| VP-05″ EP-4′ 자리 재실행(E4-1~E4-10) | 10 | 10 red | verify 1 spec 그대로 |
+| lint 뒤 마지막 트리 재실행(sweep 13 · G 21) | 34 | 34 red | 같은 ID — 행 수에 넣지 않는다 |
+
+검산: `선택 증거 6(m1~m5 · C1-r2) · 인용 변이 2(C1 · C1b) · 새 oracle 4(T1~T3 · m6) · sweep 13(S25-1~3 · E4-1~10) + ④ 28 = 표 행 53` — 고유 ID 53 = `sweep.jsonl` 13 + `rerun.jsonl` 30 + `ep4.jsonl` 10. 원본은 `evidence/r2-sweep/`(마지막 트리 결과 `sweep-final.tsv` · `rerun-guard-final.tsv`). 못 잡음 0 · 동치 0.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 세션 열기 | 사용자 관측 변화 0 — 빈 첫 조각 가드는 이미 코드에 있었고(`data-host.ts:52`) 이번은 잠금만 더했다 |
+| 새 문구 | 사용자 대면 문자열 0. 새 문장은 에이전트용 문서(`execution-model.md` `## 멈춤 계측`)와 테스트 실패 메시지다 |
+| 실패 표시 | 해당 없음 — 새 실패 경로가 없다 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | EP-25 코드 집합은 `^export const <이름>_MS` 줄만 센다 — 구조 분해 export·재수출로 만든 `*_MS` 상수는 세지 않는다. 지금 트리에 그 형태 0(`perf-budget.ts` 검색 4 = 전부 `export const`) | 확장 후보(가정 입력) — 보고만 |
+| 2 | 절 집합은 백틱 `` `<이름>_MS` `` 만 센다 — 백틱 없이 쓴 상수 이름은 "가리키지 않음"으로 red(fail-closed 방향) | 해당 없음 — 거짓 green 이 아니다 |
+| 3 | 이번 환경은 `node_modules` 가 없어 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 뒤 `npm rebuild better-sqlite3`(Node ABI)로 맞췄다 | 환경 — 코드 무관 |
+
+### 구현 보고
+
+| 단계 | 파일 |
+|---|---|
+| 4s | `app/src/shared/data-host.test.ts` — 첫 자리 초과 1케이스(700·10 → 700·10 · 첫 조각 = 그 메시지) · 머리 주석 EP-6′·AC16′ |
+| 4t | `docs/arch/execution-model.md` `## 멈춤 계측` — 상수 셋의 이름·뜻 문장 + 시간 조각 양보 문단(`강제 없음`) · `app/src/shared/perf-budget.ts` `UI_YIELD_INTERVAL_MS` 주석(D-057) |
+| 4u | `app/scripts/check-ui-thread.test.mjs` '실제 트리' — EP-25 대조 1케이스 |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0 — 마이그레이션 · 문서 인벤토리(`prose ok` · `links ok`) · 제품 이름 2433파일 · 테스트 예산 `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | 오류 0 · 경고 3(기존 React Compiler). 자동 수정은 `check-ui-thread.test.mjs` 줄바꿈(이번 턴 파일) |
+| `npm run typecheck` | node · web · test exit 0 · `error TS` 0줄 |
+| `vitest run`(필터 없음) | 1026파일 · 9750케이스 — 실패 22(9파일) · 처리 안 된 오류 1. 변경 전 트리(`b5428c1` worktree)에서 같은 9파일 → 실패 22, 케이스 단위 차집합 양방향 ∅. 원인은 win32 전용 플러그인 제어 · `C:/` 경로(verify 1 과 같은 서명). 규칙 가드 실패 0 |
+| `node --test scripts/*.test.mjs` | 72 suites · 1001 / 1001(EP-25 1 추가) |
+| `npx electron-vite build && node scripts/smoke-hosts.mjs` | `✓ built` · 스모크 `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료`(남의 채널 거부 1) |
+
+테스트 소스 규칙: 추가·수정 2파일(`git diff --name-only`) — `data-host.test.ts` 는 unit 풀에서 green(`[test-pools]` 0) · `check-test-budgets --report` 예산 자리 0 · 타이머·git·자식 프로세스 0. `check-ui-thread.test.mjs` 는 `node --test` 스크립트 테스트라 vitest 풀·예산 규칙 대상 밖 — 위반 0.
+
+**AC 자기보고**: ✅ 49 · ⚠️ 2 · ❌ 0 = 총 51. AC16′ ✅(EP-6′ 좌표 · preload 2케이스 `passed`) · AC51 ✅(EP-25 케이스 · m1~m6 red) · AC20′·AC49 ✅(정정 좌표 `passed`). ⚠️ 는 AC22·AC23(사람 실기). 분모가 rev 4.6 에서 50 → 51 로 바뀌어 r1.18(48/50)과 직접 비교하지 않는다.
+
+### Review Signals — 사실만
+
+- 라운드 2 · impl 턴 `r2` — verify 1회 뒤 첫 구현 턴.
+- verify 1 의 못 잡음 C1·C1b 는 규칙 칸 입력(첫 자리 분기) 공백이었다 — 이번 케이스로 둘 다 red.
+- lint 자동 수정이 sweep oracle 파일을 바꿔 마지막 트리 재실행 34 가 필요했다.
+- 환경: Electron 바이너리 없음(AC22·AC23 사람 실기) · `node_modules` 미설치 상태로 시작.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

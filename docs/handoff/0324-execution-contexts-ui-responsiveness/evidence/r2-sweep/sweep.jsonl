@@ -1,0 +1,13 @@
+{"id": "S25-1", "file": "../docs/arch/execution-model.md", "old": "`UI_TASK_BUDGET_MS` 이상 잡으면 멈춤", "new": "예산 이상 잡으면 멈춤", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "S25-2", "file": "../docs/arch/execution-model.md", "old": "`STALL_SEVERE_MS` 이상이면 심각", "new": "더 길면 심각", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "S25-3", "file": "../docs/arch/execution-model.md", "old": "관측 창 `STALL_WINDOW_MS`\n하나에는", "new": "관측 창\n하나에는", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "m1", "file": "../docs/arch/execution-model.md", "old": "`UI_YIELD_INTERVAL_MS` 를 넘기기 전에", "new": "양보 간격을 넘기기 전에", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "m2", "file": "src/shared/perf-budget.ts", "mode": "append", "old": "", "new": "export const EXTRA_MS = 1", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "m3", "file": "../docs/arch/execution-model.md", "old": "하나에는 최댓값 한 건만 남긴다.", "new": "하나에는 최댓값 한 건만 남긴다. `UI_EXTRA_MS`", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "m4", "file": "../docs/arch/execution-model.md", "old": "시간 조각으로 나눠", "new": "나눠", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "m5", "file": "../docs/arch/execution-model.md", "old": "강제 수단은 `강제 없음` 이다", "new": "강제 수단은 정하지 않았다", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "m6", "file": "../docs/arch/execution-model.md", "old": "하나에는 최댓값 한 건만 남긴다.", "new": "하나에는 최댓값 한 건만 남긴다. 양보 간격은 `UI_YIELD_INTERVAL_MS` 다.", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "T1", "file": "scripts/check-ui-thread.test.mjs", "old": "[...section.matchAll(/`([A-Z][A-Z0-9_]*_MS)`/g)]", "new": "[...doc.matchAll(/`([A-Z][A-Z0-9_]*_MS)`/g)]", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "T2", "file": "scripts/check-ui-thread.test.mjs", "old": "const section = next >= 0 ? rest.slice(0, next) : rest", "new": "const section = rest", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "T3", "file": "scripts/check-ui-thread.test.mjs", "old": "const start = doc.search(/^## 멈춤 계측\\s*$/m)", "new": "const start = 0", "oracle": "node --test scripts/check-ui-thread.test.mjs", "expect": "red"}
+{"id": "C1-r2", "file": "src/shared/data-host.ts", "old": "if (current.length > 0 && parts + size > maxParts) {", "new": "if (parts + size > maxParts) {", "oracle": "./node_modules/.bin/vitest run src/shared/data-host.test.ts", "expect": "red"}

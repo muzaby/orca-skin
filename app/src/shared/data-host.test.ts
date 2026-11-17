@@ -1,4 +1,4 @@
-// 세션 본문 조각의 분할·조립 (0324 EP-6 규칙 칸 · AC16).
+// 세션 본문 조각의 분할·조립 (0324 EP-6′ 규칙 칸 · AC16′).
 import { describe, expect, it } from 'vitest'
 import {
   assembleSession,
@@ -49,6 +49,13 @@ describe('세션 조각 분할', () => {
     const chunks = splitSessionMessages(messages)
     expect(chunks.map(partCount)).toEqual([10, 700, 10])
     expect(chunks[1]).toEqual([messages[1]])
+  })
+
+  it('첫 메시지가 500 part 를 넘어도 빈 조각은 없다 — 그 메시지가 첫 조각이다', () => {
+    const messages = [message(700, 'big'), message(10, 'after')]
+    const chunks = splitSessionMessages(messages)
+    expect(chunks.map(partCount)).toEqual([700, 10])
+    expect(chunks[0]).toEqual([messages[0]])
   })
 
   it('메시지가 없으면 조각이 없다', () => {

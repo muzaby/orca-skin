@@ -1,0 +1,14 @@
+id	결과	exit	요약
+S25-1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+S25-2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+S25-3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m4	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m5	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m6	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+T1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+T2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+T3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+C1-r2	red (기대 일치)	1	vitest 1 failed | 11 passed (12)

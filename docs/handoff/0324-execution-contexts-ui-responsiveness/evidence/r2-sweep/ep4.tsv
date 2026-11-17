@@ -1,0 +1,11 @@
+id	결과	exit	요약
+E4-1	red (기대 일치)	1	vitest 5 failed | 82 passed (87)
+E4-2	red (기대 일치)	1	vitest 8 failed | 79 passed (87)
+E4-3	red (기대 일치)	1	vitest 2 failed | 85 passed (87)
+E4-4	red (기대 일치)	1	vitest 1 failed | 86 passed (87)
+E4-5	red (기대 일치)	1	vitest 1 failed | 86 passed (87)
+E4-6	red (기대 일치)	1	vitest 5 failed | 82 passed (87)
+E4-7	red (기대 일치)	1	vitest 6 failed | 81 passed (87)
+E4-8	red (기대 일치)	1	vitest 2 failed | 85 passed (87)
+E4-9	red (기대 일치)	1	vitest 1 failed | 86 passed (87)
+E4-10	red (기대 일치)	1	vitest 1 failed | 86 passed (87)

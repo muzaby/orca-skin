@@ -5,7 +5,9 @@
 export const UI_TASK_BUDGET_MS = 50
 // 이 시간 이상은 심각으로 기록한다.
 export const STALL_SEVERE_MS = 160
-// UI 스레드에 남는 반복 작업이 양보하는 간격.
+// UI 스레드(renderer 메인 · 셸)에서 시간 조각으로 나눠 여러 태스크에 걸쳐 도는 작업이 조각마다 양보하는
+// 간격(0324 D-057). 한 번에 끝나는 작업은 위 두 기준이 맡는다. 지금 그런 작업은 React 지연 렌더뿐이고
+// React 스케줄러가 같은 간격으로 양보해 참조가 없다 — 직접 나눠 도는 코드를 만들 때 쓴다. 가드는 보지 않는다.
 export const UI_YIELD_INTERVAL_MS = 5
 // 멈춤 기록의 관측 창 — 창 하나에 기록 1건(최댓값)만 남긴다.
 export const STALL_WINDOW_MS = 1000
