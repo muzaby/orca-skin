@@ -144,6 +144,16 @@ describe('createHostBoot', () => {
     expect(h.log.slice(4)).toEqual(['port:agent:c2', 'ready:agent'])
   })
 
+  // 창의 에이전트 연결 요청이 데이터 호스트 준비보다 먼저 와도 에이전트 호스트는 그 뒤에 뜬다(EP-19 기동 순서).
+  it('데이터 호스트 준비 전의 에이전트 연결 요청은 에이전트를 띄우지 않는다', () => {
+    const h = setup()
+    h.boot.start()
+    h.boot.connectAgent()
+    expect(h.of('agent')).toHaveLength(0)
+    h.last('data').ready()
+    expect(h.of('agent')).toHaveLength(1)
+  })
+
   it('데이터 호스트 기동 실패 상한: 에이전트 fork 0 · whenReady 거부', async () => {
     const h = setup()
     h.boot.start()

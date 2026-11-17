@@ -1,0 +1,13 @@
+id	결과	exit	요약
+E14-1	green (기대 red)	0	vitest 221 passed (221)
+E14-2	green (기대 red)	0	vitest 221 passed (221)
+E14-3	red (기대 일치)	1	vitest 2 failed | 219 passed (221)
+E14-4	red (기대 일치)	1	vitest 1 failed | 220 passed (221)
+E14-5	red (기대 일치)	1	vitest 1 failed | 220 passed (221)
+E14-6	red (기대 일치)	1	vitest 1 failed | 220 passed (221)
+E14-7	red (기대 일치)	1	vitest 1 failed | 221 passed (222)
+E14-8	green (기대 red)	0	vitest 222 passed (222)
+E14-9	green (기대 red)	0	vitest 222 passed (222)
+E14-10	red (기대 일치)	1	vitest 1 failed | 221 passed (222)
+E14-11	red (기대 일치)	1	vitest 1 failed | 221 passed (222)
+# 원복 확인: 모든 파일 원문 그대로

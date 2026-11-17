@@ -2,10 +2,10 @@
 //
 // 셸은 턴·세션 상태를 수명 이벤트 다섯 가지로만 안다. 원천은 버스가 아니다 — 오류로 끝난 턴의
 // 합성 이벤트는 버스를 타지 않기 때문이다. 턴의 시작·종료는 재시작 게이트의 정본인 lease 집합의
-// 변화에서 만들고, 나머지 셋은 각자의 진입점이 직접 알린다. UI 언어 사본 알림(D-032)도 여기서
-// 보낸다(수명 이벤트는 아니다).
+// 변화에서 만들고, 나머지 셋은 각자의 진입점이 직접 알린다. UI 언어 사본 알림은 설정을 가진 데이터
+// 호스트가 보낸다(`app/data-host/shell-locale.ts`).
 
-import type { HostToShell, ShellMirror } from '../../../shared/host-protocol'
+import type { HostToShell } from '../../../shared/host-protocol'
 
 export interface LeaseIdentity {
   readonly logicalKey: string
@@ -27,8 +27,6 @@ export interface LifecycleEmitter {
   sessionEnded(sessionId: string): void
   // 하네스 채널이 오류로 내려갔다.
   harnessExited(sessionId: string | null | undefined): void
-  // 설정이 바뀌었다 — `uiLocale` 이 바뀐 경우에만 셸에 알린다.
-  settingsPatched(next: ShellMirror, changedKeys: readonly string[]): void
 }
 
 export function createLifecycleEmitter(deps: LifecycleEmitterDeps): LifecycleEmitter {
@@ -53,11 +51,6 @@ export function createLifecycleEmitter(deps: LifecycleEmitterDeps): LifecycleEmi
     sessionEnded: (sessionId) => lifecycle('session.ended', sessionId),
     harnessExited: (sessionId) => {
       if (sessionId) lifecycle('harness.exited', sessionId)
-    },
-    settingsPatched: (next, changedKeys) => {
-      if (changedKeys.includes('uiLocale')) {
-        deps.emit({ type: 'shell.mirror', mirror: { uiLocale: next.uiLocale } })
-      }
     }
   }
 }

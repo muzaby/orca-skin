@@ -128,6 +128,7 @@ import {
   createRemoteHarnessHost,
   createRemoteShellRunner
 } from './agent-requests'
+import { watchShellLocale } from './shell-locale'
 import { createAgentReports } from './agent-reports'
 import { createDataQueryOps, createDataWriteOps, type CaptureOutputRequest } from './data-ops'
 import { createPersistenceReceiver, type PersistenceReceiver } from './persistence-receiver'
@@ -325,10 +326,7 @@ export class DataBootstrap implements HostAssembly {
     installErrorReportSink()
     registerErrorHandlers()
     // 셸의 UI 언어 사본(D-032 · F5) — 바뀔 때마다 알린다.
-    this.settings.onPatch((next, changedKeys) => {
-      if (changedKeys.includes('uiLocale'))
-        this.host.toShell({ type: 'shell.mirror', mirror: { uiLocale: next.uiLocale } })
-    })
+    watchShellLocale(this.settings, (message) => this.host.toShell(message))
 
     // 비밀은 기동 때 한 번 풀어 둔다(D-040). 못 푼 비밀은 절전 해제·화면 잠금 해제마다 다시 푼다.
     await this.secrets.load()
