@@ -75,7 +75,8 @@ function fixture(): Fixture {
       return () => exited.delete(handler)
     },
     pathForFile: () => '/f',
-    platform: 'win32'
+    // 기본값·변이 고정값과 구별되는 값(0265 — 운반 값).
+    platform: 'darwin'
   }
   const win: OoWindow = {
     ooBridge: bridge,
@@ -129,7 +130,7 @@ describe('installOo — ① 다리', () => {
     const f = fixture()
     expect(installOo(f.win)).toBe('installed')
     expect(Object.keys(f.win.oo!)).toEqual(OO_GROUPS)
-    expect(f.win.oo!.platform).toBe('win32')
+    expect(f.win.oo!.platform).toBe('darwin')
   })
 
   it('`window.oo` 가 이미 있으면 그대로 두고 다리를 부르지 않는다', () => {
@@ -222,6 +223,8 @@ describe('installOo — ④ 수명 통지', () => {
     expect(seen).toEqual([{ host: 'data', kind: 'exited' }])
     seen.length = 0
     f.exit('agent')
+    f.post(portMessage(f, 'agent', [hostPort().page]))
+    // 다시 붙은 뒤의 종료 없는 교체도 통지 없음 — 다시 붙으면 죽음 표시가 풀린다.
     f.post(portMessage(f, 'agent', [hostPort().page]))
     off()
     f.exit('agent')
