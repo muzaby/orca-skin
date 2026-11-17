@@ -143,7 +143,7 @@ Electron App
 │       └── settings-store.ts   # electron-store 영속화 (+settings-migration.ts, persistence.md §1.2)
 │
 ├── Preload (src/preload/index.ts)
-│   └── contextBridge.exposeInMainWorld('oo', api) — window.oo 노출 (IPC_CONTRACT §2)
+│   └── contextBridge.exposeInMainWorld('ooBridge', bridge) — 얇은 다리. renderer 전송층이 그 위에 window.oo 를 만든다 (IPC_CONTRACT §2)
 │
 └── Renderer (src/renderer/) → ../frontend/ 참조
 ```
