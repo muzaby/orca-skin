@@ -13,13 +13,10 @@ import { openFileDatabase } from '../../infra/db/file-database'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 // `HistoryWriter` → `infra/log` 가 `electron.app` 을 문다. 저장소에 이미 있는 패턴으로 끊는다
 // (`app/handlers/misc-split.test.ts` 와 같은 형태) — 로그는 이 계약의 대상이 아니다.
-vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/orcinus-orca-test-userdata', getName: () => 'orcinus-orca' }
-}))
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import { warmFileSqlite } from '../../infra/db/warm-file-sqlite'

@@ -6,18 +6,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import { AdapterRegistry } from '../../adapters/common/registry'
 import type { SessionAdapter } from '../../adapters/common/types'
-
-const registered = vi.hoisted(() => [] as string[])
-const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
-
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: vi.fn((channel: string, fn: (event: unknown, raw: unknown) => unknown) => {
-      registered.push(channel)
-      handlers.set(channel, fn)
-    })
-  }
-}))
+import {
+  invokeChannel,
+  registeredChannels,
+  resetTestTransport
+} from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 const { registerMiscHandlers } = await import('./misc')
 const { registerSettingsHandlers, registerSettingsReadHandler } = await import('./settings')
@@ -96,7 +90,7 @@ describe('handlers/misc 분해 (0179)', () => {
     const changed = vi.fn()
     registry.onAvailabilityChange(changed)
     registerMiscHandlers({ registry, debugMock: { log: false } } as never)
-    expect(handlers.get(CHANNELS.backendList)?.({}, undefined)).toEqual({
+    expect(await invokeChannel(CHANNELS.backendList)).toEqual({
       backends: [
         {
           id: 'claude',
@@ -115,26 +109,26 @@ describe('handlers/misc 분해 (0179)', () => {
       ]
     })
     probe.mockResolvedValue({ installed: true, version: '1.19', usable: true })
-    await expect(
-      handlers.get(CHANNELS.harnessRecheck)?.({}, { backend: 'opencode' })
-    ).resolves.toEqual({ id: 'opencode', installed: true, version: '1.19', usable: true })
+    await expect(invokeChannel(CHANNELS.harnessRecheck, { backend: 'opencode' })).resolves.toEqual({
+      id: 'opencode',
+      installed: true,
+      version: '1.19',
+      usable: true
+    })
     expect(changed).toHaveBeenCalledOnce()
     const refresh = vi.spyOn(registry, 'refreshInstallState')
-    const send = vi.fn()
-    await handlers.get(CHANNELS.installStart)?.(
-      { sender: { send, isDestroyed: () => false } },
-      { backend: 'opencode' }
-    )
-    expect(send).toHaveBeenCalledOnce()
+    const sender = fakeClient(7)
+    await invokeChannel(CHANNELS.installStart, { backend: 'opencode' }, sender)
+    expect(sender.sent).toHaveLength(1)
     expect(refresh).toHaveBeenCalledExactlyOnceWith('opencode')
     expect(changed).toHaveBeenCalledOnce()
     registry.close()
   })
   it('모듈들이 필요한 채널을 정확히 등록한다 (중복 0)', () => {
-    registered.length = 0
+    resetTestTransport()
 
     // 0244 — 설정 읽기는 `start()` 첫 문장에서 따로 등록된다. 두 등록 함수를 합쳐도 설정
-    // 채널이 정확히 1회씩이어야 한다(두 번째 `ipcMain.handle` 은 Electron 에서 throw).
+    // 채널이 정확히 1회씩이어야 한다(같은 채널의 두 번째 등록은 전송이 던진다).
     registerSettingsReadHandler((ctx as { settings: { getAll: () => never } }).settings)
     registerSettingsHandlers(ctx)
     registerSkillsHandlers(ctx)
@@ -142,20 +136,19 @@ describe('handlers/misc 분해 (0179)', () => {
     registerCostHandlers(ctx)
     registerMiscHandlers(ctx)
 
-    expect([...registered].sort()).toEqual([...EXPECTED].sort())
-    expect(new Set(registered).size).toBe(registered.length)
+    expect(registeredChannels().sort()).toEqual([...EXPECTED].sort())
+    expect(new Set(registeredChannels()).size).toBe(registeredChannels().length)
   })
 
-  it('0244 — 조기 등록 읽기 핸들러는 SettingsStore.getAll() 의 공개 설정을 돌려주고 쓰기 모듈은 읽기를 등록하지 않는다', () => {
-    registered.length = 0
-    handlers.clear()
+  it('0244 — 조기 등록 읽기 핸들러는 SettingsStore.getAll() 의 공개 설정을 돌려주고 쓰기 모듈은 읽기를 등록하지 않는다', async () => {
+    resetTestTransport()
     const snapshot = { theme: 'dark', uiLocale: 'en' }
     registerSettingsReadHandler({ getAll: () => snapshot as never })
-    expect(registered).toEqual([CHANNELS.settingsGet])
-    expect(handlers.get(CHANNELS.settingsGet)?.({}, undefined)).toEqual(snapshot)
+    expect(registeredChannels()).toEqual([CHANNELS.settingsGet])
+    expect(await invokeChannel(CHANNELS.settingsGet)).toEqual(snapshot)
 
-    registered.length = 0
+    resetTestTransport()
     registerSettingsHandlers(ctx)
-    expect(registered).toEqual([CHANNELS.settingsSet])
+    expect(registeredChannels()).toEqual([CHANNELS.settingsSet])
   })
 })

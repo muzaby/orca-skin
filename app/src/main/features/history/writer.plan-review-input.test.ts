@@ -6,8 +6,6 @@ import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import { partFromRow } from '../../infra/ipc/dto'
 
-vi.mock('electron', () => ({ webContents: { getAllWebContents: (): unknown[] => [] } }))
-
 import { HistoryWriter } from './writer'
 
 const connections: Database.Database[] = []

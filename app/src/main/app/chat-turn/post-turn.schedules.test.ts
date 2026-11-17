@@ -21,15 +21,6 @@ import { setRootLogger } from '../../infra/log/registry'
 import type { AppLogger } from '../../infra/log/log-manager'
 import type { BackgroundEvent } from '../../../shared/background-task'
 
-const ipc = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (key: string, handler: (event: unknown, raw: unknown) => Promise<void>) =>
-      ipc.handlers.set(key, handler)
-  }
-}))
 vi.mock('../../infra/ipc/send', () => ({
   sendChatEvent: vi.fn(),
   broadcastBackgroundEvent: vi.fn()
@@ -39,6 +30,12 @@ import { runTurnWithContinuations } from './post-turn'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { buildTurnRequest } from './turn-request'
 import { reserveOnBusySession } from './enqueue'
+import {
+  invokeChannel,
+  registeredChannels,
+  resetTestTransport
+} from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 // 정본 시드 — 어댑터 `providerEvents` 가 들어오는 진입점(`observe`)으로 live 집합을 세운다.
 let backgroundSeedSequence = 0
@@ -112,7 +109,8 @@ function fixture(options: { activeChain?: boolean } = {}) {
     complete: async () => '',
     classifyError: (error) => makeClassifiedError('stream_error', String(error))
   })
-  const owner = { id: 1 } as ClientRef
+  resetTestTransport()
+  const owner: ClientRef = fakeClient(1)
   const supervisor = new RuntimeSupervisor<ClientRef>()
   const lease = supervisor.acquireChain({
     agentKind: 'work',
@@ -273,9 +271,9 @@ function fixture(options: { activeChain?: boolean } = {}) {
       queue.push({ sequence: sequence++, events: batch })
       wake?.()
     },
-    stop: () => ipc.handlers.get(CHANNELS.chatCancel)!({ sender: owner }, { sessionId: 's1' }),
+    stop: () => invokeChannel(CHANNELS.chatCancel, { sessionId: 's1' }, owner),
     sendNow: (raw: unknown = { sessionId: 's1' }) =>
-      ipc.handlers.get(CHANNELS.chatSteerSendNow)!({ sender: owner }, raw),
+      invokeChannel(CHANNELS.chatSteerSendNow, raw, owner),
     queueHeld: (text: string, id: string) => {
       reserveOnBusySession(
         { pendingMessages, listenRelease },
@@ -454,7 +452,7 @@ describe('0250 queued input and send now through real runtime and handlers', () 
     const f = fixture()
     const running = f.run()
     try {
-      expect(ipc.handlers.has(CHANNELS.chatSteerSendNow)).toBe(true)
+      expect(registeredChannels()).toContain(CHANNELS.chatSteerSendNow)
       await expect(f.sendNow({})).rejects.toBeDefined()
       await expect(f.sendNow({ sessionId: '' })).rejects.toBeDefined()
       await tick()
@@ -589,10 +587,7 @@ describe('0243 interruption delivery through real runtime and handlers', () => {
       const batch = f.pendingMessages.reserveHeld('s1', 'residual-attempt')!
       expect(f.pendingMessages.commitMany('s1', [batch])).toBe(true)
       f.activity.setResidualAttempts('s1', ['residual-attempt'])
-      await ipc.handlers.get(CHANNELS.chatDiscardSession)!(
-        { sender: f.turn.owner },
-        { sessionId: 's1' }
-      )
+      await invokeChannel(CHANNELS.chatDiscardSession, { sessionId: 's1' }, f.turn.owner)
       expect(
         vi
           .mocked(sendChatEvent)
@@ -631,10 +626,7 @@ describe('0243 interruption delivery through real runtime and handlers', () => {
         }
         if (source === 'cancel') await f.stop()
         else if (source === 'discard') {
-          await ipc.handlers.get(CHANNELS.chatDiscardSession)!(
-            { sender: f.turn.owner },
-            { sessionId: 's1' }
-          )
+          await invokeChannel(CHANNELS.chatDiscardSession, { sessionId: 's1' }, f.turn.owner)
         } else if (source === 'chain') f.supervisor.cancelChain('s1')
         else f.turn.controller.abort()
         await running

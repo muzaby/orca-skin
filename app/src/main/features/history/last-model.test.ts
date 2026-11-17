@@ -2,7 +2,6 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { expect, it, vi } from 'vitest'
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 import { openFileDatabase } from '../../infra/db/file-database'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'

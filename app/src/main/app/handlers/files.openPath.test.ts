@@ -12,22 +12,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
-const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
 const shellCalls = vi.hoisted(() => ({ openPath: [] as string[], reveal: [] as string[] }))
 const dialogs = vi.hoisted(() => ({
   calls: [] as unknown[],
   result: { canceled: true, filePaths: [] as string[] }
-}))
-
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: vi.fn((channel: string, listener: (event: unknown, raw: unknown) => unknown) => {
-      handlers.set(channel, listener)
-    })
-  },
-  BrowserWindow: { fromWebContents: vi.fn() },
-  Notification: { isSupported: () => false }
 }))
 
 const { registerFilesHandlers } = await import('./files')
@@ -58,13 +48,10 @@ writeFileSync(FILE_IN_REPO, 'export const a = 1\n')
 writeFileSync(FILE_OUTSIDE, 'TOKEN=1\n')
 
 function invoke(payload: unknown): Promise<unknown> {
-  const listener = handlers.get(CHANNELS.filesOpenPath)
-  if (!listener) throw new Error('filesOpenPath 핸들러가 등록되지 않았다')
-  return Promise.resolve(listener({}, payload))
+  return invokeChannel(CHANNELS.filesOpenPath, payload)
 }
 
 beforeEach(() => {
-  handlers.clear()
   shellCalls.openPath = []
   shellCalls.reveal = []
   dialogs.calls = []
@@ -132,7 +119,7 @@ describe('directory 모드 회귀 — 기존 동작이 그대로다', () => {
 
 describe('선택 대화상자 — 셸 서비스로 창 없이 띄운다 (0324 EP-10)', () => {
   const pick = (channel: string): Promise<unknown> =>
-    Promise.resolve(handlers.get(channel)!({}, undefined))
+    Promise.resolve(invokeChannel(channel, undefined))
 
   it('폴더 선택은 세션 cwd 에서 시작하고 고른 첫 폴더를 돌려준다', async () => {
     dialogs.result = { canceled: false, filePaths: [OUTSIDE, SESSION_CWD] }
