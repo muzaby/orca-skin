@@ -29,6 +29,7 @@ vi.mock('../../infra/error-report', () => ({ reportError: reported }))
 vi.mock('../../infra/config/oo-config', () => ({ getOoConfig: () => ({}), appEnv: () => ({}) }))
 
 const { createAuthRuntime } = await import('../../features/auth/runtime')
+const { withDataPort } = await import('../data-host/data-port.testfixture')
 const { createMemoryGrantPersistence } = await import('../../features/auth/store')
 const { createVault } = await import('../../infra/vault')
 const { createHarnessRuntimeConfigService } =
@@ -171,7 +172,7 @@ function boot(host: HostHarnessPort): BootedApp {
       openCodeCatalog(entry, config),
     agentSpawnEnv: () => ({})
   }
-  registerMiscHandlers({
+  registerMiscHandlers(withDataPort({
     registry: {
       list: () => [
         { id: 'claude', installed: true, usable: true },
@@ -184,7 +185,7 @@ function boot(host: HostHarnessPort): BootedApp {
     harnessRuntime,
     debugMock: { log: false },
     mcp: { resolver: () => () => undefined }
-  } as never)
+  }) as never)
   const start = (): Promise<void> =>
     startup.startRuntimeModelCatalogAfterDeploy({
       invalidateSettings: () => settings.invalidateAll(),
@@ -210,13 +211,13 @@ function boot(host: HostHarnessPort): BootedApp {
     connectionList(auth, connections)[0]!
   const turn = (modelFamily: string): ReturnType<typeof resolveTurnProvider> =>
     resolveTurnProvider(
-      {
+      withDataPort({
         harnessSettings: settings,
         runtimeModelCatalog: catalog,
         harnessRuntime,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: { id: 'opencode', ...adapter } as never,
         agentKind: 'code',
@@ -379,8 +380,20 @@ function runCallbackBody(source: string): string | null {
   return null
 }
 const CONNECT_ALL = /\bvoid\s+auth\.connectAll\s*\(\s*\)/
-const HOST_ARG = /\bloginFreeHost\s*:\s*createHostHarnessPort\s*\(\s*this\.registry\s*\)/
-const bootstrapSource = (): string => readFileSync(join(__dirname, '..', 'bootstrap.ts'), 'utf8')
+// 하네스는 에이전트 호스트에 있다(0324) — 데이터 호스트의 인증 조립은 두 능력을 에이전트 링크로 묻고
+// (없으면 띄운다), 에이전트 호스트가 그 요청을 서버 시작과 같은 `createHostHarnessPort` 로 답한다.
+const HOST_ARG =
+  /\bloginFreeHost\s*:\s*\{\s*installed\s*:\s*\(harnessId\)\s*=>\s*this\.requireAgentLink\(\)\.requestEnsured\(\s*'harnessInstalled'\s*,\s*harnessId\s*\)\s*,\s*listModels\s*:\s*\(harnessId,\s*provider,\s*options\)\s*=>\s*this\.requireAgentLink\(\)\.requestEnsured\(\s*'harnessListModels'/
+// 연산 이름은 문자열이라 주석만 지운 원문에서 본다(`callBodies` 는 문자열도 지운다).
+const withoutComments = (source: string): string =>
+  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/[^\n]*$/gm, '')
+const AGENT_INSTALLED =
+  /\bharnessInstalled\s*:\s*\(harnessId\)\s*=>\s*createHostHarnessPort\s*\(\s*this\.registry\s*\)\.installed\(harnessId\)/
+const AGENT_LIST_MODELS =
+  /\bharnessListModels\s*:\s*\(harnessId,\s*provider,\s*env\)\s*=>\s*createHostHarnessPort\s*\(\s*this\.registry\s*\)\.listModels\(/
+const agentBootstrapSource = (): string =>
+  readFileSync(join(__dirname, '..', 'agent-host', 'bootstrap.ts'), 'utf8')
+const bootstrapSource = (): string => readFileSync(join(__dirname, '..', 'data-host', 'bootstrap.ts'), 'utf8')
 
 describe('Bootstrap 로그인 프리 연결 배선 (0291 AC16)', () => {
   it('Bootstrap run 콜백이 리스너 설치 뒤 connectAll을 부른다', () => {
@@ -392,8 +405,11 @@ describe('Bootstrap 로그인 프리 연결 배선 (0291 AC16)', () => {
 
   it('createAuthRuntime 호출은 서버 시작과 같은 호스트 능력을 넘긴다', () => {
     const calls = callBodies(bootstrapSource(), 'createAuthRuntime')
-    expect(calls.length).toBeGreaterThan(0)
-    for (const call of calls) expect(call).toMatch(HOST_ARG)
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatch(/\bloginFreeHost\s*:/)
+    expect(withoutComments(bootstrapSource())).toMatch(HOST_ARG)
+    expect(agentBootstrapSource()).toMatch(AGENT_INSTALLED)
+    expect(agentBootstrapSource()).toMatch(AGENT_LIST_MODELS)
   })
 
   it('가드는 누락·빈 함수·주석·문자열을 배선으로 세지 않는다', () => {
@@ -412,11 +428,16 @@ describe('Bootstrap 로그인 프리 연결 배선 (0291 AC16)', () => {
       expect(runCallbackBody(source) ?? '').not.toMatch(CONNECT_ALL)
     }
     expect(
-      callBodies(
-        'createAuthRuntime({ loginFreeHost: createHostHarnessPort(this.registry) })',
-        'createAuthRuntime'
-      )[0]
+      "loginFreeHost: { installed: (harnessId) => this.requireAgentLink().requestEnsured('harnessInstalled', harnessId), listModels: (harnessId, provider, options) => this.requireAgentLink().requestEnsured('harnessListModels', harnessId) }"
     ).toMatch(HOST_ARG)
+    expect(
+      withoutComments(
+        "// loginFreeHost: { installed: (harnessId) => this.requireAgentLink().requestEnsured('harnessInstalled', harnessId), listModels: (harnessId, provider, options) => this.requireAgentLink().requestEnsured('harnessListModels', harnessId) }"
+      )
+    ).not.toMatch(HOST_ARG)
+    // 직접 포트를 만드는 옛 꼴과 빈 구현은 배선으로 세지 않는다.
+    expect('loginFreeHost: createHostHarnessPort(this.registry)').not.toMatch(HOST_ARG)
+    expect('loginFreeHost: { installed: () => false, listModels: () => [] }').not.toMatch(HOST_ARG)
     for (const source of [
       'createAuthRuntime({ definitions })',
       'createAuthRuntime({ loginFreeHost: {} })',

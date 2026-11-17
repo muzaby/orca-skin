@@ -35,7 +35,7 @@ function callSites(): Array<{ file: string; arg: string }> {
 describe('worktree 루트 배선 (AC3 · AC4 · EP-09 · EP-13)', () => {
   it('호출부는 컴포지션 루트 하나다 — 두 갈래가 생기면 dev/prod 가 섞인다', () => {
     // 차집합으로 본다. 총계가 아니라 "부팅 배선 밖의 잔여"가 이 주장의 관측값이다.
-    expect(callSites().map((c) => c.file)).toEqual(['app/bootstrap.ts'])
+    expect(callSites().map((c) => c.file)).toEqual(['app/agent-host/bootstrap.ts'])
   })
 
   it('그 호출이 dev 분기를 주입한다 — 상수를 넘기면 dev 가 prod 루트를 공유한다', () => {
