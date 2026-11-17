@@ -45,6 +45,9 @@ Orcinus orca 는 한 프로세스가 아니다. 창이 멈추지 않도록 **실
 - **진행 중 턴의 델타는 빠지지 않는다.** 턴은 시작한 창의 문서와 수명을 같이하고(문서가 닫히면 중단),
   진행 중인 캐시 세션에는 세션 로드 결과를 적용하지 않는다. 턴 이벤트에 순번은 없다 — 창이 여럿이 되거나
   턴이 창보다 오래 살게 되면 이 전제를 먼저 다시 설계해야 한다.
+- **호스트가 죽거나 다시 붙으면 renderer 가 안다.** preload 가 `window.oo.hosts.onLifecycle` 로 알린다. 에이전트
+  호스트가 죽으면 진행 중 세션은 오류로 끝나 입력을 다시 받고(그 호스트가 보낼 마감 이벤트는 오지 않는다),
+  죽었던 호스트가 다시 붙으면 세션 목록과 활성 세션을 다시 읽는다.
 - **세션 본문은 조각으로 간다.** 데이터 호스트가 메시지를 조각으로 나눠 창 포트에 보내고 preload 가 한
   벌로 조립한다. renderer 는 조립된 결과를 한 번만 스토어에 반영한다. 상한과 조립 규칙은
   `shared/data-host.ts` 가 갖는다.
@@ -75,11 +78,14 @@ Orcinus orca 는 한 프로세스가 아니다. 창이 멈추지 않도록 **실
 | 그래프 | 진입점에서 값 import 로 닿으면 안 되는 것 |
 |---|---|
 | 셸 | `features/` · `adapters/` · `infra/db/` · SQLite 패키지 · `worker_threads` |
-| 에이전트 호스트 | 앱 DB(`infra/db/` — 범용 SQLite 열기 한 파일 제외) · 설정·비밀 파일 모듈 · `electron-store` |
-| 데이터 호스트 | 하네스 어댑터·서버 구현 · 하네스 SDK · `child_process`. `adapters/common/` 은 허용하고, 하네스별 폴더에는 등록한 구성 읽기 입구로만 들어간다 |
+| 에이전트 호스트 | 앱 DB(`infra/db/` — 범용 SQLite 열기 한 파일 제외) · 설정·비밀 파일 모듈 · `electron-store` · 데이터 호스트 조립 폴더(`app/data-host/`) |
+| 데이터 호스트 | 하네스 어댑터·서버 구현 · 하네스 SDK · `child_process` · 에이전트 호스트 조립 폴더(`app/agent-host/`). `adapters/common/` 은 허용하고, 하네스별 폴더에는 등록한 구성 읽기 입구로만 들어간다 |
 
 - 에이전트 호스트의 범용 SQLite 열기는 하네스가 자기 저장소를 SQLite 로 두는 경우(네이티브 이력 읽기)를
   위한 것이다. 앱 DB 는 열지 않는다.
+- 두 호스트가 나누는 것은 계약(`shared/peer-protocol.ts`)과 공용 호스트 인프라(`app/host-process.ts` ·
+  `app/host-runtime.ts` · `app/host-port-server.ts` · `app/host-shell-client.ts`)다. 서로의 조립 폴더는
+  타입으로만 import 한다.
 - 데이터 호스트의 구성 읽기 입구는 파일만 읽는다(설정 트리 · 스킬·플러그인 목록). 그 안쪽에서 SDK 나
   프로세스 기동에 닿으면 같은 규칙이 실패한다.
 

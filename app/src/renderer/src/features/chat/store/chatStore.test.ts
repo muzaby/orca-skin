@@ -1574,7 +1574,8 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
         settings: { get: vi.fn().mockResolvedValue({ language }), set: settingsSet },
         permission: { respond: permissionRespond, setMode: vi.fn() },
         session: { cwd: vi.fn().mockResolvedValue('/w'), onTitle: vi.fn() },
-        concurrency: { onEvent: vi.fn() }
+        concurrency: { onEvent: vi.fn() },
+        hosts: { onLifecycle: vi.fn() }
       }
     })
     bootstrapChat()

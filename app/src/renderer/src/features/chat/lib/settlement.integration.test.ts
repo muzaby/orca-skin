@@ -11,6 +11,7 @@ import {
 } from '../../../../../main/features/chat/turn-coordinator'
 import { BackgroundTaskTracker } from '../../../../../main/features/chat/background-tasks'
 import { HistoryWriter } from '../../../../../main/features/history/writer'
+import { createPersistenceStream } from '../../../../../main/app/data-host/persistence-stream.testfixture'
 import { loadSession } from '../../../../../main/features/history/reader'
 import { DbQueries } from '../../../../../main/infra/db/queries'
 import { applyMigrations } from '../../../../../main/infra/db/migrate'
@@ -27,8 +28,9 @@ import { partsToolCalls, toolRunOutcome } from './parts'
 
 vi.mock('electron', () => ({ webContents: { getAllWebContents: (): unknown[] => [] } }))
 
-// Only the SDK transport and Electron delivery are replaced. The mapper, coordinator,
-// bus, SQLite writer/reader, reducer, pairing and rendered consumer are production code.
+// Only the SDK transport, the peer port and Electron delivery are replaced. The mapper, coordinator,
+// bus, persistence stream (sender → peer link → receiver), SQLite writer/reader, reducer, pairing and
+// rendered consumer are production code (0324 EP-15).
 describe('0239 SDK to persisted and rendered settlement', () => {
   it.each(['no_result', 'retracted', 'user-rejected', 'cancelled', 'late-result'] as const)(
     'keeps live and loaded %s outcomes equal through the full result path',
@@ -109,13 +111,16 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           delivered.push(event)
           live = chatReducer(live, { type: 'RECV_EVENT', event })
         }
+        const stream = createPersistenceStream({ db: queries, writer, send: forward })
         const bus = new TypedBus<OoBusEvents<ClientRef>>()
-        bus.on('turn.event', ({ turn, ev }) => writer.persist(turn, ev), { critical: true })
-        bus.on('turn.event', ({ ev }) => forward(owner, ev))
+        bus.on('turn.event', ({ turn, ev }) => stream.sender.onTurnEvent(turn, ev), {
+          critical: true
+        })
+        bus.on('turn.event', ({ turn, ev }) => stream.sender.relay(turn, ev))
         await new TurnCoordinator<ClientRef>({
           runtime,
           bus,
-          persist: writer,
+          persist: stream.sender,
           forward: { forward },
           registry: { promote: () => {} },
           activeTurns: { begin: () => {}, confirm: () => {}, end: () => {} },
@@ -125,6 +130,7 @@ describe('0239 SDK to persisted and rendered settlement', () => {
         }).run(turn, { sessionId: 's1', text: 'test' } as TurnRequest, {
           sharedPathProjectId: null
         })
+        await stream.settle()
         const session = loadSession(queries, 's1', () => '/w')!
         const loaded = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
         const liveCall = partsToolCalls(live.messages.flatMap((message) => message.parts))[0]
