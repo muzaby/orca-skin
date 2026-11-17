@@ -535,11 +535,23 @@ describe('(g) 창 통지', () => {
   })
 })
 
-describe('(h) `window.oo`', () => {
+describe('(h)′ `window.oo` · `window.ooBridge`', () => {
   const outside = 'src/renderer/src/features/chat/store/x.ts'
 
   it('`shared/api` 밖의 `window.oo` 는 exit 1', () => {
     fails('h', { [outside]: 'export const x = (): unknown => window.oo.chat\n' })
+  })
+
+  // 0324 EP-1 (h)′ — preload 다리도 전송층만 읽는다(D-058).
+  it('`shared/api` 밖의 `window.ooBridge` 는 exit 1', () => {
+    fails('h', { [outside]: 'export const x = (): unknown => window.ooBridge?.platform\n' })
+  })
+
+  it('`shared/api` 안의 `window.ooBridge` 는 exit 0', () => {
+    passes({
+      'src/renderer/src/shared/api/transport/install.ts':
+        'export const x = (): unknown => window.ooBridge\n'
+    })
   })
 
   it("`window?.oo` · `window['oo']` 도 걸린다", () => {
@@ -767,17 +779,19 @@ describe('실제 트리', () => {
     assert.deepEqual([...documented].sort(), RULE_IDS)
   })
 
-  // EP-25 · AC51 (0324 D-057) — 값의 정본은 `perf-budget.ts` 이고 절은 이름만 가리킨다.
+  // EP-25′ · AC51′ (0324 D-057) — 값의 정본은 `perf-budget.ts` 이고 절은 이름만 가리킨다.
+  // 절 범위는 `## 멈춤 계측` 다음 줄부터 다음 `## ` 앞까지다.
+  const stallSection = (text) => {
+    const lines = text.split('\n')
+    const start = lines.findIndex((line) => line.trim() === '## 멈춤 계측')
+    if (start < 0) return null
+    const rest = lines.slice(start + 1)
+    const end = rest.findIndex((line) => line.startsWith('## '))
+    return (end < 0 ? rest : rest.slice(0, end)).join('\n')
+  }
+  const stallDoc = () => readFileSync(new URL(`../../${DOC}`, import.meta.url), 'utf8')
+
   it('멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다', () => {
-    // 절 범위는 `## 멈춤 계측` 다음 줄부터 다음 `## ` 앞까지다.
-    const stallSection = (text) => {
-      const lines = text.split('\n')
-      const start = lines.findIndex((line) => line.trim() === '## 멈춤 계측')
-      if (start < 0) return null
-      const rest = lines.slice(start + 1)
-      const end = rest.findIndex((line) => line.startsWith('## '))
-      return (end < 0 ? rest : rest.slice(0, end)).join('\n')
-    }
     const namesIn = (text) =>
       new Set([...text.matchAll(/`([A-Z][A-Z0-9_]*_MS)`/g)].map((match) => match[1]))
     // 앞뒤 절의 이름은 세지 않는다 — 실제 트리에는 뒤 절의 이름이 없어 합성 입력으로 본다.
@@ -794,7 +808,7 @@ describe('실제 트리', () => {
     const code = new Set(
       [...budget.matchAll(/^export const ([A-Z][A-Z0-9_]*_MS)\b/gm)].map((match) => match[1])
     )
-    const section = stallSection(readFileSync(new URL(`../../${DOC}`, import.meta.url), 'utf8'))
+    const section = stallSection(stallDoc())
     assert.ok(section !== null, '`## 멈춤 계측` 절이 없다')
     const named = namesIn(section)
     const missing = [...code].filter((name) => !named.has(name))
@@ -809,6 +823,23 @@ describe('실제 트리', () => {
       assert.ok(paragraph.includes('시간 조각'), '양보 문단에 적용 대상 `시간 조각` 이 없다')
       assert.ok(paragraph.includes('강제 없음'), '양보 문단에 강제 수단 `강제 없음` 이 없다')
     }
+  })
+
+  // EP-25′ ⑥ · AC51′ — 절은 값을 적지 않는다. 아라비아 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다.
+  // 그 밖의 숫자는 꼴을 가리지 않고 막는다(fail-closed) — 단위·괄호 꼴을 열거하면 열린 입력이 남는다.
+  it('멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다', () => {
+    const numberLines = (section) =>
+      section.split('\n').filter((line) => /[0-9]/.test(line.replace(/\(0\d{3} D-\d{3}\)/g, '')))
+    assert.deepEqual(numberLines('양보한다(0324 D-057).'), [])
+    assert.deepEqual(numberLines('`UI_TASK_BUDGET_MS`(50ms) 이상이면 멈춤이다.'), [
+      '`UI_TASK_BUDGET_MS`(50ms) 이상이면 멈춤이다.'
+    ])
+    assert.deepEqual(numberLines('관측 창 하나에는\n기록 1건만 남는다.'), ['기록 1건만 남는다.'])
+
+    const section = stallSection(stallDoc())
+    assert.ok(section !== null, '`## 멈춤 계측` 절이 없다')
+    const left = numberLines(section)
+    assert.deepEqual(left, [], `절에 값이 적혀 있다:\n${left.join('\n')}`)
   })
 
   it('root·app·main·renderer 의 AGENTS.md 가 경로 표 문서를 링크한다', () => {

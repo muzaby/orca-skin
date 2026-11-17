@@ -24,7 +24,7 @@ export const RULES = {
     title: '세션 본문 조회(`loadSession`)',
     ask: '데이터 호스트',
     route:
-      '`sessionApi.load`·`refresh` → preload 조립(`src/preload/session-load.ts`) → `app/data-host/session-load.ts`'
+      '`sessionApi.load`·`refresh` → 전송층 조립(`src/renderer/src/shared/api/transport/session-load.ts`) → `app/data-host/session-load.ts`'
   },
   d: {
     title: '`ipcMain` 직접 등록',
@@ -49,9 +49,10 @@ export const RULES = {
     route: '`src/main/infra/ipc/send.ts` 의 통지 함수'
   },
   h: {
-    title: '`window.oo` 접근',
+    title: '`window.oo` · `window.ooBridge` 접근',
     ask: '채널을 소유한 프로세스(에이전트 호스트 · 데이터 호스트 · 셸)',
-    route: '`src/renderer/src/shared/api/*` → `window.oo` → preload 의 채널 소유 표'
+    route:
+      '`src/renderer/src/shared/api/*` → `window.oo`(전송층이 preload 다리 위에 만든다) → 채널 소유 표 → 호스트 포트 또는 다리'
   },
   i: {
     title: '`Worker` 생성',
@@ -254,7 +255,7 @@ export const ALLOWED = {
     files: [`${MAIN}app/data-host/session-load.ts`, `${MAIN}app/chat-turn/native-session.ts`]
   },
   // (d) `ipcMain` 을 직접 부르는 유일한 파일 — 등록 API 는 `handle.ts` 의 세 함수다.
-  // 셸 ↔ preload 의 호스트 포트 채널(`CHANNELS` 밖)은 `app/shell/electron-hosts.ts` 가 듣는다.
+  // 셸 ↔ preload 다리의 호스트 포트 채널(`CHANNELS` 밖)은 `app/shell/electron-hosts.ts` 가 듣는다.
   d: { files: [`${MAIN}infra/ipc/electron-transport.ts`, `${MAIN}app/shell/electron-hosts.ts`] },
   // (e) 프로세스별 import 경계 (0324 EP-1 (e)′ · (e2)′ · (e3)″). 진입점에서 값 import 로 닿으면 안 되는 곳.
   // (e1) 셸.
@@ -326,6 +327,7 @@ export const ALLOWED = {
       `${MAIN}app/host-runtime.ts`
     ]
   },
+  // (h)′ `window.oo` · `window.ooBridge` 를 읽는 자리 — 전송층(`transport/`)이 다리 위에 `window.oo` 를 만든다.
   h: { dirs: [`${RENDERER}shared/api/`] },
   i: { files: [`${RENDERER}shared/compute/client.ts`] },
   j: {
