@@ -188,14 +188,14 @@ OpenCode 적용 시의 추가 선행조건·레이어별 gate는 [마이그레�
 
 ### 2.1 Skills 스캔 (현재)
 
-`app/skill-catalog.ts`가 표시용 루트를 합치고 `features/extensions/common/skills/scan.ts`로 정규화한다. 배포용 `Bootstrap.skillRoots()`와 표시 catalog는 분리한다:
+`app/skill-catalog.ts`가 표시용 루트를 합치고 `features/extensions/common/skills/scan.ts`로 정규화한다. 배포용 `skillRoots()`(에이전트 호스트 조립)와 표시 catalog는 분리한다:
 
 | 항목 | 값 |
 |---|---|
 | 스캔 루트 | Orcinus orca source, Claude/OpenCode 사용자 native 루트, 해당 설치 plugin의 skill metadata, lock에 등록된 `~/.agents/skills`. 프로젝트별 스킬은 실행 SDK 명령에서 보완한다. Claude native 루트는 §1.3의 resolver를 따른다 |
 | 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
 | 인식 키 | `name`, `description`, `argument-hint`, `user-invocable`. plugin metadata의 정확한 명령 이름을 보존한다 |
-| 캐싱 | 부팅·목록 조회·Orcinus orca 작성·업로드·토글·삭제 때 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → `Bootstrap.skillsCache` |
+| 캐싱 | 부팅·목록 조회·Orcinus orca 작성·업로드·토글·삭제 때 재스캔(`refreshSkills`, `app/handlers/skills.ts`) → 에이전트 호스트 조립의 `skillsCache` |
 | 핫리로드 | 파일 감시 없음 — 바깥에서 고친 스킬은 다음 재스캔(위 동작) 또는 재시작에 반영 |
 
 > 사용자 Claude skills 루트는 `app/harnesses/claude/extensions.ts`가 제공한다. OpenCode 설치 plugin의 `skills`/`skill` 루트와 plugin 내부의 명시 `skills.paths`는 read-only로 스캔하며 plugin 코드는 실행하지 않는다. `agents`는 lock의 등록 이름과 실재 파일의 교집합이며 lock 안의 upstream 경로는 해석하지 않는다. canonical 경로가 같은 alias는 하나만 표시한다. OpenCode 실행 명령은 SDK skill location을 실제 설치 plugin/자체 루트와 대조하여 다른 도구의 스킬·일반 command를 제외한다. Orcinus orca 스킬의 OpenCode 배포 지원과 표시 목록은 별도 범위다.

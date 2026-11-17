@@ -41,7 +41,7 @@ export const RULES = {
   f: {
     title: '호스트의 Electron 값 import · `worker_threads`',
     ask: 'main(셸)',
-    route: '셸 서비스 클라이언트(`src/main/app/agent-host/shell-client.ts` — 두 호스트가 같이 쓴다)'
+    route: '셸 서비스 클라이언트(`src/main/app/host-shell-client.ts` — 두 호스트가 같이 쓴다)'
   },
   g: {
     title: '창 통지 API',
@@ -264,13 +264,15 @@ export const ALLOWED = {
   // (e3)″ 데이터 호스트(상태) — 하네스 구현·프로세스 기동·SDK 가 없다. `adapters/common/` 은 zod·타입·
   //   순수 함수라 허용한다. 하네스별 폴더에는 등록한 입구(파일만 읽는 구성 읽기 — 설정 트리·스킬·플러그인
   //   목록)로만 들어가고, 어댑터·서버 구현 파일과 SDK·`child_process` 는 그 안쪽에서 닿아도 실패다.
+  // 두 호스트는 서로의 조립 폴더(`app/agent-host/`·`app/data-host/`)를 값으로 import 하지 않는다 — 둘이
+  //   나누는 계약은 `shared/peer-protocol.ts`, 공용 호스트 인프라는 `app/host-*.ts` 에 있다(0324 rev 4.2).
   e: {
     entry: `${MAIN}index.ts`,
     dirs: [`${MAIN}features/`, `${MAIN}adapters/`, `${MAIN}infra/db/`],
     packages: ['better-sqlite3', 'worker_threads', 'node:worker_threads'],
     agent: {
       entry: `${MAIN}app/agent-host/entry.ts`,
-      dirs: [`${MAIN}infra/db/`],
+      dirs: [`${MAIN}infra/db/`, `${MAIN}app/data-host/`],
       exceptFiles: [`${MAIN}infra/db/file-database.ts`],
       files: [
         `${MAIN}infra/settings-store.ts`,
@@ -282,7 +284,7 @@ export const ALLOWED = {
     },
     data: {
       entry: `${MAIN}app/data-host/entry.ts`,
-      dirs: [`${MAIN}adapters/`],
+      dirs: [`${MAIN}adapters/`, `${MAIN}app/agent-host/`],
       exceptDirs: [`${MAIN}adapters/common/`],
       entryFiles: [
         `${MAIN}adapters/claude/settings.ts`,

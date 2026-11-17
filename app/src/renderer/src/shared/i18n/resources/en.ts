@@ -682,7 +682,9 @@ export const en: typeof ko = {
     updateDownloadFailed: 'Could not start the update download.',
     updateInstallFailed: 'Could not start the update installation.',
     agentListFailed: 'Failed to load the agent list',
-    engineMutationFailed: 'Engine operation failed'
+    engineMutationFailed: 'Engine operation failed',
+    agentHostLost:
+      'The execution process stopped, so this turn ended. Send again to start a new one.'
   },
   notify: {
     completeBody: 'The response is complete.'

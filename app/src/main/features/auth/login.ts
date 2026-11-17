@@ -300,7 +300,7 @@ export class LoginService {
   // **0188 이 여기서 뺀 것: 순서 지식.** 구 `resume()` 은 `registry.byKind('gate')` 를 돌고
   // 그 뒤 `sweepPlugins()` 로 나머지를 훑었다 — 인증 코어가 "게이트가 먼저" 라는 *제품 정책*을
   // 알아야 성립하는 구조였다. 이제 이 함수는 **Auth 하나**만 확인하고, 순서·병렬성·통지 합치기는
-  // app composition 이 소유한다(`app/bootstrap.ts` 의 `resumeAuthInCurrentOrder`).
+  // app composition 이 소유한다(`app/auth-resume.ts` — 데이터 호스트 조립이 부른다).
   //
   // 던지지 않는다 — 부팅 경로라 실패는 전부 "수동 로그인 필요" 로 접는다.
   //
