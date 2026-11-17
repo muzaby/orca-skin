@@ -20,7 +20,7 @@ export function openShellState(userDataDir: string): ShellState {
       read: () => store.get(STATE_KEY),
       write: (record) => store.set(STATE_KEY, record)
     },
-    // 기존 설정 파일은 읽기만 한다 — 쓰는 주체는 에이전트 호스트 하나다(D-029).
+    // 기존 설정 파일은 읽기만 한다 — 쓰는 주체는 데이터 호스트 하나다(D-029·D-036).
     () =>
       JSON.parse(
         readFileSync(join(userDataDir, `${PRODUCT_SLUG}-settings.json`), 'utf8')

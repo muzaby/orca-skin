@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { HostToClient } from '../../../shared/host-protocol'
-import { createPortTransport, type HostPort } from './port-server'
+import type { HostToClient } from '../../shared/host-protocol'
+import { createPortTransport, type HostPort } from './host-port-server'
 
 interface FakePort extends HostPort {
   readonly posted: HostToClient[]

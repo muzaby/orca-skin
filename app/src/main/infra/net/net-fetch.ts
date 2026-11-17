@@ -14,7 +14,7 @@
 // 보내도록 설계돼 있다(0160) — 그대로 두면 첨부 다운로드가 끊긴다. 그래서 manual 요청만
 // `net.request` 기반 `sendOnceAsResponse` 로 우회한다(그쪽은 redirect 이벤트를 받아 3xx 를 만든다).
 //
-// 컴포지션 루트(`app/bootstrap.ts`)가 소비자에 `typeof fetch` 포트로 주입한다.
+// 호스트 조립(`app/{data-host,agent-host}/bootstrap.ts`)이 소비자에 `typeof fetch` 포트로 주입한다.
 // 테스트는 Electron을 대체해 manual 요청의 수신 상한 전달까지 확인한다.
 
 import { net } from 'electron'

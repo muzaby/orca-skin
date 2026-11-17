@@ -17,14 +17,11 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClientRef } from '../../contracts/client'
 import type { TurnContext } from '../../contracts/turn'
-import { artifactReceiptId, type HistoryWriter } from '../../features/history/writer'
+import { artifactReceiptId } from '../../features/history/artifact-receipt'
+import type { HistoryWriter } from '../../features/history/writer'
 import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import type { PeerLink } from '../../infra/ipc/peer-link'
-import {
-  TURN_BEGIN_FIELDS,
-  TURN_LIVE_FIELDS,
-  type TurnBegin
-} from '../data-host/persistence-receiver'
+import { TURN_BEGIN_FIELDS, TURN_LIVE_FIELDS, type TurnBegin } from '../../../shared/peer-protocol'
 
 export interface PersistenceSenderDeps {
   link: Pick<PeerLink<'agent'>, 'notify' | 'request' | 'onClosed'>
