@@ -49,6 +49,7 @@ export function installChatStoreHarness(
   vi.stubGlobal('window', {
     oo: {
       boot: { whenReady: async () => undefined },
+      hosts: { onLifecycle: vi.fn(() => () => {}) },
       chat: {
         send: chatSend,
         cancel: vi.fn(),

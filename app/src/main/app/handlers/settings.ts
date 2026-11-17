@@ -18,7 +18,7 @@ export function registerSettingsReadHandler(
 
 export function registerSettingsHandlers(ctx: Pick<RouterContext, 'settings' | 'scheduler'>): void {
   // 파생 상태(게이트 판정·사용량 뷰)를 다시 미는 일은 **이 핸들러의 몫이 아니다** —
-  // `SettingsStore.onPatch` 로 각 소유자가 부팅에서 스스로 등록한다(`app/bootstrap.ts`).
+  // `SettingsStore.onPatch` 로 각 소유자가 부팅에서 스스로 등록한다(`app/data-host/bootstrap.ts`).
   // 여기에 `if (key === …)` 를 쌓으면 도메인을 모르는 핸들러가 feature 를 알아야 하고,
   // 파생 설정이 늘 때마다 "설정은 바뀌었는데 화면은 그대로" 가 반복된다.
   handlePlain(CHANNELS.settingsSet, (raw): Settings => {

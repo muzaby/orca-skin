@@ -612,6 +612,38 @@ it('요청은 소유 프로세스의 전송 하나로만 간다 — 셸·에이�
   ])
 })
 
+// 0324 AC29′·AC33′ — 호스트가 죽거나 다시 붙으면 renderer 에 알린다. 첫 포트·종료 없는 포트 교체는 알리지 않는다.
+it('호스트 수명 통지 — 종료와 그 뒤의 새 포트만 알리고, 구독 해제 뒤에는 알리지 않는다', () => {
+  const api = harness.exposed.get('oo') as OoApi
+  const seen: unknown[] = []
+  const exited = (host: 'agent' | 'data'): void => {
+    for (const listener of harness.listeners.get('oo:host:exited') ?? []) listener({}, { host })
+  }
+  const off = api.hosts.onLifecycle((event) => seen.push(event))
+  deliverHostPort('data')
+  exited('data')
+  deliverHostPort('data')
+  off()
+  exited('agent')
+  deliverHostPort('agent')
+  expect(seen).toEqual([
+    { host: 'data', kind: 'exited' },
+    { host: 'data', kind: 'reconnected' }
+  ])
+})
+
+// 기대 소유자를 표에서 읽지 않고 고정한다 — 표 자체가 한쪽으로 쏠려도 잡는다(VP-21′ 선택 증거).
+it('턴 전송은 에이전트 포트, 세션 목록은 데이터 포트로 간다 (AC24′)', async () => {
+  const api = harness.exposed.get('oo') as OoApi
+  const from = harness.routes.length
+  await api.chat.send({ sessionId: 's1', text: 'hi' } as Parameters<OoApi['chat']['send']>[0])
+  await api.session.list()
+  expect(harness.routes.slice(from)).toEqual([
+    [CHANNELS.chatSend, 'agent'],
+    [CHANNELS.sessionList, 'data']
+  ])
+})
+
 afterAll(() => {
   const wrong = harness.routes.filter(([channel, via]) => ownerOfChannel(channel) !== via)
   expect(wrong).toEqual([])

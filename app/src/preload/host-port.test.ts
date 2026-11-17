@@ -190,7 +190,7 @@ describe('createHostPortClient — 포트가 없을 때', () => {
 })
 
 describe('createHostPortClient — 포트 교체', () => {
-  it('옛 포트에서 기다리던 요청을 거부하고 옛 포트를 닫는다 · 이후 요청은 새 포트로 (AC33)', async () => {
+  it('옛 포트에서 기다리던 요청을 거부하고 옛 포트를 닫는다 · 이후 요청은 새 포트로 (AC33′)', async () => {
     const { client } = setup()
     const first = new FakePort()
     client.attachPort(first)

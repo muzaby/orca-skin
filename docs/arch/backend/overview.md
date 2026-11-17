@@ -209,7 +209,7 @@ f. chat/engine/extension/composer/git 핸들러 등록 → 부팅 보고를 데�
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
 | electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` (키 카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
-| Skills 스캔 (Orcinus orca sources + Claude native skills) | Phase 2 | ✅ 완료 | `features/extensions/common/skills/scan.ts` — 루트는 app 하네스 조립부가 제공. native 경로는 [adapters.md §1.3](./adapters.md#13-claudecodeadapter-호출-패턴), 캐시는 `Bootstrap.skillsCache` |
+| Skills 스캔 (Orcinus orca sources + Claude native skills) | Phase 2 | ✅ 완료 | `features/extensions/common/skills/scan.ts` — 루트는 app 하네스 조립부가 제공. native 경로는 [adapters.md §1.3](./adapters.md#13-claudecodeadapter-호출-패턴), 캐시는 에이전트 호스트 조립의 `skillsCache` |
 | Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/common/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
 | ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/claude/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
