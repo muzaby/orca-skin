@@ -105,7 +105,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **직전 `못 잡음`·`동치` 재실행(③)** — 후보 표·`경계` 행 제외: N행 → 결과 나란히
 - **이전 라운드 대조(④)** — diff가 닿은 행(공용 설정이 바뀌었으면 전부) 재실행: 지난 라운드 red 중 이번 green 0건 / N건 → 덮개 회귀 finding · 원문이 옮겨 간 행은 재앵커 행(원 ID → 옮긴 자리)과 원문 줄이 운반하는 것의 분류를 함께
 - **독립 축(⑥)** — 구현 보고·등록 목록에 없던 축 N건(어떤 축인지와 결과) · 창 안이면 가정 입력·형태 변이 포함, 창 밖이면 열거 원문 유도·현재 결함 우선
-- **열거 sweep(⑦)** — `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` · 범위 … · 항목 N · 못 잡음 M · 규칙 칸 분기는 그 칸을 구현한 diff 자리 변이 K개(인용한 분기 · 동치 · 확장)
+- **열거 sweep(⑦)** — `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` · 범위 … · 항목 N · 못 잡음 M · 규칙 칸 분기·여러 항 §10 자리 문장의 항은 그것을 구현한 diff 자리 변이 K개(인용한 분기·항 · 동치 · 확장)
 
 **고장 이력** — 이번 verify가 시도한 고장 전부. 종류는 제거·빈 값·다른 값·맞바꿈·뒤집기·고정값·호출 대체 중 하나이고, 하한(①~⑦) 밖의 자리·방식은 재량이다(`docs/handoff/AGENTS.md §고장 내 보기`).
 
