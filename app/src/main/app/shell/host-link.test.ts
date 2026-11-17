@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createHostMessageSink } from './host-link'
+import { createHostMessageSink, hostStartStep } from './host-link'
 import { LifecycleState } from './lifecycle-state'
 
 function setup(): {
@@ -101,5 +101,32 @@ describe('호스트 → 셸 메시지 수신', () => {
     expect(onPeerEnsure).toHaveBeenCalledTimes(1)
     expect(onUpdateCheck).toHaveBeenCalledTimes(1)
     expect(onServiceCall).not.toHaveBeenCalled()
+  })
+
+  // 0324 EP-24 ⑫ — 기동 단계 알림은 감독자가 따로 읽는다. 싱크는 무효로 세지 않고 다른 수신처에도 보내지 않는다.
+  it('기동 단계 알림은 무효가 아니고 어느 수신처에도 가지 않는다', () => {
+    const t = setup()
+    t.sink({ type: 'boot.step', state: 'begin' })
+    t.sink({ type: 'boot.step', state: 'end' })
+    expect(t.onInvalid).not.toHaveBeenCalled()
+    expect(t.onReady).not.toHaveBeenCalled()
+    expect(t.onServiceCall).not.toHaveBeenCalled()
+    expect(t.mirrorUiLocale).not.toHaveBeenCalled()
+    t.sink({ type: 'boot.step', state: 'later' })
+    expect(t.onInvalid).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('hostStartStep — 감독자가 읽는 긴 단계의 시작·끝 (EP-24)', () => {
+  it.each([
+    [{ type: 'boot.step', state: 'begin' }, 'begin'],
+    [{ type: 'boot.step', state: 'end' }, 'end'],
+    [{ type: 'boot.step', state: 'later' }, undefined],
+    [{ type: 'boot.step' }, undefined],
+    [{ type: 'ready' }, undefined],
+    [{ type: 'service.call', id: 1, name: 'secrets.decrypt', args: [] }, undefined],
+    [null, undefined]
+  ])('%j → %s', (message, expected) => {
+    expect(hostStartStep(message)).toBe(expected)
   })
 })
