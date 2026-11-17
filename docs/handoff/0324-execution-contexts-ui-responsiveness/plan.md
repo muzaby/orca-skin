@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -99,8 +99,17 @@
 | D-044 | 데이터 호스트가 실행이 필요한 교차 요청(예약 작업의 셸 명령 · 네이티브 이력 읽기)을 보낼 때 에이전트 호스트가 없으면 셸에 기동을 요청한다. 활동 조회와 런타임 폐기는 지금처럼 "없으면 생략"이다 | 재기동은 preload 의 첫 요청만 부른다(§7-E). 창이 숨은 트레이 상주 중에는 그 요청이 오지 않아 예약 셸 명령이 실행되지 못한다 | 설계자(D-024 적용) | ACTIVE (사용자 거부 가능) | — |
 | D-045 | 턴 진행 중 델타는 빠지지 않아야 한다. 턴은 시작한 창의 문서와 수명을 같이하고, 진행 중인 캐시 세션은 로드 결과로 덮지 않는다 — 이 둘을 계약으로 둔다. 턴 이벤트 순번과 "붙기"(스냅샷·실시간 이음)는 지금 도입하지 않고, 창이 여럿이 되거나 턴이 창보다 오래 살게 되는 변경이 먼저 설계한다 | "다시 열면 정상이라도, 턴 진행 중 델타가 빠지면 안된다. 설계조치하라." — 조사 결과 비동기 저장(D-039)으로 스냅샷이 화면보다 뒤처져도 그 스냅샷을 진행 중 세션에 적용하는 경로가 없다(§7-G 조사). 그 뒤 "결롬에 맞게 고치고 plan을 보완하라" | 검토 세션 2026-11-16 + 설계자 | ACTIVE | — |
 | D-046 | 본 화면은 두 호스트가 모두 준비된 뒤에 뜬다(AC31′ 그대로). 데이터 호스트만 준비되면 띄우는 안은 이번에 하지 않고 후속 handoff 추천으로 남긴다 | "후속 핸드오프 추천사항으로 남겨라. 이번엔 asis로 진행하겠다" — 설계자가 낸 두 안(as-is / to-be)의 사용자 시나리오 비교를 본 뒤의 답 | 검토 세션 2026-11-16 | ACTIVE | — |
+| D-047 | 함수를 담은 공유 객체는 서술자 사본 + 대리 호출로 건넌다 — 런타임 도구는 `tools.snapshot` + 대리 MCP 서버 → `runtimeToolCall`, 관리형 MCP 는 `mcp.snapshot` + 브리지 임대 | 도구 함수·MCP 서버는 구조화 복제가 안 된다. Claude 는 같은 프로세스 MCP 로 도구를 붙인다(§7-H 조사). 다른 두 안(Claude 도 HTTP 브리지 · 플러그인을 에이전트로)은 도구 표면·D-038 을 바꾼다 | 설계자(D-024 적용) · r1.11 G-A·G-D | ACTIVE (사용자 거부 가능) | — |
+| D-048 | 하네스 실행 구성(인증 보강기)·모델 카탈로그는 데이터 호스트에 두고 에이전트 호스트는 `HarnessConfigPort` 로 받는다 | 보강기·카탈로그가 인증 런타임을 동기로 받는다 — D-038 과 같은 방향 | 설계자(D-024 적용) · r1.11 G-B | ACTIVE | — |
+| D-049 | D-039 의 "응답을 기다리는 저장"에 산출물 참조를 싣는 턴 이벤트(게시 영수증이 붙은 도구 완료 · 출력 파일 담기)를 더한다. 같은 턴의 뒤 중계만 그 뒤로 줄을 선다 | D-039 의 조건절 "지금 계약이 응답 값을 쓴다"에 해당한다 — 화면은 DB 가 확인한 산출물 참조만 싣는다(`writer.ts`) | 설계자(D-039 조건절 적용) · r1.11 | ACTIVE (사용자 거부 가능) | D-039 의 예외 목록을 넓힘 |
+| D-050 | 데이터 → 에이전트 교차 요청은 §7-H EP-21′ 9자리다. 확보 여부는 D-044 규칙 그대로 — 실행 결과가 필요한 것만 확보한다 | 바쁨 판정·셸 취소·하네스 설치·모델 목록·확장 배포가 데이터 쪽 기능(로그인 프리 연결·MCP·스킬 CRUD)에서 필요하다 | 설계자(D-044 적용) · r1.11 G-C | ACTIVE | — |
+| D-051 | 프로세스 경계 가드의 허용 자리를 §7-H EP-1″ 로 고정한다. 두 호스트는 서로의 조립 폴더를 값으로 import 하지 않고, 계약은 `shared/peer-protocol.ts`, 공용 호스트 인프라는 `app/host-*.ts` 에 둔다 | 실제 트리에서 가드를 처음 돌려 나온 등록 자리(r1.12)와 교차 호스트 값 import 1건(r1.14 — 송신기가 수신기 모듈을 끌어와 저장기가 에이전트 번들에 들었다) | 설계자(D-028 적용) · r1.12·r1.13·r1.14 | ACTIVE | §7-F (e2) · §7-G (e3)′ 대체 |
+| D-052 | 세션 로드 취소는 `window.oo.session.cancelLoad` 로 보낸다(추가분) | 앞 로드를 취소해야 남은 조각을 보내지 않는다(AC17). 기존 형상은 그대로(D-026) | 설계자 · r1.12 | ACTIVE | — |
 
 ### 갱신 메모
+
+- r1.14(rev 4.2): 구현이 올린 `PLAN_GAP` 18건을 §7-H 에서 정정했다 — 함수를 담은 공유 객체 · 인증에 묶인 실행 구성 · 교차 요청 종류 · 산출물 참조 이벤트 · 가드 등록 자리와 교차 호스트 import · 세션 로드 취소 · 만들 수 없는 인용 oracle 7건의 대체. 새 결정 D-047~D-052(설계자). 기존 ACTIVE 결정은 모두 유지되고 D-039 의 예외 목록만 D-049 로 넓어졌다.
+- rev 4.2 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-049 ↔ AC40(예외가 D-039 조건절로 하나 늘었다) · D-052 ↔ AC24′(추가분) · D-051 ↔ AC20′·AC26 · D-047·D-048 ↔ AC41.
 
 - 검토 세션(rev 4.1): rev 4 READY 를 외부 검토한 결과 `PLAN_GAP` 4건을 §7-G 에서 정정했다 — 가드 (e3) 와 현재 코드의 충돌 · 데이터 호스트 계측 누락 · 데이터 호스트발 재기동 주체 없음 · 본문(§1·§5·§6·§9·§13)이 rev 3 서술로 남음. 새 결정 D-043·D-044(설계자) · D-045(사용자 요구 + 조사). 기존 ACTIVE 결정은 모두 유지된다.
 - 검토 세션(rev 4.1 추가): 사용자가 본 화면 조건을 as-is 로 정했다 → D-046. AC·V·§10 변경 0 — AC31′·EP-19 의 "에이전트 기동 실패 3회 → 부팅 오류"가 그대로다. to-be 는 §7-G "후속 handoff 추천"과 `INDEX.md` 후보 표에 남겼다.
@@ -1024,6 +1033,114 @@ AC 총수는 47 → **49** 다(AC5·AC6 은 ′ 판으로 대체, AC48·AC49 추
 - 기존 테스트 인용 확인: `send.worktree.test.ts:678`(준비 중 창 닫힘) · `stall-monitor.test.ts`·`record-stall.test.ts`·`handle.test.ts`·`host-link.test.ts`·`port-server.test.ts` 는 실재한다(`ls`·`rg`). 실행 단계 닫힘 케이스와 `chatStore` 케이스는 구현자가 더한다.
 - 같은 대상을 여러 절이 서술하는 자리(종료 순서 — §5·§13·AC32′, 재기동 — §5·§7-E·EP-19·EP-21, 계측 대상 — AC5′·§9 경로 그림)를 나란히 읽어 맞췄다.
 - 실측하지 않은 것: 백그라운드 작업 이벤트(`broadcastBackgroundEvent`)의 로드 순서는 따라가지 않았다. rev 4 가 "기록 뒤 공개"(EP-15)를 유지하므로 D-039 의 영향 밖으로 읽었다.
+
+---
+
+## 7-H. V1 rev 4.2 정정 — 구현 중 `PLAN_GAP` 18건 (r1.11~r1.14)
+
+**판정: READY.** 프로세스 배치·채널 배치·피어 흐름 F1~F5·AC 49건의 동작 기준은 그대로다. 이 절은 구현이 올린 `PLAN_GAP`(r1.11 5 · r1.12 5 · r1.13 4 · r1.14 4)을 정정한다. 출처는 "plan 내부 정합"(§7-F 조사가 DB 호출만 세고 함수를 담은 공유 객체를 세지 않음 · 인용 oracle 부재)이고, 확장 창은 열려 있다(verify 0회). 구현 전 정정이 아니라 구현 중 정정이며 verify 회차는 바뀌지 않는다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| 함수를 담은 공유 객체 | `adapters/claude/runtime-tools.ts`(`createSdkMcpServer` — 같은 프로세스 MCP) · `ManagedMcpSnapshot.plugins` | 2 | 도구 함수·MCP 서버는 구조화 복제가 안 된다. §7-F 조사 표 "플러그인 도구 경로"는 OpenCode(HTTP 브리지)만 참이다 |
+| 인증에 묶인 실행 구성 | `deployment/harness-runtime.ts` 보강기 · 모델 카탈로그 | 2 | 인증 런타임을 동기로 받는다 — 데이터 호스트(D-038)에 있어야 한다 |
+| 데이터 → 에이전트 교차 요청 자리 | `rg -n "(link\|requireAgentLink\(\)\|agentLink\??)\.(request\|requestEnsured)\(" app/src/main/app/data-host --glob '!*.test.*' --glob '!*.testfixture.*'` | 9 + 래퍼 2 | §7-G EP-21 의 4종 밖에 바쁨 판정·셸 취소·하네스 설치·모델 목록·확장 배포가 있다 |
+| 산출물 참조를 싣는 턴 이벤트 | `features/history/writer.ts` 의 `tool.call.completed`(게시 영수증)·`output.captured` | 2 | 저장기가 DB 가 확인한 `ev.artifact` 를 채운 뒤 중계했다 — 화면이 응답 값을 쓴다 |
+| 멈춤 기록 자리 | `rg -n "recordStall\(" app/src/main --glob '!*.test.*' --glob '!*.testfixture.*'` | 2(+정의 1) | `infra/ipc/handle.ts`(등록 함수 셋 공용) · `infra/ipc/peer-link.ts`(저장 수신·두 교차 요청 수신이 모두 이 링크 위다) |
+| 실행 쪽 DB 호출 술어(§7-F) | §7-F 조사 2행 명령 | 14 | 전부 `DataPort`·`TitleStore` 같은 원격 포트 호출(`await`)이다 — 술어가 포트 호출과 직접 호출을 가르지 못한다 |
+| 교차 호스트 값 import | 가드의 import 그래프(에이전트 진입점 → `app/data-host/` · 데이터 진입점 → `app/agent-host/`) | 1 → 0 | 송신기가 `TURN_BEGIN_FIELDS` 를 수신기 모듈에서 값으로 가져와 `HistoryWriter` 가 에이전트 번들에 들었다 |
+| 공용 호스트 인프라의 위치 | `app/agent-host/port-server.ts`·`shell-client.ts` 를 `app/host-process.ts`·`host-runtime.ts` 가 두 호스트에 쓴다 | 2 | rev 3(호스트 하나) 때 자리라 데이터 호스트가 에이전트 폴더 모듈을 쓴다 |
+| 조립을 띄우는 테스트 | `DataBootstrap`·`AgentBootstrap` 생성자 | 0 | 하네스·Electron 서비스·DB 를 한꺼번에 세워 테스트에서 통째로 띄우지 못한다 — §7-F 가 인용한 `data-host/boot.test.ts`·`*/shutdown.test.ts` 는 만들 수 없다 |
+
+### 결정
+
+- **D-047 사본 + 대리.** 함수를 담은 공유 객체는 서술자 사본으로 건넌다. 런타임 도구(플러그인·산출물)는 데이터 호스트가 서술자·입력 JSON 스키마를 `tools.snapshot` 으로 보내고, 에이전트 호스트가 그 사본으로 대리 MCP 서버를 세워 호출을 `data.query` `runtimeToolCall` 로 보낸다. 관리형 MCP 는 직렬화 사본(`mcp.snapshot`)과 브리지 임대(`managedMcpAcquire`·`managedMcpRelease`)다.
+- **D-048 실행 구성.** 하네스 실행 구성(보강기)·모델 카탈로그는 데이터 호스트에 두고 에이전트 호스트는 `HarnessConfigPort`(`app/context.ts`)로 받는다 — D-038·AC41 과 같은 방향이다.
+- **D-049 산출물 참조 이벤트.** D-039 의 "응답을 기다리는 저장"에 산출물 참조를 싣는 턴 이벤트 둘을 더한다(`turn.artifactEvent`). D-039 의 조건절("지금 계약이 응답 값을 쓴다")에 해당한다. 같은 턴의 뒤 중계는 그 응답 뒤로 줄을 서고, 다른 턴은 막지 않는다.
+- **D-050 교차 요청 종류.** 데이터 → 에이전트 `agent.call` 은 아래 EP-21′ 9자리다. 확보 여부 규칙(D-044)은 그대로 — 실행 결과가 필요한 것만 확보한다.
+- **D-051 경계 등록.** 프로세스 경계 가드의 허용 자리를 아래 EP-1″ 규칙 칸으로 고정하고, 두 호스트는 서로의 조립 폴더를 값으로 import 하지 않는다. 둘이 나누는 계약은 `shared/peer-protocol.ts`, 공용 호스트 인프라는 `app/host-*.ts` 다.
+- **D-052 세션 로드 취소.** 앞 로드의 취소는 `window.oo.session.cancelLoad`(추가분)로 보낸다. 기존 `window.oo` 의 형상은 바뀌지 않는다(D-026·AC24′).
+
+### Requirements / Acceptance — rev 4.2 (동작 기준 불변 · 검증 수단만 정정)
+
+| AC | 바뀐 칸 | rev 4.2 의 검증 수단 | 이유 |
+|---|---|---|---|
+| AC5′ | `app/data-host/boot.test.ts` → | `app/host-process.test.ts` '%s — 환경 → 로그 → 멈춤 계측 …' (`startLoopStallMonitor` 를 호스트 이름으로 1회) | 두 호스트의 시작 순서는 `host-process.ts` 하나다 |
+| AC6′ | 세 파일의 60ms 케이스 → | `infra/ipc/peer-link.test.ts`·`agent-host/data-link.test.ts`·`data-host/agent-link.test.ts`·`data-host/persistence-receiver.test.ts` 의 60ms 케이스 · `handle.test.ts` | 피어 수신 계측은 링크 한 자리다(EP-2″) |
+| AC30′ | `app/data-host/boot.test.ts` → | `app/host-assemblies.order.test.ts` 'DB 초기화 → 복구 → 부팅 보고 마감' · 기존 `features/chat/recovery` 테스트 | 조립을 띄우지 못한다(조사 표 마지막 행) — 순서가 계약인 자리만 소스에서 잠근다 |
+| AC32′ | `agent-host/shutdown.test.ts`·`data-host/shutdown.test.ts` → | `host-supervisor.test.ts` '앱 종료는 에이전트 호스트를 먼저 …' · `boot.test.ts` 종료 분기 · `host-assemblies.order.test.ts` 종료 순서 2케이스 | 같다 |
+| AC41 | "`chat-turn` 준비 테스트" → | `chat-turn/resolve-turn.runtime-catalog.test.ts` 'passes the prepared native environment …'(실행 구성) · `resolve-turn.agent.test.ts`(세션 메타 → 에이전트 종류) — 둘 다 `withDataPort` 의 실제 연산 표를 구조화 복제로 지난다 · 가드 (e2) | 준비 값이 지나는 자리는 `ctx.data`·`ctx.harness` 둘이다 |
+| AC43 | "데이터 `session` 핸들러 테스트" → | `app/data-host/session-hooks.test.ts` — 연결: 잊기 → 폐기 → 숨김 · 미연결: 폐기 실패 → 숨김, 확보 0 | 훅이 조립 밖 모듈로 나왔다 |
+| AC47 | "데이터 `boot` 보고 테스트" → | `app/data-host/agent-reports.test.ts` · `agent-host/report-forwarder.test.ts` · `host-assemblies.order.test.ts` '부팅 보고는 에이전트 호스트의 단계를 합쳐 준다' | 같다 |
+| AC17 | `dataHostClient.test.ts` → | `preload/session-load.test.ts`(취소한 요청의 늦은 조각 → 조립 없음) · `chatStore.busyGuards.test.ts`(앞 로드 취소 → `cancelLoad` 1) | 조립은 preload 가 한다 |
+
+AC 총수 49 그대로.
+
+### Node · Pair — rev 4.2
+
+| Pair | 바뀐 칸 | rev 4.2 |
+|---|---|---|
+| VP-09′ | oracle `dataHostClient.test.ts` | `preload/session-load.test.ts` · `app/data-host/session-load.test.ts` |
+| VP-12′ | §10 EP-2′ (10) | EP-2″ (5) |
+| VP-27″ | (e3)′ 5분기 | EP-1″ 규칙 칸 전부 · 선택 증거에 교차 호스트 변이 1 추가: 송신기가 `app/data-host/` 모듈의 값을 import → (e2) red |
+| VP-37′·VP-43 | EP-21 (4) | EP-21′ (9) |
+| VP-38 | SSOT `shared/peer-protocol.ts` | 같음 + 실행 쪽 저장 의존 계약 `TurnPersistence`(`app/chat-turn/deps.ts`) · 송신기 규칙 칸에 산출물 분기 1(D-049) |
+
+### 강제 지점 — rev 4.2
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| AR-03′ / VP-12′ **EP-2″** | 요청 처리의 멈춤 기록 | 5자리 — 등록 함수 `handle`·`handlePlain`·`on`(`infra/ipc/handle.ts` 의 공용 계측) · 피어 링크 수신의 `notify`·`request` 분기(`infra/ipc/peer-link.ts` `timed`) | `rg -n "recordStall\(" app/src/main --glob '!*.test.*' --glob '!*.testfixture.*'` → 2 · 각 파일의 분기 | 느린 처리가 이름 없이 묻힌다 |
+| AR-13 / VP-37′ **EP-16′** | 실행 쪽 DB·설정·비밀 접근은 데이터 링크로 | 2자리 — 에이전트 그래프에 `infra/db/`(범용 열기 한 파일 제외)·설정·비밀 모듈 값 import 0(가드 (e2)) · 실행 쪽 조회·쓰기 이름은 `app/data-host/data-ops.ts` 표에만(표 밖 이름 거부 — `agent-link.test.ts`) | 가드 `--list` 의 (e2) · `rg -n "createDataQueryOps\|createDataWriteOps" app/src/main --glob '!*.test.*'` | 에이전트 호스트가 DB 없이 던진다 |
+| AR-15 / VP-43 **EP-21′** | 데이터발 교차 요청의 확보 여부 | 9자리 — 확보 안 함: `sessionBusy`·`discardSession`·`sessionActivity`(`session-hooks.ts`) · `cancelShell`(`bootstrap.ts`) / 확보: `readNativeHistory`(`session-hooks.ts`) · `runShell`·`deployExtensions`·`harnessInstalled`·`harnessListModels`(`bootstrap.ts`) | 조사 표 3행 명령 → 9 | 실행 요청이 버려진다 / 세션을 열기만 해도 에이전트 호스트가 뜬다 |
+| AR-10″ / VP-27″ **EP-1″** | 프로세스별 import 경계 | 규칙 칸 아래 | 가드 `--list` | 다른 프로세스의 의존이 번들에 든다 |
+
+**EP-1″ 규칙 칸** (`check-ui-thread.test.mjs` — §7-F (e1)·(e2) · §7-G (e3)′ 를 대체):
+
+| 규칙 | 분기 | 기대 |
+|---|---|---|
+| (e2) | 에이전트 그래프가 `infra/db/`(범용 열기 `file-database.ts` 제외)·설정·비밀 모듈·`electron-store` 에 닿음 / `better-sqlite3` 를 `file-database.ts` 밖에서 염 / 범용 열기만 | exit 1 / exit 1 / exit 0 |
+| (e2) | 에이전트 그래프가 `app/data-host/` 를 값으로 import / 타입으로만 | exit 1 / exit 0 |
+| (e3) | 데이터 그래프가 하네스별 폴더에 등록한 구성 읽기 입구(`ui-thread-rules.mjs` `e.data.entryFiles`) 밖으로 들어감 / 등록한 구현 파일(`files`)에 닿음 / `adapters/common/` | exit 1 / exit 1 / exit 0 |
+| (e3) | 데이터 그래프에서 `node:child_process`·SDK 2종에 닿음 | exit 1 |
+| (e3) | 데이터 그래프가 `app/agent-host/` 를 값으로 import / 타입으로만 | exit 1 / exit 0 |
+| (f) | 호스트 그래프의 `electron` 값 import 는 `net-fetch.ts`·`net-request.ts` 만 | 밖이면 exit 1 |
+| (d)(g)(j) | 셸의 Electron 배선 `app/shell/electron-hosts.ts` · 호스트의 부모 포트 `app/host-runtime.ts` 를 등록 자리로 | 등록 밖이면 exit 1 |
+| eslint `harness/version-boundary` | 하네스별 폴더의 버전 중립 입구에 `config.ts` 를 더한다 | `scripts/harness-boundary.test.mjs` |
+
+**EP-15 규칙 칸 — 추가 분기** (`persistence-sender.test.ts`):
+
+| 분기 | 기대 |
+|---|---|
+| 산출물 참조 이벤트(D-049) | `turn.artifactEvent` 요청 → 응답의 참조를 실어 중계 · 그 사이 같은 턴의 뒤 이벤트는 줄을 섰다가 순서대로 중계 |
+
+**선언 경계** (rev 4.2):
+
+- B29 — 조립(`DataBootstrap`·`AgentBootstrap`)의 순서 계약은 소스 순서 테스트로 잠근다. 각 단계의 동작은 그 단계 모듈의 테스트가 본다. 조립 전체의 실행은 사람 실기(AC23)다.
+- B30 — 대리 MCP 서버의 입력 스키마는 JSON 스키마 왕복(`z.toJSONSchema` → `z.fromJSONSchema`)이라 zod 의 변환(`transform`)·정제(`refine`)는 에이전트 쪽에서 돌지 않는다. 검증은 데이터 호스트의 실제 도구가 다시 한다.
+
+### 구현 설계 — rev 4.2
+
+| 단계 | 파일 | 책임 |
+|---|---|---|
+| 4a′ | `shared/peer-protocol.ts` | F1 의 턴 필드(`TURN_BEGIN_FIELDS`·`TURN_LIVE_FIELDS`·`TurnBegin`) · 사본 메서드 |
+| 4b′ | `app/data-host/session-hooks.ts` | 세션 핸들러의 실행 쪽 훅(EP-21′ 4자리) |
+| 4i | `app/host-port-server.ts`·`app/host-shell-client.ts` | 공용 호스트 인프라(옛 `app/agent-host/` 자리에서 옮김) |
+| 4j | `app/remote-tools.ts` | 대리 도구(D-047) |
+| 4h′ | `scripts/ui-thread-rules.mjs` | EP-1″ |
+
+### 대체 범위
+
+§7-F AC5′(검증 수단)·AC30′·AC32′·AC41·AC43·AC47 · §7 AC17 의 검증 수단 칸 · §7-F VP-09′ oracle · §7-G VP-12′·VP-27″·VP-37′·VP-43 의 §10 칸 · §7-G EP-2′ → EP-2″ · §7-F EP-16 → EP-16′ · §7-G EP-21 → EP-21′ · §7-F EP-1 (e)′ (e2)·§7-G EP-1 (e3)′ → EP-1″ · §7-F 조사 표 "플러그인 도구 경로" 행.
+
+### READY self-review — rev 4.2 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-049 ↔ AC40(문장 "화면 중계는 저장 응답을 기다리지 않는다"의 예외 목록이 D-039 조건절로 하나 늘었다. AC40 의 검증 수단 9분기는 그대로이고 산출물 분기는 EP-15 추가 분기가 잠근다) · D-052 ↔ AC24′(추가분, 형상 불변) · D-051 ↔ AC20′·AC26.
+- 분모: EP-2″ 5 · EP-16′ 2 · EP-21′ 9 · EP-1″ 규칙 8행. 검색 명령은 각 행에 있다(EP-21′ 은 조사 표 3행).
+- 규칙 칸 ↔ 입력 칸: EP-1″ 8행 ↔ `check-ui-thread.test.mjs`·`harness-boundary.test.mjs` · EP-21′ 9 ↔ `session-hooks.test.ts`(4) + `agent-link.test.ts`(확보·미확보 분기) — 조립 안 5자리(`cancelShell`·`runShell`·`deployExtensions`·`harnessInstalled`·`harnessListModels`)의 직접 좌표는 B29 로 경계다.
+- 인용 테스트 실재: AC 표 3열의 파일은 `ls` 로 확인했다.
 
 ---
 
