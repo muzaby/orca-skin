@@ -15,7 +15,7 @@
 src/renderer/
 ├── index.html                       # React 마운트 + CSP + Google Fonts link
 └── src/
-    ├── main.tsx                     # React entrypoint (createRoot) + 글로벌 CSS import
+    ├── main.tsx                     # React entrypoint (createRoot) + 글로벌 CSS import — 먼저 `installOo()` 로 `window.oo` 를 만들고, 다리가 없으면 실패 화면을 그린다
     ├── App.tsx                      # Provider 합성 루트 (Tweak → Backend → Sessions → Cost → Update → Chat, 초기화/구독 Provider + RootGate)
     ├── env.d.ts                     # Vite 클라이언트 타입
     │
@@ -30,6 +30,8 @@ src/renderer/
     │   │                            #   DEV 는 선언 0개여도 게이트를 세운다(탈출구 = 디버그 패널 우회 토글)
     │   ├── GateFrame.tsx            # 로그인 게이트 셸 (0181 — 구 LoginFrame. features/providers GateLogin 호스트)
     │   ├── BootFailureFrame.tsx     # 부팅 실패 화면 (0180 — 구 LoginFrame 의 나머지 절반)
+    │   ├── BridgeMissingScreen.tsx  # preload 다리가 없을 때의 고정 실패 화면 — provider·`window.oo` 없이 그린다 (0324 D-059)
+    │   ├── rootElement.ts           # 창의 첫 요소 선택 — 다리 없음이면 BridgeMissingScreen, 아니면 앱
     │   ├── boot/                    # BootScreen + bootStore + steps (부팅 오케스트레이션, 0077)
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
     │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/scheduled` · `/artifacts` · `/plugins` · `/agent` · `/captures` · `*`→/new
@@ -80,6 +82,7 @@ src/renderer/
     │   ├── theme/                   # TweakProvider(인스턴스별 설정 store·DOM 효과), useTweakContext(필수 selector)
     │   ├── hooks/                   # useSkills (oo:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
     │   ├── stores/                  # agentStore (engine/provider 공유 store — 카드·Composer/ModelMenu 싱크)
+    │   ├── api/transport/           # renderer 전송층 — preload 다리 위에 `window.oo` 설치(install) · 채널 소유에 따른 전송 선택(oo) · 호스트 포트 클라이언트 · 세션 조각 조립 (0324 D-058)
     │   ├── api/ipc.ts               # `window.oo.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId 타입 + TRANSCRIPT_TEXT_SCALE·TRANSCRIPT_WIDTH_PX
     │   ├── logging.ts               # renderer 로그를 oo:log:emit 으로 중계 (0123/0124)

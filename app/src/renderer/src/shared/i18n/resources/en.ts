@@ -111,7 +111,10 @@ export const en: typeof ko = {
     resumingLabel: 'Restoring connections',
     resumingSr: 'Restoring your connections',
     errorTitle: 'A problem occurred while preparing the app.',
-    retry: 'Retry boot'
+    retry: 'Retry boot',
+    bridgeMissingTitle: "Couldn't connect the app window.",
+    bridgeMissingBody:
+      'The component that connects this window to the app failed to load. Quit the app and start it again. If this keeps happening, reinstall the app.'
   },
   landing: {
     newChatGreeting: 'Start developing and debugging.'
