@@ -1,0 +1,6 @@
+id	결과	exit	요약
+E7-1	red (기대 일치)	1	vitest 14 failed | 1047 passed | 3 skipped (1064)
+E7-2	red (기대 일치)	1	vitest 130 failed | 931 passed | 3 skipped (1064)
+E7-3	red (기대 일치)	1	vitest 130 failed | 931 passed | 3 skipped (1064)
+E7-4	red (기대 일치)	1	vitest 11 failed | 1050 passed | 3 skipped (1064)
+# 원복 확인: 모든 파일 원문 그대로
