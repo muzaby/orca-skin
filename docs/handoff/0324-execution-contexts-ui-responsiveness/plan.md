@@ -3431,6 +3431,100 @@ V-pair 자기 상태: `SELF_PASS` — VP-45 · VP-46 · VP-47 · VP-22″·VP-22
 - 라운드 1 · impl 턴 `r1.18`(사용자 요구 변경 턴) — verify 0회. 사용자 지시로 verify 3회전까지 review 를 하지 않는다.
 - plan 의 만료 가드 3조건 중 2조건이 도달 불가였다 — sweep 이 구현 중에 드러냈다.
 
+## [구현자 기입] r2 — rev 4.6: 빈 첫 조각 잠금 · 멈춤 계측 절 대조(EP-6′ · EP-25)
+
+**판정: 완료 — `impl/IMPL_DONE`.** rev 4.6(§7-K) 구현 3단계(4s · 4t · 4u)를 닫았다 — 테스트 2파일 · 문서 1 · 주석 1, production 동작 변경 0. 라운드 2의 첫 impl 턴이다(verify 1회째 `RETURN_TO_PLAN` 뒤). `PLAN_GAP` 0.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| EP-25 절 끝 경계의 입력 | 구현 세부 → 입력 추가 | 4u 는 절 범위를 "다음 `## ` 앞까지"로 적지만 실제 트리의 뒤 절에는 `_MS` 이름이 없다 — 끝 경계 제거 T2 가 첫 실행 green. 같은 케이스에 합성 문서 1개(앞·안·뒤 절 이름)를 더해 T2 red. 케이스 수는 plan 대로 1 |
+| 멈춤 계측 절의 값 | plan 대로 | 절 안 숫자는 `1건` · `0324` 두 줄뿐이다(`awk` 로 절만 뽑아 `grep -nE "[0-9]"` → 2줄) — 기준값은 적지 않았다 |
+| AGENTS 링크 케이스의 `readFileSync` | 구현 세부 | 파일 top import 로 옮기고 케이스 안 동적 import 를 지웠다 — 같은 이름 그림자를 피한다. 단언 그대로 |
+| `perf-budget.ts` 주석 | plan 대로(4t) | `UI_YIELD_INTERVAL_MS` 주석에 D-057 적용 대상 · React 지연 렌더 · 가드 없음. 값·export 그대로 |
+
+### 강제 지점 전수 (§10 대조)
+
+§7-K 강제 지점 표의 검색 명령을 마지막 트리에서 다시 돌렸다 — EP-6′ 2(`data-host.ts:44`·`:73`) · EP-25 4(`perf-budget.ts:5`·`:7`·`:11`·`:13`) + 문단 1(`execution-model.md:109`) · EP-22′ 1·1·1(`send.ts:526` · `host-port-server.ts:115` · `chatStore.ts:1848`). 목록과 차집합 0.
+
+| 자리 | 위치 | 닫음 | 좌표 |
+|---|---|---|---|
+| EP-6′ 분할 | `shared/data-host.ts` `splitSessionMessages` | ✅ | `shared/data-host.test.ts` '첫 메시지가 상한을 넘어도 빈 조각은 없다 — 그 메시지가 첫 조각이다'(C1 — 이 케이스 하나만 실패) · '메시지가 없으면 조각이 없다'(C8) · 분할 나머지 4케이스(C2·C3·C4) |
+| EP-6′ 조립 | 같은 파일 `assembleSession` | ✅ | '분할한 조각을 조립하면 원래 세션과 같다'(C9·C10) · it.each '%s → 던진다' 3행(C5·C6·C7) · '메시지가 없는 세션은 조각 없이 조립된다' |
+| EP-25 ① `UI_TASK_BUDGET_MS` | `execution-model.md` `## 멈춤 계측` 이름 문단 | ✅ | `scripts/check-ui-thread.test.mjs` '실제 트리' > '멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 …'(n1) |
+| EP-25 ② `STALL_SEVERE_MS` | 같은 문단 | ✅ | 같은 케이스(n2) |
+| EP-25 ③ `STALL_WINDOW_MS` | 같은 문단 | ✅ | 같은 케이스(n3) |
+| EP-25 ④ `UI_YIELD_INTERVAL_MS` | 양보 문단 | ✅ | 같은 케이스(m1) |
+| EP-25 ⑤ `시간 조각` · `강제 없음` | 양보 문단 | ✅ | 같은 케이스(m4 · m5) |
+| EP-22′ 3자리 | 위치만 바뀐 행 — 이번 diff 미접촉 | 유지 | verify 1 W1~W3 red(`send.worktree.test.ts` · `host-port-server.test.ts` '포트가 닫히면 닫힘을 한 번 알리고 그 참조로 보내지 않는다' · `chatStore.busyGuards.test.ts`) · 이번 턴 전체 vitest green |
+
+- EP-6′ 규칙 칸 11분기 ↔ 케이스: 분할 6(합 ≤ 500 · 상한 넘김 · 딱 맞음 · 가운데 초과 · 첫 초과(새) · 메시지 0) · 조립 5(정상 · 빈 세션 · it.each 3) — 11/11.
+- EP-25 규칙 칸 4분기 ↔ 실제 트리 1(절 밖 `HOST_READY_TIMEOUT_MS` 포함) + 합성 입력 1(앞·뒤 절) + 등록 변이 m1~m5 — 4/4.
+- AC16′ preload 좌표(`preload/session-load.test.ts:53`·`:94`) · AC20′·AC49 정정 좌표(`host-port-server.test.ts:151`·`:120`) — `rg -n "it\('…"` 로 실재 확인, 이번 턴 전체 vitest green.
+
+V-pair 자기 상태: `SELF_PASS` — VP-01′(AT-01 `gate:node scripts/check-doc-inventory.mjs --check` OK · AT-51 위 EP-25 좌표) · VP-05″(EP-6′ 위 · EP-4′ 10자리는 미접촉 — verify 1 E4 red · 이번 턴 전체 vitest green) · VP-16′(EP-6′ · 등록 변이 C1 red). `SELF_BLOCKED` 0. 영향받은 INHERITED 상위 0(production 코드 변경 0).
+
+### 이번 라운드 수정의 잠금
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---:|---|---|
+| EP-6′ sweep — 분할·조립 규칙 칸 · 등록 변이(VP-16′ C1) | 10 (C1~C10) | 10/10 잡음 | C1~C7 은 verify 1 spec 그대로. C1 은 verify 1 `못 잡음` → red(새 케이스 1건 실패). C8 메시지 0 · C9·C10 조립 운반 |
+| EP-25 sweep — 자리 ①~⑤ · 등록 변이 m1~m5 | 8 (n1~n3 · m1~m5) | 8/8 잡음 | m1 이 자리 ④ 제거를 겸한다 |
+| EP-25 형제 맞바꿈(⑤) | 1 (s1) | green — 경계 | 두 이름의 뜻 문장만 맞바꾼다(집합 같음). EP-25 실패 의미 칸 "문단의 나머지 표현 … 은 검증자 대조다" |
+| EP-25 규칙 칸을 구현한 diff 자리(검사 쪽 경계·선택) | 3 (T1~T3) | 3/3 잡음 | T2(끝 경계)는 합성 입력 전 green — 설계 리뷰 1행 |
+| 덮개 회귀 ④ — 이번 diff 가 닿은 oracle 파일(`check-ui-thread.test.mjs`)의 verify 1 `잡음` 행 | 21 (G1~G20 · G1b) | 21/21 잡음 — red → green 0 | `data-host.test.ts` oracle 행(C1~C7)은 첫 행에 포함 |
+
+- 위 결과는 lint 자동 수정 뒤 마지막 트리에서 다시 돌린 값이다. 매 실행 `# 원복 확인: 모든 파일 원문 그대로`.
+- 검산: `선택 증거 6(VP-16′ C1 · VP-01′ m1~m5 — sweep 행이 겸함) · 인용 변이 1(V1-D1 의 C1 — 같은 행) · 새 oracle 2(EP-25 대조 · 첫 자리 분기 — 민감도는 sweep 행이 겸함) · sweep 22 · 회귀 21 = 표 변이 43`. 원본 `evidence/r2-sweep/`(`sweep.jsonl`·`.tsv` · `rerun-guard.jsonl`·`.tsv`).
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자 관측 변화 | 0 — production 코드 diff 는 `perf-budget.ts` 주석 3줄뿐이다(`git diff --stat`). 빈 첫 조각 가드는 이미 있던 코드(`data-host.ts:52`)이고 이번 턴은 그 동작을 잠갔다 |
+| 첫 메시지가 500 part 를 넘는 세션 | 조각 통지가 메시지 수대로 간다 — 빈 조각 통지 0(새 케이스 `[700, 10]`) |
+| 에이전트용 문서 | `## 멈춤 계측` 이 기준 이름 넷과 시간 조각 양보 규칙을 적는다 — 소비자는 새 코드를 두는 에이전트(`AGENTS.md` → 실행 모델 → `perf-budget.ts`) |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | 양보 규칙이 문서 문단과 `perf-budget.ts` 주석 두 곳에 있다 — 테스트는 문서만 본다 | plan 4t 대로. 값은 상수 하나라 갈라지지 않고, 주석 문장은 잠그지 않는다(B37 과 같은 범위) |
+| 2 | EP-25 대조는 백틱으로 감싼 `*_MS` 이름만 언급으로 센다 | 규칙 칸("그 절의 백틱 `<이름>_MS`") 그대로 |
+| 3 | 실제 트리 하나가 입력이라 문서 모양에 따라 구별되지 않는 분기가 생길 수 있다 | 끝 경계는 합성 입력으로 닫았다(T2). 나머지 분기는 m1~m5 · T1 · T3 red |
+
+### 구현 보고
+
+| 단계 | 파일 |
+|---|---|
+| 4s | `app/src/shared/data-host.test.ts` — 첫 자리 분기 1케이스 · 머리 주석 EP-6′·AC16′ |
+| 4t | `docs/arch/execution-model.md` `## 멈춤 계측` 두 문단 · `app/src/shared/perf-budget.ts` `UI_YIELD_INTERVAL_MS` 주석 |
+| 4u | `app/scripts/check-ui-thread.test.mjs` '실제 트리' EP-25 대조 1케이스(합성 입력 포함) |
+| 증거 | `docs/handoff/0324-execution-contexts-ui-responsiveness/evidence/r2-sweep/` |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0 — 마이그레이션 · 문서 인벤토리(`generated doc ok` · prose · links) · 제품 이름 2433파일 · 테스트 예산 `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | 오류 0 · 경고 3(기존 React Compiler). 자동 수정은 `check-ui-thread.test.mjs` 합성 입력 줄 감싸기 1건(이번 턴 파일) — 그 뒤 sweep·gate 를 다시 돌렸다 |
+| `npm run typecheck` | node · web · test exit 0 |
+| `vitest run`(필터 없음) | 1026파일 · 9750케이스 — 실패 22(9파일) · 처리 안 된 오류 1(`native-resources.ts:152` win32 전용). 변경 전 트리(rev 4.6 설계 커밋 worktree) 9749케이스의 실패 22와 `FAIL` 줄 차집합 양방향 ∅ — verify 1 기준선과 같은 9파일(win32 전용 플러그인 제어 · `C:/` 경로). 규칙 가드(`[test-pools]`) 실패 0 |
+| `node --test scripts/*.test.mjs` | 72 suites · 1001 / 1001(EP-25 케이스 1 추가) |
+| `npx electron-vite build && node scripts/smoke-hosts.mjs out/main` | 빌드 `✓ built` 3 · 스모크 `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료`(소유 채널 4 ok · 남의 채널 거부 1) |
+
+테스트 소스 규칙: 추가·수정 2파일(`git diff --name-only` — `src/shared/data-host.test.ts` · `scripts/check-ui-thread.test.mjs`). `data-host.test.ts` — `check-test-budgets` 위반 0(시간 값·`vi.setConfig` 없음) · vitest unit 가드 `[test-pools]` 0(자식 프로세스·SQLite 없음, `|unit|`). `check-ui-thread.test.mjs` 는 `node --test` 스크립트라 vitest 풀·예산 규칙 대상이 아니다(`*.test.ts`·`*.testfixture.ts(x)` 만).
+
+**AC 자기보고**: ✅ 49 · ⚠️ 2 · ❌ 0 = 총 51. AC16′ ✅(EP-6′ 좌표 · preload 좌표 2) · AC51 ✅(EP-25 좌표). ⚠️ 는 AC22·AC23(사람 실기 — Electron 바이너리 없음). 나머지 47 은 이번 턴 전체 vitest·`node --test` 에서 좌표 파일이 통과한 것으로 셌다. 분모가 rev 4.6 에서 50 → 51 로 바뀌어 r1.18(48/50)과 직접 비교하지 않는다.
+
+### Review Signals — 사실만
+
+- 라운드 2 · impl 턴 `r2`(verify 1회째 `RETURN_TO_PLAN` 뒤 첫 구현). 확장 창 안(verify 1회).
+- 닫은 불변식 2 — 빈 조각 없음(V1-D1) · 예산 상수 ↔ 멈춤 계측 절 대조(V1-D2). 둘 다 이전 라운드와 다른 축이다.
+- EP-6 규칙 칸은 상한 초과 메시지를 가운데 자리에만 두었다 — verify 1 의 규칙 칸 diff 자리 변이(C1)가 드러냈고 rev 4.6 이 채택했다.
+- 환경: `npm ci` postinstall 이 better-sqlite3 를 Electron ABI 로 빌드해 DB 스위트가 변이 없이도 실패했다 — `node scripts/ensure-sqlite-abi.mjs node` 뒤 sweep·gate 를 다시 돌렸다. Electron 바이너리 없음.
+
 ---
 
 ## [검증자 기입] 파생 이슈
