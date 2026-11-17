@@ -1,3 +1,4 @@
+import { withDataPort } from './data-host/data-port.testfixture'
 import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
@@ -81,7 +82,7 @@ it('shares targets across catalog resources and warmup through the production as
     runtimeModelCatalog: { merge: (value: unknown) => value, isReadOnly: () => false },
     mcp: { resolver: () => () => undefined }
   } as unknown as RouterContext
-  const assembly = createComposerPreparation(ctx)
+  const assembly = createComposerPreparation(withDataPort(ctx))
   cleanups.push(() => {
     assembly.close()
     adapter.close()

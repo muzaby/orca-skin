@@ -215,7 +215,7 @@ export async function readClaudeNativeHistory(
       offset > 0 &&
       offset < snapshot.bytes.length &&
       snapshot.prefixRevision === cursor.revision
-    const raw = append ? (previous?.raw?.() ?? previous?.snapshot.raw) : undefined
+    const raw = append ? ((await previous?.raw?.()) ?? previous?.snapshot.raw) : undefined
     // Prefix bytes are verified, but already parsed records are reused only for a proven append.
     const entries =
       append && Array.isArray(raw)

@@ -14,17 +14,21 @@ import type { PendingMessageQueue } from '../../features/chat/pending-message-qu
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
 import type { HistoryWriter } from '../../features/history/writer'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
-import type { RouterContext } from '../context'
+import type { AgentContext } from '../context'
 import type { WorktreeService } from '../../features/worktrees/service'
 import type { TurnExtensions } from '../../adapters/common/turn'
 import type { BackgroundController } from '../../features/chat/background-controller'
+import type { BackgroundEvent } from '../../../shared/background-task'
 
 export interface ChatDeps {
-  ctx: RouterContext
+  ctx: AgentContext
   supervisor: RuntimeSupervisor<ClientRef>
   bus: MainBus<ClientRef>
   approvals: ApprovalCoordinator
   persistence: HistoryWriter
+  // 백그라운드 작업 기록의 복원 읽기. 기록(`persistence.persistProviderEvent`)과 같은 순서 안에서
+  // 동기로 읽는다 — 턴 저장 스트림(0324 EP-15)과 함께 데이터 호스트로 옮긴다.
+  loadBackgroundEvents: (sessionId: string) => BackgroundEvent[]
   permissionModes: PermissionModeController
   pendingMessages: PendingMessageQueue
   backgroundTasks: BackgroundTaskTracker
