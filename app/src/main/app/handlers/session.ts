@@ -23,10 +23,12 @@ import { addSessionDirectory } from './session-directory'
 
 // 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
 // chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
+// 실행 상태는 에이전트 호스트에 있다 — 데이터 호스트는 물어서 안다(0324 F4 · AC19′ · AC43). 에이전트
+// 호스트가 없으면 쉬는 상태로 답한다(그 판정은 주입하는 쪽이 한다).
 interface SessionDisposeHooks {
-  isSessionBusy?: (sessionId: string) => boolean
-  onSessionDisposed?: (sessionId: string) => void
-  getActivity?: (sessionId: string) => ChatActivitySnapshot
+  isSessionBusy?: (sessionId: string) => boolean | Promise<boolean>
+  onSessionDisposed?: (sessionId: string) => void | Promise<void>
+  getActivity?: (sessionId: string) => ChatActivitySnapshot | Promise<ChatActivitySnapshot>
   refreshHistory?: (sessionId: string) => Promise<NativeSyncResult | undefined>
 }
 
@@ -65,13 +67,13 @@ export function registerSessionHandlers(
     CHANNELS.sessionLoad,
     LoadSessionRequestSchema,
     { fallback: null },
-    (req): LoadedSession | null => {
+    async (req): Promise<LoadedSession | null> => {
       ctx.db.nativeHistory.compactLegacyRaw(req.sessionId)
       const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
       return (
         session && {
           ...session,
-          ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+          ...(hooks.getActivity ? { activity: await hooks.getActivity(req.sessionId) } : {})
         }
       )
     }
@@ -100,7 +102,7 @@ export function registerSessionHandlers(
         status: 'updated',
         session: {
           ...session,
-          ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
+          ...(hooks.getActivity ? { activity: await hooks.getActivity(req.sessionId) } : {})
         }
       }
     }
@@ -118,7 +120,7 @@ export function registerSessionHandlers(
     },
     async (req): Promise<DeleteSessionResult> => {
       // 먼저 런타임·미커밋 입력을 닫아 삭제 뒤 지각 이벤트가 DB에 다시 쓰는 경쟁을 막는다.
-      hooks.onSessionDisposed?.(req.sessionId)
+      await hooks.onSessionDisposed?.(req.sessionId)
       ctx.db.hideSession(req.sessionId)
       // 영속화된 lastSessionId 가 삭제 대상이면 같이 해제.
       const current = ctx.settings.getAll()
