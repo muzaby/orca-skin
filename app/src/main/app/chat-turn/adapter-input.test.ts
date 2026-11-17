@@ -16,7 +16,6 @@ const sdk = vi.hoisted(() => ({
   finish: null as (() => void) | null
 }))
 
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: (args: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) => {
     sdk.prompt = args.prompt

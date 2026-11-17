@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -25,8 +25,6 @@ import { chatReducer, initialChatState } from '../reducer/chatReducer'
 import { AssistantMessage } from '../components/transcript/AssistantMessage'
 import { agentUiPolicy } from './agentPresentation'
 import { partsToolCalls, toolRunOutcome } from './parts'
-
-vi.mock('electron', () => ({ webContents: { getAllWebContents: (): unknown[] => [] } }))
 
 // Only the SDK transport, the peer port and Electron delivery are replaced. The mapper, coordinator,
 // bus, persistence stream (sender → peer link → receiver), SQLite writer/reader, reducer, pairing and

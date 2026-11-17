@@ -4,19 +4,10 @@ import type { NativeResources } from '../../../shared/native-resources'
 import type { GovernedLiveTurn } from '../../contracts/ports'
 import { ProjectResourceSync } from '../project-resource-sync'
 import { registerSessionResourceHandlers } from './session-resources'
-const callbacks = vi.hoisted(
-  () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-)
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (name: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      callbacks.set(name, callback)
-  }
-}))
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 const services: ProjectResourceSync[] = []
 afterEach(() => {
   services.splice(0).forEach((service) => service.close())
-  callbacks.clear()
 })
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 80; i++) await Promise.resolve()
@@ -77,7 +68,7 @@ it('publishes configured changes through the real read handler and waits for idl
   changed.forEach((callback) => callback())
   await flush()
   const query = (): Promise<unknown> =>
-    callbacks.get(CHANNELS.sessionNativeResources)!({}, { sessionId: 'S' })
+    invokeChannel(CHANNELS.sessionNativeResources, { sessionId: 'S' })
   expect(await query()).toMatchObject({ configurationPending: true, items: [{ canToggle: false }] })
   expect(runtime.reconcileNativeResources).not.toHaveBeenCalled()
   idle = true
