@@ -112,10 +112,12 @@ import {
 import { sameSessionBinding } from '../session-binding'
 import { registerSettingsReactions } from '../settings-reactions'
 import { createAgentCallOps } from './agent-ops'
+import { createBackgroundRecords, type BackgroundRecords } from './background-records'
 import { createDataLink, type DataLink } from './data-link'
 import { createLifecycleEmitter, type LifecycleEmitter } from './lifecycle-emitter'
 import { createPersistenceSender, type PersistenceSender } from './persistence-sender'
 import { createReportForwarder, type ReportForwarder } from './report-forwarder'
+import { createSessionMetaCache, type SessionMetaCache } from './session-meta'
 import { createSettingsMirror, type SettingsMirror } from './settings-mirror'
 
 type SessionRow = NonNullable<Awaited<ReturnType<DataQueryOps['getSessionById']>>>
@@ -161,9 +163,10 @@ export class AgentBootstrap implements HostAssembly {
   private claudeGlobalWatch?: FingerprintWatch
   private projectResourceSync?: ProjectResourceSync
   private background?: { dispose(sessionId: string): void }
+  private backgroundRecords?: BackgroundRecords
   private readonly shellRuns = new Map<string, AbortController>()
-  // 실행 쪽 동기 판정이 읽는 세션 메타 — 비동기 진입점에서 데이터 호스트에 다시 묻고 채운다.
-  private readonly sessionRows = new Map<string, SessionRow>()
+  // 실행 쪽 동기 판정이 읽는 세션 메타 사본 — lease 가 바뀔 때와 비동기 진입점에서 채운다.
+  private readonly sessionMeta: SessionMetaCache<SessionRow>
   private authState = { passed: false, resuming: false }
   private firstConnection = true
   private readonly stops: Array<() => void> = []
@@ -204,6 +207,15 @@ export class AgentBootstrap implements HostAssembly {
       onInvalid: () => getLogger().child('peer').warn('peer.message.invalid', { side: 'agent' })
     })
     this.data = { query: this.dataLink.query, write: this.dataLink.write }
+    this.sessionMeta = createSessionMetaCache<SessionRow>({
+      read: (sessionId) => this.data.query.getSessionById(sessionId),
+      // 사본이 바뀌면 그 사본을 읽는 동기 판정(리소스 동기화 대상)을 다시 돌린다.
+      changed: () => this.projectResourceSync?.leasesChanged(),
+      failed: (error) =>
+        getLogger()
+          .child('peer')
+          .warn('session.meta.read-failed', { message: String(error) })
+    })
     // 오류 보고·부팅 보고는 데이터 호스트가 창에 준다(AC47) — 첫 보고가 나기 전에 건다.
     this.reports = createReportForwarder({
       hub: errorReportHub,
@@ -329,11 +341,18 @@ export class AgentBootstrap implements HostAssembly {
     await this.deployment?.ensureDeployed()
   }
 
-  private async sessionRow(sessionId: string): Promise<SessionRow | undefined> {
-    const row = await this.data.query.getSessionById(sessionId)
-    if (row) this.sessionRows.set(sessionId, row)
-    else this.sessionRows.delete(sessionId)
-    return row ?? undefined
+  private sessionRow(sessionId: string): Promise<SessionRow | undefined> {
+    return this.sessionMeta.refresh(sessionId)
+  }
+
+  // 이 호스트가 런타임이나 lease 를 가진 세션 — 세션 메타 사본이 따라가야 하는 집합이다.
+  private heldSessions(): string[] {
+    const supervisor = this.supervisor
+    if (!supervisor) return []
+    return [
+      ...supervisor.allLeases().flatMap((lease) => (lease.sessionId ? [lease.sessionId] : [])),
+      ...supervisor.runtimeEntries().map(({ sessionId }) => sessionId)
+    ]
   }
 
   private sessionBusy(sessionId: string): boolean {
@@ -352,7 +371,8 @@ export class AgentBootstrap implements HostAssembly {
     this.supervisor?.discardRuntime(sessionId)
     this.pendingMessages?.dispose(sessionId)
     this.activity?.clear(sessionId)
-    this.sessionRows.delete(sessionId)
+    this.sessionMeta.forget(sessionId)
+    this.backgroundRecords?.forget(sessionId)
     this.lifecycle.sessionEnded(sessionId)
   }
 
@@ -468,6 +488,7 @@ export class AgentBootstrap implements HostAssembly {
     }))
     supervisor.subscribeLeases(() => {
       this.lifecycle.leasesChanged()
+      this.sessionMeta.track(this.heldSessions())
       this.projectResourceSync?.leasesChanged()
     })
     const bus = (this.bus = new TypedBus<OoBusEvents<ClientRef>>())
@@ -489,6 +510,11 @@ export class AgentBootstrap implements HostAssembly {
     const permissionModes = new PermissionModeController()
     const pendingMessages = (this.pendingMessages = new PendingMessageQueue())
     const backgroundTasks = new BackgroundTaskTracker()
+    // 기록은 데이터 호스트에 있다 — 상태 요청과 턴 시작이 받아 두고 첫 복원이 쓴다.
+    const backgroundRecords = (this.backgroundRecords = createBackgroundRecords({
+      read: (sessionId) => this.data.query.backgroundEvents(sessionId),
+      hasCanonical: (sessionId) => backgroundTasks.hasCanonical(sessionId)
+    }))
     const activity = (this.activity = new SessionActivityProjector({
       queue: pendingMessages,
       backgroundTasks,
@@ -524,11 +550,8 @@ export class AgentBootstrap implements HostAssembly {
       bus,
       approvals,
       persistence: this.sender as never,
-      loadBackgroundEvents: (sessionId) => this.backgroundEventsCache.get(sessionId) ?? [],
-      prefetchBackgroundEvents: async (sessionId) => {
-        if (this.backgroundEventsCache.has(sessionId)) return
-        this.backgroundEventsCache.set(sessionId, await this.data.query.backgroundEvents(sessionId))
-      },
+      loadBackgroundEvents: (sessionId) => backgroundRecords.load(sessionId),
+      prefetchBackgroundEvents: (sessionId) => backgroundRecords.prefetch(sessionId),
       permissionModes,
       pendingMessages,
       backgroundTasks,
@@ -559,9 +582,9 @@ export class AgentBootstrap implements HostAssembly {
       },
       worktrees
     })
-    approvals.registerHandlers(supervisor, permissionModes, (sessionId) => {
-      const kind = this.sessionRows.get(sessionId)?.agent_kind
-      return kind === undefined ? undefined : parseAgentKind(kind)
+    approvals.registerHandlers(supervisor, permissionModes, async (sessionId) => {
+      const kind = await this.data.query.sessionAgentKind(sessionId)
+      return kind == null ? undefined : parseAgentKind(kind)
     })
 
     const preparation = createComposerPreparation(ctx)
@@ -579,7 +602,7 @@ export class AgentBootstrap implements HostAssembly {
       })
     )
     const resolveResourceTarget = (request: ResourceRequest): ProjectResourceTarget | undefined => {
-      const session = 'sessionId' in request ? this.sessionRows.get(request.sessionId) : undefined
+      const session = 'sessionId' in request ? this.sessionMeta.get(request.sessionId) : undefined
       if ('sessionId' in request && !session) return undefined
       const scope = session
         ? { backend: session.backend, cwd: session.cwd, projectId: session.project_id }
@@ -730,7 +753,9 @@ export class AgentBootstrap implements HostAssembly {
       this.extensionChoices,
       createClaudeProcessReset({
         supervisor,
-        backendOf: (sessionId) => this.sessionRows.get(sessionId)?.backend as Backend | undefined,
+        backendOf: (sessionId) => this.sessionMeta.get(sessionId)?.backend as Backend | undefined,
+        // 계획은 동기다 — 계획 전에 이 호스트가 가진 세션의 사본을 채운다.
+        prepare: () => this.sessionMeta.ensure(this.heldSessions()),
         activity: (sessionId) => activity.current(sessionId),
         discardSession: (sessionId) =>
           discardSessionWork(
@@ -755,12 +780,6 @@ export class AgentBootstrap implements HostAssembly {
       getSessionBaseline: (sessionId) => this.data.query.sessionBaseline(sessionId)
     })
   }
-
-  // 백그라운드 작업 기록의 복원 읽기 — 동기 계약이라 첫 관찰 전에 데이터 호스트에서 받아 둔다.
-  private readonly backgroundEventsCache = new Map<
-    string,
-    import('../../../shared/background-task').BackgroundEvent[]
-  >()
 
   private updateOpenCodeGlobalWatch(initial: boolean): void {
     if (!this.registry.availability('opencode').usable || this.stopped) {

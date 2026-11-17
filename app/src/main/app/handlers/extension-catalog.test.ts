@@ -3,18 +3,11 @@ import type { NativeResources } from '../../../shared/native-resources'
 import { CHANNELS } from '../../../shared/ipc'
 const f = vi.hoisted(() => ({
   native: false,
-  handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>(),
   open: vi.fn(async () => ''),
   reveal: vi.fn(),
   mcpOpen: false,
   read: vi.fn(),
   path: vi.fn(async () => '/installed/plugin')
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      f.handlers.set(channel, callback)
-  }
 }))
 vi.mock('electron-store', () => ({ default: class {} }))
 vi.mock('../harnesses/registry', () => ({
@@ -49,6 +42,7 @@ import { SettingsStore } from '../../infra/settings-store'
 import { registerExtensionCatalogHandlers } from './extension-catalog'
 import { extensionControl } from '../extension-control'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
 // 폴더 열기는 셸 서비스로 간다(0324 EP-10).
 installFakeShellServices({
@@ -57,7 +51,6 @@ installFakeShellServices({
 })
 
 beforeEach(() => {
-  f.handlers.clear()
   f.native = false
   f.open.mockClear()
   f.reveal.mockClear()
@@ -65,14 +58,18 @@ beforeEach(() => {
   f.read.mockClear()
 })
 const invoke = async (channel: string, payload: unknown): Promise<NativeResources> =>
-  (await f.handlers.get(channel)!({}, payload)) as NativeResources
+  (await invokeChannel(channel, payload)) as NativeResources
 
 it('reads native defaults without copying them and keeps supported explicit choices only in memory', async () => {
   const backend = { store: {} as Record<string, unknown> }
   const settings = new SettingsStore('test', backend)
   settings.patch({ language: 'sentinel-language' })
   const control = extensionControl()
-  const processes = { plan: vi.fn(() => ({ targets: [], busy: 0 })), close: vi.fn() }
+  const processes = {
+    prepare: vi.fn(async () => undefined),
+    plan: vi.fn(() => ({ targets: [], busy: 0 })),
+    close: vi.fn()
+  }
   registerExtensionCatalogHandlers(control, processes)
   expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
     false
@@ -82,15 +79,12 @@ it('reads native defaults without copying them and keeps supported explicit choi
   expect((await invoke(CHANNELS.extensionCatalog, { backend: 'claude' })).items[0].enabled).toBe(
     true
   )
-  const result = (await f.handlers.get(CHANNELS.extensionSetEnabled)!(
-    {},
-    {
-      backend: 'claude',
-      id: 'plugin-id',
-      kind: 'plugin',
-      enabled: false
-    }
-  )) as { status: 'applied'; resources: NativeResources }
+  const result = (await invokeChannel(CHANNELS.extensionSetEnabled, {
+    backend: 'claude',
+    id: 'plugin-id',
+    kind: 'plugin',
+    enabled: false
+  })) as { status: 'applied'; resources: NativeResources }
   expect(result.status).toBe('applied')
   expect(processes.close).toHaveBeenCalledWith([])
   expect(result.resources.items[0]).toMatchObject({
@@ -159,6 +153,10 @@ it('saves and closes in the same synchronous section as the busy check', async (
   })
   const targets = [{ sessionId: 'claude-idle', busy: false }]
   const processes = {
+    // 계획이 읽는 세션 정보는 계획 전에 채운다(0324) — 그 뒤 계획→닫기 사이에는 await 가 없다.
+    prepare: vi.fn(async () => {
+      order.push('prepare')
+    }),
     plan: vi.fn(() => {
       order.push('plan')
       queueMicrotask(() => order.push('intruder'))
@@ -177,7 +175,7 @@ it('saves and closes in the same synchronous section as the busy check', async (
       enabled: false
     })
   ).resolves.toMatchObject({ status: 'applied' })
-  expect(order).toEqual(['plan', 'save', 'close', 'intruder'])
+  expect(order).toEqual(['prepare', 'plan', 'save', 'close', 'intruder'])
   expect(processes.close).toHaveBeenCalledExactlyOnceWith(targets)
   expect(control.global('claude')).toEqual({ 'plugin:superpowers@market': false })
 })
@@ -185,12 +183,17 @@ it('saves and closes in the same synchronous section as the busy check', async (
 it('rejects confirmed: false before planning or saving', async () => {
   const control = extensionControl()
   const save = vi.spyOn(control, 'setGlobal')
-  const processes = { plan: vi.fn(() => ({ targets: [], busy: 1 })), close: vi.fn() }
+  const processes = {
+    prepare: vi.fn(async () => undefined),
+    plan: vi.fn(() => ({ targets: [], busy: 1 })),
+    close: vi.fn()
+  }
   registerExtensionCatalogHandlers(control, processes)
   const request = { backend: 'claude', id: 'plugin-id', kind: 'plugin', enabled: false }
   await expect(
     invoke(CHANNELS.extensionSetEnabled, { ...request, confirmed: false })
   ).rejects.toThrow()
+  expect(processes.prepare).not.toHaveBeenCalled()
   expect(processes.plan).not.toHaveBeenCalled()
   expect(save).not.toHaveBeenCalled()
   expect(processes.close).not.toHaveBeenCalled()
@@ -205,6 +208,7 @@ it('rejects confirmed: false before planning or saving', async () => {
 it('MCP 항목은 설정 파일을 탐색기에서 보여 주고 열지 않는다 (0324 EP-10)', async () => {
   f.mcpOpen = true
   registerExtensionCatalogHandlers(extensionControl(), {
+    prepare: vi.fn(async () => undefined),
     plan: vi.fn(() => ({ targets: [], busy: 0 })),
     close: vi.fn()
   })

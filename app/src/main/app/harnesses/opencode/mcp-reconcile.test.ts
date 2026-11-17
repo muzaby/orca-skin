@@ -24,13 +24,9 @@ import { retentionTransport } from '../../opencode-retention.testfixture'
 import { OpenCodeMcpReconcile } from './mcp-reconcile'
 import { OpenCodeWarmup } from './warmup'
 import { memorySecrets } from '../../../infra/config/memory-secrets.testfixture'
+import { invokeChannel } from '../../../infra/ipc/test-transport.testfixture'
 const boundary = vi.hoisted(() => ({
-  root: '',
-  handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-}))
-vi.mock('electron', () => ({
-  ipcMain: { handle: (name: string, handler: never) => boundary.handlers.set(name, handler) },
-  shell: {}
+  root: ''
 }))
 vi.mock('../../../infra/config/paths', async (original) => ({
   ...(await original<typeof import('../../../infra/config/paths')>()),
@@ -72,7 +68,7 @@ let preparation: ReturnType<typeof createComposerPreparation>,
 let activity: ChatActivitySnapshot, saveFails: boolean
 const alias = managedMcpAlias('user', 'user')
 const call = (channel: string, payload: unknown): Promise<unknown> =>
-  boundary.handlers.get(channel)!({}, payload)
+  invokeChannel(channel, payload)
 const toggled = (enabled: boolean): Promise<unknown> =>
   call(CHANNELS.mcpUpdate, { id: 'user', enabled })
 async function nextTurn(
@@ -210,7 +206,7 @@ beforeEach(async () => {
   })
   registerExtensionCatalogHandlers(
     control,
-    { plan: () => ({ busy: 0, targets: [] }), close: () => {} },
+    { prepare: async () => undefined, plan: () => ({ busy: 0, targets: [] }), close: () => {} },
     () => reconcile.changed()
   )
 })

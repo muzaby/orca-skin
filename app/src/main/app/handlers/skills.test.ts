@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type SkillInfo } from '../../../shared/ipc'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 import { registerSkillsHandlers } from './skills'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
-const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
 const shell = vi.hoisted(() => ({
   openPath: vi.fn(async () => ''),
   showItemInFolder: vi.fn()
@@ -14,12 +14,6 @@ const sources = vi.hoisted(() => ({
   writeUploadedSkill: vi.fn(async () => {})
 }))
 
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, listener: (event: unknown, raw: unknown) => unknown) =>
-      handlers.set(channel, listener)
-  }
-}))
 vi.mock('../../features/extensions/common/skills/sources', () => sources)
 
 // 폴더 열기는 셸 서비스로 간다(0324 EP-10).
@@ -58,13 +52,10 @@ const ctx = {
 }
 const target = { sourceId: 'plugin:claude', name: nativeName }
 async function invoke(channel: string, raw: unknown): Promise<unknown> {
-  const listener = handlers.get(channel)
-  if (!listener) throw new Error(`missing handler: ${channel}`)
-  return listener({}, raw)
+  return invokeChannel(channel, raw)
 }
 
 beforeEach(() => {
-  handlers.clear()
   vi.clearAllMocks()
   registerSkillsHandlers({ ...ctx, settings: ctx.settings as never })
 })

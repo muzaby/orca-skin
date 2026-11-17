@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import Database from 'better-sqlite3'
-vi.mock('electron', () => ({ webContents: { getAllWebContents: (): unknown[] => [] } }))
 import { HistoryWriter } from '../features/history/writer'
 import { loadSession } from '../features/history/reader'
 import { TurnCoordinator, type CoordinatorRuntime } from '../features/chat/turn-coordinator'
