@@ -64,6 +64,7 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 }))
 
 import { handleChatSend } from './send'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } = {}) {
@@ -104,7 +105,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
   }
   const sender = fakeClient()
   const deps = {
-    ctx: {
+    ctx: withDataPort({
       settings: { getAll: () => ({}) },
       db: {
         updateSessionProviderKey: vi.fn(),
@@ -131,7 +132,7 @@ function makeHarness(options: { reportsWaitPhases?: true; sessionId?: string } =
       getCwd: () => '/source/repo',
       ensureExtensionsDeployedForTurn: vi.fn(async () => undefined),
       extensions: { build: vi.fn(() => ({ skills: [], hooks: { normalized: {} } })) }
-    },
+    }),
     supervisor,
     bus: {},
     approvals: {},

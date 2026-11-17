@@ -11,6 +11,7 @@ import { normalizeAttachments } from '../../features/chat/attachments'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { handleChatSend } from './send'
 import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 vi.mock('../../features/chat/attachments', () => ({ normalizeAttachments: vi.fn() }))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
@@ -79,12 +80,12 @@ describe('handleChatSend busy submission', () => {
         attachmentImages: []
       })
       const deps = {
-        ctx: {
+        ctx: withDataPort({
           mockAdapter: null,
           debugMock: { enabled: false },
           registry: { getActive: () => ({ id: 'claude' }) },
           db: { getSessionById: dbRead }
-        },
+        }),
         supervisor: { acquireChain, getChainByKey: vi.fn() },
         isUpdateInstallPending: () => false
       } as unknown as ChatRuntimeDeps
@@ -128,12 +129,12 @@ describe('handleChatSend busy submission', () => {
         attachmentImages: []
       })
       const deps = {
-        ctx: {
+        ctx: withDataPort({
           mockAdapter: null,
           debugMock: { enabled: false },
           registry: { getActive: () => ({ id: 'claude' }) },
           db: { getSessionById: () => (confirmed ? { agent_kind: 'work' } : undefined) }
-        },
+        }),
         supervisor: { acquireChain, getChainByKey: (key: string) => leases.getByKey(key) },
         pendingMessages: queue,
         listenRelease: new Map(),
@@ -184,13 +185,17 @@ describe('handleChatSend busy submission', () => {
       queueMicrotask(() => order.push(`next-microtask:${queue.pending('s1').length}`))
       return leases.acquire(input)
     })
+    const db = {
+      getSessionById: () => ({ agent_kind: 'code' }),
+      updateSessionProviderKey: vi.fn()
+    }
     const deps = {
-      ctx: {
+      ctx: withDataPort({
         mockAdapter: null,
         debugMock: { enabled: false },
         registry: { getActive: () => ({ id: 'claude' }) },
-        db: { getSessionById: () => ({ agent_kind: 'code' }), updateSessionProviderKey: vi.fn() }
-      },
+        db
+      }),
       supervisor: { acquireChain, getChainByKey: (key: string) => leases.getByKey(key) },
       pendingMessages: queue,
       listenRelease,
@@ -236,7 +241,7 @@ describe('handleChatSend busy submission', () => {
     }))
     completeNormalization({ attachmentTexts, attachmentImages: [], attachmentViews: storedViews })
     await request
-    expect(deps.ctx.db.updateSessionProviderKey).not.toHaveBeenCalled()
+    expect(db.updateSessionProviderKey).not.toHaveBeenCalled()
     expect(order).toEqual(['admitted', 'listen-released', 'next-microtask:1'])
     expect(queue.pending('s1')).toEqual([
       expect.objectContaining({
