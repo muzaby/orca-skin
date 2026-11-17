@@ -6,7 +6,7 @@
 //
 // 타입이 `GateAuthDefinition` 인 것이 강제의 절반이다 — `probe` 없는 정의는 여기 담기지
 // 않는다(compile time). 나머지 절반은 부팅 composition 의 runtime fail-closed 다
-// (`app/bootstrap.ts` 의 `gateAuthDefinitions()`).
+// (`app/data-host/bootstrap.ts` 의 `gateMembers()`).
 
 import type { AuthDefinition, GateAuthDefinition } from '../../contracts/auth'
 

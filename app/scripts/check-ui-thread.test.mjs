@@ -419,6 +419,35 @@ describe('(e2)(e3) 호스트 그래프 (EP-1 (e)′ · (e3)′)', () => {
     }
   })
 
+  // ── 교차 호스트 — 두 호스트는 서로의 조립 폴더를 값으로 import 하지 않는다 (rev 4.2) ──────────
+  it('에이전트 호스트 그래프가 데이터 호스트 조립 폴더를 값으로 import 하면 exit 1', () => {
+    const result = fails('e', {
+      [AGENT]: "import { FIELDS } from '../data-host/receiver'\nexport const f = FIELDS\n",
+      'src/main/app/data-host/receiver.ts': 'export const FIELDS = [1]\n'
+    })
+    assert.match(result.lines.join('\n'), /e2 에이전트 호스트/)
+  })
+
+  it('데이터 호스트 그래프가 에이전트 호스트 조립 폴더를 값으로 import 하면 exit 1', () => {
+    const result = fails('e', {
+      [DATA]: "import { ops } from '../agent-host/agent-ops'\nexport const o = ops\n",
+      'src/main/app/agent-host/agent-ops.ts': 'export const ops = 1\n'
+    })
+    assert.match(result.lines.join('\n'), /e3 데이터 호스트/)
+  })
+
+  it('서로의 조립 폴더를 타입으로만 import 하는 것과 공용 호스트 인프라(`app/host-*.ts`)는 exit 0', () => {
+    passes({
+      [AGENT]:
+        "import type { Ops } from '../data-host/data-ops'\nimport '../host-runtime'\nexport type O = Ops\n",
+      [DATA]:
+        "import type { Ops } from '../agent-host/agent-ops'\nimport '../host-runtime'\nexport type O = Ops\n",
+      'src/main/app/data-host/data-ops.ts': 'export type Ops = number\n',
+      'src/main/app/agent-host/agent-ops.ts': 'export type Ops = number\n',
+      'src/main/app/host-runtime.ts': 'export const runtime = 1\n'
+    })
+  })
+
   // ── (e2)′ — 범용 SQLite 열기 한 파일만 에이전트 호스트에서 허용한다 ────────────────────
   const SQLITE = ALLOWED.e.agent.exceptFiles[0]
   const SQLITE_BODY = "import Database from 'better-sqlite3'\nexport const d = Database\n"
@@ -484,7 +513,7 @@ describe('(f) 호스트', () => {
 })
 
 describe('(g) 창 통지', () => {
-  const outside = 'src/main/app/bootstrap.ts'
+  const outside = 'src/main/app/agent-host/bootstrap.ts'
   const forms = {
     'wc.send(': "declare const wc: any\nwc.send('oo:x', 1)\n",
     'webContents.send(': "declare const win: any\nwin.webContents.send('oo:x', 1)\n",

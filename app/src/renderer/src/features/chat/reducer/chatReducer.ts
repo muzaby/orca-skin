@@ -692,6 +692,9 @@ export type ChatAction =
   | { type: 'COMMIT_PENDING_TEXT'; text: string }
   | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
+  // 실행 프로세스(에이전트 호스트)가 죽었다(0324 AC29′). 진행 중이던 턴은 오류로 끝나고 입력을 다시
+  // 받는다. 활동 상태는 처음으로 돌린다 — 다시 뜬 호스트의 활동 번호는 처음부터 센다.
+  | { type: 'HOST_LOST'; error: ClassifiedError }
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_CWD'; cwd: string; projectId?: string | null }
   | {
@@ -1428,6 +1431,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         listenStartedAt: null,
         ...childApprovalState(state)
       }
+
+    case 'HOST_LOST': {
+      const busy = state.inflight || state.activity.transport !== 'idle'
+      if (!busy) {
+        return state.activity === IDLE_ACTIVITY ? state : { ...state, activity: IDLE_ACTIVITY }
+      }
+      return {
+        ...state,
+        ...TURN_END_RESET,
+        error: action.error,
+        activity: IDLE_ACTIVITY,
+        listenStartedAt: null,
+        pendingAsks: [],
+        pendingPlanReview: null,
+        pendingToolApprovals: [],
+        pendingRequestOrder: []
+      }
+    }
 
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }

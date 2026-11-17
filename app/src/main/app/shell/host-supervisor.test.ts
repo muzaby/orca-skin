@@ -1,4 +1,5 @@
-// 호스트 감독 (0324 SD-04 · EP-12 · VP-22 · AC18 · AC29 · AC32).
+// 호스트 감독 (0324 SD-04″ · EP-12 · VP-22″ · AC18′ · AC29′ · AC32′). 두 호스트가 같은 감독자를 쓰고,
+// 언제 띄우고 다시 띄울지는 `boot.ts` 가 정한다(그 순서는 `boot.test.ts`).
 //
 // 프로세스·포트 채널·프로세스 목록·시계를 가짜로 준다. 규칙 칸(§10 EP-12)의 분기마다 입력을 둔다:
 // 에이전트 호스트 비정상 exit → 고아 종료 → 통지 → 상태 비움(순서) · 데이터 호스트 exit → 통지만 ·
@@ -149,7 +150,7 @@ describe('createHostSupervisor — 기동과 창 연결', () => {
     expect(HOST_SHUTDOWN_TIMEOUT_MS).toBe(3_000)
   })
 
-  it('데이터 호스트는 첫 연결 전에 fork 하지 않는다 (AC18)', () => {
+  it('감독자는 창 연결·ensureRunning 전에는 fork 하지 않는다 — 기동 시점은 boot.ts 가 정한다', () => {
     const h = setup({ kind: 'data' })
     expect(h.forks).toHaveLength(0)
     h.supervisor.attach(h.client(1))
@@ -287,7 +288,7 @@ describe('createHostSupervisor — 비정상 종료와 재기동', () => {
     expect(h.supervisor.phase()).toBe('idle')
   })
 
-  it('비정상 종료 뒤 자동으로 띄우지 않고 다음 요청에 띄운다 (AC18 · AC29)', async () => {
+  it('비정상 종료 뒤 스스로 띄우지 않고 다음 ensureRunning 에 띄운다 (AC29′)', async () => {
     const h = setup({ kind: 'agent' })
     h.supervisor.attach(h.client(1))
     h.forks[0].emit(READY)
@@ -298,7 +299,7 @@ describe('createHostSupervisor — 비정상 종료와 재기동', () => {
     expect(h.forks).toHaveLength(2)
   })
 
-  it('다시 뜬 호스트가 준비되면 등록된 창마다 새 포트와 준비를 보낸다 (AC33 의 셸 쪽)', async () => {
+  it('다시 뜬 호스트가 준비되면 등록된 창마다 새 포트와 준비를 보낸다 (AC33′ 의 셸 쪽)', async () => {
     const h = setup({ kind: 'agent' })
     h.supervisor.attach(h.client(1))
     h.forks[0].emit(READY)
@@ -352,7 +353,7 @@ describe('createHostSupervisor — 비정상 종료와 재기동', () => {
     expect(supervisor.phase()).toBe('starting')
   })
 
-  it('데이터 호스트 exit 는 창에 알리기만 한다 — 고아 정리·상태 비움 없음 (AC18)', async () => {
+  it('데이터 호스트 exit 는 창에 알리기만 한다 — 고아 정리·상태 비움 없음 (AC18′ · 재기동은 boot.ts)', async () => {
     const h = setup({ kind: 'data' })
     h.supervisor.attach(h.client(1))
     h.log.length = 0
@@ -454,7 +455,7 @@ describe('createHostSupervisor — 비정상 종료와 재기동', () => {
 })
 
 describe('createHostSupervisor — 정상 종료', () => {
-  it('종료 요청 뒤 제때 끝나면 kill 하지 않고 창에 알리지 않는다 (AC32)', async () => {
+  it('종료 요청 뒤 제때 끝나면 kill 하지 않고 창에 알리지 않는다 (AC32′)', async () => {
     const h = setup({ kind: 'agent' })
     h.supervisor.attach(h.client(1))
     h.forks[0].emit(READY)
@@ -475,7 +476,7 @@ describe('createHostSupervisor — 정상 종료', () => {
     expect(h.supervisor.phase()).toBe('stopped')
   })
 
-  it('제한 시간 안에 끝나지 않으면 한 번 kill 한다 (AC32)', async () => {
+  it('제한 시간 안에 끝나지 않으면 한 번 kill 한다 (AC32′)', async () => {
     const h = setup({ kind: 'agent' })
     h.supervisor.ensureRunning()
     h.forks[0].emit(READY)

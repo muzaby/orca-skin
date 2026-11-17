@@ -220,7 +220,7 @@ const background = (sequence: number, taskId: string): BackgroundEvent => ({
   patch: { status: 'running' }
 })
 
-// AC39 의 입력 열 4종.
+// AC39 의 입력 열 4종(질문 답은 늦은 결과가 오는 경우와 안 오는 경우 둘).
 const COLUMNS: Record<string, (d: Driver) => Promise<void>> = {
   '일반 응답': async (d) => {
     d.event(session())
@@ -256,6 +256,17 @@ const COLUMNS: Record<string, (d: Driver) => Promise<void>> = {
     // 실제 도구 결과가 늦게 빈 값으로 온다 — 저장된 답을 덮지 않는다.
     d.event(completed('ask-1', '', 'task-1'))
     d.event(completed('task-1', 'done'))
+    d.event(telemetry())
+    d.end()
+  },
+  // 답만 오고 실제 도구 결과는 오지 않은 채 턴이 끝난다 — 답을 남기는 것은 질문 답 입력뿐이다(VP-38).
+  '질문 답 — 늦은 결과 없음': async (d) => {
+    d.event(session())
+    d.event(started('ask-2', 'AskUserQuestion'))
+    d.turn.openToolRuns.set('ask-2', {} as never)
+    d.turn.askPendingIds.push('ask-2')
+    d.turn.pendingAskAnswers.push({ toolUseId: 'ask-2', answers: { 'Pick?': 'B' } } as never)
+    d.ask()
     d.event(telemetry())
     d.end()
   },

@@ -17,9 +17,12 @@ import { previewOf } from '../../infra/ipc/dto'
 import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 import { toolCallPartPayload } from './tool-call-payload'
+import { artifactReceiptId } from './artifact-receipt'
+
+export { artifactReceiptId }
 
 // 0064 continuity — fork/handoff 도착 물질화 훅(구조적 포트). 구현은 features/orchestration
-// 의 materializeContinuityArrival 이고 컴포지션 루트(app/bootstrap)가 주입한다 — feature
+// 의 materializeContinuityArrival 이고 저장 수신기(app/data-host/persistence-receiver)가 주입한다 — feature
 // 교차 import 금지 해소책 (b)/(c).
 type ContinuityArrivalHook = (arrival: {
   childSessionId: string
@@ -42,32 +45,6 @@ interface ArtifactLinker {
     publicationId: string,
     parentToolRunId?: string
   ): ArtifactRef | null
-}
-
-// 실제 tool_result의 text 영수증만 읽는다. 도구명·세션·원래 메시지 검증은 DB linker가 소유한다.
-export function artifactReceiptId(result: unknown): string | null {
-  const text =
-    typeof result === 'string'
-      ? result
-      : Array.isArray(result) && result.length === 1 && result[0]?.type === 'text'
-        ? (result[0].text as unknown)
-        : undefined
-  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 8192) return null
-  try {
-    const receipt: unknown = JSON.parse(text)
-    if (receipt === null || typeof receipt !== 'object' || Array.isArray(receipt)) return null
-    const value = receipt as Record<string, unknown>
-    return Object.keys(value).length === 3 &&
-      value.type === 'orcinus-orca.artifact.published' &&
-      value.version === 1 &&
-      typeof value.publicationId === 'string' &&
-      value.publicationId.length > 0 &&
-      value.publicationId.length <= 128
-      ? value.publicationId
-      : null
-  } catch {
-    return null
-  }
 }
 
 // 턴 영속(history) — 사용량 집계(UsageTracker)·제목 생성(TitleGenerator)은 별개 버스 구독자로

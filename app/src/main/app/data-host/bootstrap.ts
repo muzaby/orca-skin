@@ -35,7 +35,6 @@ import {
   type RuntimeModelCatalog
 } from '../../features/harnesses/common/runtime-catalog'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/common/runtime-config'
-import { refreshNativeHistory } from '../../features/history/native-sync'
 import { DbRunRecorder, Scheduler } from '../../features/scheduler'
 import type { UsageFetcher } from '../../features/usage/fetcher'
 import { registerUsageJobs } from '../../features/usage/jobs'
@@ -65,7 +64,6 @@ import { netFetch } from '../../infra/net/net-fetch'
 import { shellServices } from '../../infra/shell-services'
 import { SettingsStore } from '../../infra/settings-store'
 import { createVault } from '../../infra/vault'
-import type { AgentCallOps } from '../agent-host/agent-ops'
 import { createAuthResume } from '../auth-resume'
 import { createBootReportRecorder } from '../boot-report'
 import { resolveBuiltinSkillsDir } from '../builtin-resources'
@@ -123,6 +121,7 @@ import {
 import { createScheduledTasks, type ScheduledTasks } from '../scheduled-tasks'
 import { registerSettingsReactions } from '../settings-reactions'
 import { readSkillCatalog } from '../skill-catalog'
+import { createSessionHooks } from './session-hooks'
 import { createAgentLink, type AgentLink } from './agent-link'
 import { createAgentReports } from './agent-reports'
 import { createDataQueryOps, createDataWriteOps, type CaptureOutputRequest } from './data-ops'
@@ -767,23 +766,15 @@ export class DataBootstrap implements HostAssembly {
       getBootReport: () => this.agentReports.bootReport(this.bootReport.getReport())
     }
     // 실행 상태는 에이전트 호스트에 묻는다. 없으면 쉬는 상태다(AC19′ · AC43 — 띄우지 않는다).
-    const idle = { busy: false } as unknown as Awaited<ReturnType<AgentCallOps['sessionActivity']>>
-    registerSessionHandlers(ctx, {
-      isSessionBusy: (sessionId) => link.request('sessionBusy', sessionId).catch(() => false),
-      onSessionDisposed: async (sessionId) => {
-        this.receiver?.forgetSession(sessionId)
-        await link.request('discardSession', sessionId).catch(() => undefined)
-      },
-      getActivity: (sessionId) => link.request('sessionActivity', sessionId).catch(() => idle),
-      // 원본 읽기는 에이전트 호스트(하네스 어댑터), 기록은 여기다(F4 · EP-21: 없으면 띄운다).
-      refreshHistory: (sessionId) =>
-        refreshNativeHistory(sessionId, {
-          db,
-          isBusy: () => link.request('sessionBusy', sessionId).catch(() => false),
-          read: async () =>
-            (await link.requestEnsured('readNativeHistory', sessionId)) ?? { status: 'unchanged' }
-        })
-    })
+    // 원본 읽기는 에이전트 호스트(하네스 어댑터), 기록은 여기다(F4 · EP-21: 없으면 띄운다).
+    registerSessionHandlers(
+      ctx,
+      createSessionHooks({
+        link,
+        db,
+        forgetSession: (sessionId) => this.receiver?.forgetSession(sessionId)
+      })
+    )
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)
     registerBootHandlers(ctx)

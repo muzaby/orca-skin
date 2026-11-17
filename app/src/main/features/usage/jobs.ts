@@ -5,7 +5,7 @@
 // `register()` 는 action 을 맵에 넣을 뿐 **타이머를 만들지 않는다** — `schedule()` 이 있어야
 // 발화한다. 이 저장소에는 지금까지 `schedule()` 직접 호출이 한 건도 없었고(설정 노출형 2종은
 // `applySettings` 가 대신 부른다) 코어 고정형 잡의 선례가 없었다. 그래서 "register 만 하고 끝나는"
-// 실수를 테스트로 잠글 자리가 필요했는데, `bootstrap.ts` 는 electron 을 물어 vitest 대상이 아니다.
+// 실수를 테스트로 잠글 자리가 필요했는데, 호스트 조립(`app/data-host/bootstrap.ts`)은 통째로 띄우지 못해 vitest 대상이 아니다.
 //
 // ── 왜 Scheduler 를 직접 받지 않나 ──────────────────────────────────────────
 // `features/usage` 는 `features/scheduler` 를 import 할 수 없다(수직 슬라이스 교차 금지).

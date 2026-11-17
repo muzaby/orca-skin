@@ -6,7 +6,7 @@ import type {
   PermissionAction
 } from '../../../../../shared/ipc'
 import type { TurnContext } from '../../../../../main/contracts/turn'
-import type { HistoryWriter } from '../../../../../main/features/history/writer'
+import type { TurnPersistSink } from '../../../../../main/features/chat/turn-sinks'
 import type { ApprovalCoordinator } from '../../../../../main/features/approvals/coordinator'
 import { makeCanUseTool } from '../../../../../main/adapters/claude/adapter'
 import { createApprovalRequester } from '../../../../../main/app/chat-turn/approval'
@@ -61,7 +61,7 @@ describe('0249 independent X2 — plan acceptance ownership and child mode isola
             broker.register(id, signal, { behavior: 'deny' })
         } as unknown as ApprovalCoordinator,
         permissionModes,
-        persistence: { persist: vi.fn() } as unknown as HistoryWriter,
+        persistence: { persist: vi.fn() } as unknown as TurnPersistSink<ClientRef>,
         getActiveTurn: () => turn
       })
       const sdk = new AbortController()
@@ -235,7 +235,7 @@ describe('0249 independent X2 — plan acceptance ownership and child mode isola
             broker.register(id, signal, { behavior: 'deny' })
         } as unknown as ApprovalCoordinator,
         permissionModes,
-        persistence: { persist: vi.fn() } as unknown as HistoryWriter,
+        persistence: { persist: vi.fn() } as unknown as TurnPersistSink<ClientRef>,
         getActiveTurn: () => turn
       })
       const sdk = new AbortController()

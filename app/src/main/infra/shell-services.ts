@@ -1,6 +1,6 @@
 // 셸 서비스 포트 (0324 EP-10). 호스트 코드(핸들러·인프라)는 Electron 권한 작업을 직접 부르지 않고
-// 이 포트로 부탁한다. 프로세스 시작 때 한 번 정한다 — 셸과 한 프로세스면 그 자리에서 셸 구현을
-// 부르는 클라이언트, 에이전트 호스트면 셸로 보내는 클라이언트(`app/agent-host/shell-client.ts`)다.
+// 이 포트로 부탁한다. 두 호스트가 프로세스 시작 때 한 번, 셸로 보내는 클라이언트
+// (`app/host-shell-client.ts`)로 정한다(`app/host-process.ts`). 셸은 구현을 직접 갖는다.
 // 전송 선택(`infra/ipc/transport.ts`)과 같은 모양이다. 이 파일은 electron 을 import 하지 않는다.
 
 import type {
