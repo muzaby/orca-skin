@@ -50,14 +50,16 @@ export function createDataLink(deps: DataLinkDeps): DataLink {
       else if (method === 'settings.patch') deps.mirror.applyPatch(payload)
       else deps.onNotify?.(method, payload)
     },
+    // 데이터 호스트는 죽으면 셸이 바로 다시 띄운다 — 포트가 없는 동안의 요청은 다음 포트를 기다린다.
+    ensure: () => {},
     ...(deps.onInvalid ? { onInvalid: deps.onInvalid } : {}),
     ...(deps.clock ? { clock: deps.clock } : {})
   })
   return {
     link,
-    query: createRemoteOps<DataQueryOps>((payload) => link.request('data.query', payload)),
-    write: createRemoteOps<DataWriteOps>((payload) => link.request('data.write', payload)),
-    writeSettings: (patch) => link.request('settings.write', patch),
+    query: createRemoteOps<DataQueryOps>((payload) => link.requestEnsured('data.query', payload)),
+    write: createRemoteOps<DataWriteOps>((payload) => link.requestEnsured('data.write', payload)),
+    writeSettings: (patch) => link.requestEnsured('settings.write', patch),
     attach: (port) => link.attach(port)
   }
 }

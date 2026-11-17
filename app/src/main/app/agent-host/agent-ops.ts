@@ -4,7 +4,8 @@
 // 확보 여부는 부르는 쪽(`app/data-host/agent-link.ts`)이 정한다: 활동 조회·런타임 폐기는 `request`,
 // 네이티브 이력 읽기·예약 셸 명령은 `requestEnsured`.
 
-import type { ChatActivitySnapshot } from '../../../shared/ipc'
+import type { Backend, ChatActivitySnapshot } from '../../../shared/ipc'
+import type { HarnessListedModel } from '../../adapters/common/harness-config'
 import type { NativeHistoryResult } from '../../adapters/common/native-history'
 import type { ShellRunResult } from '../../infra/shell/shell-runner'
 
@@ -26,6 +27,18 @@ export type AgentCallOps = {
   readNativeHistory(sessionId: string): Promise<NativeHistoryResult | null>
   runShell(request: ShellRunRequest): Promise<ShellRunResult>
   cancelShell(runId: string): void
+  // ── plan F4 표 밖의 실행 요청 (구현 보고 G-C) ──
+  // 세션이 실행 중인가(lease·런타임·네이티브 이력 바쁨) — 디렉터리 추가·이력 갱신의 판정.
+  sessionBusy(sessionId: string): boolean
+  // 로그인 프리 연결의 호스트 하네스 능력(0291) — 설치 판정과 모델 목록.
+  harnessInstalled(harnessId: Backend): Promise<{ installed: boolean; version?: string }>
+  harnessListModels(
+    harnessId: Backend,
+    provider: string,
+    env?: Record<string, string>
+  ): Promise<readonly HarnessListedModel[]>
+  // MCP·스킬이 바뀌었다 — 하네스 플러그인을 다시 배포한다.
+  deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void>
 }
 
 // 표의 구현은 에이전트 조립이 준다. 표에 없는 이름은 받지 않는다(`createOpDispatcher`).
@@ -35,6 +48,11 @@ export function createAgentCallOps(impl: AgentCallOps): AgentCallOps {
     discardSession: (sessionId) => impl.discardSession(sessionId),
     readNativeHistory: (sessionId) => impl.readNativeHistory(sessionId),
     runShell: (request) => impl.runShell(request),
-    cancelShell: (runId) => impl.cancelShell(runId)
+    cancelShell: (runId) => impl.cancelShell(runId),
+    sessionBusy: (sessionId) => impl.sessionBusy(sessionId),
+    harnessInstalled: (harnessId) => impl.harnessInstalled(harnessId),
+    harnessListModels: (harnessId, provider, env) =>
+      impl.harnessListModels(harnessId, provider, env),
+    deployExtensions: (options) => impl.deployExtensions(options)
   }
 }

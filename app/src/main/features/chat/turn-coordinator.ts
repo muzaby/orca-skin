@@ -174,7 +174,7 @@ export class TurnCoordinator<W = unknown> {
   // 턴 프롬프트·프렐류드·steer 게이트 배치가 전부 이 단일 경로로 user row 영속 + renderer
   // 승격(message.committed)된다(0067 AC6). 미소비 pending 은 남긴다(D2: 모델이 못 본 텍스트를
   // committed 로 굳히지 않는다).
-  private commitConsumed(turn: TurnContext<W>, beforeCommit?: () => void): void {
+  private async commitConsumed(turn: TurnContext<W>, beforeCommit?: () => void): Promise<void> {
     const sessionId = turn.dbSessionId
     const { pendingMessages, persist, forward } = this.deps
     if (!sessionId || !pendingMessages) return
@@ -182,7 +182,7 @@ export class TurnCoordinator<W = unknown> {
       beforeCommit?.()
       const nativeMessageId = turn.nativeInputIds?.get(batch.uuid)
       turn.nativeInputIds?.delete(batch.uuid)
-      const messageId = persist.commitUserMessage?.(turn, {
+      const messageId = await persist.commitUserMessage?.(turn, {
         text: batch.text,
         createdAt: batch.createdAt,
         ...(nativeMessageId ? { nativeMessageId } : {}),
@@ -367,10 +367,10 @@ export class TurnCoordinator<W = unknown> {
               // user 커밋 경로로 기록하고, origin을 원문과 함께 보존한다.
               if (ev.type === 'input.received') {
                 if (!turn.dbSessionId || ev.sessionId !== turn.dbSessionId) continue
-                this.commitConsumed(turn, closeBeforeUser)
+                await this.commitConsumed(turn, closeBeforeUser)
                 closeBeforeUser()
                 const createdAt = Date.now()
-                const messageId = persist.commitUserMessage?.(turn, {
+                const messageId = await persist.commitUserMessage?.(turn, {
                   text: ev.text,
                   createdAt,
                   origin: ev.origin,
@@ -414,7 +414,7 @@ export class TurnCoordinator<W = unknown> {
                   this.canonicalBackground(turn)
                 )
               }
-              if (ev.type !== 'telemetry') this.commitConsumed(turn, closeBeforeUser)
+              if (ev.type !== 'telemetry') await this.commitConsumed(turn, closeBeforeUser)
               if (
                 this.deps.persistResponseBoundaries(turn.agentKind) &&
                 turn.dbSessionId &&
@@ -517,7 +517,7 @@ export class TurnCoordinator<W = unknown> {
               }
               // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
               // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).
-              if (ev.type === 'telemetry') this.commitConsumed(turn, closeBeforeUser)
+              if (ev.type === 'telemetry') await this.commitConsumed(turn, closeBeforeUser)
             }
           } finally {
             if (policy.countsAsActive) activeTurns.end(turn)
@@ -534,7 +534,7 @@ export class TurnCoordinator<W = unknown> {
             terminalForwarded = true
             // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
             // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
-            this.commitConsumed(turn, closeBeforeUser)
+            await this.commitConsumed(turn, closeBeforeUser)
           }
           deliverAbortTerminal()
           closeBoundary()

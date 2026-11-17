@@ -2,7 +2,9 @@
 // 컴포지션 루트(bootstrap.ts)가 부팅 시 1회 조립해 각 register* 함수에 주입한다.
 // 핸들러가 부팅 배선 클래스 필드를 직접 만지지 않게 하는 단일 경계.
 
-import type { BootReport, DebugMockState, SkillInfo } from '../../shared/ipc'
+import type { AgentEnvironment, BootReport, DebugMockState, SkillInfo } from '../../shared/ipc'
+import type { HarnessRuntimeConfig } from '../adapters/common/harness-config'
+import type { HarnessRuntimeConfigTarget } from '../features/harnesses/common/runtime-config'
 import type { DbQueries } from '../infra/db'
 import type { SettingsStore } from '../infra/settings-store'
 import type { McpStore } from '../features/extensions/common/mcp/store'
@@ -31,6 +33,31 @@ export interface SettingsReader {
   getAll(): Settings
 }
 
+// 하네스 실행 구성 — 설정 트리·동적 보강·모델 카탈로그는 인증에 묶여 데이터 호스트에 있다(0324 F2 ·
+// AC41 "자격증명은 데이터 호스트에서 받는다"). 실행 쪽은 이 요청으로 받는다.
+export interface HarnessConfigPort {
+  // 설정 트리 행을 런타임 카탈로그와 합친 목록. `adapterId` 를 주면 그 하네스만.
+  environments(supported: readonly string[], adapterId?: string): Promise<AgentEnvironment[]>
+  // 실행 구성. 런타임 관리 key 는 Gate 인증 때 받은 캐시만 읽는다 — 없으면 undefined.
+  runtimeConfig(target: HarnessRuntimeConfigTarget): Promise<HarnessRuntimeConfig | undefined>
+  isReadOnly(key: string): Promise<boolean>
+  // 설정 트리가 바뀌었다(엔진 CRUD · 배포) — 두 캐시와 카탈로그를 무효화한다.
+  invalidate(key?: string): Promise<void>
+  // 앱 환경(`orcinus-orca.json` env)을 MCP 해석기로 펼친 값.
+  appEnv(): Promise<Record<string, string>>
+}
+
+export function harnessConfigPort(data: DataPort): HarnessConfigPort {
+  return {
+    environments: (supported, adapterId) =>
+      data.query.harnessEnvironments([...supported], adapterId ?? null),
+    runtimeConfig: (target) => data.query.harnessRuntimeConfig(target),
+    isReadOnly: (key) => data.query.harnessIsReadOnly(key),
+    invalidate: (key) => data.write.harnessSettingsChanged(key ?? null),
+    appEnv: () => data.query.harnessAppEnv()
+  }
+}
+
 // 에이전트 호스트(실행)의 조립이 핸들러·턴 코드에 넘기는 의존 묶음(0324 D-034). `db` 가 없다 —
 // 실행 쪽 코드가 DB 를 직접 부르면 컴파일되지 않는다.
 export interface AgentContext
@@ -39,17 +66,14 @@ export interface AgentContext
     | 'registry'
     | 'extensions'
     | 'workProfilePluginPath'
-    | 'harnessSettings'
     | 'deployExtensions'
     | 'ensureExtensionsDeployedForTurn'
     | 'debugMock'
     | 'mockAdapter'
-    | 'harnessRuntime'
-    | 'runtimeModelCatalog'
-    | 'mcp'
   > {
   data: DataPort
   settings: SettingsReader
+  harness: HarnessConfigPort
   // 프로젝트 미소속 세션의 기본 작업 폴더 — DB 없이 안다.
   defaultCwd(): string
 }
@@ -96,24 +120,4 @@ export interface RouterContext {
   // 실행 쪽이 읽는 설정 사본.
   agentSettings: SettingsReader
   defaultCwd(): string
-}
-
-// 실행 쪽 코드에 넘길 묶음을 고른다 — `db`·설정 저장소는 넘어가지 않는다.
-export function agentContextOf(ctx: RouterContext): AgentContext {
-  return {
-    registry: ctx.registry,
-    extensions: ctx.extensions,
-    workProfilePluginPath: ctx.workProfilePluginPath,
-    harnessSettings: ctx.harnessSettings,
-    deployExtensions: ctx.deployExtensions,
-    ensureExtensionsDeployedForTurn: ctx.ensureExtensionsDeployedForTurn,
-    debugMock: ctx.debugMock,
-    mockAdapter: ctx.mockAdapter,
-    harnessRuntime: ctx.harnessRuntime,
-    runtimeModelCatalog: ctx.runtimeModelCatalog,
-    mcp: ctx.mcp,
-    data: ctx.data,
-    settings: ctx.agentSettings,
-    defaultCwd: ctx.defaultCwd
-  }
 }

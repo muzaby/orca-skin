@@ -47,7 +47,7 @@ interface ArtifactLinker {
 }
 
 // 실제 tool_result의 text 영수증만 읽는다. 도구명·세션·원래 메시지 검증은 DB linker가 소유한다.
-function artifactReceiptId(result: unknown): string | null {
+export function artifactReceiptId(result: unknown): string | null {
   const text =
     typeof result === 'string'
       ? result
@@ -233,6 +233,26 @@ export class HistoryWriter {
   // AskUserQuestion 답변과 tool_use id 를 명시 ID로 페어링해 tool_result 를 합성한다(SDK 가
   // answers 를 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
   // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
+  // 질문 도구의 답을 현재 어시스턴트 메시지의 도구 결과 파트로 쓴다 — 저장이 다른 프로세스면(0324 EP-15)
+  // 실행 쪽이 턴 상태를 고친 뒤 이 결과만 보낸다.
+  recordAskAnswers(
+    turn: TurnContext,
+    answers: ReadonlyArray<{ toolUseId: string; output: unknown; parentToolRunId?: string }>
+  ): void {
+    if (turn.currentAssistantMessageId == null) return
+    for (const answer of answers) {
+      this.db.upsertToolResultPart(
+        turn.currentAssistantMessageId,
+        answer.toolUseId,
+        JSON.stringify({
+          result: answer.output,
+          isError: false,
+          ...(answer.parentToolRunId ? { parentToolRunId: answer.parentToolRunId } : {})
+        })
+      )
+    }
+  }
+
   flushAskAnswers(turn: TurnContext, wc: ClientRef): void {
     for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length;) {
       const a = turn.pendingAskAnswers[answerIndex]
