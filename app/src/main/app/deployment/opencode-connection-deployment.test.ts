@@ -383,9 +383,10 @@ function runCallbackBody(source: string): string | null {
 }
 const CONNECT_ALL = /\bvoid\s+auth\.connectAll\s*\(\s*\)/
 // 하네스는 에이전트 호스트에 있다(0324) — 데이터 호스트의 인증 조립은 두 능력을 에이전트 링크로 묻고
-// (없으면 띄운다), 에이전트 호스트가 그 요청을 서버 시작과 같은 `createHostHarnessPort` 로 답한다.
+// (없으면 띄운다 — `data-host/agent-requests.ts`, 동작은 `agent-requests.test.ts`), 에이전트 호스트가 그
+// 요청을 서버 시작과 같은 `createHostHarnessPort` 로 답한다.
 const HOST_ARG =
-  /\bloginFreeHost\s*:\s*\{\s*installed\s*:\s*\(harnessId\)\s*=>\s*this\.requireAgentLink\(\)\.requestEnsured\(\s*'harnessInstalled'\s*,\s*harnessId\s*\)\s*,\s*listModels\s*:\s*\(harnessId,\s*provider,\s*options\)\s*=>\s*this\.requireAgentLink\(\)\.requestEnsured\(\s*'harnessListModels'/
+  /\bloginFreeHost\s*:\s*createRemoteHarnessHost\(\s*\(\)\s*=>\s*this\.requireAgentLink\(\)\s*\)/
 // 연산 이름은 문자열이라 주석만 지운 원문에서 본다(`callBodies` 는 문자열도 지운다).
 const withoutComments = (source: string): string =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/[^\n]*$/gm, '')
@@ -430,13 +431,11 @@ describe('Bootstrap 로그인 프리 연결 배선 (0291 AC16)', () => {
     ]) {
       expect(runCallbackBody(source) ?? '').not.toMatch(CONNECT_ALL)
     }
+    expect('loginFreeHost: createRemoteHarnessHost(() => this.requireAgentLink())').toMatch(
+      HOST_ARG
+    )
     expect(
-      "loginFreeHost: { installed: (harnessId) => this.requireAgentLink().requestEnsured('harnessInstalled', harnessId), listModels: (harnessId, provider, options) => this.requireAgentLink().requestEnsured('harnessListModels', harnessId) }"
-    ).toMatch(HOST_ARG)
-    expect(
-      withoutComments(
-        "// loginFreeHost: { installed: (harnessId) => this.requireAgentLink().requestEnsured('harnessInstalled', harnessId), listModels: (harnessId, provider, options) => this.requireAgentLink().requestEnsured('harnessListModels', harnessId) }"
-      )
+      withoutComments('// loginFreeHost: createRemoteHarnessHost(() => this.requireAgentLink())')
     ).not.toMatch(HOST_ARG)
     // 직접 포트를 만드는 옛 꼴과 빈 구현은 배선으로 세지 않는다.
     expect('loginFreeHost: createHostHarnessPort(this.registry)').not.toMatch(HOST_ARG)
