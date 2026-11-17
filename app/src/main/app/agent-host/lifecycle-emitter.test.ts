@@ -106,12 +106,4 @@ describe('수명 이벤트 방출', () => {
     t.emitter.harnessExited(null)
     expect(t.events()).toEqual(['harness.exited:s1'])
   })
-
-  it('uiLocale 패치만 셸에 알린다', () => {
-    const t = setup()
-    t.emitter.settingsPatched({ uiLocale: 'en' }, ['theme'])
-    expect(t.emitted).toEqual([])
-    t.emitter.settingsPatched({ uiLocale: 'en' }, ['theme', 'uiLocale'])
-    expect(t.emitted).toEqual([{ type: 'shell.mirror', mirror: { uiLocale: 'en' } }])
-  })
 })

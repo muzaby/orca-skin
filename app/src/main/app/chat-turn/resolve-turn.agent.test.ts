@@ -106,3 +106,41 @@ it.each(['code', 'corrupt'])(
     expect(agentSpawnEnv).toHaveBeenCalledWith('work')
   }
 )
+
+// 0324 EP-17 — 연속성 산출물 언어는 실행 쪽 설정 사본(`ctx.settings`)의 언어에서 온다(payload 에 없을 때).
+it.each([
+  ['forkFrom', 'English', 'en'],
+  ['handoffFrom', 'English', 'en'],
+  ['forkFrom', '한국어', 'ko']
+] as const)(
+  'continuity language follows the settings copy for %s (%s → %s)',
+  async (sourceField, language, expected) => {
+    const source = {
+      agent_kind: 'code',
+      backend: 'claude',
+      title: 'source',
+      project_id: null,
+      cwd: '/workspace'
+    }
+    const ctx = withDataPort({
+      ...passthroughRuntimeConfig(),
+      db: { getSessionById: () => source },
+      harnessSettings: { list: () => [] },
+      settings: { getAll: () => ({ language }) },
+      mcp: { resolver: () => () => undefined }
+    })
+    const result = await resolveTurn(
+      ctx as never,
+      { hasSession: () => false } as never,
+      { id: 'claude', agentSpawnEnv: () => ({}) } as never,
+      {
+        sessionId: null,
+        projectId: null,
+        text: 'continue',
+        agentKind: 'code',
+        [sourceField]: 'source'
+      } as never
+    )
+    expect(result).toMatchObject({ ok: true, value: { continuityLang: expected } })
+  }
+)
