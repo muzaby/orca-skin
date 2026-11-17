@@ -225,7 +225,7 @@ describe('옛 저장 경로 (0308 EP-01)', () => {
     const bootstrap = read('src', 'main', 'app', 'data-host', 'bootstrap.ts')
     const dbInit = bootstrap.indexOf("'db-init'")
     const recovery = bootstrap.indexOf("'chat-recovery'")
-    const handlers = bootstrap.indexOf('registerSessionHandlers(ctx')
+    const handlers = bootstrap.indexOf('registerSessionHandlers(')
     expect(dbInit).toBeGreaterThan(-1)
     expect(recovery).toBeGreaterThan(dbInit)
     expect(handlers).toBeGreaterThan(recovery)

@@ -1,5 +1,5 @@
 // 셸 서비스의 Electron 구현 (0324 EP-10). 셸 프로세스에서만 import 한다 — 호스트는 이 파일 대신
-// `agent-host/shell-client.ts` 로 부탁한다. 판정·검증은 `services.ts` 가 끝낸 뒤라 여기는 배선만
+// `app/host-shell-client.ts` 로 부탁한다. 판정·검증은 `services.ts` 가 끝낸 뒤라 여기는 배선만
 // 갖는다. 창 id 는 그 창의 `webContents.id` 다(`infra/ipc/electron-transport.ts` 의 `ClientRef.id`).
 
 import {

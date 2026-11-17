@@ -1,8 +1,9 @@
 // 요청·통지의 전송 선택 (0324 EP-8·EP-9).
 //
 // 핸들러 등록(`handle.ts`)과 창 통지(`send.ts`)는 Electron 을 직접 물지 않고 여기서 고른 전송을
-// 쓴다. 셸에서는 `ipcMain`/`webContents`(`electron-transport.ts`), 에이전트 호스트에서는 창마다
-// 하나씩 받은 포트(`app/agent-host/port-server.ts`)다. 프로세스마다 시작할 때 한 번 정한다.
+// 쓴다. 셸에서는 `ipcMain`/`webContents`(`electron-transport.ts`), 두 호스트에서는 창마다
+// 하나씩 받은 포트(`app/host-port-server.ts` — `app/host-process.ts` 가 정한다)다. 프로세스마다
+// 시작할 때 한 번 정한다.
 //
 // 이 파일은 electron 을 import 하지 않는다 — 호스트와 테스트가 그대로 import 한다.
 
