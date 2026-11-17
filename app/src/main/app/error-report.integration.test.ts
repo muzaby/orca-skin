@@ -10,7 +10,7 @@ import { connectMainErrorReports } from '../../renderer/src/shared/errors/mainEr
 import { installErrorReportSink } from './error-report-sink'
 import { registerErrorHandlers } from './handlers/error'
 
-vi.mock('../infra/log', () => ({ currentLogFilePath: vi.fn(), flushLogSync: vi.fn() }))
+vi.mock('../infra/log', () => ({ flushLogSync: vi.fn(), logDirectory: vi.fn() }))
 
 // 데이터 호스트의 전송과 같은 모양 — 핸들러 표와 지금 열린 창.
 const handlers = new Map<string, InvokeListener>()
