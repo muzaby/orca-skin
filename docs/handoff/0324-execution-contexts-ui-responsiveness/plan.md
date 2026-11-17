@@ -2631,6 +2631,108 @@ r1.11 다섯 건 · r1.12 여섯 건은 그대로 미정이다.
 - 이번 턴의 현재 결함 2건은 둘 다 새 동치·복구 테스트를 처음 돌려서 나왔다 — r1.11 이 "코드 완료·테스트 없음"으로 넘긴 저장 스트림이다.
 - 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` 뒤 `ensure-sqlite-abi.mjs node` 로 SQLite 스위트가 돈다.
 
+## [구현자 기입] r1.14 — 인프라 완성 · 동작 이주 · 옛 안 잔재 삭제 · rev 4.2 정정 · AC29′·AC33′ renderer
+
+**판정: 구현 완료, sweep 일부(partial).** 구조도의 경로가 전부 코드에 있고 교차 호스트 값 import 는 0 이다. 마지막 트리의 gate 는 vitest 기준선 9파일(환경)을 빼고 green 이다. 열거 원문 sweep 은 등록 적대 증거 전부와 이번 턴이 닿은 자리만 돌렸다 — r1.9 부터 밀린 전수 sweep 이 남아 `impl/IMPL_DONE` 으로 넘기지 않는다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| r1.11~r1.13 `PLAN_GAP` 14건 | 정정 완료 | 설계 커밋 `docs(handoff): 0324 rev 4.2 …`(구현과 분리) — §7-H · D-047~D-052 |
+| 교차 호스트 값 import | 현재 결함 → 선조치 · `PLAN_GAP` 정정 | 송신기가 `TURN_BEGIN_FIELDS` 를 `data-host/persistence-receiver` 에서 값으로 가져와 `HistoryWriter` 가 에이전트 번들에 들었다. F1 필드를 `shared/peer-protocol.ts` 로, 영수증 판독을 `features/history/artifact-receipt.ts` 로 옮김. 가드 (e2)·(e3) 에 상대 조립 폴더 추가(D-051) |
+| 공용 호스트 인프라 위치 | 구현 세부(옛 안 잔재) | `app/agent-host/{port-server,shell-client}.ts` → `app/host-port-server.ts`·`app/host-shell-client.ts`(두 호스트가 쓴다) |
+| AC29′·AC33′ renderer 쪽 | 현재 결함 → 선조치 | 에이전트 호스트가 죽어도 진행 중 세션이 끝나지 않았다 — preload 는 대기 요청만 실패시키고 `chat.send` 실패는 로그로만 갔다(`chatStore.ts` `sendNewChatPayload`). renderer 구독 0(`rg hostExited renderer` 0) |
+| `window.oo.hosts.onLifecycle` | 설계자 확인 1건(추가분) | AC29′·AC33′ 의 전달 수단을 plan 이 정하지 않았다. D-052 와 같은 추가분이고 기존 형상은 그대로(D-026) |
+| 세션 훅 조립 | 구현 세부 | 조립 안 인라인 훅을 `app/data-host/session-hooks.ts` 로 — AC43·EP-21′ 4자리를 테스트할 수 있게 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 이 적은 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-1″ (e2)·(e3) 교차 호스트 | 2 | 2/2 | `check-ui-thread.test.mjs` '에이전트 호스트 그래프가 데이터 호스트 조립 폴더를…' · '데이터 호스트 그래프가 에이전트 호스트 조립 폴더를…' · 실제 트리 `gate:node scripts/check-ui-thread.mjs` OK |
+| EP-2″ | 5 | 5/5 | `handle.test.ts` 세 등록 함수 · `peer-link.test.ts` '받은 메시지 처리의 동기 구간을…' (`notify`·`request`) |
+| EP-21′ | 9 | 4/9 | `data-host/session-hooks.test.ts` — `sessionBusy`·`discardSession`·`sessionActivity`·`readNativeHistory`. 남긴 곳 5: 조립 안 `cancelShell`·`runShell`·`deployExtensions`·`harnessInstalled`·`harnessListModels`(B29) |
+| EP-22 | 3 | 3/3 | `send.worktree.test.ts`(r1.13) · `host-port-server.test.ts`(옮긴 파일, 기존 케이스) · `chatStore.busyGuards.test.ts` |
+| EP-16′ | 2 | 2/2 | 가드 (e2) OK · `agent-link.test.ts` '조회·기록은 각자의 표로 가고, 표에 없는 이름은 거부된다' |
+| EP-20 | 20 | 0/20 표 | `app/bootstrap.ts` 삭제. DB 9자리는 `data-host/bootstrap.ts` 에만 있다(에이전트 그래프의 `infra/db` 0 — 가드 (e2)). 자리별 이동 표는 남겼다 |
+| AC29′·AC33′ renderer(§7-F 검증 수단 칸) | 3 | 3/3 | `chatStore.hostLifecycle.test.ts` · `sessionsStore.hostLifecycle.test.ts` · `preload/index.test.ts` '호스트 수명 통지 …' |
+
+V-pair 자기 상태: `SELF_PASS` — VP-27″ · VP-44 · VP-38 · VP-21′(VP-23′ 공유) · VP-12′ · VP-02 · VP-32(등록 변이 red, 아래 표). 나머지 pair 는 이번 턴에 판정하지 않았다.
+
+### 이번 라운드 수정의 잠금
+
+| ID | 자리 | 종류 | 결과 | 잡은 테스트 |
+|---|---|---|---|---|
+| M01 | 송신기 import → `data-host` | 호출 대체 | 잡음 | 가드 실제 트리 1건 위반 |
+| M02·M03 | 가드 `e.agent/data.dirs` 상대 폴더 제거 | 제거 | 잡음 ×2 | `check-ui-thread.test.mjs` 교차 호스트 2케이스 |
+| M04 | `session-hooks.ts` 에 `agent-host` 값 import | 다른 값 | 잡음 | 가드 실제 트리 |
+| M05 (VP-44 등록) | `chatStore.ts` 진행 중 캐시 판정 줄 | 제거 | 잡음 | `chatStore.busyGuards.test.ts` 3 |
+| M06 (VP-38 등록) | 수신기 `turn.askAnswers` 기록 | 제거 | 처음 못 잡음 → 테스트 추가 후 잡음 | `persistence-receiver.test.ts` AC39 '질문 답 — 늦은 결과 없음' |
+| M07 (VP-21′ 등록) | `chatSend: 'agent'` → `'data'` | 맞바꿈 | 처음 못 잡음 → 테스트 추가 후 잡음 | `preload/index.test.ts` '턴 전송은 에이전트 포트…'(기대값 고정) · `channel-registration.test.ts`(M07b) |
+| M08 (VP-12 등록) | `handlePlain` 계측 | 제거 | 잡음 | `handle.test.ts` 3 |
+| M09·M10 | `peer-link.ts` `timed` notify·request | 제거 | 잡음 ×2 | `peer-link.test.ts` · `persistence-receiver.test.ts` · 두 링크 테스트 |
+| M11~M18 | `session-hooks.ts` 8자리(확보·catch·잊기·폴백) | 호출 대체·제거·다른 값 | 잡음 ×8 | `session-hooks.test.ts` |
+| M19 | 삭제 핸들러 폐기 ↔ 숨김 순서 | 뒤집기 | 잡음 | `session-hooks.test.ts` |
+| M20~M22 | F1 필드 `dbSessionId`·`pendingUserText`·`agentKind` | 제거 | 잡음 ×3 | 송·수신기 테스트 |
+| M23·M24 | 송신기 확인 대상 `output.captured`·영수증 도구 완료 | 제거 | M24 처음 못 잡음 → 테스트 추가 후 잡음 | `persistence-sender.test.ts` '게시 영수증이 붙은 도구 완료는…' |
+| M25 | 정착 테스트의 `stream.settle()` | 제거 | 동치 — `coordinator.run` 이 끝나기 전에 루프백 전달이 끝난다. 경로 진입은 M25b(수신기 통지 제거 → 5 red)로 확인 | `settlement.integration.test.ts` |
+| M27 (VP-02 등록) | 동기 API 등록 표 1행 | 제거 | 잡음 | 가드 실제 트리 |
+| M28 (VP-32 등록) | 규칙 (h) 허용 경로 넓힘 | 다른 값 | 잡음 | `check-ui-thread.test.mjs` 3 |
+| N01~N10 | `HOST_LOST`·`onHostLifecycle`·preload 통지·목록 재조회 | 제거·다른 값 | 잡음 ×10 | `chatStore.hostLifecycle.test.ts` · `preload/index.test.ts` · `sessionsStore.hostLifecycle.test.ts` |
+
+검산: `선택 증거 7(M01·M05·M06·M07·M08·M27·M28) · 인용 변이 0 · 새 oracle 민감도 5(M02·M03·M04·M25·M25b) · sweep 27(M07b·M09~M24 16·N01~N10) = 표 고장 39`(M26 결번). 원복은 하네스의 `# 원복 확인` 줄과 `git status` 로 확인했다.
+
+**남은 sweep(⑦ 전수)**: EP-3·EP-4′·EP-7′·EP-8′·EP-9·EP-10′·EP-11·EP-12·EP-13·EP-14·EP-15(9분기 중 이번에 4)·EP-17·EP-18·EP-19 와 그 pair 의 path edge. 다음 impl 턴이 돌린다.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 실행 중 에이전트 호스트 사망 | 진행 중 세션마다 오류 1건(`stream_error` · `errors.agentHostLost` — ko·en)과 함께 입력을 받는다. 승인 대기 표시는 지운다 — 그 요청은 호스트와 함께 사라졌다 |
+| 재연결 | 세션 목록과 활성 세션을 다시 읽는다. 진행 중 세션은 캐시가 이긴다(AC49) |
+| 데이터 호스트 사망 | 진행 중 턴은 에이전트 호스트가 오류로 끝낸다(AC44 — 송신기). renderer 는 데이터 종료만으로는 턴을 끝내지 않는다 |
+| 상태표 | §5 "에이전트 호스트 비정상 종료" 행 그대로 — "진행 중 세션에 오류 알림, 입력창은 다시 쓸 수 있다" |
+
+### 놓친 잠재 문제 + 대응
+
+- 활동 번호: 다시 뜬 에이전트 호스트는 활동 번호를 처음부터 센다. 지금까지는 옛 번호에 막혀 새 스냅샷이 버려질 수 있었다 — `HOST_LOST` 가 활동 상태를 처음으로 돌려 닫았다.
+- `refresh` 경로: 재연결 재확인은 `loadSession(…, { revalidate: true })` 다. 진행 중이면 로드 결과를 적용하지 않는 판정(EP-22)이 그대로 걸린다.
+- 조립 안 5자리(EP-21′)는 좌표가 없다 — 조립을 띄우지 못한다(B29). 추출하면 닫을 수 있다.
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 인프라 | 완료 | 공용 호스트 모듈 이동 · F1 필드 계약 · 교차 호스트 가드 · 옛 단일 프로세스 주석·경로 정리(`shell-services.ts`·`host-environment.ts`·`transport.ts`·`shell-state-file.ts`) |
+| 동작 이주 | 완료 | 렌더러 통합 테스트 2파일을 저장 스트림 경로로(`persistence-stream.testfixture.ts`) · 세션 훅 모듈 · AC29′·AC33′ renderer 경로 |
+| 옛 안 잔재 삭제 | 완료 | 지운 `app/bootstrap.ts` 를 가리키던 코드 주석 8 · 테스트 2파일 · 문서 7곳 · 대체된 AC 라벨(AC18·AC29·AC32·AC33) |
+| plan 정정 | 완료 | rev 4.2 설계 커밋(분리) |
+| 문서 | 완료 | `execution-model.md`(교차 호스트 · 호스트 수명 통지) · `IPC_CONTRACT.md` · `auth.md`·`adapters.md`·`overview.md`·`system-prompt.md`·`GLOSSARY.md`·`src/main/AGENTS.md` |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming`(2419파일) · `check-test-budgets`(18) · `check-ui-thread` — 모두 exit 0 |
+| `npm run lint` | 오류 0 · 경고 3(기존 `react-hooks/incompatible-library`). `--fix` 는 이번 턴 파일의 줄바꿈만 고쳤다 |
+| `tsc` node · web · test | 오류 0 · 0 · 0 |
+| `vitest run`(필터 없음) | 1021파일 — 통과 1008 · 실패 9 · 건너뜀 4 / 케이스 통과 9637 · 실패 22 · 건너뜀 11 · expected fail 1 |
+| `node --test scripts/*.test.mjs` | 981 / 981 통과 |
+
+기준선 분리: 실패 9파일 = 어댑터 6 · `composer-catalog` · `composer-preparation-service` · `session-resources.claude-assembly`. r1.13 이 0324 이전 커밋 `9692a27` 에서 같은 9파일을 관측했고, 서명은 `C:/` 경로(`Composer directory must be absolute` · `"/home/user/orca-skin/app/C:/one"`)와 Electron 미설치다. 이번 턴이 그 9파일을 고치지 않았다.
+
+**테스트 소스 규칙**: 이번 턴에 추가·수정한 테스트 소스 20파일 — 시간 예산(`check-test-budgets` 위반 0) · 풀 분류(`node --test` 의 `test-pools` 통과, 전체 vitest 에서 unit 가드 실패 0 — SQLite 를 쓰는 `persistence-receiver.test.ts`·`settlement.integration.test.ts` 는 io) · 호스트 격리(새 파일이 홈·env 를 읽지 않는다). 규칙별 위반 0.
+
+**AC 자기보고**: ✅ 47 · ⚠️ 2 · ❌ 0 = 총 49. ⚠️ 는 AC22·AC23(사람 실기 — Electron 바이너리 없음). ✅ 는 이번 턴 전체 vitest·node --test 에서 그 AC 의 좌표 파일이 통과한 것으로 셌다. 분모는 rev 4.1 과 같다(rev 4.2 는 검증 수단만 정정).
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.14` — verify 0회. verify 없는 impl 턴이 r1.3~r1.14 다. 사용자가 verify 3회전까지 review 를 하지 않기로 했다.
+- 등록 적대 증거 7종 중 2종(VP-38·VP-21′)이 이번 턴에 처음 돌려 `못 잡음`이었다 — 자기 기대값을 소유 표에서 읽는 oracle, 앞 단계가 같은 값을 다시 쓰는 열.
+- 교차 호스트 값 import 는 rev 4 가드 규칙이 "다른 프로세스의 의존"만 세고 서로의 조립 폴더를 세지 않아 통과했다.
+- 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` + `ensure-sqlite-abi.mjs node` 로 SQLite 스위트가 돈다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
