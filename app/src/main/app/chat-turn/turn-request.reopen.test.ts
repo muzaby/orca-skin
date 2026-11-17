@@ -6,8 +6,6 @@ import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
 import { buildTurnRequest } from './turn-request'
 
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
-
 function assemble(options: { dbSessionId: string | null; queueKey: string }): {
   queue: PendingMessageQueue
   request: ReturnType<typeof buildTurnRequest>

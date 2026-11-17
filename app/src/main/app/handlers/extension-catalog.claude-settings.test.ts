@@ -5,15 +5,6 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { NativeResources } from '../../../shared/native-resources'
 import { CHANNELS } from '../../../shared/ipc'
 
-const f = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      f.handlers.set(channel, callback)
-  }
-}))
 vi.mock('electron-store', () => ({ default: class {} }))
 vi.mock('../../infra/error-report', () => ({ reportError: vi.fn() }))
 
@@ -21,6 +12,7 @@ import { reportError } from '../../infra/error-report'
 import { extensionControl } from '../extension-control'
 import { registerExtensionCatalogHandlers } from './extension-catalog'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
 // 폴더 열기는 셸 서비스로 간다(0324 EP-10).
 installFakeShellServices({
@@ -35,7 +27,6 @@ const write = (path: string, value: unknown): void => {
 }
 // The production module reads `os.homedir()`, so the home is injected explicitly.
 beforeEach(() => {
-  f.handlers.clear()
   vi.mocked(reportError).mockClear()
   home = mkdtempSync(join(tmpdir(), 'orcinus-orca-nav-claude-settings-'))
   vi.stubEnv('HOME', home)
@@ -48,6 +39,7 @@ beforeEach(() => {
     plugins: { 'docs@m': [{ scope: 'user', installPath: plugin }] }
   })
   registerExtensionCatalogHandlers(extensionControl(), {
+    prepare: async () => undefined,
     plan: () => ({ targets: [], busy: 0 }),
     close: vi.fn()
   })
@@ -57,7 +49,7 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true })
 })
 const read = async (): Promise<NativeResources> =>
-  (await f.handlers.get(CHANNELS.extensionCatalog)!({}, { backend: 'claude' })) as NativeResources
+  (await invokeChannel(CHANNELS.extensionCatalog, { backend: 'claude' })) as NativeResources
 
 it.each(['', '﻿', 'null'])(
   'lists the plugin tab silently when ~/.claude/settings.json content is %j',

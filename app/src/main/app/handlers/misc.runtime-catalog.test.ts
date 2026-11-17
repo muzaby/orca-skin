@@ -9,7 +9,6 @@ vi.mock('../../infra/ipc/handle', () => ({
   handle: vi.fn(),
   handlePlain: vi.fn((channel: string, callback: () => unknown) => callbacks.set(channel, callback))
 }))
-vi.mock('electron', () => ({ BrowserWindow: {}, Notification: {} }))
 vi.mock('../../infra/ipc/send', () => ({ sendInstallStatus: vi.fn(), setWireLog: vi.fn() }))
 vi.mock('../../infra/ipc/wire-log', () => ({ setWireSink: vi.fn() }))
 vi.mock('../../infra/log', () => ({
