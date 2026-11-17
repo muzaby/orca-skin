@@ -3013,6 +3013,96 @@ V-pair 자기 상태: `SELF_PASS` — VP-43 · VP-21′ · VP-22″ · VP-24 · 
 4. 위가 끝나면 `[구현자 기입]` 이 표의 미실행·남긴 곳을 채우고 INDEX 를 `impl/IMPL_DONE` → verify 1회차.
 5. 결정 대기 3건(준비 제한 시간 · D-049 · `window.oo.hosts`)은 사용자 답을 받는다.
 
+## [구현자 기입] r1.17 — 마지막 트리 gate · 남은 sweep 15건 · 옛 안 잔재 2건 삭제
+
+**판정: 완료 — `impl/IMPL_DONE`.** r1.16 이 남긴 넷(마지막 트리 gate · E23-1·E23-13 잠금 · 미실행 sweep 13 · 기입 칸)을 닫았다. sweep 168건을 모두 실행했고 남은 못 잡음은 0이다(첫 실행 못 잡음 26 → 잠금 추가 26). 옛 단일 조립의 잔재 2자리를 지웠고, 그 삭제로 드러난 셸 재시작 게이트 배선의 잠금 공백(RG-1·RG-2 green)에 배선 검사를 더했다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| `features/sessions/restart-gate.ts` | 구현 세부(옛 안 잔재) → 삭제 | production 호출 0 — 유일한 소비자 옛 `Bootstrap` 이 r1.11 에 지워졌다(`git grep -n deriveLeaseGateState origin/main` 의 호출이 HEAD 에 없음). 같은 판정(lease 집합 → 생성 중)은 `lifecycle-emitter.leasesChanged` → `LifecycleState.hasActiveTurns()` → `index.ts` `restartGateState` 가 갖는다 |
+| `infra/log` `currentLogFilePath` | 구현 세부(옛 안 잔재) → 삭제 | 소비자는 테스트 2파일뿐. 한 파일을 고르던 동작은 AC46 이 폴더 열기로 바꿨다(`handlers/error.ts`). 모듈 변수 `transport` 는 지역 변수로 |
+| `docs/arch/backend/observability.md` 두 자리 | 문서가 낡음 → 고침 | 한 로그 파일 · `closeDb` 순서 · 현재 파일 선택 서술을 프로세스별 파일 셋 · 호스트별 `closeLog` · 폴더 열기로 |
+| 셸 재시작 게이트 배선(VP-31 REGRESSION) | 확장 후보 → 선조치 | `index.ts` `isGenerating` 을 `false` 로 바꾸거나 `onChange → refreshGate` 를 지워도 셸·업데이트·수명 테스트 151 green. 지운 `restart-gate.test.ts` 는 r1.11 뒤로 dead 함수만 봤다. `host-assemblies.order.test.ts` '셸 조립 — 재시작 게이트 배선' 추가 |
+| plan 의 `restart-gate.ts` 인용 | 보고만(규범 행) | §7-D 조사 표 545행 · B17 593행이 지운 파일을 근거로 인용한다. B17 의 사실은 그대로다 — `openToolRuns` 는 `contracts/turn.ts:61` `TurnContext` 의 필드이고 lease 의 `activeChild` 가 `TurnContext` 다(`session-chain-lease.ts:39`) |
+| 결정 대기 3건 | 보고만 | 준비 제한 시간 · D-049 · `window.oo.hosts` — r1.15·r1.16 그대로 |
+
+### 강제 지점 전수 (§10 대조)
+
+자리 검색 명령(§7-I 조사 표 1·3·4행)을 이번 트리에서 다시 돌렸다 — EP-4′ 6·4 · EP-17′ 5 · EP-23 13, 목록과 차집합 0.
+
+| EP | §10 이 적은 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-4′ | 10 | 10/10 | r1.16 9자리 + E4-10(새로고침 응답 조각 전송) → `data-host/session-load.test.ts` red(86 → 1 failed) |
+| EP-17′ | 5 | 5/5 | E17h-1~5 모두 red — `host-port-server.test.ts` '창 메시지 보류 (hold)'(1·2·5) · `host-process.test.ts` '창 요청은 조립의 serving …'(3) · `host-assemblies.order.test.ts` '창 요청은 첫 설정 사본 뒤에 처리한다'(4) |
+| EP-23 | 13 | 13/13 | r1.16 11자리 + E23-1 → `host-assemblies.order.test.ts` '리소스 요청의 세션 행은 데이터 호스트에서 다시 읽는다 …' · E23-13 → `chat-turn/background.persist.test.ts` '상태 요청은 기록을 받은 뒤 상태를 만든다' |
+| EP-23 규칙 칸 | 5행(내부 분기 m1~m8 · a1) | 9/9 | `session-meta.test.ts`(m1~m5) · `background-records.test.ts`(m6~m8) · `coordinator.permission.test.ts` '0324 asynchronous session kind'(a1, 10 red) |
+| 그 밖 EP | r1.16 표 그대로 | 전부 | r1.16 sweep 표의 "잡은 것" 열 |
+
+V-pair 자기 상태: `SELF_PASS` — r1.16 의 SELF_PASS 전부 + VP-05′·VP-09′ · VP-40 · VP-37′(남긴 곳이 닫혔다) · VP-31(배선 검사). `SELF_BLOCKED` 0.
+
+### 이번 라운드 수정의 잠금
+
+| ID | 자리 | 종류 | 결과 | 잡은 것 |
+|---|---|---|---|---|
+| E23-1 | `agent-host/bootstrap.ts` `sessionRow` → 사본만 | 호출 대체 | 잡음(r1.16 못 잡음) | `host-assemblies.order.test.ts` '리소스 요청의 세션 행 …' |
+| E23-13 | `chat-turn/background.ts` 상태 요청의 기록 받기 | 제거 | 잡음(r1.16 못 잡음) | `background.persist.test.ts` '상태 요청은 기록을 받은 뒤 …' |
+| E23-m3~m8 · E23-a1 | `session-meta.ts` · `background-records.ts` · `coordinator.ts` | 제거·뒤집기·고정값 | 잡음 7 | 1·1·2·1·1·1 · 10 red |
+| E17h-1~5 | `host-port-server.ts` · `host-process.ts` · `agent-host/bootstrap.ts` | 제거·고정값 | 잡음 5 | 3·3·1·1·1 red |
+| E4-10 | `data-host/session-load.ts` 새로고침 조각 전송 | 제거 | 잡음 | `session-load.test.ts` |
+| RG-1 · RG-2 | `index.ts` `isGenerating` · `onChange → refreshGate`(지운 장치의 대체 자리) | 고정값 · 제거 | 못 잡음 → 배선 검사 추가 → 잡음 | `host-assemblies.order.test.ts` '셸 조립 — 재시작 게이트 배선' |
+| LG-1 · LG-2 | `handlers/error.ts` 폴더 열기 인자 · `infra/log` 셸 파일 이름(지운 장치의 대체 자리) | 빈 값 · 다른 값 | 잡음 2 | `handlers/error.test.ts` · `infra/log/index.test.ts` |
+
+검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 3(세션 행 다시 읽기 · 상태 요청의 받기 · 재시작 게이트 배선) · sweep 15(r1.16 미실행 13 + 못 잡음 재실행 2) · 대체 장치 4 = 표 변이 19` — 새 oracle 3 의 민감도는 E23-1 · E23-13 · RG-1·RG-2 가 겸해 따로 세지 않는다. 원본은 `evidence/r1.17-sweep/`(`remaining.*` · `replaced-devices.*`). 모든 변이는 원복 확인(`mutate.py` "원복 확인: 모든 파일 원문 그대로").
+
+sweep 누계: 168건 전부 실행 — 첫 실행 142 잡음 · 26 못 잡음 → 26건 잠금 추가 후 26/26 잡음.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 로그 폴더 열기 | 동작 불변 — 지운 함수는 화면 경로에 없었다(`handlers/error.ts` 는 이미 폴더를 연다) |
+| 업데이트 재시작 | 동작 불변 — 배선을 잠갔을 뿐이다. 진행 중 턴이 있으면 설치 재시작을 막는다(§5 "앱 종료" 행) |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | 장치를 지울 때 그 장치가 production 을 잠그고 있었는지 보지 않으면 잠금 공백이 숨는다 — `restart-gate.test.ts` 는 r1.11 뒤로 dead 함수만 봤다 | 대체 자리에 같은 종류 변이를 심어(RG·LG) 공백 1건을 닫았다 |
+| 2 | 준비 제한 시간 없음 · D-049 · `window.oo.hosts` | 결정 대기 — 사용자 |
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 잠금 2건 | 완료 | `host-assemblies.order.test.ts` · `background.persist.test.ts` |
+| 미실행 sweep 13 + 재실행 2 | 완료 | `evidence/r1.17-sweep/remaining.*` — 15/15 잡음 |
+| 옛 안 잔재 | 완료 | `restart-gate.ts`·테스트 삭제 · `currentLogFilePath` 삭제 · `observability.md` |
+| 대체 장치 확인 | 완료 | 재시작 게이트 배선 검사 · `evidence/r1.17-sweep/replaced-devices.*` |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0 — 마이그레이션 35+2 · 문서 인벤토리(링크 해석) · 제품 이름 2433파일 · 테스트 예산(실-git 18) · 프로세스 경계 `check-ui-thread: OK` |
+| `npm run lint` | 오류 0 · 경고 3(기존 React Compiler 3). 자동 수정 1건(`host-assemblies.order.test.ts` 줄바꿈 — r1.16 커밋 3 파일) |
+| `npm run typecheck` | node · web · test 0 · 0 · 0 |
+| `vitest run`(필터 없음) | 1026파일 · 9727케이스 — 실패 22 · 처리 안 된 오류 1. `origin/main`(9692a27)에서 같은 9파일 실패 22케이스와 케이스 단위 차집합 양방향 ∅, 처리 안 된 오류(`native-resources.test.ts` 프로젝트별 제어)도 기준선에 있다. 내역: `C:/` 절대 경로 판정 11케이스(Linux 경로) · Claude 플러그인 반영 11케이스(기준선과 같은 실패 — 이 환경의 원인은 확인하지 않았다, Windows CI 는 r1.15 에서 green) |
+| `node --test scripts/*.test.mjs` | 996 / 996 |
+| `npx electron-vite build && node scripts/smoke-hosts.mjs` | 빌드 통과 · 스모크 OK — 피어 전 조기 요청 1 · 소유 채널 응답 4 · 남의 채널 거부 1 · 데이터 → 에이전트 기동 · 에이전트 → 데이터 종료 |
+
+테스트 소스 규칙: r1.16 커밋 3 의 테스트 12파일 + 이번 턴 수정 4파일(삭제 1 제외) = 16파일 — `check-test-budgets` 위반 0 · `scripts/test-pools.test.mjs` 통과 · vitest unit 가드 위반 0(전체 실행에서 `[test-pools]` 0건).
+
+**AC 자기보고**: ✅ 47 · ⚠️ 2 · ❌ 0 = 총 49. ⚠️ 는 AC22·AC23(사람 실기). AC39·AC41·AC42 는 EP-23·EP-17′ 남은 곳과 마지막 gate 가 닫혀 ⚠️ → ✅. 분모는 rev 4.4 와 같다.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.17` — verify 0회. 사용자 지시로 verify 3회전까지 review 를 하지 않는다.
+- r1.16 이 적은 대로 첫 sweep 못 잡음 26건 중 14건이 조립 배선(B29)이었다. E23-1 과 이번 턴의 RG-1·RG-2 도 같은 축(조립·셸 진입점 배선)이다.
+- 지운 장치(`restart-gate.test.ts`)가 r1.11~r1.16 동안 production 을 잠그지 않은 채 green 이었다.
+- 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` + `ensure-sqlite-abi.mjs node`. vitest 기준선 22케이스는 `origin/main`(9692a27) worktree 에서 같은 9파일을 돌려 케이스 단위로 대조했다.
+
 ---
 
 ## [검증자 기입] 파생 이슈

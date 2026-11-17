@@ -1,0 +1,7 @@
+id	결과	exit	요약
+RG-1	green (기대 red)	0	vitest 151 passed (151) — 잠금 추가 전
+RG-2	green (기대 red)	0	vitest 151 passed (151) — 잠금 추가 전
+RG-1	red (기대 일치)	1	vitest 1 failed | 151 passed (152)
+RG-2	red (기대 일치)	1	vitest 1 failed | 151 passed (152)
+LG-1	red (기대 일치)	1	vitest 2 failed | 356 passed (358)
+LG-2	red (기대 일치)	1	vitest 2 failed | 49 passed (51)
