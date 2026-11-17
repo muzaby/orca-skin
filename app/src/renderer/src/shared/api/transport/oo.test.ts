@@ -17,6 +17,7 @@ import {
 } from '../../../../../shared/ipc'
 import { CHANNEL_OWNER } from '../../../../../shared/channel-owner'
 import { HOST_PORT_MESSAGE } from '../../../../../shared/host-channels'
+import { LOG_IPC_PAYLOAD_MAX_BYTES } from '../../../../../shared/logging'
 import type { OoBridge } from '../../../../../preload/index'
 import { installOo, type OoWindow } from './install'
 import type { OoApi } from './oo'
@@ -652,6 +653,23 @@ it('요청은 소유 프로세스의 전송 하나로만 간다 — 셸·에이�
     [CHANNELS.chatCancel, 'agent'],
     [CHANNELS.settingsGet, 'data']
   ])
+})
+
+// 로그(0123)는 셸 채널 단방향 송신 하나다 — 크기 상한을 넘거나 직렬화할 수 없는 입력은 조용히 버린다.
+it('로그는 셸 다리로 한 번 보내고, 크기 상한을 넘는 입력은 버린다', () => {
+  const api = win.oo as OoApi
+  const from = harness.sent.length
+  api.log.info('event.small', 'scope', { n: 1 })
+  api.log.info('event.big', 'scope', { blob: 'x'.repeat(LOG_IPC_PAYLOAD_MAX_BYTES) })
+  expect(harness.sent.slice(from)).toEqual([
+    [CHANNELS.logEmit, { level: 'info', event: 'event.small', scope: 'scope', data: { n: 1 } }]
+  ])
+})
+
+// 파일 경로는 다리가 준다 — 전송층이 다른 값을 만들지 않는다.
+it('파일 경로는 다리의 `pathForFile` 값이다', () => {
+  const api = win.oo as OoApi
+  expect(api.files.pathForFile({ name: 'a.txt' } as File)).toBe('/f')
 })
 
 // 기대 소유자를 표에서 읽지 않고 고정한다 — 표 자체가 한쪽으로 쏠려도 잡는다(VP-21′ 선택 증거).
