@@ -223,7 +223,7 @@ test('renderer aliases cannot bypass the OpenCode version facade', async () => {
 
 test('native version imports require the facade and cannot cross version trees', async () => {
   for (const [filePath, target] of [
-    ['src/main/app/bootstrap.ts', '../adapters/opencode/v1/adapter'],
+    ['src/main/app/agent-host/bootstrap.ts', '../../adapters/opencode/v1/adapter'],
     ['src/main/adapters/opencode/implementation.ts', './v1/adapter'],
     ['src/main/adapters/opencode/v1/adapter.ts', '../v2/adapter'],
     [
@@ -250,8 +250,8 @@ test('native version imports require the facade and cannot cross version trees',
   }
   for (const [filePath, source] of [
     [
-      'src/main/app/bootstrap.ts',
-      "import {createOpenCodeAdapter} from '../adapters/opencode'; void createOpenCodeAdapter"
+      'src/main/app/agent-host/bootstrap.ts',
+      "import {createOpenCodeAdapter} from '../../adapters/opencode'; void createOpenCodeAdapter"
     ],
     [
       'src/main/adapters/opencode/index.ts',
