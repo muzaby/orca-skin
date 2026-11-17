@@ -25,7 +25,7 @@ it('registered IPC validates the payload and drives controller through the selec
     backgroundTasks: new BackgroundTaskTracker(),
     persistence: { persistProviderEvent: (_event: unknown, done: () => void) => done() },
     supervisor: { peekRuntime },
-    ctx: { db: { background: { list: () => [] } } }
+    loadBackgroundEvents: () => []
   } as unknown as ChatDeps)
   let sequence = 0
   const source = (): BackgroundEventSource => ({

@@ -40,6 +40,10 @@ function turn(adapter: RuntimeTitleAdapter, sessionId = 's1'): TurnContext {
 }
 
 describe('TitleGenerator lifecycle', () => {
+  // 제목 출처 조회(데이터 호스트 요청)와 저장 응답이 각각 한 번씩 기다린다 — 마이크로태스크를 몇 번 흘린다.
+  const flush = async (): Promise<void> => {
+    for (let i = 0; i < 5; i += 1) await Promise.resolve()
+  }
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
@@ -76,7 +80,7 @@ describe('TitleGenerator lifecycle', () => {
     const { generator, adapter, complete, resolve, db } = fixture()
     generator.maybeStart(turn(adapter))
     resolve('"정상 제목"')
-    await Promise.resolve()
+    await flush()
     expect(db.updateSessionTitleAuto).toHaveBeenCalledWith('s1', '정상 제목', expect.any(Number))
     expect(broadcastSessionTitle).toHaveBeenCalledExactlyOnceWith({
       sessionId: 's1',
@@ -91,6 +95,8 @@ describe('TitleGenerator lifecycle', () => {
     const { generator, adapter, complete, resolve } = fixture()
     generator.maybeStart(turn(adapter))
     generator.maybeStart(turn(adapter, 's2'))
+    await flush()
+    expect(complete).toHaveBeenCalledTimes(2)
     const signals = complete.mock.calls.map(([req]) => req.signal!)
     expect(signals.every((signal) => !signal.aborted)).toBe(true)
     generator.dispose()
@@ -98,16 +104,18 @@ describe('TitleGenerator lifecycle', () => {
     expect(signals.every((signal) => signal.aborted)).toBe(true)
     expect(vi.getTimerCount()).toBe(0)
     resolve('늦은 제목')
-    await Promise.resolve()
+    await flush()
     expect(vi.getTimerCount()).toBe(0)
   })
 
   it('abort를 무시한 늦은 completion도 dispose 이후 DB와 renderer를 건드리지 않는다', async () => {
-    const { generator, adapter, resolve, db } = fixture()
+    const { generator, adapter, complete, resolve, db } = fixture()
     generator.maybeStart(turn(adapter))
+    await flush()
+    expect(complete).toHaveBeenCalledOnce()
     generator.dispose()
     resolve('늦은 제목')
-    await Promise.resolve()
+    await flush()
     expect(db.updateSessionTitleAuto).not.toHaveBeenCalled()
     expect(broadcastSessionTitle).not.toHaveBeenCalled()
   })

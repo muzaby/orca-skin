@@ -16,6 +16,7 @@ import { RUNTIME_MODEL_CONTRIBUTIONS } from '../deployment/harness-runtime'
 import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
 import { registerEngineHandlers } from './engine'
 import { registerMiscHandlers } from './misc'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 const fixture = vi.hoisted(() => ({
   root: '',
@@ -198,12 +199,14 @@ it('imports fields, saves an independent document and lists/resolves only its mo
           harnessSettings: settings,
           harnessRuntime: runtime,
           runtimeModelCatalog,
-          db: {
-            getSessionById: (id: string) =>
-              id === 'saved-with-other'
-                ? { backend: 'opencode', provider_key: 'opencode-other' }
-                : undefined
-          },
+          ...withDataPort({
+            db: {
+              getSessionById: (id: string) =>
+                id === 'saved-with-other'
+                  ? { backend: 'opencode', provider_key: 'opencode-other' }
+                  : undefined
+            }
+          }),
           mcp: { resolver: () => () => undefined }
         } as never,
         {

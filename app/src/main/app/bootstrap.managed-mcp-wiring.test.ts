@@ -26,7 +26,7 @@ it('wires the live MCP source into bootstrap consumers and broadcasts only its r
     return found!
   }
   expect(call('createManagedMcp').arguments.map(text)).toEqual(['this.mcp', 'plugins'])
-  expect(call('createComposerPreparation').arguments.map(text)).toEqual(['ctx'])
+  expect(call('createComposerPreparation').arguments.map(text)).toEqual(['agentCtx'])
   const registry = call('createAdapterRegistry').arguments[0]
   expect(ts.isObjectLiteralExpression(registry)).toBe(true)
   const managed = (registry as ts.ObjectLiteralExpression).properties.find(
