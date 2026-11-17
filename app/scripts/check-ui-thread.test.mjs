@@ -547,6 +547,11 @@ describe('(h)′ `window.oo` · `window.ooBridge`', () => {
     fails('h', { [outside]: 'export const x = (): unknown => window.ooBridge?.platform\n' })
   })
 
+  // 속성 꼴(`.`·`?.`)과 원소 꼴(`['…']`)은 판정 분기가 다르다 — 원소 꼴만 든 입력으로 따로 본다.
+  it("원소 꼴 `window['ooBridge']` 만 있어도 exit 1", () => {
+    fails('h', { [outside]: "declare const window: any\nexport const x = window['ooBridge']\n" })
+  })
+
   it('`shared/api` 안의 `window.ooBridge` 는 exit 0', () => {
     passes({
       'src/renderer/src/shared/api/transport/install.ts':
