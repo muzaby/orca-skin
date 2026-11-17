@@ -47,7 +47,7 @@ import { nativeFileMutations } from '../../infra/config/file-mutation'
 import { FingerprintWatch } from '../../infra/config/fingerprint-watch'
 import { managedWorktreesDir, sourcesSkillsDir } from '../../infra/config/paths'
 import { PluginSnapshots } from '../../infra/config/plugin-snapshots'
-import { reportError } from '../../infra/error-report'
+import { errorReportHub, reportError } from '../../infra/error-report'
 import { hostEnvironment } from '../../infra/host-environment'
 import {
   broadcastChatEvent,
@@ -115,6 +115,7 @@ import { createAgentCallOps } from './agent-ops'
 import { createDataLink, type DataLink } from './data-link'
 import { createLifecycleEmitter, type LifecycleEmitter } from './lifecycle-emitter'
 import { createPersistenceSender, type PersistenceSender } from './persistence-sender'
+import { createReportForwarder, type ReportForwarder } from './report-forwarder'
 import { createSettingsMirror, type SettingsMirror } from './settings-mirror'
 
 type SessionRow = NonNullable<Awaited<ReturnType<DataQueryOps['getSessionById']>>>
@@ -124,12 +125,15 @@ export class AgentBootstrap implements HostAssembly {
   private readonly dataDirectory = hostEnvironment().userData
   private readonly mirror: SettingsMirror
   private readonly dataLink: DataLink
+  private readonly reports: ReportForwarder
   private readonly data: DataPort
   private readonly sender: PersistenceSender
   private readonly remoteTools
   private readonly remoteMcp
   private readonly lifecycle: LifecycleEmitter
-  private readonly pluginSnapshots = new PluginSnapshots(join(this.dataDirectory, 'runtime-plugins'))
+  private readonly pluginSnapshots = new PluginSnapshots(
+    join(this.dataDirectory, 'runtime-plugins')
+  )
   private readonly extensionChoices
   private readonly registry
   private readonly debugMock: DebugMockState = {
@@ -166,7 +170,9 @@ export class AgentBootstrap implements HostAssembly {
   readonly prepareShutdown: () => Promise<void>
 
   constructor(private readonly host: HostProcessContext) {
-    this.mirror = createSettingsMirror({ requestWrite: (patch) => this.dataLink.writeSettings(patch) })
+    this.mirror = createSettingsMirror({
+      requestWrite: (patch) => this.dataLink.writeSettings(patch)
+    })
     this.dataLink = createDataLink({
       mirror: this.mirror,
       agentOps: createAgentCallOps({
@@ -198,10 +204,17 @@ export class AgentBootstrap implements HostAssembly {
       onInvalid: () => getLogger().child('peer').warn('peer.message.invalid', { side: 'agent' })
     })
     this.data = { query: this.dataLink.query, write: this.dataLink.write }
+    // 오류 보고·부팅 보고는 데이터 호스트가 창에 준다(AC47) — 첫 보고가 나기 전에 건다.
+    this.reports = createReportForwarder({
+      hub: errorReportHub,
+      notify: (method, payload) => this.dataLink.link.notify(method, payload),
+      onConnected: (listener) => this.dataLink.link.onConnected(listener)
+    })
     const toolPort = {
       call: (request: Parameters<typeof this.data.query.runtimeToolCall>[0]) =>
         this.data.query.runtimeToolCall(request),
-      cancel: (callId: string) => void this.data.write.runtimeToolCancel(callId).catch(() => undefined)
+      cancel: (callId: string) =>
+        void this.data.write.runtimeToolCancel(callId).catch(() => undefined)
     }
     this.remoteTools = createRemoteRuntimeTools(toolPort)
     this.remoteMcp = createRemoteManagedMcp(toolPort, {
@@ -235,7 +248,8 @@ export class AgentBootstrap implements HostAssembly {
         acquire: (snapshot) => this.remoteMcp.acquire(snapshot)
       },
       dataDirectory: this.dataDirectory,
-      preferences: (harnessId) => (this.mirror.ready() ? this.mirror.getAll().harnesses?.[harnessId] : undefined),
+      preferences: (harnessId) =>
+        this.mirror.ready() ? this.mirror.getAll().harnesses?.[harnessId] : undefined,
       fetchImpl: netFetch,
       extensionControl: this.extensionChoices,
       pluginSnapshots: this.pluginSnapshots
@@ -403,12 +417,18 @@ export class AgentBootstrap implements HostAssembly {
         }
       })
       void this.deployExtensions().catch((error: unknown) =>
-        reportError({ event: 'extensions.deploy.failed', scope: 'extensions', title: 'saveFailed', error })
+        reportError({
+          event: 'extensions.deploy.failed',
+          scope: 'extensions',
+          title: 'saveFailed',
+          error
+        })
       )
       this.publishAvailability()
     })
     await installation
     this.bootReport.finish()
+    this.reports.bootFinished(this.bootReport.getReport())
     void loadClaudeSdk().catch(() => undefined)
     this.stops.push(
       this.registry.onAvailabilityChange((state) => {
@@ -456,7 +476,9 @@ export class AgentBootstrap implements HostAssembly {
     })
     bus.on('turn.event', ({ turn, ev }) => this.sender.relay(turn, ev))
 
-    const approvals = new ApprovalCoordinator((sessionId) => this.lifecycle.approvalPending(sessionId))
+    const approvals = new ApprovalCoordinator((sessionId) =>
+      this.lifecycle.approvalPending(sessionId)
+    )
     const permissionModes = new PermissionModeController()
     const pendingMessages = (this.pendingMessages = new PendingMessageQueue())
     const backgroundTasks = new BackgroundTaskTracker()
@@ -583,7 +605,9 @@ export class AgentBootstrap implements HostAssembly {
       read: (request) => readResources(request),
       emit: (sessionId, resources) => broadcastNativeResourcesChanged({ sessionId, resources })
     }))
-    const sessionDirectory = async (sessionId: string): Promise<{ row: SessionRow; cwd: string } | undefined> => {
+    const sessionDirectory = async (
+      sessionId: string
+    ): Promise<{ row: SessionRow; cwd: string } | undefined> => {
       const row = await this.sessionRow(sessionId)
       if (!row) return undefined
       const cwd =
@@ -652,7 +676,13 @@ export class AgentBootstrap implements HostAssembly {
           supervisor.runtimeEntries().flatMap(({ sessionId }) => {
             const target = resolveResourceTarget({ sessionId })
             return target?.backend === 'opencode' && target.runtime
-              ? [{ cwd: target.cwd, runtime: target.runtime, activity: activity.current(sessionId) }]
+              ? [
+                  {
+                    cwd: target.cwd,
+                    runtime: target.runtime,
+                    activity: activity.current(sessionId)
+                  }
+                ]
               : []
           }),
         changed: () => projectSync.connectionsChanged('opencode')
@@ -682,7 +712,12 @@ export class AgentBootstrap implements HostAssembly {
       ],
       changed: () => broadcastExtensionsChanged({ backend: 'claude' }),
       failed: (error) =>
-        reportError({ event: 'claude.extensions.watch-failed', scope: 'engine', title: 'saveFailed', error })
+        reportError({
+          event: 'claude.extensions.watch-failed',
+          scope: 'engine',
+          title: 'saveFailed',
+          error
+        })
     })
     registerExtensionCatalogHandlers(
       this.extensionChoices,
@@ -691,7 +726,11 @@ export class AgentBootstrap implements HostAssembly {
         backendOf: (sessionId) => this.sessionRows.get(sessionId)?.backend as Backend | undefined,
         activity: (sessionId) => activity.current(sessionId),
         discardSession: (sessionId) =>
-          discardSessionWork({ activity, supervisor, pendingMessages }, sessionId, broadcastChatEvent),
+          discardSessionWork(
+            { activity, supervisor, pendingMessages },
+            sessionId,
+            broadcastChatEvent
+          ),
         failed: (error) =>
           reportError({
             event: 'extensions.claude-processes.close-failed',
@@ -711,7 +750,10 @@ export class AgentBootstrap implements HostAssembly {
   }
 
   // 백그라운드 작업 기록의 복원 읽기 — 동기 계약이라 첫 관찰 전에 데이터 호스트에서 받아 둔다.
-  private readonly backgroundEventsCache = new Map<string, import('../../../shared/background-task').BackgroundEvent[]>()
+  private readonly backgroundEventsCache = new Map<
+    string,
+    import('../../../shared/background-task').BackgroundEvent[]
+  >()
 
   private updateOpenCodeGlobalWatch(initial: boolean): void {
     if (!this.registry.availability('opencode').usable || this.stopped) {
@@ -733,7 +775,12 @@ export class AgentBootstrap implements HostAssembly {
       },
       extensionsChanged: () => broadcastExtensionsChanged({ backend: 'opencode' }),
       failed: (error) =>
-        reportError({ event: 'opencode.plugins.watch-failed', scope: 'engine', title: 'saveFailed', error })
+        reportError({
+          event: 'opencode.plugins.watch-failed',
+          scope: 'engine',
+          title: 'saveFailed',
+          error
+        })
     })
     if (!initial) broadcastOpenCodePluginsChanged({ revision: ++this.openCodePluginsRevision })
   }

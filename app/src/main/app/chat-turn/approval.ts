@@ -15,7 +15,7 @@ import { planReviewToolInput } from '../../../shared/plan-review-input'
 import { agentPermissionRequest } from '../../features/approvals/permission-bridge'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
-import type { HistoryWriter } from '../../features/history/writer'
+import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import type { TurnContext } from '../../contracts/turn'
 import { sendChatEvent } from '../../infra/ipc/send'
 
@@ -23,7 +23,8 @@ interface ApprovalRequesterDeps {
   wc: ClientRef
   approvals: ApprovalCoordinator
   permissionModes: PermissionModeController
-  persistence: HistoryWriter
+  // 턴 저장 입력이 가는 곳 — 에이전트 호스트에서는 저장 스트림의 보내는 끝이다(0324 EP-15).
+  persistence: TurnPersistSink<ClientRef>
   /** 세션-레벨 인디렉션 — 호출 시점의 활성 턴을 읽는다. */
   getActiveTurn: () => TurnContext<ClientRef>
 }

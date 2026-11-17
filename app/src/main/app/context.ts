@@ -17,7 +17,6 @@ import type { HarnessRuntimeConfigService } from '../features/harnesses/common/r
 import type { RuntimeModelCatalog } from '../features/harnesses/common/runtime-catalog'
 import type { Scheduler } from '../features/scheduler'
 import type { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
-import type { UpdateController } from './updater'
 import type { Settings } from '../../shared/protocol'
 import type { RemoteOps } from '../infra/ipc/peer-ops'
 import type { DataQueryOps, DataWriteOps } from './data-host/data-ops'
@@ -60,17 +59,16 @@ export function harnessConfigPort(data: DataPort): HarnessConfigPort {
 
 // 에이전트 호스트(실행)의 조립이 핸들러·턴 코드에 넘기는 의존 묶음(0324 D-034). `db` 가 없다 —
 // 실행 쪽 코드가 DB 를 직접 부르면 컴파일되지 않는다.
-export interface AgentContext
-  extends Pick<
-    RouterContext,
-    | 'registry'
-    | 'extensions'
-    | 'workProfilePluginPath'
-    | 'deployExtensions'
-    | 'ensureExtensionsDeployedForTurn'
-    | 'debugMock'
-    | 'mockAdapter'
-  > {
+export interface AgentContext {
+  registry: AdapterRegistry
+  extensions: ExtensionBuilder
+  readonly workProfilePluginPath: string
+  // 비동기 배포(0109) — invoke 핸들러가 await 해도 재귀 복사가 이벤트 루프를 막지 않는다.
+  deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void>
+  // 턴 시작 게이트 — query 호출 전 sources→dist plugin 배포 최신성을 멱등 보장한다.
+  ensureExtensionsDeployedForTurn(): Promise<void>
+  debugMock: DebugMockState
+  mockAdapter: MockAdapter | null
   data: DataPort
   settings: SettingsReader
   harness: HarnessConfigPort
@@ -78,14 +76,12 @@ export interface AgentContext
   defaultCwd(): string
 }
 
+// 데이터 호스트(상태)의 핸들러가 받는 의존 묶음 — 실행 쪽 것은 `AgentContext` 에 있다(0324 D-034).
 export interface RouterContext {
   db: DbQueries
   settings: SettingsStore
   mcp: McpStore
-  registry: AdapterRegistry
   cost: UsageTracker
-  extensions: ExtensionBuilder
-  readonly workProfilePluginPath: string
   // Harness settings 해석 서비스 (0014 → 0188) — 열거(sources/settings 트리) + 해석 캐시.
   harnessSettings: HarnessSettingsService
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
@@ -93,17 +89,12 @@ export interface RouterContext {
   refreshSkills(): Promise<SkillInfo[]>
   // 비동기 배포(0109) — invoke 핸들러가 await 해도 재귀 복사가 이벤트 루프를 막지 않는다.
   deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void>
-  // 턴 시작 게이트 — query 호출 전 sources→dist plugin 배포 최신성을 멱등 보장한다.
-  ensureExtensionsDeployedForTurn(): Promise<void>
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
   // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
   getCwd(projectId?: string | null): string
   // main bootstrap 은 BrowserWindow/renderer 이전에 완료된다. renderer 에는 진행률이 아니라
   // 완료된 diagnostic snapshot 만 노출한다.
   getBootReport(): BootReport
-  debugMock: DebugMockState
-  mockAdapter: MockAdapter | null
-  updates: UpdateController
   scheduler: Scheduler
   // 연결 상태에 따라 활성 plugin 도구를 반영하고, 턴에는 현재 snapshot을 전달한다.
   runtimeTools: RuntimeToolRegistry
@@ -115,9 +106,4 @@ export interface RouterContext {
   // 동적 구성이 없는 하네스의 기존 동작을 유지한다.
   harnessRuntime: HarnessRuntimeConfigService
   runtimeModelCatalog: RuntimeModelCatalog
-  // ── 실행 쪽 조립이 가져가는 것(0324) — 조립이 한 프로세스에 있는 동안 여기 함께 실린다 ──
-  data: DataPort
-  // 실행 쪽이 읽는 설정 사본.
-  agentSettings: SettingsReader
-  defaultCwd(): string
 }

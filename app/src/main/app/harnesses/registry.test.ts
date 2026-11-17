@@ -9,6 +9,7 @@ import {
   parseHarnessRuntimeModels,
   legacySettingsEnvHoist
 } from './registry'
+import { harnessConfigModules } from './config-registry'
 import { createRuntimeModelCatalog } from '../../features/harnesses/common/runtime-catalog'
 import { prepareHarnessConfig } from '../../adapters/common/harness-config'
 
@@ -101,8 +102,8 @@ describe('main harness composition', () => {
       model: 'custom/native'
     })
     write('legacy', { env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'legacy-native' } })
-    const claude = vi.spyOn(mainHarnessModules.claude, 'parseSettingsModels')
-    const opencode = vi.spyOn(mainHarnessModules.opencode, 'parseSettingsModels')
+    const claude = vi.spyOn(harnessConfigModules.claude, 'parseSettingsModels')
+    const opencode = vi.spyOn(harnessConfigModules.opencode, 'parseSettingsModels')
     const service = createHarnessSettingsService(root)
     expect(service.list('claude')[0].models[0].model).toBe('claude-native')
     expect(service.list('opencode')[0].models[0]).toMatchObject({
@@ -121,7 +122,7 @@ describe('main harness composition', () => {
   })
 
   it('runs the composed runtime parser after resolve and preserves explicit legacy contributions', async () => {
-    const parse = vi.spyOn(mainHarnessModules.claude, 'parseRuntimeModels')
+    const parse = vi.spyOn(harnessConfigModules.claude, 'parseRuntimeModels')
     const config = {
       key: 'legacy-corp',
       harnessId: 'legacy',
@@ -155,7 +156,7 @@ describe('main harness composition', () => {
   })
 
   it('parses opencode runtime configs with the OpenCode parser', async () => {
-    const claude = vi.spyOn(mainHarnessModules.claude, 'parseRuntimeModels')
+    const claude = vi.spyOn(harnessConfigModules.claude, 'parseRuntimeModels')
     const config = {
       key: 'opencode-corp',
       harnessId: 'opencode',

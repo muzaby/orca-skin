@@ -32,7 +32,9 @@ function server(id: string, handler = vi.fn()): RuntimeToolServer {
 }
 
 // 대리 → 실제 호출 처리를 메모리로 잇는다 — 요청은 구조화 복제를 지난다.
-function wire(host: ReturnType<typeof createToolCallHost>): ToolCallPort & { calls: RemoteToolCall[] } {
+function wire(
+  host: ReturnType<typeof createToolCallHost>
+): ToolCallPort & { calls: RemoteToolCall[] } {
   const calls: RemoteToolCall[] = []
   return {
     calls,
@@ -48,7 +50,10 @@ describe('런타임 도구 사본', () => {
   it('서술자와 입력 스키마가 넘어가고, 대리 호출은 세션 범위를 실어 데이터 쪽 구현을 부른다', async () => {
     const handler = vi.fn()
     const source = {
-      snapshot: () => ({ revision: 3, servers: new Map([['artifact', server('artifact', handler)]]) })
+      snapshot: () => ({
+        revision: 3,
+        servers: new Map([['artifact', server('artifact', handler)]])
+      })
     }
     const host = createToolCallHost({ tools: source, managedPlugins: () => new Map() })
     const port = wire(host)
@@ -184,7 +189,10 @@ describe('관리형 MCP 사본', () => {
 
   it('참조 이름을 설정과 앱 환경에서 모은다', () => {
     expect(
-      referencedVariables({ env: { A: '${TOKEN}', B: '${BINDING:conf}' } }, { X: '${TOKEN}' }).sort()
+      referencedVariables(
+        { env: { A: '${TOKEN}', B: '${BINDING:conf}' } },
+        { X: '${TOKEN}' }
+      ).sort()
     ).toEqual(['BINDING:conf', 'TOKEN'])
   })
 })

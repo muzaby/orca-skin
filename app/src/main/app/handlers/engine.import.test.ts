@@ -44,10 +44,10 @@ beforeEach(() => {
   h.handlers.clear()
   registerEngineHandlers(
     engineContext({
-    deployExtensions: vi.fn(),
-    harnessSettings: { invalidateAll: vi.fn() },
-    harnessRuntime: { invalidate: vi.fn() },
-    runtimeModelCatalog: { isReadOnly: () => false, invalidate: vi.fn(async () => {}) }
+      deployExtensions: vi.fn(),
+      harnessSettings: { invalidateAll: vi.fn() },
+      harnessRuntime: { invalidate: vi.fn() },
+      runtimeModelCatalog: { isReadOnly: () => false, invalidate: vi.fn(async () => {}) }
     })
   )
 })

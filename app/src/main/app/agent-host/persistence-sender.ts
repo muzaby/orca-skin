@@ -20,7 +20,11 @@ import type { TurnContext } from '../../contracts/turn'
 import { artifactReceiptId, type HistoryWriter } from '../../features/history/writer'
 import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import type { PeerLink } from '../../infra/ipc/peer-link'
-import { TURN_BEGIN_FIELDS, TURN_LIVE_FIELDS, type TurnBegin } from '../data-host/persistence-receiver'
+import {
+  TURN_BEGIN_FIELDS,
+  TURN_LIVE_FIELDS,
+  type TurnBegin
+} from '../data-host/persistence-receiver'
 
 export interface PersistenceSenderDeps {
   link: Pick<PeerLink<'agent'>, 'notify' | 'request' | 'onClosed'>
@@ -136,6 +140,17 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
     onTurnEvent(turn, ev) {
       // 세션 id 는 하네스가 준다 — 제목 생성·중계보다 먼저 실행 쪽 사본에 둔다(MD-09).
       if (ev.type === 'session.updated') turn.dbSessionId = ev.sessionId
+      // 답을 이미 채운 질문 도구에 실제 결과가 늦게 오면 저장된 답으로 바꾼다 — 답을 아는 쪽은 실행 쪽
+      // 턴 상태뿐이다(MD-09). 바꾸지 않으면 빈 결과가 저장된 답과 화면의 답을 덮는다.
+      if (ev.type === 'tool.call.completed') {
+        const resolved = turn.askResolved.get(ev.toolRunId)
+        if (resolved) {
+          ev.result = {
+            answers: resolved.answers,
+            ...(resolved.response !== undefined ? { response: resolved.response } : {})
+          }
+        }
+      }
       const state = stateOf(turn)
       if (state.failed) return
       if (!needsConfirmation(ev)) {
@@ -177,7 +192,7 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
     },
     flushAskAnswers(turn, owner) {
       const answers: Array<{ toolUseId: string; output: unknown; parentToolRunId?: string }> = []
-      for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length; ) {
+      for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length;) {
         const a = turn.pendingAskAnswers[answerIndex]!
         const pendingIndex = turn.askPendingIds.indexOf(a.toolUseId)
         if (pendingIndex < 0) {

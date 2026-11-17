@@ -5,7 +5,7 @@ import { CHANNELS } from '../../shared/ipc'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { createComposerPreparation } from './composer-preparation'
 import { ComposerPreparationService } from './composer-preparation-service'
-import type { RouterContext } from './context'
+import type { AgentContext, RouterContext } from './context'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
 import { OpenCodeWarmup } from './harnesses/opencode/warmup'
 const handlers = vi.hoisted(
@@ -82,7 +82,7 @@ it('shares targets across catalog resources and warmup through the production as
     runtimeModelCatalog: { merge: (value: unknown) => value, isReadOnly: () => false },
     mcp: { resolver: () => () => undefined }
   } as unknown as RouterContext
-  const assembly = createComposerPreparation(withDataPort(ctx))
+  const assembly = createComposerPreparation(withDataPort(ctx) as unknown as AgentContext)
   cleanups.push(() => {
     assembly.close()
     adapter.close()
