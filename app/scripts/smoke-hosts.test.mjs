@@ -12,6 +12,7 @@ const passing = () => ({
     'data oo:session:list': { ok: true, value: [] },
     'agent oo:backend:list': { ok: true, value: { backends: [] } },
     'agent oo:agent:list': { ok: true, value: [] },
+    'agent early oo:extensions:catalog': { ok: true, value: { state: 'disconnected', items: [] } },
     'agent oo:settings:get': { ok: false, error: "No handler registered for 'oo:settings:get'" }
   },
   exits: { agent: 0, data: 0 },
@@ -47,6 +48,15 @@ describe('smoke-hosts 판정', () => {
       '피어 조회 응답 없음',
       (o) => delete o.results['agent oo:agent:list'],
       /agent:list: 응답 없음/
+    ],
+    [
+      '피어 포트보다 먼저 온 요청이 사본 전 읽기로 실패',
+      (o) =>
+        (o.results['agent early oo:extensions:catalog'] = {
+          ok: false,
+          error: 'Error: 설정 사본을 아직 받지 못했다'
+        }),
+      /early oo:extensions:catalog: 오류/
     ],
     [
       '소유하지 않은 채널을 처리',
