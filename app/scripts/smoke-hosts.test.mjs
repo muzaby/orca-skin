@@ -7,6 +7,7 @@ import { evaluate, HOST_ENVIRONMENT_ARG } from './smoke-hosts.mjs'
 
 const passing = () => ({
   ready: { data: { type: 'ready', mirror: { uiLocale: 'ko' } }, agent: { type: 'ready' } },
+  steps: { data: ['begin', 'end', 'ready'], agent: ['ready'] },
   results: {
     'data oo:settings:get': { ok: true, value: { theme: 'white' } },
     'data oo:session:list': { ok: true, value: [] },
@@ -29,6 +30,26 @@ describe('smoke-hosts 판정', () => {
     ['에이전트 호스트가 준비를 알리지 않음', (o) => delete o.ready.agent, /에이전트 호스트가 준비/],
     ['데이터 호스트가 준비를 알리지 않음', (o) => delete o.ready.data, /데이터 호스트가 준비/],
     ['UI 언어 사본 없음', (o) => delete o.ready.data.mirror, /UI 언어 사본/],
+    [
+      '데이터 호스트가 DB 단계 시작을 알리지 않음',
+      (o) => (o.steps.data = ['end', 'ready']),
+      /데이터 호스트의 기동 단계/
+    ],
+    [
+      '데이터 호스트가 DB 단계 끝을 알리지 않음',
+      (o) => (o.steps.data = ['begin', 'ready']),
+      /데이터 호스트의 기동 단계/
+    ],
+    [
+      '데이터 호스트가 DB 단계 끝보다 준비를 먼저 알림',
+      (o) => (o.steps.data = ['begin', 'ready', 'end']),
+      /데이터 호스트의 기동 단계/
+    ],
+    [
+      '에이전트 호스트가 기동 단계를 알림',
+      (o) => (o.steps.agent = ['begin', 'end', 'ready']),
+      /에이전트 호스트의 기동 단계/
+    ],
     [
       '설정 조회 오류',
       (o) => (o.results['data oo:settings:get'] = { ok: false, error: 'x' }),
