@@ -10,7 +10,6 @@ import type { AgentKind } from '../../../shared/agent-kind'
 import { continuityLangFor, type ContinuityLang } from '../../../shared/continuity-lang'
 import type { SessionAdapter } from '../../adapters/common/types'
 import { buildHandoffMessage } from '../../features/orchestration/handoff'
-import { recoverSessionHistory } from '../../features/chat/recovery'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import { checkContinuitySource } from './admission'
 import { processEnvRecord } from '../../features/harnesses/common/env'
@@ -32,7 +31,8 @@ import { getLogger } from '../../infra/log'
 import { makeClassifiedError } from '../../infra/errors'
 import { resolveAgentKind } from '../../features/agents/profiles'
 import type { SendChatPayload } from './admission'
-import type { RouterContext } from '../context'
+import type { AgentContext } from '../context'
+import { workspaceLookup } from './workspace'
 import type { ContinuitySourceMeta } from './turn-context'
 import { prepareNativeSession, type NativeSessionPreparation } from './native-session'
 
@@ -61,7 +61,7 @@ interface ResolvedTurn {
 }
 
 export async function resolveTurn(
-  ctx: RouterContext,
+  ctx: AgentContext,
   supervisor: RuntimeSupervisor<ClientRef>,
   adapter: TurnPreparationAdapter,
   payload: SendChatPayload,
@@ -69,9 +69,10 @@ export async function resolveTurn(
   options?: { onNativeHistory?: (checking: boolean) => void }
 ): Promise<{ ok: true; value: ResolvedTurn } | { ok: false; error: ClassifiedError }> {
   const continuitySource = payload.forkFrom ?? payload.handoffFrom
-  let continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
+  const { query } = ctx.data
+  let continuityMeta = continuitySource ? await query.getSessionById(continuitySource) : undefined
   const sourceId = payload.sessionId ?? continuitySource
-  const source = payload.sessionId ? ctx.db.getSessionById(payload.sessionId) : continuityMeta
+  const source = payload.sessionId ? await query.getSessionById(payload.sessionId) : continuityMeta
   const identity = resolveAgentKind(payload.agentKind, source?.agent_kind)
   if ((sourceId && !source) || !identity.ok) {
     return {
@@ -101,7 +102,7 @@ export async function resolveTurn(
     modelFamily: payload.modelFamily ?? null
   })
   // provider 준비가 await한 사이 세션이 삭제/변경되면 오래된 출생 속성으로 실행하지 않는다.
-  const currentSource = sourceId ? ctx.db.getSessionById(sourceId) : undefined
+  const currentSource = sourceId ? await query.getSessionById(sourceId) : undefined
   if (
     sourceId &&
     (!currentSource ||
@@ -121,7 +122,7 @@ export async function resolveTurn(
 
   let native: NativeSessionPreparation = {
     nativeSessionId: payload.sessionId
-      ? ctx.db.nativeHistory?.recovery?.(payload.sessionId)?.native_id
+      ? (await query.nativeRecovery(payload.sessionId))?.native_id
       : undefined
   }
   if (
@@ -137,12 +138,13 @@ export async function resolveTurn(
         adapter,
         {
           sessionId: payload.sessionId,
-          cwd: sessionMeta.cwd ?? ctx.getCwd(sessionMeta.project_id),
+          cwd:
+            sessionMeta.cwd ??
+            (await workspaceLookup(ctx, [sessionMeta.project_id]))(sessionMeta.project_id),
           env: resolved.prepared.env,
           providerSettings: resolved.prepared.providerSettings
         },
-        ctx.db,
-        ctx.getCwd,
+        ctx.data,
         {
           text: payload.text,
           contextWindow: harnessModule(adapter.id).recoveryContextWindow(
@@ -157,7 +159,7 @@ export async function resolveTurn(
     }
     if (!preparedNative.ok) return preparedNative
     native = preparedNative.value
-    if (!ctx.db.getSessionById(payload.sessionId)) {
+    if (!(await query.getSessionById(payload.sessionId))) {
       return {
         ok: false,
         error: makeClassifiedError(
@@ -174,11 +176,9 @@ export async function resolveTurn(
   const settingsLanguage = continuitySource ? ctx.settings.getAll().language : undefined
   const continuityLang = payload.continuityLang ?? continuityLangFor(settingsLanguage)
 
-  if (payload.sessionId) {
-    recoverSessionHistory(ctx.db, {
-      sessionId: payload.sessionId,
-      isSessionLive: (sessionId) => supervisor.hasSession(sessionId)
-    })
+  // 쉬는 세션만 정리한다 — 진행 중인 턴은 자기 마감이 곧 기록한다.
+  if (payload.sessionId && !supervisor.hasSession(payload.sessionId)) {
+    await ctx.data.write.recoverSessionHistory(payload.sessionId)
   }
 
   return {
@@ -223,7 +223,7 @@ export interface ResolvedTurnProvider {
 // 원천은 sources/settings/<adapter>/ 트리(HarnessSettingsService)이며, settings 해석(blob)은
 // dist 캐시에서 가져온다. 비밀(secret-store 토큰·${VAR})은 해석기 내부에서만 평문화된다.
 export async function resolveTurnProvider(
-  ctx: RouterContext,
+  ctx: AgentContext,
   req: {
     adapter: TurnPreparationAdapter
     agentKind: AgentKind
@@ -243,7 +243,7 @@ export async function resolveTurnProvider(
     // 다시 조립하면 runtime 행이 settings 행으로 바뀌어 catalog 가 모델을 다시 계산한다.
     environment: entry
   }))
-  const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
+  const meta = req.sessionId ? await ctx.data.query.getSessionById(req.sessionId) : undefined
   const byKey = (key: string | null | undefined): (typeof entries)[number] | undefined =>
     key ? entries.find((entry) => entry.key === key) : undefined
 
@@ -307,7 +307,7 @@ export async function resolveTurnProvider(
 // Harness+ModelProvider entry 를 **못 고른** 턴의 spawn 입력.
 // 조립 규칙은 `prepareUnresolvedHarnessConfig` 가 소유한다.
 function unresolvedPrepared(
-  ctx: RouterContext,
+  ctx: AgentContext,
   adapterEnvPatch: AdapterSpawnEnvPatch
 ): PreparedHarnessConfig {
   return prepareUnresolvedHarnessConfig({

@@ -8,7 +8,6 @@
 // buildSystemHeader(순수)가 조립한다. (정적 정책 append 체인 prompts/ 는 handoff 0062 에서 제거.)
 //
 
-import type { DbQueries } from '../../../infra/db'
 import type { Settings, SkillInfo } from '../../../../shared/ipc'
 import type { TurnExtensions } from '../../../adapters/common/turn'
 import type { RuntimeToolSource } from '../../../adapters/common/runtime-tools'
@@ -20,9 +19,18 @@ export interface ExtensionProfile {
   pluginRoots?: readonly string[]
 }
 
+// 턴마다 읽는 프로젝트 이름·지침 — 실행 쪽에서는 데이터 호스트 요청이다(0324 EP-16).
+type ProjectContext = { name: string; instructions: string }
+export interface ProjectContextStore {
+  getProjectContextForSession(
+    sessionId: string
+  ): ProjectContext | null | Promise<ProjectContext | null>
+  getProject(projectId: string): ProjectContext | null | Promise<ProjectContext | null>
+}
+
 export class ExtensionBuilder {
   constructor(
-    private readonly db: DbQueries,
+    private readonly db: ProjectContextStore,
     private readonly skills: () => SkillInfo[],
     private readonly settings: () => Settings,
     private readonly ooVersion: string,
@@ -33,23 +41,23 @@ export class ExtensionBuilder {
 
   // sessionId 가 있으면 resume 경로(세션→프로젝트 조회), 없으면 새 채팅(projectId 직접 조회).
   // 새 채팅이면 projectId 를, resume 면 null 을 넘긴다.
-  build(
+  async build(
     sessionId: string | null,
     projectId: string | null,
     profile?: ExtensionProfile
-  ): TurnExtensions {
+  ): Promise<TurnExtensions> {
     // 프로젝트 name+instructions는 매 턴 재조회한다. SDK 시스템 지침 적용은 채널 spawn 시점이며
     // warm 채널에 즉시 갱신하는 계약은 아니다. resume은 세션 바인딩, 새 채팅은 projectId를 쓴다.
     let projectName: string | undefined
     let instructions: string | undefined
     if (sessionId) {
-      const ctx = this.db.getProjectContextForSession(sessionId)
+      const ctx = await this.db.getProjectContextForSession(sessionId)
       if (ctx) {
         if (ctx.name.trim() !== '') projectName = ctx.name
         if (ctx.instructions.trim() !== '') instructions = ctx.instructions
       }
     } else if (projectId) {
-      const p = this.db.getProject(projectId)
+      const p = await this.db.getProject(projectId)
       if (p) {
         if (p.name.trim() !== '') projectName = p.name
         if (p.instructions.trim() !== '') instructions = p.instructions

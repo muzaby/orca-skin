@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, realpath, rm, rmdir, stat } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import type { WorktreeDisplay, WorktreePrepareStep } from '../../../shared/ipc'
-import type { DbQueries } from '../../infra/db'
+import type { ManagedWorktreeInsert, ManagedWorktreeRow } from '../../infra/db/types'
 import { isWithinDir } from '../../infra/config/paths'
 import { canonicalPath, isClean, resolveBranchOid, resolveHead } from '../../infra/git/repository'
 import { headName, headOid, probeRepo } from '../../infra/git/probe'
@@ -69,9 +69,19 @@ const defaultWorktreeOperations: WorktreeOperations = {
   deleteBranch
 }
 
+// 작업 트리 기록이 읽고 쓰는 DB 표면 — 실행 쪽에서는 데이터 호스트 요청이다(0324 EP-16).
+export interface WorktreeStore {
+  insertManagedWorktree(row: ManagedWorktreeInsert): void | Promise<void>
+  getManagedWorktreeBySession(
+    sessionId: string
+  ): ManagedWorktreeRow | null | Promise<ManagedWorktreeRow | null>
+  updateSessionCwd(sessionId: string, cwd: string, updatedAt: number): void | Promise<void>
+  deleteManagedWorktree(id: string): void | Promise<void>
+}
+
 export class WorktreeService {
   constructor(
-    private readonly db: DbQueries,
+    private readonly db: WorktreeStore,
     private readonly rootDir: string,
     private readonly operations: WorktreeOperations = defaultWorktreeOperations,
     private readonly gateway: GitGateway = gitGateway
@@ -168,7 +178,7 @@ export class WorktreeService {
       const executionCwd = resolve(actualRoot, subpath)
       if (!isWithinDir(executionCwd, actualRoot)) throw new Error('invalid execution cwd')
       if (!(await stat(executionCwd)).isDirectory()) throw new Error('missing execution cwd')
-      this.db.insertManagedWorktree({
+      await this.db.insertManagedWorktree({
         id: worktreeId,
         repoRoot,
         sourceCwd,
@@ -218,8 +228,8 @@ export class WorktreeService {
     await rmdir(dirname(input.worktreeRoot)).catch(() => undefined)
   }
 
-  hasManagedWorktree(sessionId: string): boolean {
-    return this.db.getManagedWorktreeBySession(sessionId) !== null
+  async hasManagedWorktree(sessionId: string): Promise<boolean> {
+    return (await this.db.getManagedWorktreeBySession(sessionId)) !== null
   }
 
   // 실행 경로가 사라진 세션을 원본 작업 경로로 되돌린다 (0210 D-107).
@@ -241,17 +251,17 @@ export class WorktreeService {
     | { kind: 'unrecoverable'; lostWorktreeRoot: string }
   > {
     if (await pathExists(input.executionCwd)) return { kind: 'none' }
-    const row = this.db.getManagedWorktreeBySession(input.sessionId)
+    const row = await this.db.getManagedWorktreeBySession(input.sessionId)
     if (!row) return { kind: 'none' }
     if (!(await pathExists(row.source_cwd)))
       return { kind: 'unrecoverable', lostWorktreeRoot: row.worktree_root }
-    this.db.updateSessionCwd(input.sessionId, row.source_cwd, input.now ?? Date.now())
-    this.db.deleteManagedWorktree(row.id)
+    await this.db.updateSessionCwd(input.sessionId, row.source_cwd, input.now ?? Date.now())
+    await this.db.deleteManagedWorktree(row.id)
     return { kind: 'recovered', executionCwd: row.source_cwd, lostWorktreeRoot: row.worktree_root }
   }
 
   async removeForSession(sessionId: string): Promise<DeleteManagedWorktreeResult> {
-    const row = this.db.getManagedWorktreeBySession(sessionId)
+    const row = await this.db.getManagedWorktreeBySession(sessionId)
     if (!row) return { ok: true }
     const clean = await isClean(row.worktree_root, this.gateway)
     if (clean == null)
@@ -296,7 +306,7 @@ export class WorktreeService {
       { repoRoot: row.repo_root, branch: row.branch },
       this.gateway
     )
-    this.db.deleteManagedWorktree(row.id)
+    await this.db.deleteManagedWorktree(row.id)
     return { ok: true }
   }
 }

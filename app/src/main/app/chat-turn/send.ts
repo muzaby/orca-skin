@@ -47,6 +47,7 @@ import { prepareTemporaryFilesPath } from '../../infra/config/temp-path'
 import { prepareTurnExecution } from './prepare-worktree'
 import { resolveAgentKind, resolveAgentProfile } from '../../features/agents/profiles'
 import { bindStartingProject } from './project-binding'
+import { workspaceLookup } from './workspace'
 import { prepareAgentExtensionProfile } from '../harnesses/registry'
 
 export async function handleChatSend(
@@ -80,7 +81,7 @@ export async function handleChatSend(
   }
   const payload = admission.data
   const boundId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
-  const boundSession = boundId ? ctx.db.getSessionById(boundId) : undefined
+  const boundSession = boundId ? await ctx.data.query.getSessionById(boundId) : undefined
   const selectedBackend = boundSession?.backend ?? payload.backend ?? adapter?.id
   if (
     (boundSession && payload.backend && payload.backend !== boundSession.backend) ||
@@ -146,9 +147,10 @@ export async function handleChatSend(
 
   // ── 3. lease 획득 · busy 면 예약으로 수용 ──────────────────────────────────
   const { provisionalKey, logicalKey } = leaseKeyFor(payload)
-  // 출생 속성 비교는 lease 획득과 busy 예약보다 앞, 둘 사이 await 없이 끝낸다.
+  // 출생 속성 비교는 lease 획득과 busy 예약보다 앞, 둘 사이 await 없이 끝낸다 — 세션행은 데이터
+  // 호스트에 물어 오므로 그 요청이 비교보다 앞이고, 답을 받은 뒤로는 await 가 없다.
   const sourceId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
-  const source = sourceId ? ctx.db.getSessionById(sourceId) : undefined
+  const source = sourceId ? await ctx.data.query.getSessionById(sourceId) : undefined
   if (sourceId && !source) {
     sendChatEvent(event.sender, {
       type: 'error',
@@ -280,7 +282,7 @@ export async function handleChatSend(
     } = resolution.value
     const modelRecord = sessionModelRecordFor({ sessionId: payload.sessionId, resolved })
     if (modelRecord) {
-      ctx.db.updateSessionProviderKey(
+      await ctx.data.write.updateSessionProviderKey(
         modelRecord.id,
         modelRecord.providerKey,
         Date.now(),
@@ -293,12 +295,17 @@ export async function handleChatSend(
     // resume 턴의 준비 입력은 **세션행이 잠근 경로**여야 한다 — `payload.cwd` 는 새 세션의
     // 요청값이라 그것으로 존재 확인을 하면 worktree 가 사라져도 다른 경로를 보고 지나간다.
     // 신규 턴은 기존과 같은 요청값·프로젝트 파생을 쓴다.
-    const requestedCwd = payload.cwd ?? ctx.getCwd(boundProjectId)
+    const knownCwd = await workspaceLookup(ctx, [
+      boundProjectId,
+      sessionMeta?.project_id,
+      continuityMeta?.project_id
+    ])
+    const requestedCwd = payload.cwd ?? knownCwd(boundProjectId)
     const preparedSourceCwd = payload.sessionId
       ? resolveTurnCwd(
           { sessionId: payload.sessionId, projectId: boundProjectId, cwd: payload.cwd ?? null },
           sessionMeta,
-          (projectId) => ctx.getCwd(projectId)
+          knownCwd
         )
       : requestedCwd
 
@@ -336,16 +343,19 @@ export async function handleChatSend(
         }
       },
       extraDirs: payload.extraDirs,
-      buildTurn: (executionCwd, extraDirs, sessionBaseline, sessionBaselineRef) => {
+      buildTurn: async (executionCwd, extraDirs, sessionBaseline, sessionBaselineRef) => {
+        let getCwd = knownCwd
         if (!payload.sessionId && !continuitySource) {
-          const binding = bindStartingProject(
-            ctx.db,
+          const binding = await bindStartingProject(
+            ctx.data,
             preparedSourceCwd,
             requestedProjectId,
-            ctx.getCwd()
+            ctx.defaultCwd()
           )
           boundProjectId = binding.projectId
           projectCreated = binding.created
+          // 방금 묶인 프로젝트의 폴더는 아직 물어 두지 않았다.
+          getCwd = await workspaceLookup(ctx, [boundProjectId])
         }
         // ── 6. TurnContext 조립 ───────────────────────────────────────────
         // 응답 Stop과 세션 수명을 분리한다. 체인 폐기는 응답도 중단하지만,
@@ -399,7 +409,7 @@ export async function handleChatSend(
             })
             projectCreated = false
           },
-          getCwd: (projectId) => ctx.getCwd(projectId)
+          getCwd
         })
       },
       acquireRuntime: async (turn, executionCwdRecovered) => {
@@ -427,9 +437,9 @@ export async function handleChatSend(
             supervisor,
             lease,
             adapter: activeAdapter,
-            buildExtensions: () =>
+            buildExtensions: async () =>
               withOutputs(
-                ctx.extensions.build(
+                await ctx.extensions.build(
                   payload.sessionId,
                   payload.sessionId ? null : boundProjectId,
                   extensionProfile
@@ -576,12 +586,15 @@ export async function handleChatSend(
               recovery: {
                 history: native.recoveryHistory,
                 freshStart: native.recoveryFreshStart ?? false,
-                onPrompt: (nativeMessageId: string) =>
-                  ctx.db.nativeHistory.recoveryPrompt(
-                    payload.sessionId!,
-                    nativeMessageId,
-                    mainBatch.text
-                  )
+                onPrompt: (nativeMessageId: string) => {
+                  void ctx.data.write
+                    .nativeRecoveryPrompt(payload.sessionId!, nativeMessageId, mainBatch.text)
+                    .catch((error: unknown) =>
+                      getLogger()
+                        .child('chat')
+                        .warn('chat.native-recovery.prompt-failed', { message: String(error) })
+                    )
+                }
               }
             }
           : {}),
@@ -672,8 +685,8 @@ export async function handleChatSend(
                   providerKey,
                   modelFamily
                 }),
-              buildExtensions: () =>
-                withOutputs(ctx.extensions.build(sessionId, null, extensionProfile))
+              buildExtensions: async () =>
+                withOutputs(await ctx.extensions.build(sessionId, null, extensionProfile))
             })
             const selected = permissionModes.getCurrentMode(sessionId)
             const settled = coerceAutoPermissionModeForModelName(

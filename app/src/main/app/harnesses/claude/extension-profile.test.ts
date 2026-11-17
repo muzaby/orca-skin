@@ -25,8 +25,8 @@ describe('agent extension profile', () => {
       prepareAgentExtensionProfile('work', bundledPlugin),
       prepareAgentExtensionProfile('code', '/missing')
     ])
-    const work = builder.build(null, null, workProfile)
-    const code = builder.build(null, null, codeProfile)
+    const work = await builder.build(null, null, workProfile)
+    const code = await builder.build(null, null, codeProfile)
     expect(work.pluginRoots).toEqual([...roots, bundledPlugin])
     expect(code.pluginRoots).toEqual(roots)
     expect(roots).toEqual(['/base/app', '/base/user'])

@@ -7,7 +7,12 @@ export interface NativeHistoryRequest {
   cwd: string
   env?: Record<string, string>
   providerSettings?: ResolvedHarnessSettings
-  previous?: { snapshot: NativeHistorySnapshot; cursor?: NativeHistoryCursor; raw?: () => unknown }
+  // `raw` 는 이어 읽기가 성립할 때만 부른다 — 저장소가 다른 프로세스에 있으면 요청이라 기다린다.
+  previous?: {
+    snapshot: NativeHistorySnapshot
+    cursor?: NativeHistoryCursor
+    raw?: () => unknown | Promise<unknown>
+  }
 }
 
 export interface NativeHistoryMessage extends LoadedMessage {
