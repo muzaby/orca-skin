@@ -2469,6 +2469,51 @@ AC 자기보고: 재집계하지 않았다 — trailer 는 직전 값 `14/49` �
 - 가드 실제 트리 실행은 이번이 처음이었다 — r1.9~r1.11 의 "(e) 구현" 보고는 픽스처 테스트만 본 것이다.
 - 환경: Electron 바이너리 없음. 전체 vitest 한 번에 약 2분 30초.
 
+## [구현자 기입] r1.13 — AC47 · 저장 스트림·채널·호스트 테스트 · 옛 안 잔재 삭제 · 문서·CI 가드 (미완료 — 토큰 한도로 중단, 다른 에이전트가 잇는다)
+
+**판정: 미완료(partial).** 사용자 지시로 즉시 멈췄다. **마지막 수정 뒤 typecheck·전체 vitest 는 돌리지 않았다**(마지막에 돈 것은 lint 오류 0). 일곱 필드는 채우지 못했다 — 아래는 상태와 다음 순서다.
+
+### 구현 보고
+
+| 항목 | 상태 | 산출 / 관측 |
+|---|---|---|
+| 턴 시작 gate | 완료 | `tsc` node·web·test 오류 0. 전체 vitest 11파일·26케이스 실패. 0324 이전 `9692a27` 에서 같은 9파일이 실패(어댑터 6·`composer-catalog`·`composer-preparation-service`·`session-resources.claude-assembly` — `C:/` 경로·Electron 미설치). `product-identity` 는 이번 측정에서 통과 |
+| 기준선 밖 2파일 | 완료 | `preload/index.test.ts` — 조각 로드가 붙인 `requestId` 를 단언에 반영 · `harnesses/registry.test.ts` — 파서 spy 대상을 `config-registry` 의 `harnessConfigModules` 로. 두 파일 39케이스 통과 |
+| AC47 | 코드·테스트 완료 | 허브 `setForward` · `agent-host/report-forwarder.ts`(피어 없으면 상한까지 보관, 연결마다 부팅 보고 재전송) · `data-host/agent-reports.ts`(오류 → 허브 · 부팅 → `mergeBootReports`, 피어 닫힘 → 비움) · `AppErrorReportSchema`·`BootReportSchema`. 수신기의 `report.*` 버림 삭제. 테스트 2파일 9케이스 통과 |
+| 저장 스트림 테스트 | 작성·통과 | `persistence-receiver.test.ts`(io) 10 — AC39 입력 열 4종 × 한 프로세스 경로 DB 덤프 `toEqual` · 질문 답 부모 연결 · SD-05′ · MD-09 · 저장 실패 · AC29′ · AC6′ 60ms. `persistence-sender.test.ts` 14 — EP-15 9분기 + 산출물 확인 대기·역순 질문 답 |
+| 채널·호스트 테스트 | 작성·통과 | `channel-registration.test.ts` 4(표 ↔ 진입점 import 그래프의 등록 차집합 0) · `host-process.test.ts` 7 · `host-assemblies.order.test.ts` 6(버스 구독·부팅·종료 순서를 소스에서) |
+| AC49 세 테스트 | 작성·통과 | `send.worktree.test.ts` 창 참조 닫힘 → `markAborted('user_cancelled')` 1·lease abort 1 · `chatStore.busyGuards.test.ts` 진행 중 캐시 → 메시지 배열 같은 참조(`toBe`) + 앞 로드 취소 테스트 · 포트 닫힘 → `onClosed` 는 `port-server.test.ts` 기존 케이스 |
+| 현재 결함 2건 수정 | 완료 | (1) 송신기가 답을 채운 질문 도구의 늦은 빈 결과를 저장된 답으로 바꾸지 않아 DB·화면의 답이 덮였다(AC39 질문 답 열 red) → `persistence-sender.ts` `onTurnEvent` 에서 바꾼다. (2) 수신기 `peerClosed` 가 마감(완료 표시) 뒤 복구를 불러 끊긴 도구 호출이 정리되지 않았다(AC29′) → 마감 없이 복구만 |
+| 옛 안 잔재 삭제 | 완료 | `RouterContext` 의 실행 쪽 필드 10개 · `AgentContext` 를 독립 타입으로 · `HistoryWriter.flushAskAnswers`(한 프로세스 질문 답 경로) · 턴 코드의 저장 의존을 `TurnPersistence`(`chat-turn/deps.ts`)로 · 업데이트 핸들러는 자기 타입 |
+| 문서·CI | 완료(검사 일부 미실행) | `overview.md` §3.1 · `runtime-ipc.md` · `security.md` §1.4-b·예약 셸 · 네 `AGENTS.md` · `docs/INDEX.md` · `IPC_CONTRACT.md`(소유 규칙·`oo:host:*`·셸 서비스·조각 2채널·변경 절차) · `execution-model.md` 보고 문장 · `ci.yml` 가드 단계 · 가드 테스트 todo 3건 제거 |
+| lint | 오류 0 | `harness/version-boundary` 가 `adapters/opencode/config.ts` 입구를 막아 규칙에 `config.ts` 를 더했다(+테스트 1). `--fix` 가 이전 턴 파일 6개의 줄바꿈을 고쳤다 |
+
+**마지막 수정 뒤 미실행**: 프로젝트별 `tsc` · 전체 vitest · `node --test scripts/*.test.mjs`(`harness-boundary` 포함) · 문서 인벤토리 `--check`(IPC_CONTRACT·execution-model 마지막 수정 뒤) · 예산·이름·마이그레이션 가드. 가드 `check-ui-thread` OK·그 테스트 110 통과는 문서 마지막 수정 전 관측이다.
+
+### 설계 리뷰 — `PLAN_GAP` 추가분 (plan 규범 행 미정정)
+
+| 항목 | 구현이 택한 것 | 고칠 절 |
+|---|---|---|
+| (e3)′ 입구 | eslint `harness/version-boundary` 도 `config.ts` 를 버전 중립 입구로 허용 | §7-G EP-1 (e3)′ (r1.12 행과 함께) |
+| 턴 저장 의존 계약 | `TurnPersistence`(턴 싱크 + 턴 끝 + 백그라운드 기록) | §11 · EP-15 SSOT |
+| AC47 검증 수단 | "데이터 `boot` 보고 테스트" 대신 `data-host/agent-reports.test.ts` | §7-F AC47 |
+| VP-09′ oracle | plan 의 `dataHostClient.test.ts` 대신 `preload/session-load.test.ts` | §7-F VP-09′ |
+
+r1.11 다섯 건 · r1.12 여섯 건은 그대로 미정이다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. **gate 전부**(`app/AGENTS.md` 로컬 확인 목록) — 위 미실행 목록부터. 새 테스트 9파일의 테스트 소스 규칙(풀·예산) 판정.
+2. **남은 AC 좌표 확인**: EP-19 `boot.test.ts` 7분기 · AC30′ 데이터 부팅 순서(지금은 소스 순서 테스트만) · AC32′ 두 호스트 정리 순서(`shutdown.test.ts` 없음 — 순서 테스트가 대신) · AC41 턴 준비 구별 값 · AC43 폐기 → DB 순서 · EP-16 검색 재집계 · EP-20 옮긴 자리 표.
+3. **plan 규범 정정**(위 표 + r1.11·r1.12) — 구현과 다른 설계 커밋.
+4. 변이 sweep(r1.9 부터 밀림) → 일곱 필드 보고 → AC 재집계·trailer → INDEX `impl/IMPL_DONE` → verify.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.13`(미완료) — verify 0회. verify 없는 impl 턴이 r1.3~r1.13 이다.
+- 이번 턴의 현재 결함 2건은 둘 다 새 동치·복구 테스트를 처음 돌려서 나왔다 — r1.11 이 "코드 완료·테스트 없음"으로 넘긴 저장 스트림이다.
+- 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` 뒤 `ensure-sqlite-abi.mjs node` 로 SQLite 스위트가 돈다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
