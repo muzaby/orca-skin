@@ -262,6 +262,8 @@ export const sessionApi = {
   refresh: (sessionId: string): Promise<RefreshSessionResult> =>
     window.oo.session.refresh(sessionId),
   load: (sessionId: string): Promise<LoadedSession | null> => window.oo.session.load(sessionId),
+  // 그 세션의 진행 중 본문 로드를 취소한다 — 데이터 호스트가 남은 조각을 보내지 않는다(0324 AC17).
+  cancelLoad: (sessionId: string): void => globalThis.window?.oo?.session?.cancelLoad?.(sessionId),
   delete: (sessionId: string): Promise<DeleteSessionResult> => window.oo.session.delete(sessionId),
   rename: (sessionId: string, title: string): Promise<void> =>
     window.oo.session.rename(sessionId, title),

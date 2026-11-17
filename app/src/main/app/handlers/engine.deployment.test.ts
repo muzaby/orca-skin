@@ -34,6 +34,7 @@ vi.mock('../../infra/log/registry', () => ({
 }))
 
 import { registerEngineHandlers } from './engine'
+import { engineContext } from '../data-host/data-port.testfixture'
 import { registerMcpHandlers } from './mcp'
 
 const edits = [
@@ -56,7 +57,8 @@ function registerEngine(
   deployExtensions: (options?: { throwOnFailure?: boolean }) => Promise<void>,
   order: string[]
 ): void {
-  registerEngineHandlers({
+  registerEngineHandlers(
+    engineContext({
     deployExtensions,
     harnessSettings: {
       invalidateAll: () => {
@@ -74,7 +76,8 @@ function registerEngine(
         order.push(`catalog:${key}`)
       }
     }
-  })
+    })
+  )
 }
 
 function invoke(channel: string, request: unknown): Promise<unknown> {
@@ -94,12 +97,14 @@ describe('engine CRUD uses the shared extension deployment queue', () => {
     const invalidateAll = vi.fn()
     const invalidateRuntime = vi.fn()
     const invalidateCatalog = vi.fn(async () => {})
-    registerEngineHandlers({
+    registerEngineHandlers(
+      engineContext({
       deployExtensions,
       harnessSettings: { invalidateAll },
       harnessRuntime: { invalidate: invalidateRuntime },
       runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
-    })
+      })
+    )
     await invoke(CHANNELS.engineDelete, { key: 'claude-corp' })
     expect(deployExtensions).toHaveBeenCalledOnce()
     expect(invalidateAll).toHaveBeenCalledOnce()

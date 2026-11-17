@@ -32,7 +32,8 @@ const registrations = vi.hoisted(
 vi.mock('../../infra/ipc/handle', () => ({
   handle: (channel: string, schema: unknown, mode: { fallback: unknown }, callback: unknown) =>
     registrations.set(channel, { schema, fallback: mode.fallback, callback } as never),
-  handlePlain: vi.fn()
+  handlePlain: vi.fn(),
+  on: vi.fn()
 }))
 import { registerSessionHandlers } from './session'
 

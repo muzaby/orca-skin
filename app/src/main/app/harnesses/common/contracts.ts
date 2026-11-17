@@ -21,13 +21,17 @@ export interface HarnessRuntimeOptions {
   extensionControl?: import('../../../adapters/common/extension-control').ExtensionControl
 }
 
-export interface MainHarnessModule {
-  projectResources?: import('../../../adapters/common/project-resources').ProjectResourcePolicy
+// 실행 없이 읽는 구성 — 데이터 호스트(상태)도 쓴다(`config-registry.ts`, 0324 EP-1 (e3)).
+export interface HarnessConfigModule {
   readonly id: Backend
-  createAdapter(options: HarnessRuntimeOptions): SessionAdapter
   loadSettings: HarnessSettingsLoader
   parseSettingsModels: SettingsModelParser
   parseRuntimeModels?: (config: HarnessRuntimeConfig) => ParsedModel[]
+}
+
+export interface MainHarnessModule extends HarnessConfigModule {
+  projectResources?: import('../../../adapters/common/project-resources').ProjectResourcePolicy
+  createAdapter(options: HarnessRuntimeOptions): SessionAdapter
   readUserSettings(): EngineUserSettingsResult
   configuredResources?(cwd: string, choices: Record<string, boolean>): Promise<NativeResource[]>
   nativeResourceScope?(cwd: string): string

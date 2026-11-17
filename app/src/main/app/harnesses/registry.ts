@@ -1,8 +1,5 @@
 import type { Backend } from '../../../shared/ipc'
 import { AdapterRegistry } from '../../adapters/common/registry'
-import { HarnessSettingsService } from '../../features/harnesses/common/settings'
-import type { HarnessRuntimeConfig } from '../../adapters/common/harness-config'
-import type { ParsedModel } from '../../features/harnesses/common/model-types'
 import type { MainHarnessModule, HarnessRuntimeOptions } from './common/contracts'
 import { claudeMainModule, claudeSettingsEnvHoist } from './claude/module'
 import { openCodeMainModule } from './opencode/module'
@@ -19,35 +16,6 @@ export function createAdapterRegistry(options: HarnessRuntimeOptions): AdapterRe
   )
 }
 
-// Preserve unsupported source-directory rows and existing runtime contributions explicitly.
-// Native settings parsing for a registered harness never falls back to a sibling module.
-function moduleFor(harnessId: string): MainHarnessModule {
-  return mainHarnessModules[harnessId as Backend] ?? claudeMainModule
-}
-
-export function parseHarnessSettingsModels(
-  harnessId: string,
-  settings: Record<string, unknown>
-): ParsedModel[] {
-  return moduleFor(harnessId).parseSettingsModels(settings)
-}
-
-export function parseHarnessRuntimeModels(config: HarnessRuntimeConfig): ParsedModel[] {
-  const parse =
-    moduleFor(config.harnessId).parseRuntimeModels ?? claudeMainModule.parseRuntimeModels!
-  return parse(config)
-}
-
-export function createHarnessSettingsService(root?: string): HarnessSettingsService {
-  return new HarnessSettingsService(
-    Object.fromEntries(
-      Object.values(mainHarnessModules).map((module) => [module.id, module.loadSettings])
-    ),
-    root,
-    parseHarnessSettingsModels
-  )
-}
-
 export function harnessModule(harnessId: Backend): MainHarnessModule {
   return mainHarnessModules[harnessId]
 }
@@ -59,7 +27,13 @@ export { MockAdapter } from '../../adapters/claude/mock'
 export { prepareAgentExtensionProfile } from './claude/extension-profile'
 export {
   createClaudeDeploymentService as createHarnessDeploymentService,
-  claudePluginRoots as harnessPluginRoots,
-  claudeSkillRoots as harnessSkillRoots,
-  scaffoldClaudeSettings as scaffoldHarnessSettings
+  claudePluginRoots as harnessPluginRoots
 } from './claude/extensions'
+// 실행 없이 읽는 구성은 `config-registry.ts` 가 정본이다 — 실행 쪽 소비자가 한 곳에서 받도록 다시 낸다.
+export {
+  createHarnessSettingsService,
+  harnessSkillRoots,
+  parseHarnessRuntimeModels,
+  parseHarnessSettingsModels,
+  scaffoldHarnessSettings
+} from './config-registry'

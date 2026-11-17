@@ -16,7 +16,7 @@ import { RUNTIME_MODEL_CONTRIBUTIONS } from '../deployment/harness-runtime'
 import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
 import { registerEngineHandlers } from './engine'
 import { registerMiscHandlers } from './misc'
-import { withDataPort } from '../data-host/data-port.testfixture'
+import { engineContext, withDataPort } from '../data-host/data-port.testfixture'
 
 const fixture = vi.hoisted(() => ({
   root: '',
@@ -112,13 +112,15 @@ it('imports fields, saves an independent document and lists/resolves only its mo
         throw new Error('the default deployment declares no runtime model contributions')
       }
     })
-    registerEngineHandlers({
+    registerEngineHandlers(
+      engineContext({
       deployExtensions,
       harnessSettings: settings,
       harnessRuntime: runtime,
       runtimeModelCatalog
-    })
-    registerMiscHandlers({
+      })
+    )
+    registerMiscHandlers(withDataPort({
       registry: {
         list: () => [{ id: 'opencode', installed: true, usable: true }],
         get: () => adapter
@@ -128,7 +130,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       runtimeModelCatalog,
       debugMock: { log: false },
       mcp: { resolver: () => () => undefined }
-    } as never)
+    }) as never)
     return { runtime, runtimeModelCatalog }
   }
   let { runtime, runtimeModelCatalog } = register()
@@ -195,7 +197,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
       [{ providerKey: null, sessionId: 'saved-with-other' }, 'other', 'other/extra']
     ] as const) {
       const selected = await resolveTurnProvider(
-        {
+        withDataPort({
           harnessSettings: settings,
           harnessRuntime: runtime,
           runtimeModelCatalog,
@@ -208,7 +210,7 @@ it('imports fields, saves an independent document and lists/resolves only its mo
             }
           }),
           mcp: { resolver: () => () => undefined }
-        } as never,
+        }) as never,
         {
           adapter,
           agentKind: 'code',
