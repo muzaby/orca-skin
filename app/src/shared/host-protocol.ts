@@ -42,7 +42,9 @@ export const HostToShellSchema = z.discriminatedUnion('type', [
     args: z.array(z.unknown())
   }),
   // 데이터 호스트 → 셸: 실행이 필요한 교차 요청이 왔는데 에이전트 호스트가 없다(D-044).
-  z.object({ type: z.literal('peer.ensure') })
+  z.object({ type: z.literal('peer.ensure') }),
+  // 데이터 호스트 → 셸: 주기 업데이트 확인 잡이 돌았다 — 업데이트는 셸이 소유한다.
+  z.object({ type: z.literal('update.check') })
 ])
 export type HostToShell = z.infer<typeof HostToShellSchema>
 
@@ -111,6 +113,13 @@ export const ShellToHostSchema = z.discriminatedUnion('type', [
   // 반대편 호스트와의 피어 포트를 함께 넘긴다. 반대편이 다시 뜰 때마다 새로 온다.
   z.object({ type: z.literal('peer.connect') }),
   // 셸이 에이전트 호스트를 띄우지 못했다(기동 실패 상한) — `peer.ensure` 의 답.
-  z.object({ type: z.literal('peer.unavailable') })
+  z.object({ type: z.literal('peer.unavailable') }),
+  // 로그인 창이 이동했다 — 끝났는지 호스트가 `session.loginVerdict` 로 답한다(파티션 세션).
+  z.object({
+    type: z.literal('login.navigated'),
+    loginId: z.string().min(1),
+    seq: z.number().int().nonnegative(),
+    url: z.string()
+  })
 ])
 export type ShellToHost = z.infer<typeof ShellToHostSchema>
