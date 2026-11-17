@@ -33,10 +33,13 @@ import {
   bootApi,
   chatApi,
   concurrencyApi,
+  hostApi,
   permissionApi,
   sessionApi,
-  settingsApi
+  settingsApi,
+  type HostLifecycleEvent
 } from '../../../shared/api/ipc'
+import { i18n } from '../../../shared/i18n'
 import { reportError } from '../../../shared/errors'
 import type { BranchSnapshot } from '../harnesses/common/composer/branchChipState'
 import type { DiffComparison } from '../harnesses/common/rightpanel/diffComparison'
@@ -998,6 +1001,28 @@ const coalescer = createEventCoalescer(
 )
 
 // IPC 인바운드 이벤트 1개 라우팅(코얼레서 경유). ChatProvider 부트스트랩이 구독을 연결한다.
+// 호스트 수명 통지 (0324 AC29′·AC33′).
+// - 실행 프로세스(에이전트 호스트)가 죽었다: 받은 이벤트를 먼저 반영하고, 진행 중이던 세션마다 턴을
+//   오류로 끝내 입력을 다시 받는다. 그 호스트가 보낼 마감 이벤트는 오지 않는다.
+// - 죽었던 호스트가 다시 붙었다: 활성 세션을 다시 읽는다(진행 중이면 캐시가 이긴다 — loadSession).
+export function onHostLifecycle(event: HostLifecycleEvent): void {
+  if (event.kind === 'exited') {
+    if (event.host !== 'agent') return
+    coalescer.flush()
+    const error = {
+      category: 'stream_error',
+      message: i18n.t('errors.agentHostLost'),
+      retryable: true
+    } as const
+    for (const key of Object.keys(getState().sessions))
+      dispatchTo(key, { type: 'HOST_LOST', error })
+    return
+  }
+  const active = getActiveChatSession()
+  if (active.sessionId)
+    void loadSession(active.sessionId, active.title ?? null, { revalidate: true })
+}
+
 export function ingestChatEvent(ev: NormalizedEvent): void {
   // rAF를 기다리는 델타도 이미 수신한 live 데이터다. load가 먼저 완료되어도 덮지 않는다.
   const key = 'sessionId' in ev && ev.sessionId ? ev.sessionId : getState().activeKey
@@ -1748,10 +1773,21 @@ function startHandoff(): boolean {
 // 조회 중 본문·composer·패널을 유지한다. 이미 보고 있는 세션 재클릭은 no-op.
 // title 은 사이드바 메타에서 가져오는 낙관적 값 — 부팅 자동 복원 경로에선 생략되면
 // 도착한 LoadedSession.title 로 채워진다.
-async function loadSession(sessionId: string, title: string | null = null): Promise<void> {
+// `revalidate` — 이미 열린 활성 세션도 다시 읽는다(호스트 재연결, 0324 AC33′). 진행 중이면 캐시가 이긴다.
+async function loadSession(
+  sessionId: string,
+  title: string | null = null,
+  options: { revalidate?: boolean } = {}
+): Promise<void> {
   let s = getState()
   const existing = s.sessions[sessionId]
-  if (s.activeKey === sessionId && existing && !existing.session.loadingSession) return
+  if (
+    !options.revalidate &&
+    s.activeKey === sessionId &&
+    existing &&
+    !existing.session.loadingSession
+  )
+    return
   coalescer.flush()
   s = getState()
   const cached = s.sessions[sessionId]
@@ -2329,6 +2365,7 @@ export function bootstrapChat(): () => void {
   })
 
   const unsubEvents = chatApi.onEvent(ingestChatEvent)
+  const unsubHosts = hostApi.onLifecycle(onHostLifecycle)
   const unsubBackground = chatApi.onBackgroundEvent(ingestBackgroundEvent)
   const unsubTitle = sessionApi.onTitle((ev) => {
     renameSession(ev.sessionId, ev.title)
@@ -2340,6 +2377,7 @@ export function bootstrapChat(): () => void {
   })
   return () => {
     unsubEvents()
+    unsubHosts()
     unsubBackground()
     unsubTitle()
     unsubConcurrency()

@@ -97,6 +97,36 @@ export function peerMessageFits(message: PeerMessage, from: PeerSide): boolean {
   return spec.from === from && spec.kind === message.kind
 }
 
+// ── F1 턴 저장 스트림의 턴 필드 — 송신기(에이전트)가 고르고 수신기(데이터)가 저장 쪽 턴 상태 사본(MD-09)에
+// 넣는다.
+// 턴 시작 때 한 번 오는 필드(저장이 읽는 정적 값).
+export const TURN_BEGIN_FIELDS = [
+  'pendingUserText',
+  'initialTitle',
+  'pendingProjectId',
+  'lineage',
+  'sessionBaseline',
+  'sessionBaselineRef',
+  'agentKind',
+  'cwd',
+  'extraDirs'
+] as const
+// 턴 도중 실행 쪽이 바꿀 수 있는 필드 — 바뀌면 다음 입력에 실려 온다.
+export const TURN_LIVE_FIELDS = [
+  'dbSessionId',
+  'providerKey',
+  'modelFamily',
+  'isNewSession',
+  'retrying'
+] as const
+
+export interface TurnBegin {
+  turnKey: string
+  // 이 턴이 잠긴 하네스 — 세션 행의 backend 출처다.
+  backend: string
+  fields: Record<string, unknown>
+}
+
 // F2·F4 의 `op` 봉투 — 조회·실행 표의 이름과 인자.
 export const PeerOpSchema = z.object({ op: z.string().min(1), args: z.array(z.unknown()) })
 export type PeerOp = z.infer<typeof PeerOpSchema>

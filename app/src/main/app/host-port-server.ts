@@ -1,10 +1,10 @@
-// 에이전트 호스트의 전송 — 창마다 받은 포트 (0324 EP-8·EP-9).
+// 호스트의 창 전송 — 창마다 받은 포트 (0324 EP-8·EP-9). 데이터 호스트와 에이전트 호스트가 같이 쓴다.
 //
 // 핸들러 등록(`infra/ipc/handle.ts`)과 통지(`infra/ipc/send.ts`)가 이 전송을 쓴다. 셸이 창의
 // 포트를 넘길 때마다 `connect` 로 창 참조를 만들고, 포트가 닫히거나 같은 창이 다시 연결되면
-// 그 참조를 닫는다. 이 파일은 Electron 을 모른다 — 포트는 `entry.ts` 가 `HostPort` 로 감싸 준다.
+// 그 참조를 닫는다. 이 파일은 Electron 을 모른다 — 포트는 `host-runtime.ts` 가 `HostPort` 로 감싸 준다.
 
-import { ClientToHostSchema, type HostToClient } from '../../../shared/host-protocol'
+import { ClientToHostSchema, type HostToClient } from '../../shared/host-protocol'
 import {
   CloseSignal,
   type ClientRef,
@@ -12,9 +12,9 @@ import {
   type IpcTransport,
   type RequestEvent,
   type SendListener
-} from '../../infra/ipc/transport'
+} from '../infra/ipc/transport'
 
-// 포트 하나. `entry.ts` 가 `MessagePortMain` 을 이 모양으로 감싼다.
+// 포트 하나. `host-runtime.ts` 가 `MessagePortMain` 을 이 모양으로 감싼다.
 export interface HostPort {
   post(message: HostToClient): void
   onMessage(listener: (data: unknown) => void): void

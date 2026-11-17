@@ -5,7 +5,7 @@
 
 import { create } from 'zustand'
 import type { SessionListItem } from '../../../../../shared/ipc'
-import { projectApi, sessionApi } from '../../../shared/api/ipc'
+import { hostApi, projectApi, sessionApi } from '../../../shared/api/ipc'
 import { reconcileProjectMembership } from '../lib/projectMembership'
 
 export type SessionAttention = 'completed' | 'awaiting-response'
@@ -298,8 +298,16 @@ export const sessionsActions = {
 
 // 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
 // 부팅 1회 조회는 initSessions(부트 오케스트레이터가 await), Provider 는 subscribeSessions 만 붙인다.
+// 죽었던 호스트가 다시 붙으면 목록을 다시 읽는다(0324 AC33′) — 그 사이의 변경을 놓치지 않는다.
 export function subscribeSessions(): () => void {
-  return sessionApi.onTitle((ev) => patchSession(ev.sessionId, { title: ev.title }))
+  const offTitle = sessionApi.onTitle((ev) => patchSession(ev.sessionId, { title: ev.title }))
+  const offHosts = hostApi.onLifecycle((event) => {
+    if (event.kind === 'reconnected') void initSessions()
+  })
+  return () => {
+    offTitle()
+    offHosts()
+  }
 }
 
 export function useSessionsState<T>(selector: (s: SessionsStoreState) => T): T {

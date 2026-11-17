@@ -16,7 +16,7 @@
 ## 1. 하나의 문장
 
 **Auth 는 자격증명 대상에 인증된 능력을, 로그인 프리 대상에 인증 없이 같은 형상의 Plugin 능력을
-제공한다. Harness·Plugin·Usage 는 자기 API 와 반환값을 직접 해석한다. Bootstrap 은 구체 구현을
+제공한다. Harness·Plugin·Usage 는 자기 API 와 반환값을 직접 해석한다. 데이터 호스트 조립(`DataBootstrap`)은 구체 구현을
 연결하되 제품 기능을 대신 구현하지 않는다.**
 
 이 세 문장이 아래 모든 경계의 근거다.
@@ -47,7 +47,7 @@ Gate  (features/gate)
 
 app/deployment/*  : 배포별 concrete (build-time TypeScript)
 app/connection-views.ts : Auth descriptor/snapshot → 기존 GUI DTO
-Bootstrap        : 위 객체를 생성하고 좁은 포트로 연결만 함
+DataBootstrap    : 위 객체를 생성하고 좁은 포트로 연결만 함 (데이터 호스트 조립)
 ```
 
 ### 2.1 Auth 계약에 없는 것
@@ -109,7 +109,7 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 
 **배포 factory 는 인자를 받고, 그 인자는 필요한 능력만 담는다.** `createPluginBindings(deps)`·
 `createConfigApiAugmenters(deps)`·`createDirectCredentialAugmenters(deps)`·`createUsageFetcher(deps)`·
-`createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력(`AuthBinder`·`RuntimeToolSink`·
+`createConnectionSources(deps)` 는 데이터 호스트 조립(`app/data-host/bootstrap.ts`)이 만든 능력(`AuthBinder`·`RuntimeToolSink`·
 AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴다. **`AuthBinder` 는
 `Pick<AuthRuntime,'bind'|'bindLoginFreePlugin'>` 다** — 배포는 자격증명 AuthId 는 `bind`, 로그인
 프리 id 는 `bindLoginFreePlugin` 으로 골라 `request` 를 쓸 뿐, `bindForPlugin`(raw credential)·
@@ -120,10 +120,10 @@ AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴�
 갈라져 있다** — config API 는 `auth` 만, direct credential 은 **배포가 `DIRECT_CREDENTIAL_AUTH_IDS`
 에 선언한 id 로 미리 닫힌 closure map**(`secrets`)만 받아, 한 factory 가 API 접근 권한과 raw secret
 을 동시에 쥘 수 없고 선언하지 않은 Auth 의 secret 에는 도달할 수도 없다. 두 방식이 같은 Harness
-key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 `bootstrap.ts` 를 고쳐야 하고,
+key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 호스트 조립(`app/data-host/bootstrap.ts`)을 고쳐야 하고,
 "배포가 손대는 파일은 `app/deployment/` 묶음뿐" 이라는 이 디렉토리의 존재 이유가 무너진다.
 기본 배포는 선언이 비어 있어 이 경로가 CI 에서 한 번도 실행되지 않으므로,
-`deployment-wiring.test.ts` 가 **비어 있지 않은 가상 배포**로 Bootstrap→Plugin/Harness/Usage/
+`deployment-wiring.test.ts` 가 **비어 있지 않은 가상 배포**로 조립→Plugin/Harness/Usage/
 카탈로그를 끝까지 태운다.
 
 Plugin 배포 능력은 `PluginDeploymentDeps`의 `auth`·`registry`·선택적 `logger`이며, `auth`는
@@ -865,12 +865,12 @@ renderer는 한 DTO에서 `gate | llm | service` 분류·인증 체계·상태·
 - 연결 행을 harness row로 띄울 때 배포는 `ConnectionDeploymentDeps.auth.bindLoginFreePlugin(id)`를 쓴다.
 
 배열 조립은 **`app/deployment/connections.ts`** 가 소유한다(`createConnectionSources(deps)`).
-Bootstrap 은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IPC 에 태울 뿐이다. 조립을
-`bootstrap.ts` 안에 두면 harness·usage row 를 더하려는 배포가 범용 부팅 파일을 고쳐야 한다 —
+데이터 호스트 조립은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IPC 에 태울 뿐이다. 조립을
+호스트 조립 안에 두면 harness·usage row 를 더하려는 배포가 범용 부팅 파일을 고쳐야 한다 —
 그래서 `gateRows()`·`pluginRows()` 를 조각으로 노출해 배포가 순서를 직접 정한다.
 
 `ConnectionViewSource` 는 main 전용이며 IPC 를 통과하지 않는다. behavior contribution registry 도
-아니다 — Bootstrap 이 만든 객체 참조를 배열로 묶기 때문에 별도 cross-reference validator 가 필요
+아니다 — 데이터 호스트 조립이 만든 객체 참조를 배열로 묶기 때문에 별도 cross-reference validator 가 필요
 없다(참조가 곧 무결성이다).
 
 ---
@@ -878,7 +878,7 @@ Bootstrap 은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IP
 ## 10. 부팅 순서
 
 ```text
-Bootstrap.start
+DataBootstrap.start (데이터 호스트)
   ├─ [DB 이전] RuntimeToolRegistry + createAuthRuntime(AUTH_DEFINITIONS, LOGIN_FREE_DEFINITIONS)
   │   └─ mcp.attachTokenSource((id) => secretReader.read(id))
   ├─ [DB 이전] Gate + Plugin concrete 1회 생성 + 초기 tool sync
@@ -898,7 +898,7 @@ Bootstrap.start
 전에 연결 상태를 invoke 하고, 복원된 Auth 의 도구 이름과 초기 가시성도 첫 snapshot 에 필요하다.
 이 순서를 바꾸면 로그인 화면이 빈 상태로 멈추거나 첫 턴의 도구 snapshot 이 달라진다.
 
-Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mapping·Harness 환경변수 이름을
+데이터 호스트 조립은 endpoint path·response body·Confluence CQL·UsageSnapshot mapping·Harness 환경변수 이름을
 **알면 안 된다.** concrete factory 를 부르고 결과 포트를 주입하는 것까지만 한다.
 
 ---
