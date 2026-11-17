@@ -1,0 +1,7 @@
+id	결과	exit	요약
+E9-1	green (기대 red)	0	vitest 144 passed (144)
+E9-2	red (기대 일치)	1	vitest 2 failed | 142 passed (144)
+E9-3	green (기대 red)	0	vitest 144 passed (144)
+E9-4	red (기대 일치)	1	vitest 2 failed | 142 passed (144)
+E9-5	red (기대 일치)	1	vitest 1 failed | 143 passed (144)
+# 원복 확인: 모든 파일 원문 그대로
