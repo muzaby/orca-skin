@@ -191,3 +191,133 @@
 - 운영 gate: 전부 PASS(vitest 22 는 기준선·다른 OS 경로).
 - 다음 단계: 설계자가 D1·D2 를 rev 4.6 으로 정한다(채택이면 구현 턴, 경계 선언만이면 "규범 변경만 — 구현 없음"으로 verify 2회째).
 - 남은 사람 확인: AC22·AC23.
+
+---
+
+# 라운드 2 — verify 2회째 (rev 4.6 · r2)
+
+**판정: RETURN_TO_PLAN** — 이행 결함 0 · 현재 결함 0 · `PLAN_GAP` 3(plan 내부 정합 1 · 확장 2). V1-D1~D4 는 닫혔다. 구현 쪽 재작업 의무는 없다.
+
+## R2-메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 · 일자 | Claude Code · 2026-11-17 |
+| 대상 커밋/range | `1c28e1f..c7a35d2` — `b5428c1`(rev 4.6 설계) · `c7a35d2`(r2 구현). 브랜치 `ccr-e635f216-7pe888`, `origin/main` 조상 아님 |
+| 구현 전 plan 기준 | `b5428c1`(rev 4.6) — 구현 커밋의 `plan.md` hunk 는 `[구현자 기입] r2` 절 추가뿐(AC·Decision 변경 0) |
+| V mode / 유효 V | `Baseline V: V1` rev 4.6 |
+| 라운드 | 2 |
+| 확장 창 | verify 2회째 — 창 안. 이번 판정 뒤의 설계 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다 |
+| 독립 축(⑥) | 구현자 spec 밖 변이 7(X1~X7) — 절 모양 4(이름 위치 · 절 분할 · 머리 수준 · 다른 문단 언급) · AC51 값 조항 1 · part 0 메시지 2 → 잡음 4 · 못 잡음 3(F1·F2) |
+| 열거 sweep(⑦) | diff 범위 + 직전 실패 — 구현자 spec 22(C1~C10 · n1~n3 · m1~m5 · s1 · T1~T3) 재실행 · 직전 못 잡음/동치 4(C1b · E24-r1 · 8d · 8e) |
+| 원본 | `evidence/verify2/`(`rerun-impl` · `rerun-guard` · `prev` · `indep` 의 `.jsonl`·`.tsv`) — 매 실행 `# 원복 확인: 모든 파일 원문 그대로` · 끝에 `git status` 깨끗함 |
+
+## R2-0. Plan validity (rev 4.6)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| CHANGED·NEW ↔ REQUIRED | 유효 | R-01′·AT-51 ↔ VP-01′ · AT-16′ ↔ VP-05″ · MD-02′ ↔ VP-16′. production 동작 변경 0 이라 INHERITED 회귀 0 |
+| §10 자리 검색 재실행 | 유효 | EP-6′ `data-host.ts:44`·`:73` → 2 · EP-25 `perf-budget.ts:5`·`:7`·`:11`·`:13` → 4 + 문단 `execution-model.md:109` · EP-22′ 1·1·1 — 목록과 차집합 0 |
+| EP-25 범위 | 유효 | `execution-model.md` 전체의 백틱 `*_MS` 는 4줄 — 절 밖 1줄(`:27` `HOST_READY_TIMEOUT_MS`)은 규칙 칸이 제외한다 |
+| 선택 적대 증거 | 유효 | VP-16′ C1 · VP-01′ m1~m5 등록 |
+| **AC51 동작 기준 ↔ 규칙 칸** | **PLAN_GAP (F1)** | 동작 기준의 "(값은 적지 않는다 — 정본은 그 파일이다)" 에 대응하는 규칙 칸 분기·검증 수단이 없다. 판정 술어(절 안 숫자는 지금도 `1건` · `0324` 2줄)를 구현자가 정할 수 없다 |
+| 인용 좌표 실재 | 유효 | `preload/session-load.test.ts:53` · `host-port-server.test.ts:120`·`:151` — `rg` 로 확인 |
+
+## R2-1. diff 비판 검토 · 역방향
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| production 동작 변경 | 없음 | `c7a35d2` 의 `app/src` prod diff 는 `perf-budget.ts` 주석 3줄 |
+| 문서 규칙(`docs/AGENTS.md` 작성 규칙 2·4) | 지킴 | 값·개수 없음 — `check-doc-inventory --check` prose ok. `0324 D-057` 은 출처 표기 |
+| 테스트가 production 을 읽는가 | 예 | EP-25 케이스는 `perf-budget.ts` · `execution-model.md` 실제 파일을 읽는다(합성 입력은 절 경계 1건만) |
+| 새 export · 미배선 | 없음 | 새 export 0. `UI_YIELD_INTERVAL_MS` 참조 0 은 D-057 이 정한 상태(B37) |
+
+## R2-2. 증거 재측정
+
+| 하한 | 범위 | 결과 |
+|---|---|---|
+| ① 등록 변이 | VP-16′ C1 · VP-01′ m1~m5 | 6/6 red |
+| ② 닫는 이슈 인용 변이 | V1-D1 의 C1 · C1b | 2/2 red — C1 은 새 케이스 1건 실패, C1b 는 462 중 1 실패 |
+| ③ 직전 못 잡음·동치 | C1b · E24-r1 · E24-8d · E24-8e | C1b red · E24-r1 green → **동치 유지**(`host-supervisor.ts` 미접촉, 근거는 라운드 1 §4) · 8d·8e SKIP(원문 없음 — 라운드 1 동치 그대로) |
+| ④ 이전 잡음 재실행 | diff 가 닿은 oracle 파일 — `check-ui-thread.test.mjs`(G1~G20 · G1b 21) · `data-host.test.ts`(C2~C7 6) | 27/27 red — red → green 0. 공용 설정·setup·헬퍼 변경 없음 |
+| ⑤ 형제 맞바꿈 | EP-25 기준 뜻 문장(s1) | green → **F3** |
+| ⑥ 독립 축 | X1~X7 | 아래 표 |
+| ⑦ 열거 sweep | 구현자 spec 22 | 잡음 21 · green 1(s1) |
+
+**고장 이력 (라운드 2)**
+
+| ID | 자리 | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|---|
+| C1~C10 | `shared/data-host.ts` 분할·조립 | 제거·뒤집기·빈 값 | 구현자 spec 그대로 | C1 못 잡음 · C2~C7 잡음 · C8~C10 새 | 잡음 10 | `data-host.test.ts`(C1: '첫 메시지가 상한을 넘어도 빈 조각은 없다 …') | 이행 — 잠김 |
+| n1~n3 · m1~m5 · T1~T3 | `execution-model.md` 절 · `perf-budget.ts` · 검사 경계 | 제거·다른 값 | 구현자 spec 그대로 | 새 | 잡음 11 | `check-ui-thread.test.mjs` EP-25 케이스 | 이행 — 잠김 |
+| s1 | 기준 문단 뜻 문장 | 맞바꿈 | 두 기준의 뜻 맞바꿈(이름 집합 같음) | 새(구현자 `경계`) | **못 잡음** | — | **확장 → F3** |
+| G1~G20 · G1b | `scripts/ui-thread-rules.mjs` | 제거·다른 값 | r2 `rerun-guard` 그대로 | 잡음 | 잡음 21 | 가드 테스트 + 실제 트리 가드 | 이행 — 잠김 |
+| C1b | `data-host.ts:53` 가드 제거(넓은 oracle) | 제거 | — | 못 잡음 | 잡음 | 같은 새 케이스 | 이행 — 잠김 |
+| E24-r1 | `host-supervisor.ts:106` `!deps.isReady \|\|` | 제거 | — | 동치 | green | — | 동치(코드 미접촉) |
+| E24-8d·8e | 만료 콜백 조건 | 제거 | — | SKIP·동치 | SKIP | — | 동치(원문 없음) |
+| X1 | 양보 문단 | 제거 | 이름 `UI_YIELD_INTERVAL_MS` → "일정 간격" | 새(⑥) | 잡음 | EP-25 | — |
+| X2 | 절 | 다른 값 | 기준·양보 문단 사이에 `## 사이` | 새(⑥) | 잡음 | EP-25 | — |
+| X3 | 절 머리 | 다른 값 | `##` → `###` | 새(⑥) | 잡음 | EP-25 | — |
+| X5 | 기준 문단 | 다른 값 | 키워드 없는 문단에도 `UI_YIELD_INTERVAL_MS` | 새(⑥) | 잡음 | EP-25 | — |
+| X4 | 기준 문단 | 다른 값 | `` `UI_TASK_BUDGET_MS`(50ms) `` — 값 기입 | 새(⑥) | **못 잡음** | — | **plan 내부 정합 → F1** |
+| X6 | `data-host.ts:53` | 다른 값 | `current.length > 0` → `parts > 0` | 새(⑥) | **못 잡음**(3,699 green) | — | **확장 → F2** |
+| X7 | `data-host.ts:61` | 다른 값 | 마지막 조각 `current.length > 0` → `parts > 0` | 새(⑥) | **못 잡음**(3,699 green) | — | **확장 → F2** |
+
+- 검산: 시도 22 + 21 + 4 + 7 = 54 → 잡음 47(구현자 21 · 가드 21 · C1b 1 · 독립 4) · 못 잡음 4(s1 · X4 · X6 · X7) · 동치 3(E24-r1 · 8d · 8e).
+- X6·X7 oracle 은 `data-host.test.ts` · `preload/session-load.test.ts` · `data-host/session-load.test.ts` · `src/renderer` 전체(3,699케이스).
+- part 0 메시지는 production 에서 만들어진다 — `adapters/claude/native-history-map.ts:186`·`:215` `parts: []`. 다만 원본 코드의 분할은 맞다(현재 결함 아님) — 원본 동작으로 재현되는 결함이 없다.
+
+## R2-3. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거(이번 턴) |
+|---|---|---|---|
+| VP-16′ | UT | PASS(F2 확장 공백 별도) | EP-6′ 규칙 칸 11분기 ↔ `data-host.test.ts` 케이스 7 + it.each 3 + 새 1 · C1~C10 red |
+| VP-05″ | ST·AT | PASS | EP-6′ 위 + AC16′ preload 좌표 `:53` · AC20′·AC49 좌표 `host-port-server.test.ts:151`·`:120` — 전체 vitest green 집합 안 |
+| VP-01′ | AT | PASS(F1 · F3 별도) | AT-01 `check-doc-inventory --check` exit 0 · AT-51 EP-25 자리 ①~⑤ — n1~n3 · m1 · m4 · m5 red |
+| 나머지 REQUIRED·REGRESSION | — | PASS(좌표 참조) | production 동작 변경 0 · 라운드 1 §5 좌표 파일이 이번 전체 vitest·`node --test` 에서 통과 |
+| VP-07 (AC22·AC23) | AT | 사람 실기 대기 | Electron 바이너리 없음 |
+
+- root `PAIR_FAIL` 0 · `BLOCKED_BY` 0.
+- AC: ✅ 49 · ⚠️ 2(AC22·AC23) · ❌ 0 = 51. 사본 대조 — plan r2 `49/51` = `c7a35d2` `Criteria-Met: 49/51` = INDEX 비고 `✅49·⚠️2/51` 일치.
+
+## R2-4. 운영 gate (마지막 트리 `c7a35d2`)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations ok · doc-inventory `generated doc ok` · prose ok · links ok(exit 0, `app/` 에서) · product-naming `2433파일` · test-budgets `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | PASS | 0 error · 3 warning(기존 React Compiler) · 트리 변화 0 |
+| `npm run typecheck` | PASS | exit 0 |
+| `node --test scripts/*.test.mjs` | PASS | 72 suites · 1001 pass · 0 fail |
+| `vitest run`(필터 없음) | PASS(기준선 분리) | 1026파일 · 9750케이스 — 실패 22(9파일) · 오류 1(`native-resources.ts:152`). 같은 9파일을 `b5428c1` worktree 에서 돌려 실패 22 · `FAIL` 줄 차집합 양방향 ∅. 원인은 라운드 1 과 같은 win32 전용 경로. 이번 변경 파일과 교집합 0 |
+| `electron-vite build` + `smoke-hosts.mjs out/main` | PASS | `built in` 3 · `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료` |
+
+## R2-5. Repository operation checks
+
+- `[구현자 기입] r2` 7필드 전부 있음 — 강제 지점 표는 EP-6′ 2 · EP-25 5 · EP-22′ 3 을 담는다.
+- trailer: `c7a35d2` · `b5428c1` 파싱 OK(`git log -1 --format='%(trailers:only=true)'` 가 적힌 키를 그대로 돌려준다).
+- 대상 커밋: `1c28e1f`(verify 1) · `b5428c1`(rev 4.6) · `c7a35d2`(r2) — `git cat-file -t` commit · 브랜치 `ccr-e635f216-7pe888` 조상 · `origin/main` 조상 아님(미병합). INDEX 자리표시자를 이 해시로 채우고 미병합을 표기한다.
+- 구현자의 s1 `경계` 판정이 인용한 실패 의미 칸은 "문단의 나머지 표현(React 지연 렌더 설명)" 이다 — 기준 문단까지 덮는다고 읽으려면 해석이 필요해 확장으로 바꿨다(F3).
+
+## R2-13. Finding disposition
+
+| # | finding | 분류 · 근거 | 귀속 | disposition |
+|---|---|---|---|---|
+| F1 | 절에 기준값을 적어도 green(X4) | plan 내부 정합 — AC51 동작 기준 "(값은 적지 않는다 — 정본은 그 파일이다)" 에 규칙 칸 분기·검증 수단이 없다(oracle 없는 AC 조항). 술어(무엇이 값인가)를 구현자가 정할 수 없다 | VP-01′ · AC51 | PLAN_GAP |
+| F2 | part 0 메시지 입력이 없어 분할 가드 둘의 `parts > 0` 대체가 green(X6·X7) | 확장 — EP-6′ 규칙 칸의 입력은 모두 part ≥ 1 메시지다. 원본 동작은 맞다 | VP-16′ · EP-6′ | PLAN_GAP(창 안) |
+| F3 | 기준 문단 뜻 맞바꿈이 green(s1) | 확장 — 규칙 칸은 이름 집합만 적는다. 실패 의미 칸의 경계 문장은 양보 문단의 React 설명을 예로 든다 | VP-01′ · EP-25 | PLAN_GAP(창 안) |
+
+- 셋 모두 production 동작에는 영향이 없다. 설계자가 항목마다 채택(열거에 넣음) 또는 경계 선언을 정한다 — 경계 선언만이면 "규범 변경만 — 구현 없음"으로 verify 3회째에 갈 수 있다.
+
+## R2-14. Review Signals — 사실만
+
+- verify 2회째 · RETURN_TO_PLAN 2회 연속. 라운드 1 의 막은 발견(빈 첫 조각 · 5ms 조항)은 닫혔다.
+- 이번 발견 3건 중 2건은 독립 축(⑥), 1건은 구현자가 `경계`로 적은 자기 sweep 행의 재분류다. 셋 다 rev 4.6 이 이번에 더한 규칙 칸(EP-6′·EP-25)의 잠금 공백이다.
+- 다음 verify 는 3회째(창 밖) — PASS 가 아니면 `handoff-review` 진입 조건.
+- 환경: Electron 바이너리 없음 · 기준선 실패 22 는 라운드 1 과 같다.
+
+## R2-15. 결론
+
+- 상태: **RETURN_TO_PLAN** — PLAN_GAP 3(F1 plan 내부 정합 · F2·F3 확장). 이행·현재 결함 0.
+- pair: REQUIRED·REGRESSION PASS(VP-07 사람 실기 제외) · AC 49/51.
+- 다음: 설계자 rev 4.7 — F1~F3 를 채택하거나 경계로 선언한다. 열거 원문을 늘릴 수 있는 마지막 설계 턴이다.
+- 남은 사람 확인: AC22·AC23.
