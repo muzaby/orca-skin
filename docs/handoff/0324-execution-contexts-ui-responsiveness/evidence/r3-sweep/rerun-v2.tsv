@@ -1,0 +1,49 @@
+id	결과	exit	요약
+C1	red (기대 일치)	1	vitest 2 failed | 34 passed (36)
+C2	red (기대 일치)	1	vitest 3 failed | 33 passed (36)
+C3	red (기대 일치)	1	vitest 7 failed | 15 passed (22)
+C4	red (기대 일치)	1	vitest 4 failed | 32 passed (36)
+C5	red (기대 일치)	1	vitest 2 failed | 34 passed (36)
+C6	red (기대 일치)	1	vitest 1 failed | 35 passed (36)
+C7	red (기대 일치)	1	vitest 1 failed | 35 passed (36)
+C8	red (기대 일치)	1	vitest 2 failed | 34 passed (36)
+C9	red (기대 일치)	1	vitest 11 failed | 25 passed (36)
+C10	red (기대 일치)	1	vitest 8 failed | 28 passed (36)
+n1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+n2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+n3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m4	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+m5	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+T1	red (기대 일치)	1	node --test fail 2 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+T2	red (기대 일치)	1	node --test fail 2 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+T3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+G1	red (기대 일치)	1	(출력 없음)
+G1b	red (기대 일치)	1	(출력 없음)
+G2	red (기대 일치)	1	(출력 없음)
+G3	red (기대 일치)	1	(출력 없음)
+G4	red (기대 일치)	1	(출력 없음)
+G5	red (기대 일치)	1	(출력 없음)
+G6	red (기대 일치)	1	(출력 없음)
+G7	red (기대 일치)	1	(출력 없음)
+G8	red (기대 일치)	1	(출력 없음)
+G9	red (기대 일치)	1	(출력 없음)
+G10	red (기대 일치)	1	(출력 없음)
+G11	red (기대 일치)	1	(출력 없음)
+G12	red (기대 일치)	1	(출력 없음)
+G13	red (기대 일치)	1	(출력 없음)
+G14	red (기대 일치)	1	(출력 없음)
+G15	red (기대 일치)	1	(출력 없음)
+G16	red (기대 일치)	1	(출력 없음)
+G17	red (기대 일치)	1	(출력 없음)
+G18	red (기대 일치)	1	(출력 없음)
+G19	red (기대 일치)	1	(출력 없음)
+G20	red (기대 일치)	1	(출력 없음)
+X1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+X2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+X3	red (기대 일치)	1	node --test fail 2 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+X5	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+C1b	red (기대 일치)	1	vitest 2 failed | 491 passed (493)
+# 원복 확인: 모든 파일 원문 그대로
