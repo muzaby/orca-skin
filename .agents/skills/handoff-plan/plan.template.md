@@ -364,7 +364,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
 - [ ] semantic 목표가 structural proxy만으로 검증되지 않는다.
 - [ ] 신규 계약의 SSOT·강제 지점·테스트 seam이 있다.
-- [ ] 부팅/등록 변경의 기존 소비처를 전수 확인했다.
+- [ ] 부팅/등록 변경(값이 생기는 시점·순서 변경 포함)의 기존 소비처를 전수 확인했다.
 - [ ] producer/consumer 양쪽 의미를 확인했다.
 - [ ] 상한·총량·one-way door를 필요한 곳에서 계산했다.
 - [ ] **게이트 명령이 대상 subtree의 현재 `AGENTS.md`와 충돌하지 않는다.**
@@ -417,8 +417,8 @@ producer → contract/normalize → state/store → consumer/UI/tool
 
 > **열거 sweep**: 열거 항목(§10 자리·path edge·규칙 칸 분기·등록 변이)마다 기본 변이 1개(제거 — 계약이 다른 형제 슬롯이 있으면 맞바꿈을 더함)를
 > 심어 red인지 본다(impl §3, 하네스 `.agents/skills/handoff-verify/scripts/mutate.py`). 그 위에 pair가 선택한 적대 증거·
-> 파생 이슈의 인용 변이·이번 턴에 만든 구조적 proxy·0건/전수·배선 oracle의 민감도를 심는다. 규칙 칸 분기는 그 칸을 구현한
-> diff 자리(조건·조기 반환·후보를 합치는 항)마다 제거 변이를 심어 찾는다. 그 밖의 hunk에는 mutation을
+> 파생 이슈의 인용 변이·이번 턴에 만든 구조적 proxy·0건/전수·배선 oracle의 민감도를 심는다. 규칙 칸 분기와 여러 항을 적은
+> §10 자리 문장의 항은 그것을 구현한 diff 자리(조건·조기 반환·후보를 합치는 항)마다 제거 변이를 심어 찾는다. 그 밖의 hunk에는 mutation을
 > 새로 발명하지 않는다. mutation이 없다는 이유만으로 현재 FAIL 범위를 늘리지 않는다.
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
