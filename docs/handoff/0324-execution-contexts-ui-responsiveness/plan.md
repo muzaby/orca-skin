@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -108,6 +108,7 @@
 
 ### 갱신 메모
 
+- r1.15(rev 4.3): 운영 gate 에 호스트 기동 스모크를 더했다 — r1.14 트리는 단위 테스트가 모두 green 인데 에이전트 호스트가 뜨지 못했다. 결정·AC·pair 변경 0.
 - r1.14(rev 4.2): 구현이 올린 `PLAN_GAP` 18건을 §7-H 에서 정정했다 — 함수를 담은 공유 객체 · 인증에 묶인 실행 구성 · 교차 요청 종류 · 산출물 참조 이벤트 · 가드 등록 자리와 교차 호스트 import · 세션 로드 취소 · 만들 수 없는 인용 oracle 7건의 대체. 새 결정 D-047~D-052(설계자). 기존 ACTIVE 결정은 모두 유지되고 D-039 의 예외 목록만 D-049 로 넓어졌다.
 - rev 4.2 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-049 ↔ AC40(예외가 D-039 조건절로 하나 늘었다) · D-052 ↔ AC24′(추가분) · D-051 ↔ AC20′·AC26 · D-047·D-048 ↔ AC41.
 
@@ -357,6 +358,7 @@
 | 가드 스크립트 | 테스트와 스크립트를 더한다 | `check-migrations-appendonly` · `check-doc-inventory --check` · `check-product-naming` · `check-test-budgets` · 신규 `check-ui-thread` | 같다 |
 | 문서 | `docs/arch`·`IPC_CONTRACT.md`·`docs/INDEX.md` 를 고친다 | `check-doc-inventory --check` | 같다 |
 | message-bus | handoff 산출 | 커밋 trailer 파싱 확인 · `INDEX.md` 행 | 같다 |
+| 호스트 기동 스모크 (rev 4.3) | 두 호스트 조립은 단위 테스트로 띄우지 못한다(B29) — 조립 안의 기동 순서 결함은 실제 기동에서만 보인다(r1.15: 에이전트 호스트가 뜨지 못한 채 단위 테스트 전부 green) | `npx electron-vite build && node scripts/smoke-hosts.mjs`(`ci.yml` Test 뒤) — 데이터 → 에이전트 준비 · 피어 · 창 포트 요청(소유 채널 응답·남의 채널 거부) · 에이전트 → 데이터 종료 | 같다 |
 
 ## 7-B. V1 rev 3 정정 — `PLAN_GAP` 3건 (턴 11)
 
