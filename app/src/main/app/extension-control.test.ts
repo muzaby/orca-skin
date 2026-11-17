@@ -36,3 +36,29 @@ it('keeps the last saved choices when persistence fails and allows a retry', () 
   control.setGlobal('claude', 'plugin:one', false)
   expect(control.global('claude')).toEqual({ 'plugin:one': false })
 })
+
+// 0324 EP-17 — 정본(에이전트 호스트의 설정 사본)이 아직 없을 때 만들어도 던지지 않고, 처음 읽을 때
+// 가져온다. 사본이 바뀌면 다음 읽기에서 다시 가져온다.
+it('does not read the store until first use and rereads after a change notice', () => {
+  let source: { claude?: Record<string, boolean> } | null = null
+  let changed!: () => void
+  const get = vi.fn(() => {
+    if (!source) throw new Error('settings copy not received')
+    return source
+  })
+  const control = extensionControl({
+    get,
+    set: vi.fn(),
+    onChanged: (listener) => {
+      changed = listener
+    }
+  })
+  expect(get).not.toHaveBeenCalled()
+  source = { claude: { 'plugin:a': true } }
+  expect(control.global('claude')).toEqual({ 'plugin:a': true })
+  source = { claude: { 'plugin:a': false } }
+  expect(control.global('claude')).toEqual({ 'plugin:a': true })
+  changed()
+  expect(control.global('claude')).toEqual({ 'plugin:a': false })
+  expect(get).toHaveBeenCalledTimes(2)
+})
