@@ -103,6 +103,7 @@ import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 import { normalizeAttachments } from '../../features/chat/attachments'
 import { enqueueTurnPrompt } from './enqueue'
 import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 // `WorktreeService.recoverMissingWorktree` 의 반환 union. 하네스 기본값을 갈아끼우려면 넓은
 // 타입이어야 한다 — `{kind:'none'}` 으로 좁히면 `mockResolvedValue` 가 다른 갈래를 거부한다.
@@ -152,7 +153,7 @@ function makeHarness(sessionId?: string) {
   }
   const sender = fakeClient()
   const deps = {
-    ctx: {
+    ctx: withDataPort({
       settings: { getAll: () => ({}) },
       db: {
         updateSessionProviderKey: vi.fn(),
@@ -179,7 +180,7 @@ function makeHarness(sessionId?: string) {
       ensureExtensionsDeployedForTurn: vi.fn(async () => undefined),
       workProfilePluginPath,
       extensions: { build: vi.fn(() => ({ skills: [], hooks: { normalized: {} } })) }
-    },
+    }),
     supervisor,
     bus: {},
     approvals: {},

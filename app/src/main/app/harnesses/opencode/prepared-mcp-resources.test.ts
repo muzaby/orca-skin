@@ -24,7 +24,9 @@ it('resolves draft execution choices and saved session scope from their actual o
     providerKey: 'draft-provider',
     agentKind: 'code'
   })
-  expect(await preparedMcpScope(db, { backend: 'opencode', cwd: null, projectId: null })).toMatchObject({
+  expect(
+    await preparedMcpScope(db, { backend: 'opencode', cwd: null, projectId: null })
+  ).toMatchObject({
     providerKey: null,
     agentKind: 'code'
   })
@@ -128,7 +130,8 @@ it('keeps observed preparations alive and discards retired completions', async (
       partial: true,
       items: []
     })
-    await Promise.resolve()
+    // 범위 해석(데이터 호스트 조회)을 지나 준비가 시작될 때까지 기다린다 — 준비 중에 송신자가 사라진다.
+    await vi.waitFor(() => expect(typeof complete).toBe('function'))
     resources.releaseSender(5)
     const release = vi.fn(async () => {})
     complete({ generation: 'late', signal: new AbortController().signal, read: vi.fn(), release })
