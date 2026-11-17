@@ -95,3 +95,9 @@ jobs:
           node scripts/smoke-hosts.mjs out/main
         env:
           ORCINUS_ORCA_TEST_TIME_SCALE: ${{ vars.ORCINUS_ORCA_TEST_TIME_SCALE }}
+
+      # 얇은 preload(0324 D-058) — sandbox 창의 preload 는 `require` 가 `electron` 하나만 불러온다. 빌드 산출에
+      # 서드파티 의존이나 나뉜 조각이 남으면 창이 로드 중에 죽어 빈다. 위 단계의 `out/preload` 를 대조하고
+      # sandbox 를 흉내 내 실행해 다리(`ooBridge`) 노출을 본다.
+      - name: Preload sandbox smoke
+        run: node scripts/smoke-preload.mjs out/preload

@@ -108,7 +108,7 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 ### 1.5 Custom Titlebar / 윈도우 컨트롤 (Phase 3+)
 
 - BrowserWindow: `frame: false` + macOS `titleBarStyle: 'hidden'` + `trafficLightPosition: { x: 12, y: 10 }` (`app/src/main/index.ts`).
-- `data-platform` 부착: App boot effect 에서 `documentElement.dataset.platform = window.oo.platform` 1회 (preload 가 sync 노출).
+- `data-platform` 부착: App boot effect 에서 `documentElement.dataset.platform = window.oo.platform` 1회 (preload 다리가 값으로 주고 renderer 전송층이 `window.oo` 에 싣는다).
 - IPC: `window.oo.window.{minimize,maximize,close}()` 3개 (IPC_CONTRACT §2.8).
 - macOS 분기: `WinControls` 가 `window.oo.platform === 'darwin'` 일 때 `null` 반환 — OS traffic light 가 그린다. 헤더 좌측 패딩 80px 로 traffic light 영역 회피.
 - drag 영역: `[-webkit-app-region:drag]` inline 클래스 대신 `style={{ WebkitAppRegion: 'drag' }}` (dom-architecture.md.3 의 2-layer 패턴).

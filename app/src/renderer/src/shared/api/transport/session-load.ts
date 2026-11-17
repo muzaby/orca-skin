@@ -1,4 +1,4 @@
-// 세션 본문 조각의 조립 — 창 쪽 (0324 EP-4′ · AC15~AC17).
+// 세션 본문 조각의 조립 — 창 쪽 renderer 전송층 (0324 EP-4′ · AC15~AC17 · D-058).
 //
 // 요청마다 번호를 붙여 보내고, 그 번호의 조각 통지를 모았다가 응답(머리)이 오면 한 벌로 조립해 돌려준다.
 // `window.oo.session.load`·`refresh` 의 반환 형상은 그대로다 — renderer 는 조각을 보지 않는다(D-011).
@@ -12,8 +12,8 @@ import {
   type SessionLoadChunk,
   type SessionLoadReply,
   type SessionRefreshReply
-} from '../shared/data-host'
-import type { LoadedSession, RefreshSessionResult } from '../shared/ipc'
+} from '../../../../../shared/data-host'
+import type { LoadedSession, RefreshSessionResult } from '../../../../../shared/ipc'
 
 export interface SessionLoadClientDeps {
   invoke(channel: string, payload: unknown): Promise<unknown>

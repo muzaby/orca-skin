@@ -1,671 +1,163 @@
-// 0212 r3 — **preload wire 홉의 인자 충실도**(verify r2 D12).
+// preload 다리 (0324 D-058 · EP-26 규칙 칸 · AC52 · AC24″).
 //
-// `chatApi.backgroundSubagent(sessionId, toolUseId)` 는 renderer 쪽에서 잠겼고(`chatStore`),
-// main 핸들러는 `turn.live.backgroundTask` 로 잠겼다. 그 사이의 preload 한 줄만 아무도 보지
-// 않아, `{ sessionId: toolUseId, toolUseId: sessionId }` 로 맞바꿔도 278파일 2790케이스가
-// 전건 초록이었다 — §10 EP-14 의 `실패 의미`("인자를 흘리면 다른 태스크가 백그라운드로
-// 간다")가 바로 그 상태다.
-//
-// preload 는 `orcinus-orca` 를 값으로 export 하지 않는다. `contextBridge.exposeInMainWorld` 가 받은
-// 객체를 포획해 실제 노출 표면을 그대로 부른다 — 재구현이 아니라 production 객체다.
+// `electron` 을 흉내 내고 `contextBridge.exposeInMainWorld` 가 받은 실제 다리를 부른다 — 재구현이 아니라
+// production 객체다. 다리는 셸 채널만 열고, 셸이 넘긴 호스트 포트를 같은 창의 `window.postMessage` 로 넘긴다.
 
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHANNELS, type OpenContextFileResult } from '../shared/ipc'
-import type { OoApi } from './index'
-import { CHANNEL_OWNER } from '../shared/channel-owner'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CHANNELS } from '../shared/ipc'
+import {
+  HOST_CONNECT_CHANNEL,
+  HOST_EXITED_CHANNEL,
+  HOST_PORT_CHANNEL,
+  HOST_PORT_MESSAGE
+} from '../shared/host-channels'
+import type { OoBridge } from './index'
 
 const harness = vi.hoisted(() => ({
-  invoke: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(undefined),
-  exposed: new Map<string, unknown>(),
-  listeners: new Map<string, Set<(event: unknown, payload: unknown) => void>>(),
-  sent: [] as Array<[string, unknown]>,
-  // 요청·송신이 어느 전송으로 갔는가 — 셸은 ipcRenderer, 호스트는 그 호스트의 포트(0324 AC24′).
-  routes: [] as Array<[string, 'shell' | 'agent' | 'data']>
+  exposed: [] as Array<[string, unknown]>,
+  invoke: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => 'answer'),
+  send: vi.fn(),
+  on: vi.fn(),
+  off: vi.fn(),
+  listeners: new Map<string, (event: unknown, payload: unknown) => void>(),
+  getPathForFile: vi.fn(() => 'C:/picked.txt'),
+  postMessage: vi.fn()
 }))
 
 vi.mock('electron', () => ({
   contextBridge: {
-    exposeInMainWorld: vi.fn((key: string, api: unknown) => harness.exposed.set(key, api))
+    exposeInMainWorld: (key: string, api: unknown) => harness.exposed.push([key, api])
   },
   ipcRenderer: {
-    invoke: (...args: unknown[]) => {
-      harness.routes.push([args[0] as string, 'shell'])
-      return harness.invoke(...args)
+    invoke: harness.invoke,
+    send: harness.send,
+    on: (channel: string, listener: (event: unknown, payload: unknown) => void) => {
+      harness.on(channel, listener)
+      harness.listeners.set(channel, listener)
     },
-    on: (channel: string, listener: (event: unknown, payload: unknown) => void): void => {
-      const listeners = harness.listeners.get(channel) ?? new Set()
-      listeners.add(listener)
-      harness.listeners.set(channel, listeners)
-    },
-    off: (channel: string, listener: (event: unknown, payload: unknown) => void): void => {
-      harness.listeners.get(channel)?.delete(listener)
-    },
-    send: vi.fn((channel: string, payload: unknown) => harness.sent.push([channel, payload]))
+    off: harness.off
   },
-  webUtils: { getPathForFile: vi.fn(() => '/f') }
+  webUtils: { getPathForFile: harness.getPathForFile }
 }))
 
-// contextIsolated 가 거짓이면 모듈이 `window.oo` 분기로 가고 node 환경에는 window 가 없다.
+// contextIsolated 가 거짓이면 모듈이 `window.ooBridge` 분기로 간다 — production 창은 격리돼 있다.
 Object.defineProperty(process, 'contextIsolated', { value: true, configurable: true })
-
-// 셸이 넘기는 호스트 포트 — 요청은 같은 `harness.invoke` 로 받아 답하고, 통지는 `emitEvent` 로 보낸다.
-// 요청이 어느 전송으로 갔는지는 `routes` 가 기록한다(0324 AC24′).
-const hostPorts = new Map<'agent' | 'data', { deliver(data: unknown): void }>()
-function deliverHostPort(host: 'agent' | 'data'): void {
-  let onmessage: ((event: { data: unknown }) => void) | null = null
-  const port = {
-    set onmessage(listener: (event: { data: unknown }) => void) {
-      onmessage = listener
-    },
-    postMessage: (message: { kind: string; id?: number; channel: string; payload?: unknown }) => {
-      harness.routes.push([message.channel, host])
-      if (message.kind !== 'invoke') return
-      const args =
-        message.payload === undefined ? [message.channel] : [message.channel, message.payload]
-      void Promise.resolve()
-        .then(() => harness.invoke(...args))
-        .then(
-          (value) => onmessage?.({ data: { kind: 'result', id: message.id, ok: true, value } }),
-          (error: unknown) =>
-            onmessage?.({
-              data: { kind: 'result', id: message.id, ok: false, error: (error as Error).message }
-            })
-        )
-    },
-    close: () => {}
-  }
-  hostPorts.set(host, { deliver: (data) => onmessage?.({ data }) })
-  for (const listener of harness.listeners.get('oo:host:port') ?? [])
-    listener({ ports: [port] }, { host })
-}
-
-// 통지 하나 — 소유 프로세스의 전송으로 보낸다(호스트 채널은 포트, 셸 채널은 ipcRenderer).
-function emitEvent(channel: string, payload: unknown): void {
-  const owner = (CHANNEL_OWNER as Record<string, string>)[
-    Object.keys(CHANNELS).find((key) => (CHANNELS as Record<string, string>)[key] === channel)!
-  ]
-  if (owner === 'agent' || owner === 'data') {
-    hostPorts.get(owner)!.deliver({ kind: 'event', channel, payload })
-    return
-  }
-  for (const listener of harness.listeners.get(channel) ?? []) listener({}, payload)
-}
+vi.stubGlobal('window', { postMessage: harness.postMessage })
 
 await import('./index')
-deliverHostPort('agent')
-deliverHostPort('data')
+const bridge = harness.exposed[0]?.[1] as OoBridge
 
-it('forwards backend extension changes through preload and renderer and removes the listener', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
-    const seen = vi.fn()
-    const off = sessionApi.onExtensionsChanged(seen)!
-    for (const backend of ['claude', 'opencode']) emitEvent(CHANNELS.extensionsChanged, { backend })
-    expect(seen.mock.calls).toEqual([[{ backend: 'claude' }], [{ backend: 'opencode' }]])
-    off()
-    emitEvent(CHANNELS.extensionsChanged, { backend: 'claude' })
-    expect(seen).toHaveBeenCalledTimes(2)
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
+// 셸 → preload 통지 하나 — 모듈이 등록한 `ipcRenderer.on` 리스너를 부른다.
+const fromShell = (channel: string, payload: unknown, ports: unknown[] = []): void =>
+  harness.listeners.get(channel)!({ ports }, payload)
 
-it('carries managed MCP revision events through the actual preload and renderer subscription', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
-    const seen = vi.fn()
-    const off = sessionApi.onManagedMcpChanged(seen)!
-    emitEvent(CHANNELS.managedMcpChanged, { revision: 37 })
-    expect(seen).toHaveBeenCalledExactlyOnceWith({ revision: 37 })
-    off()
-    emitEvent(CHANNELS.managedMcpChanged, { revision: 38 })
-    expect(seen).toHaveBeenCalledOnce()
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-it('carries explicit global extension scope and choices across renderer API and preload', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
-    await sessionApi.globalExtensions('opencode')
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionCatalog, {
-      backend: 'opencode'
-    })
-    const request = {
-      backend: 'claude' as const,
-      kind: 'plugin' as const,
-      id: 'plugin:installed',
-      enabled: false
-    }
-    const confirm = { status: 'confirm', reason: 'claude-processes', sessions: 2 }
-    harness.invoke.mockResolvedValueOnce(confirm)
-    expect(await sessionApi.setGlobalExtension(request)).toEqual(confirm)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, request)
-    const applied = { status: 'applied', resources: { state: 'disconnected', items: [] } }
-    harness.invoke.mockResolvedValueOnce(applied)
-    expect(await sessionApi.setGlobalExtension({ ...request, confirmed: true })).toEqual(applied)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionSetEnabled, {
-      ...request,
-      confirmed: true
-    })
-    await sessionApi.openGlobalExtension({ backend: 'opencode', kind: 'mcp', id: 'docs' })
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.extensionOpen, {
-      backend: 'opencode',
-      kind: 'mcp',
-      id: 'docs'
-    })
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-it.each(['claude', 'opencode'] as const)(
-  'preserves %s engine CRUD identities through the renderer API and actual preload',
-  async (engine) => {
-    vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-    try {
-      const { engineApi, agentApi } = await import('../renderer/src/shared/api/ipc')
-      const key = `${engine}-nondefault`
-      const settingsJson = JSON.stringify({ fixture: `${engine}-settings` })
-      const created = { key, engine, provider: 'nondefault' }
-      harness.invoke.mockClear()
-      harness.invoke.mockResolvedValueOnce(created)
-      expect(await engineApi.add({ engine, provider: 'nondefault', settingsJson })).toBe(created)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineAdd, {
-        engine,
-        provider: 'nondefault',
-        settingsJson
-      })
-      const read = { ...created, settingsJson }
-      harness.invoke.mockResolvedValueOnce(read)
-      expect(await engineApi.read(key)).toBe(read)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineRead, { key })
-      harness.invoke.mockResolvedValueOnce(created)
-      expect(await engineApi.update({ key, settingsJson })).toBe(created)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineUpdate, { key, settingsJson })
-      await engineApi.delete(key)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineDelete, { key })
-      const catalog = [{ key, adapter: engine, supported: true, models: [] }]
-      harness.invoke.mockResolvedValueOnce(catalog)
-      expect(await agentApi.list()).toBe(catalog)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.agentList)
-      expect(harness.invoke).toHaveBeenCalledTimes(5)
-    } finally {
-      harness.invoke.mockResolvedValue(undefined)
-      vi.unstubAllGlobals()
-    }
-  }
-)
-
-it('imports settings for the selected harness through the renderer wrapper and exposed preload', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { engineApi } = await import('../renderer/src/shared/api/ipc')
-    const result = { exists: true, settingsJson: '{"fixture":true}' }
-    harness.invoke.mockResolvedValue(result)
-    for (const engine of ['opencode', 'claude'] as const) {
-      expect(await engineApi.importUserSettings(engine)).toEqual(result)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineImportUserSettings, { engine })
-    }
-    await engineApi.importUserSettings()
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.engineImportUserSettings, {
-      engine: 'claude'
-    })
-  } finally {
-    harness.invoke.mockResolvedValue(undefined)
-    vi.unstubAllGlobals()
-  }
-})
-
-it('reveals logs through the renderer wrapper and exposed preload on the dedicated no-input channel', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  vi.stubGlobal('window', { oo: api })
-  try {
-    const { errorApi } = await import('../renderer/src/shared/api/ipc')
-    harness.invoke.mockClear()
-    await errorApi.revealLog()
-    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith('oo:error:revealLog')
-    harness.invoke.mockRejectedValueOnce(new Error('folder denied'))
-    await expect(errorApi.revealLog()).rejects.toThrow('folder denied')
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-it('promotes the selected shell through the renderer API and actual preload with all identity fields', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  vi.stubGlobal('window', { oo: api })
-  try {
-    const { chatApi } = await import('../renderer/src/shared/api/ipc')
-    harness.invoke.mockClear()
-    for (const req of [
-      { sessionId: 'session-a', generation: 'generation-a', toolUseId: 'shell-a' },
-      { sessionId: 'session-b', generation: 'generation-b', toolUseId: 'shell-b' }
-    ]) {
-      await chatApi.promoteBackgroundTask(req)
-      expect(harness.invoke).toHaveBeenLastCalledWith('oo:chat:promoteBackgroundTask', req)
-    }
-    expect(harness.invoke).toHaveBeenCalledTimes(2)
-    harness.invoke.mockRejectedValueOnce(new Error('promotion failed'))
-    await expect(
-      api.chat.promoteBackgroundTask({ sessionId: 's', generation: 'g', toolUseId: 't' })
-    ).rejects.toThrow('promotion failed')
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-it('sends all held inputs now through the renderer API and actual preload using the session key', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  vi.stubGlobal('window', { oo: api })
-  try {
-    const { chatApi } = await import('../renderer/src/shared/api/ipc')
-    harness.invoke.mockClear()
-    const request = { sessionId: 'queued-session' }
-    await chatApi.sendSteerNow(request)
-    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.chatSteerSendNow, request)
-    harness.invoke.mockRejectedValueOnce(new Error('interrupt denied'))
-    await expect(chatApi.sendSteerNow(request)).rejects.toThrow('interrupt denied')
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-it('opens a context file through the renderer wrapper and actual preload with unchanged results', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  vi.stubGlobal('window', { oo: api })
-  try {
-    const { fileApi } = await import('../renderer/src/shared/api/ipc')
-    const request = { path: 'C:/work/a.md', sessionId: 'owner' }
-    harness.invoke.mockClear()
-    const outcomes: OpenContextFileResult[] = [
-      { outcome: 'opened' },
-      { outcome: 'revealed', reason: 'open-failed' },
-      { outcome: 'revealed', reason: 'unsupported-type' },
-      { outcome: 'missing' }
-    ]
-    for (const outcome of outcomes) {
-      harness.invoke.mockResolvedValueOnce(outcome)
-      await expect(fileApi.openContextFile(request)).resolves.toBe(outcome)
-      expect(harness.invoke).toHaveBeenLastCalledWith('oo:files:openContextFile', request)
-    }
-    expect(harness.invoke).toHaveBeenCalledTimes(4)
-    harness.invoke.mockRejectedValueOnce(new Error('scope rejected'))
-    await expect(fileApi.openContextFile(request)).rejects.toThrow('scope rejected')
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-it('artifact actions preserve session and publication IDs on dedicated channels', async () => {
-  const api = harness.exposed.get('oo') as OoApi
+beforeEach(() => {
   harness.invoke.mockClear()
-  const target = { sessionId: 'original-session', publicationId: 'older-publication' }
-  const batch = { sessionId: 'original-session', publicationIds: ['old', 'new'] }
-  await api.artifacts.list({ sessionId: target.sessionId })
-  await api.artifacts.status(batch)
-  await api.artifacts.preview(target)
-  await api.artifacts.save(batch)
-  await api.artifacts.reveal(target)
-  await api.artifacts.trash(target)
-  expect(harness.invoke.mock.calls).toEqual([
-    [CHANNELS.artifactList, { sessionId: target.sessionId }],
-    [CHANNELS.artifactStatus, batch],
-    [CHANNELS.artifactPreview, target],
-    [CHANNELS.artifactSave, batch],
-    [CHANNELS.artifactReveal, target],
-    [CHANNELS.artifactTrash, target]
-  ])
+  harness.send.mockClear()
+  harness.on.mockClear()
+  harness.off.mockClear()
+  harness.postMessage.mockClear()
 })
 
-it('artifact catalog and pin state preserve their exact IPC requests', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  harness.invoke.mockClear()
-  const request = { sessionId: 'owner', publicationId: 'selected', pinned: false }
-  await api.artifacts.catalog()
-  await api.artifacts.setPinned(request)
-  expect(harness.invoke.mock.calls).toEqual([
-    [CHANNELS.artifactCatalog, {}],
-    [CHANNELS.artifactSetPinned, request]
-  ])
-})
-
-type ChatApi = {
-  backgroundSubagent: (sessionId: string, toolUseId: string) => Promise<void>
-  stopSubagent: (sessionId: string, toolUseId: string) => Promise<void>
-}
-
-function chat(): ChatApi {
-  const api = harness.exposed.get('oo') as { chat: ChatApi } | undefined
-  if (!api) throw new Error('preload 가 `oo` 를 노출하지 않았다 — contextBridge 포획 실패')
-  return api.chat
-}
-
-describe('preload oo.chat — 서브에이전트 제어 wire 홉 (0212 §10 EP-14)', () => {
-  beforeEach(() => harness.invoke.mockClear())
-
-  // 두 번 부르고 인자를 서로 다르게 준다 — 한 번이면 상수로 굳힌 payload 도 통과하고,
-  // 두 필드가 같은 타입이라 맞바꿈은 값이 달라야만 드러난다.
-  it('backgroundSubagent 는 받은 두 값을 각자의 필드에 실어 보낸다', async () => {
-    await chat().backgroundSubagent('sess-1', 'use-1')
-    await chat().backgroundSubagent('sess-2', 'use-2')
-
-    expect(harness.invoke.mock.calls).toEqual([
-      [CHANNELS.chatBackgroundSubagent, { sessionId: 'sess-1', toolUseId: 'use-1' }],
-      [CHANNELS.chatBackgroundSubagent, { sessionId: 'sess-2', toolUseId: 'use-2' }]
+describe('preload 다리 — ① 노출', () => {
+  it('`exposeInMainWorld` 1회 · 키 `ooBridge` · 다리 키 7', () => {
+    expect(harness.exposed.map(([key]) => key)).toEqual(['ooBridge'])
+    expect(Object.keys(bridge)).toEqual([
+      'invoke',
+      'send',
+      'on',
+      'connectHost',
+      'onHostExited',
+      'pathForFile',
+      'platform'
     ])
   })
+})
 
-  it('stopSubagent 도 같은 규칙이다 — 같은 좌표를 쓰는 형제 채널이다', async () => {
-    await chat().stopSubagent('sess-1', 'use-1')
-    await chat().stopSubagent('sess-2', 'use-2')
-
-    expect(harness.invoke.mock.calls).toEqual([
-      [CHANNELS.chatStopSubagent, { sessionId: 'sess-1', toolUseId: 'use-1' }],
-      [CHANNELS.chatStopSubagent, { sessionId: 'sess-2', toolUseId: 'use-2' }]
-    ])
+describe('preload 다리 — ② 셸 채널만 연다', () => {
+  it('셸 채널의 요청·송신·구독과 그 해제는 `ipcRenderer` 로 간다', async () => {
+    expect(await bridge.invoke(CHANNELS.bootWhenReady)).toBe('answer')
+    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.bootWhenReady, undefined)
+    bridge.send(CHANNELS.logEmit, { level: 'info' })
+    expect(harness.send).toHaveBeenCalledExactlyOnceWith(CHANNELS.logEmit, { level: 'info' })
+    const handler = vi.fn()
+    const off = bridge.on(CHANNELS.updateStateEvent, handler)
+    expect(harness.on).toHaveBeenCalledOnce()
+    const [channel, listener] = harness.on.mock.calls[0]!
+    expect(channel).toBe(CHANNELS.updateStateEvent)
+    // Electron 이벤트 객체는 넘기지 않는다.
+    listener({ sender: 'event' }, { state: 'idle' })
+    expect(handler).toHaveBeenCalledExactlyOnceWith({ state: 'idle' })
+    off()
+    expect(harness.off).toHaveBeenCalledExactlyOnceWith(CHANNELS.updateStateEvent, listener)
   })
 
-  it('두 채널은 서로 다른 채널 상수를 쓴다 — 맞바꿔도 위 두 케이스는 침묵한다', () => {
-    expect(CHANNELS.chatBackgroundSubagent).not.toBe(CHANNELS.chatStopSubagent)
+  it.each([
+    ['에이전트 채널 요청', () => bridge.invoke(CHANNELS.chatSend)],
+    ['데이터 채널 송신', () => bridge.send(CHANNELS.sessionLoadCancel, { requestId: 1 })],
+    ['에이전트 채널 구독', () => bridge.on(CHANNELS.chatEvent, () => {})],
+    ['표에 없는 이름', () => bridge.invoke('oo:nope')]
+  ])('%s → 던진다 · `ipcRenderer` 호출 0', (_name, call) => {
+    expect(call).toThrow()
+    expect(harness.invoke).not.toHaveBeenCalled()
+    expect(harness.send).not.toHaveBeenCalled()
+    expect(harness.on).not.toHaveBeenCalled()
   })
 })
 
-interface EventEndpoint {
-  name: string
-  channel: string
-  subscribe: (api: OoApi, handler: (payload: unknown) => void) => () => void
-}
+describe('preload 다리 — ③ 포트 전달', () => {
+  it('셸이 넘긴 에이전트 포트를 같은 창의 메인 월드로 넘긴다', () => {
+    const port = { id: 'agent-port' }
+    fromShell(HOST_PORT_CHANNEL, { host: 'agent' }, [port])
+    expect(harness.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { type: HOST_PORT_MESSAGE, host: 'agent' },
+      '*',
+      [port]
+    )
+  })
 
-// 공개 API에서 구독한다. 내부 helper만 시험하면 endpoint의 잘못된 채널 연결을 놓친다.
-const eventEndpoints: EventEndpoint[] = [
-  {
-    name: 'session.onComposerCatalogInvalidated',
-    channel: CHANNELS.composerCatalogInvalidated,
-    subscribe: (api, handler) => api.session.onComposerCatalogInvalidated(handler)
-  },
-  {
-    name: 'session.onNativeResourcesChanged',
-    channel: CHANNELS.sessionNativeResourcesChanged,
-    subscribe: (api, handler) => api.session.onNativeResourcesChanged(handler)
-  },
-  {
-    name: 'chat.onEvent',
-    channel: CHANNELS.chatEvent,
-    subscribe: (api, handler) => api.chat.onEvent(handler)
-  },
-  {
-    name: 'install.onStatus',
-    channel: CHANNELS.installStatus,
-    subscribe: (api, handler) => api.install.onStatus(handler)
-  },
-  {
-    name: 'session.onTitle',
-    channel: CHANNELS.sessionTitleEvent,
-    subscribe: (api, handler) => api.session.onTitle(handler)
-  },
-  {
-    name: 'cost.onUsage',
-    channel: CHANNELS.costUsageEvent,
-    subscribe: (api, handler) => api.cost.onUsage(handler)
-  },
-  {
-    name: 'provider.onState',
-    channel: CHANNELS.providerState,
-    subscribe: (api, handler) => api.provider.onState(handler)
-  },
-  {
-    name: 'concurrency.onEvent',
-    channel: CHANNELS.concurrencyEvent,
-    subscribe: (api, handler) => api.concurrency.onEvent(handler)
-  },
-  {
-    name: 'update.onState',
-    channel: CHANNELS.updateStateEvent,
-    subscribe: (api, handler) => api.update.onState(handler)
-  },
-  {
-    name: 'update.onProgress',
-    channel: CHANNELS.updateProgressEvent,
-    subscribe: (api, handler) => api.update.onProgress(handler)
-  }
-]
-
-describe('preload public event subscriptions', () => {
-  it.each(eventEndpoints)(
-    '$name keeps its channel, strips the Electron event and releases only its own listener',
-    (endpoint) => {
-      const api = harness.exposed.get('oo') as OoApi
-      const first = vi.fn()
-      const second = vi.fn()
-      const stopFirst = endpoint.subscribe(api, first)
-      const stopSecond = endpoint.subscribe(api, second)
-      const firstPayload = { source: endpoint.name, revision: 1 }
-      const emit = emitEvent
-
-      for (const other of eventEndpoints) {
-        if (other.channel !== endpoint.channel) emit(other.channel, { unexpected: true })
-      }
-      expect(first).not.toHaveBeenCalled()
-      expect(second).not.toHaveBeenCalled()
-      emit(endpoint.channel, firstPayload)
-      expect(first).toHaveBeenCalledExactlyOnceWith(firstPayload)
-      expect(second).toHaveBeenCalledExactlyOnceWith(firstPayload)
-
-      stopFirst()
-      stopFirst()
-      const secondPayload = { source: endpoint.name, revision: 2 }
-      emit(endpoint.channel, secondPayload)
-      expect(first).toHaveBeenCalledOnce()
-      expect(second.mock.calls).toEqual([[firstPayload], [secondPayload]])
-      stopSecond()
-      emit(endpoint.channel, { revision: 3 })
-      expect(second).toHaveBeenCalledTimes(2)
-    }
-  )
+  it.each([
+    ['호스트 없음', {}, [{}]],
+    ['셸', { host: 'shell' }, [{}]],
+    ['포트 0', { host: 'data' }, []]
+  ])('%s → 넘기지 않는다', (_name, payload, ports) => {
+    fromShell(HOST_PORT_CHANNEL, payload, ports)
+    expect(harness.postMessage).not.toHaveBeenCalled()
+  })
 })
 
-it('wires DB load and lazy refresh as separate calls with the same stored session ID', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
-    const loaded = { id: 'native-session', backend: 'opencode', messages: [] }
-    harness.invoke
-      .mockClear()
-      .mockResolvedValueOnce(loaded)
-      .mockResolvedValueOnce({ status: 'unchanged' })
-    expect(await sessionApi.load('native-session')).toEqual(loaded)
-    expect(harness.invoke).toHaveBeenCalledExactlyOnceWith(CHANNELS.sessionLoad, {
-      sessionId: 'native-session',
-      requestId: expect.any(Number)
-    })
-    expect(await sessionApi.refresh('native-session')).toEqual({ status: 'unchanged' })
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionRefresh, {
-      sessionId: 'native-session',
-      requestId: expect.any(Number)
-    })
-  } finally {
-    harness.invoke.mockResolvedValue(undefined)
-    vi.unstubAllGlobals()
-  }
+describe('preload 다리 — ④ 연결 요청', () => {
+  it.each(['all', 'agent', 'data'] as const)('`connectHost(%s)` → 셸 연결 채널 1', (host) => {
+    bridge.connectHost(host)
+    expect(harness.send).toHaveBeenCalledExactlyOnceWith(HOST_CONNECT_CHANNEL, { host })
+  })
+
+  it('셸은 연결 대상이 아니다 — 던진다 · 송신 0', () => {
+    expect(() => bridge.connectHost('shell' as 'all')).toThrow()
+    expect(harness.send).not.toHaveBeenCalled()
+  })
 })
 
-it('preserves native resource state and toggle identity through renderer and preload', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
-    const catalogRequest = {
-      owner: 'owner-B',
-      part: 'agents' as const,
-      scope: {
-        backend: 'opencode' as const,
-        sessionId: null,
-        cwd: 'C:/draft',
-        projectId: 'project-C',
-        providerKey: 'opencode-native',
-        agentKind: 'code' as const
-      }
-    }
-    const catalog = { part: 'agents', value: [{ name: 'Atlas' }], generation: 'catalog-g' }
-    harness.invoke.mockResolvedValue(catalog)
-    expect(await sessionApi.composerCatalog(catalogRequest)).toBe(catalog)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalog, catalogRequest)
-    for (const part of ['mcp', 'plugins'] as const) {
-      const request = { ...catalogRequest, part }
-      const result = { part, value: [], generation: 'resource-g' }
-      harness.invoke.mockResolvedValue(result)
-      expect(await sessionApi.composerCatalog(request)).toBe(result)
-      expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalog, request)
-    }
-    const cancelled = { part: 'agents', status: 'cancelled' }
-    harness.invoke.mockResolvedValue(cancelled)
-    expect(await sessionApi.composerCatalog(catalogRequest)).toBe(cancelled)
-    await sessionApi.releaseComposerCatalog(catalogRequest.owner)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.composerCatalogRelease, {
-      owner: 'owner-B'
-    })
-    const result = {
-      state: 'connected',
-      generation: 'native-generation',
-      items: [{ id: 'a', kind: 'mcp', enabled: false }]
-    }
-    harness.invoke.mockResolvedValue(result)
-    expect(await sessionApi.nativeResources('session-B')).toBe(result)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, {
-      sessionId: 'session-B'
-    })
-    const draft = { backend: 'claude' as const, cwd: 'C:/draft-B', projectId: 'project-B' }
-    expect(await sessionApi.nativeResources(draft)).toBe(result)
-    const observation = { owner: 'panel:1', active: true }
-    await sessionApi.nativeResources(draft, observation)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, {
-      ...draft,
-      observation
-    })
-    await sessionApi.nativeResources('session-B', { ...observation, active: false })
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, {
-      sessionId: 'session-B',
-      observation: { ...observation, active: false }
-    })
-    await sessionApi.nativeResources(draft)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.sessionNativeResources, draft)
-  } finally {
-    harness.invoke.mockResolvedValue(undefined)
-    vi.unstubAllGlobals()
-  }
+describe('preload 다리 — ⑤ 종료 통지', () => {
+  it('에이전트·데이터의 종료만 전달하고 해제 뒤에는 전달하지 않는다', () => {
+    const handler = vi.fn()
+    const off = bridge.onHostExited(handler)
+    fromShell(HOST_EXITED_CHANNEL, { host: 'data' })
+    fromShell(HOST_EXITED_CHANNEL, { host: 'x' })
+    off()
+    fromShell(HOST_EXITED_CHANNEL, { host: 'agent' })
+    expect(handler.mock.calls).toEqual([['data']])
+  })
 })
 
-it('forwards OpenCode plugin changes on their own channel', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { sessionApi } = await import('../renderer/src/shared/api/ipc')
-    const changed = vi.fn()
-    const stop = sessionApi.onOpenCodePluginsChanged(changed)!
-    for (const revision of [2, 7]) emitEvent('oo:extensions:opencode-plugins-changed', { revision })
-    expect(changed.mock.calls).toEqual([[{ revision: 2 }], [{ revision: 7 }]])
-    expect(CHANNELS.extensionOpenCodePluginsChanged).toBe('oo:extensions:opencode-plugins-changed')
-    stop()
-    emitEvent(CHANNELS.extensionOpenCodePluginsChanged, { revision: 9 })
-    expect(changed).toHaveBeenCalledTimes(2)
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
+describe('preload 다리 — ⑥ 파일 경로 · ⑦ platform', () => {
+  it('파일 경로는 `webUtils.getPathForFile` 의 값이다', () => {
+    const file = { name: 'picked.txt' } as File
+    expect(bridge.pathForFile(file)).toBe('C:/picked.txt')
+    expect(harness.getPathForFile).toHaveBeenCalledExactlyOnceWith(file)
+  })
 
-// 0291 — 로그인 프리 연결 요청이 renderer API → preload → `oo:provider:connect` 로 그대로 간다.
-it('carries the login-free connect request and its final state through the actual preload', async () => {
-  vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
-  try {
-    const { providerApi } = await import('../renderer/src/shared/api/ipc')
-    const result = { state: 'failed', message: 'OpenCode가 설치되어 있지 않습니다.' }
-    harness.invoke.mockResolvedValueOnce(result)
-    expect(await providerApi.connect({ providerId: 'opencode-llm' })).toEqual(result)
-    expect(harness.invoke).toHaveBeenLastCalledWith(CHANNELS.providerConnect, {
-      providerId: 'opencode-llm'
-    })
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-// 0324 AC24′ · VP-21′ — 채널마다 처리하는 프로세스가 하나다. 이 파일의 모든 요청이 소유 표의 전송으로만
-// 갔는지 본다(셸 채널 → ipcRenderer, 호스트 채널 → 그 호스트의 포트).
-const ownerOfChannel = (channel: string): string =>
-  (CHANNEL_OWNER as Record<string, string>)[
-    Object.keys(CHANNELS).find((key) => (CHANNELS as Record<string, string>)[key] === channel)!
-  ]
-
-it('요청은 소유 프로세스의 전송 하나로만 간다 — 셸·에이전트·데이터 (AC24′)', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  harness.routes.length = 0
-  await api.boot.whenReady()
-  await api.chat.cancel('s1')
-  await api.settings.get()
-  expect(harness.routes).toEqual([
-    [CHANNELS.bootWhenReady, 'shell'],
-    [CHANNELS.chatCancel, 'agent'],
-    [CHANNELS.settingsGet, 'data']
-  ])
-})
-
-// 0324 AC29′·AC33′ — 호스트가 죽거나 다시 붙으면 renderer 에 알린다. 첫 포트·종료 없는 포트 교체는 알리지 않는다.
-it('호스트 수명 통지 — 종료와 그 뒤의 새 포트만 알리고, 구독 해제 뒤에는 알리지 않는다', () => {
-  const api = harness.exposed.get('oo') as OoApi
-  const seen: unknown[] = []
-  const exited = (host: 'agent' | 'data'): void => {
-    for (const listener of harness.listeners.get('oo:host:exited') ?? []) listener({}, { host })
-  }
-  const off = api.hosts.onLifecycle((event) => seen.push(event))
-  deliverHostPort('data')
-  exited('data')
-  deliverHostPort('data')
-  off()
-  exited('agent')
-  deliverHostPort('agent')
-  expect(seen).toEqual([
-    { host: 'data', kind: 'exited' },
-    { host: 'data', kind: 'reconnected' }
-  ])
-})
-
-// 기대 소유자를 표에서 읽지 않고 고정한다 — 표 자체가 한쪽으로 쏠려도 잡는다(VP-21′ 선택 증거).
-it('턴 전송은 에이전트 포트, 세션 목록은 데이터 포트로 간다 (AC24′)', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  const from = harness.routes.length
-  await api.chat.send({ sessionId: 's1', text: 'hi' } as Parameters<OoApi['chat']['send']>[0])
-  await api.session.list()
-  expect(harness.routes.slice(from)).toEqual([
-    [CHANNELS.chatSend, 'agent'],
-    [CHANNELS.sessionList, 'data']
-  ])
-})
-
-// 호스트 채널의 단방향 전송도 그 호스트의 포트로 간다 — 셸 IPC 로 보내면 받는 쪽이 없다(EP-8 · EP-4′).
-it('세션 로드 취소는 데이터 포트로 간다 — 셸 IPC 로 보내지 않는다', async () => {
-  const api = harness.exposed.get('oo') as OoApi
-  let release!: (value: unknown) => void
-  harness.invoke.mockImplementationOnce(() => new Promise((resolve) => (release = resolve)))
-  const from = harness.routes.length
-  const sentFrom = harness.sent.length
-  const pending = api.session.load('s-cancel')
-  await vi.waitFor(() =>
-    expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionLoad, 'data'])
-  )
-  api.session.cancelLoad('s-cancel')
-  expect(harness.routes.slice(from)).toContainEqual([CHANNELS.sessionLoadCancel, 'data'])
-  expect(harness.sent.slice(sentFrom).map(([channel]) => channel)).not.toContain(
-    CHANNELS.sessionLoadCancel
-  )
-  release({ cancelled: true })
-  await expect(pending).rejects.toThrow()
-})
-
-afterAll(() => {
-  const wrong = harness.routes.filter(([channel, via]) => ownerOfChannel(channel) !== via)
-  expect(wrong).toEqual([])
-  expect(new Set(harness.routes.map(([, via]) => via))).toEqual(new Set(['shell', 'agent', 'data']))
+  it('platform 은 `process.platform` 이다', () => {
+    expect(bridge.platform).toBe(process.platform)
+  })
 })

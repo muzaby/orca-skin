@@ -1,11 +1,15 @@
-// 창 쪽 호스트 포트 클라이언트 (0324 EP-8′ · plan §7-E). 에이전트 호스트·데이터 호스트마다 하나씩 쓴다.
+// 창 쪽 호스트 포트 클라이언트 (0324 EP-8′ · plan §7-E · D-058). 에이전트 호스트·데이터 호스트마다 하나씩 쓴다.
 //
 // 호스트 채널의 요청·단방향 송신·통지 구독이 모두 여기를 지난다. 셸이 넘긴 포트가 있으면 그
 // 포트로 보내고, 없으면(첫 포트 전 · 호스트 종료 뒤) 줄을 세웠다가 다음 포트에 순서대로 보낸다.
 // 종료 통지는 응답을 기다리는 요청과 대기열을 모두 실패시킨다. 이 파일은 Electron 을 모른다 —
-// preload 가 `MessagePort` 와 셸 채널을 감싸 넘긴다.
+// renderer 전송층(`install.ts`)이 preload 다리가 넘긴 `MessagePort` 와 연결 요청을 감싸 넘긴다.
 
-import { HostToClientSchema, type ClientToHost, type HostName } from '../shared/host-protocol'
+import {
+  HostToClientSchema,
+  type ClientToHost,
+  type HostName
+} from '../../../../../shared/host-protocol'
 
 // 셸이 넘긴 포트 하나.
 export interface ClientPort {
