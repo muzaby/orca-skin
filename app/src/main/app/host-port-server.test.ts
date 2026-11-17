@@ -201,3 +201,99 @@ describe('에이전트 호스트 포트 전송', () => {
     expect(transport.primaryClient()).toBe(one)
   })
 })
+
+// 0324 — 호스트가 요청을 처리할 수 있기 전(에이전트 호스트는 첫 설정 사본 전)에 온 창 메시지는 기다린다.
+describe('창 메시지 보류 (hold)', () => {
+  function deferred(): { promise: Promise<void>; resolve: () => void; reject: () => void } {
+    let resolve!: () => void
+    let reject!: () => void
+    const promise = new Promise<void>((done, fail) => {
+      resolve = done
+      reject = () => fail(new Error('실패'))
+    })
+    return { promise, resolve, reject }
+  }
+
+  it('열리기 전 메시지는 창마다 도착 순서대로 처리한다 — 요청과 단방향이 섞여도', async () => {
+    const transport = createPortTransport()
+    const order: string[] = []
+    transport.handle('oo:a', (_event, raw) => {
+      order.push(`invoke:${String(raw)}`)
+      return raw
+    })
+    transport.on('oo:b', (_event, raw) => void order.push(`send:${String(raw)}`))
+    const gate = deferred()
+    transport.hold(gate.promise)
+    const one = fakePort()
+    const two = fakePort()
+    transport.connect(one, { clientId: 1, trusted: true })
+    transport.connect(two, { clientId: 2, trusted: true })
+    one.receive({ kind: 'invoke', id: 1, channel: 'oo:a', payload: 'a1' })
+    two.receive({ kind: 'send', channel: 'oo:b', payload: 'b1' })
+    one.receive({ kind: 'send', channel: 'oo:b', payload: 'a2' })
+    one.receive({ kind: 'invoke', id: 2, channel: 'oo:a', payload: 'a3' })
+    await settle()
+    expect(order).toEqual([])
+    expect(one.posted).toEqual([])
+    gate.resolve()
+    await settle()
+    expect(order).toEqual(['invoke:a1', 'send:b1', 'send:a2', 'invoke:a3'])
+    expect(one.posted).toEqual([
+      { kind: 'result', id: 1, ok: true, value: 'a1' },
+      { kind: 'result', id: 2, ok: true, value: 'a3' }
+    ])
+  })
+
+  it('기다리는 사이 닫힌 창의 메시지는 처리하지 않는다', async () => {
+    const transport = createPortTransport()
+    const handler = vi.fn()
+    transport.handle('oo:a', handler)
+    const gate = deferred()
+    transport.hold(gate.promise)
+    const port = fakePort()
+    transport.connect(port, { clientId: 1, trusted: true })
+    port.receive({ kind: 'invoke', id: 1, channel: 'oo:a' })
+    port.drop()
+    gate.resolve()
+    await settle()
+    expect(handler).not.toHaveBeenCalled()
+    expect(port.posted).toEqual([])
+  })
+
+  it('열린 뒤에는 기다리지 않는다 — 받은 자리에서 핸들러가 불린다', async () => {
+    const transport = createPortTransport()
+    const handler = vi.fn(() => 'ok')
+    transport.handle('oo:a', handler)
+    const gate = deferred()
+    transport.hold(gate.promise)
+    gate.resolve()
+    await settle()
+    const port = fakePort()
+    transport.connect(port, { clientId: 1, trusted: true })
+    port.receive({ kind: 'invoke', id: 1, channel: 'oo:a' })
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('보류 약속이 실패해도 연다 — 그 뒤 판정은 핸들러가 한다', async () => {
+    const transport = createPortTransport()
+    transport.handle('oo:a', () => 'ok')
+    const gate = deferred()
+    transport.hold(gate.promise)
+    const port = fakePort()
+    transport.connect(port, { clientId: 1, trusted: true })
+    port.receive({ kind: 'invoke', id: 1, channel: 'oo:a' })
+    gate.reject()
+    await settle()
+    expect(port.posted).toEqual([{ kind: 'result', id: 1, ok: true, value: 'ok' }])
+  })
+
+  it('보류하지 않은 전송은 바로 처리한다', () => {
+    const transport = createPortTransport()
+    const handler = vi.fn()
+    transport.handle('oo:a', handler)
+    const port = fakePort()
+    transport.connect(port, { clientId: 1, trusted: true })
+    port.receive({ kind: 'invoke', id: 1, channel: 'oo:a' })
+    expect(handler).toHaveBeenCalledOnce()
+  })
+})

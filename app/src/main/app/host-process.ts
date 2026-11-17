@@ -5,8 +5,8 @@
 // 2. 프로세스별 로그 파일 · 이벤트 루프 멈춤 계측(`thread` = 호스트 이름).
 // 3. 창 포트 전송을 IPC 전송으로 정한다 — 핸들러 등록보다 앞이다.
 // 4. 셸 메시지 분배(`startHostRuntime`) · 셸 서비스 클라이언트.
-// 5. 조립을 만들고 시작하고, 끝나면 셸에 `ready` 를 보낸다. 생성이나 시작이 던지면 프로세스를 끝낸다 —
-//    셸의 감독자가 기동 실패로 센다.
+// 5. 조립을 만들고(창 요청은 조립의 `serving` 까지 기다린다) 시작하고, 끝나면 셸에 `ready` 를 보낸다.
+//    생성이나 시작이 던지면 프로세스를 끝낸다 — 셸의 감독자가 기동 실패로 센다.
 //
 // 이 파일은 Electron 을 모른다 — 진입점이 `process.parentPort` 를 넘긴다.
 
@@ -34,6 +34,8 @@ export interface HostProcessContext {
 export interface HostAssembly {
   // 끝나면 셸에 보낼 준비 메시지를 돌려준다(데이터 호스트는 UI 언어 사본을 싣는다).
   start(): Promise<Extract<HostToShell, { type: 'ready' }>>
+  // 창 요청을 처리할 수 있게 되는 때. 그 전에 온 창 메시지는 도착 순서대로 기다린다. 없으면 바로 처리한다.
+  serving?(): Promise<void>
   attachPeer(port: PeerPort): void
   peerUnavailable?(): void
   prepareInstall?(): void
@@ -101,6 +103,8 @@ export function runHostProcess(deps: HostProcessDeps): HostAssembly {
     throw error
   }
   assembly = created
+  const serving = created.serving?.()
+  if (serving) transport.hold(serving)
   created.start().then(
     (ready) => {
       log.info('host.start.completed', { host: deps.name })
