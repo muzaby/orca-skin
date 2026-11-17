@@ -1,6 +1,7 @@
 // 두 호스트 기동 스모크 (0324 SD-04″ · AC31′·AC32′·AC24′·F2·F5). `electron-vite build` 의 산출(`out/main`)을
-// 셸 대신 띄운다 — 데이터 호스트 → 준비 → 에이전트 호스트 → 준비 → 피어 포트 → 창 포트, 그리고 창 포트로
-// 실제 채널 요청을 보내고 에이전트 → 데이터 순으로 내린다. 단위 테스트는 조립(`DataBootstrap`·
+// 셸 대신 띄운다 — 데이터 호스트 → 준비 → 에이전트 호스트 → 준비 → 창 포트 → 피어 포트(셸과 같은 순서),
+// 그리고 창 포트로 실제 채널 요청을 보내고 에이전트 → 데이터 순으로 내린다. 피어 포트보다 먼저 보낸
+// 에이전트 요청(설정 사본을 읽는 확장 목록)도 성공해야 한다 — 셸은 준비 직후 창 포트를 넘긴다. 단위 테스트는 조립(`DataBootstrap`·
 // `AgentBootstrap`)을 통째로 띄우지 못한다(plan B29) — 조립 안의 기동 순서 결함은 여기서만 보인다.
 //
 // 호스트는 worker 스레드에서 돈다(`smoke-host-worker.mjs` — utility 프로세스의 부모 포트와 `electron.net`
@@ -19,6 +20,8 @@ import { scaleMs } from './test-time.mjs'
 export const HOST_ENVIRONMENT_ARG = '--oo-host-environment='
 const WORKER = fileURLToPath(new URL('./smoke-host-worker.mjs', import.meta.url))
 const BASE_TIMEOUT_MS = 60_000
+// 먼저 보낸 요청의 답을 기다리는 시간 — 순서를 만드는 값이지 상한이 아니다.
+const EARLY_WAIT_MS = 300
 
 // 관측 → 실패 목록. 비어 있으면 통과다.
 export function evaluate(observed) {
@@ -38,6 +41,11 @@ export function evaluate(observed) {
   ok('data oo:session:list', Array.isArray, '세션 목록이 배열이 아니다')
   ok('agent oo:backend:list', (v) => Array.isArray(v?.backends), '하네스 목록이 없다')
   ok('agent oo:agent:list', Array.isArray, '모델 환경 목록이 배열이 아니다(피어 조회 F2)')
+  ok(
+    'agent early oo:extensions:catalog',
+    (v) => Array.isArray(v?.items),
+    '피어 포트보다 먼저 보낸 확장 목록 요청이 목록을 돌려주지 않았다'
+  )
   const wrong = result('agent oo:settings:get')
   if (!wrong) failures.push('agent oo:settings:get: 응답 없음')
   else if (wrong.ok)
@@ -110,6 +118,10 @@ export function runSmoke(outDir, { timeoutMs = scaleMs(BASE_TIMEOUT_MS) } = {}) 
     }
 
     const exercise = async () => {
+      // 셸과 같은 순서 — 창 포트가 먼저 열리고 피어 포트(설정 사본)는 그 뒤다. 사본을 읽는 요청을 먼저
+      // 보내고, 답이 오거나 잠시 지난 뒤에 피어를 잇는다(보류가 없으면 답이 먼저 와 실패로 남는다).
+      const early = invoke('agent', 'oo:extensions:catalog', { backend: 'claude' })
+      await Promise.race([early, new Promise((resolve) => setTimeout(resolve, EARLY_WAIT_MS))])
       const { port1, port2 } = new MessageChannel()
       hosts.data.postMessage({ data: { type: 'peer.connect' }, ports: [port1] }, [port1])
       hosts.agent.postMessage({ data: { type: 'peer.connect' }, ports: [port2] }, [port2])
@@ -120,6 +132,7 @@ export function runSmoke(outDir, { timeoutMs = scaleMs(BASE_TIMEOUT_MS) } = {}) 
         ['agent', 'oo:agent:list'],
         ['agent', 'oo:settings:get']
       ]
+      observed.results['agent early oo:extensions:catalog'] = await early
       for (const [kind, channel] of requests) {
         observed.results[`${kind} ${channel}`] = await invoke(kind, channel)
       }
