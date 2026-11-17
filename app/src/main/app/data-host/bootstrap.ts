@@ -101,7 +101,7 @@ import {
   harnessSkillRoots,
   parseHarnessRuntimeModels,
   scaffoldHarnessSettings
-} from '../harnesses/registry'
+} from '../harnesses/config-registry'
 import type { HostAssembly, HostProcessContext } from '../host-process'
 import { createManagedMcp } from '../managed-mcp'
 import {

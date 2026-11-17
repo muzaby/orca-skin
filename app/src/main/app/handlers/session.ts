@@ -6,18 +6,15 @@ import {
   AddSessionDirectorySchema,
   CHANNELS,
   DeleteSessionRequestSchema,
-  LoadSessionRequestSchema,
   RenameSessionRequestSchema,
   SetSessionPinnedSchema,
-  type LoadedSession,
-  type RefreshSessionResult,
   type SessionListItem
 } from '../../../shared/protocol'
 import type { NativeSyncResult } from '../../features/history/native-sync'
-import { loadSession } from '../../features/history/reader'
 import { toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
+import { registerSessionLoadHandlers } from '../data-host/session-load'
 import { resolveLandingCwd } from './session-cwd'
 import { addSessionDirectory } from './session-directory'
 
@@ -63,50 +60,8 @@ export function registerSessionHandlers(
     ctx.db.listSessions().map(toSessionListItem)
   )
 
-  handle(
-    CHANNELS.sessionLoad,
-    LoadSessionRequestSchema,
-    { fallback: null },
-    async (req): Promise<LoadedSession | null> => {
-      ctx.db.nativeHistory.compactLegacyRaw(req.sessionId)
-      const session = loadSession(ctx.db, req.sessionId, (projectId) => ctx.getCwd(projectId))
-      return (
-        session && {
-          ...session,
-          ...(hooks.getActivity ? { activity: await hooks.getActivity(req.sessionId) } : {})
-        }
-      )
-    }
-  )
-
-  handle(
-    CHANNELS.sessionRefresh,
-    LoadSessionRequestSchema,
-    {
-      fallback: { status: 'unavailable' as const, message: '대화 갱신 요청이 올바르지 않습니다.' }
-    },
-    async (req): Promise<RefreshSessionResult> => {
-      const sync = await hooks.refreshHistory?.(req.sessionId)
-      if (!sync || sync.status === 'unchanged') return { status: 'unchanged' }
-      if (sync.status === 'busy') return { status: 'busy' }
-      if (sync.status !== 'ready')
-        return { status: sync.status, message: sync.message ?? '원본 대화를 확인할 수 없습니다.' }
-      const session = loadSession(
-        ctx.db,
-        req.sessionId,
-        (projectId) => ctx.getCwd(projectId),
-        sync.snapshot
-      )
-      if (!session) return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
-      return {
-        status: 'updated',
-        session: {
-          ...session,
-          ...(hooks.getActivity ? { activity: await hooks.getActivity(req.sessionId) } : {})
-        }
-      }
-    }
-  )
+  // 본문 로드·갱신은 조각 전송 모듈이 받는다(0324 EP-4′).
+  registerSessionLoadHandlers(ctx, hooks)
 
   handle(
     CHANNELS.sessionDelete,

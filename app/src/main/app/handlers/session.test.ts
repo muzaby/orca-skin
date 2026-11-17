@@ -6,7 +6,8 @@ import { CHANNELS, SettingsSchema } from '../../../shared/protocol'
 const handlers = vi.hoisted(() => new Map<string, () => unknown>())
 vi.mock('../../infra/ipc/handle', () => ({
   handle: vi.fn(),
-  handlePlain: (channel: string, callback: () => unknown) => handlers.set(channel, callback)
+  handlePlain: (channel: string, callback: () => unknown) => handlers.set(channel, callback),
+  on: vi.fn()
 }))
 import { registerSessionHandlers } from './session'
 const roots: string[] = []

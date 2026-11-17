@@ -3,7 +3,7 @@
 // 케이스는 plan §10 EP-1 규칙 칸의 분기를 따른다 — 분기마다 그 분기로 가는 트리 하나.
 // 가드는 0건을 보고하는 장치라, 위반 픽스처가 실제로 exit 1 이 되는지를 규칙마다 본다.
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, describe, it } from 'node:test'
@@ -365,6 +365,86 @@ describe('(e2)(e3) 호스트 그래프 (EP-1 (e)′ · (e3)′)', () => {
       [AGENT]: "import type { X } from '../../infra/db/x'\nexport type Y = X\n",
       'src/main/infra/db/x.ts': 'export type X = number\n'
     })
+  })
+
+  // ── (e3)″ — 하네스별 폴더에는 등록한 입구(구성 읽기)로만 들어간다 ─────────────────────
+  const CLAUDE_ENTRY = ALLOWED.e.data.entryFiles.find((file) => file.endsWith('claude/settings.ts'))
+  const entryImport = `../../${CLAUDE_ENTRY.slice('src/main/'.length, -3)}`
+
+  it('등록한 입구 파일은 exit 0 이고, 그 안쪽의 같은 폴더 import 도 자유다', () => {
+    passes({
+      [DATA]: `import '${entryImport}'\n`,
+      [CLAUDE_ENTRY]: "import './native-settings-file'\nexport const s = 1\n",
+      'src/main/adapters/claude/native-settings-file.ts': 'export const f = 1\n'
+    })
+  })
+
+  it('등록 밖 하네스 파일로 바깥에서 들어가면 exit 1 — 위반 줄은 들어가는 import 다', () => {
+    const result = fails('e', {
+      [DATA]: "import '../../adapters/claude/native-settings-file'\n",
+      'src/main/adapters/claude/native-settings-file.ts': 'export const f = 1\n'
+    })
+    const text = result.lines.join('\n')
+    assert.match(text, /e3 데이터 호스트/)
+    assert.match(text, /등록 밖 입구/)
+    assert.equal(result.result.violations[0].file, DATA)
+    assert.equal(result.result.violations[0].line, 1)
+  })
+
+  it('입구를 지나도 어댑터 구현 파일에 닿으면 exit 1', () => {
+    const result = fails('e', {
+      [DATA]: `import '${entryImport}'\n`,
+      [CLAUDE_ENTRY]: "import './adapter'\nexport const s = 1\n",
+      'src/main/adapters/claude/adapter.ts': 'export const a = 1\n'
+    })
+    assert.match(result.lines.join('\n'), /adapters\/claude\/adapter\.ts/)
+  })
+
+  for (const pkg of ['@anthropic-ai/claude-agent-sdk', 'node:child_process']) {
+    it(`입구를 지나 닿은 모듈이 \`${pkg}\` 를 import 하면 exit 1`, () => {
+      const result = exitOf({
+        [DATA]: `import '${entryImport}'\n`,
+        [CLAUDE_ENTRY]: "import './inner'\nexport const s = 1\n",
+        'src/main/adapters/claude/inner.ts': `import X from '${pkg}'\nexport const x = X\n`
+      })
+      assert.equal(result.exitCode, 1)
+      assert.ok(rulesOf(result).includes('e'), JSON.stringify(rulesOf(result)))
+      assert.match(result.lines.join('\n'), /e3 데이터 호스트/)
+    })
+  }
+
+  it('입구 목록의 파일은 실제 트리에 있다 — 지운 파일이 등록에 남지 않는다', () => {
+    for (const file of [...ALLOWED.e.data.entryFiles, ...ALLOWED.e.data.files]) {
+      assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), file)
+    }
+  })
+
+  // ── (e2)′ — 범용 SQLite 열기 한 파일만 에이전트 호스트에서 허용한다 ────────────────────
+  const SQLITE = ALLOWED.e.agent.exceptFiles[0]
+  const SQLITE_BODY = "import Database from 'better-sqlite3'\nexport const d = Database\n"
+
+  it('에이전트 호스트가 범용 SQLite 열기(`file-database.ts`)에 닿는 것은 exit 0', () => {
+    passes({
+      [AGENT]: `import '../../${SQLITE.slice('src/main/'.length, -3)}'\n`,
+      [SQLITE]: SQLITE_BODY
+    })
+  })
+
+  it('같은 패키지를 다른 파일이 열면 exit 1', () => {
+    const result = exitOf({
+      [AGENT]: "import '../../infra/other-db'\n",
+      'src/main/infra/other-db.ts': SQLITE_BODY
+    })
+    assert.equal(result.exitCode, 1)
+    assert.match(result.lines.join('\n'), /e2 에이전트 호스트/)
+  })
+
+  it('앱 DB 를 여는 `infra/db/index.ts` 는 그대로 exit 1', () => {
+    const result = fails('e', {
+      [AGENT]: "import '../../infra/db/index'\n",
+      'src/main/infra/db/index.ts': 'export const db = 1\n'
+    })
+    assert.match(result.lines.join('\n'), /e2 에이전트 호스트/)
   })
 })
 

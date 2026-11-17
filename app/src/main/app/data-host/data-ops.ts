@@ -13,7 +13,6 @@ import type {
 } from '../../adapters/common/native-history'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import { readNativeHistoryPrevious } from '../../features/history/native-sync'
-import { loadSession } from '../../features/history/reader'
 import { getWorkspacePath } from '../../infra/config/paths'
 import type { DbQueries } from '../../infra/db'
 import type { AgentEnvironment, SkillInfo } from '../../../shared/ipc'
@@ -27,6 +26,7 @@ import type {
 } from '../../features/harnesses/common/runtime-config'
 import type { HarnessSettingsService } from '../../features/harnesses/common/settings'
 import { appEnv } from '../../infra/config/oo-config'
+import { loadSessionArchive } from './session-load'
 import { getLogger } from '../../infra/log'
 import { toAgentEnvironments } from '../../features/harnesses/common/models'
 import { referencedVariables, type RemoteToolCall } from '../remote-tools'
@@ -112,7 +112,7 @@ export function createDataQueryOps(deps: DataOpsDeps) {
     nativeHistoryRaw: (sessionId: string): unknown =>
       readNativeHistoryPrevious(db, sessionId)?.raw?.(),
     // 보관 대화 전체 — 원본이 사라진 세션의 복구 입력.
-    loadSessionArchive: (sessionId: string) => loadSession(db, sessionId, cwdOf),
+    loadSessionArchive: (sessionId: string) => loadSessionArchive(db, sessionId, cwdOf),
     // 백그라운드 작업 기록 — 정본이 메모리에 없을 때 상태를 다시 만든다.
     backgroundEvents: (sessionId: string) => db.background?.list(sessionId) ?? [],
     sessionAgentKind: (sessionId: string) => db.getSessionById(sessionId)?.agent_kind,
