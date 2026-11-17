@@ -10,6 +10,7 @@ import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { resolveComposerPreparation } from './composer-catalog'
 import { createComposerPreparation } from './composer-preparation'
 import type { RouterContext } from './context'
+import { withDataPort } from './data-host/data-port.testfixture'
 const handlers = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
 )
@@ -131,7 +132,7 @@ function fixture(): {
       }
     })
   )
-  const ctx = {
+  const ctx = withDataPort({
     registry: {
       availability: () => ({ id: 'opencode', installed: true, usable: true }),
       get: () => adapter
@@ -142,7 +143,7 @@ function fixture(): {
     db: { getSessionById },
     getCwd: (id: string | null) => (id === 'draft-project' ? 'C:/draft-project' : 'C:/default'),
     mcp: { resolver: () => () => undefined }
-  } as unknown as RouterContext
+  }) as unknown as RouterContext
   const scope: ComposerCatalogScope = {
     backend: 'opencode',
     sessionId: null,

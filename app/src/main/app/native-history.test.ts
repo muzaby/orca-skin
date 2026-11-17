@@ -13,6 +13,7 @@ import { resolveTurn } from './chat-turn/resolve-turn'
 import type { RouterContext } from './context'
 import { createNativeHistoryRefresh, nativeHistoryBusy } from './native-history'
 import { passthroughRuntimeConfig } from './runtime-config.testfixture'
+import { withDataPort } from './data-host/data-port.testfixture'
 vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
@@ -76,7 +77,7 @@ function setup(backend: 'claude' | 'opencode'): {
     settings: { model: 'custom-model' }
   }
   const replace = vi.fn(() => true)
-  const ctx = {
+  const ctx = withDataPort({
     ...passthroughRuntimeConfig(),
     db: {
       getSessionById: () => meta,
@@ -103,7 +104,7 @@ function setup(backend: 'claude' | 'opencode'): {
     },
     getCwd: () => '/wrong-default',
     mcp: { resolver: () => () => undefined }
-  } as unknown as RouterContext
+  }) as unknown as RouterContext
   const runtime = {
     hasSession: vi.fn(() => false),
     hasRuntime: vi.fn(() => false),
