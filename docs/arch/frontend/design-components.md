@@ -24,6 +24,7 @@ app 또는 pages 조립은 하향 의존만 허용한다. 페이지는 feature U
 | [App.tsx](../../../app/src/renderer/src/App.tsx) | Provider·라우터·TooltipHost 합성 루트. 화면별 색·레이아웃을 이곳에 추가하지 않는다. |
 | [app/AppLayout.tsx](../../../app/src/renderer/src/app/AppLayout.tsx) — `AppLayout` | Header·Sidebar·본문·overlay의 구조와 스크롤 소유자를 보존한다. |
 | [app/BootFailureFrame.tsx](../../../app/src/renderer/src/app/BootFailureFrame.tsx) — `BootFailureFrame` | 실패 제목·원인·다음 동작의 위계를 유지하고 일반 오류를 성공 화면처럼 꾸미지 않는다. |
+| [app/BridgeMissingScreen.tsx](../../../app/src/renderer/src/app/BridgeMissingScreen.tsx) — `BridgeMissingScreen` | preload 다리가 없을 때의 고정 실패 화면. provider·`window.oo` 없이 그리므로 창 조작 단추 대신 위쪽 끌기 영역만 두고, BootFailureFrame 과 같은 경고 위계(`role="alert"` · 제목 · 다음 동작)를 쓴다. |
 | [app/BootRedirector.tsx](../../../app/src/renderer/src/app/BootRedirector.tsx) — `BootRedirector` | 화면 전환 책임만 유지한다. 별도 로딩 셸·팔레트를 추가하지 않는다. |
 | [app/ErrorToastLayer.tsx](../../../app/src/renderer/src/app/ErrorToastLayer.tsx) — `ErrorToastLayer` | 전역 오류 host 조립. 토스트 외형은 ErrorToastHost에 맡긴다. |
 | [app/FullFrameShell.tsx](../../../app/src/renderer/src/app/FullFrameShell.tsx) — `FullFrameShell` | 전체 프레임·titlebar·본문 슬롯을 보존하고 페이지별 배경을 강제하지 않는다. |

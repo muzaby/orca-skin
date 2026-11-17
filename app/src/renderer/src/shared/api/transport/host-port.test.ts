@@ -1,7 +1,7 @@
 // 창 쪽 에이전트 호스트 포트 클라이언트 (0324 EP-8 · plan §7-E 규칙 칸 8분기).
 
 import { describe, expect, it } from 'vitest'
-import type { ClientToHost } from '../shared/host-protocol'
+import type { ClientToHost } from '../../../../../shared/host-protocol'
 import {
   hostExitedError,
   hostReplacedError,
