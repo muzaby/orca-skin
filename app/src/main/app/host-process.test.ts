@@ -140,6 +140,32 @@ describe('호스트 프로세스 시작', () => {
     expect(h.exit).toHaveBeenCalledExactlyOnceWith(1)
   })
 
+  // 조립 생성자가 설정 사본처럼 아직 없는 것을 읽어 던지면, 전역 예외 처리기가 삼켜 준비 없이 멈췄다(r1.15).
+  it('조립 생성이 던지면 준비를 알리지 않고 로그를 비운 뒤 종료 코드 1로 끝낸다', () => {
+    const failure = new Error('settings copy not received')
+    const posted: unknown[] = []
+    const exit = vi.fn()
+    mocks.initLog.mockImplementation(() => log)
+    expect(() =>
+      runHostProcess({
+        name: 'agent-host',
+        parent: { postMessage: (message) => posted.push(message), on: () => {} },
+        argv: ['node', 'entry.js', hostEnvironmentArg(testHostEnvironment())],
+        exit,
+        create: () => {
+          throw failure
+        }
+      })
+    ).toThrow(failure)
+    expect(posted).toEqual([])
+    expect(log.error).toHaveBeenCalledWith('host.start.failed', failure, {
+      host: 'agent-host',
+      stage: 'create'
+    })
+    expect(mocks.flushLogSync).toHaveBeenCalledOnce()
+    expect(exit).toHaveBeenCalledExactlyOnceWith(1)
+  })
+
   it('조립이 셸에 보내는 메시지는 부모 포트로 간다', () => {
     const h = setup('data-host')
     h.context().toShell({ type: 'peer.ensure' })
