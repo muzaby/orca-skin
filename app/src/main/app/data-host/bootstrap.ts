@@ -123,6 +123,11 @@ import { registerSettingsReactions } from '../settings-reactions'
 import { readSkillCatalog } from '../skill-catalog'
 import { createSessionHooks } from './session-hooks'
 import { createAgentLink, type AgentLink } from './agent-link'
+import {
+  createRemoteExtensionDeploy,
+  createRemoteHarnessHost,
+  createRemoteShellRunner
+} from './agent-requests'
 import { createAgentReports } from './agent-reports'
 import { createDataQueryOps, createDataWriteOps, type CaptureOutputRequest } from './data-ops'
 import { createPersistenceReceiver, type PersistenceReceiver } from './persistence-receiver'
@@ -215,10 +220,10 @@ export class DataBootstrap implements HostAssembly {
   }
 
   // MCP·스킬이 바뀌었다 — 관리형 MCP 를 다시 계산하고 하네스 플러그인 배포를 에이전트 호스트에 부탁한다.
-  private async deployExtensions(options?: { throwOnFailure?: boolean }): Promise<void> {
-    this.managedMcp?.source.refresh()
-    await this.requireAgentLink().requestEnsured('deployExtensions', options)
-  }
+  private readonly deployExtensions = createRemoteExtensionDeploy(
+    () => this.requireAgentLink(),
+    () => this.managedMcp?.source.refresh()
+  )
 
   private getCwd(projectId?: string | null): string {
     return getWorkspacePath(
@@ -263,17 +268,7 @@ export class DataBootstrap implements HostAssembly {
       fetchImpl: netFetch,
       sessions,
       // 로그인 프리 연결의 하네스 능력(0291) — 하네스는 에이전트 호스트에 있다. 없으면 띄운다.
-      loginFreeHost: {
-        installed: (harnessId) =>
-          this.requireAgentLink().requestEnsured('harnessInstalled', harnessId),
-        listModels: (harnessId, provider, options) =>
-          this.requireAgentLink().requestEnsured(
-            'harnessListModels',
-            harnessId,
-            provider,
-            options.env ? { ...options.env } : undefined
-          )
-      },
+      loginFreeHost: createRemoteHarnessHost(() => this.requireAgentLink()),
       oauth: new OAuthRunner({
         states: new OAuthStateStore(oauthStates),
         openExternal: (url) => shellServices().call('external.openExternal', url),
@@ -713,32 +708,13 @@ export class DataBootstrap implements HostAssembly {
 
   // 사용자 예약 작업 — 셸 명령은 에이전트 호스트가 실행한다(F4 · EP-21: 없으면 띄운다).
   private startScheduledTasks(db: DbQueries): void {
-    let seq = 0
     const scheduledTasks = (this.scheduledTasks = createScheduledTasks({
       store: db.scheduledTasks,
       projects: (projectId) => {
         const project = db.getProject(projectId)
         return project ? { cwd: project.cwd ?? null } : undefined
       },
-      runShell: async ({ command, cwd, signal, timeoutMs, maxOutputBytes }) => {
-        const link = this.requireAgentLink()
-        const runId = `run_${++seq}`
-        const onAbort = (): void => {
-          void link.request('cancelShell', runId).catch(() => undefined)
-        }
-        signal?.addEventListener('abort', onAbort, { once: true })
-        try {
-          return await link.requestEnsured('runShell', {
-            runId,
-            command,
-            cwd,
-            timeoutMs,
-            maxOutputBytes
-          })
-        } finally {
-          signal?.removeEventListener('abort', onAbort)
-        }
-      },
+      runShell: createRemoteShellRunner(() => this.requireAgentLink()),
       sendPromptStart: sendScheduledPromptStart,
       onChanged: broadcastScheduledTasksChanged,
       onRestoreError: (task, error) =>
