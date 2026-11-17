@@ -10,13 +10,37 @@ import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { resolveTurn } from './chat-turn/resolve-turn'
-import type { RouterContext } from './context'
-import { createNativeHistoryRefresh, nativeHistoryBusy } from './native-history'
+import { refreshNativeHistory, type NativeSyncResult } from '../features/history/native-sync'
+import type { AgentContext, RouterContext } from './context'
+import { createNativeHistoryReader, nativeHistoryBusy } from './native-history'
 import { passthroughRuntimeConfig } from './runtime-config.testfixture'
 import { withDataPort } from './data-host/data-port.testfixture'
 vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({ APP_ENV: 'app' }) }))
 vi.mock('../infra/ipc/send', () => ({ sendChatEvent: vi.fn() }))
 vi.mock('../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
+
+type FixtureContext = AgentContext & Pick<RouterContext, 'db'>
+
+// 운영 조립과 같은 모양 — 기록은 데이터 쪽(`refreshNativeHistory`), 원본 읽기와 바쁨 판정은 실행 쪽이다.
+function createNativeHistoryRefresh(
+  ctx: FixtureContext,
+  runtime: {
+    hasSession(id: string): boolean
+    hasRuntime(id: string): boolean
+    activity(id: string): ChatActivitySnapshot
+  }
+): (sessionId: string) => Promise<NativeSyncResult> {
+  const read = createNativeHistoryReader(ctx)
+  return (sessionId) =>
+    refreshNativeHistory(sessionId, {
+      db: ctx.db,
+      isBusy: () =>
+        runtime.hasSession(sessionId) ||
+        runtime.hasRuntime(sessionId) ||
+        nativeHistoryBusy(runtime.activity(sessionId)),
+      read: () => read(sessionId)
+    })
+}
 
 const idle: ChatActivitySnapshot = {
   type: 'chat.activity',
@@ -31,7 +55,7 @@ const idle: ChatActivitySnapshot = {
 }
 
 function setup(backend: 'claude' | 'opencode'): {
-  ctx: RouterContext
+  ctx: FixtureContext
   runtime: {
     hasSession: Mock<() => boolean>
     hasRuntime: Mock<() => boolean>
@@ -104,7 +128,7 @@ function setup(backend: 'claude' | 'opencode'): {
     },
     getCwd: () => '/wrong-default',
     mcp: { resolver: () => () => undefined }
-  }) as unknown as RouterContext
+  }) as unknown as FixtureContext
   const runtime = {
     hasSession: vi.fn(() => false),
     hasRuntime: vi.fn(() => false),

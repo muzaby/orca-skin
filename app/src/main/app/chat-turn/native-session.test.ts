@@ -18,7 +18,7 @@ import { openFileDatabase } from '../../infra/db/file-database'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import type { AgentContext } from '../context'
-import { directDataPort } from '../data-host/data-port.testfixture'
+import { directDataPort, withDataPort } from '../data-host/data-port.testfixture'
 import { prepareNativeSession } from './native-session'
 import { resolveTurn } from './resolve-turn'
 import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
@@ -175,10 +175,10 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn(async () => ({ sessionId: 'replacement', freshStart: false }))
     }
     const entry = { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local' }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
-      data: directDataPort(queries, { getCwd: cwd }),
-      defaultCwd: cwd,
+      db: queries,
+      getCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: {
         list: () => [
@@ -206,7 +206,7 @@ describe('native retention recovery through the migrated archive', () => {
           }
         })
       }
-    } as unknown as AgentContext
+    }) as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'new request',
@@ -290,13 +290,13 @@ describe('native retention recovery through the migrated archive', () => {
       readHistory: vi.fn(async () => missing),
       recoverSession: vi.fn(async () => ({ sessionId: 'replacement', freshStart: false }))
     }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
-      data: directDataPort(queries, { getCwd: cwd }),
-      defaultCwd: cwd,
+      db: queries,
+      getCwd: cwd,
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
-    } as unknown as AgentContext
+    }) as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'x'.repeat(80000),
@@ -317,13 +317,13 @@ describe('native retention recovery through the migrated archive', () => {
       readHistory: vi.fn(async () => missing),
       recoverSession: vi.fn(async () => ({ sessionId: 'native-new', freshStart: false }))
     }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
-      data: directDataPort(queries, { getCwd: cwd }),
-      defaultCwd: cwd,
+      db: queries,
+      getCwd: cwd,
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
-    } as unknown as AgentContext
+    }) as unknown as AgentContext
     const result = await resolveTurn(
       ctx,
       { hasSession: () => false, peekRuntime: () => undefined } as never,
@@ -555,13 +555,13 @@ describe('native retention recovery through the migrated archive', () => {
       }),
       recoverSession: vi.fn()
     }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
-      data: directDataPort(queries, { getCwd: cwd }),
-      defaultCwd: cwd,
+      db: queries,
+      getCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: { list: () => [] }
-    } as unknown as AgentContext
+    }) as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'resume prompt',
@@ -592,13 +592,13 @@ describe('native retention recovery through the migrated archive', () => {
       }),
       recoverSession: vi.fn()
     }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
-      data: directDataPort(queries, { getCwd: cwd }),
-      defaultCwd: cwd,
+      db: queries,
+      getCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: { list: () => [] }
-    } as unknown as AgentContext
+    }) as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'resume prompt',
@@ -622,13 +622,13 @@ describe('native retention recovery through the migrated archive', () => {
       readHistory: vi.fn(async (): Promise<NativeHistoryResult> => ({ status: 'unchanged' })),
       recoverSession: vi.fn()
     }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
-      data: directDataPort(queries, { getCwd: cwd }),
-      defaultCwd: cwd,
+      db: queries,
+      getCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: { list: () => [] }
-    } as unknown as AgentContext
+    }) as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'warm resume prompt',

@@ -367,7 +367,11 @@ export const SetSkillEnabledSchema = SkillTargetSchema.extend({
   enabled: z.boolean()
 })
 
-export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
+// `requestId` 가 있으면 본문을 조각 통지로 보낸다(0324 EP-4′ — `shared/data-host.ts`).
+export const LoadSessionRequestSchema = z.object({
+  sessionId: z.string().min(1),
+  requestId: z.number().int().nonnegative().optional()
+})
 const SessionResourceRequestSchema = z.object({ sessionId: z.string().min(1).max(512) }).strict()
 export const ComposerCatalogReleaseSchema = z.object({ owner: z.uuid() }).strict()
 export const ComposerCatalogRequestSchema = ComposerCatalogReleaseSchema.extend({

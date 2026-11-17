@@ -29,7 +29,7 @@ describe('turn setup with the runtime model catalog', () => {
   it('passes the prepared native environment to catalog and execution unchanged', async () => {
     const catalog = vi.fn(async (entry) => ({ ...entry, models: [] }))
     const resolved = await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () => [
@@ -47,7 +47,7 @@ describe('turn setup with the runtime model catalog', () => {
         },
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: { id: 'opencode', catalog, agentSpawnEnv: () => ({}) } as never,
         agentKind: 'code',
@@ -92,14 +92,14 @@ describe('turn setup with the runtime model catalog', () => {
     })
 
     const resolved = await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: { list: () => [] },
         runtimeModelCatalog: catalog,
         harnessRuntime: runtime,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: adapter(),
         agentKind: 'code',
@@ -118,14 +118,14 @@ describe('turn setup with the runtime model catalog', () => {
 
     now = 120_000
     await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: { list: () => [] },
         runtimeModelCatalog: catalog,
         harnessRuntime: runtime,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: adapter(),
         agentKind: 'code',
@@ -161,7 +161,7 @@ describe('turn setup with the runtime model catalog', () => {
     })
 
     const resolved = await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () => [
@@ -185,7 +185,7 @@ describe('turn setup with the runtime model catalog', () => {
         harnessRuntime: runtime,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: adapter(),
         agentKind: 'code',
@@ -212,7 +212,7 @@ describe('turn setup with the runtime model catalog', () => {
     })
 
     const resolved = await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () => [
@@ -228,7 +228,7 @@ describe('turn setup with the runtime model catalog', () => {
         harnessRuntime: runtime,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: adapter(),
         agentKind: 'code',
@@ -246,7 +246,7 @@ describe('turn setup with the runtime model catalog', () => {
     const cached = vi.fn(() => undefined)
     await expect(
       resolveTurnProvider(
-        {
+        withDataPort({
           ...passthroughRuntimeConfig(),
           harnessSettings: { list: () => [] },
           runtimeModelCatalog: {
@@ -265,7 +265,7 @@ describe('turn setup with the runtime model catalog', () => {
           harnessRuntime: { cached, resolve },
           db: { getSessionById: () => undefined },
           mcp: { resolver: () => () => undefined }
-        } as never,
+        }) as never,
         {
           adapter: adapter(),
           agentKind: 'code',
@@ -285,7 +285,7 @@ describe('turn setup with the runtime model catalog', () => {
   ] as const)('applies one adapter policy snapshot to the %s branch', async (_branch, resolved) => {
     const agentSpawnEnv = vi.fn((agentKind: 'code' | 'work') => ({ SESSION_KIND: agentKind }))
     const result = await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: {
           list: () =>
@@ -302,7 +302,7 @@ describe('turn setup with the runtime model catalog', () => {
         },
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: adapter(agentSpawnEnv),
         agentKind: 'work',
@@ -321,6 +321,7 @@ describe('turn setup with the runtime model catalog', () => {
 
 import { parseHarnessRuntimeModels } from '../harnesses/registry'
 import { openCodeCatalog } from '../../adapters/opencode/v1/catalog'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 // 0291 — OpenCode runtime 키(호스트 설정 그대로)의 턴은 merged runtime 행을 catalog 에 넘겨
 // 선택 runtime 모델로 실행한다. settings.json 이 없으므로 settings 는 `{}` 이다.
@@ -371,14 +372,14 @@ describe('OpenCode runtime catalog turns (0291 EP-06)', () => {
     })
     const adapterCatalog = vi.fn(async (entry, config) => openCodeCatalog(entry, config))
     const resolved = await resolveTurnProvider(
-      {
+      withDataPort({
         ...passthroughRuntimeConfig(),
         harnessSettings: { list: () => [] },
         runtimeModelCatalog: catalog,
         harnessRuntime: runtime,
         db: { getSessionById: () => undefined },
         mcp: { resolver: () => () => undefined }
-      } as never,
+      }) as never,
       {
         adapter: { id: 'opencode', catalog: adapterCatalog, agentSpawnEnv: () => ({}) } as never,
         agentKind: 'code',

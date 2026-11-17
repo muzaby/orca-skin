@@ -9,7 +9,7 @@ import { CHANNELS } from '../../shared/ipc'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
 import { resolveComposerPreparation } from './composer-catalog'
 import { createComposerPreparation } from './composer-preparation'
-import type { RouterContext } from './context'
+import type { AgentContext } from './context'
 import { withDataPort } from './data-host/data-port.testfixture'
 const handlers = vi.hoisted(
   () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
@@ -52,7 +52,7 @@ function fixture(): {
   adapter: OpenCodeAdapter
   fetchImpl: ReturnType<typeof vi.fn<typeof fetch>>
   acquire: ReturnType<typeof vi.fn>
-  ctx: RouterContext
+  ctx: AgentContext
   scope: ComposerCatalogScope
   capture: import('vitest').MockInstance<OpenCodeAdapter['prepareComposer']>
   resolve: import('vitest').Mock<
@@ -143,7 +143,7 @@ function fixture(): {
     db: { getSessionById },
     getCwd: (id: string | null) => (id === 'draft-project' ? 'C:/draft-project' : 'C:/default'),
     mcp: { resolver: () => () => undefined }
-  }) as unknown as RouterContext
+  }) as unknown as AgentContext
   const scope: ComposerCatalogScope = {
     backend: 'opencode',
     sessionId: null,

@@ -87,6 +87,8 @@ export const CHANNELS = {
   sessionList: 'oo:session:list',
   sessionLoad: 'oo:session:load',
   sessionRefresh: 'oo:session:refresh',
+  sessionLoadChunk: 'oo:session:load-chunk',
+  sessionLoadCancel: 'oo:session:load-cancel',
   sessionDelete: 'oo:session:delete',
   sessionRename: 'oo:session:rename',
   sessionSetPinned: 'oo:session:setPinned',
