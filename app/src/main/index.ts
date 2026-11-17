@@ -35,11 +35,15 @@ import { NotifyShowSchema } from '../shared/protocol'
 import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
 import type { ShellState } from './app/shell/shell-state'
 import { createElectronShellServices } from './app/shell/electron-services'
-import { createHostMessageSink } from './app/shell/host-link'
+import { createHostMessageSink, hostStartStep } from './app/shell/host-link'
 import { createShellServiceServer } from './app/shell/services'
 import { createHostBoot, type HostKind } from './app/shell/boot'
 import { attachHostPorts, forkHost } from './app/shell/electron-hosts'
-import { createHostSupervisor, type HostSupervisor } from './app/shell/host-supervisor'
+import {
+  HOST_READY_TIMEOUT_MS,
+  createHostSupervisor,
+  type HostSupervisor
+} from './app/shell/host-supervisor'
 import { setHostEnvironment, type HostEnvironment } from './infra/host-environment'
 import { LifecycleState } from './app/shell/lifecycle-state'
 import { openShellState } from './app/shell/shell-state-file'
@@ -350,6 +354,14 @@ app.whenReady().then(async () => {
           clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>)
         },
         isReady: (message) => (message as { type?: unknown } | null)?.type === 'ready',
+        // 끝나지 않는 기동이 부팅을 막지 않는다(D-055 · AC50) — DB 단계는 데이터 호스트가 알려 세지 않는다.
+        readyTimeoutMs: HOST_READY_TIMEOUT_MS,
+        startStep: hostStartStep,
+        onReadyTimeout: () =>
+          rootLog.warn('shell.host.ready-timeout', {
+            host: kind,
+            timeoutMs: HOST_READY_TIMEOUT_MS
+          }),
         onHostMessage: createHostMessageSink({
           lifecycle: lifecycleState,
           mirrorUiLocale: (uiLocale) => shellState.mirrorUiLocale(uiLocale),
