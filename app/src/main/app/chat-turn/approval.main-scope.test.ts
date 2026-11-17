@@ -6,7 +6,7 @@ import type { TurnContext } from '../../contracts/turn'
 import type { TurnRequest } from '../../adapters/common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
-import type { HistoryWriter } from '../../features/history/writer'
+import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import { makeCanUseTool } from '../../adapters/claude/adapter'
 import { claudeToNormalized } from '../../adapters/claude/map'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
@@ -43,7 +43,7 @@ function owner(sessionId: string | null): {
     wc: {} as ClientRef,
     approvals,
     permissionModes: modes,
-    persistence: { persist, flushAskAnswers: vi.fn() } as unknown as HistoryWriter,
+    persistence: { persist, flushAskAnswers: vi.fn() } as unknown as TurnPersistSink<ClientRef>,
     getActiveTurn: () => turn
   })
   return { turn, request, register, setMode, persist }

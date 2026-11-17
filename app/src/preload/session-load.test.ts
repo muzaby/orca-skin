@@ -85,7 +85,8 @@ describe('세션 본문 조립', () => {
     h.reply(0, null)
     expect(await missing).toBeNull()
     const whole = h.client.load('통째')
-    const { chunked: _chunked, ...plain } = head('통째', 0, 0)
+    const plain: Record<string, unknown> = { ...head('통째', 0, 0) }
+    delete plain.chunked
     h.reply(1, { ...plain, messages: [message('통째')] })
     expect((await whole)?.messages).toEqual([message('통째')])
   })

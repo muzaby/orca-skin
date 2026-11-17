@@ -115,7 +115,8 @@ export const harnessBoundary = {
           if (
             !own &&
             path.posix.dirname(source) === other[1] &&
-            ['index.ts', 'toolPresentation.ts'].includes(path.posix.basename(source))
+            // `config.ts` 는 실행 없이 읽는 구성의 입구다 — 데이터 호스트가 어댑터·SDK 없이 쓴다(0324).
+            ['index.ts', 'config.ts', 'toolPresentation.ts'].includes(path.posix.basename(source))
           )
             return
           context.report({ node, messageId: 'version' })

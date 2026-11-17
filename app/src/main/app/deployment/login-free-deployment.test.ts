@@ -601,7 +601,9 @@ function runtimeArgs(source: string): string[] {
 describe('Bootstrap 로그인 프리 선언 배선 (AC16)', () => {
   const argument = /\bloginFreeDefinitions\s*:\s*LOGIN_FREE_DEFINITIONS\b/
   it('실제 createAuthRuntime 호출마다 production LOGIN_FREE_DEFINITIONS를 넘긴다', () => {
-    const calls = runtimeArgs(readFileSync(join(__dirname, '..', 'data-host', 'bootstrap.ts'), 'utf8'))
+    const calls = runtimeArgs(
+      readFileSync(join(__dirname, '..', 'data-host', 'bootstrap.ts'), 'utf8')
+    )
     expect(calls.length).toBeGreaterThan(0)
     for (const call of calls) expect(call).toMatch(argument)
   })

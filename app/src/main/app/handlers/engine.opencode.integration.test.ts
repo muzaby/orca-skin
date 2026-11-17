@@ -114,23 +114,25 @@ it('imports fields, saves an independent document and lists/resolves only its mo
     })
     registerEngineHandlers(
       engineContext({
-      deployExtensions,
-      harnessSettings: settings,
-      harnessRuntime: runtime,
-      runtimeModelCatalog
+        deployExtensions,
+        harnessSettings: settings,
+        harnessRuntime: runtime,
+        runtimeModelCatalog
       })
     )
-    registerMiscHandlers(withDataPort({
-      registry: {
-        list: () => [{ id: 'opencode', installed: true, usable: true }],
-        get: () => adapter
-      },
-      harnessSettings: settings,
-      harnessRuntime: runtime,
-      runtimeModelCatalog,
-      debugMock: { log: false },
-      mcp: { resolver: () => () => undefined }
-    }) as never)
+    registerMiscHandlers(
+      withDataPort({
+        registry: {
+          list: () => [{ id: 'opencode', installed: true, usable: true }],
+          get: () => adapter
+        },
+        harnessSettings: settings,
+        harnessRuntime: runtime,
+        runtimeModelCatalog,
+        debugMock: { log: false },
+        mcp: { resolver: () => () => undefined }
+      }) as never
+    )
     return { runtime, runtimeModelCatalog }
   }
   let { runtime, runtimeModelCatalog } = register()

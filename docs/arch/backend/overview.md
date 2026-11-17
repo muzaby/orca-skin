@@ -55,9 +55,12 @@ main 은 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은
 ```
 Electron App
 ├── Main Process (src/main/) — 5-레이어 app·features·adapters·contracts·infra (하향 의존만, handoff 0062)
-│   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → 트레이 상주 조립 → will-quit(shutdown→closeDb)
+│   ├── index.ts                # 셸 진입 — 두 호스트 기동(app/shell/) → BrowserWindow → 트레이 상주 조립 → will-quit(shutdownHosts)
 │   ├── app/                    # 컴포지션 루트 (전 레이어 의존 허용 — 유일)
-│   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
+│   │   ├── shell/              # 셸 — 두 호스트 감독(boot·host-supervisor) · 셸 서비스(비밀 봉인·대화상자·알림·외부 열기)
+│   │   ├── data-host/          # 데이터 호스트 조립 — DB·설정·비밀·인증 · 저장 스트림 수신 · 세션 조각 전송
+│   │   ├── agent-host/         # 에이전트 호스트 조립 — 어댑터·턴·버스 구독 순서 SSOT · 저장 스트림 송신
+│   │   ├── host-process.ts     # 두 호스트 공용 시작 순서(환경 → 로그 → 멈춤 계측 → 전송 → 조립)
 │   │   ├── tray-residency.ts   # Windows 트레이 상주 — 창 닫기=숨김 판정 · 트레이 메뉴(열기·종료, uiLocale) · 종료 중 통과
 │   │   ├── chat-turn/          # 턴 셋업 (0179 분해, 목록은 디렉토리가 진실) — index(배럴·IPC 등록) ·
 │   │   │                       #   send(순서) · admission/turn-context/continuation(순수 판정·조립) ·
@@ -145,42 +148,38 @@ Electron App
 └── Renderer (src/renderer/) → ../frontend/ 참조
 ```
 
-### 3.1 부트 시퀀스 (`src/main/index.ts` → `app/bootstrap.ts`)
+### 3.1 부트 시퀀스 (`src/main/index.ts` → 두 호스트 조립)
 
-각 단계는 `boot-report.ts` 의 `step`/`stepSync` 로 래핑돼 성공/실패·소요가 계측된다(0077, `oo:boot:report` 로 renderer 조회). `critical: true` 단계 실패만 부팅을 막는다.
+앱은 프로세스 셋으로 뜬다 — 셸(Electron main) · 데이터 호스트(상태) · 에이전트 호스트(실행). 누가 무슨 일을 하고 어떤 경로로 부탁하는지는 [실행 모델](../execution-model.md)이 정본이고, 여기는 부팅 순서만 적는다. 각 단계는 `boot-report.ts` 의 `step`/`stepSync` 로 래핑돼 성공/실패·소요가 계측된다(0077). 창이 받는 부팅 보고(`oo:boot:report`)는 데이터 호스트가 두 호스트의 단계를 합친 것이다. `critical: true` 단계 실패만 부팅을 막는다.
 
 ```
-1. app.whenReady() → registerAppProtocol()  # app:// 커스텀 스킴 핸들러
-2. bootstrap = new Bootstrap()              # SettingsStore / McpStore / AdapterRegistry field-init
-3. bootstrap.start()                        # 각 단계 = bootReport.step* 래핑. 창(4)은 이 promise 를 기다리지 않는다 (0109)
-   0. 동기 구간(첫 await 전)                 # 창보다 먼저 끝난다 — 부팅 게이트 밖 renderer 가 즉시 부르는 채널
-      - registerSettingsReadHandler           # oo:settings:get — TweakProvider 첫 테마 읽기 (0244)
-      - 인증 스택 + registerConnectionHandlers # oo:provider:state 등 게이트 판정 채널 (0181/0188)
-   a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(infra/db/migrations/) + 재시작 잔재 정착
-   a-2. chat-recovery                       # recoverSessionHistory — 미완료 도구 호출 정착 + FTS text-cache 공백 복구 (features/chat/recovery, persistence.md §1.3)
-   b. cost-recompute (critical)             # new UsageTracker(db, …) → 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
-   c. new Scheduler(DbRunRecorder)          # 'usage-recompute' job 등록(action = cost.recordAndBroadcast 주입)
-      → scheduler.applySettings(settings.scheduler)  # croner 스케줄 시작 (0091, 실패 시 비활성 시작)
-   d. new ExtensionBuilder(db, …)           # DB 지침·settings·Skills·plugin/runtime tool 조립기
-   e. adapter-registry (critical)           # 어댑터 설치 상태 갱신
-   f. workspace                             # 기본 작업공간(~/.config/orcinus-orca/workspace) mkdir
-   g. config-dir → orcinus-orca-config              # ~/.config/orcinus-orca 보장 + orcinus-orca.json 부팅 1회 로드
-   h. builtin-skill-seed                    # seedBuiltinSkills — 번들 스킬 → sources/skills 시딩 (0078, manifest/marker 버전 게이트)
-   i. provider-scaffold                     # 최초 1회 — Claude native 루트의 settings.json env 판별
-                                            # (classifyClaudeEnv) 후 provider verbatim 시딩, 부재 시 anthropic 템플릿 (0090)
-   j. extension-deploy                      # sources → dist/<engine> 렌더 (ExtensionDeploymentService)
-   k. skill-scan                            # Orcinus orca sources + 하네스가 제공한 native 스킬 루트 → Bootstrap.skillsCache
-   l. register(ctx):                        # RouterContext 조립
-        - RuntimeSupervisor(cap 5 · BoundedRuntimeCapPolicy · ActiveTurnTracker→concurrency push)
-        - TypedBus 구독 순서 SSOT: usage → history → title → relay(sendChatEvent)  (§runtime-ipc §2.4)
-        - PendingMessageQueue · ApprovalCoordinator · PermissionModeController
-        - updates: UpdateController (app/updater.ts — electron-updater, 0084~0086)
-        - registerChatHandlers + session/project/mcp/engine/boot/update/misc 핸들러 등록
-4. createWindow(bootstrap.settings)         # start() 착수·boot:whenReady 등록 직후(3 과 병행). BrowserWindow + webPreferences 명시
-   ├─ contextIsolation: true / nodeIntegration: false / sandbox: true
-   └─ preload: '../preload/index.js'
-5. windowBounds 복구 + mainWindow.on('close') → settings.patch({ windowBounds })
-6. app.on('will-quit') → bootstrap.shutdown() → closeDb()  # 제목 생성 dispose·열린 도구 정착·abort·idle close·Scheduler.stopAll·WAL 정리
+셸 (src/main/index.ts · app/shell/)
+1. app.whenReady() → registerAppProtocol()   # app:// 커스텀 스킴 핸들러
+2. createHostBoot → start()                  # 데이터 호스트 fork → ready → 에이전트 호스트 fork → ready → 피어 포트 1쌍
+3. createWindow()                            # 2 와 병행. BrowserWindow + webPreferences 명시(§보안). 창은 oo:boot:whenReady 로 두 호스트 준비를 기다린다
+4. 창 문서마다 두 호스트의 포트를 받는다       # preload 가 채널 소유 표(shared/channel-owner.ts)로 전송을 고른다
+5. will-quit → shutdownHosts                 # 에이전트 호스트(런타임 정지) → 데이터 호스트(예약 작업 → 스케줄러 → DB 닫기)
+
+데이터 호스트 (app/data-host/bootstrap.ts — DB·설정·비밀·인증의 유일한 소유자)
+0. 동기 구간(첫 await 전)                     # 창이 붙자마자 부르는 채널
+   - registerSettingsReadHandler               # oo:settings:get — TweakProvider 첫 테마 읽기 (0244)
+   - 오류 보고 싱크·핸들러                      # 두 호스트의 오류 보고를 창에 준다
+   - 비밀 해제(셸 서비스) → 인증 스택 + registerConnectionHandlers  # oo:provider:state 등 게이트 판정 채널 (0181/0188)
+a. db-init (critical)                        # initDb — better-sqlite3 초기화 + 마이그레이션(infra/db/migrations/)
+a-2. chat-recovery (critical)                # recoverSessionHistory — 미완료 도구 호출 정착 + FTS text-cache 공백 복구 (persistence.md §1.3)
+b. cost-recompute (critical)                 # UsageTracker — 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
+c. Scheduler · 예약 작업                      # 'usage-recompute' job(0091) · 사용자 예약 작업 타이머
+d. workspace · config-dir · builtin-skill-seed · provider-scaffold · skill-scan
+e. 저장 스트림 수신기 + 에이전트 링크          # 턴 저장 입력을 도착 순서대로 UsageTracker → HistoryWriter 에 넣는다
+f. 세션·프로젝트·검색·설정·MCP·스킬·사용량·예약 작업·인증 핸들러 등록 → ready
+
+에이전트 호스트 (app/agent-host/bootstrap.ts — 어댑터·SDK·하네스 프로세스의 유일한 소유자)
+a. 설정 사본·데이터 링크·저장 스트림 송신기    # DB·설정 파일·비밀 저장소를 열지 않는다
+b. adapter-registry (critical)               # 어댑터 설치 상태 갱신
+c. RuntimeSupervisor(cap 5 · BoundedRuntimeCapPolicy · ActiveTurnTracker→concurrency push)
+d. TypedBus 구독 순서 SSOT: 저장 송신 → title → relay  (§runtime-ipc §2.4)
+e. PendingMessageQueue · ApprovalCoordinator · PermissionModeController · extension-deploy
+f. chat/engine/extension/composer/git 핸들러 등록 → 부팅 보고를 데이터 호스트로 → ready
 ```
 
 > critical 이 아닌 단계 실패는 부팅을 막지 않는다(채팅/세션 기능은 config/deploy 와 독립). 레거시 1회성 이전(구 평면 레이아웃·구 orca-mcp 스토어)은 정식 배포 전 정리(handoff 0011)로 제거 — 구 dev 환경은 `~/.config/orcinus-orca` 재생성으로 해결.
@@ -199,7 +198,7 @@ Electron App
 | 영역 | Phase | 상태 | 비고 |
 |---|---|---|---|
 | BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts` |
-| 컴포지션 루트(Bootstrap) + 5-레이어 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
+| 컴포지션 루트 + 5-레이어 재편 | Phase 3++ | ✅ 완료 | `app/{data-host,agent-host}/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062 · 0324, 채널 카탈로그는 IPC_CONTRACT §2) |
 | 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `infra/ipc/handle.ts` 헬퍼 + `shared/protocol.ts` |
 | SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/common/types.ts` |
 | ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude/adapter.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
