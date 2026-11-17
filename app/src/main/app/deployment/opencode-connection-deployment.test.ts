@@ -172,20 +172,22 @@ function boot(host: HostHarnessPort): BootedApp {
       openCodeCatalog(entry, config),
     agentSpawnEnv: () => ({})
   }
-  registerMiscHandlers(withDataPort({
-    registry: {
-      list: () => [
-        { id: 'claude', installed: true, usable: true },
-        { id: 'opencode', installed: true, usable: true }
-      ],
-      get: (id: string) => (id === 'opencode' ? adapter : null)
-    },
-    harnessSettings: settings,
-    runtimeModelCatalog: catalog,
-    harnessRuntime,
-    debugMock: { log: false },
-    mcp: { resolver: () => () => undefined }
-  }) as never)
+  registerMiscHandlers(
+    withDataPort({
+      registry: {
+        list: () => [
+          { id: 'claude', installed: true, usable: true },
+          { id: 'opencode', installed: true, usable: true }
+        ],
+        get: (id: string) => (id === 'opencode' ? adapter : null)
+      },
+      harnessSettings: settings,
+      runtimeModelCatalog: catalog,
+      harnessRuntime,
+      debugMock: { log: false },
+      mcp: { resolver: () => () => undefined }
+    }) as never
+  )
   const start = (): Promise<void> =>
     startup.startRuntimeModelCatalogAfterDeploy({
       invalidateSettings: () => settings.invalidateAll(),
@@ -393,7 +395,8 @@ const AGENT_LIST_MODELS =
   /\bharnessListModels\s*:\s*\(harnessId,\s*provider,\s*env\)\s*=>\s*createHostHarnessPort\s*\(\s*this\.registry\s*\)\.listModels\(/
 const agentBootstrapSource = (): string =>
   readFileSync(join(__dirname, '..', 'agent-host', 'bootstrap.ts'), 'utf8')
-const bootstrapSource = (): string => readFileSync(join(__dirname, '..', 'data-host', 'bootstrap.ts'), 'utf8')
+const bootstrapSource = (): string =>
+  readFileSync(join(__dirname, '..', 'data-host', 'bootstrap.ts'), 'utf8')
 
 describe('Bootstrap 로그인 프리 연결 배선 (0291 AC16)', () => {
   it('Bootstrap run 콜백이 리스너 설치 뒤 connectAll을 부른다', () => {

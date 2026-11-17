@@ -67,6 +67,11 @@ jobs:
       - name: Test budget guard (real-git suites)
         run: node scripts/check-test-budgets.mjs
 
+      # 프로세스 경계(0324) — 셸·에이전트 호스트·데이터 호스트 진입점의 import 그래프가 다른
+      # 프로세스의 의존을 끌어오거나 UI 스레드에서 동기 I/O·등록 밖 경로를 쓰면 실패한다. 순수 Node.
+      - name: Process boundary guard (shell / agent host / data host)
+        run: node scripts/check-ui-thread.mjs
+
       - name: Lint
         run: npm run lint
 

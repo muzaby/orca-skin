@@ -1,9 +1,8 @@
 // 턴 persist — 어댑터가 yield 한 NormalizedEvent 를 DB 에 순서 보존 parts 로 기록
 // (provider-runtime.md §7). 한 턴의 모든 assistant 파트는 같은 메시지에 누적되고
-// telemetry(턴 종료)에서 reset 한다. AskUserQuestion tool_result 합성(flushAskAnswers)도
-// 영속 책임이라 여기 둔다.
+// telemetry(턴 종료)에서 reset 한다. 질문 도구의 답은 실행 쪽이 턴 상태를 고친 뒤 결과만 보내고
+// 여기서는 도구 결과 파트로 쓴다(`recordAskAnswers`).
 
-import type { ClientRef } from '../../contracts/client'
 import type { ArtifactRef } from '../../../shared/artifacts'
 import type { AgentKind } from '../../../shared/agent-kind'
 import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
@@ -15,7 +14,6 @@ import { planReviewToolInput } from '../../../shared/plan-review-input'
 import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
-import { sendChatEvent } from '../../infra/ipc/send'
 import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 import { toolCallPartPayload } from './tool-call-payload'
@@ -230,9 +228,6 @@ export class HistoryWriter {
     return turn.currentAssistantMessageId
   }
 
-  // AskUserQuestion 답변과 tool_use id 를 명시 ID로 페어링해 tool_result 를 합성한다(SDK 가
-  // answers 를 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
-  // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
   // 질문 도구의 답을 현재 어시스턴트 메시지의 도구 결과 파트로 쓴다 — 저장이 다른 프로세스면(0324 EP-15)
   // 실행 쪽이 턴 상태를 고친 뒤 이 결과만 보낸다.
   recordAskAnswers(
@@ -250,50 +245,6 @@ export class HistoryWriter {
           ...(answer.parentToolRunId ? { parentToolRunId: answer.parentToolRunId } : {})
         })
       )
-    }
-  }
-
-  flushAskAnswers(turn: TurnContext, wc: ClientRef): void {
-    for (let answerIndex = 0; answerIndex < turn.pendingAskAnswers.length;) {
-      const a = turn.pendingAskAnswers[answerIndex]
-      const pendingIndex = turn.askPendingIds.indexOf(a.toolUseId)
-      if (pendingIndex < 0) {
-        answerIndex += 1
-        continue
-      }
-      const toolUseId = a.toolUseId
-      turn.pendingAskAnswers.splice(answerIndex, 1)
-      turn.askPendingIds.splice(pendingIndex, 1)
-      const output = {
-        answers: a.answers,
-        ...(a.response !== undefined ? { response: a.response } : {})
-      }
-      turn.askResolved.set(toolUseId, a)
-      const parentToolRunId = turn.openToolRuns.get(toolUseId)?.parentToolRunId
-      // 답변이 채워진 Ask 는 더 이상 "열린 실행"이 아니다 — 중단 시 settleOpenToolRuns 가 abort
-      // 결과로 답변을 덮어쓰지 않도록 추적에서 제거한다(실제 tool_result 는 늦게 올 수도 있음).
-      turn.openToolRuns.delete(toolUseId)
-      // AskUserQuestion 은 SDK tool_result 가 안 오므로 합성 — 현재 assistant 메시지에
-      // tool_result 파트를 upsert(실제 tool_result 가 늦게 와도 같은 toolRunId 로 덮어쓴다).
-      if (turn.currentAssistantMessageId != null) {
-        this.db.upsertToolResultPart(
-          turn.currentAssistantMessageId,
-          toolUseId,
-          JSON.stringify({
-            result: output,
-            isError: false,
-            ...(parentToolRunId ? { parentToolRunId } : {})
-          })
-        )
-      }
-      sendChatEvent(wc, {
-        type: 'tool.call.completed',
-        sessionId: turn.dbSessionId ?? '',
-        toolRunId: toolUseId,
-        result: output,
-        isError: false,
-        ...(parentToolRunId ? { parentToolRunId } : {})
-      })
     }
   }
 

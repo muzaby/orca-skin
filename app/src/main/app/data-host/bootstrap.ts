@@ -50,7 +50,7 @@ import {
 import { openSecretFile } from '../../infra/config/secret-file'
 import { SecretStore, type Sealer } from '../../infra/config/secret-store'
 import { closeDb, initDb, type DbQueries } from '../../infra/db'
-import { reportError } from '../../infra/error-report'
+import { errorReportHub, reportError } from '../../infra/error-report'
 import { errorMessage } from '../../infra/errors'
 import { hostEnvironment } from '../../infra/host-environment'
 import {
@@ -124,6 +124,7 @@ import { createScheduledTasks, type ScheduledTasks } from '../scheduled-tasks'
 import { registerSettingsReactions } from '../settings-reactions'
 import { readSkillCatalog } from '../skill-catalog'
 import { createAgentLink, type AgentLink } from './agent-link'
+import { createAgentReports } from './agent-reports'
 import { createDataQueryOps, createDataWriteOps, type CaptureOutputRequest } from './data-ops'
 import { createPersistenceReceiver, type PersistenceReceiver } from './persistence-receiver'
 import { createShellBrowserSessions } from './shell-browser-session'
@@ -142,6 +143,11 @@ const OAUTH_WINDOW_GROUP = 'oauth'
 
 export class DataBootstrap implements HostAssembly {
   private readonly bootReport = createBootReportRecorder()
+  // 에이전트 호스트가 보낸 오류 보고는 이 프로세스의 허브로, 부팅 보고는 사본으로(AC47).
+  private readonly agentReports = createAgentReports({
+    publish: (report) => errorReportHub.publish(report),
+    onInvalid: (method) => getLogger().child('peer').warn('peer.report.invalid', { method })
+  })
   private readonly dataDirectory = hostEnvironment().userData
   readonly settings = new SettingsStore(hostEnvironment().appVersion, { cwd: this.dataDirectory })
   // 비밀 저장소는 하나다 — vault 와 MCP 가 같은 사본을 쓴다(EP-18).
@@ -642,6 +648,7 @@ export class DataBootstrap implements HostAssembly {
             this.availability.set(state.id, state)
           return
         }
+        if (this.agentReports.notify(method, payload)) return
         receiver.notify(method, payload)
       },
       onInvalid: () => getLogger().child('peer').warn('peer.message.invalid', { side: 'data' })
@@ -653,11 +660,17 @@ export class DataBootstrap implements HostAssembly {
       this.publishAuthState(this.gateState)
     })
     // 에이전트 호스트가 죽으면 그 호스트의 열린 턴을 바로 마감한다(AC29′).
-    this.agentLink.link.onClosed(() => receiver.peerClosed())
+    this.agentLink.link.onClosed(() => {
+      receiver.peerClosed()
+      this.agentReports.peerClosed()
+    })
   }
 
   private publishTools(): void {
-    this.agentLink?.link.notify('tools.snapshot', serializeRuntimeTools(this.runtimeTools.snapshot()))
+    this.agentLink?.link.notify(
+      'tools.snapshot',
+      serializeRuntimeTools(this.runtimeTools.snapshot())
+    )
   }
 
   private publishManagedMcp(kind?: 'definitions' | 'connections'): void {
@@ -696,11 +709,7 @@ export class DataBootstrap implements HostAssembly {
         this.relayChatEvent({ type: 'artifact.published', sessionId, artifact } as NormalizedEvent)
       )
     )
-    registerArtifactHandlers(
-      artifacts,
-      (event) => event.trusted,
-      new ArtifactCatalog(db.artifacts)
-    )
+    registerArtifactHandlers(artifacts, (event) => event.trusted, new ArtifactCatalog(db.artifacts))
   }
 
   // 사용자 예약 작업 — 셸 명령은 에이전트 호스트가 실행한다(F4 · EP-21: 없으면 띄운다).
@@ -754,7 +763,8 @@ export class DataBootstrap implements HostAssembly {
       refreshSkills: () => this.refreshSkills(),
       deployExtensions: (options?: { throwOnFailure?: boolean }) => this.deployExtensions(options),
       getCwd: (projectId?: string | null) => this.getCwd(projectId),
-      getBootReport: () => this.bootReport.getReport()
+      // 두 호스트의 부팅 단계를 한 보고로 준다(AC47).
+      getBootReport: () => this.agentReports.bootReport(this.bootReport.getReport())
     }
     // 실행 상태는 에이전트 호스트에 묻는다. 없으면 쉬는 상태다(AC19′ · AC43 — 띄우지 않는다).
     const idle = { busy: false } as unknown as Awaited<ReturnType<AgentCallOps['sessionActivity']>>

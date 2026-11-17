@@ -62,7 +62,10 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
     pending.set(requestId, request)
     try {
       const reply = await deps.invoke(deps.channels[kind], { sessionId, requestId })
-      if (request.cancelled || (reply !== null && typeof reply === 'object' && 'cancelled' in reply))
+      if (
+        request.cancelled ||
+        (reply !== null && typeof reply === 'object' && 'cancelled' in reply)
+      )
         throw new Error(SESSION_LOAD_CANCELLED)
       return finish(reply, request)
     } finally {
@@ -85,7 +88,8 @@ export function createSessionLoadClient(deps: SessionLoadClientDeps): SessionLoa
       }),
     cancelLoad: (sessionId) => {
       for (const [requestId, request] of pending) {
-        if (request.sessionId !== sessionId || request.kind !== 'load' || request.cancelled) continue
+        if (request.sessionId !== sessionId || request.kind !== 'load' || request.cancelled)
+          continue
         request.cancelled = true
         request.chunks = []
         deps.send(deps.channels.cancel, { requestId })
