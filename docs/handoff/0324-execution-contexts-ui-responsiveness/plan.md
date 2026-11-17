@@ -2904,6 +2904,115 @@ AC 자기보고: 분모·판정은 r1.14 와 같다(47/49). 다만 r1.14 의 ✅
 - 단위 테스트 9,600여 케이스가 앱이 뜨지 않는 것을 잡지 못했다 — 조립을 띄우는 테스트가 없었다(B29). 첫 실제 기동 시도에서 나왔다.
 - 기준선 분리를 파일 단위로 해 진짜 실패 1건이 환경 실패에 묻혔다(r1.14).
 
+## [구현자 기입] r1.16 — 테스트 전송 이주 · 동기 사본 · 기동 경합 · 조립 배선 · 옛 안 잔재 삭제 · 전수 sweep
+
+**판정: 미완료(partial) — 사용자 지시(토큰 사용량)로 sweep 도중 중단, `impl/IMPL_DONE` 아님.** r1.15 "남은 이주" 6건 중 5건(테스트 전송 이주 · 동기 사본 · 기동 경합 · 조립 배선 · 옛 안 잔재)은 코드·테스트 완료, 남은 1건(전수 sweep)은 168건 중 155건 실행 · 13건 미실행이다. 첫 실행 155건 중 129 잡음 · 26 못 잡음 — 24건은 테스트를 더해 재실행 24/24 잡음, 2건(E23-1·E23-13)은 미처리다. 구현 중 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음)은 설계 커밋 rev 4.4(§7-I, 구현과 분리)로 닫았다. **마지막 트리에서 gate 를 돌리지 않았다(사용자 지시: 타입체크·vitest 금지).**
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| 테스트의 셸 전송 흉내 | 이행 결함(r1.15 남은 이주 1) → 선조치 | setup 이 모든 main 테스트에 셸 전송을 걸어 호스트 핸들러가 production 에 없는 경로(`ipcMain`·`WebContents`)로 불렸다. 케이스마다 테스트 전송(`vitest-setup.mjs` ④) · `invokeChannel` 30파일 · electron 흉내 52곳 삭제 · `app/AGENTS.md` 규칙 |
+| 동기 조회 사본 4자리 | 현재 결함 → 선조치 · rev 4.4 D-054 | 유휴 세션의 권한 모드 변경이 무시됐다(빈 사본 → 종류 undefined). 리소스 동기화·Claude 리셋은 리소스 메뉴를 연 세션만 봤다. 백그라운드 기록은 한 번 채우고 갱신하지 않았다 |
+| 기동 직후 경합 | 현재 결함 → 선조치 · rev 4.4 D-053 | 셸은 준비 직후 창 포트를 넘기고 피어 포트는 그 뒤다 — 피어 전 `oo:extensions:catalog` 3/3 `설정 사본을 아직 받지 못했다`. 포트 전송이 조립의 `serving` 까지 창 메시지를 보류한다 |
+| 조립 안 배선 5자리(EP-21′) | 구현 세부(B29) | `data-host/agent-requests.ts` 로 뗐다 — §7-H 조사 3행 명령이 그대로 9 + 래퍼 2 |
+| 옛 안 잔재 | 구현 세부 → 삭제 | `lifecycle-emitter.settingsPatched` 는 호출 0(설정은 데이터 호스트). 데이터 쪽 인라인 알림을 `data-host/shell-locale.ts` 로 옮기고 지웠다 · setup 의 셸 전송 기본값 삭제 |
+| EP-4′ 자리 목록 | `PLAN_GAP`(plan 내부 정합) → rev 4.4 | VP-05′·VP-09′ 가 EP-4′ 를 인용하지만 §10 행이 없었다 — 설계 커밋으로 10자리 고정 |
+| 결정 대기 3건 | 보고만 | 준비 제한 시간(확장 후보 · plan 정정 필요) · D-049 승인 · `window.oo.hosts` 추가분 승인 — r1.15 보고 그대로 |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 이 적은 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-4′ (rev 4.4) | 10 | 9/10 — 남긴 곳: 새로고침 응답 조각 전송(E4-10 미실행) | `data-host/session-load.test.ts` · `preload/session-load.test.ts` · `preload/index.test.ts` '세션 로드 취소는 데이터 포트로 간다' |
+| EP-17′ (rev 4.4) | 5 | 1/5 sweep(수동 보류 제거) — 남긴 곳: E17h-1~5 미실행(테스트는 있음) | `host-port-server.test.ts` '창 메시지 보류 (hold)' · `host-process.test.ts` '창 요청은 조립의 serving …' · `host-assemblies.order.test.ts` '창 요청은 첫 설정 사본 뒤에 처리한다' · `gate:node scripts/smoke-hosts.mjs` |
+| EP-23 (rev 4.4) | 13 | 11/13 — 남긴 곳: E23-1(비동기 읽기 → 사본만) · E23-13(상태 요청의 받기) 못 잡음 · 내부 분기 E23-m3~m8 · a1 미실행 | `session-meta.test.ts` · `background-records.test.ts` · `coordinator.permission.test.ts` '0324 asynchronous session kind' · `extension-catalog.test.ts`(prepare → plan 순서) · `send.busy.test.ts` · `host-assemblies.order.test.ts` 사본 배선 |
+| EP-21′ | 9 | 9/9 | `session-hooks.test.ts`(4) · `agent-requests.test.ts`(5) · 조사 명령 재실행 11(래퍼 2 포함) |
+| EP-11 | 5종 · 원천 4줄 | 4/4 줄 | `lifecycle-emitter.test.ts` · `host-assemblies.order.test.ts` '수명 이벤트 원천 넷이 …' |
+| EP-14 | 6 | 6/6 | `tray-residency.test.ts` · `host-link.test.ts` · `shell-state.test.ts` · `shell-locale.test.ts` · `host-assemblies.order.test.ts` '셸 상태 파일 배선'(셸 진입점 3) |
+| EP-13 | 3(+셸 1) | 4/4 | `*.cwd.test.ts` 4파일(`shell-state-file.cwd.test.ts` 신규) |
+| EP-3·EP-7′·EP-8·EP-8′·EP-9·EP-10′·EP-12·EP-15·EP-17·EP-18·EP-19 | 9·3·3·4·5·8종·4·9·4·22·7 | 전부 | 자리별 좌표는 아래 sweep 표의 "잡은 것" 열 |
+
+V-pair 자기 상태: `SELF_PASS` — VP-43 · VP-21′ · VP-22″ · VP-24 · VP-25 · VP-26 · VP-33·35·36 · VP-38·39 · VP-42(sweep 표 전부 잡음). `SELF_BLOCKED` — VP-05′·VP-09′(E4-10 미실행) · VP-40(E17h 미실행) · VP-37′(EP-23 남은 곳). 마지막 트리 gate 미실행이라 SELF_PASS 도 그 전 트리 기준이다.
+
+### 이번 라운드 수정의 잠금 — 열거 원문 sweep(⑦ 전수)
+
+하네스 `mutate.py`, 변이마다 원복 확인. 기준선 실패가 섞인 oracle 은 실패 수가 기준선을 넘는지로 판정했다 — EP-7′ oracle(기준선 10) · EP-10′ oracle(기준선 1, `claude-assembly`).
+
+| 묶음 | 자리·분기 | 첫 실행 | 못 잡음 → 더한 잠금 | 재실행 |
+|---|---:|---|---|---|
+| EP-3 계산 워커 | 9 | 9 잡음 | — | — |
+| EP-4′ 세션 로드 조각 | 10 | 9 잡음 + E4-10 | — | 미실행 |
+| EP-7′ 준비 단계 | 4 | 4 잡음(14·130·130·11 > 10) | — | — |
+| EP-8 · EP-8′ 전송 선택·등록 | 7 | 6 잡음 | E8-3 단방향을 셸 IPC 로 → `preload/index.test.ts` '세션 로드 취소는 데이터 포트로 간다' | 잡음 |
+| EP-9 신뢰 판정 | 5 | 3 잡음 | E9-1 셸 조립 → 배선 검사 · E9-3 `trusted` 고정 → `host-runtime.test.ts` `trusted: false` 전달 | 잡음 ×2 |
+| EP-11 수명 이벤트 | 10 | 7 잡음 | E11-6·8·9 조립 배선 → `host-assemblies.order.test.ts` | 잡음 ×3 |
+| EP-12 · EP-19 수명 순서 | 20 | 19 잡음 | E19-12 데이터 준비 전 연결 요청 → `boot.test.ts` '데이터 호스트 준비 전의 에이전트 연결 요청은 …' | 잡음 |
+| EP-13 영속 파일 위치 | 4 | 3 잡음 | E13-4 셸 상태 → `shell-state-file.cwd.test.ts` | 잡음 |
+| EP-14 셸 상태·언어 | 11 | 7 잡음 | E14-1·2·8 셸 진입점 · E14-9 준비 메시지 → 배선 검사 | 잡음 ×4 |
+| EP-15 저장 스트림 | 15 | 12 잡음 | E15-4 질문 답 → `approval.plan-input.test.ts` · E15-6 기록 저장 배선 → `background.persist.test.ts` · E15-9 → 폐기 배선 검사 | 잡음 ×3 |
+| EP-17 설정 사본 | 8 | 7 잡음 | E17-3 연속성 언어 → `resolve-turn.agent.test.ts` 3케이스 | 잡음 |
+| EP-18 비밀 저장소 | 29 | 21 잡음 | E18-10~16 MCP 저장소 비밀 7자리 → `mcp/store.test.ts` 'McpStore 비밀 경로' 5케이스 · E18-r3 쓰기 순서 → `secret-store.test.ts` 파일 기록 실패 | 잡음 ×8 |
+| EP-10′ 셸 서비스 | 9 | 9 잡음(>1) | — | — |
+| EP-23 동기 사본 · EP-17′ 보류 | 27 | 15 실행 · 13 잡음 · 13 미실행(E23-m3~m8 · E23-a1 · E17h-1~5 · E4-10) | E23-1 `sessionRow` 가 사본만 읽음 · E23-13 상태 요청의 기록 받기 제거 — 잠금 미작성(다음 턴) | — |
+| r1.16 수동 | 1 | 보류 제거 → 스모크 `FAIL agent early …` | — | — |
+
+검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 민감도 1(스모크 조기 요청) · sweep 168(실행 155 · 미실행 13) = 표 변이 169`. 변이 spec·결과 원본은 `evidence/r1.16-sweep/`(`mutate.py <spec> --cwd app`). 재실행 24건은 같은 변이의 두 번째 실행이라 행 수에 더하지 않았다.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 앱 시작 | 부팅 중 쌓인 에이전트 요청(확장 목록 등)이 오류 대신 첫 사본 뒤에 답한다. §5 "앱 시작" 행 그대로 |
+| 유휴 세션의 권한 모드 변경 | 이전: 저장되지 않았다(다음 턴이 옛 모드). 이제 데이터 호스트에 종류를 물은 뒤 저장 |
+| 앱 재시작 뒤 백그라운드 작업 | 이어 가는 턴이 이전 기록에서 상태를 복원한다(이전: 빈 상태로 시작) |
+| Claude 플러그인 토글 확인 | 리소스 메뉴를 열지 않은 실행 중 Claude 세션도 확인 대상 수에 든다 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | 세션 메타 사본은 lease 변화 사이에 데이터 쪽에서 바뀐 작업 폴더를 모른다 | 선언 경계 B31(rev 4.4) — 실행 중 런타임은 띄울 때의 폴더로 돈다 |
+| 2 | 데이터 호스트가 끝내 뜨지 않으면 새 에이전트 호스트의 창 요청이 계속 기다린다 | 선언 경계 B32 — 데이터 기동 실패 3회는 부팅 오류(EP-19). 준비 제한 시간은 결정 대기(확장 후보) |
+| 3 | 단위 테스트가 조립을 띄우지 못하는 배선(B29)은 소스 배선 검사로 잠근다 | 검사가 문자열을 지운 소스를 읽는 자리는 원문 검사로 바꿨다(`'window-focus'` 등) |
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 테스트 전송 이주 | 완료 | `test-transport.testfixture.ts`(`currentTestTransport`·`invokeChannel`·`resetTestTransport`·`listener`) · setup ④ · 30파일 이주 · electron 흉내 52곳 삭제 |
+| 동기 사본 | 완료 | `agent-host/session-meta.ts`·`background-records.ts` · 승인 종류 비동기 · `processes.prepare` · 턴 시작의 기록 받기 |
+| 기동 경합 | 완료 | `host-port-server.ts` `hold` · `HostAssembly.serving` · 스모크 조기 요청 · `execution-model.md` |
+| 조립 배선 | 완료 | `data-host/agent-requests.ts` · `data-host/shell-locale.ts` · `host-assemblies.order.test.ts` 배선 검사 |
+| plan 정정 | 완료 | rev 4.4 설계 커밋(분리) |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 마지막 트리 | **미실행** — 사용자 지시로 중단(타입체크·vitest 금지). 다음 턴의 첫 일이다 |
+| 직전 실측(커밋 2 뒤 트리 · 이번 턴 앞부분) | 가드 5종 exit 0 · `npm run lint` 오류 0 · `tsc` 3종 0 · vitest 1024파일 9708케이스 — 실패 23 = 기준선 22(케이스 단위 대조, 차집합 ∅) + `opencode-connection-deployment` 1(고쳐서 8/8) · `node --test` 996/996 · build + 스모크 통과 |
+| 그 뒤 수정(검증 안 됨) | `lifecycle-emitter.ts`·`data-host/bootstrap.ts`·`shell-locale.ts` · 테스트 11파일 — 각 파일 단독 vitest 는 통과 관측, lint·typecheck·전체 스위트는 미실행 |
+
+테스트 소스 규칙: 커밋 2 까지의 테스트 소스는 `check-test-budgets` 위반 0(한 건 `timeoutMs: 1234` → 777 로 고침) · `test-pools` 통과. 그 뒤 추가·수정한 테스트 11파일은 규칙 판정 미실행 — 다음 턴이 `check-test-budgets`·`node --test scripts/test-pools.test.mjs` 로 판정한다.
+
+**AC 자기보고**: ✅ 44 · ⚠️ 5 · ❌ 0 = 총 49. ⚠️ 는 AC22·AC23(사람 실기) · AC39·AC41·AC42(결함은 고쳤으나 EP-23·EP-17′ sweep 과 마지막 gate 미완). 분모는 rev 4.4 와 같다(검증 수단만 더했다).
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.16` — verify 0회.
+- 첫 sweep 의 못 잡음 26건 중 14건이 조립 배선(B29)이었다 — 단계 모듈 테스트는 green 인데 조립이 그 모듈을 부르지 않아도 green 이었다.
+- 동기 사본 4자리·기동 경합은 r1.11~r1.15 의 전체 gate 가 green 인 채로 남았던 현재 결함이다 — 둘 다 "다른 프로세스의 값을 동기로 읽는 자리"에서 났다.
+- 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` + `ensure-sqlite-abi.mjs node`.
+
+### 잇는 사람에게 — 다음 순서
+
+1. **마지막 트리 gate** — 가드 5종 · `npm run lint` · `npm run typecheck` · 필터 없는 `./node_modules/.bin/vitest run`(기준선 22케이스와 케이스 단위 대조) · `node --test scripts/*.test.mjs` · `npx electron-vite build && node scripts/smoke-hosts.mjs`. 커밋 3 의 테스트 11파일은 lint·타입을 아직 지나지 않았다.
+2. **EP-23 못 잡음 2건** — E23-1(`AgentBootstrap.sessionRow` 가 데이터 호스트를 다시 읽지 않아도 green): 리소스 요청 경로가 새로 읽은 행을 쓰는지 `host-assemblies.order.test.ts` 배선 검사 또는 `session-meta` 소비 테스트로 잠근다. E23-13(`chat-turn/background.ts` 상태 요청의 `prefetchBackgroundEvents` 제거): `background.persist.test.ts` 옆에 '상태 요청은 기록을 받은 뒤 상태를 만든다' 케이스.
+3. **미실행 sweep 13건** — `evidence/r1.16-sweep/ep23.jsonl` 의 E23-m3~m8 · E23-a1 · E17h-1~5 · E4-10. `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` (중단 전 결과는 `ep23.tsv`).
+4. 위가 끝나면 `[구현자 기입]` 이 표의 미실행·남긴 곳을 채우고 INDEX 를 `impl/IMPL_DONE` → verify 1회차.
+5. 결정 대기 3건(준비 제한 시간 · D-049 · `window.oo.hosts`)은 사용자 답을 받는다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
