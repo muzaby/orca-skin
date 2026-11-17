@@ -106,7 +106,7 @@ describe('checkPreloadOutput — EP-28 규칙 칸', () => {
   it('진입 파일 없음 — 실패한다', () => {
     const { run } = checkPreloadOutput(output(null))
     assert.equal(run.length, 1)
-    assert.match(run[0], /index\.js/)
+    assert.match(run[0], /^진입 파일 `index\.js` 없음/)
   })
 })
 
