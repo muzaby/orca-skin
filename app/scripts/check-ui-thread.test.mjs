@@ -3,7 +3,7 @@
 // 케이스는 plan §10 EP-1 규칙 칸의 분기를 따른다 — 분기마다 그 분기로 가는 트리 하나.
 // 가드는 0건을 보고하는 장치라, 위반 픽스처가 실제로 exit 1 이 되는지를 규칙마다 본다.
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -767,8 +767,51 @@ describe('실제 트리', () => {
     assert.deepEqual([...documented].sort(), RULE_IDS)
   })
 
-  it('root·app·main·renderer 의 AGENTS.md 가 경로 표 문서를 링크한다', async () => {
-    const { readFileSync } = await import('node:fs')
+  // EP-25 · AC51 (0324 D-057) — 값의 정본은 `perf-budget.ts` 이고 절은 이름만 가리킨다.
+  it('멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다', () => {
+    // 절 범위는 `## 멈춤 계측` 다음 줄부터 다음 `## ` 앞까지다.
+    const stallSection = (text) => {
+      const lines = text.split('\n')
+      const start = lines.findIndex((line) => line.trim() === '## 멈춤 계측')
+      if (start < 0) return null
+      const rest = lines.slice(start + 1)
+      const end = rest.findIndex((line) => line.startsWith('## '))
+      return (end < 0 ? rest : rest.slice(0, end)).join('\n')
+    }
+    const namesIn = (text) =>
+      new Set([...text.matchAll(/`([A-Z][A-Z0-9_]*_MS)`/g)].map((match) => match[1]))
+    // 앞뒤 절의 이름은 세지 않는다 — 실제 트리에는 뒤 절의 이름이 없어 합성 입력으로 본다.
+    assert.deepEqual(
+      [
+        ...namesIn(
+          stallSection('## 앞\n\n`BEFORE_MS`\n\n## 멈춤 계측\n\n`IN_MS`\n\n## 뒤\n\n`AFTER_MS`\n')
+        )
+      ],
+      ['IN_MS']
+    )
+
+    const budget = readFileSync(new URL('../src/shared/perf-budget.ts', import.meta.url), 'utf8')
+    const code = new Set(
+      [...budget.matchAll(/^export const ([A-Z][A-Z0-9_]*_MS)\b/gm)].map((match) => match[1])
+    )
+    const section = stallSection(readFileSync(new URL(`../../${DOC}`, import.meta.url), 'utf8'))
+    assert.ok(section !== null, '`## 멈춤 계측` 절이 없다')
+    const named = namesIn(section)
+    const missing = [...code].filter((name) => !named.has(name))
+    const extra = [...named].filter((name) => !code.has(name))
+    assert.deepEqual(missing, [], `절이 가리키지 않는 예산 상수: ${missing.join(', ')}`)
+    assert.deepEqual(extra, [], `절이 가리키는 없는 상수: ${extra.join(', ')}`)
+    const yieldParagraphs = section
+      .split(/\n\s*\n/)
+      .filter((paragraph) => paragraph.includes('`UI_YIELD_INTERVAL_MS`'))
+    assert.ok(yieldParagraphs.length > 0, '`UI_YIELD_INTERVAL_MS` 문단이 없다')
+    for (const paragraph of yieldParagraphs) {
+      assert.ok(paragraph.includes('시간 조각'), '양보 문단에 적용 대상 `시간 조각` 이 없다')
+      assert.ok(paragraph.includes('강제 없음'), '양보 문단에 강제 수단 `강제 없음` 이 없다')
+    }
+  })
+
+  it('root·app·main·renderer 의 AGENTS.md 가 경로 표 문서를 링크한다', () => {
     for (const file of [
       '../AGENTS.md',
       'AGENTS.md',
