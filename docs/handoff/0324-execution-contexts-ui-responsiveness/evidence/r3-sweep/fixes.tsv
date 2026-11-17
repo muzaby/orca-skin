@@ -1,0 +1,11 @@
+id	결과	exit	요약
+E27-4g′	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+E8-g′	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+E28-0′	red (기대 일치)	1	node --test fail 1 · 진입 파일 없음 — 실패한다; checkPreloadOutput — EP-28 규칙 칸
+E29-3c′	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+E8-c′	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+E8-f′	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+H3′	red (기대 일치)	1	node --test fail 1 · 원소 꼴 `window['ooBridge']` 만 있어도 exit 1; (h)′ `window.oo` · `window.ooBridge`
+E29-m1	red (기대 일치)	1	vitest 1 failed | 3 passed (4)
+E29-m2	red (기대 일치)	1	vitest 1 failed | 3 passed (4)
+# 원복 확인: 모든 파일 원문 그대로
