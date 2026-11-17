@@ -32,7 +32,8 @@ const DEFAULT_TIMEOUT_MS = 300_000
 
 export interface LoginWindowOptions {
   url: string
-  isDone(url: string): boolean
+  // 끝났는지 판정 — 판정이 호스트에 있으면(셸 서비스) 비동기다. 판정이 나기 전에는 창을 닫지 않는다.
+  isDone(url: string): boolean | Promise<boolean>
   width?: number
   height?: number
   timeoutMs?: number
@@ -203,7 +204,15 @@ function openWindow(entry: Entry, opts: LoginWindowOptions): Promise<{ finalUrl:
       reject(err)
     }
     const check = (url: string): void => {
-      if (opts.isDone(url)) return finish(url)
+      void Promise.resolve()
+        .then(() => opts.isDone(url))
+        .then(
+          (done) => (done ? finish(url) : guard(url)),
+          (error: unknown) => fail(error instanceof Error ? error : new Error(String(error)))
+        )
+    }
+    const guard = (url: string): void => {
+      if (settled) return
       // allowlist 밖으로 나가는 내비게이션은 차단한다(피싱·토큰 유출 경로 차단).
       if (!isAllowedOrigin(url, entry.policy.allowedOrigins)) {
         getLogger()
