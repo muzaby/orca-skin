@@ -48,6 +48,15 @@ export function createHostMessageSink(deps: HostLinkDeps): (raw: unknown) => voi
       case 'service.call':
         deps.onServiceCall(message)
         return
+      case 'boot.step':
+        // 감독자가 `hostStartStep` 으로 따로 읽는다(준비 마감의 멈춤·재개).
+        return
     }
   }
+}
+
+// 기동 중 호스트가 알린 긴 단계의 시작·끝(D-055). 그 밖의 메시지는 undefined.
+export function hostStartStep(raw: unknown): 'begin' | 'end' | undefined {
+  const parsed = HostToShellSchema.safeParse(raw)
+  return parsed.success && parsed.data.type === 'boot.step' ? parsed.data.state : undefined
 }
