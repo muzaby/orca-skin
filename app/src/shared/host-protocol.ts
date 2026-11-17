@@ -123,3 +123,16 @@ export const ShellToHostSchema = z.discriminatedUnion('type', [
   })
 ])
 export type ShellToHost = z.infer<typeof ShellToHostSchema>
+
+// ── 셸 ↔ preload — 호스트 포트 전달 (EP-9 · §7-E) ─────────────────────────────────────────────
+// renderer 에는 나가지 않는 preload 전용 채널이다(`window.oo` 에 없다).
+export type HostName = 'agent' | 'data'
+// 셸 → preload: 그 호스트의 새 포트(메시지에 동봉). payload `{ host }`.
+export const HOST_PORT_CHANNEL = 'oo:host:port'
+// 셸 → preload: 그 호스트가 종료됐다 — 기다리던 요청을 실패시키고 다음 요청에서 다시 잇는다.
+// payload `{ host }`.
+export const HOST_EXITED_CHANNEL = 'oo:host:exited'
+// preload → 셸: 포트를 달라. 문서가 새로 읽힐 때 두 호스트 모두(`'all'`), 에이전트 호스트가 죽은 뒤 첫
+// 요청에서 `'agent'`.
+export const HOST_CONNECT_CHANNEL = 'oo:host:connect'
+export const HostConnectRequestSchema = z.object({ host: z.enum(['agent', 'data', 'all']) })

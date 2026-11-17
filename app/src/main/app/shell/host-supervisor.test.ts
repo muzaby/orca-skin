@@ -590,4 +590,28 @@ describe('createHostSupervisor — 정상 종료', () => {
       ports: [{ name: 'p' }]
     })
   })
+
+  it('셸 서비스 응답·깨어남은 준비 전에도 떠 있는 호스트에 간다 — 떠 있지 않거나 내려간 뒤에는 보내지 않는다', async () => {
+    const forks: FakeProcess[] = []
+    const supervisor = createHostSupervisor<Port>({
+      fork: () => {
+        const child = new FakeProcess(4300)
+        forks.push(child)
+        return child
+      },
+      createChannel: () => ({ port1: { name: 'host' }, port2: { name: 'client' } }),
+      clock: new FakeClock(),
+      isReady: (message) => (message as { type?: unknown }).type === 'ready',
+      onBootFailed: () => {}
+    })
+    expect(supervisor.send({ type: 'wake', reason: 'resume' })).toBe(false)
+    supervisor.ensureRunning()
+    expect(supervisor.phase()).toBe('starting')
+    expect(supervisor.send({ type: 'service.result', id: 0, ok: true })).toBe(true)
+    expect(forks[0].posted.at(-1)?.message).toEqual({ type: 'service.result', id: 0, ok: true })
+    const stopping = supervisor.shutdown()
+    forks[0].exit(0)
+    await stopping
+    expect(supervisor.send({ type: 'wake', reason: 'resume' })).toBe(false)
+  })
 })
