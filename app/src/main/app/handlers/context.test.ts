@@ -32,10 +32,10 @@ it('handler parameters expose only the consumed composition properties', () => {
     'getSkills' | 'settings' | 'deployExtensions' | 'refreshSkills'
   >()
   expectTypeOf<keyof Parameters<typeof registerMiscHandlers>[0]>().toEqualTypeOf<
-    'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock' | 'harnessRuntime' | 'mcp'
+    'registry' | 'debugMock' | 'harness'
   >()
   expectTypeOf<keyof Parameters<typeof registerEngineHandlers>[0]>().toEqualTypeOf<
-    'deployExtensions' | 'harnessSettings' | 'harnessRuntime' | 'runtimeModelCatalog'
+    'deployExtensions' | 'harness'
   >()
   expectTypeOf<Extract<keyof RouterContext, 'auth' | 'gate'>>().toBeNever()
 })

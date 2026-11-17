@@ -18,7 +18,7 @@ export interface SettingsMirror {
   patch(input: unknown): Promise<void>
   ready(): boolean
   // 전체 사본을 받을 때마다(연결마다) 부른다.
-  onSnapshot(listener: (settings: Settings) => void): void
+  onReplaced(listener: (settings: Settings) => void): void
   // 피어 통지 `settings.snapshot` — 연결될 때마다 온다.
   applySnapshot(payload: unknown): void
   // 피어 통지 `settings.patch` — 바뀐 뒤의 전체와 바뀐 최상위 키.
@@ -44,7 +44,7 @@ export function createSettingsMirror(deps: {
       await deps.requestWrite(input)
     },
     ready: () => current !== null,
-    onSnapshot(listener) {
+    onReplaced(listener) {
       snapshotListeners.push(listener)
     },
     applySnapshot(payload) {

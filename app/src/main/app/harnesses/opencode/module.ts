@@ -4,11 +4,8 @@ import {
   createOpenCodeAdapter,
   globalOpenCodeResourcePath,
   globalOpenCodeResources,
-  loadOpenCodeProviderSettings,
   openCodeContextWindow,
   openCodeProjectResources,
-  parseOpenCodeModels,
-  parseOpenCodeRuntimeModels,
   readUserOpenCodeSettings
 } from '../../../adapters/opencode'
 import {
@@ -17,9 +14,10 @@ import {
 } from '../../../features/harnesses/opencode/model-policy'
 import { openFileDatabase } from '../../../infra/db/file-database'
 import type { MainHarnessModule } from '../common/contracts'
+import { openCodeConfigModule } from './config'
 
 export const openCodeMainModule: MainHarnessModule = {
-  id: 'opencode',
+  ...openCodeConfigModule,
   projectResources: openCodeProjectResources,
   globalResources: globalOpenCodeResources,
   globalResourcePath: globalOpenCodeResourcePath,
@@ -30,9 +28,6 @@ export const openCodeMainModule: MainHarnessModule = {
       openDatabase: openFileDatabase,
       dataDirectory: join(options.dataDirectory, 'opencode')
     }),
-  loadSettings: loadOpenCodeProviderSettings,
-  parseSettingsModels: parseOpenCodeModels,
-  parseRuntimeModels: parseOpenCodeRuntimeModels,
   readUserSettings: readUserOpenCodeSettings,
   // The module's second argument is a choices map, not a subprocess environment.
   draftResources: (cwd) => configuredOpenCodeResources(cwd),

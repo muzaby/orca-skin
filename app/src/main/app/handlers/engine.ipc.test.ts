@@ -16,7 +16,9 @@ import {
 } from '../deployment/harness-runtime'
 import { createHarnessSettingsService, parseHarnessRuntimeModels } from '../harnesses/registry'
 import { registerEngineHandlers } from './engine'
+import { engineContext } from '../data-host/data-port.testfixture'
 import { registerMiscHandlers } from './misc'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 const fixture = vi.hoisted(() => ({
   home: '',
@@ -125,13 +127,15 @@ beforeEach(() => {
     },
     fetchImpl
   )
-  registerEngineHandlers({
+  registerEngineHandlers(
+    engineContext({
     deployExtensions: deploy,
     harnessSettings: settings,
     harnessRuntime,
     runtimeModelCatalog
-  })
-  registerMiscHandlers({
+    })
+  )
+  registerMiscHandlers(withDataPort({
     registry: {
       list: () => [
         { id: 'claude', installed: true, usable: true },
@@ -144,7 +148,7 @@ beforeEach(() => {
     runtimeModelCatalog,
     debugMock: { log: false },
     mcp: { resolver: () => () => undefined }
-  } as never)
+  }) as never)
 })
 afterEach(() => {
   rmSync(fixture.home, { recursive: true, force: true })

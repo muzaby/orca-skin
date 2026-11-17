@@ -138,9 +138,9 @@ describe('표시명 (EP-04)', () => {
   // 참조하는지를 양성 단언으로 잠근다.
   it('main 의 사용자 대면 문구 7지점이 SSOT 파생이다', () => {
     const sites: [string[], string][] = [
-      [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 스킬`'],
-      [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장`'],
-      [['src', 'main', 'app', 'bootstrap.ts'], '`${PRODUCT_SLUG}.json 로드`'],
+      [['src', 'main', 'app', 'data-host', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 스킬`'],
+      [['src', 'main', 'app', 'data-host', 'bootstrap.ts'], '`${PRODUCT_DISPLAY_NAME} 설정 디렉터리 보장`'],
+      [['src', 'main', 'app', 'data-host', 'bootstrap.ts'], '`${PRODUCT_SLUG}.json 로드`'],
       [
         ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts'],
         '`${PRODUCT_DISPLAY_NAME} 스킬`'
@@ -162,11 +162,11 @@ describe('표시명 (EP-04)', () => {
       const source = read(...parts)
       expect(source, relative(join(APP_ROOT, ...parts))).toContain(expected)
     }
-    expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain(`'${OLD_TITLE} `)
+    expect(read('src', 'main', 'app', 'data-host', 'bootstrap.ts')).not.toContain(`'${OLD_TITLE} `)
     expect(read('src', 'main', 'features', 'extensions', 'claude', 'deployer.ts')).not.toContain(
       `'${OLD_TITLE} `
     )
-    expect(read('src', 'main', 'app', 'bootstrap.ts')).not.toContain(`'${OLD}.json 로드'`)
+    expect(read('src', 'main', 'app', 'data-host', 'bootstrap.ts')).not.toContain(`'${OLD}.json 로드'`)
   })
 })
 
@@ -203,20 +203,26 @@ describe('옛 저장 경로 (0308 EP-01)', () => {
     const index = read('src', 'main', 'index.ts')
     const log = index.indexOf('= initLog()')
     expect(log).toBeGreaterThan(-1)
-    expect(log).toBeLessThan(index.indexOf('installErrorReportSink()'))
-    // 둘째 인자는 호스트 → 셸 알림의 수신기다(0324).
-    expect(index).toMatch(/new Bootstrap\(\n\s+\(event\) => event\.trusted,\n/)
+    // 셸의 첫 배선(IPC 전송·로그 채널)보다 앞이다.
+    expect(log).toBeLessThan(index.indexOf('setIpcTransport('))
+    expect(log).toBeLessThan(index.indexOf('registerLogHandlers()'))
+    // 두 호스트도 같다(0324) — 호스트 환경 다음, 전송·조립보다 앞에서 자기 이름으로 연다.
+    const host = read('src', 'main', 'app', 'host-process.ts')
+    const hostLog = host.indexOf('= initLog(deps.name)')
+    expect(hostLog).toBeGreaterThan(host.indexOf('setHostEnvironment(parseHostEnvironment(deps.argv))'))
+    expect(hostLog).toBeLessThan(host.indexOf('setIpcTransport('))
+    expect(hostLog).toBeLessThan(host.indexOf('deps.create('))
   })
 
   it('부팅 단계가 DB 초기화 → 미완료 도구 호출 복구 → 핸들러 등록 순서이고 이관 단계가 없다', () => {
-    const bootstrap = read('src', 'main', 'app', 'bootstrap.ts')
+    const bootstrap = read('src', 'main', 'app', 'data-host', 'bootstrap.ts')
     const dbInit = bootstrap.indexOf("'db-init'")
     const recovery = bootstrap.indexOf("'chat-recovery'")
-    const handlers = bootstrap.indexOf('registerChatHandlers({')
+    const handlers = bootstrap.indexOf('registerSessionHandlers(ctx')
     expect(dbInit).toBeGreaterThan(-1)
     expect(recovery).toBeGreaterThan(dbInit)
     expect(handlers).toBeGreaterThan(recovery)
-    expect(bootstrap).toMatch(/'db-init', \{ critical: true,/)
+    expect(bootstrap).toMatch(/'db-init',\s*\{ critical: true,/)
     expect(bootstrap).toMatch(/'chat-recovery',\s*\{ critical: true,/)
     expect(bootstrap).not.toContain("'legacy-" + "migration'")
     expect(bootstrap).not.toContain("'legacy-" + "paths'")
@@ -279,7 +285,7 @@ describe('내부 저장 이름 (EP-03)', () => {
     ],
     [
       'artifacts 루트',
-      ['src', 'main', 'app', 'bootstrap.ts'],
+      ['src', 'main', 'app', 'data-host', 'bootstrap.ts'],
       "join(ooConfigDir(), 'artifacts'",
       `'.config', '${OLD}'`
     ]
@@ -353,7 +359,7 @@ describe('이름 규칙 (0306)', () => {
     // `sourceId` 는 `string` 이라 타입 검사가 생산·소비의 어긋남을 못 본다. 설정 `skillEnabled` 의
     // 키 접두사이기도 하다(`skillEnabledKey`).
     for (const parts of [
-      ['src', 'main', 'app', 'bootstrap.ts'],
+      ['src', 'main', 'app', 'data-host', 'bootstrap.ts'],
       ['src', 'main', 'features', 'extensions', 'claude', 'deployer.ts']
     ]) {
       const source = read(...parts)

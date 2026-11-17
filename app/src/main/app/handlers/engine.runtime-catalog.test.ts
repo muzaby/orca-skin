@@ -27,6 +27,7 @@ vi.mock('../../infra/log', () => ({
 }))
 
 const { registerEngineHandlers } = await import('./engine')
+const { engineContext } = await import('../data-host/data-port.testfixture')
 
 describe('engine runtime catalog invalidation wiring', () => {
   beforeEach(() => callbacks.clear())
@@ -39,12 +40,14 @@ describe('engine runtime catalog invalidation wiring', () => {
     const invalidateSettings = vi.fn()
     const invalidateRuntime = vi.fn()
     const invalidateCatalog = vi.fn()
-    registerEngineHandlers({
+    registerEngineHandlers(
+      engineContext({
       deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: invalidateSettings },
       harnessRuntime: { invalidate: invalidateRuntime },
       runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
-    })
+      })
+    )
 
     await callbacks.get(channel)?.(request as never)
 
@@ -88,12 +91,14 @@ describe('engine runtime catalog invalidation wiring', () => {
       verified: true,
       credentialRevision: 1
     })
-    registerEngineHandlers({
+    registerEngineHandlers(
+      engineContext({
       deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: vi.fn() },
       harnessRuntime: runtime,
       runtimeModelCatalog
-    })
+      })
+    )
 
     await callbacks.get(channel)?.(request as never)
 
@@ -132,12 +137,14 @@ describe('engine runtime catalog invalidation wiring', () => {
     [CHANNELS.engineRead, { key: 'claude-  CORP' }]
   ])('rejects non-canonical runtime-managed keys on %s', async (channel, request) => {
     const isReadOnly = vi.fn((key: string) => key === 'claude-corp')
-    registerEngineHandlers({
+    registerEngineHandlers(
+      engineContext({
       deployExtensions: vi.fn(async () => {}),
       harnessSettings: { invalidateAll: vi.fn() },
       harnessRuntime: { invalidate: vi.fn() },
       runtimeModelCatalog: { isReadOnly, invalidate: vi.fn() }
-    })
+      })
+    )
 
     await expect(async () => callbacks.get(channel)?.(request as never)).rejects.toThrow(
       'runtime-managed engine is read-only: claude-corp'

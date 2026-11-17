@@ -1778,6 +1778,17 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
       activeKey: sessionId
     }))
   }
+  // 다른 세션의 첫 본문 로드가 아직 진행 중이면 취소한다(0324 AC17) — 데이터 호스트가 남은 조각을
+  // 보내지 않는다. 받은 본문이 없는 자리표시 엔트리라 지운다(다시 열면 새로 읽는다). 캐시가 있는 세션의
+  // 재확인·갱신은 건드리지 않는다.
+  for (const [otherId, other] of [...sessionLoads]) {
+    const entry = getState().sessions[otherId]
+    if (otherId === sessionId || !entry?.session.loadingSession) continue
+    // 로드 중에 라이브 이벤트가 온 엔트리는 지우지 않는다 — 그 로드 결과는 어차피 버려진다(SD-03).
+    if (other.liveChanged || sessionBusy(entry.session)) continue
+    sessionApi.cancelLoad(otherId)
+    dropSession(otherId)
+  }
   const request = { entry: getState().sessions[sessionId], liveChanged: false }
   sessionLoads.set(sessionId, request)
   const isCurrent = (): boolean =>
