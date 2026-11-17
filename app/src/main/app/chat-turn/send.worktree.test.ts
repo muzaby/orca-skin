@@ -86,6 +86,7 @@ import { enqueueTurnPrompt } from './enqueue'
 import { runTurnWithContinuations } from './post-turn'
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { TurnRequest } from '../../adapters/common/turn'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 const requirement = (overrides: Partial<DiffRequirementAnchor> = {}): DiffRequirementAnchor => ({
   sessionId: 'session-1',
@@ -150,7 +151,7 @@ function makeHarness(sessionId?: string) {
   }
   const sender = fakeClient()
   const deps = {
-    ctx: {
+    ctx: withDataPort({
       settings: { getAll: () => ({}) },
       db: {
         updateSessionProviderKey: vi.fn(),
@@ -176,7 +177,7 @@ function makeHarness(sessionId?: string) {
       getCwd: () => '/source/repo',
       ensureExtensionsDeployedForTurn: vi.fn(async () => undefined),
       extensions: { build: vi.fn(() => ({ skills: [], hooks: { normalized: {} } })) }
-    },
+    }),
     supervisor,
     bus: {},
     approvals: {},

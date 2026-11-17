@@ -12,6 +12,7 @@ import {
 import { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { Backend } from '../../../shared/ipc'
 import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 vi.mock('../../features/chat/attachments', () => ({
   normalizeAttachments: vi.fn(async () => ({ attachmentTexts: [], attachmentImages: [] }))
@@ -50,13 +51,13 @@ function fixture(stored?: Backend): {
     pendingMessages,
     db,
     deps: {
-      ctx: {
+      ctx: withDataPort({
         ...passthroughRuntimeConfig(),
         settings: { getAll: () => ({}) },
         debugMock: { enabled: false },
         registry: { getActive: () => adapters.claude, get: (id: Backend) => adapters[id] },
         db
-      },
+      }),
       supervisor: {
         getChainByKey: (key: string) => leases.getByKey(key),
         acquireChain: acquire,

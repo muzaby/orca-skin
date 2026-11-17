@@ -76,6 +76,7 @@ vi.mock('../features/chat/turn-coordinator', () => ({
 
 import { registerChatHandlers } from './chat-turn'
 import { passthroughRuntimeConfig } from './runtime-config.testfixture'
+import { withDataPort } from './data-host/data-port.testfixture'
 
 function runtime(
   revision: number,
@@ -237,7 +238,7 @@ function installHarness(options: {
 
   registerChatHandlers({
     onHarnessExited: harnessExited,
-    ctx: {
+    ctx: withDataPort({
       ...passthroughRuntimeConfig(),
       mockAdapter: null,
       debugMock: { enabled: false },
@@ -263,7 +264,7 @@ function installHarness(options: {
       workProfilePluginPath,
       ensureExtensionsDeployedForTurn: async () => {},
       getCwd: () => '/workspace'
-    },
+    }),
     supervisor,
     bus: { emit: vi.fn() },
     approvals: { isSessionAllowed: vi.fn(), register: vi.fn() },
