@@ -237,9 +237,16 @@ export class AgentBootstrap implements HostAssembly {
       leases: () => this.supervisor?.allLeases() ?? [],
       emit: (message) => this.host.toShell(message)
     })
+    // 설정 사본은 준비 뒤 피어 포트로 온다 — 만들 때 읽지 않고, 사본이 바뀌면 다시 읽는다.
     this.extensionChoices = extensionControl({
       get: () => this.mirror.getAll().nativeExtensionChoices,
-      set: (choices) => void this.mirror.patch({ nativeExtensionChoices: choices })
+      set: (choices) => void this.mirror.patch({ nativeExtensionChoices: choices }),
+      onChanged: (listener) => {
+        this.mirror.onReplaced(() => listener())
+        this.mirror.onPatch((_next, changedKeys) => {
+          if (changedKeys.includes('nativeExtensionChoices')) listener()
+        })
+      }
     })
     this.registry = createAdapterRegistry({
       managedMcp: {
