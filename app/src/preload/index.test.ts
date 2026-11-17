@@ -9,14 +9,18 @@
 // preload 는 `orcinus-orca` 를 값으로 export 하지 않는다. `contextBridge.exposeInMainWorld` 가 받은
 // 객체를 포획해 실제 노출 표면을 그대로 부른다 — 재구현이 아니라 production 객체다.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHANNELS, type OpenContextFileResult } from '../shared/ipc'
 import type { OoApi } from './index'
+import { CHANNEL_OWNER } from '../shared/channel-owner'
 
 const harness = vi.hoisted(() => ({
   invoke: vi.fn<(...args: unknown[]) => Promise<unknown>>().mockResolvedValue(undefined),
   exposed: new Map<string, unknown>(),
-  listeners: new Map<string, Set<(event: unknown, payload: unknown) => void>>()
+  listeners: new Map<string, Set<(event: unknown, payload: unknown) => void>>(),
+  sent: [] as Array<[string, unknown]>,
+  // 요청·송신이 어느 전송으로 갔는가 — 셸은 ipcRenderer, 호스트는 그 호스트의 포트(0324 AC24′).
+  routes: [] as Array<[string, 'shell' | 'agent' | 'data']>
 }))
 
 vi.mock('electron', () => ({
@@ -24,7 +28,10 @@ vi.mock('electron', () => ({
     exposeInMainWorld: vi.fn((key: string, api: unknown) => harness.exposed.set(key, api))
   },
   ipcRenderer: {
-    invoke: harness.invoke,
+    invoke: (...args: unknown[]) => {
+      harness.routes.push([args[0] as string, 'shell'])
+      return harness.invoke(...args)
+    },
     on: (channel: string, listener: (event: unknown, payload: unknown) => void): void => {
       const listeners = harness.listeners.get(channel) ?? new Set()
       listeners.add(listener)
@@ -33,7 +40,7 @@ vi.mock('electron', () => ({
     off: (channel: string, listener: (event: unknown, payload: unknown) => void): void => {
       harness.listeners.get(channel)?.delete(listener)
     },
-    send: vi.fn()
+    send: vi.fn((channel: string, payload: unknown) => harness.sent.push([channel, payload]))
   },
   webUtils: { getPathForFile: vi.fn(() => '/f') }
 }))
@@ -41,7 +48,52 @@ vi.mock('electron', () => ({
 // contextIsolated 가 거짓이면 모듈이 `window.oo` 분기로 가고 node 환경에는 window 가 없다.
 Object.defineProperty(process, 'contextIsolated', { value: true, configurable: true })
 
+// 셸이 넘기는 호스트 포트 — 요청은 같은 `harness.invoke` 로 받아 답하고, 통지는 `emitEvent` 로 보낸다.
+// 요청이 어느 전송으로 갔는지는 `routes` 가 기록한다(0324 AC24′).
+const hostPorts = new Map<'agent' | 'data', { deliver(data: unknown): void }>()
+function deliverHostPort(host: 'agent' | 'data'): void {
+  let onmessage: ((event: { data: unknown }) => void) | null = null
+  const port = {
+    set onmessage(listener: (event: { data: unknown }) => void) {
+      onmessage = listener
+    },
+    postMessage: (message: { kind: string; id?: number; channel: string; payload?: unknown }) => {
+      harness.routes.push([message.channel, host])
+      if (message.kind !== 'invoke') return
+      const args =
+        message.payload === undefined ? [message.channel] : [message.channel, message.payload]
+      void Promise.resolve()
+        .then(() => harness.invoke(...args))
+        .then(
+          (value) => onmessage?.({ data: { kind: 'result', id: message.id, ok: true, value } }),
+          (error: unknown) =>
+            onmessage?.({
+              data: { kind: 'result', id: message.id, ok: false, error: (error as Error).message }
+            })
+        )
+    },
+    close: () => {}
+  }
+  hostPorts.set(host, { deliver: (data) => onmessage?.({ data }) })
+  for (const listener of harness.listeners.get('oo:host:port') ?? [])
+    listener({ ports: [port] }, { host })
+}
+
+// 통지 하나 — 소유 프로세스의 전송으로 보낸다(호스트 채널은 포트, 셸 채널은 ipcRenderer).
+function emitEvent(channel: string, payload: unknown): void {
+  const owner = (CHANNEL_OWNER as Record<string, string>)[
+    Object.keys(CHANNELS).find((key) => (CHANNELS as Record<string, string>)[key] === channel)!
+  ]
+  if (owner === 'agent' || owner === 'data') {
+    hostPorts.get(owner)!.deliver({ kind: 'event', channel, payload })
+    return
+  }
+  for (const listener of harness.listeners.get(channel) ?? []) listener({}, payload)
+}
+
 await import('./index')
+deliverHostPort('agent')
+deliverHostPort('data')
 
 it('forwards backend extension changes through preload and renderer and removes the listener', async () => {
   vi.stubGlobal('window', { oo: harness.exposed.get('oo') as OoApi })
@@ -49,14 +101,10 @@ it('forwards backend extension changes through preload and renderer and removes 
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const seen = vi.fn()
     const off = sessionApi.onExtensionsChanged(seen)!
-    const listeners = harness.listeners.get(CHANNELS.extensionsChanged)!
-    expect(listeners.size).toBe(1)
-    for (const backend of ['claude', 'opencode'])
-      for (const listener of listeners) listener({}, { backend })
+    for (const backend of ['claude', 'opencode']) emitEvent(CHANNELS.extensionsChanged, { backend })
     expect(seen.mock.calls).toEqual([[{ backend: 'claude' }], [{ backend: 'opencode' }]])
     off()
-    expect(listeners.size).toBe(0)
-    for (const listener of listeners) listener({}, { backend: 'claude' })
+    emitEvent(CHANNELS.extensionsChanged, { backend: 'claude' })
     expect(seen).toHaveBeenCalledTimes(2)
   } finally {
     vi.unstubAllGlobals()
@@ -69,12 +117,11 @@ it('carries managed MCP revision events through the actual preload and renderer 
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const seen = vi.fn()
     const off = sessionApi.onManagedMcpChanged(seen)!
-    const listeners = harness.listeners.get(CHANNELS.managedMcpChanged)!
-    expect(listeners.size).toBe(1)
-    for (const listener of listeners) listener({}, { revision: 37 })
+    emitEvent(CHANNELS.managedMcpChanged, { revision: 37 })
     expect(seen).toHaveBeenCalledExactlyOnceWith({ revision: 37 })
     off()
-    expect(listeners.size).toBe(0)
+    emitEvent(CHANNELS.managedMcpChanged, { revision: 38 })
+    expect(seen).toHaveBeenCalledOnce()
   } finally {
     vi.unstubAllGlobals()
   }
@@ -389,8 +436,6 @@ const eventEndpoints: EventEndpoint[] = [
 ]
 
 describe('preload public event subscriptions', () => {
-  beforeEach(() => harness.listeners.clear())
-
   it.each(eventEndpoints)(
     '$name keeps its channel, strips the Electron event and releases only its own listener',
     (endpoint) => {
@@ -399,12 +444,8 @@ describe('preload public event subscriptions', () => {
       const second = vi.fn()
       const stopFirst = endpoint.subscribe(api, first)
       const stopSecond = endpoint.subscribe(api, second)
-      const electronEvent = { sender: { privileged: true } }
       const firstPayload = { source: endpoint.name, revision: 1 }
-      const emit = (channel: string, payload: unknown): void => {
-        for (const listener of harness.listeners.get(channel) ?? [])
-          listener(electronEvent, payload)
-      }
+      const emit = emitEvent
 
       for (const other of eventEndpoints) {
         if (other.channel !== endpoint.channel) emit(other.channel, { unexpected: true })
@@ -424,7 +465,6 @@ describe('preload public event subscriptions', () => {
       stopSecond()
       emit(endpoint.channel, { revision: 3 })
       expect(second).toHaveBeenCalledTimes(2)
-      expect(harness.listeners.get(endpoint.channel)?.size).toBe(0)
     }
   )
 })
@@ -523,13 +563,12 @@ it('forwards OpenCode plugin changes on their own channel', async () => {
     const { sessionApi } = await import('../renderer/src/shared/api/ipc')
     const changed = vi.fn()
     const stop = sessionApi.onOpenCodePluginsChanged(changed)!
-    for (const revision of [2, 7])
-      for (const listener of harness.listeners.get('oo:extensions:opencode-plugins-changed') ?? [])
-        listener({}, { revision })
+    for (const revision of [2, 7]) emitEvent('oo:extensions:opencode-plugins-changed', { revision })
     expect(changed.mock.calls).toEqual([[{ revision: 2 }], [{ revision: 7 }]])
     expect(CHANNELS.extensionOpenCodePluginsChanged).toBe('oo:extensions:opencode-plugins-changed')
     stop()
-    expect(harness.listeners.get(CHANNELS.extensionOpenCodePluginsChanged)?.size).toBe(0)
+    emitEvent(CHANNELS.extensionOpenCodePluginsChanged, { revision: 9 })
+    expect(changed).toHaveBeenCalledTimes(2)
   } finally {
     vi.unstubAllGlobals()
   }
@@ -549,4 +588,30 @@ it('carries the login-free connect request and its final state through the actua
   } finally {
     vi.unstubAllGlobals()
   }
+})
+
+// 0324 AC24′ · VP-21′ — 채널마다 처리하는 프로세스가 하나다. 이 파일의 모든 요청이 소유 표의 전송으로만
+// 갔는지 본다(셸 채널 → ipcRenderer, 호스트 채널 → 그 호스트의 포트).
+const ownerOfChannel = (channel: string): string =>
+  (CHANNEL_OWNER as Record<string, string>)[
+    Object.keys(CHANNELS).find((key) => (CHANNELS as Record<string, string>)[key] === channel)!
+  ]
+
+it('요청은 소유 프로세스의 전송 하나로만 간다 — 셸·에이전트·데이터 (AC24′)', async () => {
+  const api = harness.exposed.get('oo') as OoApi
+  harness.routes.length = 0
+  await api.boot.whenReady()
+  await api.chat.cancel('s1')
+  await api.settings.get()
+  expect(harness.routes).toEqual([
+    [CHANNELS.bootWhenReady, 'shell'],
+    [CHANNELS.chatCancel, 'agent'],
+    [CHANNELS.settingsGet, 'data']
+  ])
+})
+
+afterAll(() => {
+  const wrong = harness.routes.filter(([channel, via]) => ownerOfChannel(channel) !== via)
+  expect(wrong).toEqual([])
+  expect(new Set(harness.routes.map(([, via]) => via))).toEqual(new Set(['shell', 'agent', 'data']))
 })

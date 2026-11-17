@@ -28,7 +28,15 @@ export default defineConfig({
   main: {
     build: {
       // SDK는 import 조건만 제공하므로 CommonJS main에서 require하지 않도록 번들에 포함한다.
-      externalizeDeps: { exclude: ['@opencode-ai/sdk'] }
+      externalizeDeps: { exclude: ['@opencode-ai/sdk'] },
+      // 셸 하나와 호스트 둘(0324 D-034) — 셸이 `out/main/<kind>-host.js` 를 utility 프로세스로 띄운다.
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          'data-host': resolve('src/main/app/data-host/entry.ts'),
+          'agent-host': resolve('src/main/app/agent-host/entry.ts')
+        }
+      }
     }
   },
   preload: {},

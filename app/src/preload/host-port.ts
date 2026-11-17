@@ -5,7 +5,7 @@
 // 종료 통지는 응답을 기다리는 요청과 대기열을 모두 실패시킨다. 이 파일은 Electron 을 모른다 —
 // preload 가 `MessagePort` 와 셸 채널을 감싸 넘긴다.
 
-import { HostToClientSchema, type ClientToHost } from '../shared/host-protocol'
+import { HostToClientSchema, type ClientToHost, type HostName } from '../shared/host-protocol'
 
 // 셸이 넘긴 포트 하나.
 export interface ClientPort {
@@ -14,7 +14,7 @@ export interface ClientPort {
   close(): void
 }
 
-export type HostName = 'agent' | 'data'
+export type { HostName }
 
 export interface HostPortClientDeps {
   // 어느 호스트의 포트인가 — 실패 문장에 실린다.

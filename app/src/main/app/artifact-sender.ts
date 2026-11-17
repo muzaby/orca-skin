@@ -25,3 +25,23 @@ export function createArtifactSenderCheck(
     }
   }
 }
+
+/** 셸이 호스트 포트를 넘길 때의 신뢰 판정 — 메인 창의 최상위 문서가 앱 주소에 있는가. */
+export function isTrustedAppDocument(
+  contents: Pick<WebContents, 'isDestroyed' | 'getURL'> | null,
+  rendererUrl: string
+): boolean {
+  if (!contents || contents.isDestroyed()) return false
+  const expected = new URL(rendererUrl)
+  try {
+    const actual = new URL(contents.getURL())
+    return (
+      actual.protocol === expected.protocol &&
+      actual.host === expected.host &&
+      actual.username === '' &&
+      actual.password === ''
+    )
+  } catch {
+    return false
+  }
+}
