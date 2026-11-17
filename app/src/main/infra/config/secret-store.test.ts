@@ -124,6 +124,20 @@ describe('SecretStore (EP-18)', () => {
     expect(failing.has('X')).toBe(false)
   })
 
+  // 순서의 근거: 파일 기록이 실패하면 사본도 그대로여야 한다 — 사본을 먼저 바꾸면 디스크에 없는 값이 읽힌다.
+  it('쓰기 — 파일 기록이 실패하면 사본을 바꾸지 않고 거부한다', async () => {
+    const file = memoryFile({ TOKEN: 'enc:old' })
+    file.set = () => {
+      throw new Error('disk full')
+    }
+    const store = new SecretStore(file, fakeSealer())
+    await store.load()
+    await expect(store.set('TOKEN', 'new')).rejects.toThrow('disk full')
+    expect(store.get('TOKEN')).toBe('old')
+    await expect(store.set('OTHER', 'x')).rejects.toThrow('disk full')
+    expect(store.has('OTHER')).toBe(false)
+  })
+
   it('삭제 — 파일·사본에서 제거 · 봉인 요청 0', async () => {
     const file = memoryFile({ TOKEN: 'enc:v', LOCKED: 'enc:l' })
     const sealer = fakeSealer({ locked: new Set(['enc:l']) })

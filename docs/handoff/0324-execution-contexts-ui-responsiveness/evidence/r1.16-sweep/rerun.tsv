@@ -1,0 +1,8 @@
+id	결과	exit	요약
+E8-3r	red (기대 일치)	1	vitest 1 failed | 60 passed (61)
+E9-1r	red (기대 일치)	1	vitest 1 failed | 164 passed (165)
+E9-3r	red (기대 일치)	1	vitest 1 failed | 164 passed (165)
+E11-6r	red (기대 일치)	1	vitest 1 failed | 609 passed (610)
+E11-8r	red (기대 일치)	1	vitest 1 failed | 609 passed (610)
+E11-9r	red (기대 일치)	1	vitest 1 failed | 609 passed (610)
+# 원복 확인: 모든 파일 원문 그대로
