@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   HOST_BOOT_FAILURE_LIMIT,
+  HOST_READY_TIMEOUT_MS,
   HOST_SHUTDOWN_TIMEOUT_MS,
   createHostSupervisor,
   shutdownHosts,
@@ -614,5 +615,209 @@ describe('createHostSupervisor — 정상 종료', () => {
     forks[0].exit(0)
     await stopping
     expect(supervisor.send({ type: 'wake', reason: 'resume' })).toBe(false)
+  })
+})
+
+// 0324 EP-24 · D-055 · AC50 — 준비 마감. 시각을 가진 가짜 시계로 규칙 칸 8분기를 하나씩 입력한다.
+class TimeClock {
+  now = 0
+  private next = 1
+  readonly timers = new Map<number, { at: number; callback: () => void }>()
+  setTimeout(callback: () => void, ms: number): unknown {
+    const id = this.next++
+    this.timers.set(id, { at: this.now + ms, callback })
+    return id
+  }
+  clearTimeout(handle: unknown): void {
+    this.timers.delete(handle as number)
+  }
+  // 지금부터 ms 만큼 흘린다 — 그 사이 마감이 된 타이머를 시각 순서대로 부른다.
+  advance(ms: number): void {
+    const target = this.now + ms
+    for (;;) {
+      const due = [...this.timers]
+        .filter(([, timer]) => timer.at <= target)
+        .sort((a, b) => a[1].at - b[1].at)[0]
+      if (!due) break
+      this.timers.delete(due[0])
+      this.now = due[1].at
+      due[1].callback()
+    }
+    this.now = target
+  }
+}
+
+interface DeadlineHarness {
+  readonly forks: FakeProcess[]
+  readonly log: string[]
+  readonly clock: TimeClock
+  readonly supervisor: ReturnType<typeof createHostSupervisor<Port>>
+  readonly client: SupervisedClient<Port>
+}
+
+function setupDeadline(
+  options: {
+    readyTimeoutMs?: number | undefined
+    withReady?: boolean
+    restartOnExit?: boolean
+  } = {}
+): DeadlineHarness {
+  const forks: FakeProcess[] = []
+  const log: string[] = []
+  const clock = new TimeClock()
+  const deps: HostSupervisorDeps<Port> = {
+    fork: () => {
+      const child = new FakeProcess(5000 + forks.length)
+      forks.push(child)
+      return child
+    },
+    createChannel: () => ({ port1: { name: 'host' }, port2: { name: 'client' } }),
+    clock,
+    startStep: (message) => {
+      const state = (message as { type?: unknown; state?: unknown }).state
+      return (message as { type?: unknown }).type === 'boot.step' &&
+        (state === 'begin' || state === 'end')
+        ? state
+        : undefined
+    },
+    onReadyTimeout: () => log.push('ready-timeout'),
+    onBootFailed: () => log.push('boot-failed')
+  }
+  if (options.withReady !== false)
+    deps.isReady = (message) => (message as { type?: unknown }).type === 'ready'
+  if (!('readyTimeoutMs' in options)) deps.readyTimeoutMs = HOST_READY_TIMEOUT_MS
+  else if (options.readyTimeoutMs !== undefined) deps.readyTimeoutMs = options.readyTimeoutMs
+  const holder: { supervisor?: ReturnType<typeof createHostSupervisor<Port>> } = {}
+  if (options.restartOnExit) deps.onExited = () => holder.supervisor?.ensureRunning()
+  const supervisor = createHostSupervisor(deps)
+  holder.supervisor = supervisor
+  const client: SupervisedClient<Port> = {
+    id: 1,
+    trusted: () => true,
+    deliverPort: () => {},
+    notify: (event) => log.push(event)
+  }
+  return { forks, log, clock, supervisor, client }
+}
+
+describe('createHostSupervisor — 준비 마감 (EP-24 · AC50)', () => {
+  it('마감은 90초다 — 범용 기동 제한 시간(D-055)', () => {
+    expect(HOST_READY_TIMEOUT_MS).toBe(90_000)
+  })
+
+  it('기동 중 메시지가 없고 마감이 지나면 알림 1 · kill 1, 그 exit 는 기동 실패 1회로 창에 알린다', async () => {
+    const h = setupDeadline()
+    h.supervisor.attach(h.client)
+    h.clock.advance(HOST_READY_TIMEOUT_MS - 1)
+    expect(h.forks[0].kills).toBe(0)
+    h.clock.advance(1)
+    expect(h.log).toEqual(['ready-timeout'])
+    expect(h.forks[0].kills).toBe(1)
+    h.forks[0].exit()
+    await flush()
+    expect(h.log).toEqual(['ready-timeout', 'exited'])
+    expect(h.supervisor.phase()).toBe('idle')
+  })
+
+  it('준비 전 exit 는 그 child 의 마감을 해제한다 — 남은 타이머 0', async () => {
+    const h = setupDeadline()
+    h.supervisor.attach(h.client)
+    h.clock.advance(10_000)
+    h.forks[0].exit()
+    await flush()
+    expect(h.clock.timers.size).toBe(0)
+  })
+
+  it('마감 전에 준비하면 시계를 넘겨도 끊지 않는다', () => {
+    const h = setupDeadline()
+    h.supervisor.attach(h.client)
+    h.clock.advance(10_000)
+    h.forks[0].emit(READY)
+    // 준비가 마감을 해제한다 — 남은 타이머 0.
+    expect(h.clock.timers.size).toBe(0)
+    h.clock.advance(HOST_READY_TIMEOUT_MS * 3)
+    expect(h.forks[0].kills).toBe(0)
+    expect(h.log).toEqual(['ready'])
+  })
+
+  it.each([
+    ['호스트 메시지', (h: DeadlineHarness) => h.forks[0].emit({ type: 'service.call' })],
+    ['셸 → 호스트 send', (h: DeadlineHarness) => h.supervisor.send({ type: 'service.result' })]
+  ])('기동 중 %s 는 그 시점부터 마감을 다시 잡는다', (_name, touch) => {
+    const h = setupDeadline()
+    h.supervisor.attach(h.client)
+    h.clock.advance(60_000)
+    touch(h)
+    // 처음 마감(90초) 시각 — 다시 잡았으므로 끊지 않는다.
+    h.clock.advance(HOST_READY_TIMEOUT_MS - 1)
+    expect(h.forks[0].kills).toBe(0)
+    h.clock.advance(1)
+    expect(h.forks[0].kills).toBe(1)
+  })
+
+  it('긴 단계 시작 ~ 끝 사이에는 세지 않고, 끝 뒤 마감이 지나면 끊는다', () => {
+    const h = setupDeadline()
+    h.supervisor.attach(h.client)
+    h.clock.advance(10_000)
+    h.forks[0].emit({ type: 'boot.step', state: 'begin' })
+    h.clock.advance(HOST_READY_TIMEOUT_MS * 5)
+    // 셸 서비스 응답(send)도 멈춤을 풀지 않는다.
+    h.supervisor.send({ type: 'service.result' })
+    h.clock.advance(HOST_READY_TIMEOUT_MS * 5)
+    expect(h.forks[0].kills).toBe(0)
+    h.forks[0].emit({ type: 'boot.step', state: 'end' })
+    h.clock.advance(HOST_READY_TIMEOUT_MS - 1)
+    expect(h.forks[0].kills).toBe(0)
+    h.clock.advance(1)
+    expect(h.forks[0].kills).toBe(1)
+  })
+
+  it('마감 종료가 재기동마다 3회 연속이면 기동 실패 상한이다', async () => {
+    const h = setupDeadline({ restartOnExit: true })
+    h.supervisor.attach(h.client)
+    for (let attempt = 0; attempt < HOST_BOOT_FAILURE_LIMIT; attempt++) {
+      h.clock.advance(HOST_READY_TIMEOUT_MS)
+      expect(h.forks[attempt].kills).toBe(1)
+      h.forks[attempt].exit()
+      await flush()
+    }
+    expect(h.forks).toHaveLength(HOST_BOOT_FAILURE_LIMIT)
+    expect(h.log.filter((entry) => entry === 'boot-failed')).toHaveLength(1)
+    expect(h.supervisor.phase()).toBe('failed')
+  })
+
+  it.each([
+    ['준비 판정 없음', { withReady: false }],
+    ['마감 없음', { readyTimeoutMs: undefined }]
+  ] as const)('%s 이면 마감 타이머를 두지 않는다', (_name, options) => {
+    const h = setupDeadline(options)
+    h.supervisor.attach(h.client)
+    expect(h.clock.timers.size).toBe(0)
+    h.clock.advance(HOST_READY_TIMEOUT_MS * 2)
+    expect(h.forks[0].kills).toBe(0)
+  })
+
+  it('기동 중 종료를 요청했으면 마감은 끊지 않는다 — 종료 제한 시간만 kill 한다', () => {
+    const h = setupDeadline()
+    h.supervisor.attach(h.client)
+    void h.supervisor.shutdown()
+    h.clock.advance(HOST_READY_TIMEOUT_MS * 2)
+    expect(h.log).not.toContain('ready-timeout')
+    expect(h.forks[0].kills).toBe(1)
+  })
+
+  it('재기동 뒤 옛 child 의 마감은 새 child 를 끊지 않는다', async () => {
+    const h = setupDeadline({ restartOnExit: true })
+    h.supervisor.attach(h.client)
+    h.clock.advance(30_000)
+    h.forks[0].exit()
+    await flush()
+    expect(h.forks).toHaveLength(2)
+    // 옛 child 의 마감(90초) 시각 — 새 child 는 30초에 떴다.
+    h.clock.advance(HOST_READY_TIMEOUT_MS - 30_000)
+    expect(h.forks[1].kills).toBe(0)
+    h.clock.advance(30_000)
+    expect(h.forks[1].kills).toBe(1)
+    expect(h.forks[0].kills).toBe(0)
   })
 })
