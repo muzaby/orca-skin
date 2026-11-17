@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -101,15 +101,19 @@
 | D-046 | 본 화면은 두 호스트가 모두 준비된 뒤에 뜬다(AC31′ 그대로). 데이터 호스트만 준비되면 띄우는 안은 이번에 하지 않고 후속 handoff 추천으로 남긴다 | "후속 핸드오프 추천사항으로 남겨라. 이번엔 asis로 진행하겠다" — 설계자가 낸 두 안(as-is / to-be)의 사용자 시나리오 비교를 본 뒤의 답 | 검토 세션 2026-11-16 | ACTIVE | — |
 | D-047 | 함수를 담은 공유 객체는 서술자 사본 + 대리 호출로 건넌다 — 런타임 도구는 `tools.snapshot` + 대리 MCP 서버 → `runtimeToolCall`, 관리형 MCP 는 `mcp.snapshot` + 브리지 임대 | 도구 함수·MCP 서버는 구조화 복제가 안 된다. Claude 는 같은 프로세스 MCP 로 도구를 붙인다(§7-H 조사). 다른 두 안(Claude 도 HTTP 브리지 · 플러그인을 에이전트로)은 도구 표면·D-038 을 바꾼다 | 설계자(D-024 적용) · r1.11 G-A·G-D | ACTIVE (사용자 거부 가능) | — |
 | D-048 | 하네스 실행 구성(인증 보강기)·모델 카탈로그는 데이터 호스트에 두고 에이전트 호스트는 `HarnessConfigPort` 로 받는다 | 보강기·카탈로그가 인증 런타임을 동기로 받는다 — D-038 과 같은 방향 | 설계자(D-024 적용) · r1.11 G-B | ACTIVE | — |
-| D-049 | D-039 의 "응답을 기다리는 저장"에 산출물 참조를 싣는 턴 이벤트(게시 영수증이 붙은 도구 완료 · 출력 파일 담기)를 더한다. 같은 턴의 뒤 중계만 그 뒤로 줄을 선다 | D-039 의 조건절 "지금 계약이 응답 값을 쓴다"에 해당한다 — 화면은 DB 가 확인한 산출물 참조만 싣는다(`writer.ts`) | 설계자(D-039 조건절 적용) · r1.11 | ACTIVE (사용자 거부 가능) | D-039 의 예외 목록을 넓힘 |
+| D-049 | D-039 의 "응답을 기다리는 저장"에 산출물 참조를 싣는 턴 이벤트(게시 영수증이 붙은 도구 완료 · 출력 파일 담기)를 더한다. 같은 턴의 뒤 중계만 그 뒤로 줄을 선다 | D-039 의 조건절 "지금 계약이 응답 값을 쓴다"에 해당한다 — 화면은 DB 가 확인한 산출물 참조만 싣는다(`writer.ts`) | 설계자(D-039 조건절 적용) · r1.11 · 사용자 승인 2026-11-17 "3건 승인" | ACTIVE | D-039 의 예외 목록을 넓힘 |
 | D-050 | 데이터 → 에이전트 교차 요청은 §7-H EP-21′ 9자리다. 확보 여부는 D-044 규칙 그대로 — 실행 결과가 필요한 것만 확보한다 | 바쁨 판정·셸 취소·하네스 설치·모델 목록·확장 배포가 데이터 쪽 기능(로그인 프리 연결·MCP·스킬 CRUD)에서 필요하다 | 설계자(D-044 적용) · r1.11 G-C | ACTIVE | — |
 | D-051 | 프로세스 경계 가드의 허용 자리를 §7-H EP-1″ 로 고정한다. 두 호스트는 서로의 조립 폴더를 값으로 import 하지 않고, 계약은 `shared/peer-protocol.ts`, 공용 호스트 인프라는 `app/host-*.ts` 에 둔다 | 실제 트리에서 가드를 처음 돌려 나온 등록 자리(r1.12)와 교차 호스트 값 import 1건(r1.14 — 송신기가 수신기 모듈을 끌어와 저장기가 에이전트 번들에 들었다) | 설계자(D-028 적용) · r1.12·r1.13·r1.14 | ACTIVE | §7-F (e2) · §7-G (e3)′ 대체 |
 | D-052 | 세션 로드 취소는 `window.oo.session.cancelLoad` 로 보낸다(추가분) | 앞 로드를 취소해야 남은 조각을 보내지 않는다(AC17). 기존 형상은 그대로(D-026) | 설계자 · r1.12 | ACTIVE | — |
 | D-053 | 에이전트 호스트는 첫 설정 사본을 받기 전에 온 창 메시지를 창마다 도착 순서대로 기다리게 했다가 처리한다(포트 전송의 보류). 사본 전 내부 읽기는 그대로 던진다(EP-17 fail-closed) | 셸은 준비 직후 창 포트를 넘기고 피어 포트(사본)는 그 뒤라, 부팅 중 쌓인 요청이 사본 전 읽기로 실패했다(r1.16 재현 3/3) | 설계자(현재 결함 정정) · r1.16 | ACTIVE | — |
 | D-054 | 실행 쪽 동기 판정이 읽는 데이터 호스트의 것은 사본으로 두고, 사본이 성립하는 때를 계약으로 둔다 — 세션 메타는 lease 가 바뀔 때마다 이 호스트가 가진 세션을 다시 읽고 동기 판정 직전(Claude 리셋 계획)에 채운다. 세션 종류는 비동기로 묻는다. 백그라운드 기록은 상태 요청·턴 시작에서 받아 첫 복원이 한 번만 쓴다 | 비동기 진입점이 지나갈 때만 채우던 사본이라 유휴 세션의 권한 모드 변경이 무시되고, 리소스 동기화·Claude 리셋이 그 세션을 놓쳤다. 한 번 채운 기록은 갱신되지 않았다 | 설계자(현재 결함 정정) · r1.16 | ACTIVE | — |
+| D-055 | 기동 중인 호스트가 준비를 알리지 않은 채 셸과 **90초** 동안 메시지를 주고받지 않으면 셸이 그 호스트를 끝내고 기동 실패 1회로 센다(연속 3회면 부팅 오류 — EP-19 그대로). 데이터 호스트가 알린 DB 단계(열기·백업·마이그레이션·복구) 동안은 세지 않는다 | 사용자 승인 — r1.15~r1.17 보고 "준비 제한 시간 도입 여부: 지금은 시작을 끝내지 못하는 호스트가 있으면 부팅이 영원히 멈춥니다" 에 "3건 승인". 값·DB 단계 제외·메시지마다 다시 잡기는 범용 대응(D-024) — systemd `DefaultTimeoutStartSec` 90초 · `EXTEND_TIMEOUT_USEC`. DB 단계를 세면 큰 DB 의 마이그레이션 백업(`VACUUM INTO`)이 끊겨 다시 떠도 끝나지 못한다(§7-J 조사) | 사용자 2026-11-17 + 설계자(D-024 적용) | ACTIVE (값·DB 단계 제외는 사용자 거부 가능) | — |
+| D-056 | renderer 에 호스트 수명 통지 `window.oo.hosts.onLifecycle`(`exited`·`reconnected`)을 더한다(추가분) — 기존 `window.oo` 형상은 그대로다 | AC29′·AC33′ 의 전달 수단(r1.14 설계자 확인 1건). D-052 와 같은 추가분 | 설계자 · r1.14 · 사용자 승인 2026-11-17 "3건 승인" | ACTIVE | D-026 의 추가분 예외 |
 
 ### 갱신 메모
 
+- 사용자 결정(rev 4.5): "3건 승인" — 준비 제한 시간 도입(D-055 신규) · D-049 승인(상태만) · `window.oo.hosts` 추가분 승인(D-056 신규). §7-J — AC 49 → 50(AC50), 노드 R-13·AR-16·MD-11 · pair VP-45~47 · §10 EP-24(12자리) · 선언 경계 B33·B34.
+- rev 4.5 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-055 ↔ AC50 · AC31′(본 화면 조건 그대로 — 끝나지 않는 기동도 부팅 오류가 된다)·AC18′(데이터 호스트 기동 실패 3회 → 부팅 오류, 마감 종료도 한 번으로 센다) · D-049 ↔ AC40(그대로) · D-056 ↔ AC29′·AC33′(전달 수단) · D-026(형상 그대로) ↔ D-056(추가분).
 - r1.16(rev 4.4): §7-I — EP-4′ 의 자리 목록을 고정했고(plan 내부 정합), 구현이 선조치한 현재 결함 2건(D-053·D-054)을 §10 행으로 올렸다. AC 49 그대로 — 검증 수단 칸만 더했다.
 - rev 4.4 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-053 ↔ AC31′(본 화면 조건 그대로 · 그 뒤 첫 요청이 실패하지 않는다)·AC42(사본 전 읽기는 던진다 — 창 요청이 그 전에 처리되지 않을 뿐이다) · D-054 ↔ AC41(실행 쪽은 데이터 호스트에서 받는다 — 받는 때를 정했다)·AC39(백그라운드 기록 복원이 한 프로세스 경로와 같다).
 - r1.15(rev 4.3): 운영 gate 에 호스트 기동 스모크를 더했다 — r1.14 트리는 단위 테스트가 모두 green 인데 에이전트 호스트가 뜨지 못했다. 결정·AC·pair 변경 0.
@@ -209,7 +213,7 @@
 | 에이전트 호스트 비정상 종료 | main 이 남은 하네스를 끝내고 모든 창에 알린다. 진행 중이던 세션은 중단으로 처리된다 | 진행 중 세션에 오류 알림, 입력창은 다시 쓸 수 있다. 다음 전송에서 호스트가 다시 뜬다 |
 | 하네스 비정상 종료 | 에이전트 호스트가 그 세션만 오류로 끝내고 수명 이벤트를 보낸다 | 그 세션에 기존 오류 표시 |
 | 예약 셸 명령의 시각이 됐는데 에이전트 호스트가 없음 | 데이터 호스트가 셸에 기동을 요청하고 연결된 뒤 실행을 맡긴다. 기동이 실패하면 그 실행을 실패로 기록한다(D-044) | 창이 숨어 있어도 예약 작업이 실행된다 |
-| 앱 시작 | main 이 창을 띄우고 데이터 호스트(DB 마이그레이션·복구) → 에이전트 호스트 순으로 띄운다(AC31′) | 기존 부팅 화면 → 본 화면. 호스트 기동 실패는 부팅 오류 화면 |
+| 앱 시작 | main 이 창을 띄우고 데이터 호스트(DB 마이그레이션·복구) → 에이전트 호스트 순으로 띄운다(AC31′). 준비를 알리지 않은 채 90초 동안 셸과 메시지가 없는 호스트는 끝내고 기동 실패로 센다 — DB 단계는 세지 않는다(AC50) | 기존 부팅 화면 → 본 화면. 호스트 기동 실패(마감 포함) 3회는 부팅 오류 화면 |
 | 앱 종료 | main 이 에이전트 호스트 → 데이터 호스트 순으로 종료를 요청하고 각 3초 안에 안 끝나면 강제 종료한다(AC32′) | 지금과 같다 |
 
 ### 파생 UX / 엣지케이스
@@ -1235,6 +1239,101 @@ AC 총수 49 그대로.
 - 분모: EP-4′ 10 · EP-17′ 5 · EP-23 13. 검색 명령은 조사 표 1·3·4행이고 이번 턴에 돌려 같은 수를 얻었다.
 - 규칙 칸 ↔ 입력 칸: EP-17′ 5분기 ↔ `host-port-server.test.ts` 5케이스 · EP-23 5행 ↔ 세 테스트 파일의 케이스 이름(규칙 칸 열거 순서).
 - 인용 테스트 실재: AC 표 2열의 파일·케이스는 r1.16 커밋에 있다(`rg` 로 이름 확인).
+
+## 7-J. V1 rev 4.5 정정 — 사용자 결정 3건(준비 제한 시간 · D-049 · `window.oo.hosts`)
+
+**판정: READY.** 출처는 사용자 결정이다(2026-11-17 "3건 승인" — r1.15~r1.17 보고의 결정 대기 3건). D-049 와 `window.oo.hosts` 는 이미 구현·문서화돼 있어 Ledger 상태만 바뀐다. 준비 제한 시간은 새 동작이라 AC50 · 노드 3 · pair 3 · §10 EP-24 를 더한다(AC 49 → 50). verify 0회라 확장 창은 열려 있다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| 준비 전 무한 대기 | `app/shell/host-supervisor.ts` `ensureRunning`(fork → `starting`) · `becomeReady` · `handleExit` 에 타이머 0 | 0 | 준비를 알리지 않는 호스트는 `starting` 에 영원히 머문다 — `boot.whenReady` 가 풀리지도 거부되지도 않는다 |
+| 데이터 호스트 `start()` 의 await | `rg -n "await " app/src/main/app/data-host/bootstrap.ts` 중 `start()` 안 | 1 | `this.secrets.load()` — 셸 서비스 `secrets.decrypt` 왕복. 셸 구현은 동기(`electron-services.ts:32` `safeStorage.decryptString`) |
+| 에이전트 호스트 `start()` 의 await | 같은 방법 | 1 | `await installation`(하네스 설치 확인) |
+| 데이터 호스트의 긴 동기 단계 | `db-init` → `initDb` → `applyMigrations`(`migrate.ts`): 대기 마이그레이션이 있으면 `VACUUM INTO`(DB 전체 복사) 뒤 파일마다 트랜잭션 · 그다음 `chat-recovery` | 2단계 | 큰 DB 에서 복사가 제한 시간을 넘으면 끊기고, 다시 떠도 복사부터 다시 해 끝나지 못한다 — 이 단계는 세면 안 된다 |
+| 호스트 → 셸 전달 | `host-runtime.ts:66` `toShell = parent.postMessage` | 1 | 알림은 호스트 이벤트 루프와 무관하게 셸에 간다고 가정하지 않는다 — 알린 뒤 한 번 양보하고 동기 단계에 들어간다 |
+| 스모크가 보는 호스트 메시지 | `scripts/smoke-hosts.mjs:160-167` — `service.call` 응답 · `ready` 외는 무시 | 2종 | 기동 단계 알림을 순서로 기록하면 실제 조립(번들)에서 그 배선을 본다(B29 의 조립 테스트 공백을 메운다) |
+| `window.oo.hosts` | `app/src/preload/index.ts:250` · `IPC_CONTRACT.md:37` · `execution-model.md:48` | 3 | 구현·문서 있음(r1.14) — 승인만 남았다 |
+| D-049 | `persistence-sender` 의 산출물 참조 이벤트 대기(rev 4.2 EP-15) | — | 구현·잠금 있음 — 승인만 남았다 |
+
+### 결정
+
+- **D-055**(사용자 승인 + 설계자 D-024 적용) — §3 Ledger. 값 90초는 systemd `DefaultTimeoutStartSec` 기본값, "긴 단계 알림 동안 세지 않음"은 systemd `EXTEND_TIMEOUT_USEC` 와 같은 꼴(범용 대응)이다. 셸과 메시지가 오갈 때마다 마감을 다시 잡는다 — 기동 중 셸 서비스 응답을 기다리는 호스트를 멈춘 것으로 세지 않기 위해서다.
+- **D-049** — 상태만 `ACTIVE (사용자 거부 가능)` → `ACTIVE`.
+- **D-056** — `window.oo.hosts.onLifecycle` 추가분 승인. D-026("`window.oo` API 는 바뀌지 않는다")의 기존 형상은 그대로이고 D-052 와 같은 추가분이다.
+
+### Requirements / Acceptance — rev 4.5
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-13 | AT-50 / AC50 | 기동 중인 호스트가 준비를 알리지 않은 채 셸과 90초 동안 메시지를 주고받지 않으면 셸이 그 호스트를 끝내고 기동 실패 1회로 센다 — 데이터 호스트는 바로 다시 뜨고, 어느 호스트든 연속 3회면 부팅 오류 화면이다. 데이터 호스트가 알린 DB 단계(열기·백업·마이그레이션·복구) 동안은 세지 않는다 | `host-supervisor.test.ts` — EP-24 규칙 칸 8분기(가짜 시계) · `app/shell/host-link.test.ts` — `boot.step` 이 무효 처리 없이 지나가고 `hostStartStep` 이 `begin`·`end` 만 읽는다 · `gate:node scripts/smoke-hosts.mjs` — 데이터 호스트가 `boot.step begin` → `end` → `ready` 순서로 보낸다 · `host-assemblies.order.test.ts` — 셸 감독자 배선 | `index.ts` → `createHostSupervisor({ readyTimeoutMs })` → fork → 마감 → `kill` → exit → `handleExit` → `boot.ts` `onBootFailed` → `bootWhenReady` 거부 |
+
+AC 총수 49 → **50**.
+
+### Node · Pair — rev 4.5 (Baseline V1 의 rev 정정, 새 Delta V 아님)
+
+| Node | 수준 | 내용 | provenance | 출처 |
+|---|---|---|---|---|
+| R-13 | R | 기동이 끝나지 않는 호스트도 부팅 오류로 끝난다 | NEW | D-055 |
+| AR-16 | AR | 데이터 호스트 → 셸 기동 단계 알림(`boot.step`) → 감독자의 마감 멈춤·재개 | NEW | D-055 |
+| MD-11 | MD | 감독자의 준비 마감(설정·다시 잡기·멈춤·해제·만료) | NEW | D-055 |
+| SD-04″ · SD-04 | SD | 두 호스트 수명 순서(EP-19) · 감독자 종료 처리(EP-12) | INHERITED | §7-G · §7-A |
+
+| Pair | 좌 ↔ 우 | requiredness | production path | 직접 oracle | 선택 적대 증거 | 강제 지점 |
+|---|---|---|---|---|---|---|
+| VP-45 | R-13 ↔ AT-50 | REQUIRED | 셸 `index.ts` → 감독자(마감) → `kill` → exit → `boot.ts` 기동 실패 → `bootWhenReady` 거부 | `host-supervisor.test.ts` '준비 마감 3회 연속 → 기동 실패 상한'(구현자 작성) · `boot.test.ts` '에이전트 호스트 기동 실패 상한: whenReady 거부 · 데이터 호스트는 그대로'(있음, EP-19) | not selected — 행동 oracle | EP-24 ①⑧ |
+| VP-46 | AR-16 ↔ IT-16 | REQUIRED | 데이터 `start()` → `toShell(boot.step begin)` → 양보 → `initDb` → `recoverSessionHistory` → `toShell(boot.step end)` → `HostToShellSchema` → 셸 `hostStartStep`(`host-link.ts`) → 감독자 `startStep` → 멈춤·재개 | `gate:node scripts/smoke-hosts.mjs` — 실제 번들의 `begin` → `end` → `ready` 순서 · `host-link.test.ts` · `host-supervisor.test.ts` '긴 단계' 분기 | required — 셸 배선 검사(소스)는 구조 proxy 라 `index.ts` 의 `startStep`·`readyTimeoutMs` 제거 변이로 민감도를 본다 | EP-24 ④⑤⑨⑩⑪⑫ |
+| VP-47 | MD-11 ↔ UT-11 | REQUIRED | `createHostSupervisor` 마감 상태 | `host-supervisor.test.ts` — EP-24 규칙 칸 8분기 | not selected | EP-24 ①~⑧ |
+| VP-22″ · VP-22 | SD-04″ · SD-04 | REGRESSION | 마감 종료가 준비 전 exit 와 같은 경로(`handleExit` → 기동 실패 수)를 탄다 | `boot.test.ts` · `host-supervisor.test.ts` 기존 케이스 그대로 green | — | EP-19 · EP-12 |
+
+### 강제 지점 — rev 4.5
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| MD-11·AR-16·R-13 / VP-45~47 **EP-24** | 준비를 알리지 않은 채 셸과 90초 동안 오가는 메시지가 없는 호스트는 끝나고 기동 실패로 세어진다. 데이터 호스트가 알린 DB 단계 동안은 세지 않는다(D-055) | 12자리 — 감독자: ① fork 때 마감 설정 · ② 기동 중 호스트 메시지에 다시 잡기 · ③ 기동 중 셸 → 호스트 `send` 에 다시 잡기 · ④ 긴 단계 시작에 멈춤 · ⑤ 긴 단계 끝에 다시 잡기 · ⑥ 준비에 해제 · ⑦ exit 에 해제 · ⑧ 만료 → 알림 + `kill`(같은 child · 아직 `starting` · 멈춤 아님일 때만) / 셸: ⑨ `index.ts` 감독자 배선(`readyTimeoutMs` · `startStep: hostStartStep` · `onReadyTimeout`) / 데이터 호스트: ⑩ DB 단계 앞 `begin` + 양보 · ⑪ 복구 뒤 `end` / 계약: ⑫ `HostToShellSchema` 의 `boot.step` | 구현 뒤 `rg -n "armReady\|pauseReady\|clearReady\|readyTimeoutMs\|startStep\|onReadyTimeout\|boot\.step" app/src/main app/src/shared --glob '!*.test.*'` — 같은 이름의 정의·타입 줄은 자리가 아니다 | 끝나지 않는 기동이 부팅을 영원히 막는다 / 큰 DB 의 마이그레이션 백업이 끊겨 다시 떠도 끝나지 못한다 / 셸 서비스 응답을 기다리던 호스트가 끊긴다 / 재기동 뒤 옛 child 의 마감이 새 child 를 끊는다 |
+
+**EP-24 규칙 칸** (`host-supervisor.test.ts`, 가짜 시계 · `readyTimeoutMs` 를 준 감독자):
+
+| 분기 | 기대 |
+|---|---|
+| 기동 중 메시지 0 · 마감 지남 | 알림 1 · `kill` 1 → 그 뒤 exit 면 창 통지 `exited` · 기동 실패 1 |
+| 마감 전 준비 | 시계를 마감 넘어 돌려도 `kill` 0 |
+| 기동 중 호스트 메시지 · 셸 → 호스트 `send` | 각각 그 시점부터 다시 마감 — 처음 마감 시각에는 `kill` 0, 다시 잡은 마감에 `kill` 1 |
+| 긴 단계 시작 ~ 끝 | 그 사이 마감을 몇 번 넘겨도 `kill` 0 · 끝 뒤 마감이 지나면 `kill` 1 |
+| 마감 종료 3회 연속(재기동마다) | `onBootFailed` 1 — EP-19 상한과 같다 |
+| 준비 판정 없음 · `readyTimeoutMs` 없음 | 타이머 0 |
+| 기동 중 종료 요청(`stopping`) 뒤 마감 | 알림 0 · `kill` 은 종료 제한 시간(3초)만 |
+| 재기동 뒤 옛 child 의 마감 | 새 child 에 `kill` 0 |
+
+**선언 경계** (rev 4.5):
+
+- B33 — DB 단계(열기·백업·마이그레이션·복구) 안의 정지는 세지 않는다. 그 단계는 동기 SQLite I/O 라 끝나거나 던지고, 던지면 기동 실패(EP-19)다.
+- B34 — 셸 서비스가 매크로태스크를 넘겨 응답하는 동안 마감이 지나면 그 호스트는 끝난다. 기동 중 셸 서비스는 `secrets.decrypt`(셸에서 동기)뿐이다(조사 표 2행).
+
+### 구현 설계 — rev 4.5
+
+| 단계 | 파일 | 책임 |
+|---|---|---|
+| 4n | `app/shell/host-supervisor.ts` | `HOST_READY_TIMEOUT_MS = 90_000` · deps `readyTimeoutMs?` · `startStep?(message): 'begin' \| 'end' \| undefined` · `onReadyTimeout?()` · 내부 `armReady`·`pauseReady`·`clearReady`(EP-24 ①~⑧) |
+| 4o | `shared/host-protocol.ts` · `app/shell/host-link.ts` | `HostToShellSchema` 에 `{ type: 'boot.step', state: 'begin' \| 'end' }`(⑫) · 순수 함수 `hostStartStep(message)` — 스키마로 읽어 `begin`·`end` 만 돌려준다. 메시지 싱크는 `boot.step` 을 무효로 세지 않는다 |
+| 4p | `app/data-host/bootstrap.ts` | `db-init` 앞 `toShell(begin)` + 한 번 양보 · `chat-recovery` 뒤 `toShell(end)`(⑩⑪) |
+| 4q | `index.ts` | 감독자 배선 + 만료 로그 `shell.host.ready-timeout`(⑨) |
+| 4r | `scripts/smoke-hosts.mjs` | 데이터 호스트의 `boot.step` 순서를 기록·판정(`begin` → `end` → `ready`) · `smoke-hosts.test.mjs` 판정 분기 |
+
+만료는 새 실패 경로를 만들지 않는다 — `kill` 뒤 exit 가 지금의 준비 전 종료와 같은 `handleExit` 를 탄다(EP-12·EP-19 그대로).
+
+### 대체 범위
+
+§3 D-049 의 상태 칸 · §5 "앱 시작" 행 · §7-I B32 는 그대로(데이터 호스트가 멈춰도 이제 마감으로 기동 실패가 된다).
+
+### READY self-review — rev 4.5 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — §3 갱신 메모 rev 4.5 줄.
+- 분모: EP-24 12. 검색 명령은 구현 뒤 실행이다(이름을 이 표가 정한다 — EP-12 와 같은 방식).
+- 규칙 칸 ↔ 입력 칸: EP-24 8분기 ↔ `host-supervisor.test.ts` 8케이스(구현자 작성) · 스모크 판정 분기 ↔ `smoke-hosts.test.mjs`.
+- NEW 노드 3 ↔ REQUIRED pair 3(VP-45~47) · 영향받은 상위 2 ↔ REGRESSION(VP-22″·VP-22).
+- 인용 기존 테스트: `boot.test.ts:169` '에이전트 호스트 기동 실패 상한: whenReady 거부 · 데이터 호스트는 그대로' · `host-supervisor.test.ts:148` '상한은 기동 실패 3회 · 종료 대기 3초다' — `rg` 로 이름 확인. `HostToShellSchema` 를 읽는 셸 싱크의 테스트는 `host-link.test.ts`(`peer.ensure`·`update.check` 케이스가 있다).
 
 ---
 
