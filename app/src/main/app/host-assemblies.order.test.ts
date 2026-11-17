@@ -77,6 +77,7 @@ describe('에이전트 호스트 조립 — 사본과 보류의 배선', () => {
       'prefetchBackgroundEvents: (sessionId) => backgroundRecords.prefetch(sessionId)'
     )
     const discard = body(agent, 'private discardSession(sessionId: string): void')
+    expect(discard).toContain('this.sender.forgetProviderSession(sessionId)')
     expect(discard).toContain('this.sessionMeta.forget(sessionId)')
     expect(discard).toContain('this.backgroundRecords?.forget(sessionId)')
   })
@@ -85,6 +86,69 @@ describe('에이전트 호스트 조립 — 사본과 보류의 배선', () => {
     const serving = body(agent, 'serving(): Promise<void>')
     expect(serving).toContain('this.mirror.ready()')
     expect(serving).toContain('this.mirror.onReplaced(() => resolve())')
+  })
+})
+
+// 0324 r1.16 sweep — 조립 안 배선 중 단계 모듈의 테스트가 닿지 않는 자리(B29). 동작은 각 모듈 테스트.
+describe('에이전트 호스트 조립 — 수명 이벤트 · 깨어남 배선', () => {
+  it('수명 이벤트 원천 넷이 각자의 진입점에 걸린다(EP-11)', () => {
+    expect(body(agent, 'private discardSession(sessionId: string): void')).toContain(
+      'this.lifecycle.sessionEnded(sessionId)'
+    )
+    expectOrder(agent, [
+      'new ApprovalCoordinator((sessionId) =>',
+      'this.lifecycle.approvalPending(sessionId)'
+    ])
+    expect(agent).toContain(
+      'onHarnessExited: (sessionId) => this.lifecycle.harnessExited(sessionId)'
+    )
+  })
+
+  it('창 포커스는 하네스 설치 재확인만 부른다 — 절전 해제는 원인이 아니다(EP-10)', () => {
+    const raw = readFileSync(new URL('./agent-host/bootstrap.ts', import.meta.url), 'utf8')
+    expect(raw).toContain("if (reason === 'window-focus') this.registry.focusRecheck()")
+  })
+})
+
+describe('데이터 호스트 조립 — 셸 서비스 · 언어 사본 배선', () => {
+  it('비밀 봉인·해제는 셸 서비스로 간다(EP-10)', () => {
+    const raw = readFileSync(new URL('./data-host/bootstrap.ts', import.meta.url), 'utf8')
+    expect(raw).toContain("isAvailable: () => shellServices().call('secrets.isAvailable')")
+    expect(raw).toContain("encrypt: (plain) => shellServices().call('secrets.encrypt', plain)")
+    expect(raw).toContain("decrypt: (cipher) => shellServices().call('secrets.decrypt', cipher)")
+  })
+
+  it('절전 해제·화면 잠금 해제마다 못 푼 비밀을 다시 푼다 — 창 포커스는 아니다(EP-10)', () => {
+    const raw = readFileSync(new URL('./data-host/bootstrap.ts', import.meta.url), 'utf8')
+    expect(raw).toContain("if (reason !== 'window-focus') void this.secrets.retryUndecryptable()")
+  })
+
+  it('셸의 UI 언어 사본은 설정 패치로 알린다(EP-14)', () => {
+    expect(data).toContain(
+      'watchShellLocale(this.settings, (message) => this.host.toShell(message))'
+    )
+  })
+})
+
+describe('셸 조립 — 셸 상태 파일 배선(EP-14)', () => {
+  it('창 위치는 셸 상태 파일에서 읽고 닫을 때 저장하며, 호스트가 알린 언어를 그 파일에 둔다', () => {
+    const entry = read('../index.ts')
+    expect(entry).toContain('const saved = shellState.windowBounds()')
+    expect(entry).toContain('shellState.saveWindowBounds(mainWindow.getBounds())')
+    expect(entry).toContain('mirrorUiLocale: (uiLocale) => shellState.mirrorUiLocale(uiLocale)')
+  })
+
+  it('데이터 호스트의 준비 메시지가 UI 언어 사본을 싣는다', () => {
+    expect(data).toContain(
+      'mirror: { uiLocale: this.settings.getAll().uiLocale }'
+    )
+  })
+})
+
+describe('셸 조립 — 창 포트의 신뢰 판정', () => {
+  it('호스트에 넘기는 창의 신뢰 판정은 그 창의 최상위 앱 문서 판정이다(EP-9)', () => {
+    const shell = read('./shell/electron-hosts.ts')
+    expect(shell).toContain('trusted: () => isTrustedAppDocument(contents, rendererUrl)')
   })
 })
 
