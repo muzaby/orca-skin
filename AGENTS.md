@@ -11,6 +11,7 @@
 | `project/` | HTML/CSS/JS 디자인 프로토타입 아카이브 — *어떻게 보여야 하는가* | `project/AGENTS.md` |
 | `app/` | Orcinus orca v1 실제 구현체 (electron-vite + React/TypeScript). 빌드·게이트·의존성 정책·보안 베이스라인. | `app/AGENTS.md` |
 | `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스 → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제). 원격 요청은 Chromium `net.fetch` 단일 스택. | `app/src/main/AGENTS.md` |
+| `docs/arch/execution-model.md` | **실행 모델** — 셸·에이전트 호스트·데이터 호스트·창이 무슨 일을 하고 서로 어떤 경로로 부탁하는가. `app/**` 에 새 코드를 두기 전에 읽는다. 프로세스 경계는 `app/scripts/check-ui-thread.mjs` 가 강제 | [`docs/arch/execution-model.md`](docs/arch/execution-model.md) |
 | `app/src/renderer/` | **Renderer** 레이어·제작 가이드 — [디자인 시스템](docs/arch/frontend/design-system.md)·[컴포넌트 카탈로그](docs/arch/frontend/design-components.md) 필수 참조·준수, 4-layer · 시맨틱 토큰 · 그룹 격리. | `app/src/renderer/AGENTS.md` |
 | `docs/guides/` | 운영 절차서 — 릴리스 · 폐쇄망 확장 · workspace 권한 구성. *구조 서술은 `docs/arch/`, 실행 절차는 여기* | `docs/guides/AGENTS.md` |
 | `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |

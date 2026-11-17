@@ -116,7 +116,13 @@ async function runTurn(
   const coordinator = new TurnCoordinator({
     runtime: fakeRuntime(newSessionId, { text: turn.firstUserText, uuid: 'prompt-item' }),
     bus,
-    persist: persistence,
+    // 이 대역에는 질문 도구가 없다 — 답 비우기는 실행 쪽 송신기의 일이다(0324 EP-15).
+    persist: {
+      persist: (t, ev) => persistence.persist(t, ev),
+      finalizeTurn: (t) => persistence.finalizeTurn(t),
+      commitUserMessage: (t, batch) => persistence.commitUserMessage(t, batch),
+      flushAskAnswers: () => {}
+    },
     forward: { forward: (_owner, ev) => forwarded.push(ev) },
     registry: { promote: vi.fn() },
     classifyError: (err) => {
