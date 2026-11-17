@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -105,9 +105,13 @@
 | D-050 | 데이터 → 에이전트 교차 요청은 §7-H EP-21′ 9자리다. 확보 여부는 D-044 규칙 그대로 — 실행 결과가 필요한 것만 확보한다 | 바쁨 판정·셸 취소·하네스 설치·모델 목록·확장 배포가 데이터 쪽 기능(로그인 프리 연결·MCP·스킬 CRUD)에서 필요하다 | 설계자(D-044 적용) · r1.11 G-C | ACTIVE | — |
 | D-051 | 프로세스 경계 가드의 허용 자리를 §7-H EP-1″ 로 고정한다. 두 호스트는 서로의 조립 폴더를 값으로 import 하지 않고, 계약은 `shared/peer-protocol.ts`, 공용 호스트 인프라는 `app/host-*.ts` 에 둔다 | 실제 트리에서 가드를 처음 돌려 나온 등록 자리(r1.12)와 교차 호스트 값 import 1건(r1.14 — 송신기가 수신기 모듈을 끌어와 저장기가 에이전트 번들에 들었다) | 설계자(D-028 적용) · r1.12·r1.13·r1.14 | ACTIVE | §7-F (e2) · §7-G (e3)′ 대체 |
 | D-052 | 세션 로드 취소는 `window.oo.session.cancelLoad` 로 보낸다(추가분) | 앞 로드를 취소해야 남은 조각을 보내지 않는다(AC17). 기존 형상은 그대로(D-026) | 설계자 · r1.12 | ACTIVE | — |
+| D-053 | 에이전트 호스트는 첫 설정 사본을 받기 전에 온 창 메시지를 창마다 도착 순서대로 기다리게 했다가 처리한다(포트 전송의 보류). 사본 전 내부 읽기는 그대로 던진다(EP-17 fail-closed) | 셸은 준비 직후 창 포트를 넘기고 피어 포트(사본)는 그 뒤라, 부팅 중 쌓인 요청이 사본 전 읽기로 실패했다(r1.16 재현 3/3) | 설계자(현재 결함 정정) · r1.16 | ACTIVE | — |
+| D-054 | 실행 쪽 동기 판정이 읽는 데이터 호스트의 것은 사본으로 두고, 사본이 성립하는 때를 계약으로 둔다 — 세션 메타는 lease 가 바뀔 때마다 이 호스트가 가진 세션을 다시 읽고 동기 판정 직전(Claude 리셋 계획)에 채운다. 세션 종류는 비동기로 묻는다. 백그라운드 기록은 상태 요청·턴 시작에서 받아 첫 복원이 한 번만 쓴다 | 비동기 진입점이 지나갈 때만 채우던 사본이라 유휴 세션의 권한 모드 변경이 무시되고, 리소스 동기화·Claude 리셋이 그 세션을 놓쳤다. 한 번 채운 기록은 갱신되지 않았다 | 설계자(현재 결함 정정) · r1.16 | ACTIVE | — |
 
 ### 갱신 메모
 
+- r1.16(rev 4.4): §7-I — EP-4′ 의 자리 목록을 고정했고(plan 내부 정합), 구현이 선조치한 현재 결함 2건(D-053·D-054)을 §10 행으로 올렸다. AC 49 그대로 — 검증 수단 칸만 더했다.
+- rev 4.4 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-053 ↔ AC31′(본 화면 조건 그대로 · 그 뒤 첫 요청이 실패하지 않는다)·AC42(사본 전 읽기는 던진다 — 창 요청이 그 전에 처리되지 않을 뿐이다) · D-054 ↔ AC41(실행 쪽은 데이터 호스트에서 받는다 — 받는 때를 정했다)·AC39(백그라운드 기록 복원이 한 프로세스 경로와 같다).
 - r1.15(rev 4.3): 운영 gate 에 호스트 기동 스모크를 더했다 — r1.14 트리는 단위 테스트가 모두 green 인데 에이전트 호스트가 뜨지 못했다. 결정·AC·pair 변경 0.
 - r1.14(rev 4.2): 구현이 올린 `PLAN_GAP` 18건을 §7-H 에서 정정했다 — 함수를 담은 공유 객체 · 인증에 묶인 실행 구성 · 교차 요청 종류 · 산출물 참조 이벤트 · 가드 등록 자리와 교차 호스트 import · 세션 로드 취소 · 만들 수 없는 인용 oracle 7건의 대체. 새 결정 D-047~D-052(설계자). 기존 ACTIVE 결정은 모두 유지되고 D-039 의 예외 목록만 D-049 로 넓어졌다.
 - rev 4.2 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-049 ↔ AC40(예외가 D-039 조건절로 하나 늘었다) · D-052 ↔ AC24′(추가분) · D-051 ↔ AC20′·AC26 · D-047·D-048 ↔ AC41.
@@ -1143,6 +1147,94 @@ AC 총수 49 그대로.
 - 분모: EP-2″ 5 · EP-16′ 2 · EP-21′ 9 · EP-1″ 규칙 8행. 검색 명령은 각 행에 있다(EP-21′ 은 조사 표 3행).
 - 규칙 칸 ↔ 입력 칸: EP-1″ 8행 ↔ `check-ui-thread.test.mjs`·`harness-boundary.test.mjs` · EP-21′ 9 ↔ `session-hooks.test.ts`(4) + `agent-link.test.ts`(확보·미확보 분기) — 조립 안 5자리(`cancelShell`·`runShell`·`deployExtensions`·`harnessInstalled`·`harnessListModels`)의 직접 좌표는 B29 로 경계다.
 - 인용 테스트 실재: AC 표 3열의 파일은 `ls` 로 확인했다.
+
+## 7-I. V1 rev 4.4 정정 — r1.16 `PLAN_GAP` 1건 · 현재 결함 2건의 §10 행
+
+**판정: READY.** AC 49건의 동작 기준은 그대로다. 출처는 plan 내부 정합(EP-4′ 가 VP-05′·VP-09′ 에 인용되지만 §10 자리 목록이 없다)과 구현 r1.16 이 재현·선조치한 현재 결함 2건(D-053·D-054)이다. verify 0회라 확장 창은 열려 있다.
+
+### 조사
+
+| 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---:|---|
+| EP-4′ 자리 | `rg -n "deliver\(event\|client\.send\(CHANNELS\.sessionLoadChunk\|messages: \[\],\|sending\.get\(event\.sender\.id\)\?\.delete\|client\.isClosed\(\)\) return" app/src/main/app/data-host/session-load.ts` · `rg -n "request\.chunks\.push\|assembleSession\(session\|deps\.send\(deps\.channels\.cancel\|request\.cancelled \|\|" app/src/preload/session-load.ts` | 6 · 4 | §7-F 대체 범위가 EP-4~EP-6 을 EP-4′ 로 옮겼지만 행이 없었다 — VP-09′ path(요청 → 조각 → 끝 / 취소 / 닫힘)의 edge 다 |
+| 창 요청 ↔ 첫 설정 사본 순서 | `app/shell/host-supervisor.ts` `becomeReady`(준비 → 창 포트) · `boot.ts` `mediatePeer`(두 준비 뒤 피어) · `scripts/smoke-hosts.mjs` 의 피어 전 `oo:extensions:catalog` | 3/3 실패 | 사본 전 읽기(EP-17)가 창 요청에서 난다 — `설정 사본을 아직 받지 못했다` |
+| 보류 자리 | `rg -n "transport\.hold\(serving\)\|if \(serving\) dispatch\|held\.splice\|this\.mirror\.ready\(\)\) resolve\|onReplaced\(\(\) => resolve\(\)\)" app/src/main/app/host-port-server.ts app/src/main/app/host-process.ts app/src/main/app/agent-host/bootstrap.ts` | 5 | 전송의 보류·풀기 · 조립의 연결 · 에이전트의 `serving` |
+| 실행 쪽 동기 사본 자리 | `rg -n "sessionMeta\.(get\|track\|ensure\|forget\|refresh)\(\|backgroundRecords(\?)?\.(load\|prefetch\|forget)\(\|sessionAgentKind\(\|prefetchBackgroundEvents(\?\.)?\(\|processes\.prepare\(\)" app/src/main --glob '!*.test.*'` | 13 | r1.15 "남은 이주 2" 의 4자리(리소스 대상 · 승인 종류 · Claude 리셋 · 백그라운드 기록)를 받는 자리와 채우는 자리 |
+| EP-21′ 조립 5자리의 파일 | 조사 표(§7-H) 3행 명령 | 9 + 래퍼 2 | 5자리가 `data-host/bootstrap.ts` → `data-host/agent-requests.ts` 로 옮겨졌다(자리·수 불변) |
+
+### 결정
+
+- **D-053 · D-054** — §3 Ledger. 둘 다 Part I 상태표의 행을 바꾸지 않는다: §5 "앱 시작"(두 호스트 준비 뒤 본 화면)은 그대로이고, 첫 요청이 사본을 기다리는 시간만큼 늦게 답한다.
+
+### Requirements / Acceptance — rev 4.4 (동작 기준 불변 · 검증 수단 추가)
+
+| AC | 더한 검증 수단 | 이유 |
+|---|---|---|
+| AC42 | `host-port-server.test.ts` '창 메시지 보류 (hold)' 5케이스 · `host-process.test.ts` '창 요청은 조립의 serving 이 끝난 뒤 처리된다' · `gate:node scripts/smoke-hosts.mjs`(피어 전 확장 목록 요청 성공) | 사본 전 창 요청이 내부 읽기의 fail-closed 에 닿지 않는다(D-053) |
+| AC41 | `agent-host/session-meta.test.ts` 6케이스 · `approvals/coordinator.permission.test.ts` '0324 asynchronous session kind' 4케이스 · `handlers/extension-catalog.test.ts` 계획 전 `prepare` 순서 · `host-assemblies.order.test.ts` 사본 배선 | 받는 때가 정해졌다(D-054) |
+| AC39 | `agent-host/background-records.test.ts` 4케이스 · `chat-turn/send.busy.test.ts` 'background records for %s are fetched with the session row' | 복원 입력이 지금 기록이다(D-054) |
+
+AC 총수 49 그대로.
+
+### Node · Pair — rev 4.4
+
+| Pair | 바뀐 칸 | rev 4.4 |
+|---|---|---|
+| VP-05′·VP-09′ | §10 EP-4′ (행 없음) | EP-4′ (10) |
+| VP-40 | §10 EP-17 (4) | EP-17 (4) + EP-17′ (5) |
+| VP-37′ | §10 EP-15~EP-18·EP-20·EP-21′ | + EP-23 (13) |
+
+### 강제 지점 — rev 4.4
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| AR-05 / VP-05′·VP-09′ **EP-4′** | 세션 본문은 요청 응답에 싣지 않고 조각으로 간다 · 취소·닫힘이면 남은 조각을 보내지 않는다 | 10자리 — 데이터 `session-load.ts`: 로드 응답 조각 전송 · 새로고침 응답 조각 전송 · 조각 송신 · 끝 응답의 빈 본문 · 취소 수신 · 취소·닫힌 창 중단 / preload `session-load.ts`: 조각 수신 · 조립 · 취소 송신 · 취소된 요청의 답 버림 | 조사 표 1행의 두 명령 → 6 · 4 | 큰 본문이 응답 하나로 가 데이터 호스트와 창이 멈춘다 / 취소한 로드의 조각이 다음 화면에 섞인다 |
+| AR-14 / VP-40 **EP-17′** | 첫 설정 사본 전의 창 메시지는 창마다 도착 순서대로 기다렸다가 처리한다(D-053) | 5자리 — 전송의 보류 분기 · 풀 때 도착 순서 처리 · 조립의 `serving` 연결 · 에이전트 `serving` 의 사본 있음 · 사본 받음 | 조사 표 3행 명령 → 5 | 부팅 중 쌓인 요청이 `설정 사본을 아직 받지 못했다` 로 실패한다 / 보류한 요청이 영영 처리되지 않는다 |
+| AR-13 / VP-37′ **EP-23** | 실행 쪽 동기 판정이 읽는 사본은 그 판정 전에 지금 값이다(D-054) | 13자리 — 세션 메타: 비동기 읽기 · lease 변화 추적 · 리소스 대상 읽기 · Claude 리셋의 하네스 읽기 · 리셋 계획 전 채우기(조립 · 핸들러) · 세션 폐기의 잊기 / 세션 종류: 비동기 조회 / 백그라운드 기록: 동기 복원 · 받기 배선 · 상태 요청의 받기 · 턴 시작의 받기 · 세션 폐기의 잊기 | 조사 표 4행 명령 → 13 | 유휴 세션의 권한 모드 변경이 저장되지 않는다 / 리소스 동기화·Claude 리셋이 그 세션을 놓친다 / 앱 재시작 뒤 백그라운드 작업 상태가 빈 채 시작한다 |
+
+**EP-17′ 규칙 칸** (`host-port-server.test.ts`):
+
+| 분기 | 기대 |
+|---|---|
+| 열리기 전 · 요청과 단방향이 섞임 · 창 둘 | 처리 0 → 열면 창마다 도착 순서대로 처리 · 요청 응답은 같은 번호 |
+| 기다리는 사이 창이 닫힘 | 처리 0 · 응답 0 |
+| 열린 뒤 | 받은 자리에서 동기로 핸들러 호출 |
+| 보류 약속 실패 | 연다(그 뒤 판정은 핸들러) |
+| 보류 없음 | 바로 처리 |
+
+**EP-23 규칙 칸** (`session-meta.test.ts` · `background-records.test.ts` · `coordinator.permission.test.ts`):
+
+| 분기 | 기대 |
+|---|---|
+| 세션 메타 다시 읽기 · 같은 값 · 바뀐 값 · 없는 세션 | 사본 갱신 · 알림 0 · 알림 1 · 사본에서 지움 + 알림 1 |
+| 늦은 옛 응답 · 잊은 뒤 도착한 응답 | 새 읽기를 덮지 않는다 · 되살리지 않는다 |
+| `ensure` · `track` 새로 들어옴 · 이미 따라가는 세션 · 빠졌다 다시 들어옴 · 읽기 실패 | 없는 것만 읽음 · 읽음 · 읽지 않음 · 다시 읽음 · 알림, 사본 그대로 |
+| 백그라운드 기록 받기 · 다시 받기 · 정본 있음 · 받는 사이 정본 생김 · 잊기 | 한 번만 씀 · 현재 기록 · 받지 않음 · 버림 · 버림 |
+| 세션 종류: 턴 없음 · 묻는 사이 턴 시작(실행 있음 / 없음) · 실행 중 턴 | 답 뒤 저장 · 그 턴으로 적용 / 적용 0 · 묻지 않고 적용, 적용 뒤 확인 |
+
+**선언 경계** (rev 4.4):
+
+- B31 — 세션 메타 사본은 lease 변화 사이에 데이터 호스트에서 바뀐 작업 폴더·프로젝트를 다음 lease 변화나 리소스 요청까지 모른다. 실행 중 런타임은 띄울 때의 작업 폴더로 돈다.
+- B32 — 데이터 호스트가 다시 뜨는 사이 새로 뜬 에이전트 호스트의 창 요청은 첫 사본까지 기다린다. 데이터 호스트 기동 실패 3회는 부팅 오류다(EP-19).
+
+### 구현 설계 — rev 4.4
+
+| 단계 | 파일 | 책임 |
+|---|---|---|
+| 4k | `app/host-port-server.ts` `hold` · `app/host-process.ts` `HostAssembly.serving` · `agent-host/bootstrap.ts` `serving()` | EP-17′ |
+| 4l | `agent-host/session-meta.ts` · `agent-host/background-records.ts` · `features/approvals/coordinator.ts`(비동기 종류) · `harnesses/claude/processes.ts` `prepare` | EP-23 |
+| 4m | `data-host/agent-requests.ts` | EP-21′ 조립 5자리 |
+
+### 대체 범위
+
+§7-H EP-21′ 의 `bootstrap.ts` 5자리 위치 → `agent-requests.ts` · §7-F VP-09′·VP-05′ 의 §10 칸 · VP-40·VP-37′ 의 §10 칸에 행 추가.
+
+### READY self-review — rev 4.4 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — §3 갱신 메모 r1.16 줄.
+- 분모: EP-4′ 10 · EP-17′ 5 · EP-23 13. 검색 명령은 조사 표 1·3·4행이고 이번 턴에 돌려 같은 수를 얻었다.
+- 규칙 칸 ↔ 입력 칸: EP-17′ 5분기 ↔ `host-port-server.test.ts` 5케이스 · EP-23 5행 ↔ 세 테스트 파일의 케이스 이름(규칙 칸 열거 순서).
+- 인용 테스트 실재: AC 표 2열의 파일·케이스는 r1.16 커밋에 있다(`rg` 로 이름 확인).
 
 ---
 
