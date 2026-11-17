@@ -16,7 +16,9 @@ export interface ShellClient extends ShellServicesPort {
     name: N,
     ...args: ShellServiceArgs<N>
   ): Promise<ShellServiceResults[N]>
-  // 셸이 보낸 메시지 중 이 클라이언트 몫(`service.result`·`wake`)이면 처리하고 true.
+  // 셸의 로그인 창이 이동했다(파티션 세션) — 판정은 `session.loginVerdict` 로 답한다.
+  onLoginNavigated(listener: (loginId: string, seq: number, url: string) => void): () => void
+  // 셸이 보낸 메시지 중 이 클라이언트 몫(`service.result`·`wake`·`login.navigated`)이면 처리하고 true.
   receive(message: ShellToHost): boolean
   // 셸과의 연결이 끊겼다 — 기다리는 호출을 모두 실패시키고 이후 호출은 바로 실패한다.
   close(reason: string): void
@@ -32,6 +34,7 @@ export function createShellClient(deps: { post(message: HostToShell): void }): S
   let closedReason: string | null = null
   const pending = new Map<number, Pending>()
   const wakeListeners = new Set<(reason: WakeReason) => void>()
+  const navigationListeners = new Set<(loginId: string, seq: number, url: string) => void>()
 
   return {
     call(name, ...args) {
@@ -47,6 +50,11 @@ export function createShellClient(deps: { post(message: HostToShell): void }): S
         for (const listener of [...wakeListeners]) listener(message.reason)
         return true
       }
+      if (message.type === 'login.navigated') {
+        for (const listener of [...navigationListeners])
+          listener(message.loginId, message.seq, message.url)
+        return true
+      }
       if (message.type !== 'service.result') return false
       const settle = pending.get(message.id)
       if (!settle) return true
@@ -59,6 +67,12 @@ export function createShellClient(deps: { post(message: HostToShell): void }): S
       wakeListeners.add(listener)
       return () => {
         wakeListeners.delete(listener)
+      }
+    },
+    onLoginNavigated(listener) {
+      navigationListeners.add(listener)
+      return () => {
+        navigationListeners.delete(listener)
       }
     },
     close(reason) {
