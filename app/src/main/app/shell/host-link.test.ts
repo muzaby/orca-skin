@@ -82,4 +82,24 @@ describe('호스트 → 셸 메시지 수신', () => {
     expect(t.mirrorUiLocale).not.toHaveBeenCalled()
     expect(t.onReady).not.toHaveBeenCalled()
   })
+
+  it('데이터 호스트의 업데이트 확인·확보 요청은 각자의 수신처로만 간다', () => {
+    const onUpdateCheck = vi.fn()
+    const onPeerEnsure = vi.fn()
+    const onServiceCall = vi.fn()
+    const sink = createHostMessageSink({
+      lifecycle: new LifecycleState(),
+      mirrorUiLocale: vi.fn(),
+      onServiceCall,
+      onUpdateCheck,
+      onPeerEnsure
+    })
+    sink({ type: 'update.check' })
+    expect(onUpdateCheck).toHaveBeenCalledTimes(1)
+    expect(onPeerEnsure).not.toHaveBeenCalled()
+    sink({ type: 'peer.ensure' })
+    expect(onPeerEnsure).toHaveBeenCalledTimes(1)
+    expect(onUpdateCheck).toHaveBeenCalledTimes(1)
+    expect(onServiceCall).not.toHaveBeenCalled()
+  })
 })

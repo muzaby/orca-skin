@@ -12,6 +12,8 @@ export interface HostLinkDeps {
   onReady?(): void
   // 데이터 호스트가 에이전트 호스트를 띄워 달라고 했다(D-044).
   onPeerEnsure?(): void
+  // 데이터 호스트의 주기 업데이트 확인 잡 — 업데이트는 셸이 소유한다.
+  onUpdateCheck?(): void
   // 셸 서비스 요청(EP-10) — `createShellServiceServer` 가 받는다.
   onServiceCall(call: ServiceCall): void
   onInvalid?(): void
@@ -39,6 +41,9 @@ export function createHostMessageSink(deps: HostLinkDeps): (raw: unknown) => voi
         return
       case 'peer.ensure':
         deps.onPeerEnsure?.()
+        return
+      case 'update.check':
+        deps.onUpdateCheck?.()
         return
       case 'service.call':
         deps.onServiceCall(message)
