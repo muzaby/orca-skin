@@ -3299,3 +3299,7 @@ V-pair 자기 상태: `SELF_PASS` — VP-45 · VP-46 · VP-47 · VP-22″·VP-22
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| V1-D1 | 첫 메시지만으로 500 part 를 넘으면 `splitSessionMessages` 가 빈 조각을 먼저 만든다 — `shared/data-host.ts:52` `current.length > 0 &&` 제거가 461케이스 green(verify.md §4 C1·C1b) | VP-16 · AC16 · EP-6 규칙 칸 | 규칙 칸에 첫 자리 상한 초과 분기를 채택하거나 경계로 선언 | 확장 | PLAN_GAP | open — 설계자 |
+| V1-D2 | D-007 의 "반복 작업 5ms 양보" 조항에 AC·§10 이 없다 · `UI_YIELD_INTERVAL_MS` 참조 0 | D-007 · VP-03′ | 조항이 덮는 작업과 AC 를 정하거나 범위 밖 선언 + 상수 처리 | plan 내부 정합 | PLAN_GAP | open — 설계자 |
+| V1-D3 | AC16·VP-16·EP-6 의 oracle 파일명 `data-host-chunks.test.ts` ↔ 실재 `shared/data-host.test.ts` | AC16 | 문서 정정 | 비귀속 | NON_BLOCKING | open — D1 과 함께 |
+| V1-D4 | 마감으로 끝난 에이전트 호스트 첫 기동은 창 요청이 있어야 다시 뜬다 · renderer `main-ready` 10초 필수 마감이 90초 마감보다 먼저 부팅 오류를 보인다 | AC50 · AC31′ | 기록 — 제품 판단은 설계자 참고 | 비귀속 | NON_BLOCKING | 기록 |
