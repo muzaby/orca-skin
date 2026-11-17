@@ -111,7 +111,11 @@ export const ko = {
     resumingLabel: '연결 복원',
     resumingSr: '사내 연결을 복원하는 중입니다',
     errorTitle: '앱 준비 중 문제가 발생했습니다.',
-    retry: '부트 다시 시도'
+    retry: '부트 다시 시도',
+    // preload 다리가 없을 때의 고정 실패 화면(0324 D-059 · AC53).
+    bridgeMissingTitle: '앱 창을 연결하지 못했습니다.',
+    bridgeMissingBody:
+      '창과 앱을 잇는 구성 요소를 불러오지 못했습니다. 앱을 종료하고 다시 실행해 주세요. 계속되면 앱을 다시 설치해 주세요.'
   },
   landing: {
     newChatGreeting: '개발, 디버깅을 시작하세요.'

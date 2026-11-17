@@ -14,7 +14,7 @@
 > `claude`와 `opencode`를 지원한다. 새 대화의 모델 선택이 하네스를 결정하며, 생성 후에는 DB의 backend로 고정한다. OpenCode는 Code만 지원하고 설치된 CLI의 로컬 서버를 Orcinus orca가 자동 관리한다. 마지막 하네스를 기억하며 최초 기본값은 Claude다. UI 전용 슬라이스·서버·SDK 계약은 [어댑터 구조](arch/backend/adapters.md)와 [IPC 계약](IPC_CONTRACT.md)을 따른다.
 
 > **Preload 노출 표면 축소 결정 (2026-05-13)**
-> preload `window.oo` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
+> `window.oo`(renderer 전송층이 preload 다리 위에 만든다 — 0324 D-058)는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
 
 ---
 
@@ -174,10 +174,10 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 
 > **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락): 채널·도메인 전수와 개수의 SSOT 는 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 와 [생성물 인벤토리](generated/inventory.md) 다. 구 `runtime` 채널(Python uv 런타임)은 renderer 소비처 부재로 제거됐다(handoff 0012 · IPC_CONTRACT §2.11).
 
-### 5.3 `window.oo` API (Preload 화이트리스트)
+### 5.3 `window.oo` API (renderer 전송층 · preload 다리)
 
 ```typescript
-// src/preload/index.ts 에서 노출 (Phase 2 코어 표면 발췌 — 전수는 IPC_CONTRACT §2)
+// src/renderer/src/shared/api/transport/oo.ts 가 preload 다리(window.ooBridge) 위에 만든다 (Phase 2 코어 표면 발췌 — 전수는 IPC_CONTRACT §2)
 interface OoApi {
   chat: {
     send(req: { sessionId: string | null; text: string }): Promise<void>;
@@ -215,7 +215,7 @@ declare global {
 
 Renderer 코드는 `window.oo.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `message.*` 는 §5.2 의 예약 표대로 도입 시점에 노출한다.
 
-**Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 Node `require` 가 화이트리스트 (`electron`, `events`, `timers`, `url`) 로 제한된다. 따라서 preload 는 zod 가 끼어있는 `src/shared/protocol.ts` 를 **import 하지 않는다**. CHANNELS 상수와 순수 TS 타입은 별도 파일 `src/shared/ipc.ts` (zod 0 의존) 에 두고, preload + renderer 가 이 파일을 import 한다. zod 스키마는 main 측 IPC 라우터에서만 사용.
+**Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 `require` 가 `electron` 하나만 불러온다. 그래서 preload 는 **얇은 다리**다 — `electron` 과 zod 없는 shared 상수(`src/shared/ipc.ts` · `channel-owner.ts` · `host-channels.ts`)만 import 하고 서드파티 의존을 두지 않는다. 셸 채널 요청·송신·구독 · 호스트 연결 요청과 종료 통지 · 포트 전달 · 파일 경로 · `platform` 만 `window.ooBridge` 로 노출하고, 호스트 포트·전송 선택·포트 클라이언트·세션 조각 조립·메시지 검증(zod)은 renderer 전송층(`src/renderer/src/shared/api/transport/`)이 갖는다. 빌드 산출의 `require` 가 `electron` 하나인지는 `scripts/smoke-preload.mjs`(CI)가 본다. 다리가 없으면 renderer 는 고정 실패 화면을 보인다. Decision rationale: 0324 D-058 · D-059.
 
 ### 5.4 스트림 종료 신호
 

@@ -69,9 +69,9 @@ export function registrations(files: readonly string[]): Map<string, string[]> {
   return found
 }
 
-// preload 가 구독하는 통지 채널 — 요청 핸들러가 없는 것이 맞는 채널이다.
+// renderer 전송층이 구독하는 통지 채널 — 요청 핸들러가 없는 것이 맞는 채널이다(0324 D-058).
 function subscribedChannels(): Set<string> {
-  const text = readFileSync(join(SRC, 'preload/index.ts'), 'utf8')
+  const text = readFileSync(join(SRC, 'renderer/src/shared/api/transport/oo.ts'), 'utf8')
   return new Set(
     [
       ...text.matchAll(/\bsubscribe\w*\s*(?:<[^()]*?>)?\(\s*CHANNELS\.(\w+)/g),

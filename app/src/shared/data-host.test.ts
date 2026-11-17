@@ -1,4 +1,4 @@
-// 세션 본문 조각의 분할·조립 (0324 EP-6′ 규칙 칸 · AC16′).
+// 세션 본문 조각의 분할·조립 (0324 EP-6″ 규칙 칸 · AC16″).
 import { describe, expect, it } from 'vitest'
 import {
   assembleSession,
@@ -15,6 +15,7 @@ const message = (parts: number, tag: string): LoadedMessage => ({
 })
 const partCount = (chunk: LoadedMessage[]): number =>
   chunk.reduce((sum, item) => sum + item.parts.length, 0)
+const partsPerMessage = (chunk: LoadedMessage[]): number[] => chunk.map((item) => item.parts.length)
 
 const head = (messages: LoadedMessage[], chunks: number): ChunkedSession => ({
   id: 's1',
@@ -56,6 +57,22 @@ describe('세션 조각 분할', () => {
     const chunks = splitSessionMessages(messages)
     expect(chunks.map(partCount)).toEqual([700, 10])
     expect(chunks[0]).toEqual([messages[0]])
+  })
+
+  // part 0 메시지(이미지만 보낸 사용자 턴 — `native-history-map.ts`)도 메시지 하나다(0324 EP-6″ · AC16″).
+  // 조각마다 part 합은 part 0 메시지가 어느 조각에 드는지 구별하지 못해 메시지별 part 수로 본다.
+  it('part 0 메시지 뒤에 상한을 넘는 메시지가 오면 그 메시지는 혼자 한 조각이다', () => {
+    const messages = [message(0, 'image-only'), message(700, 'big')]
+    const chunks = splitSessionMessages(messages)
+    expect(chunks.map(partsPerMessage)).toEqual([[0], [700]])
+    expect(chunks.flat()).toEqual(messages)
+  })
+
+  it('상한을 넘는 메시지 뒤 끝의 part 0 메시지는 빠지지 않고 다음 조각이다', () => {
+    const messages = [message(700, 'big'), message(0, 'image-only')]
+    const chunks = splitSessionMessages(messages)
+    expect(chunks.map(partsPerMessage)).toEqual([[700], [0]])
+    expect(chunks.flat()).toEqual(messages)
   })
 
   it('메시지가 없으면 조각이 없다', () => {

@@ -5,8 +5,13 @@ import './shared/i18n'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { rootElement } from './app/rootElement'
+import { installOo } from './shared/api/transport/install'
 import { registerGlobalErrorHandlers, connectMainErrorReports } from './shared/errors'
 import { startLongTaskReporter } from './shared/perf/longTaskReporter'
+
+// preload 다리 위에 `window.oo` 를 만든다 (0324 D-058). 다리가 없으면 실패 화면을 그린다(D-059).
+const install = installOo()
 
 // 전역 미처리 에러 → main 로그 인제스트 (0123). 첫 렌더 전에 등록해 부트 실패도 잡는다.
 registerGlobalErrorHandlers()
@@ -15,7 +20,10 @@ void connectMainErrorReports()
 startLongTaskReporter()
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
+  rootElement(
+    install,
+    <StrictMode>
+      <App />
+    </StrictMode>
+  )
 )
