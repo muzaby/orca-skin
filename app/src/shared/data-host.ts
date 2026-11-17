@@ -62,7 +62,9 @@ export function splitSessionMessages(
   return chunks
 }
 
-export function isChunkedSession(session: LoadedSession | ChunkedSession): session is ChunkedSession {
+export function isChunkedSession(
+  session: LoadedSession | ChunkedSession
+): session is ChunkedSession {
   return 'chunked' in session && session.chunked !== undefined
 }
 

@@ -25,10 +25,10 @@
 | **ActiveTurnTracker** | `features/sessions` | `{ projectId; turns: ActiveTurnRef[] }` 신원 목록(IPC `concurrency`). 보고 있는 세션은 신원으로 제외하고 응답 중 표시로 산술하지 않는다. 격리(worktree) 세션의 응답은 목록에 넣지 않는다. RuntimeSupervisor의 runtime cap 회계와 별개. |
 
 - 서로 다른 세션은 **동시 턴**을 돌린다(멀티세션). `chat:cancel` 은 해당 세션의 턴만 중단(장수명 채널은 `interrupt` 로 채널을 살린 채 현재 턴만 멈춤 — 0067).
-- 구독 순서·팬아웃 배선의 SSOT 는 `app/bootstrap.ts` 한 곳(§2.4).
+- 구독 순서·팬아웃 배선의 SSOT 는 에이전트 호스트 조립 `app/agent-host/bootstrap.ts` 한 곳(§2.4).
 - 격리 세션(managed worktree)은 `app/chat-turn/prepare-worktree.ts` 가 send 전에 worktree 를 준비하고(`features/worktrees/service.ts`) 준비가 끝난 뒤 턴을 시작한다(0209~0211). 표시명·경로 정본은 `managed_worktrees` 행([persistence.md](./persistence.md)), Stop 훅의 git sync 와 git 호출 게이트웨이는 [security.md §1.10](./security.md).
 - 각 IPC handler는 `RouterContext`에서 실제 쓰는 속성만 받는다. 연결 인증·gate는 연결 handler에 따로 주입하며 일반 context에 포함하지 않는다.
-- `Bootstrap`은 `TitleGenerator`를 소유하고 DB 종료 전에 `dispose()`한다. 진행 요청·타이머를 회수하며 취소를 무시하고 끝난 completion도 DB를 갱신하지 않는다.
+- 에이전트 호스트 조립은 `TitleGenerator`를 소유하고 종료 때 `dispose()`한다(데이터 호스트의 DB 닫기보다 앞). 진행 요청·타이머를 회수하며 취소를 무시하고 끝난 completion도 DB를 갱신하지 않는다.
 
 ### 게시 도구의 실행 문맥
 
@@ -87,7 +87,7 @@ Decision rationale: [ADR-007](../../decisions/007-queued-input-next-turn.md).
 ### 1.5 자원 상한 (cap / LRU)
 
 - cap count 대상 = **SessionRuntime population**(active registry + idle pool). eviction victim = **idle runtime only**(active 턴 핸들을 닫아 cap 을 맞추지 않는다).
-- 기본 정책은 `BoundedRuntimeCapPolicy`(cap 초과 시 idle 축출) — `app/bootstrap.ts` 가 용량과 함께 주입한다(`UnlimitedRuntimeCapPolicy` 는 같은 포트의 대안 구현, `features/sessions/runtime-cap-policy.ts`). reject/queue admission UX 는 별도 소관(handoff 0056).
+- 기본 정책은 `BoundedRuntimeCapPolicy`(cap 초과 시 idle 축출) — 에이전트 호스트 조립(`app/agent-host/bootstrap.ts`)이 용량과 함께 주입한다(`UnlimitedRuntimeCapPolicy` 는 같은 포트의 대안 구현, `features/sessions/runtime-cap-policy.ts`). reject/queue admission UX 는 별도 소관(handoff 0056).
 
 ### 1.6 Rate Limit / 재시도
 
@@ -128,14 +128,15 @@ handle(CHANNELS.chatSend, SendChatMessageSchema, /* 실패=error 이벤트 */, a
 
 ### 2.4 단일 턴 이벤트 파이프라인 (`infra/bus`)
 
-어댑터 스트림 + 합성 이벤트는 `bus.emit('turn.event')`(TypedBus, `contracts/bus-events.ts`) **단일 팬아웃**으로 흐른다. **구독 등록 순서 = 불변식의 SSOT, `app/bootstrap.ts` 한 곳이 소유**:
+어댑터 스트림 + 합성 이벤트는 `bus.emit('turn.event')`(TypedBus, `contracts/bus-events.ts`) **단일 팬아웃**으로 흐른다. **구독 등록 순서 = 불변식의 SSOT, 에이전트 호스트 조립 `app/agent-host/bootstrap.ts` 한 곳이 소유**:
 
 ```
-usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
+에이전트 호스트:  저장 송신(critical) → title(제목) → relay(renderer 중계)
+데이터 호스트:    usage(집계) → history(영속)        # 저장 스트림 수신기, 도착 순서대로
 ```
 
-- `usage`·`history` = **critical**(throw = 턴 실패 전파), `title`·`relay` = **격리**(구독자 throw 가 파이프라인을 안 죽임).
-- 순서 근거·회귀 테스트는 [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md)("단일 턴 이벤트 파이프라인") + `features/chat/turn-coordinator.test.ts`. 버스를 타면 안 되는 forward-only 이벤트(합성 error·turn.retrying·`message.committed`)는 coordinator 가 `forward` sink 를 직접 호출한다.
+- 저장 송신 = **critical**(throw = 턴 실패 전파), `title`·`relay` = **격리**(구독자 throw 가 파이프라인을 안 죽임). 화면 중계는 저장 응답을 기다리지 않는다 — 저장이 실패하면 데이터 호스트가 알리고 그 턴이 오류로 끝난다. 프로세스 사이 경로는 [실행 모델](../execution-model.md).
+- 순서 근거·회귀 테스트는 [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md)("단일 턴 이벤트 파이프라인") + `features/chat/turn-coordinator.test.ts` · `app/host-assemblies.order.test.ts` · `app/data-host/persistence-receiver.test.ts`. 버스를 타면 안 되는 forward-only 이벤트(합성 error·turn.retrying·`message.committed`)는 coordinator 가 `forward` sink 를 직접 호출한다.
 
 ---
 

@@ -714,11 +714,6 @@ describe('실패 메시지 (AC35)', () => {
   })
 })
 
-// 아직 구현되지 않은 단계에 기대는 케이스 — 실행은 하되 실패가 스위트를 막지 않는다.
-const PENDING = {
-  todo: '0324 단계 4·5·7(호스트 이주·경로 표 문서)이 끝나면 통과한다 — 그때 todo 를 지우고 ci.yml 에 가드 단계를 단다'
-}
-
 describe('실제 트리', () => {
   it('등록 표의 각 행은 class·reason 을 갖는다', () => {
     for (const entry of SYNC_REGISTRY) {
@@ -726,7 +721,7 @@ describe('실제 트리', () => {
     }
   })
 
-  it('실제 트리는 exit 0 이다', PENDING, () => {
+  it('실제 트리는 exit 0 이다', () => {
     const result = run([])
     assert.deepEqual(result.lines, ['check-ui-thread: OK'])
   })
@@ -736,12 +731,12 @@ describe('실제 트리', () => {
     for (const id of RULE_IDS) assert.ok(text.includes(`(${id}) ${RULES[id].title}`), id)
   })
 
-  it('가드의 규칙 id 전부가 실제 경로 표에 있다 (차집합 0)', PENDING, () => {
+  it('가드의 규칙 id 전부가 실제 경로 표에 있다 (차집합 0)', () => {
     const documented = documentedRuleIds(new URL(`../../${DOC}`, import.meta.url).pathname)
     assert.deepEqual([...documented].sort(), RULE_IDS)
   })
 
-  it('root·app·main·renderer 의 AGENTS.md 가 경로 표 문서를 링크한다', PENDING, async () => {
+  it('root·app·main·renderer 의 AGENTS.md 가 경로 표 문서를 링크한다', async () => {
     const { readFileSync } = await import('node:fs')
     for (const file of [
       '../AGENTS.md',

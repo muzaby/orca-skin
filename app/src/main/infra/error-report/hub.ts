@@ -8,11 +8,18 @@ export class ErrorReportHub {
   private pending: AppErrorReport[] = []
   private readonly lastPublished = new Map<string, number>()
   private sink: ErrorReportSink = () => {}
+  private forward: ((report: AppErrorReport) => void) | null = null
 
   constructor(private readonly now: () => number = Date.now) {}
 
   setSink(sink: ErrorReportSink): void {
     this.sink = sink
+  }
+
+  // 창이 붙지 않는 프로세스(에이전트 호스트)는 보고를 창에 주는 프로세스로 넘긴다 (0324 AC47).
+  // 넘기는 동안 이 허브는 창 전달·보류를 하지 않는다 — 같은 보고가 두 번 가지 않게.
+  setForward(forward: ((report: AppErrorReport) => void) | null): void {
+    this.forward = forward
   }
 
   publish(report: AppErrorReport): void {
@@ -23,6 +30,10 @@ export class ErrorReportHub {
     const key = appErrorKey(report)
     if (this.lastPublished.has(key)) return
     this.lastPublished.set(key, now)
+    if (this.forward) {
+      this.forward(report)
+      return
+    }
     for (const id of this.ready) this.sink(id, report)
     // The sink may forget a window that died before its destroyed callback ran.
     if (this.ready.size === 0) {

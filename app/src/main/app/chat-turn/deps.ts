@@ -5,6 +5,7 @@
 // 두 층을 가른 이유는 send 경로가 후자만 알면 되고, 전자는 배선의 관심사이기 때문이다.
 
 import type { ClientRef } from '../../contracts/client'
+import type { TurnContext } from '../../contracts/turn'
 import type { MainBus } from '../../contracts/bus-events'
 import type { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
@@ -12,20 +13,28 @@ import type { BackgroundTaskTracker } from '../../features/chat/background-tasks
 import type { normalizeAttachments } from '../../features/chat/attachments'
 import type { PendingMessageQueue } from '../../features/chat/pending-message-queue'
 import type { SessionActivityProjector } from '../../features/chat/session-activity-projector'
-import type { HistoryWriter } from '../../features/history/writer'
+import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { AgentContext } from '../context'
 import type { WorktreeService } from '../../features/worktrees/service'
 import type { TurnExtensions } from '../../adapters/common/turn'
 import type { BackgroundController } from '../../features/chat/background-controller'
-import type { BackgroundEvent } from '../../../shared/background-task'
+import type { BackgroundEvent, ProviderMessageEvent } from '../../../shared/background-task'
+
+// 턴 코드가 쓰는 저장 입력 — 턴 싱크에 턴 끝과 백그라운드 기록을 더한 것.
+export interface TurnPersistence extends TurnPersistSink<ClientRef> {
+  finalizeTurn(turn: TurnContext<ClientRef>): void
+  // 기록이 끝난 뒤에만 `committed` 를 부른다 — 그 뒤에 창에 공개한다.
+  persistProviderEvent(event: BackgroundEvent | ProviderMessageEvent, committed: () => void): void
+}
 
 export interface ChatDeps {
   ctx: AgentContext
   supervisor: RuntimeSupervisor<ClientRef>
   bus: MainBus<ClientRef>
   approvals: ApprovalCoordinator
-  persistence: HistoryWriter
+  // 턴 저장 입력이 가는 곳 — 에이전트 호스트에서는 저장 스트림의 보내는 끝이다(0324 EP-15).
+  persistence: TurnPersistence
   // 백그라운드 작업 기록의 복원 읽기. 기록(`persistence.persistProviderEvent`)과 같은 순서 안에서
   // 동기로 읽는다 — 턴 저장 스트림(0324 EP-15)과 함께 데이터 호스트로 옮긴다.
   loadBackgroundEvents: (sessionId: string) => BackgroundEvent[]

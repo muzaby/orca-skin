@@ -152,6 +152,9 @@ describe('ExtensionBuilder.runtimeTools', () => {
       source
     )
 
-    expect((await builder.build(null, null)).runtimeTools).toEqual({ revision: 0, servers: new Map() })
+    expect((await builder.build(null, null)).runtimeTools).toEqual({
+      revision: 0,
+      servers: new Map()
+    })
   })
 })
