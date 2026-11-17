@@ -37,7 +37,8 @@ const flush = async (): Promise<void> => {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function setup(
   name: 'data-host' | 'agent-host',
-  start: () => Promise<{ type: 'ready' }> = async () => ({ type: 'ready' })
+  start: () => Promise<{ type: 'ready' }> = async () => ({ type: 'ready' }),
+  serving?: () => Promise<void>
 ) {
   order.length = 0
   mocks.initLog.mockImplementation((process: string) => {
@@ -60,7 +61,8 @@ function setup(
       return start() as never
     }),
     attachPeer: vi.fn(),
-    shutdown: vi.fn()
+    shutdown: vi.fn(),
+    ...(serving ? { serving } : {})
   }
   const created = runHostProcess({
     name,
@@ -120,6 +122,36 @@ describe('호스트 프로세스 시작', () => {
       expect(h.exit).not.toHaveBeenCalled()
     }
   )
+
+  // 0324 — 셸은 준비 직후 창 포트를 넘긴다. 조립이 요청을 처리할 수 있기 전(에이전트 호스트는 첫 설정
+  // 사본 전)에 온 창 요청은 기다렸다가 처리한다.
+  it('창 요청은 조립의 serving 이 끝난 뒤 처리된다', async () => {
+    let open!: () => void
+    const serving = vi.fn(() => new Promise<void>((resolve) => (open = resolve)))
+    const h = setup('agent-host', undefined, serving)
+    expect(serving).toHaveBeenCalledOnce()
+    const handler = vi.fn(() => 'catalog')
+    h.context().transport.handle('oo:x', handler)
+    const posted: unknown[] = []
+    let deliver: (data: unknown) => void = () => {}
+    h.context().transport.connect(
+      {
+        post: (message) => posted.push(message),
+        onMessage: (listener) => (deliver = listener),
+        onClose: () => {},
+        start: () => {},
+        close: () => {}
+      },
+      { clientId: 1, trusted: true }
+    )
+    deliver({ kind: 'invoke', id: 1, channel: 'oo:x' })
+    await flush()
+    expect(handler).not.toHaveBeenCalled()
+    expect(posted).toEqual([])
+    open()
+    await flush()
+    expect(posted).toEqual([{ kind: 'result', id: 1, ok: true, value: 'catalog' }])
+  })
 
   it('준비 메시지는 조립이 돌려준 것 그대로다 — 데이터 호스트의 UI 언어 사본이 실린다', async () => {
     const ready = { type: 'ready' as const, mirror: { uiLocale: 'en' } }
