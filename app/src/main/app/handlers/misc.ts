@@ -7,27 +7,21 @@
 import {
   CHANNELS,
   DebugMockPatchSchema,
-  NotifyShowSchema,
   StartInstallSchema,
   HarnessRecheckSchema,
   type AgentEnvironment,
   type BackendListResult,
   type DebugMockState
 } from '../../../shared/protocol'
-import { toAgentEnvironments } from '../../features/harnesses/common/models'
-import type { RouterContext } from '../context'
+import type { AgentContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'
-import { shellServices } from '../../infra/shell-services'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOoConfig } from '../../infra/config/oo-config'
 import { prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 
-type MiscHandlerContext = Pick<
-  RouterContext,
-  'registry' | 'harnessSettings' | 'runtimeModelCatalog' | 'debugMock' | 'harnessRuntime' | 'mcp'
->
+type MiscHandlerContext = Pick<AgentContext, 'registry' | 'debugMock' | 'harness'>
 
 export function registerMiscHandlers(ctx: MiscHandlerContext): void {
   handlePlain(CHANNELS.backendList, (): BackendListResult => {
@@ -49,11 +43,11 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
   handlePlain(CHANNELS.agentList, async (): Promise<AgentEnvironment[]> => {
     const availability = ctx.registry.list()
     const supported = availability.filter((adapter) => adapter.usable).map((adapter) => adapter.id)
-    const entries = ctx.harnessSettings
-      .adapters()
-      .flatMap((adapter) => ctx.harnessSettings.list(adapter))
-    const settings = toAgentEnvironments(entries, supported)
-    const merged = ctx.runtimeModelCatalog.merge(settings)
+    // 설정 트리·런타임 카탈로그·앱 환경은 데이터 호스트가 준다(0324 F2).
+    const [merged, appEnv] = await Promise.all([
+      ctx.harness.environments(supported),
+      ctx.harness.appEnv()
+    ])
     return Promise.all(
       merged.map(async (entry) => {
         const state = availability.find((item) => item.id === entry.adapter)
@@ -68,11 +62,13 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
             harnessId: entry.adapter,
             modelProviderId: entry.provider ?? ''
           }
-          const config = ctx.runtimeModelCatalog.isReadOnly(entry.key)
-            ? ctx.harnessRuntime.cached(entry.key)
-            : await ctx.harnessRuntime.resolve(target)
+          const config = await ctx.harness.runtimeConfig(target)
           if (!config) throw new Error('하네스 설정을 읽을 수 없습니다.')
-          const prepared = prepareConfiguredHarnessInput(ctx, config, adapter.agentSpawnEnv('code'))
+          const prepared = prepareConfiguredHarnessInput(
+            appEnv,
+            config,
+            adapter.agentSpawnEnv('code')
+          )
           return await adapter.catalog(
             entry,
             prepared.providerSettings?.settings ?? {},
@@ -108,15 +104,6 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
 
   // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,
   // "창 비활성일 때만" 게이트는 셸이 담당한다(포커스 판정의 authoritative 출처).
-  handle(CHANNELS.notifyShow, NotifyShowSchema, 'reject', async (req, event): Promise<void> => {
-    // 포커스 판정과 알림은 셸 서비스가 한다(0324 EP-10) — 창 id 는 요청을 보낸 창이다.
-    await shellServices().call('notify.show', {
-      clientId: event.sender.id,
-      title: req.title,
-      body: req.body
-    })
-  })
-
   if (import.meta.env.DEV) {
     // DEV "로그" 스위치 통합 게이트(0124 AC12) — wire 이벤트 debug 기록과 콘솔 미러를 함께 제어.
     // DEV sink 는 풀 payload 를 남긴다(개발 계측, 무회귀). 델타 2종 필터는 wire-log 내부가 소유한다.
