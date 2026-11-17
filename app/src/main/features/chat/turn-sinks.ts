@@ -30,7 +30,8 @@ export interface TurnPersistSink<W = unknown> {
       attachmentViews?: AttachmentView[]
       requirements?: DiffRequirementAnchor[]
     }
-  ): number | null
+    // 저장이 다른 프로세스면(0324 EP-15) DB 가 만든 id 를 응답으로 기다린다.
+  ): number | null | Promise<number | null>
   // AskUserQuestion tool_result 합성도 영속 책임(persist.ts) — reduce 가 페어링 시 호출.
   flushAskAnswers(turn: TurnContext<W>, owner: W): void
 }

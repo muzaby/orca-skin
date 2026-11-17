@@ -27,9 +27,11 @@ export function registerBackgroundHandlers(deps: ChatDeps): BackgroundController
         : undefined
     }
   })
-  handle(CHANNELS.chatBackgroundState, BackgroundStateSchema, 'reject', (req) =>
-    controller.state(req.sessionId)
-  )
+  handle(CHANNELS.chatBackgroundState, BackgroundStateSchema, 'reject', async (req) => {
+    // 기록은 다른 프로세스에 있을 수 있다(0324) — 동기 복원 읽기 전에 사본을 채운다.
+    await deps.prefetchBackgroundEvents?.(req.sessionId)
+    return controller.state(req.sessionId)
+  })
   handle(CHANNELS.chatStopBackgroundTask, StopBackgroundTaskSchema, 'reject', (req) =>
     controller.stop(req)
   )
