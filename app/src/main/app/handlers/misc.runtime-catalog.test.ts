@@ -22,12 +22,13 @@ vi.mock('../../infra/config/oo-config', () => ({
 }))
 
 const { registerMiscHandlers } = await import('./misc')
+const { withDataPort } = await import('../data-host/data-port.testfixture')
 
 describe('agent:list runtime catalog wiring', () => {
   beforeEach(() => callbacks.clear())
 
   it('uses the runtime catalog to hide a colliding settings row', async () => {
-    registerMiscHandlers({
+    registerMiscHandlers(withDataPort({
       ...passthroughRuntimeConfig(),
       registry: {
         list: () => [{ id: 'claude', installed: true, usable: true }],
@@ -52,7 +53,7 @@ describe('agent:list runtime catalog wiring', () => {
         runtime: { resolve: vi.fn() } as never
       }),
       debugMock: { log: false }
-    } as never)
+    }) as never)
 
     expect(await callbacks.get(CHANNELS.agentList)?.()).toEqual([
       {
@@ -73,7 +74,7 @@ describe('agent:list runtime catalog wiring', () => {
       models: [{ alias: 'Native model', model: 'native/model' }]
     }))
     const resolve = vi.fn(async () => ({ settings: { model: 'native/model' } }))
-    registerMiscHandlers({
+    registerMiscHandlers(withDataPort({
       ...passthroughRuntimeConfig({ resolve }),
       registry: {
         list: () => [
@@ -91,7 +92,7 @@ describe('agent:list runtime catalog wiring', () => {
       },
       debugMock: { log: false },
       mcp: { resolver: () => () => undefined }
-    } as never)
+    }) as never)
     const first = (await callbacks.get(CHANNELS.agentList)?.()) as Array<{
       adapter: string
       models: unknown[]
@@ -171,7 +172,7 @@ describe('agent:list OpenCode runtime rows (0291)', () => {
       verified: true,
       credentialRevision: 1
     })
-    registerMiscHandlers({
+    registerMiscHandlers(withDataPort({
       ...passthroughRuntimeConfig(),
       registry: {
         list: () => [
@@ -192,7 +193,7 @@ describe('agent:list OpenCode runtime rows (0291)', () => {
       harnessRuntime: runtime,
       debugMock: { log: false },
       mcp: { resolver: () => () => undefined }
-    } as never)
+    }) as never)
     const rows = (await callbacks.get(CHANNELS.agentList)?.()) as Array<Record<string, unknown>>
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
@@ -215,7 +216,7 @@ it.each(['missing', 'unsupported', 'failed'] as const)(
   async (reason) => {
     const catalog = vi.fn(),
       state = { usable: false }
-    registerMiscHandlers({
+    registerMiscHandlers(withDataPort({
       ...passthroughRuntimeConfig(),
       registry: {
         list: () => [
@@ -240,7 +241,7 @@ it.each(['missing', 'unsupported', 'failed'] as const)(
       },
       debugMock: { log: false },
       mcp: { resolver: () => () => undefined }
-    } as never)
+    }) as never)
     catalog.mockImplementation(async (entry) => entry)
     const result = (await callbacks.get(CHANNELS.agentList)!()) as Array<{
       adapter: string

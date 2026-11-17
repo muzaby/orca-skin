@@ -90,15 +90,26 @@ export function withDataPort<T extends object>(
   const cwd = (projectId?: string | null): string =>
     source.getCwd ? source.getCwd(projectId) : FIXTURE_DEFAULT_CWD
   // 하네스 서비스는 부를 때 읽는다 — 테스트가 나중에 바꿔 끼운 가짜도 보인다.
-  const late = (key: keyof FixtureHarnessServices): unknown =>
-    new Proxy({}, { get: (_target, name) => (source[key] as Record<string | symbol, unknown> | undefined)?.[name] })
+  const late = (key: keyof FixtureHarnessServices, fallback: Record<string, unknown> = {}): unknown =>
+    new Proxy(
+      {},
+      {
+        get: (_target, name) => {
+          const owner = (source[key] ?? fallback) as Record<string | symbol, unknown>
+          const value = owner[name]
+          // 메서드는 원래 객체에 묶는다 — 클래스 인스턴스의 `this` 가 프록시가 되지 않게.
+          return typeof value === 'function' ? value.bind(owner) : value
+        }
+      }
+    )
   const data = directDataPort(db, {
     getCwd: cwd,
     services: {
       harnessSettings: late('harnessSettings'),
       harnessRuntime: late('harnessRuntime'),
       runtimeModelCatalog: late('runtimeModelCatalog'),
-      mcp: late('mcp')
+      // MCP 저장소를 주지 않은 테스트는 치환할 값이 없는 해석기를 쓴다.
+      mcp: late('mcp', { resolver: () => () => undefined })
     }
   })
   return Object.assign(ctx, {

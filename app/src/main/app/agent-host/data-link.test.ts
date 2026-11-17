@@ -95,10 +95,53 @@ describe('데이터 링크', () => {
     })
   })
 
-  it('데이터 호스트가 사라지면 기다리던 조회가 실패하고 이후 조회는 바로 실패한다', async () => {
-    const h = setup()
-    h.data.close()
-    await expect(h.dataLink.query.getSessionById('s1')).rejects.toThrow(PEER_CLOSED_ERROR)
+  // 데이터 호스트는 죽으면 셸이 바로 다시 띄운다(EP-19) — 보낸 조회는 실패하고(AC44), 그 뒤의 조회는
+  // 다음 포트를 기다렸다가 들어온 차례대로 간다.
+  it('데이터 호스트가 사라지면 보낸 조회는 실패하고 이후 조회는 다음 포트로 간다', async () => {
+    const received: Array<[string, unknown]> = []
+    const hang = createPeerLink({
+      side: 'data',
+      onRequest: (method, payload) => {
+        received.push([method, payload])
+        return new Promise(() => {})
+      },
+      onNotify: () => {}
+    })
+    const dataLink = createDataLink({
+      mirror: createSettingsMirror({ requestWrite: async () => undefined }),
+      agentOps: {}
+    })
+    const first = createPeerLoopback()
+    hang.attach(first.data)
+    dataLink.attach(first.agent)
+    const sent = dataLink.query.getSessionById('sent')
+    await flush()
+    expect(received).toEqual([['data.query', { op: 'getSessionById', args: ['sent'] }]])
+    hang.close()
+    await expect(sent).rejects.toThrow(PEER_CLOSED_ERROR)
+
+    const settled = vi.fn()
+    const later = dataLink.query.getSessionById('later')
+    void later.then(settled, settled)
+    const second = dataLink.query.getSessionById('second')
+    await flush()
+    expect(settled).not.toHaveBeenCalled()
+
+    const order: unknown[] = []
+    const next = createPeerLink({
+      side: 'data',
+      onRequest: (_method, payload) => {
+        order.push((payload as { args: unknown[] }).args[0])
+        return { id: (payload as { args: unknown[] }).args[0] }
+      },
+      onNotify: () => {}
+    })
+    const replacement = createPeerLoopback()
+    next.attach(replacement.data)
+    dataLink.attach(replacement.agent)
+    expect(await later).toEqual({ id: 'later' })
+    expect(await second).toEqual({ id: 'second' })
+    expect(order).toEqual(['later', 'second'])
   })
 
   it('60ms 걸린 교차 요청은 메서드 이름과 함께 한 건 기록된다 (EP-2′)', async () => {

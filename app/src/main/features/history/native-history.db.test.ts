@@ -241,6 +241,8 @@ describe('native history with the migrated SQLite archive', () => {
       })
     )
     const pending = refreshNativeHistory('session', { db: queries, isBusy: () => false, read })
+    // 바쁨 판정이 비동기다(0324 — 에이전트 호스트에 묻는다). 읽기가 시작된 뒤의 로컬 쓰기를 만든다.
+    await vi.waitFor(() => expect(read).toHaveBeenCalledOnce())
     local('duringread')
     const next = snapshot([native('different', 'stalesnapshot')], 'revision-2')
     expect(

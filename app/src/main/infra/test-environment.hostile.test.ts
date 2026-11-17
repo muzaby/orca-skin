@@ -20,10 +20,10 @@ const REPRESENTATIVES = [
   'src/main/adapters/claude/adapter.context-policy.test.ts', // ANTHROPIC_MODEL · CLAUDE_CODE_DISABLE_1M_CONTEXT
   'src/main/adapters/claude/workspace-guard.test.ts', // CLAUDE_CONFIG_DIR
   'src/main/app/handlers/engine.import.test.ts', // CLAUDE_CONFIG_DIR
-  'src/main/app/bootstrap.opencode-warmup.test.ts', // 전역 opencode mcp(enabled) · OPENCODE_CONFIG_DIR · 홈 쓰기
+  'src/main/adapters/opencode/v1/discovery-cache.test.ts', // OPENCODE_CONFIG_DIR
   'src/main/app/chat-turn/opencode-runtime.test.ts', // 전역 opencode mcp(disabled)
   'src/main/app/managed-mcp-lifecycle.test.ts', // OPENCODE_CONFIG
-  'src/main/app/bootstrap.native-history.test.ts', // OPENCODE_DISABLE_PROJECT_CONFIG
+  'src/main/adapters/opencode/v1/configured-resources.test.ts', // OPENCODE_DISABLE_PROJECT_CONFIG
   'src/main/infra/git/hermetic-config.test.ts', // ~/.gitconfig · GIT_CONFIG_SYSTEM · GIT_CONFIG_COUNT 서명 강제
   'src/main/features/plugins/confluence/connector.test.ts' // 실제 홈 쓰기
 ]
