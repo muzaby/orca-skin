@@ -1,11 +1,11 @@
 import { resolveComposerPreparation } from './composer-catalog'
 import { ComposerPreparationService } from './composer-preparation-service'
-import type { RouterContext } from './context'
+import type { AgentContext } from './context'
 import { registerComposerCatalogHandlers } from './handlers/composer-catalog'
 import { PreparedMcpResources, preparedMcpScope } from './harnesses/opencode/prepared-mcp-resources'
 
 /** Production assembly is shared by bootstrap and handler integration tests. */
-export function createComposerPreparation(ctx: RouterContext): {
+export function createComposerPreparation(ctx: AgentContext): {
   service: ComposerPreparationService
   resources: PreparedMcpResources
   close: (() => void) & { invalidate(): void }
@@ -16,7 +16,7 @@ export function createComposerPreparation(ctx: RouterContext): {
   const prepare = service.acquire.bind(service)
   const catalog = registerComposerCatalogHandlers(service.owners('catalog'))
   const resources = new PreparedMcpResources(
-    { prepare, scope: (request) => preparedMcpScope(ctx.db, request) },
+    { prepare, scope: (request) => preparedMcpScope(ctx.data.query, request) },
     service.owners('resources')
   )
   return {

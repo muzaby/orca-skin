@@ -81,7 +81,7 @@ it('composes Work only into the SDK header while retaining Code execution, tools
         kind,
         resolve('resources/claude-plugins/work-profile')
       )
-      const extensions = builder.build(null, null, profile)
+      const extensions = await builder.build(null, null, profile)
       const live = await sendPrepared(adapter, {
         sessionId: null,
         text: 'same user prompt',

@@ -1,3 +1,4 @@
+import { withDataPort } from '../../data-host/data-port.testfixture'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -194,7 +195,7 @@ beforeEach(async () => {
     runtimeModelCatalog: { merge: (value: unknown) => value, isReadOnly: () => false },
     mcp
   } as unknown as RouterContext
-  preparation = createComposerPreparation(ctx)
+  preparation = createComposerPreparation(withDataPort(ctx))
   managed.source.subscribe((_revision, kind) => {
     if (kind === 'definitions') {
       f.adapter.extensionsChanged()
