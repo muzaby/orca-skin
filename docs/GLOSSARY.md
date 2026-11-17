@@ -65,7 +65,7 @@
 |---|---|
 | **Main Process** | Electron 의 Node.js 환경. BrowserWindow / IPC 핸들러 / SDK 호출 / 파일 시스템 / 설정 저장 담당. |
 | **Renderer Process** | Electron 의 Chromium sandbox 환경. React UI 렌더링 담당. Node API 직접 접근 불가. |
-| **Preload** | Main 과 Renderer 사이의 다리. `contextBridge.exposeInMainWorld('oo', ...)` 로 화이트리스트된 API 만 노출. |
+| **Preload** | Main 과 Renderer 사이의 얇은 다리. `contextBridge.exposeInMainWorld('ooBridge', ...)` 로 셸 채널·호스트 연결·포트 전달·파일 경로·플랫폼만 노출하고, renderer 전송층이 그 위에 `window.oo` 를 만든다. |
 | **IPC** | Inter-Process Communication. Main ↔ Renderer 메시지 채널. `oo:<domain>:<action>` 명명. |
 | **contextBridge** | Electron API. preload 스크립트가 sandboxed renderer 에 안전하게 함수를 노출하는 도구. |
 | **window.oo** | Renderer 에서 IPC 호출을 위한 단일 진입점. 노출 표면은 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. |
