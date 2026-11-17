@@ -321,3 +321,143 @@
 - pair: REQUIRED·REGRESSION PASS(VP-07 사람 실기 제외) · AC 49/51.
 - 다음: 설계자 rev 4.7 — F1~F3 를 채택하거나 경계로 선언한다. 열거 원문을 늘릴 수 있는 마지막 설계 턴이다.
 - 남은 사람 확인: AC22·AC23.
+
+---
+
+# 라운드 3 — verify 3회째 (rev 4.7 · r3)
+
+**판정: RETURN_TO_PLAN** — `PLAN_GAP` 4(확장 · §7-M 사용자 결정 ΔV 의 창 안) · 이행 결함 1(V3-F1, `BLOCKING`) · 현재 결함 0. 사용자 실측 결함(sandbox preload `require("zod")`)은 기계 범위에서 닫혔다. V2-F1·F2 는 잠겼고 F3 은 경계 B38 로 닫혔다.
+
+## R3-메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 · 일자 | Claude Code · 2026-11-17 |
+| 대상 커밋/range | `e412f5f..7374af8` — `49d6bba`(rev 4.7 설계) · `2e5aee4`·`ccac6bd`·`9be2707`·`19297f4`·`6eb3bd3`·`7374af8`(r3 구현). 브랜치 `ccr-529aa736-wcu5s4`, `origin/main` 조상 아님 |
+| 구현 전 plan 기준 | `49d6bba`(rev 4.7) — 구현 커밋의 `plan.md` hunk 는 `[구현자 기입] r3` 절 추가뿐(`git diff 49d6bba..7374af8 -- plan.md` 의 Part I/II 변경 0) |
+| V mode / 유효 V | `Baseline V: V1` rev 4.7(§7-L · §7-M) |
+| 라운드 | 3 |
+| 확장 창 | verify 3회째 — §7-L 노드(AT-16″·AT-51′·MD-02″·UT-02″, 출처 verify 2 발견)는 **창 밖**. §7-M 은 사용자 결정 ΔV(얇은 preload · 실패 화면)라 NEW·CHANGED 노드(R-14·AT-52·R-15·AT-53·AR-17·IT-17·MD-12·UT-12·AR-06″·AT-24″) 범위는 그 ΔV 뒤 첫 verify — **창 안** |
+| 창 밖 새 열거 항목의 출처 | §7-L = verify 2 F1(plan 내부 정합) · F2·F3(창 안 확장의 채택·경계) — rev 4.7 은 verify 2회째 뒤 첫 설계 턴이라 동결 전이다. §7-M = 사용자 실측 결함 + 사용자 결정 2건 |
+| 독립 축(⑥) | 구현자 spec 밖 변이 8(Y1·Y2·Y5·Y7·Y9~Y12) — 잡음 2 · 못 잡음 6 |
+| 열거 sweep(⑦) | 구현자 spec 148행(sweep 79 · 보강 9 · 재앵커 13 · verify 2 잡음 재실행 47)을 같은 명세로 재실행 + ③ 4행 |
+| 원본 | `evidence/verify3/`(`axes` · `impl-all` 의 `.jsonl`·`.tsv`) — 매 실행 `# 원복 확인: 모든 파일 원문 그대로` · 끝에 `git status` 깨끗함 |
+
+## R3-0. Plan validity (rev 4.7)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| NEW·CHANGED ↔ REQUIRED | 유효 | §7-L CHANGED 4 ↔ VP-01″·VP-05‴·VP-16″ · §7-M NEW 8·CHANGED 2 ↔ VP-48~51·VP-21″·VP-23″ + VP-24′ · INHERITED 상위 VP-07(사람 실기) |
+| §10 자리 검색 재실행 | 유효 | EP-26 13줄 → ①~⑦(`preload/index.ts:26`·`:32`·`:35`·`:40`·`:48`·`:50`·`:54`·`:56`·`:61`·`:69`·`:71`·`:76`·`:78`) · EP-27 코드 7줄(`install.ts:19`·`:36`·`:42`·`:44`·`:57`·`:70`·`:88`) · EP-29 9줄 · EP-8″ 정의 밖 2줄 + import 2 · EP-28 `:105`·`:119` · EP-25′ ⑥ 숫자 줄 1(`(0324 D-057)`) — 구현 보고와 차집합 0 |
+| 선택 적대 증거 | 유효 | VP-16″ C1·X6·X7 · VP-01″ m1~m5·v1·v2·k1·k2 · VP-49 P1~P5 · VP-50 S1~S4 · VP-51 B1·B2 · VP-32 H1 · VP-21″ 소유 표 변이 |
+| `SUPERSEDED` 이관 | 유효 | VP-21′·23′·24 → ″·′ — 옮긴 테스트의 케이스 이름 유지(`transport/*.test.ts` 에서 `rg -n` 로 확인) |
+| 운영 gate 열거 | 유효 | §7-A + `smoke-preload` · `check-doc-inventory --check` |
+
+## R3-1. diff 비판 검토 · 역방향
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 실측 결함 해소 | 예(기계 범위) | 빌드 산출 `out/preload/index.js` 15.35 kB · `grep -oE 'require\("[^"]+"\)\|import\('` → `require("electron")` 1 · `zod` 0 · `smoke-preload` OK |
+| 모듈 평가 시점의 `window.oo` | 안전 | 옛 구조는 preload 가 renderer 스크립트 전에 `window.oo` 를 뒀고, 지금은 `main.tsx` 의 `installOo()` 뒤다. renderer 비테스트 소스의 최상위 `window.oo`·`*Api.*(` 호출 0(괄호 깊이 0 줄 스캔) — 구독 22자리는 모두 함수 안(`subscribe*`·훅) |
+| 설치 순서에 기대는 소비자 | **잠금 없음 → V3-F2** | `connectMainErrorReports(api = errorBridge())` 는 기본 인자를 호출 때 평가한다(`mainErrorBridge.ts:11`) — `installOo()` 를 그 뒤로 옮기면 main 오류 보고 구독이 조용히 0 이 된다(Y5, 522케이스 green) |
+| 옛 포트 닫기의 새 이음매 | **잠금 없음 → V3-F3** | AC33′ "옛 포트를 닫는다" 는 `host-port.ts` 가 `ClientPort.close` 를 부르는 것까지만 잠긴다. 실제 `MessagePort.close` 로 잇는 `install.ts` `wrapPort.close` 를 비워도 green(Y2) |
+| 새 export · 미배선 | 없음 | `installOo` → `main.tsx:14` · `rootElement` → `main.tsx:23` · `OoBridge` → `install.ts`·`window.d.ts` · `HOST_PORT_MESSAGE` 정의 1 · 다시 내보냄 1 · 송신 1 · 수신 1 |
+| 보안 경계 | 선언대로 | 다리는 셸 채널만(`channelOwner !== 'shell'` → throw) · 페이지가 포트를 쥐는 것은 B41·B42 선언 경계 |
+
+## R3-2. 증거 재측정
+
+| 하한 | 범위 | 결과 |
+|---|---|---|
+| ① 등록 변이 | 위 선택 적대 증거 전부(구현자 spec 의 같은 ID) | 전부 red — `impl-all` 의 같은 ID(C1·X6·X7·m1~m5·v1·v2·k1·k2·P1~P5·S1~S4·B1·B2·H1·OWN) |
+| ② 닫는 이슈 인용 변이 | V2-F1 X4(=v1) · V2-F2 X6 · X7 | 3/3 red — R3-X4 `node --test` fail 1 · R3-X6·X7 각 1 failed / 36 |
+| ③ 직전 못 잡음·동치 | X4 · X6 · X7 · E24-r1 (s1 은 경계 B38 로 제외) | X4·X6·X7 red · E24-r1 green → 동치 유지(`host-supervisor.ts` 이번 diff 미접촉) |
+| ④ 이전 잡음 재실행 | 구현자 `rerun-v2` 47행 + 재앵커 13행 | 60/60 red — red → green 0(공용 설정·setup 변경 없음) |
+| ⑤ 형제 맞바꿈 | 구현자 spec E26-4c · 5c · E27-1c · 4e · 5a · 5b | 전부 red |
+| ⑥ 독립 축 | Y1·Y2·Y5·Y7·Y9~Y12 | 아래 표 |
+| ⑦ 열거 sweep | 구현자 spec 79 + 보강 9 | 88행 — red 87 · HC1 green(동치 — 구현자 근거 그대로: 표지 값과 채널 이름을 비교하는 코드 0) · E29-m 의 red 는 잔여물(TS6133)이라 잠금이 아니고 m1·m2 가 잠근다 · 구현자 첫 실행 green 7 은 보강 뒤 트리에서 모두 red |
+
+**고장 이력 (라운드 3 — 독립 축 · ③)**
+
+| ID | 자리 | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|---|
+| Y1 | `preload/index.ts:56` | 다른 값 | 해제가 다른 리스너(`handler`)를 뗀다 | 새 | 잡음 | `preload/index.test.ts` ② '셸 채널의 요청·송신·구독과 그 해제는 …'(1/17) | — |
+| Y7 | `preload/index.ts:54` | 제거 | `on` 만 셸 채널 판정 생략 | 새 | 잡음 | `preload/index.test.ts` it.each '%s → 던진다'(1/17) | — |
+| Y9 | `BridgeMissingScreen.tsx:22` | 제거 | 끌기 영역의 `style={DRAG_STYLE}` 제거(표지 `data-behavior` 는 남김) | 새 | **못 잡음**(157 green) | — | **이행 → V3-F1** |
+| Y5 | `main.tsx:14` | 뒤집기 | `installOo()` 를 `connectMainErrorReports()` 뒤로 | 새 | **못 잡음**(522 green) | — | **확장(창 안) → V3-F2** |
+| Y2 | `install.ts:30` | 제거 | `wrapPort.close` → 빈 함수 | 새 | **못 잡음**(73 green) | — | **확장(창 안) → V3-F3** |
+| Y11 | `install.ts:63` | 다른 값 | `ports.length !== 1` → `< 1`(포트 2 수용) | 새 | **못 잡음**(73 green) | — | **확장(창 안) → V3-F4** |
+| Y12 | `preload/index.ts:34` | 다른 값 | `ports.length !== 1` → `< 1` | 새 | **못 잡음**(17 green) | — | **확장(창 안) → V3-F4** |
+| Y10 | `smoke-preload.mjs:91` | 다른 값 | `exposed.length !== 1` → `< 1`(노출 2회 수용) | 새 | **못 잡음**(`node --test` fail 0) | — | **확장(창 안) → V3-F5** |
+| R3-X4 | `execution-model.md:105` | 다른 값 | `` `UI_TASK_BUDGET_MS`(50ms) `` | 못 잡음 | 잡음 | `check-ui-thread.test.mjs` '멈춤 계측 절의 숫자는 …' | 이행 — 잠김(V2-F1) |
+| R3-X6 | `data-host.ts:53` | 다른 값 | `current.length > 0` → `parts > 0` | 못 잡음 | 잡음 | `data-host.test.ts` 'part 0 메시지 뒤에 …' | 이행 — 잠김(V2-F2) |
+| R3-X7 | `data-host.ts:61` | 다른 값 | 끝 조각 `current.length > 0` → `parts > 0` | 못 잡음 | 잡음 | `data-host.test.ts` '상한을 넘는 메시지 뒤 끝의 part 0 …' | 이행 — 잠김(V2-F2) |
+| R3-E24-r1 | `host-supervisor.ts:106` | 제거 | `!deps.isReady \|\|` | 동치 | green(114) | — | 동치(코드 미접촉) |
+
+- 검산(독립·③): 시도 12 → 잡음 5 · 못 잡음 6 · 동치 1.
+- 구현자 spec 재실행 148행 = red 147 · green 1(HC1 동치). 구현자 표와 결과가 같다.
+
+## R3-3. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거(이번 턴) |
+|---|---|---|---|
+| VP-16″ | UT | PASS | EP-6″ 13분기 ↔ `data-host.test.ts` 10케이스 + it.each 3 · C1·X6·X7 red |
+| VP-05‴ | ST·AT | PASS | VP-16″ 좌표 + 옮긴 조립 좌표 2(`transport/session-load.test.ts`) — 전체 vitest green 집합 안 |
+| VP-01″ | AT | PASS | `check-doc-inventory --check` exit 0 · EP-25′ ⑥ 케이스 · v1(=X4) red |
+| VP-48 | AT | PASS(기계 범위) | `gate:node scripts/smoke-preload.mjs out/preload` OK(이번 빌드) · 실창은 VP-07 과 함께 사람 실기 |
+| VP-49 | IT | PASS(V3-F3·F4 확장 공백 별도) | EP-26 11행 ↔ `preload/index.test.ts` 17케이스 · EP-27 8행 ↔ `install.test.ts` 11케이스 · P1~P5 red |
+| VP-50 | UT | PASS(V3-F5 확장 공백 별도) | EP-28 11행 ↔ `smoke-preload.test.mjs` 12 + CLI 2 · S1~S4 red |
+| VP-51 | AT | **PAIR_FAIL (V3-F1)** | EP-29 ③ 자리의 "창 끌기 영역" 을 좌표가 표지 속성으로만 단언한다 — 운반 값(`WebkitAppRegion: 'drag'`)을 지워도 green(Y9). ①②④ 와 B1·B2 는 PASS |
+| VP-21″ · VP-23″ · VP-24′ | AT · IT | PASS(V3-F3 확장 공백 별도) | `transport/oo.test.ts` 소유자별 전송 · 소유 표 변이(OWN) red · `channel-registration.test.ts` · `send.test.ts` green |
+| VP-32 (h)′ | IT | PASS | `check-ui-thread.test.mjs` (h)′ 2케이스 · H1 red |
+| 나머지 REQUIRED·REGRESSION | — | PASS(좌표 참조) | 라운드 1·2 좌표 파일이 이번 전체 vitest · `node --test` 에서 통과 |
+| VP-07 (AC22·AC23·AC52 실창) | AT | 사람 실기 대기 | Electron 바이너리 없음 |
+
+- root `PAIR_FAIL` 1(VP-51) · `BLOCKED_BY` 0.
+- AC: ✅ 49 · ⚠️ 3(AC22·AC23·AC52 실창) · ❌ 1(AC53 — VP-51) = 53. 구현자 사본 `50/53`(plan r3 · `7374af8` trailer · INDEX)과 다른 1 은 AC53 이다.
+
+## R3-4. 운영 gate (마지막 트리 `7374af8`)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations `sync ok` · doc-inventory `generated doc ok (9 items, 125 channels)` · prose ok · links ok · product-naming `2444파일 · 허용 7항목` · test-budgets `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | PASS | 0 error · 3 warning(기존 React Compiler 2 · react-refresh 1) · 트리 변화 0 |
+| `npm run typecheck` | PASS | node · web · test exit 0 |
+| `node --test scripts/*.test.mjs` | PASS | 74 suites · 1019 pass · 0 fail |
+| `vitest run`(필터 없음) | PASS(기준선 분리) | 1029파일 · 9786케이스 — 실패 22(9파일) · 오류 1. 같은 9파일을 `49d6bba` worktree 에서 돌려 실패 22 — `×` 케이스 줄 차집합 양방향 ∅. 원인은 라운드 1·2 와 같은 win32 전용 경로(`C:/` 절대 경로). 이번 diff 파일과 교집합 0 · `[test-pools]` 0 |
+| `electron-vite build` · `smoke-hosts` · `smoke-preload` | PASS | `✓ built` 3 · `out/preload/index.js 15.35 kB` · smoke-hosts `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료` · smoke-preload `OK — require 는 electron 뿐 · 다리 \`ooBridge\` 노출(키 7)` |
+
+## R3-5. Repository operation checks
+
+- `[구현자 기입] r3` 7필드 전부 있음 — 강제 지점 표는 EP-6″ 2 · EP-25′ 6 · EP-26 7 · EP-27 5 · EP-28 5 · EP-29 4 · EP-8″ 5 · (h)′ 를 담는다.
+- trailer: r3 6커밋 · `49d6bba` 파싱 OK(`git log -1 --format='%(trailers:only=true)'`). 구현 커밋 `Agent: claude` — 사용자 지시 구현(허용값).
+- 대상 커밋: `e412f5f`(verify 2) · `49d6bba`(rev 4.7) · `7374af8`(r3 마지막) — `git cat-file -t` commit · 브랜치 `ccr-529aa736-wcu5s4` 조상 · `origin/main` 조상 아님(미병합). INDEX 자리표시자를 채운다.
+- `[검증자 기입]` V2-F1~F3 상태가 `open` 으로 남아 있었다 — 이번 턴에 닫는다(F1·F2 잠김 확인 · F3 경계 B38).
+- `app/AGENTS.md` 변경(스크립트·로컬 확인·CI 표): 비밀·개인정보·변동성 정보 0, 부모 규칙과 충돌 0.
+
+## R3-13. Finding disposition
+
+| # | 발견 | 분류 | 근거 | pair | disposition |
+|---|---|---|---|---|---|
+| V3-F1 | 실패 화면의 끌기 영역 스타일을 지워도 green(Y9) | 이행 | §10 EP-29 ③ 자리 "`BridgeMissingScreen`(… 창 끌기 영역 …)" — 좌표는 표지 `data-behavior` 만 단언(라벨) | VP-51 · AC53 | BLOCKING(`PAIR_FAIL`) — 구현자가 운반 값(`-webkit-app-region:drag`)을 단언한다 |
+| V3-F2 | `installOo()` 를 오류 보고 연결 뒤로 옮겨도 green(Y5) — main 오류 보고가 조용히 끊긴다 | 확장(창 안 — AR-17·R-14) | 열거 원문은 설치 결과가 렌더 전이라는 것만 잠근다(`rootElement.test.ts` 구조 단언). §7-M 5c "`installOo()` 를 먼저 부르고" 는 구현 설계 칸이라 열거 원문이 아니다 | VP-48 · VP-51 | PLAN_GAP — 채택(설치가 `window.oo` 소비자보다 먼저라는 순서를 열거) 또는 경계 |
+| V3-F3 | `wrapPort.close` 를 비워도 green(Y2) — 교체된 옛 `MessagePort` 가 열린 채 남는다 | 확장(창 안 — AR-17·AT-24″) | AC33′ 의 "옛 포트를 닫는다" 좌표는 `ClientPort` 추상까지다. 실제 포트로 잇는 이음매가 VP-21″ path edge 에 드는지는 해석이 필요하다 | VP-49 · VP-21″ | PLAN_GAP — 채택(EP-27 ② 에 포트 감싸기의 닫기 · 수신을 자리로) 또는 경계 |
+| V3-F4 | 포트 2개를 받아 첫 포트를 붙여도 green — 설치(Y11)·다리(Y12) | 확장(창 안 — AR-17) | 규칙 칸 입력은 "포트 0" 뿐. 셸은 포트 1개만 보낸다(`electron-hosts.ts:58` `[port]`) — 트리에 없는 형태 | VP-49 | PLAN_GAP — 채택 또는 경계 |
+| V3-F5 | 노출 2회를 통과시켜도 green(Y10) | 확장(창 안 — MD-12) | EP-28 ④ "`exposeInMainWorld` 1회" 의 규칙 칸 입력은 "노출 없음" 뿐. 지금 산출은 1회 — 트리에 없는 형태 | VP-50 | PLAN_GAP — 채택 또는 경계 |
+
+- V3-F2~F5 는 production 동작에 영향이 없다(지금 코드는 맞다). 설계자가 항목마다 채택 또는 경계 선언을 정한다 — 이 ΔV 노드의 창은 verify 4회째까지 열려 있다.
+- V3-F1 은 테스트 1줄 보강이라 설계 턴 뒤 같은 재구현에서 닫는다.
+
+## R3-14. Review Signals — 사실만
+
+- verify 3회째 · PASS 아님 → `handoff-review` 진입 조건(다음 재구현 전).
+- 이번 발견 5건은 모두 §7-M(사용자 결정 ΔV) 새 표면에서 나왔고 독립 축(⑥) 산출이다 — 이행 1 · 확장 4. §7-L(창 밖) 발견 0.
+- V3-F1 은 라벨 단언 꼴이다(0209 r11 과 같은 꼴 — 표지가 실제 기능을 대신함).
+- 라운드 3 의 구현자 sweep 첫 실행 green 7 은 모두 보강으로 닫혔고, 이번 재실행 green 은 HC1(동치) 1 뿐.
+- 환경: Electron 바이너리 없음 · 기준선 실패 22 는 라운드 1·2 와 같다.
+
+## R3-15. 결론
+
+- 상태: **RETURN_TO_PLAN** — PLAN_GAP 4(V3-F2~F5 확장 · 창 안) + BLOCKING 1(V3-F1 이행).
+- pair: VP-51 `PAIR_FAIL` · 나머지 REQUIRED·REGRESSION PASS(VP-07 사람 실기 제외) · AC ✅49 · ⚠️3 · ❌1 / 53.
+- 다음: `handoff-review`(verify 3회째 PASS 아님) → 설계자 rev 4.8 — F2~F5 채택 또는 경계 → 구현자가 F1 과 채택분을 닫는다.
+- 남은 사람 확인: AC22 · AC23 · AC52 실창.
