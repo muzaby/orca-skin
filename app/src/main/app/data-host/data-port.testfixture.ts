@@ -90,7 +90,10 @@ export function withDataPort<T extends object>(
   const cwd = (projectId?: string | null): string =>
     source.getCwd ? source.getCwd(projectId) : FIXTURE_DEFAULT_CWD
   // 하네스 서비스는 부를 때 읽는다 — 테스트가 나중에 바꿔 끼운 가짜도 보인다.
-  const late = (key: keyof FixtureHarnessServices, fallback: Record<string, unknown> = {}): unknown =>
+  const late = (
+    key: keyof FixtureHarnessServices,
+    fallback: Record<string, unknown> = {}
+  ): unknown =>
     new Proxy(
       {},
       {

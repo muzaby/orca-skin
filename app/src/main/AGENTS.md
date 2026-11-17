@@ -28,7 +28,7 @@ shared     →  shared                                   (순수 타입/상수/z
 | **adapters**            | `src/main/adapters/`                                                                                                                                                           | `SessionAdapter` 공통 포트(`types`·`turn`·`mcp-config`·`hooks`·`risky-tools`)와 `harness-config.ts` 실행 구성. 구현은 `claude/`와 `opencode/`로 분리하며 OpenCode SDK·CLI·native 설정은 `opencode/v1/`에 둔다. 하네스 사이 직접 의존은 금지한다.                                | adapters · adapter-impl · infra · shared               |
 | **contracts**           | `src/main/contracts/` (`turn`·`bus-events`·`ports`·`session-state`·**`auth`**)                                                            | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OoBusEvents`·`RuntimeLiveTurn` 등. 구현 최소. **`auth.ts`(0181 → 0188)** 는 **인증만** 표현한다 — `AuthDefinition`·`AuthMethod`·`Grant`·`BoundAuth`·`AuthSecretReader`. 소비 슬롯(`kind`·`llm`·`tools`·`usage`)은 없다. 형태 강제는 배포 배열의 `satisfies` 로 컴파일 타임에 한다. | contracts · adapters · infra · shared                  |
 | **features**            | `src/main/features/<slice>/` (목록은 디렉토리가 진실 — 개수는 [생성물](../../../docs/generated/inventory.md)) | 수직 슬라이스. **0188 이 `providers` 한 슬라이스를 책임별로 갈랐다**: `auth/`(인증 lifecycle — registry·store·login·oauth·authenticated-request·secret-access·policy·present·session-policies·specs·browser-session) · `gate/`(Auth 상태를 앱 접근 조건으로 소비하는 정책) · `harnesses/`(settings 열거·해석·Model·실행 구성·respawn 경계 — spawn 입력 조립은 `adapters/common/harness-config.ts`) · `plugins/<name>/`(제품 기능 단위 — Confluence). 그 밖에 `chat`·`sessions`·`approvals`·`usage`·`history`·`extensions`·`orchestration`·`scheduler`·`scheduled-tasks`. | **같은 slice** · contracts · adapters · infra · shared |
-| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·**`chat-turn/`**(아래 §chat-turn 분해)·`chat-turn-continuation`·`auth-resume`·`connection-views`·**`deployment/`**(배포별 concrete — build-time TypeScript, 런타임 동적 로딩 아님)·`context`·`settings-reactions`·`boot-report`·`builtin-resources`·`updater`·`updater-feed`·`handlers/`(도메인별 IPC 핸들러 — 목록은 디렉토리가 진실)) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·자동 연속 턴(0126)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(0084~0086·0133)·**인증 스택 조립 + 핸들러 조기 등록**(0181/0188 — DB 보다 앞. 창이 `start()` 완료 전에 열리고 renderer 가 게이트 판정을 위해 `oo:provider:state` 를 즉시 invoke 한다. Harness settings·runtime config·UsageTracker 는 DB 뒤)·**설정 읽기 핸들러 조기 등록**(0244 — `start()` 첫 문장. 부팅 게이트 밖 `TweakProvider` 가 창 오픈 즉시 `oo:settings:get` 을 부른다. 쓰기는 `register(ctx)`)·부팅 진단(0077)·번들 리소스 해석(0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
+| **app (컴포지션 루트)** | `src/main/app/` (프로세스별 조립 `shell/`·`data-host/`·`agent-host/`·`host-process`·**`chat-turn/`**(아래 §chat-turn 분해)·`chat-turn-continuation`·`auth-resume`·`connection-views`·**`deployment/`**(배포별 concrete — build-time TypeScript, 런타임 동적 로딩 아님)·`context`·`settings-reactions`·`boot-report`·`builtin-resources`·`updater`·`updater-feed`·`handlers/`(도메인별 IPC 핸들러 — 목록은 디렉토리가 진실)) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·자동 연속 턴(0126)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(0084~0086·0133)·**인증 스택 조립 + 핸들러 조기 등록**(0181/0188 — DB 보다 앞. 창이 `start()` 완료 전에 열리고 renderer 가 게이트 판정을 위해 `oo:provider:state` 를 즉시 invoke 한다. Harness settings·runtime config·UsageTracker 는 DB 뒤)·**설정 읽기 핸들러 조기 등록**(0244 — `start()` 첫 문장. 부팅 게이트 밖 `TweakProvider` 가 창 오픈 즉시 `oo:settings:get` 을 부른다. 쓰기는 `register(ctx)`)·부팅 진단(0077)·번들 리소스 해석(0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
 
 > `boundaries/elements` 분류 순서는 specific→catch-all(`adapter-common` → `adapter-impl` → `adapters`)이다. `adapters/common`은 구체 구현에 의존하지 않고, 각 구현은 같은 하네스와 공통 포트만 소비한다. `src/main` 최상위는 `{app, contracts, adapters, features, infra}` + `index.ts`·`env.d.ts` 만 — 새 디렉토리는 이 중 하나에 속하게 둔다.
 
@@ -76,16 +76,18 @@ shared     →  shared                                   (순수 타입/상수/z
 
 ## 단일 턴 이벤트 파이프라인 (infra/bus)
 
-어댑터 스트림 + 합성 이벤트는 `bus.emit('turn.event')` 단일 팬아웃으로 흐른다(스펙 §4.2). **구독 등록 순서 = 불변식의 SSOT, `app/bootstrap.ts` 한 곳이 소유**한다:
+어댑터 스트림 + 합성 이벤트는 `bus.emit('turn.event')` 단일 팬아웃으로 흐른다(스펙 §4.2). **구독 등록 순서 = 불변식의 SSOT, 에이전트 호스트 조립 `app/agent-host/bootstrap.ts` 한 곳이 소유**한다:
 
 ```
-usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
+에이전트 호스트:  저장 송신(critical) → title(제목) → relay(renderer 중계)
+데이터 호스트:    usage(집계) → history(영속)        # 저장 스트림 수신기(app/data-host/persistence-receiver.ts)
 ```
 
-- `usage`·`history` 는 **critical**(throw = 턴 실패 전파), `title`·`relay` 는 **격리**(구독자 throw 가 파이프라인을 안 죽임).
-- 순서 근거: usage 가 history 의 `currentAssistantMessageId` reset _전_ 에 그 id 를 읽고, title 이 relay 전에 트리거돼야 한다. 순서 회귀 테스트가 `features/chat/turn-coordinator.test.ts` 에 고정돼 있다.
+- 저장 송신은 **critical**(throw = 턴 실패 전파), `title`·`relay` 는 **격리**(구독자 throw 가 파이프라인을 안 죽임). **화면 중계는 저장 응답을 기다리지 않는다** — 저장 실패는 데이터 호스트가 알리고 송신기가 그 턴을 오류로 끝낸다.
+- 순서 근거: 데이터 호스트에서 usage 가 history 의 `currentAssistantMessageId` reset _전_ 에 그 id 를 읽고, 에이전트 호스트에서 title 이 relay 전에 트리거돼야 한다. 회귀 테스트는 `features/chat/turn-coordinator.test.ts` · `app/host-assemblies.order.test.ts` · `app/data-host/persistence-receiver.test.ts`.
+- **실행 쪽 코드는 DB·설정 파일·비밀 저장소를 열지 않는다.** 턴 저장 입력은 `TurnPersistence`(`app/chat-turn/deps.ts`)로, 조회·쓰기는 `ctx.data`(`DataPort`)로, 설정은 사본(`ctx.settings`)으로 간다. 프로세스별 import 경계는 `scripts/check-ui-thread.mjs` 가 강제하고 경로 표의 정본은 [실행 모델](../../../docs/arch/execution-model.md)이다.
 - 버스를 타면 안 되는 forward-only 이벤트(합성 error·turn.retrying·message.committed)는 coordinator 가 `forward` sink 직접 호출을 유지한다(history 가 무조건 persist 하므로 없던 파트 영속 방지 — user 커밋은 `commitUserMessage` 단일 경로, 0067).
-- **주기 실행 경로(0091)**: `features/scheduler`(croner) 는 job action 을 직접 구현하지 않는다 — 컴포지션 루트(`app/bootstrap.ts`)가 action(현재 사용량 recompute→broadcast)을 주입해 교차 feature 를 회피한다. `shutdown()` 은 `closeDb` 앞에 `Scheduler.stopAll()`.
+- **주기 실행 경로(0091)**: `features/scheduler`(croner) 는 job action 을 직접 구현하지 않는다 — 데이터 호스트 조립(`app/data-host/bootstrap.ts`)이 action(현재 사용량 recompute→broadcast)을 주입해 교차 feature 를 회피한다. `shutdown()` 은 `closeDb` 앞에 `Scheduler.stopAll()`.
 - **사용자 예약 작업**: `features/scheduled-tasks` 는 `features/scheduler` 를 쓰지 않고 작업마다 `infra/cron.ts` 의 `startCron` 타이머를 갖는다(내부 잡의 `schedule_runs`·겹침 가드와 섞이지 않게). shell 실행(`infra/shell/shell-runner.ts`)·renderer push 는 조립(`app/scheduled-tasks.ts`)이 넘기고, 프롬프트 실행은 main 이 턴을 열지 않고 renderer 에 새 대화 전송을 맡긴다(`prompt-relay.ts`). `shutdown()` 은 `Scheduler.stopAll()` 앞에 예약 작업 `dispose()`.
 
 ## 원격 요청은 Chromium 스택으로만 (0173 / 0174)
@@ -125,6 +127,6 @@ main 프로세스는 **Node 전역 `fetch` 를 쓰지 않는다.** Node(undici) 
 ## 작업 규칙
 
 - **상위/교차를 참조하고 싶으면 의존을 뒤집어라.** 콜백/구조적 포트/주입으로 방향을 하향·슬라이스-내부로 유지한다(위 3가지 해소책).
-- **구체 Harness/ModelProvider 정책**은 하네스별 구현 디렉터리와 앱 조립부(`app/harnesses`·`app/deployment`·`bootstrap`·`index`)가 소유한다. 공통 포트·서비스·오케스트레이션은 주입받은 정책을 사용하며 구체 구현을 선택하지 않는다.
-- **네이밍**: 컴포지션 루트=`Bootstrap`, 영속=`HistoryWriter`(features/history), 사용량=`UsageTracker`(features/usage), 승인 broker=`ApprovalBroker`(features/approvals), 턴 상태=`TurnContext`(contracts). `SessionAdapter`·`NormalizedEvent`·`adapters/` 이름은 유지(사용자 확정).
+- **구체 Harness/ModelProvider 정책**은 하네스별 구현 디렉터리와 앱 조립부(`app/harnesses`·`app/deployment`·두 호스트의 `bootstrap`·`index`)가 소유한다. 공통 포트·서비스·오케스트레이션은 주입받은 정책을 사용하며 구체 구현을 선택하지 않는다.
+- **네이밍**: 컴포지션 루트=`DataBootstrap`·`AgentBootstrap`, 영속=`HistoryWriter`(features/history), 사용량=`UsageTracker`(features/usage), 승인 broker=`ApprovalBroker`(features/approvals), 턴 상태=`TurnContext`(contracts). `SessionAdapter`·`NormalizedEvent`·`adapters/` 이름은 유지(사용자 확정).
 - 모듈이 4책임 이상으로 비대해지면 slice 내부에서 응집 단위로 분해한다. 외부 import 가 많으면 배럴 re-export 로 무회귀 분해.

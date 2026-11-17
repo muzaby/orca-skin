@@ -103,7 +103,10 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
   }
 
   // 정적·도중 필드를 반영하고 그 턴의 저장 상태를 돌려준다. 실패했거나 모르는 턴이면 undefined.
-  const turnOf = (payload: { turnKey: string; fields?: Record<string, unknown> }): TurnContext | undefined => {
+  const turnOf = (payload: {
+    turnKey: string
+    fields?: Record<string, unknown>
+  }): TurnContext | undefined => {
     if (failed.has(payload.turnKey)) return undefined
     const turn = turns.get(payload.turnKey)
     if (turn && payload.fields) Object.assign(turn, payload.fields)
@@ -154,7 +157,9 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
         case 'provider.event': {
           const event = payload as Parameters<HistoryWriter['persistProviderEvent']>[0]
           // 기록한 뒤에만 응답한다 — 세션이 아직 없으면 저장기가 보류했다가 세션 생성 뒤 기록한다.
-          return new Promise<boolean>((resolve) => writer.persistProviderEvent(event, () => resolve(true)))
+          return new Promise<boolean>((resolve) =>
+            writer.persistProviderEvent(event, () => resolve(true))
+          )
         }
         default:
           throw new Error(`데이터 호스트가 받지 않는 요청: ${method}`)
@@ -209,10 +214,6 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
         case 'provider.forget':
           writer.forgetProviderSession((payload as { sessionId: string }).sessionId)
           return
-        case 'report.error':
-        case 'report.boot':
-          // 에이전트 호스트의 보고(D-042) — 그쪽 로그에 이미 있다. 창에 모으는 경로는 별도다.
-          return
         default:
           log.warn('persistence.notify.unknown', { method })
       }
@@ -223,7 +224,8 @@ export function createPersistenceReceiver(deps: PersistenceReceiverDeps): Persis
       failed.clear()
       for (const turn of open) {
         try {
-          writer.finalizeTurn(turn)
+          // 저장기로 마감하지 않는다 — 마감은 메시지를 완료로 표시하고, 복구는 미완료 메시지에서만
+          // 끊긴 도구 호출을 찾는다. 앱이 죽었다 다시 뜬 때와 같은 규칙 하나로 정리한다.
           if (turn.dbSessionId) recoverSessionHistory(deps.db, { sessionId: turn.dbSessionId })
         } catch (error) {
           log.error('persistence.peer-closed.recover-failed', error, {

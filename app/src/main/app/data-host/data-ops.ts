@@ -135,7 +135,8 @@ export function createDataQueryOps(deps: DataOpsDeps) {
         ? harness.runtime.cached(target.key)
         : harness.runtime.resolve(target)
     },
-    harnessIsReadOnly: (key: string) => required(deps.harness, '하네스 실행 구성').catalog.isReadOnly(key),
+    harnessIsReadOnly: (key: string) =>
+      required(deps.harness, '하네스 실행 구성').catalog.isReadOnly(key),
     harnessAppEnv: (): Record<string, string> => {
       const mcp = required(deps.mcp, 'MCP 저장소')
       const { env, missing } = expandEnvRecord(appEnv(), mcp.resolver())
@@ -146,8 +147,10 @@ export function createDataQueryOps(deps: DataOpsDeps) {
       return env
     },
     skills: (): SkillInfo[] => required(deps.host, '조립').skills(),
-    runtimeToolCall: (request: RemoteToolCall) => required(deps.host, '조립').runtimeToolCall(request),
-    managedMcpAcquire: (revision: number) => required(deps.host, '조립').managedMcpAcquire(revision),
+    runtimeToolCall: (request: RemoteToolCall) =>
+      required(deps.host, '조립').runtimeToolCall(request),
+    managedMcpAcquire: (revision: number) =>
+      required(deps.host, '조립').managedMcpAcquire(revision),
     captureOutput: (request: CaptureOutputRequest) =>
       required(deps.host, '조립').captureOutput(request),
     mcpResolution: (): McpResolution => {
@@ -194,7 +197,8 @@ export function createDataWriteOps(deps: DataOpsDeps) {
     recoverSessionHistory: (sessionId: string): void => {
       recoverSessionHistory(db, { sessionId })
     },
-    runtimeToolCancel: (callId: string): void => required(deps.host, '조립').runtimeToolCancel(callId),
+    runtimeToolCancel: (callId: string): void =>
+      required(deps.host, '조립').runtimeToolCancel(callId),
     managedMcpRelease: (leaseId: string) => required(deps.host, '조립').managedMcpRelease(leaseId),
     extensionsDeployed: () => required(deps.host, '조립').extensionsDeployed(),
     // 하네스 설정 트리가 바뀌었다 — 두 캐시를 함께 비우고 카탈로그를 다시 맞춘다(0188).

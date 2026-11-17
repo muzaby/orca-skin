@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { reportError } from '../infra/error-report'
 import type { BootReport, BootReportStep, BootReportStatus } from '../../shared/ipc'
 import { errorMessage } from '../infra/errors'
@@ -130,4 +131,45 @@ export class BootReportRecorder {
 
 export function createBootReportRecorder(): BootReportRecorder {
   return new BootReportRecorder()
+}
+
+const BootStatus = z.enum(['ok', 'warning', 'failed'])
+
+// 다른 호스트가 보낸 부팅 보고의 모양 — 받는 쪽이 다시 본다 (0324 AC47).
+export const BootReportSchema = z.object({
+  startedAt: z.number(),
+  finishedAt: z.number(),
+  durationMs: z.number(),
+  status: BootStatus,
+  steps: z.array(
+    z.object({
+      id: z.string().min(1),
+      label: z.string().optional(),
+      status: BootStatus,
+      critical: z.boolean(),
+      startedAt: z.number(),
+      finishedAt: z.number(),
+      durationMs: z.number(),
+      message: z.string().optional()
+    })
+  ),
+  warnings: z.array(z.string())
+})
+
+const STATUS_RANK: Record<BootReportStatus, number> = { ok: 0, warning: 1, failed: 2 }
+
+// 두 호스트의 부팅 보고를 한 벌로 (0324 AC47). 단계는 시작 시각 순서로 잇고, 상태는 더 나쁜 쪽이며,
+// 구간은 가장 이른 시작부터 가장 늦은 끝까지다. 다른 호스트의 보고가 없으면 자기 보고 그대로다.
+export function mergeBootReports(own: BootReport, other: BootReport | null): BootReport {
+  if (!other) return own
+  const startedAt = Math.min(own.startedAt, other.startedAt)
+  const finishedAt = Math.max(own.finishedAt, other.finishedAt)
+  return {
+    startedAt,
+    finishedAt,
+    durationMs: finishedAt - startedAt,
+    status: STATUS_RANK[other.status] > STATUS_RANK[own.status] ? other.status : own.status,
+    steps: [...own.steps, ...other.steps].sort((a, b) => a.startedAt - b.startedAt),
+    warnings: [...own.warnings, ...other.warnings]
+  }
 }
