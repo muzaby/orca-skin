@@ -1,0 +1,14 @@
+id	결과	exit	요약
+Y5	green (기대 red)	0	vitest 522 passed (522)
+Y1	red (기대 일치)	1	vitest 1 failed | 16 passed (17)
+Y7	red (기대 일치)	1	vitest 1 failed | 16 passed (17)
+Y2	green (기대 red)	0	vitest 73 passed (73)
+Y9	green (기대 red)	0	vitest 157 passed (157)
+Y10	green (기대 red)	0	node --test fail 0
+Y11	green (기대 red)	0	vitest 73 passed (73)
+Y12	green (기대 red)	0	vitest 17 passed (17)
+R3-X6	red (기대 일치)	1	vitest 1 failed | 35 passed (36)
+R3-X7	red (기대 일치)	1	vitest 1 failed | 35 passed (36)
+R3-X4	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+R3-E24-r1	green (기대 일치)	0	vitest 114 passed (114)
+# 원복 확인: 모든 파일 원문 그대로
