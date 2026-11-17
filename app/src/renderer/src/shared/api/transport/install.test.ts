@@ -99,20 +99,26 @@ function fixture(): Fixture {
   }
 }
 
-// 호스트 쪽 포트 끝 — 받은 요청을 기록하고 `value` 로 답한다.
+// 호스트 쪽 포트 끝 — 받은 요청을 기록하고 `value` 로 답한다. 창 쪽 끝이 닫히면 `closed()` 가 참이다(0324
+// EP-27′ ⑥ — 설치가 감싼 실제 포트의 닫기를 짝 끝에서 본다).
 function hostPort(value: unknown = 'ok'): {
   page: NodeMessagePort
   received: Array<{ channel: string }>
+  closed(): boolean
 } {
   const { port1, port2 } = new MessageChannel()
   opened.push(port1, port2)
   const received: Array<{ channel: string }> = []
+  let closed = false
+  port2.on('close', () => {
+    closed = true
+  })
   port2.on('message', (message: { kind: string; id: number; channel: string }) => {
     received.push(message)
     if (message.kind === 'invoke')
       port2.postMessage({ kind: 'result', id: message.id, ok: true, value })
   })
-  return { page: port1, received }
+  return { page: port1, received, closed: () => closed }
 }
 
 const portMessage = (
@@ -177,7 +183,12 @@ describe('installOo — ② 포트 수신', () => {
       })
     ],
     ['호스트가 셸이다', (f: Fixture, port: unknown) => portMessage(f, 'shell', [port])],
-    ['포트가 없다', (f: Fixture) => portMessage(f, 'agent', [])]
+    ['포트가 없다', (f: Fixture) => portMessage(f, 'agent', [])],
+    // 0324 EP-27′ ② — "포트 1" 의 다른 쪽. 첫 포트(검사 대상)를 붙이면 요청이 그리로 간다.
+    [
+      '포트가 둘이다',
+      (f: Fixture, port: unknown) => portMessage(f, 'agent', [port, hostPort().page])
+    ]
   ])('%s → 붙지 않는다 — 요청은 줄을 선 채다', async (_name, make) => {
     const f = fixture()
     installOo(f.win)
@@ -195,6 +206,25 @@ describe('installOo — ② 포트 수신', () => {
     f.post(portMessage(f, 'agent', [next.page]))
     await vi.waitFor(() => expect(settled).toBe(true))
     expect(next.received.map((m) => m.channel)).toEqual([CHANNELS.agentList])
+  })
+})
+
+describe('installOo — ⑥ 포트 감싸기', () => {
+  // 0324 EP-27′ ⑥ · AC33′ — 송신·수신은 '이 창이 보낸 에이전트 포트 하나를 …' 이 지난다. 여기서는 닫기 —
+  // 같은 호스트의 새 포트가 오면 옛 포트를 실제 `MessagePort` 에서 닫는다(흉내 `ClientPort` 가 아니라 짝 끝의
+  // `close` 로 본다).
+  it('같은 호스트의 새 포트가 오면 옛 포트를 실제로 닫고 이후 요청은 새 포트로 간다', async () => {
+    const f = fixture()
+    installOo(f.win)
+    const first = hostPort('first')
+    f.post(portMessage(f, 'agent', [first.page]))
+    expect(await f.win.oo!.agent.list()).toBe('first')
+    const second = hostPort('second')
+    f.post(portMessage(f, 'agent', [second.page]))
+    await vi.waitFor(() => expect(first.closed()).toBe(true))
+    expect(await f.win.oo!.agent.list()).toBe('second')
+    expect(second.received.map((m) => m.channel)).toEqual([CHANNELS.agentList])
+    expect(second.closed()).toBe(false)
   })
 })
 
