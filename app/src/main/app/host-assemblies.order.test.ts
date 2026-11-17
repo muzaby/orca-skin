@@ -69,6 +69,15 @@ describe('에이전트 호스트 조립 — 사본과 보류의 배선', () => {
     expect(agent).toContain('changed: () => this.projectResourceSync?.leasesChanged()')
   })
 
+  it('리소스 요청의 세션 행은 데이터 호스트에서 다시 읽는다 — 사본만 읽지 않는다(EP-23 비동기 읽기)', () => {
+    expect(body(agent, 'private sessionRow(sessionId: string)')).toContain(
+      'return this.sessionMeta.refresh(sessionId)'
+    )
+    // 작업 폴더 해석 · 바뀜 확인 2 · 세션 범위 요청 전 채우기가 모두 그 읽기를 지난다.
+    expect(agent.match(/await this\.sessionRow\(/g)).toHaveLength(4)
+    expect(agent).toContain('await this.sessionRow(request.sessionId)')
+  })
+
   it('백그라운드 기록의 동기 복원은 받아 둔 기록을 쓰고, 세션 폐기는 두 사본을 잊는다', () => {
     expect(agent).toContain(
       'loadBackgroundEvents: (sessionId) => backgroundRecords.load(sessionId)'
@@ -139,9 +148,19 @@ describe('셸 조립 — 셸 상태 파일 배선(EP-14)', () => {
   })
 
   it('데이터 호스트의 준비 메시지가 UI 언어 사본을 싣는다', () => {
-    expect(data).toContain(
-      'mirror: { uiLocale: this.settings.getAll().uiLocale }'
+    expect(data).toContain('mirror: { uiLocale: this.settings.getAll().uiLocale }')
+  })
+})
+
+// 0324 AC28 · VP-31 — 셸의 업데이트 재시작 게이트는 수명 이벤트로 만든 상태만 본다. 상태 계산은
+// `shell/lifecycle-state.test.ts`, 게이트 판정은 `shared/update-restart.test.ts` 가 본다.
+describe('셸 조립 — 재시작 게이트 배선', () => {
+  it('생성 중 판정은 수명 상태의 활성 턴이고, 수명 상태가 바뀌면 게이트를 다시 계산한다', () => {
+    const entry = read('../index.ts')
+    expect(body(entry, 'restartGateState: () => ({')).toContain(
+      'isGenerating: lifecycleState.hasActiveTurns()'
     )
+    expect(entry).toContain('lifecycleState.onChange(() => updates.refreshGate())')
   })
 })
 
