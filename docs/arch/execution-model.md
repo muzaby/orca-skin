@@ -23,7 +23,10 @@ Orcinus orca 는 한 프로세스가 아니다. 창이 멈추지 않도록 **실
 - 진입점은 셋이다 — `app/src/main/index.ts`(셸) · `app/src/main/app/data-host/entry.ts` ·
   `app/src/main/app/agent-host/entry.ts`. 두 호스트의 시작 순서는 `app/src/main/app/host-process.ts` 가,
   두 호스트 사이의 순서(기동·실패·재기동·종료)는 `app/src/main/app/shell/boot.ts` 가 갖는다.
-- 본 화면은 두 호스트가 모두 준비된 뒤에 뜬다. 어느 호스트든 기동이 거듭 실패하면 부팅 오류다.
+- 본 화면은 두 호스트가 모두 준비된 뒤에 뜬다. 어느 호스트든 기동이 거듭 실패하면 부팅 오류다. 준비를 알리지 않은 채
+  셸과 메시지가 오가지 않는 시간이 마감(`app/shell/host-supervisor.ts` `HOST_READY_TIMEOUT_MS`)을 넘은 호스트는 셸이
+  끝내고 기동 실패로 센다. 데이터 호스트의 DB 단계(열기·백업·마이그레이션·복구)는 `boot.step` 시작·끝으로 알려 세지
+  않는다 — 끊으면 다시 떠도 백업부터 다시 해 끝나지 못한다.
 - 종료는 에이전트 호스트(런타임 정지 → 저장 스트림 비움) 다음에 데이터 호스트(예약 작업 → 스케줄러 →
   DB 닫기) 순서다.
 

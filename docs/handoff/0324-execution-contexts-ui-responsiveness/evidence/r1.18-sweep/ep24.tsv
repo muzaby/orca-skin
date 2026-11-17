@@ -1,0 +1,29 @@
+id	결과	exit	요약
+E24-1	red (기대 일치)	1	vitest 3 failed | 134 passed (137)
+E24-2	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-3	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-4	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-5	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-6	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-7	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-8a	red (기대 일치)	1	vitest 6 failed | 131 passed (137)
+E24-8b	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-8c	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-8d	green (기대 red)	0	vitest 137 passed (137)
+E24-8e	green (기대 red)	0	vitest 137 passed (137)
+E24-r1	green (기대 red)	0	vitest 137 passed (137)
+E24-r2	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-r3	green (기대 red)	0	vitest 137 passed (137)
+E24-r4	red (기대 일치)	1	vitest 3 failed | 134 passed (137)
+E24-9a	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-9b	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-9c	SKIP	-	old 원문 없음
+E24-10a	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-10b	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-11	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-11s	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-12a	red (기대 일치)	1	vitest 2 failed | 135 passed (137)
+E24-12b	red (기대 일치)	1	vitest 1 failed | 136 passed (137)
+E24-s1	red (기대 일치)	1	node --test fail 3 · 데이터 호스트가 DB 단계 시작을 알리지 않음 → 실패; 데이터 호스트가 DB 단계 끝을 알리지 않음 → 실패; 데이터 호스트가 DB 단계 끝보다 준비를 먼저 알림 → 실패
+E24-s2	red (기대 일치)	1	node --test fail 1 · 에이전트 호스트가 기동 단계를 알림 → 실패; smoke-hosts 판정
+E24-s3	red (기대 일치)	1	[smoke-hosts] FAIL 데이터 호스트의 기동 단계 알림이 시작 → 끝 → 준비가 아니다: ready
