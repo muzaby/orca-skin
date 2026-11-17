@@ -265,14 +265,15 @@ export function check(options = {}) {
     })
   }
 
-  // ── (h) `window.oo` · (i) `Worker` 생성 ─────────────────────────────────────────────
+  // ── (h)′ `window.oo` · `window.ooBridge` · (i) `Worker` 생성 ─────────────────────────
   for (const file of rendererFiles) {
     const { sf } = load(file)
     visit(sf, (node) => {
-      if (isWindowOo(node)) {
+      const bridgeName = windowOoName(node)
+      if (bridgeName) {
         const ok = inAny(file, allowed.h.dirs)
-        found('h', file, lineOf(sf, node), 'window.oo', ok)
-        if (!ok) fail('h', file, lineOf(sf, node), '`window.oo` 접근')
+        found('h', file, lineOf(sf, node), `window.${bridgeName}`, ok)
+        if (!ok) fail('h', file, lineOf(sf, node), `\`window.${bridgeName}\` 접근`)
       }
       if (
         ts.isNewExpression(node) &&
@@ -528,16 +529,20 @@ function windowNotify(sf, node) {
   return name === 'wc' || name === 'webContents' ? `${name}.send` : null
 }
 
-function isWindowOo(node) {
+// (h)′ 창의 전역 중 `shared/api/` 만 읽는 이름 — renderer 가 만든 `oo` 와 preload 다리 `ooBridge`(0324 D-058).
+const WINDOW_BRIDGE_NAMES = new Set(['oo', 'ooBridge'])
+
+/** `window.oo` · `window.ooBridge`(`globalThis`·`?.`·`['…']` 꼴 포함)면 그 이름, 아니면 `null`. */
+function windowOoName(node) {
   const isWindow = (expr) =>
     ts.isIdentifier(expr) && (expr.text === 'window' || expr.text === 'globalThis')
-  if (ts.isPropertyAccessExpression(node))
-    return isWindow(node.expression) && node.name.text === 'oo'
-  if (ts.isElementAccessExpression(node)) {
+  let name = null
+  if (ts.isPropertyAccessExpression(node) && isWindow(node.expression)) name = node.name.text
+  else if (ts.isElementAccessExpression(node) && isWindow(node.expression)) {
     const arg = node.argumentExpression
-    return isWindow(node.expression) && ts.isStringLiteralLike(arg) && arg.text === 'oo'
+    if (ts.isStringLiteralLike(arg)) name = arg.text
   }
-  return false
+  return name !== null && WINDOW_BRIDGE_NAMES.has(name) ? name : null
 }
 
 /** 경로 표의 "직접 하면 걸리는 규칙" 칸에서 규칙 id 를 모은다. 표가 없으면 `null`. */
