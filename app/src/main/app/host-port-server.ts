@@ -3,6 +3,9 @@
 // 핸들러 등록(`infra/ipc/handle.ts`)과 통지(`infra/ipc/send.ts`)가 이 전송을 쓴다. 셸이 창의
 // 포트를 넘길 때마다 `connect` 로 창 참조를 만들고, 포트가 닫히거나 같은 창이 다시 연결되면
 // 그 참조를 닫는다. 이 파일은 Electron 을 모른다 — 포트는 `host-runtime.ts` 가 `HostPort` 로 감싸 준다.
+//
+// `hold(serving)`: 호스트가 요청을 처리할 수 있게 되기 전(에이전트 호스트는 첫 설정 사본 전)에 온 창
+// 메시지는 창마다 도착 순서대로 기다렸다가 처리한다. 열린 뒤에는 기다리지 않고 바로 처리한다.
 
 import { ClientToHostSchema, type HostToClient } from '../../shared/host-protocol'
 import {
@@ -32,6 +35,8 @@ export interface ClientConnection {
 
 export interface PortTransport extends IpcTransport {
   connect(port: HostPort, connection: ClientConnection): ClientRef
+  // 이 약속이 끝날 때까지 창 메시지를 처리하지 않는다(실패해도 연다 — 그 뒤 요청은 핸들러가 판정한다).
+  hold(serving: Promise<unknown>): void
 }
 
 function errorText(error: unknown): string {
@@ -43,6 +48,9 @@ export function createPortTransport(): PortTransport {
   const senders = new Map<string, SendListener[]>()
   // 연결 순서를 지킨다 — 먼저 연결된 창이 `primaryClient` 다.
   const open = new Map<number, { ref: ClientRef; close: () => void }>()
+  // 열리기 전에 온 메시지의 처리 — 창마다 도착 순서다.
+  let serving = true
+  const held: Array<() => void> = []
 
   const connect: PortTransport['connect'] = (port, connection) => {
     // 같은 창의 새 문서다 — 옛 참조를 먼저 닫는다.
@@ -67,7 +75,7 @@ export function createPortTransport(): PortTransport {
     const reply = (message: HostToClient): void => {
       if (!signal.isClosed()) port.post(message)
     }
-    port.onMessage((data) => {
+    const dispatch = (data: unknown): void => {
       if (signal.isClosed()) return
       const parsed = ClientToHostSchema.safeParse(data)
       if (!parsed.success) {
@@ -99,6 +107,10 @@ export function createPortTransport(): PortTransport {
         (value) => reply({ kind: 'result', id, ok: true, value }),
         (error: unknown) => reply({ kind: 'result', id, ok: false, error: errorText(error) })
       )
+    }
+    port.onMessage((data) => {
+      if (serving) dispatch(data)
+      else held.push(() => dispatch(data))
     })
     port.onClose(close)
     open.set(connection.clientId, { ref, close })
@@ -108,6 +120,15 @@ export function createPortTransport(): PortTransport {
 
   return {
     connect,
+    hold(until) {
+      serving = false
+      const release = (): void => {
+        serving = true
+        // 기다리던 사이 닫힌 창의 메시지는 `dispatch` 가 버린다.
+        for (const run of held.splice(0)) run()
+      }
+      until.then(release, release)
+    },
     handle: (channel, listener) => {
       if (invokers.has(channel)) {
         throw new Error(`Attempted to register a second handler for '${channel}'`)

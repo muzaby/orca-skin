@@ -48,7 +48,57 @@ describe('에이전트 호스트 조립', () => {
   })
 })
 
+// 0324 r1.16 — 에이전트 쪽 동기 판정이 읽는 사본과 창 요청 보류의 배선. 각 모듈의 동작은
+// `session-meta.test.ts`·`background-records.test.ts`·`host-port-server.test.ts` 가 본다.
+describe('에이전트 호스트 조립 — 사본과 보류의 배선', () => {
+  it('lease 가 바뀌면 세션 메타 사본을 먼저 따라가고 그 뒤 리소스 동기화를 돌린다', () => {
+    expectOrder(body(agent, 'supervisor.subscribeLeases(() => {'), [
+      'this.lifecycle.leasesChanged()',
+      'this.sessionMeta.track(this.heldSessions())',
+      'this.projectResourceSync?.leasesChanged()'
+    ])
+  })
+
+  it('동기 판정 3자리는 사본을 읽고, 세션 종류는 데이터 호스트에 묻고, Claude 리셋 계획 전에 사본을 채운다', () => {
+    expect(agent).not.toContain('sessionRows')
+    expect(agent).toContain('this.sessionMeta.get(request.sessionId)')
+    expect(agent).toContain('backendOf: (sessionId) => this.sessionMeta.get(sessionId)?.backend')
+    expect(agent).toContain('prepare: () => this.sessionMeta.ensure(this.heldSessions())')
+    expect(agent).toContain('await this.data.query.sessionAgentKind(sessionId)')
+    // 사본이 바뀌면 그 사본을 읽는 동기 판정을 다시 돌린다.
+    expect(agent).toContain('changed: () => this.projectResourceSync?.leasesChanged()')
+  })
+
+  it('백그라운드 기록의 동기 복원은 받아 둔 기록을 쓰고, 세션 폐기는 두 사본을 잊는다', () => {
+    expect(agent).toContain(
+      'loadBackgroundEvents: (sessionId) => backgroundRecords.load(sessionId)'
+    )
+    expect(agent).toContain(
+      'prefetchBackgroundEvents: (sessionId) => backgroundRecords.prefetch(sessionId)'
+    )
+    const discard = body(agent, 'private discardSession(sessionId: string): void')
+    expect(discard).toContain('this.sessionMeta.forget(sessionId)')
+    expect(discard).toContain('this.backgroundRecords?.forget(sessionId)')
+  })
+
+  it('창 요청은 첫 설정 사본 뒤에 처리한다', () => {
+    const serving = body(agent, 'serving(): Promise<void>')
+    expect(serving).toContain('this.mirror.ready()')
+    expect(serving).toContain('this.mirror.onReplaced(() => resolve())')
+  })
+})
+
 describe('데이터 호스트 조립', () => {
+  // 0324 EP-21′ — 교차 요청 5자리는 `agent-requests.ts` 가 갖는다(동작은 그 테스트).
+  it('예약 셸 명령 · 로그인 프리 하네스 능력 · 확장 배포는 교차 요청 모듈로 간다', () => {
+    expect(data).toContain('runShell: createRemoteShellRunner(() => this.requireAgentLink())')
+    expect(data).toContain('loginFreeHost: createRemoteHarnessHost(() => this.requireAgentLink())')
+    expectOrder(data, [
+      'createRemoteExtensionDeploy(',
+      '() => this.requireAgentLink(),\n    () => this.managedMcp?.source.refresh()'
+    ])
+  })
+
   it('설정 읽기 핸들러 등록이 시작의 첫 문장이다 — 창이 붙자마자 설정을 읽는다', () => {
     const start = body(data, 'async start(): Promise<')
     const firstStatement = start.slice(start.indexOf('{\n') + 1).trim()
