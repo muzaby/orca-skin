@@ -25,15 +25,6 @@ import { TypedBus } from '../../infra/bus'
 import type { OoBusEvents } from '../../contracts/bus-events'
 import { makeClassifiedError } from '../../infra/errors'
 
-const ipc = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (key: string, handler: (event: unknown, raw: unknown) => Promise<void>) =>
-      ipc.handlers.set(key, handler)
-  }
-}))
 vi.mock('../../infra/ipc/send', () => ({
   sendChatEvent: vi.fn(),
   broadcastBackgroundEvent: vi.fn()
@@ -43,6 +34,8 @@ import { runTurnWithContinuations } from './post-turn'
 import { sendChatEvent } from '../../infra/ipc/send'
 import { buildTurnRequest } from './turn-request'
 import { reserveOnBusySession } from './enqueue'
+import { invokeChannel, resetTestTransport } from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 // 실제 runtime/coordinator/lease를 잇는다. SDK 스트림과 디스크 영속만 메모리 경계로 대체한다.
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -92,7 +85,8 @@ export function concurrencyFixture(
     complete: async () => '',
     classifyError: (error) => makeClassifiedError('stream_error', String(error))
   })
-  const owner = { id: 1 } as ClientRef
+  resetTestTransport()
+  const owner: ClientRef = fakeClient(1)
   const concurrency: ConcurrencyEvent[] = []
   const supervisor = new RuntimeSupervisor<ClientRef>({
     activeTurns: new ActiveTurnTracker((event) => concurrency.push(event))
@@ -268,9 +262,9 @@ export function concurrencyFixture(
       queue.push({ sequence: sequence++, events: batch })
       wake?.()
     },
-    stop: () => ipc.handlers.get(CHANNELS.chatCancel)!({ sender: owner }, { sessionId: 's1' }),
+    stop: () => invokeChannel(CHANNELS.chatCancel, { sessionId: 's1' }, owner),
     sendNow: (raw: unknown = { sessionId: 's1' }) =>
-      ipc.handlers.get(CHANNELS.chatSteerSendNow)!({ sender: owner }, raw),
+      invokeChannel(CHANNELS.chatSteerSendNow, raw, owner),
     queueHeld: (text: string, id: string) => {
       reserveOnBusySession(
         { pendingMessages, listenRelease },

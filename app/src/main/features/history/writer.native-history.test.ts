@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { DbQueries } from '../../infra/db'
 import type { TurnContext } from '../../contracts/turn'
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 import { HistoryWriter } from './writer'
 
 describe('native ID persistence', () => {

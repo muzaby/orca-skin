@@ -107,6 +107,60 @@ describe('handleChatSend busy submission', () => {
       )
     }
   )
+  // 0324 — 백그라운드 작업 기록은 데이터 호스트에 있다. 이어 가는 세션의 턴은 세션 행과 함께
+  // 기록을 받아 두고(첫 관찰의 동기 복원), 받기 실패는 전송을 막지 않는다.
+  it.each([
+    ['sessionId', ['s1'], false],
+    ['sessionId', ['s1'], true],
+    ['forkFrom', [], false],
+    ['handoffFrom', [], false]
+  ] as const)(
+    'background records for %s are fetched with the session row (%j, failing=%s)',
+    async (sourceField, expected, failing) => {
+      const owner = {} as ClientRef
+      const order: string[] = []
+      const dbRead = vi.fn(() => {
+        order.push('row')
+        return { agent_kind: 'work' }
+      })
+      const prefetchBackgroundEvents = vi.fn(async () => {
+        order.push('records')
+        if (failing) throw new Error('peer gone')
+      })
+      vi.mocked(normalizeAttachments).mockResolvedValueOnce({
+        attachmentTexts: [],
+        attachmentImages: []
+      })
+      const deps = {
+        ctx: withDataPort({
+          mockAdapter: null,
+          debugMock: { enabled: false },
+          registry: { getActive: () => ({ id: 'claude' }) },
+          db: { getSessionById: dbRead }
+        }),
+        supervisor: { acquireChain: vi.fn(), getChainByKey: vi.fn() },
+        prefetchBackgroundEvents,
+        isUpdateInstallPending: () => false
+      } as unknown as ChatRuntimeDeps
+      await handleChatSend(deps, { sender: owner } as RequestEvent, {
+        sessionId: null,
+        projectId: null,
+        text: 'different kind',
+        [sourceField]: 's1',
+        agentKind: 'code'
+      })
+      expect(prefetchBackgroundEvents.mock.calls).toEqual(expected.map((id) => [id]))
+      // 받기 실패여도 판정은 그대로 진행된다(여기서는 종류 불일치 거부).
+      expect(sendChatEvent).toHaveBeenLastCalledWith(
+        owner,
+        expect.objectContaining({
+          type: 'error',
+          error: expect.objectContaining({ category: 'schema_validation_error' })
+        })
+      )
+      if (expected.length) expect(order).toContain('records')
+    }
+  )
   it.each([false, true])(
     'rejects mismatched birth before lease admission and queue mutation (confirmed=%s)',
     async (confirmed) => {

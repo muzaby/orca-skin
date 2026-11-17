@@ -23,7 +23,6 @@ import { isWithinDir } from '../infra/config/paths'
 import { makeClassifiedError } from '../infra/errors'
 import { scaleMs, scaledBudget } from '../../../scripts/test-time.mjs'
 
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 vi.setConfig(scaledBudget({ testTimeout: 120_000, hookTimeout: 30_000 }))
 
 function failureKind(error: unknown): string {
