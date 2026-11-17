@@ -1,3 +1,4 @@
+import { withDataPort } from './data-host/data-port.testfixture'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -310,7 +311,7 @@ function boot(realRegistration = false): Bootstrap {
       service = internal.composerPreparation
       return
     }
-    const prepared = createComposerPreparation(input)
+    const prepared = createComposerPreparation(withDataPort(input))
     service = internal.composerPreparation = prepared.service
     internal.closeComposerCatalog = prepared.close
   })

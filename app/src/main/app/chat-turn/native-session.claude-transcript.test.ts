@@ -8,6 +8,7 @@ import {
   nativeHistoryFixture
 } from '../../adapters/claude/native-history.testfixture'
 import type { DbQueries } from '../../infra/db'
+import { directDataPort } from '../data-host/data-port.testfixture'
 import { prepareNativeSession } from './native-session'
 import { sendPrepared } from '../../adapters/claude/prepared.testfixture'
 
@@ -64,8 +65,7 @@ async function prepare(shape: Shape): Promise<{
   const result = await prepareNativeSession(
     adapter,
     { sessionId, cwd: f.cwd, env },
-    db,
-    () => f.cwd
+    directDataPort(db, { getCwd: () => f.cwd })
   )
   return { adapter, recover, result, cwd: f.cwd, env }
 }

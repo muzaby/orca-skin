@@ -5,11 +5,11 @@ import type {
 } from '../../../../shared/composer-catalog'
 import { PreparedMcpResources, preparedMcpScope } from './prepared-mcp-resources'
 
-it('resolves draft execution choices and saved session scope from their actual owners', () => {
+it('resolves draft execution choices and saved session scope from their actual owners', async () => {
   const getSessionById = vi.fn()
   const db = { getSessionById }
   expect(
-    preparedMcpScope(db, {
+    await preparedMcpScope(db, {
       backend: 'opencode',
       cwd: 'C:/draft',
       projectId: 'draft-project',
@@ -24,7 +24,7 @@ it('resolves draft execution choices and saved session scope from their actual o
     providerKey: 'draft-provider',
     agentKind: 'code'
   })
-  expect(preparedMcpScope(db, { backend: 'opencode', cwd: null, projectId: null })).toMatchObject({
+  expect(await preparedMcpScope(db, { backend: 'opencode', cwd: null, projectId: null })).toMatchObject({
     providerKey: null,
     agentKind: 'code'
   })
@@ -35,7 +35,7 @@ it('resolves draft execution choices and saved session scope from their actual o
     project_id: 'stored-project',
     agent_kind: 'code'
   })
-  expect(preparedMcpScope(db, { sessionId: 'stored' })).toEqual({
+  expect(await preparedMcpScope(db, { sessionId: 'stored' })).toEqual({
     backend: 'opencode',
     sessionId: 'stored',
     cwd: 'C:/stored',
@@ -45,9 +45,9 @@ it('resolves draft execution choices and saved session scope from their actual o
   })
   expect(getSessionById).toHaveBeenCalledWith('stored')
   getSessionById.mockReturnValue(undefined)
-  expect(preparedMcpScope(db, { sessionId: 'missing' })).toBeUndefined()
+  expect(await preparedMcpScope(db, { sessionId: 'missing' })).toBeUndefined()
   expect(
-    preparedMcpScope(db, { backend: 'claude', cwd: 'C:/claude', projectId: null })
+    await preparedMcpScope(db, { backend: 'claude', cwd: 'C:/claude', projectId: null })
   ).toBeUndefined()
 })
 

@@ -13,7 +13,7 @@ export function registerBackgroundHandlers(deps: ChatDeps): BackgroundController
   const controller = new BackgroundController({
     tracker: deps.backgroundTasks,
     persist: (event, committed) => deps.persistence.persistProviderEvent(event, committed),
-    load: (sessionId) => deps.ctx.db.background?.list(sessionId) ?? [],
+    load: deps.loadBackgroundEvents,
     publish: broadcastBackgroundEvent,
     runtime: (sessionId) => {
       const live = deps.supervisor.peekRuntime(sessionId)
