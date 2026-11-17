@@ -16,6 +16,9 @@ export const PEER_METHODS = {
   'turn.begin': { from: 'agent', kind: 'notify' },
   // 턴 이벤트 하나. 화면 중계는 이 응답을 기다리지 않는다(D-039).
   'turn.event': { from: 'agent', kind: 'notify' },
+  // 산출물 참조를 싣는 턴 이벤트(도구 완료의 게시 영수증 · 출력 파일 담기) — DB 가 확인한 참조만 화면에
+  // 실을 수 있어 응답(확인된 참조)을 기다린다. 같은 턴의 뒤 이벤트 중계는 그 뒤로 줄을 선다(구현 보고 PLAN_GAP).
+  'turn.artifactEvent': { from: 'agent', kind: 'request' },
   // 질문 도구의 답.
   'turn.askAnswers': { from: 'agent', kind: 'notify' },
   // 사용자 메시지 커밋 — 응답은 DB 가 만든 메시지 id(없으면 null).
@@ -46,7 +49,19 @@ export const PEER_METHODS = {
   'data.write': { from: 'agent', kind: 'request' },
   // 에이전트 호스트의 오류 보고·부팅 단계(D-042) — 데이터 호스트가 모아 창에 준다.
   'report.error': { from: 'agent', kind: 'notify' },
-  'report.boot': { from: 'agent', kind: 'notify' }
+  'report.boot': { from: 'agent', kind: 'notify' },
+  // 에이전트 호스트의 하네스 가용성 — 데이터 호스트의 모델 카탈로그·연결 상태가 읽는다.
+  'harness.availability': { from: 'agent', kind: 'notify' },
+
+  // ── 사본 (데이터 → 에이전트) — 함수는 경계를 넘지 못해 직렬화한 상태를 보낸다(구현 보고 G-A·G-D) ──
+  // 런타임 도구(플러그인·산출물) 서술자 — 도구 호출은 `data.query` 의 `runtimeToolCall` 이다.
+  'tools.snapshot': { from: 'data', kind: 'notify' },
+  // 관리형 MCP 스냅샷 — 브리지 임대는 `data.query` 의 `managedMcpAcquire` 다.
+  'mcp.snapshot': { from: 'data', kind: 'notify' },
+  // 인증 게이트 상태 — OpenCode 웜업의 허용 조건.
+  'auth.state': { from: 'data', kind: 'notify' },
+  // 데이터 호스트가 낸 채팅 통지(산출물 게시) — 채팅 통지 채널은 에이전트 호스트 몫이라 중계한다.
+  'chat.relay': { from: 'data', kind: 'notify' }
 } as const satisfies Record<string, { from: PeerSide; kind: 'request' | 'notify' }>
 
 export type PeerSide = 'agent' | 'data'

@@ -42,7 +42,8 @@ export function readNativeHistoryPrevious(
 export interface NativeSyncDependencies {
   db: DbQueries
   read: (previous?: NativeHistoryRequest['previous']) => Promise<NativeHistoryResult>
-  isBusy: () => boolean
+  // 실행 상태는 다른 프로세스에 있을 수 있다(0324 F4) — 물어서 안다.
+  isBusy: () => boolean | Promise<boolean>
 }
 
 export function validNativeSnapshot(snapshot: NativeHistorySnapshot, sessionId: string): boolean {
@@ -76,7 +77,7 @@ export async function refreshNativeHistory(
   deps: NativeSyncDependencies
 ): Promise<NativeSyncResult> {
   const busy: NativeSyncResult = { status: 'busy' }
-  if (deps.isBusy()) return busy
+  if (await deps.isBusy()) return busy
   if (!deps.db.getSessionById(sessionId))
     return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
   const before = deps.db.nativeHistory.observe(sessionId)
@@ -93,7 +94,7 @@ export async function refreshNativeHistory(
     }
   }
   if (
-    deps.isBusy() ||
+    (await deps.isBusy()) ||
     !deps.db.getSessionById(sessionId) ||
     deps.db.nativeHistory.observe(sessionId).version !== before.version
   )

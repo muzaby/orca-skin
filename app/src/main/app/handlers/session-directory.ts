@@ -22,7 +22,7 @@ async function resolveDirectory(directory: string): Promise<string> {
 
 interface DirectoryDependencies {
   db: Pick<DbQueries, 'getSessionById' | 'updateSessionExtraDirs'>
-  isSessionBusy: (sessionId: string) => boolean
+  isSessionBusy: (sessionId: string) => boolean | Promise<boolean>
   resolveDirectory?: (directory: string) => Promise<string>
 }
 
@@ -37,7 +37,7 @@ export async function addSessionDirectory(
     !sessionContextPolicy(parseAgentKind(initial.agent_kind), initial.backend).allowDirectoryUpdates
   )
     return { ok: false, reason: 'not-work' }
-  if (deps.isSessionBusy(request.sessionId)) return { ok: false, reason: 'busy' }
+  if (await deps.isSessionBusy(request.sessionId)) return { ok: false, reason: 'busy' }
   if (!isAbsolutePath(request.directory) || isFilesystemRoot(request.directory)) {
     return { ok: false, reason: 'invalid-directory' }
   }
@@ -67,7 +67,7 @@ export async function addSessionDirectory(
       reason: code === 'EACCES' || code === 'EPERM' ? 'failed' : 'invalid-directory'
     }
   }
-  if (deps.isSessionBusy(request.sessionId)) return { ok: false, reason: 'busy' }
+  if (await deps.isSessionBusy(request.sessionId)) return { ok: false, reason: 'busy' }
   const current = deps.db.getSessionById(request.sessionId)
   if (!current) return { ok: false, reason: 'not-found' }
   if (

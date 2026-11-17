@@ -28,11 +28,14 @@ export interface SessionBaselineLookup {
   // 기준 라벨이라 없으면 사용자가 "무엇 대비" 를 읽지 못한다.
   // `bornAt` = 세션 행이 만들어진 시각(epoch ms). `oid` 가 없는 세션의 기준선을 그 시각으로
   // 되짚는 데 쓴다 — 없으면 조회가 질의 시점 HEAD 로 접혀 기준선이 커밋을 따라 움직인다.
-  getSessionBaseline(sessionId: string): {
-    oid: string | null
-    ref: string | null
-    bornAt: number | null
-  }
+  // 세션 행은 데이터 호스트에 있다 — 요청으로 받는다(0324 F2).
+  getSessionBaseline(sessionId: string): SessionBaseline | Promise<SessionBaseline>
+}
+
+interface SessionBaseline {
+  oid: string | null
+  ref: string | null
+  bornAt: number | null
 }
 
 const NO_BASELINE = { oid: null, ref: null, bornAt: null } as const
@@ -42,9 +45,7 @@ const NO_BRANCHES: GitBranchList = { current: null, branches: [] }
 export function registerGitHandlers(sessions: SessionBaselineLookup): void {
   // `sessionId` → 출생 baseline(커밋 + 브랜치 이름). 값이 없으면 둘 다 null 이고
   // `resolveDiffRange` 가 HEAD 로 접는다.
-  const baselineFor = (
-    sessionId?: string
-  ): { oid: string | null; ref: string | null; bornAt: number | null } =>
+  const baselineFor = async (sessionId?: string): Promise<SessionBaseline> =>
     sessionId ? sessions.getSessionBaseline(sessionId) : NO_BASELINE
 
   handle(
@@ -67,8 +68,8 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
     CHANNELS.gitSnapshot,
     GitSnapshotRequestSchema,
     { fallback: { status: NOT_REPO, summary: null } },
-    (req): Promise<GitSnapshotResult> => {
-      const baseline = req.includeSummary ? baselineFor(req.sessionId) : NO_BASELINE
+    async (req): Promise<GitSnapshotResult> => {
+      const baseline = req.includeSummary ? await baselineFor(req.sessionId) : NO_BASELINE
       return gitSnapshot({
         cwd: req.cwd,
         includeSummary: req.includeSummary,
@@ -83,8 +84,8 @@ export function registerGitHandlers(sessions: SessionBaselineLookup): void {
     CHANNELS.gitDiffPatch,
     GitDiffPatchRequestSchema,
     { fallback: EMPTY_DIFF_PATCH },
-    (req): Promise<GitDiffPatch> => {
-      const baseline = baselineFor(req.sessionId)
+    async (req): Promise<GitDiffPatch> => {
+      const baseline = await baselineFor(req.sessionId)
       return gitDiffPatch({
         cwd: req.cwd,
         ...(req.commitSha ? { commitSha: req.commitSha } : {}),

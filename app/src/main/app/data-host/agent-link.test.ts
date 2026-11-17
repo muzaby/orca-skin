@@ -6,7 +6,7 @@ import {
   PEER_CLOSED_ERROR,
   PEER_UNAVAILABLE_ERROR
 } from '../../infra/ipc/peer-link'
-import { createPeerLoopback } from '../../infra/ipc/peer-loopback'
+import { createPeerLoopback } from '../../infra/ipc/peer-loopback.testfixture'
 import * as stall from '../../infra/perf/stall-monitor'
 import { createAgentLink } from './agent-link'
 
