@@ -18,8 +18,8 @@ import type { PeerPort } from '../infra/ipc/peer-link'
 import { closeLog, flushLogSync, initLog, type LogHostProcess } from '../infra/log'
 import { setStallThread, startLoopStallMonitor } from '../infra/perf/stall-monitor'
 import { setShellServices } from '../infra/shell-services'
-import { createPortTransport, type PortTransport } from './agent-host/port-server'
-import type { ShellClient } from './agent-host/shell-client'
+import { createPortTransport, type PortTransport } from './host-port-server'
+import type { ShellClient } from './host-shell-client'
 import { parseHostEnvironment, startHostRuntime, type ParentPort } from './host-runtime'
 
 export type HostProcessName = Exclude<LogHostProcess, 'main'>

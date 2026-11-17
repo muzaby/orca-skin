@@ -47,7 +47,8 @@ describe('project landing cwd', () => {
         chat: { onEvent: () => unsubscribe, onBackgroundEvent: () => unsubscribe },
         session: { cwd: () => ready, onTitle: () => unsubscribe },
         settings: { get: async () => ({}), set: async () => ({}) },
-        concurrency: { onEvent: () => unsubscribe }
+        concurrency: { onEvent: () => unsubscribe },
+        hosts: { onLifecycle: () => unsubscribe }
       }
     })
     chatActions.newChat('a', 'C:\\Project')

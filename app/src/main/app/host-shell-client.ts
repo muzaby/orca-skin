@@ -1,15 +1,15 @@
-// 셸 서비스 클라이언트 (0324 EP-10 · AR-08). 에이전트 호스트의 Electron 권한 작업은 이 클라이언트로
+// 셸 서비스 클라이언트 (0324 EP-10 · AR-08). 두 호스트의 Electron 권한 작업은 이 클라이언트로
 // 셸에 부탁한다 — 호스트는 Electron API 를 부를 수 없다. 응답 전까지 호출한 코드는 기다린다.
 // 셸이 보낸 `wake`(시스템이 깨어났다)도 여기서 구독한다. 이 파일은 Electron 을 모른다.
 
-import type { HostToShell, ShellToHost } from '../../../shared/host-protocol'
-import type { ShellServicesPort } from '../../infra/shell-services'
+import type { HostToShell, ShellToHost } from '../../shared/host-protocol'
+import type { ShellServicesPort } from '../infra/shell-services'
 import type {
   ShellServiceArgs,
   ShellServiceName,
   ShellServiceResults,
   WakeReason
-} from '../../../shared/shell-services'
+} from '../../shared/shell-services'
 
 export interface ShellClient extends ShellServicesPort {
   call<N extends ShellServiceName>(

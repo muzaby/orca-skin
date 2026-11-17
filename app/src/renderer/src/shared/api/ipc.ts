@@ -142,6 +142,13 @@ export const chatApi = {
   onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) => window.oo.chat.onEvent(handler)
 }
 
+// 호스트 수명 통지(0324 AC29′·AC33′) — 호스트가 죽거나 다시 붙었다.
+export type HostLifecycleEvent = Parameters<Parameters<Window['oo']['hosts']['onLifecycle']>[0]>[0]
+export const hostApi = {
+  onLifecycle: (handler: (event: HostLifecycleEvent) => void): (() => void) =>
+    window.oo.hosts.onLifecycle(handler)
+}
+
 export const bootApi = {
   report: (): Promise<BootReport> => window.oo.boot.report(),
   whenReady: (): Promise<void> => window.oo.boot.whenReady()

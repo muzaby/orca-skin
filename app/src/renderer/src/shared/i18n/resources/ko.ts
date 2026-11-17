@@ -686,7 +686,8 @@ export const ko = {
     updateDownloadFailed: '업데이트 다운로드를 시작할 수 없습니다.',
     updateInstallFailed: '업데이트 설치를 시작할 수 없습니다.',
     agentListFailed: 'agent 목록을 불러오지 못했습니다',
-    engineMutationFailed: 'engine 작업에 실패했습니다'
+    engineMutationFailed: 'engine 작업에 실패했습니다',
+    agentHostLost: '실행 프로세스가 종료되어 이 턴을 끝냈습니다. 다시 보내면 새로 시작합니다.'
   },
   notify: {
     completeBody: '응답이 완료되었습니다.'
