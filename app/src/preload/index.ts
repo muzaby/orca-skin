@@ -1,3 +1,4 @@
+import { createSessionLoadClient } from './session-load'
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { CHANNEL_OWNER, type ChannelOwner } from '../shared/channel-owner'
 import {
@@ -203,6 +204,22 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): () => voi
   return () => ipcRenderer.off(channel, listener)
 }
 
+const sessionLoads = createSessionLoadClient({
+  invoke: (channel, payload) => invoke(channel, payload),
+  send: (channel, payload) => {
+    const owner = ownerOf(channel)
+    if (owner === 'shell') ipcRenderer.send(channel, payload)
+    else hosts[owner].send(channel, payload)
+  },
+  subscribe: (channel, handler) => subscribe(channel, handler),
+  channels: {
+    load: CHANNELS.sessionLoad,
+    refresh: CHANNELS.sessionRefresh,
+    chunk: CHANNELS.sessionLoadChunk,
+    cancel: CHANNELS.sessionLoadCancel
+  }
+})
+
 // renderer가 사용하는 제한된 공개 표면. 임의 채널이나 ipcRenderer 원본은 노출하지 않는다.
 const oo = {
   error: {
@@ -356,10 +373,10 @@ const oo = {
       invoke(CHANNELS.sessionAddDirectory, request),
     cwd: (): Promise<string> => invoke(CHANNELS.sessionCwd),
     list: (): Promise<SessionListItem[]> => invoke(CHANNELS.sessionList),
-    refresh: (sessionId: string): Promise<RefreshSessionResult> =>
-      invoke(CHANNELS.sessionRefresh, { sessionId }),
-    load: (sessionId: string): Promise<LoadedSession | null> =>
-      invoke(CHANNELS.sessionLoad, { sessionId }),
+    // 본문은 데이터 호스트가 조각으로 보내고 여기서 한 벌로 조립한다(0324 EP-4′).
+    refresh: (sessionId: string): Promise<RefreshSessionResult> => sessionLoads.refresh(sessionId),
+    load: (sessionId: string): Promise<LoadedSession | null> => sessionLoads.load(sessionId),
+    cancelLoad: (sessionId: string): void => sessionLoads.cancelLoad(sessionId),
     delete: (sessionId: string): Promise<DeleteSessionResult> =>
       invoke(CHANNELS.sessionDelete, { sessionId }),
     rename: (sessionId: string, title: string): Promise<void> =>

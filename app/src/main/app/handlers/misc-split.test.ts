@@ -25,8 +25,7 @@ const { registerSkillsHandlers } = await import('./skills')
 const { registerFilesHandlers } = await import('./files')
 const { registerCostHandlers } = await import('./cost')
 const { installFakeShellServices } = await import('../../infra/shell-services.testfixture')
-const notified = vi.hoisted(() => [] as unknown[])
-installFakeShellServices({ 'notify.show': (options) => void notified.push(options) })
+installFakeShellServices({})
 
 // 각 모듈이 현재 등록해야 하는 채널 전수. dev 전용 2종(debugGetMock·debugSetMock)은
 // `import.meta.env.DEV` 게이트 안이라 vitest(DEV=true)에서도 등록된다.
@@ -55,7 +54,6 @@ const EXPECTED = [
   CHANNELS.costRefreshUsage,
   CHANNELS.costSetProviderLimit,
   CHANNELS.costUsageStats,
-  CHANNELS.notifyShow,
   CHANNELS.debugGetMock,
   CHANNELS.debugSetMock
 ]
@@ -72,12 +70,6 @@ const ctx = {
 } as never
 
 describe('handlers/misc 분해 (0179)', () => {
-  it('알림은 보낸 창의 id 와 함께 셸 서비스로 간다 (0324 EP-10)', async () => {
-    registerMiscHandlers(ctx)
-    await handlers.get(CHANNELS.notifyShow)?.({ sender: { id: 41 } }, { title: '완료', body: '끝' })
-    expect(notified).toEqual([{ clientId: 41, title: '완료', body: '끝' }])
-  })
-
   it('preserves backend keys, rechecks the requested harness and refreshes after the install stream', async () => {
     const probe = vi
       .fn<SessionAdapter['isInstalled']>()

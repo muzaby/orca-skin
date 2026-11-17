@@ -3,42 +3,17 @@ import type { SkillScanRoot } from '../../../features/extensions/common/skills/s
 import { ExtensionDeploymentService } from '../../../features/extensions/common/extension-deployment-service'
 import { deploy } from '../../../features/extensions/claude/deployer'
 import { toClaudeConfig } from '../../../features/extensions/claude/mcp/convert'
-import { scaffoldProviderSettings } from '../../../features/extensions/claude/scaffold'
 import { builtInHarnessPluginRoot } from '../../../features/extensions/claude/plugin'
 import { userClaudePluginRoot } from '../../../features/extensions/claude/user-skills'
-import { readUserClaudeSettings } from '../../../adapters/claude/settings'
-import { claudeNativePaths } from '../../../adapters/claude/native-paths'
 import { ooConfigDir } from '../../../infra/config/paths'
 import { reportError } from '../../../infra/error-report'
 import { getLogger } from '../../../infra/log'
-
-export function claudeSkillRoots(): SkillScanRoot[] {
-  return [
-    {
-      sourceId: 'adapter:claude',
-      sourceLabel: 'Claude 스킬',
-      sourceKind: 'adapter',
-      rootDir: claudeNativePaths().skills
-    }
-  ]
-}
 
 export function claudePluginRoots(): string[] {
   return [
     builtInHarnessPluginRoot(ooConfigDir(), 'claude'),
     userClaudePluginRoot(ooConfigDir(), 'claude')
   ]
-}
-
-export function scaffoldClaudeSettings(): void {
-  const userSettings = readUserClaudeSettings()
-  const result = scaffoldProviderSettings(
-    'claude',
-    undefined,
-    userSettings.exists ? userSettings.settingsJson : null
-  )
-  const log = getLogger().child('providers')
-  for (const path of result.created) log.debug('providers.scaffold.created', { path })
 }
 
 export function createClaudeDeploymentService(

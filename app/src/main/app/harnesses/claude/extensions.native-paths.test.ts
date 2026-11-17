@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { claudeSkillRoots } from './extensions'
+import { claudeSkillRoots } from './config'
 import { scanSkills } from '../../../features/extensions/common/skills/scan'
 
 afterEach(() => vi.unstubAllEnvs())

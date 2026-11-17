@@ -4,17 +4,14 @@ import {
   app,
   shell,
   BrowserWindow,
-  ipcMain,
   protocol,
   net,
   Tray,
   Menu,
   nativeImage,
   powerMonitor,
-  utilityProcess,
   MessageChannelMain,
-  type MessagePortMain,
-  type WebContents
+  type MessagePortMain
 } from 'electron'
 import { installExternalNavigation } from './infra/external-navigation'
 import { join, extname } from 'path'
@@ -25,7 +22,7 @@ import logo from '../../resources/logo.png?asset'
 import { registerLogHandlers } from './app/handlers/log'
 import { registerUpdateHandlers } from './app/handlers/update'
 import { reportError } from './infra/error-report'
-import { createArtifactSenderCheck, isTrustedAppDocument } from './app/artifact-sender'
+import { createArtifactSenderCheck } from './app/artifact-sender'
 import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
 import { handle, handlePlain } from './infra/ipc/handle'
 import { createElectronTransport } from './infra/ipc/electron-transport'
@@ -35,26 +32,14 @@ import { devUserDataDir } from './infra/config/paths'
 import { killPidTree, listProcesses } from './infra/shell/shell-runner'
 import { CHANNELS } from '../shared/ipc'
 import { NotifyShowSchema } from '../shared/protocol'
-import {
-  HOST_CONNECT_CHANNEL,
-  HOST_EXITED_CHANNEL,
-  HOST_PORT_CHANNEL,
-  HostConnectRequestSchema,
-  type HostName
-} from '../shared/host-protocol'
 import { APP_USER_MODEL_ID, PRODUCT_DISPLAY_NAME } from '../shared/product'
 import type { ShellState } from './app/shell/shell-state'
 import { createElectronShellServices } from './app/shell/electron-services'
 import { createHostMessageSink } from './app/shell/host-link'
 import { createShellServiceServer } from './app/shell/services'
-import { createHostBoot, type BootClient, type HostKind } from './app/shell/boot'
-import {
-  createHostSupervisor,
-  type HostProcess,
-  type HostSupervisor,
-  type SupervisedClient
-} from './app/shell/host-supervisor'
-import { hostEnvironmentArg } from './app/host-runtime'
+import { createHostBoot, type HostKind } from './app/shell/boot'
+import { attachHostPorts, forkHost } from './app/shell/electron-hosts'
+import { createHostSupervisor, type HostSupervisor } from './app/shell/host-supervisor'
 import { setHostEnvironment, type HostEnvironment } from './infra/host-environment'
 import { LifecycleState } from './app/shell/lifecycle-state'
 import { openShellState } from './app/shell/shell-state-file'
@@ -352,36 +337,13 @@ app.whenReady().then(async () => {
     )
   })
 
-  const forkHost = (kind: HostKind): HostProcess<MessagePortMain> => {
-    const child = utilityProcess.fork(
-      join(__dirname, `${kind}-host.js`),
-      [hostEnvironmentArg(hostEnvironmentValue)],
-      {
-        serviceName: `${PRODUCT_DISPLAY_NAME} ${kind === 'data' ? 'Data' : 'Agent'} Host`
-      }
-    )
-    return {
-      pid: () => child.pid,
-      postMessage: (message, ports) => child.postMessage(message, ports ? [...ports] : []),
-      onMessage: (listener) => {
-        child.on('message', listener)
-      },
-      onExit: (listener) => {
-        child.on('exit', listener)
-      },
-      kill: () => {
-        child.kill()
-      }
-    }
-  }
-
   const boot = createHostBoot<MessagePortMain>({
     createChannel: () => new MessageChannelMain(),
     // 에이전트 호스트 비정상 종료의 마지막 단계 — 수명 상태를 비운다(AC29′).
     onAgentExited: () => lifecycleState.clear(),
     createSupervisor: (kind, hooks) => {
       const supervisor: HostSupervisor<MessagePortMain> = createHostSupervisor<MessagePortMain>({
-        fork: () => forkHost(kind),
+        fork: () => forkHost(kind, join(__dirname, `${kind}-host.js`), hostEnvironmentValue),
         createChannel: () => new MessageChannelMain(),
         clock: {
           setTimeout: (callback, ms) => setTimeout(callback, ms),
@@ -450,7 +412,7 @@ app.whenReady().then(async () => {
   handlePlain(CHANNELS.bootWhenReady, () => boot.whenReady())
   boot.start()
   const mainWindow = createWindow(shellState)
-  attachHostPorts(boot, mainWindow.webContents)
+  attachHostPorts(boot, mainWindow.webContents, rendererUrl)
   // 트레이 상주 (0322) — Windows 에서 창 닫기는 종료가 아니라 숨김이다. 창을 먼저 만든다:
   // 트레이 생성 실패는 프로그램 오류라 잡지 않는데, 그때 창 없는 프로세스가 남으면 안 된다.
   // 위치 저장 `close` 리스너(createWindow)가 숨김 판정보다 먼저 등록되는 순서도 여기서 정해진다.
@@ -477,7 +439,7 @@ app.whenReady().then(async () => {
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
-      attachHostPorts(boot, createWindow(shellState).webContents)
+      attachHostPorts(boot, createWindow(shellState).webContents, rendererUrl)
     }
   })
 })
@@ -506,45 +468,3 @@ app.on('will-quit', () => {
   rootLog.info('app.quit.started')
   closeLog()
 })
-
-// 창 하나의 호스트 포트 (0324 EP-9 · §7-E). preload 가 문서마다 포트를 달라고 하면(`'all'`) 두 호스트의
-// 새 포트를 넘기고, 에이전트 호스트가 죽은 뒤 첫 요청(`'agent'`)이면 다시 띄운다.
-function attachHostPorts(
-  boot: ReturnType<typeof createHostBoot<MessagePortMain>>,
-  contents: WebContents
-): void {
-  const id = contents.id
-  const supervised = (host: HostName): SupervisedClient<MessagePortMain> => ({
-    id,
-    trusted: () => isTrustedAppDocument(contents, rendererUrl),
-    deliverPort: (port) => {
-      if (!contents.isDestroyed()) contents.postMessage(HOST_PORT_CHANNEL, { host }, [port])
-    },
-    notify: (event) => {
-      if (event === 'exited' && !contents.isDestroyed())
-        contents.send(HOST_EXITED_CHANNEL, { host })
-    }
-  })
-  const client: BootClient<MessagePortMain> = {
-    id,
-    data: supervised('data'),
-    agent: supervised('agent')
-  }
-  const onConnect = (event: Electron.IpcMainEvent, raw: unknown): void => {
-    if (event.sender !== contents) return
-    const parsed = HostConnectRequestSchema.safeParse(raw)
-    if (!parsed.success) return
-    if (parsed.data.host === 'agent') {
-      boot.connectAgent()
-      return
-    }
-    // 새 문서 — 옛 포트는 문서와 함께 닫혔다. 두 호스트의 포트를 새로 받는다.
-    boot.detach(id)
-    boot.attach(client)
-  }
-  ipcMain.on(HOST_CONNECT_CHANNEL, onConnect)
-  contents.once('destroyed', () => {
-    ipcMain.removeListener(HOST_CONNECT_CHANNEL, onConnect)
-    boot.detach(id)
-  })
-}
