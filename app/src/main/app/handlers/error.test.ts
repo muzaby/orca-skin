@@ -3,16 +3,13 @@ import { join } from 'node:path'
 import { CHANNELS } from '../../../shared/ipc'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
 import { registerErrorHandlers } from './error'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
 const mocks = vi.hoisted(() => ({
-  handle: vi.fn(),
   flush: vi.fn(),
   directory: vi.fn(),
   reveal: vi.fn(),
   open: vi.fn()
-}))
-vi.mock('electron', () => ({
-  ipcMain: { handle: mocks.handle }
 }))
 vi.mock('../../infra/log', () => ({ logDirectory: mocks.directory, flushLogSync: mocks.flush }))
 const directory = join('test-config', 'logs')
@@ -28,11 +25,8 @@ beforeEach(() => {
   })
   registerErrorHandlers()
 })
-function reveal(): Promise<void> {
-  const handler = mocks.handle.mock.calls.find(
-    ([channel]) => channel === CHANNELS.errorRevealLog
-  )![1]
-  return handler({})
+function reveal(): Promise<unknown> {
+  return invokeChannel(CHANNELS.errorRevealLog)
 }
 describe('error revealLog IPC handler', () => {
   // 0324 AC46 — 프로세스마다 파일이 달라 한 파일을 고르지 않고 폴더를 연다.

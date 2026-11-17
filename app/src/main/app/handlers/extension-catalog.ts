@@ -54,6 +54,8 @@ export function registerExtensionCatalogHandlers(
       if (request.backend === 'claude' && item.kind === 'plugin') {
         // Live Claude queries keep the flags they started with, so the toggle closes them all.
         // No await from plan to close: a turn starting in between would skip the confirmation.
+        // The session data the plan reads is filled before it.
+        await processes.prepare()
         const plan = processes.plan()
         if (plan.busy > 0 && !request.confirmed)
           return { status: 'confirm', reason: 'claude-processes', sessions: plan.busy }

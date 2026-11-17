@@ -8,6 +8,7 @@ import { CHANNELS } from '../../shared/ipc'
 import { registerSkillsHandlers } from './handlers/skills'
 import { readSkillCatalog } from './skill-catalog'
 import { installFakeShellServices } from '../infra/shell-services.testfixture'
+import { invokeChannel } from '../infra/ipc/test-transport.testfixture'
 
 vi.mock('node:fs', async (original) => {
   const actual = await original<typeof import('node:fs')>()
@@ -23,14 +24,7 @@ vi.mock('node:fs/promises', async (original) => {
   return { ...actual, realpath: vi.fn(actual.realpath) }
 })
 
-const handlers = vi.hoisted(() => new Map<string, (event: unknown, raw: unknown) => unknown>())
 const showItemInFolder = vi.hoisted(() => vi.fn())
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, fn: (event: unknown, raw: unknown) => unknown) =>
-      handlers.set(channel, fn)
-  }
-}))
 // 폴더 열기는 셸 서비스로 간다(0324 EP-10).
 installFakeShellServices({ 'external.showItemInFolder': showItemInFolder })
 
@@ -147,7 +141,7 @@ it('assembles the real catalog from lock, harness and native plugin files withou
     JSON.stringify({ enabledPlugins: { 'design@test': false } })
   )
   await skill(join(plugin, 'skills'), 'added-after-boot')
-  const result = await handlers.get(CHANNELS.skillsList)?.({}, undefined)
+  const result = await invokeChannel(CHANNELS.skillsList, undefined)
   expect(result).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ sourceId: 'agents', name: 'locked', canRemove: false }),
@@ -166,13 +160,10 @@ it('assembles the real catalog from lock, harness and native plugin files withou
     ])
   )
   showItemInFolder.mockClear()
-  await handlers.get(CHANNELS.skillsShowInFolder)?.(
-    {},
-    {
-      sourceId: 'plugin:claude',
-      name: 'design:native'
-    }
-  )
+  await invokeChannel(CHANNELS.skillsShowInFolder, {
+    sourceId: 'plugin:claude',
+    name: 'design:native'
+  })
   expect(showItemInFolder).toHaveBeenCalledExactlyOnceWith(
     join(plugin, 'skills', 'native', 'SKILL.md')
   )

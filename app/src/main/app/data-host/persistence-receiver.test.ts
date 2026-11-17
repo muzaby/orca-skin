@@ -2,9 +2,6 @@ import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // 저장기 → infra/ipc/send → electron 런타임 체인을 끊는다 — 이 스위트는 electron 바이너리 없이 돈다.
-vi.mock('electron', () => ({
-  webContents: { getAllWebContents: (): unknown[] => [] }
-}))
 
 import type { BackgroundEvent } from '../../../shared/background-task'
 import type { NormalizedEvent } from '../../../shared/ipc'

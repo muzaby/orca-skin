@@ -92,7 +92,7 @@ describe('planClaudeProcesses', () => {
 })
 
 describe('createClaudeProcessReset', () => {
-  it('dispatches session targets to session discard and session-less leases to lease discard and continues after a failure', () => {
+  it('dispatches session targets to session discard and session-less leases to lease discard and continues after a failure', async () => {
     const order: string[] = []
     const failure = new Error('close failed')
     const deps = {
@@ -110,6 +110,7 @@ describe('createClaudeProcessReset', () => {
         })
       },
       backendOf: vi.fn((): Backend => 'claude'),
+      prepare: vi.fn(async () => undefined),
       activity: vi.fn(idle),
       discardSession: vi.fn((sessionId: string) => {
         order.push(`session:${sessionId}`)
@@ -118,6 +119,9 @@ describe('createClaudeProcessReset', () => {
       failed: vi.fn()
     }
     const reset = createClaudeProcessReset(deps)
+    // 계획이 읽는 세션 정보 채우기는 조립이 준 함수로 간다(0324).
+    await reset.prepare()
+    expect(deps.prepare).toHaveBeenCalledOnce()
     const plan = reset.plan()
     expect(plan).toEqual({
       targets: [

@@ -1,21 +1,10 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vitest'
+import { CHANNELS } from '../../../shared/ipc'
 import { registerBackgroundHandlers } from './background'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'
 import type { ChatDeps } from './deps'
 import type { BackgroundEventSource } from '../../../shared/background-task'
-
-const harness = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, request: unknown) => Promise<unknown>>()
-}))
-vi.mock('electron', () => ({
-  app: { getPath: () => 'C:/test-user-data' },
-  ipcMain: {
-    handle: (channel: string, fn: (event: unknown, request: unknown) => Promise<unknown>) =>
-      harness.handlers.set(channel, fn)
-  },
-  webContents: { getAllWebContents: () => [] }
-}))
-beforeEach(() => harness.handlers.clear())
+import { invokeChannel, registeredChannels } from '../../infra/ipc/test-transport.testfixture'
 
 it('registered IPC validates the payload and drives controller through the selected live runtime', async () => {
   const backgroundTask = vi.fn<(id: string) => Promise<boolean>>(async () => true)
@@ -59,9 +48,9 @@ it('registered IPC validates the payload and drives controller through the selec
       patch: { taskType: 'local_bash', status: 'running', isBackgrounded: false }
     })
   }
-  const handler = harness.handlers.get('oo:chat:promoteBackgroundTask')
-  expect(handler).toBeTypeOf('function')
-  const invoke = (req: unknown): Promise<unknown> => handler!({}, req)
+  expect(registeredChannels()).toContain(CHANNELS.chatPromoteBackgroundTask)
+  const invoke = (req: unknown): Promise<unknown> =>
+    invokeChannel(CHANNELS.chatPromoteBackgroundTask, req)
   for (const toolUseId of ['', ' ', '\t'])
     await expect(
       invoke({ sessionId: 'session', generation: 'generation', toolUseId })
