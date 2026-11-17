@@ -20,7 +20,7 @@ function seedDb(): DbQueries {
 }
 
 describe('ExtensionBuilder.systemPromptAppend', () => {
-  it('resume 경로: 헤더(# orcinus-orca/# User/# Project) 뒤에 프로젝트 지침이 붙는다', () => {
+  it('resume 경로: 헤더(# orcinus-orca/# User/# Project) 뒤에 프로젝트 지침이 붙는다', async () => {
     const db = seedDb()
     db.insertProject({
       id: 'p1',
@@ -36,7 +36,7 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
       () => makeSettings({ accountInstructions: '간결하게' }),
       '1.0.0'
     )
-    const { systemPromptAppend } = builder.build('s1', null)
+    const { systemPromptAppend } = await builder.build('s1', null)
 
     expect(systemPromptAppend).toContain('# Orcinus orca')
     expect(systemPromptAppend).toContain('Orcinus orca version: 1.0.0')
@@ -50,7 +50,7 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
     )
   })
 
-  it('새 채팅 경로(projectId): 세션 없이 프로젝트명/지침을 조회한다', () => {
+  it('새 채팅 경로(projectId): 세션 없이 프로젝트명/지침을 조회한다', async () => {
     const db = seedDb()
     db.insertProject({ id: 'p2', name: 'Alpha', instructions: 'TDD 로 진행', createdAt: 1 })
 
@@ -60,13 +60,13 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
       () => makeSettings(),
       '2.0.0'
     )
-    const { systemPromptAppend } = builder.build(null, 'p2')
+    const { systemPromptAppend } = await builder.build(null, 'p2')
 
     expect(systemPromptAppend).toContain('Active project: Alpha')
     expect(systemPromptAppend).toContain('TDD 로 진행')
   })
 
-  it('프로젝트 없는 세션: 헤더만(# Project 섹션·지침 없음)', () => {
+  it('프로젝트 없는 세션: 헤더만(# Project 섹션·지침 없음)', async () => {
     const db = seedDb()
     db.insertSession({ id: 's2', backend: 'claude', title: null, projectId: null, createdAt: 1 })
 
@@ -76,7 +76,7 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
       () => makeSettings(),
       '1.0.0'
     )
-    const { systemPromptAppend } = builder.build('s2', null)
+    const { systemPromptAppend } = await builder.build('s2', null)
 
     expect(systemPromptAppend).toContain('# Orcinus orca')
     expect(systemPromptAppend).toContain('Preferred language: 한국어')
@@ -85,7 +85,7 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
 })
 
 describe('ExtensionBuilder.runtimeTools', () => {
-  it('adds only the profile header/key and preserves the exact tool snapshot, plugins and skills', () => {
+  it('adds only the profile header/key and preserves the exact tool snapshot, plugins and skills', async () => {
     const snapshot = { revision: 17, servers: new Map() }
     const skills: SkillInfo[] = []
     const builder = new ExtensionBuilder(
@@ -96,8 +96,8 @@ describe('ExtensionBuilder.runtimeTools', () => {
       () => ['/plugins/existing'],
       { snapshot: () => snapshot }
     )
-    const code = builder.build(null, null)
-    const work = builder.build(null, null, {
+    const code = await builder.build(null, null)
+    const work = await builder.build(null, null, {
       agentInstructions: 'Work fixture',
       agentProfileKey: 'work:1'
     })
@@ -111,7 +111,7 @@ describe('ExtensionBuilder.runtimeTools', () => {
       code.systemPromptAppend
     )
   })
-  it('build는 plugin·skill·지침을 보존하면서 배포용 MCP 데이터를 만들지 않는다', () => {
+  it('build는 plugin·skill·지침을 보존하면서 배포용 MCP 데이터를 만들지 않는다', async () => {
     const skill: SkillInfo = {
       name: 'review',
       description: 'Review a result',
@@ -131,7 +131,7 @@ describe('ExtensionBuilder.runtimeTools', () => {
       '1.0.0',
       () => ['/plugins/orcinus-orca', '/plugins/user']
     )
-    const extensions = builder.build(null, null)
+    const extensions = await builder.build(null, null)
     expect(extensions).not.toHaveProperty('mcp')
     expect(extensions.pluginRoots).toEqual(['/plugins/orcinus-orca', '/plugins/user'])
     expect(extensions.skills).toEqual([skill])
@@ -139,7 +139,7 @@ describe('ExtensionBuilder.runtimeTools', () => {
     expect(extensions.systemPromptAppend).toContain('Orcinus orca version: 1.0.0')
   })
 
-  it('forwards the injected empty registry snapshot with revision zero', () => {
+  it('forwards the injected empty registry snapshot with revision zero', async () => {
     const source: RuntimeToolSource = {
       snapshot: () => ({ revision: 0, servers: new Map() })
     }
@@ -152,6 +152,6 @@ describe('ExtensionBuilder.runtimeTools', () => {
       source
     )
 
-    expect(builder.build(null, null).runtimeTools).toEqual({ revision: 0, servers: new Map() })
+    expect((await builder.build(null, null)).runtimeTools).toEqual({ revision: 0, servers: new Map() })
   })
 })

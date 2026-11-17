@@ -16,6 +16,43 @@ import type { RuntimeModelCatalog } from '../features/harnesses/common/runtime-c
 import type { Scheduler } from '../features/scheduler'
 import type { RuntimeToolRegistry } from '../features/extensions/common/runtime-tool-registry'
 import type { UpdateController } from './updater'
+import type { Settings } from '../../shared/protocol'
+import type { RemoteOps } from '../infra/ipc/peer-ops'
+import type { DataQueryOps, DataWriteOps } from './data-host/data-ops'
+
+// 실행 쪽 코드가 데이터 호스트에 닿는 길(0324 EP-16). DB 를 직접 부르지 않고 이 요청으로 읽고 쓴다.
+export interface DataPort {
+  query: RemoteOps<DataQueryOps>
+  write: RemoteOps<DataWriteOps>
+}
+
+// 실행 쪽이 읽는 설정 — 데이터 호스트가 보낸 사본이다(0324 EP-17).
+export interface SettingsReader {
+  getAll(): Settings
+}
+
+// 에이전트 호스트(실행)의 조립이 핸들러·턴 코드에 넘기는 의존 묶음(0324 D-034). `db` 가 없다 —
+// 실행 쪽 코드가 DB 를 직접 부르면 컴파일되지 않는다.
+export interface AgentContext
+  extends Pick<
+    RouterContext,
+    | 'registry'
+    | 'extensions'
+    | 'workProfilePluginPath'
+    | 'harnessSettings'
+    | 'deployExtensions'
+    | 'ensureExtensionsDeployedForTurn'
+    | 'debugMock'
+    | 'mockAdapter'
+    | 'harnessRuntime'
+    | 'runtimeModelCatalog'
+    | 'mcp'
+  > {
+  data: DataPort
+  settings: SettingsReader
+  // 프로젝트 미소속 세션의 기본 작업 폴더 — DB 없이 안다.
+  defaultCwd(): string
+}
 
 export interface RouterContext {
   db: DbQueries
@@ -54,4 +91,29 @@ export interface RouterContext {
   // 동적 구성이 없는 하네스의 기존 동작을 유지한다.
   harnessRuntime: HarnessRuntimeConfigService
   runtimeModelCatalog: RuntimeModelCatalog
+  // ── 실행 쪽 조립이 가져가는 것(0324) — 조립이 한 프로세스에 있는 동안 여기 함께 실린다 ──
+  data: DataPort
+  // 실행 쪽이 읽는 설정 사본.
+  agentSettings: SettingsReader
+  defaultCwd(): string
+}
+
+// 실행 쪽 코드에 넘길 묶음을 고른다 — `db`·설정 저장소는 넘어가지 않는다.
+export function agentContextOf(ctx: RouterContext): AgentContext {
+  return {
+    registry: ctx.registry,
+    extensions: ctx.extensions,
+    workProfilePluginPath: ctx.workProfilePluginPath,
+    harnessSettings: ctx.harnessSettings,
+    deployExtensions: ctx.deployExtensions,
+    ensureExtensionsDeployedForTurn: ctx.ensureExtensionsDeployedForTurn,
+    debugMock: ctx.debugMock,
+    mockAdapter: ctx.mockAdapter,
+    harnessRuntime: ctx.harnessRuntime,
+    runtimeModelCatalog: ctx.runtimeModelCatalog,
+    mcp: ctx.mcp,
+    data: ctx.data,
+    settings: ctx.agentSettings,
+    defaultCwd: ctx.defaultCwd
+  }
 }
