@@ -4,19 +4,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import type { ConnectionHandlerDeps } from './providers'
-
-const registered = vi.hoisted(() => [] as string[])
-// 핸들러 본체도 잡아 둔다 — 등록 여부만 보면 "무엇을 돌려주는가" 가 통째로 무검증이 된다.
-const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
-
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: vi.fn((channel: string, handler: (...args: unknown[]) => unknown) => {
-      registered.push(channel)
-      handlers.set(channel, handler)
-    })
-  }
-}))
+import { invokeChannel, registeredChannels } from '../../infra/ipc/test-transport.testfixture'
 
 const { registerConnectionHandlers } = await import('./providers')
 
@@ -32,7 +20,7 @@ const EXPECTED = [
 describe('registerConnectionHandlers', () => {
   it('provider 채널 전수를 등록한다', () => {
     registerConnectionHandlers({} as unknown as ConnectionHandlerDeps)
-    expect([...registered].sort()).toEqual([...EXPECTED].sort())
+    expect(registeredChannels().sort()).toEqual([...EXPECTED].sort())
   })
 
   // 0188 — 내부 소유자는 바뀌었지만 **채널 이름은 compat 계약이라 그대로다**(D-030).
@@ -57,9 +45,7 @@ describe('registerConnectionHandlers', () => {
     } as unknown as ConnectionHandlerDeps
     registerConnectionHandlers(deps)
 
-    const handler = handlers.get(CHANNELS.providerState)
-    expect(handler).toBeDefined()
-    const state = (await handler?.()) as { resuming: boolean }
+    const state = (await invokeChannel(CHANNELS.providerState)) as { resuming: boolean }
     expect(state.resuming).toBe(true)
   })
 
@@ -76,16 +62,16 @@ describe('registerConnectionHandlers', () => {
       connections: [],
       resuming: () => false
     } as unknown as ConnectionHandlerDeps)
-    const handler = handlers.get(CHANNELS.providerConnect)!
-    expect(await handler({}, { providerId: 'opencode-llm' })).toEqual({
+    const handler = (raw: unknown): Promise<unknown> => invokeChannel(CHANNELS.providerConnect, raw)
+    expect(await handler({ providerId: 'opencode-llm' })).toEqual({
       state: 'failed',
       message: 'OpenCode가 설치되어 있지 않습니다.'
     })
-    expect(await handler({}, { providerId: 'other' })).toEqual({
+    expect(await handler({ providerId: 'other' })).toEqual({
       state: 'connected',
       message: null
     })
     expect(connect.mock.calls).toEqual([['opencode-llm'], ['other']])
-    await expect(handler({}, { providerId: '' })).rejects.toThrow()
+    await expect(handler({ providerId: '' })).rejects.toThrow()
   })
 })

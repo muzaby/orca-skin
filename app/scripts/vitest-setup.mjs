@@ -43,16 +43,15 @@ afterAll(() => {
   }
 })
 
-// ④ main 테스트의 요청·통지 전송 (0324) — 테스트가 전송을 정하지 않았으면 셸 전송(`ipcMain`·
-//    `webContents`)을 건다. `electron` 은 테스트가 mock 한 것을 쓴다. mock 하지 않은 파일은
-//    Electron 을 못 읽어 건너뛰고, 그런 파일은 핸들러 등록·창 통지를 부르지 않는다.
+// ④ 요청·통지 전송 (0324 EP-8′·EP-9) — 케이스마다 새 테스트 전송(`createTestTransport`)을 건다.
+//    호스트가 소유한 채널의 핸들러는 production 에서 창 포트로 요청을 받고 보낸 창은 `ClientRef` 다 —
+//    셸 전송(`ipcMain`·`WebContents`)으로 부르면 production 에 없는 경로를 탄다. 핸들러를 부르는
+//    테스트는 `currentTestTransport().invoke(채널, 값, fakeClient())` 를 쓴다. 셸 전송 자체는
+//    `electron-transport.test.ts` 가 따로 시험한다.
 beforeEach(async () => {
-  const transport = await import('../src/main/infra/ipc/transport.ts')
-  if (transport.hasIpcTransport()) return
-  try {
-    const electron = await import('../src/main/infra/ipc/electron-transport.ts')
-    transport.setIpcTransport(electron.createElectronTransport({ isTrusted: () => true }))
-  } catch {
-    // Electron 을 읽지 못하는 테스트 — 전송이 필요 없다.
-  }
+  const [transport, fixture] = await Promise.all([
+    import('../src/main/infra/ipc/transport.ts'),
+    import('../src/main/infra/ipc/test-transport.testfixture.ts')
+  ])
+  transport.setIpcTransport(fixture.createTestTransport())
 })

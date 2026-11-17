@@ -16,7 +16,6 @@ import { createApprovalRequester } from './approval'
 import { buildFlushRequest, buildListenRequest } from './continuation'
 
 const sendChatEvent = vi.hoisted(() => vi.fn())
-vi.mock('electron', () => ({ ipcMain: {}, webContents: { getAllWebContents: () => [] } }))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent }))
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))

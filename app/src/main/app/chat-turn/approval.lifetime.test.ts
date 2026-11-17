@@ -13,7 +13,6 @@ import { makeCanUseTool } from '../../adapters/claude/adapter'
 import { createApprovalRequester } from './approval'
 
 const sendChatEvent = vi.hoisted(() => vi.fn())
-vi.mock('electron', () => ({ ipcMain: {}, webContents: { getAllWebContents: () => [] } }))
 vi.mock('../../infra/ipc/send', () => ({ sendChatEvent }))
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))

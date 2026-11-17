@@ -15,19 +15,11 @@ import { CHANNELS, type OpenPathRequest } from '../../../shared/ipc'
 import { DbQueries } from '../../infra/db/queries'
 import { applyMigrations } from '../../infra/db/migrate'
 import { installFakeShellServices } from '../../infra/shell-services.testfixture'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
 const host = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => unknown>(),
   openPath: vi.fn<(path: string) => Promise<string>>().mockResolvedValue(''),
   reveal: vi.fn()
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, listener: (event: unknown, raw: unknown) => unknown) =>
-      host.handlers.set(channel, listener)
-  },
-  BrowserWindow: { fromWebContents: vi.fn() },
-  Notification: { isSupported: () => false }
 }))
 const { registerFilesHandlers } = await import('./files')
 // 폴더·파일 열기는 셸 서비스로 간다(0324 EP-10).
@@ -63,7 +55,6 @@ beforeEach(() => {
     })
   queries.updateSessionExtraDirs('work', [realpathSync(directory)])
   queries.updateSessionExtraDirs('code', [realpathSync(directory)])
-  host.handlers.clear()
   host.openPath.mockReset().mockResolvedValue('')
   host.reveal.mockClear()
   registerFilesHandlers({ getCwd: () => cwd, db: queries })
@@ -77,7 +68,7 @@ afterEach(() => {
 })
 const request = (): OpenPathRequest => ({ path: directory, mode: 'directory', sessionId: 'work' })
 const invoke = (payload: unknown): Promise<unknown> =>
-  Promise.resolve(host.handlers.get(CHANNELS.filesOpenPath)!({}, payload))
+  Promise.resolve(invokeChannel(CHANNELS.filesOpenPath, payload))
 
 describe('Context directory open — actual registration, SQLite and filesystem', () => {
   it('opens only recorded OpenCode Code folders and files through the context entry points', async () => {
@@ -97,23 +88,17 @@ describe('Context directory open — actual registration, SQLite and filesystem'
     const outside = join(root, 'outside.md')
     writeFileSync(file, 'context')
     writeFileSync(outside, 'outside')
-    await host.handlers.get(CHANNELS.filesOpenContextFile)!(
-      {},
-      { path: file, sessionId: 'opencode' }
-    )
+    await invokeChannel(CHANNELS.filesOpenContextFile, { path: file, sessionId: 'opencode' })
     expect(host.openPath).toHaveBeenLastCalledWith(await fs.realpath(file))
     await expect(invoke({ ...request(), sessionId: 'opencode', path: root })).rejects.toThrow(
       '허용되지 않은'
     )
     await expect(
       Promise.resolve(
-        host.handlers.get(CHANNELS.filesOpenContextFile)!(
-          {},
-          {
-            path: outside,
-            sessionId: 'opencode'
-          }
-        )
+        invokeChannel(CHANNELS.filesOpenContextFile, {
+          path: outside,
+          sessionId: 'opencode'
+        })
       )
     ).rejects.toThrow('허용되지 않은')
   })
@@ -209,14 +194,14 @@ describe.each(['reveal', 'open'] as const)(
   (entry) => {
     const invoke = (payload: OpenPathRequest): Promise<unknown> => {
       if (entry === 'reveal' || payload.mode === 'directory')
-        return Promise.resolve(host.handlers.get(CHANNELS.filesOpenPath)!({}, payload))
+        return Promise.resolve(invokeChannel(CHANNELS.filesOpenPath, payload))
       // 폴백을 관측해 두 입구의 승인·거부 결과와 실제 경로를 같은 단언으로 비교한다.
       host.openPath.mockResolvedValue('no app')
       return Promise.resolve(
-        host.handlers.get(CHANNELS.filesOpenContextFile)!(
-          {},
-          { path: payload.path, sessionId: payload.sessionId }
-        )
+        invokeChannel(CHANNELS.filesOpenContextFile, {
+          path: payload.path,
+          sessionId: payload.sessionId
+        })
       )
     }
     it.each(['lexical', 'canonical'])(
@@ -443,9 +428,7 @@ describe.each(['reveal', 'open'] as const)(
 
 describe('Context file open outcomes — actual IPC registration', () => {
   const open = (path: string): Promise<unknown> =>
-    Promise.resolve(
-      host.handlers.get(CHANNELS.filesOpenContextFile)!({}, { path, sessionId: 'work' })
-    )
+    Promise.resolve(invokeChannel(CHANNELS.filesOpenContextFile, { path, sessionId: 'work' }))
   it('opens an approved file with the actual path and no reveal', async () => {
     const path = join(cwd, 'report.MD')
     writeFileSync(path, 'fixture')
@@ -503,7 +486,7 @@ describe('Context file open outcomes — actual IPC registration', () => {
       { path: cwd, sessionId: 's'.repeat(257) }
     ])
       await expect(
-        Promise.resolve(host.handlers.get(CHANNELS.filesOpenContextFile)!({}, payload))
+        Promise.resolve(invokeChannel(CHANNELS.filesOpenContextFile, payload))
       ).rejects.toThrow()
     expect(host.openPath).not.toHaveBeenCalled()
     expect(host.reveal).not.toHaveBeenCalled()
