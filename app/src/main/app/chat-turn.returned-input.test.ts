@@ -22,25 +22,12 @@ import { RUNTIME_MODEL_CONTRIBUTIONS } from './deployment/harness-runtime'
 import { createHarnessSettingsService, parseHarnessRuntimeModels } from './harnesses/registry'
 
 const harness = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
   events: [] as Array<{ type: string; sessionId?: string; ids?: string[]; error?: unknown }>
 }))
 
 vi.mock('../infra/git/probe', async (original) => ({
   ...(await original<typeof import('../infra/git/probe')>()),
   probeRepo: vi.fn(async () => ({ kind: 'not-repo' as const }))
-}))
-vi.mock('electron', () => ({
-  BrowserWindow: {},
-  Notification: {},
-  webContents: { getAllWebContents: () => [] },
-  ipcMain: {
-    handle: vi.fn(
-      (channel: string, handler: (event: unknown, raw: unknown) => Promise<unknown>) => {
-        harness.handlers.set(channel, handler)
-      }
-    )
-  }
 }))
 vi.mock('../features/chat/attachments', () => ({
   normalizeAttachments: async () => ({ attachmentTexts: [], attachmentImages: [] })
@@ -58,6 +45,7 @@ vi.mock('../infra/ipc/send', () => ({
 
 import { registerChatHandlers } from './chat-turn'
 import { withDataPort } from './data-host/data-port.testfixture'
+import { invokeChannel, resetTestTransport } from '../infra/ipc/test-transport.testfixture'
 
 const document = {
   provider: {
@@ -96,7 +84,7 @@ const answer = (sessionId: string): NormalizedEvent[] => [
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function install() {
-  harness.handlers.clear()
+  resetTestTransport()
   harness.events.length = 0
   root = mkdtempSync(join(tmpdir(), 'orcinus-orca-returned-input-'))
   const directory = join(root, 'sources', 'settings', 'opencode', 'local')
@@ -208,18 +196,13 @@ function install() {
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
-  const handler = harness.handlers.get(CHANNELS.chatSend)
-  if (!handler) throw new Error('chat send handler was not registered')
-  await handler(
-    { sender: { isDestroyed: () => false, once: vi.fn(), on: vi.fn(), removeListener: vi.fn() } },
-    {
-      projectId: null,
-      agentKind: 'code',
-      providerKey: 'opencode-local',
-      modelFamily: null,
-      ...payload
-    }
-  )
+  await invokeChannel(CHANNELS.chatSend, {
+    projectId: null,
+    agentKind: 'code',
+    providerKey: 'opencode-local',
+    modelFamily: null,
+    ...payload
+  })
 }
 
 const cancelled = (): Array<{ sessionId?: string; ids?: string[] }> =>

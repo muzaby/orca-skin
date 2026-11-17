@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { EventEmitter } from 'node:events'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type {
   ComposerCatalogData,
@@ -9,27 +8,11 @@ import type {
 import { CHANNELS } from '../../../shared/ipc'
 import { ComposerCatalogOwners } from '../composer-catalog-owner'
 import { registerComposerCatalogHandlers } from './composer-catalog'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient, type FakeClient } from '../../infra/ipc/client.testfixture'
 const log = vi.hoisted(() => ({ warn: vi.fn() }))
 vi.mock('../../infra/log', () => ({ getLogger: () => ({ child: () => log }) }))
-const callbacks = vi.hoisted(
-  () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-)
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (name: string, fn: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      callbacks.set(name, fn)
-  }
-}))
 
-class Sender extends EventEmitter {
-  readonly send = vi.fn()
-  constructor(readonly id: number) {
-    super()
-  }
-  isDestroyed(): boolean {
-    return false
-  }
-}
 const request = (): ComposerCatalogRequest => ({
   owner: randomUUID(),
   part: 'agents',
@@ -64,12 +47,11 @@ function lease(): {
   return { value, control, release }
 }
 const call = (
-  sender: Sender,
+  sender: FakeClient,
   payload: unknown,
   channel: string = CHANNELS.composerCatalog
-): Promise<unknown> => callbacks.get(channel)!({ sender }, payload)
+): Promise<unknown> => invokeChannel(channel, payload, sender)
 beforeEach(() => {
-  callbacks.clear()
   log.warn.mockClear()
 })
 
@@ -78,16 +60,18 @@ it('invalidates live preparation owners and emits only their safe generation ide
     b = lease()
   const prepare = vi.fn().mockResolvedValueOnce(a.value).mockResolvedValueOnce(b.value)
   const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
-  const sender = new Sender(37)
+  const sender = fakeClient(37)
   const req = request()
   try {
     await call(sender, req)
     close.invalidate()
     expect(a.release).toHaveBeenCalledTimes(1)
-    expect(sender.send).toHaveBeenCalledExactlyOnceWith(CHANNELS.composerCatalogInvalidated, {
-      owner: req.owner,
-      generation: a.value.generation
-    })
+    expect(sender.sent).toEqual([
+      {
+        channel: CHANNELS.composerCatalogInvalidated,
+        payload: { owner: req.owner, generation: a.value.generation }
+      }
+    ])
     await call(sender, req)
     expect(prepare).toHaveBeenCalledTimes(2)
   } finally {
@@ -102,8 +86,8 @@ it('shares pending acquisition for parts, isolates windows, and releases on navi
   const gate = Promise.withResolvers<ComposerCatalogLease>()
   const prepare = vi.fn().mockReturnValueOnce(gate.promise).mockResolvedValueOnce(b.value)
   const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
-  const one = new Sender(1),
-    two = new Sender(2),
+  const one = fakeClient(1),
+    two = fakeClient(2),
     req = request()
   try {
     const agents = call(one, req)
@@ -124,11 +108,11 @@ it('shares pending acquisition for parts, isolates windows, and releases on navi
     expect(a.release).not.toHaveBeenCalled()
     await call(two, req)
     expect(prepare).toHaveBeenCalledTimes(2)
-    one.emit('did-start-navigation', {}, 'url', true, true)
+    // 창 닫힘(문서 교체 · renderer 종료 · 포트 끊김)은 전송이 판정해 `ClientRef` 로 알린다.
     expect(a.release).not.toHaveBeenCalled()
-    one.emit('did-start-navigation', {}, 'url', false, true)
+    one.close()
     expect(a.release).toHaveBeenCalledTimes(1)
-    two.emit('render-process-gone')
+    two.close()
     expect(b.release).toHaveBeenCalledTimes(1)
   } finally {
     close()
@@ -140,7 +124,7 @@ it('releases acquisitions completing after close and rejects stale requests with
     gate = Promise.withResolvers<ComposerCatalogLease>()
   const prepare = vi.fn<ConstructorParameters<typeof ComposerCatalogOwners>[0]>(() => gate.promise)
   const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
-  const sender = new Sender(3),
+  const sender = fakeClient(3),
     req = request()
   const result = call(sender, req).catch((error: unknown) => error)
   await vi.waitFor(() => expect(prepare).toHaveBeenCalledTimes(1))
@@ -156,16 +140,16 @@ it('releases acquisitions completing after close and rejects stale requests with
 it('reports a dead native generation and reacquires only on explicit retry', async () => {
   const a = lease(),
     b = lease(),
-    sender = new Sender(4),
+    sender = fakeClient(4),
     req = request()
   const prepare = vi.fn().mockResolvedValueOnce(a.value).mockResolvedValueOnce(b.value)
   const close = registerComposerCatalogHandlers(new ComposerCatalogOwners(prepare))
   try {
     await call(sender, req)
     a.control.abort()
-    expect(sender.send).toHaveBeenCalledWith(CHANNELS.composerCatalogInvalidated, {
-      owner: req.owner,
-      generation: a.value.generation
+    expect(sender.sent).toContainEqual({
+      channel: CHANNELS.composerCatalogInvalidated,
+      payload: { owner: req.owner, generation: a.value.generation }
     })
     expect(prepare).toHaveBeenCalledTimes(1)
     expect(await call(sender, { ...req, refresh: true })).toMatchObject({
@@ -184,7 +168,7 @@ it('reports a dead native generation and reacquires only on explicit retry', asy
 
 it('validates directory and owner before preparation, then retries failed setup', async () => {
   const owned = lease(),
-    sender = new Sender(5),
+    sender = fakeClient(5),
     req = request()
   const prepare = vi
     .fn()
@@ -211,7 +195,7 @@ it('validates directory and owner before preparation, then retries failed setup'
 it('refresh re-resolves and keeps old owner until replacement is ready', async () => {
   const a = lease(),
     b = lease(),
-    sender = new Sender(6),
+    sender = fakeClient(6),
     req = request()
   const replacement = Promise.withResolvers<ComposerCatalogLease>()
   const disposal = Promise.withResolvers<void>()
@@ -245,7 +229,7 @@ it('refresh re-resolves and keeps old owner until replacement is ready', async (
 
 it('returns read-stage HTTP diagnostics without leaking native bodies and preserves the lease for retry', async () => {
   const owned = lease(),
-    sender = new Sender(8),
+    sender = fakeClient(8),
     req = request()
   const read = vi
     .fn()
@@ -278,7 +262,7 @@ it('returns read-stage HTTP diagnostics without leaking native bodies and preser
 
 it('silently cancels an in-flight metadata read when its owner leaves', async () => {
   const owned = lease(),
-    sender = new Sender(9),
+    sender = fakeClient(9),
     req = request()
   const gate = Promise.withResolvers<[]>()
   owned.value.read = vi.fn(() => gate.promise)

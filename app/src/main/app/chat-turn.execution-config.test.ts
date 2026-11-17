@@ -12,7 +12,6 @@ import { RUNTIME_MODEL_CONTRIBUTIONS } from './deployment/harness-runtime'
 import { createHarnessSettingsService, parseHarnessRuntimeModels } from './harnesses/registry'
 
 const harness = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
   runs: [] as Array<{ providerKey: string | null; request: TurnRequest; kind?: string }>,
   errors: [] as unknown[],
   steps: [] as Array<'listen' | 'flush' | 'break'>,
@@ -24,17 +23,6 @@ const harness = vi.hoisted(() => ({
 vi.mock('../infra/git/probe', async (original) => ({
   ...(await original<typeof import('../infra/git/probe')>()),
   probeRepo: vi.fn(async () => ({ kind: 'not-repo' as const }))
-}))
-vi.mock('electron', () => ({
-  BrowserWindow: {},
-  Notification: {},
-  ipcMain: {
-    handle: vi.fn(
-      (channel: string, handler: (event: unknown, raw: unknown) => Promise<unknown>) => {
-        harness.handlers.set(channel, handler)
-      }
-    )
-  }
 }))
 vi.mock('../features/chat/attachments', () => ({
   normalizeAttachments: async () => ({ attachmentTexts: [], attachmentImages: [] })
@@ -75,6 +63,7 @@ vi.mock('../features/chat/turn-coordinator', () => ({
 
 import { registerChatHandlers } from './chat-turn'
 import { withDataPort } from './data-host/data-port.testfixture'
+import { invokeChannel, resetTestTransport } from '../infra/ipc/test-transport.testfixture'
 
 // Two engines with different documents: a dropped or swapped engine changes what the turn runs.
 const documents = {
@@ -126,7 +115,7 @@ function install(
   removeEngine: (provider: string) => void
   rewriteEngine: (provider: string, document: unknown) => void
 } {
-  harness.handlers.clear()
+  resetTestTransport()
   harness.runs.length = 0
   harness.errors.length = 0
   harness.steps = [...steps]
@@ -310,12 +299,12 @@ function install(
 }
 
 async function send(payload: Record<string, unknown>): Promise<void> {
-  const handler = harness.handlers.get(CHANNELS.chatSend)
-  if (!handler) throw new Error('chat send handler was not registered')
-  await handler(
-    { sender: { isDestroyed: () => false, once: vi.fn(), on: vi.fn(), removeListener: vi.fn() } },
-    { projectId: null, text: 'initial', agentKind: 'code', ...payload }
-  )
+  await invokeChannel(CHANNELS.chatSend, {
+    projectId: null,
+    text: 'initial',
+    agentKind: 'code',
+    ...payload
+  })
 }
 
 describe('chat:send execution configuration from the selected engine document (0262)', () => {

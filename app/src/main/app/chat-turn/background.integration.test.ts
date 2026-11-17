@@ -1,9 +1,8 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 import { ClaudeBackgroundMapper } from '../../adapters/claude/background'
 import { BackgroundController } from '../../features/chat/background-controller'
 import { BackgroundTaskTracker } from '../../features/chat/background-tasks'

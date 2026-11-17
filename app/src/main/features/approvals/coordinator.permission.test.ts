@@ -150,3 +150,89 @@ it('0304 applies auto to a resolved alias and bypass to an older live model', as
   expect(await older.invoke('bypass')).toBe('bypass')
   expect(older.setPermissionMode).toHaveBeenCalledExactlyOnceWith('bypass')
 })
+
+// 0324 — 세션 종류는 데이터 호스트에 묻는다(비동기). 진행 중인 턴이 없는 세션의 선택이 저장돼야 한다.
+describe('0324 asynchronous session kind', () => {
+  interface AsyncSetup {
+    lookup: ReturnType<typeof vi.fn>
+    setMode: ReturnType<typeof vi.fn>
+    setPermissionMode: ReturnType<typeof vi.fn>
+    current: { turn?: { agentKind: AgentKind; live: unknown } }
+    invoke: (mode: NormalizedPermissionMode) => Promise<NormalizedPermissionMode | undefined>
+    answer: () => void
+  }
+  function asyncSetup(kind: AgentKind | undefined): AsyncSetup {
+    let answer!: (value: AgentKind | undefined) => void
+    const lookup = vi.fn(
+      () =>
+        new Promise<AgentKind | undefined>((resolve) => {
+          answer = resolve
+        })
+    )
+    const setMode = vi.fn()
+    const setPermissionMode = vi.fn().mockResolvedValue(undefined)
+    const current: { turn?: { agentKind: AgentKind; live: unknown } } = {}
+    new ApprovalCoordinator().registerHandlers(
+      { getBySession: () => current.turn } as never,
+      { setMode } as never,
+      lookup
+    )
+    const invoke = (
+      mode: NormalizedPermissionMode
+    ): Promise<NormalizedPermissionMode | undefined> =>
+      hooks.get(CHANNELS.permissionSetMode)!({ sessionId: 's', mode })
+    return { lookup, setMode, setPermissionMode, current, invoke, answer: () => answer(kind) }
+  }
+
+  it('idle session stores the selection after the kind arrives', async () => {
+    const h = asyncSetup('code')
+    const request = h.invoke('bypass')
+    await vi.waitFor(() => expect(h.lookup).toHaveBeenCalledExactlyOnceWith('s'))
+    expect(h.setMode).not.toHaveBeenCalled()
+    h.answer()
+    expect(await request).toBe('bypass')
+    expect(h.setMode).toHaveBeenCalledExactlyOnceWith('s', 'bypass')
+  })
+
+  it('a turn that started during the lookup decides with its own live state', async () => {
+    const h = asyncSetup('code')
+    const request = h.invoke('bypass')
+    await vi.waitFor(() => expect(h.lookup).toHaveBeenCalledOnce())
+    h.current.turn = {
+      agentKind: 'code',
+      live: { spawnedModel: 'claude-sonnet-4-5', setPermissionMode: h.setPermissionMode }
+    }
+    h.answer()
+    await vi.waitFor(() => expect(h.setPermissionMode).toHaveBeenCalledExactlyOnceWith('bypass'))
+    // 적용 뒤 확인 읽기.
+    await vi.waitFor(() => expect(h.lookup).toHaveBeenCalledTimes(2))
+    h.answer()
+    expect(await request).toBe('bypass')
+    expect(h.setMode).toHaveBeenCalledExactlyOnceWith('s', 'bypass')
+  })
+
+  it('a turn that started during the lookup without a live runtime never applies', async () => {
+    const h = asyncSetup('code')
+    const request = h.invoke('bypass')
+    await vi.waitFor(() => expect(h.lookup).toHaveBeenCalledOnce())
+    h.current.turn = { agentKind: 'code', live: undefined }
+    h.answer()
+    expect(await request).toBeUndefined()
+    expect(h.setMode).not.toHaveBeenCalled()
+  })
+
+  it('a live turn does not ask for the kind before applying', async () => {
+    const h = asyncSetup('code')
+    h.current.turn = {
+      agentKind: 'code',
+      live: { spawnedModel: 'claude-sonnet-4-5', setPermissionMode: h.setPermissionMode }
+    }
+    const request = h.invoke('bypass')
+    await vi.waitFor(() => expect(h.setPermissionMode).toHaveBeenCalledOnce())
+    // 적용 뒤 세션 종류를 다시 확인한다 — 그 답 전에는 저장하지 않는다.
+    expect(h.lookup).toHaveBeenCalledOnce()
+    expect(h.setMode).not.toHaveBeenCalled()
+    h.answer()
+    expect(await request).toBe('bypass')
+  })
+})
