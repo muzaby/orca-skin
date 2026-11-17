@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { after, describe, it } from 'node:test'
 import { check, documentedRuleIds, formatViolation, run, SYNC_NAMES } from './check-ui-thread.mjs'
 import { ALLOWED, DOC, RULE_IDS, RULES, SYNC_REGISTRY } from './ui-thread-rules.mjs'
@@ -761,7 +762,8 @@ describe('실제 트리', () => {
   })
 
   it('가드의 규칙 id 전부가 실제 경로 표에 있다 (차집합 0)', () => {
-    const documented = documentedRuleIds(new URL(`../../${DOC}`, import.meta.url).pathname)
+    // `URL.pathname` 은 Windows 에서 `/D:/…` 라 파일 경로가 아니다.
+    const documented = documentedRuleIds(fileURLToPath(new URL(`../../${DOC}`, import.meta.url)))
     assert.deepEqual([...documented].sort(), RULE_IDS)
   })
 
