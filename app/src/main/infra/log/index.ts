@@ -9,7 +9,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { ooConfigDir } from '../config/paths'
 import type { LogInput, LogRecord } from '../../../shared/logging'
-import { FileTransport, logFilePath } from './file-transport'
+import { FileTransport } from './file-transport'
 import { LogManager, type AppLogger, type LogSource } from './log-manager'
 import { setRootLogger } from './registry'
 import { hostEnvironment } from '../host-environment'
@@ -20,7 +20,6 @@ export { serializeError } from './serialize-error'
 export { getLogger } from './registry'
 
 let manager: LogManager | null = null
-let transport: FileTransport | null = null
 let rootLogger: AppLogger | null = null
 
 // 프로세스마다 자기 파일에 쓴다(0324 AC46) — 한 파일을 여러 프로세스가 돌려 쓰면 로테이션이 서로를
@@ -53,7 +52,7 @@ function mirrorToConsole(record: LogRecord): void {
 
 export function initLog(process: LogHostProcess = 'main'): AppLogger {
   if (rootLogger) return rootLogger
-  transport = new FileTransport({
+  const transport = new FileTransport({
     dir: logDirectory(),
     baseName: LOG_BASE_NAMES[process],
     onInternalError: emergency
@@ -99,14 +98,9 @@ export function logDirectory(): string {
   return join(ooConfigDir(), 'logs')
 }
 
-export function currentLogFilePath(): string {
-  return transport?.filePath ?? logFilePath(logDirectory())
-}
-
 export function closeLog(): void {
   manager?.close()
   manager = null
-  transport = null
   rootLogger = null
   setRootLogger(null)
 }
