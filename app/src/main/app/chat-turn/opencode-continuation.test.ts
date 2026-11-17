@@ -34,16 +34,8 @@ import { runTurnWithContinuations } from './post-turn'
 import { makeContinuationTurn } from './turn-context'
 import { buildTurnRequest } from './turn-request'
 import { scaledBudget } from '../../../../scripts/test-time.mjs'
-
-const ipc = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<void>>()
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (key: string, handler: (event: unknown, raw: unknown) => Promise<void>) =>
-      ipc.handlers.set(key, handler)
-  }
-}))
+import { invokeChannel, resetTestTransport } from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 vi.mock('../../infra/log', async () => import('../../infra/log/registry'))
 vi.mock('../../infra/ipc/send', () => ({
@@ -186,7 +178,8 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     server
   })
   const runtime = new SessionRuntime(adapter)
-  const owner = { id: 1 } as ClientRef
+  resetTestTransport()
+  const owner: ClientRef = fakeClient(1)
   const supervisor = new RuntimeSupervisor<ClientRef>()
   const lease = supervisor.acquireChain({
     agentKind: 'code',
@@ -439,8 +432,7 @@ function fixture(abortEvents?: 'idle-only' | 'message-error' | 'session-error') 
     reply,
     idle,
     run,
-    sendNow: () =>
-      ipc.handlers.get(CHANNELS.chatSteerSendNow)!({ sender: owner }, { sessionId: 's1' }),
+    sendNow: () => invokeChannel(CHANNELS.chatSteerSendNow, { sessionId: 's1' }, owner),
     queueHeld: (text: string, id: string) =>
       reserveOnBusySession(
         { pendingMessages, listenRelease },

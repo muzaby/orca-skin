@@ -12,11 +12,7 @@ import type Database from 'better-sqlite3'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/orcinus-orca-test-userdata', getName: () => 'orcinus-orca' }
-}))
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { applyMigrations } from '../../infra/db/migrate'
 import { openFileDatabase } from '../../infra/db/file-database'

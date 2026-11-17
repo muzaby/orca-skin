@@ -31,7 +31,6 @@ vi.mock('../../infra/ipc/handle', () => ({
   ) => fixture.callbacks.set(name, callback),
   handlePlain: (name: string, callback: () => unknown) => fixture.callbacks.set(name, callback)
 }))
-vi.mock('electron', () => ({ BrowserWindow: {}, Notification: {} }))
 vi.mock('../../infra/ipc/send', () => ({
   sendChatEvent: vi.fn(),
   sendInstallStatus: vi.fn(),

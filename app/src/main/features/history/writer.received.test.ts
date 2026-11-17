@@ -1,10 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { DbQueries } from '../../infra/db/queries'
 import type { LoadedPartRow } from '../../infra/db/types'
 import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
 import { withReceivedInputFormat } from '../../../shared/received-input'
-
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
 
 import { HistoryWriter } from './writer'
 import { loadSession } from './reader'

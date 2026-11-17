@@ -150,7 +150,17 @@ export async function handleChatSend(
   // 출생 속성 비교는 lease 획득과 busy 예약보다 앞, 둘 사이 await 없이 끝낸다 — 세션행은 데이터
   // 호스트에 물어 오므로 그 요청이 비교보다 앞이고, 답을 받은 뒤로는 await 가 없다.
   const sourceId = payload.sessionId ?? payload.forkFrom ?? payload.handoffFrom
-  const source = sourceId ? await ctx.data.query.getSessionById(sourceId) : undefined
+  // 백그라운드 작업 기록도 함께 받는다 — 이 턴의 첫 관찰이 동기로 복원한다(0324).
+  const [source] = await Promise.all([
+    sourceId ? ctx.data.query.getSessionById(sourceId) : undefined,
+    payload.sessionId && deps.prefetchBackgroundEvents
+      ? deps.prefetchBackgroundEvents(payload.sessionId).catch((error: unknown) =>
+          getLogger()
+            .child('chat')
+            .warn('chat.background.prefetch-failed', { message: String(error) })
+        )
+      : undefined
+  ])
   if (sourceId && !source) {
     sendChatEvent(event.sender, {
       type: 'error',

@@ -1,17 +1,11 @@
-import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi, type Mock } from 'vitest'
 import type { ComposerCatalogLease } from '../../../shared/composer-catalog'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
 import { PreparedMcpResources } from '../harnesses/opencode/prepared-mcp-resources'
 import { registerSessionResourceHandlers } from './session-resources'
-const callbacks = vi.hoisted(
-  () => new Map<string, (event: unknown, request: unknown) => Promise<NativeResources>>()
-)
-vi.mock('electron', () => ({
-  shell: {},
-  ipcMain: { handle: (name: string, fn: never) => callbacks.set(name, fn) }
-}))
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 const scopes = {
   draft: {
@@ -63,13 +57,9 @@ function fixture(): {
     projectSync: sync as never,
     preparedMcp: prepared
   })
-  const sender = Object.assign(new EventEmitter(), {
-    id: 289,
-    isDestroyed: () => false,
-    send: vi.fn()
-  })
+  const sender = fakeClient(289)
   const invoke = (request: unknown): Promise<NativeResources> =>
-    callbacks.get(CHANNELS.sessionNativeResources)!({ sender }, request)
+    invokeChannel(CHANNELS.sessionNativeResources, request, sender) as Promise<NativeResources>
   const lease = (generation = 'current'): ComposerCatalogLease =>
     ({
       generation,

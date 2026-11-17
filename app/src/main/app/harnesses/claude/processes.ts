@@ -61,6 +61,8 @@ export function planClaudeProcesses(input: ClaudeProcessInput): ClaudeProcessPla
 }
 
 export interface ClaudeProcessReset {
+  // 계획이 읽는 세션 정보를 채운다 — 계획 전에 부른다(계획과 닫기 사이에는 await 가 없다).
+  prepare(): Promise<void>
   plan(): ClaudeProcessPlan
   close(targets: readonly ClaudeProcessTarget[]): void
 }
@@ -72,11 +74,14 @@ export function createClaudeProcessReset(deps: {
     discardLease(leaseId: string): boolean
   }
   backendOf(sessionId: string): Backend | undefined
+  // `backendOf` 가 읽는 세션 정보를 채운다(세션 행은 다른 프로세스에 있다, 0324).
+  prepare(): Promise<void>
   activity(sessionId: string): ChatActivitySnapshot
   discardSession(sessionId: string): void
   failed(error: unknown): void
 }): ClaudeProcessReset {
   return {
+    prepare: () => deps.prepare(),
     plan: () =>
       planClaudeProcesses({
         leases: deps.supervisor.allLeases(),
