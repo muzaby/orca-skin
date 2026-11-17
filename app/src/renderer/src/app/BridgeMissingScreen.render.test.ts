@@ -19,7 +19,8 @@ describe('BridgeMissingScreen', () => {
     expect(ko.boot.bridgeMissingBody).toBe(
       '창과 앱을 잇는 구성 요소를 불러오지 못했습니다. 앱을 종료하고 다시 실행해 주세요. 계속되면 앱을 다시 설치해 주세요.'
     )
-    // 창을 끌 수 있는 영역이 있다 — 창 조작 단추는 없다(B43).
-    expect(html).toContain('data-behavior="drag-region"')
+    // 창을 끌 수 있는 영역이 있다 — 창 조작 단추는 없다(B43). 표지 속성은 라벨이라 그것만으로 끌기를 보지
+    // 못한다 — 끌기를 만드는 스타일을 그 요소에서 단언한다(0324 EP-29′ ③ · V3-F1).
+    expect(html).toMatch(/<header[^>]*style="-webkit-app-region:drag"[^>]*data-behavior="drag-region"/)
   })
 })
