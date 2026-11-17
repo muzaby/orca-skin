@@ -1,0 +1,9 @@
+id	결과	exit	요약
+X1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+X2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+X3	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+X4	green (기대 red)	0	node --test fail 0
+X5	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절은 `perf-budget.ts` 의 `*_MS` 상수를 전부, 그것만 가리키고 양보 문단은 적용 대상·강제 수단을 적는다; 실제 트리
+X6	green (기대 red)	0	vitest 3699 passed (3699)
+X7	green (기대 red)	0	vitest 3699 passed (3699)
+# 원복 확인: 모든 파일 원문 그대로
