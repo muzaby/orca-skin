@@ -12,8 +12,9 @@ describe('BridgeMissingScreen', () => {
     expect(typeof window).toBe('undefined')
     const html = renderToStaticMarkup(createElement(BridgeMissingScreen))
     expect(html).toContain('role="alert"')
-    expect(html).toContain(ko.boot.bridgeMissingTitle)
-    expect(html).toContain(ko.boot.bridgeMissingBody)
+    // 제목은 화면 표지(`data-screen-label`)에도 들어간다 — 문단 본문으로 본다.
+    expect(html).toContain(`>${ko.boot.bridgeMissingTitle}</p>`)
+    expect(html).toContain(`>${ko.boot.bridgeMissingBody}</p>`)
     expect(ko.boot.bridgeMissingTitle).toBe('앱 창을 연결하지 못했습니다.')
     expect(ko.boot.bridgeMissingBody).toBe(
       '창과 앱을 잇는 구성 요소를 불러오지 못했습니다. 앱을 종료하고 다시 실행해 주세요. 계속되면 앱을 다시 설치해 주세요.'
