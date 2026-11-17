@@ -42,13 +42,6 @@ vi.mock('@anthropic-ai/claude-agent-sdk', async (o) => ({
   ...(await o<typeof import('@anthropic-ai/claude-agent-sdk')>()),
   query: fx.query
 }))
-const callbacks = vi.hoisted(() => new Map<string, (e: unknown, p: unknown) => Promise<unknown>>())
-vi.mock('electron', () => ({
-  shell: {},
-  ipcMain: {
-    handle: (n: string, c: (e: unknown, p: unknown) => Promise<unknown>) => callbacks.set(n, c)
-  }
-}))
 let temp = ''
 afterEach(() => rmSync(temp, { recursive: true, force: true }))
 const write = (p: string, v: unknown): void => {
