@@ -119,7 +119,9 @@ describe('preload 다리 — ③ 포트 전달', () => {
   it.each([
     ['호스트 없음', {}, [{}]],
     ['셸', { host: 'shell' }, [{}]],
-    ['포트 0', { host: 'data' }, []]
+    ['포트 0', { host: 'data' }, []],
+    // 0324 EP-26′ ③ — "포트 1 일 때만" 의 다른 쪽.
+    ['포트 2', { host: 'agent' }, [{}, {}]]
   ])('%s → 넘기지 않는다', (_name, payload, ports) => {
     fromShell(HOST_PORT_CHANNEL, payload, ports)
     expect(harness.postMessage).not.toHaveBeenCalled()
