@@ -1,0 +1,81 @@
+id	결과	exit	요약
+X6	red (기대 일치)	1	vitest 1 failed | 35 passed (36)
+X7	red (기대 일치)	1	vitest 1 failed | 35 passed (36)
+v1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+v2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+k1	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+k2	red (기대 일치)	1	node --test fail 1 · 멈춤 계측 절의 숫자는 출처 표기 `(0NNN D-NNN)` 에만 나온다 — 값을 적은 줄은 실패한다; 실제 트리
+P1	red (기대 일치)	1	vitest 4 failed | 88 passed (92)
+P4	red (기대 일치)	1	vitest 2 failed | 90 passed (92)
+E26-1a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-1b	red (기대 일치)	1	vitest 8 failed | 84 passed (92)
+E26-3a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-3b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-3c	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-4a	red (기대 일치)	1	vitest 3 failed | 89 passed (92)
+E26-4b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-4c	red (기대 일치)	1	vitest 3 failed | 89 passed (92)
+E26-5a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-5b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-5c	red (기대 일치)	1	vitest 2 failed | 90 passed (92)
+E26-2a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-2b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-2c	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-2d	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-6	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E26-7	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+P2	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+P3	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+P5	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-1a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-1b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-1c	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-2a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-2b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-2c	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-2d	red (기대 일치)	timeout	(출력 없음)
+E27-3	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4c	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4d	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4e	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4f	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-4g	green (기대 red)	0	vitest 92 passed (92)
+E27-5a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E27-5b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E8-a	red (기대 일치)	1	vitest 3 failed | 89 passed (92)
+E8-b	red (기대 일치)	1	vitest 7 failed | 85 passed (92)
+E8-c	green (기대 ?)	0	vitest 92 passed (92)
+E8-d	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E8-e	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E8-f	green (기대 ?)	0	vitest 92 passed (92)
+E8-g	green (기대 red)	0	vitest 92 passed (92)
+OWN	red (기대 일치)	1	vitest 2 failed | 94 passed (96)
+S1	red (기대 일치)	1	node --test fail 4 · 다른 모듈(보고된 결함) — 대조와 실행 둘 다 잡는다; 나뉜 조각 — 대조와 실행 둘 다 잡는다; 별칭 — 대조만 잡는다
+S1b	red (기대 일치)	1	node --test fail 1 · 동적 import — 대조만 잡는다; checkPreloadOutput — EP-28 규칙 칸
+S2	red (기대 일치)	1	node --test fail 3 · 다른 모듈(보고된 결함) — 대조와 실행 둘 다 잡는다; 나뉜 조각 — 대조와 실행 둘 다 잡는다; checkPreloadOutput — EP-28 규칙 칸
+S3	red (기대 일치)	1	node --test fail 1 · 다리 키 빠짐 — 실행이 빠진 키를 낸다; checkPreloadOutput — EP-28 규칙 칸
+S4	red (기대 일치)	1	node --test fail 1 · 모르는 전역 — 실행이 ReferenceError 로 잡는다; checkPreloadOutput — EP-28 규칙 칸
+E28-4a	red (기대 일치)	1	node --test fail 1 · 노출 없음 — 실행이 잡는다; checkPreloadOutput — EP-28 규칙 칸
+E28-4b	red (기대 일치)	1	node --test fail 1 · 다른 키 — 실행이 잡는다; checkPreloadOutput — EP-28 규칙 칸
+E28-4c	red (기대 일치)	1	node --test fail 1 · 다리 등록 밖 키 — 실행이 그 키를 낸다; checkPreloadOutput — EP-28 규칙 칸
+E28-2	red (기대 일치)	1	node --test fail 12 · 통과 — 기본 산출; 다른 모듈(보고된 결함) — 대조와 실행 둘 다 잡는다; 나뉜 조각 — 대조와 실행 둘 다 잡는다
+E28-0	green (기대 red)	0	node --test fail 0
+E28-5	red (기대 일치)	1	node --test fail 1 · 발견을 모두 출력하고 종료 코드 1; smoke-preload CLI — ⑤
+E28-5b	red (기대 일치)	1	node --test fail 1 · 발견을 모두 출력하고 종료 코드 1; smoke-preload CLI — ⑤
+B1	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E29-2	red (기대 일치)	1	vitest 2 failed | 90 passed (92)
+B2	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E29-3a	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E29-3b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E29-3c	green (기대 red)	0	vitest 92 passed (92)
+E29-3d	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E29-4a	red (기대 일치)	2	src/renderer/src/shared/i18n/resources/en.ts(108,3): error TS2741: Property 'bridgeMissingTitle' is missing in type '{ label: string; preparingSr: string; resumingLabel: string; resumingSr: string; er
+E29-4b	red (기대 일치)	1	vitest 1 failed | 91 passed (92)
+E29-m	red (기대 ?)	2	src/renderer/src/main.tsx(14,7): error TS6133: 'install' is declared but its value is never read.
+H1	red (기대 일치)	1	node --test fail 1 · `shared/api` 밖의 `window.ooBridge` 는 exit 1; (h)′ `window.oo` · `window.ooBridge`
+H2	red (기대 일치)	1	node --test fail 3 · `shared/api` 밖의 `window.oo` 는 exit 1; `window?.oo` · `window['oo']` 도 걸린다; (h)′ `window.oo` · `window.ooBridge`
+H3	green (기대 red)	0	node --test fail 0
+HC1	green (기대 ?)	0	vitest 206 passed (206)
+# 원복 확인: 모든 파일 원문 그대로
