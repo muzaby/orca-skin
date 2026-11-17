@@ -236,7 +236,7 @@ describe('내부 저장 이름 (EP-03)', () => {
     ],
     [
       'secret-store',
-      ['src', 'main', 'infra', 'config', 'secret-store.ts'],
+      ['src', 'main', 'infra', 'config', 'secret-file.ts'],
       '`${PRODUCT_SLUG}-secrets`',
       `'${OLD}-secrets'`
     ],

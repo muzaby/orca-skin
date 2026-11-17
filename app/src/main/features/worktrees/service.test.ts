@@ -373,7 +373,7 @@ describe('WorktreeService', () => {
   })
 })
 
-it('P3 hasManagedWorktree reads the requested session row', () => {
+it('P3 hasManagedWorktree reads the requested session row', async () => {
   const getManagedWorktreeBySession = vi.fn((sessionId: string) =>
     sessionId === 'isolated' ? { id: 'w1' } : null
   )
@@ -381,7 +381,7 @@ it('P3 hasManagedWorktree reads the requested session row', () => {
     { getManagedWorktreeBySession } as unknown as DbQueries,
     '/unused'
   )
-  expect(service.hasManagedWorktree('isolated')).toBe(true)
-  expect(service.hasManagedWorktree('plain')).toBe(false)
+  expect(await service.hasManagedWorktree('isolated')).toBe(true)
+  expect(await service.hasManagedWorktree('plain')).toBe(false)
   expect(getManagedWorktreeBySession.mock.calls).toEqual([['isolated'], ['plain']])
 })

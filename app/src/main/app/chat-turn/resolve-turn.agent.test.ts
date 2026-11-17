@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { resolveTurn } from './resolve-turn'
 import { recoverSessionHistory } from '../../features/chat/recovery'
 import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 vi.mock('../../features/chat/recovery', () => ({ recoverSessionHistory: vi.fn() }))
 vi.mock('../../infra/config/oo-config', () => ({ appEnv: () => ({}) }))
@@ -11,12 +12,12 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
   'rejects a changed source harness after provider preparation (%s)',
   async (sourceField) => {
     let source = { agent_kind: 'code', backend: 'opencode', project_id: null, cwd: '/workspace' }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
       db: { getSessionById: () => source },
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
-    }
+    })
     const pending = resolveTurn(
       ctx as never,
       { hasSession: () => false } as never,
@@ -49,13 +50,13 @@ it.each(['sessionId', 'forkFrom', 'handoffFrom'] as const)(
       project_id: null,
       cwd: '/workspace'
     }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
       db: { getSessionById: () => source },
       harnessSettings: { list: () => [] },
       settings: { getAll: () => ({ language: 'ko' }) },
       mcp: { resolver: () => () => undefined }
-    }
+    })
     const pending = resolveTurn(
       ctx as never,
       { hasSession: () => false } as never,
@@ -84,12 +85,12 @@ it.each(['code', 'corrupt'])(
   async (agentKind) => {
     const agentSpawnEnv = vi.fn(() => ({}))
     let source = { agent_kind: 'work', backend: 'claude', project_id: null, cwd: '/workspace' }
-    const ctx = {
+    const ctx = withDataPort({
       ...passthroughRuntimeConfig(),
       db: { getSessionById: () => source },
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
-    }
+    })
     const pending = resolveTurn(
       ctx as never,
       { hasSession: () => false } as never,

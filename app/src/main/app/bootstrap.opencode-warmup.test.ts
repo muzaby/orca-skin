@@ -596,8 +596,10 @@ it('routes actual settings patches from the initial executable path to the OpenC
   const refresh = vi.spyOn(owned.registry, 'refreshInstallState')
   settings.patch({ harnesses: { opencode: { executablePath: '/initial' } } })
   settings.patch({ lastCwd: '/unrelated' })
+  // 실행 쪽 반응은 설정 사본의 패치 통지(피어 포트, 다음 마이크로태스크)에서 돈다.
+  for (let i = 0; i < 5; i += 1) await Promise.resolve()
   expect(refresh).not.toHaveBeenCalled()
   settings.patch({ harnesses: { opencode: { executablePath: '/next' } } })
-  expect(refresh).toHaveBeenCalledExactlyOnceWith('opencode')
+  await vi.waitFor(() => expect(refresh).toHaveBeenCalledExactlyOnceWith('opencode'))
   await owned.registry.settled('opencode')
 })

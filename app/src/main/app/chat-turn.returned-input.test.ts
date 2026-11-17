@@ -57,6 +57,7 @@ vi.mock('../infra/ipc/send', () => ({
 }))
 
 import { registerChatHandlers } from './chat-turn'
+import { withDataPort } from './data-host/data-port.testfixture'
 
 const document = {
   provider: {
@@ -141,7 +142,7 @@ function install() {
   )
   const pendingMessages = new PendingMessageQueue()
   registerChatHandlers({
-    ctx: {
+    ctx: withDataPort({
       mockAdapter: null,
       debugMock: { enabled: false },
       registry: { getActive: () => adapter, get: () => adapter },
@@ -168,7 +169,7 @@ function install() {
       workProfilePluginPath: '/unused',
       ensureExtensionsDeployedForTurn: async () => {},
       getCwd: () => '/workspace'
-    },
+    }),
     supervisor,
     // history 구독자(`features/history/writer.ts`)가 session.updated 에서 세션 ID 를 턴에 싣는다 —
     // 영속 대신 그 한 효과만 대신한다.

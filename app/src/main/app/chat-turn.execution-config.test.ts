@@ -74,6 +74,7 @@ vi.mock('../features/chat/turn-coordinator', () => ({
 }))
 
 import { registerChatHandlers } from './chat-turn'
+import { withDataPort } from './data-host/data-port.testfixture'
 
 // Two engines with different documents: a dropped or swapped engine changes what the turn runs.
 const documents = {
@@ -174,7 +175,7 @@ function install(
   const pending = vi.fn((): Array<typeof batch> => [])
   const takeForRespawn = vi.fn((): Array<typeof batch> => [])
   registerChatHandlers({
-    ctx: {
+    ctx: withDataPort({
       mockAdapter: null,
       debugMock: { enabled: false },
       registry: { getActive: () => adapter, get: () => adapter },
@@ -202,7 +203,7 @@ function install(
       workProfilePluginPath: '/unused',
       ensureExtensionsDeployedForTurn: async () => {},
       getCwd: () => '/workspace'
-    },
+    }),
     supervisor: {
       hasSession: vi.fn(() => false),
       hasPending: vi.fn(() => false),
