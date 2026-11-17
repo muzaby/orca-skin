@@ -283,6 +283,15 @@ export class AgentBootstrap implements HostAssembly {
     })
   }
 
+  // 창 요청은 첫 설정 사본 뒤에 처리한다 — 셸은 준비 직후 창 포트를 넘기고 피어 포트(사본)는 그 뒤에
+  // 온다. 사본을 읽는 핸들러(확장 목록·턴 전송 등)가 그 사이에 불리면 사본 전 읽기로 실패한다(EP-17).
+  serving(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.mirror.ready()) resolve()
+      else this.mirror.onReplaced(() => resolve())
+    })
+  }
+
   private requireActivity(): SessionActivityProjector {
     if (!this.activity) throw new Error('세션 활동 투영이 아직 없다')
     return this.activity
