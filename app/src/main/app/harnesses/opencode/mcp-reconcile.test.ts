@@ -14,7 +14,7 @@ import { McpStore } from '../../../features/extensions/common/mcp/store'
 import { setRootLogger } from '../../../infra/log/registry'
 import type { SettingsStore } from '../../../infra/settings-store'
 import { createComposerPreparation } from '../../composer-preparation'
-import type { RouterContext } from '../../context'
+import type { AgentContext, RouterContext } from '../../context'
 import { createPluginBinding } from '../../deployment/plugins'
 import { extensionControl } from '../../extension-control'
 import { registerExtensionCatalogHandlers } from '../../handlers/extension-catalog'
@@ -195,7 +195,7 @@ beforeEach(async () => {
     runtimeModelCatalog: { merge: (value: unknown) => value, isReadOnly: () => false },
     mcp
   } as unknown as RouterContext
-  preparation = createComposerPreparation(withDataPort(ctx))
+  preparation = createComposerPreparation(withDataPort(ctx) as unknown as AgentContext)
   managed.source.subscribe((_revision, kind) => {
     if (kind === 'definitions') {
       f.adapter.extensionsChanged()

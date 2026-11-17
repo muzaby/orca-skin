@@ -42,10 +42,10 @@ describe('engine runtime catalog invalidation wiring', () => {
     const invalidateCatalog = vi.fn()
     registerEngineHandlers(
       engineContext({
-      deployExtensions: vi.fn(async () => {}),
-      harnessSettings: { invalidateAll: invalidateSettings },
-      harnessRuntime: { invalidate: invalidateRuntime },
-      runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
+        deployExtensions: vi.fn(async () => {}),
+        harnessSettings: { invalidateAll: invalidateSettings },
+        harnessRuntime: { invalidate: invalidateRuntime },
+        runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
       })
     )
 
@@ -93,10 +93,10 @@ describe('engine runtime catalog invalidation wiring', () => {
     })
     registerEngineHandlers(
       engineContext({
-      deployExtensions: vi.fn(async () => {}),
-      harnessSettings: { invalidateAll: vi.fn() },
-      harnessRuntime: runtime,
-      runtimeModelCatalog
+        deployExtensions: vi.fn(async () => {}),
+        harnessSettings: { invalidateAll: vi.fn() },
+        harnessRuntime: runtime,
+        runtimeModelCatalog
       })
     )
 
@@ -139,10 +139,10 @@ describe('engine runtime catalog invalidation wiring', () => {
     const isReadOnly = vi.fn((key: string) => key === 'claude-corp')
     registerEngineHandlers(
       engineContext({
-      deployExtensions: vi.fn(async () => {}),
-      harnessSettings: { invalidateAll: vi.fn() },
-      harnessRuntime: { invalidate: vi.fn() },
-      runtimeModelCatalog: { isReadOnly, invalidate: vi.fn() }
+        deployExtensions: vi.fn(async () => {}),
+        harnessSettings: { invalidateAll: vi.fn() },
+        harnessRuntime: { invalidate: vi.fn() },
+        runtimeModelCatalog: { isReadOnly, invalidate: vi.fn() }
       })
     )
 

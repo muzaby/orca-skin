@@ -1,8 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
-
-const sendChatEvent = vi.hoisted(() => vi.fn())
-vi.mock('../../infra/ipc/send', () => ({ sendChatEvent }))
 
 import type { TurnContext } from '../../contracts/turn'
 import { applyMigrations } from '../../infra/db/migrate'
@@ -11,42 +8,6 @@ import { HistoryWriter } from './writer'
 import { loadSession } from './reader'
 
 describe('HistoryWriter AskUserQuestion answer identity', () => {
-  it('matches reverse-order answers by toolUseId and keeps each parent tool id', () => {
-    const upsertToolResultPart = vi.fn()
-    const writer = new HistoryWriter({ upsertToolResultPart } as never, () => false)
-    const turn = {
-      dbSessionId: 's1',
-      currentAssistantMessageId: 10,
-      pendingAskAnswers: [
-        { toolUseId: 'ask-2', answers: { Second: 'B' } },
-        { toolUseId: 'ask-1', answers: { First: 'A' } }
-      ],
-      askPendingIds: ['ask-1', 'ask-2'],
-      askResolved: new Map(),
-      openToolRuns: new Map([
-        ['ask-1', { parentToolRunId: 'parent-1' }],
-        ['ask-2', { parentToolRunId: 'parent-2' }]
-      ])
-    } as unknown as TurnContext
-
-    writer.flushAskAnswers(turn, {} as never)
-
-    expect(sendChatEvent.mock.calls.map(([, event]) => event)).toEqual([
-      expect.objectContaining({
-        toolRunId: 'ask-2',
-        parentToolRunId: 'parent-2',
-        result: { answers: { Second: 'B' } }
-      }),
-      expect.objectContaining({
-        toolRunId: 'ask-1',
-        parentToolRunId: 'parent-1',
-        result: { answers: { First: 'A' } }
-      })
-    ])
-    expect(turn.askPendingIds).toEqual([])
-    expect(turn.pendingAskAnswers).toEqual([])
-  })
-
   it('round trips a child answer parent through SQLite reload', () => {
     const connection = new Database(':memory:')
     try {
@@ -69,14 +30,17 @@ describe('HistoryWriter AskUserQuestion answer identity', () => {
       const writer = new HistoryWriter(queries, () => false)
       const turn = {
         dbSessionId: 's1',
-        currentAssistantMessageId: messageId,
-        pendingAskAnswers: [{ toolUseId: 'ask-1', answers: { Question: 'Answer' } }],
-        askPendingIds: ['ask-1'],
-        askResolved: new Map(),
-        openToolRuns: new Map([['ask-1', { parentToolRunId: 'parent-1' }]])
+        currentAssistantMessageId: messageId
       } as unknown as TurnContext
 
-      writer.flushAskAnswers(turn, {} as never)
+      // 실행 쪽이 답과 부모 도구를 짝지어 보낸 결과(0324 EP-15)를 그대로 쓴다.
+      writer.recordAskAnswers(turn, [
+        {
+          toolUseId: 'ask-1',
+          output: { answers: { Question: 'Answer' } },
+          parentToolRunId: 'parent-1'
+        }
+      ])
 
       const loaded = loadSession(queries, 's1', () => '/workspace')
       expect(loaded?.messages[0].parts).toContainEqual({
@@ -90,4 +54,14 @@ describe('HistoryWriter AskUserQuestion answer identity', () => {
       connection.close()
     }
   })
+})
+
+it('writes nothing while no assistant message is open', () => {
+  const upsertToolResultPart = (): never => {
+    throw new Error('must not write')
+  }
+  const writer = new HistoryWriter({ upsertToolResultPart } as never, () => false)
+  writer.recordAskAnswers({ currentAssistantMessageId: null } as unknown as TurnContext, [
+    { toolUseId: 'ask-1', output: {} }
+  ])
 })
