@@ -1,0 +1,15 @@
+id	결과	exit	요약
+V10	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+V11	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+V12	red (기대 일치)	1	vitest 2 failed | 93 passed (95)
+V13	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+V14	red (기대 일치)	1	vitest 3 failed | 92 passed (95)
+V15	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+E4-6	red (기대 일치)	1	vitest 5 failed | 90 passed (95)
+E4-7	red (기대 일치)	1	vitest 6 failed | 89 passed (95)
+E4-8	red (기대 일치)	1	vitest 2 failed | 93 passed (95)
+E4-9	red (기대 일치)	1	vitest 1 failed | 94 passed (95)
+E8-1r	red (기대 일치)	1	vitest 13 failed | 82 passed (95)
+E8-2r	red (기대 일치)	1	vitest 12 failed | 83 passed (95)
+E8p-1r	red (기대 일치)	1	vitest 9 failed | 86 passed (95)
+# 원복 확인: 모든 파일 원문 그대로
