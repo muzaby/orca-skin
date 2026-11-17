@@ -1,6 +1,6 @@
 // 호스트 프로세스 하나의 감독 (0324 SD-04 · EP-12 · AR-02 · §11 "에이전트 호스트의 규칙").
 //
-// fork · 준비 · 창 포트 중개 · 비정상 종료 처리 · 재기동 · 정상 종료를 맡는다. 에이전트 호스트와
+// fork · 준비 · 준비 마감(EP-24 · D-055) · 창 포트 중개 · 비정상 종료 처리 · 재기동 · 정상 종료를 맡는다. 에이전트 호스트와
 // 데이터 호스트가 같은 감독자를 쓰고, 차이(준비 판정·고아 정리·종료 뒤 처리)는 주입으로 준다.
 // 프로세스 생성·포트 채널·프로세스 목록·시계를 모두 주입받는다 — 이 파일은 Electron 을 모른다.
 
@@ -10,6 +10,9 @@ import { reapOrphans, type OrphanReaperDeps } from './orphans'
 export const HOST_BOOT_FAILURE_LIMIT = 3
 // 정상 종료 요청 뒤 이 시간 안에 끝나지 않으면 강제로 끝낸다.
 export const HOST_SHUTDOWN_TIMEOUT_MS = 3_000
+// 기동 중 셸과 이만큼 메시지가 오가지 않으면 그 호스트를 끝내고 기동 실패로 센다(D-055 — 범용 기본값,
+// systemd `DefaultTimeoutStartSec`). 호스트가 알린 긴 단계(DB 백업·마이그레이션) 동안은 세지 않는다.
+export const HOST_READY_TIMEOUT_MS = 90_000
 
 // fork 한 호스트 하나. 실제 구현은 `utilityProcess` 를 이 모양으로 감싼다.
 export interface HostProcess<P> {
@@ -43,6 +46,12 @@ export interface HostSupervisorDeps<P> {
   clock: Clock
   // 이 메시지가 오면 요청을 받을 수 있다. 없으면 fork 직후부터 준비된 것으로 본다.
   isReady?(message: unknown): boolean
+  // 준비 마감(D-055) — 준비 판정이 있을 때만 쓴다. 기동 중 셸과 메시지가 오갈 때마다 다시 잡고,
+  // 지나면 `onReadyTimeout` 뒤에 그 호스트를 끝낸다(그 exit 는 준비 전 종료 = 기동 실패 1회).
+  readyTimeoutMs?: number
+  // 호스트가 알린 긴 단계의 시작·끝. 시작부터 끝까지는 마감을 세지 않는다.
+  startStep?(message: unknown): 'begin' | 'end' | undefined
+  onReadyTimeout?(): void
   // 호스트가 보낸 메시지 전부(준비 메시지 포함).
   onHostMessage?(message: unknown): void
   // 있으면 비정상 종료 때 그 호스트를 부모로 둔 프로세스를 먼저 끝낸다(에이전트 호스트).
@@ -84,6 +93,29 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
   let restartRequested = false
   let stopped: (() => void) | null = null
   let stopPromise: Promise<void> | null = null
+  let readyTimer: unknown = null
+  let readyPaused = false
+
+  const clearReady = (): void => {
+    if (readyTimer !== null) deps.clock.clearTimeout(readyTimer)
+    readyTimer = null
+  }
+  // 기동 중인 그 child 의 마감을 지금부터 다시 잡는다. 멈춤 중이면 잡지 않는다.
+  const armReady = (child: HostProcess<P>): void => {
+    clearReady()
+    if (!deps.isReady || !deps.readyTimeoutMs || readyPaused) return
+    // 이 child 가 바뀌거나(exit) 준비·멈춤이 오면 타이머를 지운다 — 남는 경우는 기동 중 종료 요청뿐이다.
+    readyTimer = deps.clock.setTimeout(() => {
+      readyTimer = null
+      if (phase !== 'starting') return
+      deps.onReadyTimeout?.()
+      child.kill()
+    }, deps.readyTimeoutMs)
+  }
+  const pauseReady = (): void => {
+    readyPaused = true
+    clearReady()
+  }
 
   const connect = (child: HostProcess<P>, client: SupervisedClient<P>): void => {
     const { port1, port2 } = deps.createChannel()
@@ -94,6 +126,7 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
   }
 
   const becomeReady = (child: HostProcess<P>): void => {
+    clearReady()
     phase = 'ready'
     bootFailures = 0
     for (const client of clients.values()) {
@@ -106,6 +139,7 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
   const handleExit = async (child: HostProcess<P>, pid: number | undefined): Promise<void> => {
     if (child !== current) return
     current = null
+    clearReady()
     if (phase === 'stopping') {
       phase = 'stopped'
       stopped?.()
@@ -141,10 +175,22 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
     const child = deps.fork()
     current = child
     phase = 'starting'
+    readyPaused = false
+    armReady(child)
     child.onMessage((message) => {
       if (child !== current) return
       deps.onHostMessage?.(message)
-      if (phase === 'starting' && deps.isReady?.(message)) becomeReady(child)
+      if (phase !== 'starting') return
+      if (deps.isReady?.(message)) {
+        becomeReady(child)
+        return
+      }
+      const step = deps.startStep?.(message)
+      if (step === 'begin') pauseReady()
+      else {
+        if (step === 'end') readyPaused = false
+        armReady(child)
+      }
     })
     child.onExit(() => {
       void handleExit(child, child.pid())
@@ -194,6 +240,8 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
     send(message) {
       if (!current || phase === 'stopped') return false
       current.postMessage(message)
+      // 기동 중인 호스트에 답했다 — 셸 서비스 응답을 기다리던 시간은 호스트의 멈춤이 아니다.
+      if (phase === 'starting') armReady(current)
       return true
     }
   }
