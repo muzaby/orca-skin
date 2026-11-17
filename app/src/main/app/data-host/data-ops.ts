@@ -23,11 +23,10 @@ export interface DataOpsDeps {
   defaultCwd(): string
 }
 
-// 하네스 원본 이력의 이전 스냅샷. `raw` 는 요청 때 함께 읽는다 — 함수는 건너가지 못한다.
+// 하네스 원본 이력의 이전 스냅샷. 원본 레코드(`raw`)는 크고 드물게 쓰여 `nativeHistoryRaw` 로 따로 준다.
 export interface NativeHistoryPreviousRow {
   snapshot: NativeHistorySnapshot
   cursor: NativeHistoryCursor | undefined
-  raw: unknown
 }
 
 // 표의 타입은 구현에서 유도한다 — 따로 적으면 표와 타입이 갈린다.
@@ -37,7 +36,7 @@ export function createDataQueryOps(deps: DataOpsDeps) {
   const cwdOf = (projectId: string | null | undefined): string =>
     getWorkspacePath(projectId ? db.getProject(projectId) : null, deps.defaultCwd())
   return {
-    getSessionById: (id: string) => db.getSessionById(id) ?? null,
+    getSessionById: (id: string) => db.getSessionById(id),
     getProject: (id: string) => db.getProject(id),
     // 프로젝트마다의 작업 폴더. `null` 은 프로젝트 미소속(기본 작업 폴더)이다.
     workspacePaths: (projectIds: Array<string | null>): Array<[string | null, string]> =>
@@ -45,16 +44,17 @@ export function createDataQueryOps(deps: DataOpsDeps) {
     getProjectContextForSession: (sessionId: string) => db.getProjectContextForSession(sessionId),
     getTitleSource: (sessionId: string) => db.getTitleSource(sessionId),
     getManagedWorktreeBySession: (sessionId: string) => db.getManagedWorktreeBySession(sessionId),
-    listBackgroundEvents: (sessionId: string) => db.background?.list(sessionId) ?? [],
-    nativeRecovery: (sessionId: string) => db.nativeHistory?.recovery?.(sessionId) ?? null,
+    nativeRecovery: (sessionId: string) => db.nativeHistory?.recovery?.(sessionId),
     nativeObserve: (sessionId: string) => db.nativeHistory.observe(sessionId),
-    nativeHistoryPrevious: (sessionId: string): NativeHistoryPreviousRow | null => {
+    nativeHistoryPrevious: (sessionId: string): NativeHistoryPreviousRow | undefined => {
       const previous = readNativeHistoryPrevious(db, sessionId)
-      if (!previous) return null
-      return { snapshot: previous.snapshot, cursor: previous.cursor, raw: previous.raw?.() }
+      return previous && { snapshot: previous.snapshot, cursor: previous.cursor }
     },
+    // 이전 스냅샷의 원본 레코드 — 이어 읽기가 성립할 때만 실행 쪽이 따로 묻는다.
+    nativeHistoryRaw: (sessionId: string): unknown =>
+      readNativeHistoryPrevious(db, sessionId)?.raw?.(),
     // 보관 대화 전체 — 원본이 사라진 세션의 복구 입력.
-    loadSessionArchive: (sessionId: string) => loadSession(db, sessionId, cwdOf) ?? null
+    loadSessionArchive: (sessionId: string) => loadSession(db, sessionId, cwdOf)
   }
 }
 export type DataQueryOps = ReturnType<typeof createDataQueryOps>
@@ -76,11 +76,8 @@ export function createDataWriteOps(deps: DataOpsDeps) {
     insertManagedWorktree: (row: Parameters<DbQueries['insertManagedWorktree']>[0]) =>
       db.insertManagedWorktree(row),
     deleteManagedWorktree: (id: string) => db.deleteManagedWorktree(id),
-    // 세션을 원래 폴더로 되돌리고 그 작업 트리 기록을 지운다 — 한 연산이다.
-    restoreSessionCwd: (sessionId: string, worktreeId: string, cwd: string, updatedAt: number) => {
-      db.updateSessionCwd(sessionId, cwd, updatedAt)
-      db.deleteManagedWorktree(worktreeId)
-    },
+    updateSessionCwd: (sessionId: string, cwd: string, updatedAt: number) =>
+      db.updateSessionCwd(sessionId, cwd, updatedAt),
     nativePrepareRecovery: (input: Parameters<DbQueries['nativeHistory']['prepareRecovery']>[0]) =>
       db.nativeHistory.prepareRecovery(input),
     nativeAcceptRecovery: (sessionId: string, nativeMessageId: string) =>

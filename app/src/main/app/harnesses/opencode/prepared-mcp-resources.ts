@@ -8,7 +8,7 @@ import type {
   NativeResources
 } from '../../../../shared/native-resources'
 import { ComposerCatalogCancelled, ComposerCatalogOwners } from '../../composer-catalog-owner'
-import type { RouterContext } from '../../context'
+import type { DataPort } from '../../context'
 import type { ResourceRequest } from '../../project-resource-sync'
 
 export function resourceRequestKey(request: ResourceRequest): string {
@@ -33,11 +33,12 @@ function cancelledResources(pending = false): NativeResources {
   }
 }
 
-export function preparedMcpScope(
-  db: Pick<RouterContext['db'], 'getSessionById'>,
+export async function preparedMcpScope(
+  sessions: Pick<DataPort['query'], 'getSessionById'>,
   request: ResourceRequest
-): ComposerCatalogScope | undefined {
-  const session = 'sessionId' in request ? db.getSessionById(request.sessionId) : undefined
+): Promise<ComposerCatalogScope | undefined> {
+  const session =
+    'sessionId' in request ? await sessions.getSessionById(request.sessionId) : undefined
   if ('sessionId' in request && !session) return undefined
   const draft = 'backend' in request ? request : undefined
   const backend = session?.backend ?? draft?.backend
@@ -64,7 +65,9 @@ export class PreparedMcpResources {
   >()
   constructor(
     private readonly deps: {
-      scope(request: ResourceRequest): ComposerCatalogScope | undefined
+      scope(
+        request: ResourceRequest
+      ): ComposerCatalogScope | undefined | Promise<ComposerCatalogScope | undefined>
       prepare(scope: ComposerCatalogScope, signal: AbortSignal): Promise<ComposerCatalogLease>
     },
     owners?: ComposerCatalogOwners
@@ -92,7 +95,7 @@ export class PreparedMcpResources {
   async read(request: ResourceRequest): Promise<NativeResources | undefined> {
     const key = resourceRequestKey(request)
     for (let attempt = 0; attempt < 2; attempt++) {
-      const scope = this.deps.scope(request)
+      const scope = await this.deps.scope(request)
       if (!scope) return undefined
       const entry = [...this.observations.values()].find(
         (owner) => resourceRequestKey(owner.request) === key

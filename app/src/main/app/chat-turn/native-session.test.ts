@@ -17,7 +17,8 @@ import { HistoryWriter } from '../../features/history/writer'
 import { openFileDatabase } from '../../infra/db/file-database'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
-import type { RouterContext } from '../context'
+import type { AgentContext } from '../context'
+import { directDataPort } from '../data-host/data-port.testfixture'
 import { prepareNativeSession } from './native-session'
 import { resolveTurn } from './resolve-turn'
 import { passthroughRuntimeConfig } from '../runtime-config.testfixture'
@@ -115,8 +116,7 @@ describe('native retention recovery through the migrated archive', () => {
         recoverSession: async () => ({ sessionId: 'replacement', freshStart: false })
       },
       request,
-      queries,
-      cwd
+      directDataPort(queries, { getCwd: cwd })
     )
     expect(result).toMatchObject({
       ok: true,
@@ -144,7 +144,15 @@ describe('native retention recovery through the migrated archive', () => {
       read: async () => ({ status: 'ready', snapshot, cursor })
     })
     const readHistory = vi.fn(async (): Promise<NativeHistoryResult> => ({ status: 'unchanged' }))
-    expect((await prepareNativeSession({ readHistory }, request, queries, cwd)).ok).toBe(true)
+    expect(
+      (
+        await prepareNativeSession(
+          { readHistory },
+          request,
+          directDataPort(queries, { getCwd: cwd })
+        )
+      ).ok
+    ).toBe(true)
     expect(readHistory).toHaveBeenLastCalledWith({
       ...request,
       previous: { snapshot: { ...snapshot, raw: undefined }, cursor, raw: expect.any(Function) }
@@ -152,7 +160,7 @@ describe('native retention recovery through the migrated archive', () => {
     db.prepare(
       `INSERT INTO native_session_recovery (session_id,native_id,archive_json,local_frontier,fresh_start) VALUES (?,?,'[]',0,0)`
     ).run(request.sessionId, 'replacement')
-    await prepareNativeSession({ readHistory }, request, queries, cwd)
+    await prepareNativeSession({ readHistory }, request, directDataPort(queries, { getCwd: cwd }))
     expect(readHistory).toHaveBeenLastCalledWith({
       ...request,
       sessionId: 'replacement',
@@ -169,8 +177,8 @@ describe('native retention recovery through the migrated archive', () => {
     const entry = { key: 'opencode-local', harnessId: 'opencode', modelProviderId: 'local' }
     const ctx = {
       ...passthroughRuntimeConfig(),
-      db: queries,
-      getCwd: cwd,
+      data: directDataPort(queries, { getCwd: cwd }),
+      defaultCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: {
         list: () => [
@@ -198,7 +206,7 @@ describe('native retention recovery through the migrated archive', () => {
           }
         })
       }
-    } as unknown as RouterContext
+    } as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'new request',
@@ -236,7 +244,12 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const original = texts()
     const input = { text: 'new input', contextWindow: 100 }
-    const blocked = await prepareNativeSession(adapter, request, queries, cwd, input)
+    const blocked = await prepareNativeSession(
+      adapter,
+      request,
+      directDataPort(queries, { getCwd: cwd }),
+      input
+    )
     expect(blocked).toMatchObject({
       ok: false,
       error: { message: expect.stringContaining('입력 한도') }
@@ -246,7 +259,7 @@ describe('native retention recovery through the migrated archive', () => {
     expect(texts()).toEqual(original)
     expect(
       (
-        await prepareNativeSession(adapter, request, queries, cwd, {
+        await prepareNativeSession(adapter, request, directDataPort(queries, { getCwd: cwd }), {
           ...input,
           contextWindow: 200000
         })
@@ -255,7 +268,16 @@ describe('native retention recovery through the migrated archive', () => {
     const before = queries.nativeHistory.recovery(request.sessionId)
     adapter.readHistory.mockResolvedValue(native([]))
     adapter.recoverSession.mockClear()
-    expect((await prepareNativeSession(adapter, request, queries, cwd, input)).ok).toBe(false)
+    expect(
+      (
+        await prepareNativeSession(
+          adapter,
+          request,
+          directDataPort(queries, { getCwd: cwd }),
+          input
+        )
+      ).ok
+    ).toBe(false)
     expect(adapter.recoverSession).not.toHaveBeenCalled()
     expect(queries.nativeHistory.recovery(request.sessionId)).toEqual(before)
     expect(texts()).toEqual(original)
@@ -270,11 +292,11 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const ctx = {
       ...passthroughRuntimeConfig(),
-      db: queries,
-      getCwd: cwd,
+      data: directDataPort(queries, { getCwd: cwd }),
+      defaultCwd: cwd,
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
-    } as unknown as RouterContext
+    } as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'x'.repeat(80000),
@@ -297,11 +319,11 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const ctx = {
       ...passthroughRuntimeConfig(),
-      db: queries,
-      getCwd: cwd,
+      data: directDataPort(queries, { getCwd: cwd }),
+      defaultCwd: cwd,
       harnessSettings: { list: () => [] },
       mcp: { resolver: () => () => undefined }
-    } as unknown as RouterContext
+    } as unknown as AgentContext
     const result = await resolveTurn(
       ctx,
       { hasSession: () => false, peekRuntime: () => undefined } as never,
@@ -349,7 +371,7 @@ describe('native retention recovery through the migrated archive', () => {
       recoverSession: vi.fn(async () => ({ sessionId: 'native-new', freshStart: false }))
     }
     try {
-      await prepareNativeSession(adapter, request, queries, cwd)
+      await prepareNativeSession(adapter, request, directDataPort(queries, { getCwd: cwd }))
       queries.nativeHistory.recoveryPrompt(request.sessionId, 'receipt', 'only new input')
       db.close()
       db = openFileDatabase(file)
@@ -376,7 +398,9 @@ describe('native retention recovery through the migrated archive', () => {
       expect(queries.nativeHistory.recovery(request.sessionId)?.accepted).toBe(1)
       expect(texts()).toEqual(['archivedquestion', 'only new input'])
       adapter.readHistory.mockResolvedValue(native([]))
-      expect(await prepareNativeSession(adapter, request, queries, cwd)).toEqual({
+      expect(
+        await prepareNativeSession(adapter, request, directDataPort(queries, { getCwd: cwd }))
+      ).toEqual({
         ok: true,
         value: { nativeSessionId: 'native-new' }
       })
@@ -395,8 +419,7 @@ describe('native retention recovery through the migrated archive', () => {
     const result = await prepareNativeSession(
       { readHistory: async () => missing, recoverSession },
       request,
-      queries,
-      cwd
+      directDataPort(queries, { getCwd: cwd })
     )
     expect(result).toEqual({
       ok: true,
@@ -413,7 +436,11 @@ describe('native retention recovery through the migrated archive', () => {
     expect(queries.searchMessages('archivedanswer')).toHaveLength(1)
     const readHistory = vi.fn(async () => native([]))
     expect(
-      await prepareNativeSession({ readHistory, recoverSession }, request, queries, cwd)
+      await prepareNativeSession(
+        { readHistory, recoverSession },
+        request,
+        directDataPort(queries, { getCwd: cwd })
+      )
     ).toMatchObject({
       ok: true,
       value: {
@@ -430,7 +457,7 @@ describe('native retention recovery through the migrated archive', () => {
       readHistory: vi.fn(async (): Promise<NativeHistoryResult> => missing),
       recoverSession: vi.fn(async () => ({ sessionId: 'native-new', freshStart: false }))
     }
-    await prepareNativeSession(adapter, request, queries, cwd)
+    await prepareNativeSession(adapter, request, directDataPort(queries, { getCwd: cwd }))
     queries.nativeHistory.recoveryPrompt(request.sessionId, 'first-prompt', 'new request')
     const restored = restoreRecoveryResult(
       native([{ id: 'first-prompt', text: 'ARCHIVE PREFIX + new request' }]),
@@ -448,7 +475,9 @@ describe('native retention recovery through the migrated archive', () => {
     adapter.readHistory.mockResolvedValue(
       native([{ id: 'first-prompt', text: 'ARCHIVE PREFIX + new request' }])
     )
-    expect(await prepareNativeSession(adapter, request, queries, cwd)).toEqual({
+    expect(
+      await prepareNativeSession(adapter, request, directDataPort(queries, { getCwd: cwd }))
+    ).toEqual({
       ok: true,
       value: { nativeSessionId: 'native-new' }
     })
@@ -456,7 +485,11 @@ describe('native retention recovery through the migrated archive', () => {
     // A second expiry archives both generations, with no duplicated first-generation rows.
     adapter.readHistory.mockResolvedValue(missing)
     adapter.recoverSession.mockResolvedValue({ sessionId: 'native-newer', freshStart: false })
-    const again = await prepareNativeSession(adapter, request, queries, cwd)
+    const again = await prepareNativeSession(
+      adapter,
+      request,
+      directDataPort(queries, { getCwd: cwd })
+    )
     expect(again).toMatchObject({
       ok: true,
       value: {
@@ -476,8 +509,7 @@ describe('native retention recovery through the migrated archive', () => {
       const result = await prepareNativeSession(
         { readHistory: async () => ({ status, message: 'Unavailable' }), recoverSession },
         request,
-        queries,
-        cwd
+        directDataPort(queries, { getCwd: cwd })
       )
       expect(result.ok).toBe(false)
       expect(recoverSession).not.toHaveBeenCalled()
@@ -492,7 +524,9 @@ describe('native retention recovery through the migrated archive', () => {
         throw new Error('offline')
       })
     }
-    expect((await prepareNativeSession(adapter, request, queries, cwd)).ok).toBe(false)
+    expect(
+      (await prepareNativeSession(adapter, request, directDataPort(queries, { getCwd: cwd }))).ok
+    ).toBe(false)
     expect(queries.nativeHistory.recovery(request.sessionId)).toBeUndefined()
     const result = await prepareNativeSession(
       {
@@ -503,8 +537,7 @@ describe('native retention recovery through the migrated archive', () => {
         }
       },
       request,
-      queries,
-      cwd
+      directDataPort(queries, { getCwd: cwd })
     )
     expect(result.ok).toBe(false)
     expect(queries.nativeHistory.recovery(request.sessionId)).toBeUndefined()
@@ -524,11 +557,11 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const ctx = {
       ...passthroughRuntimeConfig(),
-      db: queries,
-      getCwd: cwd,
+      data: directDataPort(queries, { getCwd: cwd }),
+      defaultCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: { list: () => [] }
-    } as unknown as RouterContext
+    } as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'resume prompt',
@@ -561,11 +594,11 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const ctx = {
       ...passthroughRuntimeConfig(),
-      db: queries,
-      getCwd: cwd,
+      data: directDataPort(queries, { getCwd: cwd }),
+      defaultCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: { list: () => [] }
-    } as unknown as RouterContext
+    } as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'resume prompt',
@@ -591,11 +624,11 @@ describe('native retention recovery through the migrated archive', () => {
     }
     const ctx = {
       ...passthroughRuntimeConfig(),
-      db: queries,
-      getCwd: cwd,
+      data: directDataPort(queries, { getCwd: cwd }),
+      defaultCwd: cwd,
       mcp: { resolver: () => () => undefined },
       harnessSettings: { list: () => [] }
-    } as unknown as RouterContext
+    } as unknown as AgentContext
     const payload = {
       sessionId: request.sessionId,
       text: 'warm resume prompt',

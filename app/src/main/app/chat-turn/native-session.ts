@@ -6,9 +6,7 @@ import {
   recoveryArchive,
   recoveryFitsContext
 } from '../../features/history/native-recovery'
-import { readNativeHistoryPrevious } from '../../features/history/native-sync'
-import { loadSession } from '../../features/history/reader'
-import type { DbQueries } from '../../infra/db'
+import type { DataPort } from '../context'
 import { makeClassifiedError } from '../../infra/errors'
 
 export interface NativeSessionPreparation {
@@ -21,8 +19,7 @@ export interface NativeSessionPreparation {
 export async function prepareNativeSession(
   adapter: Pick<SessionAdapter, 'readHistory' | 'recoverSession'>,
   request: NativeHistoryRequest,
-  db: DbQueries,
-  getCwd: (projectId?: string | null) => string,
+  data: DataPort,
   input: { text: string; contextWindow: number; extra?: string } = {
     text: '',
     contextWindow: 200000
@@ -40,10 +37,20 @@ export async function prepareNativeSession(
           )
         }
   try {
-    const recovery = db.nativeHistory?.recovery?.(request.sessionId)
+    const recovery = await data.query.nativeRecovery(request.sessionId)
     const nativeId = recovery?.native_id ?? request.sessionId
-    const previous =
-      recovery && !recovery.accepted ? undefined : readNativeHistoryPrevious(db, request.sessionId)
+    const stored =
+      recovery && !recovery.accepted
+        ? undefined
+        : await data.query.nativeHistoryPrevious(request.sessionId)
+    // 원본 레코드는 어댑터가 이어 읽을 때만 묻는다.
+    const previous = stored
+      ? {
+          snapshot: stored.snapshot,
+          cursor: stored.cursor,
+          raw: () => data.query.nativeHistoryRaw(request.sessionId)
+        }
+      : undefined
     const result = await adapter.readHistory({
       ...request,
       sessionId: nativeId,
@@ -52,14 +59,14 @@ export async function prepareNativeSession(
         : undefined
     })
     if (result.status === 'missing' && adapter.recoverSession) {
-      const archive = loadSession(db, request.sessionId, getCwd)
+      const archive = await data.query.loadSessionArchive(request.sessionId)
       if (!archive) throw new Error('Conversation was removed during recovery')
       const history = archivePrompt(archive.messages)
       const blocked = overBudget(history)
       if (blocked) return blocked
-      const before = db.nativeHistory.observe(request.sessionId)
+      const before = await data.query.nativeObserve(request.sessionId)
       const created = await adapter.recoverSession({ ...request, sessionId: nativeId })
-      db.nativeHistory.prepareRecovery({
+      await data.write.nativePrepareRecovery({
         sessionId: request.sessionId,
         nativeId: created.sessionId,
         freshStart: created.freshStart,
@@ -95,7 +102,7 @@ export async function prepareNativeSession(
               message.sourceIds?.includes(recovery.prompt_id ?? '')
           )
         if (received && recovery.prompt_id)
-          db.nativeHistory.acceptRecovery(request.sessionId, recovery.prompt_id)
+          await data.write.nativeAcceptRecovery(request.sessionId, recovery.prompt_id)
         else if (result.status === 'ready' && result.snapshot.messages.length === 0) {
           const history = archivePrompt(recoveryArchive(recovery))
           const blocked = overBudget(history)

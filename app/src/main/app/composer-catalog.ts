@@ -5,11 +5,12 @@ import { canonicalJson } from '../../shared/obj'
 import { resolveTurnProvider } from './chat-turn/resolve-turn'
 import { ComposerCatalogError } from './composer-catalog-error'
 import type { ComposerPreparationTarget } from './composer-preparation-service'
-import type { RouterContext } from './context'
+import type { AgentContext } from './context'
+import { workspaceLookup } from './chat-turn/workspace'
 import { sameSessionBinding } from './session-binding'
 
 export async function resolveComposerPreparation(
-  ctx: RouterContext,
+  ctx: AgentContext,
   scope: ComposerCatalogScope,
   signal: AbortSignal
 ): Promise<ComposerPreparationTarget> {
@@ -18,15 +19,17 @@ export async function resolveComposerPreparation(
   const adapter = ctx.registry.get(scope.backend)
   if (!adapter?.prepareComposer) throw new Error('Composer preparation unavailable')
   const prepare = adapter.prepareComposer.bind(adapter)
-  const session = scope.sessionId ? ctx.db.getSessionById(scope.sessionId) : undefined
+  const session = scope.sessionId
+    ? await ctx.data.query.getSessionById(scope.sessionId)
+    : undefined
   if (
     scope.sessionId &&
     (!session || session.backend !== scope.backend || session.agent_kind !== scope.agentKind)
   )
     throw new Error('Composer session changed')
-  const directory = session
-    ? (session.cwd ?? ctx.getCwd(session.project_id))
-    : (scope.cwd ?? ctx.getCwd(scope.projectId))
+  const projectId = session ? session.project_id : scope.projectId
+  const directory =
+    (session ? session.cwd : scope.cwd) ?? (await workspaceLookup(ctx, [projectId]))(projectId)
   if (!isAbsolute(directory)) throw new Error('Composer directory must be absolute')
   signal.throwIfAborted()
   const resolved = await resolveTurnProvider(ctx, {
@@ -40,7 +43,7 @@ export async function resolveComposerPreparation(
   })
   signal.throwIfAborted()
   if (session) {
-    const current = ctx.db.getSessionById(session.id)
+    const current = await ctx.data.query.getSessionById(session.id)
     if (!sameSessionBinding(current, session) || current?.agent_kind !== session.agent_kind)
       throw new Error('Composer session changed')
   }

@@ -89,7 +89,7 @@ it.each(['opencode', 'claude'] as const)(
         sessionId: 'policy-session',
         cwd: 'C:/policy',
         text: 'hello',
-        extensions: build()
+        extensions: await build()
       }))
         expect(event.type).toBe('telemetry')
     }
@@ -214,7 +214,7 @@ it('applies new revisions to user and continuation turns', async () => {
       sessionId: 'session',
       cwd: 'C:/work',
       text: 'hello',
-      extensions: build()
+      extensions: await build()
     })) {
       expect(event.type).toBe('telemetry')
     }
@@ -241,8 +241,8 @@ it('applies new revisions to user and continuation turns', async () => {
         modelFamily: null,
         fallbackModel: undefined,
         resolveProvider: async () => ({ providerKey: null, prepared }),
-        buildExtensions: () => ({
-          ...build(),
+        buildExtensions: async () => ({
+          ...(await build()),
           ...(revision === undefined
             ? { managedMcp: undefined }
             : { managedMcp: { revision, users: {}, plugins: new Map() } })
