@@ -88,6 +88,7 @@ vi.mock('../../features/chat/turn-coordinator', () => ({
 import { handleChatSend } from './send'
 import { ExtensionBuilder } from '../../features/extensions/common/builder'
 import { resolveAgentProfile } from '../../features/agents/profiles'
+import { withDataPort } from '../data-host/data-port.testfixture'
 
 const plugin = resolve('resources/claude-plugins/work-profile')
 
@@ -139,7 +140,7 @@ function harness(cwd: string, pluginPath = plugin) {
   }
   const extensions: TurnExtensions[] = []
   const deps = {
-    ctx: {
+    ctx: withDataPort({
       ...passthroughRuntimeConfig(),
       settings: { getAll: () => ({}) },
       db,
@@ -152,7 +153,7 @@ function harness(cwd: string, pluginPath = plugin) {
       },
       getCwd: () => cwd,
       ensureExtensionsDeployedForTurn: vi.fn(async () => {})
-    },
+    }),
     supervisor,
     bus: {},
     approvals: {},
@@ -239,7 +240,7 @@ describe('Work profile production send wiring', () => {
       mocks.acquire.mockImplementation(async (input) => {
         expect(input.adapter).toBe(adapter)
         input.onRuntimeAcquired(runtime)
-        return { ok: true, runtime, extensions: input.buildExtensions() }
+        return { ok: true, runtime, extensions: await input.buildExtensions() }
       })
       mocks.run.mockImplementation(async (_input, _turn, request: TurnRequest) => {
         for await (const event of runtime.send(request)) expect(event.type).toBe('turn.ended')
@@ -296,7 +297,7 @@ describe('Work profile production send wiring', () => {
           const continuationCallStart = mocks.resolveTurnProvider.mock.calls.length
           mocks.sourceKind = kind
           mocks.acquire.mockImplementation(async (input) => {
-            const extensions = input.buildExtensions()
+            const extensions = await input.buildExtensions()
             current.extensions.push(extensions)
             current.runtime.spawnedAgentProfileKey = extensions.agentProfileKey
             input.onRuntimeAcquired(current.runtime)
