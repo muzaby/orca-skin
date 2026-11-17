@@ -12,6 +12,7 @@ import {
   type OpenDialogOptions
 } from 'electron'
 import type { ShellServiceImpl } from '../../../shared/shell-services'
+import { BrowserSessionStore } from '../../infra/browser-session'
 
 function windowOf(clientId: number | null): BrowserWindow | null {
   if (clientId === null) return null
@@ -21,6 +22,10 @@ function windowOf(clientId: number | null): BrowserWindow | null {
 }
 
 export function createElectronShellServices(): ShellServiceImpl {
+  // 파티션 세션은 셸이 하나 갖는다 — 호스트는 그룹 이름으로 부탁한다.
+  const sessions = new BrowserSessionStore()
+  // 로그인 창마다 판정을 기다리는 이동(이동 순번 → 답).
+  const verdicts = new Map<string, Map<number, (done: boolean) => void>>()
   return {
     'secrets.isAvailable': () => safeStorage.isEncryptionAvailable(),
     'secrets.encrypt': (plain) => safeStorage.encryptString(plain).toString('base64'),
@@ -50,6 +55,41 @@ export function createElectronShellServices(): ShellServiceImpl {
       // 그 창이 포커스를 갖고 있으면 띄우지 않는다(지금 `handlers/misc.ts` 와 같은 판정).
       if (windowOf(clientId)?.isFocused()) return
       if (Notification.isSupported()) new Notification({ title, body }).show()
-    }
+    },
+    'session.register': (policy) => sessions.register(policy),
+    'session.openLogin': async (group, { loginId, url, width, height, timeoutMs }, context) => {
+      const handle = sessions.acquire(group)
+      const pending = new Map<number, (done: boolean) => void>()
+      verdicts.set(loginId, pending)
+      let seq = 0
+      try {
+        return await sessions.openLoginWindow(handle, {
+          url,
+          ...(width !== undefined ? { width } : {}),
+          ...(height !== undefined ? { height } : {}),
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+          // 끝났는지는 요청한 호스트가 판정한다 — 답이 올 때까지 창은 그대로다.
+          isDone: (navigated) =>
+            new Promise<boolean>((resolve) => {
+              const current = seq++
+              pending.set(current, resolve)
+              context.notifyLoginNavigated(loginId, current, navigated)
+            })
+        })
+      } finally {
+        verdicts.delete(loginId)
+        for (const resolve of pending.values()) resolve(false)
+      }
+    },
+    'session.loginVerdict': (loginId, seq, done) => {
+      const pending = verdicts.get(loginId)
+      const resolve = pending?.get(seq)
+      if (!resolve) return
+      pending!.delete(seq)
+      resolve(done)
+    },
+    'session.send': (group, request, options) =>
+      sessions.send(sessions.acquire(group), request, options),
+    'session.clear': (group, options) => sessions.clear(sessions.acquire(group), options)
   }
 }

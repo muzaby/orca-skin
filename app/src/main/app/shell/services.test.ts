@@ -21,7 +21,7 @@ function fakeImpl(calls: Array<[string, unknown[]]>): ShellServiceImpl {
   const record =
     <T>(name: string, value: T) =>
     (...args: unknown[]): T => {
-      calls.push([name, args])
+      calls.push([name, args.slice(0, -1)])
       return value
     }
   return {
@@ -29,25 +29,38 @@ function fakeImpl(calls: Array<[string, unknown[]]>): ShellServiceImpl {
     'secrets.encrypt': record('secrets.encrypt', 'Y2lwaGVy'),
     'secrets.decrypt': record('secrets.decrypt', 'plain'),
     'dialog.showOpen': async (...args) => {
-      calls.push(['dialog.showOpen', args])
+      calls.push(['dialog.showOpen', args.slice(0, -1)])
       return { canceled: false, filePaths: ['/a', '/b'] }
     },
     'dialog.showSave': async (...args) => {
-      calls.push(['dialog.showSave', args])
+      calls.push(['dialog.showSave', args.slice(0, -1)])
       return { canceled: false, filePath: '/out.txt' }
     },
     'external.openExternal': async (...args) => {
-      calls.push(['external.openExternal', args])
+      calls.push(['external.openExternal', args.slice(0, -1)])
     },
     'external.openPath': async (...args) => {
-      calls.push(['external.openPath', args])
+      calls.push(['external.openPath', args.slice(0, -1)])
       return ''
     },
     'external.showItemInFolder': record('external.showItemInFolder', undefined),
     'external.trashItem': async (...args) => {
-      calls.push(['external.trashItem', args])
+      calls.push(['external.trashItem', args.slice(0, -1)])
     },
-    'notify.show': record('notify.show', undefined)
+    'notify.show': record('notify.show', undefined),
+    'session.register': record('session.register', undefined),
+    'session.openLogin': async (...args) => {
+      calls.push(['session.openLogin', args.slice(0, -1)])
+      return { finalUrl: 'https://idp/done' }
+    },
+    'session.loginVerdict': record('session.loginVerdict', undefined),
+    'session.send': async (...args) => {
+      calls.push(['session.send', args.slice(0, -1)])
+      return { status: 200, headers: { a: 'b' }, body: 'ok' }
+    },
+    'session.clear': async (...args) => {
+      calls.push(['session.clear', args.slice(0, -1)])
+    }
   }
 }
 
@@ -80,7 +93,7 @@ function connect(impl: ShellServiceImpl): {
 }
 
 describe('셸 서비스 — 이름마다 왕복', () => {
-  it('표의 이름은 10개다 — 테스트가 모든 이름을 부른다', () => {
+  it('표의 이름은 15개다 — 테스트가 모든 이름을 부른다', () => {
     expect(Object.keys(SHELL_SERVICE_ARGS).sort()).toEqual(
       [
         'dialog.showOpen',
@@ -92,7 +105,12 @@ describe('셸 서비스 — 이름마다 왕복', () => {
         'notify.show',
         'secrets.decrypt',
         'secrets.encrypt',
-        'secrets.isAvailable'
+        'secrets.isAvailable',
+        'session.clear',
+        'session.loginVerdict',
+        'session.openLogin',
+        'session.register',
+        'session.send'
       ].sort()
     )
   })
@@ -111,7 +129,12 @@ describe('셸 서비스 — 이름마다 왕복', () => {
       client.call('external.openPath', '/tmp/f'),
       client.call('external.showItemInFolder', '/tmp/g'),
       client.call('external.trashItem', '/tmp/h'),
-      client.call('notify.show', { clientId: 3, title: '완료', body: '응답 완료' })
+      client.call('notify.show', { clientId: 3, title: '완료', body: '응답 완료' }),
+      client.call('session.register', { sessionGroup: 'sso', allowedOrigins: ['https://a'] }),
+      client.call('session.openLogin', 'sso', { loginId: 'l1', url: 'https://idp/start' }),
+      client.call('session.loginVerdict', 'l1', 2, true),
+      client.call('session.send', 'sso', { url: 'https://a/x', method: 'GET', headers: {} }),
+      client.call('session.clear', 'sso', { scope: 'group' })
     ])
     expect(results).toEqual([
       true,
@@ -123,6 +146,11 @@ describe('셸 서비스 — 이름마다 왕복', () => {
       '',
       undefined,
       undefined,
+      undefined,
+      undefined,
+      { finalUrl: 'https://idp/done' },
+      undefined,
+      { status: 200, headers: { a: 'b' }, body: 'ok' },
       undefined
     ])
     expect(calls).toEqual([
@@ -135,8 +163,39 @@ describe('셸 서비스 — 이름마다 왕복', () => {
       ['external.openPath', ['/tmp/f']],
       ['external.showItemInFolder', ['/tmp/g']],
       ['external.trashItem', ['/tmp/h']],
-      ['notify.show', [{ clientId: 3, title: '완료', body: '응답 완료' }]]
+      ['notify.show', [{ clientId: 3, title: '완료', body: '응답 완료' }]],
+      ['session.register', [{ sessionGroup: 'sso', allowedOrigins: ['https://a'] }]],
+      ['session.openLogin', ['sso', { loginId: 'l1', url: 'https://idp/start' }]],
+      ['session.loginVerdict', ['l1', 2, true]],
+      ['session.send', ['sso', { url: 'https://a/x', method: 'GET', headers: {} }]],
+      ['session.clear', ['sso', { scope: 'group' }]]
     ])
+  })
+
+  it('로그인 창의 이동은 그 요청을 보낸 호스트에게만 `login.navigated` 로 간다', async () => {
+    const impl = fakeImpl([])
+    let navigate!: (url: string) => void
+    impl['session.openLogin'] = (_group, _options, context) =>
+      new Promise((resolve) => {
+        navigate = (url) => {
+          context.notifyLoginNavigated('l1', 0, url)
+          resolve({ finalUrl: url })
+        }
+      })
+    const { client, replies } = connect(impl)
+    const seen: Array<[string, number, string]> = []
+    client.onLoginNavigated((loginId, seq, url) => seen.push([loginId, seq, url]))
+    const opened = client.call('session.openLogin', 'sso', { loginId: 'l1', url: 'https://idp/' })
+    await flush()
+    navigate('https://idp/cb')
+    await expect(opened).resolves.toEqual({ finalUrl: 'https://idp/cb' })
+    expect(seen).toEqual([['l1', 0, 'https://idp/cb']])
+    expect(replies[0]).toEqual({
+      type: 'login.navigated',
+      loginId: 'l1',
+      seq: 0,
+      url: 'https://idp/cb'
+    })
   })
 
   it('응답은 요청 번호로 짝짓는다 — 늦게 끝난 요청이 다른 요청의 값을 받지 않는다', async () => {
