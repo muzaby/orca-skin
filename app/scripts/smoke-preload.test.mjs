@@ -84,6 +84,13 @@ describe('checkPreloadOutput — EP-28 규칙 칸', () => {
     assert.match(run[0], /0번/)
   })
 
+  // 0324 EP-28′ — "`exposeInMainWorld` 1회" 의 다른 쪽.
+  it('노출 2회 — 실행이 잡는다', () => {
+    const { run } = checkPreloadOutput(output([...BASE, EXPOSE()]))
+    assert.equal(run.length, 1)
+    assert.match(run[0], /2번/)
+  })
+
   it('다른 키 — 실행이 잡는다', () => {
     const { run } = checkPreloadOutput(output([...BASE.slice(0, 2), EXPOSE('oo')]))
     assert.equal(run.length, 1)
