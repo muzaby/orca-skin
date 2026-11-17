@@ -59,23 +59,23 @@ function registerEngine(
 ): void {
   registerEngineHandlers(
     engineContext({
-    deployExtensions,
-    harnessSettings: {
-      invalidateAll: () => {
-        order.push('settings')
+      deployExtensions,
+      harnessSettings: {
+        invalidateAll: () => {
+          order.push('settings')
+        }
+      },
+      harnessRuntime: {
+        invalidate: (key, reason) => {
+          order.push(`runtime:${key}:${reason}`)
+        }
+      },
+      runtimeModelCatalog: {
+        isReadOnly: () => false,
+        invalidate: async (key) => {
+          order.push(`catalog:${key}`)
+        }
       }
-    },
-    harnessRuntime: {
-      invalidate: (key, reason) => {
-        order.push(`runtime:${key}:${reason}`)
-      }
-    },
-    runtimeModelCatalog: {
-      isReadOnly: () => false,
-      invalidate: async (key) => {
-        order.push(`catalog:${key}`)
-      }
-    }
     })
   )
 }
@@ -99,10 +99,10 @@ describe('engine CRUD uses the shared extension deployment queue', () => {
     const invalidateCatalog = vi.fn(async () => {})
     registerEngineHandlers(
       engineContext({
-      deployExtensions,
-      harnessSettings: { invalidateAll },
-      harnessRuntime: { invalidate: invalidateRuntime },
-      runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
+        deployExtensions,
+        harnessSettings: { invalidateAll },
+        harnessRuntime: { invalidate: invalidateRuntime },
+        runtimeModelCatalog: { isReadOnly: () => false, invalidate: invalidateCatalog }
       })
     )
     await invoke(CHANNELS.engineDelete, { key: 'claude-corp' })

@@ -129,26 +129,28 @@ beforeEach(() => {
   )
   registerEngineHandlers(
     engineContext({
-    deployExtensions: deploy,
-    harnessSettings: settings,
-    harnessRuntime,
-    runtimeModelCatalog
+      deployExtensions: deploy,
+      harnessSettings: settings,
+      harnessRuntime,
+      runtimeModelCatalog
     })
   )
-  registerMiscHandlers(withDataPort({
-    registry: {
-      list: () => [
-        { id: 'claude', installed: true, usable: true },
-        { id: 'opencode', installed: true, usable: true }
-      ],
-      get: (backend: Backend) => (backend === 'claude' ? claude : opencode)
-    },
-    harnessSettings: settings,
-    harnessRuntime,
-    runtimeModelCatalog,
-    debugMock: { log: false },
-    mcp: { resolver: () => () => undefined }
-  }) as never)
+  registerMiscHandlers(
+    withDataPort({
+      registry: {
+        list: () => [
+          { id: 'claude', installed: true, usable: true },
+          { id: 'opencode', installed: true, usable: true }
+        ],
+        get: (backend: Backend) => (backend === 'claude' ? claude : opencode)
+      },
+      harnessSettings: settings,
+      harnessRuntime,
+      runtimeModelCatalog,
+      debugMock: { log: false },
+      mcp: { resolver: () => () => undefined }
+    }) as never
+  )
 })
 afterEach(() => {
   rmSync(fixture.home, { recursive: true, force: true })

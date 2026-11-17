@@ -431,6 +431,42 @@ describe('handleChatSend worktree production wiring', () => {
     expect(leaseController.signal.aborted).toBe(false)
   })
 
+  it('실행 중 턴을 시작한 창의 참조가 닫히면 런타임을 한 번 중단 표시하고 턴을 중단한다 (0324 AC49)', async () => {
+    const harness = makeHarness()
+    const runtime = { close: vi.fn(), channelAlive: true, markAborted: vi.fn() }
+    mocks.acquireTurnRuntime.mockResolvedValue({
+      ok: true,
+      runtime,
+      extensions: { skills: [], hooks: { normalized: {} } }
+    })
+    let finish!: () => void
+    vi.mocked(runTurnWithContinuations).mockImplementationOnce(
+      () => new Promise<undefined>((resolve) => (finish = () => resolve(undefined)))
+    )
+    const running = handleChatSend(harness.deps as never, { sender: harness.sender } as never, {
+      text: 'work',
+      attachmentViews: []
+    })
+    await vi.waitFor(() => expect(runTurnWithContinuations).toHaveBeenCalledOnce())
+    // 창 감시가 중단하는 것은 그 실행 체인의 lease 다.
+    const leaseController: AbortController =
+      harness.supervisor.acquireChain.mock.results[0].value.lease.controller
+    const abort = vi.spyOn(leaseController, 'abort')
+    // 턴이 도는 동안에는 손대지 않는다.
+    expect(runtime.markAborted).not.toHaveBeenCalled()
+    expect(leaseController.signal.aborted).toBe(false)
+
+    harness.sender.close()
+
+    expect(runtime.markAborted.mock.calls).toEqual([['user_cancelled']])
+    expect(abort).toHaveBeenCalledOnce()
+    expect(leaseController.signal.aborted).toBe(true)
+    finish()
+    await running
+    // 끝난 턴은 창 감시를 푼다.
+    expect(harness.sender.watchers()).toBe(0)
+  })
+
   it('requirements 가 직접 send 에서 TurnRequest 조립까지 그대로 간다', async () => {
     const harness = makeHarness()
     mocks.acquireTurnRuntime.mockResolvedValue({

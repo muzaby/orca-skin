@@ -5,7 +5,7 @@ import type { TurnRequest } from '../../adapters/common/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/common/types'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { TurnContext } from '../../contracts/turn'
-import type { HistoryWriter } from '../../features/history/writer'
+import type { TurnPersistSink } from '../../features/chat/turn-sinks'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
 import { ApprovalCoordinator } from '../../features/approvals/coordinator'
 import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
@@ -45,7 +45,7 @@ function requester(active: TurnContext<ClientRef>): {
     wc: {} as ClientRef,
     approvals,
     permissionModes,
-    persistence: { persist, flushAskAnswers: vi.fn() } as unknown as HistoryWriter,
+    persistence: { persist, flushAskAnswers: vi.fn() } as unknown as TurnPersistSink<ClientRef>,
     getActiveTurn: () => active
   })
   return { request, persist, register, setMode, isSessionAllowed }
