@@ -71,6 +71,9 @@ export interface HostSupervisor<P> {
   phase(): Phase
   // 준비된 호스트에 셸 메시지를 보낸다(피어 포트·확보 실패). 준비 전이면 보내지 않고 false.
   post(message: unknown, ports?: readonly P[]): boolean
+  // 떠 있는 호스트에 준비와 무관하게 보낸다 — 기동 중에도 오가는 셸 서비스 응답·깨어남 통지.
+  // 떠 있지 않으면 false.
+  send(message: unknown): boolean
 }
 
 export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSupervisor<P> {
@@ -186,6 +189,11 @@ export function createHostSupervisor<P>(deps: HostSupervisorDeps<P>): HostSuperv
     post(message, ports) {
       if (phase !== 'ready' || !current) return false
       current.postMessage(message, ports)
+      return true
+    },
+    send(message) {
+      if (!current || phase === 'stopped') return false
+      current.postMessage(message)
       return true
     }
   }
