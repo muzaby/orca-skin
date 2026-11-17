@@ -44,7 +44,10 @@ export const HostToShellSchema = z.discriminatedUnion('type', [
   // 데이터 호스트 → 셸: 실행이 필요한 교차 요청이 왔는데 에이전트 호스트가 없다(D-044).
   z.object({ type: z.literal('peer.ensure') }),
   // 데이터 호스트 → 셸: 주기 업데이트 확인 잡이 돌았다 — 업데이트는 셸이 소유한다.
-  z.object({ type: z.literal('update.check') })
+  z.object({ type: z.literal('update.check') }),
+  // 기동 중 호스트 → 셸: 끊을 수 없는 긴 단계(데이터 호스트의 DB 열기·백업·마이그레이션·복구)의 시작·끝.
+  // 그 사이 셸의 감독자는 준비 마감을 세지 않는다(D-055).
+  z.object({ type: z.literal('boot.step'), state: z.enum(['begin', 'end']) })
 ])
 export type HostToShell = z.infer<typeof HostToShellSchema>
 

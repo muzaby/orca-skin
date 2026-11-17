@@ -164,6 +164,31 @@ describe('셸 조립 — 재시작 게이트 배선', () => {
   })
 })
 
+// 0324 EP-24 ⑨⑩⑪ · AC50 — 준비 마감의 배선. 마감 규칙은 `shell/host-supervisor.test.ts`, 실제 번들의 알림
+// 순서는 `scripts/smoke-hosts.mjs` 가 본다.
+describe('준비 마감 배선(EP-24)', () => {
+  it('셸의 두 감독자는 준비 마감 · 긴 단계 판정 · 만료 로그를 받는다', () => {
+    const entry = read('../index.ts')
+    const supervisor = body(entry, 'createHostSupervisor<MessagePortMain>({')
+    expect(supervisor).toContain('readyTimeoutMs: HOST_READY_TIMEOUT_MS')
+    expect(supervisor).toContain('startStep: hostStartStep')
+    expect(supervisor).toContain('onReadyTimeout: () =>')
+  })
+
+  it('데이터 호스트는 DB 단계 앞에서 시작을 알리고 양보한 뒤 열고, 복구 뒤 끝을 알린다', () => {
+    // 문자열 값이 판정이라 원문을 읽는다(시작·끝이 같은 꼴이다).
+    const raw = readFileSync(new URL('./data-host/bootstrap.ts', import.meta.url), 'utf8')
+    expectOrder(raw, [
+      "this.host.toShell({ type: 'boot.step', state: 'begin' })",
+      'await new Promise<void>((resolve) => setImmediate(resolve))',
+      'initDb({',
+      'recoverSessionHistory(db)',
+      "this.host.toShell({ type: 'boot.step', state: 'end' })",
+      "return { type: 'ready'"
+    ])
+  })
+})
+
 describe('셸 조립 — 창 포트의 신뢰 판정', () => {
   it('호스트에 넘기는 창의 신뢰 판정은 그 창의 최상위 앱 문서 판정이다(EP-9)', () => {
     const shell = read('./shell/electron-hosts.ts')

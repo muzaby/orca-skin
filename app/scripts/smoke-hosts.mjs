@@ -37,6 +37,12 @@ export function evaluate(observed) {
   else if (typeof observed.ready.data.mirror?.uiLocale !== 'string')
     failures.push('데이터 호스트의 준비에 UI 언어 사본이 없다(F5)')
   if (!observed.ready.agent) failures.push('에이전트 호스트가 준비를 알리지 않았다')
+  // 준비 마감(D-055) — 데이터 호스트는 DB 단계를 시작·끝으로 알린 뒤 준비를 알린다. 에이전트 호스트는 알리지 않는다.
+  const steps = (kind) => (observed.steps?.[kind] ?? []).join(' → ')
+  if (steps('data') !== 'begin → end → ready')
+    failures.push(`데이터 호스트의 기동 단계 알림이 시작 → 끝 → 준비가 아니다: ${steps('data')}`)
+  if (steps('agent') !== 'ready')
+    failures.push(`에이전트 호스트의 기동 단계 알림이 준비 하나가 아니다: ${steps('agent')}`)
   ok('data oo:settings:get', (v) => v !== null && typeof v === 'object', '설정 객체가 아니다')
   ok('data oo:session:list', Array.isArray, '세션 목록이 배열이 아니다')
   ok('agent oo:backend:list', (v) => Array.isArray(v?.backends), '하네스 목록이 없다')
@@ -69,6 +75,7 @@ export function runSmoke(outDir, { timeoutMs = scaleMs(BASE_TIMEOUT_MS) } = {}) 
   }
   const observed = {
     ready: {},
+    steps: { data: [], agent: [] },
     results: {},
     exits: {},
     exitOrder: [],
@@ -163,7 +170,12 @@ export function runSmoke(outDir, { timeoutMs = scaleMs(BASE_TIMEOUT_MS) } = {}) 
           worker.postMessage({ data: { type: 'service.result', id: message.id, ok: true, value } })
           return
         }
+        if (message.type === 'boot.step') {
+          observed.steps[kind].push(message.state)
+          return
+        }
         if (message.type !== 'ready') return
+        observed.steps[kind].push('ready')
         observed.ready[kind] = message
         connectWindow(kind)
         if (kind === 'data') start('agent')
