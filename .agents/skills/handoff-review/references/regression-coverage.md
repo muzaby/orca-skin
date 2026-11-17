@@ -3397,3 +3397,69 @@ DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. `npm t
 
 - 사용자가 "298 준수"를 요구했을 때의 판단(mock vs `FORCED_IO`)은 `app/AGENTS.md` 문장이 생길 때(0298 r2) 비로소 subtree 우선순위가 된다.
 - 마지막 gate는 egress·electron 미설치 환경에서 일부 단계가 import 단계에서 실패해 규칙 가드 판정을 못 할 수 있다 — "돌리지 못한 단계"로 적고 CI가 최종 판정이다.
+
+# review round 45 — 0324 (verify 3회째 RETURN_TO_PLAN): 여러 항을 적은 §10 자리 문장의 diff 자리 변이 · 값이 생기는 시점 변경의 기존 소비처
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0324 verify 3회째 `RETURN_TO_PLAN`(`4398a44`) 뒤 다음 재구현 전 의무 review. 사용자 `/handoff-review` 후 질의에서 "verify 3 마친 뒤 APPLY" 선택(2026-11-17).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | §10 EP-29 ③ 자리 문장의 "창 끌기 영역" 을 좌표가 표지 속성으로만 단언 — 끌기 스타일 제거가 green(V3-F1, 이행) | 0324 r3 Y9 · P62 · P59 | **A** — ⑦ 의 diff 자리 변이가 규칙 칸에 묶여, 자리 문장에만 있는 항은 자리당 변이 1개 sweep 에서 빠졌다. diff 자리 범위를 "여러 항을 적은 §10 자리 문장의 항"까지 넓힘(P62 개정) |
+| 2 | `window.oo` 가 생기는 시점이 preload → `main.tsx` 로 늦어졌는데 순서에 기대는 소비처(오류 보고 연결)가 열거되지 않음 — 순서 뒤집기 green(V3-F2, 창 안 확장) | 0324 r3 Y5 · P20 | **A** — plan 규칙의 발동 조건이 "값을 새로 늘리면" 뿐이라 시점 변경에 발동하지 않았다. "시점·순서를 바꾸면"을 더함(P20 개정) |
+| 3 | 옛 포트 닫기가 `ClientPort` 추상까지만 잠기고 실제 `MessagePort` 로 잇는 `wrapPort.close` 가 좌표 밖(V3-F3) | 0324 r3 Y2 · P57 | **B** — AGENTS §공통 V "production 조립이 주입하는 의존성을 테스트가 빼거나 바꾼 분기는 덮지 않는다"(0262 r4)가 이미 요구. 지침 변경 없음 |
+| 4 | "포트 1개" · "노출 1회" 조건의 2개 입력 부재(V3-F4·F5) | 0324 r3 Y10~Y12 | 지침 변경 없음 — 트리에 없는 형태의 가정 입력이고, 사용자 결정 ΔV 의 창 안 확장으로 설계자가 채택/경계를 정하는 정상 경로다 |
+
+**verify 분류 대조(§2)**: V3-F1 은 §10 자리 목록 원문 인용("창 끌기 영역")이라 이행 `BLOCKING` 이 맞다 — 새 규칙에서도 같다(구현 sweep 이 먼저 찾는다는 차이뿐). V3-F2~F5 는 인용·재현 없음 → 확장이고, §7-M(사용자 결정 ΔV) NEW·CHANGED 노드라 창 안 `PLAN_GAP` 이 맞다. 거짓 PASS · FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** 하한 ⑦ 의 실행 범위(구현자·검증자)와 plan 설계 규칙의 발동 조건이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `4398a44`. `instruction_delta.py --base HEAD --prose`(대상 6파일 — AGENTS · impl · verify · plan SKILL · 두 template, pool plan SKILL) 후보 **0**. `--word-diff` 로 지운 단어 10개를 따로 봤다 — 모두 더 넓은 형태로 대체(`레지스트리·스토어` → `전역·레지스트리·스토어` · `늘리면` → `늘리거나 … 시점·순서를 바꾸면` · `분기는 그 칸을 구현한` → `분기와 여러 항을 적은 §10 자리 문장의 항은 그것을 구현한`).
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| AGENTS ⑦ 행 · §고장 내 보기 diff 자리 bullet · 최소 계약 sweep bullet | REPLACE(강화) | 규칙 칸 분기 + 자리 문장의 항. 인용 요구·일반 hunk 금지 문장 그대로 |
+| impl §3 diff 자리 bullet · verify §4 ⑦ bullet | KEEP + 추가 | 원문 포함 + 한 문장 |
+| `plan.template.md` 열거 sweep 인용문 · `verify.template.md` ⑦ 줄 | REPLACE(강화) | 같은 범위 확장 |
+| plan SKILL 기존 소비처 bullet · verify §2 소비처 bullet · `plan.template.md` 체크리스트 | REPLACE(강화) | 발동 조건에 시점·순서 변경 추가 |
+| 명령·gate·reference·script | 없음 | 이동·삭제 0 → inbound `N`/`M/M` 대상 없음 |
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
+
+## 6-B Historical Failure Regression
+
+- **68 P 전수**(`rg -c '^## P[0-9]+'` 68) · 변경 후 **COVERED 68** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 44 의 COVERED 68 이 그대로다.
+- 바뀐 P: **P20** 강화(발동 조건 — 시점·순서 변경) · **P62** 강화(diff 자리 범위 — §10 자리 문장의 항). 둘 다 끝에 개정 메모. 새 causal class 아님 → 새 P 없음.
+- **P60**(열린 분모): 유지 — 넓힌 범위의 `못 잡음` 도 §10 자리 문장 인용을 요구하고 자리 목록은 plan 이 고정한 열거 원문이라 일반 hunk 가 분모가 되지 않는다. **P59**(호출 변이는 바꾼 항만): 유지 — 이번 확장은 그 규칙을 sweep 단계에서 항 단위로 수행하게 한다. **P41 · P66 · P67**: 유지.
+- P1~P19 · P21~P58 · P61 · P63~P65 · P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0324 r3 V3-F1(자리 문장 항 라벨 단언) | 검증자 ⑥ 이 발견 → 이행 `BLOCKING` | 구현자 ⑦ diff 자리 변이가 IMPL_DONE 전 발견 · 놓치면 같은 이행 | 거짓 PASS 0 |
+| 0324 r3 V3-F2(설치 시점 변경) | 창 안 확장 `PLAN_GAP` | plan 조사가 소비처를 열거 → 열거 원문. 열거 안 했으면 같은 확장 | 같음 |
+| 0161(P20 원 사례 — 부팅 등록) | 규칙 발동 | 같음 | 같음 |
+| 0294 r6 D12~D14(규칙 칸 하위 분기) | 이행 `BLOCKING` | 같음 | 같음 |
+| 0262 r4~r8(열린 분모) | 창 안 `PLAN_GAP` · 창 밖 후보 표 | 같음 — 자리 문장 인용이 없으면 확장 | inflation 0 |
+| 0292 r2·r3(분기 입력 부재) | 이행 `BLOCKING` | 같음 | 같음 |
+
+- **시나리오 replay**: 창 밖 verify 가 자리 문장 항의 `못 잡음` 을 찾음 → §10 자리 목록 인용이라 이행 `BLOCKING`(변경 전과 같은 분류 — 판정 의미 불변) / 자리 문장이 한 항만 적음 → 기존과 같다 / 구현자가 항 단위 변이를 돌려 `못 잡음` → 테스트를 더하거나 `동치` · 인용 불가면 확장 보고(다음 주체 있음) / 9회째 CLOSED · 후보 표 승격 경로 불변. 다음 주체 없는 상태 0 · 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- diff 자리 범위 문장(AGENTS 144·150·369 · impl 85 · verify 127 · `plan.template.md` 421 · `verify.template.md` 108)이 owner(구현자 sweep · 검증자 ⑦)와 범위("규칙 칸 분기와 여러 항을 적은 §10 자리 문장의 항")를 같게 적는다. 인용 요구와 일반 hunk 금지(AGENTS 150 · impl 94 · verify 126)는 그대로다.
+- 기존 소비처 발동 조건(plan SKILL 181 · verify §2 86 · `plan.template.md` 체크리스트)이 같은 범위("값이 생기는 시점·순서 변경")다. impl SKILL 에는 해당 규칙이 없고 원래도 없었다(설계 책임).
+- root `AGENTS.md` · SKILL frontmatter description · `app/AGENTS.md` · CI 정본은 이번 변경이 닿지 않는다. 새 `AGENTS.md` 없음 · 위생(비밀·변동성 정보) 0.
+
+## 전환 (§8)
+
+판정 의미(발견 분류 · disposition · 확장 창 · 하한이 막는 범위)는 바뀌지 않았다 — 넓힌 것은 하한 ⑦ 의 실행 대상이고, 자리 문장 인용 `못 잡음` 은 변경 전에도 이행이었다. 0324 verify 3 판정(RETURN_TO_PLAN — V3-F1 BLOCKING · V3-F2~F5 PLAN_GAP)은 새 규칙에서도 같아 정정 대상 없음.
+
+## 남은 한계
+
+- 자리 문장의 "항" 경계(괄호 목록 · `·` 항목)는 구현자가 읽어 나눈다 — 검증자 ⑦ 이 같은 방법으로 다시 세는 것이 방어다.
+- 실창(Electron) 검증은 이 환경에서 불가(E) — AC22·AC23·AC52 실창은 사람 실기.
