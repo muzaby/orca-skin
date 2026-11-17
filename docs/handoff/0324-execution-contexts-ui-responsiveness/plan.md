@@ -2327,6 +2327,106 @@ AC 자기보고(검증 증거 아님, 분모 49 — rev 4.1 로 바뀜): `✅ 13
 
 ---
 
+## [구현자 기입] r1.11 — 셸 배선 · preload 3분할 · 두 호스트 조립 · 저장 스트림 (미완료 — 토큰 한도로 중단, 다른 에이전트가 잇는다)
+
+**판정: 미완료(partial).** 앱 구조는 rev 4 대로 바뀌었다 — 셸이 두 호스트를 utility 프로세스로 띄우고, preload 가 채널 소유 표로 전송을 고르고, `DataBootstrap`·`AgentBootstrap` 이 각 호스트에서 돈다. 옛 단일 조립(`app/bootstrap.ts`)은 지웠다. 마지막 커밋(`refactor(app): 데이터·에이전트 호스트 조립과 진입점 …`)은 **typecheck:test·vitest 를 돌리지 않았다** — 사용자 지시로 즉시 중단했다. 본체(`tsconfig.node.json`)는 그 직전 확인에서 오류 0, 테스트(`tsconfig.test.json`)는 오류 10파일이 남아 있다.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| G-A 런타임 도구(플러그인·산출물 도구) 경로 | `PLAN_GAP` 후보 — 설계자 확인 필요 | §7-F 조사 표 "하네스는 앱이 띄운 로컬 HTTP MCP 서버에 직접 붙는다"는 OpenCode 만 참이다. Claude 는 `createSdkMcpServer`(같은 프로세스 MCP, `adapters/claude/runtime-tools.ts`)로 붙여 도구 함수가 에이전트 호스트에 있어야 한다. D-038(플러그인은 데이터 호스트)과 Claude 동작을 둘 다 지키는 유일한 안으로 **사본 + 대리**를 택했다 — 데이터 호스트가 서술자·입력 JSON 스키마(`z.toJSONSchema`)를 보내고 에이전트가 `z.fromJSONSchema` 로 대리 서버를 세워 호출을 `data.query` `runtimeToolCall` 로 보낸다(`app/remote-tools.ts`). 다른 두 안(Claude 도 HTTP 브리지 · 플러그인을 에이전트로)은 각각 Claude 도구 표면 · D-038 을 바꾼다 |
+| G-B 하네스 실행 구성·모델 카탈로그의 자리 | `PLAN_GAP` 후보 | 보강기(`deployment/harness-runtime.ts`)·카탈로그가 인증 런타임을 동기로 받는다 → 데이터 호스트에 둔다. 에이전트는 `HarnessConfigPort`(`context.ts` — environments·runtimeConfig·isReadOnly·invalidate·appEnv)로 받는다. AC41 "자격증명은 데이터 호스트에서 받는다"와 맞다 |
+| G-C 데이터 → 에이전트 F4 요청 종류 | `PLAN_GAP` 후보 | plan 4종(활동 조회·런타임 폐기·네이티브 이력·예약 셸) 밖에 `sessionBusy` · `harnessInstalled`/`harnessListModels`(로그인 프리 연결의 하네스 능력, 0291) · `deployExtensions`(MCP·스킬 CRUD 뒤)를 더했다(`agent-host/agent-ops.ts`). 확보 여부: sessionBusy·활동·폐기는 `request`(없으면 쉬는 상태), 나머지는 `requestEnsured`. EP-21 자리 목록(4)이 바뀐다 |
+| G-D 관리형 MCP 스냅샷 | `PLAN_GAP` 후보 | `ManagedMcpSnapshot.plugins` 가 함수(서버)를 담아 경계를 못 넘는다 → 직렬화 사본(`mcp.snapshot` 통지) + 브리지 임대는 revision 으로 `managedMcpAcquire`/`managedMcpRelease`(`createManagedMcpLeaseHost`) |
+| 산출물 참조 이벤트 | `PLAN_GAP` (r1.10 이 올린 것) — 추천안으로 구현 | `HistoryWriter.persist` 가 `tool.call.completed`(게시 영수증)·`output.captured` 에 DB 가 확인한 `ev.artifact` 를 채운 뒤 중계했다. 그 둘만 `turn.artifactEvent` 요청으로 응답을 기다리고, 같은 턴의 뒤 중계는 그 뒤로 줄을 선다(`persistence-sender.ts` `relay`). AC40 "화면은 저장을 기다리지 않는다"와 문구가 충돌한다 |
+| 피어 메서드 추가 | 구현 세부(표 확장) — 설계자 확인 | `turn.artifactEvent`(agent·request) · `harness.availability`(agent·notify) · `tools.snapshot`·`mcp.snapshot`·`auth.state`·`chat.relay`(data·notify). `chat.relay` 는 데이터 호스트가 낸 `artifact.published` 를 채팅 통지 채널(에이전트 소유)로 중계한다 |
+| 셸 서비스 추가(파티션 세션) | plan §7-B 가 미룬 설계를 구현 | `session.register/openLogin/loginVerdict/send/clear` + 셸 → 호스트 `login.navigated`. 로그인 완료 판정(`isDone`)은 배포가 준 클로저라 호스트에 남기고 셸이 이동마다 묻는다. 호스트 쪽 `BrowserSessionPort` 는 `app/data-host/shell-browser-session.ts` |
+| 셸 메시지 추가 | 구현 세부 | 데이터 → 셸 `update.check`(주기 업데이트 잡 — 업데이트는 셸 소유). 셸 ↔ preload 전용 채널 `oo:host:port`·`oo:host:exited`·`oo:host:connect`(`shared/host-protocol.ts`, `CHANNELS` 밖) |
+| 감독자 `send` | 구현 세부 | 셸 서비스 응답·깨어남은 호스트 준비 전에도 가야 한다(비밀 해제가 `ready` 전에 돈다). `post` 는 준비 뒤만 보낸다 |
+| 비동기가 된 계약 | 구현 세부 — 테스트 정리 필요 | `TurnPersistSink.commitUserMessage` → `number\|null\|Promise` · 조정기 `commitConsumed` await(4자리) · 세션 훅(`isSessionBusy`·`onSessionDisposed`·`getActivity`) · `refreshNativeHistory` 의 `isBusy` · git `getSessionBaseline` · 엔진 `assertMutable` · `prepareConfiguredHarnessInput(appEnv, …)` · 세션 리소스 핸들러 `prefetch` · 백그라운드 `prefetchBackgroundEvents` |
+| 저장 쪽 턴 상태 사본(MD-09) | 구현 | 수신기는 `turn.begin` 의 정적 필드(`TURN_BEGIN_FIELDS`) + 도중 필드(`TURN_LIVE_FIELDS`, 바뀌면 다음 입력에 실림)로 사본을 만든다. 실행 쪽은 `session.updated` 에서 `dbSessionId` 를 직접 정하고, 질문 답의 턴 상태 갱신·중계를 송신기가 한다(`HistoryWriter.recordAskAnswers` 를 분리) |
+
+### 강제 지점 전수 (§10 대조)
+
+| EP | §10 자리 | 닫은 수 | 좌표 / 남긴 곳 |
+|---|---|---|---|
+| EP-15 저장 스트림 | 9 | 구현 9/9 · 좌표 0 | 송신기·수신기 테스트 미작성 — EP-15 규칙 칸 9분기 입력과 AC39 동치 테스트가 남았다 |
+| EP-16 실행 쪽 DB 호출 | 33 | 미재집계 | 옛 조립의 인라인 DB 호출(리소스 대상 해석·승인 종류·Claude 프로세스 리셋·백그라운드 기록)은 에이전트 쪽 세션 메타 사본(`sessionRows`)·요청으로 바꿨다. 검색 명령 재실행 안 함 |
+| EP-17 설정 사본 | 4 | 사본 배선 | 에이전트 조립이 `SettingsMirror` 를 쓴다. `onSnapshot` 을 더했다. 좌표 갱신 안 함 |
+| EP-19 두 호스트 수명 | 7 | 단위 7/7(r1.9) + 셸 배선 | `index.ts` 가 `createHostBoot` 를 쓴다. 배선 테스트 없음(Electron 없음) |
+| EP-20 조립 자리 | 20 | 이동 완료 · 표 미작성 | `bootstrap.ts` 삭제. 자리별 옮긴 파일 표는 남았다(데이터: DB·설정 전부 `data-host/bootstrap.ts`) |
+| EP-8′ 채널 소유 | 4 | 3/4 | preload 선택(`preload/index.test.ts` AC24′ 케이스·afterAll 전수) · 셸 등록(index.ts) · 두 호스트 등록. `channel-registration.test.ts`(표 ↔ 실제 등록 차집합) 미작성 |
+| EP-1 (e)′ 가드 | 3 | 실제 트리 미확인 | 두 진입점이 이제 있다 — `node scripts/check-ui-thread.mjs` 를 돌려 위반을 고쳐야 한다 |
+| EP-2′·EP-21·EP-22·EP-4′ | — | 미착수/미재집계 | 세션 로드 조각(EP-4′) 미착수 |
+
+V-pair 자기 상태: 올린 것 없음.
+
+### 이번 라운드 수정의 잠금
+
+변이 sweep 은 돌리지 않았다(r1.9 부터 밀림). 검산: `선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 0 = 표 행 0`. 새 테스트는 `app/remote-tools.test.ts`(4) · `app/data-host/shell-browser-session.test.ts`(4) · `shell/services.test.ts` 세션 왕복 · `host-supervisor.test.ts` `send` · `host-link.test.ts` 업데이트 확인 · `preload/index.test.ts` AC24′ · `preload/harness.test.ts`(에이전트 포트) — 마지막 커밋 전 단위 실행에서 통과.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 첫 설정 읽기 | 창 포트는 데이터 호스트 `ready`(DB·복구 뒤)에 붙는다 — 0244 의 조기 설정 읽기는 거절 대신 대기가 된다. 테마·언어가 늦게 들어올 수 있다 |
+| 저장 실패 · 데이터 호스트 사망 | 송신기가 그 턴의 런타임을 취소하고 `error`(`stream_error`) 1건을 보낸다 — 문구는 `PERSIST_PEER_LOST`·수신기 메시지 |
+| 산출물 담기 취소 | 담는 도중 취소는 데이터 호스트에 전해지지 않는다 — 신호가 끊긴 뒤 결과는 화면에 싣지 않는다 |
+
+### 놓친 잠재 문제 + 대응
+
+- 지운 bootstrap 테스트 9파일이 잡던 것 중 옮길 단언: 설정 읽기 핸들러가 첫 문장 · 호스트 조립에 Electron import 없음(`bootstrap.host-boundary`) · 종료 순서 · 관리형 MCP 배선 · OpenCode 웜업 조건 · 네이티브 이력 조립. 새 조립 대상으로 다시 써야 한다.
+- 에이전트 쪽 사본의 공백: 백그라운드 기록(`backgroundEventsCache`)은 상태 요청 전에만 채운다 — 재기동 뒤 첫 관찰이 상태 요청보다 먼저면 DB 기록 없이 시작한다. 세션 메타(`sessionRows`)는 비동기 진입점에서만 채워 백그라운드 판정(`targets()`)은 옛 값일 수 있다.
+- AC47(에이전트 부팅 단계를 데이터 보고에 합침) 미구현 — 수신기는 `report.*` 를 버린다.
+- `RouterContext` 타입이 실행 쪽 필드를 아직 들고 있다(데이터 핸들러의 Pick 용으로만 남김) — 정리 대상.
+- 확보 대기 요청에 제한 시간이 없다(B27 그대로). 데이터 링크는 포트가 없으면 다음 포트를 기다린다(`createDataLink` 가 `requestEnsured`).
+
+### 구현 보고
+
+| 단계 | 상태 | 산출 |
+|---|---|---|
+| 테스트 정리(r1.10 이 깬 18파일) | 완료 | 전체 vitest 실패 12파일 = 0324 이전 커밋 `9692a27` 과 같은 환경 실패(Windows 경로 `Composer directory must be absolute` · Electron 미설치 · Claude/OpenCode 어댑터) |
+| 셸 서비스: 파티션 세션 · 업데이트 확인 · 오류 보고 싱크 | 완료 | 위 설계 리뷰 |
+| 셸 배선(4d) | 완료(미실행) | `index.ts` 셸 전용 · `attachHostPorts` · `UpdateController` 셸 소유 · `notifyShow` 셸 · 깨어남 → 두 호스트 · electron-vite 진입점 3개 |
+| preload 3분할(4e) | 완료 | `CHANNEL_OWNER` → ipcRenderer/에이전트 포트/데이터 포트 · 문서마다 `oo:host:connect {host:'all'}` |
+| 조립 분리(4b·4c) | 코드 완료 · 테스트 미정리 | `app/{data-host,agent-host}/{bootstrap,entry}.ts` · `app/host-process.ts` · `app/remote-tools.ts` · `app/native-history.ts`(에이전트 쪽 읽기로 다시 씀) |
+| 저장 스트림(EP-15) | 코드 완료 · 테스트 없음 | `data-host/persistence-receiver.ts` · `agent-host/persistence-sender.ts` |
+| 옛 구현 삭제 | 완료 | `app/bootstrap.ts`·테스트 9 · `connectShellServicesInProcess` · `createNativeHistoryRefresh` · 루프백은 `infra/ipc/peer-loopback.testfixture.ts`(테스트 전용) |
+| 세션 로드 조각(5) · 가드 실제 트리 · 문서(7) | 미착수 | — |
+
+AC 자기보고: 재집계하지 않았다 — trailer 는 직전 값 `14/49` 를 그대로 옮겼다.
+
+**r1.11 gate** — 마지막 커밋은 돌리지 않았다.
+
+| gate | 관측 |
+|---|---|
+| `tsc -p tsconfig.node.json` | 직전 확인 오류 0 (마지막 테스트 헬퍼 수정 뒤에도 0) |
+| `tsc -p tsconfig.test.json` | 오류 10파일 — 아래 "잇는 사람에게" 1 |
+| vitest · `node --test` · 가드·인벤토리·이름·예산 | 돌리지 않음 |
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.11`(미완료) — verify 0회. 같은 라운드의 verify 없는 impl 턴이 3을 넘었다(r1.3~r1.11) — `handoff-review` 신호 조건이고 이번 턴도 하지 않았다.
+- §7-F 조사는 DB 호출 자리만 셌고 호스트 사이 공유 객체(런타임 도구·관리형 MCP·인증 묶인 실행 구성·세션 훅의 동기 판정)를 세지 않았다 — 위 G-A~G-D 가 그 결과다.
+- 환경: Electron 바이너리가 없어 앱을 띄우지 못했다. `npm run typecheck` 는 세 프로젝트 동시 실행이 메모리로 죽는다 — 프로젝트별로 돌린다.
+
+### 잇는 사람에게 — 다음 순서
+
+1. **테스트 타입 오류 10파일**(`NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p tsconfig.test.json`). 헬퍼는 `app/data-host/data-port.testfixture.ts` 에 있다(`withDataPort` 가 `harness` 포트까지 붙인다 · `harnessPortOf` · `engineContext`).
+   - 엔진 테스트 6파일(`handlers/engine.{deployment,import,ipc,runtime-catalog,opencode.integration}.test.ts`): `registerEngineHandlers({...})` → `registerEngineHandlers(engineContext({...}))`.
+   - `composer-catalog.test.ts`·`composer-preparation-service.test.ts`·`harnesses/opencode/mcp-reconcile.test.ts`: `withDataPort(...)` 결과를 `AgentContext` 로 캐스트(`as unknown as AgentContext`).
+   - `handlers/context.test.ts`: misc 키 `'registry'|'debugMock'|'harness'`, engine 키 `'deployExtensions'|'harness'`.
+   - `native-history.test.ts`: `createNativeHistoryRefresh` 대신 `refreshNativeHistory(sessionId, {db, isBusy, read: () => createNativeHistoryReader(ctx)(sessionId)})` 로 조립.
+2. **전체 vitest** — 커밋 await(조정기)·세션 핸들러 비동기·preload 포트 경로에서 깨진 것을 고친다. 지운 bootstrap 테스트의 단언(위 "놓친 잠재 문제")을 새 조립 대상으로 옮긴다.
+3. **새 모듈 테스트**: 송신기·수신기(EP-15 규칙 칸 9분기 · AC39 입력 열 4종 동치 · AC44 피어 닫힘) · `host-process.ts` · 두 조립의 배선(호스트 경계 import 없음 포함) · `channel-registration.test.ts`.
+4. **세션 로드 조각(단계 5, EP-4′)** · 가드 `node scripts/check-ui-thread.mjs` 실제 트리 exit 0 · `ci.yml` 에 가드 단계.
+5. **문서**: `IPC_CONTRACT.md`(`oo:host:*` 3채널 · 셸 서비스 `session.*`) · `execution-model.md` · `security.md` §1.4-b(비밀 경로) · `docs/generated/inventory.md` 재생성(`node scripts/check-doc-inventory.mjs`).
+6. **설계자 확인**: 위 설계 리뷰의 `PLAN_GAP` 후보 5건(G-A~G-D · 산출물 이벤트)을 plan 규범 행에 반영하거나 되돌린다 — 규범 정정은 구현과 다른 커밋.
+7. 전체 gate(`app/AGENTS.md` 로컬 확인 목록) · 변이 sweep(r1.9 부터) · 이 절 갱신 · INDEX `impl/IMPL_DONE`.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
