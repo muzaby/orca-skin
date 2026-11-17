@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events'
 import { expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
 import type { NativeResources } from '../../../shared/native-resources'
@@ -7,18 +6,8 @@ import type { GovernedLiveTurn } from '../../contracts/ports'
 import { PreparedMcpResources } from '../harnesses/opencode/prepared-mcp-resources'
 import type { ProjectResourceSync } from '../project-resource-sync'
 import { registerSessionResourceHandlers } from './session-resources'
-const callbacks = vi.hoisted(
-  () => new Map<string, (event: unknown, request: unknown) => Promise<NativeResources>>()
-)
-vi.mock('electron', () => ({
-  shell: {},
-  ipcMain: {
-    handle: (
-      name: string,
-      callback: (event: unknown, request: unknown) => Promise<NativeResources>
-    ) => callbacks.set(name, callback)
-  }
-}))
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../../infra/ipc/client.testfixture'
 
 it('preserves source identity through prepared and live views', async () => {
   const identities = new Map([
@@ -77,13 +66,9 @@ it('preserves source identity through prepared and live views', async () => {
     projectSync: sync,
     preparedMcp: prepared
   })
-  const sender = Object.assign(new EventEmitter(), {
-    id: 3,
-    isDestroyed: () => false,
-    send: vi.fn()
-  })
+  const sender = fakeClient(3)
   const invoke = (request: unknown): Promise<NativeResources> =>
-    callbacks.get(CHANNELS.sessionNativeResources)!({ sender }, request)
+    invokeChannel(CHANNELS.sessionNativeResources, request, sender) as Promise<NativeResources>
   const scope = {
     backend: 'opencode',
     cwd: 'C:/prepared',
@@ -143,7 +128,7 @@ it('preserves source identity through prepared and live views', async () => {
       items: []
     })
     expect(churn).toHaveBeenCalledTimes(2)
-    sender.emit('render-process-gone')
+    sender.close()
     expect(await prepared.read(scope as Parameters<typeof prepared.read>[0])).toBeUndefined()
     expect(release).toHaveBeenCalledTimes(1)
   } finally {

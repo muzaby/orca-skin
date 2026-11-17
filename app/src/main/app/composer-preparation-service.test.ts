@@ -1,5 +1,4 @@
 import { withDataPort } from './data-host/data-port.testfixture'
-import { EventEmitter } from 'node:events'
 import { afterEach, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../shared/ipc'
 import { OpenCodeAdapter } from '../adapters/opencode/v1/adapter'
@@ -8,13 +7,8 @@ import { ComposerPreparationService } from './composer-preparation-service'
 import type { AgentContext, RouterContext } from './context'
 import { registerSessionResourceHandlers } from './handlers/session-resources'
 import { OpenCodeWarmup } from './harnesses/opencode/warmup'
-const handlers = vi.hoisted(
-  () => new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
-)
-vi.mock('electron', () => ({
-  ipcMain: { handle: (key: string, fn: never) => handlers.set(key, fn) },
-  shell: {}
-}))
+import { invokeChannel } from '../infra/ipc/test-transport.testfixture'
+import { fakeClient } from '../infra/ipc/client.testfixture'
 vi.mock('../infra/config/oo-config', () => ({ appEnv: () => ({}) }))
 
 const cleanups: (() => void)[] = []
@@ -99,11 +93,7 @@ it('shares targets across catalog resources and warmup through the production as
     projectSync: sync as never,
     preparedMcp: assembly.resources
   })
-  const sender = Object.assign(new EventEmitter(), {
-    id: 9,
-    isDestroyed: () => false,
-    send: vi.fn()
-  })
+  const sender = fakeClient(9)
   const scope = {
     backend: 'opencode' as const,
     sessionId: null,
@@ -114,16 +104,18 @@ it('shares targets across catalog resources and warmup through the production as
   }
   const { sessionId: _, ...draft } = scope
   void _
-  const observation = handlers.get(CHANNELS.sessionNativeResources)!(
-    { sender },
-    { ...draft, observation: { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', active: true } }
+  const observation = invokeChannel(
+    CHANNELS.sessionNativeResources,
+    { ...draft, observation: { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', active: true } },
+    sender
   )
   const reading = Promise.all([
-    handlers.get(CHANNELS.composerCatalog)!(
-      { sender },
-      { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', scope, part: 'agents' }
+    invokeChannel(
+      CHANNELS.composerCatalog,
+      { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', scope, part: 'agents' },
+      sender
     ),
-    handlers.get(CHANNELS.sessionNativeResources)!({ sender }, draft),
+    invokeChannel(CHANNELS.sessionNativeResources, draft, sender),
     assembly.service
       .owners('warmup')
       .read(
@@ -142,9 +134,10 @@ it('shares targets across catalog resources and warmup through the production as
   expect(resources).toMatchObject({ state: 'connected', items: [] })
   expect(warm).toMatchObject({ part: 'models', value: [] })
   expect(requests.sort()).toEqual(['/agent', '/provider'])
-  const mcp = await handlers.get(CHANNELS.composerCatalog)!(
-    { sender },
-    { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', scope, part: 'mcp' }
+  const mcp = await invokeChannel(
+    CHANNELS.composerCatalog,
+    { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454', scope, part: 'mcp' },
+    sender
   )
   expect(mcp).toMatchObject({ part: 'mcp', value: [{ id: 'distinct' }] })
   expect(requests.filter((path) => path === '/mcp')).toHaveLength(1)
@@ -156,17 +149,15 @@ it('shares targets across catalog resources and warmup through the production as
       () => undefined
     )
   expect(requests.filter((path) => path === '/mcp')).toHaveLength(1)
-  await handlers.get(CHANNELS.composerCatalogRelease)!(
-    { sender },
-    { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454' }
+  await invokeChannel(
+    CHANNELS.composerCatalogRelease,
+    { owner: 'a4e3dd25-929a-4352-a9d9-b73762c13454' },
+    sender
   )
   expect(await assembly.resources.read(draft)).toMatchObject({ state: 'connected' })
   expect(capture).toHaveBeenCalledTimes(1)
   const count = requests.filter((path) => path === '/mcp').length
-  await handlers.get(CHANNELS.sessionNativeResources)!(
-    { sender },
-    { ...draft, cwd: 'C:/passive-only' }
-  )
+  await invokeChannel(CHANNELS.sessionNativeResources, { ...draft, cwd: 'C:/passive-only' }, sender)
   expect(requests.filter((path) => path === '/mcp')).toHaveLength(count)
   const warmup = new OpenCodeWarmup({
     service: assembly.service,

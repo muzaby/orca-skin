@@ -7,7 +7,6 @@ import { BackgroundController } from '../features/chat/background-controller'
 import type { BackgroundEvent } from '../../shared/background-task'
 
 const harness = vi.hoisted(() => ({
-  handlers: new Map<string, (event: unknown, raw: unknown) => Promise<unknown>>(),
   requests: [] as Array<{
     request: {
       model?: string
@@ -29,15 +28,6 @@ const workProfilePluginPath = resolve('resources/claude-plugins/work-profile')
 vi.mock('../infra/git/probe', async (original) => ({
   ...(await original<typeof import('../infra/git/probe')>()),
   probeRepo: vi.fn(async () => ({ kind: 'not-repo' as const }))
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: vi.fn(
-      (channel: string, handler: (event: unknown, raw: unknown) => Promise<unknown>) => {
-        harness.handlers.set(channel, handler)
-      }
-    )
-  }
 }))
 
 vi.mock('../features/chat/attachments', () => ({
@@ -77,6 +67,7 @@ vi.mock('../features/chat/turn-coordinator', () => ({
 import { registerChatHandlers } from './chat-turn'
 import { passthroughRuntimeConfig } from './runtime-config.testfixture'
 import { withDataPort } from './data-host/data-port.testfixture'
+import { invokeChannel, resetTestTransport } from '../infra/ipc/test-transport.testfixture'
 
 function runtime(
   revision: number,
@@ -123,7 +114,7 @@ function installHarness(options: {
   built: unknown[]
   prepareOutputFiles: ReturnType<typeof vi.fn>
 } {
-  harness.handlers.clear()
+  resetTestTransport()
   harness.requests.length = 0
   harness.errors.length = 0
   harness.steps = [...options.steps]
@@ -285,12 +276,13 @@ function installHarness(options: {
 }
 
 async function send(modelFamily = 'high', agentKind?: 'code' | 'work'): Promise<void> {
-  const handler = harness.handlers.get(CHANNELS.chatSend)
-  if (!handler) throw new Error('chat send handler was not registered')
-  await handler(
-    { sender: { isDestroyed: () => false, once: vi.fn(), on: vi.fn(), removeListener: vi.fn() } },
-    { sessionId: null, projectId: null, text: 'initial', modelFamily, agentKind }
-  )
+  await invokeChannel(CHANNELS.chatSend, {
+    sessionId: null,
+    projectId: null,
+    text: 'initial',
+    modelFamily,
+    agentKind
+  })
   expect(harness.errors, 'chat preparation and execution must not emit an error').toEqual([])
 }
 

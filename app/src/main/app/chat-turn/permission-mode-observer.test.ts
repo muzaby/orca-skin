@@ -4,8 +4,6 @@ import { CHANNELS } from '../../../shared/ipc'
 import { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import { createPermissionModeObserver } from './permission-mode-observer'
 
-vi.mock('electron', () => ({ webContents: { getAllWebContents: () => [] } }))
-
 function fixture(sessionId: string | null = 's1'): {
   observer: ReturnType<typeof createPermissionModeObserver>
   controller: PermissionModeController

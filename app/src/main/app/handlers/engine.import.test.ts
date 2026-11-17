@@ -5,18 +5,11 @@ import { join } from 'node:path'
 import { CHANNELS } from '../../../shared/protocol'
 
 const h = vi.hoisted(() => ({
-  home: '',
-  handlers: new Map<string, (event: unknown, payload: unknown) => Promise<unknown>>()
+  home: ''
 }))
 vi.mock('node:os', async (original) => ({
   ...(await original<typeof import('node:os')>()),
   homedir: () => h.home
-}))
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: (channel: string, callback: (event: unknown, payload: unknown) => Promise<unknown>) =>
-      h.handlers.set(channel, callback)
-  }
 }))
 vi.mock('../../infra/log/registry', () => ({
   getLogger: () => ({ child: () => ({ warn: vi.fn() }) })
@@ -29,10 +22,11 @@ vi.mock('../../features/harnesses/common/settings-write', () => ({
 }))
 import { registerEngineHandlers } from './engine'
 import { engineContext } from '../data-host/data-port.testfixture'
+import { invokeChannel } from '../../infra/ipc/test-transport.testfixture'
 
 let root: string
 const invoke = (payload?: unknown): Promise<unknown> =>
-  h.handlers.get(CHANNELS.engineImportUserSettings)!({}, payload)
+  invokeChannel(CHANNELS.engineImportUserSettings, payload)
 function write(path: string, raw: string): void {
   mkdirSync(join(path, '..'), { recursive: true })
   writeFileSync(path, raw)
@@ -41,7 +35,6 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'orcinus-orca-engine-import-'))
   h.home = root
   vi.stubEnv('XDG_CONFIG_HOME', '')
-  h.handlers.clear()
   registerEngineHandlers(
     engineContext({
       deployExtensions: vi.fn(),

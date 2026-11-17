@@ -88,7 +88,8 @@ export class ApprovalCoordinator {
   registerHandlers(
     supervisor: SessionLookup,
     permissionModes: PermissionModeController,
-    getSessionKind: (sessionId: string) => AgentKind | undefined
+    // 진행 중인 턴이 없는 세션의 종류 — 세션 행은 다른 프로세스에 있을 수 있어 비동기다(0324).
+    getSessionKind: (sessionId: string) => Promise<AgentKind | undefined> | AgentKind | undefined
   ): void {
     handle(CHANNELS.permissionRespond, PermissionRespondSchema, { fallback: undefined }, (req) =>
       this.respond(req)
@@ -103,8 +104,13 @@ export class ApprovalCoordinator {
         const previous = this.modeUpdates.get(sessionId)
         const update = (async (): Promise<NormalizedPermissionMode | undefined> => {
           await previous
+          // 턴이 없을 때만 세션 종류를 묻는다. 묻는 사이 턴이 시작됐으면 그 턴으로 판정한다 —
+          // 아래 판정과 적용 사이에는 await 가 없다.
+          const stored = supervisor.getBySession(sessionId)?.agentKind
+            ? undefined
+            : await getSessionKind(sessionId)
           const turn = supervisor.getBySession(sessionId)
-          const kind = turn?.agentKind ?? getSessionKind(sessionId)
+          const kind = turn?.agentKind ?? stored
           if (!kind || (turn && !turn.live)) return undefined
           const live = turn?.live
           const selection = permissionModeForAgent(mode, kind)
@@ -118,10 +124,11 @@ export class ApprovalCoordinator {
           ) {
             try {
               await live.setPermissionMode(selection)
+              const current = await getSessionKind(sessionId)
               if (
                 supervisor.getBySession(sessionId) !== turn ||
                 turn.live !== live ||
-                getSessionKind(sessionId) !== kind
+                current !== kind
               )
                 return undefined
             } catch {
