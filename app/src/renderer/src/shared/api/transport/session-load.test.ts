@@ -1,7 +1,7 @@
 // 창 쪽 세션 본문 조립 (0324 EP-4′ · AC15~AC17).
 import { describe, expect, it, vi } from 'vitest'
-import { SESSION_LOAD_CANCELLED, type ChunkedSession } from '../shared/data-host'
-import type { LoadedMessage } from '../shared/ipc'
+import { SESSION_LOAD_CANCELLED, type ChunkedSession } from '../../../../../shared/data-host'
+import type { LoadedMessage } from '../../../../../shared/ipc'
 import { createSessionLoadClient } from './session-load'
 
 const CHANNELS = { load: 'load', refresh: 'refresh', chunk: 'chunk', cancel: 'cancel' }

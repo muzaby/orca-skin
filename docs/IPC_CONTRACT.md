@@ -16,7 +16,7 @@
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
   - Renderer → Main one-way send: `ipcMain.on` + `ipcRenderer.send` (응답 없음 — 현재 `log:emit` 유일, `infra/ipc/handle.ts` 의 `on()` 헬퍼로 zod 검증 경유)
-- preload 노출: `window.oo.<domain>.<action>(...)` 형태 (`app/src/preload/index.ts`)
+- renderer 노출: `window.oo.<domain>.<action>(...)` 형태 — renderer 전송층(`app/src/renderer/src/shared/api/transport/oo.ts`)이 preload 다리(`window.ooBridge`, `app/src/preload/index.ts` — 셸 채널만 연다) 위에 만든다
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 invoke 핸들러는 `app/src/main/infra/ipc/handle.ts` 의 `handle(channel, schema, invalid, fn)` 헬퍼를 경유해 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 safeParse 검증한다. 채널별 실패 정책은 등록부에 명시:
   - `'reject'` — zod 에러로 invoke reject (쓰기·생성류: project create/update/delete/listSessions · mcp delete · install start · chat cancel · debug setMock). 무효 페이로드 = 프로그래머 오류 표면화.
@@ -34,7 +34,7 @@
 
 **채널마다 처리하는 프로세스가 하나다.** 방향 칸의 `M` 은 그 채널을 맡은 프로세스 — 셸(Electron main) · 에이전트 호스트 · 데이터 호스트 — 를 뜻하고, 배정의 정본은 `app/src/shared/channel-owner.ts` 다. preload 가 이 표로 전송을 고른다: 셸 채널은 `ipcRenderer`, 호스트 채널은 그 호스트의 포트로 가며 main JS 를 지나지 않는다([실행 모델](./arch/execution-model.md)). `window.oo` 의 형상은 전송과 무관하다.
 
-**`CHANNELS` 밖의 연결 채널** (`shared/host-protocol.ts` — 셸 ↔ preload 전용, renderer 에 노출하지 않는다): `oo:host:connect`(창 문서가 호스트 포트를 요청) · `oo:host:port`(셸이 포트를 전달 — 호스트가 다시 뜨면 새 포트) · `oo:host:exited`(호스트 비정상 종료 통지). renderer 는 채널 대신 `window.oo.hosts.onLifecycle` 로 그 결과만 받는다 — 호스트가 죽었다(`exited`) · 죽었던 호스트의 새 포트가 왔다(`reconnected`). 첫 포트는 알리지 않는다. 에이전트 호스트가 죽으면 진행 중 세션은 오류로 끝나고(`chatStore.onHostLifecycle`), 다시 붙으면 세션 목록과 활성 세션을 다시 읽는다(0324 AC29′·AC33′).
+**`CHANNELS` 밖의 연결 채널** (`shared/host-channels.ts` — 셸 ↔ preload 다리 전용, `window.oo` 에 노출하지 않는다. 다리가 받은 포트는 같은 창의 `window.postMessage` 로 renderer 전송층에 넘긴다): `oo:host:connect`(창 문서가 호스트 포트를 요청) · `oo:host:port`(셸이 포트를 전달 — 호스트가 다시 뜨면 새 포트) · `oo:host:exited`(호스트 비정상 종료 통지). renderer 는 채널 대신 `window.oo.hosts.onLifecycle` 로 그 결과만 받는다 — 호스트가 죽었다(`exited`) · 죽었던 호스트의 새 포트가 왔다(`reconnected`). 첫 포트는 알리지 않는다. 에이전트 호스트가 죽으면 진행 중 세션은 오류로 끝나고(`chatStore.onHostLifecycle`), 다시 붙으면 세션 목록과 활성 세션을 다시 읽는다(0324 AC29′·AC33′).
 
 **호스트 → 셸 서비스** (`shared/shell-services.ts` — 호스트만 부르고 요청마다 스키마 검증): `secrets.*`(봉인·해제) · `dialog.*` · `external.*`(외부 열기·휴지통) · `notify.show` · `session.*`(인증용 파티션 세션 — 등록·로그인 창·전송·비우기).
 
@@ -261,7 +261,7 @@ MCP의 session-native 목록은 선택적인 `managedSource: { kind: 'builtin' |
 | ------------------------- | ------------ | --------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `oo:session:cwd`        | R→M (invoke) | —                                                               | `Promise<string>`       | 새 대화의 기본 작업 디렉토리(OS Desktop). 프로젝트 landing은 Project.cwd를 우선한다.                                                                                                                                                                                                                                                                                                                                                                                          |
 | `oo:session:list` | R→M (invoke) | — | `SessionListItem[]` | Orcinus orca에서 숨기지 않은 대화 메타 목록(`cwd` 포함), `updatedAt` 내림차순. |
-| `oo:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string; requestId: number }`(번호는 preload 가 붙인다) | `Promise<LoadedSession \| null>` | Orcinus orca DB의 본문·저장 backend·cwd·사용량·activity를 먼저 반환한다. 유효한 빈 세션도 정체성을 반환하고 없는/숨긴 세션만 null이다. native 조회나 모델 호출을 기다리지 않는다. |
+| `oo:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string; requestId: number }`(번호는 renderer 전송층이 붙인다) | `Promise<LoadedSession \| null>` | Orcinus orca DB의 본문·저장 backend·cwd·사용량·activity를 먼저 반환한다. 유효한 빈 세션도 정체성을 반환하고 없는/숨긴 세션만 null이다. native 조회나 모델 호출을 기다리지 않는다. |
 | `oo:session:refresh` | R→M (invoke) | `LoadSessionRequest` | `Promise<RefreshSessionResult>` | 첫 DB 표시 후 lazy native 조회. `updated + session` / `unchanged` / `busy` / `missing\|unavailable\|migration-required + message`. snapshot·검색·커서를 함께 확정한 결과만 반환하며 raw/sourceKey/cursor는 main에 보관한다. live/삭제/새 조회보다 늦은 응답은 화면에 적용하지 않는다. |
 | `oo:session:load-chunk` | M→R (send) | — | `SessionLoadChunk` = `{ requestId: number; seq: number; messages: AppMessage[] }` (`shared/data-host.ts`) | `load`·`refresh` 응답보다 먼저 오는 본문 조각. preload 가 요청 번호로 모아 응답과 합친다 — `window.oo.session.load`·`refresh` 의 반환 형상은 그대로이고 renderer 는 조각을 보지 않는다. |
 | `oo:session:load-cancel` | R→M (send) | `{ requestId: number }` | — | 진행 중인 첫 본문 로드를 취소한다(`window.oo.session.cancelLoad(sessionId)`). 데이터 호스트는 남은 조각을 보내지 않고 그 호출은 거부로 끝난다. 갱신은 취소하지 않는다. |
@@ -667,7 +667,7 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 1. `app/src/shared/ipc.ts` — 채널 상수 + 타입 정의 추가/변경. **`app/src/shared/channel-owner.ts` 에 처리 프로세스(`shell`·`agent`·`data`)를 함께 적는다** — 빠지면 typecheck 가 실패하고, 표와 실제 등록이 어긋나면 `app/channel-registration.test.ts` 가 실패한다. `NormalizedEvent`/`AppMessagePart` 필드 변경도 이 단계에 포함
 2. `app/src/shared/protocol.ts` — zod 스키마 추가 (요청 검증 필요 시)
 3. `app/src/main/app/handlers/<domain>.ts`(또는 chat 계열이면 `app/chat-turn/`) — `handle(channel, schema, invalid, fn)` 또는 `handlePlain` 으로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 그 채널을 맡는 호스트 조립(`app/{data-host,agent-host}/bootstrap.ts`)의 `register()` 에서 호출
-4. `app/src/preload/index.ts` — `window.oo.<domain>.<action>` 노출 추가
+4. `app/src/renderer/src/shared/api/transport/oo.ts` — `window.oo.<domain>.<action>` 노출 추가(전송은 채널 소유 표가 고른다 — preload 다리는 바꾸지 않는다, 0324 D-058)
 5. Renderer 사용처 (`app/src/renderer/src/shared/api/ipc.ts`, feature provider/hook 또는 컴포넌트)
 6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설 + §2 머리 도메인 목록 갱신). 채널 수는 산문에 쓰지 않는다 — `node app/scripts/check-doc-inventory.mjs` 로 [생성물](./generated/inventory.md)을 재생성한다
 7. 영향 받는 `arch/frontend`·`arch/backend` 문서 갱신
@@ -675,7 +675,7 @@ Work에는 Main이 `{ type: 'response.boundary', sessionId, boundary }`를 발�
 
 ## 7. 보안 / 제약
 
-- preload 는 명시된 채널만 노출. `ipcRenderer` 직접 노출 금지.
+- preload 다리(`window.ooBridge`)는 셸 채널만 연다 — 호스트 채널과 표에 없는 이름은 던진다. `ipcRenderer` 직접 노출 금지. `window.oo` 는 renderer 전송층이 명시된 채널만으로 만든다.
 - Renderer 에서 채널 이름 문자열 하드코딩 금지 — `window.oo.*` 만 사용.
 - 모든 invoke 핸들러는 `infra/ipc/handle.ts` 의 검증·실패 정책(`'reject'` | `{ fallback }`, §1)을 거친다. 턴 오류는 `ClassifiedError`(§4)로 `error` 이벤트에 싣는다.
 - 민감 정보 (자격증명·파일 전체 경로 등) 는 로그에 마스킹.

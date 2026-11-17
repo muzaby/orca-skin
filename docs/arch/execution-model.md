@@ -35,24 +35,26 @@ Orcinus orca 는 한 프로세스가 아니다. 창이 멈추지 않도록 **실
 | 연결 | 양 끝 | 무엇이 지나가는가 | 정본 |
 |---|---|---|---|
 | 셸 IPC | 창 ↔ 셸 | 창 조작 · 업데이트 · renderer 로그 · 부팅 대기 · 알림 | `shared/channel-owner.ts` 의 `'shell'` 채널 |
-| 창 포트 | 창 ↔ 각 호스트 | 그 호스트가 소유한 채널의 요청·통지. 셸의 JS 를 지나지 않는다 | `shared/channel-owner.ts` · `shared/host-protocol.ts` |
+| 창 포트 | 창 ↔ 각 호스트 | 그 호스트가 소유한 채널의 요청·통지. 셸의 JS 와 preload 를 지나지 않는다 — preload 다리가 셸이 넘긴 포트를 페이지 메인 월드의 renderer 전송층에 넘긴다 | `shared/channel-owner.ts` · `shared/host-protocol.ts` · `shared/host-channels.ts` |
 | 피어 포트 | 에이전트 호스트 ↔ 데이터 호스트 | 턴 저장 스트림 · 턴 준비 조회 · 설정 사본 · 교차 요청 | `shared/peer-protocol.ts` |
 | 셸 서비스 | 각 호스트 → 셸 | Electron 권한 작업 | `shared/host-protocol.ts` |
 | 수명 이벤트 | 에이전트 호스트 → 셸 | 턴 시작·끝 · 승인 대기 · 세션 끝 · 하네스 종료 | `app/shell/lifecycle-state.ts` |
 
-- **채널마다 처리하는 프로세스는 하나다.** preload 가 채널 소유 표를 보고 셸 IPC·에이전트 포트·데이터
-  포트 중 하나를 고른다. `window.oo` 의 모양은 전송과 무관하다.
+- **채널마다 처리하는 프로세스는 하나다.** renderer 전송층(`renderer/src/shared/api/transport/`)이 채널 소유
+  표를 보고 preload 다리(셸 IPC)·에이전트 포트·데이터 포트 중 하나를 고른다. 다리는 셸 채널만 연다.
+  `window.oo` 의 모양은 전송과 무관하다. preload 는 `electron` 과 zod 없는 shared 상수만 쓴다 — 빌드 산출은
+  `scripts/smoke-preload.mjs` 가 본다.
 - **턴 이벤트는 두 곳에 함께 간다.** 에이전트 호스트가 이벤트 하나를 데이터 호스트(저장)와 창(표시)에
   보내고, 화면은 저장 응답을 기다리지 않는다. 피어 포트의 순서가 곧 저장 순서다. 저장이 실패하면 그 턴은
   오류로 끝난다. 사용자 메시지 커밋과 백그라운드 기록, 산출물 참조가 붙는 이벤트는 저장 응답 뒤에 공개한다.
 - **진행 중 턴의 델타는 빠지지 않는다.** 턴은 시작한 창의 문서와 수명을 같이하고(문서가 닫히면 중단),
   진행 중인 캐시 세션에는 세션 로드 결과를 적용하지 않는다. 턴 이벤트에 순번은 없다 — 창이 여럿이 되거나
   턴이 창보다 오래 살게 되면 이 전제를 먼저 다시 설계해야 한다.
-- **호스트가 죽거나 다시 붙으면 renderer 가 안다.** preload 가 `window.oo.hosts.onLifecycle` 로 알린다. 에이전트
+- **호스트가 죽거나 다시 붙으면 renderer 가 안다.** renderer 전송층이 `window.oo.hosts.onLifecycle` 로 알린다. 에이전트
   호스트가 죽으면 진행 중 세션은 오류로 끝나 입력을 다시 받고(그 호스트가 보낼 마감 이벤트는 오지 않는다),
   죽었던 호스트가 다시 붙으면 세션 목록과 활성 세션을 다시 읽는다.
-- **세션 본문은 조각으로 간다.** 데이터 호스트가 메시지를 조각으로 나눠 창 포트에 보내고 preload 가 한
-  벌로 조립한다. renderer 는 조립된 결과를 한 번만 스토어에 반영한다. 상한과 조립 규칙은
+- **세션 본문은 조각으로 간다.** 데이터 호스트가 메시지를 조각으로 나눠 창 포트에 보내고 renderer 전송층이
+  한 벌로 조립한다. renderer 는 조립된 결과를 한 번만 스토어에 반영한다. 상한과 조립 규칙은
   `shared/data-host.ts` 가 갖는다.
 - **데이터 호스트가 실행이 필요한 일**(예약 셸 명령 · 네이티브 이력 읽기 · 하네스 설치·모델 목록 ·
   확장 배포)을 부탁할 때 에이전트 호스트가 없으면 셸에 기동을 요청하고 기다린다. 활동 조회·바쁨 판정·
@@ -68,10 +70,10 @@ Orcinus orca 는 한 프로세스가 아니다. 창이 멈추지 않도록 **실
 
 | 하려는 일 | 요청하는 곳 | 경로 | 직접 하면 걸리는 규칙 |
 |---|---|---|---|
-| renderer 가 데이터를 읽거나 바꾼다 | 채널을 소유한 프로세스 | `renderer/src/shared/api/*` → `window.oo` → preload 의 채널 소유 표 → 포트 또는 셸 IPC | (h) |
+| renderer 가 데이터를 읽거나 바꾼다 | 채널을 소유한 프로세스 | `renderer/src/shared/api/*` → `window.oo`(전송층) → 채널 소유 표 → 호스트 포트 또는 preload 다리(셸 IPC) | (h) |
 | 호스트가 화면을 갱신시킨다 | renderer | `infra/ipc/send.ts` 의 통지 함수 → 창 포트 → `shared/api` 구독 → 스토어 | (g) |
 | renderer 가 무거운 계산을 한다 | 계산 워커 | `renderer/src/shared/compute/client.ts` | (b)(i) |
-| renderer 가 세션 본문을 읽는다 | 데이터 호스트 | `sessionApi.load`·`refresh` → preload 조립 → `app/data-host/session-load.ts` | (c) |
+| renderer 가 세션 본문을 읽는다 | 데이터 호스트 | `sessionApi.load`·`refresh` → 전송층 조립 → `app/data-host/session-load.ts` | (c) |
 | 호스트가 창·OS·비밀 봉인을 쓴다 | 셸 | 셸 서비스 클라이언트 | (f) |
 | 셸이 턴·세션 상태를 안다 | 에이전트 호스트 | 수명 이벤트 → `LifecycleState` | (e) |
 | 실행 쪽이 DB·설정·비밀을 읽거나 쓴다 | 데이터 호스트 | 데이터 링크(`data.query`·`data.write`) · 설정 사본 | (e)(k)(l) |
@@ -104,7 +106,7 @@ Orcinus orca 는 한 프로세스가 아니다. 창이 멈추지 않도록 **실
 
 이 절은 그 파일의 기준 이름과 뜻만 적고 값은 적지 않는다. 한 작업이 `UI_TASK_BUDGET_MS` 이상 스레드를 잡으면
 멈춤으로, `STALL_SEVERE_MS` 이상이면 심각으로 기록한다. 관측 창 `STALL_WINDOW_MS` 하나에는 그 창의 최댓값
-기록 1건만 남는다.
+기록 하나만 남는다.
 
 UI 스레드(renderer 메인 · 셸)에서 한 작업을 여러 태스크에 나눠 도는 시간 조각 작업은 `UI_YIELD_INTERVAL_MS`
 마다 양보한다(0324 D-057). 한 번에 끝나는 작업(이벤트 처리 · 프레임마다 모은 델타 비우기 · 스토어 반영)은 위의
