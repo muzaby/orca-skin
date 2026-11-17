@@ -400,6 +400,10 @@ export class DataBootstrap implements HostAssembly {
     })
     authResumeRef = authResume
 
+    // DB 단계(열기·백업·마이그레이션·복구)는 끊을 수 없는 긴 동기 단계다 — 셸의 준비 마감을 멈추게 알리고
+    // 그 알림이 나갈 수 있게 한 번 양보한 뒤 들어간다(D-055 · EP-24). 끊기면 다시 떠도 백업부터 다시 한다.
+    this.host.toShell({ type: 'boot.step', state: 'begin' })
+    await new Promise<void>((resolve) => setImmediate(resolve))
     const db = (this.db = this.bootReport.stepSync(
       'db-init',
       { critical: true, label: 'DB 초기화' },
@@ -418,6 +422,7 @@ export class DataBootstrap implements HostAssembly {
       { critical: true, label: '미완료 도구 호출 복구' },
       () => recoverSessionHistory(db)
     )
+    this.host.toShell({ type: 'boot.step', state: 'end' })
     if (recovered.toolResultsWritten > 0)
       getLogger()
         .child('chat')

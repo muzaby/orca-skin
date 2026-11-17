@@ -3202,6 +3202,97 @@ sweep 누계: 168건 전부 실행 — 첫 실행 142 잡음 · 26 못 잡음 �
 - 지운 장치(`restart-gate.test.ts`)가 r1.11~r1.16 동안 production 을 잠그지 않은 채 green 이었다.
 - 환경: Electron 바이너리 없음 · `npm ci --ignore-scripts` + `ensure-sqlite-abi.mjs node`. vitest 기준선 22케이스는 `origin/main`(9692a27) worktree 에서 같은 9파일을 돌려 케이스 단위로 대조했다.
 
+## [구현자 기입] r1.18 — 사용자 결정 반영: 준비 제한 시간(EP-24)
+
+**판정: 완료 — `impl/IMPL_DONE`.** rev 4.5(§7-J)의 EP-24 12자리를 닫았다. D-049 · D-056 은 결정 상태만 바뀌어 코드 변경이 없다. 사용자 요구 변경 턴이라 라운드는 그대로다(라운드 1 · verify 0회).
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| 만료 콜백의 가드 | 구현 세부 → 단순화 | plan ⑧ "같은 child · 아직 `starting` · 멈춤 아님일 때만" 중 같은 child·멈춤 조건은 도달할 수 없다 — child 가 바뀌는 길(exit ⑦)과 멈춤(④)이 타이머를 지우고, 멈춤 중에는 잡지 않는다. 각 조건 제거 변이가 green(E24-8d·8e)이라 `phase !== 'starting'` 하나로 줄였다. 남는 경우는 기동 중 종료 요청이다(규칙 칸 7행) |
+| `armReady` 의 준비 판정 확인 | 구현 세부(`동치` 유지) | 준비 판정이 없으면 같은 `ensureRunning` 안에서 `becomeReady` 가 바로 지운다(E24-r1 green). 읽는 사람에게 "준비 판정이 있을 때만"을 보이려고 남겼다 |
+| 검색 출력 ↔ 목록 | 차이 1종 — 자리 아님 | `boot-report.ts:118-122` 3줄은 로그 이벤트 이름 `boot.step.completed/failed` 다(검색 술어 `boot\.step` 가 겹친다) |
+| `host-link.ts` `case 'boot.step'` | 구현 세부 | 싱크가 무효로 세지 않게 하는 것은 스키마(⑫)다 — 이 case 는 switch 뒤에 할 일이 없어 문서 역할이다 |
+
+### 강제 지점 전수 (§10 대조)
+
+검색 명령(§7-J EP-24 행)을 돌려 정의·타입 줄과 위 로그 이름 3줄을 뺀 자리 = 목록 12, 차집합 0.
+
+| EP-24 자리 | 위치 | 닫음 | 좌표 |
+|---|---|---|---|
+| ① fork 마감 설정 | `host-supervisor.ts` `ensureRunning` `armReady(child)` | ✅ | '기동 중 메시지가 없고 마감이 지나면 …'(E24-1 red 3) |
+| ② 호스트 메시지 다시 잡기 | `onMessage` else `armReady` | ✅ | "기동 중 호스트 메시지 는 그 시점부터 …"(E24-2) |
+| ③ `send` 다시 잡기 | `send` | ✅ | "기동 중 셸 → 호스트 send 는 …"(E24-3) |
+| ④ 긴 단계 시작 멈춤 | `pauseReady()` | ✅ | '긴 단계 시작 ~ 끝 사이에는 세지 않고 …'(E24-4) |
+| ⑤ 긴 단계 끝 다시 잡기 | `readyPaused = false` + `armReady` | ✅ | 같은 케이스(E24-5) |
+| ⑥ 준비 해제 | `becomeReady` `clearReady()` | ✅ | '마감 전에 준비하면 …' 남은 타이머 0(E24-6) |
+| ⑦ exit 해제 | `handleExit` `clearReady()` | ✅ | '준비 전 exit 는 그 child 의 마감을 해제한다'(E24-7) |
+| ⑧ 만료 → 알림 + kill | 타이머 콜백 | ✅ | kill 제거 E24-8a red 6 · 알림 제거 8b · starting 가드 제거 8c('기동 중 종료를 요청했으면 …') |
+| ⑨ 셸 배선 | `index.ts` | ✅ | `host-assemblies.order.test.ts` '셸의 두 감독자는 준비 마감 …'(E24-9a·9b·9c) |
+| ⑩ 데이터 시작 + 양보 | `data-host/bootstrap.ts` | ✅ | '데이터 호스트는 DB 단계 앞에서 …'(E24-10a·10b) · `gate:node scripts/smoke-hosts.mjs`(E24-s3) |
+| ⑪ 데이터 끝 | 같은 파일 | ✅ | 같은 케이스(E24-11 · 맞바꿈 E24-11s) · 스모크 |
+| ⑫ 스키마 | `host-protocol.ts` · `host-link.ts` `hostStartStep` | ✅ | `host-link.test.ts` '기동 단계 알림은 무효가 아니고 …' · `hostStartStep` 7입력(E24-12a·12b) |
+
+EP-24 규칙 칸 8분기 ↔ `host-supervisor.test.ts` 'createHostSupervisor — 준비 마감' 케이스: 마감 지남(①⑧) · 마감 전 준비 · 호스트 메시지/`send`(it.each 2) · 긴 단계 · 3회 연속 상한 · 준비 판정 없음/마감 없음(it.each 2) · 기동 중 종료 요청 · 재기동 뒤 옛 child — 8/8. 더해 exit 해제(⑦)와 값 90초 케이스.
+
+V-pair 자기 상태: `SELF_PASS` — VP-45 · VP-46 · VP-47 · VP-22″·VP-22(REGRESSION — 기존 케이스 green, 아래 회귀 변이 표). `SELF_BLOCKED` 0.
+
+### 이번 라운드 수정의 잠금
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---:|---|---|
+| EP-24 sweep(자리 ①~⑫ · 규칙 · 값 · 맞바꿈 · 스모크 판정) | 28 | 첫 실행 23 잡음 · 4 못 잡음(8d·8e·r1·r3) · 1 SKIP(9c 원문 불일치) | 가드 단순화로 8d·8e 는 조건 자체가 없어졌다. 재실행(재앵커 포함) 6: 8c·r3·6·7·9c 잡음 · r1 `동치`(위 설계 리뷰) |
+| 손댄 파일의 앞 sweep 행 재실행(덮개 회귀 ④ 범위) | 25 | 25/25 잡음 — red → green 0. EP-10′ 2행은 oracle 기준선 1(`claude-assembly`)을 넘는 2 failed | r1.16·r1.17 spec 중 파일이 이번 diff 6파일인 행 |
+
+검산: `선택 증거 1(VP-46 셸 배선 — E24-9a·9b·9c) · 인용 변이 0 · 새 oracle 4(마감 규칙 · host-link · 배선 2 · 스모크 판정) · sweep 28 + 재실행 6 · 회귀 25 = 표 변이 59` — 선택 증거와 새 oracle 의 민감도는 sweep 행이 겸해 따로 세지 않는다. 원본은 `evidence/r1.18-sweep/`.
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 부팅이 멈추는 경우 | 준비를 알리지 않는 호스트는 셸과 메시지 없이 90초 뒤 끝나고 기동 실패로 센다 — 데이터 호스트는 바로 다시 뜨고, 3회면 부팅 오류 화면(§5 "앱 시작" 행). 최악의 대기는 마감 × 3 |
+| 큰 DB 업그레이드 | 마이그레이션 백업·적용 중에는 세지 않는다 — 스모크가 실제 번들에서 시작 → 끝 → 준비 순서를 본다 |
+| 만료 기록 | 셸 로그 `shell.host.ready-timeout`(host · timeoutMs) — 화면 문구는 기존 부팅 오류 그대로 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | 에이전트 호스트의 첫 기동이 마감으로 끝나면 다시 띄우는 것은 지금처럼 창의 연결 요청이다(감독자는 스스로 재기동하지 않는다) | 기존 EP-19 동작 — 바꾸지 않았다 |
+| 2 | B34 — 셸 서비스가 매크로태스크를 넘겨 답하는 동안 마감이 지나면 끊긴다 | 선언 경계. 기동 중 셸 서비스는 동기 `secrets.decrypt` 뿐이다 |
+
+### 구현 보고
+
+| 단계 | 파일 |
+|---|---|
+| 4n 감독자 | `app/shell/host-supervisor.ts` — `HOST_READY_TIMEOUT_MS` · `readyTimeoutMs`·`startStep`·`onReadyTimeout` · `armReady`·`pauseReady`·`clearReady` |
+| 4o 계약 | `shared/host-protocol.ts` `boot.step` · `app/shell/host-link.ts` `hostStartStep` |
+| 4p 데이터 호스트 | `app/data-host/bootstrap.ts` DB 단계 앞뒤 알림 + 양보 |
+| 4q 셸 | `index.ts` 배선 + 만료 로그 |
+| 4r 스모크 | `scripts/smoke-hosts.mjs` 단계 기록·판정 · `smoke-hosts.test.mjs` 판정 4분기 |
+| 문서 | `docs/arch/execution-model.md` 실행 주체 절 |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0 — 마이그레이션 · 문서 인벤토리(링크) · 제품 이름 2433파일 · 테스트 예산 · 프로세스 경계 `check-ui-thread: OK` |
+| `npm run lint` | 오류 0 · 경고 3(기존). 자동 수정은 `host-supervisor.test.ts` 줄바꿈 1건(이번 턴 파일) |
+| `npm run typecheck` | node · web · test 0 · 0 · 0 |
+| `vitest run`(필터 없음) | 1026파일 · 9749케이스 — 실패 22 · 처리 안 된 오류 1. `origin/main`(9692a27) 기준선 22케이스와 케이스 단위 차집합 양방향 ∅(r1.17 과 같은 내역) |
+| `node --test scripts/*.test.mjs` | 1000 / 1000(스모크 판정 4분기 추가) |
+| `npx electron-vite build && node scripts/smoke-hosts.mjs` | 빌드 통과 · 스모크 OK — 데이터 호스트 `begin → end → ready` 판정 포함 |
+
+테스트 소스 규칙: 추가·수정 4파일(`host-supervisor.test.ts` · `host-link.test.ts` · `host-assemblies.order.test.ts` · `scripts/smoke-hosts.test.mjs`) — `check-test-budgets` 위반 0 · vitest unit 가드 `[test-pools]` 0 · `test-pools.test.mjs` 통과. 마감 케이스는 가짜 시계(실제 경과 없음)다.
+
+**AC 자기보고**: ✅ 48 · ⚠️ 2 · ❌ 0 = 총 50. AC50 ✅(위 좌표). ⚠️ 는 AC22·AC23(사람 실기). 분모가 rev 4.5 에서 49 → 50 으로 바뀌어 r1.17(47/49)과 직접 비교하지 않는다.
+
+### Review Signals — 사실만
+
+- 라운드 1 · impl 턴 `r1.18`(사용자 요구 변경 턴) — verify 0회. 사용자 지시로 verify 3회전까지 review 를 하지 않는다.
+- plan 의 만료 가드 3조건 중 2조건이 도달 불가였다 — sweep 이 구현 중에 드러냈다.
+
 ---
 
 ## [검증자 기입] 파생 이슈
