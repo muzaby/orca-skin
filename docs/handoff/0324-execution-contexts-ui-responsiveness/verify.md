@@ -461,3 +461,130 @@
 - pair: VP-51 `PAIR_FAIL` · 나머지 REQUIRED·REGRESSION PASS(VP-07 사람 실기 제외) · AC ✅49 · ⚠️3 · ❌1 / 53.
 - 다음: `handoff-review`(verify 3회째 PASS 아님) → 설계자 rev 4.8 — F2~F5 채택 또는 경계 → 구현자가 F1 과 채택분을 닫는다.
 - 남은 사람 확인: AC22 · AC23 · AC52 실창.
+
+---
+
+# 라운드 4 — verify 4회째 (rev 4.8 · r4)
+
+**판정: RETURN_TO_PLAN** — `PLAN_GAP` 1(V4-F1 확장 · §7-M 사용자 결정 ΔV 노드 범위의 창 안, 마지막 창) · 이행 결함 0 · 현재 결함 0. V3-F1~F5 는 모두 잠겼다(인용 변이 Y9·Y5·Y2·Y11·Y12·Y10 red). 추천: 설계자가 V4-F1 을 경계로 선언하면 새 구현 의무가 0 이라 구현 턴 없이 verify 5회째로 간다.
+
+## R4-메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 · 일자 | Claude Code · 2026-11-18 |
+| 대상 커밋/range | `4398a44..7f88f84` — `655341f`(review round 45) · `5969e7c`(rev 4.8 설계) · `63c1e95`·`7f88f84`(r4 구현). 브랜치 `ccr-529aa736-wcu5s4`, `origin/main` 조상 아님 |
+| 구현 전 plan 기준 | `5969e7c`(rev 4.8) — `git diff 5969e7c..7f88f84 -- plan.md` 의 삭제 줄 0 · 추가는 `[구현자 기입] r4` 절뿐 |
+| V mode / 유효 V | `Baseline V: V1` rev 4.8(§7-N) |
+| 라운드 | 4 |
+| 확장 창 | verify 4회째 — §7-L 노드는 창 밖. §7-M NEW·CHANGED 노드(R-14·R-15·AR-17·MD-12 와 rev 4.8 의 ′ 노드) 범위는 그 ΔV 뒤 2회째라 **창 안(마지막)** |
+| 창 밖 새 열거 항목의 출처 | rev 4.8 의 새 항목(EP-30 · EP-27′ ⑥ · 포트 2 · 노출 2회 · EP-29′ ③ 끌기)은 모두 verify 3 V3-F1~F5(창 안 확장 채택 · plan 내부 정합)가 출처다 |
+| 독립 축(⑥) | Z1~Z9 — 잡음 7 · 동치 1(Z2) · 못 잡음 1(Z9) · 그리고 EP-30 구조 단언의 엄격화(AST) |
+| 열거 sweep(⑦) | 구현자 spec `r4-sweep/new` 24행(중복 · 넓은 oracle 시간 초과 2행 제외, 좁힌 W1n·S27-6an 사용) + ④ `rerun` 104행을 같은 명세로 재실행 |
+| 원본 | `evidence/verify4/`(`axes` · `impl-new` · `rerun` · `prev` 의 `.jsonl`·`.tsv` · `vitest-failures.txt`) — 매 실행 `# 원복 확인: 모든 파일 원문 그대로`. Z7n 실행 중 워커가 재시작돼 `install.ts` 에 변이가 남았다 — `git diff` 로 Z7 원문임을 확인하고 `git checkout` 으로 되돌린 뒤 수동 적용으로 다시 쟀다. 끝에 `git status` 는 `evidence/verify4/` 뿐 |
+
+## R4-0. Plan validity (rev 4.8)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| CHANGED ↔ REQUIRED | 유효 | CHANGED 4(AT-52′·AT-53′·IT-17′·UT-12′) ↔ VP-48′·VP-51′·VP-49′·VP-50′ · VP-21″ AC33′ 좌표 1 추가 · production 변경 0(`main.tsx` 주석 1줄)이라 영향받은 INHERITED 상위 0 |
+| §10 자리 검색 재실행 | 유효 | EP-30 `grep -nvE` → 5줄 `main.tsx:15`·`:18`·`:19`·`:21`·`:23`(plan 의 `:14`~`:22` 에서 5o 주석 1줄만큼 밀림 — 문장 같음) · EP-27′ ⑥ `install.ts:25`·`:28`·`:30` · `ports.length` 2(`preload/index.ts:34` · `install.ts:63`) · `exposed.length` `smoke-preload.mjs:91`·`:92` · `DRAG_STYLE` 3 — 구현 보고와 차집합 0 |
+| EP-30 술어 엄격화 | 유효 | TypeScript AST 로 `main.tsx` 최상위 비-import 문을 뽑으면 `:15`·`:18`·`:19`·`:21`·`:23` 5개 — 줄 필터 목록과 차집합 양방향 ∅ |
+| 선택 적대 증거 | 유효 | Y5·O1·O2 · Y2·W1·Y11·Y12 · Y10 · Y9 — 자리와 잡아야 할 분기가 적혀 있다 |
+| `SUPERSEDED` 이관 | 유효 | VP-48~51 → ′ — EP-26~29 좌표 · P1~P5 · S1~S4 · B1·B2 를 새 pair 가 넘겨받음(이번 ④ 재실행에서 red) |
+
+## R4-1. diff 비판 검토 · 역방향
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| production 동작 변경 | 없음 | `git diff 5969e7c..7f88f84 -- app/src` 의 비테스트 파일은 `main.tsx` 주석 1줄뿐 · `4398a44..7f88f84` 의 `app/src/main`·`app/src/shared`·설정 변경 0 |
+| 새 테스트의 실행 구간 | 실제 경로 | ⑥ 닫기는 Node `MessageChannel` 짝 끝의 `close` 이벤트로 본다(`hostPort().closed()`) — 흉내 `ClientPort` 가 아니다 · EP-30 ③ 은 인자 생략 호출로 production 기본 인자 `errorBridge()` 를 지난다 |
+| 전역 오염 | 없음 | `mainErrorBridge.test.ts:6-8` `afterEach` 의 `vi.unstubAllGlobals()` · `install.test.ts:47` `afterEach` 가 열린 포트를 닫는다 |
+| 새 export · 미배선 | 없음 | 새 production 심볼 0 |
+
+## R4-2. 증거 재측정
+
+| 하한 | 범위 | 결과 |
+|---|---|---|
+| ① 등록 변이 | Y5·O1·O2·Y2·W1n·Y11·Y12·Y10·Y9 | 9/9 red(`impl-new.tsv`) |
+| ② 닫는 이슈 인용 변이 | V3-F1 Y9 · F2 Y5 · F3 Y2 · F4 Y11·Y12 · F5 Y10 | 6/6 red |
+| ③ 직전 못 잡음·동치 | Y9·Y5·Y2·Y11·Y12·Y10(②와 같음) · R3-E24-r1(동치) · HC1(동치) | 못 잡음 6 → 잡음 · R4-E24-r1 green(114) — 동치 유지(`host-supervisor.ts` 미접촉) · R4-HC1 green(212) — 동치 유지 |
+| ④ 이전 잡음 재실행 | 구현자 `rerun` 104행(이번 diff 가 닿은 oracle 파일의 verify 3 잡음 행 + Y1·Y7) | red 103 · HC1 green(동치) — red → green 0. R4-E27-2d 는 600초 시간 초과(응답 대기)로 끝나 red 로 셌다 |
+| ⑤ 형제 맞바꿈 | S29-d(끌기 값 `drag` ↔ `no-drag`) · Z1(옛 포트 ↔ 새 포트 닫기) · Z3(`error` ↔ `log`) | 전부 red |
+| ⑥ 독립 축 | Z1~Z9 | 아래 표 |
+| ⑦ 열거 sweep | 구현자 spec S30-1~5 · S27-6an · S28-4 · S29-a~e + 서식 뒤 3 | 15/15 red |
+
+**고장 이력 (라운드 4 — 독립 축 · ③)**
+
+| ID | 자리 | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|---|
+| Z1 | `host-port.ts:141` | 맞바꿈 | 교체 때 `previous.close()` → `next.close()` | 새 | 잡음(2 failed / 75) | `install.test.ts` ⑥ '같은 호스트의 새 포트가 오면 옛 포트를 실제로 닫고 …' 외 1 | — |
+| Z2 | `install.ts:64` | 다른 값 | `event.ports[0]` → `event.ports.at(-1)` | 새 | 동치(75 green) | — | 동치 — `:63` 이 길이 1 만 통과시켜 두 식이 같은 원소다 |
+| Z3 | `bridge.ts:19` | 맞바꿈 | `errorBridge` 가 `oo()?.log` 를 돌려준다 | 새 | 잡음(1 failed / 544) | `mainErrorBridge.test.ts` '인자를 생략하면 호출 때의 `window.oo.error` 에 구독하고 …' | — |
+| Z4 | `host-port.ts:158` | 제거 | 호스트 종료 때 `previous?.close()` | 새 | 잡음(1 failed / 75) | `host-port.test.ts` '종료 통지는 응답 대기와 대기열을 모두 거부하고 포트를 닫는다' | — |
+| Z5 | `main.tsx:21` | 다른 값 | `startLongTaskReporter()` 를 두 번 | 새 | 잡음(1 failed / 544) | `rootElement.test.ts` EP-30 ①②④⑤ | — |
+| Z6 | `main.tsx:19` | 빈 값 | `connectMainErrorReports(undefined)` | 새 | 잡음(1 failed / 544) | `rootElement.test.ts` EP-30 ①②④⑤ | — |
+| Z7n | `install.ts:28` | 다른 값 | 수신이 `event.data` 대신 이벤트 통째로 넘긴다 | 새 | 잡음(7 failed / 13, `--testTimeout=3000`) | `install.test.ts` ② 줄 선 요청 5행 · ⑥ 닫기 외 | — |
+| Z8 | `BridgeMissingScreen.tsx:22` | 제거 | `style={DRAG_STYLE}` 제거 | Y9 와 같은 자리 | 잡음(1 failed / 157) | `BridgeMissingScreen.render.test.ts` | — |
+| Z9 | `BridgeMissingScreen.tsx:26` | 다른 값 | 본문 `<main>` 에도 `style={DRAG_STYLE}` — 화면 전체가 끌기 영역(오류 문구 선택 불가) | 새 | **못 잡음**(157 green) | — | **확장(창 안 — R-15) → V4-F1** |
+| R4-E24-r1 | `host-supervisor.ts:106` | 제거 | `!deps.isReady \|\|` | 동치 | green(114) | — | 동치(코드 미접촉) |
+
+- 검산(독립·③): 시도 10 → 잡음 7 · 동치 2(Z2 · R4-E24-r1) · 못 잡음 1.
+- 구현자 spec 재실행 128행(new 24 + rerun 104) = red 127 · green 1(HC1 동치). 구현자 표(130행 — 넓은 oracle W1·S27-6a 2행 포함)와 같은 결과다.
+- 엄격화(§8): EP-30 은 이번 라운드가 만든 구조적 proxy 다. 줄 필터를 AST 최상위 문으로 바꿔도 목록 차집합 ∅ — 방향은 Y5·O1·Z5·Z6 이 판정했다.
+
+## R4-3. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거(이번 턴) |
+|---|---|---|---|
+| VP-50′ | UT | PASS | EP-28′ 12분기 ↔ `smoke-preload.test.mjs` — '노출 2회 — 실행이 잡는다' · Y10·S28-4 red · `node --test` 1020/1020 |
+| VP-49′ | IT | PASS | EP-26′ ③ '포트 2 → 넘기지 않는다' · EP-27′ ② '포트가 둘이다 …' · ⑥ 닫기 케이스 · Y2·W1n·Y11·Y12·Z1·Z4·Z7n red · Z2 동치 |
+| VP-21″ | AT | PASS | AC33′ 좌표 2(`host-port.test.ts` 흉내 포트 · `install.test.ts` ⑥ 실제 포트) · Y2 red |
+| VP-48′ | AT | PASS(기계 범위) | EP-30 ①~⑤ ↔ `rootElement.test.ts` EP-30 케이스 · ③ ↔ `mainErrorBridge.test.ts` 2케이스(설치 뒤 · 설치 전) · Y5·O1·O2·Z3·Z5·Z6 red · `smoke-preload` OK · 실창은 AC23 실기(B47) |
+| VP-51′ | AT | PASS(V4-F1 확장 공백 별도) | EP-29′ ③ 5항 ↔ `BridgeMissingScreen.render.test.ts` · Y9·S29-a~e·Z8 red. V3-F1 의 `PAIR_FAIL` 해소 |
+| 나머지 REQUIRED·REGRESSION | — | PASS(좌표 참조) | 라운드 1~3 좌표 파일이 이번 전체 vitest · `node --test` 에서 통과 · 해당 production 미접촉 |
+| VP-07 (AC22·AC23·AC52′ 실창) | AT | 사람 실기 대기 | Electron 바이너리 없음 |
+
+- root `PAIR_FAIL` 0 · `BLOCKED_BY` 0.
+- AC: ✅ 50 · ⚠️ 3(AC22 · AC23 · AC52′ 실창) · ❌ 0 = 53. 구현자 사본(plan r4 · `7f88f84` trailer `50/53` · INDEX)과 같다.
+
+## R4-4. 운영 gate (마지막 트리 `7f88f84`)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations `sync ok` · doc-inventory `generated doc ok (9 items, 125 channels)` · prose ok · links ok · product-naming `2444파일 · 허용 7항목` · test-budgets `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | PASS | 0 error · 3 warning(기존) · 실행 뒤 `git status` 에 `app/` 변경 0 |
+| `npm run typecheck` | PASS | node · web · test exit 0 |
+| `node --test scripts/*.test.mjs` | PASS | 74 suites · 1020 pass · 0 fail |
+| `vitest run`(필터 없음) | PASS(기준선 분리) | 1029파일 · 9791케이스 — 실패 22(9파일, 전부 `src/main`) · 처리 안 된 오류 1. verify 3 과 같은 22/9 이고, verify 3 이 `49d6bba` 와 대조한 트리 이후 `app/src/main`·`app/src/shared`·설정 변경 0(`git diff --stat 4398a44..7f88f84`) · win32 경로 서명 21줄 · `[test-pools]` 0 · 목록 `evidence/verify4/vitest-failures.txt` |
+| `electron-vite build` · `smoke-hosts` · `smoke-preload` | PASS | `✓ built` 3 · `out/preload/index.js 15.35 kB` · smoke-hosts `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료` · smoke-preload `OK — require 는 electron 뿐 · 다리 \`ooBridge\` 노출(키 7)` |
+
+## R4-5. Repository operation checks
+
+- `[구현자 기입] r4` 7필드 전부 있음 — 강제 지점 표는 EP-30 5 · EP-27′ 6 · EP-26′ 7 · EP-28′ 5 · EP-29′ 4 전부를 담는다.
+- trailer: `5969e7c`(designed) · `63c1e95`(partial) · `7f88f84`(implemented · `50/53`) — `git log -1 --format='%(trailers:only=true)'` 파싱 OK. 구현 커밋 `Agent: claude`(비기능 · 사용자 지시 구현).
+- 대상 커밋: `655341f` · `5969e7c` · `63c1e95` · `7f88f84` — `git cat-file -t` commit · 브랜치 조상 · `origin/main` 조상 아님(미병합). INDEX 자리표시자를 채운다.
+- `[검증자 기입]` V3-F1~F5 를 이번 턴에 닫는다(인용 변이 6/6 red). `655341f`(review round 45)의 지침 변경은 이 verify 의 대상이 아니다 — review 가 Tier 판정을 갖는다.
+
+## R4-13. Finding disposition
+
+| # | 발견 | 분류 | 근거 | pair | disposition |
+|---|---|---|---|---|---|
+| V4-F1 | 실패 화면의 본문 영역까지 끌기 스타일을 둬도 green(Z9) — 화면 전체가 끌기 영역이 되어 오류 문구를 선택·복사할 수 없다 | 확장(창 안 — R-15) | EP-29′ ③ 기대는 끌기 영역이 *있음*만 단언하고, AC53′ "위쪽에 끌기 영역" 의 *위쪽만*은 규칙 칸에 없다. B43 "형태는 사용자 거부 가능" 이 덮는다고 보려면 해석이 필요하다. 트리에 없는 형태(지금 `:26` 에 스타일 없음) | VP-51′ | PLAN_GAP — 채택(끌기 스타일이 `<header>` 하나뿐이라는 입력) 또는 경계(시각 형태 — 사람 실기 · B43) |
+
+- 이번이 §7-M 노드 범위의 마지막 창이다. 다음 verify 부터 이 범위의 확장 후보는 후보 표로 간다.
+- 설계자가 V4-F1 을 경계로 선언하면 새 의무 0 — 구현 턴 없이 verify 5회째(INDEX 비고 "규범 변경만 — 구현 없음").
+
+## R4-14. Review Signals — 사실만
+
+- verify 4회째 · PASS 아님 — review 진입 조건 아님(3·6회째만).
+- 이번 발견 1건은 독립 축(⑥) 산출이고 §7-M 새 표면(D-059 실패 화면)의 가정 형태다 — 확장 1 · 이행 0 · 현재 0. §7-L 발견 0.
+- V3-F1(라벨 단언)은 review round 45 의 "자리 문장의 항" 규칙 아래 구현자 sweep S29-a~e 로 닫혔다.
+- 환경: Electron 바이너리 없음 · 기준선 실패 22 는 라운드 1~3 과 같다 · 워커 재시작 1회(Z7 변이 잔류 — 확인 뒤 원복).
+
+## R4-15. 결론
+
+- 상태: **RETURN_TO_PLAN** — PLAN_GAP 1(V4-F1 확장 · 창 안) · BLOCKING 0.
+- pair: root `PAIR_FAIL` 0 · REQUIRED·REGRESSION 전부 PASS(VP-07 사람 실기 제외) · AC ✅50 · ⚠️3 · ❌0 / 53.
+- 다음: 설계자 rev 4.9 — V4-F1 채택 또는 경계 → 경계면 구현 없이 verify 5회째.
+- 남은 사람 확인: AC22 · AC23 · AC52′ 실창.
