@@ -4140,6 +4140,105 @@ V-pair 자기 상태: `SELF_PASS` — VP-01″ · VP-05‴ · VP-16″ · VP-48(
 - preload 의 sandbox 결함은 2026-05-13 에도 같은 꼴로 났고 그때 정책은 관례(TRD)로만 남았다 — 이번에 산출 검사(`smoke-preload`)가 CI 단계가 됐다.
 - 환경: Electron 바이너리 없음(실창 실기 불가) · better-sqlite3 는 `ensure-sqlite-abi.mjs node` 로 Node ABI.
 
+## [구현자 기입] r4 — rev 4.8: 설치 순서 · 포트 감싸기 닫기 · 포트·노출 개수 · 실패 화면 끌기 스타일
+
+**판정: 완료 — `impl/IMPL_DONE`.** rev 4.8 §7-N 의 5i~5o 와 V3-F1(이행 `BLOCKING`)을 닫았다. 라운드 4 의 첫 impl 턴이다(verify 3회째 `RETURN_TO_PLAN` → review round 45 → rev 4.8 뒤). production 동작 변경 0(주석 1). `PLAN_GAP` 0.
+
+### 설계 리뷰
+
+| 항목 | 판정 | 근거 / 결정 |
+|---|---|---|
+| 5i EP-30 ①②④⑤ | plan 대로 + 구현 세부 1 | 원문을 `/\r?\n/` 로 나눈다 — `.gitattributes` 가 `eol=lf` 를 고정하지만(`git check-attr eol` → `lf`) 체크아웃 설정과 무관하게 같은 줄을 본다. 옛 케이스('`main.tsx` 는 `installOo()` 의 결과를 렌더 전에 받아 …')는 이 케이스가 대체했다 |
+| 5j EP-30 ③ | plan 대로 | 기존 케이스와 같은 `vi.stubGlobal('window', …)` · 두 케이스(설치 뒤 · 설치 전) |
+| 5k EP-27′ ②·⑥ | plan 대로 + 픽스처 1 | `hostPort()` 가 짝 끝의 `close` 를 `closed()` 로 낸다. 포트 둘 행의 검사 대상은 첫 포트 — 첫 포트를 붙이면 줄 선 요청이 그리로 가 표지 단언이 red 다 |
+| 5l · 5m · 5n | plan 대로 | 5n 은 표지와 스타일이 같은 `<header>` 에 있음을 한 정규식으로 본다 — 스타일 단독 단언은 다른 요소의 같은 스타일에 맞을 수 있다 |
+| 5o | plan 대로 | `main.tsx` 설치 줄 주석 1줄 |
+| 설계 대비 메커니즘 변경 | 해당 없음 | 테스트 · 주석만 바꿨다 — 대체물 실패 모드 축을 다시 유도할 대상이 없다 |
+
+### 강제 지점 전수 (§10 대조)
+
+검색 명령을 마지막 트리에서 다시 돌렸다. 목록과 차집합 0 이다.
+
+| EP | 검색 출력 → 자리 | 닫음 | 직접 oracle 좌표 |
+|---|---|---|---|
+| EP-30 (5) | `grep -nvE '^(import \|//\|$\|[[:space:]]\|\)\|\})' src/renderer/src/main.tsx` → ① `:15` · ② `:18` · ③ `:19` · ④ `:21` · ⑤ `:23` (주석 1줄 추가로 한 줄씩 밀렸다) | 5/5 ✅ | `app/rootElement.test.ts` '`main.tsx` 의 첫 실행 문은 `installOo()` 이고 렌더 전 단계와 첫 렌더는 모두 그 뒤다 (EP-30 ①②④⑤)' · ③ 소비처 `shared/errors/mainErrorBridge.test.ts` '인자를 생략하면 호출 때의 `window.oo.error` 에 구독하고 …(설치 뒤)' · '`window.oo` 가 생기기 전에 인자 없이 부르면 구독하지 않는다 …(설치 전)' |
+| EP-27′ (6) | EP-27 명령 7줄 ①~⑤(r3 표 그대로) + `rg -n "port\.(postMessage\|onmessage\|close)\b" install.ts` → ⑥ `:25` 송신 · `:28` 수신 · `:30` 닫기 | 6/6 ✅ | ①~⑤ r3 좌표 그대로 + ② it.each '포트가 둘이다 → 붙지 않는다 — 요청은 줄을 선 채다' · ⑥ 닫기 '같은 호스트의 새 포트가 오면 옛 포트를 실제로 닫고 이후 요청은 새 포트로 간다' · 송신·수신 '이 창이 보낸 에이전트 포트 하나를 받으면 …'(요청 채널 · 응답 `'agents'`) |
+| EP-26′ (7) | r3 표 그대로(13줄) | 7/7 ✅ | r3 좌표 + ③ it.each '포트 2 → 넘기지 않는다' |
+| EP-28′ (5) | r3 표 그대로(`:105` · `:119`) | 5/5 ✅ | r3 좌표 + ④ '노출 2회 — 실행이 잡는다' |
+| EP-29′ (4) | r3 표 그대로 | 4/4 ✅ | r3 좌표 · ③ `BridgeMissingScreen.render.test.ts` 가 role · 제목 · 본문 · 끌기 스타일(`<header … style="-webkit-app-region:drag" … data-behavior="drag-region"`)을 단언 |
+
+- 규칙 칸 ↔ 입력: EP-30 4행 ↔ 구조 케이스 1 + 새 2 · EP-27′ 10행 ↔ 케이스 13 · EP-26′ ③ 4행 ↔ it.each 4 + 전달 1 · EP-28′ 12행 ↔ 케이스 13 + CLI 2 · EP-29′ ③ 기대 5항 ↔ 단언 5(던지지 않음 · role · 제목 · 본문 · 끌기).
+- AC33′ 좌표 추가: `transport/install.test.ts` ⑥ 닫기 케이스(실제 `MessagePort` 짝 끝의 `close`).
+
+V-pair 자기 상태: `SELF_PASS` — VP-48′(기계 범위 — 실창은 AC23 실기) · VP-49′ · VP-50′ · VP-51′ · VP-21″(AC33′ 좌표 추가). `SELF_BLOCKED` 0. 영향받은 INHERITED 상위: 없음(production 변경 0).
+
+### 이번 라운드 수정의 잠금
+
+| 묶음 | 변이 | 결과 | 비고 |
+|---|---:|---|---|
+| EP-30 — 등록 변이(Y5 · O1 · O2) · 자리 ①~⑤ 제거·고정값(S30-1~5) | 8 | 8/8 잡음 | Y5 · O1 은 ①(첫 실행 문), O2 는 ③ 설치 뒤 케이스, S30-2~4 는 ②~⑤ 의 "한 번씩" 단언이 잡는다 |
+| EP-27′ ⑥ — 등록 변이(Y2 · W1) · 송신 제거(S27-6a) | 3 | 3/3 잡음 | W1 · S27-6a 는 넓은 oracle 에서 응답 대기로 900초 시간 초과 → 좁힌 재실행 W1n · S27-6an 각 `7 failed / 13`(`install.test.ts`) |
+| EP-27′ ② · EP-26′ ③ — 포트 둘(Y11 · Y12) | 2 | 2/2 잡음 | 새 행 '포트가 둘이다' · '포트 2' 가 각 1건 실패 |
+| EP-28′ — 노출 2회(Y10) · 1회 판정 → 0 만(S28-4) | 2 | 2/2 잡음 | S28-4 는 '노출 없음'(문장) · '노출 2회' 2건 실패 |
+| EP-29′ ③ — 항마다(role S29-a · 제목 S29-b · 본문 S29-c · 끌기 Y9 · 끌기 값 맞바꿈 S29-d · 표지 S29-e) | 6 | 6/6 잡음 | Y9 = V3-F1 인용 변이(verify 3 `못 잡음` → 잡음). 자리 문장의 항마다 변이를 심었다(review round 45) |
+| 좁힌 재실행 · 서식 뒤 재실행 | 2 + 3 | 5/5 잡음 | lint 가 단언 두 줄을 감쌌다 — 그 단언에 기대는 Y9 · S30-5 · S29-d 를 마지막 트리에서 다시 돌렸다 |
+| ④ — verify 3 `잡음` 행 중 이번 diff 가 닿은 oracle 파일(`src/preload` · `transport` · `src/renderer/src/app` · `smoke-preload` · `shared/errors`)의 행 + 독립 축 Y1 · Y7 | 104 | 103 잡음 · HC1 green | HC1 은 verify 2·3 과 같은 동치(창 메시지 표지 값과 채널 이름을 비교하는 코드 0). red → green 0 |
+
+- ③(직전 verify 고장 이력의 `못 잡음`)은 V3-F1~F5 의 인용 변이 Y9 · Y5 · Y2 · Y11 · Y12 · Y10 이 전부다 — 모두 잡음.
+- 검산: `선택 증거 9(VP-48′ Y5·O1·O2 · VP-49′ Y2·W1·Y11·Y12 · VP-50′ Y10 · VP-51′ Y9) · 인용 변이 6(V3-F1 Y9 · F2 Y5 · F3 Y2 · F4 Y11·Y12 · F5 Y10 — 선택 증거가 겸함) · 새 oracle 1(EP-30 구조 단언 — 민감도는 Y5·O1·S30-1~5 가 겸함) · sweep 12(S30-1~5 · S27-6a · S28-4 · S29-a~e) · 좁힌 재실행 2 · 서식 뒤 재실행 3 · ④ 104 = 표 변이 130`.
+- 컨테이너가 S27-6a 실행 중 재시작돼 그 변이가 파일에 남았다 — `git diff` 로 변이 원문임을 확인하고 커밋본으로 되돌린 뒤 S27-6a 부터 다시 돌렸다. 매 실행 `# 원복 확인: 모든 파일 원문 그대로` · 끝에 `git status` 는 lint 의 두 파일뿐. 원본 `evidence/r4-sweep/`(`new` · `rerun` 의 `.jsonl` · `.tsv`).
+
+### Product/UX 파생 검토
+
+| 항목 | 관측 |
+|---|---|
+| 사용자 대면 변화 | 없음 — 테스트 · 주석만 바뀌었다 |
+| 설치 순서가 깨지면 보이는 것 | main 오류 보고 토스트가 뜨지 않는다(구독 0) — 이제 EP-30 ①·③ 이 red 로 막는다 |
+| 옛 포트가 열린 채면 | 호스트가 옛 창 연결을 끊지 않는다 — 이제 EP-27′ ⑥ 이 막는다 |
+| 실패 화면을 옮길 수 없으면 | 다리가 없는 창은 창 조작 단추도 없어(B43) 끌기 영역이 유일한 이동 수단이다 — 이제 EP-29′ ③ 이 스타일을 본다 |
+
+### 놓친 잠재 문제 + 대응
+
+| # | 내용 | 대응 |
+|---|---|---|
+| 1 | 렌더 전 두 단계(②·③)의 서로 간 순서는 계약이 아니다 — 맞바꿔도 green | 경계 그대로 — EP-30 은 "설치 뒤"만 요구한다(규칙 칸 ②~⑤). 두 단계는 서로의 상태를 읽지 않는다(`globalHandlers.ts` 는 창 이벤트 등록 · `mainErrorBridge.ts` 는 다리 구독) |
+| 2 | 실창에서 단계가 그 순서로 도는지 · 포트 닫힘이 호스트 쪽 연결을 정리하는지 | B47 · AC23 실기(Electron 바이너리 없음) |
+
+### 구현 보고
+
+| 단계 | 파일 |
+|---|---|
+| 5i | `app/src/renderer/src/app/rootElement.test.ts` — EP-30 ①②④⑤ 케이스(옛 구조 케이스 대체) |
+| 5j | `app/src/renderer/src/shared/errors/mainErrorBridge.test.ts` — EP-30 ③ 2케이스 |
+| 5k | `app/src/renderer/src/shared/api/transport/install.test.ts` — `hostPort().closed()` · '포트가 둘이다' 행 · ⑥ 닫기 케이스 |
+| 5l | `app/src/preload/index.test.ts` — '포트 2' 행 |
+| 5m | `app/scripts/smoke-preload.test.mjs` — '노출 2회' 케이스 |
+| 5n | `app/src/renderer/src/app/BridgeMissingScreen.render.test.ts` — 끌기 스타일 단언(V3-F1) |
+| 5o | `app/src/renderer/src/main.tsx` — 설치 줄 주석 1 |
+| 증거 | `docs/handoff/0324-execution-contexts-ui-responsiveness/evidence/r4-sweep/`(`new` · `rerun` 의 `.jsonl` · `.tsv`) |
+
+**gate(마지막 트리)**
+
+| gate | 관측 |
+|---|---|
+| 가드 5종 | 모두 exit 0 — 마이그레이션 · 문서 인벤토리(`generated doc ok` · prose · links) · 제품 이름 `2444파일 · 허용 7항목` · 테스트 예산 `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | 오류 0 · 경고 3(기존 React Compiler 2 · react-refresh 1). 자동 수정은 이번 턴 테스트 2파일의 줄 감싸기뿐 — 두 번째 실행 뒤 트리 변화 0 |
+| `npm run typecheck` | node · web · test exit 0(lint 수정 뒤 다시 실행) |
+| `node --test scripts/*.test.mjs` | 74 suites · 1020 / 1020 |
+| `vitest run`(필터 없음) | 1029파일 · 9791케이스 — 실패 22(9파일) · 처리 안 된 오류 1(`native-resources.ts:152`). 변경 전 트리(`49d6bba` worktree, verify 3 측정) 실패 집합과 `×` 줄 차집합 양방향 ∅ · 9파일 모두 `src/main` win32 전용 경로 · 이번 diff 파일과 교집합 0 · `[test-pools]` 0. lint 수정 뒤 `src/renderer/src/app` 24파일 · 157케이스 green |
+| `npx electron-vite build` · `smoke-hosts.mjs out/main` · `smoke-preload.mjs out/preload` | `✓ built` 3 · `out/preload/index.js 15.35 kB` · smoke-hosts `OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료` · smoke-preload `OK — require 는 electron 뿐 · 다리 \`ooBridge\` 노출(키 7)` · `grep -oE 'require\("[^"]+"\)'` → `require("electron")` 1 |
+
+테스트 소스 규칙: 추가·수정 6파일(`git diff --name-only --diff-filter=AMR 5969e7cb -- '*.test.*'`) — vitest 5(`preload/index` · `BridgeMissingScreen.render` · `rootElement` · `transport/install` · `errors/mainErrorBridge`)는 `classifyTestSource` 전부 `unit`(io 신호 0) · `check-test-budgets` 위반 0(시간 값 없음 — 닫힘 대기는 옵션 없는 `vi.waitFor`) · 전체 실행 `[test-pools]` 0. `node --test` 1(`smoke-preload.test.mjs`)은 vitest 풀·예산 규칙 대상이 아니다.
+
+**AC 자기보고**: ✅ 50 · ⚠️ 3 · ❌ 0 = 총 53. 바뀐 AC52′ ⚠️(기계 범위 ✅ — EP-30 좌표 · EP-26′ · EP-27′ · EP-28′ 의 새 입력 · `smoke-preload` gate. "sandbox 창에서 … 화면이 뜬다"는 AC23 실기) · AC53′ ✅(EP-29′ ③ 끌기 스타일 단언 · Y9 잡음 — verify 3 의 ❌ 해소) · AC33′ ✅(좌표 추가 — ⑥ 닫기 케이스). ⚠️ 나머지 둘은 AC22 · AC23(사람 실기). 그 밖 47 은 이번 턴 전체 vitest · `node --test` 에서 좌표 파일이 통과한 것으로 셌다. 분모는 rev 4.8 에서도 53 이다.
+
+### Review Signals — 사실만
+
+- 라운드 4 · impl 턴 `r4`(verify 3회째 `RETURN_TO_PLAN` → review round 45 → rev 4.8 뒤 첫 구현).
+- 닫은 불변식 4 — 렌더 전 단계는 `window.oo` 뒤(V3-F2) · 감싼 포트의 닫기는 실제 포트에서(V3-F3) · "정확히 하나" 판정은 둘에서도 거부(V3-F4·F5) · 자리 문장의 항은 라벨이 아니라 운반 값으로 단언(V3-F1). 넷 다 r3 이 만든 새 표면(D-058·D-059)이다.
+- V3-F1 은 review round 45 가 넓힌 ⑦ 규칙(여러 항 자리 문장의 항마다 diff 자리 변이)으로 이번 sweep 의 S29-a~e 가 항마다 돈다.
+- 환경: Electron 바이너리 없음(실창 실기 불가) · better-sqlite3 Node ABI.
+
 ---
 
 ## [검증자 기입] 파생 이슈
