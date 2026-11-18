@@ -21,6 +21,8 @@ describe('BridgeMissingScreen', () => {
     )
     // 창을 끌 수 있는 영역이 있다 — 창 조작 단추는 없다(B43). 표지 속성은 라벨이라 그것만으로 끌기를 보지
     // 못한다 — 끌기를 만드는 스타일을 그 요소에서 단언한다(0324 EP-29′ ③ · V3-F1).
-    expect(html).toMatch(/<header[^>]*style="-webkit-app-region:drag"[^>]*data-behavior="drag-region"/)
+    expect(html).toMatch(
+      /<header[^>]*style="-webkit-app-region:drag"[^>]*data-behavior="drag-region"/
+    )
   })
 })
