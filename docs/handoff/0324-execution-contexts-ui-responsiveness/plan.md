@@ -13,7 +13,7 @@
 | 상태 | READY |
 | V mode | `Baseline V` |
 | 기준 V | `none` |
-| 이번 V revision | `V1` rev 4.8 — §7-N: verify 3회째 `PLAN_GAP` 4건(§7-M 사용자 결정 ΔV 노드 범위의 창 안 확장) 모두 채택 — V3-F2 설치 순서 → AC52′ · EP-30(5) · V3-F3 포트 감싸기 닫기 → EP-27′ ⑥(6자리) · AC33′ 좌표 · V3-F4 포트 2 입력 → EP-26′ ③ · EP-27′ ② · V3-F5 노출 2회 → EP-28′ · V3-F1(이행, 구현자 몫) 규칙 칸 정합 → EP-29′ ③ · AC53′ — CHANGED 노드 4(AT-52′·AT-53′·IT-17′·UT-12′) · pair 4(VP-48′~51′) · 등록 변이 Y2·Y5·Y9~Y12·O1·O2·W1 · 선언 경계 B46·B47 · AC 53 그대로 · production 변경 0. rev 4.7 — §7-L: verify 2회째 `PLAN_GAP` 3건 — F1(AC51 "값은 적지 않는다"에 oracle 없음) 채택 → AC51′ 숫자 규칙(fail-closed) · F2(part 0 메시지 입력 없음) 채택 → EP-6″ 두 분기 · AC16″ · F3(뜻 문장 맞바꿈) → 경계 B38 — CHANGED 노드 4(AT-16″·AT-51′·MD-02″·UT-02″) · pair 3(VP-01″·VP-05‴·VP-16″) · §10 EP-6″(2) · EP-25′(6) · 등록 변이 X6·X7·v1·v2·k1·k2 · 선언 경계 B38·B39. §7-M: 사용자 실측 결함(sandbox preload 의 `require("zod")` → 빈 창) · 사용자 결정 2건 — 얇은 preload 전환(D-058, D-026 대체) · preload 실패 화면(D-059) — NEW 노드 8 · CHANGED 2 · pair 7(VP-48~51 · VP-21″ · VP-23″ · VP-24′) · §10 EP-26(7) · EP-27(5) · EP-28(5) · EP-29(4) · EP-8″(5) · EP-1 (h)′ · 등록 변이 P1~P5·S1~S4·B1·B2·H1 · 선언 경계 B40~B45. AC 51 → 53(AC52·AC53 신규 · AC16′ → AC16″ · AC24′ → AC24″ · AC51 → AC51′). 열거를 늘릴 수 있는 마지막 설계 턴(verify 2회째 뒤). rev 4.6 — §7-K: verify 1회째 `PLAN_GAP` 2건 정정 — D1(빈 첫 조각) 채택 · D2(D-007 의 5ms 조항) → D-057 + AC51. AC 50 → 51(AC16 → AC16′ · AC51 신규), CHANGED 노드 3(R-01′·MD-02′·AT-16′) · NEW 1(AT-51) · pair 3(VP-01′·VP-05″·VP-16′) · §10 EP-6′(2자리) · EP-25(5자리) · 인용 좌표 표류 8행 정정(AC20′·AC49 검증 수단 · EP-9 규칙 칸 · EP-22′ · B17′ 포함) · 선언 경계 B35~B37. rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
+| 이번 V revision | `V1` rev 4.9 — §7-O: verify 4회째 `PLAN_GAP` 1건(V4-F1 실패 화면 끌기 영역의 범위 · §7-M ΔV 노드 범위의 마지막 창 안 확장) → 경계 B48 — AC·노드·pair·§10 자리·규칙 칸 변경 0 · EP-29′ 실패 의미 칸에 B48 · 구현 없음(규범 변경만) · 다음 verify 5회째부터 전 범위 창 밖. rev 4.8 — §7-N: verify 3회째 `PLAN_GAP` 4건(§7-M 사용자 결정 ΔV 노드 범위의 창 안 확장) 모두 채택 — V3-F2 설치 순서 → AC52′ · EP-30(5) · V3-F3 포트 감싸기 닫기 → EP-27′ ⑥(6자리) · AC33′ 좌표 · V3-F4 포트 2 입력 → EP-26′ ③ · EP-27′ ② · V3-F5 노출 2회 → EP-28′ · V3-F1(이행, 구현자 몫) 규칙 칸 정합 → EP-29′ ③ · AC53′ — CHANGED 노드 4(AT-52′·AT-53′·IT-17′·UT-12′) · pair 4(VP-48′~51′) · 등록 변이 Y2·Y5·Y9~Y12·O1·O2·W1 · 선언 경계 B46·B47 · AC 53 그대로 · production 변경 0. rev 4.7 — §7-L: verify 2회째 `PLAN_GAP` 3건 — F1(AC51 "값은 적지 않는다"에 oracle 없음) 채택 → AC51′ 숫자 규칙(fail-closed) · F2(part 0 메시지 입력 없음) 채택 → EP-6″ 두 분기 · AC16″ · F3(뜻 문장 맞바꿈) → 경계 B38 — CHANGED 노드 4(AT-16″·AT-51′·MD-02″·UT-02″) · pair 3(VP-01″·VP-05‴·VP-16″) · §10 EP-6″(2) · EP-25′(6) · 등록 변이 X6·X7·v1·v2·k1·k2 · 선언 경계 B38·B39. §7-M: 사용자 실측 결함(sandbox preload 의 `require("zod")` → 빈 창) · 사용자 결정 2건 — 얇은 preload 전환(D-058, D-026 대체) · preload 실패 화면(D-059) — NEW 노드 8 · CHANGED 2 · pair 7(VP-48~51 · VP-21″ · VP-23″ · VP-24′) · §10 EP-26(7) · EP-27(5) · EP-28(5) · EP-29(4) · EP-8″(5) · EP-1 (h)′ · 등록 변이 P1~P5·S1~S4·B1·B2·H1 · 선언 경계 B40~B45. AC 51 → 53(AC52·AC53 신규 · AC16′ → AC16″ · AC24′ → AC24″ · AC51 → AC51′). 열거를 늘릴 수 있는 마지막 설계 턴(verify 2회째 뒤). rev 4.6 — §7-K: verify 1회째 `PLAN_GAP` 2건 정정 — D1(빈 첫 조각) 채택 · D2(D-007 의 5ms 조항) → D-057 + AC51. AC 50 → 51(AC16 → AC16′ · AC51 신규), CHANGED 노드 3(R-01′·MD-02′·AT-16′) · NEW 1(AT-51) · pair 3(VP-01′·VP-05″·VP-16′) · §10 EP-6′(2자리) · EP-25(5자리) · 인용 좌표 표류 8행 정정(AC20′·AC49 검증 수단 · EP-9 규칙 칸 · EP-22′ · B17′ 포함) · 선언 경계 B35~B37. rev 4.5 — §7-J: 사용자 결정 3건(D-055 준비 제한 시간 신규 · D-049 승인 · D-056 `window.oo.hosts` 승인). AC 49 → 50, 노드 3 · pair 3 · EP-24 12자리. rev 4.4 — §7-I: r1.16 `PLAN_GAP` 1건(EP-4′ 자리 목록 없음) · 구현이 고친 현재 결함 2건을 §10 행으로(D-053·D-054, EP-4′ 10자리 · EP-17′ 5자리 · EP-23 13자리 · EP-21′ 5자리의 파일 위치, AC 49 그대로 — 검증 수단 3칸 추가). rev 4.3 — §7-A 운영 gate 에 호스트 기동 스모크 1행(r1.15 `PLAN_GAP`, AC·pair 변경 0). rev 4.2 — §7-H: 구현 중 `PLAN_GAP` 18건 정정(D-047~D-052, AC 49 그대로 — 검증 수단 8칸 정정, EP-1″·EP-2″·EP-16′·EP-21′, 선언 경계 B29·B30). rev 4.1 — §7-G: 외부 검토의 `PLAN_GAP` 4건 정정(D-043~D-045, AC 47 → 49, AC5·AC6 → ′, EP-1 (e3)′·EP-2′·EP-19 7자리·EP-21·EP-22) · Part I/II 본문을 rev 4 로 맞춤. rev 4 — §7-F: 실행과 상태의 분리(B, D-034~D-042). AC 38 → 47, 노드·pair·§10(EP-15~EP-20·EP-8′·EP-1 (e)′) 정정. rev 3.3 은 §7-E 에서 창 쪽 호스트 포트 클라이언트의 규칙을 정했다(AC·pair 변경 0, r1.6 `PLAN_GAP`). rev 3.2 는 §7-C 의 열린 항목 둘(수명 이벤트 원천 · 포트 연결의 신뢰 판정)을 §7-D 에서 닫았다(AC·pair 변경 0, EP-9 자리 4 → 5). rev 3.1 은 r1.4 가 올린 전송 계층 자리 5건을 §7-C 에서 정정했다(AC·pair 변경 0). rev 3 은 턴 13 에 D-033 을 확정했다(규범 행 변경 0) — r1 구현 중 `PLAN_GAP` 3건을 §7-B 에서 정정했다(턴 11 사용자 결정). rev 2 는 구현 전 사용자 요구 변경(턴 6~9)으로 다시 썼다. rev 1 은 커밋 `docs(handoff): 0324 실행 주체 역할·워커·UI 반응성 plan` |
 | 유효 V | `V1` |
 | 입력 자료 | 사용자 첨부 "VS Code의 main·renderer·워커와 화면 갱신 경로" 개정 2 · [`vscode-comparison-and-proposal.md`](../../etc/study/main-renderer-roles/vscode-comparison-and-proposal.md) |
 
@@ -115,6 +115,8 @@
 
 ### 갱신 메모
 
+- verify 4회째(rev 4.9, §7-O): `RETURN_TO_PLAN` 의 `PLAN_GAP` 1건(V4-F1 — 실패 화면 본문까지 끌기 스타일을 둬도 green, §7-M ΔV 노드 범위의 마지막 창 안 확장)을 경계 B48 로 선언했다. "머리말 하나뿐"의 채택은 D-059·AC53 에 없는 요구(문구 선택)를 만드는 것이라 하지 않았다. 새 Decision 0 · 새 의무 0.
+- rev 4.9 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-059 ↔ AC53′(끌기 영역이 위쪽에 *있음* 그대로 · 본문의 끌기 여부는 B48 — D-059 상태 칸 "문구·형태는 사용자 거부 가능" 과 같은 방향) · D-058 ↔ AC52′ 그대로.
 - verify 3회째(rev 4.8, §7-N): `RETURN_TO_PLAN` 의 `PLAN_GAP` 4건(V3-F2~F5 — §7-M 사용자 결정 ΔV 노드 범위의 창 안 확장)을 모두 채택했다 — 설치 순서 EP-30 · 포트 감싸기 닫기 EP-27′ ⑥ · 포트 2 · 노출 2회 입력. V3-F1(이행)은 규칙 칸만 맞췄다(EP-29′ ③). 새 Decision 0.
 - rev 4.8 `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-058 ↔ AC52′(`window.oo` 를 renderer 가 만든다 — 그 시점에 기대는 렌더 전 단계를 순서로 잠근다) · D-059 ↔ AC53′(실패 화면 — 끌기 영역은 B43 그대로) · D-056 ↔ AC33′(좌표 추가, 동작 기준 그대로).
 - 사용자 실측 결함 · 결정 2건(rev 4.7, §7-M): sandbox preload 가 `require("zod")` 에서 죽어 창이 빈다는 보고를 받았고, 사용자가 구조도를 본 뒤 얇은 preload 전환을 0324 에 넣기로 했다(D-058 — D-026 대체). preload 실패 화면도 이번에 넣는다(D-059). AC 51 → 53(AC52 · AC53 신규 · AC24′ → AC24″).
@@ -1965,6 +1967,67 @@ AC 총수 53 그대로(AC52 → AC52′ · AC53 → AC53′). 검증 수단 칸�
 - 선언 경계 B46·B47 은 조사 4행·1행의 측정이다.
 - 인용 실재: `main.tsx:14`~`:22` · `mainErrorBridge.ts:11` · `mainErrorBridge.test.ts:25`·`:49` · `install.ts:25`·`:28`·`:30`·`:63` · `preload/index.ts:34` · `smoke-preload.mjs:91` · `BridgeMissingScreen.tsx:22` · `electron-hosts.ts:58` · `host-port.test.ts:22` — 이번 턴 `rg -n`·`sed -n` 으로 확인했다.
 - 창: 채택 4건은 §7-M ΔV 노드 범위의 창 안 확장이다(출처 V3-F2~F5). 창은 verify 4회째까지 — 그 뒤 이 범위의 확장 후보는 후보 표로 간다.
+
+---
+
+## 7-O. V1 rev 4.9 정정 — verify 4회째 `PLAN_GAP` 1건(실패 화면 끌기 영역의 범위) → 경계
+
+**판정: READY — 규범 변경만, 구현 없음.** 출처는 verify 4회째(`verify.md` R4-13 · `[검증자 기입]` V4-F1)다. V4-F1 은 §7-M(사용자 결정 ΔV) 노드 R-15 범위의 창 안 확장이고(그 ΔV 뒤 verify 2회째 — 마지막 창), 경계 B48 로 선언한다. 새 의무가 0 이라 다음은 구현 턴 없이 verify 5회째다.
+
+### 조사
+
+| # | 대상 | 검색 / 방법 | N | 의미 |
+|---|---|---|---:|---|
+| 1 | 끌기 스타일 자리 | `rg -n "DRAG_STYLE\|WebkitAppRegion\|app-region" app/src/renderer/src/app/BridgeMissingScreen.tsx` | 3 | `:5` 주석 · `:6` 정의 · `:22` `<header>` — 쓰는 자리는 머리말 1. 본문 `<main>`(`:26`)에는 스타일이 없다 — V4-F1 형태는 지금 트리에 0 |
+| 2 | 넓어진 끌기 영역이 가로챌 조작 | `rg -n "<button\|<a \|<input\|onClick\|onKeyDown\|tabIndex\|href" app/src/renderer/src/app/BridgeMissingScreen.tsx` | 0 | 화면에 누를 요소가 없다(B43 — 창 조작 단추 없음). 본문이 끌기 영역이 되어 잃는 것은 문구 선택뿐이다 |
+| 3 | 문구 선택의 요구 출처 | D-059(§3 Ledger) · AC53(§7-M) · AC53′(§7-N) 동작 기준에서 `선택\|복사` | 0 | 문구 선택·복사는 요구가 아니다. 문구는 고정 문장 둘(`ko.ts:116-117` — 원인 · 할 일)이라 옮겨 적을 세부(오류 코드 등)가 없다 |
+| 4 | 실패 화면을 보는 사람 실기 | `grep -n "실패 화면" plan.md \| grep -c "실기"` · AC23 시나리오(§7 R-07 행) | 1 · — | 1줄은 V4-F1 행의 대응 방향 제안이다. AC23 은 정상 기동(강조 · 세션 열기 · 전송)이라 실패 화면의 형태를 보는 실기 시나리오는 0 — 경계 문장에 사람 실기를 보호로 적지 않는다 |
+| 5 | 지금 좌표가 보는 것 | `app/BridgeMissingScreen.render.test.ts:24-26` | 1 | `<header` 요소에 끌기 스타일이 *있음*만 본다 — 다른 요소의 끌기 스타일 *없음*은 보지 않는다. verify 4 Z9(`evidence/verify4/axes.tsv:10`) 157 green |
+| 6 | 후보 표 겹침 | `grep -n "BridgeMissing\|DRAG_STYLE\|끌기" docs/handoff/INDEX.md` | 1 | 0324 보드 행 자신뿐 — 겹치는 후보 행 없음 |
+
+### 결정
+
+- **V4-F1 → 경계 B48.** AC53′ 의 "위쪽에 끌기 영역이 있다"는 머리말에 끌기 영역이 *있음*을 정하고, 본문이 끌기 영역이 *아님*은 정하지 않는다. "끌기 스타일은 머리말 하나뿐"을 채택하면 D-059·AC53 에 없는 요구(문구 선택, 조사 3행)를 설계자가 새로 만드는 것이고, 형태는 사용자 거부 가능(D-059 상태 칸 · B43)이라 그 판단은 사용자 몫이다.
+- 넓어진 끌기 영역이 막는 조작은 없다(조사 2행). 화면을 본 사용자가 형태를 거부하면 그때 새 요구로 연다.
+- 새 Decision 0 — 검증 범위 판단이다. ACTIVE 결정의 내용은 그대로다.
+
+### Requirements / Acceptance — rev 4.9
+
+AC 변경 0 — AC53′ 동작 기준·검증 수단 그대로, 총수 53 그대로. "위쪽에" 의 읽기는 B48 이 정한다.
+
+### Node · Pair — rev 4.9
+
+변경 0 — NEW·CHANGED·SUPERSEDED 노드 0 · pair 0. VP-51′ 의 직접 oracle · 선택 적대 증거(B1 · B2 · Y9) · 자리 4 그대로다. 영향받은 INHERITED 상위 0(production·테스트 변경 0).
+
+### 강제 지점 — rev 4.9
+
+| V node / pair | 계약 | 언제 강제 (자리 목록 = 분모) | 자리 검색 명령 | 실패 의미 |
+|---|---|---|---|---|
+| R-15 / VP-51′ **EP-29′** | EP-29′ 그대로 | 4자리 — EP-29′ 그대로 | EP-29′ 명령 그대로 | EP-29′ 그대로. 게이트가 green 인 채로 남는 차이: B48 |
+
+자리·규칙 칸·좌표가 그대로라 ′ 를 올리지 않는다 — 실패 의미 칸에 경계 문장만 더한다.
+
+**선언 경계** (rev 4.9):
+
+- B48 — 실패 화면의 끌기 영역이 머리말 밖으로 넓어지는 형태(본문 `<main>` 등에도 `-webkit-app-region:drag` — 화면 전체가 끌기 영역이 되어 문구를 선택할 수 없다, verify 4 Z9)는 잠그지 않는다. 화면에 누를 요소가 0 이라 가로채는 조작은 없고(조사 2행) 문구 선택은 요구가 아니다(조사 3행). 지금 트리의 끌기 스타일은 머리말 1자리이고(조사 1행) 이 형태를 보는 사람 실기는 없다(조사 4행) — 형태는 사용자 거부 가능(D-059).
+
+### 구현 설계 — rev 4.9
+
+구현 없음 — production·테스트 변경 0. INDEX 는 `plan/READY` · 다음 주체 검증자(verify 5회째, "규범 변경만 — 구현 없음")다.
+
+### 대체 범위
+
+§7-N EP-29′ 실패 의미 칸은 이 절의 행이 대체한다(B48 추가 — §7-N 원문은 고치지 않는다). 그 밖의 §7-M·§7-N 행(AC53′ · VP-51′ · EP-29′ 자리·규칙 칸 · B40~B47)은 그대로다. §3 갱신 메모에 rev 4.9 두 줄.
+
+### READY self-review — rev 4.9 (관측)
+
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — §3 갱신 메모 rev 4.9 줄(D-059 ↔ AC53′ · B48).
+- 분모: EP-29′ 4 그대로 — 명령 `rg -n "BridgeMissingScreen\|bridgeMissing" app/src/renderer/src --glob '!*.test.*'` 이번 턴 출력 10줄 → ② `rootElement.ts:3`·`:8` · ③ `BridgeMissingScreen.tsx:13`·`:18`·`:31`·`:32` · ④ `ko.ts:116`·`:117` · `en.ts:115`·`:116`. ① 은 EP-27 ① 과 같은 함수(`installOo`)다.
+- 규칙 칸 ↔ 입력 칸: 변경 0 — EP-29′ ③ 기대 5항 그대로.
+- 노드·pair: CHANGED 0 ↔ 새 REQUIRED pair 0. 영향받은 INHERITED 상위 0.
+- 선언 경계 B48 은 조사 1~4행의 측정이다. 경계로 돌린 V4-F1 형태는 지금 트리에 0 이다(조사 1행).
+- 인용 실재: `BridgeMissingScreen.tsx:5`·`:6`·`:22`·`:26` · `BridgeMissingScreen.render.test.ts:24-26` · `ko.ts:116-117` · `evidence/verify4/axes.tsv:10` — 이번 턴 `rg -n`·`sed -n`·`grep -n` 으로 확인했다.
+- 창·동결: V4-F1 은 §7-M ΔV 노드 범위의 마지막 창 안 확장이다. verify 5회째부터 이 handoff 의 전 범위가 창 밖이라 확장 후보는 후보 표로 가고 판정은 이행·현재 결함만으로 한다. 이번 턴은 열거 원문을 늘리지 않는다(경계 1 · 새 의무 0).
 
 ---
 
