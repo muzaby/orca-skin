@@ -1234,3 +1234,5 @@ store live → (OpenCode) OpenCodeTextSegment · (Claude) LiveText — 확정 me
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| D1 | §10 자리 검색 술어가 EP-1 ⑧(`chunked`) · EP-2b ④(text spread) · EP-5 ②(`parseResponse` size) 를 잡지 못한다 — §10 머리 "자리마다 줄이 1개 이상"과 갈림. 넓힌 술어의 새 운반 자리 0([verify.md §0](verify.md)) | §10 EP-1·EP-2b·EP-5 / VP-02·VP-32·VP-19 | 술어에 `chunked` · `\.\.\.entry\.live` · `\bsize\b` 추가(또는 정의를 "출력 ⊆ 목록"으로) — 규범 행만 | 이행(plan 내부 불일치) | PLAN_GAP | open — verify 1회째 |
+| D2 | `estimateWireChars` 루트 예산 초과 조기 반환(`data-host.ts:84`)을 지워도 전 oracle green(V1.5b) — 변이는 루트가 예산을 넘은 뒤 자식 1개를 더 읽는다(실측) | VP-03 · §10 EP-1 ⑤ "예산 초과 즉시 반환" · AC2 | 루트 하나로 예산을 넘는 입력(예산 0·1 · 객체 루트)에서 자식 읽기 0 단언 — V1.5b red 로 닫음 | 이행 | BLOCKING | open — verify 1회째 |
