@@ -1,0 +1,2 @@
+{"id": "R4-E24-r1", "file": "src/main/app/shell/host-supervisor.ts", "old": "    if (!deps.isReady || !deps.readyTimeoutMs || readyPaused) return", "new": "    if (!deps.readyTimeoutMs || readyPaused) return", "oracle": "./node_modules/.bin/vitest run src/main/app/shell", "expect": "green"}
+{"id": "Z7n", "file": "src/renderer/src/shared/api/transport/install.ts", "old": "listener(event.data)", "new": "listener(event)", "oracle": "./node_modules/.bin/vitest run src/renderer/src/shared/api/transport/install.test.ts", "expect": "red", "note": "다른 값 — 수신이 이벤트 통째로"}
