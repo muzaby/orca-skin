@@ -1,0 +1,11 @@
+id	결과	exit	요약
+Z1	red (기대 일치)	1	vitest 2 failed | 73 passed (75)
+Z2	green (기대 일치)	0	vitest 75 passed (75)
+Z3	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Z4	red (기대 일치)	1	vitest 1 failed | 74 passed (75)
+Z5	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Z6	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Z7	red (기대 일치)	timeout	(출력 없음)
+Z8	red (기대 일치)	1	vitest 1 failed | 156 passed (157)
+Z9	green (기대 일치)	0	vitest 157 passed (157)
+# 원복 확인: 모든 파일 원문 그대로
