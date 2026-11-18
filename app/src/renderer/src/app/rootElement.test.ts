@@ -38,6 +38,8 @@ describe('rootElement', () => {
       expect(top.findIndex(step)).toBeGreaterThan(0)
     }
     // ⑤ 첫 렌더는 설치 결과로 진입 요소를 고른다.
-    expect(main.slice(main.indexOf('\ncreateRoot('))).toMatch(/\.render\(\s*rootElement\(\s*install\s*,/)
+    expect(main.slice(main.indexOf('\ncreateRoot('))).toMatch(
+      /\.render\(\s*rootElement\(\s*install\s*,/
+    )
   })
 })
