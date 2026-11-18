@@ -1,0 +1,10 @@
+id	결과	exit	요약
+R5-Z2	green (기대 일치)	0	vitest 75 passed (75)
+R5-E24-r1	green (기대 일치)	0	vitest 114 passed (114)
+R5-HC1	green (기대 일치)	0	vitest 212 passed (212)
+V5-Z1	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+V5-Z2	green (기대 red)	0	vitest 544 passed (544)
+V5-Z3	red (기대 ?)	1	vitest 1 failed | 174 passed (175)
+V5-Z4	red (기대 ?)	1	vitest 1 failed | 543 passed (544)
+V5-Z5	red (기대 일치)	1	vitest 1 failed | 156 passed (157)
+# 원복 확인: 모든 파일 원문 그대로

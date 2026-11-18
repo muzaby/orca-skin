@@ -588,3 +588,117 @@
 - pair: root `PAIR_FAIL` 0 · REQUIRED·REGRESSION 전부 PASS(VP-07 사람 실기 제외) · AC ✅50 · ⚠️3 · ❌0 / 53.
 - 다음: 설계자 rev 4.9 — V4-F1 채택 또는 경계 → 경계면 구현 없이 verify 5회째.
 - 남은 사람 확인: AC22 · AC23 · AC52′ 실창.
+
+---
+
+# 라운드 5 — verify 5회째 (rev 4.9 · 구현 없음)
+
+**판정: PASS(기계 범위)** — 이행 결함 0 · 현재 결함 0 · `PLAN_GAP` 0. rev 4.9 는 V4-F1 을 경계 B48 로 돌린 규범 변경뿐이고 `app/` 변경이 0 이라, 대상 트리 `7f88f84` 에서 gate 전부가 verify 4 와 같은 결과다. 독립 축 1건(V5-Z2)이 못 잡음이지만 창 밖 확장 후보라 후보 표로 간다. 남은 사람 확인: AC22 · AC23 · AC52′ 실창.
+
+## R5-메타
+
+| 항목 | 값 |
+|---|---|
+| 검증자 · 일자 | Claude Code · 2026-11-18 |
+| 대상 커밋/range | 코드 `7f88f84`(r4) — `cf84d27`(verify 4) · `7b1f2aa`(rev 4.9 설계) · `0a29adb`(verify 5 변이 spec). 브랜치 `ccr-757e4c58-xj3fnt`. `git diff cf84d27..7b1f2aa -- app` 0줄 |
+| 구현 전 plan 기준 | `cf84d27` → `7b1f2aa` — plan 삭제 1줄(메타 revision 줄 교체) · 추가는 §7-O · §3 메모 2줄 · 메타. 구현 턴 없음(`[구현자 기입]` 변경 0) |
+| V mode / 유효 V | `Baseline V: V1` rev 4.9(§7-O) |
+| 라운드 | 5 |
+| 확장 창 | verify 5회째 — 전 범위 창 밖(§7-M ΔV 노드도 verify 3·4 로 창을 썼다). 확장 후보는 후보 표로 |
+| 창 밖 새 열거 항목 | 0 — rev 4.9 는 경계 B48 하나(출처 V4-F1, 창 안 확장의 경계 선언) |
+| 독립 축(⑥) | V5-Z1~Z5 — 잡음 4 · 못 잡음 1(V5-Z2, 확장) |
+| 열거 sweep(⑦) | 대상 0 — 이번 diff 가 닿은 열거 항목 0(코드 변경 0) · 직전 실패 항목 0 |
+| 원본 | `evidence/verify5/`(`axes.jsonl`·`axes.tsv`·`vitest-failures.txt`) — `# 원복 확인: 모든 파일 원문 그대로` · 끝에 `git status` 는 `evidence/verify5/` 뿐 |
+
+## R5-0. Plan validity (rev 4.9)
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| NEW·CHANGED ↔ REQUIRED | 유효 | §7-O 노드·pair 변경 0 — 경계 문장 1과 EP-29′ 실패 의미 칸만 |
+| §10 자리 검색 재실행 | 유효 | EP-29′ 명령 → 10줄 = 자리 ②③④ (§7-O self-review 의 줄과 같음) · ① 은 `install.ts` `installOo` |
+| B48 측정 | 유효 | `BridgeMissingScreen.tsx` 끌기 스타일 사용 1(`:22` `<header>`) · 누를 요소 0 · `<main>`(`:26`) 스타일 없음 — 이번 턴 `rg -n` 으로 다시 확인 |
+| 동결 | 유효 | 이번 ΔV 가 늘린 열거 원문 0 — 새 의무 0 이라 구현 턴 생략은 `AGENTS.md §라운드` "경계 선언만 있고 새 의무가 0인 ΔV" 에 맞다 |
+
+## R5-1. diff 비판 검토 · 역방향
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| production·테스트 변경 | 없음 | `git diff cf84d27..7b1f2aa --numstat` → `plan.md` 64/1 · `INDEX.md` 1/1 뿐 |
+| 경계가 현재 결함을 덮는가 | 아니다 | 지금 트리의 끌기 영역은 머리말 하나(B48 이 잠그지 않는 형태는 트리에 0) — 문구 선택 요구는 D-059·AC53 에 0 |
+| B45 의 사실 문장 | 비귀속 메모 | B45 "시각 픽스처 3 이 쓴다" — `rg -n "installOo\|rootElement" app/scripts/fixtures` 0: 픽스처는 `window.oo` 를 두고 `main.tsx`·`installOo` 를 부르지 않는다. 동작 영향 없음 |
+
+## R5-2. 증거 재측정
+
+| 하한 | 범위 | 결과 |
+|---|---|---|
+| ① 등록 변이 | 이번 변경이 닿은 자리 0 | 해당 없음 — 코드 변경 0. verify 4 의 9/9 red 는 같은 트리 |
+| ② 닫는 이슈 인용 변이 | V4-F1 Z9 | 경계(B48) — 재실행 의무 없음 |
+| ③ 직전 못 잡음·동치 | Z2 · R4-E24-r1 · HC1(동치) · Z9 제외(경계) | 셋 다 green — 동치 유지(코드 미접촉) |
+| ④ 이전 잡음 재실행 | diff 가 닿은 oracle 파일 0 · 공용 설정 변경 0 | 해당 없음 |
+| ⑤ 형제 맞바꿈 | V5-Z1(`missing` 판정 ↔ `!== 'installed'`) · V5-Z5(`install` ↔ `'installed'`) | red |
+| ⑥ 독립 축 | V5-Z1~Z5 | 아래 표 |
+| ⑦ 열거 sweep | diff 범위 0 · 직전 실패 0 | 해당 없음 |
+
+**고장 이력 (라운드 5)**
+
+| ID | 자리 | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|---|
+| R5-Z2 | `install.ts` 포트 붙이기 | 다른 값 | `event.ports[0]` → `.at(-1)` | 동치 | 동치(75 green) | — | 동치 유지 |
+| R5-E24-r1 | `host-supervisor.ts` | 제거 | `!deps.isReady \|\|` | 동치 | 동치(114 green) | — | 동치 유지 |
+| R5-HC1 | `host-channels.ts` | 다른 값 | 표지 이름 변경 | 동치 | 동치(212 green) | — | 동치 유지 |
+| V5-Z1 | `rootElement.ts:8` | 맞바꿈 | `=== 'missing'` → `!== 'installed'` | 새 | 잡음(1/544) | `rootElement.test.ts` '`present` 이면 앱 그대로다' | — |
+| V5-Z2 | `install.ts` `installOo` 앞 | 뒤집기 | 다리 검사를 `win.oo` 검사 앞으로 | 새 | **못 잡음**(544 green) | — | 확장(창 밖) → V5-F1 |
+| V5-Z3 | `en.ts` `bridgeMissingBody` | 빈 값 | `''` | 새 | 잡음(1/175) | i18n '빈 문자열 값 없음' | — |
+| V5-Z4 | `install.ts` 재연결 판정 | 제거 | `seen[host] &&` | 새 | 잡음(1/544) | `install.test.ts` '호스트 수명 통지 — …' | — |
+| V5-Z5 | `main.tsx` 렌더 | 고정값 | `rootElement(install,` → `'installed'` | 새 | 잡음(1/157) | `rootElement.test.ts` EP-30 ①②④⑤ | — |
+
+- 검산: 시도 8 → 잡음 4 · 동치 3 · 못 잡음 1.
+- V5-Z2: `win.oo` 와 다리가 둘 다 없거나 둘 다 있는 입력에서는 순서가 결과를 바꾸지 않는다. 결과가 갈리는 입력(`oo` 있음 · 다리 없음)은 EP-27 ① 입력 칸에 없고, 트리에서 그 조합으로 `installOo` 를 부르는 곳도 0 이다(production 은 `oo` 없이 시작 · 픽스처는 `installOo` 를 부르지 않음). 규칙 칸 "`present` — `win.oo` 가 이미 있으면 그대로" 가 다리 없음보다 앞선다고 읽으려면 해석이 필요해 확장이다.
+
+## R5-3. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거(이번 턴) |
+|---|---|---|---|
+| VP-51′ | AT | PASS | EP-29′ 좌표 4(`BridgeMissingScreen.render.test.ts` · `rootElement.test.ts` · `install.test.ts` missing · typecheck) — 전체 vitest 에서 통과 · V5-Z1·Z3·Z5 red · B48 은 경계 |
+| VP-48′~50′ · VP-21″ | AT·IT·UT | PASS(좌표 참조) | 같은 트리 — 라운드 4 좌표 파일이 이번 vitest·`node --test` 에서 통과 · V5-Z4 red |
+| 나머지 REQUIRED·REGRESSION | — | PASS(좌표 참조) | 라운드 1~4 좌표 파일 통과 · production 미접촉 |
+| VP-07 (AC22·AC23·AC52′ 실창) | AT | 사람 실기 대기 | Electron 바이너리 없음 |
+
+- root `PAIR_FAIL` 0 · `BLOCKED_BY` 0.
+- AC: ✅ 50 · ⚠️ 3(AC22 · AC23 · AC52′ 실창) · ❌ 0 = 53 — rev 4.9 는 AC 를 바꾸지 않았다.
+
+## R5-4. 운영 gate (트리 `7f88f84` = 현재 `app/`)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations `sync ok` 35·2 · doc-inventory `generated doc ok (9 items, 125 channels)` · prose ok · links ok · product-naming `2444파일 · 허용 7항목` · test-budgets `18 real-git suites ok` · `check-ui-thread: OK` |
+| `npm run lint` | PASS | 0 error · 3 warning(기존) · 실행 뒤 `git status` 에 `app/` 변경 0 |
+| `npm run typecheck` | PASS | exit 0 |
+| `node --test scripts/*.test.mjs` | PASS | 74 suites · 1020 pass · 0 fail |
+| `vitest run`(필터 없음) | PASS(기준선 분리) | 1029파일 · 9791케이스 — 실패 22(9파일) · 처리 안 된 오류 1. 실패 이름 목록이 verify 4 와 양방향 차집합 0(`evidence/verify5/vitest-failures.txt`) · `app/` 변경 0 · `[test-pools]` 0 |
+| `electron-vite build` · `smoke-hosts` · `smoke-preload` | PASS | `✓ built` 3 · `out/preload/index.js 15.35 kB` · smoke-hosts `OK — 데이터 → 에이전트 기동 …` · smoke-preload `OK — require 는 electron 뿐 · 다리 \`ooBridge\` 노출(키 7)` |
+
+## R5-5. Repository operation checks
+
+- 구현 턴 없음 — `[구현자 기입]` 대상 아님(INDEX "규범 변경만 — 구현 없음").
+- trailer: `7b1f2aa`(designed) 파싱 OK. 좌표: `cf84d27`(verify 4) · `7b1f2aa`(rev 4.9 설계) — `git cat-file -t` commit · `origin/ccr-757e4c58-xj3fnt` 조상 · `origin/main` 은 이 환경에 없어 조상 확인 불가(미병합).
+- `[검증자 기입]` V4-F1 을 닫고(경계 B48) V5-F1 을 더한다.
+
+## R5-13. Finding disposition
+
+| # | 발견 | 분류 | 근거 | pair | disposition |
+|---|---|---|---|---|---|
+| V5-F1 | `installOo` 의 다리 검사를 `win.oo` 검사 앞으로 옮겨도 green(V5-Z2) — `oo` 는 있고 다리는 없는 창이 실패 화면이 된다 | 확장(창 밖) | EP-27 ① 입력 칸에 그 조합 없음 · 트리 호출 0 | VP-49′ | `NEXT_HANDOFF(확장)` — 후보 표 |
+| V5-N1 | B45 "시각 픽스처 3 이 쓴다" — 픽스처는 `installOo` 를 부르지 않는다 | 비귀속(문서 사실) | `rg -n "installOo\|rootElement" app/scripts/fixtures` 0 | — | `NON_BLOCKING` |
+
+## R5-14. Review Signals — 사실만
+
+- verify 5회째 · PASS — review 진입 조건 아님.
+- 독립 축 5 중 못 잡음 1(확장) · 현재·이행 0. 구현 없는 ΔV 의 verify 는 gate 재실행과 ③⑥ 만으로 닫혔다.
+- 환경: Electron 바이너리 없음 · 기준선 실패 22 는 라운드 1~4 와 같다 · `npm ci` 를 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 로 새로 설치했다.
+
+## R5-15. 결론
+
+- 상태: **PASS(기계 범위)** — 막는 발견 0.
+- pair: REQUIRED·REGRESSION 전부 PASS(VP-07 사람 실기 제외) · AC ✅50 · ⚠️3 · ❌0 / 53.
+- 다음: 사람 — AC22 · AC23 · AC52′ 실창(`build:win` 산출물). V5-F1 은 후보 표.
