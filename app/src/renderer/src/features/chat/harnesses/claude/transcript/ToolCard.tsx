@@ -12,8 +12,8 @@ import {
   toolVerbCategory
 } from '../../../lib/toolMeta'
 import { isNonExecutionOutcome, toolRunOutcome, type ToolRunOutcome } from '../../../lib/parts'
-import { stringify } from '../../../format'
 import { toolRendererRegistry } from './registry'
+import { copyText } from './toolCopyText'
 import type { ToolCall } from '../../../reducer/chatReducer'
 import { AgentTaskRow } from '../../common/transcript/AgentTaskRow'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
@@ -29,43 +29,11 @@ const OUTCOME_VERB: Record<ToolRunOutcome, MessageKey | null> = {
   not_executed: 'chat.toolMeta.notExecuted'
 }
 
-// result.output 을 문자열로.
-function resultOutput(call: ToolCall): string {
-  const o = call.result?.output
-  return o == null ? '' : typeof o === 'string' ? o : stringify(o)
-}
-
 // 본문 헤더 레이블 — 파일 도구는 file_path 전체(절대경로), 그 외는 도구 이름.
 function headerLabel(call: ToolCall): string {
   const rec = call.input as { file_path?: unknown } | null
   const fp = typeof rec?.file_path === 'string' ? rec.file_path : null
   return FILE_TOOLS.has(call.name) && fp ? fp : call.name
-}
-
-// 헤더 복사 버튼의 복사 대상(도구별).
-function copyText(call: ToolCall): string {
-  const rec =
-    typeof call.input === 'object' && call.input !== null
-      ? (call.input as Record<string, unknown>)
-      : {}
-  switch (call.name) {
-    case 'Bash':
-    case 'PowerShell': {
-      const command = typeof rec.command === 'string' ? rec.command : stringify(call.input)
-      const out = resultOutput(call)
-      return `$ ${command}` + (out.trim() !== '' ? `\n${out}` : '')
-    }
-    case 'Write':
-      return typeof rec.content === 'string' ? rec.content : stringify(call.input)
-    case 'Read':
-    case 'Edit':
-    case 'MultiEdit':
-      return resultOutput(call)
-    default: {
-      const out = resultOutput(call)
-      return out.trim() !== '' ? out : stringify(call.input)
-    }
-  }
 }
 
 // 도구별 본문 디스패치 — 도구 이름 switch 대신 ToolRendererRegistry 로 시맨틱 해소(rendering.md §1.6).
@@ -195,7 +163,8 @@ export const ToolCard = memo(function ToolCard({
                       {headerLabel(call)}
                     </span>
                     <div className="ml-auto shrink-0">
-                      <CopyIconButton text={copyText(call)} title={tr('common.copy')} />
+                      {/* 복사 문자열은 클릭 때 만든다(0325 D-013 · EP-7 ①). */}
+                      <CopyIconButton text={() => copyText(call)} title={tr('common.copy')} />
                     </div>
                   </div>
                   <ToolBody call={call} transcriptPolicy={transcriptPolicy} />

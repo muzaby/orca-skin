@@ -81,5 +81,7 @@ export const Exchange = memo(
     prev.forkable === next.forkable &&
     prev.error === next.error &&
     prev.pendingSteer === next.pendingSteer &&
+    // 0325 EP-3b ② — 다른 세션 키를 캡처한 복원 함수가 남지 않는다.
+    prev.onRestoreSteerDraft === next.onRestoreSteerDraft &&
     exchangeEquals(prev.exchange, next.exchange)
 )

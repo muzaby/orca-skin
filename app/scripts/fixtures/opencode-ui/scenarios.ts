@@ -123,7 +123,13 @@ export function resetScenario(
       }
       return [
         sessionId,
-        { ...base, session, live: { text: '', reasoning: '' }, subagentMeta: {}, pendingSteer: [] }
+        {
+          ...base,
+          session,
+          live: { text: '', reasoning: '', reasoningVisible: false },
+          subagentMeta: {},
+          pendingSteer: []
+        }
       ]
     })
   )

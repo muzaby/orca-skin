@@ -76,7 +76,7 @@ function seed(overrides: Partial<ChatState> = {}): void {
           ...overrides
         },
         draftGeneration: ++serial,
-        live: { text: '', reasoning: '' },
+        live: { text: '', reasoning: '', reasoningVisible: false },
         subagentMeta: {}
       }
     },

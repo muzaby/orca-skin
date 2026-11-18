@@ -229,7 +229,7 @@ function seed(
           projectId: 'fixture',
           cwd: 'C:/fixture'
         },
-        live: { text: '', reasoning: '' },
+        live: { text: '', reasoning: '', reasoningVisible: false },
         subagentMeta: {}
       }
     },

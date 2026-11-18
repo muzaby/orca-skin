@@ -8,6 +8,22 @@ import { composerDecorationTransform } from './composerScrollProjection'
 import { createDraftSnapshot, setDraftComposition } from './draftSnapshot'
 
 describe('ComposerDecorationLayer', () => {
+  // 0325 VP-22 — 상한(20,000자)을 넘는 초안은 chip span 을 만들지 않는다.
+  it('renders no decoration spans for a draft over the cap', () => {
+    const render = (text: string): string =>
+      renderToStaticMarkup(
+        createElement(ComposerDecorationLayer, {
+          snapshot: createDraftSnapshot(text),
+          knownSkillNames: new Set(['build']),
+          validFilePaths: new Set(['file.ts']),
+          typographyClassName: 'typography'
+        })
+      )
+    const within = '/build @file.ts '.repeat(1_250)
+    expect(render(within).match(/bg-blue-500\/15/g)).toHaveLength(1_250)
+    expect(render(`${within}x`).match(/bg-(blue|emerald)-500\/15/g)).toBeNull()
+  })
+
   it('uses the reference background for native plugin tokens while preserving skill styling', () => {
     const html = renderToStaticMarkup(
       createElement(ComposerDecorationLayer, {

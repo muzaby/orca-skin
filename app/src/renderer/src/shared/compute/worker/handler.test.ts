@@ -56,7 +56,13 @@ describe('워커 처리 함수', () => {
       'const a = 1',
       'const b = 2'
     ])
-    expect(resultSize(response.result)).toBe('const a = 1const b = 2'.length)
+    // 0325 D-038 — 결과 문자 + 행·토큰마다 36. 응답은 워커가 센 그 크기를 싣는다.
+    const rows = response.result.new!
+    const tokens = rows.reduce((sum, row) => sum + row.length, 0)
+    expect(resultSize(response.result)).toBe(
+      'const a = 1const b = 2'.length + 36 * (rows.length + tokens)
+    )
+    expect(response.size).toBe(resultSize(response.result))
   })
 
   it('diffLines — UI 스레드의 상한 있는 계산과 같은 줄을 낸다', async () => {
@@ -67,7 +73,9 @@ describe('워커 처리 함수', () => {
     })
     if (!response.ok || !('lines' in response.result)) throw new Error('diffLines 응답이 아니다')
     expect(response.result.lines).toEqual(diffLinesWithinCap('a\nb\nc\n', 'a\nc\nd\n'))
-    expect(resultSize(response.result)).toBe(4)
+    // 0325 D-038 — 줄 문자 4 + 줄 4개 × 36.
+    expect(resultSize(response.result)).toBe(4 + 4 * 36)
+    expect(response.size).toBe(148)
   })
 
   it('계산이 던지면 그 요청만 실패 응답이 된다', async () => {

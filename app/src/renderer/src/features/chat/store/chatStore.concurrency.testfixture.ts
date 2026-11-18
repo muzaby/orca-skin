@@ -51,7 +51,7 @@ export function installConcurrencyHarness(
               : null,
           worktreeIsolation: options.isolation === 'intent' || options.isolation === 'recover'
         },
-        live: { text: '', reasoning: '' },
+        live: { text: '', reasoning: '', reasoningVisible: false },
         subagentMeta: {}
       }
     },

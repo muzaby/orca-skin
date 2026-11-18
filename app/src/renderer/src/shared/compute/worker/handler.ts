@@ -3,12 +3,13 @@
 
 import { diffLines } from 'diff'
 import { hunksToDiffLines } from '../diffModel'
-import type {
-  ComputeRequest,
-  ComputeResult,
-  TokenRows,
-  WireRequest,
-  WireResponse
+import {
+  resultSize,
+  type ComputeRequest,
+  type ComputeResult,
+  type TokenRows,
+  type WireRequest,
+  type WireResponse
 } from '../protocol'
 import { getHighlighter } from './highlighter'
 
@@ -36,7 +37,9 @@ export async function compute(request: ComputeRequest): Promise<ComputeResult> {
 // 계산이 던지면 그 요청만 실패 응답이 된다 — 워커는 계속 산다.
 export async function handleMessage(message: WireRequest): Promise<WireResponse> {
   try {
-    return { id: message.id, ok: true, result: await compute(message) }
+    const result = await compute(message)
+    // 결과 크기는 워커가 센다 — UI 스레드의 캐시는 이 값만 쓴다(0325 EP-5 ①).
+    return { id: message.id, ok: true, result, size: resultSize(result) }
   } catch (error) {
     return {
       id: message.id,

@@ -938,48 +938,295 @@ store live → (OpenCode) OpenCodeTextSegment · (Claude) LiveText — 확정 me
 > **[구현자 기입]** 이하는 구현 턴에서 채운다. 절차 정본은
 > [`handoff-impl/SKILL.md`](../../../.agents/skills/handoff-impl/SKILL.md).
 
-## [구현자 기입] 설계 리뷰
+## [구현자 기입] 설계 리뷰 (r1)
 
-- (구현 턴에서 채운다)
+- 착수 근거: D-002("Plan 까지만 진행하라")는 설계 세션의 범위였고, 이번 구현은 사용자의 `/handoff-impl 325` 지시로 착수했다.
+- 동의 / 그대로 진행: WU-1~WU-10 을 §11 표대로 구현했다 — 공개 IPC·저장 형식·프로세스 경계 변경 0(`node scripts/check-ui-thread.mjs` → OK). 새 의존성 0(`git diff -- app/package.json` → 0줄).
+- 이견 / 현실성 문제 — plan 표가 빠뜨린 기존 소비처(선조치, 구현 세부):
+  - §8 S13(34곳)의 검색 범위가 `src/renderer/src` 라 `scripts/fixtures/opencode-ui/scenarios.ts:126`·`scripts/fixtures/harness-entry/main.tsx:232` 와 `chatStore.test.ts` 의 `liveBefore`(접두 `live:` 없음) 3곳을 놓쳤다 — `typecheck:web` 이 잡아 `reasoningVisible` 을 채웠다.
+  - §12 표에 0324 의미를 단언하던 기존 테스트 4곳이 없다 — `toolMeta.test.ts`(MultiEdit 수정별) · `filePresentation.test.ts`(파일별 400) → D-009 합산 예산으로, `worker/handler.test.ts`(결과 문자만) → D-038 구조 비용으로, `reportSites.registry.test.ts`(useAttachments catch 서수) → catch 가 `lib/attachmentViews.ts` 로 옮겨 감에 맞춰 기대값을 고쳤다.
+  - 신규로 적힌 `claude/transcript/ToolCard.interaction.test.ts`·`composerSubmit.test.ts` 는 저장소에 없던 파일이라 새로 만들었다. chatStore 를 mock 하던 테스트 3개(`Timeline.render`·`ChatTile.harness`·`Timeline.selection`)에 새 선택자를 더했다.
+  - VP-23 d6 의 입력 20,100자는 장식 상한(20,000) 밖이라 토큰화 0 → 걸음 단언이 공허하다. 같은 등록 집합으로 20,000자 입력을 더하고 20,100자는 상한 단언으로 남겼다(규칙 칸을 따른 입력 추가).
+  - §10 자리 검색 술어 셋이 목록의 한 자리씩을 잡지 못한다(출력 ⊆ 목록은 성립) — `놓친 잠재 문제` #6 에 plan 수정 제안으로 적었다.
+- ACTIVE Decision과 충돌하는 설계 발견: 없음.
 
-## [구현자 기입] 강제 지점 전수 (§10 대조)
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1)
+
+자리 검색 명령은 §10 칸 그대로 `app/` 에서 다시 돌렸다(이번 턴, 마지막 수정 뒤). 모든 EP 에서 **목록 밖 줄 0**(출력 ⊆ 목록). 출력에 줄이 없는 목록 자리는 EP-1 ⑧ · EP-2b ④ · EP-5 ② 셋이다 — 술어에 그 자리의 항(`chunked` · text spread · `message.size`)이 없다(EP-5 는 plan 의 TO-BE 열거도 ② 를 빼고 있다). 세 자리 모두 아래 직접 좌표로 닫았고 판정은 `놓친 잠재 문제` #6.
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
+| VP-03 | 조각 상한 셋 · 단독 · 조기 중단 · 루프 조립 | EP-1 ①~⑥·⑨ (7) | 7/7 | EP-1 검색 → 17줄, `.push(...` 0 · ①②③④⑥ `data-host.test.ts:'e1…'~'e12…'` · ⑤ `:'e8 …측정은 예산에서 멈추고…'`(parts 색인 읽기 < 400) · ⑨ `:'e9 한 조각 200,000건을 조립한다'`(1,000,000 입력 포함) | 메시지 수 501 · part 501 · 문자 600,000+400,001(실제 `estimateWireChars` 값) · 꼭 맞음(e7)은 같은 조각 → 조각 크기 배열 단언 | — |
+| VP-02 | 양보 뒤 측정 · 머리 = 보낸 합 · 전송층 조립 | EP-1 ⑦⑧⑩ (3) | 3/3 | ⑦ `session-load.bounds.test.ts:'양보 전에는 조각과 경계 후보만 읽고…— $name'`(q1~q3) · ⑧ `:'머리의 조각 수·메시지 수는 보낸 조각의 합이다'` · ⑩ `transport/session-load.test.ts:'200,000건을 한 조각·400조각으로…'` | ⑦ 메시지별 getter·parts 색인 읽기(양보 전/후) · ⑧ 조각 [2,500,101](형제 `chunks`↔`messages` 값이 다름) · ⑩ 400조각 `createdAt` 순서 | — |
+| VP-07 | Timeline 유무 구독 · 리프 · 색인 행 · 같은 형 | EP-2 ②~⑦ (6) | 6/6 | EP-2 검색 → OpenCode 폴더 `useLiveText(`·`useLiveReasoning(` 0 · `[...head.rows` 0 · ②③ `chatStore.liveSelectors.test.ts:'reports live presence and gated live text from the real store'` · ④⑤ `Timeline.memo.test.ts:'re-renders only the live leaf…'`·`:'re-projects once per presence transition…— $name'`(p1·p1′·p2·p3, 전이 렌더 head 순회 0) · ⑥⑦ `Timeline.selection.test.ts:'keeps the same row component…'` | ② `''`·`'a'`·`' '`(공백 text = 참)·reasoning 플래그 · ③ `useLiveTextFor(false)`→`''` · ⑥ 같은 key live→확정 본문 노드 동일 · ⑦ 확정 행 인자 `false` | — |
+| VP-08 | presence tail ≡ 문자열 투영 · 판정 정본 | EP-2 ①⑧⑨⑩ (4) | 4/4 | ① `parts.test.ts:'segment text/reasoning visibility is the single rule'` · ⑧ `projection.test.ts` describe `'presence tail ≡ string tail'` b1·b1′·b2~b8 · ⑨ `:'reads head rows by index without copying or iterating them'` · ⑩ `projection.golden.test.ts:'matches original…%#'`·`:'keeps head rows…'` | b1~b9 각 분기 입력(HEAD 원본 projection 으로도 같은 기대 통과 — 대조 실행) · ⑨ head Proxy 순회 0 | — |
+| VP-32 | reasoning 유무 조각 단위 | EP-2b ①~⑤ (5) | 5/5 | EP-2b 검색 → 14줄 = AS-IS 10 + `reasoningVisible` 4 · `chatStore.liveSelectors.test.ts` describe `'reasoning presence is updated per chunk'` h1·h2·h2′·h3·h4(5)·h5·h6 | ① 초기화 5·resetLive·telemetry → false · ② 공백 뒤 유효 · ④ text 조각·completed 뒤 플래그 유지(h2′) · ⑤ 4,000,000자 getter 읽기 0 | — |
+| VP-11 | 증분 그룹화 | EP-3 ①~⑧ (8) | 8/8 | EP-3 검색 → turns.ts 6 · Claude Timeline 2 · OpenCode head 1 · ①~⑥⑧ `turns.test.ts` describe `'createExchangeGrouper'` g1~g14(g2 는 앞 exchange `role` 읽기 0 계수) · ⑦ `Timeline.grouper.test.ts:'확정 메시지가 추가돼도…'`·`:'같은 messages 에서 자동 피드 표시를…'` | g8·g12 리터럴 결과 · g13 옵션 false·true · g14 14,096 케이스 매번 `toEqual(groupExchanges)` | — |
+| VP-12 | steer 콜백 안정·비교·전달 | EP-3b ①~⑥ (6) | 6/6 | EP-3b 검색 → 13줄(TO-BE 13) · ① `ChatTile.workLifetime.test.ts:'passes a stable steer-restore callback…'` · ② `Exchange.compare.test.ts:'re-renders when only…'` · ③ `Timeline.grouper.test.ts:'steer 복원 콜백은 마지막 Exchange 로…'` · ④ `Timeline.memo.test.ts:'passes the steer-restore callback through…'` · ⑤ `pendingSteerControls.test.ts:'실제 두 버튼은 서로 다른 액션에 전달되고 취소만 composer draft를 복원한다'`(E3b.5 red) · ⑥ `gate:npm run typecheck:web`(E3b.6 TS2339) | 세션 키 `first`·`second` 호출 순서 단언 | — |
+| VP-15 | 문자 우선 · 조기 중단 | EP-4 ①~⑤ (5) | 5/5 | EP-4 검색 → 31줄 · `inline.test.ts` describe `'withinDiffCap 문자 우선 상한 (0325)'` c1~c5 · `useDiffCompute.test.ts:'routes a 64,001-char single-line pair to the worker'` | 64,001 vs 64,000(정확히) · 401 줄 · `countLinesUpTo` spy 0 · jsdiff spy 0 | — |
+| VP-16 | 카드 합산 예산(원문 사전 검사) | EP-4 ⑥⑦ (2) | 2/2 | `toolMeta.test.ts` describe `'toolDiffStat 합산 예산 (0325)'` a1~a4·50× · `filePresentation.test.ts` describe `'fileChanges 합산 예산 (0325)'` a5~a8 | 200줄 × 2(안)/× 3(밖) · 32,000+32,001자 · patch 500,000+500,001자 · `parsePatch`·`diffLines` spy 0 | — |
+| VP-17 | 0324 patch 단건 상한(현행) | EP-4 ⑧ (1) | 1/1 | `inline.test.ts` describe `'parsePatchWithinCap'` 기존 케이스 green · E4.8 red | — | — |
+| VP-19 | 캐시 비용·항목 수 | EP-5 ②~⑥ (5) | 5/5 | EP-5 검색 → 15줄 · client `resultSize` 0 · `client.test.ts` describe `'캐시 비용 (0325)'` k1~k7 | size 없음/−1/NaN · 키 4,000,001 · 1,001 요청 · 40 × 빈 줄 diff(실제 `handleMessage`) | — |
+| VP-20 | 워커가 센 size | EP-5 ① (1) | 1/1 | `client.test.ts:'caches by the size the worker computed…'` · `worker/handler.test.ts` diffLines·diffTokens size | 상한 = 키+36,000 이면 보관 · −1 이면 미보관 · `resultSize` spy 1 | — |
+| VP-23 | 장식 상한 · 기저 색인 | EP-6 ①~⑤ (5) | 5/5 | EP-6 검색 → 19줄 · `composerDecoration.test.ts` describe `'장식 상한 · 스킬 기저 색인 (0325)'` d1~d9·d12 + 표본 10 + 무작위 2,000(현행 판정 사본과 대조) · `skillIndex.test.ts` d10·d11 · `ComposerDecorationLayer.test.ts:'renders no decoration spans…'` | 20,000/20,001 · `has` 계수 0 · 걸음 19,998 | — |
+| VP-26 | 복사 클릭 시 계산 | EP-7 ①~④ (4) | 4/4 | EP-7 검색 → 5줄(TO-BE 5) · ① `ToolCard.interaction.test.ts:'y3 …'` · ② `AssistantTurn.copy.test.ts` y1·y2·y4·y5 · ③ `UserTurn.copy.test.ts` y1·y2 · ④ `Timeline.memo.test.ts` 복사 컨트롤 7케이스(렌더 중 spy 0) | 공백 1,000,000자 · non-text 20,000 + 마지막 본문 | — |
+| VP-28 | 프레임 병합 · 종료/취소 | EP-8 ①~⑥ (6) | 6/6 | EP-8 검색 → 12줄 · `useDragResize.test.ts` r1~r8 · ④ `PanelResizeSeparators.drag.test.ts` 2케이스 · `Sidebar.interaction.test.ts:'passes the hook start handler…'` | 한 프레임 3회 이동 → 마지막 값 · blur·unmount 리스너 수 · `cancelAnimationFrame` 1 | — |
+| VP-30 | 썸네일 실패·동시 2·순서 | EP-9 ①~⑤ (5) | 5/5 | EP-9 검색 → 12줄 · `imageThumb.test.ts` 실패 4 + t9 · `attachmentViews.test.ts` t1~t8 · `composerSubmit.test.ts` 2 · ⑤ `useAttachments.views.test.ts` 2 | reason `load`·`canvas`·`draw`·`encode` · 해소 순서 [1,0,3,2,4] → 동시 최대 2 | — |
+| VP-33 | 측정 스크립트 결정성·N/A·요약·번들 | EP-10 ①~④ (4) | 4/4 | EP-10 검색 → export 16 · N/A 줄 · `node --test scripts/measure-ui-inputs.test.mjs` m1~m5 → 5/5 | 예열 1,000 이 섞이면 최대가 바뀌는 시간 배열 · 함수 없는 임시 트리(m5) | — |
+
+- §10 자리 목록 밖에서 본 운반 자리: 없음 — 모든 EP 검색 출력이 목록 안이다.
+- 직전 verify 고장 이력의 `못 잡음` 행: 해당 없음 — r1(verify 이전).
 
 **V-pair 자기확인**
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
+| VP-01 | REQUIRED | SELF_PASS | `session-load.bounds.test.ts:'빈 parts 200,000건은 조각 400개로…'` · `transport/session-load.test.ts:'200,000건을 한 조각·400조각으로…'` | not selected |
+| VP-02 | REQUIRED | SELF_PASS | 위 강제 지점 표 | required — E1.7reg·E1.7reg2 red(q1~q3) |
+| VP-03 | REQUIRED | SELF_PASS | 위 표 | required — E1.1·E1.2·E1.3 red · E1.9reg 첫 실행 green → 1,000,000 입력 추가 → E1.9reg′ red |
+| VP-04 | REGRESSION | SELF_PASS | `main/app/data-host/session-load.test.ts` 기존 케이스 · `transport/session-load.test.ts` 기존 케이스 · `data-host.test.ts` `'세션 조각 분할'` 9 — 최종 전체 실행 green | not selected |
+| VP-05 | REGRESSION | SELF_PASS | `chatStore.native-history.test.ts` 두 케이스 green | not selected |
+| VP-06 | REQUIRED | SELF_PASS | `Timeline.memo.test.ts:'re-renders only the live leaf…'` 4 크기 | not selected |
+| VP-07 | REQUIRED | SELF_PASS | 위 표 | required — E2.6reg·E2.4reg·E2.4deps·E2.3reg red |
+| VP-08 | REQUIRED | SELF_PASS | 위 표 | required — E2.8reg·E2.1reg red |
+| VP-09 | REGRESSION | SELF_PASS | `Timeline.selection.test.ts:'keeps selected live content on completion…'` · `ScrollController.interaction.test.ts` 두 케이스 · `projection.test.ts` 기존 케이스 전부 | not selected |
+| VP-10 | REQUIRED | SELF_PASS | `turns.test.ts` describe `'createExchangeGrouper'` · VP-12 좌표 | not selected |
+| VP-11 | REQUIRED | SELF_PASS | 위 표 | required — E3.3reg·E3.5reg·E3.6reg·E3.8reg red |
+| VP-12 | REQUIRED | SELF_PASS | 위 표 | required — E3b.1reg·E3b.2reg red |
+| VP-13 | REGRESSION | SELF_PASS | `workToolResults.test.ts` 7 · `workActivity.performance.test.ts` green | not selected |
+| VP-14 | REQUIRED | SELF_PASS | VP-15·16 좌표 + `useDiffCompute.test.ts:'routes a 64,001-char…'` | not selected |
+| VP-15 | REQUIRED | SELF_PASS | 위 표 | required — E4.3reg red · E4.2reg 첫 실행 green(중복 clamp 가 값을 가렸다) → clamp 삭제 → E4.2reg′ red |
+| VP-16 | REQUIRED | SELF_PASS | 위 표 | required — E4.6reg·E4.7reg·E4.5reg red |
+| VP-17 | REGRESSION | SELF_PASS | `inline.test.ts` 기존 `'diffLinesWithinCap'`·`'diffStatWithinCap'`·`'countLines'`·`'parsePatchWithinCap'` · `toolMeta.test.ts` 401 | not selected |
+| VP-18 | REQUIRED | SELF_PASS | VP-19·20 좌표 | not selected |
+| VP-19 | REQUIRED | SELF_PASS | 위 표 | required — E5.4reg·E5.3reg·E5.4key·E5.4ent red |
+| VP-20 | REQUIRED | SELF_PASS | 위 표 | not selected |
+| VP-21 | REGRESSION | SELF_PASS | `client.test.ts` `'캐시 (AC14)'`(상한을 키+결과 기준으로 다시 잡음 — §12 예고)·`'취소 (AC11)'`·`'실패 (AC12)'` | not selected |
+| VP-22 | REQUIRED | SELF_PASS | VP-23 좌표 + `ComposerDecorationLayer.test.ts:'renders no decoration spans…'` | not selected |
+| VP-23 | REQUIRED | SELF_PASS | 위 표 | required — E6.2reg·E6.2b·E6.4reg·E6.4dot·E6.5reg·E6.5ex red |
+| VP-24 | REGRESSION | SELF_PASS | `ComposerDecorationLayer.test.ts` IME·gutter·projection 3 | not selected |
+| VP-25 | REQUIRED | SELF_PASS | VP-26 좌표 + `CopyIconButton.lazy.test.ts` | not selected |
+| VP-26 | REQUIRED | SELF_PASS | 위 표 | required — E7.2reg·E7.1reg red |
+| VP-27 | REQUIRED | SELF_PASS | VP-28 좌표 | not selected |
+| VP-28 | REQUIRED | SELF_PASS | 위 표 | required — E8.1reg·E8.3reg·E8.5reg·E8.6reg red |
+| VP-29 | REQUIRED | SELF_PASS | VP-30 좌표 + `composerSubmit.test.ts:'sends the original attachment array…'` | not selected |
+| VP-30 | REQUIRED | SELF_PASS | 위 표 | required — E9.2reg·E9.3reg·E9.1reg red |
+| VP-31 | REQUIRED | SELF_BLOCKED | 사람 실기(§19, Windows) — 이 환경은 Electron 실창·Windows 장비가 없다. AC22 부분은 VP-33 | not selected |
+| VP-32 | REQUIRED | SELF_PASS | 위 표 | required — E2b.2reg·E2b.3reg·E2b.5reg red |
+| VP-33 | REQUIRED | SELF_PASS | 위 표 | not selected |
 
-## [구현자 기입] 이번 라운드 수정의 잠금
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1)
+
+열거 sweep 은 §10 자리 77 · pair path edge · 규칙 칸 분기(diff 자리) · 등록 변이(선택 증거)마다 고장을 심었다(하네스 `mutate.py`, 자리마다 그 EP 의 테스트 묶음을 oracle 로). 첫 실행 139항목 중 green 15 → 입력·테스트 추가 10 · 동치 4 · 재구성 1, 빠진 자리 7항목을 보탠 실행 1 green → 테스트 추가. 매 실행 뒤 `git diff | sha256sum` 이 실행 전과 같았다(원복 확인).
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
+| E1.1 `data-host.ts` — 제거 `if (end - start >= limits.messages) break` | VP-03 자리 1 선택 증거 | 최초 | vitest 5 failed \| 51 passed (56) | 잠김 |
+| E1.2 `data-host.ts` — 제거 `if (end > start && parts + size > limits.parts…` | VP-03 자리 2 선택 증거 | 최초 | vitest 6 failed \| 22 passed (28) | 잠김 |
+| E1.3 `data-host.ts` — 교체 `if (end === start) return start + 1 ⏎       br…` → `if (end === start) return start + …` | VP-03 자리 3 선택 증거 | 최초 | vitest 5 failed \| 51 passed (56) | 잠김 |
+| E1.3s `data-host.ts` — 교체 `const cost = estimateWireChars(message, remain…` → `const cost = estimateWireChars(mes…` | sweep — EP-1 자리 | 최초 | vitest 1 failed \| 55 passed (56) | 잠김 |
+| E1.4 `data-host.ts` — 제거 `if (end === start) return start + 1` | sweep — EP-1 자리 | 최초 | vitest 2 failed \| 54 passed (56) | 잠김 |
+| E1.5 `data-host.ts` — 교체 `return total > limit` → `return false` | sweep — EP-1 자리 | 최초 | vitest 3 failed \| 53 passed (56) | 잠김 |
+| E1.6 `data-host.ts` — 교체 `const end = nextSessionChunkEnd(messages, star…` → `const end = messages.length` | sweep — EP-1 자리 | 최초 | vitest 28 passed (28) | 잠김 |
+| E1.7a `session-load.ts` — 제거 `if (seq > 0) await yieldTurn()` | sweep — EP-1 자리 | 최초 | vitest 6 failed \| 50 passed (56) | 잠김 |
+| E1.7b `session-load.ts` — 제거 `if (!active.has(requestId) \|\| client.isClose…` | sweep — EP-1 자리 | 최초 | vitest 5 failed \| 51 passed (56) | 잠김 |
+| E1.7reg `session-load.ts` — 교체 `if (seq > 0) await yieldTurn() ⏎         if (!…` → `const end = nextSessionChunkEnd(me…` | VP-02 자리 7 선택 증거 | 최초 | vitest 3 failed \| 53 passed (56) | 잠김 |
+| E1.7reg2 `session-load.ts` — 교체 `if (seq > 0) await yieldTurn()` → `if (seq > 0) { ⏎           nextSes…` | VP-02 자리 7(변형) 선택 증거 | 최초 | vitest 3 failed \| 53 passed (56) | 잠김 |
+| E1.8a `session-load.ts` — 교체 `chunked: { chunks: seq, messages: sent }` → `chunked: { chunks: sent, messages:…` | sweep — EP-1 자리 | 최초 | vitest 6 failed \| 50 passed (56) | 잠김 |
+| E1.8b `session-load.ts` — 제거 `sent += end - start` | sweep — EP-1 자리 | 최초 | vitest 7 failed \| 49 passed (56) | 잠김 |
+| E1.9reg `data-host.ts` — 교체 `for (const message of chunk.messages) messages…` → `messages.push(...chunk.messages)` | VP-03 자리 9 선택 증거 | 최초 green | vitest 1 failed \| 55 passed (56) | 잠김(재실행 E1.9reg′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E1.10 `session-load.ts` — 교체 `isChunkedSession(session) ? assembleSession(se…` → `session` | sweep — EP-1 자리 | 최초 | vitest 7 failed \| 49 passed (56) | 잠김 |
+| E2.1a `parts.ts` — 교체 `export function hasSegmentText(text: string): …` → `export function hasSegmentText(tex…` | sweep — EP-2 자리 | 최초 | vitest 2 failed \| 210 passed (212) | 잠김 |
+| E2.1reg `parts.ts` — 교체 `export function hasSegmentReasoning(text: stri…` → `export function hasSegmentReasonin…` | VP-08 자리 1 선택 증거 | 최초 | vitest 5 failed \| 207 passed (212) | 잠김 |
+| E2.1b `parts.ts` — 교체 `if (!hasSegmentText(p.text)) continue` → `if (p.text === 'never') continue` | sweep — EP-2 자리 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2.2a `chatStore.ts` — 교체 `return useChatStore((s) => hasSegmentText(s.se…` → `return useChatStore((s) => hasSegm…` | 새 oracle 민감도 — EP-2 ② 공백 text 탐침 | 최초 green | vitest 1 failed \| 212 passed (213) | 잠김(재실행 E2.2a′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E2.2b `chatStore.ts` — 교체 `return useChatStore((s) => s.sessions[s.active…` → `return useChatStore((s) => hasSegm…` | sweep — EP-2 자리 | 최초 | vitest 2 failed \| 210 passed (212) | 잠김 |
+| E2.3reg `chatStore.ts` — 교체 `return useChatStore((s) => (enabled ? s.sessio…` → `return useChatStore((s) => s.sessi…` | VP-07 자리 3 선택 증거 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2.4reg `Timeline.tsx` — 교체 `useHasLiveText, ⏎   useLiveTextFor` → `useLiveText as useHasLiveText, ⏎  …` | VP-07 자리 4 선택 증거 | 최초 | vitest 5 failed \| 207 passed (212) | 잠김 |
+| E2.4deps `Timeline.tsx` — 교체 `[head, props.inflight, hasLiveText, hasLiveRea…` → `[head, props.inflight, hasLiveText…` | VP-07 자리 4(deps) 선택 증거 | 최초 | vitest 2 failed \| 210 passed (212) | 잠김 |
+| E2.4r `Timeline.tsx` — 교체 `reasoning: props.inflight && hasLiveReasoning,` → `reasoning: false,` | sweep — EP-2 자리 | 최초 | vitest 3 failed \| 209 passed (212) | 잠김 |
+| E2.4t `Timeline.tsx` — 교체 `text: props.inflight && hasLiveText,` → `text: props.inflight,` | 새 oracle 민감도 — EP-2 ④ p1′ | 최초 green | vitest 1 failed \| 212 passed (213) | 잠김(재실행 E2.4t′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E2.5 `Timeline.tsx` — 교체 `const rows = useMemo(() => timelineRows(head, …` → `const rows = useMemo(() => { ⏎    …` | 새 oracle 민감도 — EP-2 ⑤ head 순회 계수 | 최초 | vitest 3 failed \| 209 passed (212) | 잠김 |
+| E2.6reg `Timeline.tsx` — 교체 `return ( ⏎           <OpenCodeTextSegment ⏎   …` → `return row.live ? ( ⏎           <s…` | VP-07 자리 6 선택 증거 | 최초 | vitest 3 failed \| 209 passed (212) | 잠김 |
+| E2.7a `Timeline.tsx` — 교체 `const liveText = useLiveTextFor(live)` → `const liveText = useLiveTextFor(tr…` | 새 oracle 민감도 — EP-2 ⑦ useLiveTextFor 인자 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2.7b `Timeline.tsx` — 교체 `source={live ? prefix + liveText : prefix}` → `source={prefix + liveText}` | sweep — EP-2 자리 | 최초 | vitest 212 passed (212) | 동치 — `useLiveTextFor(false)` 는 언제나 `''`(`chatStore.ts` `useLiveTextFor`) 라 `prefix + liveText` = `prefix` · 확인 실행: 변이 green 212/212 + 탐침 `useLiveTextFor(false)`→`''`(liveSelectors) |
+| E2.8a `projection.ts` — 제거 `if (active && live.reasoning && segments.at(-1…` | sweep — EP-2 자리 | 최초 | vitest 4 failed \| 208 passed (212) | 잠김 |
+| E2.8b `projection.ts` — 교체 `if (active && live.reasoning && segments.at(-1…` → `if (active && live.reasoning)` | sweep — EP-2 자리 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2.8reg `projection.ts` — 교체 `if (segments.at(-1)?.kind !== 'text') segments…` → `if (segments.at(-1)?.kind === 'tex…` | VP-08 b1·b2 맞바꿈 선택 증거 | 최초 | vitest 16 failed \| 196 passed (212) | 잠김 |
+| E2.8c `projection.ts` — 제거 `if (segments.at(-1)?.kind !== 'text') segments…` | sweep — EP-2 자리 | 최초 | vitest 13 failed \| 199 passed (212) | 잠김 |
+| E2.8d `projection.ts` — 제거 `liveIndex = segments.length - 1 // b1 은 직전 확정 …` | sweep — EP-2 자리 | 최초 | vitest 13 failed \| 199 passed (212) | 잠김 |
+| E2.8e `projection.ts` — 교체 `...(index === liveIndex ? { live: true as cons…` → `...{}` | sweep — EP-2 자리 | 최초 | vitest 13 failed \| 199 passed (212) | 잠김 |
+| E2.8f `projection.ts` — 교체 `gap: rows.length ? 16 : 0, ⏎         live: tru…` → `gap: rows.length ? 16 : 0` | sweep — EP-2 자리 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2.8g `projection.ts` — 교체 `const previous = head.rows.at(-1)` → `const previous = undefined as Time…` | sweep — EP-2 자리 | 최초 | vitest 2 failed \| 210 passed (212) | 잠김 |
+| E2.8h `projection.ts` — 교체 `const active = exchangeIndex === exchanges.len…` → `const active = exchangeIndex === e…` | sweep — EP-2 자리 | 최초 | vitest 22 failed \| 190 passed (212) | 잠김 |
+| E2.9a `projection.ts` — 교체 `count: base + tail.length,` → `count: tail.length,` | sweep — EP-2 자리 | 최초 | vitest 6 failed \| 206 passed (212) | 잠김 |
+| E2.9b `projection.ts` — 교체 `at: (index) => (index < base ? head.rows[index…` → `at: (index) => [...head.rows, ...t…` | 새 oracle 민감도 — EP-2 ⑨ timelineRows 무복사 | 최초 | vitest 8 failed \| 204 passed (212) | 잠김 |
+| E2.10a `projection.ts` — 교체 `return { ...committed, segment: { kind: 'text'…` → `return { ...committed, segment: { …` | sweep — EP-2 자리 | 최초 | vitest 8 failed \| 204 passed (212) | 잠김 |
+| E2.10b `projection.ts` — 교체 `text: hasSegmentText(live.text),` → `text: hasSegmentReasoning(live.tex…` | sweep — EP-2 자리 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2.10c `projection.ts` — 교체 `reasoning: hasSegmentReasoning(live.reasoning)…` → `reasoning: hasSegmentText(live.rea…` | sweep — EP-2 자리 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2b.1 `chatStore.ts` — 교체 `const EMPTY_LIVE: LiveTurnState = { text: '', …` → `const EMPTY_LIVE: LiveTurnState = …` | sweep — EP-2b 자리 | 최초 | vitest 7 failed \| 205 passed (212) | 잠김 |
+| E2b.2reg `chatStore.ts` — 교체 `entry.live.reasoningVisible \|\| hasSegmentRea…` → `hasSegmentReasoning(event.delta.te…` | VP-32 자리 2 선택 증거 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2b.2b `chatStore.ts` — 제거 `reasoningVisible: entry.live.reasoningVisible …` | sweep — EP-2b 자리 | 최초 | vitest 8 failed \| 204 passed (212) | 잠김 |
+| E2b.3reg `chatStore.ts` — 교체 `live.reasoning !== '' ? { ...live, reasoning: …` → `live.reasoning !== '' ? { ...live,…` | VP-32 자리 3 선택 증거 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2b.4 `chatStore.ts` — 교체 `? { ...entry.live, text: entry.live.text + eve…` → `? { ...entry.live, text: entry.liv…` | 새 oracle 민감도 — EP-2b ④ h2′ | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2b.4b `chatStore.ts` — 교체 `? { ...entry.live, text: '' }` → `? { ...entry.live, text: '', reaso…` | 새 oracle 민감도 — EP-2b ④ h2′ | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E2b.5reg `chatStore.ts` — 교체 `return useChatStore((s) => s.sessions[s.active…` → `return useChatStore((s) => hasSegm…` | VP-32 자리 5 선택 증거 | 최초 | vitest 1 failed \| 211 passed (212) | 잠김 |
+| E3.1 `turns.ts` — 제거 `if (messages === previousMessages && show === …` | sweep — EP-3 자리 | 최초 | vitest 1 failed \| 174 passed (175) | 잠김 |
+| E3.2 `turns.ts` — 교체 `firstChange++` → `break` | 새 oracle 민감도 — EP-3 ② role 읽기 계수 | 최초 | vitest 3 failed \| 172 passed (175) | 잠김 |
+| E3.3reg `turns.ts` — 교체 `previous[reuse + 1].startIndex < firstChange) …` → `previous[reuse + 1].startIndex <= …` | VP-11 자리 3 선택 증거 | 최초 | vitest 2 failed \| 173 passed (175) | 잠김 |
+| E3.3b `turns.ts` — 교체 `previous[reuse + 1].startIndex < firstChange) …` → `previous[reuse + 1].startIndex < f…` | sweep — EP-3 자리 | 최초 | vitest 3 failed \| 172 passed (175) | 잠김 |
+| E3.4a `turns.ts` — 제거 `show === previousShow &&` | sweep — EP-3 자리 | 최초 | vitest 2 failed \| 173 passed (175) | 잠김 |
+| E3.4b `turns.ts` — 교체 `messages.length >= previousMessages.length` → `true` | sweep — EP-3 자리 | 최초 | vitest 175 passed (175) | 동치 — 접두가 같으면 첫 변경 = 새 길이이고 다음 시작 < 새 길이인 exchange 만 재사용 → 남는 구간 재그룹 = 전체 그룹화 · 확인 실행: g14 축소 1,360건 포함 green 175/175 |
+| E3.5reg `turns.ts` — 교체 `reuse < previous.length ? Math.min(firstChange…` → `reuse < previous.length ? previous…` | VP-11 자리 5 선택 증거 | 최초 | vitest 2 failed \| 173 passed (175) | 잠김 |
+| E3.6reg `turns.ts` — 교체 `if (exchangeEquals(before, exchange)) return b…` → `return exchange` | VP-11 자리 6 선택 증거 | 최초 | vitest 13 failed \| 162 passed (175) | 잠김 |
+| E3.6b `turns.ts` — 교체 `return match && turnEquals(match, turn) ? matc…` → `return turn` | sweep — EP-3 자리 | 최초 | vitest 11 failed \| 164 passed (175) | 잠김 |
+| E3.7a `Timeline.tsx` — 교체 `const [groupIncrementally] = useState(createEx…` → `const groupIncrementally = createE…` | 새 oracle 민감도 — EP-3 ⑦ 배선 | 최초 | vitest 1 failed \| 174 passed (175) | 잠김 |
+| E3.7b `Timeline.tsx` — 교체 `[groupIncrementally, messages, showAutomaticFe…` → `[groupIncrementally, messages]` | 새 oracle 민감도 — EP-3 ⑦ 옵션 토글 배선 | 최초 green | vitest 1 failed \| 176 passed (177) | 잠김(재실행 E3.7b′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E3.8reg `turns.ts` — 제거 `const hit = cache.get(message) ⏎       if (hit…` | VP-11 자리 8 선택 증거 | 최초 | vitest 2 failed \| 173 passed (175) | 잠김 |
+| E3.8b `turns.ts` — 교체 `const cache = show ? derived.shown : derived.h…` → `const cache = derived.hidden` | sweep — EP-3 자리 | 최초 | vitest 2 failed \| 173 passed (175) | 잠김 |
+| E3b.1reg `ChatTile.tsx` — 교체 `(text: string): void => chatActions.restoreCom…` → `(text: string): void => chatAction…` | VP-12 자리 1 선택 증거 | 최초 | vitest 1 failed \| 174 passed (175) | 잠김 |
+| E3b.2reg `Exchange.tsx` — 제거 `prev.onRestoreSteerDraft === next.onRestoreSte…` | VP-12 자리 2 선택 증거 | 최초 | vitest 1 failed \| 174 passed (175) | 잠김 |
+| E3b.3 `Timeline.tsx` — 교체 `onRestoreSteerDraft={onRestoreSteerDraft} ⏎   …` → `/>` | 새 oracle 민감도 — EP-3b ③ 배선 | 최초 | vitest 1 failed \| 174 passed (175) | 잠김 |
+| E3b.tile `ChatTile.tsx` — 제거 `onRestoreSteerDraft={restoreSteerDraft}` | sweep — EP-3b 자리 | 최초 | vitest 2 failed \| 173 passed (175) | 잠김 |
+| E4.1 `limits.ts` — 교체 `export const DIFF_INLINE_MAX_CHARS = 64_000` → `export const DIFF_INLINE_MAX_CHARS…` | sweep — EP-4 자리 | 최초 | vitest 4 failed \| 620 passed (624) | 잠김 |
+| E4.2reg `diffModel.ts` — 교체 `if (++newlines > limit) return limit + 1` → `++newlines` | VP-15 자리 2 선택 증거 | 최초 green | vitest 1 failed \| 623 passed (624) | 잠김(재실행 E4.2reg′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E4.2b `diffModel.ts` — 교체 `return count > limit ? limit + 1 : count ⏎ }` → `return count ⏎ }` | sweep — EP-4 자리 | 최초 | vitest 624 passed (624) | 재구성 — 중복 clamp 줄 삭제(값 동일: 루프 뒤 newlines ≤ limit) · 원문 없음, 상한은 E4.2reg′ 가 잠근다 |
+| E4.3reg `inline.ts` — 제거 `if (oldValue.length + newValue.length > DIFF_I…` | VP-15 자리 3 선택 증거 | 최초 | vitest 3 failed \| 621 passed (624) | 잠김 |
+| E4.3b `inline.ts` — 제거 `if (oldLines > DIFF_INLINE_MAX_LINES) return f…` | sweep — EP-4 자리 | 최초 | vitest 624 passed (624) | 동치 — oldLines > 400 이면 `countLinesUpTo` ≥ 0 이라 합 > 400 → false 그대로 · 확인 실행: c3 `withinDiffCap(401줄, '')` 포함 green 624/624 |
+| E4.4 `inline.ts` — 제거 `if (!withinDiffCap(oldValue, newValue)) return…` | sweep — EP-4 자리 | 최초 | vitest 6 failed \| 618 passed (624) | 잠김 |
+| E4.5a `inline.ts` — 교체 `if (pairChars > DIFF_INLINE_MAX_CHARS \|\| pat…` → `if (patchChars > PATCH_INLINE_MAX_…` | sweep — EP-4 자리 | 최초 | vitest 1 failed \| 623 passed (624) | 잠김 |
+| E4.5b `inline.ts` — 교체 `if (pairChars > DIFF_INLINE_MAX_CHARS \|\| pat…` → `if (pairChars > DIFF_INLINE_MAX_CH…` | sweep — EP-4 자리 | 최초 | vitest 3 failed \| 621 passed (624) | 잠김 |
+| E4.5c `inline.ts` — 제거 `if (lines > DIFF_INLINE_MAX_LINES) return null` | sweep — EP-4 자리 | 최초 | vitest 624 passed (624) | 동치 — 줄 합은 줄지 않아 쌍마다 뒤(after) 검사가 앞 검사 몫을 잡는다 · 확인 실행: a2 포함 green 624/624 |
+| E4.5d `inline.ts` — 제거 `if (lines > DIFF_INLINE_MAX_LINES) return null` | sweep — EP-4 자리 | 최초 | vitest 6 failed \| 618 passed (624) | 잠김 |
+| E4.5reg `inline.ts` — 교체 `else patchChars += source.patch.length` → `else patchChars += (parsePatchWith…` | VP-16 자리 7(파싱 후 합산) 선택 증거 | 최초 | vitest 2 failed \| 622 passed (624) | 잠김 |
+| E4.5e `inline.ts` — 교체 `if (line[0] === '+') added++ ⏎           else …` → `if (line[0] === '-') added++ ⏎    …` | sweep — EP-4 자리 | 최초 | vitest 1 failed \| 623 passed (624) | 잠김 |
+| E4.5f `inline.ts` — 교체 `return diffStatsWithinBudget([{ kind: 'pair', …` → `return diffStatsWithinBudget([{ ki…` | sweep — EP-4 자리 | 최초 | vitest 1 failed \| 623 passed (624) | 잠김 |
+| E4.6reg `toolMeta.ts` — 교체 `return diffStatsWithinBudget(sources)` → `return sources.reduce<{ added: num…` | VP-16 자리 6 선택 증거 | 최초 | vitest 4 failed \| 620 passed (624) | 잠김 |
+| E4.6b `toolMeta.ts` — 교체 `return diffStatsWithinBudget([{ kind: 'pair', …` → `return diffStatsWithinBudget([{ ki…` | sweep — EP-4 자리 | 최초 | vitest 2 failed \| 622 passed (624) | 잠김 |
+| E4.7 `filePresentation.ts` — 교체 `: { kind: 'patch', patch: file.patch ?? '' }` → `: { kind: 'patch', patch: '' }` | sweep — EP-4 자리 | 최초 | vitest 5 failed \| 619 passed (624) | 잠김 |
+| E4.7reg `inline.ts` — 교체 `if (pairChars > DIFF_INLINE_MAX_CHARS \|\| pat…` → `if (pairChars > DIFF_INLINE_MAX_CH…` | VP-16 자리 7(patch 합) 선택 증거 | 최초 | vitest 3 failed \| 621 passed (624) | 잠김 |
+| E4.8 `inline.ts` — 제거 `if (patch.length > PATCH_INLINE_MAX_CHARS) ret…` | sweep — EP-4 자리 | 최초 | vitest 1 failed \| 623 passed (624) | 잠김 |
+| E5.1 `handler.ts` — 교체 `return { id: message.id, ok: true, result, siz…` → `return { id: message.id, ok: true,…` | sweep — EP-5 자리 | 최초 | vitest 4 failed \| 67 passed (71) | 잠김 |
+| E5.1b `protocol.ts` — 교체 `(sum, line) => sum + COMPUTE_RESULT_ELEMENT_CH…` → `(sum, line) => sum + line.text.len…` | sweep — EP-5 자리 | 최초 | vitest 3 failed \| 68 passed (71) | 잠김 |
+| E5.2 `protocol.ts` — 교체 `size: typeof message.size === 'number' ? messa…` → `size: 0` | sweep — EP-5 자리 | 최초 | vitest 9 failed \| 62 passed (71) | 잠김 |
+| E5.3reg `client.ts` — 교체 `writeCache(job.key, response.result, response.…` → `writeCache(job.key, response.resul…` | VP-19 자리 3 선택 증거 | 최초 | vitest 7 failed \| 64 passed (71) | 잠김 |
+| E5.3b `client.ts` — 교체 `writeCache(job.key, response.result, response.…` → `writeCache(job.key, response.resul…` | sweep — EP-5 자리 | 최초 | vitest 8 failed \| 63 passed (71) | 잠김 |
+| E5.4reg `client.ts` — 제거 `if (cost > cacheMax) return` | VP-19 자리 4(상한) 선택 증거 | 최초 | vitest 1 failed \| 70 passed (71) | 잠김 |
+| E5.4key `client.ts` — 교체 `const cost = key.length + size` → `const cost = size` | VP-19 자리 4(키 길이) 선택 증거 | 최초 | vitest 4 failed \| 67 passed (71) | 잠김 |
+| E5.4ent `client.ts` — 교체 `if (cacheChars <= cacheMax && cache.size <= ca…` → `if (cacheChars <= cacheMax) break` | VP-19 자리 4(항목 수) 선택 증거 | 최초 | vitest 1 failed \| 70 passed (71) | 잠김 |
+| E5.4inv `client.ts` — 제거 `if (!Number.isFinite(size) \|\| size < 0) retu…` | sweep — EP-5 자리 | 최초 | vitest 1 failed \| 70 passed (71) | 잠김 |
+| E5.6a `limits.ts` — 교체 `export const COMPUTE_CACHE_MAX_ENTRIES = 1_000` → `export const COMPUTE_CACHE_MAX_ENT…` | sweep — EP-5 자리 | 최초 | vitest 1 failed \| 70 passed (71) | 잠김 |
+| E5.6b `limits.ts` — 교체 `export const COMPUTE_RESULT_ELEMENT_CHARS = 36` → `export const COMPUTE_RESULT_ELEMEN…` | sweep — EP-5 자리 | 최초 | vitest 3 failed \| 68 passed (71) | 잠김 |
+| E6.1 `limits.ts` — 교체 `export const COMPOSER_DECORATION_MAX_CHARS = 2…` → `export const COMPOSER_DECORATION_M…` | sweep — EP-6 자리 | 최초 | vitest 3 failed \| 250 passed (253) | 잠김 |
+| E6.2reg `composerDecoration.ts` — 교체 `if (value === '' \|\| value.length > COMPOSER_…` → `if (value === '' \|\| value.length…` | VP-23 자리 2(>=) 선택 증거 | 최초 | vitest 4 failed \| 249 passed (253) | 잠김 |
+| E6.2b `composerDecoration.ts` — 교체 `if (value === '' \|\| value.length > COMPOSER_…` → `if (value === '') return []` | VP-23 상한 검사 선택 증거 | 최초 | vitest 3 failed \| 250 passed (253) | 잠김 |
+| E6.4reg `composerDecoration.ts` — 교체 `const name = match[0].slice(1)` → `if (match[0]) { ⏎       let legacy…` | VP-23 자리 4(has 반복) 선택 증거 | 최초 | vitest 2 failed \| 251 passed (253) | 잠김 |
+| E6.4a `composerDecoration.ts` — 제거 `if (node?.end) matched = i + 1` | sweep — EP-6 자리 | 최초 | vitest 8 failed \| 245 passed (253) | 잠김 |
+| E6.4b `composerDecoration.ts` — 교체 `let matched = node?.end ? punctuation : -1` → `let matched = -1` | sweep — EP-6 자리 | 최초 | vitest 18 failed \| 235 passed (253) | 잠김 |
+| E6.4c `composerDecoration.ts` — 교체 `for (let i = punctuation; node && i < name.len…` → `for (let i = punctuation; node && …` | sweep — EP-6 자리 | 최초 | vitest 8 failed \| 245 passed (253) | 잠김 |
+| E6.4dot `skillIndex.ts` — 교체 `export const SKILL_TRAILING_PUNCTUATION: Reado…` → `export const SKILL_TRAILING_PUNCTU…` | VP-23 자리 4(. 제거) 선택 증거 | 최초 | vitest 14 failed \| 239 passed (253) | 잠김 |
+| E6.5reg `skillIndex.ts` — 교체 `const start = trailingPunctuationStart(name) ⏎…` → `const start = 0 ⏎     const base =…` | VP-23 자리 5(전체 이름 트리) 선택 증거 | 최초 | vitest 26 failed \| 227 passed (253) | 잠김 |
+| E6.5ex `skillIndex.ts` — 제거 `if (name.length > SKILL_INDEX_MAX_NAME_CHARS) …` | VP-23 자리 5(19,999 초과) 선택 증거 | 최초 | vitest 1 failed \| 252 passed (253) | 잠김 |
+| E6.5memo `skillIndex.ts` — 제거 `indexes.set(names, index)` | sweep — EP-6 자리 | 최초 | vitest 1 failed \| 252 passed (253) | 잠김 |
+| E6.5end `skillIndex.ts` — 제거 `node.end = true` | sweep — EP-6 자리 | 최초 | vitest 26 failed \| 227 passed (253) | 잠김 |
+| E6.3 `ComposerDecorationLayer.tsx` — 교체 `tokenizeComposerDecoration(` → `((..._args: unknown[]) => []) as t…` | sweep — EP-6 자리 | 최초 red | vitest 15 failed \| 238 passed (253) | 잠김(재실행 E6.3′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E7.1reg `ToolCard.tsx` — 교체 `text={() => copyText(call)}` → `text={copyText(call)}` | VP-26 자리 1 선택 증거 | 최초 | vitest 1 failed \| 116 passed (117) | 잠김 |
+| E7.2reg `AssistantTurn.tsx` — 교체 `text={copyable ? () => turnCopyText(turn) : ''…` → `text={() => turnCopyText(turn)}` | VP-26 자리 2 선택 증거 | 최초 | vitest 4 failed \| 113 passed (117) | 잠김 |
+| E7.2b `AssistantTurn.tsx` — 교체 `text={copyable ? () => turnCopyText(turn) : ''…` → `text={copyable ? turnCopyText(turn…` | sweep — EP-7 자리 | 최초 | vitest 2 failed \| 115 passed (117) | 잠김 |
+| E7.3a `UserTurn.tsx` — 교체 `text={copyable ? () => turnCopyText(turn) : ''…` → `text={() => turnCopyText(turn)}` | sweep — EP-7 자리 | 최초 | vitest 1 failed \| 116 passed (117) | 잠김 |
+| E7.3b `UserTurn.tsx` — 교체 `text={copyable ? () => turnCopyText(turn) : ''…` → `text={copyable ? turnCopyText(turn…` | sweep — EP-7 자리 | 최초 | vitest 1 failed \| 116 passed (117) | 잠김 |
+| E7.4 `Timeline.tsx` — 교체 `text={row.copyable ? () => turnCopyText(row.tu…` → `text={row.copyable ? turnCopyText(…` | sweep — EP-7 자리 | 최초 green | vitest 3 failed \| 116 passed (119) | 잠김(재실행 E7.4′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E8.1reg `useDragResize.ts` — 교체 `if (frame === null) frame = window.requestAnim…` → `onChange(pending)` | VP-28 자리 1 선택 증거 | 최초 | vitest 5 failed \| 506 passed (511) | 잠김 |
+| E8.2 `useDragResize.ts` — 교체 `pending = null ⏎         onChange(value) ⏎    …` → `pending = null ⏎         void valu…` | sweep — EP-8 자리 | 최초 | vitest 3 failed \| 508 passed (511) | 잠김 |
+| E8.3reg `useDragResize.ts` — 교체 `function finish(): void { ⏎         if (pendin…` → `function finish(): void { ⏎       …` | VP-28 자리 3 선택 증거 | 최초 | vitest 2 failed \| 509 passed (511) | 잠김 |
+| E8.3b `useDragResize.ts` — 교체 `onChange(value) ⏎         } ⏎         release(…` → `onChange(value) ⏎         } ⏎     …` | sweep — EP-8 자리 | 최초 | vitest 2 failed \| 509 passed (511) | 잠김 |
+| E8.5reg `useDragResize.ts` — 제거 `useEffect(() => () => dragRef.current?.cancel(…` | VP-28 자리 5 선택 증거 | 최초 | vitest 1 failed \| 510 passed (511) | 잠김 |
+| E8.6reg `useDragResize.ts` — 제거 `window.addEventListener('blur', finish)` | VP-28 자리 6 선택 증거 | 최초 | vitest 2 failed \| 509 passed (511) | 잠김 |
+| E8.4a `Sidebar.tsx` — 교체 `useDragResize({` → `useDragResize({ disabled: true,` | 새 oracle 민감도 — EP-8 ④ Sidebar 배선 | 최초 green | vitest 1 failed \| 513 passed (514) | 잠김(재실행 E8.4a″) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E8.4b `PanelResizeSeparators.tsx` — 교체 `useDragResize({` → `useDragResize({ disabled: true,` | 새 oracle 민감도 — EP-8 ④ 열 핸들 배선 | 최초 green | vitest 1 failed \| 513 passed (514) | 잠김(재실행 E8.4b″) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E8.4c `PanelResizeSeparators.tsx` — 교체 `useDragResize({` → `useDragResize({ disabled: true,` | 새 oracle 민감도 — EP-8 ④ 행 핸들 배선 | 최초 green | vitest 1 failed \| 513 passed (514) | 잠김(재실행 E8.4c″) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E9.1reg `imageThumb.ts` — 교체 `stage = 'draw' ⏎         ctx.drawImage(img, 0,…` → `stage = 'draw' ⏎         queueMicr…` | VP-30 자리 1 선택 증거 | 최초 | vitest 2 failed \| 333 passed (335) | 잠김 |
+| E9.1b `imageThumb.ts` — 교체 `resolve({ ok: false, reason: stage })` → `resolve({ ok: false, reason: 'canv…` | sweep — EP-9 자리 | 최초 | vitest 2 failed \| 333 passed (335) | 잠김 |
+| E9.1c `imageThumb.ts` — 교체 `img.onerror = () => resolve({ ok: false, reaso…` → `img.onerror = () => resolve({ ok: …` | sweep — EP-9 자리 | 최초 | vitest 1 failed \| 334 passed (335) | 잠김 |
+| E9.2reg `attachmentViews.ts` — 교체 `if (thumbnail.ok) view.previewDataUrl = thumbn…` → `view.previewDataUrl = thumbnail.ok…` | VP-30 자리 2 선택 증거 | 최초 | vitest 5 failed \| 330 passed (335) | 잠김 |
+| E9.3reg `attachmentViews.ts` — 교체 `await Promise.all(Array.from({ length: Math.mi…` → `await Promise.all(Array.from({ len…` | VP-30 자리 3 선택 증거 | 최초 | vitest 1 failed \| 334 passed (335) | 잠김 |
+| E9.4 `attachmentViews.ts` — 교체 `views[index] = await buildView(items[index], d…` → `views.push(await buildView(items[i…` | sweep — EP-9 자리 | 최초 | vitest 9 failed \| 326 passed (335) | 잠김 |
+| E9.5 `useAttachments.ts` — 교체 `downscale: downscaleDataUrl,` → `downscale: async () => ({ ok: fals…` | 새 oracle 민감도 — EP-9 ⑤ 훅 배선 | 최초 green | vitest 1 failed \| 336 passed (337) | 잠김(재실행 E9.5′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E9.6 `attachmentViews.ts` — 교체 `const read = await deps.readAttachment(attachm…` → `const read = await deps.readAttach…` | sweep — EP-9 자리 | 최초 | vitest 1 failed \| 334 passed (335) | 잠김 |
+| E10.1 `measure-ui-inputs.mjs` — 교체 `return '/build @file.ts '.repeat(25_000) // 40…` → `return '/build @file.ts '.repeat(2…` | sweep — EP-10 자리 | 최초 | node --test fail 1 · m1 입력 크기·개수가 §19 표와 같다 | 잠김 |
+| E10.1b `measure-ui-inputs.mjs` — 교체 `export function patchFiles(count = 3, chars = …` → `export function patchFiles(count =…` | sweep — EP-10 자리 | 최초 | node --test fail 1 · m1 입력 크기·개수가 §19 표와 같다 | 잠김 |
+| E10.2 `measure-ui-inputs.mjs` — 교체 `row[1 + x * 3] = (seed * 53) & 0xff` → `row[1 + x * 3] = (seed * 53 + Math…` | sweep — EP-10 자리 | 최초 | node --test fail 1 · m2 같은 인자 두 번 → 산출 바이트가 같다 | 잠김 |
+| E10.3a `measure-ui-inputs.mjs` — 교체 `if (typeof run !== 'function') return 'N/A(함수 …` → `if (typeof run !== 'function') ret…` | sweep — EP-10 자리 | 최초 | node --test fail 2 · m3 던지는 측정 → `N/A(실패: 메시지)` · 없는 함수 → `N… | 잠김 |
+| E10.3b `measure-ui-inputs.mjs` — 교체 `return `N/A(실패: ${error instanceof Error ? err…` → `return summarize(times)` | sweep — EP-10 자리 | 최초 | node --test fail 1 · m3 던지는 측정 → `N/A(실패: 메시지)` · 없는 함수 → `N… | 잠김 |
+| E10.3c `measure-ui-inputs.mjs` — 교체 `const measured = times.slice(WARMUP_RUNS).sort…` → `const measured = times.slice(0, ME…` | sweep — EP-10 자리 | 최초 | node --test fail 1 · m4 요약 = 예열 1회를 뺀 9회의 중앙값·최대 | 잠김 |
+| E10.4 `measure-ui-inputs.mjs` — 교체 `return existsSync(path)` → `return false && existsSync(path)` | 새 oracle 민감도 — EP-10 ④ m5 번들 | 최초 | node --test fail 1 · m5 `--src` 트리의 소스만 번들해 부르고 없는 모듈은 빈 모듈이… | 잠김 |
+| E3b.4 `Timeline.tsx` — 제거 `onRestoreDraft={props.onRestoreSteerDraft}` | 새 oracle 민감도 — EP-3b ④ 배선 | 최초 green | vitest 1 failed \| 227 passed (228) | 잠김(재실행 E3b.4′) — 첫 실행 `잠금 없음` → **테스트 추가** |
+| E3b.5 `PendingSteerTurn.tsx` — 교체 `if (restored) onRestoreDraft?.(restored)` → `if (restored) void restored` | sweep — EP-3b 자리 | 최초 | vitest 1 failed \| 226 passed (227) | 잠김 |
+| E3b.6 `contracts.ts` — 제거 `onRestoreSteerDraft?: (text: string) => void` | sweep — EP-3b 자리 | 최초 | src/renderer/src/features/chat/harnesses/opencode/transcript… | 잠김 |
+| E4.2c `diffModel.ts` — 교체 `return text.endsWith('\n') ? count - 1 : count` → `return count` | sweep — EP-4 자리 | 최초 | vitest 3 failed \| 731 passed (734) | 잠김 |
+| E4.4b `useDiffLines.ts` — 제거 `if (inline) return` | sweep — EP-4 자리 | 최초 | vitest 1 failed \| 733 passed (734) | 잠김 |
+| E7.5 `MessageMeta.tsx` — 교체 `{text && <CopyIconButton text={text} />}` → `{text && <CopyIconButton text={typ…` | sweep — EP-7 자리 | 최초 | vitest 6 failed \| 113 passed (119) | 잠김 |
+| E9.7 `composerSubmit.ts` — 교체 `const accepted = onSend(submitted.text, items,…` → `const accepted = onSend(submitted.…` | sweep — EP-9 자리 | 최초 | vitest 1 failed \| 330 passed (331) | 잠김 |
 
-## [구현자 기입] Product/UX 파생 검토
+- **분모 검산**: `선택 증거 45 · 인용 변이 0 · 새 oracle 17 · sweep 84 = 표 행 146`.
+
+## [구현자 기입] Product/UX 파생 검토 (r1)
 
 | 질문 | 판정 | 후속 |
 |---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 새 문구 0 — i18n 키 추가 없음(`git diff -- app/src/renderer/src/shared/i18n` → 0줄). 새 상태는 `LiveTurnState.reasoningVisible` 하나이고 소비자는 `useHasLiveReasoning` → OpenCode Timeline tail 메모 | — |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 2곳 — `copyText` → `toolCopyText.ts`(순수 함수, 정리 코드 없음) · `buildAttachmentViews` → `lib/attachmentViews.ts`(훅의 `resetIfUnchanged` 는 여전히 `attachmentsRef` 를 본다, `useAttachments.ts`) | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 썸네일 실패·예외 → "썸네일 실패·예외" 행 · 끌기 blur/unmount → 두 끌기 행 · 초안 20,000 초과 → "초안이 20,000자를 넘음" 행 · 조각 전송 취소 → "세션 로드 중 다른 세션 클릭" 행 · 캐시 미보관 → 표에 행 없음(화면 결과가 같다 — 재요청은 워커, §14 부수 효과) | 캐시 행은 화면 관측이 없어 표에 넣지 않아도 된다 |
+| 실패가 화면에서 "아무 일도 안 일어남"으로 보이지 않는가 | 큰 초안(>20,000자)의 장식 꺼짐·큰 diff 카드의 증감 숫자 없음은 안내 없이 사라진다 — D-008·D-009·D-010 "사용자 거부 가능" 으로 합의된 동작이다 | 단계 W 실측 뒤 값 조정(D-038·D-042 와 같은 경로) |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 세션 조각: 취소 뒤 늦은 조각 폐기는 현행(VP-04 `session-load.test.ts:'취소하면 번호를 실어 통지하고…'`) · 계산 캐시: 실행 중 취소 뒤 늦은 응답은 비용 규칙만 따른다(k4) | — |
 
-## [구현자 기입] 놓친 잠재 문제 + 대응
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1)
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | vitest unit 풀(worker 스레드)은 주 스레드보다 스택이 커서 인자 펼침 200,000개가 `RangeError` 를 내지 않는다 — AC1·e9 의 200,000건 입력만으로는 "spread 복귀" 변이(VP-03 자리 9 등록)가 green 이다 | ✅ 선조치 — e9 에 같은 객체 1,000,000개 한 조각 입력을 더했다(펼침이면 worker 에서도 `RangeError`) | 실측: 주 스레드 200,000 `RangeError` · worker 200,000 ok · 500,000 `RangeError`(node v22.23.5) · 변이 E1.9reg |
+| 2 | `estimateWireChars(value)` 를 예산 없이(`Infinity`) 순환 객체에 부르면 끝나지 않는다 | ⚠️ 보고만 — production 호출은 모두 유한 예산(`nextSessionChunkEnd` 의 `remaining`)이고 메시지는 JSON 원천이라 순환이 없다 | `rg -n "estimateWireChars\(" app/src --glob '!*.test.ts'` → 정의 1 · 호출 1(`data-host.ts`, 예산 인자) |
+| 3 | 측정 스크립트 I9 는 `ee8ac81` 트리에 `createExchangeGrouper` 가 없다 — AC22 "함수가 없으면 N/A" 를 글자대로 따르면 I9 의 전후 비교가 비는 칸이 된다 | ✅ 선조치 — I9 는 "Claude Timeline 이 확정 메시지 추가에 하는 그룹화" 를 재고, 트리에 grouper 가 없으면 `groupExchanges` 를 재며 표의 내용 칸에 함수 이름을 적는다. 둘 다 없으면 `N/A(함수 없음)` | `node scripts/measure-ui-inputs.mjs --src <HEAD 워크트리>` → `I9 … (groupExchanges) 2.72ms / 7.18ms` · 현 트리 `(createExchangeGrouper) 0.30ms / 1.03ms` — 설계 대비 차이에 적었다 |
+| 4 | `useDragResize` 는 끝나지 않은 끌기가 있는 채 새 mousedown 이 오면 앞 끌기를 취소한다(대기 값 버림) — plan 에 없는 경우다 | ✅ 선조치 — 한 훅 인스턴스에 진행 중 끌기는 하나다. mouseup·blur 가 정상 종료를 먼저 하므로 이 경로는 이벤트 유실 때만 탄다 | `useDragResize.ts` `dragRef.current?.cancel()` |
+| 6 | §10 의 "출력과 차집합 0" 정의(출력의 모든 줄이 목록 자리에 속하고 **자리마다 줄 1개 이상**)와 달리, 술어에 걸리는 줄이 없는 목록 자리가 셋이다 — EP-1 ⑧(`chunked`) · EP-2b ④(text spread) · EP-5 ②(`parseResponse` size) | 📝 **plan 수정 제안** — 세 술어에 `chunked`·`text: entry.live.text`·`message.size` 항을 더하거나 정의 문장을 "출력 ⊆ 목록"으로 고친다. 출력 ⊆ 목록(목록 밖 운반 줄 0)이고 분모(목록)는 고정돼 있어 구현 경로를 막지 않는다고 판단했다 — 이 판단이 틀리면 verify 가 `RETURN_TO_PLAN` 으로 되돌린다 | 이번 턴 검색 재실행 출력(위 강제 지점 표) · 세 자리 좌표 = `session-load.bounds.test.ts:'머리의 조각 수…'` · `liveSelectors:'h2′ …'` · `client.test.ts:'k3 …'` · EP-5 는 plan TO-BE 열거가 이미 ② 를 뺀다 |
+| 7 | `countLinesUpTo` 의 마지막 clamp(`count > limit ? limit + 1 : count`)가 중복이라 VP-15 등록 변이 "조기 중단 제거" 가 c3 의 반환값 401 단언에 green 이었다 | ✅ 선조치 — clamp 줄을 지웠다. 루프 뒤 newlines ≤ limit 이라 값은 같고(count ≤ limit + 1, clamp 는 count = limit + 1 일 때만 같은 값을 냈다) 상한은 조기 반환 하나가 정한다 → E4.2reg′ red | sweep E4.2reg·E4.2b green → 삭제 뒤 E4.2reg′ `vitest 1 failed` |
+| 5 | `deps.downscale` 이 reject 하면(현 `downscaleDataUrl` 은 reject 하지 않는다) `buildAttachmentViews` 가 전송을 멈출 수 있다 | ✅ 선조치 — reject 도 미리보기 없음으로 settle(D-041 과 같은 계약) | `attachmentViews.ts` `.catch((): ThumbnailResult => …)` · 오류 보고 등록부 ordinal 1 EXCLUDE |
 
 ### 설계 대비 명시적 차이
 
-- (구현 턴에서 채운다)
+- I9 함수 재측정의 대체 함수(위 #3) — §19 "I9 10,000 exchange 뒤 1건 추가 그룹화" 를 트리마다 Timeline 이 실제로 부르는 함수로 잰다. AC22 의 N/A 두 갈래(던짐·함수 없음)는 그대로이고 VP-33 m3·m5 가 잠근다.
+- `useDragResize` 의 새 mousedown 이 앞 끌기를 취소(위 #4) · `buildAttachmentViews` 가 비이미지 첨부도 같은 동시 2 레인으로 처리 — 비이미지는 즉시 끝나 관측 지연이 없다(t5·t8).
+- 그 밖에는 §11 표와 같다(파일·함수 이름·SSOT 위치).
 
-## [구현자 기입] 구현 보고
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 해당 없음 — 시간 만료가 있는 장치를 들이지 않았다(rAF 예약은 종료·취소가 비운다) | AC16 · EP-8 ③⑤⑥ — `useDragResize.test.ts` r3·r7·r8 |
+| 공유 (누가 함께 쓰고 누가 비울 수 있는가) | 스킬 색인 `WeakMap` 은 등록 집합 identity 를 공유 키로 쓴다 — 같은 집합을 쓰는 컴포저 둘이 한 색인을 함께 쓰고, 집합이 바뀌면 새 색인이다(비우는 주체 = GC) · 파생 user 메시지 캐시는 grouper 클로저마다 따로다 | AC14 d9(`composerDecoration.test.ts:'d9 …'`) · AC7 g13(`turns.test.ts:'g13 …'`) |
+| 재진입 | 끌기 중 새 mousedown → 앞 끌기 취소(대기 값 버림) · grouper 를 같은 입력으로 다시 부르면 같은 결과(①) | EP-8 — 다음 끌기의 첫 프레임은 정상(r2 와 같은 경로) · EP-3 ① g1 |
+| 다른 무효화 축 | 측정 I9 의 함수 선택이 트리에 따라 바뀐다 — 표의 내용 칸이 함수 이름을 적어 섞어 읽지 않게 한다 | AC22 — `node scripts/measure-ui-inputs.mjs --src` 두 트리 실행 출력의 I9 행 |
+
+## [구현자 기입] 구현 보고 (r1)
 
 | 항목 | 내용 |
 |---|---|
 | 대상 커밋 | `(r1 구현 — 좌표는 INDEX)` |
+| 변경 파일 | app 소스 32(신규 `toolCopyText.ts`·`skillIndex.ts`·`attachmentViews.ts`·`scripts/measure-ui-inputs.mjs` · `scripts/fixtures/` 2 포함) · 테스트 51(신규 16) · 문서 `docs/IPC_CONTRACT.md`·`docs/arch/frontend/rendering.md`·`docs/arch/frontend/state.md`(live 형상 드리프트) — `git status --short` 86줄 |
+| 실행 명령 | `app/AGENTS.md` "로컬 확인" 목록 전부(아래) · sweep `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` 6회(146 항목) |
+| **관측한 게이트 산출**(마지막 수정 뒤 실행) | 가드 5(`check-migrations-appendonly`·`check-doc-inventory --check`·`check-product-naming`·`check-test-budgets`·`check-ui-thread`) 전부 exit 0 · `npm run lint` error 0 · warning 3(`DiffBody.tsx`·OpenCode `Timeline.tsx`·`useTranscriptVirtualizer.ts` — 변경 전 트리에서 같은 3건) · `npm run typecheck`(node·web·test) exit 0 · 파일 필터 없는 `vitest run` 1,043파일(9 fail · 1,030 pass · 4 skip) / 9,958케이스(22 fail · 9,924 pass · 1 expected fail · 11 skip) · unhandled 1 · `node --test scripts/*.test.mjs` 1,025/1,025 · `npx electron-vite build` OK · `smoke-hosts` OK · `smoke-preload` OK |
+| 기준선 분리 | vitest 실패 22케이스(9파일 — `composer-catalog` · `claude/adapter.native-plugins` · `claude/native-resources` · `claude/project-reconciliation` · `opencode/v1/adapter.instances`·`adapter`·`adapter.persistent` · `session-resources.claude-assembly` · `composer-preparation-service`)와 unhandled 1(`native-resources.test.ts` 발원)은 변경 전 트리(`HEAD` 워크트리)의 같은 명령 실패 집합과 차집합 ∅. 원인은 다른 OS 전용 경로 — `native-resources.ts:39` 의 `process.platform === 'win32'` 분기('applied' vs 'restart-required') · 테스트의 `C:/…` 절대 경로(Linux `isAbsolute` 거짓 → `Composer directory must be absolute`). 두 조건(차집합 ∅ · 환경 원인) 충족, 이번 변경이 그 파일을 건드리지 않았다 |
+| **추가·수정 테스트의 subtree 규칙** | 테스트 파일 51(`git status` 의 `*.test.ts`·`*.test.mjs`·`*.testfixture.ts`) · `check-test-budgets` OK(시간 예산 — 새 타이머·타임아웃 자리 0, 끌기·썸네일은 fake 타이머) · 호스트 격리 위반 0(실제 홈·env 미참조) · 풀 분류: 새 io 신호 0(자식 프로세스·SQLite·git 픽스처·`TZ`·`FORCED_IO` — 데이터 호스트 테스트는 리더를 mock) · 전체 실행의 unit/io 가드 실패 0 |
+| V-pair 자기확인 | `SELF_PASS 32 / SELF_BLOCKED 1`(VP-31 — 사람 실기) |
+| 강제 지점 전수 | 77/77 |
+| **AC 자기보고**(`Criteria-Met`) | 21/22 — AC1 ✅ `session-load.bounds:'빈 parts 200,000건…'`·`transport:'200,000건을 한 조각·400조각…'` · AC2 ✅ `data-host.test` e1~e12 · `bounds` q1~q3 · AC3 ✅ VP-04·05 기존 케이스 green · AC4 ✅ `Timeline.memo:'re-renders only the live leaf…'` 4크기 · AC5 ✅ golden 3 + b1~b8·b1′ · AC6 ✅ `Timeline.selection` 2 + ScrollController · AC7 ✅ g2(100·1,000·10,000)·g13 · AC8 ✅ g1~g14 · AC9 ✅ VP-13 green · AC10 ✅ `ChatTile.workLifetime:'passes a stable…'`·`Exchange.compare` · AC11 ✅ c1~c5·5,000,000·`useDiffCompute` 64,001 · AC12 ✅ a1~a8·50× · AC13 ✅ k1~k7·VP-20 · AC14 ✅ d1~d12·Layer · AC15 ✅ y1~y5 · AC16 ✅ r1~r8 · AC17 ✅ t1~t7·t9·t10·원본 배열 · AC18 ✅ t8 · AC19 ⚠️ 사람 실기(§19 — Windows 장비·설치본·진단 빌드) · AC20 ✅ p1~p3·p1′ · AC21 ✅ h1~h6·h2′ · AC22 ✅ m1~m5 |
+| **합계 검산** | `✅ 21 · ⚠️ 1 · ❌ 0 = 총 22` — 분모 22 는 plan §7 AC1~AC22(이전 라운드 없음) |
+| 블로커 / 역질문 | AC19 는 사람 실기 대기(D-024·D-042 — 같은 Windows 장비 · `ee8ac81` 과 이 커밋 · 함수 재측정은 `node scripts/measure-ui-inputs.mjs --src <트리>`). 놓친 잠재 문제 #6 의 §10 술어 정정 제안은 설계자 판단 |
 
-## [구현자 기입] Review Signals — 사실만
+## [구현자 기입] Review Signals — 사실만 (r1)
 
-- (구현 턴에서 채운다)
+- 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 해당 없음 — r1(첫 구현).
+- 그것을 막았어야 할 plan 지침·AC가 있었는가: sweep 이 등록·열거 항목에서 green 을 낸 자리 중 셋은 plan oracle 칸의 입력이 규칙 칸보다 좁았다 — VP-03 e9(200,000건은 worker 스레드에서 펼침이 성공) · VP-07 자리 2(공백 live text 입력 없음) · VP-07 자리 4 p1(확정 text 가 있어 live text 유무 강제가 같은 key 로 합쳐짐). 규칙 칸을 따라 입력을 더했다(§판정 범위 "입력 칸이 규칙 칸보다 좁기만 하면").
+- 반복해서 부딪히는 환경 한계: Linux 실행 환경에서 Windows 전용 분기·`C:/` 경로를 쓰는 main 스위트 9파일 22케이스가 변경 전부터 실패한다(차집합 ∅) · Electron 실창·Windows 측정(AC19)은 이 환경에서 불가.
+- 현재 라운드·impl 턴: `r1`.
 
 ---
 

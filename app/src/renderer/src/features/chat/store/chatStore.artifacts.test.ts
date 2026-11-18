@@ -105,7 +105,10 @@ it('a captured output updates the original background session without starting a
   useChatStore.setState((state) => ({
     activeKey: 'other',
     sessions: {
-      s: { ...state.sessions.s, live: { text: 'streaming text', reasoning: 'reasoning' } },
+      s: {
+        ...state.sessions.s,
+        live: { text: 'streaming text', reasoning: 'reasoning', reasoningVisible: true }
+      },
       other: { ...state.sessions.s, session: { ...state.sessions.s.session, sessionId: 'other' } }
     }
   }))

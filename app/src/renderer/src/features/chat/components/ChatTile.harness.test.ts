@@ -53,6 +53,9 @@ vi.mock('../store/chatStore', () => ({
   }),
   useLiveText: () => '',
   useLiveReasoning: () => '',
+  useHasLiveText: () => false,
+  useHasLiveReasoning: () => false,
+  useLiveTextFor: () => '',
   usePendingSteer: () => [],
   chatActions: {}
 }))

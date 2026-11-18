@@ -2,7 +2,7 @@ import { memo, useMemo } from 'react'
 import { AssistantMessage } from '../../common/transcript/AssistantMessage'
 import { MessageMeta } from '../../common/transcript/MessageMeta'
 import { turnCopyText, turnEquals, type Turn } from '../../../lib/turns'
-import { partsArtifacts } from '../../../lib/parts'
+import { hasPartsText, partsArtifacts } from '../../../lib/parts'
 import { ArtifactCards } from '../../common/transcript/ArtifactCards'
 import { WorkActivity } from './WorkActivity'
 import { PendingAssistant } from './PendingAssistant'
@@ -39,6 +39,7 @@ export const AssistantTurn = memo(
       () => partsArtifacts(turn.messages.flatMap((message) => message.parts)),
       [turn.messages]
     )
+    const copyable = turn.messages.some((message) => hasPartsText(message.parts))
     return (
       <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
         {transcriptPolicy.turnProjection === 'work-activity' ? (
@@ -56,7 +57,8 @@ export const AssistantTurn = memo(
         {artifacts.length > 0 && <ArtifactCards artifacts={artifacts} />}
         {!pending && (
           <MessageMeta
-            text={turnCopyText(turn)}
+            // 복사 문자열은 클릭 때 만든다 — 노출은 같은 값인 `hasPartsText`(0325 D-013 · EP-7 ②).
+            text={copyable ? () => turnCopyText(turn) : ''}
             createdAt={last.createdAt}
             align="left"
             forkable={forkable}

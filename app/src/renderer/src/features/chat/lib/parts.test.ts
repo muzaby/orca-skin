@@ -11,7 +11,9 @@ import {
   isAsyncLaunchedResult,
   deriveSubagentTaskStatus,
   messageSegments,
-  modelDisplayLabel
+  modelDisplayLabel,
+  hasSegmentReasoning,
+  hasSegmentText
 } from './parts'
 import type { ToolCall } from '../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../shared/ipc'
@@ -569,6 +571,28 @@ describe('parts selectors', () => {
     expect(modelDisplayLabel('haiku')).toBe('Haiku')
     // 미인식 패밀리는 원형 보존.
     expect(modelDisplayLabel('gpt-4o')).toBe('gpt-4o')
+  })
+})
+
+// 0325 EP-2 ① — segment 유무 판정은 한 정본이다(`messageSegments` 건너뛰기 · store live 유무).
+describe('segment presence predicates', () => {
+  it('segment text/reasoning visibility is the single rule', () => {
+    expect(['', ' ', 'x'].map(hasSegmentText)).toEqual([false, true, true])
+    expect(['', ' ', '\n\t', 'x', ' x '].map(hasSegmentReasoning)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      true
+    ])
+    // messageSegments 는 같은 판정으로 건너뛴다 — 공백 text 는 segment, 공백 reasoning 은 아니다.
+    expect(
+      messageSegments([
+        { type: 'text', text: ' ' },
+        { type: 'reasoning', text: '  ' },
+        { type: 'text', text: '' }
+      ])
+    ).toEqual([{ kind: 'text', text: ' ' }])
   })
 })
 

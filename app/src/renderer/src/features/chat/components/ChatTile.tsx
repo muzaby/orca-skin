@@ -91,6 +91,12 @@ export function ChatTile({
   const [panelExpansion, setPanelExpansion] = useState<{ key: string; expanded: boolean } | null>(
     null
   )
+  // 같은 세션 키 동안 같은 참조 — TranscriptView·Exchange 얕은 비교가 맞고, 키가 바뀌면 새 함수가
+  // 새 세션의 초안으로 복원한다(0325 D-017 · EP-3b ①).
+  const restoreSteerDraft = useCallback(
+    (text: string): void => chatActions.restoreComposerDraft(activeKey, text),
+    [activeKey]
+  )
   const onPanelExpandedChange = useCallback((key: string, expanded: boolean): void => {
     setPanelExpansion({ key, expanded })
   }, [])
@@ -143,9 +149,7 @@ export function ChatTile({
                     backend={backend}
                     messages={messages}
                     pendingSteer={pendingSteer}
-                    onRestoreSteerDraft={(text) =>
-                      chatActions.restoreComposerDraft(activeKey, text)
-                    }
+                    onRestoreSteerDraft={restoreSteerDraft}
                     inflight={inflight}
                     loadingSession={loadingSession}
                     error={error}

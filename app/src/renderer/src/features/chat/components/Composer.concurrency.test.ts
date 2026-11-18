@@ -66,7 +66,7 @@ describe('C1 Composer real identity selector', () => {
               projectId: 'p1',
               worktreeIsolation: isolated
             },
-            live: { text: '', reasoning: '' },
+            live: { text: '', reasoning: '', reasoningVisible: false },
             subagentMeta: {}
           }
         },
