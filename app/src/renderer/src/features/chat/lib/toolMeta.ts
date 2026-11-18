@@ -7,7 +7,7 @@
 
 import type { TFunction } from 'i18next'
 import type { ToolCall } from '../reducer/chatReducer'
-import { diffStatWithinCap } from '../../../shared/compute/inline'
+import { diffStatsWithinBudget, type DiffStatSource } from '../../../shared/compute/inline'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { FILE_EDIT_TOOL_NAME_SET } from '../../../../../shared/file-edit-tool'
 import type { MessageKey } from '../../../shared/i18n'
@@ -179,36 +179,32 @@ export function toolDescription(call: ToolCall, planLabel?: string): string {
 }
 
 // 추가/삭제 라인 카운트. 줄 수 합이 상한을 넘으면 세지 않는다(`null`, 0324 D-014).
-const countChanges = diffStatWithinCap
-
-// Write/Edit/MultiEdit 의 diff-stat (+추가 / -삭제 라인). 그 외와 상한을 넘는 입력은 null.
+// Write/Edit/MultiEdit 의 diff-stat (+추가 / -삭제 라인). 그 외와 합산 예산을 넘는 입력은 null —
+// MultiEdit 는 수정 전부를 한 예산으로 판정한다(0325 D-009 · EP-4 ⑥).
 export function toolDiffStat(call: ToolCall): { added: number; removed: number } | null {
   const rec = asRecord(call.input)
   if (!rec) return null
   switch (call.name) {
     case 'Write': {
       const content = stringField(rec, 'content') ?? ''
-      return countChanges('', content)
+      return diffStatsWithinBudget([{ kind: 'pair', before: '', after: content }])
     }
     case 'Edit': {
       const oldStr = typeof rec.old_string === 'string' ? rec.old_string : ''
       const newStr = typeof rec.new_string === 'string' ? rec.new_string : ''
-      return countChanges(oldStr, newStr)
+      return diffStatsWithinBudget([{ kind: 'pair', before: oldStr, after: newStr }])
     }
     case 'MultiEdit': {
       const edits = Array.isArray(rec.edits) ? rec.edits : []
-      let added = 0
-      let removed = 0
-      for (const e of edits) {
+      const sources: DiffStatSource[] = edits.map((e) => {
         const er = asRecord(e)
-        const oldStr = typeof er?.old_string === 'string' ? er.old_string : ''
-        const newStr = typeof er?.new_string === 'string' ? er.new_string : ''
-        const stat = countChanges(oldStr, newStr)
-        if (!stat) return null
-        added += stat.added
-        removed += stat.removed
-      }
-      return { added, removed }
+        return {
+          kind: 'pair',
+          before: typeof er?.old_string === 'string' ? er.old_string : '',
+          after: typeof er?.new_string === 'string' ? er.new_string : ''
+        }
+      })
+      return diffStatsWithinBudget(sources)
     }
     default:
       return null

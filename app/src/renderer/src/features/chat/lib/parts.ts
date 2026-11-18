@@ -545,6 +545,17 @@ export type MessageSegment =
       summary?: string
     }
 
+// segment 유무 판정의 정본 (0325 EP-2 ①). `messageSegments` 의 건너뛰기와 store 의 live 유무
+// (`useHasLiveText` · `LiveTurnState.reasoningVisible`)가 같은 함수를 쓴다 — 두 곳에 두면 공백
+// reasoning 에서 행 key 가 갈린다.
+export function hasSegmentText(text: string): boolean {
+  return text !== ''
+}
+
+export function hasSegmentReasoning(text: string): boolean {
+  return text.trim() !== ''
+}
+
 // parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로
 // 선구축한 맵에서 페어링되며(partsToolCalls 와 동일 규칙) 순회 중에는 흡수(스킵)한다.
 // file/diff(claude 미생성 seam)는 현재 미렌더 — OpenCode 어댑터 도입 시 채운다.
@@ -561,11 +572,11 @@ export function messageSegments(
     if ((p.type === 'text' || p.type === 'reasoning') && partParentToolRunId(p) !== undefined)
       continue
     if (p.type === 'text') {
-      if (p.text === '') continue
+      if (!hasSegmentText(p.text)) continue
       if (current?.kind === 'text') current.text += p.text
       else segments.push((current = { kind: 'text', text: p.text }))
     } else if (p.type === 'reasoning') {
-      if (p.text.trim() === '') continue // 빈/공백 reasoning 은 빈 카드라 스킵(빈 text 와 동형)
+      if (!hasSegmentReasoning(p.text)) continue // 빈/공백 reasoning 은 빈 카드라 스킵(빈 text 와 동형)
       const item: ReasoningItem = {
         text: p.text,
         ...(p.signature !== undefined ? { signature: p.signature } : {})

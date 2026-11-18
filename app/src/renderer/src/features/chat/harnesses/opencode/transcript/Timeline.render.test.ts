@@ -18,7 +18,11 @@ vi.mock('../../../store/chatStore', async (original) => {
     useChatSession: (select: (state: ReturnType<typeof module.getActiveChatSession>) => unknown) =>
       select(module.getActiveChatSession()),
     useLiveText: () => live.text,
-    useLiveReasoning: () => live.reasoning
+    useLiveReasoning: () => live.reasoning,
+    // 0325 D-015 — Timeline 은 유무만, 행 리프는 live text 를 같은 값에서 읽는다.
+    useHasLiveText: () => live.text !== '',
+    useHasLiveReasoning: () => live.reasoning.trim() !== '',
+    useLiveTextFor: (enabled: boolean) => (enabled ? live.text : '')
   }
 })
 // Only the browser measurement is supplied: production dispatcher, projection,

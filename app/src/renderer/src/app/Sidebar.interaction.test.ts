@@ -35,8 +35,16 @@ vi.mock('../shared/theme', () => ({
     setTweak: vi.fn()
   })
 }))
+const drag = vi.hoisted(() => ({
+  startResize: undefined as unknown,
+  options: undefined as unknown
+}))
 vi.mock('../shared/hooks/useDragResize', () => ({
-  useDragResize: () => ({ startResize: vi.fn() })
+  useDragResize: (options: unknown) => {
+    drag.options = options
+    drag.startResize ??= vi.fn()
+    return { startResize: drag.startResize }
+  }
 }))
 vi.mock('../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 vi.mock('../features/chat', async () => ({
@@ -92,6 +100,16 @@ afterEach(() => {
   dom?.unmount()
   vi.unstubAllGlobals()
   vi.useRealTimers()
+})
+
+// 0325 EP-8 ④ — 폭 조절 핸들은 끌기 훅의 `startResize` 를 받고, 훅의 값은 sidebar 폭 설정으로 간다.
+describe('sidebar resize handle wiring', () => {
+  it('passes the hook start handler to the handle and the hook value to the width setting', () => {
+    render()
+    const handle = dom.query('[data-context="sidebar"]')!
+    expect(handle.props.onMouseDown).toBe(drag.startResize)
+    expect((drag.options as { disabled?: boolean }).disabled).toBe(false)
+  })
 })
 
 describe('new chat direct entry', () => {

@@ -77,7 +77,7 @@ interface ChatStoreState {
 }
 interface SessionEntry {
   session: ChatState // 커밋 상태 — 변경은 전부 순수 chatReducer (store 가 키 라우팅 dispatch)
-  live: LiveTurnState // 스트리밍 transient — { text, reasoning }. 델타는 reducer 에 닿지 않음
+  live: LiveTurnState // 스트리밍 transient — { text, reasoning, reasoningVisible }. 델타는 reducer 에 닿지 않음
 }
 ```
 

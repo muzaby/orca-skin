@@ -1,14 +1,18 @@
 // 계산 클라이언트의 대기열·캐시·취소·실패 (0324 AC11~AC14 · MD-01 · SD-01).
 // 가짜 워커를 주입한다 — 무엇이 워커에 나갔고 언제 끝났는지를 기록으로 본다.
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ComputeCancelled,
   createComputeClient,
   type ComputeClient,
   type WorkerLike
 } from './client'
-import type { ComputeResult, WireRequest } from './protocol'
+import * as protocol from './protocol'
+import { requestKey, resultSize, type ComputeResult, type WireRequest } from './protocol'
+import { handleMessage } from './worker/handler'
+
+afterEach(() => vi.restoreAllMocks())
 
 class FakeWorker implements WorkerLike {
   posted: WireRequest[] = []
@@ -23,9 +27,13 @@ class FakeWorker implements WorkerLike {
   terminate(): void {
     this.terminated += 1
   }
-  // 마지막으로 받은 요청에 답한다.
-  reply(result: ComputeResult, at = this.posted.length - 1): void {
-    this.onmessage?.({ data: { id: this.posted[at].id, ok: true, result } })
+  // 마지막으로 받은 요청에 답한다. 워커처럼 결과 크기(`size`)를 싣는다(0325 D-011).
+  reply(
+    result: ComputeResult,
+    at = this.posted.length - 1,
+    size: unknown = resultSize(result)
+  ): void {
+    this.onmessage?.({ data: { id: this.posted[at].id, ok: true, result, size } })
   }
 }
 
@@ -36,7 +44,9 @@ interface Harness {
   last(): FakeWorker
 }
 
-function harness(options: { cacheMaxChars?: number; failCreate?: () => boolean } = {}): Harness {
+function harness(
+  options: { cacheMaxChars?: number; cacheMaxEntries?: number; failCreate?: () => boolean } = {}
+): Harness {
   const workers: FakeWorker[] = []
   const errors: unknown[] = []
   const client = createComputeClient({
@@ -47,7 +57,8 @@ function harness(options: { cacheMaxChars?: number; failCreate?: () => boolean }
       return worker
     },
     onError: (error) => errors.push(error),
-    cacheMaxChars: options.cacheMaxChars
+    cacheMaxChars: options.cacheMaxChars,
+    cacheMaxEntries: options.cacheMaxEntries
   })
   return { client, workers, errors, last: () => workers[workers.length - 1] }
 }
@@ -183,8 +194,11 @@ describe('캐시 (AC14)', () => {
     expect(h.last().posted).toHaveLength(2)
   })
 
+  // 항목 비용 = 키 길이 + 결과 크기(0325 D-038) — 상한은 항목 둘이 꼭 드는 값이다.
+  const twoEntries = 2 * (requestKey(hl('a')).length + 4)
+
   it('결과 문자 수 합이 상한을 넘으면 가장 오래 안 쓴 것부터 버린다', () => {
-    const h = harness({ cacheMaxChars: 10 })
+    const h = harness({ cacheMaxChars: twoEntries })
     const fill = (code: string, size: number): void => {
       track(h.client.request(hl(code)))
       h.last().reply(html('x'.repeat(size)))
@@ -203,7 +217,7 @@ describe('캐시 (AC14)', () => {
   })
 
   it('상한 이하면 버리지 않는다', () => {
-    const h = harness({ cacheMaxChars: 8 })
+    const h = harness({ cacheMaxChars: twoEntries })
     for (const code of ['a', 'b']) {
       track(h.client.request(hl(code)))
       h.last().reply(html('xxxx'))
@@ -387,5 +401,124 @@ describe('실패 (AC12)', () => {
     lateError?.('boom')
     expect(first.onerror).toBeNull()
     expect(h.errors).toHaveLength(1)
+  })
+})
+
+// ── 0325 VP-19 · VP-20 · EP-5 — 워커가 센 크기 + 키 길이로만 캐시 ─────────────────────
+describe('캐시 비용 (0325)', () => {
+  const cost = (request: Parameters<typeof requestKey>[0], size: number): number =>
+    requestKey(request).length + size
+
+  it('k1 비용 ≤ 상한 → 캐시 · LRU 그대로', async () => {
+    const h = harness({ cacheMaxChars: cost(hl('a'), 4) })
+    const a = track(h.client.request(hl('a')))
+    h.last().reply(html('xxxx'))
+    await flush()
+    expect(a.state.value).toEqual({ html: 'xxxx' })
+    expect(h.client.peek(hl('a'))).toEqual({ html: 'xxxx' })
+  })
+
+  it('k2 비용 > 상한 → 요청자 resolve · 미보관 · 기존 항목 유지', async () => {
+    const h = harness({ cacheMaxChars: cost(hl('a'), 4) + 10 })
+    track(h.client.request(hl('a')))
+    h.last().reply(html('xxxx'))
+    const big = track(h.client.request(hl('b')))
+    h.last().reply(html('y'.repeat(100)))
+    await flush()
+    expect(big.state.value).toEqual({ html: 'y'.repeat(100) })
+    expect(h.client.peek(hl('b'))).toBeUndefined()
+    expect(h.client.peek(hl('a'))).toEqual({ html: 'xxxx' })
+  })
+
+  it.each([
+    ['없음', 'missing'],
+    ['음수', -1],
+    ['NaN', Number.NaN]
+  ] as const)('k3 size %s → resolve · 미보관', async (_name, size) => {
+    const h = harness()
+    const a = track(h.client.request(hl('a')))
+    const id = h.last().posted.at(-1)!.id
+    h.last().onmessage?.({
+      data:
+        size === 'missing'
+          ? { id, ok: true, result: html('<a>') }
+          : { id, ok: true, result: html('<a>'), size }
+    })
+    await flush()
+    expect(a.state.value).toEqual({ html: '<a>' })
+    expect(h.client.peek(hl('a'))).toBeUndefined()
+  })
+
+  it('k4 실행 중 취소 뒤 늦은 응답 비용 > 상한 → 미보관', async () => {
+    const h = harness({ cacheMaxChars: cost(hl('a'), 4) })
+    const a = track(h.client.request(hl('a')))
+    a.cancel()
+    h.last().reply(html('z'.repeat(5)))
+    await flush()
+    expect(h.client.peek(hl('a'))).toBeUndefined()
+  })
+
+  it('k5 빈 줄만 내는 서로 다른 거대 diff 요청 40건(실제 `handleMessage`) → 보관 ≤ 1', async () => {
+    const h = harness()
+    const requests = Array.from({ length: 40 }, (_, index) => ({
+      kind: 'diffLines' as const,
+      oldValue: '\n'.repeat(100_000 + index),
+      newValue: ''
+    }))
+    for (const request of requests) {
+      track(h.client.request(request))
+      const response = await handleMessage(h.last().posted.at(-1)!)
+      h.last().onmessage?.({ data: response })
+      await flush()
+    }
+    const kept = requests.filter((request) => h.client.peek(request) !== undefined)
+    expect(kept.length).toBeLessThanOrEqual(1)
+    const keptCost = kept.reduce(
+      (sum, request) => sum + cost(request, 36 * request.oldValue.length),
+      0
+    )
+    expect(keptCost).toBeLessThanOrEqual(4_000_000)
+  })
+
+  it('k6 서로 다른 작은 요청 1,001건 → 항목 1,000 · 가장 오래된 것부터 버린다', () => {
+    const h = harness()
+    for (let index = 0; index <= 1_000; index++) {
+      track(h.client.request(hl(`c${index}`)))
+      h.last().reply(html('x'))
+    }
+    expect(h.client.peek(hl('c0'))).toBeUndefined()
+    expect(h.client.peek(hl('c1'))).toEqual({ html: 'x' })
+    expect(h.client.peek(hl('c1000'))).toEqual({ html: 'x' })
+  })
+
+  it('k7 size 0 · 키 4,000,001자 → 미보관', async () => {
+    const h = harness()
+    const request = hl('k'.repeat(4_000_001))
+    const handle = track(h.client.request(request))
+    h.last().reply(html(''), undefined, 0)
+    await flush()
+    expect(handle.state.value).toEqual({ html: '' })
+    expect(h.client.peek(request)).toBeUndefined()
+  })
+
+  it('caches by the size the worker computed, without measuring on the UI thread', async () => {
+    const measure = vi.spyOn(protocol, 'resultSize')
+    const request = { kind: 'diffLines' as const, oldValue: '\n'.repeat(1_000), newValue: '' }
+    const expected = cost(request, 36_000)
+    for (const [cap, kept] of [
+      [expected, true],
+      [expected - 1, false]
+    ] as const) {
+      measure.mockClear()
+      const h = harness({ cacheMaxChars: cap })
+      track(h.client.request(request))
+      const response = await handleMessage(h.last().posted.at(-1)!)
+      expect(response).toMatchObject({ ok: true, size: 36_000 })
+      h.last().onmessage?.({ data: response })
+      await flush()
+      // 크기는 워커 처리기에서 한 번만 센다 — 클라이언트는 결과를 순회하지 않는다.
+      expect(measure).toHaveBeenCalledTimes(1)
+      expect(h.client.peek(request) !== undefined).toBe(kept)
+    }
   })
 })

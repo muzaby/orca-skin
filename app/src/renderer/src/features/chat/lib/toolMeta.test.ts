@@ -1,4 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import * as diff from 'diff'
+
+// 동작은 원본 그대로 두고 jsdiff 호출만 센다(0325 VP-16).
+vi.mock('diff', async (original) => {
+  const actual = await original<typeof import('diff')>()
+  const { vi } = await import('vitest')
+  return { ...actual, diffLines: vi.fn(actual.diffLines), parsePatch: vi.fn(actual.parsePatch) }
+})
 import {
   FILE_EDIT_TOOLS,
   FILE_TOOLS,
@@ -182,16 +190,70 @@ describe('toolDiffStat', () => {
     expect(toolDiffStat(call('Write', { file_path: 'a', content: linesOf(401, 'w') }))).toBeNull()
   })
 
-  it('MultiEdit 는 한 묶음이라도 상한을 넘으면 증감 수가 없다', () => {
+  // 0325 D-009 — MultiEdit 는 수정 전부를 한 예산으로 판정한다(줄 합 400). 0324 의 수정별 판정을 대체한다.
+  it('MultiEdit 는 수정 전부의 줄 합이 상한을 넘으면 증감 수가 없다', () => {
     const edits = (bigCount: number): unknown => [
       { old_string: 'x', new_string: 'y' },
       { old_string: '', new_string: linesOf(bigCount, 'm') }
     ]
-    expect(toolDiffStat(call('MultiEdit', { file_path: 'a', edits: edits(400) }))).toEqual({
-      added: 401,
+    expect(toolDiffStat(call('MultiEdit', { file_path: 'a', edits: edits(398) }))).toEqual({
+      added: 399,
       removed: 1
     })
-    expect(toolDiffStat(call('MultiEdit', { file_path: 'a', edits: edits(401) }))).toBeNull()
+    expect(toolDiffStat(call('MultiEdit', { file_path: 'a', edits: edits(399) }))).toBeNull()
+  })
+})
+
+// 0325 VP-16 · EP-4 ⑤⑥ — 카드 합산 예산(줄 합 400 · 쌍 문자 합 64,000). 넘으면 jsdiff 0회.
+describe('toolDiffStat 합산 예산 (0325)', () => {
+  const multi = (
+    edits: Array<{ old_string: string; new_string: string }>
+  ): ReturnType<typeof toolDiffStat> => toolDiffStat(call('MultiEdit', { file_path: 'a', edits }))
+  const block = (count: number, prefix: string): string =>
+    Array.from({ length: count }, (_, index) => `${prefix}${index}`).join('\n')
+
+  it('a1 합 안 → 합계', () => {
+    expect(
+      multi([
+        { old_string: 'a\nb', new_string: 'a\nB' },
+        { old_string: '', new_string: 'x\ny' }
+      ])
+    ).toEqual({ added: 3, removed: 1 })
+  })
+
+  it('a2 수정마다 200줄 × 3 → null', () => {
+    const edit = { old_string: '', new_string: block(200, 'n') }
+    expect(multi([edit, edit])).toEqual({ added: 400, removed: 0 })
+    expect(multi([edit, edit, edit])).toBeNull()
+  })
+
+  it('a3 쌍 문자 합 64,001 → null', () => {
+    expect(
+      multi([
+        { old_string: '', new_string: 'a'.repeat(32_000) },
+        { old_string: '', new_string: 'b'.repeat(32_000) }
+      ])
+    ).toEqual({ added: 2, removed: 0 })
+    expect(
+      multi([
+        { old_string: '', new_string: 'a'.repeat(32_000) },
+        { old_string: '', new_string: 'b'.repeat(32_001) }
+      ])
+    ).toBeNull()
+  })
+
+  it('a4 수정 0개 → {0,0}', () => {
+    expect(multi([])).toEqual({ added: 0, removed: 0 })
+  })
+
+  it('MultiEdit 50 × (200+200줄) → null · jsdiff 0회', () => {
+    vi.mocked(diff.diffLines).mockClear()
+    const edits = Array.from({ length: 50 }, (_, index) => ({
+      old_string: block(200, `o${index}-`),
+      new_string: block(200, `n${index}-`)
+    }))
+    expect(multi(edits)).toBeNull()
+    expect(diff.diffLines).not.toHaveBeenCalled()
   })
 })
 

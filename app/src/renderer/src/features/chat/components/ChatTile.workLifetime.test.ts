@@ -33,11 +33,24 @@ const harness = vi.hoisted(() => ({
     text: string
     mode?: 'append' | 'replace'
   } | null,
-  restoreComposerDraft: vi.fn()
+  restoreComposerDraft: vi.fn(),
+  // useCallback 흉내 — 호출 자리(콜백 소스)마다 deps 가 같으면 앞 참조를 돌려준다(0325 VP-12).
+  callbacks: new Map<string, { deps: readonly unknown[]; callback: unknown }>()
 }))
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
-  useCallback: (callback: unknown) => callback,
+  useCallback: (callback: unknown, deps: readonly unknown[] = []) => {
+    const site = String(callback)
+    const previous = harness.callbacks.get(site)
+    if (
+      previous &&
+      previous.deps.length === deps.length &&
+      previous.deps.every((value, index) => Object.is(value, deps[index]))
+    )
+      return previous.callback
+    harness.callbacks.set(site, { deps, callback })
+    return callback
+  },
   useState: () => [
     harness.panelExpansion,
     (next: typeof harness.panelExpansion) => {
@@ -85,6 +98,31 @@ function find(node: ReactNode, type: unknown): ReactElement | undefined {
   return found
 }
 describe('actual ChatTile Work session lifetime wiring', () => {
+  // 0325 VP-12 · EP-3b ① — 같은 세션 키 동안 같은 참조, 키가 바뀌면 새 참조이고 앞 함수는 앞 세션에 복원한다.
+  it('passes a stable steer-restore callback per active session and rebinds it on switch', () => {
+    harness.callbacks.clear()
+    harness.restoreComposerDraft.mockClear()
+    harness.activeKey = 'first'
+    const restoreOf = (): ((text: string) => void) =>
+      (
+        find(ChatTile({ backendLabel: 'Claude', canAbort: true }), TranscriptView)?.props as {
+          onRestoreSteerDraft: (text: string) => void
+        }
+      ).onRestoreSteerDraft
+    const first = restoreOf()
+    expect(restoreOf()).toBe(first)
+    harness.activeKey = 'second'
+    const second = restoreOf()
+    expect(second).not.toBe(first)
+    second('두 번째 초안')
+    first('첫 번째 초안')
+    expect(harness.restoreComposerDraft.mock.calls).toEqual([
+      ['second', '두 번째 초안'],
+      ['first', '첫 번째 초안']
+    ])
+    harness.activeKey = 'first'
+  })
+
   it.each(['work', 'code'] as const)(
     'keeps the %s conversation and Composer mounted while its panel expands, scopes inert to the active session, and restores it',
     (kind) => {

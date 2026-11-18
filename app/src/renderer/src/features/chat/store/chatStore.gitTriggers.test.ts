@@ -18,7 +18,7 @@ const seedLive = (): void => {
   useChatStore.setState((state) => ({
     sessions: {
       ...state.sessions,
-      s: { ...state.sessions.s, live: { text: '작성 중', reasoning: '' } }
+      s: { ...state.sessions.s, live: { text: '작성 중', reasoning: '', reasoningVisible: false } }
     }
   }))
 }
@@ -44,7 +44,7 @@ describe('`turn.ended` 스토어 라우팅 (D27 · VP-72 · EP-46 ④)', () => {
     ingestChatEvent({ type: 'turn.ended', sessionId: 's' })
 
     const entry = useChatStore.getState().sessions.s
-    expect(entry.live).toEqual({ text: '작성 중', reasoning: '' })
+    expect(entry.live).toEqual({ text: '작성 중', reasoning: '', reasoningVisible: false })
     expect(entry.session.inflight).toBe(true)
   })
 
@@ -55,7 +55,7 @@ describe('`turn.ended` 스토어 라우팅 (D27 · VP-72 · EP-46 ④)', () => {
 
     const entry = useChatStore.getState().sessions.s
     // 중단은 라이브를 버리고 진행을 닫는다. 계기는 올리지 않는다.
-    expect(entry.live).toEqual({ text: '', reasoning: '' })
+    expect(entry.live).toEqual({ text: '', reasoning: '', reasoningVisible: false })
     expect(entry.session.inflight).toBe(false)
     expect(entry.session.turnEndTick).toBe(0)
   })

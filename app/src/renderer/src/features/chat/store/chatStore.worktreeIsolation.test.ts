@@ -24,7 +24,7 @@ function seedLanding(): void {
       sessions: {
         [NEW_CHAT_KEY]: {
           session: { ...initialChatState, cwd: '/repo' },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       },

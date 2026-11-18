@@ -194,8 +194,10 @@ beforeEach(() => {
 
 const entry = (
   key = 's'
-): { session: typeof initialChatState; live: { text: string; reasoning: string } } =>
-  useChatStore.getState().sessions[key]
+): {
+  session: typeof initialChatState
+  live: { text: string; reasoning: string; reasoningVisible: boolean }
+} => useChatStore.getState().sessions[key]
 
 describe('chatStore — 델타/커밋 라우팅', () => {
   it('child text and reasoning partials never enter main live buffers', () => {
@@ -212,7 +214,7 @@ describe('chatStore — 델타/커밋 라우팅', () => {
       delta: { text: 'child reasoning' }
     })
     flushRaf()
-    expect(entry().live).toEqual({ text: '', reasoning: '' })
+    expect(entry().live).toEqual({ text: '', reasoning: '', reasoningVisible: false })
   })
   it('message.delta 는 live.text 에만 누적되고 session 슬라이스 identity 는 불변', () => {
     const before = entry().session
@@ -239,7 +241,7 @@ describe('chatStore — 델타/커밋 라우팅', () => {
         ...state.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg' },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }
@@ -256,7 +258,7 @@ describe('chatStore — 델타/커밋 라우팅', () => {
     unsubscribe()
 
     expect(notifications).toBe(1)
-    expect(entry('s').live).toEqual({ text: '본문', reasoning: '사고' })
+    expect(entry('s').live).toEqual({ text: '본문', reasoning: '사고', reasoningVisible: true })
     expect(entry('bg').live.text).toBe('배경')
     expect(entry('bg').session.inflight).toBe(true)
   })
@@ -280,7 +282,7 @@ describe('chatStore — 델타/커밋 라우팅', () => {
       sessionId: 's',
       usage: { inputTokens: 10, outputTokens: 5 }
     })
-    expect(entry().live).toEqual({ text: '', reasoning: '' })
+    expect(entry().live).toEqual({ text: '', reasoning: '', reasoningVisible: false })
     expect(entry().session.inflight).toBe(false)
     expect(partsText(entry().session.messages[0].parts)).toBe('잘린 답')
   })
@@ -321,7 +323,7 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg' },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }
@@ -350,7 +352,7 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }
@@ -373,7 +375,7 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       sessions: {
         'draft:a': {
           session: { ...initialChatState, inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       },
@@ -419,7 +421,7 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }
@@ -445,7 +447,7 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }
@@ -486,7 +488,7 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
         sessions: {
           [NEW_CHAT_KEY]: {
             session: { ...initialChatState },
-            live: { text: '', reasoning: '' },
+            live: { text: '', reasoning: '', reasoningVisible: false },
             subagentMeta: {}
           }
         },
@@ -671,7 +673,7 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
         ...st.sessions,
         existing: {
           session: { ...initialChatState, sessionId: 'existing' },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }
@@ -796,7 +798,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
         ...state.sessions,
         other: {
           session: { ...initialChatState, sessionId: 'other', inflight: false },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       },
@@ -902,7 +904,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
             diffRequirements: [requirement('req-other', 's')],
             diffRequirementsRevision: 1
           },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       },
@@ -1107,7 +1109,7 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
         ...st.sessions,
         'draft:pending': {
           session: { ...initialChatState, handoffFrom: 's', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       },
@@ -1310,7 +1312,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
   })
 
   it('busy 세션 send 는 예약 — 진행 중 턴 상태를 건드리지 않고 pending 만 추가한다', () => {
-    const liveBefore = { text: '스트리밍 중', reasoning: '' }
+    const liveBefore = { text: '스트리밍 중', reasoning: '', reasoningVisible: false }
     useChatStore.setState((s) => ({
       sessions: { ...s.sessions, s: { ...s.sessions.s, live: liveBefore } }
     }))

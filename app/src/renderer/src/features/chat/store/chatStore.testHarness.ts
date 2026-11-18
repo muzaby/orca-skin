@@ -68,7 +68,7 @@ export function installChatStoreHarness(
       sessions: {
         s: {
           session: { ...initialChatState, sessionId: 's', ...sessionOverrides },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       },

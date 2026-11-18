@@ -3,7 +3,8 @@
 // `oo:session:load`·`oo:session:refresh` 는 본문을 응답에 싣지 않는다. 요청이 번호(`requestId`)를
 // 가지면 메시지를 조각으로 나눠 요청한 창의 포트에 통지로 보내고, 응답에는 머리와 조각 수만 싣는다
 // (`shared/data-host.ts`). 조각 사이에는 매크로태스크 하나를 양보한다 — 그 사이에 취소 통지와 턴 저장
-// 입력(B25)이 끼어든다. 취소된 요청은 다음 조각부터 보내지 않는다.
+// 입력(B25)이 끼어든다. 취소된 요청은 다음 조각부터 보내지 않는다. 조각은 보낼 때마다 잰다 — 양보 전에
+// 읽는 메시지는 보낸 조각과 경계 후보 하나뿐이고, 취소되면 다음 조각을 재지 않는다(0325 D-036).
 //
 // 활동 상태는 에이전트 호스트에 묻는다(없으면 쉬는 상태 — 호출자가 훅으로 정한다). 갱신의 원본 읽기도
 // 훅(`refreshHistory`)이 에이전트 호스트에 부탁한다.
@@ -12,8 +13,8 @@
 
 import { CHANNELS, type ChatActivitySnapshot, type LoadedSession } from '../../../shared/ipc'
 import {
+  nextSessionChunkEnd,
   SessionLoadCancelSchema,
-  splitSessionMessages,
   type SessionLoadChunk,
   type SessionLoadReply,
   type SessionRefreshReply
@@ -70,22 +71,24 @@ export function registerSessionLoadHandlers(
     // 번호 없는 요청은 통째로 답한다 — 조각을 조립할 받는 쪽이 없다.
     if (requestId === undefined) return session
     const client = event.sender
-    const chunks = splitSessionMessages(session.messages)
+    const messages = session.messages
     const active = sending.get(client.id) ?? new Set<number>()
     sending.set(client.id, active)
     active.add(requestId)
     try {
-      for (let seq = 0; seq < chunks.length; seq++) {
+      let seq = 0
+      let sent = 0
+      for (let start = 0; start < messages.length; seq++) {
         if (seq > 0) await yieldTurn()
         if (!active.has(requestId) || client.isClosed()) return { cancelled: true }
-        const chunk: SessionLoadChunk = { requestId, seq, messages: chunks[seq] }
+        // 양보·취소 확인 뒤에만 다음 조각을 잰다.
+        const end = nextSessionChunkEnd(messages, start)
+        const chunk: SessionLoadChunk = { requestId, seq, messages: messages.slice(start, end) }
         client.send(CHANNELS.sessionLoadChunk, chunk)
+        sent += end - start
+        start = end
       }
-      return {
-        ...session,
-        messages: [],
-        chunked: { chunks: chunks.length, messages: session.messages.length }
-      }
+      return { ...session, messages: [], chunked: { chunks: seq, messages: sent } }
     } finally {
       active.delete(requestId)
       if (active.size === 0) sending.delete(client.id)

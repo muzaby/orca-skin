@@ -3,7 +3,12 @@ import { memo, useMemo } from 'react'
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
 import { useI18n } from '../../../../../shared/i18n'
-import { useChatSession, useLiveReasoning, useLiveText } from '../../../store/chatStore'
+import {
+  useChatSession,
+  useHasLiveReasoning,
+  useHasLiveText,
+  useLiveTextFor
+} from '../../../store/chatStore'
 import { transcriptPresentation } from '../../../lib/agentPresentation'
 import { errorCategoryKey } from '../../../lib/errorLabels'
 import { UserTurn } from '../../common/transcript/UserTurn'
@@ -19,6 +24,7 @@ import {
   projectTimelineHead,
   projectTimelineTail,
   timelineRowIndex,
+  timelineRows,
   type TimelineRow
 } from './projection'
 import { useTimelineScroll } from './scrollContext'
@@ -31,8 +37,9 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
   props: TranscriptTimelineProps
 ): React.JSX.Element {
   const { tr } = useI18n()
-  const liveText = useLiveText()
-  const liveReasoning = useLiveReasoning()
+  // live 의 유무만 구독한다 — 본문 delta 는 행 리프(`OpenCodeTextSegment`)만 깨운다(0325 D-015).
+  const hasLiveText = useHasLiveText()
+  const hasLiveReasoning = useHasLiveReasoning()
   const scroll = useTimelineScroll()
   const fallbackState = useMemo(() => new TimelineViewState(), [])
   const state = scroll?.state ?? fallbackState
@@ -43,22 +50,22 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
   const tail = useMemo(
     () =>
       projectTimelineTail(head, {
-        text: props.inflight ? liveText : '',
-        reasoning: props.inflight ? liveReasoning : '',
+        text: props.inflight && hasLiveText,
+        reasoning: props.inflight && hasLiveReasoning,
         pending: props.inflight
       }),
-    [head, props.inflight, liveText, liveReasoning]
+    [head, props.inflight, hasLiveText, hasLiveReasoning]
   )
-  const rows = useMemo(() => [...head.rows, ...tail], [head, tail])
+  const rows = useMemo(() => timelineRows(head, tail), [head, tail])
   const rowIndex = (key?: string): number => timelineRowIndex(head, tail, key)
   const selectionIndexes = (scroll?.retained ?? [])
     .map((key) => rowIndex(key))
     .filter((index) => index >= 0)
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    count: rows.count,
     getScrollElement: () => props.scrollRef.current,
-    getItemKey: (index) => rows[index].key,
-    estimateSize: (index) => state.sizes.get(rows[index].key) ?? 60,
+    getItemKey: (index) => rows.at(index).key,
+    estimateSize: (index) => state.sizes.get(rows.at(index).key) ?? 60,
     initialOffset: state.top,
     overscan: 2,
     rangeExtractor: (range) => {
@@ -85,7 +92,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
   // resizes. Disable the virtualizer's second, independent scroll correction.
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false
   const empty =
-    !rows.length && !props.loadingSession && !props.inflight && !props.pendingSteer.length
+    !rows.count && !props.loadingSession && !props.inflight && !props.pendingSteer.length
   return (
     <TimelineDisclosureContext.Provider value={state}>
       <div
@@ -105,7 +112,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
           )}
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
-              const row = rows[item.index]
+              const row = rows.at(item.index)
               return (
                 <div
                   key={row.key}
@@ -167,7 +174,13 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
       return <UserTurn turn={row.turn} />
     case 'segment':
       if (row.segment.kind === 'text')
-        return <OpenCodeText source={row.segment.text} streaming={streaming} />
+        return (
+          <OpenCodeTextSegment
+            prefix={row.segment.text}
+            live={row.live === true}
+            streaming={streaming}
+          />
+        )
       if (row.segment.kind === 'reasoning') return null
       return <OpenCodeAssistantSegment segment={row.segment} transcriptPolicy={policy} />
     case 'meta':
@@ -188,6 +201,22 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
       )
   }
 })
+// live·확정 text 행의 공통 리프 — 같은 컴포넌트 형이라 live 행이 같은 key 의 확정 행이 될 때 DOM 이 남는다.
+// live 행만 store 의 live text 를 구독하고(`useLiveTextFor(true)`), 확정 행은 언제나 `''` 를 받아 delta 에
+// 깨어나지 않는다(0325 EP-2 ⑥⑦).
+function OpenCodeTextSegment({
+  prefix,
+  live,
+  streaming
+}: {
+  prefix: string
+  live: boolean
+  streaming: boolean
+}): React.JSX.Element {
+  const liveText = useLiveTextFor(live)
+  return <OpenCodeText source={live ? prefix + liveText : prefix} streaming={streaming} />
+}
+
 function RetryStatus(): React.JSX.Element | null {
   const { tr } = useI18n()
   const retry = useChatSession((session) => session.retry)

@@ -134,7 +134,13 @@ describe('0232 Spark background action', () => {
         },
         rightPanelTiles: []
       }
-      const sessions = { [key]: { session, live: { text: '', reasoning: '' }, subagentMeta: {} } }
+      const sessions = {
+        [key]: {
+          session,
+          live: { text: '', reasoning: '', reasoningVisible: false },
+          subagentMeta: {}
+        }
+      }
       Object.assign(initial, { activeKey: key, sessions })
       useChatStore.setState({ activeKey: key, sessions })
       const html = renderToStaticMarkup(createElement(PendingAssistantStatus))

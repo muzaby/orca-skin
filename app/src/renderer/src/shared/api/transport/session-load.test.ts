@@ -50,6 +50,29 @@ function setup() {
 }
 
 describe('세션 본문 조립', () => {
+  // 0325 VP-01 — 상한 이전 형상(한 조각 200,000건)과 상한 형상(400조각) 모두 인자 펼침 없이 조립한다.
+  it('200,000건을 한 조각·400조각으로 받아도 순서대로 조립한다', async () => {
+    const messages: LoadedMessage[] = Array.from({ length: 200_000 }, (_, index) => ({
+      role: 'user',
+      createdAt: index,
+      parts: []
+    }))
+    const single = setup()
+    const one = single.client.load('one')
+    single.chunk(0, 0, messages)
+    single.reply(0, head('one', 1, messages.length))
+    const many = setup()
+    const split = many.client.load('many')
+    for (let seq = 0; seq < 400; seq++)
+      many.chunk(0, seq, messages.slice(seq * 500, (seq + 1) * 500))
+    many.reply(0, head('many', 400, messages.length))
+    for (const loaded of [await one, await split]) {
+      expect(loaded?.messages).toHaveLength(200_000)
+      const order = loaded!.messages.map((item) => item.createdAt)
+      expect(order.every((value, index) => value === index)).toBe(true)
+    }
+  })
+
   it('요청마다 번호를 싣고, 그 번호의 조각을 순서대로 한 벌로 조립한다', async () => {
     const h = setup()
     const loading = h.client.load('s1')

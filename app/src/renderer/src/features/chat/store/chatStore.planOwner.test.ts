@@ -32,7 +32,7 @@ it('0249 independent X1: callback-before-init belongs to the pending draft after
   const current = useChatStore.getState()
   const draft = {
     session: { ...initialChatState, sessionId: null, inflight: true },
-    live: { text: '', reasoning: '' },
+    live: { text: '', reasoning: '', reasoningVisible: false },
     subagentMeta: {}
   }
   useChatStore.setState({
@@ -107,7 +107,7 @@ function installPendingDraft(): void {
       ...state.sessions,
       draft: {
         session: { ...initialChatState, inflight: true },
-        live: { text: '', reasoning: '' },
+        live: { text: '', reasoning: '', reasoningVisible: false },
         subagentMeta: {}
       }
     },
