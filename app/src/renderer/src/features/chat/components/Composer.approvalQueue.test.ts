@@ -374,7 +374,7 @@ describe('OpenCode replacement request queue', () => {
             agentKind: 'code',
             sessionId: 'other'
           },
-          live: { text: '', reasoning: '' },
+          live: { text: '', reasoning: '', reasoningVisible: false },
           subagentMeta: {}
         }
       }

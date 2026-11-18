@@ -2,6 +2,7 @@ import { reportError } from '../../../shared/errors'
 import { useRef, useState, type ClipboardEvent } from 'react'
 import { fileApi } from '../../../shared/api/ipc'
 import { downscaleDataUrl } from '../lib/imageThumb'
+import { buildAttachmentViews as buildViews } from '../lib/attachmentViews'
 import type { AttachmentView, ComposerAttachment } from '../../../../../shared/ipc'
 
 // 컴포저의 첨부 lifecycle(다이얼로그/DnD/붙여넣기 3경로 수집 · 미리보기 · 제거 · 전송용 뷰 빌드)를
@@ -135,32 +136,13 @@ export function useAttachments(): UseAttachments {
   }
 
   // 전송 시 영속·렌더용 첨부 뷰를 만든다 — 이미지는 다운스케일 썸네일로 줄여 DB/트랜스크립트에
-  // 가볍게 남긴다. 썸네일은 컴포저의 비동기 미리보기 state 가 아니라 **소스에서 직접** 만들어
-  // (path=readAttachment, inline=보유 바이트), 빠르게 전송해도 항상 영속되게 한다.
-  const sourceDataUrl = async (att: ComposerAttachment): Promise<string | undefined> => {
-    if (att.kind === 'inline') return `data:${att.mimeType};base64,${att.data}`
-    const read = await fileApi.readAttachment(att.path).catch(() => null)
-    return read ? `data:${read.mimeType};base64,${read.data}` : undefined
-  }
-
+  // 가볍게 남긴다. 실패한 썸네일은 미리보기 없이 보내고 동시 수는 2 다(`lib/attachmentViews`, 0325 EP-9 ⑤).
   const buildAttachmentViews = (items: ComposerAttachment[]): Promise<AttachmentView[]> =>
-    Promise.all(
-      items.map(async (att): Promise<AttachmentView> => {
-        const isImage = att.mimeType.startsWith('image/')
-        const view: AttachmentView = {
-          id: crypto.randomUUID(),
-          name: att.name,
-          mimeType: att.mimeType,
-          kind: isImage ? 'image' : 'file',
-          ...(att.sizeBytes !== undefined ? { sizeBytes: att.sizeBytes } : {})
-        }
-        if (isImage) {
-          const full = await sourceDataUrl(att)
-          if (full) view.previewDataUrl = await downscaleDataUrl(full)
-        }
-        return view
-      })
-    )
+    buildViews(items, {
+      readAttachment: (path) => fileApi.readAttachment(path),
+      downscale: downscaleDataUrl,
+      newId: () => crypto.randomUUID()
+    })
 
   // attachment view 생성은 비동기다. 그 사이 새 첨부가 추가/제거됐다면 전송 당시 배열만
   // 지운다는 보장이 없으므로 clear를 거부한다. controller가 draft revision과 함께 검사해

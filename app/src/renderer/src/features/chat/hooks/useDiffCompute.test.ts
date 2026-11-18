@@ -66,6 +66,15 @@ describe('useDiffLines', () => {
     expect(state).toEqual({ status: 'ready', lines })
   })
 
+  // 0325 VP-14 — 줄 수가 작아도 문자 합이 상한을 넘으면 워커로 간다.
+  it('routes a 64,001-char single-line pair to the worker', () => {
+    const oldValue = 'a'.repeat(32_000)
+    const newValue = 'b'.repeat(32_001)
+    render(oldValue, newValue)
+    expect(state).toEqual({ status: 'loading' })
+    expect(compute.requests).toEqual([{ kind: 'diffLines', oldValue, newValue }])
+  })
+
   it('워커가 실패하면 failed 다 — UI 스레드에서 대신 계산하지 않는다', async () => {
     render(linesOf(401, 'a'), '')
     compute.rejectNext()

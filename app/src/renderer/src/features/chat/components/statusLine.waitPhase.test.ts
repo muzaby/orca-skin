@@ -38,7 +38,7 @@ function activitySnapshot(patch: Partial<ChatActivitySnapshot> = {}): ChatActivi
 function renderStatusWithSession(session: typeof initialChatState): string {
   const key = 's1'
   const sessions = {
-    [key]: { session, live: { text: '', reasoning: '' }, subagentMeta: {} }
+    [key]: { session, live: { text: '', reasoning: '', reasoningVisible: false }, subagentMeta: {} }
   }
   Object.assign(initial, { activeKey: key, sessions })
   useChatStore.setState({ activeKey: key, sessions })

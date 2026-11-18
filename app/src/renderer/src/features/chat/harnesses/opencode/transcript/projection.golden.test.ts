@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs'
 import { expect, it, vi } from 'vitest'
 import type { Message } from '../../../reducer/chatReducer'
 import * as turns from '../../../lib/turns'
+import { hasSegmentReasoning } from '../../../lib/parts'
 import {
+  materializeTimelineRows,
   projectTimeline,
   projectTimelineHead,
   projectTimelineTail,
-  timelineRowIndex
+  timelineRowIndex,
+  timelineRows
 } from './projection'
 const cases = JSON.parse(
   readFileSync(new URL('./projection.golden.json', import.meta.url), 'utf8')
@@ -28,13 +31,23 @@ it('keeps head rows and indexed positions stable as only the live tail changes, 
   const copy = vi.spyOn(turns, 'turnCopyText')
   const input = cases[2],
     head = projectTimelineHead(input.messages)
+  // 유무가 같으면 tail 은 한 번 투영한 그대로다 — 본문만 바뀐다(0325 D-015).
+  const tail = projectTimelineTail(head, {
+    text: true,
+    reasoning: hasSegmentReasoning(input.live.reasoning),
+    pending: input.live.pending
+  })
+  const rows = timelineRows(head, tail)
   for (const text of ['one', 'two', 'three', 'four', 'five']) {
-    const tail = projectTimelineTail(head, { ...input.live, text })
-    const rows = [...head.rows, ...tail]
-    for (const [index, row] of rows.entries())
+    const materialized = materializeTimelineRows(
+      Array.from({ length: rows.count }, (_, index) => rows.at(index)),
+      text
+    )
+    for (const [index, row] of materialized.entries())
       expect(timelineRowIndex(head, tail, row.key)).toBe(index)
     expect(timelineRowIndex(head, tail, 'missing')).toBe(-1)
-    expect(head.rows.every((row, index) => rows[index] === row)).toBe(true)
+    expect(head.rows.every((row, index) => rows.at(index) === row)).toBe(true)
+    expect(materialized).toEqual(projectTimeline(input.messages, { ...input.live, text }))
   }
   expect(copy).not.toHaveBeenCalled()
   copy.mockRestore()

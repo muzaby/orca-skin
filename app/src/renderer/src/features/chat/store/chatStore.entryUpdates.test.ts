@@ -25,7 +25,7 @@ describe('chat entry update boundaries', () => {
   it('publishes completed text and cleared live preview together while preserving other entries', () => {
     const other = {
       session: { ...initialChatState, sessionId: 'other' },
-      live: { text: '', reasoning: '' },
+      live: { text: '', reasoning: '', reasoningVisible: false },
       subagentMeta: {}
     }
     useChatStore.setState((state) => ({ sessions: { ...state.sessions, other } }))
@@ -48,7 +48,7 @@ describe('chat entry update boundaries', () => {
   it('preserves the main preview when a child completes and exposes its text only in the child transcript', () => {
     const other = {
       session: { ...initialChatState, sessionId: 'other' },
-      live: { text: 'other preview', reasoning: '' },
+      live: { text: 'other preview', reasoning: '', reasoningVisible: false },
       subagentMeta: {}
     }
     useChatStore.setState((state) => ({ sessions: { ...state.sessions, other } }))
@@ -100,7 +100,7 @@ describe('chat entry update boundaries', () => {
       const entry = state.sessions.s
       expect(partsText(entry.session.messages[0].parts)).toBe('remaining')
       expect(entry.session.inflight).toBe(false)
-      expect(entry.live).toEqual({ text: '', reasoning: '' })
+      expect(entry.live).toEqual({ text: '', reasoning: '', reasoningVisible: false })
       order.push(state.pendingNewChatKey === 's' ? 'settled' : 'gate')
     })
     chatSend.mockImplementation(() => {

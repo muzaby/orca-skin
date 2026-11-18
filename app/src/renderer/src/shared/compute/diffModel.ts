@@ -54,6 +54,16 @@ export function hunksToDiffLines(hunks: readonly DiffHunk[]): DiffLine[] {
   return result
 }
 
+// `countLines` 와 같은 수를 세되 `limit` 을 넘는 순간 멈추고 `limit + 1` 을 돌려준다(0325 EP-4 ②).
+export function countLinesUpTo(text: string, limit: number): number {
+  if (text === '') return 0
+  let newlines = 0
+  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1))
+    if (++newlines > limit) return limit + 1
+  // 여기서 newlines ≤ limit 이라 결과는 limit + 1 을 넘지 않는다 — 상한은 위 조기 반환 하나가 정한다.
+  return text.endsWith('\n') ? newlines : newlines + 1
+}
+
 // 텍스트의 줄 수 — 빈 문자열은 0, 마지막 개행 뒤의 빈 줄은 세지 않는다.
 export function countLines(text: string): number {
   if (text === '') return 0

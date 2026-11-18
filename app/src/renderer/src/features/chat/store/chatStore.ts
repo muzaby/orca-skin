@@ -54,6 +54,7 @@ import { nextComposerDraftSequence, type ComposerDraftUpdate } from '../lib/comp
 import type { ActivityView } from '../lib/activityLabel'
 import { promoteComposer } from '../lib/composerPromotion'
 import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
+import { hasSegmentReasoning, hasSegmentText } from '../lib/parts'
 import { toPlanFeedback } from '../lib/planComments'
 import { generatingSessionKeys, sameKeys } from '../lib/responseProgress'
 import { rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
@@ -99,6 +100,9 @@ export interface LiveTurnState {
   text: string
   // 라이브 확장사고 누적. 완성 시 message.reasoning 이 영속 reasoning 파트로 굳히며 비운다.
   reasoning: string
+  // `hasSegmentReasoning(reasoning)` 과 언제나 같은 값 — 조각마다 OR 로 켜고 reasoning 을 비우는 자리에서
+  // 끈다. 구독자가 누적 문자열을 훑지 않게 한다(0325 D-035 · EP-2b).
+  reasoningVisible: boolean
 }
 
 // 서브에이전트(Task) 라이브 메타 — subagent.task 이벤트(SDK task_*/child model)로 누적되는
@@ -177,7 +181,7 @@ export interface ChatStoreState {
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
 export const NEW_CHAT_KEY = '__new__'
 
-const EMPTY_LIVE: LiveTurnState = { text: '', reasoning: '' }
+const EMPTY_LIVE: LiveTurnState = { text: '', reasoning: '', reasoningVisible: false }
 const EMPTY_PENDING_STEER: PendingSteerState[] = []
 const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 
@@ -563,7 +567,11 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
       const live =
         event.type === 'message.delta'
           ? { ...entry.live, text: entry.live.text + event.delta.text }
-          : { ...entry.live, reasoning: entry.live.reasoning + event.delta.text }
+          : {
+              ...entry.live,
+              reasoning: entry.live.reasoning + event.delta.text,
+              reasoningVisible: entry.live.reasoningVisible || hasSegmentReasoning(event.delta.text)
+            }
 
       if (sessions === state.sessions) sessions = { ...sessions }
       sessions[key] = { ...entry, session, live }
@@ -789,7 +797,9 @@ function receive(ev: NormalizedEvent): void {
 
     case 'message.reasoning':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      patchLive(key, (live) => (live.reasoning !== '' ? { ...live, reasoning: '' } : live))
+      patchLive(key, (live) =>
+        live.reasoning !== '' ? { ...live, reasoning: '', reasoningVisible: false } : live
+      )
       return
 
     case 'subagent.task':
@@ -2579,6 +2589,21 @@ export function useChatRecentsEpoch(): number {
 // 라이브 사고 리프 전용 — 활성 세션의 reasoning 델타에만 재렌더(본문 text 델타와 격리).
 export function useLiveReasoning(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.reasoning)
+}
+
+// 활성 세션 live 의 유무만 — 본문이 늘어도 값이 같으면 깨어나지 않는다(0325 EP-2 ②).
+export function useHasLiveText(): boolean {
+  return useChatStore((s) => hasSegmentText(s.sessions[s.activeKey].live.text))
+}
+
+// 조각마다 갱신한 불리언만 읽는다 — 누적 reasoning 을 훑지 않는다(0325 EP-2b ⑤).
+export function useHasLiveReasoning(): boolean {
+  return useChatStore((s) => s.sessions[s.activeKey].live.reasoningVisible)
+}
+
+// 행 리프 전용 — `enabled` 가 거짓이면 언제나 `''` 라 델타에 깨어나지 않는다(0325 EP-2 ③).
+export function useLiveTextFor(enabled: boolean): string {
+  return useChatStore((s) => (enabled ? s.sessions[s.activeKey].live.text : ''))
 }
 
 export function otherProjectTurnCount(state: ChatStoreState, projectId: string | null): number {

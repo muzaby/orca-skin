@@ -14,12 +14,11 @@
 // `new Worker(` 는 이 파일에서만 부른다(가드 `check-ui-thread` 규칙 (i)).
 
 import { rendererLog } from '../logging'
-import { COMPUTE_CACHE_MAX_CHARS, COMPUTE_FAILURE_LIMIT } from './limits'
+import { COMPUTE_CACHE_MAX_CHARS, COMPUTE_CACHE_MAX_ENTRIES, COMPUTE_FAILURE_LIMIT } from './limits'
 import {
   parseResponse,
   requestKey,
   requestSize,
-  resultSize,
   type ComputeRequest,
   type ComputeResult,
   type ComputeResults,
@@ -74,11 +73,13 @@ interface ClientDeps {
   createWorker: () => WorkerLike
   onError?: (error: unknown) => void
   cacheMaxChars?: number
+  cacheMaxEntries?: number
   failureLimit?: number
 }
 
 export function createComputeClient(deps: ClientDeps): ComputeClient {
   const cacheMax = deps.cacheMaxChars ?? COMPUTE_CACHE_MAX_CHARS
+  const cacheMaxEntries = deps.cacheMaxEntries ?? COMPUTE_CACHE_MAX_ENTRIES
   const failureLimit = deps.failureLimit ?? COMPUTE_FAILURE_LIMIT
   const onError =
     deps.onError ?? ((error) => rendererLog.error('compute.worker.failed', 'compute', error))
@@ -103,17 +104,21 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
     return hit.result
   }
 
-  function writeCache(key: string, result: ComputeResult): void {
-    const size = resultSize(result)
+  // 항목 비용 = 요청 키 길이 + 워커가 센 결과 크기(0325 D-038 · EP-5 ④). 크기가 무효하거나 비용이 상한을
+  // 넘는 결과는 넣지 않고 기존 항목도 밀어내지 않는다 — 요청자는 결과를 그대로 받는다.
+  function writeCache(key: string, result: ComputeResult, size: number): void {
+    if (!Number.isFinite(size) || size < 0) return
+    const cost = key.length + size
+    if (cost > cacheMax) return
     const previous = cache.get(key)
     if (previous) {
       cacheChars -= previous.size
       cache.delete(key)
     }
-    cache.set(key, { result, size })
-    cacheChars += size
+    cache.set(key, { result, size: cost })
+    cacheChars += cost
     for (const [oldest, entry] of cache) {
-      if (cacheChars <= cacheMax || oldest === key) break
+      if (cacheChars <= cacheMax && cache.size <= cacheMaxEntries) break
       cache.delete(oldest)
       cacheChars -= entry.size
     }
@@ -186,7 +191,7 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
     running = null
     if (response.ok) {
       failures = 0
-      writeCache(job.key, response.result)
+      writeCache(job.key, response.result, response.size)
       settle(job, { result: response.result })
     } else {
       // 요청 하나의 계산 오류(문법 미지원 등)는 워커 실패가 아니다.

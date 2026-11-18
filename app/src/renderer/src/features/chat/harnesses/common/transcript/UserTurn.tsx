@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { UserMessage } from './UserMessage'
 import { MessageMeta } from './MessageMeta'
+import { hasPartsText } from '../../../lib/parts'
 import { turnCopyText, turnEquals, type Turn } from '../../../lib/turns'
 
 // 사용자 턴 — 보통 메시지 1개. 복사/시간 메타는 턴 끝에 한 번만.
@@ -9,12 +10,18 @@ import { turnCopyText, turnEquals, type Turn } from '../../../lib/turns'
 export const UserTurn = memo(
   function UserTurn({ turn }: { turn: Turn }): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
+    // 복사 문자열은 클릭 때 만든다 — 노출은 같은 값인 `hasPartsText`(0325 D-013 · EP-7 ③).
+    const copyable = turn.messages.some((message) => hasPartsText(message.parts))
     return (
       <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]">
         {turn.messages.map((m, i) => (
           <UserMessage key={i} message={m} />
         ))}
-        <MessageMeta text={turnCopyText(turn)} createdAt={last.createdAt} align="right" />
+        <MessageMeta
+          text={copyable ? () => turnCopyText(turn) : ''}
+          createdAt={last.createdAt}
+          align="right"
+        />
       </div>
     )
   },

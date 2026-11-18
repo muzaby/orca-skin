@@ -6,7 +6,7 @@ import { Exchange } from './Exchange'
 import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import { PendingAssistant } from './PendingAssistant'
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
-import { groupExchanges } from '../../../lib/turns'
+import { createExchangeGrouper } from '../../../lib/turns'
 import { useTranscriptVirtualizer } from '../../../hooks/useTranscriptVirtualizer'
 import { createWorkToolResultSelector } from '../../../lib/workToolResults'
 import { agentPresentation } from '../presentation'
@@ -32,10 +32,12 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
 }: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
   // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
-  // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승).
+  // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승). 확정 메시지가
+  // 바뀌면 grouper 가 바뀐 지점부터만 다시 묶고 무관한 과거 exchange 는 같은 객체로 둔다(0325 D-030).
+  const [groupIncrementally] = useState(createExchangeGrouper)
   const exchanges = useMemo(
-    () => groupExchanges(messages, { showAutomaticFeeds }),
-    [messages, showAutomaticFeeds]
+    () => groupIncrementally(messages, { showAutomaticFeeds }),
+    [groupIncrementally, messages, showAutomaticFeeds]
   )
   const transcriptPolicy = agentPresentation[agentKind].transcript
   const [selectWorkResults] = useState(createWorkToolResultSelector)

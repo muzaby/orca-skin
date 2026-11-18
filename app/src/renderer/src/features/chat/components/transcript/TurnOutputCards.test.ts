@@ -77,7 +77,12 @@ beforeEach(() => {
     activity: { ...initialChatState.activity, foreground: 'streaming' }
   })
   useChatStore.setState((state) => ({
-    sessions: { s: { ...state.sessions.s, live: { text: 'live-body', reasoning: '' } } }
+    sessions: {
+      s: {
+        ...state.sessions.s,
+        live: { text: 'live-body', reasoning: '', reasoningVisible: false }
+      }
+    }
   }))
   useArtifactStore.setState({ sessions: {} })
 })
