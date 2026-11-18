@@ -1,0 +1,26 @@
+id	결과	exit	요약
+Y5	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+O1	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+O2	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Y2	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Y11	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Y12	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+Y10	red (기대 일치)	1	node --test fail 1 · 노출 2회 — 실행이 잡는다; checkPreloadOutput — EP-28 규칙 칸
+Y9	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S30-1	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S30-2	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S30-3	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S30-4	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S30-5	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S28-4	red (기대 일치)	1	node --test fail 2 · 노출 없음 — 실행이 잡는다; 노출 2회 — 실행이 잡는다; checkPreloadOutput — EP-28 규칙 칸
+S29-a	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S29-b	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S29-c	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S29-d	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+S29-e	red (기대 일치)	1	vitest 1 failed | 543 passed (544)
+W1n	red (기대 일치)	1	vitest 7 failed | 6 passed (13)
+S27-6an	red (기대 일치)	1	vitest 7 failed | 6 passed (13)
+Y9-fmt	red (기대 일치)	1	vitest 1 failed | 156 passed (157)
+S30-5-fmt	red (기대 일치)	1	vitest 1 failed | 156 passed (157)
+S29-d-fmt	red (기대 일치)	1	vitest 1 failed | 156 passed (157)
+# 원복 확인: 모든 파일 원문 그대로
