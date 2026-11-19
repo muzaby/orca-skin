@@ -452,3 +452,125 @@ AC: ✅ 21 · ⚠️ 1(AC19 사람) · ❌ 0 = 22 — 구현 자기보고 21/22 
 - pair: PASS 32 · 사람 실기 대기 1(VP-31). AC ✅ 21 · ⚠️ 1(AC19) · ❌ 0.
 - 운영 gate: 전부 PASS(vitest 22 는 기준선 차집합 ∅).
 - 다음: 설계자 — E1 채택/경계 결정을 ΔV2(규범 행만)로 → `plan/READY`. 채택이면 구현자가 VP-03 입력을 더하고(N2 red), 경계면 구현 없이 verify 3회째. ΔV2 가 열거 원문을 늘릴 수 있는 마지막 턴이다.
+
+# 라운드 3 (verify 3회째)
+
+> 재현 자료는 [`verify-r3/`](verify-r3/) — sweep spec 32항목(r2 26 + ⑦ S3 + ⑥ X8~X12).
+
+## R3-0. 메타·기준선
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-19 |
+| 대상 커밋/range | `79b5591..3867427` — `6508237`(ΔV2 설계, `Agent: claude`) · `3867427`(r3 구현, `Agent: codex`) |
+| 구현 전 plan 기준 | `6508237` (V1 rev 4 + ΔV1 + ΔV2) |
+| V mode / 유효 V | `Baseline V: V1 rev 4` + `Delta V: ΔV1 → ΔV2` |
+| 상태 | **PASS(기계 범위)** — 이행·현재 결함 0 · PLAN_GAP 0 · 확장 후보 0. 남은 것: VP-31/AC19 Windows 실기(사람) |
+| 확장 창 | verify 3회째 — 창 밖. ΔV2 는 확장 후보 채택이라 다시 열린 노드 없음. plan 동결 뒤 새 열거 항목 0(`3867427` plan diff = `[구현자 기입]` r3 추가 109줄뿐, 삭제 0) |
+| 독립 축(⑥) | X8 남은 예산 +1 · X9 문자 누계 제거 · X10 part 누계 제거 · X11 측정 한도 +1 · X12 노드 비용 2 → 1 — 구현 보고 25행·등록 변이 밖. 5/5 잡음 · 발견 0 |
+| 열거 sweep(⑦) | diff 가 닿은 EP-1 ③·⑤ — N2(⑤ 등록) · S3(③ `cost > remaining` → `>=`) + 직전 실패 행 N2 |
+
+- ✅ 기준선: `3867427` 의 plan diff 는 추가만(109줄, `[구현자 기입]` r3 7필드)이다 — 규범 행 변경 0. ΔV2 원문(§7-A ΔV2 · D-047 · B25)으로 채점한다.
+- ✅ plan validity: §10-A EP-1 명령을 다시 돌렸다 — 39줄, 줄 집합이 자리 ↔ 줄 칸과 같다(차집합 0) · `.push(...` 0. `git diff --stat 52b5272 HEAD -- app/src` = 테스트 1파일(+35)이라 production 줄 번호 불변. ΔV2 규칙 칸 e13 의 두 분기(L < 실제 비용 · L = 실제 비용) ↔ UT 입력 두 칸 1:1.
+
+## R3-1. 비판적 검토·역방향 탐색
+
+- ✅ production 변경 0 — `git diff 6508237 3867427 --stat -- app` → `data-host.test.ts` +20 하나. 역방향 탐색 대상 없음.
+- ✅ e13(`data-host.test.ts:244`)은 production `estimateWireChars`·`nextSessionChunkEnd` 를 직접 부른다. 비용은 `estimateWireChars` 실제 값(full 77 · base 77)에서 얻고 L 0~76 전부 + L = 77 을 돈다 — 노드 합 규칙의 로컬 재구현 없음. `expect.soft` 라 위반 지점 수가 실패 메시지에 남는다.
+
+## R3-2. 고장 이력 (`mutate.py`, 원복 "모든 파일 원문 그대로", `git status` 깨끗)
+
+oracle 은 R2 와 같다(EP-1: `data-host.test.ts` · `main/app/data-host/` · `transport/` — 변이 없음 168/168 green, +1 = e13). 하한 ①(VP-03 V1.1·V1.2·V1.3·V1.9 · ΔV2 N2) · ②(해당 없음 — 닫는 이슈 E1 의 인용 변이 = N2) · ③(동치 V1.6·V1.8b·V3.4b·V3.5b·V4.3b · 못 잡음 N2) · ④(oracle 파일 `data-host.test.ts` 가 바뀌어 EP-1 `잡음` 전 행 + V3.8) · ⑤(V1.2s·V1.8) · ⑥(X8~X12) · ⑦(N2·S3).
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 / 근거 | 분류 |
+|---|---|---|---|---|---|---|---|
+| **N2** | `data-host.ts:82` | 뒤집기(경계) | `total > limit` → `total >= limit` | **못 잡음** | **잡음** | 1 failed \| 167 passed — e13 1케이스(측정·조각 끝 soft 단언) | ①②③⑦ → E1 닫힘 |
+| S3 | `data-host.ts:123` | 뒤집기(경계) | `cost > remaining` → `cost >= remaining` | — | 잡음 | 2 failed \| 166 passed | ⑦ EP-1 ③ |
+| V1.1 | `data-host.ts:115` | 제거 | 메시지 수 break | 잡음 | 잡음 | 5 failed \| 163 passed | ①④ |
+| V1.2 | `data-host.ts:119` | 제거 | part 합 break | 잡음 | 잡음 | 6 failed \| 131 passed | ①④ |
+| V1.2s | `data-host.ts:119` | 맞바꿈 | `limits.parts` → `limits.chars` | 잡음 | 잡음 | 6 failed \| 131 passed | ⑤ |
+| V1.3 | `data-host.ts:123` | 고정값 | `cost > remaining` → `false` | 잡음 | 잡음 | 7 failed \| 161 passed | ①④ |
+| V1.3b | `data-host.ts:122` | 제거 | 남은 예산 인자 | 잡음 | 잡음 | 2 failed \| 166 passed | ④ |
+| V1.4 | `data-host.ts:125` | 제거 | 단독 진행 | 잡음 | 잡음 | 2 failed \| 166 passed | ④ |
+| V1.5 | `data-host.ts:82` | 고정값 | `return total > limit` → `false` | 잡음 | 잡음 | 5 failed \| 163 passed | ④ |
+| V1.5b | `data-host.ts:84` | 제거 | 루트 조기 반환 | 잡음 | 잡음 | 2 failed \| 166 passed | ④ |
+| V1.5c | `data-host.ts:95` | 제거 | 키 길이 합 | 잡음 | 잡음 | 1 failed \| 167 passed | ④ |
+| V1.6 | `data-host.ts:141` | 다른 값 | `splitSessionMessages` limits 미전달 | 동치 | 동치 | 168 green · 근거 R1·R2 그대로(production 코드 무변경) | ③ |
+| V1.7 | `session-load.ts:82` | 제거 | 양보 | 잡음 | 잡음 | 6 failed \| 162 passed | ④ |
+| V1.7b | `session-load.ts:83` | 제거 | 취소 확인 | 잡음 | 잡음 | 5 failed \| 163 passed | ④ |
+| V1.7reg | `session-load.ts:82` | 순서 | 양보 전 측정 | 잡음 | 잡음 | 3 failed \| 165 passed | ④ |
+| V1.8 | `session-load.ts:91` | 맞바꿈 | `chunks`↔`messages` | 잡음 | 잡음 | 6 failed \| 162 passed | ⑤ |
+| V1.8b | `session-load.ts:91` | 다른 값 | `sent` → `messages.length` | 동치 | 동치 | 168 green · 근거 그대로(루프 끝 = length) | ③ |
+| V1.9 | `data-host.ts:167` | 호출 대체 | 루프 → 펼침 | 잡음 | 잡음 | 1 failed \| 167 passed | ①④ |
+| V1.10 | `session-load.ts:53`(transport) | 제거 | 조립 | 잡음 | 잡음 | 7 failed \| 161 passed | ④ |
+| V1.L | `data-host.ts:13` | 다른 값 | 500 → 501 | 잡음 | 잡음 | 6 failed \| 162 passed | ④ |
+| V1.Lc | `data-host.ts:16` | 다른 값 | 1,000,000 → 2,000,000 | 잡음 | 잡음 | 6 failed \| 162 passed | ④ |
+| N1 | `data-host.ts:98` | 제거 | 자식 방문 뒤 조기 반환 | 잡음 | 잡음 | 3 failed \| 165 passed | ④ |
+| N3 | `data-host.ts:84` | 다른 값 | 루트 반환 `total` → `2` | 잡음 | 잡음 | 1 failed \| 167 passed | ④ |
+| V3.4b | `turns.ts:144` | 고정값 | `true` | 동치 | 동치 | 1093 green · 코드 무변경 | ③ |
+| V3.5b | `turns.ts:157` | 다른 값 | `: firstChange` → `: 0` | 동치 | 동치 | 1093 green · 코드 무변경 | ③ |
+| V3.8 | `turns.ts:133` | 제거 | 파생 캐시 적중 | 잡음 | 잡음 | 2 failed \| 1091 passed | ④ |
+| V4.3b | `inline.ts:13` | 제거 | 옛 줄 상한 | 동치 | 동치 | 233 green · 코드 무변경 | ③ |
+| X8 | `data-host.ts:121` | 다른 값 | 남은 예산 `+ 1` | — | 잡음 | 2 failed \| 166 passed | ⑥ |
+| X9 | `data-host.ts:129` | 제거 | `chars += cost` | — | 잡음 | 5 failed \| 163 passed | ⑥ |
+| X10 | `data-host.ts:128` | 제거 | `parts += size` | — | 잡음 | 6 failed \| 131 passed | ⑥ |
+| X11 | `data-host.ts:82` | 다른 값 | `total > limit` → `total > limit + 1` | — | 잡음 | 1 failed — `루트 객체가 문자 예산 1를 넘으면 자식 값을 읽지 않는다`(e13 은 green — 반환 > L 은 유지되고 읽기 수만 는다) | ⑥ |
+| X12 | `data-host.ts:73` | 다른 값 | 노드 비용 2 → 1 | — | 잡음 | 3 failed \| 165 passed | ⑥ |
+
+- N2 의 실패 케이스를 단독 재실행해 e13 이름을 확인했다(`vitest run src/shared/data-host.test.ts` → `× e13 …` 1).
+- 구현 보고 25행과의 대조: 결과 방향이 전부 같다(구현자 N2 "측정 9·조각 끝 9" · E13-equal = S3). 케이스 수 차이는 oracle 범위 차이다(구현자는 행마다 31·45·59 케이스 범위).
+
+## R3-3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-03 | **PASS** | EP-1 ①~⑥·⑨ 7/7. ③ = e3·e7·e12·e13(`data-host.test.ts:244` — L 양 끝 0·77, S3 red) · ⑤ = e8·e13·루트 예산 0·1(N2·V1.5·V1.5b·N1·N3 red). e13 운반 값: L 0~76 은 full 77 과 구별, L = 77 은 같은 조각 분기 — 규칙 칸 두 분기마다 입력 |
+| VP-01·02 | PASS | V1.7·V1.7b·V1.7reg·V1.8·V1.10 잡음 그대로 · 좌표 R1 §5(`session-load.bounds.test.ts` · `transport/session-load.test.ts`) 이번 실행 집합 안 |
+| 나머지 REQUIRED·REGRESSION 29 | PASS(참조) | production 무변경, 이번 diff 가 닿은 oracle 은 `data-host.test.ts` 하나. R1 §5 좌표가 전체 vitest 실행 집합 안(실패 22 는 기준선 9파일뿐) · ③ 동치 5 · V3.8 잡음 재확인 |
+| VP-31 | 사람 실기 대기 | AC19 Windows 실창(§19) |
+
+AC: ✅ 21 · ⚠️ 1(AC19 사람) · ❌ 0 = 22 — plan 구현 보고·trailer `Criteria-Met: 21/22`·INDEX 비고와 같다.
+
+## R3-4. 운영 gate (HEAD `3867427`, `npm ci --ignore-scripts` + `npm rebuild better-sqlite3 esbuild` — Node ABI)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| 가드 5종 | PASS | migrations-appendonly · doc-inventory `--check` · product-naming · test-budgets · ui-thread — 전부 exit 0 |
+| lint | PASS | error 0 · warning 3(R1·R2 와 같은 "Compilation Skipped") · `--fix` 뒤 작업 트리 변경 0(`git status` = `verify-r3/` 만) |
+| typecheck | PASS | exit 0 |
+| vitest(필터 없음) | 기준선 한계 | 1,043파일(9 fail · 1,030 pass · 4 skip) / 9,961케이스(22 fail · 9,927 pass · 1 expected fail · 11 skip) · unhandled 1(`native-resources.ts:152` "프로젝트별 제어를 지원하지 않습니다"). `cf42a70` worktree 실행과 `FAIL` 이름 집합 `diff` → SAME(22 = 22, 9파일) · 케이스 +1 = e13 pass. 원인 Windows 경로·`win32` 분기(R2 와 같은 서명). 구현 보고 24/11파일의 `/tmp/.git` 2건은 이 환경에서 재현 안 됨 |
+| `node --test scripts/*.test.mjs` | PASS | 1,025/1,025 |
+| 빌드 + 스모크 | PASS | `electron-vite build` exit 0 · `smoke-hosts` OK · `smoke-preload` OK(키 7) |
+| 추가 테스트 subtree 규칙 | PASS | 수정 1파일(`data-host.test.ts`, `|unit|`) — 전체 실행 실패 목록에 없음(`[test-pools]` 0) · 예산 가드 exit 0 |
+
+## R3-5. Repository operation checks
+
+- 대상 커밋 좌표: `6508237`(ΔV2)·`3867427`(r3) 기입 — `git cat-file -t` = commit · `origin/main` 조상 아님(PR 브랜치 미병합). 병합 뒤 다음 손이 `main` 해시로 교정한다.
+- trailer: `6508237` → Agent·Handoff·Status + 공동 저자·세션 · `3867427` → 6키(`Criteria-Met: 21/22`) — 파싱 OK. 합계 사본 plan·INDEX·trailer 모두 21/22.
+- `[구현자 기입]` r3: 7필드 존재. 강제 지점 표는 VP-03 7 · VP-02 3 자리를 행으로, 나머지 67 을 EP 별 줄 수로 담았다. 검산 줄 "선택 증거 5 · 인용 1(중복) · 새 oracle 0 · sweep 20 = 25" — 표 행 25와 같다.
+- INDEX 이번 턴 비고 3줄(≤ 5) · AGENTS.md 변경 없음.
+
+## R3-6. Finding disposition
+
+| # | finding | 분류 · 근거 | disposition | 후속 |
+|---|---|---|---|---|
+| E1 | N2 잠금 공백 | 확장(창 안 채택 → ΔV2 열거) — N2 red 1 · e13 | **closed** | — |
+| N1 | (R1) 미사용 export | 비귀속 | NON_BLOCKING | 그대로 |
+
+새 발견 0 — ⑥ 5축·⑦ 2항목 전부 잡음.
+
+## R3-7. Review Signals — 사실만
+
+- 이전 라운드 증상(E1)은 재발하지 않았다. 같은 위치(EP-1 ⑤)의 다른 경계 X11 도 기존 루트 읽기 테스트가 잡았다.
+- 관련 plan 기준: D-047 · §7-A ΔV2 · AC2.
+- 사용자 결정 변경: 없음.
+- 반복 환경 한계: Windows 분기 vitest 9파일 22케이스(R1·R2 와 같은 집합) · AC19 실창 · 새 컨테이너에서 `npm ci` 뒤 better-sqlite3·esbuild 재빌드 필요.
+- 독립 축(⑥) 발견: 0(5축).
+- 구현 주체: r3 는 Codex(INDEX 다음 주체 칸은 "Claude(구현 r3 — 비기능)"였다).
+
+## R3-8. 결론
+
+- 상태: **PASS(기계 범위)** — 이행·현재 결함 0 · PLAN_GAP 0 · E1 닫힘.
+- pair: PASS 32 · 사람 실기 대기 1(VP-31). AC ✅ 21 · ⚠️ 1(AC19) · ❌ 0.
+- 운영 gate: 전부 PASS(vitest 22 는 기준선 차집합 ∅).
+- 다음: 사람 — AC19 Windows 실기(§19). 0326 착수 조건(D-050)의 "0325 기계 verify PASS 커밋"은 이 커밋이다.
