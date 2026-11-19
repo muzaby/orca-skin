@@ -1,0 +1,7 @@
+{"id": "FX-V1.5b", "file": "src/shared/data-host.ts", "old": "if (visit(value)) return total", "new": "visit(value)", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
+{"id": "FX-N1", "file": "src/shared/data-host.ts", "old": "    if (visit(child)) return total\n", "new": "    visit(child)\n", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
+{"id": "FX-V1.5c", "file": "src/shared/data-host.ts", "old": "total += key.length", "new": "", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
+{"id": "FX-V1.3b", "file": "src/shared/data-host.ts", "old": "const cost = estimateWireChars(message, remaining)", "new": "const cost = estimateWireChars(message)", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
+{"id": "FX-N2", "file": "src/shared/data-host.ts", "old": "return total > limit", "new": "return total >= limit", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
+{"id": "FX-V1.1", "file": "src/shared/data-host.ts", "old": "if (end - start >= limits.messages) break", "new": "", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
+{"id": "FX-V1.4", "file": "src/shared/data-host.ts", "old": "if (end === start) return start + 1", "new": "", "oracle": "./node_modules/.bin/vitest run src/shared/verify0325r2.fuzz.test.ts"}
