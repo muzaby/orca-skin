@@ -14,7 +14,7 @@
 | V mode / 유효 V | `Baseline V: V1 rev 4` |
 | 검증 기준 plan revision | `5923d9a:V1 rev 4` |
 | 라운드 | 1 |
-| 상태 | **RETURN_TO_PLAN** — PLAN_GAP 1(D1) · 이행 결함 1(D2, BLOCKING) |
+| 상태 | **RETURN_TO_PLAN** — PLAN_GAP 1(D1) · 이행 결함 1(D2, BLOCKING) (라운드 1 — 라운드 2 는 문서 끝 `# 라운드 2`) |
 | 확장 창 | verify 1회째 — 창 안 · 다시 열린 노드 없음 |
 | 독립 축(⑥) | 5축 — X1 grouper 다단계 무작위 편집 ≡ 변경 전 `groupExchanges`(400 seed × 40단계) · X2 presence 투영 ≡ 변경 전 문자열 투영(300 seed × live 48조합) · X3 조각 분할 보존·상한·최대성 + `estimateWireChars` 조기 반환(300 seed + 2,000값) · X4 스킬 장식 ≡ 변경 전 토큰화(300 seed) · X5 루트 예산 초과 읽기 계수. 1,301 + 1 케이스 green, 발견 0 |
 | 열거 sweep(⑦) | 1회째 전수 — 120항목(§10 자리 77 전부에 1개 이상 + 등록 변이 + 형제 맞바꿈) · 잡음 114 · 동치 5 · 못 잡음 1 |
@@ -331,3 +331,124 @@ oracle 은 EP 마다 그 EP 의 테스트 묶음(spec 의 `oracle` 열)이고 �
 - AC: ✅ 20 · ⚠️ 2(AC2 잠금 공백 · AC19 사람) · ❌ 0.
 - 운영 gate: 전부 PASS(vitest 22 는 기준선 차집합 ∅).
 - 다음 단계: 설계자 — D1 술어 정정(새 Delta V revision, 규범 행만) → `plan/READY` → 구현자 — D2 UT 추가(r2) → verify 2회째.
+
+---
+
+# 라운드 2 (verify 2회째)
+
+> 재현 자료는 [`verify-r2/`](verify-r2/) — sweep spec 26항목 · 독립 축 fuzz 테스트(X6·X7) · fuzz 민감도 spec 7항목.
+
+## R2-0. 메타·기준선
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-19 |
+| 대상 커밋/range | `7309197..cf42a70` — `211afa7`(ΔV1 설계) · `cf42a70`(r2 구현, `Agent: codex`). 사이의 `3796aec`~`d69bd5c` 는 0326 설계 |
+| 구현 전 plan 기준 | `211afa7` (V1 rev 4 + ΔV1) |
+| V mode / 유효 V | `Baseline V: V1 rev 4` + `Delta V: ΔV1` |
+| 상태 | **RETURN_TO_PLAN** — 확장 후보 1(E1 → PLAN_GAP) · 이행·현재 결함 0 |
+| 확장 창 | verify 2회째 — 창 안(마지막). ΔV1 은 plan 내부 정합 정정이라 다시 열린 노드 없음. 다음 설계 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다(plan 동결) |
+| 독립 축(⑥) | X6 `estimateWireChars` ≡ 참조 DFS 모델(합·자식 읽기 수, 600 seed × 예산 8표본) · X7 `nextSessionChunkEnd` 후보 뒤 미접근·후보 읽기 = 남은 예산 참조(400 seed). 2/2 green · 민감도 6/7 red · 발견 1(E1) |
+| 열거 sweep(⑦) | diff 가 닿은 EP-1 전 행 + 직전 실패(V1.5b) — 아래 R2-2 |
+
+- ✅ 기준선: `cf42a70` 의 plan diff 는 `[구현자 기입]` r2 절 추가(1274행 뒤)뿐이다(`git diff 211afa7 cf42a70 -U0 -- plan.md` 의 다른 hunk 261행은 `3796aec` 0326 설계 커밋이 §6-C B 행 상태를 바꾼 것 — 규범 행 아님). 원문으로 채점한다.
+- ✅ ΔV1 validity(D1): §10-A 의 바뀐 명령 7개를 `app/` 에서 다시 돌렸다 — EP-1 39 · EP-2b 17 · EP-3 A 9 / B 25 · EP-5 16 · EP-9 13 · EP-10 22 줄, 줄 번호 집합이 자리 ↔ 줄 칸과 같다. 음성 EP-5 ⑤ · EP-10 ② 0건, `.push(...` 0. 바뀌지 않은 EP 6개는 32+3 · 13 · 31 · 19 · 5 · 12 줄로 줄 수 칸과 같다. D1 닫힘.
+- `SUPERSEDED` 없음 · 운영 gate 열거 그대로.
+
+## R2-1. 비판적 검토·역방향 탐색
+
+- ✅ production 변경 0 — `git diff 211afa7 cf42a70 --stat -- app` → `data-host.test.ts` +15 하나. 역방향 탐색 대상 없음.
+- ✅ 새 테스트(`data-host.test.ts:251` `it.each([0, 1])`)는 production `estimateWireChars` 를 직접 부르고, getter 로 자식 읽기를 센다 — `Object.keys` 는 getter 를 부르지 않아 루트 방문만 관측된다. 로컬 재구현 없음.
+- 구현 보고 "다음 주체 Claude(구현 r2)" 칸과 달리 r2 는 Codex 가 했다 — 역할 규칙 위반 아님(사실 기록).
+
+## R2-2. 고장 이력 (`mutate.py`, 원복 "모든 파일 원문 그대로", `git status` 깨끗)
+
+oracle 은 R1 과 같다(EP-1: `data-host.test.ts` · `main/app/data-host/` · `transport/` — 변이 없음 167/167 green). 첫 실행은 better-sqlite3 가 Electron ABI 라 `session-load.test.ts` 25케이스가 변이 없이도 red 였다 → `npm rebuild better-sqlite3`(Node ABI) 뒤 전부 다시 돌린 결과만 쓴다. 하한 ①(VP-03 V1.1·V1.2·V1.3·V1.9) · ②(V1.5b) · ③(V1.5b·F-V1.5b + 동치 V1.6·V1.8b·V3.4b·V3.5b·V4.3b) · ④(oracle 파일 `data-host.test.ts` 가 바뀌어 EP-1 `잡음` 전 행) · ⑤(V1.2s·V1.8) · ⑦(EP-1 ⑤ diff 자리 + N1·N3).
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 / 근거 | 분류 |
+|---|---|---|---|---|---|---|---|
+| V1.1 | `data-host.ts:115` | 제거 | 메시지 수 break | 잡음 | 잡음 | 5 failed \| 162 passed | ①④ |
+| V1.2 | `data-host.ts:119` | 제거 | part 합 break | 잡음 | 잡음 | 6 failed \| 131 passed | ①④ |
+| V1.2s | `data-host.ts:119` | 맞바꿈 | `limits.parts` → `limits.chars` | 잡음 | 잡음 | 6 failed \| 131 passed | ⑤ |
+| V1.3 | `data-host.ts:123` | 고정값 | `cost > remaining` → `false` | 잡음 | 잡음 | 6 failed \| 161 passed | ①④ |
+| V1.3b | `data-host.ts:122` | 제거 | 남은 예산 인자 | 잡음 | 잡음 | 2 failed \| 165 passed | ④ |
+| V1.4 | `data-host.ts:125` | 제거 | 단독 진행 | 잡음 | 잡음 | 2 failed \| 165 passed | ④ |
+| V1.5 | `data-host.ts:82` | 고정값 | `return total > limit` → `false` | 잡음 | 잡음 | 5 failed \| 162 passed | ④ |
+| **V1.5b** | `data-host.ts:84` | 제거 | 루트 조기 반환 | **못 잡음** | **잡음** | 2 failed \| 165 passed — `루트 객체가 문자 예산 0·1을 넘으면…` 두 케이스 | ②③ → D2 닫힘 |
+| V1.5c | `data-host.ts:95` | 제거 | 키 길이 합 | 잡음 | 잡음 | 1 failed \| 166 passed | ④ |
+| V1.6 | `data-host.ts:141` | 다른 값 | `splitSessionMessages` limits 미전달 | 동치 | 동치 | 167 green · production 호출 0 그대로(`rg`) | ③ |
+| V1.7 | `session-load.ts:82` | 제거 | 양보 | 잡음 | 잡음 | 6 failed \| 161 passed | ④ |
+| V1.7b | `session-load.ts:83` | 제거 | 취소 확인 | 잡음 | 잡음 | 5 failed \| 162 passed | ④ |
+| V1.7reg | `session-load.ts:82` | 순서 | 양보 전 측정 | 잡음 | 잡음 | 3 failed \| 164 passed | ④ |
+| V1.8 | `session-load.ts:91` | 맞바꿈 | `chunks`↔`messages` | 잡음 | 잡음 | 6 failed \| 161 passed | ⑤ |
+| V1.8b | `session-load.ts:91` | 다른 값 | `sent` → `messages.length` | 동치 | 동치 | 167 green · R1 근거 그대로(루프 끝 = length) | ③ |
+| V1.9 | `data-host.ts:167` | 호출 대체 | 루프 → 펼침 | 잡음 | 잡음 | 1 failed \| 166 passed | ①④ |
+| V1.10 | `session-load.ts:53`(transport) | 제거 | 조립 | 잡음 | 잡음 | 7 failed \| 160 passed | ④ |
+| V1.L | `data-host.ts:13` | 다른 값 | 500 → 501 | 잡음 | 잡음 | 6 failed \| 161 passed | ④ |
+| V1.Lc | `data-host.ts:16` | 다른 값 | 1,000,000 → 2,000,000 | 잡음 | 잡음 | 6 failed \| 161 passed | ④ |
+| V3.4b | `turns.ts:144` | 고정값 | `true` | 동치 | 동치 | 1093 green · 코드 무변경 | ③ |
+| V3.5b | `turns.ts:157` | 다른 값 | `: firstChange` → `: 0` | 동치 | 동치 | 1093 green · 코드 무변경 | ③ |
+| V3.8 | `turns.ts:133` | 제거 | 파생 캐시 적중(F-V3.8 원 sweep) | 잡음 | 잡음 | 2 failed \| 1091 passed | ③ |
+| V4.3b | `inline.ts:13` | 제거 | 옛 줄 상한 | 동치 | 동치 | 233 green · 코드 무변경 | ③ |
+| N1 | `data-host.ts:98` | 제거 | 자식 방문 뒤 조기 반환 | — | 잡음 | 3 failed \| 164 passed | ⑦ EP-1 ⑤ |
+| N3 | `data-host.ts:84` | 다른 값 | 루트 반환 `total` → `2` | — | 잡음 | 1 failed \| 166 passed(`cost` 2 단언은 통과 — e-케이스가 잡음) | ⑦ EP-1 ⑤ |
+| **N2** | `data-host.ts:82` | 뒤집기(경계) | `total > limit` → `total >= limit` | — | **못 잡음** | 167 green. X6 은 잡음. production 경로 재현: `nextSessionChunkEnd([first, m], 0, {chars: cost(first)+cost(m)−cut})` 을 cut 1..43 로 돌리면 변이에서 7개 cut 이 `end = 2`(예산 초과 메시지가 같은 조각) — 원 코드는 전부 1 | **확장 → E1** |
+
+⑥ 민감도(oracle = `verify0325r2.fuzz.test.ts` 하나): FX-V1.5b · FX-N1 · FX-V1.5c · FX-V1.3b · FX-N2 · FX-V1.4 잡음 6 · FX-V1.1 못 잡음(X7 은 메시지 수 경계를 단언하지 않음 — 원 sweep V1.1 이 잡음, ⑥ 한계).
+
+## R2-3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-03 | **PASS**(열거 범위) | EP-1 ①~⑥·⑨ 7/7 — ⑤ 는 `data-host.test.ts:251`(예산 0·1, 운반 값 = 루트 비용 2 vs 예산 0·1 구별)과 e8 이 닫고 V1.5b·N1·N3 red. 열거 밖 N2 는 E1 |
+| VP-01·02 | PASS | 조립·양보·머리 행 V1.7·V1.7b·V1.7reg·V1.8·V1.10 잡음 그대로 · 좌표 R1 §5 실재(`session-load.bounds.test.ts` · `transport/session-load.test.ts` 이번 실행 집합 안) |
+| 나머지 REQUIRED·REGRESSION 29 | PASS(참조) | 영향 없음 — production 무변경, 이번 diff 가 닿은 oracle 은 `data-host.test.ts` 하나. R1 §5 좌표가 전체 vitest 실행 집합 안에 있다(실패 22 는 기준선 9파일뿐) |
+| VP-31 | 사람 실기 대기 | AC19 |
+
+AC: ✅ 21 · ⚠️ 1(AC19 사람) · ❌ 0 = 22 — 구현 자기보고 21/22 와 같다. AC2 동작은 열거 범위에서 닫혔고 E1 은 잠금 공백(확장)이다.
+
+## R2-4. 운영 gate (HEAD `cf42a70` worktree, node_modules 공유 · Node ABI 재빌드 뒤)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| 가드 5종 | PASS | 마이그레이션(35+2) · 인벤토리(9항목 125채널) · 제품 이름(2464파일) · 테스트 예산(18 suite) · UI 스레드 — 전부 exit 0 |
+| lint | PASS | error 0 · warning 3(R1 과 같은 3건) — worktree 에서 실행해 작업 트리 무변경 |
+| typecheck | PASS | node·web·test exit 0 |
+| vitest(필터 없음) | 기준선 한계 | 1,043파일(9 fail · 1,030 pass · 4 skip) / 9,960케이스(22 fail · 9,926 pass · 1 expected fail · 11 skip) · unhandled 1. `211afa7` worktree 실행과 실패 이름 집합 `diff` → SAME(22 = 22, 9파일 R1 과 같음) · 케이스 +2 = 새 두 케이스 pass · 원인 Windows 경로·`win32` 분기(`expected 'restart-required' to be 'applied'` 7건 등). 구현 보고의 24/11파일은 그 환경의 `/tmp/.git` 2건 — 이 환경에선 재현 안 됨 |
+| `node --test scripts/*.test.mjs` | PASS | 1,025/1,025 |
+| 빌드 + 스모크 | PASS | `electron-vite build` exit 0 · `smoke-hosts` OK · `smoke-preload` OK(키 7) |
+| 추가 테스트 subtree 규칙 | PASS | 수정 1파일(`data-host.test.ts`, `|unit|`) — `[test-pools]` 위반 0(전체 실행 실패 목록에 없음) · 예산 가드 exit 0 |
+
+첫 vitest(ABI 미재빌드)는 54파일 374케이스 fail 이었다 — `better_sqlite3.node` "Module did not self-register" 서명이라 판정에 쓰지 않았다.
+
+## R2-5. Repository operation checks
+
+- 대상 커밋 좌표: INDEX 의 `1f2a8af`(r1)·`e8886ed`(verify 1)는 이 저장소에 없다(`git cat-file -t` → fatal). 같은 메시지의 `52b5272`(r1)·`7309197`(verify 1)로 교정했다. `211afa7`(ΔV1)·`cf42a70`(r2) 기입. 모두 `git cat-file -t` = commit · `origin/main` 조상 아님(PR 브랜치 미병합) — 병합 뒤 다음 verify 가 `main` 해시로 교정한다.
+- trailer: `211afa7` → Agent·Handoff·Status 3키 + 공동 저자·세션 · `cf42a70` → 6키(`Criteria-Met: 21/22`) — 파싱 OK. 합계 사본 plan·INDEX·trailer 모두 21/22.
+- `[구현자 기입]` r2: 7필드 존재. 강제 지점 표는 VP-03 7 · VP-02 3 자리를 행으로, 나머지 67 을 EP 별 줄 수 표로 담았다.
+- AGENTS.md 변경 없음.
+
+## R2-6. Finding disposition
+
+| # | finding | 분류 · 근거 | disposition | 후속 |
+|---|---|---|---|---|
+| D1 | §10 검색 술어 | 이행(plan 내부) — ΔV1 §10-A 재실행 일치 | **closed** | — |
+| D2 | 루트 조기 반환 잠금 공백 | 이행 — V1.5b red 2 | **closed** | — |
+| E1 | 초과 판정 경계 `>` → `>=`(N2)가 VP-03 oracle 에서 green · production 경로에서 예산 초과 메시지를 조각에 넣는다 | 확장 — 현재 코드는 맞다. 열거 변이(①⑦)·규칙 칸 e1~e12(e7 "꼭 맞음"은 마지막 노드에서의 같음)에 중간 노드 동등 입력이 없다 | **PLAN_GAP**(창 안) | 설계자가 채택(규칙 칸·VP-03 UT 입력에 "중간 노드에서 합 = 예산, 뒤 노드 남음 → 반환 > 예산 · 그 메시지는 다음 조각" 추가 + N2 등록) 또는 경계 선언 |
+| N1 | (R1) 미사용 export | 비귀속 | NON_BLOCKING | 그대로 |
+
+## R2-7. Review Signals — 사실만
+
+- 이전 라운드와 같은 위치(EP-1 ⑤ `estimateWireChars` 조기 반환)에서 다른 형태(경계)의 잠금 공백이 나왔다.
+- 관련 plan 기준: AC2 "조각마다 `estimateWireChars` ≤ 1,000,000" · 규칙 칸 e7 "꼭 맞음"은 끝 노드 동등만 덮는다.
+- 사용자 결정 변경: 없음.
+- 반복 환경 한계: Windows 분기 main 9파일 22케이스(R1 과 같은 집합) · AC19 실창 · 이번 환경은 `npm ci` 뒤 better-sqlite3 가 Electron ABI 라 `npm rebuild better-sqlite3` 가 필요했다.
+- 독립 축(⑥) 발견: 1(E1, 확장).
+- 구현 주체: r2 는 Codex(INDEX 다음 주체 칸은 "Claude(구현 r2)"였다).
+
+## R2-8. 결론
+
+- 상태: **RETURN_TO_PLAN** — E1(확장, verify 2회째 창 안 → PLAN_GAP). 이행·현재 결함 0, D1·D2 닫힘.
+- pair: PASS 32 · 사람 실기 대기 1(VP-31). AC ✅ 21 · ⚠️ 1(AC19) · ❌ 0.
+- 운영 gate: 전부 PASS(vitest 22 는 기준선 차집합 ∅).
+- 다음: 설계자 — E1 채택/경계 결정을 ΔV2(규범 행만)로 → `plan/READY`. 채택이면 구현자가 VP-03 입력을 더하고(N2 red), 경계면 구현 없이 verify 3회째. ΔV2 가 열거 원문을 늘릴 수 있는 마지막 턴이다.
