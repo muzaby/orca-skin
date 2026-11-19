@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '../../../../../shared/ui/Button'
 import { formatElapsed, useElapsed } from '../../../../../shared/ui/elapsed'
 import { useI18n } from '../../../../../shared/i18n'
@@ -18,7 +18,7 @@ import { BackgroundTaskGroup } from '../../common/rightpanel/BackgroundTaskGroup
 import { InlineSubagentDetail } from '../../common/transcript/InlineSubagentDetail'
 import { ToolCard } from '../transcript/ToolCard'
 import { agentUiPolicy } from '../../../lib/agentPresentation'
-import { useChatSession } from '../../../store/chatStore'
+import { useChatSession, useTranscriptView } from '../../../store/chatStore'
 import {
   refreshBackgroundState,
   dismissCompletedBackgroundItems,
@@ -30,10 +30,8 @@ import {
   callForBackgroundTask,
   backgroundCallDisplay,
   backgroundTaskDisplay,
-  transcriptResultsByToolUseId,
   type BackgroundDisplayStatus,
   projectBackgroundPanel,
-  persistedBackgroundModels,
   backgroundCallTitle,
   backgroundCallToToolCall,
   backgroundElapsedSeconds,
@@ -58,9 +56,8 @@ const DISPLAY_LABEL: Record<BackgroundDisplayStatus, MessageKey> = {
 export function CanonicalBackgroundContent(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const kind = useChatSession((s) => s.agentKind)
-  const messages = useChatSession((s) => s.messages)
-  const persistedModels = useMemo(() => persistedBackgroundModels(messages), [messages])
-  const transcriptResults = useMemo(() => transcriptResultsByToolUseId(messages), [messages])
+  const persistedModels = useTranscriptView('persistedBackgroundModels')
+  const transcriptResults = useTranscriptView('transcriptResults')
   const view = useBackgroundStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const panel = useBackgroundStore((s) => (sessionId ? s.panels[sessionId] : undefined))
   const { tr } = useI18n()

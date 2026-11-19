@@ -10,8 +10,9 @@ import type { AgentKind } from '../../../../../../shared/agent-kind'
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (options: { count: number }) => ({
-    getVirtualItems: () => (options.count ? [{ index: 0, start: 0 }] : []),
-    getTotalSize: () => 100,
+    getVirtualItems: () =>
+      Array.from({ length: options.count }, (_, index) => ({ index, start: index * 40 })),
+    getTotalSize: () => options.count * 40,
     measureElement: vi.fn()
   })
 }))
@@ -91,13 +92,14 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
       expect(html).toContain('&lt;task-notification&gt;직접 입력 보존&lt;/task-notification&gt;')
       expect(html).toContain('정상 어시스턴트 결과')
       expect(html.match(/data-meta-align="right"/g)).toHaveLength(1)
-      expect(html.match(/data-app-exchange/g)).toHaveLength(1)
+      expect(html.match(/data-block-key="[^"]*:user"/g)).toHaveLength(1)
     }
   })
 
   it('renders an empty transcript without an exchange when only automatic input is stored', () => {
     const html = render(agentKind, [
       {
+        id: 'm-100',
         role: 'user',
         createdAt: 11,
         parts: [{ type: 'text', text: '자동', origin: { kind: 'automatic' } }]

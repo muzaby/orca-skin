@@ -25,6 +25,7 @@ describe('UserBubbleText 구조', () => {
   it('측정 전(넘침 미확인)에는 접지 않고 버튼도 없다 — 본문은 표면 안 별도 div', () => {
     h.bubbles = []
     const message: Message = {
+      id: 'm-27',
       role: 'user',
       createdAt: 42,
       parts: [{ type: 'text', text: '짧은 메시지' }]

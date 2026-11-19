@@ -34,7 +34,7 @@ it('starts each todo projection at the current turn and excludes hydrated histor
   const before: ChatState = {
     ...initialChatState,
     backend: 'opencode',
-    messages: [{ role: 'user' as const, createdAt: 1, parts: [] }]
+    messages: [{ id: 'm-37', role: 'user' as const, createdAt: 1, parts: [] }]
   }
   const next = chatReducer(before, { type: 'BEGIN_TURN' })
   expect(next.openCodeTodoTurnStartIndex).toBe(1)

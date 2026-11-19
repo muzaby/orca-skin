@@ -37,7 +37,7 @@ const render = (text: string): void => {
   const turn: turns.Turn = {
     role: 'user',
     startIndex: 0,
-    messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text }] }]
+    messages: [{ id: 'm-40', role: 'user', createdAt: 1, parts: [{ type: 'text', text }] }]
   }
   dom.render(withTranscript(createElement(UserTurn, { turn })))
 }

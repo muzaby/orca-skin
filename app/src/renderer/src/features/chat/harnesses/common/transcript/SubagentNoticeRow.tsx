@@ -1,8 +1,7 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useState } from 'react'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
 import { formatDurationLabel } from '../../../lib/toolMeta'
-import { subagentTaskDescription } from '../../../lib/parts'
-import { chatActions, useChatSession } from '../../../store/chatStore'
+import { chatActions, useTranscriptView } from '../../../store/chatStore'
 import { TranscriptActionRow } from './TranscriptActionRow'
 import { InlineSubagentDetail } from './InlineSubagentDetail'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
@@ -38,12 +37,8 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
   transcriptPolicy
 }: SubagentNoticeRowProps): React.JSX.Element {
   const { tr } = useI18n()
-  const messages = useChatSession((s) => s.messages)
   const [expanded, setExpanded] = useState(false)
-  const description = useMemo(
-    () => subagentTaskDescription(messages, toolRunId),
-    [messages, toolRunId]
-  )
+  const description = useTranscriptView('subagentTaskDescription', toolRunId)
   const durationLabel = formatDurationLabel(tr, durationMs)
   const notice = NOTICE[status]
   const detail = [

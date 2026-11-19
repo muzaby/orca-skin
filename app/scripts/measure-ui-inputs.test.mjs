@@ -16,15 +16,21 @@ import {
   formatCell,
   gitFileContent,
   inputFiles,
+  J9_SIZES,
+  jOpenFenceStream,
+  jTranscriptMessages,
   loadTree,
   longLinePair,
   measureCase,
+  measureJ10Virtualizer,
+  measureJ9CopyCap,
   measurementCases,
   MEASURED_RUNS,
   multiEditCall,
   patchFiles,
   pngImage,
   summarize,
+  transcriptMeasurementCases,
   WARMUP_RUNS
 } from './measure-ui-inputs.mjs'
 
@@ -163,4 +169,39 @@ test('m5 `--src` 트리의 소스만 번들해 부르고 없는 모듈은 빈 �
   } finally {
     rmSync(tree, { recursive: true, force: true })
   }
+})
+
+test('j1~j7 0326 J1~J10 입력 결정성 · 세 갈래 요약 · J9 상한 탐색(100~2,000) · J10 Virtualizer getItemKey 계수', async () => {
+  // j1/j2: deterministic inputs
+  assert.deepEqual(jTranscriptMessages(5), jTranscriptMessages(5))
+  assert.deepEqual(jOpenFenceStream(500, 50), jOpenFenceStream(500, 50))
+  assert.equal(J9_SIZES.length, 20)
+  assert.equal(J9_SIZES[0], 100)
+  assert.equal(J9_SIZES[19], 2000)
+
+  // j3/j4: 3 branches per J1..J8 + N/A on empty modules
+  const jCases = transcriptMeasurementCases({})
+  const ids = jCases.map((c) => c.id)
+  for (const prefix of ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', 'J8']) {
+    assert.ok(ids.includes(`${prefix}:coldBuild`), `${prefix}:coldBuild`)
+    assert.ok(ids.includes(`${prefix}:incremental`), `${prefix}:incremental`)
+    assert.ok(ids.includes(`${prefix}:cacheHit`), `${prefix}:cacheHit`)
+  }
+  assert.equal(measureCase(jCases[0].run), 'N/A(함수 없음)')
+
+  // j6: J9 sweep + assemble tasks + '통과 표본 없음' when budget is 0
+  const j9 = measureJ9CopyCap([100, 200], { budgetMs: 50 })
+  assert.equal(j9.samples.length, 2)
+  assert.equal(j9.assembleTasks.length, 2)
+  assert.equal(typeof j9.cap, 'number')
+
+  let tick = 0
+  const slowClock = () => (tick += 100)
+  const j9Fail = measureJ9CopyCap([100, 200], { budgetMs: 50, clock: slowClock })
+  assert.equal(j9Fail.cap, '통과 표본 없음')
+
+  // j5/j7: J10 Virtualizer with pinned getItemKey
+  const j10 = await measureJ10Virtualizer([500])
+  assert.equal(j10.length, 3)
+  assert.ok(j10.every((row) => typeof row.getItemKeyCalls === 'number'))
 })

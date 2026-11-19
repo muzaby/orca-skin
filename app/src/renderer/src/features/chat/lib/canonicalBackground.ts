@@ -8,11 +8,10 @@ import {
   type BackgroundSessionState,
   type BackgroundTaskRecord
 } from '../../../../../shared/background-task'
-import type { Message, ToolCall } from '../reducer/chatReducer'
+import type { ToolCall } from '../reducer/chatReducer'
 import type { BackgroundPanelState, BackgroundSelection } from '../store/backgroundStore'
 import {
   isAgentTaskName,
-  resultMap,
   toolRunOutcome,
   type SubagentTaskSummary,
   type ToolRunOutcome
@@ -31,10 +30,6 @@ export interface BackgroundDisplay {
   status: BackgroundDisplayStatus
   settled: boolean
   endedAt?: number
-}
-
-export function transcriptResultsByToolUseId(messages: readonly Message[]): TranscriptResults {
-  return resultMap(messages.flatMap((message) => message.parts))
 }
 
 function callNonExecution(
@@ -252,16 +247,6 @@ export function projectBackgroundPanel(
     }
   }
   return { tasks, calls, selectedTask, selectedCall }
-}
-
-export function persistedBackgroundModels(messages: readonly Message[]): Map<string, string> {
-  const models = new Map<string, string>()
-  for (const message of messages)
-    for (const part of message.parts) {
-      if (part.type === 'tool_result' && part.subagentMeta?.model)
-        models.set(part.toolRunId, part.subagentMeta.model)
-    }
-  return models
 }
 
 export function hasCanonicalBackground(state: BackgroundSessionState): boolean {

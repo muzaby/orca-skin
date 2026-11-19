@@ -1,14 +1,17 @@
 import { turnCopyText } from '../../../lib/turns'
-import { memo, useMemo } from 'react'
-import { defaultRangeExtractor } from '@tanstack/react-virtual'
+import { memo, useEffect, useMemo, useRef } from 'react'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
 import { useI18n } from '../../../../../shared/i18n'
 import {
+  useActiveSessionKey,
   useChatSession,
   useHasLiveReasoning,
   useHasLiveText,
-  useLiveTextFor
+  useLiveTextFor,
+  useLiveTextKey,
+  useTranscriptChanges
 } from '../../../store/chatStore'
+import { pruneDisclosures } from '../../../store/disclosureStore'
 import { transcriptPresentation } from '../../../lib/agentPresentation'
 import { errorCategoryKey } from '../../../lib/errorLabels'
 import { UserTurn } from '../../common/transcript/UserTurn'
@@ -21,12 +24,7 @@ import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import type { TranscriptTimelineProps } from '../../contracts'
 import { OpenCodeAssistantSegment } from './AssistantSegment'
 import { OpenCodeText } from './Text'
-import {
-  projectTimelineHead,
-  projectTimelineTail,
-  timelineRows,
-  type TimelineRow
-} from './projection'
+import { createOpenCodeBlockModel, type OpenCodeBlock } from './openCodeBlocks'
 import { useTimelineScroll } from './scrollContext'
 import { TimelineDisclosureContext, TimelineViewState, useTimelineMarkdownMode } from './viewState'
 
@@ -47,57 +45,76 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
   error
 }: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
+  const sessionKey = useActiveSessionKey()
+  const transcriptChanges = useTranscriptChanges()
   // live 의 유무만 구독한다 — 본문 delta 는 행 리프(`OpenCodeTextSegment`)만 깨운다(0325 D-015).
   const hasLiveText = useHasLiveText()
   const hasLiveReasoning = useHasLiveReasoning()
+  const liveTextKey = useLiveTextKey()
   const scroll = useTimelineScroll()
   const fallbackState = useMemo(() => new TimelineViewState(), [])
   const state = scroll?.state ?? fallbackState
-  const head = useMemo(
-    () => projectTimelineHead(messages, { showAutomaticFeeds }),
-    [messages, showAutomaticFeeds]
-  )
-  const tail = useMemo(
+
+  const model = useMemo(() => createOpenCodeBlockModel(), [])
+  const snapshot = useMemo(
     () =>
-      projectTimelineTail(head, {
-        text: inflight && hasLiveText,
-        reasoning: inflight && hasLiveReasoning,
-        pending: inflight
-      }),
-    [head, inflight, hasLiveText, hasLiveReasoning]
+      model.advance(
+        { messages, transcriptChanges },
+        {
+          showAutomaticFeeds,
+          liveText: inflight && hasLiveText,
+          liveReasoning: inflight && hasLiveReasoning,
+          liveTextKey,
+          pending: inflight
+        }
+      ),
+    [
+      model,
+      messages,
+      transcriptChanges,
+      showAutomaticFeeds,
+      inflight,
+      hasLiveText,
+      hasLiveReasoning,
+      liveTextKey
+    ]
   )
-  const rows = useMemo(() => timelineRows(head, tail), [head, tail])
-  const rowIndex = (key?: string): number => (key === undefined ? -1 : rows.indexOf(key))
-  const selectionIndexes = (scroll?.retained ?? [])
-    .map((key) => rowIndex(key))
-    .filter((index) => index >= 0)
-  const viewportOptions: React.ComponentProps<typeof TranscriptViewport>['options'] = {
-    count: rows.count,
-    getItemKey: rows.keyAt,
-    estimateSize: (index) => state.sizes.get(rows.at(index).key) ?? 60,
-    initialOffset: state.top,
-    overscan: 2,
-    rangeExtractor: (range) => {
-      const indexes = defaultRangeExtractor(range)
-      const retain = (scroll?.retained ?? [])
-        .map((key) => rowIndex(key))
-        .filter((index) => index >= 0)
-      if (retain.length) {
-        for (let index = Math.min(...retain); index <= Math.max(...retain); index++)
-          indexes.push(index)
-      }
-      const anchor = rowIndex(state.anchor?.key)
-      if (anchor >= 0) indexes.push(anchor)
-      return [...new Set(indexes)].sort((a, b) => a - b)
-    },
-    measureElement: (element, entry) => {
-      const height = entry?.borderBoxSize[0]?.blockSize ?? element.getBoundingClientRect().height
-      const key = element.getAttribute('data-timeline-key')
-      if (key) state.sizes.set(key, height)
-      return height
+
+  // EP-15 ⑥: prune disclosures only on complete reset
+  const lastPrunedRevRef = useRef(-1)
+  useEffect(() => {
+    if (transcriptChanges.revision === lastPrunedRevRef.current) return
+    const last = transcriptChanges.log[transcriptChanges.log.length - 1]
+    if (last?.kind === 'reset' && last.complete) {
+      lastPrunedRevRef.current = transcriptChanges.revision
+      const liveKeys = new Set<string>()
+      for (let i = 0; i < snapshot.count; i++) liveKeys.add(snapshot.keyAt(i))
+      pruneDisclosures(sessionKey, liveKeys, true)
     }
-  }
-  const empty = !rows.count && !loadingSession && !inflight && !pendingSteer.length
+  }, [sessionKey, snapshot, transcriptChanges])
+
+  const empty = snapshot.count === 0 && !loadingSession && !inflight && !pendingSteer.length
+  const footer = (
+    <>
+      {pendingSteer.length > 0 && (
+        <div className="pt-[24px]">
+          <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
+        </div>
+      )}
+      {inflight && (
+        <div className="pt-[16px]">
+          <RetryStatus />
+          <PendingAssistantStatus />
+        </div>
+      )}
+      {error && (
+        <div className="pt-[16px]">
+          <TurnErrorBanner error={error} />
+        </div>
+      )}
+    </>
+  )
+
   return (
     <TimelineDisclosureContext.Provider value={state}>
       <div
@@ -116,49 +133,26 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
             </div>
           )}
           <TranscriptViewport
-            options={viewportOptions}
+            snapshot={snapshot}
             scrollRef={scrollRef}
-            manualAdjustment
-            renderItem={(item, measure) => {
-              const row = rows.at(item.index)
-              return (
-                <div
-                  key={row.key}
-                  ref={measure}
-                  data-index={item.index}
-                  data-timeline-key={row.key}
-                  data-timeline-row={row.kind === 'segment' ? row.segment.kind : row.kind}
-                  className={`group/msg absolute left-0 w-full min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[row.gap]}`}
-                  style={{ top: item.start }}
-                >
-                  <OpenCodeTimelineRow
-                    row={row}
-                    selected={
-                      selectionIndexes.length > 0 &&
-                      item.index >= Math.min(...selectionIndexes) &&
-                      item.index <= Math.max(...selectionIndexes)
-                    }
-                  />
-                </div>
-              )
-            }}
+            overscan={6}
+            estimateSizePx={60}
+            initialOffset={state.top}
+            sizeCache={state.sizes}
+            anchorKey={state.anchor?.key}
+            footer={footer}
+            itemClassName={(block: OpenCodeBlock) =>
+              `group/msg min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[block.gap]}`
+            }
+            renderBlock={(block: OpenCodeBlock, _index, selected) => (
+              <div
+                data-timeline-key={block.key}
+                data-timeline-row={block.kind === 'segment' ? block.segment.kind : block.kind}
+              >
+                <OpenCodeTimelineRow row={block} selected={selected} />
+              </div>
+            )}
           />
-          {pendingSteer.length > 0 && (
-            <div className="pt-[24px]">
-              <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
-            </div>
-          )}
-          {inflight && (
-            <div className="pt-[16px]">
-              <RetryStatus />
-              <PendingAssistantStatus />
-            </div>
-          )}
-          {error && (
-            <div className="pt-[16px]">
-              <TurnErrorBanner error={error} />
-            </div>
-          )}
         </ReadingColumn>
       </div>
     </TimelineDisclosureContext.Provider>
@@ -169,7 +163,7 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
   row,
   selected = false
 }: {
-  row: TimelineRow
+  row: OpenCodeBlock
   selected?: boolean
 }): React.JSX.Element | null {
   const { tr } = useI18n()
@@ -206,6 +200,7 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
       )
   }
 })
+
 // live·확정 text 행의 공통 리프 — 같은 컴포넌트 형이라 live 행이 같은 key 의 확정 행이 될 때 DOM 이 남는다.
 // live 행만 store 의 live text 를 구독하고(`useLiveTextFor(true)`), 확정 행은 언제나 `''` 를 받아 delta 에
 // 깨어나지 않는다(0325 EP-2 ⑥⑦).

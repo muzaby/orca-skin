@@ -1,16 +1,35 @@
 import { memo, useMemo, useRef } from 'react'
+import { CodeBlock } from '../../../../shared/ui/markdown/CodeBlock'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { MarkdownStreamingContext } from '../../../../shared/ui/markdown/streamingContext'
-import { advanceStableBlocks, type StableBlocksCache } from '../../lib/markdownBlocks'
+import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
+import {
+  advanceStableBlocks,
+  type OpenFenceTail,
+  type StableBlocksCache
+} from '../../lib/markdownBlocks'
+
+const DEFAULT_WRAPPER = `${MARKDOWN_TYPOGRAPHY} text-ink`
+
+export const StreamingFence = memo(function StreamingFence({
+  fence,
+  className
+}: {
+  fence: OpenFenceTail
+  className?: string
+}): React.JSX.Element {
+  return (
+    <div className={className ?? DEFAULT_WRAPPER}>
+      <CodeBlock code={fence.code} lang={fence.lang} />
+    </div>
+  )
+})
 
 // 스트리밍 본문 전용 마크다운 — 누적 소스를 "확정 블록들 + 꼬리"로 분할해(markdownBlocks),
 // 확정 블록은 memo 된 <Markdown>(string shallow 비교)이 재파스를 건너뛰고 꼬리 블록만 매
 // 델타 재파스한다. 프레임당 unified 파싱 비용 O(전문) → O(꼬리) (0008). 분할 자체도 증분
-// 캐시(advanceStableBlocks, 0108)로 확정 prefix 재스캔을 생략한다.
-// 꼬리는 MarkdownStreamingContext 로 감싸 CodeBlock 이 열린 펜스의 프레임당 전체
-// 재하이라이트(O(n²))를 건너뛰게 한다(0108) — 블록 확정/커밋 렌더 시 1회 하이라이트.
-// 참조 링크 정의가 블록을 가로지르면 라이브 중 미해소될 수 있으나, message.completed 가
-// 커밋한 단일 <Markdown> 렌더로 교체되며 자기교정된다.
+// 스캐너 상태(advanceStableBlocks, 0326 EP-19)로 새로 완결된 줄만 스캔한다.
+// 꼬리가 닫히지 않은 펜스 하나뿐이면 remark 파싱을 생략하고 StreamingFence 로 직접 그린다.
 export const StreamingMarkdown = memo(function StreamingMarkdown({
   source,
   className
@@ -19,7 +38,7 @@ export const StreamingMarkdown = memo(function StreamingMarkdown({
   className?: string
 }): React.JSX.Element {
   const cacheRef = useRef<StableBlocksCache | null>(null)
-  const { stable, tail } = useMemo(() => {
+  const { stable, tail, openFence } = useMemo(() => {
     const next = advanceStableBlocks(cacheRef.current, source)
     cacheRef.current = next.cache
     return next
@@ -32,7 +51,11 @@ export const StreamingMarkdown = memo(function StreamingMarkdown({
       ))}
       {tail !== '' && (
         <MarkdownStreamingContext.Provider value={true}>
-          <Markdown source={tail} className={className} />
+          {openFence ? (
+            <StreamingFence fence={openFence} className={className} />
+          ) : (
+            <Markdown source={tail} className={className} />
+          )}
         </MarkdownStreamingContext.Provider>
       )}
     </div>

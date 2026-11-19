@@ -1,10 +1,11 @@
+import { createTaskContextSourceSelector } from './transcriptIndex.legacy.testfixture'
 import { describe, expect, it } from 'vitest'
 import type { Message } from '../reducer/chatReducer'
-import { createTaskContextSourceSelector } from './taskContext'
 
 const root = 'C:/Users/Tester/AppData/Local/Temp/orcinus-orca'
 function read(path: string, id = 'read'): Message {
   return {
+    id: 'm-7',
     role: 'assistant',
     createdAt: 1,
     parts: [
@@ -46,6 +47,7 @@ describe('Work internal Claude context sources', () => {
   it('applies the same filter to attachments without hiding pathless history or web sources', () => {
     const history: Message[] = [
       {
+        id: 'm-48',
         role: 'user',
         createdAt: 1,
         parts: [
@@ -72,6 +74,7 @@ describe('Work internal Claude context sources', () => {
         ]
       },
       {
+        id: 'm-74',
         role: 'assistant',
         createdAt: 2,
         parts: [

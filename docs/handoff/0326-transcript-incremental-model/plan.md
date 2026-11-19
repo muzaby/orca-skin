@@ -1704,6 +1704,89 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1.3)
+
+- V1 rev 7 기준 WU-1~WU-14(EP-1~EP-22) 전체 구현을 완료했다. 신규 결정 변경이나 PLAN_GAP은 없다.
+- Claude(`claudeBlocks.ts`, code·work)·OpenCode(`openCodeBlocks.ts`) 블록 모델과 `TranscriptViewport`(앵커 복원·핀·예약 공간·진입 정책·선택 유지·비동기 청크 복사), 패널 증분 색인(`transcriptIndex.ts` + 소비자 9파일 `useTranscriptView`), 펼침/포커스 저장소(`disclosureStore.ts`), 말풍선 일괄 측정(`bubbleMeasure.ts`), 열린 펜스 꼬리(`markdownBlocks.ts`·`StreamingMarkdown.tsx`), 고정 입력 생성기(`dev/transcriptFixtures.ts`), J1~J10 계측(`measure-ui-inputs.mjs`)을 모두 연결했다.
+- `claudeBlocks.ts`의 완료 메시지 반복 스캔을 `WeakMap` 기반 `scanMessage`로 제거해 `workActivity.performance.test.ts` 반복 파트 읽기 `0`을 확보했고, `transcriptIndex.ts`는 `lastMessages` 참조 비교 가드를 두어 `transcriptChanges`를 진행시키지 않는 직접 교체에도 stale 캐시가 남지 않게 했다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-02~VP-08 · VP-34 | 메시지 번호 · 저장 · 로드 · live delta | EP-1 ①~⑬ · EP-2 ①~⑨ · EP-3 ①~⑦ · EP-4 ①~⑫ · EP-20 ①~⑤ | r1.1+r1.3 전수 닫힘 | `persistence-sender.test.ts`, `turn-coordinator.test.ts`, `native-projection.test.ts`, `chatReducer.prepend.test.ts`, `chatStore.test.ts` (69/69) | `userMessageId([clientId])` 낙관 버블 회수 포함 통과. main DB io 스위트(`better-sqlite3` Node 24 ABI)는 Linux VM 제약으로 Windows CI 증거 위임 | 없음 (단, `message-identity.integration.test.ts` DB io는 Windows CI 실행 대상) |
+| VP-10~VP-18 · VP-37 | 변경 기록 · 순번 · 블록 목록 · key · Claude/OpenCode 블록 모델 · 세그먼트 | EP-5 · EP-6 · EP-7 · EP-8 ①~⑪ · EP-9 | 전수 닫힘 | `changeLog.test.ts`, `messageOrder.test.ts`, `blockList.test.ts`, `blockKeys.test.ts`, `claudeBlocks.test.ts`, `openCodeBlocks.test.ts`, `segmentCache.test.ts`, `workActivity.performance.test.ts` (`repeatedCompletedPartReads: 0`) | EP-7 음수 0 · EP-9 `reconcileSegments` 0 · 구 `Timeline.grouper.test.ts`/`workToolResults.ts` 제거(VP-37) | 없음 |
+| VP-21~VP-24 · VP-29 | 공통 뷰포트 · 핀 · 앵커 · 진입 · 선택 복사 | EP-10 · EP-11 · EP-12 · EP-17 | 전수 닫힘 | `TranscriptViewport` + `range/copy/textOffset/anchor/pin/reserve/entry` 테스트, `TranscriptView.{harness,received,workResults}.test.ts`, `Timeline.{render,memo}.test.ts` | EP-10 `useVirtualizer(` 1곳(`TranscriptViewport.tsx:256`) · 스크롤 쓰기 단일 파일 · EP-17 `CopySerializationHost` 금지 속성 0 · J9 상한 2000 캘리브레이션 주석 반영 | 없음 |
+| VP-25~VP-26 | 패널 증분 색인 · 소비자 9파일 | EP-13 · EP-14 | 전수 닫힘 | `transcriptIndex.test.ts` (500-step oracle), `parts.test.ts`, `taskContext.test.ts`, `CanonicalBackgroundContent.wiring.test.ts`, `TaskContextContent.test.ts`, `Panel.render.test.ts`, `reportSites.registry.test.ts` (283/283) | EP-14 음수 호출 0 · `useTranscriptView(` 정확히 10파일(소비자 9 + `chatStore.ts`) | 없음 |
+| VP-27~VP-28 · VP-30~VP-31 | 펼침/포커스 · 도구 본문 해제 · 말풍선 일괄 측정 · 열린 펜스 꼬리 | EP-15 · EP-16 · EP-18 · EP-19 | 전수 닫힘 | `disclosureStore.test.ts`, `ToolCard.interaction.test.ts`, `bubbleMeasure.test.ts`, `UserBubbleText.measure.test.ts` (3/3), `markdownBlocks.test.ts` | EP-18 `UserBubbleText.tsx` 금지 API 0 · `ToolCard.tsx` effect setState 제거 | 없음 |
+| VP-32 · VP-35 · VP-39 | 고정 입력 · J1~J10 계측 · 앞삽입 | EP-21 · EP-22 | 전수 닫힘 | `transcriptFixtures.test.ts`, `node scripts/measure-ui-inputs.mjs --src .` (J1~J10 전부 PASS), `rg -c "__ooDev" out/renderer` (0) | J1 inc 2.97ms · J2 inc 2.29ms · J3 0.04ms · J4 0.01ms · J5 0.02ms · J6 0.00ms · J7 8.43ms · J9 상한 2000 (assemble 5000 = 0.71~2.53ms) · J10 100k `getItemKey=20` | AC33 Windows 실기는 기계 PASS 뒤 사람 수행 |
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-02~VP-39 (AC33 실기 제외) | REQUIRED / REGRESSION | SELF_PASS | 위 표 및 렌더러 chat 단위 341파일/2,646케이스 + `node --test` 1,026케이스 + J1~J10 | M1~M3 3/3 red (`mutate.py` 원복 확인) |
+| AC33 (Windows 실기) | HUMAN | DEFERRED_HUMAN | `dev/transcriptFixtures.ts` + `VITE_OO_DIAGNOSTIC=1` | 기계 verify PASS 뒤 사람 실기 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| `M1-claude-scan-cache`: `claudeBlocks.ts` `scanMessage` 캐시 우회(`if (false && cached)`) | EP-8 · VP-16 | 해당 없음 | `workActivity.performance.test.ts` 1 failed (1) | 잡음(red) |
+| `M2-markdown-fence-close`: `markdownBlocks.ts` `FENCE_CLOSE_RE` 무력화(`/^$/`) | EP-19 · VP-31 | 해당 없음 | `markdownBlocks.test.ts` 3 failed \| 12 passed (15) | 잡음(red) |
+| `M3-transcriptIndex-ref-guard`: `transcriptIndex.ts` `lastMessages` 참조 변화 가드 제거(`false`) | EP-13 · VP-25 | 해당 없음 | `CanonicalBackgroundContent.wiring.test.ts` failed (exit 1) | 잡음(red) |
+
+- **분모 검산** 선택 증거 3 · 인용 변이 3(잡음 3 · 못 잡음 0) · 새 구조 oracle 1(`UserBubbleText.measure.test.ts`) · §10 정적 sweep 6종 전수 확인.
+- **덮개 회귀** 해당 없음(독립 검증 1회차 대기).
+
+## [구현자 기입] Product/UX 파생 검토 (r1.3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새 표시·진입 상태 | `TranscriptViewport` 공통 앵커/핀/예약공간과 `CopySerializationHost` 비동기 복사가 세 화면(Claude Code/Work, OpenCode)에서 일관 동작한다. | AC33 Windows 실기에서 체감 확인 |
+| 지각 응답과 실패 | 부분 이력 보류·병합 및 상한 초과 복사 실패 경로(`clipboard.copy.failed`)가 기존 오류 보고로 연결된다. | 없음 |
+| 정리 경계 | `ToolCard.tsx`는 `open \|\| bodyMounted`로 본문 마운트를 파생하고 닫힘 전환 완료/언마운트 시 타이머를 정리한다. `reportSites.registry.test.ts`에 `transcriptIndex.ts:284` catch 자리를 등록했다. | 없음 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.3)
+
+| 문제 | 대응 | 근거 |
+|---|---|---|
+| `claudeBlocks.ts` `hasResponseBoundary`·`buildTurnArtifactsAndMeta`가 턴 내 완료 메시지 `parts`를 매 갱신마다 재순회 | `WeakMap<Message, MessageScanCache>` 기반 `scanMessage` 캐시로 1회 스캔 고정 | `workActivity.performance.test.ts` (`repeatedCompletedPartReads: 0`, median 0.48ms) |
+| `reportSites.registry.test.ts`가 삭제된 `taskContext.ts:44` URL catch 자리를 기대 | 이동한 `transcriptIndex.ts:284`로 레지스트리 갱신 | `reportSites.registry.test.ts` 283/283 통과 |
+| Linux VM에 `better-sqlite3` Node 24 네이티브 바인딩 부재로 `io` DB 테스트 및 `smoke-hosts` `data-host` 기동 불가 | `app/AGENTS.md`·plan §11 규약대로 서명 기록, Windows CI에서 실행 | `settlement.integration.test.ts` · `smoke-hosts.mjs` |
+
+### 설계 대비 명시적 차이 (r1.3)
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 없음 — `disclosureStore` prune 및 64-링 변경 기록은 설계 그대로 | EP-5 · EP-15 |
+| 공유 | 없음 — `useTranscriptView` 10파일(소비자 9 + store) · `useVirtualizer` 1파일 | EP-10 · EP-14 |
+| 재진입 | `transcriptIndex.ts`가 `lastMessages` 참조 불일치를 추가로 감지해 직접 배열 교체 테스트에서도 stale 캐시 방지 | M3 red · `CanonicalBackgroundContent.wiring.test.ts` 12/12 |
+| 다른 무효화 축 | 없음 | — |
+
+## [구현자 기입] 구현 보고 (r1.3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | WU-1~WU-14 전체(공유 번호·main 저장/로드/중계·renderer 변경 기록/순번/블록 목록/블록 키/Claude·OpenCode 블록 모델/공통 뷰포트/패널 색인/소비자 9파일/펼침·포커스/말풍선 일괄 측정/열린 펜스 꼬리/고정 입력/J1~J10 계측/계약 문서 6종) |
+| 실행 명령 | `npm run typecheck`, `npm run lint`, `./node_modules/.bin/vitest run src/renderer/src/features/chat`, `./node_modules/.bin/vitest run src/renderer/src/shared/errors/reportSites.registry.test.ts`, `./node_modules/.bin/vitest run --project unit src/main src/shared`, `node --test scripts/*.test.mjs`, `npx electron-vite build`, `node scripts/smoke-preload.mjs out/preload`, `rg -c "__ooDev" out/renderer`, `node scripts/measure-ui-inputs.mjs --src .`, 가드 5종(`check-migrations-appendonly`, `check-doc-inventory --check`, `check-test-budgets`, `check-ui-thread`, `check-product-naming`), `mutate.py` 3건 |
+| **관측한 게이트 산출** | `typecheck` 3종(node/web/test) 0 error · `lint` 0 error (5 warnings) · 렌더러 chat 단위 341파일/2,646케이스 PASS(`settlement.integration.test.ts` io는 `better-sqlite3` ABI) · `reportSites.registry.test.ts` 283/283 PASS · 전체 `unit` 531/540파일 5,865 PASS(실패 8파일은 pre-existing Linux `C:/` 경로 및 `adapters/claude` 비접촉 테스트) · `node --test` 1,026/1,026 PASS · `electron-vite build` 3번들 성공 · `smoke-preload` OK · `__ooDev` 0건 · 가드 5종 전부 OK · J1~J10 전부 PASS · `mutate.py` 3/3 red. (`smoke-hosts`는 Linux VM `better-sqlite3` ABI 부재로 `data-host` exit 1) |
+| **추가·수정 테스트의 subtree 규칙** | `check-test-budgets.mjs` 18 real-git suites OK · `node --test` 풀 분류 1,026/1,026 OK |
+| V-pair 자기확인 | 기계 범위 전부 SELF_PASS(AC33 Windows 실기만 사람 대기) |
+| 강제 지점 전수 | 위 표 및 §10 정적 sweep 6종 전부 일치 |
+| **AC 자기보고** (`Criteria-Met`) | 34/35 (AC33 Windows 실기만 기계 verify PASS 뒤 사람 수행) |
+| **합계 검산** | ✅ 34 · ⚠️ 1(AC33 사람 실기) · ❌ 0 = 총 35 |
+| 블로커 / 역질문 | 없음. 독립 검증(Claude verify r1) 준비 완료. |
+| 대상 커밋 | `(r1.3 구현 완료 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.3)
+
+- WU-1~WU-14 전체 구현과 기계 게이트 검증을 완료하고 상태를 `impl/IMPL_DONE`으로 전환한다.
+- 이 Linux VM은 `better-sqlite3` Node 24 네이티브 바인딩이 없어 `settlement.integration.test.ts`와 `smoke-hosts.mjs`의 `data-host` 기동은 Windows CI에서 확인해야 한다.
+- 독립 verify는 시작 전이다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 > `출처`에는 위반한 **pair·Decision·AC·§10·현재 산출물 gate**를 적는다. `PLAN_GAP`은 구현자 권한 밖의 Decision·AC·V node/pair·§10·oracle 정정 요구이며 하나라도 있으면 다음 주체는 설계자다.

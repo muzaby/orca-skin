@@ -1,3 +1,6 @@
+import { clearDisclosures, setDisclosureActiveSession } from './disclosureStore'
+import { transcriptIndexFor } from '../lib/transcriptIndex'
+import type { BackgroundSessionState } from '../../../../../shared/background-task'
 import type { LoadedMessage } from '../../../../../shared/ipc'
 import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
 import { messageOrderFor } from '../lib/transcript/messageOrder'
@@ -6,6 +9,8 @@ import { rendererMessageId, userMessageId } from '../../../../../shared/message-
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
 import { useMemo } from 'react'
 import { create } from 'zustand'
+import type { EntryIntent } from '../lib/transcript/viewport/entry'
+import type { TranscriptChanges } from '../lib/transcript/changeLog'
 import { useShallow } from 'zustand/react/shallow'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import {
@@ -183,6 +188,8 @@ export interface ChatStoreState {
     text: string
     mode?: ComposerDraftUpdate['mode']
   } | null
+  // 세션 열기 진입 의도(EP-11 ⑧ · D-074) — loadSession 으로 활성 세션이 바뀔 때만 기록하고 뷰포트가 한 번 소비.
+  entryIntent: EntryIntent | null
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -336,10 +343,15 @@ export const useChatStore = create<ChatStoreState>()(() => ({
   newChatQueue: [],
   recentsEpoch: 0,
   concurrencyByProjectId: {},
-  draftRestore: null
+  draftRestore: null,
+  entryIntent: null
 }))
 
 const { setState, getState } = useChatStore
+setDisclosureActiveSession(NEW_CHAT_KEY)
+useChatStore.subscribe((state) => {
+  setDisclosureActiveSession(state.activeKey)
+})
 
 // 활성 엔트리의 커밋 상태 imperative read — effect(useChatRouteSync 등)가 상태 변화에
 // 재실행되지 않으면서 현재 값을 읽을 때 사용한다.
@@ -566,8 +578,11 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
       const fragments = [event.delta.text]
       while (index < events.length) {
         const next = events[index]
+        if (next.parentToolRunId) {
+          index++
+          continue
+        }
         if (
-          next.parentToolRunId ||
           next.sessionId !== event.sessionId ||
           next.type !== event.type ||
           next.messageKey !== event.messageKey
@@ -713,6 +728,7 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
   forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
+  clearDisclosures(sessionId)
   setState((s) => {
     if (!s.sessions[sessionId]) return s
     const rest = { ...s.sessions }
@@ -1861,13 +1877,17 @@ async function loadSession(
     return
   coalescer.flush()
   s = getState()
+  const switchingActive = !options.revalidate && s.activeKey !== sessionId
+  const nextIntent: EntryIntent | null = switchingActive
+    ? { sessionKey: sessionId, cause: 'open', seq: (s.entryIntent?.seq ?? 0) + 1 }
+    : s.entryIntent
   const cached = s.sessions[sessionId]
   const hasCachedHistory = cached && !cached.session.loadingSession
   if (hasCachedHistory) {
-    setState({ activeKey: sessionId })
+    setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
     void settingsApi.set({ lastSessionId: sessionId })
   } else if (cached) {
-    setState({ activeKey: sessionId })
+    setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
   } else {
     const loadingSession = chatReducer(
       { ...initialChatState, cwd: cwdCache },
@@ -1882,7 +1902,8 @@ async function loadSession(
           subagentMeta: EMPTY_SUBAGENT_META
         }
       },
-      activeKey: sessionId
+      activeKey: sessionId,
+      ...(switchingActive ? { entryIntent: nextIntent } : {})
     }))
   }
   // 다른 세션의 첫 본문 로드가 아직 진행 중이면 취소한다(0324 AC17) — 데이터 호스트가 남은 조각을
@@ -1920,7 +1941,7 @@ async function loadSession(
     dispatchTo(sessionId, {
       type: 'LOAD_SESSION',
       session,
-      complete: true,
+      complete: session.complete ?? true,
       preserveLocalState: !!hasCachedHistory,
       diagnostic: transcriptDiagnostic
     })
@@ -1967,7 +1988,7 @@ async function loadSession(
         dispatchTo(sessionId, {
           type: 'LOAD_SESSION',
           session: result.session,
-          complete: true,
+          complete: result.session.complete ?? true,
           diagnostic: transcriptDiagnostic,
           preserveLocalState: true
         })
@@ -2669,6 +2690,61 @@ export function useNewChatPending(key?: string): boolean {
   })
 }
 
+export function useTranscriptView(
+  domain: 'taskBoard'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskBoard']>
+export function useTranscriptView(
+  domain: 'taskContextSources'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskContextSources']>
+export function useTranscriptView(
+  domain: 'subagentTasks',
+  includeNested?: boolean
+): ReturnType<ReturnType<typeof transcriptIndexFor>['subagentTasks']>
+export function useTranscriptView(
+  domain: 'subagentTaskDescription',
+  toolUseId: string
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskDescription']>
+export function useTranscriptView(
+  domain: 'childMessage',
+  parentToolRunId: string | null | undefined
+): ReturnType<ReturnType<typeof transcriptIndexFor>['childMessage']>
+export function useTranscriptView(
+  domain: 'transcriptResults'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['transcriptResults']>
+export function useTranscriptView(
+  domain: 'persistedBackgroundModels'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['backgroundModels']>
+export function useTranscriptView(
+  domain: 'sessionPanelModel',
+  background?: BackgroundSessionState
+): ReturnType<ReturnType<typeof transcriptIndexFor>['openCodePanelModel']>
+export function useTranscriptView(domain: string, arg?: unknown): unknown {
+  return useChatStore((state) => {
+    const session = state.sessions[state.activeKey].session
+    const index = transcriptIndexFor(session)
+    switch (domain) {
+      case 'taskBoard':
+        return index.taskBoard()
+      case 'taskContextSources':
+        return index.taskContextSources()
+      case 'subagentTasks':
+        return index.subagentTasks(Boolean(arg))
+      case 'subagentTaskDescription':
+        return typeof arg === 'string' ? index.taskDescription(arg) : undefined
+      case 'childMessage':
+        return typeof arg === 'string' ? index.childMessage(arg) : null
+      case 'transcriptResults':
+        return index.transcriptResults()
+      case 'persistedBackgroundModels':
+        return index.backgroundModels()
+      case 'sessionPanelModel':
+        return index.openCodePanelModel(arg as BackgroundSessionState | undefined)
+      default:
+        return undefined
+    }
+  })
+}
+
 export function useChatRecentsEpoch(): number {
   return useChatStore((s) => s.recentsEpoch)
 }
@@ -2704,4 +2780,23 @@ export function otherProjectTurnCount(state: ChatStoreState, projectId: string |
 
 export function useOtherProjectTurnCount(projectId: string | null): number {
   return useChatStore((state) => otherProjectTurnCount(state, projectId))
+}
+
+export function consumeEntryIntent(sessionKey: string): EntryIntent | null {
+  const intent = getState().entryIntent
+  if (!intent || intent.sessionKey !== sessionKey) return null
+  setState({ entryIntent: null })
+  return intent
+}
+
+export function useTranscriptChanges(): TranscriptChanges {
+  return useChatStore((s) => s.sessions[s.activeKey].session.transcriptChanges)
+}
+
+export function useLiveTextKey(): string | undefined {
+  return useChatStore((s) => s.sessions[s.activeKey].live.textKey)
+}
+
+export function useActiveSessionKey(): string {
+  return useChatStore((s) => s.activeKey)
 }

@@ -246,7 +246,7 @@ function reanchoredRequirements(
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
 // tool_call/tool_result 는 toolRunId 로 페어링해 렌더한다.
 export interface Message {
-  id?: string
+  id: string
   role: 'user' | 'assistant'
   createdAt: number
   parts: AppMessagePart[]

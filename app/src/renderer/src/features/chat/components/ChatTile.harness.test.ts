@@ -43,6 +43,11 @@ vi.mock('../store/chatStore', () => ({
     }),
   useChatStore: (select: (state: unknown) => unknown) =>
     select({ activeKey: 's', draftRestore: null }),
+  useActiveSessionKey: () => 's',
+  useTranscriptChanges: () => initialChatState.transcriptChanges,
+  useEntryIntent: () => null,
+  useLiveTextKey: () => '',
+  useTranscriptView: () => [],
   useChatResponding: () => fixture.inflight,
   useChatActivity: () => ({
     foreground: 'idle',

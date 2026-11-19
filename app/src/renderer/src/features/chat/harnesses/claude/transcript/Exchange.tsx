@@ -7,7 +7,7 @@ import { turnRenderKey, exchangeEquals, type Exchange as ExchangeGroup } from '.
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
 import type { ClassifiedError } from '../../../../../../../shared/ipc'
 import type { PendingSteerState } from '../../../store/chatStore'
-import type { WorkToolResults } from '../../../lib/workToolResults'
+import type { WorkToolResultsMap as WorkToolResults } from '../../../lib/workActivity'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 
 interface ExchangeProps {

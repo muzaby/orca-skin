@@ -1,7 +1,11 @@
+import {
+  sessionPanelModel,
+  createTaskContextSourceSelector
+} from '../../../lib/transcriptIndex.legacy.testfixture'
 import { describe, expect, it } from 'vitest'
 import type { Message } from '../../../reducer/chatReducer'
-import { activePanelProcesses, hasPanelSources, sessionPanelModel } from './model'
-import { createTaskContextSourceSelector, taskContextDirectories } from '../../../lib/taskContext'
+import { activePanelProcesses, hasPanelSources } from './model'
+import { taskContextDirectories } from '../../../lib/taskContext'
 import {
   applyBackgroundEvent,
   emptyBackgroundState
@@ -10,6 +14,7 @@ import {
 describe('OpenCode panel projection', () => {
   const messages: Message[] = [
     {
+      id: 'm-12',
       role: 'assistant',
       createdAt: 10,
       parts: [
@@ -33,6 +38,7 @@ describe('OpenCode panel projection', () => {
     (toolName) => {
       const populated: Message[] = [
         {
+          id: 'm-35',
           role: 'assistant',
           createdAt: 1,
           parts: [
@@ -69,6 +75,7 @@ describe('OpenCode panel projection', () => {
     const finished: Message[] = [
       ...messages,
       {
+        id: 'm-71',
         role: 'assistant',
         createdAt: 20,
         parts: [
@@ -89,6 +96,7 @@ describe('OpenCode panel projection', () => {
   it('includes child shell calls, bounds long output and preserves failures', () => {
     const nested: Message[] = [
       {
+        id: 'm-91',
         role: 'assistant',
         createdAt: 1,
         parts: [
@@ -142,6 +150,7 @@ describe('OpenCode panel projection', () => {
     }
     const history: Message[] = [
       {
+        id: 'm-144',
         role: 'assistant',
         createdAt: 1,
         parts: ['running', ...Object.keys(results)].flatMap((id): Message['parts'] => [
@@ -175,7 +184,7 @@ describe('OpenCode panel projection', () => {
   })
 
   it('removes each settled shell from the summary and shows a later run with its new ID', () => {
-    const history: Message[] = [{ role: 'assistant', createdAt: 1, parts: [] }]
+    const history: Message[] = [{ id: 'm-178', role: 'assistant', createdAt: 1, parts: [] }]
     const activeIds = (): string[] =>
       activePanelProcesses(sessionPanelModel(history)).map((process) => process.id)
     expect(activeIds()).toEqual([])
@@ -219,6 +228,7 @@ describe('OpenCode panel projection', () => {
 
 describe('OpenCode source group visibility', () => {
   const attachment: Message = {
+    id: 'm-221',
     role: 'user',
     createdAt: 1,
     parts: [
@@ -237,6 +247,7 @@ describe('OpenCode source group visibility', () => {
     ]
   }
   const web: Message = {
+    id: 'm-239',
     role: 'assistant',
     createdAt: 2,
     parts: [

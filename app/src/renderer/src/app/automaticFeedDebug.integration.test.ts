@@ -125,6 +125,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
     ({ backend, agentKind }) => {
       installChatStoreHarness({ backend, agentKind })
       const reminder: Message = {
+        id: 'm-127',
         role: 'user',
         createdAt: 100,
         parts: [
@@ -136,6 +137,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
         ]
       }
       const mixed: Message = {
+        id: 'm-138',
         role: 'user',
         createdAt: 200,
         parts: [
@@ -275,6 +277,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
       setAutomaticFeedVisibility(true)
       const messages: Message[] = [
         {
+          id: 'm-277',
           role: 'user',
           createdAt: 1,
           parts: [

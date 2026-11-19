@@ -1,13 +1,17 @@
-import { memo, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import { AssistantMessage } from '../../common/transcript/AssistantMessage'
 import { ClaudeAssistantSegment as AssistantSegment } from './AssistantSegment'
-import { createWorkProjector, type WorkActivityNode } from '../../../lib/workActivity'
+import {
+  createWorkProjector,
+  type WorkActivityNode,
+  type WorkToolResultsMap as WorkToolResults
+} from '../../../lib/workActivity'
 import type { Message } from '../../../reducer/chatReducer'
 import { useI18n } from '../../../../../shared/i18n'
 import { Icon } from '../../../../../shared/ui/Icon'
-import type { WorkToolResults } from '../../../lib/workToolResults'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 import { WorkToolTimeline } from './WorkToolTimeline'
+import { useDisclosure, useDisclosureFocus } from '../../../store/disclosureStore'
 
 export const WorkActivity = memo(function WorkActivity({
   messages,
@@ -60,7 +64,7 @@ export const WorkActivity = memo(function WorkActivity({
   )
 })
 
-function ActivityDisclosure({
+export function ActivityDisclosure({
   node,
   transcriptPolicy
 }: {
@@ -68,12 +72,22 @@ function ActivityDisclosure({
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useDisclosure(node.key, false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const { onFocus } = useDisclosureFocus(node.key, containerRef)
   return (
-    <div className="min-w-0 text-ink2" data-work-activity="true">
+    <div
+      ref={containerRef}
+      data-block-key={node.key}
+      onFocus={onFocus}
+      className="min-w-0 text-ink2"
+      data-work-activity="true"
+    >
       <button
         type="button"
         aria-expanded={open}
+        data-focus-id="activity-toggle"
+        data-transcript-chrome=""
         onClick={() => setOpen(!open)}
         className="flex max-w-full items-center gap-1.5 rounded-r4 py-1 text-left text-caption text-ink3 outline-none ring-focus hover:text-ink2"
       >

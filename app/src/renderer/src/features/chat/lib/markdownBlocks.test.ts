@@ -138,3 +138,119 @@ describe('advanceStableBlocks', () => {
     expect(b.stable).toBe(a.stable)
   })
 })
+
+describe('openFenceTail & incremental scanState (EP-19 f1~f9·f11~f13)', () => {
+  it('f1~f7: CommonMark fence opening/closing rules and CRLF', () => {
+    // f1: 열린 백틱 펜스 + info
+    const f1 = advanceStableBlocks(null, '```ts\nconst x = 1\n')
+    expect(f1.openFence).toEqual({
+      char: '`',
+      length: 3,
+      indent: 0,
+      lang: 'ts',
+      code: 'const x = 1'
+    })
+
+    // f2: ~~~~ 열림 + ~~~ 줄은 닫힘 아님
+    const f2 = advanceStableBlocks(null, '~~~~py\nprint(1)\n~~~\nprint(2)\n')
+    expect(f2.openFence).toEqual({
+      char: '~',
+      length: 4,
+      indent: 0,
+      lang: 'py',
+      code: 'print(1)\n~~~\nprint(2)'
+    })
+
+    // f3: 닫힘 줄 -> null
+    const f3 = advanceStableBlocks(null, '```ts\nconst x = 1\n```\n')
+    expect(f3.openFence).toBeNull()
+
+    // f4: 백틱 info 안 백틱 -> 펜스 아님 -> null
+    const f4 = advanceStableBlocks(null, '```a`b\nconst x = 1\n')
+    expect(f4.openFence).toBeNull()
+
+    // f5: 닫힘 후보 뒤 문자 -> 닫힘 아님 -> 값 유지
+    const f5 = advanceStableBlocks(null, '```ts\nconst x = 1\n```x\n')
+    expect(f5.openFence).toEqual({
+      char: '`',
+      length: 3,
+      indent: 0,
+      lang: 'ts',
+      code: 'const x = 1\n```x'
+    })
+
+    // f6: 들여쓰기 3 -> 값, 4 -> null
+    const f6a = advanceStableBlocks(null, '   ```js\n   const a = 1\n')
+    expect(f6a.openFence).toEqual({
+      char: '`',
+      length: 3,
+      indent: 3,
+      lang: 'js',
+      code: 'const a = 1'
+    })
+    const f6b = advanceStableBlocks(null, '    ```js\nconst a = 1\n')
+    expect(f6b.openFence).toBeNull()
+
+    // f7: CRLF 줄끝은 LF 와 같은 판정
+    const f7Open = advanceStableBlocks(null, '```ts\r\nconst a = 1\r\n')
+    expect(f7Open.openFence?.code).toBe('const a = 1')
+    const f7Closed = advanceStableBlocks(null, '```ts\r\nconst a = 1\r\n```\r\n')
+    expect(f7Closed.openFence).toBeNull()
+  })
+
+  it('f8: 100,000 chars in 2,000 x 50-char deltas scans ~100,000 chars total', () => {
+    const bodyLine = 'const value = 12345678901234567890123456789012345\n' // 50 chars
+    const full = '```ts\n' + bodyLine.repeat(1999) + 'x'.repeat(44)
+    expect(full.length).toBe(100_000)
+
+    let cache: StableBlocksCache | null = null
+    let last = advanceStableBlocks(null, '')
+    for (let pos = 50; pos <= full.length; pos += 50) {
+      last = advanceStableBlocks(cache, full.slice(0, pos))
+      cache = last.cache
+    }
+    expect(last.openFence).not.toBeNull()
+    expect(last.scanState.scannedChars).toBeLessThanOrEqual(full.length + 50)
+    expect(last.scanState.scannedChars).toBeGreaterThanOrEqual(full.length - 50)
+  })
+
+  it('f9: fence opening line split across deltas gives identical result', () => {
+    let cache: StableBlocksCache | null = null
+    const chunks = ['``', '`ts\n', 'const a = 1\n']
+    let acc = ''
+    let result = advanceStableBlocks(null, '')
+    for (const chunk of chunks) {
+      acc += chunk
+      result = advanceStableBlocks(cache, acc)
+      cache = result.cache
+    }
+    expect(result.openFence).toEqual({
+      char: '`',
+      length: 3,
+      indent: 0,
+      lang: 'ts',
+      code: 'const a = 1'
+    })
+  })
+
+  it('f11·f12·f13: unfinished last line, 50,000-char line without newline, and closing fence without trailing newline', () => {
+    // f11: 열린 펜스의 미완성 마지막 줄도 코드 블록에 포함
+    const f11 = advanceStableBlocks(null, '```ts\nconst a = 1\nconst b = 2')
+    expect(f11.openFence?.code).toBe('const a = 1\nconst b = 2')
+
+    // f12: 개행 없는 긴 줄 50,000자를 1,000 delta 로 -> 누적 스캔 문자 = 입력 길이
+    const longLine = 'a'.repeat(50_000)
+    let cache: StableBlocksCache | null = null
+    let last = advanceStableBlocks(null, '')
+    for (let pos = 50; pos <= longLine.length; pos += 50) {
+      last = advanceStableBlocks(cache, longLine.slice(0, pos))
+      cache = last.cache
+    }
+    expect(last.scanState.scannedChars).toBe(50_000)
+    expect(last.tail).toBe(longLine)
+
+    // f13: 마지막 개행 없이 닫힌 펜스 -> delta 중 닫힘 판정 보류 (openFence 유지)
+    const f13 = advanceStableBlocks(null, '```ts\nconst a = 1\n```')
+    expect(f13.openFence).not.toBeNull()
+  })
+})

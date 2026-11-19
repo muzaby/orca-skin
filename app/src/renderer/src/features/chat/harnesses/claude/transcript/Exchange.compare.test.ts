@@ -12,7 +12,11 @@ describe('Exchange memo comparator', () => {
     exchange: {
       startIndex: 0,
       turns: [
-        { role: 'user', startIndex: 0, messages: [{ role: 'user', createdAt: 1, parts: [] }] }
+        {
+          role: 'user',
+          startIndex: 0,
+          messages: [{ id: 'm-15', role: 'user', createdAt: 1, parts: [] }]
+        }
       ]
     },
     reserve: false,

@@ -18,6 +18,7 @@ import type { ToolCall } from '../../../reducer/chatReducer'
 import { AgentTaskRow } from '../../common/transcript/AgentTaskRow'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 import { ForegroundShellActions } from '../../common/transcript/ForegroundShellActions'
+import { useDisclosure, useDisclosureFocus } from '../../../store/disclosureStore'
 
 const OUTCOME_VERB: Record<ToolRunOutcome, MessageKey | null> = {
   running: null,
@@ -61,22 +62,28 @@ export const ToolCard = memo(function ToolCard({
   call,
   inGroup = false,
   transcriptPolicy,
-  presentation = 'row'
+  presentation = 'row',
+  blockKey
 }: {
   call: ToolCall
   inGroup?: boolean
   transcriptPolicy: AgentTranscriptPresentation
   /** A surrounding detail surface can reuse the registered body without a second status/title row. */
   presentation?: 'row' | 'detail-body'
+  blockKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
   const detailBody = presentation === 'detail-body'
-  const [open, setOpen] = useState(detailBody)
-  const [bodyMounted, setBodyMounted] = useState(detailBody)
+  const resolvedBlockKey = blockKey ?? `tool:${call.toolUseId}`
+  const [storedOpen, setStoredOpen] = useDisclosure(resolvedBlockKey, detailBody)
+  const open = detailBody ? true : storedOpen
+  const [bodyMounted, setBodyMounted] = useState(open)
   const [closingGeneration, setClosingGeneration] = useState<number>()
   const releaseGeneration = useRef(0)
   const releaseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const closingAt = useRef(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const { onFocus } = useDisclosureFocus(resolvedBlockKey, containerRef)
 
   useEffect(() => () => clearTimeout(releaseTimer.current), [])
 
@@ -86,7 +93,14 @@ export const ToolCard = memo(function ToolCard({
   const isAgentTask = toolRendererRegistry.resolve(call).kind === 'agent_task'
   const renderAgentTaskRow = isAgentTask && !detailBody
   if (renderAgentTaskRow)
-    return <AgentTaskRow call={call} inGroup={inGroup} transcriptPolicy={transcriptPolicy} />
+    return (
+      <AgentTaskRow
+        call={call}
+        inGroup={inGroup}
+        transcriptPolicy={transcriptPolicy}
+        blockKey={resolvedBlockKey}
+      />
+    )
 
   function releaseBody(generation: number): void {
     if (releaseGeneration.current !== generation) return
@@ -103,14 +117,15 @@ export const ToolCard = memo(function ToolCard({
     if (!open) {
       setClosingGeneration(undefined)
       setBodyMounted(true)
-      setOpen(true)
+      setStoredOpen(true)
       return
     }
-    setOpen(false)
+    setStoredOpen(false)
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       releaseBody(generation)
       return
     }
+    setBodyMounted(true)
     closingAt.current = performance.now()
     setClosingGeneration(generation)
     releaseTimer.current = setTimeout(
@@ -141,13 +156,20 @@ export const ToolCard = memo(function ToolCard({
   const description = toolDescription(call, tr('chat.toolMeta.planDescription'))
   const stat = toolDiffStat(call)
   return (
-    <div className="flex w-full flex-col">
+    <div
+      ref={containerRef}
+      data-block-key={resolvedBlockKey}
+      onFocus={onFocus}
+      className="flex w-full flex-col"
+    >
       {/* 행: [동사] [서술] (+N-M) [chevron] — chevron 은 마지막 (전략 5.4) */}
       {!detailBody && (
         <div
           role="button"
           tabIndex={0}
           aria-expanded={open}
+          data-focus-id="toggle"
+          data-transcript-chrome=""
           onClick={onActivate}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -196,7 +218,7 @@ export const ToolCard = memo(function ToolCard({
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            {(detailBody || bodyMounted) && (
+            {(detailBody || open || bodyMounted) && (
               <div
                 className={`group/toolbody mt-g2 overflow-hidden rounded-r4 border border-t5 font-mono text-footnote text-t9 ${
                   inGroup ? '' : 'bg-bg'

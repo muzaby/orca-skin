@@ -1,3 +1,4 @@
+import { sessionPanelModel } from '../../../lib/transcriptIndex.legacy.testfixture'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -6,7 +7,7 @@ import { RightPanel } from '../../../components/rightpanel/RightPanel'
 import { tileById } from '../../../components/rightpanel/tileRegistry'
 import { useChatStore } from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
-import { sessionPanelModel } from './model'
+
 import type { Message } from '../../../reducer/chatReducer'
 import { OpenCodePanelNavigationContext, type OpenCodePanelSelection } from './navigation'
 
@@ -19,6 +20,7 @@ function renderSelectionLayers(
 ): ReturnType<typeof load> {
   const messages: Message[] = [
     {
+      id: 'm-21',
       role: 'assistant',
       createdAt: 1,
       parts: ['base', 'detail'].flatMap((layer): Message['parts'] => [
@@ -130,6 +132,7 @@ describe('OpenCode panel rendering', () => {
         ...entry.session,
         messages: [
           {
+            id: 'm-132',
             role: 'assistant',
             createdAt: 1,
             parts: [
@@ -153,6 +156,7 @@ describe('OpenCode panel rendering', () => {
   it('shows only active shell rows while keeping terminal detail readable', () => {
     const messages: Message[] = [
       {
+        id: 'm-155',
         role: 'assistant',
         createdAt: 1,
         parts: [
@@ -329,6 +333,7 @@ describe('OpenCode panel rendering', () => {
   it('renders grouped agents and child tool cards, result and model data', () => {
     const messages: Message[] = [
       {
+        id: 'm-331',
         role: 'assistant',
         createdAt: Date.now(),
         parts: [
@@ -363,6 +368,7 @@ describe('OpenCode panel rendering', () => {
     )
     expect(list.text()).toContain('완료 · 1')
     expect(list('button').text()).toContain('Inspect source')
+    entry.session = { ...original, messages }
     const detail = load(
       renderToStaticMarkup(createElement(AgentDetail, { agent: model.agents[0], messages }))
     )

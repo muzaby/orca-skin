@@ -1,8 +1,7 @@
 import { performance } from 'node:perf_hooks'
 import { expect, it } from 'vitest'
-import { createWorkProjector } from './workActivity'
-import { createWorkToolResultSelector } from './workToolResults'
-import { groupExchanges } from './turns'
+import { createClaudeBlockModel } from '../harnesses/claude/transcript/claudeBlocks'
+import { newTranscriptChanges, recordChange } from '../lib/transcript/changeLog'
 import type { Message } from '../reducer/chatReducer'
 
 it('measures 100 old exchanges plus 100 completed current messages over 100 tail updates', () => {
@@ -16,6 +15,7 @@ it('measures 100 old exchanges plus 100 completed current messages over 100 tail
       { type: 'response_boundary', boundary: { phase: 'end', id, outcome: 'ended' } }
     ]
     return {
+      id: `a:${id}`,
       role: 'assistant',
       createdAt: 1,
       get parts() {
@@ -25,34 +25,50 @@ it('measures 100 old exchanges plus 100 completed current messages over 100 tail
     }
   }
   const history: Message[] = Array.from({ length: 100 }, (_, index): Message[] => [
-    { role: 'user', createdAt: index, parts: [{ type: 'text', text: `request-${index}` }] },
+    {
+      id: `u:past-${index}`,
+      role: 'user',
+      createdAt: index,
+      parts: [{ type: 'text', text: `request-${index}` }]
+    },
     completed(`past-${index}`)
   ]).flat()
-  history.push({ role: 'user', createdAt: 101, parts: [{ type: 'text', text: 'current request' }] })
+  history.push({
+    id: 'u:current',
+    role: 'user',
+    createdAt: 101,
+    parts: [{ type: 'text', text: 'current request' }]
+  })
   history.push(...Array.from({ length: 100 }, (_, index) => completed(`current-${index}`)))
-  const selectResults = createWorkToolResultSelector()
-  const projectCurrent = createWorkProjector()
+
+  const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'perf' })
+  let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
   const durations: number[] = []
+  let prevMessages: Message[] = history
+
   function update(index: number): void {
-    const messages: Message[] = [
-      ...history,
-      {
-        role: 'assistant',
-        createdAt: 102,
-        parts: [
-          { type: 'response_boundary', boundary: { phase: 'begin', id: 'live' } },
-          { type: 'text', text: `delta-${index}` }
-        ]
-      }
-    ]
+    const liveMsg: Message = {
+      id: 'a:live',
+      role: 'assistant',
+      createdAt: 102,
+      parts: [
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'live' } },
+        { type: 'text', text: `delta-${index}` }
+      ]
+    }
+    const messages: Message[] = [...history, liveMsg]
+    if (index === -1) {
+      changes = recordChange(changes, { kind: 'append', ids: ['a:live'] })
+    } else {
+      changes = recordChange(changes, { kind: 'replace', id: 'a:live', partsFrom: 0 })
+    }
+    prevMessages = messages
     const start = performance.now()
-    const exchanges = groupExchanges(messages)
-    const results = selectResults(exchanges)
-    const tail = exchanges.at(-1)!
-    const assistant = tail.turns.find((turn) => turn.role === 'assistant')!
-    projectCurrent(assistant.messages, results.get(tail.startIndex))
+    model.advance({ messages: prevMessages, transcriptChanges: changes }, { inflight: true })
     durations.push(performance.now() - start)
   }
+
+  model.advance({ messages: history, transcriptChanges: changes }, { inflight: false })
   update(-1)
   const initialReads = completedPartReads
   for (let index = 0; index < 100; index++) update(index)
@@ -60,7 +76,7 @@ it('measures 100 old exchanges plus 100 completed current messages over 100 tail
   const sorted = durations.slice(1).sort((a, b) => a - b)
   process.stdout.write(
     JSON.stringify({
-      scope: 'Work selectors only; not React commit time',
+      scope: 'Work incremental block model only; not React commit time',
       previousExchanges: 100,
       currentCompletedMessages: 100,
       updates: 100,

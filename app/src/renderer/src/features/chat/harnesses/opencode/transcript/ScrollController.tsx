@@ -1,6 +1,8 @@
 import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
+import { entryPolicy } from '../../../lib/transcript/viewport/entry'
+import { consumeEntryIntent } from '../../../store/chatStore'
 import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
 import {
   canConsumeScroll,
@@ -102,7 +104,19 @@ export function OpenCodeScrollController({
     const content = contentRef.current
     if (!el || !content) return
     let frame: number | null = null
-    writeTop(state.pinned ? el.scrollHeight : state.top)
+    const intent = consumeEntryIntent(sessionKey)
+    const placement = entryPolicy(intent ? 'open' : 'resume', 'opencode', {
+      pinned: state.pinned,
+      scrollTop: state.top,
+      anchorKey: state.anchor?.key
+    })
+    if (placement.action === 'scroll-bottom') {
+      state.setPinned(true)
+      state.setAnchor(null)
+      writeTop(el.scrollHeight)
+    } else if (placement.action === 'restore-saved') {
+      writeTop(placement.saved.scrollTop)
+    }
     const nested = (target: EventTarget | null, direction = 0): boolean => {
       if (!(target instanceof Element)) return false
       // Markdown code fences are shared with Claude and need no harness-specific

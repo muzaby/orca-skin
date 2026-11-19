@@ -47,7 +47,9 @@ beforeEach(() => {
     agentKind: 'code',
     inflight: false,
     title: 'cached title',
-    messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'cached body' }] }],
+    messages: [
+      { id: 'm-50', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'cached body' }] }
+    ],
     permissionMode: 'accept_edits',
     modelFamily: 'selected-model',
     agentPanelInitialized: true,

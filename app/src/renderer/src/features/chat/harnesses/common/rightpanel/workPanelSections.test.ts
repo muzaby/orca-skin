@@ -6,14 +6,28 @@ import { initialChatState, type ChatState } from '../../../reducer/chatReducer'
 import { TaskTileContent } from '../../claude/rightpanel/TaskTileContent'
 
 let session: ChatState
-vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (s: ChatState) => unknown) => select(session),
-  useChatStore: (select: (s: unknown) => unknown) => select({ activeKey: 'work' }),
-  useChatBusy: () => false,
-  useUnseenSettledTaskCount: () => 0,
-  chatActions: {},
-  getActiveChatSession: () => session
-}))
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    useChatSession: (select: (s: ChatState) => unknown) => select(session),
+    useChatStore: (select: (s: unknown) => unknown) => select({ activeKey: 'work' }),
+    useTranscriptView: (domain: string, arg?: string) => {
+      const idx = transcriptIndexFor({
+        ...session,
+        transcriptChanges: session.transcriptChanges ?? { lineage: session, revision: 0, log: [] }
+      })
+      if (domain === 'taskBoard') return idx.taskBoard()
+      if (domain === 'subagentTasks') return idx.subagentTasks()
+      if (domain === 'taskContextSources') return idx.taskContextSources()
+      if (domain === 'childMessage') return idx.childMessage(arg!)
+      return []
+    },
+    useChatBusy: () => false,
+    useUnseenSettledTaskCount: () => 0,
+    chatActions: {},
+    getActiveChatSession: () => session
+  }
+})
 
 describe('Work task panel sections', () => {
   beforeEach(() => {

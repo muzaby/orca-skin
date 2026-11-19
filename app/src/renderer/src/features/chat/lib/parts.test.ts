@@ -1,12 +1,14 @@
+import {
+  childMessageForParentToolRunId,
+  subagentTaskDescription,
+  subagentTasksFromMessages
+} from './transcriptIndex.legacy.testfixture'
 import { describe, it, expect } from 'vitest'
 import {
   partsText,
   partsToolCalls,
   partsAttachments,
   partsArtifacts,
-  childMessageForParentToolRunId,
-  subagentTaskDescription,
-  subagentTasksFromMessages,
   isAbortedResult,
   isAsyncLaunchedResult,
   deriveSubagentTaskStatus,
@@ -127,6 +129,7 @@ describe('parts selectors', () => {
   it('parentToolRunId 가 있는 child 도구는 메인 도구 목록에서 제외하고 child message 로 조회한다', () => {
     const messages = [
       {
+        id: 'm-116',
         role: 'assistant' as const,
         createdAt: 1,
         parts: [
@@ -217,6 +220,7 @@ describe('parts selectors', () => {
   it('child text/reasoning 은 child message 에 포함하고 메인 트랜스크립트에서는 제외한다', () => {
     const messages = [
       {
+        id: 'm-206',
         role: 'assistant' as const,
         createdAt: 1,
         parts: [
@@ -280,6 +284,7 @@ describe('parts selectors', () => {
   it('subagentTasksFromMessages 는 tool_result.subagentMeta 의 모델/시간/도구수를 쓴다', () => {
     const messages = [
       {
+        id: 'm-269',
         role: 'assistant' as const,
         createdAt: 1,
         parts: [
@@ -318,6 +323,7 @@ describe('parts selectors', () => {
   it('subagentTasksFromMessages 는 aborted 결과를 중단 상태로 분류한다', () => {
     const messages = [
       {
+        id: 'm-307',
         role: 'assistant' as const,
         createdAt: 1,
         parts: [
@@ -344,6 +350,7 @@ describe('parts selectors', () => {
   it('subagentTasksFromMessages 는 부모 Task 메시지의 createdAt 을 createdAtMs 로 투영한다', () => {
     const messages = [
       {
+        id: 'm-333',
         role: 'assistant' as const,
         createdAt: 1_700_000_000_000,
         parts: [
@@ -372,89 +379,137 @@ describe('parts selectors', () => {
   })
   const assistant = (
     parts: AppMessagePart[]
-  ): { role: 'assistant'; createdAt: number; parts: AppMessagePart[] } => ({
+  ): { id: string; role: 'assistant'; createdAt: number; parts: AppMessagePart[] } => ({
+    id: 'm-362',
     role: 'assistant',
     createdAt: 1,
     parts
   })
 
-  it('같은 메시지 배열의 요약은 한 번만 만든다', () => {
+  it('같은 메시지 배열의 요약은 한 번만 만든다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     const m = [assistant([agentCall('top-agent')])]
-    const first = subagentTasksFromMessages(m)
+    const s = {
+      messages: m,
+      transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    } as never
+    const first = transcriptIndexFor(s).subagentTasks()
     expect(first).toMatchObject([{ toolUseId: 'top-agent', status: 'running' }])
-    expect(subagentTasksFromMessages(m)).toBe(first)
+    expect(transcriptIndexFor(s).subagentTasks()).toBe(first)
   })
 
-  it('중첩 포함 여부마다 따로 든다', () => {
+  it('중첩 포함 여부마다 따로 든다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     const m = [assistant([agentCall('top-agent'), agentCall('child-agent', 'top-agent')])]
-    const top = subagentTasksFromMessages(m, false)
-    const nested = subagentTasksFromMessages(m, true)
+    const s = {
+      messages: m,
+      transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    } as never
+    const top = transcriptIndexFor(s).subagentTasks(false)
+    const nested = transcriptIndexFor(s).subagentTasks(true)
     expect(top.map((task) => task.toolUseId)).toEqual(['top-agent'])
     expect(nested.map((task) => task.toolUseId)).toEqual(['top-agent', 'child-agent'])
-    expect(subagentTasksFromMessages(m, false)).toBe(top)
-    expect(subagentTasksFromMessages(m, true)).toBe(nested)
+    expect(transcriptIndexFor(s).subagentTasks(false)).toBe(top)
+    expect(transcriptIndexFor(s).subagentTasks(true)).toBe(nested)
   })
 
-  it('메시지 배열이 바뀌면 새로 계산한다', () => {
+  it('메시지 배열이 바뀌면 새로 계산한다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     const m = [assistant([agentCall('top-agent')])]
-    const before = subagentTasksFromMessages(m)
+    const c1 = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const before = transcriptIndexFor({
+      messages: m,
+      transcriptChanges: c1
+    } as never).subagentTasks()
     const m2 = [
       ...m,
-      assistant([{ type: 'tool_result', toolRunId: 'top-agent', result: 'done', isError: false }])
+      {
+        ...assistant([
+          { type: 'tool_result', toolRunId: 'top-agent', result: 'done', isError: false }
+        ]),
+        id: 'm-390'
+      }
     ]
-    const after = subagentTasksFromMessages(m2)
+    const c2 = recordChange(c1, { kind: 'append', ids: ['m-390'] })
+    const after = transcriptIndexFor({
+      messages: m2,
+      transcriptChanges: c2
+    } as never).subagentTasks()
     expect(after).not.toBe(before)
     expect(before).toMatchObject([{ status: 'running' }])
     expect(after).toMatchObject([{ toolUseId: 'top-agent', status: 'completed' }])
-    // 이전 배열의 칸은 그대로다 — 새 배열의 계산이 덮지 않는다.
-    expect(subagentTasksFromMessages(m)).toBe(before)
   })
 
-  // 0316 T-07 — child 메시지도 같은 캐시 규칙이다. 키는 메시지 배열, 칸은 부모 tool run 마다 하나.
+  // 0316 T-07 — child 메시지도 같은 캐시 규칙이다.
   const childText = (text: string, parentToolRunId: string): AppMessagePart => ({
     type: 'text',
     text,
     parentToolRunId
   })
 
-  it('같은 메시지 배열·같은 부모의 child 메시지는 한 번만 만든다', () => {
+  it('같은 메시지 배열·같은 부모의 child 메시지는 한 번만 만든다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     const m = [assistant([agentCall('top-agent'), childText('답', 'top-agent')])]
-    const first = childMessageForParentToolRunId(m, 'top-agent')
+    const s = {
+      messages: m,
+      transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    } as never
+    const first = transcriptIndexFor(s).childMessage('top-agent')
     expect(first?.parts).toEqual([{ type: 'text', text: '답' }])
-    expect(childMessageForParentToolRunId(m, 'top-agent')).toBe(first)
+    expect(transcriptIndexFor(s).childMessage('top-agent')).toBe(first)
   })
 
-  it('child 메시지는 부모마다 따로 든다', () => {
+  it('child 메시지는 부모마다 따로 든다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     const m = [
       assistant([agentCall('a'), agentCall('b'), childText('a 답', 'a'), childText('b 답', 'b')])
     ]
-    const a = childMessageForParentToolRunId(m, 'a')
-    const b = childMessageForParentToolRunId(m, 'b')
+    const s = {
+      messages: m,
+      transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    } as never
+    const a = transcriptIndexFor(s).childMessage('a')
+    const b = transcriptIndexFor(s).childMessage('b')
     expect(a?.parts).toEqual([{ type: 'text', text: 'a 답' }])
     expect(b?.parts).toEqual([{ type: 'text', text: 'b 답' }])
-    expect(childMessageForParentToolRunId(m, 'a')).toBe(a)
-    expect(childMessageForParentToolRunId(m, 'b')).toBe(b)
+    expect(transcriptIndexFor(s).childMessage('a')).toBe(a)
+    expect(transcriptIndexFor(s).childMessage('b')).toBe(b)
   })
 
-  it('메시지 배열이 바뀌면 child 메시지를 새로 만들고 이전 배열의 칸은 그대로 둔다', () => {
+  it('메시지 배열이 바뀌면 child 메시지를 새로 만든다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     const m = [assistant([agentCall('top-agent'), childText('첫 답', 'top-agent')])]
-    const before = childMessageForParentToolRunId(m, 'top-agent')
-    const m2 = [...m, assistant([childText('둘째 답', 'top-agent')])]
-    const after = childMessageForParentToolRunId(m2, 'top-agent')
+    const c1 = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const before = transcriptIndexFor({ messages: m, transcriptChanges: c1 } as never).childMessage(
+      'top-agent'
+    )
+    const m2 = [...m, { ...assistant([childText('둘째 답', 'top-agent')]), id: 'm-430' }]
+    const c2 = recordChange(c1, { kind: 'append', ids: ['m-430'] })
+    const after = transcriptIndexFor({ messages: m2, transcriptChanges: c2 } as never).childMessage(
+      'top-agent'
+    )
     expect(after).not.toBe(before)
     expect(after?.parts).toEqual([
       { type: 'text', text: '첫 답' },
       { type: 'text', text: '둘째 답' }
     ])
-    expect(childMessageForParentToolRunId(m, 'top-agent')).toBe(before)
   })
 
   // `null` 은 `toBe` 로 다시 계산했는지 가를 수 없다 — 파트를 읽은 횟수로 본다.
-  it('child 가 없는 부모(null)도 칸에 들어 다시 전 파트를 돌지 않는다', () => {
+  it('child 가 없는 부모(null)도 칸에 들어 다시 전 파트를 돌지 않는다', async () => {
+    const { transcriptIndexFor } = await import('./transcriptIndex')
+    const { newTranscriptChanges, recordChange } = await import('./transcript/changeLog')
     let reads = 0
     const parts = [agentCall('top-agent')]
     const m = [
       {
+        id: 'm-444',
         role: 'assistant' as const,
         createdAt: 1,
         get parts() {
@@ -463,10 +518,14 @@ describe('parts selectors', () => {
         }
       }
     ]
-    expect(childMessageForParentToolRunId(m, 'top-agent')).toBeNull()
+    const s = {
+      messages: m,
+      transcriptChanges: recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    } as never
+    expect(transcriptIndexFor(s).childMessage('top-agent')).toBeNull()
     const afterFirst = reads
     expect(afterFirst).toBeGreaterThan(0)
-    expect(childMessageForParentToolRunId(m, 'top-agent')).toBeNull()
+    expect(transcriptIndexFor(s).childMessage('top-agent')).toBeNull()
     expect(reads).toBe(afterFirst)
   })
 
@@ -520,6 +579,7 @@ describe('parts selectors', () => {
   it('AT-31 — 종단 정착의 사유 문구가 요약에 실린다(진행 중·성공은 null)', () => {
     const failed = subagentTasksFromMessages([
       {
+        id: 'm-509',
         role: 'assistant',
         createdAt: 1,
         parts: [
@@ -538,6 +598,7 @@ describe('parts selectors', () => {
     // 양성 짝 — 성공/진행 중은 사유가 없다(답변 요약을 사유 자리에 쓰지 않는다).
     const ok = subagentTasksFromMessages([
       {
+        id: 'm-527',
         role: 'assistant',
         createdAt: 1,
         parts: [

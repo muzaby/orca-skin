@@ -1652,6 +1652,8 @@ export interface LoadedSession {
   agentKind: AgentKind
   title: string | null
   messages: LoadedMessage[]
+  /** Whether the returned messages represent the complete session history (defaults to true). */
+  complete?: boolean
   /** Native refresh diagnostics; cached conversation remains available on failure. */
   nativeSync?: {
     status: 'ready' | 'unchanged' | 'busy' | 'missing' | 'unavailable' | 'migration-required'

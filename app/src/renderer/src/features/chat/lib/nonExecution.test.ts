@@ -118,9 +118,9 @@ describe('0239 nonExecution renderer contract', () => {
       type: 'response_boundary',
       boundary: { phase: 'begin', id: 'r' }
     }
-    project([{ role: 'assistant', createdAt: 1, parts: [boundary, ...parts] }])
+    project([{ id: 'm-121', role: 'assistant', createdAt: 1, parts: [boundary, ...parts] }])
     const nodes = project([
-      { role: 'assistant', createdAt: 1, parts: [boundary, ...updatedParts] }
+      { id: 'm-123', role: 'assistant', createdAt: 1, parts: [boundary, ...updatedParts] }
     ])!
     const activity = nodes.find((node) => node.kind === 'activity')!
     const segment = activity.items[0].segment

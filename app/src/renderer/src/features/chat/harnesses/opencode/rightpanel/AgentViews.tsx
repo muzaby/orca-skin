@@ -1,7 +1,7 @@
 import { useI18n } from '../../../../../shared/i18n'
 import { formatRelativeTime } from '../../../../../shared/i18n/datetime'
 import type { Message } from '../../../reducer/chatReducer'
-import { childMessageForParentToolRunId } from '../../../lib/parts'
+import { useTranscriptView } from '../../../store/chatStore'
 import { AssistantMessage } from '../../../components/transcript/AssistantMessage'
 import { openCodeTranscript } from '../presentation'
 import { OpenCodeText } from '../transcript/Text'
@@ -58,14 +58,13 @@ export function AgentList({
 }
 
 export function AgentDetail({
-  agent,
-  messages
+  agent
 }: {
   agent: SessionPanelModel['agents'][number]
-  messages: Message[]
+  messages?: Message[]
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const child = childMessageForParentToolRunId(messages, agent.toolUseId)
+  const child = useTranscriptView('childMessage', agent.toolUseId)
   const input = agent.call.input
   const prompt =
     input && typeof input === 'object' && 'prompt' in input && typeof input.prompt === 'string'

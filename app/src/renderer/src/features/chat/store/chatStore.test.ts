@@ -498,7 +498,8 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
         newChatQueue: [],
         recentsEpoch: 0,
         concurrencyByProjectId: {},
-        draftRestore: null
+        draftRestore: null,
+        entryIntent: null
       },
       true
     )
@@ -930,6 +931,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     text: string,
     createdAt: number
   ): (typeof initialChatState)['messages'][number] => ({
+    id: 'm-932',
     role: 'user',
     createdAt,
     parts: [{ type: 'text', text }]
@@ -938,6 +940,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     text: string,
     createdAt: number
   ): (typeof initialChatState)['messages'][number] => ({
+    id: 'm-940',
     role: 'assistant',
     createdAt,
     parts: [{ type: 'text', text }]
@@ -1055,8 +1058,13 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
             turnStartedAt: null,
             title: '원본 세션',
             messages: [
-              { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
-              { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a' }] }
+              { id: 'm-1059', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
+              {
+                id: 'm-1060',
+                role: 'assistant',
+                createdAt: 2,
+                parts: [{ type: 'text', text: 'a' }]
+              }
             ]
           }
         }
@@ -1381,7 +1389,13 @@ describe('chatStore — pending message lifecycle (0067)', () => {
               ...s.sessions.s.session,
               messages: [
                 ...s.sessions.s.session.messages,
-                { role: 'user', createdAt: 1, clientId, parts: [{ type: 'text', text }] }
+                {
+                  id: userMessageId([clientId]),
+                  role: 'user',
+                  createdAt: 1,
+                  clientId,
+                  parts: [{ type: 'text', text }]
+                }
               ]
             }
           }
@@ -1464,6 +1478,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
               ...s.sessions.s.session,
               messages: [
                 {
+                  id: 'm-1468',
                   role: 'assistant',
                   createdAt: 1,
                   clientId: 'req-1',
@@ -1605,9 +1620,14 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
             turnStartedAt: null,
             title: '원본 세션',
             messages: [
-              { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
-              { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a1' }] },
-              { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
+              { id: 'm-1609', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
+              {
+                id: 'm-1610',
+                role: 'assistant',
+                createdAt: 2,
+                parts: [{ type: 'text', text: 'a1' }]
+              },
+              { id: 'm-1611', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
             ]
           }
         }

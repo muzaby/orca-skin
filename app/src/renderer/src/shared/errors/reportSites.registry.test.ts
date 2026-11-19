@@ -339,7 +339,7 @@ export const sites: Site[] = [
   { file: 'features/chat/lib/imageThumb.ts', ordinal: 0, line: 32, disposition: 'EXCLUDE' },
   { file: 'features/chat/lib/planCommentDom.ts', ordinal: 0, line: 67, disposition: 'EXCLUDE' },
   { file: 'features/chat/lib/planCommentDom.ts', ordinal: 1, line: 94, disposition: 'EXCLUDE' },
-  { file: 'features/chat/lib/taskContext.ts', ordinal: 0, line: 44, disposition: 'EXCLUDE' },
+  { file: 'features/chat/lib/transcriptIndex.ts', ordinal: 0, line: 284, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/lib/workToolPresentation.ts',
     ordinal: 0,

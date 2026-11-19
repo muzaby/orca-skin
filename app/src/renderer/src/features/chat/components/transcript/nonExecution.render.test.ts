@@ -1,3 +1,4 @@
+import { subagentTasksFromMessages } from '../../lib/transcriptIndex.legacy.testfixture'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
@@ -15,7 +16,7 @@ import { TaskStatusIcon } from '../../harnesses/common/rightpanel/TaskStatusIcon
 import { TaskProgressList } from '../../harnesses/common/rightpanel/TaskProgressList'
 import { agentUiPolicy } from '../../lib/agentPresentation'
 import { backgroundBoardStatus } from '../../lib/taskBoard'
-import { partsToolCalls, subagentTasksFromMessages } from '../../lib/parts'
+import { partsToolCalls } from '../../lib/parts'
 import { workToolPresentation } from '../../lib/workToolPresentation'
 import { toolGroupSegments } from '../../lib/toolMeta'
 
@@ -113,6 +114,7 @@ describe('0239 result status surfaces', () => {
       ).not.toContain('text-bad')
       const summaries = subagentTasksFromMessages([
         {
+          id: 'm-117',
           role: 'assistant',
           createdAt: 1,
           parts: [

@@ -14,6 +14,7 @@ const end = (
 ): AppMessagePart => ({ type: 'response_boundary', boundary: { phase: 'end', id, outcome } })
 const tool: AppMessagePart = { type: 'tool_call', toolRunId: 't', toolName: 'Read', args: {} }
 const message = (...parts: AppMessagePart[]): Message => ({
+  id: 'm-16',
   role: 'assistant',
   createdAt: 1,
   parts

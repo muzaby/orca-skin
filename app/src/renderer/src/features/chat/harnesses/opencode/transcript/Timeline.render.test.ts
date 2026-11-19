@@ -6,10 +6,11 @@ import type { Message } from '../../../reducer/chatReducer'
 import { installChatStoreHarness } from '../../../store/chatStore.testHarness'
 import { TranscriptView } from '../../../components/transcript/TranscriptView'
 
-const live = vi.hoisted(() => ({ text: '', reasoning: '' }))
+const live = vi.hoisted(() => ({ text: '', reasoning: '', textKey: '' }))
 beforeEach(() => {
   live.text = ''
   live.reasoning = ''
+  live.textKey = ''
 })
 vi.mock('../../../store/chatStore', async (original) => {
   const module = await original<typeof import('../../../store/chatStore')>()
@@ -22,6 +23,7 @@ vi.mock('../../../store/chatStore', async (original) => {
     // 0325 D-015 — Timeline 은 유무만, 행 리프는 live text 를 같은 값에서 읽는다.
     useHasLiveText: () => live.text !== '',
     useHasLiveReasoning: () => live.reasoning.trim() !== '',
+    useLiveTextKey: () => live.textKey || undefined,
     useLiveTextFor: (enabled: boolean) => (enabled ? live.text : '')
   }
 })
@@ -35,7 +37,12 @@ vi.mock('@tanstack/react-virtual', async (original) => {
       module.useVirtualizer({ ...options, initialRect: { width: 1200, height: 10000 } })
   }
 })
-const user: Message = { role: 'user', createdAt: 10, parts: [{ type: 'text', text: 'Prompt' }] }
+const user: Message = {
+  id: 'm-38',
+  role: 'user',
+  createdAt: 10,
+  parts: [{ type: 'text', text: 'Prompt' }]
+}
 function render(messages: Message[], inflight = false): ReturnType<typeof load> {
   installChatStoreHarness({
     backend: 'opencode',
@@ -80,6 +87,7 @@ describe('OpenCode production Timeline rendering', () => {
   it('routes visible segments and collapsed native file tools without Claude reserved tail', () => {
     live.text = ''
     const assistant: Message = {
+      id: 'm-82',
       role: 'assistant',
       createdAt: 20,
       parts: [
@@ -124,14 +132,16 @@ describe('OpenCode production Timeline rendering', () => {
       'meta'
     ])
     expect($('[data-component="context-tool-group"]')).toHaveLength(1)
-    const edit = $('[data-timeline-key="user:10:tool:edit"]')
-    expect(edit.hasClass('pt-[8px]')).toBe(true)
+    const edit = $('[data-timeline-key="m-82:tool:edit"]')
+    expect(edit.closest('[data-block-key]').hasClass('pt-[8px]')).toBe(true)
     expect(edit.find('[data-component="opencode-file-diff"]')).toHaveLength(0)
     expect(edit.find('[data-slot="tool-diff-summary"]').text()).toBe('+1−1')
     expect(edit.text()).toContain('a.ts')
     expect(edit.text()).not.toContain('before')
     expect(edit.text()).not.toContain('after')
-    expect($('[data-timeline-row="text"]').hasClass('pt-[16px]')).toBe(true)
+    expect($('[data-timeline-row="text"]').closest('[data-block-key]').hasClass('pt-[16px]')).toBe(
+      true
+    )
     expect($('[data-timeline-scroll]').find('[class~="pb-[64px]"]')).toHaveLength(1)
     expect($('[class~="min-h-[50cqh]"]')).toHaveLength(0)
     expect($('.bg-bubble-user').hasClass('text-ink')).toBe(true)
@@ -139,13 +149,16 @@ describe('OpenCode production Timeline rendering', () => {
   })
   it('keeps the streamed row identity on commit and removes Todo only from the normal transcript', () => {
     live.text = 'Live answer'
+    live.textKey = 'm-148'
     const streaming = render([user], true)
     const key = streaming('[data-timeline-row="text"]').attr('data-timeline-key')
     expect(streaming('[data-timeline-row="text"]').text()).toContain('Live answer')
     live.text = ''
+    live.textKey = ''
     const completed = render([
       user,
       {
+        id: 'm-148',
         role: 'assistant',
         createdAt: 20,
         parts: [

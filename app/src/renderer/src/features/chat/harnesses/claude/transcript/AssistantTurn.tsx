@@ -7,7 +7,7 @@ import { ArtifactCards } from '../../common/transcript/ArtifactCards'
 import { WorkActivity } from './WorkActivity'
 import { PendingAssistant } from './PendingAssistant'
 import { PendingAssistantStatus } from '../../../components/transcript/PendingAssistantStatus'
-import type { WorkToolResults } from '../../../lib/workToolResults'
+import type { WorkToolResultsMap as WorkToolResults } from '../../../lib/workActivity'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 
 interface AssistantTurnProps {

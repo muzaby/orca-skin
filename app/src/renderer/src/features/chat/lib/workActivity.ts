@@ -3,9 +3,16 @@ import type { ResponseBoundary } from '../../../../../shared/response-boundary'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import { resultMap, type MessageSegment } from './parts'
 import { createSegmentCache } from './segmentCache'
-import type { WorkToolResults } from './workToolResults'
+import { activityBlockKey, partBlockKey, toolBlockKey } from './transcript/blockKeys'
 
-type SegmentNode = { kind: 'segment'; key: string; segment: MessageSegment }
+export type WorkToolResultsMap = ReadonlyMap<string, NonNullable<ToolCall['result']>>
+
+type SegmentNode = {
+  kind: 'segment'
+  key: string
+  messageId: string
+  segment: MessageSegment
+}
 type BoundaryNode = { kind: 'boundary'; key: string; boundary: ResponseBoundary }
 type Atom = SegmentNode | BoundaryNode
 export type WorkActivityNode =
@@ -19,16 +26,45 @@ export type WorkActivityNode =
     }
   | { kind: 'status'; key: string; outcome: 'ended' | 'aborted' | 'failed' | 'unknown' }
 
+function segmentKeyFor(
+  messageId: string,
+  segment: MessageSegment,
+  counters: Map<string, number>
+): string {
+  if (segment.kind === 'tools' && segment.calls.length > 0) {
+    return toolBlockKey(messageId, segment.calls[0].toolUseId)
+  }
+  if (segment.kind === 'ask') {
+    return toolBlockKey(messageId, segment.call.toolUseId)
+  }
+  const kind = segment.kind
+  const seq = counters.get(kind) ?? 0
+  counters.set(kind, seq + 1)
+  return partBlockKey(messageId, kind, seq)
+}
+
+function firstToolRunIdInActivity(items: readonly SegmentNode[]): string | null {
+  for (const item of items) {
+    if (item.segment.kind === 'tools' && item.segment.calls.length > 0) {
+      return item.segment.calls[0].toolUseId
+    }
+    if (item.segment.kind === 'ask') {
+      return item.segment.call.toolUseId
+    }
+  }
+  return null
+}
+
 // 턴 인스턴스 소유 캐시. 완료 메시지의 parts는 재해석하지 않고 변경 메시지만 투영한다.
 // 원문/도구 payload는 복제하지 않는다. 캐시 수명은 transcript 턴의 수명과 같다.
 export function createWorkProjector(): (
   messages: readonly Message[],
-  toolResults?: WorkToolResults
+  toolResults?: WorkToolResultsMap
 ) => WorkActivityNode[] | null {
   type Parsed = { atoms: Atom[]; results: ReturnType<typeof resultMap> }
   const cache = new WeakMap<Message, Parsed>()
   const previous = new Map<
-    string | number,
+    string,
     { atoms: Atom[]; caches: Map<number, ReturnType<typeof createSegmentCache>> }
   >()
   const joined = new WeakMap<SegmentNode, SegmentNode>()
@@ -48,32 +84,28 @@ export function createWorkProjector(): (
     const atoms: Atom[] = []
     let chunk: AppMessagePart[] = []
     let offset = 0
-    const identity = message.id ?? index
+    const identity = message.id ?? `m:${index}`
     const prior = previous.get(identity)
     const caches = new Map<number, ReturnType<typeof createSegmentCache>>()
-    const old = prior?.atoms ?? []
-    const oldByChunk = new Map<string, SegmentNode[]>()
-    for (const node of old) {
-      if (node.kind !== 'segment') continue
-      const key = node.key.slice(0, node.key.lastIndexOf(':') + 1)
-      const group = oldByChunk.get(key)
-      if (group) group.push(node)
-      else oldByChunk.set(key, [node])
+    const oldByKey = new Map<string, SegmentNode>()
+    for (const node of prior?.atoms ?? []) {
+      if (node.kind === 'segment') oldByKey.set(node.key, node)
     }
+    const counters = new Map<string, number>()
+    let boundarySeq = 0
     function flush(): void {
-      const prefix = `${identity}:${offset}:`
-      const oldSegments = oldByChunk.get(prefix) ?? []
       const segmentCache = prior?.caches.get(offset) ?? createSegmentCache()
       caches.set(offset, segmentCache)
       const segments = segmentCache.segmentsFor({ ...message, parts: chunk }, undefined, results)
-      segments.forEach((segment, position) => {
-        const prior = oldSegments[position]
+      for (const segment of segments) {
+        const key = segmentKeyFor(identity, segment, counters)
+        const existing = oldByKey.get(key)
         atoms.push(
-          prior?.segment === segment
-            ? prior
-            : { kind: 'segment', key: `${prefix}${position}`, segment }
+          existing?.segment === segment
+            ? existing
+            : { kind: 'segment', key, messageId: identity, segment }
         )
-      })
+      }
       chunk = []
       offset++
     }
@@ -82,7 +114,7 @@ export function createWorkProjector(): (
         flush()
         atoms.push({
           kind: 'boundary',
-          key: `${identity}:boundary:${offset}`,
+          key: partBlockKey(identity, 'boundary', boundarySeq++),
           boundary: part.boundary
         })
       } else if (part.type !== 'tool_result') chunk.push(part)
@@ -95,7 +127,7 @@ export function createWorkProjector(): (
   }
   return (messages, toolResults) => {
     const parsed = messages.map(parse)
-    const identities = new Set(messages.map((message, index) => message.id ?? index))
+    const identities = new Set(messages.map((message, index) => message.id ?? `m:${index}`))
     for (const identity of previous.keys()) {
       if (!identities.has(identity)) previous.delete(identity)
     }
@@ -116,9 +148,9 @@ export function createWorkProjector(): (
         const result = results.get(call.toolUseId)
         if (result === call.result) return call
         if (result) return { ...call, result }
-        const next = { ...call }
-        delete next.result
-        return next
+        const copy = { ...call }
+        delete copy.result
+        return copy
       })
       if (next.every((call, index) => call === calls[index])) return prior
       const node: SegmentNode = {
@@ -144,9 +176,13 @@ export function createWorkProjector(): (
           (count, item) => count + (item.segment.kind === 'tools' ? item.segment.calls.length : 0),
           0
         )
+        const firstTool = firstToolRunIdInActivity(activity)
+        const key = firstTool
+          ? activityBlockKey(activity[0].messageId, firstTool)
+          : activityBlockKey(activity[0].messageId, id)
         output.push({
           kind: 'activity',
-          key: `activity:${id}:${activity[0].key}`,
+          key,
           items: activity,
           toolCount,
           noteCount: activity.filter((item) => item.segment.kind === 'text').length

@@ -52,7 +52,10 @@ export function CodeBlock({
   const langLabel = safeLang !== 'text' ? safeLang : lang || 'text'
 
   const header = (
-    <div className="flex items-center justify-between border-b border-t5 bg-t1 px-3 py-1 text-caption text-t6">
+    <div
+      data-transcript-chrome=""
+      className="flex items-center justify-between border-b border-t5 bg-t1 px-3 py-1 text-caption text-t6"
+    >
       <span className="font-mono lowercase">{langLabel}</span>
       <div className="opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none group-hover/codeblock:opacity-100 focus-within:opacity-100">
         <CopyIconButton text={code} title={tr('common.copyCode')} />
@@ -81,7 +84,11 @@ export function CodeBlock({
       {showHeader && header}
       <pre className={`m-0 overflow-auto p-3 text-code text-t9 ${showLineNumbers ? 'flex' : ''}`}>
         {showLineNumbers && (
-          <span aria-hidden="true" className="mr-4 shrink-0 select-none text-right text-ink3">
+          <span
+            aria-hidden="true"
+            data-transcript-chrome=""
+            className="mr-4 shrink-0 select-none text-right text-ink3"
+          >
             {Array.from({ length: code.split('\n').length }, (_, index) => index + 1).join('\n')}
           </span>
         )}

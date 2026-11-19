@@ -42,6 +42,7 @@ describe('OpenCode sources through the actual context hook and selector', () => 
   })
 
   const attachment: Message = {
+    id: 'm-44',
     role: 'user',
     createdAt: 1,
     parts: [
@@ -60,6 +61,7 @@ describe('OpenCode sources through the actual context hook and selector', () => 
     ]
   }
   const web: Message = {
+    id: 'm-62',
     role: 'assistant',
     createdAt: 2,
     parts: [

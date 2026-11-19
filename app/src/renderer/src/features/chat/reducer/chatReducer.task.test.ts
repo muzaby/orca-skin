@@ -1,3 +1,4 @@
+import { taskBoardFromMessages } from '../lib/transcriptIndex.legacy.testfixture'
 // 0204 — 작업 타일이 라이브 이벤트에서 목록을 만들 수 있는지의 reducer 계약.
 //
 // taskBoard 의 fold 테스트는 parts 를 직접 만들어 넣는다(재로드 경로와 동형). 여기서는 그
@@ -5,7 +6,7 @@
 // 재로드 전까지 비어 보인다(AC18).
 import { describe, expect, it } from 'vitest'
 import { chatReducer, initialChatState, type ChatAction, type ChatState } from './chatReducer'
-import { backgroundTaskKey, taskBoardFromMessages } from '../lib/taskBoard'
+import { backgroundTaskKey } from '../lib/taskBoard'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({

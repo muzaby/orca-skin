@@ -98,6 +98,7 @@ it('a captured output updates the original background session without starting a
   installChatStoreHarness({
     messages: [
       {
+        id: 'm-100',
         role: 'assistant',
         createdAt: 1,
         parts: [{ type: 'tool_call', toolRunId: 'write', toolName: 'Write', args: {} }]
@@ -129,6 +130,7 @@ it('a capture for an unknown session cannot fall back to a pending draft with th
   installChatStoreHarness({
     messages: [
       {
+        id: 'm-131',
         role: 'assistant',
         createdAt: 1,
         parts: [{ type: 'tool_call', toolRunId: 'write', toolName: 'Write', args: {} }]

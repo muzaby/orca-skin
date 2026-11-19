@@ -22,7 +22,12 @@ const message = (
   role: 'user' | 'assistant',
   text: string,
   createdAt: number
-): ChatState['messages'][number] => ({ role, createdAt, parts: [{ type: 'text', text }] })
+): ChatState['messages'][number] => ({
+  id: `m-${role}-${createdAt}`,
+  role,
+  createdAt,
+  parts: [{ type: 'text', text }]
+})
 
 const IDLE: Occupancy = { inflight: false, transport: 'idle' }
 const OCCUPIED = [

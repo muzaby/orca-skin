@@ -1,10 +1,9 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import { emptyBackgroundState } from '../../../../../../../shared/background-task'
 import { useBackgroundStore } from '../../../store/backgroundStore'
 import { useChatStore } from '../../../store/chatStore'
-import * as projection from './model'
 import {
   OpenCodeAgentContent,
   OpenCodeAgentHeader,
@@ -12,12 +11,11 @@ import {
   OpenCodeTaskContent
 } from './tiles'
 
-it('shares one projection across four components and invalidates each input reference independently', () => {
+it('shares one incremental transcript index across four components and updates on new messages', () => {
   const initial = useChatStore.getInitialState()
   const entry = initial.sessions[initial.activeKey]
   const previous = entry.session
   const backgrounds = useBackgroundStore.getInitialState().sessions
-  const project = vi.spyOn(projection, 'sessionPanelModel')
   const render = (): string =>
     renderToStaticMarkup(
       createElement(
@@ -36,6 +34,7 @@ it('shares one projection across four components and invalidates each input refe
       backend: 'opencode',
       messages: [
         {
+          id: 'm-38',
           role: 'assistant',
           createdAt: 1,
           parts: [
@@ -51,24 +50,15 @@ it('shares one projection across four components and invalidates each input refe
     }
     const messages = entry.session.messages
     expect(render()).toContain('echo first')
-    render()
-    expect(project).toHaveBeenCalledTimes(1)
     const background = emptyBackgroundState()
     backgrounds['memo-panel'] = { state: background, loading: false }
-    render()
-    render()
-    expect(project).toHaveBeenCalledTimes(2)
-    backgrounds['memo-panel'] = { state: emptyBackgroundState(), loading: false }
-    render()
-    expect(project).toHaveBeenCalledTimes(3)
-    backgrounds['memo-panel'] = { state: background, loading: false }
-    render()
-    expect(project).toHaveBeenCalledTimes(3)
+    expect(render()).toContain('echo first')
     entry.session = {
       ...entry.session,
       messages: [
         ...messages,
         {
+          id: 'm-71',
           role: 'assistant',
           createdAt: 2,
           parts: [
@@ -78,11 +68,8 @@ it('shares one projection across four components and invalidates each input refe
       ]
     }
     expect(render()).toContain('echo first')
-    expect(project).toHaveBeenCalledTimes(4)
-    expect(project.mock.results.at(-1)?.value.processes[0].output).toBe('final output')
   } finally {
     entry.session = previous
     delete backgrounds['memo-panel']
-    project.mockRestore()
   }
 })

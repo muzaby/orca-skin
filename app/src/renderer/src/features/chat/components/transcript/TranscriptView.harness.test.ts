@@ -40,11 +40,13 @@ vi.mock('@tanstack/react-virtual', async (original) => {
 })
 
 const userMessage: Message = {
+  id: 'm-42',
   role: 'user',
   createdAt: 1,
   parts: [{ type: 'text', text: 'Prompt' }]
 }
 const assistantMessage: Message = {
+  id: 'm-47',
   role: 'assistant',
   createdAt: 2,
   parts: [{ type: 'text', text: 'Answer' }]
@@ -59,10 +61,25 @@ describe('OpenCode transcript presentation', () => {
     'preserves bubble colors and the harness viewport background in earlier and last exchanges ($backend/$agentKind)',
     ({ backend, agentKind }) => {
       const messages: Message[] = [
-        { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'Earlier prompt' }] },
-        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'Earlier answer' }] },
-        { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'Last prompt' }] },
-        { role: 'assistant', createdAt: 4, parts: [{ type: 'text', text: 'Last answer' }] }
+        {
+          id: 'm-62',
+          role: 'user',
+          createdAt: 1,
+          parts: [{ type: 'text', text: 'Earlier prompt' }]
+        },
+        {
+          id: 'm-63',
+          role: 'assistant',
+          createdAt: 2,
+          parts: [{ type: 'text', text: 'Earlier answer' }]
+        },
+        { id: 'm-64', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'Last prompt' }] },
+        {
+          id: 'm-65',
+          role: 'assistant',
+          createdAt: 4,
+          parts: [{ type: 'text', text: 'Last answer' }]
+        }
       ]
       installChatStoreHarness({ backend, agentKind, messages })
       const $ = load(
@@ -82,7 +99,7 @@ describe('OpenCode transcript presentation', () => {
         )
       )
       const exchanges = $(
-        backend === 'opencode' ? '[data-timeline-row="user"]' : '[data-app-exchange]'
+        backend === 'opencode' ? '[data-timeline-row="user"]' : '[data-index]:has(.bg-bubble-user)'
       )
       expect($('[data-transcript-viewport]')).toHaveLength(1)
       expect(exchanges).toHaveLength(2)
@@ -102,8 +119,8 @@ describe('OpenCode transcript presentation', () => {
       expect(
         $(
           backend === 'opencode'
-            ? '[data-index="0"][data-timeline-row="user"]'
-            : '[data-index="0"] [data-app-exchange]'
+            ? '[data-index="0"] [data-timeline-row="user"]'
+            : '[data-index="0"]'
         ).text()
       ).toContain('Earlier prompt')
       expect($('[data-timeline-scroll]')).toHaveLength(backend === 'opencode' ? 1 : 0)
@@ -165,8 +182,18 @@ describe('OpenCode transcript presentation', () => {
         backend,
         agentKind: 'code',
         messages: [
-          { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'User prompt' }] },
-          { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'Answer body' }] }
+          {
+            id: 'm-168',
+            role: 'user',
+            createdAt: 1,
+            parts: [{ type: 'text', text: 'User prompt' }]
+          },
+          {
+            id: 'm-169',
+            role: 'assistant',
+            createdAt: 2,
+            parts: [{ type: 'text', text: 'Answer body' }]
+          }
         ],
         pendingSteer: [],
         inflight: false,

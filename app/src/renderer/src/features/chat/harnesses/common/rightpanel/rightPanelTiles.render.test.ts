@@ -1,3 +1,8 @@
+import {
+  childMessageForParentToolRunId,
+  subagentTasksFromMessages,
+  taskBoardFromMessages
+} from '../../../lib/transcriptIndex.legacy.testfixture'
 import { assistantRuntime } from '../../registries/assistant'
 import { TranscriptRuntimeProvider } from '../transcript/TranscriptRuntime'
 import { SubAgentTaskDetail } from './SubAgentTaskDetail'
@@ -19,13 +24,8 @@ import { renderToStaticMarkup as renderMarkup } from 'react-dom/server'
 import { SubAgentTaskList } from '../../claude/rightpanel/LegacySubAgentTile'
 import { SubAgentTileContent } from '../../claude/rightpanel/SubAgentTileContent'
 import { TaskProgressList, TaskTileContent } from '../../claude/rightpanel/TaskTileContent'
-import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../../lib/parts'
-import {
-  agentTaskKey,
-  backgroundTaskKey,
-  taskBoardFromMessages,
-  taskBoardOrdered
-} from '../../../lib/taskBoard'
+
+import { agentTaskKey, backgroundTaskKey, taskBoardOrdered } from '../../../lib/taskBoard'
 import type { Message } from '../../../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import { agentUiPolicy } from '../../../lib/agentPresentation'
@@ -101,7 +101,7 @@ function backgroundTask(
 }
 
 const messages = (...parts: AppMessagePart[][]): Message[] => [
-  { role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }
+  { id: 'm-104', role: 'assistant', createdAt: 1_700_000_000_000, parts: parts.flat() }
 ]
 
 // 세션 parts → `진행 상황` 섹션 본문 HTML. 프로덕션과 같은 파생을 통과시킨다.

@@ -3,33 +3,23 @@ import { useI18n } from '../../../../../shared/i18n'
 import { Button } from '../../../../../shared/ui/Button'
 import type { Message } from '../../../reducer/chatReducer'
 import { useBackgroundStore } from '../../../store/backgroundStore'
-import { chatActions, useChatSession } from '../../../store/chatStore'
+import { chatActions, useChatSession, useTranscriptView } from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
 import { AgentAvatar, PanelRow } from './chrome'
-import { activePanelProcesses, sessionPanelModel } from './model'
+import { activePanelProcesses, type SessionPanelModel } from './model'
 import { useOpenCodePanelNavigation } from './navigation'
 import { OpenCodeSources } from './Sources'
 
-const panelModels = new WeakMap<Message[], WeakMap<object, ReturnType<typeof sessionPanelModel>>>()
-const emptyBackground = {}
-
 function usePanelData(): {
   messages: Message[]
-  model: ReturnType<typeof sessionPanelModel>
+  model: SessionPanelModel
 } {
   const sessionId = useChatSession((state) => state.sessionId)
   const messages = useChatSession((state) => state.messages)
   const background = useBackgroundStore((state) =>
     sessionId ? state.sessions[sessionId]?.state : undefined
   )
-  let inputs = panelModels.get(messages)
-  if (!inputs) panelModels.set(messages, (inputs = new WeakMap()))
-  const backgroundKey = background ?? emptyBackground
-  let model = inputs.get(backgroundKey)
-  if (!model) {
-    model = sessionPanelModel(messages, background)
-    inputs.set(backgroundKey, model)
-  }
+  const model = useTranscriptView('sessionPanelModel', background)
   return { messages, model }
 }
 
@@ -42,7 +32,7 @@ function useSelectedOpenCodeAgent(): ReturnType<typeof usePanelData> & {
       >
     | undefined
   selected: string | null
-  agent: ReturnType<typeof sessionPanelModel>['agents'][number] | undefined
+  agent: SessionPanelModel['agents'][number] | undefined
 } {
   const { messages, model } = usePanelData()
   const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
