@@ -17,7 +17,7 @@
 | 기준 V | `none` — 0324·0325·0326 노드는 INHERITED REGRESSION 으로만 참조한다(`0325:V1 rev 4 + ΔV1 + ΔV2@d868468` — `origin/main` 조상 확인 · `0326:V1 rev 7` — 설계 `5b489f8`, 작업 브랜치, `main` 미병합) |
 | 이번 V revision | `V1` — 설계 커밋 좌표 `(V1 설계 — 검증자 기입)` |
 | 유효 V | `V1` |
-| AS-IS 트리 | `de270fe`(이 브랜치 HEAD = `d868468`(0325 기계 PASS, `main`) + 0326 r1 구현·verify r1). 줄 번호는 이 트리 기준이다 |
+| AS-IS 트리 | `de270fe`(`d868468`(0325 기계 PASS, `main`) + 0326 r1 구현·verify r1). 줄 번호는 이 트리 기준이다. 0326 r2(`b46ddc9` — PR #640 브랜치, 이 브랜치에 병합)는 §8 이 인용한 production 파일을 바꾸지 않았다(`git diff --name-only de270fe b46ddc9 -- app` 의 비테스트 파일 중 §18 목록 교집합 0) |
 | 구현 착수 조건 | 0326 기계 verify PASS 뒤(D-003). 착수 턴은 §18 파일과 §8 줄 참조를 0326 PASS 커밋과 다시 대조해 `[구현자 기입] 설계 리뷰`에 차이를 적는다 — 0327 은 0326 이 고치는 `CodeBlock.tsx`·`ToolCard.tsx`·`markdownBlocks.ts`·`StreamingMarkdown.tsx` 를 함께 고친다(§8 F1) |
 
 # Part I — Product & UX Contract
