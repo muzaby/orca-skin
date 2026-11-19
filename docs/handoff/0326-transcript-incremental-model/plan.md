@@ -1794,3 +1794,8 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
+| D1 | 위쪽 변위 앵커가 production 에서 캡처되지 않는다 — `TranscriptViewport.tsx:478-486` `captureCurrentAnchor` 호출 0 · 복원 effect 조기 반환 · 자동 보정 끔. 복원 무력화 변이(X01)가 `features/chat` 2,651 green | VP-26 · VP-27 · AC20·AC22·AC23 · EP-12 | 캡처 시점(앞삽입·위 블록 측정 변화·머리 높이 변화 전) 배선 + a1~a12 · ST-03 좌표 | 현재 + 이행 | BLOCKING | open |
+| D2 | plan 직접 oracle 좌표 대부분 부재 — 테스트 파일 18 · 테스트명 21 · 분기 기호 다수([verify §4](verify.md)). 자기보고 34/35 ↔ 재측정 ✅1·⚠️8·❌26 | §7 검증 수단 · §7-A VP-02~08·10~12·14~19·21~24·26~29·31·33·35·37·39 | plan 파일명·테스트명·분기 기호대로 작성 · 등록 변이 하한 ① 전부 · ⑦ sweep 을 IMPL_DONE 전에 | 이행 | BLOCKING | open |
+| D3 | 선택 마운트 집합의 초점 `± overscan` 제거(X02)가 green | VP-29 · AC26 | c-case 좌표로 잠금 | 이행 | BLOCKING | open |
+| D4 | `[구현자 기입]` 강제 지점 표가 EP 묶음 단위(자리별 좌표·`남긴 곳` 없음) · pair 라벨이 plan 과 다름 · 잠금 표에 ⑦ sweep 행 없음 | 현재 산출물(message-bus · handoff-impl 7필드) | 재구현 턴에 §10 자리별로 다시 작성 | 이행 | BLOCKING | open |
+| D6 | plan 메타 `상태` 가 `IN_PROGRESS (V1 rev 7 · r1.2)` 로 남음 | — | 다음 구현 턴에 갱신 | 비귀속 | NON_BLOCKING | open |
