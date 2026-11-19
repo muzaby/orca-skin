@@ -241,6 +241,26 @@ describe('세션 조각 세 예산 (0325 VP-03)', () => {
     expect(sizes(splitSessionMessages(messages))).toEqual([2, 1])
   })
 
+  it('e13 남은 예산보다 비싼 메시지는 측정이 어느 노드에서 멈추든 다음 조각이다', () => {
+    const first = message(2, 'a')
+    const candidate = message(2, 'b')
+    const messages = [first, candidate]
+    const base = estimateWireChars(first)
+    const full = estimateWireChars(candidate)
+    const limits = { messages: SESSION_CHUNK_MAX_MESSAGES, parts: SESSION_CHUNK_MAX_PARTS }
+
+    for (let remaining = 0; remaining < full; remaining++) {
+      const cost = estimateWireChars(candidate, remaining)
+      const end = nextSessionChunkEnd(messages, 0, { ...limits, chars: base + remaining })
+
+      expect.soft(cost, `남은 예산 ${remaining}에서 후보 측정 비용`).toBeGreaterThan(remaining)
+      expect.soft(end, `남은 예산 ${remaining}에서 조각 끝`).toBe(1)
+    }
+
+    expect(estimateWireChars(candidate, full)).toBe(full)
+    expect(nextSessionChunkEnd(messages, 0, { ...limits, chars: base + full })).toBe(2)
+  })
+
   it('estimateWireChars 는 문자열·키 길이 합 + 노드마다 2 이고 예산을 넘으면 그 합에서 멈춘다', () => {
     // {a:'xy', b:[1]} = 노드 4(객체·문자열·배열·수) × 2 + 'xy' 2 + 키 'a'·'b' 2 = 12
     expect(estimateWireChars({ a: 'xy', b: [1] })).toBe(12)
