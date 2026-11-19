@@ -1418,6 +1418,115 @@ store live → (OpenCode) OpenCodeTextSegment · (Claude) LiveText — 확정 me
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 사용자의 handoff-impl 325 지시로 착수했다. 유효 기준은 V1 rev 4 + ΔV1 + ΔV2다.
+- D-047에 따라 e13을 추가했다. 두 메시지의 비용은 실제 측정 함수에서 얻고 후보 비용 미만의 모든 정수 예산과 정확히 일치하는 예산을 검사한다.
+- VP-03의 EP-1 ③·⑤를 재검증했다. 같은 테스트 파일을 쓰는 VP-01·VP-02·VP-04의 기존 증거를 유지했다. ACTIVE Decision 충돌은 없다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-03 | 조각 상한 셋 · 즉시 반환 · 조립 | EP-1 ①~⑥·⑨ (7) | 7/7 | `data-host.test.ts` ① e1·e7·e10, ② e2·e7·e11, ③ e3·e7·e12·e13, ④ e4·e5, ⑤ e8·e13·루트 객체 예산 0·1 테스트, ⑥ e10~e12, ⑨ e9 | ③·⑤ 예산 0~76에서 측정 비용이 예산보다 크고 끝 인덱스 1. 예산 77에서 비용 77과 끝 인덱스 2 | — |
+| VP-02 | 양보 뒤 측정 · 머리 합 · 전송층 조립 | EP-1 ⑦⑧⑩ (3) | 3/3 유지 | ⑦ `session-load.bounds.test.ts` q1~q3, ⑧ 같은 파일 머리 합 테스트, ⑩ 전송층 `session-load.test.ts` 20만 건 조립 | 양보 중 취소 후 읽기 0 · 두 집계 값 구별 · 한 조각/400조각 모두 순서 유지 | — |
+| 나머지 §10 pair | ΔV1 검색 대조 | EP-2~EP-10 (67) | 67/67 유지 | r1 강제 지점 표의 자리별 oracle · verify R2-3의 기존 판정 | 아래 §10-A 검색 결과와 자리 대응이 일치 | — |
+
+- EP 순서 1·2·2b·3·3b·4·5·6·7·8·9·10의 검색 줄 수는 39·32+3·17·9+25·13·31·16·19·5·12·13·22다. 파일·줄 집합의 양방향 차집합은 각 EP에서 0이다.
+- EP-1의 펼침 검색은 0건이다. EP-5 ⑤·EP-10 ②의 음성 검색도 각각 0건이다.
+- 직전 미검출 중 이번 턴에 채택된 E1의 N2는 아래 표에서 재검증했다.
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-03 | REQUIRED | SELF_PASS | 위 표의 EP-1 ①~⑥·⑨ · 새 e13 | V1.1·V1.2·V1.3·V1.9·N2 검출 |
+| VP-01·VP-02·VP-04 | REQUIRED·REGRESSION | 유지 | 위 표와 verify R2-3 및 라운드 1 §5 · 관련 스위트 4개 59케이스 통과 | VP-02 V1.7reg 검출 |
+| VP-05~VP-30·VP-32·VP-33 | REQUIRED·REGRESSION | 유지 | verify R2-3 및 라운드 1 §5의 좌표 | 기존 증거 유지 |
+| VP-31 | REQUIRED | SELF_BLOCKED | §19 Windows 실기 | 해당 없음 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| N2 측정 초과를 >=로 변경 | VP-03 선택 증거 · E1 인용 | 못 잡음 | e13 1케이스 실패 · 측정 9 및 조각 끝 9 단언 실패 | 잡음 |
+| E13-equal 조각의 문자 초과를 >=로 변경 | EP-1 sweep | 최초 | vitest 1 failed · 30 skipped (31) | 잡음 |
+| V1.1 메시지 수 비교 제거 | VP-03 선택 증거 | 잡음 | vitest 5 failed · 40 passed (45) | 잡음 |
+| V1.2 part 합 비교 제거 | VP-03 선택 증거 | 잡음 | 통합 2케이스 실패 · 단위 픽스처 조립 실패 | 잡음 |
+| V1.2s part와 문자 상한 맞바꿈 | EP-1 sweep | 잡음 | 통합 2케이스 실패 · 단위 픽스처 조립 실패 | 잡음 |
+| V1.3 문자 비교 우회 | VP-03 선택 증거 | 잡음 | vitest 7 failed · 38 passed (45) | 잡음 |
+| V1.3b 남은 예산 인자 제거 | EP-1 sweep | 잡음 | vitest 2 failed · 43 passed (45) | 잡음 |
+| V1.4 단독 진행 제거 | EP-1 sweep | 잡음 | vitest 2 failed · 43 passed (45) | 잡음 |
+| V1.5 초과 반환 우회 | EP-1 sweep | 잡음 | vitest 5 failed · 40 passed (45) | 잡음 |
+| V1.5b 루트 조기 반환 제거 | EP-1 sweep | 잡음 | vitest 2 failed · 29 skipped (31) | 잡음 |
+| V1.5c 키 비용 제거 | EP-1 sweep | 잡음 | vitest 1 failed · 44 passed (45) | 잡음 |
+| E1.6 분할 반복을 한 조각으로 대체 | EP-1 sweep | r2 잡음 | 단위 픽스처가 세 번째 조각에 접근할 때 실패 | 잡음 |
+| V1.7 양보 제거 | EP-1 sweep | 잡음 | vitest 3 failed · 42 passed (45) | 잡음 |
+| V1.7b 취소 확인 제거 | EP-1 sweep | 잡음 | vitest 3 failed · 42 passed (45) | 잡음 |
+| V1.7reg 양보 전 측정 | EP-1 sweep | 잡음 | vitest 3 failed · 42 passed (45) | 잡음 |
+| V1.8 머리의 두 집계 값 맞바꿈 | EP-1 sweep | 잡음 | vitest 2 failed · 43 passed (45) | 잡음 |
+| E1.8b 메시지 집계 제거 | EP-1 sweep | r2 잡음 | vitest 2 failed · 43 passed (45) | 잡음 |
+| V1.9 조립에 펼침 복귀 | VP-03 선택 증거 | 잡음 | vitest 1 failed · 44 passed (45) | 잡음 |
+| V1.10 전송층 조립 제거 | EP-1 sweep | 잡음 | vitest 7 failed · 38 passed (45) | 잡음 |
+| V1.L 메시지 상한 501 | EP-1 sweep | 잡음 | vitest 6 failed · 53 passed (59) | 잡음 |
+| V1.Lc 문자 상한 2,000,000 | EP-1 sweep | 잡음 | vitest 6 failed · 53 passed (59) | 잡음 |
+| N1 자식 방문 뒤 즉시 반환 제거 | EP-1 sweep | 잡음 | vitest 3 failed · 56 passed (59) | 잡음 |
+| N3 루트 비용 2 고정 | EP-1 sweep | 잡음 | vitest 1 failed · 58 passed (59) | 잡음 |
+| V1.8b 메시지 집계를 원래 배열 길이로 대체 | EP-1 sweep | 동치 | vitest 59 passed (59) | 동치 |
+| V1.6 분할 시 인자를 전달하지 않음 | EP-1 sweep | 동치 | vitest 59 passed (59) | 동치 |
+
+- 분모 검산은 선택 증거 5 · 인용 변이 1(선택 증거 N2와 중복) · 새 구조 oracle 0 · sweep 20이다. 고유 행은 5 + 20 = 25다.
+- N2에서 후보 측정값이 예산과 같아진 9개 지점 모두 조각 끝이 2가 됐다. e13은 측정과 조각 경계에서 각각 9개 단언을 실패시켰다.
+- 변이는 분리 워크트리에서 실행했다. 하네스 원복 확인 이후 본 워크트리의 production 파일 차이는 0이다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 해당 없음. 추가 문구는 테스트 실패 메시지다. | — |
+| seam을 만들려고 production을 재배치했는가 | 해당 없음. e13은 production 함수 두 개를 직접 부른다. | — |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 해당 없음. 변경은 조각 경계를 검증하는 테스트다. | — |
+| 실패가 화면에서 아무 일도 안 일어남으로 보이지 않는가 | 해당 없음. 비교가 어긋나면 테스트가 예산과 어긋난 관측을 표시한다. | — |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | VP-02 q1~q3 기존 취소 단언 통과. | — |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| E1 | 중간 노드 누계가 예산과 같을 때 멈추는 N2를 기존 oracle이 검출하지 못함 | ΔV2 e13으로 닫음 | 측정·조각 경계 각각 9개 단언 실패. 정상 구현에서 e13 통과 |
+| B25 | 키 길이가 예산을 넘긴 경우 값 방문 단위 | 선언 경계 유지 | D-047과 §10 B25. e13은 반환값과 조각 경계를 관측 |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 · 공유 · 재진입 · 다른 무효화 | 해당 없음. 테스트만 추가했다. | AC2 · EP-1 ③·⑤ |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 대상 커밋 | `(r3 구현 — 좌표는 INDEX)` |
+| 변경 파일 | `app/src/shared/data-host.test.ts`, `plan.md`, `docs/handoff/INDEX.md` |
+| 실행 명령 | §10-A 검색 · 변이 하네스 · app 로컬 확인 전부 |
+| 관측한 게이트 산출 | 가드 5종 통과 · lint 오류 0/기존 경고 3 · typecheck 통과 · 전체 Vitest 파일 11 failed · 1028 passed · 4 skipped (1043) / 케이스 24 failed · 9925 passed · 1 expected fail · 11 skipped (9961) / 미처리 오류 1 error · 스크립트 1,025/1,025 · 번들·호스트·프리로드 스모크 통과 |
+| 기준선 분리 | 변경 전 앱 트리(`cf42a70f`와 동일)와 실패 이름 집합 양방향 차집합 0. 24건(11파일 · `adapter.instances.test.ts` · `adapter.native-plugins.test.ts` · `adapter.persistent.test.ts` · `adapter.test.ts` · `composer-catalog.test.ts` · `composer-preparation-service.test.ts` · `git-root.test.ts` · `native-resources.test.ts` · `project-reconciliation.test.ts` · `project-resource-sync.test.ts` · `session-resources.claude-assembly.test.ts`). Windows 경로·win32 분기 22건, 샌드박스 `/tmp/.git` 경계 2건, native-resources 미처리 rejection 1건(양쪽 같은 메시지와 위치). |
+| 추가·수정 테스트의 subtree 규칙 | 수정 테스트 1개. 시간 예산 위반 0(`check-test-budgets`), 실제 홈·환경 접근 0, I/O 신호 0. 순수 unit 파일 31케이스 통과. |
+| V-pair 자기확인 | VP-03 SELF_PASS · 이전 PASS 근거 유지 31 · VP-31 SELF_BLOCKED |
+| 강제 지점 전수 | 77/77(③·⑤ 추가 관측 · 다른 자리 기존 관측 유지) |
+| AC 자기보고 | AC2 ✅ e13·e1~e12·q1~q3. AC1·AC3~AC18·AC20~AC22 ✅ verify R2-3의 근거 유지. AC19 ⚠️ Windows 실기. |
+| 합계 검산 | ✅ 21 · ⚠️ 1 · ❌ 0 = 총 22 |
+| 블로커 / 역질문 | AC19 Windows 실기 대기(§19). |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- r2는 루트가 예산을 초과하는 경로를 검증했다. r3는 중간 노드에서 누계가 예산에 도달하는 9개 지점과 후보 전체 비용과의 일치를 검증했다.
+- 해당 기준은 D-047·AC2·EP-1 ③·⑤다.
+- 환경 한계는 기준선 분리와 AC19에 기록했다.
+- 현재 라운드와 구현 턴은 r3다.
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
