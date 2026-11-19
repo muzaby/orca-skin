@@ -12,6 +12,7 @@ function row(
   const { type, ...payload } = part
   return {
     message_id: messageId,
+    message_key: null,
     message_idx: messageId,
     created_at: messageId,
     role,
@@ -149,4 +150,27 @@ describe('native history projection', () => {
     })
     expect(result.messages[1].parts[1]).toMatchObject({ args: { plan: 'confirmed' } })
   })
+})
+
+it('keeps the latest bound native ID stable when earlier history is prepended', () => {
+  const original = snapshot()
+  const parts: LoadedPartRow[] = [
+    { ...row(10, { type: 'text', text: 'owned' }), message_key: 'a:owner' },
+    { ...row(11, { type: 'text', text: 'other' }), message_key: 'a:other' },
+    row(12, { type: 'text', text: 'local tail' })
+  ]
+  const bindings = [
+    { message_id: 10, native_message_id: 'user-native' },
+    { message_id: 10, native_message_id: 'a2' },
+    { message_id: 11, native_message_id: 'assistant-native' }
+  ]
+  const ids = (value: NativeHistorySnapshot): string[] =>
+    projectNativeHistory(value, parts, bindings, 11).messages.map(({ id }) => id)
+  expect(ids(original)).toEqual(['n:user-native', 'a:owner', 'm:12'])
+  expect(
+    ids({
+      ...original,
+      messages: [{ id: 'before', role: 'assistant', createdAt: 0, parts: [] }, ...original.messages]
+    })
+  ).toEqual(['n:before', 'n:user-native', 'a:owner', 'm:12'])
 })

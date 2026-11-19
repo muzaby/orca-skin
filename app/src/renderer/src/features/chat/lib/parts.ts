@@ -1,3 +1,4 @@
+import { childMessageId } from '../../../../../shared/message-id'
 // AppMessagePart(provider-runtime.md §7) 셀렉터 — 순서 보존 parts 를 transcript 렌더가 쓰는
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
@@ -294,7 +295,7 @@ function deriveChildMessage(messages: readonly Message[], parentToolRunId: strin
     }
   }
   if (parts.length === 0) return null
-  return { role: 'assistant', createdAt: Date.now(), parts }
+  return { id: childMessageId(parentToolRunId), role: 'assistant', createdAt: Date.now(), parts }
 }
 
 // 부모 Task 하나의 description 만 필요할 때(완료 통지 행) — 전체 요약을 만들지 않는다.

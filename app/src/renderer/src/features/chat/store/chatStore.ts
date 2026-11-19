@@ -1,3 +1,4 @@
+import { rendererMessageId } from '../../../../../shared/message-id'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
 import { useMemo } from 'react'
 import { create } from 'zustand'
@@ -98,6 +99,8 @@ import {
 export interface LiveTurnState {
   // 스트리밍 중 누적 텍스트(구 ChatState.pendingDelta).
   text: string
+  textKey?: string
+  reasoningKey?: string
   // 라이브 확장사고 누적. 완성 시 message.reasoning 이 영속 reasoning 파트로 굳히며 비운다.
   reasoning: string
   // `hasSegmentReasoning(reasoning)` 과 언제나 같은 값 — 조각마다 OR 로 켜고 reasoning 을 비우는 자리에서
@@ -552,26 +555,57 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
   if (events.length === 0) return
   setState((state) => {
     let sessions = state.sessions
-    for (const event of events) {
-      // Child partials never belong to the main composer; completed child blocks own their transcript.
+    for (let index = 0; index < events.length;) {
+      const event = events[index++]
       if (event.parentToolRunId) continue
-      // 라우팅·턴 시작 판정은 receive 와 같은 술어를 쓴다(0149) — 두 경로가 갈라지지 않는다.
+      const fragments = [event.delta.text]
+      while (index < events.length) {
+        const next = events[index]
+        if (
+          next.parentToolRunId ||
+          next.sessionId !== event.sessionId ||
+          next.type !== event.type ||
+          next.messageKey !== event.messageKey
+        ) {
+          break
+        }
+        fragments.push(next.delta.text)
+        index++
+      }
       const { key } = resolveSessionKey(sessions, state.pendingNewChatKey, event.sessionId)
       if (!key) continue
       const entry = sessions[key]
       if (!entry) continue
 
-      const session = shouldBeginTurn(event, entry.session)
+      const text = fragments.join('')
+      let session = shouldBeginTurn(event, entry.session)
         ? chatReducer(entry.session, { type: 'BEGIN_TURN' })
         : entry.session
-      const live =
-        event.type === 'message.delta'
-          ? { ...entry.live, text: entry.live.text + event.delta.text }
-          : {
-              ...entry.live,
-              reasoning: entry.live.reasoning + event.delta.text,
-              reasoningVisible: entry.live.reasoningVisible || hasSegmentReasoning(event.delta.text)
-            }
+      const previous = entry.live
+      let live: LiveTurnState
+      if (event.type === 'message.delta') {
+        const sameMessage = event.messageKey === previous.textKey
+        if (!sameMessage && previous.text !== '') {
+          session = chatReducer(session, {
+            type: 'COMMIT_PENDING_TEXT',
+            text: previous.text,
+            messageKey: previous.textKey
+          })
+        }
+        live = {
+          ...previous,
+          text: sameMessage ? previous.text + text : text,
+          textKey: event.messageKey
+        }
+      } else {
+        const sameMessage = event.messageKey === previous.reasoningKey
+        live = {
+          ...previous,
+          reasoning: sameMessage ? previous.reasoning + text : text,
+          reasoningKey: event.messageKey,
+          reasoningVisible: (sameMessage && previous.reasoningVisible) || hasSegmentReasoning(text)
+        }
+      }
 
       if (sessions === state.sessions) sessions = { ...sessions }
       sessions[key] = { ...entry, session, live }
@@ -786,8 +820,10 @@ function receive(ev: NormalizedEvent): void {
       patchEntry(key, (entry) => {
         const session = chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
         const live =
-          ev.parentToolRunId === undefined && entry.live.text !== ''
-            ? { ...entry.live, text: '' }
+          ev.parentToolRunId === undefined &&
+          entry.live.text !== '' &&
+          ev.messageKey === entry.live.textKey
+            ? { ...entry.live, text: '', textKey: undefined }
             : entry.live
         return session === entry.session && live === entry.live
           ? entry
@@ -798,7 +834,9 @@ function receive(ev: NormalizedEvent): void {
     case 'message.reasoning':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       patchLive(key, (live) =>
-        live.reasoning !== '' ? { ...live, reasoning: '', reasoningVisible: false } : live
+        live.reasoning !== '' && ev.messageKey === live.reasoningKey
+          ? { ...live, reasoning: '', reasoningKey: undefined, reasoningVisible: false }
+          : live
       )
       return
 
@@ -860,20 +898,25 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.committed':
-      // 소비 확정(echo 관측) — pending 항목(steer 등)은 일반 커밋 사용자 메시지로 승격하고,
-      // 턴-시작 낙관 커밋 분(0068)은 clientId 멱등(reducer 가드 + ids 스킵)으로 화해만 한다.
-      // echo 없이 남은 pending 은 큐(held/CLI 큐)에 살아있는 진행 상태 그대로다 — 자동 연속
-      // 턴이나 respawn 재전달로 커밋된다.
-      patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
-      if (ev.ids.some((id) => hasCommittedClientId(key, id))) return
-      dispatchTo(key, {
-        type: 'APPEND_COMMITTED_USER_MESSAGE',
-        text: ev.text,
-        createdAt: ev.createdAt,
-        clientId: ev.ids[0],
-        requirements: ev.requirements,
-        ...(ev.origin ? { origin: ev.origin } : {}),
-        ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
+      patchEntry(key, (entry) => {
+        const session = chatReducer(entry.session, {
+          type: 'APPEND_COMMITTED_USER_MESSAGE',
+          messageKey: ev.messageKey,
+          ids: ev.ids,
+          text: ev.text,
+          createdAt: ev.createdAt,
+          clientId: ev.ids[0],
+          requirements: ev.requirements,
+          origin: ev.origin,
+          attachmentViews: ev.attachmentViews
+        })
+        const pending = entry.pendingSteer ?? EMPTY_PENDING_STEER
+        const pendingSteer = pending.some((item) => ev.ids.includes(item.id))
+          ? pending.filter((item) => !ev.ids.includes(item.id))
+          : pending
+        return session === entry.session && pendingSteer === pending
+          ? entry
+          : { ...entry, session, pendingSteer }
       })
       return
 
@@ -934,7 +977,11 @@ function receive(ev: NormalizedEvent): void {
       patchEntry(key, (entry) => {
         const committed =
           entry.live.text !== ''
-            ? chatReducer(entry.session, { type: 'COMMIT_PENDING_TEXT', text: entry.live.text })
+            ? chatReducer(entry.session, {
+                type: 'COMMIT_PENDING_TEXT',
+                text: entry.live.text,
+                messageKey: entry.live.textKey
+              })
             : entry.session
         const session = chatReducer(committed, { type: 'RECV_EVENT', event: ev })
         const live = entry.live.text !== '' || entry.live.reasoning !== '' ? EMPTY_LIVE : entry.live
@@ -1620,6 +1667,7 @@ function startForkDraft(): boolean {
         ...(src.messages.length > 0
           ? [
               {
+                id: rendererMessageId(crypto.randomUUID()),
                 role: 'assistant' as const,
                 createdAt: Date.now(),
                 parts: [{ type: 'fork_boundary' as const }]

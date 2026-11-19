@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../shared/message-id'
 // chatStore 의 이벤트 라우팅(델타 → live 슬라이스 / 커밋 → reducer / sessionId 키 라우팅)
 // 단위 테스트. IPC(window.oo)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
 // session.updated 의 설정 영속화는 통합/시각 검증 영역.
@@ -765,6 +766,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer?.[0].requirements).toEqual([anchor])
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['queued']),
       sessionId: 's',
       ids: ['queued'],
       text: 'fix',
@@ -780,6 +782,7 @@ describe('chatStore — diff 요구사항 전송 스냅샷', () => {
     const count = entry().session.messages.length
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['queued']),
       sessionId: 's',
       ids: ['queued'],
       text: 'fix',
@@ -979,6 +982,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     ingestChatEvent({ type: 'session.updated', sessionId: 'ho', patch: {} })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['auto-1']),
       sessionId: 'ho',
       ids: ['auto-1'],
       text: '/compact [핸드오프] 자동 메시지',
@@ -1020,6 +1024,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     // sessionId 라 pending draft 로 폴백 라우팅되지만 [user → 요약] 순서는 보존된다.
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['auto-1']),
       sessionId: 'late',
       ids: ['auto-1'],
       text: '/compact 에코',
@@ -1177,6 +1182,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['q1']),
       sessionId: 's',
       ids: ['q1'],
       text: '추가 피드백',
@@ -1248,6 +1254,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     // main 의 병합 배치 커밋 — 적재 순서 그대로 한 버블로 승격되고 pending 은 비워진다.
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['a', 'b', sent.clientRequestId]),
       sessionId: 's',
       ids: ['a', 'b', sent.clientRequestId],
       text: 'first\n\nsecond\n\n새 메시지',
@@ -1283,6 +1290,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     // echo 커밋 — clientId 합류로 중복 append 없이 화해만 한다.
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId([clientId]),
       sessionId: 's',
       ids: [clientId],
       text: '낙관 메시지',
@@ -1489,6 +1497,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['q1']),
       sessionId: 's',
       ids: ['q1'],
       text: '추가 피드백',
@@ -1647,4 +1656,45 @@ describe('chatStore — continuityLang 스냅샷 (0127)', () => {
       expect.objectContaining({ forkFrom: 's', continuityLang: 'ko' })
     )
   })
+})
+
+it('commits the previous numbered delta without clearing the next numbered buffer', () => {
+  installChatStoreHarness()
+  ingestChatEvent({
+    type: 'message.delta',
+    sessionId: 's',
+    messageKey: 'a:1',
+    delta: { text: 'old' }
+  })
+  ingestChatEvent({
+    type: 'message.delta',
+    sessionId: 's',
+    messageKey: 'a:2',
+    delta: { text: 'new' }
+  })
+  flushRaf()
+  const entry = (): ReturnType<typeof useChatStore.getState>['sessions']['s'] =>
+    useChatStore.getState().sessions.s
+  expect(entry().session.messages.map((message) => [message.id, partsText(message.parts)])).toEqual(
+    [['a:1', 'old']]
+  )
+  expect(entry().live).toMatchObject({ textKey: 'a:2', text: 'new' })
+
+  ingestChatEvent({
+    type: 'message.completed',
+    sessionId: 's',
+    messageKey: 'a:3',
+    message: { text: 'separate' }
+  })
+  expect(entry().live).toMatchObject({ textKey: 'a:2', text: 'new' })
+  ingestChatEvent({
+    type: 'message.completed',
+    sessionId: 's',
+    messageKey: 'a:2',
+    message: { text: 'new final' }
+  })
+  expect(entry().live.text).toBe('')
+  expect(entry().session.messages.find((message) => message.id === 'a:2')?.parts).toEqual([
+    { type: 'text', text: 'new final' }
+  ])
 })

@@ -530,7 +530,10 @@ export async function handleChatSend(
       runtime,
       bus,
       persist: persistence,
-      forward: { forward: (owner, ev) => sendChatEvent(owner, ev) },
+      forward: {
+        forward: (owner, ev) => sendChatEvent(owner, ev),
+        relay: (turn, ev) => persistence.relay(turn, ev)
+      },
       registry: supervisor,
       classifyError: (err, phase) => activeAdapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,

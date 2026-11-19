@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../shared/message-id'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
 import { installChatStoreHarness } from './chatStore.testHarness'
@@ -72,6 +73,7 @@ it('nested late completion retains the main live preview and attaches only to it
   })
   ingestChatEvent({
     type: 'message.committed',
+    messageKey: userMessageId(['next']),
     messageId: 2,
     sessionId: 's',
     text: 'next',

@@ -27,7 +27,7 @@ function snapshot(
     backend: 'opencode',
     agentKind: 'code',
     title: 'native title',
-    messages: [{ role: 'assistant', createdAt: 2, parts: [{ type: 'text', text }] }],
+    messages: [{ id: 'a:2', role: 'assistant', createdAt: 2, parts: [{ type: 'text', text }] }],
     ...(nativeSync ? { nativeSync } : {})
   }
 }

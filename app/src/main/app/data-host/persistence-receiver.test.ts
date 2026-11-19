@@ -87,6 +87,12 @@ interface Driver {
 
 const tick = (): Promise<void> => new Promise((resolve) => setImmediate(resolve))
 
+function withoutMessageKeys(snapshot: Record<string, unknown[]>): Record<string, unknown[]> {
+  // The legacy direct writer did not have an agent-side key allocator.
+  const messages = snapshot.messages as Array<Record<string, unknown>>
+  return { ...snapshot, messages: messages.map((message) => ({ ...message, message_key: null })) }
+}
+
 // 지금의 한 프로세스 경로 — 저장기를 직접 부른다.
 function direct(db: DbQueries, usage: Usage, turn = agentTurn()): Driver {
   const writer = writerFor(db)
@@ -113,7 +119,8 @@ function direct(db: DbQueries, usage: Usage, turn = agentTurn()): Driver {
       })
       writer.recordAskAnswers(turn, answers)
     },
-    commit: async (text) => writer.commitUserMessage(turn, { text, createdAt: Date.now() }),
+    commit: async (text) =>
+      writer.commitUserMessage(turn, { text, createdAt: Date.now() })?.id ?? null,
     end: () => writer.finalizeTurn(turn),
     provider: (event, committed) => writer.persistProviderEvent(event, committed),
     forget: (sessionId) => writer.forgetProviderSession(sessionId),
@@ -154,7 +161,9 @@ function stream(
   data.onClosed(() => receiver.peerClosed())
   data.attach(loop.data)
   agent.attach(loop.agent)
+  let nextId = 0
   const sender = createPersistenceSender({
+    newId: () => String(++nextId),
     link: agent,
     send: (owner, ev) => void sent.push([owner, ev]),
     failTurn
@@ -316,7 +325,7 @@ describe('턴 저장 스트림의 받는 끝', () => {
       await viaStream.settle()
       const expected = dump(a.raw)
       expect(expected.sessions).toHaveLength(1)
-      expect(dump(b.raw)).toEqual(expected)
+      expect(withoutMessageKeys(dump(b.raw))).toEqual(expected)
     }
   )
 
@@ -414,7 +423,7 @@ describe('턴 저장 스트림의 받는 끝', () => {
     await first.settle()
     const after = dump(b.raw)
     expect(after).not.toEqual(before)
-    expect(after).toEqual(dump(a.raw))
+    expect(withoutMessageKeys(after)).toEqual(dump(a.raw))
     // 끊긴 도구 호출마다 결과 파트가 생겼다.
     expect(
       b.raw.prepare("SELECT count(*) AS n FROM message_parts WHERE type = 'tool_result'").get()

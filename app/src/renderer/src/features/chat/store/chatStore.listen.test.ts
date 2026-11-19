@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../shared/message-id'
 // 0143 — listen 대기 UX 의 store 계약: busy 라우팅(steer 예약), 자식 이벤트 BEGIN_TURN 제외,
 // 백그라운드 완료 통지 dispatch. 하네스는 chatStore.testHarness 공용(0149).
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -38,6 +39,7 @@ describe('chatStore — chat.activity 라우팅', () => {
     ingestChatEvent(activity(2, 'listening', { foreground: 'streaming' }))
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId([pendingId]),
       sessionId: 's',
       ids: [pendingId],
       text: '바로 재개',
@@ -178,6 +180,7 @@ describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
     ingestChatEvent(activity(2, 'idle'))
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId([pendingId]),
       sessionId: 's',
       ids: [pendingId],
       text: '잔여',

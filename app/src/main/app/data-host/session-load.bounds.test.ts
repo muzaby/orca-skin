@@ -42,6 +42,7 @@ beforeEach(() => {
 describe('세션 조각 전송의 예산 (0325 VP-01)', () => {
   it('빈 parts 200,000건은 조각 400개로 가고 조립 결과가 원본과 같다', async () => {
     const messages: LoadedMessage[] = Array.from({ length: 200_000 }, (_, index) => ({
+      id: String(index),
       role: index % 2 === 0 ? 'user' : 'assistant',
       createdAt: index,
       parts: []
@@ -69,10 +70,11 @@ describe('세션 조각 전송의 예산 (0325 VP-01)', () => {
     const parts = (count: number): LoadedMessage['parts'] =>
       Array.from({ length: count }, (_, index) => ({ type: 'text', text: `${index}` }))
     const messages: LoadedMessage[] = [
-      { role: 'user', createdAt: 0, parts: parts(300) },
-      { role: 'assistant', createdAt: 1, parts: parts(0) },
-      { role: 'assistant', createdAt: 2, parts: parts(300) },
+      { id: '0', role: 'user', createdAt: 0, parts: parts(300) },
+      { id: '1', role: 'assistant', createdAt: 1, parts: parts(0) },
+      { id: '2', role: 'assistant', createdAt: 2, parts: parts(300) },
       ...Array.from({ length: 600 }, (_, index) => ({
+        id: String(3 + index),
         role: 'user' as const,
         createdAt: 3 + index,
         parts: []
@@ -142,7 +144,12 @@ describe('조각 전송의 읽기 순서 (0325 VP-02 자리 7 · D-036)', () => 
     {
       name: 'q1 메시지 수 경계 — 빈 메시지 600건',
       messages: (): LoadedMessage[] =>
-        Array.from({ length: 600 }, (_, index) => ({ role: 'user', createdAt: index, parts: [] })),
+        Array.from({ length: 600 }, (_, index) => ({
+          id: String(index),
+          role: 'user',
+          createdAt: index,
+          parts: []
+        })),
       firstChunk: 500,
       check: (m: ReturnType<typeof instrument>): void => {
         // 후보(index 500)를 읽지 않는다.
@@ -154,6 +161,7 @@ describe('조각 전송의 읽기 순서 (0325 VP-02 자리 7 · D-036)', () => 
       name: 'q2 part 경계 — part 300 메시지 4건',
       messages: (): LoadedMessage[] =>
         Array.from({ length: 4 }, (_, index) => ({
+          id: String(index),
           role: 'assistant',
           createdAt: index,
           parts: textParts(300, 1)
@@ -168,6 +176,7 @@ describe('조각 전송의 읽기 순서 (0325 VP-02 자리 7 · D-036)', () => 
       name: 'q3 문자 경계 — 10,000자 part 40개 메시지 4건',
       messages: (): LoadedMessage[] =>
         Array.from({ length: 4 }, (_, index) => ({
+          id: String(index),
           role: 'assistant',
           createdAt: index,
           parts: textParts(40, 10_000)

@@ -8,6 +8,7 @@
 // 피어 포트는 두 호스트가 모두 준비된 뒤에 온다(EP-19) — 데이터 호스트가 필요한 기동 일(배포·스킬
 // 사본·설정 반응)은 첫 연결에서 돈다.
 
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import type { HostToShell } from '../../../shared/host-protocol'
@@ -234,6 +235,7 @@ export class AgentBootstrap implements HostAssembly {
       release: (leaseId) => this.data.write.managedMcpRelease(leaseId)
     })
     this.sender = createPersistenceSender({
+      newId: randomUUID,
       link: this.dataLink.link,
       send: (owner, ev) => sendChatEvent(owner, ev),
       failTurn: (turn, message) => {

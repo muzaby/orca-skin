@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../../../../shared/message-id'
 import { createElement } from 'react'
 import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/registries/transcript.testfixture'
 import { describe, expect, it, vi } from 'vitest'
@@ -45,6 +46,7 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
     const human = '<task-notification>직접 입력 보존</task-notification>'
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['auto']),
       sessionId: 's',
       ids: ['auto'],
       messageId: 1,
@@ -54,6 +56,7 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
     })
     ingestChatEvent({
       type: 'message.committed',
+      messageKey: userMessageId(['human']),
       sessionId: 's',
       ids: ['human'],
       messageId: 2,
@@ -76,7 +79,7 @@ describe.each(['work', 'code'] as const)('%s received input visibility', (agentK
         backend: 'claude',
         agentKind,
         title: null,
-        messages: live.messages.map((message, id) => ({ ...message, id }))
+        messages: live.messages.map((message, id) => ({ ...message, id: message.id ?? String(id) }))
       }
     })
     expect(loaded.messages[0].parts).toEqual(live.messages[0].parts)

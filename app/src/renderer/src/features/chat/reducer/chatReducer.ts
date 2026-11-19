@@ -37,6 +37,7 @@ import {
   DEFAULT_PERMISSION_MODE,
   permissionModeForAgent
 } from '../../../../../shared/permission-mode'
+import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
 import { planReviewToolInput } from '../../../../../shared/plan-review-input'
 import { responseBoundaryPart } from '../../../../../shared/response-boundary'
 import type {
@@ -70,6 +71,7 @@ import {
 } from '../lib/rightPanelLayout'
 import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
+import { partMergeKey } from '../lib/transcript/mergeKey'
 import { contextTokens } from '../lib/telemetry'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
@@ -225,6 +227,7 @@ function reanchoredRequirements(
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
 // tool_call/tool_result 는 toolRunId 로 페어링해 렌더한다.
 export interface Message {
+  id?: string
   role: 'user' | 'assistant'
   createdAt: number
   parts: AppMessagePart[]
@@ -665,6 +668,8 @@ export type ChatAction =
   // clientId 멱등 가드가 두 경로의 이중 append 를 차단한다.
   | {
       type: 'APPEND_COMMITTED_USER_MESSAGE'
+      messageKey?: string
+      ids?: readonly string[]
       text: string
       createdAt?: number
       attachmentViews?: AttachmentView[]
@@ -689,7 +694,7 @@ export type ChatAction =
   | { type: 'RECV_EVENT'; event: NormalizedEvent }
   // 턴이 message.completed 없이 끝났을 때(telemetry 도착 시점) live 버퍼의 잔여 텍스트를
   // text 파트로 굳힌다. 버퍼 소유자는 chatStore — reducer 는 텍스트만 받는다.
-  | { type: 'COMMIT_PENDING_TEXT'; text: string }
+  | { type: 'COMMIT_PENDING_TEXT'; text: string; messageKey?: string }
   | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
   // 실행 프로세스(에이전트 호스트)가 죽었다(0324 AC29′). 진행 중이던 턴은 오류로 끝나고 입력을 다시
@@ -790,13 +795,38 @@ export type ChatAction =
 // 현재 assistant 메시지에 파트를 누적한다. 마지막 메시지가 user 면(턴 시작) 새 assistant
 // 메시지를 만들고, assistant 면 그 parts 끝에 붙인다 — 한 턴의 reasoning/text/tool_*/error
 // 가 같은 메시지로 묶인다(main persist 와 동형).
-function appendAssistantPart(messages: Message[], part: AppMessagePart): Message[] {
-  const last = messages[messages.length - 1]
-  if (!last || last.role === 'user') {
-    return [...messages, { role: 'assistant', createdAt: Date.now(), parts: [part] }]
+function appendAssistantPart(
+  messages: Message[],
+  part: AppMessagePart,
+  messageKey?: string
+): Message[] {
+  const lastIndex = messages.length - 1
+  const index =
+    messageKey === undefined
+      ? lastIndex
+      : messages[lastIndex]?.id === messageKey
+        ? lastIndex
+        : messages.findIndex((message) => message.id === messageKey)
+  const owner = messages[index]
+  if (!owner || owner.role === 'user') {
+    return [
+      ...messages,
+      {
+        id: messageKey ?? rendererMessageId(crypto.randomUUID()),
+        role: 'assistant',
+        createdAt: Date.now(),
+        parts: [part]
+      }
+    ]
   }
+  const key = messageKey === undefined ? undefined : partMergeKey(part)
+  const slot =
+    key === undefined ? -1 : owner.parts.findIndex((existing) => partMergeKey(existing) === key)
+  const parts = owner.parts.slice()
+  if (slot < 0) parts.push(part)
+  else parts[slot] = part
   const next = messages.slice()
-  next[next.length - 1] = { ...last, parts: [...last.parts, part] }
+  next[index] = { ...owner, parts }
   return next
 }
 
@@ -919,11 +949,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'APPEND_COMMITTED_USER_MESSAGE': {
-      // 멱등(0068) — 같은 clientId 의 user 버블이 이미 있으면 no-op: 낙관 커밋 후 도착하는
-      // message.committed(echo)가 이중 버블을 만들지 않는다.
+      const id =
+        action.messageKey ??
+        (action.clientId !== undefined ? userMessageId([action.clientId]) : undefined)
       if (
-        action.clientId !== undefined &&
-        state.messages.some((m) => m.role === 'user' && m.clientId === action.clientId)
+        id !== undefined &&
+        state.messages.some(
+          (message) =>
+            message.id === id ||
+            (action.messageKey === undefined &&
+              message.role === 'user' &&
+              message.clientId === action.clientId)
+        )
       ) {
         return state
       }
@@ -939,18 +976,29 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           requirements: action.requirements.map(wireDiffRequirementAnchor)
         })
       }
-      return {
-        ...state,
-        messages: [
-          ...state.messages,
-          {
-            role: 'user',
-            createdAt: action.createdAt ?? Date.now(),
-            parts: userParts,
-            ...(action.clientId !== undefined ? { clientId: action.clientId } : {})
-          }
-        ]
+      const committed: Message = {
+        id: id ?? rendererMessageId(crypto.randomUUID()),
+        role: 'user',
+        createdAt: action.createdAt ?? Date.now(),
+        parts: userParts,
+        ...(action.clientId !== undefined ? { clientId: action.clientId } : {})
       }
+      const optimisticIds = new Set(action.ids?.map((clientId) => userMessageId([clientId])))
+      if (optimisticIds.size === 0) {
+        return { ...state, messages: [...state.messages, committed] }
+      }
+      const messages: Message[] = []
+      let replaced = false
+      for (const message of state.messages) {
+        if (message.role === 'user' && message.id !== undefined && optimisticIds.has(message.id)) {
+          if (!replaced) messages.push(committed)
+          replaced = true
+        } else {
+          messages.push(message)
+        }
+      }
+      if (!replaced) messages.push(committed)
+      return { ...state, messages }
     }
 
     case 'DROP_UNCOMMITTED_USER':
@@ -1023,18 +1071,28 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(state.messages, {
-              type: 'reasoning',
-              text: ev.text,
-              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
-              ...(ev.signature !== undefined ? { signature: ev.signature } : {})
-            })
+            messages: appendAssistantPart(
+              state.messages,
+              {
+                type: 'reasoning',
+                text: ev.text,
+                ...(ev.parentToolRunId !== undefined
+                  ? { parentToolRunId: ev.parentToolRunId }
+                  : {}),
+                ...(ev.signature !== undefined ? { signature: ev.signature } : {})
+              },
+              ev.messageKey
+            )
           }
 
         case 'response.boundary':
           return {
             ...state,
-            messages: appendAssistantPart(state.messages, responseBoundaryPart(ev.boundary))
+            messages: appendAssistantPart(
+              state.messages,
+              responseBoundaryPart(ev.boundary),
+              ev.messageKey
+            )
           }
 
         case 'output.captured': {
@@ -1064,53 +1122,72 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(state.messages, {
-              type: 'text',
-              text: ev.message.text,
-              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
-            })
+            messages: appendAssistantPart(
+              state.messages,
+              {
+                type: 'text',
+                text: ev.message.text,
+                ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
+              },
+              ev.messageKey
+            )
           }
 
         case 'tool.call.started':
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(state.messages, {
-              type: 'tool_call',
-              toolRunId: ev.toolRunId,
-              toolName: ev.toolName,
-              args: ev.args,
-              ...(ev.providerTool ? { providerTool: ev.providerTool } : {}),
-              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
-              // 실행 전 편집 미리보기(0229) — 결과가 오기 전까지 카드가 실제 줄번호를 그리는
-              // 유일한 입력이다. 영속되지 않으므로 재로드 후에는 결과 패치가 같은 자리를 채운다.
-              ...(ev.editPreview !== undefined ? { editPreview: ev.editPreview } : {})
-            })
+            messages: appendAssistantPart(
+              state.messages,
+              {
+                type: 'tool_call',
+                toolRunId: ev.toolRunId,
+                toolName: ev.toolName,
+                args: ev.args,
+                ...(ev.providerTool ? { providerTool: ev.providerTool } : {}),
+                ...(ev.parentToolRunId !== undefined
+                  ? { parentToolRunId: ev.parentToolRunId }
+                  : {}),
+                // 실행 전 편집 미리보기(0229) — 결과가 오기 전까지 카드가 실제 줄번호를 그리는
+                // 유일한 입력이다. 영속되지 않으므로 재로드 후에는 결과 패치가 같은 자리를 채운다.
+                ...(ev.editPreview !== undefined ? { editPreview: ev.editPreview } : {})
+              },
+              ev.messageKey
+            )
           }
 
         case 'tool.call.completed': {
-          let messages = appendAssistantPart(state.messages, {
-            type: 'tool_result',
-            toolRunId: ev.toolRunId,
-            result: ev.result,
-            isError: ev.isError,
-            ...(ev.nonExecution ? { nonExecution: ev.nonExecution } : {}),
-            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
-            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
-            // TaskXXX 구조화 출력(0204) — 라이브 파트가 이것을 빠뜨리면 작업 타일이 재로드
-            // 전까지 비어 보인다(writer 영속과 같은 필드를 실어야 한다).
-            ...(ev.structuredOutput !== undefined ? { structuredOutput: ev.structuredOutput } : {})
-          })
+          let messages = appendAssistantPart(
+            state.messages,
+            {
+              type: 'tool_result',
+              toolRunId: ev.toolRunId,
+              result: ev.result,
+              isError: ev.isError,
+              ...(ev.nonExecution ? { nonExecution: ev.nonExecution } : {}),
+              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
+              // TaskXXX 구조화 출력(0204) — 라이브 파트가 이것을 빠뜨리면 작업 타일이 재로드
+              // 전까지 비어 보인다(writer 영속과 같은 필드를 실어야 한다).
+              ...(ev.structuredOutput !== undefined
+                ? { structuredOutput: ev.structuredOutput }
+                : {})
+            },
+            ev.messageKey
+          )
           // 게시 성공은 원래 호출 메시지에만 연결한다. 늦은 결과를 마지막 턴으로 추정하지 않는다.
           const artifact = ev.isError ? undefined : ev.artifact
           if (artifact) {
-            const owner = messages.findIndex(
-              (message) =>
-                message.role === 'assistant' &&
-                message.parts.some(
-                  (part) => part.type === 'tool_call' && part.toolRunId === ev.toolRunId
-                )
-            )
+            const owner =
+              ev.messageKey === undefined
+                ? messages.findIndex(
+                    (message) =>
+                      message.role === 'assistant' &&
+                      message.parts.some(
+                        (part) => part.type === 'tool_call' && part.toolRunId === ev.toolRunId
+                      )
+                  )
+                : messages.findIndex((message) => message.id === ev.messageKey)
             messages = appendOwnedArtifact(messages, owner, {
               type: 'artifact',
               artifact,
@@ -1149,12 +1226,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...state,
             retry: undefined,
             lastTelemetry: undefined,
-            messages: appendAssistantPart(state.messages, {
-              type: 'compact_boundary',
-              ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
-              ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {}),
-              ...(ev.postTokens !== undefined ? { postTokens: ev.postTokens } : {})
-            })
+            messages: appendAssistantPart(
+              state.messages,
+              {
+                type: 'compact_boundary',
+                ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
+                ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {}),
+                ...(ev.postTokens !== undefined ? { postTokens: ev.postTokens } : {})
+              },
+              ev.messageKey
+            )
           }
 
         case 'telemetry': {
@@ -1298,7 +1379,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 남으므로 알림 경로가 0이 되지는 않는다(0204 D-004 의 통지 절반은 유지).
           return {
             ...state,
-            messages: appendAssistantPart(state.messages, subagentNoticePart(ev))
+            messages: appendAssistantPart(state.messages, subagentNoticePart(ev), ev.messageKey)
           }
         }
 
@@ -1331,7 +1412,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (action.text === '') return state
       return {
         ...state,
-        messages: appendAssistantPart(state.messages, { type: 'text', text: action.text })
+        messages: appendAssistantPart(
+          state.messages,
+          { type: 'text', text: action.text },
+          action.messageKey
+        )
       }
 
     case 'NEW_CHAT':
@@ -1471,6 +1556,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'LOAD_SESSION': {
       const agentKind = readLegacyAgentKind(action.session.agentKind)
       const messages: Message[] = action.session.messages.map((m) => ({
+        id: m.id,
         role: m.role,
         createdAt: m.createdAt,
         // 미완료(crash/quit)로 남은 메시지의 열린 도구는 'aborted' 로 정착해 "실행 중" 잔재를

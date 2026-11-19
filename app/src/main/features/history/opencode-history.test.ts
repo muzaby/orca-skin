@@ -20,6 +20,7 @@ describe('OpenCode history payload roundtrip', () => {
     if (started.type !== 'tool.call.started') throw new Error('missing tool')
     const part = partFromRow({
       message_id: 1,
+      message_key: null,
       role: 'assistant',
       created_at: 1,
       complete: 1,

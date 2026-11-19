@@ -20,7 +20,9 @@ function setup() {
   const requests: Deferred[] = []
   const closed = new Set<() => void>()
   const failTurn = vi.fn()
+  let nextId = 0
   const sender = createPersistenceSender({
+    newId: () => String(++nextId),
     link: {
       notify(method, payload) {
         log.push([method, payload])
@@ -128,7 +130,11 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     h.sender.onTurnEvent(turn, delta('a'))
     h.sender.persist(turn, review)
     h.sender.onTurnEvent(turn, delta('b'))
-    expect(h.payloads('turn.event').map((p) => p.ev)).toEqual([delta('a'), review, delta('b')])
+    expect(h.payloads('turn.event').map((p) => p.ev)).toEqual([
+      { ...delta('a'), messageKey: 'a:1' },
+      review,
+      { ...delta('b'), messageKey: 'a:1' }
+    ])
   })
 
   it('질문 답 — 실행 쪽 턴 상태를 고치고 도구 완료를 중계한 뒤 결과만 보낸다(부모 도구 연결 포함)', () => {
@@ -229,7 +235,7 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     const batch = { text: 'hi', createdAt: 5 }
     const first = h.sender.commitUserMessage!(turn, batch)
     expect(h.payloads('turn.commitUser')[0]).toMatchObject({ batch })
-    h.requests[0]!.resolve(41)
+    h.requests[0]!.resolve({ id: 41, created: true })
     expect(await first).toBe(41)
     const second = h.sender.commitUserMessage!(turn, batch)
     h.requests[1]!.resolve(null)
@@ -398,4 +404,131 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     expect(h.requests).toEqual([])
     expect(h.payloads('turn.event')[0]!.ev).not.toHaveProperty('artifact')
   })
+})
+
+describe('0326 message identity', () => {
+  it('k5/k23/k24 changes the key only after a successful new commit', async () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const batch = { text: 'new input', createdAt: 5, messageKey: 'u:new' }
+    const emitDelta = (text: string): void => {
+      const event = delta(text)
+      h.sender.onTurnEvent(turn, event)
+      h.sender.relay(turn, event)
+    }
+
+    emitDelta('first')
+    const created = h.sender.commitUserMessage!(turn, batch)
+    emitDelta('before reply')
+    h.requests[0]!.resolve({ id: 4, created: true })
+    expect(await created).toBe(4)
+    emitDelta('after new commit')
+
+    const replayed = h.sender.commitUserMessage!(turn, batch)
+    h.requests[1]!.resolve({ id: 4, created: false })
+    expect(await replayed).toBe(4)
+    const error: NormalizedEvent = {
+      type: 'error',
+      sessionId: 's',
+      error: { category: 'stream_error', message: 'interrupted', retryable: false }
+    }
+    h.sender.onTurnEvent(turn, error)
+    h.sender.relay(turn, error)
+
+    const missing = h.sender.commitUserMessage!(turn, batch)
+    h.requests[2]!.resolve(null)
+    expect(await missing).toBeNull()
+    emitDelta('after null')
+
+    const rejected = h.sender.commitUserMessage!(turn, batch)
+    h.requests[3]!.reject(new Error('closed'))
+    await expect(rejected).rejects.toThrow('closed')
+    emitDelta('after rejection')
+
+    const peerEvents = h.payloads('turn.event').map(({ ev }) => ev)
+    expect(peerEvents).toEqual(h.payloads('screen').map(({ ev }) => ev))
+    expect(peerEvents.map((ev) => (ev as { messageKey: string }).messageKey)).toEqual([
+      'a:1',
+      'a:1',
+      'a:2',
+      'a:2',
+      'a:2',
+      'a:2'
+    ])
+  })
+
+  it.each(['artifact-first', 'commit-first'] as const)(
+    'k25 keeps question answers and the commit in stream order (%s)',
+    async (order) => {
+      const h = setup()
+      const turn = turnOf({
+        dbSessionId: 's',
+        askPendingIds: ['question'],
+        pendingAskAnswers: [{ toolUseId: 'question', answers: { Question: 'yes' } }]
+      })
+      const emit = (event: NormalizedEvent): void => {
+        h.sender.onTurnEvent(turn, event)
+        h.sender.relay(turn, event)
+      }
+      emit({
+        type: 'tool.call.completed',
+        sessionId: 's',
+        toolRunId: 'publication',
+        result: JSON.stringify({
+          type: `${PRODUCT_SLUG}.artifact.published`,
+          version: 1,
+          publicationId: 'pub-1'
+        }),
+        isError: false
+      })
+      emit({
+        type: 'tool.call.started',
+        sessionId: 's',
+        toolRunId: 'question',
+        toolName: 'AskUserQuestion',
+        args: {}
+      })
+      h.sender.flushAskAnswers(turn, turn.owner)
+      const batch = { text: 'steer', createdAt: 5, messageKey: 'u:steer' }
+      const commit = Promise.resolve(h.sender.commitUserMessage!(turn, batch)).then((id) => {
+        h.sender.relay(turn, {
+          type: 'message.committed',
+          sessionId: 's',
+          messageKey: batch.messageKey,
+          ids: ['steer'],
+          messageId: id!,
+          text: batch.text,
+          createdAt: batch.createdAt
+        })
+        emit(delta('after'))
+      })
+
+      if (order === 'artifact-first') {
+        h.requests[0]!.resolve(null)
+        await flush()
+        h.requests[1]!.resolve({ id: 4, created: true })
+        await commit
+      } else {
+        h.requests[1]!.resolve({ id: 4, created: true })
+        await commit
+        expect(h.payloads('screen')).toHaveLength(0)
+        h.requests[0]!.resolve(null)
+        await flush()
+      }
+
+      expect(h.payloads('turn.askAnswers')[0]?.answers).toMatchObject([{ messageKey: 'a:1' }])
+      expect(h.payloads('screen').map(({ ev }) => ev)).toMatchObject([
+        { type: 'tool.call.completed', toolRunId: 'publication', messageKey: 'a:1' },
+        { type: 'tool.call.started', toolRunId: 'question', messageKey: 'a:1' },
+        {
+          type: 'tool.call.completed',
+          toolRunId: 'question',
+          messageKey: 'a:1',
+          messageKeySource: 'owner'
+        },
+        { type: 'message.committed', messageKey: 'u:steer' },
+        { type: 'message.delta', messageKey: 'a:2' }
+      ])
+    }
+  )
 })

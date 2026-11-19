@@ -158,12 +158,16 @@ describe('Work boundary persistence', () => {
       queries.copyMessagesToSession('s1', 'fork')
       const expected = loadSession(queries, 's1', () => '/fallback')
       expect(expected?.agentKind).toBe('work')
-      expect(loadSession(queries, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
+      expect(loadSession(queries, 'fork', () => '/fallback')?.messages).toEqual(
+        expected?.messages.map((message) => ({ ...message, id: 'm:2' }))
+      )
       connection.close()
       connection = openFileDatabase(filename)
       const reopened = new DbQueries(connection)
       expect(loadSession(reopened, 's1', () => '/fallback')).toEqual(expected)
-      expect(loadSession(reopened, 'fork', () => '/fallback')?.messages).toEqual(expected?.messages)
+      expect(loadSession(reopened, 'fork', () => '/fallback')?.messages).toEqual(
+        expected?.messages.map((message) => ({ ...message, id: 'm:2' }))
+      )
     } finally {
       if (connection.open) connection.close()
       rmSync(directory, { recursive: true, force: true })
@@ -192,6 +196,7 @@ describe('Work boundary persistence', () => {
       writer.persist(turn, { ...end('crash'), sessionId: 'foreign' })
       expect(loadSession(queries, 's1', () => '/fallback')?.messages).toEqual([
         {
+          id: 'm:1',
           role: 'assistant',
           createdAt: expect.any(Number),
           incomplete: true,
@@ -320,7 +325,8 @@ describe('HistoryWriter — session baseline birth persistence', () => {
     const db = {
       insertSession,
       updateSessionPreview: vi.fn(),
-      updateSessionProviderKey: vi.fn()
+      updateSessionProviderKey: vi.fn(),
+      commitUserWrite: (write: () => unknown) => write()
     }
     const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
     const turn = {
@@ -418,7 +424,8 @@ function makeFinalizeHarness(): {
     updateMessageContent: vi.fn(),
     markMessageComplete: vi.fn(),
     updateSessionPreview: vi.fn(),
-    updateSessionProviderKey: vi.fn()
+    updateSessionProviderKey: vi.fn(),
+    commitUserWrite: (write: () => unknown) => write()
   }
   const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
   const turn = {
@@ -497,16 +504,17 @@ describe('HistoryWriter — assistant content 마감 1회 기록 (0107)', () => 
 describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
   function harness(): {
     persistence: HistoryWriter
-    upsertToolResultPart: ReturnType<typeof vi.fn>
+    upsertToolResultPartInSession: ReturnType<typeof vi.fn>
     turn: TurnContext
   } {
-    const upsertToolResultPart = vi.fn()
+    const upsertToolResultPartInSession = vi.fn()
     const db = {
       appendMessage: vi.fn(() => 7),
       appendPart: vi.fn(() => 0),
-      upsertToolResultPart,
+      upsertToolResultPartInSession,
       updateSessionPreview: vi.fn(),
-      updateSessionProviderKey: vi.fn()
+      updateSessionProviderKey: vi.fn(),
+      commitUserWrite: (write: () => unknown) => write()
     }
     const persistence = new HistoryWriter(db as unknown as DbQueries, () => false)
     const turn = {
@@ -516,11 +524,11 @@ describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
       providerKey: null,
       askResolved: new Map()
     } as unknown as TurnContext
-    return { persistence, upsertToolResultPart, turn }
+    return { persistence, upsertToolResultPartInSession, turn }
   }
 
   it('structuredOutput 을 tool_result payload 에 싣는다', () => {
-    const { persistence, upsertToolResultPart, turn } = harness()
+    const { persistence, upsertToolResultPartInSession, turn } = harness()
     const structured = { task: { id: '3', subject: '테스트 작성' } }
     persistence.persist(turn, {
       type: 'tool.call.completed',
@@ -531,14 +539,14 @@ describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
       structuredOutput: structured
     } as NormalizedEvent)
 
-    const payload = JSON.parse(upsertToolResultPart.mock.calls[0][2] as string) as {
+    const payload = JSON.parse(upsertToolResultPartInSession.mock.calls[0][3] as string) as {
       structuredOutput?: unknown
     }
     expect(payload.structuredOutput).toEqual(structured)
   })
 
   it('없으면 키를 만들지 않는다 — 일반 도구 결과는 그대로다', () => {
-    const { persistence, upsertToolResultPart, turn } = harness()
+    const { persistence, upsertToolResultPartInSession, turn } = harness()
     persistence.persist(turn, {
       type: 'tool.call.completed',
       sessionId: 's1',
@@ -547,7 +555,7 @@ describe('HistoryWriter — TaskXXX 구조화 출력 영속 (0204)', () => {
       isError: false
     } as NormalizedEvent)
 
-    const payload = JSON.parse(upsertToolResultPart.mock.calls[0][2] as string) as Record<
+    const payload = JSON.parse(upsertToolResultPartInSession.mock.calls[0][3] as string) as Record<
       string,
       unknown
     >
@@ -699,4 +707,60 @@ describe('HistoryWriter — conversation engine key', () => {
     expect(loadSession(queries, 'conversation', () => '/repo')?.providerKey).toBe('opencode-local')
     db.close()
   })
+})
+
+it('w16 keeps a replay from closing the current assistant row before a persisted error', () => {
+  const connection = new Database(':memory:')
+  try {
+    applyMigrations(connection)
+    const db = new DbQueries(connection)
+    db.insertSession({ id: 's', backend: 'claude', title: null, projectId: null, createdAt: 1 })
+    const writer = new HistoryWriter(db, () => false)
+    const turn = {
+      dbSessionId: 's',
+      currentAssistantMessageId: null,
+      assistantText: '',
+      providerKey: null
+    } as unknown as TurnContext
+    const batch = { text: 'user input', messageKey: 'u:1', createdAt: 2 }
+    expect(writer.commitUserMessage(turn, batch)).toEqual({ id: 1, created: true })
+    writer.persist(turn, {
+      type: 'message.completed',
+      sessionId: 's',
+      messageKey: 'a:1',
+      message: { text: 'before the error' }
+    })
+    const current = turn.currentAssistantMessageId
+    const preview = db.getSessionById('s')?.last_message_preview
+    expect(writer.commitUserMessage(turn, { ...batch, createdAt: 3 })).toEqual({
+      id: 1,
+      created: false
+    })
+    expect(turn.currentAssistantMessageId).toBe(current)
+    expect(turn.currentAssistantMessageKey).toBe('a:1')
+    expect(db.getSessionById('s')?.last_message_preview).toBe(preview)
+    expect(() => writer.commitUserMessage(turn, { ...batch, text: 'different' })).toThrow(
+      'different content'
+    )
+    writer.persist(turn, {
+      type: 'error',
+      sessionId: 's',
+      messageKey: 'a:1',
+      error: { category: 'stream_error', message: 'failed', retryable: false }
+    })
+    expect(loadSession(db, 's', () => '/fallback')?.messages).toMatchObject([
+      { id: 'u:1', role: 'user', parts: [{ type: 'text', text: 'user input' }] },
+      {
+        id: 'a:1',
+        role: 'assistant',
+        incomplete: true,
+        parts: [
+          { type: 'text', text: 'before the error' },
+          { type: 'error', error: { message: 'failed' } }
+        ]
+      }
+    ])
+  } finally {
+    connection.close()
+  }
 })

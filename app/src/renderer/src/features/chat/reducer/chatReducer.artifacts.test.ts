@@ -77,7 +77,10 @@ describe('artifact publication ownership', () => {
         id: 's',
         backend: 'claude',
         title: 'report',
-        messages: live.messages
+        messages: live.messages.map((message, index) => ({
+          ...message,
+          id: message.id ?? String(index)
+        }))
       }
     })
     expect(loaded.messages.map((message) => message.parts)).toEqual(
@@ -181,7 +184,10 @@ describe('captured ordinary output ownership', () => {
         id: 's',
         backend: 'claude',
         title: 'files',
-        messages: later.messages
+        messages: later.messages.map((message, index) => ({
+          ...message,
+          id: message.id ?? String(index)
+        }))
       }
     })
     expect(partsArtifacts(loaded.messages[0].parts)).toEqual([file])

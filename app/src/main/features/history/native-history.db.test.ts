@@ -151,7 +151,7 @@ describe('native history with the migrated SQLite archive', () => {
     expect(queries.searchMessages('terminalanswer')[0].message_id).toBeLessThan(0)
     expect(loaded()).not.toHaveProperty('raw')
     expect(loaded()).not.toHaveProperty('sourceKey')
-    expect(loaded()?.messages[0]).not.toHaveProperty('id')
+    expect(loaded()?.messages[0]?.id).toBe('n:native-user')
 
     // Re-running the production migration runner must not replace the archived snapshot.
     applyMigrations(db)
@@ -321,8 +321,13 @@ describe('native history with the migrated SQLite archive', () => {
     })
     const view = loaded()
     expect(view?.messages).toEqual([
-      { role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'samebody' }, attachment] },
-      { role: 'user', createdAt: 2, parts: [orphanAttachment] }
+      {
+        id: 'm:1',
+        role: 'user',
+        createdAt: 2,
+        parts: [{ type: 'text', text: 'samebody' }, attachment]
+      },
+      { id: 'm:2#o', role: 'user', createdAt: 2, parts: [orphanAttachment] }
     ])
     expect(view?.nativeSync).toEqual({ status: 'ready', message: expect.any(String) })
     expect(queries.nativeHistory.bindings('session')).toEqual([

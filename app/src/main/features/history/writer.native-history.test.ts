@@ -13,6 +13,7 @@ describe('native ID persistence', () => {
       appendPart: vi.fn(),
       updateSessionPreview: vi.fn(),
       updateSessionProviderKey: vi.fn(),
+      commitUserWrite: (write: () => unknown) => write(),
       updateMessageContent: vi.fn(),
       markMessageComplete: vi.fn()
     } as unknown as DbQueries

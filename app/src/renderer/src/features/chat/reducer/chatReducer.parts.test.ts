@@ -266,8 +266,9 @@ describe('chatReducer — AppMessagePart 모델', () => {
       backend: 'claude',
       title: 't',
       messages: [
-        { role: 'user', createdAt: 1, parts: [{ type: 'text', text: '질문' }] },
+        { id: 'u:question', role: 'user', createdAt: 1, parts: [{ type: 'text', text: '질문' }] },
         {
+          id: 'a:2',
           role: 'assistant',
           createdAt: 2,
           parts: [
@@ -298,7 +299,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
       id: 's2',
       backend: 'claude',
       title: 't',
-      messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
+      messages: [{ id: 'u:q', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
       lastTelemetry: { inputTokens: 1234, cacheReadTokens: 500, model: 'opus' }
     }
     const s = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
@@ -308,4 +309,39 @@ describe('chatReducer — AppMessagePart 모델', () => {
 
   // (구 LOAD_SESSION_FROM_CACHE 케이스는 멀티세션 외피(handoff 0013)에서 액션 자체가
   // 폐기됨 — sessions Record 가 캐시를 흡수해 재진입은 activeKey 전환만으로 복원된다.)
+})
+
+it('routes a late numbered result to its owner and replaces a replay in place', () => {
+  const initial = apply(initialChatState, [
+    {
+      type: 'tool.call.started',
+      sessionId: 's',
+      messageKey: 'a:1',
+      toolRunId: 'read',
+      toolName: 'Read',
+      args: {}
+    },
+    {
+      type: 'message.completed',
+      sessionId: 's',
+      messageKey: 'a:2',
+      message: { text: 'next answer' }
+    }
+  ])
+  const result = {
+    type: 'tool.call.completed',
+    sessionId: 's',
+    messageKey: 'a:1',
+    messageKeySource: 'owner',
+    toolRunId: 'read',
+    result: 'first',
+    isError: false
+  } as const
+  const next = apply(initial, [result, { ...result, result: 'updated' }])
+  expect(next.messages.map(({ id }) => id)).toEqual(['a:1', 'a:2'])
+  expect(next.messages[0].parts).toMatchObject([
+    { type: 'tool_call', toolRunId: 'read' },
+    { type: 'tool_result', toolRunId: 'read', result: 'updated' }
+  ])
+  expect(next.messages[1]).toBe(initial.messages[1])
 })

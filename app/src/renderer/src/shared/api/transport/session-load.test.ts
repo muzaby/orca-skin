@@ -6,6 +6,7 @@ import { createSessionLoadClient } from './session-load'
 
 const CHANNELS = { load: 'load', refresh: 'refresh', chunk: 'chunk', cancel: 'cancel' }
 const message = (text: string): LoadedMessage => ({
+  id: text,
   role: 'user',
   createdAt: 1,
   parts: [{ type: 'text', text }]
@@ -53,6 +54,7 @@ describe('세션 본문 조립', () => {
   // 0325 VP-01 — 상한 이전 형상(한 조각 200,000건)과 상한 형상(400조각) 모두 인자 펼침 없이 조립한다.
   it('200,000건을 한 조각·400조각으로 받아도 순서대로 조립한다', async () => {
     const messages: LoadedMessage[] = Array.from({ length: 200_000 }, (_, index) => ({
+      id: String(index),
       role: 'user',
       createdAt: index,
       parts: []

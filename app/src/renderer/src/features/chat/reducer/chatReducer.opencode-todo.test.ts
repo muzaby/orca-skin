@@ -47,7 +47,10 @@ it('starts each todo projection at the current turn and excludes hydrated histor
       title: null,
       backend: 'opencode',
       agentKind: 'code',
-      messages: before.messages
+      messages: before.messages.map((message, index) => ({
+        ...message,
+        id: message.id ?? String(index)
+      }))
     }
   })
   expect(loaded.openCodeTodoTurnStartIndex).toBe(1)

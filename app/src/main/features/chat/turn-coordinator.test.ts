@@ -251,7 +251,10 @@ function makeDeps(
     runtime,
     bus: new TypedBus<OoBusEvents<W>>(),
     persist: { persist: vi.fn(() => order.push('history')), flushAskAnswers: vi.fn() },
-    forward: { forward: vi.fn(() => order.push('relay')) },
+    forward: {
+      forward: vi.fn(() => order.push('relay')),
+      relay: vi.fn((turn, ev) => base.forward.forward(turn.owner, ev))
+    },
     registry: { promote: vi.fn() },
     classifyError: vi.fn(
       () => ({ kind: 'stream_error', message: 'x', retryable: false }) as unknown as ClassifiedError
@@ -735,7 +738,10 @@ describe('TurnCoordinator requirement commit', () => {
       [{ type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid }, telemetry]
     ])
     const commitUserMessage = vi.fn(() => 42)
+    const relay = vi.fn()
+    const forward = vi.fn()
     const deps = makeDeps(runtime, {
+      forward: { forward, relay },
       pendingMessages,
       persist: { persist: vi.fn(), flushAskAnswers: vi.fn(), commitUserMessage }
     })
@@ -746,14 +752,22 @@ describe('TurnCoordinator requirement commit', () => {
       { ...REQUEST, sessionId: 's1', text: batch.text, promptUuid: batch.uuid },
       { sharedPathProjectId: null }
     )
-    expect(commitUserMessage).toHaveBeenCalledWith(turn, expect.objectContaining({ requirements }))
-    expect(deps.forward.forward).toHaveBeenCalledWith(
-      'owner',
+    expect(commitUserMessage).toHaveBeenCalledWith(
+      turn,
+      expect.objectContaining({ requirements, messageKey: 'u:req-0,req-1' })
+    )
+    expect(relay).toHaveBeenCalledExactlyOnceWith(
+      turn,
       expect.objectContaining({
         type: 'message.committed',
         ids: ['req-0', 'req-1'],
+        messageKey: 'u:req-0,req-1',
         requirements
       })
+    )
+    expect(forward).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'message.committed' })
     )
   })
 })

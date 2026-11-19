@@ -41,6 +41,7 @@ describe('chatReducer runtime resilience', () => {
       providerKey: null,
       messages: [
         {
+          id: 'a:stale',
           role: 'assistant',
           createdAt: 1,
           incomplete: true,

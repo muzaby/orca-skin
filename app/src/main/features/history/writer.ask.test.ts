@@ -57,10 +57,10 @@ describe('HistoryWriter AskUserQuestion answer identity', () => {
 })
 
 it('writes nothing while no assistant message is open', () => {
-  const upsertToolResultPart = (): never => {
+  const upsertToolResultPartInSession = (): never => {
     throw new Error('must not write')
   }
-  const writer = new HistoryWriter({ upsertToolResultPart } as never, () => false)
+  const writer = new HistoryWriter({ upsertToolResultPartInSession } as never, () => false)
   writer.recordAskAnswers({ currentAssistantMessageId: null } as unknown as TurnContext, [
     { toolUseId: 'ask-1', output: {} }
   ])

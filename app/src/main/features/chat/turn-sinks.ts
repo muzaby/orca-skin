@@ -10,9 +10,9 @@
 // 에 TurnContext 를 들이면 import/no-cycle 이 차단한다. sink 들은 TurnContext 를 참조하므로
 // 사이클 없는 별도 모듈에 둔다.
 
-import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
+import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
-import type { ReceivedMessageOrigin } from '../../../shared/session-schedules'
+import type { UserCommitBatch } from '../../../shared/peer-protocol'
 
 // 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 HistoryWriter 가 만족.
 export interface TurnPersistSink<W = unknown> {
@@ -22,15 +22,7 @@ export interface TurnPersistSink<W = unknown> {
   // preview/provider_key 갱신. 구 persistSteerUserMessage 일반화.
   commitUserMessage?(
     turn: TurnContext<W>,
-    batch: {
-      text: string
-      createdAt: number
-      nativeMessageId?: string
-      origin?: ReceivedMessageOrigin
-      attachmentViews?: AttachmentView[]
-      requirements?: DiffRequirementAnchor[]
-    }
-    // 저장이 다른 프로세스면(0324 EP-15) DB 가 만든 id 를 응답으로 기다린다.
+    batch: UserCommitBatch
   ): number | null | Promise<number | null>
   // AskUserQuestion tool_result 합성도 영속 책임(persist.ts) — reduce 가 페어링 시 호출.
   flushAskAnswers(turn: TurnContext<W>, owner: W): void
@@ -40,4 +32,5 @@ export interface TurnPersistSink<W = unknown> {
 // 단위테스트에서 spy 로 대체 가능. 프로덕션은 sendChatEvent 를 래핑한다.
 export interface TurnEventSink<W = unknown> {
   forward(owner: W, ev: NormalizedEvent): void
+  relay(turn: TurnContext<W>, ev: NormalizedEvent): void
 }
