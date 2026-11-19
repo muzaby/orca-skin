@@ -11,11 +11,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0324 감사(`ee8ac81`) 후속 — 요청서 T01–T33 · 셸 잔류 · 경계 회귀 · Windows 검증 |
-| 상태 | READY (V1 rev 4 + ΔV1) |
-| V mode | `Baseline V` + `Delta V`(ΔV1) |
+| 상태 | READY (V1 rev 4 + ΔV1 + ΔV2) |
+| V mode | `Baseline V` + `Delta V`(ΔV1 → ΔV2) |
 | 기준 V | `none` — 0324 의 노드는 INHERITED REGRESSION 으로만 참조한다(`0324:V1 rev 4.9@22a6d06`, `origin/main` 조상 확인) |
 | 이번 V revision | `V1 rev 4` — PR #633 3차 리뷰(사용자 코멘트 "종합 재검토 · 4c7d087", 2026-11-18) 반영. rev 2·3 = 1·2차 리뷰 반영. 구현 전 규범 행 정정이라 Delta V 가 아니다. 설계 커밋 좌표 `(V1 rev 1·2·3·4 — 검증자 기입)` |
-| 유효 V | `V1 rev 4 + ΔV1` — ΔV1 = verify 1회째 D1 정정(§10 자리 검색 명령만 · §7-A ΔV1 · §10-A). 설계 커밋 좌표 `(ΔV1 — 검증자 기입)` |
+| 유효 V | `V1 rev 4 + ΔV1 + ΔV2` — ΔV1 = verify 1회째 D1 정정(§10 자리 검색 명령만 · §7-A ΔV1 · §10-A). 설계 커밋 좌표 `(ΔV1 — 검증자 기입)`. ΔV2 = verify 2회째 E1 채택(VP-03 e13 · N2 등록 · 선언 경계 B25 — §7-A ΔV2). 설계 커밋 좌표 `(ΔV2 — 검증자 기입)`. **plan 동결** — ΔV2 가 열거 원문을 늘리는 마지막 턴이다 |
 
 # Part I — Product & UX Contract
 
@@ -88,6 +88,7 @@
 | D-043 | §6-C·§6-D 는 작업 수행자(Claude 비기능·사람)와 런타임 소유자(renderer·worker·data·agent·main)를 나눠 적는다 — B 는 renderer store·하네스 투영·viewport, C 는 worker 계산·renderer 가시 DOM·data/agent 원천, D 는 T 행별 역할, E 는 data(커서·본문 인출)와 renderer(원자 교체·미로딩 소비자)이고 B/E 는 안정 ID 계약을 함께 참조한다. W 는 실기 수행자(사람)와 D-025 판정자(사용자)를 가른다. 조건부 항목은 입력 크기·실측으로 현행 유지 종결할 수 있고, 후속 handoff 미생성·OPEN D-023·D-025 는 단계 A 의 차단 사유가 아니다 | "§6-C의 'Claude(비기능)'는 작업 수행자여서 런타임 소유자를 대신하지 못합니다. 조건부 항목은 입력 크기와 실측으로 현행 유지 종결 가능하며, 후속 handoff 미생성·D-023/025 OPEN 자체는 A의 차단 사유가 아닙니다" | 사용자 PR #633 3차 | ACTIVE | D-021·D-029 보완 |
 | D-044 | §1 보장 범위를 더 한정한다 — 세션 조립 성공은 AC1~AC3 의 사례와 단독 초과 조각에 한한다. 복사는 렌더 중 문자열 생성 0 이고, 버튼 노출 판정의 parts·공백 탐색과 클릭 때 전체 문자열 생성은 남는다. 썸네일 동시 2 는 픽셀·전송 지연 상한이 아니다 | "§1의 '크기와 무관하게 성공'은 AC1~3의 지원 사례·단독 초과 예외로 한정하십시오" · "버튼 노출은 hasPartsText의 trim·parts 탐색, 클릭은 전체 문자열 생성을 여전히 수행합니다. §1에 보장 범위를 쓰고" — 공백 1,000,000자 노출 판정 0.612ms(§8 X7) | 사용자 PR #633 3차 | ACTIVE | D-032 보완 |
 | D-046 | §10 자리 검색 명령은 §10-A 가 정본이다 — 양성 자리마다 그 자리를 운반하는 줄이 1개 이상 잡히고, 출력의 모든 줄은 자리 또는 §10-A 가 적은 현행 줄에 속하며, 음성 자리(EP-5 ⑤ · EP-10 ②)는 0건 명령으로 확인한다. 자리 목록·AC·oracle·requiredness 는 바꾸지 않는다 | verify 1회째 D1 — EP-1 ⑧ · EP-2b ④ · EP-5 ② 에 걸리는 줄 0(§10 머리 "자리마다 줄이 1개 이상"과 갈림). 전수 재대조에서 EP-1 ①②④⑦ · EP-3 ①~⑥ · EP-9 ④ 도 함수 머리 한 줄에만 걸렸다. 넓힌 술어의 새 운반 자리 0 | verify 1회째 D1(plan 내부 정합) · 설계자 | ACTIVE | §10 검색 명령 칸을 보완(EP-1·EP-2b·EP-3·EP-5·EP-9·EP-10) |
+| D-047 | E1 을 채택한다 — 남은 예산 L 보다 실제 비용이 큰 후보 메시지는 측정이 어느 노드에서 멈추든 `estimateWireChars(m, L) > L` 이고 다음 조각이다(노드를 지난 합 = L 이고 뒤 노드가 남은 경우 포함). VP-03 에 L 전 구간 입력 e13 을 더하고 N2(`total > limit` → `>=`)를 등록 변이로 둔다. production 코드는 바꾸지 않는다. 키 길이로 L 을 넘긴 순간의 값 1회 방문은 경계 B25 다 | verify 2회째 E1 — N2 가 VP-03 oracle 167 green 인 채 production 경로에서 예산을 넘는 메시지를 같은 조각에 넣는다(cut 7개, [verify.md R2-2](verify.md)). e7 "꼭 맞음"은 마지막 노드의 같음이라 `>`·`>=` 가 같은 값을 낸다. 시제작: L 0~76(77 단위 메시지) 위반 원 코드 0 · N2 9(§7-A ΔV2) | verify 2회째 E1(확장 후보, 창 안) · 설계자 | ACTIVE | D-007·D-036 보완 |
 
 ### 갱신 메모
 
@@ -97,6 +98,8 @@
 - rev 4(턴 5 — PR #633 3차 리뷰 "종합 재검토 · 4c7d087")에서 추가된 결정: D-033~D-044. 지적 12건을 실제 함수·시제작·코드로 확인한 뒤 반영했다(§8 X1~X12).
 - ΔV1(verify 1회째 RETURN_TO_PLAN, D1)에서 추가된 결정: D-046(번호 D-045 는 본문이 접두 없이 0324 D-045 를 가리키는 곳이 있어 건너뛴다). 출처는 plan 내부 정합이다(사용자 요구 변경 아님 — 확장 창 재개 노드 없음). D2(VP-03 ⑤ 잠금 공백)는 기존 규칙 칸으로 닫히는 이행 결함이라 plan 을 바꾸지 않는다.
 - **ΔV1 `ACTIVE 결정 ↔ AC` 대조**: 충돌 0 — D-046 은 §10 검색 명령만 바꾸고 AC1~AC22 · 자리 목록 · oracle 칸을 건드리지 않는다(§7-A ΔV1 표).
+- ΔV2(verify 2회째 RETURN_TO_PLAN, E1)에서 추가된 결정: D-047. 출처는 확장 후보의 창 안 채택이다(사용자 요구 변경 아님 — 다시 열린 노드 없음). verify 2회째 뒤의 설계 턴이라 plan 동결 전 마지막으로 열거 원문을 늘린다.
+- **ΔV2 `ACTIVE 결정 ↔ AC` 대조**: D-047 ↔ AC2(같은 방향 — AC2 동작 기준 "조각마다 `estimateWireChars` ≤ 1,000,000"의 잠금을 e13 으로 더한다, 동작 문장 불변) · D-047 ↔ D-007 "크기 측정은 남은 예산을 넘는 순간 멈춘다"(B25 는 "순간"의 단위를 노드 방문으로 적을 뿐 반대가 아니다) · D-047 ↔ D-036(후보 판독 범위 불변). 충돌 0.
 - 변경된 결정: D-005 → D-022·D-023 · D-006 → D-024·D-025 · D-016 → D-027 → D-030 · D-026 → D-031 → D-039(설계 결함 정정 · 측정한 구성 비용). D-003 은 사용자 확인으로 "거부 가능" 표기를 거뒀다. WU-10(측정 스크립트, 제품 코드 아님)은 AC19 의 지원 산출이라 D-003 의 단계 분할을 바꾸지 않는다(D-042).
 - 기존 ACTIVE 중 이번 턴에 언급되지 않았지만 유지되는 결정: D-001·D-002·D-004·D-007~D-015·D-017~D-025·D-028~D-030·D-032 · 0324 D-007·D-008·D-009·D-011·D-012·D-014·D-045(D-004 로 승계). 0324 D-011 은 D-022 의 원자적 교체로도 유지된다.
 - **`ACTIVE 결정 ↔ AC` 대조**: 충돌 0. D-001 ↔ §6-B(전 항목 판정) · D-002 ↔ 메타 상태·INDEX · D-003 ↔ AC1~AC22 범위 · D-004 ↔ AC3·AC6·AC9(현행 유지) · D-007·D-036 ↔ AC1·AC2(q1~q3) · D-008 ↔ AC11 · D-009·D-037 ↔ AC12(a7·a8) · D-010·D-039 ↔ AC14(d1·d4·d7·d9~d12) · D-011·D-038 ↔ AC13(k5~k7) · D-012·D-041 ↔ AC17(t9·t10)·AC18 · D-013 ↔ AC15 · D-014·D-040 ↔ AC16(r7·r8) · D-015·D-034 ↔ AC4·AC5·AC6·AC20 · D-035 ↔ AC21 · D-030·D-033 ↔ AC7(g13·g14)·AC8 · D-017 ↔ AC10 · D-018 ↔ AC9·§10 경계 B6·B9·B10 · D-019·D-029·D-043 ↔ §6-B·§6-C·§6-D · D-020 ↔ 메타 · D-021 ↔ §6-C·INDEX · D-022 ↔ §6-C E 행 · D-024·D-042 ↔ AC19·AC22·§19 · D-028 ↔ AC19·§19 · D-032·D-044 ↔ §1·AC1~AC3·AC15·AC18(AC 가 §1 보다 넓은 것을 요구하지 않음 — AC1·AC4·AC7·AC15 의 문장과 §1 을 대조했다). OPEN D-023·D-025 는 AC 가 기대지 않는다(AC19 는 허용치 없이 기록만 요구).
@@ -309,7 +312,7 @@
 | R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
 |---|---|---|---|---|
 | R-01 | AT-01 / AC1 | 빈 parts 메시지 200,000건 세션이 열린다 — 조립 결과의 개수·순서(`createdAt` 열)가 원본과 같고 `RangeError` 가 없다. 전송층은 한 조각에 200,000건이 와도 조립한다 | VP-01 좌표 둘 — 데이터 호스트 `deliver` 가 보낸 조각 수 400·조립 결과 `toEqual` 원본 · 전송층 `load()` 가 200,000건 단일 조각·400조각 두 입력에서 resolve(개수·`createdAt` 순서) | `sessionApi.load` → `createSessionLoadClient.load` → `oo:session:load` → `deliver` → `oo:session:load-chunk` → 구독 → `assembleSession` |
-| R-01 | AT-01 / AC2 | 조각마다 메시지 ≤ 500 · part ≤ 500 · `estimateWireChars` ≤ 1,000,000 이다. 그 상한을 넘는 메시지 하나는 혼자 한 조각이고 빈 조각은 없다. 조각 수는 세 예산이 함께 정한다 — 빈 메시지 1,001건 → 3조각(500·500·1) · part 250 메시지 10건 → 5조각 · 약 400,000 단위 메시지 3건 → 2조각(2·1). 조각 끝을 찾는 측정은 남은 예산을 넘는 순간 멈춘다. 양보 전에 읽는 메시지는 보낼 조각과 경계 후보 1개뿐이다 — 메시지 수 경계는 후보를 읽지 않고, part·문자 경계는 후보를 남은 예산까지만 잰다. 조각 사이 양보 중 취소되면 그 뒤 메시지 읽기는 0 이다(D-036) | UT-01: `nextSessionChunkEnd` 분기마다 입력(§7-A VP-03 e1~e12) · part 400개 × 5,000자 메시지(2,000,000자) 측정이 읽는 part 수 < 400 · IT-01: 메시지 수·part·문자 경계에서 각각 취소(VP-02 q1~q3) | `deliver` → `nextSessionChunkEnd` → `estimateWireChars` |
+| R-01 | AT-01 / AC2 | 조각마다 메시지 ≤ 500 · part ≤ 500 · `estimateWireChars` ≤ 1,000,000 이다. 그 상한을 넘는 메시지 하나는 혼자 한 조각이고 빈 조각은 없다. 조각 수는 세 예산이 함께 정한다 — 빈 메시지 1,001건 → 3조각(500·500·1) · part 250 메시지 10건 → 5조각 · 약 400,000 단위 메시지 3건 → 2조각(2·1). 조각 끝을 찾는 측정은 남은 예산을 넘는 순간 멈춘다. 양보 전에 읽는 메시지는 보낼 조각과 경계 후보 1개뿐이다 — 메시지 수 경계는 후보를 읽지 않고, part·문자 경계는 후보를 남은 예산까지만 잰다. 조각 사이 양보 중 취소되면 그 뒤 메시지 읽기는 0 이다(D-036) | UT-01: `nextSessionChunkEnd` 분기마다 입력(§7-A VP-03 e1~e12 · **ΔV2 e13** — 남은 예산 전 구간) · part 400개 × 5,000자 메시지(2,000,000자) 측정이 읽는 part 수 < 400 · IT-01: 메시지 수·part·문자 경계에서 각각 취소(VP-02 q1~q3) | `deliver` → `nextSessionChunkEnd` → `estimateWireChars` |
 | R-01 | AT-01 / AC3 | 0324 AC15(조립 = `loadSession`) · AC16(part ≤ 500·단독 조각) · AC17(취소·창 닫힘 뒤 미전송, 늦은 조각 폐기, 누락 거부) · D-045(로드 중 도착한 live 를 덮지 않음)가 그대로다 | REGRESSION — VP-04·VP-05 의 기존 테스트 좌표 | 같다 + `chatStore.loadSession` |
 | R-02 | AT-02 / AC4 | OpenCode 에서 live text 행이 이미 있고 text·reasoning 유무가 둘 다 그대로인 delta(text 덧붙임 · 이미 공백 아닌 reasoning 에 덧붙임 · 공백뿐인 reasoning 조각)를 반영하면 — (과거 exchange, 현재 확정 assistant) = (100, 10) · (1,000, 100) · (10,000, 1,000) · (10,000, 10) 에서 — head·tail 투영 0회, 확정 `parts` 읽기 0회, `head.rows` 순회 0회, `useLiveText`·`useLiveReasoning` 호출 0회이고 live 행 본문은 마지막 text 다. 유무가 바뀌는 delta 는 AC20 이다(D-034) | IT-02: `Timeline.memo.test.ts` 확장 — 투영 spy · parts getter 계수 · `head.rows` Proxy 계수 · 렌더 텍스트 | `receiveDeltaBatch` → `live` → `useLiveTextFor(true)` → `OpenCodeTextSegment` → `OpenCodeText` |
 | R-02 | AT-02 / AC5 | 같은 messages·live 에서 행 순서·key·gap·streaming·segment 본문(접두 + live 합성)이 지금 투영과 같다 | UT-02: `projection.golden.json` 전 케이스 + `projection.test.ts` 입력 + 분기 b1~b9 입력이 문자열 래퍼 `projectTimeline` 으로 지금 기대값과 `toEqual` | `projectTimelineHead` → `projectTimelineTail(presence)` → `materializeTimelineRows` |
@@ -400,7 +403,7 @@
 |---|---|---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | `oo:session:load` 요청 → `deliver` → 조각 통지 → 전송층 구독 → `assembleSession` → `load()` resolve | 신규 `main/app/data-host/session-load.bounds.test.ts:'빈 parts 200,000건은 조각 400개로 가고 조립 결과가 원본과 같다'`(리더 mock·`invokeChannel`·`fakeClient().sent`) · 신규 `renderer/src/shared/api/transport/session-load.test.ts:'200,000건을 한 조각·400조각으로 받아도 순서대로 조립한다'` | not selected — 직접 행동 단언(개수·순서·예외 없음) | EP-1 (10) |
 | VP-02 | AR-01 ↔ IT-01 | REQUIRED | `deliver` 반복: 양보 → `nextSessionChunkEnd` → `client.send` → 머리 `chunked` | 같은 신규 `session-load.bounds.test.ts` — 자리 7: `'양보 전에는 조각과 경계 후보만 읽고 양보 중 취소면 그 뒤 읽기는 0 이다 — %s'`(메시지마다 parts getter·parts Proxy 계수를 양보 전/후로 나눠 센다 · 주입한 `yieldTurn` 이 취소 통지를 보낸다) — q1 빈 메시지 600건: 조각 1 = 500 · 양보 전 index 500 읽기 0 · q2 part 300 메시지 4건: 조각 1 = 1건 · 양보 전 후보 index 1 만 읽고 index 2 이상 0 · q3 10,000자 part 40개 메시지 4건: 조각 1 = 2건 · 양보 전 후보 index 2 의 part 읽기 < 40 · index 3 은 0. 셋 다 양보 뒤 읽기 0 · 자리 8: `'머리의 조각 수·메시지 수는 보낸 조각의 합이다'` | required — 자리 7 에 "다음 조각 본측정을 양보 앞으로" 변이(q1 의 index 500 읽기 > 0 · q2·q3 의 후보 다음 메시지 읽기 > 0 → red) | EP-1 자리 7·8·10 (3) |
-| VP-03 | MD-01 ↔ UT-01 | REQUIRED | `nextSessionChunkEnd(messages, start)` → 비교 3종 → 단독 진행 → `estimateWireChars` 조기 반환 · `assembleSession` | `shared/data-host.test.ts` 신규 케이스 — e1 메시지 501번째 새 조각 · e2 part 합 501 새 조각 · e3 문자 예산 초과 새 조각 · e4 part 700 단독 · e5 문자 1,500,000 단독 · e6 빈 입력·`start = length` · e7 메시지 500·part 500·문자 = 예산 꼭 맞음은 같은 조각 · e8 part 400 × 5,000자 메시지 측정이 읽는 part 수 < 400(parts Proxy)·단독 · e9 `assembleSession` 200,000건 단일 조각 · e10 빈 메시지 1,001건 → 조각 크기 [500, 500, 1] · e11 part 250 메시지 10건 → 5조각 각 2건 · e12 약 400,000 단위 메시지 3건 → [2, 1]. 경계 입력은 `estimateWireChars` 의 실제 값으로 만든다(테스트가 규칙을 다시 구현하지 않는다) | required — 자리 1·2·3 각각 "비교 제거" 변이(e1·e2·e3 이 red) · 자리 9 "spread 복귀" 변이(e9 red) | EP-1 자리 1~6·9 (7) |
+| VP-03 | MD-01 ↔ UT-01 | REQUIRED | `nextSessionChunkEnd(messages, start)` → 비교 3종 → 단독 진행 → `estimateWireChars` 조기 반환 · `assembleSession` | `shared/data-host.test.ts` 신규 케이스 — e1 메시지 501번째 새 조각 · e2 part 합 501 새 조각 · e3 문자 예산 초과 새 조각 · e4 part 700 단독 · e5 문자 1,500,000 단독 · e6 빈 입력·`start = length` · e7 메시지 500·part 500·문자 = 예산 꼭 맞음은 같은 조각 · e8 part 400 × 5,000자 메시지 측정이 읽는 part 수 < 400(parts Proxy)·단독 · e9 `assembleSession` 200,000건 단일 조각 · e10 빈 메시지 1,001건 → 조각 크기 [500, 500, 1] · e11 part 250 메시지 10건 → 5조각 각 2건 · e12 약 400,000 단위 메시지 3건 → [2, 1]. 경계 입력은 `estimateWireChars` 의 실제 값으로 만든다(테스트가 규칙을 다시 구현하지 않는다) · **ΔV2 — e13 은 §7-A ΔV2 표** | required — 자리 1·2·3 각각 "비교 제거" 변이(e1·e2·e3 이 red) · 자리 9 "spread 복귀" 변이(e9 red) · **ΔV2 — 자리 5 N2(§7-A ΔV2 표)** | EP-1 자리 1~6·9 (7) |
 | VP-04 | R-0324-05 ↔ AT | REGRESSION | 0324 AC15~AC17 경로 그대로 | `main/app/data-host/session-load.test.ts:'조각 1 뒤에 취소하면 조각 2 부터 보내지 않고 취소로 답한다'` · `:'창 포트가 닫히면 남은 조각을 보내지 않는다'` · `:'조각 사이마다 한 번 양보하고, 첫 조각 앞에서는 양보하지 않는다'` · describe `'세션 본문은 조각으로 가고 조립 결과는 \`loadSession\` 과 같다 (AC15)'` · `renderer/src/shared/api/transport/session-load.test.ts:'취소하면 번호를 실어 통지하고, 그 요청의 늦은 조각을 버리며, 다른 요청은 정상이다'` · `:'조각이 빠진 응답은 거부한다 — 일부만 조립한 본문을 돌려주지 않는다'` · `:'끝난 요청의 번호로 온 조각은 다음 요청에 섞이지 않는다'` · `shared/data-host.test.ts` describe `'세션 조각 분할'` 기존 9케이스 | not selected — 기존 행동 단언 | EP-1 공유 |
 | VP-05 | SD-0324-45 ↔ ST | REGRESSION | `chatStore.loadSession` → 응답 반영 판정 | `chatStore.native-history.test.ts:'finishes the loading state without replacing live data that arrived during a cold load'` · `:'keeps the cached screen during IPC and refreshes history without resetting model or panel state'` | not selected | 0 — 이번 변경이 이 판정 자리를 건드리지 않는다(EP-1 은 전송층까지) |
 | VP-06 | R-02 ↔ AT-02 | REQUIRED | `receiveDeltaBatch` → `live.text` → `useLiveTextFor(true)` → `OpenCodeTextSegment` → `OpenCodeText` | `Timeline.memo.test.ts` 신규 `'re-renders only the live leaf for presence-preserving deltas once the live row exists, at every history size'` — (과거 exchange, 현재 확정 assistant) = (100,10)·(1,000,100)·(10,000,1,000)·(10,000,10), delta = text 덧붙임·이미 유효한 reasoning 덧붙임·공백 reasoning 조각 — 투영 spy 0 · parts getter 0 · `head.rows` Proxy 순회 0 · `useLiveText`·`useLiveReasoning` mock 호출 0 · 렌더 텍스트 `'12345'` · AC20: VP-07 p1~p3 좌표 · AC21: VP-32 좌표 | not selected — 직접 계수 | EP-2·EP-2b 공유 |
@@ -447,6 +450,32 @@
 | §10 EP-9 검색 | CHANGED | `views\[index\]` 추가(④) | VP-29·30 | 0 — 같다 |
 | §10 EP-10 검색 | CHANGED | ② 음성 명령 | VP-33 | 0 — 같다 |
 | §10 EP-2·3b·4·6·7·8 검색 | 그대로 | 줄 ↔ 자리 대응만 §10-A 에 고정 | — | 0 |
+
+### ΔV2 — verify 2회째 E1 채택 (Delta V · 규범 행 + UT 의무 1)
+
+- 기준: `V1 rev 4 + ΔV1`(`211afa7`, PR 브랜치) · 적용 순서 `V1 rev 4 → ΔV1 → ΔV2` · 출처 [verify.md R2-2·R2-6 E1](verify.md) · 결정 D-047.
+- 변경이 시작되는 수준: `MD` — VP-03 의 규칙 칸·oracle 입력·선택 적대 증거. 노드 계약(R-01·MD-01)·AC 동작 문장·§10 자리 목록(77)·production 코드는 그대로다. `SUPERSEDED` 노드 없음 — 증거 이관 해당 없음.
+- 확장 창: 사용자 요구 변경이 아니어서 다시 열린 노드가 없다. verify 3회째부터 창 밖이고 **plan 동결** — 이후 새 열거 항목은 출처(현재 결함 · plan 내부 정합 · 사용자 결정)를 적는다.
+
+| 대상 | provenance | 바뀐 것 | 영향 pair | 새 구현 의무 |
+|---|---|---|---|---|
+| §10 규칙 칸 e13 | NEW | L < 실제 비용 → 멈춘 노드와 무관하게 반환 > L · 다음 조각 / L = 실제 비용 → 반환 = 실제 비용 · 같은 조각 | VP-03 | 1 — 아래 e13 테스트 |
+| VP-03 직접 oracle | CHANGED | e13 입력 추가 — e1~e12 그대로 | VP-03 | 위와 같음 |
+| VP-03 선택 적대 증거 | CHANGED | 자리 5 N2 등록 — 자리 1·2·3·9 변이 그대로 | VP-03 | N2 red 확인 |
+| AC2 검증 수단 | CHANGED | `e1~e12` 뒤에 e13 — 동작 기준 문장 불변 | VP-03 | 0(위와 같음) |
+| §10 선언 경계 B25 | NEW | 키 길이로 예산을 넘는 순간의 값 1회 방문 | VP-03 | 0 |
+| §10-A 줄 번호 기준 | 참조 정정 | `1f2a8af`(이 저장소에 없음) → 같은 메시지의 `52b5272`(verify R2-5). `git diff --stat 52b5272 HEAD -- app` = 테스트 1파일이라 줄 번호 불변 | — | 0 |
+
+**e13 — 좌표·입력·관측 (구현자가 만든다)**
+
+| 항목 | 값 |
+|---|---|
+| 파일·진입점 | `src/shared/data-host.test.ts` describe `'세션 조각 세 예산 (0325 VP-03)'` — `'e13 남은 예산보다 비싼 메시지는 측정이 어느 노드에서 멈추든 다음 조각이다'`. production `nextSessionChunkEnd`·`estimateWireChars` 를 직접 부른다 |
+| 구별 입력 | part 2개 메시지 `first = message(2, 'a')` · `m = message(2, 'b')`(파일 최상위 헬퍼). `full = estimateWireChars(m)` · `base = estimateWireChars(first)` · L = 0 … full − 1 전부와 L = full. 전 구간이라 full 보다 작은 확인 지점 합을 빠짐없이 지난다 — 테스트가 노드 합 규칙을 다시 구현하지 않는다 |
+| 관측 | L < full: `estimateWireChars(m, L) > L` · `nextSessionChunkEnd([first, m], 0, { messages: 500, parts: 500, chars: base + L })` = 1. L = full: `estimateWireChars(m, L)` = full · 같은 호출 = 2 |
+| 닫는 자리 | EP-1 ③(문자 예산 비교 — L 의 양 끝) · ⑤(초과 판정 — 중간 노드의 같음). 진입이 `nextSessionChunkEnd` 라 두 자리가 실행 구간 안이다 |
+| 등록 변이 | N2 — ⑤ `data-host.ts:82` `return total > limit` → `return total >= limit` → e13 red. 선택 이유: e7 꼭 맞음은 마지막 노드의 같음이라 `>`·`>=` 가 같은 값을 내 방향을 따로 확인해야 한다 |
+| 시제작(이번 턴) | 실제 소스 두 함수를 그대로 떼어 Node strip-types 로 실행 — full 77 · base 77. 원 코드: L 0~76 위반 0 · L = 77 → 2. N2: 측정 위반 9 · 조각 위반 9. ③ 경계(`cost > remaining` → `>=`)도 L = 77 에서 1 이라 red |
 
 ### 현재 변경의 운영 gate
 
@@ -669,7 +698,7 @@ WU-10 node scripts/measure-ui-inputs.mjs --src <트리> → I1~I9 중앙값·최
 
 **§10-A 자리 검색 명령과 줄 ↔ 자리 대응 (ΔV1 · D-046)**
 
-줄 번호는 `1f2a8af` 기준이다(production 줄이 옮겨 가면 같은 줄 내용으로 대응한다). 칸의 숫자는 그 파일의 줄이다. `R=src/renderer/src` · `C=$R/features/chat`.
+줄 번호는 `52b5272`(r1 구현) 기준이다 — ΔV2 참조 정정: 원문의 `1f2a8af` 는 이 저장소에 없다(verify R2-5)(production 줄이 옮겨 가면 같은 줄 내용으로 대응한다). 칸의 숫자는 그 파일의 줄이다. `R=src/renderer/src` · `C=$R/features/chat`.
 
 | EP | 검색 명령 (`app/`) | 줄 수 | 자리 ↔ 줄 | 현행 줄 · 음성 자리 |
 |---|---|---|---|---|
@@ -694,6 +723,7 @@ WU-10 node scripts/measure-ui-inputs.mjs --src <트리> → I1~I9 중앙값·최
 | 기호 | 규칙 | UT 입력(§7-A) |
 |---|---|---|
 | e1~e12 | 메시지 수 · part 합 · 문자 예산 넘으면 새 조각 / 단독 / 빈 입력 / 꼭 맞음 / 측정 조기 중단 / 단일 조각 조립 / 세 예산 각각이 정하는 조각 수(메시지 1,001 → 3 · part 10×250 → 5 · 문자 3×400,000 → 2) | VP-03 e1~e12 |
+| e13 | 남은 예산 L 보다 실제 비용(`estimateWireChars(m)`)이 큰 후보 메시지 — 측정이 어느 노드에서 멈추든 반환 > L · 다음 조각(노드를 지난 합 = L 이고 뒤 노드가 남은 경우 포함) / L = 실제 비용 — 반환 = 실제 비용 · 같은 조각 (ΔV2 · D-047) | VP-03 e13(§7-A ΔV2 표 — L 전 구간) |
 | q1 | 메시지 수 경계 — 경계 후보를 읽지 않는다 · 양보 중 취소면 그 뒤 읽기 0 | VP-02 q1 |
 | q2 | part 경계 — 양보 전 후보 1개만 읽고 그 다음 메시지는 0 · 양보 중 취소면 그 뒤 읽기 0 | VP-02 q2 |
 | q3 | 문자 경계 — 양보 전 후보 1개를 남은 예산까지만 잰다(part 읽기 < 그 메시지 part 수) · 그 다음 메시지 0 · 양보 중 취소면 그 뒤 읽기 0 | VP-02 q3 |
@@ -746,6 +776,7 @@ WU-10 node scripts/measure-ui-inputs.mjs --src <트리> → I1~I9 중앙값·최
   - B22 — 캐시 비용은 근사다. 요소마다 36(Node 22 빈 줄 객체 72B ÷ 2B)이고, Map 항목·래퍼의 고정 비용은 항목 수 상한(1,000)으로만 묶는다(D-038).
   - B23 — 스킬 색인 구성은 등록 집합이 바뀔 때 한 번이고 기저 해시와 끝 구두점 노드에 비례한다 — 등록 집합을 만드는 현행 `new Set` 과 같은 차수다(20,000×24자 3.74ms vs 2.30ms, §8 X6). 카탈로그 크기 상한은 두지 않는다.
   - B24 — 복사 버튼 노출 판정(`hasPartsText`)은 턴이 렌더될 때 parts 를 첫 본문까지 훑고 공백 판정은 그 본문 길이에 비례한다(공백 1,000,000자 0.612ms · non-text 20,000개 0.141ms). 클릭은 전체 문자열을 만든다(D-044 · §8 X7).
+  - B25 — `estimateWireChars` 의 "넘는 순간"은 노드 방문 단위다(ΔV2 · D-047). 객체 키 길이를 더해 예산을 넘으면 그 키의 값 하나를 방문(읽기 1 · +2·문자열 길이)한 뒤 돌려주고, 값이 배열·객체여도 내려가지 않는다. 반환 > 예산이라 조각 판정은 같다. 측정: 10자 키 · 예산 5 · 값 = 400 원소 배열 → 반환 14 · getter 1 · 원소 읽기 0(ΔV2 시제작).
 - 열린 입력 집합을 판정하는 산출물: 해당 없음(검사기·스캐너를 만들지 않는다).
 - 같은 규칙이 여러 레이어에 있다면: UI 스레드 상한은 `shared/compute/limits.ts` 한 곳(`DIFF_INLINE_MAX_CHARS`·`COMPOSER_DECORATION_MAX_CHARS`·`COMPUTE_CACHE_MAX_ENTRIES`·`COMPUTE_RESULT_ELEMENT_CHARS` 추가), 조각 상한은 `shared/data-host.ts` 한 곳. 스킬 끝 구두점 집합은 `skillIndex.ts` 의 `SKILL_TRAILING_PUNCTUATION` 한 곳이고 이름 색인과 토큰 판정이 같은 `trailingPunctuationStart` 를 쓴다. segment 유무 판정은 `parts.ts` 의 `hasSegment*` 한 곳이고 store 의 조각 판정도 그것을 쓴다.
 - `실패 의미`에 "다른 게이트가 막는다": MD-03 칸의 "전체 그룹화 대조가 막는다"는 VP-11 의 매 케이스 `toEqual(groupExchanges(…))` 단언이다(같은 pair 안).
@@ -945,6 +976,7 @@ store live → (OpenCode) OpenCodeTextSegment · (Claude) LiveText — 확정 me
 - [x] rev 3 반영 — 2차 리뷰 지적 3건을 재현(§8 W1·W2·W5)하고 시제작(W3)·계약 조사(W4)로 규범 행을 고쳤다: §1 · AC8·AC14 · VP-11(g12)·VP-23(d4~d8) · EP-3 ⑤·EP-6 ④⑤ · §11·§14 · §6-C B 행.
 - [x] rev 4 반영 — 3차 리뷰 지적 12건을 실제 함수·시제작·코드로 확인(§8 X1~X12)한 뒤 규범 행을 고쳤다: §1·§5·§6(런타임 소유자 열·WU-10)·§6-C·§6-D · AC2·AC4·AC7·AC12~AC19 + 신규 AC20~AC22 · VP-02·06·07·11·16·19·20·23·26·28·30·31 + 신규 VP-32·VP-33 · EP-1 ⑦·EP-2 ②·EP-2b(신규)·EP-3 ⑧·EP-4 ⑤⑦·EP-5 ①④⑥·EP-6 ④⑤·EP-8 ⑤⑥·EP-9 ①·EP-10(신규) · B18~B24 · §11~§14·§19.
 - [x] ΔV1 반영(verify 1회째 D1) — §10-A 의 바뀐 명령 7개(EP-1·2b·3A·3B·5·9·10)를 표에서 그대로 꺼내 실행한 줄 수가 줄 수 칸과 같다(39·17·9·25·16·13·22) · 음성 명령 2개 0 · 바뀌지 않은 EP 6개의 줄 수 32+3·13·31·19·5·12 · 줄 ↔ 자리 칸 합 = 줄 수 · 넓힌 술어의 목록 밖 운반 자리 0. AC·자리 목록·oracle·requiredness 불변(§7-A ΔV1 표). D2 는 기존 규칙 칸(EP-1 ⑤)의 입력 공백이라 plan 을 바꾸지 않는다
+- [x] ΔV2 반영(verify 2회째 E1) — D-047 ACTIVE · `ACTIVE 결정 ↔ AC` 충돌 0(§3 갱신 메모). 규칙 칸 e13 의 두 분기(L < 실제 비용 · L = 실제 비용) ↔ UT 입력 두 칸(L 0~full−1 · L = full) 1:1. 등록 변이 N2 는 자리(⑤ `data-host.ts:82` — 이번 턴 `grep -n` 확인)를 적었다. 시제작: 원 코드 위반 0 · N2 측정 9·조각 9(§7-A ΔV2). AC 22 · pair 33 · 자리 77 불변 — §10-A EP-1 명령 재실행 39줄 · `.push(...` 0. B25 측정(반환 14 · getter 1 · 원소 0). `git cat-file -t 52b5272` = commit
 - [x] Part I 만으로 완료 상태 이해 — §1(보장 범위·상한 안에서 끝나는 것·보장하지 않는 것) · §5 흐름 · §6 범위 표 · §7 AC1~AC22.
 - [x] §1 ↔ AC 범위 — §1 의 보장 문장이 AC1~AC3(지원 사례 조립) · AC4·AC20(유무 불변 delta 0회 · 전이 1회) · AC7(과거 그룹·파생 메시지 참조) · AC11~AC18(상한·복사·썸네일·끌기)의 동작 기준과 같은 범위다(D-032·D-044). 확정 이벤트 전체 순회·단일 메시지 크기·노출 판정 비용·썸네일 픽셀은 §1 "보장하지 않는 것" 과 B3·B17·B24·§6-C B 에만 있다.
 - [x] 조건절 보존 — 턴 1·2 원문 인용(§2), "측정한 뒤 이주 여부를 정한다" 원문(D-019).
