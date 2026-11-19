@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | READY (V1 rev 6) |
+| 상태 | DRAFT (V1 rev 6 · 구현 착수 대조에서 PLAN_GAP 발견) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 6` — PR #636 코멘트 7(V1 rev 5 재검토 — 9 해소 · 2 부분 해소) 반영. 구현 전 규범 정정이라 Delta V 가 아니다. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~6 — 검증자 기입)` |
@@ -1406,9 +1406,9 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 ## [구현자 기입] 설계 리뷰
 
-- 동의 / 그대로 진행: …
-- 이견 / 현실성 문제: … (Part I/II의 정확한 절 인용)
-- ACTIVE Decision과 충돌하는 설계 발견: …
+- D-050 대조 완료. 0325 기계 PASS `d8684684`와 설계 기준 `52b5272` 사이의 `app/` diff는 `src/shared/data-host.test.ts`의 문자 예산 경계 테스트 추가다. §11의 프로덕션 영향 파일과 §8 F행의 코드 전제는 기준 커밋과 같다. VP-38의 조각 운반 회귀 범위에는 이 기준선 테스트를 보존한다.
+- AC1의 마지막 `재커밋 → error`에서 AC3·EP-1 ⑧대로 요청 전에 현재 번호를 비우면 `error`는 새 `a:` 번호를 받는다. EP-2는 그 번호의 새 저장 행을 만들고 창은 오류 배너를 표시한다. AC1·§5·B7은 양쪽의 메시지 번호가 같고 재로드에 error part만 추가된다고 정한다.
+- AC32의 J9 범위는 300~2,000이다. ACTIVE D-088·EP-21·j6·§19는 100~2,000이다. 100과 200만 시간 예산을 만족하는 입력에서 복사 상한 산출과 AC26 판정이 갈린다.
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
@@ -1428,16 +1428,17 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 | Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
 |---|---|---|---|---|---|---|
-| VP-… | … | `commit·revoke·expiry·401` (4) | 4/4 | `rg …` → 4건 · commit → `a.test.ts:'…'` · revoke → … | commit: `key`(형제와 다른 값 → 저장 결과 단언) · … / 운반 항 없음 | — |
+| VP-02·03·04·06·35 | 착수 전 설계 대조 | EP-1·EP-2·EP-4·EP-21의 해당 pair 자리 | 해당 없음 | 설계 리뷰의 기준선 diff와 소스 대조 | 해당 없음 | 코드 및 oracle 착수 대기 |
 
-- §10 자리 목록 밖에서 본 운반 자리: 없음 / … → 분류(impl §7): 목록 미고정 → PLAN_GAP · 현재 결함 → 선조치 또는 PLAN_GAP · 확장 후보 → 확장 창이 열려 있으면 PLAN_GAP 가능, 닫혔으면 보고 · 비귀속 → 별도 finding
+- §10 자리 목록 밖에서 본 운반 자리: `turn-coordinator.ts`의 `commitConsumed`·`input.received` 커밋 통지는 `app/chat-turn/send.ts`의 `forward`에서 `sendChatEvent`로 직접 간다. AC1의 중간 steer 커밋이 산출물 확인보다 먼저 응답하면 이 통지가 대기 중인 A의 이벤트를 앞지를 수 있다. VP-02·EP-1의 큐 운반 경로와 테스트 입력에 커밋 통지의 위치를 고정해야 한다.
 - 직전 verify 고장 이력의 `못 잡음` 행: 없음 / ID → 잡은 테스트 `파일:테스트명`(재실행 결과) 또는 `동치` 근거·확인 실행 — 분류가 이행·현재 결함이거나 설계자가 채택한 확장 행은 이번 턴에 닫는다. 후보 표로 간 행과 `경계` 행은 제외
 
 **V-pair 자기확인** — 구현자의 `SELF_PASS`는 독립 검증의 `PASS`가 아니다. 이전 라운드 상태를 유지로 옮기는 행도 좌표를 인용하고, 좌표 없이 났던 `SELF_PASS`는 이번 턴에 재판정한다(impl §2).
 
 | Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
 |---|---|---|---|---|
-| VP-… | REQUIRED / REGRESSION | SELF_PASS / SELF_BLOCKED | `파일:테스트명` … | required — 결과 / not selected — 직접 oracle 근거 |
+| VP-02·VP-03·VP-04·VP-06 | REQUIRED | SELF_BLOCKED | 오류 소유와 커밋 중계 순서 정정 대기 | 미실행 |
+| VP-35 | REQUIRED | SELF_BLOCKED | J9 범위 정정 대기 | not selected |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금
 
@@ -1449,10 +1450,10 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 | 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
 |---|---|---|---|---|
-| `파일:줄` — 무엇을 어떻게 바꿨는가(제거 / 형제와 맞바꿈) | `sweep — §10 자리 / path edge / 규칙 칸 분기(diff 자리)` / `재앵커 — 원 ID` / `VP-… 선택 증거` / `D<N> 인용 변이` / `구조·전수·배선 oracle 민감도` | red / green / 최초 | `<케이스명>` 외 N건 | 잠김 / **잠금 없음 — 테스트 추가** / 동치 — 근거·확인 실행 |
+| 해당 없음 · 착수 대조 | 해당 없음 | 해당 없음 | 해당 없음 | 미실행 |
 
-- **분모 검산**: `선택 증거 N · 인용 변이 M · 새 oracle K · sweep S = 표 행 T` — sweep S는 열거 항목 수와 같아야 한다. 행이 없는 claim은 `SELF_PASS`·`closed`로 적지 않는다(impl §9).
-- **덮개 회귀**: 이전 라운드에 red였는데 이번에 green인 행 0건 / N건 → 사유와 함께 적는다. 분모는 직전 verify 고장 이력의 `잡음` 행 중 하한 ④와 같은 범위이고, 원문이 옮겨 갔으면 재앵커한 행이다. 장치를 교체·삭제했으면 구 장치가 잡던 자리가 새 장치의 하한이다(impl §3).
+- **분모 검산** 선택 증거 0 · 인용 변이 0 · 새 oracle 0 · sweep 0. 이번 턴은 착수 대조로 닫힘을 주장하는 행이 없다.
+- **덮개 회귀** 해당 없음 · 첫 구현 착수 대조.
 
 ## [구현자 기입] Product/UX 파생 검토
 
@@ -1460,7 +1461,7 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 |---|---|---|
 | 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | … | … |
 | seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 재배치 없음 / … | … |
-| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | … / **표에 없음** | … |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 재커밋 뒤 오류는 창 배너와 재로드용 part에 영향을 준다. | 오류의 번호 경계를 정한다. |
 | 실패가 화면에서 “아무 일도 안 일어남”으로 보이지 않는가 | … | … |
 | 늦게 도착한 응답이 화면을 되돌리지 않는가 | … | … |
 
@@ -1470,7 +1471,9 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 | # | 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 선조치(구현 세부) / 📝 **plan 수정 제안**(설계가 틀렸다는 증거) / ⚠️ 보고만(제품·AC·Decision·의존성) | … |
+| 1 | PLAN_GAP · 재커밋 직후 오류의 소유 번호 | 신규 커밋과 재커밋이 번호 경계에 미치는 영향과 송신기가 둘을 구분하는 방법을 정한다. | AC1·AC3·EP-1 ⑧ · writer/reducer의 `error` case |
+| 2 | PLAN_GAP · 복사 상한 산출 범위 | AC32의 샘플 범위와 상한 판정을 D-088 및 §19와 일치시킨다. | AC32 · D-088 · EP-21 · j6 · §19 J9 · VP-35 |
+| 3 | PLAN_GAP · 산출물 확인 대기 중 사용자 커밋 통지 순서 | `message.committed`의 생산 배선과 A 이벤트 → steer 커밋 → B 이벤트 순서를 고정한다. | VP-02 · EP-1 · `send.ts`의 `forward` · `persistence-sender.ts`의 `relay` |
 
 > 가운데 갈래가 구현 턴의 핵심 산출이다 — plan을 고치는 것은 설계자 책임이지만, **고쳐야
 > 한다는 증거를 만드는 것은 구현자만 할 수 있다.** 무엇이 틀렸는지·코드에서 무엇을 봤는지·
@@ -1494,16 +1497,16 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| **관측한 게이트 산출**(exit code 아님 · 마지막 수정 뒤 실행) | `ci.yml` 단계 전부의 로컬 대응(파일 필터 없는 테스트) — 테스트 N파일 / M케이스 · error·warning 수 · 돌리지 못한 단계와 이유 · 기준선 분리 근거(변경 전 실패 집합과 차집합 ∅ + 환경 원인, `docs/handoff/AGENTS.md §판정 범위와 운영 gate`) |
-| **추가·수정 테스트의 subtree 규칙** | `git diff --name-only`로 뽑은 테스트 파일 N · 규칙별 위반 0(app: 시간 예산·호스트 격리·풀 분류) · 그 파일들의 규칙 가드 실패 0 — 테스트를 건드리지 않았으면 `해당 없음` |
-| V-pair 자기확인 | `SELF_PASS N / SELF_BLOCKED M`; pair별 상세는 위 표 |
-| 강제 지점 전수 | N/M |
-| **AC 자기보고**(`Criteria-Met`) | N/M — 각 AC 옆에 **이번 턴에 재현한 관측값**을 적는다. 표식을 다시 찾지 못한 AC는 ✅로 세지 않는다 |
-| **합계 검산** | `✅ N · ⚠️ M · ❌ K = 총 T` — 분모를 다시 세고 **이 줄을 쓴 뒤** 커밋 trailer를 적는다. 분모가 바뀌었으면(AC 분할·추가) 그 사실을 적고 이전 라운드 합계와 직접 비교하지 않는다 |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `(r<N> 구현 — 좌표는 INDEX)` — 자기 환경의 해시를 적지 않는다. 좌표 정본은 `INDEX.md` 한 곳이고 검증자가 채운다 |
+| 변경 파일 | `plan.md`의 착수 대조 및 PLAN_GAP · `docs/handoff/INDEX.md`의 `plan/DRAFT` 전환 |
+| 실행 명령 | `git diff --name-status 52b5272 d8684684 -- app` · `vitest run src/shared/data-host.test.ts src/main/app/agent-host/persistence-sender.test.ts src/main/features/chat/turn-coordinator.test.ts` |
+| **관측한 게이트 산출** | 기준선 관련 Vitest 3파일 / 132케이스 통과. 통합 게이트와 sweep은 구현 재착수 뒤 실행한다. |
+| **추가·수정 테스트의 subtree 규칙** | 해당 없음 |
+| V-pair 자기확인 | SELF_PASS 0 · 직접 PLAN_GAP 및 종속 pair는 위 표 · 나머지 미검증 |
+| 강제 지점 전수 | 착수 대조 · 구현 검증 미실행 |
+| **AC 자기보고** (`Criteria-Met`) | 0/35 · 구현 착수 전 설계 대조 |
+| **합계 검산** | ✅ 0 · ⚠️ 35(미검증) · ❌ 0 = 총 35 |
+| 블로커 / 역질문 | 재커밋 뒤 오류 번호와 확인 대기 중 커밋 순서를 확정하고 J9 범위를 일치시킨다. |
+| 대상 커밋 | `(r1 착수 대조 — 좌표는 INDEX)` |
 
 ## [구현자 기입] Review Signals — 사실만
 
@@ -1512,7 +1515,7 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 - 이번에 닫은 불변식이 이전 라운드와 같은 축인가: 없음 / …
 - 그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가: …
 - 반복해서 부딪히는 환경 한계: 없음 / …
-- 현재 라운드·impl 턴: `rN` / `rN.k` (verify 3·6회째 FAIL/RETURN_TO_PLAN 또는 verify 없는 impl 턴 3 초과면 — 사용자 요구 변경 턴 제외 — 다음 재구현 전에 `handoff-review`. verify 9회째가 PASS가 아니면 `verify/CLOSED` 종료)
+- 현재 라운드·impl 턴은 r1 착수 대조다. 독립 verify는 시작 전이다.
 
 ---
 
