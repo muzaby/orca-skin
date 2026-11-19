@@ -61,9 +61,12 @@ it('y3 연 도구 카드 — 렌더 중 `copyText` 0 · 클릭 때 1회 · 문�
   }
 })
 
-it.each(['onTransitionEnd', 'onTransitionCancel'] as const)(
-  'releases the closed body for its own grid transition (%s)',
-  (name) => {
+it.each([
+  ['e1', 'onTransitionEnd'],
+  ['e2', 'onTransitionCancel']
+] as const)(
+  '%s/e7: releases the closed body for its own grid transition (%s) and ignores child/non-grid transitions',
+  (_branch, name) => {
     vi.useFakeTimers()
     const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     const call: ToolCall = { toolUseId: 'close', name: 'Read', input: { file_path: 'one' } }
@@ -87,15 +90,18 @@ it.each(['onTransitionEnd', 'onTransitionCancel'] as const)(
         propertyName: string
         timeStamp: number
       }) => void
+      // e7: child target transition ignored
       transition({
         target: {},
         currentTarget: wrapper,
         propertyName: 'grid-template-rows',
         timeStamp: 0
       })
+      // e7: non-grid propertyName ignored
       transition({ target: wrapper, currentTarget: wrapper, propertyName: 'opacity', timeStamp: 0 })
       render()
       expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+      // e1/e2: own grid-template-rows unmounts body
       transition({
         target: wrapper,
         currentTarget: wrapper,
@@ -110,12 +116,18 @@ it.each(['onTransitionEnd', 'onTransitionCancel'] as const)(
   }
 )
 
-it('falls back to the new close deadline after reopening and closes immediately for reduced motion', () => {
+it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4), reopen cancels close timer (e5), copy text unchanged after unmount (e6), and stale close generation ignored (e8)', () => {
   vi.useFakeTimers()
   let reduceMotion = false
   const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
   Object.assign(window, { matchMedia: () => ({ matches: reduceMotion }) })
-  const call: ToolCall = { toolUseId: 'timeout', name: 'Read', input: {} }
+  const call: ToolCall = {
+    toolUseId: 'timeout',
+    name: 'Read',
+    input: { file_path: 'a.ts' },
+    result: { output: 'ok', isError: false }
+  } as ToolCall
+  const copyBefore = toolCopy.copyText(call)
   const render = (): void =>
     dom.render(
       createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
@@ -126,17 +138,28 @@ it('falls back to the new close deadline after reopening and closes immediately 
   }
   try {
     render()
-    toggle()
-    toggle()
+    toggle() // open
+    toggle() // close gen 1
     vi.advanceTimersByTime(150)
+    // e5: reopen before deadline keeps body mounted and cancels gen 1 timer
     toggle()
-    toggle()
+    vi.advanceTimersByTime(200)
+    render()
+    expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+
+    // e8: close gen 2 -> stale gen 1 deadline does not unmount; gen 2 deadline (e3) unmounts
+    toggle() // close gen 2
     vi.advanceTimersByTime(150)
     render()
     expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
     vi.advanceTimersByTime(150)
     render()
     expect(dom.query('[aria-label="common.copy"]')).toBeNull()
+
+    // e6: copy text after unmount is identical
+    expect(toolCopy.copyText(call)).toBe(copyBefore)
+
+    // e4: reduced motion unmounts immediately on close
     toggle()
     reduceMotion = true
     toggle()

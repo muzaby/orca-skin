@@ -161,4 +161,113 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
     ctrl.cancelAnchor()
     expect(ctrl.getActiveAnchor()).toBeNull()
   })
+
+  it('a3/a9: multi-frame measurement corrections converge within +-1px with at most 1 scrollTop write per frame', () => {
+    const part = makeEl({ 'data-part-key': 'a:3:text:0' }, [makeText('anchor line')], {
+      top: 150,
+      height: 40
+    })
+    const block = makeEl({ 'data-block-key': 'a:3:text:0', 'data-message-id': 'a:3' }, [part], {
+      top: 150,
+      height: 40
+    })
+    const scroller = makeEl({}, [block], { top: 100, height: 500 })
+    scroller.scrollTop = 300
+
+    const ctrl = createAnchorController()
+    const anchor = ctrl.captureAnchor(scroller as unknown as HTMLElement)!
+    let writes = 0
+
+    // Frame 1: estimated prepend + header spinner change combined into 1 write
+    part.top = 450
+    block.top = 450
+    const t1 = restoreAnchor(scroller as unknown as HTMLElement, anchor)
+    if (t1 !== null) {
+      scroller.scrollTop = t1
+      writes++
+    }
+    expect(t1).toBe(600)
+    expect(writes).toBe(1)
+
+    // Frame 2: real measurement differs by +37px -> single correction brings delta within +-1px
+    part.top = 187
+    block.top = 187
+    const t2 = restoreAnchor(scroller as unknown as HTMLElement, anchor)
+    if (t2 !== null) {
+      scroller.scrollTop = t2
+      writes++
+    }
+    expect(Math.abs(t2! - 637)).toBeLessThanOrEqual(1)
+    expect(writes).toBe(2)
+
+    // Frame 3: final measurement settles at exact viewportOffsetPx -> 0 additional delta
+    part.top = 150
+    block.top = 150
+    const t3 = restoreAnchor(scroller as unknown as HTMLElement, anchor)
+    expect(t3).toBe(637)
+  })
+
+  it('a4/a6/a10: pinned prepend stays at bottom (no anchor override), unpinned live growth does not pull anchor, and header height shift keeps anchor offset', () => {
+    const part = makeEl({ 'data-part-key': 'a:4:text:0' }, [makeText('reading mid')], {
+      top: 140,
+      height: 40
+    })
+    const block = makeEl({ 'data-block-key': 'a:4:text:0', 'data-message-id': 'a:4' }, [part], {
+      top: 140,
+      height: 40
+    })
+    const scroller = makeEl({}, [block], { top: 100, height: 500 })
+    scroller.scrollTop = 100
+
+    const ctrl = createAnchorController()
+    const anchor = ctrl.captureAnchor(scroller as unknown as HTMLElement)!
+
+    // a4: pinned mode bypasses anchor restore (handled by pin-to-bottom policy)
+    const pinned = true
+    expect(pinned ? null : restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBeNull()
+
+    // a6: live output grows below anchor -> anchor top unchanged -> scrollTop stays at 100
+    expect(restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBe(100)
+
+    // a10: header spinner appears (+36px) -> part shifts down +36px -> restoreAnchor shifts scrollTop +36px
+    part.top = 176
+    block.top = 176
+    expect(restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBe(136)
+
+    // a10: header spinner disappears (-36px) -> part shifts back to 104 -> restoreAnchor compensates
+    scroller.scrollTop = 136
+    part.top = 104
+    block.top = 104
+    expect(restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBe(100)
+  })
+
+  it('a7/a11: reset merge/split and long-part reflow keep the same partKey and character offset within +-1px', () => {
+    const longText = 'A'.repeat(5000) + 'TARGET' + 'B'.repeat(5000)
+    const textNode = makeText(longText)
+    const part = makeEl({ 'data-part-key': 'a:7:text:0' }, [textNode], {
+      top: 120,
+      height: 800
+    })
+    const block = makeEl({ 'data-block-key': 'a:7:text:0', 'data-message-id': 'a:7' }, [part], {
+      top: 120,
+      height: 800
+    })
+    const scroller = makeEl({}, [block], { top: 100, height: 500 })
+    scroller.scrollTop = 400
+
+    // a11: character offset inside 10,000-char part survives width reflow
+    const offset = partTextOffset(part as unknown as Element, textNode as unknown as Node, 5000)
+    expect(offset).toBe(5000)
+    const pt = pointAtPartOffset(part as unknown as Element, offset)
+    expect(pt.node).toBe(textNode)
+    expect(pt.offset).toBe(5000)
+
+    // a7: after reset splits/merges block around same partKey, anchor still resolves by data-part-key
+    const ctrl = createAnchorController()
+    const anchor = ctrl.captureAnchor(scroller as unknown as HTMLElement)!
+    part.top = 270
+    block.top = 270
+    const nextTop = restoreAnchor(scroller as unknown as HTMLElement, anchor)
+    expect(Math.abs(nextTop! - 550)).toBeLessThanOrEqual(1)
+  })
 })

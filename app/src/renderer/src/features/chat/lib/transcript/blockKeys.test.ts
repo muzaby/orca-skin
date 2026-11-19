@@ -182,4 +182,84 @@ describe('blockKeys (EP-7 y1~y20)', () => {
     expect(isTurnStart({ role: 'user' }, { role: 'assistant' })).toBe(false)
     expect(isTurnStart({ role: 'assistant' }, { role: 'assistant' })).toBe(false)
   })
+
+  it('y1, y2, y4, y5, y6, y7, y9, y11 keep keys invariant under append, group context, T-violating prepends, reopen, duplicate tool_call, and cross-message OpenCode segments', async () => {
+    const { createClaudeBlockModel } =
+      await import('../../harnesses/claude/transcript/claudeBlocks')
+    const { createOpenCodeBlockModel } =
+      await import('../../harnesses/opencode/transcript/openCodeBlocks')
+    const { newTranscriptChanges, recordChange } = await import('./changeLog')
+
+    const u1 = msg('u:1', 'user', [{ type: 'text', text: 'q1' }])
+    const a1 = msg('a:1', 'assistant', [
+      { type: 'text', text: 'ans1' },
+      { type: 'tool_call', toolRunId: 'dup-t', toolName: 'Read', args: { v: 1 } },
+      { type: 'tool_call', toolRunId: 'dup-t', toolName: 'Read', args: { v: 2 } },
+      { type: 'tool_result', toolRunId: 'dup-t', result: 'ok', isError: false }
+    ])
+    const a2 = msg('a:2', 'assistant', [{ type: 'text', text: 'ans2' }])
+
+    // y1, y6, y9: Claude Code model — append keeps existing keys, turn meta stays anchored to first assistant a:1, duplicate tool_call produces 1 tool block
+    const codeModel = createClaudeBlockModel({ mode: 'code', sessionKey: 's1' })
+    const ch0 = newTranscriptChanges()
+    const snap1 = codeModel.advance({ messages: [u1, a1], transcriptChanges: ch0 })
+    const keys1 = Array.from({ length: snap1.count }, (_, i) => snap1.keyAt(i))
+    expect(keys1.filter((k) => k.includes('dup-t'))).toHaveLength(1)
+    expect(keys1).toContain(turnMetaKey('a:1'))
+
+    const ch1 = recordChange(ch0, { kind: 'append', ids: ['a:2'] })
+    const snap2 = codeModel.advance({ messages: [u1, a1, a2], transcriptChanges: ch1 })
+    const keys2 = Array.from({ length: snap2.count }, (_, i) => snap2.keyAt(i))
+    // y1 & y6: previous keys preserved and meta key stays a:1:meta
+    for (const k of keys1) expect(keys2).toContain(k)
+    expect(keys2).toContain(turnMetaKey('a:1'))
+
+    // y7: reopening with cloned message objects produces identical key set
+    const freshModel = createClaudeBlockModel({ mode: 'code', sessionKey: 's1' })
+    const reopenSnap = freshModel.advance({
+      messages: structuredClone([u1, a1, a2]),
+      transcriptChanges: newTranscriptChanges()
+    })
+    expect(Array.from({ length: reopenSnap.count }, (_, i) => reopenSnap.keyAt(i))).toEqual(keys2)
+
+    // y2, y4, y5: T-violating prepends (user before user, user before leading assistant) keep existing message keys unchanged
+    const ch4 = recordChange(ch1, { kind: 'reset', complete: false })
+    const u0 = msg('u:0', 'user', [{ type: 'text', text: 'prev user' }])
+    const snap4 = codeModel.advance({ messages: [u0, u1, a1, a2], transcriptChanges: ch4 })
+    const keys4 = Array.from({ length: snap4.count }, (_, i) => snap4.keyAt(i))
+    for (const k of keys2) expect(keys4).toContain(k)
+
+    const leadingModel = createClaudeBlockModel({ mode: 'code', sessionKey: 's2' })
+    const leadCh0 = newTranscriptChanges()
+    const leadSnap1 = leadingModel.advance({ messages: [a1], transcriptChanges: leadCh0 })
+    const leadKeys1 = Array.from({ length: leadSnap1.count }, (_, i) => leadSnap1.keyAt(i))
+    const leadSnap2 = leadingModel.advance({
+      messages: [u1, a1],
+      transcriptChanges: recordChange(leadCh0, { kind: 'reset', complete: false })
+    })
+    const leadKeys2 = Array.from({ length: leadSnap2.count }, (_, i) => leadSnap2.keyAt(i))
+    for (const k of leadKeys1) expect(leadKeys2).toContain(k)
+
+    // y11: OpenCode cross-message text segment keeps representative <A>:text:0 when C appends
+    const ocModel = createOpenCodeBlockModel()
+    const ocCh0 = newTranscriptChanges()
+    const ocA = msg('a:A', 'assistant', [{ type: 'text', text: 'part A' }])
+    const ocB = msg('a:B', 'assistant', [{ type: 'text', text: 'part B' }])
+    const ocC = msg('a:C', 'assistant', [{ type: 'text', text: 'part C' }])
+    const ocSnap1 = ocModel.advance(
+      { messages: [u1, ocA, ocB], transcriptChanges: ocCh0 },
+      { liveText: false, liveReasoning: false }
+    )
+    const ocKeys1 = Array.from({ length: ocSnap1.count }, (_, i) => ocSnap1.keyAt(i))
+    expect(ocKeys1).toContain('a:A:text:0')
+    const ocSnap2 = ocModel.advance(
+      {
+        messages: [u1, ocA, ocB, ocC],
+        transcriptChanges: recordChange(ocCh0, { kind: 'append', ids: ['a:C'] })
+      },
+      { liveText: false, liveReasoning: false }
+    )
+    const ocKeys2 = Array.from({ length: ocSnap2.count }, (_, i) => ocSnap2.keyAt(i))
+    expect(ocKeys2).toContain('a:A:text:0')
+  })
 })

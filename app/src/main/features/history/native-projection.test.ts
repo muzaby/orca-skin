@@ -174,3 +174,66 @@ it('keeps the latest bound native ID stable when earlier history is prepended', 
     })
   ).toEqual(['n:before', 'n:user-native', 'a:owner', 'm:12'])
 })
+
+describe('VP-05 load identity rules (i1~i8)', () => {
+  it('i1~i5, i7, i8 assign deterministic unique IDs across bound, unbound, orphan, tie-break, and prepend', () => {
+    const source: NativeHistorySnapshot = {
+      sessionId: 's',
+      cwd: '/w',
+      sourceKey: 'root',
+      revision: 'r1',
+      messages: [
+        { id: 'nat-1', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'u1' }] },
+        { id: 'nat-2', role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a1' }] },
+        { id: 'nat-3', role: 'assistant', createdAt: 3, parts: [{ type: 'text', text: 'a2' }] },
+        { id: 'nat-unbound', role: 'assistant', createdAt: 4, parts: [{ type: 'text', text: 'u' }] }
+      ]
+    }
+    const parts: LoadedPartRow[] = [
+      // Row 10 has message_key -> bound to nat-1, nat-2, nat-3 -> latest is nat-3 (i1, i4)
+      { ...row(10, { type: 'text', text: 'a2' }), message_key: 'a:key10' },
+      // Row 11 also has nat-3 as latest -> smaller DB id (10) wins (i7)
+      { ...row(11, { type: 'text', text: 'dup' }), message_key: 'a:key11' },
+      // Row 12 is an orphan below frontier (12 <= 12) -> value#o (i5)
+      {
+        ...row(
+          12,
+          { type: 'attachment', attachments: [{ id: 'orph-att' }] } as AppMessagePart,
+          'user'
+        ),
+        message_key: 'a:orph'
+      },
+      // Row 13 is local tail without message_key -> m:13 (i2)
+      row(13, { type: 'text', text: 'tail' })
+    ]
+    const bindings = [
+      { message_id: 10, native_message_id: 'nat-1' },
+      { message_id: 10, native_message_id: 'nat-2' },
+      { message_id: 10, native_message_id: 'nat-3' },
+      { message_id: 11, native_message_id: 'nat-3' }
+    ]
+    const first = projectNativeHistory(source, parts, bindings, 12)
+    const firstIds = first.messages.map((m) => m.id)
+    // i4: nat-1 & nat-2 -> n:..., nat-3 -> a:key10; i3: nat-unbound -> n:nat-unbound; i5: orphan -> a:orph#o; i2: tail -> m:13
+    expect(firstIds).toEqual(['n:nat-1', 'n:nat-2', 'a:key10', 'n:nat-unbound', 'a:orph#o', 'm:13'])
+    // All IDs unique
+    expect(new Set(firstIds).size).toBe(firstIds.length)
+
+    // i8: prepending native messages keeps all existing IDs unchanged and unique
+    const prepended = projectNativeHistory(
+      {
+        ...source,
+        messages: [
+          { id: 'nat-0', role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'pre' }] },
+          ...source.messages
+        ]
+      },
+      parts,
+      bindings,
+      12
+    )
+    const prependedIds = prepended.messages.map((m) => m.id)
+    expect(prependedIds).toEqual(['n:nat-0', ...firstIds])
+    expect(new Set(prependedIds).size).toBe(prependedIds.length)
+  })
+})

@@ -110,8 +110,12 @@ export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly sizeCache?: Map<string, number>
   /** When true, computes Claude 0008 reserveGap from the last block with `reserveTarget: true`. */
   readonly enableReserveGap?: boolean
+  /** Optional header slot rendered above virtualized blocks (EP-12 ① · a9 · a10). */
+  readonly header?: ReactNode
   /** Non-virtualized tail slot (pending steer, pending indicator, error banner, etc. — EP-11 ⑥). */
   readonly footer?: ReactNode
+  /** When true (pinned to bottom), upward anchor restoration is skipped (EP-12 ⑥ · a4). */
+  readonly pinned?: boolean
   /** Optional anchor block key to keep mounted in rangeExtractor. */
   readonly anchorKey?: string | null
   /** Optional callback for copy task timings (used by tests & diagnostics). */
@@ -146,6 +150,16 @@ const SHIFT_EXTEND_KEYS = new Set([
   'End'
 ])
 
+const SCROLL_CANCEL_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  ' '
+])
+
 export function TranscriptViewport<Block extends ViewportBlockBase>({
   snapshot,
   scrollRef,
@@ -155,7 +169,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   initialOffset,
   sizeCache: externalSizeCache,
   enableReserveGap = false,
+  header,
   footer,
+  pinned = false,
   anchorKey,
   onCopyTiming,
   copyChunkSize,
@@ -169,11 +185,20 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
 
   const internalSizes = useRef(new Map<string, number>())
   const sizeCache = externalSizeCache ?? internalSizes.current
+  const prevSnapshotRef = useRef(snapshot)
   const snapshotRef = useRef(snapshot)
   snapshotRef.current = snapshot
+  const pinnedRef = useRef(pinned)
+  pinnedRef.current = pinned
 
   const anchorController = useMemo(() => createAnchorController(), [])
   const activeAnchorRef = useRef<AnchorTarget | null>(null)
+  const restingAnchorRef = useRef<AnchorTarget | null>(null)
+  const selfWritingScrollRef = useRef(false)
+  const pendingRestoreRafRef = useRef<number | null>(null)
+  const headerRef = useRef<HTMLDivElement | null>(null)
+  const lastHeaderHeightRef = useRef<number | null>(null)
+
   const [retainedSelection, setRetainedSelection] = useState<RetainedSelection | null>(null)
   const retainedSelectionRef = useRef<RetainedSelection | null>(null)
   retainedSelectionRef.current = retainedSelection
@@ -184,6 +209,25 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const [asyncChunkRange, setAsyncChunkRange] = useState<[number, number] | null>(null)
   const copyHostRef = useRef<HTMLDivElement | null>(null)
   const activeCopyJobRef = useRef<CopyJobHandle | null>(null)
+
+  // Capture anchor BEFORE commit when snapshot head/keys change while unpinned (EP-12 ① · D1)
+  if (prevSnapshotRef.current !== snapshot) {
+    const prev = prevSnapshotRef.current
+    const headChanged =
+      prev.count > 0 &&
+      snapshot.count > 0 &&
+      (prev.keyAt(0) !== snapshot.keyAt(0) || prev.keyRevision !== snapshot.keyRevision)
+    if (headChanged && !pinned && !activeAnchorRef.current) {
+      const el = scrollRef.current
+      const captured = el ? captureAnchor(el) : null
+      const nextAnchor = captured ?? restingAnchorRef.current
+      if (nextAnchor) {
+        activeAnchorRef.current = nextAnchor
+        anchorController.setActiveAnchor(nextAnchor)
+      }
+    }
+    prevSnapshotRef.current = snapshot
+  }
 
   // Cancel any in-flight copy job on unmount (c16)
   useEffect(() => {
@@ -243,14 +287,75 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     [anchorKey, syncCopyRange]
   )
 
+  const flushAnchorRestore = useCallback((): void => {
+    const el = scrollRef.current
+    const anchor = activeAnchorRef.current
+    if (!el || !anchor || pinnedRef.current) return
+    const snap = snapshotRef.current
+    const fallbackEntries = Array.from({ length: snap.count }, (_, i) => {
+      const b = snap.blockAt(i)
+      return {
+        blockKey: b.key,
+        messageId: b.messageId,
+        partKeys: b.partKeys ?? [b.key]
+      }
+    })
+    const nextTop = restoreAnchor(el, anchor, fallbackEntries)
+    if (nextTop !== null && Math.abs(nextTop - el.scrollTop) > 0.5) {
+      selfWritingScrollRef.current = true
+      try {
+        writeScrollTop(el, nextTop)
+      } finally {
+        selfWritingScrollRef.current = false
+      }
+    }
+  }, [scrollRef])
+
+  const scheduleAnchorRestore = useCallback((): void => {
+    if (pinnedRef.current || pendingRestoreRafRef.current !== null) return
+    if (typeof requestAnimationFrame !== 'function') {
+      flushAnchorRestore()
+      return
+    }
+    pendingRestoreRafRef.current = requestAnimationFrame(() => {
+      pendingRestoreRafRef.current = null
+      flushAnchorRestore()
+    })
+  }, [flushAnchorRestore])
+
   const measureElement = useCallback(
     (element: Element, entry?: ResizeObserverEntry) => {
       const height = entry?.borderBoxSize?.[0]?.blockSize ?? element.getBoundingClientRect().height
       const key = element.getAttribute('data-block-key')
-      if (key && height > 0) sizeCache.set(key, height)
+      if (key && height > 0) {
+        const prevHeight = sizeCache.get(key)
+        sizeCache.set(key, height)
+        if (prevHeight !== undefined && Math.abs(prevHeight - height) > 0.5 && !pinnedRef.current) {
+          const snap = snapshotRef.current
+          const itemIdx = snap.indexOf(key)
+          const existingAnchor = activeAnchorRef.current ?? restingAnchorRef.current
+          const anchorIdx = existingAnchor ? snap.indexOf(existingAnchor.blockKey) : -1
+          const isAbove =
+            (anchorIdx >= 0 && itemIdx >= 0 && itemIdx < anchorIdx) ||
+            (scrollRef.current !== null &&
+              element.getBoundingClientRect().top < scrollRef.current.getBoundingClientRect().top)
+          if (isAbove) {
+            if (!activeAnchorRef.current) {
+              const target =
+                restingAnchorRef.current ??
+                (scrollRef.current ? captureAnchor(scrollRef.current) : null)
+              if (target) {
+                activeAnchorRef.current = target
+                anchorController.setActiveAnchor(target)
+              }
+            }
+            if (activeAnchorRef.current) scheduleAnchorRestore()
+          }
+        }
+      }
       return height
     },
-    [sizeCache]
+    [anchorController, scheduleAnchorRestore, scrollRef, sizeCache]
   )
 
   const virtualizer = useVirtualizer({
@@ -447,43 +552,82 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     [copyChunkSize, onCopyTiming, scrollRef, virtualized]
   )
 
-  // Cancel pending anchor adjustments on user input (EP-12 ⑦ · a8)
+  // Cancel pending anchor adjustments on user input and refresh resting anchor on user scroll (EP-12 ①⑦ · a8)
   useEffect(() => {
     const el = scrollRef.current
     if (!el || typeof el.addEventListener !== 'function') return
     const cancel = (): void => {
       anchorController.cancelAnchor()
       activeAnchorRef.current = null
+      if (pendingRestoreRafRef.current !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(pendingRestoreRafRef.current)
+        pendingRestoreRafRef.current = null
+      }
+    }
+    const onKeyDownCancel = (event: Event): void => {
+      const key = (event as KeyboardEvent).key
+      if (SCROLL_CANCEL_KEYS.has(key)) cancel()
+    }
+    const onScroll = (): void => {
+      if (selfWritingScrollRef.current) return
+      cancel()
+      if (!pinnedRef.current) {
+        restingAnchorRef.current = captureAnchor(el)
+      }
     }
     el.addEventListener('wheel', cancel, { passive: true })
     el.addEventListener('pointerdown', cancel, { passive: true })
+    el.addEventListener('keydown', onKeyDownCancel)
+    el.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       el.removeEventListener('wheel', cancel)
       el.removeEventListener('pointerdown', cancel)
+      el.removeEventListener('keydown', onKeyDownCancel)
+      el.removeEventListener('scroll', onScroll)
+      if (pendingRestoreRafRef.current !== null && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(pendingRestoreRafRef.current)
+        pendingRestoreRafRef.current = null
+      }
     }
   }, [anchorController, scrollRef])
 
-  // Restore anchor after top-displacement commits when active (EP-12 ②③)
+  // Observe header slot height changes for top-displacement anchor restoration (EP-12 ① · a9 · a10)
+  useEffect(() => {
+    const headerEl = headerRef.current
+    if (!headerEl || typeof ResizeObserver === 'undefined') return
+    lastHeaderHeightRef.current = headerEl.getBoundingClientRect().height
+    const ro = new ResizeObserver((entries) => {
+      const nextHeight =
+        entries[0]?.borderBoxSize?.[0]?.blockSize ?? headerEl.getBoundingClientRect().height
+      const prevHeight = lastHeaderHeightRef.current
+      lastHeaderHeightRef.current = nextHeight
+      if (prevHeight !== null && Math.abs(prevHeight - nextHeight) > 0.5 && !pinnedRef.current) {
+        if (!activeAnchorRef.current) {
+          const target =
+            restingAnchorRef.current ??
+            (scrollRef.current ? captureAnchor(scrollRef.current) : null)
+          if (target) {
+            activeAnchorRef.current = target
+            anchorController.setActiveAnchor(target)
+          }
+        }
+        if (activeAnchorRef.current) scheduleAnchorRestore()
+      }
+    })
+    ro.observe(headerEl)
+    return () => ro.disconnect()
+  }, [anchorController, header, scheduleAnchorRestore, scrollRef])
+
+  // Restore anchor after top-displacement commits when active, and refresh resting baseline (EP-12 ①②③ · D1)
   useLayoutEffect(() => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
-    if (!el || !anchor) return
-    const nextTop = restoreAnchor(el, anchor)
-    if (nextTop !== null && Math.abs(nextTop - el.scrollTop) > 0.5) {
-      writeScrollTop(el, nextTop)
+    if (el && anchor && !pinned) {
+      flushAnchorRestore()
+    } else if (el && !pinned && snapshot.count > 0) {
+      restingAnchorRef.current = captureAnchor(el)
     }
-  }, [snapshot.revision, scrollRef])
-
-  // Keep captureAnchor available on window/ref if needed by scroll controllers
-  const captureCurrentAnchor = useCallback((): AnchorTarget | null => {
-    const el = scrollRef.current
-    if (!el) return null
-    const captured = captureAnchor(el)
-    activeAnchorRef.current = captured
-    anchorController.setActiveAnchor(captured)
-    return captured
-  }, [anchorController, scrollRef])
-  void captureCurrentAnchor
+  }, [flushAnchorRestore, pinned, scrollRef, snapshot.count, snapshot.revision])
 
   const reveal = useCallback(
     (root: HTMLElement): void => {
@@ -539,6 +683,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         onKeyDown={virtualized ? handleKeyDown : undefined}
         className="w-full"
       >
+        {header && (
+          <div ref={headerRef} data-transcript-header="">
+            {header}
+          </div>
+        )}
         {virtualized ? (
           <div className="relative w-full" style={{ height: blocksTotalHeight }}>
             {virtualItems.map((vi) => {

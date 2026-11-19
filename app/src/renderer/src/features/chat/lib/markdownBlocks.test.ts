@@ -253,4 +253,27 @@ describe('openFenceTail & incremental scanState (EP-19 f1~f9·f11~f13)', () => {
     const f13 = advanceStableBlocks(null, '```ts\nconst a = 1\n```')
     expect(f13.openFence).not.toBeNull()
   })
+
+  it('f10: StreamingMarkdown completed output matches Markdown DOM structure on f1~f9 inputs', async () => {
+    const React = await import('react')
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const { Markdown } = await import('../../../shared/ui/markdown/Markdown')
+    const { StreamingMarkdown } = await import('../components/markdown/StreamingMarkdown')
+
+    const samples = [
+      '```ts\nconst x = 1\n```\n',
+      '~~~~py\nprint(1)\n~~~\nprint(2)\n~~~~\n',
+      '```a`b\nnot a fence\n',
+      '```ts\nconst x = 1\n```x\n```\n',
+      '   ```js\n   const a = 1\n   ```\n',
+      '```ts\r\nconst a = 1\r\n```\r\n'
+    ]
+    for (const sample of samples) {
+      const streamingHtml = renderToStaticMarkup(
+        React.createElement(StreamingMarkdown, { source: sample })
+      ).replace(/^<div class="flex flex-col gap-2">([\s\S]*)<\/div>$/, '$1')
+      const fullHtml = renderToStaticMarkup(React.createElement(Markdown, { source: sample }))
+      expect(streamingHtml).toBe(fullHtml)
+    }
+  })
 })

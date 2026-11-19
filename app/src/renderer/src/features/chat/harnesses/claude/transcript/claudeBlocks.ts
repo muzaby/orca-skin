@@ -654,6 +654,11 @@ export function createClaudeBlockModel(config: {
     const prevBlocks: ClaudeBlock[] = []
     const oldSnap = list.snapshot()
     for (let i = 0; i < oldSnap.count; i++) prevBlocks.push(oldSnap.blockAt(i))
+    const prevUserRefs: MultiPartGroupRef[] = []
+    for (const b of prevBlocks) {
+      if (b.kind === 'user')
+        prevUserRefs.push({ key: b.key, repPartKey: b.key, partKeys: new Set(b.partKeys) })
+    }
     prevActivityRefs = mode === 'work' ? extractActivityRefs(prevBlocks) : []
 
     messageById.clear()
@@ -713,12 +718,13 @@ export function createClaudeBlockModel(config: {
 
       const isFirstInDoc = allBlocks.length === 0
       if (g.role === 'user') {
-        const key = userBlockKey(firstId)
+        const userPartKeys = g.messages.map((m) => userBlockKey(m.id))
+        const { repPartKey: key } = representativePart(prevUserRefs, userPartKeys)
         const block: ClaudeUserBlock = {
           kind: 'user',
           key,
           messageId: firstId,
-          partKeys: [key],
+          partKeys: userPartKeys,
           turn: { role: 'user', messages: g.messages, startIndex: tIdx },
           gap: isFirstInDoc ? 0 : 24,
           reserveTarget: opts.reserve && tIdx === lastUserTurnIdx
@@ -966,12 +972,13 @@ export function createClaudeBlockModel(config: {
     turn.metaKey = undefined
 
     if (turn.role === 'user') {
+      const userPartKeys = turnMessages.map((m) => userBlockKey(m.id))
       const key = userBlockKey(turn.id)
       const block: ClaudeUserBlock = {
         kind: 'user',
         key,
         messageId: turn.id,
-        partKeys: [key],
+        partKeys: userPartKeys,
         turn: { role: 'user', messages: turnMessages, startIndex: 0 },
         gap: isFirstInDoc ? 0 : 24,
         reserveTarget: opts.reserve && isLastUser
@@ -1144,12 +1151,13 @@ export function createClaudeBlockModel(config: {
               for (const m of g.messages) msgToTurn.set(m.id, tr)
               const isFirst = prefixBlocks.length === 0
               if (g.role === 'user') {
+                const userPartKeys = g.messages.map((m) => userBlockKey(m.id))
                 const key = userBlockKey(firstId)
                 prefixBlocks.push({
                   kind: 'user',
                   key,
                   messageId: firstId,
-                  partKeys: [key],
+                  partKeys: userPartKeys,
                   turn: { role: 'user', messages: g.messages, startIndex: 0 },
                   gap: isFirst ? 0 : 24,
                   reserveTarget: false

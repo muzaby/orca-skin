@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import { loadSession } from './reader'
+import { recoveryArchive } from './native-recovery'
 
 let connection: Database.Database
 let db: DbQueries
@@ -104,5 +105,44 @@ describe('history reader with the current SQLite schema', () => {
     })
 
     expect(() => loadSession(db, 'bad', () => '/fallback')).toThrow('Invalid agent kind')
+  })
+
+  it('VP-05 i1, i2, i6: loads message_key when present, falls back to m:<id>, and assigns x:<idx> for archived messages without id', () => {
+    db.insertSession({
+      id: 's-id',
+      backend: 'claude',
+      title: null,
+      projectId: null,
+      createdAt: 1,
+      cwd: '/w'
+    })
+    const m1 = db.appendMessage({
+      sessionId: 's-id',
+      role: 'user',
+      content: 'hi',
+      createdAt: 2,
+      messageKey: 'u:req-1'
+    })
+    db.appendPart({ messageId: m1, type: 'text', toolRunId: null, payloadJson: '{"text":"hi"}' })
+    const m2 = db.appendMessage({
+      sessionId: 's-id',
+      role: 'assistant',
+      content: 'hello',
+      createdAt: 3
+    })
+    db.appendPart({ messageId: m2, type: 'text', toolRunId: null, payloadJson: '{"text":"hello"}' })
+
+    const loaded = loadSession(db, 's-id', () => '/w')!
+    expect(loaded.messages.map((m) => m.id)).toEqual(['u:req-1', `m:${m2}`])
+    expect(new Set(loaded.messages.map((m) => m.id)).size).toBe(2)
+
+    // i6: recoveryArchive keeps existing id or falls back to x:<index>
+    const archived = recoveryArchive({
+      archive_json: JSON.stringify([
+        { id: 'u:kept', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'old' }] },
+        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'no-id' }] }
+      ])
+    } as Parameters<typeof recoveryArchive>[0])
+    expect(archived.map((m) => m.id)).toEqual(['u:kept', 'x:1'])
   })
 })

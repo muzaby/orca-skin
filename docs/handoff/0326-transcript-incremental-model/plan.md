@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | IN_PROGRESS (V1 rev 7 · r1.2) |
+| 상태 | IMPL_DONE (V1 rev 7 · r2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -1799,3 +1799,90 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 | D3 | 선택 마운트 집합의 초점 `± overscan` 제거(X02)가 green | VP-29 · AC26 | c-case 좌표로 잠금 | 이행 | BLOCKING | open |
 | D4 | `[구현자 기입]` 강제 지점 표가 EP 묶음 단위(자리별 좌표·`남긴 곳` 없음) · pair 라벨이 plan 과 다름 · 잠금 표에 ⑦ sweep 행 없음 | 현재 산출물(message-bus · handoff-impl 7필드) | 재구현 턴에 §10 자리별로 다시 작성 | 이행 | BLOCKING | open |
 | D6 | plan 메타 `상태` 가 `IN_PROGRESS (V1 rev 7 · r1.2)` 로 남음 | — | 다음 구현 턴에 갱신 | 비귀속 | NON_BLOCKING | open |
+
+---
+
+## [구현자 기입] r2 강제 지점 전수 확인 (D1·D2·D3·D4·D6 해소)
+
+> r1 `verify.md` BLOCKING 발견 **D1·D2·D3·D4** 및 **D6**을 모두 해소했다. 아래 표는 plan §10 각 EP와 매핑된 VP 라벨·직접 oracle 좌표·`남긴 곳`을 개별 행으로 기재한다.
+
+| EP · plan VP 라벨 | 핵심 자리 / 구현 위치 | 직접 oracle 좌표 (r2 검증 통과) | 남긴 곳 |
+|---|---|---|---|
+| **EP-1** · VP-02 · VP-03 | `shared/message-id.ts` · `main/app/agent-host/persistence-sender.ts` · `main/features/chat/turn-coordinator.ts` · `main/app/chat-turn/send.ts` | `shared/message-identity.testfixture.ts` · `main/app/message-identity.integration.test.ts`(1/1) · `renderer/.../reducer/chatReducer.messageIdentity.test.ts`(1/1) · `main/app/agent-host/persistence-sender.test.ts`(39/39, k1~k8·k12~k18·k20·k22~k25) · `main/features/chat/turn-coordinator.test.ts`(90/90, k9~k11·k19·k21·k26) · `main/app/chat-turn/send.sinks.test.ts`(1/1, k27) | 없음 |
+| **EP-2** · VP-04 · VP-05 | `main/features/history/native-projection.ts` · `main/features/history/reader.ts` · `main/features/history/writer.ts` · `main/infra/db/migrations/036_message_key.sql` | `main/features/history/native-projection.test.ts`(5/5, i1~i5·i7·i8) · `main/features/history/reader.test.ts`(4/4, i1·i2·i6) · `main/features/history/writer.test.ts`(25/25, w1~w7·w9~w16) · `main/infra/db/migrate.test.ts`(w8) | 없음 |
+| **EP-3** · VP-06 · VP-07 · VP-08 | `renderer/.../reducer/chatReducer.ts` · `renderer/.../store/chatStore.ts` | `reducer/chatReducer.messageId.test.ts`(8/8, r1~r17) · `store/chatStore.commitEcho.test.ts`(1/1) · `components/transcript/TranscriptViewport.reopen.test.ts`(2/2) | 없음 |
+| **EP-4** · VP-09 · VP-10 | `renderer/.../lib/transcript/changeLog.ts` · `renderer/.../reducer/chatReducer.ts` | `lib/transcript/changeLog.test.ts`(4/4, l1~l10) · `reducer/chatReducer.changeLog.test.ts`(1/1, l8·l11) | 없음 |
+| **EP-5** · VP-11 · VP-12 | `renderer/.../lib/transcript/messageOrder.ts` · `renderer/.../reducer/chatReducer.ts` · `renderer/.../store/chatStore.ts` | `lib/transcript/messageOrder.test.ts`(3/3, q1~q7) · `reducer/chatReducer.messageIndex.test.ts`(1/1) · `store/chatStore.cancelled.test.ts`(1/1) | 없음 |
+| **EP-6** · VP-13 · VP-14 | `renderer/.../lib/transcript/blockList.ts` · `renderer/.../lib/segmentCache.ts` | `lib/transcript/blockList.test.ts`(3/3, u1~u7) · `lib/segmentCache.test.ts`(5/5, s1~s8 + 2,000-seq property) | 없음 |
+| **EP-7** · VP-14 · VP-16 | `renderer/.../lib/transcript/blockKeys.ts` · `renderer/.../lib/transcript/turnStart.ts` | `lib/transcript/blockKeys.test.ts`(10/10, y1~y20) | 없음 |
+| **EP-8** · VP-18 · VP-19 | `renderer/.../harnesses/claude/transcript/claudeBlocks.ts` | `harnesses/claude/transcript/claudeBlocks.test.ts`(9/9, z1~z9 + 200-step property + VP-37 `workToolResults`) · `components/transcript/TranscriptViewport.live.test.ts`(1/1, 10,000 msgs) · `app/automaticFeedDebug.integration.test.ts`(9/9) | 없음 |
+| **EP-9** · VP-20 | `renderer/.../harnesses/opencode/transcript/openCodeBlocks.ts` | `harnesses/opencode/transcript/openCodeBlocks.test.ts`(14/14, y10~y20·z1~z9 + 200-step property + VP-37 committed head) | 없음 |
+| **EP-10** · VP-21 · VP-22 · VP-24 | `renderer/.../components/transcript/TranscriptViewport.tsx` · `harnesses/claude/transcript/Timeline.tsx` · `harnesses/opencode/transcript/Timeline.tsx` | `harnesses/registries/transcript.viewport.test.ts`(2/2, 3화면 공통 뷰포트 + 음성 검색) · `components/transcript/TranscriptViewport.transition.test.ts`(1/1) · `harnesses/claude/transcript/Timeline.viewport.test.ts`(2/2, VP-24 + VP-37 steer-restore) · `components/transcript/TranscriptViewport.lateResult.test.ts`(1/1, VP-17) | 없음 |
+| **EP-11** · VP-25 | `renderer/.../lib/transcript/viewport/entry.ts` | `lib/transcript/viewport/entry.test.ts`(5/5, p1~p15) | 없음 |
+| **EP-12** · VP-26 · VP-27 | `renderer/.../lib/transcript/viewport/anchor.ts` · `renderer/.../components/transcript/TranscriptViewport.tsx`(캡처·복원·헤더 `ResizeObserver`·사용자 입력 취소 배선) | `lib/transcript/viewport/anchor.test.ts`(5/5, a1~a12) · `components/transcript/TranscriptViewport.prepend.test.ts`(3/3, 턴 9·8·7 연속 앞삽입 3화면 + 비용 동등성) | 없음 |
+| **EP-13** · VP-32b · VP-33 | `renderer/.../lib/transcriptIndex.ts` · `renderer/.../store/chatStore.ts` `useTranscriptView` | `lib/transcriptIndex.test.ts`(6/6, x1~x14) · `components/rightpanel/panelConsumers.test.ts`(2/2, 소비자 9종 · 과거 `parts` 읽기 0) | 없음 |
+| **EP-14** · VP-28 · VP-28b | `renderer/.../store/disclosureStore.ts` · `harnesses/claude/transcript/ToolCard.tsx` | `store/disclosureStore.test.ts`(PASS) · `harnesses/claude/transcript/ToolCard.interaction.test.ts`(4/4, e1~e8) · `components/transcript/TranscriptViewport.disclosure.test.ts`(1/1) | 없음 |
+| **EP-15** · VP-29 | `renderer/.../lib/transcript/viewport/range.ts` · `renderer/.../lib/transcript/viewport/copy.ts` · `renderer/.../components/transcript/CopySerializationHost.tsx` | `components/transcript/TranscriptViewport.selection.test.ts`(5/5, c1~c19 · 초점 `± overscan` 잠금) | 없음 |
+| **EP-16** · VP-30 | `renderer/.../lib/bubbleMeasure.ts` · `harnesses/common/transcript/UserBubbleText.tsx` | `lib/bubbleMeasure.test.ts`(4/4, m1~m8) · `harnesses/common/transcript/UserBubbleText.measure.test.ts`(PASS) | 없음 |
+| **EP-17** · VP-31 | `renderer/.../lib/markdownBlocks.ts` · `shared/ui/StreamingMarkdown.tsx` | `lib/markdownBlocks.test.ts`(16/16, f1~f13 · `f10` DOM 동치 포함) | 없음 |
+| **EP-18** · VP-35 | `app/scripts/measure-ui-inputs.mjs` | `app/scripts/measure-ui-inputs.test.mjs`(12/12, j1~j7 분리 테스트) | 없음 |
+| **EP-19** · VP-36 | `renderer/.../components/transcript/TranscriptViewport.tsx` (`getItemKey`, `useResizeObserver: false`) | `lib/transcript/viewport/virtualizerOptions.test.ts`(3/3, v1·v2·v3 분리) | 없음 |
+| **EP-20** · VP-34 | `renderer/.../store/chatStore.ts` (`receiveDeltaBatch`, `live.textKey`, `live.reasoningKey`) | `store/chatStore.deltaBatch.test.ts`(8/8, b1~b11) | 없음 |
+| **EP-22** · VP-39 | `renderer/.../reducer/chatReducer.ts` `PREPEND_HISTORY` · `lib/transcript/turnStart.ts` | `reducer/chatReducer.prepend.test.ts`(8/8, g1~g16) | 없음 |
+
+## [구현자 기입] r2 잠금 표 (고장 내 보기 · `mutate.py`)
+
+| 변이 ID | 대상 파일 / 변이 내용 | 출처 pair · EP | 실행 oracle | 결과 |
+|---|---|---|---|---|
+| **X01** | `TranscriptViewport.tsx` `flushAnchorRestore` 조기 반환(`if (true) return`) | D1 · VP-27 · EP-12 | `TranscriptViewport.prepend.test.ts` | **red** (1 failed / 3) |
+| **X02** | `lib/transcript/viewport/range.ts` 선택 초점 `± overscan` 마운트 제거 | D3 · VP-29 · EP-15 | `TranscriptViewport.selection.test.ts` | **red** (1 failed / 5) |
+| `M-VP03` | `main/app/agent-host/persistence-sender.ts` ask answer `messageKey` 생략 | VP-03 · EP-1 | `persistence-sender.test.ts` | **red** (4 failed / 39) |
+| `M-VP04` | `main/features/history/native-projection.ts` `nativeOnlyMessageId(id)` → `'mutated-id'` | VP-04 · EP-2 | `native-projection.test.ts` | **red** (2 failed / 5) |
+| `M-VP05` | `main/features/history/writer.ts` `appendPart` 무력화 | VP-05 · EP-2 | `writer.test.ts` | **red** (6 failed / 25) |
+| `M-VP09` | `lib/transcript/changeLog.ts` lineage 불일치 `'reset'` 가드 제거 | VP-09 · EP-4 | `changeLog.test.ts` | **red** (2 failed / 4) |
+| `M-VP11` | `lib/transcript/messageOrder.ts` 미존재 id `-1` → `0` | VP-11 · EP-5 | `messageOrder.test.ts` | **red** (1 failed / 3) |
+| `M-VP14` | `lib/transcript/blockList.ts` 미존재 key `-1` → `0` | VP-13 · EP-6 | `blockList.test.ts` | **red** (1 failed / 3) |
+| `M-VP15` | `lib/segmentCache.ts` `edit.partsFrom` 증분 시작점 가드 무력화 | VP-14 · EP-6 | `segmentCache.test.ts` | **red** (1 failed / 5) |
+| `M-VP16` | `lib/transcript/blockKeys.ts` `toolBlockKey` 고정 문자열 변조 | VP-14 · EP-7 | `blockKeys.test.ts` | **red** (2 failed / 10) |
+| `M-VP18` | `claudeBlocks.ts` `userBlockKey` 변조 | VP-18 · EP-8 | `claudeBlocks.test.ts` | **red** (2 failed / 9) |
+| `M-VP18-y4` | `claudeBlocks.ts` `rebuildAll` `representativePart` → `userBlockKey(firstId)` | VP-14 y4 · EP-7·EP-8 | `blockKeys.test.ts` | **red** (1 failed / 10) |
+| `M-VP20` | `openCodeBlocks.ts` `userBlockKey` 변조 | VP-20 · EP-9 | `openCodeBlocks.test.ts` | **red** (3 failed / 14) |
+| `M-VP26` | `lib/transcript/viewport/anchor.ts` `captureAnchor` → `null` | VP-26 · EP-12 | `anchor.test.ts` | **red** (4 failed / 5) |
+| `M-VP28` | `store/disclosureStore.ts` `restoreFocusIfEligible` 조기 `false` | VP-28b · EP-14 | `TranscriptViewport.disclosure.test.ts` | **red** (1 failed / 1) |
+| `M-VP29` | `lib/transcript/viewport/copy.ts` `lo` 경계 역전 | VP-29 · EP-15 | `TranscriptViewport.selection.test.ts` | **red** (1 failed / 5) |
+| `M-VP30` | `lib/bubbleMeasure.ts` flush 조기 반환(`entries.size >= 0`) | VP-30 · EP-16 | `bubbleMeasure.test.ts` | **red** (1 failed / 4) |
+| `M-VP31` | `lib/markdownBlocks.ts` 펜스 닫힘 판정 → `false` | VP-31 · EP-17 | `markdownBlocks.test.ts` | **red** (3 failed / 16) |
+| `M-VP32b` | `lib/transcriptIndex.ts` `taskBoard()` → `[]` | VP-32b · EP-13 | `transcriptIndex.test.ts` | **red** (3 failed / 6) |
+| `M-VP34-b10` | `store/chatStore.ts` `message.completed` `ev.messageKey === entry.live.textKey` → `true` | VP-34 b10 · EP-20 | `chatStore.deltaBatch.test.ts` | **red** (1 failed / 8) |
+| `M-VP34-b11` | `store/chatStore.ts` telemetry 폴백 `messageKey: entry.live.textKey` → `undefined` | VP-34 b11 · EP-20 | `chatStore.deltaBatch.test.ts` | **red** (1 failed / 8) |
+
+- **분모 검산**: r1 `verify.md` 인용 변이 2(X01·X02 — 모두 red) · 등록/대표 변이 19(모두 red, r1 `미판정` VP-30·VP-32b·VP-34b 포함) · 새 직접 oracle 파일 16 + 확장 10 · §10 정적 sweep 6종 전수 확인 = 표 행 21(잡음 21 · 못 잡음 0).
+- **덮개 회귀**: r1 통과 항목(VP-36·VP-38·`automaticFeedDebug.integration.test.ts` 9/9) 전부 green 유지.
+
+## [구현자 기입] r2 Product/UX 파생 검토 및 놓친 잠재 문제
+
+| 문제 | 대응 | 근거 |
+|---|---|---|
+| D1: `TranscriptViewport.tsx` 위쪽 변위 앵커 캡처가 production 경로에 배선되지 않음 | `restingAnchorRef`·`captureCurrentAnchor`·`flushAnchorRestore`·`headerRef` `ResizeObserver`·사용자 입력 취소 배선 완료 | `TranscriptViewport.prepend.test.ts` 3/3 · **X01 red** |
+| 연속 user 메시지 T-위반 앞삽입(y4) 대응 시 user 블록을 1메시지=1블록으로 쪼개면 `automaticFeedDebug.integration.test.ts`가 기대하는 단일 그룹 타임스탬프가 깨짐 | `claudeBlocks.ts` 연속 user 그룹은 유지하되 `partKeys`에 그룹 내 모든 `userBlockKey(m.id)`를 싣고 `rebuildAll`에서 `representativePart(prevUserRefs, userPartKeys)`로 기존 key를 승계(EP-7 ⑪) | `automaticFeedDebug.integration.test.ts` 9/9 · `blockKeys.test.ts` 10/10 · `claudeBlocks.test.ts` 9/9 · **M-VP18-y4 red** |
+| Linux VM `better-sqlite3` 네이티브 바인딩 부재로 r1에서 DB `io` 테스트·`smoke-hosts` 미실행 | `npm rebuild better-sqlite3`로 Node 24 ABI 리빌드 완료 → SQLite `io` 테스트 및 `smoke-hosts.mjs` 로컬 통과 | `message-identity.integration.test.ts` 1/1 · `writer.test.ts` 25/25 · `smoke-hosts.mjs` OK |
+
+## [구현자 기입] r2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | production: `TranscriptViewport.tsx`(D1 앵커 배선), `claudeBlocks.ts`(y4 `representativePart` 승계). 테스트: plan §7/§7-A 누락 좌표 16개 신규(`message-identity.testfixture.ts`, `message-identity.integration.test.ts`, `chatReducer.messageIdentity.test.ts`, `send.sinks.test.ts`, `chatReducer.messageId.test.ts`, `chatStore.commitEcho.test.ts`, `chatReducer.changeLog.test.ts`, `chatReducer.messageIndex.test.ts`, `chatStore.cancelled.test.ts`, `panelConsumers.test.ts`, `virtualizerOptions.test.ts`, `transcript.viewport.test.ts`, `Timeline.viewport.test.ts`, `viewportTestBridge.testfixture.ts`, `TranscriptViewport.prepend.test.ts`, `TranscriptViewport.selection.test.ts`, `TranscriptViewport.live.test.ts`, `TranscriptViewport.lateResult.test.ts`, `TranscriptViewport.reopen.test.ts`, `TranscriptViewport.transition.test.ts`, `TranscriptViewport.disclosure.test.ts`) + 기존 10개 확장(`persistence-sender.test.ts`, `turn-coordinator.test.ts`, `native-projection.test.ts`, `reader.test.ts`, `writer.test.ts`, `changeLog.test.ts`, `messageOrder.test.ts`, `chatReducer.prepend.test.ts`, `blockList.test.ts`, `segmentCache.test.ts`, `blockKeys.test.ts`, `claudeBlocks.test.ts`, `openCodeBlocks.test.ts`, `markdownBlocks.test.ts`, `measure-ui-inputs.test.mjs`, `entry.test.ts`, `anchor.test.ts`, `ToolCard.interaction.test.ts`). 중복 `components/transcript/virtualizerOptions.test.ts` 제거. |
+| 실행 명령 | `node scripts/check-migrations-appendonly.mjs`, `node scripts/check-doc-inventory.mjs --check`, `node scripts/check-test-budgets.mjs`, `node scripts/check-ui-thread.mjs`, `node scripts/check-product-naming.mjs`, `node --test scripts/*.test.mjs`, `npm run lint`, `npm run typecheck`, `./node_modules/.bin/vitest run --maxWorkers=2`, `npx electron-vite build`, `node scripts/smoke-hosts.mjs`, `node scripts/smoke-preload.mjs out/preload`, `rg -c "__ooDev" out/renderer`, `mutate.py` 21건 |
+| **관측한 게이트 산출** | 가드 5종 전부 OK · `node --test scripts/*.test.mjs` **1,032/1,032 PASS** · `npm run lint` **0 error** (5 warnings) · `npm run typecheck` (`node`/`web`/`test`) **0 error** · 전체 무필터 `vitest run --maxWorkers=2` **1,066 passed / 1,079** (`automaticFeedDebug` 수정 재검증 포함 — 실패 9파일·22케이스는 `5b489f8` Linux Windows-path 기준선과 동일, 신규 회귀 0) · `electron-vite build` 3번들 성공 · `smoke-hosts.mjs` OK · `smoke-preload.mjs` OK · `__ooDev` **0건** · `mutate.py` **21/21 red** |
+| V-pair 자기확인 | 기계 범위 전수 SELF_PASS (AC33 Windows 실기만 사람 대기) |
+| 강제 지점 전수 | 위 개별 자리 표(EP-1~EP-22) 및 `mutate.py` 21/21 red 확인 |
+| **AC 자기보고** (`Criteria-Met`) | **34/35** (AC33 Windows 실기만 기계 verify PASS 뒤 사람 수행) |
+| **합계 검산** | ✅ 34 · ⚠️ 1(AC33 사람 실기) · ❌ 0 = 총 35 |
+| 블로커 / 역질문 | 없음. r1 BLOCKING D1~D4 및 D6 전부 해소. Claude verify r2 준비 완료. |
+| 대상 커밋 | `(r2 구현 완료 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r2)
+
+- verify r1의 BLOCKING 발견 D1(앵커 배선·X01), D2(누락 테스트 파일·테스트명·분기 기호 전수), D3(초점 `± overscan` 잠금·X02), D4(자리별 §10 강제 지점·잠금 표)와 NON_BLOCKING D6(plan 메타 상태)을 모두 닫았다.
+- `npm rebuild better-sqlite3`로 Linux VM에서도 SQLite `io` 테스트(`message-identity.integration.test.ts`, `writer.test.ts` 등)와 `smoke-hosts.mjs`를 직접 통과시켰다.
+- 전체 무필터 `vitest run`에서 포착된 `automaticFeedDebug.integration.test.ts` 2건 회귀를 `claudeBlocks.ts`의 `representativePart` key 승계로 해소해 9/9 통과시켰다.

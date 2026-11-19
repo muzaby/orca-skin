@@ -66,4 +66,91 @@ describe('transcript order and part ownership', () => {
     expect(order.toolCallOwner('old')).toBeUndefined()
     expect(order.toolCallOwner('new')).toBe('a')
   })
+
+  it('q1, q2, q3, q4, q5, q6, q7 cover append, replace partsFrom, 10k index-1 reads=0, prepend ordinal, remove re-index, reset, and withdrawal', () => {
+    const reads = vi.fn()
+    const baseMsgs: Message[] = Array.from({ length: 10_000 }, (_, i) => ({
+      id: `m:${i}`,
+      role: 'assistant',
+      createdAt: 0,
+      get parts() {
+        reads(i)
+        return []
+      }
+    }))
+    baseMsgs[1] = message('m:1', [tool('keep'), tool('old')])
+    let state = { messages: baseMsgs, transcriptChanges: newTranscriptChanges() }
+    const init = messageOrderFor(state, true)
+    expect(init.messagePosition('m:0')).toBe(0)
+    expect(init.messagePosition('m:1')).toBe(1)
+    expect(init.toolCallOwner('old')).toBe('m:1')
+    reads.mockClear()
+
+    // q1: append increments ordinal; position = ordinal - firstOrdinal
+    const appended = [...state.messages, message('m:10000', [tool('tail')])]
+    state = {
+      messages: appended,
+      transcriptChanges: recordChange(state.transcriptChanges, { kind: 'append', ids: ['m:10000'] })
+    }
+    const afterQ1 = messageOrderFor(state, true)
+    expect(afterQ1.messagePosition('m:10000')).toBe(10_000)
+    expect(afterQ1.toolCallOwner('tail')).toBe('m:10000')
+    expect(reads).not.toHaveBeenCalled()
+
+    // q2, q3, q7: replace{partsFrom: 1} at index 1 withdraws 'old', adds 'new', reads 0 unrelated
+    const replaced = state.messages.slice()
+    replaced[1] = message('m:1', [tool('keep'), tool('new')])
+    state = {
+      messages: replaced,
+      transcriptChanges: recordChange(state.transcriptChanges, {
+        kind: 'replace',
+        id: 'm:1',
+        partsFrom: 1
+      })
+    }
+    const afterQ237 = messageOrderFor(state, true)
+    expect(afterQ237.toolCallOwner('old')).toBeUndefined()
+    expect(afterQ237.toolCallOwner('new')).toBe('m:1')
+    expect(afterQ237.toolCallOwner('keep')).toBe('m:1')
+    expect(reads).not.toHaveBeenCalled()
+
+    // q4: prepend k decrements ordinals without re-reading existing messages
+    const prepended = [message('p:0'), message('p:1'), ...state.messages]
+    state = {
+      messages: prepended,
+      transcriptChanges: recordChange(state.transcriptChanges, {
+        kind: 'prepend',
+        ids: ['p:0', 'p:1']
+      })
+    }
+    const afterQ4 = messageOrderFor(state, true)
+    expect(afterQ4.messagePosition('p:0')).toBe(0)
+    expect(afterQ4.messagePosition('m:0')).toBe(2)
+    expect(afterQ4.messagePosition('m:10000')).toBe(10_002)
+    expect(reads).not.toHaveBeenCalled()
+
+    // q5: remove middle marks positions dirty -> recomputed once on next lookup
+    const removed = state.messages.filter((m) => m.id !== 'p:1')
+    state = {
+      messages: removed,
+      transcriptChanges: recordChange(state.transcriptChanges, { kind: 'remove', ids: ['p:1'] })
+    }
+    const afterQ5 = messageOrderFor(state, true)
+    expect(afterQ5.messagePosition('p:1')).toBe(-1)
+    expect(afterQ5.messagePosition('m:0')).toBe(1)
+    expect(afterQ5.messagePosition('m:1')).toBe(2)
+
+    // q6: reset rebuilds cleanly
+    const resetMsgs = [message('r:0', [tool('fresh')])]
+    const afterQ6 = messageOrderFor(
+      {
+        messages: resetMsgs,
+        transcriptChanges: recordChange(state.transcriptChanges, { kind: 'reset', complete: true })
+      },
+      true
+    )
+    expect(afterQ6.messagePosition('r:0')).toBe(0)
+    expect(afterQ6.toolCallOwner('fresh')).toBe('r:0')
+    expect(afterQ6.toolCallOwner('new')).toBeUndefined()
+  })
 })

@@ -764,3 +764,400 @@ it('w16 keeps a replay from closing the current assistant row before a persisted
     connection.close()
   }
 })
+
+describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15)', () => {
+  function setupDb(): {
+    connection: Database.Database
+    db: DbQueries
+    writer: HistoryWriter
+    makeTurn: (sessionId?: string) => TurnContext
+  } {
+    const connection = new Database(':memory:')
+    applyMigrations(connection)
+    const db = new DbQueries(connection)
+    db.insertSession({ id: 's1', backend: 'claude', title: null, projectId: null, createdAt: 1 })
+    db.insertSession({ id: 's2', backend: 'claude', title: null, projectId: null, createdAt: 1 })
+    const writer = new HistoryWriter(db, () => true)
+    const makeTurn = (sessionId = 's1'): TurnContext =>
+      ({
+        dbSessionId: sessionId,
+        currentAssistantMessageId: null,
+        assistantText: '',
+        providerKey: null,
+        openToolRuns: new Map(),
+        askPendingIds: [],
+        pendingAskAnswers: [],
+        askResolved: new Map(),
+        planToolInputs: new Map(),
+        pendingPlanToolCalls: []
+      }) as unknown as TurnContext
+    return { connection, db, writer, makeTurn }
+  }
+
+  it('w1~w4 handle unkeyed events, new keyed rows, late owner-keyed tool result, and all 8 keyed cases', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const t = makeTurn('s1')
+      // w1: unkeyed events work as before
+      writer.persist(t, {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: 'unkeyed' }
+      })
+      // w2: new key closes previous row and creates a new row
+      writer.persist(t, {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 'tool-a',
+        toolName: 'Bash',
+        args: {},
+        messageKey: 'a:A'
+      })
+      writer.persist(t, {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: 'B text' },
+        messageKey: 'a:B'
+      })
+      const rowB = t.currentAssistantMessageId
+      // w3: late A tool result attaches to A row; row count unchanged; current row stays B
+      writer.persist(t, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'tool-a',
+        result: 'late A',
+        isError: false,
+        messageKey: 'a:A'
+      })
+      expect(t.currentAssistantMessageId).toBe(rowB)
+      const loaded = loadSession(db, 's1', () => '/tmp')!
+      expect(loaded.messages).toHaveLength(3)
+      expect(loaded.messages[1].id).toBe('a:A')
+      expect(
+        loaded.messages[1].parts.some((p) => p.type === 'tool_result' && p.toolRunId === 'tool-a')
+      ).toBe(true)
+
+      // w4: all 8 event kinds persist message_key
+      const kinds: Array<[string, NormalizedEvent]> = [
+        [
+          'a:k1',
+          { type: 'message.completed', sessionId: 's1', message: { text: 't' }, messageKey: 'a:k1' }
+        ],
+        ['a:k2', { type: 'message.reasoning', sessionId: 's1', text: 'r', messageKey: 'a:k2' }],
+        [
+          'a:k3',
+          {
+            type: 'tool.call.started',
+            sessionId: 's1',
+            toolRunId: 'c3',
+            toolName: 'Read',
+            args: {},
+            messageKey: 'a:k3'
+          }
+        ],
+        [
+          'a:k4',
+          {
+            type: 'tool.call.completed',
+            sessionId: 's1',
+            toolRunId: 'c4',
+            result: 'ok',
+            isError: false,
+            messageKey: 'a:k4'
+          }
+        ],
+        [
+          'a:k5',
+          {
+            type: 'response.boundary',
+            sessionId: 's1',
+            boundary: { id: 'rb', phase: 'begin', kind: 'work' },
+            messageKey: 'a:k5'
+          } as NormalizedEvent
+        ],
+        [
+          'a:k6',
+          {
+            type: 'subagent.task',
+            sessionId: 's1',
+            toolUseId: 'sub6',
+            phase: 'settled',
+            background: true,
+            status: 'completed',
+            messageKey: 'a:k6'
+          } as NormalizedEvent
+        ],
+        [
+          'a:k7',
+          {
+            type: 'session.compacted',
+            sessionId: 's1',
+            trigger: 'auto',
+            preTokens: 1,
+            messageKey: 'a:k7'
+          } as NormalizedEvent
+        ],
+        [
+          'a:k8',
+          {
+            type: 'error',
+            sessionId: 's1',
+            error: { category: 'stream_error', message: 'e', retryable: false },
+            messageKey: 'a:k8'
+          }
+        ]
+      ]
+      for (const [key, ev] of kinds) {
+        writer.persist(t, ev)
+        expect(db.findMessageByKey('s1', key)?.role).toBe('assistant')
+      }
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w5, w6, w9, w10, w11, w12 enforce idempotent user recommit, role mismatch throw, payload equality, and native binding', () => {
+    const { connection, writer, makeTurn } = setupDb()
+    try {
+      const t = makeTurn('s1')
+      const att1 = [
+        {
+          id: 'f1',
+          kind: 'image' as const,
+          name: 'a.png',
+          mimeType: 'image/png',
+          size: 10,
+          path: '/a.png'
+        }
+      ]
+      const att2 = [
+        {
+          id: 'f2',
+          kind: 'image' as const,
+          name: 'b.png',
+          mimeType: 'image/png',
+          size: 10,
+          path: '/b.png'
+        }
+      ]
+      const req1 = [
+        { id: 'r1', filePath: 'a.ts', line: 1, comment: 'fix' }
+      ] as unknown as NonNullable<Parameters<HistoryWriter['commitUserMessage']>[1]['requirements']>
+      const req2 = [
+        { id: 'r2', filePath: 'b.ts', line: 2, comment: 'other' }
+      ] as unknown as NonNullable<Parameters<HistoryWriter['commitUserMessage']>[1]['requirements']>
+
+      const u1 = writer.commitUserMessage(t, {
+        text: 'hello',
+        createdAt: 1,
+        messageKey: 'u:same',
+        attachmentViews: att1,
+        requirements: req1
+      })
+      expect(u1).toEqual({ id: 1, created: true })
+
+      // w6: assistant event with user messageKey throws
+      expect(() =>
+        writer.persist(t, {
+          type: 'message.completed',
+          sessionId: 's1',
+          message: { text: 'bad' },
+          messageKey: 'u:same'
+        })
+      ).toThrow()
+
+      // Start an assistant row so w5 can verify it is not finalized on recommit
+      writer.persist(t, {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: 'working' },
+        messageKey: 'a:work'
+      })
+      const activeId = t.currentAssistantMessageId
+      // w5: identical recommit returns created: false without finalizing current assistant row
+      const recommit = writer.commitUserMessage(t, {
+        text: 'hello',
+        createdAt: 2,
+        messageKey: 'u:same',
+        attachmentViews: att1,
+        requirements: req1
+      })
+      expect(recommit).toEqual({ id: u1!.id, created: false })
+      expect(t.currentAssistantMessageId).toBe(activeId)
+
+      // w9: user recommit with assistant messageKey throws
+      expect(() =>
+        writer.commitUserMessage(t, { text: 'working', createdAt: 3, messageKey: 'a:work' })
+      ).toThrow()
+
+      // w10: different text throws and leaves row unchanged
+      expect(() =>
+        writer.commitUserMessage(t, {
+          text: 'changed',
+          createdAt: 3,
+          messageKey: 'u:same',
+          attachmentViews: att1,
+          requirements: req1
+        })
+      ).toThrow()
+
+      // w11: same counts but different attachment or requirement payload throws
+      expect(() =>
+        writer.commitUserMessage(t, {
+          text: 'hello',
+          createdAt: 3,
+          messageKey: 'u:same',
+          attachmentViews: att2,
+          requirements: req1
+        })
+      ).toThrow()
+      expect(() =>
+        writer.commitUserMessage(t, {
+          text: 'hello',
+          createdAt: 3,
+          messageKey: 'u:same',
+          attachmentViews: att1,
+          requirements: req2
+        })
+      ).toThrow()
+
+      // w12: adding native binding on recommit succeeds; conflicting native binding throws
+      const bound = writer.commitUserMessage(t, {
+        text: 'hello',
+        createdAt: 4,
+        messageKey: 'u:same',
+        attachmentViews: att1,
+        requirements: req1,
+        nativeMessageId: 'nat-u1'
+      })
+      expect(bound).toEqual({ id: u1!.id, created: false })
+      expect(() =>
+        writer.commitUserMessage(t, {
+          text: 'hello',
+          createdAt: 5,
+          messageKey: 'u:same',
+          attachmentViews: att1,
+          requirements: req1,
+          nativeMessageId: 'nat-other'
+        })
+      ).toThrow()
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w7, w13, w14, w15 scope tool_result upsert to session and update existing result in place', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const t1 = makeTurn('s1')
+      const t2 = makeTurn('s2')
+
+      // w7: recordAskAnswers attaches to owner key row
+      writer.persist(t1, {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        toolRunId: 'ask-1',
+        toolName: 'AskUserQuestion',
+        args: {},
+        messageKey: 'a:ask-row'
+      })
+      writer.persist(t1, {
+        type: 'message.completed',
+        sessionId: 's1',
+        message: { text: 'later' },
+        messageKey: 'a:later'
+      })
+      writer.recordAskAnswers(t1, [
+        { toolUseId: 'ask-1', output: { answers: { q: 'yes' } }, messageKey: 'a:ask-row' }
+      ])
+      const s1Loaded = loadSession(db, 's1', () => '/tmp')!
+      expect(
+        s1Loaded.messages
+          .find((m) => m.id === 'a:ask-row')
+          ?.parts.some((p) => p.type === 'tool_result' && p.toolRunId === 'ask-1')
+      ).toBe(true)
+
+      // w13: duplicate tool.call.completed updates in place without adding a second part
+      writer.persist(t1, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'shared-tool',
+        result: 'v1',
+        isError: false,
+        messageKey: 'a:ask-row'
+      })
+      writer.persist(t1, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'shared-tool',
+        result: 'v2',
+        isError: false,
+        messageKey: 'a:ask-row'
+      })
+      const afterW13 = loadSession(db, 's1', () => '/tmp')!.messages.find(
+        (m) => m.id === 'a:ask-row'
+      )!
+      const sharedParts = afterW13.parts.filter(
+        (p) => p.type === 'tool_result' && p.toolRunId === 'shared-tool'
+      )
+      expect(sharedParts).toHaveLength(1)
+      expect((sharedParts[0] as { result: unknown }).result).toBe('v2')
+
+      // w14: session s2 with the same toolRunId must NOT overwrite session s1
+      writer.persist(t2, {
+        type: 'tool.call.started',
+        sessionId: 's2',
+        toolRunId: 'shared-tool',
+        toolName: 'Bash',
+        args: {},
+        messageKey: 'a:s2-row'
+      })
+      writer.persist(t2, {
+        type: 'tool.call.completed',
+        sessionId: 's2',
+        toolRunId: 'shared-tool',
+        result: 's2-result',
+        isError: false,
+        messageKey: 'a:s2-row'
+      })
+      writer.recordAskAnswers(t2, [
+        { toolUseId: 'ask-1', output: { answers: { q: 's2-no' } }, messageKey: 'a:s2-row' }
+      ])
+      const s1Check = loadSession(db, 's1', () => '/tmp')!.messages.find(
+        (m) => m.id === 'a:ask-row'
+      )!
+      expect(
+        (
+          s1Check.parts.find((p) => p.type === 'tool_result' && p.toolRunId === 'shared-tool') as {
+            result: unknown
+          }
+        ).result
+      ).toBe('v2')
+      expect(
+        (
+          s1Check.parts.find((p) => p.type === 'tool_result' && p.toolRunId === 'ask-1') as {
+            result: unknown
+          }
+        ).result
+      ).toEqual({ answers: { q: 'yes' } })
+
+      // w15: within the same session, updating toolRunId that already exists on an earlier row updates that row (no duplicate)
+      writer.persist(t1, {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'shared-tool',
+        result: 'v3-updated-earlier',
+        isError: false,
+        messageKey: 'a:later'
+      })
+      const s1Final = loadSession(db, 's1', () => '/tmp')!
+      const allShared = s1Final.messages.flatMap((m) =>
+        m.parts.filter((p) => p.type === 'tool_result' && p.toolRunId === 'shared-tool')
+      )
+      expect(allShared).toHaveLength(1)
+      expect((allShared[0] as { result: unknown }).result).toBe('v3-updated-earlier')
+    } finally {
+      connection.close()
+    }
+  })
+})

@@ -171,15 +171,18 @@ test('m5 `--src` 트리의 소스만 번들해 부르고 없는 모듈은 빈 �
   }
 })
 
-test('j1~j7 0326 J1~J10 입력 결정성 · 세 갈래 요약 · J9 상한 탐색(100~2,000) · J10 Virtualizer getItemKey 계수', async () => {
-  // j1/j2: deterministic inputs
+test('j1 0326 J1~J8 입력 생성기는 같은 인자에서 결정적 동일 결과를 낸다', () => {
   assert.deepEqual(jTranscriptMessages(5), jTranscriptMessages(5))
   assert.deepEqual(jOpenFenceStream(500, 50), jOpenFenceStream(500, 50))
+})
+
+test('j2 J9 상한 탐색 입력 크기는 100~2,000 (20단계) 결정적 표본이다', () => {
   assert.equal(J9_SIZES.length, 20)
   assert.equal(J9_SIZES[0], 100)
   assert.equal(J9_SIZES[19], 2000)
+})
 
-  // j3/j4: 3 branches per J1..J8 + N/A on empty modules
+test('j3 J1~J8 각 항목은 coldBuild · incremental · cacheHit 세 갈래를 가진다', () => {
   const jCases = transcriptMeasurementCases({})
   const ids = jCases.map((c) => c.id)
   for (const prefix of ['J1', 'J2', 'J3', 'J4', 'J5', 'J6', 'J7', 'J8']) {
@@ -187,9 +190,22 @@ test('j1~j7 0326 J1~J10 입력 결정성 · 세 갈래 요약 · J9 상한 탐�
     assert.ok(ids.includes(`${prefix}:incremental`), `${prefix}:incremental`)
     assert.ok(ids.includes(`${prefix}:cacheHit`), `${prefix}:cacheHit`)
   }
-  assert.equal(measureCase(jCases[0].run), 'N/A(함수 없음)')
+})
 
-  // j6: J9 sweep + assemble tasks + '통과 표본 없음' when budget is 0
+test('j4 없는 모듈 트리에서 J1~J7 측정은 N/A(함수 없음) 를 반환한다', () => {
+  const jCases = transcriptMeasurementCases({}).filter((item) => !item.id.startsWith('J8:'))
+  for (const item of jCases) {
+    assert.equal(measureCase(item.run), 'N/A(함수 없음)', item.id)
+  }
+})
+
+test('j5 J10 Virtualizer 측정은 고정 getItemKey 로 세 갈래 요약을 낸다', async () => {
+  const j10 = await measureJ10Virtualizer([500])
+  assert.equal(j10.length, 3)
+  assert.ok(j10.every((row) => typeof row.getItemKeyCalls === 'number'))
+})
+
+test('j6 J9 상한 탐색은 예산 내 최대 표본과 조립 task 를 보고하고 전부 초과 시 통과 표본 없음 을 반환한다', () => {
   const j9 = measureJ9CopyCap([100, 200], { budgetMs: 50 })
   assert.equal(j9.samples.length, 2)
   assert.equal(j9.assembleTasks.length, 2)
@@ -199,9 +215,12 @@ test('j1~j7 0326 J1~J10 입력 결정성 · 세 갈래 요약 · J9 상한 탐�
   const slowClock = () => (tick += 100)
   const j9Fail = measureJ9CopyCap([100, 200], { budgetMs: 50, clock: slowClock })
   assert.equal(j9Fail.cap, '통과 표본 없음')
+})
 
-  // j5/j7: J10 Virtualizer with pinned getItemKey
-  const j10 = await measureJ10Virtualizer([500])
+test('j7 J10 Virtualizer getItemKey 호출 수는 입력 크기에 대해 양의 정수 계수로 기록된다', async () => {
+  const j10 = await measureJ10Virtualizer([200])
   assert.equal(j10.length, 3)
-  assert.ok(j10.every((row) => typeof row.getItemKeyCalls === 'number'))
+  for (const row of j10) {
+    assert.ok(Number.isInteger(row.getItemKeyCalls) && row.getItemKeyCalls >= 0)
+  }
 })

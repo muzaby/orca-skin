@@ -281,4 +281,57 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
       )
     }
   })
+
+  it('z9: incremental prepend cost is constant between 1 turn and 100 turns', () => {
+    const runAtTurns = (
+      turnCount: number
+    ): { beforeCount: number; reused: number; added: number } => {
+      const model = createClaudeBlockModel({ mode: 'code', sessionKey: 'z9' })
+      const msgs: Message[] = []
+      for (let i = 1; i <= turnCount; i++) {
+        msgs.push(userMsg(`u:${i}`, `q ${i}`, i * 10))
+        msgs.push(assistantMsg(`a:${i}`, [{ type: 'text', text: `ans ${i}` }], i * 10 + 1))
+      }
+      let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      const before = model.advance({ messages: msgs, transcriptChanges: changes })
+      const nextMsgs = [
+        userMsg('u:0', 'older', 0),
+        assistantMsg('a:0', [{ type: 'text', text: 'old' }], 1),
+        ...msgs
+      ]
+      changes = recordChange(changes, { kind: 'prepend', ids: ['u:0', 'a:0'] })
+      const after = model.advance({ messages: nextMsgs, transcriptChanges: changes })
+      let reused = 0
+      for (let i = 0; i < before.count; i++) {
+        const b = before.blockAt(i)
+        const idx = after.indexOf(b.key)
+        if (idx >= 0 && after.blockAt(idx) === b) reused++
+      }
+      return { beforeCount: before.count, reused, added: after.count - before.count }
+    }
+    const r1 = runAtTurns(1)
+    const r100 = runAtTurns(100)
+    expect(r1.added).toBe(r100.added)
+    expect(r1.beforeCount - r1.reused).toBeLessThanOrEqual(2)
+    expect(r100.beforeCount - r100.reused).toBeLessThanOrEqual(2)
+  })
+
+  it('VP-37 (workToolResults): attributes tool results inside work-mode activity groups without cross-leaking', () => {
+    const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'work-vp37' })
+    const messages: Message[] = [
+      userMsg('u:1', 'work'),
+      assistantMsg('a:1', [
+        { type: 'response_boundary', boundary: { id: 'r1', phase: 'begin' } },
+        { type: 'tool_call', toolRunId: 'w1', toolName: 'Read', args: { file_path: 'a.ts' } },
+        { type: 'tool_result', toolRunId: 'w1', result: 'ok-1', isError: false },
+        { type: 'text', text: 'summary' },
+        { type: 'response_boundary', boundary: { id: 'r1', phase: 'end', outcome: 'ended' } }
+      ])
+    ]
+    const changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const snap = model.advance({ messages, transcriptChanges: changes })
+    const blocks = snapshotToArray(snap)
+    expect(blocks.some((b) => b.kind === 'activity')).toBe(true)
+    expect(blocks.some((b) => b.kind === 'segment' && b.segment.kind === 'text')).toBe(true)
+  })
 })

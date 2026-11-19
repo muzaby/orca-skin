@@ -101,6 +101,130 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
     expect(snapshotToArray(snap2).find((b) => b.kind === 'segment')?.key).toBe('a:B:text:0')
   })
 
+  it('z1: append 1 message allocates only the new message blocks and keeps earlier blocks identical', () => {
+    const model = createOpenCodeBlockModel()
+    let messages: Message[] = [
+      userMsg('u:1', 'q1'),
+      assistantMsg('a:1', [{ type: 'text', text: 'ans 1' }]),
+      userMsg('u:2', 'q2'),
+      assistantMsg('a:2', [{ type: 'text', text: 'ans 2' }])
+    ]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const snap1 = model.advance({ messages, transcriptChanges: changes })
+    const u1Before = snap1.blockAt(0)
+    const a1Before = snap1.blockAt(1)
+
+    messages = [...messages, userMsg('u:3', 'q3')]
+    changes = recordChange(changes, { kind: 'append', ids: ['u:3'] })
+    const snap2 = model.advance({ messages, transcriptChanges: changes })
+    expect(snap2.blockAt(0)).toBe(u1Before)
+    expect(snap2.blockAt(1)).toBe(a1Before)
+    expect(snap2.blockAt(snap2.count - 1).key).toBe(userBlockKey('u:3'))
+  })
+
+  it('z2: replace{partsFrom} updates only the targeted message blocks and keeps other blocks identical', () => {
+    const model = createOpenCodeBlockModel()
+    let messages: Message[] = [
+      userMsg('u:1', 'q1'),
+      assistantMsg('a:1', [{ type: 'text', text: 'first' }]),
+      userMsg('u:2', 'q2'),
+      assistantMsg('a:2', [{ type: 'text', text: 'second' }])
+    ]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const snap1 = model.advance({ messages, transcriptChanges: changes })
+    const a1Before = snap1.blockAt(1)
+
+    messages = [
+      messages[0],
+      messages[1],
+      messages[2],
+      {
+        ...messages[3],
+        parts: [
+          ...messages[3].parts,
+          { type: 'tool_call', toolRunId: 't2', toolName: 'Read', args: { file: 'x' } }
+        ]
+      }
+    ]
+    changes = recordChange(changes, { kind: 'replace', id: 'a:2', partsFrom: 1 })
+    const snap2 = model.advance({ messages, transcriptChanges: changes })
+    expect(snap2.blockAt(1)).toBe(a1Before)
+    expect(snapshotToArray(snap2).map((b) => b.key)).toEqual(
+      buildOpenCodeBlocksOracle(messages).map((b) => b.key)
+    )
+  })
+
+  it('z3: remove deletes the message blocks and updates boundary blocks', () => {
+    const model = createOpenCodeBlockModel()
+    let messages: Message[] = [
+      userMsg('u:1', 'q1'),
+      assistantMsg('a:1', [{ type: 'text', text: 'ans 1' }]),
+      userMsg('u:2', 'q2')
+    ]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    model.advance({ messages, transcriptChanges: changes })
+
+    messages = [messages[1], messages[2]]
+    changes = recordChange(changes, { kind: 'remove', ids: ['u:1'] })
+    const snap2 = model.advance({ messages, transcriptChanges: changes })
+    expect(snap2.indexOf(userBlockKey('u:1'))).toBe(-1)
+    expect(snap2.blockAt(0).gap).toBe(0)
+    expect(snapshotToArray(snap2).map((b) => ({ kind: b.kind, key: b.key, gap: b.gap }))).toEqual(
+      buildOpenCodeBlocksOracle(messages).map((b) => ({ kind: b.kind, key: b.key, gap: b.gap }))
+    )
+  })
+
+  it('z4: late tool result updates only the original call block', () => {
+    const model = createOpenCodeBlockModel()
+    let messages: Message[] = [
+      userMsg('u:1', 'q1'),
+      assistantMsg('a:1', [
+        { type: 'tool_call', toolRunId: 't1', toolName: 'Bash', args: { cmd: 'ls' } }
+      ]),
+      userMsg('u:2', 'q2'),
+      assistantMsg('a:2', [{ type: 'text', text: 'later' }])
+    ]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const snap1 = model.advance({ messages, transcriptChanges: changes })
+    const a2Before = snap1.blockAt(3)
+
+    messages = [
+      messages[0],
+      {
+        ...messages[1],
+        parts: [
+          ...messages[1].parts,
+          { type: 'tool_result', toolRunId: 't1', result: 'ok', isError: false }
+        ]
+      },
+      messages[2],
+      messages[3]
+    ]
+    changes = recordChange(changes, { kind: 'replace', id: 'a:1', partsFrom: 1 })
+    const snap2 = model.advance({ messages, transcriptChanges: changes })
+    expect(snap2.blockAt(3)).toBe(a2Before)
+    expect(snap2.blockAt(1)).not.toBe(snap1.blockAt(1))
+  })
+
+  it('z5: boundary-changing append updates only boundary blocks and keeps earlier turns identical', () => {
+    const model = createOpenCodeBlockModel()
+    let messages: Message[] = [
+      userMsg('u:1', 'q1'),
+      assistantMsg('a:1', [{ type: 'text', text: 'ans 1' }])
+    ]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const snap1 = model.advance({ messages, transcriptChanges: changes })
+    const u1Before = snap1.blockAt(0)
+
+    messages = [...messages, userMsg('u:2', 'q2')]
+    changes = recordChange(changes, { kind: 'append', ids: ['u:2'] })
+    const snap2 = model.advance({ messages, transcriptChanges: changes })
+    expect(snap2.blockAt(0)).toBe(u1Before)
+    expect(snapshotToArray(snap2).map((b) => ({ kind: b.kind, key: b.key, gap: b.gap }))).toEqual(
+      buildOpenCodeBlocksOracle(messages).map((b) => ({ kind: b.kind, key: b.key, gap: b.gap }))
+    )
+  })
+
   it('z6: T-preserving prepend keeps existing blocks identical by reference', () => {
     const model = createOpenCodeBlockModel()
     let messages: Message[] = [
@@ -121,6 +245,113 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
 
     expect(snap2.blockAt(0).key).toBe(userBlockKey('u:1'))
     expect(snap2.blockAt(snap2.indexOf(a2SegBefore.key))).toBe(a2SegBefore)
+  })
+
+  it('z7: live presence transition (p1~p3) updates structure once with stable representative keys', () => {
+    const model = createOpenCodeBlockModel()
+    const messages: Message[] = [
+      userMsg('u:1', 'q1'),
+      assistantMsg('a:1', [{ type: 'text', text: 'hello' }])
+    ]
+    const changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const snapIdle = model.advance(
+      { messages, transcriptChanges: changes },
+      { pending: false, liveText: false }
+    )
+    const snapLive = model.advance(
+      { messages, transcriptChanges: changes },
+      { pending: true, liveText: true, liveTextKey: 'a:1' }
+    )
+    const snapDone = model.advance(
+      { messages, transcriptChanges: changes },
+      { pending: false, liveText: false }
+    )
+    expect(snapLive.blockAt(1).key).toBe(snapIdle.blockAt(1).key)
+    expect(snapDone.blockAt(1).key).toBe(snapIdle.blockAt(1).key)
+  })
+
+  it('z8: folded catch-up (append -> replace -> remove and remove -> re-add) matches full oracle', () => {
+    const mFresh = createOpenCodeBlockModel()
+    const mMid = createOpenCodeBlockModel()
+    let messages: Message[] = [userMsg('u:1', 'q1')]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    mMid.advance({ messages, transcriptChanges: changes })
+
+    // append a:tmp -> replace a:tmp -> remove a:tmp
+    messages = [...messages, assistantMsg('a:tmp', [{ type: 'text', text: 'temp' }])]
+    changes = recordChange(changes, { kind: 'append', ids: ['a:tmp'] })
+    messages = [
+      messages[0],
+      assistantMsg('a:tmp', [
+        { type: 'text', text: 'temp' },
+        { type: 'text', text: '2' }
+      ])
+    ]
+    changes = recordChange(changes, { kind: 'replace', id: 'a:tmp', partsFrom: 1 })
+    messages = [messages[0]]
+    changes = recordChange(changes, { kind: 'remove', ids: ['a:tmp'] })
+
+    // append a:2 -> remove a:2 -> re-add a:2
+    messages = [...messages, assistantMsg('a:2', [{ type: 'text', text: 'v1' }])]
+    changes = recordChange(changes, { kind: 'append', ids: ['a:2'] })
+    messages = [messages[0]]
+    changes = recordChange(changes, { kind: 'remove', ids: ['a:2'] })
+    messages = [...messages, assistantMsg('a:2', [{ type: 'text', text: 'v2' }])]
+    changes = recordChange(changes, { kind: 'append', ids: ['a:2'] })
+
+    const oracle = buildOpenCodeBlocksOracle(messages).map((b) => ({
+      kind: b.kind,
+      key: b.key,
+      gap: b.gap
+    }))
+    expect(
+      snapshotToArray(mFresh.advance({ messages, transcriptChanges: changes })).map((b) => ({
+        kind: b.kind,
+        key: b.key,
+        gap: b.gap
+      }))
+    ).toEqual(oracle)
+    expect(
+      snapshotToArray(mMid.advance({ messages, transcriptChanges: changes })).map((b) => ({
+        kind: b.kind,
+        key: b.key,
+        gap: b.gap
+      }))
+    ).toEqual(oracle)
+  })
+
+  it('z9: incremental append/prepend/replace work is constant between 1 turn and 100 turns', () => {
+    const runAtTurns = (
+      turnCount: number
+    ): { beforeCount: number; reused: number; added: number } => {
+      const model = createOpenCodeBlockModel()
+      const msgs: Message[] = []
+      for (let i = 1; i <= turnCount; i++) {
+        msgs.push(userMsg(`u:${i}`, `q ${i}`, i * 10))
+        msgs.push(assistantMsg(`a:${i}`, [{ type: 'text', text: `ans ${i}` }], i * 10 + 1))
+      }
+      let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      const before = model.advance({ messages: msgs, transcriptChanges: changes })
+      const nextMsgs = [
+        userMsg('u:0', 'older', 0),
+        assistantMsg('a:0', [{ type: 'text', text: 'old' }], 1),
+        ...msgs
+      ]
+      changes = recordChange(changes, { kind: 'prepend', ids: ['u:0', 'a:0'] })
+      const after = model.advance({ messages: nextMsgs, transcriptChanges: changes })
+      let reused = 0
+      for (let i = 0; i < before.count; i++) {
+        const b = before.blockAt(i)
+        const idx = after.indexOf(b.key)
+        if (idx >= 0 && after.blockAt(idx) === b) reused++
+      }
+      return { beforeCount: before.count, reused, added: after.count - before.count }
+    }
+    const r1 = runAtTurns(1)
+    const r100 = runAtTurns(100)
+    expect(r1.added).toBe(r100.added)
+    expect(r1.beforeCount - r1.reused).toBeLessThanOrEqual(2)
+    expect(r100.beforeCount - r100.reused).toBeLessThanOrEqual(2)
   })
 
   it('property: 200-step randomized sequence matches full-build oracle', () => {
@@ -193,5 +424,30 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
         oracle.map((b) => ({ kind: b.kind, key: b.key, gap: b.gap }))
       )
     }
+  })
+
+  it('projects the committed head once and the live tail once per presence change without computing copy text', () => {
+    const model = createOpenCodeBlockModel()
+    const messages: Message[] = [
+      userMsg('u:1', 'question'),
+      assistantMsg('a:1', [{ type: 'text', text: 'committed head' }])
+    ]
+    const changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const s1 = model.advance(
+      { messages, transcriptChanges: changes },
+      { pending: false, liveText: false }
+    )
+    const headBlock = s1.blockAt(0)
+    const s2 = model.advance(
+      { messages, transcriptChanges: changes },
+      { pending: true, liveText: true, liveTextKey: 'a:1' }
+    )
+    const s3 = model.advance(
+      { messages, transcriptChanges: changes },
+      { pending: true, liveText: true, liveTextKey: 'a:1' }
+    )
+    expect(s2.blockAt(0)).toBe(headBlock)
+    expect(s3.blockAt(0)).toBe(headBlock)
+    expect(s3.blockAt(1)).toBe(s2.blockAt(1))
   })
 })
