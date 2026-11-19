@@ -270,3 +270,148 @@
 - 운영 gate: 통과(vitest 22건은 기준선 동일 환경 실패).
 - 남은 사람 확인: AC33 — 기계 PASS 뒤.
 - 다음 단계: Codex 재구현 r2 — D1~D4 를 닫고, plan 좌표대로 테스트를 만든 뒤 등록 변이 하한 ①과 ⑦ sweep 을 실행해 `[구현자 기입]` 에 자리별로 적는다.
+
+---
+
+# Verify 2회째 (r2)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-19 |
+| 대상 커밋/range | `de270fe..b46ddc9` (`b496751` r2 · `b46ddc9` r2 EP-10 경로 검사 수정) |
+| 구현 전 plan 기준 | `5b489f8` (V1 rev 7) — r2 의 plan diff 는 메타 `상태` 한 줄 + `[구현자 기입]` r2 절 추가뿐(`git diff de270fe..b46ddc9 -- …/plan.md`) |
+| V mode / 유효 V | `Baseline V: V1 rev 7` |
+| 라운드 | 2 |
+| 상태 | **FAIL** |
+| 확장 창 | verify 2회째 — 창 안 · 다시 열린 노드 없음 |
+| 독립 축(⑥) | 6건 — 앵커 캡처 원인 3종(X05 위 블록 측정 · X08 머리 자리 · X06 자기 쓰기 구분) · 키 입력 취소(X07) · 비동기 직렬화 빈 값(X09) · production DOM `data-part-key` 단위(코드 대조). 못 잡음 5 |
+| 열거 sweep(⑦) | **전수 미완료** — 등록 변이 ① 중 이번 실행 7건(M26-a4 · M29-c3 · M29-c19 · M21-v1 · M02-tel · M02-own · M02-k23) + r1 이력 15건. 못 잡음 4 |
+| 발견 분류 | 이행 9 · 현재 0 · 확장 0 · 경계 0 · 비귀속 1 |
+| 구현 주체·문맥 | 기록만 — Codex. 설계자 = 검증자 |
+
+## 0. 기준선 / plan validity
+
+- Decision · Product/UX · AC · V node/pair · §10 변경: 없음. 채점 기준은 r1 과 같은 `5b489f8` 원문.
+- §10 EP-10 · EP-12 자리 검색 재실행: `useVirtualizer(` 1(①) · transcript 폴더 `scrollTop` 쓰기는 `TranscriptViewport.tsx` 만 · EP-12 검색 자리 7파일 — 목록과 차집합 0.
+- plan 내부 표기 drift 1건 — AC15 검증 수단 `registry.viewport.test.ts` ↔ VP-21 `harnesses/registries/transcript.viewport.test.ts`(같은 테스트). 해석 불요라 gap 아님(D14).
+- root PLAN_GAP: 없음.
+
+## 1. 좌표 실재 재측정 (r1 D2)
+
+| 대상 | 결과 | 근거 |
+|---|---|---|
+| §7·§7-A 테스트 파일 84 | 없음 2 — 둘 다 VP-37 이 삭제를 예정한 `Timeline.grouper`·`workToolResults` | `find src scripts -name <basename>` |
+| 테스트명 좌표 29 | 없음 1 — VP-37 이 VP-16 z7 로 옮긴 `Timeline.memo` 케이스 | `grep -F` 앞 40자 |
+| 분기 기호 k·i·w·r·l·q·y·u·z·s·p·a·d·e·c·m·f·x·b·j·g·v | 기호별 합집합 누락 0 | `grep -E "\b<기호>N\b"` — i·l·p 는 형제 파일 합집합 |
+
+좌표는 생겼다. 다만 아래 §3 처럼 여러 좌표가 production 경로에 들어가지 않거나 상수·로컬 재구현을 단언한다.
+
+## 2. 고장 이력
+
+`python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` 2회 · 끝난 뒤 `git status` 빈 출력.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 범위 | 직전 결과 | 이번 결과 | 잡은 테스트 / 근거 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|---|
+| V01~V11 | r1 표와 같은 자리 | r1 과 같음 | r1 과 같음 | r1 과 같은 스위트 | 잡음 | 잡음 11 | `reserve`·`entry`·`pin`·`changeLog`·`blockList`·`chatReducer.prepend`·`chatStore.deltaBatch` | ④ | — |
+| X01 | `TranscriptViewport.tsx:293` (재앵커 — 복원이 `flushAnchorRestore` 로 이동) | 고정값 | 조기 반환 `if (true) return` | `features/chat` | 못 잡음 | **잡음** | 1 failed / 2,713 | ③ | — |
+| X02 | `viewport/range.ts:47` | 제거 | 초점 `± overscan` → 초점 하나 | `features/chat` | 못 잡음 | **잡음** | 1 failed / 2,713 | ③ | — |
+| X03 | `TranscriptViewport.tsx:70` | 제거 | `scrollTop = top` 제거 | `features/chat` | 잡음 | 잡음 | 5 failed / 2,713 | ④ | — |
+| X04 | `changeLog.ts:52` | 제거 | 접기 `remove` 소거 | `features/chat` | 잡음 | 잡음 | 6 failed / 2,713 | ④ | — |
+| M26-a4 | `TranscriptViewport.tsx:293` | 제거 | 복원의 `pinnedRef.current` 조건 제거 | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ⑦ a4 | 이행 — D7 |
+| X05 | `TranscriptViewport.tsx:342` | 고정값 | `if (isAbove)` → `if (false)` | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ⑥ | 이행 — D8 |
+| X06 | `TranscriptViewport.tsx:572` | 제거 | 자기 쓰기 구분 `if (selfWritingScrollRef.current) return` 제거 | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ⑥ | 이행 — D8 |
+| X07 | `TranscriptViewport.tsx:569` | 제거 | 키 입력 취소 제거 | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ⑥ | 이행 — D8 |
+| X08 | `TranscriptViewport.tsx:614` | 제거 | 머리 자리 높이 변화 뒤 복원 예약 제거 | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ⑥ | 이행 — D8 |
+| M29-c3 | `TranscriptViewport.tsx:432` | 제거 | 동기 복사 `flushSync(setSyncCopyRange)` 제거 | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ① VP-29 | 이행 — D11 |
+| X09 | `TranscriptViewport.tsx:516` | 빈 값 | 조각 직렬화 `text` → `''` | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ⑥ | 이행 — D11 |
+| M29-c19 | `TranscriptViewport.tsx:523` | 제거 | 조각 task 뒤 사용자 선택 복원 제거 | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ① VP-29 c19 | 이행 — D11 |
+| M21-v1 | `TranscriptViewport.tsx:244` | 다른 값 | `getItemKey` deps `[snapshot.keyRevision]` → `[snapshot]` | `features/chat` | 신규 | **못 잡음** | 2,713 passed | ① VP-21 | 이행 — D12 |
+| M02-tel | `persistence-sender.ts:213` | 제거 | `telemetry` 비움 제거 | `src/main/app` | 신규 | 잡음 | 14 failed / 1,472 | ① VP-02 | — |
+| M02-own | `persistence-sender.ts:199` | 제거 | `ownerKeyOf` → `undefined` | `src/main/app` | 신규 | 잡음 | 13 failed / 1,472 | ① VP-02 | — |
+| M02-k23 | `persistence-sender.ts:293` | 제거 | `created` 무시하고 늘 비움 | `src/main/app` | 신규 | 잡음 | 10 failed / 1,472 | ① VP-04 k23 | — |
+
+- 검산: 시도 27 = 잡음 18 · 못 잡음 9 · 동치 0 · 경계 0. 못 잡음 9 = 이행 9.
+- ③ r1 못 잡음 2건 → 둘 다 잡음(D1·D3 의 인용 변이 닫힘). ④ r1 잡음 13건 → 13 잡음, 덮개 회귀 0.
+- **못 본 것**: 등록 변이 ① 나머지(VP-03·05~08·10~19·22~24·26 a2·a5·a8~a12·27·28·30~34·39 목록) · ⑦ 전수 sweep · J 수치 재측정은 이번에 돌리지 않았다.
+
+## 3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-04 · VP-02(main 쪽) | PASS(이번 범위) | k5·ownerKeyOf·k23 변이 red · 좌표 실재 |
+| VP-10 · VP-15 · VP-23 · VP-34 · VP-39 | PASS(이번 범위) | V01~V11 · X04 red · 좌표·기호 실재 |
+| VP-36 · VP-38 | PASS | 좌표 실재 · 전체 vitest 기준선 외 실패 0 |
+| VP-26 MD-12↔UT-11 | **PAIR_FAIL** | D7(a4 좌표 상수 단언 · `pinned` 미배선) · D8(EP-12 ①⑦ 항 4개 못 잡음) · D9(part 래퍼 표지 없음) |
+| VP-27 SD-03↔ST-03 | **PAIR_FAIL** | D10 — 진입이 reducer 직접 · 앵커 ±1px·key·선택·펼침 미단언 |
+| VP-29 AR-09↔IT-09 | **PAIR_FAIL** | D11 — 좌표가 순수 함수·로컬 직렬화기 · `handleCopy` 미진입 |
+| VP-21 AR-06↔IT-05 | **PAIR_FAIL** | D12 — v1 좌표가 테스트 로컬 `getItemKey` |
+| VP-19 AR-05↔IT-04 | **PAIR_FAIL** | D13 — `TranscriptViewport.live.test.ts:139` `const advanceCalls = 0` 를 단언 · delta 가 store 를 지나지 않음 |
+| VP-08 · VP-22 · VP-24 | **PAIR_FAIL** | D15 — 실제 store `loadSession` 대신 reducer 직접(AC6·AC19) · 제목의 "selection" 단언 0(`reopen.test.ts:140` · `transition.test.ts:40`) |
+| VP-25 · VP-20 · VP-13 · VP-07 AT | BLOCKED_BY | VP-26·27 / VP-21·22·24 / VP-19 |
+| 그 밖 REQUIRED pair | 미판정 | 좌표 실재 확인만 · 등록 변이 미재측정(§2 못 본 것) |
+
+### AC 합계
+
+| 결과 | AC |
+|---|---|
+| ✅ 7 | AC3 · AC7 · AC11 · AC17 · AC18 · AC31 · AC35 |
+| ❌ 10 | AC6 · AC14 · AC15 · AC16 · AC19 · AC20 · AC21 · AC22 · AC23 · AC26 |
+| ⚠️ 18 | AC1 · AC2 · AC4 · AC5 · AC8 · AC9 · AC10 · AC12 · AC13 · AC24 · AC25 · AC27~AC30 · AC32 · AC34 · AC33(사람) |
+
+- 재측정 `✅ 7 · ⚠️ 18 · ❌ 10 = 35` ↔ 커밋 trailer 두 개·INDEX 비고·plan 구현 보고 `34/35` — 갈림.
+
+### 운영 gate (`b46ddc9` 트리)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations no-copies 2,287파일 · doc-inventory prose·links ok · product-naming 2,527파일 OK · test-budgets 18 suites ok · ui-thread OK |
+| lint / typecheck | PASS | 0 error · 5 warning · 트리 변화 없음 / 3종 `error TS` 0 |
+| 파일 필터 없는 vitest | 기준선 한계 | 1,079파일 · 10,090케이스 — 22 failed(9파일) · unhandled 1(`native-resources.test.ts`). 9파일 모두 0326 diff 밖 · r1 이 `5b489f8` 에서 확인한 실패 집합과 같은 파일·건수 · 서명 `C:/`·`must be absolute` 25줄 |
+| `node --test scripts/*.test.mjs` | PASS | 1,032 / 1,032 |
+| 빌드 + 두 스모크 · `__ooDev` | PASS | `electron-vite build` exit 0 · `smoke-hosts` OK · `smoke-preload` OK · `out/renderer` `__ooDev` 0파일 |
+| DB 스위트 | PASS(이 환경) | `npm rebuild better-sqlite3` 뒤 전체 vitest 안에서 실행 |
+| trailer 파싱 | PASS | `b496751`·`b46ddc9` 각 6키 반환 |
+
+## 4. Repository operation checks
+
+- INDEX: 상태 `IMPL_DONE` · 다음 주체 `Claude` 는 맞다. 자리표시자 `(r2 구현 — 이 커밋)` → `b496751` · `b46ddc9`(`git cat-file -t` commit). 모든 0326 좌표는 `origin/main` 조상 아님 — PR 브랜치 해시.
+- `[구현자 기입]` r2: 7필드 중 `설계 리뷰` 없음 · `Product/UX 파생 검토`·`놓친 잠재 문제`가 한 표로 접힘 · `설계 대비 차이` 없음. 강제 지점 표는 여전히 EP 묶음 1행이고 EP↔VP 라벨 21행 중 17행이 plan §10 과 다르다(예 `EP-9 · VP-20` ↔ plan `EP-9 / VP-18`, `EP-15 · VP-29` ↔ plan `EP-15 / VP-28`) · EP-21 행 없음 · 잠금 표에 ⑦ sweep 행 없음(D4 그대로).
+- r2 절이 `[검증자 기입] 파생 이슈` 뒤에 붙었다 — 기록만.
+
+## 5. Finding disposition
+
+| # | finding | 분류 · 근거 | 귀속 | disposition |
+|---|---|---|---|---|
+| D1 | 앵커 캡처 미배선 | X01 red(`TranscriptViewport.prepend.test.ts`) | VP-26·27 | **closed** — 남은 앵커 결함은 D7~D10 |
+| D2 | 좌표 부재 | 파일 84 중 부재 2·이름 29 중 부재 1 — 모두 VP-37 이관 예정분 | §7·§7-A | **closed**(실재) — 좌표 강도 결함은 D7~D15 |
+| D3 | 초점 overscan 미잠금 | X02 red | VP-29 | **closed** |
+| D4 | `[구현자 기입]` 자리별 표·라벨·⑦ sweep | 이행 — §4 · 등록 변이 M29-c3·M21-v1 이 구현자 표에 없고 못 잡음 | message-bus | BLOCKING(유지) |
+| D6 | plan 메타 `상태` | 메타 `IMPL_DONE (V1 rev 7 · r2)` | — | **closed** |
+| D7 | pin 상태가 뷰포트에 닿지 않는다 — 두 Timeline 이 `pinned` 를 넘기지 않음(`claude/transcript/Timeline.tsx:139` · `opencode/transcript/Timeline.tsx:135`, `useScrollAnchor.ts:27` pin 은 따로 삶). a4 좌표는 `anchor.test.ts:225-227` 로컬 상수 `pinned` 로 `null` 을 단언. M26-a4 green | 이행 — EP-12 ⑥ "pin 이면 앵커 없이 하단 유지" · a4 | VP-26 · AC20 | BLOCKING |
+| D8 | EP-12 ①⑦ 항 미잠금 — X05·X06·X07·X08 green. a2·a3·a8·a9·a10 좌표는 손으로 만든 DOM 위 순수 `restoreAnchor` 호출이라 뷰포트 `measureElement`·keydown·`ResizeObserver` 경로 밖 | 이행 — EP-12 ① "가시 영역 위 블록의 크기 변화 · 머리 자리 높이 변화" · ⑦ "자기 쓰기가 아닌 scroll·wheel·키·포인터" | VP-26 · AC20 | BLOCKING |
+| D9 | part 래퍼 표지가 없다 — `data-part-key` 는 블록 래퍼에 `partKeys[0]` 로만(`TranscriptViewport.tsx:707·727·751`), 하네스 블록 렌더러의 `data-part-key` 0(`rg`). 앵커·선택 끝 문자 위치가 블록 첫 part 기준이 된다. a7·a11·a12·c14 좌표는 `[data-part-key]` 를 손으로 만든다 | 이행 — EP-12 ① "part 래퍼에 `data-part-key`(D-070 안정 key)를 달고" · EP-17 ⑥ | VP-26 · VP-29 · AC20·AC26 | BLOCKING |
+| D10 | ST-03 이 계약 경로·단언에 못 미친다 — 진입이 reducer `PREPEND_HISTORY` 직접(`prepend.test.ts:176`) · 삽입마다 `scrollTop > 이전` 만 단언(±1px 같은 문자·key·선택·펼침·하단 배치 없음) · 세 번째 케이스는 key 만 · AC21 계수 5종 중 2종·Claude code 만 | 이행 — AC23 "실제 store `prependHistory` … 매 삽입 뒤 앵커·key·선택·펼침" · AC21 · AC22 | VP-27 · AC21~AC23 | BLOCKING |
+| D11 | 선택 복사 좌표가 뷰포트 복사 경로에 안 들어간다 — c3 은 로컬 `refPlain` 만 단언 · c7·c12 는 테스트가 준 `serializeChunk` 로 `startCopyJob` 호출 · 세 화면·`navigator.clipboard` 없음. M29-c3·X09·M29-c19 green | 이행 — VP-29 path `onCopy → 복사 작업 → navigator.clipboard.write` · 등록 변이 c3 · c19 | VP-29 · AC26 | BLOCKING |
+| D12 | v1 좌표가 뷰포트 `getItemKey` 를 재지 않는다 — `virtualizerOptions.test.ts:26` 테스트 로컬 함수. M21-v1 green | 이행 — VP-21 등록 변이 "`getItemKey` 를 매 스냅샷 새로 만드는 변이" | VP-21 · AC15 | BLOCKING |
+| D13 | live 좌표가 상수를 단언한다 — `TranscriptViewport.live.test.ts:139` `const advanceCalls = 0` → `:146` `toBe(0)` · delta 가 store·`receiveDeltaBatch` 를 지나지 않음 · 전이 1회는 `not.toBe` 만 | 이행 — VP-19 oracle "블록 모델 `advance` 0 · live 블록 출현·완료 전이 1회" | VP-19 · AC14 | BLOCKING |
+| D14 | AC15 검증 수단 파일명 표기 drift | 비귀속(plan 사본 오타) | — | NON_BLOCKING — 다음 설계 턴에 정정 |
+| D15 | store 진입·선택 항 미단언 — reopen·Timeline.viewport 가 store `loadSession` 대신 reducer `LOAD_SESSION`(`reopen.test.ts:78`) · reopen 2번째·transition 케이스 제목의 "selection" 단언 0 | 이행 — AC6 "실제 store `loadSession`(가짜 `sessionApi`)" · AC19 IT-06 · VP-08·VP-22 oracle 테스트명 | VP-08 · VP-22 · VP-24 · AC6·AC16·AC19 | BLOCKING |
+
+## 6. Review Signals — 사실만
+
+- 이전 라운드와 유사: r1 D2(좌표 부재)가 r2 에서 "좌표는 있으나 production 경로 밖·상수·로컬 재구현"으로 바뀌었다(D7·D10~D13·D15).
+- 관련 plan 지침: VP-29·VP-27·AC6·AC19·AC23 이 실제 진입점(store·`onCopy`)을 명시했다.
+- 구현자 잠금 표 21/21 red 는 구현자 선택 변이 — 같은 pair 의 등록 변이 M29-c3·M21-v1 은 green.
+- 반복 환경 한계: Windows 경로 픽스처 9파일 22건(r1 과 같음).
+- 독립 축(⑥) 발견: 못 잡음 5(X05~X09) + 코드 대조 1(D9) — 전부 이행.
+
+## 7. 결론
+
+- 상태: **FAIL** — 막는 발견 이행 9(D4·D7~D13·D15) · PLAN_GAP 0.
+- verify 2회째 — 확장 창 안. 다음 verify(3회째)가 PASS 가 아니면 handoff-review 대상.
+- pair: PASS 9(VP-02 main 쪽·04·10·15·23·34·39·36·38) · root PAIR_FAIL 8(VP-08·19·21·22·24·26·27·29) · BLOCKED_BY AT 4 · 나머지 미판정.
+- AC: ✅ 7 · ⚠️ 18 · ❌ 10 / 35.
+- 운영 gate: 통과(vitest 22건은 기준선 동일 환경 실패).
+- 다음 단계: Codex r3 — D7~D13·D15 를 production 진입점(Timeline·store·`onCopy`·`measureElement`)을 지나는 좌표로 닫고, 등록 변이 ① 전부와 ⑦ sweep 을 돌려 D4 형식(§10 자리별 행 · plan EP↔VP 라벨 · 7필드)으로 적는다.
