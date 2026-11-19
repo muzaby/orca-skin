@@ -127,6 +127,7 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [features/chat/components/transcript/LineageBanner.tsx](../../../app/src/renderer/src/features/chat/components/transcript/LineageBanner.tsx) — `LineageBanner` | 세션 계보·이동 동작을 낮은 강조 행으로 표시하고 원문과 구별한다. |
 | [features/chat/components/transcript/PendingAssistantStatus.tsx](../../../app/src/renderer/src/features/chat/components/transcript/PendingAssistantStatus.tsx) — `PendingAssistantStatus` | 응답 대기 상태의 하네스 표시를 선택한다. 별도 spinner·문구를 중복 표시하지 않는다. |
 | [features/chat/components/transcript/TranscriptView.tsx](../../../app/src/renderer/src/features/chat/components/transcript/TranscriptView.tsx) — `TranscriptView` | 하네스 viewport·본문 배율·가상화 경계 유지. 읽는 위치와 선택 영역을 보존한다. |
+| [features/chat/components/transcript/TranscriptViewport.tsx](../../../app/src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx) — `TranscriptViewport` | 세 화면의 가상화된 행을 측정하고 배치한다. 스크롤 제어기가 적용할 위치는 같은 모듈의 쓰기 함수로 전달한다. |
 
 ## 공유 composer
 

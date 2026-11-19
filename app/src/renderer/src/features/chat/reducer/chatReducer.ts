@@ -21,6 +21,7 @@ import type {
   EffortLevel,
   GitDiffPatch,
   GitDiffSummary,
+  LoadedMessage,
   LoadedSession,
   NormalizedEvent,
   PlanReviewRequest,
@@ -70,8 +71,26 @@ import {
   type RightPanelColumns
 } from '../lib/rightPanelLayout'
 import { rightPanelPolicy, rightPanelTarget, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { rememberMessageEdit } from '../lib/segmentCache'
 import { agentTaskKey, backgroundTaskKey } from '../lib/taskBoard'
+import {
+  newTranscriptChanges,
+  recordChange,
+  type TranscriptChange,
+  type TranscriptChanges
+} from '../lib/transcript/changeLog'
+import {
+  emptyHeldParts,
+  finishHeldParts,
+  holdPart,
+  mergeHeldParts,
+  outputOwnerReference,
+  type HeldParts,
+  type TranscriptDiagnostic
+} from '../lib/transcript/heldParts'
+import { messageOrderFor } from '../lib/transcript/messageOrder'
 import { partMergeKey } from '../lib/transcript/mergeKey'
+import { isTurnStart } from '../lib/transcript/turnStart'
 import { contextTokens } from '../lib/telemetry'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
@@ -270,7 +289,7 @@ function resetGitReview(
   }
 }
 
-export interface ChatState {
+export interface ChatState extends HeldParts {
   agentKind: import('../../../../../shared/agent-kind').AgentKind
   agentKindLocked: boolean
   agentPanelInitialized: boolean
@@ -330,6 +349,8 @@ export interface ChatState {
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
+  historyComplete: boolean
+  transcriptChanges: TranscriptChanges
   // 채널 점유 스냅샷. ready와 listening 모두 입력 예약·세션 변경 가드를 유지하고(`sessionListening`),
   // 답변 표면은 유휴 수신(ready)을 제외한다(`sessionResponding`).
   activity: ChatActivityState
@@ -543,6 +564,9 @@ export const initialChatState: ChatState = {
   worktreeBaseRef: null,
   extraDirRejection: null,
   messages: [],
+  historyComplete: true,
+  transcriptChanges: newTranscriptChanges(),
+  ...emptyHeldParts(),
   sendCount: 0,
   inflight: false,
   activity: IDLE_ACTIVITY,
@@ -717,7 +741,19 @@ export type ChatAction =
   | { type: 'SYNC_SESSION_EXTRA_DIRS'; sessionId: string; extraDirs: string[] }
   | { type: 'REMOVE_EXTRA_DIR'; dir: string }
   | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
-  | { type: 'LOAD_SESSION'; session: LoadedSession; preserveLocalState?: boolean }
+  | {
+      type: 'LOAD_SESSION'
+      session: LoadedSession
+      complete?: boolean
+      preserveLocalState?: boolean
+      diagnostic?: TranscriptDiagnostic
+    }
+  | {
+      type: 'PREPEND_HISTORY'
+      messages: readonly LoadedMessage[]
+      reachedStart: boolean
+      diagnostic?: TranscriptDiagnostic
+    }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
   // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
   | { type: 'RESOLVE_ASK'; requestId: string }
@@ -795,46 +831,90 @@ export type ChatAction =
 // 현재 assistant 메시지에 파트를 누적한다. 마지막 메시지가 user 면(턴 시작) 새 assistant
 // 메시지를 만들고, assistant 면 그 parts 끝에 붙인다 — 한 턴의 reasoning/text/tool_*/error
 // 가 같은 메시지로 묶인다(main persist 와 동형).
-function appendAssistantPart(
+type TranscriptState = Pick<ChatState, 'messages' | 'transcriptChanges' | 'historyComplete'> &
+  HeldParts
+
+function writeMessages(
+  state: TranscriptState,
   messages: Message[],
+  change: TranscriptChange
+): TranscriptState {
+  return {
+    messages,
+    historyComplete: state.historyComplete,
+    heldPatches: state.heldPatches,
+    heldOutputs: state.heldOutputs,
+    heldSequence: state.heldSequence,
+    transcriptChanges: recordChange(state.transcriptChanges, change)
+  }
+}
+
+function replaceMessageParts(
+  state: TranscriptState,
+  position: number,
+  parts: AppMessagePart[],
+  partsFrom: number
+): TranscriptState {
+  const owner = state.messages[position]
+  const messages = state.messages.slice()
+  messages[position] = { ...owner, parts }
+  rememberMessageEdit(messages[position], owner, partsFrom)
+  return writeMessages(
+    state,
+    messages,
+    owner.id === undefined
+      ? { kind: 'reset', complete: state.historyComplete }
+      : { kind: 'replace', id: owner.id, partsFrom }
+  )
+}
+
+function appendAssistantPart(
+  state: TranscriptState,
   part: AppMessagePart,
-  messageKey?: string
-): Message[] {
+  messageKey?: string,
+  messageKeySource?: 'owner'
+): TranscriptState {
+  const { messages } = state
   const lastIndex = messages.length - 1
   const index =
-    messageKey === undefined
-      ? lastIndex
-      : messages[lastIndex]?.id === messageKey
-        ? lastIndex
-        : messages.findIndex((message) => message.id === messageKey)
+    messageKey === undefined ? lastIndex : messageOrderFor(state).messagePosition(messageKey)
   const owner = messages[index]
+  if (
+    !owner &&
+    messageKey !== undefined &&
+    messageKeySource === 'owner' &&
+    !state.historyComplete
+  ) {
+    return {
+      messages: state.messages,
+      transcriptChanges: state.transcriptChanges,
+      historyComplete: state.historyComplete,
+      ...holdPart(state, 'heldPatches', messageKey, part)
+    }
+  }
+  if (owner?.role === 'user' && messageKey !== undefined) return state
   if (!owner || owner.role === 'user') {
-    return [
-      ...messages,
-      {
-        id: messageKey ?? rendererMessageId(crypto.randomUUID()),
-        role: 'assistant',
-        createdAt: Date.now(),
-        parts: [part]
-      }
-    ]
+    const id = messageKey ?? rendererMessageId(crypto.randomUUID())
+    const appended: Message = { id, role: 'assistant', createdAt: Date.now(), parts: [part] }
+    return writeMessages(state, [...messages, appended], { kind: 'append', ids: [id] })
   }
   const key = messageKey === undefined ? undefined : partMergeKey(part)
   const slot =
-    key === undefined ? -1 : owner.parts.findIndex((existing) => partMergeKey(existing) === key)
+    key === undefined || owner.id === undefined
+      ? -1
+      : (messageOrderFor(state, true).partSlot(owner.id, key) ?? -1)
   const parts = owner.parts.slice()
   if (slot < 0) parts.push(part)
   else parts[slot] = part
-  const next = messages.slice()
-  next[index] = { ...owner, parts }
-  return next
+  return replaceMessageParts(state, index, parts, slot < 0 ? owner.parts.length : slot)
 }
 
 function correctPlanToolInput(
-  messages: Message[],
+  state: TranscriptState,
   correction: { toolUseId: string; input: unknown } | undefined
-): Message[] {
-  if (!correction) return messages
+): TranscriptState {
+  const { messages } = state
+  if (!correction) return state
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex--) {
     const message = messages[messageIndex]
     if (message.role === 'user') break
@@ -847,40 +927,56 @@ function correctPlanToolInput(
         part.parentToolRunId !== undefined
       )
         continue
-      if (part.args === correction.input) return messages
+      if (part.args === correction.input) return state
       const parts = message.parts.slice()
       parts[partIndex] = { ...part, args: correction.input }
-      const next = messages.slice()
-      next[messageIndex] = { ...message, parts }
-      return next
+      return replaceMessageParts(state, messageIndex, parts, partIndex)
     }
   }
-  return messages
+  return state
 }
 
 function appendOwnedArtifact(
-  messages: Message[],
+  state: TranscriptState,
   owner: number,
   part: Extract<AppMessagePart, { type: 'artifact' }>
-): Message[] {
-  if (owner < 0) return messages
+): TranscriptState {
+  const { messages } = state
+  if (owner < 0) return state
   let first = owner
   let last = owner
   while (first > 0 && messages[first - 1].role === 'assistant') first -= 1
   while (last + 1 < messages.length && messages[last + 1].role === 'assistant') last += 1
+  const order = messageOrderFor(state, true)
+  const key = partMergeKey(part)!
   for (let index = first; index <= last; index += 1) {
+    const message = messages[index]
+    const id = message.id
     if (
-      messages[index].parts.some(
-        (existing) =>
-          existing.type === 'artifact' &&
-          existing.artifact.publicationId === part.artifact.publicationId
-      )
+      id !== undefined
+        ? order.partSlot(id, key) !== undefined
+        : message.parts.some((existing) => partMergeKey(existing) === key)
     )
-      return messages
+      return state
   }
-  return messages.map((message, index) =>
-    index === owner ? { ...message, parts: [...message.parts, part] } : message
-  )
+  const { parts } = messages[owner]
+  return replaceMessageParts(state, owner, [...parts, part], parts.length)
+}
+
+function fromLoadedMessage(message: LoadedMessage): Message {
+  return {
+    id: message.id,
+    role: message.role,
+    createdAt: message.createdAt,
+    // 미완료(crash/quit)로 남은 메시지의 열린 도구는 'aborted' 로 정착해 "실행 중" 잔재를
+    // 막는다. 라이브 경로(RECV_EVENT)는 미경유 — incomplete 한정이라 스트리밍 무영향.
+    // 0143: settled 로 덮이지 않은 async_launched 영수증(재시작 = 태스크 소멸이라 '실행 중'
+    // 표시는 항상 거짓)은 완료 여부와 무관하게 aborted 로 정착한다(로드 경로 전용).
+    parts: settleStaleAsyncLaunchParts(
+      message.incomplete ? settleOrphanToolParts(message.parts) : message.parts
+    ),
+    ...(message.incomplete ? { incomplete: true } : {})
+  }
 }
 
 function diffRequirementDraftsEqual(
@@ -952,18 +1048,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const id =
         action.messageKey ??
         (action.clientId !== undefined ? userMessageId([action.clientId]) : undefined)
-      if (
-        id !== undefined &&
-        state.messages.some(
-          (message) =>
-            message.id === id ||
-            (action.messageKey === undefined &&
-              message.role === 'user' &&
-              message.clientId === action.clientId)
-        )
-      ) {
-        return state
-      }
+      const order = messageOrderFor(state)
+      if (id !== undefined && order.messagePosition(id) >= 0) return state
       const userParts: AppMessagePart[] = [
         { type: 'text', text: action.text, ...(action.origin ? { origin: action.origin } : {}) }
       ]
@@ -976,38 +1062,56 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           requirements: action.requirements.map(wireDiffRequirementAnchor)
         })
       }
+      const committedId = id ?? rendererMessageId(crypto.randomUUID())
       const committed: Message = {
-        id: id ?? rendererMessageId(crypto.randomUUID()),
+        id: committedId,
         role: 'user',
         createdAt: action.createdAt ?? Date.now(),
         parts: userParts,
         ...(action.clientId !== undefined ? { clientId: action.clientId } : {})
       }
-      const optimisticIds = new Set(action.ids?.map((clientId) => userMessageId([clientId])))
-      if (optimisticIds.size === 0) {
-        return { ...state, messages: [...state.messages, committed] }
+      const optimistic = new Set<number>()
+      for (const clientId of action.ids ?? []) {
+        const position = order.messagePosition(userMessageId([clientId]))
+        if (position >= 0 && state.messages[position].role === 'user') optimistic.add(position)
+      }
+      if (optimistic.size === 0) {
+        return {
+          ...state,
+          ...writeMessages(state, [...state.messages, committed], {
+            kind: 'append',
+            ids: [committedId]
+          })
+        }
       }
       const messages: Message[] = []
       let replaced = false
-      for (const message of state.messages) {
-        if (message.role === 'user' && message.id !== undefined && optimisticIds.has(message.id)) {
+      for (const [position, message] of state.messages.entries()) {
+        if (optimistic.has(position)) {
           if (!replaced) messages.push(committed)
           replaced = true
         } else {
           messages.push(message)
         }
       }
-      if (!replaced) messages.push(committed)
-      return { ...state, messages }
+      const change: TranscriptChange = replaced
+        ? { kind: 'reset', complete: state.historyComplete }
+        : { kind: 'append', ids: [committedId] }
+      return { ...state, ...writeMessages(state, messages, change) }
     }
 
-    case 'DROP_UNCOMMITTED_USER':
-      return {
-        ...state,
-        messages: state.messages.filter(
-          (m) => !(m.role === 'user' && m.clientId === action.clientId)
-        )
-      }
+    case 'DROP_UNCOMMITTED_USER': {
+      const removed = messageOrderFor(state).messagePosition(userMessageId([action.clientId]))
+      if (removed < 0 || state.messages[removed].role !== 'user') return state
+      const id = state.messages[removed].id
+      const messages = state.messages.slice()
+      messages.splice(removed, 1)
+      const change: TranscriptChange =
+        id === undefined
+          ? { kind: 'reset', complete: state.historyComplete }
+          : { kind: 'remove', ids: [id] }
+      return { ...state, ...writeMessages(state, messages, change) }
+    }
 
     case 'RECV_EVENT': {
       const ev = action.event
@@ -1071,8 +1175,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(
-              state.messages,
+            ...appendAssistantPart(
+              state,
               {
                 type: 'reasoning',
                 text: ev.text,
@@ -1088,32 +1192,35 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'response.boundary':
           return {
             ...state,
-            messages: appendAssistantPart(
-              state.messages,
+            ...appendAssistantPart(
+              state,
               responseBoundaryPart(ev.boundary),
-              ev.messageKey
+              ev.messageKey,
+              ev.messageKeySource
             )
           }
 
         case 'output.captured': {
           if (!ev.artifact) return state
           // Main이 검증한 소유권만 연결한다. 도구 ID가 있으면 응답 경계로 대체하지 않는다.
-          const owner = state.messages.findIndex(
-            (message) =>
-              message.role === 'assistant' &&
-              message.parts.some((part) =>
-                ev.toolRunId !== undefined
-                  ? part.type === 'tool_call' && part.toolRunId === ev.toolRunId
-                  : ev.responseId !== undefined &&
-                    part.type === 'response_boundary' &&
-                    part.boundary.id === ev.responseId
-              )
-          )
-          const messages = appendOwnedArtifact(state.messages, owner, {
-            type: 'artifact',
-            artifact: ev.artifact
-          })
-          return messages === state.messages ? state : { ...state, messages }
+          const order = messageOrderFor(state, true)
+          const ownerId =
+            ev.toolRunId !== undefined
+              ? order.toolCallOwner(ev.toolRunId)
+              : ev.responseId === undefined
+                ? undefined
+                : order.responseOwner(ev.responseId)
+          const owner = ownerId === undefined ? -1 : order.messagePosition(ownerId)
+          const part = { type: 'artifact' as const, artifact: ev.artifact }
+          if (owner < 0 && !state.historyComplete) {
+            const ref = outputOwnerReference(ev.toolRunId, ev.responseId)
+            if (ref !== undefined) {
+              const held = holdPart(state, 'heldOutputs', ref, part)
+              return held === state ? state : { ...state, ...held }
+            }
+          }
+          const next = appendOwnedArtifact(state, owner, part)
+          return next === state ? state : { ...state, ...next }
         }
 
         case 'message.completed':
@@ -1122,8 +1229,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(
-              state.messages,
+            ...appendAssistantPart(
+              state,
               {
                 type: 'text',
                 text: ev.message.text,
@@ -1137,8 +1244,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: undefined,
-            messages: appendAssistantPart(
-              state.messages,
+            ...appendAssistantPart(
+              state,
               {
                 type: 'tool_call',
                 toolRunId: ev.toolRunId,
@@ -1157,8 +1264,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'tool.call.completed': {
-          let messages = appendAssistantPart(
-            state.messages,
+          let next = appendAssistantPart(
+            state,
             {
               type: 'tool_result',
               toolRunId: ev.toolRunId,
@@ -1173,26 +1280,27 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 ? { structuredOutput: ev.structuredOutput }
                 : {})
             },
-            ev.messageKey
+            ev.messageKey,
+            ev.messageKeySource
           )
           // 게시 성공은 원래 호출 메시지에만 연결한다. 늦은 결과를 마지막 턴으로 추정하지 않는다.
           const artifact = ev.isError ? undefined : ev.artifact
           if (artifact) {
-            const owner =
-              ev.messageKey === undefined
-                ? messages.findIndex(
-                    (message) =>
-                      message.role === 'assistant' &&
-                      message.parts.some(
-                        (part) => part.type === 'tool_call' && part.toolRunId === ev.toolRunId
-                      )
-                  )
-                : messages.findIndex((message) => message.id === ev.messageKey)
-            messages = appendOwnedArtifact(messages, owner, {
-              type: 'artifact',
+            const order = messageOrderFor(next, ev.messageKey === undefined)
+            const ownerId = ev.messageKey ?? order.toolCallOwner(ev.toolRunId)
+            const owner = ownerId === undefined ? -1 : order.messagePosition(ownerId)
+            const part = {
+              type: 'artifact' as const,
               artifact,
               ...(ev.parentToolRunId ? { parentToolRunId: ev.parentToolRunId } : {})
-            })
+            }
+            next =
+              owner < 0 &&
+              ev.messageKey !== undefined &&
+              ev.messageKeySource === 'owner' &&
+              !state.historyComplete
+                ? { ...next, ...holdPart(next, 'heldPatches', ev.messageKey, part) }
+                : appendOwnedArtifact(next, owner, part)
           }
           // 부모 Task 의 권위 결과 도착 = 중단 대기 종료(확정·watchdog·채널 사망 공통 경로).
           const stoppingTaskIds = withoutId(state.stoppingTaskIds, ev.toolRunId)
@@ -1202,12 +1310,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           const backgroundingTaskIds = withoutId(state.backgroundingTaskIds, ev.toolRunId)
           return {
             ...state,
+            ...next,
             retry: undefined,
-            messages,
             stoppingTaskIds,
             pausedTaskIds,
             backgroundingTaskIds,
-            unseenSettledTaskKeys: markCompletedAgentTask(state, ev)
+            unseenSettledTaskKeys: markCompletedAgentTask({ ...state, ...next }, ev)
           }
         }
 
@@ -1226,8 +1334,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...state,
             retry: undefined,
             lastTelemetry: undefined,
-            messages: appendAssistantPart(
-              state.messages,
+            ...appendAssistantPart(
+              state,
               {
                 type: 'compact_boundary',
                 ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
@@ -1293,7 +1401,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 : planReviewToolInput(ev.action)
             return {
               ...state,
-              messages: correctPlanToolInput(state.messages, correction),
+              ...correctPlanToolInput(state, correction),
               retry: undefined,
               pendingPlanReview: {
                 ...ev.action.request,
@@ -1370,16 +1478,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 완료 통지**(settled + background, main 권위 게이팅)만 도달해 subagent_notice 파트로
           // 물질화한다(writer 영속과 동형 — 재로드와 동일 위치·내용). toolRunId 멱등.
           if (ev.phase !== 'settled' || ev.background !== true) return state
-          const exists = state.messages.some((m) =>
-            m.parts.some((p) => p.type === 'subagent_notice' && p.toolRunId === ev.toolUseId)
-          )
-          if (exists) return state
+          if (messageOrderFor(state, true).noticeOwner(ev.toolUseId) !== undefined) return state
           // **배지는 켜지 않는다**(0215 D-016). `작업` 타일은 이제 `TaskCreate` 할 일만 보여주므로
           // 서브에이전트 정착으로 배지를 켜면 눌러도 그 항목이 없다. 완료 통지 파트는 그대로
           // 남으므로 알림 경로가 0이 되지는 않는다(0204 D-004 의 통지 절반은 유지).
           return {
             ...state,
-            messages: appendAssistantPart(state.messages, subagentNoticePart(ev), ev.messageKey)
+            ...appendAssistantPart(state, subagentNoticePart(ev), ev.messageKey)
           }
         }
 
@@ -1412,11 +1517,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (action.text === '') return state
       return {
         ...state,
-        messages: appendAssistantPart(
-          state.messages,
-          { type: 'text', text: action.text },
-          action.messageKey
-        )
+        ...appendAssistantPart(state, { type: 'text', text: action.text }, action.messageKey)
       }
 
     case 'NEW_CHAT':
@@ -1425,6 +1526,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // projectId 가 명시되면 새 세션이 해당 프로젝트에 binding 될 준비.
       return {
         ...initialChatState,
+        transcriptChanges: newTranscriptChanges(),
         cwd: state.cwd,
         pendingProjectId: action.projectId ?? null,
         projectId: action.projectId ?? null
@@ -1545,6 +1647,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'START_LOAD_SESSION':
       return {
         ...initialChatState,
+        transcriptChanges: newTranscriptChanges(),
         cwd: state.cwd,
         sessionId: action.sessionId,
         title: action.title,
@@ -1553,19 +1656,61 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
     // cwd 는 세션 영속값이 있으면 우선하고, 레거시 세션은 현재 baseline 을 보존한다.
+    case 'PREPEND_HISTORY': {
+      const order = messageOrderFor(state)
+      const page: LoadedMessage[] = []
+      const seen = new Set<string>()
+      for (const message of action.messages) {
+        if (seen.has(message.id)) continue
+        seen.add(message.id)
+        page.push(message)
+      }
+      const overlap = page.findIndex((message) => order.messagePosition(message.id) >= 0)
+      if (overlap >= 0) {
+        for (let index = overlap; index < page.length; index++) {
+          if (order.messagePosition(page[index].id) !== index - overlap) {
+            action.diagnostic?.('prependRejected', 1)
+            return state
+          }
+        }
+        page.length = overlap
+      }
+
+      let next = state
+      if (page.length > 0) {
+        const first = state.messages[0]
+        const last = page[page.length - 1]
+        const change: TranscriptChange =
+          !first || isTurnStart(last, first)
+            ? { kind: 'prepend', ids: page.map(({ id }) => id) }
+            : { kind: 'reset', complete: false }
+        const merged = mergeHeldParts(
+          state,
+          [...page.map(fromLoadedMessage), ...state.messages],
+          page.length
+        )
+        next = { ...state, ...writeMessages(state, merged.messages, change), ...merged }
+      }
+      if (!action.reachedStart) return next
+      if (next.historyComplete && next.heldPatches.size === 0 && next.heldOutputs.size === 0)
+        return next
+      return { ...next, ...finishHeldParts(next, action.diagnostic), historyComplete: true }
+    }
+
     case 'LOAD_SESSION': {
       const agentKind = readLegacyAgentKind(action.session.agentKind)
-      const messages: Message[] = action.session.messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        createdAt: m.createdAt,
-        // 미완료(crash/quit)로 남은 메시지의 열린 도구는 'aborted' 로 정착해 "실행 중" 잔재를
-        // 막는다. 라이브 경로(RECV_EVENT)는 미경유 — incomplete 한정이라 스트리밍 무영향.
-        // 0143: settled 로 덮이지 않은 async_launched 영수증(재시작 = 태스크 소멸이라 '실행 중'
-        // 표시는 항상 거짓)은 완료 여부와 무관하게 aborted 로 정착한다(로드 경로 전용).
-        parts: settleStaleAsyncLaunchParts(m.incomplete ? settleOrphanToolParts(m.parts) : m.parts),
-        ...(m.incomplete ? { incomplete: true } : {})
-      }))
+      const sameSession = state.sessionId === action.session.id
+      const complete = action.complete ?? true
+      const { messages, ...held } = mergeHeldParts(
+        sameSession ? state : emptyHeldParts(),
+        action.session.messages.map(fromLoadedMessage)
+      )
+      const remaining = complete ? finishHeldParts(held, action.diagnostic) : held
+      const transcriptChanges = recordChange(
+        state.sessionId === action.session.id ? state.transcriptChanges : newTranscriptChanges(),
+        { kind: 'reset', complete }
+      )
+      messageOrderFor({ messages, transcriptChanges }, true)
       const activity = action.session.activity
       const preserveNewerLiveActivity =
         state.sessionId === action.session.id && state.activity.revision > (activity?.revision ?? 0)
@@ -1574,6 +1719,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         return {
           ...state,
           messages,
+          historyComplete: complete,
+          transcriptChanges,
+          ...remaining,
           backend: action.session.backend,
           agentKind,
           agentKindLocked: true,
@@ -1655,6 +1803,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.session.providerKey ?? null,
         modelFamily: action.session.modelFamily ?? null,
         messages,
+        historyComplete: complete,
+        transcriptChanges,
+        ...remaining,
         ...(preserveNewerLiveActivity
           ? {
               activity: state.activity,
@@ -2242,7 +2393,13 @@ function markCompletedAgentTask(
   ev: Extract<NormalizedEvent, { type: 'tool.call.completed' }>
 ): string[] {
   if (ev.structuredOutput === undefined || ev.isError) return state.unseenSettledTaskKeys
-  const call = findToolCallPart(state.messages, ev.toolRunId)
+  const order = messageOrderFor(state, true)
+  const owner = order.toolCallOwner(ev.toolRunId)
+  const message = owner === undefined ? undefined : state.messages[order.messagePosition(owner)]
+  const call = message?.parts.findLast(
+    (part): part is Extract<AppMessagePart, { type: 'tool_call' }> =>
+      part.type === 'tool_call' && part.toolRunId === ev.toolRunId
+  )
   if (!call || call.toolName !== 'TaskUpdate') return state.unseenSettledTaskKeys
   const observation = readTaskToolObservation({
     toolName: call.toolName,
@@ -2256,22 +2413,6 @@ function markCompletedAgentTask(
   return state.unseenSettledTaskKeys.includes(key)
     ? state.unseenSettledTaskKeys
     : [...state.unseenSettledTaskKeys, key]
-}
-
-// toolRunId 의 tool_call 파트를 뒤에서부터 찾는다 — 결과는 대개 방금 커밋된 호출의 것이라
-// 역방향이 첫 몇 파트에서 끝난다.
-function findToolCallPart(
-  messages: Message[],
-  toolRunId: string
-): Extract<AppMessagePart, { type: 'tool_call' }> | undefined {
-  for (let m = messages.length - 1; m >= 0; m -= 1) {
-    const parts = messages[m].parts
-    for (let i = parts.length - 1; i >= 0; i -= 1) {
-      const part = parts[i]
-      if (part.type === 'tool_call' && part.toolRunId === toolRunId) return part
-    }
-  }
-  return undefined
 }
 
 // 타일 제거 — 열 구조에서 해당 타일만 떼어낸다. 그 결과 열이 비면 열을 드롭하면서, 열 인덱스를

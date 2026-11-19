@@ -1,3 +1,4 @@
+import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import {
   useId,
   useLayoutEffect,
@@ -75,9 +76,11 @@ export function UserBubbleText({
     let parent = root.parentElement
     while (parent && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY))
       parent = parent.parentElement
-    const viewportTop = parent ? parent.getBoundingClientRect().top : 0
-    if (shouldScrollAfterCollapse(root.getBoundingClientRect().top, viewportTop))
-      root.scrollIntoView({ block: 'nearest' })
+    if (!parent) return
+    const viewportTop = parent.getBoundingClientRect().top
+    const top = root.getBoundingClientRect().top
+    if (shouldScrollAfterCollapse(top, viewportTop))
+      writeScrollTop(parent, parent.scrollTop + top - viewportTop)
   }, [expanded])
 
   const view = bubbleView({ overflowing, expanded })

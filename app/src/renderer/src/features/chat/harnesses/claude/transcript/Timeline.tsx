@@ -6,8 +6,8 @@ import { Exchange } from './Exchange'
 import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import { PendingAssistant } from './PendingAssistant'
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
-import { createExchangeGrouper } from '../../../lib/turns'
-import { useTranscriptVirtualizer } from '../../../hooks/useTranscriptVirtualizer'
+import { createExchangeGrouper, exchangeRenderKey } from '../../../lib/turns'
+import { TranscriptViewport } from '../../../components/transcript/TranscriptViewport'
 import { createWorkToolResultSelector } from '../../../lib/workToolResults'
 import { agentPresentation } from '../presentation'
 
@@ -53,9 +53,6 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   // 교환들(head)만 가상화해 화면 밖 shiki/DOM 상주 비용을 시야로 제한한다.
   const head = useMemo(() => exchanges.slice(0, -1), [exchanges])
   const tail = exchanges.at(-1)
-  const virtualizer = useTranscriptVirtualizer(head, scrollRef)
-  const virtualItems = virtualizer.getVirtualItems()
-  const totalSize = virtualizer.getTotalSize()
 
   const hasPending = (pendingSteer?.length ?? 0) > 0
   const isEmpty = exchanges.length === 0 && !loadingSession && !inflight && !hasPending
@@ -84,42 +81,47 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           </div>
         )}
         {/* 가상화된 head — 확정 과거 교환. 스페이서(totalSize) 안에 보이는 항목만 absolute 배치. */}
-        {head.length > 0 && (
-          <div className="relative w-full" style={{ height: totalSize }}>
-            {virtualItems.map((vi) => {
-              const exchange = head[vi.index]
-              if (!exchange) return null
-              return (
-                <div
-                  key={exchange.startIndex}
-                  data-index={vi.index}
-                  ref={virtualizer.measureElement}
-                  className="absolute top-0 left-0 w-full"
-                  style={{ transform: `translateY(${vi.start}px)` }}
-                >
-                  {/* pb = 다음 교환까지의 간격. 측정 높이에 포함돼 스페이서/스크롤과 정합. */}
-                  <div className="pb-[var(--chat-turn-gap)]">
-                    <Exchange
-                      transcriptPolicy={transcriptPolicy}
-                      toolResults={workResults?.get(exchange.startIndex)}
-                      exchange={exchange}
-                      reserve={false}
-                      pending={false}
-                      forkable={false}
-                    />
-                  </div>
+        <TranscriptViewport
+          scrollRef={scrollRef}
+          options={{
+            count: head.length,
+            getItemKey: (index) => (head[index] ? exchangeRenderKey(head[index]) : index),
+            estimateSize: () => 240,
+            overscan: 6
+          }}
+          renderItem={(vi, measure) => {
+            const exchange = head[vi.index]
+            if (!exchange) return null
+            return (
+              <div
+                key={exchangeRenderKey(exchange)}
+                data-index={vi.index}
+                ref={measure}
+                className="absolute top-0 left-0 w-full"
+                style={{ transform: `translateY(${vi.start}px)` }}
+              >
+                {/* pb = 다음 교환까지의 간격. 측정 높이에 포함돼 스페이서/스크롤과 정합. */}
+                <div className="pb-[var(--chat-turn-gap)]">
+                  <Exchange
+                    transcriptPolicy={transcriptPolicy}
+                    toolResults={workResults?.get(exchange.startIndex)}
+                    exchange={exchange}
+                    reserve={false}
+                    pending={false}
+                    forkable={false}
+                  />
                 </div>
-              )
-            })}
-          </div>
-        )}
+              </div>
+            )
+          }}
+        />
         {/* 비가상 tail — 마지막(진행 중일 수 있는) 교환. 예약공간·pending·fork·에러·steer 를
             여기에만 적용해 0008 스트리밍 앵커를 그대로 유지한다. */}
         {tail && (
           <Exchange
             transcriptPolicy={transcriptPolicy}
             toolResults={workResults?.get(tail.startIndex)}
-            key={tail.startIndex}
+            key={exchangeRenderKey(tail)}
             exchange={tail}
             reserve={anchored}
             pending={inflight}

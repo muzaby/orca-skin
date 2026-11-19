@@ -9,7 +9,6 @@ import type {
 } from '../../../../../shared/ipc'
 import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
 import {
-  nonExecutionEquals,
   nonExecutionOutcome,
   parseNonExecution,
   type NonExecutionOutcome
@@ -230,21 +229,25 @@ function toolCallFromPart(
 // Task 도구 fold)도 자기 사본을 만들지 않고 이것을 부른다.
 export function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['result']>> {
   const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
-  for (const p of parts) {
-    if (isToolResultPart(p)) {
-      const nonExecution = parseNonExecution(p.nonExecution)
-      resultByRun.set(p.toolRunId, {
-        output: p.result,
-        isError: p.isError,
-        ...(nonExecution ? { nonExecution } : {}),
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {}),
-        ...(p.structuredOutput !== undefined ? { structuredOutput: p.structuredOutput } : {})
-      })
-    }
+  for (const part of parts) {
+    if (isToolResultPart(part)) resultByRun.set(part.toolRunId, toolResultFromPart(part))
   }
   return resultByRun
+}
+
+export function toolResultFromPart(
+  part: Extract<AppMessagePart, { type: 'tool_result' }>
+): NonNullable<ToolCall['result']> {
+  const nonExecution = parseNonExecution(part.nonExecution)
+  return {
+    output: part.result,
+    isError: part.isError,
+    ...(nonExecution ? { nonExecution } : {}),
+    ...(part.durationMs !== undefined ? { durationMs: part.durationMs } : {}),
+    ...(part.parentToolRunId !== undefined ? { parentToolRunId: part.parentToolRunId } : {}),
+    ...(part.subagentMeta !== undefined ? { subagentMeta: part.subagentMeta } : {}),
+    ...(part.structuredOutput !== undefined ? { structuredOutput: part.structuredOutput } : {})
+  }
 }
 
 // 메시지 배열 파생 캐시 — 배열 identity 가 키이고(0313 D-013) 칸은 파생 인자마다 하나다. reducer 는
@@ -565,165 +568,71 @@ export function messageSegments(
   resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>> = resultMap(parts)
 ): MessageSegment[] {
   const segments: MessageSegment[] = []
-  let current: MessageSegment | null = null
-
-  for (const p of parts) {
-    if (p.type === 'tool_result') continue // 맵으로 흡수
-    // 서브에이전트(Task) child 의 text/reasoning 은 메인 트랜스크립트에서 제외(우측 패널 전용).
-    if ((p.type === 'text' || p.type === 'reasoning') && partParentToolRunId(p) !== undefined)
-      continue
-    if (p.type === 'text') {
-      if (!hasSegmentText(p.text)) continue
-      if (current?.kind === 'text') current.text += p.text
-      else segments.push((current = { kind: 'text', text: p.text }))
-    } else if (p.type === 'reasoning') {
-      if (!hasSegmentReasoning(p.text)) continue // 빈/공백 reasoning 은 빈 카드라 스킵(빈 text 와 동형)
-      const item: ReasoningItem = {
-        text: p.text,
-        ...(p.signature !== undefined ? { signature: p.signature } : {})
-      }
-      if (current?.kind === 'reasoning') current.items.push(item)
-      else segments.push((current = { kind: 'reasoning', items: [item] }))
-    } else if (p.type === 'tool_call') {
-      if (p.parentToolRunId !== undefined) continue
-      const call = toolCallFromPart(p, resultByRun)
-      if (p.toolName === 'AskUserQuestion') {
-        segments.push((current = { kind: 'ask', call }))
-      } else if (current?.kind === 'tools') {
-        current.calls.push(call)
-      } else {
-        segments.push((current = { kind: 'tools', calls: [call] }))
-      }
-    } else if (p.type === 'error') {
-      segments.push((current = { kind: 'error', error: p.error }))
-    } else if (p.type === 'compact_boundary') {
-      segments.push(
-        (current = {
-          kind: 'compact',
-          ...(p.trigger !== undefined ? { trigger: p.trigger } : {}),
-          ...(p.preTokens !== undefined ? { preTokens: p.preTokens } : {}),
-          ...(p.postTokens !== undefined ? { postTokens: p.postTokens } : {})
-        })
-      )
-    } else if (p.type === 'fork_boundary') {
-      segments.push((current = { kind: 'fork' }))
-    } else if (p.type === 'subagent_notice') {
-      segments.push(
-        (current = {
-          kind: 'subagent_notice',
-          toolRunId: p.toolRunId,
-          status: p.status,
-          ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-          ...(p.summary !== undefined ? { summary: p.summary } : {})
-        })
-      )
-    }
+  for (const part of parts) {
+    const segment = segmentForPart(part, resultByRun)
+    if (!segment) continue
+    const tail = segments.at(-1)
+    if (!tail || !extendSegment(tail, segment)) segments.push(segment)
   }
-
   return segments
 }
 
-// ── 세그먼트 identity 보존 reconcile (0008) ─────────────────────────────────
-//
-// messageSegments 는 호출마다 새 세그먼트/ToolCall view 객체를 만든다 — 그대로 렌더에 쓰면
-// tool.call.* 커밋 한 번에 메시지 내 모든 세그먼트·카드가 재렌더된다. reducer 는 parts 객체의
-// identity 를 보존하므로(appendAssistantPart 는 배열만 복사), 이전 렌더의 세그먼트와 필드
-// identity 로 대조해 "내용이 같으면 이전 객체를 재사용"하면 하위 memo 컴포넌트(ToolsSegment·
-// ToolCard·ReasoningBlock…)가 shallow 비교만으로 재렌더를 건너뛴다 → 커밋 1건의 재렌더가
-// "변경된 카드 1개"로 좁혀진다.
-
-function resultEquals(a: ToolCall['result'], b: ToolCall['result']): boolean {
-  if (a === b) return true
-  if (!a || !b) return false
-  return (
-    a.output === b.output &&
-    a.isError === b.isError &&
-    a.durationMs === b.durationMs &&
-    nonExecutionEquals(a.nonExecution, b.nonExecution)
-  )
+export function extendSegment(tail: MessageSegment, next: MessageSegment): boolean {
+  if (tail.kind === 'text' && next.kind === 'text') tail.text += next.text
+  else if (tail.kind === 'reasoning' && next.kind === 'reasoning') tail.items.push(...next.items)
+  else if (tail.kind === 'tools' && next.kind === 'tools') tail.calls.push(...next.calls)
+  else return false
+  return true
 }
 
-// `editPreview` 는 비교 축이 아니다(0229) — started 파트가 만들어질 때 한 번 실리고 이후 바뀌지
-// 않으므로 `input` identity 가 그것까지 대표한다. 결과 도착은 `resultEquals` 가 잡는다.
-function toolCallEquals(a: ToolCall, b: ToolCall): boolean {
-  return (
-    a.toolUseId === b.toolUseId &&
-    a.name === b.name &&
-    a.input === b.input &&
-    resultEquals(a.result, b.result)
-  )
-}
-
-function reasoningItemEquals(a: ReasoningItem, b: ReasoningItem): boolean {
-  return a.text === b.text && a.signature === b.signature
-}
-
-function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSegment {
-  if (prev.kind !== next.kind) return next
-  switch (next.kind) {
+export function segmentForPart(
+  part: AppMessagePart,
+  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>
+): MessageSegment | undefined {
+  switch (part.type) {
     case 'text':
-      return prev.kind === 'text' && prev.text === next.text ? prev : next
-    case 'reasoning': {
-      if (prev.kind !== 'reasoning' || prev.items.length !== next.items.length) return next
-      for (let i = 0; i < next.items.length; i++) {
-        if (!reasoningItemEquals(prev.items[i], next.items[i])) return next
-      }
-      return prev
+      return part.parentToolRunId === undefined && hasSegmentText(part.text)
+        ? { kind: 'text', text: part.text }
+        : undefined
+    case 'reasoning':
+      return part.parentToolRunId === undefined && hasSegmentReasoning(part.text)
+        ? {
+            kind: 'reasoning',
+            items: [
+              {
+                text: part.text,
+                ...(part.signature !== undefined ? { signature: part.signature } : {})
+              }
+            ]
+          }
+        : undefined
+    case 'tool_call': {
+      if (part.parentToolRunId !== undefined) return undefined
+      const call = toolCallFromPart(part, resultByRun)
+      return part.toolName === 'AskUserQuestion'
+        ? { kind: 'ask', call }
+        : { kind: 'tools', calls: [call] }
     }
-    case 'tools': {
-      if (prev.kind !== 'tools') return next
-      const calls: ToolCall[] = new Array(next.calls.length)
-      let changed = prev.calls.length !== next.calls.length
-      for (let i = 0; i < next.calls.length; i++) {
-        const pc = prev.calls[i]
-        if (pc && toolCallEquals(pc, next.calls[i])) {
-          calls[i] = pc
-        } else {
-          calls[i] = next.calls[i]
-          changed = true
-        }
-      }
-      return changed ? { kind: 'tools', calls } : prev
-    }
-    case 'ask':
-      return prev.kind === 'ask' && toolCallEquals(prev.call, next.call) ? prev : next
     case 'error':
-      return prev.kind === 'error' && prev.error === next.error ? prev : next
-    case 'compact':
-      return prev.kind === 'compact' &&
-        prev.trigger === next.trigger &&
-        prev.preTokens === next.preTokens &&
-        prev.postTokens === next.postTokens
-        ? prev
-        : next
-    case 'fork':
-      // 필드 없는 마커 — kind 일치(첫 가드)면 항상 이전 identity 재사용.
-      return prev
+      return { kind: 'error', error: part.error }
+    case 'compact_boundary':
+      return {
+        kind: 'compact',
+        ...(part.trigger !== undefined ? { trigger: part.trigger } : {}),
+        ...(part.preTokens !== undefined ? { preTokens: part.preTokens } : {}),
+        ...(part.postTokens !== undefined ? { postTokens: part.postTokens } : {})
+      }
+    case 'fork_boundary':
+      return { kind: 'fork' }
     case 'subagent_notice':
-      return prev.kind === 'subagent_notice' &&
-        prev.toolRunId === next.toolRunId &&
-        prev.status === next.status &&
-        prev.durationMs === next.durationMs &&
-        prev.summary === next.summary
-        ? prev
-        : next
+      return {
+        kind: 'subagent_notice',
+        toolRunId: part.toolRunId,
+        status: part.status,
+        ...(part.durationMs !== undefined ? { durationMs: part.durationMs } : {}),
+        ...(part.summary !== undefined ? { summary: part.summary } : {})
+      }
+    default:
+      return undefined
   }
-}
-
-// 이전 렌더의 세그먼트 배열과 새로 계산한 배열을 대조해 변하지 않은 세그먼트(와 그 안의
-// ToolCall view)의 identity 를 재사용한다(순수). 전부 동일하면 prev 배열 자체를 반환.
-export function reconcileSegments(
-  prev: MessageSegment[] | null,
-  next: MessageSegment[]
-): MessageSegment[] {
-  if (!prev || prev.length === 0) return next
-  let changed = prev.length !== next.length
-  const out: MessageSegment[] = new Array(next.length)
-  for (let i = 0; i < next.length; i++) {
-    const p = prev[i]
-    const r = p ? reconcileSegment(p, next[i]) : next[i]
-    if (r !== p) changed = true
-    out[i] = r
-  }
-  return changed ? out : prev
 }

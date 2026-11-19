@@ -26,9 +26,10 @@ vi.mock('./Exchange', () => ({
     return null
   }
 }))
-vi.mock('../../../hooks/useTranscriptVirtualizer', () => ({
-  useTranscriptVirtualizer: (head: unknown[]) => ({
-    getVirtualItems: () => head.map((_, index) => ({ index, start: 0 })),
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: options.count }, (_, index) => ({ index, start: 0 })),
     getTotalSize: () => 0,
     measureElement: () => {}
   })

@@ -3,7 +3,7 @@ import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
 import { UserTurn } from '../../common/transcript/UserTurn'
 import { AssistantTurn } from './AssistantTurn'
 import { PendingAssistant } from './PendingAssistant'
-import { exchangeEquals, type Exchange as ExchangeGroup } from '../../../lib/turns'
+import { turnRenderKey, exchangeEquals, type Exchange as ExchangeGroup } from '../../../lib/turns'
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
 import type { ClassifiedError } from '../../../../../../../shared/ipc'
 import type { PendingSteerState } from '../../../store/chatStore'
@@ -51,12 +51,12 @@ export const Exchange = memo(
       >
         {exchange.turns.map((turn) =>
           turn.role === 'user' ? (
-            <UserTurn key={turn.startIndex} turn={turn} />
+            <UserTurn key={turnRenderKey(turn)} turn={turn} />
           ) : (
             <AssistantTurn
               transcriptPolicy={transcriptPolicy}
               toolResults={toolResults}
-              key={turn.startIndex}
+              key={turnRenderKey(turn)}
               turn={turn}
               // 진행 중 교환의 마지막 assistant 턴만 메타 숨김(턴 종료 시 노출).
               pending={pending && turn === lastTurn}

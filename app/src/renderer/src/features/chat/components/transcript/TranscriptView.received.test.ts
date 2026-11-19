@@ -8,9 +8,9 @@ import { ingestChatEvent } from '../../store/chatStore'
 import { harnessSession, installChatStoreHarness } from '../../store/chatStore.testHarness'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 
-vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
-  useTranscriptVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0 }],
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () => (options.count ? [{ index: 0, start: 0 }] : []),
     getTotalSize: () => 100,
     measureElement: vi.fn()
   })

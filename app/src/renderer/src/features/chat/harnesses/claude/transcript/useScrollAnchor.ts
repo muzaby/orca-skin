@@ -1,3 +1,4 @@
+import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Message } from '../../../reducer/chatReducer'
@@ -77,7 +78,7 @@ export function useScrollAnchor({
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollTop = el.scrollHeight
+    writeScrollTop(el, el.scrollHeight)
     pinnedRef.current = true
     setShowJump(false)
   }, [])
@@ -91,7 +92,7 @@ export function useScrollAnchor({
     if (!content || !el) return
     const ro = new ResizeObserver(() => {
       if (!pinnedRef.current || !inflightRef.current) return
-      el.scrollTop = el.scrollHeight
+      writeScrollTop(el, el.scrollHeight)
     })
     ro.observe(content)
     return () => ro.disconnect()
@@ -121,7 +122,7 @@ export function useScrollAnchor({
       setShowJump(false)
       if (el.scrollHeight - el.clientHeight - el.scrollTop > 1) {
         programmaticRef.current = true
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+        writeScrollTop(el, el.scrollHeight, 'smooth')
       }
       return
     }
@@ -129,7 +130,7 @@ export function useScrollAnchor({
     if (messagesReplaced && !inflightRef.current && pinnedRef.current) {
       // 세션 로드/캐시 복원/초기 마운트 — 대화 끝에서 시작(즉시). 턴 중 커밋 성장은
       // ResizeObserver 가 담당하므로 여기서 다루지 않는다.
-      el.scrollTop = el.scrollHeight
+      writeScrollTop(el, el.scrollHeight)
       setShowJump(false)
     }
   }, [messages, sessionId, sendCount])

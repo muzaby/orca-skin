@@ -16,7 +16,7 @@ import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation
 
 // 한 어시스턴트 턴의 toolCalls 를 묶는다. 도구가 1개면 그룹 헤더 없이 카드만, 2+ 일 때만
 // disclosure 그룹 헤더(진행 중엔 현재 도구 서술, 완료되면 동사별 카운트 요약).
-// memo(shallow): reconcileSegments 가 변하지 않은 세그먼트의 calls 배열 identity 를
+// memo(shallow): segmentCache 가 변하지 않은 세그먼트의 calls 배열 identity 를
 // 보존하므로 다른 세그먼트가 갱신돼도 이 그룹은 재렌더되지 않는다 (0008).
 export const ClaudeToolGroup = memo(function ClaudeToolGroup({
   calls,

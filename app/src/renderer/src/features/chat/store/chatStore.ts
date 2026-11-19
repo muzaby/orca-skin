@@ -1,4 +1,8 @@
-import { rendererMessageId } from '../../../../../shared/message-id'
+import type { LoadedMessage } from '../../../../../shared/ipc'
+import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
+import { messageOrderFor } from '../lib/transcript/messageOrder'
+import { newTranscriptChanges } from '../lib/transcript/changeLog'
+import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
 import { useMemo } from 'react'
 import { create } from 'zustand'
@@ -310,6 +314,7 @@ function freshEntry(projectId: string | null = null, cwd?: string | null): Sessi
     draftGeneration: ++draftGeneration,
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
+      transcriptChanges: newTranscriptChanges(),
       backend: landingBackend,
       ...(!supportsAgentKind(landingBackend, landingAgentKind)
         ? { agentKind: HARNESS_CAPABILITIES[landingBackend].agentKinds[0] }
@@ -485,7 +490,7 @@ function userBubbleText(message: Message): string {
 function hasCommittedClientId(key: string, id: string): boolean {
   const entry = getState().sessions[key]
   if (!entry) return false
-  return entry.session.messages.some((m) => m.role === 'user' && m.clientId === id)
+  return messageOrderFor(entry.session).messagePosition(userMessageId([id])) >= 0
 }
 
 function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
@@ -948,13 +953,20 @@ function receive(ev: NormalizedEvent): void {
       const entry = getState().sessions[key]
       const present = (entry?.pendingSteer ?? []).filter((item) => ev.ids.includes(item.id))
       const presentIds = new Set(present.map((item) => item.id))
-      const bubbles = (entry?.session.messages ?? []).filter(
-        (m) =>
-          m.role === 'user' &&
-          m.clientId !== undefined &&
-          ev.ids.includes(m.clientId) &&
-          !presentIds.has(m.clientId)
-      )
+      const bubbles: Message[] = []
+      if (entry) {
+        const order = messageOrderFor(entry.session)
+        const positions = new Set<number>()
+        for (const id of ev.ids) {
+          if (presentIds.has(id)) continue
+          const position = order.messagePosition(userMessageId([id]))
+          if (position >= 0) positions.add(position)
+        }
+        for (const position of [...positions].sort((a, b) => a - b)) {
+          const message = entry.session.messages[position]
+          if (message.role === 'user' && message.clientId !== undefined) bubbles.push(message)
+        }
+      }
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
       for (const bubble of bubbles) {
         dispatchTo(key, { type: 'DROP_UNCOMMITTED_USER', clientId: bubble.clientId! })
@@ -1620,6 +1632,7 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
   const lang = continuityLangFor(languageCache ?? undefined)
   return {
     ...initialChatState,
+    transcriptChanges: newTranscriptChanges(),
     agentKind: src.agentKind,
     agentKindLocked: true,
     title: continuityTitle(kind, lang, src.title?.trim() || src.sessionId!.slice(0, 8)),
@@ -1904,7 +1917,13 @@ async function loadSession(
     }
     // Cached live state is authoritative even when its next event has not arrived yet.
     if (hasCachedHistory && sessionBusy(request.entry.session)) return
-    dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })
+    dispatchTo(sessionId, {
+      type: 'LOAD_SESSION',
+      session,
+      complete: true,
+      preserveLocalState: !!hasCachedHistory,
+      diagnostic: transcriptDiagnostic
+    })
     request.entry = getState().sessions[sessionId]
     refreshScheduled = true
     // Two frame callbacks give React a paint opportunity before native I/O starts.
@@ -1948,6 +1967,8 @@ async function loadSession(
         dispatchTo(sessionId, {
           type: 'LOAD_SESSION',
           session: result.session,
+          complete: true,
+          diagnostic: transcriptDiagnostic,
           preserveLocalState: true
         })
       }
@@ -2219,7 +2240,25 @@ function denyTool(approvalId: string): void {
 
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
+const transcriptDiagnostic: TranscriptDiagnostic = (event, count) => {
+  console.warn('[chat transcript]', event, count)
+}
+
+function prependHistory(
+  sessionKey: string,
+  messages: readonly LoadedMessage[],
+  options: { reachedStart: boolean }
+): void {
+  dispatchTo(sessionKey, {
+    type: 'PREPEND_HISTORY',
+    messages,
+    reachedStart: options.reachedStart,
+    diagnostic: transcriptDiagnostic
+  })
+}
+
 export const chatActions = {
+  prependHistory,
   setOpenCodeTodoCollapsed: (collapsed: boolean): void =>
     dispatchActive({ type: 'SET_OPENCODE_TODO_COLLAPSED', collapsed }),
   setAgentKind,

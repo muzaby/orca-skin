@@ -84,6 +84,7 @@ describe('OpenCode transcript presentation', () => {
       const exchanges = $(
         backend === 'opencode' ? '[data-timeline-row="user"]' : '[data-app-exchange]'
       )
+      expect($('[data-transcript-viewport]')).toHaveLength(1)
       expect(exchanges).toHaveLength(2)
       for (const [index, prompt] of ['Earlier prompt', 'Last prompt'].entries()) {
         const bubble = exchanges.eq(index).find('.bg-bubble-user')

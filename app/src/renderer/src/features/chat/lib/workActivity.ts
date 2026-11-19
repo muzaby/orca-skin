@@ -1,7 +1,8 @@
 import type { AppMessagePart } from '../../../../../shared/ipc'
 import type { ResponseBoundary } from '../../../../../shared/response-boundary'
 import type { Message, ToolCall } from '../reducer/chatReducer'
-import { messageSegments, reconcileSegments, resultMap, type MessageSegment } from './parts'
+import { resultMap, type MessageSegment } from './parts'
+import { createSegmentCache } from './segmentCache'
 import type { WorkToolResults } from './workToolResults'
 
 type SegmentNode = { kind: 'segment'; key: string; segment: MessageSegment }
@@ -26,7 +27,10 @@ export function createWorkProjector(): (
 ) => WorkActivityNode[] | null {
   type Parsed = { atoms: Atom[]; results: ReturnType<typeof resultMap> }
   const cache = new WeakMap<Message, Parsed>()
-  const previous = new Map<number, Atom[]>()
+  const previous = new Map<
+    string | number,
+    { atoms: Atom[]; caches: Map<number, ReturnType<typeof createSegmentCache>> }
+  >()
   const joined = new WeakMap<SegmentNode, SegmentNode>()
   const resultViews = new WeakMap<AppMessagePart, NonNullable<ToolCall['result']>>()
   function parse(message: Message, index: number): Parsed {
@@ -44,7 +48,10 @@ export function createWorkProjector(): (
     const atoms: Atom[] = []
     let chunk: AppMessagePart[] = []
     let offset = 0
-    const old = previous.get(index) ?? []
+    const identity = message.id ?? index
+    const prior = previous.get(identity)
+    const caches = new Map<number, ReturnType<typeof createSegmentCache>>()
+    const old = prior?.atoms ?? []
     const oldByChunk = new Map<string, SegmentNode[]>()
     for (const node of old) {
       if (node.kind !== 'segment') continue
@@ -54,12 +61,11 @@ export function createWorkProjector(): (
       else oldByChunk.set(key, [node])
     }
     function flush(): void {
-      const prefix = `${index}:${offset}:`
+      const prefix = `${identity}:${offset}:`
       const oldSegments = oldByChunk.get(prefix) ?? []
-      const segments = reconcileSegments(
-        oldSegments.map((node) => node.segment),
-        messageSegments(chunk, results)
-      )
+      const segmentCache = prior?.caches.get(offset) ?? createSegmentCache()
+      caches.set(offset, segmentCache)
+      const segments = segmentCache.segmentsFor({ ...message, parts: chunk }, undefined, results)
       segments.forEach((segment, position) => {
         const prior = oldSegments[position]
         atoms.push(
@@ -76,7 +82,7 @@ export function createWorkProjector(): (
         flush()
         atoms.push({
           kind: 'boundary',
-          key: `${index}:boundary:${offset}`,
+          key: `${identity}:boundary:${offset}`,
           boundary: part.boundary
         })
       } else if (part.type !== 'tool_result') chunk.push(part)
@@ -84,11 +90,15 @@ export function createWorkProjector(): (
     flush()
     const parsed = { atoms, results }
     cache.set(message, parsed)
-    previous.set(index, atoms)
+    previous.set(identity, { atoms, caches })
     return parsed
   }
   return (messages, toolResults) => {
     const parsed = messages.map(parse)
+    const identities = new Set(messages.map((message, index) => message.id ?? index))
+    for (const identity of previous.keys()) {
+      if (!identities.has(identity)) previous.delete(identity)
+    }
     const results = new Map<string, NonNullable<ToolCall['result']>>()
     for (const message of parsed)
       for (const [id, result] of message.results) results.set(id, result)
@@ -104,7 +114,11 @@ export function createWorkProjector(): (
       const calls = segment.kind === 'tools' ? segment.calls : [segment.call]
       const next = calls.map((call) => {
         const result = results.get(call.toolUseId)
-        return !result || result === call.result ? call : { ...call, result }
+        if (result === call.result) return call
+        if (result) return { ...call, result }
+        const next = { ...call }
+        delete next.result
+        return next
       })
       if (next.every((call, index) => call === calls[index])) return prior
       const node: SegmentNode = {

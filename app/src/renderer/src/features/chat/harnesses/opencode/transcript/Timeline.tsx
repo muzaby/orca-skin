@@ -1,6 +1,6 @@
 import { turnCopyText } from '../../../lib/turns'
 import { memo, useMemo } from 'react'
-import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual'
+import { defaultRangeExtractor } from '@tanstack/react-virtual'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
 import { useI18n } from '../../../../../shared/i18n'
 import {
@@ -14,6 +14,7 @@ import { errorCategoryKey } from '../../../lib/errorLabels'
 import { UserTurn } from '../../common/transcript/UserTurn'
 import { MessageMeta } from '../../common/transcript/MessageMeta'
 import { ArtifactCards } from '../../common/transcript/ArtifactCards'
+import { TranscriptViewport } from '../../../components/transcript/TranscriptViewport'
 import { PendingAssistantStatus } from '../../../components/transcript/PendingAssistantStatus'
 import { PendingSteerTurn } from '../../common/transcript/PendingSteerTurn'
 import { TurnErrorBanner } from '../../common/transcript/TurnErrorBanner'
@@ -23,7 +24,6 @@ import { OpenCodeText } from './Text'
 import {
   projectTimelineHead,
   projectTimelineTail,
-  timelineRowIndex,
   timelineRows,
   type TimelineRow
 } from './projection'
@@ -33,9 +33,19 @@ import { TimelineDisclosureContext, TimelineViewState, useTimelineMarkdownMode }
 const policy = transcriptPresentation('code', 'opencode')
 const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 
-export const OpenCodeTimeline = memo(function OpenCodeTimeline(
-  props: TranscriptTimelineProps
-): React.JSX.Element {
+export const OpenCodeTimeline = memo(function OpenCodeTimeline({
+  messages,
+  showAutomaticFeeds,
+  inflight,
+  loadingSession,
+  pendingSteer,
+  scrollRef,
+  contentRef,
+  onScroll,
+  textScaleClassName,
+  onRestoreSteerDraft,
+  error
+}: TranscriptTimelineProps): React.JSX.Element {
   const { tr } = useI18n()
   // live 의 유무만 구독한다 — 본문 delta 는 행 리프(`OpenCodeTextSegment`)만 깨운다(0325 D-015).
   const hasLiveText = useHasLiveText()
@@ -44,27 +54,26 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
   const fallbackState = useMemo(() => new TimelineViewState(), [])
   const state = scroll?.state ?? fallbackState
   const head = useMemo(
-    () => projectTimelineHead(props.messages, { showAutomaticFeeds: props.showAutomaticFeeds }),
-    [props.messages, props.showAutomaticFeeds]
+    () => projectTimelineHead(messages, { showAutomaticFeeds }),
+    [messages, showAutomaticFeeds]
   )
   const tail = useMemo(
     () =>
       projectTimelineTail(head, {
-        text: props.inflight && hasLiveText,
-        reasoning: props.inflight && hasLiveReasoning,
-        pending: props.inflight
+        text: inflight && hasLiveText,
+        reasoning: inflight && hasLiveReasoning,
+        pending: inflight
       }),
-    [head, props.inflight, hasLiveText, hasLiveReasoning]
+    [head, inflight, hasLiveText, hasLiveReasoning]
   )
   const rows = useMemo(() => timelineRows(head, tail), [head, tail])
-  const rowIndex = (key?: string): number => timelineRowIndex(head, tail, key)
+  const rowIndex = (key?: string): number => (key === undefined ? -1 : rows.indexOf(key))
   const selectionIndexes = (scroll?.retained ?? [])
     .map((key) => rowIndex(key))
     .filter((index) => index >= 0)
-  const virtualizer = useVirtualizer({
+  const viewportOptions: React.ComponentProps<typeof TranscriptViewport>['options'] = {
     count: rows.count,
-    getScrollElement: () => props.scrollRef.current,
-    getItemKey: (index) => rows.at(index).key,
+    getItemKey: rows.keyAt,
     estimateSize: (index) => state.sizes.get(rows.at(index).key) ?? 60,
     initialOffset: state.top,
     overscan: 2,
@@ -87,36 +96,35 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
       if (key) state.sizes.set(key, height)
       return height
     }
-  })
-  // The controller restores a measured visible row, including dock/viewport
-  // resizes. Disable the virtualizer's second, independent scroll correction.
-  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false
-  const empty =
-    !rows.count && !props.loadingSession && !props.inflight && !props.pendingSteer.length
+  }
+  const empty = !rows.count && !loadingSession && !inflight && !pendingSteer.length
   return (
     <TimelineDisclosureContext.Provider value={state}>
       <div
-        ref={props.scrollRef}
-        onScroll={props.onScroll}
+        ref={scrollRef}
+        onScroll={onScroll}
         tabIndex={0}
         data-harness="opencode"
         data-behavior="virtualizable"
         data-timeline-scroll=""
-        className={`app-frame-transcript flex-1 overflow-auto bg-bg py-5 outline-none [overflow-anchor:none] [--oc-sticky-top:0px] ${props.textScaleClassName}`}
+        className={`app-frame-transcript flex-1 overflow-auto bg-bg py-5 outline-none [overflow-anchor:none] [--oc-sticky-top:0px] ${textScaleClassName}`}
       >
-        <ReadingColumn ref={props.contentRef} className="flex min-h-full flex-col pb-[64px]">
-          {(props.loadingSession || empty) && (
+        <ReadingColumn ref={contentRef} className="flex min-h-full flex-col pb-[64px]">
+          {(loadingSession || empty) && (
             <div className="m-auto text-center text-[calc(13px*var(--transcript-text-scale,1))] text-ink3">
-              {tr(props.loadingSession ? 'chat.transcript.loading' : 'chat.transcript.emptyPrompt')}
+              {tr(loadingSession ? 'chat.transcript.loading' : 'chat.transcript.emptyPrompt')}
             </div>
           )}
-          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-            {virtualizer.getVirtualItems().map((item) => {
+          <TranscriptViewport
+            options={viewportOptions}
+            scrollRef={scrollRef}
+            manualAdjustment
+            renderItem={(item, measure) => {
               const row = rows.at(item.index)
               return (
                 <div
                   key={row.key}
-                  ref={virtualizer.measureElement}
+                  ref={measure}
                   data-index={item.index}
                   data-timeline-key={row.key}
                   data-timeline-row={row.kind === 'segment' ? row.segment.kind : row.kind}
@@ -133,25 +141,22 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline(
                   />
                 </div>
               )
-            })}
-          </div>
-          {props.pendingSteer.length > 0 && (
+            }}
+          />
+          {pendingSteer.length > 0 && (
             <div className="pt-[24px]">
-              <PendingSteerTurn
-                items={props.pendingSteer}
-                onRestoreDraft={props.onRestoreSteerDraft}
-              />
+              <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
             </div>
           )}
-          {props.inflight && (
+          {inflight && (
             <div className="pt-[16px]">
               <RetryStatus />
               <PendingAssistantStatus />
             </div>
           )}
-          {props.error && (
+          {error && (
             <div className="pt-[16px]">
-              <TurnErrorBanner error={props.error} />
+              <TurnErrorBanner error={error} />
             </div>
           )}
         </ReadingColumn>

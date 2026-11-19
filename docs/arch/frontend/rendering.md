@@ -20,7 +20,7 @@ OpenCode native metadata는 `harnesses/opencode/v1/toolPresentation.ts`에서 �
 
 목록은 왼쪽 접기 버튼이 있는 실행 중/완료 그룹으로 나뉜다. 성공·실패·중단·거부·취소·미실행과 종료 확인 불가 작업이 완료 그룹에 들어간다. 종료 확인 불가 카드는 마지막 관측 시각에서 경과를 멈추고 중단 버튼을 숨긴다. 이후 실제 종료 통지가 오면 같은 그룹에서 결과를 갱신하며 원본 상태에는 표시상 종료를 합성하지 않는다. 포그라운드 Agent는 인라인 행의 '열기'로 대화록 상세를 볼 수 있으며 목록으로 돌아가면 카드가 없다. 오른쪽 휴지통은 클릭 시점에 표시상 정착한 카드만 지운다. 제거한 표시 상태는 세션 왕복과 패널 재열기 동안 유지하고 앱 재시작 시 복원되는 원본 이력은 삭제하지 않는다. 클릭 뒤 새로 완료된 작업은 남긴다.
 
-도구 결과의 `nonExecution`은 shared 분류와 renderer의 `toolRunOutcome`을 통해 표시한다. 거부·취소·미실행은 중단과 같은 중립 톤이며 실제 실패만 오류 톤이다. 라이브·재로드·Work·Code가 같은 사유를 사용하고 `reconcileSegments`는 본문이 같아도 사유 값이 바뀌면 결과 view를 교체한다. 정본 반환이 없는 패널 호출은 transcript 결과를 조인하며 목록·상세·완료 지우기·dismiss 가드에 같은 입력을 전달한다.
+도구 결과의 `nonExecution`은 shared 분류와 renderer의 `toolRunOutcome`을 통해 표시한다. 거부·취소·미실행은 중단과 같은 중립 톤이며 실제 실패만 오류 톤이다. 라이브·재로드·Work·Code가 같은 사유를 사용하고 분절 캐시는 본문이 같아도 사유 값이 바뀌면 결과 view를 교체한다. 정본 반환이 없는 패널 호출은 transcript 결과를 조인하며 목록·상세·완료 지우기·dismiss 가드에 같은 입력을 전달한다.
 
 카드를 열면 상단 제목·뒤로가기 아래에 상세를 표시한다. Explorer/Agent는 부모 Agent 카드와 대화록 외곽 테두리 없이 대화록만 표시하고, 셸 등 다른 작업은 도구 본문을 표시한다. 다른 인라인 대화록 사용처는 기본 프레임을 유지한다. 호출 제목 행, 새로고침·일괄 중단·결과 대기 버튼은 표시하지 않는다.
 
@@ -72,7 +72,7 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 
 ### 1.1 메시지 리스트 가상화
 
-- **현재: 사용.** `features/chat/hooks/useTranscriptVirtualizer.ts` 가 `@tanstack/react-virtual` 로 transcript 를 가상화한다(0102). 스크롤 컨테이너는 `.app-frame-transcript[data-behavior="virtualizable"]`(dom-architecture.md §1.2).
+- **현재: 사용.** 공통 `TranscriptViewport`가 `@tanstack/react-virtual`을 사용한다. Claude는 이전 교환을, OpenCode는 블록 목록의 가시 범위를 가상화한다. 스크롤 컨테이너는 `.app-frame-transcript[data-behavior="virtualizable"]`(dom-architecture.md §1.2).
 - 교환(Exchange) 단위 wrapper 와 50% 미드라인 예약(§1.8)은 가상화 위에서 유지된다. 사용자 버블 접기 상태는 키별 메모리로 재마운트에도 보존된다(ux-domains.md §1.3-b).
 
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)

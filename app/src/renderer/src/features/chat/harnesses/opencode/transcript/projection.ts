@@ -1,3 +1,4 @@
+import { createBlockList, type BlockList } from '../../../lib/transcript/blockList'
 import type { Message } from '../../../reducer/chatReducer'
 import {
   hasPartsText,
@@ -36,6 +37,7 @@ export interface TimelineHead {
   rows: TimelineRow[]
   tail: ExchangeEntry[]
   index: Map<string, number>
+  blocks: TimelineBlocks
 }
 
 /** Group committed messages once, preserving duplicate timestamp keys across the split. */
@@ -46,16 +48,18 @@ export function projectTimelineHead(
   const occurrences = new Map<string, number>()
   const entries = groupExchanges(messages, options).map((exchange) => {
     const first = exchange.turns[0].messages[0]
-    const base = `${first.role}:${first.createdAt}`
+    const base = first.id ?? `${first.role}:${first.createdAt}`
     const occurrence = occurrences.get(base) ?? 0
     occurrences.set(base, occurrence + 1)
     return { exchange, prefix: occurrence ? `${base}:occurrence:${occurrence}` : base }
   })
   const rows = projectEntries(entries.slice(0, -1), NO_LIVE)
+  const list = createBlockList(rows)
   return {
     rows,
     tail: entries.slice(-1),
-    index: new Map(rows.map((row, index) => [row.key, index]))
+    index: new Map(rows.map((row, index) => [row.key, index])),
+    blocks: { list, keyAt: list.snapshot().keyAt }
   }
 }
 
@@ -74,17 +78,33 @@ export function timelineRowIndex(head: TimelineHead, tail: TimelineRow[], key?: 
   return -1
 }
 
-// head 행과 tail 행을 복사하지 않고 색인으로 읽는다(0325 EP-2 ⑤⑨).
 export interface TimelineRows {
   readonly count: number
   at(index: number): TimelineRow
+  keyAt(index: number): string
+  indexOf(key: string): number
+}
+
+interface TimelineBlocks {
+  list: BlockList<TimelineRow>
+  tail?: readonly TimelineRow[]
+  keyAt: (index: number) => string
 }
 
 export function timelineRows(head: TimelineHead, tail: readonly TimelineRow[]): TimelineRows {
-  const base = head.rows.length
+  const { blocks } = head
+  const before = blocks.list.snapshot()
+  const snapshot =
+    tail === blocks.tail
+      ? before
+      : blocks.list.splice(head.rows.length, before.count - head.rows.length, tail)
+  if (snapshot.keyRevision !== before.keyRevision) blocks.keyAt = snapshot.keyAt
+  blocks.tail = tail
   return {
-    count: base + tail.length,
-    at: (index) => (index < base ? head.rows[index] : tail[index - base])
+    count: snapshot.count,
+    at: snapshot.blockAt,
+    keyAt: blocks.keyAt,
+    indexOf: snapshot.indexOf
   }
 }
 
@@ -130,6 +150,12 @@ function projectEntries(
     const assistant = exchange.turns.find((turn) => turn.role === 'assistant')
     const parts = assistant?.messages.flatMap((message) => message.parts) ?? []
     const segments = messageSegments(parts)
+    const calls = new Map<string, Extract<MessageSegment, { kind: 'tools' }>['calls'][number]>()
+    for (const segment of segments) {
+      if (segment.kind !== 'tools') continue
+      for (const call of segment.calls) calls.set(call.toolUseId, call)
+    }
+    const firstTools = new Set<string>()
     // live 는 확정 parts 뒤에 reasoning → text 순으로 붙는 것과 같은 자리에 행을 둔다(분기 b1~b6).
     let liveIndex = -1
     if (active && live.reasoning && segments.at(-1)?.kind !== 'reasoning')
@@ -144,9 +170,14 @@ function projectEntries(
       if (segment.kind === 'reasoning') continue
       const groups =
         segment.kind === 'tools'
-          ? groupTools(segment.calls.filter((call) => toolKind(call) !== 'todo')).map(
-              (calls): MessageSegment => ({ kind: 'tools', calls })
-            )
+          ? groupTools(
+              segment.calls.flatMap((call) => {
+                if (firstTools.has(call.toolUseId)) return []
+                firstTools.add(call.toolUseId)
+                const current = calls.get(call.toolUseId)!
+                return toolKind(current) === 'todo' ? [] : [current]
+              })
+            ).map((calls): MessageSegment => ({ kind: 'tools', calls }))
           : [segment]
       for (const item of groups) {
         const previous = rows.at(-1)

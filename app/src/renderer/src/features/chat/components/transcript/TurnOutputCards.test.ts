@@ -18,9 +18,9 @@ vi.mock('../../../../shared/ui/markdown/Markdown', () => ({
 vi.mock('../markdown/StreamingMarkdown', () => ({
   StreamingMarkdown: ({ source }: { source: string }) => createElement('p', null, source)
 }))
-vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
-  useTranscriptVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0 }],
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () => (options.count ? [{ index: 0, start: 0 }] : []),
     getTotalSize: () => 100,
     measureElement: vi.fn()
   })

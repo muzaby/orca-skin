@@ -60,3 +60,88 @@ it('y3 연 도구 카드 — 렌더 중 `copyText` 0 · 클릭 때 1회 · 문�
     dom.unmount()
   }
 })
+
+it.each(['onTransitionEnd', 'onTransitionCancel'] as const)(
+  'releases the closed body for its own grid transition (%s)',
+  (name) => {
+    vi.useFakeTimers()
+    const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    const call: ToolCall = { toolUseId: 'close', name: 'Read', input: { file_path: 'one' } }
+    const render = (): void =>
+      dom.render(
+        createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
+      )
+    const toggle = (): void => {
+      dom.click(dom.query('[role="button"]')!)
+      render()
+    }
+    try {
+      render()
+      toggle()
+      expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+      toggle()
+      const wrapper = dom.query('[data-tool-body-transition]')!
+      const transition = wrapper.props[name] as (event: {
+        target: unknown
+        currentTarget: unknown
+        propertyName: string
+        timeStamp: number
+      }) => void
+      transition({
+        target: {},
+        currentTarget: wrapper,
+        propertyName: 'grid-template-rows',
+        timeStamp: 0
+      })
+      transition({ target: wrapper, currentTarget: wrapper, propertyName: 'opacity', timeStamp: 0 })
+      render()
+      expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+      transition({
+        target: wrapper,
+        currentTarget: wrapper,
+        propertyName: 'grid-template-rows',
+        timeStamp: 0
+      })
+      render()
+      expect(dom.query('[aria-label="common.copy"]')).toBeNull()
+    } finally {
+      dom.unmount()
+    }
+  }
+)
+
+it('falls back to the new close deadline after reopening and closes immediately for reduced motion', () => {
+  vi.useFakeTimers()
+  let reduceMotion = false
+  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  Object.assign(window, { matchMedia: () => ({ matches: reduceMotion }) })
+  const call: ToolCall = { toolUseId: 'timeout', name: 'Read', input: {} }
+  const render = (): void =>
+    dom.render(
+      createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
+    )
+  const toggle = (): void => {
+    dom.click(dom.query('[role="button"]')!)
+    render()
+  }
+  try {
+    render()
+    toggle()
+    toggle()
+    vi.advanceTimersByTime(150)
+    toggle()
+    toggle()
+    vi.advanceTimersByTime(150)
+    render()
+    expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+    vi.advanceTimersByTime(150)
+    render()
+    expect(dom.query('[aria-label="common.copy"]')).toBeNull()
+    toggle()
+    reduceMotion = true
+    toggle()
+    expect(dom.query('[aria-label="common.copy"]')).toBeNull()
+  } finally {
+    dom.unmount()
+  }
+})

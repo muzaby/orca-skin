@@ -70,6 +70,14 @@ export interface Exchange {
   turns: Turn[]
 }
 
+export function turnRenderKey(turn: Turn): string | number {
+  return turn.messages[0]?.id ?? turn.startIndex
+}
+
+export function exchangeRenderKey(exchange: Exchange): string | number {
+  return exchange.turns[0] ? turnRenderKey(exchange.turns[0]) : exchange.startIndex
+}
+
 export function groupExchanges(
   messages: Message[],
   options: TranscriptProjectionOptions = {}

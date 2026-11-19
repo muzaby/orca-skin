@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useRef, useState, type TransitionEvent } from 'react'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
 import { useI18n, type MessageKey } from '../../../../../shared/i18n'
@@ -51,7 +51,10 @@ function ToolBody({
 // 전략문서 5.4 양식 — 카드가 아니라 *행*. 동사→이름→diff→chevron(마지막).
 // 펼침 본문(코드/diff)만 recessed 블록. `inGroup` 이면 그룹 카드(bg-bg) 위라
 // 본문은 테두리로만 구분, standalone 이면 본문이 bg-bg recessed.
-// memo(shallow): reconcileSegments 가 결과 미변경 ToolCall 의 identity 를 보존하므로,
+const BODY_TRANSITION_MS = 200
+const BODY_RELEASE_GRACE_MS = 100
+
+// memo(shallow): segmentCache 가 결과 미변경 ToolCall 의 identity 를 보존하므로,
 // 형제 카드의 결과 도착(tool.call.completed)에 이 카드는 재렌더되지 않는다 — 펼침/shiki
 // 등 카드 내부 상태 변화도 자기 자신에 한정된다 (0008).
 export const ToolCard = memo(function ToolCard({
@@ -69,9 +72,14 @@ export const ToolCard = memo(function ToolCard({
   const { tr } = useI18n()
   const detailBody = presentation === 'detail-body'
   const [open, setOpen] = useState(detailBody)
-  // 최초 오픈 후엔 본문을 계속 마운트 유지 → 닫힘도 grid-rows 전환으로 애니메이션.
-  // 한 번도 안 연 카드는 본문 미마운트(shiki 등 선렌더 비용 회피).
-  const [wasOpened, setWasOpened] = useState(false)
+  const [bodyMounted, setBodyMounted] = useState(detailBody)
+  const [closingGeneration, setClosingGeneration] = useState<number>()
+  const releaseGeneration = useRef(0)
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const closingAt = useRef(0)
+
+  useEffect(() => () => clearTimeout(releaseTimer.current), [])
+
   // Task(서브에이전트) 행은 전용 AgentTaskRow 가 렌더한다 — 동일한 행 DOM/인터랙션(클릭 시
   // 우측 백그라운드 패널)을 갖되 라벨을 참고 양식(에이전트 실행 중 …)으로 구성하고, child
   // 메타(모델·도구·경과)를 store 에서 파생한다. 인라인 펼침 본문은 없다(사용자 결정).
@@ -80,9 +88,46 @@ export const ToolCard = memo(function ToolCard({
   if (renderAgentTaskRow)
     return <AgentTaskRow call={call} inGroup={inGroup} transcriptPolicy={transcriptPolicy} />
 
+  function releaseBody(generation: number): void {
+    if (releaseGeneration.current !== generation) return
+    clearTimeout(releaseTimer.current)
+    releaseTimer.current = undefined
+    setClosingGeneration(undefined)
+    setBodyMounted(false)
+  }
+
   const toggle = (): void => {
-    setOpen((v) => !v)
-    setWasOpened(true)
+    clearTimeout(releaseTimer.current)
+    releaseTimer.current = undefined
+    const generation = ++releaseGeneration.current
+    if (!open) {
+      setClosingGeneration(undefined)
+      setBodyMounted(true)
+      setOpen(true)
+      return
+    }
+    setOpen(false)
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      releaseBody(generation)
+      return
+    }
+    closingAt.current = performance.now()
+    setClosingGeneration(generation)
+    releaseTimer.current = setTimeout(
+      () => releaseBody(generation),
+      BODY_TRANSITION_MS + BODY_RELEASE_GRACE_MS
+    )
+  }
+
+  function onBodyTransition(event: TransitionEvent<HTMLDivElement>): void {
+    if (
+      closingGeneration === undefined ||
+      event.target !== event.currentTarget ||
+      event.propertyName !== 'grid-template-rows' ||
+      (event.timeStamp > 0 && event.timeStamp < closingAt.current)
+    )
+      return
+    releaseBody(closingGeneration)
   }
   const onActivate = toggle
   const outcome = toolRunOutcome(call.result)
@@ -142,12 +187,16 @@ export const ToolCard = memo(function ToolCard({
           우측 패널을 열므로 본문 자체를 렌더하지 않는다. */}
       {!renderAgentTaskRow && (
         <div
+          data-tool-body-transition=""
+          onTransitionEnd={onBodyTransition}
+          // eslint-disable-next-line react/no-unknown-property -- React DOM registers transitioncancel.
+          onTransitionCancel={onBodyTransition}
           className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none ${
             open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            {(detailBody || open || wasOpened) && (
+            {(detailBody || bodyMounted) && (
               <div
                 className={`group/toolbody mt-g2 overflow-hidden rounded-r4 border border-t5 font-mono text-footnote text-t9 ${
                   inGroup ? '' : 'bg-bg'

@@ -5,9 +5,9 @@ import { TranscriptView } from './TranscriptView'
 import type { Message } from '../../reducer/chatReducer'
 import type { WorkToolResults } from '../../lib/workToolResults'
 
-vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
-  useTranscriptVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0 }],
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () => (options.count ? [{ index: 0, start: 0 }] : []),
     getTotalSize: () => 100,
     measureElement: vi.fn()
   })

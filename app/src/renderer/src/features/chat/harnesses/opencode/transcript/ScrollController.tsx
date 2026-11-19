@@ -1,3 +1,4 @@
+import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
@@ -56,7 +57,7 @@ export function OpenCodeScrollController({
     (top: number) => {
       const el = scrollRef.current
       if (!el) return
-      el.scrollTop = top
+      writeScrollTop(el, top)
       automaticTop.current = el.scrollTop
       lastTop.current = el.scrollTop
       state.setTop(el.scrollTop)
