@@ -1,4 +1,4 @@
-import { createElement } from 'react'
+import { createElement, type ComponentProps, type ComponentType } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -20,12 +20,16 @@ vi.mock('../../../lib/bubbleMeasure', () => ({
 
 import { UserBubbleText } from './UserBubbleText'
 
+const Bubble = UserBubbleText as ComponentType<
+  Omit<ComponentProps<typeof UserBubbleText>, 'children'>
+>
+
 describe('UserBubbleText.measure (EP-18 · VP-30)', () => {
   it('passes content, scale, and bubbleVariant (including className & contentClassName) to useBubbleOverflow', () => {
     captured.calls = []
     renderToStaticMarkup(
       createElement(
-        UserBubbleText,
+        Bubble,
         {
           className: 'surface-a',
           contentClassName: 'body-b'
@@ -42,12 +46,8 @@ describe('UserBubbleText.measure (EP-18 · VP-30)', () => {
 
   it('produces distinct bubbleVariant keys when className or contentClassName changes', () => {
     captured.calls = []
-    renderToStaticMarkup(
-      createElement(UserBubbleText, { className: 'v1', contentClassName: 'c1' }, 'same')
-    )
-    renderToStaticMarkup(
-      createElement(UserBubbleText, { className: 'v2', contentClassName: 'c1' }, 'same')
-    )
+    renderToStaticMarkup(createElement(Bubble, { className: 'v1', contentClassName: 'c1' }, 'same'))
+    renderToStaticMarkup(createElement(Bubble, { className: 'v2', contentClassName: 'c1' }, 'same'))
     expect(captured.calls[0].bubbleVariant).not.toBe(captured.calls[1].bubbleVariant)
   })
 
