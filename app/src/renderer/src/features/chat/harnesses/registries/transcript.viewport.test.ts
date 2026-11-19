@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
@@ -132,20 +132,17 @@ describe('harnesses/registries/transcript.viewport (VP-21 · EP-10)', () => {
 
   it('EP-10 negative search: only TranscriptViewport.tsx calls useVirtualizer and writes .scrollTop in transcript folders', () => {
     const chatRoot = resolve(__dirname, '../..')
+    const viewportFile = join(chatRoot, 'components', 'transcript', 'TranscriptViewport.tsx')
     const files = walkTsFiles(chatRoot)
     const virtualizerCallers = files.filter((f) =>
       /\buseVirtualizer\s*\(/.test(readFileSync(f, 'utf8'))
     )
-    expect(virtualizerCallers.map((f) => f.replace(chatRoot + '/', ''))).toEqual([
-      'components/transcript/TranscriptViewport.tsx'
-    ])
+    expect(virtualizerCallers).toEqual([viewportFile])
 
     const scrollTopWriters = files.filter((f) => {
-      if (!f.includes('/transcript/')) return false
+      if (!f.includes(`${sep}transcript${sep}`)) return false
       return /\.scrollTop\s*=/.test(readFileSync(f, 'utf8'))
     })
-    expect(scrollTopWriters.map((f) => f.replace(chatRoot + '/', ''))).toEqual([
-      'components/transcript/TranscriptViewport.tsx'
-    ])
+    expect(scrollTopWriters).toEqual([viewportFile])
   })
 })
