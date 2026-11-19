@@ -247,4 +247,19 @@ describe('세션 조각 세 예산 (0325 VP-03)', () => {
     expect(estimateWireChars('x'.repeat(10), 5)).toBe(12)
     expect(estimateWireChars({ a: 'x'.repeat(100), b: 'y'.repeat(100) }, 50)).toBeLessThan(150)
   })
+
+  it.each([0, 1])('루트 객체가 문자 예산 %i를 넘으면 자식 값을 읽지 않는다', (limit) => {
+    let childReads = 0
+    const root = {
+      get child() {
+        childReads++
+        return 'child text'
+      }
+    }
+
+    const cost = estimateWireChars(root, limit)
+
+    expect(childReads).toBe(0)
+    expect(cost).toBe(2)
+  })
 })
