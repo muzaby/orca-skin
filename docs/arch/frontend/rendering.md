@@ -20,7 +20,7 @@ OpenCode native metadata는 `harnesses/opencode/v1/toolPresentation.ts`에서 �
 
 목록은 왼쪽 접기 버튼이 있는 실행 중/완료 그룹으로 나뉜다. 성공·실패·중단·거부·취소·미실행과 종료 확인 불가 작업이 완료 그룹에 들어간다. 종료 확인 불가 카드는 마지막 관측 시각에서 경과를 멈추고 중단 버튼을 숨긴다. 이후 실제 종료 통지가 오면 같은 그룹에서 결과를 갱신하며 원본 상태에는 표시상 종료를 합성하지 않는다. 포그라운드 Agent는 인라인 행의 '열기'로 대화록 상세를 볼 수 있으며 목록으로 돌아가면 카드가 없다. 오른쪽 휴지통은 클릭 시점에 표시상 정착한 카드만 지운다. 제거한 표시 상태는 세션 왕복과 패널 재열기 동안 유지하고 앱 재시작 시 복원되는 원본 이력은 삭제하지 않는다. 클릭 뒤 새로 완료된 작업은 남긴다.
 
-도구 결과의 `nonExecution`은 shared 분류와 renderer의 `toolRunOutcome`을 통해 표시한다. 거부·취소·미실행은 중단과 같은 중립 톤이며 실제 실패만 오류 톤이다. 라이브·재로드·Work·Code가 같은 사유를 사용하고 `reconcileSegments`는 본문이 같아도 사유 값이 바뀌면 결과 view를 교체한다. 정본 반환이 없는 패널 호출은 transcript 결과를 조인하며 목록·상세·완료 지우기·dismiss 가드에 같은 입력을 전달한다.
+도구 결과의 `nonExecution`은 shared 분류와 renderer의 `toolRunOutcome`을 통해 표시한다. 거부·취소·미실행은 중단과 같은 중립 톤이며 실제 실패만 오류 톤이다. 라이브·재로드·Work·Code가 같은 사유를 사용하고 분절 캐시는 본문이 같아도 사유 값이 바뀌면 결과 view를 교체한다. 정본 반환이 없는 패널 호출은 transcript 결과를 조인하며 목록·상세·완료 지우기·dismiss 가드에 같은 입력을 전달한다.
 
 카드를 열면 상단 제목·뒤로가기 아래에 상세를 표시한다. Explorer/Agent는 부모 Agent 카드와 대화록 외곽 테두리 없이 대화록만 표시하고, 셸 등 다른 작업은 도구 본문을 표시한다. 다른 인라인 대화록 사용처는 기본 프레임을 유지한다. 호출 제목 행, 새로고침·일괄 중단·결과 대기 버튼은 표시하지 않는다.
 
@@ -72,12 +72,12 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 
 ### 1.1 메시지 리스트 가상화
 
-- **현재: 사용.** `features/chat/hooks/useTranscriptVirtualizer.ts` 가 `@tanstack/react-virtual` 로 transcript 를 가상화한다(0102). 스크롤 컨테이너는 `.app-frame-transcript[data-behavior="virtualizable"]`(dom-architecture.md §1.2).
+- **현재: 사용.** 공통 `TranscriptViewport`가 `@tanstack/react-virtual`을 사용한다. Claude는 이전 교환을, OpenCode는 블록 목록의 가시 범위를 가상화한다. 스크롤 컨테이너는 `.app-frame-transcript[data-behavior="virtualizable"]`(dom-architecture.md §1.2).
 - 교환(Exchange) 단위 wrapper 와 50% 미드라인 예약(§1.8)은 가상화 위에서 유지된다. 사용자 버블 접기 상태는 키별 메모리로 재마운트에도 보존된다(ux-domains.md §1.3-b).
 
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)
 
-- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 `DeltaEvent[]` 하나로 넘긴다(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B). `chatStore.receiveDeltaBatch` 는 배열을 event 순서대로 session별 `live`(`{text, reasoning, reasoningVisible}`)에 연결하고 **flush당 단일 Zustand `setState` transaction**으로 반영한다. `BEGIN_TURN`이 필요한 첫 활동 외에는 커밋 슬라이스(`session`) identity도 불변이다. 결과: selector 팬아웃·store notification은 프레임당 1회이고, 실제 재렌더는 live 구독 리프뿐이다 — text 델타 → `PendingAssistant` 의 `LiveText`(+ `StatusLine` 출력 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). OpenCode 는 live text 를 행 리프 `OpenCodeTextSegment`(`useLiveTextFor`)가 구독하고, Timeline 은 live 의 유무(`useHasLiveText`·`useHasLiveReasoning` — reasoning 유무는 조각마다 갱신하는 `live.reasoningVisible`)만 구독해 유무가 바뀔 때만 현재 exchange 행을 다시 투영한다(0325). transcript(커밋 메시지)·Composer shell·호스트는 깨어나지 않는다(state.md §1.2).
+- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 `DeltaEvent[]` 하나로 넘긴다(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B). `chatStore.receiveDeltaBatch` 는 같은 세션·종류·메시지 번호의 연속 델타를 묶어 session별 `live`에 연결하고 **flush당 단일 Zustand `setState` transaction**으로 반영한다. 첫 활동으로 턴을 시작하거나 번호가 바뀐 텍스트를 확정할 때 커밋 슬라이스(`session`)가 바뀐다. 결과: selector 팬아웃·store notification은 프레임당 1회이고, 실제 재렌더는 live 구독 리프뿐이다 — text 델타 → `PendingAssistant` 의 `LiveText`(+ `StatusLine` 출력 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). OpenCode 는 live text 를 행 리프 `OpenCodeTextSegment`(`useLiveTextFor`)가 구독하고, Timeline 은 live 의 유무(`useHasLiveText`·`useHasLiveReasoning` — reasoning 유무는 조각마다 갱신하는 `live.reasoningVisible`)만 구독해 유무가 바뀔 때만 현재 exchange 행을 다시 투영한다(0325). transcript(커밋 메시지)·Composer shell·호스트는 깨어나지 않는다(state.md §1.2).
 - **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 memo 된 `<Markdown>`(string shallow)으로 고정하고 꼬리만 매 델타 unified 재파스한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - **커밋 경로는 카드 단위로 격리** — `message.completed`(완성본 text 파트 커밋)·`tool.call.*` 는 reducer 커밋으로 마지막 message identity 만 교체하고, `AssistantMessage` 가 `reconcileSegments`(lib/parts.ts) 로 직전 렌더와 대조해 내용 미변경 세그먼트/ToolCall view 의 identity 를 재사용한다 → memo 된 `ToolGroup`/`ToolCard`/`ReasoningBlock`/`Markdown` 이 shallow 로 bail — **tool.call.completed 1건 = 결과가 도착한 ToolCard 1개 재렌더**. `message.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시점에 `COMMIT_PENDING_TEXT` 폴백으로 굳힌다(error/cancel 은 폐기 — 기존 동작 동형).
 

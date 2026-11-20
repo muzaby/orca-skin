@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { applyMigrations } from '../../infra/db/migrate'
 import { DbQueries } from '../../infra/db/queries'
 import { loadSession } from './reader'
+import { recoveryArchive } from './native-recovery'
 
 let connection: Database.Database
 let db: DbQueries
@@ -104,5 +105,59 @@ describe('history reader with the current SQLite schema', () => {
     })
 
     expect(() => loadSession(db, 'bad', () => '/fallback')).toThrow('Invalid agent kind')
+  })
+
+  it('VP-05 i1, i2, i6: loads message_key when present, falls back to m:<id>, and assigns x:<idx> for archived messages without id', () => {
+    db.insertSession({
+      id: 's-id',
+      backend: 'claude',
+      title: null,
+      projectId: null,
+      createdAt: 1,
+      cwd: '/w'
+    })
+    const m1 = db.appendMessage({
+      sessionId: 's-id',
+      role: 'user',
+      content: 'hi',
+      createdAt: 2,
+      messageKey: 'u:req-1'
+    })
+    db.appendPart({ messageId: m1, type: 'text', toolRunId: null, payloadJson: '{"text":"hi"}' })
+    const m2 = db.appendMessage({
+      sessionId: 's-id',
+      role: 'assistant',
+      content: 'hello',
+      createdAt: 3
+    })
+    db.appendPart({ messageId: m2, type: 'text', toolRunId: null, payloadJson: '{"text":"hello"}' })
+
+    const loaded = loadSession(db, 's-id', () => '/w')!
+    expect(loaded.messages.map((m) => m.id)).toEqual(['u:req-1', `m:${m2}`])
+    expect(new Set(loaded.messages.map((m) => m.id)).size).toBe(2)
+
+    expect(recoveryArchive()).toEqual([])
+    const user = {
+      id: 'u:kept',
+      role: 'user',
+      createdAt: 1,
+      parts: [{ type: 'text', text: 'old' }]
+    }
+    const assistant = {
+      role: 'assistant',
+      createdAt: 2,
+      incomplete: true,
+      parts: [{ type: 'reasoning', text: 'no-id' }]
+    }
+    const archived = recoveryArchive({
+      native_id: 'archive',
+      local_frontier: 2,
+      fresh_start: 0,
+      prompt_id: null,
+      prompt_text: null,
+      accepted: 1,
+      archive_json: JSON.stringify([user, assistant])
+    })
+    expect(archived).toEqual([user, { ...assistant, id: 'x:1' }])
   })
 })

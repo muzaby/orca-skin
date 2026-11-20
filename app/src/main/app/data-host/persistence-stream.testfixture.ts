@@ -55,7 +55,9 @@ export function createPersistenceStream(options: PersistenceStreamOptions): Pers
   data.onClosed(() => receiver.peerClosed())
   data.attach(loop.data)
   agent.attach(loop.agent)
+  let nextId = 0
   const sender = createPersistenceSender({
+    newId: () => String(++nextId),
     link: agent,
     send: (owner, ev) => options.send?.(owner, ev),
     failTurn: (turn, message) => options.failTurn?.(turn, message)

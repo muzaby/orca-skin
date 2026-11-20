@@ -1,3 +1,4 @@
+import { taskBoardFromMessages } from '../../../lib/transcriptIndex.legacy.testfixture'
 // 0213 — `작업` 타일 표시 계약 (AT-11~15 · §10 EP-04 · EP-05).
 //
 // 두 구멍을 닫는다. ① 할 일의 `blockedBy` 가 상세를 열어야만 보였다 — 목록에서 막힌 항목과
@@ -13,7 +14,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
-import { backgroundTaskKey, taskBoardFromMessages, taskBoardOrdered } from '../../../lib/taskBoard'
+import { backgroundTaskKey, taskBoardOrdered } from '../../../lib/taskBoard'
 import type { Message } from '../../../reducer/chatReducer'
 
 // 현재 Code 래퍼(`PlanTileContent`)는 store 를 읽는다 — `renderToStaticMarkup` 은 zustand 의 SSR
@@ -35,20 +36,32 @@ const { tileState } = vi.hoisted(() => ({
   }
 }))
 
-vi.mock('../../../store/chatStore', () => ({
-  chatActions: {
-    acknowledgeSettledTasks: vi.fn(),
-    selectTask: vi.fn(),
-    stopTask: vi.fn(),
-    backgroundTask: vi.fn()
-  },
-  useChatSession: (select: (s: unknown) => unknown) => select(tileState.value),
-  useStoppingTasks: () => new Set<string>(),
-  usePausedTasks: () => new Set<string>(),
-  useBackgroundedTasks: () => new Set<string>(),
-  useSubagentMeta: () => undefined,
-  useUnseenSettledTaskCount: () => 0
-}))
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    chatActions: {
+      acknowledgeSettledTasks: vi.fn(),
+      selectTask: vi.fn(),
+      stopTask: vi.fn(),
+      backgroundTask: vi.fn()
+    },
+    useChatSession: (select: (s: unknown) => unknown) => select(tileState.value),
+    useTranscriptView: (domain: string) => {
+      const s = tileState.value as Record<string, unknown>
+      const idx = transcriptIndexFor({
+        ...s,
+        transcriptChanges: s.transcriptChanges ?? { lineage: s, revision: 0, log: [] }
+      } as never)
+      if (domain === 'taskBoard') return idx.taskBoard()
+      return []
+    },
+    useStoppingTasks: () => new Set<string>(),
+    usePausedTasks: () => new Set<string>(),
+    useBackgroundedTasks: () => new Set<string>(),
+    useSubagentMeta: () => undefined,
+    useUnseenSettledTaskCount: () => 0
+  }
+})
 
 const { TaskProgressList } = await import('./TaskProgressList')
 const { claudeTileById } = await import('../../claude/rightpanel/tileRegistry')
@@ -114,7 +127,7 @@ const backgroundTask = (toolRunId: string, description: string): AppMessagePart[
 ]
 
 const messages = (...groups: AppMessagePart[][]): Message[] => [
-  { role: 'assistant', createdAt: 1_700_000_000_000, parts: groups.flat() }
+  { id: 'm-117', role: 'assistant', createdAt: 1_700_000_000_000, parts: groups.flat() }
 ]
 
 const renderProgress = (

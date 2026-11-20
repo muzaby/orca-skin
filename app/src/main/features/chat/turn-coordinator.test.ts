@@ -14,6 +14,7 @@ import { TypedBus } from '../../infra/bus'
 import type { OoBusEvents } from '../../contracts/bus-events'
 import { PendingMessageQueue } from './pending-message-queue'
 import { setRootLogger } from '../../infra/log/registry'
+import { receivedMessageId, userMessageId } from '../../../shared/message-id'
 
 type W = string
 
@@ -90,6 +91,58 @@ it('carries native IDs separately from queue UUIDs for matched echoes and automa
       )
   ).toBe(true)
 })
+
+it.each([true, false])(
+  'preserves received IDs through commit and relay (injected generator: %s)',
+  async (injected) => {
+    const receipt = {
+      type: 'input.received',
+      sessionId: 's1',
+      origin: { kind: 'automatic' }
+    } as const
+    const events: NormalizedEvent[] = [
+      { ...receipt, text: 'foreign', sessionId: 's2' },
+      { ...receipt, text: 'both', uuid: 'queue/id', nativeMessageId: 'native:id' },
+      { ...receipt, text: 'native', nativeMessageId: 'native:id' },
+      { ...receipt, text: 'generated' },
+      { ...receipt, text: 'not persisted', uuid: 'last' }
+    ]
+    const newId = vi.fn(() => 'generated:id')
+    const deps = makeDeps(fakeRuntime([events]), injected ? { newId } : {})
+    const commit = vi
+      .fn<NonNullable<typeof deps.persist.commitUserMessage>>()
+      .mockReturnValueOnce(41)
+      .mockReturnValueOnce(42)
+      .mockReturnValueOnce(43)
+      .mockReturnValueOnce(null)
+    deps.persist.commitUserMessage = commit
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
+
+    const keys = [
+      'i:queue%2Fid',
+      'i:n:native%3Aid',
+      injected ? 'i:g:generated%3Aid' : expect.stringMatching(/^i:g:[0-9a-f-]{36}$/),
+      'i:last'
+    ]
+    const batches = commit.mock.calls.map(([, batch]) => batch)
+    expect(batches.map((batch) => [batch.text, batch.messageKey, batch.nativeMessageId])).toEqual([
+      ['both', keys[0], 'native:id'],
+      ['native', keys[1], 'native:id'],
+      ['generated', keys[2], undefined],
+      ['not persisted', keys[3], undefined]
+    ])
+    expect(newId).toHaveBeenCalledTimes(injected ? 1 : 0)
+    const relayed = vi
+      .mocked(deps.forward.relay)
+      .mock.calls.map(([, event]) => event)
+      .filter((event) => event.type === 'message.committed')
+    expect(relayed.map((event) => [event.messageId, event.messageKey])).toEqual(
+      batches.slice(0, 3).map((batch, index) => [41 + index, batch.messageKey])
+    )
+  }
+)
 
 it('commits a received scheduled prompt before its response without consuming a queued user prompt', async () => {
   const runtime = fakeRuntime([
@@ -251,7 +304,10 @@ function makeDeps(
     runtime,
     bus: new TypedBus<OoBusEvents<W>>(),
     persist: { persist: vi.fn(() => order.push('history')), flushAskAnswers: vi.fn() },
-    forward: { forward: vi.fn(() => order.push('relay')) },
+    forward: {
+      forward: vi.fn(() => order.push('relay')),
+      relay: vi.fn((turn, ev) => base.forward.forward(turn.owner, ev))
+    },
     registry: { promote: vi.fn() },
     classifyError: vi.fn(
       () => ({ kind: 'stream_error', message: 'x', retryable: false }) as unknown as ClassifiedError
@@ -735,7 +791,10 @@ describe('TurnCoordinator requirement commit', () => {
       [{ type: 'input.echo', sessionId: 's1', text: batch.text, uuid: batch.uuid }, telemetry]
     ])
     const commitUserMessage = vi.fn(() => 42)
+    const relay = vi.fn()
+    const forward = vi.fn()
     const deps = makeDeps(runtime, {
+      forward: { forward, relay },
       pendingMessages,
       persist: { persist: vi.fn(), flushAskAnswers: vi.fn(), commitUserMessage }
     })
@@ -746,14 +805,22 @@ describe('TurnCoordinator requirement commit', () => {
       { ...REQUEST, sessionId: 's1', text: batch.text, promptUuid: batch.uuid },
       { sharedPathProjectId: null }
     )
-    expect(commitUserMessage).toHaveBeenCalledWith(turn, expect.objectContaining({ requirements }))
-    expect(deps.forward.forward).toHaveBeenCalledWith(
-      'owner',
+    expect(commitUserMessage).toHaveBeenCalledWith(
+      turn,
+      expect.objectContaining({ requirements, messageKey: 'u:req-0,req-1' })
+    )
+    expect(relay).toHaveBeenCalledExactlyOnceWith(
+      turn,
       expect.objectContaining({
         type: 'message.committed',
         ids: ['req-0', 'req-1'],
+        messageKey: 'u:req-0,req-1',
         requirements
       })
+    )
+    expect(forward).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ type: 'message.committed' })
     )
   })
 })
@@ -1151,6 +1218,7 @@ describe('TurnCoordinator.run — retry', () => {
           ({ kind: 'stream_error', message: 'x', retryable: true }) as unknown as ClassifiedError
       )
     })
+    const retryRelay = vi.spyOn(deps.forward, 'relay')
     const turn = makeTurn()
 
     const p = new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
@@ -1159,6 +1227,10 @@ describe('TurnCoordinator.run — retry', () => {
 
     const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => (c[1] as NormalizedEvent).type
+    )
+    expect(retryRelay).not.toHaveBeenCalledWith(
+      turn,
+      expect.objectContaining({ type: 'turn.retrying' })
     )
     expect(types).toContain('turn.retrying')
     expect(types).toContain('telemetry')
@@ -1851,5 +1923,156 @@ describe('TurnCoordinator.run — retry reopen gate (0301)', () => {
     expect(req.canReopenInitialSubmission).toHaveBeenCalledOnce()
     expect(req.reopenInitialSubmission).not.toHaveBeenCalled()
     expect(runtime.sendCount).toBe(1)
+  })
+})
+
+describe('VP-04 coordinator message identity & relay routing (k9~k11, k19, k21, k26)', () => {
+  it('k9 & k19 encode userMessageId for single/multi-id batches without delimiter collision', () => {
+    expect(userMessageId(['id1'])).toBe('u:id1')
+    expect(userMessageId(['id1', 'id2'])).toBe('u:id1,id2')
+    expect(userMessageId(['id1', 'id2'])).not.toBe(userMessageId(['id1', 'id3']))
+    // k19: component encoding prevents delimiter collisions
+    expect(userMessageId(['a,b'])).not.toBe(userMessageId(['a', 'b']))
+    expect(userMessageId(['x:y'])).toBe('u:x%3Ay')
+    const uuid = '550e8400-e29b-41d4-a716-446655440000'
+    expect(userMessageId([uuid])).toBe(`u:${uuid}`)
+  })
+
+  it('k10 & k11 distinguish receivedMessageId variants and keep u:x !== i:x', () => {
+    expect(receivedMessageId('u1', 'n1', () => 'gen')).toBe('i:u1')
+    expect(receivedMessageId(undefined, 'n1', () => 'gen')).toBe('i:n:n1')
+    expect(receivedMessageId(undefined, undefined, () => 'gen')).toBe('i:g:gen')
+    expect(userMessageId(['x'])).not.toBe(receivedMessageId('x', undefined, () => 'gen'))
+  })
+
+  it('k21 merges rolled-back initial item with steer in real PendingMessageQueue and commits with combined userMessageId', async () => {
+    const queue = new PendingMessageQueue()
+    const itemA = queue.enqueue('s1', { text: 'first' }, 1, 'a')
+    const reservedA = queue.reserveItem('s1', itemA.id)!
+    queue.rollback('s1', reservedA.uuid)
+    const itemB = queue.enqueue('s1', { text: 'second' }, 2, 'b')
+    const merged = queue.reserveHeld('s1')!
+    expect(merged.ids).toEqual([itemA.id, itemB.id])
+    queue.commitMany('s1', [merged])
+
+    const commitBatches: Array<{ messageKey?: string; text: string }> = []
+    const relayEvents: NormalizedEvent[] = []
+    const forwardEvents: NormalizedEvent[] = []
+    const runtime = fakeRuntime([
+      [
+        {
+          type: 'input.echo',
+          sessionId: 's1',
+          uuid: merged.uuid,
+          text: merged.text
+        }
+      ]
+    ])
+    const deps = makeDeps(runtime, {
+      pendingMessages: queue,
+      persist: {
+        persist: vi.fn(),
+        flushAskAnswers: vi.fn(),
+        commitUserMessage: vi.fn((_turn, batch) => {
+          commitBatches.push(batch)
+          return 10
+        })
+      },
+      forward: {
+        relay: vi.fn((_turn, ev) => relayEvents.push(ev)),
+        forward: vi.fn((_owner, ev) => forwardEvents.push(ev))
+      }
+    })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(
+      turn,
+      { sessionId: 's1', text: 'first' } as unknown as TurnRequest,
+      { sharedPathProjectId: null }
+    )
+
+    const expectedKey = userMessageId([itemA.id, itemB.id])
+    expect(commitBatches[0]?.messageKey).toBe(expectedKey)
+    const committed = relayEvents.find((ev) => ev.type === 'message.committed')
+    expect(committed).toMatchObject({
+      type: 'message.committed',
+      ids: [itemA.id, itemB.id],
+      messageKey: expectedKey
+    })
+  })
+
+  it('k26 routes commitConsumed and input.received message.committed through forward.relay and retry/error/aborted through forward.forward', async () => {
+    const queue = new PendingMessageQueue()
+    const item = queue.enqueue('s1', { text: 'queued' }, 1, 'q1')
+    const batch = queue.reserveHeld('s1')!
+    queue.commitMany('s1', [batch])
+
+    const relaySpy = vi.fn()
+    const forwardSpy = vi.fn()
+    const runtime = fakeRuntime([
+      [
+        { type: 'input.echo', sessionId: 's1', uuid: batch.uuid, text: 'queued' },
+        {
+          type: 'input.received',
+          sessionId: 's1',
+          uuid: 'rx-1',
+          text: 'auto',
+          origin: { kind: 'scheduled', label: 'auto' }
+        }
+      ]
+    ])
+    const deps = makeDeps(runtime, {
+      pendingMessages: queue,
+      persist: {
+        persist: vi.fn(),
+        flushAskAnswers: vi.fn(),
+        commitUserMessage: vi.fn(() => 42)
+      },
+      forward: {
+        relay: relaySpy,
+        forward: forwardSpy
+      }
+    })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(
+      turn,
+      { sessionId: 's1', text: 'go' } as unknown as TurnRequest,
+      { sharedPathProjectId: null }
+    )
+
+    const relayedCommitted = relaySpy.mock.calls.filter(
+      ([t, ev]) => t === turn && (ev as NormalizedEvent).type === 'message.committed'
+    )
+    const forwardedCommitted = forwardSpy.mock.calls.filter(
+      ([, ev]) => (ev as NormalizedEvent).type === 'message.committed'
+    )
+    expect(relayedCommitted).toHaveLength(2)
+    expect(relayedCommitted[0]?.[1]).toMatchObject({ messageKey: userMessageId([item.id]) })
+    expect(relayedCommitted[1]?.[1]).toMatchObject({ messageKey: 'i:rx-1' })
+    expect(forwardedCommitted).toHaveLength(0)
+
+    // Non-committed control events (turn.retrying / synthetic error) go to forward.forward, not forward.relay
+    const relaySpy2 = vi.fn()
+    const forwardSpy2 = vi.fn()
+    const failingRuntime = {
+      // eslint-disable-next-line require-yield
+      send: async function* () {
+        throw new Error('boom')
+      }
+    } as unknown as CoordinatorRuntime
+    const deps2 = makeDeps(failingRuntime, {
+      forward: { relay: relaySpy2, forward: forwardSpy2 },
+      classifyError: vi.fn(() => ({
+        category: 'stream_error' as const,
+        message: 'boom',
+        retryable: false
+      }))
+    })
+    await new TurnCoordinator(deps2).run(makeTurn(), REQUEST, { sharedPathProjectId: null })
+    expect(forwardSpy2.mock.calls.some(([, ev]) => (ev as NormalizedEvent).type === 'error')).toBe(
+      true
+    )
+    expect(relaySpy2).not.toHaveBeenCalled()
   })
 })

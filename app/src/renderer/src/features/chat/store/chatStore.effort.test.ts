@@ -60,6 +60,7 @@ describe('0246 AC6·AC8 — effort payload and continuity', () => {
       modelAlias: 'opus',
       effort: 'max',
       messages: [1, 2].map((createdAt) => ({
+        id: 'm-63',
         role: 'user',
         createdAt,
         parts: [{ type: 'text', text: 'question' }]

@@ -1,3 +1,4 @@
+import { userMessageId } from '../../../shared/message-id'
 import { createElement, Fragment, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
@@ -124,6 +125,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
     ({ backend, agentKind }) => {
       installChatStoreHarness({ backend, agentKind })
       const reminder: Message = {
+        id: 'm-127',
         role: 'user',
         createdAt: 100,
         parts: [
@@ -135,6 +137,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
         ]
       }
       const mixed: Message = {
+        id: 'm-138',
         role: 'user',
         createdAt: 200,
         parts: [
@@ -199,6 +202,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
       for (const [index, input] of inputs.entries())
         ingestChatEvent({
           type: 'message.committed',
+          messageKey: userMessageId([`feed-${index}`]),
           sessionId: 's',
           ids: [`feed-${index}`],
           messageId: index + 1,
@@ -214,7 +218,16 @@ describe('DEV app slot → automatic feed button → production transcript', () 
       const original = structuredClone(messages)
       const loaded = chatReducer(initialChatState, {
         type: 'LOAD_SESSION',
-        session: { id: 's', backend, agentKind, title: null, messages: structuredClone(messages) }
+        session: {
+          id: 's',
+          backend,
+          agentKind,
+          title: null,
+          messages: structuredClone(messages).map((message, index) => ({
+            ...message,
+            id: message.id ?? String(index)
+          }))
+        }
       })
       for (const source of [messages, loaded.messages]) {
         let html = render(backend, agentKind, source)
@@ -248,7 +261,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
       }
       expect(messages).toEqual(original)
       expect(loaded.messages).toEqual(
-        original.map(({ role, parts, createdAt }) => ({ role, parts, createdAt }))
+        original.map(({ id, role, parts, createdAt }) => ({ id, role, parts, createdAt }))
       )
       expect(chatSend).not.toHaveBeenCalled()
       expect(settingsSet).not.toHaveBeenCalled()
@@ -264,6 +277,7 @@ describe('DEV app slot → automatic feed button → production transcript', () 
       setAutomaticFeedVisibility(true)
       const messages: Message[] = [
         {
+          id: 'm-277',
           role: 'user',
           createdAt: 1,
           parts: [

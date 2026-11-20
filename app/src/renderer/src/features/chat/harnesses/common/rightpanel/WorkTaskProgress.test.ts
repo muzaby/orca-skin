@@ -1,12 +1,9 @@
+import { taskBoardFromMessages } from '../../../lib/transcriptIndex.legacy.testfixture'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  taskBoardFromMessages,
-  taskBoardOrdered,
-  type TaskBoardStatus
-} from '../../../lib/taskBoard'
+import { taskBoardOrdered, type TaskBoardStatus } from '../../../lib/taskBoard'
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import { WorkTaskProgress } from './WorkTaskProgress'
 
@@ -54,6 +51,7 @@ const items = taskBoardOrdered(
   taskBoardFromMessages([
     {
       createdAt: 0,
+      id: 'm-54',
       role: 'assistant',
       parts: [
         ...taskParts('1', '다운로드 폴더 정리 중', 'in_progress'),

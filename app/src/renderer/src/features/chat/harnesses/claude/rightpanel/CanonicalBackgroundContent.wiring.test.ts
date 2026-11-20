@@ -1,14 +1,14 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CanonicalBackgroundContent } from './CanonicalBackgroundContent'
+import { BackgroundTaskCard, CanonicalBackgroundContent } from './CanonicalBackgroundContent'
 import { SubAgentTileContent, SubAgentTileHeader } from './SubAgentTileContent'
 import { selectBackgroundItem, useBackgroundStore } from '../../../store/backgroundStore'
 import { useChatStore } from '../../../store/chatStore'
 import { chatApi } from '../../../../../shared/api/ipc'
 import { TranscriptRuntimeProvider } from '../../common/transcript/TranscriptRuntime'
 import { assistantRuntime } from '../../registries/assistant'
-import { childMessageForParentToolRunId, subagentTasksFromMessages } from '../../../lib/parts'
+import { recordChange } from '../../../lib/transcript/changeLog'
 import type { Message } from '../../../reducer/chatReducer'
 import {
   applyBackgroundEvent,
@@ -46,16 +46,7 @@ vi.mock('react/jsx-dev-runtime', async (original) => {
   }
 })
 
-// 0313 AC2 — 구 모델 파생의 호출 횟수를 센다. 실제 구현을 그대로 통과시키므로 기존 케이스의
-// 동작은 같다. 타일은 이 export 를 부르므로 실행 구간 안이다.
-vi.mock('../../../lib/parts', async (original) => {
-  const actual = await original<typeof import('../../../lib/parts')>()
-  return {
-    ...actual,
-    subagentTasksFromMessages: vi.fn(actual.subagentTasksFromMessages),
-    childMessageForParentToolRunId: vi.fn(actual.childMessageForParentToolRunId)
-  }
-})
+// 0326 EP-14: 구 모델 파생(subagentTasksFromMessages·childMessageForParentToolRunId)은 프로덕션에서 삭제됨.
 
 const chatInitial = useChatStore.getInitialState()
 const backgroundInitial = useBackgroundStore.getInitialState()
@@ -128,6 +119,7 @@ function seedLegacy(messages: Message[], selectedSubagentTaskId: string | null):
 
 const legacyDetail: Message[] = [
   {
+    id: 'm-130',
     role: 'assistant',
     createdAt: 1,
     parts: [
@@ -189,6 +181,56 @@ afterEach(() => {
 })
 
 describe('canonical background production callbacks', () => {
+  it('passes current structured tool results through the mounted background panel to its task card', () => {
+    seed(withTask())
+    function publish(value: unknown): unknown {
+      const current = useChatStore.getState().sessions[sessionId]
+      const message: Message = {
+        id: 'a:result',
+        createdAt: 1,
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool_result',
+            toolRunId: toolUseId,
+            result: '',
+            isError: false,
+            structuredOutput: value
+          }
+        ]
+      }
+      const changes = recordChange(
+        current.session.transcriptChanges,
+        current.session.messages.length
+          ? { kind: 'replace', id: message.id, partsFrom: 0 }
+          : { kind: 'append', ids: [message.id] }
+      )
+      useChatStore.setState({
+        sessions: {
+          [sessionId]: {
+            ...current,
+            session: {
+              ...current.session,
+              messages: [message],
+              transcriptChanges: changes
+            }
+          }
+        }
+      })
+      render()
+      const card = harness.nodes.find((item) => item.type === BackgroundTaskCard)
+      expect(card).toBeDefined()
+      return (card!.props.transcript as { structuredOutput: unknown }).structuredOutput
+    }
+    const original = new Map([['key', [1, 2]]])
+    expect(publish(original)).toBe(original)
+    expect(publish(new Map([['key', [1, 2]]]))).toBe(original)
+    const reordered = new Map([['key', [2, 1]]])
+    expect(publish(reordered)).toBe(reordered)
+    const record = {}
+    expect(publish(record)).toBe(record)
+  })
+
   it('preserves dismissal and collapsed groups through remount and session round trips without leaking the selected header', () => {
     const state = applyBackgroundEvent(withTask(), {
       type: 'background.call',
@@ -231,6 +273,7 @@ describe('canonical background production callbacks', () => {
     const session = useChatStore.getState().sessions[sessionId].session
     session.messages = [
       {
+        id: 'm-233',
         role: 'assistant',
         createdAt: 1,
         parts: [
@@ -276,8 +319,6 @@ describe('canonical background production callbacks', () => {
     // 구 모델 에이전트와 그 선택이 남아 있어도 정본 화면은 그것을 읽지 않는다.
     seedLegacy(legacyDetail, 'legacy-detail-id')
     const canonicalOnly = render()
-    vi.mocked(subagentTasksFromMessages).mockClear()
-    vi.mocked(childMessageForParentToolRunId).mockClear()
     const body = render(false, true)
     expect(body).toBe(canonicalOnly)
     expect(body).toContain(`data-background-task="${taskId}"`)
@@ -286,8 +327,6 @@ describe('canonical background production callbacks', () => {
     expect(header).toContain('백그라운드 작업')
     expect(header).not.toContain('aria-label="목록으로"')
     expect(header).not.toContain('legacy detail')
-    expect(subagentTasksFromMessages).not.toHaveBeenCalled()
-    expect(childMessageForParentToolRunId).not.toHaveBeenCalled()
   })
   it('구 모델 선택은 상세와 child 대화를 그린다', () => {
     seed(emptyBackgroundState())

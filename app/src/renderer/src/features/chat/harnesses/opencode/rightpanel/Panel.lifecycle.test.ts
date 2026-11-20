@@ -108,6 +108,7 @@ beforeEach(() => {
     selectedSubagentTaskId: 'base-agent',
     messages: [
       {
+        id: 'm-110',
         role: 'assistant',
         createdAt: 1,
         parts: [

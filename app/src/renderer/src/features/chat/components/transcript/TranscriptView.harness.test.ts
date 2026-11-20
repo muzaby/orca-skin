@@ -40,11 +40,13 @@ vi.mock('@tanstack/react-virtual', async (original) => {
 })
 
 const userMessage: Message = {
+  id: 'm-42',
   role: 'user',
   createdAt: 1,
   parts: [{ type: 'text', text: 'Prompt' }]
 }
 const assistantMessage: Message = {
+  id: 'm-47',
   role: 'assistant',
   createdAt: 2,
   parts: [{ type: 'text', text: 'Answer' }]
@@ -56,13 +58,140 @@ describe('OpenCode transcript presentation', () => {
     { backend: 'claude', agentKind: 'work' },
     { backend: 'opencode', agentKind: 'code' }
   ] as const)(
+    'keeps source part markers inside one parsed Markdown block ($backend/$agentKind)',
+    ({ backend, agentKind }) => {
+      const messages: Message[] = [
+        userMessage,
+        {
+          ...assistantMessage,
+          id: 'a:parts',
+          parts: [
+            ...(agentKind === 'work'
+              ? [{ type: 'response_boundary', boundary: { id: 'work', phase: 'begin' } } as const]
+              : []),
+            { type: 'text', text: 'A **bold ' },
+            { type: 'text', text: 'split** [link](https://example.com) `code`\n\n```text\nleft ' },
+            { type: 'text', text: 'right\n```\n\n&amp;' },
+            { type: 'text', text: 'amp; next\n\n`` ' },
+            { type: 'text', text: '`' },
+            { type: 'text', text: ' `` and `` A \r\n' },
+            { type: 'text', text: ' B ``' },
+            ...(agentKind === 'work'
+              ? [
+                  {
+                    type: 'response_boundary',
+                    boundary: { id: 'work', phase: 'end', outcome: 'ended' }
+                  } as const
+                ]
+              : [])
+          ]
+        }
+      ]
+      installChatStoreHarness({ backend, agentKind, messages })
+      const $ = load(
+        renderToStaticMarkup(
+          createElement(TranscriptView, {
+            backend,
+            agentKind,
+            messages,
+            pendingSteer: [],
+            inflight: false,
+            loadingSession: false,
+            anchored: false,
+            scrollRef: { current: null },
+            contentRef: { current: null },
+            onScroll: () => {}
+          })
+        )
+      )
+
+      const first = '[data-part-key="a:parts:text:0"]'
+      const middle = '[data-part-key="a:parts:text:1"]'
+      const last = '[data-part-key="a:parts:text:2"]'
+      const entityParagraph = $('p').filter((_, p) => $(p).text() === '&amp; next')
+      expect(entityParagraph).toHaveLength(1)
+      expect(entityParagraph.find(last).text()).toBe('&')
+      expect(entityParagraph.find('[data-part-key="a:parts:text:3"]').text()).toBe('amp; next')
+      expect($('code [data-part-key="a:parts:text:4"]').text()).toBe('`')
+      expect($('code [data-part-key="a:parts:text:5"]').text()).toBe('A  ')
+      expect($('code [data-part-key="a:parts:text:6"]').text()).toBe(' B')
+      expect($('strong').text()).toBe('bold split')
+      expect($(`strong ${first}`).text()).toBe('bold ')
+      expect($(`strong ${middle}`).text()).toBe('split')
+      expect($(`a ${middle}`).text()).toBe('link')
+      expect($(`code ${middle}`).text()).toBe('codeleft ')
+      expect($(`pre code ${last}`).text()).toBe('right')
+      expect($(first).closest('[data-index]')[0]).toBe($(last).closest('[data-index]')[0])
+    }
+  )
+
+  it.each([
+    { backend: 'claude', agentKind: 'code' },
+    { backend: 'claude', agentKind: 'work' },
+    { backend: 'opencode', agentKind: 'code' }
+  ] as const)(
+    'marks both rendered messages inside one grouped user row ($backend/$agentKind)',
+    ({ backend, agentKind }) => {
+      const messages: Message[] = [
+        { ...userMessage, id: 'u:first', parts: [{ type: 'text', text: 'First question' }] },
+        { ...userMessage, id: 'u:next', parts: [{ type: 'text', text: 'Follow-up question' }] },
+        assistantMessage
+      ]
+      installChatStoreHarness({ backend, agentKind, messages })
+      const $ = load(
+        renderToStaticMarkup(
+          createElement(TranscriptView, {
+            backend,
+            agentKind,
+            messages,
+            pendingSteer: [],
+            inflight: false,
+            loadingSession: false,
+            anchored: false,
+            scrollRef: { current: null },
+            contentRef: { current: null },
+            onScroll: () => {}
+          })
+        )
+      )
+
+      const first = $('[data-part-key="u:first:user"]')
+      const next = $('[data-part-key="u:next:user"]')
+      expect(first).toHaveLength(1)
+      expect(next).toHaveLength(1)
+      expect(first.text()).toBe('First question')
+      expect(next.text()).toBe('Follow-up question')
+      expect(first.closest('[data-index]')[0]).toBe(next.closest('[data-index]')[0])
+    }
+  )
+
+  it.each([
+    { backend: 'claude', agentKind: 'code' },
+    { backend: 'claude', agentKind: 'work' },
+    { backend: 'opencode', agentKind: 'code' }
+  ] as const)(
     'preserves bubble colors and the harness viewport background in earlier and last exchanges ($backend/$agentKind)',
     ({ backend, agentKind }) => {
       const messages: Message[] = [
-        { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'Earlier prompt' }] },
-        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'Earlier answer' }] },
-        { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'Last prompt' }] },
-        { role: 'assistant', createdAt: 4, parts: [{ type: 'text', text: 'Last answer' }] }
+        {
+          id: 'm-62',
+          role: 'user',
+          createdAt: 1,
+          parts: [{ type: 'text', text: 'Earlier prompt' }]
+        },
+        {
+          id: 'm-63',
+          role: 'assistant',
+          createdAt: 2,
+          parts: [{ type: 'text', text: 'Earlier answer' }]
+        },
+        { id: 'm-64', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'Last prompt' }] },
+        {
+          id: 'm-65',
+          role: 'assistant',
+          createdAt: 4,
+          parts: [{ type: 'text', text: 'Last answer' }]
+        }
       ]
       installChatStoreHarness({ backend, agentKind, messages })
       const $ = load(
@@ -82,8 +211,9 @@ describe('OpenCode transcript presentation', () => {
         )
       )
       const exchanges = $(
-        backend === 'opencode' ? '[data-timeline-row="user"]' : '[data-app-exchange]'
+        backend === 'opencode' ? '[data-timeline-row="user"]' : '[data-index]:has(.bg-bubble-user)'
       )
+      expect($('[data-transcript-viewport]')).toHaveLength(1)
       expect(exchanges).toHaveLength(2)
       for (const [index, prompt] of ['Earlier prompt', 'Last prompt'].entries()) {
         const bubble = exchanges.eq(index).find('.bg-bubble-user')
@@ -101,8 +231,8 @@ describe('OpenCode transcript presentation', () => {
       expect(
         $(
           backend === 'opencode'
-            ? '[data-index="0"][data-timeline-row="user"]'
-            : '[data-index="0"] [data-app-exchange]'
+            ? '[data-index="0"] [data-timeline-row="user"]'
+            : '[data-index="0"]'
         ).text()
       ).toContain('Earlier prompt')
       expect($('[data-timeline-scroll]')).toHaveLength(backend === 'opencode' ? 1 : 0)
@@ -164,8 +294,18 @@ describe('OpenCode transcript presentation', () => {
         backend,
         agentKind: 'code',
         messages: [
-          { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'User prompt' }] },
-          { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'Answer body' }] }
+          {
+            id: 'm-168',
+            role: 'user',
+            createdAt: 1,
+            parts: [{ type: 'text', text: 'User prompt' }]
+          },
+          {
+            id: 'm-169',
+            role: 'assistant',
+            createdAt: 2,
+            parts: [{ type: 'text', text: 'Answer body' }]
+          }
         ],
         pendingSteer: [],
         inflight: false,

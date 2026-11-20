@@ -47,6 +47,7 @@ export class NativeHistoryQueries {
     compactLegacyRaw: Database.Statement
     bind: Database.Statement
     bindings: Database.Statement
+    messageBindings: Database.Statement
     replace: Database.Statement
     deleteMissing: Database.Statement
     upsertMessage: Database.Statement
@@ -87,6 +88,9 @@ export class NativeHistoryQueries {
       bindings: db.prepare(`SELECT b.message_id, b.native_message_id
       FROM native_message_bindings b JOIN messages m ON m.id = b.message_id
       WHERE m.session_id = ? ORDER BY m.idx`),
+      messageBindings: db.prepare(
+        'SELECT native_message_id FROM native_message_bindings WHERE message_id = ?'
+      ),
       replace:
         db.prepare(`INSERT INTO native_history_snapshots (session_id, payload_json, local_frontier, synced_at, cursor_json, raw_json)
         VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(session_id) DO UPDATE SET
@@ -176,6 +180,14 @@ export class NativeHistoryQueries {
 
   bind(messageId: number, nativeMessageId: string): void {
     this.statements.bind.run(messageId, nativeMessageId)
+  }
+
+  messageBindings(messageId: number): string[] {
+    const rows = this.statements.messageBindings.all(messageId) as Pick<
+      NativeMessageBinding,
+      'native_message_id'
+    >[]
+    return rows.map((row) => row.native_message_id)
   }
 
   bindings(sessionId: string): NativeMessageBinding[] {

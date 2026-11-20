@@ -11,14 +11,29 @@ import { RightPanelTile } from './RightPanelTile'
 const PlanTileContent = claudeTileById('plan').Content
 
 const harness = vi.hoisted(() => ({ session: null as ChatState | null }))
-vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (state: ChatState) => unknown) => select(harness.session!),
-  useChatStore: (select: (state: { activeKey: string }) => unknown) =>
-    select({ activeKey: 'session' }),
-  useChatBusy: () => false,
-  useUnseenSettledTaskCount: () => 0,
-  chatActions: { selectTask: vi.fn(), restoreComposerDraft: vi.fn() }
-}))
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    useChatSession: (select: (state: ChatState) => unknown) => select(harness.session!),
+    useChatStore: (select: (state: { activeKey: string }) => unknown) =>
+      select({ activeKey: 'session' }),
+    useTranscriptView: (domain: string, arg?: string) => {
+      const s = harness.session!
+      const idx = transcriptIndexFor({
+        ...s,
+        transcriptChanges: s.transcriptChanges ?? { lineage: s, revision: 0, log: [] }
+      })
+      if (domain === 'taskBoard') return idx.taskBoard()
+      if (domain === 'subagentTasks') return idx.subagentTasks()
+      if (domain === 'taskContextSources') return idx.taskContextSources()
+      if (domain === 'childMessage') return idx.childMessage(arg!)
+      return []
+    },
+    useChatBusy: () => false,
+    useUnseenSettledTaskCount: () => 0,
+    chatActions: { selectTask: vi.fn(), restoreComposerDraft: vi.fn() }
+  }
+})
 const publications = [1, 2].map((id) => ({
   publicationId: `p${id}`,
   artifactFileId: `f${id}`,
@@ -46,6 +61,7 @@ beforeEach(() => {
     planContent: '# 계획 문서\n\n계획에만 포함된 문장입니다.',
     messages: [
       {
+        id: 'm-48',
         role: 'assistant',
         createdAt: 0,
         parts: [

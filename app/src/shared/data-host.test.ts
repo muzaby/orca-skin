@@ -13,6 +13,7 @@ import {
 import type { LoadedMessage, LoadedSession } from './ipc'
 
 const message = (parts: number, tag: string): LoadedMessage => ({
+  id: tag,
   role: 'assistant',
   createdAt: 1,
   parts: Array.from({ length: parts }, (_, index) => ({ type: 'text', text: `${tag}-${index}` }))
@@ -119,10 +120,16 @@ describe('세션 조각 조립', () => {
 // 0325 EP-1 ①~⑥·⑨ — 세 예산(메시지 500 · part 500 · 근사 문자 1,000,000)과 단독 조각·조기 중단·루프 조립.
 // 경계 입력은 `estimateWireChars` 의 실제 값으로 만든다 — 테스트가 규칙을 다시 구현하지 않는다.
 describe('세션 조각 세 예산 (0325 VP-03)', () => {
-  const empty = (index: number): LoadedMessage => ({ role: 'user', createdAt: index, parts: [] })
+  const empty = (index: number): LoadedMessage => ({
+    id: String(index),
+    role: 'user',
+    createdAt: index,
+    parts: []
+  })
   // 근사 문자가 정확히 `chars` 인 메시지 하나.
   const sized = (chars: number, tag = 's'): LoadedMessage => {
     const base: LoadedMessage = {
+      id: tag,
       role: 'assistant',
       createdAt: 1,
       parts: [{ type: 'text', text: tag }]
@@ -200,6 +207,7 @@ describe('세션 조각 세 예산 (0325 VP-03)', () => {
 
   it('e8 part 400 × 5,000자 메시지 측정은 예산에서 멈추고 혼자 한 조각이다', () => {
     const big: LoadedMessage = {
+      id: 'large',
       role: 'assistant',
       createdAt: 1,
       parts: Array.from({ length: 400 }, (_, index) => ({

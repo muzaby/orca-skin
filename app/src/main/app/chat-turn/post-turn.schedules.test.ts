@@ -167,6 +167,9 @@ function fixture(options: { activeChain?: boolean } = {}) {
     bus,
     persist: persistence,
     forward: {
+      relay: (_turn, ev) => {
+        events.push(ev)
+      },
       forward: (_owner, ev) => {
         events.push(ev)
       }

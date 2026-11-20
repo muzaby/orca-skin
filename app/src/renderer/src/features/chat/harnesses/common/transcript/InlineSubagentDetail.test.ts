@@ -68,6 +68,7 @@ afterEach(() => {
 // 최상위 에이전트(완료) 안에서 뜬 child 에이전트(진행 중) — 중첩 포함 요약에만 child 가 있다.
 const messages: Message[] = [
   {
+    id: 'm-70',
     role: 'assistant',
     createdAt: 1,
     parts: [

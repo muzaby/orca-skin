@@ -87,9 +87,12 @@ describe('Work response boundary composition', () => {
         persist: {
           persist: writer.persist.bind(writer),
           flushAskAnswers: () => {},
-          commitUserMessage: writer.commitUserMessage.bind(writer)
+          commitUserMessage: (turn, batch) => writer.commitUserMessage(turn, batch)?.id ?? null
         },
         forward: {
+          relay: (_turn, event) => {
+            live.push(event)
+          },
           forward: (_owner, event) => {
             live.push(event)
           }

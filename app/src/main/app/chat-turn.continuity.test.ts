@@ -120,10 +120,13 @@ async function runTurn(
     persist: {
       persist: (t, ev) => persistence.persist(t, ev),
       finalizeTurn: (t) => persistence.finalizeTurn(t),
-      commitUserMessage: (t, batch) => persistence.commitUserMessage(t, batch),
+      commitUserMessage: (t, batch) => persistence.commitUserMessage(t, batch)?.id ?? null,
       flushAskAnswers: () => {}
     },
-    forward: { forward: (_owner, ev) => forwarded.push(ev) },
+    forward: {
+      forward: (_owner, ev) => forwarded.push(ev),
+      relay: (_turn, ev) => forwarded.push(ev)
+    },
     registry: { promote: vi.fn() },
     classifyError: (err) => {
       throw err

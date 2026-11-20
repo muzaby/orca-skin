@@ -335,6 +335,7 @@ export interface ManagedWorktreeInsert {
 }
 
 export interface MessageInsert {
+  messageKey?: string
   sessionId: string
   role: MessageRole
   content: string
@@ -368,6 +369,7 @@ export interface IncompleteAssistantTextPartRow {
 
 export interface LoadedPartRow {
   message_id: number
+  message_key: string | null
   role: MessageRole
   created_at: number
   complete: 0 | 1

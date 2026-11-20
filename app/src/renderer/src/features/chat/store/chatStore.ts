@@ -1,6 +1,16 @@
+import { clearDisclosures, setDisclosureActiveSession } from './disclosureStore'
+import { transcriptIndexFor } from '../lib/transcriptIndex'
+import type { BackgroundSessionState } from '../../../../../shared/background-task'
+import type { LoadedMessage } from '../../../../../shared/ipc'
+import type { TranscriptDiagnostic } from '../lib/transcript/heldParts'
+import { messageOrderFor } from '../lib/transcript/messageOrder'
+import { newTranscriptChanges } from '../lib/transcript/changeLog'
+import { rendererMessageId, userMessageId } from '../../../../../shared/message-id'
 import { useHarnessAvailabilityStore } from '../../../shared/stores/harnessAvailabilityStore'
 import { useMemo } from 'react'
 import { create } from 'zustand'
+import type { EntryIntent } from '../lib/transcript/viewport/entry'
+import type { TranscriptChanges } from '../lib/transcript/changeLog'
 import { useShallow } from 'zustand/react/shallow'
 import { isFilesystemRoot } from '../../../../../shared/absolute-path'
 import {
@@ -98,6 +108,8 @@ import {
 export interface LiveTurnState {
   // 스트리밍 중 누적 텍스트(구 ChatState.pendingDelta).
   text: string
+  textKey?: string
+  reasoningKey?: string
   // 라이브 확장사고 누적. 완성 시 message.reasoning 이 영속 reasoning 파트로 굳히며 비운다.
   reasoning: string
   // `hasSegmentReasoning(reasoning)` 과 언제나 같은 값 — 조각마다 OR 로 켜고 reasoning 을 비우는 자리에서
@@ -176,6 +188,8 @@ export interface ChatStoreState {
     text: string
     mode?: ComposerDraftUpdate['mode']
   } | null
+  // 세션 열기 진입 의도(EP-11 ⑧ · D-074) — loadSession 으로 활성 세션이 바뀔 때만 기록하고 뷰포트가 한 번 소비.
+  entryIntent: EntryIntent | null
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -307,6 +321,7 @@ function freshEntry(projectId: string | null = null, cwd?: string | null): Sessi
     draftGeneration: ++draftGeneration,
     session: withoutDeletedProject({
       ...withLandingAgentKind(initialChatState, landingAgentKind),
+      transcriptChanges: newTranscriptChanges(),
       backend: landingBackend,
       ...(!supportsAgentKind(landingBackend, landingAgentKind)
         ? { agentKind: HARNESS_CAPABILITIES[landingBackend].agentKinds[0] }
@@ -328,10 +343,15 @@ export const useChatStore = create<ChatStoreState>()(() => ({
   newChatQueue: [],
   recentsEpoch: 0,
   concurrencyByProjectId: {},
-  draftRestore: null
+  draftRestore: null,
+  entryIntent: null
 }))
 
 const { setState, getState } = useChatStore
+setDisclosureActiveSession(NEW_CHAT_KEY)
+useChatStore.subscribe((state) => {
+  setDisclosureActiveSession(state.activeKey)
+})
 
 // 활성 엔트리의 커밋 상태 imperative read — effect(useChatRouteSync 등)가 상태 변화에
 // 재실행되지 않으면서 현재 값을 읽을 때 사용한다.
@@ -482,7 +502,7 @@ function userBubbleText(message: Message): string {
 function hasCommittedClientId(key: string, id: string): boolean {
   const entry = getState().sessions[key]
   if (!entry) return false
-  return entry.session.messages.some((m) => m.role === 'user' && m.clientId === id)
+  return messageOrderFor(entry.session).messagePosition(userMessageId([id])) >= 0
 }
 
 function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
@@ -552,26 +572,60 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
   if (events.length === 0) return
   setState((state) => {
     let sessions = state.sessions
-    for (const event of events) {
-      // Child partials never belong to the main composer; completed child blocks own their transcript.
+    for (let index = 0; index < events.length;) {
+      const event = events[index++]
       if (event.parentToolRunId) continue
-      // 라우팅·턴 시작 판정은 receive 와 같은 술어를 쓴다(0149) — 두 경로가 갈라지지 않는다.
+      const fragments = [event.delta.text]
+      while (index < events.length) {
+        const next = events[index]
+        if (next.parentToolRunId) {
+          index++
+          continue
+        }
+        if (
+          next.sessionId !== event.sessionId ||
+          next.type !== event.type ||
+          next.messageKey !== event.messageKey
+        ) {
+          break
+        }
+        fragments.push(next.delta.text)
+        index++
+      }
       const { key } = resolveSessionKey(sessions, state.pendingNewChatKey, event.sessionId)
       if (!key) continue
       const entry = sessions[key]
       if (!entry) continue
 
-      const session = shouldBeginTurn(event, entry.session)
+      const text = fragments.join('')
+      let session = shouldBeginTurn(event, entry.session)
         ? chatReducer(entry.session, { type: 'BEGIN_TURN' })
         : entry.session
-      const live =
-        event.type === 'message.delta'
-          ? { ...entry.live, text: entry.live.text + event.delta.text }
-          : {
-              ...entry.live,
-              reasoning: entry.live.reasoning + event.delta.text,
-              reasoningVisible: entry.live.reasoningVisible || hasSegmentReasoning(event.delta.text)
-            }
+      const previous = entry.live
+      let live: LiveTurnState
+      if (event.type === 'message.delta') {
+        const sameMessage = event.messageKey === previous.textKey
+        if (!sameMessage && previous.text !== '') {
+          session = chatReducer(session, {
+            type: 'COMMIT_PENDING_TEXT',
+            text: previous.text,
+            messageKey: previous.textKey
+          })
+        }
+        live = {
+          ...previous,
+          text: sameMessage ? previous.text + text : text,
+          textKey: event.messageKey
+        }
+      } else {
+        const sameMessage = event.messageKey === previous.reasoningKey
+        live = {
+          ...previous,
+          reasoning: sameMessage ? previous.reasoning + text : text,
+          reasoningKey: event.messageKey,
+          reasoningVisible: (sameMessage && previous.reasoningVisible) || hasSegmentReasoning(text)
+        }
+      }
 
       if (sessions === state.sessions) sessions = { ...sessions }
       sessions[key] = { ...entry, session, live }
@@ -674,6 +728,7 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
   forgetBackgroundState(sessionId)
   permissionUpdates.delete(sessionId)
   forgetArtifacts(sessionId)
+  clearDisclosures(sessionId)
   setState((s) => {
     if (!s.sessions[sessionId]) return s
     const rest = { ...s.sessions }
@@ -786,8 +841,10 @@ function receive(ev: NormalizedEvent): void {
       patchEntry(key, (entry) => {
         const session = chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
         const live =
-          ev.parentToolRunId === undefined && entry.live.text !== ''
-            ? { ...entry.live, text: '' }
+          ev.parentToolRunId === undefined &&
+          (entry.live.text !== '' || entry.live.textKey !== undefined) &&
+          ev.messageKey === entry.live.textKey
+            ? { ...entry.live, text: '', textKey: undefined }
             : entry.live
         return session === entry.session && live === entry.live
           ? entry
@@ -798,7 +855,11 @@ function receive(ev: NormalizedEvent): void {
     case 'message.reasoning':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       patchLive(key, (live) =>
-        live.reasoning !== '' ? { ...live, reasoning: '', reasoningVisible: false } : live
+        ev.parentToolRunId === undefined &&
+        (live.reasoning !== '' || live.reasoningKey !== undefined) &&
+        ev.messageKey === live.reasoningKey
+          ? { ...live, reasoning: '', reasoningKey: undefined, reasoningVisible: false }
+          : live
       )
       return
 
@@ -860,20 +921,25 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.committed':
-      // 소비 확정(echo 관측) — pending 항목(steer 등)은 일반 커밋 사용자 메시지로 승격하고,
-      // 턴-시작 낙관 커밋 분(0068)은 clientId 멱등(reducer 가드 + ids 스킵)으로 화해만 한다.
-      // echo 없이 남은 pending 은 큐(held/CLI 큐)에 살아있는 진행 상태 그대로다 — 자동 연속
-      // 턴이나 respawn 재전달로 커밋된다.
-      patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
-      if (ev.ids.some((id) => hasCommittedClientId(key, id))) return
-      dispatchTo(key, {
-        type: 'APPEND_COMMITTED_USER_MESSAGE',
-        text: ev.text,
-        createdAt: ev.createdAt,
-        clientId: ev.ids[0],
-        requirements: ev.requirements,
-        ...(ev.origin ? { origin: ev.origin } : {}),
-        ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
+      patchEntry(key, (entry) => {
+        const session = chatReducer(entry.session, {
+          type: 'APPEND_COMMITTED_USER_MESSAGE',
+          messageKey: ev.messageKey,
+          ids: ev.ids,
+          text: ev.text,
+          createdAt: ev.createdAt,
+          clientId: ev.ids[0],
+          requirements: ev.requirements,
+          origin: ev.origin,
+          attachmentViews: ev.attachmentViews
+        })
+        const pending = entry.pendingSteer ?? EMPTY_PENDING_STEER
+        const pendingSteer = pending.some((item) => ev.ids.includes(item.id))
+          ? pending.filter((item) => !ev.ids.includes(item.id))
+          : pending
+        return session === entry.session && pendingSteer === pending
+          ? entry
+          : { ...entry, session, pendingSteer }
       })
       return
 
@@ -905,13 +971,20 @@ function receive(ev: NormalizedEvent): void {
       const entry = getState().sessions[key]
       const present = (entry?.pendingSteer ?? []).filter((item) => ev.ids.includes(item.id))
       const presentIds = new Set(present.map((item) => item.id))
-      const bubbles = (entry?.session.messages ?? []).filter(
-        (m) =>
-          m.role === 'user' &&
-          m.clientId !== undefined &&
-          ev.ids.includes(m.clientId) &&
-          !presentIds.has(m.clientId)
-      )
+      const bubbles: Message[] = []
+      if (entry) {
+        const order = messageOrderFor(entry.session)
+        const positions = new Set<number>()
+        for (const id of ev.ids) {
+          if (presentIds.has(id)) continue
+          const position = order.messagePosition(userMessageId([id]))
+          if (position >= 0) positions.add(position)
+        }
+        for (const position of [...positions].sort((a, b) => a - b)) {
+          const message = entry.session.messages[position]
+          if (message.role === 'user' && message.clientId !== undefined) bubbles.push(message)
+        }
+      }
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
       for (const bubble of bubbles) {
         dispatchTo(key, { type: 'DROP_UNCOMMITTED_USER', clientId: bubble.clientId! })
@@ -934,10 +1007,20 @@ function receive(ev: NormalizedEvent): void {
       patchEntry(key, (entry) => {
         const committed =
           entry.live.text !== ''
-            ? chatReducer(entry.session, { type: 'COMMIT_PENDING_TEXT', text: entry.live.text })
+            ? chatReducer(entry.session, {
+                type: 'COMMIT_PENDING_TEXT',
+                text: entry.live.text,
+                messageKey: entry.live.textKey
+              })
             : entry.session
         const session = chatReducer(committed, { type: 'RECV_EVENT', event: ev })
-        const live = entry.live.text !== '' || entry.live.reasoning !== '' ? EMPTY_LIVE : entry.live
+        const live =
+          entry.live.text !== '' ||
+          entry.live.reasoning !== '' ||
+          entry.live.textKey !== undefined ||
+          entry.live.reasoningKey !== undefined
+            ? EMPTY_LIVE
+            : entry.live
         return session === entry.session && live === entry.live
           ? entry
           : { ...entry, session, live }
@@ -1573,6 +1656,7 @@ function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatS
   const lang = continuityLangFor(languageCache ?? undefined)
   return {
     ...initialChatState,
+    transcriptChanges: newTranscriptChanges(),
     agentKind: src.agentKind,
     agentKindLocked: true,
     title: continuityTitle(kind, lang, src.title?.trim() || src.sessionId!.slice(0, 8)),
@@ -1620,6 +1704,7 @@ function startForkDraft(): boolean {
         ...(src.messages.length > 0
           ? [
               {
+                id: rendererMessageId(crypto.randomUUID()),
                 role: 'assistant' as const,
                 createdAt: Date.now(),
                 parts: [{ type: 'fork_boundary' as const }]
@@ -1800,13 +1885,17 @@ async function loadSession(
     return
   coalescer.flush()
   s = getState()
+  const switchingActive = !options.revalidate && s.activeKey !== sessionId
+  const nextIntent: EntryIntent | null = switchingActive
+    ? { sessionKey: sessionId, cause: 'open', seq: (s.entryIntent?.seq ?? 0) + 1 }
+    : s.entryIntent
   const cached = s.sessions[sessionId]
   const hasCachedHistory = cached && !cached.session.loadingSession
   if (hasCachedHistory) {
-    setState({ activeKey: sessionId })
+    setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
     void settingsApi.set({ lastSessionId: sessionId })
   } else if (cached) {
-    setState({ activeKey: sessionId })
+    setState({ activeKey: sessionId, ...(switchingActive ? { entryIntent: nextIntent } : {}) })
   } else {
     const loadingSession = chatReducer(
       { ...initialChatState, cwd: cwdCache },
@@ -1821,7 +1910,8 @@ async function loadSession(
           subagentMeta: EMPTY_SUBAGENT_META
         }
       },
-      activeKey: sessionId
+      activeKey: sessionId,
+      ...(switchingActive ? { entryIntent: nextIntent } : {})
     }))
   }
   // 다른 세션의 첫 본문 로드가 아직 진행 중이면 취소한다(0324 AC17) — 데이터 호스트가 남은 조각을
@@ -1856,7 +1946,13 @@ async function loadSession(
     }
     // Cached live state is authoritative even when its next event has not arrived yet.
     if (hasCachedHistory && sessionBusy(request.entry.session)) return
-    dispatchTo(sessionId, { type: 'LOAD_SESSION', session, preserveLocalState: !!hasCachedHistory })
+    dispatchTo(sessionId, {
+      type: 'LOAD_SESSION',
+      session,
+      complete: session.complete ?? true,
+      preserveLocalState: !!hasCachedHistory,
+      diagnostic: transcriptDiagnostic
+    })
     request.entry = getState().sessions[sessionId]
     refreshScheduled = true
     // Two frame callbacks give React a paint opportunity before native I/O starts.
@@ -1900,6 +1996,8 @@ async function loadSession(
         dispatchTo(sessionId, {
           type: 'LOAD_SESSION',
           session: result.session,
+          complete: result.session.complete ?? true,
+          diagnostic: transcriptDiagnostic,
           preserveLocalState: true
         })
       }
@@ -2171,7 +2269,25 @@ function denyTool(approvalId: string): void {
 
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
+const transcriptDiagnostic: TranscriptDiagnostic = (event, count) => {
+  console.warn('[chat transcript]', event, count)
+}
+
+function prependHistory(
+  sessionKey: string,
+  messages: readonly LoadedMessage[],
+  options: { reachedStart: boolean }
+): void {
+  dispatchTo(sessionKey, {
+    type: 'PREPEND_HISTORY',
+    messages,
+    reachedStart: options.reachedStart,
+    diagnostic: transcriptDiagnostic
+  })
+}
+
 export const chatActions = {
+  prependHistory,
   setOpenCodeTodoCollapsed: (collapsed: boolean): void =>
     dispatchActive({ type: 'SET_OPENCODE_TODO_COLLAPSED', collapsed }),
   setAgentKind,
@@ -2582,6 +2698,61 @@ export function useNewChatPending(key?: string): boolean {
   })
 }
 
+export function useTranscriptView(
+  domain: 'taskBoard'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskBoard']>
+export function useTranscriptView(
+  domain: 'taskContextSources'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskContextSources']>
+export function useTranscriptView(
+  domain: 'subagentTasks',
+  includeNested?: boolean
+): ReturnType<ReturnType<typeof transcriptIndexFor>['subagentTasks']>
+export function useTranscriptView(
+  domain: 'subagentTaskDescription',
+  toolUseId: string
+): ReturnType<ReturnType<typeof transcriptIndexFor>['taskDescription']>
+export function useTranscriptView(
+  domain: 'childMessage',
+  parentToolRunId: string | null | undefined
+): ReturnType<ReturnType<typeof transcriptIndexFor>['childMessage']>
+export function useTranscriptView(
+  domain: 'transcriptResults'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['transcriptResults']>
+export function useTranscriptView(
+  domain: 'persistedBackgroundModels'
+): ReturnType<ReturnType<typeof transcriptIndexFor>['backgroundModels']>
+export function useTranscriptView(
+  domain: 'sessionPanelModel',
+  background?: BackgroundSessionState
+): ReturnType<ReturnType<typeof transcriptIndexFor>['openCodePanelModel']>
+export function useTranscriptView(domain: string, arg?: unknown): unknown {
+  return useChatStore((state) => {
+    const session = state.sessions[state.activeKey].session
+    const index = transcriptIndexFor(session)
+    switch (domain) {
+      case 'taskBoard':
+        return index.taskBoard()
+      case 'taskContextSources':
+        return index.taskContextSources()
+      case 'subagentTasks':
+        return index.subagentTasks(Boolean(arg))
+      case 'subagentTaskDescription':
+        return typeof arg === 'string' ? index.taskDescription(arg) : undefined
+      case 'childMessage':
+        return typeof arg === 'string' ? index.childMessage(arg) : null
+      case 'transcriptResults':
+        return index.transcriptResults()
+      case 'persistedBackgroundModels':
+        return index.backgroundModels()
+      case 'sessionPanelModel':
+        return index.openCodePanelModel(arg as BackgroundSessionState | undefined)
+      default:
+        return undefined
+    }
+  })
+}
+
 export function useChatRecentsEpoch(): number {
   return useChatStore((s) => s.recentsEpoch)
 }
@@ -2617,4 +2788,23 @@ export function otherProjectTurnCount(state: ChatStoreState, projectId: string |
 
 export function useOtherProjectTurnCount(projectId: string | null): number {
   return useChatStore((state) => otherProjectTurnCount(state, projectId))
+}
+
+export function consumeEntryIntent(sessionKey: string): EntryIntent | null {
+  const intent = getState().entryIntent
+  if (!intent || intent.sessionKey !== sessionKey) return null
+  setState({ entryIntent: null })
+  return intent
+}
+
+export function useTranscriptChanges(): TranscriptChanges {
+  return useChatStore((s) => s.sessions[s.activeKey].session.transcriptChanges)
+}
+
+export function useLiveTextKey(): string | undefined {
+  return useChatStore((s) => s.sessions[s.activeKey].live.textKey)
+}
+
+export function useActiveSessionKey(): string {
+  return useChatStore((s) => s.activeKey)
 }

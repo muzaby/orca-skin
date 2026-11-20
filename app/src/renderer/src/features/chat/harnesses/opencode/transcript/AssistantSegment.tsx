@@ -14,8 +14,10 @@ import { OpenCodeText } from './Text'
 
 export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
   segment: seg,
-  transcriptPolicy
+  transcriptPolicy,
+  partKeys
 }: {
+  partKeys?: readonly string[]
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element | null {
@@ -25,7 +27,13 @@ export const OpenCodeAssistantSegment = memo(function OpenCodeAssistantSegment({
     case 'reasoning':
       return null
     case 'tools':
-      return <OpenCodeToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
+      return (
+        <OpenCodeToolGroup
+          calls={seg.calls}
+          transcriptPolicy={transcriptPolicy}
+          partKeys={partKeys}
+        />
+      )
     case 'ask':
       return <OpenCodeAskExchange call={seg.call} />
     case 'error':

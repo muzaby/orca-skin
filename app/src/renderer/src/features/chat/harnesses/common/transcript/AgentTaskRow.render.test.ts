@@ -31,6 +31,7 @@ function renderRow(messages: Message[], toolRunId: string): string {
 }
 
 const finished = (toolRunId: string, description: string, model: string): Message => ({
+  id: `m-${toolRunId}`,
   role: 'assistant',
   createdAt: 1,
   parts: [
@@ -63,6 +64,7 @@ describe('0313 — 에이전트 행이 세션 요약을 읽는다', () => {
     const html = renderRow(
       [
         {
+          id: 'm-65',
           role: 'assistant',
           createdAt: 1,
           parts: [

@@ -9,6 +9,7 @@ import { reportError } from '../../infra/error-report'
 // concrete 를 배선한다. 0050 까지 ipc/chat/send.ts:handleChatSend 에 인라인이던 가로축을 동작
 // 보존(behavior-preserving)으로 추출했다 — 0051 §A staging P1, handoff 0052.
 
+import { receivedMessageId, userMessageId } from '../../../shared/message-id'
 import { randomUUID } from 'node:crypto'
 import type { ActiveTurnRef, ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
 import { activeTurnRef } from './active-turn-ref'
@@ -96,6 +97,7 @@ export interface TurnCoordinatorDeps<W> {
   // 갱신하고, chat-turn 의 턴-후 루프가 listen 턴 개시 조건으로 조회한다.
   backgroundTasks: BackgroundTaskPort
   persistResponseBoundaries: (kind: AgentKind) => boolean
+  newId?: () => string
 }
 
 export class TurnCoordinator<W = unknown> {
@@ -182,7 +184,9 @@ export class TurnCoordinator<W = unknown> {
       beforeCommit?.()
       const nativeMessageId = turn.nativeInputIds?.get(batch.uuid)
       turn.nativeInputIds?.delete(batch.uuid)
+      const messageKey = userMessageId(batch.ids)
       const messageId = await persist.commitUserMessage?.(turn, {
+        messageKey,
         text: batch.text,
         createdAt: batch.createdAt,
         ...(nativeMessageId ? { nativeMessageId } : {}),
@@ -190,8 +194,9 @@ export class TurnCoordinator<W = unknown> {
         ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
       })
       if (messageId == null) continue
-      forward.forward(turn.owner, {
+      forward.relay(turn, {
         type: 'message.committed',
+        messageKey,
         sessionId,
         ids: batch.ids,
         text: batch.text,
@@ -370,15 +375,22 @@ export class TurnCoordinator<W = unknown> {
                 await this.commitConsumed(turn, closeBeforeUser)
                 closeBeforeUser()
                 const createdAt = Date.now()
+                const messageKey = receivedMessageId(
+                  ev.uuid,
+                  ev.nativeMessageId,
+                  this.deps.newId ?? randomUUID
+                )
                 const messageId = await persist.commitUserMessage?.(turn, {
+                  messageKey,
                   text: ev.text,
                   createdAt,
                   origin: ev.origin,
                   ...(ev.nativeMessageId ? { nativeMessageId: ev.nativeMessageId } : {})
                 })
                 if (messageId != null) {
-                  forward.forward(turn.owner, {
+                  forward.relay(turn, {
                     type: 'message.committed',
+                    messageKey,
                     sessionId: ev.sessionId,
                     ids: [],
                     text: ev.text,

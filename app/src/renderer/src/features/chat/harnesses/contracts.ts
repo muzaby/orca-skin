@@ -42,6 +42,7 @@ export interface TranscriptViewProps {
   error?: ClassifiedError
   // 마지막 교환에 예약공간(min-h-[50cqh])을 적용할지 — useScrollAnchor 가 결정.
   anchored: boolean
+  isPinned?: () => boolean
   scrollRef: React.RefObject<HTMLDivElement | null>
   contentRef: React.RefObject<HTMLDivElement | null>
   onScroll: () => void

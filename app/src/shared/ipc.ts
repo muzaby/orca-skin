@@ -527,8 +527,10 @@ export interface ProviderReportedTelemetry {
 // 코어 중립(handoff 0016): NormalizedEvent 는 "어느 백엔드에서 왔는지" 를 더 이상 싣지 않는다.
 // provider 는 어떤 소비자도 읽지 않는 write-only 메타였고 session.backend(0010 세션-어댑터
 // 잠금)와 중복된 이중 진실원이었다. "어느 백엔드인지" 는 sessionId → session.backend 로 파생한다.
+type MessageOwner = { messageKey?: string; messageKeySource?: 'owner' }
+
 export type NormalizedEvent =
-  | { type: 'response.boundary'; sessionId: string; boundary: ResponseBoundary }
+  | ({ type: 'response.boundary'; sessionId: string; boundary: ResponseBoundary } & MessageOwner)
   | {
       type: 'session.updated'
       sessionId: string
@@ -558,7 +560,13 @@ export type NormalizedEvent =
   // renderer 는 `message.queued` 와 같은 규칙으로 `pendingNewChatKey` 에 라우팅한다.
   // 미영속 UI 신호다(버스 미경유 — history/usage 미소비).
   | { type: 'worktree.preparing'; step: WorktreePrepareStep }
-  | { type: 'message.delta'; sessionId: string; delta: { text: string }; parentToolRunId?: string }
+  | {
+      type: 'message.delta'
+      sessionId: string
+      delta: { text: string }
+      parentToolRunId?: string
+      messageKey?: string
+    }
   // pending message queue 간접 관찰 3종(0067 — 구 steer.* 일반화). 모든 사용자 프롬프트가
   // queued(pending 버블) → committed(echo 커밋, 정식 버블 승격) 로 흐르고, cancelled 는 held
   // 취소(단건 hover / 중단 버튼 전량 — renderer 가 잔존 항목 텍스트를 draft 로 복원).
@@ -594,6 +602,7 @@ export type NormalizedEvent =
     }
   | {
       type: 'message.committed'
+      messageKey: string
       sessionId: string
       ids: string[]
       text: string
@@ -616,6 +625,8 @@ export type NormalizedEvent =
   // 구분선 "pre → post" 표기와 도넛 근사(0065 r2)의 1순위 참조다.
   | {
       type: 'session.compacted'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId: string
       nativeMessageId?: string
       trigger?: 'manual' | 'auto'
@@ -624,6 +635,8 @@ export type NormalizedEvent =
     }
   | {
       type: 'message.completed'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId: string
       nativeMessageId?: string
       message: { text: string }
@@ -634,6 +647,8 @@ export type NormalizedEvent =
   // signature 는 멀티턴 재전송 무결성용 opaque 값(해석 금지, 원형 보관).
   | {
       type: 'message.reasoning'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId: string
       nativeMessageId?: string
       text: string
@@ -644,12 +659,15 @@ export type NormalizedEvent =
   // message.reasoning 이 담당. 런타임이 thinking_delta 를 안 흘리면 발생 안 함(graceful).
   | {
       type: 'message.reasoning.delta'
+      messageKey?: string
       sessionId: string
       delta: { text: string }
       parentToolRunId?: string
     }
   | {
       type: 'tool.call.started'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId: string
       nativeMessageId?: string
       toolRunId: string
@@ -665,6 +683,8 @@ export type NormalizedEvent =
     }
   | {
       type: 'tool.call.completed'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId: string
       nativeMessageId?: string
       toolRunId: string
@@ -705,6 +725,8 @@ export type NormalizedEvent =
   // 우측 패널·AgentTaskRow 의 모델/경과시간/현재도구/도구수 표시를 구동한다.
   | {
       type: 'subagent.task'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId: string
       // 부모 Agent(Task) 도구 호출 id (= child 들의 parentToolRunId). 표시·중단 키.
       toolUseId: string
@@ -747,6 +769,8 @@ export type NormalizedEvent =
     }
   | {
       type: 'error'
+      messageKey?: string
+      messageKeySource?: 'owner'
       sessionId?: string
       error: ClassifiedError
     }
@@ -1610,6 +1634,7 @@ export function subagentNoticePart(ev: {
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {
+  id: string
   role: 'user' | 'assistant'
   parts: AppMessagePart[]
   createdAt: number
@@ -1627,6 +1652,8 @@ export interface LoadedSession {
   agentKind: AgentKind
   title: string | null
   messages: LoadedMessage[]
+  /** Whether the returned messages represent the complete session history (defaults to true). */
+  complete?: boolean
   /** Native refresh diagnostics; cached conversation remains available on failure. */
   nativeSync?: {
     status: 'ready' | 'unchanged' | 'busy' | 'missing' | 'unavailable' | 'migration-required'

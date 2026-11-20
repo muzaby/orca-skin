@@ -46,10 +46,13 @@ export class DbQueries {
   private readonly loadPartsStmt: Database.Statement
   private readonly listSessionAttachmentFilesStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
+  private readonly findMessageByKeyStmt: Database.Statement
+  private readonly committedUserPartsStmt: Database.Statement
+  private readonly appendMessageContentStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
   private readonly markMessageCompleteStmt: Database.Statement
   private readonly appendPartStmt: Database.Statement
-  private readonly updateToolResultPartStmt: Database.Statement
+  private readonly updateSessionToolResultStmt: Database.Statement
   private readonly updateToolResultPartScopedStmt: Database.Statement
   private readonly updateToolCallInputStmt: Database.Statement
   private readonly findDanglingToolCallsStmt: Database.Statement
@@ -138,6 +141,7 @@ export class DbQueries {
     this.loadPartsStmt = db.prepare(`
       SELECT
         m.id AS message_id,
+        m.message_key,
         m.role AS role,
         m.created_at AS created_at,
         m.complete AS complete,
@@ -157,16 +161,26 @@ export class DbQueries {
       ORDER BY m.idx ASC, mp.idx ASC
     `)
     this.appendMessageStmt = db.prepare(`
-      INSERT INTO messages (session_id, role, content, created_at, complete, idx)
+      INSERT INTO messages (session_id, role, content, created_at, complete, idx, message_key)
       VALUES (
         @sessionId,
         @role,
         @content,
         @createdAt,
         @complete,
-        COALESCE((SELECT MAX(idx) + 1 FROM messages WHERE session_id = @sessionId), 0)
+        COALESCE((SELECT MAX(idx) + 1 FROM messages WHERE session_id = @sessionId), 0),
+        @messageKey
       )
     `)
+    this.findMessageByKeyStmt = db.prepare(
+      'SELECT id, role FROM messages WHERE session_id = @sessionId AND message_key = @messageKey'
+    )
+    this.committedUserPartsStmt = db.prepare(
+      'SELECT type, payload_json FROM message_parts WHERE message_id = ? ORDER BY idx'
+    )
+    this.appendMessageContentStmt = db.prepare(
+      'UPDATE messages SET content = content || @text WHERE id = @id'
+    )
     this.updateMessageContentStmt = db.prepare(`
       UPDATE messages SET content = @content WHERE id = @id
     `)
@@ -186,10 +200,11 @@ export class DbQueries {
     `)
     // tool_result 파트 갱신 — 같은 toolRunId 의 결과를 in-place 로 덮어쓴다(AskUserQuestion
     // 합성 후 실제 tool_result 가 늦게 와도 중복 행을 만들지 않게). 0행이면 호출자가 append.
-    this.updateToolResultPartStmt = db.prepare(`
+    this.updateSessionToolResultStmt = db.prepare(`
       UPDATE message_parts
       SET payload_json = @payloadJson
       WHERE tool_run_id = @toolRunId AND type = 'tool_result'
+        AND message_id IN (SELECT id FROM messages WHERE session_id = @sessionId)
     `)
     this.updateToolResultPartScopedStmt = db.prepare(`
       UPDATE message_parts
@@ -501,8 +516,35 @@ export class DbQueries {
   }
 
   appendMessage(row: MessageInsert): number {
-    const info = this.appendMessageStmt.run({ ...row, complete: row.complete ?? 1 })
+    const info = this.appendMessageStmt.run({
+      ...row,
+      complete: row.complete ?? 1,
+      messageKey: row.messageKey ?? null
+    })
     return Number(info.lastInsertRowid)
+  }
+
+  findMessageByKey(
+    sessionId: string,
+    messageKey: string
+  ): { id: number; role: MessageInsert['role'] } | undefined {
+    return this.findMessageByKeyStmt.get({ sessionId, messageKey }) as
+      { id: number; role: MessageInsert['role'] } | undefined
+  }
+
+  committedUserParts(messageId: number): Pick<LoadedPartRow, 'type' | 'payload_json'>[] {
+    return this.committedUserPartsStmt.all(messageId) as Pick<
+      LoadedPartRow,
+      'type' | 'payload_json'
+    >[]
+  }
+
+  commitUserWrite<T>(write: () => T): T {
+    return this.db.transaction(write)()
+  }
+
+  appendMessageContent(id: number, text: string): void {
+    this.appendMessageContentStmt.run({ id, text })
   }
 
   // messages.content 는 text/reasoning parts 의 concat 캐시(FTS5 색인용). 파트 append 와
@@ -522,8 +564,13 @@ export class DbQueries {
 
   // tool_result 파트 upsert — 같은 toolRunId 가 있으면 갱신, 없으면 append. messageId 는
   // append 폴백에만 쓰인다(현재 assistant 메시지).
-  upsertToolResultPart(messageId: number, toolRunId: string, payloadJson: string): void {
-    const info = this.updateToolResultPartStmt.run({ toolRunId, payloadJson })
+  upsertToolResultPartInSession(
+    sessionId: string,
+    messageId: number,
+    toolRunId: string,
+    payloadJson: string
+  ): void {
+    const info = this.updateSessionToolResultStmt.run({ sessionId, toolRunId, payloadJson })
     if (info.changes === 0) {
       this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
     }

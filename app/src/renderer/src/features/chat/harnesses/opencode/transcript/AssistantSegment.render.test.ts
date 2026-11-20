@@ -73,6 +73,7 @@ describe('harness transcript routing', () => {
     (backend) => {
       installChatStoreHarness({ backend })
       const message: Message = {
+        id: 'm-75',
         role: 'assistant',
         createdAt: 1,
         parts: [
@@ -199,6 +200,7 @@ describe('harness transcript routing', () => {
   it('selects the user bubble style while keeping one copy/time row and disabling OpenCode fork', () => {
     installChatStoreHarness({ backend: 'opencode' })
     const message: Message = {
+      id: 'm-201',
       role: 'user',
       createdAt: 1,
       parts: [{ type: 'text', text: 'prompt' }]

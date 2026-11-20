@@ -17,12 +17,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { load } from 'cheerio'
 import { describe, expect, it, vi } from 'vitest'
 import { initialChatState } from '../reducer/chatReducer'
+import { timelineViewState } from '../harnesses/opencode/transcript/viewState'
 import { useScrollAnchor } from '../harnesses/claude/transcript/useScrollAnchor'
 
 const fixture = vi.hoisted(() => ({
   backend: 'claude' as 'claude' | 'opencode',
   agentKind: 'code' as 'code' | 'work',
   inflight: false,
+  pinReaders: [] as Array<(() => boolean) | undefined>,
+  pinned: false,
   pending: {} as Partial<typeof initialChatState>
 }))
 vi.mock('react', async (original) => ({
@@ -43,6 +46,11 @@ vi.mock('../store/chatStore', () => ({
     }),
   useChatStore: (select: (state: unknown) => unknown) =>
     select({ activeKey: 's', draftRestore: null }),
+  useActiveSessionKey: () => 's',
+  useTranscriptChanges: () => initialChatState.transcriptChanges,
+  useEntryIntent: () => null,
+  useLiveTextKey: () => '',
+  useTranscriptView: () => [],
   useChatResponding: () => fixture.inflight,
   useChatActivity: () => ({
     foreground: 'idle',
@@ -65,9 +73,19 @@ vi.mock('../harnesses/claude/transcript/useScrollAnchor', () => ({
     contentRef: { current: null },
     onScroll: vi.fn(),
     showJump: false,
-    anchored: false
+    anchored: false,
+    isPinned: () => fixture.pinned
   }))
 }))
+vi.mock('./transcript/TranscriptView', async (original) => {
+  const { TranscriptView } = await original<typeof import('./transcript/TranscriptView')>()
+  return {
+    TranscriptView: (props: React.ComponentProps<typeof TranscriptView>) => {
+      fixture.pinReaders.push(props.isPinned)
+      return createElement(TranscriptView, props)
+    }
+  }
+})
 vi.mock('./ChatTitleBar', () => ({ ChatTitleBar: () => null }))
 vi.mock('./transcript/LineageBanner', () => ({ LineageBanner: () => null }))
 vi.mock('./Composer', () => ({
@@ -98,6 +116,7 @@ describe('harness transcript background', () => {
     'preserves the shared canvas, fades and transcript-only text scale for $backend/$agentKind',
     ({ backend, agentKind }) => {
       vi.clearAllMocks()
+      fixture.pinReaders.length = 0
       fixture.backend = backend
       fixture.agentKind = agentKind
       const $ = load(
@@ -132,6 +151,14 @@ describe('harness transcript background', () => {
       expect(
         composer.parents().filter((_, element) => $(element).hasClass(textScaleClassName))
       ).toHaveLength(0)
+      expect(fixture.pinReaders).toHaveLength(1)
+      const readPin = fixture.pinReaders[0]
+      expect(typeof readPin).toBe('function')
+      for (const pinned of [false, true]) {
+        if (backend === 'opencode') timelineViewState('s').setPinned(pinned)
+        else fixture.pinned = pinned
+        expect(readPin!()).toBe(pinned)
+      }
       expect(useScrollAnchor).toHaveBeenCalledTimes(backend === 'claude' ? 1 : 0)
     }
   )

@@ -95,6 +95,8 @@ coordinator는 `telemetry`·`error`와 합성 terminal 전에 결과 없는 열�
 - **완료 통지(0143)**: 정본이 백그라운드로 본 태스크의 settled 는 coordinator 가 `background:true` 로 enrich — history writer 가 `subagent_notice` 파트(status/durationMs/summary, toolRunId 멱등)로 영속하고 renderer 가 동형 커밋해 transcript 에 "백그라운드 작업 완료 · Agent "…" · 소요시간" 블록을 라이브·재로드 동일하게 렌더한다(사용자 직접 stop 은 통지 미표시). 세션 로드 시 settled 미도착 영수증은 aborted 로 강제(재시작 = in-process 태스크 소멸).
 - **원격 작업**: 원격 호출·작업은 로컬 프로세스 종료만으로 표시상 정착시키지 않는다.
 
+메시지 번호는 에이전트 호스트의 저장 송신기가 발급한다. 도구 완료는 최초 호출의 번호를, 응답 경계 끝은 시작과 같은 번호를 쓴다. 질문 답과 사용자 커밋 통지는 산출물 확인을 기다리는 내역과 같은 창 중계 순서로 전달한다. 새 사용자 행이 확정되면 다음 assistant 번호를 발급할 수 있도록 현재 번호를 비운다. 재커밋은 번호를 유지한다.
+
 ### 세션 예약 수신
 
 Claude 어댑터는 장수명 입력·출력 스트림과 SDK 훅을 함께 소비한다. Stop의 `session_crons`는 `{id, schedule, recurring, prompt}[]`를 검증해 `session.schedules`로 전달한다. 확인된 CronCreate·CronDelete 성공 영수증도 즉시 반영하며, 다음 Stop의 전체 스냅샷으로 동기화한다. ScheduleWakeup 성공 응답은 ID를 제공하지 않으므로 목록을 만들지 않고 `pendingWakeup`으로 대기를 유지하며, 전체 스냅샷을 받으면 이 임시 표식을 해제한다. 필드 부재와 빈 목록을 구분하며, 채널 종료에는 살아 있는 예약 상태를 비운다. `SessionRuntime`은 예약이 남아 있으면 후속 listen 프레임을 유지하고 사용자 입력은 기존 전송 큐로 이어받는다.

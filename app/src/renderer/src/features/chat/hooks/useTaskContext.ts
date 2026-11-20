@@ -3,13 +3,13 @@ import { i18n } from '../../../shared/i18n'
 import { reportError } from '../../../shared/errors'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { fileApi } from '../../../shared/api/ipc'
-import { useChatBusy, useChatSession, useChatStore } from '../store/chatStore'
+import { useChatBusy, useChatSession, useChatStore, useTranscriptView } from '../store/chatStore'
 import { useDirectoryPicker } from './useDirectoryPicker'
-import { createTaskContextSourceSelector, taskContextDirectories } from '../lib/taskContext'
+import { taskContextDirectories, type TaskContextSource } from '../lib/taskContext'
 
 export function useTaskContext(): {
   directories: ReturnType<typeof taskContextDirectories>
-  sources: ReturnType<ReturnType<typeof createTaskContextSourceSelector>>
+  sources: readonly TaskContextSource[]
   sessionId: string | null
   activeKey: string
   busy: boolean
@@ -19,10 +19,8 @@ export function useTaskContext(): {
 } {
   const cwd = useChatSession((s) => s.cwd)
   const extraDirs = useChatSession((s) => s.extraDirs)
-  const messages = useChatSession((s) => s.messages)
-  const [selectSources] = useState(createTaskContextSourceSelector)
   const directories = useMemo(() => taskContextDirectories(cwd, extraDirs), [cwd, extraDirs])
-  const sources = useMemo(() => selectSources(messages), [selectSources, messages])
+  const sources = useTranscriptView('taskContextSources')
   const sessionId = useChatSession((s) => s.sessionId)
   const activeKey = useChatStore((s) => s.activeKey)
   const busy = useChatBusy()

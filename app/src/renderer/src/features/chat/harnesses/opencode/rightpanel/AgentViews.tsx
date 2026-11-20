@@ -1,7 +1,7 @@
 import { useI18n } from '../../../../../shared/i18n'
 import { formatRelativeTime } from '../../../../../shared/i18n/datetime'
-import type { Message } from '../../../reducer/chatReducer'
-import { childMessageForParentToolRunId } from '../../../lib/parts'
+import { memo } from 'react'
+import { useTranscriptView } from '../../../store/chatStore'
 import { AssistantMessage } from '../../../components/transcript/AssistantMessage'
 import { openCodeTranscript } from '../presentation'
 import { OpenCodeText } from '../transcript/Text'
@@ -57,44 +57,45 @@ export function AgentList({
   )
 }
 
-export function AgentDetail({
-  agent,
-  messages
-}: {
-  agent: SessionPanelModel['agents'][number]
-  messages: Message[]
-}): React.JSX.Element {
-  const { tr } = useI18n()
-  const child = childMessageForParentToolRunId(messages, agent.toolUseId)
-  const input = agent.call.input
-  const prompt =
-    input && typeof input === 'object' && 'prompt' in input && typeof input.prompt === 'string'
-      ? input.prompt
-      : ''
-  return (
-    <div className="space-y-5 p-5">
-      {prompt && (
-        <div className="rounded-xl bg-oc-layer-2 p-3 text-footnote">
-          <OpenCodeText source={prompt} />
-        </div>
-      )}
-      {child && <AssistantMessage message={child} transcriptPolicy={openCodeTranscript} />}
-      {agent.call.result && (
-        <div
-          className={`rounded-xl border p-4 ${agent.call.result.isError ? 'border-oc-bad/40 text-oc-bad' : 'border-oc-border'}`}
-        >
-          <OpenCodeText
-            source={
-              typeof agent.call.result.output === 'string'
-                ? agent.call.result.output
-                : (JSON.stringify(agent.call.result.output, null, 2) ?? '')
-            }
-          />
-        </div>
-      )}
-      {!child && !agent.call.result && (
-        <p className="text-footnote text-oc-muted">{tr('chat.opencode.panel.waitingAgent')}</p>
-      )}
-    </div>
-  )
-}
+export const AgentDetail = memo(
+  function AgentDetail({
+    agent
+  }: {
+    agent: SessionPanelModel['agents'][number]
+  }): React.JSX.Element {
+    const { tr } = useI18n()
+    const child = useTranscriptView('childMessage', agent.toolUseId)
+    const input = agent.call.input
+    const prompt =
+      input && typeof input === 'object' && 'prompt' in input && typeof input.prompt === 'string'
+        ? input.prompt
+        : ''
+    return (
+      <div className="space-y-5 p-5">
+        {prompt && (
+          <div className="rounded-xl bg-oc-layer-2 p-3 text-footnote">
+            <OpenCodeText source={prompt} />
+          </div>
+        )}
+        {child && <AssistantMessage message={child} transcriptPolicy={openCodeTranscript} />}
+        {agent.call.result && (
+          <div
+            className={`rounded-xl border p-4 ${agent.call.result.isError ? 'border-oc-bad/40 text-oc-bad' : 'border-oc-border'}`}
+          >
+            <OpenCodeText
+              source={
+                typeof agent.call.result.output === 'string'
+                  ? agent.call.result.output
+                  : (JSON.stringify(agent.call.result.output, null, 2) ?? '')
+              }
+            />
+          </div>
+        )}
+        {!child && !agent.call.result && (
+          <p className="text-footnote text-oc-muted">{tr('chat.opencode.panel.waitingAgent')}</p>
+        )}
+      </div>
+    )
+  },
+  (before, after) => before.agent.call === after.agent.call
+)

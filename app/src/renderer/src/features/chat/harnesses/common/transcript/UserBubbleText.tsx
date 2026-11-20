@@ -1,3 +1,4 @@
+import { useTranscriptReveal } from '../../../components/transcript/TranscriptViewport'
 import {
   useId,
   useLayoutEffect,
@@ -6,14 +7,11 @@ import {
   type HTMLAttributes,
   type ReactNode
 } from 'react'
+import { TRANSCRIPT_TEXT_SCALE } from '../../../../../shared/config/theme'
 import { useI18n } from '../../../../../shared/i18n'
-import {
-  USER_BUBBLE_COLLAPSED_CLASS,
-  bubbleOverflows,
-  bubbleView,
-  lineHeightPx,
-  shouldScrollAfterCollapse
-} from '../../../lib/bubbleCollapse'
+import { useOptionalTweak } from '../../../../../shared/theme/TweakProvider'
+import { USER_BUBBLE_COLLAPSED_CLASS, bubbleView } from '../../../lib/bubbleCollapse'
+import { useBubbleOverflow } from '../../../lib/bubbleMeasure'
 import { toggleBubbleExpanded, useBubbleExpanded } from '../../../store/bubbleExpansionStore'
 
 const USER_BUBBLE_TEXT_CLASS = 'min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]'
@@ -40,45 +38,34 @@ export function UserBubbleText({
   ...props
 }: UserBubbleTextProps): React.JSX.Element {
   const { tr } = useI18n()
+  const reveal = useTranscriptReveal()
+  const { transcriptTextSize, appFont } = useOptionalTweak((t) => ({
+    transcriptTextSize: t.transcriptTextSize,
+    appFont: t.appFont
+  }))
   const contentId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
-  const [overflowing, setOverflowing] = useState(false)
   const [localExpanded, setLocalExpanded] = useState(false)
   const storedExpanded = useBubbleExpanded(collapseKey)
   const expanded = collapseKey ? storedExpanded : localExpanded
   const scrollAfterCollapse = useRef(false)
 
-  useLayoutEffect(() => {
-    const content = contentRef.current
-    if (!content) return
-    const measure = (): void => {
-      const style = getComputedStyle(content)
-      setOverflowing(
-        bubbleOverflows({
-          scrollHeight: content.scrollHeight,
-          lineHeightPx: lineHeightPx(style.lineHeight, style.fontSize)
-        })
-      )
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(content)
-    return () => observer.disconnect()
-  }, [])
+  const scale = TRANSCRIPT_TEXT_SCALE[transcriptTextSize]
+  const bubbleVariant = `${className}\0${contentClassName}\0${appFont}`
+  const overflowing = useBubbleOverflow(contentRef, {
+    content: children,
+    scale,
+    bubbleVariant
+  })
 
   useLayoutEffect(() => {
     if (expanded || !scrollAfterCollapse.current) return
     scrollAfterCollapse.current = false
     const root = rootRef.current
     if (!root) return
-    let parent = root.parentElement
-    while (parent && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY))
-      parent = parent.parentElement
-    const viewportTop = parent ? parent.getBoundingClientRect().top : 0
-    if (shouldScrollAfterCollapse(root.getBoundingClientRect().top, viewportTop))
-      root.scrollIntoView({ block: 'nearest' })
-  }, [expanded])
+    reveal(root)
+  }, [expanded, reveal])
 
   const view = bubbleView({ overflowing, expanded })
   const toggle = (): void => {

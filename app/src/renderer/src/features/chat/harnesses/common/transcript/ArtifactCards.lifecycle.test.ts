@@ -129,6 +129,7 @@ it('saves exactly the latest cards projected by the real AssistantTurn (0249 AC1
     startIndex: 0,
     messages: [
       {
+        id: 'm-131',
         role: 'assistant',
         createdAt: 1,
         parts: [first, other, latest, published].map((artifact) => ({ type: 'artifact', artifact }))

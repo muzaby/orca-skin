@@ -91,6 +91,7 @@
 | `0032_native_session_recovery.sql` | 원본 보관 만료 시 replacement native ID·보관 경계·첫 입력 영수증을 영속한다. |
 | `0033_session_last_model.sql` | 세션의 마지막 사용 모델(`last_model`)을 nullable로 보존한다. provider와 같은 UPDATE로 저장하고 앱 재시작의 Composer 복원에 사용한다. |
 | `0035_scheduled_tasks.sql` | 사용자 예약 작업 정의(`scheduled_tasks`)와 실행 이력(`scheduled_task_runs`). 프로젝트 삭제는 `project_id`만 비우고 작업 삭제는 이력을 함께 지운다. |
+| `0036_message_key.sql` | `messages.message_key`를 추가한다. 번호가 있는 행은 세션 안에서 유일하며 기존 행은 NULL을 유지한다. |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)
@@ -111,7 +112,7 @@ Work의 표시 경계는 `message_parts`에 `response_boundary` JSON으로 저�
 | `managed_worktrees` | Orcinus orca 가 만든 Git worktree — 저장소·경로·branch·base OID·nullable 세션 연결 (0209~0211). 표시명 정본 |
 | `artifact_files` / `session_artifacts` | 게시 원본 파일 메타(profile 상대 경로·hash·휴지통 이력) / 세션별 게시 참조 — §1.4 |
 | `background_task_events` | 백그라운드 작업 원본 journal — [background-tasks.md](./background-tasks.md) |
-| `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
+| `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, `message_key`, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
 | `projects` | id, name, instructions, cwd, cwd_key, pinned_at, createdAt, updatedAt |
 | `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd·context_window) |

@@ -24,14 +24,22 @@ const callbacks = vi.hoisted(() => ({
 vi.mock('../../../../../shared/api/ipc', () => ({
   fileApi: { openPath: callbacks.openPath, openContextFile: callbacks.openContextFile }
 }))
-vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (s: ChatState) => unknown) => select(session),
-  useChatStore: Object.assign((select: (s: unknown) => unknown) => select({ activeKey }), {
-    getState: () => ({ activeKey, sessions: { work: { session } } })
-  }),
-  useChatBusy: () => busy,
-  chatActions: {}
-}))
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    useChatSession: (select: (s: ChatState) => unknown) => select(session),
+    useChatStore: Object.assign((select: (s: unknown) => unknown) => select({ activeKey }), {
+      getState: () => ({ activeKey, sessions: { work: { session } } })
+    }),
+    useChatBusy: () => busy,
+    useTranscriptView: (domain: string) => {
+      const idx = transcriptIndexFor(session)
+      if (domain === 'taskContextSources') return idx.taskContextSources()
+      return []
+    },
+    chatActions: {}
+  }
+})
 vi.mock('../../../hooks/useDirectoryPicker', () => ({
   useDirectoryPicker: () => ({ picking, disabled: picking || busy, pick: vi.fn(), errorKey: null })
 }))
@@ -97,6 +105,7 @@ describe('Work context directory controls', () => {
       ...session,
       messages: [
         {
+          id: 'm-99',
           role: 'assistant',
           createdAt: 1,
           parts: [
@@ -148,6 +157,7 @@ describe('Work context directory controls', () => {
       extraDirs: [],
       messages: [
         {
+          id: 'm-150',
           role: 'assistant',
           createdAt: 1,
           parts: [
@@ -187,6 +197,7 @@ describe('Work context directory controls', () => {
       ...session,
       messages: [
         {
+          id: 'm-189',
           role: 'user',
           createdAt: 1,
           parts: [
@@ -243,6 +254,7 @@ describe('Work context directory controls', () => {
         ...session,
         messages: [
           {
+            id: 'm-245',
             role: 'assistant',
             createdAt: 1,
             parts: [
@@ -274,6 +286,7 @@ describe('Work context directory controls', () => {
       ...session,
       messages: [
         {
+          id: 'm-276',
           role: 'assistant',
           createdAt: 1,
           parts: [
@@ -308,6 +321,7 @@ describe('Work context directory controls', () => {
       ...session,
       messages: [
         {
+          id: 'm-310',
           role: 'assistant',
           createdAt: 1,
           parts: [
@@ -365,6 +379,7 @@ describe('Work context directory controls', () => {
       ...session,
       messages: [
         {
+          id: 'm-367',
           role: 'user',
           createdAt: 1,
           parts: [

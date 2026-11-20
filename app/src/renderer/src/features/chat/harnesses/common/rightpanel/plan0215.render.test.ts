@@ -22,16 +22,29 @@ const { planState } = vi.hoisted(() => ({
   }
 }))
 
-vi.mock('../../../store/chatStore', () => ({
-  chatActions: {
-    addPlanComment: vi.fn(),
-    updatePlanComment: vi.fn(),
-    removePlanComment: vi.fn(),
-    setActivePlanComment: vi.fn()
-  },
-  useChatSession: (select: (s: unknown) => unknown) => select(planState.value),
-  useUnseenSettledTaskCount: () => 0
-}))
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    chatActions: {
+      addPlanComment: vi.fn(),
+      updatePlanComment: vi.fn(),
+      removePlanComment: vi.fn(),
+      setActivePlanComment: vi.fn()
+    },
+    useChatSession: (select: (s: unknown) => unknown) => select(planState.value),
+    useTranscriptView: (domain: string) => {
+      const s = planState.value as Record<string, unknown>
+      const idx = transcriptIndexFor({
+        ...s,
+        transcriptChanges: s.transcriptChanges ?? { lineage: s, revision: 0, log: [] }
+      } as never)
+      if (domain === 'taskBoard') return idx.taskBoard()
+      if (domain === 'subagentTasks') return idx.subagentTasks()
+      return []
+    },
+    useUnseenSettledTaskCount: () => 0
+  }
+})
 
 const { tileById } = await import('../../../components/rightpanel/tileRegistry')
 const { i18n } = await import('../../../../../shared/i18n')

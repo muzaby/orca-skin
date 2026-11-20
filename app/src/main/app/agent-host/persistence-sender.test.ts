@@ -14,13 +14,15 @@ interface Deferred {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function setup() {
+function setup(onScreen?: (ev: NormalizedEvent) => void) {
   // 피어로 나간 것과 화면으로 나간 것을 한 줄에 순서대로 적는다.
   const log: Array<[string, unknown]> = []
   const requests: Deferred[] = []
   const closed = new Set<() => void>()
   const failTurn = vi.fn()
+  let nextId = 0
   const sender = createPersistenceSender({
+    newId: () => String(++nextId),
     link: {
       notify(method, payload) {
         log.push([method, payload])
@@ -37,7 +39,10 @@ function setup() {
         return () => closed.delete(listener)
       }
     },
-    send: (owner, ev) => void log.push(['screen', { owner, ev }]),
+    send(owner, ev) {
+      log.push(['screen', { owner, ev }])
+      onScreen?.(ev)
+    },
     failTurn
   })
   const peerClosed = (): void => {
@@ -128,7 +133,11 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     h.sender.onTurnEvent(turn, delta('a'))
     h.sender.persist(turn, review)
     h.sender.onTurnEvent(turn, delta('b'))
-    expect(h.payloads('turn.event').map((p) => p.ev)).toEqual([delta('a'), review, delta('b')])
+    expect(h.payloads('turn.event').map((p) => p.ev)).toEqual([
+      { ...delta('a'), messageKey: 'a:1' },
+      review,
+      { ...delta('b'), messageKey: 'a:1' }
+    ])
   })
 
   it('질문 답 — 실행 쪽 턴 상태를 고치고 도구 완료를 중계한 뒤 결과만 보낸다(부모 도구 연결 포함)', () => {
@@ -159,6 +168,7 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
         parentToolRunId: 'task-1'
       }
     })
+    expect(h.payloads('turn.askAnswers')[0]!.turnKey).toBe(h.payloads('turn.begin')[0]!.turnKey)
     expect(h.payloads('turn.askAnswers')[0]!.answers).toEqual([
       { toolUseId: 'ask-1', output, parentToolRunId: 'task-1' }
     ])
@@ -229,7 +239,7 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     const batch = { text: 'hi', createdAt: 5 }
     const first = h.sender.commitUserMessage!(turn, batch)
     expect(h.payloads('turn.commitUser')[0]).toMatchObject({ batch })
-    h.requests[0]!.resolve(41)
+    h.requests[0]!.resolve({ id: 41, created: true })
     expect(await first).toBe(41)
     const second = h.sender.commitUserMessage!(turn, batch)
     h.requests[1]!.resolve(null)
@@ -383,6 +393,31 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     ])
   })
 
+  it('같은 턴의 두 산출물 확인 응답이 역순으로 와도 확인 전 참조를 중계하지 않는다', async () => {
+    const h = setup()
+    const turn = turnOf()
+    for (const id of ['first', 'second']) {
+      const captured = {
+        type: 'output.captured',
+        sessionId: 's',
+        artifact: { id }
+      } as unknown as NormalizedEvent
+      h.sender.onTurnEvent(turn, captured)
+      h.sender.relay(turn, captured)
+    }
+    h.sender.relay(turn, delta('after'))
+    h.requests[1]!.resolve({ id: 'confirmed-second' })
+    await flush()
+    expect(h.payloads('screen')).toEqual([])
+    h.requests[0]!.reject(new Error('first failed'))
+    await flush()
+    expect(h.payloads('screen').map((p) => p.ev)).toEqual([
+      { type: 'output.captured', sessionId: 's' },
+      { type: 'output.captured', sessionId: 's', artifact: { id: 'confirmed-second' } },
+      delta('after')
+    ])
+  })
+
   it('게시 영수증이 없는 도구 완료는 기다리지 않고 어댑터가 준 참조를 지운다', () => {
     const h = setup()
     const turn = turnOf()
@@ -397,5 +432,834 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     h.sender.onTurnEvent(turn, ev)
     expect(h.requests).toEqual([])
     expect(h.payloads('turn.event')[0]!.ev).not.toHaveProperty('artifact')
+  })
+})
+
+describe('0326 message identity', () => {
+  it('k5/k23/k24 changes the key only after a successful new commit', async () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const batch = { text: 'new input', createdAt: 5, messageKey: 'u:new' }
+    const emitDelta = (text: string): void => {
+      const event = delta(text)
+      h.sender.onTurnEvent(turn, event)
+      h.sender.relay(turn, event)
+    }
+
+    emitDelta('first')
+    const created = h.sender.commitUserMessage!(turn, batch)
+    expect(h.payloads('turn.commitUser')[0]!.turnKey).toBe(h.payloads('turn.begin')[0]!.turnKey)
+    emitDelta('before reply')
+    h.requests[0]!.resolve({ id: 4, created: true })
+    expect(await created).toBe(4)
+    emitDelta('after new commit')
+
+    const replayed = h.sender.commitUserMessage!(turn, batch)
+    h.requests[1]!.resolve({ id: 4, created: false })
+    expect(await replayed).toBe(4)
+    const error: NormalizedEvent = {
+      type: 'error',
+      sessionId: 's',
+      error: { category: 'stream_error', message: 'interrupted', retryable: false }
+    }
+    h.sender.onTurnEvent(turn, error)
+    h.sender.relay(turn, error)
+
+    const missing = h.sender.commitUserMessage!(turn, batch)
+    h.requests[2]!.resolve(null)
+    expect(await missing).toBeNull()
+    emitDelta('after null')
+
+    const rejected = h.sender.commitUserMessage!(turn, batch)
+    h.requests[3]!.reject(new Error('closed'))
+    await expect(rejected).rejects.toThrow('closed')
+    emitDelta('after rejection')
+
+    const peerEvents = h.payloads('turn.event').map(({ ev }) => ev)
+    expect(peerEvents).toEqual(h.payloads('screen').map(({ ev }) => ev))
+    expect(peerEvents.map((ev) => (ev as { messageKey: string }).messageKey)).toEqual([
+      'a:1',
+      'a:1',
+      'a:2',
+      'a:2',
+      'a:2',
+      'a:2'
+    ])
+  })
+
+  it.each(['artifact-first', 'commit-first'] as const)(
+    'k25 keeps question answers and the commit in stream order (%s)',
+    async (order) => {
+      const h = setup()
+      const turn = turnOf({
+        dbSessionId: 's',
+        askPendingIds: ['question'],
+        pendingAskAnswers: [{ toolUseId: 'question', answers: { Question: 'yes' } }]
+      })
+      const emit = (event: NormalizedEvent): void => {
+        h.sender.onTurnEvent(turn, event)
+        h.sender.relay(turn, event)
+      }
+      emit({
+        type: 'tool.call.completed',
+        sessionId: 's',
+        toolRunId: 'publication',
+        result: JSON.stringify({
+          type: `${PRODUCT_SLUG}.artifact.published`,
+          version: 1,
+          publicationId: 'pub-1'
+        }),
+        isError: false
+      })
+      emit({
+        type: 'tool.call.started',
+        sessionId: 's',
+        toolRunId: 'question',
+        toolName: 'AskUserQuestion',
+        args: {}
+      })
+      h.sender.flushAskAnswers(turn, turn.owner)
+      const batch = { text: 'steer', createdAt: 5, messageKey: 'u:steer' }
+      const commit = Promise.resolve(h.sender.commitUserMessage!(turn, batch)).then((id) => {
+        h.sender.relay(turn, {
+          type: 'message.committed',
+          sessionId: 's',
+          messageKey: batch.messageKey,
+          ids: ['steer'],
+          messageId: id!,
+          text: batch.text,
+          createdAt: batch.createdAt
+        })
+        emit(delta('after'))
+      })
+
+      if (order === 'artifact-first') {
+        h.requests[0]!.resolve(null)
+        await flush()
+        h.requests[1]!.resolve({ id: 4, created: true })
+        await commit
+      } else {
+        h.requests[1]!.resolve({ id: 4, created: true })
+        await commit
+        expect(h.payloads('screen')).toHaveLength(0)
+        h.requests[0]!.resolve(null)
+        await flush()
+      }
+
+      expect(h.payloads('turn.askAnswers')[0]?.answers).toMatchObject([{ messageKey: 'a:1' }])
+      expect(h.payloads('screen').map(({ ev }) => ev)).toMatchObject([
+        { type: 'tool.call.completed', toolRunId: 'publication', messageKey: 'a:1' },
+        { type: 'tool.call.started', toolRunId: 'question', messageKey: 'a:1' },
+        {
+          type: 'tool.call.completed',
+          toolRunId: 'question',
+          messageKey: 'a:1',
+          messageKeySource: 'owner'
+        },
+        { type: 'message.committed', messageKey: 'u:steer' },
+        { type: 'message.delta', messageKey: 'a:2' }
+      ])
+    }
+  )
+
+  // VP-03 exact coordinate test names
+  it('part 를 만드는 8종에 원 소유 번호를 붙여 저장과 화면에 같이 보낸다', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const emit = (ev: NormalizedEvent): void => {
+      h.sender.onTurnEvent(turn, ev)
+      h.sender.relay(turn, ev)
+    }
+    const events: NormalizedEvent[] = [
+      { type: 'message.reasoning', sessionId: 's', text: 'r' },
+      { type: 'message.completed', sessionId: 's', message: { text: 't' } },
+      { type: 'tool.call.started', sessionId: 's', toolRunId: 't1', toolName: 'Read', args: {} },
+      {
+        type: 'tool.call.completed',
+        sessionId: 's',
+        toolRunId: 't1',
+        result: 'ok',
+        isError: false
+      },
+      {
+        type: 'response.boundary',
+        sessionId: 's',
+        boundary: { id: 'b1', phase: 'begin', kind: 'work' }
+      } as NormalizedEvent,
+      {
+        type: 'subagent.task',
+        sessionId: 's',
+        toolUseId: 'sub1',
+        phase: 'settled',
+        background: true,
+        status: 'completed'
+      } as NormalizedEvent,
+      {
+        type: 'session.compacted',
+        sessionId: 's',
+        trigger: 'auto',
+        preTokens: 100
+      } as NormalizedEvent,
+      {
+        type: 'error',
+        sessionId: 's',
+        error: { category: 'stream_error', message: 'e', retryable: false }
+      }
+    ]
+    for (const ev of events) emit(ev)
+    const peerEvs = h.payloads('turn.event').map((p) => p.ev as { messageKey?: string })
+    const screenEvs = h.payloads('screen').map((p) => p.ev as { messageKey?: string })
+    expect(peerEvs).toHaveLength(8)
+    expect(screenEvs).toHaveLength(8)
+    for (let i = 0; i < 8; i++) {
+      expect(peerEvs[i]?.messageKey).toBe('a:1')
+      expect(screenEvs[i]).toBe(peerEvs[i])
+    }
+  })
+
+  it('확인을 기다리는 산출물 이벤트 뒤 줄 선 중계와 질문 답도 찍힌 번호와 순서를 지킨다', async () => {
+    const h = setup()
+    const turn = turnOf({
+      dbSessionId: 's',
+      askPendingIds: ['q1'],
+      pendingAskAnswers: [{ toolUseId: 'q1', answers: { q: 'yes' } }]
+    })
+    const emit = (ev: NormalizedEvent): void => {
+      h.sender.onTurnEvent(turn, ev)
+      h.sender.relay(turn, ev)
+    }
+    emit({ type: 'tool.call.started', sessionId: 's', toolRunId: 'y', toolName: 'Write', args: {} })
+    emit({
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'y',
+      result: JSON.stringify({
+        type: `${PRODUCT_SLUG}.artifact.published`,
+        version: 1,
+        publicationId: 'pub-y'
+      }),
+      isError: false
+    })
+    emit({
+      type: 'tool.call.started',
+      sessionId: 's',
+      toolRunId: 'q1',
+      toolName: 'AskUserQuestion',
+      args: {}
+    })
+    h.sender.flushAskAnswers(turn, turn.owner)
+    expect(h.payloads('screen')).toHaveLength(1)
+    h.requests[0]!.resolve({ publicationId: 'pub-y' })
+    await flush()
+    expect(
+      h
+        .payloads('screen')
+        .map((p) => p.ev as { type: string; toolRunId?: string; messageKey?: string })
+    ).toMatchObject([
+      { type: 'tool.call.started', toolRunId: 'y', messageKey: 'a:1' },
+      { type: 'tool.call.completed', toolRunId: 'y', messageKey: 'a:1' },
+      { type: 'tool.call.started', toolRunId: 'q1', messageKey: 'a:1' },
+      { type: 'tool.call.completed', toolRunId: 'q1', messageKey: 'a:1', messageKeySource: 'owner' }
+    ])
+  })
+
+  it('질문 답의 도구 완료는 화면 이벤트와 답마다 질문 호출의 번호를 싣는다', async () => {
+    const h = setup()
+    const turn = turnOf({
+      dbSessionId: 's',
+      askPendingIds: ['q-orig'],
+      pendingAskAnswers: [{ toolUseId: 'q-orig', answers: { a: '1' } }]
+    })
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.started',
+      sessionId: 's',
+      toolRunId: 'q-orig',
+      toolName: 'AskUserQuestion',
+      args: {}
+    })
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    h.sender.onTurnEvent(turn, delta('next'))
+    h.sender.flushAskAnswers(turn, turn.owner)
+    const askPayload = h.payloads('turn.askAnswers')[0] as {
+      answers: Array<{ messageKey?: string }>
+    }
+    expect(askPayload.answers[0]?.messageKey).toBe('a:1')
+    expect(h.payloads('screen')[0]?.ev).toMatchObject({
+      type: 'tool.call.completed',
+      toolRunId: 'q-orig',
+      messageKey: 'a:1',
+      messageKeySource: 'owner'
+    })
+  })
+
+  it('같은 번호의 완료 이벤트는 번호가 바뀐 첫 delta 보다 먼저 중계된다', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const emit = (ev: NormalizedEvent): void => {
+      h.sender.onTurnEvent(turn, ev)
+      h.sender.relay(turn, ev)
+    }
+    emit(delta('part-a'))
+    emit({ type: 'message.completed', sessionId: 's', message: { text: 'part-a' } })
+    emit({ type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    emit(delta('part-b'))
+    const screen = h.payloads('screen').map((p) => p.ev as { type: string; messageKey?: string })
+    const idxCompleted = screen.findIndex(
+      (e) => e.type === 'message.completed' && e.messageKey === 'a:1'
+    )
+    const idxNextDelta = screen.findIndex(
+      (e) => e.type === 'message.delta' && e.messageKey === 'a:2'
+    )
+    expect(idxCompleted).toBeGreaterThan(-1)
+    expect(idxNextDelta).toBeGreaterThan(idxCompleted)
+  })
+
+  it('커밋 통지는 확인 대기 줄 뒤에 서고 두 응답 순서에서 창 순서가 같다', async () => {
+    for (const order of ['artifact-first', 'commit-first'] as const) {
+      const h = setup()
+      const turn = turnOf({
+        dbSessionId: 's',
+        askPendingIds: ['q'],
+        pendingAskAnswers: [{ toolUseId: 'q', answers: { Q: 'ok' } }]
+      })
+      const emit = (ev: NormalizedEvent): void => {
+        h.sender.onTurnEvent(turn, ev)
+        h.sender.relay(turn, ev)
+      }
+      emit({
+        type: 'tool.call.completed',
+        sessionId: 's',
+        toolRunId: 'pub',
+        result: JSON.stringify({
+          type: `${PRODUCT_SLUG}.artifact.published`,
+          version: 1,
+          publicationId: 'p1'
+        }),
+        isError: false
+      })
+      emit({
+        type: 'tool.call.started',
+        sessionId: 's',
+        toolRunId: 'q',
+        toolName: 'AskUserQuestion',
+        args: {}
+      })
+      h.sender.flushAskAnswers(turn, turn.owner)
+      const commit = Promise.resolve(
+        h.sender.commitUserMessage!(turn, { text: 'steer', createdAt: 2, messageKey: 'u:s1' })
+      ).then((id) => {
+        h.sender.relay(turn, {
+          type: 'message.committed',
+          sessionId: 's',
+          messageKey: 'u:s1',
+          ids: ['s1'],
+          messageId: id!,
+          text: 'steer',
+          createdAt: 2
+        })
+        emit({ type: 'message.completed', sessionId: 's', message: { text: 'B' } })
+      })
+      if (order === 'artifact-first') {
+        h.requests[0]!.resolve(null)
+        await flush()
+        h.requests[1]!.resolve({ id: 2, created: true })
+        await commit
+      } else {
+        h.requests[1]!.resolve({ id: 2, created: true })
+        await commit
+        h.requests[0]!.resolve(null)
+        await flush()
+      }
+      expect(h.payloads('screen').map((p) => (p.ev as { type: string }).type)).toEqual([
+        'tool.call.completed',
+        'tool.call.started',
+        'tool.call.completed',
+        'message.committed',
+        'message.completed'
+      ])
+    }
+    // Empty queue sends message.committed immediately
+    const hEmpty = setup()
+    const turnEmpty = turnOf({ dbSessionId: 's' })
+    hEmpty.sender.relay(turnEmpty, {
+      type: 'message.committed',
+      sessionId: 's',
+      messageKey: 'u:direct',
+      ids: ['direct'],
+      messageId: 1,
+      text: 'hi',
+      createdAt: 1
+    })
+    expect(hEmpty.payloads('screen')).toHaveLength(1)
+  })
+
+  // VP-04 explicit branch symbol tests: k1~k4, k6~k8, k12~k18, k20, k22
+  it('k1 stamps each of the 8 part-producing event kinds and keeps the same key in one turn', () => {
+    const kinds: NormalizedEvent[] = [
+      { type: 'message.completed', sessionId: 's', message: { text: 'hi' } },
+      { type: 'message.reasoning', sessionId: 's', text: 'r' },
+      { type: 'tool.call.started', sessionId: 's', toolRunId: 'c1', toolName: 'Read', args: {} },
+      {
+        type: 'tool.call.completed',
+        sessionId: 's',
+        toolRunId: 'c1',
+        result: 'ok',
+        isError: false
+      },
+      {
+        type: 'response.boundary',
+        sessionId: 's',
+        boundary: { id: 'rb1', phase: 'begin', kind: 'work' }
+      } as NormalizedEvent,
+      {
+        type: 'subagent.task',
+        sessionId: 's',
+        toolUseId: 'st1',
+        phase: 'settled',
+        background: true,
+        status: 'completed'
+      } as NormalizedEvent,
+      {
+        type: 'session.compacted',
+        sessionId: 's',
+        trigger: 'auto',
+        preTokens: 1
+      } as NormalizedEvent,
+      {
+        type: 'error',
+        sessionId: 's',
+        error: { category: 'stream_error', message: 'err', retryable: false }
+      }
+    ]
+    for (const first of kinds) {
+      const h = setup()
+      const turn = turnOf({ dbSessionId: 's' })
+      for (const ev of [first, ...kinds]) h.sender.onTurnEvent(turn, structuredClone(ev))
+      const keys = h.payloads('turn.event').map((p) => (p.ev as { messageKey?: string }).messageKey)
+      expect(keys, first.type).toEqual(Array(1 + kinds.length).fill('a:1'))
+    }
+  })
+
+  it('k2 does not stamp non-part non-delta events', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const nonStamped: NormalizedEvent[] = [
+      { type: 'telemetry', sessionId: 's' } as NormalizedEvent,
+      { type: 'session.updated', sessionId: 's' } as NormalizedEvent,
+      {
+        type: 'permission.requested',
+        sessionId: 's',
+        requestId: 'p1',
+        toolName: 'Bash',
+        args: {}
+      } as unknown as NormalizedEvent,
+      { type: 'output.captured', sessionId: 's', toolRunId: 't1', output: {} } as NormalizedEvent
+    ]
+    for (const ev of nonStamped) h.sender.onTurnEvent(turn, ev)
+    for (const ev of nonStamped) {
+      expect((ev as { messageKey?: string }).messageKey).toBeUndefined()
+    }
+  })
+
+  it('k3 issues independent keys for two concurrent turns', () => {
+    const h = setup()
+    const t1 = turnOf({ dbSessionId: 's1' })
+    const t2 = turnOf({ dbSessionId: 's2' })
+    const e1: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's1',
+      message: { text: '1' }
+    }
+    const e2: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's2',
+      message: { text: '2' }
+    }
+    h.sender.onTurnEvent(t1, e1)
+    h.sender.onTurnEvent(t2, e2)
+    expect(e1.messageKey).toBe('a:1')
+    expect(e2.messageKey).toBe('a:2')
+  })
+
+  it('k4 preserves the stamped key across confirmation-queued artifact event and queued relays', async () => {
+    const turn = turnOf({ dbSessionId: 's' })
+    const artEv: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'art',
+      result: JSON.stringify({
+        type: `${PRODUCT_SLUG}.artifact.published`,
+        version: 1,
+        publicationId: 'p'
+      }),
+      isError: false
+    }
+    const followEv: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: 'after' }
+    }
+    const nested = delta('arrived during drain')
+    const h = setup((ev) => {
+      if (ev === artEv) {
+        h.sender.onTurnEvent(turn, nested)
+        h.sender.relay(turn, nested)
+      }
+    })
+    h.sender.onTurnEvent(turn, artEv)
+    h.sender.relay(turn, artEv)
+    h.sender.onTurnEvent(turn, followEv)
+    h.sender.relay(turn, followEv)
+    h.requests[0]!.resolve(null)
+    await flush()
+    expect(h.payloads('screen').map((entry) => entry.ev)).toEqual([artEv, followEv, nested])
+    expect(h.payloads('screen').map((p) => (p.ev as { messageKey?: string }).messageKey)).toEqual([
+      'a:1',
+      'a:1',
+      'a:1'
+    ])
+  })
+
+  it('drops queued relays if the turn fails while artifact confirmation is pending', async () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'art',
+      result: JSON.stringify({
+        type: `${PRODUCT_SLUG}.artifact.published`,
+        version: 1,
+        publicationId: 'p'
+      }),
+      isError: false
+    })
+    h.sender.relay(turn, delta('before failure'))
+    h.sender.onNotify('turn.persistFailed', {
+      turnKey: h.payloads('turn.begin')[0]!.turnKey,
+      message: 'disk full'
+    })
+    h.sender.relay(turn, delta('after failure'))
+    h.requests[0]!.resolve(null)
+    await flush()
+    expect(h.payloads('screen')).toEqual([])
+  })
+
+  it('k6 clears messageKey after telemetry', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const e1: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: '1' }
+    }
+    const e2: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: '2' }
+    }
+    h.sender.onTurnEvent(turn, e1)
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    h.sender.onTurnEvent(turn, e2)
+    expect(e1.messageKey).toBe('a:1')
+    expect(e2.messageKey).toBe('a:2')
+  })
+
+  it('k7 creates fresh state and new key after finalizeTurn', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const e1: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: '1' }
+    }
+    const e2: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: '2' }
+    }
+    h.sender.onTurnEvent(turn, e1)
+    h.sender.finalizeTurn!(turn)
+    h.sender.onTurnEvent(turn, e2)
+    expect(e1.messageKey).toBe('a:1')
+    expect(e2.messageKey).toBe('a:2')
+  })
+
+  it('k8 stamps ask answers with call owner key or current key when not in callKeys', () => {
+    const h = setup()
+    const turn = turnOf({
+      dbSessionId: 's',
+      askPendingIds: ['q-unseen'],
+      pendingAskAnswers: [{ toolUseId: 'q-unseen', answers: { x: '1' } }]
+    })
+    h.sender.onTurnEvent(turn, delta('hello'))
+    h.sender.flushAskAnswers(turn, turn.owner)
+    const askPayload = h.payloads('turn.askAnswers')[0] as {
+      answers: Array<{ messageKey?: string }>
+    }
+    expect(askPayload.answers[0]?.messageKey).toBe('a:1')
+    expect(h.payloads('screen')[0]?.ev).toMatchObject({
+      type: 'tool.call.completed',
+      toolRunId: 'q-unseen',
+      messageKey: 'a:1'
+    })
+    expect(
+      (h.payloads('screen')[0]?.ev as { messageKeySource?: string }).messageKeySource
+    ).toBeUndefined()
+  })
+
+  it('k12 attaches late tool.call.completed after B opens back to A callKeys owner', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.started',
+      sessionId: 's',
+      toolRunId: 'x',
+      toolName: 'Bash',
+      args: {}
+    })
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    const bEv: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: 'B' }
+    }
+    h.sender.onTurnEvent(turn, bEv)
+    const lateX: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'x',
+      result: 'done',
+      isError: false
+    }
+    h.sender.onTurnEvent(turn, lateX)
+    expect(bEv.messageKey).toBe('a:2')
+    expect(lateX.messageKey).toBe('a:1')
+    expect(lateX.messageKeySource).toBe('owner')
+  })
+
+  it('k13 attaches response.boundary end to begin messageKey even across a user commit', async () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const beginEv = {
+      type: 'response.boundary',
+      sessionId: 's',
+      boundary: { id: 'rb-1', phase: 'begin', kind: 'work' }
+    } as NormalizedEvent
+    h.sender.onTurnEvent(turn, beginEv)
+    const commit = h.sender.commitUserMessage!(turn, { text: 'u', createdAt: 1, messageKey: 'u:1' })
+    h.requests[0]!.resolve({ id: 1, created: true })
+    await commit
+    const endEv = {
+      type: 'response.boundary',
+      sessionId: 's',
+      boundary: { id: 'rb-1', phase: 'end', outcome: 'ended' }
+    } as NormalizedEvent
+    h.sender.onTurnEvent(turn, endEv)
+    expect((beginEv as { messageKey?: string }).messageKey).toBe('a:1')
+    expect((endEv as { messageKey?: string }).messageKey).toBe('a:1')
+    expect((endEv as { messageKeySource?: string }).messageKeySource).toBe('owner')
+  })
+
+  it('k14 preserves an existing messageKey on an incoming event', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const preset: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: 'preset' },
+      messageKey: 'a:preset'
+    }
+    h.sender.onTurnEvent(turn, preset)
+    expect(preset.messageKey).toBe('a:preset')
+  })
+
+  it('k15 queues ask answer relay behind pending artifact confirmation in peer order', async () => {
+    const h = setup()
+    const turn = turnOf({
+      dbSessionId: 's',
+      askPendingIds: ['q15'],
+      pendingAskAnswers: [{ toolUseId: 'q15', answers: { ok: '1' } }]
+    })
+    const art: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'art15',
+      result: JSON.stringify({
+        type: `${PRODUCT_SLUG}.artifact.published`,
+        version: 1,
+        publicationId: 'p15'
+      }),
+      isError: false
+    }
+    h.sender.onTurnEvent(turn, art)
+    h.sender.relay(turn, art)
+    h.sender.flushAskAnswers(turn, turn.owner)
+    expect(h.payloads('screen')).toHaveLength(0)
+    h.requests[0]!.resolve(null)
+    await flush()
+    expect(h.payloads('screen').map((p) => (p.ev as { toolRunId?: string }).toolRunId)).toEqual([
+      'art15',
+      'q15'
+    ])
+  })
+
+  it('k16 stamps tool.call.completed with unknown toolRunId using current messageKey without owner source', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const ev: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'unknown-call',
+      result: 'ok',
+      isError: false
+    }
+    const replay = structuredClone(ev)
+    h.sender.onTurnEvent(turn, ev)
+    expect(ev.messageKey).toBe('a:1')
+    expect(ev.messageKeySource).toBeUndefined()
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    h.sender.onTurnEvent(turn, replay)
+    expect(replay.messageKey).toBe('a:2')
+    expect(replay.messageKeySource).toBeUndefined()
+  })
+
+  it('k17 keeps first callKeys owner on duplicate tool.call.started after B opens', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.started',
+      sessionId: 's',
+      toolRunId: 'dup',
+      toolName: 'Bash',
+      args: {}
+    })
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.started',
+      sessionId: 's',
+      toolRunId: 'dup',
+      toolName: 'Bash',
+      args: { retry: true }
+    })
+    const res: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'dup',
+      result: 'ok',
+      isError: false
+    }
+    h.sender.onTurnEvent(turn, res)
+    expect(res.messageKey).toBe('a:1')
+    expect(res.messageKeySource).toBe('owner')
+  })
+
+  it('k18 stamps first text delta with a new key reused by message.completed and resets after telemetry', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const d1 = delta('a')
+    const c1: NormalizedEvent = {
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: 'a' }
+    }
+    const d2 = delta('b')
+    h.sender.onTurnEvent(turn, d1)
+    h.sender.onTurnEvent(turn, c1)
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    h.sender.onTurnEvent(turn, d2)
+    expect((d1 as { messageKey?: string }).messageKey).toBe('a:1')
+    expect((c1 as { messageKey?: string }).messageKey).toBe('a:1')
+    expect((d2 as { messageKey?: string }).messageKey).toBe('a:2')
+  })
+
+  it.each(['message.delta', 'message.reasoning.delta'] as const)(
+    'preserves a preset %s key and stamps unkeyed deltas with the current message',
+    (type) => {
+      const h = setup()
+      const turn = turnOf({ dbSessionId: 's' })
+      const preset = { type, sessionId: 's', delta: { text: 'first' }, messageKey: 'a:upstream' }
+      const local: NormalizedEvent = { type, sessionId: 's', delta: { text: 'second' } }
+      const done: NormalizedEvent = {
+        type: 'message.completed',
+        sessionId: 's',
+        message: { text: 'third' }
+      }
+      for (const ev of [preset, local, done]) h.sender.onTurnEvent(turn, ev)
+      expect(h.payloads('turn.event').map(({ ev }) => (ev as typeof preset).messageKey)).toEqual([
+        'a:upstream',
+        'a:1',
+        'a:1'
+      ])
+      expect(done.messageKeySource).toBeUndefined()
+    }
+  )
+
+  it('k20 sets messageKeySource=owner only for callKeys/boundaryKeys hits and preserves preset source', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.started',
+      sessionId: 's',
+      toolRunId: 't-hit',
+      toolName: 'Read',
+      args: {}
+    })
+    const hit: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 't-hit',
+      result: '1',
+      isError: false
+    }
+    const miss: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 't-miss',
+      result: '2',
+      isError: false
+    }
+    const preset: NormalizedEvent = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 't-hit',
+      result: '3',
+      isError: false,
+      messageKey: 'a:fixed'
+    }
+    h.sender.onTurnEvent(turn, hit)
+    h.sender.onTurnEvent(turn, miss)
+    h.sender.onTurnEvent(turn, preset)
+    expect(hit.messageKeySource).toBe('owner')
+    expect(miss.messageKeySource).toBeUndefined()
+    expect(preset.messageKey).toBe('a:fixed')
+    expect(preset.messageKeySource).toBeUndefined()
+  })
+
+  it('k22 relays A completion before B first delta and handles aborted A without completion', () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    const emit = (ev: NormalizedEvent): void => {
+      h.sender.onTurnEvent(turn, ev)
+      h.sender.relay(turn, ev)
+    }
+    emit(delta('a'))
+    emit({ type: 'message.completed', sessionId: 's', message: { text: 'a' } })
+    emit({ type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    emit(delta('b-aborted'))
+    emit({ type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    emit(delta('c'))
+    const screen = h.payloads('screen').map((p) => {
+      const ev = p.ev as { type: string; messageKey?: string }
+      return `${ev.type}:${ev.messageKey ?? ''}`
+    })
+    expect(screen).toEqual([
+      'message.delta:a:1',
+      'message.completed:a:1',
+      'telemetry:',
+      'message.delta:a:2',
+      'telemetry:',
+      'message.delta:a:3'
+    ])
   })
 })

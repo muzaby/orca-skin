@@ -19,18 +19,31 @@ const { state } = vi.hoisted(() => ({
   }
 }))
 
-vi.mock('../../../store/chatStore', () => ({
-  useChatSession: (select: (s: unknown) => unknown) => select(state),
-  useUnseenSettledTaskCount: () => 0,
-  chatActions: {
-    selectTask: vi.fn(),
-    acknowledgeSettledTasks: vi.fn(),
-    addPlanComment: vi.fn(),
-    updatePlanComment: vi.fn(),
-    removePlanComment: vi.fn(),
-    setActivePlanComment: vi.fn()
+vi.mock('../../../store/chatStore', async () => {
+  const { transcriptIndexFor } = await import('../../../lib/transcriptIndex')
+  return {
+    useChatSession: (select: (s: unknown) => unknown) => select(state),
+    useTranscriptView: (domain: string) => {
+      const s = state as Record<string, unknown>
+      const idx = transcriptIndexFor({
+        ...s,
+        transcriptChanges: s.transcriptChanges ?? { lineage: s, revision: 0, log: [] }
+      } as never)
+      if (domain === 'taskBoard') return idx.taskBoard()
+      if (domain === 'subagentTasks') return idx.subagentTasks()
+      return []
+    },
+    useUnseenSettledTaskCount: () => 0,
+    chatActions: {
+      selectTask: vi.fn(),
+      acknowledgeSettledTasks: vi.fn(),
+      addPlanComment: vi.fn(),
+      updatePlanComment: vi.fn(),
+      removePlanComment: vi.fn(),
+      setActivePlanComment: vi.fn()
+    }
   }
-}))
+})
 
 const { harnessRightPanel } = await import('../../registries/rightpanel')
 
@@ -39,6 +52,7 @@ const { harnessRightPanel } = await import('../../registries/rightpanel')
 function messages(): Message[] {
   return [
     {
+      id: 'm-41',
       role: 'assistant',
       createdAt: 1,
       parts: [

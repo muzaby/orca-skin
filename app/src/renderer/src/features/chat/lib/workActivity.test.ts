@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createWorkProjector } from './workActivity'
 import type { Message } from '../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../shared/ipc'
@@ -14,11 +14,32 @@ const end = (
 ): AppMessagePart => ({ type: 'response_boundary', boundary: { phase: 'end', id, outcome } })
 const tool: AppMessagePart = { type: 'tool_call', toolRunId: 't', toolName: 'Read', args: {} }
 const message = (...parts: AppMessagePart[]): Message => ({
+  id: 'm-16',
   role: 'assistant',
   createdAt: 1,
   parts
 })
 describe('Work response projection', () => {
+  it('uses the indexed result for this call without iterating other turns', () => {
+    const results = new Map([['t', { output: 'indexed', isError: false }]])
+    const iteration = vi.spyOn(results, Symbol.iterator)
+    const projected = createWorkProjector()(
+      [
+        message(
+          begin('r'),
+          tool,
+          { type: 'tool_result', toolRunId: 't', result: 'previous', isError: false },
+          end('r')
+        )
+      ],
+      results
+    )
+    expect(projected?.find((node) => node.kind === 'activity')).toMatchObject({
+      items: [{ segment: { calls: [{ result: { output: 'indexed' } }] } }]
+    })
+    expect(iteration).not.toHaveBeenCalled()
+  })
+
   it('keeps legacy history untouched and does not invent empty activity for text-only responses', () => {
     const project = createWorkProjector()
     expect(project([message(text('legacy'))])).toBeNull()
@@ -245,4 +266,56 @@ describe('Work response projection', () => {
       project([...previous, message(begin('live'), tool, text(String(i)))])
     expect(reads).toBe(initial)
   })
+})
+
+it('z1/z2 preserves intermediate activity and status rows for an unchanged earlier response', () => {
+  const project = createWorkProjector()
+  const earlier = message(begin('r'), tool, end('r'))
+  const before = project([earlier])!
+  expect(before.map((row) => row.kind)).toEqual(['activity', 'status'])
+  const tail = { ...message(text('one')), id: 'tail' }
+  for (const next of [tail, { ...tail, parts: [text('two')] }]) {
+    const after = project([earlier, next])!
+    expect(after[0]).toBe(before[0])
+    expect(after[1]).toBe(before[1])
+  }
+})
+
+it('z2 resumes before, at, and after the changed response section', () => {
+  let reads = 0
+  let measuring = false
+  const frozen = new Proxy(text('first'), {
+    get(target, key, receiver) {
+      if (measuring) reads++
+      return Reflect.get(target, key, receiver)
+    }
+  })
+  const original = message(
+    begin('a'),
+    frozen,
+    text(' section'),
+    end('a'),
+    begin('b'),
+    text('kept'),
+    text('old'),
+    end('b'),
+    begin('c'),
+    text('old tail'),
+    end('c')
+  )
+  for (const from of [3, 6]) {
+    const project = createWorkProjector(undefined, () => from)
+    const prior = project([original])!
+    const replacement =
+      from === 3
+        ? [text(' boundary removed'), end('a'), begin('d'), text('next'), end('d')]
+        : [text(' changed'), end('b'), begin('c'), text('new tail'), end('c')]
+    const updated = message(...original.parts.slice(0, from), ...replacement)
+    measuring = from === 6
+    const actual = project([updated])!
+    measuring = false
+    expect(reads).toBe(0)
+    expect(actual).toEqual(createWorkProjector()([updated]))
+    if (from === 6) expect(actual[0]).toBe(prior[0])
+  }
 })

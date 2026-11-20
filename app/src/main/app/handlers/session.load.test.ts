@@ -175,6 +175,7 @@ describe('session load IPC restores the complete persisted view', () => {
       extraDirs: [],
       messages: [
         {
+          id: `m:${messageId}`,
           role: 'assistant',
           createdAt: 2,
           incomplete: true,
@@ -183,7 +184,7 @@ describe('session load IPC restores the complete persisted view', () => {
             { type: 'tool_result', toolRunId: 'tool-1', result: 'done', isError: false }
           ]
         },
-        { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'next' }] }
+        { id: `m:${userId}`, role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'next' }] }
       ],
       lastTelemetry: {
         model: 'model-a',
@@ -222,6 +223,7 @@ describe('session load IPC restores the complete persisted view', () => {
       extraDirs: [],
       messages: [
         {
+          id: 'm:1',
           role: 'assistant',
           createdAt: 2,
           incomplete: true,
@@ -350,7 +352,12 @@ describe('session load IPC refreshes native history before composing the archive
     expect((await lazy('s1', refresh))?.messages).toHaveLength(1)
     const reopened = await lazy('s1', refresh)
     expect(reopened?.messages).toEqual(
-      next.messages.map(({ role, createdAt, parts }) => ({ role, createdAt, parts }))
+      next.messages.map(({ id, role, createdAt, parts }) => ({
+        id: `n:${id}`,
+        role,
+        createdAt,
+        parts
+      }))
     )
     expect(reopened?.nativeSync).toEqual({ status: 'ready' })
     expect((await lazy('s1', refresh))?.messages).toEqual(reopened?.messages)

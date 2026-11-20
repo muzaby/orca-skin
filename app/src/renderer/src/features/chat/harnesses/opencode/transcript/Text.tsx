@@ -1,3 +1,4 @@
+import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 import { transcriptTypography } from '../../common/transcript/typography'
 import { memo } from 'react'
 import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
@@ -9,9 +10,11 @@ const proseColours =
 
 export const OpenCodeText = memo(function OpenCodeText({
   source,
+  sourceParts,
   streaming = false
 }: {
   source: string
+  sourceParts?: readonly MarkdownSourcePart[]
   streaming?: boolean
 }): React.JSX.Element {
   return (
@@ -19,10 +22,15 @@ export const OpenCodeText = memo(function OpenCodeText({
       {streaming ? (
         <StreamingMarkdown
           source={source}
+          sourceParts={sourceParts}
           className={`${transcriptTypography.prose} text-oc-ink`}
         />
       ) : (
-        <Markdown source={source} className={`${transcriptTypography.prose} text-oc-ink`} />
+        <Markdown
+          source={source}
+          sourceParts={sourceParts}
+          className={`${transcriptTypography.prose} text-oc-ink`}
+        />
       )}
     </div>
   )

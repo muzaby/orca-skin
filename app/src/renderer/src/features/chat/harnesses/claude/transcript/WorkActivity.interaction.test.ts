@@ -72,6 +72,7 @@ vi.mock('../../../../../shared/ui/markdown/Markdown', () => ({
 }))
 const messages: Message[] = [
   {
+    id: 'm-74',
     role: 'assistant',
     createdAt: 1,
     parts: [

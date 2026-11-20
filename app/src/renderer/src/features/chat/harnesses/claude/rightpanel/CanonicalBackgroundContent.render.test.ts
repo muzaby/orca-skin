@@ -333,6 +333,7 @@ describe('canonical background task cards', () => {
     call.taskId = undefined
     const messages: Message[] = [
       {
+        id: 'm-335',
         role: 'assistant',
         createdAt: 1,
         parts: [
@@ -405,6 +406,7 @@ describe('canonical background task cards', () => {
     expect(state.calls[backgroundKey('g', 'call-two')].model).toBeUndefined()
     const messages: Message[] = [
       {
+        id: 'm-407',
         role: 'assistant',
         createdAt: 1,
         parts: [

@@ -8,12 +8,11 @@ import type {
 } from '../../../../../shared/ipc'
 import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
 import {
-  nonExecutionEquals,
   nonExecutionOutcome,
   parseNonExecution,
   type NonExecutionOutcome
 } from '../../../../../shared/tool-outcome'
-import type { Message, ToolCall } from '../reducer/chatReducer'
+import type { ToolCall } from '../reducer/chatReducer'
 import type { ArtifactRef } from '../../../../../shared/artifacts'
 
 export function partsArtifacts(parts: readonly AppMessagePart[]): ArtifactRef[] {
@@ -38,13 +37,13 @@ export function partsArtifacts(parts: readonly AppMessagePart[]): ArtifactRef[] 
 }
 
 // 파트의 parentToolRunId(서브에이전트 child 표식) 조회 — 4종 파트가 옵션 필드로 가질 수 있다.
-function partParentToolRunId(p: AppMessagePart): string | undefined {
+export function partParentToolRunId(p: AppMessagePart): string | undefined {
   return 'parentToolRunId' in p ? p.parentToolRunId : undefined
 }
 
 // parentToolRunId 를 제거한 파트 사본 — child 트랜스크립트 안에서 최상위 파트로 취급되게 한다.
 // 식별자 외의 모든 원본 필드와 메타데이터를 사본에 보존한다.
-function stripParentToolRunId(p: AppMessagePart): AppMessagePart {
+export function stripParentToolRunId(p: AppMessagePart): AppMessagePart {
   if (!('parentToolRunId' in p)) return p
   const rest = { ...p }
   delete rest.parentToolRunId
@@ -205,7 +204,7 @@ function isToolResultPart(
 // (`partsToolCalls`·`messageSegments`·`subagentTasksFromMessages`)에 복사돼 있어, 파트에 필드가
 // 늘면 세 곳이 갈라졌다 — 실제로 `editPreview` 를 한 곳에만 넣자 트랜스크립트 카드가 그 값을
 // 보지 못했다. `resultMap` 과 같은 이유로 한 곳이 소유한다.
-function toolCallFromPart(
+export function toolCallFromPart(
   p: Extract<AppMessagePart, { type: 'tool_call' }>,
   resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>
 ): ToolCall {
@@ -229,167 +228,25 @@ function toolCallFromPart(
 // Task 도구 fold)도 자기 사본을 만들지 않고 이것을 부른다.
 export function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['result']>> {
   const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
-  for (const p of parts) {
-    if (isToolResultPart(p)) {
-      const nonExecution = parseNonExecution(p.nonExecution)
-      resultByRun.set(p.toolRunId, {
-        output: p.result,
-        isError: p.isError,
-        ...(nonExecution ? { nonExecution } : {}),
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
-        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {}),
-        ...(p.structuredOutput !== undefined ? { structuredOutput: p.structuredOutput } : {})
-      })
-    }
+  for (const part of parts) {
+    if (isToolResultPart(part)) resultByRun.set(part.toolRunId, toolResultFromPart(part))
   }
   return resultByRun
 }
 
-// 메시지 배열 파생 캐시 — 배열 identity 가 키이고(0313 D-013) 칸은 파생 인자마다 하나다. reducer 는
-// 메시지 배열을 제자리에서 바꾸지 않으므로 같은 배열이면 같은 결과다. WeakMap 이라 배열이 버려지면
-// 항목도 함께 사라진다 — 상한·명시 정리가 필요 없다. 반환은 화면끼리 공유하므로 고치지 않는다.
-function cachedByMessages<K, V>(
-  cache: WeakMap<readonly Message[], Map<K, V>>,
-  messages: readonly Message[],
-  key: K,
-  derive: (messages: readonly Message[], key: K) => V
-): V {
-  let slots = cache.get(messages)
-  if (!slots) {
-    slots = new Map()
-    cache.set(messages, slots)
+export function toolResultFromPart(
+  part: Extract<AppMessagePart, { type: 'tool_result' }>
+): NonNullable<ToolCall['result']> {
+  const nonExecution = parseNonExecution(part.nonExecution)
+  return {
+    output: part.result,
+    isError: part.isError,
+    ...(nonExecution ? { nonExecution } : {}),
+    ...(part.durationMs !== undefined ? { durationMs: part.durationMs } : {}),
+    ...(part.parentToolRunId !== undefined ? { parentToolRunId: part.parentToolRunId } : {}),
+    ...(part.subagentMeta !== undefined ? { subagentMeta: part.subagentMeta } : {}),
+    ...(part.structuredOutput !== undefined ? { structuredOutput: part.structuredOutput } : {})
   }
-  // `null` 결과도 칸에 든다 — 비었는지는 `undefined` 로만 가른다.
-  const cached = slots.get(key)
-  if (cached !== undefined) return cached
-  // 계산 뒤에 저장한다 — 파생이 던지면 칸은 빈 채로 남는다.
-  const derived = derive(messages, key)
-  slots.set(key, derived)
-  return derived
-}
-
-const childMessageCache = new WeakMap<readonly Message[], Map<string, Message | null>>()
-
-// 부모 tool run 의 child 트랜스크립트. 전 파트를 도는 조회라 같은 배열·같은 부모에는 한 번만 만든다.
-export function childMessageForParentToolRunId(
-  messages: readonly Message[],
-  parentToolRunId: string
-): Message | null {
-  return cachedByMessages(childMessageCache, messages, parentToolRunId, deriveChildMessage)
-}
-
-function deriveChildMessage(messages: readonly Message[], parentToolRunId: string): Message | null {
-  const parts: AppMessagePart[] = []
-  for (const message of messages) {
-    for (const part of message.parts) {
-      // tool_call/tool_result 뿐 아니라 child 의 text/reasoning(서브에이전트 답변·사고)도 모은다 —
-      // 완료된 서브에이전트의 실제 답변 텍스트가 child 트랜스크립트에 순서대로 렌더되게 한다.
-      if (partParentToolRunId(part) === parentToolRunId) {
-        // parentToolRunId 를 벗겨 child 트랜스크립트 안에서는 최상위 파트로 취급되게 한다 —
-        // messageSegments/partsToolCalls/partsText 는 parentToolRunId 가 있는 파트를 메인
-        // 트랜스크립트에서 제외(스킵)하므로, 벗기지 않으면 우측 패널 child 가 비어 렌더된다.
-        parts.push(stripParentToolRunId(part))
-      }
-    }
-  }
-  if (parts.length === 0) return null
-  return { role: 'assistant', createdAt: Date.now(), parts }
-}
-
-// 부모 Task 하나의 description 만 필요할 때(완료 통지 행) — 전체 요약을 만들지 않는다.
-// subagentTasksFromMessages 는 세션의 모든 파트를 flatMap 으로 펼치고 Map 4개를 만든 뒤 여러 번
-// 순회하는데, 통지 행은 그중 문자열 하나만 읽었다. 트랜스크립트는 커밋마다 messages identity 가
-// 바뀌므로(턴당 수십 회 × 표시 중인 행 수) 그 비용이 그대로 곱해졌다(0149).
-export function subagentTaskDescription(
-  messages: Message[],
-  toolUseId: string
-): string | undefined {
-  for (const message of messages) {
-    for (const part of message.parts) {
-      if (
-        isToolCallPart(part) &&
-        part.parentToolRunId === undefined &&
-        part.toolRunId === toolUseId &&
-        isAgentTaskName(part.toolName)
-      ) {
-        return toolDescriptionFromInput(part.args) ?? part.toolName
-      }
-    }
-  }
-  return undefined
-}
-
-// 요약 캐시 — 칸은 `includeNested` 값마다 하나다(최상위만 · 중첩 포함).
-const subagentTaskCache = new WeakMap<
-  readonly Message[],
-  Map<boolean, readonly SubagentTaskSummary[]>
->()
-
-// 서브에이전트 요약(SSOT). 전 파트를 여러 번 도는 파생이라 같은 메시지 배열에는 한 번만 계산한다 —
-// 화면에 뜬 소비처(에이전트 행·인라인 상세·타일·패널)가 같은 결과 배열을 함께 든다. 그래서
-// 반환은 읽기 전용이다(D-012): 한 곳이 고치면 다른 화면이 바뀐다.
-export function subagentTasksFromMessages(
-  messages: readonly Message[],
-  includeNested = false
-): readonly SubagentTaskSummary[] {
-  return cachedByMessages(subagentTaskCache, messages, includeNested, deriveSubagentTasks)
-}
-
-function deriveSubagentTasks(
-  messages: readonly Message[],
-  includeNested: boolean
-): readonly SubagentTaskSummary[] {
-  const allParts = messages.flatMap((m) => m.parts)
-  const resultByRun = resultMap(allParts)
-  // 최상위 tool_call → 그 파트가 속한 메시지의 createdAt. flatMap 은 메시지 경계를 잃으므로
-  // 시간 표시를 위해 별도 순회로 toolRunId 별 createdAt 을 모은다(부모 Task 카드 시간 표시용).
-  const createdAtByRun = new Map<string, number>()
-  for (const message of messages) {
-    for (const part of message.parts) {
-      if (isToolCallPart(part) && (includeNested || part.parentToolRunId === undefined)) {
-        createdAtByRun.set(part.toolRunId, message.createdAt)
-      }
-    }
-  }
-  const childCounts = new Map<string, number>()
-  // 부모 Task → 마지막으로 결과 미도착(진행 중)인 child 도구명. 단일 항목 '· Bash · N' 메타용.
-  const currentChild = new Map<string, string>()
-  for (const part of allParts) {
-    if (isToolCallPart(part) && part.parentToolRunId !== undefined) {
-      childCounts.set(part.parentToolRunId, (childCounts.get(part.parentToolRunId) ?? 0) + 1)
-      if (!resultByRun.has(part.toolRunId)) currentChild.set(part.parentToolRunId, part.toolName)
-    }
-  }
-  const summaries: SubagentTaskSummary[] = []
-  for (const part of allParts) {
-    if (
-      isToolCallPart(part) &&
-      (includeNested || part.parentToolRunId === undefined) &&
-      isAgentTaskName(part.toolName)
-    ) {
-      const call = toolCallFromPart(part, resultByRun)
-      const meta = call.result?.subagentMeta
-      // 도구수·소요시간은 SDK 누산 메타(영속)를 우선, 없으면 child 파트 파생/result.durationMs.
-      const toolCount = meta?.toolUses ?? childCounts.get(call.toolUseId) ?? 0
-      summaries.push({
-        toolUseId: call.toolUseId,
-        description: toolDescriptionFromInput(call.input) ?? call.name,
-        status: deriveSubagentTaskStatus(call),
-        createdAtMs: createdAtByRun.get(call.toolUseId) ?? Date.now(),
-        childToolCount: toolCount,
-        durationMs: meta?.durationMs ?? call.result?.durationMs ?? null,
-        tokenCount: tokenCountFromResult(call.result?.output),
-        agentLabel: agentModelFromCall(call),
-        subagentType: subagentTypeFromCall(call),
-        currentChildLabel: currentChild.get(call.toolUseId) ?? null,
-        settlementMessage: settlementMessageFromCall(call),
-        asyncLaunched: isAsyncLaunchedResult(call.result),
-        call
-      })
-    }
-  }
-  return summaries
 }
 
 export function isAgentTaskName(name: string): boolean {
@@ -457,7 +314,7 @@ export function promptFromCall(call: ToolCall): string | null {
 // (0204 AT-31 — "사용자에 의해 중단됨"), 정착의 `message` 는 transcript 용 기본 문장이다. 그래서
 // 중단은 SDK 가 실제로 준 사유(`cause` — 0212 의 `task_updated.patch.error`)만 사유로 읽는다:
 // `message` 를 읽으면 사용자 중단 행이 생산자 기본 문장으로 덮인다.
-function settlementMessageFromCall(call: ToolCall): string | null {
+export function settlementMessageFromCall(call: ToolCall): string | null {
   if (!call.result?.isError) return null
   const output = call.result.output
   if (valueString(output, 'reason')?.toLowerCase() === 'aborted') {
@@ -472,14 +329,14 @@ function valueNumber(input: unknown, key: string): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function tokenCountFromResult(output: unknown): number | null {
+export function tokenCountFromResult(output: unknown): number | null {
   return valueNumber(output, 'tokenCount') ?? valueNumber(output, 'tokens')
 }
 
 // 표시 모델 라벨 — 실제 모델(subagentMeta.model)을 친근한 이름으로. 없으면 caller 가 준
 // agentLabel, 그것도 없으면 subagent_type('Explore' 등). 최후 폴백('에이전트')은 렌더가
 // tr('chat.toolMeta.agentFallback') 로 채운다 — null 반환.
-function agentModelFromCall(call: ToolCall): string | null {
+export function agentModelFromCall(call: ToolCall): string | null {
   const model = call.result?.subagentMeta?.model
   if (model) return modelDisplayLabel(model)
   return (
@@ -489,7 +346,7 @@ function agentModelFromCall(call: ToolCall): string | null {
   )
 }
 
-function subagentTypeFromCall(call: ToolCall): string | null {
+export function subagentTypeFromCall(call: ToolCall): string | null {
   return valueString(call.input, 'subagent_type')
 }
 
@@ -518,7 +375,7 @@ export function modelDisplayLabel(modelId: string): string {
   return family
 }
 
-function toolDescriptionFromInput(input: unknown): string | null {
+export function toolDescriptionFromInput(input: unknown): string | null {
   if (typeof input !== 'object' || input === null) return null
   const rec = input as Record<string, unknown>
   const desc = rec.description
@@ -564,165 +421,71 @@ export function messageSegments(
   resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>> = resultMap(parts)
 ): MessageSegment[] {
   const segments: MessageSegment[] = []
-  let current: MessageSegment | null = null
-
-  for (const p of parts) {
-    if (p.type === 'tool_result') continue // 맵으로 흡수
-    // 서브에이전트(Task) child 의 text/reasoning 은 메인 트랜스크립트에서 제외(우측 패널 전용).
-    if ((p.type === 'text' || p.type === 'reasoning') && partParentToolRunId(p) !== undefined)
-      continue
-    if (p.type === 'text') {
-      if (!hasSegmentText(p.text)) continue
-      if (current?.kind === 'text') current.text += p.text
-      else segments.push((current = { kind: 'text', text: p.text }))
-    } else if (p.type === 'reasoning') {
-      if (!hasSegmentReasoning(p.text)) continue // 빈/공백 reasoning 은 빈 카드라 스킵(빈 text 와 동형)
-      const item: ReasoningItem = {
-        text: p.text,
-        ...(p.signature !== undefined ? { signature: p.signature } : {})
-      }
-      if (current?.kind === 'reasoning') current.items.push(item)
-      else segments.push((current = { kind: 'reasoning', items: [item] }))
-    } else if (p.type === 'tool_call') {
-      if (p.parentToolRunId !== undefined) continue
-      const call = toolCallFromPart(p, resultByRun)
-      if (p.toolName === 'AskUserQuestion') {
-        segments.push((current = { kind: 'ask', call }))
-      } else if (current?.kind === 'tools') {
-        current.calls.push(call)
-      } else {
-        segments.push((current = { kind: 'tools', calls: [call] }))
-      }
-    } else if (p.type === 'error') {
-      segments.push((current = { kind: 'error', error: p.error }))
-    } else if (p.type === 'compact_boundary') {
-      segments.push(
-        (current = {
-          kind: 'compact',
-          ...(p.trigger !== undefined ? { trigger: p.trigger } : {}),
-          ...(p.preTokens !== undefined ? { preTokens: p.preTokens } : {}),
-          ...(p.postTokens !== undefined ? { postTokens: p.postTokens } : {})
-        })
-      )
-    } else if (p.type === 'fork_boundary') {
-      segments.push((current = { kind: 'fork' }))
-    } else if (p.type === 'subagent_notice') {
-      segments.push(
-        (current = {
-          kind: 'subagent_notice',
-          toolRunId: p.toolRunId,
-          status: p.status,
-          ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-          ...(p.summary !== undefined ? { summary: p.summary } : {})
-        })
-      )
-    }
+  for (const part of parts) {
+    const segment = segmentForPart(part, resultByRun)
+    if (!segment) continue
+    const tail = segments.at(-1)
+    if (!tail || !extendSegment(tail, segment)) segments.push(segment)
   }
-
   return segments
 }
 
-// ── 세그먼트 identity 보존 reconcile (0008) ─────────────────────────────────
-//
-// messageSegments 는 호출마다 새 세그먼트/ToolCall view 객체를 만든다 — 그대로 렌더에 쓰면
-// tool.call.* 커밋 한 번에 메시지 내 모든 세그먼트·카드가 재렌더된다. reducer 는 parts 객체의
-// identity 를 보존하므로(appendAssistantPart 는 배열만 복사), 이전 렌더의 세그먼트와 필드
-// identity 로 대조해 "내용이 같으면 이전 객체를 재사용"하면 하위 memo 컴포넌트(ToolsSegment·
-// ToolCard·ReasoningBlock…)가 shallow 비교만으로 재렌더를 건너뛴다 → 커밋 1건의 재렌더가
-// "변경된 카드 1개"로 좁혀진다.
-
-function resultEquals(a: ToolCall['result'], b: ToolCall['result']): boolean {
-  if (a === b) return true
-  if (!a || !b) return false
-  return (
-    a.output === b.output &&
-    a.isError === b.isError &&
-    a.durationMs === b.durationMs &&
-    nonExecutionEquals(a.nonExecution, b.nonExecution)
-  )
+export function extendSegment(tail: MessageSegment, next: MessageSegment): boolean {
+  if (tail.kind === 'text' && next.kind === 'text') tail.text += next.text
+  else if (tail.kind === 'reasoning' && next.kind === 'reasoning') tail.items.push(...next.items)
+  else if (tail.kind === 'tools' && next.kind === 'tools') tail.calls.push(...next.calls)
+  else return false
+  return true
 }
 
-// `editPreview` 는 비교 축이 아니다(0229) — started 파트가 만들어질 때 한 번 실리고 이후 바뀌지
-// 않으므로 `input` identity 가 그것까지 대표한다. 결과 도착은 `resultEquals` 가 잡는다.
-function toolCallEquals(a: ToolCall, b: ToolCall): boolean {
-  return (
-    a.toolUseId === b.toolUseId &&
-    a.name === b.name &&
-    a.input === b.input &&
-    resultEquals(a.result, b.result)
-  )
-}
-
-function reasoningItemEquals(a: ReasoningItem, b: ReasoningItem): boolean {
-  return a.text === b.text && a.signature === b.signature
-}
-
-function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSegment {
-  if (prev.kind !== next.kind) return next
-  switch (next.kind) {
+export function segmentForPart(
+  part: AppMessagePart,
+  resultByRun: ReadonlyMap<string, NonNullable<ToolCall['result']>>
+): MessageSegment | undefined {
+  switch (part.type) {
     case 'text':
-      return prev.kind === 'text' && prev.text === next.text ? prev : next
-    case 'reasoning': {
-      if (prev.kind !== 'reasoning' || prev.items.length !== next.items.length) return next
-      for (let i = 0; i < next.items.length; i++) {
-        if (!reasoningItemEquals(prev.items[i], next.items[i])) return next
-      }
-      return prev
+      return part.parentToolRunId === undefined && hasSegmentText(part.text)
+        ? { kind: 'text', text: part.text }
+        : undefined
+    case 'reasoning':
+      return part.parentToolRunId === undefined && hasSegmentReasoning(part.text)
+        ? {
+            kind: 'reasoning',
+            items: [
+              {
+                text: part.text,
+                ...(part.signature !== undefined ? { signature: part.signature } : {})
+              }
+            ]
+          }
+        : undefined
+    case 'tool_call': {
+      if (part.parentToolRunId !== undefined) return undefined
+      const call = toolCallFromPart(part, resultByRun)
+      return part.toolName === 'AskUserQuestion'
+        ? { kind: 'ask', call }
+        : { kind: 'tools', calls: [call] }
     }
-    case 'tools': {
-      if (prev.kind !== 'tools') return next
-      const calls: ToolCall[] = new Array(next.calls.length)
-      let changed = prev.calls.length !== next.calls.length
-      for (let i = 0; i < next.calls.length; i++) {
-        const pc = prev.calls[i]
-        if (pc && toolCallEquals(pc, next.calls[i])) {
-          calls[i] = pc
-        } else {
-          calls[i] = next.calls[i]
-          changed = true
-        }
-      }
-      return changed ? { kind: 'tools', calls } : prev
-    }
-    case 'ask':
-      return prev.kind === 'ask' && toolCallEquals(prev.call, next.call) ? prev : next
     case 'error':
-      return prev.kind === 'error' && prev.error === next.error ? prev : next
-    case 'compact':
-      return prev.kind === 'compact' &&
-        prev.trigger === next.trigger &&
-        prev.preTokens === next.preTokens &&
-        prev.postTokens === next.postTokens
-        ? prev
-        : next
-    case 'fork':
-      // 필드 없는 마커 — kind 일치(첫 가드)면 항상 이전 identity 재사용.
-      return prev
+      return { kind: 'error', error: part.error }
+    case 'compact_boundary':
+      return {
+        kind: 'compact',
+        ...(part.trigger !== undefined ? { trigger: part.trigger } : {}),
+        ...(part.preTokens !== undefined ? { preTokens: part.preTokens } : {}),
+        ...(part.postTokens !== undefined ? { postTokens: part.postTokens } : {})
+      }
+    case 'fork_boundary':
+      return { kind: 'fork' }
     case 'subagent_notice':
-      return prev.kind === 'subagent_notice' &&
-        prev.toolRunId === next.toolRunId &&
-        prev.status === next.status &&
-        prev.durationMs === next.durationMs &&
-        prev.summary === next.summary
-        ? prev
-        : next
+      return {
+        kind: 'subagent_notice',
+        toolRunId: part.toolRunId,
+        status: part.status,
+        ...(part.durationMs !== undefined ? { durationMs: part.durationMs } : {}),
+        ...(part.summary !== undefined ? { summary: part.summary } : {})
+      }
+    default:
+      return undefined
   }
-}
-
-// 이전 렌더의 세그먼트 배열과 새로 계산한 배열을 대조해 변하지 않은 세그먼트(와 그 안의
-// ToolCall view)의 identity 를 재사용한다(순수). 전부 동일하면 prev 배열 자체를 반환.
-export function reconcileSegments(
-  prev: MessageSegment[] | null,
-  next: MessageSegment[]
-): MessageSegment[] {
-  if (!prev || prev.length === 0) return next
-  let changed = prev.length !== next.length
-  const out: MessageSegment[] = new Array(next.length)
-  for (let i = 0; i < next.length; i++) {
-    const p = prev[i]
-    const r = p ? reconcileSegment(p, next[i]) : next[i]
-    if (r !== p) changed = true
-    out[i] = r
-  }
-  return changed ? out : prev
 }

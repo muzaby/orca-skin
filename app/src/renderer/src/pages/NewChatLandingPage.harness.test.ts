@@ -256,7 +256,7 @@ describe('new conversation harness layout', () => {
     fixture.session.backend = 'opencode'
     render()
     fixture.session.messages = [
-      { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'start' }] }
+      { id: 'm-259', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'start' }] }
     ]
     render()
     expect(find('data-test-chat-tile')).toBeDefined()

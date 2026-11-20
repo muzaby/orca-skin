@@ -282,7 +282,7 @@ describe('0249 ΔV3 VP-35 — 계획 입력의 라이브/재로드 도구 카드
       expect(recv(state, event).messages).toBe(state.messages)
     const priorTurn = {
       ...state,
-      messages: [...state.messages, { role: 'user' as const, createdAt: 2, parts: [] }]
+      messages: [...state.messages, { id: 'm-285', role: 'user' as const, createdAt: 2, parts: [] }]
     }
     expect(recv(priorTurn, review(input)).messages).toBe(priorTurn.messages)
   })

@@ -1,14 +1,16 @@
-import { useContext, useSyncExternalStore } from 'react'
+import { useContext, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { CopyIconButton } from '../CopyIconButton'
 import { useI18n } from '../../i18n'
 import { MarkdownStreamingContext } from './streamingContext'
 import { getThemeSnapshot, subscribeTheme, type ShikiThemeId } from './themeStore'
 import { isLang } from './syntax'
 import { HIGHLIGHT_MAX_CHARS } from '../../compute/limits'
+import type { MarkedText } from './sourceParts'
 import { useHighlightedHtml } from '../../compute/useHighlightedHtml'
 
 interface CodeBlockProps {
   code: string
+  markedText?: readonly MarkedText[]
   lang?: string
   // shiki 의 줄별 `<span class="line">` 에 CSS 카운터로 라인넘버 거터를 붙인다(Read 등).
   showLineNumbers?: boolean
@@ -30,6 +32,7 @@ const LINE_NUMBER_CLASSES =
  *  입력이 바뀌면 이전 결과는 stale 로 보고 다시 원문을 그린다. */
 export function CodeBlock({
   code,
+  markedText,
   lang,
   showLineNumbers,
   embedded,
@@ -47,12 +50,24 @@ export function CodeBlock({
   const highlight = safeLang !== 'text' && !streaming && code.length <= HIGHLIGHT_MAX_CHARS
   const html = useHighlightedHtml(code, safeLang, theme, highlight)
 
+  const highlightedRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (!markedText?.length) return
+    const codeElement = highlightedRef.current?.querySelector('code')
+    if (!codeElement) return
+    markHighlightedCode(codeElement, markedText)
+    return () => markHighlightedCode(codeElement)
+  }, [html, markedText])
+
   // 헤더에 표시할 언어 라벨 — 지원 언어면 safeLang, 미지원이면 원본 lang 그대로,
   // 언어 헤더가 없으면 `text`(언어 식별자 라벨은 로케일 무관 원문 유지).
   const langLabel = safeLang !== 'text' ? safeLang : lang || 'text'
 
   const header = (
-    <div className="flex items-center justify-between border-b border-t5 bg-t1 px-3 py-1 text-caption text-t6">
+    <div
+      data-transcript-chrome=""
+      className="flex items-center justify-between border-b border-t5 bg-t1 px-3 py-1 text-caption text-t6"
+    >
       <span className="font-mono lowercase">{langLabel}</span>
       <div className="opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none group-hover/codeblock:opacity-100 focus-within:opacity-100">
         <CopyIconButton text={code} title={tr('common.copyCode')} />
@@ -70,6 +85,7 @@ export function CodeBlock({
       <div className={`${shell} [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-code`}>
         {showHeader && header}
         <div
+          ref={highlightedRef}
           className={showLineNumbers ? LINE_NUMBER_CLASSES : undefined}
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -81,14 +97,64 @@ export function CodeBlock({
       {showHeader && header}
       <pre className={`m-0 overflow-auto p-3 text-code text-t9 ${showLineNumbers ? 'flex' : ''}`}>
         {showLineNumbers && (
-          <span aria-hidden="true" className="mr-4 shrink-0 select-none text-right text-ink3">
+          <span
+            aria-hidden="true"
+            data-transcript-chrome=""
+            className="mr-4 shrink-0 select-none text-right text-ink3"
+          >
             {Array.from({ length: code.split('\n').length }, (_, index) => index + 1).join('\n')}
           </span>
         )}
-        <code>{code}</code>
+        <code>
+          {markedText?.length
+            ? markedText.map((run) => (
+                <span key={run.key} data-part-key={run.key} data-markdown-part-fragment="">
+                  {run.text}
+                </span>
+              ))
+            : code}
+        </code>
       </pre>
     </div>
   )
+}
+
+// React owns the surrounding shell and Shiki owns this HTML subtree. Splitting its text
+// preserves the existing highlighting tokens and keeps their rendered offsets addressable.
+function markHighlightedCode(root: Element, runs?: readonly MarkedText[]): void {
+  for (const marker of root.querySelectorAll('[data-markdown-part-fragment]')) {
+    marker.replaceWith(root.ownerDocument.createTextNode(marker.textContent ?? ''))
+  }
+  if (!runs?.length) return
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const nodes: Text[] = []
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text)
+
+  let runIndex = 0
+  let consumed = 0
+  for (const node of nodes) {
+    const fragment = root.ownerDocument.createDocumentFragment()
+    let offset = 0
+    while (offset < node.length && runIndex < runs.length) {
+      const run = runs[runIndex]
+      const count = Math.min(node.length - offset, run.text.length - consumed)
+      if (count > 0) {
+        const span = root.ownerDocument.createElement('span')
+        span.setAttribute('data-part-key', run.key)
+        span.setAttribute('data-markdown-part-fragment', '')
+        span.textContent = node.data.slice(offset, offset + count)
+        fragment.append(span)
+        offset += count
+        consumed += count
+      }
+      if (consumed === run.text.length) {
+        runIndex++
+        consumed = 0
+      }
+    }
+    if (offset < node.length) fragment.append(node.data.slice(offset))
+    node.replaceWith(fragment)
+  }
 }
 
 // 인스턴스별 MutationObserver 대신 모듈 싱글톤 구독(themeStore, 0108).

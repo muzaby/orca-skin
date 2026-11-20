@@ -41,8 +41,8 @@ export function installConcurrencyHarness(
           cwd: '/repo',
           messages: options.handoffSource
             ? [
-                { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'first' }] },
-                { role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'second' }] }
+                { id: 'm1', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'first' }] },
+                { id: 'm2', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'second' }] }
               ]
             : [],
           worktree:

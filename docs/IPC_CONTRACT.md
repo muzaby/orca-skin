@@ -583,6 +583,8 @@ wire 체계의 정본은 `app/src/shared/ipc.ts`의 `ProviderAuthScheme`이고 m
 
 `SendChatMessage.agentKind?: 'code' | 'work'`는 backend·provider·권한과 독립적이다. 생략하면 신규 출생만 Code를 기본값으로 쓰며, 기존 세션·preparing lease·fork/handoff는 소유자의 종류를 계승한다. 다른 종류를 명시하면 큐·DB를 변경하기 전에 오류로 거부한다. 시스템 지침과 프로필 key는 클라이언트가 지정하지 못한다.
 
+에이전트 호스트는 본문·도구·응답 경계 이벤트에 세션 안의 메시지 번호 `messageKey`를 붙여 저장 포트와 창에 전달한다. 라이브 델타도 같은 번호를 사용한다. 호출이나 응답 경계의 원 소유를 찾은 이벤트는 `messageKeySource: 'owner'`를 싣는다. 사용자 커밋 통지 `message.committed`와 로드된 각 `LoadedMessage.id`도 메시지 번호를 전달한다.
+
 현재 `SessionListItem`·`LoadedSession`의 `agentKind`는 필수이며 Main은 DB 값을 엄격히 검증해 출력한다. Renderer의 `LOAD_SESSION` 읽기 경계에서만 구형 `coding` 또는 필드 누락을 `code`로 변환하며 그 외 값은 오류로 처리한다. `session.updated.patch.agentKind`의 생략은 기존 값 유지이고 Main은 확정 세션의 종류를 붙인다.
 
 `LoadedSession.modelFamily`는 nullable 세션 모델 기록이다. cold load에서 마지막 사용 모델을 복원하고 새 기록이 없으면 마지막 telemetry 모델을 사용하며 그것도 없으면 기존 provider 기본값으로 해석한다.

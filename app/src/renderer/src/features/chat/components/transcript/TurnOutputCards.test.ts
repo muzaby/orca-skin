@@ -5,7 +5,7 @@ import { AssistantTurn } from '../../harnesses/claude/transcript/AssistantTurn'
 import { Exchange } from '../../harnesses/claude/transcript/Exchange'
 import { TranscriptView } from './TranscriptView'
 import { agentUiPolicy } from '../../lib/agentPresentation'
-import { groupExchanges, type Turn } from '../../lib/turns'
+import { groupTurns, type Turn } from '../../lib/turns'
 import { initialChatState } from '../../reducer/chatReducer'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
 import { useChatStore } from '../../store/chatStore'
@@ -18,10 +18,11 @@ vi.mock('../../../../shared/ui/markdown/Markdown', () => ({
 vi.mock('../markdown/StreamingMarkdown', () => ({
   StreamingMarkdown: ({ source }: { source: string }) => createElement('p', null, source)
 }))
-vi.mock('../../hooks/useTranscriptVirtualizer', () => ({
-  useTranscriptVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0 }],
-    getTotalSize: () => 100,
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: options.count }, (_, index) => ({ index, start: index * 40 })),
+    getTotalSize: () => options.count * 40,
     measureElement: vi.fn()
   })
 }))
@@ -48,6 +49,7 @@ const turn: Turn = {
   startIndex: 0,
   messages: [
     {
+      id: 'm-50',
       role: 'assistant',
       createdAt: 1,
       parts: [
@@ -100,7 +102,12 @@ it.each(['work', 'code'] as const)(
               role: 'user',
               startIndex: 0,
               messages: [
-                { role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'first-user' }] }
+                {
+                  id: 'm-104',
+                  role: 'user',
+                  createdAt: 0,
+                  parts: [{ type: 'text', text: 'first-user' }]
+                }
               ]
             },
             { ...turn, startIndex: 1 }
@@ -182,6 +189,7 @@ it.each(['work', 'code'] as const)(
               parts: [...firstMessage.parts, { type: 'artifact', artifact: second }]
             },
             {
+              id: 'm-186',
               role: 'assistant',
               createdAt: 2,
               parts: [updated, latest, updated, legacy].map((artifact) => ({
@@ -210,6 +218,7 @@ it.each([
         role: 'user' as const,
         messages: [
           {
+            id: 'm-215',
             role: 'user' as const,
             createdAt: 1,
             parts: [{ type: 'text' as const, text: 'first-user' }]
@@ -239,11 +248,13 @@ it('preserves earlier turn refs after latest output replacement, and never place
   const messages = [
     ...turn.messages,
     {
+      id: 'm-241',
       role: 'user' as const,
       createdAt: 2,
       parts: [{ type: 'text' as const, text: 'second-user' }]
     },
     {
+      id: 'm-247',
       role: 'assistant' as const,
       createdAt: 3,
       parts: [{ type: 'text' as const, text: 'second-answer' }]
@@ -265,8 +276,8 @@ it('preserves earlier turn refs after latest output replacement, and never place
   expect(html).toContain(card('ordinary'))
   expect(html.indexOf(card('ordinary'))).toBeLessThan(html.indexOf('second-user'))
   expect(html).not.toContain(card('updated'))
-  const before = groupExchanges(messages)
-  const next = groupExchanges(
+  const beforeTurns = groupTurns(messages)
+  const nextTurns = groupTurns(
     messages.map((message, index) =>
       index === 0
         ? {
@@ -277,8 +288,18 @@ it('preserves earlier turn refs after latest output replacement, and never place
     )
   )
   const compare = (Exchange as unknown as { compare: (a: unknown, b: unknown) => boolean }).compare
-  expect(compare({ exchange: before[0] }, { exchange: next[0] })).toBe(false)
-  expect(compare({ exchange: before[1] }, { exchange: next[1] })).toBe(true)
+  expect(
+    compare(
+      { exchange: { startIndex: 0, turns: [beforeTurns[0]] } },
+      { exchange: { startIndex: 0, turns: [nextTurns[0]] } }
+    )
+  ).toBe(false)
+  expect(
+    compare(
+      { exchange: { startIndex: 1, turns: beforeTurns.slice(1) } },
+      { exchange: { startIndex: 1, turns: nextTurns.slice(1) } }
+    )
+  ).toBe(true)
   release()
 })
 

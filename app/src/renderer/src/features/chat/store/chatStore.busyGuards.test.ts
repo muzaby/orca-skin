@@ -22,7 +22,12 @@ const message = (
   role: 'user' | 'assistant',
   text: string,
   createdAt: number
-): ChatState['messages'][number] => ({ role, createdAt, parts: [{ type: 'text', text }] })
+): ChatState['messages'][number] => ({
+  id: `m-${role}-${createdAt}`,
+  role,
+  createdAt,
+  parts: [{ type: 'text', text }]
+})
 
 const IDLE: Occupancy = { inflight: false, transport: 'idle' }
 const OCCUPIED = [
@@ -65,7 +70,7 @@ describe('0319 W3 — cached reopen guard and lazy refresh currency', () => {
     backend: 'opencode',
     agentKind: 'code',
     title: 'native',
-    messages: [message('assistant', text, 9)]
+    messages: [{ ...message('assistant', text, 9), id: 'a:9' }]
   })
   const cached = [message('user', 'cached body', 1)]
 

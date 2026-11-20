@@ -39,6 +39,7 @@ import migration0032 from './migrations/0032_native_session_recovery.sql?raw'
 import migration0033 from './migrations/0033_session_last_model.sql?raw'
 import migration0034 from './migrations/0034_native_snapshot_raw.sql?raw'
 import migration0035 from './migrations/0035_scheduled_tasks.sql?raw'
+import migration0036 from './migrations/0036_message_key.sql?raw'
 
 interface Migration {
   name: string
@@ -80,7 +81,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0032_native_session_recovery', sql: migration0032 },
   { name: '0033_session_last_model', sql: migration0033 },
   { name: '0034_native_snapshot_raw', sql: migration0034 },
-  { name: '0035_scheduled_tasks', sql: migration0035 }
+  { name: '0035_scheduled_tasks', sql: migration0035 },
+  { name: '0036_message_key', sql: migration0036 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

@@ -38,7 +38,12 @@ const transcriptPolicy = agentUiPolicy('code').transcript
 const turn = (parts: Message['parts'][]): turns.Turn => ({
   role: 'assistant',
   startIndex: 0,
-  messages: parts.map((p, index) => ({ role: 'assistant', createdAt: index + 1, parts: p }))
+  messages: parts.map((p, index) => ({
+    id: `m-${index + 1}`,
+    role: 'assistant',
+    createdAt: index + 1,
+    parts: p
+  }))
 })
 const copyButtons = (): ReturnType<FakeDom['queryAll']> =>
   dom!.queryAll('[aria-label="common.copyMessage"]')

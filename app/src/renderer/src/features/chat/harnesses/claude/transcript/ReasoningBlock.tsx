@@ -15,7 +15,7 @@ interface ReasoningBlockProps {
 
 // 확장사고(reasoning) 블록 — 기본 접힘. 여러 블록이 있으면 줄바꿈으로 이어 한 카드에 표시한다.
 // signature 는 무결성용 opaque 값이라 표시하지 않는다(저장만).
-// memo(shallow): 커밋 경로에선 reconcileSegments 가 items identity 를 보존해 bail 하고,
+// memo(shallow): 커밋 경로에선 segmentCache 가 items identity 를 보존해 bail 하고,
 // 라이브 경로(LiveReasoning)는 델타마다 새 items 라 의도대로 재렌더된다 (0008).
 export const ReasoningBlock = memo(function ReasoningBlock({
   items,

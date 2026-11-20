@@ -1,4 +1,5 @@
 import type { LoadedMessage } from '../../../shared/ipc'
+import { archivedMessageId } from '../../../shared/message-id'
 import type { NativeHistoryResult } from '../../adapters/common/native-history'
 import type { NativeRecoveryRow } from '../../infra/db/native-history-queries'
 import { recoveredPrompt } from '../../adapters/common/recovery'
@@ -18,7 +19,12 @@ export function recoveryFitsContext(
 
 /** Native storage still owns current history. The prefix is a sealed, expired generation. */
 export function recoveryArchive(row?: NativeRecoveryRow): LoadedMessage[] {
-  return row ? (JSON.parse(row.archive_json) as LoadedMessage[]) : []
+  if (!row) return []
+  const messages = JSON.parse(row.archive_json) as (Omit<LoadedMessage, 'id'> & { id?: string })[]
+  return messages.map((message, index) => ({
+    ...message,
+    id: message.id ?? archivedMessageId(index)
+  }))
 }
 
 export function restoreRecoveryResult(

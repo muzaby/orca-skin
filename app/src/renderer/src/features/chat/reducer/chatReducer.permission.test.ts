@@ -60,7 +60,9 @@ describe('chatReducer — 모델 선택', () => {
         backend: 'claude',
         title: null,
         providerKey: 'claude',
-        messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'hi' }] }]
+        messages: [
+          { id: 'u:hi', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'hi' }] }
+        ]
       }
     })
     const blocked = chatReducer(loaded, {
@@ -101,7 +103,9 @@ describe('chatReducer — 모델 선택', () => {
         backend: 'claude',
         title: null,
         providerKey: 'claude-bedrock',
-        messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'hi' }] }]
+        messages: [
+          { id: 'u:hi', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'hi' }] }
+        ]
       }
     })
     expect(loaded.providerKey).toBe('claude-bedrock')

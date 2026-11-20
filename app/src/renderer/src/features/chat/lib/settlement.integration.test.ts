@@ -119,7 +119,12 @@ describe('0239 SDK to persisted and rendered settlement', () => {
           runtime,
           bus,
           persist: stream.sender,
-          forward: { forward },
+          forward: {
+            relay: () => {
+              throw new Error('Unexpected user commit')
+            },
+            forward
+          },
           registry: { promote: () => {} },
           activeTurns: { begin: () => {}, confirm: () => {}, end: () => {} },
           backgroundTasks: new BackgroundTaskTracker(),

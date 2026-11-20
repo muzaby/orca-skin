@@ -8,6 +8,30 @@
 // 핸들러가 자기 스키마로 다시 본다(이 표는 방향과 봉투 종류만 고정한다).
 
 import { z } from 'zod'
+import type { AttachmentView, DiffRequirementAnchor } from './ipc'
+import type { ReceivedMessageOrigin } from './session-schedules'
+
+export interface UserCommitBatch {
+  text: string
+  createdAt: number
+  messageKey?: string
+  nativeMessageId?: string
+  origin?: ReceivedMessageOrigin
+  attachmentViews?: AttachmentView[]
+  requirements?: DiffRequirementAnchor[]
+}
+
+export interface UserCommitResult {
+  id: number
+  created: boolean
+}
+
+export interface TurnAskAnswer {
+  toolUseId: string
+  output: unknown
+  parentToolRunId?: string
+  messageKey?: string
+}
 
 // 메서드 표. `from` 은 보내는 호스트, `kind` 는 봉투다.
 export const PEER_METHODS = {

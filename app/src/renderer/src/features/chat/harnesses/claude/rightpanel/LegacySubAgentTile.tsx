@@ -11,12 +11,7 @@ import {
 } from '../../../store/backgroundStore'
 import { Button } from '../../../../../shared/ui/Button'
 import { agentUiPolicy } from '../../../lib/agentPresentation'
-import {
-  childMessageForParentToolRunId,
-  subagentTasksFromMessages,
-  type SubagentTaskStatus,
-  type SubagentTaskSummary
-} from '../../../lib/parts'
+import { type SubagentTaskStatus, type SubagentTaskSummary } from '../../../lib/parts'
 import {
   backgroundBoardStatus,
   backgroundTaskKey,
@@ -38,7 +33,8 @@ import {
   useChatStore,
   usePausedTasks,
   useStoppingTasks,
-  useSubagentMeta
+  useSubagentMeta,
+  useTranscriptView
 } from '../../../store/chatStore'
 import type { TaskStopError } from '../../../reducer/chatReducer'
 
@@ -78,17 +74,16 @@ export function LegacySubAgentHeader(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const activeKey = useChatStore((s) => s.activeKey)
   const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
-  const messages = useChatSession((s) => s.messages)
+  const subagentTasks = useTranscriptView('subagentTasks')
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
-  // 요약은 메시지 배열당 한 번만 계산된다(`subagentTasksFromMessages`). 여기 메모는 거르기·찾기 몫이다.
   const selected = useMemo(
     () =>
       selectedId
-        ? projectLegacyBackgroundPanel(subagentTasksFromMessages(messages), panel).find(
+        ? projectLegacyBackgroundPanel(subagentTasks, panel).find(
             (task) => task.toolUseId === selectedId
           )
         : undefined,
-    [messages, selectedId, panel]
+    [subagentTasks, selectedId, panel]
   )
 
   if (selected) {
@@ -118,7 +113,7 @@ export function LegacySubAgentContent(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const activeKey = useChatStore((s) => s.activeKey)
   const panel = useBackgroundStore((s) => s.panels[sessionId ?? activeKey])
-  const messages = useChatSession((s) => s.messages)
+  const subagentTasks = useTranscriptView('subagentTasks')
   const transcriptPolicy = agentUiPolicy(useChatSession((s) => s.agentKind)).transcript
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
   // 중단 요청을 보내고 SDK 확정을 기다리는 집합(D-005). 표시에만 쓰고 상태를 확정하지 않는다.
@@ -133,11 +128,11 @@ export function LegacySubAgentContent(): React.JSX.Element {
   const stopErrors = useChatSession((s) => s.taskStopErrors)
   // StatusLine 1s 틱 등 무관 재렌더마다 거르기를 되풀이하지 않는다.
   const tasks = useMemo(
-    () => projectLegacyBackgroundPanel(subagentTasksFromMessages(messages), panel),
-    [messages, panel]
+    () => projectLegacyBackgroundPanel(subagentTasks, panel),
+    [subagentTasks, panel]
   )
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
-  const childMessage = selectedId ? childMessageForParentToolRunId(messages, selectedId) : null
+  const childMessage = useTranscriptView('childMessage', selectedId)
   // 진행 중 서브에이전트 상세에서 메인 transcript 와 동일한 프로세싱 표시(StatusLine)를 버블
   // 아래에 띄우기 위한 경과 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각).
   const selectedMeta = useSubagentMeta(selectedId ?? '')

@@ -7,7 +7,9 @@ beforeEach(() =>
   installChatStoreHarness({
     inflight: true,
     cwd: 'C:/work',
-    messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: '보존할 본문' }] }]
+    messages: [
+      { id: 'm-10', role: 'user', createdAt: 1, parts: [{ type: 'text', text: '보존할 본문' }] }
+    ]
   })
 )
 
