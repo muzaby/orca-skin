@@ -402,8 +402,7 @@ export function jTranscriptMessages(turns = 500) {
 
 export function jOpenFenceStream(chars = 100_000, chunk = 50) {
   const header = '```ts\n'
-  const body = 'const x = 1;\n'.repeat(Math.ceil(chars / 13)).slice(0, chars)
-  const full = header + body
+  const full = (header + 'const x = 1;\n'.repeat(Math.ceil(chars / 13))).slice(0, chars)
   const deltas = []
   for (let i = 0; i < full.length; i += chunk) deltas.push(full.slice(i, i + chunk))
   return { full, deltas }
@@ -485,12 +484,20 @@ export function measureJ9CopyCap(
 }
 
 export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
+  const changes = ['content', 'callback', 'count+1', 'topResize', 'lastResize', 'reorder']
   let Virtualizer
   try {
-    const mod = await import('@tanstack/virtual-core')
-    Virtualizer = mod.Virtualizer
+    const core = await import('@tanstack/virtual-core')
+    Virtualizer = core.Virtualizer
   } catch {
-    return sizes.map((count) => ({ count, result: 'N/A(함수 없음)', getItemKeyCalls: 0 }))
+    return sizes.flatMap((count) =>
+      changes.map((change) => ({
+        id: `J10(${count}:${change})`,
+        count,
+        result: 'N/A(함수 없음)',
+        getItemKeyCalls: 0
+      }))
+    )
   }
   const rows = []
   for (const count of sizes) {
@@ -501,9 +508,10 @@ export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
       return keys[index]
     }
     const makeVirt = (n) => {
+      const element = {}
       const v = new Virtualizer({
         count: n,
-        getScrollElement: () => ({}),
+        getScrollElement: () => element,
         estimateSize: () => 50,
         getItemKey,
         scrollToFn: () => {},
@@ -517,48 +525,31 @@ export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
       return v
     }
 
-    const scenarios = [
-      {
-        label: `J10(${count}:count+1)`,
-        prepare: () => {
-          const v = makeVirt(count)
-          getItemKeyCalls = 0
-          return v
-        },
-        run: (v) => {
-          v.setOptions({ ...v.options, count: count + 1, getItemKey })
-          v._willUpdate()
-          v.getVirtualItems()
-        }
-      },
-      {
-        label: `J10(${count}:topResize)`,
-        prepare: () => {
-          const v = makeVirt(count)
-          getItemKeyCalls = 0
-          return v
-        },
-        run: (v) => {
-          v.resizeItem(0, 80)
-          v.getVirtualItems()
-        }
-      },
-      {
-        label: `J10(${count}:lastResize)`,
-        prepare: () => {
-          const v = makeVirt(count)
-          getItemKeyCalls = 0
-          return v
-        },
-        run: (v) => {
-          v.resizeItem(count - 1, 80)
-          v.getVirtualItems()
-        }
+    for (const change of changes) {
+      let firstKey
+      const prepare = () => {
+        const v = makeVirt(count)
+        getItemKeyCalls = 0
+        return v
       }
-    ]
-    for (const sc of scenarios) {
-      const result = measureCase(sc.run, { prepare: sc.prepare })
-      rows.push({ id: sc.label, count, result, getItemKeyCalls })
+      const run = (v) => {
+        // A content-only advance preserves the key sequence and callback identity.
+        if (change === 'content') v.setOptions({ ...v.options, getItemKey })
+        if (change === 'callback') v.setOptions({ ...v.options, getItemKey: (i) => getItemKey(i) })
+        if (change === 'count+1') v.setOptions({ ...v.options, count: count + 1 })
+        if (change === 'topResize') v.resizeItem(0, 80)
+        if (change === 'lastResize') v.resizeItem(count - 1, 80)
+        if (change === 'reorder') {
+          v.setOptions({
+            ...v.options,
+            getItemKey: (i) => getItemKey(i === 0 ? 1 : i === 1 ? 0 : i)
+          })
+        }
+        v._willUpdate()
+        firstKey = v.getVirtualItems()[0]?.key
+      }
+      const result = measureCase(run, { prepare })
+      rows.push({ id: `J10(${count}:${change})`, count, result, getItemKeyCalls, firstKey })
     }
   }
   return rows
@@ -566,17 +557,14 @@ export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
 
 export function transcriptMeasurementCases(modules) {
   const {
-    changeLog = {},
-    messageOrder = {},
-    blockList = {},
     claudeBlocks = {},
     openCodeBlocks = {},
     segmentCache = {},
     transcriptIndex = {},
     markdownBlocks = {}
   } = modules
-  const msgs = jTranscriptMessages(500)
-  const fence = jOpenFenceStream(10_000, 50)
+  const msgs = jTranscriptMessages(10_000)
+  const fence = jOpenFenceStream()
 
   const threeBranch = (id, label, fns) => [
     { id: `${id}:coldBuild`, input: `${label} (coldBuild)`, ...fns.coldBuild },
@@ -614,299 +602,259 @@ export function transcriptMeasurementCases(modules) {
     }
   }
 
-  return [
-    ...threeBranch('J1', 'Claude code 블록 1,000메시지 끝 추가', {
-      coldBuild: {
-        run:
-          claudeBlocks.createClaudeBlockModel && changeLog.newTranscriptChanges
-            ? () => {
-                const m = claudeBlocks.createClaudeBlockModel({ mode: 'code', sessionKey: 'j1' })
-                const log = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-                  kind: 'reset',
-                  complete: true
-                })
-                m.advance({ messages: msgs, transcriptChanges: log })
-              }
-            : undefined
-      },
-      incremental: {
-        prepare: () => {
-          if (!claudeBlocks.createClaudeBlockModel || !changeLog.newTranscriptChanges) return null
-          const m = claudeBlocks.createClaudeBlockModel({ mode: 'code', sessionKey: 'j1' })
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
+  function modelCases(id, label, createModel, update, read, messages = msgs) {
+    function branch(warm, modify) {
+      if (!createModel || !modules.reducer?.chatReducer) return {}
+      return {
+        prepare() {
+          const state = modules.reducer.chatReducer(modules.reducer.initialChatState, {
+            type: 'LOAD_SESSION',
+            session: { id: 'j', backend: 'claude', agentKind: 'code', messages },
             complete: true
           })
-          m.advance({ messages: msgs, transcriptChanges: log0 })
-          const nextMsg = {
-            id: 'u:j-new',
-            role: 'user',
-            createdAt: 99999,
-            parts: [{ type: 'text', text: 'next' }]
+          const model = createModel()
+          if (warm) read(model, state)
+          return { model, state }
+        },
+        run({ model, state }) {
+          const current = modify ? modules.reducer.chatReducer(state, update) : state
+          return read(model, current)
+        }
+      }
+    }
+    return threeBranch(id, label, {
+      coldBuild: branch(false, false),
+      incremental: branch(true, true),
+      cacheHit: branch(true, false)
+    })
+  }
+
+  const appendText = { type: 'COMMIT_PENDING_TEXT', text: 'tail', messageKey: msgs.at(-1).id }
+  const publish = {
+    type: 'RECV_EVENT',
+    event: {
+      type: 'output.captured',
+      sessionId: 'j',
+      toolRunId: 'jt-0',
+      artifact: {
+        publicationId: 'j-artifact',
+        artifactFileId: 'j-file',
+        filename: 'test.txt',
+        title: 'Test',
+        kind: 'text',
+        sizeBytes: 1,
+        publishedAt: 1
+      }
+    }
+  }
+  const claudeModel = (mode) =>
+    claudeBlocks.createClaudeBlockModel &&
+    (() => claudeBlocks.createClaudeBlockModel({ mode, sessionKey: 'j' }))
+  const readBlocks = (model, state) => model.advance(state)
+  const readPanels = (indexFor, state) => {
+    const index = indexFor(state)
+    return [
+      index.taskBoard(),
+      index.taskContextSources(),
+      index.subagentTasks(),
+      index.subagentTasks(true),
+      index.taskDescription('jt-0'),
+      index.childMessage('jt-0'),
+      index.transcriptResults(),
+      index.backgroundModels(),
+      index.openCodePanelModel()
+    ]
+  }
+
+  function taskBoardCases(size) {
+    const messages = Array.from({ length: size }, (_, i) => {
+      const id = String(i + 1)
+      const subject = `Task ${id}`
+      return {
+        id: `a:task-${id}`,
+        role: 'assistant',
+        createdAt: i,
+        parts: [
+          { type: 'tool_call', toolRunId: id, toolName: 'TaskCreate', args: { subject } },
+          {
+            type: 'tool_result',
+            toolRunId: id,
+            result: 'created',
+            isError: false,
+            structuredOutput: { task: { id, subject } }
           }
-          const log1 = changeLog.recordChange(log0, { kind: 'append', ids: ['u:j-new'] })
-          return { m, state: { messages: [...msgs, nextMsg], transcriptChanges: log1 } }
-        },
-        run: claudeBlocks.createClaudeBlockModel
-          ? (ctx) => ctx && ctx.m.advance(ctx.state)
-          : undefined
-      },
-      cacheHit: {
-        prepare: () => {
-          if (!claudeBlocks.createClaudeBlockModel || !changeLog.newTranscriptChanges) return null
-          const m = claudeBlocks.createClaudeBlockModel({ mode: 'code', sessionKey: 'j1' })
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          const state = { messages: msgs, transcriptChanges: log0 }
-          m.advance(state)
-          return { m, state }
-        },
-        run: claudeBlocks.createClaudeBlockModel
-          ? (ctx) => ctx && ctx.m.advance(ctx.state)
-          : undefined
+        ]
       }
-    }),
-    ...threeBranch('J2', 'OpenCode 블록 1,000메시지 끝 추가', {
+    })
+    const last = messages.at(-1)
+    last.parts.push({
+      type: 'tool_call',
+      toolRunId: 'update',
+      toolName: 'TaskUpdate',
+      args: { taskId: '1', status: 'completed' }
+    })
+    const update = {
+      type: 'RECV_EVENT',
+      event: {
+        type: 'tool.call.completed',
+        sessionId: 'j',
+        toolRunId: 'update',
+        messageKey: last.id,
+        isError: false,
+        result: 'updated',
+        structuredOutput: {
+          success: true,
+          taskId: '1',
+          updatedFields: ['status'],
+          statusChange: { from: 'pending', to: 'completed' }
+        }
+      }
+    }
+    return modelCases(
+      size === 100 ? 'J5' : `J5(${size})`,
+      `작업 보드 ${size}개 · TaskUpdate 결과`,
+      transcriptIndex.transcriptIndexFor && (() => transcriptIndex.transcriptIndexFor),
+      update,
+      (indexFor, state) => indexFor(state).taskBoard(),
+      messages
+    )
+  }
+
+  function scanCases(id, full) {
+    const { advanceStableBlocks, scanIncrement } = markdownBlocks
+    return threeBranch(id, '100,000자 · 50자씩 완결 줄 스캔', {
       coldBuild: {
+        run: advanceStableBlocks && (() => advanceStableBlocks(null, full))
+      },
+      incremental: {
+        prepare: advanceStableBlocks && (() => advanceStableBlocks(null, '')),
         run:
-          openCodeBlocks.createOpenCodeBlockModel && changeLog.newTranscriptChanges
-            ? () => {
-                const m = openCodeBlocks.createOpenCodeBlockModel()
-                const log = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-                  kind: 'reset',
-                  complete: true
-                })
-                m.advance({ messages: msgs, transcriptChanges: log })
-              }
-            : undefined
-      },
-      incremental: {
-        prepare: () => {
-          if (!openCodeBlocks.createOpenCodeBlockModel || !changeLog.newTranscriptChanges)
-            return null
-          const m = openCodeBlocks.createOpenCodeBlockModel()
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          m.advance({ messages: msgs, transcriptChanges: log0 })
-          const nextMsg = {
-            id: 'u:j2-new',
-            role: 'user',
-            createdAt: 99999,
-            parts: [{ type: 'text', text: 'next' }]
-          }
-          const log1 = changeLog.recordChange(log0, { kind: 'append', ids: ['u:j2-new'] })
-          return { m, state: { messages: [...msgs, nextMsg], transcriptChanges: log1 } }
-        },
-        run: openCodeBlocks.createOpenCodeBlockModel
-          ? (ctx) => ctx && ctx.m.advance(ctx.state)
-          : undefined
-      },
-      cacheHit: {
-        prepare: () => {
-          if (!openCodeBlocks.createOpenCodeBlockModel || !changeLog.newTranscriptChanges)
-            return null
-          const m = openCodeBlocks.createOpenCodeBlockModel()
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          const state = { messages: msgs, transcriptChanges: log0 }
-          m.advance(state)
-          return { m, state }
-        },
-        run: openCodeBlocks.createOpenCodeBlockModel
-          ? (ctx) => ctx && ctx.m.advance(ctx.state)
-          : undefined
-      }
-    }),
-    ...threeBranch('J3', '앞삽입 1턴 (T 유지)', {
-      coldBuild: {
-        run: blockList.createBlockList
-          ? () => blockList.createBlockList(msgs.map((m) => ({ key: m.id })))
-          : undefined
-      },
-      incremental: {
-        prepare: () =>
-          blockList.createBlockList
-            ? blockList.createBlockList(msgs.map((m) => ({ key: m.id })))
-            : null,
-        run: blockList.createBlockList
-          ? (list) => list && list.splice(0, 0, [{ key: 'u:pre' }, { key: 'a:pre' }])
-          : undefined
-      },
-      cacheHit: {
-        prepare: () =>
-          blockList.createBlockList
-            ? blockList.createBlockList(msgs.map((m) => ({ key: m.id })))
-            : null,
-        run: blockList.createBlockList ? (list) => list && list.snapshot() : undefined
-      }
-    }),
-    ...threeBranch('J4', 'messageOrderFor 순번·소유 조회', {
-      coldBuild: {
-        run:
-          messageOrder.messageOrderFor && changeLog.newTranscriptChanges
-            ? () => {
-                const log = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-                  kind: 'reset',
-                  complete: true
-                })
-                messageOrder.messageOrderFor({ messages: msgs, transcriptChanges: log }, true)
-              }
-            : undefined
-      },
-      incremental: {
-        prepare: () => {
-          if (!messageOrder.messageOrderFor || !changeLog.newTranscriptChanges) return null
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          messageOrder.messageOrderFor({ messages: msgs, transcriptChanges: log0 }, true)
-          const next = {
-            id: 'u:j4',
-            role: 'user',
-            createdAt: 99999,
-            parts: [{ type: 'text', text: 'x' }]
-          }
-          const log1 = changeLog.recordChange(log0, { kind: 'append', ids: ['u:j4'] })
-          return { messages: [...msgs, next], transcriptChanges: log1 }
-        },
-        run: messageOrder.messageOrderFor
-          ? (state) => state && messageOrder.messageOrderFor(state, true)
-          : undefined
-      },
-      cacheHit: {
-        prepare: () => {
-          if (!messageOrder.messageOrderFor || !changeLog.newTranscriptChanges) return null
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          const state = { messages: msgs, transcriptChanges: log0 }
-          messageOrder.messageOrderFor(state, true)
-          return state
-        },
-        run: messageOrder.messageOrderFor
-          ? (state) => state && messageOrder.messageOrderFor(state, true)
-          : undefined
-      }
-    }),
-    ...threeBranch('J5', '패널 색인 transcriptIndexFor', {
-      coldBuild: {
-        run:
-          transcriptIndex.transcriptIndexFor && changeLog.newTranscriptChanges
-            ? () => {
-                const log = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-                  kind: 'reset',
-                  complete: true
-                })
-                transcriptIndex
-                  .transcriptIndexFor({ messages: msgs, transcriptChanges: log })
-                  .taskBoard()
-              }
-            : undefined
-      },
-      incremental: {
-        prepare: () => {
-          if (!transcriptIndex.transcriptIndexFor || !changeLog.newTranscriptChanges) return null
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          transcriptIndex
-            .transcriptIndexFor({ messages: msgs, transcriptChanges: log0 })
-            .taskBoard()
-          const next = {
-            id: 'a:j5',
-            role: 'assistant',
-            createdAt: 99999,
-            parts: [{ type: 'text', text: 'ok' }]
-          }
-          const log1 = changeLog.recordChange(log0, { kind: 'append', ids: ['a:j5'] })
-          return { messages: [...msgs, next], transcriptChanges: log1 }
-        },
-        run: transcriptIndex.transcriptIndexFor
-          ? (state) => state && transcriptIndex.transcriptIndexFor(state).taskBoard()
-          : undefined
-      },
-      cacheHit: {
-        prepare: () => {
-          if (!transcriptIndex.transcriptIndexFor || !changeLog.newTranscriptChanges) return null
-          const log0 = changeLog.recordChange(changeLog.newTranscriptChanges(), {
-            kind: 'reset',
-            complete: true
-          })
-          const state = { messages: msgs, transcriptChanges: log0 }
-          transcriptIndex.transcriptIndexFor(state).taskBoard()
-          return state
-        },
-        run: transcriptIndex.transcriptIndexFor
-          ? (state) => state && transcriptIndex.transcriptIndexFor(state).taskBoard()
-          : undefined
-      }
-    }),
-    ...threeBranch('J6', '분절 캐시 segmentsFor', {
-      coldBuild: {
-        run: segmentCache.createSegmentCache
-          ? () => segmentCache.createSegmentCache().segmentsFor(msgs[1])
-          : undefined
-      },
-      incremental: {
-        prepare: () => {
-          if (!segmentCache.createSegmentCache) return null
-          const c = segmentCache.createSegmentCache()
-          c.segmentsFor(msgs[1])
-          const next = { ...msgs[1], parts: [...msgs[1].parts, { type: 'text', text: 'tail' }] }
-          return { c, next, from: msgs[1].parts.length }
-        },
-        run: segmentCache.createSegmentCache
-          ? (ctx) => ctx && ctx.c.segmentsFor(ctx.next, ctx.from)
-          : undefined
-      },
-      cacheHit: {
-        prepare: () => {
-          if (!segmentCache.createSegmentCache) return null
-          const c = segmentCache.createSegmentCache()
-          c.segmentsFor(msgs[1])
-          return { c, m: msgs[1] }
-        },
-        run: segmentCache.createSegmentCache ? (ctx) => ctx && ctx.c.segmentsFor(ctx.m) : undefined
-      }
-    }),
-    ...threeBranch('J7', '열린 펜스 증분 스캔 vs 코드 본문 문자열 생성', {
-      coldBuild: {
-        run: markdownBlocks.splitStableBlocks
-          ? () => markdownBlocks.splitStableBlocks(fence.full)
-          : undefined
-      },
-      incremental: {
-        run: markdownBlocks.advanceStableBlocks
-          ? () => {
-              let st = null
-              let acc = ''
-              for (const d of fence.deltas) {
-                acc += d
-                st = markdownBlocks.advanceStableBlocks(st, acc)
-              }
+          scanIncrement &&
+          ((initial) => {
+            let stable = initial.stable
+            let state = initial.scanState
+            for (let end = 50; end <= full.length; end += 50) {
+              const next = scanIncrement(full.slice(0, end), stable, state)
+              stable = next.stable
+              state = next.state
             }
-          : undefined
+            return state.scannedChars
+          })
       },
       cacheHit: {
-        prepare: () => {
-          if (!markdownBlocks.advanceStableBlocks) return null
-          const st = markdownBlocks.advanceStableBlocks(null, fence.full)
-          return { st, full: fence.full }
-        },
-        run: markdownBlocks.advanceStableBlocks
-          ? (ctx) => ctx && markdownBlocks.advanceStableBlocks(ctx.st, ctx.full)
-          : undefined
+        prepare: advanceStableBlocks && (() => advanceStableBlocks(null, full).cache),
+        run: advanceStableBlocks && ((cache) => advanceStableBlocks(cache, full))
       }
-    }),
+    })
+  }
+
+  function segmentCases(edit) {
+    const id = edit === 'append' ? 'J6' : `J6(${edit})`
+    const parts = Array.from({ length: 10_000 }, () => ({ type: 'text', text: 'x' }))
+    if (edit === 'withdraw') {
+      parts[0] = { type: 'tool_call', toolRunId: 'r', toolName: 'Read', args: {} }
+      parts[1] = { type: 'tool_result', toolRunId: 'r', result: 'old', isError: false }
+    }
+    const initial = { id: 'a:j6', role: 'assistant', createdAt: 0, parts }
+    const nextParts = [...parts]
+    if (edit === 'withdraw') nextParts[1] = { type: 'text', text: 'replacement' }
+    else nextParts.push({ type: edit === 'append' ? 'text' : 'reasoning', text: 'new' })
+    const next = { ...initial, parts: nextParts }
+    const from = edit === 'withdraw' ? 1 : parts.length
+    const branch = (warm, modified) =>
+      segmentCache.createSegmentCache
+        ? {
+            prepare() {
+              const cache = segmentCache.createSegmentCache()
+              if (warm) cache.segmentsFor(initial)
+              return cache
+            },
+            run: (cache) => (modified ? cache.segmentsFor(next, from) : cache.segmentsFor(initial))
+          }
+        : {}
+    return threeBranch(id, `10,000 part · ${edit}`, {
+      coldBuild: branch(false, false),
+      incremental: branch(true, true),
+      cacheHit: branch(true, false)
+    })
+  }
+
+  return [
+    ...modelCases(
+      'J1',
+      'Claude Code · 10,000 exchange 끝 part 추가',
+      claudeModel('code'),
+      appendText,
+      readBlocks
+    ),
+    ...modelCases(
+      'J1(work)',
+      'Claude Work · 10,000 exchange 끝 part 추가',
+      claudeModel('work'),
+      appendText,
+      readBlocks
+    ),
+    ...modelCases(
+      'J2',
+      'OpenCode · 10,000 exchange 끝 part 추가',
+      openCodeBlocks.createOpenCodeBlockModel,
+      appendText,
+      readBlocks
+    ),
+    ...modelCases(
+      'J3',
+      'index 1 산출물 · reducer와 Claude 블록',
+      claudeModel('code'),
+      publish,
+      readBlocks
+    ),
+    ...modelCases(
+      'J4',
+      'index 1 산출물 · 패널 9개 뷰',
+      transcriptIndex.transcriptIndexFor && (() => transcriptIndex.transcriptIndexFor),
+      publish,
+      readPanels
+    ),
+    ...[100, 1_000].flatMap(taskBoardCases),
+    ...['append', 'withdraw', 'different-kind'].flatMap(segmentCases),
+    ...scanCases('J7', fence.full),
+    ...scanCases('J7(list)', '- loose item\n\n'.repeat(8_000).slice(0, 100_000)),
+    ...scanCases('J7(paragraph)', 'word '.repeat(20_000)),
+    {
+      id: 'J7:code',
+      input: '열린 펜스 · 코드 본문 문자열 2,000회 생성',
+      prepare:
+        markdownBlocks.advanceStableBlocks &&
+        (() => markdownBlocks.advanceStableBlocks(null, fence.full.slice(0, 50)).scanState),
+      run:
+        markdownBlocks.openFenceTail &&
+        ((state) => {
+          let code
+          for (let end = 50; end <= fence.full.length; end += 50)
+            code = markdownBlocks.openFenceTail(fence.full.slice(0, end), state).code
+          return code
+        })
+    },
+    {
+      id: 'J7:dom',
+      input: '열린 펜스 · 준비한 코드 본문으로 DOM 텍스트 2,000회 갱신',
+      prepare:
+        markdownBlocks.openFenceTail &&
+        (() => {
+          const node = new DOMImplementation().createDocument(null, 'code', null).documentElement
+          const state = markdownBlocks.advanceStableBlocks(null, fence.full.slice(0, 50)).scanState
+          const values = fence.deltas.map(
+            (_, i) => markdownBlocks.openFenceTail(fence.full.slice(0, (i + 1) * 50), state).code
+          )
+          return { node, values }
+        }),
+      run:
+        markdownBlocks.openFenceTail &&
+        (({ node, values }) => {
+          for (const value of values) node.textContent = value
+          return node.textContent
+        })
+    },
     ...[1, 100].flatMap((turns) =>
       threeBranch(turns === 1 ? 'J8' : 'J8(100)', `앞삽입 1턴 · 기존 ${turns}턴`, {
         coldBuild: prependCase(turns, 'coldBuild'),

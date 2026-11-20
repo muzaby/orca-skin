@@ -123,6 +123,105 @@ describe('transcript history prepend', () => {
     expect(patchFirst.heldOutputs.size).toBe(0)
   })
 
+  const publication = (id: string, title = id): Extract<AppMessagePart, { type: 'artifact' }> => ({
+    type: 'artifact',
+    artifact: {
+      publicationId: id,
+      artifactFileId: id,
+      filename: id,
+      title,
+      kind: 'text',
+      sizeBytes: 1,
+      publishedAt: 1
+    }
+  })
+  const captured = (
+    id: string,
+    ref: { toolRunId?: string; responseId?: string },
+    title = id
+  ): NormalizedEvent => ({
+    type: 'output.captured',
+    sessionId: 's',
+    artifact: publication(id, title).artifact,
+    ...ref
+  })
+  const call: AppMessagePart = {
+    type: 'tool_call',
+    toolRunId: 'shared',
+    toolName: 'Read',
+    args: {}
+  }
+
+  it('keeps tool and response owners separate and resolves only a response begin', () => {
+    let pending = recv(LOAD(tail), captured('tool-file', { toolRunId: 'shared' }))
+    pending = recv(pending, captured('response-file', { responseId: 'shared' }))
+    const duplicate = recv(pending, captured('tool-file', { toolRunId: 'shared' }, 'later'))
+    expect(duplicate).toBe(pending)
+    expect([...pending.heldOutputs.keys()]).toEqual(['tool:shared', 'response:shared'])
+    const merged = prepend(pending, [
+      message('a:end', 'assistant', {
+        type: 'response_boundary',
+        boundary: { id: 'shared', phase: 'end', outcome: 'ended' }
+      }),
+      message('a:tool', 'assistant', call),
+      message('a:begin', 'assistant', {
+        type: 'response_boundary',
+        boundary: { id: 'shared', phase: 'begin' }
+      })
+    ])
+    expect(
+      merged.messages.slice(0, 3).map((m) => m.parts.filter((p) => p.type === 'artifact'))
+    ).toEqual([[], [publication('tool-file')], [publication('response-file')]])
+    expect(merged.heldOutputs.size).toBe(0)
+  })
+
+  it('preserves first arrival order when a later held value replaces the first result', () => {
+    let pending = recv(LOAD(tail), result('a:old', 'first'))
+    pending = recv(pending, captured('pub', { toolRunId: 'shared' }))
+    pending = recv(pending, result('a:old', 'last'))
+    const merged = prepend(pending, [message('a:old', 'assistant', call)])
+    expect(merged.messages[0].parts).toMatchObject([
+      { type: 'tool_call' },
+      { type: 'tool_result', result: 'last' },
+      publication('pub')
+    ])
+  })
+
+  it('counts unclaimed patches and outputs at the start of history, including a user ID collision', () => {
+    let pending = recv(LOAD(tail), result('u:old', 'do not attach to a user'))
+    pending = recv(pending, captured('pub', { responseId: 'missing' }))
+    const diagnostic = vi.fn()
+    const done = chatReducer(pending, {
+      type: 'PREPEND_HISTORY',
+      messages: [message('u:old', 'user', text('old'))],
+      reachedStart: true,
+      diagnostic
+    })
+    expect(done.messages[0].parts).toEqual([text('old')])
+    expect(diagnostic).toHaveBeenCalledExactlyOnceWith('heldPatchOrphaned', 2)
+    expect(done.heldPatches.size + done.heldOutputs.size).toBe(0)
+  })
+
+  it.each(['before', 'after', 'other turn'] as const)(
+    'deduplicates a publication against an assistant %s the owner',
+    (where) => {
+      const pending = recv(LOAD(tail), captured('pub', { toolRunId: 'shared' }))
+      const sibling = message('a:sibling', 'assistant', publication('pub'))
+      const owner = message('a:owner', 'assistant', call)
+      const page =
+        where === 'before'
+          ? [sibling, owner]
+          : where === 'after'
+            ? [owner, sibling]
+            : [owner, message('u:new', 'user', text('next')), sibling]
+      const merged = prepend(pending, page)
+      expect(merged.messages.find((m) => m.id === 'a:owner')?.parts).toEqual(
+        where === 'other turn' ? [call, publication('pub')] : [call]
+      )
+      expect(merged.heldOutputs.size).toBe(0)
+    }
+  )
+
   it('logs an incomplete reset at a non-turn boundary and clears unresolved patches on reached start', () => {
     const state = recv(LOAD(tail), result('a:missing', 'unresolved'))
     const after = prepend(state, [message('u:older', 'user', text('before'))])

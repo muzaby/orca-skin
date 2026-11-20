@@ -1,22 +1,53 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import ts from 'typescript'
 import { initialChatState, chatReducer, type Message } from '../../reducer/chatReducer'
 import { transcriptIndexFor } from '../../lib/transcriptIndex'
 
 const CHAT_ROOT = resolve(__dirname, '../..')
 
-const CONSUMER_FILES = [
-  'harnesses/opencode/rightpanel/tiles.tsx',
-  'harnesses/opencode/rightpanel/AgentViews.tsx',
-  'harnesses/claude/rightpanel/LegacySubAgentTile.tsx',
-  'harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx',
-  'harnesses/common/transcript/InlineSubagentDetail.tsx',
-  'harnesses/common/transcript/SubagentNoticeRow.tsx',
-  'harnesses/common/transcript/AgentTaskRow.tsx',
-  'hooks/useTaskContext.ts',
-  'hooks/useTaskBoard.ts'
-] as const
+const consumerViews: Record<string, string[]> = {
+  'harnesses/opencode/rightpanel/tiles.tsx': ['sessionPanelModel(background)'],
+  'harnesses/opencode/rightpanel/AgentViews.tsx': ['childMessage(agent.toolUseId)'],
+  'harnesses/claude/rightpanel/LegacySubAgentTile.tsx': [
+    'subagentTasks()',
+    'subagentTasks()',
+    'childMessage(selectedId)'
+  ],
+  'harnesses/claude/rightpanel/CanonicalBackgroundContent.tsx': [
+    'persistedBackgroundModels()',
+    'transcriptResults()'
+  ],
+  'harnesses/common/transcript/InlineSubagentDetail.tsx': [
+    'subagentTasks(true)',
+    'childMessage(toolRunId)'
+  ],
+  'harnesses/common/transcript/SubagentNoticeRow.tsx': ['subagentTaskDescription(toolRunId)'],
+  'harnesses/common/transcript/AgentTaskRow.tsx': ['subagentTasks()'],
+  'hooks/useTaskContext.ts': ['taskContextSources()'],
+  'hooks/useTaskBoard.ts': ['taskBoard()']
+}
+
+function indexedCalls(path: string, source: string): string[] {
+  const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true)
+  const calls: string[] = []
+  function visit(node: ts.Node): void {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'useTranscriptView'
+    ) {
+      const [domain, ...args] = node.arguments
+      if (domain && ts.isStringLiteral(domain)) {
+        calls.push(`${domain.text}(${args.map((arg) => arg.getText(tree)).join(',')})`)
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(tree)
+  return calls.sort()
+}
 
 const scanNames = [
   'childMessageForParentToolRunId',
@@ -46,10 +77,10 @@ describe('rightpanel/panelConsumers (VP-33 · EP-14)', () => {
     for (const name of scanNames) {
       expect(reference).toContain(`export function ${name}(`)
     }
-    for (const rel of [...owners, ...CONSUMER_FILES]) {
+    for (const rel of [...owners, ...Object.keys(consumerViews)]) {
       const src = readFileSync(resolve(CHAT_ROOT, rel), 'utf8')
-      if (CONSUMER_FILES.some((file) => file === rel))
-        expect(src, rel).toContain('useTranscriptView')
+      if (consumerViews[rel])
+        expect(indexedCalls(rel, src), rel).toEqual([...consumerViews[rel]].sort())
       expect(src, rel).not.toContain('transcriptIndex.legacy.testfixture')
       for (const name of scanNames) {
         expect(src, rel).not.toMatch(new RegExp(`(?<![.\\w])${name}\\s*\\(`))

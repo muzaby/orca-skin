@@ -911,6 +911,28 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
         writer.persist(t, ev)
         expect(db.findMessageByKey('s1', key)?.role).toBe('assistant')
       }
+      writer.persist(t, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        messageKey: 'a:k5',
+        boundary: { id: 'rb', phase: 'end', outcome: 'ended' }
+      })
+      const written = loadSession(db, 's1', () => '/tmp')!.messages
+      expect(
+        written.filter((m) => m.id.startsWith('a:k')).map((m) => [m.id, m.parts.map((p) => p.type)])
+      ).toEqual([
+        ['a:k1', ['text']],
+        ['a:k2', ['reasoning']],
+        ['a:k3', ['tool_call']],
+        ['a:k4', ['tool_result']],
+        ['a:k5', ['response_boundary', 'response_boundary']],
+        ['a:k6', ['subagent_notice']],
+        ['a:k7', ['compact_boundary']],
+        ['a:k8', ['error']]
+      ])
+      expect(written.find((m) => m.id === 'a:k5')?.parts.at(-1)).toMatchObject({
+        boundary: { id: 'rb', phase: 'end' }
+      })
     } finally {
       connection.close()
     }

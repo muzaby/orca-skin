@@ -429,6 +429,7 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     expect(host!.getAttribute('aria-hidden')).toBe('true')
     expect(host!.getAttribute('inert')).toBeNull()
     const cls = host!.getAttribute('class') ?? ''
+    expect(cls.split(' ')).toEqual(expect.arrayContaining(['fixed', 'top-0', 'left-[-99999px]']))
     expect(cls).toContain('select-text')
     expect(cls).toContain('pointer-events-none')
     expect(cls).not.toContain('select-none')

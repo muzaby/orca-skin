@@ -275,6 +275,8 @@ describe('TranscriptViewport via the production harnesses', () => {
         messages
       })
       const writes: number[] = []
+      vi.stubGlobal('Element', class {})
+      const listeners = new Map<string, EventListener>()
       let top = 123
       const viewport = {
         dataset: {},
@@ -290,14 +292,16 @@ describe('TranscriptViewport via the production harnesses', () => {
         },
         getBoundingClientRect: () => ({ top: 0, bottom: 200 }),
         querySelectorAll: () => [],
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
+        addEventListener: (type: string, listener: EventListener) => listeners.set(type, listener),
+        removeEventListener: (type: string) => listeners.delete(type)
       }
       const state = timelineViewState('s')
       state.setPinned(false)
       state.setTop(321)
       const content = {} as HTMLDivElement
+      let mounted!: ScrollAnchor
       const attach = (scroll: ScrollAnchor): null => {
+        mounted = scroll
         scroll.scrollRef.current = viewport as unknown as HTMLDivElement
         scroll.contentRef.current = content
         return null
@@ -322,6 +326,23 @@ describe('TranscriptViewport via the production harnesses', () => {
       renderController()
       expect(top).toBe(800)
       expect(useChatStore.getState().entryIntent).toBeNull()
+
+      for (const event of [
+        { type: 'wheel', deltaY: -1 },
+        { type: 'keydown', key: 'PageUp' },
+        { type: 'keydown', key: 'Home' },
+        { type: 'keydown', key: 'ArrowUp' }
+      ]) {
+        mounted.scrollToBottom()
+        const listener = listeners.get(event.type)
+        expect(listener).toBeDefined()
+        listener!(Object.assign(new Event(event.type), { deltaY: event.deltaY, key: event.key }))
+        expect(mounted.isPinned()).toBe(false)
+      }
+      mounted.scrollToBottom()
+      listeners.get('wheel')!({ type: 'wheel', deltaY: 1 } as WheelEvent)
+      listeners.get('keydown')!({ type: 'keydown', key: 'ArrowDown' } as KeyboardEvent)
+      expect(mounted.isPinned()).toBe(true)
 
       top = 217
       writes.length = 0
@@ -440,7 +461,14 @@ describe('TranscriptViewport via the production harnesses', () => {
       expect(write).not.toHaveBeenCalled()
       await vi.runAllTimersAsync()
       expect(write).toHaveBeenCalledOnce()
-      expect(portal).toHaveBeenCalledWith(expect.anything(), document.body)
+      expect(portal).toHaveBeenCalledWith(
+        expect.objectContaining({ props: expect.objectContaining({ style: { width: '600px' } }) }),
+        document.body
+      )
+      const mime = write.mock.calls[0][0][0]
+      expect(mime['text/plain'].type).toBe('text/plain')
+      expect(mime['text/html'].type).toBe('text/html')
+      expect((await mime['text/html'].text()).length).toBeGreaterThan(0)
       expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
       expect(plainParts[0].length).toBeGreaterThan(1)
       expect(

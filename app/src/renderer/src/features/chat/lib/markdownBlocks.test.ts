@@ -198,6 +198,28 @@ describe('openFenceTail & incremental scanState (EP-19 f1~f9·f11~f13)', () => {
     expect(f7Closed.openFence).toBeNull()
   })
 
+  it('applies CommonMark closer rules to newly completed lines across chunks', () => {
+    const opener = '   ~~~~lang`ok metadata\r\n'
+    const body = '   alpha\r\n   beta\r\n'
+    const initial = advanceStableBlocks(null, opener + body)
+    expect(initial.openFence).toEqual({
+      char: '~',
+      length: 4,
+      indent: 3,
+      lang: 'lang`ok',
+      code: 'alpha\nbeta'
+    })
+    for (const invalid of ['````', '~~~', '    ~~~~', '~~~~x']) {
+      const next = advanceStableBlocks(initial.cache, opener + body + invalid + '\r\n')
+      expect(next.openFence?.code).toContain(invalid.trimStart())
+    }
+    for (const valid of ['~~~~', '   ~~~~~ \t']) {
+      const next = advanceStableBlocks(initial.cache, opener + body + valid + '\r\n')
+      expect(next.openFence).toBeNull()
+    }
+    expect(advanceStableBlocks(null, 'paragraph\n' + opener + body).openFence).toBeNull()
+  })
+
   it('f8: 100,000 chars in 2,000 x 50-char deltas scans ~100,000 chars total', () => {
     const bodyLine = 'const value = 12345678901234567890123456789012345\n' // 50 chars
     const full = '```ts\n' + bodyLine.repeat(1999) + 'x'.repeat(44)

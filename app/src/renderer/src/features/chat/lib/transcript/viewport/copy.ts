@@ -33,7 +33,7 @@ export interface CopyJobHooks {
     endIndex: number,
     isFirst: boolean,
     isLast: boolean
-  ) => { text: string; html: string }
+  ) => { text: string; html: string; leadingBreaks?: number; trailingBreaks?: number }
   readonly unmountChunk: () => void
   readonly scheduleNext?: (fn: () => void) => void
   readonly writeClipboard?: (text: string, html: string) => Promise<void>
@@ -86,6 +86,7 @@ export function startCopyJob(
   const textParts: string[] = []
   const htmlParts: string[] = []
   let cursor = lo
+  let previousBreaks = 0
 
   const done = new Promise<boolean>((resolve) => {
     function fail(err: unknown): void {
@@ -141,9 +142,20 @@ export function startCopyJob(
       const t0 = now()
       try {
         hooks.mountChunk(chunkStart, chunkEnd)
-        const { text, html } = hooks.serializeChunk(chunkStart, chunkEnd, isFirst, isLast)
-        if (textParts.length) textParts.push('\n')
-        textParts.push(text)
+        const {
+          text,
+          html,
+          leadingBreaks = 1,
+          trailingBreaks = 1
+        } = hooks.serializeChunk(chunkStart, chunkEnd, isFirst, isLast)
+        // The two edge measurements share one ordinary block break. A chunk of
+        // empty interior rows contributes HTML but no new plain-text boundary.
+        if (text || isFirst || isLast) {
+          if (textParts.length)
+            textParts.push('\n'.repeat(Math.max(0, previousBreaks + leadingBreaks - 1)))
+          previousBreaks = trailingBreaks
+          textParts.push(text)
+        }
         htmlParts.push(html)
       } catch (err) {
         fail(err)

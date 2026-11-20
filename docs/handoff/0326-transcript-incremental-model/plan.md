@@ -2565,3 +2565,63 @@ VP-22는 이전 답변을 별도 DOM 영역으로 옮겼고 VP-29 c12는 블록 
 
 - r2의 green이었던 M26-a4, X05~X09, M29-c3, M29-c19, M21-v1을 현재 작업 사본에서 모두 검출했다.
 - §10의 자리별 표, 변이 사양과 측정값을 남겼다. 실제 SQLite 중계에서 도구 결과를 발행 영수증으로 바꿔 대기 중 질문 답 우회를 검출했다. 원래 호출 소유자와 뒤 메시지의 본문, 실패한 복사의 재마운트 범위, 작은 이력에서 spacer 높이도 직접 단언했다. 개별 자리 안의 모든 열거 항과 등록 변이의 차집합이 0인지는 아직 확인하지 못했다. 독립 검증과 Windows 실기 판정은 대기 상태다.
+
+### D4 후속 검증 — §7-A 실행 경로 대조
+
+표의 ID는 원래 변이 사양과 후속 변이 사양을 가리킨다. 같은 입력 경로를 다른 pair가 공유하는 경우 ID를 다시 인용했다. 한 행의 증거는 해당 변이로 관측한 구간에만 적용한다.
+
+| Pair | 고장을 주입한 경로와 관측 | 실행 ID |
+|---|---|---|
+| VP-01 | 발급·저장·로드·창 재열기에서 서로 다른 번호 사용 | E1-component-assistant, M02-writer, S03-2, M08-reopen-id |
+| VP-02 | 저장 송신·커밋 응답·소유자 복원·중계 조립 | M02-tel, M02-created, M07-r3, M03-k27 |
+| VP-03 | 대기열로 보낸 객체·질문 답·커밋 통지 | M03-relay-copy, M03-ask-queue, M03-k25 |
+| VP-04 | 8종 중 개별 제외, 두 종류 델타에 이미 부여된 번호, 소유 표 교환과 턴 마감 | E1-event-error 등 8개, E1-delta-preset, E1-reasoning-delta, E1-tool-owner-map, E1-response-owner-map, E1-final-by-key |
+| VP-05 | 원본 순서·별칭·작은 DB 행·frontier·보관본 번호 | E3-binding-order, E3-alias, E3-tie-smallest, E3-at-frontier, S03-7 |
+| VP-06 | 8종 이벤트 각각의 DB 행과 응답 경계 시작·끝의 행, 사용자 재커밋 | E2-route-message.completed 등 9개, M06-w5, M06-w11 |
+| VP-07 | 확정 이벤트 7종 → 원래 창 메시지, 낙관 번호·보류 병합·fork·자식 번호 | S04-3-message.reasoning 등 7개, S04-9, M07-r10, S04-7, S04-8 |
+| VP-08 | store 재열기 → 로드 → 동일한 표시 키 | M08-reopen-id, EP12-claude-props, EP12-opencode-props |
+| VP-09 | reducer 변경 기록·소비자 계보·조회 | M10-kind, EP05-lineage, M11-q4 |
+| VP-10 | reducer 개별 쓰기·순번·접두 길이·로그 소실 | S05-3a~S05-3g, EP05-revision, M10-parts-from, M10-l3 |
+| VP-11 | 밀린 기록 접기·순번·옛 기여 철회 | EP05-fold, M11-q4, M11-q7 |
+| VP-12 | 통지·결과·철회·store의 조회 경로 | M12-notice-scan, S06-4, S06-7, S06-9, S06-10 |
+| VP-13 | 종류별 변경 → 블록 → viewport | M16-z2, S08-8, M19-live-viewport |
+| VP-14 | 메시지별 블록 key, 대표 part와 Markdown 조각 시작 위치 | E7-key-part 등 7개, M14-y12, E7-source-reset |
+| VP-15 | 목록 내용·순서 갱신 → 이전 스냅샷 및 현재 키 조회 | EP08-content-location, M15-u7-order, EP08-location-fallback |
+| VP-16 | 접기·증분 advance·경계·reset | M16-z8, M16-z2, M16-z3, S08-8 |
+| VP-17 | 늦은 결과의 소유 메시지·호출 블록·기존 분절 | M17-late-owner, S08-result-owner, M18-s3 |
+| VP-18 | 새 part·앞쪽 교체·결과 철회 → 분절 | M18-s7, M18-s4, M18-s8 |
+| VP-19 | text·reasoning run → store·live 리프·구조 변경 | M34-b3, M34-b7, M19-live-viewport |
+| VP-20 | 하네스 → viewport → 가시 범위·선택 끝 마운트 | D7-claude, D7-opencode, X02, EP17-viewport-anchor |
+| VP-21 | Timeline 단일 virtualizer·key 콜백 정체·스크롤 쓰기 | M21-own-virtualizer, M21-v1, M21-direct-write |
+| VP-22 | 전송 → 기존 영역의 DOM 선택·측정·키와 메타 | M22-history-region, M24-fork, EP11-policy-send |
+| VP-23 | 실제 제어기에서 wheel·키, store 진입 원인, 예약 높이 | E11-claude-wheel, E11-opencode-wheel, E11-claude-key-Home, E11-opencode-key-Home, EP11-intent, M23-p12 |
+| VP-24 | Claude 꼬리·메타 fork·다음 전송 | S11-6, M24-fork, EP11-policy-send |
+| VP-25 | 실제 앞삽입·앵커 생성·머리 측정·복원 | M39-g1, X01, X08, M26-a4 |
+| VP-26 | part 내부 문자·위쪽 변위·합산 쓰기·입력 취소 | EP12-character, X05, X06, X07, EP12-pointer |
+| VP-27 | 대상 store·reducer·앞삽입 종류·세 하네스의 앵커 | M39-g1, EP12-prefix-reset, EP08-prefix-locations, EP12-work-node |
+| VP-28 | 저장된 펼침과 초점, 전환 대상·종류·시각·시한·세대 | S15-2, S15-3, M28-d9, E16-target, E16-timestamp, E16-reopen-cancel, E16-generation |
+| VP-29 | 범위·기본 복사·비동기 조각·portal·폭·MIME·쓰기와 선택 복귀 | M29-c6, M29-c3, EP17-portal, E17-client-width, E17-clipboard-swap, E17-plain-break, E17-paragraph-break, E17-empty-break, X09, M29-c19 |
+| VP-30 | 폭 변경 통지 → 대기·프레임 → 읽기/쓰기와 글꼴 | S18-1, S18-2, M30-m3, M30-m7 |
+| VP-31 | streaming renderer → 새 완결 줄 → 펜스 판정·본문 | EP19-tail, M31-f8, E19-closer-char, E19-body-crlf, EP19-fence-code |
+| VP-32 | 기록 → 패널 색인 → 기여·revision·뷰 | S13-1, S13-6, M32-x10, M32-x11, M32-x12, M32-x13 |
+| VP-33 | 9개 소비자의 훅 호출별 도메인, 추가 인자 유무, 과거 전체 스캔 복귀 | E14-* 및 M33-panel-consumer |
+| VP-34 | 연속 run·본문 결합·버퍼 교체·시작 조건·완료의 번호 | M34-b3, S20-2, S20-3, S20-4, M34-b10 |
+| VP-35 | J1~J10 입력·세 갈래·키 조회 계수, §19 사람 실기 대기 | E21-exchanges, E21-publication-owner, E21-task-update, E21-result-withdraw, E21-scan-length, S21-j8, E21-reorder |
+| VP-36 | 0325 OpenCode 회귀가 공유하는 live·선택·스크롤 경로 | M19-live-viewport, X09, E11-opencode-wheel |
+| VP-37 | 0325 Claude 회귀가 공유하는 결과 소유·그룹·꼬리 | S08-result-owner, M16-z2, S11-6 |
+| VP-38 | 0324 회귀가 공유하는 캐시 재열기·저장·중계 | M08-reopen-id, M02-writer, M03-relay-copy |
+| VP-39 | 앞삽입 대상·페이지 겹침·보류 값·끝 표식·로그 | M39-g1, M39-g14, E22-first-position, E22-boundary-begin, E22-orphan-outputs, S22-5 |
+
+후속 실행 225개를 [변이 사양과 관측](evidence/r3.2-followup.jsonl)에 보관했다. 앞선 262개와 후속 225개는 실행 ID가 서로 다르며, 각 수치는 고장 주입 횟수다. 원복한 소스에서 수동으로 재현할 때는 아래 명령을 저장소 루트에서 실행한다.
+
+```sh
+python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0326-transcript-incremental-model/evidence/r3.2-followup.jsonl --cwd app
+```
+
+- 메시지 번호는 UUID·원본·생성 대체 경로를 포함한 11개 표기의 모든 두 표기 교환 55개, 가변 성분·표식 11개, 8종 이벤트 개별 제외를 검사했다. 송신기의 추론 델타 키 누락·기존 델타 키 덮어쓰기·현재 번호를 원 소유로 잘못 표시하는 변이도 검출했다.
+- SQLite writer에서 8종 이벤트마다 키 전달을 제거했고 응답 경계 끝도 따로 제거했다. 저장 뒤 8개 행 각각의 part와 늦게 도착한 끝 이벤트의 행을 실제 로드로 확인했다. 보류 publication의 첫 값, 최신 결과의 원래 도착 순서, user 경계 양쪽의 중복, 도구/응답 소유자가 같은 문자열일 때의 병합도 확인했다.
+- 세 화면의 인라인 코드에서 여는 백틱과 본문 백틱이 다른 part이면 원문 위치가 틀렸다. 수정 전 세 테스트가 모두 실패했다. 이제 CommonMark 구분 기호와 양끝 한 칸 패딩을 제외하고 CRLF를 한 칸으로 대응한다. 세 화면에서 같은 키와 문자 위치를 단언한다.
+- §19 현재 트리 J1~J10을 실행했다. J1·J2는 10,000 exchange 끝 part 변경, J3·J4는 index 1 산출물, J5는 100/1,000개 보드의 실제 TaskUpdate, J6는 10,000 part의 추가·앞 결과 철회·다른 종류 추가다. J7은 100,000자를 2,000개 델타로 나눠 펜스·loose list·긴 문단을 따로 측정한다. 코드 문자열 생성과 메모리 DOM 텍스트 갱신의 측정 경계도 분리했다. J10의 내용 변경·콜백 교체·개수 증가·첫/끝 크기 변경·순서 교체 6개를 두 크기에서 재고, 100,000블록 내용 변경/순서 교체의 키 조회는 각각 0/100,017회였다. 옛 트리 대응 함수와 Windows 실기 비교는 별도다.
+- Chromium에 앱 스타일을 적용하고 각 화면에서 실제 Range·Selection·Blob·ClipboardItem을 사용했다. 비가상 화면의 선택과 비교하니 고정 개행 결합은 문단 뒤 개행을 하나 잃었고, 빈 블록 조각에서는 개행이 하나 늘었다. 조각 경계의 렌더된 개행 수를 측정하고 빈 중간 조각을 건너뛴 뒤, 1·2·3·7블록씩 분할한 양방향 선택 12건에서 평문·HTML 본문·원래 선택 양끝이 일치했다. clipboard.write 수신부만 모사했다.
+- Linux 전체 Vitest를 필터 없이 실행한 결과 1,081파일 10,158건 중 10,124건 통과, 실패 22건, 예상 실패 1건, 건너뜀 11건, 미처리 오류 1건이다. 실패한 테스트 이름은 기준선과 양방향 차집합 0건이다. 이후 수정한 Markdown·복사 경로는 해당 테스트와 Chromium에서 다시 실행했다.
+- 이 표의 분모는 §7-A 39개 pair다. 복합 경로의 모든 개별 edge 및 §10 166자리 안의 조건·형제 교환 전수 판정은 계속 열어 둔다. 구현자 AC 자기 판정은 12/35, 독립 verify는 대기다.

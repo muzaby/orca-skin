@@ -82,6 +82,8 @@ it.each([
       render()
       toggle()
       expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+      const closingTime = 1000
+      vi.spyOn(performance, 'now').mockReturnValue(closingTime)
       toggle()
       const wrapper = dom.query('[data-tool-body-transition]')!
       const transition = wrapper.props[name] as (event: {
@@ -99,6 +101,14 @@ it.each([
       })
       // e7: non-grid propertyName ignored
       transition({ target: wrapper, currentTarget: wrapper, propertyName: 'opacity', timeStamp: 0 })
+      render()
+      expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
+      transition({
+        target: wrapper,
+        currentTarget: wrapper,
+        propertyName: 'grid-template-rows',
+        timeStamp: closingTime - 1
+      })
       render()
       expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
       // e1/e2: own grid-template-rows unmounts body
@@ -141,11 +151,15 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
     toggle() // open
     const timer = vi.spyOn(globalThis, 'setTimeout')
     toggle() // close gen 1
+    expect(timer.mock.lastCall?.[1]).toBe(300)
+    const deadline = timer.mock.results.at(-1)?.value
+    const cancel = vi.spyOn(globalThis, 'clearTimeout')
     const staleDeadline = timer.mock.lastCall?.[0]
     expect(typeof staleDeadline).toBe('function')
     vi.advanceTimersByTime(150)
     // e5: reopen before deadline keeps body mounted and cancels gen 1 timer
     toggle()
+    expect(cancel).toHaveBeenCalledWith(deadline)
     vi.advanceTimersByTime(200)
     render()
     expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()

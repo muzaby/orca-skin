@@ -72,7 +72,10 @@ describe('OpenCode transcript presentation', () => {
             { type: 'text', text: 'A **bold ' },
             { type: 'text', text: 'split** [link](https://example.com) `code`\n\n```text\nleft ' },
             { type: 'text', text: 'right\n```\n\n&amp;' },
-            { type: 'text', text: 'amp; next' },
+            { type: 'text', text: 'amp; next\n\n`` ' },
+            { type: 'text', text: '`' },
+            { type: 'text', text: ' `` and `` A \r\n' },
+            { type: 'text', text: ' B ``' },
             ...(agentKind === 'work'
               ? [
                   {
@@ -105,9 +108,13 @@ describe('OpenCode transcript presentation', () => {
       const first = '[data-part-key="a:parts:text:0"]'
       const middle = '[data-part-key="a:parts:text:1"]'
       const last = '[data-part-key="a:parts:text:2"]'
-      expect($('p').last().text()).toBe('&amp; next')
-      expect($('p').last().find(last).text()).toBe('&')
-      expect($('p').last().find('[data-part-key="a:parts:text:3"]').text()).toBe('amp; next')
+      const entityParagraph = $('p').filter((_, p) => $(p).text() === '&amp; next')
+      expect(entityParagraph).toHaveLength(1)
+      expect(entityParagraph.find(last).text()).toBe('&')
+      expect(entityParagraph.find('[data-part-key="a:parts:text:3"]').text()).toBe('amp; next')
+      expect($('code [data-part-key="a:parts:text:4"]').text()).toBe('`')
+      expect($('code [data-part-key="a:parts:text:5"]').text()).toBe('A  ')
+      expect($('code [data-part-key="a:parts:text:6"]').text()).toBe(' B')
       expect($('strong').text()).toBe('bold split')
       expect($(`strong ${first}`).text()).toBe('bold ')
       expect($(`strong ${middle}`).text()).toBe('split')

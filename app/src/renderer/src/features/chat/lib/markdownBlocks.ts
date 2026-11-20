@@ -134,7 +134,7 @@ function createInitialScanState(): MarkdownScanState {
   }
 }
 
-function scanIncrement(
+export function scanIncrement(
   source: string,
   prevStable: string[],
   prevState: MarkdownScanState

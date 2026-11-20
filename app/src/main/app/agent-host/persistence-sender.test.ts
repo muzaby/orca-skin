@@ -1103,6 +1103,28 @@ describe('0326 message identity', () => {
     expect((d2 as { messageKey?: string }).messageKey).toBe('a:2')
   })
 
+  it.each(['message.delta', 'message.reasoning.delta'] as const)(
+    'preserves a preset %s key and stamps unkeyed deltas with the current message',
+    (type) => {
+      const h = setup()
+      const turn = turnOf({ dbSessionId: 's' })
+      const preset = { type, sessionId: 's', delta: { text: 'first' }, messageKey: 'a:upstream' }
+      const local: NormalizedEvent = { type, sessionId: 's', delta: { text: 'second' } }
+      const done: NormalizedEvent = {
+        type: 'message.completed',
+        sessionId: 's',
+        message: { text: 'third' }
+      }
+      for (const ev of [preset, local, done]) h.sender.onTurnEvent(turn, ev)
+      expect(h.payloads('turn.event').map(({ ev }) => (ev as typeof preset).messageKey)).toEqual([
+        'a:upstream',
+        'a:1',
+        'a:1'
+      ])
+      expect(done.messageKeySource).toBeUndefined()
+    }
+  )
+
   it('k20 sets messageKeySource=owner only for callKeys/boundaryKeys hits and preserves preset source', () => {
     const h = setup()
     const turn = turnOf({ dbSessionId: 's' })

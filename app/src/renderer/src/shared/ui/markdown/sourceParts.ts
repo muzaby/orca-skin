@@ -30,7 +30,7 @@ export function markSourceText(
   start: number,
   end: number,
   parts: readonly MarkdownSourcePart[],
-  decodeMarkdown = false
+  mode: 'literal' | 'markdown' | 'inlineCode' = 'literal'
 ): MarkedText[] {
   if (!parts.length) return []
   let partIndex = Math.max(0, partAtOffset(parts, start))
@@ -38,11 +38,33 @@ export function markSourceText(
     return [{ key: parts[partIndex].key, text: value }]
   }
 
+  if (mode === 'inlineCode') {
+    // HAST includes both backtick delimiters in the text node's source position.
+    let bodyStart = start
+    while (bodyStart < end && source[bodyStart] === '`') bodyStart++
+    end -= bodyStart - start
+    start = bodyStart
+  }
   const raw = source.slice(start, end)
   // For ordinary prose use CommonMark's decoded token and its original position.
   // One reference can produce multiple UTF-16 units, all owned by its opening part.
   const decodedOffsets: number[] = []
-  if (decodeMarkdown && /[&\\]/.test(raw)) {
+  if (mode === 'inlineCode') {
+    // CommonMark treats each line ending as one space and strips one padding space
+    // at each end unless the span consists entirely of spaces.
+    const normalized = raw.replace(/\r\n?|\n/g, ' ')
+    const padded = normalized.startsWith(' ') && normalized.endsWith(' ') && /[^ ]/.test(normalized)
+    if ((padded ? normalized.slice(1, -1) : normalized) === value) {
+      for (let i = 0; i < raw.length; i++) {
+        decodedOffsets.push(start + i)
+        if (raw[i] === '\r' && raw[i + 1] === '\n') i++
+      }
+      if (padded) {
+        decodedOffsets.shift()
+        decodedOffsets.pop()
+      }
+    }
+  } else if (mode === 'markdown' && /[&\\]/.test(raw)) {
     const tokenPattern = /&(?:#x[0-9a-f]{1,6}|#\d{1,7}|[a-z][a-z0-9]{1,31});|\\[!-~]|[\s\S]/gi
     let decoded = ''
     for (const match of raw.matchAll(tokenPattern)) {
@@ -101,14 +123,19 @@ export function sourcePartSpans(
     const end = node.position?.end.offset
     if (start === undefined || end === undefined || node.value === '') return [node]
 
-    return markSourceText(node.value, source, start, end, parts, decodeMarkdown).map(
-      (run): Element => ({
-        type: 'element',
-        tagName: 'span',
-        properties: { dataPartKey: run.key, dataMarkdownPartFragment: '' },
-        children: [{ type: 'text', value: run.text } satisfies Text]
-      })
-    )
+    return markSourceText(
+      node.value,
+      source,
+      start,
+      end,
+      parts,
+      decodeMarkdown ? 'markdown' : 'inlineCode'
+    ).map((run): Element => ({
+      type: 'element',
+      tagName: 'span',
+      properties: { dataPartKey: run.key, dataMarkdownPartFragment: '' },
+      children: [{ type: 'text', value: run.text } satisfies Text]
+    }))
   }
 
   return () => (tree) => {

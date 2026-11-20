@@ -200,6 +200,60 @@ test('j4 없는 모듈 트리에서 J1~J8 측정은 N/A(함수 없음) 를 반�
   }
 })
 
+test('J1–J7 exercise the specified transcript edits, board sizes, segment edits and stream lengths', async () => {
+  const modules = await loadTree(fileURLToPath(new URL('..', import.meta.url)))
+  let change
+  const cases = transcriptMeasurementCases({
+    ...modules,
+    reducer: {
+      ...modules.reducer,
+      chatReducer(state, action) {
+        const result = modules.reducer.chatReducer(state, action)
+        change = result.transcriptChanges.log.at(-1)
+        return result
+      }
+    }
+  })
+  const byId = new Map(cases.map((item) => [item.id, item]))
+  const run = (id) => {
+    const item = byId.get(id)
+    return item.run(item.prepare?.())
+  }
+  for (const name of ['J1', 'J1(work)', 'J2', 'J3', 'J4']) {
+    const item = byId.get(name + ':incremental')
+    const ctx = item.prepare()
+    assert.equal(ctx.state.messages.length, 20_000)
+    const value = item.run(ctx)
+    assert.deepEqual(change, {
+      kind: 'replace',
+      id: name === 'J3' || name === 'J4' ? 'a:j-0' : 'a:j-9999',
+      partsFrom: 3
+    })
+    if (name === 'J4') assert.equal(value.length, 9)
+    else assert.ok(value.count >= 20_000)
+  }
+  for (const [name, size] of [
+    ['J5', 100],
+    ['J5(1000)', 1000]
+  ]) {
+    const result = run(name + ':incremental')
+    assert.equal(result.length, size)
+    assert.equal(result.find((item) => item.id === '1').status, 'completed')
+  }
+  assert.equal(run('J6:incremental')[0].text, 'x'.repeat(10_000) + 'new')
+  assert.equal(run('J6(withdraw):coldBuild')[0].calls[0].result.output, 'old')
+  assert.equal(run('J6(withdraw):incremental')[0].calls[0].result, undefined)
+  assert.equal(run('J6(different-kind):incremental').at(-1).kind, 'reasoning')
+  for (const name of ['J7', 'J7(list)', 'J7(paragraph)'])
+    assert.equal(run(name + ':incremental'), 100_000)
+  const { full, deltas } = jOpenFenceStream()
+  assert.equal(deltas.length, 2000)
+  assert.ok(deltas.every((delta) => delta.length === 50))
+  const expectedCode = full.slice(full.indexOf('\n') + 1).replace(/\n$/, '')
+  assert.equal(run('J7:code'), expectedCode)
+  assert.equal(run('J7:dom'), expectedCode)
+})
+
 test('J8 prepends a turn through the production reducer and reuses the loaded state on cache hits', async () => {
   const modules = await loadTree(fileURLToPath(new URL('..', import.meta.url)))
   const cases = transcriptMeasurementCases(modules)
@@ -219,10 +273,20 @@ test('J8 prepends a turn through the production reducer and reuses the loaded st
   }
 })
 
-test('j5 J10 Virtualizer 측정은 고정 getItemKey 로 세 갈래 요약을 낸다', async () => {
-  const j10 = await measureJ10Virtualizer([500])
-  assert.equal(j10.length, 3)
-  assert.ok(j10.every((row) => typeof row.getItemKeyCalls === 'number'))
+test('j5 J10 compares equal-sized updates with callback invalidation and key reordering', async () => {
+  const rows = await measureJ10Virtualizer([500])
+  const byId = new Map(rows.map((row) => [row.id, row]))
+  const row = (name) => byId.get(`J10(500:${name})`)
+  assert.equal(rows.length, 6)
+  assert.ok(rows.every((item) => Number.isFinite(item.result.median)))
+  assert.equal(row('content').firstKey, 'k:0')
+  assert.equal(row('callback').firstKey, 'k:0')
+  assert.equal(row('reorder').firstKey, 'k:1')
+  assert.ok(row('content').getItemKeyCalls < 500)
+  assert.ok(row('callback').getItemKeyCalls >= 500)
+  assert.ok(row('reorder').getItemKeyCalls >= 500)
+  assert.ok(row('count+1').getItemKeyCalls >= 501)
+  assert.ok(row('topResize').getItemKeyCalls > row('lastResize').getItemKeyCalls)
 })
 
 test('j6 J9 상한 탐색은 예산 내 최대 표본과 조립 task 를 보고하고 전부 초과 시 통과 표본 없음 을 반환한다', () => {
@@ -239,7 +303,7 @@ test('j6 J9 상한 탐색은 예산 내 최대 표본과 조립 task 를 보고�
 
 test('j7 J10 Virtualizer getItemKey 호출 수는 입력 크기에 대해 양의 정수 계수로 기록된다', async () => {
   const j10 = await measureJ10Virtualizer([200])
-  assert.equal(j10.length, 3)
+  assert.equal(j10.length, 6)
   for (const row of j10) {
     assert.ok(Number.isInteger(row.getItemKeyCalls) && row.getItemKeyCalls >= 0)
   }

@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 const app = fileURLToPath(new URL("../../../../app/", import.meta.url));
 const require = createRequire(join(app, "package.json"));
 const { build } = await import(require.resolve("vite"));
+const { default: tailwindcss } = await import(require.resolve("@tailwindcss/vite"));
 const probe = fileURLToPath(new URL("./live-probe.tsx", import.meta.url));
 const profile = await mkdtemp(join(tmpdir(), "orca-react-probe-"));
 let resolveProbe;
@@ -39,6 +40,7 @@ await build({
     },
   },
   plugins: [
+    tailwindcss(),
     {
       name: "measure-committed-transcript-renders",
       enforce: "pre",
@@ -46,7 +48,9 @@ await build({
         if (id.endsWith("/TranscriptViewport.tsx")) {
           const expression = "renderBlock(block, vi.index, selected)";
           if (!source.includes(expression)) throw new Error("Virtual row render entry changed");
-          return source.replace(expression, "(block.key === 'u:old:user' && globalThis.rowRenders++, " + expression + ")");
+          // Exercise the public copyChunkSize override with a small selection on each real Timeline.
+          if (!source.includes("  copyChunkSize,")) throw new Error("Copy chunk option changed");
+          return source.replace("  copyChunkSize,", "  copyChunkSize = globalThis.probeChunkSize ?? 2,").replace(expression, "(block.key === 'u:old:user' && globalThis.rowRenders++, " + expression + ")");
         }
         if (!id.endsWith("/UserBubbleText.tsx")) return;
         const start = "const { tr } = useI18n()";

@@ -592,7 +592,25 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
               const text = domSel.toString()
               const wrapper = document.createElement('div')
               wrapper.appendChild(range.cloneContents())
-              return { text, html: wrapper.innerHTML }
+              // Include a neighboring glyph to measure the line breaks Chromium inserts
+              // around the chunk. Paragraphs, ordinary blocks and empty rows differ.
+              const startNode = domSel.anchorNode!
+              const startOffset = domSel.anchorOffset
+              const endNode = domSel.focusNode!
+              const endOffset = domSel.focusOffset
+              const edge = (side: string): Node =>
+                host.parentElement!.querySelector(`[data-copy-edge="${side}"]`)!.childNodes[0]
+              let leadingBreaks = 0
+              let trailingBreaks = 0
+              if (!isFirst) {
+                domSel.setBaseAndExtent(edge('before'), 0, endNode, endOffset)
+                leadingBreaks = Math.max(0, domSel.toString().length - 1 - text.length)
+              }
+              if (!isLast) {
+                domSel.setBaseAndExtent(startNode, startOffset, edge('after'), 1)
+                trailingBreaks = Math.max(0, domSel.toString().length - 1 - text.length)
+              }
+              return { text, html: wrapper.innerHTML, leadingBreaks, trailingBreaks }
             } finally {
               // Restore user selection (including reverse direction) and focus (c19)
               domSel.removeAllRanges()
@@ -847,7 +865,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
               <div
                 key={block.key}
                 data-block-key={block.key}
-                className={itemClassName?.(block, index)}
+                className={`w-full ${itemClassName?.(block, index) ?? ''}`}
                 data-part-key={
                   hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
                 }

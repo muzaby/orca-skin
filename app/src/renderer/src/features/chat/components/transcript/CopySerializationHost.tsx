@@ -21,13 +21,16 @@ export function CopySerializationHost({
   if (typeof document === 'undefined' || !document.body) return null
   return createPortal(
     <div
-      ref={hostRef}
       aria-hidden="true"
       data-copy-serialization-host=""
-      className="pointer-events-none fixed top-0 left-[-99999px] select-text"
+      className="pointer-events-none fixed top-0 left-[-99999px] flex flex-col select-text"
       style={{ width: widthPx > 0 ? `${widthPx}px` : undefined }}
     >
-      {children}
+      <span data-copy-edge="before">x</span>
+      <div ref={hostRef} className="contents">
+        {children}
+      </div>
+      <span data-copy-edge="after">x</span>
     </div>,
     document.body
   )

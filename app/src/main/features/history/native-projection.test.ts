@@ -176,6 +176,32 @@ it('keeps the latest bound native ID stable when earlier history is prepended', 
 })
 
 describe('VP-05 load identity rules (i1~i8)', () => {
+  it('uses native order for aliases and the smaller database ID on a tie, independent of binding order', () => {
+    const source = snapshot()
+    const bindings = [
+      { message_id: 9, native_message_id: 'a2' },
+      { message_id: 9, native_message_id: 'user-native' },
+      { message_id: 12, native_message_id: 'assistant-native' },
+      { message_id: 13, native_message_id: 'user-native' }
+    ]
+    const rows = [
+      { ...row(12, { type: 'text', text: 'later row' }), message_key: 'a:twelve' },
+      row(9, { type: 'text', text: 'legacy row' }),
+      { ...row(13, { type: 'text', text: 'live tail' }), message_key: 'a:tail' }
+    ]
+    for (const order of [bindings, [...bindings].reverse()]) {
+      expect(projectNativeHistory(source, rows, order, 12).messages.map((m) => m.id)).toEqual([
+        'n:user-native',
+        'm:9',
+        'a:tail'
+      ])
+    }
+    // A row exactly at the frontier can own its native ID even without a competing row.
+    expect(projectNativeHistory(source, [rows[0]], bindings, 12).messages.map((m) => m.id)).toEqual(
+      ['n:user-native', 'a:twelve']
+    )
+  })
+
   it('i1~i5, i7, i8 assign deterministic unique IDs across bound, unbound, orphan, tie-break, and prepend', () => {
     const source: NativeHistorySnapshot = {
       sessionId: 's',

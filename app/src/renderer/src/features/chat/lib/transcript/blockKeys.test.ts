@@ -9,6 +9,7 @@ import {
   partBlockKey,
   PartKeyTracker,
   representativePart,
+  textPartGroups,
   toolBlockKey,
   turnArtifactsKey,
   turnMetaKey,
@@ -30,6 +31,42 @@ describe('blockKeys (EP-7 y1~y20)', () => {
     expect(turnMetaKey('a:1')).toBe('a:1:meta')
     expect(turnArtifactsKey('a:1')).toBe('a:1:artifacts')
     expect(liveBlockKey('s1')).toBe('live:s1')
+  })
+
+  it('keeps Markdown source offsets across non-rendered parts and restarts them at visual breaks', () => {
+    const entries = [
+      ['text', 'text:ab'],
+      ['boundary', 'boundary:b:begin'],
+      ['text', 'text:c'],
+      ['reasoning', 'reasoning:  '],
+      ['text', 'text:'],
+      ['artifact', 'artifact:p'],
+      ['text', 'text:de'],
+      ['attachment', 'attachment:f'],
+      ['text', 'text:f'],
+      ['reasoning', 'reasoning:visible'],
+      ['text', 'text:next'],
+      ['tool', null],
+      ['text', 'text:last']
+    ] as const
+    const groups = textPartGroups(
+      entries.map(([kind, signature], partIndex) => ({
+        key: String(partIndex),
+        partIndex,
+        kind,
+        signature
+      }))
+    )
+    expect(groups).toEqual([
+      [
+        { key: '0', start: 0 },
+        { key: '2', start: 2 },
+        { key: '6', start: 3 },
+        { key: '8', start: 5 }
+      ],
+      [{ key: '10', start: 0 }],
+      [{ key: '12', start: 0 }]
+    ])
   })
 
   it('y8: assertUniqueBlockKeys throws on duplicate keys', () => {
