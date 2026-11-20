@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import orderSource from './messageOrder.ts?raw'
 import panelSource from '../transcriptIndex.ts?raw'
-import { changesSince, foldChanges, newTranscriptChanges, recordChange } from './changeLog'
+import {
+  changedMessageLocations,
+  changesSince,
+  foldChanges,
+  newTranscriptChanges,
+  recordChange,
+  type TranscriptChange
+} from './changeLog'
 
 describe('transcript change log', () => {
   it('keeps the most recent 64 serializable changes and invalidates older and foreign cursors', () => {
@@ -43,6 +50,42 @@ describe('transcript change log', () => {
         ['edited', 1]
       ])
     )
+  })
+
+  it('keeps final insertion positions independently of surviving replacement offsets', () => {
+    const changes: TranscriptChange[] = [
+      { kind: 'remove', ids: ['to-end', 'to-front'] },
+      { kind: 'append', ids: ['to-end', 'last', 'gone'] },
+      { kind: 'prepend', ids: ['first', 'to-front'] },
+      { kind: 'replace', id: 'unchanged-position', partsFrom: 6 },
+      { kind: 'remove', ids: ['gone'] }
+    ]
+    expect(changedMessageLocations(changes)).toEqual({
+      prependedIds: ['first', 'to-front'],
+      appendedIds: ['to-end', 'last'],
+      relocatedIds: new Set(['to-end', 'to-front'])
+    })
+    expect(foldChanges(changes)).toEqual(
+      new Map([
+        ['to-end', 0],
+        ['to-front', 0],
+        ['first', 0],
+        ['last', 0],
+        ['gone', Infinity],
+        ['unchanged-position', 6]
+      ])
+    )
+    expect(
+      changedMessageLocations([
+        { kind: 'append', ids: ['edited'] },
+        { kind: 'replace', id: 'edited', partsFrom: 2 }
+      ]).appendedIds
+    ).toEqual(['edited'])
+    expect(changedMessageLocations([])).toEqual({
+      prependedIds: [],
+      appendedIds: [],
+      relocatedIds: new Set()
+    })
   })
 
   it('l7: both session indexes are weakly owned by the lineage token', () => {
