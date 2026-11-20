@@ -8,7 +8,7 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) · 2026-11-20 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) |
-| 상태 / V | plan/DRAFT · Baseline V · 기준 V 없음 · 이번/유효 V1 초안 |
+| 상태 / V | plan/DRAFT · Baseline V · 기준 V 없음 · 이번/유효 V1 rev 2 초안 |
 | 조사 기준 | `ccr-d0337fe8-4bexw8`의 `62125eaa` · 0326 verify r2 FAIL · 0327 plan READY |
 | 착수 | 계획은 0327 구현 전에 작성한다. 구현 직전 0326 최종 소비 계약·검증 좌표를 §10과 대조한다. 0327 워커 구현은 E의 조회 선행 조건이 아니다. |
 
@@ -43,11 +43,25 @@
 
 갱신 메모 — V1 초안. D-001~004·006~008은 각 행의 AC와 대조했다. 부모 0325 D-023의 상단 제스처·스피너·재시도는 0326에서 구체화됐고, 소비자 범위 결정은 남아 있다.
 
+rev 2에서는 현재 구현된 왼쪽 **최근 대화**와 Claude Work의 **작업 → 진행 상황**을 §5에 표시했다. 메시지 위치로 바로 이동하는 검색은 사용자 선택으로 남는다.
+
 ## 4. 현재 요구 검토
 
 0325의 조각 상한은 한 번 전송하는 비용을 제한한다. 현재 `loadPartsStmt`는 그 앞에서 모든 part를 읽으며 §8의 동일한 최신 턴 실험에서 반환 행이 2 → 20,000이 됐다. 창이 이미 받은 큰 배열을 잘라 표시하는 방법으로는 AC1을 충족할 수 없다.
 
 ## 5. 사용자 흐름과 상태
+
+**현재 앱에서 여는 경로.** 왼쪽 내비게이션을 펼치면 한국어 UI에 **최근 대화** 목록이 있고, 그 안의 저장된 대화 제목을 누르면 해당 대화로 이동한다. 고정한 대화는 **고정됨**, 프로젝트 대화는 프로젝트 상세 목록에서도 선택할 수 있다. 이미 보고 있는 동일한 대화 제목을 다시 누르면 평상시에는 재조회하지 않고 읽던 위치를 유지한다.
+
+| 실제 조작 | 현재 코드에서 확인한 동작 | 단계 E의 변경 대상 |
+|---|---|---|
+| **최근 대화**의 제목 선택 | 접은 내비게이션에는 세션 목록이 숨겨진다. 펼친 목록의 행은 `onSelect(session.id)`를 호출하고, 앱은 `/chat/<id>`로 이동한 뒤 다른 세션이면 로드한다. | 기존 목록·대화 선택 경로를 사용한다. 선택 뒤 호스트가 읽는 이력과 대화 상단에서 위로 당길 때의 동작을 바꾼다. |
+| 상단 **검색** → **대화 내용 검색…** → 결과 선택 | 발췌문을 찾은 대화로 이동한다. 결과의 메시지 위치는 현재 라우트에 전달하지 않는다. | 승인 대상인 D-005에서 일치한 턴·메시지로 이동하는 방식을 제안했다. |
+| Claude Work 우측 **작업** → **진행 상황** | 해당 패널이 표시될 때 현재 작업 목록을 그린다. 아래 예시의 “작업 보드”는 이 목록을 만드는 데이터 모델을 가리킨다. Claude Code는 작업을 **계획** 타일에서 다루며 OpenCode는 자체 개요를 쓴다. | 화면별 기존 항목에 미로딩 이력을 어떻게 반영할지 선택한다. 신규 공통 작업 화면은 범위 밖이다. |
+
+경로 근거(아래 링크는 조사 기준 코드). [왼쪽 최근 대화](../../../app/src/renderer/src/app/Sidebar.tsx#L155) · [대화 행 클릭](../../../app/src/renderer/src/features/sessions/components/SessionRow.tsx#L244) · [대화 선택](../../../app/src/renderer/src/app/hooks/useSessionHandlers.ts#L98) · [동일 대화 재선택](../../../app/src/renderer/src/app/hooks/useChatRouteSync.ts#L62) · [프로젝트 상세](../../../app/src/renderer/src/pages/ProjectLandingPage.tsx#L122) · [검색 결과 선택](../../../app/src/renderer/src/features/sessions/components/SearchModal.tsx#L71) · [Work와 Code의 타일 정책](../../../app/src/renderer/src/features/chat/harnesses/claude/rightPanel.ts#L7) · [Work 진행 상황](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/TaskTileContent.tsx#L21).
+
+**다음 표는 계획한 동작이다.**
 
 | 시작 상태·입력 | 다음 상태·화면 | 실패·끝 |
 |---|---|---|
@@ -58,7 +72,9 @@
 | 조회 중 live 이벤트·세션 전환·삭제·재접속 | 같은 세션의 새 live tail과 미로딩 원 소유 패치는 B 규칙으로 합쳐진다. 전환 후에는 이전 응답을 적용하지 않는다. | A→B→A도 옛 세대 거부. 화면을 읽는 동안 refresh로 이미 본 과거 턴과 선택을 버리지 않는다. |
 | 이력 끝 | 마지막 응답의 끝 표식을 소비해 스피너를 닫는다. 빈 세션·한 턴뿐인 세션도 즉시 끝이다. | 이력 끝과 본문 조각의 끝을 따로 표시한다. |
 
-**D-005 사용자 선택**. 두 안 모두 실행 중 작업의 취소·권한·복구는 기존 호스트 정본을 쓴다.
+**D-005 사용자 선택**. 패널에 어느 범위의 작업을 보여 줄지와 검색 결과 선택 후 어디를 열지는 독립적으로 정할 수 있다. 아래 A·B는 검색 위치 이동을 함께 적용한 예다. 기존처럼 대화만 여는 방식을 선택해도 턴 단위 조회는 설계할 수 있다.
+
+두 안 모두 실행 중 작업의 취소·권한·복구는 기존 호스트 정본을 쓴다.
 
 | 안 | 아직 읽지 않은 턴에만 작업·도구가 있을 때 | 검색 결과 클릭 |
 |---|---|---|
@@ -68,13 +84,15 @@
 
 ### 같은 대화에서 사용자가 보게 될 변화
 
-가상의 프로젝트 대화에 100턴이 있다. 17턴에서 “릴리스 노트 점검” 작업을 만들고 41턴에 완료했다. 63턴에는 검색어 “센서 A”가 있고, 100턴은 두 줄짜리 마지막 답변이다. 아래 숫자는 동작을 비교하기 위한 예시다.
+예시는 Claude Work이며, 저장된 대화가 ‘최근 대화’에 보이고 현재 다른 대화가 열린 상태를 가정한다. 예시 대화에는 100턴이 있다. 63턴에는 검색어 “센서 A”가 있고, 100턴은 두 줄짜리 마지막 답변이다.
+
+17턴에서 Claude가 실제 작업 도구 `TaskCreate`로 **테스트 수정**을 등록해 작업 ID 7을 받았다. 41턴에는 `TaskUpdate`가 같은 작업의 완료를 성공으로 돌려줬다. 현재 작업 목록은 이런 도구 호출과 짝이 맞는 구조화된 결과를 읽어 상태를 만들며, 대화에 ‘테스트 수정’이라는 문장만 쓴 경우에는 항목을 만들지 않는다. [작업 목록 계산](../../../app/src/renderer/src/features/chat/lib/transcriptIndex.ts#L665)
 
 | 사용자가 하는 일 | 현재(AS-IS) | 계획(TO-BE) |
 |---|---|---|
-| 아침에 사이드바에서 이 대화를 다시 연다 | data가 저장된 이력 전체를 조립하고 창이 모든 조각을 받아야 본문을 한 번에 교체한다. 사용자는 마지막 두 줄을 읽으려 해도 과거 99턴 처리에 따르는 대기를 겪는다. | 100턴 두 줄이 준비되면 메타·본문을 한꺼번에 표시하고 하단에 둔다. 위로 한 번 당기면 머리에 스피너가 나오고 99턴만 앞에 붙는다. 휠을 놓으면 98턴 요청도 멈춘다. |
-| 100턴을 열자마자 우측 패널과 작업 보드에서 어제 끝낸 일을 확인한다 | 지금 읽기는 대화 전체를 창에 넣으므로 메시지 기반 색인이 17턴 생성과 41턴 완료를 모두 볼 수 있다. | **A**에서는 완료 1건이 바로 보인다. 항목을 누를 때 필요한 상세·출처만 가져온다. 첫 열기와 독립적으로 요약 저장·갱신이 필요하다. **B**에서는 “불러온 이력 기준”과 범위를 표시한다. 아직 보이지 않는 작업을 찾으려면 관련 턴을 더 읽어야 한다. |
-| 상단 검색에서 “센서 A” 결과를 클릭한다 | 검색 결과에는 발췌문이 보이지만 클릭하면 세션 ID만 넘긴다. 사용자는 대화를 연 뒤 다시 63턴을 찾아야 한다. | A·B 모두 누른 결과를 기준으로 63턴과 일치 메시지 위치를 직접 연다. 중간에 64~99턴이 있는 것처럼 붙이지 않는다. “최신 대화로”를 누르면 100턴으로 돌아가며, 일반 사이드바 열기의 기본값도 100턴이다. |
+| 왼쪽 **최근 대화**에서 이 대화의 제목을 누른다 | 캐시가 없으면 data가 저장 이력 전체를 조립하고 창이 모든 조각을 받은 뒤 본문을 표시한다. 캐시가 있으면 기존 본문을 먼저 보여 주고 재검증한다. | 100턴 두 줄이 준비되면 메타·본문을 한꺼번에 표시하고 하단에 둔다. 위로 한 번 당기면 머리에 스피너가 나오고 99턴만 앞에 붙는다. 휠을 놓으면 98턴 요청도 멈춘다. |
+| 대화를 연 뒤 Work 우측 **작업 → 진행 상황**에서 어제 끝낸 일을 확인한다 | 전체 이력에 작업 생성·완료 기록이 있으면 기존 목록은 “테스트 수정” 항목을 완료 상태로 표시한다. | **A**에서는 17턴을 창에 읽지 않아도 같은 작업과 완료 상태가 보인다. 항목을 누를 때 필요한 상세·출처만 가져온다. 첫 열기와 독립적으로 요약 저장·갱신이 필요하다. **B**에서는 “불러온 이력 기준”과 범위를 표시한다. 아직 보이지 않는 작업을 찾으려면 관련 턴을 더 읽어야 한다. |
+| 상단 **검색**에서 “센서 A”를 입력하고 결과를 누른다 | 검색 결과에는 발췌문이 보이지만 클릭하면 세션 ID만 넘긴다. 사용자는 대화를 연 뒤 다시 63턴을 찾아야 한다. | A·B 모두 누른 결과를 기준으로 63턴과 일치 메시지 위치를 직접 연다. 중간에 64~99턴이 있는 것처럼 붙이지 않는다. “최신 대화로”를 누르면 100턴으로 돌아가며, 다른 대화를 보다가 **최근 대화** 제목으로 이 대화를 다시 선택해도 100턴에서 시작한다. |
 | 99턴을 읽다가 네트워크/호스트가 끊기거나 다른 대화로 간다 | 진행 중 세션의 live 상태와 전환 보호가 있다. 전체 로드 방식에는 “같은 이전 턴만 다시 요청”하는 화면이 없다. | 오류가 난 머리에서 같은 99턴을 재시도한다. 다른 대화로 간 뒤 도착한 응답은 그 대화에 섞이지 않는다. 원본 보관 기한 만료 후 다시 전송하면 실행 호스트는 1~100턴의 복구 자료를 쓰므로 창에 100턴만 열어 둬도 시작·중간 문맥을 보존한다. |
 
 ## 6. 범위
@@ -191,7 +209,7 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | Q3 · `main/app/data-host/history-body.integration.test.ts` ‘bounded range’ 및 `renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts` ‘same id open’ | 한도 정확히/1초과·emoji가 경계에 걸린 4MiB 본문·2천 part 한 메시지·빈 parts 20만 메시지 단일 턴. 실제 bodyRef를 열어 첫·중간·끝·stale·타세션·취소 후 재시도. 합친 bytes/hash·원본 ID·내용, bounded 표지 수·읽은 DB bytes, 같은 턴 나머지 후 첫 turn 경계까지 비교. |
 | Q4 · `renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts` ‘three harnesses’ | Code/Work/OpenCode 진입, 1/100턴에 같은 이전 턴 추가. 실제 viewport header·scroll writer를 통해 짧음/길음·위·아래·키보드 버튼·실패/재시도/끝·중복 제스처를 재생. request tuple, 표지·선택·pin·머리 높이, DOM 위치 측정. |
 | Q5 · `renderer/src/features/chat/store/history-races.test.ts` ‘generation/overlap/held’ | S1 옛/새 세대, S2, 다른 cursor, live A·B·toolRunId·서로 다른 publication 두 건. 실제 store/reducer에서 응답·이벤트 두 순서와 invalid/empty/reachedStart·reconnect/삭제를 재생. 화면과 백그라운드 항목별 순서·끝·진단/미적용·spinner를 함께 관측. |
-| Q6 · `renderer/src/app/history-search.integration.test.ts` ‘numeric hit to message’ + `main/features/history/turn-page.db.test.ts` ‘signed FTS hit’ | 동일 문구의 local +rowid, native −rowid·복구 prefix·분리 투영·삭제된 행. 실제 FTS 결과에서 선택→경로→취득한 anchor DOM을 단언. 검색창 닫기·세션 변경 후 늦은 응답·일반 사이드바 복귀의 위치까지 확인. |
+| Q6 · `renderer/src/app/history-search.integration.test.ts` ‘numeric hit to message’ + `main/features/history/turn-page.db.test.ts` ‘signed FTS hit’ | 동일 문구의 local +rowid, native −rowid·복구 prefix·분리 투영·삭제된 행. 실제 FTS 결과에서 선택→경로→취득한 anchor DOM을 단언. 검색창 닫기·세션 변경 후 늦은 응답·기존 최근 대화 목록으로 다른 세션에서 진입한 위치까지 확인. |
 | Q7 · `renderer/src/features/chat/components/rightpanel/partial-history.integration.test.ts` ‘consumers’ | 현재 턴 바깥에만 작업 생성/종료·자식 도구·결과, 다른 세션 live 작업, 최신 두 메시지엔 user 한 건. 실제 패널·보드·인계 버튼/실행·OpenCode TODO에서 요약·부분표지·상태·선택된 상세·허용 동작을 확인. |
 | Q8 · `main/app/chat-turn/paged-recovery.integration.test.ts` ‘full archive and fork’ + `renderer/src/features/chat/store/paged-fork.test.ts` ‘parent cursor’ | 5턴 중 창에는 5턴만 보이게 한 뒤 adapter missing→피어 archive→복구, 분기 초안→부모 이력 요청→물질화. 최초/중간/끝 고유표지와 ID를 프롬프트·DB 재열기에서 관측하고 예산 초과는 기존 복구 거부. |
 | Q9 · `main/features/history/turn-index.upgrade.db.test.ts` ‘old database and publication’ | 저장 번호 없는 로컬·단일 JSON native/raw·archive x:·보정 sidecar·구조 불량 fixture, 새 쓰기·중단/재기동·삭제·commit 직전 경쟁. 이전/새 세대별 전량 결과를 old full reader와 비교하고 이전 load 중인 창과 신규 창이 각자 한 세대만 보는지 확인. |
