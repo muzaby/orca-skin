@@ -6,6 +6,7 @@ import { generateTranscriptFixture } from '../../dev/transcriptFixtures'
 import { type ChatState, type Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
+import { messageOrderFor } from '../../lib/transcript/messageOrder'
 import { createBlockList } from '../../lib/transcript/blockList'
 import { chatActions } from '../../store/chatStore'
 import { harnessSession, installChatStoreHarness } from '../../store/chatStore.testHarness'
@@ -18,11 +19,26 @@ vi.mock('react', async (original) => ({
   ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
 let virtualizer: Virtualizer<HTMLDivElement, HTMLElement>
+const measureVirtualKeys = { enabled: false, calls: 0 }
 vi.mock('@tanstack/react-virtual', async () => {
   const { useRealVirtualizerWithFakeHooks } = await import('./viewportTestBridge.testfixture')
   const useVirtualizer = useRealVirtualizerWithFakeHooks<HTMLDivElement, HTMLElement>
+  type KeyAt = NonNullable<Parameters<typeof useVirtualizer>[0]['getItemKey']>
+  const measuredCallbacks = new WeakMap<KeyAt, KeyAt>()
   return {
     useVirtualizer(options: Parameters<typeof useVirtualizer>[0]) {
+      const getItemKey = options.getItemKey
+      if (measureVirtualKeys.enabled && getItemKey) {
+        let measured = measuredCallbacks.get(getItemKey)
+        if (!measured) {
+          measured = (index) => {
+            measureVirtualKeys.calls++
+            return getItemKey(index)
+          }
+          measuredCallbacks.set(getItemKey, measured)
+        }
+        options = { ...options, getItemKey: measured }
+      }
       virtualizer = useVirtualizer(options)
       return virtualizer
     }
@@ -127,6 +143,7 @@ function makeScroller(
 
 let dom: FakeDom | undefined
 afterEach(() => {
+  measureVirtualKeys.enabled = false
   dom?.unmount()
   clearDisclosures('s')
   dom = undefined
@@ -238,41 +255,156 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
     }
   })
 
-  it('prepending one turn costs the same after 1 and 100 loaded turns', () => {
-    const measurePrepend = (loadedTurns: number): { added: number; recreated: number } => {
-      const initial: Message[] = []
-      for (let i = 2; i <= loadedTurns + 1; i++) initial.push(...makeTurn(i))
-      let state = seedHistory(initial)
-      const model = createClaudeBlockModel({ mode: 'code', sessionKey: 's1' })
-      const before = model.advance({
-        messages: state.messages,
-        transcriptChanges: state.transcriptChanges
-      })
-
-      chatActions.prependHistory('s', makeTurn(1), { reachedStart: false })
-      state = harnessSession()
-      expect(state.transcriptChanges.log[state.transcriptChanges.log.length - 1]?.kind).toBe(
-        'prepend'
-      )
-      const after = model.advance({
-        messages: state.messages,
-        transcriptChanges: state.transcriptChanges
-      })
-      let reused = 0
-      for (let i = 0; i < before.count; i++) {
-        const b = before.blockAt(i)
-        const idx = after.indexOf(b.key)
-        if (idx >= 0 && after.blockAt(idx) === b) reused++
+  it.each(['claude-code', 'claude-work', 'opencode'] as const)(
+    'prepending one turn costs the same after 1 and 100 loaded turns (%s)',
+    (screen) => {
+      interface Costs {
+        partsReads: number
+        newBlocks: number
+        boundaryBlocks: number
+        rankWrites: number
+        locationWrites: number
+        keyLookups: number
       }
-      return { added: after.count - before.count, recreated: before.count - reused }
-    }
+      function measurePrepend(loadedTurns: number): {
+        fixed: Costs
+        proportional: {
+          chunkEntries: number
+          orderEntries: number
+          messages: number
+          measurements: number
+          virtualKeys: number
+        }
+      } {
+        const fixture = generateTranscriptFixture(screen, { turns: loadedTurns + 1, loadedTurns })
+        let partsReads = 0
+        const counted = (message: Message): Message => {
+          const parts = message.parts
+          return {
+            ...message,
+            get parts() {
+              partsReads++
+              return parts
+            }
+          }
+        }
+        const prefix = fixture.remainingPrefixTurns[0].map(counted)
+        let state = seedHistory(
+          fixture.loadedMessages.map(counted),
+          screen === 'claude-work' ? 'work' : 'code'
+        )
+        const model =
+          screen === 'opencode'
+            ? createOpenCodeBlockModel()
+            : createClaudeBlockModel({
+                mode: screen === 'claude-work' ? 'work' : 'code',
+                sessionKey: 's'
+              })
+        const before = model.advance(state)
+        const ranks: unknown = Reflect.get(messageOrderFor(state), 'ranks')
+        partsReads = 0
+        dom?.unmount()
+        dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+        const scrollRef = { current: makeScroller() }
+        const renderSnapshot = (value: typeof before): number => {
+          measureVirtualKeys.enabled = true
+          measureVirtualKeys.calls = 0
+          dom!.render(
+            createElement(TranscriptViewport<ViewportBlockBase>, {
+              snapshot: value,
+              scrollRef,
+              renderBlock: (block) => createElement('p', null, block.key)
+            })
+          )
+          virtualizer.getTotalSize()
+          return measureVirtualKeys.calls
+        }
+        renderSnapshot(before)
+        partsReads = 0
+        let orderEntries = 0
+        let rankWrites = 0
+        let locationWrites = 0
+        let keyLookups = 0
+        const mapSet = Map.prototype.set
+        const mapGet = Map.prototype.get
+        const isTranscriptChunk = (value: unknown): boolean =>
+          typeof value === 'object' && value !== null && 'slots' in value
+        Map.prototype.set = function (key: unknown, value: unknown): Map<unknown, unknown> {
+          if (isTranscriptChunk(key)) orderEntries++
+          if (this === ranks) rankWrites++
+          if (isTranscriptChunk(value)) locationWrites++
+          return mapSet.call(this, key, value)
+        }
+        Map.prototype.get = function (key: unknown): unknown {
+          const value = mapGet.call(this, key)
+          if (isTranscriptChunk(value)) keyLookups++
+          return value
+        }
+        let after: ReturnType<typeof model.advance>
+        try {
+          chatActions.prependHistory('s', prefix, { reachedStart: false })
+          state = harnessSession()
+          messageOrderFor(state)
+          after = model.advance(state)
+          // Materialize the final snapshot's lazily constructed chunk-order table.
+          after.indexOf(after.keyAt(0))
+        } finally {
+          Map.prototype.set = mapSet
+          Map.prototype.get = mapGet
+        }
+        expect(state.transcriptChanges.log.at(-1)?.kind).toBe('prepend')
+        let boundaryBlocks = 0
+        for (let i = 0; i < before.count; i++) {
+          const block = before.blockAt(i)
+          const index = after.indexOf(block.key)
+          if (index < 0 || after.blockAt(index) !== block) boundaryBlocks++
+        }
+        const fixed = {
+          partsReads,
+          newBlocks: after.count - before.count,
+          boundaryBlocks,
+          rankWrites,
+          locationWrites,
+          keyLookups
+        }
+        const virtualKeys = renderSnapshot(after)
+        const chunkOwners = new Set<unknown>()
+        Map.prototype.get = function (key: unknown): unknown {
+          const value = mapGet.call(this, key)
+          if (isTranscriptChunk(value)) chunkOwners.add(value)
+          return value
+        }
+        try {
+          for (let i = 0; i < after.count; i++) after.indexOf(after.keyAt(i))
+        } finally {
+          Map.prototype.get = mapGet
+        }
+        return {
+          fixed,
+          proportional: {
+            chunkEntries: chunkOwners.size,
+            orderEntries,
+            messages: state.messages.length,
+            measurements: virtualizer.measurementsCache.length,
+            virtualKeys
+          }
+        }
+      }
 
-    const r1 = measurePrepend(1)
-    const r100 = measurePrepend(100)
-    expect(r1.added).toBe(r100.added)
-    expect(r1.recreated).toBeLessThanOrEqual(2)
-    expect(r100.recreated).toBeLessThanOrEqual(2)
-  })
+      const short = measurePrepend(1)
+      const long = measurePrepend(100)
+      expect(short.fixed.partsReads).toBeGreaterThan(0)
+      expect(short.fixed.newBlocks).toBeGreaterThan(0)
+      expect(short.fixed.rankWrites).toBe(2)
+      expect(short.fixed.locationWrites).toBeGreaterThan(0)
+      expect(short.fixed.boundaryBlocks).toBeLessThanOrEqual(2)
+      expect(long.fixed).toEqual(short.fixed)
+      for (const key of Object.keys(short.proportional) as (keyof typeof short.proportional)[]) {
+        expect(long.proportional[key], key).toBeGreaterThan(short.proportional[key])
+      }
+      expect({ short: short.proportional, long: long.proportional }).toMatchSnapshot()
+    }
+  )
 
   it('turn-boundary prepends merge nothing; boundary-violating prepends reset partially and keep ids, keys, selection, expansion and anchor', () => {
     // 1. T-preserving prepend -> kind: 'prepend', zero merges
@@ -308,112 +440,162 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
     for (const k of keysBefore) {
       expect(keysAfter.has(k)).toBe(true)
     }
+
+    // A leading assistant can acquire its missing user without changing the existing part key.
+    const [question, assistant] = makeTurn(2)
+    for (const [screen, model] of [
+      ['code', createClaudeBlockModel({ mode: 'code', sessionKey: 's' })],
+      ['work', createClaudeBlockModel({ mode: 'work', sessionKey: 's' })],
+      ['code', createOpenCodeBlockModel()]
+    ] as const) {
+      const initial = model.advance(seedHistory([assistant], screen))
+      const response = initial.blockAt(0)
+      if (response.kind !== 'segment') throw new Error('Expected an assistant segment')
+      chatActions.prependHistory('s', [question], { reachedStart: false })
+      const repaired = harnessSession()
+      expect(repaired.transcriptChanges.log.at(-1)).toEqual({ kind: 'reset', complete: false })
+      expect(repaired.messages.map(({ id }) => id)).toEqual([question.id, assistant.id])
+      const snapshot = model.advance(repaired)
+      expect(snapshot.indexOf(response.key)).toBeGreaterThan(0)
+      const retained = snapshot.blockAt(snapshot.indexOf(response.key))
+      if (retained.kind !== 'segment') throw new Error('Expected a retained assistant segment')
+      expect(retained.partKeys).toEqual(response.partKeys)
+    }
   })
 })
 
 describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () => {
-  it.each(['measurement', 'header', 'pinned', 'key', 'wheel', 'pointer', 'scroll'] as const)(
-    'coalesces above-viewport changes and respects %s',
-    (cause) => {
-      vi.useFakeTimers()
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
-        setTimeout(() => callback(performance.now()), 0)
-      )
-      vi.stubGlobal('cancelAnimationFrame', clearTimeout)
-      const observers = new Map<Element, ResizeObserverCallback>()
-      vi.stubGlobal(
-        'ResizeObserver',
-        class {
-          constructor(private readonly callback: ResizeObserverCallback) {}
-          observe(element: Element): void {
-            observers.set(element, this.callback)
-          }
-          disconnect = vi.fn()
+  it.each([
+    'measurement',
+    'header',
+    'character',
+    'pinned',
+    'key',
+    'wheel',
+    'pointer',
+    'scroll'
+  ] as const)('coalesces above-viewport changes and respects %s', (cause) => {
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      setTimeout(() => callback(performance.now()), 0)
+    )
+    vi.stubGlobal('cancelAnimationFrame', clearTimeout)
+    const observers = new Map<Element, ResizeObserverCallback>()
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private readonly callback: ResizeObserverCallback) {}
+        observe(element: Element): void {
+          observers.set(element, this.callback)
         }
-      )
-      dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
-
-      let shift = 0
-      let pinned = false
-      const scroller = makeScroller(400, 250, (index) => (index === 0 ? 0 : shift))
-      const queries = vi.spyOn(scroller, 'querySelectorAll')
-      let scrollTop = scroller.scrollTop
-      const writes: number[] = []
-      Object.defineProperty(scroller, 'scrollTop', {
-        get: () => scrollTop,
-        set: (top: number) => {
-          scrollTop = top
-          writes.push(top)
-          scroller.dispatchEvent(new Event('scroll'))
-        }
-      })
-      const snapshot = createBlockList([
-        { key: 'above' },
-        { key: 'visible' },
-        { key: 'after' }
-      ]).snapshot()
-      const sizeCache = new Map([
-        ['above', 80],
-        ['visible', 80],
-        ['after', 80]
-      ])
-      dom.render(
-        createElement(TranscriptViewport<{ key: string }>, {
-          snapshot,
-          scrollRef: { current: scroller },
-          isPinned: () => pinned,
-          sizeCache,
-          estimateSizePx: 80,
-          header: createElement('p', null, 'history'),
-          renderBlock: (block) => createElement('p', null, block.key)
-        })
-      )
-      scroller.dispatchEvent(new Event('scroll'))
-      writes.length = 0
-      queries.mockClear()
-
-      function resize(size: number): void {
-        shift = size
-        const entry = {
-          borderBoxSize: [{ blockSize: 80 + size }]
-        } as unknown as ResizeObserverEntry
-        if (cause === 'header') {
-          const header = dom!.query('[data-transcript-header]') as unknown as Element
-          const callback = observers.get(header)!
-          expect(callback).toBeDefined()
-          callback(
-            [{ borderBoxSize: [{ blockSize: size }] } as unknown as ResizeObserverEntry],
-            {} as ResizeObserver
-          )
-        } else {
-          const row = dom!.query('[data-block-key="above"]') as unknown as HTMLElement
-          virtualizer.options.measureElement(row, entry, virtualizer)
-        }
+        disconnect = vi.fn()
       }
+    )
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
 
-      resize(15)
-      resize(35)
-      expect(writes).toEqual([])
-      if (cause === 'pinned') pinned = true
-      if (cause === 'key')
-        scroller.dispatchEvent(Object.assign(new Event('keydown'), { key: 'PageDown' }))
-      if (cause === 'wheel') scroller.dispatchEvent(new Event('wheel'))
-      if (cause === 'pointer') scroller.dispatchEvent(new Event('pointerdown'))
-      if (cause === 'scroll') {
-        scrollTop += 7
+    let shift = 0
+    let reflow = 0
+    let pinned = false
+    const scroller = makeScroller(400, 250, (index) => (index === 0 ? 0 : shift))
+    const queries = vi.spyOn(scroller, 'querySelectorAll')
+    let scrollTop = scroller.scrollTop
+    const writes: number[] = []
+    Object.defineProperty(scroller, 'scrollTop', {
+      get: () => scrollTop,
+      set: (top: number) => {
+        scrollTop = top
+        writes.push(top)
         scroller.dispatchEvent(new Event('scroll'))
       }
-      vi.runOnlyPendingTimers()
+    })
+    const snapshot = createBlockList([
+      { key: 'above' },
+      { key: 'visible' },
+      { key: 'after' }
+    ]).snapshot()
+    const sizeCache = new Map([
+      ['above', 80],
+      ['visible', 80],
+      ['after', 80]
+    ])
+    dom.render(
+      createElement(TranscriptViewport<{ key: string }>, {
+        snapshot,
+        scrollRef: { current: scroller },
+        isPinned: () => pinned,
+        sizeCache,
+        estimateSizePx: 80,
+        header: createElement('p', null, 'history'),
+        renderBlock: (block) => createElement('p', null, block.key)
+      })
+    )
+    if (cause === 'character') {
+      const part = dom.query('[data-part-key="visible"]')!
+      const text = part.children[0].children[0]
+      Object.assign(document, {
+        caretPositionFromPoint: () => ({ offsetNode: text, offset: 3 }),
+        createRange: () => {
+          let caret = 0
+          return {
+            setStart: (node: Node, offset: number) => {
+              expect(node).toBe(text)
+              caret = offset
+            },
+            setEnd: vi.fn(),
+            getBoundingClientRect: () => ({
+              top: part.getBoundingClientRect().top + (caret === 3 ? reflow : 0),
+              height: 16
+            })
+          }
+        }
+      })
+    }
+    scroller.dispatchEvent(new Event('scroll'))
+    writes.length = 0
+    queries.mockClear()
 
-      if (cause === 'measurement' || cause === 'header') {
-        expect(writes).toEqual([285])
-        // The writer synchronously emits scroll here. The viewport must skip recapturing its own scroll.
-        expect(
-          queries.mock.calls.filter(([selector]) => selector === '[data-part-key]')
-        ).toHaveLength(1)
+    function resize(size: number): void {
+      shift = size
+      const entry = {
+        borderBoxSize: [{ blockSize: 80 + size }]
+      } as unknown as ResizeObserverEntry
+      if (cause === 'header') {
+        const header = dom!.query('[data-transcript-header]') as unknown as Element
+        const callback = observers.get(header)!
+        expect(callback).toBeDefined()
+        callback(
+          [{ borderBoxSize: [{ blockSize: size }] } as unknown as ResizeObserverEntry],
+          {} as ResizeObserver
+        )
       } else {
-        expect(writes).toEqual([])
+        const row = dom!.query('[data-block-key="above"]') as unknown as HTMLElement
+        virtualizer.options.measureElement(row, entry, virtualizer)
       }
     }
-  )
+
+    resize(15)
+    resize(35)
+    if (cause === 'character') reflow = 18
+    expect(writes).toEqual([])
+    if (cause === 'pinned') pinned = true
+    if (cause === 'key')
+      scroller.dispatchEvent(Object.assign(new Event('keydown'), { key: 'PageDown' }))
+    if (cause === 'wheel') scroller.dispatchEvent(new Event('wheel'))
+    if (cause === 'pointer') scroller.dispatchEvent(new Event('pointerdown'))
+    if (cause === 'scroll') {
+      scrollTop += 7
+      scroller.dispatchEvent(new Event('scroll'))
+    }
+    vi.runOnlyPendingTimers()
+
+    if (cause === 'measurement' || cause === 'header' || cause === 'character') {
+      expect(writes).toEqual([cause === 'character' ? 303 : 285])
+      // The writer synchronously emits scroll here. The viewport must skip recapturing its own scroll.
+      expect(
+        queries.mock.calls.filter(([selector]) => selector === '[data-part-key]')
+      ).toHaveLength(1)
+    } else {
+      expect(writes).toEqual([])
+    }
+  })
 })

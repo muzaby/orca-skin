@@ -127,8 +127,8 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
 
   it('b7: changing messageKey splits run, commits previous text buffer under its key, and clears previous reasoning buffer', () => {
     ingestChatEvent(makeDelta('first', { messageKey: 'a:1' }))
-    ingestChatEvent(makeReasoning('old-think', { messageKey: 'a:1' }))
     ingestChatEvent(makeDelta('second', { messageKey: 'a:2' }))
+    ingestChatEvent(makeReasoning('old-think', { messageKey: 'a:1' }))
     ingestChatEvent(makeReasoning('new-think', { messageKey: 'a:2' }))
     flushRaf()
 

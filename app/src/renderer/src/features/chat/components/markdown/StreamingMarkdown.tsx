@@ -1,5 +1,11 @@
 import { memo, useMemo, useRef } from 'react'
 import { CodeBlock } from '../../../../shared/ui/markdown/CodeBlock'
+import {
+  markSourceText,
+  sliceSourceParts,
+  type MarkdownSourcePart,
+  type MarkedText
+} from '../../../../shared/ui/markdown/sourceParts'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { MarkdownStreamingContext } from '../../../../shared/ui/markdown/streamingContext'
 import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
@@ -13,14 +19,16 @@ const DEFAULT_WRAPPER = `${MARKDOWN_TYPOGRAPHY} text-ink`
 
 export const StreamingFence = memo(function StreamingFence({
   fence,
+  markedText,
   className
 }: {
   fence: OpenFenceTail
+  markedText?: readonly MarkedText[]
   className?: string
 }): React.JSX.Element {
   return (
     <div className={className ?? DEFAULT_WRAPPER}>
-      <CodeBlock code={fence.code} lang={fence.lang} />
+      <CodeBlock code={fence.code} lang={fence.lang} markedText={markedText} />
     </div>
   )
 })
@@ -32,29 +40,52 @@ export const StreamingFence = memo(function StreamingFence({
 // 꼬리가 닫히지 않은 펜스 하나뿐이면 remark 파싱을 생략하고 StreamingFence 로 직접 그린다.
 export const StreamingMarkdown = memo(function StreamingMarkdown({
   source,
+  sourceParts,
   className
 }: {
   source: string
+  sourceParts?: readonly MarkdownSourcePart[]
   className?: string
 }): React.JSX.Element {
   const cacheRef = useRef<StableBlocksCache | null>(null)
-  const { stable, tail, openFence } = useMemo(() => {
+  const { stable, tail, openFence, scanState } = useMemo(() => {
     const next = advanceStableBlocks(cacheRef.current, source)
     cacheRef.current = next.cache
     return next
   }, [source])
+  const stableParts = useMemo(() => {
+    if (!sourceParts) return undefined
+    let offset = 0
+    const prefix = cacheRef.current!.source
+    return stable.map((block) => {
+      const start = prefix.indexOf(block, offset)
+      offset = start + block.length
+      return sliceSourceParts(sourceParts, start, offset)
+    })
+  }, [stable, sourceParts])
+  const tailParts = sliceSourceParts(sourceParts, scanState.blockStart, source.length)
+  const fenceParts =
+    sourceParts && openFence && scanState.fence
+      ? markSourceText(
+          openFence.code,
+          source,
+          scanState.fence.bodyStart,
+          source.length,
+          sourceParts
+        )
+      : undefined
   return (
     // 분할된 블록 사이 간격은 Markdown 문단 마진(my-2)과 동형인 gap-2 로 근사.
     <div className="flex flex-col gap-2">
       {stable.map((block, i) => (
-        <Markdown key={i} source={block} className={className} />
+        <Markdown key={i} source={block} sourceParts={stableParts?.[i]} className={className} />
       ))}
       {tail !== '' && (
         <MarkdownStreamingContext.Provider value={true}>
           {openFence ? (
-            <StreamingFence fence={openFence} className={className} />
+            <StreamingFence fence={openFence} className={className} markedText={fenceParts} />
           ) : (
-            <Markdown source={tail} className={className} />
+            <Markdown source={tail} sourceParts={tailParts} className={className} />
           )}
         </MarkdownStreamingContext.Provider>
       )}

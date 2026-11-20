@@ -17,25 +17,8 @@ vi.mock('react', async (original) => ({
   useId: () => 'transcript-test-id'
 }))
 vi.mock('zustand', async (original) => {
-  const actual = await original<typeof import('zustand')>()
-  const { fakeHooks } = await import('../../../../shared/ui/renderHarness.testfixture')
-  const { createStore } = await import('zustand/vanilla')
-  const useStore = <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
-    fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())) as U
-
-  const bind = <T>(
-    initializer: import('zustand').StateCreator<T>
-  ): import('zustand').StoreApi<T> & (<U>(selector: (state: T) => U) => U) => {
-    const store = createStore(initializer)
-    return Object.assign(<U>(selector: (state: T) => U): U => useStore(store, selector), store)
-  }
-
-  return {
-    ...actual,
-    useStore,
-    create: (initializer?: import('zustand').StateCreator<unknown>) =>
-      initializer ? bind(initializer) : bind
-  }
+  const { createFakeZustand } = await import('./viewportTestBridge.testfixture')
+  return createFakeZustand(original)
 })
 vi.mock('zustand/react/shallow', () => ({
   useShallow: <T, U>(select: (state: T) => U) => select
@@ -150,9 +133,12 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
     expect(advances.mock.lastCall?.[0].indexOf(liveKey)).toBe(-1)
     advances.mockClear()
 
-    const delta = (text: string): void => {
+    const delta = (
+      text: string,
+      type: 'message.delta' | 'message.reasoning.delta' = 'message.delta'
+    ): void => {
       ingestChatEvent({
-        type: 'message.delta',
+        type,
         sessionId: 's',
         messageKey: 'a:10001',
         delta: { text }
@@ -162,13 +148,21 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
     dom.act(() => delta('live first'))
     expect(advances).toHaveBeenCalledTimes(1)
     expect(advances.mock.lastCall?.[0].indexOf(liveKey)).toBeGreaterThanOrEqual(0)
+    // Reasoning visibility is a structural transition only when its buffer first becomes visible.
+    dom.act(() => delta('reasoning first', 'message.reasoning.delta'))
     advances.mockClear()
     partsReads = 0
 
     for (let index = 0; index < 5; index++) {
-      dom.act(() => delta(' increment'))
+      dom.act(() => {
+        delta(' increment')
+        delta(' step', 'message.reasoning.delta')
+      })
       expect(useChatStore.getState().sessions.s.live.text).toBe(
         'live first' + ' increment'.repeat(index + 1)
+      )
+      expect(useChatStore.getState().sessions.s.live.reasoning).toBe(
+        'reasoning first' + ' step'.repeat(index + 1)
       )
     }
     expect(advances).not.toHaveBeenCalled()
@@ -176,6 +170,16 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
     expect(dom.query('[data-transcript-viewport]')).toBe(viewport)
     expect(dom.query('[data-index="0"]')).toBe(historicalRow)
 
+    dom.act(() =>
+      ingestChatEvent({
+        type: 'message.reasoning',
+        sessionId: 's',
+        messageKey: 'a:10001',
+        text: 'committed reasoning'
+      })
+    )
+    expect(useChatStore.getState().sessions.s.live.reasoning).toBe('')
+    advances.mockClear()
     dom.act(() =>
       ingestChatEvent({
         type: 'message.completed',

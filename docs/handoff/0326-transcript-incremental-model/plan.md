@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | IN_PROGRESS (V1 rev 7 · r3) |
+| 상태 | IN_PROGRESS (V1 rev 7 · r3.2) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -2016,3 +2016,476 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 - 이전 r2 변이의 green 9건은 이번 작업 사본에서 red로 관측됐다.
 - 합쳐진 본문의 part별 DOM 표시·AC21 계수·진입점별 선택 복사·⑦ 전수 sweep은 남았다.
 - 기계 검증은 V1 rev 7의 구현 완료 뒤 진행한다.
+
+## [구현자 기입] 설계 리뷰 (r3.2)
+
+r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결합 Markdown은 강조·링크·인라인 코드의 구문을 한 번 파싱하고, 표시 문자열의 각 조각을 원래 part에 연결한다. 블록 내용 교체는 같은 key가 같은 청크 슬롯에 남으면 위치표를 공유한다. 새 prefix만 색인에 추가한다. 기존 스냅샷은 이전 내용을 읽는다.
+
+### 발견별 관측
+
+| 발견 | 입력과 결과 | 확인 범위 |
+|---|---|---|
+| D7 | 두 Timeline의 pin 전달 제거와 복원 직전 pin 검사 제거를 각각 검출 | pin 전달·복원 |
+| D8 | 가시 영역 위 항목 +35px, 같은 part의 세 번째 문자 +18px에서 스크롤 250→303 한 번. 자기 쓰기·키·휠·포인터·머리 높이 변이 검출 | 뷰포트와 실제 TanStack 인스턴스, 가짜 DOM 측정 |
+| D9 | 세 화면의 같은 강조 노드 안에서 둘로 나뉜 텍스트, 링크, 코드, 펜스 및 문자 참조의 소유 키 확인 | 실제 Markdown 정적 렌더, 선택 끝의 part 내 누적 문자 위치 |
+| D10 | 실제 store에서 9·8·7턴 순서로 앞삽입한 뒤 매번 ±1px, 키, 선택 방향과 펼침 확인. 세 화면에서 1턴/100턴 앞삽입의 고정 비용 일치 | T 준수·위반, 청크/순번/위치표, TanStack 호출 |
+| D11 | 실제 Timeline의 기본 복사와 비동기 조각 복사 결과를 비가상 선택의 본문과 대조. 실패 시 쓰기 0, 선택 복귀, 호스트 제거 | 세 화면에서 DOM 선택·clipboard를 모사. 운영체제 붙여넣기는 실기 대상 |
+| D12 | 스냅샷 내용만 변하면 실제 virtualizer의 콜백과 측정표가 같다. b/a/c 순서 변경 시 크기 70/30/40 | v1~v3, 등록 변이 M21-v1 |
+| D13 | 실제 store의 text와 reasoning을 각각 5차례 갱신. 세 모델의 반복 advance 0, 첫 출현과 완료는 각 1, 화면 밖 과거 part 읽기 0 | 10,001개 기존 메시지, 실제 모델과 store. Chromium에서 화면마다 기존 버블 최초 1회, 델타 중 해당 행·버블 추가 렌더 각 0회 |
+| D15 | store 재검증 및 캐시 재열기 뒤 세 화면의 열린 도구 카드 DOM 동일. 실제 다음 전송 후 역방향 선택 10/2 복원. open·resume·sync를 실제 제어기까지 비교 | open 800, sync 217 유지, unpinned resume은 Claude 800·OpenCode 321 |
+| D4 | §10 정본의 EP↔VP를 기준으로 자리와 분모를 재작성하고 변이 사양을 보관 | 아래 잠금 표의 실행 항까지 확인. 자리별 하위 분기와 등록 변이 전수는 별도 판정 |
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r3.2)
+
+아래 표는 §10 정본 순서다. 좌표 칸의 ‘미재측정’은 이번 수정에서 단독 제거 변이와 직접 oracle의 쌍을 확인하지 않은 자리를 뜻한다. r2 구현 보고의 EP·VP 라벨은 이 표로 정정한다.
+
+| §10 자리 | 정본 pair | 운반 항 | 이번 실행의 직접 좌표와 관측 / 남긴 곳 |
+|---|---|---|---|
+| EP-1 ① | VP-03·VP-04 | 번호 생성 | M04-k9, M04-k19, M04-k11 |
+| EP-1 ② | VP-03·VP-04 | 송신기 상태 | M04-k17-first |
+| EP-1 ③ | VP-03·VP-04 | onTurnEvent | M04-k14, M04-k18, M04-k20-owner |
+| EP-1 ④ | VP-03·VP-04 | ownerKeyOf | M04-k12 |
+| EP-1 ⑤ | VP-03·VP-04 | relay | M03-relay-copy, M03-k25 |
+| EP-1 ⑥ | VP-03·VP-04 | flushAskAnswers | M03-ask-number, M03-ask-queue M02-ask |
+| EP-1 ⑦ | VP-03·VP-04 | telemetry | M02-tel S01-k22 |
+| EP-1 ⑧ | VP-03·VP-04 | commitUserMessage | M04-k5, M04-k5-early, M04-k24 M02-early |
+| EP-1 ⑨ | VP-03·VP-04 | finalizeTurn | M04-k7 |
+| EP-1 ⑩ | VP-03·VP-04 | commitConsumed | M04-k26-6 |
+| EP-1 ⑪ | VP-03·VP-04 | input.received | M04-k26-18 |
+| EP-1 ⑫ | VP-03·VP-04 | IPC 형 | 미재측정 |
+| EP-1 ⑬ | VP-03·VP-04 | 조립 | M03-k27 |
+| EP-2 ① | VP-06 | 부분 유일 색인 | S02-1 S02-1-partial |
+| EP-2 ② | VP-06 | 삽입 형 | S02-2 |
+| EP-2 ③ | VP-06 | 번호로 행 조회 | M06-w3 M02-writer |
+| EP-2 ④ | VP-06 | assistant 행 | M06-w3 |
+| EP-2 ⑤ | VP-06 | 8종 이벤트 | M06-w14, M06-w15 |
+| EP-2 ⑥ | VP-06 | user 커밋 | M06-w9, M06-w10, M06-w11, M06-w16-false, M06-w16-true M02-created |
+| EP-2 ⑦ | VP-06 | 질문 답 | S02-7 |
+| EP-2 ⑧ | VP-06 | 현재 번호 | S02-8 |
+| EP-2 ⑨ | VP-06 | parts 로드 | S02-9 |
+| EP-3 ① | VP-05 | LoadedMessage.id | 미재측정 |
+| EP-3 ② | VP-05 | 로컬 행 | S03-2 |
+| EP-3 ③ | VP-05 | native 투영 | M05-i4 |
+| EP-3 ④ | VP-05 | native 전용 | S03-4 |
+| EP-3 ⑤ | VP-05 | 고아 | M05-i5 |
+| EP-3 ⑥ | VP-05 | frontier 뒤 | S03-6 |
+| EP-3 ⑦ | VP-05 | recoveryArchive | S03-7 |
+| EP-4 ① | VP-07·VP-08 | Message.id | S04-1 |
+| EP-4 ② | VP-07·VP-08 | appendAssistantPart | M07-r3 |
+| EP-4 ③ | VP-07·VP-08 | 7종 이벤트 | 미재측정 |
+| EP-4 ④ | VP-07·VP-08 | COMMIT_PENDING_TEXT | S04-4 |
+| EP-4 ⑤ | VP-07·VP-08 | user 커밋 | M12-idempotence |
+| EP-4 ⑥ | VP-07·VP-08 | LOAD_SESSION | Viewport.harness의 cached reload · 같은 카드 노드와 선택 · M08-reopen-id |
+| EP-4 ⑦ | VP-07·VP-08 | fork | 미재측정 |
+| EP-4 ⑧ | VP-07·VP-08 | 자식 메시지 | S04-8 |
+| EP-4 ⑨ | VP-07·VP-08 | 낙관 전송 | S04-9 |
+| EP-4 ⑩ | VP-07·VP-08 | store 커밋 | M07-r12 |
+| EP-4 ⑪ | VP-07·VP-08 | 재열기 | Viewport.harness의 cached reload · 같은 카드 노드와 선택 · M08-reopen-id |
+| EP-4 ⑫ | VP-07·VP-08 | 부분 이력 보류 | M07-r10, M07-r13, M07-r15, M07-r17 |
+| EP-5 ① | VP-10 | 기록 형·상한 | changeLog · 상한, revision 및 lineage 변이 결과는 잠금 표 · M10-l3 |
+| EP-5 ② | VP-10 | changesSince | changeLog · 상한, revision 및 lineage 변이 결과는 잠금 표 · EP05-fold |
+| EP-5 ③ⓐ | VP-10 | appendAssistantPart | S05-3a |
+| EP-5 ③ⓑ | VP-10 | appendOwnedArtifact | S05-3b |
+| EP-5 ③ⓒ | VP-10 | correctPlanToolInput | S05-3c |
+| EP-5 ③ⓓ | VP-10 | APPEND_COMMITTED_USER_MESSAGE | S05-3d |
+| EP-5 ③ⓔ | VP-10 | DROP_UNCOMMITTED_USER | S05-3e |
+| EP-5 ③ⓕ | VP-10 | 보존 로드 | 미재측정 |
+| EP-5 ③ⓖ | VP-10 | 전체 로드 | 미재측정 |
+| EP-5 ③ⓗ | VP-10 | PREPEND_HISTORY | Viewport.prepend · 실제 store의 prepend와 부분 reset |
+| EP-5 ④ | VP-10 | lineage | changeLog · 상한, revision 및 lineage 변이 결과는 잠금 표 · EP05-lineage, EP05-revision |
+| EP-6 ① | VP-11·VP-12 | messageOrderFor | Viewport.prepend · 순번 쓰기 2, 위치 갱신량 비교 · M11-q4 |
+| EP-6 ② | VP-11·VP-12 | 위치·소유 | Viewport.prepend · 순번 쓰기 2, 위치 갱신량 비교 · M11-q7 |
+| EP-6 ③ | VP-11·VP-12 | output.captured | M12-find-index |
+| EP-6 ④ | VP-11·VP-12 | tool.call.completed | 미재측정 |
+| EP-6 ⑤ | VP-11·VP-12 | appendOwnedArtifact | 미재측정 |
+| EP-6 ⑥ | VP-11·VP-12 | user 커밋 | M12-idempotence |
+| EP-6 ⑦ | VP-11·VP-12 | DROP_UNCOMMITTED_USER | S06-7 |
+| EP-6 ⑧ | VP-11·VP-12 | subagent.task | M12-notice-scan |
+| EP-6 ⑨ | VP-11·VP-12 | markCompletedAgent | S06-9 |
+| EP-6 ⑩ | VP-11·VP-12 | 취소 복구 | 미재측정 |
+| EP-7 ① | VP-14 | 키 함수 | S07-1 |
+| EP-7 ② | VP-14 | Claude code | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 |
+| EP-7 ③ | VP-14 | Claude work | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 |
+| EP-7 ④ | VP-14 | OpenCode | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 |
+| EP-7 ⑤ | VP-14 | 종류 순번 | M14-y3, M14-y15 |
+| EP-7 ⑥ | VP-14 | 메타·산출물 | M14-y6 |
+| EP-7 ⑦ | VP-14 | live key | M14-y20 |
+| EP-7 ⑧ | VP-14 | 유일성 | M14-y9 |
+| EP-7 ⑨ | VP-14 | 턴 경계 | M14-y12 |
+| EP-7 ⑩ | VP-14 | carryPartKeys | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 M14-y14, M14-y17 |
+| EP-7 ⑪ | VP-14 | 대표 part | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 M14-y19 |
+| EP-7 ⑫ | VP-14 | OpenCode live | 미재측정 |
+| EP-8 ① | VP-15~VP-17·VP-19 | 블록 청크 | Viewport.prepend · 1/100턴 비용, blockList · 지난 스냅샷 대체 조회 · EP08-content-location |
+| EP-8 ② | VP-15~VP-17·VP-19 | 스냅샷 불변 | Viewport.prepend · 1/100턴 비용, blockList · 지난 스냅샷 대체 조회 · M15-u2, EP08-location-fallback |
+| EP-8 ③ | VP-15~VP-17·VP-19 | Claude code advance | Viewport.prepend · 실제 store의 T 준수 및 위반 · M16-z2 |
+| EP-8 ④ | VP-15~VP-17·VP-19 | Claude work advance | Viewport.prepend · 실제 store의 T 준수 및 위반 |
+| EP-8 ⑤ | VP-15~VP-17·VP-19 | OpenCode advance | Viewport.prepend · 실제 store의 T 준수 및 위반 |
+| EP-8 ⑥ | VP-15~VP-17·VP-19 | 그룹 메타 | 미재측정 |
+| EP-8 ⑦ | VP-15~VP-17·VP-19 | 앞삽입 | Viewport.prepend · 1/100턴 비용, blockList · 지난 스냅샷 대체 조회 · EP08-prefix-locations |
+| EP-8 ⑧ | VP-15~VP-17·VP-19 | reset | Viewport.prepend · 실제 store의 T 준수 및 위반 |
+| EP-8 ⑨ | VP-15~VP-17·VP-19 | 늦은 결과 | M17-late-owner |
+| EP-8 ⑩ | VP-15~VP-17·VP-19 | live | Viewport.live · 출현 1, 반복 0, 완료 1 |
+| EP-8 ⑪ | VP-15~VP-17·VP-19 | 변경 접기 | changeLog · remove/replace 접기 · M16-z8 |
+| EP-9 ① | VP-18 | segmentsFor | M18-s4, M18-s7 |
+| EP-9 ② | VP-18 | Claude code | TranscriptView.harness · 파싱한 강조 노드의 두 소유 part |
+| EP-9 ③ | VP-18 | Claude work | TranscriptView.harness · 파싱한 강조 노드의 두 소유 part |
+| EP-9 ④ | VP-18 | reconcileSegments | M18-s3, M18-s8 |
+| EP-10 ① | VP-21·VP-22 | virtualizer 옵션 | virtualizerOptions v1~v3 · 콜백 정체, 측정표, 위 성장 · M21-v1 |
+| EP-10 ② | VP-21·VP-22 | writeScrollTop | Viewport.prepend character · 보정 쓰기 1 · M21-direct-write |
+| EP-10 ③ | VP-21·VP-22 | TanStack 보정 | virtualizerOptions v1~v3 · 콜백 정체, 측정표, 위 성장 · EP10-tanstack |
+| EP-10 ④ | VP-21·VP-22 | Claude Timeline | Viewport.harness · 세 화면의 실제 복사와 캐시 로드 · D7-claude M22-history-region |
+| EP-10 ⑤ | VP-21·VP-22 | OpenCode Timeline | Viewport.harness · 세 화면의 실제 복사와 캐시 로드 · D7-opencode |
+| EP-10 ⑥ | VP-21·VP-22 | Claude 제어기 | Viewport.harness places · store→제어기 배치. 제어기 정책 분리 전수는 미재측정 |
+| EP-10 ⑦ | VP-21·VP-22 | OpenCode 제어기 | Viewport.harness places · store→제어기 배치. 제어기 정책 분리 전수는 미재측정 |
+| EP-10 ⑧ | VP-21·VP-22 | 버블 접기 | 미재측정 |
+| EP-11 ① | VP-23·VP-24 | pin | M26-a4 |
+| EP-11 ② | VP-23·VP-24 | 예약 간격 | M23-p3 M23-p12 |
+| EP-11 ③ | VP-23·VP-24 | 전송 앵커 | EP11-policy-send |
+| EP-11 ④ | VP-23·VP-24 | 진입 배치 | Viewport.harness places · open/sync/resume, 실제 store와 제어기 · M23-p7, EP11-resume |
+| EP-11 ⑤ | VP-23·VP-24 | 하단 추적 | 미재측정 |
+| EP-11 ⑥ | VP-23·VP-24 | 꼬리 UI | 미재측정 |
+| EP-11 ⑦ | VP-23·VP-24 | fork | M24-fork |
+| EP-11 ⑧ | VP-23·VP-24 | 진입 원인 | Viewport.harness places · open/sync/resume, 실제 store와 제어기 · EP11-intent, EP11-sync |
+| EP-12 ① | VP-26·VP-27 | 문자 캡처 | Viewport.prepend character · 3번째 문자 변위 +18과 크기 +35 · EP12-character, EP12-chrome |
+| EP-12 ② | VP-26·VP-27 | 프레임 합산 | Viewport.prepend character · 3번째 문자 변위 +18과 크기 +35 · M26-a9 |
+| EP-12 ③ | VP-26·VP-27 | 측정 정정 | Viewport.prepend character · 3번째 문자 변위 +18과 크기 +35 · X05 |
+| EP-12 ④ | VP-26·VP-27 | 대체 대상 | anchor.test · 소실된 key 대체 변이 · EP12-fallback |
+| EP-12 ⑤ | VP-26·VP-27 | prependHistory | Viewport.prepend · 9/8/7, T 위반 및 1/100 비용 |
+| EP-12 ⑥ | VP-26·VP-27 | pin | Viewport.prepend · M26-a4 · M26-a4 |
+| EP-12 ⑦ | VP-26·VP-27 | 사용자 취소 | Viewport.prepend · X06, X07, wheel 및 pointer · X06, X07, X08, EP12-wheel, EP12-pointer |
+| EP-13 ① | VP-32 | transcriptIndexFor | S13-1 |
+| EP-13 ② | VP-32 | 기여 갱신 | M32-x13 |
+| EP-13 ③ | VP-32 | 도메인 revision | M32-x10 |
+| EP-13 ④ | VP-32 | 부모별 revision | M32-x11 |
+| EP-13 ⑤ | VP-32 | 뷰 불변 | M32-x12 |
+| EP-13 ⑥ | VP-32 | 같은 키 순서 | 미재측정 |
+| EP-14 ① | VP-33 | useTranscriptView | 미재측정 |
+| EP-14 ② | VP-33 | 9개 소비자 | M33-panel-consumer |
+| EP-14 ③ | VP-33 | 기존 정의 | 미재측정 |
+| EP-15 ① | VP-28 | useDisclosure | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 |
+| EP-15 ② | VP-28 | 도구 카드 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 |
+| EP-15 ③ | VP-28 | AgentTaskRow | 미재측정 |
+| EP-15 ④ | VP-28 | Work 활동 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 |
+| EP-15 ⑤ | VP-28 | 포커스 | M28-d9 |
+| EP-15 ⑥ | VP-28 | 정리 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 M28-d4, M28-d10, M28-d12 |
+| EP-16 ① | VP-28 | transitionend | EP16-end |
+| EP-16 ② | VP-28 | transitioncancel | EP16-cancel |
+| EP-16 ③ | VP-28 | 시한 | M28-e3 |
+| EP-16 ④ | VP-28 | 모션 감소 | EP16-reduced |
+| EP-16 ⑤ | VP-28 | 세대 | M28-e8 |
+| EP-17 ① | VP-29 | 범위 | Viewport.selection · X02, focus overscan · EP17-viewport-anchor, M29-c6 |
+| EP-17 ② | VP-29 | 동기 복사 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · M29-c3 |
+| EP-17 ③ | VP-29 | 비동기 복사 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · EP17-cancel M29-c13 |
+| EP-17 ④ | VP-29 | 조각·조립 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · EP17-yield, EP17-inline-assembly, EP17-blob-parts M29-c12 |
+| EP-17 ⑤ | VP-29 | 키보드 선택 | 미재측정 |
+| EP-17 ⑥ | VP-29 | 문자 끝 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · EP17-part-owner |
+| EP-17 ⑦ | VP-29 | 상한 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · M29-c15 |
+| EP-17 ⑧ | VP-29 | 기준 모드 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · M29-c17 |
+| EP-18 ① | VP-30 | 공유 RO | S18-1 |
+| EP-18 ② | VP-30 | 프레임 예약 | S18-2 |
+| EP-18 ③ | VP-30 | 읽기·쓰기 | M30-m3 |
+| EP-18 ④ | VP-30 | 무효화 | M30-m5, M30-m8 |
+| EP-18 ⑤ | VP-30 | 줄 높이 | S18-5 |
+| EP-18 ⑥ | VP-30 | 글꼴 | M30-m7 |
+| EP-19 ① | VP-31 | 스캐너 캐시 | S19-1 |
+| EP-19 ② | VP-31 | 새 줄 스캔 | M31-f8 |
+| EP-19 ③ | VP-31 | 열린 펜스 | M31-f4, EP19-open-fence |
+| EP-19 ④ | VP-31 | StreamingFence | TranscriptView.harness · 한 펜스의 서로 다른 소유자 · EP19-fence-code |
+| EP-20 ① | VP-34 | run 구분 | Viewport.live · 서로 다른 text/reasoning run, 끝 번호 확인. 다른 번호의 교환은 M34-b3, M34-b7 |
+| EP-20 ② | VP-34 | 문자열 결합 | S20-2 |
+| EP-20 ③ | VP-34 | 항목 교체 | S20-3 |
+| EP-20 ④ | VP-34 | shouldBeginTurn | S20-4 |
+| EP-20 ⑤ | VP-34 | live 번호 | Viewport.live · 서로 다른 text/reasoning run, 끝 번호 확인. 다른 번호의 교환은 M34-b10, M34-b11 |
+| EP-21 ① | VP-35 | J1~J10 | measure-ui-inputs.mjs --src . · J1~J10 실행, J9 상한 2,000 |
+| EP-21 ② | VP-35 | 결정성 | S21-2 |
+| EP-21 ③ | VP-35 | 세 갈래 요약 | J1 coldBuild/incremental/cacheHit 중앙값 215.07/1.95/0.01 ms |
+| EP-22 ① | VP-39 | store 진입 | Viewport.prepend · 실제 store 진입, T 위반은 부분 reset · M39-g1 |
+| EP-22 ② | VP-39 | 겹침 | M39-g2 |
+| EP-22 ③ | VP-39 | 빈 목록 | S22-3 |
+| EP-22 ④ | VP-39 | T | Viewport.prepend · 실제 store 진입, T 위반은 부분 reset · M39-g4 |
+| EP-22 ⑤ | VP-39 | live 교차 | 미재측정 |
+| EP-22 ⑥ | VP-39 | 페이지 검사 | M39-g10, M39-g14 |
+| EP-22 ⑦ | VP-39 | 보류 병합 | M39-g7, M39-g15, M39-held-output |
+| EP-22 ⑧ | VP-39 | 끝 표식 | M39-g12 |
+
+| Pair | requiredness | 자기 상태 | 직접 oracle | 선택 증거의 잔여 |
+|---|---|---|---|---|
+| VP-08·19·21·22·24·26·27·29 | REQUIRED | SELF_BLOCKED | 위 표와 아래 변이별 결과 | §7-A 등록 변이와 하위 분기 전수 대조 |
+| VP-35 | REQUIRED | SELF_BLOCKED | J1~J10과 §19 | Windows 실기 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3.2)
+
+작업 사본의 app 디렉터리를 대상으로 다음 명령을 실행할 수 있다. JSONL은 각 변이의 대상 파일, 바꾼 원문, 대체문, 재현 명령을 담는다.
+
+```sh
+python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0326-transcript-incremental-model/evidence/r3.2-mutations.jsonl --cwd app
+```
+
+| 심은 결함 | 출처 | 이전 결과 | 실패한 테스트 | 검출 관측 |
+|---|---|---|---|---|
+| M26-a4 | 인용 변이 | r2 미검출 | TranscriptViewport.prepend | red · 1 failed / 12 passed (13) |
+| X05 | 인용 변이 | r2 미검출 | TranscriptViewport.prepend | red · 2 failed / 11 passed (13) |
+| X06 | 인용 변이 | r2 미검출 | TranscriptViewport.prepend | red · 3 failed / 10 passed (13) |
+| X07 | 인용 변이 | r2 미검출 | TranscriptViewport.prepend | red · 1 failed / 12 passed (13) |
+| X08 | 인용 변이 | r2 미검출 | TranscriptViewport.prepend | red · 1 failed / 12 passed (13) |
+| M29-c3 | 인용 변이 | r2 미검출 | TranscriptViewport.selection | red · 1 failed / 7 passed (8) |
+| X09 | 인용 변이 | r2 미검출 | TranscriptViewport.selection | red · 1 failed / 7 passed (8) |
+| M29-c19 | 인용 변이 | r2 미검출 | TranscriptViewport.selection | red · 1 failed / 7 passed (8) |
+| M21-v1 | 인용 변이 | r2 미검출 | virtualizerOptions | red · 1 failed / 2 passed (3) |
+| X01 | 새 oracle | — | TranscriptViewport.prepend | red · 4 failed / 9 passed (13) |
+| X02 | 새 oracle | — | TranscriptViewport.selection | red · 1 failed / 7 passed (8) |
+| X03 | 새 oracle | — | TranscriptViewport.prepend | red · 5 failed / 8 passed (13) |
+| D9-user | 새 oracle | — | TranscriptView.harness | red · 3 failed / 11 passed (14) |
+| D7-claude | 새 oracle | — | transcript.viewport | red · 1 failed / 1 passed (2) |
+| D7-opencode | 새 oracle | — | transcript.viewport | red · 1 failed / 1 passed (2) |
+| EP12-wheel | 새 oracle | — | TranscriptViewport.prepend | red · 1 failed / 12 passed (13) |
+| EP12-pointer | 새 oracle | — | TranscriptViewport.prepend | red · 1 failed / 12 passed (13) |
+| X04 | 새 oracle | — | changeLog blockList chatReducer.prepend chatStore.deltaBatch | red · 2 failed / 22 passed (24) |
+| EP10-tanstack | 새 oracle | — | virtualizerOptions | red · 1 failed / 2 passed (3) |
+| EP12-source-span | 새 oracle | — | TranscriptView.harness | red · 3 failed / 11 passed (14) |
+| EP12-fenced-source | 새 oracle | — | TranscriptView.harness | red · 3 failed / 11 passed (14) |
+| EP12-fragment-offset | 새 oracle | — | TranscriptViewport.harness | red · 3 failed / 3 passed (6) |
+| EP12-fallback | 새 oracle | — | anchor.test | red · 1 failed / 4 passed (5) |
+| EP12-chrome | 새 oracle | — | anchor.test | red · 1 failed / 4 passed (5) |
+| EP12-prefix-reset | 새 oracle | — | TranscriptViewport.prepend | red · 4 failed / 9 passed (13) |
+| EP08-content-location | 새 oracle | — | TranscriptViewport.prepend blockList | red · 5 failed / 11 passed (16) |
+| EP08-tail-key-lookups | 새 oracle | — | TranscriptViewport.prepend | red · 2 failed / 11 passed (13) |
+| EP08-prefix-locations | 새 oracle | — | TranscriptViewport.prepend blockList | red · 3 failed / 13 passed (16) |
+| EP08-location-fallback | 새 oracle | — | blockList | red · 2 failed / 1 passed (3) |
+| EP08-content-key-revision | 새 oracle | — | blockList virtualizerOptions | red · 3 failed / 3 passed (6) |
+| EP17-yield | 새 oracle | — | TranscriptViewport.selection | red · 2 failed / 6 passed (8) |
+| EP17-chunk-length | 새 oracle | — | TranscriptViewport.selection | red · 1 failed / 7 passed (8) |
+| EP17-inline-assembly | 새 oracle | — | TranscriptViewport.selection | red · 1 failed / 7 passed (8) |
+| EP17-clipboard-write | 새 oracle | — | TranscriptViewport.harness | red · 3 failed / 3 passed (6) |
+| EP17-inert | 새 oracle | — | TranscriptViewport.selection | red · 3 failed / 5 passed (8) |
+| EP17-portal | 새 oracle | — | TranscriptViewport.harness | red · 3 failed / 3 passed (6) |
+| EP17-cancel | 새 oracle | — | TranscriptViewport.selection | red · 2 failed / 6 passed (8) |
+| EP17-selection-restoration | 새 oracle | — | TranscriptViewport.reopen TranscriptViewport.harness | red · 3 failed / 6 passed (9) |
+| EP17-part-owner | 새 oracle | — | TranscriptViewport.harness | red · 3 failed / 3 passed (6) |
+| EP12-character | 새 oracle | — | TranscriptViewport.prepend -t character | red · 1 failed / 12 skipped (13) |
+| EP11-sync | 새 oracle | — | TranscriptViewport.harness -t places | red · 2 failed / 1 passed / 6 skipped (9) |
+| EP11-intent | 새 oracle | — | TranscriptViewport.harness -t places | red · 3 failed / 6 skipped (9) |
+| EP11-resume | 새 oracle | — | TranscriptViewport.harness -t places | red · 1 failed / 2 passed / 6 skipped (9) |
+| EP12-entity | 새 oracle | — | TranscriptView.harness -t markers | red · 3 failed / 11 skipped (14) |
+| M10-l3 | ⑦ sweep | — | changeLog | red · 2 failed / 3 passed (5) |
+| EP05-lineage | 새 oracle | — | changeLog | red · 2 failed / 3 passed (5) |
+| EP05-revision | 새 oracle | — | changeLog | red · 2 failed / 3 passed (5) |
+| EP05-fold | 새 oracle | — | changeLog | red · 1 failed / 4 passed (5) |
+| M02-tel | ⑦ sweep | — | persistence-sender message-identity.integration | red · 6 failed / 34 passed (40) |
+| M02-own | ⑦ sweep | — | persistence-sender message-identity.integration | red · 5 failed / 35 passed (40) |
+| M02-k23 | ⑦ sweep | — | persistence-sender message-identity.integration | red · 2 failed / 38 passed (40) |
+| M04-k9 | ⑦ sweep | 초회 미검출 | turn-coordinator -t "k9|k11" | red · 1 failed / 3 passed / 86 skipped (90) |
+| M04-k19 | ⑦ sweep | 초회 미검출 | turn-coordinator -t "k9|k11" | red · 1 failed / 3 passed / 86 skipped (90) |
+| M04-k11 | ⑦ sweep | 초회 미검출 | turn-coordinator -t "k9|k11" | red · 2 failed / 2 passed / 86 skipped (90) |
+| M04-k14 | ⑦ sweep | — | persistence-sender message-identity.integration | red · 2 failed / 38 passed (40) |
+| M04-k18 | ⑦ sweep | — | persistence-sender message-identity.integration | red · 8 failed / 32 passed (40) |
+| M04-k12 | ⑦ sweep | — | persistence-sender message-identity.integration | red · 4 failed / 36 passed (40) |
+| M04-k20-owner | ⑦ sweep | — | persistence-sender message-identity.integration | red · 4 failed / 36 passed (40) |
+| M04-k20-current | ⑦ sweep | — | persistence-sender message-identity.integration | red · 2 failed / 38 passed (40) |
+| M05-i5 | ⑦ sweep | 초회 미검출 | native-projection | red · 1 failed / 4 passed (5) |
+| M39-g4 | ⑦ sweep | — | chatReducer.prepend TranscriptViewport.prepend | red · 3 failed / 18 passed (21) |
+| M39-g2 | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| M39-g10 | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| M39-g12 | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| M34-b7 | ⑦ sweep | 초회 미검출 | chatStore.deltaBatch | red · 1 failed / 7 passed (8) |
+| M34-b10 | ⑦ sweep | — | chatStore.deltaBatch | red · 1 failed / 7 passed (8) |
+| M34-b11 | ⑦ sweep | — | chatStore.deltaBatch | red · 1 failed / 7 passed (8) |
+| M30-m7 | ⑦ sweep | — | bubbleMeasure UserBubbleText.measure | red · 1 failed / 6 passed (7) |
+| M04-k17-first | ⑦ sweep | — | persistence-sender -t k17 | red · 1 failed / 38 skipped (39) |
+| M06-w3 | ⑦ sweep | — | history/writer.test | red · 2 failed / 23 passed (25) |
+| M06-w5 | ⑦ sweep | — | history/writer.test | red · 2 failed / 23 passed (25) |
+| M06-w9 | ⑦ sweep | — | history/writer.test | red · 1 failed / 24 passed (25) |
+| M06-w10 | ⑦ sweep | — | history/writer.test | red · 2 failed / 23 passed (25) |
+| M06-w16-true | ⑦ sweep | — | history/writer.test | red · 2 failed / 23 passed (25) |
+| M06-w16-false | ⑦ sweep | — | history/writer.test | red · 2 failed / 23 passed (25) |
+| M06-w5-finalize | ⑦ sweep | — | history/writer.test | red · 1 failed / 24 passed (25) |
+| M23-p3 | ⑦ sweep | — | viewport/reserve.test | red · 3 failed (3) |
+| M23-p7 | ⑦ sweep | — | viewport/entry.test TranscriptViewport.harness | red · 3 failed / 11 passed (14) |
+| M23-p9 | ⑦ sweep | — | viewport/pin.test | red · 1 failed / 2 passed (3) |
+| M24-fork | ⑦ sweep | — | Timeline.viewport claudeBlocks | red · 1 failed / 10 passed (11) |
+| M28-d9 | ⑦ sweep | — | disclosureStore | red · 1 failed / 9 passed (10) |
+| M28-d10 | ⑦ sweep | — | disclosureStore TranscriptViewport.disclosure | red · 2 failed / 9 passed (11) |
+| M28-d4 | ⑦ sweep | — | disclosureStore TranscriptViewport.disclosure | red · 5 failed / 6 passed (11) |
+| M30-m5 | ⑦ sweep | — | bubbleMeasure UserBubbleText.measure | red · 2 failed / 5 passed (7) |
+| M30-m8 | ⑦ sweep | — | bubbleMeasure UserBubbleText.measure | red · 1 failed / 6 passed (7) |
+| M31-f4 | ⑦ sweep | — | markdownBlocks | red · 2 failed / 14 passed (16) |
+| M34-b3 | ⑦ sweep | — | chatStore.deltaBatch | red · 3 failed / 5 passed (8) |
+| M39-g1 | ⑦ sweep | — | chatReducer.prepend | red · 1 failed / 7 passed (8) |
+| M19-live-viewport | ⑦ sweep | — | Chromium · live-browser.mjs | red · Node.js v24.19.0 |
+| M05-i4 | ⑦ sweep | — | native-projection | red · 2 failed / 3 passed (5) |
+| M06-w11 | ⑦ sweep | — | history/writer.test | red · 2 failed / 23 passed (25) |
+| M07-r3 | ⑦ sweep | — | chatReducer.messageId chatReducer.messageIdentity | red · 5 failed / 4 passed (9) |
+| M07-r10 | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 6 failed / 11 passed (17) |
+| M07-r13 | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 3 failed / 14 passed (17) |
+| M08-reopen-id | ⑦ sweep | — | TranscriptViewport.harness -t cached | red · 3 failed / 6 skipped (9) |
+| M11-q4 | ⑦ sweep | — | messageOrder.test TranscriptViewport.prepend | red · 4 failed / 12 passed (16) |
+| M11-q7 | ⑦ sweep | — | messageOrder.test | red · 3 failed (3) |
+| M15-u2 | ⑦ sweep | — | blockList.test | red · 2 failed / 1 passed (3) |
+| M15-u7-order | ⑦ sweep | — | blockList.test virtualizerOptions | red · 2 failed / 4 passed (6) |
+| M18-s3 | ⑦ sweep | — | segmentCache.test | red · 3 failed / 2 passed (5) |
+| M18-s4 | ⑦ sweep | — | segmentCache.test | red · 1 failed / 4 passed (5) |
+| M18-s8 | ⑦ sweep | — | segmentCache.test | red · 3 failed / 2 passed (5) |
+| M28-e3 | ⑦ sweep | — | ToolCard.interaction | red · 1 failed / 11 passed (12) |
+| M28-e7 | ⑦ sweep | — | ToolCard.interaction | red · 2 failed / 10 passed (12) |
+| M28-e8 | ⑦ sweep | 초회 미검출 | ToolCard.interaction | red · 1 failed / 11 passed (12) |
+| EP16-reduced | 새 oracle | — | ToolCard.interaction | red · 1 failed / 11 passed (12) |
+| EP16-end | 새 oracle | — | ToolCard.interaction | red · 1 failed / 11 passed (12) |
+| EP16-cancel | 새 oracle | — | ToolCard.interaction | red · 1 failed / 11 passed (12) |
+| M03-relay-copy | ⑦ sweep | — | persistence-sender | red · 2 failed / 37 passed (39) |
+| M03-ask-number | ⑦ sweep | — | persistence-sender message-identity.integration | red · 5 failed / 35 passed (40) |
+| M03-ask-queue | ⑦ sweep | — | persistence-sender | red · 5 failed / 34 passed (39) |
+| M03-k25 | ⑦ sweep | — | persistence-sender | red · 2 failed / 37 passed (39) |
+| M03-k27 | ⑦ sweep | — | send.sinks | red · 1 failed (1) |
+| M04-k5 | ⑦ sweep | — | persistence-sender | red · 3 failed / 36 passed (39) |
+| M04-k5-early | ⑦ sweep | — | persistence-sender | red · 1 failed / 38 passed (39) |
+| M04-k7 | ⑦ sweep | — | persistence-sender | red · 2 failed / 37 passed (39) |
+| M04-k24 | ⑦ sweep | — | persistence-sender | red · 1 failed / 38 passed (39) |
+| M04-k21 | ⑦ sweep | — | turn-coordinator | red · 2 failed / 88 passed (90) |
+| M04-k26-6 | ⑦ sweep | — | turn-coordinator | red · 3 failed / 87 passed (90) |
+| M04-k26-18 | ⑦ sweep | — | turn-coordinator | red · 1 failed / 89 passed (90) |
+| M04-k26-retry | ⑦ sweep | 초회 미검출 | turn-coordinator | red · 1 failed / 89 passed (90) |
+| M07-r14 | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 4 failed / 13 passed (17) |
+| M07-r16-publication | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 3 failed / 14 passed (17) |
+| M07-r16-repeat | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 3 failed / 14 passed (17) |
+| M07-r17 | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 3 failed / 14 passed (17) |
+| M10-parts-from | ⑦ sweep | — | chatReducer.changeLog | red · 1 failed (1) |
+| M10-prepend-complete | ⑦ sweep | — | chatReducer.changeLog chatReducer.prepend | red · 3 failed / 6 passed (9) |
+| M10-load-complete | ⑦ sweep | — | chatReducer.changeLog chatReducer.prepend | red · 8 failed / 1 passed (9) |
+| M12-idempotence | ⑦ sweep | — | chatReducer.messageId chatReducer.messageIndex | red · 3 failed / 7 passed (10) |
+| M14-y17 | ⑦ sweep | — | blockKeys.test | red · 1 failed / 9 passed (10) |
+| M14-y19 | ⑦ sweep | — | blockKeys.test | red · 1 failed / 9 passed (10) |
+| M14-y20 | ⑦ sweep | — | blockKeys.test | red · 1 failed / 9 passed (10) |
+| M14-y15 | ⑦ sweep | — | blockKeys.test | red · 2 failed / 8 passed (10) |
+| M32-x10 | ⑦ sweep | 초회 미검출 | transcriptIndex.test | red · 1 failed / 5 passed (6) |
+| M32-x11 | ⑦ sweep | — | transcriptIndex.test | red · 1 failed / 5 passed (6) |
+| M32-x12 | ⑦ sweep | — | transcriptIndex.test | red · 1 failed / 5 passed (6) |
+| M32-x13 | ⑦ sweep | — | transcriptIndex.test | red · 1 failed / 5 passed (6) |
+| M39-g7 | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| M39-held-output | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| EP12-claude-segment | 새 oracle | — | TranscriptView.harness -t markers | red · 2 failed / 1 passed / 11 skipped (14) |
+| EP12-claude-props | 새 oracle | — | TranscriptView.harness -t markers | red · 2 failed / 1 passed / 11 skipped (14) |
+| EP12-work-segment | 새 oracle | 초회 미검출 | TranscriptViewport.harness -t 'expanded Claude Work' | red · 1 failed / 9 skipped (10) |
+| EP12-work-node | 새 oracle | 초회 미검출 | TranscriptViewport.harness -t 'expanded Claude Work' | red · 1 failed / 9 skipped (10) |
+| EP12-opencode-props | 새 oracle | — | TranscriptView.harness -t markers | red · 1 failed / 2 passed / 11 skipped (14) |
+| EP12-opencode-text | 새 oracle | — | TranscriptView.harness -t markers | red · 1 failed / 2 passed / 11 skipped (14) |
+| EP19-stable | 새 oracle | — | StreamingMarkdown.fence | red · 1 failed / 8 passed (9) |
+| EP19-tail | 새 oracle | — | StreamingMarkdown.fence | red · 1 failed / 8 passed (9) |
+| EP19-open-fence | 새 oracle | — | StreamingMarkdown.fence | red · 1 failed / 8 passed (9) |
+| EP19-fence-code | 새 oracle | — | StreamingMarkdown.fence | red · 1 failed / 8 passed (9) |
+| EP12-group-offset | 새 oracle | — | TranscriptView.harness -t markers | red · 3 failed / 11 skipped (14) |
+| EP12-group-flush | 새 oracle | — | TranscriptView.harness -t markers | red · 3 failed / 11 skipped (14) |
+| EP12-text-key | 새 oracle | — | TranscriptView.harness -t markers | red · 3 failed / 11 skipped (14) |
+| EP12-shiki | 새 oracle | — | Chromium · live-browser.mjs | red · Node.js v24.19.0 |
+| EP17-blob-parts | 새 oracle | — | TranscriptViewport.harness | red · 3 failed / 7 passed (10) |
+| M06-w14 | ⑦ sweep | — | history/writer.test history/writer.ask | red · 1 failed / 26 passed (27) |
+| M06-w15 | ⑦ sweep | — | history/writer.test history/writer.ask | red · 1 failed / 26 passed (27) |
+| M07-r15 | ⑦ sweep | — | chatReducer.messageId chatReducer.prepend | red · 1 failed / 16 passed (17) |
+| M07-r12 | ⑦ sweep | — | chatStore.commitEcho chatReducer.messageIdentity | red · 1 failed / 1 passed (2) |
+| M10-kind | ⑦ sweep | — | chatReducer.changeLog TranscriptViewport.prepend | red · 5 failed / 9 passed (14) |
+| M12-find-index | ⑦ sweep | — | chatReducer.messageIndex | red · 1 failed (1) |
+| M14-y9 | ⑦ sweep | — | claudeBlocks blockKeys.test | red · 1 failed / 18 passed (19) |
+| M14-y12 | ⑦ sweep | 초회 미검출 | openCodeBlocks blockKeys.test | red · 4 failed / 20 passed (24) |
+| M14-y14 | ⑦ sweep | — | blockKeys.test | red · 4 failed / 6 passed (10) |
+| M16-z2 | ⑦ sweep | 초회 미검출 | claudeBlocks | red · 1 failed / 9 passed (10) |
+| M16-z5 | ⑦ sweep | — | claudeBlocks TranscriptViewport.prepend | red · 2 failed / 20 passed (22) |
+| M16-z3 | ⑦ sweep | — | claudeBlocks | red · 2 failed / 7 passed (9) |
+| M16-z8 | ⑦ sweep | — | changeLog | red · 1 failed / 4 passed (5) |
+| M18-s7 | ⑦ sweep | — | segmentCache | red · 1 failed / 4 passed (5) |
+| M28-d12 | ⑦ sweep | — | disclosureStore chatStore.native-history | red · 1 failed / 37 passed (38) |
+| M30-m3 | ⑦ sweep | — | bubbleMeasure UserBubbleText.measure | red · 1 failed / 6 passed (7) |
+| M31-f8 | ⑦ sweep | — | markdownBlocks | red · 1 failed / 15 passed (16) |
+| M39-g14 | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| M39-g15 | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| M14-y3 | ⑦ sweep | — | blockKeys.test | red · 1 failed / 9 passed (10) |
+| M14-y6 | ⑦ sweep | — | claudeBlocks blockKeys.test | red · 1 failed / 19 passed (20) |
+| M21-direct-write | ⑦ sweep | — | transcript.viewport | red · 1 failed / 1 passed (2) |
+| M21-own-virtualizer | ⑦ sweep | — | transcript.viewport | red · 1 failed / 1 passed (2) |
+| M26-a9 | ⑦ sweep | — | TranscriptViewport.prepend | red · 8 failed / 5 passed (13) |
+| M29-c6 | ⑦ sweep | — | TranscriptViewport.selection viewport/copy | red · 5 failed / 8 passed (13) |
+| M29-c15 | ⑦ sweep | — | TranscriptViewport.selection viewport/copy | red · 5 failed / 8 passed (13) |
+| M29-c17 | ⑦ sweep | 초회 미검출 | TranscriptViewport.harness | red · 3 failed / 7 passed (10) |
+| EP17-viewport-anchor | 새 oracle | 초회 미검출 | TranscriptViewport.selection viewport/copy | red · 1 failed / 13 passed (14) |
+| EP11-policy-send | 새 oracle | 초회 미검출 | TranscriptViewport.harness -t places | red · 2 failed / 1 passed / 7 skipped (10) |
+| M12-notice-scan | ⑦ sweep | — | chatReducer.messageIndex | red · 1 failed (1) |
+| M22-history-region | ⑦ sweep | — | TranscriptViewport.transition | red · 1 failed (1) |
+| M33-panel-consumer | ⑦ sweep | — | panelConsumers | red · 1 failed / 1 passed (2) |
+| M17-late-owner | ⑦ sweep | 초회 미검출 | TranscriptViewport.lateResult | red · 1 failed (1) |
+| M23-p12 | ⑦ sweep | — | TranscriptViewport.transition -t p12 | red · 1 failed / 1 skipped (2) |
+| M29-c12 | ⑦ sweep | — | TranscriptViewport.harness | red · 3 failed / 7 passed (10) |
+| M02-created | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
+| M02-early | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
+| M02-writer | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
+| M02-ask | ⑦ sweep | 초회 미검출 | message-identity.integration | red · 1 failed (1) |
+| S03-2 | ⑦ sweep | — | native-projection history/reader | red · 2 failed / 7 passed (9) |
+| S03-6 | ⑦ sweep | — | native-projection history/reader | red · 3 failed / 6 passed (9) |
+| S04-1 | ⑦ sweep | — | chatReducer.messageId | red · 7 failed / 2 passed (9) |
+| S05-3b | ⑦ sweep | — | chatReducer.changeLog | red · 1 failed (1) |
+| S06-7 | ⑦ sweep | — | chatReducer.messageIndex | red · 1 failed (1) |
+| S18-1 | ⑦ sweep | — | bubbleMeasure | red · 1 failed / 3 passed (4) |
+| S18-5 | ⑦ sweep | — | bubbleMeasure | red · 2 failed / 2 passed (4) |
+| S20-3 | ⑦ sweep | — | chatStore.deltaBatch | red · 8 failed (8) |
+| M29-c13 | ⑦ sweep | 초회 미검출 | viewport/copy.test TranscriptViewport.harness | red · 1 failed / 15 passed (16) |
+| S03-4 | ⑦ sweep | — | native-projection history/reader | red · 2 failed / 7 passed (9) |
+| S03-7 | ⑦ sweep | — | history/reader | red · 1 failed / 3 passed (4) |
+| S05-3a | ⑦ sweep | — | chatReducer.changeLog | red · 1 failed (1) |
+| S05-3e | ⑦ sweep | — | chatReducer.changeLog | red · 1 failed (1) |
+| S06-9 | ⑦ sweep | — | chatReducer.task | red · 1 failed / 22 passed (23) |
+| S13-1 | ⑦ sweep | — | transcriptIndex.test | red · 4 failed / 2 passed (6) |
+| S18-2 | ⑦ sweep | — | bubbleMeasure | red · 1 failed / 3 passed (4) |
+| S20-2 | ⑦ sweep | — | chatStore.deltaBatch | red · 4 failed / 4 passed (8) |
+| S20-4 | ⑦ sweep | — | chatStore.deltaBatch | red · 1 failed / 7 passed (8) |
+| S02-1 | ⑦ sweep | — | src/main/infra/db/queries.test -t "non-null message keys" | red · 1 failed / 32 skipped (33) |
+| S02-2 | ⑦ sweep | — | src/main/infra/db/queries.test -t "non-null message keys" | red · 1 failed / 32 skipped (33) |
+| S02-8 | ⑦ sweep | — | history/writer.test | red · 1 failed / 24 passed (25) |
+| S04-4 | ⑦ sweep | — | chatReducer.messageId chatStore.deltaBatch | red · 3 failed / 14 passed (17) |
+| S04-9 | ⑦ sweep | — | chatReducer.messageId | red · 2 failed / 7 passed (9) |
+| S05-3d | ⑦ sweep | 초회 미검출 | chatReducer.changeLog | red · 1 failed (1) |
+| S19-1 | ⑦ sweep | — | markdownBlocks | red · 1 failed / 15 passed (16) |
+| S02-1-partial | ⑦ sweep | — | src/main/infra/db/queries.test -t "non-null message keys" | red · 1 failed / 32 skipped (33) |
+| S02-7 | ⑦ sweep | — | history/writer.test | red · 1 failed / 24 passed (25) |
+| S02-9 | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
+| S04-8 | ⑦ sweep | — | transcriptIndex.test chatReducer.messageId | red · 2 failed / 13 passed (15) |
+| S05-3c | ⑦ sweep | 초회 미검출 | chatReducer.changeLog | red · 1 failed (1) |
+| S07-1 | ⑦ sweep | 초회 미검출 | blockKeys | red · 1 failed / 9 passed (10) |
+| S21-2 | ⑦ sweep | — | transcriptFixtures | red · 1 failed / 1 passed (2) |
+| S01-k22 | ⑦ sweep | — | persistence-sender -t k22 | red · 1 failed / 38 skipped (39) |
+| S22-3 | ⑦ sweep | 초회 미검출 | chatReducer.prepend | red · 1 failed / 8 passed (9) |
+
+분모 검산 · 선택 증거 단독 분류 0 + 인용 변이 9 + 새 oracle 58 + sweep 160 = 실행 227. 같은 변이는 한 번만 센다. 각 행의 원문과 치환문은 [실행 사양](evidence/r3.2-mutations.jsonl)에 있다.
+
+## [구현자 기입] Product/UX 파생 검토 (r3.2)
+
+- 긴 선택을 복사할 때 강조와 코드 안쪽의 부분 선택을 보존한다. 선택 방향은 복사 중 오류와 다음 질문 전송 뒤에도 유지된다.
+- 열어 둔 도구 카드가 캐시 재검증 뒤에도 같은 DOM 노드로 남았다. 이미 열려 있는 Claude 이력을 재검증할 때 아래로 점프하던 조건을 수정했다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3.2)
+
+| 조건 | 수정 | 관측 |
+|---|---|---|
+| 경계 블록의 간격만 바뀜 | 블록과 위치표의 수명을 분리 | 100턴에 붙일 때와 1턴에 붙일 때의 위치 쓰기·조회 수 일치 |
+| 조각의 끝이 여러 서식 노드에 걸침 | 같은 키의 표시 문자열을 합산하고 문자 위치를 다시 DOM에 대응 | 코드 끝 3에서 역방향 복사 |
+| HTML 문자 참조가 소스와 다른 길이로 표시됨 | CommonMark가 해석한 문자마다 원래 토큰 위치를 보존 | `&amp;amp;`의 첫 글자와 나머지 문자열의 part 구분 |
+| 작업 중 native 선택이 비워짐 | 저장한 part와 문자 위치에서 양 끝 복구 | 다음 질문 전송 직전 Range를 비운 뒤 10/2 복원 |
+
+**설계 대비 차이**. 단일 part 래퍼를 본문 전체에 둘 수 없는 강조·링크·코드는 같은 part 키를 가진 여러 표시 조각으로 표현한다. 코드 하이라이트 교체 때 새 토큰 트리에 같은 표시를 재적용한다. Claude와 OpenCode가 자체 제어기에서 수행하는 진입 배치의 정책 분리는 별도 점검 대상으로 남는다.
+
+## [구현자 기입] 구현 보고 (r3.2)
+
+| 화면 | 읽은 턴 | 청크 수 / 순서표 쓰기 | reducer 메시지 수 | TanStack 측정표 길이 | getItemKey 호출 |
+|---|---:|---:|---:|---:|---:|
+| Claude Code · OpenCode | 1 | 2 / 2 | 4 | 10 | 85 |
+| Claude Code · OpenCode | 100 | 9 / 9 | 202 | 505 | 1576 |
+| Claude Work | 1 | 2 / 2 | 4 | 12 | 96 |
+| Claude Work | 100 | 11 / 11 | 202 | 606 | 1878 |
+
+계수는 1턴 앞삽입 후의 값이다. 호출 수는 테스트 가시 영역과 현재 TanStack 버전에 대한 측정값이다. 길이 무관 다섯 항목은 화면마다 두 입력의 동일성을 단언했다.
+
+- 자기 확인 ✅ 12/35 — AC3·6·7·11·14·15·17·18·19·21·31·35. AC6 캐시·도구 상태, AC14 실제 Chromium 렌더, AC19 제어기 진입, AC21 비용 계수를 r3에서 추가했다. 독립 verify r2 판정은 7/35다.
+- 미결 23/35 — AC1·2·4·5·8·9·10·12·13·16·20·22·23·24·25·26·27·28·29·30·32·33·34. AC33의 Windows 실기는 기계 verify 뒤 수행한다.
+- typecheck, production build, host/preload smoke, lint(오류 0, 경고 5), 구조 검사 및 스크립트 테스트를 실행했다. Linux 전체 테스트에서 1,080파일 10,126건 중 통과 10,092건, 기존 실패 22개(9파일), 예상 실패 1건, 건너뜀 11건과 처리되지 않은 오류 1개를 재현했다. 실패 이름 집합은 기준선과 양방향 차집합 0건이다. 코드 강조 회귀 3개는 수정 후 통과했다. 이후 보강한 테스트는 개별 실행했다.
+- [Chromium 검증](evidence/live-browser.mjs)은 실제 Vite 번들·React·TanStack에서 Claude Code, Claude Work, OpenCode를 차례로 실행한다. 기존 행·버블 추가 렌더는 화면마다 0회였으며 강조된 코드 토큰의 분할 part 키도 확인했다.
+
+## [구현자 기입] Review Signals — 사실만 (r3.2)
+
+- r2의 green이었던 M26-a4, X05~X09, M29-c3, M29-c19, M21-v1을 현재 작업 사본에서 모두 검출했다.
+- §10의 자리별 표, 변이 사양과 측정값을 남겼다. 실제 SQLite 중계에서 도구 결과를 발행 영수증으로 바꿔 대기 중 질문 답 우회를 검출했다. 원래 호출 소유자와 뒤 메시지의 본문, 실패한 복사의 재마운트 범위, 작은 이력에서 spacer 높이도 직접 단언했다. 개별 자리 안의 모든 열거 항과 등록 변이의 차집합이 0인지는 아직 확인하지 못했다. 독립 검증과 Windows 실기 판정은 대기 상태다.

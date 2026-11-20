@@ -1,3 +1,4 @@
+import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 import { turnCopyText } from '../../../lib/turns'
 import { memo, useEffect, useMemo, useRef } from 'react'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
@@ -145,7 +146,9 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
             anchorKey={state.anchor?.key}
             footer={footer}
             hasPartMarkers={(block) =>
-              block.kind === 'user' || (block.kind === 'segment' && block.segment.kind === 'tools')
+              block.kind === 'user' ||
+              (block.kind === 'segment' &&
+                (block.segment.kind === 'tools' || (block.sourceParts?.length ?? 0) > 1))
             }
             itemClassName={(block: OpenCodeBlock) =>
               `group/msg min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[block.gap]}`
@@ -182,6 +185,7 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
         return (
           <OpenCodeTextSegment
             prefix={row.segment.text}
+            sourceParts={row.sourceParts}
             live={row.live === true}
             streaming={streaming}
           />
@@ -218,15 +222,23 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
 // 깨어나지 않는다(0325 EP-2 ⑥⑦).
 function OpenCodeTextSegment({
   prefix,
+  sourceParts,
   live,
   streaming
 }: {
   prefix: string
+  sourceParts?: readonly MarkdownSourcePart[]
   live: boolean
   streaming: boolean
 }): React.JSX.Element {
   const liveText = useLiveTextFor(live)
-  return <OpenCodeText source={live ? prefix + liveText : prefix} streaming={streaming} />
+  return (
+    <OpenCodeText
+      source={live ? prefix + liveText : prefix}
+      sourceParts={(sourceParts?.length ?? 0) > 1 ? sourceParts : undefined}
+      streaming={streaming}
+    />
+  )
 }
 
 function RetryStatus(): React.JSX.Element | null {

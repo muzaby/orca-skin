@@ -31,6 +31,15 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
     }
   })
 
+  it('mounts an isolated viewport anchor without expanding its neighborhood', () => {
+    const mounted = selectionMountSet(
+      { startIndex: 10, endIndex: 12, overscan: 1, count: 100 },
+      { anchorIndex: 20, focusIndex: 22 },
+      73
+    )
+    expect(mounted).toEqual([9, 10, 11, 12, 13, 20, 21, 22, 23, 73])
+  })
+
   it('c7/c12: chunked async copy splits on block boundaries, unmounts after each chunk, writes clipboard once in assemble task', async () => {
     const queue: (() => void)[] = []
     const events: string[] = []
@@ -90,6 +99,7 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
   it('c13: chunk failure stops remaining chunks, unmounts, writes 0 to clipboard, and reports clipboard.copy.failed', async () => {
     vi.mocked(reportError).mockClear()
     const queue: (() => void)[] = []
+    const mounts: [number, number][] = []
     let unmountCount = 0
     let writeCount = 0
 
@@ -97,7 +107,7 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
       0,
       9,
       {
-        mountChunk: () => {},
+        mountChunk: (start, end) => mounts.push([start, end]),
         serializeChunk: (s) => {
           if (s === 4) throw new Error('chunk boom')
           return { text: 'ok', html: 'ok' }
@@ -116,6 +126,10 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
     while (queue.length > 0) queue.shift()!()
     const ok = await job.done
     expect(ok).toBe(false)
+    expect(mounts).toEqual([
+      [0, 3],
+      [4, 7]
+    ])
     expect(unmountCount).toBe(2) // chunk 1 + chunk 2 finally
     expect(writeCount).toBe(0)
     expect(reportError).toHaveBeenCalledTimes(1)

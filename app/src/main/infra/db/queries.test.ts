@@ -20,6 +20,28 @@ function insertSession(db: Database.Database, id = 's1'): void {
   ).run(id)
 }
 
+it('keeps non-null message keys unique within each session and loads each stored key', () => {
+  const db = dbWithMigrations()
+  try {
+    insertSession(db, 'a')
+    insertSession(db, 'b')
+    const q = new DbQueries(db)
+    const insert = (sessionId: string, messageKey?: string): number =>
+      q.appendMessage({ sessionId, messageKey, role: 'user', content: 'text', createdAt: 1 })
+    const first = insert('a', 'u:1')
+    expect(() => insert('a', 'u:1')).toThrow(/UNIQUE constraint/)
+    const second = insert('b', 'u:1')
+    expect(q.findMessageByKey('a', 'u:1')?.id).toBe(first)
+    expect(q.findMessageByKey('b', 'u:1')?.id).toBe(second)
+    expect(insert('a')).not.toBe(insert('a'))
+    expect(db.prepare("PRAGMA index_list('messages')").all()).toContainEqual(
+      expect.objectContaining({ name: 'idx_messages_session_key', unique: 1, partial: 1 })
+    )
+  } finally {
+    db.close()
+  }
+})
+
 describe('DbQueries turn usage', () => {
   it('insertTurnUsage id 반환과 insertTurnModelUsage 연결을 제공한다', () => {
     const db = dbWithMigrations()

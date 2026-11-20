@@ -31,6 +31,15 @@ const prepend = (state: ChatState, messages: LoadedMessage[], reachedStart = fal
   chatReducer(state, { type: 'PREPEND_HISTORY', messages, reachedStart })
 
 describe('transcript history prepend', () => {
+  it('records the first nonempty page as a prepend into an empty transcript', () => {
+    const next = chatReducer(LOAD([]), {
+      type: 'PREPEND_HISTORY',
+      messages: tail,
+      reachedStart: false
+    })
+    expect(next.transcriptChanges.log.at(-1)).toEqual({ kind: 'prepend', ids: ['u:tail'] })
+  })
+
   it('deduplicates pages, rejects a misplaced overlap, and preserves existing messages', () => {
     const state = LOAD(tail)
     const page = [

@@ -1,9 +1,18 @@
+import type { MarkdownSourcePart } from '../../../shared/ui/markdown/sourceParts'
 import type { AppMessagePart } from '../../../../../shared/ipc'
 import type { ResponseBoundary } from '../../../../../shared/response-boundary'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import { resultMap, type MessageSegment } from './parts'
 import { createSegmentCache } from './segmentCache'
-import { activityBlockKey, partBlockKey, toolBlockKey } from './transcript/blockKeys'
+import {
+  activityBlockKey,
+  partBlockKey,
+  representativePart,
+  textPartGroups,
+  type MultiPartGroupRef,
+  toolBlockKey,
+  type PartKeyEntry
+} from './transcript/blockKeys'
 
 export type WorkToolResultsMap = ReadonlyMap<string, NonNullable<ToolCall['result']>>
 
@@ -12,6 +21,7 @@ type SegmentNode = {
   key: string
   messageId: string
   segment: MessageSegment
+  sourceParts?: readonly MarkdownSourcePart[]
 }
 type BoundaryNode = { kind: 'boundary'; key: string; boundary: ResponseBoundary }
 type Atom = SegmentNode | BoundaryNode
@@ -57,10 +67,9 @@ function firstToolRunIdInActivity(items: readonly SegmentNode[]): string | null 
 
 // 턴 인스턴스 소유 캐시. 완료 메시지의 parts는 재해석하지 않고 변경 메시지만 투영한다.
 // 원문/도구 payload는 복제하지 않는다. 캐시 수명은 transcript 턴의 수명과 같다.
-export function createWorkProjector(): (
-  messages: readonly Message[],
-  toolResults?: WorkToolResultsMap
-) => WorkActivityNode[] | null {
+export function createWorkProjector(
+  entriesFor?: (message: Message) => readonly PartKeyEntry[]
+): (messages: readonly Message[], toolResults?: WorkToolResultsMap) => WorkActivityNode[] | null {
   type Parsed = { atoms: Atom[]; results: ReturnType<typeof resultMap> }
   const cache = new WeakMap<Message, Parsed>()
   const previous = new Map<
@@ -84,34 +93,68 @@ export function createWorkProjector(): (
     const atoms: Atom[] = []
     let chunk: AppMessagePart[] = []
     let offset = 0
+    let chunkStart = 0
+    const entries = entriesFor?.(message) ?? []
+    let entryCursor = 0
     const identity = message.id ?? `m:${index}`
     const prior = previous.get(identity)
     const caches = new Map<number, ReturnType<typeof createSegmentCache>>()
     const oldByKey = new Map<string, SegmentNode>()
+    const textRefs: MultiPartGroupRef[] = []
     for (const node of prior?.atoms ?? []) {
-      if (node.kind === 'segment') oldByKey.set(node.key, node)
+      if (node.kind !== 'segment') continue
+      oldByKey.set(node.key, node)
+      if (node.sourceParts) {
+        textRefs.push({
+          key: node.key,
+          repPartKey: node.key,
+          partKeys: new Set(node.sourceParts.map((part) => part.key))
+        })
+      }
     }
     const counters = new Map<string, number>()
     let boundarySeq = 0
-    function flush(): void {
+    function flush(chunkEnd: number): void {
       const segmentCache = prior?.caches.get(offset) ?? createSegmentCache()
       caches.set(offset, segmentCache)
       const segments = segmentCache.segmentsFor({ ...message, parts: chunk }, undefined, results)
+      const start = entryCursor
+      while (entryCursor < entries.length && entries[entryCursor].partIndex < chunkEnd) {
+        entryCursor++
+      }
+      const groups = textPartGroups(
+        entries.slice(start, entryCursor).filter((entry) => entry.partIndex >= chunkStart)
+      )
+      let textIndex = 0
       for (const segment of segments) {
-        const key = segmentKeyFor(identity, segment, counters)
+        const ordinalKey = segmentKeyFor(identity, segment, counters)
+        const sourceParts = segment.kind === 'text' ? groups[textIndex++] : undefined
+        const key = sourceParts
+          ? representativePart(
+              textRefs,
+              sourceParts.map((part) => part.key)
+            ).repPartKey
+          : ordinalKey
         const existing = oldByKey.get(key)
         atoms.push(
           existing?.segment === segment
             ? existing
-            : { kind: 'segment', key, messageId: identity, segment }
+            : {
+                kind: 'segment',
+                key,
+                messageId: identity,
+                segment,
+                ...(sourceParts ? { sourceParts } : {})
+              }
         )
       }
       chunk = []
       offset++
     }
-    for (const part of parts) {
+    for (const [index, part] of parts.entries()) {
       if (part.type === 'response_boundary') {
-        flush()
+        flush(index)
+        chunkStart = index + 1
         atoms.push({
           kind: 'boundary',
           key: partBlockKey(identity, 'boundary', boundarySeq++),
@@ -119,7 +162,7 @@ export function createWorkProjector(): (
         })
       } else if (part.type !== 'tool_result') chunk.push(part)
     }
-    flush()
+    flush(parts.length)
     const parsed = { atoms, results }
     cache.set(message, parsed)
     previous.set(identity, { atoms, caches })

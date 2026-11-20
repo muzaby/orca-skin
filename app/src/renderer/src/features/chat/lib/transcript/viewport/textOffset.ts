@@ -39,6 +39,16 @@ function collectContentTextNodes(root: Element): Text[] {
       result.push(node as Text)
     }
   }
+  if (root.hasAttribute?.('data-markdown-part-fragment')) {
+    const block = root.closest('[data-index]') ?? root.closest('[data-block-key]')
+    const key = root.getAttribute('data-part-key')
+    if (block) {
+      for (const fragment of block.querySelectorAll('[data-markdown-part-fragment]')) {
+        if (fragment.getAttribute('data-part-key') === key) walk(fragment)
+      }
+      return result
+    }
+  }
   walk(root)
   return result
 }
@@ -102,7 +112,7 @@ export function pointAtPartOffset(wrapper: Element, targetOffset: number): PartT
   let remaining = clamped
   for (const tn of textNodes) {
     const len = tn.data?.length ?? tn.textContent?.length ?? 0
-    if (remaining <= len) {
+    if (remaining < len) {
       return { node: tn, offset: remaining }
     }
     remaining -= len

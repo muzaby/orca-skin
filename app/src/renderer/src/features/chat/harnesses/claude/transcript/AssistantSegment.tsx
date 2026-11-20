@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
 import { ClaudeToolGroup as ToolGroup } from './ToolGroup'
 import { ReasoningBlock } from './ReasoningBlock'
@@ -14,9 +15,11 @@ import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation
 export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
   segment: seg,
   transcriptPolicy,
-  partKeys
+  partKeys,
+  sourceParts
 }: {
   partKeys?: readonly string[]
+  sourceParts?: readonly MarkdownSourcePart[]
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
@@ -36,7 +39,12 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
     case 'ask':
       return <AskExchange call={seg.call} />
     case 'text':
-      return <Markdown source={seg.text} />
+      return (
+        <Markdown
+          source={seg.text}
+          sourceParts={(sourceParts?.length ?? 0) > 1 ? sourceParts : undefined}
+        />
+      )
     case 'error':
       return <ErrorCard error={seg.error} />
     case 'compact':

@@ -121,7 +121,7 @@ export function ActivityDisclosure({
             ) : item.segment.kind === 'text' ? (
               <div
                 key={item.key}
-                data-part-key={item.key}
+                data-part-key={(item.sourceParts?.length ?? 0) > 1 ? undefined : item.key}
                 className="relative py-2 pl-[30px]"
                 data-work-note="true"
               >
@@ -131,7 +131,11 @@ export function ActivityDisclosure({
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-current" />
                 </span>
-                <AssistantSegment segment={item.segment} transcriptPolicy={transcriptPolicy} />
+                <AssistantSegment
+                  segment={item.segment}
+                  transcriptPolicy={transcriptPolicy}
+                  sourceParts={item.sourceParts}
+                />
               </div>
             ) : null
           )}

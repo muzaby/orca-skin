@@ -116,6 +116,9 @@ export function useScrollAnchor({
     const el = scrollRef.current
     if (!el) return
     const sentNow = sendCount > prevSendRef.current
+    const firstLayout = prevMessagesRef.current === null
+    const firstLoadedHistory =
+      prevMessagesRef.current?.length === 0 && messages.length > 0 && !inflight && pinnedRef.current
     const messagesReplaced = messages !== prevMessagesRef.current
     // 세션 전환 = sessionId 변화 + messages 교체 동시. session.updated 의 null→id 발급은
     // messages 를 건드리지 않으므로 전환으로 보지 않는다(턴 중 예약 해제 방지).
@@ -138,21 +141,14 @@ export function useScrollAnchor({
     }
     if (sessionSwapped) setAnchored(false)
     const intent = sessionId ? consumeEntryIntent(sessionId) : null
-    if (intent) {
-      const placement = entryPolicy(intent.cause, 'claude')
-      if (placement.action === 'scroll-bottom') {
-        pinnedRef.current = true
-        writeScrollTop(el, el.scrollHeight)
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- sync jump button with layout scroll-bottom placement
-        setShowJump(false)
-        return
-      }
-    }
-    if (messagesReplaced && !inflightRef.current && pinnedRef.current) {
+    const cause =
+      intent?.cause ?? (firstLayout || firstLoadedHistory || sessionSwapped ? 'resume' : 'sync')
+    if (entryPolicy(cause, 'claude').action === 'scroll-bottom') {
+      pinnedRef.current = true
       writeScrollTop(el, el.scrollHeight)
       setShowJump(false)
     }
-  }, [messages, sessionId, sendCount])
+  }, [messages, sessionId, sendCount, inflight])
 
   return { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored, isPinned }
 }

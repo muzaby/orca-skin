@@ -1,3 +1,4 @@
+import { load } from 'cheerio'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
@@ -7,6 +8,27 @@ import { advanceStableBlocks } from '../../lib/markdownBlocks'
 import { StreamingFence, StreamingMarkdown } from './StreamingMarkdown'
 
 describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
+  it.each([
+    ['plain **tail**', 'strong', 'tail'],
+    ['```js\nconst tail', 'pre code', 'tail']
+  ])('keeps part offsets when a stable paragraph is followed by %s', (tail, selector, end) => {
+    const source = 'stable word\n\n' + tail
+    const html = renderToStaticMarkup(
+      createElement(StreamingMarkdown, {
+        source,
+        sourceParts: [
+          { start: 0, key: 'first' },
+          { start: 7, key: 'second' },
+          { start: source.indexOf('tail'), key: 'last' }
+        ]
+      })
+    )
+    const $ = load(html)
+    expect($('p [data-part-key="first"]').text()).toBe('stable ')
+    expect($('p [data-part-key="second"]').first().text()).toBe('word')
+    expect($(`${selector} [data-part-key="last"]`).text()).toBe(end)
+  })
+
   const cases = [
     ['f1: backtick + info', '```ts\nconst x = 1\n'],
     ['f2: tilde 4 with inner 3', '~~~~py\nprint(1)\n~~~\nprint(2)\n'],

@@ -1,9 +1,10 @@
 import { MARKDOWN_TYPOGRAPHY } from './typography'
-import { memo } from 'react'
-import ReactMarkdown, { type Components } from 'react-markdown'
+import { createContext, memo, useContext } from 'react'
+import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CodeBlock } from './CodeBlock'
 import { isCodeBlock } from './isCodeBlock'
+import { markSourceText, sourcePartSpans, type MarkdownSourcePart } from './sourceParts'
 import { useI18n } from '../../i18n'
 
 // 차단된 외부 이미지 플레이스홀더 — components 맵 항목은 react-markdown 이 컴포넌트로
@@ -121,7 +122,7 @@ const COMPONENTS: Components = {
   },
   code: (props) => {
     const { children, className } = props as { children?: React.ReactNode; className?: string }
-    const text = String(children ?? '')
+    const text = typeof children === 'string' ? children : ''
     if (!isCodeBlock(className, text)) {
       // 인라인 코드 — 테두리·배경을 사용자 메시지 버블 배경(`--color-bubble-user`)으로 통일.
       return (
@@ -136,8 +137,42 @@ const COMPONENTS: Components = {
   pre: ({ children }) => <>{children}</>
 }
 
+const MarkdownPartsContext = createContext<{
+  source: string
+  parts: readonly MarkdownSourcePart[]
+} | null>(null)
+
+const DefaultCode = COMPONENTS.code!
+
+function SourcePartCode(props: React.ComponentProps<'code'> & ExtraProps): React.JSX.Element {
+  const input = useContext(MarkdownPartsContext)
+  const { children, className, node } = props
+  const text = typeof children === 'string' ? children : ''
+  const start = node?.position?.start.offset
+  const end = node?.position?.end.offset
+  if (!input || !isCodeBlock(className, text) || start === undefined || end === undefined) {
+    return <DefaultCode {...props} />
+  }
+  const { source, parts } = input
+  const firstLineEnd = source.indexOf('\n', start)
+  const fenced = /^ {0,3}(?:`{3,}|~{3,})/.test(source.slice(start, firstLineEnd))
+  const code = text.replace(/\n$/, '')
+  const bodyStart = fenced && firstLineEnd >= start ? firstLineEnd + 1 : start
+  const lang = (className ?? '').replace(/^language-/, '').trim() || undefined
+  return (
+    <CodeBlock
+      code={code}
+      lang={lang}
+      markedText={markSourceText(code, source, bodyStart, end, parts)}
+    />
+  )
+}
+
+const COMPONENTS_WITH_SOURCE_PARTS: Components = { ...COMPONENTS, code: SourcePartCode }
+
 export interface MarkdownProps {
   source: string
+  sourceParts?: readonly MarkdownSourcePart[]
   // 본문 래퍼 클래스 override — 미지정 시 채팅 본문 톤(text-ink/leading-1.65).
   // skills 상세 패널 등 다른 톤이 필요한 호출부가 색·행간을 덮어쓴다.
   className?: string
@@ -149,13 +184,22 @@ const DEFAULT_WRAPPER = `${MARKDOWN_TYPOGRAPHY} text-ink`
 // 건너뛴다 — 부모(messageSegments)가 세그먼트 객체를 재생성해도 안전 (0007-transcript-render-memo).
 export const Markdown = memo(function Markdown({
   source,
-  className
+  className,
+  sourceParts
 }: MarkdownProps): React.JSX.Element {
   return (
     <div className={className ?? DEFAULT_WRAPPER}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-        {source}
-      </ReactMarkdown>
+      <MarkdownPartsContext.Provider
+        value={sourceParts?.length ? { source, parts: sourceParts } : null}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={sourceParts?.length ? [sourcePartSpans(source, sourceParts)] : undefined}
+          components={sourceParts?.length ? COMPONENTS_WITH_SOURCE_PARTS : COMPONENTS}
+        >
+          {source}
+        </ReactMarkdown>
+      </MarkdownPartsContext.Provider>
     </div>
   )
 })

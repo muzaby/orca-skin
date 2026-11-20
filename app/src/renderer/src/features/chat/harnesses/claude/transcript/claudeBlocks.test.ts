@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import type { Message } from '../../../reducer/chatReducer'
 import {
@@ -8,6 +8,7 @@ import {
 } from '../../../lib/transcript/changeLog'
 import { liveBlockKey, turnMetaKey, userBlockKey } from '../../../lib/transcript/blockKeys'
 import { buildClaudeBlocksOracle, snapshotToArray } from '../../../lib/blockOracle.testfixture'
+import * as segmentCache from '../../../lib/segmentCache'
 import { createClaudeBlockModel } from './claudeBlocks'
 
 function userMsg(id: string, text: string, createdAt = 1000): Message {
@@ -56,6 +57,40 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
     expect(lastBlock.key).toBe(userBlockKey('u:2'))
     expect(lastBlock.gap).toBe(24)
     expect(lastBlock.kind === 'user' && lastBlock.reserveTarget).toBe(true)
+  })
+
+  it('z2 keeps parsed prefix segments inside the message receiving a replacement', () => {
+    const original = segmentCache.createSegmentCache
+    const calls: { offset: number | undefined; first: unknown }[] = []
+    const factory = vi.spyOn(segmentCache, 'createSegmentCache').mockImplementation(() => {
+      const cache = original()
+      const parse = cache.segmentsFor
+      cache.segmentsFor = (...args) => {
+        const result = parse(...args)
+        if (args[0].id === 'a:edit') calls.push({ offset: args[1], first: result[0] })
+        return result
+      }
+      return cache
+    })
+    try {
+      const parts: AppMessagePart[] = [
+        { type: 'text', text: 'stable' },
+        { type: 'reasoning', text: 'old' }
+      ]
+      const model = createClaudeBlockModel({ mode: 'code', sessionKey: 's' })
+      const reset = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      model.advance({ messages: [assistantMsg('a:edit', parts)], transcriptChanges: reset })
+      const first = calls.at(-1)?.first
+      expect(first).toBeDefined()
+      model.advance({
+        messages: [assistantMsg('a:edit', [parts[0], { type: 'reasoning', text: 'new' }])],
+        transcriptChanges: recordChange(reset, { kind: 'replace', id: 'a:edit', partsFrom: 1 })
+      })
+      expect(calls.at(-1)?.offset).toBe(1)
+      expect(calls.at(-1)?.first).toBe(first)
+    } finally {
+      factory.mockRestore()
+    }
   })
 
   it('z2/z4: replace{partsFrom} updates only target message and late tool_result updates only original tool call block', () => {

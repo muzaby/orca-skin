@@ -49,12 +49,12 @@ export interface CopyJobHandle {
   readonly done: Promise<boolean>
 }
 
-async function defaultWriteClipboard(text: string, html: string): Promise<void> {
+async function defaultWriteClipboard(text: string[], html: string[]): Promise<void> {
   if (typeof navigator === 'undefined' || !navigator.clipboard?.write) {
     throw new Error('Clipboard API unavailable')
   }
-  const textBlob = new Blob([text], { type: 'text/plain' })
-  const htmlBlob = new Blob([html], { type: 'text/html' })
+  const textBlob = new Blob(text, { type: 'text/plain' })
+  const htmlBlob = new Blob(html, { type: 'text/html' })
   const item = new ClipboardItem({
     'text/plain': textBlob,
     'text/html': htmlBlob
@@ -81,7 +81,6 @@ export function startCopyJob(
   const hi = Math.max(startIndex, endIndex)
   const chunkSize = Math.max(1, options.chunkSize ?? SELECTION_COPY_SYNC_MAX_BLOCKS)
   const schedule = hooks.scheduleNext ?? ((fn: () => void) => setTimeout(fn, 0))
-  const writeClip = hooks.writeClipboard ?? defaultWriteClipboard
   const now =
     hooks.now ?? (() => (typeof performance !== 'undefined' ? performance.now() : Date.now()))
 
@@ -114,9 +113,9 @@ export function startCopyJob(
       const t0 = now()
       let promise: Promise<void>
       try {
-        const text = textParts.join('\n')
-        const html = htmlParts.join('')
-        promise = writeClip(text, html)
+        promise = hooks.writeClipboard
+          ? hooks.writeClipboard(textParts.join(''), htmlParts.join(''))
+          : defaultWriteClipboard(textParts, htmlParts)
       } catch (err) {
         fail(err)
         return
@@ -145,6 +144,7 @@ export function startCopyJob(
       try {
         hooks.mountChunk(chunkStart, chunkEnd)
         const { text, html } = hooks.serializeChunk(chunkStart, chunkEnd, isFirst, isLast)
+        if (textParts.length) textParts.push('\n')
         textParts.push(text)
         htmlParts.push(html)
       } catch (err) {

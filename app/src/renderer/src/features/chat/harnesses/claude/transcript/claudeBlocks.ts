@@ -1,3 +1,4 @@
+import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 /**
  * Incremental block model for Claude transcripts (code & work modes) (EP-7 · EP-8 · EP-9).
  *
@@ -38,6 +39,7 @@ import {
   PartKeyTracker,
   representativePart,
   toolBlockKey,
+  textPartGroups,
   turnArtifactsKey,
   turnMetaKey,
   userBlockKey,
@@ -60,6 +62,7 @@ export interface ClaudeUserBlock {
 }
 
 export interface ClaudeSegmentBlock {
+  readonly sourceParts?: readonly MarkdownSourcePart[]
   readonly kind: 'segment'
   readonly key: string
   readonly messageId: string
@@ -77,6 +80,7 @@ export interface ClaudeActivityBlock {
     readonly key: string
     readonly messageId: string
     readonly segment: MessageSegment
+    readonly sourceParts?: readonly MarkdownSourcePart[]
   }[]
   readonly toolCount: number
   readonly noteCount: number
@@ -291,6 +295,7 @@ export function createClaudeBlockModel(config: {
 
   const tracker = new PartKeyTracker()
   const partKeysByMessage = new Map<string, PartKeyEntry[]>()
+  const textRefsByMessage = new Map<string, MultiPartGroupRef[]>()
   const segmentCaches = new Map<string, ReturnType<typeof createSegmentCache>>()
   const workProjectors = new Map<string, ReturnType<typeof createWorkProjector>>()
   const messageById = new Map<string, Message>()
@@ -311,6 +316,7 @@ export function createClaudeBlockModel(config: {
 
   // Turn tracking
   let turns: TurnGroup[] = []
+  let hasUserAndAssistantTurns = false
   const msgToTurn = new Map<string, TurnGroup>()
   let prevActivityRefs: MultiPartGroupRef[] = []
 
@@ -448,6 +454,10 @@ export function createClaudeBlockModel(config: {
     const segments = segCache.segmentsFor(message, partsFrom, toolResults)
     const entries = ensurePartKeysIncremental(message, partsFrom ?? 0)
     const entryCursor = { index: 0 }
+    const textGroups = textPartGroups(entries)
+    const prevTextRefs = textRefsByMessage.get(message.id) ?? []
+    const nextTextRefs: MultiPartGroupRef[] = []
+    let textIndex = 0
     const blocks: ClaudeSegmentBlock[] = []
 
     for (let i = 0; i < segments.length; i++) {
@@ -485,7 +495,15 @@ export function createClaudeBlockModel(config: {
         }
       }
 
-      const { blockKey, partKeys } = segmentPartKeys(message.id, seg, entries, entryCursor, tracker)
+      const matched = segmentPartKeys(message.id, seg, entries, entryCursor, tracker)
+      const sourceParts = seg.kind === 'text' ? textGroups[textIndex++] : undefined
+      const partKeys = sourceParts?.map((part) => part.key) ?? matched.partKeys
+      const blockKey = sourceParts
+        ? representativePart(prevTextRefs, partKeys).repPartKey
+        : matched.blockKey
+      if (sourceParts) {
+        nextTextRefs.push({ key: blockKey, repPartKey: blockKey, partKeys: new Set(partKeys) })
+      }
 
       if (seg.kind === 'tools') {
         for (const call of seg.calls) {
@@ -513,10 +531,12 @@ export function createClaudeBlockModel(config: {
         key: blockKey,
         messageId: message.id,
         partKeys,
+        sourceParts,
         segment: seg,
         gap
       })
     }
+    textRefsByMessage.set(message.id, nextTextRefs)
     return blocks
   }
 
@@ -528,7 +548,7 @@ export function createClaudeBlockModel(config: {
   ): ClaudeBlock[] {
     let projector = workProjectors.get(turnId)
     if (!projector) {
-      projector = createWorkProjector()
+      projector = createWorkProjector((message) => ensurePartKeysIncremental(message, 0))
       workProjectors.set(turnId, projector)
     }
     const nodes: WorkActivityNode[] | null = projector(turnMessages, toolResults)
@@ -542,7 +562,7 @@ export function createClaudeBlockModel(config: {
         const itemPartKeys = node.items.flatMap((item) =>
           item.segment.kind === 'tools'
             ? item.segment.calls.map((call) => toolBlockKey(item.messageId, call.toolUseId))
-            : [item.key]
+            : (item.sourceParts?.map((part) => part.key) ?? [item.key])
         )
         const rep =
           prevActivities.length > 0 && itemPartKeys.length > 0
@@ -599,7 +619,8 @@ export function createClaudeBlockModel(config: {
           kind: 'segment',
           key: node.key,
           messageId: node.messageId,
-          partKeys: [node.key],
+          partKeys: node.sourceParts?.map((part) => part.key) ?? [node.key],
+          sourceParts: node.sourceParts,
           segment: node.segment,
           gap
         })
@@ -665,6 +686,9 @@ export function createClaudeBlockModel(config: {
     }
     prevActivityRefs = mode === 'work' ? extractActivityRefs(prevBlocks) : []
 
+    const survivingMessages = new Set(messages.map((message) => message.id))
+    for (const id of textRefsByMessage.keys())
+      if (!survivingMessages.has(id)) textRefsByMessage.delete(id)
     messageById.clear()
     visibleById.clear()
     toolResults.clear()
@@ -704,6 +728,8 @@ export function createClaudeBlockModel(config: {
       if (grouped[i].role === 'user') lastUserTurnIdx = i
       else lastAssistantTurnIdx = i
     }
+
+    hasUserAndAssistantTurns = lastUserTurnIdx >= 0 && lastAssistantTurnIdx >= 0
 
     const allBlocks: ClaudeBlock[] = []
     const seenToolCalls = new Set<string>()
@@ -844,6 +870,7 @@ export function createClaudeBlockModel(config: {
       if (lastUserTurn && lastAssistantTurn) break
     }
 
+    hasUserAndAssistantTurns = !!lastUserTurn && !!lastAssistantTurn
     const snap = list.snapshot()
     // Update reserveTarget on user turns
     for (const t of turns) {
@@ -1103,6 +1130,12 @@ export function createClaudeBlockModel(config: {
         return snap
       }
 
+      const preservesTail =
+        !optionsChanged &&
+        changes.length > 0 &&
+        changes.every((change) => change.kind === 'prepend') &&
+        hasUserAndAssistantTurns
+
       if (changes.length > 0) {
         const order = messageOrderFor(state, true)
         const folded = foldChanges(changes)
@@ -1238,10 +1271,9 @@ export function createClaudeBlockModel(config: {
             if (curSnap.count > 0 && prefixBlocks.length > 0) {
               const oldFirst = curSnap.blockAt(0)
               if (oldFirst.gap === 0) {
-                list.splice(0, 1, [...prefixBlocks, { ...oldFirst, gap: 24 }])
-              } else {
-                list.splice(0, 0, prefixBlocks)
+                list.splice(0, 1, [{ ...oldFirst, gap: 24 }])
               }
+              list.splice(0, 0, prefixBlocks)
             } else if (prefixBlocks.length > 0) {
               list.splice(0, 0, prefixBlocks)
             }
@@ -1265,6 +1297,7 @@ export function createClaudeBlockModel(config: {
             messageById.delete(id)
             visibleById.delete(id)
             segmentCaches.delete(id)
+            textRefsByMessage.delete(id)
             const tr = msgToTurn.get(id)
             if (tr) {
               msgToTurn.delete(id)
@@ -1342,7 +1375,7 @@ export function createClaudeBlockModel(config: {
       }
 
       // 3. Refresh last-turn flags (reserveTarget, forkable, inflight meta, live block)
-      refreshLastTurnFlags(opts)
+      if (!preservesTail) refreshLastTurnFlags(opts)
 
       cursor = { lineage: transcriptChanges.lineage, revision: transcriptChanges.revision }
       prevShowAutomaticFeeds = opts.showAutomaticFeeds

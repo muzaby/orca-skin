@@ -2,6 +2,7 @@
  * Stable, position-independent block & part key rules (EP-7 · D-054 · D-067 · D-070 · D-071 · D-084 · D-085).
  */
 import type { AppMessagePart } from '../../../../../../shared/ipc'
+import type { MarkdownSourcePart } from '../../../../shared/ui/markdown/sourceParts'
 import type { Message } from '../../reducer/chatReducer'
 
 export function userBlockKey(messageId: string): string {
@@ -53,6 +54,8 @@ export function partKeyKind(part: AppMessagePart): string | null {
       return 'tool'
     case 'compact_boundary':
       return 'compact'
+    case 'fork_boundary':
+      return 'fork'
     case 'error':
       return 'error'
     case 'subagent_notice':
@@ -99,6 +102,33 @@ export interface PartKeyEntry {
   readonly key: string
   readonly signature: string | null
   readonly toolRunId?: string
+}
+
+/** The segment renderer concatenates consecutive text contributions before Markdown parsing. */
+export function textPartGroups(entries: readonly PartKeyEntry[]): MarkdownSourcePart[][] {
+  const groups: MarkdownSourcePart[][] = []
+  let group: MarkdownSourcePart[] = []
+  let start = 0
+  for (const entry of entries) {
+    if (entry.kind === 'text') {
+      const length = entry.signature ? entry.signature.length - 'text:'.length : 0
+      if (length > 0) {
+        group.push({ key: entry.key, start })
+        start += length
+      }
+    } else if (
+      entry.kind !== 'boundary' &&
+      entry.kind !== 'artifact' &&
+      entry.kind !== 'attachment' &&
+      !(entry.kind === 'reasoning' && !entry.signature?.slice('reasoning:'.length).trim())
+    ) {
+      if (group.length) groups.push(group)
+      group = []
+      start = 0
+    }
+  }
+  if (group.length) groups.push(group)
+  return groups
 }
 
 export class PartKeyTracker {

@@ -153,7 +153,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           hasPartMarkers={(block) =>
             block.kind === 'user' ||
             block.kind === 'activity' ||
-            (block.kind === 'segment' && block.segment.kind === 'tools')
+            (block.kind === 'segment' &&
+              (block.segment.kind === 'tools' || (block.sourceParts?.length ?? 0) > 1))
           }
           itemClassName={(block: ClaudeBlock) =>
             `group/msg min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[block.gap]}`
@@ -166,6 +167,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
                 return (
                   <ClaudeAssistantSegment
                     partKeys={block.partKeys}
+                    sourceParts={block.sourceParts}
                     segment={block.segment}
                     transcriptPolicy={transcriptPolicy}
                   />
@@ -180,7 +182,8 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
                         kind: 'segment' as const,
                         key: item.key,
                         messageId: item.messageId,
-                        segment: item.segment
+                        segment: item.segment,
+                        sourceParts: item.sourceParts
                       })),
                       toolCount: block.toolCount,
                       noteCount: block.noteCount

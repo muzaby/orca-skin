@@ -6,6 +6,7 @@ import Database from 'better-sqlite3'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { NormalizedEvent } from '../../shared/ipc'
 import {
+  ST01_ARTIFACT_RECEIPT,
   ST01_EXPECTED_RELOAD_MESSAGES,
   ST01_SESSION_ID,
   ST01_USER_INITIAL_ID,
@@ -118,7 +119,7 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
       type: 'tool.call.completed',
       sessionId: ST01_SESSION_ID,
       toolRunId: 'tool-y',
-      result: 'artifact written',
+      result: ST01_ARTIFACT_RECEIPT,
       isError: false
     })
 
@@ -136,6 +137,10 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
       answers: { q1: 'yes' }
     })
     stream.sender.flushAskAnswers!(turn, turn.owner)
+
+    expect(
+      windowEvents.some((e) => e.type === 'tool.call.completed' && e.toolRunId === 'tool-q')
+    ).toBe(false)
 
     // 4. Mid-turn steer commit + relayed message.committed (D-098)
     const steerRowId = await stream.sender.commitUserMessage!(turn, {

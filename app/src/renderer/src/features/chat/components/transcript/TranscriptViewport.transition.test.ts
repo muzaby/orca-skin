@@ -40,6 +40,42 @@ afterEach(() => {
 })
 
 describe('TranscriptViewport.transition (VP-22 · SD-02 ↔ ST-02 · EP-10 ④ · EP-11 ⑦)', () => {
+  it('p12 keeps the reserve spacer independent of the scroll height it creates', () => {
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    const scroller = makeScroller(600)
+    const messages: Message[] = [
+      { id: 'u:reserve', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'question' }] }
+    ]
+    const state = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION',
+      session: { id: 's-trans', messages, agentKind: 'code' } as never,
+      complete: true
+    })
+    const snapshot = createClaudeBlockModel({ mode: 'code', sessionKey: 's-trans' }).advance(
+      { messages: state.messages, transcriptChanges: state.transcriptChanges },
+      { reserve: true }
+    )
+    const scrollRef = { current: scroller }
+    const render = (): void =>
+      dom!.render(
+        createElement(TranscriptViewport<ViewportBlockBase>, {
+          snapshot,
+          scrollRef,
+          estimateSizePx: 80,
+          enableReserveGap: true,
+          renderBlock: (block) => createElement('div', null, block.key)
+        })
+      )
+    render()
+    const gap = (): number =>
+      (dom!.query('[data-reserve-spacer]')?.props.style as { height: number })?.height
+    const initial = gap()
+    expect(initial).toBeGreaterThan(0)
+    Object.defineProperty(scroller, 'scrollHeight', { value: 80 + initial })
+    render()
+    expect(gap()).toBe(initial)
+  })
+
   it('sending after a 5,000-block answer keeps mounted count, keys, measurements, expansion and selection', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     const scroller = makeScroller(600, 0)

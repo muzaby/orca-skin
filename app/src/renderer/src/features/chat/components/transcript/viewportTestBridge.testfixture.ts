@@ -93,3 +93,25 @@ export function useRealVirtualizerWithFakeHooks<
 
   return instance
 }
+
+export async function createFakeZustand(
+  original: () => Promise<typeof import('zustand')>
+): Promise<typeof import('zustand')> {
+  const actual = await original()
+  const { createStore } = await import('zustand/vanilla')
+  const useStore = <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
+    fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())) as U
+  const bind = <T>(
+    initializer: import('zustand').StateCreator<T>
+  ): import('zustand').StoreApi<T> & (<U>(selector: (state: T) => U) => U) => {
+    const store = createStore(initializer)
+    return Object.assign(<U>(selector: (state: T) => U): U => useStore(store, selector), store)
+  }
+  const create = (initializer?: import('zustand').StateCreator<unknown>): unknown =>
+    initializer ? bind(initializer) : bind
+  return {
+    ...actual,
+    useStore: useStore as typeof actual.useStore,
+    create: create as typeof actual.create
+  }
+}

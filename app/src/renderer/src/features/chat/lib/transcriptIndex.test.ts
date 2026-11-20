@@ -271,6 +271,12 @@ describe('transcriptIndex (EP-13 x1~x14)', () => {
     expect(idx.subagentTasks()).toBe(subagentsBefore)
     expect(idx.transcriptResults()).toBe(resultsBefore)
     expect(idx.backgroundModels()).toBe(modelsBefore)
+
+    // A reset recomputes every domain even when the reloaded board has equal values.
+    state = makeState(structuredClone(state.messages), state, { kind: 'reset', complete: true })
+    const reloaded = transcriptIndexFor(state)
+    expect(reloaded.taskBoard()).toBe(boardBefore)
+    expect(reloaded.domainRevision.taskBoard).toBe(revBefore.taskBoard)
   })
 
   it('x11: child event for parent B does not change parent A parentRevision or childMessage identity', () => {

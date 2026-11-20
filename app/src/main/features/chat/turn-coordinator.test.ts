@@ -1166,6 +1166,7 @@ describe('TurnCoordinator.run — retry', () => {
           ({ kind: 'stream_error', message: 'x', retryable: true }) as unknown as ClassifiedError
       )
     })
+    const retryRelay = vi.spyOn(deps.forward, 'relay')
     const turn = makeTurn()
 
     const p = new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
@@ -1174,6 +1175,10 @@ describe('TurnCoordinator.run — retry', () => {
 
     const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => (c[1] as NormalizedEvent).type
+    )
+    expect(retryRelay).not.toHaveBeenCalledWith(
+      turn,
+      expect.objectContaining({ type: 'turn.retrying' })
     )
     expect(types).toContain('turn.retrying')
     expect(types).toContain('telemetry')

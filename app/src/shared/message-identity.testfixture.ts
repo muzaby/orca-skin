@@ -19,6 +19,11 @@ export interface ExpectedIdentityMessage {
   readonly parts: readonly ExpectedPartSummary[]
 }
 
+export const ST01_ARTIFACT_RECEIPT = JSON.stringify({
+  type: 'orcinus-orca.artifact.published',
+  version: 1,
+  publicationId: 'st01-publication'
+})
 export const ST01_SESSION_ID = 'st01-session'
 export const ST01_USER_INITIAL_ID = userMessageId(['req-1'])
 export const ST01_USER_STEER_ID = userMessageId(['steer-1'])
@@ -96,7 +101,7 @@ export const ST01_EXPECTED_LIVE_MESSAGES: readonly ExpectedIdentityMessage[] = [
       { type: 'text', summary: 'assistant A text' },
       { type: 'tool_call', toolRunId: 'tool-x', summary: 'Bash' },
       { type: 'tool_call', toolRunId: 'tool-y', summary: 'Write' },
-      { type: 'tool_result', toolRunId: 'tool-y', summary: 'artifact written' },
+      { type: 'tool_result', toolRunId: 'tool-y', summary: ST01_ARTIFACT_RECEIPT },
       { type: 'tool_call', toolRunId: 'tool-q', summary: 'AskUserQuestion' },
       { type: 'tool_result', toolRunId: 'tool-q', summary: '{"q1":"yes"}' },
       { type: 'tool_result', toolRunId: 'tool-x', summary: 'late X result' }
@@ -182,7 +187,7 @@ export const ST01_WINDOW_EVENTS: readonly NormalizedEvent[] = [
     type: 'tool.call.completed',
     sessionId: ST01_SESSION_ID,
     toolRunId: 'tool-y',
-    result: 'artifact written',
+    result: ST01_ARTIFACT_RECEIPT,
     isError: false,
     messageKey: ST01_ASSISTANT_A_ID,
     messageKeySource: 'owner'

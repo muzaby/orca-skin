@@ -139,7 +139,10 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
   try {
     render()
     toggle() // open
+    const timer = vi.spyOn(globalThis, 'setTimeout')
     toggle() // close gen 1
+    const staleDeadline = timer.mock.lastCall?.[0]
+    expect(typeof staleDeadline).toBe('function')
     vi.advanceTimersByTime(150)
     // e5: reopen before deadline keeps body mounted and cancels gen 1 timer
     toggle()
@@ -149,6 +152,11 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
 
     // e8: close gen 2 -> stale gen 1 deadline does not unmount; gen 2 deadline (e3) unmounts
     toggle() // close gen 2
+    // Deliver a callback already taken from the host timer queue when clearTimeout ran.
+    dom.act(() => {
+      if (typeof staleDeadline === 'function') staleDeadline()
+    })
+    expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
     vi.advanceTimersByTime(150)
     render()
     expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()

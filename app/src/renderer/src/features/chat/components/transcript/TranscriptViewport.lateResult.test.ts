@@ -76,6 +76,7 @@ describe('TranscriptViewport.lateResult (VP-17 · AR-04 ↔ IT-03 · EP-8 ⑨)',
             { type: 'tool_call', toolRunId: 't-late', toolName: 'Bash', args: { cmd: 'ls' } }
           ]
         },
+        { id: 'u:2', role: 'user', createdAt: 2500, parts: [{ type: 'text', text: 'follow-up' }] },
         {
           id: 'a:2',
           role: 'assistant',
@@ -125,6 +126,13 @@ describe('TranscriptViewport.lateResult (VP-17 · AR-04 ↔ IT-03 · EP-8 ⑨)',
           isError: false
         } as never
       })
+      const resultPart = { type: 'tool_result', toolRunId: 't-late', result: 'late output' }
+      expect(state.messages.find((message) => message.id === 'a:1')?.parts).toContainEqual(
+        expect.objectContaining(resultPart)
+      )
+      expect(state.messages.find((message) => message.id === 'a:2')?.parts).not.toContainEqual(
+        expect.objectContaining(resultPart)
+      )
       const snap2 = model.advance({
         messages: state.messages,
         transcriptChanges: state.transcriptChanges

@@ -103,19 +103,30 @@ describe('VP-10 EP-5 ③ messages write sweep (l8, l11)', () => {
     s = chatReducer(s, {
       type: 'RECV_EVENT',
       event: {
+        type: 'tool.call.started',
+        sessionId: 's',
+        toolRunId: 't-later',
+        toolName: 'ExitPlanMode',
+        args: { plan: 'v1' },
+        messageKey: 'a:1'
+      }
+    })
+    s = chatReducer(s, {
+      type: 'RECV_EVENT',
+      event: {
         type: 'permission.requested',
         sessionId: 's',
         action: {
           kind: 'plan_review',
           input: { plan: 'updated plan content' },
-          providerRequest: { toolUseId: 't1' },
+          providerRequest: { toolUseId: 't-later' },
           request: {
             plan: 'updated plan content'
           }
         }
       } as unknown as Parameters<typeof chatReducer>[1] extends { event: infer E } ? E : never
     })
-    expect(s.transcriptChanges.log.at(-1)).toEqual({ kind: 'replace', id: 'a:1', partsFrom: 0 })
+    expect(s.transcriptChanges.log.at(-1)).toEqual({ kind: 'replace', id: 'a:1', partsFrom: 3 })
 
     // ⓓ APPEND_COMMITTED_USER_MESSAGE -> append (normal) and reset{complete} (mixed batch replacement)
     s = chatReducer(s, {

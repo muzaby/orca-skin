@@ -58,6 +58,71 @@ describe('OpenCode transcript presentation', () => {
     { backend: 'claude', agentKind: 'work' },
     { backend: 'opencode', agentKind: 'code' }
   ] as const)(
+    'keeps source part markers inside one parsed Markdown block ($backend/$agentKind)',
+    ({ backend, agentKind }) => {
+      const messages: Message[] = [
+        userMessage,
+        {
+          ...assistantMessage,
+          id: 'a:parts',
+          parts: [
+            ...(agentKind === 'work'
+              ? [{ type: 'response_boundary', boundary: { id: 'work', phase: 'begin' } } as const]
+              : []),
+            { type: 'text', text: 'A **bold ' },
+            { type: 'text', text: 'split** [link](https://example.com) `code`\n\n```text\nleft ' },
+            { type: 'text', text: 'right\n```\n\n&amp;' },
+            { type: 'text', text: 'amp; next' },
+            ...(agentKind === 'work'
+              ? [
+                  {
+                    type: 'response_boundary',
+                    boundary: { id: 'work', phase: 'end', outcome: 'ended' }
+                  } as const
+                ]
+              : [])
+          ]
+        }
+      ]
+      installChatStoreHarness({ backend, agentKind, messages })
+      const $ = load(
+        renderToStaticMarkup(
+          createElement(TranscriptView, {
+            backend,
+            agentKind,
+            messages,
+            pendingSteer: [],
+            inflight: false,
+            loadingSession: false,
+            anchored: false,
+            scrollRef: { current: null },
+            contentRef: { current: null },
+            onScroll: () => {}
+          })
+        )
+      )
+
+      const first = '[data-part-key="a:parts:text:0"]'
+      const middle = '[data-part-key="a:parts:text:1"]'
+      const last = '[data-part-key="a:parts:text:2"]'
+      expect($('p').last().text()).toBe('&amp; next')
+      expect($('p').last().find(last).text()).toBe('&')
+      expect($('p').last().find('[data-part-key="a:parts:text:3"]').text()).toBe('amp; next')
+      expect($('strong').text()).toBe('bold split')
+      expect($(`strong ${first}`).text()).toBe('bold ')
+      expect($(`strong ${middle}`).text()).toBe('split')
+      expect($(`a ${middle}`).text()).toBe('link')
+      expect($(`code ${middle}`).text()).toBe('codeleft ')
+      expect($(`pre code ${last}`).text()).toBe('right')
+      expect($(first).closest('[data-index]')[0]).toBe($(last).closest('[data-index]')[0])
+    }
+  )
+
+  it.each([
+    { backend: 'claude', agentKind: 'code' },
+    { backend: 'claude', agentKind: 'work' },
+    { backend: 'opencode', agentKind: 'code' }
+  ] as const)(
     'marks both rendered messages inside one grouped user row ($backend/$agentKind)',
     ({ backend, agentKind }) => {
       const messages: Message[] = [

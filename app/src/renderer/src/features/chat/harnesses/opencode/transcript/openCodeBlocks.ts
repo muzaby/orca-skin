@@ -1,3 +1,4 @@
+import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourceParts'
 /**
  * Incremental block model for OpenCode transcripts (EP-7 · EP-8 · EP-9).
  *
@@ -37,6 +38,7 @@ import {
   PartKeyTracker,
   representativePart,
   toolBlockKey,
+  textPartGroups,
   turnArtifactsKey,
   turnMetaKey,
   userBlockKey,
@@ -59,6 +61,7 @@ export interface OpenCodeUserBlock {
 }
 
 export interface OpenCodeSegmentBlock {
+  readonly sourceParts?: readonly MarkdownSourcePart[]
   readonly kind: 'segment'
   readonly key: string
   readonly messageId: string
@@ -302,20 +305,19 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
   ): OpenCodeBlock[] {
     // Collect parts along with their owning messageId and stable part keys
     const combinedParts: AppMessagePart[] = []
-    const textPartKeysInOrder: { key: string; messageId: string }[] = []
+    const combinedEntries: PartKeyEntry[] = []
     const nonTextPartKeysByKind = new Map<string, { key: string; messageId: string }[]>()
     const callMessageById = new Map<string, string>()
 
     for (const msg of turnMessages) {
       const entries = ensurePartKeys(msg)
       for (const entry of entries) {
-        if (entry.kind === 'text') {
-          textPartKeysInOrder.push({ key: entry.key, messageId: msg.id })
-        } else if (entry.kind === 'tool' && entry.toolRunId) {
+        combinedEntries.push(entry)
+        if (entry.kind === 'tool' && entry.toolRunId) {
           if (!callMessageById.has(entry.toolRunId)) {
             callMessageById.set(entry.toolRunId, msg.id)
           }
-        } else {
+        } else if (entry.kind !== 'text') {
           const arr = nonTextPartKeysByKind.get(entry.kind) ?? []
           arr.push({ key: entry.key, messageId: msg.id })
           nonTextPartKeysByKind.set(entry.kind, arr)
@@ -329,33 +331,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     // Build segments across the turn's combined parts (cross-message text merging bounded by turn)
     const rawSegments = messageSegments(combinedParts)
 
-    // Map each text segment to its constituent part keys by counting non-empty text parts
-    const textPartSegments: string[][] = []
-    {
-      let currentGroup: string[] = []
-      let textCursor = 0
-      for (const part of combinedParts) {
-        if ('parentToolRunId' in part && part.parentToolRunId !== undefined) continue
-        if (part.type === 'text') {
-          const pk = textPartKeysInOrder[textCursor++]?.key
-          if (part.text.trim() !== '') {
-            if (pk) currentGroup.push(pk)
-          }
-        } else if (
-          part.type === 'tool_result' ||
-          part.type === 'artifact' ||
-          part.type === 'response_boundary'
-        ) {
-          // does not break text segment
-        } else {
-          if (currentGroup.length > 0) {
-            textPartSegments.push(currentGroup)
-            currentGroup = []
-          }
-        }
-      }
-      if (currentGroup.length > 0) textPartSegments.push(currentGroup)
-    }
+    const textPartSegments = textPartGroups(combinedEntries)
 
     // Build latest call map with merged results & latest input (D-067)
     const callsById = new Map<string, ToolCall>()
@@ -445,6 +421,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       if (seg.kind === 'text') {
         let key: string
         let partKeys: string[]
+        let sourceParts: readonly MarkdownSourcePart[] | undefined
         let ownerMsgId = firstId
         if (isLiveSeg && appendedLiveSegment) {
           // Live text starting a brand-new text segment: peek without consuming (D-084 · y20)
@@ -453,7 +430,8 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           key = nextPartKey(tracker, targetMsgId, 'text')
           partKeys = [key]
         } else {
-          const pks = textPartSegments[textSegIdx++] ?? []
+          sourceParts = textPartSegments[textSegIdx++]
+          const pks = sourceParts?.map((part) => part.key) ?? []
           if (pks.length > 0) {
             const rep = representativePart(textRefs, pks)
             key = rep.repPartKey
@@ -470,6 +448,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           key,
           messageId: ownerMsgId,
           partKeys,
+          sourceParts,
           segment: { kind: 'text', text: seg.text },
           streaming: active && index === segments.length - 1,
           ...(isLiveSeg ? { live: true as const } : {}),
@@ -948,13 +927,9 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
             if (curSnap.count > 0 && prefixBlocks.length > 0) {
               const oldFirst = curSnap.blockAt(0)
               if (oldFirst.gap === 0) {
-                list.splice(0, 1, [
-                  ...prefixBlocks,
-                  { ...oldFirst, gap: oldFirst.kind === 'user' ? 24 : 16 }
-                ])
-              } else {
-                list.splice(0, 0, prefixBlocks)
+                list.splice(0, 1, [{ ...oldFirst, gap: oldFirst.kind === 'user' ? 24 : 16 }])
               }
+              list.splice(0, 0, prefixBlocks)
             } else if (prefixBlocks.length > 0) {
               list.splice(0, 0, prefixBlocks)
             }

@@ -100,12 +100,6 @@ export function captureAnchor(
   }
   if (!targetEl) return null
 
-  const partKey = targetEl.getAttribute('data-part-key') ?? ''
-  const blockEl = (targetEl.closest?.('[data-index]') ??
-    targetEl.closest?.('[data-block-key]')) as HTMLElement | null
-  const blockKey = blockEl?.getAttribute('data-block-key') ?? partKey
-  const messageId = blockEl?.getAttribute('data-message-id') ?? undefined
-
   let charOffset = 0
   let anchorScreenTop = targetTop
 
@@ -130,20 +124,31 @@ export function captureAnchor(
         ) => { offsetNode: Node; offset: number } | null
       }
     ).caretPositionFromPoint(vpRect.left + Math.min(24, vpRect.width / 2), vpTop + 2)
-    if (pos && targetEl.contains(pos.offsetNode)) {
-      resolvedCaret = { node: pos.offsetNode, offset: pos.offset }
-    }
+    if (pos) resolvedCaret = { node: pos.offsetNode, offset: pos.offset }
   }
 
+  if (resolvedCaret) {
+    const element =
+      resolvedCaret.node.nodeType === 1
+        ? (resolvedCaret.node as Element)
+        : resolvedCaret.node.parentElement
+    const caretPart = element?.closest?.<HTMLElement>('[data-part-key]')
+    if (caretPart && scrollEl.contains(caretPart)) {
+      targetEl = caretPart
+      anchorScreenTop = caretPart.getBoundingClientRect().top
+    }
+  }
   if (resolvedCaret && targetEl.contains(resolvedCaret.node)) {
     charOffset = partTextOffset(targetEl, resolvedCaret.node, resolvedCaret.offset)
     anchorScreenTop = measureCharTop(targetEl, charOffset)
   }
 
+  const partKey = targetEl.getAttribute('data-part-key') ?? ''
+  const blockEl = targetEl.closest?.('[data-index]') ?? targetEl.closest?.('[data-block-key]')
   return {
     partKey,
-    blockKey,
-    messageId,
+    blockKey: blockEl?.getAttribute('data-block-key') ?? partKey,
+    messageId: blockEl?.getAttribute('data-message-id') ?? undefined,
     charOffset,
     viewportOffsetPx: anchorScreenTop - vpTop
   }
