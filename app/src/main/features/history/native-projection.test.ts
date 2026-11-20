@@ -178,7 +178,7 @@ it('keeps the latest bound native ID stable when earlier history is prepended', 
 describe('VP-05 load identity rules (i1~i8)', () => {
   it('i1/i2/i5/i7 retain the first bound owner at native index zero and every orphan row field', () => {
     const orphanPart: AppMessagePart = { type: 'attachment', attachments: [] }
-    const rows = [
+    const rows: LoadedPartRow[] = [
       { ...row(6, { type: 'text', text: 'later binding' }, 'user'), message_key: 'u:later' },
       row(3, { type: 'text', text: 'legacy first binding' }, 'user'),
       { ...row(7, orphanPart), complete: 0, created_at: 73 },

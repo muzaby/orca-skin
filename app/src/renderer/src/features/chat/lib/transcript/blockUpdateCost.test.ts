@@ -1,3 +1,4 @@
+import { scaleMs } from '../../../../../../../scripts/test-time.mjs'
 import { describe, expect, it, vi } from 'vitest'
 import { generateTranscriptFixture, type FixtureKind } from '../../dev/transcriptFixtures'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
@@ -295,6 +296,6 @@ describe('z9 actual block update costs', () => {
         expect(cost.afterRemovalLookup).toBe(edit === 'remove' ? 9_999 : 0)
       }
     },
-    120_000
+    scaleMs(120_000)
   )
 })
