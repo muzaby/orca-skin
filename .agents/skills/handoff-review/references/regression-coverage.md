@@ -3463,3 +3463,65 @@ DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
 
 - 자리 문장의 "항" 경계(괄호 목록 · `·` 항목)는 구현자가 읽어 나눈다 — 검증자 ⑦ 이 같은 방법으로 다시 세는 것이 방어다.
 - 실창(Electron) 검증은 이 환경에서 불가(E) — AC22·AC23·AC52 실창은 사람 실기.
+
+# review round 46 — 0326 (verify 3회째 RETURN_TO_PLAN): 수치 계약은 그 수치가 걸린 런타임에서 잰다
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0326 verify 3회째 `RETURN_TO_PLAN`(`f06d15ba`) 뒤 다음 재구현 전 의무 review. 사용자 `/handoff-review` 후 질의에서 "APPLY (Recommended)" 선택(2026-11-20).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | r1 D1 — 앵커 캡처 미배선 | 0326 r1 X01 | **F** — 구현 결함, verify 가 잡음. 지침 변경 없음 |
+| 2 | r1 D2 · r2 D7~D15 — 좌표 부재, 이어서 좌표가 production 경로 밖·상수·로컬 재구현 | 0326 r1·r2 · P54~P57 | **B** — impl §3 "실행 구간" · §5 "production 경로에 실제로 진입" · verify §2 가 이미 요구했고 verify 가 잡았다. 지침 변경 없음 |
+| 3 | r3 D16 — 복사 상한을 가짜 DOM 측정기(J9)로 정하고 실제 Chromium 보정을 기계 PASS 뒤 사람 S5 로 미뤄, 상한 2,000 의 task 가 J9 4.43ms · Chromium 579~698ms | 0326 r3 §2 · P22 · P37 | **A** — plan §5 "사람 실기는 시각·실제 외부환경에만"은 로직만 다루고, 에이전트가 띄울 수 있는 런타임의 수치 계약은 다루지 않았다. verify §7 "상한 재측정"도 같은 대리 측정기를 다시 돌리면 정상 수행으로 놓친다(r1·r2 가 그랬다). plan §5 에 수치 계약 bullet, verify §7 에 목표 런타임 재측정 문장을 더함(P22 개정) |
+
+**verify 분류 대조(§2)**: D16 은 ACTIVE D-094(task ≤ 50ms)를 실제 입력·실제 트리로 재현한 현재 결함이고, D-088 이 판정 측정기를 J9 로 고정해 계약 정정이 필요하므로 `PLAN_GAP` 이 맞다. D17(보드·trailer 운영) 비귀속 `NON_BLOCKING` 도 맞다. 거짓 PASS · FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** plan 의 AC·사람 실기 정책과 verify §7 의 재측정 범위가 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `f06d15ba`. `instruction_delta.py --base f06d15ba --prose`(대상 3파일 — plan SKILL · `plan.template.md` · verify SKILL, pool `docs/handoff/AGENTS.md`) 후보 **0**. `--word-diff` 로 지운 단어 3개(`없다.`×2 · `이유`)는 모두 같은 문장을 늘린 것이다.
+
+| 항목 | 판정 | 근거 |
+|---|---|---|
+| plan SKILL §5 사람 실기 bullet | KEEP + 추가 | 원문 그대로 + 수치 계약 bullet |
+| plan SKILL · `plan.template.md` 체크리스트 "사람 실기로 미룬 순수 로직이 없다" | REPLACE(강화) | 원문 + 수치 계약 절 — 본문 bullet 에 매핑 |
+| `plan.template.md` §7 사람 실기 항목 이유 | REPLACE(강화) | 수치 항목의 이유 칸 추가 |
+| verify SKILL §7 | KEEP + 추가 | 원문 그대로 + 한 문단 |
+| 명령·gate·reference·script | 없음 | 이동·삭제 0 → inbound `N`/`M/M` 대상 없음 |
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
+
+## 6-B Historical Failure Regression
+
+- **68 P 전수**(`rg -c '^## P[0-9]+'` 68) · 변경 후 **COVERED 68** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 45 의 COVERED 68 이 그대로다.
+- 바뀐 P: **P22** 강화(사람 실기 하치장 → 수치 계약까지). 끝에 개정 메모. 새 causal class 아님 → 새 P 없음.
+- **P2**(측정 불가 AC) · **P18**(실기 불가 선언 전 핸들 탐색 — 검증자) · **P37**(structural proxy): 유지 — 새 bullet 은 P37 의 "proxy 가 목표를 대신하지 못한다"를 측정 환경에 적용하고, P18 의 검증자 방어를 §7 수치 재측정에도 건다.
+- P1 · P3~P17 · P19~P21 · P23~P36 · P38~P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0326 r3 D16(J9 ↔ Chromium) | 검증자 ⑥ 실측이 발견 → 현재 결함 + `PLAN_GAP` | plan READY 전 목표 런타임 실측 bullet 이 발동 · 놓치면 verify §7 이 1회째에 같은 분류로 잡음 | 거짓 PASS 0 · 발견 시점 3회째 → 설계/1회째 |
+| 0162(P22 원 사례 — 로직을 사람 실기로) | 규칙 발동 | 같음 | 같음 |
+| 0324 AC22·AC23·AC52(실창 Electron) | 사람 실기 — 환경 제약(E) | 같음 — 에이전트가 띄울 수 없는 런타임은 새 bullet 의 발동 밖 | inflation 0 |
+| 0325 W 기준선(Windows 절대값) | 사람 실기 | 같음 — 기준 장비 절대값은 사람 몫으로 남음 | inflation 0 |
+
+- **시나리오 replay**: 대리 측정기 상한이 목표 런타임에서 통과 → 비만 기록, 판정 불변 / 목표 런타임에서 계약 위반 → verify 현재 결함(창 무관 `BLOCKING`, 계약 정정 필요 시 `PLAN_GAP`) — 다음 주체 있음 / 목표 런타임을 띄울 수 없는 환경 → 사람 실기 이유 칸에 적고 기존 E 경로 / 9회째 CLOSED · 후보 표 승격 경로 불변. 다음 주체 없는 상태 0 · 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- plan SKILL §5 bullet · 체크리스트 · `plan.template.md` §7 이유 칸·체크리스트 · verify SKILL §7 문단이 같은 범위("에이전트가 띄울 수 있는 목표 런타임에서 잴 수 있는 수치 계약")와 같은 경계("사람 실기 = 기준 장비 절대값")를 쓴다. verify §5(핸들 탐색) · §11 현재 결함 정의와 충돌 없음.
+- impl SKILL 에는 해당 규칙이 없고 원래도 없었다(설계·검증 책임). `docs/handoff/AGENTS.md` · root `AGENTS.md` · SKILL frontmatter description · `app/AGENTS.md`(Playwright·Chromium 사용은 `app/AGENTS.md` 의존성 정책과 무관 — 증거 스크립트) · CI 정본은 이번 변경이 닿지 않는다. 새 `AGENTS.md` 없음 · 위생 0.
+
+## 전환 (§8)
+
+판정 의미(발견 분류 · disposition · 확장 창 · 하한이 막는 범위)는 바뀌지 않았다 — 목표 런타임 계약 위반은 변경 전에도 현재 결함이었다. 0326 verify 3 판정(RETURN_TO_PLAN — D16 PLAN_GAP)은 새 규칙에서도 같아 정정 대상 없음.
+
+## 남은 한계
+
+- "에이전트가 띄울 수 있는가"는 환경마다 다르다(Chromium 은 이 컨테이너에 있으나 Electron 실창은 없다) — plan 이 이유 칸에 적고 verify 가 다시 시도하는 것이 방어다.
+- 목표 런타임 실측도 CPU 경합에 흔들린다(0326 구현자 100블록 150~400ms ↔ 검증자 경합 없이 27~31ms) — 측정 조건을 같이 적는 것까지만 지침이 요구한다.
