@@ -1,13 +1,14 @@
 /**
  * Selection copy policy — sync copy (≤ SELECTION_COPY_SYNC_MAX_BLOCKS) and chunked async
- * copy (> cap) via CopySerializationHost (EP-17 ②~④⑥⑦ · D-087 · D-088 · D-094 · c3~c5, c7~c9, c12~c19).
+ * copy (> cap) via CopySerializationHost (EP-17 ②~④⑥⑦ · D-087 · D-094 · D-101 · c3~c5, c7~c9, c12~c19).
  */
 import { reportError } from '../../../../../shared/errors/reportError'
 
-export const UI_TASK_BUDGET_MS = 50
+export { UI_TASK_BUDGET_MS } from '../../../../../../../shared/perf-budget'
 
-// Largest passing J9 sample (100–2,000 blocks in steps of 100, median mount and serialization ≤ 50ms).
-export const SELECTION_COPY_SYNC_MAX_BLOCKS = 2000
+// Chromium 154, Linux, 2026-11-20 (5 cores, load 4.61): 12 blocks, sync medians
+// 4.7, 5.9, 5.5 ms (Code, Work, OpenCode); J9 0.02 ms. Long selections still exceed budget (0326 AC26).
+export const SELECTION_COPY_SYNC_MAX_BLOCKS = 12
 
 export interface RetainedSelectionEndpoint {
   readonly blockKey: string
@@ -49,7 +50,7 @@ export interface CopyJobHandle {
   readonly done: Promise<boolean>
 }
 
-async function defaultWriteClipboard(text: string[], html: string[]): Promise<void> {
+async function defaultWriteClipboard(text: string[], html: BlobPart[]): Promise<void> {
   if (typeof navigator === 'undefined' || !navigator.clipboard?.write) {
     throw new Error('Clipboard API unavailable')
   }
@@ -86,7 +87,8 @@ export function startCopyJob(
 
   let cancelled = false
   const textParts: string[] = []
-  const htmlParts: string[] = []
+  const htmlParts: BlobPart[] = []
+  const htmlEncoder = hooks.writeClipboard ? null : new TextEncoder()
   let cursor = lo
   let previousBreaks = 0
 
@@ -166,7 +168,9 @@ export function startCopyJob(
           previousBreaks = trailingBreaks
           textParts.push(text)
         }
-        htmlParts.push(html)
+        // Encode HTML incrementally without allocating a browser-managed Blob for each chunk.
+        // The injected string writer consumes the original HTML instead.
+        htmlParts.push(htmlEncoder ? htmlEncoder.encode(html) : html)
       } catch (err) {
         fail(err)
         return
