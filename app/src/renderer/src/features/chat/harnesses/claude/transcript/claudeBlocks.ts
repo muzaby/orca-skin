@@ -25,10 +25,12 @@ import {
 } from '../../../lib/transcript/blockList'
 import {
   changesSince,
+  changedMessageLocations,
   foldChanges,
   type TranscriptChanges,
   type TranscriptRevision
 } from '../../../lib/transcript/changeLog'
+import { OrderedToolParts } from '../../../lib/transcript/orderedToolParts'
 import { messageOrderFor } from '../../../lib/transcript/messageOrder'
 import { isTurnStart } from '../../../lib/transcript/turnStart'
 import {
@@ -74,6 +76,7 @@ export interface ClaudeSegmentBlock {
 export interface ClaudeActivityBlock {
   readonly kind: 'activity'
   readonly key: string
+  readonly representativePartKey: string
   readonly messageId: string
   readonly partKeys: readonly string[]
   readonly items: readonly {
@@ -205,30 +208,35 @@ function hasResponseBoundary(messages: readonly Message[]): boolean {
   return false
 }
 
-function updateSegmentResults(
+function withToolState(
+  call: ToolCall,
+  result: ToolResult | undefined,
+  input: Record<string, unknown> | undefined
+): ToolCall {
+  if (call.result === result && (input === undefined || input === call.input)) return call
+  const next = { ...call, ...(input === undefined ? {} : { input }) }
+  if (result) next.result = result
+  else delete next.result
+  return next
+}
+
+function updateToolSegment(
   segment: MessageSegment,
-  results: ReadonlyMap<string, ToolResult>
+  toolRunId: string,
+  result: ToolResult | undefined,
+  input: Record<string, unknown> | undefined
 ): MessageSegment {
-  if (segment.kind === 'ask') {
-    const res = results.get(segment.call.toolUseId)
-    if (res === segment.call.result) return segment
-    if (res) return { ...segment, call: { ...segment.call, result: res } }
-    const copy = { ...segment.call }
-    delete copy.result
-    return { ...segment, call: copy }
+  if (segment.kind === 'ask' && segment.call.toolUseId === toolRunId) {
+    const call = withToolState(segment.call, result, input)
+    return call === segment.call ? segment : { ...segment, call }
   }
   if (segment.kind === 'tools') {
-    let changed = false
-    const nextCalls = segment.calls.map((call) => {
-      const res = results.get(call.toolUseId)
-      if (res === call.result) return call
-      changed = true
-      if (res) return { ...call, result: res }
-      const copy = { ...call }
-      delete copy.result
-      return copy
-    })
-    return changed ? { ...segment, calls: nextCalls } : segment
+    const index = segment.calls.findIndex((call) => call.toolUseId === toolRunId)
+    if (index >= 0) {
+      const call = withToolState(segment.calls[index], result, input)
+      if (call !== segment.calls[index])
+        return { ...segment, calls: segment.calls.with(index, call) }
+    }
   }
   return segment
 }
@@ -285,7 +293,7 @@ export function createClaudeBlockModel(config: {
   readonly sessionKey: string
 }): ClaudeBlockModel {
   const { mode, sessionKey } = config
-  let list: BlockList<ClaudeBlock> = createBlockList<ClaudeBlock>()
+  const list: BlockList<ClaudeBlock> = createBlockList<ClaudeBlock>()
   let cursor: TranscriptRevision | undefined
   let prevShowAutomaticFeeds = false
   let prevHasLive = false
@@ -296,6 +304,7 @@ export function createClaudeBlockModel(config: {
   const tracker = new PartKeyTracker()
   const partKeysByMessage = new Map<string, PartKeyEntry[]>()
   const textRefsByMessage = new Map<string, MultiPartGroupRef[]>()
+  const blockBySegment = new WeakMap<MessageSegment, ClaudeSegmentBlock>()
   const segmentCaches = new Map<string, ReturnType<typeof createSegmentCache>>()
   const workProjectors = new Map<string, ReturnType<typeof createWorkProjector>>()
   const messageById = new Map<string, Message>()
@@ -311,22 +320,30 @@ export function createClaudeBlockModel(config: {
     string,
     { messageId: string; partIndex: number; result: ToolResult }[]
   >()
-  const toolOwnerBlockKey = new Map<string, { messageId: string; blockKey: string }>()
-  const latestToolCallInput = new Map<string, Record<string, unknown>>()
+  const toolOwnerBlockKey = new Map<
+    string,
+    { messageId: string; blockKey: string; itemIndex?: number }
+  >()
+  const toolInputs = new OrderedToolParts<Record<string, unknown>>()
 
   // Turn tracking
   let turns: TurnGroup[] = []
-  let hasUserAndAssistantTurns = false
+  let previousLastUser: TurnGroup | undefined
+  let previousLastAssistant: TurnGroup | undefined
   const msgToTurn = new Map<string, TurnGroup>()
-  let prevActivityRefs: MultiPartGroupRef[] = []
 
-  function extractActivityRefs(blocks: readonly ClaudeBlock[]): MultiPartGroupRef[] {
+  function extractActivityRefs(
+    snap: BlockSnapshot<ClaudeBlock>,
+    start = 0,
+    count = snap.count
+  ): MultiPartGroupRef[] {
     const refs: MultiPartGroupRef[] = []
-    for (const block of blocks) {
+    for (let i = start; i < start + count; i++) {
+      const block = snap.blockAt(i)
       if (block.kind === 'activity') {
         refs.push({
           key: block.key,
-          repPartKey: block.partKeys[0] ?? block.key,
+          repPartKey: block.representativePartKey,
           partKeys: new Set(block.partKeys)
         })
       }
@@ -336,6 +353,7 @@ export function createClaudeBlockModel(config: {
 
   function retractMessageToolResults(messageId: string, partsFrom: number): Set<string> {
     const affected = new Set<string>()
+    toolInputs.retract(messageId, partsFrom, affected)
     const msgMap = toolResultsByMessage.get(messageId)
     if (!msgMap) return affected
     for (const [idx, entry] of msgMap) {
@@ -360,13 +378,10 @@ export function createClaudeBlockModel(config: {
 
   function indexMessageToolParts(
     message: Message,
-    partsFrom: number
-  ): {
-    affectedResults: Set<string>
-    duplicateCallUpdates: Map<string, Record<string, unknown>>
-  } {
-    const affectedResults = new Set<string>()
-    const duplicateCallUpdates = new Map<string, Record<string, unknown>>()
+    partsFrom: number,
+    order?: ReturnType<typeof messageOrderFor>
+  ): Set<string> {
+    const affectedResults = retractMessageToolResults(message.id, partsFrom)
     let msgMap = toolResultsByMessage.get(message.id)
     for (let i = partsFrom; i < message.parts.length; i++) {
       const part = message.parts[i]
@@ -376,28 +391,39 @@ export function createClaudeBlockModel(config: {
           msgMap = new Map()
           toolResultsByMessage.set(message.id, msgMap)
         }
-        msgMap.set(i, { toolRunId: part.toolRunId, result: res })
         const stack = toolResultStacks.get(part.toolRunId) ?? []
-        const existingIdx = stack.findIndex((s) => s.messageId === message.id && s.partIndex === i)
-        if (existingIdx >= 0) {
-          stack[existingIdx] = { messageId: message.id, partIndex: i, result: res }
-        } else {
-          stack.push({ messageId: message.id, partIndex: i, result: res })
+        if (msgMap.has(i)) {
+          const oldSlot = stack.findIndex(
+            (item) => item.messageId === message.id && item.partIndex === i
+          )
+          if (oldSlot >= 0) stack.splice(oldSlot, 1)
         }
+        msgMap.set(i, { toolRunId: part.toolRunId, result: res })
+        const entry = { messageId: message.id, partIndex: i, result: res }
+        // A replacement can revisit an older message after a newer message already supplied a result.
+        // Full rebuild visits transcript order; the incremental path inserts at that same position.
+        const position = order && stack.length ? order.messagePosition(message.id) : -1
+        const later =
+          order && position >= 0
+            ? stack.findIndex((candidate) =>
+                candidate.messageId === message.id
+                  ? candidate.partIndex > i
+                  : order.messagePosition(candidate.messageId) > position
+              )
+            : -1
+        if (later < 0) stack.push(entry)
+        else stack.splice(later, 0, entry)
         toolResultStacks.set(part.toolRunId, stack)
         toolResults.set(part.toolRunId, stack[stack.length - 1].result)
         affectedResults.add(part.toolRunId)
       } else if (part.type === 'tool_call' && part.parentToolRunId === undefined) {
         const argsObj =
           part.args && typeof part.args === 'object' ? (part.args as Record<string, unknown>) : {}
-        latestToolCallInput.set(part.toolRunId, argsObj)
-        const existingOwner = toolOwnerBlockKey.get(part.toolRunId)
-        if (existingOwner && existingOwner.messageId !== message.id) {
-          duplicateCallUpdates.set(part.toolRunId, argsObj)
-        }
+        toolInputs.put(part.toolRunId, message.id, i, argsObj, order)
+        affectedResults.add(part.toolRunId)
       }
     }
-    return { affectedResults, duplicateCallUpdates }
+    return affectedResults
   }
 
   function ensurePartKeysIncremental(message: Message, partsFrom: number): PartKeyEntry[] {
@@ -468,31 +494,30 @@ export function createClaudeBlockModel(config: {
         const filteredCalls: ToolCall[] = []
         for (const call of seg.calls) {
           if (seenToolCalls.has(call.toolUseId)) continue
+          if (toolInputs.firstOwner(call.toolUseId) !== message.id) continue
           seenToolCalls.add(call.toolUseId)
-          const latestInput = latestToolCallInput.get(call.toolUseId)
+          const latestInput = toolInputs.latest(call.toolUseId)
           const res = toolResults.get(call.toolUseId)
-          const updatedCall: ToolCall = {
-            ...call,
-            ...(latestInput !== undefined ? { input: latestInput } : {}),
-            ...(res !== undefined ? { result: res } : {})
-          }
-          filteredCalls.push(updatedCall)
+          filteredCalls.push(withToolState(call, res, latestInput))
         }
         if (filteredCalls.length === 0) continue
-        seg = { kind: 'tools', calls: filteredCalls }
+        const sourceCalls = seg.calls
+        if (
+          filteredCalls.length !== sourceCalls.length ||
+          filteredCalls.some((call, i) => call !== sourceCalls[i])
+        ) {
+          seg = { kind: 'tools', calls: filteredCalls }
+        }
       } else if (seg.kind === 'ask') {
         if (seenToolCalls.has(seg.call.toolUseId)) continue
+        if (toolInputs.firstOwner(seg.call.toolUseId) !== message.id) continue
         seenToolCalls.add(seg.call.toolUseId)
-        const latestInput = latestToolCallInput.get(seg.call.toolUseId)
-        const res = toolResults.get(seg.call.toolUseId)
-        seg = {
-          kind: 'ask',
-          call: {
-            ...seg.call,
-            ...(latestInput !== undefined ? { input: latestInput } : {}),
-            ...(res !== undefined ? { result: res } : {})
-          }
-        }
+        const call = withToolState(
+          seg.call,
+          toolResults.get(seg.call.toolUseId),
+          toolInputs.latest(seg.call.toolUseId)
+        )
+        if (call !== seg.call) seg = { kind: 'ask', call }
       }
 
       const matched = segmentPartKeys(message.id, seg, entries, entryCursor, tracker)
@@ -505,17 +530,7 @@ export function createClaudeBlockModel(config: {
         nextTextRefs.push({ key: blockKey, repPartKey: blockKey, partKeys: new Set(partKeys) })
       }
 
-      if (seg.kind === 'tools') {
-        for (const call of seg.calls) {
-          if (!toolOwnerBlockKey.has(call.toolUseId)) {
-            toolOwnerBlockKey.set(call.toolUseId, { messageId: message.id, blockKey })
-          }
-        }
-      } else if (seg.kind === 'ask') {
-        if (!toolOwnerBlockKey.has(seg.call.toolUseId)) {
-          toolOwnerBlockKey.set(seg.call.toolUseId, { messageId: message.id, blockKey })
-        }
-      }
+      registerToolOwners(seg, message.id, blockKey)
 
       const gap: ClaudeBlockGap =
         blocks.length === 0 && isFirstInTurn
@@ -526,18 +541,50 @@ export function createClaudeBlockModel(config: {
             ? 8
             : 16
 
-      blocks.push({
-        kind: 'segment',
-        key: blockKey,
-        messageId: message.id,
-        partKeys,
-        sourceParts,
-        segment: seg,
-        gap
-      })
+      const prior = blockBySegment.get(seg)
+      if (
+        prior &&
+        prior.key === blockKey &&
+        prior.gap === gap &&
+        prior.partKeys.length === partKeys.length &&
+        prior.partKeys.every((key, i) => key === partKeys[i]) &&
+        prior.sourceParts?.length === sourceParts?.length &&
+        (sourceParts === undefined ||
+          sourceParts.every((part, i) => part.start === prior.sourceParts?.[i].start))
+      ) {
+        blocks.push(prior)
+      } else {
+        const block: ClaudeSegmentBlock = {
+          kind: 'segment',
+          key: blockKey,
+          messageId: message.id,
+          partKeys,
+          sourceParts,
+          segment: seg,
+          gap
+        }
+        blocks.push(block)
+        blockBySegment.set(seg, block)
+      }
     }
     textRefsByMessage.set(message.id, nextTextRefs)
     return blocks
+  }
+
+  function registerToolOwners(
+    segment: MessageSegment,
+    messageId: string,
+    blockKey: string,
+    itemIndex?: number
+  ): void {
+    const calls =
+      segment.kind === 'tools' ? segment.calls : segment.kind === 'ask' ? [segment.call] : []
+    for (const call of calls) {
+      const owner = toolOwnerBlockKey.get(call.toolUseId)
+      if (!owner || owner.messageId === messageId) {
+        toolOwnerBlockKey.set(call.toolUseId, { messageId, blockKey, itemIndex })
+      }
+    }
   }
 
   function buildWorkTurnBlocks(
@@ -546,12 +593,15 @@ export function createClaudeBlockModel(config: {
     isFirstInDocument: boolean,
     prevActivities: readonly MultiPartGroupRef[]
   ): ClaudeBlock[] {
+    // The Code projection does not receive edits while a Work boundary owns the
+    // turn. A later Code projection must parse from its current message.
+    for (const message of turnMessages) segmentCaches.delete(message.id)
     let projector = workProjectors.get(turnId)
     if (!projector) {
       projector = createWorkProjector((message) => ensurePartKeysIncremental(message, 0))
       workProjectors.set(turnId, projector)
     }
-    const nodes: WorkActivityNode[] | null = projector(turnMessages, toolResults)
+    const nodes: WorkActivityNode[] | null = projector(turnMessages, toolResults, toolInputs)
     if (!nodes) return []
 
     const blocks: ClaudeBlock[] = []
@@ -564,14 +614,9 @@ export function createClaudeBlockModel(config: {
             ? item.segment.calls.map((call) => toolBlockKey(item.messageId, call.toolUseId))
             : (item.sourceParts?.map((part) => part.key) ?? [item.key])
         )
-        const rep =
-          prevActivities.length > 0 && itemPartKeys.length > 0
-            ? representativePart(prevActivities, itemPartKeys)
-            : { repPartKey: itemPartKeys[0] ?? node.key, droppedGroupKeys: [] }
-        // Keep activity prefix on representative part key for uniqueness against segment keys
-        const actKey = rep.repPartKey.includes(':activity:')
-          ? rep.repPartKey
-          : `${node.items[0]?.messageId ?? turnId}:activity:${rep.repPartKey}`
+        const rep = representativePart(prevActivities, itemPartKeys)
+        const actKey =
+          rep.retainedGroupKey ?? `${node.items[0].messageId}:activity:${rep.repPartKey}`
         // Split inheritance (y13): if split off from an existing activity group, inherit its disclosure
         if (rep.inheritedFromKey && rep.inheritedFromKey !== actKey) {
           const prevOpen = getDisclosure(sessionKey, rep.inheritedFromKey)
@@ -579,9 +624,13 @@ export function createClaudeBlockModel(config: {
             setDisclosure(sessionKey, actKey, prevOpen)
           }
         }
+        node.items.forEach((item, index) =>
+          registerToolOwners(item.segment, item.messageId, actKey, index)
+        )
         blocks.push({
           kind: 'activity',
           key: actKey,
+          representativePartKey: rep.repPartKey,
           messageId: node.items[0]?.messageId ?? turnId,
           partKeys: itemPartKeys,
           items: node.items,
@@ -598,23 +647,7 @@ export function createClaudeBlockModel(config: {
           gap
         })
       } else {
-        if (node.segment.kind === 'tools') {
-          for (const call of node.segment.calls) {
-            if (!toolOwnerBlockKey.has(call.toolUseId)) {
-              toolOwnerBlockKey.set(call.toolUseId, {
-                messageId: node.messageId,
-                blockKey: node.key
-              })
-            }
-          }
-        } else if (node.segment.kind === 'ask') {
-          if (!toolOwnerBlockKey.has(node.segment.call.toolUseId)) {
-            toolOwnerBlockKey.set(node.segment.call.toolUseId, {
-              messageId: node.messageId,
-              blockKey: node.key
-            })
-          }
-        }
+        registerToolOwners(node.segment, node.messageId, node.key)
         blocks.push({
           kind: 'segment',
           key: node.key,
@@ -684,7 +717,7 @@ export function createClaudeBlockModel(config: {
       if (b.kind === 'user')
         prevUserRefs.push({ key: b.key, repPartKey: b.key, partKeys: new Set(b.partKeys) })
     }
-    prevActivityRefs = mode === 'work' ? extractActivityRefs(prevBlocks) : []
+    const prevActivityRefs = mode === 'work' ? extractActivityRefs(oldSnap) : []
 
     const survivingMessages = new Set(messages.map((message) => message.id))
     for (const id of textRefsByMessage.keys())
@@ -695,7 +728,7 @@ export function createClaudeBlockModel(config: {
     toolResultsByMessage.clear()
     toolResultStacks.clear()
     toolOwnerBlockKey.clear()
-    latestToolCallInput.clear()
+    toolInputs.clear()
     msgToTurn.clear()
     turns = []
 
@@ -729,8 +762,6 @@ export function createClaudeBlockModel(config: {
       else lastAssistantTurnIdx = i
     }
 
-    hasUserAndAssistantTurns = lastUserTurnIdx >= 0 && lastAssistantTurnIdx >= 0
-
     const allBlocks: ClaudeBlock[] = []
     const seenToolCalls = new Set<string>()
 
@@ -755,7 +786,7 @@ export function createClaudeBlockModel(config: {
           key,
           messageId: firstId,
           partKeys: userPartKeys,
-          turn: { role: 'user', messages: g.messages, startIndex: tIdx },
+          turn: { role: 'user', messages: g.messages, startIndex: 0 },
           gap: isFirstInDoc ? 0 : 24,
           reserveTarget: opts.reserve && tIdx === lastUserTurnIdx
         }
@@ -827,9 +858,10 @@ export function createClaudeBlockModel(config: {
       })
     }
 
+    previousLastUser = turns[lastUserTurnIdx]
+    previousLastAssistant = turns[lastAssistantTurnIdx]
     assertUniqueBlockKeys(allBlocks)
-    list = createBlockList(allBlocks)
-    return list.snapshot()
+    return list.splice(0, oldSnap.count, allBlocks)
   }
 
   function updateToolBlockInPlace(toolRunId: string): void {
@@ -839,26 +871,20 @@ export function createClaudeBlockModel(config: {
     const idx = snap.indexOf(owner.blockKey)
     if (idx < 0) return
     const block = snap.blockAt(idx)
-    if (block.kind !== 'segment') return
-    let updatedSeg = updateSegmentResults(block.segment, toolResults)
-    const latestInput = latestToolCallInput.get(toolRunId)
-    if (latestInput !== undefined) {
-      if (updatedSeg.kind === 'tools') {
-        let changed = false
-        const calls = updatedSeg.calls.map((c) => {
-          if (c.toolUseId !== toolRunId || c.input === latestInput) return c
-          changed = true
-          return { ...c, input: latestInput }
-        })
-        if (changed) updatedSeg = { kind: 'tools', calls }
-      } else if (updatedSeg.kind === 'ask' && updatedSeg.call.toolUseId === toolRunId) {
-        if (updatedSeg.call.input !== latestInput) {
-          updatedSeg = { kind: 'ask', call: { ...updatedSeg.call, input: latestInput } }
-        }
+    const result = toolResults.get(toolRunId)
+    const input = toolInputs.latest(toolRunId)
+    if (block.kind === 'activity' && owner.itemIndex !== undefined) {
+      const item = block.items[owner.itemIndex]
+      const segment = updateToolSegment(item.segment, toolRunId, result, input)
+      if (segment !== item.segment) {
+        list.splice(idx, 1, [
+          { ...block, items: block.items.with(owner.itemIndex, { ...item, segment }) }
+        ])
       }
+    } else if (block.kind === 'segment') {
+      const segment = updateToolSegment(block.segment, toolRunId, result, input)
+      if (segment !== block.segment) list.splice(idx, 1, [{ ...block, segment }])
     }
-    if (updatedSeg === block.segment) return
-    list.splice(idx, 1, [{ ...block, segment: updatedSeg }])
   }
 
   function refreshLastTurnFlags(opts: Required<ClaudeAdvanceOptions>): void {
@@ -870,11 +896,15 @@ export function createClaudeBlockModel(config: {
       if (lastUserTurn && lastAssistantTurn) break
     }
 
-    hasUserAndAssistantTurns = !!lastUserTurn && !!lastAssistantTurn
+    // A change of tail can invalidate the prior tail as well as its successor.
+    const users = new Set([previousLastUser, lastUserTurn])
+    const assistants = new Set([previousLastAssistant, lastAssistantTurn])
+    previousLastUser = lastUserTurn
+    previousLastAssistant = lastAssistantTurn
     const snap = list.snapshot()
     // Update reserveTarget on user turns
-    for (const t of turns) {
-      if (t.role !== 'user' || t.blockKeys.length === 0) continue
+    for (const t of users) {
+      if (!t || t.blockKeys.length === 0) continue
       const idx = snap.indexOf(t.blockKeys[0])
       if (idx < 0) continue
       const b = snap.blockAt(idx)
@@ -886,8 +916,8 @@ export function createClaudeBlockModel(config: {
     }
 
     // Update forkable & inflight meta visibility on assistant turns
-    for (const t of turns) {
-      if (t.role !== 'assistant') continue
+    for (const t of assistants) {
+      if (!t || t.messageIds.length === 0) continue
       const isLast = t === lastAssistantTurn
       const wantMeta = !(isLast && opts.inflight)
       const wantForkable = isLast && opts.forkable
@@ -947,7 +977,7 @@ export function createClaudeBlockModel(config: {
       if (idx >= 0) return idx
     }
     // Find where this turn belongs based on preceding turns
-    const tPos = turns.indexOf(turn)
+    const tPos = turns.at(-1) === turn ? turns.length - 1 : turns.indexOf(turn)
     for (let i = tPos - 1; i >= 0; i--) {
       const prev = turns[i]
       if (prev.blockKeys.length > 0) {
@@ -971,7 +1001,9 @@ export function createClaudeBlockModel(config: {
   function rebuildSingleTurn(
     turn: TurnGroup,
     opts: Required<ClaudeAdvanceOptions>,
-    partsFromByMsg?: ReadonlyMap<string, number>
+    partsFromByMsg?: ReadonlyMap<string, number>,
+    previouslyPublished?: BlockSnapshot<ClaudeBlock>,
+    affectedActivities?: MultiPartGroupRef[]
   ): void {
     const turnMessages = turn.messageIds
       .map((id) => visibleById.get(id))
@@ -989,12 +1021,11 @@ export function createClaudeBlockModel(config: {
       return
     }
 
+    turn.id = turnMessages[0].id
     const isFirstInDoc = startIdx === 0
     const isLastAssistant =
-      turn.role === 'assistant' &&
-      turns.slice(turns.indexOf(turn) + 1).every((t) => t.role !== 'assistant')
-    const isLastUser =
-      turn.role === 'user' && turns.slice(turns.indexOf(turn) + 1).every((t) => t.role !== 'user')
+      turn.role === 'assistant' && turns.findLast((t) => t.role === 'assistant') === turn
+    const isLastUser = turn.role === 'user' && turns.findLast((t) => t.role === 'user') === turn
 
     const newBlocks: ClaudeBlock[] = []
     turn.blockKeys = []
@@ -1004,7 +1035,17 @@ export function createClaudeBlockModel(config: {
 
     if (turn.role === 'user') {
       const userPartKeys = turnMessages.map((m) => userBlockKey(m.id))
-      const key = userBlockKey(turn.id)
+      let key = userBlockKey(turn.id)
+      let earliest = Infinity
+      if (previouslyPublished && userPartKeys.length > 1) {
+        for (const candidate of userPartKeys) {
+          const at = previouslyPublished.indexOf(candidate)
+          if (at >= 0 && at < earliest) {
+            key = candidate
+            earliest = at
+          }
+        }
+      }
       const block: ClaudeUserBlock = {
         kind: 'user',
         key,
@@ -1018,7 +1059,13 @@ export function createClaudeBlockModel(config: {
       turn.blockKeys.push(key)
       turn.messageBlockKeys.set(turn.id, [key])
     } else if (mode === 'work' && hasResponseBoundary(turnMessages)) {
-      const workBlocks = buildWorkTurnBlocks(turnMessages, turn.id, isFirstInDoc, prevActivityRefs)
+      const previousActivities = affectedActivities ?? extractActivityRefs(snap, startIdx, oldCount)
+      const workBlocks = buildWorkTurnBlocks(
+        turnMessages,
+        turn.id,
+        isFirstInDoc,
+        previousActivities
+      )
       for (const b of workBlocks) {
         newBlocks.push(b)
         turn.blockKeys.push(b.key)
@@ -1043,11 +1090,6 @@ export function createClaudeBlockModel(config: {
       }
     } else {
       const seenTools = new Set<string>()
-      for (const [toolId, owner] of toolOwnerBlockKey) {
-        if (!turn.messageIds.includes(owner.messageId)) {
-          seenTools.add(toolId)
-        }
-      }
       for (let mIdx = 0; mIdx < turnMessages.length; mIdx++) {
         const m = turnMessages[mIdx]
         const pf = partsFromByMsg?.get(m.id)
@@ -1120,6 +1162,7 @@ export function createClaudeBlockModel(config: {
         opts.showAutomaticFeeds !== prevShowAutomaticFeeds
 
       if (mustRebuild) {
+        messageOrderFor(state, true)
         const snap = rebuildAll(messages, opts)
         cursor = { lineage: transcriptChanges.lineage, revision: transcriptChanges.revision }
         prevShowAutomaticFeeds = opts.showAutomaticFeeds
@@ -1134,20 +1177,29 @@ export function createClaudeBlockModel(config: {
         !optionsChanged &&
         changes.length > 0 &&
         changes.every((change) => change.kind === 'prepend') &&
-        hasUserAndAssistantTurns
+        previousLastUser !== undefined &&
+        previousLastAssistant !== undefined
 
       if (changes.length > 0) {
+        const previouslyPublished = list.snapshot()
         const order = messageOrderFor(state, true)
         const folded = foldChanges(changes)
+        const lateResultTools = new Set<string>()
 
         // 1. Handle T-preserving prepends first (O(prepended) + 1 boundary block — z6)
-        const prependedIds: string[] = []
-        for (const ch of changes) {
-          if (ch.kind === 'prepend') {
-            for (const id of ch.ids) {
-              if (order.messagePosition(id) >= 0) prependedIds.push(id)
-            }
-          }
+        const exposedBoundaries = new Set<TurnGroup>()
+        const retiredKeys = new Set<string>()
+        const { prependedIds, appendedIds, relocatedIds } = changedMessageLocations(changes)
+        const affectedTurns = new Set<TurnGroup>()
+        for (const id of relocatedIds) {
+          const old = msgToTurn.get(id)
+          if (!old) continue
+          for (const key of old.blockKeys) retiredKeys.add(key)
+          old.messageIds = old.messageIds.filter((member) => member !== id)
+          msgToTurn.delete(id)
+          affectedTurns.add(old)
+          // Withdraw the old block before the same identity is inserted elsewhere.
+          rebuildSingleTurn(old, opts, undefined, previouslyPublished)
         }
         if (prependedIds.length > 0) {
           const prependedMsgs: Message[] = []
@@ -1158,7 +1210,7 @@ export function createClaudeBlockModel(config: {
               messageById.set(m.id, m)
               const vis = filterVisibleMessage(m, opts.showAutomaticFeeds)
               visibleById.set(m.id, vis)
-              indexMessageToolParts(m, 0)
+              for (const id of indexMessageToolParts(m, 0, order)) lateResultTools.add(id)
               if (vis) prependedMsgs.push(vis)
             }
           }
@@ -1277,17 +1329,21 @@ export function createClaudeBlockModel(config: {
             } else if (prefixBlocks.length > 0) {
               list.splice(0, 0, prefixBlocks)
             }
+            if (turns[0] && prefixTurns.at(-1)?.role === turns[0].role)
+              exposedBoundaries.add(turns[0])
             turns = [...prefixTurns, ...turns]
           }
         }
 
         // 2. Process remaining folded changes (append, replace, remove)
         const prependedSet = new Set(prependedIds)
-        const affectedTurns = new Set<TurnGroup>()
+        // Re-added IDs may have first appeared before other appended IDs in the fold.
+        const ordered = new Map(folded)
+        for (const id of appendedIds) ordered.delete(id)
+        for (const id of appendedIds) ordered.set(id, 0)
         const partsFromByMsg = new Map<string, number>()
-        const lateResultTools = new Set<string>()
 
-        for (const [id, partsFrom] of folded) {
+        for (const [id, partsFrom] of ordered) {
           if (prependedSet.has(id)) continue
           const pos = order.messagePosition(id)
           if (pos < 0) {
@@ -1309,11 +1365,8 @@ export function createClaudeBlockModel(config: {
 
           const msg = messages[pos]
           const prevTurn = msgToTurn.get(id)
-          const retracted = retractMessageToolResults(id, partsFrom)
-          const { affectedResults, duplicateCallUpdates } = indexMessageToolParts(msg, partsFrom)
-          for (const tid of retracted) lateResultTools.add(tid)
-          for (const tid of affectedResults) lateResultTools.add(tid)
-          for (const tid of duplicateCallUpdates.keys()) lateResultTools.add(tid)
+          for (const toolId of indexMessageToolParts(msg, partsFrom, order))
+            lateResultTools.add(toolId)
 
           messageById.set(id, msg)
           const vis = filterVisibleMessage(msg, opts.showAutomaticFeeds)
@@ -1350,11 +1403,55 @@ export function createClaudeBlockModel(config: {
           }
         }
 
-        // Rebuild only affected turns (and clean up emptied turns)
-        for (const tr of affectedTurns) {
-          rebuildSingleTurn(tr, opts, partsFromByMsg)
+        for (const toolId of lateResultTools) {
+          const previous = toolOwnerBlockKey.get(toolId)
+          const next = toolInputs.firstOwner(toolId)
+          if (!previous || previous.messageId === next) continue
+          toolOwnerBlockKey.delete(toolId)
+          const oldTurn = msgToTurn.get(previous.messageId)
+          const newTurn = next === undefined ? undefined : msgToTurn.get(next)
+          if (oldTurn) affectedTurns.add(oldTurn)
+          if (newTurn) affectedTurns.add(newTurn)
         }
-        turns = turns.filter((t) => t.messageIds.length > 0)
+
+        // Empty turns can expose two adjacent fragments of one role. Rebuild the
+        // merged range once, including both old sets of keys in its splice.
+        for (const tr of [...affectedTurns]) {
+          if (tr.messageIds.length !== 0) continue
+          for (const key of tr.blockKeys) retiredKeys.add(key)
+          rebuildSingleTurn(tr, opts)
+          affectedTurns.delete(tr)
+          const at = turns.at(-1) === tr ? turns.length - 1 : turns.indexOf(tr)
+          turns.splice(at, 1)
+          const next = turns[at]
+          if (next) exposedBoundaries.add(next)
+        }
+        for (const right of exposedBoundaries) {
+          const at = turns.at(-1) === right ? turns.length - 1 : turns.indexOf(right)
+          const left = turns[at - 1]
+          if (!left || left.role !== right.role) continue
+          left.messageIds = left.messageIds.concat(right.messageIds)
+          left.blockKeys = left.blockKeys.concat(right.blockKeys)
+          for (const id of right.messageIds) msgToTurn.set(id, left)
+          right.blockKeys = []
+          right.messageIds = []
+          turns.splice(at, 1)
+          affectedTurns.delete(right)
+          affectedTurns.add(left)
+        }
+        let affectedActivities: MultiPartGroupRef[] | undefined
+        if (mode === 'work' && (exposedBoundaries.size || relocatedIds.size)) {
+          for (const tr of affectedTurns) for (const key of tr.blockKeys) retiredKeys.add(key)
+          const indices = Array.from(retiredKeys, (key) => previouslyPublished.indexOf(key))
+            .filter((at) => at >= 0)
+            .sort((a, b) => a - b)
+          affectedActivities = indices.flatMap((at) =>
+            extractActivityRefs(previouslyPublished, at, 1)
+          )
+        }
+        for (const tr of affectedTurns) {
+          rebuildSingleTurn(tr, opts, partsFromByMsg, previouslyPublished, affectedActivities)
+        }
 
         // Update first block gap if turn 0 was removed
         const afterSnap = list.snapshot()

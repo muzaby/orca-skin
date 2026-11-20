@@ -9,6 +9,7 @@ import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import type { Message, ToolCall } from '../../../reducer/chatReducer'
 import {
   hasPartsText,
+  hasSegmentText,
   messageSegments,
   partsArtifacts,
   partsAttachments,
@@ -23,12 +24,14 @@ import {
   type BlockSnapshot
 } from '../../../lib/transcript/blockList'
 import {
+  changedMessageLocations,
   changesSince,
   foldChanges,
   type TranscriptChanges,
   type TranscriptRevision
 } from '../../../lib/transcript/changeLog'
 import { messageOrderFor } from '../../../lib/transcript/messageOrder'
+import { OrderedToolParts } from '../../../lib/transcript/orderedToolParts'
 import { isTurnStart } from '../../../lib/transcript/turnStart'
 import {
   assertUniqueBlockKeys,
@@ -128,7 +131,6 @@ export interface OpenCodeBlockModel {
 type ToolResult = NonNullable<ToolCall['result']>
 
 interface TurnGroup {
-  id: string
   role: 'user' | 'assistant'
   messageIds: string[]
   blockKeys: string[]
@@ -161,7 +163,7 @@ function extractTextGroupRefs(blocks: readonly OpenCodeBlock[]): MultiPartGroupR
 }
 
 export function createOpenCodeBlockModel(): OpenCodeBlockModel {
-  let list: BlockList<OpenCodeBlock> = createBlockList<OpenCodeBlock>()
+  const list: BlockList<OpenCodeBlock> = createBlockList<OpenCodeBlock>()
   let cursor: TranscriptRevision | undefined
   let prevOpts: Required<Omit<OpenCodeAdvanceOptions, 'liveTextKey'>> & {
     liveTextKey: string | undefined
@@ -179,78 +181,48 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
   const visibleById = new Map<string, Message | undefined>()
 
   // Tool results & deduplication
-  const toolResults = new Map<string, ToolResult>()
-  const toolResultsByMessage = new Map<
-    string,
-    Map<number, { toolRunId: string; result: ToolResult }>
-  >()
-  const toolResultStacks = new Map<
-    string,
-    { messageId: string; partIndex: number; result: ToolResult }[]
-  >()
+  const toolResults = new OrderedToolParts<ToolResult>()
+  const toolInputs = new OrderedToolParts<Record<string, unknown>>()
   const toolOwnerBlockKey = new Map<string, { messageId: string; blockKey: string }>()
-  const latestToolCallInput = new Map<string, Record<string, unknown>>()
 
   let turns: TurnGroup[] = []
   const msgToTurn = new Map<string, TurnGroup>()
   let initialLiveKey: string | undefined
   let prevTextRefs: MultiPartGroupRef[] = []
 
-  function retractMessageToolResults(messageId: string, partsFrom: number): Set<string> {
+  function retractMessageTools(messageId: string, from: number): Set<string> {
     const affected = new Set<string>()
-    const msgMap = toolResultsByMessage.get(messageId)
-    if (!msgMap) return affected
-    for (const [idx, entry] of msgMap) {
-      if (idx < partsFrom) continue
-      msgMap.delete(idx)
-      affected.add(entry.toolRunId)
-      const stack = toolResultStacks.get(entry.toolRunId)
-      if (stack) {
-        const filtered = stack.filter((s) => !(s.messageId === messageId && s.partIndex === idx))
-        if (filtered.length > 0) {
-          toolResultStacks.set(entry.toolRunId, filtered)
-          toolResults.set(entry.toolRunId, filtered[filtered.length - 1].result)
-        } else {
-          toolResultStacks.delete(entry.toolRunId)
-          toolResults.delete(entry.toolRunId)
-        }
-      }
-    }
-    if (msgMap.size === 0) toolResultsByMessage.delete(messageId)
+    toolResults.retract(messageId, from, affected)
+    toolInputs.retract(messageId, from, affected)
     return affected
   }
 
-  function indexMessageToolParts(message: Message, partsFrom: number): Set<string> {
-    const affected = new Set<string>()
-    let msgMap = toolResultsByMessage.get(message.id)
+  function indexMessageToolParts(
+    message: Message,
+    partsFrom: number,
+    order?: ReturnType<typeof messageOrderFor>
+  ): Set<string> {
+    const affected = retractMessageTools(message.id, partsFrom)
     for (let i = partsFrom; i < message.parts.length; i++) {
       const part = message.parts[i]
       if (part.type === 'tool_result') {
-        const res = toolResultFromPart(part)
-        if (!msgMap) {
-          msgMap = new Map()
-          toolResultsByMessage.set(message.id, msgMap)
-        }
-        msgMap.set(i, { toolRunId: part.toolRunId, result: res })
-        const stack = toolResultStacks.get(part.toolRunId) ?? []
-        const existingIdx = stack.findIndex((s) => s.messageId === message.id && s.partIndex === i)
-        if (existingIdx >= 0) {
-          stack[existingIdx] = { messageId: message.id, partIndex: i, result: res }
-        } else {
-          stack.push({ messageId: message.id, partIndex: i, result: res })
-        }
-        toolResultStacks.set(part.toolRunId, stack)
-        toolResults.set(part.toolRunId, stack[stack.length - 1].result)
+        toolResults.put(part.toolRunId, message.id, i, toolResultFromPart(part), order)
         affected.add(part.toolRunId)
       } else if (part.type === 'tool_call' && part.parentToolRunId === undefined) {
-        const argsObj =
+        const input =
           part.args && typeof part.args === 'object' ? (part.args as Record<string, unknown>) : {}
-        latestToolCallInput.set(part.toolRunId, argsObj)
-        const existingOwner = toolOwnerBlockKey.get(part.toolRunId)
-        if (existingOwner) affected.add(part.toolRunId)
+        toolInputs.put(part.toolRunId, message.id, i, input, order)
+        affected.add(part.toolRunId)
       }
     }
     return affected
+  }
+
+  function registerToolOwner(toolId: string, messageId: string, blockKey: string): void {
+    const previous = toolOwnerBlockKey.get(toolId)
+    if (!previous || (previous.messageId === messageId && previous.blockKey !== blockKey)) {
+      toolOwnerBlockKey.set(toolId, { messageId, blockKey })
+    }
   }
 
   function ensurePartKeys(message: Message, partsFrom?: number): PartKeyEntry[] {
@@ -308,6 +280,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     const combinedEntries: PartKeyEntry[] = []
     const nonTextPartKeysByKind = new Map<string, { key: string; messageId: string }[]>()
     const callMessageById = new Map<string, string>()
+    let lastTextOwner: string | undefined
 
     for (const msg of turnMessages) {
       const entries = ensurePartKeys(msg)
@@ -325,6 +298,9 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       }
       for (const p of msg.parts) {
         combinedParts.push(p)
+        if (p.type === 'text' && p.parentToolRunId === undefined && hasSegmentText(p.text)) {
+          lastTextOwner = msg.id
+        }
       }
     }
 
@@ -336,10 +312,10 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     // Build latest call map with merged results & latest input (D-067)
     const callsById = new Map<string, ToolCall>()
     for (const seg of rawSegments) {
-      if (seg.kind !== 'tools') continue
-      for (const call of seg.calls) {
-        const res = toolResults.get(call.toolUseId) ?? call.result
-        const latestInput = latestToolCallInput.get(call.toolUseId) ?? call.input
+      const calls = seg.kind === 'tools' ? seg.calls : seg.kind === 'ask' ? [seg.call] : []
+      for (const call of calls) {
+        const res = toolResults.latest(call.toolUseId) ?? call.result
+        const latestInput = toolInputs.latest(call.toolUseId) ?? call.input
         callsById.set(call.toolUseId, {
           ...call,
           input: latestInput,
@@ -356,7 +332,8 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       segments.push({ kind: 'reasoning', items: [] })
     }
     if (active && liveText) {
-      if (segments.at(-1)?.kind !== 'text') {
+      const changesOwner = liveTextKey !== undefined && liveTextKey !== lastTextOwner
+      if (segments.at(-1)?.kind !== 'text' || changesOwner) {
         segments.push({ kind: 'text', text: '', __live: true })
         appendedLiveSegment = true
       }
@@ -374,7 +351,11 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       if (seg.kind === 'tools') {
         const dedupedCalls: ToolCall[] = []
         for (const call of seg.calls) {
-          if (seenGlobalTools.has(call.toolUseId)) continue
+          if (
+            seenGlobalTools.has(call.toolUseId) ||
+            callMessageById.get(call.toolUseId) !== toolInputs.firstOwner(call.toolUseId)
+          )
+            continue
           seenGlobalTools.add(call.toolUseId)
           const current = callsById.get(call.toolUseId) ?? call
           if (toolKind(current) !== 'todo') dedupedCalls.push(current)
@@ -389,9 +370,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
             toolBlockKey(callMessageById.get(c.toolUseId) ?? ownerMsgId, c.toolUseId)
           )
           for (const c of group) {
-            if (!toolOwnerBlockKey.has(c.toolUseId)) {
-              toolOwnerBlockKey.set(c.toolUseId, { messageId: ownerMsgId, blockKey: key })
-            }
+            registerToolOwner(c.toolUseId, callMessageById.get(c.toolUseId) ?? ownerMsgId, key)
           }
           const gap: OpenCodeBlockGap =
             !prevBlock && !hasPreviousBlock
@@ -461,13 +440,15 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       let key: string
       let ownerMsgId = firstId
       if (seg.kind === 'ask') {
-        if (seenGlobalTools.has(seg.call.toolUseId)) continue
+        if (
+          seenGlobalTools.has(seg.call.toolUseId) ||
+          callMessageById.get(seg.call.toolUseId) !== toolInputs.firstOwner(seg.call.toolUseId)
+        )
+          continue
         seenGlobalTools.add(seg.call.toolUseId)
         ownerMsgId = callMessageById.get(seg.call.toolUseId) ?? firstId
         key = toolBlockKey(ownerMsgId, seg.call.toolUseId)
-        if (!toolOwnerBlockKey.has(seg.call.toolUseId)) {
-          toolOwnerBlockKey.set(seg.call.toolUseId, { messageId: ownerMsgId, blockKey: key })
-        }
+        registerToolOwner(seg.call.toolUseId, ownerMsgId, key)
       } else {
         const listForKind = nonTextPartKeysByKind.get(seg.kind) ?? []
         const cur = nonTextCursors.get(seg.kind) ?? 0
@@ -485,7 +466,10 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
         key,
         messageId: ownerMsgId,
         partKeys: [key],
-        segment: seg,
+        segment:
+          seg.kind === 'ask'
+            ? { ...seg, call: callsById.get(seg.call.toolUseId) ?? seg.call }
+            : seg,
         streaming: false,
         gap
       })
@@ -539,10 +523,8 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     messageById.clear()
     visibleById.clear()
     toolResults.clear()
-    toolResultsByMessage.clear()
-    toolResultStacks.clear()
     toolOwnerBlockKey.clear()
-    latestToolCallInput.clear()
+    toolInputs.clear()
     msgToTurn.clear()
     turns = []
     initialLiveKey = undefined
@@ -574,7 +556,6 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       const g = grouped[tIdx]
       const firstId = g.messages[0].id
       const tr: TurnGroup = {
-        id: firstId,
         role: g.role,
         messageIds: g.messages.map((m) => m.id),
         blockKeys: []
@@ -588,7 +569,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           key,
           messageId: firstId,
           partKeys: [key],
-          turn: { role: 'user', messages: g.messages, startIndex: tIdx },
+          turn: { role: 'user', messages: g.messages, startIndex: 0 },
           gap: allBlocks.length === 0 ? 0 : 24
         })
         tr.blockKeys.push(key)
@@ -636,8 +617,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     }
 
     assertUniqueBlockKeys(allBlocks)
-    list = createBlockList(allBlocks)
-    return list.snapshot()
+    return list.splice(0, oldSnap.count, allBlocks)
   }
 
   function findTurnStartIndex(snap: BlockSnapshot<OpenCodeBlock>, turn: TurnGroup): number {
@@ -657,7 +637,11 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     return 0
   }
 
-  function rebuildSingleTurn(turn: TurnGroup, opts: typeof prevOpts): void {
+  function rebuildSingleTurn(
+    turn: TurnGroup,
+    opts: typeof prevOpts,
+    previousTextRefs?: MultiPartGroupRef[]
+  ): void {
     const snap = list.snapshot()
     const startIdx = findTurnStartIndex(snap, turn)
     const oldCount = turn.blockKeys.length
@@ -665,7 +649,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     for (let i = 0; i < oldCount; i++) {
       if (startIdx + i < snap.count) oldTurnBlocks.push(snap.blockAt(startIdx + i))
     }
-    const turnTextRefs = extractTextGroupRefs(oldTurnBlocks)
+    const turnTextRefs = previousTextRefs ?? extractTextGroupRefs(oldTurnBlocks)
 
     const turnMessages = turn.messageIds
       .map((id) => visibleById.get(id))
@@ -677,28 +661,24 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       return
     }
 
+    const firstId = turnMessages[0].id
     const isLastTurn = turns[turns.length - 1] === turn
     const newBlocks: OpenCodeBlock[] = []
     if (turn.role === 'user') {
-      const key = userBlockKey(turn.id)
+      const key = userBlockKey(firstId)
       newBlocks.push({
         kind: 'user',
         key,
-        messageId: turn.id,
+        messageId: firstId,
         partKeys: [key],
         turn: { role: 'user', messages: turnMessages, startIndex: 0 },
         gap: startIdx === 0 ? 0 : 24
       })
     } else {
       const seenTools = new Set<string>()
-      for (const [toolId, owner] of toolOwnerBlockKey) {
-        if (!turn.messageIds.includes(owner.messageId)) {
-          seenTools.add(toolId)
-        }
-      }
       const built = buildAssistantTurnBlocks(
         turnMessages,
-        turn.id,
+        firstId,
         startIdx > 0,
         isLastTurn && opts.pending,
         opts.liveText,
@@ -726,8 +706,8 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       let changed = false
       const nextCalls = block.segment.calls.map((c) => {
         if (c.toolUseId !== toolRunId) return c
-        const res = toolResults.get(toolRunId)
-        const inp = latestToolCallInput.get(toolRunId) ?? c.input
+        const res = toolResults.latest(toolRunId)
+        const inp = toolInputs.latest(toolRunId) ?? c.input
         if (res === c.result && inp === c.input) return c
         changed = true
         const copy: ToolCall = { ...c, input: inp }
@@ -740,8 +720,8 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       }
     } else if (block.segment.kind === 'ask' && block.segment.call.toolUseId === toolRunId) {
       const c = block.segment.call
-      const res = toolResults.get(toolRunId)
-      const inp = latestToolCallInput.get(toolRunId) ?? c.input
+      const res = toolResults.latest(toolRunId)
+      const inp = toolInputs.latest(toolRunId) ?? c.input
       if (res !== c.result || inp !== c.input) {
         const copy: ToolCall = { ...c, input: inp }
         if (res !== undefined) copy.result = res
@@ -833,6 +813,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
         opts.showAutomaticFeeds !== prevOpts.showAutomaticFeeds
 
       if (mustRebuild) {
+        messageOrderFor(state, true)
         const snap = rebuildAll(messages, opts)
         cursor = { lineage: transcriptChanges.lineage, revision: transcriptChanges.revision }
         prevOpts = opts
@@ -840,21 +821,24 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       }
 
       const affectedTurns = new Set<TurnGroup>()
-      const lateResultTools = new Set<string>()
+      const affectedTools = new Set<string>()
       const oldLastTurn = turns[turns.length - 1]
 
       if (changes.length > 0) {
         const order = messageOrderFor(state, true)
         const folded = foldChanges(changes)
+        const boundaryTurns = new Set<TurnGroup>()
+        const original = list.snapshot()
+        const retiredKeys: string[] = []
 
         // 1. Handle T-preserving prepends (z6)
-        const prependedIds: string[] = []
-        for (const ch of changes) {
-          if (ch.kind === 'prepend') {
-            for (const id of ch.ids) {
-              if (order.messagePosition(id) >= 0) prependedIds.push(id)
-            }
-          }
+        const { prependedIds, appendedIds, relocatedIds } = changedMessageLocations(changes)
+        for (const id of relocatedIds) {
+          const oldTurn = msgToTurn.get(id)
+          if (!oldTurn) continue
+          oldTurn.messageIds = oldTurn.messageIds.filter((mid) => mid !== id)
+          msgToTurn.delete(id)
+          affectedTurns.add(oldTurn)
         }
         if (prependedIds.length > 0) {
           const prependedMsgs: Message[] = []
@@ -865,7 +849,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
               messageById.set(m.id, m)
               const vis = filterVisibleMessage(m, opts.showAutomaticFeeds)
               visibleById.set(m.id, vis)
-              indexMessageToolParts(m, 0)
+              for (const toolId of indexMessageToolParts(m, 0, order)) affectedTools.add(toolId)
               if (vis) prependedMsgs.push(vis)
             }
           }
@@ -886,7 +870,6 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
             for (const g of prefixGrouped) {
               const firstId = g.messages[0].id
               const tr: TurnGroup = {
-                id: firstId,
                 role: g.role,
                 messageIds: g.messages.map((m) => m.id),
                 blockKeys: []
@@ -933,17 +916,23 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
             } else if (prefixBlocks.length > 0) {
               list.splice(0, 0, prefixBlocks)
             }
+            if (turns[0]) boundaryTurns.add(turns[0])
             turns = [...prefixTurns, ...turns]
           }
         }
 
         // 2. Handle append / replace / remove
         const prependedSet = new Set(prependedIds)
-        for (const [id, partsFrom] of folded) {
+        const orderedChanges = new Map(folded)
+        for (const id of appendedIds) {
+          orderedChanges.delete(id)
+          orderedChanges.set(id, folded.get(id) ?? 0)
+        }
+        for (const [id, partsFrom] of orderedChanges) {
           if (prependedSet.has(id)) continue
           const pos = order.messagePosition(id)
           if (pos < 0) {
-            for (const tid of retractMessageToolResults(id, 0)) lateResultTools.add(tid)
+            for (const tid of retractMessageTools(id, 0)) affectedTools.add(tid)
             messageById.delete(id)
             visibleById.delete(id)
             const tr = msgToTurn.get(id)
@@ -957,8 +946,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
 
           const msg = messages[pos]
           const prevTurn = msgToTurn.get(id)
-          for (const tid of retractMessageToolResults(id, partsFrom)) lateResultTools.add(tid)
-          for (const tid of indexMessageToolParts(msg, partsFrom)) lateResultTools.add(tid)
+          for (const tid of indexMessageToolParts(msg, partsFrom, order)) affectedTools.add(tid)
 
           messageById.set(id, msg)
           const vis = filterVisibleMessage(msg, opts.showAutomaticFeeds)
@@ -985,7 +973,6 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
             } else {
               if (lastTurn) affectedTurns.add(lastTurn)
               const newTurn: TurnGroup = {
-                id: vis.id,
                 role: vis.role,
                 messageIds: [vis.id],
                 blockKeys: []
@@ -1005,10 +992,61 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           initialLiveKey = undefined
         }
 
-        for (const tr of affectedTurns) {
-          rebuildSingleTurn(tr, opts)
+        // Removing or prepending a duplicate call can move its rendered owner to another turn.
+        for (const toolId of affectedTools) {
+          const previous = toolOwnerBlockKey.get(toolId)
+          const next = toolInputs.firstOwner(toolId)
+          if (!previous || previous.messageId === next) continue
+          toolOwnerBlockKey.delete(toolId)
+          const previousTurn = msgToTurn.get(previous.messageId)
+          const nextTurn = next === undefined ? undefined : msgToTurn.get(next)
+          if (previousTurn) affectedTurns.add(previousTurn)
+          if (nextTurn) affectedTurns.add(nextTurn)
         }
-        turns = turns.filter((t) => t.messageIds.length > 0)
+
+        for (const turn of affectedTurns) {
+          if (turn.messageIds.length !== 0) continue
+          const index = turns.indexOf(turn)
+          if (index < 0) continue
+          for (const key of turn.blockKeys) retiredKeys.push(key)
+          rebuildSingleTurn(turn, opts)
+          turns.splice(index, 1)
+          affectedTurns.delete(turn)
+          if (turns[index]) boundaryTurns.add(turns[index])
+          else if (index > 0) affectedTurns.add(turns[index - 1])
+        }
+        for (const right of boundaryTurns) {
+          const index = turns.indexOf(right)
+          if (index <= 0) continue
+          const left = turns[index - 1]
+          if (left.role !== right.role) continue
+          // Removing a separator joins the surviving runs. Keep both old block
+          // ranges until the rebuild so representative keys come from both sides.
+          for (const id of right.messageIds) {
+            left.messageIds.push(id)
+            msgToTurn.set(id, left)
+          }
+          left.blockKeys = left.blockKeys.concat(right.blockKeys)
+          turns.splice(index, 1)
+          affectedTurns.delete(right)
+          affectedTurns.add(left)
+        }
+        let previousTextRefs: MultiPartGroupRef[] | undefined
+        if (relocatedIds.size || boundaryTurns.size) {
+          const indices = new Set<number>()
+          for (const key of retiredKeys) indices.add(original.indexOf(key))
+          for (const turn of affectedTurns) {
+            for (const key of turn.blockKeys) indices.add(original.indexOf(key))
+          }
+          indices.delete(-1)
+          const blocks = Array.from(indices)
+            .sort((a, b) => a - b)
+            .map((i) => original.blockAt(i))
+          previousTextRefs = extractTextGroupRefs(blocks)
+        }
+        for (const tr of affectedTurns) {
+          rebuildSingleTurn(tr, opts, previousTextRefs)
+        }
 
         const afterSnap = list.snapshot()
         if (afterSnap.count > 0) {
@@ -1018,7 +1056,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           }
         }
 
-        for (const toolRunId of lateResultTools) {
+        for (const toolRunId of affectedTools) {
           const ownerMsgId = order.toolCallOwner(toolRunId)
           if (ownerMsgId) {
             updateToolBlockInPlace(toolRunId)
@@ -1033,6 +1071,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           oldLastTurn &&
           oldLastTurn !== currentLastTurn &&
           oldLastTurn.role === 'assistant' &&
+          msgToTurn.get(oldLastTurn.messageIds[0]) === oldLastTurn &&
           !affectedTurns.has(oldLastTurn)
         ) {
           rebuildSingleTurn(oldLastTurn, opts)

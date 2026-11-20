@@ -4,12 +4,14 @@ import type { Message } from '../../../reducer/chatReducer'
 import {
   newTranscriptChanges,
   recordChange,
-  type TranscriptChanges
+  type TranscriptChanges,
+  type TranscriptChange
 } from '../../../lib/transcript/changeLog'
 import { liveBlockKey, turnMetaKey, userBlockKey } from '../../../lib/transcript/blockKeys'
 import { buildClaudeBlocksOracle, snapshotToArray } from '../../../lib/blockOracle.testfixture'
 import * as segmentCache from '../../../lib/segmentCache'
-import { createClaudeBlockModel } from './claudeBlocks'
+import { getDisclosure, setDisclosure } from '../../../store/disclosureStore'
+import { createClaudeBlockModel, type ClaudeActivityBlock } from './claudeBlocks'
 
 function userMsg(id: string, text: string, createdAt = 1000): Message {
   return { id, role: 'user', createdAt, parts: [{ type: 'text', text }] }
@@ -136,7 +138,7 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
         a1ToolAfter.segment.calls[0].result?.output
     ).toBe('file content')
     // Text block key preserved
-    expect(snap2.blockAt(1).key).toBe(a1TextBefore.key)
+    expect(snap2.blockAt(1)).toBe(a1TextBefore)
   })
 
   it('z3: remove deletes blocks of removed message and updates first-block gap', () => {
@@ -228,6 +230,23 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
       expect(toolBlocks[0].segment.calls[0].input).toEqual({ path: 'new.ts' })
       expect(toolBlocks[0].segment.calls[0].result?.output).toBe('ok')
     }
+  })
+
+  it('y9 deduplicates two calls inside the first owning message and uses its latest input', () => {
+    const model = createClaudeBlockModel({ mode: 'code', sessionKey: 's' })
+    const messages = [
+      assistantMsg('owner', [
+        { type: 'tool_call', toolRunId: 'dup', toolName: 'Read', args: { path: 'first' } },
+        { type: 'tool_call', toolRunId: 'dup', toolName: 'Read', args: { path: 'last' } }
+      ])
+    ]
+    const blocks = snapshotToArray(
+      model.advance({ messages, transcriptChanges: newTranscriptChanges() })
+    )
+    const calls = blocks.flatMap((b) =>
+      b.kind === 'segment' && b.segment.kind === 'tools' ? b.segment.calls : []
+    )
+    expect(calls.map((call) => call.input)).toEqual([{ path: 'last' }])
   })
 
   it('z8 + property: 200-step randomized sequence matches full-build oracle at every step', () => {
@@ -349,6 +368,285 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
     expect(r1.added).toBe(r100.added)
     expect(r1.beforeCount - r1.reused).toBeLessThanOrEqual(2)
     expect(r100.beforeCount - r100.reused).toBeLessThanOrEqual(2)
+  })
+
+  it.each(['code', 'work'] as const)(
+    'z8 %s transfers duplicate calls and withdraws replay input for ordinary tools and questions',
+    (mode) => {
+      for (const toolName of ['Read', 'AskUserQuestion']) {
+        const model = createClaudeBlockModel({ mode, sessionKey: 'replays' })
+        const call = (id: string, input: string): Message =>
+          assistantMsg(id, [
+            { type: 'response_boundary', boundary: { phase: 'begin', id } },
+            { type: 'tool_call', toolName, toolRunId: 'shared', args: { input } },
+            { type: 'response_boundary', boundary: { phase: 'end', id, outcome: 'ended' } }
+          ])
+        const result = assistantMsg('result', [
+          { type: 'tool_result', toolRunId: 'shared', isError: false, result: 'done' }
+        ])
+        let messages = [
+          call('original', 'first'),
+          userMsg('break', 'again'),
+          call('replay', 'second'),
+          result
+        ]
+        let changes = newTranscriptChanges()
+        function check(owner: string, input: string): void {
+          const state = { messages, transcriptChanges: changes }
+          for (const snap of [
+            model.advance(state),
+            createClaudeBlockModel({ mode, sessionKey: 'fresh' }).advance(state)
+          ]) {
+            const visible = snapshotToArray(snap).flatMap((block) => {
+              const items =
+                block.kind === 'activity' ? block.items : block.kind === 'segment' ? [block] : []
+              return items.flatMap((item) => {
+                const seg = item.segment
+                const calls =
+                  seg.kind === 'tools' ? seg.calls : seg.kind === 'ask' ? [seg.call] : []
+                return calls.map((c) => [item.messageId, c.input, c.result?.output])
+              })
+            })
+            expect(visible).toEqual([[owner, { input }, 'done']])
+          }
+        }
+        check('original', 'second')
+        messages = messages.filter((m) => m.id !== 'replay')
+        changes = recordChange(changes, { kind: 'remove', ids: ['replay'] })
+        check('original', 'first')
+        messages = [...messages, call('again', 'third')]
+        changes = recordChange(changes, { kind: 'append', ids: ['again'] })
+        check('original', 'third')
+        messages = messages.slice(1)
+        changes = recordChange(changes, { kind: 'remove', ids: ['original'] })
+        check('again', 'third')
+      }
+    }
+  )
+
+  it('z8 keeps the surviving standalone Work call keyed by its first visible tool after a replay', () => {
+    const first = assistantMsg('owner', [
+      { type: 'tool_call', toolName: 'Read', toolRunId: 'dup', args: {} }
+    ])
+    const replay = assistantMsg('later', [
+      { type: 'tool_call', toolName: 'Read', toolRunId: 'dup', args: { updated: true } },
+      { type: 'tool_call', toolName: 'Read', toolRunId: 'remain', args: {} },
+      { type: 'response_boundary', boundary: { phase: 'begin', id: 'r' } },
+      { type: 'text', text: 'answer' },
+      { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'ended' } }
+    ])
+    const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'group-owner' })
+    const before = newTranscriptChanges()
+    const rows = [first, userMsg('new', 'second'), replay]
+    const snap = model.advance({ messages: rows, transcriptChanges: before })
+    const key = 'later:tool:remain'
+    expect(snap.indexOf(key)).toBeGreaterThanOrEqual(0)
+    const result = assistantMsg('result', [
+      { type: 'tool_result', toolRunId: 'remain', result: 'later', isError: false }
+    ])
+    const after = model.advance({
+      messages: [...rows, userMsg('third', 'third'), result],
+      transcriptChanges: recordChange(before, { kind: 'append', ids: ['third', 'result'] })
+    })
+    expect(after.blockAt(after.indexOf(key))).toMatchObject({
+      segment: { calls: [{ toolUseId: 'remain', result: { output: 'later' } }] }
+    })
+  })
+
+  it('y19 keeps the Work activity representative after another message becomes its first item', () => {
+    const sessionKey = 'work-representative'
+    const model = createClaudeBlockModel({ mode: 'work', sessionKey })
+    const begin: AppMessagePart = {
+      type: 'response_boundary',
+      boundary: { id: 'response', phase: 'begin' }
+    }
+    const tool = (id: string): AppMessagePart => ({
+      type: 'tool_call',
+      toolRunId: id,
+      toolName: 'Read',
+      args: {}
+    })
+    const original = assistantMsg('original', [
+      begin,
+      tool('retained'),
+      { type: 'response_boundary', boundary: { id: 'response', phase: 'end', outcome: 'ended' } }
+    ])
+    let changes = newTranscriptChanges()
+    const activity = (
+      messages: Message[],
+      change: TranscriptChange = { kind: 'reset', complete: true }
+    ): ClaudeActivityBlock => {
+      changes = recordChange(changes, change)
+      const snapshot = model.advance({ messages, transcriptChanges: changes })
+      const activities = snapshotToArray(snapshot).filter((block) => block.kind === 'activity')
+      expect(activities).toHaveLength(1)
+      return activities[0]
+    }
+    const first = activity([original])
+    setDisclosure(sessionKey, first.key, true)
+    try {
+      for (const id of ['new-first', 'replacement-first', 'reloaded-first']) {
+        const head = assistantMsg('head', [begin, tool(id)])
+        const joined = activity(
+          [head, original],
+          id === 'replacement-first' ? { kind: 'replace', id: head.id, partsFrom: 1 } : undefined
+        )
+        expect(joined.partKeys).toEqual(['head:tool:' + id, 'original:tool:retained'])
+        expect(joined.key).toBe(first.key)
+        expect(getDisclosure(sessionKey, joined.key)).toBe(true)
+      }
+    } finally {
+      setDisclosure(sessionKey, first.key, false)
+    }
+  })
+
+  it.each(['work', 'code'] as const)(
+    'z8 %s orders repeated results by final transcript position after an older contribution is edited',
+    (mode) => {
+      const model = createClaudeBlockModel({ mode, sessionKey: 'result-order' })
+      const result = (id: string, value: string): Message =>
+        assistantMsg(id, [
+          { type: 'tool_result', toolRunId: 'original', isError: false, result: value }
+        ])
+      const owner = assistantMsg('owner', [
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'r' } },
+        { type: 'tool_call', toolRunId: 'original', toolName: 'Read', args: {} },
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'ended' } }
+      ])
+      const rows = [
+        owner,
+        userMsg('next', 'continue'),
+        result('older', 'old'),
+        result('later', 'latest')
+      ]
+      const reset = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      const displayed = (snapshot: ReturnType<typeof model.snapshot>): unknown => {
+        for (const block of snapshotToArray(snapshot)) {
+          const segments =
+            block.kind === 'activity'
+              ? block.items.map((item) => item.segment)
+              : block.kind === 'segment'
+                ? [block.segment]
+                : []
+          for (const segment of segments) {
+            if (segment.kind === 'tools') return segment.calls[0].result?.output
+          }
+        }
+        throw Error('missing original tool')
+      }
+      expect(displayed(model.advance({ messages: rows, transcriptChanges: reset }))).toBe('latest')
+      const messages = rows.with(2, result('older', 'updated earlier'))
+      const changed = recordChange(reset, { kind: 'replace', id: 'older', partsFrom: 0 })
+      expect(displayed(model.advance({ messages, transcriptChanges: changed }))).toBe('latest')
+      const removed = recordChange(changed, { kind: 'remove', ids: ['later'] })
+      expect(
+        displayed(model.advance({ messages: messages.slice(0, -1), transcriptChanges: removed }))
+      ).toBe('updated earlier')
+    }
+  )
+
+  it('z2 preserves unaffected text and tool blocks in the edited message itself', () => {
+    const model = createClaudeBlockModel({ mode: 'code', sessionKey: 'siblings' })
+    const first = assistantMsg('a:1', [
+      { type: 'text', text: 'fixed' },
+      { type: 'tool_call', toolName: 'Read', args: {}, toolRunId: 'sibling' },
+      { type: 'reasoning', text: 'old' }
+    ])
+    const reset = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const before = model.advance({ messages: [first], transcriptChanges: reset })
+    const updated = assistantMsg('a:1', [
+      ...first.parts.slice(0, 2),
+      { type: 'reasoning', text: 'new' }
+    ])
+    const after = model.advance({
+      messages: [updated],
+      transcriptChanges: recordChange(reset, {
+        kind: 'replace',
+        id: first.id,
+        partsFrom: 2
+      })
+    })
+    expect(after.blockAt(0)).toBe(before.blockAt(0))
+    expect(after.blockAt(1)).toBe(before.blockAt(1))
+    expect(after.blockAt(2)).not.toBe(before.blockAt(2))
+    expect(after.blockAt(2)).toMatchObject({ segment: { items: [{ text: 'new' }] } })
+  })
+
+  it.each(['Read', 'AskUserQuestion'])(
+    'z4 keeps late results on the stand-alone Work %s call',
+    (toolName) => {
+      const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'standalone' })
+      const first = assistantMsg('owner', [
+        { type: 'tool_call', toolRunId: 'outside', toolName, args: {} },
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'r' } },
+        { type: 'text', text: 'conclusion' },
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'ended' } }
+      ])
+      const reset = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      const prefix = [first, userMsg('next', 'second')]
+      const before = model.advance({ messages: prefix, transcriptChanges: reset })
+      const next = assistantMsg('a:next', [
+        { type: 'tool_result', toolRunId: 'outside', result: 'updated', isError: false }
+      ])
+      const after = model.advance({
+        messages: [...prefix, next],
+        transcriptChanges: recordChange(reset, { kind: 'append', ids: [next.id] })
+      })
+      const block = after.blockAt(after.indexOf(before.keyAt(0)))
+      const expected = { toolUseId: 'outside', result: { output: 'updated' } }
+      expect(block).toMatchObject({
+        kind: 'segment',
+        segment: toolName === 'Read' ? { calls: [expected] } : { call: expected }
+      })
+    }
+  )
+
+  it('z4 routes results from a later turn to the original Work activity and retracts them in place', () => {
+    const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'late-activity' })
+    const owner = assistantMsg('owner', [
+      { type: 'response_boundary', boundary: { phase: 'begin', id: 'response' } },
+      { type: 'tool_call', toolName: 'Read', toolRunId: 'left', args: {} },
+      { type: 'text', text: 'note' },
+      { type: 'tool_call', toolName: 'Read', toolRunId: 'target', args: {} },
+      { type: 'text', text: 'conclusion' },
+      { type: 'response_boundary', boundary: { phase: 'end', id: 'response', outcome: 'ended' } }
+    ])
+    const resultMessage = assistantMsg('late', [{ type: 'text', text: 'next turn' }])
+    const prefix = [userMsg('first', 'start'), owner, userMsg('second', 'continue')]
+    const reset = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const before = model.advance({ messages: [...prefix, resultMessage], transcriptChanges: reset })
+    const original = snapshotToArray(before).find((block) => block.kind === 'activity')!
+    const change = { kind: 'replace' as const, id: resultMessage.id, partsFrom: 1 }
+    const changed = recordChange(reset, change)
+    const result: AppMessagePart = {
+      type: 'tool_result',
+      toolRunId: 'target',
+      result: 'late',
+      isError: false
+    }
+    const after = model.advance({
+      messages: [...prefix, { ...resultMessage, parts: [...resultMessage.parts, result] }],
+      transcriptChanges: changed
+    })
+    const current = after.blockAt(after.indexOf(original.key))
+    if (current.kind !== 'activity' || original.kind !== 'activity') throw Error('missing activity')
+    expect(current.items[2].segment).toMatchObject({
+      calls: [{ toolUseId: 'target', result: { output: 'late' } }]
+    })
+    expect(current.items[0]).toBe(original.items[0])
+    expect(current.items[1]).toBe(original.items[1])
+    expect(original.items[2].segment).toMatchObject({ calls: [{ toolUseId: 'target' }] })
+    expect(
+      original.items[2].segment.kind === 'tools' && original.items[2].segment.calls[0].result
+    ).toBeUndefined()
+    const reverted = model.advance({
+      messages: [...prefix, resultMessage],
+      transcriptChanges: recordChange(changed, change)
+    })
+    const withdrawn = reverted.blockAt(reverted.indexOf(original.key))
+    if (withdrawn.kind !== 'activity') throw Error('missing activity after withdrawal')
+    expect(withdrawn.items[2].segment).toEqual(original.items[2].segment)
+    expect(withdrawn.items[0]).toBe(original.items[0])
   })
 
   it('VP-37 (workToolResults): attributes tool results inside work-mode activity groups without cross-leaking', () => {

@@ -324,6 +324,8 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
         let orderEntries = 0
         let rankWrites = 0
         let locationWrites = 0
+        const retainedTailKey = before.keyAt(before.count - 1)
+        let retainedTailLookups = 0
         let keyLookups = 0
         const mapSet = Map.prototype.set
         const mapGet = Map.prototype.get
@@ -337,7 +339,10 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
         }
         Map.prototype.get = function (key: unknown): unknown {
           const value = mapGet.call(this, key)
-          if (isTranscriptChunk(value)) keyLookups++
+          if (isTranscriptChunk(value)) {
+            keyLookups++
+            if (key === retainedTailKey) retainedTailLookups++
+          }
           return value
         }
         let after: ReturnType<typeof model.advance>
@@ -352,6 +357,7 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
           Map.prototype.set = mapSet
           Map.prototype.get = mapGet
         }
+        if (screen !== 'opencode') expect(retainedTailLookups).toBe(0)
         expect(state.transcriptChanges.log.at(-1)?.kind).toBe('prepend')
         let boundaryBlocks = 0
         for (let i = 0; i < before.count; i++) {
@@ -465,6 +471,60 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
 })
 
 describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () => {
+  it.each(['merged', 'split', 'removed'] as const)(
+    'retains the reading row outside overscan after a %s part (a5/a7)',
+    (change) => {
+      vi.useFakeTimers()
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) =>
+        setTimeout(() => cb(0), 0)
+      )
+      vi.stubGlobal('cancelAnimationFrame', clearTimeout)
+      dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+      const scroller = makeScroller(400, 250)
+      const scrollRef = { current: scroller }
+      const blocks = createBlockList([
+        { key: 'above', messageId: 'm', partKeys: ['previous'] },
+        { key: 'reading-row', messageId: 'm', partKeys: ['reading'] },
+        { key: 'next-row', messageId: 'm', partKeys: ['following'] }
+      ])
+      const render = (): void =>
+        dom!.render(
+          createElement(TranscriptViewport<ViewportBlockBase>, {
+            snapshot: blocks.snapshot(),
+            scrollRef,
+            isPinned: () => false,
+            estimateSizePx: 80,
+            renderBlock: (block) => createElement('p', null, block.key)
+          })
+        )
+      render()
+      scroller.dispatchEvent(new Event('scroll'))
+      const prefix = Array.from({ length: 20 }, (_, index) => ({
+        key: 'prefix-' + index,
+        messageId: 'older',
+        partKeys: ['old-' + index]
+      }))
+      blocks.splice(1, 1, [
+        ...prefix.map((block, index) =>
+          change === 'split' && index === 0 ? { ...block, key: 'reading-row' } : block
+        ),
+        {
+          key: 'replacement',
+          messageId: 'm',
+          partKeys: [change === 'removed' ? 'different' : 'reading']
+        }
+      ])
+      render()
+      const mounted = virtualizer.options.rangeExtractor({
+        startIndex: 0,
+        endIndex: 1,
+        overscan: 0,
+        count: blocks.snapshot().count
+      })
+      expect(mounted).toEqual([0, 1, change === 'removed' ? 22 : 21])
+    }
+  )
+
   it.each([
     'measurement',
     'header',
@@ -473,6 +533,7 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     'key',
     'wheel',
     'pointer',
+    'header-wheel',
     'scroll'
   ] as const)('coalesces above-viewport changes and respects %s', (cause) => {
     vi.useFakeTimers()
@@ -508,27 +569,26 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         scroller.dispatchEvent(new Event('scroll'))
       }
     })
-    const snapshot = createBlockList([
-      { key: 'above' },
-      { key: 'visible' },
-      { key: 'after' }
-    ]).snapshot()
+    const blocks = createBlockList([{ key: 'above' }, { key: 'visible' }, { key: 'after' }])
     const sizeCache = new Map([
       ['above', 80],
       ['visible', 80],
       ['after', 80]
     ])
-    dom.render(
-      createElement(TranscriptViewport<{ key: string }>, {
-        snapshot,
-        scrollRef: { current: scroller },
-        isPinned: () => pinned,
-        sizeCache,
-        estimateSizePx: 80,
-        header: createElement('p', null, 'history'),
-        renderBlock: (block) => createElement('p', null, block.key)
-      })
-    )
+    const scrollRef = { current: scroller }
+    const render = (): void =>
+      dom!.render(
+        createElement(TranscriptViewport<{ key: string }>, {
+          snapshot: blocks.snapshot(),
+          scrollRef,
+          isPinned: () => pinned,
+          sizeCache,
+          estimateSizePx: 80,
+          header: createElement('p', null, 'history'),
+          renderBlock: (block) => createElement('p', null, block.key)
+        })
+      )
+    render()
     if (cause === 'character') {
       const part = dom.query('[data-part-key="visible"]')!
       const text = part.children[0].children[0]
@@ -559,7 +619,7 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       const entry = {
         borderBoxSize: [{ blockSize: 80 + size }]
       } as unknown as ResizeObserverEntry
-      if (cause === 'header') {
+      if (cause === 'header' || cause === 'header-wheel') {
         const header = dom!.query('[data-transcript-header]') as unknown as Element
         const callback = observers.get(header)!
         expect(callback).toBeDefined()
@@ -573,14 +633,16 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       }
     }
 
+    const framesBeforeResize = vi.getTimerCount()
     resize(15)
     resize(35)
+    expect(vi.getTimerCount() - framesBeforeResize).toBe(1)
     if (cause === 'character') reflow = 18
     expect(writes).toEqual([])
     if (cause === 'pinned') pinned = true
     if (cause === 'key')
       scroller.dispatchEvent(Object.assign(new Event('keydown'), { key: 'PageDown' }))
-    if (cause === 'wheel') scroller.dispatchEvent(new Event('wheel'))
+    if (cause === 'wheel' || cause === 'header-wheel') scroller.dispatchEvent(new Event('wheel'))
     if (cause === 'pointer') scroller.dispatchEvent(new Event('pointerdown'))
     if (cause === 'scroll') {
       scrollTop += 7
@@ -594,8 +656,35 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       expect(
         queries.mock.calls.filter(([selector]) => selector === '[data-part-key]')
       ).toHaveLength(1)
+      for (const shift of [48, 12, 0]) {
+        const before = writes.length
+        resize(shift)
+        vi.runOnlyPendingTimers()
+        expect(writes.slice(before)).toEqual([250 + shift + (cause === 'character' ? 18 : 0)])
+      }
     } else {
       expect(writes).toEqual([])
+      if (cause !== 'pinned') {
+        // Late ResizeObserver deliveries from the cancelled displacement span separate frames.
+        for (const size of [46, 59]) {
+          resize(size)
+          vi.runOnlyPendingTimers()
+          expect(writes).toEqual([])
+        }
+        if (cause === 'wheel') {
+          // With no further deliveries, later growth of the very same snapshot is a new displacement.
+          vi.runAllTimers()
+        } else {
+          blocks.splice(3, 0, [{ key: 'new' }])
+          render()
+        }
+        vi.runOnlyPendingTimers()
+        const before = scrollTop
+        writes.length = 0
+        resize(78)
+        vi.runOnlyPendingTimers()
+        expect(writes).toEqual([before + 19])
+      }
     }
   })
 })

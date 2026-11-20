@@ -174,6 +174,46 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
     ).toEqual({ kind: 'reset', complete: true })
   })
 
+  it('p15 applies late cached revalidation to X while Y keeps its open intent and its history', async () => {
+    installChatStoreHarness()
+    vi.stubGlobal('requestAnimationFrame', vi.fn())
+    vi.spyOn(settingsApi, 'set').mockResolvedValue({} as never)
+    await loadHistory('code', 'opencode', makeMessages())
+    expect(consumeEntryIntent('s-reopen')?.cause).toBe('open')
+    const updated = makeMessages().slice(0, 1)
+    const fresh = {
+      id: 's-reopen',
+      backend: 'opencode' as const,
+      agentKind: 'code' as const,
+      title: 'updated',
+      messages: updated
+    }
+    let resolveX!: (value: typeof fresh) => void
+    const load = vi
+      .spyOn(sessionApi, 'load')
+      .mockReturnValueOnce(
+        new Promise<typeof fresh>((resolve) => {
+          resolveX = resolve
+        })
+      )
+      .mockResolvedValueOnce({ ...fresh, id: 's', messages: makeMessages() })
+    const waiting = chatActions.loadSession('s-reopen', null, { revalidate: true })
+    await chatActions.loadSession('s')
+    const y = useChatStore.getState()
+    expect(y.entryIntent).toMatchObject({ sessionKey: 's', cause: 'open' })
+    resolveX(fresh)
+    await waiting
+    const after = useChatStore.getState()
+    expect(after.activeKey).toBe('s')
+    expect(after.entryIntent).toBe(y.entryIntent)
+    expect(after.sessions.s).toBe(y.sessions.s)
+    expect(after.sessions['s-reopen'].session.messages.map((m) => m.id)).toEqual(['u:1'])
+    load.mockResolvedValueOnce(fresh)
+    await chatActions.loadSession('s-reopen')
+    expect(consumeEntryIntent('s-reopen')).toMatchObject({ sessionKey: 's-reopen', cause: 'open' })
+    expect(consumeEntryIntent('s-reopen')).toBeNull()
+  })
+
   it('a reset that merges or splits blocks keeps surviving nodes, expansion and selection ends on all three screens', async () => {
     installChatStoreHarness()
     vi.stubGlobal('requestAnimationFrame', vi.fn())

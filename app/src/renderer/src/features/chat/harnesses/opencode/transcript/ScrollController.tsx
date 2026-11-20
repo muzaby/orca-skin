@@ -182,19 +182,8 @@ export function OpenCodeScrollController({
         frame = null
         if (held.current) return
         if (state.pinned) writeTop(el.scrollHeight)
-        // A queued capture owns a newer scroll position than the saved anchor.
-        else if (captureFrame.current === null && state.anchor) {
-          const anchor = Array.from(el.querySelectorAll<HTMLElement>('[data-timeline-key]')).find(
-            (row) => row.dataset.timelineKey === state.anchor!.key
-          )
-          if (anchor) {
-            const delta =
-              anchor.getBoundingClientRect().top -
-              el.getBoundingClientRect().top -
-              state.anchor.offset
-            writeTop(el.scrollTop + delta)
-          }
-        }
+        // While reading history, TranscriptViewport restores the visible character after
+        // layout changes. Reapplying the saved row here would override that correction.
         setShowJump(shouldShowTimelineJump(geometry(el)))
       })
     }

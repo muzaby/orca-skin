@@ -67,6 +67,65 @@ describe('transcript order and part ownership', () => {
     expect(order.toolCallOwner('new')).toBe('a')
   })
 
+  it('keeps independent owners for the same provider ID and withdraws only the changed suffix', () => {
+    const id = 'shared'
+    const result: AppMessagePart = {
+      type: 'tool_result',
+      toolRunId: id,
+      result: 'done',
+      isError: false
+    }
+    const call = tool(id)
+    const base = [
+      message('t', [call, result, result, call]),
+      message('b', [{ type: 'response_boundary', boundary: { phase: 'begin', id } }]),
+      message('n', [{ type: 'subagent_notice', toolRunId: id, status: 'completed' }]),
+      message('later', [call])
+    ]
+    const initial = { messages: base, transcriptChanges: newTranscriptChanges() }
+    const order = messageOrderFor(initial, true)
+    expect([order.toolCallOwner(id), order.responseOwner(id), order.noticeOwner(id)]).toEqual([
+      't',
+      'b',
+      'n'
+    ])
+    expect(order.partSlot('t', 'result:shared')).toBe(1)
+    const parts = [call, result]
+    const readPrefix = vi.fn(() => result)
+    Object.defineProperty(parts, 1, { get: readPrefix })
+    const shortened = {
+      messages: [message('t', parts), ...base.slice(1)],
+      transcriptChanges: recordChange(initial.transcriptChanges, {
+        kind: 'replace',
+        id: 't',
+        partsFrom: 2
+      })
+    }
+    messageOrderFor(shortened, true)
+    expect(readPrefix).not.toHaveBeenCalled()
+    expect(order.toolCallOwner(id)).toBe('t')
+    expect(order.partSlot('t', 'result:shared')).toBe(1)
+    const boundaryEnd = message('b', [
+      { type: 'response_boundary', boundary: { phase: 'end', id, outcome: 'ended' } }
+    ])
+    const removed = recordChange(shortened.transcriptChanges, { kind: 'remove', ids: ['t'] })
+    messageOrderFor(
+      {
+        messages: [boundaryEnd, ...base.slice(2)],
+        transcriptChanges: recordChange(removed, { kind: 'replace', id: 'b', partsFrom: 0 })
+      },
+      true
+    )
+    expect([order.toolCallOwner(id), order.responseOwner(id), order.noticeOwner(id)]).toEqual([
+      'later',
+      undefined,
+      'n'
+    ])
+    expect(order.partSlot('t', 'result:shared')).toBeUndefined()
+    expect(order.partSlot('b', 'boundary:begin:shared')).toBeUndefined()
+    expect(order.partSlot('b', 'boundary:end:shared')).toBe(0)
+  })
+
   it('q1, q2, q3, q4, q5, q6, q7 cover append, replace partsFrom, 10k index-1 reads=0, prepend ordinal, remove re-index, reset, and withdrawal', () => {
     const reads = vi.fn()
     const baseMsgs: Message[] = Array.from({ length: 10_000 }, (_, i) => ({
@@ -141,7 +200,7 @@ describe('transcript order and part ownership', () => {
     expect(afterQ5.messagePosition('m:1')).toBe(2)
 
     // q6: reset rebuilds cleanly
-    const resetMsgs = [message('r:0', [tool('fresh')])]
+    const resetMsgs = [message('r:0', [tool('fresh')]), message('m:1')]
     const afterQ6 = messageOrderFor(
       {
         messages: resetMsgs,

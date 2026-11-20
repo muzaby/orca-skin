@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import orderSource from './messageOrder.ts?raw'
+import panelSource from '../transcriptIndex.ts?raw'
 import { changesSince, foldChanges, newTranscriptChanges, recordChange } from './changeLog'
 
 describe('transcript change log', () => {
@@ -19,6 +21,8 @@ describe('transcript change log', () => {
     expect(changesSince(latest, { ...latest, revision: 997 })).toEqual(latest.log.slice(-3))
     expect(changesSince(latest, { lineage: {}, revision: 999 })).toBe('reset')
     expect(changesSince(latest, latest)).toEqual([])
+    expect(changesSince(latest, undefined)).toBe('reset')
+    expect(changesSince(latest, { ...latest, revision: latest.revision + 1 })).toBe('reset')
   })
 
   it('folds changes to the final membership and the first affected part', () => {
@@ -39,6 +43,32 @@ describe('transcript change log', () => {
         ['edited', 1]
       ])
     )
+  })
+
+  it('l7: both session indexes are weakly owned by the lineage token', () => {
+    expect(orderSource).toMatch(/const indexes = new WeakMap</)
+    expect(orderSource).toContain('const { lineage } = state.transcriptChanges')
+    expect(orderSource).toContain('indexes.get(lineage)')
+    expect(orderSource).toContain('indexes.set(lineage, order)')
+    expect(panelSource).toMatch(/const indexByLineage = new WeakMap</)
+    expect(panelSource).toContain('const lineage = state.transcriptChanges.lineage')
+    expect(panelSource).toContain('indexByLineage.get(lineage)')
+    expect(panelSource).toContain('indexByLineage.set(lineage, index)')
+  })
+
+  it('folds only changes after the last reset, preserving prepend and the earliest replacement', () => {
+    const changes = foldChanges([
+      { kind: 'append', ids: ['obsolete'] },
+      { kind: 'reset', complete: false },
+      { kind: 'prepend', ids: ['before-a', 'before-b'] },
+      { kind: 'replace', id: 'same', partsFrom: 2 },
+      { kind: 'replace', id: 'same', partsFrom: 6 }
+    ])
+    expect([...changes]).toEqual([
+      ['before-a', 0],
+      ['before-b', 0],
+      ['same', 2]
+    ])
   })
 
   it('l1, l2, l3, l4, l6 track revision increments, multi-consumer cursors, 64-entry ring cap, and foreign lineage reset', () => {

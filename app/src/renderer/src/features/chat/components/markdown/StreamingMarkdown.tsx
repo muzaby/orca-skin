@@ -71,7 +71,8 @@ export const StreamingMarkdown = memo(function StreamingMarkdown({
           source,
           scanState.fence.bodyStart,
           source.length,
-          sourceParts
+          sourceParts,
+          { fenceIndent: scanState.fence.indent }
         )
       : undefined
   return (

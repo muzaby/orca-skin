@@ -51,6 +51,10 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
   })
 
   it('b1·b5: merges consecutive same-session text deltas into 1 join and 1 entry replacement and triggers BEGIN_TURN once', () => {
+    const replaced: string[] = []
+    const unsubscribe = useChatStore.subscribe((state, previous) => {
+      if (state.sessions.s !== previous.sessions.s) replaced.push(state.sessions.s.live.text)
+    })
     const joinSpy = vi.spyOn(Array.prototype, 'join')
     ingestChatEvent(makeDelta('a', { messageKey: 'a:1' }))
     ingestChatEvent(makeDelta('b', { messageKey: 'a:1' }))
@@ -59,6 +63,7 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
 
     flushRaf()
 
+    unsubscribe()
     const emptyJoinCalls = joinSpy.mock.calls.filter((args) => args[0] === '')
     expect(emptyJoinCalls.length).toBe(1)
     joinSpy.mockRestore()
@@ -68,6 +73,11 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     expect(entry.live.textKey).toBe('a:1')
     expect(entry.session.agentKindLocked).toBe(true)
     expect(entry.session.agentPanelInitialized).toBe(true)
+    expect(entry.session.sendCount).toBe(1)
+    expect(replaced).toEqual(['abc'])
+    ingestChatEvent(makeReasoning('r', { messageKey: 'a:1' }))
+    flushRaf()
+    expect(useChatStore.getState().sessions.s.session).toBe(entry.session)
   })
 
   it('b2·b3: splits runs when delta kind changes (text -> reasoning -> text)', () => {
@@ -111,6 +121,7 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
 
   it('b6: skips parentToolRunId deltas without breaking the surrounding run', () => {
     const joinSpy = vi.spyOn(Array.prototype, 'join')
+    ingestChatEvent(makeReasoning('ignored', { sessionId: 's2', parentToolRunId: 'child' }))
     ingestChatEvent(makeDelta('hel', { messageKey: 'a:1' }))
     ingestChatEvent(makeDelta('child', { messageKey: 'a:1', parentToolRunId: 'tu-1' }))
     ingestChatEvent(makeDelta('lo', { messageKey: 'a:1' }))
@@ -123,6 +134,7 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     joinSpy.mockRestore()
 
     expect(useChatStore.getState().sessions.s.live.text).toBe('hello')
+    expect(useChatStore.getState().sessions.s2.session.sendCount).toBe(0)
   })
 
   it('b7: changing messageKey splits run, commits previous text buffer under its key, and clears previous reasoning buffer', () => {
@@ -181,8 +193,45 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     flushRaf()
 
     entry = useChatStore.getState().sessions.s
+    expect(entry.session.messages.map((m) => [m.id, m.parts])).toEqual([
+      [
+        'a:1',
+        [
+          { type: 'text', text: 'A' },
+          { type: 'text', text: 'A-extra' }
+        ]
+      ]
+    ])
     expect(entry.live.text).toBe('B')
     expect(entry.live.textKey).toBe('a:2')
+  })
+
+  it('retains the parent reasoning buffer on child and other-key completions, then clears it on its own completion', () => {
+    ingestChatEvent(makeReasoning('main thought', { messageKey: 'a:1' }))
+    flushRaf()
+    const initial = useChatStore.getState().sessions.s.live
+    expect(initial).toMatchObject({
+      reasoningKey: 'a:1',
+      reasoning: 'main thought',
+      reasoningVisible: true
+    })
+    for (const fields of [{ messageKey: 'a:1', parentToolRunId: 'child' }, { messageKey: 'a:2' }]) {
+      ingestChatEvent({
+        type: 'message.reasoning',
+        sessionId: 's',
+        text: 'other thought',
+        ...fields
+      })
+      flushRaf()
+      expect(useChatStore.getState().sessions.s.live).toBe(initial)
+    }
+    ingestChatEvent({ type: 'message.reasoning', sessionId: 's', messageKey: 'a:1', text: 'done' })
+    flushRaf()
+    expect(useChatStore.getState().sessions.s.live).toMatchObject({
+      reasoning: '',
+      reasoningKey: undefined,
+      reasoningVisible: false
+    })
   })
 
   it('b11: telemetry fallback commits pending text under live.textKey even if it is not the last assistant message', () => {

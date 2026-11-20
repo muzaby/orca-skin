@@ -18,7 +18,10 @@ describe('VP-07 chatStore commit echo (r12)', () => {
         s: {
           session: { ...base, sessionId: 's' },
           live: { text: '', reasoning: '', reasoningVisible: false },
-          pendingSteer: [{ id: 'b', text: 'steer', createdAt: 2 }],
+          pendingSteer: [
+            { id: 'b', text: 'steer', createdAt: 2 },
+            { id: 'c', text: 'later', createdAt: 3 }
+          ],
           subagentMeta: {}
         }
       }
@@ -33,20 +36,24 @@ describe('VP-07 chatStore commit echo (r12)', () => {
     const notifications = vi.fn()
     const unsub = useChatStore.subscribe(notifications)
     try {
-      ingestChatEvent({
-        type: 'message.committed',
+      const event = {
+        type: 'message.committed' as const,
         sessionId: 's',
         ids: ['a', 'b'],
         text: 'first\nsteer',
         messageId: 10,
         createdAt: 2,
         messageKey: userMessageId(['a', 'b'])
-      })
+      }
+      ingestChatEvent(event)
       const entry = useChatStore.getState().sessions.s
       expect(notifications).toHaveBeenCalledTimes(1)
       expect(entry.session.messages.map((m) => m.id)).toEqual(['u:a,b'])
       expect(entry.session.messages[0].parts).toEqual([{ type: 'text', text: 'first\nsteer' }])
-      expect(entry.pendingSteer ?? []).toHaveLength(0)
+      expect(entry.pendingSteer?.map((item) => item.id)).toEqual(['c'])
+      ingestChatEvent(event)
+      expect(useChatStore.getState().sessions.s).toBe(entry)
+      expect(notifications).toHaveBeenCalledTimes(1)
     } finally {
       unsub()
     }

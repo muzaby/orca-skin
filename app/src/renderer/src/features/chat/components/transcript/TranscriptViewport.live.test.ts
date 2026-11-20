@@ -41,7 +41,103 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+function renderTranscript(backend: 'claude' | 'opencode', agentKind: 'code' | 'work'): FakeDom {
+  const rendered = installFakeDom({
+    innerWidth: 1200,
+    innerHeight: 900,
+    layout: () => ({ rect: { top: 0, left: 0, width: 600, height: 400 } })
+  })
+
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe = vi.fn()
+      unobserve = vi.fn()
+      disconnect = vi.fn()
+    }
+  )
+  Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
+  const scrollRef: TranscriptTimelineProps['scrollRef'] = { current: null }
+  const contentRef: TranscriptTimelineProps['contentRef'] = { current: null }
+  function Transcript(): React.JSX.Element {
+    const session = useChatStore((state) => state.sessions.s.session)
+    return createElement(TranscriptView, {
+      agentKind,
+      backend,
+      messages: session.messages,
+      pendingSteer: [],
+      inflight: session.inflight,
+      loadingSession: false,
+      anchored: false,
+      scrollRef,
+      contentRef,
+      onScroll: () => {}
+    })
+  }
+  rendered.render(createElement(Transcript))
+  return rendered
+}
+
 describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
+  it('b9: mounts separate committed and live OpenCode DOM keys when completion and next delta share a frame', () => {
+    vi.stubGlobal('requestAnimationFrame', queuedFrame)
+    installChatStoreHarness({
+      backend: 'opencode',
+      agentKind: 'code',
+      inflight: true,
+      messages: [
+        { id: 'u:1', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'question' }] }
+      ]
+    })
+    dom = renderTranscript('opencode', 'code')
+    dom.act(() => {
+      ingestChatEvent({
+        type: 'message.delta',
+        sessionId: 's',
+        messageKey: 'a:A',
+        delta: { text: 'draft' }
+      })
+      flushRaf()
+    })
+    expect(dom.query('[data-block-key="a:A:text:0"]')?.textContent).toContain('draft')
+    dom.act(() => {
+      ingestChatEvent({
+        type: 'message.completed',
+        sessionId: 's',
+        messageKey: 'a:A',
+        message: { text: 'final' }
+      })
+      ingestChatEvent({
+        type: 'message.delta',
+        sessionId: 's',
+        messageKey: 'a:B',
+        delta: { text: 'following' }
+      })
+      flushRaf()
+    })
+    expect(dom.query('[data-block-key="a:A:text:0"]')?.textContent).toContain('final')
+    expect(dom.query('[data-block-key="a:B:text:0"]')?.textContent).toContain('following')
+    expect(dom.query('[data-block-key="a:A:text:0"]')?.textContent).not.toContain('following')
+    dom.act(() => {
+      ingestChatEvent({
+        type: 'message.completed',
+        sessionId: 's',
+        messageKey: 'a:B',
+        message: { text: 'following' }
+      })
+      ingestChatEvent({
+        type: 'message.delta',
+        sessionId: 's',
+        messageKey: 'a:B',
+        delta: { text: ' same owner' }
+      })
+      flushRaf()
+    })
+    const merged = dom.query('[data-block-key="a:A:text:0"]')
+    expect(merged?.textContent).toContain('finalfollowing same owner')
+    expect(dom.query('[data-block-key="a:B:text:1"]')).toBeNull()
+  })
+
   it.each([
     ['claude', 'code'],
     ['claude', 'work'],
@@ -69,21 +165,6 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
       parts: [{ type: 'text', text: 'latest question' }]
     })
     installChatStoreHarness({ messages, backend, agentKind, inflight: true })
-    dom = installFakeDom({
-      innerWidth: 1200,
-      innerHeight: 900,
-      layout: () => ({ rect: { top: 0, left: 0, width: 600, height: 400 } })
-    })
-
-    vi.stubGlobal(
-      'ResizeObserver',
-      class {
-        observe = vi.fn()
-        unobserve = vi.fn()
-        disconnect = vi.fn()
-      }
-    )
-    Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
     const claudeFactory = claudeBlocks.createClaudeBlockModel
     const openCodeFactory = openCodeBlocks.createOpenCodeBlockModel
     const advances = vi.fn<(snapshot: BlockSnapshot<ViewportBlockBase>) => void>()
@@ -108,24 +189,7 @@ describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
       return model
     })
 
-    const scrollRef: TranscriptTimelineProps['scrollRef'] = { current: null }
-    const contentRef: TranscriptTimelineProps['contentRef'] = { current: null }
-    function Transcript(): React.JSX.Element {
-      const session = useChatStore((state) => state.sessions.s.session)
-      return createElement(TranscriptView, {
-        agentKind,
-        backend,
-        messages: session.messages,
-        pendingSteer: [],
-        inflight: session.inflight,
-        loadingSession: false,
-        anchored: false,
-        scrollRef,
-        contentRef,
-        onScroll: () => {}
-      })
-    }
-    dom.render(createElement(Transcript))
+    dom = renderTranscript(backend, agentKind)
     const viewport = dom.query('[data-transcript-viewport]')!
     const historicalRow = dom.query('[data-index="0"]')
     expect(historicalRow).not.toBeNull()

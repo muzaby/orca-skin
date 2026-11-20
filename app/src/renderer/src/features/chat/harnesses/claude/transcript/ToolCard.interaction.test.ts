@@ -126,7 +126,7 @@ it.each([
   }
 )
 
-it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4), reopen cancels close timer (e5), copy text unchanged after unmount (e6), and stale close generation ignored (e8)', () => {
+it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4), reopen cancels close timer (e5), copy text unchanged after unmount (e6), and stale close generation ignored (e8)', async () => {
   vi.useFakeTimers()
   let reduceMotion = false
   const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
@@ -137,7 +137,8 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
     input: { file_path: 'a.ts' },
     result: { output: 'ok', isError: false }
   } as ToolCall
-  const copyBefore = toolCopy.copyText(call)
+  const writeText = vi.fn(async () => {})
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
   const render = (): void =>
     dom.render(
       createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
@@ -149,6 +150,9 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
   try {
     render()
     toggle() // open
+    dom.click(dom.query('[aria-label="common.copy"]')!)
+    await Promise.resolve()
+    expect(writeText).toHaveBeenCalledExactlyOnceWith('ok')
     const timer = vi.spyOn(globalThis, 'setTimeout')
     toggle() // close gen 1
     expect(timer.mock.lastCall?.[1]).toBe(300)
@@ -178,11 +182,13 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
     render()
     expect(dom.query('[aria-label="common.copy"]')).toBeNull()
 
-    // e6: copy text after unmount is identical
-    expect(toolCopy.copyText(call)).toBe(copyBefore)
+    // e6: remount the body and click its real copy control again.
+    toggle()
+    dom.click(dom.query('[aria-label="common.copy"]')!)
+    await Promise.resolve()
+    expect(writeText.mock.calls).toEqual([['ok'], ['ok']])
 
     // e4: reduced motion unmounts immediately on close
-    toggle()
     reduceMotion = true
     toggle()
     expect(dom.query('[aria-label="common.copy"]')).toBeNull()

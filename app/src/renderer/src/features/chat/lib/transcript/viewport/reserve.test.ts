@@ -26,6 +26,8 @@ describe('viewport/reserve (EP-11 ② · p3, p4, p12)', () => {
   it('p12: repeated calls with identical block measurements produce identical gap (zero oscillation)', () => {
     const first = reserveGap(900, 1250, 1000)
     const second = reserveGap(900, 1250, 1000)
+    expect(reserveGap(801, 1250, 1000)).toBe(151)
+    expect(reserveGap(801, 1250, undefined)).toBe(0)
     expect(first).toBe(200)
     expect(second).toBe(first)
   })

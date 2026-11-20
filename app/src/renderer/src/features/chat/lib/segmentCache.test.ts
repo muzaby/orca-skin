@@ -139,6 +139,89 @@ describe('incremental message segments', () => {
     expect(cache.segmentsFor(m1)).not.toEqual(cache.segmentsFor(otherMsg))
   })
 
+  it.each<Partial<Extract<AppMessagePart, { type: 'tool_result' }>>>([
+    { result: 'changed' },
+    { isError: true },
+    { durationMs: 0 },
+    { parentToolRunId: 'parent' },
+    { subagentMeta: { model: 'other' } },
+    { structuredOutput: { changed: true } },
+    { nonExecution: { source: 'host', kind: 'retracted' } }
+  ])(
+    's8 keeps the preceding result until the last contribution is replaced or removed (%j)',
+    (patch) => {
+      const cache = createSegmentCache()
+      const result: Extract<AppMessagePart, { type: 'tool_result' }> = {
+        type: 'tool_result',
+        toolRunId: 'target',
+        result: 'first',
+        isError: false
+      }
+      const parts = [tool('sibling'), tool('target'), text('after'), result]
+      const initial = cache.segmentsFor(message(parts))
+      const updated = [...parts, { ...result, ...patch }]
+      const after = cache.segmentsFor(message(updated), parts.length)
+      expect(after).toEqual(messageSegments(updated))
+      expect(after[1]).toBe(initial[1])
+      if (initial[0].kind !== 'tools' || after[0].kind !== 'tools') throw Error('missing calls')
+      expect(after[0].calls[0]).toBe(initial[0].calls[0])
+      expect(after[0].calls[1]).not.toBe(initial[0].calls[1])
+      const fallback = cache.segmentsFor(message(parts), parts.length)
+      expect(fallback).toEqual(messageSegments(parts))
+      expect(fallback[1]).toBe(initial[1])
+    }
+  )
+
+  it('s5 excludes parented text, reasoning, ordinary tools and questions while preserving visible siblings', () => {
+    const cache = createSegmentCache()
+    const visible = text('visible')
+    const hidden: AppMessagePart[] = [
+      { type: 'text', text: 'child text', parentToolRunId: 'parent' },
+      { type: 'reasoning', text: 'child reasoning', parentToolRunId: 'parent' },
+      {
+        type: 'tool_call',
+        toolRunId: 'tool',
+        toolName: 'Read',
+        args: {},
+        parentToolRunId: 'parent'
+      },
+      {
+        type: 'tool_call',
+        toolRunId: 'ask',
+        toolName: 'AskUserQuestion',
+        args: {},
+        parentToolRunId: 'parent'
+      }
+    ]
+    const initial = cache.segmentsFor(message([visible]))
+    expect(cache.segmentsFor(message([visible, ...hidden]), 1)).toBe(initial)
+    expect(initial).toEqual([{ kind: 'text', text: 'visible' }])
+  })
+
+  it('s1 reuses unchanged parts across message metadata edits without rereading their elements', () => {
+    const read = vi.fn()
+    const parts = new Proxy([text('fixed'), tool('t')], {
+      get(target, prop, receiver) {
+        if (typeof prop === 'string' && /^\d+$/.test(prop)) read(prop)
+        return Reflect.get(target, prop, receiver)
+      }
+    })
+    const cache = createSegmentCache()
+    const first = message(parts)
+    const snapshot = cache.segmentsFor(first)
+    read.mockClear()
+    expect(cache.segmentsFor({ ...first, createdAt: 1 })).toBe(snapshot)
+    expect(read).not.toHaveBeenCalled()
+  })
+
+  it('s6 treats an edit offset as relative to its own message, even across equal-length messages', () => {
+    const cache = createSegmentCache()
+    const first = message([text('first'), tool('t'), outcome('t', 'old')])
+    cache.segmentsFor(first)
+    const next = { ...first, id: 'other', parts: [text('second'), tool('t'), text('tail')] }
+    expect(cache.segmentsFor(next, 2)).toEqual(messageSegments(next.parts))
+  })
+
   it('property (2,000 seeded sequences): incremental segmentsFor always equals messageSegments', () => {
     let seed = 0x51a7
     const next = (): number => {

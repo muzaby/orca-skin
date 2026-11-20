@@ -1,5 +1,5 @@
 import { MARKDOWN_TYPOGRAPHY } from './typography'
-import { createContext, memo, useContext } from 'react'
+import { createContext, memo, useContext, type ReactNode } from 'react'
 import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CodeBlock } from './CodeBlock'
@@ -15,6 +15,18 @@ function BlockedImagePlaceholder({ label }: { label: string }): React.JSX.Elemen
     <span className="text-[calc(12px*var(--transcript-text-scale,1))] italic text-ink3">
       {tr('markdown.imagePlaceholder', { label })}
     </span>
+  )
+}
+
+function Paragraph({ children }: { children?: ReactNode }): React.JSX.Element {
+  return <p className="my-2 first:mt-0 last:mb-0">{children}</p>
+}
+
+function InlineCode({ children }: { children?: ReactNode }): React.JSX.Element {
+  return (
+    <code className="rounded border border-bubble-user bg-bubble-user px-1 py-[1px] font-mono text-[calc(12px*var(--transcript-text-scale,1))] text-ink">
+      {children}
+    </code>
   )
 }
 
@@ -49,7 +61,7 @@ const COMPONENTS: Components = {
       {children}
     </h6>
   ),
-  p: ({ children }) => <p className="my-2 first:mt-0 last:mb-0">{children}</p>,
+  p: Paragraph,
   a: ({ href, children }) => (
     <a
       href={href}
@@ -125,11 +137,7 @@ const COMPONENTS: Components = {
     const text = typeof children === 'string' ? children : ''
     if (!isCodeBlock(className, text)) {
       // 인라인 코드 — 테두리·배경을 사용자 메시지 버블 배경(`--color-bubble-user`)으로 통일.
-      return (
-        <code className="rounded border border-bubble-user bg-bubble-user px-1 py-[1px] font-mono text-[calc(12px*var(--transcript-text-scale,1))] text-ink">
-          {children}
-        </code>
-      )
+      return <InlineCode>{children}</InlineCode>
     }
     const lang = (className ?? '').replace(/^language-/, '').trim() || undefined
     return <CodeBlock code={text.replace(/\n$/, '')} lang={lang} />
@@ -158,17 +166,59 @@ function SourcePartCode(props: React.ComponentProps<'code'> & ExtraProps): React
   const fenced = /^ {0,3}(?:`{3,}|~{3,})/.test(source.slice(start, firstLineEnd))
   const code = text.replace(/\n$/, '')
   const bodyStart = fenced && firstLineEnd >= start ? firstLineEnd + 1 : start
+  const lineStart = source.lastIndexOf('\n', start - 1) + 1
+  const opening = fenced
+    ? /^( {0,3})(?:`{3,}|~{3,})/.exec(source.slice(lineStart, firstLineEnd))
+    : null
   const lang = (className ?? '').replace(/^language-/, '').trim() || undefined
   return (
     <CodeBlock
       code={code}
       lang={lang}
-      markedText={markSourceText(code, source, bodyStart, end, parts)}
+      markedText={markSourceText(code, source, bodyStart, end, parts, {
+        fenceIndent: opening?.[1].length ?? 0
+      })}
     />
   )
 }
 
 const COMPONENTS_WITH_SOURCE_PARTS: Components = { ...COMPONENTS, code: SourcePartCode }
+
+// A single unformatted line or simple code spans can bypass unified entirely. Keep the
+// accepted alphabet narrow: whitespace normalization, block syntax, entities, escapes,
+// HTML, links and GFM autolinks all belong to the full parser.
+function simpleParagraph(
+  source: string,
+  parts?: readonly MarkdownSourcePart[]
+): React.JSX.Element | null {
+  if (!source || source.trim() !== source || /[\r\n]/.test(source)) return null
+  if (!/^[\p{L}\p{N}`]/u.test(source) || /^\d{1,9}[.)](?: |$)/.test(source)) return null
+  if (source.includes('``')) return null
+  const tokens = source.split('`')
+  if (tokens.length % 2 !== 1) return null
+  for (const [index, token] of tokens.entries()) {
+    if (index % 2 === 1) {
+      if (!/^[a-zA-Z0-9_./-]+$/.test(token)) return null
+    } else if (!/^[\p{L}\p{M}\p{N} ,.:;!?%()'+#-]*$/u.test(token) || /www\./i.test(token)) {
+      return null
+    }
+  }
+  let start = 0
+  const children = tokens.map((token, index) => {
+    const end = start + token.length
+    const marked =
+      parts?.length && token
+        ? markSourceText(token, source, start, end, parts).map((run, part) => (
+            <span key={part} data-part-key={run.key} data-markdown-part-fragment="">
+              {run.text}
+            </span>
+          ))
+        : token
+    start = end + 1
+    return index % 2 === 1 ? <InlineCode key={index}>{marked}</InlineCode> : marked
+  })
+  return <Paragraph>{children}</Paragraph>
+}
 
 export interface MarkdownProps {
   source: string
@@ -187,19 +237,22 @@ export const Markdown = memo(function Markdown({
   className,
   sourceParts
 }: MarkdownProps): React.JSX.Element {
+  const simple = simpleParagraph(source, sourceParts)
   return (
     <div className={className ?? DEFAULT_WRAPPER}>
-      <MarkdownPartsContext.Provider
-        value={sourceParts?.length ? { source, parts: sourceParts } : null}
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={sourceParts?.length ? [sourcePartSpans(source, sourceParts)] : undefined}
-          components={sourceParts?.length ? COMPONENTS_WITH_SOURCE_PARTS : COMPONENTS}
+      {simple ?? (
+        <MarkdownPartsContext.Provider
+          value={sourceParts?.length ? { source, parts: sourceParts } : null}
         >
-          {source}
-        </ReactMarkdown>
-      </MarkdownPartsContext.Provider>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={sourceParts?.length ? [sourcePartSpans(source, sourceParts)] : undefined}
+            components={sourceParts?.length ? COMPONENTS_WITH_SOURCE_PARTS : COMPONENTS}
+          >
+            {source}
+          </ReactMarkdown>
+        </MarkdownPartsContext.Provider>
+      )}
     </div>
   )
 })

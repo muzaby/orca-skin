@@ -855,7 +855,9 @@ function receive(ev: NormalizedEvent): void {
     case 'message.reasoning':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       patchLive(key, (live) =>
-        live.reasoning !== '' && ev.messageKey === live.reasoningKey
+        ev.parentToolRunId === undefined &&
+        live.reasoning !== '' &&
+        ev.messageKey === live.reasoningKey
           ? { ...live, reasoning: '', reasoningKey: undefined, reasoningVisible: false }
           : live
       )

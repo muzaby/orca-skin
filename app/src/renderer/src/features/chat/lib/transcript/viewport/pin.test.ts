@@ -6,6 +6,12 @@ describe('viewport/pin (EP-11 · p1, p2, p6, p9)', () => {
   const opencode = pinPolicy(OPENCODE_PIN_POLICY)
 
   it('p1: pins within 24px of bottom and unpins when scrolled up', () => {
+    expect(claude.onScroll({ scrollTop: 976, clientHeight: 500, scrollHeight: 1500 }).pinned).toBe(
+      true
+    )
+    expect(
+      claude.onScroll({ scrollTop: 975.9, clientHeight: 500, scrollHeight: 1500 }).pinned
+    ).toBe(false)
     expect(claude.onScroll({ scrollTop: 980, clientHeight: 500, scrollHeight: 1500 }).pinned).toBe(
       true
     )

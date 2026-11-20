@@ -57,3 +57,38 @@ export function foldChanges(changes: readonly TranscriptChange[]): ReadonlyMap<s
   }
   return affected
 }
+
+// Final insertions in transcript order. A consumer may already own an ID that
+// was removed and inserted again while it was behind.
+export function changedMessageLocations(changes: readonly TranscriptChange[]): {
+  prependedIds: string[]
+  appendedIds: string[]
+  relocatedIds: Set<string>
+} {
+  const removed = new Set<string>()
+  const relocatedIds = new Set<string>()
+  const seen = new Set<string>()
+  const prependedIds: string[] = []
+  const appendedIds: string[] = []
+  for (const change of changes) {
+    if (change.kind === 'remove') for (const id of change.ids) removed.add(id)
+    else if (change.kind === 'append' || change.kind === 'prepend') {
+      for (const id of change.ids) if (removed.has(id)) relocatedIds.add(id)
+    }
+  }
+  // Walk from the most recent insertion: later pages precede earlier ones,
+  // while later appends follow earlier ones. A later removal wins either way.
+  for (let i = changes.length - 1; i >= 0; i--) {
+    const change = changes[i]
+    if (change.kind === 'replace' || change.kind === 'reset') continue
+    const ids = change.ids
+    for (let j = 0; j < ids.length; j++) {
+      const id = ids[change.kind === 'append' ? ids.length - 1 - j : j]
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (change.kind === 'prepend') prependedIds.push(id)
+      if (change.kind === 'append') appendedIds.push(id)
+    }
+  }
+  return { prependedIds, appendedIds: appendedIds.reverse(), relocatedIds }
+}

@@ -1,5 +1,5 @@
 import { surfaces } from '../surfaces'
-import { memo, useEffect, useMemo, useRef } from 'react'
+import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../../shared/ui/ReadingColumn'
 import { useI18n } from '../../../../../shared/i18n'
 import { UserTurn } from '../../common/transcript/UserTurn'
@@ -20,7 +20,7 @@ import {
   useHasLiveText,
   useTranscriptChanges
 } from '../../../store/chatStore'
-import { pruneDisclosures } from '../../../store/disclosureStore'
+import { usePruneDisclosures } from '../../common/transcript/usePruneDisclosures'
 import { createClaudeBlockModel, type ClaudeBlock } from './claudeBlocks'
 
 // 0256 D-009: both harness viewports accept the global scale at this shared boundary.
@@ -80,22 +80,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
     ]
   )
 
-  // EP-15 ⑥: prune disclosures only on complete reset
-  const lastPrunedRevRef = useRef(-1)
-  useEffect(() => {
-    if (transcriptChanges.revision === lastPrunedRevRef.current) return
-    const last = transcriptChanges.log[transcriptChanges.log.length - 1]
-    if (last?.kind === 'reset' && last.complete) {
-      lastPrunedRevRef.current = transcriptChanges.revision
-      const liveKeys = new Set<string>()
-      for (let i = 0; i < snapshot.count; i++) {
-        const block = snapshot.blockAt(i)
-        liveKeys.add(block.key)
-        if ('partKeys' in block) for (const partKey of block.partKeys) liveKeys.add(partKey)
-      }
-      pruneDisclosures(sessionKey, liveKeys, true)
-    }
-  }, [sessionKey, snapshot, transcriptChanges])
+  usePruneDisclosures(sessionKey, transcriptChanges, snapshot)
 
   const hasPending = (pendingSteer?.length ?? 0) > 0
   const isEmpty = snapshot.count === 0 && !loadingSession && !inflight && !hasPending
@@ -143,6 +128,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
         )}
         <TranscriptViewport
           snapshot={snapshot}
+          blockModel={model}
           sessionKey={sessionKey}
           scrollRef={scrollRef}
           isPinned={isPinned}

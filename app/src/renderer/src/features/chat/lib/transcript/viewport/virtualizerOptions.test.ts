@@ -36,7 +36,10 @@ interface TestBlock {
 
 function mountViewport(): {
   list: BlockList<TestBlock>
-  render(snapshot?: BlockSnapshot<TestBlock>): Mock<(index: number) => string>
+  render(
+    snapshot?: BlockSnapshot<TestBlock>,
+    blockModel?: BlockList<TestBlock>
+  ): Mock<(index: number) => string>
   scrollTo: Mock
 } {
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
@@ -62,11 +65,12 @@ function mountViewport(): {
     ['c', 40]
   ])
 
-  function render(snapshot = list.snapshot()): Mock<(index: number) => string> {
+  function render(snapshot = list.snapshot(), blockModel = list): Mock<(index: number) => string> {
     const keyAt = vi.fn(snapshot.keyAt)
     dom!.render(
       createElement(TranscriptViewport<TestBlock>, {
         snapshot: { ...snapshot, keyAt },
+        blockModel,
         scrollRef,
         overscan: 0,
         sizeCache,
@@ -116,6 +120,22 @@ describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
       ['b', 70],
       ['a', 30],
       ['c', 40]
+    ])
+  })
+
+  it('v2 invalidates cached keys when a different list starts at the same revision', () => {
+    const { list, render } = mountViewport()
+    const replacement = createBlockList([
+      { key: 'c', text: 'third' },
+      { key: 'b', text: 'second' },
+      { key: 'a', text: 'first' }
+    ])
+    expect(replacement.snapshot().keyRevision).toBe(list.snapshot().keyRevision)
+    render(replacement.snapshot(), replacement)
+    expect(Array.from(virtualizer.measurementsCache, ({ key, size }) => [key, size])).toEqual([
+      ['c', 40],
+      ['b', 70],
+      ['a', 30]
     ])
   })
 

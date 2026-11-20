@@ -1,4 +1,5 @@
-import { memo, useId, useState } from 'react'
+import { memo, useId } from 'react'
+import { useDisclosure } from '../../../store/disclosureStore'
 import { useI18n } from '../../../../../shared/i18n'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { isAgentTaskName, isNonExecutionOutcome } from '../../../lib/parts'
@@ -17,7 +18,7 @@ export const WorkToolRow = memo(function WorkToolRow({
   partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useDisclosure(partKey ?? `tool:${call.toolUseId}`, false)
   const bodyId = useId()
   const view = workToolPresentation(call)
   const label =

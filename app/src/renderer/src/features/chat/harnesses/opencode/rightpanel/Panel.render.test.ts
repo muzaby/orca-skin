@@ -370,7 +370,7 @@ describe('OpenCode panel rendering', () => {
     expect(list('button').text()).toContain('Inspect source')
     entry.session = { ...original, messages }
     const detail = load(
-      renderToStaticMarkup(createElement(AgentDetail, { agent: model.agents[0], messages }))
+      renderToStaticMarkup(createElement(AgentDetail, { agent: model.agents[0] }))
     )
     expect(detail.text()).toContain('Child answer')
     expect(detail.text()).toContain('Inspection finished')

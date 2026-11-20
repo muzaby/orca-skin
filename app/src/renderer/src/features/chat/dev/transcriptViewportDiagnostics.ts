@@ -1,7 +1,7 @@
 import type { BlockSnapshot } from '../lib/transcript/blockList'
 import type { ViewportBlockBase } from '../components/transcript/TranscriptViewport'
 import { partTextOffset, pointAtPartOffset } from '../lib/transcript/viewport/textOffset'
-import type { RetainedSelection } from '../lib/transcript/viewport/copy'
+import type { CopyTaskTiming, RetainedSelection } from '../lib/transcript/viewport/copy'
 
 export interface ViewportDiagnostics {
   count(selectable: boolean): number
@@ -15,6 +15,18 @@ export interface ViewportDiagnostics {
 
 export const diagnosticViewports = new Map<string, ViewportDiagnostics>()
 let failedChunk: number | null = null
+
+let lastTimings: CopyTaskTiming[] = []
+
+export function beginCopyTiming(): (timing: CopyTaskTiming) => void {
+  const timings: CopyTaskTiming[] = []
+  lastTimings = timings
+  return (timing) => timings.push(timing)
+}
+
+export function copyTimings(): readonly CopyTaskTiming[] {
+  return lastTimings.slice()
+}
 
 export function failCopyChunk(index: number | null): void {
   failedChunk = index

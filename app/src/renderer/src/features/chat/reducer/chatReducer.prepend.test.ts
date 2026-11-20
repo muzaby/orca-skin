@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart, LoadedMessage, NormalizedEvent } from '../../../../../shared/ipc'
-import { chatActions, useChatStore } from '../store/chatStore'
+import { chatActions, ingestChatEvent, useChatStore } from '../store/chatStore'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
 
 const message = (
@@ -260,6 +260,79 @@ describe('transcript history prepend', () => {
     expect(fresh.transcriptChanges.revision).toBe(0)
   })
 
+  it('g2/g9/g10/g14 accepts exactly new IDs followed by a prefix of the loaded transcript', () => {
+    const existing = [message('u:A', 'user'), message('a:B', 'assistant')]
+    const before = LOAD(existing)
+    // The only permitted old suffixes are an empty suffix, A, or A B.
+    const permitted = new Set<string>()
+    for (const prefix of ['', 'X', 'Y', 'XY', 'YX']) {
+      for (const suffix of ['', 'A', 'AB']) permitted.add(prefix + suffix)
+    }
+    const byName = {
+      A: existing[0],
+      B: existing[1],
+      X: message('u:X', 'user'),
+      Y: message('a:Y', 'assistant')
+    }
+    type Label = keyof typeof byName
+    const labels: Label[] = ['A', 'B', 'X', 'Y']
+    const check = (input: Label[]): void => {
+      const first = [...new Set(input)]
+      const diagnostic = vi.fn()
+      const next = chatReducer(before, {
+        type: 'PREPEND_HISTORY',
+        messages: input.map((k, i) => ({ ...byName[k], parts: [text(String(i))] })),
+        reachedStart: true,
+        diagnostic
+      })
+      if (permitted.has(first.join(''))) {
+        const added = first.filter((k) => k === 'X' || k === 'Y')
+        expect(
+          next.messages.map((m) => m.id),
+          input.join('')
+        ).toEqual([...added.map((k) => byName[k].id), ...existing.map((m) => m.id)])
+        for (const [index, key] of added.entries())
+          expect(next.messages[index].parts).toEqual([text(String(input.indexOf(key)))])
+        expect(next.messages.at(-1)).toBe(before.messages[1])
+        expect(next.messages.at(-2)).toBe(before.messages[0])
+        expect(next.historyComplete).toBe(true)
+        expect(next.transcriptChanges.revision).toBe(
+          before.transcriptChanges.revision + Number(added.length > 0)
+        )
+        expect(diagnostic).not.toHaveBeenCalled()
+      } else {
+        expect(next, input.join('')).toBe(before)
+        expect(diagnostic.mock.calls).toEqual([['prependRejected', 1]])
+      }
+    }
+    let layer: Label[][] = [[]]
+    for (let length = 0; length <= 4; length++) {
+      for (const input of layer) check(input)
+      layer = layer.flatMap((input) => labels.map((label) => [...input, label]))
+    }
+  })
+
+  it('g4/g5 chooses the recorded operation from the seam after overlap removal', () => {
+    for (const last of ['assistant', 'user'] as const) {
+      for (const first of ['assistant', 'user'] as const) {
+        const existing = message('current', first, text('current'))
+        const before = LOAD([existing])
+        const after = prepend(
+          before,
+          [message('older', last), { ...existing, parts: [text('stale')] }],
+          true
+        )
+        expect(after.transcriptChanges.log.at(-1)).toEqual(
+          last === 'assistant' && first === 'user'
+            ? { kind: 'prepend', ids: ['older'] }
+            : { kind: 'reset', complete: false }
+        )
+        expect(after.historyComplete).toBe(true)
+        expect(after.messages[1]).toBe(before.messages[0])
+      }
+    }
+  })
+
   it('g2, g3, g4, g5, g6, g9, g10, g12, g13, g14 cover all prepend validation, dedup, overlap, boundary, and reachedStart branches', () => {
     const state = LOAD(tail)
     // g3: empty page -> unchanged
@@ -341,6 +414,39 @@ describe('transcript history prepend', () => {
     expect(diag12).toHaveBeenCalledWith('heldPatchOrphaned', 1)
   })
 
+  it('g16 gives a shared publication to its first arriving owner across adjacent page messages', () => {
+    const page = [
+      message('a:call', 'assistant', {
+        type: 'tool_call',
+        toolRunId: 't',
+        toolName: 'Write',
+        args: {}
+      }),
+      message('a:response', 'assistant', {
+        type: 'response_boundary',
+        boundary: { id: 'r', phase: 'begin' }
+      })
+    ]
+    const artifact = { publicationId: 'same' } as Extract<
+      AppMessagePart,
+      { type: 'artifact' }
+    >['artifact']
+    const events: NormalizedEvent[] = [
+      { type: 'output.captured', sessionId: 's', responseId: 'r', artifact },
+      { type: 'output.captured', sessionId: 's', toolRunId: 't', artifact }
+    ]
+    for (const order of [events, [...events].reverse()]) {
+      const start = LOAD(tail)
+      const pageFirst = order.reduce(recv, prepend(start, page))
+      const eventsFirst = prepend(order.reduce(recv, start), page)
+      const owners = (state: ChatState): string[] =>
+        state.messages.filter((m) => m.parts.some((p) => p.type === 'artifact')).map((m) => m.id)
+      expect(owners(pageFirst)).toEqual([order[0] === events[0] ? 'a:response' : 'a:call'])
+      expect(eventsFirst.messages).toEqual(pageFirst.messages)
+      expect(eventsFirst.heldOutputs.size).toBe(0)
+    }
+  })
+
   it('g7, g8, g15, g16 merge held patches and held outputs identically regardless of arrival order', () => {
     const state = LOAD(tail)
     const art = (
@@ -365,18 +471,18 @@ describe('transcript history prepend', () => {
       messageKey: 'a:old',
       messageKeySource: 'owner'
     } as NormalizedEvent
-    const evP1: NormalizedEvent = {
-      type: 'output.captured',
+    const published = (id: string): NormalizedEvent => ({
+      type: 'tool.call.completed',
       sessionId: 's',
       toolRunId: 'tool',
-      artifact: art('P1')
-    }
-    const evP2: NormalizedEvent = {
-      type: 'output.captured',
-      sessionId: 's',
-      toolRunId: 'tool',
-      artifact: art('P2')
-    }
+      isError: false,
+      result: 'final',
+      messageKey: 'a:old',
+      messageKeySource: 'owner',
+      artifact: art(id)
+    })
+    const evP1 = published('P1')
+    const evP2 = published('P2')
     const evQ1: NormalizedEvent = {
       type: 'output.captured',
       sessionId: 's',
@@ -390,6 +496,14 @@ describe('transcript history prepend', () => {
     orderA = recv(orderA, evP1)
     orderA = recv(orderA, evP2)
     orderA = recv(orderA, evQ1)
+    orderA = recv(orderA, evP1)
+    expect(orderA.heldPatches.get('a:old')?.map(({ part }) => part.type)).toEqual([
+      'tool_result',
+      'response_boundary',
+      'artifact',
+      'artifact'
+    ])
+    expect([...orderA.heldOutputs.keys()]).toEqual(['response:rb1'])
     orderA = prepend(orderA, page)
 
     // Order B (g8, g15, g16): page prepend first, then live events
@@ -399,6 +513,7 @@ describe('transcript history prepend', () => {
     orderB = recv(orderB, evP1)
     orderB = recv(orderB, evP2)
     orderB = recv(orderB, evQ1)
+    orderB = recv(orderB, evP1)
 
     expect(orderA.messages).toEqual(orderB.messages)
     const parts = orderA.messages[0].parts
@@ -411,6 +526,54 @@ describe('transcript history prepend', () => {
         .filter((p): p is Extract<AppMessagePart, { type: 'artifact' }> => p.type === 'artifact')
         .map((p) => p.artifact.publicationId)
     ).toEqual(['P1', 'P2', 'Q1'])
+  })
+
+  it('g6 interleaves real store prepend and live owner events in the same session revision stream', () => {
+    const previous = useChatStore.getState()
+    try {
+      const session = LOAD(tail)
+      useChatStore.setState({
+        activeKey: 's',
+        sessions: {
+          s: {
+            session,
+            live: { text: '', reasoning: '', reasoningVisible: false },
+            subagentMeta: {}
+          }
+        }
+      })
+      const boundary = { type: 'response.boundary' as const, sessionId: 's', messageKey: 'a:live' }
+      ingestChatEvent({ ...boundary, boundary: { id: 'r', phase: 'begin' } })
+      chatActions.prependHistory('s', [message('u:old', 'user'), message('a:old', 'assistant')], {
+        reachedStart: false
+      })
+      ingestChatEvent({
+        ...boundary,
+        messageKeySource: 'owner',
+        boundary: { id: 'r', phase: 'end', outcome: 'unknown' }
+      })
+      const previousLive = useChatStore.getState().sessions.s.session.messages.at(-1)
+      ingestChatEvent({
+        ...boundary,
+        messageKeySource: 'owner',
+        boundary: { id: 'r', phase: 'end', outcome: 'ended' }
+      })
+      const next = useChatStore.getState().sessions.s.session
+      expect(next.messages.map((m) => m.id)).toEqual(['u:old', 'a:old', 'u:tail', 'a:live'])
+      expect(next.messages.at(-1)?.parts).toEqual([
+        { type: 'response_boundary', boundary: { id: 'r', phase: 'begin' } },
+        { type: 'response_boundary', boundary: { id: 'r', phase: 'end', outcome: 'ended' } }
+      ])
+      expect(previousLive?.parts.at(-1)).toMatchObject({ boundary: { outcome: 'unknown' } })
+      expect(next.transcriptChanges.log.slice(-4)).toEqual([
+        { kind: 'append', ids: ['a:live'] },
+        { kind: 'prepend', ids: ['u:old', 'a:old'] },
+        { kind: 'replace', id: 'a:live', partsFrom: 1 },
+        { kind: 'replace', id: 'a:live', partsFrom: 1 }
+      ])
+    } finally {
+      useChatStore.setState(previous, true)
+    }
   })
 
   it('g1 & g11 target only the named session without mutating active session or creating missing entries', () => {

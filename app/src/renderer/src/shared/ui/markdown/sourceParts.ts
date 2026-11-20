@@ -30,7 +30,7 @@ export function markSourceText(
   start: number,
   end: number,
   parts: readonly MarkdownSourcePart[],
-  mode: 'literal' | 'markdown' | 'inlineCode' = 'literal'
+  mode: 'literal' | 'markdown' | 'inlineCode' | { fenceIndent: number } = 'literal'
 ): MarkedText[] {
   if (!parts.length) return []
   let partIndex = Math.max(0, partAtOffset(parts, start))
@@ -64,6 +64,25 @@ export function markSourceText(
         decodedOffsets.pop()
       }
     }
+  } else if (typeof mode === 'object' && mode.fenceIndent > 0) {
+    const indent = mode.fenceIndent
+    // A tab consumed partway by a fence prefix renders several spaces, all from one offset.
+    const chunks = new RegExp(
+      `^( {0,${indent - 1}}\\t)|^( {1,${indent}})|\\r\\n|[^\\r\\n]+|[\\r\\n]`,
+      'gm'
+    )
+    for (const match of raw.matchAll(chunks)) {
+      if (decodedOffsets.length === value.length) break
+      if (match[2]) continue
+      const token = match[0]
+      const crlf = token === '\r\n' && value[decodedOffsets.length] === '\n'
+      const display = match[1] ? ' '.repeat(4 - indent) : crlf ? '\n' : token
+      if (!value.startsWith(display, decodedOffsets.length)) break
+      for (let i = 0; i < display.length; i++) {
+        decodedOffsets.push(start + match.index + (match[1] ? token.length - 1 : i))
+      }
+    }
+    if (decodedOffsets.length !== value.length) decodedOffsets.length = 0
   } else if (mode === 'markdown' && /[&\\]/.test(raw)) {
     const tokenPattern = /&(?:#x[0-9a-f]{1,6}|#\d{1,7}|[a-z][a-z0-9]{1,31});|\\[!-~]|[\s\S]/gi
     let decoded = ''

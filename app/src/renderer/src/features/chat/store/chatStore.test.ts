@@ -1077,6 +1077,13 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
     expect(chatActions.startForkDraft()).toBe(true)
     const firstKey = useChatStore.getState().activeKey
     expect(firstKey).toMatch(/^draft:/)
+    const first = useChatStore.getState().sessions[firstKey].session.transcriptChanges
+    expect(first.lineage).not.toBe(
+      useChatStore.getState().sessions.s.session.transcriptChanges.lineage
+    )
+    expect(first.revision).toBe(0)
+    expect(first.log).toEqual([])
+
     expect(useChatStore.getState().sessions[firstKey].session.title).toBe('[분기] 원본 세션')
     // 프리필 이력 끝에 '분기된 지점' 구분선 합성(r5) — 물질화 영속분(fork_boundary)과 위치 일치.
     const draftMsgs = useChatStore.getState().sessions[firstKey].session.messages
@@ -1089,6 +1096,10 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
     expect(chatActions.startForkDraft()).toBe(true)
     const secondKey = useChatStore.getState().activeKey
     expect(secondKey).not.toBe(firstKey)
+    expect(useChatStore.getState().sessions[secondKey].session.transcriptChanges.lineage).not.toBe(
+      first.lineage
+    )
+
     expect(useChatStore.getState().sessions[firstKey]).toBeUndefined()
     expect(useChatStore.getState().sessions[secondKey]).toBeDefined()
   })

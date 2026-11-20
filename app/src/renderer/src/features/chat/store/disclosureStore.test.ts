@@ -113,8 +113,12 @@ describe('disclosureStore (EP-15 d1~d12)', () => {
     setDisclosure('s-a', 'tool:1', true)
     const p1 = chatActions.loadSession('s-a')
     await chatActions.loadSession('s-b')
-    resolveFirst(null)
+    expect(cancelLoadMock).toHaveBeenCalledWith('s-a')
+    expect(getSessionDisclosureKeysForTest('s-a')).toEqual([])
+    expect(useChatStore.getState().sessions['s-a']).toBeUndefined()
+    resolveFirst(makeLoadedSession('s-a'))
     await p1
+    expect(useChatStore.getState().sessions['s-a']).toBeUndefined()
 
     expect(getSessionDisclosureKeysForTest('s-a')).toEqual([])
     expect(getDisclosure('s-a', 'tool:1', false)).toBe(false)
@@ -214,6 +218,45 @@ describe('disclosureStore (EP-15 d1~d12)', () => {
 
     clearFocusRecord()
     clearDisclosures('s-1')
+  })
+
+  it('d8/d9 restores only the recorded session, block and control from body without scrolling', () => {
+    const body = {} as HTMLElement
+    const focus = vi.fn()
+    const control = { getAttribute: () => 'toggle', focus } as unknown as HTMLElement
+    const page = { activeElement: null as HTMLElement | null, body, addEventListener: vi.fn() }
+    vi.stubGlobal('document', page)
+    recordFocus('s-1', 'block', 'toggle')
+    expect(restoreFocusIfEligible('s-1', 'block', control)).toBe(false)
+    expect(getFocusRecord()).toMatchObject({ sessionKey: 's-1' })
+    page.activeElement = body
+    expect(restoreFocusIfEligible('s-2', 'block', control)).toBe(false)
+    expect(restoreFocusIfEligible('s-1', 'other', control)).toBe(false)
+    expect(focus).not.toHaveBeenCalled()
+    expect(restoreFocusIfEligible('s-1', 'block', control)).toBe(true)
+    expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true })
+  })
+
+  it('d7/d10/d11 prunes focus independently of the session map and preserves sibling session keys', () => {
+    setDisclosure('other', 'different', true)
+    recordFocus('s-1', 'offscreen', 'toggle')
+    pruneDisclosures('s-1', new Set(), false)
+    pruneDisclosures('other', new Set(['different']), true)
+    expect(getFocusRecord()).toEqual({
+      sessionKey: 's-1',
+      blockKey: 'offscreen',
+      focusId: 'toggle'
+    })
+    pruneDisclosures('s-1', new Set(), true)
+    expect(getFocusRecord()).toBeNull()
+    expect(getDisclosure('other', 'different')).toBe(true)
+    setDisclosure('s-1', 'key', false)
+    recordFocus('s-1', 'offscreen', 'toggle')
+    pruneDisclosures('s-1', new Set(['key']), true)
+    expect(getDisclosure('s-1', 'key', true)).toBe(false)
+    expect(getFocusRecord()).toBeNull()
+    clearDisclosures('s-1')
+    expect(getDisclosure('other', 'different')).toBe(true)
   })
 
   it('d10·d11: pruneDisclosures keeps absent keys when complete=false and drops them when complete=true', () => {

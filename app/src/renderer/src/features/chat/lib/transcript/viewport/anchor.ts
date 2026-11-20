@@ -10,6 +10,12 @@ export interface AnchorTarget {
   readonly partKey: string
   readonly blockKey: string
   readonly messageId?: string
+  /** Mounted successors in the previous layout, before a reset removes the reading position. */
+  readonly followingPartKeys: readonly string[]
+  readonly followingBlockKeys: readonly string[]
+  readonly precedingBlockKeys: ReadonlySet<string>
+  readonly blockIndex: number
+  readonly partIndex: number
   readonly charOffset: number
   /** Distance from the viewport's top edge (wrapperTop - viewportTop) at capture time. */
   readonly viewportOffsetPx: number
@@ -41,15 +47,6 @@ function findPartWrapperByKey(scrollEl: HTMLElement, partKey: string): HTMLEleme
   for (let i = 0; i < candidates.length; i++) {
     const el = candidates[i] as HTMLElement
     if (el.getAttribute('data-part-key') === partKey) return el
-  }
-  return null
-}
-
-function findBlockWrapperByKey(scrollEl: HTMLElement, blockKey: string): HTMLElement | null {
-  const candidates = scrollEl.querySelectorAll('[data-block-key]')
-  for (let i = 0; i < candidates.length; i++) {
-    const el = candidates[i] as HTMLElement
-    if (el.getAttribute('data-block-key') === blockKey) return el
   }
   return null
 }
@@ -145,10 +142,36 @@ export function captureAnchor(
 
   const partKey = targetEl.getAttribute('data-part-key') ?? ''
   const blockEl = targetEl.closest?.('[data-index]') ?? targetEl.closest?.('[data-block-key]')
+  const messageId = blockEl?.getAttribute('data-message-id') ?? undefined
+  const followingPartKeys = new Set<string>()
+  const followingBlockKeys = new Set<string>()
+  const precedingParts = new Set<string>()
+  const precedingBlockKeys = new Set<string>()
+  let passed = false
+  for (const part of partElements) {
+    if (part === targetEl) passed = true
+    const block = part.closest('[data-index]') ?? part.closest('[data-block-key]')
+    const key = part.getAttribute('data-part-key')!
+    const blockKey = block?.getAttribute('data-block-key')
+    if (!passed) {
+      if (block !== blockEl && blockKey) precedingBlockKeys.add(blockKey)
+      if (block === blockEl && key !== partKey) precedingParts.add(key)
+      continue
+    }
+    if (key !== partKey && messageId && block?.getAttribute('data-message-id') === messageId) {
+      followingPartKeys.add(key)
+    }
+    if (block !== blockEl && blockKey) followingBlockKeys.add(blockKey)
+  }
   return {
     partKey,
     blockKey: blockEl?.getAttribute('data-block-key') ?? partKey,
-    messageId: blockEl?.getAttribute('data-message-id') ?? undefined,
+    messageId,
+    followingPartKeys: [...followingPartKeys],
+    followingBlockKeys: [...followingBlockKeys],
+    precedingBlockKeys,
+    blockIndex: Number(blockEl?.getAttribute('data-index') ?? 0),
+    partIndex: precedingParts.size,
     charOffset,
     viewportOffsetPx: anchorScreenTop - vpTop
   }
@@ -174,33 +197,60 @@ export function restoreAnchor(
 
   const blocks = typeof fallback === 'function' ? fallback() : fallback
 
-  // Fallback a5: same message next part → next block
-  if (blocks && blocks.length > 0) {
-    // 1. Try another part in the same message
-    if (anchor.messageId) {
-      for (const b of blocks) {
-        if (b.messageId !== anchor.messageId) continue
-        for (const pk of b.partKeys) {
-          const el = findPartWrapperByKey(scrollEl, pk)
-          if (el) {
-            const delta = el.getBoundingClientRect().top - (vpTop + anchor.viewportOffsetPx)
-            return scrollEl.scrollTop + delta
-          }
-        }
+  if (blocks) {
+    const mounted = (attribute: string): Map<string, HTMLElement> => {
+      const byKey = new Map<string, HTMLElement>()
+      for (const element of scrollEl.querySelectorAll<HTMLElement>(`[${attribute}]`)) {
+        const key = element.getAttribute(attribute)!
+        if (!byKey.has(key)) byKey.set(key, element)
+      }
+      return byKey
+    }
+    const fallbackTop = (element: HTMLElement): number =>
+      scrollEl.scrollTop + element.getBoundingClientRect().top - vpTop - anchor.viewportOffsetPx
+    const parts = mounted('data-part-key')
+    const rows = mounted('data-block-key')
+    for (const key of anchor.followingPartKeys) {
+      const part = parts.get(key)
+      if (part) return fallbackTop(part)
+    }
+    const originalBlock = blocks.find((entry) => entry.blockKey === anchor.blockKey)
+    for (const key of originalBlock?.partKeys.slice(anchor.partIndex) ?? []) {
+      const part = parts.get(key)
+      if (part) return fallbackTop(part)
+    }
+    // Locate the old reading slot relative to surviving predecessors after a prepend.
+    let firstCandidate = 0
+    let foundPredecessor = false
+    for (const [index, entry] of blocks.entries()) {
+      if (entry.blockKey === anchor.blockKey || anchor.precedingBlockKeys.has(entry.blockKey)) {
+        firstCandidate = index + 1
+        foundPredecessor = true
       }
     }
-    // 2. Try the block itself or the next available mounted block
-    const blockEl = findBlockWrapperByKey(scrollEl, anchor.blockKey)
-    if (blockEl) {
-      const delta = blockEl.getBoundingClientRect().top - (vpTop + anchor.viewportOffsetPx)
-      return scrollEl.scrollTop + delta
-    }
-    for (const b of blocks) {
-      const el = findBlockWrapperByKey(scrollEl, b.blockKey)
-      if (el) {
-        const delta = el.getBoundingClientRect().top - (vpTop + anchor.viewportOffsetPx)
-        return scrollEl.scrollTop + delta
+    const candidates = blocks
+      .slice(firstCandidate)
+      .filter(
+        (entry, offset) =>
+          foundPredecessor ||
+          Number(rows.get(entry.blockKey)?.getAttribute('data-index') ?? offset) >=
+            anchor.blockIndex
+      )
+    for (const entry of candidates) {
+      if (!anchor.messageId || entry.messageId !== anchor.messageId) continue
+      for (const key of entry.partKeys) {
+        const part = parts.get(key)
+        if (part) return fallbackTop(part)
       }
+    }
+    for (const key of anchor.followingBlockKeys) {
+      const row = rows.get(key)
+      if (row) return fallbackTop(row)
+    }
+    // No captured successor survived. A newly mounted replacement at the slot is usable.
+    for (const entry of candidates) {
+      const row = rows.get(entry.blockKey)
+      if (row) return fallbackTop(row)
     }
   }
 

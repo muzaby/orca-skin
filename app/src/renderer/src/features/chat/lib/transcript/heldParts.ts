@@ -86,9 +86,9 @@ export function mergeHeldParts(
     }
   const heldPatches = new Map(state.heldPatches)
   const heldOutputs = new Map(state.heldOutputs)
-  let merged = messages
+  const updates: Array<HeldPart & { index: number }> = []
   for (let index = 0; index < count; index++) {
-    const message = merged[index]
+    const message = messages[index]
     if (message.role !== 'assistant') continue
     const pending: HeldPart[] = []
     if (message.id !== undefined) {
@@ -106,22 +106,26 @@ export function mergeHeldParts(
       for (const output of heldOutputs.get(owner)!) pending.push(output)
       heldOutputs.delete(owner)
     }
-    if (!pending.length) continue
+    for (const entry of pending) updates.push({ ...entry, index })
+  }
 
-    const parts = message.parts.slice()
+  // One publication may arrive through calls or responses on different messages of the same turn.
+  // Replay their arrival order so the first reference has the same owner as in the live transcript.
+  let merged = messages
+  for (const { index, part } of updates.sort((a, b) => a.sequence - b.sequence)) {
+    if (part.type === 'artifact' && artifactExists(merged, index, part)) continue
     if (merged === messages) merged = messages.slice()
-    merged[index] = { ...message, parts }
-    for (const { part } of pending.sort((a, b) => a.sequence - b.sequence)) {
-      if (part.type === 'artifact') {
-        if (!artifactExists(merged, index, part)) parts.push(part)
-        continue
-      }
-      const key = partMergeKey(part)
-      const slot =
-        key === undefined ? -1 : parts.findIndex((existing) => partMergeKey(existing) === key)
-      if (slot < 0) parts.push(part)
-      else parts[slot] = part
+    if (merged[index] === messages[index]) {
+      merged[index] = { ...messages[index], parts: messages[index].parts.slice() }
     }
+    const parts = merged[index].parts
+    const key = partMergeKey(part)
+    const slot =
+      key === undefined || part.type === 'artifact'
+        ? -1
+        : parts.findIndex((existing) => partMergeKey(existing) === key)
+    if (slot < 0) parts.push(part)
+    else parts[slot] = part
   }
   return { messages: merged, heldPatches, heldOutputs, heldSequence: state.heldSequence }
 }

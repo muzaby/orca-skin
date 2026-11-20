@@ -102,6 +102,39 @@ describe('blockKeys (EP-7 y1~y20)', () => {
     expect(k3.map((e) => e.key)).toEqual(['a:1:text:1', 'a:1:reasoning:0', 'a:1:text:0'])
   })
 
+  it('y7 keeps a fork boundary key when the same row reopens', () => {
+    const tracker = new PartKeyTracker()
+    const row = msg('m:7', 'assistant', [{ type: 'fork_boundary' }])
+    const previous = carryPartKeys(tracker, row.id, undefined, row)
+    expect(carryPartKeys(tracker, row.id, previous, structuredClone(row))).toEqual(previous)
+  })
+
+  it('y14 keeps each attachment group key when IDs contain the separator and the groups move', () => {
+    const tracker = new PartKeyTracker()
+    const attachments = (...ids: string[]): Message['parts'][number] => ({
+      type: 'attachment',
+      attachments: ids.map((id) => ({ id, name: id, kind: 'file', mimeType: 'text/plain' }))
+    })
+    const first = attachments('a,b')
+    const second = attachments('a', 'b')
+    const row = msg('m:7', 'assistant', [first, second])
+    const previous = carryPartKeys(tracker, row.id, undefined, row)
+    expect(
+      carryPartKeys(tracker, row.id, previous, { ...row, parts: [second, first] }).map((e) => e.key)
+    ).toEqual([previous[1].key, previous[0].key])
+  })
+
+  it('y3 carries text and reasoning keys independently when their bodies match', () => {
+    const tracker = new PartKeyTracker()
+    const row = msg('m:8', 'assistant', [
+      { type: 'text', text: 'same' },
+      { type: 'reasoning', text: 'same' }
+    ])
+    const prev = carryPartKeys(tracker, row.id, undefined, row)
+    const next = carryPartKeys(tracker, row.id, prev, { ...row, parts: [...row.parts].reverse() })
+    expect(next.map((p) => p.key)).toEqual(['m:8:reasoning:0', 'm:8:text:0'])
+  })
+
   it('y15: deleting a part and adding another of the same kind never reuses the deleted sequence', () => {
     const tracker = new PartKeyTracker()
     const k1 = carryPartKeys(
@@ -218,6 +251,39 @@ describe('blockKeys (EP-7 y1~y20)', () => {
     expect(isTurnStart({ role: 'user' }, { role: 'user' })).toBe(false)
     expect(isTurnStart({ role: 'user' }, { role: 'assistant' })).toBe(false)
     expect(isTurnStart({ role: 'assistant' }, { role: 'assistant' })).toBe(false)
+  })
+
+  it('v2 advances key revision across same-size resets on all three models', async () => {
+    const { createClaudeBlockModel } =
+      await import('../../harnesses/claude/transcript/claudeBlocks')
+    const { createOpenCodeBlockModel } =
+      await import('../../harnesses/opencode/transcript/openCodeBlocks')
+    const { newTranscriptChanges, recordChange } = await import('./changeLog')
+    const before = [
+      msg('u:a', 'user', []),
+      msg('a:a', 'assistant', [{ type: 'text', text: 'alpha' }]),
+      msg('u:b', 'user', []),
+      msg('a:b', 'assistant', [{ type: 'text', text: 'beta' }])
+    ]
+    const reordered = [...before.slice(2), ...before.slice(0, 2)]
+    for (const model of [
+      createClaudeBlockModel({ mode: 'code', sessionKey: 's' }),
+      createClaudeBlockModel({ mode: 'work', sessionKey: 's' }),
+      createOpenCodeBlockModel()
+    ]) {
+      const changes = newTranscriptChanges()
+      const first = model.advance({ messages: before, transcriptChanges: changes })
+      const reset = recordChange(changes, { kind: 'reset', complete: true })
+      const swapped = model.advance({ messages: reordered, transcriptChanges: reset })
+      expect(swapped.count).toBe(first.count)
+      expect(swapped.keyAt(0)).not.toBe(first.keyAt(0))
+      expect(swapped.keyRevision).toBe(first.keyRevision + 1)
+      const again = model.advance({
+        messages: structuredClone(reordered),
+        transcriptChanges: recordChange(reset, { kind: 'reset', complete: true })
+      })
+      expect(again.keyRevision).toBe(swapped.keyRevision)
+    }
   })
 
   it('y1, y2, y4, y5, y6, y7, y9, y11 keep keys invariant under append, group context, T-violating prepends, reopen, duplicate tool_call, and cross-message OpenCode segments', async () => {

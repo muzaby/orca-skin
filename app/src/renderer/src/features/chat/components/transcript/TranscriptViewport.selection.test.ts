@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   installFakeDom,
   type FakeDom,
-  type FakeNode
+  FakeNode
 } from '../../../../shared/ui/renderHarness.testfixture'
+import * as errors from '../../../../shared/errors/reportError'
 import { createBlockList } from '../../lib/transcript/blockList'
 import { selectionMountSet } from '../../lib/transcript/viewport/range'
 import {
@@ -28,7 +29,6 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('react-dom', async (original) => ({
   ...(await original<typeof import('react-dom')>()),
-  createPortal: (node: unknown) => node,
   flushSync: (fn: () => void) => dom!.act(fn)
 }))
 vi.mock('@tanstack/react-virtual', async () => {
@@ -98,6 +98,92 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
       expect(mounted.length).toBeLessThanOrEqual(40)
     }
   })
+
+  it.each([2500, 5000])(
+    'c1/c2/c6/c10/c11/c15: %i-block selections retain exactly the virtualized window and both ends on each frame',
+    (count) => {
+      dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+      const { select } = installViewportSelection(dom)
+      const blocks = makeBlocks(count)
+      const snapshot = createBlockList(blocks).snapshot()
+      const scrollListeners = new Set<() => void>()
+      const scroll = {
+        scrollTop: 0,
+        clientHeight: 40,
+        clientWidth: 600,
+        getBoundingClientRect: () => ({ top: 0, bottom: 40, width: 600, height: 40 }),
+        querySelectorAll: (selector: string) => dom!.queryAll(selector),
+        querySelector: (selector: string) => dom!.query(selector),
+        contains: (node: Node) => dom!.body.contains(node),
+        addEventListener: (type: string, listener: () => void) => {
+          if (type === 'scroll') scrollListeners.add(listener)
+        },
+        removeEventListener: (type: string, listener: () => void) => {
+          if (type === 'scroll') scrollListeners.delete(listener)
+        },
+        scrollTo: () => {}
+      }
+      const scrollRef = { current: scroll as unknown as HTMLDivElement }
+      const render = (): void =>
+        dom!.render(
+          createElement(TranscriptViewport<SimpleBlock>, {
+            snapshot,
+            scrollRef,
+            overscan: 2,
+            estimateSizePx: 80,
+            isPinned: () => true,
+            renderBlock: (block) => createElement('p', null, block.text)
+          })
+        )
+      function scrollTo(index: number): void {
+        scroll.scrollTop = index * 80
+        dom!.act(() => {
+          for (const listener of scrollListeners) listener()
+        })
+        render()
+      }
+      const part = (i: number): FakeNode => dom!.query(`[data-part-key="${blocks[i].key}"]`)!
+      function expectMounted(view: number, focus: number): void {
+        const expected = new Set([0])
+        for (const center of [view, focus]) {
+          for (let i = Math.max(0, center - 2); i <= Math.min(count - 1, center + 2); i++)
+            expected.add(i)
+        }
+        expect(
+          dom!.queryAll('[data-index]').map((n) => Number(n.getAttribute('data-index')))
+        ).toEqual([...expected].sort((a, b) => a - b))
+      }
+      render()
+      select(part(0), 0, part(1), 1)
+      const steps = [
+        298,
+        300,
+        298,
+        299,
+        count - 1,
+        9,
+        count - 1,
+        ...Array.from({ length: 20 }, (_, i) => count - 2 - i * 4)
+      ]
+      for (const [step, focus] of steps.entries()) {
+        scrollTo(focus)
+        select(part(0), 0, part(focus), 2)
+        const key = step < 4 ? 'ArrowDown' : step === 6 ? 'End' : 'PageDown'
+        const viewport = dom!.query('[data-transcript-viewport]')!
+        dom!.act(() =>
+          (viewport.props.onKeyDown as (e: { shiftKey: boolean; key: string }) => void)({
+            shiftKey: true,
+            key
+          })
+        )
+        expectMounted(focus, focus)
+        scrollTo(125)
+        expectMounted(125, focus)
+        scrollTo(0)
+        expectMounted(0, focus)
+      }
+    }
+  )
 
   it('c3/c4/c5/c7/c8/c9/c12: sync copy <= cap matches reference; async copy > cap chunks at block boundaries with yield and matches reference', async () => {
     const blocks = makeBlocks(SELECTION_COPY_SYNC_MAX_BLOCKS + 50)
@@ -270,131 +356,226 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     expect(restored.offset).toBe(2)
   })
 
-  it.each(['sync', 'chunks', 'switch'] as const)(
-    'c3/c7/c12/c19: onCopy copies a partial reverse range (%s)',
-    async (mode) => {
-      const chunked = mode !== 'sync'
-      vi.useFakeTimers()
-      vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) =>
-        setTimeout(() => fn(performance.now()), 0)
-      )
-      dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
-      const { select, selection } = installViewportSelection(dom)
-      const write = vi
-        .fn<(items: Record<string, Blob>[]) => Promise<void>>()
-        .mockResolvedValue(undefined)
-      vi.stubGlobal('navigator', { clipboard: { write } })
-      vi.stubGlobal(
-        'ClipboardItem',
-        class {
-          constructor(items: Record<string, Blob>) {
-            Object.assign(this, items)
-          }
+  it.each([
+    'sync',
+    'sync throw',
+    'chunks',
+    'cap + 1',
+    'wrapper boundaries',
+    'focus moved',
+    'inert',
+    'switch',
+    'unmount',
+    'supersede',
+    'reject',
+    'selection lost',
+    'start lost',
+    'end lost'
+  ] as const)('c3/c7/c12/c19: onCopy copies a partial reverse range (%s)', async (mode) => {
+    const chunked = mode !== 'sync' && mode !== 'sync throw'
+    const chunkCounts = mode === 'cap + 1' ? [4, 1] : [2, 2, 1]
+    vi.useFakeTimers()
+    vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) =>
+      setTimeout(() => fn(performance.now()), 0)
+    )
+    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+    const { select, selection } = installViewportSelection(dom)
+    const write = vi
+      .fn<(items: Record<string, Blob>[]) => Promise<void>>()
+      .mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { write } })
+    vi.stubGlobal(
+      'ClipboardItem',
+      class {
+        constructor(items: Record<string, Blob>) {
+          Object.assign(this, items)
         }
+      }
+    )
+
+    const blocks = makeBlocks(6)
+    const snapshot = createBlockList(blocks).snapshot()
+    const readWidth = vi.fn(() => 600)
+    const scrollRef = {
+      current: {
+        scrollTop: 0,
+        clientHeight: 40,
+        get clientWidth() {
+          return readWidth()
+        },
+        getBoundingClientRect: () => ({ top: 0, bottom: 40, width: 600, height: 40 }),
+        querySelectorAll: (selector: string) => dom!.queryAll(selector),
+        querySelector: (selector: string) => dom!.query(selector),
+        contains: (node: Node) => dom!.body.contains(node),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        scrollTo: () => {}
+      } as unknown as HTMLDivElement
+    }
+    const timings: CopyTaskTiming[] = []
+    function render(overscan: number, sessionKey = 'before'): void {
+      dom!.render(
+        createElement(TranscriptViewport<SimpleBlock>, {
+          snapshot,
+          sessionKey,
+          scrollRef,
+          overscan,
+          anchorKey: blocks[5].key,
+          estimateSizePx: 80,
+          copyChunkSize: chunked ? chunkCounts[0] : 5,
+          onCopyTiming: (timing) => {
+            timings.push(timing)
+            if (mode === 'sync throw') throw new Error('copy interrupted')
+          },
+          hasPartMarkers: (block) =>
+            mode === 'wrapper boundaries' && (block === blocks[0] || block === blocks[4]),
+          renderBlock: (block) => createElement('p', null, block.text)
+        })
       )
+    }
+    const part = (index: number): FakeNode => {
+      const attr =
+        mode === 'wrapper boundaries' && (index === 0 || index === 4)
+          ? 'data-block-key'
+          : 'data-part-key'
+      return dom!.query(`[${attr}="${blocks[index].key}"]`)!
+    }
 
-      const blocks = makeBlocks(6)
-      const snapshot = createBlockList(blocks).snapshot()
-      const scrollRef = {
-        current: {
-          scrollTop: 0,
-          clientHeight: 40,
-          clientWidth: 600,
-          getBoundingClientRect: () => ({ top: 0, bottom: 40, width: 600, height: 40 }),
-          querySelectorAll: (selector: string) => dom!.queryAll(selector),
-          querySelector: (selector: string) => dom!.query(selector),
-          contains: (node: Node) => dom!.body.contains(node),
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          scrollTo: () => {}
-        } as unknown as HTMLDivElement
-      }
-      const timings: CopyTaskTiming[] = []
-      function render(overscan: number, sessionKey = 'before'): void {
-        dom!.render(
-          createElement(TranscriptViewport<SimpleBlock>, {
-            snapshot,
-            sessionKey,
-            scrollRef,
-            overscan,
-            estimateSizePx: 80,
-            copyChunkSize: chunked ? 2 : 6,
-            onCopyTiming: (timing) => timings.push(timing),
-            renderBlock: (block) => createElement('p', null, block.text)
-          })
-        )
-      }
-      const part = (index: number): FakeNode =>
-        dom!.query(`[data-part-key="${blocks[index].key}"]`)!
+    // Use the DOM with all rows mounted as the independent plain-text reference.
+    setVirtualization(false)
+    render(6)
+    select(part(4), 12, part(0), 6)
+    expect(dom.query('[data-transcript-viewport]')!.props.onCopy).toBeUndefined()
+    const reference = selection.toString()
+    expect(reference.split('\n').length).toBeGreaterThan(2)
 
-      // Use the DOM with all rows mounted as the independent plain-text reference.
-      setVirtualization(false)
-      render(6)
-      select(part(4), 12, part(0), 6)
-      const reference = selection.toString()
-      expect(reference.split('\n').length).toBeGreaterThan(2)
+    setVirtualization(true)
+    render(6)
+    select(part(4), 12, part(0), 6)
+    render(0)
+    expect(part(2)).toBeNull()
+    const endpoints = [
+      selection.anchorNode,
+      selection.anchorOffset,
+      selection.focusNode,
+      selection.focusOffset
+    ]
+    const preventDefault = vi.fn()
+    const viewport = dom.query('[data-transcript-viewport]')!
+    const onCopy = viewport.props.onCopy as (event: { preventDefault: () => void }) => void
+    const heightReads = chunked ? undefined : vi.spyOn(FakeNode.prototype, 'getBoundingClientRect')
+    readWidth.mockClear()
+    const dispatchCopy = (): void => dom!.act(() => onCopy({ preventDefault }))
+    if (mode === 'sync throw') expect(dispatchCopy).toThrow('copy interrupted')
+    else dispatchCopy()
+    expect(readWidth).not.toHaveBeenCalled()
 
-      setVirtualization(true)
-      render(6)
-      select(part(4), 12, part(0), 6)
-      render(0)
+    if (!chunked) {
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(timings).toEqual([{ kind: 'handler', blockCount: 5, durationMs: expect.any(Number) }])
+      expect(part(2)).not.toBeNull()
+      // A row mounted only for native copy leaves the reading viewport's measurements alone.
+      expect(heightReads!.mock.contexts).not.toContain(part(2))
+      expect(part(5)).not.toBeNull()
+      expect(selection.toString()).toBe(reference)
+      await vi.runAllTimersAsync()
+      dom.act(() => {})
       expect(part(2)).toBeNull()
-      const endpoints = [
+      expect(write).not.toHaveBeenCalled()
+      return
+    }
+
+    expect(preventDefault).toHaveBeenCalledOnce()
+    expect(part(2)).toBeNull()
+    expect(write).not.toHaveBeenCalled()
+    if (mode === 'reject' || mode.endsWith('lost')) {
+      const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
+      if (mode === 'reject') write.mockRejectedValueOnce(new Error('clipboard denied'))
+      if (mode === 'selection lost') vi.spyOn(document, 'getSelection').mockReturnValue(null)
+      if (mode === 'start lost' || mode === 'end lost') {
+        const missingKey = blocks[mode === 'start lost' ? 0 : 4].key
+        const query = FakeNode.prototype.querySelector
+        vi.spyOn(FakeNode.prototype, 'querySelector').mockImplementation(function (
+          this: FakeNode,
+          selector
+        ) {
+          if (
+            this.closest('[data-copy-serialization-host]') &&
+            selector === `[data-part-key="${missingKey}"]`
+          )
+            return null
+          return query.call(this, selector)
+        })
+      }
+      await vi.runAllTimersAsync()
+      expect(write).toHaveBeenCalledTimes(mode === 'reject' ? 1 : 0)
+      expect(report).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ event: 'clipboard.copy.failed' })
+      )
+      expect(dom.query('[data-copy-serialization-host]')).toBeNull()
+      expect([
         selection.anchorNode,
         selection.anchorOffset,
         selection.focusNode,
         selection.focusOffset
-      ]
-      const preventDefault = vi.fn()
-      const viewport = dom.query('[data-transcript-viewport]')!
-      const onCopy = viewport.props.onCopy as (event: { preventDefault: () => void }) => void
-      dom.act(() => onCopy({ preventDefault }))
-
-      if (!chunked) {
-        expect(preventDefault).not.toHaveBeenCalled()
-        expect(part(2)).not.toBeNull()
-        expect(selection.toString()).toBe(reference)
-        await vi.runAllTimersAsync()
-        dom.act(() => {})
-        expect(part(2)).toBeNull()
-        expect(write).not.toHaveBeenCalled()
-        return
-      }
-
-      expect(preventDefault).toHaveBeenCalledOnce()
-      expect(part(2)).toBeNull()
-      expect(write).not.toHaveBeenCalled()
-      if (mode === 'switch') {
-        await vi.advanceTimersToNextTimerAsync()
-        render(0, 'after')
-        await vi.runAllTimersAsync()
-        expect(write).not.toHaveBeenCalled()
-        expect(timings.map(({ kind }) => kind)).toEqual(['handler', 'chunk'])
-        return
-      }
-      for (let chunk = 0; chunk < 3; chunk++) {
-        await vi.advanceTimersToNextTimerAsync()
-        expect(dom.query('[data-copy-serialization-host]')).toBeNull()
-        expect([
-          selection.anchorNode,
-          selection.anchorOffset,
-          selection.focusNode,
-          selection.focusOffset
-        ]).toEqual(endpoints)
-        expect(write).not.toHaveBeenCalled()
-      }
-      await vi.runAllTimersAsync()
-      expect(write).toHaveBeenCalledOnce()
-      expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
-      expect(timings.map(({ kind, blockCount }) => [kind, blockCount])).toEqual([
-        ['handler', 0],
-        ['chunk', 2],
-        ['chunk', 2],
-        ['chunk', 1],
-        ['assemble', 5]
-      ])
+      ]).toEqual(endpoints)
+      return
     }
-  )
+    if (mode === 'unmount' || mode === 'supersede') {
+      await vi.advanceTimersToNextTimerAsync()
+      if (mode === 'unmount') dom.unmount()
+      else dom.act(() => onCopy({ preventDefault }))
+      await vi.runAllTimersAsync()
+      expect(write).toHaveBeenCalledTimes(mode === 'supersede' ? 1 : 0)
+      if (mode === 'supersede')
+        expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
+      return
+    }
+    if (mode === 'switch') {
+      await vi.advanceTimersToNextTimerAsync()
+      render(0, 'after')
+      await vi.runAllTimersAsync()
+      expect(write).not.toHaveBeenCalled()
+      expect(timings.map(({ kind }) => kind)).toEqual(['handler', 'chunk'])
+      return
+    }
+    const focused = dom.createNode('button')
+    focused.focus()
+    if (mode === 'focus moved') {
+      const other = dom.createNode('button')
+      const create = document.createRange.bind(document)
+      vi.spyOn(document, 'createRange').mockImplementation(() => {
+        const range = create()
+        const clone = range.cloneContents.bind(range)
+        range.cloneContents = () => {
+          other.focus()
+          return clone()
+        }
+        return range
+      })
+    }
+    for (let chunk = 0; chunk < chunkCounts.length; chunk++) {
+      if (mode === 'inert' && chunk === 1) dom.container.props.inert = true
+      await vi.advanceTimersToNextTimerAsync()
+      expect(dom.query('[data-copy-serialization-host]')).toBeNull()
+      expect([
+        selection.anchorNode,
+        selection.anchorOffset,
+        selection.focusNode,
+        selection.focusOffset
+      ]).toEqual(endpoints)
+      expect(write).not.toHaveBeenCalled()
+      expect(document.activeElement).toBe(focused)
+    }
+    await vi.runAllTimersAsync()
+    expect(write).toHaveBeenCalledOnce()
+    expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
+    expect(timings.map(({ kind, blockCount }) => [kind, blockCount])).toEqual([
+      ['handler', 0],
+      ...chunkCounts.map((count) => ['chunk', count]),
+      ['assemble', 5]
+    ])
+  })
 
   it('c17/c19: setVirtualization(false) renders full DOM without viewport copy serialization; CopySerializationHost has select-text, aria-hidden, pointer-events-none and no inert/select-none', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
@@ -425,7 +606,7 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
       })
     )
     const host = dom.query('[data-copy-serialization-host]')
-    expect(host).not.toBeNull()
+    expect(host?.parent).toBe(dom.body)
     expect(host!.getAttribute('aria-hidden')).toBe('true')
     expect(host!.getAttribute('inert')).toBeNull()
     const cls = host!.getAttribute('class') ?? ''

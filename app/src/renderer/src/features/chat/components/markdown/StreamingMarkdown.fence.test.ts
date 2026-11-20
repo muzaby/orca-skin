@@ -1,11 +1,27 @@
 import { load } from 'cheerio'
+import type { Plugin } from 'unified'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { MarkdownStreamingContext } from '../../../../shared/ui/markdown/streamingContext'
+import { ReasoningBlock } from '../../harnesses/claude/transcript/ReasoningBlock'
+import { OpenCodeText } from '../../harnesses/opencode/transcript/Text'
 import { advanceStableBlocks } from '../../lib/markdownBlocks'
 import { StreamingFence, StreamingMarkdown } from './StreamingMarkdown'
+
+const parsedSource = vi.hoisted(() => vi.fn<(source: string) => void>())
+
+vi.mock('remark-gfm', async (importOriginal) => {
+  const original = await importOriginal<typeof import('remark-gfm')>()
+  const observeParse: Plugin = function () {
+    original.default.call(this)
+    return (_tree, file) => {
+      parsedSource(String(file))
+    }
+  }
+  return { ...original, default: observeParse }
+})
 
 describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
   it.each([
@@ -29,7 +45,35 @@ describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
     expect($(`${selector} [data-part-key="last"]`).text()).toBe(end)
   })
 
+  it.each([
+    [' ~~~\n\tcode\n', '   '],
+    ['   ~~~\n  \tcode\n', ' '],
+    ['  ~~~\r\n \tcode\r\n', '  ']
+  ])(
+    'keeps spaces from a partially consumed tab in the source part that owns the tab',
+    (source, spaces) => {
+      const sourceParts = [
+        { key: 'prefix', start: 0 },
+        { key: 'tab', start: source.indexOf('\t') },
+        { key: 'body', start: source.indexOf('code') }
+      ]
+      for (const component of [StreamingMarkdown, Markdown]) {
+        const html = renderToStaticMarkup(createElement(component, { source, sourceParts }))
+        const $ = load(html)
+        expect($('pre code [data-part-key="prefix"]')).toHaveLength(0)
+        expect($('pre code [data-part-key="tab"]').text()).toBe(spaces)
+        expect($('pre code [data-part-key="body"]').text()).toBe('code')
+      }
+    }
+  )
+
   const cases = [
+    ['f1: encoded fence info', '~~~c&#43;&#43; metadata\nint main() {}\n'],
+    ['f1: escaped punctuation in info', '~~~c\\+\\+ description\nint x;\n'],
+    ['f1: encoded space ends language', '~~~ts&#x20;metadata\nlet x\n'],
+    ['f1: non-ASCII leading space in info', '~~~\u00a0ts\nlet x\n'],
+    ['f6: raw tabs after indent', '   ~~~\n   \tcode\n    \tmore\n'],
+    ['f6: partial tab indentation', '   ~~~\n\tcode\n  \tmore\n'],
     ['f1: backtick + info', '```ts\nconst x = 1\n'],
     ['f2: tilde 4 with inner 3', '~~~~py\nprint(1)\n~~~\nprint(2)\n'],
     ['f5: closing candidate with trailing char', '```ts\nconst x = 1\n```x\n'],
@@ -61,17 +105,40 @@ describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
     }
   )
 
+  it.each([
+    ['unfinished body', '~~~ts\nalpha\nbeta', 'alpha\nbeta', 'alpha\nbeta'],
+    ['unterminated close line', '~~~ts\nalpha\n~~~', 'alpha\n~~~', 'alpha'],
+    ['long final line', '~~~ts\n' + 'a'.repeat(50_000), 'a'.repeat(50_000), 'a'.repeat(50_000)]
+  ])('f11·f12·f13: %s in the live and committed harness renderers', (_, source, live, final) => {
+    const reference = load(renderToStaticMarkup(createElement(Markdown, { source })))(
+      'pre code'
+    ).text()
+    expect(reference).toBe(final)
+    for (const streaming of [true, false]) {
+      const renderers = [
+        createElement(OpenCodeText, { source, streaming }),
+        createElement(ReasoningBlock, { items: [{ text: source }], streaming, defaultOpen: true })
+      ]
+      for (const renderer of renderers) {
+        const code = load(renderToStaticMarkup(renderer))('pre code')
+        expect(code).toHaveLength(1)
+        expect(code.text()).toBe(streaming ? live : reference)
+      }
+    }
+  })
+
   it('StreamingMarkdown renders open fence without invoking Markdown for the tail', () => {
+    parsedSource.mockClear()
     const html = renderToStaticMarkup(
       createElement(StreamingMarkdown, { source: '```ts\nconst x = 1\n' })
     )
     expect(html).toContain('const x = 1')
     expect(html).toContain('<code')
-    // Sanity: closed fence still renders cleanly via Markdown
+    expect(parsedSource).not.toHaveBeenCalled()
     const closedHtml = renderToStaticMarkup(
       createElement(StreamingMarkdown, { source: '```ts\nconst x = 1\n```\n' })
     )
     expect(closedHtml).toContain('const x = 1')
-    expect(vi.isMockFunction(StreamingFence)).toBe(false)
+    expect(parsedSource.mock.calls).toEqual([['```ts\nconst x = 1\n```\n']])
   })
 })

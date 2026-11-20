@@ -162,6 +162,72 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
     expect(ctrl.getActiveAnchor()).toBeNull()
   })
 
+  it('a5 skips earlier mounted siblings after either the part or the whole message disappears', () => {
+    const makeRow = (key: string, message: string, top: number): FakeNode =>
+      makeEl(
+        { 'data-part-key': key, 'data-block-key': key, 'data-message-id': message },
+        [makeText(key)],
+        { top, height: 30 }
+      )
+    const old = makeEl(
+      {},
+      [
+        makeRow('older', 'old', -80),
+        makeRow('previous-part', 'msg', -40),
+        makeRow('reading', 'msg', 10),
+        makeRow('next-part', 'msg', 45),
+        makeRow('later', 'other', 100)
+      ],
+      { top: 0, height: 200 }
+    )
+    const anchor = createAnchorController().captureAnchor(old as unknown as HTMLElement)!
+    expect(anchor.partKey).toBe('reading')
+    for (const keepNext of [true, false]) {
+      const rows = [
+        makeRow('new-prefix', 'prefix', -180),
+        makeRow('older', 'old', -80),
+        makeRow('previous-part', 'msg', -40),
+        makeRow('inserted', 'new-other', 45),
+        ...(keepNext ? [makeRow('next-part', 'msg', 60)] : []),
+        makeRow('later', 'other', 120)
+      ]
+      const current = makeEl({}, rows, { top: 0, height: 200 })
+      current.scrollTop = 150
+      const entries = rows.map((row) => ({
+        blockKey: row.attrs!['data-block-key'],
+        messageId: row.attrs!['data-message-id'],
+        partKeys: [row.attrs!['data-part-key']]
+      }))
+      expect(restoreAnchor(current as unknown as HTMLElement, anchor, entries)).toBe(
+        keepNext ? 200 : 260
+      )
+    }
+  })
+
+  it('a5 uses the vacated slot when a reset replaces the remaining keys in one block', () => {
+    const part = (key: string, top: number): FakeNode =>
+      makeEl({ 'data-part-key': key }, [makeText(key)], { top, height: 20 })
+    const row = (keys: string[]): FakeNode =>
+      makeEl(
+        { 'data-index': '1', 'data-block-key': 'stable-block', 'data-message-id': 'm' },
+        keys.map((key, index) => part(key, -40 + index * 40))
+      )
+    const scroller = (block: FakeNode): FakeNode => makeEl({}, [block], { top: 0, height: 200 })
+    const anchor = createAnchorController().captureAnchor(
+      scroller(row(['earlier', 'reading', 'next'])) as unknown as HTMLElement
+    )!
+    expect(anchor.partKey).toBe('reading')
+    const after = scroller(row(['earlier', 'replacement']))
+    after.scrollTop = 72
+    const entry = { blockKey: 'stable-block', messageId: 'm', partKeys: ['earlier', 'replacement'] }
+    expect(restoreAnchor(after as unknown as HTMLElement, anchor, [entry])).toBe(72)
+    expect(
+      restoreAnchor(scroller(row(['earlier'])) as unknown as HTMLElement, anchor, [
+        { ...entry, partKeys: ['earlier'] }
+      ])
+    ).toBeNull()
+  })
+
   it('a3/a9: multi-frame measurement corrections converge within +-1px with at most 1 scrollTop write per frame', () => {
     const part = makeEl({ 'data-part-key': 'a:3:text:0' }, [makeText('anchor line')], {
       top: 150,

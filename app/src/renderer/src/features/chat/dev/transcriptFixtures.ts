@@ -1,4 +1,5 @@
 import {
+  copyTimings,
   diagnosticViewports,
   failCopyChunk,
   type ViewportDiagnostics
@@ -158,6 +159,7 @@ export interface DiagnosticDevApi {
     textLength: number
     collapsed: boolean
   }
+  copyTimings: typeof copyTimings
   readClipboard(): Promise<{ text: string; html: string }>
   failCopyChunk(chunkIndex: number | null): void
   streamFixture(chars: number): void
@@ -277,6 +279,7 @@ export function createDiagnosticDevApi(): DiagnosticDevApi {
         collapsed: selection?.isCollapsed ?? true
       }
     },
+    copyTimings,
     async readClipboard() {
       const items = await navigator.clipboard.read()
       async function read(type: string): Promise<string> {

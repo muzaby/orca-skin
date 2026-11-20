@@ -102,6 +102,100 @@ describe('VP-07 chatReducer message identity (r1~r17)', () => {
     )
   })
 
+  it('r5 appends an unkeyed buffer to the last assistant and skips an empty commit', () => {
+    const before = load([msg('a:first', 'assistant'), msg('a:last', 'assistant')])
+    const after = chatReducer(before, { type: 'COMMIT_PENDING_TEXT', text: 'tail' })
+    expect(after.messages.map(({ id, parts }) => [id, parts])).toEqual([
+      ['a:first', []],
+      ['a:last', [{ type: 'text', text: 'tail' }]]
+    ])
+    expect(after.messages[0]).toBe(before.messages[0])
+    expect(
+      chatReducer(after, { type: 'COMMIT_PENDING_TEXT', messageKey: 'a:other', text: '' })
+    ).toBe(after)
+  })
+
+  it('r12 replaces multiple optimistic messages at the earliest transcript position even when queue IDs are reversed', () => {
+    const before = load([
+      msg('u:z', 'user'),
+      msg('a:between', 'assistant'),
+      msg('u:a', 'user'),
+      msg('u:after', 'user')
+    ])
+    const commit = {
+      type: 'APPEND_COMMITTED_USER_MESSAGE' as const,
+      messageKey: 'u:a,z',
+      ids: ['a', 'z'],
+      text: 'batch'
+    }
+    const after = chatReducer(before, commit)
+    expect(after.messages.map((m) => m.id)).toEqual(['u:a,z', 'a:between', 'u:after'])
+    expect(after.messages[1]).toBe(before.messages[1])
+    expect(after.messages[2]).toBe(before.messages[3])
+    expect(after.transcriptChanges.log.at(-1)).toEqual({ kind: 'reset', complete: true })
+    expect(chatReducer(after, commit)).toBe(after)
+  })
+
+  it('r16 keeps an artifact off a user message when a completed tool carries that key', () => {
+    const before = load([msg('u:owner', 'user'), msg('a:tail', 'assistant')], false)
+    const after = recv(before, {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 't',
+      messageKey: 'u:owner',
+      messageKeySource: 'owner',
+      result: 'receipt',
+      isError: false,
+      artifact: { publicationId: 'P' } as Extract<AppMessagePart, { type: 'artifact' }>['artifact']
+    })
+    expect(after.messages).toBe(before.messages)
+    expect(after.transcriptChanges).toBe(before.transcriptChanges)
+    expect(after.heldPatches.size).toBe(0)
+  })
+
+  it.each(['before', 'after', 'previous-turn'] as const)(
+    'r16 checks the %s neighbor for a duplicate publication',
+    (direction) => {
+      const artifact = { publicationId: 'P' } as Extract<
+        AppMessagePart,
+        { type: 'artifact' }
+      >['artifact']
+      const duplicate = msg('a:neighbor', 'assistant', { type: 'artifact', artifact })
+      const owner = msg('a:owner', 'assistant', {
+        type: 'tool_call',
+        toolRunId: 't',
+        toolName: 'Write',
+        args: {}
+      })
+      const messages =
+        direction === 'after'
+          ? [owner, duplicate]
+          : direction === 'before'
+            ? [duplicate, owner]
+            : [duplicate, msg('u:next', 'user'), owner]
+      const before = load(messages)
+      const next = recv(before, {
+        type: 'output.captured',
+        sessionId: 's',
+        toolRunId: 't',
+        artifact
+      })
+      if (direction === 'previous-turn') {
+        expect(next.messages.at(-1)?.parts).toEqual([
+          ...owner.parts,
+          { type: 'artifact', artifact }
+        ])
+        expect(next.transcriptChanges.log.at(-1)).toEqual({
+          kind: 'replace',
+          id: owner.id,
+          partsFrom: 1
+        })
+      } else {
+        expect(next).toBe(before)
+      }
+    }
+  )
+
   it('r5 COMMIT_PENDING_TEXT targets messageKey even when not last assistant, and falls back when absent', () => {
     let s = load([
       msg('a:1', 'assistant', { type: 'reasoning', text: 'think' }),
@@ -285,7 +379,89 @@ describe('VP-07 chatReducer message identity (r1~r17)', () => {
       messageKey: 'a:1'
     } as NormalizedEvent)
     expect(s.messages[0].parts).toHaveLength(4)
+    s = recv(s, {
+      type: 'response.boundary',
+      sessionId: 's',
+      messageKey: 'a:1',
+      boundary: { id: 'other', phase: 'end', outcome: 'failed' }
+    })
+    s = recv(s, {
+      type: 'response.boundary',
+      sessionId: 's',
+      messageKey: 'a:1',
+      boundary: { id: 'rb1', phase: 'end', outcome: 'aborted' }
+    })
+    expect(s.messages[0].parts.slice(2)).toEqual([
+      { type: 'response_boundary', boundary: { id: 'rb1', phase: 'begin', kind: 'work' } },
+      { type: 'response_boundary', boundary: { id: 'rb1', phase: 'end', outcome: 'aborted' } },
+      { type: 'response_boundary', boundary: { id: 'other', phase: 'end', outcome: 'failed' } }
+    ])
+    expect(s.transcriptChanges.log.at(-1)).toEqual({ kind: 'replace', id: 'a:1', partsFrom: 3 })
   })
+
+  it.each([true, false])(
+    'r15 restores held boundary and output on a same-session reset with preserveLocalState=%s',
+    (preserveLocalState) => {
+      let state = load([], false)
+      const artifact = { publicationId: 'held' } as Extract<
+        AppMessagePart,
+        { type: 'artifact' }
+      >['artifact']
+      const end = {
+        type: 'response.boundary' as const,
+        sessionId: 's',
+        messageKey: 'a:past',
+        messageKeySource: 'owner' as const
+      }
+      state = recv(state, { ...end, boundary: { id: 'r', phase: 'end', outcome: 'failed' } })
+      state = recv(state, { type: 'output.captured', sessionId: 's', responseId: 'r', artifact })
+      state = recv(state, {
+        type: 'output.captured',
+        sessionId: 's',
+        toolRunId: 'absent',
+        responseId: 'r',
+        artifact
+      })
+      expect([...state.heldOutputs.keys()]).toEqual(['response:r', 'tool:absent'])
+      const session = {
+        id: 's',
+        backend: 'claude' as const,
+        agentKind: 'code' as const,
+        title: null,
+        messages: [
+          msg(
+            'a:past',
+            'assistant',
+            { type: 'response_boundary', boundary: { phase: 'begin', id: 'r' } },
+            { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'ended' } }
+          )
+        ]
+      }
+      const diag = vi.fn()
+      const reset = { type: 'LOAD_SESSION' as const, session, diagnostic: diag, preserveLocalState }
+      const partial = chatReducer(state, { ...reset, complete: false })
+      expect(partial.messages[0].parts).toEqual([
+        session.messages[0].parts[0],
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'r', outcome: 'failed' } },
+        { type: 'artifact', artifact }
+      ])
+      expect(partial.heldPatches.size).toBe(0)
+      expect([...partial.heldOutputs.keys()]).toEqual(['tool:absent'])
+      expect(diag).not.toHaveBeenCalled()
+      const complete = chatReducer(state, { ...reset, complete: true })
+      expect(complete.messages).toEqual(partial.messages)
+      expect(complete.heldOutputs.size).toBe(0)
+      expect(diag.mock.calls).toEqual([['heldPatchOrphaned', 1]])
+      const unrelated = chatReducer(state, {
+        ...reset,
+        session: { ...session, id: 'other' },
+        complete: false
+      })
+      expect(unrelated.messages[0].parts).toEqual(session.messages[0].parts)
+      expect(unrelated.heldOutputs.size).toBe(0)
+      expect(unrelated.heldPatches.size).toBe(0)
+    }
+  )
 
   it('r15 merges held patches/outputs on LOAD_SESSION reset{complete:true/false} and reports orphaned', () => {
     const partial = load([msg('u:tail', 'user', { type: 'text', text: 'tail' })], false)

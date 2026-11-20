@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { advanceStableBlocks, splitStableBlocks, type StableBlocksCache } from './markdownBlocks'
 
 describe('splitStableBlocks', () => {
@@ -234,6 +234,21 @@ describe('openFenceTail & incremental scanState (EP-19 f1~f9·f11~f13)', () => {
     expect(last.openFence).not.toBeNull()
     expect(last.scanState.scannedChars).toBeLessThanOrEqual(full.length + 50)
     expect(last.scanState.scannedChars).toBeGreaterThanOrEqual(full.length - 50)
+  })
+
+  it('f8·f12: starts each actual newline search at the previously checked offset', () => {
+    const search = vi.spyOn(String.prototype, 'indexOf')
+    let offsets: Array<number | undefined>
+    try {
+      let cache: StableBlocksCache | null = null
+      for (let size = 50; size <= 50_000; size += 50) {
+        cache = advanceStableBlocks(cache, 'a'.repeat(size)).cache
+      }
+      offsets = search.mock.calls.filter(([needle]) => needle === '\n').map(([, start]) => start)
+    } finally {
+      search.mockRestore()
+    }
+    expect(offsets).toEqual(Array.from({ length: 1_000 }, (_, index) => index * 50))
   })
 
   it('f9: fence opening line split across deltas gives identical result', () => {

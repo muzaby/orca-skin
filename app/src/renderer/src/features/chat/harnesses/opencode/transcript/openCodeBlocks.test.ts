@@ -15,6 +15,23 @@ function assistantMsg(id: string, parts: AppMessagePart[], createdAt = 2000): Me
 }
 
 describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
+  it('publishes only the joined assistant turn when a separator vanishes as live output starts', () => {
+    const model = createOpenCodeBlockModel()
+    const first = assistantMsg('first', [{ type: 'text', text: 'one' }])
+    const last = assistantMsg('last', [{ type: 'text', text: 'two' }])
+    let changes = newTranscriptChanges()
+    model.advance({
+      messages: [first, userMsg('split', 'question'), last],
+      transcriptChanges: changes
+    })
+    changes = recordChange(changes, { kind: 'remove', ids: ['split'] })
+    const options = { pending: true, liveText: true, liveTextKey: 'last' }
+    const blocks = snapshotToArray(
+      model.advance({ messages: [first, last], transcriptChanges: changes }, options)
+    )
+    expect(blocks).toEqual(buildOpenCodeBlocksOracle([first, last], options))
+  })
+
   it('y11: cross-message text segment keeps representative part key <A>:text:0 even when C appends', () => {
     const model = createOpenCodeBlockModel()
     let messages: Message[] = [
@@ -83,6 +100,32 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
     expect(contTextBlocks[1].key).toBe('a:M:text:1')
     expect(contTextBlocks[1].kind === 'segment' && contTextBlocks[1].live).toBe(true)
   })
+
+  it.each([
+    { ignored: { type: 'text', text: '' }, newKey: 'a:B:text:1' },
+    { ignored: { type: 'text', text: 'nested', parentToolRunId: 'child' }, newKey: 'a:B:text:0' },
+    { ignored: { type: 'attachment', attachments: [] }, newKey: 'a:B:text:0' }
+  ] satisfies Array<{ ignored: AppMessagePart; newKey: string }>)(
+    'b9: only visible committed text owns a continuing live segment ($newKey)',
+    ({ ignored, newKey }) => {
+      const messages = [
+        assistantMsg('a:A', [{ type: 'text', text: 'visible' }]),
+        assistantMsg('a:B', [ignored])
+      ]
+      for (const [liveTextKey, expected] of [
+        [undefined, 'a:A:text:0'],
+        ['a:A', 'a:A:text:0'],
+        ['a:B', newKey]
+      ] as const) {
+        const snapshot = createOpenCodeBlockModel().advance(
+          { messages, transcriptChanges: newTranscriptChanges() },
+          { pending: true, liveText: true, liveTextKey }
+        )
+        const live = snapshotToArray(snapshot).filter((b) => b.kind === 'segment' && b.live)
+        expect(live.map((b) => b.key)).toEqual([expected])
+      }
+    }
+  )
 
   it('y16/y19: on reset, prepending earlier text keeps previous representative key, and merging two segments picks front representative', () => {
     const model = createOpenCodeBlockModel()
@@ -204,6 +247,168 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
     const snap2 = model.advance({ messages, transcriptChanges: changes })
     expect(snap2.blockAt(3)).toBe(a2Before)
     expect(snap2.blockAt(1)).not.toBe(snap1.blockAt(1))
+  })
+
+  it.each(['Read', 'AskUserQuestion'])(
+    'z8: %s displays the last result in transcript order and restores the predecessor on withdrawal',
+    (toolName) => {
+      const result = (value: string): AppMessagePart => ({
+        type: 'tool_result',
+        toolRunId: 'original',
+        isError: false,
+        result: value
+      })
+      const model = createOpenCodeBlockModel()
+      let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      let messages = [
+        assistantMsg('owner', [{ type: 'tool_call', toolRunId: 'original', toolName, args: {} }]),
+        userMsg('next', 'continue'),
+        assistantMsg('older', [result('old')]),
+        assistantMsg('later', [result('latest'), result('last part')])
+      ]
+      const displayed = (snapshot: ReturnType<typeof model.snapshot>): unknown[] =>
+        snapshotToArray(snapshot).flatMap((block) => {
+          if (block.kind !== 'segment') return []
+          const segment = block.segment
+          const calls =
+            segment.kind === 'ask' ? [segment.call] : segment.kind === 'tools' ? segment.calls : []
+          return calls
+            .filter((call) => call.toolUseId === 'original')
+            .map((call) => call.result?.output)
+        })
+      const check = (expected: string | undefined): void => {
+        const state = { messages, transcriptChanges: changes }
+        expect(displayed(model.advance(state))).toEqual([expected])
+        expect(displayed(createOpenCodeBlockModel().advance(state))).toEqual([expected])
+      }
+      check('last part')
+      messages = messages.with(
+        2,
+        assistantMsg('older', [result('earlier first part'), result('updated earlier')])
+      )
+      changes = recordChange(changes, { kind: 'replace', id: 'older', partsFrom: 0 })
+      check('last part')
+      messages = messages.with(3, assistantMsg('later', [result('latest')]))
+      changes = recordChange(changes, { kind: 'replace', id: 'later', partsFrom: 1 })
+      check('latest')
+      messages = messages.slice(0, -1)
+      changes = recordChange(changes, { kind: 'remove', ids: ['later'] })
+      check('updated earlier')
+      messages = messages.slice(0, -1)
+      changes = recordChange(changes, { kind: 'remove', ids: ['older'] })
+      check(undefined)
+    }
+  )
+
+  it.each(['Read', 'AskUserQuestion'])(
+    'z8: %s replay transfers result ownership on removal and restores inputs on replay withdrawal',
+    (toolName) => {
+      const call = (messageId: string, input: string): Message =>
+        assistantMsg(messageId, [{ type: 'tool_call', toolRunId: 'x', toolName, args: { input } }])
+      const end = assistantMsg('result', [
+        { type: 'tool_result', toolRunId: 'x', result: 'done', isError: false }
+      ])
+      const model = createOpenCodeBlockModel()
+      let messages = [
+        call('original', 'first'),
+        userMsg('break', 'again'),
+        call('replay', 'second'),
+        end
+      ]
+      let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+      const check = (owner: string, input: string): void => {
+        const state = { messages, transcriptChanges: changes }
+        for (const snapshot of [model.advance(state), createOpenCodeBlockModel().advance(state)]) {
+          const calls = snapshotToArray(snapshot).flatMap((block) => {
+            if (block.kind !== 'segment') return []
+            const segment = block.segment
+            const calls =
+              segment.kind === 'tools'
+                ? segment.calls
+                : segment.kind === 'ask'
+                  ? [segment.call]
+                  : []
+            return calls.map((call) => [block.messageId, call.input, call.result?.output])
+          })
+          expect(calls).toEqual([[owner, { input }, 'done']])
+        }
+      }
+      check('original', 'second')
+      messages = messages.filter((m) => m.id !== 'replay')
+      changes = recordChange(changes, { kind: 'remove', ids: ['replay'] })
+      check('original', 'first')
+      messages = [...messages, call('again', 'third')]
+      changes = recordChange(changes, { kind: 'append', ids: ['again'] })
+      check('original', 'third')
+      messages = messages.slice(1)
+      changes = recordChange(changes, { kind: 'remove', ids: ['original'] })
+      check('again', 'third')
+    }
+  )
+
+  it('z8: prepending an earlier call moves the visible owner and preserves the later result until withdrawn', () => {
+    const model = createOpenCodeBlockModel()
+    const both = (id: string, value: string): Message =>
+      assistantMsg(id, [
+        { type: 'tool_call', toolRunId: 'x', toolName: 'Read', args: { value } },
+        { type: 'tool_result', toolRunId: 'x', isError: false, result: value }
+      ])
+    let messages = [userMsg('current', 'question'), both('late', 'latest')]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    const check = (owner: string, result: string): void => {
+      const state = { messages, transcriptChanges: changes }
+      for (const snap of [model.advance(state), createOpenCodeBlockModel().advance(state)]) {
+        const calls = snapshotToArray(snap).flatMap((block) =>
+          block.kind === 'segment' && block.segment.kind === 'tools'
+            ? block.segment.calls.map((call) => [block.messageId, call.input, call.result?.output])
+            : []
+        )
+        expect(calls).toEqual([[owner, { value: result }, result]])
+      }
+    }
+    check('late', 'latest')
+    messages = [userMsg('previous', 'before'), both('early', 'prior'), ...messages]
+    changes = recordChange(changes, { kind: 'prepend', ids: ['previous', 'early'] })
+    check('early', 'latest')
+    messages = messages.slice(0, -1)
+    changes = recordChange(changes, { kind: 'remove', ids: ['late'] })
+    check('early', 'prior')
+  })
+
+  it('z8: a late result follows the retained call after its exploration group changes representative', () => {
+    const call = (id: string): AppMessagePart => ({
+      type: 'tool_call',
+      toolRunId: id,
+      toolName: 'Read',
+      args: {}
+    })
+    const model = createOpenCodeBlockModel()
+    let messages = [
+      assistantMsg('owner', [call('first'), call('kept')]),
+      userMsg('next', 'continue'),
+      assistantMsg('receiver', [])
+    ]
+    let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
+    model.advance({ messages, transcriptChanges: changes })
+    messages = messages.with(0, assistantMsg('owner', [call('kept')]))
+    changes = recordChange(changes, { kind: 'replace', id: 'owner', partsFrom: 0 })
+    model.advance({ messages, transcriptChanges: changes })
+    messages = messages.with(
+      2,
+      assistantMsg('receiver', [
+        { type: 'tool_result', toolRunId: 'kept', result: 'ready', isError: false }
+      ])
+    )
+    changes = recordChange(changes, { kind: 'replace', id: 'receiver', partsFrom: 0 })
+    const state = { messages, transcriptChanges: changes }
+    for (const snap of [model.advance(state), createOpenCodeBlockModel().advance(state)]) {
+      const block = snap.blockAt(snap.indexOf('owner:tool:kept'))
+      expect(
+        block.kind === 'segment' &&
+          block.segment.kind === 'tools' &&
+          block.segment.calls[0].result?.output
+      ).toBe('ready')
+    }
   })
 
   it('z5: boundary-changing append updates only boundary blocks and keeps earlier turns identical', () => {

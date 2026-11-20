@@ -942,7 +942,7 @@ function appendOwnedArtifact(
   part: Extract<AppMessagePart, { type: 'artifact' }>
 ): TranscriptState {
   const { messages } = state
-  if (owner < 0) return state
+  if (messages[owner]?.role !== 'assistant') return state
   let first = owner
   let last = owner
   while (first > 0 && messages[first - 1].role === 'assistant') first -= 1

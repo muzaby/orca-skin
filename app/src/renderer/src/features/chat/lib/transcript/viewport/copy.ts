@@ -13,6 +13,8 @@ export interface RetainedSelectionEndpoint {
   readonly blockKey: string
   readonly partKey: string
   readonly charOffset: number
+  /** Selection belongs to the row wrapper outside any marked part. */
+  readonly blockWrapper?: true
 }
 
 export interface RetainedSelection {
@@ -130,6 +132,15 @@ export function startCopyJob(
       )
     }
 
+    function readChunk(start: number, end: number): ReturnType<CopyJobHooks['serializeChunk']> {
+      try {
+        hooks.mountChunk(start, end)
+        return hooks.serializeChunk(start, end, start === lo, end === hi)
+      } finally {
+        hooks.unmountChunk()
+      }
+    }
+
     function runChunk(): void {
       if (cancelled) {
         resolve(false)
@@ -141,13 +152,12 @@ export function startCopyJob(
       const isLast = chunkEnd === hi
       const t0 = now()
       try {
-        hooks.mountChunk(chunkStart, chunkEnd)
         const {
           text,
           html,
           leadingBreaks = 1,
           trailingBreaks = 1
-        } = hooks.serializeChunk(chunkStart, chunkEnd, isFirst, isLast)
+        } = readChunk(chunkStart, chunkEnd)
         // The two edge measurements share one ordinary block break. A chunk of
         // empty interior rows contributes HTML but no new plain-text boundary.
         if (text || isFirst || isLast) {
@@ -160,8 +170,6 @@ export function startCopyJob(
       } catch (err) {
         fail(err)
         return
-      } finally {
-        hooks.unmountChunk()
       }
       hooks.onTiming?.({
         kind: 'chunk',

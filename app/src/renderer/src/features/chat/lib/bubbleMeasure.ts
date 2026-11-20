@@ -222,6 +222,8 @@ export function createBubbleMeasureCoordinator(
 
   const teardownIfEmpty = (): void => {
     if (entries.size > 0) return
+    // Font events are unobserved until another bubble mounts.
+    lineHeightCache.clear()
     if (rafId !== null) {
       getEnv().cancelAnimationFrame(rafId)
       rafId = null
@@ -290,7 +292,6 @@ export function createBubbleMeasureCoordinator(
     dispose() {
       entries.clear()
       pending.clear()
-      lineHeightCache.clear()
       teardownIfEmpty()
     }
   }

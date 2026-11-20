@@ -79,6 +79,8 @@ function partContentSignature(part: AppMessagePart): string | null {
       return `text:${part.text}`
     case 'reasoning':
       return `reasoning:${part.text}`
+    case 'fork_boundary':
+      return 'fork'
     case 'compact_boundary':
       return `compact:${part.trigger ?? ''}:${part.preTokens ?? ''}`
     case 'error':
@@ -90,7 +92,7 @@ function partContentSignature(part: AppMessagePart): string | null {
     case 'artifact':
       return `artifact:${part.artifact.publicationId}`
     case 'attachment':
-      return `attachment:${part.attachments.map((a) => a.id).join(',')}`
+      return `attachment:${JSON.stringify(part.attachments.map((a) => a.id))}`
     default:
       return null
   }
@@ -279,7 +281,7 @@ export interface MultiPartGroupRef {
 export function representativePart(
   prevGroups: readonly MultiPartGroupRef[],
   partKeys: readonly string[]
-): { repPartKey: string; inheritedFromKey?: string; droppedGroupKeys: string[] } {
+): { repPartKey: string; retainedGroupKey?: string; inheritedFromKey?: string; droppedGroupKeys: string[] } {
   if (partKeys.length === 0) {
     throw new Error('representativePart requires at least one part key')
   }
@@ -293,7 +295,7 @@ export function representativePart(
   if (matchedPrev.length > 0) {
     const winner = matchedPrev[0]
     const droppedGroupKeys = matchedPrev.slice(1).map((g) => g.key)
-    return { repPartKey: winner.repPartKey, droppedGroupKeys }
+    return { repPartKey: winner.repPartKey, retainedGroupKey: winner.key, droppedGroupKeys }
   }
 
   // Split case (y13): no previous representative is inside this new group,

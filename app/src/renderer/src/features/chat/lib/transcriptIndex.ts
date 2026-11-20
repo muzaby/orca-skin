@@ -597,7 +597,14 @@ class TranscriptIndexImpl implements TranscriptIndex {
           if (tc.part.toolName !== 'Bash') continue
           if (seenBash.has(tc.part.toolRunId)) continue
           seenBash.add(tc.part.toolRunId)
-          next.push(toolCallFromPart(tc.part, resultByRun))
+          const call = toolCallFromPart(tc.part, resultByRun)
+          // The process panel flattens shell calls from the whole session.
+          delete call.parentToolRunId
+          if (call.result?.parentToolRunId !== undefined) {
+            call.result = { ...call.result }
+            delete call.result.parentToolRunId
+          }
+          next.push(call)
         }
       }
       if (!deepEqual(this.cachedBashCalls, next)) {
@@ -782,6 +789,8 @@ class TranscriptIndexImpl implements TranscriptIndex {
     currentChild: ReadonlyMap<string, string>,
     includeNested: boolean
   ): readonly SubagentTaskSummary[] {
+    const previous = includeNested ? this.cachedSubagentTasksNested : this.cachedSubagentTasks
+    const previousById = new Map(previous.map((task) => [task.toolUseId, task]))
     const summaries: SubagentTaskSummary[] = []
     const seenRunIds = new Set<string>()
     for (const c of ordered) {
@@ -793,7 +802,7 @@ class TranscriptIndexImpl implements TranscriptIndex {
         const call = toolCallFromPart(tc.part, resultByRun)
         const meta = call.result?.subagentMeta
         const toolCount = meta?.toolUses ?? childCounts.get(call.toolUseId) ?? 0
-        summaries.push({
+        const summary: SubagentTaskSummary = {
           toolUseId: call.toolUseId,
           description: toolDescriptionFromInput(call.input) ?? call.name,
           status: deriveSubagentTaskStatus(call),
@@ -807,7 +816,9 @@ class TranscriptIndexImpl implements TranscriptIndex {
           settlementMessage: settlementMessageFromCall(call),
           asyncLaunched: isAsyncLaunchedResult(call.result),
           call
-        })
+        }
+        const prior = previousById.get(call.toolUseId)
+        summaries.push(prior && deepEqual(prior, summary) ? prior : summary)
       }
     }
     return summaries
@@ -863,28 +874,42 @@ class TranscriptIndexImpl implements TranscriptIndex {
       ...agent,
       model: latest(agent.toolUseId)?.model
     }))
+    const previousById = new Map(
+      this.lastSessionPanelKey?.value.processes.map((row) => [row.id, row])
+    )
     const processes = this.cachedBashCalls.map((call) => {
       const observed = latest(call.toolUseId)
-      const view = describeTool(call)
       const raw = call.result ? call.result.output : observed?.result
       const text = typeof raw === 'string' ? raw : raw == null ? '' : JSON.stringify(raw, null, 2)
       // Terminal control codes are presentation metadata, never executable content.
       // eslint-disable-next-line no-control-regex
       const output = text.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
+      const displayed = output.slice(-65536)
+      const truncated =
+        output.length > 65536 ||
+        (!call.result &&
+          !!(
+            observed?.meta &&
+            typeof observed.meta === 'object' &&
+            'truncated' in observed.meta &&
+            observed.meta.truncated
+          ))
+      const prior = previousById.get(call.toolUseId)
+      if (
+        prior &&
+        prior.output === displayed &&
+        prior.truncated === truncated &&
+        deepEqual(prior.call, call)
+      ) {
+        return prior
+      }
+      const view = describeTool(call)
       return {
         id: call.toolUseId,
         command: view.command ?? view.subtitle,
         status: view.outcome,
-        output: output.slice(-65536),
-        truncated:
-          output.length > 65536 ||
-          (!call.result &&
-            !!(
-              observed?.meta &&
-              typeof observed.meta === 'object' &&
-              'truncated' in observed.meta &&
-              observed.meta.truncated
-            )),
+        output: displayed,
+        truncated,
         call
       }
     })

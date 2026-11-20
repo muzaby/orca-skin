@@ -3,6 +3,7 @@ import type { AppMessagePart } from '../../../../../shared/ipc'
 import type { ResponseBoundary } from '../../../../../shared/response-boundary'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import { resultMap, type MessageSegment } from './parts'
+import type { OrderedToolParts } from './transcript/orderedToolParts'
 import { createSegmentCache } from './segmentCache'
 import {
   activityBlockKey,
@@ -69,7 +70,11 @@ function firstToolRunIdInActivity(items: readonly SegmentNode[]): string | null 
 // 원문/도구 payload는 복제하지 않는다. 캐시 수명은 transcript 턴의 수명과 같다.
 export function createWorkProjector(
   entriesFor?: (message: Message) => readonly PartKeyEntry[]
-): (messages: readonly Message[], toolResults?: WorkToolResultsMap) => WorkActivityNode[] | null {
+): (
+  messages: readonly Message[],
+  toolResults?: WorkToolResultsMap,
+  toolInputs?: Pick<OrderedToolParts<Record<string, unknown>>, 'firstOwner' | 'latest'>
+) => WorkActivityNode[] | null {
   type Parsed = { atoms: Atom[]; results: ReturnType<typeof resultMap> }
   const cache = new WeakMap<Message, Parsed>()
   const previous = new Map<
@@ -117,7 +122,11 @@ export function createWorkProjector(
     function flush(chunkEnd: number): void {
       const segmentCache = prior?.caches.get(offset) ?? createSegmentCache()
       caches.set(offset, segmentCache)
-      const segments = segmentCache.segmentsFor({ ...message, parts: chunk }, undefined, results)
+      const segments = segmentCache.segmentsFor(
+        { id: message.id, role: message.role, createdAt: message.createdAt, parts: chunk },
+        undefined,
+        results
+      )
       const start = entryCursor
       while (entryCursor < entries.length && entries[entryCursor].partIndex < chunkEnd) {
         entryCursor++
@@ -168,7 +177,7 @@ export function createWorkProjector(
     previous.set(identity, { atoms, caches })
     return parsed
   }
-  return (messages, toolResults) => {
+  return (messages, toolResults, toolInputs) => {
     const parsed = messages.map(parse)
     const identities = new Set(messages.map((message, index) => message.id ?? `m:${index}`))
     for (const identity of previous.keys()) {
@@ -179,31 +188,57 @@ export function createWorkProjector(
       for (const [id, result] of message.results) results.set(id, result)
     // Writer가 telemetry 뒤 별도 메시지에 기록한 결과도 원래 도구 ID에 결합한다.
     // 기존 메시지를 재파싱하지 않으며 동일 결과의 view/children identity를 유지한다.
-    function join(atom: Atom): Atom {
+    const seenCalls = new Set<string>()
+    function join(atom: Atom): Atom | undefined {
       if (atom.kind !== 'segment' || (atom.segment.kind !== 'tools' && atom.segment.kind !== 'ask'))
         return atom
       const prior = joined.get(atom) ?? atom
+      const source = atom.segment
       const segment = prior.segment
       if (segment.kind !== 'tools' && segment.kind !== 'ask') return atom
-      const calls = segment.kind === 'tools' ? segment.calls : [segment.call]
-      const next = calls.map((call) => {
+      const priorCalls = segment.kind === 'tools' ? segment.calls : [segment.call]
+      const calls = source.kind === 'tools' ? source.calls : [source.call]
+      const next: ToolCall[] = []
+      for (const call of calls) {
+        if (toolInputs) {
+          if (
+            toolInputs.firstOwner(call.toolUseId) !== atom.messageId ||
+            seenCalls.has(call.toolUseId)
+          )
+            continue
+          seenCalls.add(call.toolUseId)
+        }
+        const retained = priorCalls[next.length]
+        const current = retained?.toolUseId === call.toolUseId ? retained : call
         const result = toolResults?.get(call.toolUseId) ?? results.get(call.toolUseId)
-        if (result === call.result) return call
-        if (result) return { ...call, result }
-        const copy = { ...call }
-        delete copy.result
-        return copy
-      })
-      if (next.every((call, index) => call === calls[index])) return prior
+        const input = toolInputs?.latest(call.toolUseId) ?? call.input
+        if (result === current.result && input === current.input) next.push(current)
+        else {
+          const updated = { ...call, input }
+          if (result) updated.result = result
+          else delete updated.result
+          next.push(updated)
+        }
+      }
+      if (next.length === 0) return undefined
+      if (next.length === priorCalls.length && next.every((call, i) => call === priorCalls[i]))
+        return prior
       const node: SegmentNode = {
         ...atom,
+        key: source.kind === 'tools' ? toolBlockKey(atom.messageId, next[0].toolUseId) : atom.key,
         segment:
-          segment.kind === 'tools' ? { kind: 'tools', calls: next } : { kind: 'ask', call: next[0] }
+          source.kind === 'tools' ? { kind: 'tools', calls: next } : { kind: 'ask', call: next[0] }
       }
       joined.set(atom, node)
       return node
     }
-    const atoms = parsed.flatMap((message) => message.atoms.map(join))
+    const atoms: Atom[] = []
+    for (const message of parsed) {
+      for (const atom of message.atoms) {
+        const node = join(atom)
+        if (node) atoms.push(node)
+      }
+    }
     if (!atoms.some((atom) => atom.kind === 'boundary')) return null
     const output: WorkActivityNode[] = []
     let active: { id: string; items: SegmentNode[] } | undefined

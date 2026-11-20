@@ -3,14 +3,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   installFakeDom,
   type FakeDom,
-  type FakeNode
+  type FakeNode,
+  type Layout
 } from '../../../../shared/ui/renderHarness.testfixture'
+import { generateTranscriptFixture } from '../../dev/transcriptFixtures'
 import { chatApi, sessionApi, settingsApi } from '../../../../shared/api/ipc'
 import * as errors from '../../../../shared/errors/reportError'
 import type { Backend } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import type { Message } from '../../reducer/chatReducer'
 import { chatActions, useChatStore, useTranscriptView } from '../../store/chatStore'
+import { clearDisclosures, setDisclosure, getDisclosure } from '../../store/disclosureStore'
+import { newTranscriptChanges, recordChange } from '../../lib/transcript/changeLog'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
 import { AgentTaskRow } from '../../harnesses/common/transcript/AgentTaskRow'
 import { agentUiPolicy } from '../../lib/agentPresentation'
@@ -59,11 +63,14 @@ vi.mock('./TranscriptViewport', async (original) => {
   const module = await original<typeof import('./TranscriptViewport')>()
   return {
     ...module,
-    TranscriptViewport: (props: TranscriptViewportProps<ViewportBlockBase>) =>
-      createElement(module.TranscriptViewport, { ...props, ...viewportOptions })
+    TranscriptViewport: (props: TranscriptViewportProps<ViewportBlockBase>) => {
+      lastSnapshot = props.snapshot
+      return createElement(module.TranscriptViewport, { ...props, ...viewportOptions })
+    }
   }
 })
 
+let lastSnapshot: TranscriptViewportProps<ViewportBlockBase>['snapshot'] | undefined
 let dom: FakeDom | undefined
 let viewportOptions: Pick<
   TranscriptViewportProps<ViewportBlockBase>,
@@ -71,7 +78,9 @@ let viewportOptions: Pick<
 >
 afterEach(() => {
   dom?.unmount()
+  clearDisclosures('s')
   dom = undefined
+  lastSnapshot = undefined
   viewportOptions = {}
   setVirtualization(true)
   portal.mockClear()
@@ -80,12 +89,21 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function mountTranscript(backend: Backend, agentKind: AgentKind, messages: Message[]): () => void {
+function mountTranscript(
+  backend: Backend,
+  agentKind: AgentKind,
+  messages: Message[],
+  options: {
+    layout?: Layout
+    isPinned?: () => boolean
+    scrollRef?: { current: HTMLDivElement | null }
+  } = {}
+): () => void {
   installChatStoreHarness({ messages, backend, agentKind })
   dom = installFakeDom({
     innerWidth: 800,
     innerHeight: 500,
-    layout: () => ({ rect: { top: 0, left: 0, height: 32, width: 600 } })
+    layout: options.layout ?? (() => ({ rect: { top: 0, left: 0, height: 32, width: 600 } }))
   })
   vi.stubGlobal('getComputedStyle', () => ({ lineHeight: '22px', fontSize: '14px' }))
   vi.stubGlobal(
@@ -98,7 +116,7 @@ function mountTranscript(backend: Backend, agentKind: AgentKind, messages: Messa
   )
   Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
 
-  const scrollRef = { current: null }
+  const scrollRef = options.scrollRef ?? { current: null }
   const contentRef = { current: null }
   function Screen(): React.JSX.Element {
     const session = useChatStore((state) => state.sessions.s.session)
@@ -112,12 +130,54 @@ function mountTranscript(backend: Backend, agentKind: AgentKind, messages: Messa
       anchored: false,
       scrollRef,
       contentRef,
-      isPinned: () => true,
+      isPinned: options.isPinned ?? (() => true),
       onScroll: () => {}
     })
   }
 
   return () => dom!.render(createElement(Screen))
+}
+
+function interactiveScrollRef(): { current: HTMLDivElement | null } {
+  const events = new EventTarget()
+  let mounted: HTMLDivElement | null = null
+  return {
+    get current() {
+      return mounted
+    },
+    set current(element) {
+      mounted = element
+      if (element)
+        Object.assign(element, {
+          addEventListener: events.addEventListener.bind(events),
+          removeEventListener: events.removeEventListener.bind(events),
+          dispatchEvent: events.dispatchEvent.bind(events)
+        })
+    }
+  }
+}
+
+function installCharacterRects(): void {
+  const create = document.createRange.bind(document)
+  Object.assign(document, {
+    createRange: () => {
+      const range = create() as Range & { start: { node: FakeNode; offset: number } }
+      return Object.assign(range, {
+        getBoundingClientRect: () => {
+          const { node, offset } = range.start
+          const rect = node.getBoundingClientRect()
+          return { ...rect, height: 16, top: rect.top + 16 * Math.floor(offset / 8) }
+        }
+      })
+    }
+  })
+}
+
+function characterTop(node: FakeNode, offset: number): number {
+  const range = document.createRange()
+  range.setStart(node as unknown as Node, offset)
+  range.setEnd(node as unknown as Node, offset + 1)
+  return range.getBoundingClientRect().top
 }
 
 const screens = [
@@ -127,6 +187,265 @@ const screens = [
 ] as const
 
 describe('TranscriptViewport via the production harnesses', () => {
+  it.each(screens)(
+    'prunes only after the newest reset across batched changes and session lineages (%s/%s)',
+    (backend, agentKind) => {
+      const render = mountTranscript(backend, agentKind, [
+        { id: 'u:keep', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'keep' }] }
+      ])
+      render()
+      const installBatch = (complete: boolean, appends: number): void => {
+        let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete })
+        for (let i = 0; i < appends; i++)
+          changes = recordChange(changes, { kind: 'append', ids: ['u:keep'] })
+        const current = useChatStore.getState().sessions.s
+        useChatStore.setState({
+          sessions: {
+            s: {
+              ...current,
+              session: { ...current.session, historyComplete: complete, transcriptChanges: changes }
+            }
+          }
+        })
+        render()
+      }
+      for (const [complete, append] of [
+        [true, 1],
+        [true, 0],
+        [true, 0],
+        [false, 1],
+        [true, 65],
+        [false, 65]
+      ] as const) {
+        setDisclosure('s', 'deleted', true)
+        setDisclosure('s', 'u:keep:user', true)
+        installBatch(complete, append)
+        expect(getDisclosure('s', 'deleted')).toBe(!complete)
+        expect(getDisclosure('s', 'u:keep:user')).toBe(true)
+      }
+    }
+  )
+
+  it.each(screens)(
+    '%s %s keeps the reading character, selection and open card across both partial boundary resets (AC22)',
+    (backend, agentKind) => {
+      vi.useFakeTimers()
+      for (const variant of ['previous user', 'missing question']) {
+        dom?.unmount()
+        const assistant: Message = {
+          id: 'a:boundary',
+          role: 'assistant',
+          createdAt: 3,
+          parts: [
+            {
+              type: 'tool_call',
+              toolRunId: 'boundary-read',
+              toolName: 'Read',
+              args: { file_path: 'file' }
+            },
+            { type: 'tool_result', toolRunId: 'boundary-read', result: 'ok', isError: false },
+            { type: 'text', text: 'reading the same sentence' }
+          ]
+        }
+        const user: Message = {
+          id: 'u:boundary',
+          role: 'user',
+          createdAt: 2,
+          parts: [{ type: 'text', text: 'existing question' }]
+        }
+        const messages = variant === 'previous user' ? [user, assistant] : [assistant]
+        const layout: Layout = (node) => {
+          const viewport = node.closest('[data-behavior="virtualizable"]')
+          const row = node.closest('[data-index]')
+          if (!row || !viewport)
+            return { rect: { top: 0, left: 0, width: 600, height: 400 }, scrollHeight: 1800 }
+          const index = Number(row.getAttribute('data-index'))
+          // Two adjacent user bubbles can share one React block; the new bubble still adds height above our sentence.
+          const grouped =
+            variant === 'previous user' &&
+            viewport.querySelector('[data-part-key="u:older:user"]') &&
+            index > 0
+          const top = 80 * index + (grouped ? 32 : 0) - viewport.scrollTop
+          return { rect: { top, left: 0, width: 600, height: 80 } }
+        }
+        const scrollRef = interactiveScrollRef()
+        const render = mountTranscript(backend, agentKind, messages, {
+          layout,
+          isPinned: () => false,
+          scrollRef
+        })
+        vi.stubGlobal('requestAnimationFrame', window.requestAnimationFrame)
+        vi.stubGlobal('cancelAnimationFrame', window.cancelAnimationFrame)
+        const { select, selection } = installViewportSelection(dom!)
+        installCharacterRects()
+        render()
+        vi.advanceTimersByTime(48)
+        const card = dom!.query('[data-part-key="a:boundary:tool:boundary-read"]')!
+        const toggle = card.querySelector('[aria-expanded]')!
+        dom!.click(toggle)
+        expect(toggle.getAttribute('aria-expanded')).toBe('true')
+        const response = dom!.query('[data-part-key="a:boundary:text:0"]')!
+        const blockKey = response.closest('[data-index]')!.getAttribute('data-block-key')
+        const viewport = dom!.query('[data-behavior="virtualizable"]')!
+        viewport.scrollTop = response.getBoundingClientRect().top + 3
+        const oldScroll = viewport.scrollTop
+        select(response, 10, response, 2)
+        const content = selection.toString()
+        const oldPoint = selection.anchorNode!
+        const oldTop = characterTop(oldPoint, selection.anchorOffset)
+        Object.assign(document, {
+          caretPositionFromPoint: () => ({ offsetNode: oldPoint, offset: 10 })
+        })
+        scrollRef.current!.dispatchEvent(new Event('scroll'))
+        selection.removeAllRanges()
+        const prefix = variant === 'previous user' ? { ...user, id: 'u:older', createdAt: 1 } : user
+        chatActions.prependHistory('s', [prefix], { reachedStart: false })
+        render()
+        vi.advanceTimersByTime(48)
+        const session = useChatStore.getState().sessions.s.session
+        expect(session.transcriptChanges.log.at(-1)).toEqual({ kind: 'reset', complete: false })
+        expect(session.messages.map((m) => m.id)).toEqual([prefix.id, ...messages.map((m) => m.id)])
+        expect(dom!.query('[data-part-key="a:boundary:tool:boundary-read"]')).toBe(card)
+        expect(toggle.getAttribute('aria-expanded')).toBe('true')
+        const after = dom!.query('[data-part-key="a:boundary:text:0"]')!
+        expect(after.closest('[data-index]')!.getAttribute('data-block-key')).toBe(blockKey)
+        expect(selection.toString()).toBe(content)
+        expect([
+          selection.anchorNode!.closest('[data-part-key]')!.getAttribute('data-part-key'),
+          selection.anchorOffset,
+          selection.focusNode!.closest('[data-part-key]')!.getAttribute('data-part-key'),
+          selection.focusOffset
+        ]).toEqual(['a:boundary:text:0', 10, 'a:boundary:text:0', 2])
+        expect(viewport.scrollTop, variant).toBeGreaterThan(oldScroll)
+        expect(
+          Math.abs(characterTop(selection.anchorNode!, selection.anchorOffset) - oldTop),
+          variant
+        ).toBeLessThanOrEqual(1)
+        clearDisclosures('s')
+      }
+    }
+  )
+
+  it('inherits the open Work activity on both sides of a group split (AC22)', async () => {
+    vi.useFakeTimers()
+    const assistant: Message = {
+      id: 'a:split',
+      role: 'assistant',
+      createdAt: 2,
+      parts: [
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'first' } },
+        { type: 'tool_call', toolRunId: 'left', toolName: 'Read', args: { file_path: 'left' } },
+        { type: 'tool_call', toolRunId: 'right', toolName: 'Read', args: { file_path: 'right' } },
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'first', outcome: 'ended' } }
+      ]
+    }
+    const render = mountTranscript('claude', 'work', [assistant])
+    vi.stubGlobal('requestAnimationFrame', window.requestAnimationFrame)
+    vi.stubGlobal('cancelAnimationFrame', window.cancelAnimationFrame)
+    render()
+    const [original] = dom!.queryAll('[data-focus-id="activity-toggle"]')
+    expect(original.getAttribute('aria-expanded')).toBe('false')
+    dom!.click(original)
+    expect(original.getAttribute('aria-expanded')).toBe('true')
+    expect(dom!.query('[data-part-key="a:split:tool:right"]')).toBeTruthy()
+    const separated: Message = {
+      ...assistant,
+      parts: [
+        ...assistant.parts.slice(0, 2),
+        assistant.parts[3],
+        { type: 'response_boundary', boundary: { phase: 'begin', id: 'second' } },
+        assistant.parts[2],
+        { type: 'response_boundary', boundary: { phase: 'end', id: 'second', outcome: 'ended' } }
+      ]
+    }
+    vi.spyOn(settingsApi, 'set').mockResolvedValue({} as never)
+    vi.spyOn(sessionApi, 'load').mockResolvedValue({
+      id: 's',
+      backend: 'claude',
+      agentKind: 'work',
+      title: 'split',
+      messages: [separated]
+    })
+    await chatActions.loadSession('s', null, { revalidate: true })
+    render()
+    const groups = dom!.queryAll('[data-work-activity]')
+    expect(groups).toHaveLength(2)
+    expect(groups[0].querySelector('[data-focus-id="activity-toggle"]')).toBe(original)
+    for (const [index, id] of ['left', 'right'].entries()) {
+      expect(
+        groups[index]
+          .querySelector('[data-focus-id="activity-toggle"]')
+          ?.getAttribute('aria-expanded')
+      ).toBe('true')
+      expect(groups[index].querySelector(`[data-part-key="a:split:tool:${id}"]`)).toBeTruthy()
+    }
+  })
+
+  it('keeps the visible character and nonzero scroll position when sending after a 5,000-block answer (AC16)', () => {
+    vi.useFakeTimers()
+    const fixture = generateTranscriptFixture('claude-code', { turns: 1 }, 'answer-5000')
+    const scrollRef = interactiveScrollRef()
+    const layout: Layout = (node) => {
+      const row = node.closest('[data-index]')
+      const top = row
+        ? 140 * Number(row.getAttribute('data-index')) - (scrollRef.current?.scrollTop ?? 0)
+        : 0
+      return { rect: { top, left: 0, height: row ? 140 : 400, width: 600 }, scrollHeight: 500000 }
+    }
+    const render = mountTranscript('claude', 'code', fixture.loadedMessages, {
+      scrollRef,
+      layout,
+      isPinned: () => false
+    })
+    vi.stubGlobal('requestAnimationFrame', window.requestAnimationFrame)
+    vi.stubGlobal('cancelAnimationFrame', window.cancelAnimationFrame)
+    const { select, selection } = installViewportSelection(dom!)
+    installCharacterRects()
+    render()
+    vi.advanceTimersByTime(48)
+    const answerSnapshot = lastSnapshot!
+    expect(answerSnapshot.count).toBeGreaterThanOrEqual(5000)
+    const part = dom!.query('[data-part-key="a:fx-0:text:0"]')!
+    const key = part.closest('[data-index]')!.getAttribute('data-block-key')
+    const viewport = scrollRef.current!
+    viewport.scrollTop = 17
+    select(part, 10, part, 2)
+    const oldScroll = viewport.scrollTop
+    const oldCharTop = characterTop(selection.anchorNode!, selection.anchorOffset)
+    const oldRange = selection.toString()
+    Object.assign(document, {
+      caretPositionFromPoint: () => ({ offsetNode: selection.anchorNode, offset: 10 })
+    })
+    viewport.dispatchEvent(new Event('scroll'))
+    render()
+    vi.advanceTimersByTime(48)
+    const mounted = dom!.queryAll('[data-index]').map((row) => row.getAttribute('data-block-key'))
+    expect(viewport.scrollTop).toBe(oldScroll)
+    expect(oldScroll).toBeGreaterThan(0)
+    expect(mounted.length).toBeLessThan(60)
+    const send = vi.spyOn(chatApi, 'send').mockResolvedValue(undefined)
+    expect(chatActions.send('after the long answer')).toBe(true)
+    render()
+    vi.advanceTimersByTime(48)
+    expect(send).toHaveBeenCalledOnce()
+    const appended = useChatStore.getState().sessions.s.session.messages.at(-1)!
+    expect(appended.role).toBe('user')
+    expect(answerSnapshot.indexOf(`${appended.id}:user`)).toBe(-1)
+    expect(lastSnapshot!.indexOf(`${appended.id}:user`)).toBeGreaterThan(0)
+    const after = dom!.query('[data-part-key="a:fx-0:text:0"]')!
+    expect(after.closest('[data-index]')!.getAttribute('data-block-key')).toBe(key)
+    expect(dom!.queryAll('[data-index]').map((row) => row.getAttribute('data-block-key'))).toEqual(
+      mounted
+    )
+    expect(viewport.scrollTop).toBe(oldScroll)
+    expect(selection.toString()).toBe(oldRange)
+    expect([selection.anchorOffset, selection.focusOffset]).toEqual([10, 2])
+    expect(selection.anchorNode!.closest('[data-part-key]')).toBe(after)
+    expect(
+      Math.abs(characterTop(selection.anchorNode!, selection.anchorOffset) - oldCharTop)
+    ).toBeLessThanOrEqual(1)
+  })
+
   it('retains the keyboard-extended endpoint before the next selectionchange', () => {
     const render = mountTranscript('claude', 'code', [
       { id: 'u:key', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'question' }] },
@@ -389,6 +708,26 @@ describe('TranscriptViewport via the production harnesses', () => {
               ]
             : [{ type: 'text', text: `question ${index}` }]
       }))
+      messages[1] = {
+        ...messages[1],
+        parts: [
+          ...messages[1].parts,
+          ...['opened', 'collapsed'].flatMap((state): Message['parts'] => [
+            {
+              type: 'tool_call',
+              toolRunId: `c9-${state}`,
+              toolName: 'Read',
+              args: { file_path: `${state}.md` }
+            },
+            {
+              type: 'tool_result',
+              toolRunId: `c9-${state}`,
+              result: `content-${state}-c9`,
+              isError: false
+            }
+          ])
+        ]
+      }
       const render = mountTranscript(backend, agentKind, messages)
       const { selection, select } = installViewportSelection(dom!)
       const write = vi
@@ -421,10 +760,22 @@ describe('TranscriptViewport via the production harnesses', () => {
       setVirtualization(false)
       viewportOptions = { overscan: 20, copyChunkSize: 30 }
       render()
+      const contextGroup = dom!
+        .query('[data-component="context-tool-group"]')
+        ?.querySelector('[aria-expanded]')
+      if (contextGroup?.getAttribute('aria-expanded') === 'false') dom!.click(contextGroup)
+      const cardToggle = (state: string): FakeNode =>
+        dom!.query(`[data-part-key="a:copy-1:tool:c9-${state}"]`)!.querySelector('[aria-expanded]')!
+      const open = cardToggle('opened')
+      if (open.getAttribute('aria-expanded') === 'false') dom!.click(open)
+      expect(cardToggle('opened').getAttribute('aria-expanded')).toBe('true')
+      expect(cardToggle('collapsed').getAttribute('aria-expanded')).toBe('false')
       select(end(), 3, start(), 2)
       // The non-virtual reference leaves the copy event entirely to the browser.
       expect(dom!.query('[data-transcript-viewport]')!.props.onCopy).toBeUndefined()
       const reference = selection.toString()
+      expect(reference).toContain('content-opened-c9')
+      expect(reference).not.toContain('content-collapsed-c9')
       expect(reference.split('\n').length).toBeGreaterThan(2)
 
       setVirtualization(true)

@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { generateTranscriptFixture } from './transcriptFixtures'
+import { beginCopyTiming } from './transcriptViewportDiagnostics'
+import { createDiagnosticDevApi, generateTranscriptFixture } from './transcriptFixtures'
 import { createClaudeBlockModel } from '../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../harnesses/opencode/transcript/openCodeBlocks'
 import { newTranscriptChanges } from '../lib/transcript/changeLog'
 
 describe('transcriptFixtures (WU-14 · S3/S4/S5/S7 generator invariants)', () => {
+  it('diagnostics retain timings only for the most recent copy', () => {
+    const api = createDiagnosticDevApi()
+    const previous = beginCopyTiming()
+    previous({ kind: 'handler', durationMs: 3, blockCount: 100 })
+    const saved = api.copyTimings()
+    const current = beginCopyTiming()
+    previous({ kind: 'chunk', durationMs: 60, blockCount: 2000 })
+    current({ kind: 'handler', durationMs: 5, blockCount: 300 })
+    expect(api.copyTimings()).toEqual([{ kind: 'handler', durationMs: 5, blockCount: 300 }])
+    expect(saved).toEqual([{ kind: 'handler', durationMs: 3, blockCount: 100 }])
+  })
+
   it.each(['claude-code', 'claude-work', 'opencode'] as const)(
     '%s builds 5,000 blocks in one answer and loads 6,000 selectable blocks for copy',
     (kind) => {

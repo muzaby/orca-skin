@@ -16,6 +16,7 @@ describe('viewport/entry (EP-11 ④⑧ · p7, p8, p10)', () => {
       action: 'restore-saved',
       saved: unpinned
     })
+    expect(entryPolicy('resume', 'opencode')).toEqual({ action: 'scroll-bottom' })
     expect(entryPolicy('resume', 'opencode', pinned)).toEqual({ action: 'scroll-bottom' })
   })
 

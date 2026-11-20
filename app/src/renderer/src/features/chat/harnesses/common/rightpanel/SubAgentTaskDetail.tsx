@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useTranscriptRuntime } from '../transcript/TranscriptRuntime'
 import { AssistantMessage } from '../transcript/AssistantMessage'
 import { UserBubbleText } from '../transcript/UserBubbleText'
@@ -33,7 +34,7 @@ function answerTextFromCall(call: ToolCall): string | null {
 // 간격은 메인 transcript 양식을 따른다 — 프롬프트↔답변 사이 --chat-turn-gap(턴 간격).
 //
 // **props 만 읽는 순수 View** — store 를 읽지 않아 `renderToStaticMarkup` 으로 검증할 수 있다.
-export function SubAgentTaskDetail({
+export const SubAgentTaskDetail = memo(function SubAgentTaskDetail({
   task: selected,
   childMessage,
   startedAtMs,
@@ -81,4 +82,4 @@ export function SubAgentTaskDetail({
       )}
     </div>
   )
-}
+})

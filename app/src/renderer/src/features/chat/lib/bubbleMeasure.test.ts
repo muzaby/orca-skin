@@ -32,6 +32,7 @@ function createFakeBubbleElement(initialScrollHeight: number, onRead?: () => voi
 
 interface MeasureTestHarness {
   coordinator: ReturnType<typeof createBubbleMeasureCoordinator>
+  setLineHeight: (value: string) => void
   getRoCreated: () => number
   getRafCount: () => number
   getStyleReads: () => number
@@ -96,6 +97,9 @@ function createTestHarness(lineHeight = '20px', fontSize = '14px'): MeasureTestH
 
   return {
     coordinator,
+    setLineHeight: (value) => {
+      lineHeight = value
+    },
     getRoCreated: () => roCreated,
     getRafCount: () => rafCount,
     getStyleReads: () => styleReads,
@@ -208,14 +212,15 @@ describe('bubbleMeasure (EP-18 m1~m8)', () => {
 
     // Content reference changes -> re-read
     reads = 0
-    h.coordinator.update(el, { content: { text: 'hello' }, scale: 1, bubbleVariant: 'v1' })
+    const replacement = { text: 'hello' }
+    h.coordinator.update(el, { content: replacement, scale: 1, bubbleVariant: 'v1' })
     h.flushFrame()
     expect(reads).toBe(1)
 
     // Scale changes -> re-read + new style read
     reads = 0
     h.resetCounters()
-    h.coordinator.update(el, { content, scale: 1.25, bubbleVariant: 'v1' })
+    h.coordinator.update(el, { content: replacement, scale: 1.25, bubbleVariant: 'v1' })
     h.flushFrame()
     expect(reads).toBe(1)
     expect(h.getStyleReads()).toBe(1)
@@ -254,6 +259,21 @@ describe('bubbleMeasure (EP-18 m1~m8)', () => {
     h.coordinator.observe(b3, { content: 'c', scale: 1, bubbleVariant: 'v2' }, () => {})
     h.flushFrame()
     expect(h.getStyleReads()).toBe(1)
+  })
+
+  it('m7 remeasures after the last bubble unmounts and a font loads while the timeline is empty', () => {
+    const h = createTestHarness()
+    const visible: boolean[] = []
+    const inputs = { content: 'same', scale: 1, bubbleVariant: 'v1' }
+    const el = createFakeBubbleElement(250)
+    h.coordinator.observe(el, inputs, (value) => visible.push(value))
+    h.flushFrame()
+    h.coordinator.unobserve(el)
+    h.setLineHeight('30px')
+    h.emitFontsLoadingDone()
+    h.coordinator.observe(el, inputs, (value) => visible.push(value))
+    h.flushFrame()
+    expect(visible).toEqual([true, false])
   })
 
   it('m8: changing only bubbleVariant re-reads only that bubble', () => {

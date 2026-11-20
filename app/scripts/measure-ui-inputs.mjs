@@ -244,6 +244,17 @@ export const SOURCE_MODULES = {
   markdownBlocks: 'src/renderer/src/features/chat/lib/markdownBlocks.ts'
 }
 
+// 0326 이전 Timeline과 패널이 사용하던 함수. 옛 트리를 측정할 때만 번들한다.
+const priorTranscriptModules = {
+  workResults: 'src/renderer/src/features/chat/lib/workToolResults.ts',
+  head: 'src/renderer/src/features/chat/harnesses/opencode/transcript/projection.ts',
+  parts: 'src/renderer/src/features/chat/lib/parts.ts',
+  taskBoard: 'src/renderer/src/features/chat/lib/taskBoard.ts',
+  taskContext: 'src/renderer/src/features/chat/lib/taskContext.ts',
+  background: 'src/renderer/src/features/chat/lib/canonicalBackground.ts',
+  panel: 'src/renderer/src/features/chat/harnesses/opencode/rightpanel/model.ts'
+}
+
 // I1~I9 — 각 행은 모듈에서 함수를 고르고(없으면 `undefined`) 입력을 미리 만든다.
 export function measurementCases(modules) {
   const session = emptySessionMessages()
@@ -347,7 +358,10 @@ export async function loadTree(tree) {
   const { build } = await import('esbuild')
   const work = mkdtempSync(join(tmpdir(), 'measure-ui-inputs-'))
   try {
-    const entry = Object.entries(SOURCE_MODULES)
+    const sources = existsSync(join(tree, SOURCE_MODULES.claudeBlocks))
+      ? SOURCE_MODULES
+      : { ...SOURCE_MODULES, ...priorTranscriptModules }
+    const entry = Object.entries(sources)
       .map(([name, file]) => {
         const path = join(tree, file)
         return existsSync(path)
@@ -555,6 +569,21 @@ export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
   return rows
 }
 
+// Timeline은 같은 messages 참조에서 useMemo 결과를 재사용한다.
+function priorTimeline(project) {
+  let previous
+  let view
+  return {
+    advance({ messages }) {
+      if (messages !== previous) {
+        view = project(messages)
+        previous = messages
+      }
+      return view
+    }
+  }
+}
+
 export function transcriptMeasurementCases(modules) {
   const {
     claudeBlocks = {},
@@ -647,11 +676,46 @@ export function transcriptMeasurementCases(modules) {
       }
     }
   }
-  const claudeModel = (mode) =>
-    claudeBlocks.createClaudeBlockModel &&
-    (() => claudeBlocks.createClaudeBlockModel({ mode, sessionKey: 'j' }))
+  function claudeModel(mode) {
+    if (claudeBlocks.createClaudeBlockModel)
+      return () => claudeBlocks.createClaudeBlockModel({ mode, sessionKey: 'j' })
+    if (!modules.turns?.createExchangeGrouper || !modules.workResults?.createWorkToolResultSelector)
+      return undefined
+    return () => {
+      const group = modules.turns.createExchangeGrouper()
+      const work = modules.workResults.createWorkToolResultSelector()
+      return priorTimeline((messages) => {
+        const exchanges = group(messages)
+        return mode === 'work' ? work(exchanges) : exchanges
+      })
+    }
+  }
+  const openCodeModel =
+    openCodeBlocks.createOpenCodeBlockModel ??
+    (modules.head?.projectTimelineHead && (() => priorTimeline(modules.head.projectTimelineHead)))
+  const panelModel = transcriptIndex.transcriptIndexFor
+    ? () => transcriptIndex.transcriptIndexFor
+    : modules.panel?.sessionPanelModel &&
+      (() => modules.taskContext.createTaskContextSourceSelector())
+  const boardModel = transcriptIndex.transcriptIndexFor
+    ? () => transcriptIndex.transcriptIndexFor
+    : modules.taskBoard?.taskBoardForMessages && (() => modules.taskBoard.taskBoardForMessages)
   const readBlocks = (model, state) => model.advance(state)
   const readPanels = (indexFor, state) => {
+    if (!transcriptIndex.transcriptIndexFor) {
+      const { messages } = state
+      return [
+        modules.taskBoard.taskBoardForMessages(messages),
+        indexFor(messages),
+        modules.parts.subagentTasksFromMessages(messages, false),
+        modules.parts.subagentTasksFromMessages(messages, true),
+        modules.parts.subagentTaskDescription(messages, 'jt-0'),
+        modules.parts.childMessageForParentToolRunId(messages, 'jt-0'),
+        modules.background.transcriptResultsByToolUseId(messages),
+        modules.background.persistedBackgroundModels(messages),
+        modules.panel.sessionPanelModel(messages)
+      ]
+    }
     const index = indexFor(state)
     return [
       index.taskBoard(),
@@ -713,9 +777,10 @@ export function transcriptMeasurementCases(modules) {
     return modelCases(
       size === 100 ? 'J5' : `J5(${size})`,
       `작업 보드 ${size}개 · TaskUpdate 결과`,
-      transcriptIndex.transcriptIndexFor && (() => transcriptIndex.transcriptIndexFor),
+      boardModel,
       update,
-      (indexFor, state) => indexFor(state).taskBoard(),
+      (read, state) =>
+        transcriptIndex.transcriptIndexFor ? read(state).taskBoard() : read(state.messages),
       messages
     )
   }
@@ -729,17 +794,24 @@ export function transcriptMeasurementCases(modules) {
       incremental: {
         prepare: advanceStableBlocks && (() => advanceStableBlocks(null, '')),
         run:
-          scanIncrement &&
-          ((initial) => {
-            let stable = initial.stable
-            let state = initial.scanState
-            for (let end = 50; end <= full.length; end += 50) {
-              const next = scanIncrement(full.slice(0, end), stable, state)
-              stable = next.stable
-              state = next.state
-            }
-            return state.scannedChars
-          })
+          !scanIncrement && advanceStableBlocks
+            ? (initial) => {
+                let cache = initial.cache
+                for (let step = 1; step * 50 <= full.length; step++)
+                  cache = advanceStableBlocks(cache, full.slice(0, step * 50)).cache
+                return cache
+              }
+            : scanIncrement &&
+              ((initial) => {
+                let stable = initial.stable
+                let state = initial.scanState
+                for (let end = 50; end <= full.length; end += 50) {
+                  const next = scanIncrement(full.slice(0, end), stable, state)
+                  stable = next.stable
+                  state = next.state
+                }
+                return state.scannedChars
+              })
       },
       cacheHit: {
         prepare: advanceStableBlocks && (() => advanceStableBlocks(null, full).cache),
@@ -771,7 +843,18 @@ export function transcriptMeasurementCases(modules) {
             },
             run: (cache) => (modified ? cache.segmentsFor(next, from) : cache.segmentsFor(initial))
           }
-        : {}
+        : modules.parts?.reconcileSegments
+          ? {
+              prepare: () => (warm ? modules.parts.messageSegments(initial.parts) : null),
+              run(prior) {
+                if (warm && !modified) return prior
+                return modules.parts.reconcileSegments(
+                  prior,
+                  modules.parts.messageSegments(modified ? next.parts : initial.parts)
+                )
+              }
+            }
+          : {}
     return threeBranch(id, `10,000 part · ${edit}`, {
       coldBuild: branch(false, false),
       incremental: branch(true, true),
@@ -797,7 +880,7 @@ export function transcriptMeasurementCases(modules) {
     ...modelCases(
       'J2',
       'OpenCode · 10,000 exchange 끝 part 추가',
-      openCodeBlocks.createOpenCodeBlockModel,
+      openCodeModel,
       appendText,
       readBlocks
     ),
@@ -808,13 +891,7 @@ export function transcriptMeasurementCases(modules) {
       publish,
       readBlocks
     ),
-    ...modelCases(
-      'J4',
-      'index 1 산출물 · 패널 9개 뷰',
-      transcriptIndex.transcriptIndexFor && (() => transcriptIndex.transcriptIndexFor),
-      publish,
-      readPanels
-    ),
+    ...modelCases('J4', 'index 1 산출물 · 패널 9개 뷰', panelModel, publish, readPanels),
     ...[100, 1_000].flatMap(taskBoardCases),
     ...['append', 'withdraw', 'different-kind'].flatMap(segmentCases),
     ...scanCases('J7', fence.full),

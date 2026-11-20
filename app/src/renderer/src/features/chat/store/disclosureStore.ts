@@ -181,7 +181,8 @@ export function restoreFocusIfEligible(
   const record = state.focusRecord
   if (!record || record.sessionKey !== sessionKey || record.blockKey !== blockKey) return false
   const active = document.activeElement
-  if (active !== null && active !== document.body) {
+  if (active === null) return false
+  if (active !== document.body) {
     // Focus moved elsewhere (e.g. composer) while unmounted: do not steal it.
     state = { ...state, focusRecord: null }
     emit()

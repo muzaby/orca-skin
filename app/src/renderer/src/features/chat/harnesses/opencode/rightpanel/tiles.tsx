@@ -1,7 +1,6 @@
 import { basenameForDisplay } from '../../../../../../../shared/path-basename'
 import { useI18n } from '../../../../../shared/i18n'
 import { Button } from '../../../../../shared/ui/Button'
-import type { Message } from '../../../reducer/chatReducer'
 import { useBackgroundStore } from '../../../store/backgroundStore'
 import { chatActions, useChatSession, useTranscriptView } from '../../../store/chatStore'
 import { AgentDetail, AgentList } from './AgentViews'
@@ -10,20 +9,16 @@ import { activePanelProcesses, type SessionPanelModel } from './model'
 import { useOpenCodePanelNavigation } from './navigation'
 import { OpenCodeSources } from './Sources'
 
-function usePanelData(): {
-  messages: Message[]
-  model: SessionPanelModel
-} {
+function usePanelModel(): SessionPanelModel {
   const sessionId = useChatSession((state) => state.sessionId)
-  const messages = useChatSession((state) => state.messages)
   const background = useBackgroundStore((state) =>
     sessionId ? state.sessions[sessionId]?.state : undefined
   )
-  const model = useTranscriptView('sessionPanelModel', background)
-  return { messages, model }
+  return useTranscriptView('sessionPanelModel', background)
 }
 
-function useSelectedOpenCodeAgent(): ReturnType<typeof usePanelData> & {
+function useSelectedOpenCodeAgent(): {
+  model: SessionPanelModel
   navigation: ReturnType<typeof useOpenCodePanelNavigation>
   detail:
     | Extract<
@@ -34,20 +29,20 @@ function useSelectedOpenCodeAgent(): ReturnType<typeof usePanelData> & {
   selected: string | null
   agent: SessionPanelModel['agents'][number] | undefined
 } {
-  const { messages, model } = usePanelData()
+  const model = usePanelModel()
   const baseSelected = useChatSession((state) => state.selectedSubagentTaskId)
   const navigation = useOpenCodePanelNavigation()
   const detail = navigation?.selection?.id === 'subagent' ? navigation.selection : undefined
   const selected = detail ? detail.selectedId : baseSelected
   const agent = model.agents.find((item) => item.toolUseId === selected)
-  return { messages, model, navigation, detail, selected, agent }
+  return { model, navigation, detail, selected, agent }
 }
 
 export function OpenCodeTaskContent(): React.JSX.Element {
   const { tr } = useI18n()
   const cwd = useChatSession((state) => state.cwd)
   const navigation = useOpenCodePanelNavigation()
-  const { model } = usePanelData()
+  const model = usePanelModel()
   const active = model.agents.filter((agent) => agent.status === 'running').length
   const processes = activePanelProcesses(model)
   return (
@@ -112,11 +107,11 @@ export function OpenCodeTaskContent(): React.JSX.Element {
 
 export function OpenCodeAgentContent(): React.JSX.Element {
   const { tr } = useI18n()
-  const { messages, model, navigation, detail, selected, agent } = useSelectedOpenCodeAgent()
+  const { model, navigation, detail, selected, agent } = useSelectedOpenCodeAgent()
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       {agent ? (
-        <AgentDetail agent={agent} messages={messages} />
+        <AgentDetail agent={agent} />
       ) : selected ? (
         <p className="p-5 text-footnote text-oc-muted">{tr('chat.opencode.panel.unavailable')}</p>
       ) : (
@@ -169,7 +164,7 @@ export function OpenCodeAgentHeader(): React.JSX.Element {
 
 export function OpenCodeProcessContent(): React.JSX.Element {
   const { tr } = useI18n()
-  const { model } = usePanelData()
+  const model = usePanelModel()
   const baseSelected = useChatSession((state) => state.selectedProcessToolId)
   const navigation = useOpenCodePanelNavigation()
   const detail = navigation?.selection?.id === 'process' ? navigation.selection : undefined

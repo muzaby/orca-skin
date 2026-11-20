@@ -1,3 +1,5 @@
+import { decodeString } from 'micromark-util-decode-string'
+
 // 스트리밍 마크다운 소스를 "확정(stable) 블록들 + 꼬리(tail)"로 분할하는 순수 헬퍼.
 // StreamingMarkdown 이 확정 블록을 memo 된 <Markdown> 으로 고정해 매 델타의 unified
 // 재파스를 꼬리 블록으로 한정한다 (0008 — 프레임당 파싱 O(전문) → O(꼬리)).
@@ -93,13 +95,13 @@ function parseOpeningFence(rawLine: string): {
   const info = m[3]
   // CommonMark: 백틱 펜스 info 문자열에는 백틱이 올 수 없다.
   if (char === '`' && info.includes('`')) return null
-  const trimmedInfo = info.trim()
+  const trimmedInfo = info.replace(/^[ \t]+/, '')
   const firstToken = trimmedInfo === '' ? undefined : trimmedInfo.split(/\s+/, 1)[0]
   return {
     char,
     length: marker.length,
     indent,
-    lang: firstToken
+    lang: firstToken ? decodeString(firstToken).split(/\s+/, 1)[0] || undefined : undefined
   }
 }
 
@@ -113,6 +115,11 @@ function isClosingFence(rawLine: string, fence: { char: '`' | '~'; length: numbe
 function normalizeFenceCode(rawBody: string, indent: number): string {
   let normalized = rawBody.replace(/\r\n/g, '\n')
   if (indent > 0 && normalized.length > 0) {
+    // A tab crossing the fence indentation boundary leaves spaces up to column four.
+    if (normalized.includes('\t')) {
+      const partialTab = new RegExp(`^ {0,${indent - 1}}\t`, 'gm')
+      normalized = normalized.replace(partialTab, '    ')
+    }
     const prefixRe = new RegExp(`^ {1,${indent}}`, 'gm')
     normalized = normalized.replace(prefixRe, '')
   }

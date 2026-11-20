@@ -36,6 +36,78 @@ describe('transcript block snapshots', () => {
     expect(swapped.keyAt(61)).toBe('66')
   })
 
+  it('u6 consults at most one slot table per historical chunk without unpacking blocks', () => {
+    let blockKeyReads = 0
+    const rows = blocks(195).map((row) => ({
+      get key() {
+        blockKeyReads++
+        return row.key
+      },
+      text: row.text
+    }))
+    const list = createBlockList(rows)
+    const old = list.snapshot()
+    list.splice(192, 3, [])
+    blockKeyReads = 0
+    let reads = 0
+    const get = Map.prototype.get
+    let position: number
+    try {
+      Map.prototype.get = function (key: unknown): unknown {
+        if (key === '194') reads++
+        return get.call(this, key)
+      }
+      position = old.indexOf('194')
+    } finally {
+      Map.prototype.get = get
+    }
+    expect(position).toBe(194)
+    expect(reads).toBeGreaterThan(0)
+    expect(reads).toBeLessThanOrEqual(1 + Math.ceil(rows.length / 64))
+    expect(blockKeyReads).toBe(0)
+  })
+
+  it('u1–u7 keep all four historical locations after independent cross-chunk edits', () => {
+    const initial = blocks(195)
+    const list = createBlockList(initial)
+    const s0 = list.snapshot()
+    let expected = initial
+    let revision = 0
+    const changes = [
+      {
+        start: 62,
+        remove: 6,
+        insert: initial.slice(62, 68).map((b) => ({ ...b, text: 'updated' })),
+        rekey: false
+      },
+      { start: 65, remove: 0, insert: [{ key: 'new', text: 'insert' }], rekey: true },
+      { start: 63, remove: 69, insert: [], rekey: true },
+      { start: 1, remove: 0, insert: [initial[64]], rekey: true },
+      { start: 62, remove: 2, insert: [initial[62], initial[61]], rekey: true }
+    ]
+    const snapshots = [{ snap: s0, rows: initial, keyRevision: 0 }]
+    for (const { start, remove, insert, rekey } of changes) {
+      expected = expected.toSpliced(start, remove, ...insert)
+      expect(new Set(expected.map((row) => row.key)).size).toBe(expected.length)
+      if (rekey) revision++
+      snapshots.push({
+        snap: list.splice(start, remove, insert),
+        rows: expected,
+        keyRevision: revision
+      })
+    }
+    for (const { snap, rows, keyRevision } of snapshots) {
+      expect(snap.keyRevision).toBe(keyRevision)
+      expect(snap.count).toBe(rows.length)
+      for (const [i, row] of rows.entries()) {
+        expect(snap.indexOf(row.key)).toBe(i)
+        expect(snap.keyAt(i)).toBe(row.key)
+        expect(snap.blockAt(i)).toBe(row)
+      }
+      expect(snap.indexOf('missing')).toBe(-1)
+    }
+  })
+
   it('u1, u2, u3, u4, u5, u6, u7 verify snapshot immutability, chunk sharing, cross-chunk replace, fallback indexOf, and keyRevision', () => {
     const list = createBlockList(blocks(200))
     const s0 = list.snapshot()

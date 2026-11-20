@@ -83,7 +83,15 @@ export function createSegmentCache(): {
 
   return {
     segmentsFor(message, partsFrom, externalResults) {
-      if (previous === message && previousExternal === externalResults) return views
+      if (
+        previous &&
+        previous.id === message.id &&
+        previous.parts === message.parts &&
+        previousExternal === externalResults
+      ) {
+        previous = message
+        return views
+      }
       const parts = message.parts
       const edit = edits.get(message)
       let from = partsFrom
@@ -102,7 +110,7 @@ export function createSegmentCache(): {
           }
         }
       }
-      if (!previous) from = 0
+      if (!previous || previous.id !== message.id) from = 0
       from = Math.min(from, parts.length, previous?.parts.length ?? 0)
 
       const changed = new Set<string>()

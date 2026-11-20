@@ -31,6 +31,18 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
     }
   })
 
+  it('keeps only surviving endpoints after a selection row disappears (c1/c6/c15)', () => {
+    const visible = { startIndex: 8, endIndex: 9, overscan: 2, count: 15 }
+    const window = [6, 7, 8, 9, 10, 11]
+    expect(selectionMountSet(visible, { anchorIndex: -1, focusIndex: 14 })).toEqual([
+      ...window,
+      12,
+      13,
+      14
+    ])
+    expect(selectionMountSet(visible, { anchorIndex: 14, focusIndex: -1 })).toEqual([...window, 14])
+  })
+
   it('mounts an isolated viewport anchor without expanding its neighborhood', () => {
     const mounted = selectionMountSet(
       { startIndex: 10, endIndex: 12, overscan: 1, count: 100 },
@@ -141,6 +153,42 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
       })
     )
   })
+
+  it.each(['mount', 'serialize', 'unmount'] as const)(
+    'c13: %s error aborts the job and releases the chunk',
+    async (phase) => {
+      vi.mocked(reportError).mockClear()
+      const tasks: Array<() => void> = []
+      const fail = (where: string): void => {
+        if (where === phase) throw new Error(where)
+      }
+      const unmountChunk = vi.fn(() => fail('unmount'))
+      const writeClipboard = vi.fn(async () => {})
+      const copy = startCopyJob(
+        0,
+        2,
+        {
+          scheduleNext: (task) => tasks.push(task),
+          mountChunk: () => fail('mount'),
+          serializeChunk: () => {
+            fail('serialize')
+            return { text: 'text', html: 'text' }
+          },
+          unmountChunk,
+          writeClipboard
+        },
+        { chunkSize: 1 }
+      )
+      expect(tasks.shift()!).not.toThrow()
+      expect(tasks).toHaveLength(0)
+      expect(await copy.done).toBe(false)
+      expect(unmountChunk).toHaveBeenCalledOnce()
+      expect(writeClipboard).not.toHaveBeenCalled()
+      expect(reportError).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ event: 'clipboard.copy.failed', error: new Error(phase) })
+      )
+    }
+  )
 
   it('c16: cancelling an in-flight copy job suppresses clipboard write', async () => {
     const queue: (() => void)[] = []
