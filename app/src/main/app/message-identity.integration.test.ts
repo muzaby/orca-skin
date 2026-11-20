@@ -14,6 +14,8 @@ import {
   ST01_WINDOW_EVENTS,
   summarizeMessage
 } from '../../shared/message-identity.testfixture'
+import type { OoBusEvents } from '../contracts/bus-events'
+import { TypedBus } from '../infra/bus'
 import type { ClientRef } from '../contracts/client'
 import type { TurnContext } from '../contracts/turn'
 import { applyMigrations } from '../infra/db/migrate'
@@ -69,11 +71,10 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
     })
     cleanups.push(() => stream.close())
 
-    const emitBus = (ev: NormalizedEvent): void => {
-      // Real bus subscription order: persistence sender stamps first, then relays to window.
-      stream.sender.onTurnEvent(turn, ev)
-      stream.sender.relay(turn, ev)
-    }
+    const bus = new TypedBus<OoBusEvents<ClientRef>>()
+    bus.on('turn.event', ({ turn, ev }) => stream.sender.onTurnEvent(turn, ev), { critical: true })
+    bus.on('turn.event', ({ turn, ev }) => stream.sender.relay(turn, ev))
+    const emitBus = (ev: NormalizedEvent): void => bus.emit('turn.event', { turn, ev })
 
     // 1. Initial user prompt commit + relayed committed notification
     const initialRowId = await stream.sender.commitUserMessage!(turn, {
@@ -81,12 +82,13 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
       createdAt: 1,
       messageKey: ST01_USER_INITIAL_ID
     })
+    expect(initialRowId).toBe(1)
     stream.sender.relay(turn, {
       type: 'message.committed',
       sessionId: ST01_SESSION_ID,
       ids: ['req-1'],
       text: 'initial prompt',
-      messageId: initialRowId ?? 1,
+      messageId: initialRowId!,
       createdAt: 1,
       messageKey: ST01_USER_INITIAL_ID
     })
@@ -149,12 +151,13 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
       createdAt: 2,
       messageKey: ST01_USER_STEER_ID
     })
+    expect(steerRowId).toBe(3)
     stream.sender.relay(turn, {
       type: 'message.committed',
       sessionId: ST01_SESSION_ID,
       ids: ['steer-1'],
       text: 'mid steer prompt',
-      messageId: steerRowId ?? 3,
+      messageId: steerRowId!,
       createdAt: 2,
       messageKey: ST01_USER_STEER_ID
     })
@@ -201,12 +204,13 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
       messageKey: ST01_USER_STEER_ID
     })
     expect(recommitRowId).toBe(steerRowId)
+    expect(recommitRowId).toBe(3)
     stream.sender.relay(turn, {
       type: 'message.committed',
       sessionId: ST01_SESSION_ID,
       ids: ['steer-1'],
       text: 'mid steer prompt',
-      messageId: recommitRowId ?? 3,
+      messageId: recommitRowId!,
       createdAt: 2,
       messageKey: ST01_USER_STEER_ID
     })

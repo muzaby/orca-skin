@@ -64,7 +64,7 @@ interface TurnState {
   turn: TurnContext<ClientRef>
   live: Record<string, unknown>
   // 확인을 기다리는 산출물 이벤트가 있으면 그 뒤 중계가 여기 줄을 선다.
-  pending: Promise<void> | null
+  pending: number
   queue: NormalizedEvent[]
   failed: boolean
   messageKey?: string
@@ -122,7 +122,7 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
       key: `turn_${++seq}`,
       turn,
       live: pick(turn, TURN_LIVE_FIELDS),
-      pending: null,
+      pending: 0,
       queue: [],
       failed: false,
       callKeys: new Map(),
@@ -214,7 +214,8 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
         return
       }
       // 어댑터 입력의 산출물 참조는 권위가 없다 — DB 가 확인한 참조로 바꾼 뒤 중계한다.
-      const wait = deps.link
+      state.pending += 1
+      void deps.link
         .request('turn.artifactEvent', { ...envelope(state), ev })
         .then(
           (artifact) => {
@@ -226,10 +227,9 @@ export function createPersistenceSender(deps: PersistenceSenderDeps): Persistenc
           }
         )
         .finally(() => {
-          if (state.pending === wait) state.pending = null
+          state.pending -= 1
           flush(state)
         })
-      state.pending = wait
     },
     relay,
     persist(turn, ev) {

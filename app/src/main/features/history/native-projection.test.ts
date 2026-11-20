@@ -176,6 +176,45 @@ it('keeps the latest bound native ID stable when earlier history is prepended', 
 })
 
 describe('VP-05 load identity rules (i1~i8)', () => {
+  it('retains separate native, orphan and tail identities across an alias-only binding and prepend', () => {
+    const source = snapshot()
+    const rows = [
+      { ...row(4, { type: 'text', text: 'archive' }), message_key: 'a:bound' },
+      {
+        ...row(4, { type: 'text', text: 'orphan', parentToolRunId: 'absent' }),
+        message_key: 'a:bound'
+      },
+      row(6, { type: 'text', text: 'live' }),
+      row(6, { type: 'reasoning', text: 'second part' })
+    ]
+    const bindings = [
+      { message_id: 4, native_message_id: 'absent' },
+      { message_id: 4, native_message_id: 'a2' },
+      { message_id: 6, native_message_id: 'user-native' }
+    ]
+    const project = (input: NativeHistorySnapshot): Array<[string, AppMessagePart['type'][]]> =>
+      projectNativeHistory(input, rows, bindings, 4).messages.map(({ id, parts }) => [
+        id,
+        parts.map((part) => part.type)
+      ])
+    const expected = [
+      ['n:user-native', ['text']],
+      ['a:bound', []],
+      ['a:bound#o', ['text']],
+      ['m:6', ['text', 'reasoning']]
+    ]
+    expect(project(source)).toEqual(expected)
+    expect(
+      project({
+        ...source,
+        messages: [
+          { id: 'n:prefix#o', role: 'assistant', createdAt: 0, parts: [] },
+          ...source.messages
+        ]
+      })
+    ).toEqual([['n:n%3Aprefix%23o', []], ...expected])
+  })
+
   it('uses native order for aliases and the smaller database ID on a tie, independent of binding order', () => {
     const source = snapshot()
     const bindings = [

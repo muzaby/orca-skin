@@ -389,6 +389,31 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
     ])
   })
 
+  it('같은 턴의 두 산출물 확인 응답이 역순으로 와도 확인 전 참조를 중계하지 않는다', async () => {
+    const h = setup()
+    const turn = turnOf()
+    for (const id of ['first', 'second']) {
+      const captured = {
+        type: 'output.captured',
+        sessionId: 's',
+        artifact: { id }
+      } as unknown as NormalizedEvent
+      h.sender.onTurnEvent(turn, captured)
+      h.sender.relay(turn, captured)
+    }
+    h.sender.relay(turn, delta('after'))
+    h.requests[1]!.resolve({ id: 'confirmed-second' })
+    await flush()
+    expect(h.payloads('screen')).toEqual([])
+    h.requests[0]!.reject(new Error('first failed'))
+    await flush()
+    expect(h.payloads('screen').map((p) => p.ev)).toEqual([
+      { type: 'output.captured', sessionId: 's' },
+      { type: 'output.captured', sessionId: 's', artifact: { id: 'confirmed-second' } },
+      delta('after')
+    ])
+  })
+
   it('게시 영수증이 없는 도구 완료는 기다리지 않고 어댑터가 준 참조를 지운다', () => {
     const h = setup()
     const turn = turnOf()

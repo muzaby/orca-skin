@@ -8,6 +8,7 @@ import { join } from 'node:path'
 // writer → infra/ipc/send → electron(webContents) 런타임 체인을 절단 — 이 스위트는
 // electron 바이너리 없이도 돈다(hermetic, 0104 선례). 테스트는 send 를 호출하지 않는다.
 
+import { duplicateToolResultEvents } from '../../../shared/duplicate-tool-result.testfixture'
 import { HistoryWriter } from './writer'
 import { DbQueries } from '../../infra/db/queries'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
@@ -793,6 +794,26 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       }) as unknown as TurnContext
     return { connection, db, writer, makeTurn }
   }
+
+  it('x14 persists the single paired result for a duplicate tool call', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      for (const event of duplicateToolResultEvents()) writer.persist(turn, event)
+      writer.finalizeTurn(turn)
+      const parts = loadSession(db, 's1', () => '/tmp')!.messages.flatMap(
+        (message) => message.parts
+      )
+      expect(
+        parts.filter((part) => part.type === 'tool_call' && part.toolRunId === 'dup')
+      ).toHaveLength(2)
+      expect(parts.filter((part) => part.type === 'tool_result')).toEqual([
+        expect.objectContaining({ toolRunId: 'dup', result: 'paired output' })
+      ])
+    } finally {
+      connection.close()
+    }
+  })
 
   it('w1~w4 handle unkeyed events, new keyed rows, late owner-keyed tool result, and all 8 keyed cases', () => {
     const { connection, db, writer, makeTurn } = setupDb()
