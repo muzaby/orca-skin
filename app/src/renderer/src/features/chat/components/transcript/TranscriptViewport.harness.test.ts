@@ -905,11 +905,13 @@ describe('TranscriptViewport via the production harnesses', () => {
         .mockResolvedValue(undefined)
       const nativeBlob = Blob
       const plainParts: BlobPart[][] = []
+      const htmlParts: BlobPart[][] = []
       vi.stubGlobal(
         'Blob',
         class extends nativeBlob {
           constructor(parts: BlobPart[], options: BlobPropertyBag) {
             super(parts, options)
+            if (options.type === 'text/html') htmlParts.push(parts)
             if (options.type === 'text/plain') plainParts.push(parts)
           }
         }
@@ -992,6 +994,9 @@ describe('TranscriptViewport via the production harnesses', () => {
       expect((await mime['text/html'].text()).length).toBeGreaterThan(0)
       expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
       expect(plainParts[0].length).toBeGreaterThan(1)
+      const encodedChunks = htmlParts.at(-1)!
+      expect(encodedChunks.length).toBe(timings.filter(({ kind }) => kind === 'chunk').length)
+      expect(encodedChunks.every((part) => part instanceof Uint8Array)).toBe(true)
       expect(
         timings.filter(({ kind }) => kind === 'chunk').every(({ blockCount }) => blockCount <= 2)
       ).toBe(true)

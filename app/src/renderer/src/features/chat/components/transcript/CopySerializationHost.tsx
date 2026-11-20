@@ -6,6 +6,7 @@
  */
 import type { ReactNode, RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { CachedHighlightOnly } from '../../../../shared/compute/useHighlightedHtml'
 
 export interface CopySerializationHostProps {
   readonly hostRef: RefObject<HTMLDivElement | null>
@@ -23,12 +24,12 @@ export function CopySerializationHost({
     <div
       aria-hidden="true"
       data-copy-serialization-host=""
-      className="pointer-events-none fixed top-0 left-[-99999px] flex flex-col select-text"
+      className="[contain:layout_style] pointer-events-none fixed top-0 left-[-99999px] flex flex-col select-text"
       style={{ width: widthPx > 0 ? `${widthPx}px` : undefined }}
     >
       <span data-copy-edge="before">x</span>
       <div ref={hostRef} className="contents">
-        {children}
+        <CachedHighlightOnly.Provider value={true}>{children}</CachedHighlightOnly.Provider>
       </div>
       <span data-copy-edge="after">x</span>
     </div>,

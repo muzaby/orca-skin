@@ -105,6 +105,30 @@ export interface ViewportBlockBase {
   readonly reserveTarget?: boolean
 }
 
+interface ChunkRange<Block extends ViewportBlockBase> {
+  start: number
+  end: number
+  snapshot: BlockSnapshot<Block>
+}
+
+// Only this subtree participates in the two flushes per serialized chunk.
+function CopyChunk<Block extends ViewportBlockBase>({
+  writerRef,
+  children
+}: {
+  writerRef: RefObject<((range: ChunkRange<Block> | null) => void) | null>
+  children: (range: ChunkRange<Block>) => ReactNode
+}): ReactNode {
+  const [range, setRange] = useState<ChunkRange<Block> | null>(null)
+  useLayoutEffect(() => {
+    writerRef.current = setRange
+    return () => {
+      writerRef.current = null
+    }
+  }, [writerRef])
+  return range ? children(range) : null
+}
+
 export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly snapshot: BlockSnapshot<Block>
   /** Revisions are local to the model that produced the snapshot. */
@@ -277,12 +301,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const measuredBeforeCopy = useRef<Set<string | number | bigint>>(new Set())
   // Temporary sync-copy mount range (EP-17 ②)
   const [syncCopyRange, setSyncCopyRange] = useState<[number, number] | null>(null)
-  // Chunked async-copy mount range inside CopySerializationHost (EP-17 ④)
-  const [asyncChunkRange, setAsyncChunkRange] = useState<{
-    start: number
-    end: number
-    snapshot: BlockSnapshot<Block>
-  } | null>(null)
+  const chunkRangeWriter = useRef<((range: ChunkRange<Block> | null) => void) | null>(null)
   const copyHostRef = useRef<HTMLDivElement | null>(null)
   const activeCopyJobRef = useRef<CopyJobHandle | null>(null)
 
@@ -635,7 +654,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         hi,
         {
           mountChunk: (cStart, cEnd) => {
-            flushSync(() => setAsyncChunkRange({ start: cStart, end: cEnd, snapshot: snap }))
+            flushSync(() =>
+              chunkRangeWriter.current?.({ start: cStart, end: cEnd, snapshot: snap })
+            )
           },
           serializeChunk: (_cStart, _cEnd, isFirst, isLast) => {
             if (import.meta.env.VITE_OO_DIAGNOSTIC === '1') checkCopyChunk(++diagnosticChunk)
@@ -715,7 +736,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             }
           },
           unmountChunk: () => {
-            flushSync(() => setAsyncChunkRange(null))
+            flushSync(() => chunkRangeWriter.current?.(null))
           },
           onTiming: recordTiming
         },
@@ -887,7 +908,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }, [retainedSelection, snapshot])
 
   const virtualItems: VirtualItem[] = virtualized ? virtualizer.getVirtualItems() : []
-  const columnWidth = asyncChunkRange ? (scrollRef.current?.clientWidth ?? 0) : 0
 
   return (
     <TranscriptRevealContext.Provider value={reveal}>
@@ -960,27 +980,35 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         )}
         {footer}
       </div>
-      {asyncChunkRange && (
-        <CopySerializationHost hostRef={copyHostRef} widthPx={columnWidth}>
-          {Array.from({ length: asyncChunkRange.end - asyncChunkRange.start + 1 }, (_, offset) => {
-            const index = asyncChunkRange.start + offset
-            // The selected indices belong to the snapshot captured by the copy event.
-            const block = asyncChunkRange.snapshot.blockAt(index)
-            return (
-              <div
-                key={block.key}
-                data-block-key={block.key}
-                className={`w-full ${itemClassName?.(block, index) ?? ''}`}
-                data-part-key={
-                  hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
-                }
-              >
-                {renderBlock(block, index, false)}
-              </div>
-            )
-          })}
-        </CopySerializationHost>
-      )}
+      <CopyChunk writerRef={chunkRangeWriter}>
+        {(asyncChunkRange) => (
+          <CopySerializationHost
+            hostRef={copyHostRef}
+            widthPx={scrollRef.current?.clientWidth ?? 0}
+          >
+            {Array.from(
+              { length: asyncChunkRange.end - asyncChunkRange.start + 1 },
+              (_, offset) => {
+                const index = asyncChunkRange.start + offset
+                // The selected indices belong to the snapshot captured by the copy event.
+                const block = asyncChunkRange.snapshot.blockAt(index)
+                return (
+                  <div
+                    key={block.key}
+                    data-block-key={block.key}
+                    className={`w-full ${itemClassName?.(block, index) ?? ''}`}
+                    data-part-key={
+                      hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
+                    }
+                  >
+                    {renderBlock(block, index, false)}
+                  </div>
+                )
+              }
+            )}
+          </CopySerializationHost>
+        )}
+      </CopyChunk>
     </TranscriptRevealContext.Provider>
   )
 }

@@ -220,6 +220,28 @@ function simpleParagraph(
   return <Paragraph>{children}</Paragraph>
 }
 
+// A plain lead-in followed by one language-tagged fence is common in tool transcripts.
+// Keep source-part mapping, normalized characters and ambiguous fences on the full parser.
+function paragraphAndFence(source: string): React.JSX.Element | null {
+  const opening = source.indexOf('\n```')
+  if (opening < 1 || !source.endsWith('\n```')) return null
+  const lead = simpleParagraph(source.slice(0, opening))
+  if (!lead) return null
+  const bodyStart = source.indexOf('\n', opening + 4)
+  const language = source.slice(opening + 4, bodyStart)
+  if (bodyStart < 0 || !/^[a-zA-Z0-9_-]+$/.test(language)) return null
+  const code = source.slice(bodyStart + 1, -4)
+  if (!code || code.includes('\r') || code.includes('\0') || /^(?: {0,3}`{3,})/m.test(code))
+    return null
+  return (
+    <>
+      {lead}
+      {'\n'}
+      <CodeBlock code={code} lang={language} />
+    </>
+  )
+}
+
 export interface MarkdownProps {
   source: string
   sourceParts?: readonly MarkdownSourcePart[]
@@ -237,7 +259,9 @@ export const Markdown = memo(function Markdown({
   className,
   sourceParts
 }: MarkdownProps): React.JSX.Element {
-  const simple = simpleParagraph(source, sourceParts)
+  const simple =
+    simpleParagraph(source, sourceParts) ??
+    (!sourceParts?.length ? paragraphAndFence(source) : null)
   return (
     <div className={className ?? DEFAULT_WRAPPER}>
       {simple ?? (
