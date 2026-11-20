@@ -815,6 +815,115 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
     }
   })
 
+  it('w12 binds a new user row once and accepts recovery only for a fresh native commit', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      const lookup = vi.spyOn(db, 'findMessageByKey')
+      const legacy = { text: 'legacy', createdAt: 0 }
+      const unkeyed = writer.commitUserMessage(turn, legacy)!
+      expect(writer.commitUserMessage(turn, legacy)!.id).not.toBe(unkeyed.id)
+      expect(lookup).not.toHaveBeenCalled()
+      const bind = vi.spyOn(db.nativeHistory, 'bind')
+      const recover = vi.spyOn(db.nativeHistory, 'acceptRecovery')
+      const first = { text: 'note', messageKey: 'u:A', createdAt: 1, nativeMessageId: 'n-A' }
+      const a = writer.commitUserMessage(turn, first)!
+      expect(() => writer.commitUserMessage(turn, first)).not.toThrow()
+      expect(writer.commitUserMessage(turn, first)).toEqual({ id: a.id, created: false })
+      const b = writer.commitUserMessage(turn, { text: 'plain', messageKey: 'u:B', createdAt: 2 })!
+      writer.commitUserMessage(turn, { text: 'plain', messageKey: 'u:B', createdAt: 3, nativeMessageId: 'n-B' })
+      expect(bind.mock.calls).toEqual([[a.id, 'n-A'], [b.id, 'n-B']])
+      expect(recover.mock.calls).toEqual([['s1', 'n-A']])
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w1/w3 routes late text and native bindings to their own row without disturbing the active row', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      const send = (text: string, fields: Partial<Extract<NormalizedEvent, { type: 'message.completed' }>> = {}) =>
+        writer.persist(turn, { type: 'message.completed', sessionId: 's1', message: { text }, ...fields })
+      send('A', { messageKey: 'a:A', nativeMessageId: 'native-A' })
+      const a = turn.currentAssistantMessageId!
+      send('B', { messageKey: 'a:B', nativeMessageId: 'native-B' })
+      const b = turn.currentAssistantMessageId!
+      expect(() => send('+late', { messageKey: 'a:A', nativeMessageId: 'native-late' })).not.toThrow()
+      send('child', { messageKey: 'a:A', nativeMessageId: 'native-child', parentToolRunId: 'task' })
+      writer.persist(turn, { type: 'message.reasoning', text: 'separate session', sessionId: 's2',
+        messageKey: 'a:A', nativeMessageId: 'native-foreign' })
+      writer.persist(turn, { type: 'message.reasoning', text: 'no native id', sessionId: 's1',
+        messageKey: 'a:A', nativeMessageId: '' })
+      const lookup = vi.spyOn(db, 'findMessageByKey')
+      send('+same', { messageKey: 'a:B' })
+      expect(() => send('+legacy')).not.toThrow()
+      expect(lookup).not.toHaveBeenCalled()
+      expect(a).not.toBe(b)
+      expect(turn.currentAssistantMessageId).toBe(b)
+      expect(turn.assistantText).toBe('B+same+legacy')
+      expect(db.getSessionById('s1')?.last_message_preview).toBe('+legacy')
+      expect(db.nativeHistory.messageBindings(a)).toEqual(['native-A', 'native-late'])
+      expect(db.nativeHistory.messageBindings(b)).toEqual(['native-B'])
+      expect(connection.prepare('SELECT content, complete FROM messages ORDER BY idx').all()).toEqual([
+        { content: 'A+late', complete: 1 }, { content: '', complete: 0 }
+      ])
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w7 ignores an answer without a session or owner and keeps a keyed first answer separate from legacy replies', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      const detached = makeTurn()
+      detached.dbSessionId = null
+      const answer = (id: string, messageKey?: string) => ({ toolUseId: id, output: id, messageKey })
+      const insert = vi.spyOn(db, 'upsertToolResultPartInSession')
+      expect(() => writer.recordAskAnswers(detached, [answer('missing-session', 'a:A')])).not.toThrow()
+      writer.recordAskAnswers(turn, [answer('missing-owner')])
+      expect(insert).not.toHaveBeenCalled()
+      writer.recordAskAnswers(turn, [answer('first', 'a:A'), answer('legacy')])
+      const a = turn.currentAssistantMessageId!
+      writer.recordAskAnswers(turn, [answer('new', 'a:B')])
+      const b = turn.currentAssistantMessageId!
+      writer.recordAskAnswers(turn, [answer('late', 'a:A')])
+      expect(b).not.toBe(a)
+      expect(turn.currentAssistantMessageId).toBe(b)
+      expect(insert.mock.calls.map(([session, owner, tool]) => [session, owner, tool])).toEqual([
+        ['s1', a, 'first'], ['s1', a, 'legacy'], ['s1', b, 'new'], ['s1', a, 'late']
+      ])
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w4 keeps an open response after an unrelated keyed end and clears it after a matching end', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      writer.persist(turn, { type: 'response.boundary', sessionId: 's1', messageKey: 'a:A',
+        boundary: { phase: 'begin', id: 'original' } })
+      const original = turn.currentAssistantMessageId!
+      writer.persist(turn, { type: 'response.boundary', sessionId: 's1', messageKey: 'a:B',
+        boundary: { phase: 'end', id: 'other', outcome: 'ended' } })
+      const b = turn.currentAssistantMessageId!
+      expect(b).not.toBe(original)
+      expect(turn.responseBoundary?.id).toBe('original')
+      writer.persist(turn, { type: 'response.boundary', sessionId: 's1',
+        boundary: { phase: 'end', id: 'missing', outcome: 'ended' } })
+      writer.persist(turn, { type: 'response.boundary', sessionId: 's1',
+        boundary: { phase: 'end', id: 'original', outcome: 'ended' } })
+      expect(turn.responseBoundary).toBeUndefined()
+      expect(db.loadParts('s1').map((row) => [row.message_id, JSON.parse(row.payload_json).boundary.id])).toEqual([
+        [original, 'original'], [b, 'other'], [b, 'original']
+      ])
+    } finally {
+      connection.close()
+    }
+  })
+
   it('w1~w4 handle unkeyed events, new keyed rows, late owner-keyed tool result, and all 8 keyed cases', () => {
     const { connection, db, writer, makeTurn } = setupDb()
     try {
@@ -1015,6 +1124,33 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
           expect(writer.commitUserMessage(t, batch)).toEqual({ id: result.id, created: false })
         }
       }
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w5/w11 compares stored part types independently of JSON property order', () => {
+    const { connection, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      const batch = {
+        text: 'original',
+        origin: { kind: 'automatic' } as const,
+        createdAt: 1,
+        messageKey: 'u:part-shape'
+      }
+      const result = writer.commitUserMessage(turn, batch)!
+      const update = connection.prepare(
+        'UPDATE message_parts SET type = ?, payload_json = ? WHERE message_id = ?'
+      )
+      const json = JSON.stringify({ origin: batch.origin, text: batch.text })
+      expect(update.run('text', json, result.id).changes).toBe(1)
+      expect(writer.commitUserMessage(turn, batch)).toEqual({ id: result.id, created: false })
+      expect(update.run('attachment', json, result.id).changes).toBe(1)
+      const changes = connection.prepare('SELECT total_changes() AS count')
+      const before = changes.get()
+      expect(() => writer.commitUserMessage(turn, batch)).toThrow()
+      expect(changes.get()).toEqual(before)
     } finally {
       connection.close()
     }

@@ -14,7 +14,7 @@ interface Deferred {
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function setup() {
+function setup(onScreen?: (ev: NormalizedEvent) => void) {
   // 피어로 나간 것과 화면으로 나간 것을 한 줄에 순서대로 적는다.
   const log: Array<[string, unknown]> = []
   const requests: Deferred[] = []
@@ -39,7 +39,10 @@ function setup() {
         return () => closed.delete(listener)
       }
     },
-    send: (owner, ev) => void log.push(['screen', { owner, ev }]),
+    send(owner, ev) {
+      log.push(['screen', { owner, ev }])
+      onScreen?.(ev)
+    },
     failTurn
   })
   const peerClosed = (): void => {
@@ -165,6 +168,7 @@ describe('턴 저장 스트림의 보내는 끝 (EP-15 규칙 칸)', () => {
         parentToolRunId: 'task-1'
       }
     })
+    expect(h.payloads('turn.askAnswers')[0]!.turnKey).toBe(h.payloads('turn.begin')[0]!.turnKey)
     expect(h.payloads('turn.askAnswers')[0]!.answers).toEqual([
       { toolUseId: 'ask-1', output, parentToolRunId: 'task-1' }
     ])
@@ -444,6 +448,7 @@ describe('0326 message identity', () => {
 
     emitDelta('first')
     const created = h.sender.commitUserMessage!(turn, batch)
+    expect(h.payloads('turn.commitUser')[0]!.turnKey).toBe(h.payloads('turn.begin')[0]!.turnKey)
     emitDelta('before reply')
     h.requests[0]!.resolve({ id: 4, created: true })
     expect(await created).toBe(4)
@@ -790,8 +795,6 @@ describe('0326 message identity', () => {
 
   // VP-04 explicit branch symbol tests: k1~k4, k6~k8, k12~k18, k20, k22
   it('k1 stamps each of the 8 part-producing event kinds and keeps the same key in one turn', () => {
-    const h = setup()
-    const turn = turnOf({ dbSessionId: 's' })
     const kinds: NormalizedEvent[] = [
       { type: 'message.completed', sessionId: 's', message: { text: 'hi' } },
       { type: 'message.reasoning', sessionId: 's', text: 'r' },
@@ -828,9 +831,13 @@ describe('0326 message identity', () => {
         error: { category: 'stream_error', message: 'err', retryable: false }
       }
     ]
-    for (const ev of kinds) h.sender.onTurnEvent(turn, ev)
-    const keys = h.payloads('turn.event').map((p) => (p.ev as { messageKey?: string }).messageKey)
-    expect(keys).toEqual(Array(8).fill('a:1'))
+    for (const first of kinds) {
+      const h = setup()
+      const turn = turnOf({ dbSessionId: 's' })
+      for (const ev of [first, ...kinds]) h.sender.onTurnEvent(turn, structuredClone(ev))
+      const keys = h.payloads('turn.event').map((p) => (p.ev as { messageKey?: string }).messageKey)
+      expect(keys, first.type).toEqual(Array(1 + kinds.length).fill('a:1'))
+    }
   })
 
   it('k2 does not stamp non-part non-delta events', () => {
@@ -875,7 +882,6 @@ describe('0326 message identity', () => {
   })
 
   it('k4 preserves the stamped key across confirmation-queued artifact event and queued relays', async () => {
-    const h = setup()
     const turn = turnOf({ dbSessionId: 's' })
     const artEv: NormalizedEvent = {
       type: 'tool.call.completed',
@@ -893,16 +899,50 @@ describe('0326 message identity', () => {
       sessionId: 's',
       message: { text: 'after' }
     }
+    const nested = delta('arrived during drain')
+    const h = setup((ev) => {
+      if (ev === artEv) {
+        h.sender.onTurnEvent(turn, nested)
+        h.sender.relay(turn, nested)
+      }
+    })
     h.sender.onTurnEvent(turn, artEv)
     h.sender.relay(turn, artEv)
     h.sender.onTurnEvent(turn, followEv)
     h.sender.relay(turn, followEv)
     h.requests[0]!.resolve(null)
     await flush()
+    expect(h.payloads('screen').map((entry) => entry.ev)).toEqual([artEv, followEv, nested])
     expect(h.payloads('screen').map((p) => (p.ev as { messageKey?: string }).messageKey)).toEqual([
+      'a:1',
       'a:1',
       'a:1'
     ])
+  })
+
+  it('drops queued relays if the turn fails while artifact confirmation is pending', async () => {
+    const h = setup()
+    const turn = turnOf({ dbSessionId: 's' })
+    h.sender.onTurnEvent(turn, {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'art',
+      result: JSON.stringify({
+        type: `${PRODUCT_SLUG}.artifact.published`,
+        version: 1,
+        publicationId: 'p'
+      }),
+      isError: false
+    })
+    h.sender.relay(turn, delta('before failure'))
+    h.sender.onNotify('turn.persistFailed', {
+      turnKey: h.payloads('turn.begin')[0]!.turnKey,
+      message: 'disk full'
+    })
+    h.sender.relay(turn, delta('after failure'))
+    h.requests[0]!.resolve(null)
+    await flush()
+    expect(h.payloads('screen')).toEqual([])
   })
 
   it('k6 clears messageKey after telemetry', () => {
@@ -1074,9 +1114,14 @@ describe('0326 message identity', () => {
       result: 'ok',
       isError: false
     }
+    const replay = structuredClone(ev)
     h.sender.onTurnEvent(turn, ev)
     expect(ev.messageKey).toBe('a:1')
     expect(ev.messageKeySource).toBeUndefined()
+    h.sender.onTurnEvent(turn, { type: 'telemetry', sessionId: 's' } as NormalizedEvent)
+    h.sender.onTurnEvent(turn, replay)
+    expect(replay.messageKey).toBe('a:2')
+    expect(replay.messageKeySource).toBeUndefined()
   })
 
   it('k17 keeps first callKeys owner on duplicate tool.call.started after B opens', () => {
