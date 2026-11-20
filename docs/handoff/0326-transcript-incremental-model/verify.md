@@ -415,3 +415,156 @@
 - AC: ✅ 7 · ⚠️ 18 · ❌ 10 / 35.
 - 운영 gate: 통과(vitest 22건은 기준선 동일 환경 실패).
 - 다음 단계: Codex r3 — D7~D13·D15 를 production 진입점(Timeline·store·`onCopy`·`measureElement`)을 지나는 좌표로 닫고, 등록 변이 ① 전부와 ⑦ sweep 을 돌려 D4 형식(§10 자리별 행 · plan EP↔VP 라벨 · 7필드)으로 적는다.
+
+---
+
+# Verify 3회째 (r3)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-20 |
+| 대상 커밋/range | `2707d71a..6c5fa83c` (r3 `364c50ec` ~ r3.5 `6c5fa83c` · 구현 커밋 16 · 브랜치 `codex-handoff-0326-plan-gap`) |
+| 구현 전 plan 기준 | `5b489f8` (V1 rev 7) — range 의 plan diff 는 메타 `상태` 1줄 + `[구현자 기입]` 절 추가뿐(삭제 줄 6 = 메타 1 · 파생 이슈 표 상태 칸 5) |
+| V mode / 유효 V | `Baseline V: V1 rev 7` |
+| 라운드 | 3 |
+| 상태 | **RETURN_TO_PLAN** |
+| 확장 창 | verify 3회째 — **창 밖** · 다시 열린 노드 없음 |
+| 독립 축(⑥) | 5건(I1~I5) — 복원 허용 오차 · 조각 앞뒤 개행 보정 둘 · 위 블록·머리 자리 높이 변화 임계. 못 잡음 0 |
+| 열거 sweep(⑦) | 부분 — 구현자 r3.5 사양 중 `r3.5-anchors`·`r3.5-copy` 48건 재생(48 red). 나머지 616건은 미재생(아래 못 본 것) |
+| 발견 분류 | 이행 0 · 현재 1(D16) · 확장 0 · 경계 0 · 비귀속 1(D17) |
+| 구현 주체·문맥 | 기록만 — Codex. 설계자 = 검증자 |
+
+## 0. 기준선 / plan validity
+
+- Decision · Product/UX · AC · V node/pair · §10 변경: 없음. 채점 기준은 `5b489f8` 원문.
+- INDEX 는 `impl/IN_PROGRESS`(다음 주체 Codex)로 남았고 마지막 구현 커밋 trailer 는 `Status: partial · 33/35`다. 사용자가 "원격에 모두 구현됐다"고 확인해 이번 verify 를 시작했다(D17).
+- **root PLAN_GAP 1건 — D16**(§5). D-088 이 J9(가짜 DOM)를 복사 상한의 기계 판정으로 두는데, J9 는 D-094 가 재는 비용을 재지 않는다.
+
+## 1. 고장 이력
+
+`python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` 3회 · oracle `vitest run src/renderer/src/features/chat`(368파일 · 3,091케이스, 변이 없을 때 전부 green) · 끝난 뒤 `git status` 빈 출력.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 결과 | 이번 결과 | 잡은 테스트 수 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| M26-a4 | `TranscriptViewport.tsx:414` (재앵커 — pin 판정이 `isPinnedRef`) | 제거 | 복원의 pin 조건 제거 | 못 잡음 | **잡음** | 1 | ③ | — |
+| X05 | `TranscriptViewport.tsx:489` | 고정값 | `if (isAbove)` → `if (false)` | 못 잡음 | **잡음** | 9 | ③ | — |
+| X06 | `TranscriptViewport.tsx:757` | 제거 | 자기 쓰기 구분 제거 | 못 잡음 | **잡음** | 5 | ③ | — |
+| X07 | `TranscriptViewport.tsx:754` | 제거 | 키 입력 취소 제거 | 못 잡음 | **잡음** | 1 | ③ | — |
+| X08 | `TranscriptViewport.tsx:812` 부근(머리 자리 RO) | 제거 | 머리 높이 변화 뒤 복원 예약 제거 | 못 잡음 | **잡음** | 5 | ③ | — |
+| M29-c3 | `TranscriptViewport.tsx:609` | 제거 | 동기 복사 `flushSync(setSyncCopyRange)` 제거 | 못 잡음 | **잡음** | 7 | ③ | — |
+| X09 | `TranscriptViewport.tsx:671` | 빈 값 | 조각 직렬화 `text` → `''` | 못 잡음 | **잡음** | 14 | ③ | — |
+| M29-c19 | `TranscriptViewport.tsx:699` 부근 | 고정값 | 조각 task 뒤 사용자 선택 복원 `if (false)` | 못 잡음 | **잡음** | 13 | ③ | — |
+| M21-v1 | `TranscriptViewport.tsx:341` | 다른 값 | `getItemKey` deps `keyRevision` → `snapshot` | 못 잡음 | **잡음** | 1 | ③ | — |
+| X01 | `TranscriptViewport.tsx:414` | 고정값 | 복원 조기 반환 | 잡음 | 잡음 | 21 | ④ | — |
+| X02 | `viewport/range.ts:47` | 제거 | 초점 `± overscan` 제거 | 잡음 | 잡음 | 8 | ④ | — |
+| X03 | `TranscriptViewport.tsx:75` | 제거 | `scrollTop = top` 제거 | 잡음 | 잡음 | 23 | ④ | — |
+| X04 | `changeLog.ts:51` | 제거 | `remove` 소거 | 잡음 | 잡음 | 37 | ④ | — |
+| I1 | `TranscriptViewport.tsx:426` | 다른 값 | 복원 허용 오차 `> 0.5` → `> 40` | 신규 | 잡음 | 14 | ⑥ | — |
+| I2 | `TranscriptViewport.tsx:686` | 고정값 | 조각 앞 개행 보정 → `0` | 신규 | 잡음 | 14 | ⑥ | — |
+| I3 | `TranscriptViewport.tsx:690` | 고정값 | 조각 뒤 개행 보정 → `0` | 신규 | 잡음 | 14 | ⑥ | — |
+| I4 | `TranscriptViewport.tsx:478` | 다른 값 | 위 블록 높이 변화 임계 `> 0.5` → `> 40` | 신규 | 잡음 | 9 | ⑥ | — |
+| I5 | `TranscriptViewport.tsx:800` | 다른 값 | 머리 자리 높이 변화 임계 `> 0.5` → `> 40` | 신규 | 잡음 | 3 | ⑥ | — |
+| R35 재생 | `r3.5-anchors.jsonl` 14 · `r3.5-copy.jsonl` 34 | 구현자 사양 | 사양 원문 그대로 | 구현자 red | 48 red | 사양별 | ⑦ | — |
+
+- 검산: 시도 18 + 재생 48 = 66 = 잡음 66 · 못 잡음 0 · 동치 0.
+- ③ r2 못 잡음 9건 → 9 잡음(D7·D8·D11·D12 인용 변이 닫힘). ④ r2 잡음 중 이번 diff 가 닿은 파일의 4건 → 4 잡음, 덮개 회귀 0.
+- `r3.5-index.py` 재실행: 자리 166 · 경로 39 · 원자 pair 49 · 규칙 268 · 변이 ID 1,821 — 참조 대조 오류 0.
+- **못 본 것**: 구현자 r3.5 사양 616건(`main`·`identity`·`blocks*`·`stream*`·`panels`·`writer` 등) · r3.2~r3.4 corpus 재생 · VP-02~07·09~18·20·23·25·28·30~34·36~39 의 등록 변이 재측정. 이번 판정이 RETURN_TO_PLAN 이라 PASS 근거로 쓰지 않는다.
+
+## 2. AC26 복사 시간 실측 (D16)
+
+실제 Chromium(Playwright 번들 · 4코어 · 다른 테스트 미실행)과 J9 를 같은 트리 `6c5fa83c` 에서 쟀다. 상한 상수 `SELECTION_COPY_SYNC_MAX_BLOCKS = 2000`(`viewport/copy.ts:10`).
+
+| 입력 | Claude Code | Claude Work | OpenCode | 기준 |
+|---|---|---|---|---|
+| 100블록 동기 복사 — 핸들러 / 복사 명령 전체(ms) | 12.4 / 30.9 | 14.7 / 29.6 | 8.9 / 26.6 | ≤ 50 ✅ |
+| 300블록 동기 복사 | 35.2 / 90.3 | 55.9 / 99.0 | 30.6 / 84.8 | ❌ |
+| 2,000블록(= 상한) 동기 복사 | 193.9 / 632.6 | 372.8 / 698.1 | 192.7 / 578.8 | ❌ |
+| 2,001블록 조각 task 최대 | 295.2 | 470.6 | 294.6 | ❌ |
+| 4,003블록 조각 task 최대 | 393.6 | 463.8 | 299.8 | ❌ |
+| 조립 task 최대 | 22.8 | 19.3 | 27.6 | ✅ |
+| 본문·HTML 대조(300) | 같음 | 같음 | 같음 | ✅ |
+
+- 재현: 저장소 루트에서 `node docs/handoff/0326-transcript-incremental-model/evidence/live-browser.mjs --copy-timing`(15경우 중 10경우 초과 · 최대 470.6ms) · `--copy-minimum`(6경우 중 1경우 초과).
+- 같은 트리의 J9(`node scripts/measure-ui-inputs.mjs --src .`): 2,000블록 4.43ms / 6.80ms → `상한 = 2000`. 실제 Chromium 2,000블록 복사 명령과 **약 130~160배** 차이다. J9 는 D-094 가 재는 블록 렌더·브라우저 직렬화 비용을 재지 않는다.
+- 구현자가 보고한 100블록 초과(150~400ms)는 CPU 경합 환경 값이다. 경합 없이 재면 100블록은 세 화면 모두 통과하고 300블록부터 넘는다.
+
+## 3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-26 MD-12↔UT-11 | PASS(이번 범위) | M26-a4 · X01 · X03 · X05~X08 · I1 · I4 · I5 red · R35-anchor 14 red · 두 Timeline 이 `isPinned` 전달(`claude/transcript/Timeline.tsx:134` · `opencode/transcript/Timeline.tsx:131`) |
+| VP-27 SD-03↔ST-03 | PASS(이번 범위) | `TranscriptViewport.prepend.test.ts` 가 store `prependHistory` 진입(7곳) · 세 화면 · X01·X03 red |
+| VP-29 AR-09↔IT-09 | PASS(이번 범위) | M29-c3 · X09 · M29-c19 · X02 · I2 · I3 red · R35-copy 34 red · `selection.test.ts:402` `onCopy` 진입 |
+| VP-29 R-07↔AT-07 | **PAIR_FAIL** | D16 — task ≤ 50ms(D-094) 위반을 실제 Chromium 에서 재현(§2) |
+| VP-21 AR-06↔IT-05 | PASS(이번 범위) | M21-v1 red |
+| VP-19 AR-05↔IT-04 | PASS(이번 범위) | `TranscriptViewport.live.test.ts:170-186` 가 실제 `model.advance` 를 감싸 호출을 잰다(상수 단언 없음) |
+| VP-08 · VP-22 · VP-24 | PASS(이번 범위) | `reopen.test.ts:70·159·170·201` store `chatActions.loadSession` · `:228` 이후 selection 끝 단언 |
+| VP-35 MD-18↔UT-16 | PASS(단언 범위) · 계약 gap | `node --test` 1,039 통과 · J1~J10 출력 확인. J9 의 판정 의미는 D16 |
+| VP-02·04·10·15·23·34·36·38·39 | PASS(r2 좌표 유지) | 전체 vitest 기준선 외 실패 0 |
+| VP-25 · VP-20 · VP-13 · VP-07 AT | 판정 보류 | r2 의 `BLOCKED_BY` root(VP-19·21·22·24·26·27)는 닫혔다. AT 자체 등록 변이는 미재측정 |
+| 그 밖 REQUIRED pair | 판정 보류 | 좌표·corpus 재생 범위 밖(§1 못 본 것) |
+
+### AC 합계
+
+| 결과 | AC |
+|---|---|
+| ✅ 17 | AC3 · AC6 · AC7 · AC11 · AC14 · AC15 · AC16 · AC17 · AC18 · AC19 · AC20 · AC21 · AC22 · AC23 · AC31 · AC32 · AC35 |
+| ❌ 1 | AC26 |
+| 사람 1 | AC33 |
+| ⚠️ 16 | AC1 · AC2 · AC4 · AC5 · AC8 · AC9 · AC10 · AC12 · AC13 · AC24 · AC25 · AC27 · AC28 · AC29 · AC30 · AC34 — 이번 라운드 미재측정 |
+
+- 재측정 `17 + 1 + 1 + 16 = 35` ↔ 커밋 trailer·INDEX 비고 `33/35` — ⚠️ 16 은 반증이 아니라 미재측정이다.
+
+### 운영 gate (`6c5fa83c` 트리)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations no-copies 2,306파일 · doc-inventory 9항목·prose·links ok · product-naming 2,547파일 OK · test-budgets 18 suites ok · ui-thread OK |
+| lint / typecheck | PASS | 0 error · 4 warning · 트리 변화 없음 / `error TS` 0 |
+| 파일 필터 없는 vitest | 기준선 한계 | 1,091파일 · 10,497케이스 — 22 failed(9파일) · unhandled 1. 9파일 모두 `5b489f8..6c5fa83c` diff 밖 · r1·r2 와 같은 파일·건수 · 서명 `C:/`·`must be absolute` 25줄. 처음엔 DB 스위트가 ABI 로 실패해 `npm rebuild better-sqlite3` 뒤 재실행 |
+| `node --test scripts/*.test.mjs` | PASS | 1,039 / 1,039 |
+| 빌드 + 두 스모크 · `__ooDev` | PASS | `electron-vite build` exit 0 · `smoke-hosts` OK · `smoke-preload` OK · `out/renderer` `__ooDev` 0파일 |
+| trailer 파싱 | PASS | range 구현 커밋 16개 모두 6~7키 반환 |
+
+## 4. Repository operation checks
+
+- INDEX: `impl/IN_PROGRESS`·다음 주체 Codex 는 실제(구현 완료 주장 · 검증 요청)와 다르다(D17). 이번 커밋에서 `verify/RETURN_TO_PLAN` 으로 고친다. 자리표시자 `(verify r2 — 검증자 기입)` → `2707d71a`. 0326 좌표는 모두 PR 브랜치 해시(`origin/main` 조상 아님).
+- `6c5fa83c` trailer 의 `Next-Action: claude` 는 구현 커밋에 쓰지 않는 키다(root `AGENTS.md` 표) — D17.
+- `[구현자 기입]` r3.5: 7필드(설계 리뷰·강제 지점 전수·잠금(⑦ 포함)·Product/UX·놓친 잠재 문제·구현 보고·Review Signals) 있음. 자리별 표는 r3.2 절 + `r3.5-seats.md` 로 166자리 — D4 닫힘.
+
+## 5. Finding disposition
+
+| # | finding | 분류 · 근거 | 귀속 | disposition |
+|---|---|---|---|---|
+| D4 | `[구현자 기입]` 자리별 표·⑦ sweep | 7필드 · 166자리 · `r3.5-index.py` 오류 0 | message-bus | **closed** |
+| D7 | pin 미배선 | M26-a4 red · `isPinned` 전달 | VP-26 | **closed** |
+| D8 | EP-12 ①⑦ 미잠금 | X05~X08 red | VP-26 | **closed** |
+| D9 | part 래퍼 표지 | Markdown·CodeBlock fragment `data-part-key` · `hasPartMarkers` · R35-anchor red | VP-26 · VP-29 | **closed** |
+| D10 | ST-03 reducer 직접 | store `prependHistory` 진입 | VP-27 | **closed** |
+| D11 | 복사 좌표 `handleCopy` 밖 | M29-c3 · X09 · M29-c19 red | VP-29 IT | **closed** |
+| D12 | v1 로컬 `getItemKey` | M21-v1 red | VP-21 | **closed** |
+| D13 | live 상수 단언 | 실제 `advance` 계측 | VP-19 | **closed** |
+| D15 | store 진입·selection 미단언 | `chatActions.loadSession` · selection 단언 | VP-08·22·24 | **closed** |
+| D16 | **복사 task 가 50ms 를 크게 넘는다** — 상한 2,000 의 동기 복사 579~698ms · 조각 task 295~471ms(실제 Chromium §2). D-088 은 상한을 J9 산출로 정하는데 J9 는 같은 2,000블록을 4.43ms 로 재 2,000을 낸다. 실제 Chromium 보정은 D-088·§19 가 기계 PASS 뒤 Windows S5(사람)로 미뤘다. 구현자는 D-088 을 따르면 상한을 낮출 수 없고 D-094 를 따르면 D-088 을 어긴다 | 현재 결함 — D-094 "task 마다 ≤ `UI_TASK_BUDGET_MS`(50ms)"를 실제 입력·실제 트리로 재현. 계약 정정 필요(D-088 판정 측정기 · S5 보정 시점) | VP-29 AT · VP-35 · AC26 · AC32 · AC33 S5 · D-088 · D-094 | **PLAN_GAP** — 설계자가 ① 상한의 기계 판정을 실제 Chromium 측정(`live-browser.mjs --copy-timing` 형)으로 바꿀지 ② 그 상한 하향을 기계 verify 전에 할지 ③ 300블록도 넘는 현 렌더 비용에서 상한·조각 크기를 어떻게 정할지 정한다 |
+| D17 | 보드·trailer 운영 불일치 — INDEX `IN_PROGRESS`/Codex · `Status: partial` 로 verify 요청 · 구현 커밋에 `Next-Action` | 비귀속(message-bus 운영) | INDEX · trailer | NON_BLOCKING — 이번 커밋에서 INDEX 정정 |
+| D14 | AC15 검증 수단 파일명 표기 drift | 비귀속 | §7 AC15 | NON_BLOCKING(유지) — D16 설계 턴에 정정 |
+
+## 6. Review Signals — 사실만
+
+- 이전 라운드와 유사: 없음 — r2 의 "좌표가 production 경로 밖" 9건은 모두 닫혔다.
+- 관련 plan 지침: D-088 이 J9 를 상한 판정으로, S5(Windows · 기계 PASS 뒤)를 실제 Chromium 보정으로 정했다. 구현자는 r3.3 부터 실제 Chromium 초과를 보고하고 AC26 을 열어 두었다.
+- 사용자 결정 변경: 없음. 사용자가 구현 완료를 확인해 verify 를 요청했다.
+- 반복 환경 한계: Windows 경로 픽스처 9파일 22건(r1·r2·r3 같음) · 실행 직후 better-sqlite3 ABI 불일치(재빌드로 해소).
+- 독립 축(⑥) 발견: 5건 시도 · 못 잡음 0. D16 은 구현자 보고를 경합 없는 환경에서 재측정해 확정했다.
+
+## 7. 결론
+
+- 상태: **RETURN_TO_PLAN** — root PLAN_GAP 1(D16, 현재 결함 겸) · 막는 이행 결함 0.
+- verify 3회째 — 창 밖. PASS 가 아니므로 **다음 재구현 전에 `handoff-review`** 를 한다.
+- pair: r2 root PAIR_FAIL 8 → 닫힘 8 · 새 root PAIR_FAIL 1(VP-29 AT) · 나머지 판정 보류.
+- AC: ✅ 17 · ❌ 1 · 사람 1 · ⚠️(미재측정) 16 / 35.
+- 운영 gate: 통과(vitest 22건은 기준선 동일 환경 실패).
+- 다음 단계: Claude 설계 — D16 을 Delta V(또는 rev) 로 정정(D-088 상한 판정 측정기 · 보정 시점 · 렌더 비용 대응) → `handoff-review` → Codex 재구현.
