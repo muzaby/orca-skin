@@ -85,7 +85,15 @@ it('matches the full GFM renderer and source part ownership for single paragraph
     '- [ ] task',
     '    indented',
     ' line ',
-    '~~~ts\nx\n~~~'
+    '~~~ts\nx\n~~~',
+    'Example:\n```ts\nexport const one = 1\n```',
+    'Example `code`:\n```ts\nfirst\nsecond\n\n```',
+    'Example:\n```js\nfirst\n```\nplain\n```',
+    'Example:\n```js\nfirst\n  ```\nsecond\n```',
+    'Example:\n```c++\nx\n```',
+    'Example:\n```js\n\t<&>\n```',
+    'Example:\n```js\n\u0000\n```',
+    'Example:\n```js\n\n```'
   ]
   for (const source of sources) {
     for (const sourceParts of [

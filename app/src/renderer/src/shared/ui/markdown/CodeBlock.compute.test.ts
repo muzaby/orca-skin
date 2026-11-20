@@ -11,6 +11,7 @@ vi.mock('../../i18n', () => {
   return { useI18n: () => ({ tr }) }
 })
 import { createElement } from 'react'
+import { CachedHighlightOnly } from '../../compute/useHighlightedHtml'
 import { setComputeClient } from '../../compute/client'
 import { fakeComputeClient, type FakeCompute } from '../../compute/fakeClient.testfixture'
 import { HIGHLIGHT_MAX_CHARS } from '../../compute/limits'
@@ -83,6 +84,26 @@ describe('CodeBlock — 계산 워커 강조', () => {
       )
     )
     expect(compute.requests).toEqual([])
+  })
+
+  it('복사용 마운트는 캐시된 강조만 읽고 새 계산을 예약하지 않는다', async () => {
+    render('cached')
+    compute.resolveNext({ html: '<pre>cached highlight</pre>' })
+    await settle()
+    dom.unmount()
+    const copy = (code: string): void =>
+      dom.render(
+        createElement(
+          CachedHighlightOnly.Provider,
+          { value: true },
+          createElement(CodeBlock, { code, lang: 'typescript', showHeader: false })
+        )
+      )
+    copy('cached')
+    expect(innerHtml()).toBe('<pre>cached highlight</pre>')
+    copy('uncached')
+    expect(pre()?.textContent).toBe('uncached')
+    expect(compute.requests).toHaveLength(1)
   })
 
   it('내용이 바뀌면 앞 요청을 취소하고, 늦은 응답은 새 내용에 반영되지 않는다', async () => {

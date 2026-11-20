@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | READY (V1 rev 7 + ΔV1 rev 2) |
+| 상태 | IN_PROGRESS (r4 · V1 rev 7 + ΔV1 rev 2) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -2891,3 +2891,123 @@ Linux Chromium에서 같은 300블록을 동일한 빌드로 기본 파서→최
 - r3.5 실행 ID 664개 중 650개가 고장을 검출했고 14개는 정해진 입력·관측 범위에서 동작이 같거나 계약이 허용하는 내부 배치였다. 동일한 소스 치환을 서로 다른 경로에서 실행한 경우가 있어 소스 치환 자체는 660종이며 그중 658종이 기존 corpus에 없었다. 누적 실행 ID 1,821개 모두 최종 소스에서 치환 위치를 찾았다. 각 원문·치환·실행 명령은 evidence JSONL에서 재생할 수 있다.
 - 변경 관련 Vitest 38파일 671개, J 측정 스크립트 테스트 19개 통과. 10,000-part 입력의 변경 전 접두 접근과 새 블록 할당은 [블록 모델 실측](evidence/r3.5-blocks.md)에, 같은 호출 ID가 다시 나타날 때 최신 외부 결과를 복구하는 테스트는 [캐시·키 대조](evidence/r3.5-blocks-core.md)에 기록했다. 세 화면 Chromium, 배포 빌드, 호스트·preload smoke를 통과했다.
 - 구현자 전체 AC 점검은 33/35다. 독립 Verify의 마지막 기록은 r2 FAIL이다.
+
+## [구현자 기입] r4 복사 상한 재측정
+
+### 설계 리뷰
+
+0325 선행 조건은 r1에서 충족했다. 이번 변경의 기준은 V1 rev 7 + ΔV1 rev 2다. D16 재현과 판정 범위는 VP-29(선택 복사), VP-40(실제 브라우저 측정), VP-35(J9 참고값)다. AC33은 독립 기계 검증 뒤 Windows 기준 장비에서 수행한다.
+
+### 강제 지점 전수와 V-pair 자기확인
+
+| §10 자리 | 구현 좌표 | 관측 |
+|---|---|---|
+| EP-23 ① | `collect`, `measure` | 9개 후보 × 세 화면 × 동기·초과, 경로별 예열 1회 뒤 5회 |
+| EP-23 ② | `scripts/copy-timing/probe.tsx` | `TranscriptView`로 Claude Code·Work·OpenCode의 실제 Timeline을 마운트하고 진단 API로 부분 선택 |
+| EP-23 ③ | `measure`, `timings` | 신뢰된 copy 이벤트, 동기는 브라우저 명령이 돌아올 때까지, 초과는 실제 클립보드 쓰기 완료 뒤 handler·chunk·assemble 원자료 수집 |
+| EP-23 ④ | `judgeCandidate`, `deriveCopyCap` | 오름차순 첫 실패 앞에서 상한 확정. 정확히 50ms 통과, 한 번이라도 초과하면 실패(h1~h5) |
+| EP-23 ⑤ | `main`, `copyCapExitCode` | 측정 전 1분 load·코어 수 대조, Playwright 런타임 로드·실행 실패 구별(h6) |
+| EP-23 ⑥ | `constantSizes`, `judgeConstant` | 후보용 prop을 해제하고 실제 제품 상수로 5개 선택 크기 재실행. 화면·반복·순서·개수·각 task 시간 대조(h6~h8) |
+| EP-17 ① | `selectionMountSet` | 가상화 마운트 집합·299↔301 회귀(c1·c2·c6·c10·c11·c15) |
+| EP-17 ② | `handleCopy` 동기 분기 | 임시 마운트 후 브라우저 기본 복사, 다음 프레임 해제(c3~c5·c8) |
+| EP-17 ③ | `handleCopy` 초과 분기 | 핸들러 마운트 0, 1회 쓰기 예약(c7) |
+| EP-17 ④ | `CopyChunk`, `CopySerializationHost`, `startCopyJob` | snapshot 캡처, 조각 마운트·직렬화·양보·해제, 별도 조립, 두 MIME·원래 선택 복귀(c7·c12~c14·c16·c18·c19) |
+| EP-17 ⑤ | `handleKeyDown` | Shift로 확장할 때 양끝만 유지(c6·c10·c11) |
+| EP-17 ⑥ | `restoreSelection`, `partTextOffset` | 문자 위치와 part key를 기준으로 양끝 재마운트·방향 복원(c4·c14·c18) |
+| EP-17 ⑦ | `viewport/copy.ts` | 제품 상수 판정은 아래 원자료 참조 |
+| EP-17 ⑧ | `createDiagnosticDevApi` | 가상화 해제 시 전체 DOM 기본 복사(c17), fixture 로드·부분 선택·복사 기록·진단 빌드 노출 |
+
+### 이번 라운드 수정의 잠금
+
+검출 증거는 [r4 변이 실행](evidence/r4-mutations.jsonl)에 담았다. 각 행에는 적용한 단일 치환, 실행한 명령, 실제 실패 관측이 있다. 순수 판정기는 h1~h8에서 표본과 경계를 독립적으로 교란한다. VP-29 IT의 기존 c1~c19 근거는 [자리별 대조](evidence/r3.5-copy.md)에 있다.
+
+| 단일 치환 | 실패를 잡은 실행 |
+|---|---|
+| h1-last | ✖ h1 cap follows the sorted passing prefix |
+| h1-prefix | ✖ h1 cap follows the sorted passing prefix |
+| h2-screen | ✖ h2 every screen must pass |
+| h3-overflow | ✖ h3 both paths must pass |
+| h4-median | ✖ h4 inclusive task budget applies to individual samples |
+| h4-limit | ✖ h4 inclusive task budget applies to individual samples |
+| h6-remeasure | ✖ h6 off-grid constant needs its own runs, passing lower candidates and valid environment |
+| h6-cap-only | ✖ h6 off-grid constant needs its own runs, passing lower candidates and valid environment |
+| h6-load | ✖ h6 off-grid constant needs its own runs, passing lower candidates and valid environment |
+| h7-assemble | ✖ h7 all overflow task durations, count and order including long selections |
+| h7-count | ✖ h7 all overflow task durations, count and order including long selections |
+| h7-empty | ✖ h7 all overflow task durations, count and order including long selections |
+| h8-handler | ✖ h8 sync and overflow transition must follow the production path |
+| M29-c3 | Tests  7 failed | 85 passed |
+| M29-c6 | Tests  29 failed | 63 passed |
+| M29-c12 | Tests  16 failed | 76 passed |
+| M29-c13 | Tests  9 failed | 83 passed |
+| M29-c15 | Tests  29 failed | 63 passed |
+| M29-c17 | Tests  37 failed | 55 passed |
+| EP17-inline-assembly | Tests  15 failed | 77 passed |
+| EP17-portal | Tests  17 failed | 75 passed |
+| R33-copy-supersede-cancel | Tests  1 failed | 91 passed |
+| c7-yield | Tests  10 failed | 82 passed |
+| c19-inert | Tests  17 failed | 75 passed |
+| copy-html-encoding | Tests  3 failed | 28 passed |
+| copy-highlight | Tests  1 failed | 8 passed |
+| copy-markdown | Tests  1 failed | 3 passed |
+
+선택 증거 h1~h8은 VP-40 등록 변이 13행에, c1~c19 회귀는 VP-29 등록 변이 11행에 연결했다. 새 HTML 인코딩·강조 요청·Markdown 출력의 직접 변이 3행을 더해 실행 기록은 27행이다. 원문과 치환, 개별 명령은 JSONL에 있다.
+
+### Product/UX 파생 검토
+
+긴 선택을 복사할 때만 화면 밖 호스트에서 작업한다. 캐시된 코드 강조는 첫 렌더에 읽고, 같은 task 안에 언마운트할 복사 조각은 새 워커 요청을 예약하지 않는다. 모든 조각은 실제 Range로 자르고 기본 클립보드 경로에서는 HTML을 조각별 UTF-8 바이트로 인코딩한다. 마지막 조립은 바이트를 HTML Blob으로 묶어 한 번만 쓴다.
+
+언어가 명시된 단일 코드 펜스와 한 줄 안내문은 전체 Markdown 파서를 생략할 수 있다. 원본 part 좌표가 있거나 펜스 경계가 모호하면 전체 파서를 사용한다. `Markdown.render.test.ts`는 두 경로의 HTML을 직접 비교한다.
+
+### 놓친 잠재 문제 + 대응
+
+짧은 선택에서 얻은 후보 상한만으로 긴 선택의 지연을 예측할 수 없었다. 첫 측정에서 25블록 후보는 세 화면 모두 통과했지만 제품 상수 25로 5,000블록을 복사한 Claude Code에서 108ms 조각을 관측했다. 이 때문에 제품 상수 판정에 긴 선택 전체의 원자료를 남긴다.
+
+### 구현 보고
+
+VP-35의 EP-21 ①~③은 `measure-ui-inputs.test.mjs` j1~j7로 확인했다. J9에는 Chromium과 같은 크기를 넣고 가짜 DOM의 중앙값을 별도로 기록한다. J9는 제품 상한 판정식의 입력에 포함하지 않는다.
+
+
+| 블록 | Claude Code 동기 중앙값 | Claude Work 동기 중앙값 | OpenCode 동기 중앙값 | J9 중앙값 | Chromium / J9 배율 범위 | 후보 판정 |
+|---:|---:|---:|---:|---:|---:|---|
+| 25 | 15.10 | 20.00 | 9.50 | 0.225 | 42.2~88.9 | 통과 |
+| 50 | 40.90 | 91.90 | 27.00 | 0.239 | 113.0~384.7 | 실패 |
+| 75 | 50.20 | 41.80 | 43.20 | 0.216 | 193.9~232.9 | 실패 |
+| 100 | 48.30 | 94.70 | 58.60 | 0.211 | 228.9~448.9 | 실패 |
+| 150 | 89.40 | 96.00 | 82.70 | 0.396 | 208.6~242.1 | 실패 |
+| 200 | 129.50 | 142.40 | 113.60 | 0.436 | 260.8~326.9 | 실패 |
+| 300 | 217.50 | 184.00 | 168.20 | 0.676 | 249.0~321.9 | 실패 |
+| 400 | 391.60 | 221.20 | 218.20 | 0.750 | 290.9~522.1 | 실패 |
+| 500 | 240.00 | 389.80 | 242.20 | 0.997 | 240.7~391.0 | 실패 |
+
+| 제품 선택 블록 | handler 최대 (ms) | chunk 최대 (ms) | assemble 최대 (ms) | 50ms 초과 / 측정 task |
+|---:|---:|---:|---:|---:|
+| 12 | 6.30 | — | — | 0 / 15 |
+| 13 | 0.50 | 13.30 | 3.00 | 0 / 60 |
+| 25 | 0.20 | 12.40 | 4.00 | 0 / 75 |
+| 2500 | 0.20 | 98.60 | 35.20 | 6 / 3165 |
+| 5000 | 0.10 | 83.90 | 15.20 | 2 / 6285 |
+
+[Chromium 원자료](evidence/r4-chromium.json) · Chromium 154.0.8037.57 · Linux Xeon Platinum 8573C, 5코어 · 시작 load 4.61. 후보 상한은 25, 제품 상수는 12블록이다. 제품 상수 실행에서 9,600개 task를 기록했고 50ms 초과는 8개였다. `node scripts/measure-copy-chromium.mjs` 종료 코드 1.
+
+| V-pair | 자기 판정 | 관측 |
+|---|---|---|
+| VP-29 IT | SELF_PASS | 세 화면 회귀, 기본 복사·양끝·작업 취소·실패 시 복귀·HTML 조각 조립 |
+| VP-29 AT · D16 | SELF_BLOCKED | 제품 실행 최대 98.6ms. D16을 열어 둔다. |
+| VP-35 | SELF_PASS (기계) | j1~j7. 같은 크기의 J9는 비교값으로만 썼다. |
+| VP-40 | SELF_PASS | h1~h8 통과, 등록 변이 13건에서 각각 해당 테스트 실패 |
+
+기준선의 나머지 33개 AC는 r3.5와 verify r3의 좌표를 승계한다. ✅ 33 · ⚠️ 1(AC33) · ❌ 1(AC26) = 35.
+
+### 추가 실험과 남은 경계
+
+- 조각 상한을 6으로 낮춘 실험은 5,000블록에서 12,540개 task 중 144개가 초과했다. 제품 상수는 UTF-8 바이트를 사용하는 12블록 구성을 유지했다.
+- 세부 계측에서 Claude Work 62.6ms 조각의 마운트는 3.6ms, `Selection.addRange`는 58.0ms였다. 선택을 직접 교체하는 변형도 같은 입력으로 대조했다. 2,500블록 5개·5,000블록 9개 task가 초과했고 최대 117.3ms라 해당 변형을 되돌렸다. 이 표본 하나로 모든 초과의 원인을 단정하지 않는다.
+- 실제 Chromium 300블록에서 가상화 해제 기준과 초과 경로를 대조했다. Claude Code 평문은 일치했고 HTML의 `textContent`에는 요약 문단과 코드 블록 사이 개행이 하나 더 있었다. 새 Markdown 지름길을 끈 전체 파서로 재실행해도 동일했다. Windows S5의 HTML 동등성을 충족한 것으로 세지 않는다.
+- 현행 EP-17 ④는 같은 task 안에서 마운트·직렬화·해제를 요구한다. 렌더 준비를 별도 task로 나누는 방안은 모든 준비 작업·레이아웃 시간까지 측정하도록 EP-17·EP-23의 기대 기록과 취소·선택 복원 규칙을 다시 설계해야 한다.
+
+### Review Signals — 사실만
+
+r4의 D16은 r3와 같은 복사 지연이다. 2,000블록에서 나타난 문제를 작은 상한에서 재측정했다. 조각 크기와 브라우저 task 실행시간, 후보 탐색과 제품 상수의 긴 선택은 별도로 판정한다. Windows AC33은 아직 수행 전이다.
+
+가드 5종 통과. lint 오류 0·기존 경고 4, 타입 검사 오류 0. Vitest 1,091파일 10,498건 중 10,465 통과, 11 건너뜀, 22 실패. 실패한 파일·케이스 집합과 변경 전 동일 파일 재실행 결과의 양방향 차집합은 공집합이다(Windows 경로 `C:/`·`Composer directory must be absolute`). Node 스크립트 1,047/1,047, 빌드·호스트·preload 스모크 통과. 일반 빌드 `__ooDev` 0파일, 진단 빌드 1파일.
