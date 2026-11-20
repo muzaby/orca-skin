@@ -14,6 +14,7 @@ import type { AgentKind } from '../../../../../../shared/agent-kind'
 import type { Message } from '../../reducer/chatReducer'
 import { chatActions, useChatStore, useTranscriptView } from '../../store/chatStore'
 import { clearDisclosures, setDisclosure, getDisclosure } from '../../store/disclosureStore'
+import type { TranscriptResults } from '../../lib/canonicalBackground'
 import { newTranscriptChanges, recordChange } from '../../lib/transcript/changeLog'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
 import { AgentTaskRow } from '../../harnesses/common/transcript/AgentTaskRow'
@@ -386,6 +387,29 @@ describe('TranscriptViewport via the production harnesses', () => {
       ).toBe('true')
       expect(groups[index].querySelector(`[data-part-key="a:split:tool:${id}"]`)).toBeTruthy()
     }
+    const rightKey = groups[1].closest('[data-index]')!.getAttribute('data-block-key')!
+    const session = {
+      id: 's',
+      backend: 'claude' as const,
+      agentKind: 'work' as const,
+      title: 'split'
+    }
+    vi.mocked(sessionApi.load).mockResolvedValue({ ...session, messages: [assistant] })
+    await chatActions.loadSession('s', null, { revalidate: true })
+    render()
+    const [merged] = dom!.queryAll('[data-focus-id="activity-toggle"]')
+    dom!.click(merged)
+    expect(merged.getAttribute('aria-expanded')).toBe('false')
+    setDisclosure('s', rightKey, true)
+    vi.mocked(sessionApi.load).mockResolvedValue({ ...session, messages: [separated] })
+    await chatActions.loadSession('s', null, { revalidate: true })
+    render()
+    const splitAgain = dom!.queryAll('[data-focus-id="activity-toggle"]')
+    expect(splitAgain.map((toggle) => toggle.getAttribute('aria-expanded'))).toEqual([
+      'false',
+      'false'
+    ])
+    expect(getDisclosure('s', rightKey, true)).toBe(false)
   })
 
   it('keeps the visible character and nonzero scroll position when sending after a 5,000-block answer (AC16)', () => {
@@ -497,6 +521,69 @@ describe('TranscriptViewport via the production harnesses', () => {
     }
   )
 
+  it('updates result panel snapshots only for distinct structured outputs', () => {
+    function resultMessage(value: unknown): Message {
+      return {
+        id: 'a:result',
+        createdAt: 1,
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool_result',
+            toolRunId: 'tool',
+            result: '',
+            isError: false,
+            structuredOutput: value
+          }
+        ]
+      }
+    }
+    const initial = new Map([['field', [1, 2]]])
+    mountTranscript('claude', 'code', [resultMessage(initial)])
+    const snapshots: TranscriptResults[] = []
+    function Results(): React.JSX.Element {
+      const view = useTranscriptView('transcriptResults')
+      snapshots.push(view)
+      return createElement('output', {}, [...view.keys()].join(','))
+    }
+    dom!.render(createElement(Results))
+    expect(snapshots.at(-1)!.get('tool')!.structuredOutput).toBe(initial)
+    function publish(value: unknown, same: boolean): void {
+      const before = snapshots.at(-1)!
+      const current = useChatStore.getState().sessions.s
+      const changes = recordChange(current.session.transcriptChanges, {
+        kind: 'replace',
+        id: 'a:result',
+        partsFrom: 0
+      })
+      useChatStore.setState({
+        sessions: {
+          s: {
+            ...current,
+            session: {
+              ...current.session,
+              messages: [resultMessage(value)],
+              transcriptChanges: changes
+            }
+          }
+        }
+      })
+      dom!.render(createElement(Results))
+      const after = snapshots.at(-1)!
+      expect(after === before).toBe(same)
+      expect(after.get('tool')!.structuredOutput).toStrictEqual(value)
+    }
+    publish(new Map([['field', [1, 2]]]), true)
+    publish(new Map([['field', [2, 1]]]), false)
+    publish({}, false)
+    publish({}, true)
+    publish({ left: [1, null] }, false)
+    publish({ left: [1, null] }, true)
+    publish({ right: [1, null] }, false)
+    publish({ right: [1, '1'] }, false)
+    expect(snapshots[0].get('tool')!.structuredOutput).toBe(initial)
+  })
+
   it('reads the task board through the production domain hook', () => {
     mountTranscript('claude', 'code', [
       {
@@ -602,13 +689,32 @@ describe('TranscriptViewport via the production harnesses', () => {
       vi.stubGlobal('requestAnimationFrame', window.requestAnimationFrame)
       vi.stubGlobal('cancelAnimationFrame', window.cancelAnimationFrame)
       vi.spyOn(settingsApi, 'set').mockResolvedValue({} as never)
-      vi.spyOn(sessionApi, 'load').mockResolvedValue({
+      const loaded = {
         id: 's',
         title: 'entry',
         agentKind,
         backend,
         messages
-      })
+      }
+      let resolveCached!: (value: typeof loaded) => void
+      const load = vi.spyOn(sessionApi, 'load').mockResolvedValue(loaded)
+      load.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveCached = resolve
+        })
+      )
+      const observers = new Map<Element, ResizeObserverCallback>()
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(private readonly callback: ResizeObserverCallback) {}
+          observe(element: Element): void {
+            observers.set(element, this.callback)
+          }
+          disconnect = vi.fn()
+        }
+      )
+      let generating = false
       const writes: number[] = []
       vi.stubGlobal('Element', class {})
       const listeners = new Map<string, EventListener>()
@@ -622,7 +728,7 @@ describe('TranscriptViewport via the production harnesses', () => {
           return top
         },
         set scrollTop(value: number) {
-          top = Math.min(800, value)
+          top = Math.min(this.scrollHeight - this.clientHeight, value)
           writes.push(top)
         },
         getBoundingClientRect: () => ({ top: 0, bottom: 200 }),
@@ -641,14 +747,14 @@ describe('TranscriptViewport via the production harnesses', () => {
         scroll.contentRef.current = content
         return null
       }
-      const renderController = (): void => {
+      const renderController = (sendCount?: number): void => {
         const session = useChatStore.getState().sessions.s.session
         const controllerProps = {
           backend,
           sessionId: 's',
           sessionKey: 's',
-          sendCount: session.sendCount,
-          inflight: false,
+          sendCount: sendCount ?? session.sendCount,
+          inflight: generating,
           messages: session.messages,
           children: attach
         }
@@ -656,24 +762,55 @@ describe('TranscriptViewport via the production harnesses', () => {
       }
 
       useChatStore.setState({ activeKey: 'other' })
-      await chatActions.loadSession('s')
+      const pendingCached = chatActions.loadSession('s')
       expect(useChatStore.getState().entryIntent?.cause).toBe('open')
       renderController()
       expect(top).toBe(800)
       expect(useChatStore.getState().entryIntent).toBeNull()
 
+      writes.length = 0
+      resolveCached(loaded)
+      await pendingCached
+      renderController()
+      expect(mounted.isPinned()).toBe(true)
+      expect(top).toBe(800)
+      expect(writes).toEqual([])
+      expect(useChatStore.getState().entryIntent).toBeNull()
+
+      for (const active of [false, true]) {
+        generating = active
+        renderController()
+        mounted.scrollToBottom()
+        writes.length = 0
+        viewport.scrollHeight += 40
+        observers.get(content)!([], {} as ResizeObserver)
+        vi.advanceTimersByTime(32)
+        const follows = backend === 'opencode' || generating
+        expect(writes).toEqual(follows ? [viewport.scrollHeight - viewport.clientHeight] : [])
+      }
       for (const event of [
         { type: 'wheel', deltaY: -1 },
         { type: 'keydown', key: 'PageUp' },
         { type: 'keydown', key: 'Home' },
         { type: 'keydown', key: 'ArrowUp' }
       ]) {
+        viewport.scrollHeight = viewport.clientHeight
         mounted.scrollToBottom()
+        expect(top).toBe(0)
         const listener = listeners.get(event.type)
         expect(listener).toBeDefined()
         listener!(Object.assign(new Event(event.type), { deltaY: event.deltaY, key: event.key }))
         expect(mounted.isPinned()).toBe(false)
+        writes.length = 0
+        viewport.scrollHeight += 80
+        observers.get(content)!([], {} as ResizeObserver)
+        vi.advanceTimersByTime(32)
+        expect(top).toBe(0)
+        expect(writes).toEqual([])
       }
+      generating = false
+      viewport.scrollHeight = 1000
+      renderController()
       mounted.scrollToBottom()
       listeners.get('wheel')!({ type: 'wheel', deltaY: 1 } as WheelEvent)
       listeners.get('keydown')!({ type: 'keydown', key: 'ArrowDown' } as KeyboardEvent)
@@ -681,6 +818,16 @@ describe('TranscriptViewport via the production harnesses', () => {
 
       top = 217
       writes.length = 0
+      state.setAnchor({ key: 'u:entry:user', offset: -17 })
+      const savedAnchor = state.anchor
+      const beforeReselect = load.mock.calls.length
+      await chatActions.loadSession('s')
+      renderController()
+      expect(load).toHaveBeenCalledTimes(beforeReselect)
+      expect(top).toBe(217)
+      expect(state.anchor).toBe(savedAnchor)
+      expect(useChatStore.getState().entryIntent).toBeNull()
+      expect(writes).toEqual([])
       await chatActions.loadSession('s', null, { revalidate: true })
       renderController()
       expect(writes).toEqual([])
@@ -698,10 +845,17 @@ describe('TranscriptViewport via the production harnesses', () => {
         expect(chatActions.send('follow up')).toBe(true)
         renderController()
         expect(viewport.scrollTo.mock.calls).toEqual([[{ top: 1000, behavior: 'smooth' }]])
+        generating = true
+        renderController()
+        expect(viewport.scrollTo).toHaveBeenCalledOnce()
+        top = 799
+        renderController(useChatStore.getState().sessions.s.session.sendCount + 1)
+        expect(viewport.scrollTo).toHaveBeenCalledOnce()
       }
       dom!.unmount()
       state.setPinned(true)
       state.setTop(0)
+      state.setAnchor(null)
     }
   )
 

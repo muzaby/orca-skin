@@ -67,6 +67,8 @@ for (const [kind, backend, agentKind] of [
     kind + " unloaded entry",
   );
   const root = createRoot(document.querySelector("#root")!);
+  let jumpToLatest!: () => void;
+  let isPinned!: () => boolean;
   function Screen() {
     const session = useChatStore((s) => s.sessions[id].session);
     return (
@@ -78,17 +80,21 @@ for (const [kind, backend, agentKind] of [
         sendCount={session.sendCount}
         inflight={session.inflight}
       >
-        {(scroll) => (
-          <TranscriptView
-            {...scroll}
-            backend={backend}
-            agentKind={agentKind}
-            messages={session.messages}
-            pendingSteer={[]}
-            inflight={session.inflight}
-            loadingSession={session.loadingSession}
-          />
-        )}
+        {(scroll) => {
+          jumpToLatest = scroll.scrollToBottom;
+          isPinned = scroll.isPinned;
+          return (
+            <TranscriptView
+              {...scroll}
+              backend={backend}
+              agentKind={agentKind}
+              messages={session.messages}
+              pendingSteer={[]}
+              inflight={session.inflight}
+              loadingSession={session.loadingSession}
+            />
+          );
+        }}
       </HarnessScrollController>
     );
   }
@@ -228,7 +234,20 @@ for (const [kind, backend, agentKind] of [
     );
     pages.push({ turn, drift });
   }
+  selection.removeAllRanges();
+  jumpToLatest();
+  await frames();
+  check(isPinned(), kind + " did not pin to latest before prepend");
+  const pinnedBefore = viewport.scrollHeight - viewport.clientHeight;
+  chatActions.prependHistory(id, fixture.remainingPrefixTurns[6], { reachedStart: false });
+  await frames();
+  const pinnedAfter = viewport.scrollHeight - viewport.clientHeight;
+  check(
+    pinnedAfter > pinnedBefore && Math.abs(viewport.scrollTop - pinnedAfter) <= 1,
+    kind + " lost pinned bottom " + JSON.stringify([pinnedBefore, pinnedAfter, viewport.scrollTop]),
+  );
   observations.push({
+    pinnedBefore, pinnedAfter,
     kind,
     initialBottom: bottom,
     userKey,

@@ -257,6 +257,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const activeAnchorRef = useRef<AnchorTarget | null>(null)
   const restingAnchorRef = useRef<AnchorTarget | null>(null)
   const interruptedAnchorLayout = useRef(false)
+  const pinnedPrepend = useRef(false)
   const selfWritingScrollRef = useRef(false)
   const adjustedScrollTopRef = useRef<number | null>(null)
   const pendingRestoreRafRef = useRef<number | null>(null)
@@ -277,12 +278,17 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   // Temporary sync-copy mount range (EP-17 ②)
   const [syncCopyRange, setSyncCopyRange] = useState<[number, number] | null>(null)
   // Chunked async-copy mount range inside CopySerializationHost (EP-17 ④)
-  const [asyncChunkRange, setAsyncChunkRange] = useState<[number, number] | null>(null)
+  const [asyncChunkRange, setAsyncChunkRange] = useState<{
+    start: number
+    end: number
+    snapshot: BlockSnapshot<Block>
+  } | null>(null)
   const copyHostRef = useRef<HTMLDivElement | null>(null)
   const activeCopyJobRef = useRef<CopyJobHandle | null>(null)
 
   if (prevSessionKeyRef.current !== sessionKey) {
     interruptedAnchorLayout.current = false
+    pinnedPrepend.current = false
     prevSessionKeyRef.current = sessionKey
     prevSnapshotRef.current = snapshot
     activeAnchorRef.current = null
@@ -301,6 +307,13 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       (prev.keyAt(0) !== snapshot.keyAt(0) ||
         prev.keyRevision !== snapshot.keyRevision ||
         prev.blockAt(0).partKeys?.[0] !== snapshot.blockAt(0).partKeys?.[0])
+    if (headChanged && isPinned?.() && snapshot.count >= prev.count) {
+      const first = prev.keyAt(0)
+      pinnedPrepend.current =
+        first === snapshot.keyAt(0)
+          ? prev.blockAt(0).partKeys?.[0] !== snapshot.blockAt(0).partKeys?.[0]
+          : snapshot.indexOf(first) > 0
+    }
     if (headChanged && !isPinned?.() && !activeAnchorRef.current) {
       const el = scrollRef.current
       const captured = el ? captureAnchor(el) : null
@@ -622,7 +635,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         hi,
         {
           mountChunk: (cStart, cEnd) => {
-            flushSync(() => setAsyncChunkRange([cStart, cEnd]))
+            flushSync(() => setAsyncChunkRange({ start: cStart, end: cEnd, snapshot: snap }))
           },
           serializeChunk: (_cStart, _cEnd, isFirst, isLast) => {
             if (import.meta.env.VITE_OO_DIAGNOSTIC === '1') checkCopyChunk(++diagnosticChunk)
@@ -801,13 +814,17 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     })
     ro.observe(headerEl)
     return () => ro.disconnect()
-  }, [anchorController, header, scheduleAnchorRestore, scrollRef, settleInterruptedLayout])
+  }, [anchorController, scheduleAnchorRestore, scrollRef, settleInterruptedLayout])
 
   // Restore anchor after top-displacement commits when active, and refresh resting baseline (EP-12 ①②③ · D1)
   useLayoutEffect(() => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
     if (isPinned?.()) {
+      if (el && pinnedPrepend.current) {
+        const bottom = Math.max(0, el.scrollHeight - el.clientHeight)
+        if (bottom - el.scrollTop > 0.5) writeScrollTop(el, bottom)
+      }
       activeAnchorRef.current = null
       restingAnchorRef.current = null
       anchorController.cancelAnchor()
@@ -816,6 +833,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     } else if (el && snapshot.count > 0) {
       restingAnchorRef.current = captureAnchor(el)
     }
+    pinnedPrepend.current = false
   }, [
     anchorController,
     isPinned,
@@ -880,11 +898,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         onKeyDown={virtualized ? handleKeyDown : undefined}
         className="w-full"
       >
-        {header && (
-          <div ref={headerRef} data-transcript-header="">
-            {header}
-          </div>
-        )}
+        <div ref={headerRef} data-transcript-header="">
+          {header}
+        </div>
         {virtualized ? (
           <div className="relative w-full" style={{ height: blocksTotalHeight }}>
             {virtualItems.map((vi) => {
@@ -946,10 +962,10 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       </div>
       {asyncChunkRange && (
         <CopySerializationHost hostRef={copyHostRef} widthPx={columnWidth}>
-          {Array.from({ length: asyncChunkRange[1] - asyncChunkRange[0] + 1 }, (_, offset) => {
-            const index = asyncChunkRange[0] + offset
-            if (index < 0 || index >= snapshot.count) return null
-            const block = snapshot.blockAt(index)
+          {Array.from({ length: asyncChunkRange.end - asyncChunkRange.start + 1 }, (_, offset) => {
+            const index = asyncChunkRange.start + offset
+            // The selected indices belong to the snapshot captured by the copy event.
+            const block = asyncChunkRange.snapshot.blockAt(index)
             return (
               <div
                 key={block.key}

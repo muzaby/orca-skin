@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
 import type { ChatState, Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
+import { timelineViewState } from '../../harnesses/opencode/transcript/viewState'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
 import { clearDisclosures, getDisclosure, setDisclosure } from '../../store/disclosureStore'
 import { sessionApi, settingsApi } from '../../../../shared/api/ipc'
@@ -200,6 +201,12 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
     const waiting = chatActions.loadSession('s-reopen', null, { revalidate: true })
     await chatActions.loadSession('s')
     const y = useChatStore.getState()
+    const viewport = timelineViewState('s')
+    const previousTop = viewport.top
+    const previousAnchor = viewport.anchor
+    viewport.setTop(137)
+    viewport.setAnchor({ key: 'u:1:user', offset: -19 })
+    const anchor = viewport.anchor
     expect(y.entryIntent).toMatchObject({ sessionKey: 's', cause: 'open' })
     resolveX(fresh)
     await waiting
@@ -207,6 +214,10 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
     expect(after.activeKey).toBe('s')
     expect(after.entryIntent).toBe(y.entryIntent)
     expect(after.sessions.s).toBe(y.sessions.s)
+    expect(viewport.top).toBe(137)
+    expect(viewport.anchor).toBe(anchor)
+    viewport.setTop(previousTop)
+    viewport.setAnchor(previousAnchor)
     expect(after.sessions['s-reopen'].session.messages.map((m) => m.id)).toEqual(['u:1'])
     load.mockResolvedValueOnce(fresh)
     await chatActions.loadSession('s-reopen')

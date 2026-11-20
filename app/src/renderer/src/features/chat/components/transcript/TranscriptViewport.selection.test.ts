@@ -165,8 +165,10 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
         count - 1,
         ...Array.from({ length: 20 }, (_, i) => count - 2 - i * 4)
       ]
+      const pageDownTaskMs: number[] = []
       for (const [step, focus] of steps.entries()) {
         scrollTo(focus)
+        const start = performance.now()
         select(part(0), 0, part(focus), 2)
         const key = step < 4 ? 'ArrowDown' : step === 6 ? 'End' : 'PageDown'
         const viewport = dom!.query('[data-transcript-viewport]')!
@@ -176,11 +178,17 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
             key
           })
         )
+        if (step >= steps.length - 20) pageDownTaskMs.push(performance.now() - start)
         expectMounted(focus, focus)
         scrollTo(125)
         expectMounted(125, focus)
         scrollTo(0)
         expectMounted(0, focus)
+      }
+      expect(pageDownTaskMs).toHaveLength(20)
+      expect(pageDownTaskMs.every((ms) => Number.isFinite(ms) && ms >= 0)).toBe(true)
+      if (process.env.TRANSCRIPT_SELECTION_TIMINGS) {
+        process.stdout.write(JSON.stringify({ blocks: count, pageDownTaskMs }) + '\n')
       }
     }
   )
@@ -360,6 +368,26 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     'sync',
     'sync throw',
     'chunks',
+    'new snapshot between chunks',
+    'replace snapshot between chunks',
+    'forward chunks',
+    'forward sync',
+    'sync offsets',
+    'element boundary',
+    'external reset',
+    'collapsed key',
+    'unmarked change',
+    'unmarked key',
+    'cleared between tasks',
+    'foreign anchor',
+    'foreign focus',
+    'collapsed endpoint',
+    'new session should ignore saved endpoints',
+    'owner by key',
+    'owner by part',
+    'anchor removed',
+    'focus removed',
+    'restore endpoints',
     'cap + 1',
     'wrapper boundaries',
     'focus moved',
@@ -372,7 +400,8 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     'start lost',
     'end lost'
   ] as const)('c3/c7/c12/c19: onCopy copies a partial reverse range (%s)', async (mode) => {
-    const chunked = mode !== 'sync' && mode !== 'sync throw'
+    const chunked =
+      mode !== 'sync' && mode !== 'sync throw' && mode !== 'forward sync' && mode !== 'sync offsets'
     const chunkCounts = mode === 'cap + 1' ? [4, 1] : [2, 2, 1]
     vi.useFakeTimers()
     vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) =>
@@ -394,6 +423,8 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     )
 
     const blocks = makeBlocks(6)
+    const movedOwner = mode === 'owner by key' || mode === 'owner by part'
+    if (movedOwner) blocks[4] = { ...blocks[4], partKeys: ['retained-part'] }
     const snapshot = createBlockList(blocks).snapshot()
     const readWidth = vi.fn(() => 600)
     const scrollRef = {
@@ -406,30 +437,31 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
         getBoundingClientRect: () => ({ top: 0, bottom: 40, width: 600, height: 40 }),
         querySelectorAll: (selector: string) => dom!.queryAll(selector),
         querySelector: (selector: string) => dom!.query(selector),
-        contains: (node: Node) => dom!.body.contains(node),
+        contains: (node: Node) => dom!.container.contains(node),
         addEventListener: () => {},
         removeEventListener: () => {},
         scrollTo: () => {}
       } as unknown as HTMLDivElement
     }
     const timings: CopyTaskTiming[] = []
-    function render(overscan: number, sessionKey = 'before'): void {
+    function render(overscan: number, sessionKey = 'before', current = snapshot): void {
       dom!.render(
         createElement(TranscriptViewport<SimpleBlock>, {
-          snapshot,
+          snapshot: current,
           sessionKey,
           scrollRef,
           overscan,
           anchorKey: blocks[5].key,
           estimateSizePx: 80,
-          copyChunkSize: chunked ? chunkCounts[0] : 5,
+          copyChunkSize: chunked && !movedOwner ? chunkCounts[0] : 5,
           onCopyTiming: (timing) => {
             timings.push(timing)
             if (mode === 'sync throw') throw new Error('copy interrupted')
           },
           hasPartMarkers: (block) =>
             mode === 'wrapper boundaries' && (block === blocks[0] || block === blocks[4]),
-          renderBlock: (block) => createElement('p', null, block.text)
+          renderBlock: (block, index, selected) =>
+            createElement('p', { 'data-picked': selected ? index : undefined }, block.text)
         })
       )
     }
@@ -438,20 +470,147 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
         mode === 'wrapper boundaries' && (index === 0 || index === 4)
           ? 'data-block-key'
           : 'data-part-key'
-      return dom!.query(`[${attr}="${blocks[index].key}"]`)!
+      return dom!.query(`[${attr}="${blocks[index].partKeys?.[0] ?? blocks[index].key}"]`)!
     }
 
     // Use the DOM with all rows mounted as the independent plain-text reference.
     setVirtualization(false)
     render(6)
-    select(part(4), 12, part(0), 6)
+    if (mode === 'forward chunks' || mode === 'forward sync') select(part(0), 6, part(4), 12)
+    else select(part(4), 12, part(0), 6)
     expect(dom.query('[data-transcript-viewport]')!.props.onCopy).toBeUndefined()
     const reference = selection.toString()
     expect(reference.split('\n').length).toBeGreaterThan(2)
 
     setVirtualization(true)
     render(6)
-    select(part(4), 12, part(0), 6)
+    if (mode === 'forward chunks' || mode === 'forward sync') select(part(0), 6, part(4), 12)
+    else select(part(4), 12, part(0), 6)
+    const selectedRows = (): number[] =>
+      dom!.queryAll('[data-picked]').map((row) => Number(row.getAttribute('data-picked')))
+    if (mode === 'external reset') {
+      const other = dom.createNode('div')
+      selection.setBaseAndExtent(other, 0, other, 0)
+      render(6, 'before', createBlockList(blocks).snapshot())
+      expect(selection.anchorNode).toBe(other)
+      expect(selection.focusNode).toBe(other)
+      return
+    }
+    if (mode === 'collapsed key' || mode === 'unmarked change' || mode === 'unmarked key') {
+      if (mode === 'collapsed key') {
+        selection.setBaseAndExtent(selection.focusNode!, 1, selection.focusNode!, 1)
+      } else {
+        const unmarked = dom.createNode('div', { 'data-index': 2 })
+        unmarked.parent = dom.container
+        selection.setBaseAndExtent(selection.anchorNode!, 12, unmarked, 0)
+      }
+      if (mode === 'unmarked change') {
+        dom.act(() => {
+          for (const listener of dom!.documentListeners.get('selectionchange') ?? []) listener({})
+        })
+      } else {
+        const handler = dom.query('[data-transcript-viewport]')!.props.onKeyDown as (event: {
+          key: string
+          shiftKey: boolean
+        }) => void
+        dom.act(() => handler({ key: 'PageDown', shiftKey: true }))
+      }
+      selection.removeAllRanges()
+      render(6, 'before', createBlockList(blocks).snapshot())
+      expect(selectedRows()).toEqual([0, 1, 2, 3, 4])
+      expect([selection.anchorOffset, selection.focusOffset]).toEqual([12, 6])
+      return
+    }
+    if (mode === 'element boundary') {
+      selection.setBaseAndExtent(part(4), 1, part(0), 0)
+      dom.act(() => {
+        for (const listener of dom!.documentListeners.get('selectionchange') ?? []) listener({})
+      })
+      selection.removeAllRanges()
+      render(6, 'before', createBlockList(blocks).snapshot())
+      expect(selection.anchorNode?.closest('[data-part-key]')).toBe(part(4))
+      expect(selection.focusNode?.closest('[data-part-key]')).toBe(part(0))
+      expect([selection.anchorOffset, selection.focusOffset]).toEqual([blocks[4].text.length, 0])
+      return
+    }
+    if (mode === 'foreign anchor' || mode === 'foreign focus') {
+      const outside = dom.createNode('div', {
+        'data-index': 1,
+        'data-block-key': blocks[1].key,
+        'data-part-key': blocks[1].key
+      })
+      if (mode === 'foreign anchor') selection.setBaseAndExtent(outside, 0, selection.focusNode!, 6)
+      else selection.setBaseAndExtent(selection.anchorNode!, 12, outside, 0)
+      dom.act(() => {
+        for (const listener of dom!.documentListeners.get('selectionchange') ?? []) listener({})
+      })
+      expect(selectedRows()).toEqual([0, 1, 2, 3, 4])
+      return
+    }
+    if (mode === 'collapsed endpoint' || mode === 'new session should ignore saved endpoints') {
+      if (mode === 'collapsed endpoint') select(part(1), 0, part(1), 0)
+      else render(6, 'after')
+      expect(selectedRows()).toEqual([])
+      return
+    }
+    if (movedOwner) {
+      const next = [...blocks]
+      next[4] = { ...next[4], partKeys: ['replacement'] }
+      next[2] =
+        mode === 'owner by key'
+          ? { ...next[2], key: 'retained-part', partKeys: undefined }
+          : { ...next[2], partKeys: ['retained-part'] }
+      selection.removeAllRanges()
+      render(6, 'before', createBlockList(next).snapshot())
+      expect(selectedRows()).toEqual([0, 1, 2])
+      const onCopy = dom.query('[data-transcript-viewport]')!.props.onCopy as (event: {
+        preventDefault: () => void
+      }) => void
+      const preventDefault = vi.fn()
+      dom.act(() => onCopy({ preventDefault }))
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(timings.map(({ kind, blockCount }) => [kind, blockCount])).toEqual([['handler', 3]])
+      return
+    }
+    if (mode === 'anchor removed' || mode === 'focus removed') {
+      const missing = mode === 'anchor removed' ? 4 : 0
+      render(
+        6,
+        'before',
+        createBlockList(blocks.filter((_, index) => index !== missing)).snapshot()
+      )
+      const preventDefault = vi.fn()
+      const onCopy = dom.query('[data-transcript-viewport]')!.props.onCopy as (e: {
+        preventDefault: () => void
+      }) => void
+      dom.act(() => onCopy({ preventDefault }))
+      await vi.runAllTimersAsync()
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(timings).toEqual([])
+      expect(selectedRows()).toEqual([])
+      expect(write).not.toHaveBeenCalled()
+      return
+    }
+    if (mode === 'restore endpoints') {
+      const a = selection.anchorNode!
+      const f = selection.focusNode!
+      const points: Array<[FakeNode, number, FakeNode, number]> = [
+        [f, 12, f, 6],
+        [a, 11, f, 6],
+        [a, 12, a, 6],
+        [a, 12, f, 5]
+      ]
+      for (const point of points) {
+        selection.setBaseAndExtent(...point)
+        render(6, 'before', createBlockList(blocks).snapshot())
+        expect([
+          selection.anchorNode,
+          selection.anchorOffset,
+          selection.focusNode,
+          selection.focusOffset
+        ]).toEqual([a, 12, f, 6])
+      }
+    }
     render(0)
     expect(part(2)).toBeNull()
     const endpoints = [
@@ -465,6 +624,8 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     const onCopy = viewport.props.onCopy as (event: { preventDefault: () => void }) => void
     const heightReads = chunked ? undefined : vi.spyOn(FakeNode.prototype, 'getBoundingClientRect')
     readWidth.mockClear()
+    if (mode === 'sync offsets')
+      selection.setBaseAndExtent(selection.anchorNode!, 1, selection.focusNode!, 2)
     const dispatchCopy = (): void => dom!.act(() => onCopy({ preventDefault }))
     if (mode === 'sync throw') expect(dispatchCopy).toThrow('copy interrupted')
     else dispatchCopy()
@@ -521,6 +682,19 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
       ]).toEqual(endpoints)
       return
     }
+    if (mode === 'new snapshot between chunks' || mode === 'replace snapshot between chunks') {
+      await vi.advanceTimersToNextTimerAsync()
+      const next =
+        mode === 'new snapshot between chunks'
+          ? blocks.filter((_, index) => index !== 2)
+          : [...blocks]
+      next[2] = { ...next[2], text: 'new text from a later snapshot' }
+      render(0, 'before', createBlockList(next).snapshot())
+      await vi.runAllTimersAsync()
+      expect(write).toHaveBeenCalledOnce()
+      expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
+      return
+    }
     if (mode === 'unmount' || mode === 'supersede') {
       await vi.advanceTimersToNextTimerAsync()
       if (mode === 'unmount') dom.unmount()
@@ -539,8 +713,16 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
       expect(timings.map(({ kind }) => kind)).toEqual(['handler', 'chunk'])
       return
     }
+    if (mode === 'cleared between tasks') {
+      selection.removeAllRanges()
+      await vi.runAllTimersAsync()
+      expect(selection.rangeCount).toBe(0)
+      expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
+      return
+    }
     const focused = dom.createNode('button')
     focused.focus()
+    const restoreFocus = vi.spyOn(focused, 'focus')
     if (mode === 'focus moved') {
       const other = dom.createNode('button')
       const create = document.createRange.bind(document)
@@ -567,9 +749,12 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
       expect(write).not.toHaveBeenCalled()
       expect(document.activeElement).toBe(focused)
     }
+    if (mode === 'focus moved') expect(restoreFocus).toHaveBeenCalledWith({ preventScroll: true })
+    else expect(restoreFocus).not.toHaveBeenCalled()
     await vi.runAllTimersAsync()
     expect(write).toHaveBeenCalledOnce()
     expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
+    expect((await write.mock.calls[0][0][0]['text/html'].text()).length).toBeGreaterThan(0)
     expect(timings.map(({ kind, blockCount }) => [kind, blockCount])).toEqual([
       ['handler', 0],
       ...chunkCounts.map((count) => ['chunk', count]),

@@ -202,8 +202,9 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
         )
       }
 
+      let groupedUserHeight = 0
       Object.defineProperty(scroller, 'scrollHeight', {
-        get: () => scroller.clientHeight + Math.max(0, snap.count * 80 - 320)
+        get: () => scroller.clientHeight + Math.max(0, snap.count * 80 - 320) + groupedUserHeight
       })
       renderSnap(snap)
       writeScrollTop(scroller, scroller.scrollHeight - scroller.clientHeight)
@@ -252,6 +253,26 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
         'u:fx-10',
         'a:fx-10'
       ])
+      pinned = true
+      scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight
+      const oldBottom = scroller.scrollTop
+      chatActions.prependHistory('s', fixture.remainingPrefixTurns[6], { reachedStart: false })
+      state = harnessSession()
+      snap = model.advance({ messages: state.messages, transcriptChanges: state.transcriptChanges })
+      renderSnap(snap)
+      vi.advanceTimersByTime(20)
+      const nextBottom = scroller.scrollHeight - scroller.clientHeight
+      expect(nextBottom).toBeGreaterThan(oldBottom)
+      expect(scroller.scrollTop).toBe(nextBottom)
+
+      // A preceding user can share the first block's representative key on Claude.
+      chatActions.prependHistory('s', [fixture.remainingPrefixTurns[5][0]], { reachedStart: false })
+      state = harnessSession()
+      snap = model.advance({ messages: state.messages, transcriptChanges: state.transcriptChanges })
+      groupedUserHeight = 48
+      renderSnap(snap)
+      vi.advanceTimersByTime(20)
+      expect(scroller.scrollTop).toBe(scroller.scrollHeight - scroller.clientHeight)
     }
   })
 
@@ -530,6 +551,8 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     'async-own-scroll',
     'async-user-scroll',
     'header',
+    'header-toggle',
+    'mixed-prepend-live',
     'character',
     'pinned',
     'key',
@@ -559,6 +582,8 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
     let shift = 0
     let reflow = 0
     let pinned = false
+    const isPinned = (): boolean => pinned
+    let showHeader = cause !== 'header-toggle'
     const scroller = makeScroller(400, 250, (index) => (index === 0 ? 0 : shift))
     const queries = vi.spyOn(scroller, 'querySelectorAll')
     let scrollTop = scroller.scrollTop
@@ -583,10 +608,10 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         createElement(TranscriptViewport<{ key: string }>, {
           snapshot: blocks.snapshot(),
           scrollRef,
-          isPinned: () => pinned,
+          isPinned,
           sizeCache,
           estimateSizePx: 80,
-          header: createElement('p', null, 'history'),
+          header: showHeader ? createElement('p', null, 'history') : undefined,
           renderBlock: (block) => createElement('p', null, block.key)
         })
       )
@@ -633,6 +658,43 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
         const row = dom!.query('[data-block-key="above"]') as unknown as HTMLElement
         virtualizer.options.measureElement(row, entry, virtualizer)
       }
+    }
+
+    if (cause === 'header-toggle' || cause === 'mixed-prepend-live') {
+      const reading = dom!.query('[data-block-key="visible"]')!
+      const before = reading.getBoundingClientRect().top
+      const notifyHeader = (height: number): void => {
+        const slot = dom!.query('[data-transcript-header]') as unknown as Element
+        observers.get(slot)?.(
+          [{ borderBoxSize: [{ blockSize: height }] } as unknown as ResizeObserverEntry],
+          {} as ResizeObserver
+        )
+      }
+      if (cause === 'header-toggle') {
+        for (const height of [36, 0]) {
+          showHeader = height > 0
+          shift = height
+          render()
+          notifyHeader(height)
+          vi.runOnlyPendingTimers()
+          expect(scrollTop).toBe(250 + height)
+          expect(reading.getBoundingClientRect().top).toBe(before)
+        }
+        expect(writes).toEqual([286, 250])
+      } else {
+        blocks.splice(0, 0, [{ key: 'older' }])
+        render()
+        resize(15)
+        shift += 20
+        notifyHeader(20)
+        blocks.splice(blocks.snapshot().count, 0, [{ key: 'live' }])
+        render()
+        expect(writes).toEqual([])
+        vi.runOnlyPendingTimers()
+        expect(writes).toEqual([365])
+        expect(reading.getBoundingClientRect().top).toBe(before)
+      }
+      return
     }
 
     const framesBeforeResize = vi.getTimerCount()

@@ -72,7 +72,9 @@ export async function probeCopyReflow(): Promise<void> {
     setVirtualization(false);
     flushSync(() => root.render(<Screen rows={first} width={220} />));
     selectReverse();
-    const reference = document.getSelection()!.toString();
+    const fullSelection = document.getSelection()!;
+    const reference = fullSelection.toString();
+    const referenceHtmlText = fullSelection.getRangeAt(0).cloneContents().textContent;
     if (
       !reference.includes("a link") ||
       !reference.includes("first paragraph") ||
@@ -84,10 +86,12 @@ export async function probeCopyReflow(): Promise<void> {
     await frame();
     selectReverse();
     await frame();
-    const old = document.getSelection()!.anchorNode!;
+    const oldAnchor = document.getSelection()!.anchorNode!;
+    const oldFocus = document.getSelection()!.focusNode!;
     flushSync(() => root.render(<Screen rows={snapshot(2)} width={220} />));
     await frame();
-    if (old.isConnected) throw new Error("Expected both ends to remount");
+    if (oldAnchor.isConnected || oldFocus.isConnected)
+      throw new Error("Expected both ends to remount");
     assertSelection(reference);
     let items: ClipboardItem[] | undefined;
     Object.defineProperty(navigator, "clipboard", {
@@ -108,6 +112,10 @@ export async function probeCopyReflow(): Promise<void> {
       (await (await items[0].getType("text/plain")).text()) !== reference
     )
       throw new Error("Copy reflow clipboard mismatch");
+    const html = await (await items[0].getType("text/html")).text();
+    const body = new DOMParser().parseFromString(html, "text/html").body;
+    if (body.textContent !== referenceHtmlText || !body.querySelector("a") || body.querySelector("[data-copy-edge]"))
+      throw new Error("Copy reflow HTML differs from original range");
     assertSelection(reference);
   } finally {
     flushSync(() => root.unmount());
