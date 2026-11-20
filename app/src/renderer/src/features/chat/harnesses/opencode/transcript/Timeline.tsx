@@ -40,6 +40,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
   scrollRef,
   contentRef,
   onScroll,
+  isPinned,
   textScaleClassName,
   onRestoreSteerDraft,
   error
@@ -134,13 +135,18 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
           )}
           <TranscriptViewport
             snapshot={snapshot}
+            sessionKey={sessionKey}
             scrollRef={scrollRef}
+            isPinned={isPinned}
             overscan={6}
             estimateSizePx={60}
             initialOffset={state.top}
             sizeCache={state.sizes}
             anchorKey={state.anchor?.key}
             footer={footer}
+            hasPartMarkers={(block) =>
+              block.kind === 'user' || (block.kind === 'segment' && block.segment.kind === 'tools')
+            }
             itemClassName={(block: OpenCodeBlock) =>
               `group/msg min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[block.gap]}`
             }
@@ -181,7 +187,13 @@ export const OpenCodeTimelineRow = memo(function OpenCodeTimelineRow({
           />
         )
       if (row.segment.kind === 'reasoning') return null
-      return <OpenCodeAssistantSegment segment={row.segment} transcriptPolicy={policy} />
+      return (
+        <OpenCodeAssistantSegment
+          segment={row.segment}
+          transcriptPolicy={policy}
+          partKeys={row.partKeys}
+        />
+      )
     case 'meta':
       return (
         <MessageMeta

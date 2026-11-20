@@ -13,8 +13,10 @@ import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation
 // Work의 도구 행만 전용 표현을 사용한다. 질문·오류·서브에이전트 계약은 함께 유지한다.
 export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
   segment: seg,
-  transcriptPolicy
+  transcriptPolicy,
+  partKeys
 }: {
+  partKeys?: readonly string[]
   segment: MessageSegment
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element {
@@ -23,9 +25,13 @@ export const ClaudeAssistantSegment = memo(function ClaudeAssistantSegment({
       return <ReasoningBlock items={seg.items} />
     case 'tools':
       return transcriptPolicy.turnProjection === 'work-activity' ? (
-        <WorkToolTimeline calls={seg.calls} transcriptPolicy={transcriptPolicy} />
+        <WorkToolTimeline
+          calls={seg.calls}
+          transcriptPolicy={transcriptPolicy}
+          partKeys={partKeys}
+        />
       ) : (
-        <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} />
+        <ToolGroup calls={seg.calls} transcriptPolicy={transcriptPolicy} partKeys={partKeys} />
       )
     case 'ask':
       return <AskExchange call={seg.call} />

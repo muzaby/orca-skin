@@ -539,7 +539,11 @@ export function createClaudeBlockModel(config: {
       const node = nodes[i]
       const gap: ClaudeBlockGap = i === 0 ? (isFirstInDocument ? 0 : 24) : 16
       if (node.kind === 'activity') {
-        const itemPartKeys = node.items.map((item) => item.key)
+        const itemPartKeys = node.items.flatMap((item) =>
+          item.segment.kind === 'tools'
+            ? item.segment.calls.map((call) => toolBlockKey(item.messageId, call.toolUseId))
+            : [item.key]
+        )
         const rep =
           prevActivities.length > 0 && itemPartKeys.length > 0
             ? representativePart(prevActivities, itemPartKeys)

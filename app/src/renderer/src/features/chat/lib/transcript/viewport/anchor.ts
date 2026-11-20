@@ -101,7 +101,8 @@ export function captureAnchor(
   if (!targetEl) return null
 
   const partKey = targetEl.getAttribute('data-part-key') ?? ''
-  const blockEl = targetEl.closest?.('[data-block-key]') as HTMLElement | null
+  const blockEl = (targetEl.closest?.('[data-index]') ??
+    targetEl.closest?.('[data-block-key]')) as HTMLElement | null
   const blockKey = blockEl?.getAttribute('data-block-key') ?? partKey
   const messageId = blockEl?.getAttribute('data-message-id') ?? undefined
 
@@ -156,7 +157,7 @@ export function captureAnchor(
 export function restoreAnchor(
   scrollEl: HTMLElement,
   anchor: AnchorTarget,
-  blocks?: readonly AnchorFallbackEntry[]
+  fallback?: readonly AnchorFallbackEntry[] | (() => readonly AnchorFallbackEntry[])
 ): number | null {
   const vpTop = scrollEl.getBoundingClientRect().top
   const exact = findPartWrapperByKey(scrollEl, anchor.partKey)
@@ -165,6 +166,8 @@ export function restoreAnchor(
     const delta = currentScreenTop - (vpTop + anchor.viewportOffsetPx)
     return scrollEl.scrollTop + delta
   }
+
+  const blocks = typeof fallback === 'function' ? fallback() : fallback
 
   // Fallback a5: same message next part → next block
   if (blocks && blocks.length > 0) {

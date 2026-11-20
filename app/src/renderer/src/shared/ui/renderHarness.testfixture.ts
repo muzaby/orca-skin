@@ -69,6 +69,30 @@ export class FakeNode {
   scrollLeft = 0
   style: Record<string, unknown> = {}
 
+  get nodeType(): number {
+    return this.tag === '#text' ? 3 : 1
+  }
+
+  get data(): string {
+    return this.text
+  }
+
+  get childNodes(): FakeNode[] {
+    return this.children
+  }
+
+  get parentNode(): FakeNode | null {
+    return this.parent
+  }
+
+  get parentElement(): FakeNode | null {
+    return this.parent
+  }
+
+  hasAttribute(name: string): boolean {
+    return this.getAttribute(name) !== null
+  }
+
   get ownerDocument(): Document {
     return document
   }

@@ -58,6 +58,46 @@ describe('OpenCode transcript presentation', () => {
     { backend: 'claude', agentKind: 'work' },
     { backend: 'opencode', agentKind: 'code' }
   ] as const)(
+    'marks both rendered messages inside one grouped user row ($backend/$agentKind)',
+    ({ backend, agentKind }) => {
+      const messages: Message[] = [
+        { ...userMessage, id: 'u:first', parts: [{ type: 'text', text: 'First question' }] },
+        { ...userMessage, id: 'u:next', parts: [{ type: 'text', text: 'Follow-up question' }] },
+        assistantMessage
+      ]
+      installChatStoreHarness({ backend, agentKind, messages })
+      const $ = load(
+        renderToStaticMarkup(
+          createElement(TranscriptView, {
+            backend,
+            agentKind,
+            messages,
+            pendingSteer: [],
+            inflight: false,
+            loadingSession: false,
+            anchored: false,
+            scrollRef: { current: null },
+            contentRef: { current: null },
+            onScroll: () => {}
+          })
+        )
+      )
+
+      const first = $('[data-part-key="u:first:user"]')
+      const next = $('[data-part-key="u:next:user"]')
+      expect(first).toHaveLength(1)
+      expect(next).toHaveLength(1)
+      expect(first.text()).toBe('First question')
+      expect(next.text()).toBe('Follow-up question')
+      expect(first.closest('[data-index]')[0]).toBe(next.closest('[data-index]')[0])
+    }
+  )
+
+  it.each([
+    { backend: 'claude', agentKind: 'code' },
+    { backend: 'claude', agentKind: 'work' },
+    { backend: 'opencode', agentKind: 'code' }
+  ] as const)(
     'preserves bubble colors and the harness viewport background in earlier and last exchanges ($backend/$agentKind)',
     ({ backend, agentKind }) => {
       const messages: Message[] = [

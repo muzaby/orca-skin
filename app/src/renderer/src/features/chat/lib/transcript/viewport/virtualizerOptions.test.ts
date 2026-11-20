@@ -1,134 +1,137 @@
-import { describe, expect, it, vi } from 'vitest'
-import { Virtualizer } from '@tanstack/virtual-core'
-import { createBlockList } from '../blockList'
+import { createElement } from 'react'
+import type { Virtualizer } from '@tanstack/virtual-core'
+import { type Mock, afterEach, describe, expect, it, vi } from 'vitest'
+import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
+import { TranscriptViewport } from '../../../components/transcript/TranscriptViewport'
+import { createBlockList, type BlockList, type BlockSnapshot } from '../blockList'
 
-function makeVirtualizer(
-  initial: Array<{ key: string; text: string }>,
-  scrollToFn = vi.fn()
-): {
-  list: ReturnType<typeof createBlockList<{ key: string; text: string }>>
-  v: Virtualizer<Element, Element>
-  scrollToFn: ReturnType<typeof vi.fn>
-  getSnap: () => ReturnType<
-    ReturnType<typeof createBlockList<{ key: string; text: string }>>['snapshot']
-  >
-  setSnap: (
-    next: ReturnType<ReturnType<typeof createBlockList<{ key: string; text: string }>>['snapshot']>
-  ) => void
-  getCalls: () => number
-  resetCalls: () => void
-  getKeyFn: () => (index: number) => string
-  rebindKeyFn: () => (index: number) => string
-} {
-  const list = createBlockList(initial)
-  let snap = list.snapshot()
-  let getItemKeyCalls = 0
-  let getItemKey = (index: number): string => {
-    getItemKeyCalls++
-    return snap.keyAt(index)
-  }
-  const v = new Virtualizer<Element, Element>({
-    count: snap.count,
-    getScrollElement: () => ({}) as unknown as Element,
-    estimateSize: () => 50,
-    getItemKey,
-    scrollToFn,
-    observeElementRect: (_inst, cb) => {
-      cb({ width: 400, height: 300 })
-    },
-    observeElementOffset: (_inst, cb) => {
-      cb(0, false)
-    }
-  })
-  v.shouldAdjustScrollPositionOnItemSizeChange = () => false
-  v._didMount()
-  v._willUpdate()
-  v.getVirtualItems()
+vi.mock('react', async (original) => ({
+  ...(await original<typeof import('react')>()),
+  ...(await import('../../../../../shared/ui/renderHarness.testfixture')).fakeHooks
+}))
 
+let virtualizer: Virtualizer<HTMLDivElement, HTMLElement>
+vi.mock('@tanstack/react-virtual', async () => {
+  const { useRealVirtualizerWithFakeHooks } =
+    await import('../../../components/transcript/viewportTestBridge.testfixture')
+  const useVirtualizer = useRealVirtualizerWithFakeHooks<HTMLDivElement, HTMLElement>
   return {
-    list,
-    v,
-    scrollToFn,
-    getSnap: () => snap,
-    setSnap: (next: typeof snap) => {
-      snap = next
-    },
-    getCalls: () => getItemKeyCalls,
-    resetCalls: () => {
-      getItemKeyCalls = 0
-    },
-    getKeyFn: () => getItemKey,
-    rebindKeyFn: () => {
-      getItemKey = (index: number): string => {
-        getItemKeyCalls++
-        return snap.keyAt(index)
-      }
-      return getItemKey
+    useVirtualizer(options: Parameters<typeof useVirtualizer>[0]) {
+      virtualizer = useVirtualizer(options)
+      return virtualizer
     }
   }
+})
+
+let dom: FakeDom | undefined
+afterEach(() => {
+  dom?.unmount()
+  vi.unstubAllGlobals()
+})
+
+interface TestBlock {
+  key: string
+  text: string
 }
 
-describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10 · v1~v3)', () => {
-  it('v1: content-only replacement keeps keyRevision and getItemKey identity, causing 0 getItemKey calls and keeping measurementsCache', () => {
-    const h = makeVirtualizer([
-      { key: 'a', text: 'first' },
-      { key: 'b', text: 'second' },
-      { key: 'c', text: 'third' }
-    ])
-    const revBefore = h.getSnap().keyRevision
-    const cacheBefore = h.v.measurementsCache
-    h.resetCalls()
+function mountViewport(): {
+  list: BlockList<TestBlock>
+  render(snapshot?: BlockSnapshot<TestBlock>): Mock<(index: number) => string>
+  scrollTo: Mock
+} {
+  dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  const scrollTo = vi.fn()
+  const scrollRef = {
+    current: {
+      scrollTop: 100,
+      clientHeight: 60,
+      clientWidth: 400,
+      scrollTo,
+      querySelectorAll: () => [],
+      getBoundingClientRect: () => ({ top: 0, width: 400, height: 60 })
+    } as unknown as HTMLDivElement
+  }
+  const list = createBlockList([
+    { key: 'a', text: 'first' },
+    { key: 'b', text: 'second' },
+    { key: 'c', text: 'third' }
+  ])
+  const sizeCache = new Map([
+    ['a', 30],
+    ['b', 70],
+    ['c', 40]
+  ])
 
-    const next = h.list.splice(1, 1, [{ key: 'b', text: 'second updated' }])
-    h.setSnap(next)
-    expect(next.keyRevision).toBe(revBefore)
+  function render(snapshot = list.snapshot()): Mock<(index: number) => string> {
+    const keyAt = vi.fn(snapshot.keyAt)
+    dom!.render(
+      createElement(TranscriptViewport<TestBlock>, {
+        snapshot: { ...snapshot, keyAt },
+        scrollRef,
+        overscan: 0,
+        sizeCache,
+        renderBlock: (block) => createElement('div', null, block.text)
+      })
+    )
+    virtualizer.getVirtualItems()
+    return keyAt
+  }
 
-    h.v.setOptions({ ...h.v.options, count: next.count, getItemKey: h.getKeyFn() })
-    h.v._willUpdate()
-    h.v.getVirtualItems()
-    expect(h.getCalls()).toBe(0)
-    expect(h.v.measurementsCache).toBe(cacheBefore)
+  render()
+  return { list, render, scrollTo }
+}
+
+describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
+  it('v1: a content-only replacement reuses the production key callback and measurements', () => {
+    const { list, render } = mountViewport()
+    const measurements = virtualizer.measurementsCache
+    for (let index = 0; index < measurements.length; index++) void measurements[index]
+    const getItemKey = virtualizer.options.getItemKey
+    const revision = list.snapshot().keyRevision
+
+    const next = list.splice(1, 1, [{ key: 'b', text: 'updated' }])
+    const keyAt = render(next)
+
+    expect(next.keyRevision).toBe(revision)
+    expect(virtualizer.options.getItemKey).toBe(getItemKey)
+    keyAt.mockClear()
+    virtualizer.getTotalSize()
+    expect(keyAt).not.toHaveBeenCalled()
+    expect(virtualizer.measurementsCache).toBe(measurements)
   })
 
-  it('v2: same-count key reorder increments keyRevision, rebinds getItemKey, and rebuilds measurementsCache', () => {
-    const h = makeVirtualizer([
-      { key: 'a', text: 'first' },
-      { key: 'b', text: 'second' },
-      { key: 'c', text: 'third' }
-    ])
-    const revBefore = h.getSnap().keyRevision
-    const cacheBefore = h.v.measurementsCache
-    h.resetCalls()
-
-    const next = h.list.splice(0, 2, [
+  it('v2: a same-count reorder rebuilds measurements with sizes attached to keys', () => {
+    const { list, render } = mountViewport()
+    const measurements = virtualizer.measurementsCache
+    const getItemKey = virtualizer.options.getItemKey
+    const next = list.splice(0, 2, [
       { key: 'b', text: 'second' },
       { key: 'a', text: 'first' }
     ])
-    h.setSnap(next)
-    expect(next.keyRevision).toBe(revBefore + 1)
 
-    const nextKeyFn = h.rebindKeyFn()
-    h.v.setOptions({ ...h.v.options, count: next.count, getItemKey: nextKeyFn })
-    h.v._willUpdate()
-    h.v.getVirtualItems()
-    expect(h.getCalls()).toBeGreaterThan(0)
-    expect(h.v.measurementsCache).not.toBe(cacheBefore)
+    expect(render(next)).toHaveBeenCalled()
+    expect(virtualizer.options.getItemKey).not.toBe(getItemKey)
+    expect(virtualizer.measurementsCache).not.toBe(measurements)
+    expect(Array.from(virtualizer.measurementsCache, ({ key, size }) => [key, size])).toEqual([
+      ['b', 70],
+      ['a', 30],
+      ['c', 40]
+    ])
   })
 
-  it('v3: shouldAdjustScrollPositionOnItemSizeChange is disabled so resizing above viewport makes 0 scrollToFn calls', () => {
-    const scrollToFn = vi.fn()
-    const h = makeVirtualizer(
-      [
-        { key: 'a', text: 'first' },
-        { key: 'b', text: 'second' }
-      ],
-      scrollToFn
-    )
-    scrollToFn.mockClear()
+  it('v3: the viewport disables TanStack scroll adjustment for growth above the view', () => {
+    const { scrollTo } = mountViewport()
+    scrollTo.mockClear()
+
     expect(
-      h.v.shouldAdjustScrollPositionOnItemSizeChange?.(h.v.measurementsCache[0], 30, h.v)
+      virtualizer.shouldAdjustScrollPositionOnItemSizeChange?.(
+        virtualizer.measurementsCache[0],
+        50,
+        virtualizer
+      )
     ).toBe(false)
-    h.v.resizeItem(0, 80)
-    expect(scrollToFn).not.toHaveBeenCalled()
+    virtualizer.resizeItem(0, 80)
+
+    expect(scrollTo).not.toHaveBeenCalled()
   })
 })

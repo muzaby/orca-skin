@@ -102,7 +102,9 @@ export interface ViewportBlockBase {
 
 export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly snapshot: BlockSnapshot<Block>
+  readonly sessionKey?: string
   readonly scrollRef: RefObject<HTMLDivElement | null>
+  readonly hasPartMarkers?: (block: Block) => boolean
   readonly renderBlock: (block: Block, index: number, selected: boolean) => ReactNode
   readonly overscan?: number
   readonly estimateSizePx?: number
@@ -115,7 +117,7 @@ export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   /** Non-virtualized tail slot (pending steer, pending indicator, error banner, etc. — EP-11 ⑥). */
   readonly footer?: ReactNode
   /** When true (pinned to bottom), upward anchor restoration is skipped (EP-12 ⑥ · a4). */
-  readonly pinned?: boolean
+  readonly isPinned?: () => boolean
   /** Optional anchor block key to keep mounted in rangeExtractor. */
   readonly anchorKey?: string | null
   /** Optional callback for copy task timings (used by tests & diagnostics). */
@@ -131,12 +133,52 @@ function findEndpoint(node: Node | null, offset: number): RetainedSelection['anc
   const el = node.nodeType === 1 ? (node as Element) : node.parentElement
   if (!el) return null
   const partEl = el.closest?.('[data-part-key]') as HTMLElement | null
-  const blockEl = el.closest?.('[data-block-key]') as HTMLElement | null
+  const blockEl = (el.closest?.('[data-index]') ??
+    el.closest?.('[data-block-key]')) as HTMLElement | null
   const blockKey = blockEl?.getAttribute('data-block-key')
   if (!blockKey) return null
   const partKey = partEl?.getAttribute('data-part-key') ?? blockKey
   const charOffset = partEl ? partTextOffset(partEl, node, offset) : offset
   return { blockKey, partKey, charOffset }
+}
+
+function selectionBlockIndex(
+  snapshot: BlockSnapshot<ViewportBlockBase>,
+  endpoint: RetainedSelection['anchor']
+): number {
+  const existingIndex = snapshot.indexOf(endpoint.blockKey)
+  if (existingIndex >= 0) {
+    const block = snapshot.blockAt(existingIndex)
+    if (block.key === endpoint.partKey || block.partKeys?.includes(endpoint.partKey)) {
+      return existingIndex
+    }
+  }
+  const partIndex = snapshot.indexOf(endpoint.partKey)
+  if (partIndex >= 0) return partIndex
+  for (let index = 0; index < snapshot.count; index++) {
+    if (snapshot.blockAt(index).partKeys?.includes(endpoint.partKey)) return index
+  }
+  return -1
+}
+
+function restoreSelection(
+  root: HTMLElement,
+  selection: Selection,
+  retained: RetainedSelection
+): void {
+  const anchor = root.querySelector(`[data-part-key="${CSS.escape(retained.anchor.partKey)}"]`)
+  const focus = root.querySelector(`[data-part-key="${CSS.escape(retained.focus.partKey)}"]`)
+  if (!anchor || !focus) return
+  const a = pointAtPartOffset(anchor, retained.anchor.charOffset)
+  const f = pointAtPartOffset(focus, retained.focus.charOffset)
+  if (
+    a.node !== selection.anchorNode ||
+    a.offset !== selection.anchorOffset ||
+    f.node !== selection.focusNode ||
+    f.offset !== selection.focusOffset
+  ) {
+    selection.setBaseAndExtent(a.node, a.offset, f.node, f.offset)
+  }
 }
 
 const SHIFT_EXTEND_KEYS = new Set([
@@ -162,8 +204,10 @@ const SCROLL_CANCEL_KEYS = new Set([
 
 export function TranscriptViewport<Block extends ViewportBlockBase>({
   snapshot,
+  sessionKey,
   scrollRef,
   renderBlock,
+  hasPartMarkers,
   overscan = 6,
   estimateSizePx = 120,
   initialOffset,
@@ -171,7 +215,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   enableReserveGap = false,
   header,
   footer,
-  pinned = false,
+  isPinned,
   anchorKey,
   onCopyTiming,
   copyChunkSize,
@@ -186,20 +230,27 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const internalSizes = useRef(new Map<string, number>())
   const sizeCache = externalSizeCache ?? internalSizes.current
   const prevSnapshotRef = useRef(snapshot)
+  const prevSessionKeyRef = useRef(sessionKey)
   const snapshotRef = useRef(snapshot)
   snapshotRef.current = snapshot
-  const pinnedRef = useRef(pinned)
-  pinnedRef.current = pinned
+  const isPinnedRef = useRef(isPinned)
+  isPinnedRef.current = isPinned
 
   const anchorController = useMemo(() => createAnchorController(), [])
   const activeAnchorRef = useRef<AnchorTarget | null>(null)
   const restingAnchorRef = useRef<AnchorTarget | null>(null)
   const selfWritingScrollRef = useRef(false)
+  const adjustedScrollTopRef = useRef<number | null>(null)
   const pendingRestoreRafRef = useRef<number | null>(null)
   const headerRef = useRef<HTMLDivElement | null>(null)
   const lastHeaderHeightRef = useRef<number | null>(null)
 
-  const [retainedSelection, setRetainedSelection] = useState<RetainedSelection | null>(null)
+  const [savedSelection, setSavedSelection] = useState<{
+    sessionKey: string | undefined
+    selection: RetainedSelection
+  } | null>(null)
+  const retainedSelection =
+    savedSelection?.sessionKey === sessionKey ? (savedSelection?.selection ?? null) : null
   const retainedSelectionRef = useRef<RetainedSelection | null>(null)
   retainedSelectionRef.current = retainedSelection
 
@@ -210,6 +261,15 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const copyHostRef = useRef<HTMLDivElement | null>(null)
   const activeCopyJobRef = useRef<CopyJobHandle | null>(null)
 
+  if (prevSessionKeyRef.current !== sessionKey) {
+    prevSessionKeyRef.current = sessionKey
+    prevSnapshotRef.current = snapshot
+    activeAnchorRef.current = null
+    restingAnchorRef.current = null
+    adjustedScrollTopRef.current = null
+    anchorController.cancelAnchor()
+  }
+
   // Capture anchor BEFORE commit when snapshot head/keys change while unpinned (EP-12 ① · D1)
   if (prevSnapshotRef.current !== snapshot) {
     const prev = prevSnapshotRef.current
@@ -217,7 +277,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       prev.count > 0 &&
       snapshot.count > 0 &&
       (prev.keyAt(0) !== snapshot.keyAt(0) || prev.keyRevision !== snapshot.keyRevision)
-    if (headChanged && !pinned && !activeAnchorRef.current) {
+    if (headChanged && !isPinned?.() && !activeAnchorRef.current) {
       const el = scrollRef.current
       const captured = el ? captureAnchor(el) : null
       const nextAnchor = captured ?? restingAnchorRef.current
@@ -229,13 +289,13 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     prevSnapshotRef.current = snapshot
   }
 
-  // Cancel any in-flight copy job on unmount (c16)
-  useEffect(() => {
+  // A viewport may outlive the active session. Cancel before its new content becomes visible.
+  useLayoutEffect(() => {
     return () => {
       activeCopyJobRef.current?.cancel()
       activeCopyJobRef.current = null
     }
-  }, [])
+  }, [sessionKey])
 
   // Stable getItemKey identity pinned to snapshot.keyRevision (EP-10 ① · D-073 · v1 · v2)
   const getItemKey = useMemo(
@@ -262,12 +322,12 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       count: number
     }): number[] => {
       const snap = snapshotRef.current
-      const sel = retainedSelectionRef.current
+      const sel = retainedSelection
       const endpoints =
         sel !== null
           ? {
-              anchorIndex: snap.indexOf(sel.anchor.blockKey),
-              focusIndex: snap.indexOf(sel.focus.blockKey)
+              anchorIndex: selectionBlockIndex(snap, sel.anchor),
+              focusIndex: selectionBlockIndex(snap, sel.focus)
             }
           : null
       const anchorIdx =
@@ -284,27 +344,30 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       for (let i = lo; i <= hi; i++) merged.add(i)
       return Array.from(merged).sort((a, b) => a - b)
     },
-    [anchorKey, syncCopyRange]
+    [anchorKey, retainedSelection, syncCopyRange]
   )
 
   const flushAnchorRestore = useCallback((): void => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
-    if (!el || !anchor || pinnedRef.current) return
+    if (!el || !anchor || isPinnedRef.current?.()) return
     const snap = snapshotRef.current
-    const fallbackEntries = Array.from({ length: snap.count }, (_, i) => {
-      const b = snap.blockAt(i)
-      return {
-        blockKey: b.key,
-        messageId: b.messageId,
-        partKeys: b.partKeys ?? [b.key]
-      }
+    const nextTop = restoreAnchor(el, anchor, () => {
+      const blocks = el.querySelectorAll<HTMLElement>('[data-index]')
+      return Array.from(blocks, (element) => {
+        const block = snap.blockAt(Number(element.getAttribute('data-index')))
+        return {
+          blockKey: block.key,
+          messageId: block.messageId,
+          partKeys: block.partKeys ?? [block.key]
+        }
+      })
     })
-    const nextTop = restoreAnchor(el, anchor, fallbackEntries)
     if (nextTop !== null && Math.abs(nextTop - el.scrollTop) > 0.5) {
       selfWritingScrollRef.current = true
       try {
         writeScrollTop(el, nextTop)
+        adjustedScrollTopRef.current = el.scrollTop
       } finally {
         selfWritingScrollRef.current = false
       }
@@ -312,7 +375,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }, [scrollRef])
 
   const scheduleAnchorRestore = useCallback((): void => {
-    if (pinnedRef.current || pendingRestoreRafRef.current !== null) return
+    if (isPinnedRef.current?.() || pendingRestoreRafRef.current !== null) return
     if (typeof requestAnimationFrame !== 'function') {
       flushAnchorRestore()
       return
@@ -330,7 +393,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (key && height > 0) {
         const prevHeight = sizeCache.get(key)
         sizeCache.set(key, height)
-        if (prevHeight !== undefined && Math.abs(prevHeight - height) > 0.5 && !pinnedRef.current) {
+        if (
+          prevHeight !== undefined &&
+          Math.abs(prevHeight - height) > 0.5 &&
+          !isPinnedRef.current?.()
+        ) {
           const snap = snapshotRef.current
           const itemIdx = snap.indexOf(key)
           const existingAnchor = activeAnchorRef.current ?? restingAnchorRef.current
@@ -380,19 +447,28 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       if (!el) return
       const sel = document.getSelection()
       if (!sel || sel.isCollapsed) {
-        setRetainedSelection(null)
+        setSavedSelection(null)
         return
       }
       if (!el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return
       const anchor = findEndpoint(sel.anchorNode, sel.anchorOffset)
       const focus = findEndpoint(sel.focusNode, sel.focusOffset)
       if (anchor && focus) {
-        setRetainedSelection({ anchor, focus })
+        setSavedSelection({ sessionKey, selection: { anchor, focus } })
       }
     }
     document.addEventListener('selectionchange', onSelectionChange)
     return () => document.removeEventListener('selectionchange', onSelectionChange)
-  }, [scrollRef, virtualized])
+  }, [scrollRef, sessionKey, virtualized])
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const retained = retainedSelectionRef.current
+    const selection = el && retained && document.getSelection?.()
+    if (!el || !retained || !selection) return
+    if (selection.anchorNode && !el.contains(selection.anchorNode)) return
+    restoreSelection(el, selection, retained)
+  }, [scrollRef, snapshot])
 
   // Keyboard selection extension (EP-17 ⑤ · c6 · c11)
   const handleKeyDown = useCallback(
@@ -403,21 +479,22 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       const anchor = findEndpoint(sel.anchorNode, sel.anchorOffset)
       const focus = findEndpoint(sel.focusNode, sel.focusOffset)
       if (anchor && focus) {
-        setRetainedSelection({ anchor, focus })
+        setSavedSelection({ sessionKey, selection: { anchor, focus } })
       }
     },
-    [virtualized]
+    [sessionKey, virtualized]
   )
 
   // Copy handler (EP-17 ②~④ · c3~c5, c7~c9, c12~c19)
   const handleCopy = useCallback(
     (event: React.ClipboardEvent<HTMLDivElement>) => {
       if (!virtualized) return
+      activeCopyJobRef.current?.cancel()
       const sel = retainedSelectionRef.current
       if (!sel) return
       const snap = snapshotRef.current
-      const aIdx = snap.indexOf(sel.anchor.blockKey)
-      const fIdx = snap.indexOf(sel.focus.blockKey)
+      const aIdx = selectionBlockIndex(snap, sel.anchor)
+      const fIdx = selectionBlockIndex(snap, sel.focus)
       if (aIdx < 0 || fIdx < 0) return
 
       const lo = Math.min(aIdx, fIdx)
@@ -433,19 +510,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
           // Re-apply DOM selection across the newly mounted endpoints if needed
           const domSel = document.getSelection()
           const scroller = scrollRef.current
-          if (domSel && scroller) {
-            const aPart = scroller.querySelector(
-              `[data-part-key="${CSS.escape(sel.anchor.partKey)}"]`
-            )
-            const fPart = scroller.querySelector(
-              `[data-part-key="${CSS.escape(sel.focus.partKey)}"]`
-            )
-            if (aPart && fPart) {
-              const ap = pointAtPartOffset(aPart, sel.anchor.charOffset)
-              const fp = pointAtPartOffset(fPart, sel.focus.charOffset)
-              domSel.setBaseAndExtent(ap.node, ap.offset, fp.node, fp.offset)
-            }
-          }
+          if (domSel && scroller) restoreSelection(scroller, domSel, sel)
           onCopyTiming?.({
             kind: 'handler',
             durationMs: (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0,
@@ -459,7 +524,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
 
       // Async chunked copy path (> cap) (EP-17 ③④ · c7 · c12~c19)
       event.preventDefault()
-      activeCopyJobRef.current?.cancel()
       onCopyTiming?.({
         kind: 'handler',
         durationMs: (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0,
@@ -557,6 +621,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     const el = scrollRef.current
     if (!el || typeof el.addEventListener !== 'function') return
     const cancel = (): void => {
+      adjustedScrollTopRef.current = null
       anchorController.cancelAnchor()
       activeAnchorRef.current = null
       if (pendingRestoreRafRef.current !== null && typeof cancelAnimationFrame === 'function') {
@@ -570,8 +635,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     }
     const onScroll = (): void => {
       if (selfWritingScrollRef.current) return
+      const adjustedTop = adjustedScrollTopRef.current
+      adjustedScrollTopRef.current = null
+      if (adjustedTop !== null && Math.abs(el.scrollTop - adjustedTop) <= 0.5) return
       cancel()
-      if (!pinnedRef.current) {
+      if (!isPinnedRef.current?.()) {
         restingAnchorRef.current = captureAnchor(el)
       }
     }
@@ -601,7 +669,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         entries[0]?.borderBoxSize?.[0]?.blockSize ?? headerEl.getBoundingClientRect().height
       const prevHeight = lastHeaderHeightRef.current
       lastHeaderHeightRef.current = nextHeight
-      if (prevHeight !== null && Math.abs(prevHeight - nextHeight) > 0.5 && !pinnedRef.current) {
+      if (
+        prevHeight !== null &&
+        Math.abs(prevHeight - nextHeight) > 0.5 &&
+        !isPinnedRef.current?.()
+      ) {
         if (!activeAnchorRef.current) {
           const target =
             restingAnchorRef.current ??
@@ -622,12 +694,23 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   useLayoutEffect(() => {
     const el = scrollRef.current
     const anchor = activeAnchorRef.current
-    if (el && anchor && !pinned) {
-      flushAnchorRestore()
-    } else if (el && !pinned && snapshot.count > 0) {
+    if (isPinned?.()) {
+      activeAnchorRef.current = null
+      restingAnchorRef.current = null
+      anchorController.cancelAnchor()
+    } else if (el && anchor) {
+      scheduleAnchorRestore()
+    } else if (el && snapshot.count > 0) {
       restingAnchorRef.current = captureAnchor(el)
     }
-  }, [flushAnchorRestore, pinned, scrollRef, snapshot.count, snapshot.revision])
+  }, [
+    anchorController,
+    isPinned,
+    scheduleAnchorRestore,
+    scrollRef,
+    snapshot.count,
+    snapshot.revision
+  ])
 
   const reveal = useCallback(
     (root: HTMLElement): void => {
@@ -666,8 +749,8 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
 
   const selectionRange = useMemo<[number, number] | null>(() => {
     if (!retainedSelection) return null
-    const a = snapshot.indexOf(retainedSelection.anchor.blockKey)
-    const f = snapshot.indexOf(retainedSelection.focus.blockKey)
+    const a = selectionBlockIndex(snapshot, retainedSelection.anchor)
+    const f = selectionBlockIndex(snapshot, retainedSelection.focus)
     if (a < 0 || f < 0) return null
     return [Math.min(a, f), Math.max(a, f)]
   }, [retainedSelection, snapshot])
@@ -704,7 +787,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
                   data-index={vi.index}
                   data-block-key={block.key}
                   data-message-id={block.messageId}
-                  data-part-key={block.partKeys?.[0] ?? block.key}
+                  data-part-key={
+                    hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
+                  }
                   className={`absolute top-0 left-0 w-full ${extraClass}`}
                   style={{ transform: `translateY(${vi.start}px)` }}
                 >
@@ -724,7 +809,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
                   data-index={index}
                   data-block-key={block.key}
                   data-message-id={block.messageId}
-                  data-part-key={block.partKeys?.[0] ?? block.key}
+                  data-part-key={
+                    hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
+                  }
                   className={`w-full ${extraClass}`}
                 >
                   {renderBlock(block, index, false)}
@@ -748,7 +835,10 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
               <div
                 key={block.key}
                 data-block-key={block.key}
-                data-part-key={block.partKeys?.[0] ?? block.key}
+                className={itemClassName?.(block, index)}
+                data-part-key={
+                  hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
+                }
               >
                 {renderBlock(block, index, false)}
               </div>

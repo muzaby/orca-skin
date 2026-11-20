@@ -11,7 +11,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | IMPL_DONE (V1 rev 7 · r2) |
+| 상태 | IN_PROGRESS (V1 rev 7 · r3) |
 | V mode | `Baseline V` |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -1895,3 +1895,124 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 - verify r1의 BLOCKING 발견 D1(앵커 배선·X01), D2(누락 테스트 파일·테스트명·분기 기호 전수), D3(초점 `± overscan` 잠금·X02), D4(자리별 §10 강제 지점·잠금 표)와 NON_BLOCKING D6(plan 메타 상태)을 모두 닫았다.
 - `npm rebuild better-sqlite3`로 Linux VM에서도 SQLite `io` 테스트(`message-identity.integration.test.ts`, `writer.test.ts` 등)와 `smoke-hosts.mjs`를 직접 통과시켰다.
 - 전체 무필터 `vitest run`에서 포착된 `automaticFeedDebug.integration.test.ts` 2건 회귀를 `claudeBlocks.ts`의 `representativePart` key 승계로 해소해 9/9 통과시켰다.
+
+
+## [구현자 기입] 설계 리뷰 (r3)
+
+- 부분 구현. V1 rev 7의 Decision·AC·§10을 기준으로 verify r2의 D4·D7~D13·D15를 대조했다.
+- 진입점의 상태와 사용자 입력을 공통 뷰포트가 관측한다. 오라클은 실제 Timeline·store·뷰포트 배선을 지난다.
+- 결합 Markdown의 소스 part별 표시와 ST-03 전체 계수는 추가 증거가 필요하다. 규범 행 변경은 없다.
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r3)
+
+| Pair | 계약/필드 | §10이 적은 지점 | 닫은 지점 | 재현 명령 / 관측 · 자리별 oracle 좌표 | 운반 항 · 구별 값 · 관측 | 남긴 곳 |
+|---|---|---|---|---|---|---|
+| VP-08 | 캐시 로드 | EP-4 ⑥⑪ | 일부 | `TranscriptViewport.reopen.test.ts` 캐시 재열기 | 실제 `chatActions.loadSession` · 같은 키와 노드 · 역방향 선택 끝 4/1 | 실제 Claude 카드 열린 인스턴스 |
+| VP-19 | live 리프 | EP-8 ⑩ | 일부 | `TranscriptViewport.live.test.ts` 세 하네스 | `ingestChatEvent` → rAF → store → Timeline · 출현 1, 같은 번호 delta 0, 완료 1 | 같은 조건의 실제 React 비관련 렌더 계수 |
+| VP-21 | TanStack 키·크기 | EP-10 ① | 해당 검증 | `virtualizerOptions.test.ts` v1/v2 | 내용 교체는 콜백·측정표 재사용 · 순서 변경 b/a/c 뒤 크기 70/30/40 | ① 상세 항 제거 sweep 남음 |
+| VP-21 | 쓰기 | EP-10 ② | 해당 검증 | `TranscriptViewport.prepend.test.ts` · X03 | 공통 쓰기 제거 시 앞삽입과 보정 실패 | — |
+| VP-21 | TanStack 보정 | EP-10 ③ | 해당 검증 | `virtualizerOptions.test.ts` v3 | 위 항목 크기 변경 시 TanStack의 쓰기 0 | — |
+| VP-22 | 전송 전이 | EP-10 ④ | 일부 | `TranscriptViewport.transition.test.ts` | 전송 전후 마운트·측정·키·선택 끝 3/1 | 세 하네스의 실제 전송 진입 |
+| VP-21 | 진입 배선 | EP-10 ⑤~⑧ | 일부 | `transcript.viewport.test.ts` 세 진입점과 음성 검색 | Timeline에 전달한 하단 고정 값을 뷰포트가 받음 | ⑤~⑧ 항별 제거 sweep |
+| VP-23 | pin 상태 | EP-11 ①~⑦ | 일부 | `transcript.viewport.test.ts` · `TranscriptViewport.prepend.test.ts` | 서로 다른 제어기의 pin 조회 함수가 공통 복원 경로까지 도달 | ①~⑦의 기존 정책 전체 재검증 |
+| VP-24 | 진입 의도 | EP-11 ⑧ | 일부 | `TranscriptViewport.reopen.test.ts` cached navigation 및 sync | 활성 전환 open · 같은 세션 재선택 0 · revalidate 뒤 reset | resume·늦은 응답·실제 스크롤 위치 통합 검증 |
+| VP-26 | 캡처 | EP-12 ① | 일부 | `TranscriptViewport.prepend.test.ts` measurement/header · `TranscriptView.harness.test.ts` grouped user row | 가시 위쪽 측정·머리 높이 15→35 · 한 블록의 서로 다른 두 part 표지 | 결합 Markdown part 및 문자 Range ±1px |
+| VP-26 | 프레임 쓰기 | EP-12 ② | 해당 검증 | `TranscriptViewport.prepend.test.ts` measurement/header | 변위 2건 → 프레임 쓰기 1회(285) | — |
+| VP-26 | 측정 정정 | EP-12 ③ | 일부 | `TranscriptViewport.prepend.test.ts` measurement | 가시 위쪽 항목의 실측 변경이 캡처를 복원 | 여러 프레임에 걸친 선택 증거 전수 |
+| VP-26 | 대체 | EP-12 ④ | 미확정 | `anchor.test.ts` a5 | 정확한 키가 없는 동작에서 대체 경로 진입 | 뷰포트의 실제 대체 대상 |
+| VP-27 | 앞삽입 진입 | EP-12 ⑤ | 일부 | `TranscriptViewport.prepend.test.ts` fixed fixture·비용 비교 | `chatActions.prependHistory`에서 9/8/7 삽입 뒤 노드·기하·선택·펼침 슬롯 | 다섯 계수 완전 대조 및 T 위반 양쪽 |
+| VP-26·VP-27 | pin | EP-12 ⑥ | 일부 | `TranscriptViewport.prepend.test.ts` pinned · `transcript.viewport.test.ts` | 예약 뒤 고정 전환 시 앵커 쓰기 0 · 두 Timeline 배선 | 고정 상태에서 실제 헤드 삽입 뒤 하단 유지 |
+| VP-26 | 취소 | EP-12 ⑦ | 해당 검증 | `TranscriptViewport.prepend.test.ts` key/wheel/pointer/scroll | 사용자 입력은 예약을 취소 · 자기 쓰기의 scroll은 재캡처 0 | 비동기 scroll 통지 변이 |
+| VP-28 | 펼침 키 | EP-15 ①~⑥ | 일부 | `TranscriptViewport.reopen.test.ts`, `claudeBlocks.test.ts` | Claude 도구 카드의 공개 part 키와 prune 후보를 같은 스냅샷에서 얻음 | 실제 카드·포커스·부분 로드 전수 |
+| VP-28 | 본문 전환 | EP-16 ①~⑤ | 미측정 | 기존 `ToolCard.interaction.test.ts` 좌표 | 전환 이벤트·세대 계약 V1 rev 7 참조 | 이번 변경에서 등록 변이 재측정 |
+| VP-29 | 유지 범위 | EP-17 ① | 일부 | `TranscriptViewport.selection.test.ts` X02·실제 onCopy | 선택 0~4에서 내부 index 2가 상시 마운트되지 않음 | 모든 입력·프레임 및 실제 세 화면 |
+| VP-29 | 동기 복사 | EP-17 ② | 해당 검증 | 같은 스위트 sync · M29-c3 | 핸들러 안에서 index 2 마운트 · 복사 기준 일치 · 다음 프레임 제거 | 브라우저 기본 복사 실기 |
+| VP-29 | 초과 복사 | EP-17 ③ | 일부 | 같은 스위트 chunks/switch | 클립보드 쓰기 1회 또는 세션 전환 0회 | 실패·재시도 production 경로 전수 |
+| VP-29 | 조각 호스트 | EP-17 ④ | 일부 | 같은 스위트 chunks · X09/M29-c19 | 조각 2/2/1 · task 끝 호스트 0 · 역방향 선택 복구 | 포커스·최대 DOM·시간 상한 전수 |
+| VP-29 | 키보드 입력 | EP-17 ⑤ | 미확정 | `selectionMountSet` 기존 오라클 | 선택 마운트 범위 함수 동작 | 실제 키 입력 순서 |
+| VP-29 | part 문자 위치 | EP-17 ⑥ | 일부 | `TranscriptView.harness.test.ts` · 복사 역방향 테스트 | 묶인 사용자 메시지 두 개 표지 각 1 · 끝 위치 12/6 | 결합 Markdown 및 같은 part 내용 변경 |
+| VP-29 | 진단 복사 실패 | EP-17 ⑦ | 미확정 | 기존 진단·오류 보고 경로 | 이번 턴 별도 측정 없음 | 등록 입력 재측정 |
+| VP-29 | 전체 마운트 기준 | EP-17 ⑧ | 일부 | 같은 스위트 sync/chunks | 가상화 해제 DOM의 두 줄 이상 독립 기준과 동등 | 실제 Chromium·세 하네스 |
+| VP-35 | 성능 측정 | EP-21 ①~③ | 미측정 | 기존 `measure-ui-inputs.mjs` | 이번 라운드 J1~J10 신규 실측 없음 | 품질 게이트의 성능 입력 재측정 |
+| VP-39 | 앞삽입 store | EP-22 ①~⑦ | 일부 | `TranscriptViewport.prepend.test.ts` | 전수 T 규칙에서 이번 턴은 실제 prepend·연속 user reset 경로 확인 | remainingPrefix variant 및 모든 등록 변이 |
+
+**V-pair 자기확인**
+
+| Pair | requiredness | 자기 상태 | 직접 oracle 좌표 | 선택된 적대 증거 결과 |
+|---|---|---|---|---|
+| VP-08·19·21·22·24·26·27·28·29 | REQUIRED | SELF_BLOCKED | 위 표 | 일부 직접 변이 검출. 등록 변이와 자리별 sweep 전수 미완료 |
+| AC33 | HUMAN | SELF_BLOCKED | §19 | 기계 verify 뒤 Windows 실기 |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r3)
+
+| 심은 결함 | 출처 | 이전 라운드 결과 | 실패한 테스트 / 케이스 수 | 결과 |
+|---|---|---|---|---|
+| M26-a4 | D7 · EP-12 ⑥ | green | prepend 1 | red |
+| X05 | D8 · 가시 위쪽 측정 | green | prepend 1 | red |
+| X06 | D8 · 자기 쓰기 구분 | green | prepend 2 | red |
+| X07 | D8 · 키 취소 | green | prepend 1 | red |
+| X08 | D8 · 머리 높이 | green | prepend 1 | red |
+| M29-c3 | D11 · 동기 복사 | green | selection 1 | red |
+| X09 | D11 · 조각 본문 | green | selection 1 | red |
+| M29-c19 | D11 · 선택 복구 | green | selection 1 | red |
+| M21-v1 | D12 · 콜백 정체 | green | virtualizerOptions 1 | red |
+| X01 | 앵커 복원 회귀 | red | prepend 3 | red |
+| X02 | 초점 overscan 회귀 | red | selection 1 | red |
+| X03 | 스크롤 쓰기 회귀 | red | prepend 3 | red |
+| D9-user | 사용자 본문 표지 오라클 | 미실행 | transcript harness 3 | red |
+| D7-claude | Claude pin 배선 자리 | 미실행 | registry 1 | red |
+| D7-opencode | OpenCode pin 배선 자리 | 미실행 | registry 1 | red |
+| EP12-wheel | 사용자 휠 취소 자리 | 미실행 | prepend 1 | red |
+| EP12-pointer | 사용자 포인터 취소 자리 | 미실행 | prepend 1 | red |
+| X04 | 변경 기록 remove 접기 회귀 | red | changeLog 외 2 | red |
+| EP10-tanstack | TanStack의 위 항목 자동 보정 | 미실행 | virtualizerOptions 1 | red |
+| D9-work | Work 도구 본문 표지 | 미실행 | workResults 1 | red |
+
+- 검산. 인용 변이 9 · 재검사 4 · 새 오라클과 자리 변이 7 = 20행. 작업 사본에서 원복 확인.
+- 전체 ⑦ sweep과 미재검사 등록 변이는 남았다. D4의 전수 완료 판정 보류.
+
+## [구현자 기입] Product/UX 파생 검토 (r3)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 하단 고정과 읽던 위치 | 두 스크롤 제어기의 현재 pin을 읽는다. 대기 중 고정 전환은 앵커 쓰기 0 | 실제 Windows 높이 변화 시나리오 |
+| 복사와 세션 전환 | 조각 작업은 세션이 바뀌면 취소된다. 해당 테스트의 클립보드 쓰기 0 | Chromium 복사·붙여넣기 기준 대조 |
+| 단일 Markdown 렌더 | 결합 텍스트는 기존 Markdown 파서를 거친다. 합쳐진 소스의 part별 문자 좌표 대응은 미완료 | D9 부분 |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r3)
+
+| 문제 | 대응 | 근거 |
+|---|---|---|
+| selection 변경만으로 가상 범위가 다시 계산되지 않을 수 있음 | 선택 좌표를 range extractor 의존성에 넣음 | selection sync/chunks |
+| 뷰포트 재사용 중 이전 세션의 복사가 살아 있음 | 세션 키를 전달하고 layout 정리에서 현재 작업 취소 | selection switch · clipboard write 0 |
+| tool card 저장 key가 reset의 유효 key 집합과 다름 | Claude 카드에 안정 part key를 전달하고 complete reset에서 해당 키를 포함 | `ToolCard.tsx` · `Timeline.tsx` |
+| 앵커의 정확한 part를 찾을 때도 전체 스냅샷을 읽음 | 대체 대상 조회를 exact miss 이후에 실행하고 마운트 DOM으로 제한 | `flushAnchorRestore` · `restoreAnchor` |
+
+### 설계 대비 명시적 차이 (r3)
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 조각 복사 중 세션이 바뀌면 예약 task가 남을 수 있음 | EP-17 ③④ · switch에서 다음 조각·쓰기 0 |
+| 공유 | 같은 뷰포트를 세션이 공유할 수 있음 | EP-17 ⑥ · 선택 상태에 세션 키 포함 |
+| 재진입 | pin이 렌더 없이 바뀔 수 있음 | EP-12 ⑥ · 예약 뒤 pin 전환 변이 red |
+| 다른 무효화 축 | DOM 마커가 합쳐진 Markdown part를 구분하지 못할 수 있음 | AC20·AC26 미확정 |
+
+## [구현자 기입] 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 분류 | 부분 보완. D4·D9·D10·D11·D13·D15의 위 표 잔여 증거 확인 필요 |
+| AC 자기보고 | ✅ AC3·7·11·15·17·18·31·35. AC15 직접 재시험, 나머지 7건은 verify r2 판정 유지 |
+| 합계 검산 | ✅ 8 · ⚠️ 18 · ❌ 9 = 총 35. AC6·14·16·19·20·21·22·23·26은 잔여 증거가 필요 |
+| 게이트 | 관련 Vitest 12파일 53케이스 · 도구 스크립트 1,106케이스 · 가드 5종 |
+| 게이트 | lint 0 error/5 warnings · typecheck 3종 오류 0 · 앱 빌드와 host/preload 스모크 통과 · 배포 렌더러 `__ooDev` 0파일 |
+| 전체 Vitest | 1,079파일 10,106케이스. Windows 경로 픽스처 22건 및 미처리 예외 1건은 수정 전 `2707d71a`에서도 재현 |
+| 전체 Vitest 후 수정 | Work 결과 테스트의 HTML 속성 인접 단언 1건을 DOM 속성 단언으로 교체하고 해당 스위트 재통과. 최종 전체 재실행은 미수행 |
+| 테스트 소스 | 변경 스위트 9파일과 픽스처 1파일 추가. 예산 가드와 테스트 풀 분류 통과. 이 테스트들은 실제 호스트와 exe를 호출하지 않는다 |
+| 대상 커밋 | (r3 부분 구현 — 좌표는 INDEX) |
+
+## [구현자 기입] Review Signals — 사실만 (r3)
+
+- 이전 r2 변이의 green 9건은 이번 작업 사본에서 red로 관측됐다.
+- 합쳐진 본문의 part별 DOM 표시·AC21 계수·진입점별 선택 복사·⑦ 전수 sweep은 남았다.
+- 기계 검증은 V1 rev 7의 구현 완료 뒤 진행한다.

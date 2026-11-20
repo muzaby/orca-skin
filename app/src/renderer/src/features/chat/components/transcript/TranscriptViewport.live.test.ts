@@ -1,157 +1,195 @@
-import { createElement, memo } from 'react'
+import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
-import { newTranscriptChanges, recordChange } from '../../lib/transcript/changeLog'
+import type { TranscriptTimelineProps } from '../../harnesses/contracts'
+import { TranscriptView } from './TranscriptView'
+import * as claudeBlocks from '../../harnesses/claude/transcript/claudeBlocks'
+import * as openCodeBlocks from '../../harnesses/opencode/transcript/openCodeBlocks'
+import type { BlockSnapshot } from '../../lib/transcript/blockList'
+import type { ViewportBlockBase } from './TranscriptViewport'
 import type { Message } from '../../reducer/chatReducer'
-import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
-import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
-import { TranscriptViewport, type ViewportBlockBase } from './TranscriptViewport'
+import { ingestChatEvent, useChatStore } from '../../store/chatStore'
+import { flushRaf, installChatStoreHarness } from '../../store/chatStore.testHarness'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
-  ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks
+  ...(await import('../../../../shared/ui/renderHarness.testfixture')).fakeHooks,
+  useId: () => 'transcript-test-id'
+}))
+vi.mock('zustand', async (original) => {
+  const actual = await original<typeof import('zustand')>()
+  const { fakeHooks } = await import('../../../../shared/ui/renderHarness.testfixture')
+  const { createStore } = await import('zustand/vanilla')
+  const useStore = <T, U>(store: import('zustand').StoreApi<T>, select: (state: T) => U): U =>
+    fakeHooks.useSyncExternalStore(store.subscribe, () => select(store.getState())) as U
+
+  const bind = <T>(
+    initializer: import('zustand').StateCreator<T>
+  ): import('zustand').StoreApi<T> & (<U>(selector: (state: T) => U) => U) => {
+    const store = createStore(initializer)
+    return Object.assign(<U>(selector: (state: T) => U): U => useStore(store, selector), store)
+  }
+
+  return {
+    ...actual,
+    useStore,
+    create: (initializer?: import('zustand').StateCreator<unknown>) =>
+      initializer ? bind(initializer) : bind
+  }
+})
+vi.mock('zustand/react/shallow', () => ({
+  useShallow: <T, U>(select: (state: T) => U) => select
 }))
 vi.mock('@tanstack/react-virtual', async () => {
   const { useRealVirtualizerWithFakeHooks } = await import('./viewportTestBridge.testfixture')
   return { useVirtualizer: useRealVirtualizerWithFakeHooks }
 })
+vi.mock('../../../../shared/i18n', async (original) => ({
+  ...(await original<typeof import('../../../../shared/i18n')>()),
+  useI18n: () => ({ tr: (key: string) => key })
+}))
 
-function makeScroller(): HTMLDivElement {
-  return {
-    scrollTop: 0,
-    scrollHeight: 800000,
-    clientHeight: 600,
-    clientWidth: 600,
-    getBoundingClientRect: () => ({ top: 0, bottom: 600, left: 0, width: 600, height: 600 }),
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    querySelectorAll: () => [],
-    scrollTo: () => {}
-  } as unknown as HTMLDivElement
-}
-
+const queuedFrame = globalThis.requestAnimationFrame
 let dom: FakeDom | undefined
 afterEach(() => {
   dom?.unmount()
   dom = undefined
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
-describe('TranscriptViewport.live (VP-19 · AR-05 ↔ IT-04 · EP-8 ⑩)', () => {
-  it('structure-preserving live deltas on 10,000 messages cause 0 past parts reads, 0 block model advances, and 0 unrelated block renders; live appearance/completion transitions once', () => {
-    dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
-    const scrollRef = { current: makeScroller() }
-
-    // Build 10,000 past messages with parts getter instrumentation
-    let pastPartsReads = 0
-    const messages: Message[] = []
-    for (let i = 0; i < 10_000; i++) {
-      const rawParts = [{ type: 'text' as const, text: `msg ${i}` }]
-      const msg: Message = {
-        id: i % 2 === 0 ? `u:${i}` : `a:${i}`,
-        role: i % 2 === 0 ? 'user' : 'assistant',
-        createdAt: i * 10,
-        parts: rawParts
-      }
-      if (i < 9_990) {
-        Object.defineProperty(msg, 'parts', {
-          get() {
-            pastPartsReads++
-            return rawParts
-          },
-          enumerable: true
-        })
-      }
-      messages.push(msg)
-    }
-
-    const changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: true })
-    const screens = [
-      {
-        name: 'claude-code',
-        run: () => {
-          const m = createClaudeBlockModel({ mode: 'code', sessionKey: 's-live' })
-          return (live: boolean) =>
-            m.advance({ messages, transcriptChanges: changes }, { inflight: live, hasLive: live })
-        }
-      },
-      {
-        name: 'claude-work',
-        run: () => {
-          const m = createClaudeBlockModel({ mode: 'work', sessionKey: 's-live' })
-          return (live: boolean) =>
-            m.advance({ messages, transcriptChanges: changes }, { inflight: live, hasLive: live })
-        }
-      },
-      {
-        name: 'opencode',
-        run: () => {
-          const m = createOpenCodeBlockModel()
-          return (live: boolean) =>
-            m.advance(
-              { messages, transcriptChanges: changes },
-              { pending: live, liveText: live, liveTextKey: 'a:9999' }
-            )
+describe('TranscriptViewport.live (VP-19 · EP-8 ⑩)', () => {
+  it.each([
+    ['claude', 'code'],
+    ['claude', 'work'],
+    ['opencode', 'code']
+  ] as const)('%s %s advances only at live appearance and completion', (backend, agentKind) => {
+    vi.stubGlobal('requestAnimationFrame', queuedFrame)
+    let partsReads = 0
+    const messages: Message[] = Array.from({ length: 10_000 }, (_, index) => {
+      const role = index % 2 === 0 ? 'user' : 'assistant'
+      const parts = [{ type: 'text' as const, text: `historic ${index}` }]
+      return {
+        id: `${role === 'user' ? 'u' : 'a'}:${index}`,
+        role,
+        createdAt: index,
+        get parts() {
+          if (index >= 40 && index < 9_960) partsReads++
+          return parts
         }
       }
-    ] as const
+    })
+    messages.push({
+      id: 'u:10000',
+      role: 'user',
+      createdAt: 10_000,
+      parts: [{ type: 'text', text: 'latest question' }]
+    })
+    installChatStoreHarness({ messages, backend, agentKind, inflight: true })
+    dom = installFakeDom({
+      innerWidth: 1200,
+      innerHeight: 900,
+      layout: () => ({ rect: { top: 0, left: 0, width: 600, height: 400 } })
+    })
 
-    for (const screen of screens) {
-      const advance = screen.run()
-      // Initial build + live appearance (1 transition)
-      const snapLive = advance(true)
-      pastPartsReads = 0
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe = vi.fn()
+        unobserve = vi.fn()
+        disconnect = vi.fn()
+      }
+    )
+    Object.assign(document, { fonts: { addEventListener: vi.fn(), removeEventListener: vi.fn() } })
+    const claudeFactory = claudeBlocks.createClaudeBlockModel
+    const openCodeFactory = openCodeBlocks.createOpenCodeBlockModel
+    const advances = vi.fn<(snapshot: BlockSnapshot<ViewportBlockBase>) => void>()
+    vi.spyOn(claudeBlocks, 'createClaudeBlockModel').mockImplementation((options) => {
+      const model = claudeFactory(options)
+      const advance = model.advance
+      model.advance = (...args) => {
+        const snapshot = advance(...args)
+        advances(snapshot)
+        return snapshot
+      }
+      return model
+    })
+    vi.spyOn(openCodeBlocks, 'createOpenCodeBlockModel').mockImplementation(() => {
+      const model = openCodeFactory()
+      const advance = model.advance
+      model.advance = (...args) => {
+        const snapshot = advance(...args)
+        advances(snapshot)
+        return snapshot
+      }
+      return model
+    })
 
-      let blockRenders = 0
-      const lastBlockProp = new Map<string, ViewportBlockBase>()
-      const BlockView = memo(function BlockView({ block }: { block: ViewportBlockBase }) {
-        if (lastBlockProp.get(block.key) !== block) {
-          lastBlockProp.set(block.key, block)
-          blockRenders++
-        }
-        return createElement('div', null, block.key)
+    const scrollRef: TranscriptTimelineProps['scrollRef'] = { current: null }
+    const contentRef: TranscriptTimelineProps['contentRef'] = { current: null }
+    function Transcript(): React.JSX.Element {
+      const session = useChatStore((state) => state.sessions.s.session)
+      return createElement(TranscriptView, {
+        agentKind,
+        backend,
+        messages: session.messages,
+        pendingSteer: [],
+        inflight: session.inflight,
+        loadingSession: false,
+        anchored: false,
+        scrollRef,
+        contentRef,
+        onScroll: () => {}
       })
-
-      let liveLeafText = 'delta 0'
-      const liveListeners = new Set<() => void>()
-      let liveLeafRenders = 0
-      function LiveLeaf(): ReturnType<typeof createElement> {
-        liveLeafRenders++
-        return createElement('span', { 'data-live-leaf': 'true' }, liveLeafText)
-      }
-
-      const renderAll = (snap: typeof snapLive): void => {
-        dom!.render(
-          createElement(TranscriptViewport<ViewportBlockBase>, {
-            snapshot: snap as never,
-            scrollRef,
-            estimateSizePx: 80,
-            renderBlock: (b) => createElement(BlockView, { block: b }),
-            footer: createElement(LiveLeaf)
-          })
-        )
-      }
-
-      renderAll(snapLive)
-      blockRenders = 0
-      liveLeafRenders = 0
-
-      // 50 structure-preserving live deltas: only live text changes, snapshot reference stays identical
-      const advanceCalls = 0
-      for (let d = 1; d <= 50; d++) {
-        liveLeafText = `delta ${d}`
-        for (const fn of liveListeners) fn()
-        // Viewport does NOT subscribe to live text -> 0 advance calls, 0 past parts reads, 0 unrelated block renders
-        renderAll(snapLive)
-      }
-      expect(advanceCalls).toBe(0)
-      expect(pastPartsReads).toBe(0)
-      expect(blockRenders).toBe(0)
-      expect(liveLeafRenders).toBe(50)
-
-      // Live completion (1 structural transition)
-      const snapDone = advance(false)
-      expect(snapDone).not.toBe(snapLive)
-      expect(pastPartsReads).toBe(0)
     }
+    dom.render(createElement(Transcript))
+    const viewport = dom.query('[data-transcript-viewport]')!
+    const historicalRow = dom.query('[data-index="0"]')
+    expect(historicalRow).not.toBeNull()
+    const liveKey = backend === 'claude' ? 'live:s' : 'a:10001:text:0'
+    expect(advances.mock.lastCall?.[0].indexOf(liveKey)).toBe(-1)
+    advances.mockClear()
+
+    const delta = (text: string): void => {
+      ingestChatEvent({
+        type: 'message.delta',
+        sessionId: 's',
+        messageKey: 'a:10001',
+        delta: { text }
+      })
+      flushRaf()
+    }
+    dom.act(() => delta('live first'))
+    expect(advances).toHaveBeenCalledTimes(1)
+    expect(advances.mock.lastCall?.[0].indexOf(liveKey)).toBeGreaterThanOrEqual(0)
+    advances.mockClear()
+    partsReads = 0
+
+    for (let index = 0; index < 5; index++) {
+      dom.act(() => delta(' increment'))
+      expect(useChatStore.getState().sessions.s.live.text).toBe(
+        'live first' + ' increment'.repeat(index + 1)
+      )
+    }
+    expect(advances).not.toHaveBeenCalled()
+    expect(partsReads).toBe(0)
+    expect(dom.query('[data-transcript-viewport]')).toBe(viewport)
+    expect(dom.query('[data-index="0"]')).toBe(historicalRow)
+
+    dom.act(() =>
+      ingestChatEvent({
+        type: 'message.completed',
+        sessionId: 's',
+        messageKey: 'a:10001',
+        message: { text: 'committed' }
+      })
+    )
+    expect(advances).toHaveBeenCalledTimes(1)
+    const committed = advances.mock.lastCall![0]
+    const committedBlockIndex = committed.indexOf('a:10001:text:0')
+    expect(committedBlockIndex).toBeGreaterThanOrEqual(0)
+    if (backend === 'claude') expect(committed.indexOf(liveKey)).toBe(-1)
+    expect(useChatStore.getState().sessions.s.live.text).toBe('')
+    expect(useChatStore.getState().sessions.s.session.messages.at(-1)?.id).toBe('a:10001')
   })
 })

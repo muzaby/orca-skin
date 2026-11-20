@@ -63,7 +63,8 @@ export const ToolCard = memo(function ToolCard({
   inGroup = false,
   transcriptPolicy,
   presentation = 'row',
-  blockKey
+  blockKey,
+  partKey
 }: {
   call: ToolCall
   inGroup?: boolean
@@ -71,10 +72,11 @@ export const ToolCard = memo(function ToolCard({
   /** A surrounding detail surface can reuse the registered body without a second status/title row. */
   presentation?: 'row' | 'detail-body'
   blockKey?: string
+  partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
   const detailBody = presentation === 'detail-body'
-  const resolvedBlockKey = blockKey ?? `tool:${call.toolUseId}`
+  const resolvedBlockKey = blockKey ?? partKey ?? `tool:${call.toolUseId}`
   const [storedOpen, setStoredOpen] = useDisclosure(resolvedBlockKey, detailBody)
   const open = detailBody ? true : storedOpen
   const [bodyMounted, setBodyMounted] = useState(open)
@@ -99,6 +101,7 @@ export const ToolCard = memo(function ToolCard({
         inGroup={inGroup}
         transcriptPolicy={transcriptPolicy}
         blockKey={resolvedBlockKey}
+        partKey={partKey}
       />
     )
 
@@ -159,6 +162,7 @@ export const ToolCard = memo(function ToolCard({
     <div
       ref={containerRef}
       data-block-key={resolvedBlockKey}
+      data-part-key={partKey}
       onFocus={onFocus}
       className="flex w-full flex-col"
     >

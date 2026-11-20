@@ -4,6 +4,7 @@ import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarnes
 import { chatReducer, initialChatState, type Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { clearDisclosures, getDisclosure, setDisclosure } from '../../store/disclosureStore'
+import { installViewportSelection } from './viewportSelection.testfixture'
 import { TranscriptViewport, type ViewportBlockBase } from './TranscriptViewport'
 
 vi.mock('react', async (original) => ({
@@ -25,6 +26,8 @@ function makeScroller(height = 600, scrollTop = 0): HTMLDivElement {
     addEventListener: () => {},
     removeEventListener: () => {},
     querySelectorAll: () => [],
+    querySelector: (selector: string) => dom!.query(selector),
+    contains: (node: Node) => dom!.body.contains(node),
     scrollTo: () => {}
   } as unknown as HTMLDivElement
 }
@@ -96,6 +99,12 @@ describe('TranscriptViewport.transition (VP-22 · SD-02 ↔ ST-02 · EP-10 ④ �
           createElement('div', { 'data-part-key': b.partKeys?.[0] ?? b.key }, b.key)
       })
     )
+    const { select, selection } = installViewportSelection(dom)
+    const anchor = dom.query('[data-index="1"]')!
+    const focus = dom.query('[data-index="0"]')!
+    select(anchor, 3, focus, 1)
+    const selected = selection.toString()
+    expect(selected.length).toBeGreaterThan(0)
     const mountedBefore = dom.queryAll('[data-block-key]')
     const keysBefore = mountedBefore.map((n) => n.getAttribute('data-block-key'))
     expect(mountedBefore.length).toBeLessThan(60) // virtualized, never mounts 5,000
@@ -132,5 +141,9 @@ describe('TranscriptViewport.transition (VP-22 · SD-02 ↔ ST-02 · EP-10 ④ �
     expect(sizeCache.get(watchedKey)).toBe(128)
     expect(getDisclosure('s-trans', watchedKey)).toBe(true)
     expect(snap2.indexOf(watchedKey)).toBe(snap1.indexOf(watchedKey))
+    expect(selection.toString()).toBe(selected)
+    expect(selection.anchorNode?.closest('[data-index]')).toBe(anchor)
+    expect(selection.focusNode?.closest('[data-index]')).toBe(focus)
+    expect([selection.anchorOffset, selection.focusOffset]).toEqual([3, 1])
   })
 })

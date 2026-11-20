@@ -10,9 +10,11 @@ import { ToolCard } from './ToolCard'
 import { WorkToolBody } from './WorkToolBody'
 
 export const WorkToolRow = memo(function WorkToolRow({
-  call
+  call,
+  partKey
 }: {
   call: ToolCall
+  partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useState(false)
@@ -26,6 +28,7 @@ export const WorkToolRow = memo(function WorkToolRow({
     <div
       className="relative py-2 pl-[30px]"
       data-work-tool={call.toolUseId}
+      data-part-key={partKey}
       data-tool-status={view.status}
     >
       <span
@@ -76,30 +79,40 @@ export const WorkToolRow = memo(function WorkToolRow({
 export const WorkToolTimeline = memo(function WorkToolTimeline({
   calls,
   transcriptPolicy,
-  rail = true
+  rail = true,
+  partKeys
 }: {
   calls: ToolCall[]
   transcriptPolicy: AgentTranscriptPresentation
   rail?: boolean
+  partKeys?: readonly string[]
 }): React.JSX.Element {
   return (
     <div className="relative min-w-0" data-work-tools="true">
       {rail && calls.length > 1 && (
         <div aria-hidden className="absolute top-4 bottom-4 left-[9px] border-l border-border" />
       )}
-      {calls.map((call) =>
+      {calls.map((call, index) =>
         isAgentTaskName(call.name) ? (
-          <div key={call.toolUseId} className="relative py-2 pl-[30px]">
+          <div
+            key={call.toolUseId}
+            data-part-key={partKeys?.[index]}
+            className="relative py-2 pl-[30px]"
+          >
             <span
               aria-hidden
               className="absolute top-2.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"
             >
               <Icon name="cpu" size={16} />
             </span>
-            <ToolCard call={call} transcriptPolicy={transcriptPolicy} />
+            <ToolCard
+              call={call}
+              transcriptPolicy={transcriptPolicy}
+              blockKey={partKeys?.[index]}
+            />
           </div>
         ) : (
-          <WorkToolRow key={call.toolUseId} call={call} />
+          <WorkToolRow key={call.toolUseId} call={call} partKey={partKeys?.[index]} />
         )
       )}
     </div>

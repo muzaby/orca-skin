@@ -37,12 +37,14 @@ export function AgentTaskRow({
   call,
   inGroup = false,
   transcriptPolicy,
-  blockKey
+  blockKey,
+  partKey
 }: {
   call: ToolCall
   inGroup?: boolean
   transcriptPolicy: AgentTranscriptPresentation
   blockKey?: string
+  partKey?: string
 }): React.JSX.Element {
   const { tr } = useI18n()
   const subagentTasks = useTranscriptView('subagentTasks')
@@ -89,7 +91,7 @@ export function AgentTaskRow({
     else chatActions.openSubagentTask(call.toolUseId)
   }
 
-  return (
+  const row = (
     <>
       <TranscriptActionRow
         groupClassName="group/tool"
@@ -111,4 +113,5 @@ export function AgentTaskRow({
       )}
     </>
   )
+  return partKey ? <div data-part-key={partKey}>{row}</div> : row
 }

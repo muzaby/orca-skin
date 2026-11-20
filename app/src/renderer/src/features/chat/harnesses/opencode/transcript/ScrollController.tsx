@@ -222,6 +222,7 @@ export function OpenCodeScrollController({
       document.removeEventListener('selectionchange', selection)
     }
   }, [capture, state, writeTop])
+  const isPinned = useCallback(() => state.pinned, [state])
   const scroll: TimelineScroll = {
     scrollRef,
     contentRef,
@@ -229,6 +230,7 @@ export function OpenCodeScrollController({
     showJump,
     scrollToBottom,
     anchored: false,
+    isPinned,
     state,
     retained
   }

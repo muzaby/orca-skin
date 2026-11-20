@@ -25,6 +25,7 @@ export function useScrollAnchor({
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const pinnedRef = useRef(true)
+  const isPinned = useCallback(() => pinnedRef.current, [])
   const inflightRef = useRef(inflight)
   const [showJump, setShowJump] = useState(false)
   const [anchored, setAnchored] = useState(false)
@@ -153,5 +154,5 @@ export function useScrollAnchor({
     }
   }, [messages, sessionId, sendCount])
 
-  return { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored }
+  return { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored, isPinned }
 }

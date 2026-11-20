@@ -1,6 +1,10 @@
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
+import {
+  installFakeDom,
+  type FakeDom,
+  type FakeNode
+} from '../../../../shared/ui/renderHarness.testfixture'
 import { createBlockList } from '../../lib/transcript/blockList'
 import { selectionMountSet } from '../../lib/transcript/viewport/range'
 import {
@@ -9,6 +13,7 @@ import {
   type CopyTaskTiming
 } from '../../lib/transcript/viewport/copy'
 import { partTextOffset, pointAtPartOffset } from '../../lib/transcript/viewport/textOffset'
+import { installViewportSelection } from './viewportSelection.testfixture'
 import { CopySerializationHost } from './CopySerializationHost'
 import {
   TranscriptViewport,
@@ -23,7 +28,8 @@ vi.mock('react', async (original) => ({
 }))
 vi.mock('react-dom', async (original) => ({
   ...(await original<typeof import('react-dom')>()),
-  createPortal: (node: unknown) => node
+  createPortal: (node: unknown) => node,
+  flushSync: (fn: () => void) => dom!.act(fn)
 }))
 vi.mock('@tanstack/react-virtual', async () => {
   const { useRealVirtualizerWithFakeHooks } = await import('./viewportTestBridge.testfixture')
@@ -263,6 +269,132 @@ describe('TranscriptViewport.selection (VP-29 · AR-09 ↔ IT-09 · EP-17 · c1~
     expect(restored.node).toBe(codeText)
     expect(restored.offset).toBe(2)
   })
+
+  it.each(['sync', 'chunks', 'switch'] as const)(
+    'c3/c7/c12/c19: onCopy copies a partial reverse range (%s)',
+    async (mode) => {
+      const chunked = mode !== 'sync'
+      vi.useFakeTimers()
+      vi.stubGlobal('requestAnimationFrame', (fn: FrameRequestCallback) =>
+        setTimeout(() => fn(performance.now()), 0)
+      )
+      dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+      const { select, selection } = installViewportSelection(dom)
+      const write = vi
+        .fn<(items: Record<string, Blob>[]) => Promise<void>>()
+        .mockResolvedValue(undefined)
+      vi.stubGlobal('navigator', { clipboard: { write } })
+      vi.stubGlobal(
+        'ClipboardItem',
+        class {
+          constructor(items: Record<string, Blob>) {
+            Object.assign(this, items)
+          }
+        }
+      )
+
+      const blocks = makeBlocks(6)
+      const snapshot = createBlockList(blocks).snapshot()
+      const scrollRef = {
+        current: {
+          scrollTop: 0,
+          clientHeight: 40,
+          clientWidth: 600,
+          getBoundingClientRect: () => ({ top: 0, bottom: 40, width: 600, height: 40 }),
+          querySelectorAll: (selector: string) => dom!.queryAll(selector),
+          querySelector: (selector: string) => dom!.query(selector),
+          contains: (node: Node) => dom!.body.contains(node),
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          scrollTo: () => {}
+        } as unknown as HTMLDivElement
+      }
+      const timings: CopyTaskTiming[] = []
+      function render(overscan: number, sessionKey = 'before'): void {
+        dom!.render(
+          createElement(TranscriptViewport<SimpleBlock>, {
+            snapshot,
+            sessionKey,
+            scrollRef,
+            overscan,
+            estimateSizePx: 80,
+            copyChunkSize: chunked ? 2 : 6,
+            onCopyTiming: (timing) => timings.push(timing),
+            renderBlock: (block) => createElement('p', null, block.text)
+          })
+        )
+      }
+      const part = (index: number): FakeNode =>
+        dom!.query(`[data-part-key="${blocks[index].key}"]`)!
+
+      // Use the DOM with all rows mounted as the independent plain-text reference.
+      setVirtualization(false)
+      render(6)
+      select(part(4), 12, part(0), 6)
+      const reference = selection.toString()
+      expect(reference.split('\n').length).toBeGreaterThan(2)
+
+      setVirtualization(true)
+      render(6)
+      select(part(4), 12, part(0), 6)
+      render(0)
+      expect(part(2)).toBeNull()
+      const endpoints = [
+        selection.anchorNode,
+        selection.anchorOffset,
+        selection.focusNode,
+        selection.focusOffset
+      ]
+      const preventDefault = vi.fn()
+      const viewport = dom.query('[data-transcript-viewport]')!
+      const onCopy = viewport.props.onCopy as (event: { preventDefault: () => void }) => void
+      dom.act(() => onCopy({ preventDefault }))
+
+      if (!chunked) {
+        expect(preventDefault).not.toHaveBeenCalled()
+        expect(part(2)).not.toBeNull()
+        expect(selection.toString()).toBe(reference)
+        await vi.runAllTimersAsync()
+        dom.act(() => {})
+        expect(part(2)).toBeNull()
+        expect(write).not.toHaveBeenCalled()
+        return
+      }
+
+      expect(preventDefault).toHaveBeenCalledOnce()
+      expect(part(2)).toBeNull()
+      expect(write).not.toHaveBeenCalled()
+      if (mode === 'switch') {
+        await vi.advanceTimersToNextTimerAsync()
+        render(0, 'after')
+        await vi.runAllTimersAsync()
+        expect(write).not.toHaveBeenCalled()
+        expect(timings.map(({ kind }) => kind)).toEqual(['handler', 'chunk'])
+        return
+      }
+      for (let chunk = 0; chunk < 3; chunk++) {
+        await vi.advanceTimersToNextTimerAsync()
+        expect(dom.query('[data-copy-serialization-host]')).toBeNull()
+        expect([
+          selection.anchorNode,
+          selection.anchorOffset,
+          selection.focusNode,
+          selection.focusOffset
+        ]).toEqual(endpoints)
+        expect(write).not.toHaveBeenCalled()
+      }
+      await vi.runAllTimersAsync()
+      expect(write).toHaveBeenCalledOnce()
+      expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
+      expect(timings.map(({ kind, blockCount }) => [kind, blockCount])).toEqual([
+        ['handler', 0],
+        ['chunk', 2],
+        ['chunk', 2],
+        ['chunk', 1],
+        ['assemble', 5]
+      ])
+    }
+  )
 
   it('c17/c19: setVirtualization(false) renders full DOM without viewport copy serialization; CopySerializationHost has select-text, aria-hidden, pointer-events-none and no inert/select-none', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })

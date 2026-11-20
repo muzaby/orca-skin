@@ -1,10 +1,14 @@
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarness.testfixture'
-import { chatReducer, initialChatState, type Message } from '../../reducer/chatReducer'
+import type { ChatState, Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
 import { clearDisclosures, getDisclosure, setDisclosure } from '../../store/disclosureStore'
+import { sessionApi, settingsApi } from '../../../../shared/api/ipc'
+import { chatActions, consumeEntryIntent, useChatStore } from '../../store/chatStore'
+import { installChatStoreHarness } from '../../store/chatStore.testHarness'
+import { installViewportSelection } from './viewportSelection.testfixture'
 import { TranscriptViewport, type ViewportBlockBase } from './TranscriptViewport'
 
 vi.mock('react', async (original) => ({
@@ -26,6 +30,8 @@ function makeScroller(): HTMLDivElement {
     addEventListener: () => {},
     removeEventListener: () => {},
     querySelectorAll: () => [],
+    querySelector: (selector: string) => dom!.query(selector),
+    contains: (node: Node) => dom!.body.contains(node),
     scrollTo: () => {}
   } as unknown as HTMLDivElement
 }
@@ -46,15 +52,39 @@ function makeMessages(): Message[] {
   ]
 }
 
+async function loadHistory(
+  agentKind: 'code' | 'work',
+  screen: string,
+  messages: Message[]
+): Promise<ChatState> {
+  const load = vi.spyOn(sessionApi, 'load').mockResolvedValueOnce({
+    id: 's-reopen',
+    backend: screen === 'opencode' ? 'opencode' : 'claude',
+    agentKind,
+    title: 'history',
+    messages
+  })
+  // Open another session without evicting the cached history being reopened.
+  useChatStore.setState({ activeKey: 's' })
+  await chatActions.loadSession('s-reopen')
+  expect(load).toHaveBeenLastCalledWith('s-reopen')
+  return useChatStore.getState().sessions['s-reopen'].session
+}
+
 let dom: FakeDom | undefined
 afterEach(() => {
   dom?.unmount()
   dom = undefined
   clearDisclosures('s-reopen')
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', () => {
-  it('reopening a cached session keeps block keys and DOM nodes on all three screens', () => {
+  it('reopening a cached session keeps block keys and DOM nodes on all three screens', async () => {
+    installChatStoreHarness()
+    vi.stubGlobal('requestAnimationFrame', vi.fn())
+    vi.spyOn(settingsApi, 'set').mockResolvedValue({} as never)
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     const scrollRef = { current: makeScroller() }
 
@@ -74,18 +104,7 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
 
     for (const screen of screens) {
       const model = screen.create()
-      const state1 = chatReducer(initialChatState, {
-        type: 'LOAD_SESSION',
-        session: {
-          id: 's-reopen',
-          title: 't',
-          agentKind: screen.agentKind,
-          createdAt: 0,
-          updatedAt: 0,
-          messages: makeMessages()
-        } as never,
-        complete: true
-      })
+      const state1 = await loadHistory(screen.agentKind, screen.name, makeMessages())
       const snap1 = model.advance({
         messages: state1.messages,
         transcriptChanges: state1.transcriptChanges
@@ -103,18 +122,7 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
       expect(keysBefore.length).toBeGreaterThan(0)
 
       // Reopen cached session with fresh message objects carrying the same IDs (EP-4 ⑥)
-      const state2 = chatReducer(state1, {
-        type: 'LOAD_SESSION',
-        session: {
-          id: 's-reopen',
-          title: 't',
-          agentKind: screen.agentKind,
-          createdAt: 0,
-          updatedAt: 0,
-          messages: makeMessages()
-        } as never,
-        complete: true
-      })
+      const state2 = await loadHistory(screen.agentKind, screen.name, makeMessages())
       const snap2 = model.advance({
         messages: state2.messages,
         transcriptChanges: state2.transcriptChanges
@@ -137,9 +145,42 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
     }
   })
 
-  it('a reset that merges or splits blocks keeps surviving nodes, expansion and selection ends on all three screens', () => {
+  it('sets an open intent for cached navigation and keeps same-session sync separate', async () => {
+    installChatStoreHarness()
+    vi.stubGlobal('requestAnimationFrame', vi.fn())
+    vi.spyOn(settingsApi, 'set').mockResolvedValue({} as never)
+    await loadHistory('code', 'opencode', makeMessages())
+    expect(consumeEntryIntent('s')).toBeNull()
+    expect(consumeEntryIntent('s-reopen')).toMatchObject({ cause: 'open', sessionKey: 's-reopen' })
+
+    const load = vi.spyOn(sessionApi, 'load')
+    load.mockClear()
+    await chatActions.loadSession('s-reopen')
+    expect(load).not.toHaveBeenCalled()
+    expect(consumeEntryIntent('s-reopen')).toBeNull()
+
+    load.mockResolvedValueOnce({
+      id: 's-reopen',
+      backend: 'opencode',
+      agentKind: 'code',
+      title: 'synced',
+      messages: makeMessages()
+    })
+    await chatActions.loadSession('s-reopen', null, { revalidate: true })
+    expect(load).toHaveBeenCalledWith('s-reopen')
+    expect(consumeEntryIntent('s-reopen')).toBeNull()
+    expect(
+      useChatStore.getState().sessions['s-reopen'].session.transcriptChanges.log.at(-1)
+    ).toEqual({ kind: 'reset', complete: true })
+  })
+
+  it('a reset that merges or splits blocks keeps surviving nodes, expansion and selection ends on all three screens', async () => {
+    installChatStoreHarness()
+    vi.stubGlobal('requestAnimationFrame', vi.fn())
+    vi.spyOn(settingsApi, 'set').mockResolvedValue({} as never)
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     const scrollRef = { current: makeScroller() }
+    const { select, selection } = installViewportSelection(dom)
 
     const screens = [
       {
@@ -157,18 +198,7 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
 
     for (const screen of screens) {
       const model = screen.create()
-      const state1 = chatReducer(initialChatState, {
-        type: 'LOAD_SESSION',
-        session: {
-          id: 's-reopen',
-          title: 't',
-          agentKind: screen.agentKind,
-          createdAt: 0,
-          updatedAt: 0,
-          messages: makeMessages()
-        } as never,
-        complete: true
-      })
+      const state1 = await loadHistory(screen.agentKind, screen.name, makeMessages())
       const snap1 = model.advance({
         messages: state1.messages,
         transcriptChanges: state1.transcriptChanges
@@ -185,6 +215,9 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
       const survivingKey = snap1.keyAt(0)
       const survivingNodeBefore = dom.query(`[data-block-key="${survivingKey}"]`)!
       setDisclosure('s-reopen', survivingKey, true)
+      const part = survivingNodeBefore.children[0]
+      select(part, 4, part, 1)
+      expect(selection.toString().length).toBe(3)
 
       // Reset with an extra assistant part inserted (y13/y14)
       const extended = makeMessages()
@@ -192,18 +225,7 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
         ...extended[1],
         parts: [{ type: 'text', text: 'inserted before' }, ...extended[1].parts]
       }
-      const state2 = chatReducer(state1, {
-        type: 'LOAD_SESSION',
-        session: {
-          id: 's-reopen',
-          title: 't',
-          agentKind: screen.agentKind,
-          createdAt: 0,
-          updatedAt: 0,
-          messages: extended
-        } as never,
-        complete: true
-      })
+      const state2 = await loadHistory(screen.agentKind, screen.name, extended)
       const snap2 = model.advance({
         messages: state2.messages,
         transcriptChanges: state2.transcriptChanges
@@ -219,6 +241,9 @@ describe('TranscriptViewport.reopen (VP-08 · AR-02 ↔ IT-01 · EP-4 ⑥⑪)', 
       )
       expect(dom.query(`[data-block-key="${survivingKey}"]`)).toBe(survivingNodeBefore)
       expect(getDisclosure('s-reopen', survivingKey)).toBe(true)
+      expect(selection.anchorNode?.parentElement).toBe(part)
+      expect(selection.focusNode?.parentElement).toBe(part)
+      expect([selection.anchorOffset, selection.focusOffset]).toEqual([4, 1])
     }
   })
 })

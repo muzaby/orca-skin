@@ -11,6 +11,7 @@ import { useI18n } from '../../../../../shared/i18n'
 import { Icon } from '../../../../../shared/ui/Icon'
 import type { AgentTranscriptPresentation } from '../../../lib/agentPresentation'
 import { WorkToolTimeline } from './WorkToolTimeline'
+import { toolBlockKey } from '../../../lib/transcript/blockKeys'
 import { useDisclosure, useDisclosureFocus } from '../../../store/disclosureStore'
 
 export const WorkActivity = memo(function WorkActivity({
@@ -113,9 +114,17 @@ export function ActivityDisclosure({
                 calls={item.segment.calls}
                 transcriptPolicy={transcriptPolicy}
                 rail={false}
+                partKeys={item.segment.calls.map((call) =>
+                  toolBlockKey(item.messageId, call.toolUseId)
+                )}
               />
             ) : item.segment.kind === 'text' ? (
-              <div key={item.key} className="relative py-2 pl-[30px]" data-work-note="true">
+              <div
+                key={item.key}
+                data-part-key={item.key}
+                className="relative py-2 pl-[30px]"
+                data-work-note="true"
+              >
                 <span
                   aria-hidden
                   className="absolute top-2.5 left-0 flex h-5 w-5 items-center justify-center bg-bg text-ink3"

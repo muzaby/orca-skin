@@ -15,10 +15,11 @@ vi.mock('../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) 
 vi.mock('../../components/transcript/TranscriptViewport', async () => {
   const { createElement } = await import('react')
   return {
-    TranscriptViewport: (props: { snapshot: { count: number } }) =>
+    TranscriptViewport: (props: { snapshot: { count: number }; isPinned?: () => boolean }) =>
       createElement('div', {
         'data-shared-transcript-viewport': 'true',
-        'data-block-count': String(props.snapshot.count)
+        'data-block-count': String(props.snapshot.count),
+        'data-bottom-pinned': String(props.isPinned?.())
       }),
     writeScrollTop: vi.fn(),
     useTranscriptReveal: () => vi.fn()
@@ -66,6 +67,7 @@ describe('harnesses/registries/transcript.viewport (VP-21 · EP-10)', () => {
     ]
     const scrollRef = { current: null }
     const contentRef = { current: null }
+    const isPinned = vi.fn(() => true)
 
     // 1. Claude Code
     const ClaudeTimeline = transcriptHarness('claude').Timeline
@@ -81,12 +83,15 @@ describe('harnesses/registries/transcript.viewport (VP-21 · EP-10)', () => {
         textScaleClassName: '',
         showAutomaticFeeds: false,
         anchored: false,
+        isPinned,
         scrollRef,
         contentRef,
         onScroll: () => {}
       })
     )
-    expect(dom.query('[data-shared-transcript-viewport="true"]')).not.toBeNull()
+    expect(
+      dom.query('[data-shared-transcript-viewport="true"][data-bottom-pinned="true"]')
+    ).not.toBeNull()
 
     // 2. Claude Work
     dom.render(
@@ -101,12 +106,15 @@ describe('harnesses/registries/transcript.viewport (VP-21 · EP-10)', () => {
         textScaleClassName: '',
         showAutomaticFeeds: false,
         anchored: false,
+        isPinned,
         scrollRef,
         contentRef,
         onScroll: () => {}
       })
     )
-    expect(dom.query('[data-shared-transcript-viewport="true"]')).not.toBeNull()
+    expect(
+      dom.query('[data-shared-transcript-viewport="true"][data-bottom-pinned="true"]')
+    ).not.toBeNull()
 
     // 3. OpenCode
     const OpenCodeTimeline = transcriptHarness('opencode').Timeline
@@ -122,12 +130,15 @@ describe('harnesses/registries/transcript.viewport (VP-21 · EP-10)', () => {
         textScaleClassName: '',
         showAutomaticFeeds: false,
         anchored: false,
+        isPinned,
         scrollRef,
         contentRef,
         onScroll: () => {}
       })
     )
-    expect(dom.query('[data-shared-transcript-viewport="true"]')).not.toBeNull()
+    expect(
+      dom.query('[data-shared-transcript-viewport="true"][data-bottom-pinned="true"]')
+    ).not.toBeNull()
   })
 
   it('EP-10 negative search: only TranscriptViewport.tsx calls useVirtualizer and writes .scrollTop in transcript folders', () => {

@@ -9,11 +9,16 @@ import { OpenCodeToolCard } from './ToolCard'
 import { groupTools } from './toolGrouping'
 import { useToolDisclosure } from './viewState'
 export const OpenCodeToolGroup = memo(function OpenCodeToolGroup({
-  calls
+  calls,
+  partKeys
 }: {
   calls: ToolCall[]
+  partKeys?: readonly string[]
   transcriptPolicy: AgentTranscriptPresentation
 }): React.JSX.Element | null {
+  const partKeysByTool = partKeys
+    ? new Map(calls.map((call, index) => [call.toolUseId, partKeys[index]]))
+    : undefined
   const visible = calls.filter((call) => toolKind(call) !== 'todo')
   if (!visible.length) return null
   return (
@@ -23,15 +28,25 @@ export const OpenCodeToolGroup = memo(function OpenCodeToolGroup({
     >
       {groupTools(visible).map((group) =>
         group.length > 1 ? (
-          <ContextTools key={group[0].toolUseId} calls={group} />
+          <ContextTools key={group[0].toolUseId} calls={group} partKeysByTool={partKeysByTool} />
         ) : (
-          <OpenCodeToolCard key={group[0].toolUseId} call={group[0]} />
+          <OpenCodeToolCard
+            key={group[0].toolUseId}
+            call={group[0]}
+            partKey={partKeysByTool?.get(group[0].toolUseId)}
+          />
         )
       )}
     </div>
   )
 })
-function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
+function ContextTools({
+  calls,
+  partKeysByTool
+}: {
+  calls: ToolCall[]
+  partKeysByTool?: ReadonlyMap<string, string | undefined>
+}): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useToolDisclosure(`context:${calls[0].toolUseId}`, false)
   const views = calls.map((call) => ({
@@ -77,7 +92,11 @@ function ContextTools({ calls }: { calls: ToolCall[] }): React.JSX.Element {
       {open && (
         <div className="flex flex-col gap-[4px] pl-[12px] [--oc-sticky-top:36px]">
           {calls.map((call) => (
-            <OpenCodeToolCard key={call.toolUseId} call={call} />
+            <OpenCodeToolCard
+              key={call.toolUseId}
+              call={call}
+              partKey={partKeysByTool?.get(call.toolUseId)}
+            />
           ))}
         </div>
       )}

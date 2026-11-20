@@ -14,8 +14,8 @@ export const UserTurn = memo(
     const copyable = turn.messages.some((message) => hasPartsText(message.parts))
     return (
       <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]">
-        {turn.messages.map((m, i) => (
-          <UserMessage key={i} message={m} />
+        {turn.messages.map((message) => (
+          <UserMessage key={message.id} message={message} />
         ))}
         <MessageMeta
           text={copyable ? () => turnCopyText(turn) : ''}

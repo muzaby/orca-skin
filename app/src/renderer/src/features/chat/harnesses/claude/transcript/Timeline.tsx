@@ -42,6 +42,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   scrollRef,
   contentRef,
   onScroll,
+  isPinned,
   textScaleClassName,
   showAutomaticFeeds
 }: TranscriptTimelineProps): React.JSX.Element {
@@ -87,7 +88,11 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
     if (last?.kind === 'reset' && last.complete) {
       lastPrunedRevRef.current = transcriptChanges.revision
       const liveKeys = new Set<string>()
-      for (let i = 0; i < snapshot.count; i++) liveKeys.add(snapshot.keyAt(i))
+      for (let i = 0; i < snapshot.count; i++) {
+        const block = snapshot.blockAt(i)
+        liveKeys.add(block.key)
+        if ('partKeys' in block) for (const partKey of block.partKeys) liveKeys.add(partKey)
+      }
       pruneDisclosures(sessionKey, liveKeys, true)
     }
   }, [sessionKey, snapshot, transcriptChanges])
@@ -138,11 +143,18 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
         )}
         <TranscriptViewport
           snapshot={snapshot}
+          sessionKey={sessionKey}
           scrollRef={scrollRef}
+          isPinned={isPinned}
           overscan={6}
           estimateSizePx={140}
           enableReserveGap={anchored}
           footer={footer}
+          hasPartMarkers={(block) =>
+            block.kind === 'user' ||
+            block.kind === 'activity' ||
+            (block.kind === 'segment' && block.segment.kind === 'tools')
+          }
           itemClassName={(block: ClaudeBlock) =>
             `group/msg min-w-0 text-[calc(14px*var(--transcript-text-scale,1))] ${gaps[block.gap]}`
           }
@@ -153,6 +165,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
               case 'segment':
                 return (
                   <ClaudeAssistantSegment
+                    partKeys={block.partKeys}
                     segment={block.segment}
                     transcriptPolicy={transcriptPolicy}
                   />

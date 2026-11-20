@@ -8,6 +8,7 @@ export interface ScrollAnchor {
   showJump: boolean
   scrollToBottom: () => void
   anchored: boolean
+  isPinned: () => boolean
 }
 export type ScrollControls = Pick<ScrollAnchor, 'showJump' | 'scrollToBottom'>
 export interface ScrollControllerProps {

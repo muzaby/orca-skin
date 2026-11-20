@@ -1,4 +1,5 @@
 import { createElement } from 'react'
+import { load } from 'cheerio'
 import { renderWithTranscript as renderToStaticMarkup } from '../../harnesses/registries/transcript.testfixture'
 import { describe, expect, it, vi } from 'vitest'
 import { TranscriptView } from './TranscriptView'
@@ -50,8 +51,13 @@ describe('TranscriptView Work result consumer chain', () => {
         onScroll: vi.fn()
       })
     )
-    expect(html).toContain('data-block-key="m-42:tool:t"')
-    expect(html).toContain('data-work-tool="t" data-tool-status="completed"')
-    expect(html.match(/data-work-tool=/g)).toHaveLength(1)
+    const $ = load(html)
+    const block = $('[data-block-key="m-42:tool:t"]')
+    const tool = $('[data-work-tool="t"]')
+    expect(block).toHaveLength(1)
+    expect($('[data-work-tool]')).toHaveLength(1)
+    expect(tool.closest('[data-block-key]')[0]).toBe(block[0])
+    expect(tool.attr('data-part-key')).toBe('m-42:tool:t')
+    expect(tool.attr('data-tool-status')).toBe('completed')
   })
 })
