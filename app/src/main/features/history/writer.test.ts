@@ -966,6 +966,80 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
     }
   })
 
+  it('w10/w11 stores attachment and requirement payloads in their respective SQLite slots', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    const t = makeTurn('s1')
+    const attachment = {
+      id: 'f',
+      kind: 'image' as const,
+      name: 'image.png',
+      mimeType: 'image/png',
+      size: 2,
+      path: '/image.png'
+    }
+    const requirement: DiffRequirementAnchor = {
+      sessionId: 's1',
+      baselineCommit: 'abc123',
+      filePath: 'app.ts',
+      oldLine: null,
+      newLine: 2,
+      hunkHeader: '@@ -1 +1,2 @@',
+      contextBefore: [],
+      contextAfter: [],
+      comment: 'change',
+      createdAt: 1
+    }
+    const origin = { kind: 'automatic' } as const
+    try {
+      for (const withAttachment of [true, false]) {
+        for (const withRequirement of [true, false]) {
+          const attachmentViews = withAttachment ? [attachment] : []
+          const requirements = withRequirement ? [requirement] : []
+          const batch = {
+            text: 'body',
+            createdAt: 1,
+            origin,
+            attachmentViews,
+            requirements,
+            messageKey: `u:${withAttachment}-${withRequirement}`
+          }
+          const result = writer.commitUserMessage(t, batch)!
+          const expected: [string, unknown][] = [['text', { text: 'body', origin }]]
+          if (withAttachment) expected.push(['attachment', { attachments: [attachment] }])
+          if (withRequirement) expected.push(['diff_requirements', { requirements: [requirement] }])
+          expect(
+            db
+              .committedUserParts(result.id)
+              .map((part) => [part.type, JSON.parse(part.payload_json)])
+          ).toEqual(expected)
+          expect(writer.commitUserMessage(t, batch)).toEqual({ id: result.id, created: false })
+        }
+      }
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('w12 rejects incompatible aliases even when another binding matches the replay', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      const batch = { text: 'original', createdAt: 1, messageKey: 'u:aliases' }
+      const result = writer.commitUserMessage(turn, { ...batch, nativeMessageId: 'native-A' })!
+      db.nativeHistory.bind(result.id, 'native-B')
+      const changes = connection.prepare('SELECT total_changes() AS count')
+      const before = changes.get()
+      for (const nativeMessageId of ['native-A', 'native-B']) {
+        expect(() => writer.commitUserMessage(turn, { ...batch, nativeMessageId })).toThrow()
+      }
+      expect(writer.commitUserMessage(turn, batch)).toEqual({ id: result.id, created: false })
+      expect(changes.get()).toEqual(before)
+      expect(db.nativeHistory.messageBindings(result.id)).toEqual(['native-A', 'native-B'])
+    } finally {
+      connection.close()
+    }
+  })
+
   it('w5, w6, w9, w10, w11, w12 enforce idempotent user recommit, role mismatch throw, payload equality, and native binding', () => {
     const { connection, writer, makeTurn } = setupDb()
     try {

@@ -176,6 +176,83 @@ it('keeps the latest bound native ID stable when earlier history is prepended', 
 })
 
 describe('VP-05 load identity rules (i1~i8)', () => {
+  it('i1/i2/i5/i7 retain the first bound owner at native index zero and every orphan row field', () => {
+    const orphanPart: AppMessagePart = { type: 'attachment', attachments: [] }
+    const rows = [
+      { ...row(6, { type: 'text', text: 'later binding' }, 'user'), message_key: 'u:later' },
+      row(3, { type: 'text', text: 'legacy first binding' }, 'user'),
+      { ...row(7, orphanPart), complete: 0, created_at: 73 },
+      row(8, { type: 'text', text: 'tail' })
+    ]
+    const bindings = [6, 3].map((message_id) => ({ message_id, native_message_id: 'user-native' }))
+    const result = projectNativeHistory(snapshot(), rows, bindings, 7)
+    expect(result.messages.map((m) => m.id)).toEqual(['m:3', 'n:assistant-native', 'm:7#o', 'm:8'])
+    expect(result.messages[2]).toEqual({
+      id: 'm:7#o',
+      role: 'assistant',
+      createdAt: 73,
+      incomplete: true,
+      parts: [orphanPart]
+    })
+    expect(result.orphaned).toBe(true)
+  })
+
+  it('i4/i5 retain the last bound identity while routing begin, end and tool-owned sidecars separately', () => {
+    const source = snapshot()
+    source.messages = [
+      {
+        id: 'tool-row',
+        role: 'assistant',
+        createdAt: 1,
+        parts: [{ type: 'tool_call', toolRunId: 'tool', toolName: 'Read', args: {} }]
+      },
+      { id: 'first-bound', role: 'assistant', createdAt: 2, parts: [] },
+      { id: 'last-bound', role: 'assistant', createdAt: 3, parts: [] }
+    ]
+    const begin = (id: string): AppMessagePart => ({
+      type: 'response_boundary',
+      boundary: { id, phase: 'begin' }
+    })
+    const end: AppMessagePart = {
+      type: 'response_boundary',
+      boundary: { id: 'split', phase: 'end', outcome: 'ended' }
+    }
+    const artifact: AppMessagePart = {
+      type: 'artifact',
+      artifact: {
+        publicationId: 'pub',
+        artifactFileId: 'file',
+        title: 'file',
+        filename: 'file.txt',
+        kind: 'text',
+        sizeBytes: 1,
+        publishedAt: 1
+      }
+    }
+    const key = 'a:local'
+    const rows = [
+      { ...row(7, begin('split')), message_key: key },
+      { ...row(7, end), message_key: key },
+      { ...row(7, artifact), message_key: key, tool_run_id: 'tool' },
+      { ...row(8, begin('orphan')), message_key: 'a:unbound' }
+    ]
+    const bindings = [
+      { message_id: 7, native_message_id: 'last-bound' },
+      { message_id: 7, native_message_id: 'not-in-history' },
+      { message_id: 7, native_message_id: 'first-bound' }
+    ]
+    const { messages, orphaned } = projectNativeHistory(source, rows, bindings, 8)
+    expect(orphaned).toBe(true)
+    expect(
+      messages.map(({ id, parts }) => [id, parts.filter((p) => p.type !== 'tool_call')])
+    ).toEqual([
+      ['n:tool-row', [{ ...artifact, toolRunId: 'tool' }]],
+      ['n:first-bound', [begin('split')]],
+      [key, [end]],
+      ['a:unbound#o', [begin('orphan')]]
+    ])
+  })
+
   it('retains separate native, orphan and tail identities across an alias-only binding and prepend', () => {
     const source = snapshot()
     const rows = [

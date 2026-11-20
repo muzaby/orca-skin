@@ -102,6 +102,66 @@ describe('VP-07 chatReducer message identity (r1~r17)', () => {
     )
   })
 
+  it('r4 preserves an explicitly addressed user but creates an assistant for an unkeyed tail event', () => {
+    const before = load([msg('u:tail', 'user', { type: 'text', text: 'question' })])
+    const event = { type: 'message.reasoning', sessionId: 's', text: 'thinking' } as const
+    const collision = recv(before, { ...event, messageKey: 'u:tail' })
+    expect(collision.messages).toBe(before.messages)
+    expect(collision.transcriptChanges).toBe(before.transcriptChanges)
+    const unkeyed = recv(before, event)
+    expect(unkeyed.messages[0]).toBe(before.messages[0])
+    expect(unkeyed.messages[1]).toMatchObject({
+      role: 'assistant',
+      parts: [{ type: 'reasoning', text: 'thinking' }]
+    })
+    expect(unkeyed.messages[1].id).not.toBe('u:tail')
+    expect(unkeyed.transcriptChanges.log.at(-1)).toEqual({
+      kind: 'append',
+      ids: [unkeyed.messages[1].id]
+    })
+  })
+
+  it('r3/r14 keep unkeyed late results on the tail and replace a keyed result only at its owner', () => {
+    const prior: AppMessagePart = {
+      type: 'tool_result',
+      toolRunId: 'same',
+      result: 'saved',
+      isError: false
+    }
+    const before = load([
+      msg('a:owner', 'assistant', prior),
+      msg('u:next', 'user'),
+      msg('a:tail', 'assistant', { type: 'text', text: 'tail prefix' }, prior)
+    ])
+    const event = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'same',
+      isError: false,
+      result: 'unkeyed'
+    } as const
+    const unkeyed = recv(before, event)
+    expect(unkeyed.messages[0]).toBe(before.messages[0])
+    expect(unkeyed.messages[2].parts).toEqual([
+      { type: 'text', text: 'tail prefix' },
+      prior,
+      { ...prior, result: 'unkeyed' }
+    ])
+    expect(unkeyed.transcriptChanges.log.at(-1)).toEqual({
+      kind: 'replace',
+      id: 'a:tail',
+      partsFrom: 2
+    })
+    const keyed = recv(unkeyed, { ...event, messageKey: 'a:owner', result: 'late' })
+    expect(keyed.messages[0].parts).toEqual([{ ...prior, result: 'late' }])
+    expect(keyed.messages[2]).toBe(unkeyed.messages[2])
+    expect(keyed.transcriptChanges.log.at(-1)).toEqual({
+      kind: 'replace',
+      id: 'a:owner',
+      partsFrom: 0
+    })
+  })
+
   it('r5 appends an unkeyed buffer to the last assistant and skips an empty commit', () => {
     const before = load([msg('a:first', 'assistant'), msg('a:last', 'assistant')])
     const after = chatReducer(before, { type: 'COMMIT_PENDING_TEXT', text: 'tail' })

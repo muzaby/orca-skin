@@ -152,6 +152,28 @@ describe('transcript history prepend', () => {
     args: {}
   }
 
+  it('g7/g16 keep a dual-reference publication pending for its tool when its response is visible first', () => {
+    const response = message('a:response', 'assistant', {
+      type: 'response_boundary',
+      boundary: { id: 'response', phase: 'begin' }
+    })
+    const tool = message('a:tool', 'assistant', call)
+    const event = captured('receipt', { toolRunId: 'shared', responseId: 'response' })
+    const start = LOAD([response, ...tail])
+    const pending = recv(start, event)
+    expect(pending.messages).toBe(start.messages)
+    expect([...pending.heldOutputs.keys()]).toEqual(['tool:shared'])
+    const merged = prepend(pending, [tool])
+    const afterLoad = recv(prepend(start, [tool]), event)
+    expect(merged.messages).toEqual(afterLoad.messages)
+    expect(merged.messages[0].parts).toEqual([call, publication('receipt')])
+    expect(merged.messages[1].parts).toEqual(response.parts)
+    expect(merged.heldOutputs.size).toBe(0)
+    const missing = recv(LOAD([response], true), event)
+    expect(missing.messages[0].parts).toEqual(response.parts)
+    expect(missing.heldOutputs.size).toBe(0)
+  })
+
   it('keeps tool and response owners separate and resolves only a response begin', () => {
     let pending = recv(LOAD(tail), captured('tool-file', { toolRunId: 'shared' }))
     pending = recv(pending, captured('response-file', { responseId: 'shared' }))

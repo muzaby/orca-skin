@@ -92,6 +92,58 @@ it('carries native IDs separately from queue UUIDs for matched echoes and automa
   ).toBe(true)
 })
 
+it.each([true, false])(
+  'preserves received IDs through commit and relay (injected generator: %s)',
+  async (injected) => {
+    const receipt = {
+      type: 'input.received',
+      sessionId: 's1',
+      origin: { kind: 'automatic' }
+    } as const
+    const events: NormalizedEvent[] = [
+      { ...receipt, text: 'foreign', sessionId: 's2' },
+      { ...receipt, text: 'both', uuid: 'queue/id', nativeMessageId: 'native:id' },
+      { ...receipt, text: 'native', nativeMessageId: 'native:id' },
+      { ...receipt, text: 'generated' },
+      { ...receipt, text: 'not persisted', uuid: 'last' }
+    ]
+    const newId = vi.fn(() => 'generated:id')
+    const deps = makeDeps(fakeRuntime([events]), injected ? { newId } : {})
+    const commit = vi
+      .fn<NonNullable<typeof deps.persist.commitUserMessage>>()
+      .mockReturnValueOnce(41)
+      .mockReturnValueOnce(42)
+      .mockReturnValueOnce(43)
+      .mockReturnValueOnce(null)
+    deps.persist.commitUserMessage = commit
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { sharedPathProjectId: null })
+
+    const keys = [
+      'i:queue%2Fid',
+      'i:n:native%3Aid',
+      injected ? 'i:g:generated%3Aid' : expect.stringMatching(/^i:g:[0-9a-f-]{36}$/),
+      'i:last'
+    ]
+    const batches = commit.mock.calls.map(([, batch]) => batch)
+    expect(batches.map((batch) => [batch.text, batch.messageKey, batch.nativeMessageId])).toEqual([
+      ['both', keys[0], 'native:id'],
+      ['native', keys[1], 'native:id'],
+      ['generated', keys[2], undefined],
+      ['not persisted', keys[3], undefined]
+    ])
+    expect(newId).toHaveBeenCalledTimes(injected ? 1 : 0)
+    const relayed = vi
+      .mocked(deps.forward.relay)
+      .mock.calls.map(([, event]) => event)
+      .filter((event) => event.type === 'message.committed')
+    expect(relayed.map((event) => [event.messageId, event.messageKey])).toEqual(
+      batches.slice(0, 3).map((batch, index) => [41 + index, batch.messageKey])
+    )
+  }
+)
+
 it('commits a received scheduled prompt before its response without consuming a queued user prompt', async () => {
   const runtime = fakeRuntime([
     [

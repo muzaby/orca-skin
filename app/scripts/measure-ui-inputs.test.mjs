@@ -290,10 +290,34 @@ test('j5 J10 compares equal-sized updates with callback invalidation and key reo
 })
 
 test('j6 J9 상한 탐색은 예산 내 최대 표본과 조립 task 를 보고하고 전부 초과 시 통과 표본 없음 을 반환한다', () => {
-  const j9 = measureJ9CopyCap([100, 200], { budgetMs: 50 })
-  assert.equal(j9.samples.length, 2)
-  assert.equal(j9.assembleTasks.length, 2)
-  assert.equal(typeof j9.cap, 'number')
+  // Keep sample order independent of its size. A single slow run must not
+  // exclude a size whose median is exactly the budget.
+  let reads = 0
+  let elapsed = 0
+  const repetitions = WARMUP_RUNS + MEASURED_RUNS
+  const sampleMedians = [50, 51, 1]
+  const clock = () => {
+    const sample = Math.floor(reads / 2)
+    if (reads++ % 2) {
+      const batch = Math.floor(sample / repetitions)
+      elapsed += sample === 2 ? 90 : (sampleMedians[batch] ?? 1)
+    }
+    return elapsed
+  }
+  const j9 = measureJ9CopyCap([400, 800, 100], { budgetMs: 50, clock })
+  assert.deepEqual(
+    j9.samples.map(({ size, result }) => [size, result.median, result.max]),
+    [
+      [400, 50, 90],
+      [800, 51, 51],
+      [100, 1, 1]
+    ]
+  )
+  assert.deepEqual(
+    j9.assembleTasks.map(({ count }) => count),
+    [2500, 5000]
+  )
+  assert.equal(j9.cap, 400)
 
   let tick = 0
   const slowClock = () => (tick += 100)

@@ -220,6 +220,42 @@ describe('disclosureStore (EP-15 d1~d12)', () => {
     clearDisclosures('s-1')
   })
 
+  it('d9 forgets focus if either the control or its owning block changes', async () => {
+    vi.resetModules()
+    const isolated = await import('./disclosureStore')
+    const listen = vi.fn()
+    class Control {
+      constructor(
+        readonly block: string,
+        readonly control: string
+      ) {}
+      closest(): Control {
+        return this
+      }
+      getAttribute(name: string): string {
+        return name === 'data-block-key' ? this.block : this.control
+      }
+    }
+    vi.stubGlobal('Element', Control)
+    vi.stubGlobal('document', { addEventListener: listen })
+    try {
+      for (const [block, control, retained] of [
+        ['original', 'toggle', true],
+        ['other', 'toggle', false],
+        ['original', 'copy', false]
+      ] as const) {
+        isolated.recordFocus('s-1', 'original', 'toggle')
+        const listener = listen.mock.calls.find(([type]) => type === 'focusin')![1]
+        listener({ target: new Control(block, control) })
+        expect(isolated.getFocusRecord()).toEqual(
+          retained ? { sessionKey: 's-1', blockKey: 'original', focusId: 'toggle' } : null
+        )
+      }
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('d8/d9 restores only the recorded session, block and control from body without scrolling', () => {
     const body = {} as HTMLElement
     const focus = vi.fn()
@@ -247,7 +283,9 @@ describe('disclosureStore (EP-15 d1~d12)', () => {
       blockKey: 'offscreen',
       focusId: 'toggle'
     })
-    pruneDisclosures('s-1', new Set(), true)
+    pruneDisclosures('s-1', new Set(['offscreen']), true)
+    expect(getFocusRecord()?.focusId).toBe('toggle')
+    pruneDisclosures('s-1', new Set(['toggle']), true)
     expect(getFocusRecord()).toBeNull()
     expect(getDisclosure('other', 'different')).toBe(true)
     setDisclosure('s-1', 'key', false)

@@ -108,6 +108,85 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
     expect(timings.map((t) => t.kind)).toEqual(['chunk', 'chunk', 'chunk', 'assemble'])
   })
 
+  it('joins reversed chunks across empty rows and preserves both partial boundaries', async () => {
+    const rows = [
+      { text: '', leadingBreaks: 0, trailingBreaks: 3 },
+      { text: 'a', leadingBreaks: 0, trailingBreaks: 3 },
+      { text: '', leadingBreaks: 6, trailingBreaks: 7 },
+      { text: 'b', leadingBreaks: 2, trailingBreaks: 0 },
+      { text: 'c', leadingBreaks: 0, trailingBreaks: 2 },
+      { text: '', leadingBreaks: 3, trailingBreaks: 0 }
+    ]
+    const tasks: Array<() => void> = []
+    const writeClipboard = vi.fn(async () => {})
+    const serializeChunk = vi.fn((start: number) => ({
+      ...rows[start - 3],
+      html: '<p>' + start + '</p>'
+    }))
+    const timings: CopyTaskTiming[] = []
+    let clock = 0
+    const job = startCopyJob(
+      8,
+      3,
+      {
+        mountChunk: () => {},
+        unmountChunk: () => {},
+        serializeChunk,
+        scheduleNext: (task) => tasks.push(task),
+        writeClipboard,
+        now: () => (clock += 2),
+        onTiming: (sample) => timings.push(sample)
+      },
+      { chunkSize: 1 }
+    )
+    while (tasks.length) tasks.shift()!()
+    expect(await job.done).toBe(true)
+    expect(serializeChunk.mock.calls).toEqual([
+      [3, 3, true, false],
+      [4, 4, false, false],
+      [5, 5, false, false],
+      [6, 6, false, false],
+      [7, 7, false, false],
+      [8, 8, false, true]
+    ])
+    expect(writeClipboard).toHaveBeenCalledExactlyOnceWith(
+      '\n\na' + '\n'.repeat(4) + 'bc' + '\n'.repeat(4),
+      '<p>3</p><p>4</p><p>5</p><p>6</p><p>7</p><p>8</p>'
+    )
+    expect(timings).toEqual([
+      ...Array.from({ length: 6 }, () => ({ kind: 'chunk', durationMs: 2, blockCount: 1 })),
+      { kind: 'assemble', durationMs: 2, blockCount: 6 }
+    ])
+  })
+
+  it.each([false, true])(
+    'settles a cancelled job when clipboard write started=%s',
+    async (started) => {
+      const tasks: Array<() => void> = []
+      let finish = (): void => {}
+      const writeClipboard = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finish = resolve
+          })
+      )
+      const job = startCopyJob(2, 2, {
+        mountChunk: () => {},
+        unmountChunk: () => {},
+        serializeChunk: () => ({ text: 'x', html: '<p>x</p>' }),
+        scheduleNext: (task) => tasks.push(task),
+        writeClipboard
+      })
+      tasks.shift()!()
+      if (started) tasks.shift()!()
+      job.cancel()
+      if (!started) tasks.shift()!()
+      finish()
+      expect(await job.done).toBe(false)
+      expect(writeClipboard).toHaveBeenCalledTimes(started ? 1 : 0)
+    }
+  )
+
   it('c13: chunk failure stops remaining chunks, unmounts, writes 0 to clipboard, and reports clipboard.copy.failed', async () => {
     vi.mocked(reportError).mockClear()
     const queue: (() => void)[] = []

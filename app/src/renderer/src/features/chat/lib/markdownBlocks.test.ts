@@ -38,6 +38,11 @@ describe('splitStableBlocks', () => {
     expect(tail).toBe('머리말.\n\n- a\n- b\n진행')
   })
 
+  it('keeps a loose list continuation on the same side of the stable boundary', () => {
+    const source = '- first item\n\n  continued paragraph\n'
+    expect(splitStableBlocks(source)).toEqual({ stable: [], tail: source })
+  })
+
   it('들여쓰기 코드블록 경계는 자르지 않는다', () => {
     const { stable } = splitStableBlocks(
       '설명.\n\n    indented code\n\n다음 문단.\n\n완결 줄.\n꼬리'

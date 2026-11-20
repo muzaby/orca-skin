@@ -195,7 +195,8 @@ describe('TranscriptViewport via the production harnesses', () => {
       ])
       render()
       const installBatch = (complete: boolean, appends: number): void => {
-        let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete })
+        let changes = recordChange(newTranscriptChanges(), { kind: 'reset', complete: !complete })
+        changes = recordChange(changes, { kind: 'reset', complete })
         for (let i = 0; i < appends; i++)
           changes = recordChange(changes, { kind: 'append', ids: ['u:keep'] })
         const current = useChatStore.getState().sessions.s
@@ -347,7 +348,10 @@ describe('TranscriptViewport via the production harnesses', () => {
     expect(original.getAttribute('aria-expanded')).toBe('false')
     dom!.click(original)
     expect(original.getAttribute('aria-expanded')).toBe('true')
-    expect(dom!.query('[data-part-key="a:split:tool:right"]')).toBeTruthy()
+    const rightTool = '[data-part-key="a:split:tool:right"]'
+    const rightToggle = dom!.query(rightTool)!.querySelector('[aria-expanded]')!
+    dom!.click(rightToggle)
+    expect(rightToggle.getAttribute('aria-expanded')).toBe('true')
     const separated: Message = {
       ...assistant,
       parts: [
@@ -370,6 +374,9 @@ describe('TranscriptViewport via the production harnesses', () => {
     render()
     const groups = dom!.queryAll('[data-work-activity]')
     expect(groups).toHaveLength(2)
+    expect(
+      dom!.query(rightTool)!.querySelector('[aria-expanded]')?.getAttribute('aria-expanded')
+    ).toBe('true')
     expect(groups[0].querySelector('[data-focus-id="activity-toggle"]')).toBe(original)
     for (const [index, id] of ['left', 'right'].entries()) {
       expect(
@@ -446,40 +453,49 @@ describe('TranscriptViewport via the production harnesses', () => {
     ).toBeLessThanOrEqual(1)
   })
 
-  it('retains the keyboard-extended endpoint before the next selectionchange', () => {
-    const render = mountTranscript('claude', 'code', [
-      { id: 'u:key', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'question' }] },
-      { id: 'a:key', role: 'assistant', createdAt: 3, parts: [{ type: 'text', text: 'answer' }] }
-    ])
-    const { select, selection } = installViewportSelection(dom!)
-    render()
-    const user = dom!.query('[data-part-key="u:key:user"]')!
-    const answer = dom!.query('[data-part-key="a:key:text:0"]')!
-    select(answer, 2, user, 1)
-    selection.setBaseAndExtent(selection.anchorNode!, 5, selection.focusNode!, 3)
-    const onKeyDown = dom!.query('[data-transcript-viewport]')!.props.onKeyDown as (e: {
-      shiftKey: boolean
-      key: string
-    }) => void
-    dom!.act(() => onKeyDown({ shiftKey: true, key: 'ArrowLeft' }))
-    selection.removeAllRanges()
-    dom!.act(() =>
-      chatActions.prependHistory(
-        's',
-        [
-          { id: 'u:old', role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'earlier' }] },
-          {
-            id: 'a:old',
-            role: 'assistant',
-            createdAt: 1,
-            parts: [{ type: 'text', text: 'history' }]
-          }
-        ],
-        { reachedStart: true }
+  it.each([
+    ...['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].map(
+      (key) => ({ key, shiftKey: true, expected: [5, 3] })
+    ),
+    { key: 'ArrowLeft', shiftKey: false, expected: [2, 1] },
+    { key: 'Tab', shiftKey: true, expected: [2, 1] }
+  ])(
+    'retains the keyboard-extended endpoint before the next selectionchange ($key, shift=$shiftKey)',
+    ({ key, shiftKey, expected }) => {
+      const render = mountTranscript('claude', 'code', [
+        { id: 'u:key', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'question' }] },
+        { id: 'a:key', role: 'assistant', createdAt: 3, parts: [{ type: 'text', text: 'answer' }] }
+      ])
+      const { select, selection } = installViewportSelection(dom!)
+      render()
+      const user = dom!.query('[data-part-key="u:key:user"]')!
+      const answer = dom!.query('[data-part-key="a:key:text:0"]')!
+      select(answer, 2, user, 1)
+      selection.setBaseAndExtent(selection.anchorNode!, 5, selection.focusNode!, 3)
+      const onKeyDown = dom!.query('[data-transcript-viewport]')!.props.onKeyDown as (e: {
+        shiftKey: boolean
+        key: string
+      }) => void
+      dom!.act(() => onKeyDown({ shiftKey, key }))
+      selection.removeAllRanges()
+      dom!.act(() =>
+        chatActions.prependHistory(
+          's',
+          [
+            { id: 'u:old', role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'earlier' }] },
+            {
+              id: 'a:old',
+              role: 'assistant',
+              createdAt: 1,
+              parts: [{ type: 'text', text: 'history' }]
+            }
+          ],
+          { reachedStart: true }
+        )
       )
-    )
-    expect([selection.anchorOffset, selection.focusOffset]).toEqual([5, 3])
-  })
+      expect([selection.anchorOffset, selection.focusOffset]).toEqual(expected)
+    }
+  )
 
   it('reads the task board through the production domain hook', () => {
     mountTranscript('claude', 'code', [

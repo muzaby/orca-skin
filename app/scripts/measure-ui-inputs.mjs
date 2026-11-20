@@ -456,7 +456,7 @@ export function measureJ9CopyCap(
     )
     samples.push({ size, result: res })
     if (typeof res !== 'string' && res.median <= budgetMs) {
-      maxPassing = size
+      maxPassing = Math.max(maxPassing ?? size, size)
     }
   }
   const assembleTasks = [2_500, 5_000].map((count) => {

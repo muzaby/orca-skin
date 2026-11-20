@@ -111,10 +111,23 @@ it.each([
       })
       render()
       expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
-      // e1/e2: own grid-template-rows unmounts body
+      // The first timestamp belonging to this close is eligible.
       transition({
         target: wrapper,
         currentTarget: wrapper,
+        propertyName: 'grid-template-rows',
+        timeStamp: closingTime
+      })
+      render()
+      expect(dom.query('[aria-label="common.copy"]')).toBeNull()
+      // Synthetic events may omit a monotonic timestamp.
+      toggle()
+      toggle()
+      const current = dom.query('[data-tool-body-transition]')!
+      const finish = current.props[name] as typeof transition
+      finish({
+        target: current,
+        currentTarget: current,
         propertyName: 'grid-template-rows',
         timeStamp: 0
       })

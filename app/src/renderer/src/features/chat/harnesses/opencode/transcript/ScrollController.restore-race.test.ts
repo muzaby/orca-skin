@@ -74,12 +74,21 @@ it.each(['resize-first', 'scroll-first'] as const)(
       addEventListener: events.addEventListener.bind(events),
       removeEventListener: events.removeEventListener.bind(events)
     }
-    const content = {} as HTMLDivElement
+    const content = dom.createNode('div') as unknown as HTMLDivElement
     const blocks = createBlockList([{ key: 'row' }]).snapshot()
     const header = createElement('div', null, 'preceding history')
     const notifyResize = (element: Element, height: number): void => {
+      const size = [{ blockSize: height, inlineSize: viewport.clientWidth }]
       observers.get(element)!(
-        [{ target: element, borderBoxSize: [{ blockSize: height }] } as ResizeObserverEntry],
+        [
+          {
+            target: element,
+            contentRect: element.getBoundingClientRect(),
+            borderBoxSize: size,
+            contentBoxSize: size,
+            devicePixelContentBoxSize: size
+          }
+        ],
         {} as ResizeObserver
       )
     }

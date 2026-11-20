@@ -70,11 +70,11 @@ const LIST_ITEM_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])\s/
 // 들여쓰기 코드블록(4칸+ 또는 탭) 시작.
 const INDENTED_RE = /^(?: {4,}|\t)/
 // CommonMark 펜스 열림 후보 (0~3칸 들여쓰기 + ``` 이상 또는 ~~~ 이상 + info).
-export const FENCE_RE = /^( {0,3})(`{3,}|~{3,})(.*)$/
+export const FENCE_RE = /^( {0,3})(`{3,}|~{3,})([^\r\n]*)$/
 // CommonMark 펜스 닫힘 후보 (0~3칸 들여쓰기 + 마커 + 선택 공백만).
 const FENCE_CLOSE_RE = /^( {0,3})(`{3,}|~{3,})[ \t]*$/
 
-const isBlank = (line: string): boolean => line.trim() === ''
+const isBlank = (line: string): boolean => /^[ \t]*$/.test(line)
 
 function stripCr(line: string): string {
   return line.endsWith('\r') ? line.slice(0, -1) : line

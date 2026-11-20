@@ -66,7 +66,7 @@ const owners = {
   v: /\/(?:TranscriptViewport|blockList|Timeline|claudeBlocks|openCodeBlocks)\.tsx?$/,
 };
 const corpus = readdirSync(directory)
-  .filter((s) => /^r3\.[23].*\.jsonl$/.test(s))
+  .filter((s) => /^r3\.\d+-.*\.jsonl$/.test(s))
   .flatMap((f) =>
     readFileSync(join(directory, f), "utf8")
       .trim()

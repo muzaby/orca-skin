@@ -38,6 +38,7 @@ interface MeasureTestHarness {
   getStyleReads: () => number
   resetCounters: () => void
   emitResize: (entries: Array<{ target: HTMLElement; inlineSize: number }>) => void
+  emitEntries: (entries: ResizeObserverEntryLike[]) => void
   emitFontsLoadingDone: () => void
   flushFrame: () => void
 }
@@ -114,6 +115,9 @@ function createTestHarness(lineHeight = '20px', fontSize = '14px'): MeasureTestH
           contentBoxSize: [{ inlineSize: entry.inlineSize }]
         }))
       )
+    },
+    emitEntries(entries) {
+      roCallback?.(entries)
     },
     emitFontsLoadingDone() {
       for (const listener of Array.from(fontListeners)) listener()
@@ -224,6 +228,45 @@ describe('bubbleMeasure (EP-18 m1~m8)', () => {
     h.flushFrame()
     expect(reads).toBe(1)
     expect(h.getStyleReads()).toBe(1)
+  })
+
+  it('m4·m5: tracks the inline width across array, object and legacy ResizeObserver entries', () => {
+    const h = createTestHarness()
+    let reads = 0
+    const target = createFakeBubbleElement(220, () => {
+      reads++
+    })
+    h.coordinator.observe(target, { content: 'same', scale: 1, bubbleVariant: 'same' }, () => {})
+    const measure = (size: ResizeObserverEntryLike['contentBoxSize'], fallback: number): number => {
+      h.emitEntries([{ target, contentBoxSize: size, contentRect: { width: fallback } }])
+      h.flushFrame()
+      return reads
+    }
+    expect(measure([{ inlineSize: 80, blockSize: 140 }], 200)).toBe(1)
+    expect(measure({ inlineSize: 80, blockSize: 170 }, 210)).toBe(1)
+    expect(measure({ inlineSize: 81, blockSize: 170 }, 210)).toBe(2)
+    expect(measure([{ inlineSize: 82, blockSize: 170 }], 210)).toBe(3)
+    expect(measure([{ inlineSize: NaN }], 82)).toBe(3)
+    expect(measure({ inlineSize: Infinity }, 83)).toBe(4)
+    expect(measure(undefined, 83)).toBe(4)
+    expect(measure([], 84)).toBe(5)
+  })
+
+  it('m1·m3·m7: re-observing a mounted bubble updates its callback and detaching stops font events', () => {
+    const h = createTestHarness()
+    const target = createFakeBubbleElement(250)
+    const labels: string[] = []
+    const inputs = { content: 'first', scale: 1, bubbleVariant: 'same' }
+    h.coordinator.observe(target, inputs, () => labels.push('first'))
+    h.coordinator.observe(target, { ...inputs, content: 'replacement' }, () =>
+      labels.push('replacement')
+    )
+    h.flushFrame()
+    expect(labels).toEqual(['replacement'])
+    h.coordinator.unobserve(target)
+    const version = h.coordinator.getFontVersion()
+    h.emitFontsLoadingDone()
+    expect(h.coordinator.getFontVersion()).toBe(version)
   })
 
   it('m6·m7: shares lineHeight per (scale, fontVersion, bubbleVariant) and invalidates on document.fonts loadingdone', () => {

@@ -527,6 +527,8 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
 
   it.each([
     'measurement',
+    'async-own-scroll',
+    'async-user-scroll',
     'header',
     'character',
     'pinned',
@@ -649,6 +651,18 @@ describe('TranscriptViewport anchor corrections (VP-26 · EP-12 ①⑥⑦)', () 
       scroller.dispatchEvent(new Event('scroll'))
     }
     vi.runOnlyPendingTimers()
+
+    if (cause === 'async-own-scroll' || cause === 'async-user-scroll') {
+      expect(writes).toEqual([285])
+      // A delayed DOM scroll can acknowledge our own write or report a newer reader position.
+      if (cause === 'async-user-scroll') scrollTop += 11
+      scroller.dispatchEvent(new Event('scroll'))
+      resize(48)
+      vi.runOnlyPendingTimers()
+      expect(writes).toEqual(cause === 'async-own-scroll' ? [285, 298] : [285])
+      expect(scrollTop).toBe(cause === 'async-own-scroll' ? 298 : 296)
+      return
+    }
 
     if (cause === 'measurement' || cause === 'header' || cause === 'character') {
       expect(writes).toEqual([cause === 'character' ? 303 : 285])

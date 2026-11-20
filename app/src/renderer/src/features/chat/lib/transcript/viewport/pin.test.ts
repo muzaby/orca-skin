@@ -33,6 +33,7 @@ describe('viewport/pin (EP-11 · p1, p2, p6, p9)', () => {
   it('p9: upward wheel / PageUp / Home / ArrowUp unpins immediately without waiting for scroll event', () => {
     expect(claude.onUserInput({ pinned: true }, { type: 'wheel', deltaY: -10 }).pinned).toBe(false)
     expect(claude.onUserInput({ pinned: true }, { type: 'wheel', deltaY: 10 }).pinned).toBe(true)
+    expect(claude.onUserInput({ pinned: false }, { type: 'wheel', deltaY: 10 }).pinned).toBe(false)
     expect(claude.onUserInput({ pinned: true }, { type: 'key', key: 'PageUp' }).pinned).toBe(false)
     expect(claude.onUserInput({ pinned: true }, { type: 'key', key: 'Home' }).pinned).toBe(false)
     expect(claude.onUserInput({ pinned: true }, { type: 'key', key: 'ArrowUp' }).pinned).toBe(false)

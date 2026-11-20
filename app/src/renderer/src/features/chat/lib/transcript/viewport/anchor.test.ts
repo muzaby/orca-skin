@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { partTextOffset, pointAtPartOffset } from './textOffset'
 import { createAnchorController, restoreAnchor } from './anchor'
 
@@ -182,13 +182,18 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
     )
     const anchor = createAnchorController().captureAnchor(old as unknown as HTMLElement)!
     expect(anchor.partKey).toBe('reading')
-    for (const keepNext of [true, false]) {
+    for (const [keepNext, newSibling, expectedTop] of [
+      [true, false, 200],
+      [false, false, 260],
+      [false, true, 225]
+    ] as const) {
       const rows = [
-        makeRow('new-prefix', 'prefix', -180),
+        makeRow('new-prefix', 'msg', -180),
         makeRow('older', 'old', -80),
         makeRow('previous-part', 'msg', -40),
         makeRow('inserted', 'new-other', 45),
         ...(keepNext ? [makeRow('next-part', 'msg', 60)] : []),
+        ...(newSibling ? [makeRow('new-sibling', 'msg', 85)] : []),
         makeRow('later', 'other', 120)
       ]
       const current = makeEl({}, rows, { top: 0, height: 200 })
@@ -198,9 +203,7 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
         messageId: row.attrs!['data-message-id'],
         partKeys: [row.attrs!['data-part-key']]
       }))
-      expect(restoreAnchor(current as unknown as HTMLElement, anchor, entries)).toBe(
-        keepNext ? 200 : 260
-      )
+      expect(restoreAnchor(current as unknown as HTMLElement, anchor, entries)).toBe(expectedTop)
     }
   })
 
@@ -305,6 +308,49 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
     part.top = 104
     block.top = 104
     expect(restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBe(100)
+  })
+
+  it('a7/a11/a12 restores the glyph under the caret when an earlier visible part overlaps it', () => {
+    const left = makeEl({ 'data-part-key': 'overlap' }, [makeText('earlier')], {
+      top: 80,
+      height: 70
+    })
+    const label = makeEl({ 'data-transcript-chrome': '' }, [makeText('Copy')])
+    const glyph = makeText('target')
+    const inline = makeEl({}, [glyph])
+    Object.assign(glyph, { parentElement: inline })
+    const reading = makeEl(
+      { 'data-part-key': 'reading' },
+      [makeEl({}, [makeText('A'.repeat(5000))]), label, inline],
+      { top: 105, height: 800 }
+    )
+    const scroller = makeEl({}, [left, reading], { top: 100, height: 500 })
+    scroller.scrollTop = 400
+    let glyphTop = 126
+    const setStart = vi.fn()
+    vi.stubGlobal('document', {
+      createRange: () => ({
+        setStart,
+        setEnd: vi.fn(),
+        getBoundingClientRect: () => ({ top: glyphTop, height: 18 })
+      })
+    })
+    try {
+      const anchor = createAnchorController().captureAnchor(scroller as unknown as HTMLElement, {
+        node: glyph as unknown as Node,
+        offset: 2
+      })!
+      expect([anchor.partKey, anchor.charOffset, anchor.viewportOffsetPx]).toEqual([
+        'reading',
+        5002,
+        26
+      ])
+      expect(setStart).toHaveBeenCalledWith(glyph, 2)
+      glyphTop = 193
+      expect(restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBe(467)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('a7/a11: reset merge/split and long-part reflow keep the same partKey and character offset within +-1px', () => {

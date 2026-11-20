@@ -136,13 +136,28 @@ describe('history reader with the current SQLite schema', () => {
     expect(loaded.messages.map((m) => m.id)).toEqual(['u:req-1', `m:${m2}`])
     expect(new Set(loaded.messages.map((m) => m.id)).size).toBe(2)
 
-    // i6: recoveryArchive keeps existing id or falls back to x:<index>
+    expect(recoveryArchive()).toEqual([])
+    const user = {
+      id: 'u:kept',
+      role: 'user',
+      createdAt: 1,
+      parts: [{ type: 'text', text: 'old' }]
+    }
+    const assistant = {
+      role: 'assistant',
+      createdAt: 2,
+      incomplete: true,
+      parts: [{ type: 'reasoning', text: 'no-id' }]
+    }
     const archived = recoveryArchive({
-      archive_json: JSON.stringify([
-        { id: 'u:kept', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'old' }] },
-        { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'no-id' }] }
-      ])
-    } as Parameters<typeof recoveryArchive>[0])
-    expect(archived.map((m) => m.id)).toEqual(['u:kept', 'x:1'])
+      native_id: 'archive',
+      local_frontier: 2,
+      fresh_start: 0,
+      prompt_id: null,
+      prompt_text: null,
+      accepted: 1,
+      archive_json: JSON.stringify([user, assistant])
+    })
+    expect(archived).toEqual([user, { ...assistant, id: 'x:1' }])
   })
 })

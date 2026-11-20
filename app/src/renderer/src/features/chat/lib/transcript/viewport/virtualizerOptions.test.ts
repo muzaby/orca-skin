@@ -123,6 +123,21 @@ describe('lib/transcript/viewport/virtualizerOptions (VP-21 · EP-10)', () => {
     ])
   })
 
+  it('v1/v2: estimates read the current key at both ends and fall back outside the snapshot', () => {
+    const { list, render } = mountViewport()
+    const estimate = virtualizer.options.estimateSize
+    expect([-1, 0, 2, 3].map(estimate)).toEqual([120, 30, 40, 120])
+    render(
+      list.splice(0, 3, [
+        { key: 'c', text: 'third' },
+        { key: 'd', text: 'uncached' },
+        { key: 'a', text: 'first' }
+      ])
+    )
+    expect(virtualizer.options.estimateSize).toBe(estimate)
+    expect([0, 1, 2].map(estimate)).toEqual([40, 120, 30])
+  })
+
   it('v2 invalidates cached keys when a different list starts at the same revision', () => {
     const { list, render } = mountViewport()
     const replacement = createBlockList([

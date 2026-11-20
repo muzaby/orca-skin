@@ -67,8 +67,25 @@ describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
     }
   )
 
+  it.each(['\u00a0', '\u2003', '\u202f'])(
+    'preserves a paragraph containing non-ASCII whitespace before a fence (%s)',
+    (space) => {
+      const source = space + '\n~~~js\ncode\n'
+      const paragraphs = (component: typeof StreamingMarkdown | typeof Markdown): string[] => {
+        const $ = load(renderToStaticMarkup(createElement(component, { source })))
+        return $('p, pre')
+          .map((_, node) => $(node).text())
+          .get()
+      }
+      expect(paragraphs(Markdown)).toEqual([space, 'code'])
+      expect(paragraphs(StreamingMarkdown)).toEqual(paragraphs(Markdown))
+    }
+  )
+
   const cases = [
     ['f1: encoded fence info', '~~~c&#43;&#43; metadata\nint main() {}\n'],
+    ['f1: line separator inside info', '~~~js\u2028metadata\ncode\n'],
+    ['f1: paragraph separator inside info', '~~~js\u2029metadata\ncode\n'],
     ['f1: escaped punctuation in info', '~~~c\\+\\+ description\nint x;\n'],
     ['f1: encoded space ends language', '~~~ts&#x20;metadata\nlet x\n'],
     ['f1: non-ASCII leading space in info', '~~~\u00a0ts\nlet x\n'],
@@ -125,6 +142,16 @@ describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
         expect(code.text()).toBe(streaming ? live : reference)
       }
     }
+  })
+
+  it('parses only the stable prefix and preserves the whole open body after that prefix', () => {
+    parsedSource.mockClear()
+    const prefix = 'stable **paragraph**'
+    const body = '1234567890'.repeat(5)
+    const source = prefix + '\n\n~~~ts\n' + body
+    const $ = load(renderToStaticMarkup(createElement(StreamingMarkdown, { source })))
+    expect($('pre code').text()).toBe(body)
+    expect(parsedSource.mock.calls).toEqual([[prefix]])
   })
 
   it('StreamingMarkdown renders open fence without invoking Markdown for the tail', () => {

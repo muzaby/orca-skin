@@ -166,6 +166,38 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     expect(entry.session.messages).toHaveLength(0)
   })
 
+  it('b7·b8: text and reasoning keep independent owners when a key is reused by the other lane', () => {
+    ingestChatEvent(makeDelta('one', { messageKey: 'a:text' }))
+    ingestChatEvent(makeReasoning('visible thought', { messageKey: 'a:thought' }))
+    flushRaf()
+    ingestChatEvent(makeDelta(' plus', { messageKey: 'a:text' }))
+    ingestChatEvent(makeReasoning('  ', { messageKey: 'a:text' }))
+    flushRaf()
+    let entry = useChatStore.getState().sessions.s
+    expect(entry.live).toMatchObject({
+      text: 'one plus',
+      textKey: 'a:text',
+      reasoning: '  ',
+      reasoningKey: 'a:text',
+      reasoningVisible: false
+    })
+    expect(entry.session.messages).toHaveLength(0)
+    ingestChatEvent(makeReasoning('new', { messageKey: 'a:text' }))
+    ingestChatEvent(makeDelta('two', { messageKey: 'a:thought' }))
+    flushRaf()
+    entry = useChatStore.getState().sessions.s
+    expect(entry.live).toMatchObject({
+      text: 'two',
+      textKey: 'a:thought',
+      reasoning: '  new',
+      reasoningKey: 'a:text',
+      reasoningVisible: true
+    })
+    expect(entry.session.messages.map((m) => [m.id, m.parts])).toEqual([
+      ['a:text', [{ type: 'text', text: 'one plus' }]]
+    ])
+  })
+
   it('b9·b10: message.completed clears only matching textKey buffer and leaves another messageKey buffer intact', () => {
     // b9: A completed then B delta in same frame
     ingestChatEvent(makeDelta('A', { messageKey: 'a:1' }))

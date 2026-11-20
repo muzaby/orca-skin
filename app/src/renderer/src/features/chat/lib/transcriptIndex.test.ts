@@ -1,5 +1,9 @@
 import { deepStrictEqual } from 'node:assert'
 import { describe, expect, it } from 'vitest'
+import {
+  emptyBackgroundState,
+  type BackgroundCallRecord
+} from '../../../../../shared/background-task'
 import { duplicateToolResultEvents } from '../../../../../shared/duplicate-tool-result.testfixture'
 import { createClaudeBlockModel } from '../harnesses/claude/transcript/claudeBlocks'
 import { buildClaudeBlocksOracle, snapshotToArray } from './blockOracle.testfixture'
@@ -309,6 +313,122 @@ describe('transcriptIndex (EP-13 x1~x14)', () => {
     expect(before[1].output).toBe('')
   })
 
+  it('x1/x2: a task-list snapshot replaces absent siblings; only completed top-level sources contribute', () => {
+    const parts: AppMessagePart[] = []
+    function add(
+      toolName: string,
+      args: Record<string, unknown>,
+      result?: unknown,
+      parentToolRunId?: string
+    ): void {
+      const toolRunId = 'call-' + parts.length
+      parts.push({ type: 'tool_call', toolName, toolRunId, args, parentToolRunId })
+      if (result !== undefined)
+        parts.push({
+          type: 'tool_result',
+          toolRunId,
+          result,
+          structuredOutput: result,
+          isError: false,
+          parentToolRunId
+        })
+    }
+    add('TaskCreate', { subject: 'remove' }, { task: { id: '9', subject: 'remove' } })
+    add('TaskCreate', { subject: 'keep' }, { task: { id: '2', subject: 'keep' } })
+    add('WebFetch', { url: 'https://example.org/' }, 'home')
+    add('WebFetch', { url: 'https://example.org/path' }, 'path')
+    add('WebFetch', { url: 'https://example.org/child' }, 'child', 'nested')
+    add('Read', { file_path: '/tmp/source.txt' }, 'source')
+    add('Read', { file_path: '/tmp/pending.txt' })
+    const message: Message = { id: 'a', createdAt: 1, role: 'assistant', parts: parts.slice() }
+    const before = makeState([message])
+    const original = transcriptIndexFor(before)
+    const board = original.taskBoard()
+    const sources = original.taskContextSources()
+    expect(board.map((row) => row.id)).toEqual(['9', '2'])
+    expect(sources).toEqual([
+      { kind: 'web', url: 'https://example.org/', title: 'example.org' },
+      { kind: 'web', url: 'https://example.org/path', title: 'example.org/path' },
+      { kind: 'file', path: '/tmp/source.txt' }
+    ])
+    add(
+      'TaskList',
+      {},
+      {
+        tasks: [
+          { id: '2', subject: 'replaced', status: 'completed', blockedBy: [] },
+          { id: '3', subject: 'added', status: 'in_progress', blockedBy: ['2'] }
+        ]
+      }
+    )
+    const next = makeState([{ ...message, parts }], before, {
+      kind: 'replace',
+      id: 'a',
+      partsFrom: message.parts.length
+    })
+    const updated = transcriptIndexFor(next)
+    expect(
+      updated.taskBoard().map((row) => [row.id, row.subject, row.status, row.blockedBy])
+    ).toEqual([
+      ['2', 'replaced', 'completed', []],
+      ['3', 'added', 'in_progress', ['2']]
+    ])
+    expect(updated.taskContextSources()).toBe(sources)
+    expect(board.map((row) => row.id)).toEqual(['9', '2'])
+  })
+
+  it('x9: each process uses its newest background observation until its transcript result arrives', () => {
+    const message: Message = {
+      id: 'a',
+      role: 'assistant',
+      createdAt: 0,
+      parts: [
+        { type: 'tool_call', toolName: 'Bash', toolRunId: 'first', args: { command: 'first' } },
+        { type: 'tool_call', toolName: 'Bash', toolRunId: 'second', args: { command: 'second' } },
+        { type: 'tool_result', toolRunId: 'second', result: '', isError: false },
+        { type: 'tool_call', toolName: 'Bash', toolRunId: 'third', args: { command: 'third' } }
+      ]
+    }
+    const record = (
+      toolUseId: string,
+      lastSeenAt: number,
+      result: string
+    ): BackgroundCallRecord => ({
+      toolUseId,
+      result,
+      lastSeenAt,
+      firstSeenAt: 0,
+      generation: 'g',
+      phase: 'returned',
+      awaitingTask: false,
+      meta: { truncated: true }
+    })
+    const bg = {
+      ...emptyBackgroundState(),
+      calls: {
+        fresh: record('first', 20, 'latest'),
+        stale: record('first', 3, 'old'),
+        sibling: record('second', 30, 'overridden'),
+        other: record('third', 5, 'independent')
+      }
+    }
+    const index = transcriptIndexFor(makeState([message]))
+    const panel = index.openCodePanelModel(bg)
+    expect(panel.processes.map((p) => [p.id, p.output, p.truncated])).toEqual([
+      ['first', 'latest', true],
+      ['second', '', false],
+      ['third', 'independent', true]
+    ])
+    expect(index.openCodePanelModel(bg)).toBe(panel)
+    const refreshed = index.openCodePanelModel({
+      ...bg,
+      calls: { ...bg.calls, newest: record('first', 31, 'updated') }
+    })
+    expect(refreshed.processes[0].output).toBe('updated')
+    expect(refreshed.processes[1]).toBe(panel.processes[1])
+    expect(panel.processes[0].output).toBe('latest')
+  })
+
   it('x9: nested shell calls are projected as processes and keep their ownership in the transcript', () => {
     const message: Message = {
       id: 'nested-shell',
@@ -524,6 +644,7 @@ describe('transcriptIndex (EP-13 x1~x14)', () => {
     expect(agentA).toBeDefined()
     const revA = idx.parentRevision.get('pA')
     const childA = idx.childMessage('pA')
+    expect(childA?.parts).toEqual([{ type: 'text', text: 'hello from A' }])
 
     state = makeState(
       [
@@ -543,7 +664,7 @@ describe('transcriptIndex (EP-13 x1~x14)', () => {
     expect(idx.parentRevision.get('pA')).toBe(revA)
     expect(idx.childMessage('pA')).toBe(childA)
     expect(idx.parentRevision.get('pB')).toBeGreaterThan(0)
-    expect(idx.childMessage('pB')?.parts).toHaveLength(1)
+    expect(idx.childMessage('pB')?.parts).toEqual([{ type: 'text', text: 'hello from B' }])
     const message = state.messages.at(-1)!
     const updated: Message = {
       ...message,
