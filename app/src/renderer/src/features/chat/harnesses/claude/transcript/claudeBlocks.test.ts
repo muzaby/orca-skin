@@ -11,7 +11,7 @@ import { liveBlockKey, turnMetaKey, userBlockKey } from '../../../lib/transcript
 import { buildClaudeBlocksOracle, snapshotToArray } from '../../../lib/blockOracle.testfixture'
 import * as segmentCache from '../../../lib/segmentCache'
 import { getDisclosure, setDisclosure } from '../../../store/disclosureStore'
-import { createClaudeBlockModel, type ClaudeActivityBlock } from './claudeBlocks'
+import { createClaudeBlockModel, type ClaudeBlock, type ClaudeActivityBlock } from './claudeBlocks'
 
 function userMsg(id: string, text: string, createdAt = 1000): Message {
   return { id, role: 'user', createdAt, parts: [{ type: 'text', text }] }
@@ -668,3 +668,171 @@ describe('claudeBlocks (EP-8 · z1~z9)', () => {
     expect(blocks.some((b) => b.kind === 'segment' && b.segment.kind === 'text')).toBe(true)
   })
 })
+
+it.each(['code', 'work'] as const)(
+  'z1/z2 %s protects older messages inside the same open turn',
+  (mode) => {
+    const allocations: ClaudeBlock[] = []
+    const model = createClaudeBlockModel({ mode, sessionKey: 'local-turn' }, (block) =>
+      allocations.push(block)
+    )
+    let reads = 0
+    let measuring = false
+    const older = Array.from({ length: 12 }, (_, index) => {
+      const id = 'prior-' + index
+      const parts: AppMessagePart[] = [{ type: 'text', text: id }]
+      if (index === 0)
+        parts.push({
+          type: 'artifact',
+          artifact: {
+            publicationId: 'published',
+            artifactFileId: 'file',
+            title: 'file',
+            filename: 'file.txt',
+            kind: 'text',
+            sizeBytes: 1,
+            publishedAt: 1
+          }
+        })
+      if (mode === 'work') {
+        parts.unshift(
+          { type: 'response_boundary', boundary: { phase: 'begin', id } },
+          { type: 'tool_call', toolName: 'Read', toolRunId: id, args: {} }
+        )
+        parts.push({ type: 'response_boundary', boundary: { phase: 'end', id, outcome: 'ended' } })
+      }
+      const instrumented = new Proxy(
+        parts.map(
+          (part) =>
+            new Proxy(part, {
+              get(target, key, receiver) {
+                if (measuring) reads++
+                return Reflect.get(target, key, receiver)
+              }
+            })
+        ),
+        {
+          get(target, key, receiver) {
+            if (measuring && typeof key === 'string' && /^\d+$/.test(key)) reads++
+            return Reflect.get(target, key, receiver)
+          }
+        }
+      )
+      return {
+        ...assistantMsg(id, instrumented),
+        get parts() {
+          if (measuring) reads++
+          return instrumented
+        }
+      }
+    })
+    const changed = assistantMsg('changed', [{ type: 'text', text: 'answer' }])
+    const suffix = assistantMsg('suffix', [{ type: 'text', text: 'more' }])
+    const original = [userMsg('user', 'go'), ...older, changed]
+    let changes = newTranscriptChanges()
+    let snap = model.advance({ messages: original, transcriptChanges: changes })
+    const retained = snapshotToArray(snap).filter(
+      (b) => b.kind !== 'meta' && 'messageId' in b && b.messageId?.startsWith('prior-')
+    )
+    expect(retained.length).toBeGreaterThan(0)
+    let messages = [...original, suffix]
+    for (const edit of ['append', 'replace'] as const) {
+      if (edit === 'replace')
+        messages = [
+          ...original,
+          assistantMsg('suffix', [...suffix.parts, { type: 'text', text: ' revised' }])
+        ]
+      changes = recordChange(
+        changes,
+        edit === 'append'
+          ? { kind: edit, ids: [suffix.id] }
+          : { kind: edit, id: suffix.id, partsFrom: 1 }
+      )
+      const priorBlocks = new Set(snapshotToArray(snap))
+      allocations.length = 0
+      measuring = true
+      try {
+        snap = model.advance({ messages, transcriptChanges: changes })
+      } finally {
+        measuring = false
+      }
+      const published = snapshotToArray(snap).filter((block) => !priorBlocks.has(block))
+      expect(allocations.map((block) => block.kind)).toEqual(['segment', 'meta'])
+      expect(allocations.length).toBe(published.length)
+      for (const block of published) expect(allocations).toContain(block)
+      expect(reads).toBe(0)
+      for (const b of retained) expect(snap.blockAt(snap.indexOf(b.key))).toBe(b)
+      expect(snapshotToArray(snap)).toEqual(
+        buildClaudeBlocksOracle(messages, { mode, sessionKey: 'local-turn' })
+      )
+    }
+  }
+)
+
+it.each(['code', 'work'] as const)(
+  'z2 %s reads only the edited suffix of a message with a long committed prefix',
+  (mode) => {
+    const model = createClaudeBlockModel({ mode, sessionKey: 'old-prefix' })
+    let measuring = false
+    let fieldReads = 0
+    const rawPrefix: AppMessagePart[] = [
+      { type: 'response_boundary', boundary: { id: 'r', phase: 'begin' } },
+      ...Array.from({ length: 9_997 }, (_, i): AppMessagePart => ({
+        type: 'text',
+        text: String(i)
+      })),
+      { type: 'compact_boundary' },
+      { type: 'response_boundary', boundary: { id: 'r', phase: 'end', outcome: 'ended' } }
+    ]
+    const prefix = rawPrefix.map(
+      (part) =>
+        new Proxy(part, {
+          get(target, key, receiver) {
+            if (measuring) fieldReads++
+            return Reflect.get(target, key, receiver)
+          }
+        })
+    )
+    expect(prefix).toHaveLength(10_000)
+    const before = assistantMsg('long', [...prefix, { type: 'text', text: 'old' }])
+    const initial = newTranscriptChanges()
+    const oldSnapshot = model.advance({ messages: [before], transcriptChanges: initial })
+    const oldContent = snapshotToArray(oldSnapshot).filter((b) => b.kind === 'segment')
+    expect(oldContent).toHaveLength(3)
+    let reads = 0
+    const after = assistantMsg(
+      'long',
+      new Proxy([...prefix, { type: 'text' as const, text: 'new' }], {
+        get(target, key, receiver) {
+          if (typeof key === 'string' && /^\d+$/.test(key) && Number(key) < prefix.length) reads++
+          return Reflect.get(target, key, receiver)
+        }
+      })
+    )
+    measuring = true
+    const result = model.advance({
+      messages: [after],
+      transcriptChanges: recordChange(initial, {
+        kind: 'replace',
+        id: 'long',
+        partsFrom: prefix.length
+      })
+    })
+    measuring = false
+    expect({ reads, fieldReads }).toEqual({ reads: 0, fieldReads: 0 })
+    for (const prior of oldContent.slice(0, 2))
+      expect(result.blockAt(result.indexOf(prior.key))).toBe(prior)
+    expect(
+      snapshotToArray(result).flatMap((b) =>
+        b.kind === 'segment' && b.segment.kind === 'text' ? [b.segment.text] : []
+      )
+    ).toContain('new')
+    const reference = createClaudeBlockModel({ mode, sessionKey: 'old-prefix' })
+    reference.advance({ messages: [before], transcriptChanges: initial })
+    const full = reference.advance({
+      messages: [after],
+      transcriptChanges: recordChange(initial, { kind: 'reset', complete: true })
+    })
+    expect(snapshotToArray(result)).toEqual(snapshotToArray(full))
+  }
+)

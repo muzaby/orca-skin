@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearDisclosures,
   clearFocusRecord,
+  discardDisclosures,
   getDisclosure,
   getFocusRecord,
   getSessionDisclosureKeysForTest,
@@ -140,6 +141,13 @@ describe('disclosureStore (EP-15 d1~d12)', () => {
     await chatActions.loadSession('s-err')
 
     expect(getSessionDisclosureKeysForTest('s-err')).toEqual([])
+    loadMock.mockResolvedValueOnce(makeLoadedSession('s-err'))
+    await chatActions.loadSession('s-err')
+    setDisclosure('s-err', 'tool:cached', true)
+    loadMock.mockRejectedValueOnce(new Error('cached revalidation failed'))
+    await chatActions.loadSession('s-err', null, { revalidate: true })
+    expect(getDisclosure('s-err', 'tool:cached')).toBe(true)
+    expect(useChatStore.getState().sessions['s-err'].session.messages).toHaveLength(2)
   })
 
   it('d4: clears disclosures on invalidateSessionCache', () => {
@@ -156,6 +164,32 @@ describe('disclosureStore (EP-15 d1~d12)', () => {
 
     expect(getSessionDisclosureKeysForTest('s-del')).toEqual([])
     expect(getFocusRecord()).toBeNull()
+  })
+
+  it('d6/d7 discards only merged group keys and preserves explicit false against an open default', () => {
+    setDisclosure('left', 'loser', true)
+    setDisclosure('left', 'winner', false)
+    setDisclosure('right', 'loser', false)
+    discardDisclosures('left', ['absent', 'loser'])
+    expect(getSessionDisclosureKeysForTest('left')).toEqual(['winner'])
+    expect(getDisclosure('left', 'winner', true)).toBe(false)
+    expect(getDisclosure('left', 'loser', true)).toBe(true)
+    expect(getDisclosure('right', 'loser', true)).toBe(false)
+  })
+
+  it('d9 retains focus record identity on a repeated focus but replaces each changed owner coordinate', () => {
+    recordFocus('s', 'a:1', 'toggle')
+    const original = getFocusRecord()
+    recordFocus('s', 'a:1', 'toggle')
+    expect(getFocusRecord()).toBe(original)
+    for (const [session, block, control] of [
+      ['s2', 'a:1', 'toggle'],
+      ['s2', 'a:2', 'toggle'],
+      ['s2', 'a:2', 'copy']
+    ]) {
+      recordFocus(session, block, control)
+      expect(getFocusRecord()).toEqual({ sessionKey: session, blockKey: block, focusId: control })
+    }
   })
 
   it('d6: preserves disclosures across session switches', async () => {

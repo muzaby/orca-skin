@@ -1,12 +1,14 @@
 import { expect, it } from 'vitest'
 import { userMessageId } from '../../../../../../shared/message-id'
-import type { Message } from '../../reducer/chatReducer'
+import { initialChatState, type ChatState, type Message } from '../../reducer/chatReducer'
+import { transcriptIndexFor } from '../transcriptIndex'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../../harnesses/opencode/transcript/openCodeBlocks'
 import { createSegmentCache } from '../segmentCache'
 import { carryPartKeys, PartKeyTracker } from './blockKeys'
 import { changedMessageLocations, newTranscriptChanges, recordChange } from './changeLog'
 import { messageOrderFor } from './messageOrder'
+import { clearDisclosures, getDisclosure, setDisclosure } from '../../store/disclosureStore'
 
 function row(id: string, role: Message['role'], parts: Message['parts']): Message {
   return { id, role, createdAt: 1, parts }
@@ -197,4 +199,222 @@ it('s3/s8 keeps completed and pending sibling call objects when one result chang
     expect(calls[1]).toBe(snapshots[0][1])
     expect(calls[2]).toBe(snapshots[0][2])
   }
+})
+
+it.each(['code', 'work', 'opencode'] as const)(
+  'y1/y2/y4/y5 %s keeps the original user representative through a reset and later edits',
+  (mode) => {
+    const model =
+      mode === 'opencode'
+        ? createOpenCodeBlockModel()
+        : createClaudeBlockModel({ mode, sessionKey: 'keys' })
+    const user = (id: string): Message => row(id, 'user', [{ type: 'text', text: id }])
+    const older = user('older')
+    const first = user('first')
+    const next = user('next')
+    const assistant = row('answer', 'assistant', [{ type: 'text', text: 'answer' }])
+    let changes = newTranscriptChanges()
+    const initial = model.advance({ messages: [first, assistant], transcriptChanges: changes })
+    const initialKeys = Array.from({ length: initial.count }, (_, i) => initial.keyAt(i))
+    for (const [messages, delta] of [
+      [[older, first, assistant], { kind: 'reset', complete: false }],
+      [[older, first, assistant, next], { kind: 'append', ids: ['next'] }],
+      [[user('older'), first, assistant, next], { kind: 'replace', id: 'older', partsFrom: 0 }]
+    ] as const) {
+      changes = recordChange(changes, delta)
+      const snap = model.advance({ messages, transcriptChanges: changes })
+      const block = snap.blockAt(0)
+      expect(block.kind === 'user' && [block.key, block.messageId, block.partKeys]).toEqual([
+        'first:user',
+        'older',
+        ['older:user', 'first:user']
+      ])
+      expect(Array.from({ length: snap.count }, (_, i) => snap.keyAt(i))).toEqual(
+        expect.arrayContaining(initialKeys)
+      )
+    }
+  }
+)
+
+it('y13/y19 releases the losing Work disclosure after a merge and inherits the winner on a split', () => {
+  const sessionKey = 'merged-activity'
+  const model = createClaudeBlockModel({ mode: 'work', sessionKey })
+  let changes = newTranscriptChanges()
+  function project(split: boolean): string[] {
+    const message = row('m', 'assistant', [
+      { type: 'response_boundary', boundary: { id: 'r', phase: 'begin' } },
+      call('one'),
+      ...(split ? [{ type: 'compact_boundary' as const }] : []),
+      call('two'),
+      { type: 'response_boundary', boundary: { id: 'r', phase: 'end', outcome: 'ended' } }
+    ])
+    changes = recordChange(changes, { kind: 'reset', complete: true })
+    const snap = model.advance({ messages: [message], transcriptChanges: changes })
+    return Array.from({ length: snap.count }, (_, i) => snap.blockAt(i))
+      .filter((b) => b.kind === 'activity')
+      .map((b) => b.key)
+  }
+  try {
+    const [first, second] = project(true)
+    expect([first, second]).toEqual(['m:activity:m:tool:one', 'm:activity:m:tool:two'])
+    setDisclosure(sessionKey, first, false)
+    setDisclosure(sessionKey, second, true)
+    expect(project(false)).toEqual([first])
+    expect(getDisclosure(sessionKey, first, true)).toBe(false)
+    expect(getDisclosure(sessionKey, second, false)).toBe(false)
+    expect(getDisclosure(sessionKey, second, true)).toBe(true)
+    setDisclosure(sessionKey, first, true)
+    expect(project(true)).toEqual([first, second])
+    expect(getDisclosure(sessionKey, second, false)).toBe(true)
+  } finally {
+    clearDisclosures(sessionKey)
+  }
+})
+it.each(['code', 'work', 'opencode'] as const)(
+  'z8 %s resumes from revisions 0, 32 and 64 with the same blocks, ranks, ownership and panel values',
+  (mode) => {
+    for (const checkpoint of [0, 32, 64]) {
+      const model =
+        mode === 'opencode'
+          ? createOpenCodeBlockModel()
+          : createClaudeBlockModel({ mode, sessionKey: 'delayed' })
+      let messages = [
+        row('user', 'user', [{ type: 'text', text: 'prompt' }]),
+        row('replayed', 'assistant', [call('obsolete')])
+      ]
+      let changes = newTranscriptChanges()
+      function state(): ChatState {
+        return { ...initialChatState, messages, transcriptChanges: changes }
+      }
+      function consume(): void {
+        model.advance(state())
+        messageOrderFor(state(), true)
+        transcriptIndexFor(state())
+      }
+      if (checkpoint === 0) consume()
+      while (changes.revision < 64) {
+        const id = 'checkpoint-' + changes.revision
+        messages = [...messages, row(id, 'assistant', [{ type: 'text', text: id }])]
+        changes = recordChange(changes, { kind: 'append', ids: [id] })
+        if (changes.revision === checkpoint) consume()
+      }
+      for (const delta of [
+        { kind: 'append', ids: ['temporary'] },
+        { kind: 'replace', id: 'temporary', partsFrom: 0 },
+        { kind: 'remove', ids: ['temporary', 'replayed'] },
+        { kind: 'append', ids: ['replayed'] }
+      ] as const)
+        changes = recordChange(changes, delta)
+      const final = row('replayed', 'assistant', [
+        call('kept'),
+        { type: 'tool_result', toolRunId: 'kept', result: 'retained', isError: false },
+        { type: 'text', text: 'child output', parentToolRunId: 'group' }
+      ])
+      messages = [...messages.filter((m) => m.id !== 'replayed'), final]
+      const after = state()
+      const reference = { ...after, transcriptChanges: newTranscriptChanges() }
+      const full =
+        mode === 'opencode'
+          ? createOpenCodeBlockModel()
+          : createClaudeBlockModel({ mode, sessionKey: 'delayed' })
+      const a = model.advance(after)
+      const b = full.advance(reference)
+      expect(Array.from({ length: a.count }, (_, i) => a.blockAt(i))).toEqual(
+        Array.from({ length: b.count }, (_, i) => b.blockAt(i))
+      )
+      const order = messageOrderFor(after, true)
+      expect([
+        order.toolCallOwner('obsolete'),
+        order.toolCallOwner('kept'),
+        order.messagePosition('replayed'),
+        order.messagePosition('temporary')
+      ]).toEqual([undefined, 'replayed', messages.length - 1, -1])
+      const panels = transcriptIndexFor(after)
+      const expected = transcriptIndexFor(reference)
+      expect(panels.childMessage('group')).toEqual(expected.childMessage('group'))
+      expect(panels.childMessage('group')?.parts).toMatchObject([{ text: 'child output' }])
+      expect(panels.transcriptResults()).toEqual(expected.transcriptResults())
+    }
+  }
+)
+
+it.each(['code', 'work', 'opencode'] as const)(
+  'z2 %s rejects stale artifacts when the gap or a later artifact changes',
+  (mode) => {
+    const model =
+      mode === 'opencode'
+        ? createOpenCodeBlockModel()
+        : createClaudeBlockModel({ mode, sessionKey: 'artifact-edit' })
+    const artifact = (name: string): Message['parts'][number] => ({
+      type: 'artifact',
+      artifact: {
+        publicationId: name,
+        artifactFileId: name,
+        title: name,
+        filename: name,
+        kind: 'text',
+        sizeBytes: 1,
+        publishedAt: 1
+      }
+    })
+    const first = artifact('first')
+    const second = artifact('second')
+    const third = artifact('third')
+    const content: Message['parts'][number] = { type: 'text', text: 'tail' }
+    let changes = newTranscriptChanges()
+    const edits = [
+      { parts: [first, second], expected: ['first', 'second'], gap: 0, from: 0 },
+      { parts: [first, second, content], expected: ['first', 'second'], gap: 16, from: 2 },
+      { parts: [first, third, content], expected: ['first', 'third'], gap: 16, from: 1 },
+      {
+        parts: [first, third, second, content],
+        expected: ['first', 'third', 'second'],
+        gap: 16,
+        from: 2
+      },
+      { parts: [first, content], expected: ['first'], gap: 16, from: 1 }
+    ]
+    for (const [index, edit] of edits.entries()) {
+      if (index)
+        changes = recordChange(changes, { kind: 'replace', id: 'art', partsFrom: edit.from })
+      const snap = model.advance({
+        messages: [row('art', 'assistant', edit.parts)],
+        transcriptChanges: changes
+      })
+      const existing = Array.from({ length: snap.count }, (_, i) => snap.blockAt(i)).filter(
+        (b) => b.kind === 'artifacts'
+      )
+      expect(existing).toHaveLength(1)
+      expect(existing[0].gap).toBe(edit.gap)
+      expect(existing[0].artifacts.map((a) => a.publicationId)).toEqual(edit.expected)
+    }
+  }
+)
+
+it('z2 Work rejects a suffix hint based on the intervening non-Work projection', () => {
+  const model = createClaudeBlockModel({ mode: 'work', sessionKey: 'hint' })
+  const boundary: Message['parts'][number] = {
+    type: 'response_boundary',
+    boundary: { phase: 'begin', id: 'new' }
+  }
+  const old = row('m', 'assistant', [boundary, { type: 'text', text: 'stale' }])
+  const intermediate = row('m', 'assistant', [
+    { type: 'text', text: 'outside' },
+    { type: 'text', text: ' revision' }
+  ])
+  const next = row('m', 'assistant', [
+    ...intermediate.parts,
+    boundary,
+    { type: 'text', text: 'new tail' }
+  ])
+  let changes = newTranscriptChanges()
+  model.advance({ messages: [old], transcriptChanges: changes })
+  changes = recordChange(changes, { kind: 'replace', id: 'm', partsFrom: 0 })
+  model.advance({ messages: [intermediate], transcriptChanges: changes })
+  changes = recordChange(changes, { kind: 'replace', id: 'm', partsFrom: 2 })
+  const snap = model.advance({ messages: [next], transcriptChanges: changes })
+  const text = Array.from({ length: snap.count }, (_, i) => snap.blockAt(i)).flatMap((b) =>
+    b.kind === 'segment' && b.segment.kind === 'text' ? [b.segment.text] : []
+  )
+  expect(text).toEqual(['outside revision', 'new tail'])
 })

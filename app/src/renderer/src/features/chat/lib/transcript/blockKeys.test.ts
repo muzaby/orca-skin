@@ -7,6 +7,7 @@ import {
   liveBlockKey,
   nextPartKey,
   partBlockKey,
+  partKeyKind,
   PartKeyTracker,
   representativePart,
   textPartGroups,
@@ -365,4 +366,100 @@ describe('blockKeys (EP-7 y1~y20)', () => {
     const ocKeys2 = Array.from({ length: ocSnap2.count }, (_, i) => ocSnap2.keyAt(i))
     expect(ocKeys2).toContain('a:A:text:0')
   })
+})
+
+it('y3/y14 assigns each supported part its signature and skips invisible contributions', () => {
+  const specs: [Message['parts'][number], string | null, string | null][] = [
+    [{ type: 'text', text: 'body' }, 'text', 'text:body'],
+    [{ type: 'reasoning', text: 'body' }, 'reasoning', 'reasoning:body'],
+    [{ type: 'tool_call', toolName: 'Read', toolRunId: 'id', args: {} }, 'tool', null],
+    [{ type: 'compact_boundary' }, 'compact', 'compact::'],
+    [{ type: 'compact_boundary', trigger: 'manual', preTokens: 0 }, 'compact', 'compact:manual:0'],
+    [{ type: 'fork_boundary' }, 'fork', 'fork'],
+    [{ type: 'error', error: 'boom' }, 'error', 'error:boom'],
+    [{ type: 'error', error: { message: 'a' } }, 'error', 'error:{"message":"a"}'],
+    [{ type: 'error', error: undefined }, 'error', 'error:""'],
+    [{ type: 'subagent_notice', toolRunId: 'n', status: 'completed' }, 'notice', 'notice:n'],
+    [
+      { type: 'response_boundary', boundary: { id: 'a', phase: 'begin' } },
+      'boundary',
+      'boundary:a:begin'
+    ],
+    [{ type: 'attachment', attachments: [] }, 'attachment', 'attachment:[]'],
+    [
+      {
+        type: 'artifact',
+        artifact: {
+          publicationId: 'pub',
+          artifactFileId: 'f',
+          title: 'x',
+          filename: 'x',
+          kind: 'text',
+          sizeBytes: 1,
+          publishedAt: 1
+        }
+      },
+      'artifact',
+      'artifact:pub'
+    ],
+    [{ type: 'tool_result', toolRunId: 'id', isError: false, result: 'ok' }, null, null],
+    [{ type: 'file', path: 'x' }, null, null],
+    [{ type: 'diff', patch: '' }, null, null],
+    [{ type: 'diff_requirements', requirements: [] }, null, null]
+  ]
+  for (const [part, kind] of specs) expect(partKeyKind(part)).toBe(kind)
+  const input = msg(
+    'k',
+    'assistant',
+    specs.map(([part]) => part)
+  )
+  const tracker = new PartKeyTracker()
+  const entries = carryPartKeys(tracker, 'k', undefined, input)
+  expect(entries.map((e) => [e.partIndex, e.kind, e.signature])).toEqual(
+    specs.flatMap(([, kind, sig], i) => (kind ? [[i, kind, sig]] : []))
+  )
+  const reversed = carryPartKeys(tracker, 'k', entries, {
+    ...input,
+    parts: [...input.parts].reverse()
+  })
+  expect(reversed.map((e) => e.key)).toEqual(entries.map((e) => e.key).reverse())
+})
+
+it('y15 observes only higher nonnegative integral sequence keys in the matching namespace', () => {
+  const tracker = new PartKeyTracker()
+  tracker.observe('m', 'text', 'x:text:99')
+  tracker.observe('m', 'text', 'm:text:3.5')
+  tracker.observe('m', 'text', 'm:text:NaN')
+  tracker.observe('m', 'text', 'm:text:-2')
+  expect(tracker.peek('m', 'text')).toBe('m:text:0')
+  tracker.observe('m', 'text', 'm:text:7')
+  tracker.observe('m', 'text', 'm:text:3')
+  expect(tracker.allocate('m', 'text')).toBe('m:text:8')
+})
+
+it('y13 chooses the first split donor and rejects an empty group', () => {
+  const groups = [
+    { key: 'first', repPartKey: 'a', partKeys: new Set(['a', 'b']) },
+    { key: 'second', repPartKey: 'c', partKeys: new Set(['c', 'd']) }
+  ]
+  expect(representativePart(groups, ['d', 'b'])).toEqual({
+    repPartKey: 'd',
+    inheritedFromKey: 'first',
+    droppedGroupKeys: []
+  })
+  expect(() => representativePart(groups, [])).toThrow(/at least one part key/)
+})
+
+it('y15 resumes a carried sequence in a fresh tracker before allocating the next key', () => {
+  const input = msg('m', 'assistant', [
+    { type: 'text', text: 'old' },
+    { type: 'text', text: 'new' }
+  ])
+  const entries = carryPartKeys(
+    new PartKeyTracker(),
+    'm',
+    [{ partIndex: 0, kind: 'text', signature: 'text:old', key: 'm:text:7' }],
+    input
+  )
+  expect(entries.map((e) => e.key)).toEqual(['m:text:7', 'm:text:8'])
 })

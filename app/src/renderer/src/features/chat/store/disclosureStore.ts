@@ -89,6 +89,15 @@ export function setDisclosure(sessionKey: string, blockKey: string, open: boolea
   emit()
 }
 
+export function discardDisclosures(sessionKey: string, keys: readonly string[]): void {
+  const session = state.bySession[sessionKey]
+  if (!session || !keys.some((key) => key in session)) return
+  const next = { ...session }
+  for (const key of keys) delete next[key]
+  state = { ...state, bySession: { ...state.bySession, [sessionKey]: next } }
+  emit()
+}
+
 export function clearDisclosures(sessionKey: string): void {
   const hasSession = sessionKey in state.bySession
   const clearFocus = state.focusRecord?.sessionKey === sessionKey

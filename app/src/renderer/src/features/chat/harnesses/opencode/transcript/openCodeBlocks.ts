@@ -8,9 +8,7 @@ import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourc
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import type { Message, ToolCall } from '../../../reducer/chatReducer'
 import {
-  hasPartsText,
   hasSegmentText,
-  messageSegments,
   partsArtifacts,
   partsAttachments,
   partsDiffRequirements,
@@ -31,13 +29,14 @@ import {
   type TranscriptRevision
 } from '../../../lib/transcript/changeLog'
 import { messageOrderFor } from '../../../lib/transcript/messageOrder'
+import { createSegmentCache } from '../../../lib/segmentCache'
+import { deepEqual } from '../../../lib/transcript/viewEqual'
 import { OrderedToolParts } from '../../../lib/transcript/orderedToolParts'
 import { isTurnStart } from '../../../lib/transcript/turnStart'
 import {
   assertUniqueBlockKeys,
   carryPartKeys,
   nextPartKey,
-  partKeyKind,
   PartKeyTracker,
   representativePart,
   toolBlockKey,
@@ -148,6 +147,25 @@ function filterVisibleMessage(message: Message, showAutomaticFeeds: boolean): Me
   return hasContent ? { ...message, parts } : undefined
 }
 
+function userGroupKeys(
+  messages: readonly Message[],
+  previousPosition?: (key: string) => number | undefined
+): Pick<OpenCodeUserBlock, 'key' | 'partKeys'> {
+  const partKeys = messages.map((message) => userBlockKey(message.id))
+  let key = partKeys[0]
+  let first = Infinity
+  if (previousPosition && partKeys.length > 1) {
+    for (const candidate of partKeys) {
+      const index = previousPosition(candidate)
+      if (index !== undefined && index >= 0 && index < first) {
+        key = candidate
+        first = index
+      }
+    }
+  }
+  return { key, partKeys }
+}
+
 function extractTextGroupRefs(blocks: readonly OpenCodeBlock[]): MultiPartGroupRef[] {
   const refs: MultiPartGroupRef[] = []
   for (const b of blocks) {
@@ -162,7 +180,13 @@ function extractTextGroupRefs(blocks: readonly OpenCodeBlock[]): MultiPartGroupR
   return refs
 }
 
-export function createOpenCodeBlockModel(): OpenCodeBlockModel {
+export function createOpenCodeBlockModel(
+  onAssistantBlockAllocated?: (block: OpenCodeBlock) => void
+): OpenCodeBlockModel {
+  function allocated<Block extends OpenCodeBlock>(block: Block): Block {
+    onAssistantBlockAllocated?.(block)
+    return block
+  }
   const list: BlockList<OpenCodeBlock> = createBlockList<OpenCodeBlock>()
   let cursor: TranscriptRevision | undefined
   let prevOpts: Required<Omit<OpenCodeAdvanceOptions, 'liveTextKey'>> & {
@@ -177,6 +201,16 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
 
   const tracker = new PartKeyTracker()
   const partKeysByMessage = new Map<string, PartKeyEntry[]>()
+  const assistantParts = new Map<
+    string,
+    {
+      cache: ReturnType<typeof createSegmentCache>
+      segments: readonly MessageSegment[]
+      artifacts: { index: number; part: Extract<AppMessagePart, { type: 'artifact' }> }[]
+      firstCopyable: number
+      firstText: number
+    }
+  >()
   const messageById = new Map<string, Message>()
   const visibleById = new Map<string, Message | undefined>()
 
@@ -202,6 +236,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     partsFrom: number,
     order?: ReturnType<typeof messageOrderFor>
   ): Set<string> {
+    if (message.role === 'assistant') projectAssistantMessage(message, partsFrom)
     const affected = retractMessageTools(message.id, partsFrom)
     for (let i = partsFrom; i < message.parts.length; i++) {
       const part = message.parts[i]
@@ -225,43 +260,41 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     }
   }
 
-  function ensurePartKeys(message: Message, partsFrom?: number): PartKeyEntry[] {
-    const prev = partKeysByMessage.get(message.id)
-    if (!prev || partsFrom === undefined || partsFrom === 0) {
-      const carried = carryPartKeys(tracker, message.id, prev, message)
-      partKeysByMessage.set(message.id, carried)
-      return carried
-    }
-    const kept = prev.filter((e) => e.partIndex < partsFrom)
-    for (let i = partsFrom; i < message.parts.length; i++) {
-      const part = message.parts[i]
-      const kind = partKeyKind(part)
-      if (!kind) continue
-      if (part.type === 'tool_call') {
-        kept.push({
-          partIndex: i,
-          kind: 'tool',
-          key: toolBlockKey(message.id, part.toolRunId),
-          signature: null,
-          toolRunId: part.toolRunId
-        })
-      } else {
-        const key = tracker.allocate(message.id, kind)
-        kept.push({
-          partIndex: i,
-          kind,
-          key,
-          signature:
-            part.type === 'text'
-              ? `text:${part.text}`
-              : part.type === 'reasoning'
-                ? `reasoning:${part.text}`
-                : null
-        })
+  function projectAssistantMessage(message: Message, partsFrom: number): void {
+    const previous = assistantParts.get(message.id)
+    const from = previous ? Math.min(partsFrom, message.parts.length) : 0
+    const previousKeys = partKeysByMessage.get(message.id) ?? []
+    const suffix = from ? message.parts.slice(from) : message.parts
+    const keys = carryPartKeys(
+      tracker,
+      message.id,
+      from ? previousKeys.filter((e) => e.partIndex >= from) : previousKeys,
+      from ? { ...message, parts: suffix } : message
+    )
+    partKeysByMessage.set(
+      message.id,
+      from
+        ? [
+            ...previousKeys.filter((e) => e.partIndex < from),
+            ...keys.map((e) => ({ ...e, partIndex: e.partIndex + from }))
+          ]
+        : keys
+    )
+    const artifacts = from && previous ? previous.artifacts.filter((a) => a.index < from) : []
+    let firstText = previous && previous.firstText < from ? previous.firstText : Infinity
+    let firstCopyable =
+      previous && previous.firstCopyable < from ? previous.firstCopyable : Infinity
+    for (let i = 0; i < suffix.length; i++) {
+      const p = suffix[i]
+      if (p.type === 'artifact') artifacts.push({ index: from + i, part: p })
+      if (p.type === 'text' && p.parentToolRunId === undefined && hasSegmentText(p.text)) {
+        firstText = Math.min(firstText, from + i)
+        if (firstCopyable === Infinity && p.text.trim()) firstCopyable = from + i
       }
     }
-    partKeysByMessage.set(message.id, kept)
-    return kept
+    const cache = previous?.cache ?? createSegmentCache()
+    const segments = cache.segmentsFor(message, from)
+    assistantParts.set(message.id, { cache, segments, artifacts, firstText, firstCopyable })
   }
 
   function buildAssistantTurnBlocks(
@@ -273,17 +306,22 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     liveReasoning: boolean,
     liveTextKey: string | undefined,
     textRefs: readonly MultiPartGroupRef[],
-    seenGlobalTools: Set<string>
+    seenGlobalTools: Set<string>,
+    previous?: ReadonlyMap<string, OpenCodeBlock>
   ): OpenCodeBlock[] {
     // Collect parts along with their owning messageId and stable part keys
-    const combinedParts: AppMessagePart[] = []
+    const artifactParts: AppMessagePart[] = []
+    const rawSegments: MessageSegment[] = []
+    let copyable = false
+    let writableTail: MessageSegment | undefined
     const combinedEntries: PartKeyEntry[] = []
     const nonTextPartKeysByKind = new Map<string, { key: string; messageId: string }[]>()
     const callMessageById = new Map<string, string>()
     let lastTextOwner: string | undefined
 
     for (const msg of turnMessages) {
-      const entries = ensurePartKeys(msg)
+      const projection = assistantParts.get(msg.id)!
+      const entries = partKeysByMessage.get(msg.id) ?? []
       for (const entry of entries) {
         combinedEntries.push(entry)
         if (entry.kind === 'tool' && entry.toolRunId) {
@@ -296,16 +334,26 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           nonTextPartKeysByKind.set(entry.kind, arr)
         }
       }
-      for (const p of msg.parts) {
-        combinedParts.push(p)
-        if (p.type === 'text' && p.parentToolRunId === undefined && hasSegmentText(p.text)) {
-          lastTextOwner = msg.id
-        }
+      if (projection.firstText !== Infinity) lastTextOwner = msg.id
+      copyable ||= projection.firstCopyable !== Infinity
+      for (const { part } of projection.artifacts) artifactParts.push(part)
+      // A rendered segment can cross a message boundary. Join only the two
+      // boundary segments; each message's cached segments stay immutable.
+      for (const segment of projection.segments) {
+        const last = rawSegments.at(-1)
+        if (last?.kind === 'text' && segment.kind === 'text') {
+          rawSegments[rawSegments.length - 1] = { kind: 'text', text: last.text + segment.text }
+        } else if (last?.kind === 'tools' && segment.kind === 'tools') {
+          const tail = writableTail === last ? last : { ...last, calls: last.calls.slice() }
+          for (const call of segment.calls) tail.calls.push(call)
+          rawSegments[rawSegments.length - 1] = writableTail = tail
+        } else if (last?.kind === 'reasoning' && segment.kind === 'reasoning') {
+          const tail = writableTail === last ? last : { ...last, items: last.items.slice() }
+          for (const item of segment.items) tail.items.push(item)
+          rawSegments[rawSegments.length - 1] = writableTail = tail
+        } else rawSegments.push(segment)
       }
     }
-
-    // Build segments across the turn's combined parts (cross-message text merging bounded by turn)
-    const rawSegments = messageSegments(combinedParts)
 
     const textPartSegments = textPartGroups(combinedEntries)
 
@@ -341,6 +389,57 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     }
 
     const blocks: OpenCodeBlock[] = []
+    function append(
+      key: string,
+      matches: (block: OpenCodeBlock) => boolean,
+      create: () => OpenCodeBlock
+    ): void {
+      const prior = previous?.get(key)
+      if (prior && matches(prior)) {
+        blocks.push(prior)
+        return
+      }
+      blocks.push(allocated(create()))
+    }
+
+    function appendSegment(
+      key: string,
+      messageId: string,
+      partKeys: readonly string[],
+      gap: OpenCodeBlockGap,
+      streaming: boolean,
+      live: boolean,
+      sourceParts: readonly MarkdownSourcePart[] | undefined,
+      sameSegment: (prior: MessageSegment) => boolean,
+      createSegment: () => MessageSegment
+    ): void {
+      append(
+        key,
+        (prior) =>
+          prior.kind === 'segment' &&
+          prior.messageId === messageId &&
+          prior.gap === gap &&
+          prior.streaming === streaming &&
+          !!prior.live === live &&
+          deepEqual(prior.partKeys, partKeys) &&
+          deepEqual(prior.sourceParts, sourceParts) &&
+          sameSegment(prior.segment),
+        () => {
+          const segment = createSegment()
+          return {
+            kind: 'segment',
+            key,
+            messageId,
+            partKeys,
+            gap,
+            streaming,
+            ...(segment.kind === 'text' ? { sourceParts } : {}),
+            ...(live ? { live: true as const } : {}),
+            segment
+          }
+        }
+      )
+    }
     let textSegIdx = 0
     const nonTextCursors = new Map<string, number>()
 
@@ -380,15 +479,17 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
                 : prevBlock.kind === 'segment' && prevBlock.segment.kind === 'tools'
                   ? 8
                   : 16
-          blocks.push({
-            kind: 'segment',
+          appendSegment(
             key,
-            messageId: ownerMsgId,
+            ownerMsgId,
             partKeys,
-            segment: { kind: 'tools', calls: group },
-            streaming: false,
-            gap
-          })
+            gap,
+            false,
+            false,
+            undefined,
+            (prior) => prior.kind === 'tools' && deepEqual(prior.calls, group),
+            () => ({ kind: 'tools', calls: group })
+          )
         }
         continue
       }
@@ -422,17 +523,17 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
             partKeys = [key]
           }
         }
-        blocks.push({
-          kind: 'segment',
+        appendSegment(
           key,
-          messageId: ownerMsgId,
+          ownerMsgId,
           partKeys,
+          gap,
+          active && index === segments.length - 1,
+          isLiveSeg,
           sourceParts,
-          segment: { kind: 'text', text: seg.text },
-          streaming: active && index === segments.length - 1,
-          ...(isLiveSeg ? { live: true as const } : {}),
-          gap
-        })
+          (prior) => prior.kind === 'text' && prior.text === seg.text,
+          () => ({ kind: 'text', text: seg.text })
+        )
         continue
       }
 
@@ -461,51 +562,69 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           key = tracker.allocate(firstId, seg.kind)
         }
       }
-      blocks.push({
-        kind: 'segment',
-        key,
-        messageId: ownerMsgId,
-        partKeys: [key],
-        segment:
-          seg.kind === 'ask'
-            ? { ...seg, call: callsById.get(seg.call.toolUseId) ?? seg.call }
-            : seg,
-        streaming: false,
-        gap
-      })
+      if (seg.kind === 'ask') {
+        const call = callsById.get(seg.call.toolUseId) ?? seg.call
+        appendSegment(
+          key,
+          ownerMsgId,
+          [key],
+          gap,
+          false,
+          false,
+          undefined,
+          (prior) => prior.kind === 'ask' && deepEqual(prior.call, call),
+          () => ({ ...seg, call })
+        )
+      } else {
+        appendSegment(
+          key,
+          ownerMsgId,
+          [key],
+          gap,
+          false,
+          false,
+          undefined,
+          (prior) => deepEqual(prior, seg),
+          () => seg
+        )
+      }
     }
 
-    const artifacts = partsArtifacts(combinedParts)
+    const artifacts = partsArtifacts(artifactParts)
     if (artifacts.length > 0) {
-      blocks.push({
-        kind: 'artifacts',
-        key: turnArtifactsKey(firstId),
-        messageId: firstId,
-        artifacts,
-        gap: blocks.length > 0 || hasPreviousBlock ? 16 : 0
-      })
+      const key = turnArtifactsKey(firstId)
+      const gap = blocks.length > 0 || hasPreviousBlock ? 16 : 0
+      append(
+        key,
+        (prior) =>
+          prior.kind === 'artifacts' && prior.gap === gap && deepEqual(prior.artifacts, artifacts),
+        () => ({ kind: 'artifacts', key, messageId: firstId, artifacts, gap })
+      )
     }
 
     if (turnMessages.some((m) => m.incomplete)) {
-      blocks.push({
-        kind: 'incomplete',
-        key: `${firstId}:incomplete`,
-        messageId: firstId,
-        gap: blocks.length > 0 || hasPreviousBlock ? 16 : 0
-      })
+      const key = `${firstId}:incomplete`
+      const gap = blocks.length > 0 || hasPreviousBlock ? 16 : 0
+      append(
+        key,
+        (prior) => prior.kind === 'incomplete' && prior.gap === gap,
+        () => ({ kind: 'incomplete', key, messageId: firstId, gap })
+      )
     }
 
     if (!active) {
       const lastMsg = turnMessages[turnMessages.length - 1]
-      blocks.push({
-        kind: 'meta',
-        key: turnMetaKey(firstId),
-        messageId: firstId,
-        turn: { role: 'assistant', messages: [...turnMessages], startIndex: 0 },
-        copyable: turnMessages.some((m) => hasPartsText(m.parts)),
-        createdAt: lastMsg.createdAt,
-        gap: blocks.length > 0 || hasPreviousBlock ? 16 : 0
-      })
+      blocks.push(
+        allocated({
+          kind: 'meta',
+          key: turnMetaKey(firstId),
+          messageId: firstId,
+          turn: { role: 'assistant', messages: [...turnMessages], startIndex: 0 },
+          copyable,
+          createdAt: lastMsg.createdAt,
+          gap: blocks.length > 0 || hasPreviousBlock ? 16 : 0
+        })
+      )
     }
 
     return blocks
@@ -518,8 +637,13 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     const oldSnap = list.snapshot()
     const oldBlocks: OpenCodeBlock[] = []
     for (let i = 0; i < oldSnap.count; i++) oldBlocks.push(oldSnap.blockAt(i))
+    const oldUsers = new Map<string, number>()
+    for (let i = 0; i < oldBlocks.length; i++) {
+      if (oldBlocks[i].kind === 'user') oldUsers.set(oldBlocks[i].key, i)
+    }
     prevTextRefs = extractTextGroupRefs(oldBlocks)
 
+    assistantParts.clear()
     messageById.clear()
     visibleById.clear()
     toolResults.clear()
@@ -563,12 +687,12 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
       for (const m of g.messages) msgToTurn.set(m.id, tr)
 
       if (g.role === 'user') {
-        const key = userBlockKey(firstId)
+        const { key, partKeys } = userGroupKeys(g.messages, (candidate) => oldUsers.get(candidate))
         allBlocks.push({
           kind: 'user',
           key,
           messageId: firstId,
-          partKeys: [key],
+          partKeys,
           turn: { role: 'user', messages: g.messages, startIndex: 0 },
           gap: allBlocks.length === 0 ? 0 : 24
         })
@@ -640,7 +764,8 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
   function rebuildSingleTurn(
     turn: TurnGroup,
     opts: typeof prevOpts,
-    previousTextRefs?: MultiPartGroupRef[]
+    previousTextRefs?: MultiPartGroupRef[],
+    previousSnapshot?: BlockSnapshot<OpenCodeBlock>
   ): void {
     const snap = list.snapshot()
     const startIdx = findTurnStartIndex(snap, turn)
@@ -665,12 +790,12 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
     const isLastTurn = turns[turns.length - 1] === turn
     const newBlocks: OpenCodeBlock[] = []
     if (turn.role === 'user') {
-      const key = userBlockKey(firstId)
+      const { key, partKeys } = userGroupKeys(turnMessages, (previousSnapshot ?? snap).indexOf)
       newBlocks.push({
         kind: 'user',
         key,
         messageId: firstId,
-        partKeys: [key],
+        partKeys,
         turn: { role: 'user', messages: turnMessages, startIndex: 0 },
         gap: startIdx === 0 ? 0 : 24
       })
@@ -685,13 +810,28 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
         opts.liveReasoning,
         opts.liveTextKey,
         turnTextRefs,
-        seenTools
+        seenTools,
+        new Map(oldTurnBlocks.map((block) => [block.key, block]))
       )
       for (const b of built) newBlocks.push(b)
     }
 
     turn.blockKeys = newBlocks.map((b) => b.key)
-    list.splice(startIdx, oldCount, newBlocks)
+    let head = 0,
+      tail = 0
+    while (head < oldCount && head < newBlocks.length && oldTurnBlocks[head] === newBlocks[head])
+      head++
+    while (
+      tail < oldCount - head &&
+      tail < newBlocks.length - head &&
+      oldTurnBlocks[oldCount - 1 - tail] === newBlocks[newBlocks.length - 1 - tail]
+    )
+      tail++
+    list.splice(
+      startIdx + head,
+      oldCount - head - tail,
+      newBlocks.slice(head, newBlocks.length - tail)
+    )
   }
 
   function updateToolBlockInPlace(toolRunId: string): void {
@@ -716,7 +856,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
         return copy
       })
       if (changed) {
-        list.splice(idx, 1, [{ ...block, segment: { kind: 'tools', calls: nextCalls } }])
+        list.splice(idx, 1, [allocated({ ...block, segment: { kind: 'tools', calls: nextCalls } })])
       }
     } else if (block.segment.kind === 'ask' && block.segment.call.toolUseId === toolRunId) {
       const c = block.segment.call
@@ -726,7 +866,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
         const copy: ToolCall = { ...c, input: inp }
         if (res !== undefined) copy.result = res
         else delete copy.result
-        list.splice(idx, 1, [{ ...block, segment: { kind: 'ask', call: copy } }])
+        list.splice(idx, 1, [allocated({ ...block, segment: { kind: 'ask', call: copy } })])
       }
     }
   }
@@ -876,12 +1016,12 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
               }
               for (const m of g.messages) msgToTurn.set(m.id, tr)
               if (g.role === 'user') {
-                const key = userBlockKey(firstId)
+                const { key, partKeys } = userGroupKeys(g.messages, original.indexOf)
                 prefixBlocks.push({
                   kind: 'user',
                   key,
                   messageId: firstId,
-                  partKeys: [key],
+                  partKeys,
                   turn: { role: 'user', messages: g.messages, startIndex: 0 },
                   gap: prefixBlocks.length === 0 ? 0 : 24
                 })
@@ -933,6 +1073,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           const pos = order.messagePosition(id)
           if (pos < 0) {
             for (const tid of retractMessageTools(id, 0)) affectedTools.add(tid)
+            assistantParts.delete(id)
             messageById.delete(id)
             visibleById.delete(id)
             const tr = msgToTurn.get(id)
@@ -1045,7 +1186,7 @@ export function createOpenCodeBlockModel(): OpenCodeBlockModel {
           previousTextRefs = extractTextGroupRefs(blocks)
         }
         for (const tr of affectedTurns) {
-          rebuildSingleTurn(tr, opts, previousTextRefs)
+          rebuildSingleTurn(tr, opts, previousTextRefs, original)
         }
 
         const afterSnap = list.snapshot()

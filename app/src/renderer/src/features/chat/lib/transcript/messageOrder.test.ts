@@ -213,3 +213,174 @@ describe('transcript order and part ownership', () => {
     expect(afterQ6.toolCallOwner('new')).toBeUndefined()
   })
 })
+
+it('q5 rebuilds ranks only on the first surviving lookup and q6 withdraws retired result slots', () => {
+  const result: AppMessagePart = {
+    type: 'tool_result',
+    toolRunId: 'old',
+    result: 'one',
+    isError: false
+  }
+  const rows = [message('before'), message('gone'), message('result', [result])]
+  let changes = newTranscriptChanges()
+  const order = messageOrderFor({ messages: rows, transcriptChanges: changes }, true)
+  expect(order.partSlot('result', 'result:old')).toBe(0)
+  changes = recordChange(changes, { kind: 'remove', ids: ['gone'] })
+  const next = messageOrderFor({ messages: [rows[0], rows[2]], transcriptChanges: changes }, true)
+  const ranks = Reflect.get(next, 'ranks')
+  const set = vi.spyOn(ranks, 'set')
+  try {
+    expect(next.messagePosition('gone')).toBe(-1)
+    expect(set).not.toHaveBeenCalled()
+    expect(next.messagePosition('result')).toBe(1)
+    expect(set).toHaveBeenCalledTimes(2)
+    expect(next.messagePosition('before')).toBe(0)
+    expect(set).toHaveBeenCalledTimes(2)
+  } finally {
+    set.mockRestore()
+  }
+  changes = recordChange(changes, { kind: 'reset', complete: true })
+  const reset = messageOrderFor({ messages: [message('new')], transcriptChanges: changes }, true)
+  expect(reset.partSlot('result', 'result:old')).toBeUndefined()
+})
+
+it('q census indexes parts only on demand and respects snapshot, revision and lineage', () => {
+  const firstParts = vi.fn(() => [tool('first')])
+  const nextParts = vi.fn(() => [tool('next')])
+  const first = {
+    ...message('a'),
+    get parts() {
+      return firstParts()
+    }
+  }
+  const next = {
+    ...message('b'),
+    get parts() {
+      return nextParts()
+    }
+  }
+  const changes = newTranscriptChanges()
+  const initial = { messages: [first], transcriptChanges: changes }
+  const order = messageOrderFor(initial)
+  const appended = {
+    messages: [first, next],
+    transcriptChanges: recordChange(changes, { kind: 'append', ids: ['b'] })
+  }
+  expect(messageOrderFor(appended)).toBe(order)
+  expect(order.messagePosition('b')).toBe(1)
+  expect([firstParts.mock.calls.length, nextParts.mock.calls.length]).toEqual([0, 0])
+  messageOrderFor(appended, true)
+  messageOrderFor(appended, true)
+  expect([firstParts.mock.calls.length, nextParts.mock.calls.length]).toEqual([1, 1])
+  expect(order.toolCallOwner('next')).toBe('b')
+
+  const changedRevision = recordChange(appended.transcriptChanges, {
+    kind: 'reset',
+    complete: true
+  })
+  messageOrderFor({ ...appended, transcriptChanges: changedRevision }, true)
+  expect([firstParts.mock.calls.length, nextParts.mock.calls.length]).toEqual([2, 2])
+  messageOrderFor({ messages: [next], transcriptChanges: changedRevision }, true)
+  expect(order.messagePosition('b')).toBe(0)
+  expect(order.toolCallOwner('first')).toBeUndefined()
+  const independent = messageOrderFor({
+    messages: [first],
+    transcriptChanges: newTranscriptChanges()
+  })
+  expect(independent).not.toBe(order)
+  expect(independent.messagePosition('b')).toBe(-1)
+  expect(order.messagePosition('b')).toBe(0)
+})
+
+it('q census selects the earliest ordinal and retires sparse slot and owner maps', () => {
+  const late = message('late', [tool('shared')])
+  const early = message('early', [
+    tool('shared'),
+    { type: 'text', text: 'unindexed' },
+    { type: 'tool_result', toolRunId: 'merge-only', result: 'ok', isError: false },
+    { type: 'response_boundary', boundary: { phase: 'begin', id: 'both' } }
+  ])
+  let changes = newTranscriptChanges()
+  const order = messageOrderFor({ messages: [late], transcriptChanges: changes }, true)
+  changes = recordChange(changes, { kind: 'prepend', ids: ['early'] })
+  messageOrderFor({ messages: [early, late], transcriptChanges: changes }, true)
+  expect(order.toolCallOwner('shared')).toBe('early')
+  expect(order.responseOwner('both')).toBe('early')
+  expect(order.partSlot('early', 'result:merge-only')).toBe(2)
+  expect(order.partSlot('early', 'boundary:begin:both')).toBe(3)
+  const contributions = Reflect.get(order, 'contributions')
+  const merges = Reflect.get(order, 'merges')
+  const owners = Reflect.get(order, 'ownership')
+  expect([...contributions.get('early').keys()]).toEqual([0, 2, 3])
+  expect([...owners.keys()].sort()).toEqual(['response:both', 'tool:shared'])
+  changes = recordChange(changes, { kind: 'replace', id: 'early', partsFrom: 3 })
+  messageOrderFor(
+    { messages: [message('early', early.parts.slice(0, 3)), late], transcriptChanges: changes },
+    true
+  )
+  expect([...merges.get('early').keys()]).toEqual(['result:merge-only'])
+  changes = recordChange(changes, { kind: 'remove', ids: ['early'] })
+  messageOrderFor({ messages: [late], transcriptChanges: changes }, true)
+  expect(order.toolCallOwner('shared')).toBe('late')
+  expect(order.responseOwner('both')).toBeUndefined()
+  expect(order.partSlot('early', 'result:merge-only')).toBeUndefined()
+  expect([...contributions.keys()]).toEqual(['late'])
+  expect(merges.size).toBe(0)
+  expect([...owners.keys()]).toEqual(['tool:shared'])
+})
+
+it('q census keeps separate anonymous users across an indexed reset', () => {
+  const user = (name: string): Message => {
+    const legacy: Message = { ...message(name, [tool(name)]), role: 'user' }
+    Reflect.deleteProperty(legacy, 'id')
+    return legacy
+  }
+  const rows = [user('left'), user('right')]
+  const changes = newTranscriptChanges()
+  const order = messageOrderFor({ messages: rows, transcriptChanges: changes }, true)
+  const ids = ['left', 'right'].map((name) => order.toolCallOwner(name))
+  expect(ids[0]).toEqual(expect.stringMatching(/^r:legacy-/))
+  expect(ids[1]).toEqual(expect.stringMatching(/^r:legacy-/))
+  expect(ids[0]).not.toBe(ids[1])
+  messageOrderFor(
+    {
+      messages: [rows[1], rows[0]],
+      transcriptChanges: recordChange(changes, { kind: 'reset', complete: true })
+    },
+    true
+  )
+  expect(['left', 'right'].map((name) => order.toolCallOwner(name))).toEqual(ids)
+})
+
+it('q census preserves merge slots on extension and rebuilds after the change window expires', () => {
+  const result = (toolRunId: string): AppMessagePart => ({
+    type: 'tool_result',
+    toolRunId,
+    isError: false,
+    result: 'ok'
+  })
+  let changes = newTranscriptChanges()
+  const order = messageOrderFor(
+    { messages: [message('a', [result('old')])], transcriptChanges: changes },
+    true
+  )
+  changes = recordChange(changes, { kind: 'replace', id: 'a', partsFrom: 1 })
+  messageOrderFor(
+    { messages: [message('a', [result('old'), result('new')])], transcriptChanges: changes },
+    true
+  )
+  expect(order.partSlot('a', 'result:old')).toBe(0)
+  expect(order.partSlot('a', 'result:new')).toBe(1)
+  const messages: Message[] = []
+  changes = recordChange(changes, { kind: 'remove', ids: ['a'] })
+  for (let i = 0; i < 65; i++) {
+    const id = String(i)
+    messages.push(message(id, [tool(id)]))
+    changes = recordChange(changes, { kind: 'append', ids: [id] })
+  }
+  messageOrderFor({ messages, transcriptChanges: changes }, true)
+  expect(order.messagePosition('a')).toBe(-1)
+  expect(order.partSlot('a', 'result:old')).toBeUndefined()
+  expect(order.toolCallOwner('0')).toBe('0')
+  expect(order.messagePosition('64')).toBe(64)
+})

@@ -8,7 +8,7 @@ import type { MarkdownSourcePart } from '../../../../../shared/ui/markdown/sourc
 import type { AppMessagePart } from '../../../../../../../shared/ipc'
 import type { Message, ToolCall } from '../../../reducer/chatReducer'
 import {
-  hasPartsText,
+  isMainTextPart,
   partsArtifacts,
   partsAttachments,
   partsDiffRequirements,
@@ -48,7 +48,7 @@ import {
   type MultiPartGroupRef,
   type PartKeyEntry
 } from '../../../lib/transcript/blockKeys'
-import { getDisclosure, setDisclosure } from '../../../store/disclosureStore'
+import { discardDisclosures, getDisclosure, setDisclosure } from '../../../store/disclosureStore'
 import type { Turn } from '../../../lib/turns'
 
 export type ClaudeBlockGap = 0 | 8 | 16 | 24
@@ -175,35 +175,36 @@ function filterVisibleMessage(message: Message, showAutomaticFeeds: boolean): Me
 }
 
 interface MessageScanCache {
-  hasBoundary: boolean
-  hasText: boolean
-  artifactParts: Extract<AppMessagePart, { type: 'artifact' }>[]
+  firstBoundary: number
+  firstText: number
+  artifactParts: { index: number; part: Extract<AppMessagePart, { type: 'artifact' }> }[]
 }
 
 const messageScanCache = new WeakMap<Message, MessageScanCache>()
 
-function scanMessage(message: Message): MessageScanCache {
+function scanMessage(message: Message, previous?: Message, partsFrom = 0): MessageScanCache {
   const cached = messageScanCache.get(message)
   if (cached) return cached
+  const prior = previous && messageScanCache.get(previous)
+  const from = prior ? partsFrom : 0
+  let firstBoundary = prior && prior.firstBoundary < from ? prior.firstBoundary : Infinity
+  let firstText = prior && prior.firstText < from ? prior.firstText : Infinity
+  const artifactParts = prior?.artifactParts.filter((item) => item.index < from) ?? []
   const parts = message.parts
-  let hasBoundary = false
-  const artifactParts: Extract<AppMessagePart, { type: 'artifact' }>[] = []
-  for (const p of parts) {
-    if (p.type === 'response_boundary') hasBoundary = true
-    else if (p.type === 'artifact') artifactParts.push(p)
+  for (let index = from; index < parts.length; index++) {
+    const part = parts[index]
+    if (part.type === 'response_boundary') firstBoundary = Math.min(firstBoundary, index)
+    else if (part.type === 'artifact') artifactParts.push({ index, part })
+    else if (firstText === Infinity && isMainTextPart(part) && part.text.trim()) firstText = index
   }
-  const entry: MessageScanCache = {
-    hasBoundary,
-    hasText: hasPartsText(parts),
-    artifactParts
-  }
+  const entry = { firstBoundary, firstText, artifactParts }
   messageScanCache.set(message, entry)
   return entry
 }
 
 function hasResponseBoundary(messages: readonly Message[]): boolean {
   for (const m of messages) {
-    if (scanMessage(m).hasBoundary) return true
+    if (scanMessage(m).firstBoundary !== Infinity) return true
   }
   return false
 }
@@ -288,10 +289,17 @@ function segmentPartKeys(
   return { blockKey: matched[0], partKeys: matched }
 }
 
-export function createClaudeBlockModel(config: {
-  readonly mode: 'code' | 'work'
-  readonly sessionKey: string
-}): ClaudeBlockModel {
+export function createClaudeBlockModel(
+  config: {
+    readonly mode: 'code' | 'work'
+    readonly sessionKey: string
+  },
+  onAllocate?: (block: ClaudeBlock) => void
+): ClaudeBlockModel {
+  function allocated<B extends ClaudeBlock>(block: B): B {
+    onAllocate?.(block)
+    return block
+  }
   const { mode, sessionKey } = config
   const list: BlockList<ClaudeBlock> = createBlockList<ClaudeBlock>()
   let cursor: TranscriptRevision | undefined
@@ -303,7 +311,13 @@ export function createClaudeBlockModel(config: {
 
   const tracker = new PartKeyTracker()
   const partKeysByMessage = new Map<string, PartKeyEntry[]>()
+  const keysForMessageObject = new WeakMap<Message, PartKeyEntry[]>()
+  const workEdits = new WeakMap<Message, { previous: WeakRef<Message>; from: number }>()
   const textRefsByMessage = new Map<string, MultiPartGroupRef[]>()
+  const artifactBlocks = new WeakMap<
+    AppMessagePart,
+    { parts: AppMessagePart[]; block: ClaudeArtifactsBlock }
+  >()
   const blockBySegment = new WeakMap<MessageSegment, ClaudeSegmentBlock>()
   const segmentCaches = new Map<string, ReturnType<typeof createSegmentCache>>()
   const workProjectors = new Map<string, ReturnType<typeof createWorkProjector>>()
@@ -428,8 +442,10 @@ export function createClaudeBlockModel(config: {
 
   function ensurePartKeysIncremental(message: Message, partsFrom: number): PartKeyEntry[] {
     const prev = partKeysByMessage.get(message.id)
+    if (prev && prev === keysForMessageObject.get(message)) return prev
     if (!prev || partsFrom === 0) {
       const carried = carryPartKeys(tracker, message.id, prev, message)
+      keysForMessageObject.set(message, carried)
       partKeysByMessage.set(message.id, carried)
       return carried
     }
@@ -461,6 +477,7 @@ export function createClaudeBlockModel(config: {
         })
       }
     }
+    keysForMessageObject.set(message, kept)
     partKeysByMessage.set(message.id, kept)
     return kept
   }
@@ -554,7 +571,7 @@ export function createClaudeBlockModel(config: {
       ) {
         blocks.push(prior)
       } else {
-        const block: ClaudeSegmentBlock = {
+        const block: ClaudeSegmentBlock = allocated({
           kind: 'segment',
           key: blockKey,
           messageId: message.id,
@@ -562,7 +579,7 @@ export function createClaudeBlockModel(config: {
           sourceParts,
           segment: seg,
           gap
-        }
+        })
         blocks.push(block)
         blockBySegment.set(seg, block)
       }
@@ -591,14 +608,21 @@ export function createClaudeBlockModel(config: {
     turnMessages: readonly Message[],
     turnId: string,
     isFirstInDocument: boolean,
-    prevActivities: readonly MultiPartGroupRef[]
+    prevActivities: readonly MultiPartGroupRef[],
+    previousBlock?: (index: number, key: string) => ClaudeBlock | undefined
   ): ClaudeBlock[] {
     // The Code projection does not receive edits while a Work boundary owns the
     // turn. A later Code projection must parse from its current message.
     for (const message of turnMessages) segmentCaches.delete(message.id)
     let projector = workProjectors.get(turnId)
     if (!projector) {
-      projector = createWorkProjector((message) => ensurePartKeysIncremental(message, 0))
+      projector = createWorkProjector(
+        (message, from) => ensurePartKeysIncremental(message, from ?? 0),
+        (message, previous) => {
+          const edit = workEdits.get(message)
+          return edit?.previous.deref() === previous ? edit.from : undefined
+        }
+      )
       workProjectors.set(turnId, projector)
     }
     const nodes: WorkActivityNode[] | null = projector(turnMessages, toolResults, toolInputs)
@@ -615,6 +639,7 @@ export function createClaudeBlockModel(config: {
             : (item.sourceParts?.map((part) => part.key) ?? [item.key])
         )
         const rep = representativePart(prevActivities, itemPartKeys)
+        if (rep.droppedGroupKeys.length) discardDisclosures(sessionKey, rep.droppedGroupKeys)
         const actKey =
           rep.retainedGroupKey ?? `${node.items[0].messageId}:activity:${rep.repPartKey}`
         // Split inheritance (y13): if split off from an existing activity group, inherit its disclosure
@@ -627,36 +652,69 @@ export function createClaudeBlockModel(config: {
         node.items.forEach((item, index) =>
           registerToolOwners(item.segment, item.messageId, actKey, index)
         )
-        blocks.push({
-          kind: 'activity',
-          key: actKey,
-          representativePartKey: rep.repPartKey,
-          messageId: node.items[0]?.messageId ?? turnId,
-          partKeys: itemPartKeys,
-          items: node.items,
-          toolCount: node.toolCount,
-          noteCount: node.noteCount,
-          gap
-        })
+        const prior = previousBlock?.(i, actKey)
+        if (
+          prior?.kind === 'activity' &&
+          prior.gap === gap &&
+          prior.representativePartKey === rep.repPartKey &&
+          prior.items.length === node.items.length &&
+          prior.items.every((item, index) => item === node.items[index])
+        ) {
+          blocks.push(prior)
+          continue
+        }
+        blocks.push(
+          allocated({
+            kind: 'activity',
+            key: actKey,
+            representativePartKey: rep.repPartKey,
+            messageId: node.items[0]?.messageId ?? turnId,
+            partKeys: itemPartKeys,
+            items: node.items,
+            toolCount: node.toolCount,
+            noteCount: node.noteCount,
+            gap
+          })
+        )
       } else if (node.kind === 'status') {
-        blocks.push({
-          kind: 'status',
-          key: `${turnId}:${node.key}`,
-          messageId: turnId,
-          outcome: node.outcome,
-          gap
-        })
+        const key = `${turnId}:${node.key}`
+        const prior = previousBlock?.(i, key)
+        if (prior?.kind === 'status' && prior.gap === gap && prior.outcome === node.outcome) {
+          blocks.push(prior)
+          continue
+        }
+        blocks.push(
+          allocated({
+            kind: 'status',
+            key,
+            messageId: turnId,
+            outcome: node.outcome,
+            gap
+          })
+        )
       } else {
         registerToolOwners(node.segment, node.messageId, node.key)
-        blocks.push({
-          kind: 'segment',
-          key: node.key,
-          messageId: node.messageId,
-          partKeys: node.sourceParts?.map((part) => part.key) ?? [node.key],
-          sourceParts: node.sourceParts,
-          segment: node.segment,
-          gap
-        })
+        const prior = previousBlock?.(i, node.key)
+        if (
+          prior?.kind === 'segment' &&
+          prior.gap === gap &&
+          prior.segment === node.segment &&
+          prior.sourceParts === node.sourceParts
+        ) {
+          blocks.push(prior)
+          continue
+        }
+        blocks.push(
+          allocated({
+            kind: 'segment',
+            key: node.key,
+            messageId: node.messageId,
+            partKeys: node.sourceParts?.map((part) => part.key) ?? [node.key],
+            sourceParts: node.sourceParts,
+            segment: node.segment,
+            gap
+          })
+        )
       }
     }
     return blocks
@@ -674,24 +732,35 @@ export function createClaudeBlockModel(config: {
     let copyable = false
     for (const m of turnMessages) {
       const scanned = scanMessage(m)
-      if (scanned.artifactParts.length > 0) artifactParts.push(...scanned.artifactParts)
-      if (scanned.hasText) copyable = true
+      for (const entry of scanned.artifactParts) artifactParts.push(entry.part)
+      if (scanned.firstText !== Infinity) copyable = true
     }
-    const artifacts = artifactParts.length > 0 ? partsArtifacts(artifactParts) : []
-    const artifactsBlock: ClaudeArtifactsBlock | undefined =
-      artifacts.length > 0
-        ? {
-            kind: 'artifacts',
-            key: turnArtifactsKey(firstId),
-            messageId: firstId,
-            artifacts,
-            gap: hasPriorBlocks ? 16 : 0
-          }
-        : undefined
+    let artifactsBlock: ClaudeArtifactsBlock | undefined
+    if (artifactParts.length) {
+      const gap = hasPriorBlocks ? 16 : 0
+      const prior = artifactBlocks.get(artifactParts[0])
+      if (
+        prior?.block.messageId === firstId &&
+        prior.block.gap === gap &&
+        prior.parts.length === artifactParts.length &&
+        prior.parts.every((part, index) => part === artifactParts[index])
+      ) {
+        artifactsBlock = prior.block
+      } else {
+        artifactsBlock = allocated({
+          kind: 'artifacts',
+          key: turnArtifactsKey(firstId),
+          messageId: firstId,
+          artifacts: partsArtifacts(artifactParts),
+          gap
+        })
+        artifactBlocks.set(artifactParts[0], { parts: artifactParts, block: artifactsBlock })
+      }
+    }
     const showMeta = !(isLastTurn && inflight)
     const lastMsg = turnMessages[turnMessages.length - 1]
     const metaBlock: ClaudeMetaBlock | undefined = showMeta
-      ? {
+      ? allocated({
           kind: 'meta',
           key: turnMetaKey(firstId),
           messageId: firstId,
@@ -700,7 +769,7 @@ export function createClaudeBlockModel(config: {
           createdAt: lastMsg.createdAt,
           forkable: isLastTurn && forkable,
           gap: hasPriorBlocks || artifactsBlock ? 16 : 0
-        }
+        })
       : undefined
     return { artifactsBlock, metaBlock }
   }
@@ -781,7 +850,7 @@ export function createClaudeBlockModel(config: {
       if (g.role === 'user') {
         const userPartKeys = g.messages.map((m) => userBlockKey(m.id))
         const { repPartKey: key } = representativePart(prevUserRefs, userPartKeys)
-        const block: ClaudeUserBlock = {
+        const block: ClaudeUserBlock = allocated({
           kind: 'user',
           key,
           messageId: firstId,
@@ -789,7 +858,7 @@ export function createClaudeBlockModel(config: {
           turn: { role: 'user', messages: g.messages, startIndex: 0 },
           gap: isFirstInDoc ? 0 : 24,
           reserveTarget: opts.reserve && tIdx === lastUserTurnIdx
-        }
+        })
         allBlocks.push(block)
         turnRecord.blockKeys.push(key)
         turnRecord.messageBlockKeys.set(firstId, [key])
@@ -851,11 +920,13 @@ export function createClaudeBlockModel(config: {
     }
 
     if (opts.hasLive) {
-      allBlocks.push({
-        kind: 'live',
-        key: liveBlockKey(sessionKey),
-        gap: allBlocks.length === 0 ? 0 : 16
-      })
+      allBlocks.push(
+        allocated({
+          kind: 'live',
+          key: liveBlockKey(sessionKey),
+          gap: allBlocks.length === 0 ? 0 : 16
+        })
+      )
     }
 
     previousLastUser = turns[lastUserTurnIdx]
@@ -878,12 +949,12 @@ export function createClaudeBlockModel(config: {
       const segment = updateToolSegment(item.segment, toolRunId, result, input)
       if (segment !== item.segment) {
         list.splice(idx, 1, [
-          { ...block, items: block.items.with(owner.itemIndex, { ...item, segment }) }
+          allocated({ ...block, items: block.items.with(owner.itemIndex, { ...item, segment }) })
         ])
       }
     } else if (block.kind === 'segment') {
       const segment = updateToolSegment(block.segment, toolRunId, result, input)
-      if (segment !== block.segment) list.splice(idx, 1, [{ ...block, segment }])
+      if (segment !== block.segment) list.splice(idx, 1, [allocated({ ...block, segment })])
     }
   }
 
@@ -911,7 +982,7 @@ export function createClaudeBlockModel(config: {
       if (b.kind !== 'user') continue
       const want = opts.reserve && t === lastUserTurn
       if (b.reserveTarget !== want) {
-        list.splice(idx, 1, [{ ...b, reserveTarget: want }])
+        list.splice(idx, 1, [allocated({ ...b, reserveTarget: want })])
       }
     }
 
@@ -932,7 +1003,7 @@ export function createClaudeBlockModel(config: {
         } else if (wantMeta && metaIdx >= 0) {
           const metaBlock = curSnap.blockAt(metaIdx)
           if (metaBlock.kind === 'meta' && metaBlock.forkable !== wantForkable) {
-            list.splice(metaIdx, 1, [{ ...metaBlock, forkable: wantForkable }])
+            list.splice(metaIdx, 1, [allocated({ ...metaBlock, forkable: wantForkable })])
           }
         }
       } else if (wantMeta) {
@@ -964,7 +1035,7 @@ export function createClaudeBlockModel(config: {
     const liveIdx = liveSnap.indexOf(liveKey)
     if (opts.hasLive && liveIdx < 0) {
       list.splice(liveSnap.count, 0, [
-        { kind: 'live', key: liveKey, gap: liveSnap.count === 0 ? 0 : 16 }
+        allocated({ kind: 'live', key: liveKey, gap: liveSnap.count === 0 ? 0 : 16 })
       ])
     } else if (!opts.hasLive && liveIdx >= 0) {
       list.splice(liveIdx, 1, [])
@@ -1046,7 +1117,7 @@ export function createClaudeBlockModel(config: {
           }
         }
       }
-      const block: ClaudeUserBlock = {
+      const block: ClaudeUserBlock = allocated({
         kind: 'user',
         key,
         messageId: turn.id,
@@ -1054,7 +1125,7 @@ export function createClaudeBlockModel(config: {
         turn: { role: 'user', messages: turnMessages, startIndex: 0 },
         gap: isFirstInDoc ? 0 : 24,
         reserveTarget: opts.reserve && isLastUser
-      }
+      })
       newBlocks.push(block)
       turn.blockKeys.push(key)
       turn.messageBlockKeys.set(turn.id, [key])
@@ -1064,7 +1135,18 @@ export function createClaudeBlockModel(config: {
         turnMessages,
         turn.id,
         isFirstInDoc,
-        previousActivities
+        previousActivities,
+        (offset, key) => {
+          if (offset < oldCount) {
+            const block = snap.blockAt(startIdx + offset)
+            if (block.key === key) return block
+          }
+          if (offset >= oldCount) return undefined
+          const position = snap.indexOf(key)
+          return position >= startIdx && position < startIdx + oldCount
+            ? snap.blockAt(position)
+            : undefined
+        }
       )
       for (const b of workBlocks) {
         newBlocks.push(b)
@@ -1242,15 +1324,17 @@ export function createClaudeBlockModel(config: {
               if (g.role === 'user') {
                 const userPartKeys = g.messages.map((m) => userBlockKey(m.id))
                 const key = userBlockKey(firstId)
-                prefixBlocks.push({
-                  kind: 'user',
-                  key,
-                  messageId: firstId,
-                  partKeys: userPartKeys,
-                  turn: { role: 'user', messages: g.messages, startIndex: 0 },
-                  gap: isFirst ? 0 : 24,
-                  reserveTarget: false
-                })
+                prefixBlocks.push(
+                  allocated({
+                    kind: 'user',
+                    key,
+                    messageId: firstId,
+                    partKeys: userPartKeys,
+                    turn: { role: 'user', messages: g.messages, startIndex: 0 },
+                    gap: isFirst ? 0 : 24,
+                    reserveTarget: false
+                  })
+                )
                 tr.blockKeys.push(key)
                 tr.messageBlockKeys.set(firstId, [key])
               } else if (mode === 'work' && hasResponseBoundary(g.messages)) {
@@ -1324,6 +1408,7 @@ export function createClaudeBlockModel(config: {
               const oldFirst = curSnap.blockAt(0)
               if (oldFirst.gap === 0) {
                 list.splice(0, 1, [{ ...oldFirst, gap: 24 }])
+                if (onAllocate) onAllocate(list.snapshot().blockAt(0))
               }
               list.splice(0, 0, prefixBlocks)
             } else if (prefixBlocks.length > 0) {
@@ -1368,6 +1453,12 @@ export function createClaudeBlockModel(config: {
           for (const toolId of indexMessageToolParts(msg, partsFrom, order))
             lateResultTools.add(toolId)
 
+          const previousMessage = messageById.get(id)
+          if (previousMessage && previousMessage !== msg && msg.role === 'assistant') {
+            if (mode === 'work')
+              workEdits.set(msg, { previous: new WeakRef(previousMessage), from: partsFrom })
+            scanMessage(msg, previousMessage, partsFrom)
+          }
           messageById.set(id, msg)
           const vis = filterVisibleMessage(msg, opts.showAutomaticFeeds)
           visibleById.set(id, vis)
@@ -1458,7 +1549,7 @@ export function createClaudeBlockModel(config: {
         if (afterSnap.count > 0) {
           const first = afterSnap.blockAt(0)
           if (first.gap !== 0) {
-            list.splice(0, 1, [{ ...first, gap: 0 }])
+            list.splice(0, 1, [allocated({ ...first, gap: 0 })])
           }
         }
 

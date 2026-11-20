@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { selectionMountSet } from './range'
-import { startCopyJob, type CopyTaskTiming } from './copy'
+import { SELECTION_COPY_SYNC_MAX_BLOCKS, startCopyJob, type CopyTaskTiming } from './copy'
 import {
   isVirtualizationEnabled,
   setVirtualization
@@ -110,7 +110,7 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
 
   it('joins reversed chunks across empty rows and preserves both partial boundaries', async () => {
     const rows = [
-      { text: '', leadingBreaks: 0, trailingBreaks: 3 },
+      { text: '', leadingBreaks: 5, trailingBreaks: 3 },
       { text: 'a', leadingBreaks: 0, trailingBreaks: 3 },
       { text: '', leadingBreaks: 6, trailingBreaks: 7 },
       { text: 'b', leadingBreaks: 2, trailingBreaks: 0 },
@@ -242,6 +242,7 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
         if (where === phase) throw new Error(where)
       }
       const unmountChunk = vi.fn(() => fail('unmount'))
+      const onTiming = vi.fn()
       const writeClipboard = vi.fn(async () => {})
       const copy = startCopyJob(
         0,
@@ -254,6 +255,7 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
             return { text: 'text', html: 'text' }
           },
           unmountChunk,
+          onTiming,
           writeClipboard
         },
         { chunkSize: 1 }
@@ -262,6 +264,7 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
       expect(tasks).toHaveLength(0)
       expect(await copy.done).toBe(false)
       expect(unmountChunk).toHaveBeenCalledOnce()
+      expect(onTiming).not.toHaveBeenCalled()
       expect(writeClipboard).not.toHaveBeenCalled()
       expect(reportError).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ event: 'clipboard.copy.failed', error: new Error(phase) })
@@ -294,6 +297,143 @@ describe('viewport/range & copy (EP-17 · c1~c19)', () => {
     const ok = await job.done
     expect(ok).toBe(false)
     expect(writeCount).toBe(0)
+  })
+
+  it.each([undefined, { clipboard: {} }])(
+    'reports an unavailable native clipboard',
+    async (navigator) => {
+      vi.mocked(reportError).mockClear()
+      vi.stubGlobal('navigator', navigator)
+      try {
+        const tasks: Array<() => void> = []
+        const job = startCopyJob(0, 0, {
+          mountChunk: () => {},
+          unmountChunk: () => {},
+          serializeChunk: () => ({ text: 'x', html: 'x' }),
+          scheduleNext: (task) => tasks.push(task)
+        })
+        tasks.shift()!()
+        tasks.shift()!()
+        expect(await job.done).toBe(false)
+        expect(reportError).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            event: 'clipboard.copy.failed',
+            error: new Error('Clipboard API unavailable')
+          })
+        )
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    }
+  )
+
+  it('stops assembly if a clipboard writer throws synchronously', async () => {
+    vi.mocked(reportError).mockClear()
+    const tasks: Array<() => void> = []
+    const error = new Error('write unavailable')
+    const job = startCopyJob(0, 0, {
+      mountChunk: () => {},
+      unmountChunk: () => {},
+      serializeChunk: () => ({ text: 'x', html: 'x' }),
+      scheduleNext: (task) => tasks.push(task),
+      writeClipboard: () => {
+        throw error
+      }
+    })
+    tasks.shift()!()
+    expect(tasks.shift()!).not.toThrow()
+    expect(await job.done).toBe(false)
+    expect(reportError).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ error }))
+  })
+
+  it('can cancel before its first scheduled chunk touches the DOM', async () => {
+    const tasks: Array<() => void> = []
+    const mountChunk = vi.fn()
+    const job = startCopyJob(0, 0, {
+      mountChunk,
+      unmountChunk: () => {},
+      serializeChunk: () => ({ text: 'x', html: 'x' }),
+      scheduleNext: (task) => tasks.push(task)
+    })
+    job.cancel()
+    tasks.shift()!()
+    expect(mountChunk).not.toHaveBeenCalled()
+    expect(tasks).toHaveLength(0)
+    expect(await job.done).toBe(false)
+  })
+
+  it('stops scheduling immediately if cancellation arrives inside a serialization task', async () => {
+    const tasks: Array<() => void> = []
+    const unmountChunk = vi.fn()
+    const writeClipboard = vi.fn(async () => {})
+    const job = startCopyJob(
+      0,
+      3,
+      {
+        mountChunk: () => {},
+        serializeChunk: () => {
+          job.cancel()
+          return { text: 'discarded', html: 'discarded' }
+        },
+        unmountChunk,
+        writeClipboard,
+        scheduleNext: (task) => tasks.push(task)
+      },
+      { chunkSize: 2 }
+    )
+    tasks.shift()!()
+    expect(tasks).toHaveLength(0)
+    expect(await job.done).toBe(false)
+    expect(unmountChunk).toHaveBeenCalledOnce()
+    expect(writeClipboard).not.toHaveBeenCalled()
+  })
+
+  it('ignores a late rejection after the pending native write was cancelled', async () => {
+    vi.mocked(reportError).mockClear()
+    const tasks: Array<() => void> = []
+    const write = Promise.withResolvers<void>()
+    const job = startCopyJob(0, 0, {
+      mountChunk: () => {},
+      serializeChunk: () => ({ text: 'x', html: 'x' }),
+      unmountChunk: () => {},
+      scheduleNext: (task) => tasks.push(task),
+      writeClipboard: () => write.promise
+    })
+    tasks.shift()!()
+    tasks.shift()!()
+    job.cancel()
+    write.reject(new Error('superseded'))
+    expect(await job.done).toBe(false)
+    expect(reportError).not.toHaveBeenCalled()
+  })
+
+  it('uses the default cap and yields a separate native write when scheduling is omitted', async () => {
+    vi.useFakeTimers()
+    try {
+      const mountChunk = vi.fn()
+      const writeClipboard = vi.fn(async () => {})
+      const cap = SELECTION_COPY_SYNC_MAX_BLOCKS
+      const job = startCopyJob(0, cap, {
+        mountChunk,
+        serializeChunk: () => ({ text: 'x', html: 'x' }),
+        unmountChunk: () => {},
+        writeClipboard
+      })
+      expect(mountChunk).not.toHaveBeenCalled()
+      await vi.advanceTimersToNextTimerAsync()
+      expect(mountChunk.mock.calls).toEqual([[0, cap - 1]])
+      await vi.advanceTimersToNextTimerAsync()
+      expect(mountChunk.mock.calls).toEqual([
+        [0, cap - 1],
+        [cap, cap]
+      ])
+      expect(writeClipboard).not.toHaveBeenCalled()
+      await vi.advanceTimersToNextTimerAsync()
+      expect(await job.done).toBe(true)
+      expect(writeClipboard).toHaveBeenCalledOnce()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('c17: setVirtualization toggles global virtualization mode cleanly', () => {

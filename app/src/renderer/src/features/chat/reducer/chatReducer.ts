@@ -1185,7 +1185,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                   : {}),
                 ...(ev.signature !== undefined ? { signature: ev.signature } : {})
               },
-              ev.messageKey
+              ev.messageKey,
+              ev.messageKeySource
             )
           }
 
@@ -1236,7 +1237,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 text: ev.message.text,
                 ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
               },
-              ev.messageKey
+              ev.messageKey,
+              ev.messageKeySource
             )
           }
 
@@ -1259,7 +1261,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 // 유일한 입력이다. 영속되지 않으므로 재로드 후에는 결과 패치가 같은 자리를 채운다.
                 ...(ev.editPreview !== undefined ? { editPreview: ev.editPreview } : {})
               },
-              ev.messageKey
+              ev.messageKey,
+              ev.messageKeySource
             )
           }
 
@@ -1342,7 +1345,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {}),
                 ...(ev.postTokens !== undefined ? { postTokens: ev.postTokens } : {})
               },
-              ev.messageKey
+              ev.messageKey,
+              ev.messageKeySource
             )
           }
 
@@ -1484,7 +1488,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 남으므로 알림 경로가 0이 되지는 않는다(0204 D-004 의 통지 절반은 유지).
           return {
             ...state,
-            ...appendAssistantPart(state, subagentNoticePart(ev), ev.messageKey)
+            ...appendAssistantPart(
+              state,
+              subagentNoticePart(ev),
+              ev.messageKey,
+              ev.messageKeySource
+            )
           }
         }
 
@@ -1687,7 +1696,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         const merged = mergeHeldParts(
           state,
           [...page.map(fromLoadedMessage), ...state.messages],
-          page.length
+          page.length,
+          (toolRunId) => messageOrderFor(state, true).noticeOwner(toolRunId) !== undefined
         )
         next = { ...state, ...writeMessages(state, merged.messages, change), ...merged }
       }

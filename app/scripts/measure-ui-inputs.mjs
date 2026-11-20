@@ -424,7 +424,11 @@ export function jOpenFenceStream(chars = 100_000, chunk = 50) {
 
 export function measureJ9CopyCap(
   sizes = J9_SIZES,
-  { budgetMs = J9_BUDGET_MS, clock = () => performance.now() } = {}
+  {
+    budgetMs = J9_BUDGET_MS,
+    clock = () => performance.now(),
+    clipboard = { write: async () => undefined }
+  } = {}
 ) {
   const samples = []
   let maxPassing = null
@@ -479,12 +483,11 @@ export function measureJ9CopyCap(
           this.data = data
         }
       }
-    const fakeClipboard = { write: async () => undefined }
     const result = measureCase(
       () => {
         const textBlob = new Blob(textParts, { type: 'text/plain' })
         const htmlBlob = new Blob(htmlParts, { type: 'text/html' })
-        void fakeClipboard.write([new Item({ 'text/plain': textBlob, 'text/html': htmlBlob })])
+        void clipboard.write([new Item({ 'text/plain': textBlob, 'text/html': htmlBlob })])
       },
       { clock }
     )
@@ -942,6 +945,22 @@ export function transcriptMeasurementCases(modules) {
   ]
 }
 
+export function formatJ9J10Rows(j9, j10) {
+  return [
+    `| J9 | 복사 상한 탐색 (100~2,000, ≤ ${J9_BUDGET_MS}ms) | 상한 = ${j9.cap} |`,
+    ...j9.samples.map(
+      ({ size, result }) => `| J9:sample(${size}) | DOM 마운트·직렬화 | ${formatCell(result)} |`
+    ),
+    ...j9.assembleTasks.map(
+      (t) => `| J9:assemble(${t.count}) | 조립 task (${t.count}블록) | ${formatCell(t.result)} |`
+    ),
+    ...j10.map(
+      (r) =>
+        `| ${r.id} | Virtualizer (${r.count}블록, getItemKey=${r.getItemKeyCalls}) | ${formatCell(r.result)} |`
+    )
+  ]
+}
+
 async function measureTree(tree) {
   const modules = await loadTree(tree)
   const rows = [...measurementCases(modules), ...transcriptMeasurementCases(modules)].map(
@@ -956,17 +975,7 @@ async function measureTree(tree) {
     `| 입력 | 내용 | 중앙값 / 최대 (예열 ${WARMUP_RUNS} 뒤 ${MEASURED_RUNS}회) |`,
     '|---|---|---|',
     ...rows.map((row) => `| ${row.id} | ${row.input} | ${formatCell(row.result)} |`),
-    `| J9 | 복사 상한 탐색 (100~2,000, ≤ ${J9_BUDGET_MS}ms) | 상한 = ${j9.cap} |`,
-    ...j9.samples.map(
-      ({ size, result }) => `| J9:sample(${size}) | DOM 마운트·직렬화 | ${formatCell(result)} |`
-    ),
-    ...j9.assembleTasks.map(
-      (t) => `| J9:assemble(${t.count}) | 조립 task (${t.count}블록) | ${formatCell(t.result)} |`
-    ),
-    ...j10.map(
-      (r) =>
-        `| ${r.id} | Virtualizer (${r.count}블록, getItemKey=${r.getItemKeyCalls}) | ${formatCell(r.result)} |`
-    )
+    ...formatJ9J10Rows(j9, j10)
   ]
   process.stdout.write(
     `트리: ${tree}\nNode ${process.version} · ${process.platform}/${process.arch}\n\n${lines.join('\n')}\n`

@@ -32,6 +32,40 @@ describe('VP-07 chatStore commit echo (r12)', () => {
     vi.restoreAllMocks()
   })
 
+  it('r12 independently publishes a pending-only cleanup and a transcript-only commit', () => {
+    const initial = useChatStore.getState().sessions.s
+    const event = {
+      type: 'message.committed' as const,
+      sessionId: 's',
+      ids: ['b'],
+      text: 'committed',
+      messageId: 21,
+      createdAt: 0,
+      messageKey: 'u:a'
+    }
+    ingestChatEvent(event)
+    const cleaned = useChatStore.getState().sessions.s
+    expect(cleaned.session).toBe(initial.session)
+    expect(cleaned.pendingSteer).toEqual([initial.pendingSteer![1]])
+    expect(cleaned.live).toBe(initial.live)
+    const confirmed = { ...event, messageKey: 'u:fresh', ids: ['fresh'] }
+    ingestChatEvent(confirmed)
+    const committed = useChatStore.getState().sessions.s
+    expect(committed.pendingSteer).toBe(cleaned.pendingSteer)
+    expect(committed.session.messages.at(-1)).toMatchObject({
+      id: 'u:fresh',
+      clientId: 'fresh',
+      createdAt: 0
+    })
+    expect(committed.live).toBe(cleaned.live)
+    ingestChatEvent(confirmed)
+    expect(useChatStore.getState().sessions.s).toBe(committed)
+    const entry = { ...committed, pendingSteer: undefined }
+    useChatStore.setState({ sessions: { s: entry } })
+    ingestChatEvent(confirmed)
+    expect(useChatStore.getState().sessions.s).toBe(entry)
+  })
+
   it('a mixed batch replaces the optimistic bubble and clears pending steer in one update', () => {
     const notifications = vi.fn()
     const unsub = useChatStore.subscribe(notifications)

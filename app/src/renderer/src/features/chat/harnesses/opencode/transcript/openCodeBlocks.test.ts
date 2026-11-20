@@ -15,6 +15,77 @@ function assistantMsg(id: string, parts: AppMessagePart[], createdAt = 2000): Me
 }
 
 describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
+  it.each(['append', 'replace'] as const)(
+    'z1/z2: same assistant turn %s reads only changed parts and keeps earlier block objects',
+    (edit) => {
+      const reads: string[] = []
+      const track = (id: string, parts: AppMessagePart[]): Message =>
+        assistantMsg(
+          id,
+          new Proxy(parts, {
+            get(target, key, receiver) {
+              if (typeof key === 'string' && /^\d+$/.test(key)) reads.push(id + ':' + key)
+              return Reflect.get(target, key, receiver)
+            }
+          })
+        )
+      const old = Array.from({ length: 15 }, (_, i) =>
+        track('old' + i, [
+          { type: 'tool_call', toolName: 'Read', toolRunId: 'r' + i, args: {} },
+          { type: 'text', text: 'text ' + i }
+        ])
+      )
+      const prefix: AppMessagePart[] = [
+        { type: 'compact_boundary' },
+        { type: 'text', text: 'prefix' }
+      ]
+      const call = (path: string): AppMessagePart => ({
+        type: 'tool_call',
+        toolName: 'Read',
+        toolRunId: 'edited',
+        args: { path }
+      })
+      const tail = track('tail', edit === 'replace' ? [...prefix, call('old')] : prefix)
+      const messages = [userMsg('u', 'question'), ...old, tail]
+      const log = newTranscriptChanges()
+      const allocations: string[] = []
+      const model = createOpenCodeBlockModel((block) => allocations.push(block.key))
+      const before = model.advance({ messages, transcriptChanges: log })
+      const changed =
+        edit === 'append'
+          ? track('new', [{ type: 'text', text: ' next' }])
+          : track('tail', [...prefix, call('new')])
+      const nextMessages =
+        edit === 'append' ? [...messages, changed] : [...messages.slice(0, -1), changed]
+      reads.length = 0
+      allocations.length = 0
+      const after = model.advance({
+        messages: nextMessages,
+        transcriptChanges: recordChange(
+          log,
+          edit === 'append'
+            ? { kind: 'append', ids: ['new'] }
+            : { kind: 'replace', id: 'tail', partsFrom: prefix.length }
+        )
+      })
+      expect(reads.filter((key) => key.startsWith('old'))).toEqual([])
+      if (edit === 'replace')
+        expect(reads.filter((key) => key === 'tail:0' || key === 'tail:1')).toEqual([])
+      for (const block of snapshotToArray(before).filter(
+        (b) => b.messageId.startsWith('old') && b.kind === 'segment'
+      )) {
+        expect(after.blockAt(after.indexOf(block.key))).toBe(block)
+      }
+      const published = snapshotToArray(after).filter((block) => {
+        const index = before.indexOf(block.key)
+        return index < 0 || before.blockAt(index) !== block
+      })
+      expect(published.map((block) => block.kind)).toEqual(['segment', 'meta'])
+      expect(allocations).toEqual(published.map((block) => block.key))
+      expect(snapshotToArray(after)).toEqual(buildOpenCodeBlocksOracle(nextMessages))
+    }
+  )
+
   it('publishes only the joined assistant turn when a separator vanishes as live output starts', () => {
     const model = createOpenCodeBlockModel()
     const first = assistantMsg('first', [{ type: 'text', text: 'one' }])

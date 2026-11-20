@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { reserveGap } from './reserve'
 
 describe('viewport/reserve (EP-11 ② · p3, p4, p12)', () => {
+  it('p3 limits reserve to half the viewport while the measured total is still below the last user start', () => {
+    expect(reserveGap(400, 75, 100)).toBe(200)
+    expect(reserveGap(400, 75, 0)).toBe(125)
+    expect(reserveGap(400, 75, undefined)).toBe(0)
+  })
+
   it('p3: computes max(0, 0.5*H - (total - lastUserStart)) so total + reserve stays constant while filling', () => {
     const H = 800
     const lastUserStart = 1000

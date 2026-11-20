@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
 import { initialChatState } from '../reducer/chatReducer'
-import { ingestChatEvent, useChatStore } from './chatStore'
+import { ingestChatEvent, useChatStore, type LiveTurnState } from './chatStore'
 import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
 
 const makeDelta = (
@@ -137,6 +137,33 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     expect(useChatStore.getState().sessions.s2.session.sendCount).toBe(0)
   })
 
+  it('b4·b6: a child-only or unknown-session batch publishes no state change', () => {
+    const previous = useChatStore.getState()
+    const writes = vi.fn()
+    const stop = useChatStore.subscribe(writes)
+    try {
+      ingestChatEvent(makeDelta('ignored', { parentToolRunId: 'tool' }))
+      ingestChatEvent(makeReasoning('unknown', { sessionId: 'missing' }))
+      flushRaf()
+      expect(useChatStore.getState()).toBe(previous)
+      expect(writes).not.toHaveBeenCalled()
+    } finally {
+      stop()
+    }
+  })
+
+  it('b4: ignores a late delta routed through a pending draft whose entry was already removed', () => {
+    useChatStore.setState({ pendingNewChatKey: 'vanished-draft' })
+    const before = useChatStore.getState()
+    try {
+      ingestChatEvent(makeDelta('late', { sessionId: 'missing' }))
+      flushRaf()
+      expect(useChatStore.getState()).toBe(before)
+    } finally {
+      useChatStore.setState({ pendingNewChatKey: null })
+    }
+  })
+
   it('b7: changing messageKey splits run, commits previous text buffer under its key, and clears previous reasoning buffer', () => {
     ingestChatEvent(makeDelta('first', { messageKey: 'a:1' }))
     ingestChatEvent(makeDelta('second', { messageKey: 'a:2' }))
@@ -200,6 +227,7 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
 
   it('b9·b10: message.completed clears only matching textKey buffer and leaves another messageKey buffer intact', () => {
     // b9: A completed then B delta in same frame
+    ingestChatEvent(makeReasoning('pending thought', { messageKey: 'a:thought' }))
     ingestChatEvent(makeDelta('A', { messageKey: 'a:1' }))
     ingestChatEvent({
       type: 'message.completed',
@@ -215,6 +243,11 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
     expect(entry.live.text).toBe('B')
     expect(entry.live.textKey).toBe('a:2')
 
+    expect(entry.live).toMatchObject({
+      reasoning: 'pending thought',
+      reasoningKey: 'a:thought',
+      reasoningVisible: true
+    })
     // b10: message.completed for M ('a:1') while buffer holds N ('a:2') keeps N buffer intact
     ingestChatEvent({
       type: 'message.completed',
@@ -264,6 +297,46 @@ describe('chatStore receiveDeltaBatch (EP-20 b1~b11)', () => {
       reasoningKey: undefined,
       reasoningVisible: false
     })
+  })
+
+  it('b10·b11: completes the owner of an empty delta and clears remaining owners on telemetry', () => {
+    ingestChatEvent(makeDelta('', { messageKey: 'empty-text' }))
+    ingestChatEvent(makeReasoning('', { messageKey: 'empty-reasoning' }))
+    flushRaf()
+    const live = (): LiveTurnState => useChatStore.getState().sessions.s.live
+    expect(live()).toMatchObject({ textKey: 'empty-text', reasoningKey: 'empty-reasoning' })
+    ingestChatEvent({
+      type: 'message.reasoning',
+      sessionId: 's',
+      messageKey: 'empty-reasoning',
+      text: ''
+    })
+    expect(live().reasoningKey).toBeUndefined()
+    expect(live().textKey).toBe('empty-text')
+    ingestChatEvent({
+      type: 'message.completed',
+      sessionId: 's',
+      messageKey: 'empty-text',
+      message: { text: '' }
+    })
+    expect(live().textKey).toBeUndefined()
+    for (const delta of [makeDelta, makeReasoning]) {
+      ingestChatEvent(delta('', { messageKey: 'later' }))
+      flushRaf()
+      expect([live().textKey, live().reasoningKey]).toContain('later')
+      ingestChatEvent({
+        type: 'telemetry',
+        sessionId: 's',
+        usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 }
+      })
+      expect(live().textKey).toBeUndefined()
+      expect(live().reasoningKey).toBeUndefined()
+      expect(
+        useChatStore
+          .getState()
+          .sessions.s.session.messages.some((message) => message.id === 'later')
+      ).toBe(false)
+    }
   })
 
   it('b11: telemetry fallback commits pending text under live.textKey even if it is not the last assistant message', () => {

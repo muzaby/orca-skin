@@ -13,6 +13,7 @@ import { HistoryWriter } from './writer'
 import { DbQueries } from '../../infra/db/queries'
 import type { AttachmentView, DiffRequirementAnchor, NormalizedEvent } from '../../../shared/ipc'
 import { partFromRow } from '../../infra/ipc/dto'
+import type { TurnAskAnswer } from '../../../shared/peer-protocol'
 import type { TurnContext } from '../../contracts/turn'
 import { applyMigrations } from '../../infra/db/migrate'
 import { loadSession } from './reader'
@@ -854,7 +855,7 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       const send = (
         text: string,
         fields: Partial<Extract<NormalizedEvent, { type: 'message.completed' }>> = {}
-      ) =>
+      ): void =>
         writer.persist(turn, {
           type: 'message.completed',
           sessionId: 's1',
@@ -931,7 +932,7 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       const turn = makeTurn()
       const detached = makeTurn()
       detached.dbSessionId = null
-      const answer = (id: string, messageKey?: string) => ({
+      const answer = (id: string, messageKey?: string): TurnAskAnswer => ({
         toolUseId: id,
         output: id,
         messageKey

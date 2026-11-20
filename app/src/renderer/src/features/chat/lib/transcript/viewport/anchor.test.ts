@@ -91,6 +91,50 @@ function makeEl(
 }
 
 describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
+  it('a1 ignores a part ending exactly at the top and a caret from another viewport', () => {
+    const past = makeEl({ 'data-part-key': 'past' }, [], { top: 50, height: 50 })
+    const first = makeEl({ 'data-part-key': 'first' }, [], { top: 100, height: 20 })
+    const later = makeEl({ 'data-part-key': 'later' }, [], { top: 120, height: 20 })
+    const external = makeEl({ 'data-part-key': 'external' }, [], { top: 105, height: 20 })
+    const el = makeEl({}, [past, first, later], { top: 100, height: 200 }) as unknown as HTMLElement
+    const capture = createAnchorController()
+    expect(
+      capture.captureAnchor(el, { node: external as unknown as Node, offset: 0 })
+    ).toMatchObject({
+      partKey: 'first',
+      charOffset: 0,
+      viewportOffsetPx: 0
+    })
+    const empty = makeEl({}, [past], { top: 100, height: 200 }) as unknown as HTMLElement
+    expect(capture.captureAnchor(empty, null)).toBeNull()
+  })
+
+  it('a12 resolves element caret offsets at the start and end of a nested inline, including an empty inline', () => {
+    const before = makeText('before')
+    const inside = makeText('bold')
+    const bold = makeEl({}, [inside])
+    const empty = makeEl({})
+    const after = makeText('after')
+    const wrapper = makeEl({ 'data-part-key': 'part' }, [before, bold, empty, after])
+    const order = [wrapper, before, bold, inside, empty, after]
+    for (const item of order) {
+      Object.assign(item, {
+        compareDocumentPosition: (other: FakeNode) =>
+          order.indexOf(item) < order.indexOf(other)
+            ? 4
+            : order.indexOf(item) > order.indexOf(other)
+              ? 2
+              : 0
+      })
+    }
+    const offset = (node: FakeNode, child: number): number =>
+      partTextOffset(wrapper as unknown as Element, node as unknown as Node, child)
+    expect(offset(bold, 0)).toBe(6)
+    expect(offset(bold, 1)).toBe(10)
+    expect(offset(empty, 0)).toBe(10)
+    expect(offset(wrapper, wrapper.childNodes.length)).toBe(15)
+  })
+
   it('a12: partTextOffset & pointAtPartOffset traverse inline elements and skip data-transcript-chrome', () => {
     const t1 = makeText('Hello ')
     const chromeBtn = makeEl({ 'data-transcript-chrome': '' }, [makeText('Copy')])
@@ -116,6 +160,36 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
     expect(pEnd.node).toBe(t2)
     expect(pEnd.offset).toBe(6)
   })
+
+  it.each([
+    { top: 0, height: 15, expected: 0 },
+    { top: 18, height: 0, expected: 18 },
+    { top: 0, height: 0, expected: 32 }
+  ])(
+    'a11 distinguishes glyph bounds from empty range geometry ($top, $height)',
+    ({ top, height, expected }) => {
+      const text = makeText('reading')
+      const part = makeEl({ 'data-part-key': 'middle' }, [text], { top: 32, height: 48 })
+      const viewport = makeEl({}, [part], { top: 4, height: 100 })
+      vi.stubGlobal('document', {
+        createRange: () => ({
+          setStart: vi.fn(),
+          setEnd: vi.fn(),
+          getBoundingClientRect: () => ({ top, height })
+        })
+      })
+      try {
+        const anchor = createAnchorController().captureAnchor(viewport as unknown as HTMLElement, {
+          node: text as unknown as Node,
+          offset: 3
+        })
+        expect(anchor?.charOffset).toBe(3)
+        expect(anchor?.viewportOffsetPx).toBe(expected - 4)
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    }
+  )
 
   it('a1/a2/a5/a8: captureAnchor → restoreAnchor compensates top displacement, falls back on missing partKey, and cancelAnchor clears state', () => {
     const part1 = makeEl({ 'data-part-key': 'a:2:text:0' }, [makeText('reading here')], {
@@ -321,33 +395,49 @@ describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
     Object.assign(glyph, { parentElement: inline })
     const reading = makeEl(
       { 'data-part-key': 'reading' },
-      [makeEl({}, [makeText('A'.repeat(5000))]), label, inline],
-      { top: 105, height: 800 }
+      [
+        makeEl({}, [makeText('A'.repeat(5000))]),
+        label,
+        inline,
+        makeEl({}, [makeText('B'.repeat(5000))])
+      ],
+      { top: -674, height: 1700 }
     )
     const scroller = makeEl({}, [left, reading], { top: 100, height: 500 })
-    scroller.scrollTop = 400
-    let glyphTop = 126
-    const setStart = vi.fn()
+    let columns = 100
+    let sourceOffset = 0
+    const setStart = vi.fn((node: FakeNode, offset: number) => {
+      sourceOffset = node === glyph ? 5000 + offset : offset
+    })
+    const glyphTop = (): number =>
+      reading.top! + Math.floor(sourceOffset / columns) * 16 - (scroller.scrollTop! - 400)
     vi.stubGlobal('document', {
       createRange: () => ({
         setStart,
         setEnd: vi.fn(),
-        getBoundingClientRect: () => ({ top: glyphTop, height: 18 })
+        getBoundingClientRect: () => ({ top: glyphTop(), height: 16 })
       })
     })
     try {
-      const anchor = createAnchorController().captureAnchor(scroller as unknown as HTMLElement, {
-        node: glyph as unknown as Node,
-        offset: 2
-      })!
-      expect([anchor.partKey, anchor.charOffset, anchor.viewportOffsetPx]).toEqual([
-        'reading',
-        5002,
-        26
-      ])
-      expect(setStart).toHaveBeenCalledWith(glyph, 2)
-      glyphTop = 193
-      expect(restoreAnchor(scroller as unknown as HTMLElement, anchor)).toBe(467)
+      for (const offset of [0, 2]) {
+        columns = 100
+        scroller.scrollTop = 400
+        const anchor = createAnchorController().captureAnchor(scroller as unknown as HTMLElement, {
+          node: glyph as unknown as Node,
+          offset
+        })!
+        expect([anchor.partKey, anchor.charOffset, anchor.viewportOffsetPx]).toEqual([
+          'reading',
+          5000 + offset,
+          26
+        ])
+        expect(setStart).toHaveBeenLastCalledWith(glyph, offset)
+        columns = 80
+        const corrected = restoreAnchor(scroller as unknown as HTMLElement, anchor)
+        expect(corrected).toBe(592)
+        scroller.scrollTop = corrected!
+        expect(glyphTop() - scroller.top!).toBe(26)
+      }
     } finally {
       vi.unstubAllGlobals()
     }

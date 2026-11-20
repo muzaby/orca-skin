@@ -42,6 +42,14 @@ export function holdPart(
   part: AppMessagePart
 ): HeldParts {
   const previous = state[kind].get(owner) ?? []
+  if (
+    part.type === 'subagent_notice' &&
+    previous.some(
+      ({ part: prior }) => prior.type === 'subagent_notice' && prior.toolRunId === part.toolRunId
+    )
+  ) {
+    return state
+  }
   const key = partMergeKey(part)
   const index =
     key === undefined ? -1 : previous.findIndex(({ part }) => partMergeKey(part) === key)
@@ -75,7 +83,8 @@ function artifactExists(messages: readonly Message[], at: number, part: Artifact
 export function mergeHeldParts(
   state: HeldParts,
   messages: Message[],
-  count = messages.length
+  count = messages.length,
+  hasRetainedNotice?: (toolRunId: string) => boolean
 ): HeldParts & { messages: Message[] } {
   if (state.heldPatches.size === 0 && state.heldOutputs.size === 0)
     return {
@@ -87,6 +96,7 @@ export function mergeHeldParts(
   const heldPatches = new Map(state.heldPatches)
   const heldOutputs = new Map(state.heldOutputs)
   const updates: Array<HeldPart & { index: number }> = []
+  const notices = new Set<string>()
   for (let index = 0; index < count; index++) {
     const message = messages[index]
     if (message.role !== 'assistant') continue
@@ -96,6 +106,7 @@ export function mergeHeldParts(
       heldPatches.delete(message.id)
     }
     for (const part of message.parts) {
+      if (part.type === 'subagent_notice') notices.add(part.toolRunId)
       const owner =
         part.type === 'tool_call'
           ? outputOwnerReference(part.toolRunId)
@@ -114,6 +125,10 @@ export function mergeHeldParts(
   let merged = messages
   for (const { index, part } of updates.sort((a, b) => a.sequence - b.sequence)) {
     if (part.type === 'artifact' && artifactExists(merged, index, part)) continue
+    if (part.type === 'subagent_notice') {
+      if (notices.has(part.toolRunId) || hasRetainedNotice?.(part.toolRunId)) continue
+      notices.add(part.toolRunId)
+    }
     if (merged === messages) merged = messages.slice()
     if (merged[index] === messages[index]) {
       merged[index] = { ...messages[index], parts: messages[index].parts.slice() }

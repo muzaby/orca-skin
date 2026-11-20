@@ -139,6 +139,32 @@ it.each([
   }
 )
 
+it('e3/e5 cancels its pending release deadline when the enclosing card unmounts', () => {
+  vi.useFakeTimers()
+  const dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
+  const call: ToolCall = { toolUseId: 'remove', name: 'Read', input: { file_path: 'file' } }
+  const render = (): void =>
+    dom.render(
+      createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript })
+    )
+  const timer = vi.spyOn(globalThis, 'setTimeout')
+  const clear = vi.spyOn(globalThis, 'clearTimeout')
+  try {
+    render()
+    dom.click(dom.query('[role="button"]')!)
+    render()
+    dom.click(dom.query('[role="button"]')!)
+    render()
+    const deadline = timer.mock.results.at(-1)?.value
+    expect(timer.mock.lastCall?.[1]).toBe(300)
+    clear.mockClear()
+    dom.unmount()
+    expect(clear).toHaveBeenCalledWith(deadline)
+  } finally {
+    dom.unmount()
+  }
+})
+
 it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4), reopen cancels close timer (e5), copy text unchanged after unmount (e6), and stale close generation ignored (e8)', async () => {
   vi.useFakeTimers()
   let reduceMotion = false
@@ -167,7 +193,16 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
     await Promise.resolve()
     expect(writeText).toHaveBeenCalledExactlyOnceWith('ok')
     const timer = vi.spyOn(globalThis, 'setTimeout')
+    const clock = vi.spyOn(performance, 'now').mockReturnValue(1000)
     toggle() // close gen 1
+    const firstClose = dom.query('[data-tool-body-transition]')!
+    type CancelEvent = (event: {
+      target: unknown
+      currentTarget: unknown
+      propertyName: string
+      timeStamp: number
+    }) => void
+    const oldCancel = firstClose.props.onTransitionCancel as CancelEvent
     expect(timer.mock.lastCall?.[1]).toBe(300)
     const deadline = timer.mock.results.at(-1)?.value
     const cancel = vi.spyOn(globalThis, 'clearTimeout')
@@ -182,7 +217,22 @@ it('e3/e4/e5/e6/e8: timeout fallback (e3), reduced motion immediate unmount (e4)
     expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
 
     // e8: close gen 2 -> stale gen 1 deadline does not unmount; gen 2 deadline (e3) unmounts
+    clock.mockReturnValue(2000)
     toggle() // close gen 2
+    const secondClose = dom.query('[data-tool-body-transition]')!
+    const cancelEvent = {
+      target: secondClose,
+      currentTarget: secondClose,
+      propertyName: 'grid-template-rows',
+      timeStamp: 1200
+    }
+    dom.act(() => {
+      // Older native event delivered to the current React handler after a second close.
+      ;(secondClose.props.onTransitionCancel as CancelEvent)(cancelEvent)
+      // Handler already captured by the previous event dispatch.
+      oldCancel({ ...cancelEvent, timeStamp: 2100 })
+    })
+    expect(dom.query('[aria-label="common.copy"]')).not.toBeNull()
     // Deliver a callback already taken from the host timer queue when clearTimeout ran.
     dom.act(() => {
       if (typeof staleDeadline === 'function') staleDeadline()

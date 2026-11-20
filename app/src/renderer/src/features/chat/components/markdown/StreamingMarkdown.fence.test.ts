@@ -24,6 +24,18 @@ vi.mock('remark-gfm', async (importOriginal) => {
 })
 
 describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
+  it('uses the same wrapper typography for an open fence and committed Markdown', () => {
+    const source = '~~~text\nbody'
+    const fence = advanceStableBlocks(null, source).openFence!
+    for (const className of [undefined, '', 'custom-code']) {
+      const open = load(renderToStaticMarkup(createElement(StreamingFence, { fence, className })))
+      const committed = load(renderToStaticMarkup(createElement(Markdown, { source, className })))
+      const expected = committed('body > div').attr('class')
+      expect(open('body > div').attr('class')).toBe(expected)
+      if (className !== undefined) expect(expected).toBe(className)
+    }
+  })
+
   it.each([
     ['plain **tail**', 'strong', 'tail'],
     ['```js\nconst tail', 'pre code', 'tail']
@@ -79,6 +91,18 @@ describe('StreamingMarkdown open fence parity (EP-19 f10)', () => {
       }
       expect(paragraphs(Markdown)).toEqual([space, 'code'])
       expect(paragraphs(StreamingMarkdown)).toEqual(paragraphs(Markdown))
+    }
+  )
+
+  it.each(['\u2028', '\u2029'])(
+    'preserves code indentation after a Unicode separator (%s)',
+    (separator) => {
+      const body = 'left' + separator + '   center' + separator + '\tright'
+      const source = '   ~~~ts\n   ' + body + '\n'
+      for (const Component of [Markdown, StreamingMarkdown]) {
+        const $ = load(renderToStaticMarkup(createElement(Component, { source })))
+        expect($('pre code').text()).toBe(body)
+      }
     }
   )
 

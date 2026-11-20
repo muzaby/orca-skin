@@ -842,7 +842,7 @@ function receive(ev: NormalizedEvent): void {
         const session = chatReducer(entry.session, { type: 'RECV_EVENT', event: ev })
         const live =
           ev.parentToolRunId === undefined &&
-          entry.live.text !== '' &&
+          (entry.live.text !== '' || entry.live.textKey !== undefined) &&
           ev.messageKey === entry.live.textKey
             ? { ...entry.live, text: '', textKey: undefined }
             : entry.live
@@ -856,7 +856,7 @@ function receive(ev: NormalizedEvent): void {
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       patchLive(key, (live) =>
         ev.parentToolRunId === undefined &&
-        live.reasoning !== '' &&
+        (live.reasoning !== '' || live.reasoningKey !== undefined) &&
         ev.messageKey === live.reasoningKey
           ? { ...live, reasoning: '', reasoningKey: undefined, reasoningVisible: false }
           : live
@@ -1014,7 +1014,13 @@ function receive(ev: NormalizedEvent): void {
               })
             : entry.session
         const session = chatReducer(committed, { type: 'RECV_EVENT', event: ev })
-        const live = entry.live.text !== '' || entry.live.reasoning !== '' ? EMPTY_LIVE : entry.live
+        const live =
+          entry.live.text !== '' ||
+          entry.live.reasoning !== '' ||
+          entry.live.textKey !== undefined ||
+          entry.live.reasoningKey !== undefined
+            ? EMPTY_LIVE
+            : entry.live
         return session === entry.session && live === entry.live
           ? entry
           : { ...entry, session, live }

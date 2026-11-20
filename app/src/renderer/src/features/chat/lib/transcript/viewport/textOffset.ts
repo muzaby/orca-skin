@@ -72,22 +72,16 @@ export function partTextOffset(wrapper: Element, node: Node, offset: number): nu
     return charOffset
   }
 
-  // Element node: offset is child index
-  const targetChild = node.childNodes[offset] ?? null
+  // An element offset is before its indexed child, or just after the element's contents.
+  const child = node.childNodes[offset]
+  const boundary = child ?? node
   for (const tn of textNodes) {
-    if (targetChild) {
-      // Check if tn is at or after targetChild in document order
-      if (
-        tn === targetChild ||
-        (typeof targetChild.contains === 'function' && targetChild.contains(tn))
-      ) {
-        return charOffset
-      }
-      if (typeof tn.compareDocumentPosition === 'function') {
-        const rel = targetChild.compareDocumentPosition(tn)
-        // DOCUMENT_POSITION_FOLLOWING = 4
-        if (rel & 4) return charOffset
-      }
+    const inside = tn === boundary || boundary.contains?.(tn)
+    if (inside) {
+      if (child) return charOffset
+    } else if ((boundary.compareDocumentPosition?.(tn) ?? 0) & 4) {
+      // DOCUMENT_POSITION_FOLLOWING: this text starts after the boundary.
+      return charOffset
     }
     charOffset += tn.data?.length ?? tn.textContent?.length ?? 0
   }

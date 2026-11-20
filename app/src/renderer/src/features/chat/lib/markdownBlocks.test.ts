@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { advanceStableBlocks, splitStableBlocks, type StableBlocksCache } from './markdownBlocks'
+import {
+  advanceStableBlocks,
+  openFenceTail,
+  splitStableBlocks,
+  type StableBlocksCache
+} from './markdownBlocks'
 
 describe('splitStableBlocks', () => {
   it('문단 사이 빈 줄에서 확정 블록을 자르고 마지막 블록은 꼬리로 남긴다', () => {
@@ -145,6 +150,27 @@ describe('advanceStableBlocks', () => {
 })
 
 describe('openFenceTail & incremental scanState (EP-19 f1~f9·f11~f13)', () => {
+  it('checks standalone tail boundaries and rejects mismatched cached body offsets', () => {
+    for (const source of ['', ' \t\r\n', '~~~', 'prose\n~~~\n', '~~~\nbody\n~~~']) {
+      expect(openFenceTail(source)).toBeNull()
+    }
+    const standalone = '\t\r\n ~~~js\r\n body\r\nlast'
+    expect(openFenceTail(standalone)).toEqual({
+      char: '~',
+      length: 3,
+      indent: 1,
+      lang: 'js',
+      code: 'body\nlast'
+    })
+    const input = '~~~\n'
+    const scan = advanceStableBlocks(null, input).scanState
+    const fence = scan.fence!
+    for (const bodyStart of [-1, input.length + 1]) {
+      expect(openFenceTail(input, { ...scan, fence: { ...fence, bodyStart } })).toBeNull()
+    }
+    expect(openFenceTail(input, scan)?.code).toBe('')
+  })
+
   it('f1~f7: CommonMark fence opening/closing rules and CRLF', () => {
     // f1: 열린 백틱 펜스 + info
     const f1 = advanceStableBlocks(null, '```ts\nconst x = 1\n')

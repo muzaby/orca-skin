@@ -4,7 +4,7 @@ import type { ResponseBoundary } from '../../../../../shared/response-boundary'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 import { resultMap, type MessageSegment } from './parts'
 import type { OrderedToolParts } from './transcript/orderedToolParts'
-import { createSegmentCache } from './segmentCache'
+import { createSegmentCache, previousMessageEditOffset } from './segmentCache'
 import {
   activityBlockKey,
   partBlockKey,
@@ -69,7 +69,8 @@ function firstToolRunIdInActivity(items: readonly SegmentNode[]): string | null 
 // 턴 인스턴스 소유 캐시. 완료 메시지의 parts는 재해석하지 않고 변경 메시지만 투영한다.
 // 원문/도구 payload는 복제하지 않는다. 캐시 수명은 transcript 턴의 수명과 같다.
 export function createWorkProjector(
-  entriesFor?: (message: Message) => readonly PartKeyEntry[]
+  entriesFor?: (message: Message, partsFrom?: number) => readonly PartKeyEntry[],
+  editFrom: (message: Message, previous: Message) => number | undefined = previousMessageEditOffset
 ): (
   messages: readonly Message[],
   toolResults?: WorkToolResultsMap,
@@ -77,32 +78,86 @@ export function createWorkProjector(
 ) => WorkActivityNode[] | null {
   type Parsed = { atoms: Atom[]; results: ReturnType<typeof resultMap> }
   const cache = new WeakMap<Message, Parsed>()
+  type Chunk = {
+    start: number
+    end: number
+    parts: AppMessagePart[]
+    positions: number[]
+    boundary?: ResponseBoundary
+  }
+  type IndexedResult = { index: number; id: string; value: NonNullable<ToolCall['result']> }
   const previous = new Map<
     string,
-    { atoms: Atom[]; caches: Map<number, ReturnType<typeof createSegmentCache>> }
+    {
+      message: Message
+      parts: AppMessagePart[]
+      atoms: Atom[]
+      caches: Map<number, ReturnType<typeof createSegmentCache>>
+      chunks: Chunk[]
+      contributions: IndexedResult[]
+    }
   >()
   const joined = new WeakMap<SegmentNode, SegmentNode>()
+  const activityRows = new WeakMap<SegmentNode, Extract<WorkActivityNode, { kind: 'activity' }>>()
+  const statusRows = new WeakMap<ResponseBoundary, Extract<WorkActivityNode, { kind: 'status' }>>()
   const resultViews = new WeakMap<AppMessagePart, NonNullable<ToolCall['result']>>()
   function parse(message: Message, index: number): Parsed {
     const cached = cache.get(message)
     if (cached) return cached
     const parts = message.parts
-    const results = new Map<string, NonNullable<ToolCall['result']>>()
-    for (const part of parts) {
-      if (part.type !== 'tool_result') continue
-      const value = resultViews.get(part) ?? resultMap([part]).get(part.toolRunId)
-      if (!value) continue
-      resultViews.set(part, value)
-      results.set(part.toolRunId, value)
-    }
-    const atoms: Atom[] = []
-    let chunk: AppMessagePart[] = []
-    let offset = 0
-    let chunkStart = 0
-    const entries = entriesFor?.(message) ?? []
-    let entryCursor = 0
     const identity = message.id ?? `m:${index}`
     const prior = previous.get(identity)
+    const edit = prior && editFrom(message, prior.message)
+    let from = edit ?? 0
+    if (prior && edit === undefined) {
+      while (from < prior.parts.length && from < parts.length && prior.parts[from] === parts[from])
+        from++
+    }
+    const chunks: Chunk[] = []
+    let frame: Chunk = { start: 0, end: 0, parts: [], positions: [] }
+    if (from && prior) {
+      for (const original of prior.chunks) {
+        if (original.boundary && original.end < from) {
+          chunks.push(original)
+          frame = { start: original.end + 1, end: original.end + 1, parts: [], positions: [] }
+          continue
+        }
+        let kept = original.positions.length
+        while (kept && original.positions[kept - 1] >= from) kept--
+        frame = {
+          start: original.start,
+          end: from,
+          parts: original.parts.slice(0, kept),
+          positions: original.positions.slice(0, kept)
+        }
+        break
+      }
+    }
+    const resumeChunk = chunks.length
+    const resumeParts = frame.parts.length
+    const contributions = prior?.contributions.filter((item) => item.index < from) ?? []
+    for (let i = from; i < parts.length; i++) {
+      const part = parts[i]
+      if (part.type === 'tool_result') {
+        const value = resultViews.get(part) ?? resultMap([part]).get(part.toolRunId)
+        if (value) {
+          resultViews.set(part, value)
+          contributions.push({ index: i, id: part.toolRunId, value })
+        }
+      } else if (part.type === 'response_boundary') {
+        chunks.push({ ...frame, end: i, boundary: part.boundary })
+        frame = { start: i + 1, end: i + 1, parts: [], positions: [] }
+      } else {
+        frame.parts.push(part)
+        frame.positions.push(i)
+      }
+    }
+    chunks.push({ ...frame, end: parts.length })
+    const results = new Map(contributions.map(({ id, value }) => [id, value]))
+    const atoms: Atom[] = []
+    let offset = 0
+    const entries = entriesFor?.(message, from) ?? []
+    let entryCursor = 0
     const caches = new Map<number, ReturnType<typeof createSegmentCache>>()
     const oldByKey = new Map<string, SegmentNode>()
     const textRefs: MultiPartGroupRef[] = []
@@ -119,12 +174,15 @@ export function createWorkProjector(
     }
     const counters = new Map<string, number>()
     let boundarySeq = 0
-    function flush(chunkEnd: number): void {
+    function flush(section: Chunk): void {
+      const chunk = section.parts
+      const chunkStart = section.start
+      const chunkEnd = section.end
       const segmentCache = prior?.caches.get(offset) ?? createSegmentCache()
       caches.set(offset, segmentCache)
       const segments = segmentCache.segmentsFor(
         { id: message.id, role: message.role, createdAt: message.createdAt, parts: chunk },
-        undefined,
+        offset < resumeChunk ? chunk.length : offset === resumeChunk ? resumeParts : 0,
         results
       )
       const start = entryCursor
@@ -157,24 +215,20 @@ export function createWorkProjector(
               }
         )
       }
-      chunk = []
       offset++
     }
-    for (const [index, part] of parts.entries()) {
-      if (part.type === 'response_boundary') {
-        flush(index)
-        chunkStart = index + 1
+    for (const section of chunks) {
+      flush(section)
+      if (section.boundary)
         atoms.push({
           kind: 'boundary',
           key: partBlockKey(identity, 'boundary', boundarySeq++),
-          boundary: part.boundary
+          boundary: section.boundary
         })
-      } else if (part.type !== 'tool_result') chunk.push(part)
     }
-    flush(parts.length)
     const parsed = { atoms, results }
     cache.set(message, parsed)
-    previous.set(identity, { atoms, caches })
+    previous.set(identity, { message, parts, atoms, caches, chunks, contributions })
     return parsed
   }
   return (messages, toolResults, toolInputs) => {
@@ -241,10 +295,10 @@ export function createWorkProjector(
     }
     if (!atoms.some((atom) => atom.kind === 'boundary')) return null
     const output: WorkActivityNode[] = []
-    let active: { id: string; items: SegmentNode[] } | undefined
+    let active: { id: string; start: ResponseBoundary; items: SegmentNode[] } | undefined
     function finish(outcome: 'ended' | 'aborted' | 'failed' | 'unknown'): void {
       if (!active) return
-      const { id, items } = active
+      const { id, items, start } = active
       let activity: SegmentNode[] = []
       let trailingText: SegmentNode[] = []
       function flushActivity(): void {
@@ -257,13 +311,25 @@ export function createWorkProjector(
         const key = firstTool
           ? activityBlockKey(activity[0].messageId, firstTool)
           : activityBlockKey(activity[0].messageId, id)
-        output.push({
-          kind: 'activity',
+        const previous = activityRows.get(activity[0])
+        if (
+          previous?.key === key &&
+          previous.items.length === activity.length &&
+          previous.items.every((item, i) => item === activity[i])
+        ) {
+          output.push(previous)
+          activity = []
+          return
+        }
+        const row = {
+          kind: 'activity' as const,
           key,
           items: activity,
           toolCount,
           noteCount: activity.filter((item) => item.segment.kind === 'text').length
-        })
+        }
+        activityRows.set(activity[0], row)
+        output.push(row)
         activity = []
       }
       items.forEach((item) => {
@@ -282,7 +348,13 @@ export function createWorkProjector(
       flushActivity()
       // The final text, including an interrupted partial answer, stays outside the disclosure.
       output.push(...trailingText)
-      output.push({ kind: 'status', key: `status:${id}`, outcome })
+      const previous = statusRows.get(start)
+      if (previous?.outcome === outcome) output.push(previous)
+      else {
+        const row = { kind: 'status' as const, key: `status:${id}`, outcome }
+        statusRows.set(start, row)
+        output.push(row)
+      }
       active = undefined
     }
     for (const atom of atoms) {
@@ -290,7 +362,7 @@ export function createWorkProjector(
         if (atom.boundary.phase === 'begin') {
           if (active?.id === atom.boundary.id) continue
           finish('unknown')
-          active = { id: atom.boundary.id, items: [] }
+          active = { id: atom.boundary.id, start: atom.boundary, items: [] }
         } else if (active?.id === atom.boundary.id) finish(atom.boundary.outcome)
       } else if (active) active.items.push(atom)
       else output.push(atom)

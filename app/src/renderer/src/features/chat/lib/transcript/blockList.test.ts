@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createBlockList } from './blockList'
 
 const blocks = (count: number): Array<{ key: string; text: string }> =>
@@ -36,6 +36,57 @@ describe('transcript block snapshots', () => {
     expect(swapped.keyAt(61)).toBe('66')
   })
 
+  it('u5 preserves untouched chunk objects when a structural edit splits a middle chunk', () => {
+    const source = Array.prototype.map
+    const snapshots: object[][] = []
+    Array.prototype.map = new Proxy(source, {
+      apply(target, receiver, args) {
+        if (receiver[0]?.location?.slots instanceof Map && Array.isArray(receiver[0].blocks)) {
+          snapshots.push(receiver.slice())
+        }
+        return Reflect.apply(target, receiver, args)
+      }
+    })
+    try {
+      const list = createBlockList(blocks(192))
+      list.splice(80, 1, [{ key: 'new', text: 'changed' }])
+    } finally {
+      Array.prototype.map = source
+    }
+    const [before, after] = snapshots
+    expect(before).toHaveLength(3)
+    expect(after).toHaveLength(3)
+    expect(after[0]).toBe(before[0])
+    expect(after[2]).toBe(before[2])
+    expect(after[1]).not.toBe(before[1])
+  })
+
+  it('u6 performs cold historical lookups without allocating a chunk offset map', () => {
+    const list = createBlockList(blocks(195))
+    const old = list.snapshot()
+    list.splice(60, 7, [{ key: 'replacement', text: 'middle' }])
+    list.splice(0, 0, [{ key: '61', text: 'reinserted' }])
+    const map = globalThis.Map
+    let allocations = 0
+    vi.stubGlobal(
+      'Map',
+      new Proxy(map, {
+        construct(target, args, receiver) {
+          allocations++
+          return Reflect.construct(target, args, receiver)
+        }
+      })
+    )
+    let indices: number[]
+    try {
+      indices = ['0', '61', '194', 'missing'].map((key) => old.indexOf(key))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(indices).toEqual([0, 61, 194, -1])
+    expect(allocations).toBe(0)
+  })
+
   it('u6 consults at most one slot table per historical chunk without unpacking blocks', () => {
     let blockKeyReads = 0
     const rows = blocks(195).map((row) => ({
@@ -48,6 +99,7 @@ describe('transcript block snapshots', () => {
     const list = createBlockList(rows)
     const old = list.snapshot()
     list.splice(192, 3, [])
+    list.splice(0, 0, [{ key: '194', text: 'reinserted' }])
     blockKeyReads = 0
     let reads = 0
     const get = Map.prototype.get
@@ -119,6 +171,7 @@ describe('transcript block snapshots', () => {
       { key: 'pre-0', text: 'p0' },
       { key: 'pre-1', text: 'p1' }
     ])
+    expect(s1.keyRevision).toBe(s0.keyRevision + 1)
     expect(s0.count).toBe(200)
     expect(s0.keyAt(0)).toBe('0')
     expect(s0.indexOf('10')).toBe(10)
@@ -152,4 +205,67 @@ describe('transcript block snapshots', () => {
     expect(snap0.indexOf('0')).toBe(0)
     expect(snap0.indexOf('129')).toBe(129)
   })
+})
+
+it('u1/u3 bounds reject invalid ranges and no-op edits retain the snapshot', () => {
+  const list = createBlockList(blocks(65)),
+    old = list.snapshot()
+  for (const i of [-1, 65]) {
+    expect(() => old.blockAt(i)).toThrow(RangeError)
+    expect(() => old.keyAt(i)).toThrow(RangeError)
+  }
+  for (const [start, count] of [
+    [-1, 0],
+    [1, -1],
+    [64, 2],
+    [66, 0]
+  ]) {
+    expect(() => list.splice(start, count, [])).toThrow(RangeError)
+    expect(list.snapshot()).toBe(old)
+  }
+  expect(list.splice(65, 0, [])).toBe(old)
+  const mid = list.splice(64, 0, [{ key: 'middle', text: 'new' }])
+  expect([mid.keyAt(63), mid.keyAt(64), mid.keyAt(65)]).toEqual(['63', 'middle', '64'])
+  expect(old.indexOf('64')).toBe(64)
+})
+
+it('u3/u6 warms a current lookup once and removes a deleted owner from the shared location index', () => {
+  const source = blocks(513)
+  const list = createBlockList(source)
+  const snapshot = list.splice(512, 1, [{ key: 'current-probe', text: 'new' }])
+  expect(snapshot.indexOf('current-probe')).toBe(512)
+  const get = Map.prototype.get
+  const originalMap = globalThis.Map
+  let reads = 0,
+    allocations = 0
+  const shared: Map<unknown, unknown>[] = []
+  let found = -1
+  try {
+    vi.stubGlobal(
+      'Map',
+      new Proxy(originalMap, {
+        construct(target, args) {
+          allocations++
+          return Reflect.construct(target, args)
+        }
+      })
+    )
+    Map.prototype.get = function (key: unknown) {
+      const value = get.call(this, key)
+      if (key === 'current-probe' && value?.slots instanceof originalMap) shared.push(this)
+      reads++
+      return value
+    }
+    found = snapshot.indexOf('current-probe')
+  } finally {
+    originalMap.prototype.get = get
+    vi.unstubAllGlobals()
+  }
+  expect(found).toBe(512)
+  expect(reads).toBeLessThanOrEqual(3)
+  expect(allocations).toBe(0)
+  expect(shared[0]?.has('current-probe')).toBe(true)
+  list.splice(512, 1, [])
+  expect(shared[0]?.has('current-probe')).toBe(false)
+  expect(snapshot.indexOf('current-probe')).toBe(512)
 })

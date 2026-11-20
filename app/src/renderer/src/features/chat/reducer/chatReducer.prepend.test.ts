@@ -31,6 +31,26 @@ const prepend = (state: ChatState, messages: LoadedMessage[], reachedStart = fal
   chatReducer(state, { type: 'PREPEND_HISTORY', messages, reachedStart })
 
 describe('transcript history prepend', () => {
+  it('g12/g13 accepts the end once and preserves the completed state on another empty or duplicate page', () => {
+    const start = LOAD(tail)
+    const diagnostic = vi.fn()
+    const complete = chatReducer(start, {
+      type: 'PREPEND_HISTORY',
+      messages: tail,
+      reachedStart: true,
+      diagnostic
+    })
+    expect(complete.historyComplete).toBe(true)
+    expect(complete.messages).toBe(start.messages)
+    expect(complete.transcriptChanges).toBe(start.transcriptChanges)
+    for (const messages of [[], tail]) {
+      expect(
+        chatReducer(complete, { type: 'PREPEND_HISTORY', messages, reachedStart: true, diagnostic })
+      ).toBe(complete)
+    }
+    expect(diagnostic).not.toHaveBeenCalled()
+  })
+
   it('records the first nonempty page as a prepend into an empty transcript', () => {
     const next = chatReducer(LOAD([]), {
       type: 'PREPEND_HISTORY',
@@ -198,15 +218,20 @@ describe('transcript history prepend', () => {
   })
 
   it('preserves first arrival order when a later held value replaces the first result', () => {
-    let pending = recv(LOAD(tail), result('a:old', 'first'))
-    pending = recv(pending, captured('pub', { toolRunId: 'shared' }))
-    pending = recv(pending, result('a:old', 'last'))
-    const merged = prepend(pending, [message('a:old', 'assistant', call)])
-    expect(merged.messages[0].parts).toMatchObject([
-      { type: 'tool_call' },
-      { type: 'tool_result', result: 'last' },
-      publication('pub')
-    ])
+    const state = LOAD(tail)
+    for (const outputFirst of [false, true]) {
+      const output = captured('pub', { toolRunId: 'shared' })
+      const patch = result('a:old', 'first')
+      let pending = recv(recv(state, outputFirst ? output : patch), outputFirst ? patch : output)
+      pending = recv(pending, result('a:old', 'last'))
+      expect(pending.heldSequence).toBe(2)
+      const merged = prepend(pending, [message('a:old', 'assistant', call)])
+      const finalResult = { type: 'tool_result', result: 'last' }
+      expect(merged.messages[0].parts).toMatchObject([
+        { type: 'tool_call' },
+        ...(outputFirst ? [publication('pub'), finalResult] : [finalResult, publication('pub')])
+      ])
+    }
   })
 
   it('counts unclaimed patches and outputs at the start of history, including a user ID collision', () => {
@@ -630,9 +655,134 @@ describe('transcript history prepend', () => {
     ])
 
     // g11: missing session key -> no-op, does not create entry
+    const beforeDeletedPage = useChatStore.getState()
     chatActions.prependHistory('deleted-session', [message('u:x', 'user', text('x'))], {
       reachedStart: false
     })
+    expect(useChatStore.getState()).toBe(beforeDeletedPage)
     expect(useChatStore.getState().sessions['deleted-session']).toBeUndefined()
+  })
+
+  it.each(['patch', 'output'] as const)(
+    'g7/g12 applies a final page with only the %s queue populated before counting orphans',
+    (kind) => {
+      const initial = { ...LOAD(tail), title: 'retained title' }
+      const pending =
+        kind === 'patch'
+          ? recv(recv(initial, result('a:owner', 'current')), result('a:unseen', 'orphan'))
+          : recv(
+              recv(initial, captured('found', { toolRunId: 'shared' })),
+              captured('orphan', { responseId: 'absent' })
+            )
+      const oldResult: AppMessagePart = {
+        type: 'tool_result',
+        toolRunId: 'tool',
+        result: 'stale',
+        isError: false
+      }
+      const page = message('a:owner', 'assistant', oldResult, call)
+      const diagnostic = vi.fn()
+      const after = chatReducer(pending, {
+        type: 'PREPEND_HISTORY',
+        messages: [page],
+        reachedStart: true,
+        diagnostic
+      })
+      const expectedParts =
+        kind === 'patch'
+          ? [{ ...oldResult, result: 'current' }, call]
+          : [oldResult, call, publication('found')]
+      expect(after.messages.map(({ id }) => id)).toEqual(['a:owner', 'u:tail'])
+      expect(after.messages[0].parts).toEqual(expectedParts)
+      expect(page.parts).toEqual([oldResult, call])
+      expect(after.messages[1]).toBe(initial.messages[0])
+      expect(after.title).toBe(initial.title)
+      expect(after.historyComplete).toBe(true)
+      expect(after.heldPatches.size + after.heldOutputs.size).toBe(0)
+      expect(pending.heldPatches.size + pending.heldOutputs.size).toBe(2)
+      expect(after.transcriptChanges.log.at(-1)).toEqual({ kind: 'prepend', ids: ['a:owner'] })
+      expect(diagnostic).toHaveBeenCalledExactlyOnceWith('heldPatchOrphaned', 1)
+    }
+  )
+
+  it('g15 replays different boundary IDs and phases in their own slots across multiple owners', () => {
+    const begin: AppMessagePart = {
+      type: 'response_boundary',
+      boundary: { id: 'r', phase: 'begin' }
+    }
+    const end = (
+      id: string,
+      outcome: 'ended' | 'aborted'
+    ): Extract<AppMessagePart, { type: 'response_boundary' }> => ({
+      type: 'response_boundary',
+      boundary: { id, phase: 'end', outcome }
+    })
+    const earlier = message('a:before', 'assistant', text('retained'))
+    const owner = message('a:owner', 'assistant', begin, end('other', 'ended'), end('r', 'aborted'))
+    const start = LOAD(tail)
+    const changed: NormalizedEvent = {
+      type: 'response.boundary',
+      sessionId: 's',
+      messageKey: 'a:owner',
+      messageKeySource: 'owner',
+      boundary: end('r', 'ended').boundary
+    }
+    const other = result('a:before', 'current')
+    const reasoning = (value: string): NormalizedEvent => ({
+      type: 'message.reasoning',
+      sessionId: 's',
+      messageKey: 'a:before',
+      messageKeySource: 'owner',
+      text: value
+    })
+    const events = [changed, other, reasoning('first'), reasoning('second')]
+    const eventsFirst = prepend(events.reduce(recv, start), [earlier, owner])
+    const pageFirst = events.reduce(recv, prepend(start, [earlier, owner]))
+    expect(eventsFirst.messages).toEqual(pageFirst.messages)
+    expect(eventsFirst.messages[0].parts).toMatchObject([
+      text('retained'),
+      { type: 'tool_result', result: 'current' },
+      { type: 'reasoning', text: 'first' },
+      { type: 'reasoning', text: 'second' }
+    ])
+    expect(eventsFirst.messages[1].parts).toEqual([begin, end('other', 'ended'), end('r', 'ended')])
+    expect(owner.parts).toEqual([begin, end('other', 'ended'), end('r', 'aborted')])
+    expect(eventsFirst.heldPatches.size).toBe(0)
+  })
+
+  it('g7 replays a notice and result sharing one tool ID, in either arrival order', () => {
+    const notice = (toolUseId: string): NormalizedEvent => ({
+      type: 'subagent.task',
+      phase: 'settled',
+      background: true,
+      status: 'completed',
+      sessionId: 's',
+      messageKey: 'a:old',
+      messageKeySource: 'owner',
+      toolUseId,
+      summary: toolUseId
+    })
+    const completed = result('a:old', 'latest')
+    for (const noticeFirst of [false, true]) {
+      const events = noticeFirst ? [notice('tool'), completed] : [completed, notice('tool')]
+      events.push(notice('other'))
+      const start = LOAD(tail)
+      const page = [message('a:old', 'assistant')]
+      const held = events.reduce(recv, start)
+      const pageFirst = events.reduce(recv, prepend(start, page))
+      const restored = prepend(held, page)
+      const kinds = noticeFirst
+        ? ['subagent_notice', 'tool_result']
+        : ['tool_result', 'subagent_notice']
+      expect(restored.messages[0].parts.map((part) => part.type)).toEqual([
+        ...kinds,
+        'subagent_notice'
+      ])
+      expect(restored.messages[0].parts.at(-1)).toMatchObject({
+        type: 'subagent_notice',
+        toolRunId: 'other'
+      })
+      expect(restored.messages).toEqual(pageFirst.messages)
+    }
   })
 })

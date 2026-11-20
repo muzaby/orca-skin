@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AppMessagePart } from '../../../../../shared/ipc'
 import type { Message } from '../reducer/chatReducer'
 import { messageSegments } from './parts'
-import { createSegmentCache, rememberMessageEdit } from './segmentCache'
+import { createSegmentCache, previousMessageEditOffset, rememberMessageEdit } from './segmentCache'
 
 function message(parts: AppMessagePart[]): Message {
   return { id: 'a:1', role: 'assistant', createdAt: 0, parts }
@@ -256,4 +256,155 @@ describe('incremental message segments', () => {
       }
     }
   })
+})
+
+it('s8 updates and retracts a result in an earlier question while keeping a completed sibling intact', () => {
+  const cache = createSegmentCache()
+  const parts: AppMessagePart[] = [
+    { type: 'tool_call', toolRunId: 'question', toolName: 'AskUserQuestion', args: {} },
+    tool('other'),
+    outcome('other', 'saved')
+  ]
+  const first = cache.segmentsFor(message(parts))
+  const second = cache.segmentsFor(message([...parts, outcome('question', 'yes')]), parts.length)
+  const third = cache.segmentsFor(message(parts), parts.length)
+  expect(second[0]).toMatchObject({ kind: 'ask', call: { result: { output: 'yes' } } })
+  expect(third[0].kind === 'ask' && third[0].call.result).toBeUndefined()
+  expect(second[1]).toBe(first[1])
+  expect(third[1]).toBe(first[1])
+})
+
+it('s2 preserves earlier tool and reasoning arrays when a matching tail grows', () => {
+  for (const parts of [
+    [tool('a'), tool('b')],
+    [
+      { type: 'reasoning', text: 'a' },
+      { type: 'reasoning', text: 'b' }
+    ]
+  ] satisfies AppMessagePart[][]) {
+    const cache = createSegmentCache()
+    const first = message([parts[0]])
+    const before = cache.segmentsFor(first)
+    const next = message(parts)
+    const after = cache.segmentsFor(next, 1)
+    expect(before).toEqual(messageSegments(first.parts))
+    expect(after).toEqual(messageSegments(next.parts))
+    expect(before[0]).not.toBe(after[0])
+  }
+})
+
+it('s4/s6 edit hints apply only to the exact previous input', () => {
+  const cache = createSegmentCache()
+  const stale = message([text('wrong'), text('input')])
+  const valid = message([text('correct'), text('input')])
+  const next = message([...valid.parts, text('!')])
+  rememberMessageEdit(next, valid, 2)
+  expect(previousMessageEditOffset(next, valid)).toBe(2)
+  expect(previousMessageEditOffset(next, stale)).toBeUndefined()
+  cache.segmentsFor(stale)
+  expect(cache.segmentsFor(next)).toEqual(messageSegments(next.parts))
+})
+
+it('s3/s8 tracks only surviving calls when external and local result sources change', () => {
+  const cache = createSegmentCache()
+  const base = message([tool('a'), tool('b'), text('body'), outcome('a', 'local')])
+  const external = new Map([
+    ['a', { output: 'external', isError: false }],
+    ['b', { output: 'second', isError: false }]
+  ])
+  const first = cache.segmentsFor(base, 0, external)
+  expect(first[0]).toMatchObject({
+    calls: [{ result: { output: 'external' } }, { result: { output: 'second' } }]
+  })
+  const next = message([tool('a'), text('new body'), outcome('a', 'local')])
+  cache.segmentsFor(next, 1, external)
+  const now = new Map()
+  const reads = vi.spyOn(now, 'get')
+  expect(cache.segmentsFor(next, undefined, now)[0]).toMatchObject({
+    calls: [{ result: { output: 'local' } }]
+  })
+  expect(reads.mock.calls).toEqual([['a']])
+  const hidden = message([...next.parts, { type: 'file', path: 'x' }])
+  const before = cache.segmentsFor(next, undefined, now)
+  expect(cache.segmentsFor(hidden, next.parts.length, now)).toBe(before)
+})
+
+it('s3 preserves the pending segment across distinct external maps with equal or absent results', () => {
+  const cache = createSegmentCache()
+  const msg = message([tool('pending'), { type: 'compact_boundary' }, tool('completed')])
+  const value = { isError: false, output: 'same' }
+  const before = cache.segmentsFor(msg, 0, new Map([['completed', value]]))
+  const after = cache.segmentsFor(msg, undefined, new Map([['completed', { ...value }]]))
+  expect(after).toBe(before)
+})
+
+it('s3/s8 clears detached external-only results and keeps local or still-attached contributions', () => {
+  const external = new Map([['same', { output: 'external', isError: false }]])
+  const id = 'same'
+  const compact: AppMessagePart = { type: 'compact_boundary' }
+  const local = outcome(id, 'local')
+  for (const retained of [[], [local], [tool(id), compact]] satisfies AppMessagePart[][]) {
+    const cache = createSegmentCache()
+    const first = message([...retained, tool(id)])
+    cache.segmentsFor(first, 0, external)
+    const middle = message(retained)
+    cache.segmentsFor(middle, retained.length, external)
+    const next = message([...retained, tool(id)])
+    const result = cache.segmentsFor(next, retained.length, undefined)
+    expect(result).toEqual(messageSegments(next.parts))
+  }
+})
+
+it('s5 skips hidden contributions without dropping subsequent visible text', () => {
+  const parts = [
+    text('first'),
+    { type: 'text' as const, text: 'hidden', parentToolRunId: 'p' },
+    text('last')
+  ]
+  expect(createSegmentCache().segmentsFor(message(parts))).toEqual([
+    { kind: 'text', text: 'firstlast' }
+  ])
+})
+
+it('s4 uses absolute positions across two edits to the same later segment', () => {
+  const cache = createSegmentCache()
+  const prefix = [
+    { type: 'compact_boundary' as const },
+    text('first'),
+    { type: 'compact_boundary' as const }
+  ]
+  cache.segmentsFor(message([...prefix, text('old')]))
+  for (const value of ['second', 'third']) {
+    const next = message([...prefix, text(value)])
+    expect(cache.segmentsFor(next, prefix.length)).toEqual(messageSegments(next.parts))
+  }
+})
+
+it('s8 rebuilds the changed tool at the first nonretained span when its result changes', () => {
+  const cache = createSegmentCache()
+  const initial = message([tool('a'), outcome('a', 'old')])
+  cache.segmentsFor(initial)
+  const after = message([tool('b'), outcome('b', 'new')])
+  expect(cache.segmentsFor(after, 0)).toEqual(messageSegments(after.parts))
+})
+
+it('s8 releases an external-only result when its last call is detached', () => {
+  const cache = createSegmentCache()
+  const result = { output: 'payload', isError: false }
+  const id = 'detached-external'
+  const external = new Map([[id, result]])
+  const resultMaps: Map<unknown, unknown>[] = []
+  const set = Map.prototype.set
+  try {
+    Map.prototype.set = function (key: unknown, value: unknown) {
+      if (key === id && value === result) resultMaps.push(this)
+      return set.call(this, key, value)
+    }
+    cache.segmentsFor(message([tool(id)]), 0, external)
+  } finally {
+    Map.prototype.set = set
+  }
+  expect(resultMaps).toHaveLength(1)
+  cache.segmentsFor(message([]), 0, external)
+  expect(resultMaps[0].has(id)).toBe(false)
 })

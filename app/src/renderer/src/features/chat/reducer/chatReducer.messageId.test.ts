@@ -49,6 +49,19 @@ describe('VP-07 chatReducer message identity (r1~r17)', () => {
     const next = recv(before, { ...event, sessionId: 's', messageKey: 'a:original' })
     expect(next.messages[0].parts).toHaveLength(1)
     expect(next.messages[2]).toBe(before.messages[2])
+    const partial = load([], false)
+    const addressed = {
+      ...event,
+      sessionId: 's',
+      messageKey: 'a:past',
+      messageKeySource: 'owner' as const
+    }
+    const held = recv(partial, addressed)
+    expect(held.messages).toBe(partial.messages)
+    expect(held.heldPatches.get('a:past')).toHaveLength(1)
+    const live = recv(partial, { ...addressed, messageKeySource: undefined })
+    expect(live.heldPatches.size).toBe(0)
+    expect(live.messages[0].id).toBe('a:past')
   })
 
   it('r1, r2, r3, r4, r9 route parts by messageKey without copying earlier messages', () => {
@@ -175,6 +188,42 @@ describe('VP-07 chatReducer message identity (r1~r17)', () => {
     ).toBe(after)
   })
 
+  it('r6/r12 prefers a canonical key to clientId and never replaces an assistant with a matching optimistic ID', () => {
+    const prior = load([
+      msg('u:client', 'assistant', { type: 'text', text: 'prior' }),
+      msg('u:other', 'user')
+    ])
+    const committed = chatReducer(prior, {
+      type: 'APPEND_COMMITTED_USER_MESSAGE',
+      ids: ['client'],
+      clientId: 'client',
+      messageKey: 'u:canonical',
+      text: 'delivery'
+    })
+    expect(committed.messages.map((m) => m.id)).toEqual(['u:client', 'u:other', 'u:canonical'])
+    expect(committed.messages[0]).toBe(prior.messages[0])
+    expect(committed.transcriptChanges.log.at(-1)).toEqual({ kind: 'append', ids: ['u:canonical'] })
+    const legacy = chatReducer(committed, { type: 'APPEND_COMMITTED_USER_MESSAGE', text: 'local' })
+    expect(legacy.messages.at(-1)?.id).toMatch(/^r:/)
+    expect(legacy.transcriptChanges.log.at(-1)).toEqual({
+      kind: 'append',
+      ids: [legacy.messages.at(-1)!.id]
+    })
+  })
+
+  it('r6 dismisses only a matching optimistic user and preserves the other message keys', () => {
+    const before = load([msg('u:sibling', 'assistant'), msg('u:actual', 'user')])
+    const dismiss = (clientId: string): ChatState =>
+      chatReducer(before, { type: 'DROP_UNCOMMITTED_USER', clientId })
+    expect(() => dismiss('absent')).not.toThrow()
+    expect(dismiss('absent')).toBe(before)
+    expect(dismiss('sibling')).toBe(before)
+    const result = dismiss('actual')
+    expect(result.messages).toEqual([before.messages[0]])
+    expect(result.messages[0]).toBe(before.messages[0])
+    expect(result.transcriptChanges.log.at(-1)).toEqual({ kind: 'remove', ids: ['u:actual'] })
+  })
+
   it('r12 replaces multiple optimistic messages at the earliest transcript position even when queue IDs are reversed', () => {
     const before = load([
       msg('u:z', 'user'),
@@ -194,6 +243,208 @@ describe('VP-07 chatReducer message identity (r1~r17)', () => {
     expect(after.messages[2]).toBe(before.messages[3])
     expect(after.transcriptChanges.log.at(-1)).toEqual({ kind: 'reset', complete: true })
     expect(chatReducer(after, commit)).toBe(after)
+  })
+
+  it('r16/r17 keeps each unpublished result and receipt with the missing explicit owner', () => {
+    const receipt = {
+      publicationId: 'tool'
+    } as Extract<AppMessagePart, { type: 'artifact' }>['artifact']
+    const base = {
+      type: 'tool.call.completed' as const,
+      sessionId: 's',
+      toolRunId: 'tool',
+      result: 'first',
+      isError: false,
+      artifact: receipt,
+      messageKey: 'a:past',
+      messageKeySource: 'owner' as const
+    }
+    const before = load([msg('a:tail', 'assistant')], false)
+    const loadedOwner = recv(load([msg('a:past', 'assistant')], false), base)
+    expect(loadedOwner.heldPatches.size).toBe(0)
+    expect(loadedOwner.messages[0].parts.at(-1)).toEqual({ type: 'artifact', artifact: receipt })
+    const first = recv(before, base)
+    const second = recv(first, { ...base, result: 'second' })
+    expect(second.messages).toBe(before.messages)
+    expect(second.transcriptChanges).toBe(before.transcriptChanges)
+    expect(second.heldOutputs.size).toBe(0)
+    expect(second.heldPatches.get('a:past')).toEqual([
+      {
+        sequence: 1,
+        part: { type: 'tool_result', toolRunId: 'tool', result: 'second', isError: false }
+      },
+      { sequence: 2, part: { type: 'artifact', artifact: receipt } }
+    ])
+    expect(second.heldSequence).toBe(2)
+    const tagged = recv(load([], true), base)
+    const untagged = recv(before, { ...base, messageKeySource: undefined })
+    for (const resolved of [tagged, untagged]) {
+      expect(resolved.heldPatches.size).toBe(0)
+      expect(resolved.messages.at(-1)).toMatchObject({
+        id: 'a:past',
+        parts: [{ type: 'tool_result' }, { type: 'artifact', artifact: receipt }]
+      })
+    }
+    const withBoundary = recv(second, {
+      type: 'response.boundary',
+      sessionId: 's',
+      messageKey: 'a:past',
+      messageKeySource: 'owner',
+      boundary: { phase: 'begin', id: 'tool' }
+    })
+    expect(withBoundary.heldPatches.get('a:past')?.map(({ part }) => part.type)).toEqual([
+      'tool_result',
+      'artifact',
+      'response_boundary'
+    ])
+    const heldText = recv(second, {
+      type: 'message.reasoning',
+      sessionId: 's',
+      messageKey: 'a:past',
+      messageKeySource: 'owner',
+      text: 'A'
+    })
+    const repeatedText = recv(heldText, {
+      type: 'message.reasoning',
+      sessionId: 's',
+      messageKey: 'a:past',
+      messageKeySource: 'owner',
+      text: 'B'
+    })
+    expect(repeatedText.heldPatches.get('a:past')?.slice(2)).toEqual([
+      { sequence: 3, part: { type: 'reasoning', text: 'A' } },
+      { sequence: 4, part: { type: 'reasoning', text: 'B' } }
+    ])
+  })
+
+  it('r13 preserves one settled notice per tool across held replays, page resets and prefix arrivals', () => {
+    const event = {
+      type: 'subagent.task' as const,
+      sessionId: 's',
+      messageKey: 'a:old',
+      messageKeySource: 'owner' as const,
+      phase: 'settled' as const,
+      background: true,
+      toolUseId: 'task',
+      status: 'completed' as const,
+      summary: 'first'
+    }
+    const late = recv(load([], false), event)
+    const repeated = recv(late, { ...event, summary: 'duplicate' })
+    expect(repeated.heldPatches).toBe(late.heldPatches)
+    expect(repeated.heldSequence).toBe(1)
+    const other = recv(repeated, { ...event, messageKey: 'a:other', summary: 'second address' })
+    const notice = {
+      type: 'subagent_notice' as const,
+      toolRunId: 'task',
+      status: 'completed' as const,
+      summary: 'stored'
+    }
+    const before = msg('a:old', 'assistant')
+    const after = msg('a:other', 'assistant')
+    const reset = (rows: LoadedMessage[]): ChatState =>
+      chatReducer(other, {
+        type: 'LOAD_SESSION',
+        session: { id: 's', backend: 'claude', agentKind: 'code', title: null, messages: rows },
+        complete: true
+      })
+    expect(reset([before, after]).messages.map(({ parts }) => parts)).toEqual([
+      [{ ...notice, summary: 'first' }],
+      []
+    ])
+    expect(
+      reset([before, { ...after, parts: [notice] }]).messages.map(({ parts }) => parts)
+    ).toEqual([[], [notice]])
+    const visible = recv(repeated, {
+      ...event,
+      messageKey: 'a:visible',
+      messageKeySource: undefined,
+      summary: 'visible'
+    })
+    const prepended = chatReducer(visible, {
+      type: 'PREPEND_HISTORY',
+      messages: [before],
+      reachedStart: true
+    })
+    expect(prepended.messages.map(({ parts }) => parts)).toEqual([
+      [],
+      [{ ...notice, summary: 'visible' }]
+    ])
+  })
+
+  it('r17 distinguishes missing owner references, held replays and loaded tool versus response owners', () => {
+    const tool = msg('a:tool', 'assistant', {
+      type: 'tool_call',
+      toolRunId: 't',
+      toolName: 'Read',
+      args: {}
+    })
+    const response = msg('a:response', 'assistant', {
+      type: 'response_boundary',
+      boundary: { id: 'r', phase: 'begin' }
+    })
+    const state = load([tool, msg('u:middle', 'user'), response], false)
+    const output = {
+      type: 'output.captured' as const,
+      sessionId: 's',
+      artifact: { publicationId: 'p' } as Extract<AppMessagePart, { type: 'artifact' }>['artifact']
+    }
+    expect(recv(state, output)).toBe(state)
+    const both = recv(state, { ...output, toolRunId: 't', responseId: 'r' })
+    expect(both.messages[0].parts.at(-1)).toEqual({ type: 'artifact', artifact: output.artifact })
+    expect(both.messages[2]).toBe(state.messages[2])
+    const onlyResponse = recv(state, { ...output, responseId: 'r' })
+    expect(onlyResponse.messages[0]).toBe(state.messages[0])
+    expect(onlyResponse.messages[2].parts.at(-1)).toEqual({
+      type: 'artifact',
+      artifact: output.artifact
+    })
+    expect(recv(onlyResponse, { ...output, responseId: 'r' })).toBe(onlyResponse)
+    const missing = { ...output, toolRunId: 'absent', responseId: 'r' }
+    const held = recv(state, missing)
+    expect(held.messages).toBe(state.messages)
+    expect([...held.heldOutputs.keys()]).toEqual(['tool:absent'])
+    expect(recv(held, missing)).toBe(held)
+    const complete = load([tool, response], true)
+    expect(recv(complete, missing)).toBe(complete)
+  })
+
+  it('r16 honors the explicit result owner and publishes only successful receipts', () => {
+    const before = load([
+      msg('a:call', 'assistant', {
+        type: 'tool_call',
+        toolRunId: 'tool',
+        toolName: 'Read',
+        args: {}
+      }),
+      msg('a:result', 'assistant')
+    ])
+    const artifact = {
+      publicationId: 'pub',
+      artifactFileId: 'f',
+      title: 'f',
+      filename: 'f',
+      kind: 'text',
+      sizeBytes: 1,
+      publishedAt: 1
+    } as const
+    const base = {
+      type: 'tool.call.completed',
+      sessionId: 's',
+      toolRunId: 'tool',
+      result: 'value',
+      artifact
+    } as const
+    for (const isError of [false, true]) {
+      const explicit = recv(before, { ...base, isError, messageKey: 'a:result' })
+      expect(explicit.messages[0]).toBe(before.messages[0])
+      expect(explicit.messages[1].parts.map((p) => p.type)).toEqual(
+        isError ? ['tool_result'] : ['tool_result', 'artifact']
+      )
+    }
+    const unkeyed = recv(before, { ...base, isError: false })
+    expect(unkeyed.messages[0].parts.at(-1)).toEqual({ type: 'artifact', artifact })
+    expect(unkeyed.messages[1].parts.map((p) => p.type)).toEqual(['tool_result'])
   })
 
   it('r16 keeps an artifact off a user message when a completed tool carries that key', () => {

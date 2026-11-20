@@ -21,6 +21,11 @@ export function rememberMessageEdit(message: Message, prior: Message, partsFrom:
   edits.set(message, { prior: new WeakRef(prior), partsFrom })
 }
 
+export function previousMessageEditOffset(message: Message, previous: Message): number | undefined {
+  const edit = edits.get(message)
+  return edit?.prior.deref() === previous ? edit.partsFrom : undefined
+}
+
 function sameResult(a: Result | undefined, b: Result | undefined): boolean {
   if (a === b) return true
   return (
@@ -83,6 +88,7 @@ export function createSegmentCache(): {
 
   return {
     segmentsFor(message, partsFrom, externalResults) {
+      if (previous === message && previousExternal === externalResults) return views
       if (
         previous &&
         previous.id === message.id &&
@@ -123,7 +129,7 @@ export function createSegmentCache(): {
       }
       const suffix = parts.slice(from)
       suffix.forEach((part, index) => {
-        if (part.type === 'tool_call' && externalResults) changed.add(part.toolRunId)
+        if (part.type === 'tool_call') changed.add(part.toolRunId)
         if (part.type !== 'tool_result') return
         const item = { index: from + index, id: part.toolRunId, result: toolResultFromPart(part) }
         indexed.push(item)

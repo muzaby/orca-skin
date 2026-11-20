@@ -115,12 +115,13 @@ function isClosingFence(rawLine: string, fence: { char: '`' | '~'; length: numbe
 function normalizeFenceCode(rawBody: string, indent: number): string {
   let normalized = rawBody.replace(/\r\n/g, '\n')
   if (indent > 0 && normalized.length > 0) {
+    // CommonMark strips indentation only at the start of the body or after an LF.
     // A tab crossing the fence indentation boundary leaves spaces up to column four.
     if (normalized.includes('\t')) {
-      const partialTab = new RegExp(`^ {0,${indent - 1}}\t`, 'gm')
+      const partialTab = new RegExp(`(?<=^|\\n) {0,${indent - 1}}\t`, 'g')
       normalized = normalized.replace(partialTab, '    ')
     }
-    const prefixRe = new RegExp(`^ {1,${indent}}`, 'gm')
+    const prefixRe = new RegExp(`(?<=^|\\n) {1,${indent}}`, 'g')
     normalized = normalized.replace(prefixRe, '')
   }
   return normalized.replace(/\n$/, '')

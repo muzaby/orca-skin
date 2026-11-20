@@ -245,6 +245,21 @@ function measure(
 
 describe('z9 actual block update costs', () => {
   it.each(['claude-code', 'claude-work', 'opencode'] as const)(
+    '%s resets the full rank and block range after both one and one hundred loaded turns',
+    (screen) => {
+      const short = measure(screen, 1, 'reset')
+      const long = measure(screen, 100, 'reset')
+      for (const cost of [short, long]) {
+        expect(cost.rankWrites).toBe(cost.messagesBefore)
+        expect(cost.partReads).toBeGreaterThanOrEqual(cost.messagesBefore)
+        expect(cost.newBlocks).toBeGreaterThan(0)
+        expect(cost.copiedBlockSlots).toBeGreaterThanOrEqual(cost.blocksAfter)
+      }
+      expect(long.newBlocks).toBeGreaterThan(short.newBlocks)
+      expect(long.partReads).toBeGreaterThan(short.partReads)
+    }
+  )
+  it.each(['claude-code', 'claude-work', 'opencode'] as const)(
     '%s append, replace and remove after one or one hundred loaded turns',
     (screen) => {
       for (const edit of ['append', 'replace', 'remove'] as const) {

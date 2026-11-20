@@ -1,7 +1,12 @@
 import { createElement } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { installFakeDom, type FakeDom } from '../../../../../shared/ui/renderHarness.testfixture'
-import { resetSharedBubbleMeasureCoordinatorForTests } from '../../../lib/bubbleMeasure'
+import {
+  createBubbleMeasureCoordinator,
+  getSharedBubbleMeasureCoordinator,
+  resetSharedBubbleMeasureCoordinatorForTests,
+  useBubbleOverflow
+} from '../../../lib/bubbleMeasure'
 import { UserBubbleText } from './UserBubbleText'
 
 vi.mock('react', async (original) => ({
@@ -72,4 +77,25 @@ it('updates the mounted overflow toggle after content and observed width change 
   expect(toggle()?.getAttribute('aria-expanded')).toBe('false')
   dom.unmount()
   expect(disconnect).toHaveBeenCalledTimes(1)
+})
+
+it('shares a coordinator across hooks and ignores a ref without a mounted bubble', () => {
+  expect(getSharedBubbleMeasureCoordinator()).toBe(getSharedBubbleMeasureCoordinator())
+  const coordinator = createBubbleMeasureCoordinator()
+  const observe = vi.spyOn(coordinator, 'observe').mockImplementation(() => {})
+  const update = vi.spyOn(coordinator, 'update').mockImplementation(() => {})
+  const ref = { current: null }
+  function Probe(): React.JSX.Element {
+    const overflow = useBubbleOverflow(
+      ref,
+      { content: 'detached', scale: 1, bubbleVariant: '' },
+      coordinator
+    )
+    return createElement('span', { 'data-overflow-probe': true }, String(overflow))
+  }
+  dom = installFakeDom({ innerWidth: 600, innerHeight: 400 })
+  dom.render(createElement(Probe))
+  expect(dom.query('[data-overflow-probe]')!.textContent).toBe('false')
+  expect(observe).not.toHaveBeenCalled()
+  expect(update).not.toHaveBeenCalled()
 })

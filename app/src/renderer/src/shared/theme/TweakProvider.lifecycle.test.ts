@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactElement } from 'react'
-import { TweakProvider, createTweakStore, useTweakContext, type Tweaks } from './TweakProvider'
+import {
+  TweakProvider,
+  createTweakStore,
+  useOptionalTweak,
+  useTweakContext,
+  type Tweaks
+} from './TweakProvider'
 
 // 실제 hook의 값·deps·cleanup만 구동한다. React 브라우저 scheduler를 재현하지 않는다.
 const h = vi.hoisted(() => ({
@@ -125,6 +131,22 @@ describe('actual TweakProvider lifecycle and selector connection', () => {
     expect(document.documentElement.lang).toBe('en')
     expect(h.get).toHaveBeenCalledOnce()
     cleanup.forEach((fn) => fn?.())
+  })
+
+  it('selects bubble typography from the mounted provider and defaults before mounting', () => {
+    const useTypography = (): Pick<Tweaks, 'appFont' | 'transcriptTextSize'> => {
+      h.cursor = 0
+      return useOptionalTweak(({ appFont, transcriptTextSize }) => ({
+        appFont,
+        transcriptTextSize
+      }))
+    }
+    expect(useTypography()).toEqual({ appFont: 'sans', transcriptTextSize: 'medium' })
+    const store = createTweakStore()
+    h.context = store
+    store.getState().setTweak('appFont', 'mono')
+    store.getState().setTweak('transcriptTextSize', 'large')
+    expect(useTypography()).toEqual({ appFont: 'mono', transcriptTextSize: 'large' })
   })
 
   it('selects only requested values and retains shallow-equal selections and stable actions', () => {

@@ -75,14 +75,19 @@ export function createBlockList<Block extends BlockKey>(
       blockAt,
       keyAt: (index) => blockAt(index).key,
       indexOf(key) {
-        offsetByChunk ??= new Map(
-          snapshotChunks.map((chunk, index) => [chunk.location, snapshotStarts[index]])
-        )
+        // A cold historical lookup can walk its original slot tables directly.
+        if (snapshotChunks === chunks && !offsetByChunk) {
+          offsetByChunk = new Map(
+            snapshotChunks.map((chunk, index) => [chunk.location, snapshotStarts[index]])
+          )
+        }
         const candidate = latest.get(key)
         if (candidate) {
-          const start = offsetByChunk.get(candidate)
-          const slot = candidate.slots.get(key)
-          if (start !== undefined && slot !== undefined) return start + slot
+          const start = offsetByChunk?.get(candidate)
+          if (start !== undefined) {
+            const slot = candidate.slots.get(key)
+            if (slot !== undefined) return start + slot
+          }
         }
         // An old snapshot can still see a key after the current owner moves or deletes it.
         for (let index = 0; index < snapshotChunks.length; index++) {

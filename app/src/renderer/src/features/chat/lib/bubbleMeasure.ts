@@ -211,7 +211,7 @@ export function createBubbleMeasureCoordinator(
 
     // 2단계: 쓰기 전용 (상태 반영)
     for (const { record, overflowing } of writes) {
-      record.onOverflowChange(overflowing)
+      if (entries.get(record.element) === record) record.onOverflowChange(overflowing)
     }
   }
 

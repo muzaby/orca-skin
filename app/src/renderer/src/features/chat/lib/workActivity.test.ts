@@ -267,3 +267,55 @@ describe('Work response projection', () => {
     expect(reads).toBe(initial)
   })
 })
+
+it('z1/z2 preserves intermediate activity and status rows for an unchanged earlier response', () => {
+  const project = createWorkProjector()
+  const earlier = message(begin('r'), tool, end('r'))
+  const before = project([earlier])!
+  expect(before.map((row) => row.kind)).toEqual(['activity', 'status'])
+  const tail = { ...message(text('one')), id: 'tail' }
+  for (const next of [tail, { ...tail, parts: [text('two')] }]) {
+    const after = project([earlier, next])!
+    expect(after[0]).toBe(before[0])
+    expect(after[1]).toBe(before[1])
+  }
+})
+
+it('z2 resumes before, at, and after the changed response section', () => {
+  let reads = 0
+  let measuring = false
+  const frozen = new Proxy(text('first'), {
+    get(target, key, receiver) {
+      if (measuring) reads++
+      return Reflect.get(target, key, receiver)
+    }
+  })
+  const original = message(
+    begin('a'),
+    frozen,
+    text(' section'),
+    end('a'),
+    begin('b'),
+    text('kept'),
+    text('old'),
+    end('b'),
+    begin('c'),
+    text('old tail'),
+    end('c')
+  )
+  for (const from of [3, 6]) {
+    const project = createWorkProjector(undefined, () => from)
+    const prior = project([original])!
+    const replacement =
+      from === 3
+        ? [text(' boundary removed'), end('a'), begin('d'), text('next'), end('d')]
+        : [text(' changed'), end('b'), begin('c'), text('new tail'), end('c')]
+    const updated = message(...original.parts.slice(0, from), ...replacement)
+    measuring = from === 6
+    const actual = project([updated])!
+    measuring = false
+    expect(reads).toBe(0)
+    expect(actual).toEqual(createWorkProjector()([updated]))
+    if (from === 6) expect(actual[0]).toBe(prior[0])
+  }
+})

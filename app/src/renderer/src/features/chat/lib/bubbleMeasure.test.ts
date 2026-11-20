@@ -35,6 +35,7 @@ interface MeasureTestHarness {
   setLineHeight: (value: string) => void
   getRoCreated: () => number
   getRafCount: () => number
+  queuedFrames: () => number
   getStyleReads: () => number
   resetCounters: () => void
   emitResize: (entries: Array<{ target: HTMLElement; inlineSize: number }>) => void
@@ -103,6 +104,7 @@ function createTestHarness(lineHeight = '20px', fontSize = '14px'): MeasureTestH
     },
     getRoCreated: () => roCreated,
     getRafCount: () => rafCount,
+    queuedFrames: () => rafQueue.size,
     getStyleReads: () => styleReads,
     resetCounters() {
       rafCount = 0
@@ -186,6 +188,38 @@ describe('bubbleMeasure (EP-18 m1~m8)', () => {
     expect(readCounts).toEqual([1, 0, 0])
   })
 
+  it('m2·m3: drops a queued write if an earlier write unmounts and remounts its target', () => {
+    const h = createTestHarness()
+    const one = createFakeBubbleElement(250)
+    const two = createFakeBubbleElement(250)
+    const marks: string[] = []
+    const inputs = { content: 'content', scale: 1, bubbleVariant: 'plain' }
+    h.coordinator.observe(one, inputs, () => {
+      marks.push('first')
+      h.coordinator.unobserve(two)
+      h.coordinator.observe(two, inputs, () => marks.push('remounted'))
+    })
+    h.coordinator.observe(two, inputs, () => marks.push('stale'))
+    h.flushFrame()
+    expect(marks).toEqual(['first'])
+    h.flushFrame()
+    expect(marks).toEqual(['first', 'remounted'])
+  })
+
+  it('m2: unmount cancels a pending frame and late element notifications cannot schedule it again', () => {
+    const h = createTestHarness()
+    const target = createFakeBubbleElement(250)
+    const inputs = { content: 'same', scale: 1, bubbleVariant: 'same' }
+    h.coordinator.observe(target, inputs, () => {})
+    expect(h.queuedFrames()).toBe(1)
+    h.coordinator.unobserve(target)
+    expect(h.queuedFrames()).toBe(0)
+    h.emitResize([{ target, inlineSize: 150 }])
+    h.coordinator.update(target, inputs)
+    expect(h.queuedFrames()).toBe(0)
+    h.coordinator.unobserve(target)
+  })
+
   it('m4·m5: performs 0 DOM reads when all five invalidation inputs match, and re-reads when any changes', () => {
     const h = createTestHarness()
     let reads = 0
@@ -250,6 +284,8 @@ describe('bubbleMeasure (EP-18 m1~m8)', () => {
     expect(measure({ inlineSize: Infinity }, 83)).toBe(4)
     expect(measure(undefined, 83)).toBe(4)
     expect(measure([], 84)).toBe(5)
+    expect(measure(undefined, NaN)).toBe(6)
+    expect(measure(undefined, Infinity)).toBe(6)
   })
 
   it('m1·m3·m7: re-observing a mounted bubble updates its callback and detaching stops font events', () => {
@@ -302,6 +338,38 @@ describe('bubbleMeasure (EP-18 m1~m8)', () => {
     h.coordinator.observe(b3, { content: 'c', scale: 1, bubbleVariant: 'v2' }, () => {})
     h.flushFrame()
     expect(h.getStyleReads()).toBe(1)
+  })
+
+  it('skips the second read if the first element detaches its sibling during the frame', () => {
+    const h = createTestHarness()
+    const inputs = { content: 'one', scale: 1, bubbleVariant: 'same' }
+    const writes: string[] = []
+    let secondReads = 0
+    const second = createFakeBubbleElement(120, () => {
+      secondReads++
+    })
+    const first = createFakeBubbleElement(240, () => h.coordinator.unobserve(second))
+    h.coordinator.observe(first, inputs, () => writes.push('first'))
+    h.coordinator.observe(second, inputs, () => writes.push('second'))
+    h.flushFrame()
+    expect(secondReads).toBe(0)
+    expect(writes).toEqual(['first'])
+    h.coordinator.dispose()
+  })
+
+  it('starts a fresh observer after the final target detaches and handles absent size data', () => {
+    const h = createTestHarness()
+    const target = createFakeBubbleElement(250)
+    const inputs = { content: 'content', scale: 1, bubbleVariant: 'base' }
+    h.coordinator.observe(target, inputs, () => {})
+    h.flushFrame()
+    h.emitEntries([{ target }])
+    expect(h.queuedFrames()).toBe(0)
+    h.coordinator.unobserve(target)
+    h.coordinator.observe(target, inputs, () => {})
+    expect(h.getRoCreated()).toBe(2)
+    h.flushFrame()
+    h.coordinator.dispose()
   })
 
   it('m7 remeasures after the last bubble unmounts and a font loads while the timeline is empty', () => {
