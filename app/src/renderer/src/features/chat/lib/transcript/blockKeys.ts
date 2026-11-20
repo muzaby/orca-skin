@@ -281,7 +281,12 @@ export interface MultiPartGroupRef {
 export function representativePart(
   prevGroups: readonly MultiPartGroupRef[],
   partKeys: readonly string[]
-): { repPartKey: string; retainedGroupKey?: string; inheritedFromKey?: string; droppedGroupKeys: string[] } {
+): {
+  repPartKey: string
+  retainedGroupKey?: string
+  inheritedFromKey?: string
+  droppedGroupKeys: string[]
+} {
   if (partKeys.length === 0) {
     throw new Error('representativePart requires at least one part key')
   }

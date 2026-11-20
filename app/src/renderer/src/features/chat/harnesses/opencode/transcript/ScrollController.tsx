@@ -210,7 +210,7 @@ export function OpenCodeScrollController({
       document.removeEventListener('pointercancel', up)
       document.removeEventListener('selectionchange', selection)
     }
-  }, [capture, state, writeTop])
+  }, [capture, sessionKey, state, writeTop])
   const isPinned = useCallback(() => state.pinned, [state])
   const scroll: TimelineScroll = {
     scrollRef,

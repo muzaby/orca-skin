@@ -1,4 +1,5 @@
 import React from "react";
+import { probeCopyReflow } from "./copy-reflow";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { TranscriptView } from "/src/renderer/src/features/chat/components/transcript/TranscriptView";
@@ -242,4 +243,5 @@ const tokens = document.querySelector('.shiki code');
 const marked = key => Array.from(tokens?.querySelectorAll('[data-part-key="' + key + '"]') ?? [], span => span.textContent).join('');
 if (marked('left') !== 'const split' || marked('right') !== 'Token = 1') throw new Error('Highlighted part boundaries: ' + tokens?.outerHTML);
 flushSync(() => highlighted.unmount());
+await probeCopyReflow();
 await fetch("/result", { method: "POST", body: JSON.stringify(results) });
