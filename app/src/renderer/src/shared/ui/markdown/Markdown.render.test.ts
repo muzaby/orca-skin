@@ -4,6 +4,9 @@ import { expect, it, vi } from 'vitest'
 import ReactMarkdown from 'react-markdown'
 import { Markdown } from './Markdown'
 
+// Load Markdown against this suite's parser spy even when a setup import has already loaded it.
+vi.hoisted(() => vi.resetModules())
+
 vi.mock('react-markdown', async (original) => {
   const module = await original<typeof import('react-markdown')>()
   return { ...module, default: vi.fn(module.default) }
