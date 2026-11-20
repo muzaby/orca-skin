@@ -2625,3 +2625,24 @@ python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0326-transc
 - Chromium에 앱 스타일을 적용하고 각 화면에서 실제 Range·Selection·Blob·ClipboardItem을 사용했다. 비가상 화면의 선택과 비교하니 고정 개행 결합은 문단 뒤 개행을 하나 잃었고, 빈 블록 조각에서는 개행이 하나 늘었다. 조각 경계의 렌더된 개행 수를 측정하고 빈 중간 조각을 건너뛴 뒤, 1·2·3·7블록씩 분할한 양방향 선택 12건에서 평문·HTML 본문·원래 선택 양끝이 일치했다. clipboard.write 수신부만 모사했다.
 - Linux 전체 Vitest를 필터 없이 실행한 결과 1,081파일 10,158건 중 10,124건 통과, 실패 22건, 예상 실패 1건, 건너뜀 11건, 미처리 오류 1건이다. 실패한 테스트 이름은 기준선과 양방향 차집합 0건이다. 이후 수정한 Markdown·복사 경로는 해당 테스트와 Chromium에서 다시 실행했다.
 - 이 표의 분모는 §7-A 39개 pair다. 복합 경로의 모든 개별 edge 및 §10 166자리 안의 조건·형제 교환 전수 판정은 계속 열어 둔다. 구현자 AC 자기 판정은 12/35, 독립 verify는 대기다.
+
+### D4 후속 검증 — 메시지 번호의 전송과 저장
+
+§10 규칙 표에서 범위 표기 d1~d5와 x1~x9를 풀면 기호는 22계열 268개다. §10 강제 지점 166개, §7-A 경로 39개와는 분모가 다르다. 아래 표는 SQLite writer의 w1~w16에 연결한 실행 기록이다. 한 기호 안에 여러 조건이 있고 하나의 변이가 여러 조건을 건드릴 수 있어 전역 완료율로 환산하지 않았다.
+
+| 규칙 | 관측한 동작 | 검출한 변이 ID |
+|---|---|---|
+| w1·w2 | 번호 없는 기존 행과 새 번호 두 행의 순서, 마감, 본문 캐시 | E2-writer-w1-unkeyed, E2-writer-w2-finalize |
+| w3·w4 | 뒤늦은 도구 결과의 원 소유 행, 이벤트 8종의 part, 응답 시작·끝의 귀속 | M06-w3, E2-route-* |
+| w5·w6 | 같은 사용자 번호 재커밋의 쓰기 0회와 현재 행 유지, assistant 이벤트가 user 번호를 쓰면 거부 | M06-w5-finalize, E2-writer-w5-content/-complete/-preview, E2-writer-w6-role |
+| w7·w8 | 두 질문 답을 각 행에 기록, 0035 DB 업그레이드 뒤 null·빈 문자열·대소문자·세션별 유일성 및 부분 색인 구성 | E2-receiver-missing-key/-swapped, E2-index-* |
+| w9·w10·w11 | 재커밋 role·text·첨부·요구·origin·part 수 충돌 거부 및 쓰기 0회 | M06-w9/-w10/-w11, E2-writer-w11-count/-origin |
+| w12 | 최초 native 바인딩 저장, 같은 값 재커밋 쓰기 0회, 다른 값 재커밋 거부 | E2-writer-w12-store/-identical/-different |
+| w13·w14·w15 | 재송출의 in-place UPDATE, 다른 세션 보존, 같은 세션의 옛 결과 행 갱신 | E2-w13-always-append/-never-append, M06-w14/-w15 |
+| w16 | 새 커밋과 재커밋 id·created 구별, 재커밋 뒤 error의 현재 행 | M06-w16-true/-false, E2-receiver-created/-recommit/-id |
+
+- IPC·피어 계약의 필수성·값 범위 변이 48건은 대상 TypeScript 테스트 파일에 실제 컴파일 진단이 생겼을 때만 검출로 기록했다.
+- 수신기 10건, 산출물 확인·큐 6건, 마이그레이션 7건, writer 11건, upsert 2건, ST-01 창 이벤트 3건을 실행했다. 수신기에서 일반 이벤트의 키를 버리는 변이는 최초 검사를 통과했다. 질문 답이 같은 번호의 행을 나중에 만들 수 있어서, 이벤트 직후 해당 행의 번호·역할을 대조하도록 검사 시점을 옮긴 뒤 검출했다.
+- ST-01은 중계 시점의 이벤트를 복제해 16개 전체를 renderer 테스트와 공유하는 창 입력과 비교한다. 실제 산출물 확인은 별도의 피어 루프백·SQLite 테스트에서 확인된 게시물 번호와 파일명, 원래 메시지에 기록된 artifact part, 다음 창 이벤트의 순서를 확인했다.
+- 이번 87건과 앞선 487건의 누적은 574회다. [변이 사양·명령·관측](evidence/r3.2-persistence.jsonl)에 Linux에서 실행한 각 명령을 남겼다. 원복본에서 저장 관련 5파일 55개 테스트가 통과했고, ST-01 단언을 강화한 뒤 해당 테스트를 재실행했다. 제품 빌드의 두 호스트 smoke도 통과했다.
+- 구현자 판정은 12/35다. D4의 전역 하위 조건·형제 교환·경로 전수 대조, 독립 verify, 이후 Windows 실기가 남았다.

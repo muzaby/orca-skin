@@ -819,6 +819,13 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
         message: { text: 'B text' },
         messageKey: 'a:B'
       })
+      expect(
+        connection.prepare('SELECT message_key, complete, content FROM messages ORDER BY idx').all()
+      ).toEqual([
+        { message_key: null, complete: 1, content: 'unkeyed' },
+        { message_key: 'a:A', complete: 1, content: '' },
+        { message_key: 'a:B', complete: 0, content: '' }
+      ])
       const rowB = t.currentAssistantMessageId
       // w3: late A tool result attaches to A row; row count unchanged; current row stays B
       writer.persist(t, {
@@ -996,6 +1003,8 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
         messageKey: 'a:work'
       })
       const activeId = t.currentAssistantMessageId
+      const writes = connection.prepare('SELECT total_changes() AS count')
+      const beforeRecommit = writes.get()
       // w5: identical recommit returns created: false without finalizing current assistant row
       const recommit = writer.commitUserMessage(t, {
         text: 'hello',
@@ -1043,6 +1052,18 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
         })
       ).toThrow()
 
+      expect(() =>
+        writer.commitUserMessage(t, {
+          text: 'hello',
+          createdAt: 3,
+          messageKey: 'u:same',
+          attachmentViews: att1,
+          requirements: req1,
+          origin: { kind: 'scheduled' }
+        })
+      ).toThrow()
+      expect(writes.get()).toEqual(beforeRecommit)
+
       // w12: adding native binding on recommit succeeds; conflicting native binding throws
       const bound = writer.commitUserMessage(t, {
         text: 'hello',
@@ -1053,6 +1074,19 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
         nativeMessageId: 'nat-u1'
       })
       expect(bound).toEqual({ id: u1!.id, created: false })
+      const afterBinding = writes.get()
+      expect(
+        writer.commitUserMessage(t, {
+          text: 'hello',
+          createdAt: 5,
+          messageKey: 'u:same',
+          attachmentViews: att1,
+          requirements: req1,
+          nativeMessageId: 'nat-u1'
+        })
+      ).toEqual(bound)
+      expect(writes.get()).toEqual(afterBinding)
+
       expect(() =>
         writer.commitUserMessage(t, {
           text: 'hello',
@@ -1063,6 +1097,12 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
           nativeMessageId: 'nat-other'
         })
       ).toThrow()
+      expect(writes.get()).toEqual(afterBinding)
+      const plain = { text: 'plain', createdAt: 6, messageKey: 'u:plain' }
+      writer.commitUserMessage(t, plain)
+      const beforeConflict = writes.get()
+      expect(() => writer.commitUserMessage(t, { ...plain, attachmentViews: att1 })).toThrow()
+      expect(writes.get()).toEqual(beforeConflict)
     } finally {
       connection.close()
     }

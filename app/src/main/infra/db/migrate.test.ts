@@ -600,6 +600,21 @@ it('w8 upgrades a 0035 database and enforces only non-null keys within each sess
     append.run('a', 2, 'a:shared')
     append.run('b', 0, 'a:shared')
     expect(() => append.run('a', 3, 'a:shared')).toThrow(/UNIQUE/)
+    append.run('a', 3, '')
+    expect(() => append.run('a', 4, '')).toThrow(/UNIQUE/)
+    append.run('a', 4, 'A:shared')
+    const indexes = db.prepare("PRAGMA index_list('messages')").all()
+    expect(indexes).toContainEqual(
+      expect.objectContaining({
+        name: 'idx_messages_session_key',
+        unique: 1,
+        partial: 1
+      })
+    )
+    expect(db.prepare("PRAGMA index_info('idx_messages_session_key')").all()).toEqual([
+      expect.objectContaining({ seqno: 0, name: 'session_id' }),
+      expect.objectContaining({ seqno: 1, name: 'message_key' })
+    ])
   } finally {
     db.close()
   }

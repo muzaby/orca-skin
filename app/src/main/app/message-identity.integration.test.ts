@@ -11,6 +11,7 @@ import {
   ST01_SESSION_ID,
   ST01_USER_INITIAL_ID,
   ST01_USER_STEER_ID,
+  ST01_WINDOW_EVENTS,
   summarizeMessage
 } from '../../shared/message-identity.testfixture'
 import type { ClientRef } from '../contracts/client'
@@ -60,7 +61,7 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
     const stream = createPersistenceStream({
       db,
       send: (_owner, ev) => {
-        windowEvents.push(ev)
+        windowEvents.push(structuredClone(ev))
       },
       failTurn: (_turn, message) => {
         failures.push(message)
@@ -224,27 +225,7 @@ describe('VP-02 ST-01 message-identity integration (main)', () => {
     await stream.settle()
     expect(failures).toEqual([])
 
-    // Verify window arrival order (D-098): steer commit is AFTER queued A events (Y result, Q start, Q answer) and BEFORE B text
-    const idxYResult = windowEvents.findIndex(
-      (e) => e.type === 'tool.call.completed' && e.toolRunId === 'tool-y'
-    )
-    const idxQStart = windowEvents.findIndex(
-      (e) => e.type === 'tool.call.started' && e.toolRunId === 'tool-q'
-    )
-    const idxQAnswer = windowEvents.findIndex(
-      (e) => e.type === 'tool.call.completed' && e.toolRunId === 'tool-q'
-    )
-    const idxSteerCommit = windowEvents.findIndex(
-      (e) => e.type === 'message.committed' && e.messageKey === ST01_USER_STEER_ID
-    )
-    const idxBText = windowEvents.findIndex(
-      (e) => e.type === 'message.completed' && e.message.text === 'assistant B text'
-    )
-    expect(idxYResult).toBeGreaterThan(-1)
-    expect(idxQStart).toBeGreaterThan(idxYResult)
-    expect(idxQAnswer).toBeGreaterThan(idxQStart)
-    expect(idxSteerCommit).toBeGreaterThan(idxQAnswer)
-    expect(idxBText).toBeGreaterThan(idxSteerCommit)
+    expect(windowEvents).toEqual(ST01_WINDOW_EVENTS)
 
     // Reload from SQLite DB via reader and compare against shared expected literal
     const loaded = loadSession(db, ST01_SESSION_ID, () => '/tmp')

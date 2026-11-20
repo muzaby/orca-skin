@@ -312,6 +312,127 @@ afterEach(() => {
 })
 
 describe('턴 저장 스트림의 받는 끝', () => {
+  it('수신기가 재커밋 결과와 서로 다른 응답에 속한 질문 답의 번호를 보존한다', () => {
+    const { db, raw } = openDb()
+    db.insertSession({
+      id: S,
+      backend: 'claude',
+      title: '',
+      projectId: null,
+      createdAt: 1,
+      agentKind: 'code'
+    })
+    const failures = vi.fn()
+    const receiver = createPersistenceReceiver({
+      db,
+      notifyAgent: failures,
+      usage: () => undefined
+    })
+    const turnKey = 'turn-1'
+    receiver.notify('turn.begin', {
+      turnKey,
+      backend: 'claude',
+      fields: { dbSessionId: S, agentKind: 'code' }
+    })
+    const event = (messageKey: string): void =>
+      receiver.notify('turn.event', { turnKey, ev: { ...text(messageKey), messageKey } })
+    event('a:first')
+    expect(db.findMessageByKey(S, 'a:first')?.role).toBe('assistant')
+    const commit = { turnKey, batch: { text: 'steer', messageKey: 'u:steer', createdAt: 2 } }
+    const first = receiver.request('turn.commitUser', commit)
+    const row = db.findMessageByKey(S, 'u:steer')
+    expect(row).toBeDefined()
+    expect(first).toEqual({ id: row!.id, created: true })
+    event('a:second')
+    expect(db.findMessageByKey(S, 'a:second')?.role).toBe('assistant')
+    expect(receiver.request('turn.commitUser', commit)).toEqual({ id: row!.id, created: false })
+    receiver.notify('turn.askAnswers', {
+      turnKey,
+      answers: [
+        { toolUseId: 'q1', output: 'one', messageKey: 'a:first' },
+        { toolUseId: 'q2', output: 'two', messageKey: 'a:second' }
+      ]
+    })
+    receiver.notify('turn.end', { turnKey })
+    expect(failures).not.toHaveBeenCalled()
+    expect(
+      raw
+        .prepare(
+          `
+      SELECT m.message_key, p.tool_run_id, json_extract(p.payload_json, '$.result') AS answer
+      FROM messages m JOIN message_parts p ON p.message_id = m.id
+      WHERE p.type = 'tool_result' ORDER BY p.tool_run_id
+    `
+        )
+        .all()
+    ).toEqual([
+      { message_key: 'a:first', tool_run_id: 'q1', answer: 'one' },
+      { message_key: 'a:second', tool_run_id: 'q2', answer: 'two' }
+    ])
+    expect(
+      raw
+        .prepare('SELECT complete FROM messages WHERE session_id = ? AND message_key = ?')
+        .get(S, 'a:second')
+    ).toEqual({ complete: 1 })
+  })
+
+  it('산출물 확인 응답이 원래 메시지 번호로 창에 도착하고 다음 이벤트가 그 뒤에 온다', async () => {
+    const { db } = openDb()
+    const connection = stream(db, noUsage)
+    try {
+      const driver = connection.drive()
+      driver.event(session())
+      await driver.settle()
+      db.artifacts.createPublication({
+        publicationId: 'pub-1',
+        artifactFileId: 'file-1',
+        sessionId: S,
+        relativePath: 'file-1/report.md',
+        filename: 'report.md',
+        title: 'report',
+        kind: 'markdown',
+        sizeBytes: 8,
+        hash: 'hash',
+        inputSource: 'report.md',
+        publishedAt: 1
+      })
+      driver.event(started('publisher', 'mcp__orcinus_orca_artifacts__publish_artifact'))
+      const original = connection.sent.at(-1)?.[1]
+      expect(original).toMatchObject({ type: 'tool.call.started', messageKey: expect.any(String) })
+      const key = original?.type === 'tool.call.started' ? original.messageKey : undefined
+      await driver.commit('steer')
+      driver.event(text('next'))
+      const receipt = JSON.stringify({
+        type: 'orcinus-orca.artifact.published',
+        version: 1,
+        publicationId: 'pub-1'
+      })
+      driver.event(completed('publisher', receipt))
+      driver.event(text('after receipt'))
+      await driver.settle()
+      expect(connection.failTurn).not.toHaveBeenCalled()
+      expect(connection.sent.slice(-2).map(([, ev]) => ev)).toEqual([
+        expect.objectContaining({
+          type: 'tool.call.completed',
+          messageKey: key,
+          messageKeySource: 'owner',
+          artifact: expect.objectContaining({ publicationId: 'pub-1', filename: 'report.md' })
+        }),
+        expect.objectContaining({ type: 'message.completed', message: { text: 'after receipt' } })
+      ])
+      const owner = db.findMessageByKey(S, key!)
+      expect(owner).toBeDefined()
+      expect(
+        db
+          .loadParts(S)
+          .filter((p) => p.type === 'artifact')
+          .map((p) => p.message_id)
+      ).toEqual([owner!.id])
+    } finally {
+      connection.close()
+    }
+  })
+
   it.each(Object.keys(COLUMNS))(
     'AC39 — %s 열을 스트림으로 저장한 DB 는 한 프로세스 경로로 저장한 DB 와 같다',
     async (name) => {
