@@ -831,8 +831,16 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       expect(() => writer.commitUserMessage(turn, first)).not.toThrow()
       expect(writer.commitUserMessage(turn, first)).toEqual({ id: a.id, created: false })
       const b = writer.commitUserMessage(turn, { text: 'plain', messageKey: 'u:B', createdAt: 2 })!
-      writer.commitUserMessage(turn, { text: 'plain', messageKey: 'u:B', createdAt: 3, nativeMessageId: 'n-B' })
-      expect(bind.mock.calls).toEqual([[a.id, 'n-A'], [b.id, 'n-B']])
+      writer.commitUserMessage(turn, {
+        text: 'plain',
+        messageKey: 'u:B',
+        createdAt: 3,
+        nativeMessageId: 'n-B'
+      })
+      expect(bind.mock.calls).toEqual([
+        [a.id, 'n-A'],
+        [b.id, 'n-B']
+      ])
       expect(recover.mock.calls).toEqual([['s1', 'n-A']])
     } finally {
       connection.close()
@@ -843,18 +851,38 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
     const { connection, db, writer, makeTurn } = setupDb()
     try {
       const turn = makeTurn()
-      const send = (text: string, fields: Partial<Extract<NormalizedEvent, { type: 'message.completed' }>> = {}) =>
-        writer.persist(turn, { type: 'message.completed', sessionId: 's1', message: { text }, ...fields })
+      const send = (
+        text: string,
+        fields: Partial<Extract<NormalizedEvent, { type: 'message.completed' }>> = {}
+      ) =>
+        writer.persist(turn, {
+          type: 'message.completed',
+          sessionId: 's1',
+          message: { text },
+          ...fields
+        })
       send('A', { messageKey: 'a:A', nativeMessageId: 'native-A' })
       const a = turn.currentAssistantMessageId!
       send('B', { messageKey: 'a:B', nativeMessageId: 'native-B' })
       const b = turn.currentAssistantMessageId!
-      expect(() => send('+late', { messageKey: 'a:A', nativeMessageId: 'native-late' })).not.toThrow()
+      expect(() =>
+        send('+late', { messageKey: 'a:A', nativeMessageId: 'native-late' })
+      ).not.toThrow()
       send('child', { messageKey: 'a:A', nativeMessageId: 'native-child', parentToolRunId: 'task' })
-      writer.persist(turn, { type: 'message.reasoning', text: 'separate session', sessionId: 's2',
-        messageKey: 'a:A', nativeMessageId: 'native-foreign' })
-      writer.persist(turn, { type: 'message.reasoning', text: 'no native id', sessionId: 's1',
-        messageKey: 'a:A', nativeMessageId: '' })
+      writer.persist(turn, {
+        type: 'message.reasoning',
+        text: 'separate session',
+        sessionId: 's2',
+        messageKey: 'a:A',
+        nativeMessageId: 'native-foreign'
+      })
+      writer.persist(turn, {
+        type: 'message.reasoning',
+        text: 'no native id',
+        sessionId: 's1',
+        messageKey: 'a:A',
+        nativeMessageId: ''
+      })
       const lookup = vi.spyOn(db, 'findMessageByKey')
       send('+same', { messageKey: 'a:B' })
       expect(() => send('+legacy')).not.toThrow()
@@ -865,9 +893,33 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       expect(db.getSessionById('s1')?.last_message_preview).toBe('+legacy')
       expect(db.nativeHistory.messageBindings(a)).toEqual(['native-A', 'native-late'])
       expect(db.nativeHistory.messageBindings(b)).toEqual(['native-B'])
-      expect(connection.prepare('SELECT content, complete FROM messages ORDER BY idx').all()).toEqual([
-        { content: 'A+late', complete: 1 }, { content: '', complete: 0 }
+      expect(
+        connection.prepare('SELECT content, complete FROM messages ORDER BY idx').all()
+      ).toEqual([
+        { content: 'A+late', complete: 1 },
+        { content: '', complete: 0 }
       ])
+    } finally {
+      connection.close()
+    }
+  })
+
+  it('uses the current native binding fallback only when a direct writer event has an addressable row', () => {
+    const { connection, db, writer, makeTurn } = setupDb()
+    try {
+      const turn = makeTurn()
+      const bind = vi.spyOn(db.nativeHistory, 'bind')
+      const nativeEcho: NormalizedEvent = {
+        type: 'input.echo',
+        sessionId: 's1',
+        text: 'echo',
+        nativeMessageId: 'native-echo'
+      }
+      expect(() => writer.persist(turn, nativeEcho)).not.toThrow()
+      expect(bind).not.toHaveBeenCalled()
+      writer.persist(turn, { type: 'message.reasoning', sessionId: 's1', text: 'active' })
+      writer.persist(turn, nativeEcho)
+      expect(bind.mock.calls).toEqual([[turn.currentAssistantMessageId, 'native-echo']])
     } finally {
       connection.close()
     }
@@ -879,9 +931,15 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       const turn = makeTurn()
       const detached = makeTurn()
       detached.dbSessionId = null
-      const answer = (id: string, messageKey?: string) => ({ toolUseId: id, output: id, messageKey })
+      const answer = (id: string, messageKey?: string) => ({
+        toolUseId: id,
+        output: id,
+        messageKey
+      })
       const insert = vi.spyOn(db, 'upsertToolResultPartInSession')
-      expect(() => writer.recordAskAnswers(detached, [answer('missing-session', 'a:A')])).not.toThrow()
+      expect(() =>
+        writer.recordAskAnswers(detached, [answer('missing-session', 'a:A')])
+      ).not.toThrow()
       writer.recordAskAnswers(turn, [answer('missing-owner')])
       expect(insert).not.toHaveBeenCalled()
       writer.recordAskAnswers(turn, [answer('first', 'a:A'), answer('legacy')])
@@ -892,7 +950,10 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
       expect(b).not.toBe(a)
       expect(turn.currentAssistantMessageId).toBe(b)
       expect(insert.mock.calls.map(([session, owner, tool]) => [session, owner, tool])).toEqual([
-        ['s1', a, 'first'], ['s1', a, 'legacy'], ['s1', b, 'new'], ['s1', a, 'late']
+        ['s1', a, 'first'],
+        ['s1', a, 'legacy'],
+        ['s1', b, 'new'],
+        ['s1', a, 'late']
       ])
     } finally {
       connection.close()
@@ -903,21 +964,39 @@ describe('VP-06 HistoryWriter message_key & session-scoped upsert (w1~w7, w9~w15
     const { connection, db, writer, makeTurn } = setupDb()
     try {
       const turn = makeTurn()
-      writer.persist(turn, { type: 'response.boundary', sessionId: 's1', messageKey: 'a:A',
-        boundary: { phase: 'begin', id: 'original' } })
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        messageKey: 'a:A',
+        boundary: { phase: 'begin', id: 'original' }
+      })
       const original = turn.currentAssistantMessageId!
-      writer.persist(turn, { type: 'response.boundary', sessionId: 's1', messageKey: 'a:B',
-        boundary: { phase: 'end', id: 'other', outcome: 'ended' } })
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        messageKey: 'a:B',
+        boundary: { phase: 'end', id: 'other', outcome: 'ended' }
+      })
       const b = turn.currentAssistantMessageId!
       expect(b).not.toBe(original)
       expect(turn.responseBoundary?.id).toBe('original')
-      writer.persist(turn, { type: 'response.boundary', sessionId: 's1',
-        boundary: { phase: 'end', id: 'missing', outcome: 'ended' } })
-      writer.persist(turn, { type: 'response.boundary', sessionId: 's1',
-        boundary: { phase: 'end', id: 'original', outcome: 'ended' } })
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'end', id: 'missing', outcome: 'ended' }
+      })
+      writer.persist(turn, {
+        type: 'response.boundary',
+        sessionId: 's1',
+        boundary: { phase: 'end', id: 'original', outcome: 'ended' }
+      })
       expect(turn.responseBoundary).toBeUndefined()
-      expect(db.loadParts('s1').map((row) => [row.message_id, JSON.parse(row.payload_json).boundary.id])).toEqual([
-        [original, 'original'], [b, 'other'], [b, 'original']
+      expect(
+        db.loadParts('s1').map((row) => [row.message_id, JSON.parse(row.payload_json).boundary.id])
+      ).toEqual([
+        [original, 'original'],
+        [b, 'other'],
+        [b, 'original']
       ])
     } finally {
       connection.close()

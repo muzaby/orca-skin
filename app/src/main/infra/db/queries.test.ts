@@ -33,6 +33,15 @@ it('keeps non-null message keys unique within each session and loads each stored
     const second = insert('b', 'u:1')
     expect(q.findMessageByKey('a', 'u:1')?.id).toBe(first)
     expect(q.findMessageByKey('b', 'u:1')?.id).toBe(second)
+    const assistant = q.appendMessage({
+      sessionId: 'a',
+      messageKey: 'a:reply',
+      role: 'assistant',
+      content: 'reply',
+      createdAt: 2
+    })
+    expect(q.findMessageByKey('a', 'a:reply')).toEqual({ id: assistant, role: 'assistant' })
+    expect(q.findMessageByKey('b', 'a:reply')).toBeUndefined()
     expect(insert('a')).not.toBe(insert('a'))
     expect(db.prepare("PRAGMA index_list('messages')").all()).toContainEqual(
       expect.objectContaining({ name: 'idx_messages_session_key', unique: 1, partial: 1 })
