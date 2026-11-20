@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**DRAFT.** Claude Work의 **작업 → 진행 상황**은 해당 세션이 처리한 모든 정규 작업의 상태를 반영한다. 본문에 최신 한 턴만 떠 있어도 이전 턴에서 만든 작업과 완료 상태가 보인다. 상단 검색에서 일치 메시지로 직접 이동하는 방안은 타당성 검토 단계다.
+**DRAFT.** Claude Work의 **작업 → 진행 상황**은 세션 전체의 정규 작업을 보여 준다. 상단 검색에서 결과를 누르면 단계 E의 턴 색인으로 해당 메시지 주변을 열고 화면에 보인 행을 잠시 강조한다. 물리 한도를 넘는 한 턴의 이어 읽기(D-009)와 다른 우측 패널의 이력 범위(D-012)는 미결이다.
 
 ## 메타
 
@@ -8,7 +8,7 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) · 2026-11-20 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) |
-| 상태 / V | plan/DRAFT · Baseline V · 기준 V 없음 · 이번/유효 V1 rev 3 초안 |
+| 상태 / V | plan/DRAFT · Baseline V · 기준 V 없음 · 이번/유효 V1 rev 4 초안 |
 | 조사 기준 | `ccr-d0337fe8-4bexw8`의 `62125eaa` · 0326 verify r2 FAIL · 0327 plan READY |
 | 착수 | 계획은 0327 구현 전에 작성한다. 구현 직전 0326 최종 소비 계약·검증 좌표를 §10과 대조한다. 0327 워커 구현은 E의 조회 선행 조건이 아니다. |
 
@@ -26,6 +26,7 @@
 | 0325 T01·D-022·D-023 | 최신 페이지·이전 커서·거대 본문 별도 인출·첫 페이지 준비 후 원자 교체. 미로딩 소비자의 동작은 결정 대상으로 인계. |
 | 0326 D-044·048·057·058·065·069·083·093, §6-E | “최신 한 턴 → 하단 배치 → 이전 한 턴 앞삽입”. 짧은 턴도 위 방향 입력으로 조회. B가 메시지 ID·안정 블록·보류 이벤트·앵커를 소유한다. |
 | 이번 후속 결정 | Work **진행 상황**은 처리한 모든 작업을 세션별로 등록한다. 상단 **검색**은 찾은 메시지까지 이동할 수 있는지와 그 비용을 조사한다. |
+| 검색안 확정 | 비용과 방식 비교 후 사용자가 “제안내용을 반영하라”고 승인했다. E의 세션·턴 색인과 제한 조회를 사용해 대상 메시지로 이동하고 행을 잠시 강조한다. |
 | 설계 제안 | 논리 턴과 물리 전송 한도를 구분한다. 구버전 이력의 색인 구축 비용은 §14에서 별도로 계수한다. |
 
 ## 3. Decision Ledger
@@ -39,17 +40,21 @@
 | D-005 | SUPERSEDED | rev 1~2의 미결정 묶음. Work 진행 상황은 D-010, 검색 검토는 D-011, 나머지 패널은 D-012로 분리했다. | AC6·7·10 |
 | D-006 | ACTIVE | 데이터 호스트가 세션·세대에 결합한 keyset 커서를 발급한다. 창 요청 번호와 출처 세대를 별개로 대조한다. 0326 §6-E의 구현 설계. | AC2~5·9 |
 | D-007 | ACTIVE | 저장형·페이지 wire 형상은 §10 설계안이다. 거대 본문과 메시지가 많은 단일 턴은 서로 다른 경계로 계수한다. T01·D-022의 상한을 검증한다. | AC1·2·9 |
-| D-008 | ACTIVE | 분기 초안·핸드오프 가용성은 부분 목록 때문에 바뀌지 않는다. 검색을 통해 세션만 여는 현재 경로에도 0326 D-057·074의 일반 진입 규칙을 적용한다. | AC6~8 |
+| D-008 | SUPERSEDED | rev 1~3에서 분기·인계 가용성 및 검색의 일반 진입 규칙을 묶었다. 분기·인계와 일반 열기 보존은 D-014, 명시적 검색 선택은 D-013으로 이관한다. | AC6~8 |
 | D-009 | OPEN | 한 논리 턴이 물리 한도를 넘을 때 현재 턴의 나머지를 버튼으로 읽는 안(추천)과 첫 표시 후 같은 턴 안에서만 유휴 시간에 채우는 안 중 사용자 선택. 보통 한 턴을 읽는 동작과 이전 턴 자동 연쇄 금지는 두 안 공통. | AC2·3 |
 | D-010 | ACTIVE | 사용자가 Claude Work **진행 상황**에 해당 세션이 처리한 작업 전부를 등록하도록 확정했다. 메시지 페이지 범위와 독립된 세션별 작업 목록이 필요하다. 현재 작업 도구 계약의 완료·제거 규칙은 §5에 명시한다. | AC7·10 |
-| D-011 | ACTIVE | 상단 검색에서 일치 메시지로 이동하는 방법·비용을 검토한다는 사용자 요청. 구현 범위는 현행 검색의 세션 열기 보존까지다. 신규 이동 방식 채택은 별도 선택으로 남는다. | AC6 · §5·8·17 타당성 검토 |
+| D-011 | SUPERSEDED | rev 3의 상단 검색 타당성 검토를 마치고 사용자가 색인 기반 검색 이동을 채택했다. 기존 일반 열기는 D-014에서 보존한다. | D-013·014 |
 | D-012 | OPEN | 0325 D-023 중 Work 진행 상황 이외 우측 패널(계획·자식 작업·OpenCode 개요 등)이 미로딩 항목을 전체 요약할지, 읽은 범위를 표시할지 사용자 결정이 필요하다. | AC7 · Q7 |
+| D-013 | ACTIVE | 상단 검색 결과의 세션·안정 메시지 위치를 data가 확인하고, E 색인의 제한 조회로 그 행을 열어 잠시 강조한다. 상세 문자열 강조는 범위 밖이다. 사용자 “제안내용을 반영하라”. | AC6·10 · EP6 · Q6 · S-E5 |
+| D-014 | ACTIVE | 기존 최근 대화·프로젝트·일반 URL 열기, 분기 초안·세션 인계 가능 조건은 D-008과 0326 D-057·074대로 유지한다. 고유한 검색 의도만 직접 이동한다. | AC1·4·6~8 |
 
 갱신 메모 — V1 초안. D-001~004·006~008은 각 행의 AC와 대조했다. 부모 0325 D-023의 상단 제스처·스피너·재시도는 0326에서 구체화됐고, 소비자 범위 결정은 남아 있다.
 
 rev 2에서는 현재 구현된 왼쪽 **최근 대화**와 Claude Work의 **작업 → 진행 상황**을 §5에 표시했다. 메시지 위치로 바로 이동하는 검색은 사용자 선택으로 남는다.
 
 rev 3에서 D-005를 대체했다. Work 전체 세션의 작업(D-010 ↔ AC7)과 기존 검색 진입 보존(D-011 ↔ AC6)을 분리했다. 새 검색 위치 이동을 전제로 한 rev 2의 EP6·Q6·S-E5는 현행 경로 회귀로 좁혔다.
+
+rev 4에서 D-013 ↔ AC6·10, D-014 ↔ AC1·4·6~8로 대조했다. 결과 식별·클릭·가상 목록·복귀/오류와 해당 V·Q6을 갱신했다. D-010의 Work 전체 세션 작업과 D-009·012의 미결 범위는 그대로 추적한다.
 
 ## 4. 현재 요구 검토
 
@@ -62,16 +67,17 @@ rev 3에서 D-005를 대체했다. Work 전체 세션의 작업(D-010 ↔ AC7)�
 | 실제 조작 | 현재 코드에서 확인한 동작 | 단계 E의 변경 대상 |
 |---|---|---|
 | **최근 대화**의 제목 선택 | 접은 내비게이션에는 세션 목록이 숨겨진다. 펼친 목록의 행은 `onSelect(session.id)`를 호출하고, 앱은 `/chat/<id>`로 이동한 뒤 다른 세션이면 로드한다. | 기존 목록·대화 선택 경로를 사용한다. 선택 뒤 호스트가 읽는 이력과 대화 상단에서 위로 당길 때의 동작을 바꾼다. |
-| 상단 **검색** → **대화 내용 검색…** → 결과 선택 | 발췌문을 찾은 대화로 이동한다. 결과의 메시지 위치는 현재 라우트에 전달하지 않는다. | E는 현재 세션 열기를 보존한다. 해당 메시지로 직접 이동할 때의 방법과 비용은 D-011에서 검토한다. |
+| 상단 **검색** → **대화 내용 검색…** → 결과 선택 | 현재는 발췌문이 속한 대화 ID만 라우트에 전달한다. | 누른 결과의 안정 메시지 위치를 data에서 확인해 해당 행이 보이도록 이동한다. 기존 방향키·Enter와 마우스 선택 모두 표시된 행을 잠시 강조한다. |
 | Claude Work 우측 **작업** → **진행 상황** | Work 작업 목록을 표시한다. Claude Code는 작업을 **계획** 타일에서 다루며 OpenCode는 자체 개요를 쓴다. | Work의 목록은 해당 세션 전체가 기준이다. 나머지 패널의 미로딩 이력 정책은 D-012에서 결정한다. |
 
-경로 근거(아래 링크는 조사 기준 코드). [왼쪽 최근 대화](../../../app/src/renderer/src/app/Sidebar.tsx#L155) · [대화 행 클릭](../../../app/src/renderer/src/features/sessions/components/SessionRow.tsx#L244) · [대화 선택](../../../app/src/renderer/src/app/hooks/useSessionHandlers.ts#L98) · [동일 대화 재선택](../../../app/src/renderer/src/app/hooks/useChatRouteSync.ts#L62) · [프로젝트 상세](../../../app/src/renderer/src/pages/ProjectLandingPage.tsx#L122) · [검색 결과 선택](../../../app/src/renderer/src/features/sessions/components/SearchModal.tsx#L71) · [Work와 Code의 타일 정책](../../../app/src/renderer/src/features/chat/harnesses/claude/rightPanel.ts#L7) · [Work 진행 상황](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/TaskTileContent.tsx#L21).
+경로 근거(아래 링크는 조사 기준 코드). [왼쪽 최근 대화](../../../app/src/renderer/src/app/Sidebar.tsx#L155) · [대화 행 클릭](../../../app/src/renderer/src/features/sessions/components/SessionRow.tsx#L244) · [대화 선택](../../../app/src/renderer/src/app/hooks/useSessionHandlers.ts#L98) · [동일 대화 재선택](../../../app/src/renderer/src/app/hooks/useChatRouteSync.ts#L62) · [프로젝트 상세](../../../app/src/renderer/src/pages/ProjectLandingPage.tsx#L122) · [검색 결과 선택](../../../app/src/renderer/src/features/sessions/components/SearchModal.tsx#L71) · [방향키·Enter 처리](../../../app/src/renderer/src/features/sessions/components/SearchModal.tsx#L79) · [Work와 Code의 타일 정책](../../../app/src/renderer/src/features/chat/harnesses/claude/rightPanel.ts#L7) · [Work 진행 상황](../../../app/src/renderer/src/features/chat/harnesses/claude/rightpanel/TaskTileContent.tsx#L21).
 
 **다음 표는 계획한 동작이다.**
 
 | 시작 상태·입력 | 다음 상태·화면 | 실패·끝 |
 |---|---|---|
 | 명시적 세션 열기·부팅 진입(open) | 새 활성 세션은 최신 턴 끝 묶음·머리·커서를 한 번에 적용하고 하단에 둔다. 캐시 open도 진입 의도를 한 번만 소비. 동일 활성 항목 재선택은 위치 유지. | 삭제는 기존 미존재 처리. 첫 로드 오류는 기존 오류 경로. |
+| 상단 검색 결과 선택(search) | 마지막 선택만 유효하다. 캐시가 비었으면 목표 턴 주변을 바로 열고, 현재 캐시가 목표를 포함하면 정본 확인 후 같은 뷰를 재사용한다. 행이 실제로 가시 상태가 되면 행 윤곽을 2초 강조한다. | 세대 변경은 data에서 원래 식별자로 1회 재확인. 삭제·불명·접근 불가이면 현재 화면에 위치 찾기 실패를 알린다. |
 | 열린 창의 refresh/재접속(sync)·동일 세션 화면 재마운트(resume) | sync는 pin이면 하단, unpin이면 읽던 part의 앵커 유지. resume은 Claude Code·Work 하단, OpenCode는 저장 앵커(pin일 때 하단). | 재검증 중에는 기존 본문·컴포저·패널 유지. 실패는 기존 내용 유지. |
 | 위로 읽기, 상단에서 휠·트랙패드 위 입력 또는 명시적인 이전 턴 조작 | 10 → 9 → 8 요청, 화면은 8·9·10 순. 진행 중 같은 커서는 한 요청. 머리에서 상태를 읽을 수 있고 당기기 시작한 part의 같은 글줄을 유지. | 짧아서 스크롤바가 없어도 위 입력으로 시작. 높이 변동·스피너 제거·상단 관찰만으로 다음 요청을 시작하지 않는다. 실패 시 같은 커서 재시도, 끝이면 제어 종료. |
 | 한 턴에 메시지·part가 물리 한도를 초과 | D-009 추천안은 현재 턴의 표시 가능한 끝 묶음과 “이 턴의 앞부분 더 보기”를 내고, 같은 턴을 먼저 이어 읽는다. 대안은 동일 턴 잔여를 첫 본문 paint 후 유휴 구간마다 1묶음씩 채우고 취소·세션 전환·사용자 스크롤에서 중단한다. 본문이 큰 메시지는 원 ID의 ‘본문 열기’에서 조각 인출. | 중간 조각을 전체 턴·완료 본문으로 표시하지 않는다. 같은 턴 나머지와 이전 턴 커서를 별도로 보유한다. |
@@ -90,17 +96,19 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 
 다른 패널의 정책은 개별 소비자가 필요로 하는 범위에 따라 정한다(D-012). 세션 전체 요약을 보여 주는 안과 현재 읽은 범위임을 표시하는 안이 남아 있다.
 
-### 상단 검색에서 같은 결과를 눌렀을 때 — 타당성 비교
+### 상단 검색에서 과거 메시지로 이동하기
 
-검색 예시에서 63턴에 “센서 A”가 있고 최신 턴은 100턴이다. 사용자가 원하는 차이는 결과를 누른 직후 63턴의 그 메시지가 눈앞에 보이는가이다.
+100턴 대화에서 “센서 A”를 검색해 63턴 발췌문을 누른다. **현재**는 해당 대화를 열어 사용자가 본문을 다시 찾는다. **변경 후**에는 63턴의 해당 메시지가 화면에 들어오고 그 행의 윤곽이 2초간 강조된다.
 
-| 방식 | 결과를 누른 직후 | 판단 |
-|---|---|---|
-| 현재 동작 | 결과의 발췌문을 보고 해당 세션을 연다. 세션 변경 시 기본 진입 규칙에 따라 열리며, 이미 열려 있던 세션이면 읽던 위치를 유지한다. | 기존 동작. E의 검색 회귀 기준. |
-| 작은 변경안 · 현재 전량 로드 활용 | 전체 이력이 창에 이미 준비된 뒤, 결과 ID를 표시 메시지 키로 해소해 그 메시지를 찾아 가상 목록에 띄우고 행에 초점을 준다. | 긴 대화의 첫 열기 비용은 그대로다. E 이전에 검증할 수 있지만 E의 첫 paint 상한을 위한 최종 조회 경로로 쓰기 어렵다. |
-| 턴 색인을 이용하는 변경안 | 결과를 눌렀을 때 data가 안정 키로 63턴의 해당 메시지 주변만 조회한다. 창은 실제 가시 블록을 마운트한 후 메시지를 표시한다. | 긴 대화·구 DB·원본 교체에서도 찾을 수 있는 색인·응답·복귀 경로가 필요하다. §8에 구현 가능성과 §17에 비용을 적었다. |
+| 행동 | 사용자가 볼 결과 |
+|---|---|
+| 처음 여는 세션의 hit 클릭 또는 Enter | 현재 화면에서 결과를 준비한 뒤 63턴 주변을 한 번에 보여 준다. 100턴에서 63턴까지 차례로 열 필요가 없다. 같은 세션에 이미 해당 메시지가 있으면 정본 확인 후 그 자리로 이동한다. |
+| 같은 대화에서 다른 hit를 빠르게 선택하거나 같은 hit를 다시 선택 | 가장 최근에 선택한 행 하나를 보여 준다. 같은 hit도 새 선택이므로 다시 보이게 하고 강조 시간을 새로 센다. 준비 중 직접 스크롤하면 대기 중인 자동 이동을 취소한다. |
+| 새 live 출력 도착 또는 앞뒤 문맥 요청 | 검색한 과거 위치를 유지한다. 앞/뒤 턴은 명시 동작으로 제한된 한 묶음씩 읽고, ‘최신 대화로’를 선택하면 최신 턴 하단으로 돌아간다. 앱의 뒤로/앞으로는 해당 방문에서 읽던 위치를 복원한다. |
+| 찾은 뒤 원본이 교체되거나 결과가 삭제됨 | 같은 원본임이 확인될 때만 위치를 갱신한다. 사라진 경우 가벼운 상태 안내를 띄우고 이전에 읽던 내용을 보존한다. 사용자가 검색을 다시 하거나 접근 가능한 대화의 최근 턴을 열 수 있다. |
+| 왼쪽 ‘최근 대화’에서 제목만 선택 | 일반 열기 규칙을 사용한다. 행 강조 없이 다른 세션은 최신 턴 하단, 같은 활성 세션의 보통 재선택은 읽던 위치 유지(D-014). |
 
-두 변경안은 검토 후보이며 AC6에 새 위치 이동을 요구하지 않는다. 메시지 전체를 잠시 강조하는 것과 본문에서 일치 문자열의 정확한 범위까지 강조하는 것은 별도 선택이다.
+행 강조는 단어의 발생 위치와 무관하게 선택한 메시지를 가리킨다. 검색 모달의 기존 발췌문 내 검색어 표시는 유지한다.
 
 ### 같은 대화에서 사용자가 보게 될 변화
 
@@ -112,17 +120,17 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 |---|---|---|
 | 왼쪽 **최근 대화**에서 이 대화의 제목을 누른다 | 캐시가 없으면 data가 저장 이력 전체를 조립하고 창이 모든 조각을 받은 뒤 본문을 표시한다. 캐시가 있으면 기존 본문을 먼저 보여 주고 재검증한다. | 100턴 두 줄이 준비되면 메타·본문을 한꺼번에 표시하고 하단에 둔다. 위로 한 번 당기면 머리에 스피너가 나오고 99턴만 앞에 붙는다. 휠을 놓으면 98턴 요청도 멈춘다. |
 | 대화를 연 뒤 Work 우측 **작업 → 진행 상황**에서 어제 끝낸 일을 확인한다 | 전체 이력에 작업 생성·완료 기록이 있으면 “테스트 수정”이 완료 상태로 보인다. | 새 로딩 방식에서는 최신 턴만 가져온 상태에서도 같은 완료 항목을 볼 수 있다. 17턴을 손으로 찾아 열 필요가 없다. 작업이 많은 세션에서는 목록을 나눠 보내더라도 모든 현재 항목에 접근할 수 있어야 한다. |
-| 상단 **검색**에서 “센서 A”를 입력하고 결과를 누른다 | 검색 결과에는 발췌문이 보인다. 클릭은 세션 ID를 전달하고 보통의 세션 열기로 이어진다. | 이번 E 구현은 그 동작을 보존한다. 별도 검토안에서는 누른 결과가 가리키는 63턴 메시지를 곧바로 보게 된다. |
+| 상단 **검색**에서 “센서 A”를 입력하고 결과를 누른다 | 현재는 해당 세션이 열리고, 사용자가 63턴의 메시지를 다시 찾아야 한다. | 해당 메시지가 화면에 들어오고 행이 잠시 강조된다. 선택한 메시지 주변을 읽다가 “최신 대화로”를 눌러 100턴으로 돌아간다. |
 | 99턴을 읽다가 네트워크/호스트가 끊기거나 다른 대화로 간다 | 진행 중 세션의 live 상태와 전환 보호가 있다. 전체 로드 방식에는 “같은 이전 턴만 다시 요청”하는 화면이 없다. | 오류가 난 머리에서 같은 99턴을 재시도한다. 다른 대화로 간 뒤 도착한 응답은 그 대화에 섞이지 않는다. 원본 보관 기한 만료 후 다시 전송하면 실행 호스트는 1~100턴의 복구 자료를 쓰므로 창에 100턴만 열어 둬도 시작·중간 문맥을 보존한다. |
 
 ## 6. 범위
 
 | 단위 | 담당과 산출 |
 |---|---|
-| WU-1 · data | 기존·신규 세션용 조회 가능 투영, 동일 메시지 키·순서, 턴·본문 keyset 조회, 원자 출판·재시작, Work 세션의 작업 요약 |
+| WU-1 · data | 기존·신규 세션용 투영 및 턴·본문 keyset 조회, 세션별 안정 메시지 위치표, 원자 출판·재시작, Work 전체 작업 요약 |
 | WU-2 · 포트·스토어 | 타입·스키마·채널 소유·취소·상한, 열기·refresh·재접속, 세션별 이전 페이지 상태 및 보류 live 합류 |
 | WU-3 · 공통 뷰포트 | 세 하네스의 상단 입력·스피너·재시도·끝·본문·앵커 |
-| WU-4 · 소비자 | Work 세션별 전체 작업·기존 검색 세션 열기·복구·분기·핸드오프·현재 턴 TODO. 나머지 패널은 D-012에 따른다. 검색 결과 위치 직접 이동은 비교 설계에 한정. |
+| WU-4 · 소비자 | Work 세션 전체 작업, 상단 검색 결과의 위치 조회·세 하네스 행 강조, 복구·분기·인계·현재 턴 TODO. 타 패널은 D-012에서 확정. |
 | WU-5 · 검증 | 구 DB와 새 DB 동등성, 첫 paint 비용·실기, 공개 문서 동기화 |
 | 경계 | 0327 Markdown·Git 워커, 0328 내비 목록 쿼리, 0330 목표 장비의 합격선. 0326의 미통과 pair는 B에서 판정. |
 
@@ -135,15 +143,15 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 | R-02 / AT-02 | AC3 | 위 동작 한 번당 이전 턴 1회. 반복·동시 입력 1회, spinner 높이 변화·앞삽입에서 표시 part ±1px. 실패·끝·재시도·짧은 세션 모두 §5대로. | 세 하네스 일반 열기 → 실 제스처 → 머리·DOM, Q4. |
 | R-02 / AT-02 | AC4 | 조회 중 live, refresh, 전환·삭제·재연결을 교차해도 현재 세션 본문·선택·활동·초안이 보존되고 늦은 응답 0회 반영. | store → 포트 → reducer/화면, Q2·Q5. |
 | R-02 / AT-02 | AC5 | 이전 턴의 늦은 결과·publication이 본문과 어느 순서로 와도 소유·값·순서·개수가 동일. 오류·중복 페이지로 커서와 끝 표식이 진행하지 않는다. | 실제 writer+store → LOAD/PREPEND → 도구·산출물 행, Q5. |
-| R-03 / AT-03 | AC6 | 전체 세션을 대상으로 한 검색 결과·발췌문을 유지한다. 다른 세션 hit를 누르면 그 세션의 일반 열기, 같은 활성 세션의 hit는 현행 위치 유지. | 실제 FTS → 검색 모달 → 세션 ID → 라우트/viewport, Q6. |
+| R-03 / AT-03 | AC6 | 선택한 hit의 세션과 메시지가 세 하네스에서 실제 화면에 보이고 2초간 행을 식별한다. 차가운 캐시·가시/비가시 캐시, 같은 세션 재선택·경합·위치 소실·복귀에서 §5·§10대로 동작한다. | FTS 결과 → 클릭/Enter → host 위치 확인·제한 조회 → 라우트 → 실제 행 마운트·스크롤·일시 표지 → 복귀, Q6a~d. |
 | R-03 / AT-03 | AC7 | Work 진행 상황이 전체 세션의 작업과 최신 상태를 표시한다. 완료·삭제·스냅샷·실패·중복·다른 세션의 동명/동일 ID를 §5대로 구분한다. 현재 작업 취소·OpenCode 현재 TODO·인계 조건도 확인한다. | 실제 저장/이벤트 → 세션별 요약 → Work 목록·상세와 별도 실시간 제어, Q7. 타 패널의 부분 이력 UX는 D-012에서 정한다. |
 | R-03 / AT-03 | AC8 | 복구 프롬프트·저장 archive·분기 후 영속 이력에 최초·중간·마지막 고유 표지가 있다. 부분 분기 초안도 이전 문맥에 접근한다. | 원본 소실 후 전송 / 분기·물질화 → 피어·DB 재조회, Q8. |
 | R-01 / AT-01 | AC9 | 구버전 DB·재시작·동일 시각·native 교체에서 공개된 한 세대 안의 순서·메시지·부가 part가 기존 투영과 일치한다. 다른 세션/출처 세대의 커서·본문 참조는 행동을 일으키지 않는다. | upgrade → 재기동 → page/body/refresh, Q1·Q3·Q9. |
-| R-03 / AT-03 | AC10 | 실제 Windows 세 하네스에서 일반/검색 진입, 긴·짧은 대화와 늦은 응답을 §19 입력으로 재현하고 첫 페인트·앵커·판정 근거를 남긴다. | 설치본·진단 빌드 S-E1~S-E5, 각 AC의 기계 결과와 함께 기록. |
+| R-03 / AT-03 | AC10 | 실제 Windows의 Claude Code·Work·OpenCode에서 일반 열기·검색 점프를 재현한다. 검색 결과 선택→대상 첫 가시 paint, 실제 강조/종료·직접 스크롤·실패/복귀를 기록한다. | 설치본·진단 빌드 S-E1~S-E5, 특히 S-E5의 source·목표 행 및 타이밍. |
 
 ## 7-A. Baseline V
 
-왼쪽 노드와 증거는 아래 표에서 같은 줄로 등록한다. R-01/02/03과 SD-01/02·AR-01~04·MD-01/02는 NEW. SD-03은 0326 V1 rev 7 §6-E 및 0324 D-011의 보존 동작(INHERITED)이다. 이 문서는 B V를 복제하지 않는다.
+왼쪽 노드와 증거는 아래 표에서 등록한다. V1의 R-01/02, SD-01/02, AR-01·02·04, MD-01/02는 NEW. rev 4에서 R-03·AR-03은 CHANGED, 검색 탐색 수명 SD-04·행 강조/위치 확인 MD-03은 NEW다. SD-03은 0326 V1 rev 7 §6-E 및 0324 D-011의 보존 동작(INHERITED)이다.
 
 | Pair | 노드 ↔ 검증 | 등급 | production path / §10 자리 | 직접 관측 |
 |---|---|---|---|---|
@@ -155,10 +163,12 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 | VP-06 | SD-03 ↔ ST-03 | REGRESSION | 0326 고정 ID·보류/순서·pin → 실제 생산자 페이지 / 0324 원자 교체 · EP2·4·5 | Q2·4·5 |
 | VP-07 | AR-01 ↔ IT-01 | REQUIRED | 기존 DB·writer·native 갱신 → 투영 → 조회 포트 · EP1·2 | Q1·2·9 |
 | VP-08 | AR-02 ↔ IT-02 | REQUIRED | session/page/body → data handler → 창 transport → store/본문 열기 · EP2·3·5 | Q2·3·5 |
-| VP-09 | AR-03 ↔ IT-03 | REQUIRED | FTS → 해당 세션 라우트 ‖ Work 전체 작업 → 요약·상세 → 진행 상황 · EP6·7 | Q6·7 |
+| VP-09 | AR-03 ↔ IT-03 | REQUIRED | FTS hit → data 식별·범위조회 → 라우트/창 행 ‖ Work 전체 작업 → 진행 상황 · EP6·7 | Q6a~d·7 |
 | VP-10 | AR-04 ↔ IT-04 | REQUIRED | 분기 초안·실행 복구 → data 전체 archive → 저장/agent · EP8 | Q8 |
 | VP-11 | MD-01 ↔ UT-01 | REQUIRED | 정렬된 경계·body 길이 → 선택 범위/커서 · EP1·3 | Q1·3 |
 | VP-12 | MD-02 ↔ UT-02 | REQUIRED | 요청 세대·입력 방향·끝/오류·진단 → 단일 상태 전이 · EP4·5 | Q4·5 |
+| VP-13 | SD-04 ↔ ST-04 | REQUIRED | 결과 선택(동일/다른 세션) → 제한 문맥 → 가시 행 → 강조 → 이전/최신 복귀·취소 · EP6 | Q6b·d, S-E5 |
+| VP-14 | MD-03 ↔ UT-03 | REQUIRED | 위치 식별자/세대 → 정확한 키로 재해소, 탐색 번호·가시성·시간 → 일시 표지 · EP6 | Q6a·c |
 
 Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 변이로 증거 감도를 확인한다. 다른 pair는 실제 출력·선택·저장 재조회로 비교한다. 구현자는 `app/AGENTS.md`의 CI 대응 명령과 §19의 소스·메시지 버스 검사를 기록한다.
 
@@ -184,19 +194,19 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 
 **기준 측정.** Python sqlite3 임시 DB에 현재 `queries.ts`에서 추출한 `this.loadPartsStmt = db.prepare(...)` SQL을 그대로 실행했다. 각 턴은 user·assistant 2행, 같은 시각, 메시지마다 UTF-8 19바이트 `{"text":"abcdefgh"}` part 한 개다. 1/100/10,000턴의 반환은 각각 **2/200/20,000행, payload 합 38/3,800/380,000바이트**였다. 이는 쿼리 결과 계수이며 벽시계·제품 첫 paint 시간 측정은 §19에서 수행한다.
 
-### 상단 검색의 위치 이동이 가능한 이유와 추가 배선
+### 상단 검색의 현재 배선과 rev 4에서 추가할 경로
 
-**메시지 단위 위치 이동은 구현 가능하다.** 현재도 검색 결과에 세션과 hit ID가 있고 B의 가상 뷰포트는 안정 블록 키로 위치를 찾는다. 두 값 사이의 대응, 해당 턴의 제한 조회, DOM 마운트 뒤 표시 단계는 아직 연결되어 있지 않다.
+검색 결과와 B의 가상 뷰포트가 서로 다른 키를 사용한다. D-013은 data의 위치 해소 → E의 대상 주변 조회 → 가시 행 강조를 연결한다.
 
-| 단계 | 현재 동작 | 직접 이동을 채택할 때 필요한 동작 |
+| 단계 | 현재 동작 | rev 4 채택 경로 |
 |---|---|---|
 | 1. 결과 찾기 | 로컬·native SQLite FTS5, 검색 입력 debounce 150ms·최대 결과 30. `SearchHit`은 `sessionId, messageId, role, createdAt, snippet` 등을 담는다. 24토큰 발췌에는 `<mark>`가 있고 본문 좌표는 없다. | 결과 생성 시 세션과 안정 메시지 키 또는 출처 식별자·투영 세대를 함께 보관한다. 클릭한 결과 하나에만 위치 해소·주변 조회를 요청한다. |
-| 2. 메시지 식별 | local hit는 +SQLite row ID, native hit는 −SQLite row ID다. 표시용 키는 local 저장 번호/`m:`, 원본·binding·orphan 또는 복구 archive의 안정 키다. | data가 세션·출처를 확인한다. local의 행→저장 메시지 키, native의 원본·별칭→실제 투영 키, 복구의 `orcinus-orca-recovery:<순번>`→보관 키를 해소한다. 클릭 시 원래 세션·세대·안정 식별자를 재검사한다. native/복구 행 재생성으로 숫자 ID가 재사용되면 원래 안정 키로 한 번 재해소하고, 소실 시 찾을 수 없음을 알린다. |
-| 3. 이력 읽기 | 현재 창은 세션 전체의 투영을 받는다. E 기본 조회는 최신 턴과 사용자가 당긴 이전 턴이다. | 작은 안은 현재의 전체 로딩이 끝난 뒤 표시 목록에서 키를 찾는다. E 연계안은 `{session, generation, messageKey}`로 대상 턴의 해당 메시지 앞뒤를 예산 안에서 읽고, 같은 턴 잔여와 앞·뒤 턴의 커서를 준다. 64~99턴을 전부 읽지 않아도 예시의 63턴을 볼 수 있다. |
-| 4. 라우트·스크롤 | `SearchModal.goto`가 sessionId만 넘긴다. 같은 세션 URL이 이미 활성인 경우 라우트 동기화는 즉시 반환한다. 가상 목록은 마운트된 블록만 DOM에 있다. | 클릭마다 고유한 탐색 번호를 보내 동일 세션의 다른 hit와 같은 hit 재선택도 구별한다. 세션 전환 또는 재클릭 시 마지막 탐색 번호만 적용한다. block/part key를 해소하고 가상 목록을 이동 → 실제 블록의 레이아웃 완료 → 포커스/행 강조. 새 검색·전환·삭제 시 옛 요청·늦은 강조는 취소한다. |
+| 2. 메시지 식별 | local hit는 +SQLite row ID, native hit는 −SQLite row ID다. B가 표시하는 키는 local 저장 ID, 원본·binding·orphan 또는 복구 archive 식별자로부터 정해진다. | data가 결과 생성 시 세션·투영 세대·source 정체성을 고정한다. 클릭 시 local 저장 키, native 원본/별칭의 현재 표시 키, archive의 원 보관 세대와 절대 위치를 검사한다. 세대 교체 후 동일성을 증명할 수 없으면 missing을 반환한다. |
+| 3. 이력 읽기 | 현재 창은 전체 투영을 받는다. | E는 목표 메시지를 포함한 제한 범위와 앞·뒤 커서를 읽는다. 같은 투영 세대와 목표 키가 캐시에 있으면 data가 참조를 확인하고 본문을 다시 전송하지 않는다. |
+| 4. 라우트·스크롤 | `SearchModal.goto`는 sessionId만 넘기고 라우트는 같은 활성 세션에서 즉시 반환한다. 가상 목록은 마운트된 블록만 DOM에 둔다. | 클릭마다 새 탐색 번호를 세션과 함께 전달하고, 화면별 블록 키를 찾아 공통 viewport에서 대상 행을 마운트·스크롤한다. 실제 가시 상태 확인 뒤 행 윤곽을 표시한다. |
 | 5. 복귀·앞뒤 이동 | 현행 검색 클릭은 일반 세션 진입이다. | 검색 위치는 최신 연속 이력과 창의 별도 읽기 상태로 유지한다. 앞·뒤 이동은 명시 요청에 한 묶음씩, “최신 대화로”는 기존 현재 턴/live 상태로 돌아간다. 뒤로/앞으로 탐색에 저장하는 것은 세션·메시지·앵커이며 재진입 때 세대를 확인한다. |
 
-검색에 잡히는 텍스트와 화면에 배치되는 텍스트가 정확히 같다는 보장은 없다. native 검색 인덱스는 부모 없는 text를 싣고 복구 검색은 text를 연결한다. FTS 접두어·중복 단어·Markdown·숨긴 도구 본문에서 **일치 문자열 자체**를 칠하려면 원문 part와 문자 위치를 화면 렌더링에 대응시키는 추가 설계가 필요하다. 메시지 단위안의 완료 기준은 선택한 메시지를 보이게 하고 그 행을 식별하는 것이다.
+검색에 잡히는 텍스트와 표시 본문은 다를 수 있다. native 검색은 부모 없는 text, 복구 검색은 연결한 text를 사용한다. D-013의 단위는 **메시지 행**이다. FTS 접두어·반복 구절·Markdown의 정확한 부분문자열 좌표는 구현 범위에 포함하지 않는다.
 
 **외부 설계 사례.** Matrix의 메시지 검색은 한 결과와 함께 돌려줄 전후 이벤트 수를 `event_context.before_limit`·`after_limit`로 선택한다. Orca에도 결과 식별 후 제한된 문맥만 가져오는 구조를 적용할 수 있다. [Matrix Client-Server API v1.14 · Search](https://github.com/matrix-org/matrix-spec/blob/v1.14/data/api/client-server/search.yaml#L97-L118)
 
@@ -227,10 +237,11 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | 화면 조회 | 전체 reader → 전송 조각 → 전체 조립 → LOAD → 두 프레임 뒤 native refresh가 전체 교체 가능 | 일반 열기 → 현재 투영의 최신 한 턴 → bounded reply → 원자 LOAD. 이후 직접적인 위 입력 → 같은/이전 턴 → PREPEND. 갱신으로 투영 세대가 바뀌면 새 커서로 일관된 범위를 재검증. |
 | 실행 복구 | agent → data.query.loadSessionArchive → full reader → archivePrompt | 같은 경로. UI 페이지용 핸들러와 타입을 분리해 agent가 부분 이력을 인자로 받을 수 없게 한다. |
 | 창 내 도메인 | 전체 메시지 파생을 소비자에게 제공 | Work 진행 상황은 data의 세션별 전체 작업과 live 변경을 읽는다. 나머지 패널 범위는 D-012에서 정한다. live 실행 상태·취소 권위는 실행 호스트. |
+| 검색 선택 | 세션 ID → 일반 세션 열기 | FTS hit/locator → data의 세션/세대 확인 → 캐시 확인 또는 목표 턴 범위 → 독립 검색 위치 상태 → 하네스별 메시지 행 → 최신/이전 위치 복귀. |
 
 ## 10. 계약·타입·강제 지점
 
-**D-009 추천안 기준 wire 형상.** `shared/ipc.ts`에 `HistoryQuery`를 최신, 이전 턴, 같은 턴의 나머지, 본문 범위 조회 판별합으로 둔다. 신규 data 채널은 기존 전체 복구 호출과 구분한다. `shared/protocol.ts` 입력 검사·`shared/channel-owner.ts` 소유·창 oo/IPC 타입·수신 검사·`docs/IPC_CONTRACT.md`를 함께 갱신한다. 일반 창 열기·재접속·refresh는 페이지 경로를 사용한다. 검색 위치 조회는 §8의 별도 제안이다.
+**페이지 wire 형상.** `shared/ipc.ts`에 최신, 이전 턴, 같은 턴 나머지, 본문 범위와 검색 위치(`target`) 조회 판별합을 둔다. data 소유의 요청·응답 입력 검증·IPC 타입·창 transport를 함께 갱신하며 전체 복구 호출은 유지한다. D-009 선택은 한 턴이 큰 경우의 추가 요청 시점에만 적용한다.
 
 | 계약 | 규칙 |
 |---|---|
@@ -240,7 +251,13 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | 본문 | 큰 메시지의 ID·role·createdAt 및 최소 소유 메타와 `BodyRef`를 보낸다. ref는 세션·세대·메시지/part 키·kind·원문 바이트 길이에 결합. 지연 표시는 창의 명시적 상태로 보존한다. 저장된 빈 parts나 빈 문자열과 구분. 주문한 조각만 읽고 UTF-8 경계에서 복원하며 종료·오류·취소 시 부분 자료를 완성본으로 승격하지 않는다. |
 | B의 끝 표식·응답 합류 | latest는 0326 합의대로 `complete:false`로 LOAD. 앞쪽 누락이 실제로 없으면 같은 store 공개 묶음 안에서 `prependHistory([], {reachedStart:true})`로 끝 처리. 이전 턴·같은 턴의 나머지 양쪽이 없는 최종 응답에서만 `reachedStart:true`. BodyRef가 가린 도구 소유는 data에서 안정 소유 키로 복원 가능해야 하며 유효한 보류를 고아로 버릴 수 없다. |
 | 빈 결과·겹침·오류 | 0326의 순서 검사 뒤 적용/정당한 중복/거부를 액션 결과로 구분한다. 거부는 커서·끝 갱신 0, 재조회는 사용자 재시도 1회/동작. 순서가 맞는 전부 중복이나 빈 마지막 페이지는 끝 표식을 적용한다. |
-| 검색 세션 열기 | 현행 검색 모달은 전체 세션의 FTS에서 받은 발췌문과 세션 ID를 사용한다. 세션 ID를 같은 기존 라우트로 전달하고 ordinary open/reselect 규칙을 따른다(AC6). |
+| 검색 locator | FTS 결과가 만들어질 때 data가 `{v, sessionId, sourceGeneration, sourceIdentity, projectedKeyAtSearch}`에 해당하는 불투명 locator를 발급한다. local 저장키/원본 alias/보관세대+절대순번은 출처별로 검증한다. 숫자 rowid·snippet·시각 단독 매칭은 허용하지 않는다. |
+| target 요청·응답 | `target(locator, navigationId, cachedTarget?: { generation, messageKey })`은 출처·세션 가시성·현재 투영 세대를 한 읽기 트랜잭션에서 검사한다. 같은 출처를 추적할 수 있으면 재해소 1회. 창이 보낸 후보 한 건과 정본 키·세대가 모두 맞을 때만 `useCached`, 나머지 성공은 정본 키·세대·turn key와 목표를 포함한 `context`를 준다. 실패는 stale/missing/invalid/unavailable/cancelled. |
+| 캐시와 문맥 | 창은 실제로 보유한 세대/메시지 키를 함께 보내고 data의 확인 뒤에만 재사용한다. 완전 이력·부분 캐시 모두 이 조건 적용. 없는 키는 같은 탐색의 제한 조회 한 번으로 받아 표시하며 cold open에서 전체·최신 턴을 먼저 요구하지 않는다. 재접속 및 live 쓰기는 별도 세션 엔트리에 유지한다. |
+| 표시되는 지점 | 우측 패널 확장으로 ChatTile이 inert이면 사용자의 명시적 검색 선택 시 채팅을 볼 수 있게 전환한다. 묶인 Work 활동·접힌 긴 발화는 대상 소유 ID를 가진 표시 행까지 최소한으로 드러내고 같은 텍스트를 가진 형제는 강조하지 않는다. 지연 본문은 해당 소유 ID의 대표 행을 사용하며 본문 인출·임의 접힘 해제는 불필요하다. |
+| 행 강조 수명 | 행이 마운트되고 실제 가시영역과 겹치며 숨김·inert가 아닌 첫 프레임을 t=0으로 한다. 색상 외에 대비되는 윤곽으로 행을 2,000ms 식별한다(감소된 모션에서는 정적 윤곽). 시각 변화를 읽을 수 없는 사용자를 위해 화면 읽기 도구에 이동 완료를 한 번 알린다. Enter로 선택한 직후 포커스가 검색 탐색에 있고 사용자가 옮기지 않은 경우에만 행에 `focus({preventScroll:true})`. 마우스는 강제 포커스 0, 기존 텍스트 선택 보존. |
+| 사용자 제어·실패 | 새 선택/화면 전환/언마운트/최신 복귀는 이전 번호의 timer·pending request·스크롤을 취소한다. 사용자가 먼저 스크롤하거나 다른 곳을 선택·포커스하면 늦은 완료가 화면을 가져가지 않는다. 강조·만료 시각은 메모리 전용. 위치 소실은 중단 없는 상태 안내와 재검색을 제공하고, 존재·접근 확인된 대화에만 최신 열기를 제공한다. |
+| 이동 기록·실시간 출력 | 첫 검색 선택 전에 출발 세션의 읽기 위치/하단 고정 상태를 기록한다. 검색 문맥을 보는 동안 일반 open의 초기 하단 정렬과 live 자동 따라가기는 검색 스크롤을 덮지 않는다. “최신 대화로”는 현재 세션의 최신 턴과 하단 고정을 복원한다. 뒤로/앞으로는 방문별 세션·메시지 앵커를 재확인하되 이전 타이머·강조는 복원하지 않는다. |
 
 **자리와 직접 oracle.** 다음 검색은 저장소 루트에서 `rg -n -g '!*.test.*' -g '!*.testfixture.*' '<술어>' app/src`로 실행한다. 아래 번호는 문자열 출현 수가 아니라 계약 값을 운반하는 생산·소비 자리다. 새 경로와 이전 경로의 어휘 모두 검색한다. Q는 구현 시 만들 테스트의 좌표이며 테스트명만 맞아서는 닫히지 않는다.
 
@@ -251,7 +268,7 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | EP3 · `parts\|payload_json\|message_id\|projectionGeneration\|moreInTurn\|bodyRef` | ① 본문 길이·분할 저장 ② 한도 초과 시 ref 또는 같은 턴 커서 발급 ③ sender의 범위·소유 확인 ④ 창 제어·수신→원 ID 내용 결합 | ①② Q1·Q3, ③④ Q3. 정상 경계·1 초과·빈 part·비 ASCII·중간 취소·offset 초과·세대 교차·재시도 입력. 승인 전이나 다른 세션의 본문·로컬 파일 경로 노출 금지. |
 | EP4 · `entryIntent\|scrollTop\|header\|wheel\|scrollHeight\|reachedStart` | ① 세 화면 진입 intent→하단 ② 공통 상단 입력·짧은 턴 ③ 요청 상태→머리 표시/닫기/재시도 ④ 앵커 캡처→크기 변경→단일 위치 복원 | ①~④ Q4. 클릭 없이 상단이 보이기만 함·위/아래·중복 wheel·짧은 턴·끝/오류를 구별. 브라우저 레이아웃·픽셀은 S-E2. |
 | EP5 · `sessionLoads\|dropSession\|cancelLoad\|PREPEND_HISTORY\|LOAD_SESSION\|heldPatches\|heldOutputs\|prependRejected` | ① store 요청 세대/중복 억제 ② 세션 닫기·delete·재접속 취소 ③ 응답의 세대/커서 재검사 ④ reducer 검증 및 보류 병합 ⑤ 성공일 때만 커서/끝 commit | ①~⑤ Q5, ②③ Q2. A→B→A, old-first/new-first, 삭제, out-of-order, owner result·출력 양 순서, stale/error/empty/중복/전체중복뒤틀림을 교차. |
-| EP6 · `searchMessages\|messageId\|SearchModal\|onChoose\|entryIntent` | ① local/native·복구 FTS hit와 발췌 ② 모달 선택에서 세션 ID 전달 ③ 라우트의 일반 세션 열기/동일 활성일 때 위치 보존 | ①~③ Q6. 같은 문구가 있는 두 세션, 이미 읽는 세션의 과거 hit·다른 세션 hit·빈 결과·삭제 후 선택. |
+| EP6 · `searchMessages\|SearchHit\|SearchModal\|onChoose\|entryIntent\|messageId\|anchorKey\|scrollTop` | ① FTS→세션·출처 locator ② 선택→고유 탐색·라우트(같은 세션 포함) ③ data 정체성/세대·캐시 확인→목표 문맥/실패 ④ 메시지→하네스별 행·마운트 ⑤ 단일 스크롤 쓰기→가시·포커스·행 표시 ⑥ 취소·2초 종료·복귀 | ①③ Q6a·b, ②④⑤⑥ Q6c·d. 타 세션·숫자 재사용·비가시 캐시·연속 선택·사용자 선행 조작·일반 열기를 분리한다. |
 | EP7 · `useTranscriptView\|useTaskBoard\|readTaskToolObservation\|startHandoff\|openCodeTodoTurnStartIndex\|historyComplete` | ① 작업 관측→세션별 전체 상태 ② Work 진행 상황→목록·상세 ③ 실시간 작업 권위 ④ 인계 버튼과 action 양쪽 ⑤ 현재 턴 TODO 위치 | ①② Q7은 미로딩 17·41턴, 세션별 ID 충돌, 완료·제거·중복 재생을 단언한다. ③~⑤ Q7은 active 호스트·stale 상세·현재 TODO를 본다. |
 | EP8 · `loadSessionArchive\|archivePrompt\|prepareRecovery\|copyMessagesToSession\|startForkDraft\|forkPoint` | ① agent 원본 소실 판정→data archive 조회 ② 전체 프롬프트·컨텍스트 체크→복구 저장/전송 ③ fork 초안과 부모 범위 ④ fork materialize·전체 DB 사본 | ①~④ Q8. 프롬프트 예산 이내/초과, 부모 삭제·부분 조회·무관 세션 입력. |
 
@@ -264,7 +281,10 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | Q3 · `main/app/data-host/history-body.integration.test.ts` ‘bounded range’ 및 `renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts` ‘same id open’ | 한도 정확히/1초과·emoji가 경계에 걸린 4MiB 본문·2천 part 한 메시지·빈 parts 20만 메시지 단일 턴. 실제 bodyRef를 열어 첫·중간·끝·stale·타세션·취소 후 재시도. 합친 bytes/hash·원본 ID·내용, bounded 표지 수·읽은 DB bytes, 같은 턴 나머지 후 첫 turn 경계까지 비교. |
 | Q4 · `renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts` ‘three harnesses’ | Code/Work/OpenCode 진입, 1/100턴에 같은 이전 턴 추가. 실제 viewport header·scroll writer를 통해 짧음/길음·위·아래·키보드 버튼·실패/재시도/끝·중복 제스처를 재생. request tuple, 표지·선택·pin·머리 높이, DOM 위치 측정. |
 | Q5 · `renderer/src/features/chat/store/history-races.test.ts` ‘generation/overlap/held’ | S1 옛/새 세대, S2, 다른 cursor, live A·B·toolRunId·서로 다른 publication 두 건. 실제 store/reducer에서 응답·이벤트 두 순서와 invalid/empty/reachedStart·reconnect/삭제를 재생. 화면과 백그라운드 항목별 순서·끝·진단/미적용·spinner를 함께 관측. |
-| Q6 · `renderer/src/app/history-search.integration.test.ts` ‘FTS result opens session’ + `main/features/history/turn-page.db.test.ts` ‘session search survives paging’ | 같은 문구의 local 양수 ID, native 음수 ID·복구 검색행·미로딩 63턴을 검색해 결과·발췌·세션을 비교한다. 다른 세션 선택은 그 세션 열기, 동일 활성 세션 선택은 현재 앵커, 삭제는 존재하지 않는 대화 처리. |
+| Q6a · UT/DB `main/features/history/turn-page.db.test.ts` ‘hit identity and bounded window’ | 실제 migration·FTS·투영의 local/native alias+local 소유·archive·고아·같은 snippet/시각을 구분한다. 다른 세션·숫자 재사용·새 archive의 같은 순번은 거부. 같은 원본 ID의 본문만 바뀌면 그 메시지로 이동한다(행 단위 계약). 소실은 실패이며 비슷한 글에 연결하지 않는다. |
+| Q6b · IT `main/app/data-host/history-port.integration.test.ts` ‘target visible cache or context’ | 클릭 시 생성된 실제 요청을 route/handler에 넣는다. cold·동일 세대이지만 다른 캐시 키/부재·부분/전체 보유·재매핑된 키·취소·거대 턴에서 payload 읽기/응답 bytes·결과 키·커서 확인. 준비된 동일 캐시는 본문 재전송 0, cold는 해당 행이 든 한 묶음으로 도착. |
+| Q6c · UT `renderer/src/features/chat/lib/transcript/searchReveal.test.ts` ‘navigation and visibility clock’ | 가짜 시계와 실제 상태 전이. 마운트 전/화면 밖에서는 2초가 흘러도 강조 0. 가시 t=0·1,999ms 목표 행 윤곽 1개, 2,000ms 제거. 같은 hit 재선택은 새 번호와 시간. 사용자 스크롤·다른 선택·전환 후 옛 callback은 위치·포커스·안내를 갱신하지 않는다. |
+| Q6d · ST/IT `renderer/src/app/history-search.integration.test.ts` ‘FTS hit reveal in three harnesses’ | 실제 store·라우트·가상 viewport에서 클릭/Enter→요청→가시 행 ID/윤곽·접근성 안내를 본다. 같은 세션 연속·반복, ChatTile inert·Work 묶음·긴 본문/지연 행, 전환·live 하단 pin 경합·사용자 포커스 이동·삭제, 뒤로/앞으로·최신 복귀, 일반 open/reselect를 Code·Work·OpenCode 각각 재생한다. |
 | Q7 · `renderer/src/features/chat/components/rightpanel/partial-history.integration.test.ts` ‘all session tasks’ 및 `main/features/history/work-task-summary.db.test.ts` ‘summary replay’ | 17턴 생성·41턴 완료·100턴 열린 S, 같은 ID 7을 쓰는 T. 정규 도구 성공/실패, 동일 결과 재전송, TaskGet 없음·TaskList 누락·명시 삭제, 재시작·native 새 세대·live 후 늦은 스냅샷을 실제 저장→요약→Work 화면에 넣고 독립 전량 투영과 비교. 인계·현재 TODO·실시간 취소도 구별. |
 | Q8 · `main/app/chat-turn/paged-recovery.integration.test.ts` ‘full archive and fork’ + `renderer/src/features/chat/store/paged-fork.test.ts` ‘parent cursor’ | 5턴 중 창에는 5턴만 보이게 한 뒤 adapter missing→피어 archive→복구, 분기 초안→부모 이력 요청→물질화. 최초/중간/끝 고유표지와 ID를 프롬프트·DB 재열기에서 관측하고 예산 초과는 기존 복구 거부. |
 | Q9 · `main/features/history/turn-index.upgrade.db.test.ts` ‘old database and publication’ | 저장 번호 없는 로컬·단일 JSON native/raw·archive x:·보정 sidecar·구조 불량 fixture, 새 쓰기·중단/재기동·삭제·commit 직전 경쟁. 이전/새 세대별 전량 결과를 old full reader와 비교하고 이전 load 중인 창과 신규 창이 각자 한 세대만 보는지 확인. |
@@ -280,12 +300,14 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 7. 0326의 `prependHistory`가 이미 쓰는 diagnostic에 적용 결과를 전달할 수 있는 얇은 반환을 더한다. 기존 호출자·fixture는 종전 행동을 유지하고 `prependRejected`에서는 커서를 진행하지 않는다. `isCurrent`의 첫 LOAD 보호와 이전 턴 조회의 live 교차 허용은 다른 상태로 둔다.
 8. 세션 전체에서 Work 작업 호출과 결과를 toolRunId로 짝지어 같은 `shared/task-tool.ts:readTaskToolObservation`의 created/upserted/removed/snapshot 규칙으로 접는다. 세션·작업 ID, 현재 상태·정렬 키·상세 참조를 원본 저장 revision과 함께 출판한다. 부분 본문으로 재조회했을 때 요약을 거꾸로 덮지 않도록 세대와 처리 순서를 비교한다.
 9. 기존 저장본은 읽기 투영 준비 시 작업 요약을 재생한다. source 세대 변경 때 작업 목록의 추가·삭제/스냅샷을 포함해 한 번에 교체한다. 응답은 작업 목록 keyset 페이지·전체 개수·끝 표식을 분리하고, 창은 요청한 항목의 상세만 받는다. 준비·실패·재시도·끝을 구분해 부분 값을 ‘작업 없음’으로 표시하지 않는다.
+10. WU-1의 세션 투영·턴 범위·출처 식별자가 준비된 뒤 FTS 결과에 locator를 싣고 결과 한 건 선택에 `target` 조회를 연결한다. 대상 메시지가 거대 턴 가운데이면 그 메시지가 반드시 포함되는 묶음을 만들고 앞·뒤에 읽을 것이 있는지 별도로 알려 준다. 최신 세대의 캐시에 있으면 검증과 재사용만 수행한다.
+11. `SearchModal.goto → OverlayLayer → route intent → chatStore → TranscriptViewport`로 검색 선택을 전달한다. 일반 URL·활성 세션 비교와 별개로 탐색 번호를 소비해 동일 세션 재선택도 처리한다. 현재 가시 행·세션·탐색 번호가 일치한 경우만 강조하고, timer 만료·언마운트 때 표지와 listener를 정리한다.
 
 ## 12. 생산자·소비자와 기존 호출자
 
 | 쪽 | 배선 / 보존 |
 |---|---|
-| 화면 | `useChatRouteSync → chatStore.loadSession → sessionApi → transport/oo → data`. 현재 검색은 `SearchModal → OverlayLayer → /chat/<sessionId>`로 일반 세션을 선택한다. 후보인 대상 위치 조회는 §8에서 별도로 검토한다. |
+| 화면 | 일반 열기는 `useChatRouteSync → chatStore.loadSession → sessionApi → data`. 검색은 `SearchModal → OverlayLayer → navigationId/locator → data target → chatStore → TranscriptViewport`로 표시한 뒤 같은 세션의 현재 위치와 구분해 관리한다. |
 | 패널과 보드 | Work의 `taskBoard`는 세션 전체 자료를 사용한다. 같은 계산을 공유하는 Claude Code의 계획 타일과 기타 `taskContextSources, subagentTasks, subagentTaskDescription, childMessage, transcriptResults, persistedBackgroundModels, sessionPanelModel`은 별도 소비 경로다. D-012가 남아 있어 Work의 선택을 일괄 전파하지 않는다. |
 | 실행 파생 | `ClaudeConversationStatus`와 `chatStore.startHandoff`의 user 메시지 ≥2 조건은 전체 user 개수의 capped(0/1/2이상) 메타로 양쪽을 일치시킨다. 이는 턴 개수와 다르다. `openCodeTodoTurnStartIndex`는 앞삽입 후에도 현재 턴을 가리키도록 안정 메시지 키/절대 위치로 연결한다. |
 | 분기·복구 | `startForkDraft`는 부모 메시지 목록·완전성·읽기 기준점까지 이어받는다. 부모의 특정 세대·분기점 이후 live는 초안에 섞지 않는다. 실제 물질화·원본 만료 복구는 서버의 전량 경로를 유지한다. |
@@ -298,6 +320,8 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | `idle → loading(key,generation,cursor) → applied/end` | 같은 (세션,세대,종류,커서)는 단일 flight. A에 오래된 응답을 수신한 시점에 A가 다시 활성이어도 세대가 다르면 무시. 항목별 busy·자료·오류를 일치시키고 finally에서도 같은 요청만 정리. |
 | `loading → retryable / stale / cancelled` | retryable은 같은 커서를 보존한다. stale은 동일 stable anchor 기준으로 새 세대에 재위치해 최신 범위와 동등성 확인 후 한 번 교체한다. 앵커가 삭제되었으면 인접 존속 위치와 갱신 사실을 표시. 재위치 실패는 기존 일관된 화면 유지. |
 | `open / resume / sync` | §5의 세 진입 원인을 유지한다. 늦은 refresh라면 unpin 독자의 거리·선택을 보존하며, 읽던 메시지의 stable anchor로 새 세대를 조회한 뒤 원자 교체한다. busy 캐시·더 새로운 live가 이긴다. |
+| `search → resolving → mounted/visible → highlighted → reading` | 같은 세션 재클릭도 새 번호를 사용한다. 대상이 보이기 전에는 표시/타이머 0. 2초 뒤에는 위치와 포커스를 그대로 두고 윤곽만 없앤다. 새 클릭·뒤로·직접 입력은 이전 번호를 취소하며 이미 보던 live 세션 상태는 계속 갱신한다. |
+| 검색 위치가 사라짐 | 최초 locator의 세션·출처만 같은 투영에서 한 번 다시 찾는다. 실패 시 이전의 일관된 화면·선택을 유지하고 상태만 알린다. 다른 키나 동일 발췌문으로 대체하지 않는다. |
 | 이력 삭제·호스트 끊김·취소 | generation 폐기, 포트 pending·body 청크·중복 억제 키·스피너 해제. 다른 세션의 flight는 유지한다. 삭제 후 같은 세션 ID가 나타나도 오래된 bodyRef/커서 거부. |
 | 데이터 손상 | legacy native 해석 실패는 기존 유효한 local/archive 투영과 `nativeSync` 안내로 귀결. 잘린 본문을 빈 완성본으로 쓰거나 이미 출판된 최신 세대를 반쪽으로 교체하지 않는다. |
 
@@ -308,31 +332,32 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | 1회 응답 한도 | 새 페이지는 메타 포함 UTF-8 JSON 표현 **256 KiB**, 메시지 헤더 **128**, part 설명 **256** 이내. 마지막 한도에 닿기 전 자르고 1개 lookahead는 본문 없는 키/길이로 한다. 기존 0325 문자/조각 한도는 전량 경로에서 유지한다. |
 | 거대 본문 | 요청당 원문 최대 **64 KiB**. 본문 길이와 조각 경계를 쓰기 시 기록하고 건너뛸 payload에 JSON.parse/전체 stringify를 수행하지 않는다. wire escaping 포함 총 응답 한도도 별도 적용하며 같은 논리 offset에서 진척하는 양수 바이트를 반환한다. 원문은 명시 요청으로 전체 내용을 복원·내보낼 수 있다. |
 | 첫 paint 전 | 일반 열기에서 page 응답 1개·실제 본문 commit 1회. 세션 제어 메타(제목 등)도 envelope의 UTF-8 예산에 포함한다. 과대 가변 메타는 참조·유효한 축약 표시 후 별도 조회. DB 본문 인출/직렬화/검증·reducer 방문·wire bytes를 독립 계수하고 동일 최신 턴에 과거 payload 읽기 0을 확인한다. |
+| 검색 클릭부터 첫 표시 | data에서 캐시 검증+세대 변경 시 안정 출처 재해소 1회 이내. cold/부재면 목표를 담는 §14 예산의 응답 ≤1묶음, 확인된 캐시면 본문 재전송 0. 최신/중간의 무관 턴 본문 읽기 0. 측정 구간은 클릭→locator 전달→DB seek→응답 bytes→창 반영→올바른 행의 첫 가시 paint이다. |
 | 입력 증가 | §8 분모에 동일한 최신 턴을 붙여 1/100/10,000턴 변화를 본다. 1턴에 20만 빈 메시지면 첫 요청은 ≤128개. 4MiB 한 part면 본문 열기 전 payload 읽기 0, 이후 실제 조각 수·원문과 일치 여부를 비교. B 앞삽입 비용은 1턴·100턴에 각각 1턴을 추가해 기존 방문·할당과 프레임을 기록한다. |
 | 구 DB의 첫 실행 | 단일 `payload_json/archive_json`에는 과거 전체를 한번도 해석하지 않고 정확한 안정 키·소유·전후 턴을 제공할 색인이 없다. 업그레이드 작업에 사용한 시간·디스크·전량 처리량, 색인 미완성 상태에서 클릭→첫 실제 본문, 준비 후 같은 세션 클릭→본문을 따로 남긴다. `indexing`·스피너·빈 틀은 성공 paint가 아니다. 미준비 세션에서 과거 전체 작업이 첫 클릭을 막으면 AC1을 그 세션에 PASS로 적을 수 없다. |
 | 저장 비용 | 새 투영은 디스크를 더 쓴다. 변경 세대 출판까지 직전 정상 투영만 제공하고 커서는 stale로 재시작 가능하므로 오래된 세대는 사용하는 트랜잭션을 마친 뒤 회수한다. 실기 p95/최대 허용치는 W에서 결정한다. |
 
 ## 15. 외부/공개 계약
 
-새 data 페이지 요청과 판별합·예산·소유자·취소·오류·전량 복구의 차이를 `docs/IPC_CONTRACT.md`에 동기화한다. 현재 검색의 세션 이동 계약을 유지한다. §8의 조회용 위치 식별자를 공개 계약에 추가하는 일은 별도 채택 결정에 따른다.
+`SearchHit`에 안정 locator를 추가하고 기존 숫자 ID·발췌·검색 순위를 보존한다. `shared/{ipc,protocol,data-host,channel-owner}.ts`·창 `sessionApi`·data handler·`docs/IPC_CONTRACT.md`에 target 요청, 출처/세대 검사, 제한 문맥/캐시 재사용 판별, 취소·소실을 함께 명시한다. 전량 보관 복구 계약은 독립적이다.
 
 ## 16. 기존 결정과 관계
 
-0324 D-011의 원자 교체, 0325 D-022의 조회 분리, 0326 D-057·074의 진입 의도와 D-083·093의 보류/병합 계약이 기준이다. nearest 커서의 시간값이나 표시용 합성 ID로 이 계약을 바꾸지 않는다. 0327 구현과 겹친 공통 뷰포트·renderer 소비처는 착수 시 실제 diff를 대조한다.
+0324 D-011의 원자 교체와 0326 D-057·074의 일반 open/resume/sync 계약은 D-014에 남긴다. D-013은 상단 FTS 결과를 명시 선택한 `search` 진입으로, 0326 D-057에서 검색을 일반 open으로 처리하던 부분만 대체한다. 동기화 중 live 우선권과 D-083·093의 보류·병합은 유지한다.
 
 ## 17. 위험과 선택 비용
 
-### 상단 검색 변경안별 비용
+### rev 3 비용 비교와 rev 4의 채택 범위
 
 아래 수치는 저장소를 아는 엔지니어 한 사람이 설계·코딩·자동 테스트에 쓰는 **예상 인일**이다(1인일=8시간). E 공통 색인·페이지 기반 자체를 이미 제공하는 경우와 검색이 그 기반을 먼저 만들어야 하는 경우를 나눴다. PR 대기와 Windows 장비 실기 시간은 별도다.
 
 | 선택지 | 예상 공수 | 사용자가 체감하는 비용과 구현 범위 |
 |---|---:|---|
-| 현재대로 결과가 속한 세션 열기 | 신규 위치 이동 0인일 | 사용자가 긴 대화에서 해당 메시지를 다시 찾아야 한다. E의 기존 경로 회귀 시험은 포함한다. |
-| E 이전의 작은 안 · 기존 전량 로드 이후 메시지 이동 | 4~8인일 | ID 대응·기존 로딩 완료·세 하네스의 가상화 위치·회귀를 연결한다. 과거 전부를 읽는 비용은 유지되고, E 적용 후 데이터 경로를 다시 연결할 수 있다. |
-| E의 턴 색인이 준비된 뒤 · 클릭한 메시지 주변만 조회 | **추가 3~6인일** | 안정 ID·주변 조회 0.75~1.5, 라우트·store·뷰포트 1~2, 세 하네스·stale·복귀 자동검증 1.25~2.5인일. 검색 위치에서 앞뒤를 점진적으로 읽게 한다. |
-| E 전에 상한 있는 위치 이동까지 독립 제공 | 8~15인일 | 색인·기존 DB 3~5, 제한 조회·커서 2~4, UI와 테스트 3~6인일. E와 공통으로 쓸 부분을 합의해야 중복 구축을 피할 수 있다. |
-| 선택 사항 · 표시 본문의 정확한 문자열 강조 | 위 메시지 이동에 +2~5인일 | plain text·유니코드 범위에 한정한 추정이다. Markdown 변환·접힌 블록·초대형 본문에서 정확한 일치 위치까지 요구하면 별도 실측과 산정이 필요하다. |
+| 비교 기준 · 이전처럼 세션 열기 | 신규 위치 이동 0인일 | 긴 대화에서 메시지를 사용자가 다시 찾는다. 일반 세션 열기의 회귀 시험은 유지한다. |
+| 대안 · E 이전 전량 로드 후 메시지 이동 | 4~8인일 | ID 대응·기존 로딩 완료·가상화 위치·회귀를 연결한다. 긴 대화 전체를 읽어야 하며 E 적용 뒤 재배선이 필요하다. |
+| **채택 · E의 턴 색인 이후 메시지 행으로 이동** | **추가 3~6인일** | 안정 ID·주변 조회 0.75~1.5, 라우트·store·뷰포트 1~2, 세 하네스·stale·복귀 자동검증 1.25~2.5인일. |
+| 대안 · E 전에 별도 색인/상한 조회까지 제공 | 8~15인일 | 색인·기존 DB 3~5, 제한 조회·커서 2~4, UI와 테스트 3~6인일. |
+| 범위 밖 · 정확한 문자열 강조 | 메시지 이동에 +2~5인일 | rev 3 비교에서 plain text·유니코드 범위로 산정한 추가 비용. 채택된 행 강조에는 이 비용을 더하지 않는다. |
 
 목표 장비의 위치 이동 시간은 DB의 전체 검색 응답 시간과 별도로 측정한다. 클릭 후 키 해소·payload 범위 조회·전송·블록 마운트·실제 화면에서 대상이 보일 때까지를 분리해 p50/p95와 읽은 행·바이트를 기록한다. 같은 문구가 여러 메시지에 있거나 native 갱신 직후인 경우도 측정한다.
 
@@ -350,7 +375,8 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 |---|---|
 | data·저장 | `main/infra/db/{queries,native-history-queries}.ts`, 신규 append-only migration·투영 조회, `main/features/history/{reader,writer,native-projection,native-recovery,native-sync}.ts`, `main/app/data-host/{session-load,data-ops,persistence-receiver}.ts` |
 | 계약·전송 | `shared/{ipc,protocol,data-host,channel-owner,host-channels}.ts`, renderer `shared/api/{ipc,transport/oo,transport/session-load}.ts`, `main/app/handlers/files.ts` |
-| 창과 연속 작업 | `features/chat/{store/chatStore,reducer/chatReducer,lib/transcript/turnStart}`, `components/transcript/TranscriptViewport.tsx`, 패널·작업 보드·OpenCode TODO·인계 제어, `features/sessions/components/SearchModal.tsx`·앱 라우트·OverlayLayer |
+| 창과 연속 작업 | `features/chat/{store/chatStore,reducer/chatReducer,lib/transcript/turnStart}`, 각 하네스 블록 모델과 `components/transcript/TranscriptViewport.tsx`, `features/sessions/components/SearchModal.tsx`, app `OverlayLayer.tsx`·`hooks/useChatRouteSync.ts`, 패널·OpenCode TODO·인계 제어 |
+| 검색 비용·검증 | `main/app/handlers/files.ts`·`main/infra/db/{queries,native-history-queries}.ts` 및 신규 위치표, 목표 행 상태/가시 확인, Q6a~d. `evidence/search-jump-cost.cjs`의 기존 예비 실측은 §8에 보존. |
 | 문서·게이트 | IPC 정본, `docs/arch/{execution-model,backend/persistence,frontend/state}.md`, 필요 시 생성 inventory. `check-ui-thread.mjs`의 full-reader import 제약과 route owner 검사 유지. |
 
 ## 19. 검증 절차
@@ -368,7 +394,7 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | S-E2 | 최신 턴이 한 화면보다 짧은 경우와 긴 경우. 휠/트랙패드·키보드 이전 턴 버튼, 중복 입력·실패·재시도·끝, 읽던 part 거리 ±1px·선택·spinner·다음 자동 요청 0. |
 | S-E3 | 99턴 조회 중 현재 턴 delta 및 17턴 소유 결과·publication, refresh·A→B→A. 같은 세대 응답만 반영, 각 소유 위치/개수·현재 활동·unpin 앵커 확인. |
 | S-E4 | 4MiB 본문 및 20만 빈 메시지 단일 턴. 본문과 같은 턴 앞부분의 각 요청량, 원문 복원, 중간 취소/재시도, 일반 이전 턴 순서 확인. D-009 자동안을 택하면 첫 본문 paint 뒤에만 이어 읽고 세션 전환에서 중단. |
-| S-E5 | 17/41턴에서 작업 생성·완료, 100턴만 창에 둔 Work에서 완료 항목 확인. 63턴 발췌문 검색 후 해당 세션이 기존 규칙대로 열리는지 본다. native 원본 소실 후 전송 시 앞·중간·끝 문맥은 고정 fixture에서 확인한다. |
+| S-E5 | Claude Code·Work·OpenCode에서 다른 세션의 63턴 hit를 클릭/Enter. 실제 대상 행이 보이는 프레임에 강조 시작/약 2초 뒤 종료를 기록한다. 같은 세션 연속/반복 선택, 접힌 긴 글·Work 묶음/패널 확장, 수동 스크롤·포커스 변경, live·하단 고정 경합·위치 소실·뒤로/앞으로/최신 복귀도 재생한다. Work 17/41턴 작업과 원본 복구 표지는 기존 §5·AC7/8대로 기록한다. |
 
 S-E1~S-E5 원시 기록과 각 AC 결과를 0330 W에 연결한다. E의 확정된 행동·크기 경계를 위반했으면 해당 E AC를 다시 연다. 목표 장비의 프로파일별 절대 성능 허용치 결정은 [0330 보드 행](../INDEX.md)에서 추적한다.
 
@@ -378,8 +404,8 @@ S-E1~S-E5 원시 기록과 각 AC 결과를 0330 W에 연결한다. E의 확정�
 |---|---|
 | 요구·작업 분리 | 0325 §6-C, 0326 §6-E의 data/renderer 양쪽 인계를 §2~7에 연결. 계획 근거·선행 관계와 사용자 합의 여부 분리. |
 | 근거·동등성 | §8의 SQL 결과 계수·세 기존 테스트 스위트 재실행. native·local·archive·빈 parts·구 DB·late live는 Q1/Q5/Q9로 확인할 예정. |
-| V·강제 지점 | R/SD/AR/MD의 VP-01~12, EP1~8, Q1~Q9 및 S-E1~5 등록. 테스트 좌표는 구현자가 만들 예정이며 구현 검증 결과는 미기입. |
-| 설계 결론 | **DRAFT**. Work 진행 상황은 D-010으로 확정. D-009는 한 턴이 물리 상한을 초과할 때 이어 읽는 방식, D-012는 나머지 패널의 미로딩 범위다. D-011의 신규 검색 이동은 별도 검토안이며 기본 E의 READY 조건에서 제외한다. |
+| V·강제 지점 | rev 4의 VP-01~14, EP1~8(검색 EP6 ①~⑥), Q1~Q9(검색 Q6a~d), S-E1~5를 대조했다. 새 검색 위치 조회·강조·복귀는 구현/실기 검증 전이다. |
+| 설계 결론 | **DRAFT**. D-010의 Work 전체 작업과 D-013의 검색 메시지 행 이동은 확정이며 D-014로 일반 열기를 보존한다. D-009(거대 단일 턴 이어 읽기)·D-012(다른 패널의 미로딩 범위)는 OPEN. |
 | 기존 DB | READY 전 기존 설치의 단일 JSON을 투영으로 전환하는 비용 및 실제 최초 클릭 예외를 작은 DB와 긴 DB에서 확인한다. 전체 읽기 후 slice하거나 색인 진행 표시를 첫 본문으로 보고한 결과는 AC1을 닫지 못한다. |
 
 ---
