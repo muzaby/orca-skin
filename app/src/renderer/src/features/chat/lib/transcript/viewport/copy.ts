@@ -6,10 +6,8 @@ import { reportError } from '../../../../../shared/errors/reportError'
 
 export const UI_TASK_BUDGET_MS = 50
 
-// Calibrated by J9 (`app/scripts/measure-ui-inputs.mjs`, 100..2000 step 100, median ≤ 50ms):
-// Node v24.22.3 linux/x64 VM measured cap = 2000 blocks (assemble 2500 = 1.10ms, 5000 = 2.53ms).
-// Conservative 300-block sync threshold leaves headroom for real DOM serialization; refined on Windows in S5.
-export const SELECTION_COPY_SYNC_MAX_BLOCKS = 300
+// Largest passing J9 sample (100–2,000 blocks in steps of 100, median mount and serialization ≤ 50ms).
+export const SELECTION_COPY_SYNC_MAX_BLOCKS = 2000
 
 export interface RetainedSelectionEndpoint {
   readonly blockKey: string

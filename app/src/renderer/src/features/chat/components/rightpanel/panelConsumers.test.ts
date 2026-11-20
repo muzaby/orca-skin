@@ -18,21 +18,41 @@ const CONSUMER_FILES = [
   'hooks/useTaskBoard.ts'
 ] as const
 
-const FORBIDDEN_LEGACY_SCANS = [
-  /\bextractTaskBoard\s*\(/,
-  /\bcollectSubagents\s*\(/,
-  /\bcollectFilesRead\s*\(/,
-  /\bcollectArtifacts\s*\(/,
-  /\bderiveSubagentStatus\s*\(/
+const scanNames = [
+  'childMessageForParentToolRunId',
+  'subagentTaskDescription',
+  'subagentTasksFromMessages',
+  'taskBoardFromMessages',
+  'taskBoardForMessages',
+  'transcriptResultsByToolUseId',
+  'persistedBackgroundModels',
+  'createTaskContextSourceSelector',
+  'sessionPanelModel'
 ]
 
 describe('rightpanel/panelConsumers (VP-33 · EP-14)', () => {
-  it('all 9 panel/transcript consumers read via useTranscriptView and never call full-history scan helpers', () => {
-    for (const rel of CONSUMER_FILES) {
+  it('keeps the full-history implementations in the reference fixture and all consumers on the indexed hook', () => {
+    const reference = readFileSync(
+      resolve(CHAT_ROOT, 'lib/transcriptIndex.legacy.testfixture.ts'),
+      'utf8'
+    )
+    const owners = [
+      'lib/parts.ts',
+      'lib/taskBoard.ts',
+      'lib/canonicalBackground.ts',
+      'lib/taskContext.ts',
+      'harnesses/opencode/rightpanel/model.ts'
+    ]
+    for (const name of scanNames) {
+      expect(reference).toContain(`export function ${name}(`)
+    }
+    for (const rel of [...owners, ...CONSUMER_FILES]) {
       const src = readFileSync(resolve(CHAT_ROOT, rel), 'utf8')
-      expect(src, `${rel} must use useTranscriptView`).toContain('useTranscriptView')
-      for (const re of FORBIDDEN_LEGACY_SCANS) {
-        expect(re.test(src), `${rel} must not match ${re}`).toBe(false)
+      if (CONSUMER_FILES.some((file) => file === rel))
+        expect(src, rel).toContain('useTranscriptView')
+      expect(src, rel).not.toContain('transcriptIndex.legacy.testfixture')
+      for (const name of scanNames) {
+        expect(src, rel).not.toMatch(new RegExp(`(?<![.\\w])${name}\\s*\\(`))
       }
     }
   })

@@ -2052,7 +2052,7 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-1 ⑨ | VP-03·VP-04 | finalizeTurn | M04-k7 |
 | EP-1 ⑩ | VP-03·VP-04 | commitConsumed | M04-k26-6 |
 | EP-1 ⑪ | VP-03·VP-04 | input.received | M04-k26-18 |
-| EP-1 ⑫ | VP-03·VP-04 | IPC 형 | 미재측정 |
+| EP-1 ⑫ | VP-03·VP-04 | IPC 형 | S01-12 |
 | EP-1 ⑬ | VP-03·VP-04 | 조립 | M03-k27 |
 | EP-2 ① | VP-06 | 부분 유일 색인 | S02-1 S02-1-partial |
 | EP-2 ② | VP-06 | 삽입 형 | S02-2 |
@@ -2063,7 +2063,7 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-2 ⑦ | VP-06 | 질문 답 | S02-7 |
 | EP-2 ⑧ | VP-06 | 현재 번호 | S02-8 |
 | EP-2 ⑨ | VP-06 | parts 로드 | S02-9 |
-| EP-3 ① | VP-05 | LoadedMessage.id | 미재측정 |
+| EP-3 ① | VP-05 | LoadedMessage.id | S03-1 |
 | EP-3 ② | VP-05 | 로컬 행 | S03-2 |
 | EP-3 ③ | VP-05 | native 투영 | M05-i4 |
 | EP-3 ④ | VP-05 | native 전용 | S03-4 |
@@ -2072,11 +2072,11 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-3 ⑦ | VP-05 | recoveryArchive | S03-7 |
 | EP-4 ① | VP-07·VP-08 | Message.id | S04-1 |
 | EP-4 ② | VP-07·VP-08 | appendAssistantPart | M07-r3 |
-| EP-4 ③ | VP-07·VP-08 | 7종 이벤트 | 미재측정 |
+| EP-4 ③ | VP-07·VP-08 | 7종 이벤트 | S04-3-message.reasoning · S04-3-message.completed · S04-3-tool.call.completed · S04-3-subagent.task · S04-3-response.boundary · S04-3-tool.call.started · S04-3-session.compacted |
 | EP-4 ④ | VP-07·VP-08 | COMMIT_PENDING_TEXT | S04-4 |
 | EP-4 ⑤ | VP-07·VP-08 | user 커밋 | M12-idempotence |
 | EP-4 ⑥ | VP-07·VP-08 | LOAD_SESSION | Viewport.harness의 cached reload · 같은 카드 노드와 선택 · M08-reopen-id |
-| EP-4 ⑦ | VP-07·VP-08 | fork | 미재측정 |
+| EP-4 ⑦ | VP-07·VP-08 | fork | S04-7 |
 | EP-4 ⑧ | VP-07·VP-08 | 자식 메시지 | S04-8 |
 | EP-4 ⑨ | VP-07·VP-08 | 낙관 전송 | S04-9 |
 | EP-4 ⑩ | VP-07·VP-08 | store 커밋 | M07-r12 |
@@ -2089,24 +2089,24 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-5 ③ⓒ | VP-10 | correctPlanToolInput | S05-3c |
 | EP-5 ③ⓓ | VP-10 | APPEND_COMMITTED_USER_MESSAGE | S05-3d |
 | EP-5 ③ⓔ | VP-10 | DROP_UNCOMMITTED_USER | S05-3e |
-| EP-5 ③ⓕ | VP-10 | 보존 로드 | 미재측정 |
-| EP-5 ③ⓖ | VP-10 | 전체 로드 | 미재측정 |
-| EP-5 ③ⓗ | VP-10 | PREPEND_HISTORY | Viewport.prepend · 실제 store의 prepend와 부분 reset |
+| EP-5 ③ⓕ | VP-10 | 보존 로드 | S05-3f |
+| EP-5 ③ⓖ | VP-10 | 전체 로드 | S05-3g |
+| EP-5 ③ⓗ | VP-10 | PREPEND_HISTORY | Viewport.prepend · 실제 store의 prepend와 부분 reset · EP12-prefix-reset |
 | EP-5 ④ | VP-10 | lineage | changeLog · 상한, revision 및 lineage 변이 결과는 잠금 표 · EP05-lineage, EP05-revision |
 | EP-6 ① | VP-11·VP-12 | messageOrderFor | Viewport.prepend · 순번 쓰기 2, 위치 갱신량 비교 · M11-q4 |
 | EP-6 ② | VP-11·VP-12 | 위치·소유 | Viewport.prepend · 순번 쓰기 2, 위치 갱신량 비교 · M11-q7 |
 | EP-6 ③ | VP-11·VP-12 | output.captured | M12-find-index |
-| EP-6 ④ | VP-11·VP-12 | tool.call.completed | 미재측정 |
-| EP-6 ⑤ | VP-11·VP-12 | appendOwnedArtifact | 미재측정 |
+| EP-6 ④ | VP-11·VP-12 | tool.call.completed | S06-4 |
+| EP-6 ⑤ | VP-11·VP-12 | appendOwnedArtifact | M07-r16-repeat |
 | EP-6 ⑥ | VP-11·VP-12 | user 커밋 | M12-idempotence |
 | EP-6 ⑦ | VP-11·VP-12 | DROP_UNCOMMITTED_USER | S06-7 |
 | EP-6 ⑧ | VP-11·VP-12 | subagent.task | M12-notice-scan |
 | EP-6 ⑨ | VP-11·VP-12 | markCompletedAgent | S06-9 |
-| EP-6 ⑩ | VP-11·VP-12 | 취소 복구 | 미재측정 |
+| EP-6 ⑩ | VP-11·VP-12 | 취소 복구 | S06-10 |
 | EP-7 ① | VP-14 | 키 함수 | S07-1 |
-| EP-7 ② | VP-14 | Claude code | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 |
-| EP-7 ③ | VP-14 | Claude work | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 |
-| EP-7 ④ | VP-14 | OpenCode | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 |
+| EP-7 ② | VP-14 | Claude code | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 · EP12-claude-props |
+| EP-7 ③ | VP-14 | Claude work | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 · EP12-work-node |
+| EP-7 ④ | VP-14 | OpenCode | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 미재측정 · EP12-opencode-props |
 | EP-7 ⑤ | VP-14 | 종류 순번 | M14-y3, M14-y15 |
 | EP-7 ⑥ | VP-14 | 메타·산출물 | M14-y6 |
 | EP-7 ⑦ | VP-14 | live key | M14-y20 |
@@ -2114,43 +2114,43 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-7 ⑨ | VP-14 | 턴 경계 | M14-y12 |
 | EP-7 ⑩ | VP-14 | carryPartKeys | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 M14-y14, M14-y17 |
 | EP-7 ⑪ | VP-14 | 대표 part | TranscriptView.harness · 결합 part별 강조·링크·코드 표지. 다른 종류의 교환은 M14-y19 |
-| EP-7 ⑫ | VP-14 | OpenCode live | 미재측정 |
+| EP-7 ⑫ | VP-14 | OpenCode live | S07-12 |
 | EP-8 ① | VP-15~VP-17·VP-19 | 블록 청크 | Viewport.prepend · 1/100턴 비용, blockList · 지난 스냅샷 대체 조회 · EP08-content-location |
 | EP-8 ② | VP-15~VP-17·VP-19 | 스냅샷 불변 | Viewport.prepend · 1/100턴 비용, blockList · 지난 스냅샷 대체 조회 · M15-u2, EP08-location-fallback |
 | EP-8 ③ | VP-15~VP-17·VP-19 | Claude code advance | Viewport.prepend · 실제 store의 T 준수 및 위반 · M16-z2 |
-| EP-8 ④ | VP-15~VP-17·VP-19 | Claude work advance | Viewport.prepend · 실제 store의 T 준수 및 위반 |
-| EP-8 ⑤ | VP-15~VP-17·VP-19 | OpenCode advance | Viewport.prepend · 실제 store의 T 준수 및 위반 |
-| EP-8 ⑥ | VP-15~VP-17·VP-19 | 그룹 메타 | 미재측정 |
+| EP-8 ④ | VP-15~VP-17·VP-19 | Claude work advance | Viewport.prepend · 실제 store의 T 준수 및 위반 · S08-result-owner |
+| EP-8 ⑤ | VP-15~VP-17·VP-19 | OpenCode advance | Viewport.prepend · 실제 store의 T 준수 및 위반 · S07-12 |
+| EP-8 ⑥ | VP-15~VP-17·VP-19 | 그룹 메타 | M16-z5 · M24-fork |
 | EP-8 ⑦ | VP-15~VP-17·VP-19 | 앞삽입 | Viewport.prepend · 1/100턴 비용, blockList · 지난 스냅샷 대체 조회 · EP08-prefix-locations |
-| EP-8 ⑧ | VP-15~VP-17·VP-19 | reset | Viewport.prepend · 실제 store의 T 준수 및 위반 |
+| EP-8 ⑧ | VP-15~VP-17·VP-19 | reset | Viewport.prepend · 실제 store의 T 준수 및 위반 · S08-8 |
 | EP-8 ⑨ | VP-15~VP-17·VP-19 | 늦은 결과 | M17-late-owner |
-| EP-8 ⑩ | VP-15~VP-17·VP-19 | live | Viewport.live · 출현 1, 반복 0, 완료 1 |
+| EP-8 ⑩ | VP-15~VP-17·VP-19 | live | Viewport.live · 출현 1, 반복 0, 완료 1 · M19-live-viewport |
 | EP-8 ⑪ | VP-15~VP-17·VP-19 | 변경 접기 | changeLog · remove/replace 접기 · M16-z8 |
-| EP-9 ① | VP-18 | segmentsFor | M18-s4, M18-s7 |
-| EP-9 ② | VP-18 | Claude code | TranscriptView.harness · 파싱한 강조 노드의 두 소유 part |
-| EP-9 ③ | VP-18 | Claude work | TranscriptView.harness · 파싱한 강조 노드의 두 소유 part |
+| EP-9 ① | VP-18 | segmentsFor | M18-s4, M18-s7 · S09-external |
+| EP-9 ② | VP-18 | Claude code | TranscriptView.harness · 파싱한 강조 노드의 두 소유 part · M16-z2 |
+| EP-9 ③ | VP-18 | Claude work | TranscriptView.harness · 파싱한 강조 노드의 두 소유 part · S08-result-owner |
 | EP-9 ④ | VP-18 | reconcileSegments | M18-s3, M18-s8 |
 | EP-10 ① | VP-21·VP-22 | virtualizer 옵션 | virtualizerOptions v1~v3 · 콜백 정체, 측정표, 위 성장 · M21-v1 |
 | EP-10 ② | VP-21·VP-22 | writeScrollTop | Viewport.prepend character · 보정 쓰기 1 · M21-direct-write |
 | EP-10 ③ | VP-21·VP-22 | TanStack 보정 | virtualizerOptions v1~v3 · 콜백 정체, 측정표, 위 성장 · EP10-tanstack |
 | EP-10 ④ | VP-21·VP-22 | Claude Timeline | Viewport.harness · 세 화면의 실제 복사와 캐시 로드 · D7-claude M22-history-region |
 | EP-10 ⑤ | VP-21·VP-22 | OpenCode Timeline | Viewport.harness · 세 화면의 실제 복사와 캐시 로드 · D7-opencode |
-| EP-10 ⑥ | VP-21·VP-22 | Claude 제어기 | Viewport.harness places · store→제어기 배치. 제어기 정책 분리 전수는 미재측정 |
-| EP-10 ⑦ | VP-21·VP-22 | OpenCode 제어기 | Viewport.harness places · store→제어기 배치. 제어기 정책 분리 전수는 미재측정 |
-| EP-10 ⑧ | VP-21·VP-22 | 버블 접기 | 미재측정 |
+| EP-10 ⑥ | VP-21·VP-22 | Claude 제어기 | Viewport.harness places · store→제어기 배치. 제어기 정책 분리 전수는 미재측정 · D7-claude · EP11-policy-send |
+| EP-10 ⑦ | VP-21·VP-22 | OpenCode 제어기 | Viewport.harness places · store→제어기 배치. 제어기 정책 분리 전수는 미재측정 · D7-opencode · EP11-resume |
+| EP-10 ⑧ | VP-21·VP-22 | 버블 접기 | S10-8 |
 | EP-11 ① | VP-23·VP-24 | pin | M26-a4 |
 | EP-11 ② | VP-23·VP-24 | 예약 간격 | M23-p3 M23-p12 |
 | EP-11 ③ | VP-23·VP-24 | 전송 앵커 | EP11-policy-send |
 | EP-11 ④ | VP-23·VP-24 | 진입 배치 | Viewport.harness places · open/sync/resume, 실제 store와 제어기 · M23-p7, EP11-resume |
-| EP-11 ⑤ | VP-23·VP-24 | 하단 추적 | 미재측정 |
-| EP-11 ⑥ | VP-23·VP-24 | 꼬리 UI | 미재측정 |
+| EP-11 ⑤ | VP-23·VP-24 | 하단 추적 | S11-5 |
+| EP-11 ⑥ | VP-23·VP-24 | 꼬리 UI | S11-6 |
 | EP-11 ⑦ | VP-23·VP-24 | fork | M24-fork |
 | EP-11 ⑧ | VP-23·VP-24 | 진입 원인 | Viewport.harness places · open/sync/resume, 실제 store와 제어기 · EP11-intent, EP11-sync |
 | EP-12 ① | VP-26·VP-27 | 문자 캡처 | Viewport.prepend character · 3번째 문자 변위 +18과 크기 +35 · EP12-character, EP12-chrome |
 | EP-12 ② | VP-26·VP-27 | 프레임 합산 | Viewport.prepend character · 3번째 문자 변위 +18과 크기 +35 · M26-a9 |
 | EP-12 ③ | VP-26·VP-27 | 측정 정정 | Viewport.prepend character · 3번째 문자 변위 +18과 크기 +35 · X05 |
 | EP-12 ④ | VP-26·VP-27 | 대체 대상 | anchor.test · 소실된 key 대체 변이 · EP12-fallback |
-| EP-12 ⑤ | VP-26·VP-27 | prependHistory | Viewport.prepend · 9/8/7, T 위반 및 1/100 비용 |
+| EP-12 ⑤ | VP-26·VP-27 | prependHistory | Viewport.prepend · 9/8/7, T 위반 및 1/100 비용 · EP12-prefix-reset |
 | EP-12 ⑥ | VP-26·VP-27 | pin | Viewport.prepend · M26-a4 · M26-a4 |
 | EP-12 ⑦ | VP-26·VP-27 | 사용자 취소 | Viewport.prepend · X06, X07, wheel 및 pointer · X06, X07, X08, EP12-wheel, EP12-pointer |
 | EP-13 ① | VP-32 | transcriptIndexFor | S13-1 |
@@ -2158,14 +2158,14 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-13 ③ | VP-32 | 도메인 revision | M32-x10 |
 | EP-13 ④ | VP-32 | 부모별 revision | M32-x11 |
 | EP-13 ⑤ | VP-32 | 뷰 불변 | M32-x12 |
-| EP-13 ⑥ | VP-32 | 같은 키 순서 | 미재측정 |
-| EP-14 ① | VP-33 | useTranscriptView | 미재측정 |
+| EP-13 ⑥ | VP-32 | 같은 키 순서 | S13-6 |
+| EP-14 ① | VP-33 | useTranscriptView | S14-1 |
 | EP-14 ② | VP-33 | 9개 소비자 | M33-panel-consumer |
-| EP-14 ③ | VP-33 | 기존 정의 | 미재측정 |
-| EP-15 ① | VP-28 | useDisclosure | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 |
-| EP-15 ② | VP-28 | 도구 카드 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 |
-| EP-15 ③ | VP-28 | AgentTaskRow | 미재측정 |
-| EP-15 ④ | VP-28 | Work 활동 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 |
+| EP-14 ③ | VP-33 | 기존 정의 | S14-3 |
+| EP-15 ① | VP-28 | useDisclosure | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 · S15-1 |
+| EP-15 ② | VP-28 | 도구 카드 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 · S15-2 |
+| EP-15 ③ | VP-28 | AgentTaskRow | S15-3 |
+| EP-15 ④ | VP-28 | Work 활동 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 미재측정 · S15-4 |
 | EP-15 ⑤ | VP-28 | 포커스 | M28-d9 |
 | EP-15 ⑥ | VP-28 | 정리 | Viewport.harness cached reload · 열림·선택 유지. 삭제 시 정리 전수는 M28-d4, M28-d10, M28-d12 |
 | EP-16 ① | VP-28 | transitionend | EP16-end |
@@ -2177,7 +2177,7 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-17 ② | VP-29 | 동기 복사 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · M29-c3 |
 | EP-17 ③ | VP-29 | 비동기 복사 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · EP17-cancel M29-c13 |
 | EP-17 ④ | VP-29 | 조각·조립 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · EP17-yield, EP17-inline-assembly, EP17-blob-parts M29-c12 |
-| EP-17 ⑤ | VP-29 | 키보드 선택 | 미재측정 |
+| EP-17 ⑤ | VP-29 | 키보드 선택 | S17-5 |
 | EP-17 ⑥ | VP-29 | 문자 끝 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · EP17-part-owner |
 | EP-17 ⑦ | VP-29 | 상한 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · M29-c15 |
 | EP-17 ⑧ | VP-29 | 기준 모드 | Viewport.harness runs bounded · 비가상 기준 본문, 조각당 ≤2, 역방향 선택 3/2 · M29-c17 |
@@ -2196,21 +2196,21 @@ r2의 D7~D13·D15가 지적한 실행 경로에 관측점을 추가했다. 결�
 | EP-20 ③ | VP-34 | 항목 교체 | S20-3 |
 | EP-20 ④ | VP-34 | shouldBeginTurn | S20-4 |
 | EP-20 ⑤ | VP-34 | live 번호 | Viewport.live · 서로 다른 text/reasoning run, 끝 번호 확인. 다른 번호의 교환은 M34-b10, M34-b11 |
-| EP-21 ① | VP-35 | J1~J10 | measure-ui-inputs.mjs --src . · J1~J10 실행, J9 상한 2,000 |
-| EP-21 ② | VP-35 | 결정성 | S21-2 |
-| EP-21 ③ | VP-35 | 세 갈래 요약 | J1 coldBuild/incremental/cacheHit 중앙값 215.07/1.95/0.01 ms |
+| EP-21 ① | VP-35 | J1~J10 | measure-ui-inputs.mjs --src . · J1~J10 실행, J9 상한 2,000 · S21-j8 |
+| EP-21 ② | VP-35 | 결정성 | S21-2 · S21-long · S21-answer |
+| EP-21 ③ | VP-35 | 세 갈래 요약 | J1 coldBuild/incremental/cacheHit 중앙값 215.07/1.95/0.01 ms · S21-3 |
 | EP-22 ① | VP-39 | store 진입 | Viewport.prepend · 실제 store 진입, T 위반은 부분 reset · M39-g1 |
 | EP-22 ② | VP-39 | 겹침 | M39-g2 |
-| EP-22 ③ | VP-39 | 빈 목록 | S22-3 |
+| EP-22 ③ | VP-39 | 빈 목록 | S22-3 · S22-3-empty |
 | EP-22 ④ | VP-39 | T | Viewport.prepend · 실제 store 진입, T 위반은 부분 reset · M39-g4 |
-| EP-22 ⑤ | VP-39 | live 교차 | 미재측정 |
+| EP-22 ⑤ | VP-39 | live 교차 | S22-5 |
 | EP-22 ⑥ | VP-39 | 페이지 검사 | M39-g10, M39-g14 |
 | EP-22 ⑦ | VP-39 | 보류 병합 | M39-g7, M39-g15, M39-held-output |
 | EP-22 ⑧ | VP-39 | 끝 표식 | M39-g12 |
 
 | Pair | requiredness | 자기 상태 | 직접 oracle | 선택 증거의 잔여 |
 |---|---|---|---|---|
-| VP-08·19·21·22·24·26·27·29 | REQUIRED | SELF_BLOCKED | 위 표와 아래 변이별 결과 | §7-A 등록 변이와 하위 분기 전수 대조 |
+| VP-08·19·21·22·24·26·27·29 | REQUIRED | SELF_BLOCKED | 위 표와 아래 변이별 결과 | 하위 분기·교환별 실행 차집합 점검 |
 | VP-35 | REQUIRED | SELF_BLOCKED | J1~J10과 §19 | Windows 실기 |
 
 ## [구현자 기입] 이번 라운드 수정의 잠금 (r3.2)
@@ -2407,11 +2407,11 @@ python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0326-transc
 | EP17-viewport-anchor | 새 oracle | 초회 미검출 | TranscriptViewport.selection viewport/copy | red · 1 failed / 13 passed (14) |
 | EP11-policy-send | 새 oracle | 초회 미검출 | TranscriptViewport.harness -t places | red · 2 failed / 1 passed / 7 skipped (10) |
 | M12-notice-scan | ⑦ sweep | — | chatReducer.messageIndex | red · 1 failed (1) |
-| M22-history-region | ⑦ sweep | — | TranscriptViewport.transition | red · 1 failed (1) |
-| M33-panel-consumer | ⑦ sweep | — | panelConsumers | red · 1 failed / 1 passed (2) |
+| M22-history-region | ⑦ sweep | — | TranscriptViewport.transition | red · 1 failed / 1 passed (2) |
+| M33-panel-consumer | ⑦ sweep | — | panelConsumers · 기존 전체 이력 함수로 복귀 | red · 1 failed / 1 passed (2) |
 | M17-late-owner | ⑦ sweep | 초회 미검출 | TranscriptViewport.lateResult | red · 1 failed (1) |
 | M23-p12 | ⑦ sweep | — | TranscriptViewport.transition -t p12 | red · 1 failed / 1 skipped (2) |
-| M29-c12 | ⑦ sweep | — | TranscriptViewport.harness | red · 3 failed / 7 passed (10) |
+| M29-c12 | ⑦ sweep | — | TranscriptViewport.harness | red · 3 failed / 10 passed (13) |
 | M02-created | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
 | M02-early | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
 | M02-writer | ⑦ sweep | — | message-identity.integration | red · 1 failed (1) |
@@ -2447,11 +2447,85 @@ python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0326-transc
 | S04-8 | ⑦ sweep | — | transcriptIndex.test chatReducer.messageId | red · 2 failed / 13 passed (15) |
 | S05-3c | ⑦ sweep | 초회 미검출 | chatReducer.changeLog | red · 1 failed (1) |
 | S07-1 | ⑦ sweep | 초회 미검출 | blockKeys | red · 1 failed / 9 passed (10) |
-| S21-2 | ⑦ sweep | — | transcriptFixtures | red · 1 failed / 1 passed (2) |
+| S21-2 | ⑦ sweep | — | transcriptFixtures | red · 3 failed / 1 passed (4) |
 | S01-k22 | ⑦ sweep | — | persistence-sender -t k22 | red · 1 failed / 38 skipped (39) |
 | S22-3 | ⑦ sweep | 초회 미검출 | chatReducer.prepend | red · 1 failed / 8 passed (9) |
+| S03-1 | ⑦ sweep | — | npm run typecheck:web | red · Type 'undefined' is not assignable to type 'string'. |
+| S04-7 | ⑦ sweep | — | store/chatStore.test -t startForkDraft | red · 1 failed / 68 skipped (69) |
+| S06-10 | ⑦ sweep | — | store/chatStore.test | red · 4 failed / 65 passed (69) |
+| S13-6 | ⑦ sweep | — | transcriptIndex.test | red · 2 failed / 4 passed (6) |
+| S06-4 | ⑦ sweep | — | chatReducer.artifact chatReducer.messageId | red · 4 failed / 18 passed (22) |
+| S10-8 | ⑦ sweep | — | bubbleCollapse | red · 1 failed / 6 passed (7) |
+| S11-6 | ⑦ sweep | — | TranscriptView Timeline | red · 1 failed / 73 passed (74) |
+| S14-1 | ⑦ sweep | 초회 미검출 | TranscriptViewport.harness -t "domain hook" | red · 1 failed / 12 skipped (13) |
+| S17-5 | ⑦ sweep | — | TranscriptViewport.harness -t keyboard | red · 1 failed / 12 skipped (13) |
+| S14-3 | ⑦ sweep | — | panelConsumers | red · 1 failed / 1 passed (2) |
+| S21-long | ⑦ sweep | — | transcriptFixtures | red · 3 failed / 1 passed (4) |
+| S01-12 | ⑦ sweep | 초회 미검출 | npm run typecheck:web | red · Type 'number' is not assignable to type 'string'. |
+| S15-3 | ⑦ sweep | 초회 미검출 | TranscriptViewport.harness -t AgentTaskRow | red · 1 failed / 12 skipped (13) |
+| S11-5 | ⑦ sweep | 초회 미검출 | viewport/pin.test | red · 1 failed / 2 passed (3) |
+| S07-12 | ⑦ sweep | — | openCodeBlocks blockKeys TranscriptViewport.live | red · 2 failed / 25 passed (27) |
+| S21-answer | ⑦ sweep | — | transcriptFixtures | red · 3 failed / 1 passed (4) |
+| S04-3-message.reasoning | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S04-3-message.completed | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S04-3-tool.call.completed | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S04-3-subagent.task | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S22-5 | ⑦ sweep | — | chatReducer.prepend -t g2 | red · 1 failed / 8 skipped (9) |
+| S04-3-response.boundary | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S04-3-tool.call.started | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S04-3-session.compacted | ⑦ sweep | — | chatReducer.messageId -t "to its original message" | red · 1 failed / 6 passed / 9 skipped (16) |
+| S22-3-empty | ⑦ sweep | — | chatReducer.prepend | red · 2 failed / 6 passed (8) |
+| S09-external | ⑦ sweep | — | segmentCache -t "external results by" | red · 1 failed / 5 skipped (6) |
+| S15-1 | ⑦ sweep | — | TranscriptViewport.harness -t "cached|AgentTaskRow" | red · 2 failed / 2 passed / 9 skipped (13) |
+| S15-4 | ⑦ sweep | — | TranscriptViewport.harness -t "expanded Claude Work" | red · 1 failed / 12 skipped (13) |
+| S08-result-owner | ⑦ sweep | 초회 미검출 | workActivity.test -t indexed | red · 1 failed / 18 skipped (19) |
+| S21-j8 | ⑦ sweep | — | node --test scripts/measure-ui-inputs.test.mjs | red · J8 prepend 건수 불일치 |
+| S15-2 | ⑦ sweep | — | ToolCard.interaction TranscriptViewport.harness | red · 4 failed / 21 passed (25) |
+| S08-8 | ⑦ sweep | — | openCodeBlocks TranscriptViewport.prepend | red · 1 failed / 26 passed (27) |
+| S21-3 | ⑦ sweep | — | node --test scripts/measure-ui-inputs.test.mjs | red · j3 cacheHit 행 누락 |
+| S05-3f | ⑦ sweep | 초회 미검출 | chatReducer.changeLog -t "partial same-session" | red · 1 failed / 1 passed / 1 skipped (3) |
+| S05-3g | ⑦ sweep | — | chatReducer.changeLog -t "partial same-session" | red · 1 failed / 1 passed / 1 skipped (3) |
 
-분모 검산 · 선택 증거 단독 분류 0 + 인용 변이 9 + 새 oracle 58 + sweep 160 = 실행 227. 같은 변이는 한 번만 센다. 각 행의 원문과 치환문은 [실행 사양](evidence/r3.2-mutations.jsonl)에 있다.
+분모 검산 · 선택 증거 단독 분류 0 + 인용 변이 9 + 새 oracle 58 + sweep 195 = 실행 262. 같은 변이는 한 번만 센다. 각 행의 원문과 치환문은 [실행 사양](evidence/r3.2-mutations.jsonl)에 있다.
+
+### §7-A 등록 변이 대조
+
+정본에서 적대 증거가 required인 pair 30개와 아래 행의 양방향 차집합은 0개다. 같은 고장이 여러 경로에 걸치면 실행 ID를 다시 인용했다. 구현 방식이 다른 자리의 주입 범위를 함께 적었다.
+
+| §7-A pair | 실행 ID (왼쪽부터 등록 순서) |
+|---|---|
+| VP-02 | M02-tel, M02-own, M02-ask, M02-writer, M07-r3, M02-early, M02-created |
+| VP-03 | M03-relay-copy, M03-ask-number, M03-ask-queue, S01-k22, M03-k25, M03-k27 |
+| VP-04 | M04-k5, M02-tel, M04-k7, M04-k9, M04-k17-first, M04-k18, M04-k11, M04-k12, M04-k14, M04-k19, M04-k20-current, M04-k20-owner, M04-k21, M04-k5-early, M02-k23, M04-k24, M04-k26-6, M04-k26-18, M04-k26-retry |
+| VP-05 | M05-i4, M05-i5 |
+| VP-06 | M06-w3, M06-w5, M06-w9, M06-w10, M06-w11, M06-w14, M06-w15, M06-w5-finalize, M06-w16-true, M06-w16-false |
+| VP-07 | M07-r3, M07-r10, M07-r12, M07-r13, M07-r14, M07-r15, M07-r16-publication, M07-r16-repeat, M07-r17 |
+| VP-08 | M08-reopen-id |
+| VP-10 | M10-l3, M10-kind, M10-parts-from, M10-prepend-complete, M10-load-complete, S05-3f, S05-3g |
+| VP-11 | M11-q4, M11-q7 |
+| VP-12 | M12-find-index, M12-idempotence, M12-notice-scan |
+| VP-14 | M14-y3, M14-y6, M14-y9, M14-y14, M14-y15, M14-y12, M14-y17, M14-y19, M14-y20 |
+| VP-15 | M15-u2, EP08-location-fallback, EP08-content-key-revision, M15-u7-order |
+| VP-16 | M16-z2, M16-z5, M16-z3, M16-z8 |
+| VP-17 | M17-late-owner |
+| VP-18 | M18-s3, M18-s4, M18-s7, M18-s8 |
+| VP-19 | M19-live-viewport |
+| VP-21 | M21-own-virtualizer, M21-direct-write, M21-v1 |
+| VP-22 | M22-history-region |
+| VP-23 | M23-p3, EP11-resume, M23-p7, M23-p9, M23-p12 |
+| VP-24 | M24-fork |
+| VP-26 | X01, EP12-fallback, X07, M26-a9, EP12-character, EP12-chrome |
+| VP-27 | EP12-prefix-reset |
+| VP-28 | M28-d4, M28-d9, M28-d10, M28-d12, M28-e3, M28-e7, M28-e8 |
+| VP-29 | M29-c3, M29-c6, EP17-yield, M29-c12, M29-c13, M29-c15, EP17-cancel, M29-c17, EP17-inert, EP17-portal, EP17-inline-assembly |
+| VP-30 | M30-m3, M30-m5, M30-m7, M30-m8 |
+| VP-31 | M31-f8, M31-f4 |
+| VP-32 | M32-x10, M32-x11, M32-x12, M32-x13 |
+| VP-33 | M33-panel-consumer |
+| VP-34 | M34-b3, M34-b7, M34-b10, M34-b11 |
+| VP-39 | M39-g1, M39-g2, M39-g4, M39-g7, M39-g10, M39-g12, M39-g14, M39-g15, M07-r16-publication, M39-held-output |
+
+VP-22는 이전 답변을 별도 DOM 영역으로 옮겼고 VP-29 c12는 블록 안에서 조각을 나눠 그 사이에 줄바꿈을 넣었다. 각 변이가 확인한 효과는 선택·DOM 동일성과 복사 문자열이다. sqlite w14는 세 이벤트가 공유하는 UPDATE의 세션 조건을 제거했다. 전체 §10 자리 166개와 실행 ID가 있는 자리의 차집합은 0개다. 이 두 비교의 분모는 pair와 자리이며, 자리 안에서 열거한 조건·교환 조합과 각 path edge는 별도 분모다.
 
 ## [구현자 기입] Product/UX 파생 검토 (r3.2)
 
@@ -2482,7 +2556,9 @@ python3 .agents/skills/handoff-verify/scripts/mutate.py docs/handoff/0326-transc
 
 - 자기 확인 ✅ 12/35 — AC3·6·7·11·14·15·17·18·19·21·31·35. AC6 캐시·도구 상태, AC14 실제 Chromium 렌더, AC19 제어기 진입, AC21 비용 계수를 r3에서 추가했다. 독립 verify r2 판정은 7/35다.
 - 미결 23/35 — AC1·2·4·5·8·9·10·12·13·16·20·22·23·24·25·26·27·28·29·30·32·33·34. AC33의 Windows 실기는 기계 verify 뒤 수행한다.
-- typecheck, production build, host/preload smoke, lint(오류 0, 경고 5), 구조 검사 및 스크립트 테스트를 실행했다. Linux 전체 테스트에서 1,080파일 10,126건 중 통과 10,092건, 기존 실패 22개(9파일), 예상 실패 1건, 건너뜀 11건과 처리되지 않은 오류 1개를 재현했다. 실패 이름 집합은 기준선과 양방향 차집합 0건이다. 코드 강조 회귀 3개는 수정 후 통과했다. 이후 보강한 테스트는 개별 실행했다.
+- typecheck, production build, host/preload smoke, lint(오류 0, 경고 5), 구조 검사 및 스크립트 테스트를 실행했다. Linux 전체 테스트에서 1,080파일 10,145건 중 통과 10,111건, 기존 실패 22개(9파일), 예상 실패 1건, 건너뜀 11건과 처리되지 않은 오류 1개를 재현했다. 실패 이름 집합은 기준선과 양방향 차집합 0건이다. 코드 강조 회귀 3개는 수정 후 통과했다. 이후 보강한 테스트는 개별 실행했다.
+- 실기 입력을 실제 세 모델로 재측정했다. 각 화면에서 한 답변의 블록 수 ≥5,000, 복사 시나리오의 선택 가능 블록 ≥6,000과 키 유일성이 성립한다. 진단 빌드에서만 브리지가 설치된다. Chromium에서 실제 store 앞삽입·다음 전송·역방향 선택·1,024자 코드 스트림을 세 화면에서 확인했다.
+- 5,000블록 입력에서 Work의 도구 결과표를 모든 턴과 분절이 복사하던 비용을 제거했다. 이전 도구 결과를 덮어쓰는 값·철회·새 호출을 검사했다. J8은 실제 reducer와 블록 모델의 1/100턴을 재며, 이번 측정의 증분 중앙값은 0.04/0.14ms다. J9의 DOM 마운트·직렬화 20개 표본에서 상한은 2,000블록이었다(중앙값 21.62ms). 조각 조립 중앙값은 2,500블록 0.22ms, 5,000블록 0.47ms였다. §19가 요구하는 전체 J1~J10 입력 동등성 및 Windows trace 비교는 남았다.
 - [Chromium 검증](evidence/live-browser.mjs)은 실제 Vite 번들·React·TanStack에서 Claude Code, Claude Work, OpenCode를 차례로 실행한다. 기존 행·버블 추가 렌더는 화면마다 0회였으며 강조된 코드 토큰의 분할 part 키도 확인했다.
 
 ## [구현자 기입] Review Signals — 사실만 (r3.2)

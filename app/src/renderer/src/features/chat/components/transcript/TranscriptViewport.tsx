@@ -40,6 +40,7 @@ import {
   restoreAnchor,
   type AnchorTarget
 } from '../../lib/transcript/viewport/anchor'
+import { attachDiagnosticViewport, checkCopyChunk } from '../../dev/transcriptViewportDiagnostics'
 import { CopySerializationHost } from './CopySerializationHost'
 
 // --- Diagnostic virtualization toggle (EP-17 ⑧ · c17 · S5) ---
@@ -470,6 +471,15 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     restoreSelection(el, selection, retained)
   }, [scrollRef, snapshot])
 
+  useLayoutEffect(() => {
+    if (import.meta.env.VITE_OO_DIAGNOSTIC !== '1' || !sessionKey) return
+    return attachDiagnosticViewport(sessionKey, scrollRef.current, snapshot, {
+      findEndpoint,
+      indexFor: (endpoint) => selectionBlockIndex(snapshot, endpoint),
+      mountEndpoints: (selection) => flushSync(() => setSavedSelection({ sessionKey, selection }))
+    })
+  }, [sessionKey, snapshot, scrollRef])
+
   // Keyboard selection extension (EP-17 ⑤ · c6 · c11)
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -534,6 +544,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       const startEndpoint = forward ? sel.anchor : sel.focus
       const endEndpoint = forward ? sel.focus : sel.anchor
 
+      let diagnosticChunk = 0
       activeCopyJobRef.current = startCopyJob(
         lo,
         hi,
@@ -542,6 +553,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
             flushSync(() => setAsyncChunkRange([cStart, cEnd]))
           },
           serializeChunk: (_cStart, _cEnd, isFirst, isLast) => {
+            if (import.meta.env.VITE_OO_DIAGNOSTIC === '1') checkCopyChunk(++diagnosticChunk)
             const host = copyHostRef.current
             const domSel = document.getSelection()
             if (!host || !domSel) return { text: '', html: '' }

@@ -1,3 +1,8 @@
+import {
+  diagnosticViewports,
+  failCopyChunk,
+  type ViewportDiagnostics
+} from './transcriptViewportDiagnostics'
 /**
  * Deterministic transcript fixture generator & diagnostic dev-menu bridge (WU-14 · EP-17 ⑧).
  *
@@ -5,8 +10,8 @@
  * Production builds without `VITE_OO_DIAGNOSTIC` tree-shake the entire registration out (`rg -c "__ooDev" out/renderer` === 0).
  */
 import type { AppMessagePart, LoadedMessage } from '../../../../../shared/ipc'
-import type { Message } from '../reducer/chatReducer'
-import { chatActions, useChatStore } from '../store/chatStore'
+import { chatReducer, type Message } from '../reducer/chatReducer'
+import { chatActions, ingestChatEvent, useChatStore } from '../store/chatStore'
 import { setVirtualization } from '../components/transcript/TranscriptViewport'
 
 export type FixtureKind = 'claude-code' | 'claude-work' | 'opencode'
@@ -24,7 +29,12 @@ export interface GeneratedFixture {
   readonly remainingPrefixTurns: Message[][]
 }
 
-function makeTurnMessages(kind: FixtureKind, turnIndex: number, blocksPerTurn: number): Message[] {
+function makeTurnMessages(
+  kind: FixtureKind,
+  turnIndex: number,
+  blocksPerTurn: number,
+  splitActivities = false
+): Message[] {
   const baseTs = 1_700_000_000_000 + turnIndex * 10_000
   const userId = `u:fx-${turnIndex}`
   const assistantId = `a:fx-${turnIndex}`
@@ -39,13 +49,22 @@ function makeTurnMessages(kind: FixtureKind, turnIndex: number, blocksPerTurn: n
   if (kind === 'claude-work') {
     parts.push({
       type: 'response_boundary',
-      boundary: { id: `rb-${turnIndex}`, phase: 'begin' }
+      boundary: { id: splitActivities ? `rb-${turnIndex}-0` : `rb-${turnIndex}`, phase: 'begin' }
     })
   }
 
   const pairCount = Math.max(1, Math.floor((blocksPerTurn - 2) / 2))
   for (let p = 0; p < pairCount; p++) {
     const toolId = `fx-tool-${turnIndex}-${p}`
+    if (splitActivities && kind === 'claude-work' && p > 0) {
+      parts.push(
+        {
+          type: 'response_boundary',
+          boundary: { id: `rb-${turnIndex}-${p - 1}`, phase: 'end', outcome: 'ended' }
+        },
+        { type: 'response_boundary', boundary: { id: `rb-${turnIndex}-${p}`, phase: 'begin' } }
+      )
+    }
     parts.push({
       type: 'text',
       text: `Step ${p + 1} of turn ${turnIndex}: inspecting file \`src/mod_${turnIndex}_${p}.ts\`.`
@@ -70,7 +89,11 @@ function makeTurnMessages(kind: FixtureKind, turnIndex: number, blocksPerTurn: n
   if (kind === 'claude-work') {
     parts.push({
       type: 'response_boundary',
-      boundary: { id: `rb-${turnIndex}`, phase: 'end', outcome: 'ended' }
+      boundary: {
+        id: splitActivities ? `rb-${turnIndex}-${pairCount - 1}` : `rb-${turnIndex}`,
+        phase: 'end',
+        outcome: 'ended'
+      }
     })
   }
 
@@ -85,19 +108,25 @@ function makeTurnMessages(kind: FixtureKind, turnIndex: number, blocksPerTurn: n
 
 export function generateTranscriptFixture(
   kind: FixtureKind,
-  options: FixtureOptions
+  options: FixtureOptions,
+  scenario?: 'long' | 'answer-5000'
 ): GeneratedFixture {
-  const turns = Math.max(1, options.turns)
-  const loadedTurns = Math.min(turns, Math.max(1, options.loadedTurns ?? turns))
-  const minBlocks = options.minBlocks ?? 0
-  const blocksPerTurn = minBlocks > 0 ? Math.max(4, Math.ceil(minBlocks / turns)) : 4
-
+  const requestedTurns = Math.max(1, options.turns)
+  const requestedLoaded = Math.min(
+    requestedTurns,
+    Math.max(1, options.loadedTurns ?? requestedTurns)
+  )
+  const splitAt = requestedTurns - requestedLoaded
+  // One regular turn yields at least four selectable Work blocks or twenty on Code screens.
+  const minimumPerTurn = kind === 'claude-work' ? 4 : 20
+  const needed = Math.ceil((options.minBlocks ?? 0) / minimumPerTurn)
+  const turns = splitAt + Math.max(requestedLoaded, needed)
+  const largeAnswer = scenario === 'answer-5000'
+  const blocksPerTurn = largeAnswer ? 5010 : scenario === 'long' || options.minBlocks ? 22 : 4
   const turnList: Message[][] = []
   for (let i = 0; i < turns; i++) {
-    turnList.push(makeTurnMessages(kind, i, blocksPerTurn))
+    turnList.push(makeTurnMessages(kind, i, blocksPerTurn, largeAnswer))
   }
-
-  const splitAt = turns - loadedTurns
   const remainingPrefixTurns = turnList.slice(0, splitAt)
   const loadedMessages = turnList.slice(splitAt).flat()
   const allMessages = turnList.flat()
@@ -117,78 +146,105 @@ function toLoadedMessages(messages: readonly Message[]): LoadedMessage[] {
 
 export interface DiagnosticDevApi {
   loadFixture(
-    kind: FixtureKind,
+    kind: FixtureKind | 'long' | 'answer-5000',
     options: FixtureOptions
   ): { loadedTurns: number; remainingTurns: number }
   appendFixtureTurn(): void
   prependFixtureTurn(): { remainingTurns: number }
   blockCount(options?: { selectable?: boolean }): number
   setVirtualization(enabled: boolean): void
-  selectBlocks(start: number, end: number): boolean
-  selectionInfo(): { textLength: number; collapsed: boolean }
-  readClipboard(): Promise<string>
+  selectBlocks: ViewportDiagnostics['select']
+  selectionInfo(): ReturnType<ViewportDiagnostics['selection']> & {
+    textLength: number
+    collapsed: boolean
+  }
+  readClipboard(): Promise<{ text: string; html: string }>
   failCopyChunk(chunkIndex: number | null): void
   streamFixture(chars: number): void
 }
 
 let activeFixture: GeneratedFixture | null = null
 let activeNextTurn = 0
-let failChunkIndex: number | null = null
-
-export function getFailCopyChunkIndex(): number | null {
-  return failChunkIndex
-}
-
+let fixtureSessionKey: string | null = null
 export function createDiagnosticDevApi(): DiagnosticDevApi {
   return {
     loadFixture(kind, options) {
-      activeFixture = generateTranscriptFixture(kind, options)
-      activeNextTurn = options.turns
       const state = useChatStore.getState()
       const key = state.activeKey
       const entry = state.sessions[key]
-      if (entry) {
-        useChatStore.setState({
-          sessions: {
-            ...state.sessions,
-            [key]: {
-              ...entry,
-              session: {
-                ...entry.session,
-                messages: activeFixture.loadedMessages,
-                historyComplete: activeFixture.remainingPrefixTurns.length === 0
-              }
-            }
-          }
-        })
-      }
+      if (!entry) throw new Error('Open a chat before loading a transcript fixture')
+      const screen =
+        entry.session.backend === 'opencode'
+          ? 'opencode'
+          : entry.session.agentKind === 'work'
+            ? 'claude-work'
+            : 'claude-code'
+      const fixtureKind = kind === 'long' || kind === 'answer-5000' ? screen : kind
+      activeFixture = generateTranscriptFixture(
+        fixtureKind,
+        options,
+        kind === 'answer-5000' ? kind : 'long'
+      )
+      activeNextTurn = activeFixture.allMessages.length / 2
+      fixtureSessionKey = key
+      const session = chatReducer(entry.session, {
+        type: 'LOAD_SESSION',
+        session: {
+          id: entry.session.sessionId ?? key,
+          title: 'Transcript fixture',
+          agentKind: entry.session.agentKind,
+          backend: entry.session.backend ?? 'claude',
+          messages: toLoadedMessages(activeFixture.loadedMessages)
+        },
+        complete: activeFixture.remainingPrefixTurns.length === 0
+      })
+      useChatStore.setState({
+        entryIntent: { sessionKey: key, cause: 'open', seq: (state.entryIntent?.seq ?? 0) + 1 },
+        sessions: {
+          ...state.sessions,
+          [key]: { ...entry, session, live: { text: '', reasoning: '', reasoningVisible: false } }
+        }
+      })
       return {
-        loadedTurns: options.loadedTurns ?? options.turns,
+        loadedTurns: activeFixture.loadedMessages.length / 2,
         remainingTurns: activeFixture.remainingPrefixTurns.length
       }
     },
     appendFixtureTurn() {
+      if (useChatStore.getState().activeKey !== fixtureSessionKey) return
       const kind = activeFixture?.kind ?? 'claude-code'
       const turnMsgs = makeTurnMessages(kind, activeNextTurn++, 4)
       const state = useChatStore.getState()
       const key = state.activeKey
       const entry = state.sessions[key]
       if (!entry) return
-      useChatStore.setState({
-        sessions: {
-          ...state.sessions,
-          [key]: {
-            ...entry,
-            session: {
-              ...entry.session,
-              messages: [...entry.session.messages, ...turnMsgs]
-            }
-          }
-        }
+      const [user, answer] = turnMsgs
+      const sessionId = entry.session.sessionId ?? key
+      const text = (message: Message): string =>
+        message.parts.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join(' ')
+      ingestChatEvent({
+        type: 'message.committed',
+        sessionId,
+        ids: [user.id],
+        text: text(user),
+        messageKey: user.id,
+        messageId: activeNextTurn,
+        createdAt: user.createdAt
       })
+      ingestChatEvent({
+        type: 'message.completed',
+        sessionId,
+        messageKey: answer.id,
+        message: { text: text(answer) }
+      })
+      ingestChatEvent({ type: 'telemetry', sessionId })
     },
     prependFixtureTurn() {
-      if (!activeFixture || activeFixture.remainingPrefixTurns.length === 0) {
+      if (
+        !activeFixture ||
+        useChatStore.getState().activeKey !== fixtureSessionKey ||
+        activeFixture.remainingPrefixTurns.length === 0
+      ) {
         return { remainingTurns: 0 }
       }
       const nextBatch = activeFixture.remainingPrefixTurns.pop()!
@@ -199,58 +255,71 @@ export function createDiagnosticDevApi(): DiagnosticDevApi {
       return { remainingTurns: activeFixture.remainingPrefixTurns.length }
     },
     blockCount(options) {
-      if (typeof document === 'undefined') return 0
-      const selector = options?.selectable ? '[data-part-key]' : '[data-block-key]'
-      return document.querySelectorAll(selector).length
+      return (
+        diagnosticViewports.get(useChatStore.getState().activeKey)?.count(!!options?.selectable) ??
+        0
+      )
     },
-    setVirtualization(enabled) {
-      setVirtualization(enabled)
-    },
-    selectBlocks(start, end) {
-      if (typeof document === 'undefined') return false
-      const blocks = document.querySelectorAll('[data-block-key]')
-      const a = blocks[start]
-      const b = blocks[end]
-      if (!a || !b) return false
-      const sel = document.getSelection()
-      if (!sel) return false
-      const range = document.createRange()
-      range.setStart(a, 0)
-      range.setEnd(b, b.childNodes.length)
-      sel.removeAllRanges()
-      sel.addRange(range)
-      return true
+    setVirtualization,
+    selectBlocks(from, to, options) {
+      return (
+        diagnosticViewports.get(useChatStore.getState().activeKey)?.select(from, to, options) ??
+        false
+      )
     },
     selectionInfo() {
-      if (typeof document === 'undefined') return { textLength: 0, collapsed: true }
-      const sel = document.getSelection()
+      const selection = document.getSelection()
+      const info = diagnosticViewports.get(useChatStore.getState().activeKey)?.selection()
       return {
-        textLength: sel ? sel.toString().length : 0,
-        collapsed: sel ? sel.isCollapsed : true
+        endpoints: info?.endpoints ?? null,
+        blockCount: info?.blockCount ?? 0,
+        textLength: selection?.toString().length ?? 0,
+        collapsed: selection?.isCollapsed ?? true
       }
     },
     async readClipboard() {
-      if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) return ''
-      return navigator.clipboard.readText()
+      const items = await navigator.clipboard.read()
+      async function read(type: string): Promise<string> {
+        const item = items.find((candidate) => candidate.types.includes(type))
+        return item ? (await item.getType(type)).text() : ''
+      }
+      const [text, html] = await Promise.all([read('text/plain'), read('text/html')])
+      return { text, html }
     },
-    failCopyChunk(chunkIndex) {
-      failChunkIndex = chunkIndex
-    },
+    failCopyChunk,
     streamFixture(chars) {
       const state = useChatStore.getState()
       const key = state.activeKey
       const entry = state.sessions[key]
       if (!entry) return
-      const payload = 'x'.repeat(Math.max(0, chars))
-      useChatStore.setState({
-        sessions: {
-          ...state.sessions,
-          [key]: {
-            ...entry,
-            live: { ...entry.live, text: entry.live.text + payload }
-          }
+      const sessionId = entry.session.sessionId ?? key
+      const messageKey = `a:fixture-stream-${activeNextTurn++}`
+      const source = ('```ts\n' + 'const value = 12345\n'.repeat(Math.ceil(chars / 20))).slice(
+        0,
+        Math.max(0, chars)
+      )
+      let offset = 0
+      function sendFrame(): void {
+        if (offset < source.length) {
+          ingestChatEvent({
+            type: 'message.delta',
+            sessionId,
+            messageKey,
+            delta: { text: source.slice(offset, offset + 512) }
+          })
+          offset += 512
+          requestAnimationFrame(sendFrame)
+        } else {
+          ingestChatEvent({
+            type: 'message.completed',
+            sessionId,
+            messageKey,
+            message: { text: source }
+          })
+          ingestChatEvent({ type: 'telemetry', sessionId })
         }
-      })
+      }
+      sendFrame()
     }
   }
 }

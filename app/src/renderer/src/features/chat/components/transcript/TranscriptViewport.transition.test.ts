@@ -4,6 +4,7 @@ import { installFakeDom, type FakeDom } from '../../../../shared/ui/renderHarnes
 import { chatReducer, initialChatState, type Message } from '../../reducer/chatReducer'
 import { createClaudeBlockModel } from '../../harnesses/claude/transcript/claudeBlocks'
 import { clearDisclosures, getDisclosure, setDisclosure } from '../../store/disclosureStore'
+import { generateTranscriptFixture } from '../../dev/transcriptFixtures'
 import { installViewportSelection } from './viewportSelection.testfixture'
 import { TranscriptViewport, type ViewportBlockBase } from './TranscriptViewport'
 
@@ -82,22 +83,12 @@ describe('TranscriptViewport.transition (VP-22 · SD-02 ↔ ST-02 · EP-10 ④ �
     const scrollRef = { current: scroller }
     const sizeCache = new Map<string, number>()
 
-    // Build a 5,000-block answer (2,500 turns = 5,000+ blocks)
-    const messages: Message[] = []
-    for (let i = 0; i < 2500; i++) {
-      messages.push({
-        id: `u:${i}`,
-        role: 'user',
-        createdAt: i * 10,
-        parts: [{ type: 'text', text: `q ${i}` }]
-      })
-      messages.push({
-        id: `a:${i}`,
-        role: 'assistant',
-        createdAt: i * 10 + 1,
-        parts: [{ type: 'text', text: `ans ${i}` }]
-      })
-    }
+    const { loadedMessages: messages } = generateTranscriptFixture(
+      'claude-code',
+      { turns: 1 },
+      'answer-5000'
+    )
+    expect(messages.map((message) => message.role)).toEqual(['user', 'assistant'])
 
     let state = chatReducer(initialChatState, {
       type: 'LOAD_SESSION',

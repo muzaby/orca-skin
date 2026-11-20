@@ -115,6 +115,7 @@ export function createSegmentCache(): {
       }
       const suffix = parts.slice(from)
       suffix.forEach((part, index) => {
+        if (part.type === 'tool_call' && externalResults) changed.add(part.toolRunId)
         if (part.type !== 'tool_result') return
         const item = { index: from + index, id: part.toolRunId, result: toolResultFromPart(part) }
         indexed.push(item)
@@ -124,8 +125,7 @@ export function createSegmentCache(): {
         changed.add(part.toolRunId)
       })
       if (previousExternal !== externalResults) {
-        for (const id of previousExternal?.keys() ?? []) changed.add(id)
-        for (const id of externalResults?.keys() ?? []) changed.add(id)
+        for (const id of byTool.keys()) changed.add(id)
       }
       const changedTools = new Set<number>()
       for (const id of changed) {
@@ -136,10 +136,12 @@ export function createSegmentCache(): {
         for (const span of byTool.get(id) ?? []) changedTools.add(span)
       }
 
+      const detached = new Set<string>()
       let retained = spans.length
       while (retained > 0 && spans[retained - 1].end > from) retained--
       const rebuildFrom = Math.min(spans[retained]?.start ?? from, from)
       for (let index = retained; index < spans.length; index++) {
+        eachCall(spans[index].segment, (id) => detached.add(id))
         recordSpan(spans[index].segment, index, false)
       }
       let next = spans.slice(0, retained)
@@ -182,6 +184,9 @@ export function createSegmentCache(): {
         editableTail = true
       }
       if (editableTail) recordSpan(next[next.length - 1].segment, next.length - 1, true)
+      for (const id of detached) {
+        if (!byTool.has(id) && !stacks.has(id)) results.delete(id)
+      }
       if (next.length !== spans.length || next.some((span, index) => span !== spans[index])) {
         views = next.map(({ segment }) => segment)
       } else {

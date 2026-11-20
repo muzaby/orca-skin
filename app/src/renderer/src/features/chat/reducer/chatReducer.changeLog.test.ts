@@ -15,6 +15,33 @@ const msg = (
 })
 
 describe('VP-10 EP-5 ③ messages write sweep (l8, l11)', () => {
+  it.each([true, false])(
+    'records a partial same-session reload when preserveLocalState is %s',
+    (preserveLocalState) => {
+      const session = {
+        id: 's',
+        title: null,
+        backend: 'claude',
+        agentKind: 'code',
+        messages: []
+      } as const
+      const before = chatReducer(initialChatState, {
+        type: 'LOAD_SESSION',
+        session: { ...session, messages: [] },
+        complete: true
+      })
+      const next = chatReducer(before, {
+        type: 'LOAD_SESSION',
+        session: { ...session, messages: [] },
+        complete: false,
+        preserveLocalState
+      })
+      expect(next.transcriptChanges.lineage).toBe(before.transcriptChanges.lineage)
+      expect(next.transcriptChanges.revision).toBe(before.transcriptChanges.revision + 1)
+      expect(next.transcriptChanges.log.at(-1)).toEqual({ kind: 'reset', complete: false })
+    }
+  )
+
   it('every messages write records one change of the right kind', () => {
     // ⓖ LOAD_SESSION full branch -> reset{complete: true / false} (l11)
     let s = chatReducer(initialChatState, {

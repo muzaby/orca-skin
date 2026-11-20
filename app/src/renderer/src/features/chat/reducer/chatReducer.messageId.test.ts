@@ -26,6 +26,31 @@ const recv = (state: ChatState, event: NormalizedEvent): ChatState =>
   chatReducer(state, { type: 'RECV_EVENT', event })
 
 describe('VP-07 chatReducer message identity (r1~r17)', () => {
+  it.each([
+    { type: 'message.reasoning', text: 'thought' },
+    { type: 'response.boundary', boundary: { id: 'r', phase: 'begin' } },
+    { type: 'message.completed', message: { text: 'answer' } },
+    { type: 'tool.call.started', toolName: 'Read', toolRunId: 't', args: {} },
+    { type: 'tool.call.completed', toolRunId: 't', result: 'found', isError: false },
+    { type: 'session.compacted', trigger: 'manual' },
+    {
+      type: 'subagent.task',
+      phase: 'settled',
+      toolUseId: 't',
+      background: true,
+      status: 'completed'
+    }
+  ] as const)('routes $type to its original message after a later turn', (event) => {
+    const before = load([
+      msg('a:original', 'assistant'),
+      msg('u:next', 'user'),
+      msg('a:next', 'assistant')
+    ])
+    const next = recv(before, { ...event, sessionId: 's', messageKey: 'a:original' })
+    expect(next.messages[0].parts).toHaveLength(1)
+    expect(next.messages[2]).toBe(before.messages[2])
+  })
+
   it('r1, r2, r3, r4, r9 route parts by messageKey without copying earlier messages', () => {
     let s = load([msg('u:1', 'user', { type: 'text', text: 'hi' })])
     // r4: after user, keyed event creates new assistant message

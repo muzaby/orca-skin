@@ -8,6 +8,7 @@ import {
 } from "/src/renderer/src/features/chat/store/chatStore";
 import { initialChatState } from "/src/renderer/src/features/chat/reducer/chatReducer";
 
+import { createDiagnosticDevApi } from "/src/renderer/src/features/chat/dev/transcriptFixtures";
 import { Markdown } from "/src/renderer/src/shared/ui/markdown/Markdown";
 
 declare global {
@@ -110,6 +111,29 @@ for (const [backend, agentKind] of [
     unrelatedBubbleRenders: rerenders,
     unrelatedRowRenders: globalThis.rowRenders - rowBaseline,
   });
+  function FixtureScreen() {
+    const state = useChatStore(store => store.sessions.s.session);
+    return <TranscriptView backend={backend} agentKind={agentKind} messages={state.messages} inflight={state.inflight} loadingSession={false} anchored={false} pendingSteer={[]} scrollRef={React.useRef(null)} contentRef={React.useRef(null)} onScroll={() => {}}/>;
+  }
+  const api = createDiagnosticDevApi();
+  flushSync(() => root.render(<FixtureScreen />));
+  api.loadFixture('long', { turns: 4, loadedTurns: 1 });
+  await settle();
+  const before = api.blockCount();
+  if (!before || api.prependFixtureTurn().remainingTurns !== 2) throw new Error('fixture prepend ' + before);
+  await settle();
+  if (api.blockCount() <= before) throw new Error('fixture prepend count');
+  api.appendFixtureTurn();
+  await settle();
+  const question = 'u:fx-4:user';
+  if (!api.selectBlocks('u:fx-2:user', question, {reverse:true, partialEnds:true})) throw new Error('fixture select ' + backend);
+  const info = api.selectionInfo();
+  if (info.endpoints?.anchor.blockKey !== question || info.blockCount < 3) throw new Error('fixture endpoints ' + JSON.stringify(info));
+  api.streamFixture(1024);
+  await settle();
+  await settle();
+  const streamed = useChatStore.getState().sessions.s.session.messages.at(-1);
+  if (!streamed?.parts.some(p => p.type === 'text' && p.text.length === 1024)) throw new Error('fixture stream ' + JSON.stringify(streamed));
   flushSync(() => root.unmount());
 }
 const highlighted = createRoot(document.querySelector("#root")!);

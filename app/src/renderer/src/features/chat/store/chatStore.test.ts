@@ -1082,6 +1082,7 @@ describe('chatStore — 0064 r4 continuity draft nav', () => {
     const draftMsgs = useChatStore.getState().sessions[firstKey].session.messages
     expect(draftMsgs).toHaveLength(3)
     expect(draftMsgs[2].parts).toEqual([{ type: 'fork_boundary' }])
+    expect(draftMsgs[2].id).toMatch(/^r:/)
 
     // 부모로 돌아가 다시 fork — 이전 미전송 draft 는 교체 정리된다(중복 nav 행 방지).
     useChatStore.setState({ activeKey: 's' })

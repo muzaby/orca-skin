@@ -22,6 +22,28 @@ const outcome = (toolRunId: string, result: string): AppMessagePart => ({
 })
 
 describe('incremental message segments', () => {
+  it('reads external results by the message call IDs, including calls introduced after warmup', () => {
+    const cache = createSegmentCache()
+    const global = new Map([
+      ['local', { output: 'found', isError: false }],
+      ['other', { output: 'unrelated', isError: false }]
+    ])
+    const keys = vi.spyOn(global, 'keys')
+    const reads = vi.spyOn(global, 'get')
+    const first = message([text('before')])
+    cache.segmentsFor(first, undefined, global)
+    const second = message([...first.parts, tool('local')])
+    const segments = cache.segmentsFor(second, 1, global)
+    expect(segments.at(-1)).toMatchObject({ calls: [{ result: { output: 'found' } }] })
+    expect(keys).not.toHaveBeenCalled()
+    expect(reads.mock.calls).toEqual([['local']])
+    expect(cache.segmentsFor(second, undefined, new Map()).at(-1)).toMatchObject({
+      calls: [{ toolUseId: 'local' }]
+    })
+    const cleared = cache.segmentsFor(second, undefined, new Map()).at(-1)
+    expect(cleared?.kind === 'tools' && cleared.calls[0].result).toBeUndefined()
+  })
+
   it('only reads the appended part when extending a long group', () => {
     const cache = createSegmentCache()
     const first = message(Array.from({ length: 10_000 }, () => text('x')))

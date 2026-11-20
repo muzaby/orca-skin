@@ -1,6 +1,6 @@
 // `measure-ui-inputs.mjs` 의 순수 부분 — 입력 생성 · 결정성 · N/A · 요약 · `--src` 번들 (0325 VP-33 m1~m5 · EP-10).
 //
-// git 은 실행하지 않는다(번들은 m5 의 임시 트리만). 여기서 잠그는 것은 AC19 의 재현 입력과 요약이 **무엇을 재는지**가 조용히
+// m5는 임시 소스 트리, J8은 현재 reducer와 블록 모델을 번들한다. 여기서 잠그는 것은 AC19 의 재현 입력과 요약이 **무엇을 재는지**가 조용히
 // 바뀌지 않는다는 것이다 — 입력이 실행마다 달라지면 전후 비교가 입력 차이를 잰다.
 
 import { strict as assert } from 'node:assert'
@@ -8,6 +8,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import {
   addedPatchLines,
   draftText,
@@ -192,10 +193,29 @@ test('j3 J1~J8 각 항목은 coldBuild · incremental · cacheHit 세 갈래를 
   }
 })
 
-test('j4 없는 모듈 트리에서 J1~J7 측정은 N/A(함수 없음) 를 반환한다', () => {
-  const jCases = transcriptMeasurementCases({}).filter((item) => !item.id.startsWith('J8:'))
+test('j4 없는 모듈 트리에서 J1~J8 측정은 N/A(함수 없음) 를 반환한다', () => {
+  const jCases = transcriptMeasurementCases({})
   for (const item of jCases) {
     assert.equal(measureCase(item.run), 'N/A(함수 없음)', item.id)
+  }
+})
+
+test('J8 prepends a turn through the production reducer and reuses the loaded state on cache hits', async () => {
+  const modules = await loadTree(fileURLToPath(new URL('..', import.meta.url)))
+  const cases = transcriptMeasurementCases(modules)
+  for (const [prefix, turns] of [
+    ['J8', 1],
+    ['J8(100)', 100]
+  ]) {
+    for (const branch of ['coldBuild', 'incremental', 'cacheHit']) {
+      const item = cases.find((row) => row.id === `${prefix}:${branch}`)
+      const context = item.prepare()
+      const before = context.model.snapshot()
+      const measured = item.run(context)
+      assert.equal(measured.messages, (turns + Number(branch === 'incremental')) * 2)
+      assert.ok(measured.blocks > 0)
+      if (branch === 'cacheHit') assert.equal(context.model.snapshot().revision, before.revision)
+    }
   }
 })
 

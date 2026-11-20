@@ -10,8 +10,11 @@ import * as errors from '../../../../shared/errors/reportError'
 import type { Backend } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import type { Message } from '../../reducer/chatReducer'
-import { chatActions, useChatStore } from '../../store/chatStore'
+import { chatActions, useChatStore, useTranscriptView } from '../../store/chatStore'
 import { installChatStoreHarness } from '../../store/chatStore.testHarness'
+import { AgentTaskRow } from '../../harnesses/common/transcript/AgentTaskRow'
+import { agentUiPolicy } from '../../lib/agentPresentation'
+import { partsToolCalls } from '../../lib/parts'
 import { TranscriptView } from './TranscriptView'
 import { HarnessScrollController } from './HarnessScrollController'
 import type { ScrollAnchor } from '../../harnesses/common/transcript/scrollTypes'
@@ -124,6 +127,93 @@ const screens = [
 ] as const
 
 describe('TranscriptViewport via the production harnesses', () => {
+  it('retains the keyboard-extended endpoint before the next selectionchange', () => {
+    const render = mountTranscript('claude', 'code', [
+      { id: 'u:key', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'question' }] },
+      { id: 'a:key', role: 'assistant', createdAt: 3, parts: [{ type: 'text', text: 'answer' }] }
+    ])
+    const { select, selection } = installViewportSelection(dom!)
+    render()
+    const user = dom!.query('[data-part-key="u:key:user"]')!
+    const answer = dom!.query('[data-part-key="a:key:text:0"]')!
+    select(answer, 2, user, 1)
+    selection.setBaseAndExtent(selection.anchorNode!, 5, selection.focusNode!, 3)
+    const onKeyDown = dom!.query('[data-transcript-viewport]')!.props.onKeyDown as (e: {
+      shiftKey: boolean
+      key: string
+    }) => void
+    dom!.act(() => onKeyDown({ shiftKey: true, key: 'ArrowLeft' }))
+    selection.removeAllRanges()
+    dom!.act(() =>
+      chatActions.prependHistory(
+        's',
+        [
+          { id: 'u:old', role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'earlier' }] },
+          {
+            id: 'a:old',
+            role: 'assistant',
+            createdAt: 1,
+            parts: [{ type: 'text', text: 'history' }]
+          }
+        ],
+        { reachedStart: true }
+      )
+    )
+    expect([selection.anchorOffset, selection.focusOffset]).toEqual([5, 3])
+  })
+
+  it('reads the task board through the production domain hook', () => {
+    mountTranscript('claude', 'code', [
+      {
+        id: 'a:board',
+        createdAt: 1,
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool_call',
+            toolRunId: 'create',
+            toolName: 'TaskCreate',
+            args: { subject: 'Review' }
+          },
+          {
+            type: 'tool_result',
+            toolRunId: 'create',
+            result: 'created',
+            isError: false,
+            structuredOutput: { task: { id: '1', subject: 'Review' } }
+          }
+        ]
+      }
+    ])
+    function Board(): React.JSX.Element {
+      const board = useTranscriptView('taskBoard')
+      return createElement(
+        'output',
+        { 'data-board': true },
+        board.map((item) => item.title).join(',')
+      )
+    }
+    dom!.render(createElement(Board))
+    expect(dom!.query('[data-board]')!.textContent).toBe('Review')
+  })
+
+  it('opens and closes the inline AgentTaskRow detail with the work presentation policy', () => {
+    vi.useFakeTimers()
+    mountTranscript('claude', 'code', [])
+    const [call] = partsToolCalls([
+      { type: 'tool_call', toolRunId: 'child', toolName: 'Agent', args: { description: 'Review' } }
+    ])
+    dom!.render(
+      createElement(AgentTaskRow, { call, transcriptPolicy: agentUiPolicy('work').transcript })
+    )
+    const row = dom!.query('[aria-expanded]')!
+    expect(row.getAttribute('aria-expanded')).toBe('false')
+    dom!.click(row)
+    expect(row.getAttribute('aria-expanded')).toBe('true')
+    dom!.click(row)
+    expect(row.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('keeps both source part markers in expanded Claude Work notes before a tool', () => {
     vi.useFakeTimers()
     vi.stubGlobal('requestAnimationFrame', vi.fn())

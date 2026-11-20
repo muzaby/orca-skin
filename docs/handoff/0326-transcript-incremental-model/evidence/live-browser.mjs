@@ -21,6 +21,7 @@ const dist = join(profile, "dist");
 await build({
   root: app,
   configFile: false,
+  define: { "import.meta.env.VITE_OO_DIAGNOSTIC": JSON.stringify("1") },
   worker: { format: "es" },
   logLevel: "error",
   esbuild: { jsx: "automatic" },

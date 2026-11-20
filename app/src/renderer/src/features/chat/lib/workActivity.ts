@@ -177,7 +177,6 @@ export function createWorkProjector(
     const results = new Map<string, NonNullable<ToolCall['result']>>()
     for (const message of parsed)
       for (const [id, result] of message.results) results.set(id, result)
-    if (toolResults) for (const [id, result] of toolResults) results.set(id, result)
     // Writer가 telemetry 뒤 별도 메시지에 기록한 결과도 원래 도구 ID에 결합한다.
     // 기존 메시지를 재파싱하지 않으며 동일 결과의 view/children identity를 유지한다.
     function join(atom: Atom): Atom {
@@ -188,7 +187,7 @@ export function createWorkProjector(
       if (segment.kind !== 'tools' && segment.kind !== 'ask') return atom
       const calls = segment.kind === 'tools' ? segment.calls : [segment.call]
       const next = calls.map((call) => {
-        const result = results.get(call.toolUseId)
+        const result = toolResults?.get(call.toolUseId) ?? results.get(call.toolUseId)
         if (result === call.result) return call
         if (result) return { ...call, result }
         const copy = { ...call }

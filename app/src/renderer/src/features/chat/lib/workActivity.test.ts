@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createWorkProjector } from './workActivity'
 import type { Message } from '../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../shared/ipc'
@@ -20,6 +20,26 @@ const message = (...parts: AppMessagePart[]): Message => ({
   parts
 })
 describe('Work response projection', () => {
+  it('uses the indexed result for this call without iterating other turns', () => {
+    const results = new Map([['t', { output: 'indexed', isError: false }]])
+    const iteration = vi.spyOn(results, Symbol.iterator)
+    const projected = createWorkProjector()(
+      [
+        message(
+          begin('r'),
+          tool,
+          { type: 'tool_result', toolRunId: 't', result: 'previous', isError: false },
+          end('r')
+        )
+      ],
+      results
+    )
+    expect(projected?.find((node) => node.kind === 'activity')).toMatchObject({
+      items: [{ segment: { calls: [{ result: { output: 'indexed' } }] } }]
+    })
+    expect(iteration).not.toHaveBeenCalled()
+  })
+
   it('keeps legacy history untouched and does not invent empty activity for text-only responses', () => {
     const project = createWorkProjector()
     expect(project([message(text('legacy'))])).toBeNull()

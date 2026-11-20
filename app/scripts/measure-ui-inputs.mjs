@@ -19,6 +19,7 @@
 //   · 요약은 예열 1회를 뺀 9회의 중앙값·최대다.
 // 순수 부분(입력 생성 · 요약 · N/A)과 `--src` 번들(임시 트리)은 `measure-ui-inputs.test.mjs` 가 돌린다 — git 은 실행하지 않는다.
 
+import { DOMImplementation, XMLSerializer } from '@xmldom/xmldom'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -233,6 +234,7 @@ export const SOURCE_MODULES = {
     'src/renderer/src/features/chat/harnesses/opencode/transcript/filePresentation.ts',
   turns: 'src/renderer/src/features/chat/lib/turns.ts',
   changeLog: 'src/renderer/src/features/chat/lib/transcript/changeLog.ts',
+  reducer: 'src/renderer/src/features/chat/reducer/chatReducer.ts',
   messageOrder: 'src/renderer/src/features/chat/lib/transcript/messageOrder.ts',
   blockList: 'src/renderer/src/features/chat/lib/transcript/blockList.ts',
   claudeBlocks: 'src/renderer/src/features/chat/harnesses/claude/transcript/claudeBlocks.ts',
@@ -420,13 +422,22 @@ export function measureJ9CopyCap(
     }))
     const res = measureCase(
       () => {
-        const htmlParts = new Array(blocks.length)
-        const textParts = new Array(blocks.length)
-        for (let i = 0; i < blocks.length; i++) {
-          textParts[i] = blocks[i].text
-          htmlParts[i] = `<div data-block-key="${blocks[i].key}">${blocks[i].text}</div>`
+        const doc = new DOMImplementation().createDocument(
+          'http://www.w3.org/1999/xhtml',
+          'section',
+          null
+        )
+        const root = doc.documentElement
+        for (const block of blocks) {
+          const row = doc.createElement('div')
+          row.setAttribute('data-block-key', block.key)
+          const body = doc.createElement('span')
+          body.setAttribute('data-part-key', block.key)
+          body.appendChild(doc.createTextNode(block.text))
+          row.appendChild(body)
+          root.appendChild(row)
         }
-        return textParts.join('\n').length + htmlParts.join('').length
+        return root.textContent.length + new XMLSerializer().serializeToString(root).length
       },
       { clock }
     )
@@ -436,14 +447,31 @@ export function measureJ9CopyCap(
     }
   }
   const assembleTasks = [2_500, 5_000].map((count) => {
-    const textParts = Array.from({ length: count }, (_, i) => `block ${i} text payload`)
-    const htmlParts = Array.from({ length: count }, (_, i) => `<p>block ${i} text payload</p>`)
+    const textParts = []
+    const htmlParts = []
+    const chunkSize = maxPassing ?? sizes[0] ?? 1
+    for (let from = 0; from < count; from += chunkSize) {
+      const length = Math.min(chunkSize, count - from)
+      if (from) textParts.push('\n')
+      textParts.push(Array.from({ length }, (_, i) => `block ${from + i} text payload`).join('\n'))
+      htmlParts.push(
+        Array.from({ length }, (_, i) => `<p>block ${from + i} text payload</p>`).join('')
+      )
+    }
+    const Item =
+      globalThis.ClipboardItem ??
+      class {
+        constructor(data) {
+          this.types = Object.keys(data)
+          this.data = data
+        }
+      }
     const fakeClipboard = { write: async () => undefined }
     const result = measureCase(
       () => {
-        const textBlob = new Blob([textParts.join('\n')], { type: 'text/plain' })
-        const htmlBlob = new Blob([htmlParts.join('')], { type: 'text/html' })
-        void fakeClipboard.write([{ 'text/plain': textBlob, 'text/html': htmlBlob }])
+        const textBlob = new Blob(textParts, { type: 'text/plain' })
+        const htmlBlob = new Blob(htmlParts, { type: 'text/html' })
+        void fakeClipboard.write([new Item({ 'text/plain': textBlob, 'text/html': htmlBlob })])
       },
       { clock }
     )
@@ -555,6 +583,36 @@ export function transcriptMeasurementCases(modules) {
     { id: `${id}:incremental`, input: `${label} (incremental)`, ...fns.incremental },
     { id: `${id}:cacheHit`, input: `${label} (cacheHit)`, ...fns.cacheHit }
   ]
+
+  function prependCase(turns, branch) {
+    const reducer = modules.reducer
+    if (!reducer?.chatReducer || !claudeBlocks.createClaudeBlockModel) return {}
+    const messages = jTranscriptMessages(turns + 1)
+    const page = messages.slice(0, 2)
+    return {
+      prepare() {
+        const model = claudeBlocks.createClaudeBlockModel({ mode: 'code', sessionKey: 'j8' })
+        const state = reducer.chatReducer(reducer.initialChatState, {
+          type: 'LOAD_SESSION',
+          session: { id: 'j8', backend: 'claude', agentKind: 'code', messages: messages.slice(2) },
+          complete: false
+        })
+        if (branch !== 'coldBuild') model.advance(state)
+        return { model, state }
+      },
+      run({ model, state }) {
+        const next =
+          branch === 'incremental'
+            ? reducer.chatReducer(state, {
+                type: 'PREPEND_HISTORY',
+                messages: page,
+                reachedStart: false
+              })
+            : state
+        return { blocks: model.advance(next).count, messages: next.messages.length }
+      }
+    }
+  }
 
   return [
     ...threeBranch('J1', 'Claude code 블록 1,000메시지 끝 추가', {
@@ -849,11 +907,13 @@ export function transcriptMeasurementCases(modules) {
           : undefined
       }
     }),
-    ...threeBranch('J8', '버블 측정 일괄 배치 (3 버블)', {
-      coldBuild: { run: () => 3 },
-      incremental: { run: () => 1 },
-      cacheHit: { run: () => 0 }
-    })
+    ...[1, 100].flatMap((turns) =>
+      threeBranch(turns === 1 ? 'J8' : 'J8(100)', `앞삽입 1턴 · 기존 ${turns}턴`, {
+        coldBuild: prependCase(turns, 'coldBuild'),
+        incremental: prependCase(turns, 'incremental'),
+        cacheHit: prependCase(turns, 'cacheHit')
+      })
+    )
   ]
 }
 
@@ -872,6 +932,9 @@ async function measureTree(tree) {
     '|---|---|---|',
     ...rows.map((row) => `| ${row.id} | ${row.input} | ${formatCell(row.result)} |`),
     `| J9 | 복사 상한 탐색 (100~2,000, ≤ ${J9_BUDGET_MS}ms) | 상한 = ${j9.cap} |`,
+    ...j9.samples.map(
+      ({ size, result }) => `| J9:sample(${size}) | DOM 마운트·직렬화 | ${formatCell(result)} |`
+    ),
     ...j9.assembleTasks.map(
       (t) => `| J9:assemble(${t.count}) | 조립 task (${t.count}블록) | ${formatCell(t.result)} |`
     ),
