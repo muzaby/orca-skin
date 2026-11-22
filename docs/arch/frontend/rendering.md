@@ -73,6 +73,7 @@ Composer에서 전송한 첨부 파일과 이미지는 컨텍스트에 원래 �
 ### 1.1 메시지 리스트 가상화
 
 - **현재: 사용.** 공통 `TranscriptViewport`가 `@tanstack/react-virtual`을 사용한다. Claude는 이전 교환을, OpenCode는 블록 목록의 가시 범위를 가상화한다. 스크롤 컨테이너는 `.app-frame-transcript[data-behavior="virtualizable"]`(dom-architecture.md §1.2).
+- 선택·복사는 브라우저 기본이다. 뷰포트는 copy·키를 가로채지 않고 선택을 복원하지 않으며, 선택이 마운트 범위를 늘리지 않는다. transcript 선택이 있는 동안 가상화 행이 새로 마운트되면 선택을 취소하고, 드래그 중 취소면 버튼을 놓을 때까지 선택을 다시 만들지 않는다(`lib/transcript/viewport/selectionGuard.ts` · 0326). 실제 Electron 판정은 `app/scripts/check-transcript-selection.mjs`(CI)다.
 - 교환(Exchange) 단위 wrapper 와 50% 미드라인 예약(§1.8)은 가상화 위에서 유지된다. 사용자 버블 접기 상태는 키별 메모리로 재마운트에도 보존된다(ux-domains.md §1.3-b).
 
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)

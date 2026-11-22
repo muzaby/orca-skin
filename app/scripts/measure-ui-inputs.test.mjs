@@ -8,7 +8,6 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { DOMImplementation, XMLSerializer } from '@xmldom/xmldom'
 import { fileURLToPath } from 'node:url'
 import {
   addedPatchLines,
@@ -16,17 +15,15 @@ import {
   emptySessionMessages,
   exchangeHistory,
   formatCell,
-  formatJ9J10Rows,
+  formatJ10Rows,
   gitFileContent,
   inputFiles,
-  J9_SIZES,
   jOpenFenceStream,
   jTranscriptMessages,
   loadTree,
   longLinePair,
   measureCase,
   measureJ10Virtualizer,
-  measureJ9CopyCap,
   measurementCases,
   MEASURED_RUNS,
   multiEditCall,
@@ -177,13 +174,6 @@ test('m5 `--src` 트리의 소스만 번들해 부르고 없는 모듈은 빈 �
 test('j2 0326 J1~J8 입력 생성기는 같은 인자에서 결정적 동일 결과를 낸다', () => {
   assert.deepEqual(jTranscriptMessages(5), jTranscriptMessages(5))
   assert.deepEqual(jOpenFenceStream(500, 50), jOpenFenceStream(500, 50))
-})
-
-test('j1 J9 상한 탐색 입력 크기는 100~2,000 (20단계) 결정적 표본이다', () => {
-  assert.deepEqual(
-    J9_SIZES,
-    Array.from({ length: 20 }, (_, i) => 100 * (i + 1))
-  )
 })
 
 test('j1 J6 measures 10,000 separate parts and preserves the earlier part range on each branch', () => {
@@ -388,102 +378,6 @@ test('j5 J10 compares equal-sized updates with callback invalidation and key reo
   assert.ok(row('topResize').getItemKeyCalls > row('lastResize').getItemKeyCalls)
 })
 
-test('j6 J9 상한 탐색은 예산 내 최대 표본과 조립 task 를 보고하고 전부 초과 시 통과 표본 없음 을 반환한다', () => {
-  // Keep sample order independent of its size. A single slow run must not
-  // exclude a size whose median is exactly the budget.
-  let reads = 0
-  let elapsed = 0
-  const repetitions = WARMUP_RUNS + MEASURED_RUNS
-  const sampleMedians = [50, 51, 1]
-  const clock = () => {
-    const sample = Math.floor(reads / 2)
-    if (reads++ % 2) {
-      const batch = Math.floor(sample / repetitions)
-      elapsed += sample === 2 ? 90 : (sampleMedians[batch] ?? 1)
-    }
-    return elapsed
-  }
-  const j9 = measureJ9CopyCap([400, 800, 100], { budgetMs: 50, clock })
-  assert.deepEqual(
-    j9.samples.map(({ size, result }) => [size, result.median, result.max]),
-    [
-      [400, 50, 90],
-      [800, 51, 51],
-      [100, 1, 1]
-    ]
-  )
-  assert.deepEqual(
-    j9.assembleTasks.map(({ count }) => count),
-    [2500, 5000]
-  )
-  assert.equal(j9.cap, 400)
-
-  let tick = 0
-  const slowClock = () => (tick += 100)
-  const j9Fail = measureJ9CopyCap([100, 200], { budgetMs: 50, clock: slowClock })
-  assert.equal(j9Fail.cap, '통과 표본 없음')
-})
-
-test('j6 mounts and serializes the selected DOM rows, then writes both complete MIME payloads', async (t) => {
-  const plainReads = []
-  const create = DOMImplementation.prototype.createDocument
-  t.mock.method(DOMImplementation.prototype, 'createDocument', function (...args) {
-    const doc = create.apply(this, args)
-    const root = doc.documentElement
-    Object.defineProperty(root, 'textContent', {
-      get() {
-        plainReads.push(root)
-        return Reflect.get(Object.getPrototypeOf(root), 'textContent', root)
-      }
-    })
-    return doc
-  })
-  const serialize = t.mock.method(XMLSerializer.prototype, 'serializeToString')
-  const writes = []
-  const clipboard = {
-    write: async ([item]) => {
-      writes.push(item)
-    }
-  }
-  measureJ9CopyCap([3], { clipboard, budgetMs: Infinity })
-  const repeats = WARMUP_RUNS + MEASURED_RUNS
-  assert.equal(serialize.mock.callCount(), repeats)
-  assert.equal(plainReads.length, repeats)
-  assert.ok(serialize.mock.calls.every((call, i) => call.arguments[0] === plainReads[i]))
-  const root = serialize.mock.calls[0].arguments[0]
-  assert.deepEqual(
-    Array.from(root.childNodes, (row) => [
-      row.getAttribute('data-block-key'),
-      row.firstChild.getAttribute('data-part-key')
-    ]),
-    [
-      ['b:0', 'b:0'],
-      ['b:1', 'b:1'],
-      ['b:2', 'b:2']
-    ]
-  )
-  assert.equal(writes.length, 2 * repeats)
-  for (const [i, count] of [
-    [0, 2500],
-    [repeats, 5000]
-  ]) {
-    const item = writes[i]
-    assert.deepEqual(item.types, ['text/plain', 'text/html'])
-    for (const type of item.types) {
-      const blob = item.getType ? await item.getType(type) : item.data[type]
-      assert.equal(blob.type, type)
-      const text = await blob.text()
-      const expected = Array.from({ length: count }, (_, i) => 'block ' + i + ' text payload')
-      assert.equal(
-        text,
-        type === 'text/plain'
-          ? expected.join('\n')
-          : expected.map((s) => '<p>' + s + '</p>').join('')
-      )
-    }
-  }
-})
-
 test('j7 J10 Virtualizer getItemKey counts and measured times accompany every row', async (t) => {
   let tick = 0
   t.mock.method(performance, 'now', () => ++tick)
@@ -499,19 +393,11 @@ test('j7 J10 Virtualizer getItemKey counts and measured times accompany every ro
 })
 
 test('j7 report rows keep the sample size, timing and key count of each measured operation together', () => {
-  const j9 = {
-    cap: 300,
-    samples: [{ size: 100, result: { median: 1, max: 4 } }],
-    assembleTasks: [{ count: 2500, result: { median: 10, max: 12 } }]
-  }
   const j10 = [
     { id: 'J10(37:content)', count: 37, getItemKeyCalls: 0, result: { median: 2, max: 3 } },
     { id: 'J10(71:reorder)', count: 71, getItemKeyCalls: 88, result: { median: 21, max: 32 } }
   ]
-  assert.deepEqual(formatJ9J10Rows(j9, j10), [
-    '| J9 | 복사 상한 탐색 (100~2,000, ≤ 50ms) | 상한 = 300 |',
-    '| J9:sample(100) | DOM 마운트·직렬화 | 1.00ms / 4.00ms |',
-    '| J9:assemble(2500) | 조립 task (2500블록) | 10.00ms / 12.00ms |',
+  assert.deepEqual(formatJ10Rows(j10), [
     '| J10(37:content) | Virtualizer (37블록, getItemKey=0) | 2.00ms / 3.00ms |',
     '| J10(71:reorder) | Virtualizer (71블록, getItemKey=88) | 21.00ms / 32.00ms |'
   ])

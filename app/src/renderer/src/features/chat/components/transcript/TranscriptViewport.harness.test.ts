@@ -8,7 +8,6 @@ import {
 } from '../../../../shared/ui/renderHarness.testfixture'
 import { generateTranscriptFixture } from '../../dev/transcriptFixtures'
 import { chatApi, sessionApi, settingsApi } from '../../../../shared/api/ipc'
-import * as errors from '../../../../shared/errors/reportError'
 import type { Backend } from '../../../../../../shared/ipc'
 import type { AgentKind } from '../../../../../../shared/agent-kind'
 import type { Message } from '../../reducer/chatReducer'
@@ -30,7 +29,6 @@ import {
   type TranscriptViewportProps,
   type ViewportBlockBase
 } from './TranscriptViewport'
-import type { CopyTaskTiming } from '../../lib/transcript/viewport/copy'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -73,10 +71,7 @@ vi.mock('./TranscriptViewport', async (original) => {
 
 let lastSnapshot: TranscriptViewportProps<ViewportBlockBase>['snapshot'] | undefined
 let dom: FakeDom | undefined
-let viewportOptions: Pick<
-  TranscriptViewportProps<ViewportBlockBase>,
-  'overscan' | 'copyChunkSize' | 'onCopyTiming'
->
+let viewportOptions: Pick<TranscriptViewportProps<ViewportBlockBase>, 'overscan'>
 afterEach(() => {
   dom?.unmount()
   clearDisclosures('s')
@@ -229,7 +224,7 @@ describe('TranscriptViewport via the production harnesses', () => {
   )
 
   it.each(screens)(
-    '%s %s keeps the reading character, selection and open card across both partial boundary resets (AC22)',
+    '%s %s keeps the reading character and open card across both partial boundary resets without restoring the selection (AC22 · ΔV2 D-102)',
     (backend, agentKind) => {
       vi.useFakeTimers()
       for (const variant of ['previous user', 'missing question']) {
@@ -311,18 +306,13 @@ describe('TranscriptViewport via the production harnesses', () => {
         expect(toggle.getAttribute('aria-expanded')).toBe('true')
         const after = dom!.query('[data-part-key="a:boundary:text:0"]')!
         expect(after.closest('[data-index]')!.getAttribute('data-block-key')).toBe(blockKey)
-        expect(selection.toString()).toBe(content)
-        expect([
-          selection.anchorNode!.closest('[data-part-key]')!.getAttribute('data-part-key'),
-          selection.anchorOffset,
-          selection.focusNode!.closest('[data-part-key]')!.getAttribute('data-part-key'),
-          selection.focusOffset
-        ]).toEqual(['a:boundary:text:0', 10, 'a:boundary:text:0', 2])
+        // ΔV2 D-102: the viewport does not restore a selection the browser dropped.
+        expect(content.length).toBeGreaterThan(0)
+        expect(selection.rangeCount).toBe(0)
         expect(viewport.scrollTop, variant).toBeGreaterThan(oldScroll)
-        expect(
-          Math.abs(characterTop(selection.anchorNode!, selection.anchorOffset) - oldTop),
-          variant
-        ).toBeLessThanOrEqual(1)
+        let point: FakeNode = after
+        while (point.nodeType !== 3) point = point.children[0]
+        expect(Math.abs(characterTop(point, 10) - oldTop), variant).toBeLessThanOrEqual(1)
         clearDisclosures('s')
       }
     }
@@ -476,50 +466,6 @@ describe('TranscriptViewport via the production harnesses', () => {
       Math.abs(characterTop(selection.anchorNode!, selection.anchorOffset) - oldCharTop)
     ).toBeLessThanOrEqual(1)
   })
-
-  it.each([
-    ...['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End'].map(
-      (key) => ({ key, shiftKey: true, expected: [5, 3] })
-    ),
-    { key: 'ArrowLeft', shiftKey: false, expected: [2, 1] },
-    { key: 'Tab', shiftKey: true, expected: [2, 1] }
-  ])(
-    'retains the keyboard-extended endpoint before the next selectionchange ($key, shift=$shiftKey)',
-    ({ key, shiftKey, expected }) => {
-      const render = mountTranscript('claude', 'code', [
-        { id: 'u:key', role: 'user', createdAt: 2, parts: [{ type: 'text', text: 'question' }] },
-        { id: 'a:key', role: 'assistant', createdAt: 3, parts: [{ type: 'text', text: 'answer' }] }
-      ])
-      const { select, selection } = installViewportSelection(dom!)
-      render()
-      const user = dom!.query('[data-part-key="u:key:user"]')!
-      const answer = dom!.query('[data-part-key="a:key:text:0"]')!
-      select(answer, 2, user, 1)
-      selection.setBaseAndExtent(selection.anchorNode!, 5, selection.focusNode!, 3)
-      const onKeyDown = dom!.query('[data-transcript-viewport]')!.props.onKeyDown as (e: {
-        shiftKey: boolean
-        key: string
-      }) => void
-      dom!.act(() => onKeyDown({ shiftKey, key }))
-      selection.removeAllRanges()
-      dom!.act(() =>
-        chatActions.prependHistory(
-          's',
-          [
-            { id: 'u:old', role: 'user', createdAt: 0, parts: [{ type: 'text', text: 'earlier' }] },
-            {
-              id: 'a:old',
-              role: 'assistant',
-              createdAt: 1,
-              parts: [{ type: 'text', text: 'history' }]
-            }
-          ],
-          { reachedStart: true }
-        )
-      )
-      expect([selection.anchorOffset, selection.focusOffset]).toEqual(expected)
-    }
-  )
 
   it('updates result panel snapshots only for distinct structured outputs', () => {
     function resultMessage(value: unknown): Message {
@@ -860,170 +806,7 @@ describe('TranscriptViewport via the production harnesses', () => {
   )
 
   it.each(screens)(
-    '%s %s runs bounded and chunked copy on the same rendered selection',
-    async (backend, agentKind) => {
-      vi.useFakeTimers()
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
-        setTimeout(() => callback(performance.now()), 0)
-      )
-      const messages: Message[] = Array.from({ length: 12 }, (_, index) => ({
-        id: `${index % 2 ? 'a' : 'u'}:copy-${index}`,
-        role: index % 2 ? 'assistant' : 'user',
-        createdAt: index,
-        parts:
-          index % 2
-            ? [
-                { type: 'text', text: 'plain **body ' },
-                { type: 'text', text: `${index}** and ` + '`code`' }
-              ]
-            : [{ type: 'text', text: `question ${index}` }]
-      }))
-      messages[1] = {
-        ...messages[1],
-        parts: [
-          ...messages[1].parts,
-          ...['opened', 'collapsed'].flatMap((state): Message['parts'] => [
-            {
-              type: 'tool_call',
-              toolRunId: `c9-${state}`,
-              toolName: 'Read',
-              args: { file_path: `${state}.md` }
-            },
-            {
-              type: 'tool_result',
-              toolRunId: `c9-${state}`,
-              result: `content-${state}-c9`,
-              isError: false
-            }
-          ])
-        ]
-      }
-      const render = mountTranscript(backend, agentKind, messages)
-      const { selection, select } = installViewportSelection(dom!)
-      const write = vi
-        .fn<(items: Record<string, Blob>[]) => Promise<void>>()
-        .mockResolvedValue(undefined)
-      const nativeBlob = Blob
-      const plainParts: BlobPart[][] = []
-      const htmlParts: BlobPart[][] = []
-      vi.stubGlobal(
-        'Blob',
-        class extends nativeBlob {
-          constructor(parts: BlobPart[], options: BlobPropertyBag) {
-            super(parts, options)
-            if (options.type === 'text/html') htmlParts.push(parts)
-            if (options.type === 'text/plain') plainParts.push(parts)
-          }
-        }
-      )
-      vi.stubGlobal('navigator', { clipboard: { write } })
-      vi.stubGlobal(
-        'ClipboardItem',
-        class {
-          constructor(items: Record<string, Blob>) {
-            Object.assign(this, items)
-          }
-        }
-      )
-      const start = (): FakeNode => dom!.query('[data-part-key="u:copy-0:user"]')!
-      const end = (): FakeNode => dom!.queryAll('[data-part-key="a:copy-3:text:1"]').at(-1)!
-      const middle = (): FakeNode | null => dom!.query('[data-part-key="u:copy-2:user"]')
-
-      setVirtualization(false)
-      viewportOptions = { overscan: 20, copyChunkSize: 30 }
-      render()
-      const contextGroup = dom!
-        .query('[data-component="context-tool-group"]')
-        ?.querySelector('[aria-expanded]')
-      if (contextGroup?.getAttribute('aria-expanded') === 'false') dom!.click(contextGroup)
-      const cardToggle = (state: string): FakeNode =>
-        dom!.query(`[data-part-key="a:copy-1:tool:c9-${state}"]`)!.querySelector('[aria-expanded]')!
-      const open = cardToggle('opened')
-      if (open.getAttribute('aria-expanded') === 'false') dom!.click(open)
-      expect(cardToggle('opened').getAttribute('aria-expanded')).toBe('true')
-      expect(cardToggle('collapsed').getAttribute('aria-expanded')).toBe('false')
-      select(end(), 3, start(), 2)
-      // The non-virtual reference leaves the copy event entirely to the browser.
-      expect(dom!.query('[data-transcript-viewport]')!.props.onCopy).toBeUndefined()
-      const reference = selection.toString()
-      expect(reference).toContain('content-opened-c9')
-      expect(reference).not.toContain('content-collapsed-c9')
-      expect(reference.split('\n').length).toBeGreaterThan(2)
-
-      setVirtualization(true)
-      render()
-      select(end(), 3, start(), 2)
-      viewportOptions = { ...viewportOptions, overscan: 0 }
-      render()
-      expect(middle()).toBeNull()
-      const invokeCopy = (): ReturnType<typeof vi.fn> => {
-        const preventDefault = vi.fn()
-        const viewport = dom!.query('[data-transcript-viewport]')!
-        const onCopy = viewport.props.onCopy as (event: { preventDefault: () => void }) => void
-        dom!.act(() => onCopy({ preventDefault }))
-        return preventDefault
-      }
-
-      expect(invokeCopy()).not.toHaveBeenCalled()
-      expect(middle()).not.toBeNull()
-      expect(selection.toString()).toBe(reference)
-      await vi.runAllTimersAsync()
-      dom!.act(() => {})
-      expect(middle()).toBeNull()
-
-      const timings: CopyTaskTiming[] = []
-      viewportOptions = {
-        ...viewportOptions,
-        copyChunkSize: 2,
-        onCopyTiming: (timing) => {
-          timings.push(timing)
-        }
-      }
-      render()
-      expect(invokeCopy()).toHaveBeenCalledOnce()
-      expect(write).not.toHaveBeenCalled()
-      await vi.runAllTimersAsync()
-      expect(write).toHaveBeenCalledOnce()
-      expect(portal).toHaveBeenCalledWith(
-        expect.objectContaining({ props: expect.objectContaining({ style: { width: '600px' } }) }),
-        document.body
-      )
-      const mime = write.mock.calls[0][0][0]
-      expect(mime['text/plain'].type).toBe('text/plain')
-      expect(mime['text/html'].type).toBe('text/html')
-      expect((await mime['text/html'].text()).length).toBeGreaterThan(0)
-      expect(await write.mock.calls[0][0][0]['text/plain'].text()).toBe(reference)
-      expect(plainParts[0].length).toBeGreaterThan(1)
-      const encodedChunks = htmlParts.at(-1)!
-      expect(encodedChunks.length).toBe(timings.filter(({ kind }) => kind === 'chunk').length)
-      expect(encodedChunks.every((part) => part instanceof Uint8Array)).toBe(true)
-      expect(
-        timings.filter(({ kind }) => kind === 'chunk').every(({ blockCount }) => blockCount <= 2)
-      ).toBe(true)
-      expect(dom!.query('[data-copy-serialization-host]')).toBeNull()
-      expect(selection.anchorOffset).toBe(3)
-      expect(selection.focusOffset).toBe(2)
-
-      const report = vi.spyOn(errors, 'reportError').mockImplementation(() => {})
-      vi.spyOn(document, 'createRange').mockImplementation(() => {
-        throw new Error('copy range failed')
-      })
-      write.mockClear()
-      timings.length = 0
-      expect(invokeCopy()).toHaveBeenCalledOnce()
-      await vi.runAllTimersAsync()
-      expect(write).not.toHaveBeenCalled()
-      expect(report).toHaveBeenCalledWith(
-        expect.objectContaining({ event: 'clipboard.copy.failed' })
-      )
-      expect(dom!.query('[data-copy-serialization-host]')).toBeNull()
-      expect(selection.anchorOffset).toBe(3)
-      expect(selection.focusOffset).toBe(2)
-    }
-  )
-
-  it.each(screens)(
-    '%s %s retains the open tool card instance and selection through a real cached reload',
+    '%s %s retains the open tool card instance and selection through a real cached reload, then cancels the selection when the next question row mounts (ΔV2 D-103)',
     async (backend, agentKind) => {
       vi.useFakeTimers()
       vi.stubGlobal('requestAnimationFrame', vi.fn())
@@ -1083,17 +866,14 @@ describe('TranscriptViewport via the production harnesses', () => {
       expect(selection.toString()).toBe(content)
 
       const send = vi.spyOn(chatApi, 'send').mockResolvedValue(undefined)
-      // The browser may clear its native Range while React commits the new turn.
-      // Keep the viewport's retained (part, offset) endpoints through that commit.
-      selection.removeAllRanges()
       expect(chatActions.send('next question')).toBe(true)
       render()
       expect(send).toHaveBeenCalledOnce()
       expect(useChatStore.getState().sessions.s.session.messages.at(-1)?.role).toBe('user')
       expect(dom!.query('[data-part-key="a:cached:tool:cached-read"]')).toBe(card)
       expect(toggle.getAttribute('aria-expanded')).toBe('true')
-      expect(selection.toString()).toBe(content)
-      expect([selection.anchorOffset, selection.focusOffset]).toEqual([10, 2])
+      expect(selection.toString()).toBe('')
+      expect(selection.rangeCount).toBe(0)
     }
   )
 })

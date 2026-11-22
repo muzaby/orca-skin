@@ -1,9 +1,4 @@
-import {
-  copyTimings,
-  diagnosticViewports,
-  failCopyChunk,
-  type ViewportDiagnostics
-} from './transcriptViewportDiagnostics'
+import { diagnosticViewports, type ViewportDiagnostics } from './transcriptViewportDiagnostics'
 /**
  * Deterministic transcript fixture generator & diagnostic dev-menu bridge (WU-14 · EP-17 ⑧).
  *
@@ -154,14 +149,10 @@ export interface DiagnosticDevApi {
   prependFixtureTurn(): { remainingTurns: number }
   blockCount(options?: { selectable?: boolean }): number
   setVirtualization(enabled: boolean): void
-  selectBlocks: ViewportDiagnostics['select']
   selectionInfo(): ReturnType<ViewportDiagnostics['selection']> & {
     textLength: number
     collapsed: boolean
   }
-  copyTimings: typeof copyTimings
-  readClipboard(): Promise<{ text: string; html: string }>
-  failCopyChunk(chunkIndex: number | null): void
   streamFixture(chars: number): void
 }
 
@@ -263,12 +254,6 @@ export function createDiagnosticDevApi(): DiagnosticDevApi {
       )
     },
     setVirtualization,
-    selectBlocks(from, to, options) {
-      return (
-        diagnosticViewports.get(useChatStore.getState().activeKey)?.select(from, to, options) ??
-        false
-      )
-    },
     selectionInfo() {
       const selection = document.getSelection()
       const info = diagnosticViewports.get(useChatStore.getState().activeKey)?.selection()
@@ -279,17 +264,6 @@ export function createDiagnosticDevApi(): DiagnosticDevApi {
         collapsed: selection?.isCollapsed ?? true
       }
     },
-    copyTimings,
-    async readClipboard() {
-      const items = await navigator.clipboard.read()
-      async function read(type: string): Promise<string> {
-        const item = items.find((candidate) => candidate.types.includes(type))
-        return item ? (await item.getType(type)).text() : ''
-      }
-      const [text, html] = await Promise.all([read('text/plain'), read('text/html')])
-      return { text, html }
-    },
-    failCopyChunk,
     streamFixture(chars) {
       const state = useChatStore.getState()
       const key = state.activeKey

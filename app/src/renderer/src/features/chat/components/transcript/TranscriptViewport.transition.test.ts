@@ -77,7 +77,7 @@ describe('TranscriptViewport.transition (VP-22 · SD-02 ↔ ST-02 · EP-10 ④ �
     expect(gap()).toBe(initial)
   })
 
-  it('sending after a 5,000-block answer keeps mounted count, keys, measurements, expansion and selection', () => {
+  it('sending after a 5,000-block answer keeps mounted count, keys, measurements, expansion and selection (no row mounts — ΔV2 D-103)', () => {
     dom = installFakeDom({ innerWidth: 1200, innerHeight: 900 })
     const scroller = makeScroller(600, 0)
     const scrollRef = { current: scroller }
