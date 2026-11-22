@@ -1,4 +1,4 @@
-// `check-transcript-selection.mjs` 의 순수 판정부 (0326 ΔV2 · VP-41 · EP-24 · k1~k9).
+// `check-transcript-selection.mjs` 의 순수 판정부 (0326 ΔV2 · VP-41 · EP-24 · k1~k10).
 // Electron 없이 기록을 주입해 판정이 무엇을 실패로 세는지 잠근다.
 import { strict as assert } from 'node:assert'
 import { test } from 'node:test'
@@ -8,6 +8,7 @@ import {
   SCREENS,
   judgeSelectionRuns,
   launchFailure,
+  main,
   pasteMatches,
   selectionExitCode
 } from './check-transcript-selection.mjs'
@@ -176,4 +177,90 @@ test('k9 each failing record is reported with screen, scenario, run and reason',
   assert.deepEqual(result.failures, [
     { screen: 'opencode-code', scenario: 'A1', run: 2, reason: 'harness: timeout' }
   ])
+})
+
+// k10 · VP-41 ⑤′ (ΔV2 rev 5): every result `main()` returns, with the outside world injected.
+// Each seat gets its own error text so swapping two catches shows.
+function deps(overrides = {}) {
+  const calls = { serve: 0, close: 0 }
+  return {
+    calls,
+    deps: {
+      resolveElectron: () => '/fake/electron',
+      serveProbe: async () => {
+        calls.serve++
+        return { origin: 'http://127.0.0.1:1', close: async () => void calls.close++ }
+      },
+      runElectron: async () => ({ env: true, records: grid() }),
+      ...overrides
+    }
+  }
+}
+
+test('k10 E1 no Electron binary → env false · exit 3 · nothing served', async () => {
+  const { calls, deps: d } = deps({
+    resolveElectron: () => {
+      throw new Error('no-electron')
+    }
+  })
+  const result = await main(d)
+  assert.equal(result.env, false)
+  assert.equal(result.reason, '환경 없음')
+  assert.match(result.error, /no-electron/)
+  assert.equal(selectionExitCode(result), 3)
+  assert.equal(calls.serve, 0)
+})
+
+test('k10 E2 a failed bundle or server → env true · its error · exit 1', async () => {
+  const { deps: d } = deps({
+    serveProbe: async () => {
+      throw new Error('bundle-x')
+    }
+  })
+  const result = await main(d)
+  assert.equal(result.env, true)
+  assert.equal(result.verdict, false)
+  assert.match(result.error, /bundle-x/)
+  assert.doesNotMatch(result.error, /launch-y/)
+  assert.equal(selectionExitCode(result), 1)
+})
+
+test('k10 E3 a failed Electron launch → launchFailure · exit 1 · the server is closed', async () => {
+  const { calls, deps: d } = deps({
+    runElectron: async () => {
+      throw new Error('launch-y')
+    }
+  })
+  const result = await main(d)
+  assert.deepEqual(result, launchFailure(new Error('launch-y')))
+  assert.doesNotMatch(result.error, /bundle-x/)
+  assert.equal(selectionExitCode(result), 1)
+  assert.equal(calls.close, 1)
+})
+
+test('k10 E4 a harness error result → env true · verdict false · exit 1', async () => {
+  const { deps: d } = deps({ runElectron: async () => ({ error: 'harness-z' }) })
+  const result = await main(d)
+  assert.equal(result.env, true)
+  assert.equal(result.verdict, false)
+  assert.equal(result.error, 'harness-z')
+  assert.equal(selectionExitCode(result), 1)
+})
+
+test('k10 E5 the records are judged — a passing grid exits 0, one failing record exits 1', async () => {
+  const pass = await main(deps().deps)
+  assert.equal(pass.env, true)
+  assert.equal(pass.verdict, true)
+  assert.deepEqual(pass.failures, [])
+  assert.equal(selectionExitCode(pass), 0)
+  const { deps: d } = deps({
+    runElectron: async () => ({
+      env: true,
+      records: grid(at('claude-code', 'C1', 1, { clipboard: 'copied' }))
+    })
+  })
+  const fail = await main(d)
+  assert.equal(fail.verdict, false)
+  assert.ok(fail.failures.length >= 1)
+  assert.equal(selectionExitCode(fail), 1)
 })

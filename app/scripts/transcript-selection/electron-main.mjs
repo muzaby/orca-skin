@@ -186,10 +186,22 @@ async function drive(win) {
       await probe('mark()')
       await probe(`appendBlock(${Date.now() % 100000})`)
       await settle()
-      const result = await cancelled(ends)
+      // Copy after release, like ② (ΔV2 rev 5): a held drag hides the selection behind the
+      // suppression, so a surviving range only shows once the button is up.
+      const endsMounted = await probe(`rowsMounted(${JSON.stringify(ends)})`)
+      const held = await selection()
       up(end)
       await settle()
-      return result
+      const state = await probe('state()')
+      key('C', ['control'])
+      await settle()
+      return {
+        mountedKeys: state.mountedKeys,
+        endsMounted,
+        cancelMs: state.cancelMs,
+        selectionText: [held, state.selection],
+        clipboard: clipboard.readText()
+      }
     },
     // ⑤ outside DOM change and a same-key row update keep the selection
     async C4() {

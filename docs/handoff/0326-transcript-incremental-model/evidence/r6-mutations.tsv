@@ -1,0 +1,53 @@
+id	결과	exit	요약
+V24a-cc50	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V24b-cc132	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V25a-oc50	red (기대 일치)	1	vitest 2 failed | 22 passed (24)
+V25b-oc129	red (기대 일치)	1	vitest 2 failed | 22 passed (24)
+V20-S5	red (기대 일치)	1	vitest 3 failed | 21 passed (24)
+V26-S6	red (기대 일치)	1	vitest 4 failed | 20 passed (24)
+V27-S7	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V21-S8	red (기대 일치)	1	vitest 2 failed | 22 passed (24)
+V28-S9	red (기대 일치)	1	vitest 2 failed | 22 passed (24)
+V29-E1	red (기대 일치)	1	node --test fail 1 · k10 E1 no Electron binary → env false · exit 3 · nothing served
+V30-E2	red (기대 일치)	1	node --test fail 1 · k10 E2 a failed bundle or server → env true · its error · exit 1
+V31-E3	red (기대 일치)	1	node --test fail 1 · k10 E3 a failed Electron launch → launchFailure · exit 1 · the server is closed
+V32-E4	red (기대 일치)	1	node --test fail 1 · k10 E4 a harness error result → env true · verdict false · exit 1
+V33-E5	red (기대 일치)	1	node --test fail 1 · k10 E5 the records are judged — a passing grid exits 0, one failing record exits 1
+V34-E2E3swap	green (기대 red)	0	node --test fail 0
+X-E3close	red (기대 일치)	1	node --test fail 1 · k10 E3 a failed Electron launch → launchFailure · exit 1 · the server is closed
+X-E1order	red (기대 일치)	1	node --test fail 2 · k10 E1 no Electron binary → env false · exit 3 · nothing served; k10 E2 a failed bundle or server → env true · its error · exit 1
+X-serve-cleanup	green (기대 red)	0	node --test fail 0
+V19	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V22	red (기대 일치)	1	vitest 2 failed | 22 passed (24)
+V23	red (기대 일치)	1	node --test fail 1 · k5 a cancel scenario must prove the mount, clear the selection and keep the clipboard
+V18-90	red (기대 일치)	1	node --test fail 2 · k8′ exit codes — no Electron binary 3 · failed launch 1 · harness error 1 · judged failure 1 · pass 0 (D-107); k10 E3 a failed Electron launch → launchFailure ·
+V10	red (기대 일치)	1	node --test fail 1 · k7 fail-closed grid — a missing cell, an unknown scenario and no records fail
+V11	red (기대 일치)	1	node --test fail 2 · k5 a cancel scenario must prove the mount, clear the selection and keep the clipboard; k10 E5 the records are judged — a passing grid exits 0, one failing recor
+V12	red (기대 일치)	1	node --test fail 1 · k6 a control scenario must mount nothing and keep the selection
+V13	red (기대 일치)	1	node --test fail 2 · k8′ exit codes — no Electron binary 3 · failed launch 1 · harness error 1 · judged failure 1 · pass 0 (D-107); k10 E1 no Electron binary → env false · exit 3 · 
+V17	red (기대 일치)	1	node --test fail 1 · k2′ long tasks and cancel times are recorded only — any value leaves the verdict unchanged (D-108)
+V8-screens	red (기대 일치)	1	vitest 3 failed | 5 passed (8)
+V2-at-B1	red (기대 일치)	1	9 records 26 failures [('B1', 'clipboard changed after cancel'), ('B1', 'copy default prevented or not observed'), ('B1', 'pasted text'), ('B1', 'selected rows unmounted')] endsMounted [('claude-code'
+V2-at-C1	red (기대 일치)	1	9 records 18 failures [('C1', 'clipboard changed after cancel'), ('C1', 'selection survived')] endsMounted [('claude-code', 'C1', True), ('claude-work', 'C1', True), ('opencode-code', 'C1', True)]
+V2-at-C2	red (기대 일치)	1	9 records 18 failures [('C2', 'clipboard changed after cancel'), ('C2', 'selection survived')] endsMounted [('claude-code', 'C2', True), ('claude-work', 'C2', True), ('opencode-code', 'C2', True)]
+V2-at-C3	red (기대 일치)	1	9 records 18 failures [('C3', 'clipboard changed after cancel'), ('C3', 'selection survived')] endsMounted [('claude-code', 'C3', True), ('claude-work', 'C3', True), ('opencode-code', 'C3', True)]
+V4-at-B1	green (기대 red)	0	9 records 0 failures [] endsMounted [('claude-code', 'B1', True), ('claude-work', 'B1', True), ('opencode-code', 'B1', True)]
+V2-it	red (기대 일치)	1	vitest 6 failed | 18 passed (24)
+V4-it	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+Y4-sel-anchor-only	red (기대 일치)	1	vitest 4 failed | 20 passed (24)
+V1-it	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V2-it	red (기대 일치)	1	vitest 6 failed | 18 passed (24)
+V3-it	red (기대 일치)	1	vitest 15 failed | 9 passed (24)
+V4-it	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V5-it	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V6-it	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+V7-it	red (기대 일치)	1	vitest 15 failed | 9 passed (24)
+V8-it	red (기대 일치)	1	vitest 4 failed | 20 passed (24)
+X4-inside-ref	red (기대 일치)	1	vitest 2 failed | 22 passed (24)
+X5-blur	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+X6-pointercancel	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+X8-measure	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+X10-viewport-pointerdown	red (기대 일치)	1	vitest 7 failed | 17 passed (24)
+X11-cancel-gesture	red (기대 일치)	1	vitest 6 failed | 18 passed (24)
+X14-suppressed-class	red (기대 일치)	1	vitest 1 failed | 23 passed (24)
+X15-suppressed-attr	red (기대 일치)	1	vitest 6 failed | 18 passed (24)
