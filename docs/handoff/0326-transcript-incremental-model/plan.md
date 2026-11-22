@@ -13,7 +13,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | IMPL_DONE (r7 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3) |
+| 상태 | verify/PASS (r7 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3 · AC33 사람 실기 대기) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -2152,7 +2152,7 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 | D25 | production Timeline → 뷰포트 `sessionKey` edge 가 잠기지 않았다 — Claude `Timeline.tsx:132` · OpenCode `:129` 의 `sessionKey={sessionKey}` → `"s"` 고정 변이가 각각 `features/chat` 3,042 green. Claude Work·OpenCode 는 세션마다 다시 마운트하지 않는다(`claude/presentation.ts:37` · `opencode/presentation.ts:8` `remountTranscriptBySession: false`) — D-110 ⓑⓒ 가 production 에서 이 edge 로만 성립한다 | VP-29 ④⑤ · D-110 ⓑⓒ(s9 세션 · s10b 는 일반 뷰포트에 `sessionKey` 를 직접 준다) | 설계자 결정 — 세 화면 조립(screens 테스트)에서 세션 전환 입력을 채택하거나 경계 선언 | 확장(창 안 — ΔV2 노드 마지막 회) | PLAN_GAP | closed(verify 6회째 — 인용 변이 잡음) |
 | D26 | `selectionchange` 효과의 의존성에서 `sessionKey` 를 뺀 변이(`TranscriptViewport.tsx:491` `[sessionKey, virtualized]` → `[virtualized]`)가 3,042 green — 재마운트 없는 화면에서 세션 전환 뒤 새 선택이 이전 세션 key 로 기록되어 `selected` 가 사라진다. s10b 는 이전 세션 선택의 비표시만 본다 | VP-29 ⑤ "그 선택을 만든 세션에서" | 설계자 결정 — 전환 뒤 새 세션에서 만든 선택이 표시되는 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | closed(verify 6회째 — 인용 변이 잡음) |
 | D27 | VP-41 ⑤′ 자리 검색 술어가 해법 이름 `launchFailure` 다 — 같은 규칙("바이너리는 있는데 실행 실패 → `env: true`")을 운반하는 바깥 catch `check-transcript-selection.mjs:173`(vite 번들·서버 실패)이 목록에 없고, 그 자리 `env: true` → `false` 변이가 k 9/9 green(`:90` 같은 변이는 k8′ red) | VP-41 ⑤′ · §7-A ΔV3 자리 검색(`rg -n "launchFailure"`) | 설계자 — 술어를 불변식의 주어(실행 실패 반환 `env:`)로 바꿔 목록을 고정 | 이행(plan 내부 — 목록 술어) | PLAN_GAP | closed(verify 6회째 — 인용 변이 잡음) |
-| D28 | 세션 효과 정리(`TranscriptViewport.tsx:261-264`)에서 `gestureRef.current = 'idle'` 만 지운 변이(Y6)가 `TranscriptViewport.selection*` 24/24 green — 억제 표시는 꺼지지만 제스처가 `suppressed` 로 남아, 새 세션에서 만든 선택을 `selectionchange`(`:479`)가 지운다(probe `rangeCount` 1 → 0 · `evidence/v6-y6-probe.md`). s9(session)·s9-screens 는 속성 null 만 본다 | VP-29 AR↔IT · ΔV2 rev 5 S5 자리 문장 "전환 → 제스처 `idle` · 억제 해제(D-110 ⓑ)" · D-110 ⓑ "세션 전환도 제스처를 끝낸다" | s9(session)·s9-screens 에 전환 뒤 새 세션에서 선택 → `rangeCount` 1 입력을 더해 Y6 를 red 로(코드 변경 불필요) | 이행(자리 문장 항 — 입력 칸이 좁음) | BLOCKING | open |
+| D28 | 세션 효과 정리(`TranscriptViewport.tsx:261-264`)에서 `gestureRef.current = 'idle'` 만 지운 변이(Y6)가 `TranscriptViewport.selection*` 24/24 green — 억제 표시는 꺼지지만 제스처가 `suppressed` 로 남아, 새 세션에서 만든 선택을 `selectionchange`(`:479`)가 지운다(probe `rangeCount` 1 → 0 · `evidence/v6-y6-probe.md`). s9(session)·s9-screens 는 속성 null 만 본다 | VP-29 AR↔IT · ΔV2 rev 5 S5 자리 문장 "전환 → 제스처 `idle` · 억제 해제(D-110 ⓑ)" · D-110 ⓑ "세션 전환도 제스처를 끝낸다" | s9(session)·s9-screens 에 전환 뒤 새 세션에서 선택 → `rangeCount` 1 입력을 더해 Y6 를 red 로(코드 변경 불필요) | 이행(자리 문장 항 — 입력 칸이 좁음) | BLOCKING | closed(verify 7회째 — Y6 잡음) |
 
 ---
 
