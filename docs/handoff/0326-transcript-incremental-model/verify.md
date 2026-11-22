@@ -949,3 +949,118 @@
 - AC: ✅ 4 · ❌ 1 · 사람 1 · ⚠️(미재측정) 29 / 35.
 - **verify 6회째가 PASS 가 아니다 → 다음 재구현 전 `handoff-review` 의무**(`docs/handoff/AGENTS.md §라운드`).
 - 다음 단계: `handoff-review` → 구현자가 s9(session)·s9-screens 에 "전환 뒤 새 세션에서 만든 선택이 남는다"(`rangeCount` 1) 입력을 더해 Y6 를 red 로 만든다(코드 변경 불필요).
+
+---
+
+# Verify 7회째 (r7)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-22 |
+| 대상 커밋/range | `5baf3f1..7244c0c` — review round 47 `74fe677`(지침 · `Handoff: none`) · 구현 `7244c0c`(r7 · `Agent: gemini` — Antigravity). 브랜치 `ccr-07b46a07-h1d635` — `origin/main` 조상 아님(PR 미병합) |
+| 구현 전 plan 기준 | `6984e60`(ΔV2 rev 5) — 구현 커밋의 plan diff 는 메타 `상태` 1줄 + `[구현자 기입]` r7 절 추가뿐 |
+| V mode / 유효 V | `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3` |
+| 라운드 | 7 |
+| 상태 | **PASS** (기계 범위 — AC33 Windows 실기는 사람) |
+| 확장 창 | verify 7회째 — 모든 노드 창 밖. 판정 범위 = 열린 BLOCKING D28 + rev 5 열거 + 이번 diff 가 닿은 항목(S5 · s9 · s9-screens) |
+| 독립 축(⑥) | 4건(Z1~Z4 — VP-29 ③ 취소 블록·선택 위치 판정의 줄 단위) — 못 잡음 3(Z2·Z3·Z4 · 확장) · 잡음 1(Z1) |
+| 열거 sweep(⑦) | diff 가 닿은 항목 S5(round 47 — 항목 하나만 지우는 변이: Y6 · Y7 · Y8) + 등록 변이 V20 + 직전 실패(D28). 원자료 [`evidence/v7-mutations.jsonl`](evidence/v7-mutations.jsonl) · [결과 TSV](evidence/v7-mutations.tsv) |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 3(Z2~Z4) · 경계 0 · 비귀속 0 |
+| 구현 주체·문맥 | 기록만 — r7 은 Antigravity(`gemini`). 설계자 = 검증자(Claude) |
+
+## 0. 기준선 / plan validity
+
+- Decision · AC · V node/pair · §10 변경을 구현 커밋이 하지 않았다. 채점 기준은 `6984e60` 원문. review round 47 은 지침만 바꿨고 0326 판정을 정정하지 않았다(regression-coverage round 47 §전환).
+- §10 자리 검색 3종 재실행(`app/`): Timeline 술어 → 4 · 뷰포트 5술어 → 5(`:264`·`:487`·`:491`·`:683`·`:688`) · `return \{ env:|return launchFailure\(` → 6. 목록과 차집합 ∅ — production 코드 변경 0이라 r6 과 같다.
+- 창 밖 새 열거 항목 0 · PLAN_GAP 0.
+
+## 1. diff 비판 · 역방향
+
+- diff 는 테스트 2파일 7줄뿐이다 — `s9`(3 해제 원인) · `s9-screens`(2화면)에 해제·전환 뒤 새 선택 → `rangeCount === 1` 단언. production export·배선 변경 0이라 역방향 후보 없음.
+- 새 단언은 production 뷰포트 `onSelectionChange`(`:479-483` 억제 분기)를 지난다 — 제스처가 `suppressed` 로 남으면 그 분기가 `removeAllRanges` 로 새 선택을 지워 `rangeCount` 0 이 된다(Y6 red 로 확인).
+
+## 2. 고장 이력
+
+하네스 `mutate.py` 2회(41건 + 재실행 6) · 끝날 때마다 `# 원복 확인: 모든 파일 원문 그대로` · `git status` 빈 출력(spec 파일 제외). oracle: IT = `TranscriptViewport.selection*`(24) · chat = `vitest run src/renderer/src/features/chat`(3,045) · k = `check-transcript-selection.test.mjs` · AT = `evidence/v5-at-oracle.sh <시나리오 하나>`.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| **Y6** | `TranscriptViewport.tsx:261` | 제거 | 세션 정리에서 `gestureRef.current = 'idle'` 만 | 못 잡음(D28) | **잡음**(3 failed) | s9 session · s9-screens ×2 | ②③⑦ | — (D28 닫음) |
+| Y7 · Y8 | `:262` · `:264` | 제거 · 다른 값 | `setSuppressed(false)` 만 · 의존성 `[]` | 잡음 | 잡음 ×2(3·3) | s9 · s9-screens | ⑦④ | — |
+| V20 | `:261-264` | 제거 | 정리 전체 | 잡음 | 잡음(3) | s9 · s9-screens | ①④ | — |
+| V24a~V25b · V26 · V27 · V21 · V28 | S1~S4 · S6~S9 | 고정값·제거 | rev 5 등록 변이 | 잡음 | 잡음 ×8(1·1·2·2·4·1·2·2) | s9-screens · s10 · s10b · s10b-screens | ①④ | — |
+| ④ IT 20행 | V19 · V22 · V8-screens · V1~V8 IT(V2·V4 각 1형 포함) · Y4 · X4~X6 · X8 · X10 · X11 · X14 · X15 | 각 원문 | r6 원문 | 잡음 | **잡음 20/20** | IT | ④ | — 덮개 회귀 0 |
+| V34 | `check-transcript-selection.mjs:192` ↔ `:197` | 맞바꿈 | E2 ↔ E3 | 동치 | green — 동치(코드 무변경 · `launchFailure` `:89-91` = E2 리터럴) | — | ③ | 동치 |
+| V4 AT B1 | `:479` | 고정값 | `false &&` | 동치 | green — 동치(9기록 `endsMounted` true · 실패 0 · rev 3 V4 행 허용) | IT s5 | ③ | 동치 |
+| X7 · X9 | `:522` · `:517` | 제거 | 취소 시 표시 해제 · 가상화 가드 | 동치 | green — 동치(chat 3,045/3,045 · 코드 무변경) | — | ③ | 동치 |
+| Z1 | `:520` | 제거 | 취소 블록에서 `removeAllRanges()` 만 | 신규 | 잡음(10 failed) | chat | ⑥ | — |
+| Z2 | `:521` | 제거 | 취소 블록에서 `selectionInsideRef.current = false` 만 | 신규 | **못 잡음**(3,045/3,045) | — | ⑥ | 확장 — EP-17 ③ 자리 문장("`removeAllRanges()` · `selected` 해제 · measure")에 없는 내부 상태 |
+| Z3 | `:443` | 제거 | `selectionPlace` 의 `gestureRef !== 'idle' → 'dragging'` | 신규 | **못 잡음** | — | ⑥ | 확장 — EP-17 ③ 은 "`shouldCancelSelection` 이 참이면" 만 적고 뷰포트의 `'dragging'` 유도는 열거 밖(VP-42 ① 은 순수 함수만) |
+| Z4 | `:481` | 제거 | 억제 분기의 `selectionInsideRef.current = false` 만 | 신규 | **못 잡음** | — | ⑥ | 확장 — Z2 와 같은 내부 상태 |
+
+- 검산: 시도 47 = 첫 실행 41(②⑦ 3 · ① 9 · ④ 20+V20 1 · ③ 4 · ⑥ 4) + 재실행 6(X7 · X9 · Z1~Z4). 첫 실행의 chat oracle 행은 `settlement.integration.test.ts` io 5건이 `npm ci --ignore-scripts` 로 better-sqlite3 Node 빌드가 없어 실패했다 — 빌드 뒤 그 5건 통과(5/5)를 확인하고 6행을 다시 돌린 결과를 판정에 쓴다(round 47 — `잡음`은 그 좌표의 실패만).
+- green 7 = 동치 4(V34 · V4 AT · X7 · X9) · 확장 3(Z2~Z4).
+- **못 본 것**: V1 rev 7 · ΔV1 동결 노드의 등록 변이 재생(diff 밖) · VP-41·VP-42·AT 변이 재실행(이번 diff 가 닿지 않은 oracle·코드 — ④ 범위 밖) · Windows Electron 실행(AC33).
+
+## 3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-42 MD-22↔UT-20 | PASS | 전체 vitest 안 `selectionGuard.test.ts` green · 코드·oracle 무변경 |
+| VP-41 MD-21↔UT-21 | PASS | `node --test scripts/*.test.mjs` 1,050/1,050 · k10 E1~E5 좌표 실재 · 코드·oracle 무변경(verify 6회째 V29~V33 잡음 좌표 그대로) |
+| VP-29 AR↔IT | PASS | S5 두 항 잠김(Y6·Y7) · S1~S9 · ①~⑥ 잡음 · 자리 차집합 ∅ |
+| VP-29 R↔AT | PASS | AT-07 exit 0(아래 gate) · 코드 무변경 · verify 6회째 V2 단독 ×4 잡음 좌표 그대로 |
+| VP-35 · VP-22 · VP-27 · VP-36 | PASS(회귀 범위) | 전체 vitest renderer 실패 0 |
+| ΔV2 밖 동결 pair | PASS(회귀 범위) | 전체 vitest 기준선 외 실패 0 · 이전 라운드 좌표 유지 |
+
+### AC 합계
+
+| 결과 | AC |
+|---|---|
+| ✅ 34 | AC26(D28 닫힘 · AT exit 0) 포함 — 기계 범위 |
+| 사람 1 | AC33(Windows 실기) |
+
+- `34 + 1 = 35` ↔ trailer `Criteria-Met: 34/35` 일치.
+
+### 운영 gate (`7244c0c` 트리)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations append-only ok · doc-inventory 9항목·prose·links ok · product-naming 2,551파일 OK · test-budgets 18 suites ok · ui-thread OK |
+| lint / typecheck | PASS | 0 error · 4 warning(기존) · 실행 뒤 트리 변화 0 / `error TS` 0 |
+| 파일 필터 없는 vitest | 기준선 한계 | 1,092파일 · 10,452케이스 — 22 failed(9파일 · 전부 `src/main`). range 의 `src/main` 변경 0파일 · verify 6회째와 같은 9파일(`composer-catalog` · `composer-preparation-service` · claude `adapter.native-plugins`·`native-resources`·`project-reconciliation` · opencode `adapter`·`adapter.persistent`·`adapter.instances` · `session-resources.claude-assembly`) — Windows 경로 픽스처 |
+| `node --test scripts/*.test.mjs` | PASS | 1,050 / 1,050 |
+| 빌드 + 두 스모크 · `__ooDev` | PASS | `electron-vite build` exit 0 · smoke-hosts OK · smoke-preload OK(키 7) · `out/renderer` `__ooDev` 0(exit 1) |
+| Electron 선택·복사(D-107) | PASS | `xvfb-run -a node scripts/check-transcript-selection.mjs` exit 0 · Electron 39.8.10 · linux · 기록 90 · verdict true · `failures: []` · `endsMounted: true` 36/36 · [원자료](evidence/v7-selection.json) |
+| 테스트 파일 규칙 | PASS | 수정 2파일 — test-budgets 통과 · 자식 프로세스·SQLite 신호 0 |
+| trailer 파싱 | PASS | `7244c0c` 6줄 반환 · `Agent: gemini` 는 round 47 이후 허용값 |
+
+## 4. Repository operation checks
+
+- INDEX 자리표시자를 PR 브랜치 해시로 채운다 — verify r6 `5baf3f1` · r7 `7244c0c` · verify r7(이 커밋). `git cat-file -t` 전부 commit · `origin/main` 조상 아님(PR 미병합) — 병합 뒤 `main` 해시로 교정해야 한다.
+- `[구현자 기입]` r7: 7필드 모두 있음. 강제 지점 표는 VP-29 S1~S9 · ①~⑥ · AT · VP-41 E1~E5(남긴 곳 0).
+- 구현자 보고의 sweep 은 S5 항별(Y6·Y7)과 등록 변이를 돌렸으나 round 47 의 "구현자는 IMPL_DONE 전 전수(항목 하나만 지우는 기본 변이)"를 VP-29 ③ 취소 블록 줄 단위까지 펴지는 않았다 — 검증자 ⑥ Z1~Z4 가 그 축을 돌렸고 열거 항목의 `못 잡음`은 0이라 판정 영향 없음(기록만).
+
+## 5. Finding disposition
+
+| # | finding | 분류 · 근거 | disposition |
+|---|---|---|---|
+| D28 | S5 `gestureRef.current = 'idle'` 미잠금 | Y6 잡음(s9 session · s9-screens ×2) | **closed** |
+| Z2 · Z4 | 취소·억제 분기의 `selectionInsideRef` 재설정 제거 green | 확장 — EP-17 ③④ 자리 문장에 없는 내부 상태. Chromium 에서는 `removeAllRanges` 가 `selectionchange` 를 내 `:471-475` 가 같은 값을 쓸 개연(X7 과 같은 근거 · 미확인) | NEXT_HANDOFF(확장) |
+| Z3 | 뷰포트 `'dragging'` 유도 제거 green | 확장 — EP-17 ③ 은 `shouldCancelSelection` 참일 때만 적는다 | NEXT_HANDOFF(확장) |
+
+## 6. Review Signals — 사실만
+
+- D28 은 verify 6회째 지적 그대로 입력 칸을 자리 문장으로 넓혀 닫혔다(코드 무변경).
+- 구현 주체가 바뀌었다(Antigravity · `gemini`) — `[구현자 기입]` 필드·trailer·잠금 표 형식은 그대로였다.
+- 반복 환경 한계: `src/main` Windows 경로 픽스처 9파일 22건(r1~r7 같음) · `npm ci --ignore-scripts` 뒤 better-sqlite3 Node 빌드 전 io 테스트 실패(구현자도 같은 우회).
+- 독립 축(⑥) 4건 — 못 잡음 3(확장) · 잡음 1.
+
+## 7. 결론
+
+- 상태: **PASS**(기계 범위) — 막는 발견 0 · PLAN_GAP 0. 창 밖 확장 3(Z2~Z4)은 후보 표로.
+- pair: PASS 4(VP-42 · VP-41 · VP-29 IT · VP-29 AT) + 회귀 4.
+- AC: ✅ 34 · 사람 1(AC33) / 35.
+- 다음: 사람 — AC33 Windows 실기(plan §19 S5). 보드 행은 archive history 로 옮긴다.
