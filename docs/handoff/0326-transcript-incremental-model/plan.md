@@ -13,7 +13,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | READY (ΔV2 rev 3 — verify 4회째 RETURN_TO_PLAN 정정 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 3 + ΔV3) |
+| 상태 | READY (ΔV2 rev 4 — rev 3 + 구현 중 PLAN_GAP 1 정정 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 4 + ΔV3) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -674,6 +674,8 @@ live delta: 본문 리프만
 
 - 선언 경계: 추가 없음. B30~B35 그대로.
 - 비차단 함께 처리(선택): D23 `design-components.md` TranscriptView 행 문구 · D24 OpenCode `ScrollController` `retained` 삭제 — 지우면 VP-36 `ScrollController.interaction.test.ts` 의 `retained` 케이스와 `Timeline.memo.test.ts` mock 을 같은 턴에 맞춘다.
+
+**rev 4(구현 중 PLAN_GAP 1 — 같은 에이전트가 설계로 전환해 정정 · 출처: plan 내부 정합)**: rev 3 의 s10 관측("Markdown 모드 관측")은 production 조립에서 선택이 살아 있는 채로 만들 수 없다 — 턴 진행 중에는 확정 뒤에도 행 `streaming` 이 true 라 선택과 무관하게 streaming 이고, 턴 끝(`inflight` false)은 `a:<id>:meta` 행을 새로 마운트해 D-103 이 선택을 취소한다(실측: 끝 전 `rangeCount` 1 · 행 `u:1:user,a:0:text:0,a:0:meta,u:2:user,a:A:text:0` → 끝 뒤 0 · `…,a:A:meta`). 그래서 s10 은 **`selected` 가 OpenCode `Timeline` 의 `renderBlock` 을 지나 `OpenCodeTimelineRow` 에 닿는 것**을 관측한다 — `harnesses/opencode/transcript/viewState` 의 `useTimelineMarkdownMode(streaming, selected)` 두 번째 인자를 행 key 별로 기록(모듈 감시 · 원 구현 호출 유지)해 사이 행 포함 `true` · 취소/해제 뒤 `false`. 0325 의 Markdown 모드 연속성 자체는 VP-36 `Timeline.selection.test.ts` 가 계속 잠근다. V22 의 red 좌표는 s10 그대로다.
 
 **다음 verify(5회째)가 볼 것**: D18·D19 와 V2·V4·V19~V23 · AT-07 재실행(rev 3 조건 원자료) · ΔV2 노드는 창 안 마지막 회(5회째).
 
