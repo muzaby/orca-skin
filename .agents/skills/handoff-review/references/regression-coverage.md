@@ -3525,3 +3525,79 @@ DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0.
 
 - "에이전트가 띄울 수 있는가"는 환경마다 다르다(Chromium 은 이 컨테이너에 있으나 Electron 실창은 없다) — plan 이 이유 칸에 적고 verify 가 다시 시도하는 것이 방어다.
 - 목표 런타임 실측도 CPU 경합에 흔들린다(0326 구현자 100블록 150~400ms ↔ 검증자 경합 없이 27~31ms) — 측정 조건을 같이 적는 것까지만 지침이 요구한다.
+
+# review round 47 — 0326 (verify 6회째 FAIL) + 사용자 요구: 넓은 변이의 red는 그 안의 항을 잠그지 않는다 · `잡음`은 그 좌표의 실패여야 한다 · 구현 에이전트에 Gemini 추가
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0326 verify 6회째 `FAIL`(`5baf3f1`) 뒤 r7 착수 전 의무 review. 사용자 `/handoff-review` 후 질의에서 **APPLY** 선택(2026-11-22). 진행 중 사용자 추가 요구 "handoff-impl 을 수행하는 에이전트가 gemini/안티그래비티일 수 있다" — 후속 질의에서 trailer 값 `gemini` 하나 · 도구별 stub 없이 지침만 선택.
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | §10 자리 `gestureRef.current = 'idle'`(rev 3 `:261`)과 S5 자리(rev 5 `:261-264` — "제스처 `idle` · 억제 해제")를 r5 구현·verify 5회째·r6 구현이 모두 블록 통째 제거 V20(`:258-263`)의 red로 닫았다. 그 줄만 지운 Y6는 IT 24/24 green(D28) | 0326 r5·r6 · P59 · P62 | **A** — P59 규칙 "변이의 red는 그 변이가 바꾼 항만 잠근다"를 글자대로 읽으면 두 항을 함께 지운 V20이 두 항을 잠근다. 정상 수행으로도 실패한다. "바꾼 항이 하나일 때만"으로 일반화하고 ⑦ 기본 변이를 "그 항목만 지우는 변이 — 넓은 등록 변이로 갈음하지 않음"으로 고정(P59 개정) |
+| 2 | r6 구현 sweep에 S5 항별 변이 0 — impl §3 diff 자리 규칙이 "이번 diff가 그 칸을 구현하며 만든" 자리라, r4.1에 쓴 S5 코드는 r6 diff 밖이었다 | 0326 r6 · P62(round 45) | **A** — 앞 턴 코드에 새로 열거한 항목이면 정상 수행으로도 빠진다. diff 자리 = 그 칸·항을 구현한 코드(이번 Delta V가 새로 열거하거나 바꿨으면 앞 턴 코드 포함). verify ⑦ "이후" 범위에도 그 항목을 명시(P62 개정) |
+| 3 | r5가 V2를 AT B1·C1·C2·C3 묶음으로 돌려 red로 보고 — C3 red는 B1이 남긴 `endsMounted: false` 오염, 단독은 green(verify 5회째 D18 재개) | 0326 r5 | **A** — red의 실패 이유를 읽으라는 지침이 없었다(구현자는 오염을 적고도 판정 영향 없음으로 분류). 새 causal class **P69** — `잡음`은 좌표가 그 변이 때문에 실패했을 때만, 상태를 공유하는 좌표는 하나씩 |
+| 4 | ΔV3가 판정 조건 `cancelMs ≥ 1`을 빼 V2의 유일한 AT 신호가 사라졌고, r4.2는 판정기 자기 변이(V10~V13·V17·V18)만 다시 돌렸다(verify 4회째 D18) | 0326 r4.2 · P50 | **B** — impl §3 "장치를 교체·삭제했다면 구 장치가 red로 만들던 변이를 새 장치도 red로" · "자기 spec만이 아니라"가 이미 요구. verify 4회째가 잡음. 지침 변경 없음 |
+| 5 | s10 좌표가 OpenCode 행이 아니라 일반 블록(D19) | 0326 r4 · P55·P57 | **B** — AGENTS §공통 V 실행 구간·production 조립 규칙. 지침 변경 없음 |
+| 6 | ΔV3 자리 술어 `launchFailure`가 해법 이름이라 `:173`을 뺐다(D27) | 0326 ΔV3 설계 · P58 | **B** — plan §5-A "검색 술어는 불변식의 주어로(해법 이름 금지)". verify 5회째가 잡음. 지침 변경 없음 |
+| 7 | D20~D22 · D25 · D26 — 창 안 확장 후보 채택 | 0326 verify 4·5회째 | 실패 아님 — 정상 경로. ΔV2·ΔV3 사용자 결정 변경은 **D** |
+| 8 | `src/main` Windows 경로 픽스처 9파일 22건(r1~r6) | 환경 | **E** — 기록만 |
+| 9 | 구현 에이전트가 Gemini(Gemini CLI·Antigravity)일 수 있다 — `Agent`·`Next-Action` 허용값 `codex|claude`, 역할 표·보드 범례·impl 진입 문장이 Codex 고정 | 사용자 요구 | 지침 변경 — trailer 값 `gemini` 추가(사용자 결정) · 역할·보드·상태 표를 "구현 에이전트(Codex·Gemini)"로 · skill 로더가 없는 도구는 `SKILL.md`를 파일로 직접 읽는다 · `python3`가 없는 환경의 하네스 실행 |
+
+**verify 분류 대조(§2)**: D28은 S5 자리 문장 "제스처 `idle`" 인용 + 입력 칸(s9-screens "속성 null")이 자리 문장보다 좁아 이행 `BLOCKING`이 맞다 — 새 규칙에서도 같다(구현 sweep이 먼저 찾는다는 차이뿐). verify 4·5회째 D18 이행 · D27 plan 내부(`PLAN_GAP`) · D20~D22·D25·D26 창 안 확장(`PLAN_GAP`) 모두 맞다. 거짓 PASS · FAIL inflation 방향 왜곡 0.
+
+## Tier
+
+**Tier 1.** 하한 ⑦의 실행 방법(기본 변이 범위 · diff 자리 범위 · verify 이후 범위) · `잡음` 판정 기준 · 구현 owner와 trailer 허용값이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `5baf3f1`. `instruction_delta.py --base HEAD --prose`(대상 8파일 — handoff AGENTS · root AGENTS · git-template · impl · verify · plan SKILL · 두 template) 후보 **1**, INDEX 포함 실행 후보 **2**.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `docs/git-template.md:84` `잃음` `Next-Action: codex|claude|none` | REPLACE(확장) | `codex|gemini|claude|none` + "다음 구현자가 정해져 있으면 그 에이전트" |
+| `docs/handoff/INDEX.md:25` `이동?` `handoff-review` | REPLACE(상태) | 0326 행 다음 주체 `handoff-review` → `구현 r7` — review 완료에 따른 보드 갱신 |
+
+word-diff 지운 단어 전수(10파일): `Codex` 계열 16 → "구현 에이전트(Codex·Gemini)" REPLACE · `항만`·`인자`·`운반`·`변이로`·`자리가 운반하는 인자 항을 닫았다고 세지 않는다(0262` → 일반화 문장 REPLACE(0262 사례 유지) · `1개(제거 — 계약이`·`더함)와`·`1개(제거)를` → "그 항목만 지우는 기본 변이 1개" REPLACE · `이번 diff가`·`구현하며 만든` → "그 칸을 구현한" + 범위 문장 REPLACE · `**skill을`(읽을 수 없는 환경) → "파일조차 읽을 수 없는 환경" REPLACE(강화 — 로더 없는 도구도 `SKILL.md`를 읽는다) · `두`·`에이전트의`·`두 에이전트는` → "에이전트들" REPLACE · `같다.`·`본다.`·`…`·`범위`·`자리마다`·`항)마다` → 같은 문장 연장.
+
+DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0 → inbound `N`/`M/M` 대상 없음. 바뀐 heading 4개(root `## 협업 워크플로우` · handoff AGENTS H1 · INDEX H1 · git-template `### 구현 커밋`)의 inbound anchor `rg` 0건(`docs/archive`·`chats`·`project` 제외 범위).
+
+## 6-B Historical Failure Regression
+
+- **69 P 전수**(`rg -c '^## P[0-9]+'` 69 — P69 신규) · 변경 후 **COVERED 69** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 46의 COVERED 68이 그대로다.
+- 바뀐 P: **P59** 강화(블록·여러 항 변이로 일반화 · ⑦ 기본 변이 범위) · **P62** 강화(diff 자리 = 앞 턴 코드 포함) · **P69** 신규. P59·P62 끝에 개정 메모.
+- **P48**(잔여물 red): 유지 — P69 규칙이 AGENTS §고장 내 보기에서 "잔여물 진단"을 전제 실패의 한 형태로 함께 적는다. **P50**(덮개 회귀): 유지 — ④ 재실행의 red도 P69 기준으로 읽힌다. **P60**(열린 분모): 유지 — 항별 기본 변이와 앞 턴 코드 diff 자리는 열거 원문(자리 문장·운반 항·규칙 칸 분기 — "계약이 적은 것만")에만 걸리고, 인용이 없으면 확장이라 일반 hunk가 분모가 되지 않는다. **P41 · P66 · P67**: 유지.
+- **P46**(보드 칸 두 주체) · **P47**(로컬 해시 좌표) · **P51 · P65**(독립 축 — 구현 주체 무관): 유지 — Gemini 구현자도 같은 칸·좌표·⑥ 규칙을 따른다. 범례 `Codex`·`Gemini`는 범례이고 다음 주체 칸은 여전히 하나다.
+- P1~P40 · P42~P45 · P49 · P52~P58 · P61 · P63 · P64 · P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0326 r5·verify 5(V20 → §10 `:261`) | V20 red로 닫힘 — Y6 미시도 | ⑦ 기본 변이가 `:261`만 지움 → r5 sweep이 Y6 `못 잡음` → 입력 추가(구현 턴 안) | 거짓 PASS 0 · 발견 시점 verify 6 → r5 |
+| 0326 r6 D28(S5 두 항) | verify 6회째 ⑥이 발견 → 이행 `BLOCKING` | r6 sweep이 앞 턴 코드 diff 자리에 항별 변이 → 놓치면 같은 이행 | 같음(분류 불변) |
+| 0326 r5 D18(C3 묶음 오염) | 구현자 red 보고 → verify 5 단독 green → `PAIR_FAIL` | 구현자가 실패 이유를 읽고 단독 재실행 → IMPL_DONE 전 발견 | 거짓 PASS 0 · 라운드 1 절감 가능 |
+| 0262 r6(호출 변이 → 인자 항) | 인자 항 미잠금 | 같음(일반화 문장이 포함) | 같음 |
+| 0324 r3 EP-29 ③(자리 문장 항) | 이행 `BLOCKING` | 같음 | 같음 |
+| 0262 r4~r8(열린 분모) | 창 안 `PLAN_GAP` · 창 밖 후보 표 | 같음 — 블록 안 비열거 문장은 항이 아님 | inflation 0 |
+| 0198 r7→r8(잔여물 red) | 수렴까지 밀기 | 같음 + 전제 실패 일반 규칙 | 같음 |
+
+- **시나리오 replay**: 창 경계(verify 2 → 3) — 항별 `못 잡음`이 자리 문장·규칙 칸 인용이면 창과 무관하게 이행, 인용 없으면 창 안 `PLAN_GAP` · 창 밖 후보 표(inflation 0) / 창 안 사용자 요구 변경 ΔV — 새로 열거한 항목은 앞 턴 코드라도 구현자 sweep·verify ⑦ "이후" 범위에 든다(다음 주체 있음) / 묶음 실행 red의 이유가 전제 실패 → 단독 재실행 결과로 판정, 단독도 red면 `잡음`(거짓 PASS 0 · inflation 0) / Gemini 구현자 → `Agent: gemini` 커밋 · 검증 커밋 `Next-Action: gemini` · INDEX 다음 주체 `Gemini` — 다음 주체 없는 상태 0 / skill 로더 없는 도구 → `SKILL.md` 직접 읽기, 파일도 못 읽으면 AGENTS 최소 계약(이번 규칙 4개 모두 포함) / 9회째 CLOSED · 후보 표 승격 · §8 정정 경로 불변. 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- 일반화 문장(블록·여러 항 변이): AGENTS §공통 V · impl §2 · verify §6 · plan §5-A · `plan.template.md` 강제 지점 인용문 · `verify.template.md §5`가 같은 범위다. "항"의 정의(운반 항 · 자리 문장의 항 · 규칙 칸 분기 — 계약이 적은 것만)는 AGENTS 한 곳에 두고 나머지는 §공통 V를 가리킨다.
+- ⑦ 기본 변이 "그 항목만 지움 · 넓은 등록 변이로 갈음 없음": AGENTS ⑦ 행 · §단계별 절차 2 · impl §3 · verify ⑦ 행·bullet · 두 template — 같다. verify "이후" 범위(diff가 닿은 항목 · 이번 Delta V가 새로 열거하거나 바꾼 항목 · 직전 실패): AGENTS ⑦ 행 · §단계별 절차 3 · verify ⑦ 행 · `verify.template.md` — 같다. 구현자는 전수 그대로.
+- diff 자리 앞 턴 코드: AGENTS §고장 내 보기 · §단계별 절차 2 · impl §3 · verify ⑦ bullet · `plan.template.md` — 같다. `잡음` 실패 이유: AGENTS §고장 내 보기 · §단계별 절차 2 · impl §3 · verify §4 · 두 template — 같다.
+- 구현 에이전트·trailer: root AGENTS 표(`Agent`·`Next-Action`에 `gemini`) · 구현 커밋 줄 · `docs/git-template.md` 표·형식·작성 규칙 · handoff AGENTS 역할 표·상태 표·충돌 최소화 · INDEX 범례 · impl 진입·마무리 — 같은 값. verify·review SKILL은 trailer 값을 root·git-template에 위임한다(`rg` 확인).
+- skill 읽기: handoff AGENTS 머리말("로더 없는 도구는 `SKILL.md`를 파일로 · 파일도 못 읽으면 최소 계약") ↔ root AGENTS "skill 을 읽지 못하는 환경을 위한 구현 턴 최소 계약" ↔ impl 진입 문장 — 충돌 없음. impl frontmatter description을 본문과 맞췄다.
+- root `AGENTS.md` 위생: 비밀·일회성·변동성 정보 0(도구 이름은 역할 매핑). 새 `AGENTS.md` 0 · 도구별 stub 0(사용자 결정) → `CLAUDE.md` stub·root 표 갱신 대상 없음. `app/AGENTS.md`·`ci.yml` 명령 불변. `node scripts/check-doc-inventory.mjs --check` links·prose ok · `check-product-naming` OK.
+
+## 전환 (§8)
+
+판정 의미 중 하한 실행 방법과 `잡음` 기준이 바뀌었으나, 0326 verify 6회째의 판정과 다음 주체는 새 규칙에서도 같다 — D28은 이행 `BLOCKING`(Y6 green · Y7 red), V20은 등록 변이 자체로 `잡음`, V2 AT B1은 claude-code 0번 기록이 실제 신호(클립보드 = 복사 문자열)라 `잡음`, C3은 9기록 모두 `endsMounted: true`의 실제 실패라 `잡음`. 정정 대상 없음. INDEX 0326 행 다음 주체를 `handoff-review` → 구현 r7로 갱신했다. 새 sweep 규칙(항별 기본 변이)은 r7 구현 sweep부터 걸린다.
+
+## 남은 한계
+
+- "계약이 적은 항"의 경계(블록 안 어떤 문장이 자리 문장의 항을 구현하는가)는 구현자가 읽어 나눈다 — 검증자 ⑦이 같은 방법으로 다시 세는 것이 방어다.
+- 실패 이유의 판독은 oracle 출력에 이유가 남을 때만 된다 — 이유가 없는 oracle은 좌표 단독 실행으로 판정한다.
+- Gemini CLI·Antigravity의 skill 로더·기본 컨텍스트 파일 동작은 이 컨테이너에서 확인하지 않았다(E) — 지침은 도구 설정에서 `AGENTS.md`를 읽게 하고 `SKILL.md`를 직접 읽으라고만 요구한다.

@@ -1,6 +1,6 @@
 # 커밋 trailer 가이드
 
-Claude Code(설계·검증)와 Codex(구현)는 **분리된 환경에서 git 커밋을 메시지 버스로** 통신한다. 이 문서가 커밋 메시지 형식의 상세 정본이고, 규칙 요약은 [`../AGENTS.md`](../AGENTS.md) "커밋 프로토콜" 에 있다.
+Claude Code(설계·검증)와 구현 에이전트(Codex·Gemini — 구현)는 **분리된 환경에서 git 커밋을 메시지 버스로** 통신한다. 이 문서가 커밋 메시지 형식의 상세 정본이고, 규칙 요약은 [`../AGENTS.md`](../AGENTS.md) "커밋 프로토콜" 에 있다.
 
 > **강제 장치 없음 (관례).** `.gitmessage` 템플릿도 CI/훅도 두지 않는다. 두 에이전트가 이 형식을 *읽고 따른다* 에 의존한다. 에이전트는 보통 `git commit -m`/`-F` 로 커밋하므로, **trailer 블록을 커밋 메시지에 직접 포함**한다.
 
@@ -25,7 +25,7 @@ Claude Code(설계·검증)와 Codex(구현)는 **분리된 환경에서 git 커
 <맥락 2~3줄 — 왜를 사람이 한눈에. 짧은 문장으로 끊어 쓴다.
  무엇은 diff 가, 깊이는 plan.md 가 말한다.>
 
-Agent: <codex|claude>
+Agent: <codex|gemini|claude>
 Handoff: docs/handoff/<NNNN-slug>/
 <...해당하는 나머지 trailer...>
 ```
@@ -65,13 +65,13 @@ Claude-Session: https://claude.ai/code/session_...
 
 | Key | 의미 | 허용값 | 작성 주체 |
 |---|---|---|---|
-| `Agent` | 커밋 작성 에이전트 | `codex` \| `claude` | 둘 다 |
+| `Agent` | 커밋 작성 에이전트 — `gemini` 는 Gemini CLI·Antigravity | `codex` \| `gemini` \| `claude` | 둘 다 |
 | `Handoff` | 연관 hand-off 작업 디렉토리 (AI 의 깊이 drill-down 포인터) | `docs/handoff/<NNNN-slug>/` \| `none` | 둘 다 |
 | `Status` | 작업 상태 | `designed` \| `implemented` \| `partial` \| `blocked` \| `verified` | 둘 다 |
 | `Criteria-Met` | 충족 인수 기준 수 | `<충족>/<전체>` (예 `3/5`) | **구현 커밋만** (구현 에이전트) |
 | `Criteria-Pending` | 미충족 기준 목록 | 자유 텍스트(기준 번호·요약) | **구현 커밋만** (구현 에이전트) |
 | `Verified-By` | 검증 결과 | `pending` \| `claude:pass` \| `claude:fail` | 구현=`pending`, 검증=결과 |
-| `Next-Action` | 다음 차례 주체 | `codex` \| `claude` \| `none` | **검증 커밋만** |
+| `Next-Action` | 다음 차례 주체 | `codex` \| `gemini` \| `claude` \| `none` | **검증 커밋만** |
 | `Refs` | 연관 이슈 | `#<이슈번호>` | 둘 다(선택) |
 
 > `<NNNN-slug>`, `#<이슈번호>` 등 프로젝트 고유값은 실제 값으로 채운다. 모르면 임의로 채우지 말고 비워둘 키는 줄을 생략한다.
@@ -80,8 +80,8 @@ Claude-Session: https://claude.ai/code/session_...
 ## 에이전트별 작성 규칙
 
 - **설계 커밋 (Claude)**: `Agent: claude` · `Status: designed`. `Criteria-*`·`Next-Action` 은 넣지 않는다. `plan/DRAFT`·`plan/READY` 와 **RETURN_TO_PLAN 후 규범 행 정정**(Decision·AC·V node/pair·`§10 강제 지점`)이 이 갈래다. **구현 산출과 같은 커밋에 담지 않는다** — 섞이면 `handoff-verify §0` 의 기준선 잠금이 "구현 전 plan" 을 diff 로 꺼내지 못해, 구현자가 자기 산출에 맞춰 기준을 고쳤는지 아무도 확인할 수 없다 (정본 [`../.agents/skills/handoff-plan/SKILL.md`](../.agents/skills/handoff-plan/SKILL.md) 마무리).
-- **구현 커밋**: `Agent: <구현 에이전트>` · `Status: implemented|partial|blocked` · `Criteria-Met` · (미충족 있으면) `Criteria-Pending` · `Verified-By: pending`. `Next-Action` 은 넣지 않는다. 구현 에이전트는 보통 Codex(기능 구현)지만, **리팩토링·버그수정은 Claude 가 구현**하므로 그 경우 `Agent: claude` 로 동일 형식을 쓴다 (역할 분담 정본은 [`handoff/AGENTS.md`](handoff/AGENTS.md)).
-- **검증 커밋 (Claude)**: `Agent: claude` · `Status: verified` · `Verified-By: claude:pass|claude:fail` · `Next-Action: codex|claude|none`. `RETURN_TO_PLAN`은 `Verified-By: claude:fail` + `Next-Action: claude`로 인코딩하고 lifecycle 원인은 INDEX/verify 상태가 구분한다. `Criteria-*`는 넣지 않는다.
+- **구현 커밋**: `Agent: <구현 에이전트>` · `Status: implemented|partial|blocked` · `Criteria-Met` · (미충족 있으면) `Criteria-Pending` · `Verified-By: pending`. `Next-Action` 은 넣지 않는다. 구현 에이전트는 보통 Codex 또는 Gemini(기능 구현 — `Agent: codex|gemini`)지만, **리팩토링·버그수정은 Claude 가 구현**하므로 그 경우 `Agent: claude` 로 동일 형식을 쓴다 (역할 분담 정본은 [`handoff/AGENTS.md`](handoff/AGENTS.md)).
+- **검증 커밋 (Claude)**: `Agent: claude` · `Status: verified` · `Verified-By: claude:pass|claude:fail` · `Next-Action: codex|gemini|claude|none` — 다음 구현자가 정해져 있으면 그 에이전트를 적는다. `RETURN_TO_PLAN`은 `Verified-By: claude:fail` + `Next-Action: claude`로 인코딩하고 lifecycle 원인은 INDEX/verify 상태가 구분한다. `Criteria-*`는 넣지 않는다.
 - **공통**: `Handoff`, `Refs`(선택).
 
 이 분리로 파싱 측이 "설계·구현·검증 중 어느 커밋인지" 와 "다음에 누가 움직여야 하는지" 를 키 존재 여부 + 값으로 판별한다 — `Status` 값이 갈래를 주고, `Criteria-*`(구현만)·`Next-Action`(검증만) 의 존재가 그것을 다시 확인한다.
@@ -103,7 +103,7 @@ Agent: claude
 Handoff: docs/handoff/0019-test-abi-green/
 ```
 
-### 구현 커밋 (Codex, 또는 비기능이면 Claude)
+### 구현 커밋 (Codex·Gemini, 또는 비기능이면 Claude)
 
 ```
 feat(chat): 스트리밍 reasoning 파트 영속화
