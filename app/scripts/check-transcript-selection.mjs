@@ -120,16 +120,20 @@ function runElectron(binary, origin) {
   })
 }
 
-async function main() {
-  let binary
-  try {
-    binary = createRequire(import.meta.url)('electron')
-    if (typeof binary !== 'string') throw new Error('electron binary path unavailable')
-  } catch (error) {
-    return { env: false, verdict: false, reason: '환경 없음', error: String(error) }
-  }
+function resolveElectron() {
+  const binary = createRequire(import.meta.url)('electron')
+  if (typeof binary !== 'string') throw new Error('electron binary path unavailable')
+  return binary
+}
+
+/** Bundles the probe and serves it. `close` stops the server and removes the bundle. */
+async function serveProbe() {
   let server
   let dist
+  const close = async () => {
+    if (server) await server.close()
+    if (dist) await rm(dist, { recursive: true, force: true })
+  }
   try {
     const { build, preview } = await import('vite')
     const { default: tailwindcss } = await import('@tailwindcss/vite')
@@ -161,9 +165,29 @@ async function main() {
     )
     server = await preview({ ...config, preview: { host: '127.0.0.1', port: 0 } })
     const origin = server.resolvedUrls.local[0].replace(/\/$/, '')
+    return { origin, close }
+  } catch (error) {
+    await close()
+    throw error
+  }
+}
+
+/** The run's outside world — injected by `check-transcript-selection.test.mjs` k10 (ΔV2 rev 5). */
+export const MAIN_DEPS = { resolveElectron, serveProbe, runElectron }
+
+export async function main(deps = MAIN_DEPS) {
+  let binary
+  try {
+    binary = deps.resolveElectron()
+  } catch (error) {
+    return { env: false, verdict: false, reason: '환경 없음', error: String(error) }
+  }
+  let served
+  try {
+    served = await deps.serveProbe()
     let output
     try {
-      output = await runElectron(binary, origin)
+      output = await deps.runElectron(binary, served.origin)
     } catch (error) {
       return launchFailure(error)
     }
@@ -172,8 +196,7 @@ async function main() {
   } catch (error) {
     return { env: true, verdict: false, error: String(error) }
   } finally {
-    if (server) await server.close()
-    if (dist) await rm(dist, { recursive: true, force: true })
+    if (served) await served.close()
   }
 }
 
