@@ -311,6 +311,9 @@ describe('TranscriptViewport.selection (0326 ΔV2 · VP-29 · AR-09 ↔ IT-09 ·
         dom!.act(() => blur())
       }
       expect(v.viewport().getAttribute('data-selection-suppressed')).toBeNull()
+      const rows = v.mounted()
+      v.select(v.part(rows[0]), 0, v.part(rows[1]), 1)
+      expect(v.selection.rangeCount).toBe(1)
     }
   )
 

@@ -268,6 +268,10 @@ describe('TranscriptViewport.selection via the production screens (ΔV2 rev 3 ·
       dom!.act(() => useChatStore.setState({ activeKey: 't' }))
       render()
       expect(viewport().getAttribute('data-selection-suppressed')).toBeNull()
+      const rowsT = dom!.queryAll('[data-index]')
+      select(rowsT[0], 0, rowsT[1], 1)
+      render()
+      expect(selection.rangeCount).toBe(1)
     }
   )
 
