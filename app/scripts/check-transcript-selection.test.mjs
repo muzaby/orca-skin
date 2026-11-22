@@ -35,6 +35,7 @@ function record(screen, scenario, run) {
         ...base,
         ...copy,
         mountedKeys: 3,
+        endsMounted: true,
         cancelMs: [0.4],
         selectionText: ['', '', ''],
         clipboard: SENTINEL
@@ -45,7 +46,14 @@ function record(screen, scenario, run) {
     case 'C5':
       return { ...base, mountedKeys: 4, selectionText: ['composer', 'composer'] }
     default:
-      return { ...base, mountedKeys: 2, cancelMs: [1], selectionText: [''], clipboard: SENTINEL }
+      return {
+        ...base,
+        mountedKeys: 2,
+        endsMounted: true,
+        cancelMs: [1],
+        selectionText: [''],
+        clipboard: SENTINEL
+      }
   }
 }
 
@@ -108,6 +116,14 @@ test('k5 a cancel scenario must prove the mount, clear the selection and keep th
   assert.deepEqual(reasons(grid(at('claude-code', 'C1', 1, { clipboard: 'copied' }))), [
     'clipboard changed after cancel'
   ])
+  // ΔV2 rev 3: the selected rows must stay mounted, or Chromium drops the selection by itself.
+  assert.deepEqual(reasons(grid(at('claude-work', 'C1', 0, { endsMounted: false }))), [
+    'selected rows unmounted'
+  ])
+  assert.deepEqual(reasons(grid(at('opencode-code', 'B1', 2, { endsMounted: undefined }))), [
+    'selected rows unmounted'
+  ])
+  assert.deepEqual(reasons(grid(at('claude-code', 'C2', 1, { endsMounted: true }))), [])
 })
 
 test('k6 a control scenario must mount nothing and keep the selection', () => {

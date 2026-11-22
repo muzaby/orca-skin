@@ -204,6 +204,24 @@ Object.assign(globalThis, {
         cancelMs: performance.getEntriesByName('oo-selection-cancel').map((m) => m.duration)
       }
     },
+    /** Block keys of the rows that hold the selection's anchor and focus. */
+    selectionRowKeys() {
+      const sel = document.getSelection()
+      const rowOf = (node: Node | null | undefined): string | null => {
+        const el = node && (node.nodeType === 1 ? (node as Element) : node.parentElement)
+        return (
+          el?.closest('[data-transcript-viewport] [data-index]')?.getAttribute('data-block-key') ??
+          null
+        )
+      }
+      const keys = [rowOf(sel?.anchorNode), rowOf(sel?.focusNode)]
+      return keys.every((k) => k !== null) ? keys : []
+    },
+    /** True when every given row key is still in the DOM (ΔV2 rev 3 · `endsMounted`). */
+    rowsMounted(keys: string[]) {
+      const now = new Set(rowKeys())
+      return keys.length > 0 && keys.every((k) => now.has(k))
+    },
     scrollTo(where: 'top' | 'bottom') {
       const el = scroller()
       el.scrollTop = where === 'top' ? 0 : el.scrollHeight
@@ -212,12 +230,28 @@ Object.assign(globalThis, {
       const r = scroller().getBoundingClientRect()
       return { x: r.left, y: r.top, width: r.width, height: r.height }
     },
-    /** A multi-block pair (≥ 3 rendered blocks) or a single paragraph, both on screen. */
-    pick(kind: 'single' | 'multi') {
+    /**
+     * A multi-block pair (≥ 3 rendered blocks) or a single paragraph, both on screen.
+     * `multi-bottom` takes the pair from the bottom of the visible window so a short scroll
+     * mounts new rows while the selected rows stay mounted (ΔV2 rev 3 · `endsMounted`).
+     */
+    pick(kind: 'single' | 'multi' | 'multi-bottom') {
       const shown = markers.filter((m) => {
         const el = markerElement(m.marker)
         return el && visible(el)
       })
+      if (kind === 'multi-bottom') {
+        const last = [...shown].reverse().find((m) => m.marker.startsWith('M'))
+        if (!last) throw new Error('no visible paragraph')
+        const to = shown.indexOf(last)
+        const startAt = shown
+          .slice(0, Math.max(0, to - 2))
+          .reverse()
+          .find((m) => m.marker.startsWith('M'))
+        if (!startAt || to - shown.indexOf(startAt) < 2)
+          throw new Error('fewer than three visible blocks')
+        return { start: [startAt.marker, 3], end: [last.marker, 6] }
+      }
       const first = shown.find((m) => m.marker.startsWith('M'))
       if (!first) throw new Error('no visible paragraph')
       if (kind === 'single') return { start: [first.marker, 3], end: [first.marker, 15] }

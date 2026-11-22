@@ -13,7 +13,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | READY (ΔV2 rev 4 — rev 3 + 구현 중 PLAN_GAP 1 정정 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 4 + ΔV3) |
+| 상태 | IMPL_DONE (r5 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 4 + ΔV3) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -2066,13 +2066,13 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 | D15 | reopen·Timeline.viewport 가 store `loadSession` 대신 reducer 직접 · reopen·transition 제목의 selection 단언 0 | VP-08 · VP-22 · VP-24 · AC6·AC16·AC19 | 실제 store `loadSession`(가짜 `sessionApi`) · 선택 끝 단언 | 이행 | BLOCKING | closed (verify r3 — store `loadSession` · selection 단언) |
 | D16 | 복사 task 가 50ms 를 크게 넘는다 — 상한 2,000 동기 복사 579~698ms · 조각 task 295~471ms(실제 Chromium, [verify r3 §2](verify.md)). D-088 은 상한을 J9 산출로 정하나 J9 는 같은 2,000블록을 4.43ms 로 재 2,000 을 낸다 · 실제 Chromium 보정은 기계 PASS 뒤 S5(사람) | VP-29 R-07↔AT-07 · VP-35 · AC26 · AC32 · AC33 S5 · D-088 · D-094 | 설계자: 상한의 기계 판정 측정기(실제 Chromium) · 하향 시점(기계 verify 전) · 300블록도 넘는 렌더 비용에서 상한·조각 크기 결정 | 현재 | PLAN_GAP | closed (verify 4회째 — ΔV2 D-102 가 복사 상한·조각 경로를 없앴다. 새 동작은 D18·D19) |
 | D17 | INDEX `impl/IN_PROGRESS`·Codex 인 채 verify 요청 · 구현 커밋 `6c5fa83c` 에 `Next-Action` | message-bus 운영 | INDEX 는 verify r3 커밋에서 정정 · 다음 구현 커밋은 `IMPL_DONE` 과 trailer 허용 키로 | 비귀속 | NON_BLOCKING | open |
-| D18 | AT-07 의 B1·C1 이 앱의 취소를 관측하지 못한다 — 휠 900px 이 선택 행을 언마운트해 Chromium 이 스스로 선택을 접는다. 등록 변이 V2(취소 제거)가 AT B1·C1·C3 green(C2 만 red) · V4(억제 제거)가 AT 전 시나리오 green. ΔV3 가 `cancelMs ≥ 1` 을 판정에서 빼며 유일한 AT 신호가 사라졌다 | VP-29 R↔AT · §7-A ΔV2 등록 변이 표 V2 "AT B1·C1" · V4 "AT B1(move 뒤 선택)" · AC26 ②④ | B1·C1 의 스크롤을 선택 행이 마운트된 채 새 행만 마운트되게 바꾸고(예: 가시 창 아래 끝 선택 + overscan 을 넘는 작은 휠) V2·V4 를 AT 에서 다시 심는다. V4 가 그 조건에서도 green 이면 실측으로 동치를 보인다 | 이행 | BLOCKING | open |
-| D19 | IT s10 이 OpenCode 행을 쓰지 않는다 — 일반 `SimpleBlock` 만 마운트해 `opencode/transcript/Timeline.tsx:151` `selected={selected}` → `false` 변이가 `features/chat` 3,034 green. IT 표제의 "세 화면 각각" 도 s1~s10 어디에도 없다 | VP-29 AR↔IT ⑤ "s10: OpenCode 행 둘 사이 선택 → … Markdown 모드 전환" · VP-36 | s10 을 OpenCode `Timeline` 조립으로 돌려 사이 행 `selected` → Markdown 모드 전환과 취소 뒤 해제를 단언한다. IT 전용 자리(①⑤)를 세 화면에서 돈다 | 이행 | BLOCKING | open |
-| D20 | 뷰포트의 `onPointerDown` 이 `event.button` 을 넘긴다 — `button: 0` 고정 변이(보조 버튼도 드래그 시작)가 `features/chat` 3,034 green. u5 는 순수 reducer 만 본다 | VP-29 ④ · D-103 "주 버튼을 눌러 시작" · VP-42 ② | 설계자 결정 — s5 에 보조 버튼 입력을 채택하거나 경계 선언 | 확장(창 안 — ΔV2 노드) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — 구현 남음 |
-| D21 | 세션 전환 시 제스처 초기화(`TranscriptViewport.tsx:258-263`) 제거 변이가 3,034 green | VP-29 ④ 해제 원인(규칙 칸은 pointerup·pointercancel·blur 셋) | 설계자 결정 — 해제 원인에 세션 전환을 넣어 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — 구현 남음 |
-| D22 | `selectionRange` 의 세션 비교(`:683` `selectedKeys.sessionKey !== sessionKey`) 제거 변이가 3,034 green — 두 세션이 같은 block key 를 가질 때만 갈린다(가정 입력) | VP-29 ⑤ | 설계자 결정 — 세션 간 key 충돌 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — 구현 남음 |
-| D23 | `design-components.md` `TranscriptView` 행이 "읽는 위치와 선택 영역을 보존한다" 로 남아 D-102(선택 복원 없음)와 어긋난다 | 문서 계약 gate(열거는 뷰포트 행) | 다음 구현 턴에 문구 정정 | 비귀속 | NON_BLOCKING | open |
-| D24 | OpenCode `ScrollController` 의 `retained`(`:43`·`:163`·`:171`·`:224`)는 production 소비처 0(테스트 mock 1)인데 선택 변화마다 상태를 갱신해 문맥 소비자를 다시 그린다 — `d404976` 부터 | VP-36(INHERITED · 동결) | 삭제 — 다음 구현 턴에 같이 지워도 된다 | 비귀속 | NON_BLOCKING | open |
+| D18 | AT-07 의 B1·C1 이 앱의 취소를 관측하지 못한다 — 휠 900px 이 선택 행을 언마운트해 Chromium 이 스스로 선택을 접는다. 등록 변이 V2(취소 제거)가 AT B1·C1·C3 green(C2 만 red) · V4(억제 제거)가 AT 전 시나리오 green. ΔV3 가 `cancelMs ≥ 1` 을 판정에서 빼며 유일한 AT 신호가 사라졌다 | VP-29 R↔AT · §7-A ΔV2 등록 변이 표 V2 "AT B1·C1" · V4 "AT B1(move 뒤 선택)" · AC26 ②④ | B1·C1 의 스크롤을 선택 행이 마운트된 채 새 행만 마운트되게 바꾸고(예: 가시 창 아래 끝 선택 + overscan 을 넘는 작은 휠) V2·V4 를 AT 에서 다시 심는다. V4 가 그 조건에서도 green 이면 실측으로 동치를 보인다 | 이행 | BLOCKING | 구현자 closed(r5 — 검증 대기) |
+| D19 | IT s10 이 OpenCode 행을 쓰지 않는다 — 일반 `SimpleBlock` 만 마운트해 `opencode/transcript/Timeline.tsx:151` `selected={selected}` → `false` 변이가 `features/chat` 3,034 green. IT 표제의 "세 화면 각각" 도 s1~s10 어디에도 없다 | VP-29 AR↔IT ⑤ "s10: OpenCode 행 둘 사이 선택 → … Markdown 모드 전환" · VP-36 | s10 을 OpenCode `Timeline` 조립으로 돌려 사이 행 `selected` → Markdown 모드 전환과 취소 뒤 해제를 단언한다. IT 전용 자리(①⑤)를 세 화면에서 돈다 | 이행 | BLOCKING | 구현자 closed(r5 — 검증 대기) |
+| D20 | 뷰포트의 `onPointerDown` 이 `event.button` 을 넘긴다 — `button: 0` 고정 변이(보조 버튼도 드래그 시작)가 `features/chat` 3,034 green. u5 는 순수 reducer 만 본다 | VP-29 ④ · D-103 "주 버튼을 눌러 시작" · VP-42 ② | 설계자 결정 — s5 에 보조 버튼 입력을 채택하거나 경계 선언 | 확장(창 안 — ΔV2 노드) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — 구현자 closed(r5 — 검증 대기) |
+| D21 | 세션 전환 시 제스처 초기화(`TranscriptViewport.tsx:258-263`) 제거 변이가 3,034 green | VP-29 ④ 해제 원인(규칙 칸은 pointerup·pointercancel·blur 셋) | 설계자 결정 — 해제 원인에 세션 전환을 넣어 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — 구현자 closed(r5 — 검증 대기) |
+| D22 | `selectionRange` 의 세션 비교(`:683` `selectedKeys.sessionKey !== sessionKey`) 제거 변이가 3,034 green — 두 세션이 같은 block key 를 가질 때만 갈린다(가정 입력) | VP-29 ⑤ | 설계자 결정 — 세션 간 key 충돌 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — 구현자 closed(r5 — 검증 대기) |
+| D23 | `design-components.md` `TranscriptView` 행이 "읽는 위치와 선택 영역을 보존한다" 로 남아 D-102(선택 복원 없음)와 어긋난다 | 문서 계약 gate(열거는 뷰포트 행) | 다음 구현 턴에 문구 정정 | 비귀속 | NON_BLOCKING | 구현자 closed(r5 — 검증 대기) |
+| D24 | OpenCode `ScrollController` 의 `retained`(`:43`·`:163`·`:171`·`:224`)는 production 소비처 0(테스트 mock 1)인데 선택 변화마다 상태를 갱신해 문맥 소비자를 다시 그린다 — `d404976` 부터 | VP-36(INHERITED · 동결) | 삭제 — 다음 구현 턴에 같이 지워도 된다 | 비귀속 | NON_BLOCKING | 구현자 closed(r5 — 검증 대기) |
 
 ---
 
@@ -3350,3 +3350,68 @@ gate(마지막 수정 뒤 트리): 가드 5종 통과 · lint 오류 0·경고 4
 
 - 라벨: r4.2(사용자 요구 변경 턴 — ΔV3). 같은 라운드에서 verify 없는 impl 턴 2(r4.1·r4.2 — 둘 다 사용자 요구 변경 턴).
 - CI 에 실기 판정을 넣은 설계(D-104)는 Windows 러너에서 Electron 을 띄울 수 있는지 실측하지 않고 정했다.
+
+## [구현자 기입] 설계 리뷰 (r5 — verify 4회째 RETURN_TO_PLAN 뒤 재구현)
+
+- 기준선: 유효 V `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 4 + ΔV3`. 이번 턴 REQUIRED = VP-29 AR↔IT(④⑤ rev 3 · ①⑤ 화면) · VP-29 R↔AT(B1·C1·C3 `endsMounted`) · VP-41 ③(rev 3), 닫을 파생 이슈 = D18 · D19 · D20~D22(채택) · D23·D24(선택), 운영 gate = §7-A 전부.
+- 구현 중 PLAN_GAP 1 — rev 3 의 s10 관측("Markdown 모드 관측")은 production 조립에서 선택이 살아 있는 채로 만들 수 없다(턴 끝 `a:A:meta` 마운트 → D-103 취소 · 실측은 ΔV2 rev 4 문단). 설계로 전환해 ΔV2 rev 4 로 정정했고 구현과 다른 커밋이다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r5)
+
+| pair / §10 | 자리 | 닫음 | 직접 oracle 좌표 · 관측 |
+|---|---|---|---|
+| VP-29 ① 범위(화면) | 세 화면 Timeline → `rangeExtractor` | ✅ | `TranscriptViewport.selection.screens.test.ts:'s2 %s %s: …'` ×3 — 선택 있음/없음 두 실행의 마운트 집합 같음(1px · 1행 스크롤) · V8-screens red 3 |
+| VP-29 ② 감지 · ③ 취소 · ⑥ 제거 | rev 2 그대로 | ✅ | `selection.test.ts` s1·s3·s4·s6·s7·s8 · V1·V2·V3·V6·V7 IT red |
+| VP-29 ④ 제스처 | `:699` 주 버튼 · `:258-263` 세션 해제 · 문서 `pointerup`/`pointercancel` · 창 `blur` | ✅ | s5 · s5b(`pointerDown(2)` → 속성 null) · s9 ×3(`pointercancel`·`blur`·`session`) · V19·V20·V5·X5·X6 red |
+| VP-29 ⑤ 표시 | `:683` 세션 비교 · OpenCode `Timeline.tsx:151` | ✅ | screens s10 ×2(선택 있음: 양 끝+사이 `selected` · 뒤 행 아님 · 해제 뒤 모두 아님 / 없음: 모두 아님) · s10b(세션 `t` 전환 → `[]`) · V21·V22 red |
+| VP-29 R↔AT | B1·C1·C3 `multi-bottom`·`MOUNT_WHEEL` 300 · `endsMounted` | ✅ | AT-07 exit 0 · 기록 90 · `endsMounted: true` 36/36 · V2 AT red(B1·C1·C2·C3) |
+| VP-41 ③ | 판정기 `endsMounted !== true` → 실패 | ✅ | k5(false·없음 → 실패 · true → 통과) · V23 red |
+| VP-36 | `ScrollController` `retained` 삭제(D24) | ✅ | `harnesses/opencode` 223/223 · `retained` 잔여 `rg -n "retained\b" harnesses/opencode` → 무관 2줄(테스트 이름·주석) |
+
+- 자리 검색 재실행: rev 3 양성 `button: event\.button|sessionKey !== sessionKey|gestureRef\.current = 'idle'` → 3 · `selected=\{selected\}` → 1 · rev 2 ⑥ 음성 0. 목록과 차집합 ∅.
+- 검산: VP-29 ①~⑥ 6/6 + AT 1 · VP-41 ③ 1 · 남긴 곳 0.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r5)
+
+원자료 [`evidence/r5-mutations.jsonl`](evidence/r5-mutations.jsonl)(33) · `mutate.py` 끝마다 "모든 파일 원문 그대로".
+
+| ID | 변이 | 좌표 | 결과 |
+|---|---|---|---|
+| V2(AT 좌표 정정) | 취소 해제 3줄 제거 · 억제 전이까지 제거 | AT B1·C1·C2·C3 | red · red(4 시나리오 × 3 화면) |
+| V4(AT 좌표 정정) | 억제 중 재해제 제거 | AT B1 | green → **동치** — rev 3 조건에서 9기록 모두 `endsMounted: true` · move 3회 뒤 선택 `''` · 클립보드 표지값([원자료](evidence/r5-v4-equivalence.json)). IT s5 red 가 잠금 |
+| V19 · V20 · V21 · V22 · V23 | 보조 버튼 고정 · 세션 해제 제거 · 세션 비교 제거 · OpenCode `selected={false}` · `endsMounted` 확인 제거 | s5b · s9(session) · s10b · screens s10 · k5 | red ×5 |
+| V8-screens | 선택 초점 ± overscan 마운트 | screens s2 | red(3화면) — 첫 형태(1px 스크롤만)는 green 이라 1행 스크롤 대조를 더했다 |
+| ④ 재실행 | verify 4회째 잡음 중 이번에 oracle 파일이 바뀐 행 — V1~V8 IT · V10~V13 · V17 · V18 · X4·X5·X6·X8·X10·X11·X14·X15 | selection.test · k | red ×22 · 덮개 회귀 0 |
+| ④ 동치 행 | X7 · X9 | — | green — verify 4회째와 같은 동치 |
+
+검산: 선택 증거 7(V2·V4·V19~V23) · 인용 변이 0 · 새 oracle 3(screens s2 · screens s10 · `endsMounted`) · sweep/④ 24(+V8-screens 1) = 표 행 6(묶음).
+
+## [구현자 기입] Product/UX 파생 검토 (r5)
+
+- 턴 끝의 meta 행 마운트가 transcript 선택을 취소한다(D-103 "원인 무관" 그대로 — 실측은 ΔV2 rev 4). 그래서 0325 의 "선택된 live 행이 확정 뒤 live 렌더를 유지" 는 production 에서 턴 진행 중(streaming 유지)에만 의미가 있다. 동작 변경 없음.
+- `ScrollController` 의 선택 → unpin 은 남는다. 지운 것은 소비처 0 인 `retained` 상태뿐이라 화면 변화 없음.
+- `design-components.md` TranscriptView 행을 "읽는 위치를 보존한다(선택은 브라우저 기본 — 복원하지 않는다)" 로 고쳤다(D23).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r5)
+
+- V2 를 여러 시나리오로 함께 돌리면 B1 이 남긴 상태 때문에 뒤 시나리오의 `endsMounted` 가 false 로 기록된다(단독 C1 은 true · 선택 유지). 판정은 어느 쪽이든 실패라 잠금에는 영향이 없다.
+- 설계 대비 차이: s10 관측 수단(rev 4) · screens s2 는 1px 에 더해 1행 스크롤 대조. 만료·공유·재진입 축: 해당 없음 — 테스트 관측 수단만 바뀌었다.
+
+## [구현자 기입] 구현 보고 (r5)
+
+| AC | 상태 | 관측 |
+|---|---|---|
+| AC26 | ✅(기계) | AT-07 `xvfb-run -a node scripts/check-transcript-selection.mjs` exit 0 · Electron 39.8.10 · linux · 기록 90 · 실패 0 · `endsMounted` 36/36 · [원자료](evidence/r5-selection.json) · IT selection 16 · screens 5 · u 7 · k 9 |
+| AC33 | ⚠️ | Windows 실기 — 기계 PASS 뒤 |
+| 그 밖 AC | ✅(유지) | 아래 gate |
+
+검산: ✅ 34 · ⚠️ 1 · ❌ 0 = 총 35.
+
+gate(마지막 수정 뒤 트리): 가드 5종 통과(append-only 2,306파일 · doc-inventory · product-naming 2,550파일 · test-budgets 18 · ui-thread) · lint 오류 0·경고 4(기존) · typecheck 오류 0 · vitest 1,092파일 10,449케이스 중 실패 9파일 22건 = 전부 `src/main`(이번 변경 0파일 · verify 4회째와 같은 22건 · `Composer directory must be absolute`) · `node --test scripts/*.test.mjs` 1,045/1,045 · `electron-vite build` + smoke-hosts OK + smoke-preload OK · `__ooDev` 0.
+테스트 파일 규칙: 추가·수정 4파일(selection · selection.screens(신규) · Timeline.memo · check-transcript-selection.test.mjs) — 시간 값·타이머 0(test-budgets 통과) · 자식 프로세스·SQLite 신호 0(unit 풀) · 위반 0.
+
+## [구현자 기입] Review Signals — 사실만 (r5)
+
+- 라벨: r5(라운드 5 첫 impl 턴). 같은 라운드 안에 설계 커밋 2(ΔV2 rev 3 · rev 4).
+- D18 은 ΔV3 가 성능 조건과 함께 `cancelMs ≥ 1` 을 뺀 데서 생겼다. r4.2 는 판정기 변이(V10~V13·V17·V18)만 다시 돌렸고 뷰포트 변이의 AT 좌표는 다시 돌리지 않았다.
+- s10 관측 PLAN_GAP 은 설계가 D-103 과 0325 연속성의 상호작용을 실측하지 않아 생겼다.

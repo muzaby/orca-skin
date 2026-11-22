@@ -6,6 +6,8 @@ const [origin, screensArg, runsArg] = process.argv.slice(-3)
 const screens = process.env.OO_SELECTION_SCREENS?.split(',') ?? screensArg.split(',')
 const runs = Number(process.env.OO_SELECTION_RUNS ?? runsArg)
 const SENTINEL = 'oo-clipboard-sentinel'
+// A short wheel that mounts new rows while the selected rows at the bottom stay mounted (ΔV2 rev 3).
+const MOUNT_WHEEL = Number(process.env.OO_SELECTION_WHEEL ?? 300)
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -105,10 +107,12 @@ async function drive(win) {
     },
     // ② mount during a held drag → cancel, no revival in the same gesture, sentinel kept, next drag works
     async B1() {
-      const { pair } = await pickAndExpect('multi')
+      const { pair } = await pickAndExpect('multi-bottom')
       const end = await drag(pair, { release: false })
+      const ends = await probe('selectionRowKeys()')
       await probe('mark()')
-      await wheel(900, true)
+      await wheel(MOUNT_WHEEL, true)
+      const endsMounted = await probe(`rowsMounted(${JSON.stringify(ends)})`)
       const afterCancel = await selection()
       const r = await probe('scrollerRect()')
       const moves = []
@@ -128,6 +132,7 @@ async function drive(win) {
       await drag(next.pair)
       return {
         mountedKeys: state.mountedKeys,
+        endsMounted,
         cancelMs: state.cancelMs,
         selectionText: [afterCancel, ...moves],
         clipboard: clip,
@@ -152,15 +157,17 @@ async function drive(win) {
     },
     // ④ after release, keyboard extension and a streamed block also cancel
     async C1() {
-      const { pair } = await pickAndExpect('multi')
+      const { pair } = await pickAndExpect('multi-bottom')
       await drag(pair)
+      const ends = await probe('selectionRowKeys()')
       await probe('mark()')
-      await wheel(900, false)
-      return cancelled()
+      await wheel(MOUNT_WHEEL, false)
+      return cancelled(ends)
     },
     async C2() {
       const { pair } = await pickAndExpect('multi')
       await drag(pair)
+      const ends = await probe('selectionRowKeys()')
       await probe('mark()')
       // Shift+↓ extends a non-editable selection line by line until the focus scrolls rows in.
       // (Chromium's Shift+PageDown does not scroll non-editable content, so it mounts nothing.)
@@ -168,17 +175,18 @@ async function drive(win) {
         key('Down', ['shift'])
         await settle()
       }
-      return cancelled()
+      return cancelled(ends)
     },
     async C3() {
       await probe("scrollTo('bottom')")
       await settle()
       const { pair } = await pickAndExpect('multi')
       const end = await drag(pair, { release: false })
+      const ends = await probe('selectionRowKeys()')
       await probe('mark()')
       await probe(`appendBlock(${Date.now() % 100000})`)
       await settle()
-      const result = await cancelled()
+      const result = await cancelled(ends)
       up(end)
       await settle()
       return result
@@ -222,12 +230,14 @@ async function drive(win) {
     }
   }
 
-  async function cancelled() {
+  async function cancelled(ends) {
+    const endsMounted = await probe(`rowsMounted(${JSON.stringify(ends)})`)
     const state = await probe('state()')
     key('C', ['control'])
     await settle()
     return {
       mountedKeys: state.mountedKeys,
+      endsMounted,
       cancelMs: state.cancelMs,
       selectionText: [state.selection],
       clipboard: clipboard.readText()
