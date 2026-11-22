@@ -1,5 +1,7 @@
 // 0326 ΔV2 rev 3 · VP-29 AR-09 ↔ IT-09 — the IT-only seats ① (s2) and ⑤ (s10) through the
 // production screens (`TranscriptView` → Claude / OpenCode `Timeline` → `TranscriptViewport`).
+// ΔV2 rev 5 adds the session seats S1~S9 (s9-screens · s10b-screens): the store holds two sessions
+// `s` and `t` with the same message ids, and the screen reads the active one.
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -92,6 +94,14 @@ function mountScreen(
   inflight = false
 ): { render: () => void; scrollRef: { current: HTMLDivElement | null } } {
   installChatStoreHarness({ messages, backend, agentKind, inflight })
+  // A second session with the same message ids — the block keys collide like archived `x:<index>`.
+  const first = useChatStore.getState().sessions.s
+  useChatStore.setState({
+    sessions: {
+      ...useChatStore.getState().sessions,
+      t: { ...first, session: { ...first.session, sessionId: 't' } }
+    }
+  })
   // Every virtual row is ROW px tall; the scroller is 400 px.
   const layout: Layout = (node) => {
     const viewport = node.closest('[data-behavior="virtualizable"]')
@@ -114,7 +124,7 @@ function mountScreen(
   const scrollRef = scrollTarget()
   const contentRef = { current: null }
   function Screen(): React.JSX.Element {
-    const session = useChatStore((state) => state.sessions.s.session)
+    const session = useChatStore((state) => state.sessions[state.activeKey].session)
     return createElement(TranscriptView, {
       agentKind,
       backend,
@@ -232,4 +242,63 @@ describe('TranscriptViewport.selection via the production screens (ΔV2 rev 3 ·
       expect(modes()).toEqual(none)
     }
   )
+
+  // ΔV2 rev 5 · S1~S5: the screens that keep one viewport across sessions
+  // (`remountTranscriptBySession: false`) end a suppressed gesture on a session switch (D-110 ⓑ).
+  it.each([
+    ['claude', 'work'],
+    ['opencode', 'code']
+  ] as const)(
+    's9-screens %s %s: switching the active session releases a suppressed drag',
+    (backend, agentKind) => {
+      const { render, scrollRef } = mountScreen(backend, agentKind, exchanges(120))
+      const { select, selection } = installViewportSelection(dom!)
+      render()
+      const viewport = (): FakeNode => dom!.query('[data-transcript-viewport]')!
+      const onPointerDown = viewport().props.onPointerDown as (event: { button: number }) => void
+      dom!.act(() => onPointerDown({ button: 0 }))
+      const rows = dom!.queryAll('[data-index]')
+      select(rows[1], 0, rows.at(-1)!, 1)
+      expect(selection.rangeCount).toBe(1)
+      dom!.query('[data-behavior="virtualizable"]')!.scrollTop = 80 * ROW
+      dom!.act(() => scrollRef.current!.dispatchEvent(new Event('scroll')))
+      for (let i = 0; i < 4; i++) render()
+      expect(selection.rangeCount).toBe(0)
+      expect(viewport().getAttribute('data-selection-suppressed')).toBe('')
+      dom!.act(() => useChatStore.setState({ activeKey: 't' }))
+      render()
+      expect(viewport().getAttribute('data-selection-suppressed')).toBeNull()
+    }
+  )
+
+  // ΔV2 rev 5 · S3·S4 · S6~S9: `selected` follows the session that made the selection (D-110 ⓒ).
+  it('s10b-screens opencode code: another session with the same keys shows no selection, and a selection made there is shown', () => {
+    const { render } = mountScreen('opencode', 'code', [
+      { id: 'u:1', role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'question' }] },
+      { id: 'a:0', role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'earlier' }] },
+      { id: 'u:2', role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'next' }] },
+      { id: 'a:1', role: 'assistant', createdAt: 4, parts: [{ type: 'text', text: 'later' }] },
+      { id: 'u:3', role: 'user', createdAt: 5, parts: [{ type: 'text', text: 'last' }] },
+      { id: 'a:2', role: 'assistant', createdAt: 6, parts: [{ type: 'text', text: 'focus' }] }
+    ])
+    const { select } = installViewportSelection(dom!)
+    render()
+    const text = (key: string): FakeNode =>
+      dom!.query(`[data-block-key="${key}"]`)!.querySelector('[data-markdown-mode]')!
+    const modes = (): (string | null)[] =>
+      ['a:0:text:0', 'a:1:text:0', 'a:2:text:0'].map((key) =>
+        text(key).getAttribute('data-markdown-mode')
+      )
+    select(text('a:0:text:0'), 2, text('a:2:text:0'), 3)
+    render()
+    expect(modes()).toEqual(['streaming', 'streaming', 'streaming'])
+    // ② The same keys in session `t` are not the selection of session `s`.
+    dom!.act(() => useChatStore.setState({ activeKey: 't' }))
+    render()
+    expect(modes()).toEqual(['complete', 'complete', 'complete'])
+    // ③ A selection made in `t` is recorded for `t`.
+    select(text('a:1:text:0'), 1, text('a:2:text:0'), 2)
+    render()
+    expect(modes()).toEqual(['complete', 'streaming', 'streaming'])
+  })
 })
