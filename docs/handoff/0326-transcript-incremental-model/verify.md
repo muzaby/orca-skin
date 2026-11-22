@@ -828,3 +828,124 @@
 - pair: root PAIR_FAIL 1(VP-29 AT) · PLAN_GAP 1(VP-41) · PASS 2(VP-42 · VP-29 IT 열거 범위) + 회귀 4.
 - AC: ✅ 4 · ❌ 1 · 사람 1 · ⚠️(미재측정) 29 / 35.
 - 다음 단계: Claude 설계 — D25·D26 채택 또는 경계 선언 · D27 목록 술어 고정 · D18 의 C3 를 V2 에 민감하게 만들지(예: 놓기 전 `Ctrl+C` 뒤 이어 move 3회 · 또는 V4 처럼 C3 동치 허용 조건) 정하는 ΔV2 rev 5(**열거 원문을 늘릴 수 있는 마지막 설계 턴**) → 구현자가 D18 과 채택분을 닫는다.
+
+---
+
+# Verify 6회째 (r6)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-22 |
+| 대상 커밋/range | `2b89697..5ca47cc` — 설계 `6984e60`(ΔV2 rev 5) · 구현 `5ca47cc`(r6). 브랜치 `ccr-dbca39e6-oo7imc` — 둘 다 `origin/main` 조상 아님(PR 미병합) |
+| 구현 전 plan 기준 | `6984e60`(ΔV2 rev 5) — 구현 커밋의 plan diff 는 메타 `상태` 1줄 · 파생 이슈 상태 칸 4(D18·D25~D27) · `[구현자 기입]` r6 절 추가뿐 |
+| V mode / 유효 V | `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3` |
+| 라운드 | 6 |
+| 상태 | **FAIL** |
+| 확장 창 | verify 6회째 — 모든 노드 창 밖(ΔV2·ΔV3 노드 창은 5회째로 닫힘). 판정 범위 = rev 5 열거(D18 · S1~S9 · E1~E5 · V2 단독 · V24~V34) + 열린 BLOCKING |
+| 독립 축(⑥) | 5건(Y6~Y10) — 못 잡음 1(Y6 · 이행) · 잡음 4 |
+| 열거 sweep(⑦) | diff 가 닿은 항목 + 직전 실패 — rev 5 신규 자리 S1~S9 · E1~E5 의 등록 변이 · V2 AT ×4 단독 · ③ 동치 행 · ④ 이번 diff 가 닿은 oracle 파일(screens · k)의 잡음 행 + IT 17행. S5 자리 문장 두 항(Y6·Y7). 원자료 [`evidence/v6-mutations.jsonl`](evidence/v6-mutations.jsonl) · [결과 TSV](evidence/v6-mutations.tsv) |
+| 발견 분류 | 이행 1(D28) · 현재 0 · 확장 0 · 경계 1(X-serve-cleanup) · 비귀속 0 |
+| 구현 주체·문맥 | 기록만 — r6 는 Claude(같은 세션 계열). 설계자 = 검증자 |
+
+## 0. 기준선 / plan validity
+
+- Decision · AC · V node/pair · §10 변경을 구현 커밋이 하지 않았다. 채점 기준은 `6984e60` 원문.
+- §10 자리 검색 3종 재실행(`app/`): Timeline 술어 → 4(`claude :50`·`:132` · `opencode :50`·`:129`) · 뷰포트 5술어 → 5(`:264`·`:487`·`:491`·`:683`·`:688`) · `return \{ env:|return launchFailure\(` → 6(`:90` 정의 · `main()` 안 `:183`·`:192`·`:194`·`:195`·`:197`). 목록과 차집합 ∅. 술어는 운반 자리(불변식의 주어)다.
+- 창 밖 ΔV(rev 5)의 새 열거 항목 출처: D18 C3·실행 단위 = plan 내부 정합 · S1~S9 = verify 5회째 창 안 채택(D25·D26) · E1~E5 = plan 내부 정합(D27). 출처 없는 항목 0.
+- PLAN_GAP 0.
+
+## 1. AT-07 실행 (D-107 — 검증자 직접)
+
+`cd app && xvfb-run -a node scripts/check-transcript-selection.mjs` → **exit 0**(`env` true · `error` 없음 · `verdict` true) · 1분 10초 · Electron 39.8.10 · linux · 기록 90 · `failures: []` · `endsMounted: true` 36/36 · C3 9기록 `selectionText` 모두 `['','']`. 원자료 [`evidence/v6-selection.json`](evidence/v6-selection.json).
+
+## 2. 고장 이력
+
+하네스 `mutate.py` 2회(59건 — 빠른 52 · AT/chat 7) + 수동 1(Y6 동치 확인 — [`evidence/v6-y6-probe.md`](evidence/v6-y6-probe.md)) · 끝날 때마다 `# 원복 확인: 모든 파일 원문 그대로` · `git status` 빈 출력. oracle: IT = `TranscriptViewport.selection*`(24) · k = `check-transcript-selection.test.mjs` · chat = `vitest run src/renderer/src/features/chat`(3,045) · AT = `evidence/v5-at-oracle.sh <시나리오 하나>`.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| V2 AT B1 · C1 · C2 · C3 | `TranscriptViewport.tsx:520-522` | 제거 | 취소 3줄 제거 · 시나리오마다 단독 | C3 못 잡음 | **잡음 ×4** — C3 9기록 `endsMounted` true · `selection survived` · `clipboard changed after cancel` | AT 각 시나리오 | ①②③ | — (D18 닫음) |
+| V4 AT B1 | `:479` | 고정값 | `false &&` | 동치 | green — 동치(rev 3 V4 행 · 9기록 `endsMounted` true · 실패 0) | IT s5 | ③ | 동치 |
+| X7 · X9 | `:522` · `:517` | 제거 | 표시 해제 · 가상화 가드 | 동치 | green — 동치(코드 무변경) | — | ③ | 동치 |
+| V24a · V24b · V25a · V25b | Claude `Timeline.tsx:50`·`:132` · OC `:50`·`:129` | 고정값 | `'s'` | 신규(Y1·Y2 원) | 잡음 ×4(1·1·2·2) | s9-screens · s10b-screens | ①② | — (D25 닫음) |
+| V20 · V26 · V27 · V21 · V28 | `:261-264` · `:487` · `:491` · `:683` · `:688` | 제거 | 정리 전체 · 기록 세션 · 의존성 · 세션 비교 · memo 의존성 | 신규·잡음 | 잡음 ×5(3·4·1·2·2) | s9 · s9-screens · s10 · s10b · s10b-screens ②③ | ①② | — (D26 닫음 · V28 동치 아님) |
+| V29~V33 | `check-transcript-selection.mjs:183`·`:197`·`:192`·`:194`·`:195` | 다른 값 | E1~E5 반환 변조 | 신규 | 잡음 ×5 | k10 E1~E5 | ①② | — (D27 닫음) |
+| V34 | `:192` ↔ `:197` | 맞바꿈 | E3 을 E2 리터럴로 | 신규 | green — 동치(`launchFailure` `:89-91` 반환 = E2 리터럴 같은 객체) | — | ⑤ | 동치 |
+| X-E3close · X-E1order | `:199` · `:180` | 제거 · 뒤집기 | `close` 제거 · `serveProbe` 를 앞으로 | 신규 | 잡음 ×2 | k10 E3 · E1·E2 | ⑦ | — |
+| X-serve-cleanup | `:169-170` | 제거 | `serveProbe` 실패 시 `close()` | 신규 | green | — | ⑦ | 경계 — rev 5 "정리 순서(`close`·임시 dist 삭제)는 규칙 칸 밖" |
+| ④ 29행 | V19 · V22 · V23 · V18@`:90` · V10~V13 · V17 · V8-screens · V1~V8 IT(V2·V4 각 2형) · X4~X6 · X8 · X10 · X11 · X14 · X15 · Y4 | r6 spec 원문 | 같음 | 잡음 | **잡음 29/29** | IT · k | ④ | — 덮개 회귀 0 |
+| **Y6** | `:261-264` | 제거 | 세션 정리에서 `gestureRef.current = 'idle'` 만 제거(`setSuppressed(false)` 유지) | 신규 | **못 잡음**(IT 24/24 green) · 동치 아님 — 전환 뒤 새 세션 선택이 지워짐(`rangeCount` 1 → 0, probe) | — | ⑥⑦ | **이행 — D28** |
+| Y7 | 같음 | 제거 | `setSuppressed(false)` 만 제거 | 신규 | 잡음(3) | s9 · s9-screens | ⑥⑦ | — |
+| Y8 | `:264` | 다른 값 | 의존성 `[sessionKey]` → `[]` | 신규 | 잡음(3) | s9 · s9-screens | ⑥ | — |
+| Y9 · Y10 | `:194` · `:195` | 고정값 · 다른 값 | 하네스 오류 문자열 고정 · 판정 입력 `records.slice(1)` | 신규 | 잡음 ×2 | k10 E4 · E5 | ⑥ | — |
+
+- 검산: 시도 60 = `mutate.py` 59(rev 5 열거 18 · ④ 29 · ⑥ 5 · AT/chat 7) + 수동 1(Y6 probe). green 6 = 동치 4(V4 AT · X7 · X9 · V34) · 경계 1(X-serve-cleanup) · 이행 1(Y6).
+- **못 본 것**: V1 rev 7 · ΔV1 동결 노드의 등록 변이 재생(diff 밖) · Windows Electron 실행(AC33).
+
+## 3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-42 MD-22↔UT-20 | PASS | 전체 vitest 안 `selectionGuard.test.ts` green · ④ 범위 무변경 |
+| VP-41 MD-21↔UT-21 | PASS | ⑤′ E1~E5 좌표 `k10 E1`~`E5` 실재 · `node --test` 1,050/1,050 · V29~V33 잡음 · V34 동치 · Y9·Y10 잡음 |
+| VP-29 AR-09↔IT-09 | **PAIR_FAIL** | D28 — S5 자리 문장의 항 "제스처 `idle`" 이 잠기지 않음(Y6). 나머지 S1~S4 · S6~S9 · ①~⑥ 잡음 |
+| VP-29 R-07↔AT-07 | PASS | §1 exit 0 · V2 단독 ×4 잡음(D18) · V4 동치 |
+| VP-35 · VP-22 · VP-27 · VP-36 | PASS(회귀 범위) | 전체 vitest renderer 실패 0 |
+| ΔV2 밖 동결 pair | 판정 보류 | diff 밖 — 기준선 외 실패 0 |
+
+### AC 합계
+
+| 결과 | AC |
+|---|---|
+| ✅ 4 | AC16 · AC22 · AC23 · AC32 — ④ 잡음 · 바뀐 단언 green |
+| ❌ 1 | AC26 — D28(IT 잠금 · 동작은 현재 맞음) |
+| 사람 1 | AC33 |
+| ⚠️ 29 | 나머지 — diff 밖 · 전체 gate green · 등록 변이 미재측정 |
+
+- `4 + 1 + 1 + 29 = 35` ↔ trailer `Criteria-Met: 34/35` — ❌ 1 은 반증, ⚠️ 29 는 미재측정.
+
+### 운영 gate (`5ca47cc` 트리)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations(첫 릴리스 skip) · doc-inventory links ok · product-naming 2,551파일 OK · test-budgets 18 suites ok · ui-thread OK |
+| lint / typecheck | PASS | 0 error · 4 warning(기존) · 실행 뒤 `git status` 빈 출력 / `error TS` 0 |
+| 파일 필터 없는 vitest | 기준선 한계 | 1,092파일 · 10,452케이스 — 22 failed(9파일 · 전부 `src/main`). range 의 `src/main` 변경 0파일 · verify 5회째와 같은 9파일 · 서명 `composer-preparation-service`/Windows 경로 픽스처 |
+| `node --test scripts/*.test.mjs` | PASS | 1,050 / 1,050 |
+| 빌드 + 두 스모크 · `__ooDev` | PASS | `electron-vite build` exit 0 · smoke-hosts OK · smoke-preload OK(키 7) · `out/renderer` `__ooDev` 0파일 |
+| Electron 선택·복사(D-107) | PASS | §1 |
+| 테스트 파일 규칙 | PASS | 수정 2파일(screens · k) — test-budgets 통과 · 자식 프로세스·SQLite 신호 0 |
+| trailer 파싱 | PASS | 설계 5줄 · 구현 8줄 반환 |
+
+## 4. Repository operation checks
+
+- INDEX 자리표시자 2개를 PR 브랜치 해시로 채운다 — ΔV2 rev 5 `6984e60` · r6 `5ca47cc` · verify r5 `2b89697`. `git cat-file -t` 전부 commit · `origin/main` 조상 아님(PR 미병합).
+- `[구현자 기입]` r6: 7필드 모두 있음. 강제 지점 표 16자리(AT 2 · S1~S9 · E1~E5) · 남긴 곳 0.
+
+## 5. Finding disposition
+
+| # | finding | 분류 · 근거 | disposition |
+|---|---|---|---|
+| D18 | V2 AT C3 단독 | V2 단독 ×4 잡음 · C3 9기록 `endsMounted` true | **closed** |
+| D25 · D26 · D27 | 세션 edge · 전환 뒤 새 선택 · ⑤′ 자리 | V24a~V25b · V27 · V29~V33 잡음 | **closed** |
+| D28 | S5 정리의 `gestureRef.current = 'idle'` 제거가 IT 24/24 green | 이행 — ΔV2 rev 5 S5 자리 문장 "세션 효과 정리 · 전환 → 제스처 `idle` · 억제 해제(D-110 ⓑ)" 의 첫 항. 동치 아님(probe) · 입력 칸(s9-screens "속성 null")이 자리 문장보다 좁다 | BLOCKING |
+
+상세 행은 plan `[검증자 기입] 파생 이슈` D28.
+
+## 6. Review Signals — 사실만
+
+- 이전 라운드와 유사: 한 자리 문장에 두 항(제스처 `idle` · 억제 해제)이 있는데 oracle 은 한 항(속성)만 관측했다 — 0324 r3 과 같은 모양. 구현자 sweep 은 S5 를 정리 전체 제거(V20) 한 변이로만 심었다.
+- 관련 plan 지침: rev 5 s9-screens 입력 칸 "→ 속성 null" 만 적었다(관측 수단이 한 항).
+- 사용자 결정 변경: 없음.
+- 반복 환경 한계: `src/main` Windows 경로 픽스처 9파일 22건(r1~r6 같음).
+- 독립 축(⑥) 5건 — 못 잡음 1(Y6 · 이행) · 잡음 4.
+
+## 7. 결론
+
+- 상태: **FAIL** — BLOCKING 1(D28 · 이행). PLAN_GAP 0.
+- pair: root PAIR_FAIL 1(VP-29 IT) · PASS 3(VP-42 · VP-41 · VP-29 AT) + 회귀 4.
+- AC: ✅ 4 · ❌ 1 · 사람 1 · ⚠️(미재측정) 29 / 35.
+- **verify 6회째가 PASS 가 아니다 → 다음 재구현 전 `handoff-review` 의무**(`docs/handoff/AGENTS.md §라운드`).
+- 다음 단계: `handoff-review` → 구현자가 s9(session)·s9-screens 에 "전환 뒤 새 세션에서 만든 선택이 남는다"(`rangeCount` 1) 입력을 더해 Y6 를 red 로 만든다(코드 변경 불필요).
