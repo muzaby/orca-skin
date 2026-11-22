@@ -13,7 +13,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | IMPL_DONE (r6 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3) |
+| 상태 | IMPL_DONE (r7 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -3562,3 +3562,65 @@ gate(마지막 수정 뒤 트리): 가드 5종 통과(no-copies 2,306 · doc-inv
 - 라벨: r6(라운드 6 첫 impl 턴). ΔV2·ΔV3 노드 창 밖 — 이번 턴은 rev 5 열거만 닫았다.
 - D18 은 verify 4·5회째와 같은 pair·같은 변이 축이다. rev 5 가 실행 단위(단독)와 C3 복사 시점을 고정했고, 이번 턴은 그 둘을 시나리오마다 실측했다.
 - 반복 환경 한계: `src/main` Windows 경로 픽스처 9파일 22건(r1~r6 같음).
+
+## [구현자 기입] 설계 리뷰 (r7 — verify 6회째 FAIL · review round 47 뒤 재구현)
+
+- 기준선: 유효 V `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3`. verify 6회째 뒤 `handoff-review`(round 47 · `74fe677`)가 완료되었고 판정 불변 · 규범 변경은 없다. 이번 턴 REQUIRED = VP-29 AR↔IT(S5 자리 문장 두 항 잠금), REGRESSION = VP-29 R↔AT · VP-41 · VP-42, 닫을 파생 이슈 = D28(BLOCKING 1건), 운영 gate = §7-A 전부.
+- PLAN_GAP 0. S5 자리 문장("전환 → 제스처 `idle` · 억제 해제(D-110 ⓑ)")에 맞춰 입력 칸(`s9` · `s9-screens`)에 전환 뒤 새 세션에서 만든 선택이 남는(`rangeCount === 1`) 단언을 더했다(코드 변경 불필요 — `handoff-impl §2·§7` 입력 칸이 자리 문장보다 좁으면 규칙·자리 문장을 따라 입력을 더한다).
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r7)
+
+| pair / §10 | 자리 | 닫음 | 직접 oracle 좌표 · 관측 |
+|---|---|---|---|
+| VP-29 ④ S5 | `TranscriptViewport.tsx:261-264` 세션 효과 정리(`gestureRef.current = 'idle'` · `setSuppressed(false)`) | ✅ | `TranscriptViewport.selection.test.ts:'s9: %s releases a suppressed gesture'`(3) · `TranscriptViewport.selection.screens.test.ts:'s9-screens %s %s: …'`(2) — 해제·전환 뒤 속성 `null` + 새 선택 `rangeCount === 1` · Y6(`gestureRef` 줄만 제거) red 3 · Y7(`setSuppressed` 줄만 제거) red 3 · Y8(의존성 `[]`) red 3 · V20(정리 전체 제거) red 3 |
+| VP-29 ④⑤ S1~S4 · S6~S9 | Claude `Timeline.tsx:50`·`:132` · OpenCode `Timeline.tsx:50`·`:129` · `TranscriptViewport.tsx:487`·`:491`·`:683`·`:688` | ✅ | `s9-screens` ×2 · `s10` · `s10b` · `s10b-screens` ②③ · V24a~V25b · V26~V28 · V21 red |
+| VP-29 ①~③·⑥ | `TranscriptViewport.tsx` 범위·감지·취소·가로채기 없음 | ✅ | `selection.test.ts` s1~s8 · `selection.screens.test.ts` s2 ×3 · V1~V8 · V19 · V22 · V8-screens · X4~X6 · X8 · X10 · X11 · X14 · X15 · Y4 red |
+| VP-29 R↔AT | `electron-main.mjs` A1~C5 · C3 놓은 뒤 복사 | ✅ | AT-07 `xvfb-run -a node scripts/check-transcript-selection.mjs` exit 0 · 기록 90 · `endsMounted: true` 36/36 · `failures: []`([원자료](evidence/r7-selection.json)) |
+| VP-41 ⑤′ E1~E5 | `check-transcript-selection.mjs` `:183`·`:197`·`:192`·`:194`·`:195` | ✅ | `check-transcript-selection.test.mjs` k1~k10 14/14 · V29~V33 · V10~V13 · V17 · V18@`:90` · Y9 · Y10 · X-E3close · X-E1order red |
+
+- 자리 검색 재실행: `useActiveSessionKey\(\)|sessionKey=\{sessionKey\}` → 4(`:50`·`:132` · `:50`·`:129`) · 뷰포트 5술어 → 5(`:264`·`:487`·`:491`·`:683`·`:688`) · `return \{ env:|return launchFailure\(` → 6(`:90` 정의 · `main()` 안 `:183`·`:192`·`:194`·`:195`·`:197`) · VP-29 ⑥ 음성 → 0(exit 1). 목록과 차집합 ∅.
+- 검산: S1~S9 9/9 + VP-29 ①~③·⑥ + AT + E1~E5 5/5 · 남긴 곳 0.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r7)
+
+원자료 [`evidence/r7-mutations.jsonl`](evidence/r7-mutations.jsonl)(52) · [결과 TSV](evidence/r7-mutations.tsv) · `mutate.py` 1회(52건) · 끝난 뒤 `# 원복 확인: 모든 파일 원문 그대로` · `git status` 깨끗.
+
+| ID | 변이 | 좌표 | 결과 |
+|---|---|---|---|
+| **Y6-S5-gesture-only** | `TranscriptViewport.tsx:261-264` 정리에서 `gestureRef.current = 'idle'` 만 제거(D28 인용 변이 · S5 첫 항 sweep) | `s9` · `s9-screens` ×2 | **red**(3 failed / 24) |
+| **Y7-S5-suppressed-only** | 같음에서 `setSuppressed(false)` 만 제거(S5 둘째 항 sweep) | `s9` · `s9-screens` ×2 | **red**(3 failed / 24) |
+| **Y8-S5-deps-empty** | `:264` 의존성 `[sessionKey]` → `[]` | `s9` · `s9-screens` ×2 | **red**(3 failed / 24) |
+| V20 · V24a~V25b · V26~V28 · V21 | S1~S9 등록 변이 9건 | `s9` · `s9-screens` · `s10` · `s10b` · `s10b-screens` | red ×9 |
+| V29~V33 · Y9 · Y10 · X-E3close · X-E1order | VP-41 E1~E5 등록·독립·sweep 9건 | `k10 E1`~`E5` | red ×9 |
+| V34 · X-serve-cleanup | E2 ↔ E3 반환 맞바꿈 · `serveProbe` 실패 시 `close()` 제거 | `k10` | green ×2 — V34 동치(`launchFailure` = E2 같은 구조 객체) · X-serve-cleanup 경계(rev 5 "정리 순서는 규칙 칸 밖") |
+| ④ 회귀 29행 | V19 · V22 · V23 · V18@`:90` · V10~V13 · V17 · V8-screens · IT 18행(V1~V8 · V2 2형 · V4 2형 · X4~X6 · X8 · X10 · X11 · X14 · X15 · Y4) | `TranscriptViewport.selection*` · `check-transcript-selection.test.mjs` | red 29/29 · 덮개 회귀 0 |
+
+검산: 선택 증거 15(V20 · V21 · V24a~V25b 4 · V26~V28 3 · V29~V34 6) · 인용 변이 1(Y6) · 새 oracle 0(기존 `s9`·`s9-screens` 단언 보강) · sweep/독립 7(Y7~Y10 4 · X-E3close · X-E1order · X-serve-cleanup) · ④ 29 = 실행 52(표 행 7 묶음).
+
+## [구현자 기입] Product/UX 파생 검토 (r7)
+
+- production 코드 변경 0 — 테스트 단언만 보강해 사용자 대면 동작 변화는 없다. 세션 전환 시 억제된 드래그 제스처가 `idle`로 돌아가고 새 세션에서 즉시 텍스트 선택이 가능하다는 D-110 ⓑ 계약이 두 항 모두 잠겼다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r7)
+
+- S5 자리 문장은 두 항(제스처 `idle` · 억제 해제)을 적었으나 r6는 블록 전체를 지우는 등록 변이 V20 하나로만 확인해 첫 항(`gestureRef.current = 'idle'`)의 관측 공백을 놓쳤다. 이번 턴에는 `s9`의 세 해제 원인(`pointercancel`·`blur`·`session`)과 `s9-screens` 두 화면(`claude work`·`opencode code`) 모두에 해제 뒤 새 선택 생존 단언(`rangeCount === 1`)을 넣어 각 줄 단독 제거 변이(Y6·Y7)가 모두 red가 됨을 확인했다.
+- 설계 대비 차이: 없음. 만료·공유·재진입·다른 무효화 축: 해당 없음(테스트 단언만 추가).
+
+## [구현자 기입] 구현 보고 (r7)
+
+| AC | 상태 | 관측 |
+|---|---|---|
+| AC26 | ✅(기계) | AT-07 `xvfb-run -a node scripts/check-transcript-selection.mjs` exit 0 · Electron 39.8.10 · linux · 기록 90 · 실패 0 · `endsMounted` 36/36 · [원자료](evidence/r7-selection.json) · IT selection 24/24(16 + screens 8) · Y6 red(3 failed) · u 7/7 · k 14/14 |
+| AC33 | ⚠️ | Windows 실기 — 기계 PASS 뒤 |
+| 그 밖 AC | ✅(유지) | 아래 gate |
+
+검산: ✅ 34 · ⚠️ 1 · ❌ 0 = 총 35.
+
+gate(마지막 수정 뒤 트리): 가드 5종 통과(migrations 36+2 sync ok · no-copies 2,306파일 · doc-inventory 9항목 125채널 prose·links ok · product-naming 2,551파일 OK · test-budgets 18 suites ok · ui-thread OK) · lint 오류 0 · 경고 4(기존 · 트리 변화 0) · typecheck 3종 `error TS` 0 · 파일 필터 없는 vitest 1,092파일 10,452케이스 중 10,418 passed · 실패 22건(9파일 · 전부 `src/main` · verify 6회째와 같은 9파일 · 이번 `src/main` 변경 0 · `Composer directory must be absolute`/Windows 경로 픽스처) · `node --test scripts/*.test.mjs` 1,050/1,050 · `electron-vite build` + `smoke-hosts` OK + `smoke-preload` OK(키 7) · `rg -c "__ooDev" out/renderer` 0(exit 1).
+테스트 파일 규칙: 수정 2파일(`TranscriptViewport.selection.test.ts` · `TranscriptViewport.selection.screens.test.ts`) — 시간 값·타이머 0(test-budgets 통과) · 자식 프로세스·SQLite 신호 0(unit 풀) · 위반 0.
+
+## [구현자 기입] Review Signals — 사실만 (r7)
+
+- 라벨: r7(라운드 7 첫 impl 턴 · 구현 주체 `gemini`). verify 6회째 뒤 `handoff-review`(round 47 · `74fe677`)에서 일반화된 규칙("넓은 변이의 red로 개별 항 sweep을 갈음하지 않는다")에 따라 S5의 두 항을 각각 Y6·Y7 단독 제거 변이로 확인했다.
+- 반복 환경 한계: `src/main` Windows 경로 픽스처 9파일 22건(r1~r7 같음) · `npm ci` 시 `allowScripts` 경고가 떠 `better-sqlite3` Node ABI 리빌드는 `npm --prefix node_modules/better-sqlite3 run install`로 수행했다.
+
