@@ -213,7 +213,8 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
       pinned = false
       scroller.scrollTop = 120
       scroller.dispatchEvent(new Event('scroll'))
-      const retained = snap.blockAt(snap.count - 1)
+      // The reading-anchor row (the viewport keeps it mounted across prepends) — a selection no longer keeps off-screen rows mounted (ΔV2 D-102).
+      const retained = snap.blockAt(0)
       const selector = `[data-block-key="${retained.key}"]`
       const original = dom.query(selector)!
       select(original, 4, original, 1)
@@ -222,10 +223,14 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
       expect(originalSelection).toHaveLength(3)
 
       // Prepend turns 9, 8, 7 one at a time
+      let selectionCancelled = false
       for (const t of [9, 8, 7]) {
         const previousNode = dom.query(selector)!
         scroller.querySelectorAll('[data-block-key]')
         const previousTop = previousNode.getBoundingClientRect().top
+        const keysBefore = new Set(
+          dom.queryAll('[data-index]').map((n) => n.getAttribute('data-block-key'))
+        )
         chatActions.prependHistory('s', fixture.remainingPrefixTurns[t], { reachedStart: false })
         state = harnessSession()
         snap = model.advance({
@@ -240,9 +245,19 @@ describe('TranscriptViewport.prepend (VP-27 · SD-03 ↔ ST-03 · EP-12 ⑤⑥)'
         expect(Math.abs(node.getBoundingClientRect().top - previousTop)).toBeLessThanOrEqual(1)
         expect(snap.indexOf(retained.key)).toBeGreaterThanOrEqual(0)
         expect(getDisclosure('s', retained.key)).toBe(true)
-        expect(selection.toString()).toBe(originalSelection)
-        expect([selection.anchorOffset, selection.focusOffset]).toEqual([4, 1])
+        // ΔV2 D-103: a prepend whose rows mount cancels the selection; otherwise it stays.
+        const mountedNew = dom
+          .queryAll('[data-index]')
+          .some((n) => !keysBefore.has(n.getAttribute('data-block-key')))
+        if (mountedNew || selectionCancelled) {
+          selectionCancelled = true
+          expect(selection.toString()).toBe('')
+        } else {
+          expect(selection.toString()).toBe(originalSelection)
+          expect([selection.anchorOffset, selection.focusOffset]).toEqual([4, 1])
+        }
       }
+      expect(selectionCancelled, 'the replay exercises the row-mount cancel').toBe(true)
       expect(state.messages.map((m) => m.id)).toEqual([
         'u:fx-7',
         'a:fx-7',

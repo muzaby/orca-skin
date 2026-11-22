@@ -12,7 +12,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | READY (r4 · V1 rev 7 + ΔV1 rev 2 + ΔV2 — 사용자 결정 변경 · 구현 대기) |
+| 상태 | IMPL_DONE (r4.1 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 2) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -3133,3 +3133,79 @@ VP-35의 EP-21 ①~③은 `measure-ui-inputs.test.mjs` j1~j7로 확인했다. J9
 r4의 D16은 r3와 같은 복사 지연이다. 2,000블록에서 나타난 문제를 작은 상한에서 재측정했다. 조각 크기와 브라우저 task 실행시간, 후보 탐색과 제품 상수의 긴 선택은 별도로 판정한다. Windows AC33은 아직 수행 전이다.
 
 가드 5종 통과. lint 오류 0·기존 경고 4, 타입 검사 오류 0. Vitest 1,091파일 10,498건 중 10,465 통과, 11 건너뜀, 22 실패. 실패한 파일·케이스 집합과 변경 전 동일 파일 재실행 결과의 양방향 차집합은 공집합이다(Windows 경로 `C:/`·`Composer directory must be absolute`). Node 스크립트 1,047/1,047, 빌드·호스트·preload 스모크 통과. 일반 빌드 `__ooDev` 0파일, 진단 빌드 1파일.
+
+## [구현자 기입] 설계 리뷰 (r4.1 — ΔV2 rev 2 · 사용자 요구 변경 턴)
+
+- 기준선: 유효 V `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 2`. 이번 턴 REQUIRED = VP-29(ΔV2) · VP-41 · VP-42, REGRESSION = VP-22 · VP-27 · VP-35 · VP-36, 운영 gate = §7-A 6행(Electron 선택·복사 포함). verify 3회째 뒤 `handoff-review`(round 46 · `be25935`)는 이미 끝났다.
+- 구현 중 PLAN_GAP 3건(음성 술어가 `onKeyDownCancel` 을 셈 · Shift+PageDown 은 행을 마운트하지 못함 · 컴포저 선택은 마운트 0 대조와 한 기록에 둘 수 없음)을 찾았다. 설계로 전환해 ΔV2 rev 2 로 정정하고 구현과 다른 커밋에 담았다.
+- ΔV2 rev 1 은 "에이전트 환경 exit 3" 을 전제했다. 이 컨테이너는 Electron 바이너리 설치가 됐고 `xvfb-run` 이 있어 AT-07 을 직접 돌렸다. CI(windows-latest) 원자료가 정본이라는 D-104 는 그대로다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r4.1)
+
+| pair / §10 | 자리 | 닫음 | 직접 oracle 좌표 · 관측 |
+|---|---|---|---|
+| VP-29 ① 범위 | `viewportMountSet`(선택 인자 없음) · `rangeExtractor` | ✅ | `TranscriptViewport.selection.test.ts:s2`(3) — 끝 행 변위에서 선택 끝 행이 마운트에 남지 않음 · 등록 변이 V8 red |
+| VP-29 ② 감지 | 레이아웃 효과의 key diff(`renderedKeysRef` → `committedKeysRef`) | ✅ | s3·s4·s6·s7 · s2(가상화 off) · AT B1·C1·C2·C3 `mountedKeys ≥ 1` · B2·C4 `= 0` |
+| VP-29 ③ 취소 | `shouldCancelSelection` → `removeAllRanges` · `selectedKeys` null · `oo-selection-cancel` | ✅ | s3(측정 +1) · s8(밖 선택 유지) · AT `cancelMs` 39건 최대 0.30ms |
+| VP-29 ④ 제스처 | `onPointerDown` · 문서 `pointerup`/`pointercancel`(capture) · 창 `blur` · `data-selection-suppressed`+`select-none` · `selectionchange` 재해제 | ✅ | s5 · s9(2) · AT B1(같은 제스처 move 3회 뒤 선택 '' · 새 드래그 붙여넣기 일치) |
+| VP-29 ⑤ 표시 | `selectionchange` → `selectedKeys` → 행 `selected` | ✅ | s10 · VP-36 `Timeline.selection.test.ts` green |
+| VP-29 ⑥ 제거 | 음성 술어(rev 2) | ✅ | `rg` → 0(AS-IS 74) · `addEventListener('copy'` → 0 · `selectionGuard` 양성 1 · s1 |
+| VP-42 ①~③ | `selectionGuard.ts` 3 export | ✅ | `selectionGuard.test.ts` u1~u7 · 자리 검색 3 · V14~V16 red |
+| VP-41 ①~⑥ | `judgeSelectionRuns` · `pasteMatches` · `selectionExitCode` · 원자료 | ✅ | `check-transcript-selection.test.mjs` k1~k9 · 자리 검색(스크립트 8·driver 5·probe 2) · perf-budget import 1 · `playwright` 0 |
+| VP-35 | J9·j6 삭제 · `formatJ10Rows` | ✅ | `measure-ui-inputs.test.mjs` 16/16 |
+| VP-22 · VP-27 · AC22 | 주체가 바뀐 테스트(ΔV2 rev 2 표) | ✅ | transition 1 · prepend 1(`selectionCancelled` true 단언) · harness AC22 3화면 · 캐시 재로드 3화면 |
+
+검산: VP-29 자리 6/6 · VP-42 3/3 · VP-41 6/6 · 남긴 곳 0.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4.1)
+
+| ID | 변이 | 좌표 | 결과 |
+|---|---|---|---|
+| V1 | `onCopy` 로 `preventDefault` | IT s1 · AT | red · red |
+| V2 | 취소 제거 | IT · AT | red · red |
+| V3 | 마운트 대신 모든 커밋에서 취소 | IT · AT | red · red |
+| V4 | `selectionchange` 재해제 제거 | IT s5 · AT | red · **green** |
+| V4b | `select-none` 제거 | AT | **green** |
+| V4c | 억제 전체 끔(`isSuppressed` false) | AT | **green** — 동치: Electron 39 Chromium 은 `removeAllRanges` 뒤 같은 드래그에서 선택을 되살리지 않는다. 억제는 그 엔진 동작에 기대지 않으려는 방어이고 IT s5 가 잠근다 |
+| V5 | `pointerup` 해제 제거 | IT · AT | red · red |
+| V6 | 밖 선택도 취소 | IT s8 · AT C5 | red · red |
+| V7 | 빈 직전 key 집합(모든 커밋이 마운트) | IT · AT | red · red |
+| V8 | 선택 초점 ± overscan 마운트 복귀 | IT s2 | 처음 green → s2 끝 행 변위 케이스 추가 → red |
+| V9~V13 | 판정기 Long Task 무시 · 빠진 칸 통과 · 표지값 대조 제거 · 대조 마운트 0 확인 제거 · `env:false`→0 | UT k2·k7·k5·k6·k8 | red ×5 |
+| V14~V16 | 밖 취소 · 제거만으로 취소 · `pointercancel` 전이 누락 | UT u1·u3·u4 | red ×3 |
+
+검산: 선택 증거 16(V1~V16) + 보강 2(V4b·V4c) = 18 · 새 oracle 3(s·u·k) · 표 행 13(묶음 포함). 하네스 `mutate.py` 원복 확인 "모든 파일 원문 그대로" 3회.
+
+## [구현자 기입] Product/UX 파생 검토 (r4.1)
+
+- 선택이 있는 동안 새 질문 행이 마운트되면 선택이 취소된다(D-103 · 캐시 재로드 테스트). 새 행이 가시 창 밖이면 마운트가 없어 선택이 남는다(VP-22).
+- Claude live 본문이 확정 블록으로 바뀌어 key 가 달라지는 경우도 같은 규칙으로 취소된다(B14 · D-103 원문 "원인 무관").
+- Shift+PageDown 은 Chromium 비편집 콘텐츠에서 스크롤하지 않아 선택이 그대로 남는다 — 렌더된 범위 안의 선택이라 D-102 와 모순이 없다.
+- 취소 뒤 `Ctrl+C` 는 클립보드를 바꾸지 않는다(AT 표지값 일치 · copy 이벤트 없음 — `copyPrevented: null`).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4.1)
+
+- Chromium 은 이번 커밋이 지운 선택 노드의 선택을 레이아웃 효과 전에 접는다 → `selectionchange` 가 본 위치(`selectionInsideRef`)로 판정하게 바꿨다(AT C1 에서 처음 `cancelMs: []` 로 드러남).
+- 가짜 DOM 의 선택은 떨어진 노드를 그대로 들고 있어 같은 원인이 반대로 나타났다(IT s3) — 같은 ref 로 둘 다 닫혔다.
+- 설계 대비 차이: AT 시나리오에 C5 추가 · C2 는 Shift+↓ 12회 · C3 은 회차마다 페이지를 다시 연다(앞 회차가 붙인 블록이 세션에 남아 다음 회차의 새 블록이 창 밖으로 감). 만료·공유·재진입 축: 해당 없음 — 판정기는 기록을 받아 순수 계산만 한다.
+
+## [구현자 기입] 구현 보고 (r4.1)
+
+| AC | 상태 | 관측 |
+|---|---|---|
+| AC26 | ✅(기계 — 로컬 Electron · CI 원자료 대기) | `node scripts/check-transcript-selection.mjs`(xvfb-run · Electron 39.8.10 · linux) exit 0 · 기록 90 · 실패 0 · Long Task 0 · 취소 39건 최대 0.30ms · [원자료](evidence/r4.1-selection.json) · IT 13 · u 7 · k 9 |
+| AC32 | ✅ | J9 삭제 · j1~j5·j7 16/16 |
+| AC16 · AC22 · AC23(VP-27) | ✅ | 바뀐 단언 green |
+| AC33 | ⚠️ | Windows 실기(S5 새 시나리오) — 기계 PASS 뒤 |
+| 그 밖 AC | ✅(유지) | 아래 gate |
+
+검산: ✅ 34 · ⚠️ 1 · ❌ 0 = 총 35.
+
+gate(마지막 수정 뒤 트리): 가드 5종 통과(append-only · doc-inventory · product-naming 2550파일 · test-budgets 18 · ui-thread) · lint 오류 0·경고 4(전부 기존 — 변경 전 5) · typecheck 오류 0 · vitest 1,091파일 중 실패 9파일 22건 = 변경 전 같은 22건(차집합 ∅ · `src/main` 만 — `Composer directory must be absolute` 등 Linux 경로 픽스처) · renderer 513파일 4,311건 통과 · `node --test scripts/*.test.mjs` 1,045/1,045 · `electron-vite build` + smoke-hosts OK + smoke-preload OK · `rg -c "__ooDev" out/renderer` 0 · better-sqlite3 는 `npm rebuild`(Node ABI) 뒤 DB 스위트 통과.
+테스트 파일 규칙: 추가·수정 9파일(selection · harness · prepend · transition · range · selectionGuard · transcriptFixtures · measure-ui-inputs · check-transcript-selection) — 시간 예산 가드 통과 · 자식 프로세스·SQLite 신호 0(unit 풀) · 위반 0.
+
+## [구현자 기입] Review Signals — 사실만 (r4.1)
+
+- 라벨: r4.1(사용자 요구 변경 턴 — ΔV2). 이번에 닫은 불변식("선택은 브라우저 기본이고 새 행 마운트에서만 취소")은 r1~r4 의 복사 경로 축을 대체한다.
+- PLAN_GAP 2건(Shift+PageDown · 컴포저 기록)은 설계가 Chromium 입력 동작을 실측하지 않아 생겼다. 실제 런타임에서 재야 하는 것은 수치만이 아니라 입력 의미도였다.
+- 환경: 이 컨테이너는 Electron 다운로드·Xvfb 가 됐다. 22건 `src/main` 실패는 r1~r4 와 같은 기준선이다.

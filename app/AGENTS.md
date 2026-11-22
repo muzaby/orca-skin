@@ -96,7 +96,6 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
 - 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff, `@tanstack/react-virtual`@3(transcript 가상화, 0102), i18next/react-i18next(0096, devDeps), recharts(설정 사용량 차트, 0112), Confluence storage→markdown 변환 3종(`cheerio`·`turndown`·`turndown-plugin-gfm`, 0160 승인 — **0188 이설**: `features/plugins/confluence/`), undici(devDeps). 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
-- 0326 Chromium 복사 측정 스크립트는 Playwright를 런타임에 로드하며, 설치되어 있지 않으면 종료 코드 3을 반환한다.
 - 미정 항목 (PRD §11 / TRD §10 — 단독 결정 금지): 코드 서명(현재 unsigned NSIS) · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드. (패키징=electron-builder NSIS·자동 업데이트=electron-updater 는 0084~0089 로 채택 완료.)
 
 ## 빌드 / 실행
@@ -160,6 +159,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 - `smoke-hosts.mjs` + `smoke-host-worker.mjs` — **두 호스트 기동 스모크** (CI 게이트, 0324). `electron-vite build` 산출(`out/main`)의 데이터 호스트 → 에이전트 호스트를 셸 대신 worker 스레드로 띄워(utility 부모 포트·`electron.net` 흉내) 준비 순서 · 피어 포트 · 창 포트 요청(소유 채널 응답·남의 채널 거부) · 에이전트 → 데이터 종료를 본다. 호스트 조립(`DataBootstrap`·`AgentBootstrap`)은 단위 테스트로 통째로 띄우지 못해 조립 안의 기동 순서 결함은 여기서만 잡힌다. 데이터 호스트가 SQLite 를 열어 better-sqlite3 가 Node ABI 여야 한다 — 로컬은 `npx electron-vite build && node scripts/smoke-hosts.mjs`.
 - `smoke-preload.mjs` — **preload 산출 검사** (CI 게이트, 0324 D-058). sandbox 창의 preload 는 `require` 가 `electron` 하나만 불러온다 — `electron-vite build` 산출(`out/preload`)에 서드파티 의존(zod 등)·나뉜 조각·동적 import 가 남으면 창이 로드 중에 죽어 빈다. 산출의 `require` 를 대조하고, `electron` 만 주는 흉내 `require` 와 지정 전역만 있는 맥락에서 한 번 실행해 다리(`ooBridge`) 노출을 본다(fail-closed). preload 는 `electron` 과 zod 없는 shared 상수만 import 한다 — 전송·검증은 renderer 전송층(`src/renderer/src/shared/api/transport/`)이 갖는다. 순수 Node 라 ABI 무관 — 로컬은 빌드 뒤 `node scripts/smoke-preload.mjs out/preload`.
 - `check-product-naming.mjs` — **제품 이름 표기**를 기계 강제 (CI 게이트, 0306). 지난 기록(스크립트의 `EXCLUDED` — handoff·archive·ADR·연구 문서·트랜스크립트·프로토타입 등)을 뺀 **추적 파일 전체**에서 옛 표기가 들어오면 실패한다 — 새 경로는 등록 없이 검사된다. 표기 규칙은 넷이다 — 산문은 표시명 `Orcinus orca`, 저장·전송되는 문자열 값은 슬러그 꼴(`orcinus-orca`·`orcinus_orca`·`ORCINUS_ORCA_`), 코드 식별자와 소스 파일명은 `oo`·`Oo`·`OO_`, IPC 채널 접두사는 `oo:`. 옛 이름을 일부러 쓰는 자리(구버전 안내·머지된 마이그레이션)는 스크립트의 `ALLOWED` 에 `{file, form, count, reason}` 으로 등록하고, 개수가 늘어도 줄어도 실패한다. 테스트에서 옛 이름이 필요하면 리터럴 대신 `PRODUCT_SLUG` 의 마지막 마디에서 만든다. 순수 Node 라 ABI 무관.
+- `check-transcript-selection.mjs` — **transcript 선택·복사 실기 판정** (CI 게이트, 0326). 이미 devDependency 인 Electron 으로 세 화면(production `TranscriptView`)을 띄우고 `webContents.sendInputEvent` 의 실제 드래그·휠·키와 Electron `clipboard` 로 브라우저 기본 복사·행 마운트 시 선택 취소·50ms 예산을 판정한다. Electron 바이너리가 없으면 exit 3(`환경 없음`). Linux 에서는 디스플레이가 필요하다(`xvfb-run -a node scripts/check-transcript-selection.mjs`). 순수 판정부는 `check-transcript-selection.test.mjs`.
 - `validate-dist.mjs` — 릴리스 산출물(installer/latest.yml/blockmap) sha512 재계산 검증.
 - `analyze-composer-input-trace.mjs` — Composer 입력 트레이스 분석 (0145 진단 도구).
 
@@ -167,7 +167,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 
 | 워크플로우 | 트리거 | 동작 |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `main` push + 모든 PR (둘 다 paths `app/**`·`.github/workflows/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → 문서 인벤토리 가드 → 제품 이름 가드 → 테스트 예산 가드 → 프로세스 경계 가드 → lint → typecheck → test → 호스트 기동 스모크(번들 + 두 호스트) → preload sandbox 스모크(산출 대조 + 흉내 실행). PR CI 추가(0113 — 0088 "PR CI 없음" supersede), 로컬 게이트는 유지 |
+| `.github/workflows/ci.yml` | `main` push + 모든 PR (둘 다 paths `app/**`·`.github/workflows/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → 문서 인벤토리 가드 → 제품 이름 가드 → 테스트 예산 가드 → 프로세스 경계 가드 → lint → typecheck → transcript 선택 실기 판정(Electron) → test → 호스트 기동 스모크(번들 + 두 호스트) → preload sandbox 스모크(산출 대조 + 흉내 실행). PR CI 추가(0113 — 0088 "PR CI 없음" supersede), 로컬 게이트는 유지 |
 | `.github/workflows/test-pools-experiment.yml` | 수동 dispatch(러너·모드·반복 입력)만 | 모드별 vitest 실측 행렬(0298) — npm ci → ABI(node) → vitest(기본 reporter: 파일별 `\|project\|` 줄 + Duration 분해) → `node --test`(dot). 게이트가 아니다 |
 | `.github/workflows/release.yml` | `v*` 태그 push (수동 dispatch = 항상 dry-run) | 버전 검증(fail-fast) → 게이트 → NSIS `build:win` → GitHub Release **즉시 게시**(installer·latest.yml·blockmap) → sha512 검증 |
 
