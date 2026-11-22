@@ -13,11 +13,11 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | RETURN_TO_PLAN (verify 5회째 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 4 + ΔV3) |
+| 상태 | READY (ΔV2 rev 5 — verify 5회째 정정 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
-| 유효 V | `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 3 + ΔV3` — ΔV2 rev 3 = verify 4회째 RETURN_TO_PLAN 정정(D18 AT 조건 · D19 s10 화면 · D20~D22 채택 — D-110 · §7-A ΔV2 rev 3). ΔV3 = AT-07 을 CI 에서 빼 verify 실행으로 · 성능 판정 제외(D-107~D-109). ΔV1 = verify 3회째 D16 정정(D-099 → rev 2 D-101 · PR #648 코멘트 1). ΔV2 = PR #648 코멘트 2 사용자 결정 변경(D-102~D-106 — 복사 상한·조각 복사 경로를 브라우저 기본 복사와 행 마운트 시 선택 취소로 교체 · §7-A ΔV2). 설계 커밋 좌표 `(ΔV1 — 검증자 기입)` · `(ΔV2 — 검증자 기입)` |
+| 유효 V | `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 5 + ΔV3` — ΔV2 rev 5 = verify 5회째 RETURN_TO_PLAN 정정(D18 C3 복사 시점·AT 변이 단독 실행 · D25·D26 세션 자리 9 채택 · D27 VP-41 ⑤′ 자리 5 + seam · §7-A ΔV2 rev 5 — ΔV2·ΔV3 노드 열거 동결). rev 4 = s10 관측을 `selected` 전달로. ΔV2 rev 3 = verify 4회째 RETURN_TO_PLAN 정정(D18 AT 조건 · D19 s10 화면 · D20~D22 채택 — D-110 · §7-A ΔV2 rev 3). ΔV3 = AT-07 을 CI 에서 빼 verify 실행으로 · 성능 판정 제외(D-107~D-109). ΔV1 = verify 3회째 D16 정정(D-099 → rev 2 D-101 · PR #648 코멘트 1). ΔV2 = PR #648 코멘트 2 사용자 결정 변경(D-102~D-106 — 복사 상한·조각 복사 경로를 브라우저 기본 복사와 행 마운트 시 선택 취소로 교체 · §7-A ΔV2). 설계 커밋 좌표 `(ΔV1 — 검증자 기입)` · `(ΔV2 — 검증자 기입)` |
 | 구현 착수 조건 | 0325 기계 verify PASS 커밋을 받아 §18 영향 파일과 AC 를 다시 대조한 뒤(D-050). 이 plan 의 AS-IS 는 0325 r1 구현 `52b5272` 다 — **충족**(r1 착수 대조 · 0325 기계 PASS `d868468`). 이 브랜치의 같은 r1 커밋 `f325bfc` 대비 `app/` 차이는 `src/shared/data-host.test.ts` 1파일이다(`git diff --name-status f325bfc d868468 -- app` · 둘 다 PR 브랜치 해시 — `main` 미병합) |
 
 # Part I — Product & UX Contract
@@ -678,6 +678,82 @@ live delta: 본문 리프만
 **rev 4(구현 중 PLAN_GAP 1 — 같은 에이전트가 설계로 전환해 정정 · 출처: plan 내부 정합)**: rev 3 의 s10 관측("Markdown 모드 관측")은 production 조립에서 선택이 살아 있는 채로 만들 수 없다 — 턴 진행 중에는 확정 뒤에도 행 `streaming` 이 true 라 선택과 무관하게 streaming 이고, 턴 끝(`inflight` false)은 `a:<id>:meta` 행을 새로 마운트해 D-103 이 선택을 취소한다(실측: 끝 전 `rangeCount` 1 · 행 `u:1:user,a:0:text:0,a:0:meta,u:2:user,a:A:text:0` → 끝 뒤 0 · `…,a:A:meta`). 그래서 s10 은 **`selected` 가 OpenCode `Timeline` 의 `renderBlock` 을 지나 `OpenCodeTimelineRow` 에 닿는 것**을 관측한다 — `harnesses/opencode/transcript/viewState` 의 `useTimelineMarkdownMode(streaming, selected)` 두 번째 인자를 행 key 별로 기록(모듈 감시 · 원 구현 호출 유지)해 사이 행 포함 `true` · 취소/해제 뒤 `false`. 0325 의 Markdown 모드 연속성 자체는 VP-36 `Timeline.selection.test.ts` 가 계속 잠근다. V22 의 red 좌표는 s10 그대로다.
 
 **다음 verify(5회째)가 볼 것**: D18·D19 와 V2·V4·V19~V23 · AT-07 재실행(rev 3 조건 원자료) · ΔV2 노드는 창 안 마지막 회(5회째).
+
+### ΔV2 rev 5 — verify 5회째 RETURN_TO_PLAN 정정 (Delta V · 규범 행 + 구현 의무)
+
+- 기준: `… + ΔV2 rev 4 + ΔV3`(`cedcec5` — PR 브랜치 해시) · 적용 순서 `ΔV2 rev 2 → ΔV3 → ΔV2 rev 3 → rev 4 → rev 5` · 출처 verify 5회째 D18 · D25~D27.
+- **plan 동결**: ΔV2·ΔV3 노드의 확장 창은 verify 5회째로 닫혔다. 이 턴이 그 노드의 열거 원문을 늘리는 마지막 턴이고, 뒤의 새 항목은 출처(현재 결함 · plan 내부 정합 · 사용자 결정)가 있어야 한다.
+- 바뀌는 수준: `R`(AT C3 복사 시점 · AT 변이 실행 단위) · `AR`(VP-29 ④⑤ 세션 자리 목록 · 화면 입력) · `MD`(VP-41 ⑤′ 자리 목록 · seam). AC 수 35 그대로 · Decision 추가 없음(D-107 · D-110 의 적용 범위 정정).
+- **ACTIVE 결정 ↔ AC 대조**: D-110 ⓑⓒ ↔ AC26 ②⑤(세션 자리는 같은 결정의 production edge — 충돌 0) · D-107 종료 코드 ↔ VP-41 ⑤′(규칙 칸 그대로 · 자리만 전수) · D-103 "놓고 `Ctrl+C`" ↔ AC26 ② · ④ "② 와 같은 클립보드 단언"(C3 정정 방향과 같음). 충돌 0.
+
+| 대상 | provenance | 바뀐 것 | 출처 | 새 구현 의무 |
+|---|---|---|---|---|
+| R-07 / AT-07 · AC26 ④ C3 | CHANGED(좌표 정정) | 취소 시나리오의 `Ctrl+C` 는 버튼을 놓은 뒤다 — C3 는 스트리밍 마운트 뒤 선택(놓기 전) → `up` → 선택 · `Ctrl+C` 순서로 기록한다(`selectionText` = 놓기 전 · 놓은 뒤 2칸) | D18 — plan 내부 정합: AC26 ④ "② 와 같은 클립보드 단언" ↔ ② "놓고 `Ctrl+C` 해도 클립보드 = 미리 넣은 표지값". 현 하네스 C3 는 놓기 전에 복사한다 | 하네스 C3 |
+| R-07 / AT-07 등록 변이 실행 단위 | CHANGED | AT 좌표에 건 변이는 **시나리오 하나씩**(`OO_SELECTION_ONLY=<시나리오>`) 실행한 원자료로 판정한다. 묶음 실행은 증거가 아니다 | D18 — verify 5회째 `evidence/v5-v2-b1c3-combined.json`: 같은 변이로 B1·C3 를 묶으면 B1 첫 기록 뒤 17기록이 `endsMounted: false` 로 오염 | 구현 보고의 AT 변이 행 |
+| AR-09 / IT-09 ④⑤ 세션 자리 | CHANGED(목록 고정) | 세션 전환 자리를 production edge 까지 9자리로 고정(아래 표) · 화면 입력 s9-screens · s10b-screens | D25 · D26(창 안 확장 — 채택) | 테스트 2종 |
+| MD-21 / UT-21 ⑤′ | CHANGED(목록 고정) | 자리 술어를 해법 이름(`launchFailure`)에서 불변식의 주어(`main()` 이 `env:` 를 싣고 반환하는 자리)로 · 5자리 · 주입 seam | D27 — plan 내부 정합 | `main(deps)` seam · k10 |
+
+**실측(이 턴 — 설계 고정 전 · 커밋하지 않은 임시 변경으로 돌림)**
+
+| 대상 | 방법 | 결과 |
+|---|---|---|
+| C3 놓은 뒤 복사 | 하네스 C3 만 바꿔 `OO_SELECTION_ONLY=C3` · 원본 / V2(취소 3줄 제거) | 원본 9/9 통과(`endsMounted` true · 선택 `''`·`''` · 클립보드 표지값) · V2 9/9 실패(`selection survived` · `clipboard changed after cancel` — 놓으면 남은 범위가 다시 보여 복사된다) |
+| 세션 화면 입력 | 시제품 테스트(아래 s9-screens 2화면 · s10b-screens) · 원본 / 변이 5 | 원본 3/3 green · V20 · V21 · Y1(Claude `:132` 고정) · Y2(OpenCode `:129` 고정) · Y5(`:491` 의존성 제거) 모두 red. 시제품 파일은 지웠다 |
+| VP-41 ⑤′ 현 잠금 | `main()` 반환 5자리 각각 변이 · `node --test scripts/*.test.mjs` | 5자리 모두 1,045/1,045 green — `:171` 에서 판정을 빼(항상 `verdict: true`) 도 green |
+
+**VP-29 ④⑤ 세션 자리 (rev 5 — rev 3 의 `sessionKey !== sessionKey`·`gestureRef.current = 'idle'` 두 자리를 포함해 대체한다)**
+
+| # | 자리 | 운반하는 것 | IT 좌표 |
+|---|---|---|---|
+| S1 · S2 | Claude `Timeline.tsx:50` `useActiveSessionKey()` · `:132` `sessionKey={sessionKey}` | 활성 세션 → 뷰포트 | s9-screens `claude work` |
+| S3 · S4 | OpenCode `Timeline.tsx:50` · `:129` | 같음 | s9-screens `opencode code` · s10b-screens |
+| S5 | `TranscriptViewport.tsx:261-264` 세션 효과 정리 | 전환 → 제스처 `idle` · 억제 해제(D-110 ⓑ) | s9(session) · s9-screens |
+| S6 | `:487` `{ sessionKey, anchor, focus }` | 선택을 만든 세션 기록(D-110 ⓒ) | s10 · s10b-screens |
+| S7 | `:491` 효과 의존성 `[sessionKey, virtualized]` | 전환 뒤 새 선택이 새 세션으로 기록 | s10b-screens ③ |
+| S8 | `:683` 세션 비교 | 다른 세션 → `selected` 없음 | s10b · s10b-screens ② |
+| S9 | `:688` memo 의존성 `[selectedKeys, sessionKey, snapshot]` | 전환 시 표시 재계산 | s10b-screens ②(동치면 코드 근거 + 확인 실행) |
+
+- 자리 검색(분모): `rg -n "useActiveSessionKey\(\)|sessionKey=\{sessionKey\}" src/renderer/src/features/chat/harnesses/claude/transcript/Timeline.tsx src/renderer/src/features/chat/harnesses/opencode/transcript/Timeline.tsx` → 4(`:50`·`:132` · `:50`·`:129`) · `rg -n "sessionKey, anchor, focus|\}, \[sessionKey(, virtualized)?\]\)|selectedKeys\.sessionKey !== sessionKey|\[selectedKeys, sessionKey, snapshot\]" src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx` → 5(`:264`·`:487`·`:491`·`:683`·`:688`). 뷰포트의 `:218-221`(앵커 초기화 — EP-12) · `:530-532`(진단)는 다른 pair 의 계약이라 뺀다.
+- 규칙 칸(rev 3 ④⑤ 그대로 + ⑤ 분기 1 추가): ④ 해제 원인 세션 전환 / ⑤ 다른 세션 → false(같은 key 여도) · **전환 뒤 새 세션에서 만든 선택 → 그 세션에서 사이 행 true**(D-110 ⓒ "그 선택을 만든 세션에서만 파생" 의 다른 방향 — D26).
+
+**화면 입력 (`TranscriptViewport.selection.screens.test.ts` — rev 3 의 s2 · s10 에 더한다)**
+
+| 좌표 | 화면 | 입력 → 관측 |
+|---|---|---|
+| s9-screens | `claude work` · `opencode code`(둘 다 `remountTranscriptBySession: false` — `claude/presentation.ts:37` · `opencode/presentation.ts:8`) | 하네스 스토어에 세션 `s`·`t`(같은 메시지 id) · 화면은 `sessions[activeKey]` 를 읽는다 → 뷰포트 주 버튼 `onPointerDown` → 선택 → 행을 마운트하는 스크롤 → `rangeCount` 0 · `data-selection-suppressed` `''` → `activeKey` 를 `t` 로 → 속성 null |
+| s10b-screens | `opencode code` | 세션 `s` 에서 `a:0`~`a:2` 선택 → 세 행 `selected`(rev 4 관측 수단) → `activeKey` `t`(같은 key) → 모두 아님 ② → `t` 에서 `a:1`~`a:2` 새 선택 → 그 두 행만 `selected` ③ |
+
+- 선언 경계: Claude Code 화면은 세션마다 다시 마운트한다(`claude/presentation.ts:19` `remountTranscriptBySession: true` → `ChatTile.tsx:147` `key`). 그 재마운트 정책 자체는 이 pair 가 잠그지 않는다 — 화면 입력은 재마운트가 없는 두 화면에서 돈다.
+
+**VP-41 ⑤′ 자리·규칙·입력 (rev 5 — ΔV3 ⑤′ 행의 자리 목록과 입력을 대체한다. 규칙 칸은 그대로)**
+
+- seam: `main(deps = MAIN_DEPS)` 로 바꾸고 `MAIN_DEPS = { resolveElectron(): string, serveProbe(): Promise<{ origin: string; close(): Promise<void> }>, runElectron(binary, origin) }` 를 export 한다. 기본 의존성은 현재 동작 그대로(`require('electron')` · vite build + preview + 임시 dist 정리 · Electron 실행)이고 `if (process.argv[1] …)` 진입부는 `main()` 을 그대로 부른다. 새 의존성 0.
+- 자리 검색(분모): `rg -n "return \{ env:|return launchFailure\(" scripts/check-transcript-selection.mjs` → AS-IS 6(`:90` 정의 · `main()` 안 5). seam 뒤에도 `main()` 안 5자리가 같은 의미로 남아야 한다.
+
+| # | 자리(AS-IS) | 규칙 | UT 입력 — `check-transcript-selection.test.mjs` k10 |
+|---|---|---|---|
+| E1 | `:129` 바이너리 없음 | `{ env: false, verdict: false, reason: '환경 없음' }` → exit 3 | `resolveElectron` 이 `'no-electron'` throw → 결과 `env` false · `selectionExitCode` 3 · `serveProbe` 호출 0 |
+| E2 | `:173` 번들·서버 실패 | `{ env: true, verdict: false, error }` → exit 1 | `serveProbe` 가 `'bundle-x'` throw → `env` true · `error` 에 `bundle-x` · exit 1 |
+| E3 | `:168` Electron 실행 실패 | `launchFailure(error)` → exit 1 | `runElectron` 이 `'launch-y'` throw → `env` true · `error` 에 `launch-y` · exit 1 · `close` 1회 |
+| E4 | `:170` 하네스 오류 결과 | `{ env: true, verdict: false, ...output }` → exit 1 | `runElectron` 이 `{ error: 'harness-z' }` → `env` true · `verdict` false · `error` `harness-z` · exit 1 |
+| E5 | `:171` 판정 | `judgeSelectionRuns(records)` 결과를 싣는다 | 전 칸 통과 grid(k 의 기존 `grid`) → `verdict` true · exit 0 / 같은 grid 에 실패 기록 1 → `verdict` false · `failures` ≥ 1 · exit 1 |
+
+- 입력의 오류 문자열은 자리마다 다르다 — E2 ↔ E3 맞바꿈이 관측된다.
+- 선언 경계: 정리 순서(`close`·임시 dist 삭제)는 규칙 칸 밖이다 — E3 의 `close` 1회만 본다.
+
+**등록 변이 (rev 5 — rev 3 표에 더한다)**
+
+| # | pair | 심을 자리 | 변이 | red 가 나야 하는 좌표 |
+|---|---|---|---|---|
+| V2(실행 단위) | VP-29 AT | ③ `TranscriptViewport.tsx:520-522` | 취소 3줄 제거(억제 전이 남김) | AT B1 · C1 · C2 · C3 를 **각각 단독 실행** |
+| V24 · V25 | VP-29 | S1·S2 · S3·S4 | `useActiveSessionKey()` → `'s'` · `sessionKey={sessionKey}` → `"s"`(화면마다) | s9-screens 해당 화면 · S3·S4 는 s10b-screens 도 |
+| V26 | VP-29 | S6 `:487` | 기록에서 `sessionKey` 제거 | s10 · s10b-screens |
+| V27 | VP-29 | S7 `:491` | 의존성 `[virtualized]` | s10b-screens ③ |
+| V28 | VP-29 | S9 `:688` | 의존성에서 `sessionKey` 제거 | s10b-screens ② 또는 동치(코드 근거 + 확인 실행) |
+| V29~V33 | VP-41 | E1~E5 | E1 `env: true` · E2 `env: false` · E3 `launchFailure` → `env: false` 객체 · E4 `env: false` · E5 판정 대신 `verdict: true` | k10 해당 입력 |
+| V34 | VP-41 | E2 ↔ E3 | 두 catch 의 반환을 맞바꿈 | k10 E2 · E3(오류 문자열) |
+
+**다음 verify(6회째)가 볼 것**: D18(C3 단독 · V2) · D25~D27(V24~V34) · AT-07 재실행 · ΔV2·ΔV3 노드는 창 밖 — 이 열거만 판정한다. verify 6회째가 PASS 가 아니면 다음 재구현 전 `handoff-review` 다.
 
 ### 현재 변경의 운영 gate
 
@@ -2066,16 +2142,16 @@ live delta      리프(Claude PendingAssistant · OpenCode live 행)만
 | D15 | reopen·Timeline.viewport 가 store `loadSession` 대신 reducer 직접 · reopen·transition 제목의 selection 단언 0 | VP-08 · VP-22 · VP-24 · AC6·AC16·AC19 | 실제 store `loadSession`(가짜 `sessionApi`) · 선택 끝 단언 | 이행 | BLOCKING | closed (verify r3 — store `loadSession` · selection 단언) |
 | D16 | 복사 task 가 50ms 를 크게 넘는다 — 상한 2,000 동기 복사 579~698ms · 조각 task 295~471ms(실제 Chromium, [verify r3 §2](verify.md)). D-088 은 상한을 J9 산출로 정하나 J9 는 같은 2,000블록을 4.43ms 로 재 2,000 을 낸다 · 실제 Chromium 보정은 기계 PASS 뒤 S5(사람) | VP-29 R-07↔AT-07 · VP-35 · AC26 · AC32 · AC33 S5 · D-088 · D-094 | 설계자: 상한의 기계 판정 측정기(실제 Chromium) · 하향 시점(기계 verify 전) · 300블록도 넘는 렌더 비용에서 상한·조각 크기 결정 | 현재 | PLAN_GAP | closed (verify 4회째 — ΔV2 D-102 가 복사 상한·조각 경로를 없앴다. 새 동작은 D18·D19) |
 | D17 | INDEX `impl/IN_PROGRESS`·Codex 인 채 verify 요청 · 구현 커밋 `6c5fa83c` 에 `Next-Action` | message-bus 운영 | INDEX 는 verify r3 커밋에서 정정 · 다음 구현 커밋은 `IMPL_DONE` 과 trailer 허용 키로 | 비귀속 | NON_BLOCKING | open |
-| D18 | AT-07 의 B1·C1 이 앱의 취소를 관측하지 못한다 — 휠 900px 이 선택 행을 언마운트해 Chromium 이 스스로 선택을 접는다. 등록 변이 V2(취소 제거)가 AT B1·C1·C3 green(C2 만 red) · V4(억제 제거)가 AT 전 시나리오 green. ΔV3 가 `cancelMs ≥ 1` 을 판정에서 빼며 유일한 AT 신호가 사라졌다 | VP-29 R↔AT · §7-A ΔV2 등록 변이 표 V2 "AT B1·C1" · V4 "AT B1(move 뒤 선택)" · AC26 ②④ | B1·C1 의 스크롤을 선택 행이 마운트된 채 새 행만 마운트되게 바꾸고(예: 가시 창 아래 끝 선택 + overscan 을 넘는 작은 휠) V2·V4 를 AT 에서 다시 심는다. V4 가 그 조건에서도 green 이면 실측으로 동치를 보인다 | 이행 | BLOCKING | open — verify 5회째 재개: 인용 변이 V2 가 AT C3 단독 실행에서 green(9기록 `endsMounted` true · 실패 0). r5 의 'C3 red' 는 B1 뒤 묶음 실행의 오염 기록(`endsMounted` false) |
+| D18 | AT-07 의 B1·C1 이 앱의 취소를 관측하지 못한다 — 휠 900px 이 선택 행을 언마운트해 Chromium 이 스스로 선택을 접는다. 등록 변이 V2(취소 제거)가 AT B1·C1·C3 green(C2 만 red) · V4(억제 제거)가 AT 전 시나리오 green. ΔV3 가 `cancelMs ≥ 1` 을 판정에서 빼며 유일한 AT 신호가 사라졌다 | VP-29 R↔AT · §7-A ΔV2 등록 변이 표 V2 "AT B1·C1" · V4 "AT B1(move 뒤 선택)" · AC26 ②④ | B1·C1 의 스크롤을 선택 행이 마운트된 채 새 행만 마운트되게 바꾸고(예: 가시 창 아래 끝 선택 + overscan 을 넘는 작은 휠) V2·V4 를 AT 에서 다시 심는다. V4 가 그 조건에서도 green 이면 실측으로 동치를 보인다 | 이행 | BLOCKING | open(ΔV2 rev 5 가 방향을 고정 — C3 를 놓은 뒤 복사 · V2 를 시나리오마다 단독 실행) — verify 5회째 재개: 인용 변이 V2 가 AT C3 단독 실행에서 green(9기록 `endsMounted` true · 실패 0). r5 의 'C3 red' 는 B1 뒤 묶음 실행의 오염 기록(`endsMounted` false) |
 | D19 | IT s10 이 OpenCode 행을 쓰지 않는다 — 일반 `SimpleBlock` 만 마운트해 `opencode/transcript/Timeline.tsx:151` `selected={selected}` → `false` 변이가 `features/chat` 3,034 green. IT 표제의 "세 화면 각각" 도 s1~s10 어디에도 없다 | VP-29 AR↔IT ⑤ "s10: OpenCode 행 둘 사이 선택 → … Markdown 모드 전환" · VP-36 | s10 을 OpenCode `Timeline` 조립으로 돌려 사이 행 `selected` → Markdown 모드 전환과 취소 뒤 해제를 단언한다. IT 전용 자리(①⑤)를 세 화면에서 돈다 | 이행 | BLOCKING | closed(verify 5회째) |
 | D20 | 뷰포트의 `onPointerDown` 이 `event.button` 을 넘긴다 — `button: 0` 고정 변이(보조 버튼도 드래그 시작)가 `features/chat` 3,034 green. u5 는 순수 reducer 만 본다 | VP-29 ④ · D-103 "주 버튼을 눌러 시작" · VP-42 ② | 설계자 결정 — s5 에 보조 버튼 입력을 채택하거나 경계 선언 | 확장(창 안 — ΔV2 노드) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — closed(verify 5회째) |
 | D21 | 세션 전환 시 제스처 초기화(`TranscriptViewport.tsx:258-263`) 제거 변이가 3,034 green | VP-29 ④ 해제 원인(규칙 칸은 pointerup·pointercancel·blur 셋) | 설계자 결정 — 해제 원인에 세션 전환을 넣어 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — closed(verify 5회째) |
 | D22 | `selectionRange` 의 세션 비교(`:683` `selectedKeys.sessionKey !== sessionKey`) 제거 변이가 3,034 green — 두 세션이 같은 block key 를 가질 때만 갈린다(가정 입력) | VP-29 ⑤ | 설계자 결정 — 세션 간 key 충돌 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 3 · D-110) — closed(verify 5회째) |
 | D23 | `design-components.md` `TranscriptView` 행이 "읽는 위치와 선택 영역을 보존한다" 로 남아 D-102(선택 복원 없음)와 어긋난다 | 문서 계약 gate(열거는 뷰포트 행) | 다음 구현 턴에 문구 정정 | 비귀속 | NON_BLOCKING | closed(verify 5회째) |
 | D24 | OpenCode `ScrollController` 의 `retained`(`:43`·`:163`·`:171`·`:224`)는 production 소비처 0(테스트 mock 1)인데 선택 변화마다 상태를 갱신해 문맥 소비자를 다시 그린다 — `d404976` 부터 | VP-36(INHERITED · 동결) | 삭제 — 다음 구현 턴에 같이 지워도 된다 | 비귀속 | NON_BLOCKING | closed(verify 5회째) |
-| D25 | production Timeline → 뷰포트 `sessionKey` edge 가 잠기지 않았다 — Claude `Timeline.tsx:132` · OpenCode `:129` 의 `sessionKey={sessionKey}` → `"s"` 고정 변이가 각각 `features/chat` 3,042 green. Claude Work·OpenCode 는 세션마다 다시 마운트하지 않는다(`claude/presentation.ts:37` · `opencode/presentation.ts:8` `remountTranscriptBySession: false`) — D-110 ⓑⓒ 가 production 에서 이 edge 로만 성립한다 | VP-29 ④⑤ · D-110 ⓑⓒ(s9 세션 · s10b 는 일반 뷰포트에 `sessionKey` 를 직접 준다) | 설계자 결정 — 세 화면 조립(screens 테스트)에서 세션 전환 입력을 채택하거나 경계 선언 | 확장(창 안 — ΔV2 노드 마지막 회) | PLAN_GAP | open |
-| D26 | `selectionchange` 효과의 의존성에서 `sessionKey` 를 뺀 변이(`TranscriptViewport.tsx:491` `[sessionKey, virtualized]` → `[virtualized]`)가 3,042 green — 재마운트 없는 화면에서 세션 전환 뒤 새 선택이 이전 세션 key 로 기록되어 `selected` 가 사라진다. s10b 는 이전 세션 선택의 비표시만 본다 | VP-29 ⑤ "그 선택을 만든 세션에서" | 설계자 결정 — 전환 뒤 새 세션에서 만든 선택이 표시되는 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | open |
-| D27 | VP-41 ⑤′ 자리 검색 술어가 해법 이름 `launchFailure` 다 — 같은 규칙("바이너리는 있는데 실행 실패 → `env: true`")을 운반하는 바깥 catch `check-transcript-selection.mjs:173`(vite 번들·서버 실패)이 목록에 없고, 그 자리 `env: true` → `false` 변이가 k 9/9 green(`:90` 같은 변이는 k8′ red) | VP-41 ⑤′ · §7-A ΔV3 자리 검색(`rg -n "launchFailure"`) | 설계자 — 술어를 불변식의 주어(실행 실패 반환 `env:`)로 바꿔 목록을 고정 | 이행(plan 내부 — 목록 술어) | PLAN_GAP | open |
+| D25 | production Timeline → 뷰포트 `sessionKey` edge 가 잠기지 않았다 — Claude `Timeline.tsx:132` · OpenCode `:129` 의 `sessionKey={sessionKey}` → `"s"` 고정 변이가 각각 `features/chat` 3,042 green. Claude Work·OpenCode 는 세션마다 다시 마운트하지 않는다(`claude/presentation.ts:37` · `opencode/presentation.ts:8` `remountTranscriptBySession: false`) — D-110 ⓑⓒ 가 production 에서 이 edge 로만 성립한다 | VP-29 ④⑤ · D-110 ⓑⓒ(s9 세션 · s10b 는 일반 뷰포트에 `sessionKey` 를 직접 준다) | 설계자 결정 — 세 화면 조립(screens 테스트)에서 세션 전환 입력을 채택하거나 경계 선언 | 확장(창 안 — ΔV2 노드 마지막 회) | PLAN_GAP | 채택(ΔV2 rev 5 — 세션 자리 S1~S9 · s9-screens · V24·V25) — 구현 남음 |
+| D26 | `selectionchange` 효과의 의존성에서 `sessionKey` 를 뺀 변이(`TranscriptViewport.tsx:491` `[sessionKey, virtualized]` → `[virtualized]`)가 3,042 green — 재마운트 없는 화면에서 세션 전환 뒤 새 선택이 이전 세션 key 로 기록되어 `selected` 가 사라진다. s10b 는 이전 세션 선택의 비표시만 본다 | VP-29 ⑤ "그 선택을 만든 세션에서" | 설계자 결정 — 전환 뒤 새 세션에서 만든 선택이 표시되는 입력을 채택하거나 경계 선언 | 확장(창 안) | PLAN_GAP | 채택(ΔV2 rev 5 — ⑤ 분기 '전환 뒤 새 선택' · s10b-screens ③ · V27) — 구현 남음 |
+| D27 | VP-41 ⑤′ 자리 검색 술어가 해법 이름 `launchFailure` 다 — 같은 규칙("바이너리는 있는데 실행 실패 → `env: true`")을 운반하는 바깥 catch `check-transcript-selection.mjs:173`(vite 번들·서버 실패)이 목록에 없고, 그 자리 `env: true` → `false` 변이가 k 9/9 green(`:90` 같은 변이는 k8′ red) | VP-41 ⑤′ · §7-A ΔV3 자리 검색(`rg -n "launchFailure"`) | 설계자 — 술어를 불변식의 주어(실행 실패 반환 `env:`)로 바꿔 목록을 고정 | 이행(plan 내부 — 목록 술어) | PLAN_GAP | 정정(ΔV2 rev 5 — 술어를 `main()` 반환 자리로 · E1~E5 · seam · V29~V34) — 구현 남음 |
 
 ---
 
