@@ -61,7 +61,7 @@
 | [0324 AC22·AC23·AC52′ 및 §19](../0324-execution-contexts-ui-responsiveness/plan.md) | AC22 8개 조작과 B1·B2·B8 예외의 원인, AC23 설치본의 강조·세션 열기·전송 응답·호스트/워커 오류와 프로세스별 메모리, AC52′ 실제 sandbox 창의 본 화면. 각각 [원래 verify](../0324-execution-contexts-ui-responsiveness/verify.md)에도 같은 세션의 증거를 연결한다. |
 | [0325 AC19 §19](../0325-ui-responsiveness-followup/plan.md) | `ee8ac81` ↔ A의 기계 PASS 빌드, S1~S8, F1~F5·I1~I9의 진단/설치/Windows 함수 재측정 세 벌. 기록 완결은 0325가 판정한다. |
 | [0326 AC33 §19](../0326-transcript-incremental-model/plan.md) | B 기계 PASS 뒤 직전 ↔ B. S1~S9 및 S7d를 원문 빌드 매트릭스대로 한다. S3~S5·S7d는 진단 fixture 행, S7은 유효 응답 3회까지 최대 6회. J 계수·함수 표는 순수 측정으로 보존한다. |
-| [0327 AC30 §19](../0327-worker-protocol-visible-views/plan.md) | B 기계 PASS ↔ C 구현. 0327 rev 2의 S-C0~S-C8, F5~F9·K1~K12. 설치·진단 빌드 기록 완결 여부를 C에 남긴다. |
+| [0327 AC30 §19](../0327-worker-protocol-visible-views/plan.md) | B 기계 PASS ↔ C 구현. 0327 V1 rev 3 + ΔV1의 S-C0~S-C9, F5~F9·K1~K11·K13. 설치·진단 빌드 기록 완결 여부를 C에 남긴다. |
 | [0328 §19](../0328-composer-panels-lists-shell/plan.md) | S-D1~S-D10. 특히 S-D2 즉시 전송, S-D3 계획 폭 드래그, S-D8 설치 로그, S-D10 셸. S-D8 폭주 진단 생산자와 실제 설치 terminal 이벤트를 구별한다. |
 | [0329 §19](../0329-turn-history-paging/plan.md) | S-E1 최근 턴 첫 paint, S-E2 이전 턴 당김·앵커·재시도, S-E3 live와 세션 재전환, S-E4 큰 본문·턴 내부 연속 조각, S-E5 상단 검색 결과 선택→대상 메시지 표시·행 강조, 세션 전체 작업·다른 미로딩 소비자·전체 복구. 실행한 E revision과 적용한 소비자별 결정을 함께 적는다. |
 
@@ -107,7 +107,7 @@ H1~H6은 실행 전에는 닫힌 좌표가 아니다. Windows 실측은 실물�
 | 진단 fixture | `rg -n 'installTranscriptDevTools' app/src -g '!*.test.*'` | 선언 1, 호출 0. B의 일부 진단 셀은 이 트리로 실행할 수 없다. B 기계 PASS 트리에서 진입점을 다시 검사한다. |
 | 설치본과 로그 | `rg -n 'build:win' app/package.json`; `rg -n -e 'application.jsonl' -e 'agent-host.jsonl' -e 'data-host.jsonl' app/src/main/infra/log/index.ts` | 일반 NSIS 빌드. 로그 파일 셋은 `~/.config/orcinus-orca/logs`에 있고 renderer 레코드는 셸 파일에도 들어온다. |
 | 관측 의미 | `rg -n -e UI_TASK_BUDGET_MS -e STALL_SEVERE_MS -e STALL_WINDOW_MS -e 'count:' -e 'durationMs:' app/src/shared/perf-budget.ts app/src/renderer/src/shared/perf/longTaskReporter.ts` | reporter는 1초 창의 개수·최대(durationMs 내림)를 쓴다. 로그 줄 수·내부 count·각 작업 duration을 같은 표본으로 셀 수 없다. |
-| 재현 도구 | `rg -n -e '--src' -e '--write-inputs' -e 'threeBranch' app/scripts/measure-ui-inputs.mjs` | F1~F5 생성·I 측정·J 도구가 있다. 현재 J3/J8 라벨과 B 계획 §19 J3/J8의 조작이 다르다. B 합격 트리에서 입력·측정 함수를 다시 대조한다. 0327 rev 2의 F6~F9·K1~K12는 C 착수 전에는 계획이다. |
+| 재현 도구 | `rg -n -e '--src' -e '--write-inputs' -e 'threeBranch' app/scripts/measure-ui-inputs.mjs` | F1~F5 생성·I 측정·J 도구가 있다. 현재 J3/J8 라벨과 B 계획 §19 J3/J8의 조작이 다르다. B 합격 트리에서 입력·측정 함수를 다시 대조한다. 0327 V1 rev 3 + ΔV1의 F6~F9·K1~K11·K13는 C 착수 전에는 계획이다. |
 | T 분모 | `rg '^\| T[0-9]{2} \|' docs/handoff/0325-ui-responsiveness-followup/plan.md`의 §6-B | T01부터 T33까지 33개. 0325 §6-D의 단계분담과 원요청을 함께 읽어 복수 소유(T01, T33 등)의 잔여가 가려지지 않게 한다. |
 | 문서 후보 | INDEX ‘새 handoff 후보’ 및 0325 §6-C | 본 계획에 해당하는 행은 0325 W-판정이다. 0326·0327의 별도 제품 후보는 원래 승격 조건을 유지한다. |
 
@@ -271,7 +271,7 @@ AC19의 20만 빈-part·5만 줄 파일·40만자 초안은 각각 I1·I2·I3에
 | 소유 행 | 확인할 차이와 W 처리 |
 |---|---|
 | B AC33 | 선택 길이·앵커·클립보드 비교·프레임 규칙의 결과와 Windows 장비가 붙었는지 확인한다. S8(T17)은 Claude Work의 20,000자 계획 승인 카드 표시 commit, S9(T18)는 Claude Code 하위 작업 10/50개 동시·30초의 paint·script·timer 수를 각기 별도 행으로 둔다. 입력/허용 범위가 충족되면 현행 유지 근거, 벗어나면 원인과 후속 후보, 표본이 없으면 미검증/잔여 위험을 적는다. W가 UI 변경을 자동 승인하지 않는다. |
-| C AC30 | 0327 rev 2의 S-C0~S-C8 각각의 값을 원본에서 확인한다. S-C0은 5만 줄 Git diff를 펼친 채 스트리밍·한글 조합 입력·휠을 함께 실행한 기록, S-C8은 가상화 전후의 복사 문자열을 대조한 기록이다. 큰 Git·도구 카드·산출물·긴 Markdown·테마 전환·워커 경쟁의 동작 손실은 별도 결함으로 돌린다. |
+| C AC30 | 0327 V1 rev 3 + ΔV1의 S-C0~S-C9 각각의 값을 원본에서 확인한다. S-C0은 5만 줄 Git diff를 펼친 채 스트리밍·한글 조합 입력·휠을 함께 실행한 기록, S-C8은 기본 복사·새 가상 행 마운트 시 선택 취소·재선택·패널 격리를 확인한 기록이다. 큰 Git·도구 카드·산출물·긴 Markdown·테마 전환·워커 경쟁의 동작 손실은 별도 결함으로 돌린다. |
 | D·E | §6의 S-D·S-E ID를 해당 plan revision과 함께 기록한다. T32 로그 폭주는 진단 어댑터에서 downstream 실제 경로에 주입한 증거이며 설치본에서 실제 발생한 terminal 이벤트와 구별한다. E의 상단 당김은 실제 data 페이지 응답으로 재생한다. B의 `prependFixtureTurn`은 B 소비측 증거다. S-E5는 Windows 실창에서 검색 결과 클릭부터 대상 행이 처음 보이는 프레임까지 재고, 해당 행의 강조와 해제를 확인한다. E §8의 합성 DB 시간은 조회 구간의 참고값으로 기록한다. |
 | T01~T33 | 0325 §6-B의 전체 ID와 결과 표의 ID 차집합, §6-C·§6-D의 잔여 작업 단위와 결과 표 단위의 차집합을 각각 낸다. 예를 들어 T33의 테마 재강조(C)와 입력 높이(D), T09의 크기 상한(A)과 구간 측정(W)을 별도 행으로 확인한다. |
 
