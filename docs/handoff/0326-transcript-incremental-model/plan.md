@@ -13,7 +13,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-11-18 |
 | 매핑 | 0325 후속 단계 B — 요청서 T02·T03·T04 잔여·T05·T06 잔여·T07·T11·T12 잔여·T16·T17·T18·T25 · 감사 memo 설계 항목 · 단계 E 와의 앞삽입 계약 |
-| 상태 | READY (r4 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 2 + ΔV3 — 사용자 결정 변경 · 재구현 대기) |
+| 상태 | IMPL_DONE (r4.2 · V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 2 + ΔV3) |
 | V mode | `Baseline V` + `Delta V`(ΔV1) |
 | 기준 V | `none` — 0325·0324 노드는 INHERITED REGRESSION 으로만 참조(`0325:V1 rev 4 + ΔV1` — 설계 `5923d9a`·`211afa7`, 브랜치 `ccr-da0cf78b-aemqjb` · `0324:V1 rev 4.9@22a6d06`) |
 | 이번 V revision | `V1 rev 7` — r1 착수 대조의 [구현자 설계 리뷰](#구현자-기입-설계-리뷰) PLAN_GAP 3건 반영(재커밋 뒤 번호 · 커밋 통지 순서 · AC32 J9 범위). verify 0회 · 구현 착수 전 규범 정정이라 Delta V 가 아니다. rev 6 = PR #636 코멘트 7(V1 rev 5 재검토) 반영. rev 1 = `db0b611` · rev 2 = `b13e797` · rev 3 = `3ae60f4` · rev 4 = `32a7c69` · rev 5 = `9958cc1`(PR 브랜치 해시 — 좌표 아님). 설계 커밋 좌표 `(V1 rev 1~7 — 검증자 기입)` |
@@ -3238,3 +3238,55 @@ gate(마지막 수정 뒤 트리): 가드 5종 통과(append-only · doc-invento
 - 라벨: r4.1(사용자 요구 변경 턴 — ΔV2). 이번에 닫은 불변식("선택은 브라우저 기본이고 새 행 마운트에서만 취소")은 r1~r4 의 복사 경로 축을 대체한다.
 - PLAN_GAP 2건(Shift+PageDown · 컴포저 기록)은 설계가 Chromium 입력 동작을 실측하지 않아 생겼다. 실제 런타임에서 재야 하는 것은 수치만이 아니라 입력 의미도였다.
 - 환경: 이 컨테이너는 Electron 다운로드·Xvfb 가 됐다. 22건 `src/main` 실패는 r1~r4 와 같은 기준선이다.
+
+## [구현자 기입] 설계 리뷰 (r4.2 — ΔV3 · 사용자 요구 변경 턴)
+
+- 기준선: 유효 V `… + ΔV2 rev 2 + ΔV3`. 이번 턴 REQUIRED = VP-41(④′·⑤′) · VP-29 R↔AT(⑥ 삭제 · 검증 수단 변경), 운영 gate = §7-A "Electron 선택·복사(ΔV3)"(verify 실행 기록 · CI 아님). PLAN_GAP 0.
+- r4.1 PR CI 실패(Electron exit -1 · 결과 없음)의 원인은 확정하지 않았다 — D-107 로 CI 단계가 빠져 이번 범위가 아니다. 그때 `환경 없음` 으로 잘못 분류한 것은 ⑤′ 로 고쳤다.
+
+## [구현자 기입] 강제 지점 전수와 V-pair 자기확인 (r4.2)
+
+| pair / §10 | 자리 | 닫음 | 직접 oracle 좌표 · 관측 |
+|---|---|---|---|
+| VP-41 ④′ | 판정기의 성능 조건 삭제 · `UI_TASK_BUDGET_MS` import 삭제 | ✅ | k2′(longTasks 400 · cancelMs 999 · cancelMs [] → verdict true) · V17 red · `rg "UI_TASK_BUDGET_MS|perf-budget"` 0(남은 `longTasks` 1줄은 "기록만" 주석) |
+| VP-41 ⑤′ | `launchFailure` · `runElectron` 실패 → `env: true` | ✅ | k8′(exit -1 오류 → `{env:true}` · exit 1) · V18 red · `launchFailure` 2줄(정의·사용) |
+| 운영 gate | `ci.yml` 단계 삭제 | ✅ | `rg "check-transcript-selection" .github/workflows/ci.yml` 0 |
+| D-107 문서 | `app/AGENTS.md` 위생 목록·CI 표 · `rendering.md` | ✅ | "verify 실행 도구 — CI 단계에 넣지 않는다" · CI 표에서 단계 제거 · "(verify 실행 도구)" |
+
+검산: 자리 4/4 · 남긴 곳 0.
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r4.2)
+
+| ID | 변이 | 좌표 | 결과 |
+|---|---|---|---|
+| V17 | 판정이 `longTasks` 를 다시 봄 | k2′ | red |
+| V18 | 실행 실패를 `env: false` 로 분류 | k8′ | red |
+| V10~V13 재실행 | 빠진 칸 통과 · 표지값 대조 제거 · 대조 마운트 0 확인 제거 · `env:false`→0 | k7 · k5 · k6 · k8′ | red ×4 |
+
+검산: 선택 증거 2(V17·V18) + 회귀 재실행 4 = 표 행 3(묶음 포함). 원복 확인 2회. V9 는 ΔV3 에서 폐기됐다.
+
+## [구현자 기입] Product/UX 파생 검토 (r4.2)
+
+- 사용자 동작 변화 없음 — 이번 턴은 판정 위치와 판정 조건만 바꿨다. 뷰포트 코드는 r4.1 그대로다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r4.2)
+
+- PR CI 는 이제 선택 동작을 실기로 보지 않는다 — Windows 에서의 Electron 실행·입력 주입은 기계 판정 밖이다(B35). S5(사람 실기)가 본다.
+- 설계 대비 차이: 없음.
+
+## [구현자 기입] 구현 보고 (r4.2)
+
+| AC | 상태 | 관측 |
+|---|---|---|
+| AC26 | ✅(기계 — verify 실행 도구) | `xvfb-run -a node scripts/check-transcript-selection.mjs` exit 0 · Electron 39.8.10 · linux · 기록 90 · 실패 0 · 취소 기록 39건 최대 0.20ms(판정 아님) · [원자료](evidence/r4.2-selection.json) · k1~k9 9/9 |
+| AC33 | ⚠️ | Windows 실기 — S5 는 ③a 없이(D-109) 기계 PASS 뒤 |
+| 그 밖 AC | ✅(유지) | r4.1 보고 그대로 — renderer·뷰포트 코드 변경 없음 |
+
+검산: ✅ 34 · ⚠️ 1 · ❌ 0 = 총 35.
+
+gate(마지막 수정 뒤 트리): 가드 5종 통과 · lint 오류 0·경고 4(기존) · typecheck 오류 0 · `node --test scripts/*.test.mjs` 1,045/1,045 · vitest 는 이번 턴 변경 파일(scripts·문서·`ci.yml`)이 vitest 대상이 아니라 다시 돌리지 않았다(r4.1 결과 — renderer 4,311 통과 · `src/main` 기준선 22). 테스트 파일 규칙: 수정 1파일(`check-transcript-selection.test.mjs`) — node --test 전용 · 위반 0.
+
+## [구현자 기입] Review Signals — 사실만 (r4.2)
+
+- 라벨: r4.2(사용자 요구 변경 턴 — ΔV3). 같은 라운드에서 verify 없는 impl 턴 2(r4.1·r4.2 — 둘 다 사용자 요구 변경 턴).
+- CI 에 실기 판정을 넣은 설계(D-104)는 Windows 러너에서 Electron 을 띄울 수 있는지 실측하지 않고 정했다.
