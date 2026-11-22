@@ -19,7 +19,7 @@
 //   · 요약은 예열 1회를 뺀 9회의 중앙값·최대다.
 // 순수 부분(입력 생성 · 요약 · N/A)과 `--src` 번들(임시 트리)은 `measure-ui-inputs.test.mjs` 가 돌린다 — git 은 실행하지 않는다.
 
-import { DOMImplementation, XMLSerializer } from '@xmldom/xmldom'
+import { DOMImplementation } from '@xmldom/xmldom'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -387,9 +387,7 @@ export async function loadTree(tree) {
 }
 
 // ── 0326 입력 J1~J10 · 세 갈래 요약(coldBuild / incremental / cacheHit) ───────
-
-export const J9_SIZES = Array.from({ length: 20 }, (_, i) => (i + 1) * 100) // 100..2,000 step 100
-export const J9_BUDGET_MS = 50
+// J9(복사 상한 탐색)는 0326 ΔV2 D-102 로 폐지했다 — 선택 복사는 브라우저 기본이다.
 
 export function jTranscriptMessages(turns = 500) {
   const messages = []
@@ -420,84 +418,6 @@ export function jOpenFenceStream(chars = 100_000, chunk = 50) {
   const deltas = []
   for (let i = 0; i < full.length; i += chunk) deltas.push(full.slice(i, i + chunk))
   return { full, deltas }
-}
-
-export function measureJ9CopyCap(
-  sizes = J9_SIZES,
-  {
-    budgetMs = J9_BUDGET_MS,
-    clock = () => performance.now(),
-    clipboard = { write: async () => undefined }
-  } = {}
-) {
-  const samples = []
-  let maxPassing = null
-  for (const size of sizes) {
-    const blocks = Array.from({ length: size }, (_, i) => ({
-      key: `b:${i}`,
-      text: `Line ${i}: example transcript block content with code \`const v${i} = ${i}\``
-    }))
-    const res = measureCase(
-      () => {
-        const doc = new DOMImplementation().createDocument(
-          'http://www.w3.org/1999/xhtml',
-          'section',
-          null
-        )
-        const root = doc.documentElement
-        for (const block of blocks) {
-          const row = doc.createElement('div')
-          row.setAttribute('data-block-key', block.key)
-          const body = doc.createElement('span')
-          body.setAttribute('data-part-key', block.key)
-          body.appendChild(doc.createTextNode(block.text))
-          row.appendChild(body)
-          root.appendChild(row)
-        }
-        return root.textContent.length + new XMLSerializer().serializeToString(root).length
-      },
-      { clock }
-    )
-    samples.push({ size, result: res })
-    if (typeof res !== 'string' && res.median <= budgetMs) {
-      maxPassing = Math.max(maxPassing ?? size, size)
-    }
-  }
-  const assembleTasks = [2_500, 5_000].map((count) => {
-    const textParts = []
-    const htmlParts = []
-    const chunkSize = maxPassing ?? sizes[0] ?? 1
-    for (let from = 0; from < count; from += chunkSize) {
-      const length = Math.min(chunkSize, count - from)
-      if (from) textParts.push('\n')
-      textParts.push(Array.from({ length }, (_, i) => `block ${from + i} text payload`).join('\n'))
-      htmlParts.push(
-        Array.from({ length }, (_, i) => `<p>block ${from + i} text payload</p>`).join('')
-      )
-    }
-    const Item =
-      globalThis.ClipboardItem ??
-      class {
-        constructor(data) {
-          this.types = Object.keys(data)
-          this.data = data
-        }
-      }
-    const result = measureCase(
-      () => {
-        const textBlob = new Blob(textParts, { type: 'text/plain' })
-        const htmlBlob = new Blob(htmlParts, { type: 'text/html' })
-        void clipboard.write([new Item({ 'text/plain': textBlob, 'text/html': htmlBlob })])
-      },
-      { clock }
-    )
-    return { count, result }
-  })
-  return {
-    samples,
-    cap: maxPassing ?? '통과 표본 없음',
-    assembleTasks
-  }
 }
 
 export async function measureJ10Virtualizer(sizes = [5_000, 100_000]) {
@@ -945,15 +865,8 @@ export function transcriptMeasurementCases(modules) {
   ]
 }
 
-export function formatJ9J10Rows(j9, j10) {
+export function formatJ10Rows(j10) {
   return [
-    `| J9 | 복사 상한 탐색 (100~2,000, ≤ ${J9_BUDGET_MS}ms) | 상한 = ${j9.cap} |`,
-    ...j9.samples.map(
-      ({ size, result }) => `| J9:sample(${size}) | DOM 마운트·직렬화 | ${formatCell(result)} |`
-    ),
-    ...j9.assembleTasks.map(
-      (t) => `| J9:assemble(${t.count}) | 조립 task (${t.count}블록) | ${formatCell(t.result)} |`
-    ),
     ...j10.map(
       (r) =>
         `| ${r.id} | Virtualizer (${r.count}블록, getItemKey=${r.getItemKeyCalls}) | ${formatCell(r.result)} |`
@@ -969,13 +882,12 @@ async function measureTree(tree) {
       result: measureCase(item.run, { prepare: item.prepare })
     })
   )
-  const j9 = measureJ9CopyCap()
   const j10 = await measureJ10Virtualizer()
   const lines = [
     `| 입력 | 내용 | 중앙값 / 최대 (예열 ${WARMUP_RUNS} 뒤 ${MEASURED_RUNS}회) |`,
     '|---|---|---|',
     ...rows.map((row) => `| ${row.id} | ${row.input} | ${formatCell(row.result)} |`),
-    ...formatJ9J10Rows(j9, j10)
+    ...formatJ10Rows(j10)
   ]
   process.stdout.write(
     `트리: ${tree}\nNode ${process.version} · ${process.platform}/${process.arch}\n\n${lines.join('\n')}\n`

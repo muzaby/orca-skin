@@ -5,7 +5,8 @@
  * - `getItemKey` identity pinned to `snapshot.keyRevision` (D-073 · v1 · v2).
  * - `virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false` (EP-10 ③ · v3).
  * - Single `writeScrollTop` writer for all transcript scroll adjustments (EP-10 ②).
- * - Bounded selection mount via `selectionMountSet` + sync/chunked async copy via `CopySerializationHost` (EP-17).
+ * - Selection and copy are the browser default; a newly mounted row cancels a transcript
+ *   selection and a cancelled drag stays unselected until release (EP-17 · ΔV2 D-102 · D-103).
  */
 import {
   createContext,
@@ -20,19 +21,18 @@ import {
   type ReactNode,
   type RefObject
 } from 'react'
-import { flushSync } from 'react-dom'
 import { useVirtualizer, type VirtualItem } from '@tanstack/react-virtual'
 import type { BlockSnapshot } from '../../lib/transcript/blockList'
 import { shouldScrollAfterCollapse } from '../../lib/bubbleCollapse'
-import { selectionMountSet } from '../../lib/transcript/viewport/range'
+import { viewportMountSet } from '../../lib/transcript/viewport/range'
 import {
-  SELECTION_COPY_SYNC_MAX_BLOCKS,
-  startCopyJob,
-  type CopyJobHandle,
-  type CopyTaskTiming,
-  type RetainedSelection
-} from '../../lib/transcript/viewport/copy'
-import { partTextOffset, pointAtPartOffset } from '../../lib/transcript/viewport/textOffset'
+  gestureReducer,
+  isSuppressed,
+  shouldCancelSelection,
+  type GestureEvent,
+  type GestureState,
+  type SelectionPlace
+} from '../../lib/transcript/viewport/selectionGuard'
 import { reserveGap } from '../../lib/transcript/viewport/reserve'
 import {
   captureAnchor,
@@ -40,14 +40,9 @@ import {
   restoreAnchor,
   type AnchorTarget
 } from '../../lib/transcript/viewport/anchor'
-import {
-  attachDiagnosticViewport,
-  beginCopyTiming,
-  checkCopyChunk
-} from '../../dev/transcriptViewportDiagnostics'
-import { CopySerializationHost } from './CopySerializationHost'
+import { attachDiagnosticViewport } from '../../dev/transcriptViewportDiagnostics'
 
-// --- Diagnostic virtualization toggle (EP-17 ⑧ · c17 · S5) ---
+// --- Diagnostic virtualization toggle (S5 · ΔV2: full mount, no selection guard) ---
 let virtualizationEnabled = true
 const virtualizationListeners = new Set<() => void>()
 
@@ -105,30 +100,6 @@ export interface ViewportBlockBase {
   readonly reserveTarget?: boolean
 }
 
-interface ChunkRange<Block extends ViewportBlockBase> {
-  start: number
-  end: number
-  snapshot: BlockSnapshot<Block>
-}
-
-// Only this subtree participates in the two flushes per serialized chunk.
-function CopyChunk<Block extends ViewportBlockBase>({
-  writerRef,
-  children
-}: {
-  writerRef: RefObject<((range: ChunkRange<Block> | null) => void) | null>
-  children: (range: ChunkRange<Block>) => ReactNode
-}): ReactNode {
-  const [range, setRange] = useState<ChunkRange<Block> | null>(null)
-  useLayoutEffect(() => {
-    writerRef.current = setRange
-    return () => {
-      writerRef.current = null
-    }
-  }, [writerRef])
-  return range ? children(range) : null
-}
-
 export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly snapshot: BlockSnapshot<Block>
   /** Revisions are local to the model that produced the snapshot. */
@@ -151,33 +122,13 @@ export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly isPinned?: () => boolean
   /** Optional anchor block key to keep mounted in rangeExtractor. */
   readonly anchorKey?: string | null
-  /** Optional callback for copy task timings (used by tests & diagnostics). */
-  readonly onCopyTiming?: (timing: CopyTaskTiming) => void
-  /** Optional custom copy chunk size (tests). */
-  readonly copyChunkSize?: number
   /** Optional className applied to each positioned block wrapper. */
   readonly itemClassName?: (block: Block, index: number) => string
 }
 
-function findEndpoint(node: Node | null, offset: number): RetainedSelection['anchor'] | null {
-  if (!node) return null
-  const el = node.nodeType === 1 ? (node as Element) : node.parentElement
-  if (!el) return null
-  const partEl = el.closest?.('[data-part-key]') as HTMLElement | null
-  const blockEl = (el.closest?.('[data-index]') ??
-    el.closest?.('[data-block-key]')) as HTMLElement | null
-  const blockKey = blockEl?.getAttribute('data-block-key')
-  if (!blockEl || !blockKey) return null
-  const partKey = partEl?.getAttribute('data-part-key') ?? blockKey
-  const charOffset = partTextOffset(partEl ?? blockEl, node, offset)
-  return partEl
-    ? { blockKey, partKey, charOffset }
-    : { blockKey, partKey, charOffset, blockWrapper: true }
-}
-
 function selectionBlockIndex(
   snapshot: BlockSnapshot<ViewportBlockBase>,
-  endpoint: Pick<RetainedSelection['anchor'], 'blockKey' | 'partKey'>
+  endpoint: { readonly blockKey: string; readonly partKey: string }
 ): number {
   const existingIndex = snapshot.indexOf(endpoint.blockKey)
   if (existingIndex >= 0) {
@@ -193,44 +144,6 @@ function selectionBlockIndex(
   }
   return -1
 }
-
-function endpointElement(root: Element, endpoint: RetainedSelection['anchor']): Element | null {
-  if (endpoint.blockWrapper) {
-    return root.querySelector(`[data-block-key="${CSS.escape(endpoint.blockKey)}"]`)
-  }
-  return root.querySelector(`[data-part-key="${CSS.escape(endpoint.partKey)}"]`)
-}
-
-function restoreSelection(
-  root: HTMLElement,
-  selection: Selection,
-  retained: RetainedSelection
-): void {
-  const anchor = endpointElement(root, retained.anchor)
-  const focus = endpointElement(root, retained.focus)
-  if (!anchor || !focus) return
-  const a = pointAtPartOffset(anchor, retained.anchor.charOffset)
-  const f = pointAtPartOffset(focus, retained.focus.charOffset)
-  if (
-    a.node !== selection.anchorNode ||
-    a.offset !== selection.anchorOffset ||
-    f.node !== selection.focusNode ||
-    f.offset !== selection.focusOffset
-  ) {
-    selection.setBaseAndExtent(a.node, a.offset, f.node, f.offset)
-  }
-}
-
-const SHIFT_EXTEND_KEYS = new Set([
-  'ArrowUp',
-  'ArrowDown',
-  'ArrowLeft',
-  'ArrowRight',
-  'PageUp',
-  'PageDown',
-  'Home',
-  'End'
-])
 
 const SCROLL_CANCEL_KEYS = new Set([
   'ArrowUp',
@@ -258,8 +171,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   footer,
   isPinned,
   anchorKey,
-  onCopyTiming,
-  copyChunkSize,
   itemClassName
 }: TranscriptViewportProps<Block>): React.JSX.Element {
   const virtualized = useSyncExternalStore(
@@ -289,21 +200,20 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   const headerRef = useRef<HTMLDivElement | null>(null)
   const lastHeaderHeightRef = useRef<number | null>(null)
 
-  const [savedSelection, setSavedSelection] = useState<{
+  // ΔV2 (D-103): rows rendered by the previous commit, the drag gesture and the
+  // rendered rows the native selection spans (display only — never restored).
+  const renderedKeysRef = useRef<readonly string[]>([])
+  const committedKeysRef = useRef<ReadonlySet<string>>(new Set())
+  const gestureRef = useRef<GestureState>('idle')
+  // Last selectionchange saw an end inside this viewport. A commit can detach the
+  // selected nodes before the browser reports the change, so the place is read from here.
+  const selectionInsideRef = useRef(false)
+  const [suppressed, setSuppressed] = useState(false)
+  const [selectedKeys, setSelectedKeys] = useState<{
     sessionKey: string | undefined
-    selection: RetainedSelection
+    anchor: string
+    focus: string
   } | null>(null)
-  const retainedSelection =
-    savedSelection?.sessionKey === sessionKey ? (savedSelection?.selection ?? null) : null
-  const retainedSelectionRef = useRef<RetainedSelection | null>(null)
-  retainedSelectionRef.current = retainedSelection
-
-  const measuredBeforeCopy = useRef<Set<string | number | bigint>>(new Set())
-  // Temporary sync-copy mount range (EP-17 ②)
-  const [syncCopyRange, setSyncCopyRange] = useState<[number, number] | null>(null)
-  const chunkRangeWriter = useRef<((range: ChunkRange<Block> | null) => void) | null>(null)
-  const copyHostRef = useRef<HTMLDivElement | null>(null)
-  const activeCopyJobRef = useRef<CopyJobHandle | null>(null)
 
   if (prevSessionKeyRef.current !== sessionKey) {
     interruptedAnchorLayout.current = false
@@ -345,11 +255,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     prevSnapshotRef.current = snapshot
   }
 
-  // A viewport may outlive the active session. Cancel before its new content becomes visible.
+  // A viewport may outlive the active session. Drop the gesture of the previous one.
   useLayoutEffect(() => {
     return () => {
-      activeCopyJobRef.current?.cancel()
-      activeCopyJobRef.current = null
+      gestureRef.current = 'idle'
+      setSuppressed(false)
     }
   }, [sessionKey])
 
@@ -398,33 +308,18 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
       count: number
     }): number[] => {
       const snap = snapshotRef.current
-      const sel = retainedSelection
-      const endpoints =
-        sel !== null
-          ? {
-              anchorIndex: selectionBlockIndex(snap, sel.anchor),
-              focusIndex: selectionBlockIndex(snap, sel.focus)
-            }
-          : null
       const anchorIdx =
         anchorKey != null
           ? snap.indexOf(anchorKey)
           : activeAnchorRef.current
             ? snap.indexOf(activeAnchorRef.current.blockKey)
             : -1
-      const base = selectionMountSet(
+      return viewportMountSet(
         range,
-        endpoints,
         anchorKey == null && displacedAnchorIndex >= 0 ? displacedAnchorIndex : anchorIdx
       )
-      if (!syncCopyRange) return base
-      const merged = new Set(base)
-      const lo = Math.max(0, Math.min(syncCopyRange[0], syncCopyRange[1]))
-      const hi = Math.min(range.count - 1, Math.max(syncCopyRange[0], syncCopyRange[1]))
-      for (let i = lo; i <= hi; i++) merged.add(i)
-      return Array.from(merged).sort((a, b) => a - b)
     },
-    [anchorKey, displacedAnchorIndex, retainedSelection, syncCopyRange]
+    [anchorKey, displacedAnchorIndex]
   )
 
   const flushAnchorRestore = useCallback((): void => {
@@ -543,213 +438,98 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   // EP-10 ③ (v3): Disable TanStack internal scroll adjustment — TranscriptViewport owns all scrollTop writes.
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => false
 
-  // Track user selection endpoints as (blockKey, partKey, charOffset) (EP-17 ⑥ · c14)
+  // Where the native selection lives relative to this viewport (D-103).
+  const selectionPlace = useCallback((): SelectionPlace => {
+    if (gestureRef.current !== 'idle') return 'dragging'
+    // Chromium collapses a selection whose nodes this commit removed before the layout effect
+    // runs. The selection the user made still existed when the commit started.
+    if (selectionInsideRef.current) return 'inside'
+    const sel = typeof document !== 'undefined' ? document.getSelection?.() : null
+    if (!sel || sel.isCollapsed || !sel.anchorNode || !sel.focusNode) return 'none'
+    const root = viewportRef.current
+    if (!root) return 'outside'
+    return root.contains(sel.anchorNode) || root.contains(sel.focusNode) ? 'inside' : 'outside'
+  }, [])
+
+  const dispatchGesture = useCallback((event: GestureEvent): void => {
+    const next = gestureReducer(gestureRef.current, event)
+    if (next === gestureRef.current) return
+    gestureRef.current = next
+    setSuppressed(isSuppressed(next))
+  }, [])
+
+  // Selection display — read the rows the native selection spans. A cancelled drag keeps
+  // re-clearing any selection Chromium extends inside the viewport until release (D-103).
   useEffect(() => {
     if (!virtualized || typeof document === 'undefined') return
+    const rowKey = (node: Node | null): string | null => {
+      const el = node && (node.nodeType === 1 ? (node as Element) : node.parentElement)
+      return el?.closest?.('[data-index]')?.getAttribute('data-block-key') ?? null
+    }
     const onSelectionChange = (): void => {
-      const el = scrollRef.current
-      if (!el) return
+      const root = viewportRef.current
       const sel = document.getSelection()
-      if (!sel || sel.isCollapsed) {
-        setSavedSelection(null)
+      if (!root || !sel || sel.isCollapsed || !sel.anchorNode || !sel.focusNode) {
+        selectionInsideRef.current = false
+        setSelectedKeys(null)
         return
       }
-      if (!el.contains(sel.anchorNode) || !el.contains(sel.focusNode)) return
-      const anchor = findEndpoint(sel.anchorNode, sel.anchorOffset)
-      const focus = findEndpoint(sel.focusNode, sel.focusOffset)
-      if (anchor && focus) {
-        setSavedSelection({ sessionKey, selection: { anchor, focus } })
+      const inside = root.contains(sel.anchorNode) || root.contains(sel.focusNode)
+      selectionInsideRef.current = inside
+      if (inside && isSuppressed(gestureRef.current)) {
+        sel.removeAllRanges()
+        selectionInsideRef.current = false
+        setSelectedKeys(null)
+        return
       }
+      const anchor = rowKey(sel.anchorNode)
+      const focus = rowKey(sel.focusNode)
+      setSelectedKeys(anchor && focus ? { sessionKey, anchor, focus } : null)
     }
     document.addEventListener('selectionchange', onSelectionChange)
     return () => document.removeEventListener('selectionchange', onSelectionChange)
-  }, [scrollRef, sessionKey, virtualized])
+  }, [sessionKey, virtualized])
 
+  // Gesture end — the pointer may be released outside the viewport.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const onUp = (): void => dispatchGesture({ type: 'pointerup' })
+    const onCancel = (): void => dispatchGesture({ type: 'pointercancel' })
+    const onBlur = (): void => dispatchGesture({ type: 'blur' })
+    document.addEventListener('pointerup', onUp, true)
+    document.addEventListener('pointercancel', onCancel, true)
+    if (typeof window !== 'undefined') window.addEventListener('blur', onBlur)
+    return () => {
+      document.removeEventListener('pointerup', onUp, true)
+      document.removeEventListener('pointercancel', onCancel, true)
+      if (typeof window !== 'undefined') window.removeEventListener('blur', onBlur)
+    }
+  }, [dispatchGesture])
+
+  // Row mount → selection cancel (EP-17 ②③ · D-103). Runs after every commit on purpose:
+  // the rendered key set is compared with the previous commit's. It settles because a cancel
+  // leaves the key set unchanged for the next commit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
-    const el = scrollRef.current
-    const retained = retainedSelectionRef.current
-    const selection = el && retained && document.getSelection?.()
-    if (!el || !retained || !selection) return
-    if (selection.anchorNode && !el.contains(selection.anchorNode)) return
-    restoreSelection(el, selection, retained)
-  }, [scrollRef, snapshot])
+    const previousKeys = committedKeysRef.current
+    const nextKeys = renderedKeysRef.current
+    committedKeysRef.current = new Set(nextKeys)
+    if (!virtualized) return
+    if (!shouldCancelSelection({ previousKeys, nextKeys, selection: selectionPlace() })) return
+    const start = typeof performance !== 'undefined' ? performance.now() : 0
+    document.getSelection?.()?.removeAllRanges()
+    selectionInsideRef.current = false
+    setSelectedKeys(null)
+    dispatchGesture({ type: 'cancel' })
+    if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
+      performance.measure('oo-selection-cancel', { start, end: performance.now() })
+    }
+  })
 
   useLayoutEffect(() => {
     if (import.meta.env.VITE_OO_DIAGNOSTIC !== '1' || !sessionKey) return
-    return attachDiagnosticViewport(sessionKey, scrollRef.current, snapshot, {
-      findEndpoint,
-      indexFor: (endpoint) => selectionBlockIndex(snapshot, endpoint),
-      mountEndpoints: (selection) => flushSync(() => setSavedSelection({ sessionKey, selection }))
-    })
-  }, [sessionKey, snapshot, scrollRef])
-
-  // Keyboard selection extension (EP-17 ⑤ · c6 · c11)
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!virtualized || !event.shiftKey || !SHIFT_EXTEND_KEYS.has(event.key)) return
-      const sel = typeof document !== 'undefined' ? document.getSelection() : null
-      if (!sel || sel.isCollapsed) return
-      const anchor = findEndpoint(sel.anchorNode, sel.anchorOffset)
-      const focus = findEndpoint(sel.focusNode, sel.focusOffset)
-      if (anchor && focus) {
-        setSavedSelection({ sessionKey, selection: { anchor, focus } })
-      }
-    },
-    [sessionKey, virtualized]
-  )
-
-  // Copy handler (EP-17 ②~④ · c3~c5, c7~c9, c12~c19)
-  const handleCopy = useCallback(
-    (event: React.ClipboardEvent<HTMLDivElement>) => {
-      if (!virtualized) return
-      const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now()
-      activeCopyJobRef.current?.cancel()
-      const sel = retainedSelectionRef.current
-      if (!sel) return
-      const snap = snapshotRef.current
-      const aIdx = selectionBlockIndex(snap, sel.anchor)
-      const fIdx = selectionBlockIndex(snap, sel.focus)
-      if (aIdx < 0 || fIdx < 0) return
-
-      const lo = Math.min(aIdx, fIdx)
-      const hi = Math.max(aIdx, fIdx)
-      const spanCount = hi - lo + 1
-      const cap = copyChunkSize ?? SELECTION_COPY_SYNC_MAX_BLOCKS
-
-      const recordTiming =
-        onCopyTiming ?? (import.meta.env.VITE_OO_DIAGNOSTIC === '1' ? beginCopyTiming() : undefined)
-
-      if (spanCount <= cap) {
-        // Sync copy path (EP-17 ② · c3~c5)
-        try {
-          measuredBeforeCopy.current = new Set(
-            virtualizer.getVirtualItems().map((item) => item.key)
-          )
-          flushSync(() => setSyncCopyRange([lo, hi]))
-          // Re-apply DOM selection across the newly mounted endpoints if needed
-          const domSel = document.getSelection()
-          const scroller = scrollRef.current
-          if (domSel && scroller) restoreSelection(scroller, domSel, sel)
-          recordTiming?.({
-            kind: 'handler',
-            durationMs: (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0,
-            blockCount: spanCount
-          })
-        } finally {
-          requestAnimationFrame(() => setSyncCopyRange(null))
-        }
-        return
-      }
-
-      // Async chunked copy path (> cap) (EP-17 ③④ · c7 · c12~c19)
-      event.preventDefault()
-
-      const forward = aIdx <= fIdx
-      const startEndpoint = forward ? sel.anchor : sel.focus
-      const endEndpoint = forward ? sel.focus : sel.anchor
-
-      let diagnosticChunk = 0
-      activeCopyJobRef.current = startCopyJob(
-        lo,
-        hi,
-        {
-          mountChunk: (cStart, cEnd) => {
-            flushSync(() =>
-              chunkRangeWriter.current?.({ start: cStart, end: cEnd, snapshot: snap })
-            )
-          },
-          serializeChunk: (_cStart, _cEnd, isFirst, isLast) => {
-            if (import.meta.env.VITE_OO_DIAGNOSTIC === '1') checkCopyChunk(++diagnosticChunk)
-            const host = copyHostRef.current
-            const domSel = document.getSelection()
-            if (!host || !domSel) throw new Error('Copy selection is unavailable')
-
-            // Save user selection & focus
-            const savedActive = document.activeElement as HTMLElement | null
-            const savedAnchorNode = domSel.anchorNode
-            const savedAnchorOffset = domSel.anchorOffset
-            const savedFocusNode = domSel.focusNode
-            const savedFocusOffset = domSel.focusOffset
-            const hadSelection = domSel.rangeCount > 0
-
-            try {
-              const range = document.createRange()
-              range.selectNodeContents(host)
-              if (isFirst) {
-                const startPart = endpointElement(host, startEndpoint)
-                if (!startPart) throw new Error('Copy selection start is unavailable')
-                const pt = pointAtPartOffset(startPart, startEndpoint.charOffset)
-                range.setStart(pt.node, pt.offset)
-              }
-              if (isLast) {
-                const endPart = endpointElement(host, endEndpoint)
-                if (!endPart) throw new Error('Copy selection end is unavailable')
-                const pt = pointAtPartOffset(endPart, endEndpoint.charOffset)
-                range.setEnd(pt.node, pt.offset)
-              }
-              domSel.removeAllRanges()
-              domSel.addRange(range)
-              const text = domSel.toString()
-              const wrapper = document.createElement('div')
-              wrapper.appendChild(range.cloneContents())
-              // Include a neighboring glyph to measure the line breaks Chromium inserts
-              // around the chunk. Paragraphs, ordinary blocks and empty rows differ.
-              const startNode = domSel.anchorNode!
-              const startOffset = domSel.anchorOffset
-              const endNode = domSel.focusNode!
-              const endOffset = domSel.focusOffset
-              const edge = (side: string): Node =>
-                host.parentElement!.querySelector(`[data-copy-edge="${side}"]`)!.childNodes[0]
-              let leadingBreaks = 0
-              let trailingBreaks = 0
-              if (!isFirst) {
-                domSel.setBaseAndExtent(edge('before'), 0, endNode, endOffset)
-                leadingBreaks = Math.max(0, domSel.toString().length - 1 - text.length)
-              }
-              if (!isLast) {
-                domSel.setBaseAndExtent(startNode, startOffset, edge('after'), 1)
-                trailingBreaks = Math.max(0, domSel.toString().length - 1 - text.length)
-              }
-              return { text, html: wrapper.innerHTML, leadingBreaks, trailingBreaks }
-            } finally {
-              // Restore user selection (including reverse direction) and focus (c19)
-              domSel.removeAllRanges()
-              if (hadSelection && savedAnchorNode && savedFocusNode) {
-                try {
-                  domSel.setBaseAndExtent(
-                    savedAnchorNode,
-                    savedAnchorOffset,
-                    savedFocusNode,
-                    savedFocusOffset
-                  )
-                } catch {
-                  // Original nodes may have been unmounted
-                }
-              }
-              if (
-                savedActive &&
-                typeof savedActive.focus === 'function' &&
-                document.activeElement !== savedActive
-              ) {
-                savedActive.focus({ preventScroll: true })
-              }
-            }
-          },
-          unmountChunk: () => {
-            flushSync(() => chunkRangeWriter.current?.(null))
-          },
-          onTiming: recordTiming
-        },
-        { chunkSize: cap }
-      )
-      recordTiming?.({
-        kind: 'handler',
-        durationMs: (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0,
-        blockCount: 0
-      })
-    },
-    [copyChunkSize, onCopyTiming, scrollRef, virtualized, virtualizer]
-  )
+    return attachDiagnosticViewport(sessionKey, snapshot)
+  }, [sessionKey, snapshot])
 
   // Cancel pending anchor adjustments on user input and refresh resting anchor on user scroll (EP-12 ①⑦ · a8)
   useEffect(() => {
@@ -900,23 +680,24 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   }
 
   const selectionRange = useMemo<[number, number] | null>(() => {
-    if (!retainedSelection) return null
-    const a = selectionBlockIndex(snapshot, retainedSelection.anchor)
-    const f = selectionBlockIndex(snapshot, retainedSelection.focus)
+    if (!selectedKeys || selectedKeys.sessionKey !== sessionKey) return null
+    const a = snapshot.indexOf(selectedKeys.anchor)
+    const f = snapshot.indexOf(selectedKeys.focus)
     if (a < 0 || f < 0) return null
     return [Math.min(a, f), Math.max(a, f)]
-  }, [retainedSelection, snapshot])
+  }, [selectedKeys, sessionKey, snapshot])
 
   const virtualItems: VirtualItem[] = virtualized ? virtualizer.getVirtualItems() : []
+  renderedKeysRef.current = virtualItems.map((vi) => snapshot.keyAt(vi.index))
 
   return (
     <TranscriptRevealContext.Provider value={reveal}>
       <div
         ref={viewportRef}
         data-transcript-viewport=""
-        onCopy={virtualized ? handleCopy : undefined}
-        onKeyDown={virtualized ? handleKeyDown : undefined}
-        className="w-full"
+        data-selection-suppressed={suppressed ? '' : undefined}
+        onPointerDown={(event) => dispatchGesture({ type: 'pointerdown', button: event.button })}
+        className={suppressed ? 'w-full select-none' : 'w-full'}
       >
         <div ref={headerRef} data-transcript-header="">
           {header}
@@ -933,12 +714,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
               return (
                 <div
                   key={block.key}
-                  // Temporary offscreen rows exist for native selection during this event only.
-                  ref={
-                    !syncCopyRange || measuredBeforeCopy.current.has(vi.key)
-                      ? virtualizer.measureElement
-                      : undefined
-                  }
+                  ref={virtualizer.measureElement}
                   data-index={vi.index}
                   data-block-key={block.key}
                   data-message-id={block.messageId}
@@ -980,35 +756,6 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         )}
         {footer}
       </div>
-      <CopyChunk writerRef={chunkRangeWriter}>
-        {(asyncChunkRange) => (
-          <CopySerializationHost
-            hostRef={copyHostRef}
-            widthPx={scrollRef.current?.clientWidth ?? 0}
-          >
-            {Array.from(
-              { length: asyncChunkRange.end - asyncChunkRange.start + 1 },
-              (_, offset) => {
-                const index = asyncChunkRange.start + offset
-                // The selected indices belong to the snapshot captured by the copy event.
-                const block = asyncChunkRange.snapshot.blockAt(index)
-                return (
-                  <div
-                    key={block.key}
-                    data-block-key={block.key}
-                    className={`w-full ${itemClassName?.(block, index) ?? ''}`}
-                    data-part-key={
-                      hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
-                    }
-                  >
-                    {renderBlock(block, index, false)}
-                  </div>
-                )
-              }
-            )}
-          </CopySerializationHost>
-        )}
-      </CopyChunk>
     </TranscriptRevealContext.Provider>
   )
 }
