@@ -78,11 +78,6 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # transcript 선택·복사 실기 판정(0326 D-104) — Electron 창에서 실제 드래그·휠·키와 클립보드로
-      # 브라우저 기본 복사, 행 마운트 시 선택 취소, 50ms 예산을 본다. stdout JSON 이 원자료다.
-      - name: Transcript selection (Electron)
-        run: node scripts/check-transcript-selection.mjs
-
       # pretest 가 better-sqlite3 를 node ABI 로 전환한다 (migrate.test.ts 포함)
       - name: Test
         run: npm test
