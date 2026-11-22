@@ -51,6 +51,7 @@ interface ViewportHarness extends ReturnType<typeof installViewportSelection> {
   fireDocument(type: string): void
   selectionChange(): void
   pointerDown(button?: number): void
+  setSession(key: string): void
 }
 
 function mountViewport(
@@ -61,6 +62,7 @@ function mountViewport(
   const sel = installViewportSelection(dom)
   let blocks = makeBlocks(count)
   let snapshot = createBlockList(blocks).snapshot()
+  let sessionKey = 's'
   const scrollListeners = new Set<() => void>()
   const scroll = {
     scrollTop: 0,
@@ -82,7 +84,7 @@ function mountViewport(
   const render = (): void => {
     const viewport = createElement(TranscriptViewport<SimpleBlock>, {
       snapshot,
-      sessionKey: 's',
+      sessionKey,
       scrollRef,
       overscan: options.overscan ?? 2,
       estimateSizePx: 80,
@@ -135,6 +137,10 @@ function mountViewport(
         button: number
       }) => void
       dom!.act(() => onPointerDown({ button }))
+    },
+    setSession(key: string): void {
+      sessionKey = key
+      render()
     }
   }
 }
@@ -248,6 +254,20 @@ describe('TranscriptViewport.selection (0326 ΔV2 · VP-29 · AR-09 ↔ IT-09 ·
     expect(v.selection.toString().length).toBeGreaterThan(0)
   })
 
+  it('s5b: a secondary-button press starts no gesture — a mount cancel leaves no suppression (D-110 ⓐ)', () => {
+    const v = mountViewport(2500)
+    v.pointerDown(2)
+    v.select(v.part(0), 1, v.part(2), 3)
+    v.scrollTo(200 * 80)
+    expect(v.selection.rangeCount).toBe(0)
+    expect(v.viewport().getAttribute('data-selection-suppressed')).toBeNull()
+    expect(v.viewport().getAttribute('class')?.split(' ')).not.toContain('select-none')
+    // With no gesture, a selection made afterwards in the viewport is not cleared again.
+    const rows = v.mounted()
+    v.select(v.part(rows[1]), 0, v.part(rows[3]), 2)
+    expect(v.selection.rangeCount).toBe(1)
+  })
+
   it('s6: replacing the content of a row with the same key keeps the selection', () => {
     const v = mountViewport(6)
     v.select(v.part(0), 1, v.part(1), 3)
@@ -273,22 +293,26 @@ describe('TranscriptViewport.selection (0326 ΔV2 · VP-29 · AR-09 ↔ IT-09 ·
     expect(v.selection.toString()).toBe('omposer ')
   })
 
-  it.each(['pointercancel', 'blur'] as const)('s9: %s releases a suppressed gesture', (release) => {
-    const v = mountViewport(2500)
-    v.pointerDown()
-    v.select(v.part(0), 1, v.part(2), 3)
-    v.scrollTo(200 * 80)
-    expect(v.viewport().getAttribute('data-selection-suppressed')).toBe('')
-    if (release === 'pointercancel') v.fireDocument('pointercancel')
-    else {
-      const blur = vi
-        .mocked(window.addEventListener)
-        .mock.calls.filter(([type]) => type === 'blur')
-        .at(-1)?.[1] as () => void
-      dom!.act(() => blur())
+  it.each(['pointercancel', 'blur', 'session'] as const)(
+    's9: %s releases a suppressed gesture',
+    (release) => {
+      const v = mountViewport(2500)
+      v.pointerDown()
+      v.select(v.part(0), 1, v.part(2), 3)
+      v.scrollTo(200 * 80)
+      expect(v.viewport().getAttribute('data-selection-suppressed')).toBe('')
+      if (release === 'pointercancel') v.fireDocument('pointercancel')
+      else if (release === 'session') v.setSession('t')
+      else {
+        const blur = vi
+          .mocked(window.addEventListener)
+          .mock.calls.filter(([type]) => type === 'blur')
+          .at(-1)?.[1] as () => void
+        dom!.act(() => blur())
+      }
+      expect(v.viewport().getAttribute('data-selection-suppressed')).toBeNull()
     }
-    expect(v.viewport().getAttribute('data-selection-suppressed')).toBeNull()
-  })
+  )
 
   it('s10: rows between the selection ends are marked selected and cleared on cancel', () => {
     const v = mountViewport(2500)
@@ -297,6 +321,16 @@ describe('TranscriptViewport.selection (0326 ΔV2 · VP-29 · AR-09 ↔ IT-09 ·
       dom!.queryAll('[data-picked]').map((n) => Number(n.getAttribute('data-picked')))
     expect(picked()).toEqual([1, 2, 3])
     v.scrollTo(200 * 80)
+    expect(picked()).toEqual([])
+  })
+  it('s10b: rows of another session with the same block keys are not marked selected (D-110 ⓒ)', () => {
+    const v = mountViewport(2500)
+    v.select(v.part(1), 1, v.part(3), 2)
+    const picked = (): number[] =>
+      dom!.queryAll('[data-picked]').map((n) => Number(n.getAttribute('data-picked')))
+    expect(picked()).toEqual([1, 2, 3])
+    // The next session reuses the keys (archived messages are `x:<index>` in every session).
+    v.setSession('t')
     expect(picked()).toEqual([])
   })
 })

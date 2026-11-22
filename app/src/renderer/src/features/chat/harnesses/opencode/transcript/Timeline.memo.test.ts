@@ -12,7 +12,7 @@ const liveHooks = vi.hoisted(() => ({
   useLiveText: undefined as unknown as ReturnType<typeof import('vitest').vi.fn>,
   useLiveReasoning: undefined as unknown as ReturnType<typeof import('vitest').vi.fn>
 }))
-const scroll = vi.hoisted(() => ({ retained: [] as string[], enabled: false }))
+const scroll = vi.hoisted(() => ({ enabled: false }))
 const steer = vi.hoisted(() => ({ props: undefined as unknown }))
 const changesRef = vi.hoisted(() => ({
   value: { lineage: {}, revision: 0, log: [] } as ReturnType<typeof newTranscriptChanges>
@@ -85,7 +85,7 @@ vi.mock('./scrollContext', async () => {
   const { TimelineViewState } = await import('./viewState')
   const state = new TimelineViewState()
   return {
-    useTimelineScroll: () => (scroll.enabled ? { state, retained: scroll.retained } : undefined)
+    useTimelineScroll: () => (scroll.enabled ? { state } : undefined)
   }
 })
 vi.mock('@tanstack/react-virtual', () => ({
@@ -117,7 +117,6 @@ afterEach(() => {
   Object.assign(live, { text: '', reasoning: '', reasoningVisible: false })
   virtual.visible = 0
   scroll.enabled = false
-  scroll.retained = []
   changesRef.value = newTranscriptChanges()
 })
 
