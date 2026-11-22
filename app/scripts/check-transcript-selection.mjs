@@ -1,16 +1,16 @@
-// 0326 ΔV2 AT-07 — transcript selection and copy in real Electron (D-102 · D-103 · D-104 · D-105).
+// 0326 AT-07 — transcript selection and copy in real Electron (D-102 · D-103 · D-107 · D-108).
+// A verify-run tool, not a CI step (D-107). Performance is recorded, not judged (D-108).
 //
 // Builds `transcript-selection/probe.tsx` (production `TranscriptView` for each screen), serves it on
 // 127.0.0.1 and drives it from `transcript-selection/electron-main.mjs` with real input events.
 // The pure judge below re-computes the verdict from the raw records printed on stdout.
-// Exit: 0 pass · 1 judged failure or harness error · 3 Electron unavailable (`환경 없음`).
+// Exit: 0 pass · 1 judged failure, harness error or failed Electron launch · 3 no Electron binary (`환경 없음`).
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import os from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { UI_TASK_BUDGET_MS } from '../src/shared/perf-budget.ts'
 
 export const SCREENS = ['claude-code', 'claude-work', 'opencode-code']
 export const SCENARIOS = ['A1', 'A2', 'A3', 'B1', 'B2', 'C1', 'C2', 'C3', 'C4', 'C5']
@@ -34,13 +34,10 @@ export function pasteMatches(pasted, expected) {
   return !expected.multi || pasted.split('\n').filter((line) => line.trim()).length >= 2
 }
 
-function recordFailures(record, budgetMs) {
+// `longTasks` and `cancelMs` stay in the raw records for diagnosis only (D-108).
+function recordFailures(record) {
   const reasons = []
   if (record.error) return ['harness: ' + record.error]
-  if (!Array.isArray(record.longTasks) || record.longTasks.length > 0) reasons.push('long task')
-  const cancelMs = Array.isArray(record.cancelMs) ? record.cancelMs : null
-  if (!cancelMs || cancelMs.some((ms) => !(Number.isFinite(ms) && ms >= 0 && ms <= budgetMs)))
-    reasons.push('cancel task over budget')
   const texts = Array.isArray(record.selectionText) ? record.selectionText : []
   if (COPY.has(record.scenario)) {
     if (record.copyPrevented !== false) reasons.push('copy default prevented or not observed')
@@ -50,7 +47,6 @@ function recordFailures(record, budgetMs) {
     if (!(record.mountedKeys >= 1)) reasons.push('no row mounted')
     if (texts.length === 0 || texts.some((text) => text !== '')) reasons.push('selection survived')
     if (record.clipboard !== record.sentinel) reasons.push('clipboard changed after cancel')
-    if (!cancelMs || cancelMs.length === 0) reasons.push('cancel not measured')
   }
   if (KEEP.has(record.scenario)) {
     const mountsExpected = record.scenario === 'C5'
@@ -63,7 +59,7 @@ function recordFailures(record, budgetMs) {
 }
 
 /** Fail-closed over the expected record grid. */
-export function judgeSelectionRuns(records, budgetMs = UI_TASK_BUDGET_MS) {
+export function judgeSelectionRuns(records) {
   const failures = []
   const seen = new Set()
   for (const record of Array.isArray(records) ? records : []) {
@@ -73,8 +69,7 @@ export function judgeSelectionRuns(records, budgetMs = UI_TASK_BUDGET_MS) {
       continue
     }
     seen.add(id)
-    for (const reason of recordFailures(record, budgetMs))
-      failures.push({ ...pick(record), reason })
+    for (const reason of recordFailures(record)) failures.push({ ...pick(record), reason })
   }
   for (const screen of SCREENS)
     for (const scenario of SCENARIOS)
@@ -86,6 +81,11 @@ export function judgeSelectionRuns(records, budgetMs = UI_TASK_BUDGET_MS) {
 
 function pick({ screen, scenario, run }) {
   return { screen, scenario, run }
+}
+
+/** Electron exists but did not produce a result — a harness error, not a missing environment. */
+export function launchFailure(error) {
+  return { env: true, verdict: false, error: String(error) }
 }
 
 export function selectionExitCode({ env, error, verdict }) {
@@ -163,7 +163,7 @@ async function main() {
     try {
       output = await runElectron(binary, origin)
     } catch (error) {
-      return { env: false, verdict: false, reason: '환경 없음', error: String(error) }
+      return launchFailure(error)
     }
     if (output.error) return { env: true, verdict: false, ...output }
     return { env: true, ...output, ...judgeSelectionRuns(output.records) }

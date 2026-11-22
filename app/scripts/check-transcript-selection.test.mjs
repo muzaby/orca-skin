@@ -7,6 +7,7 @@ import {
   SCENARIOS,
   SCREENS,
   judgeSelectionRuns,
+  launchFailure,
   pasteMatches,
   selectionExitCode
 } from './check-transcript-selection.mjs'
@@ -65,18 +66,13 @@ test('k1 every expected record passing → verdict true · failures 0', () => {
   assert.deepEqual(judgeSelectionRuns(grid()), { verdict: true, failures: [] })
 })
 
-test('k2 a long task or a cancel over 50ms fails · exactly 50ms passes · a cancel scenario needs a measure', () => {
-  assert.deepEqual(reasons(grid(at('claude-code', 'A1', 0, { longTasks: [51] }))), ['long task'])
-  assert.equal(
-    judgeSelectionRuns(grid(at('opencode-code', 'C1', 2, { cancelMs: [50] }))).verdict,
-    true
-  )
-  assert.deepEqual(reasons(grid(at('opencode-code', 'C1', 2, { cancelMs: [50.1] }))), [
-    'cancel task over budget'
-  ])
-  assert.deepEqual(reasons(grid(at('claude-work', 'C2', 1, { cancelMs: [] }))), [
-    'cancel not measured'
-  ])
+test('k2′ long tasks and cancel times are recorded only — any value leaves the verdict unchanged (D-108)', () => {
+  for (const patch of [{ longTasks: [400] }, { cancelMs: [999] }, { cancelMs: [] }]) {
+    assert.deepEqual(judgeSelectionRuns(grid(at('claude-work', 'C2', 1, patch))), {
+      verdict: true,
+      failures: []
+    })
+  }
 })
 
 test('k3 a prevented copy fails', () => {
@@ -145,8 +141,15 @@ test('k7 fail-closed grid — a missing cell, an unknown scenario and no records
   assert.equal(judgeSelectionRuns(undefined).verdict, false)
 })
 
-test('k8 exit codes — no Electron 3 · harness error 1 · judged failure 1 · pass 0', () => {
+test('k8′ exit codes — no Electron binary 3 · failed launch 1 · harness error 1 · judged failure 1 · pass 0 (D-107)', () => {
   assert.equal(selectionExitCode({ env: false }), 3)
+  const launch = launchFailure(new Error('electron exited 4294967295 without result'))
+  assert.deepEqual(launch, {
+    env: true,
+    verdict: false,
+    error: 'Error: electron exited 4294967295 without result'
+  })
+  assert.equal(selectionExitCode(launch), 1)
   assert.equal(selectionExitCode({ env: true, error: 'boom', verdict: true }), 1)
   assert.equal(selectionExitCode({ env: true, verdict: false }), 1)
   assert.equal(selectionExitCode({ env: true, verdict: true }), 0)
