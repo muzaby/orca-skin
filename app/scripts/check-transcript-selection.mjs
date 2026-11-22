@@ -45,6 +45,8 @@ function recordFailures(record) {
   }
   if (CANCEL.has(record.scenario)) {
     if (!(record.mountedKeys >= 1)) reasons.push('no row mounted')
+    // The selected rows must stay mounted, or Chromium itself drops the selection (ΔV2 rev 3).
+    if (record.endsMounted !== true) reasons.push('selected rows unmounted')
     if (texts.length === 0 || texts.some((text) => text !== '')) reasons.push('selection survived')
     if (record.clipboard !== record.sentinel) reasons.push('clipboard changed after cancel')
   }

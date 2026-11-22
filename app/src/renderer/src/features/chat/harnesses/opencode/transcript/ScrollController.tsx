@@ -40,7 +40,6 @@ export function OpenCodeScrollController({
   const automaticTop = useRef<number | null>(null)
   const captureFrame = useRef<number | null>(null)
   const [showJump, setShowJump] = useState(false)
-  const [retained, setRetained] = useState<string[]>([])
   const capture = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
@@ -159,17 +158,13 @@ export function OpenCodeScrollController({
       if (nested(event.target)) return
       capture()
       held.current = true
-      const row = rowFor(event.target instanceof Node ? event.target : null)
-      if (row?.dataset.timelineKey) setRetained([row.dataset.timelineKey])
     }
     const selection = (): void => {
       const value = document.getSelection()
       const start = rowFor(value?.anchorNode ?? null)
       const end = rowFor(value?.focusNode ?? null)
-      if (!value?.isCollapsed && start && end && el.contains(start) && el.contains(end)) {
-        unpin()
-        setRetained([start.dataset.timelineKey!, end.dataset.timelineKey!])
-      } else if (!held.current) setRetained([])
+      // A transcript selection unpins (0326 ΔV2: the viewport neither keeps nor restores it).
+      if (!value?.isCollapsed && start && end && el.contains(start) && el.contains(end)) unpin()
     }
     const up = (): void => {
       if (!held.current) return
@@ -220,8 +215,7 @@ export function OpenCodeScrollController({
     scrollToBottom,
     anchored: false,
     isPinned,
-    state,
-    retained
+    state
   }
   return (
     <TimelineScrollContext.Provider value={scroll}>
