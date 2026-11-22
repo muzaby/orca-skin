@@ -568,3 +568,140 @@
 - AC: ✅ 17 · ❌ 1 · 사람 1 · ⚠️(미재측정) 16 / 35.
 - 운영 gate: 통과(vitest 22건은 기준선 동일 환경 실패).
 - 다음 단계: Claude 설계 — D16 을 Delta V(또는 rev) 로 정정(D-088 상한 판정 측정기 · 보정 시점 · 렌더 비용 대응) → `handoff-review` → Codex 재구현.
+
+# Verify 4회째 (r4)
+
+## 메타
+
+| 항목 | 값 |
+|---|---|
+| 일자 | 2026-11-22 |
+| 대상 커밋/range | `f06d15b..731d607` — 설계 `1489b55`(ΔV1) · `a185d00`(ΔV1 rev 2) · `115dcec`(ΔV2) · `0ccdfeb`(ΔV2 rev 2) · `988e2c2`(ΔV3) · 구현 `31ca8dd`(r4 — 이전 구현 기록) · `21f7c42`(r4.1) · `731d607`(r4.2). 브랜치 `ccr-dbca39e6-oo7imc` — 8개 모두 `origin/main` 조상 아님(PR 미병합) |
+| 구현 전 plan 기준 | `988e2c2`(ΔV3) — 구현 커밋 `21f7c42`·`731d607` 의 plan diff 는 메타 `상태` 1줄 + `[구현자 기입]` 절 추가뿐(hunk 2개씩) |
+| V mode / 유효 V | `V1 rev 7 + ΔV1 rev 2 + ΔV2 rev 2 + ΔV3` |
+| 라운드 | 4 |
+| 상태 | **RETURN_TO_PLAN** |
+| 확장 창 | verify 4회째 — ΔV2·ΔV3 의 NEW·CHANGED 노드(R-07·AR-09·MD-21·MD-22)는 **창 안**(사용자 요구 변경 뒤 1회째) · 그 밖 노드는 창 밖 |
+| 독립 축(⑥) | 14건(X2~X15) — 구현 보고·등록 목록 밖. 못 잡음 6(X2·X3·X7·X9·X12·X13 — 동치 2 · 이행 1 · 확장 3) |
+| 열거 sweep(⑦) | ΔV2 노드 1회째 — 등록 변이 V1~V18(V9 폐기) 전부 · VP-29 자리 ①~⑥ · VP-41 ①~⑥ · VP-42 ①~③. 원자료 [`evidence/v4-mutations.jsonl`](evidence/v4-mutations.jsonl) |
+| 발견 분류 | 이행 2(D18·D19) · 현재 0 · 확장 3(D20~D22) · 경계 0 · 비귀속 2(D23·D24) |
+| 구현 주체·문맥 | 기록만 — r4.1·r4.2 는 Claude(같은 세션 계열). 설계자 = 검증자 |
+
+## 0. 기준선 / plan validity
+
+- Decision · AC · V node/pair · §10 변경을 구현 커밋이 하지 않았다(위 hunk). 채점 기준은 `988e2c2` 원문.
+- ΔV2 rev 2 의 PLAN_GAP 정정 3건(`0ccdfeb`)은 설계 커밋으로 분리됐고 출처가 "plan 내부 정합"이다.
+- §10 자리 검색 재실행(`app/`): VP-29 양성 22줄(①~⑤ 각 ≥ 1) · ⑥ 음성 **0** · `addEventListener('copy'` 0 · `selectionGuard` 1 · VP-42 export 3 · VP-41 자리 14줄 · 판정기 `UI_TASK_BUDGET_MS|perf-budget` 0(남은 `longTask` 1줄은 주석) · `ci.yml` 0 · `launchFailure` 2 · `playwright` 0. 목록과 차집합 ∅.
+- 삭제 대상 실재 0: `copy.ts` · `CopySerializationHost.tsx` · `measure-copy-chromium.mjs` · `scripts/copy-timing/` 없음 · `measure-ui-inputs.mjs:390` J9 폐지 주석만.
+
+## 1. AT-07 실행 (D-107 — 검증자 직접)
+
+`cd app && xvfb-run -a node scripts/check-transcript-selection.mjs` → **exit 0** · 1분 19초 · Electron 39.8.10 · linux · 기록 90(30칸 × 3회) · `failures: []` · Long Task 0 · 취소 기록 39건 최대 0.20ms(판정 아님). 원자료 [`evidence/v4-selection.json`](evidence/v4-selection.json).
+
+- 판정기는 기록의 `expected` 를 probe 의 고정 표지 목록(`probe.tsx:60-64` · `:230-253`)에서 얻는다 — DOM 선택에서 유도하지 않는다.
+- 다만 exit 0 은 취소 경로를 증명하지 않는다 — §2 V2·V4(D18).
+
+## 2. 고장 이력
+
+하네스 `mutate.py` 4회(53건) · 끝날 때마다 `# 원복 확인: 모든 파일 원문 그대로` · `git status` 빈 출력. oracle: IT = `TranscriptViewport.selection.test.ts`(13) · UT = `selectionGuard.test.ts`(7) · k = `node --test scripts/check-transcript-selection.test.mjs`(9) · chat = `vitest run src/renderer/src/features/chat`(3,034) · AT = [`evidence/v4-at-oracle.sh`](evidence/v4-at-oracle.sh)(지정 시나리오만 Electron 실행 · `missing record` 밖 실패 수).
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| V1 | `TranscriptViewport.tsx:699` | 다른 값 | 뷰포트 `onCopy={e => e.preventDefault()}` | 구현자 red | 잡음 · AT A1 18 | IT 1 · AT A1 | ①⑦ | — |
+| V2 | `:520-522` | 제거 | `removeAllRanges`·inside·표시 해제 제거(억제 전이는 남김) | 구현자 red·red | IT 잡음(3) · **AT B1·C1 못 잡음** · AT C2 잡음 · C3 못 잡음 | IT 3 · AT C2 | ①⑦ | **이행 — D18** |
+| V3 | `:518` | 호출 대체 | 마운트 무관 — 선택 있으면 매 커밋 취소 | 구현자 red | 잡음 | IT 6 · AT B2 | ①⑦ | — |
+| V4 | `:479` | 고정값 | 억제 중 재해제 `if (false)` | 구현자 red·green | IT 잡음 · **AT B1 못 잡음** | IT 1 | ①③⑦ | **이행 — D18** |
+| V5 | `:499` | 제거 | 문서 `pointerup` 리스너 | 구현자 red | 잡음 | IT 1 · AT B1 9 | ①⑦ | — |
+| V6 | `:451` | 고정값 | 위치 판정 → 항상 `'inside'` | 구현자 red | 잡음 | IT 1 · AT C5 9 | ①⑦ | — |
+| V7 | `:514` | 빈 값 | 직전 key 집합 `new Set()` | 구현자 red | 잡음 | IT 6 · AT B2·C4 36 | ①⑦ | — |
+| V8 | `:317-320`(재앵커 — `selectionMountSet` 삭제) | 다른 값 | 선택 초점 ± overscan 을 마운트에 더함 | 구현자 green→red | 잡음 | IT 1 | ①⑦ | — |
+| V10~V13 | `check-transcript-selection.mjs:78`·`:49`·`:53`·`:92` | 제거·고정값 | 빠진 칸 통과 · 표지값 대조 · 대조 마운트 0 · `env:false`→0 | red | 잡음 ×4 | k7 · k5 · k6 · k8′ | ①⑦ | — |
+| V14~V16 | `selectionGuard.ts:26`·`:21-22`·`:46` | 다른 값·제거 | `outside` 취소 · 제거만으로 취소 · `pointercancel` 전이 | red | 잡음 ×3 | u1 · u3 · u4 | ①⑦ | — |
+| V17 · V18 | `check-transcript-selection.mjs:38` · `:88` | 다른 값 | 판정이 `longTasks` 봄 · 실행 실패 `env:false` | red | 잡음 ×2 | k2′ · k8′ | ①⑦ | — |
+| X2 | `:258-263` | 제거 | 세션 전환 제스처 초기화 | 신규 | **못 잡음** | — (chat 3,034 green) | ⑥ | 확장 — D21 |
+| X3 | `:699` | 고정값 | `button: event.button` → `0` | 신규 | **못 잡음** | — | ⑥ | 확장 — D20 |
+| X4 | `:446` | 제거 | `selectionInsideRef` 판정 | 구현자 보고 | IT 잡음 · AT C1·C2·C3 green | IT 1 | ⑥ | — (AT green 은 D18 과 같은 원인) |
+| X5 · X6 | `:501` · `:500` | 제거 | 창 `blur` · 문서 `pointercancel` 리스너 | 신규 | 잡음 ×2 | s9 | ⑥⑦ | — |
+| X7 | `:522` | 제거 | 취소 시 `setSelectedKeys(null)` | 신규 | 못 잡음 → **동치** | — | ⑥ | 동치 — `removeAllRanges` 가 `selectionchange` 를 내 `:472-474` 가 같은 값을 쓴다(Chromium 명세). fake Selection 은 이벤트를 내지 않지만 s10 은 선택 행을 스크롤로 언마운트한다 |
+| X8 | `:525` | 제거 | `oo-selection-cancel` measure | 신규 | 잡음 | s3 | ⑥ | — |
+| X9 | `:517` | 제거 | `if (!virtualized) return` | 신규 | 못 잡음 → **동치** | — | ⑥ | 동치 — `:690` 가상화 off 면 `virtualItems = []` 라 새 key 0 |
+| X10 · X11 | `:699` · `:523` | 제거 | 뷰포트 `onPointerDown` · 취소 전이 dispatch | 신규 | 잡음 ×2 | s5 3 · s5 3 | ⑥ | — |
+| X12 | `:683` | 제거 | `selectionRange` 세션 비교 | 신규 | **못 잡음** | — (chat 3,034) | ⑥ | 확장 — D22 |
+| X13 | `opencode/transcript/Timeline.tsx:151` | 고정값 | `selected={selected}` → `false` | 신규 | **못 잡음** | — (chat 3,034) | ⑥⑦ | **이행 — D19** |
+| X14 · X15 | `:700` · `:698` | 제거 | `select-none` · `data-selection-suppressed` | 신규 | 잡음 ×2 | s5 1 · 3 | ⑥⑦ | — |
+| M26-a4 · X01 · X03 · X05~X08 · I1 · I4 · I5 · M21-v1 | `TranscriptViewport.tsx`(재앵커 — 같은 동작의 현재 줄) | r3 원문 | r3 원문 | 잡음 | **잡음 ×11**(1·21·23·9·5·1·5·14·9·3·1) | chat | ④ | — 덮개 회귀 0 |
+
+- 검산: 시도 53(등록 V 계열 24 · X 15 · ④ 11 · V2·V4·X4 의 C2·C3 재실행 3 — 표는 묶음 행) · 못 잡음 행 8 = 이행 3(V2 AT · V4 AT · X13) · 확장 3 · 동치 2.
+- ③ r3 못 잡음 0 → 재실행 대상 없음. ④ r3 잡음 중 복사 경로 7건(X02 · M29-c3 · X09 · M29-c19 · I2 · I3 · R35-copy)은 D-102 가 동작 자체를 없앴다 — 닫음(ΔV2 §7-A 삭제 대상). X04(`changeLog.ts`)는 이번 diff 밖.
+- **못 본 것**: ΔV2 밖 동결 노드의 등록 변이(V1 rev 7 의 VP-02~39 corpus) 재생 — 이번 diff 가 닿지 않은 파일이다. Windows Electron 실행(B35 — S5).
+
+## 3. V-pair closeout
+
+| Pair | 결과 | 근거 |
+|---|---|---|
+| VP-42 MD-22↔UT-20 | PASS | u1~u7 7/7 · V14~V16 잡음 · 자리 검색 3 |
+| VP-41 MD-21↔UT-21 | PASS | k1~k9 9/9 · V10~V13·V17·V18 잡음 · ④′·⑤′ 자리 검색 |
+| VP-29 AR-09↔IT-09 | **PAIR_FAIL** | D19 — s10 좌표 입력(OpenCode 행) 없음 · X13 green. ①~④·⑥ 은 V1~V8·X5·X6·X10·X11·X14·X15 잡음 |
+| VP-29 R-07↔AT-07 | **PAIR_FAIL** | D18 — 등록 V2 의 AT B1·C1 · V4 의 AT B1 green. 실행 자체는 exit 0(§1) |
+| VP-35 MD-18↔UT-16 | PASS | `node --test` 1,045 통과(`measure-ui-inputs.test.mjs` 포함) · J9 폐지 |
+| VP-22 · VP-27 · VP-36 | PASS(회귀 범위) | 전체 vitest 에서 renderer 실패 0. VP-36 의 뷰포트 경유 edge 는 D19 가 연다 |
+| ΔV2 밖 동결 pair | 판정 보류 | 이번 diff 밖 — 전체 vitest 기준선 외 실패 0 |
+
+### AC 합계
+
+| 결과 | AC |
+|---|---|
+| ✅ 4 | AC16 · AC22 · AC23 · AC32 — 바뀐 단언 green · ④ 11건 잡음 |
+| ❌ 1 | AC26 — D18 · D19 |
+| 사람 1 | AC33 |
+| ⚠️ 29 | 나머지 — 이번 diff 밖 · 전체 gate green · 등록 변이 미재측정 |
+
+- `4 + 1 + 1 + 29 = 35` ↔ trailer `Criteria-Met: 34/35` — ❌ 1 은 반증, ⚠️ 29 는 미재측정이다.
+
+### 운영 gate (`731d607` 트리)
+
+| Gate | 결과 | 증거 |
+|---|---|---|
+| 가드 5종 | PASS | migrations no-copies 2,305파일 · doc-inventory 9항목·prose·links ok · product-naming 2,550파일 OK · test-budgets 18 suites ok · ui-thread OK |
+| lint / typecheck | PASS | 0 error · 4 warning(기존) · 실행 뒤 `git status` 빈 출력 / `error TS` 0 |
+| 파일 필터 없는 vitest | 기준선 한계 | 1,091파일 · 10,441케이스 — 22 failed(9파일 · 전부 `src/main`). 이번 range 의 `src/main` 변경 0파일 · r1~r4.1 과 같은 9파일 22건 · 서명 `Composer directory must be absolute`(Windows 경로 픽스처) |
+| `node --test scripts/*.test.mjs` | PASS | 1,045 / 1,045 |
+| 빌드 + 두 스모크 · `__ooDev` | PASS | `electron-vite build` exit 0 · smoke-hosts OK · smoke-preload OK(키 7) · `out/renderer` `__ooDev` 0파일 |
+| Electron 선택·복사(D-107) | 실행 PASS · 민감도 FAIL | §1 exit 0 · D18 |
+| trailer 파싱 | PASS | range 8커밋 모두 키 반환(구현 6~8키 · 설계 4키) |
+
+## 4. Repository operation checks
+
+- INDEX 자리표시자 6개를 PR 브랜치 해시로 채운다(ΔV1 `1489b55` · ΔV1 rev 2 `a185d00` · ΔV2 `115dcec` · ΔV2 rev 2 `0ccdfeb` · r4.1 `21f7c42` · ΔV3 `988e2c2` · r4.2 `731d607`). `git cat-file -t` 전부 commit · `origin/main` 조상은 0(PR 미병합) — 병합 뒤 `main` 해시로 교정해야 한다.
+- `[구현자 기입]` r4.1·r4.2: 7필드 모두 있음. 강제 지점 표는 VP-29 6 · VP-42 3 · VP-41 6 자리 전부(남긴 곳 0).
+- `app/AGENTS.md` 변경: 위생(비밀·IP·일회성) 위반 0 · CI 표에서 단계 제거와 "verify 실행 도구" 문장이 D-107 과 같다.
+- r4.2 INDEX 비고는 5줄을 넘는다(한 칸 1,600자) — 이번 커밋에서 줄인다.
+
+## 5. Finding disposition
+
+| # | finding | 분류 · 근거 | disposition |
+|---|---|---|---|
+| D16 | 복사 task 50ms 초과 | ΔV2 D-102 가 경로를 없앴다 | **closed** |
+| D18 | AT B1·C1 이 앱 취소를 관측하지 못함 | 이행 — §7-A 등록 변이 표 "V2 … AT B1·C1" · "V4 … AT B1(move 뒤 선택)" 이 green | BLOCKING |
+| D19 | s10 이 OpenCode 행이 아님 | 이행 — VP-29 ⑤ IT 좌표 "s10: OpenCode 행 둘 사이 선택" · X13 green | BLOCKING |
+| D20~D22 | 보조 버튼 · 세션 전환 해제 · 세션 간 key 비교 | 확장 — 규칙 칸에 없음(창 안 ΔV2 노드) | PLAN_GAP |
+| D23 | `design-components.md` TranscriptView 행 문구 | 비귀속 | NON_BLOCKING |
+| D24 | OpenCode `retained` 죽은 상태 | 비귀속 — VP-36 동결 | NON_BLOCKING |
+
+상세 행은 plan `[검증자 기입] 파생 이슈` D18~D24.
+
+## 6. Review Signals — 사실만
+
+- 이전 라운드와 유사: r2 의 "좌표가 production 경로 밖" 과 같은 꼴 — D19 는 IT 가 화면 조립 대신 일반 블록으로 들어갔다.
+- 관련 plan 지침: ΔV3 가 `cancelMs ≥ 1`(D-105 의 일부)을 성능 조건과 함께 뺐고, 그 조건이 V2 의 유일한 AT 신호였다(r4.1 보고 "AT C1 에서 처음 `cancelMs: []` 로 드러남"). r4.2 는 V10~V13·V17·V18 만 다시 돌렸다.
+- 사용자 결정 변경: ΔV2·ΔV3(사용자 지시) — 이번 판정과 충돌 없음.
+- 반복 환경 한계: `src/main` Windows 경로 픽스처 9파일 22건(r1~r4 같음).
+- 독립 축(⑥) 14건 — 못 잡음 6: 이행 1(X13) · 확장 3 · 동치 2.
+
+## 7. 결론
+
+- 상태: **RETURN_TO_PLAN** — PLAN_GAP 3(D20~D22 · 창 안 확장) + BLOCKING 2(D18·D19 · 이행). 설계자가 먼저다.
+- verify 4회째 — 3·6회째가 아니라 이번 뒤 `handoff-review` 의무 없음.
+- pair: root PAIR_FAIL 2(VP-29 IT · VP-29 AT) · PASS 4(VP-41 · VP-42 · VP-35 · 회귀 3).
+- AC: ✅ 4 · ❌ 1 · 사람 1 · ⚠️(미재측정) 29 / 35.
+- 다음 단계: Claude 설계 — D20~D22 를 채택(입력 추가) 또는 경계 선언하는 ΔV2 rev 3(이번 정정으로 열거 원문을 늘릴 수 있는 마지막 턴은 verify 5회째 뒤 설계 턴) → 구현자가 D18·D19 와 채택분을 닫는다.
