@@ -4,9 +4,9 @@
 
 ## 판정 (verify 1회째)
 
-**RETURN_TO_PLAN** — 확장 후보 1건(H1 `check-visible-views.mjs` 실행 환경)이 확장 창 안이라 `PLAN_GAP`이다. 같은 판정 안에 이행 결함 4건(I1~I4)이 `BLOCKING`이므로 설계자가 H1을 채택·경계 선언한 뒤 구현자가 I1~I4를 고친다.
+**RETURN_TO_PLAN** — 확장 후보 1건(H1 `check-visible-views.mjs` 실행 환경)이 확장 창 안이라 `PLAN_GAP`이다. 같은 판정 안에 이행 결함 3건(I1·I3·I4)이 `BLOCKING`이므로 설계자가 H1을 채택·경계 선언한 뒤 구현자가 I1·I3·I4를 고친다. I2 는 검증자 변이 위치 오류로 철회했다(아래 정정).
 
-- 합계 재측정: ✅ 5 · ⚠️ 31 · ❌ 3 = 39(§5). 자기보고 `Criteria-Met: 24/39`와 다르다 — 자기보고 ✅ 24건 중 19건은 plan이 지정한 oracle 좌표가 트리에 없거나 등록 변이가 잡히지 않는다.
+- 합계 재측정(정정 반영): ✅ 5 · ⚠️ 32 · ❌ 2 = 39(§5). 자기보고 `Criteria-Met: 24/39`와 다르다 — 자기보고 ✅ 24건 중 19건은 plan이 지정한 oracle 좌표가 트리에 없거나 등록 변이가 잡히지 않는다.
 - 막지 않는 것: 게이트(lint·typecheck·가드 5종·node 스크립트·빌드·preload 스모크)는 이번 변경 범위에서 통과했고, vitest 실패 393건은 전부 환경·기준선이다(§9).
 
 ## 메타
@@ -24,7 +24,7 @@
 | 확장 창 | verify 1회째 — 창 안. 사용자 요구 변경 ΔV로 다시 열린 노드: 해당 없음(창 자체가 열려 있음) |
 | 독립 축(⑥) | 3축 · 시도 9 — 토큰 워커 줄 경계(I1·I2 변이) · 가상 행 추가 판정의 테스트 잠금(W1~W3 vitest · W1e~W3e Electron) · D-052 복사 가로채기 전수 검색(`rg onCopy\|'copy'\|claimCopy` 0건) |
 | 열거 sweep(⑦) | 1회째지만 **부분** — ΔV2~ΔV5가 열거한 항목(EP-3 ③ · EP-13 ④⑧ · EP-26 ③~⑦ · EP-27 · EP-28 ①~④ · ΔV1 MD-05)만 돌렸다. V1 rev 3 EP-1~EP-25 는 plan 좌표 파일 다수가 없어(§5 I1) 심을 oracle이 없다 — 다음 verify가 전수를 이어 받는다 |
-| 발견 분류 | 이행 4 · 현재 0 · 확장 1(막음 1 / 후보 표 0) · 경계 0 · 비귀속 1 |
+| 발견 분류 | 이행 3(I2 철회 전 4) · 현재 0 · 확장 1(막음 1 / 후보 표 0) · 경계 0 · 비귀속 1 |
 | 구현 주체·문맥 | 구현 codex · 설계자 = 검증자(Claude) — plan validity는 자기 설계 감사다 |
 
 ## 0. 기준선 / plan 변경 확인
@@ -180,6 +180,18 @@
 | I4 | r1.5 `[구현자 기입]` 필드 접힘 | 이행 | `handoff-impl` 최소 계약 "같은 이름 필드를 다시 채운다 · 강제 지점 전수 표는 그 pair의 §10 자리 전부" | BLOCKING |
 | H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | 확장 | 원본 실행 FATAL 재현. plan 이 이 도구를 열거하지 않아 원문 인용 불가 | PLAN_GAP(창 안) |
 | N1 | `smoke-hosts` 의 SQLite ABI 실패 | 비귀속 | 환경 서명 · `src/main` 변경 0 | NON_BLOCKING |
+
+## 정정 — I2 철회 (같은 verify 1회째 · 설계 턴 조사 중 발견)
+
+**I2 는 결함이 아니다.** 고장 이력 V57-1 은 `openCodeBlocks.ts:531-532` 의 두 `isLiveSeg` 중 **둘째(6번째 인자 `live`)** 를 이전 식으로 바꿨다 — plan 등록 변이의 대상은 첫째(5번째 인자 `streaming`)다(`appendSegment(key, messageId, partKeys, gap, streaming, live, …)` `:405-415`). 계측 실행에서 행이 `live:true · streaming:false` 로 나와 위치 오류가 드러났다.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 | 분류 |
+|---|---|---|---|---|---|---|
+| V57-1 (원 기록) | `openCodeBlocks.ts:532` | 맞바꿈(⑤ 성격) | `live` 인자 ← `active && index === segments.length - 1` | 잡음 | ob1 | — (등록 변이 아님) |
+| V57-1r | `openCodeBlocks.ts:531` | 뒤집기 | `streaming` 인자 ← `active && index === segments.length - 1` | 잡음 | ob1 · `streamingSessions.test.ts` opencode bg4a · bg4b(3 failed / 39) | — |
+
+- 판정 영향: VP-57 → **PASS**(등록 변이 2/2 · sweep Y3·Y4). VP-52 → **PASS**(P1·U1 18기록 · V2-1~V2-5 · EP-26 ⑨⑩ 좌표 bg4a·bg4b 존재). VP-05 → `BLOCKED_BY:VP-35`. AC39 ❌ → ⚠️(bg0~bg3 라벨 대응 — I1).
+- verify 횟수·라운드·판정(RETURN_TO_PLAN)은 바뀌지 않는다. 원 고장 이력 행은 그 자리에 두었다.
 
 ## Review Signals — 사실만
 

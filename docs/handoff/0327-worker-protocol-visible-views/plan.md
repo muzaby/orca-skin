@@ -1832,7 +1832,7 @@ verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md)
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
 | I1 | plan 지정 oracle 좌표 부재 — 24 AC(파일 `protocol.keys`·`useWindowTokens`·`fileDiffVirtual.render`·`useDiffRowTokens`·`markdownDocumentBlocks`·`cardSyncCaps` 등 · 케이스 라벨 d1~d9·bg0~bg3) | VP-01·02·04·10·12·13·15·20~25·31·33·35·36·38·39·48·49·51 · AC 검증 수단 칸 | plan 좌표를 만들거나, 같은 단언을 둔 기존 테스트를 자리별 좌표 표로 대응시킨다 | 이행 | BLOCKING | open |
-| I2 | VP-57 등록 변이(`openCodeBlocks.ts:532` 이전 식)에서 `streamingSessions.test.ts` bg4a·bg4b ③ OpenCode 가 green | VP-57 · ΔV4 EP-28 등록 변이 | 원인(테스트 harness 의 OpenCode `pending`·턴 위치 입력)을 찾아 ③ 단언이 그 변이에 red 가 되게 한다 | 이행 | BLOCKING | open |
+| I2 | ~~VP-57 등록 변이에서 bg4 OpenCode green~~ — 철회: 검증자 변이가 6번째 인자(`live`)에 심겼다. 5번째 인자(`streaming`) 변이 V57-1r 은 ob1 · bg4a · bg4b red | VP-57 | — | — | — | withdrawn |
 | I3 | `rowMount.ts:7` 추가 판정을 크기 비교·제거만 참으로 바꾸거나 `:9` 알림을 지워도 vitest·`check-visible-views` green | VP-34 · ΔV1 MD-05 · VP-50 "취소 사례는 실제 새 행 키 관측" | 판정 함수 UT(추가·교체·제거만·동일 키) + 선택 끝이 마운트된 채 새 키가 들어오는 Electron 사례 | 이행 | BLOCKING | open |
 | I4 | r1.5 `[구현자 기입]` 에 강제 지점 전수 표·놓친 잠재 문제·sweep 검산 줄 없음 | `handoff-impl` 최소 계약 | 다음 impl 턴이 일곱 필드를 채운다 | 이행 | BLOCKING | open |
 | H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP | open |
