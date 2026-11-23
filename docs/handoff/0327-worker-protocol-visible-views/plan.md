@@ -4,11 +4,11 @@
 > 입력: [0325 plan §6-C C 행 · §6-D](../0325-ui-responsiveness-followup/plan.md) · 0325 첨부 [`input/0324-agent-requests.ko.md`](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md)(요청서 — 본문의 `T08`~`T33`) · [`input/0324-audit.ko.md`](../0325-ui-responsiveness-followup/input/0324-audit.ko.md)(감사) · [0326 plan §10 B9](../0326-transcript-incremental-model/plan.md)(스트리밍 꼬리 — "워커는 단계 C") · **PR #643 소유자 검토(2026-11-20) — rev 2 의 입력**(§4-A 항목별 판정) · **PR #643 소유자 후속 검토 2건(2026-11-20) — rev 3 의 입력**(§4-B 항목별 판정).
 > 측정 수치는 실제 소스 함수 재측정이다 — M1~M13 은 V1 세션, M13b·M14~M21 은 rev 2 세션, M22~M25 는 rev 3 세션(§8). 측정 스크립트는 저장소에 두지 않았다 — 같은 입력을 구현 턴의 K1~K12(WU-10)가 다시 잰다.
 
-## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료) + ΔV5 (G3 · 마지막 토큰 작업의 완료 응답)
+## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료) + ΔV5 (G3 · 마지막 토큰 작업의 완료 응답) + ΔV6 (H1 채택 · 선택 취소 경로의 자리 고정)
 
-ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다.
+ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다.
 
-현재 상태는 verify/RETURN_TO_PLAN(verify 1회째 · 라운드 2)이다 — 확장 후보 H1 채택·경계 선언 뒤 구현자가 I1~I4 를 고친다([verify.md](verify.md)). r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 plan/READY(ΔV6 · 라운드 2)다 — verify 1(RETURN_TO_PLAN)의 H1 을 채택하고 선택 취소 경로 EP-30 을 고정했다. r2 는 ΔV6 와 verify 1 I1·I3·I4 를 닫는다([verify.md](verify.md)). r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -530,7 +530,167 @@ EP-13 검색 명령은 V1 rev 3 명령의 술어에 `|data-markdown-tail` 을 �
 - 방향: "끝난 작업은 완료" 를 잠그는 장치는 순서 뒤집기 변이에 n = 50·100 이 red 여야 한다.
 - 수식 검산: ⌈n/50⌉ − 1 = 0·0·0·1·1·2(n = 1·49·50·51·100·101) — 위 표 `continue` 열과 같다.
 
-## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다 · ΔV5 는 AC4·EP-3 ③ 의 마지막 작업 규칙을 보탠다)
+### ΔV6 · H1 채택 · 선택 취소 경로의 자리 고정
+
+판정: verify 1(RETURN_TO_PLAN)의 확장 후보 H1 을 채택하고, ΔV1 이 대체한 선택 취소 경로의 §10 자리 목록·oracle 을 고정한다. 제품 동작(D-052)은 그대로다. 요구하는 변경은 Electron 판정 도구와 테스트이고, 그 과정에서 생산 코드 결함이 드러나면 구현자가 고친다.
+
+| 항목 | 값 |
+|---|---|
+| 입력 | verify 1 H1 · I3([verify.md §11](verify.md)) · ΔV1 뒤에도 VP-09·VP-14·VP-26·VP-34 행이 ΔV1 이 제외한 복사 장치(`rowEndpoint`·`copyUnits`·`claimCopy`)를 가리키는 불일치 |
+| 출처 | H1 = 확장 채택(verify 1회째 뒤 — 창 안) · EP-30 = plan 내부 정합(목록 미고정) |
+| V mode | `Delta V` — 기준 `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5` |
+| 이번 V revision | `ΔV6` — 설계 커밋 `(ΔV6 설계 — 검증자 기입)` |
+| 유효 V | `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 라운드 | 2 — verify 1회. 다음 impl 턴은 `r2`. 다음 verify 는 2회째(창 안)이고, 그 뒤 설계 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다 |
+| 변경이 시작되는 수준 | R-09 CHANGED(AT 판정 도구 · 취소 증거) → SD-05 · AR-07 · MD-05 CHANGED · MD-17 NEW |
+| 줄 참조 트리 | `0bb0783e` app 트리(이번 세션 `rg` 실측) |
+| r2 가 함께 닫는 것 | verify 1 I1(plan oracle 좌표 부재)·I4(`[구현자 기입]` 필드) — plan 변경 없음. plan 좌표 파일과 다른 곳에 같은 단언을 두었으면 강제 지점 표에 자리별 `파일:테스트명` 으로 대응시킨다 |
+
+#### ΔV6 Decision Ledger
+
+| ID | 결정 | 근거 | 출처 | 상태 | 관계 |
+|---|---|---|---|---|---|
+| D-062 | `check-visible-views.mjs` 는 AC15·AC35 의 AT 판정 도구다. production 소유 화면(`DiffReview` 두 보기 · `ArtifactViewer` 코드·Markdown · `TranscriptView` 카드)을 띄운다. 판정은 순수 함수가 원자료로 다시 계산하고 모르는·빠진 기록은 실패다(fail-closed). 종료 코드는 ΔV2 도구와 같다(0 통과 · 1 실행·판정 실패 · 3 바이너리 없음). root Linux 는 `--no-sandbox` 로 띄운다 | verify 1 H1 — root 실행 Electron FATAL 재현 · probe 가 소유자를 재구현(`scripts/visible-views/probe.tsx:46-50` `usePanelSelection` + 자체 공급) · 알림을 지운 W3e 에도 6화면 통과 | verify 1 확장 채택 | ACTIVE | ΔV1 VP-50 행 "새 화면은 실제 Electron 마우스·키 입력과 클립보드로 AC15·35 를 검증한다" 의 도구를 고정 |
+| D-063 | AT 취소 사례는 선택의 두 끝 노드가 연결된 채 새 행 키가 마운트된 커밋에서 앱이 선택을 해제했음을 보인다 — 커밋 전후 마운트 키 차집합 ≥ 1 · 두 끝 노드 `isConnected` 참 · 선택 문자열 `''` · Ctrl+C 뒤 클립보드 = 기존 값 | ΔV1 "취소 사례는 실제 새 행 키 관측을 증거로 남긴다" · W3e — 끝까지 스크롤하면 선택 노드가 언마운트되어 브라우저가 선택을 스스로 비우므로 앱 취소 없이도 클립보드 단언이 참 | plan 내부 정합 | ACTIVE | D-052 판정의 관측 방법 |
+| D-064 | 선택 취소 경로의 분모는 EP-30(자리 15)이다. EP-10(복사 끝점·단위)·EP-20(복사 처리·0326 통합)은 SUPERSEDED — 그 pair 의 선택 적대 증거(끝점 칸 맞바꿈 · 조각 계획)는 대체 없이 폐기한다 | ΔV1 적용표 첫 행이 복사 호스트·끝점·조각·copy claim 을 구현 대상에서 뺐다 — 장치가 없으니 변이를 심을 자리가 없다 | plan 내부 정합 | ACTIVE | ΔV1 의 §10 정리 |
+
+갱신 메모(ΔV6):
+
+- 결정 단위 SUPERSEDED 0 · OPEN 0. D-052 는 그대로다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-052 ↔ AC15·AC35(ΔV6 c1·c2·c4·c5 · IT ps·tn·po · UT rm) · D-062 ↔ AC40 · D-063 ↔ AC15·AC35 c2 · D-064 ↔ EP-30. D-052 "제거만 일어난 커밋에는 취소하지 않는다" ↔ rm3·ps11 · "같은 키의 내용 변경 … 제외" ↔ rm4·ps12 · "다른 패널의 마운트로 현재 선택을 지우지 않는다" ↔ ps3·c4.
+- 같은 대상 여러 절 대조: 공급자 셋(`TranscriptViewport.tsx:704`·`DiffReview.tsx:126`·`ArtifactViewer.tsx:132`) = D-052 의 "transcript viewport·Git 리뷰·산출물 미리보기" 세 소유자 = AT 화면군 셋. 생산자 둘(`useVirtualRows.ts:45`·`FileDiffSection.tsx:436`) = D-052 "공통 가상 행 뷰".
+
+#### ΔV6 대체표
+
+| 대상 행 | ΔV6 유효 행 |
+|---|---|
+| Pair registry VP-34 · VP-26 · VP-14 · VP-09 의 path · 좌표 · 적대 증거 | 아래 ΔV6 pair 표 |
+| §10 EP-10 · EP-20 | EP-30(ΔV6) — D-064 |
+| ΔV1 적용표 VP-50 행의 "새 화면은 실제 Electron … AC15·35 를 검증한다" | 아래 하네스 계약 + AC40 |
+| AC15 · AC35 의 ΔV1 행 | 아래 AC15·AC35(ΔV6) |
+| (없음) | MD-17 / UT-17 · VP-59 · EP-31 신설 · 운영 gate 1행 |
+
+#### ΔV6 Acceptance Criteria
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-09 | AT-09 / AC15 (ΔV6) | Git 두 보기·산출물 두 보기. c1 마운트 행 안 부분·역방향 선택 → 실제 Ctrl+C → 클립보드 = 선택 문자열. c2 선택 두 끝이 마운트된 채 새 행 키가 들어오면 선택이 비고, 복사해도 클립보드는 기존 값(D-063). c4 다른 패널에 새 키가 들어와도 이 패널 선택·복사 유지. c5 취소 뒤 놓고 새로 드래그하면 그 선택이 복사된다 | AT `check-visible-views` 화면 `git-inline`·`git-split`·`artifact-code`·`artifact-markdown` · IT po1~po5 · UT rm1~rm8 | 실제 입력 → `DiffReview` \| `ArtifactViewer` → `VirtualRowMountContext` 공급 → `FileDiffSection` \| `useVirtualRows` → `useMountedRows` → `usePanelSelection.notify` |
+| R-09 | AT-09 / AC35 (ΔV6) | transcript 카드 안과 본문 → 카드. c1 카드 안 · 본문 문단에서 카드 행까지 역방향 선택 → 복사 일치. c2 바깥 행 키가 고정된 채 카드 내부 목록에 새 키 → 취소(D-063). c4 · c5 는 AC15 와 같다. 바깥 목록 교체 취소는 0326 회귀(VP-50) | AT 화면 `transcript-file`·`transcript-diff`·`transcript-work` · IT tn1~tn4 | 실제 입력 → `TranscriptView` → `TranscriptViewport` 공급 → 카드 `useVirtualRows` → `useMountedRows` → `cancelNestedSelection` |
+| R-09 | AT-09 / AC40 (신규) | AT 판정 도구는 원자료를 다시 계산해 판정한다 — 격자 밖 기록·빠진 기록·c2 증거 4항 중 하나라도 어긋나면 실패. 바이너리 없음 exit 3 · 실행 실패·하네스 오류·판정 실패 exit 1 · 통과 exit 0. root Linux 에서 실행된다 | UT `check-visible-views.test.mjs` vv1~vv11 | `main` → `runElectron`(재사용) → 원자료 → `judgeVisibleViews` → 종료 코드 |
+
+AC 검증 주의(ΔV6):
+
+- 음성 단언은 양성과 짝짓는다 — rm3(제거만 → 알림 0)은 rm1·rm2(추가 → 1)와, ps3(밖 → 유지)는 ps2(안 → 해제)와, c4(다른 패널 → 유지)는 c2(이 패널 → 취소)와 같은 실행에서 방향을 확인한다.
+- 사람 실기 0이다. Electron 바이너리가 없으면 exit 3 이고 AC15·AC35 는 미완료로 남는다(PASS 아님).
+
+#### ΔV6 실측 하네스 계약 (`check-visible-views.mjs`)
+
+| 항목 | 계약 |
+|---|---|
+| 실행 | `cd app && xvfb-run -a node scripts/check-visible-views.mjs` — stdout JSON `{env, electron, records, verdict, failures}`. CI 단계에 넣지 않는 verify 실행 도구다(ΔV2 도구와 같음) |
+| 재사용 | `check-transcript-selection.mjs` 의 `resolveElectron`·`serveProbe`·`runElectron`(root Linux `--no-sandbox` `:103-104` 포함)을 쓴다. 화면 목록·회수를 인자로 받게 일반화해도 되지만 같은 동작을 다시 구현하지 않는다 |
+| 화면 `SCREENS` | `git-inline`·`git-split` — production `DiffReview`(5,001행 파일 1개 · 펼침) · `artifact-code`·`artifact-markdown` — production `ArtifactViewer`(ready 결과 · 5,001줄 코드 · 5,001블록 Markdown) · `transcript-file`·`transcript-diff`·`transcript-work` — production `TranscriptView`(`FileBody` 5,001줄 · `DiffBody` 5,001행 · `WorkToolBody` 요청·응답 5,001줄). 기존 6종의 첫·끝 행 도달과 마운트 행 < 150 단언은 이 화면들로 옮긴다 |
+| 시나리오 | 화면마다 c1·c2·c5 · 쌍 화면 c4 · 각 1회. 원자료 단계 열은 `SCENARIOS` 순서다 |
+| c1 | 마운트 행 안에서 실제 마우스(`sendInputEvent`) 역방향 부분 선택 → Ctrl+C → 클립보드 = 기대 문자열(행 표지로 계산). `transcript-*` 는 본문 문단 → 카드 행 역방향 선택을 하나 더 기록한다 |
+| c2 | 화면 안 두 행에 걸친 선택(두 끝이 overscan 안쪽 행) → 커밋 전 `anchorNode`·`focusNode` 와 마운트 키(`[data-index]` 또는 행 id)를 기록 → 스크롤 소유자를 overscan 보다 작게 움직여 새 키를 마운트 → 기록 `keysBefore`·`keysAfter`·`endpointsConnected`(두 노드 `isConnected`)·`selectionAfter` → 클립보드에 `unchanged` 를 쓰고 Ctrl+C → `clipboard` |
+| c4 | 한 창에 소유 화면 둘(`transcript-diff` + `git-inline`). A 선택 → B 스크롤로 B 새 키 → A `selectionAfter` = `selectionBefore` · Ctrl+C → A 문자열. 두 방향(A·B 맞바꿈) |
+| c5 | c2 뒤 mouseUp → 새 드래그 선택 → Ctrl+C → 새 문자열 |
+| 판정(순수) | `judgeVisibleViews(records)` — EP-31. 판정에 쓰는 값은 원자료에서 다시 계산한다(probe 의 통과 문자열을 믿지 않는다) |
+| 원자료 | 기록마다 `{screen, scenario, keysBefore?, keysAfter?, endpointsConnected?, selectionBefore?, selectionAfter?, expected?, clipboard?, mounted?, reachedFirst?, reachedLast?, error?}` |
+
+#### ΔV6 §10 강제 지점
+
+**EP-30 · MD-05·AR-07·SD-05·R-09 / VP-34·VP-26·VP-14·VP-09 — 새 행 키와 선택 취소** — 자리 15. 불변식: 선택 끝이 그 소유 화면 안에 있을 때 직전 커밋에 없던 행 키가 마운트되면 그 소유자가 선택과 표시를 해제하고, 그 밖의 커밋·다른 소유자의 커밋은 선택을 건드리지 않는다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 — 분기마다 입력 |
+|---|---|---|---|
+| ① | `shared/ui/virtual/rowMount.ts:7` 추가 판정 | 직전 집합에 없는 키가 하나라도 있으면 참 · 제거만 · 같은 집합 · 순서만 바뀜 → 거짓 | `rowMount.test.ts` rm1(첫 마운트 `[]→[0,1]` → 알림 1) · rm2(교체 `[0,1]→[1,2]` → 1) · rm3(제거만 `[0,1,2]→[0,1]` → 0) · rm4(같은 집합 재렌더 → 0) · rm5(같은 크기 다른 키 `[0,1]→[2,3]` → 1) · rm7(순서만 `[0,1]→[1,0]` → 0) |
+| ② | `rowMount.ts:8` 기준 갱신 | 다음 비교 기준 = 이번 커밋의 키 집합 | rm8(`[0,1]→[0,1,2]→[0,1,2]→[1,2]→[1,2,3]` → 알림 누계 2) |
+| ③ | `rowMount.ts:9` 알림 | 추가면 공급된 알림 1회 · 공급자가 없으면 아무 일도 하지 않음 | rm1 · rm6(공급자 없음 → 예외 0) |
+| ④ | `shared/ui/virtual/useVirtualRows.ts:45` 생산자 | 공통 가상 행 뷰의 마운트 키 = 가상 항목 key | po4(산출물 `VirtualCodeView` 행 첫 마운트) · AT c2 `artifact-*`·`transcript-*` |
+| ⑤ | `harnesses/common/rightpanel/FileDiffSection.tsx:436` 생산자 | Git 본문 마운트 키 = 그린 행의 `row.id` | po1(펼침 → 행 첫 마운트) · AT c2 `git-*` |
+| ⑥ | `components/transcript/TranscriptViewport.tsx:704` 공급 | 카드 내부 목록의 알림 = `cancelNestedSelection` | tn1 · AT c2 `transcript-*` |
+| ⑦ | `TranscriptViewport.tsx:462-469` 소유자 판정 | 선택 없음 · 밖 → 유지 · 안 · 드래그 중 → 선택 해제 + 표시(`selectedKeys`) 해제 + 제스처 `cancel` | `TranscriptViewport.nestedSelection.test.ts` tn1(안 → 해제 · 표시 해제) · tn2(밖 → 유지) · tn3(없음 → 변화 0) · tn4(드래그 중 → `data-selection-suppressed`) |
+| ⑧ | `rightpanel/DiffReview.tsx:126` 공급 | Git 본문 알림 = `usePanelSelection.notify` | po1 · po2 · AT c2 `git-*` |
+| ⑨ | `DiffReview.tsx:128` 제스처 시작 배선 | 소유 요소 pointerdown → 제스처 시작 | po3(pointerdown 뒤 새 키 → `data-selection-suppressed`) |
+| ⑩ | `rightpanel/ArtifactViewer.tsx:132` 공급 | 산출물 본문 알림 = `usePanelSelection.notify` | po4 · AT c2 `artifact-*` |
+| ⑪ | `ArtifactViewer.tsx:134` 제스처 시작 배선 | 같음 | po5 |
+| ⑫ | `features/chat/hooks/usePanelSelection.ts:58-64` 판정 | 제스처 idle · 안쪽 기록 없음 · 선택이 이 화면에 없음 → 유지 · 끝 하나라도 이 화면 안 → 선택 해제 · 드래그 중 → 해제 + 억제 | `usePanelSelection.test.ts` ps1(선택 없음 → 해제 0) · ps2(두 끝 안 → 해제 1) · ps3(두 끝 형제 패널 → 0) · ps4(anchor 밖·focus 안 → 1) · ps10(오른쪽 버튼 pointerdown → 억제 0) · ps11(제거만 → 0) · ps12(같은 키 내용 변경 → 0) |
+| ⑬ | `usePanelSelection.ts:39-43` 억제 중 재해제 | 억제 중 안쪽 `selectionchange` → 다시 해제(같은 제스처에서 되살아나지 않음) | ps5(드래그 중 새 키 → 억제 → 안쪽 선택 변경 → 해제 2회째) |
+| ⑭ | `usePanelSelection.ts:48-50` 제스처 끝 | `pointerup` · `pointercancel` · 창 `blur` → idle(새 드래그 가능) — 세 항 | ps6(pointerup) · ps7(pointercancel) · ps8(blur) — 각각 뒤 새 pointerdown·선택 → 해제 0 |
+| ⑮ | `usePanelSelection.ts:20-27` 문서 전환 | 문서 키가 바뀌면 억제 해제 · 제스처 idle · 안쪽 기록 초기화 — 세 항 | ps9(억제 중 문서 키 변경 → 억제 0 · 새 키 없이 선택 변경 → 해제 0) |
+
+- 자리 검색 명령(`app/`): `rg -n "keys\.some\(\(key\) => !previous\.current\.has\(key\)\)|previous\.current = new Set\(keys\)|if \(added\) notify\?\.\(\)|^\s+useMountedRows\(|VirtualRowMountContext\.Provider value=|const cancelNestedSelection = useCallback|const notify = useCallback|if \(inside\.current && isSuppressed\(gesture\.current\)\)|document\.addEventListener\('pointerup'|if \(key !== documentKey\)|onPointerDown=\{nativeSelection\.onPointerDown\}" src/renderer/src/shared/ui/virtual src/renderer/src/features/chat/hooks/usePanelSelection.ts src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx src/renderer/src/features/chat/harnesses/common/rightpanel --glob '!*.test.*'` → `0bb0783e` 16줄 = 자리 15 + 뺀 1(`TranscriptViewport.tsx:509` — 0326 바깥 목록 제스처 끝, VP-47·VP-50 회귀).
+- 등록 변이: ① W1 추가 판정 → 크기 비교(rm5 red) · W2 제거만도 참(rm3·ps11 red) · ② 기준 갱신 제거(rm8 red) · ③ W3 알림 제거(rm1·ps2·tn1·po1·po4·AT c2 red) · ⑥⑧⑩ 공급 값 → `null` 각각(tn1 · po1 · po4 · 그 화면 AT c2 red) · ⑦ 조기 반환 제거(tn2 red) · ⑫ `contains` 의 `focusNode` 항 제거(ps4 red) · ⑬ 재해제 제거(ps5 red) · ⑭ 세 항 각각 제거(ps6 · ps7 · ps8 red) · ⑮ 억제 해제 제거(ps9 red).
+- IT seam: 선택은 `components/transcript/viewportSelection.testfixture.ts` 의 가짜 선택을 쓴다. tn 은 `TranscriptViewport.harness.test.ts` 의 production 조립에서 `renderBlock` 이 production `useMountedRows` 를 부르는 자식을 그린다. po 는 production `DiffReview`(접힌 파일 → 펼침)·`ArtifactViewer`(loading → ready 코드 결과)를 렌더한다. ps 는 production `usePanelSelection` 과 공급자·자식(production `useMountedRows`)으로 조립한다.
+- 실패 의미: ①②가 틀리면 스크롤마다 과취소되거나(제거만도 참) 같은 크기의 교체를 놓친다. ⑥⑧⑩이 빠지면 그 화면에서 새 행이 들어와도 선택이 남아, 마운트된 적 없는 행을 포함한 선택을 복사한다. ⑫ 가 밖도 지우면 다른 패널 스크롤로 선택이 사라진다.
+- 선언 경계 B29: AT 는 새 키를 스크롤로만 만든다 — 펼침·결과 도착의 첫 마운트는 IT po1·po4 가 맡는다.
+- 선언 경계 B30: AT c4 화면 쌍은 `transcript-diff` ↔ `git-inline` 두 방향이다 — 산출물과 다른 패널의 격리는 ps3(형제 패널 선택)이 판정한다.
+- 선언 경계 B31: 억제 중 선택 표시 스타일(`user-select`)은 계약이 아니다 — `ArtifactViewer.tsx:136` 에만 있고 `DiffReview` 에는 없다. "같은 제스처에서 되살아나지 않는다" 는 ⑬ 재해제가 맡고 ps5 가 잰다.
+
+**EP-31 · MD-17 / VP-59 — 선택 실측 판정기** — 자리 6. 이름은 계약이다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 |
+|---|---|---|---|
+| ① | `judgeVisibleViews` 격자 | 화면 × 시나리오 — 모르는 기록 `reason: 'unknown record'` · 빠진 기록 `reason: 'missing record'` | vv1(통과 격자) · vv2(빠진 기록) · vv3(모르는 화면) |
+| ② | `cancelFailures` c2 | `keysAfter∖keysBefore` ≥ 1 ∧ `endpointsConnected` ∧ `selectionAfter === ''` ∧ `clipboard === 'unchanged'` — 네 항 | vv4(차집합 0 — 스크롤 언마운트 형태) · vv5(연결 거짓 — W3e 형태) · vv6(선택 남음) · vv7(클립보드 바뀜) |
+| ③ | `copyFailures` c1·c5 | `clipboard === expected` · 마운트 행 < 150 · 첫·끝 행 도달 | vv8(c1 불일치) · vv9(c5 불일치 · 마운트 150) |
+| ④ | `isolationFailures` c4 | `selectionAfter === selectionBefore` ∧ `clipboard === selectionBefore` | vv10(다른 패널 선택 사라짐) |
+| ⑤ | `main` 종료 코드 | 바이너리 없음 → `reason: '환경 없음'` exit 3 · 실행 실패·하네스 오류 → exit 1 · 판정 실패 → 1 · 통과 → 0 | vv11(네 경우 · 주입 `MAIN_DEPS`) |
+| ⑥ | `runElectron(` 호출 | `check-transcript-selection.mjs` 의 `runElectron` 을 부른다(root Linux `--no-sandbox`) | vv11(주입 deps 로 호출 확인) · 기존 `check-transcript-selection.test.mjs` 의 실행 인자 케이스 |
+
+- 자리 검색 명령(`app/`): `rg -n "^export (async )?function (judgeVisibleViews|cancelFailures|copyFailures|isolationFailures|main)\b|reason: '(unknown record|missing record|환경 없음)'|runElectron\(" scripts/check-visible-views.mjs` → 구현 뒤 9줄(정의 5 · 사유 3 · 호출 1).
+- 등록 변이(VP-59): ② 차집합 항 제거(vv4 red) · 연결 항 제거(vv5 red) · ① 빠진 기록 검사 제거(vv2 red).
+- 실패 의미: 판정기가 느슨하면 앱 취소 없이 저절로 비는 선택(W3e)이 통과한다. 모르는 형태는 실패로 막는다(fail-closed).
+
+#### ΔV6 V 변경
+
+| Node / pair | provenance · requiredness | production path | 직접 oracle | 선택 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| MD-05 / UT-05 · VP-34 | CHANGED(ΔV6) · REQUIRED | `useMountedRows(keys)` → 추가 판정 → 기준 갱신 → 알림 | `rowMount.test.ts` rm1~rm8 | W1(rm5) · W2(rm3) · 기준 갱신 제거(rm8) · W3(rm1) | EP-30 ①②③ |
+| AR-07 / IT-07 · VP-26 | CHANGED(ΔV6) · REQUIRED | 생산자(`useVirtualRows` · `FileDiffSection`) → 공급(세 소유자) → 소유자 판정(`cancelNestedSelection` · `usePanelSelection.notify`) | tn1~tn4 · po1~po5 | 공급 값 `null` 셋(tn1 · po1 · po4) · ⑦ 조기 반환 제거(tn2) | EP-30 ④~⑪ |
+| SD-05 / ST-05 · VP-14 | CHANGED(ΔV6) · REQUIRED | pointerdown → 드래그 → 새 키 → 억제 → 안쪽 선택 변경 재해제 → 제스처 끝 → 새 드래그 · 문서 전환 정리 | ps1~ps12 | ⑬(ps5) · ⑭ 세 항(ps6~ps8) · ⑮(ps9) · ⑫ `focusNode`(ps4) | EP-30 ⑫~⑮ |
+| R-09 / AT-09 · VP-09 | CHANGED(ΔV6) · REQUIRED | 실제 입력 → production 소유 화면 → 선택 → 복사 \| 새 키 → 취소 | AT `check-visible-views` c1·c2·c4·c5 × 7화면 | W3(c2 red) · 공급 값 `null`(그 화면 c2 red) | EP-30 ④⑤⑥⑧⑩(실제 런타임) |
+| MD-17 / UT-17 · VP-59 | NEW · REQUIRED | 원자료 → `judgeVisibleViews` → 판정 · `main` 종료 코드 | `check-visible-views.test.mjs` vv1~vv11 | 위 등록 변이 3 | EP-31 (6) |
+| VP-50(REGRESSION) | 변경 없음 | — | `check-transcript-selection` 90기록 | — | — |
+
+- SUPERSEDED 이관(D-064): EP-10 · EP-20 의 자리와 VP-34 의 적대 증거(나란히 끝점 칸 맞바꿈 · 조각 계획 변이)는 ΔV1 이 장치를 뺐으므로 폐기한다. VP-34 의 AC15·AC35 몫은 위 VP-34·VP-26·VP-14·VP-09(ΔV6)가 든다.
+
+#### ΔV6 구현 설계 · 파일
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `app/scripts/check-visible-views.mjs` | 판정 · 실행 | EP-31 판정 함수 · `MAIN_DEPS` · `main` — 실행부는 `check-transcript-selection.mjs` 재사용 | vv1~vv11(순수 · 주입 `MAIN_DEPS`) |
+| `app/scripts/check-visible-views.test.mjs`(신규) | AC40 UT | vv1~vv11 | — |
+| `app/scripts/visible-views/probe.tsx` | AT 화면 | production 소유 화면 7 + c4 쌍 화면. 자체 `usePanelSelection`·공급자를 두지 않는다 | — |
+| `app/scripts/visible-views/electron-main.mjs` | AT 입력·기록 | c1·c2·c4·c5 입력과 원자료 기록 — 통과 판정은 하지 않는다 | — |
+| `shared/ui/virtual/rowMount.test.ts`(신규) | VP-34 | rm1~rm8 — 공급자 spy | 렌더 하네스 |
+| `features/chat/hooks/usePanelSelection.test.ts`(신규) | VP-14 | ps1~ps12 | `viewportSelection.testfixture.ts` |
+| `features/chat/components/transcript/TranscriptViewport.nestedSelection.test.ts`(신규) | VP-26 transcript | tn1~tn4 | `TranscriptViewport.harness.test.ts` 조립 · `renderBlock` 자식 |
+| `features/chat/harnesses/common/rightpanel/panelSelectionOwners.test.ts`(신규) | VP-26 Git·산출물 | po1~po5 | production `DiffReview`·`ArtifactViewer` |
+| `app/AGENTS.md` | 스크립트 목록 | `check-visible-views.mjs` verify 실행 도구 한 줄(종료 코드 · `xvfb-run`) | `check-doc-inventory.mjs --check` |
+
+- 테스트 소스 규칙: 새 테스트 파일은 unit 풀이다 — 자식 프로세스·SQLite·실제 git 0, `[test-pools]`·예산 가드 위반 0(§7-A 운영 gate).
+- 생산 코드 변경은 요구하지 않는다. 위 oracle 이 생산 결함을 드러내면 고치고 `[구현자 기입] 놓친 잠재 문제` 에 적는다. EP-30 밖 0326 자리(바깥 목록 제스처 `TranscriptViewport.tsx:509` 등)를 고쳐야만 통과하면 그 경로를 멈추고 `PLAN_GAP` 으로 돌린다.
+
+#### ΔV6 운영 gate (§7-A 표에 더한다)
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| 선택 실측(새 화면) | AC15 · AC35 · AC40 | `cd app && xvfb-run -a node scripts/check-visible-views.mjs` → exit 0 · 원자료 JSON 을 verify `evidence/` 에 둔다 | exit 1 · exit 3 은 그 AC 미완료(환경 없음 — PASS 아님) |
+
+#### ΔV6 READY self-review (관측)
+
+- Decision: D-062~D-064 ACTIVE · SUPERSEDED(결정) 0 · OPEN 0. D-052 문장 변경 0.
+- 확장 창: H1 은 verify 1회째 뒤 채택(창 안). 다음 verify 2회째 뒤 설계 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다.
+- V: NEW·CHANGED 왼쪽 노드 MD-05·AR-07·SD-05·R-09·MD-17 ↔ REQUIRED VP-34·VP-26·VP-14·VP-09·VP-59 · VP-50 REGRESSION 그대로 · SUPERSEDED 자리(EP-10·EP-20)의 증거 이관은 D-064(폐기 근거).
+- 분모: EP-30 검색 `0bb0783e` 16줄 실측 − 뺀 1 = 15 · EP-31 구현 뒤 9줄(자리 6).
+- 규칙 칸 ↔ 입력 칸: EP-30 ①(추가 · 제거만 · 같은 집합 · 순서 · 같은 크기 교체) ↔ rm1~rm5·rm7 · ⑦(없음 · 밖 · 안 · 드래그) ↔ tn1~tn4 · ⑫(없음 · 안 · 밖 · 한 끝 · 오른쪽 버튼 · 제거만 · 같은 키) ↔ ps1~ps4·ps10~ps12 · ⑭ 세 항 ↔ ps6~ps8 · ⑮ 세 항 ↔ ps9 · EP-31 ②(네 항) ↔ vv4~vv7.
+- 방향: "취소한다" 자리는 알림·공급 제거 변이(W3 · `null`)가, "취소하지 않는다" 자리는 과취소 변이(W2 · 조기 반환 제거)가 red 여야 한다. AT c2 는 D-063 의 끝 노드 연결 항으로 저절로 비는 선택(W3e 형태)을 가른다.
+- 수치 계약 런타임: 마운트 행 < 150 · 클립보드 문자열은 실제 Electron 에서 잰다 · 사람 실기로 미룬 것 0.
+- 조사 대조: `probe.tsx:46-50` 이 소유자 재구현 · `check-transcript-selection.mjs:103-104` 에 root `--no-sandbox` 있음 · 가짜 선택 `viewportSelection.testfixture.ts:25`·`:119`·`:140` 있음 · `TranscriptViewport` `renderBlock` prop `:111` 있음.
+
+## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다 · ΔV5 는 AC4·EP-3 ③ 의 마지막 작업 규칙을 보탠다 · ΔV6 는 선택 취소 pair·§10 과 AT 도구를 고정한다)
 
 ## 메타
 
@@ -1835,7 +1995,7 @@ verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md)
 | I2 | ~~VP-57 등록 변이에서 bg4 OpenCode green~~ — 철회: 검증자 변이가 6번째 인자(`live`)에 심겼다. 5번째 인자(`streaming`) 변이 V57-1r 은 ob1 · bg4a · bg4b red | VP-57 | — | — | — | withdrawn |
 | I3 | `rowMount.ts:7` 추가 판정을 크기 비교·제거만 참으로 바꾸거나 `:9` 알림을 지워도 vitest·`check-visible-views` green | VP-34 · ΔV1 MD-05 · VP-50 "취소 사례는 실제 새 행 키 관측" | 판정 함수 UT(추가·교체·제거만·동일 키) + 선택 끝이 마운트된 채 새 키가 들어오는 Electron 사례 | 이행 | BLOCKING | open |
 | I4 | r1.5 `[구현자 기입]` 에 강제 지점 전수 표·놓친 잠재 문제·sweep 검산 줄 없음 | `handoff-impl` 최소 계약 | 다음 impl 턴이 일곱 필드를 채운다 | 이행 | BLOCKING | open |
-| H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP | open |
+| H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP → 채택(ΔV6 D-062 · AC40 · EP-31) | adopted |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)
