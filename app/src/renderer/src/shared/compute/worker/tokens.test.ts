@@ -83,10 +83,15 @@ it('t1–t4/t6/t7/t8 keep grammar and text across checkpoints, themes and end of
     }
   }
   vi.restoreAllMocks()
-  const compressed = 'const x={a:1};'.repeat(1000)
+  const compressed = 'const x={a:1};'.repeat(1100).slice(0, 15000)
+  const bounded = vi.spyOn(h, 'codeToTokens')
   const result = tokensRange(document(compressed), { ...request, end: 1 }, h, () => 0).next()
   expect(result.done && result.value.rows[0].map((token) => token.content).join('')).toBe(
     compressed
+  )
+  expect(bounded).toHaveBeenCalledWith(
+    compressed,
+    expect.objectContaining({ tokenizeMaxLineLength: 20000, tokenizeTimeLimit: 50 })
   )
 })
 

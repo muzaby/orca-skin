@@ -7,7 +7,8 @@ import {
   settle,
   useTestVirtualRows
 } from '../../../../../shared/ui/virtual/virtualView.testfixture'
-import { copyText } from './toolCopyText'
+import { ToolCard } from './ToolCard'
+import { agentUiPolicy } from '../../../lib/agentPresentation'
 import { DiffBody } from './tool-bodies/DiffBody'
 import { FileBody } from './tool-bodies/FileBody'
 vi.mock('react', async (original) => ({
@@ -22,6 +23,9 @@ vi.mock('../../../../../shared/i18n', () => ({
 
 vi.mock('../../../../../shared/ui/virtual/useVirtualRows', () => ({
   useVirtualRows: (count: number) => useTestVirtualRows(count)
+}))
+vi.mock('../../common/transcript/ForegroundShellActions', () => ({
+  ForegroundShellActions: () => null
 }))
 vi.mock('../../../hooks/useSmallDiffSyntax', () => ({ useSmallDiffSyntax: () => new Map() }))
 const source = Array.from({ length: 401 }, (_, i) => 'row ' + i).join('\n')
@@ -79,14 +83,20 @@ it('lb4 long Work error retains its style and the response window', () => {
   expect(dom.body.textContent).toContain('row 0')
 })
 
-it('lb5 card copy includes rows outside the mounted read window', () => {
+it('lb5 card header copies the full source including rows outside the mounted read window', async () => {
   const call = {
     name: 'Read',
     toolUseId: 'r',
     input: { file_path: 'a.txt' },
     result: { isError: false, output: source }
   }
-  dom.render(createElement(FileBody, { call }))
+  const writeText = vi.fn(async () => {})
+  vi.stubGlobal('navigator', { clipboard: { writeText } })
+  dom.render(createElement(ToolCard, { call, transcriptPolicy: agentUiPolicy('code').transcript }))
+  dom.act(() => (dom.query('[data-focus-id="toggle"]')!.props.onClick as () => void)())
+  expect(dom.body.textContent).toContain('row 0')
   expect(dom.body.textContent).not.toContain('row 400')
-  expect(copyText(call)).toBe(source)
+  dom.act(() => (dom.query('[aria-label="common.copy"]')!.props.onClick as () => void)())
+  await settle()
+  expect(writeText).toHaveBeenCalledExactlyOnceWith(source)
 })

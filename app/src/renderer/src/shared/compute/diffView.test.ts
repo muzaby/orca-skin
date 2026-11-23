@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { buildDiffHunks, expandGap, revealDiffHunkLine } from './diffHunks'
 import type { DiffLine } from './diffModel'
 import { hunksToDiffLines } from './diffModel'
 import {
@@ -139,4 +140,52 @@ it('cx1 includes bounded context and the prior number on each side', () => {
     oldBefore: null,
     newBefore: null
   })
+})
+
+it('hx1 replays 1000 seeded sequences of gap expansion and hidden-line reveals', () => {
+  let seed = 7301
+  const next = (limit: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+    return Math.floor((seed / 0x100000000) * limit)
+  }
+  for (let sample = 0; sample < 1000; sample++) {
+    let oldNumber = 0
+    const lines = Array.from({ length: 30 + next(51) }, (_, i): DiffLine => {
+      const type = next(14) === 0 ? 'added' : 'unchanged'
+      return {
+        type,
+        lineNo: i + 1,
+        oldLine: type === 'added' ? null : ++oldNumber,
+        newLine: i + 1,
+        text: String(i)
+      }
+    })
+    const model = buildDiffView(lines, false)
+    let reference = buildDiffHunks(lines, 3)
+    const expansions: [number, number][] = []
+    for (let step = 0; step < 6; step++) {
+      const rows = diffViewRows(model, { ...inline, expansions }, 0, lines.length + 1).rows
+      expect(rows.map((r) => (r.kind === 'gap' ? r : r.id))).toEqual(
+        reference.rows.map((r) => (r.kind === 'gap' ? r : r.id))
+      )
+      const gaps = reference.rows.filter((r) => r.kind === 'gap')
+      if (!gaps.length) break
+      const gap = gaps[next(gaps.length)]
+      if (next(3) === 0) {
+        const index = gap.start + next(gap.end - gap.start)
+        reference = revealDiffHunkLine(reference, index, 3)
+        expansions.push([Math.max(gap.start, index - 3), Math.min(gap.end, index + 4)])
+      } else {
+        const up = gap.canUp && (!gap.canDown || next(2) === 0)
+        const count = 1 + next(10)
+        const range: [number, number] = up
+          ? [Math.max(gap.start, gap.end - count), gap.end]
+          : [gap.start, Math.min(gap.start + count, gap.end)]
+        const result = expandGap(reference, gap.id, count, up ? 'up' : 'down')
+        expect(result.insertedAbove).toBe(up ? range[1] - range[0] : 0)
+        reference = result.state
+        expansions.push(range)
+      }
+    }
+  }
 })

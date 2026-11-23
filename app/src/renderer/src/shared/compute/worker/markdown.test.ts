@@ -18,7 +18,23 @@ it.each([
   const wrapped = renderToStaticMarkup(createElement(Markdown, { source, className: 'test' }))
   expect('<div class="test">' + actual + '</div>').toBe(wrapped)
 })
-it('문자 상한 또는 노드 예산을 넘으면 원문 경로를 선택한다', () => {
+it('mw6 문자 상한 또는 노드 예산을 넘으면 원문 경로를 선택한다', () => {
   expect(parseMarkdown('a'.repeat(50_001))).toEqual({ tooLarge: true })
   expect(parseMarkdown('**x** '.repeat(7000))).toEqual({ tooLarge: true })
+})
+
+it('mw6 a wide table chunk stays below the node budget and retains all cells', () => {
+  const line = (value: string): string => '|' + Array(50).fill(value).join('|') + '|\n'
+  const result = parseMarkdown(line('key') + line('---') + line('x').repeat(19))
+  if (!('hast' in result)) throw Error('a bounded chunk must produce a tree')
+  let nodes = 0,
+    cells = 0
+  const count = (node: import('hast').Root | import('hast').RootContent): void => {
+    nodes++
+    if (node.type === 'element' && ['td', 'th'].includes(node.tagName)) cells++
+    if ('children' in node) node.children.forEach(count)
+  }
+  count(result.hast)
+  expect(cells).toBe(1000)
+  expect(nodes).toBeLessThanOrEqual(20000)
 })

@@ -51,7 +51,7 @@ it('동일 원천의 revision은 재사용하고 다른 객체에 새 번호를 
   expect(revisionOf({})).toBeGreaterThan(first)
   expect(revisionOf(source)).toBe(first)
 })
-it('d2/d7 첫 작업 직전에 한 번 열고, 마지막 작업 뒤에 닫으며 비캐시 꼬리는 재요청한다', async () => {
+it('d2/d7/d10 첫 작업 직전에 한 번 열고, 마지막 작업 뒤에 닫으며 비캐시 꼬리는 재요청한다', async () => {
   const { client, ports } = harness()
   const doc = ref('a')
   const lease = client.openDocument(doc, { text: 'abc' }, 'markdown')
@@ -220,4 +220,37 @@ it('d6 last lease sends exactly one close after the completed job', async () => 
   two.release()
   two.release()
   expect(port.messages.slice(2)).toEqual([{ type: 'doc.close', ref: doc }])
+})
+
+it('d4 routes real worker token continuations through the client and preserves the source rows', async () => {
+  const { createWorkerState } = await import('./worker/state')
+  const { client, ports } = harness(10000)
+  const doc = ref('round-trip')
+  const lines = ['const a = 1', '/* start', 'end */', 'const b = 2']
+  const lease = client.openDocument(doc, { text: lines.join('\n') }, 'compute')
+  const job = client.request<'tokens'>({
+    kind: 'tokens',
+    doc,
+    lang: 'typescript',
+    theme: 'github-dark',
+    start: 0,
+    end: lines.length
+  })
+  void job.promise.catch(() => {})
+  let tick = 0
+  const run = createWorkerState(() => (tick += 51))
+  const port = ports.get('compute')!
+  const replies: (boolean | 'continue')[] = []
+  for (let i = 0; i < port.messages.length; i++) {
+    const result = await run(structuredClone(port.messages[i]))
+    if (result) {
+      replies.push(result.ok)
+      port.onmessage?.({ data: structuredClone(result) })
+    }
+  }
+  expect(replies).toEqual(['continue', 'continue', 'continue', true])
+  const result = await job.promise
+  expect(result.rows.map((row) => row.map((token) => token.content).join(''))).toEqual(lines)
+  lease.release()
+  expect(port.messages.at(-1)).toEqual({ type: 'doc.close', ref: doc })
 })

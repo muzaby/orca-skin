@@ -10,10 +10,15 @@ import {
 import { FakeNode } from '../../../shared/ui/renderHarness.testfixture'
 import { patchLinesToDiffLines } from '../lib/diffPatchLines'
 import { createDiffRequirementItem } from '../harnesses/common/rightpanel/diffRequirements'
+import { buildDiffView, diffViewRows, diffViewLocate } from '../../../shared/compute/diffView'
 import { requestKey } from '../../../shared/compute/protocol'
 import { DEFAULT_DIFF_VIEW } from '../reducer/chatReducer'
 
-const state = vi.hoisted(() => ({ id: 0 }))
+const state = vi.hoisted(() => ({ id: 0, theme: 'github-light' }))
+vi.mock('../../../shared/ui/markdown/themeStore', () => ({
+  getThemeSnapshot: () => state.theme,
+  subscribeTheme: () => () => {}
+}))
 vi.mock('react', async (original) => {
   const { fakeHooks } = await import('../../../shared/ui/renderHarness.testfixture')
   return {
@@ -98,4 +103,62 @@ it('rt8 remote model opens no renderer-side axis documents', () => {
   renderGit([addedFile(50000, 'code.ts')])
   expect(open.mock.calls.map(([ref]) => ref.id)).toEqual(['git:code.ts'])
   expect(fake.requests[0]).toMatchObject({ kind: 'diffView' })
+})
+
+it('rt7 requests only the visible and pinned windows of a 50000-line worker axis after a theme change', async () => {
+  const file = addedFile(50000, 'code.ts')
+  const lines = patchLinesToDiffLines(file.lines)
+  const model = buildDiffView(lines, false)
+  const pin = createDiffRequirementItem({
+    id: 'pin',
+    sessionId: 's',
+    base: { kind: 'none' },
+    filePath: file.path,
+    lines,
+    lineIndex: 40000,
+    comment: 'pin',
+    createdAt: 1
+  })
+  const render = (): void => renderGit([file], { requirements: [pin], activeRequirementId: pin.id })
+  const open = vi.spyOn(fake.client, 'openDocument')
+  vi.stubGlobal('CSS', { escape: (s: string) => s })
+  Object.assign(FakeNode.prototype, { scrollIntoView: vi.fn() })
+  try {
+    visible.first = 100
+    render()
+    for (let i = 0; i < fake.requests.length; i++) {
+      const r = fake.requests[i]
+      if (fake.cancelled.includes(r)) continue
+      if (r.kind === 'diffView') fake.resolveNext(diffViewRows(model, r.options, r.start, r.end))
+      else if (r.kind === 'diffLocate')
+        fake.resolveNext(diffViewLocate(model, r.options, r.anchors))
+      else if (r.kind === 'tokens') fake.resolveNext({ rows: [] })
+      else throw Error(r.kind)
+      await settle()
+    }
+    expect(dom.body.textContent).toContain('line 40000')
+    state.theme = 'github-dark'
+    render()
+    for (const theme of ['github-light', 'github-dark']) {
+      const windows = new Map(
+        fake.requests
+          .filter((r) => r.kind === 'tokens' && r.theme === theme)
+          .map((r) => [requestKey(r), r])
+      )
+      expect(
+        [...windows.values()].sort(
+          (a, b) => ('start' in a ? a.start : 0) - ('start' in b ? b.start : 0)
+        )
+      ).toMatchObject([
+        { axis: { axis: 'new' }, start: 0, end: 200 },
+        { axis: { axis: 'new' }, start: 40000, end: 40200 }
+      ])
+    }
+    expect(fake.requests.some((r) => r.kind === 'diffTokens')).toBe(false)
+    expect(open.mock.calls.map(([ref]) => ref.id)).toEqual(['git:code.ts'])
+  } finally {
+    open.mockRestore()
+    state.theme = 'github-light'
+    Reflect.deleteProperty(FakeNode.prototype, 'scrollIntoView')
+  }
 })

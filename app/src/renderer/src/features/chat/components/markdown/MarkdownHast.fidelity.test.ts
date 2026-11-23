@@ -42,6 +42,9 @@ it.each([
   '![image](javascript:bad)\n\n<script>text</script>',
   'A[^1].\n\n[^1]: details',
   '* a\n* b\n</Warning>',
+  '* first paragraph\n\n  second paragraph\n\n* next item',
+  '<script src="a" />\n# after the script',
+  '| a | b |\n|---|---|\n| x | y |',
   '<CodeGroup>x</CodeGroup>\n\n<Note>y</Note>'
 ])('f1 matches complete Markdown render for %s', compare)
 it.each([

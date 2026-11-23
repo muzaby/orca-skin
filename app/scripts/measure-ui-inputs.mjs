@@ -961,8 +961,14 @@ async function main(argv) {
       addedPatchLines(),
       addedPatchText(990044, 5000)
     )
-    process.stdout.write(JSON.stringify(rows, null, 2) + '\n')
-    return
+    // The browser SSR bundle keeps a MessagePort open in Node. Finish the CLI
+    // after the complete JSON has reached stdout, including when it is piped.
+    await new Promise((resolve, reject) => {
+      process.stdout.write(JSON.stringify(rows, null, 2) + '\n', (error) =>
+        error ? reject(error) : resolve()
+      )
+    })
+    process.exit(0)
   }
   if (flag === '--src' && value) return measureTree(resolve(value))
   if (flag === '--write-inputs' && value) return writeInputs(resolve(value))
