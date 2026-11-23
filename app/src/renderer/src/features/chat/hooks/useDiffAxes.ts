@@ -8,7 +8,12 @@ export interface DiffAxes {
   new: DocRef
   ready: boolean
 }
-export function useDiffAxes(model: DiffModel | null): DiffAxes | null {
+export function useDiffAxes(
+  model: DiffModel | null,
+  documentId?: string,
+  revisionSource?: object,
+  ignoreWhitespace = false
+): DiffAxes | null {
   const text = useMemo(
     () =>
       model
@@ -25,19 +30,22 @@ export function useDiffAxes(model: DiffModel | null): DiffAxes | null {
         : null,
     [model]
   )
+  const oldId = useId(),
+    newId = useId(),
+    suffix = ignoreWhitespace ? 'w' : 'k'
   const old = useComputeDocument(
-    useId(),
+    documentId ? documentId + ':old:' + suffix : oldId,
     text?.old ?? '',
     'compute',
-    model ?? undefined,
+    revisionSource ?? model ?? undefined,
     undefined,
     !!model
   )
   const next = useComputeDocument(
-    useId(),
+    documentId ? documentId + ':new:' + suffix : newId,
     text?.new ?? '',
     'compute',
-    model ?? undefined,
+    revisionSource ?? model ?? undefined,
     undefined,
     !!model
   )

@@ -161,13 +161,16 @@ it.each(
       delta('b', chunk)
       bText += chunk
       const state = useChatStore.getState()
-      expect(state.sessions.s).toBe(before)
+      expect(state.sessions.s, 'bg0 inactive update preserves active entry').toBe(before)
       expect(state.activeKey).toBe('s')
       expect(state.sessions.b.live.text).toBe(bText)
       expect(dom.body.textContent).not.toContain('B0001')
     }
     expect(sent.some((r) => r.text.includes('A0001'))).toBe(true)
-    expect(sent.some((r) => r.text.includes('B0001'))).toBe(false)
+    expect(
+      sent.some((r) => r.text.includes('B0001')),
+      'bg1 no background parse'
+    ).toBe(false)
     expect(parsed.mock.calls.some(([source]) => source.includes('B0001'))).toBe(false)
     if (mode === 'bg4b') {
       switchTo('b')
@@ -175,9 +178,9 @@ it.each(
         'raw'
       )
       const bRequest = sent.find((r) => r.text.includes('B0001'))!
-      expect(bRequest.text).toBe(bText)
+      expect(bRequest.text, 'bg2 latest B request after activation').toBe(bText)
       await actResult(sent[0].deliver)
-      expect(dom.body.textContent).not.toContain('A0001')
+      expect(dom.body.textContent, 'bg3 late A result is absent from B').not.toContain('A0001')
       expect(dom.body.textContent.match(/B000[12]/g)).toEqual(['B0001', 'B0002'])
       await actResult(bRequest.deliver)
       expect(dom.body.querySelector('[data-markdown-tail]')?.props['data-markdown-tail']).toBe(
@@ -196,7 +199,10 @@ it.each(
     expect(useChatStore.getState().sessions.b.live.text).toBe('')
     if (mode === 'bg4a') {
       expect(useChatStore.getState().sessions.b.session.inflight).toBe(true)
-      expect(sent.some((r) => r.text.includes('B0001'))).toBe(false)
+      expect(
+        sent.some((r) => r.text.includes('B0001')),
+        'bg1 no background parse'
+      ).toBe(false)
       expect(parsed.mock.calls.some(([source]) => source.includes('B0001'))).toBe(false)
       switchTo('b')
     }

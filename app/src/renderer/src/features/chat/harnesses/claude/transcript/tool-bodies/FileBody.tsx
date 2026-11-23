@@ -27,7 +27,7 @@ export function FileBody({ call }: { call: ToolCall }): React.JSX.Element {
     if (large)
       return (
         <VirtualCodeView
-          documentId={call.toolUseId + ':read'}
+          documentId={'tool:' + call.toolUseId + ':read'}
           revisionSource={call.result}
           code={output}
           stripGutter

@@ -1,8 +1,13 @@
+import { diffViewPath } from '../../../../../shared/compute/diffViewPath'
 import { useDiffAxes, type DiffAxes } from '../../../hooks/useDiffAxes'
 import { DiffScrollAnchorContext } from '../../../hooks/useDiffScrollCoordinator'
 import { useMountedRows } from '../../../../../shared/ui/virtual/rowMount'
 import { useDiffAnchor, useDiffContext } from '../../../hooks/useDiffAnchor'
-import { useDiffViewWindow } from '../../../hooks/useDiffViewWindow'
+import {
+  useDiffViewWindow,
+  useDiffRowWindow,
+  diffWindowPriority
+} from '../../../hooks/useDiffViewWindow'
 import { useWindowTokens } from '../../../hooks/useWindowTokens'
 import { extToLang } from '../../../lib/lang'
 import { buildDiffView, type DiffCell } from '../../../../../shared/compute/diffView'
@@ -13,7 +18,6 @@ import {
 } from '../../../../../shared/compute/diffSource'
 import { useComputeDocument } from '../../../../../shared/compute/useComputeDocument'
 import {
-  DIFF_MODEL_SYNC_MAX_LINES,
   DIFF_MODEL_SYNC_MAX_CHARS,
   TOKENS_RANGE_MAX_LINES
 } from '../../../../../shared/compute/limits'
@@ -25,7 +29,6 @@ import {
 import {
   Fragment,
   createContext,
-  useId,
   useCallback,
   useContext,
   useEffect,
@@ -271,6 +274,7 @@ export function FileDiffSection({
               setExpansions={setExpansions}
               key={`${section.path}:${view.ignoreWhitespace}`}
               filePath={section.path}
+              revisionSource={section.patch}
               lines={section.patch.lines}
               view={view}
               requirements={requirements}
@@ -303,6 +307,7 @@ export function FileDiffSection({
 }
 
 type GitBodyProps = Parameters<typeof FileDiffBody>[0] & {
+  revisionSource: object
   near: boolean
   lastHeight: number
   expansions: DiffOptions['expansions']
@@ -337,18 +342,18 @@ const WindowSyntaxContext = createContext<WindowSyntax | null>(null)
 
 function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
   const { filePath, lines, view, scrollOwnerRef, tailSpacerRef } = props
-  const id = useId()
+  const id = 'git:' + filePath
   const packed = useMemo(() => packLines(lines), [lines])
-  const doc = useComputeDocument(id, packed.text, 'compute', lines, packed.lines)
+  const doc = useComputeDocument(id, packed.text, 'compute', props.revisionSource, packed.lines)
   const source = useMemo<DiffSourceRef>(() => ({ kind: 'lines', doc: doc.ref }), [doc.ref])
   const model = useMemo(
     () =>
-      lines.length <= DIFF_MODEL_SYNC_MAX_LINES && packed.text.length <= DIFF_MODEL_SYNC_MAX_CHARS
+      diffViewPath(lines) === 'sync'
         ? buildDiffView(patchLinesToDiffLines(lines), view.ignoreWhitespace)
         : null,
-    [lines, packed, view.ignoreWhitespace]
+    [lines, view.ignoreWhitespace]
   )
-  const axes = useDiffAxes(model)
+  const axes = useDiffAxes(model, id, props.revisionSource, view.ignoreWhitespace)
   const { expansions, setExpansions } = props
   const options = useMemo<DiffOptions>(
     () => ({
@@ -396,7 +401,15 @@ function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
   const items = list.getVirtualItems()
   const start = items[0]?.index ?? 0,
     end = (items.at(-1)?.index ?? -1) + 1
-  const data = useDiffViewWindow(source, options, model, start, end, doc.ready)
+  const { data, rowAt: windowRow } = useDiffRowWindow(
+    source,
+    options,
+    model,
+    start,
+    end,
+    doc.ready,
+    diffWindowPriority(start, end, list.range)
+  )
   const draftRow = draftAt?.rowIndex[0] ?? -1
   const selectedRow = selectedAt?.rowIndex[0] ?? -1
   const pinnedDraft = useDiffViewWindow(
@@ -405,7 +418,8 @@ function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
     model,
     Math.max(0, draftRow),
     Math.max(0, draftRow + 1),
-    doc.ready && draftRow >= 0
+    doc.ready && draftRow >= 0,
+    diffWindowPriority(draftRow, draftRow + 1, list.range)
   )
   const pinnedSelection = useDiffViewWindow(
     source,
@@ -413,7 +427,8 @@ function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
     model,
     Math.max(0, selectedRow),
     Math.max(0, selectedRow + 1),
-    doc.ready && selectedRow >= 0
+    doc.ready && selectedRow >= 0,
+    diffWindowPriority(selectedRow, selectedRow + 1, list.range)
   )
   const pins = [...new Set([draftRow, selectedRow])].filter(
     (i) => i >= 0 && (i < start || i >= end)
@@ -432,7 +447,7 @@ function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
   ): import('../../../../../shared/compute/diffView').DiffViewRow | undefined =>
     (index === draftRow ? pinnedDraft?.rows[0] : undefined) ??
     (index === selectedRow ? pinnedSelection?.rows[0] : undefined) ??
-    data?.rows[index - start]
+    windowRow(index)
   useMountedRows(
     renderItems.flatMap((item) => {
       const row = rowAt(item.index)

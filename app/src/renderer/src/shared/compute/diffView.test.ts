@@ -1,6 +1,13 @@
 import { expect, it } from 'vitest'
 import type { DiffLine } from './diffModel'
-import { buildCounterparts } from './diffView'
+import { hunksToDiffLines } from './diffModel'
+import {
+  buildCounterparts,
+  buildDiffView,
+  diffViewRows,
+  diffViewContext,
+  diffViewLocate
+} from './diffView'
 
 // Reference from the inline renderer before indexing.
 function counterpartOf(lines: readonly DiffLine[], sourceIndex: number): DiffLine | null {
@@ -67,4 +74,69 @@ it('cp2 reads at most four times the line count on a 50,000-line added run', () 
   expect(buildCounterparts(lines).every((index) => index === -1)).toBe(true)
   expect(reads).toBeGreaterThan(0)
   expect(reads).toBeLessThanOrEqual(4 * lines.length)
+})
+
+const inline = {
+  layout: 'inline' as const,
+  ignoreWhitespace: false,
+  highlightWords: true,
+  expansions: []
+}
+it.each([
+  ['p1', 'a\tb', 9],
+  ['p2', '한글', 4],
+  ['p3', 'x\nlonger\ny', 6]
+] as const)('%s stable maximum column width', (_, text, width) => {
+  const model = buildDiffView(hunksToDiffLines([{ value: text, added: true }]), false)
+  expect(diffViewRows(model, inline, 1, 2).summary.widthColumns).toBe(width)
+  expect(diffViewRows(model, inline, 0, 1).summary.widthColumns).toBe(width)
+})
+it('sb1 pairs corresponding offsets only within each changed run', () => {
+  const model = buildDiffView(
+    hunksToDiffLines([
+      { value: 'a\nb\n', removed: true },
+      { value: 'c\n', added: true },
+      { value: 'same\n' },
+      { value: 'z', added: true }
+    ]),
+    false
+  )
+  const rows = diffViewRows(model, { ...inline, layout: 'side-by-side' }, 0, 10).rows
+  expect(
+    rows.map((r) => (r.kind === 'pair' ? [r.left?.line.text, r.right?.line.text] : r.kind))
+  ).toEqual([
+    ['a', 'c'],
+    ['b', undefined],
+    ['same', 'same'],
+    [undefined, 'z']
+  ])
+})
+it('lc2 preserves requested positions and duplicates', () => {
+  const model = buildDiffView(hunksToDiffLines([{ value: 'a\nb\nc', added: true }]), false)
+  const result = diffViewLocate(
+    model,
+    inline,
+    [2, 1, 2, 4].map((newLine) => ({ newLine, oldLine: null }))
+  )
+  expect(result).toEqual({ lineIndex: [1, 0, 1, -1], rowIndex: [1, 0, 1, -1] })
+})
+it('cx1 includes bounded context and the prior number on each side', () => {
+  const lines = hunksToDiffLines([
+      { value: 'context\n'.repeat(15) },
+      { value: 'old\n', removed: true },
+      { value: 'new', added: true }
+    ]),
+    model = buildDiffView(lines, false)
+  expect(diffViewContext(model, 15)).toEqual({
+    lines: lines.slice(12),
+    offset: 3,
+    oldBefore: 12,
+    newBefore: 12
+  })
+  expect(diffViewContext(model, 0)).toEqual({
+    lines: lines.slice(0, 4),
+    offset: 0,
+    oldBefore: null,
+    newBefore: null
+  })
 })

@@ -177,3 +177,75 @@ it('s7/s8: 응답 사이 세 번 늘어난 꼬리 중 최신 문서만 열고 �
   expect(leases).toBe(0)
   expect(cacheable).toEqual([false, false, false, false])
 })
+it('s1 starts long prose raw and queues the exact range', () => {
+  render('a'.repeat(4001))
+  expect(element()?.textContent).toBe('a'.repeat(4001))
+  expect(fake.requests[0]).toMatchObject({ kind: 'markdown', start: 0, end: 4001 })
+})
+it('s2 renders only the matching parse result', async () => {
+  render('a'.repeat(4001))
+  fake.resolveNext(parsed('rendered'))
+  await settle()
+  expect(element()?.textContent).toBe('rendered')
+})
+it('s3 parsed prefix keeps unparsed suffix visible', async () => {
+  const prefix = 'a'.repeat(4001)
+  render(prefix)
+  fake.resolveNext(parsed('rendered'))
+  await settle()
+  render(prefix + ' new')
+  expect(element()?.textContent).toBe('rendered new')
+})
+it('s4 replaced prefix cannot publish stale markup', async () => {
+  render('a'.repeat(4001))
+  render('b'.repeat(4001))
+  fake.resolveNext(parsed('stale'))
+  await settle()
+  expect(element()?.textContent).toBe('b'.repeat(4001))
+})
+it('s5 failed parse leaves exact source text', async () => {
+  const text = '**unparsed**'.repeat(402)
+  render(text)
+  fake.rejectNext()
+  await settle()
+  expect(element()?.textContent).toBe(text)
+})
+it('s6 exactly 4000 stays in synchronous Markdown', () => {
+  const source = 'a'.repeat(4000)
+  dom.render(createElement(StreamingMarkdown, { source }))
+  expect(element()).toBeUndefined()
+  expect(dom.body.textContent).toBe(source)
+  expect(fake.requests).toHaveLength(0)
+})
+it('s10 skips work above the final raw limit', () => {
+  const text = 'a'.repeat(50001)
+  render(text)
+  expect(element()?.props['data-markdown-tail']).toBe('final')
+  expect(element()?.textContent).toBe(text)
+  expect(fake.requests).toHaveLength(0)
+})
+
+it('s9 completing a parsed tail yields the same elements and text as completed Markdown', async () => {
+  const { ClaudeAssistantSegment } =
+    await import('../../harnesses/claude/transcript/AssistantSegment')
+  const { agentUiPolicy } = await import('../../lib/agentPresentation')
+  const { Markdown } = await import('../../../../shared/ui/markdown/Markdown')
+  const source = '**completed** ' + 'x'.repeat(4001)
+  render(source)
+  fake.resolveNext(parsed(source))
+  await settle()
+  expect(element()?.props['data-markdown-tail']).toBe('parsed')
+  dom.render(
+    createElement(ClaudeAssistantSegment, {
+      segment: { kind: 'text', text: source },
+      transcriptPolicy: agentUiPolicy('code').transcript
+    })
+  )
+  function snapshot(n: FakeNode): unknown {
+    return [n.tag, n.text, n.children.map(snapshot)]
+  }
+  const completed = snapshot(dom.body)
+  expect(element()).toBeUndefined()
+  dom.render(createElement(Markdown, { source }))
+  expect(completed).toEqual(snapshot(dom.body))
+})

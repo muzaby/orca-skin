@@ -6,6 +6,7 @@ import { markdownWorkerBuild } from './markdown-worker-build.mjs'
 // 127.0.0.1 and drives it from `transcript-selection/electron-main.mjs` with real input events.
 // The pure judge below re-computes the verdict from the raw records printed on stdout.
 // Exit: 0 pass · 1 judged failure, harness error or failed Electron launch · 3 no Electron binary (`환경 없음`).
+import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -97,12 +98,18 @@ export function selectionExitCode({ env, error, verdict }) {
   return verdict ? 0 : 1
 }
 
-export function runElectron(binary, origin, probeDirectory = 'transcript-selection') {
+export function runElectron(
+  binary,
+  origin,
+  probeDirectory = 'transcript-selection',
+  screens = SCREENS,
+  runs = RUNS
+) {
   return new Promise((resolve, reject) => {
     const args = [fileURLToPath(new URL(`./${probeDirectory}/electron-main.mjs`, import.meta.url))]
     // Root containers cannot use the setuid sandbox helper.
     if (process.platform === 'linux' && process.getuid?.() === 0) args.unshift('--no-sandbox')
-    const child = spawn(binary, [...args, origin, SCREENS.join(','), String(RUNS)], {
+    const child = spawn(binary, [...args, origin, screens.join(','), String(runs)], {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ELECTRON_ENABLE_LOGGING: '0' }
     })
@@ -114,14 +121,23 @@ export function runElectron(binary, origin, probeDirectory = 'transcript-selecti
     child.on('close', (code) => {
       const line = out.split('\n').find((l) => l.startsWith('OO_RESULT '))
       if (!line) reject(new Error(`electron exited ${code} without result: ${err.slice(-2000)}`))
-      else resolve(JSON.parse(line.slice('OO_RESULT '.length)))
+      else {
+        try {
+          const result = JSON.parse(line.slice('OO_RESULT '.length))
+          if (code !== 0 && !result.error) reject(new Error('electron exited ' + code))
+          else resolve(result)
+        } catch (error) {
+          reject(error)
+        }
+      }
     })
   })
 }
 
-function resolveElectron() {
+export function resolveElectron() {
   const binary = createRequire(import.meta.url)('electron')
-  if (typeof binary !== 'string') throw new Error('electron binary path unavailable')
+  if (typeof binary !== 'string' || !existsSync(binary))
+    throw new Error('electron binary path unavailable')
   return binary
 }
 

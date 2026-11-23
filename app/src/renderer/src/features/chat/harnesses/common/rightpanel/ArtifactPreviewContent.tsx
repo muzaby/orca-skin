@@ -66,10 +66,12 @@ function ImagePreview({ content, title }: { content: string; title: string }): R
 
 export function ArtifactPreviewContent({
   result,
+  publicationId,
   mode,
   title,
   scrollElement
 }: {
+  publicationId?: string
   scrollElement?: RefObject<HTMLDivElement | null>
   result: ReadyPreview
   mode: 'preview' | 'code'
@@ -91,6 +93,8 @@ export function ArtifactPreviewContent({
     if (large)
       return (
         <VirtualCodeView
+          revisionSource={result}
+          documentId={publicationId ? 'code:artifact:' + publicationId : undefined}
           code={result.content}
           lang={lang}
           showLineNumbers
@@ -105,7 +109,12 @@ export function ArtifactPreviewContent({
   return (
     <div className="mx-auto max-w-3xl px-7 py-6">
       {result.content.length > MARKDOWN_WORKER_MIN_CHARS ? (
-        <VirtualMarkdownView source={result.content} scrollElement={scrollElement} />
+        <VirtualMarkdownView
+          revisionSource={result}
+          documentId={publicationId ? 'md:' + publicationId : undefined}
+          source={result.content}
+          scrollElement={scrollElement}
+        />
       ) : (
         <Markdown source={result.content} />
       )}

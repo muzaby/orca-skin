@@ -158,6 +158,7 @@ export function ArtifactViewer({
             ready && (
               <ArtifactPreviewContent
                 key={`${artifact.publicationId}:${selection.request}`}
+                publicationId={artifact.publicationId}
                 scrollElement={bodyRef}
                 result={ready}
                 mode={mode}

@@ -1,8 +1,13 @@
+import { diffViewPath } from '../../../../../shared/compute/diffViewPath'
 import { useDiffAxes, type DiffAxes } from '../../../hooks/useDiffAxes'
 import { DiffLinesStatus } from './DiffLinesStatus'
 import { useEffect, useId, useMemo, useRef } from 'react'
 import { type ThemedToken } from 'shiki'
-import { useDiffViewWindow } from '../../../hooks/useDiffViewWindow'
+import {
+  useDiffViewWindow,
+  useDiffRowWindow,
+  diffWindowPriority
+} from '../../../hooks/useDiffViewWindow'
 import { useWindowTokens } from '../../../hooks/useWindowTokens'
 import { extToLang } from '../../../lib/lang'
 import {
@@ -16,11 +21,7 @@ import {
   type DiffSourceRef
 } from '../../../../../shared/compute/diffSource'
 import { useComputeDocument } from '../../../../../shared/compute/useComputeDocument'
-import {
-  DIFF_MODEL_SYNC_MAX_LINES,
-  DIFF_MODEL_SYNC_MAX_CHARS,
-  TOKENS_RANGE_MAX_LINES
-} from '../../../../../shared/compute/limits'
+import { TOKENS_RANGE_MAX_LINES } from '../../../../../shared/compute/limits'
 import { useVirtualRows } from '../../../../../shared/ui/virtual/useVirtualRows'
 import {
   VIRTUAL_BODY_MIN_LINES,
@@ -194,9 +195,10 @@ function AxisRow({
     />
   )
 }
-type Props = Parameters<typeof PlainDiffTable>[0]
+type Props = Parameters<typeof PlainDiffTable>[0] & { patchSource?: string }
 function VirtualDiffTable({
   lines,
+  patchSource,
   filePath,
   appearance = defaultAppearance
 }: Props): React.JSX.Element {
@@ -205,11 +207,8 @@ function VirtualDiffTable({
   const doc = useComputeDocument(id, packed.text, 'compute', lines, packed.lines)
   const source = useMemo<DiffSourceRef>(() => ({ kind: 'lines', doc: doc.ref }), [doc.ref])
   const model = useMemo(
-    () =>
-      lines.length <= DIFF_MODEL_SYNC_MAX_LINES && packed.text.length <= DIFF_MODEL_SYNC_MAX_CHARS
-        ? buildDiffView(lines, false)
-        : null,
-    [lines, packed]
+    () => (diffViewPath(patchSource ?? lines) === 'sync' ? buildDiffView(lines, false) : null),
+    [lines, patchSource]
   )
   return (
     <DiffWindowTable
@@ -247,7 +246,15 @@ function DiffWindowTable({
   const items = list.getVirtualItems()
   const start = items[0]?.index ?? 0,
     end = (items.at(-1)?.index ?? -1) + 1
-  const window = useDiffViewWindow(source, options, model, start, end, ready)
+  const { rowAt: windowRow } = useDiffRowWindow(
+    source,
+    options,
+    model,
+    start,
+    end,
+    ready,
+    diffWindowPriority(start, end, list.range)
+  )
   return (
     <div
       ref={owner}
@@ -276,7 +283,7 @@ function DiffWindowTable({
           </colgroup>
           <tbody>
             {items.map(({ index }) => {
-              const row = window?.rows[index - start]
+              const row = windowRow(index)
               return row?.kind === 'line' ? (
                 <AxisRow
                   key={index}

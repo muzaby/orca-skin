@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { generateTranscriptFixture } from './transcriptFixtures'
+import { computeDiagnostics } from '../../../shared/compute/diagnostics'
+import { generateTranscriptFixture, createDiagnosticDevApi } from './transcriptFixtures'
 import { createClaudeBlockModel } from '../harnesses/claude/transcript/claudeBlocks'
 import { createOpenCodeBlockModel } from '../harnesses/opencode/transcript/openCodeBlocks'
 import { newTranscriptChanges } from '../lib/transcript/changeLog'
@@ -46,4 +47,20 @@ describe('transcriptFixtures (WU-14 · S3/S4/S5/S7 generator invariants)', () =>
     expect(fx.loadedMessages.length).toBe(10) // 5 turns * 2 messages
     expect(fx.allMessages.length).toBe(20)
   })
+})
+
+it('fx2 records the first paint per request key within each timing session', () => {
+  const api = createDiagnosticDevApi()
+  api.startComputeTimings()
+  const sink = computeDiagnostics()!
+  sink.paint('a', 5)
+  sink.paint('b', 7)
+  sink.paint('a', 12)
+  expect(api.finishComputeTimings().paints).toEqual([
+    { key: 'a', at: 5 },
+    { key: 'b', at: 7 }
+  ])
+  expect(computeDiagnostics()).toBeUndefined()
+  api.startComputeTimings()
+  expect(api.finishComputeTimings().paints).toEqual([])
 })

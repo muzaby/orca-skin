@@ -1,168 +1,212 @@
 import { app, BrowserWindow, clipboard } from 'electron'
-import assert from 'node:assert/strict'
 import { setTimeout as delay } from 'node:timers/promises'
-
+const [origin, screenList] = process.argv.slice(-3)
+const records = [],
+  messages = []
 async function main() {
   app.on('window-all-closed', () => {})
   await app.whenReady()
-  const createWindow = () =>
-    new BrowserWindow({
-      width: 800,
-      height: 600,
-      show: true,
-      webPreferences: { backgroundThrottling: false }
-    })
-  let window
-  const read = (script) => window.webContents.executeJavaScript(script)
-  async function until(script) {
-    const deadline = Date.now() + 20000
-    while (Date.now() < deadline) {
-      const value = await read(script)
-      if (value) return value
-      await delay(40)
-    }
-    throw Error(
-      'timed out: ' +
-        script +
-        ' ' +
-        JSON.stringify(
-          await read(
-            "({kind:location.hash,rows:document.querySelectorAll('[data-index]').length,first:document.body.innerText.slice(0,38),pending:document.querySelectorAll('[aria-busy]').length,timings:window.computeProbeTimings.slice(-15)})"
-          )
-        )
+  const win = new BrowserWindow({
+    width: 1350,
+    height: 800,
+    webPreferences: { backgroundThrottling: false }
+  })
+  const wc = win.webContents,
+    read = (code) => wc.executeJavaScript(code)
+  wc.on('console-message', (_event, level, message) => {
+    if (level >= 2 && !message.includes('Electron Security Warning')) messages.push(message)
+  })
+  const probe = async (name, ...args) => {
+    const packet = await read(
+      '(()=>{try{return {value:window.probe.' +
+        name +
+        '(...' +
+        JSON.stringify(args) +
+        ')}}catch(e){return {error:String(e)}}})()'
     )
+    if (packet.error) throw Error([name, ...args, packet.error].join(' '))
+    return packet.value
   }
-  try {
-    for (const kind of ['code', 'markdown', 'diff', 'git-inline', 'git-split', 'work']) {
-      window = createWindow()
-      window.show()
-      window.focus()
-      window.webContents.focus()
-      await window.loadURL(process.argv.at(-1) + '/#' + kind)
-      const text = kind === 'markdown' ? 'Heading ' : 'const row'
-      await until(`document.body.innerText.includes('${text}0')`)
-      const count = () => read("document.querySelectorAll('[data-index]').length")
-      assert.ok((await count()) < 150)
-      window.focus()
-      await until(
-        kind === 'work'
-          ? "document.querySelectorAll('[data-virtual-code]').length===2"
-          : kind === 'markdown'
-            ? "!!document.querySelector('h2') && !document.querySelector('[data-md-block-pending]')"
-            : "Array.from(document.querySelectorAll('span[style]')).some(el=>el.style.color)"
-      )
-      await read(
-        'new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))'
-      )
-      const points = await read(`(()=>{
-        const needle='${text}0'
-        const element=Array.from(document.querySelectorAll('[data-virtual-text],pre,h2')).find(el=>el.textContent.startsWith(needle))
-        const node=document.createTreeWalker(element,NodeFilter.SHOW_TEXT).nextNode()
-        const range=document.createRange()
-        range.setStart(node,1); range.setEnd(node,Math.min(4,node.length))
-        const rect=range.getBoundingClientRect()
-        return {x:Math.round(rect.right-0.15),left:Math.round(rect.left+0.15),y:Math.round(rect.top+rect.height/2)}
-      })()`)
-      const mouse = (type, x) =>
-        window.webContents.sendInputEvent({
-          type,
-          x,
-          y: points.y,
-          button: 'left',
-          clickCount: 1,
-          ...(type === 'mouseMove' ? { modifiers: ['leftButtonDown'] } : {})
-        })
-      mouse('mouseDown', points.x)
-      mouse('mouseMove', points.left)
-      mouse('mouseUp', points.left)
+  async function until(fn, label) {
+    const end = Date.now() + 15000
+    do {
+      if (await fn()) return
       await delay(60)
-      const selected = await read('getSelection().toString()')
-      assert.ok(
-        selected.length > 0,
-        JSON.stringify({
-          kind,
-          points,
-          hit: await read(
-            'document.elementFromPoint(' + points.x + ',' + points.y + ')?.outerHTML.slice(0,240)'
-          )
-        })
-      )
-      const copy = () => {
-        for (const type of ['keyDown', 'keyUp'])
-          window.webContents.sendInputEvent({
-            type,
-            keyCode: 'C',
-            modifiers: [process.platform === 'darwin' ? 'meta' : 'control']
-          })
-      }
-      clipboard.writeText('unchanged')
-      await read(
-        "window.copyEvents=[];document.addEventListener('copy',()=>window.copyEvents.push(getSelection().toString()))"
-      )
-      copy()
-      for (let i = 0; i < 50 && clipboard.readText() !== selected; i++) await delay(20)
-      assert.equal(
-        clipboard.readText(),
-        selected,
-        JSON.stringify(
-          await read(
-            '({selection:getSelection().toString(),copy:window.copyEvents,active:document.hasFocus()})'
-          )
-        )
-      )
-      clipboard.writeText('unchanged')
-      await read(
-        "window.scroller=Array.from(document.querySelectorAll('div')).find(el=>el.clientHeight && el.scrollHeight>el.clientHeight*2 && /auto|scroll/.test(getComputedStyle(el).overflowY)); scroller.scrollTop=scroller.scrollHeight"
-      )
-      // Markdown heading heights are measured after each window mounts.
-      await until(
-        `(scroller.scrollTop=scroller.scrollHeight,document.body.innerText.includes('${kind === 'work' ? 'response ' + text : text}5000'))`
-      )
-      assert.ok((await count()) < 150)
-      assert.equal(await read('getSelection().toString()'), '')
-      copy()
-      await delay(50)
-      assert.equal(clipboard.readText(), 'unchanged')
-      if (kind === 'markdown')
-        await until(
-          "(scroller.scrollTop=scroller.scrollHeight,Array.from(document.querySelectorAll('h2')).some(el=>el.textContent==='Heading 5000'))"
-        )
-      else if (kind !== 'work')
-        await until(
-          "Array.from(document.querySelectorAll('span[style]')).some(el=>el.style.color && el.textContent.includes('const'))"
-        )
-      if (kind === 'git-inline') {
-        await read('scroller.scrollTop=0')
-        await until(
-          "document.querySelector('[data-diff-requirement-add]') && document.body.innerText.includes('const row0')"
-        )
-        await read("document.querySelector('[data-diff-requirement-add]').click()")
-        await until("!!document.querySelector('[data-diff-requirement-draft] textarea')")
-        await read(
-          "document.querySelector('textarea').focus(); scroller.scrollTop=scroller.scrollHeight"
-        )
-        await until(
-          "document.body.innerText.includes('const row5000') && document.activeElement.tagName==='TEXTAREA'"
-        )
-        await read("document.querySelector('[data-jump]').click()")
-        await until(
-          "(()=>{const row=document.querySelector('[data-diff-requirement-marker=remote]');if(!row)return false;const r=row.getBoundingClientRect();return r.top>=0 && r.bottom<=scroller.clientHeight})()"
-        )
-        assert.ok((await count()) < 150)
-      }
-      console.log(
-        kind,
-        'first and final rows, bounded mounts, native copy and worker rendering passed'
-      )
-      window.destroy()
-    }
-    app.exit(0)
-  } catch (err) {
-    console.error(err)
-    app.exit(1)
+    } while (Date.now() < end)
+    throw Error('timeout ' + label)
   }
+  async function load(screens) {
+    await win.loadURL('about:blank')
+    await win.loadURL(origin + '/#' + screens.join(','))
+    win.focus()
+    wc.focus()
+    await until(() => read('!!window.probe'), 'renderer ' + screens)
+    for (const s of screens) {
+      for (let i = 0; i < 5 && !(await probe('line', s, 0)); i++) {
+        await delay(300)
+        if (s.startsWith('transcript') && !(await probe('line', s, 0))) await probe('open', s)
+      }
+      await until(() => probe('line', s, 0), s + ' first ' + (await probe('info', s)))
+    }
+  }
+  async function mouse(type, p) {
+    wc.sendInputEvent({
+      type,
+      ...p,
+      button: 'left',
+      clickCount: 1,
+      ...(type === 'mouseMove' ? { modifiers: ['leftButtonDown'] } : {})
+    })
+    await delay(45)
+  }
+  async function drag(s, from, to, release = true) {
+    await read('getSelection().removeAllRanges()')
+    const a = await probe('point', s, ...from),
+      b = await probe('point', s, ...to)
+    await mouse('mouseDown', a)
+    await mouse('mouseMove', b)
+    if (release) await mouse('mouseUp', b)
+    return b
+  }
+  async function copy() {
+    for (const type of ['keyDown', 'keyUp'])
+      wc.sendInputEvent({
+        type,
+        keyCode: 'C',
+        modifiers: [process.platform === 'darwin' ? 'meta' : 'control']
+      })
+    await delay(100)
+    return clipboard.readText()
+  }
+  async function marker(s, n) {
+    return s === 'artifact-markdown' ? 'Heading ' + n : 'const row' + n + ' = ' + n
+  }
+  async function bump(s) {
+    await probe('scroll', s, 150)
+    await delay(250)
+  }
+  async function cancel(s) {
+    await probe('scroll', s, 0)
+    await delay(150)
+    const pos = await drag(s, [3, 4], [1, 1], false)
+    const selectionBefore = await probe('select', s),
+      keysBefore = await probe('keys', s)
+    const outerBefore = await probe('outerKeys', s)
+    await bump(s)
+    const keysAfter = await probe('keys', s),
+      selectionAfter = await read('getSelection().toString()'),
+      endpointsConnected = await probe('connected')
+    clipboard.writeText('unchanged')
+    const result = {
+      screen: s,
+      scenario: 'c2',
+      keysBefore,
+      keysAfter,
+      selectionBefore,
+      selectionAfter,
+      endpointsConnected,
+      outerBefore,
+      outerAfter: await probe('outerKeys', s),
+      clipboard: await copy()
+    }
+    await mouse('mouseUp', pos)
+    return result
+  }
+  for (const s of screenList.split(',')) {
+    await load([s])
+    const first = await probe('line', s, 0)
+    const startCount = (await probe('keys', s)).length
+    await until(async () => {
+      await probe('scroll', s, -1)
+      return probe('last', s)
+    }, s + ' last')
+    if (!['artifact-markdown', 'transcript-work'].includes(s))
+      await until(
+        () =>
+          read(
+            "Array.from(document.querySelectorAll('span[style]')).some(el => el.style.color && el.textContent.includes('const'))"
+          ),
+        s + ' syntax tokens'
+      )
+    const mounted = Math.max(startCount, (await probe('keys', s)).length)
+    await probe('scroll', s, 0)
+    await until(() => probe('line', s, 1), s + ' return')
+    await delay(200)
+    const geometry = { reachedFirst: first, reachedLast: true, mounted }
+    async function partial(scenario, row) {
+      const start = scenario === 'c5' ? 3 : 1,
+        end = scenario === 'c5' ? 7 : 5
+      const expected = (await marker(s, row)).slice(start, end)
+      await drag(s, [row, end], [row, start])
+      clipboard.writeText('unchanged')
+      return { screen: s, scenario, ...geometry, expected, clipboard: await copy() }
+    }
+    const c1 = await partial('c1', 1)
+    if (s.startsWith('transcript')) {
+      const header = {
+        'transcript-file': '읽음\nsample.ts\nsample.ts',
+        'transcript-diff': '업데이트됨\nsample.ts\nsample.ts',
+        'transcript-work': '\nFixtureTool\n요청'
+      }[s]
+      c1.crossExpected = 'sible fixture paragraph\n\n' + header + '\nconst row0 = 0\nconst'
+      await drag(s, [1, 5], [-1, 2])
+      clipboard.writeText('unchanged')
+      c1.crossClipboard = await copy()
+    }
+    records.push(c1, await cancel(s))
+    await probe('scroll', s, 0)
+    await delay(250)
+    records.push(await partial('c5', 2))
+    if (s === 'git-inline') {
+      await read("document.querySelector('[data-diff-requirement-add]').click()")
+      await until(
+        () => read("!!document.querySelector('[data-diff-requirement-draft] textarea')"),
+        'draft'
+      )
+      await read("document.querySelector('textarea').focus()")
+      await probe('scroll', s, -1)
+      await until(
+        async () =>
+          (await probe('last', s)) && (await read("document.activeElement.tagName==='TEXTAREA'")),
+        'pinned draft'
+      )
+      await read("document.querySelector('[data-jump]').click()")
+      await until(
+        () =>
+          read(
+            "(()=>{const box=document.querySelector('[data-diff-requirement-marker=remote]')?.getBoundingClientRect();const frame=document.querySelector('[data-diff-scroll-owner]').getBoundingClientRect();return box && box.top>=frame.top && box.bottom<=frame.bottom})()"
+          ),
+        'remote requirement'
+      )
+    }
+  }
+  const pair = ['git-inline', 'transcript-diff']
+  await load(pair)
+  for (const [s, other] of [pair, [...pair].reverse()]) {
+    await probe('scroll', s, 0)
+    await probe('scroll', other, 0)
+    await delay(250)
+    await drag(s, [2, 5], [2, 1])
+    const selectionBefore = await probe('select', s),
+      keysBefore = await probe('keys', other)
+    await bump(other)
+    clipboard.writeText('unchanged')
+    records.push({
+      screen: s,
+      scenario: 'c4',
+      keysBefore,
+      keysAfter: await probe('keys', other),
+      selectionBefore,
+      selectionAfter: await read('getSelection().toString()'),
+      clipboard: await copy()
+    })
+  }
+  console.log('OO_RESULT ' + JSON.stringify({ electron: process.versions.electron, records }))
+  app.exit(0)
 }
-void main().catch((err) => {
-  console.error(err)
+void main().catch((error) => {
+  console.log(
+    'OO_RESULT ' + JSON.stringify({ error: String(error) + messages.slice(-4).join(' '), records })
+  )
   app.exit(1)
 })

@@ -263,7 +263,7 @@ let activeNextTurn = 0
 let fixtureSessionKey: string | null = null
 export function createDiagnosticDevApi(): DiagnosticDevApi {
   const jobs: ComputeJobTiming[] = [],
-    paints: { key: string; at: number }[] = []
+    paints = new Map<string, number>()
   function load(
     kind: FixtureKind | 'long' | 'answer-5000',
     options: FixtureOptions,
@@ -314,15 +314,17 @@ export function createDiagnosticDevApi(): DiagnosticDevApi {
       load(kind, { turns: 1 }, toolFixture(kind, card, count)),
     startComputeTimings() {
       jobs.length = 0
-      paints.length = 0
+      paints.clear()
       setComputeDiagnostics({
         job: (t) => jobs.push(t),
-        paint: (key, at) => paints.push({ key, at })
+        paint: (key, at) => {
+          if (!paints.has(key)) paints.set(key, at)
+        }
       })
     },
     finishComputeTimings() {
       setComputeDiagnostics(undefined)
-      return { jobs: [...jobs], paints: [...paints] }
+      return { jobs: [...jobs], paints: Array.from(paints, ([key, at]) => ({ key, at })) }
     },
     appendFixtureTurn() {
       if (useChatStore.getState().activeKey !== fixtureSessionKey) return
