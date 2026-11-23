@@ -8,7 +8,7 @@
 
 ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다.
 
-현재 상태는 impl/IN_PROGRESS다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 verify/RETURN_TO_PLAN(verify 1회째 · 라운드 2)이다 — 확장 후보 H1 채택·경계 선언 뒤 구현자가 I1~I4 를 고친다([verify.md](verify.md)). r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -1827,9 +1827,15 @@ agent(Git patch · 도구 이벤트) / data(산출물 미리보기) ──(현�
 
 ## [검증자 기입] 파생 이슈
 
+verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md).
+
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — |
+| I1 | plan 지정 oracle 좌표 부재 — 24 AC(파일 `protocol.keys`·`useWindowTokens`·`fileDiffVirtual.render`·`useDiffRowTokens`·`markdownDocumentBlocks`·`cardSyncCaps` 등 · 케이스 라벨 d1~d9·bg0~bg3) | VP-01·02·04·10·12·13·15·20~25·31·33·35·36·38·39·48·49·51 · AC 검증 수단 칸 | plan 좌표를 만들거나, 같은 단언을 둔 기존 테스트를 자리별 좌표 표로 대응시킨다 | 이행 | BLOCKING | open |
+| I2 | VP-57 등록 변이(`openCodeBlocks.ts:532` 이전 식)에서 `streamingSessions.test.ts` bg4a·bg4b ③ OpenCode 가 green | VP-57 · ΔV4 EP-28 등록 변이 | 원인(테스트 harness 의 OpenCode `pending`·턴 위치 입력)을 찾아 ③ 단언이 그 변이에 red 가 되게 한다 | 이행 | BLOCKING | open |
+| I3 | `rowMount.ts:7` 추가 판정을 크기 비교·제거만 참으로 바꾸거나 `:9` 알림을 지워도 vitest·`check-visible-views` green | VP-34 · ΔV1 MD-05 · VP-50 "취소 사례는 실제 새 행 키 관측" | 판정 함수 UT(추가·교체·제거만·동일 키) + 선택 끝이 마운트된 채 새 키가 들어오는 Electron 사례 | 이행 | BLOCKING | open |
+| I4 | r1.5 `[구현자 기입]` 에 강제 지점 전수 표·놓친 잠재 문제·sweep 검산 줄 없음 | `handoff-impl` 최소 계약 | 다음 impl 턴이 일곱 필드를 채운다 | 이행 | BLOCKING | open |
+| H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP | open |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)

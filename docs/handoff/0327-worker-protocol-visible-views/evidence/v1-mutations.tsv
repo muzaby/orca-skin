@@ -1,0 +1,30 @@
+# verify 1 mutation runs (mutate.py TSV)
+id	결과	exit	요약
+V5-1	red (기대 일치)	1	vitest 2 failed | 7 passed (9)
+V5-2	red (기대 일치)	1	vitest 3 failed | 6 passed (9)
+Y1	red (기대 일치)	1	vitest 2 failed | 7 passed (9)
+Y2	red (기대 일치)	1	vitest 1 failed | 8 passed (9)
+I1	red (기대 일치)	1	vitest 1 failed | 8 passed (9)
+I2	red (기대 일치)	1	vitest 1 failed | 8 passed (9)
+V57-1	red (기대 일치)	1	vitest 1 failed | 38 passed (39)
+V57-2	red (기대 일치)	1	vitest 1 failed | 38 passed (39)
+Y3	red (기대 일치)	1	vitest 2 failed | 37 passed (39)
+Y4	red (기대 일치)	1	vitest 3 failed | 36 passed (39)
+V2-6	red (기대 일치)	1	vitest 1 failed | 11 passed (12)
+Y5	red (기대 일치)	1	vitest 2 failed | 10 passed (12)
+Y6	red (기대 일치)	1	vitest 2 failed | 10 passed (12)
+Y7	red (기대 일치)	1	vitest 1 failed | 11 passed (12)
+V56-1	red (기대 일치)	1	node --test fail 1 · ks3 pin tolerance
+V56-2	red (기대 일치)	1	node --test fail 1 · ks4 unpin tolerance
+V56-3	red (기대 일치)	1	node --test fail 1 · ks2 missing run
+V56-4	red (기대 일치)	1	node --test fail 1 · ks10 stale parsed length
+Y8	red (기대 일치)	1	node --test fail 1 · unknown record
+# 원복 확인: 모든 파일 원문 그대로
+V2-1	red (기대 일치)	1	False 90 [('?', '?')]
+V2-2	red (기대 일치)	1	False 18 [('?', '?')]
+V2-3	red (기대 일치)	1	False 36 [('?', '?')]
+V2-4	red (기대 일치)	1	False 81 [('?', '?')]
+V2-5	red (기대 일치)	1	False 36 [('?', '?')]
+# 원복 확인: 모든 파일 원문 그대로
+W1..W3 (vitest src/renderer): 5 failed = settlement.integration sqlite baseline only -> green
+W1e..W3e (check-visible-views, --no-sandbox wrapper): exit 0 all
