@@ -4,11 +4,11 @@
 > 입력: [0325 plan §6-C C 행 · §6-D](../0325-ui-responsiveness-followup/plan.md) · 0325 첨부 [`input/0324-agent-requests.ko.md`](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md)(요청서 — 본문의 `T08`~`T33`) · [`input/0324-audit.ko.md`](../0325-ui-responsiveness-followup/input/0324-audit.ko.md)(감사) · [0326 plan §10 B9](../0326-transcript-incremental-model/plan.md)(스트리밍 꼬리 — "워커는 단계 C") · **PR #643 소유자 검토(2026-11-20) — rev 2 의 입력**(§4-A 항목별 판정) · **PR #643 소유자 후속 검토 2건(2026-11-20) — rev 3 의 입력**(§4-B 항목별 판정).
 > 측정 수치는 실제 소스 함수 재측정이다 — M1~M13 은 V1 세션, M13b·M14~M21 은 rev 2 세션, M22~M25 는 rev 3 세션(§8). 측정 스크립트는 저장소에 두지 않았다 — 같은 입력을 구현 턴의 K1~K12(WU-10)가 다시 잰다.
 
-## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속)
+## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료)
 
-ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다.
+ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다.
 
-r1.2 현재 상태는 plan/DRAFT다. OpenCode의 메시지 완료와 턴 종료 사이의 표시 계약은 아래 구현자 리뷰 G2에서 설계자에게 돌렸다. r1(부분 구현)이 올린 PLAN_GAP G1과 PR #652 소유자 댓글을 ΔV3로 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 plan/READY다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -232,6 +232,8 @@ EP-13 검색 명령은 V1 rev 3 명령의 술어에 `|data-markdown-tail` 을 �
 
 ### ΔV3 · G1 정정 · 하네스 관측 시점 · 비활성 세션 귀속
 
+> ΔV4 가 이 절의 AC39 bg4 행을 대체한다(아래 ΔV4 대체표). 나머지 행은 그대로 유효하다.
+
 판정: ΔV2 의 변이 기대·하네스 단계·AC39 입력을 정정한다. 제품 범위는 그대로이고, 새 생산 코드는 꼬리 표지 속성 하나(`data-markdown-tail-parsed`)가 늘어난다. 스크롤 코드는 0326 이 계속 소유한다.
 
 | 항목 | 값 |
@@ -353,7 +355,113 @@ EP-13 검색 명령은 V1 rev 3 명령의 술어에 `|data-markdown-tail` 을 �
 - 수치 계약 런타임: ±1px 는 실제 Chromium · 관문으로 4,001 `raw` 커밋을 실제 워커와 함께 관측한다.
 - 스크롤 소유: 0327 생산 변경은 `WorkerMarkdownTail` 표지 두 속성과 흐름 배치뿐 — 0326 자리 수정이 필요하면 `PLAN_GAP`(D-057).
 
-## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3 가 일부를 대체한다)
+### ΔV4 · G2 정정 — 메시지 완료와 턴 종료
+
+판정: 메시지가 완료되면(`message.completed`) 그 본문은 그 시점에 완료 Markdown 경로로 보이고, 턴 진행 표시(`inflight`)는 실제 턴 종료(`telemetry`)까지 남는다. 세 화면 공통이다. 생산 변경은 OpenCode 행 분류 한 자리(`openCodeBlocks.ts:526-534` text segment 의 `streaming`)가 늘어난다.
+
+| 항목 | 값 |
+|---|---|
+| 입력 | r1.2 `[구현자 기입] 설계 리뷰` G2(`56042bc1`) · PR #652 소유자 댓글 "0327 r1.2 검토 · G2 설계 보완 요청 (`56042bc1`)"(2026-11-23) |
+| V mode | `Delta V` — 기준 `V1 rev 3 + ΔV1 + ΔV2 + ΔV3` |
+| 이번 V revision | `ΔV4` — 설계 커밋 `(ΔV4 설계 — 검증자 기입)` |
+| 유효 V | `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4` |
+| 라운드 | 1 — verify 0회. 다음 impl 턴은 `r1.3` |
+| 변경이 시작되는 수준 | R(AC26 완료 조항 · AC39 bg4) → SD-07 CHANGED · MD-16 NEW(OpenCode 행 분류) · 0326 OpenCode live 행 회귀 |
+
+#### ΔV4 Decision Ledger
+
+| ID | 결정 | 근거(원문) | 출처 | 상태 | 관계 |
+|---|---|---|---|---|---|
+| D-059 | `message.completed` 를 받은 본문은 그 시점에 완료 Markdown 으로 표시하고, 턴 진행 표시는 실제 턴 종료까지 유지한다 — Claude Code·Claude Work·OpenCode 공통. 같은 턴의 후속 텍스트는 새 라이브 텍스트만 스트리밍하고 앞서 확정한 본문은 한 번만 보인다. 턴 종료 뒤 `inflight=false` 이고 완성 본문은 중복 없이 남는다. 메시지 완료 직후와 턴 종료 뒤를 따로 단언한다 | "G2에 동의합니다. `message.completed`를 받은 본문은 그 시점에 완료 Markdown으로 표시하고, 턴 진행 표시는 실제 턴 종료까지 유지하는 방향으로 plan을 확정해 주세요." · "이 기준은 Claude Code·Claude Work·OpenCode에 공통으로 적용합니다." · "같은 턴에서 후속 텍스트가 오면 새 라이브 텍스트만 스트리밍되고 앞서 확정한 본문은 한 번만 표시돼야 합니다." · "메시지 완료 직후와 턴 종료 후를 별도로 단언해 주세요." | PR #652 소유자 댓글 | ACTIVE | D-035·AC26 의 "완료" 를 메시지 완료로 확정 |
+| D-060 | 소유자 — 0326 세션 저장소는 원문 누적·메시지 확정·턴 상태를 소유한다. 0327 은 OpenCode `openCodeBlocks.ts` 에서 확정 텍스트와 라이브 텍스트의 행 분류를 정정하고, `Text.tsx` 는 그 결과로 Markdown 표시 경로를 고른다. 마지막 행이라는 위치와 턴 진행 여부만으로 확정 텍스트를 스트리밍으로 분류하지 않는다 | "0326 세션 저장소는 원문 누적·메시지 확정·턴 상태를 소유합니다. 0327은 OpenCode의 `openCodeBlocks.ts`에서 확정 텍스트와 라이브 텍스트의 행 분류를 정정하고, `Text.tsx`는 그 결과로 Markdown 표시 경로를 선택합니다. 마지막 행이라는 위치와 턴 진행 여부만으로 확정 텍스트가 다시 스트리밍으로 분류되는 경로를 수정해 주세요." | 같은 댓글 | ACTIVE | D-057 "스크롤은 0326" 과 같은 소유 원칙 · 저장소 변경 0 |
+
+갱신 메모(ΔV4):
+
+- 결정 단위 SUPERSEDED 0 · OPEN 0. D-059 는 D-035 "완료 뒤 표시는 완료 경로" 의 "완료" 를 메시지 완료로 정한 보완이다.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-059 ↔ AC26(ΔV4 완료 조항) · AC39 bg4a·bg4b 의 ②~⑤ · D-060 ↔ EP-28 ①(행 분류) · EP-26 ⑨⑩(경로 선택) · 저장소 자리 수정 0 · D-056 ↔ bg4a ②(비활성 B 귀속 0 유지) · D-053 ↔ ΔV3 하네스 `completed`(실제 `message.completed` · 본문만 — B27 그대로).
+- 관측(이번 세션): 턴을 닫는 이벤트는 `telemetry` 다 — `chatReducer.ts:1353-1374` `TURN_END_RESET` · `turn.ended` 는 계기만 올린다(`:1500-1503`). OpenCode text segment 의 `streaming` 은 `active && index === segments.length - 1`(`openCodeBlocks.ts:531`)이라 메시지 완료 뒤에도 턴이 진행 중이면 마지막 확정 text 가 스트리밍으로 남는다. 같은 블록의 live 판정은 `isLiveSeg = index === liveIndex`(`:499`)다.
+- 기존 테스트 대조: `rg -n "streaming" …/opencode --glob '*.test.*'` 결과 중 "진행 중 턴의 확정 마지막 text = streaming" 을 단언한 케이스는 0 — `projection.test.ts` live 행 · `openCodeBlocks.test.ts` y10/y20·b9 는 `live` 표지만 본다.
+
+#### ΔV4 대체표
+
+| 대상 행 | ΔV4 유효 행 |
+|---|---|
+| V1 rev 3 AC26 "완료 뒤 DOM 은 완료 경로(`AssistantSegment` `<Markdown>`) 렌더와 같다" | 메시지 완료(`message.completed`) 뒤 그 본문 DOM 은 완료 경로 렌더와 같다 — 턴 종료(`telemetry`) 전에도. OpenCode 완료 경로는 `Text.tsx` 비스트리밍 분기 |
+| ΔV3 AC39 bg4 행 · `streamingSessions.test.ts` bg4 의 OpenCode `telemetry` 선행 · `it.todo` | 아래 bg4a·bg4b(ΔV4) |
+| ΔV2 EP-26 ⑨ | 아래 EP-26 ⑨⑩(ΔV4) — 자리 9 → 10 |
+| (없음) | EP-28 · MD-16 / VP-57 신설 |
+
+#### ΔV4 AC39 bg4 — 이벤트 순서와 단계별 단언
+
+두 변형 모두 세 화면(Claude Code · Claude Work · OpenCode)에서 돌린다. B 의 미확정 꼬리는 워커 경로 범위(4,001~50,000자)인 10,000자 한 문단이고 표지는 `B0001`… 이다. 후속 텍스트는 새 메시지 번호(`b:M2`)로 오고 표지는 `C0001`… 이다.
+
+| 단계 | 입력 | bg4a — B 비활성 중 완료 뒤 복귀 | bg4b — B 를 보는 중 완료 |
+|---|---|---|---|
+| ① | B delta 로 꼬리 10,000자 | A 표시 · B 귀속 `markdown` 요청 0 · 창 파싱 0 | B 표시 · 꼬리 표지 `parsed`(가짜 응답 전달 뒤) |
+| ② | B 에 실제 `message.completed`(본문 = B live 전체) | 저장소: B live text `''` · B `inflight=true` · B 귀속 요청·파싱 0 그대로 | — (③과 같은 단언) |
+| ③ | (bg4a 만) B 로 복귀 · 턴 종료 전 | B 본문 표지 한 번씩 · B 표지를 담은 본문 요소와 그 조상·자손에 `data-markdown-tail` 0 · 창 Markdown 파싱 인자에 B 본문 원문 전체가 1회 이상(완료 경로) · `inflight=true` | 같은 단언(같은 B 화면에서) |
+| ④ | 같은 턴 후속 text delta(`b:M2` · `C0001`…) | 새 라이브 행만 스트리밍 — C 표지는 라이브 행에만 · B 본문 표지 한 번씩 · B 본문에 `data-markdown-tail` 0 · `inflight=true` | 같음 |
+| ⑤ | 실제 `telemetry`(턴 종료) | `inflight=false` · B·C 표지 한 번씩 · `data-markdown-tail` 0 | 같음 |
+
+- 단언 단위는 단계마다 따로다 — ③(메시지 완료 직후)과 ⑤(턴 종료 뒤)를 한 단언으로 합치지 않는다.
+- 완료 경로 판정은 두 관측을 함께 쓴다: 10,000자 미확정 문단이 스트리밍 경로로 그려지면 꼬리 표지가 붙으므로 표지 0 이 경로를 가르고, 창 파싱 인자가 본문 원문 전체와 같다는 것이 완료 경로(`<Markdown source={본문}>`)를 직접 보인다.
+- 구현자는 `streamingSessions.test.ts` 의 `it.todo('bg4 OpenCode …')` 와 OpenCode `telemetry` 선행 분기(`:189-195`)를 지우고 위 표로 바꾼다.
+
+#### ΔV4 §10 강제 지점
+
+**EP-28 · MD-16 / VP-57 — OpenCode text 행 분류** — 자리 4. 불변식: text segment 행의 `streaming` 은 그 행이 라이브 텍스트를 가질 때만 참이다(`live` 와 짝).
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 — 분기마다 입력 |
+|---|---|---|---|
+| ① | `openCodeBlocks.ts:526-534` text `appendSegment` 의 `streaming` 인자 | 그 segment 가 live text 를 가짐(`index === liveIndex`) → 참 · 아니면 거짓. 위치(`index === segments.length - 1`)와 `active` 는 쓰지 않는다 | `openCodeBlocks.test.ts` ob1(pending · 마지막 segment = 확정 text · liveText 없음 → 거짓) · ob2(pending · live 가 마지막 확정 text 에 이어 붙음 — 같은 소유 → 참 · `live`) · ob3(pending · 확정 text 뒤 다른 소유 live → 새 live 행 참 · 앞 확정 행 거짓) · ob4(pending 아님 → 거짓) |
+| ② | `openCodeBlocks.ts:736` 첫 live 행(전체 구성) | `streaming: true` · `live: true` | ob5(사용자 메시지만 · live text → 첫 live 행 참 — 전체 구성 경로) |
+| ③ | `openCodeBlocks.ts:897` 첫 live 행 교체(`liveTextKey` 바뀜) | 같음 | ob6(첫 live 중 `liveTextKey` 바뀜 → 교체 행 참) |
+| ④ | `openCodeBlocks.ts:913` 첫 live 행 삽입(증분) | 같음 | ob5 증분 경로(`advance` 로 live 시작) |
+
+- 자리 검색 명령(`app/`): `rg -n "^\s+appendSegment\($|^\s+streaming: true,$" src/renderer/src/features/chat/harnesses/opencode/transcript/openCodeBlocks.ts` → `56042bc1` 7줄 = 자리 4(`:526`·`:736`·`:897`·`:913`) + 뺀 3(`:482` 도구 · `:567` ask · `:579` 그 밖 — `streaming` 상수 거짓이고 표시는 text segment 만 `streaming` 을 쓴다 `Timeline.tsx:174-182`).
+- 등록 변이(VP-57): ① 을 이전 식 `active && index === segments.length - 1` 로 되돌림(뒤집기) → ob1 · bg4a·bg4b ③ OpenCode red · ② 의 `streaming: true` → `false`(빈 값) → ob5 red.
+- 실패 의미: ① 이 위치·턴 상태로 분류하면 메시지 완료 뒤에도 마지막 본문이 원문·워커 꼬리로 남고(G2), 턴 종료에서야 완료 경로로 바뀐다.
+
+**EP-26 ⑨⑩ (ΔV4)** — EP-26 자리 9 → 10.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 |
+|---|---|---|---|
+| ⑨ | `opencode/transcript/Text.tsx:22` `streaming ?` | 참 → `StreamingMarkdown` · 거짓 → 완료 경로 `Markdown` | P1(opencode — 생성 중) · bg4a·bg4b ③④⑤(opencode — 메시지 완료·턴 종료) |
+| ⑩ (신규) | `opencode/transcript/Timeline.tsx:169` `useTimelineMarkdownMode` | 선택 없음 → 행 `streaming` 그대로 · 선택 중 참 → 거짓 바뀜 → 선택이 끝날 때까지 스트리밍 유지 | bg4b ③(선택 없음) · 기존 `Timeline.selection.test.ts:'keeps selected live content on completion, then resolves complete Markdown when selection clears'`(선택 중 유지) |
+
+- EP-26 자리 검색 명령(ΔV4 — ΔV2·ΔV3 명령을 대체): `rg -n "useChatStore\(\(s\) => (\(enabled \? )?s\.sessions\[s\.activeKey\]\.live\.text\b|shouldFollowGrowth\(state, generating\) \{|^\s+virtualizer\.shouldAdjustScrollPositionOnItemSizeChange = |case 'text':|streaming \?|useTimelineMarkdownMode\(row" src/renderer/src/features/chat/{store/chatStore.ts,lib/transcript/viewport/pin.ts,components/transcript/TranscriptViewport.tsx,harnesses/claude/transcript/AssistantSegment.tsx,harnesses/opencode/transcript/Text.tsx,harnesses/opencode/transcript/Timeline.tsx}; rg -n "new ResizeObserver\(" src/renderer/src/features/chat/harnesses/{claude/transcript/useScrollAnchor.ts,opencode/transcript/ScrollController.tsx}; rg -n "data-markdown-tail=" src/renderer/src/features/chat/components/markdown --glob '!*.test.*'` → 자리 10(①~⑩).
+- 선언 경계 B28: 완료된 메시지와 같은 메시지 번호로 다시 오는 text delta 는 이 계약의 입력이 아니다 — 그 live 는 같은 text segment 에 붙어(`openCodeBlocks.ts:382-388`) 확정 본문이 함께 스트리밍 렌더된다. 보호 주장 없음.
+
+#### ΔV4 V 변경
+
+| Node / pair | provenance · requiredness | 변경 |
+|---|---|---|
+| R-05 / AT-05 · VP-05 | CHANGED(ΔV4) · REQUIRED | AC26 완료 조항 · AC39 bg4a·bg4b |
+| SD-07 / ST-07 · VP-52 | CHANGED(ΔV4) · REQUIRED | 수명에 "메시지 완료(턴 진행) → 후속 live → 턴 종료" 를 더한다 · EP-26 ⑨⑩ 좌표 bg4a·bg4b |
+| MD-16 / UT-16 · VP-57 | NEW · REQUIRED | OpenCode text 행 분류 — production path `projectTimeline`·`advance` → `buildAssistantTurnBlocks` → text `appendSegment(streaming)` → 행 `streaming` · EP-28 (4) · 좌표 ob1~ob6 |
+| R-0326-OCLIVE | INHERITED · VP-58 REGRESSION | 0326 OpenCode live 행 — key 인계(y10/y20) · 이어 붙는 live(b9) · 선택 중 유지 · live 리프만 재렌더. 좌표 `openCodeBlocks.test.ts` y10/y20·b9 · `Timeline.selection.test.ts` 2건 · `projection.test.ts:'projectTimeline emits live text row without reasoning prose when presence is active'` · `Timeline.memo.test.ts` live 리프 케이스(`322b19bd`·`56042bc1` 트리) |
+
+#### ΔV4 구현 설계 · 파일
+
+| 변경 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `features/chat/harnesses/opencode/transcript/openCodeBlocks.ts` | 행 분류 | EP-28 ① — text `appendSegment` 의 `streaming` 인자를 `isLiveSeg` 판정으로 바꾼다. 행 key·`live`·블록 재사용 비교(`prior.streaming === streaming`)는 그대로 | `openCodeBlocks.test.ts` ob1~ob6(순수 — `createOpenCodeBlocks`·`projectTimeline`) |
+| `features/chat/components/transcript/streamingSessions.test.ts` | AC39 IT | bg4 → bg4a·bg4b(위 단계표) · `it.todo` 와 OpenCode `telemetry` 선행 분기 삭제 | production store · 세 화면 · 가짜 계산 클라이언트 · `react-markdown` spy |
+
+- 저장소(`chatStore.ts`·`chatReducer.ts`)는 바꾸지 않는다(D-060). 이 정정으로 저장소를 고쳐야만 통과하면 그 경로를 멈추고 `PLAN_GAP` 으로 돌린다.
+- 같은 메시지가 live 행에서 확정 행으로 바뀌어도 key 가 같으면 `OpenCodeTextSegment` 컴포넌트는 남고(`Timeline.tsx:210-212` 주석 — 0325 EP-2 ⑥⑦) 안쪽 표시만 `StreamingMarkdown` → `Markdown` 으로 바뀐다. 이 전환은 지금도 턴 종료 때 일어나며 ΔV4 는 그 시점을 메시지 완료로 앞당긴다.
+
+#### ΔV4 READY self-review (관측)
+
+- Decision: D-059·D-060 ACTIVE · 원문 인용 · SUPERSEDED 0 · OPEN 0.
+- 소유: 저장소 변경 0 · 생산 변경은 EP-28 ① 한 자리(D-060). 스크롤 소유(D-057) 그대로.
+- 규칙 칸 ↔ 입력 칸: EP-28 ①(live 보유 · 확정 마지막 · 이어 붙는 live · 다른 소유 live · 턴 종료) ↔ ob1~ob4 · ②③④ ↔ ob5·ob6 · EP-26 ⑨(참·거짓) ↔ P1·bg4 · ⑩(선택 없음·선택 중) ↔ bg4b·기존 선택 테스트.
+- 단계 분리: 메시지 완료 직후(③)와 턴 종료 뒤(⑤)를 bg4a·bg4b 에서 각각 단언한다(D-059).
+- 워커 경로 입력: bg4 꼬리는 10,000자(4,001~50,000) — AC37·AC38 의 완료 직전 꼬리(28자)로는 두 Markdown 경로를 가를 수 없다는 지적을 이 입력이 닫는다.
+- 분모: EP-28 검색 7줄 실측 − 뺀 3 = 4 · EP-26 10.
+- 방향: 완료 경로를 요구하는 자리는 이전 식으로 되돌리는 변이가 ob1·bg4 ③ 을 red 로 만들어야 한다(VP-57 등록 변이).
+
+## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다)
 
 ## 메타
 
