@@ -2,6 +2,168 @@
 
 > 절차 정본은 [`handoff-verify/SKILL.md`](../../../.agents/skills/handoff-verify/SKILL.md). 구현 보고·`Criteria-Met`은 대조 출발점으로만 썼고, 아래 관측은 모두 이번 턴에 재현했다.
 
+## 판정 (verify 2회째)
+
+**RETURN_TO_PLAN** — 확장 후보 5건(X1~X5)이 확장 창 안(2회째)이라 `PLAN_GAP`이다. 같은 판정 안에 이행 결함 5건(K1~K4 · I1 잔여)이 `BLOCKING`이라, 설계자가 X1~X5를 채택하거나 경계로 선언한 뒤 구현자가 K1~K4·I1을 고친다. 이번 판정 뒤의 설계 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다.
+
+- 닫힌 것: I3(W1·W2·W3 vitest red · W3e Electron 7화면 c2 red) · I4(`[구현자 기입] r2` 일곱 필드) · H1(root 래퍼 없이 exit 0 · vv 12케이스 · 종료 코드 경로).
+- 합계 재측정: ✅ 6 · ⚠️ 31 · ❌ 3 = 40(§V2-5). 자기보고 `Criteria-Met: 25/40`과 다르다 — ΔV6 AC15·AC35·AC40 은 sweep 못 잡음(K1~K4), V1 rev 3 AC 다수는 구현자 스스로 pair 를 `SELF_BLOCKED` 로 남겼다.
+- 막지 않는 것: 이번 변경 범위의 게이트는 통과했다. vitest 실패 393건은 SQLite ABI 371 + `src/main` Windows 경로 22 이고 변경 전 트리와 차집합 ∅ 이다(§V2-9).
+
+### V2 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `1e9f5524..56f0ca03` — 구현 `56f0ca03`(r2). app 57파일 +4,849 / −1,069 (`git diff --stat 1e9f5524..56f0ca03 -- app`) |
+| 구현 전 plan 기준 | `1e9f5524`(ΔV6) · `a6ee4d52`(verify 1 정정) |
+| 유효 V | `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 라운드 | 2 → 판정 뒤 3 |
+| 확장 창 | verify 2회째 — 창 안(마지막). 이 뒤 설계 턴이 plan 동결 전 마지막 확장 턴 |
+| 독립 축(⑥) | 3축 · 시도 12 — 생산자 자리 제거(S4·S5·S5e — 구현자 목록은 공급 값 `null`만) · 규칙 칸 항 단위 제거(⑫ 10항 · ⑮ 2항 · EP-31 13항 — 구현자는 항목 단위) · r2 의 새 행 유지(`useDiffViewWindow.ts` `retained`) 색인·무효화 읽기(발견 0) |
+| 열거 sweep(⑦) | ΔV6 가 새로 열거한 EP-30 15자리·EP-31 6자리 전수 + 직전 실패(W1~W3) + diff 가 닿은 이전 `잡음` 행(④). V1 rev 3 EP-1~EP-25 는 구현자가 `SELF_BLOCKED` 로 남겨 이번에 돌리지 않았다(못 본 것 — 구현자가 닫았다고 주장한 뒤 verify 가 전수) |
+| 발견 분류 | 이행 5(K1~K4 · I1 잔여) · 현재 0 · 확장 5(막음 5) · 동치 1(J5x) · 비귀속 1(N1 승계) |
+| 구현 주체·문맥 | 구현 codex · 설계자 = 검증자(Claude) |
+
+### V2-0. 기준선 · plan validity
+
+- 구현 커밋이 바꾼 `plan.md` hunk 는 `:11`(상태 줄)과 `:2219-2416`(`[구현자 기입] r2`)뿐이다 — AC·Decision·V 행 변경 0, 원 기준으로 채점.
+- EP-30 자리 검색 재실행 → 16줄(`FileDiffSection.tsx:451` 은 r2 diff 로 `:436` 에서 이동) = 자리 15 + 뺀 1(`TranscriptViewport.tsx:509`), 차집합 0. 술어 밖 검색 `rg "useMountedRows\(|VirtualRowMountContext" src --glob '!*.test.*'` 도 같은 공급자 3 · 생산자 2.
+- EP-31 자리 검색 → 9줄(정의 5 · 사유 3 · 호출 1), plan 과 같다.
+
+### V2-1. 구현 결과 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| false success | 없음(검사 범위) | c2 기대값은 probe 통과 문자열이 아니라 `electron-main.mjs:93-107` 원자료, c1 기대값은 행 표지 slice(`:139`) — 판정기가 다시 계산 |
+| 생산 코드 신규 경로 | 결함 0 | `useDiffViewWindow.ts` `retained` 는 같은 `source`·`options` 객체일 때만 이전 행을 쓰고 `index - retained.start` 로 색인 · 문서 ID `git:<path>` 의 revision 은 patch 객체 identity(`documents.ts` `revisionOf`)라 같은 경로의 다른 patch 와 충돌 없음 |
+| A 대신 B | 없음 | 문자열 patch 의 200,000자 경로 판정은 EP-18 ① "patch ≤ 200,000" 원문과 같다 |
+| 가려진 자리 | **있음 — K1** | Git 본문에서 `FileDiffSection.tsx:395` `useVirtualRows`(④)가 같은 스크롤마다 알림을 내 `:451` 행 ID 생산자(⑤)를 지워도 관측이 같다 |
+
+### V2-2. 역방향 탐색
+
+`scan-surface.sh 1e9f5524..56f0ca03` 후보 14 — 결함 0.
+
+| 후보 | 판정 | 근거 |
+|---|---|---|
+| `*.testfixture.ts` 5심볼(`mountViewport`·`renderGit` 등) | 정상 | 테스트 전용 픽스처 파일 |
+| `buildDiffRequirementSubmission` · `shouldCancelDiffRequirementDraft` | 오탐 | 같은 파일 `FileDiffSection.tsx:1301` · `:1321` 이 호출(파일 내부 참조) |
+| `transcriptFixtures.ts` `generateTranscriptFixture` 외 | 정상 | `main.tsx:24` 개발 도구 동적 import 가 `installTranscriptDevTools` 로 진입 |
+| 형제 정책 비대칭 | 없음 | 스크립트 §3 출력 `(없음)` |
+
+### V2-4. 고장 이력
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 직전 결과 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|---|
+| W1 | `rowMount.ts:7` | 다른 값 | 추가 판정 → 크기 비교 | 못 잡음 | 잡음 | rm2·rm5 외(5) | ①③ | — |
+| W2 | `:7` | 다른 값 | 제거만도 참 | 못 잡음 | 잡음 | rm3·ps11 외(3) | ①③ | — |
+| R2 | `:8` | 제거 | 기준 갱신 | — | 잡음 | rm8 외(12) | ① | — |
+| W3 | `:9` | 제거 | 알림 | 못 잡음 | 잡음 | 18 | ①③ | — |
+| W3e | `:9` | 제거 | Electron | 못 잡음 | 잡음 | 7화면 c2 | ①③ | — |
+| W1e · W2e | `:7` | 다른 값 | Electron | 못 잡음 | 못 잡음 | — | ③ | 경계 — ΔV6 VP-34 가 W1·W2 oracle 을 rm5·rm3 으로 고정(AT 등록 변이는 W3·`null` 뿐) |
+| N6 · N8 · N10 | `TranscriptViewport.tsx:704` · `DiffReview.tsx:126` · `ArtifactViewer.tsx:132` | 빈 값 | 공급 `null` | — | 잡음 | tn1·tn4 · po1·po3 · po4·po5 | ① | — |
+| N6e · N8e · N10e | 같음 | 빈 값 | Electron | — | 잡음 | transcript 3 · git 2 · artifact 2 화면 c2 | ① | — |
+| R7 | `TranscriptViewport.tsx:463` | 제거 | 조기 반환 | — | 잡음 | tn2·tn3 | ① | — |
+| R12f · R13 · R14u/c/b · R15 | `usePanelSelection.ts:33·41·45·49·50·22` | 제거 | 등록 6 | — | 잡음 6/6 | ps4 · ps5 · ps6 · ps7 · ps8 · ps9 | ① | — |
+| S4 | `useVirtualRows.ts:45` | 제거 | 생산자 ④ | — | 잡음 | po4 외(2) | ⑦⑥ | — |
+| S5 · S5e | `FileDiffSection.tsx:451` | 제거 | 생산자 ⑤(vitest · Electron) | — | **못 잡음** | — | ⑦⑥ | 이행(K1) |
+| S9 · S11 | `DiffReview.tsx:128` · `ArtifactViewer.tsx:134` | 제거 | pointerdown 배선 | — | 잡음 | po3 · po5 | ⑦ | — |
+| S7a~S7e | `TranscriptViewport.tsx:463-468` | 제거 | `none` 항 · `outside` 항 · 범위 해제 · 표시 해제 · 제스처 cancel | — | 잡음 5/5 | tn1~tn4 | ⑦ | — |
+| S12a | `usePanelSelection.ts:60` | 제거 | `gesture.current === 'idle' &&` | — | **못 잡음** | — | ⑦⑥ | 이행(K2) |
+| S12b | `:60` | 제거 | `!inside.current &&` | — | **못 잡음** | — | ⑦⑥ | 이행(K2) |
+| S12c | `:60` | 제거 | `&& !contains(selection)` | — | **못 잡음** | — | ⑦⑥ | 이행(K2) |
+| S12i | `:33` | 제거 | `anchorNode` 항(형제 `focusNode` 는 R12f) | — | **못 잡음** | — | ⑤⑦ | 이행(K2) |
+| S12d · S12f · S12h · S13b · S15b | `:61` · `:61` · `:63` · `:39` · `:25` | 제거 | 범위 해제 · `contains` 항 · cancel · 안쪽 기록 · 제스처 idle | — | 잡음 5/5 | 12 · 12 · 7 · ps5 · ps9 | ⑦ | — |
+| S12e · S12j · S12g | `:61` · `:31` · `:62` | 제거 | `isCollapsed ||` · `!selection.isCollapsed &&` · notify 의 안쪽 기록 리셋 | — | 못 잡음 | — | ⑥ | 확장(X1) |
+| S15c | `:26` | 제거 | 문서 전환 시 안쪽 기록 초기화 | — | **못 잡음** | — | ⑦ | 이행(K3) |
+| S14s | `:45` | 맞바꿈 | pointerup → pointercancel | — | 동치 | — | ⑤ | — (`selectionGuard.ts:45-48` 같은 분기) |
+| J2k · J2c · J1m | `check-visible-views.mjs:32·39·88` | 제거 | 등록 3 | — | 잡음 | vv4 · vv5 · vv2·vv11 | ① | — |
+| J1u · J2s · J2p · J3e · J3m · J4s · J5e · J6 | `:75·41·42·48·51·63·97·101` | 제거·다른 값 | sweep 8 | — | 잡음 8/8 | vv3 · vv6 · vv7 · vv8·vv9 · vv9 · vv10 · vv11 · vv11 | ⑦ | — |
+| J3f · J3l | `:52` · `:53` | 제거 | `reachedFirst` · `reachedLast` | — | **못 잡음** | — | ⑦ | 이행(K4) |
+| J4c | `:64` | 고정값 | c4 `clipboard === selectionBefore` | — | **못 잡음** | — | ⑦ | 이행(K4) |
+| J2o · J3x · J4k · J1d | `:33-38` · `:54-56` · `:61` · `:74` | 고정값·제거 | transcript 바깥 키 · 교차 복사 · c4 새 키 · 중복 기록 | — | 못 잡음 | — | ⑥ | 확장(X2~X5) |
+| J5x | `:102` | 제거 | `out.error` 조기 반환 | — | 동치 | — | ⑦ | — `records` 없는 out 은 `for…of undefined` TypeError → `:109` catch → exit 1, vv11 하네스 오류 입력 green |
+| V57-1r · V57-2 · Y3 · Y4 | `openCodeBlocks.ts:531·736·897·913` | 뒤집기·빈 값 | 직전 잡음 | 잡음 | 잡음 4/4 | ob · bg4a·bg4b | ④ | — |
+| V2-6 · Y5 · Y6 · Y7 | `WorkerMarkdownTail.tsx:87·102·101·96` | 제거 | 직전 잡음(oracle 파일 수정됨) | 잡음 | 잡음 4/4 | s13·s15 외 | ④ | — |
+| VP48-a · VP48-c | `worker/state.ts:89·76` | 제거 | 닫기 문서 삭제 · 모델 LRU 퇴거 | — | 잡음 | handler 2 · 1 | ① VP-48 | — |
+| VP48-b | `worker/state.ts:88` | 제거 | 닫기·교체 시 diff 모델 버림 | — | **못 잡음** | — | ① VP-48 | 이행(I1 — plan 좌표 h10 부재) |
+
+- 원복: 매 실행 뒤 `mutate.py` "모든 파일 원문 그대로" + `git status --porcelain` 빈 출력. 원자료 [`evidence/v2-mutations.tsv`](evidence/v2-mutations.tsv) · spec [`evidence/v2-mutations.spec.jsonl`](evidence/v2-mutations.spec.jsonl).
+- 하한 ④: r2 가 oracle 파일(`streamingSessions.test.ts` · `WorkerMarkdownTail.test.ts`)과 판정 도구(`check-transcript-selection.mjs`)를 고쳤다 — 해당 `잡음` 8행 재실행 8/8 red, `red → green` 0.
+
+### V2-5. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거 |
+|---|---|---|---|
+| VP-34 MD-05 ↔ UT-05 | UT | PASS | `rowMount.test.ts` rm1~rm8 · 등록 W1·W2·R2·W3 red · ① 분기 rm1~rm5·rm7 |
+| VP-59 MD-17 ↔ UT-17 | UT | PAIR_FAIL | 등록 3/3 red · ③ "첫·끝 행 도달" · ④ "clipboard === selectionBefore" 입력 없음(K4) |
+| VP-26 AR-07 ↔ IT-07 | IT | PAIR_FAIL | 공급 `null` 3 · R7 · S4·S9·S11·S7a~e red · ⑤ 생산자 제거 green(K1) |
+| VP-14 SD-05 ↔ ST-05 | ST | PAIR_FAIL | 등록 6/6 red · ⑫ 분기 4항(K2) · ⑮ 셋째 항(K3) 입력 없음 |
+| VP-09 R-09 ↔ AT-09 | AT | BLOCKED_BY:VP-26 | `check-visible-views` 23기록 verdict true · W3e·N6e·N8e·N10e red · ⑤ 자리만 VP-26 과 같은 root(S5e green) |
+| VP-50 (REGRESSION) | AT | PASS | `check-transcript-selection` exit 0 · 90기록 verdict true |
+| VP-52 · VP-56 · VP-57 | ST · UT · UT | PASS | `check-transcript-streaming` exit 0 · 18기록 · ④ V57·V2-6·Y3~Y7 8/8 red |
+| VP-48 | UT | PAIR_FAIL | plan 좌표 h10·h11 이 `handler.test.ts` 에 없다 · VP48-b green(I1) |
+| VP-01~VP-51 의 나머지(V1 rev 3) | 전 레벨 | PAIR_FAIL(I1 승계) | 구현자가 `[구현자 기입] r2` 강제 지점 표에서 `SELF_BLOCKED` 로 남김. 이번엔 좌표 실재만 대조 — I1 표 파일 전부 존재, 라벨은 `d2/d7`·`rt1/rt2` 같은 합친 제목으로 존재, 부재는 h10·h11 |
+
+| 결과 | AC |
+|---|---|
+| ✅ 6 | AC4 · AC25 · AC28 · AC37 · AC38 · AC39(bg0~bg4b 라벨 존재 · ④ 4/4 red) |
+| ❌ 3 | AC15 · AC35(K1~K3) · AC40(K4) |
+| ⚠️ 31 | 나머지 — 자기보고 ⚠️ 15(AC3·9·12·13·14·16·17·19·20·22·24·30·31·32·34) + 자기보고 ✅ 이지만 pair 가 `SELF_BLOCKED`·등록 변이 미실행인 16(AC1·2·5~8·10·11·18·21·23·26·27·29·33·36) |
+
+- 합계 `6 + 3 + 31 = 40`. 자기보고 `25/40`(trailer `56f0ca03` · plan `:2369`) — 불일치. trailer `Criteria-Pending` 15개는 plan ⚠️ 15 행과 같다.
+
+### V2-9. 게이트 재실행 (검증 트리 `56f0ca03`)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| `npm run typecheck` | PASS | exit 0 |
+| `npm run lint` | PASS | 오류 0 · 경고 12 · 실행 뒤 `git status` 변화 0 |
+| 가드 5종 | PASS | append-only · doc-inventory `--check` · product-naming 2,627파일 · test-budgets 실-git 18 · ui-thread — 전부 exit 0 |
+| `vitest run`(필터 없음) | 기준선 | 2,842 스위트 · 10,696 테스트 · 통과 10,173 · 실패 393 · skip 130. 371 = `NODE_MODULE_VERSION`(Electron ABI · 환경) · 22 = `src/main` 9파일 Windows 경로. `1e9f5524` 워크트리 같은 파일 실행의 실패 27(=22 + settlement SQLite 5)과 양방향 차집합 ∅ · r2 변경 파일 ∩ 실패 파일 = ∅ |
+| `node --test scripts/*.test.mjs` | PASS | 1,078 통과 · 실패 0 |
+| `electron-vite build` · `smoke-preload` | PASS | exit 0 · `require 는 electron 뿐 · ooBridge 키 7` |
+| `smoke-hosts` | 환경 | 데이터 호스트 종료 코드 1 — verify 1 과 같은 SQLite ABI 서명. r2 는 `src/main` 0파일 |
+| `check-visible-views`(ΔV6 운영 gate) | PASS | root 에서 래퍼 없이 exit 0 · 23기록 verdict true · Electron 39.8.10 — [`evidence/v2-check-visible-views.json`](evidence/v2-check-visible-views.json) |
+| `check-transcript-selection` · `check-transcript-streaming` | PASS | exit 0 · 90 · 18기록 — [`v2-check-transcript-selection.json`](evidence/v2-check-transcript-selection.json) · [`v2-check-transcript-streaming.json`](evidence/v2-check-transcript-streaming.json) |
+
+- 잔여물: 임시 워크트리(삭제함) · 변이 원복 확인. 작업 트리에는 이 verify 산출물만 남는다.
+
+### V2-10. Repository operation checks
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| trailer 파싱 | PASS | `56f0ca03` 6키 · `1e9f5524` 5키 반환 |
+| `[구현자 기입] r2` 일곱 필드 | PASS | 설계 리뷰 · 강제 지점 전수 · 이번 라운드 수정의 잠금(검산 줄 `14 · 4 · 3 · 4 = 25` = 표 21+4행) · Product/UX · 놓친 잠재 문제 · 구현 보고 · Review Signals |
+| 대상 커밋 좌표 | 기입 | INDEX `(r2 구현 — 검증자 기입)` → `56f0ca03`. `origin/main` 조상 아님(PR 미병합) |
+| `app/AGENTS.md` 변경 | PASS | `check-visible-views.mjs` 한 줄 · 비밀·변동성 정보 없음 |
+
+### V2-11. 발견 분류
+
+| # | 발견 | 분류 | 근거(인용·재현) | disposition |
+|---|---|---|---|---|
+| K1 | EP-30 ⑤ Git 행 ID 생산자를 지워도 po1·AT c2 `git-*` green — 같은 본문의 ④ 가 같은 커밋에 알림을 낸다 | 이행 | EP-30 ⑤ "Git 본문 마운트 키 = 그린 행의 `row.id`" · S5·S5e | BLOCKING |
+| K2 | EP-30 ⑫ 규칙 칸의 분기 입력 누락 — 드래그 중·기록 없음(S12a) · 기록 있음·선택 밖(S12b) · 기록 없음·선택 안(S12c) · anchor 만 안(S12i) | 이행 | ⑫ "제스처 idle · 안쪽 기록 없음 · 선택이 이 화면에 없음 → 유지 · 끝 하나라도 이 화면 안 → 선택 해제 · 드래그 중 → 해제 + 억제" — 입력 칸이 규칙 칸보다 좁다 | BLOCKING |
+| K3 | EP-30 ⑮ 셋째 항(안쪽 기록 초기화)을 지워도 ps9 green | 이행 | ⑮ "억제 해제 · 제스처 idle · 안쪽 기록 초기화 — 세 항" · S15c | BLOCKING |
+| K4 | EP-31 ③ 첫·끝 행 도달 · ④ 클립보드 항 입력 없음 | 이행 | ③ "clipboard === expected · 마운트 행 < 150 · 첫·끝 행 도달" · ④ "selectionAfter === selectionBefore ∧ clipboard === selectionBefore" · J3f·J3l·J4c | BLOCKING |
+| I1 | 잔여 — V1 rev 3 pair 다수 `SELF_BLOCKED` · 자기보고 ⚠️ 15 · `handler.test.ts` h10·h11 부재(구현 보고 강제 지점 표는 "h10~h13" 으로 적음) · VP48-b green | 이행 | VP-48 "h10(닫기 뒤 체크포인트·색인·모델·보기 문서 0)" · EP-23 ② "문서 닫기 → … diff 모델 … 삭제" | BLOCKING(승계) |
+| X1 | 접힌·빈 선택의 처리 항(`usePanelSelection.ts:31` · `:61` `isCollapsed` · `:62` notify 안쪽 기록 리셋) — 지워도 green. 사용자 관측 차이는 빈 선택의 `removeAllRanges` 호출뿐 | 확장 | S12e·S12j·S12g · ⑫ 규칙 칸이 접힌 선택을 열거하지 않음 | PLAN_GAP(창 안) |
+| X2 | 판정기 transcript c2 바깥 행 키 고정 검사(`:33-38`) 입력 없음 | 확장 | J2o · EP-31 ② 는 네 항만 열거 | PLAN_GAP |
+| X3 | 판정기 transcript c1 본문 → 카드 교차 복사 항(`:54-56`) 입력 없음 | 확장 | J3x · EP-31 ③ 이 교차 기록을 열거하지 않음(하네스 계약 c1 에만 있음) | PLAN_GAP |
+| X4 | 판정기 c4 의 B 새 키 항(`:61`) 입력 없음 | 확장 | J4k · EP-31 ④ 는 두 항만 열거 | PLAN_GAP |
+| X5 | 판정기 중복 기록 거부(`:74 seen.has`) 입력 없음 | 확장 | J1d · EP-31 ① 은 모르는·빠진 기록만 열거 | PLAN_GAP |
+| N1 | `smoke-hosts` SQLite ABI | 비귀속 | 환경 서명 · `src/main` 변경 0 | NON_BLOCKING |
+
+### V2 Review Signals — 사실만
+
+- 이전 라운드와 같은 증상: I1(plan 좌표 부재)이 h10·h11 로 남았다. 구현 보고 강제 지점 표가 존재하지 않는 좌표를 범위로 적었다(VP-48 "h10~h13").
+- 막았어야 할 plan 지침: K1~K4 는 ΔV6 §10 규칙 칸·자리 문장에 항이 적혀 있었다. 구현자 sweep 은 항목 단위(공급 `null`·항 하나 제거 6개)였고 생산자 자리·규칙 칸 항 단위 변이는 없었다.
+- 반복 환경 한계: Electron ABI ↔ Node ABI 동시 불가(SQLite 371 · smoke-hosts). root sandbox 는 해소.
+- 독립 축(⑥) 발견: 3축 12시도 중 이행 3(K1 · K2 의 S12a·S12c·S12i 묶음 일부) · 확장 2(X1 · X2~X5 일부) — 나머지 K2·K3·K4 는 ⑦ sweep 에서 나왔다.
+
+---
+
+## verify 1회째 (원문 보존)
+
 ## 판정 (verify 1회째)
 
 **RETURN_TO_PLAN** — 확장 후보 1건(H1 `check-visible-views.mjs` 실행 환경)이 확장 창 안이라 `PLAN_GAP`이다. 같은 판정 안에 이행 결함 3건(I1·I3·I4)이 `BLOCKING`이므로 설계자가 H1을 채택·경계 선언한 뒤 구현자가 I1·I3·I4를 고친다. I2 는 검증자 변이 위치 오류로 철회했다(아래 정정).

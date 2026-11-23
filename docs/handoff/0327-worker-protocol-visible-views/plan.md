@@ -1987,15 +1987,24 @@ agent(Git patch · 도구 이벤트) / data(산출물 미리보기) ──(현�
 
 ## [검증자 기입] 파생 이슈
 
-verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md).
+verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md).
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| I1 | plan 지정 oracle 좌표 부재 — 24 AC(파일 `protocol.keys`·`useWindowTokens`·`fileDiffVirtual.render`·`useDiffRowTokens`·`markdownDocumentBlocks`·`cardSyncCaps` 등 · 케이스 라벨 d1~d9·bg0~bg3) | VP-01·02·04·10·12·13·15·20~25·31·33·35·36·38·39·48·49·51 · AC 검증 수단 칸 | plan 좌표를 만들거나, 같은 단언을 둔 기존 테스트를 자리별 좌표 표로 대응시킨다 | 이행 | BLOCKING | open |
+| I1 | plan 지정 oracle 좌표 부재 — 24 AC(파일 `protocol.keys`·`useWindowTokens`·`fileDiffVirtual.render`·`useDiffRowTokens`·`markdownDocumentBlocks`·`cardSyncCaps` 등 · 케이스 라벨 d1~d9·bg0~bg3) | VP-01·02·04·10·12·13·15·20~25·31·33·35·36·38·39·48·49·51 · AC 검증 수단 칸 | plan 좌표를 만들거나, 같은 단언을 둔 기존 테스트를 자리별 좌표 표로 대응시킨다 | 이행 | BLOCKING | open — verify 2 잔여: V1 rev 3 pair `SELF_BLOCKED` · 자기보고 ⚠️ 15 · `handler.test.ts` h10·h11 부재(VP48-b green) |
 | I2 | ~~VP-57 등록 변이에서 bg4 OpenCode green~~ — 철회: 검증자 변이가 6번째 인자(`live`)에 심겼다. 5번째 인자(`streaming`) 변이 V57-1r 은 ob1 · bg4a · bg4b red | VP-57 | — | — | — | withdrawn |
-| I3 | `rowMount.ts:7` 추가 판정을 크기 비교·제거만 참으로 바꾸거나 `:9` 알림을 지워도 vitest·`check-visible-views` green | VP-34 · ΔV1 MD-05 · VP-50 "취소 사례는 실제 새 행 키 관측" | 판정 함수 UT(추가·교체·제거만·동일 키) + 선택 끝이 마운트된 채 새 키가 들어오는 Electron 사례 | 이행 | BLOCKING | open |
-| I4 | r1.5 `[구현자 기입]` 에 강제 지점 전수 표·놓친 잠재 문제·sweep 검산 줄 없음 | `handoff-impl` 최소 계약 | 다음 impl 턴이 일곱 필드를 채운다 | 이행 | BLOCKING | open |
-| H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP → 채택(ΔV6 D-062 · AC40 · EP-31) | adopted |
+| I3 | `rowMount.ts:7` 추가 판정을 크기 비교·제거만 참으로 바꾸거나 `:9` 알림을 지워도 vitest·`check-visible-views` green | VP-34 · ΔV1 MD-05 · VP-50 "취소 사례는 실제 새 행 키 관측" | 판정 함수 UT(추가·교체·제거만·동일 키) + 선택 끝이 마운트된 채 새 키가 들어오는 Electron 사례 | 이행 | BLOCKING | closed — verify 2: W1·W2·W3 vitest red · W3e Electron 7화면 c2 red |
+| I4 | r1.5 `[구현자 기입]` 에 강제 지점 전수 표·놓친 잠재 문제·sweep 검산 줄 없음 | `handoff-impl` 최소 계약 | 다음 impl 턴이 일곱 필드를 채운다 | 이행 | BLOCKING | closed — verify 2: r2 일곱 필드 |
+| H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP → 채택(ΔV6 D-062 · AC40 · EP-31) | closed — verify 2: root exit 0 · vv 12케이스 |
+| K1 | EP-30 ⑤ Git 행 ID 생산자(`FileDiffSection.tsx:451`)를 지워도 po1·AT c2 `git-*` green — 같은 본문 `:395` `useVirtualRows`(④)가 같은 커밋에 알림 | VP-26 · VP-09 · EP-30 ⑤ | ④ 알림 없이 행 ID 만 새로 마운트되는 입력(워커 창 행 도착 등)으로 ⑤ 를 가르거나 동치를 보인다 | 이행 | BLOCKING | open |
+| K2 | EP-30 ⑫ 분기 입력 누락 — 드래그 중·기록 없음(S12a) · 기록 있음·선택 밖(S12b) · 기록 없음·선택 안(S12c) · anchor 만 안(S12i) | VP-14 · EP-30 ⑫ 규칙 칸 | 규칙 칸 분기마다 ps 입력을 더한다 | 이행 | BLOCKING | open |
+| K3 | EP-30 ⑮ 셋째 항(안쪽 기록 초기화) 제거 green | VP-14 · EP-30 ⑮ | ps9 에 그 항을 가르는 입력 | 이행 | BLOCKING | open |
+| K4 | EP-31 ③ 첫·끝 행 도달 · ④ c4 클립보드 항 입력 없음(J3f·J3l·J4c) | VP-59 · EP-31 ③④ | vv 입력 추가 | 이행 | BLOCKING | open |
+| X1 | 접힌·빈 선택 처리 항(`usePanelSelection.ts:31`·`:61` `isCollapsed` · `:62` notify 안쪽 기록 리셋) 제거 green | ⑫ 밖 | 설계자 채택 또는 경계 선언 | 확장 | PLAN_GAP | open |
+| X2 | 판정기 transcript c2 바깥 행 키 고정 검사(`check-visible-views.mjs:33-38`) 입력 없음 | EP-31 ② 밖 | 같음 | 확장 | PLAN_GAP | open |
+| X3 | 판정기 transcript c1 교차 복사 항(`:54-56`) 입력 없음 | EP-31 ③ 밖 | 같음 | 확장 | PLAN_GAP | open |
+| X4 | 판정기 c4 B 새 키 항(`:61`) 입력 없음 | EP-31 ④ 밖 | 같음 | 확장 | PLAN_GAP | open |
+| X5 | 판정기 중복 기록 거부(`:74`) 입력 없음 | EP-31 ① 밖 | 같음 | 확장 | PLAN_GAP | open |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)
