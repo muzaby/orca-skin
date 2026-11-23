@@ -4,7 +4,7 @@ import type { Message } from '../../../reducer/chatReducer'
 import { newTranscriptChanges, recordChange } from '../../../lib/transcript/changeLog'
 import { userBlockKey } from '../../../lib/transcript/blockKeys'
 import { buildOpenCodeBlocksOracle, snapshotToArray } from '../../../lib/blockOracle.testfixture'
-import { createOpenCodeBlockModel } from './openCodeBlocks'
+import { createOpenCodeBlockModel, type OpenCodeBlockModel } from './openCodeBlocks'
 
 function userMsg(id: string, text: string, createdAt = 1000): Message {
   return { id, role: 'user', createdAt, parts: [{ type: 'text', text }] }
@@ -725,5 +725,68 @@ describe('openCodeBlocks (EP-7 · EP-8 · y10~y20 · z1~z9)', () => {
     expect(s2.blockAt(0)).toBe(headBlock)
     expect(s3.blockAt(0)).toBe(headBlock)
     expect(s3.blockAt(1)).toBe(s2.blockAt(1))
+  })
+})
+
+describe('EP-28 text row ownership', () => {
+  const user = userMsg('u', 'question')
+  const committed = assistantMsg('a', [{ type: 'text', text: 'answer' }])
+  const state = (messages: Message[]): Parameters<OpenCodeBlockModel['advance']>[0] => ({
+    messages,
+    transcriptChanges: newTranscriptChanges()
+  })
+  const rows = (
+    snapshot: ReturnType<OpenCodeBlockModel['advance']>
+  ): [string, boolean, boolean][] =>
+    snapshotToArray(snapshot).flatMap((block) =>
+      block.kind === 'segment' && block.segment.kind === 'text'
+        ? [[block.messageId, block.streaming, Boolean(block.live)]]
+        : []
+    )
+
+  it.each([
+    ['ob1', true, undefined, [['a', false, false]]],
+    ['ob2', true, 'a', [['a', true, true]]],
+    [
+      'ob3',
+      true,
+      'b',
+      [
+        ['a', false, false],
+        ['b', true, true]
+      ]
+    ],
+    ['ob4', false, 'a', [['a', false, false]]]
+  ] as const)(
+    '%s classifies committed and live text independently',
+    (_, pending, liveTextKey, expected) => {
+      expect(
+        rows(
+          createOpenCodeBlockModel().advance(state([user, committed]), {
+            pending,
+            liveText: liveTextKey !== undefined,
+            liveTextKey
+          })
+        )
+      ).toEqual(expected)
+    }
+  )
+
+  it.each([false, true])('ob5 first live row, incremental=%s', (incremental) => {
+    const model = createOpenCodeBlockModel()
+    const input = state([user])
+    if (incremental) model.advance(input, { pending: true })
+    expect(rows(model.advance(input, { pending: true, liveText: true, liveTextKey: 'a' }))).toEqual(
+      [['a', true, true]]
+    )
+  })
+
+  it('ob6 replaces the first live row when its owner changes', () => {
+    const model = createOpenCodeBlockModel()
+    const input = state([user])
+    model.advance(input, { pending: true, liveText: true, liveTextKey: 'a' })
+    expect(rows(model.advance(input, { pending: true, liveText: true, liveTextKey: 'b' }))).toEqual(
+      [['b', true, true]]
+    )
   })
 })
