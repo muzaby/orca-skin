@@ -136,6 +136,11 @@ describe('(a) 동기 API', () => {
 describe('(b) 계산 라이브러리', () => {
   const outside = 'src/renderer/src/features/chat/lib/x.ts'
 
+  for (const name of ['unified', 'remark-parse', 'remark-rehype'])
+    it(`UI에서 ${name} 값 import를 막는다`, () => {
+      fails('b', { [outside]: `import * as parser from '${name}'\nexport const x = parser\n` })
+    })
+
   it("허용 밖 파일의 정적 값 import(`import { x } from 'shiki'`)는 exit 1", () => {
     fails('b', { [outside]: "import { codeToHtml } from 'shiki'\nexport const x = codeToHtml\n" })
   })

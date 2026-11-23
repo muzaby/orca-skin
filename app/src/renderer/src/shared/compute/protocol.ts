@@ -1,6 +1,6 @@
-// 계산 클라이언트 ↔ 워커 메시지 계약 (0324 AR-01). 요청 3종 — 구문 강조 HTML · diff 두 축의
-// 토큰 · diff 줄. 워커는 상태를 갖지 않고 요청 하나에 응답 하나를 낸다.
+// 계산 레인은 강조와 diff를 처리하고, Markdown 레인은 임차한 문서 범위를 파싱한다.
 
+import type { Root } from 'hast'
 import type { ThemedToken } from 'shiki'
 import type { DiffLine } from './diffModel'
 import { COMPUTE_RESULT_ELEMENT_CHARS } from './limits'
@@ -30,11 +30,30 @@ export interface DiffLinesRequest {
   newValue: string
 }
 
-export type ComputeRequest = HighlightRequest | DiffTokensRequest | DiffLinesRequest
+export interface DocRef {
+  id: string
+  revision: number
+}
+export type Lane = 'compute' | 'markdown'
+export interface MarkdownRequest {
+  kind: 'markdown'
+  doc: DocRef
+  start: number
+  end: number
+}
+export type WireControl =
+  { type: 'doc.open'; ref: DocRef; text: string } | { type: 'doc.close'; ref: DocRef }
+export const docKey = (ref: DocRef): string => `${ref.id}@${ref.revision}`
+export function laneOf(kind: ComputeRequest['kind']): Lane {
+  return kind === 'markdown' ? 'markdown' : 'compute'
+}
+export type ComputeRequest =
+  HighlightRequest | DiffTokensRequest | DiffLinesRequest | MarkdownRequest
 
 export type TokenRows = ThemedToken[][]
 
 export interface ComputeResults {
+  markdown: { hast: Root } | { tooLarge: true }
   highlight: { html: string }
   diffTokens: { old: TokenRows | null; new: TokenRows | null }
   diffLines: { lines: DiffLine[] }
@@ -54,6 +73,8 @@ const SEP = '\u0000'
 // 같은 `(종류, 언어, 테마, 내용)` 은 같은 키다.
 export function requestKey(request: ComputeRequest): string {
   switch (request.kind) {
+    case 'markdown':
+      return ['markdown', docKey(request.doc), request.start, request.end].join(SEP)
     case 'highlight':
       return ['highlight', request.lang, request.theme, request.code].join(SEP)
     case 'diffTokens':
@@ -74,6 +95,8 @@ export function requestKey(request: ComputeRequest): string {
 // 대기 순서를 정하는 입력 크기(문자 수).
 export function requestSize(request: ComputeRequest): number {
   switch (request.kind) {
+    case 'markdown':
+      return request.end - request.start
     case 'highlight':
       return request.code.length
     case 'diffTokens':
@@ -95,6 +118,8 @@ const rowsSize = (rows: TokenRows | null): number =>
 // 캐시 상한에 세는 결과 크기(문자 수) — 결과 문자 + 줄·행·토큰 객체마다 `COMPUTE_RESULT_ELEMENT_CHARS`
 // (html 은 문자만). 빈 줄만 내는 거대 결과도 비용이 0 이 아니다(0325 D-038 · §8 X5). 워커가 센다.
 export function resultSize(result: ComputeResult): number {
+  if ('tooLarge' in result) return 1
+  if ('hast' in result) return JSON.stringify(result.hast).length
   if ('html' in result) return result.html.length
   if ('lines' in result)
     return result.lines.reduce(

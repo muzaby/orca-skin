@@ -3,7 +3,7 @@
 // 원문을 유지한다.
 //
 // 규칙
-//   · 워커에 나가 있는 요청은 1개다.
+//   · 계산·Markdown 레인마다 워커에 나가 있는 요청은 1개다.
 //   · 대기열은 입력 문자 수 오름차순, 같으면 먼저 온 것.
 //   · 같은 키의 요청이 대기·실행 중이면 한 계산을 공유한다. 공유자가 모두 취소해야 취소다.
 //   · 대기 중 취소는 대기열에서 뺀다(워커에 보내지 않는다). 실행 중 취소는 대기 요청이 있으면
@@ -14,8 +14,18 @@
 // `new Worker(` 는 이 파일에서만 부른다(가드 `check-ui-thread` 규칙 (i)).
 
 import { rendererLog } from '../logging'
-import { COMPUTE_CACHE_MAX_CHARS, COMPUTE_CACHE_MAX_ENTRIES, COMPUTE_FAILURE_LIMIT } from './limits'
 import {
+  COMPUTE_DOC_MAX_CHARS,
+  COMPUTE_CACHE_MAX_CHARS,
+  COMPUTE_CACHE_MAX_ENTRIES,
+  COMPUTE_FAILURE_LIMIT
+} from './limits'
+import {
+  docKey,
+  laneOf,
+  type Lane,
+  type DocRef,
+  type WireControl,
   parseResponse,
   requestKey,
   requestSize,
@@ -26,7 +36,7 @@ import {
 } from './protocol'
 
 export interface WorkerLike {
-  postMessage(message: WireRequest): void
+  postMessage(message: WireRequest | WireControl): void
   terminate(): void
   onmessage: ((event: { data: unknown }) => void) | null
   onerror: ((event: unknown) => void) | null
@@ -39,9 +49,18 @@ export interface ComputeHandle<R> {
   cancel(): void
 }
 
+export interface DocumentLease {
+  readonly ref: DocRef
+  readonly available: boolean
+  onAvailable(listener: () => void): () => void
+  release(): void
+}
+
 export interface ComputeClient {
+  openDocument(ref: DocRef, payload: { text: string }, lane: Lane): DocumentLease
   request<K extends ComputeRequest['kind']>(
-    request: Extract<ComputeRequest, { kind: K }>
+    request: Extract<ComputeRequest, { kind: K }>,
+    options?: { cacheable?: boolean }
   ): ComputeHandle<ComputeResults[K]>
   // 캐시에 있으면 바로 준다(요청·대기 없음).
   peek<K extends ComputeRequest['kind']>(
@@ -66,11 +85,14 @@ interface Job {
   key: string
   size: number
   request: ComputeRequest
+  cacheable: boolean
+  retried: boolean
   waiters: Set<Waiter>
 }
 
 interface ClientDeps {
-  createWorker: () => WorkerLike
+  docMaxChars?: number
+  createWorker: (lane: Lane) => WorkerLike
   onError?: (error: unknown) => void
   cacheMaxChars?: number
   cacheMaxEntries?: number
@@ -78,6 +100,30 @@ interface ClientDeps {
 }
 
 export function createComputeClient(deps: ClientDeps): ComputeClient {
+  const compute = createLane(deps, 'compute')
+  const markdown = createLane(deps, 'markdown')
+  const select = (lane: Lane): ComputeClient => (lane === 'markdown' ? markdown : compute)
+  return {
+    openDocument: (ref, payload, lane) => select(lane).openDocument(ref, payload, lane),
+    request: (request, options) => select(laneOf(request.kind)).request(request, options),
+    peek: (request) => select(laneOf(request.kind)).peek(request)
+  }
+}
+
+function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
+  const documents = new Map<
+    string,
+    {
+      ref: DocRef
+      text: string
+      leases: number
+      available: boolean
+      sent: boolean
+      listeners: Set<() => void>
+    }
+  >()
+  const capacity = deps.docMaxChars ?? COMPUTE_DOC_MAX_CHARS
+  let reserved = 0
   const cacheMax = deps.cacheMaxChars ?? COMPUTE_CACHE_MAX_CHARS
   const cacheMaxEntries = deps.cacheMaxEntries ?? COMPUTE_CACHE_MAX_ENTRIES
   const failureLimit = deps.failureLimit ?? COMPUTE_FAILURE_LIMIT
@@ -131,6 +177,30 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
       else waiter.reject(outcome.error)
     }
     job.waiters.clear()
+    collectDocuments()
+  }
+
+  function collectDocuments(): void {
+    for (const [key, doc] of documents) {
+      if (doc.leases > 0) continue
+      if (
+        [...jobs.values()].some(
+          ({ request }) => request.kind === 'markdown' && docKey(request.doc) === key
+        )
+      )
+        continue
+      documents.delete(key)
+      if (doc.available) reserved -= doc.text.length
+      if (doc.sent) worker?.postMessage({ type: 'doc.close', ref: doc.ref })
+    }
+    for (const doc of documents.values()) {
+      if (doc.available || reserved + doc.text.length > capacity) continue
+      doc.available = true
+      reserved += doc.text.length
+      const listeners = [...doc.listeners]
+      doc.listeners.clear()
+      for (const listener of listeners) listener()
+    }
   }
 
   function dropWorker(): void {
@@ -140,6 +210,7 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
     worker.onmessageerror = null
     worker.terminate()
     worker = null
+    for (const doc of documents.values()) doc.sent = false
   }
 
   // 워커 수준 실패 — 실행 중 요청을 실패시키고, 한도에 닿았으면 대기열도 비운다.
@@ -161,7 +232,7 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
   function ensureWorker(): WorkerLike | null {
     if (worker) return worker
     try {
-      const created = deps.createWorker()
+      const created = deps.createWorker(lane)
       created.onmessage = (event) => receive(event.data)
       created.onerror = (event) => fail(event)
       created.onmessageerror = (event) => fail(event)
@@ -180,7 +251,18 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
     const target = ensureWorker()
     // 생성 실패는 `fail` 이 이미 이 요청을 실패시키고 다음으로 넘어갔다.
     if (!target || running !== job) return
-    target.postMessage({ ...job.request, id: job.id })
+    try {
+      if (job.request.kind === 'markdown') {
+        const doc = documents.get(docKey(job.request.doc))!
+        if (!doc.sent) {
+          target.postMessage({ type: 'doc.open', ref: doc.ref, text: doc.text })
+          doc.sent = true
+        }
+      }
+      target.postMessage({ ...job.request, id: job.id })
+    } catch (error) {
+      fail(error)
+    }
   }
 
   function receive(raw: unknown): void {
@@ -191,8 +273,16 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
     running = null
     if (response.ok) {
       failures = 0
-      writeCache(job.key, response.result, response.size)
+      if (job.cacheable) writeCache(job.key, response.result, response.size)
       settle(job, { result: response.result })
+    } else if (
+      response.error === 'unknown-doc' &&
+      !job.retried &&
+      job.request.kind === 'markdown'
+    ) {
+      job.retried = true
+      documents.get(docKey(job.request.doc))!.sent = false
+      enqueue(job)
     } else {
       // 요청 하나의 계산 오류(문법 미지원 등)는 워커 실패가 아니다.
       settle(job, { error: new Error(response.error) })
@@ -215,9 +305,10 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
     if (queuedAt >= 0) {
       queue.splice(queuedAt, 1)
       jobs.delete(job.key)
+      collectDocuments()
       return
     }
-    if (running !== job || queue.length === 0) return
+    if (running !== job || queue.length === 0 || job.request.kind === 'markdown') return
     // 실행 중이고 뒤에 기다리는 요청이 있다 — 워커를 바꿔 대기열을 잇는다.
     jobs.delete(job.key)
     running = null
@@ -226,12 +317,53 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
   }
 
   return {
+    openDocument(ref, payload) {
+      const key = docKey(ref)
+      let entry = documents.get(key)
+      if (!entry) {
+        const available = reserved + payload.text.length <= capacity
+        entry = { ref, text: payload.text, available, sent: false, leases: 0, listeners: new Set() }
+        if (available) reserved += payload.text.length
+        documents.set(key, entry)
+      }
+      const doc = entry
+      doc.leases++
+      let released = false
+      const subscriptions = new Set<() => void>()
+      return {
+        ref,
+        get available() {
+          return doc.available && !released
+        },
+        onAvailable(listener) {
+          const notify = (): void => listener()
+          if (!released && !doc.available) {
+            subscriptions.add(notify)
+            doc.listeners.add(notify)
+          }
+          return () => {
+            subscriptions.delete(notify)
+            doc.listeners.delete(notify)
+          }
+        },
+        release() {
+          if (released) return
+          released = true
+          for (const listener of subscriptions) doc.listeners.delete(listener)
+          doc.leases--
+          collectDocuments()
+        }
+      }
+    },
     peek(request) {
       return readCache(requestKey(request)) as never
     },
-    request(request) {
+    request(request, options) {
+      if ('doc' in request && !documents.get(docKey(request.doc))?.available)
+        return { promise: Promise.reject(new Error('doc-unavailable')), cancel: () => {} }
+
       const key = requestKey(request)
-      const cached = readCache(key)
+      const cached = options?.cacheable === false ? undefined : readCache(key)
       if (cached) return { promise: Promise.resolve(cached as never), cancel: () => {} }
       if (blocked()) {
         return { promise: Promise.reject(new Error('compute worker failed')), cancel: () => {} }
@@ -239,7 +371,15 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
       let job = jobs.get(key)
       const isNew = !job
       if (!job) {
-        job = { id: nextId++, key, size: requestSize(request), request, waiters: new Set() }
+        job = {
+          id: nextId++,
+          key,
+          size: requestSize(request),
+          request,
+          cacheable: options?.cacheable !== false,
+          retried: false,
+          waiters: new Set()
+        }
         jobs.set(key, job)
       }
       const owner = job
@@ -262,11 +402,16 @@ let shared: ComputeClient | null = null
 // 창마다 하나 — 첫 요청에 워커를 만든다.
 export function computeClient(): ComputeClient {
   shared ??= createComputeClient({
-    createWorker: () =>
-      new Worker(new URL('./worker/compute.worker.ts', import.meta.url), {
-        type: 'module',
-        name: 'compute'
-      }) as unknown as WorkerLike
+    createWorker: (lane) =>
+      lane === 'markdown'
+        ? (new Worker(new URL('./worker/markdown.worker.ts', import.meta.url), {
+            type: 'module',
+            name: 'markdown'
+          }) as unknown as WorkerLike)
+        : (new Worker(new URL('./worker/compute.worker.ts', import.meta.url), {
+            type: 'module',
+            name: 'compute'
+          }) as unknown as WorkerLike)
   })
   return shared
 }

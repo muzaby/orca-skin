@@ -34,6 +34,12 @@ export function fakeComputeClient(): FakeCompute {
       next.reject(new Error('compute worker failed'))
     },
     client: {
+      openDocument: (ref) => ({
+        ref,
+        available: true,
+        onAvailable: () => () => {},
+        release: () => {}
+      }),
       peek: (request) => cache.get(requestKey(request)) as never,
       request(request): ComputeHandle<never> {
         fake.requests.push(request)

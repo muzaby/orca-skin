@@ -1,3 +1,4 @@
+import { markdownWorkerBuild } from './markdown-worker-build.mjs'
 // 0326 AT-07 — transcript selection and copy in real Electron (D-102 · D-103 · D-107 · D-108).
 // A verify-run tool, not a CI step (D-107). Performance is recorded, not judged (D-108).
 //
@@ -96,11 +97,9 @@ export function selectionExitCode({ env, error, verdict }) {
   return verdict ? 0 : 1
 }
 
-function runElectron(binary, origin) {
+export function runElectron(binary, origin, probeDirectory = 'transcript-selection') {
   return new Promise((resolve, reject) => {
-    const args = [
-      fileURLToPath(new URL('./transcript-selection/electron-main.mjs', import.meta.url))
-    ]
+    const args = [fileURLToPath(new URL(`./${probeDirectory}/electron-main.mjs`, import.meta.url))]
     // Root containers cannot use the setuid sandbox helper.
     if (process.platform === 'linux' && process.getuid?.() === 0) args.unshift('--no-sandbox')
     const child = spawn(binary, [...args, origin, SCREENS.join(','), String(RUNS)], {
@@ -127,7 +126,7 @@ function resolveElectron() {
 }
 
 /** Bundles the probe and serves it. `close` stops the server and removes the bundle. */
-async function serveProbe() {
+export async function serveProbe(probeDirectory = 'transcript-selection') {
   let server
   let dist
   const close = async () => {
@@ -147,14 +146,14 @@ async function serveProbe() {
         outDir: dist,
         target: 'esnext',
         rollupOptions: {
-          input: join(root, 'scripts/transcript-selection/probe.tsx'),
+          input: join(root, 'scripts', probeDirectory, 'probe.tsx'),
           output: { entryFileNames: 'probe.js' }
         }
       }
     }
     await build({
       ...config,
-      worker: { format: 'es' },
+      worker: { format: 'es', plugins: () => [markdownWorkerBuild()] },
       esbuild: { jsx: 'automatic' },
       resolve: { alias: { '@renderer': join(root, 'src/renderer/src') } },
       plugins: [tailwindcss()]
