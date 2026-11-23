@@ -2,6 +2,164 @@
 
 > 절차 정본은 [`handoff-verify/SKILL.md`](../../../.agents/skills/handoff-verify/SKILL.md). 구현 보고·`Criteria-Met`은 대조 출발점으로만 썼고, 아래 관측은 모두 이번 턴에 재현했다.
 
+## 판정 (verify 3회째)
+
+**FAIL** — 이행 결함 4건(L1~L4)이 `BLOCKING`이다. 모두 V1 rev 3 §10 자리 문장의 항을 인용할 수 있는 결함이다. 그중 L1은 코드가 계약과 다르게 동작한다(작업 크기). `PLAN_GAP`은 없다. 확장 창 밖이라 확장 후보 5건은 새 handoff 후보 표로 보냈다.
+
+- 닫힌 것: K1~K5 · I1(VP-48 h10·h11 · VP48-b) — 구현자 원장 144행을 다시 돌려 기록과 144/144 일치했다. K5는 실제 Chromium·react-dom 프로브로 따로 재현했다(§V3-1).
+- 합계 재측정: ✅ 27 · ⚠️ 10 · ❌ 3 = 40(§V3-5). 자기보고 `Criteria-Met: 39/40`과 다르다.
+- 막지 않는 것: 이번 변경 범위의 gate는 통과했다. vitest 실패 393건은 verify 2와 같은 SQLite ABI·`src/main` Windows 경로 기준선이다(§V3-9).
+- verify 3회째에 PASS가 아니므로 다음 재구현 전에 `handoff-review`를 한다(SKILL 마무리). 그래서 다음 주체는 Claude(review)다.
+
+### V3 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `4c72441f..dd0528ae` — 구현 `dd0528ae`(r3). 생산 코드 2파일(`usePanelSelection.ts` · `WorkToolBody.tsx`) · 도구 3파일(`measure-ui-inputs.mjs` · `visible-views/electron-main.mjs` · `probe.tsx`) · 테스트 18파일 |
+| 구현 전 plan 기준 | `4c72441f`(ΔV7) |
+| 유효 V | `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
+| 라운드 | 3 → 판정 뒤 4 |
+| 확장 창 | verify 3회째 — **창 밖**. ΔV7이 새로 넣은 열거 항목은 출처(확장 채택 · 현재 결함 K5 · plan 내부 정합)가 ΔV7 표에 있다. 사용자 요구 변경 ΔV 없음 |
+| 독립 축(⑥) | 3축 · 시도 21 — 실제 react-dom·Chromium으로 K5 재현(가짜 hooks 밖) · 형태 변이(`useLayoutEffect` → `useEffect` · deps `[]` · `row.id` → `item.index` · 판정기 항 단위 분리) · I1 잔여의 V1 rev 3 자리 sweep(EP-1~4·6·7·12·18·23·25) |
+| 열거 sweep(⑦) | ΔV7 대체·신설 항목 전수(EP-30 ⑤⑫⑮⑯ · EP-31 ②③④) + diff가 닿은 이전 `잡음` 행(④ — 원장 재실행) + 직전 실패 항목(I1 — V1 rev 3 pair). **I1은 부분**: EP-1~4·6·7·12·18·23·25 자리 47건을 돌렸다. EP-5·8·9·11·15·16·19·21·22·24는 원장의 pair당 1~6행만 재실행했고 자리 전수는 못 봤다 |
+| 발견 분류 | 이행 4(L1~L4) · 현재 0 · 확장 5(후보 표) · 동치 2 · 경계 5 · 비귀속 1(N1 승계) |
+| 구현 주체·문맥 | 구현 codex · 설계자 = 검증자(Claude) |
+
+### V3-0. 기준선 · plan validity
+
+- 구현 커밋이 바꾼 `plan.md` hunk: `:11`(상태 줄) · `:2129`·`:2134-2137`(파생 이슈 표의 상태 칸) · `:2562-2646`(`[구현자 기입] r3`). AC·Decision·V 행 변경 0 → 원 기준으로 채점. 상태 칸의 `closed (r3 자기확인)`은 이번 판정으로 바꿨다.
+- EP-30 자리 검색(ΔV7 명령)을 다시 돌림 → 17줄 = 자리 16 + 뺀 1(`TranscriptViewport.tsx:509`), 차집합 0. `usePanelSelection.ts:26`(`}, [documentKey])`)이 ⑮ 자리로 잡힌다.
+- EP-31 자리 검색 → 9줄(자리 6), plan과 같다.
+- ΔV7 새 열거 항목의 출처 확인: ps9b·ps9c(현재 결함 K5 · plan 내부 정합) · ps13~ps17·po6·vv12~vv16(확장 채택 · plan 내부 정합) — 출처 없는 항목 0.
+
+### V3-1. 구현 결과 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| K5 수정이 실제 React 순서에서 맞는가 | 맞음 | 레이아웃 효과 정리 함수는 같은 커밋의 모든 레이아웃 효과 실행보다 먼저 돈다. 실제 react-dom 19.2.8·Electron 39.8.10 프로브([`evidence/v3-k5-probe/`](evidence/v3-k5-probe/))에서 pointerdown → 선택 → 새 키(억제) → 문서 `b` + 새 키 `[5,6,7]` 같은 커밋 뒤 `suppressed`: 변경 전 `yes` · 변경 후 `no` |
+| 언마운트 때 정리 함수가 `setSuppressed`를 부른다 | 결함 아님 | React 19는 언마운트된 컴포넌트의 상태 갱신을 무시한다 |
+| `WorkToolBody` 메모 키 변경 | 동치 | `workToolPresentation`·`workSearchResults`·`toolRunOutcome`이 읽는 필드는 `name`·`input`·`result`·`toolUseId`뿐이다(`providerTool`·`editPreview`·`parentToolRunId` 참조 0 — `rg`) |
+| 측정 CLI `process.exit(0)` | 결함 아님 | stdout 쓰기 콜백 뒤에 종료한다 — 파이프에서도 출력이 잘리지 않는다 |
+| A 대신 B | **있음 — L1** | EP-4 ① "작업 크기 `requestSize(request, lengthOf)` — tokens = 범위 줄 × 평균 줄 길이 · diffView = 창 행 × 평균 줄 길이 · codeView = 창 줄 × 평균 · … diffContext = 7 × 평균 줄 길이". 코드 `protocol.ts:220-238`은 줄 수(`end − start`)·`7`만 쓰고 `lengthOf`가 없다(`rg lengthOf` 0건). 2,000자 줄 200줄 tokens(400K자)가 10자 줄 300줄 codeView보다 앞선다 |
+
+### V3-2. 역방향 탐색
+
+`scan-surface.sh 4c72441f..dd0528ae` — 생산 코드 hunk 2파일, 새 export 0. 결함 0.
+
+- `charsBefore`·`textChars`(diffView 응답) 생산자만 있고 소비처 0(`rg charsBefore src --glob '!*.test.*'` → `diffView.ts`·`codeView.ts`·`protocol.ts`뿐) — D-064로 복사 직렬화가 빠진 뒤 남은 필드다. 이번 diff 밖이라 확장 후보(Y5)로 둔다.
+
+### V3-4. 고장 이력
+
+원장 재실행: [`r3-mutations.jsonl`](evidence/r3-mutations.jsonl) 144행 전부를 `mutate.py`로 다시 돌렸다 — 단위·통합 137행 red 133 · green 4(S12g · J5x · J1d · S14s), Electron 7행 red 4 · green 3. 기록 `exit`와 144/144 일치([`evidence/v3-ledger-rerun.tsv`](evidence/v3-ledger-rerun.tsv)). 아래는 이번 턴의 새 변이다([`v3-mutations.spec.jsonl`](evidence/v3-mutations.spec.jsonl) · [`v3-mutations.tsv`](evidence/v3-mutations.tsv)).
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|
+| V3-M1 · M2 | `usePanelSelection.ts:23-24` · `:22` | 제거 | ⑮ 정리의 `setSuppressed(false)` · 제스처 idle | 잡음 | ps9 · ps9b | ⑦ | — |
+| V3-M3 | `:19` | 다른 값 | 레이아웃 효과 → 패시브 효과(자식 레이아웃 알림 뒤) | 잡음 | ps9b | ⑥ | — |
+| V3-M4 | `:26` | 다른 값 | deps `[documentKey]` → `[]` | 잡음 | ps9 · ps9b · ps9c | ⑥ | — |
+| V3-M5 | `:60` | 고정값 | 범위 해제 조건 → `true`(진행 중이면 다른 패널 선택도 해제) | 못 잡음 | — | ⑥⑦ | 확장(Y1) |
+| V3-M7 | `FileDiffSection.tsx:454` | 다른 값 | ⑤ 키 `row.id` → `item.index` | 못 잡음 | — | ⑥⑦ | 확장(Y2) |
+| V3-M9~M13 | `check-visible-views.mjs:35-38` · `:56` | 제거 | ② 바깥 키 항을 순서·길이·빈 값·결과 없음으로 나눔 · ③ `crossExpected` 빈 값 | 잡음 5/5 | vv12 · vv12b · vv13b | ⑦ | — |
+| V3-M14~M16 | `:54` · `:55` · `:33` | 고정값 | 화면·시나리오 한정 항 → `true` | 잡음 3/3 | vv1 외 30 | ⑤ | — |
+| V3-M17 · M19 | `:25` · `:61` | 제거 | `keysBefore` 빈 배열 · c4 `selectionBefore` 빈 값 | 잡음 | vv4b · vv10b | ⑦ | — |
+| V3-M18 | `:25` | 제거 | `keysAfter` 배열 검사 | 동치 | — | ⑦ | — `keysAfter` 없음이면 `.some` TypeError → `main` catch → `verdict: false` · exit 1 (fail-closed) |
+| E1-C21~C24 | `protocol.ts:164` · `:187` · `:188` · `:193` | 제거 | 키에서 테마 · 단어 강조 · 펼침 범위 · codeView 끝 | 잡음 4/4 | pk 계열 | ⑦ I1 | — |
+| E2-C1~C8 · C26 | `client.ts:225` · `:226` · `:234` · `:233` · `:242` · `:493` · `:365` · `:304` · `:440` | 제거·고정값 | 임차 중 닫기 · 대기 작업 중 닫기 · `doc.close` 전송 · 용량 반환 · 대기 문서 알림 · `doc-unavailable` · `unknown-doc` 재시도 · `sent` 기록 · 상한 | 잡음 9/9(C8 은 5분 시간 초과 — 재전송 무한) | d · cs · q 계열 | ⑦ I1 | — |
+| E4-C9 · C10 · C11 · C25 | `client.ts:382` · `:381` · `:350` · `:481` | 제거·고정값 | 양보 횟수 · 등급 정렬 · 대기자 0 이면 버림 · `start < 0` | 잡음 4/4 | q 계열 | ⑦ I1 | — |
+| E4-C13 | `client.ts:416` | 제거 | 대기 중 양보 작업 취소 시 `discard` | 못 잡음 | — | ⑥ | 확장(Y3) |
+| E3-C14~C17 | `tokens.ts:61` · `:45` · `:43` · `:49` | 제거 | 체크포인트 기록 · 가까운 체크포인트 찾기 · 테마 사슬 상한 · `\r` | 잡음 4/4 | t 계열 · h11 | ⑦ I1 | — |
+| E23-C18 | `state.ts:85` | 제거 | 문서 다시 열기·닫기 때 양보 작업 버림 | 못 잡음 | — | ⑥ | 확장(Y4) |
+| E25-C19 | `state.ts:130` | 고정값 | `{ view }` 원천 → 원문 문서 | 잡음 | rd · v 계열 | ⑦ I1 | — |
+| E6-D1 | `diffView.ts:18` | 제거 | 삭제 줄 짝 | 잡음 | cp1 | ⑦ I1 | — |
+| E6-D10 | `diffView.ts:199` | 제거 | `options.highlightWords &&` | **못 잡음** | — | ⑦ I1 | 이행(L2) |
+| E7-D2 | `diffView.ts:87` | 제거 | old 축 색인의 `added` 제외 | **못 잡음** | — | ⑦ I1 | 이행(L3) |
+| E7-D3 | `diffView.ts:90` | 제거 | new 위치 색인 첫 일치 | 동치 | — | ⑦ I1 | — 한 파일 diff 안 `newLine` 은 유일하다(context·added 줄마다 다음 번호 · 공백 접기도 짝을 context 한 줄로 합침) |
+| E7-D4 | `diffView.ts:92` | 제거 | 증감 수 `removed++` | **못 잡음** | — | ⑦ I1 | 이행(L4) |
+| E7-D5~D9 · D11 | `:93` · `:138` · `:113` · `:112` · `:108` · `:210` | 다른 값·제거 | 폭 `displayColumns` · `canDown` 끝 항 · 펼침 정렬 · 문맥 3 · 배치 캐시 키 · 짝 행 ID | 잡음 6/6 | p · hx · sb · v 계열 | ⑦ I1 | — |
+| E7-D12 | `diffView.ts:163` | 제거 | 행 글자 누적(`charsBefore`) | 못 잡음 | — | ⑥ | 확장(Y5 — 소비처 0) |
+| E18-D13 | `diffViewPath.ts:5` | 다른 값 | 문자열 경계 `<=` → `<` | 잡음 | dv · v 계열 | ⑦ I1 | — |
+| E12-K1~K5 · K7~K11 | `markdownDocumentBlocks.ts:89` · `:90` · `:91` · `:92` · `:98` · `:76` · `:55` · `:48` · `:67` · `:22` | 제거·다른 값 | 합치기 다섯 · HTML 끝 표지 · 끝 개행 · 조각 행 수 · 표 행 상한 · 조각 1개 · 주석 끝 | 잡음 10/10 | mb · f · m 계열 | ⑦ I1 | — |
+| W3e · N6e · N8e · N10e · W1e · W2e · S5e | Electron 원장 | — | 원장 재실행(`xvfb-run`) | red 4 · green 3 — 기록과 7/7 일치 | 7화면 판정 | ④ | W1e·W2e·S5e 는 경계(ΔV6 VP-34 · ΔV7 po6 가 단위·통합에서 잡음) |
+
+- 원복: 매 실행 뒤 `mutate.py` "모든 파일 원문 그대로". 변이는 임시 워크트리 두 곳에서 돌렸고 작업 트리는 건드리지 않았다.
+
+### V3-5. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거 |
+|---|---|---|---|
+| VP-34 MD-05 ↔ UT-05 | UT | PASS | 원장 W1·W2·R2·W3 red 재현 |
+| VP-59 MD-17 ↔ UT-17 | UT | PASS | ΔV7 등록 vv12·vv14 red · ②③④ 항 단위 V3-M9~M19 red(M18 동치) · J3f·J3l·J4c red |
+| VP-26 AR-07 ↔ IT-07 | IT | PASS | po6: S5 red · ④~⑪ 원장 red. ⑤ 키 값 변이(V3-M7)는 확장 Y2 |
+| VP-14 SD-05 ↔ ST-05 | ST | PASS | ps9b(D65 · V3-M3) · ps13(S12b) · ps17(S12i) · ⑮ 세 항(V3-M1·M2 · S15c) red · 실제 Chromium K5 재현 |
+| VP-09 R-09 ↔ AT-09 | AT | PASS | `check-visible-views` exit 0 · 23기록 verdict true · 원장 Electron 행 아래 |
+| VP-50 · VP-52 (REGRESSION) | AT · ST | PASS | `check-transcript-selection` 90기록 · `check-transcript-streaming` 18기록 · exit 0 |
+| VP-48 | UT | PASS | VP48-a·b·c·touch red(h10 · h11 · h12) |
+| VP-36 MD-07·MD-08 ↔ UT-07 | UT | **PAIR_FAIL** | L1 — `requestSize` 가 EP-4 ① 산식과 다르고, q2 는 `highlight`(`code.length`)만 대조한다 |
+| VP-30 MD-01 ↔ UT-01 | UT | **PAIR_FAIL** | L2 — EP-6 ② "`highlightWords` 일 때" 항 제거 green |
+| VP-31 MD-02 ↔ UT-02 | UT | **PAIR_FAIL** | L3 · L4 — EP-7 ① "축 줄 색인(old 는 added 제외)" · "증감 수" 항 제거 green |
+| VP-06 · VP-01 · VP-11 | AT · AT · ST | BLOCKED_BY:VP-36 · VP-30·VP-31 · VP-36 | 하위 pair root 실패 |
+| VP-02·03·04·05·10·12·13·15·20~25·32·33·35·37·38·39·49·51·56·57 | 전 레벨 | PASS(재실행 범위) | 원장 pair 행 red 재현 + 위 E1~E25 변이 red. EP-5·8·9·11·15·16·19·21·22·24 자리 전수는 못 봤다 |
+
+| 결과 | AC |
+|---|---|
+| ❌ 3 | AC5(L1) · AC8(L2) · AC17(L3) |
+| ⚠️ 10 | AC30(Windows 사람 실기) · AC10·AC18~AC22·AC32~AC34(EP-8·11·15·16·19·21·22·24 자리 전수 미수행 — 못 본 것) |
+| ✅ 27 | 나머지 |
+
+- 합계 `27 + 10 + 3 = 40`. 자기보고 `39/40`(trailer `dd0528ae` · plan r3 구현 보고) — 불일치. L4(증감 수)는 OpenCode 머리 증감 표시(`ToolBody.tsx:94` ← `DiffTable.tsx:337` 요약)로 가지만 그 동작을 적은 AC가 없어 VP-31 에만 귀속했다.
+
+### V3-9. 게이트 재실행 (검증 트리 `dd0528ae`)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| 가드 5종 | PASS | append-only · doc-inventory `--check` · product-naming · test-budgets · ui-thread — 전부 exit 0 |
+| `npm run lint` | PASS | exit 0 · 실행 뒤 `git status` 변화 0 |
+| `npm run typecheck` | PASS | exit 0 |
+| `vitest run`(필터 없음) | 기준선 | 2,843 스위트 · 10,726 테스트 · 통과 10,203 · 실패 393 · skip 130. 실패 파일 34개는 전부 `src/main/**` + `settlement.integration.test.ts`(SQLite) — `NODE_MODULE_VERSION`(Electron ABI) 46건 서명 + Windows 경로 단언. verify 2 와 같은 393 · r3 변경 파일 ∩ 실패 파일 = ∅ · r3 는 `src/main` 0파일 |
+| `node --test scripts/*.test.mjs` | PASS | 1,097 통과 · 실패 0 |
+| `electron-vite build` · `smoke-preload` | PASS | exit 0 · `require 는 electron 뿐 · ooBridge 키 7` |
+| `smoke-hosts` | 환경 | 데이터 호스트 종료 코드 1 — verify 1·2 와 같은 SQLite ABI 서명(N1) |
+| `check-visible-views`(운영 gate) | PASS | `xvfb-run` · exit 0 · 23기록 verdict true · Electron 39.8.10 — [`evidence/v3-check-visible-views.json`](evidence/v3-check-visible-views.json) |
+| `check-transcript-selection` · `check-transcript-streaming` | PASS | exit 0 · 90 · 18기록 verdict true |
+
+- 구현자 보고(`vitest` 실패 22)와 다른 것은 ABI 차이다 — 이 환경의 `better-sqlite3` 는 Electron ABI 라 SQLite 스위트 371건이 더 실패한다.
+- 잔여물: 임시 워크트리 2곳(정리함) · K5 프로브는 저장소 밖에서 빌드하고 소스만 evidence 에 남겼다.
+
+### V3-10. Repository operation checks
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| trailer 파싱 | PASS | `dd0528ae` 6키 · `4c72441f` 5키 반환 |
+| `[구현자 기입] r3` 일곱 필드 | PASS | 설계 리뷰 · 강제 지점 전수 · 이번 라운드 수정의 잠금(검산 줄 `87 · 11 · 12 · 34 = 144`) · Product/UX · 놓친 잠재 문제 · 구현 보고 · Review Signals |
+| 대상 커밋 좌표 | 기입 | INDEX `(r3 구현 — 검증자 기입)` → `dd0528ae`(`git cat-file -t` commit). `origin/main` 조상 아님(PR 미병합) |
+| 원장 형식 | PASS | `r3-mutations.jsonl` 144행 — `replace`·`with`·`occurrence`(1부터)를 `mutate.py` 형식으로 옮겨 그대로 적용됨 |
+
+### V3-11. 발견 분류
+
+| # | 발견 | 분류 | 근거(인용·재현) | disposition |
+|---|---|---|---|---|
+| L1 | 작업 크기가 EP-4 ① 산식과 다르다 — `requestSize` 에 평균 줄 길이(`lengthOf`)가 없고 tokens·diffView·codeView 는 줄 수, diffContext 는 `7` 이다. 같은 등급·같은 양보 횟수에서 큰 작업이 먼저 나갈 수 있다. q2 는 `highlight` 만 대조한다 | 이행 | EP-4 ① "작업 크기 `requestSize(request, lengthOf)` — tokens = 범위 줄 × 평균 줄 길이 · diffView = 창 행 × 평균 줄 길이 · codeView = 창 줄 × 평균 · diffLocate = 앵커 수 × 16 · diffContext = 7 × 평균 줄 길이 · markdown = `end − start`" · `protocol.ts:220-238` · `rg lengthOf` 0건 | BLOCKING |
+| L2 | `diffView.ts:199` `options.highlightWords &&` 를 지워도 green — 단어 강조를 끈 보기에도 단어 범위가 실린다 | 이행 | EP-6 ② "행 창 `wordSpan` = … `changedWordSpan`(가시 행만 · `highlightWords` 일 때)" · E6-D10 | BLOCKING |
+| L3 | `diffView.ts:87` old 축 색인의 `added` 제외를 지워도 green — 추가 줄 뒤 삭제 줄이 없는 축 행의 토큰을 찾는다(`FileDiffSection.tsx:923` 이 소비) | 이행 | EP-7 ① "축 줄 색인(old 는 added 제외 · new 는 removed 제외)" · E7-D2 | BLOCKING |
+| L4 | `diffView.ts:92` `removed++` 를 지워도 green — 모델 요약의 삭제 수가 0 이 된다 | 이행 | EP-7 ① "… · 증감 수" · E7-D4 | BLOCKING |
+| Y1 | 진행 중 제스처에서 다른 패널에만 선택이 있어도 범위를 해제하는 변이(`usePanelSelection.ts:60` → `true`) green | 확장 | V3-M5 · ⑫ 규칙 칸은 "접힌 선택이거나 이 화면 선택이면 범위 해제"만 적고 그 밖 분기를 입력으로 열거하지 않는다 — 다른 쪽을 "해제 안 함" 으로 읽으려면 해석이 필요하다 | NEXT_HANDOFF(확장) |
+| Y2 | ⑤ 마운트 키를 `row.id` 대신 가상 인덱스로 바꿔도 green — 펼침으로 같은 인덱스에 다른 행이 올 때만 갈린다 | 확장 | V3-M7 · ⑤ 규칙 칸이 적은 분기(늦은 행 도착 · 창 밖 고정 행)는 인덱스 키로도 알림이 난다 | NEXT_HANDOFF(확장) |
+| Y3 | 대기 중인 양보 작업을 취소할 때 워커의 중단 생성기를 버리는 `discard` 를 지워도 green | 확장 | E4-C13 · EP-4 ④ 는 실행 중 취소의 워커 교체만 적는다 | NEXT_HANDOFF(확장) |
+| Y4 | 워커가 문서를 다시 열거나 닫을 때 그 문서의 양보 작업을 버리는 줄을 지워도 green | 확장 | E23-C18 · EP-23 ② 목록(체크포인트·줄 색인·diff 모델·파생 축·보기 문서)에 양보 작업이 없다 | NEXT_HANDOFF(확장) |
+| Y5 | diffView·codeView 응답의 `charsBefore`·`textChars` 소비처 0 — D-064 뒤 남은 필드 | 확장 | E7-D12 · `rg charsBefore` 생산자만 | NEXT_HANDOFF(확장) |
+| N1 | `smoke-hosts` SQLite ABI | 비귀속 | 환경 서명 · `src/main` 변경 0 | NON_BLOCKING |
+
+### V3 Review Signals — 사실만
+
+- 이전 라운드와 같은 증상: verify 1 이 "다음 verify 가 전수를 이어 받는다" 고 남긴 V1 rev 3 자리(EP-1~EP-25)가 verify 3 까지 전수 sweep 되지 않았다. 구현자 r3 강제 지점 표는 pair 마다 `SELF_PASS` 를 적었지만 원장은 pair 당 1~6행이다(I1 69행 / 자리 약 176).
+- 막았어야 할 plan 지침: L1~L4 의 항은 V1 rev 3 §10 자리 문장에 이미 있었다. L1 은 구현 첫 라운드부터 산식과 달랐다(`requestSize` 시그니처에 `lengthOf` 없음).
+- 반복 환경 한계: Electron ABI ↔ Node ABI 동시 불가(SQLite 371 · smoke-hosts).
+- 독립 축(⑥) 발견: 3축 21시도 중 이행 0 · 확장 5(Y1~Y5) — L1 은 diff 비판 읽기, L2~L4 는 ⑦ I1 sweep 에서 나왔다.
+
+---
+
+## verify 2회째 (원문 보존)
+
 ## 판정 (verify 2회째)
 
 **RETURN_TO_PLAN** — 확장 후보 5건(X1~X5)이 확장 창 안(2회째)이라 `PLAN_GAP`이다. 같은 판정 안에 이행 결함 5건(K1~K4 · I1 잔여)이 `BLOCKING`이라, 설계자가 X1~X5를 채택하거나 경계로 선언한 뒤 구현자가 K1~K4·I1을 고친다. 이번 판정 뒤의 설계 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다.
