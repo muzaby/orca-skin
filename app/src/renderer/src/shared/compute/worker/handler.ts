@@ -16,6 +16,7 @@ import { getHighlighter } from './highlighter'
 
 export async function compute(request: ComputeRequest): Promise<ComputeResult> {
   switch (request.kind) {
+    case 'tokens':
     case 'markdown':
       throw new Error('wrong-lane')
     case 'highlight': {

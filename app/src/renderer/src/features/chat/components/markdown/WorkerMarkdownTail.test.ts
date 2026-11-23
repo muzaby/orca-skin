@@ -119,6 +119,7 @@ it('s14: 블록 확정 후 짧은 꼬리에 이전 응답을 전달해도 현재
         promise: new Promise<never>((resolve) => {
           deliver = () => resolve(parsed('late-only') as never)
         }),
+        setPriority: vi.fn(),
         cancel: vi.fn()
       }
     }

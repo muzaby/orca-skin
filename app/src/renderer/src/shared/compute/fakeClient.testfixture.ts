@@ -50,6 +50,7 @@ export function fakeComputeClient(): FakeCompute {
         pending.push(entry)
         return {
           promise: promise as Promise<never>,
+          setPriority: () => {},
           cancel: () => {
             fake.cancelled.push(request)
             const at = pending.indexOf(entry)

@@ -4,7 +4,7 @@
 //
 // 규칙
 //   · 계산·Markdown 레인마다 워커에 나가 있는 요청은 1개다.
-//   · 대기열은 입력 문자 수 오름차순, 같으면 먼저 온 것.
+//   · 대기열은 양보 횟수, 작업 크기 순이며 동률이면 먼저 온 요청을 보낸다.
 //   · 같은 키의 요청이 대기·실행 중이면 한 계산을 공유한다. 공유자가 모두 취소해야 취소다.
 //   · 대기 중 취소는 대기열에서 뺀다(워커에 보내지 않는다). 실행 중 취소는 대기 요청이 있으면
 //     워커를 끝내고 새 워커로 대기열을 잇는다. 대기 요청이 없으면 끝나길 기다려 캐시에만 넣는다.
@@ -16,6 +16,7 @@
 import { rendererLog } from '../logging'
 import {
   COMPUTE_DOC_MAX_CHARS,
+  TOKENS_RANGE_MAX_LINES,
   COMPUTE_CACHE_MAX_CHARS,
   COMPUTE_CACHE_MAX_ENTRIES,
   COMPUTE_FAILURE_LIMIT
@@ -43,10 +44,26 @@ export interface WorkerLike {
   onmessageerror: ((event: unknown) => void) | null
 }
 
+export type Priority = 'visible' | 'background'
+export interface ComputeJobTiming {
+  kind: ComputeRequest['kind']
+  lane: Lane
+  priority: Priority
+  yields: number
+  key: string
+  enqueuedAt: number
+  startedAt: number
+  endedAt: number
+}
 export interface ComputeHandle<R> {
   promise: Promise<R>
   // 이 소비자가 더는 결과를 원하지 않는다. 늦은 응답은 이 소비자에게 가지 않는다.
   cancel(): void
+  setPriority(priority: Priority): void
+}
+
+function settledHandle<R>(promise: Promise<R>): ComputeHandle<R> {
+  return { promise, cancel: () => {}, setPriority: () => {} }
 }
 
 export interface DocumentLease {
@@ -60,7 +77,7 @@ export interface ComputeClient {
   openDocument(ref: DocRef, payload: { text: string }, lane: Lane): DocumentLease
   request<K extends ComputeRequest['kind']>(
     request: Extract<ComputeRequest, { kind: K }>,
-    options?: { cacheable?: boolean }
+    options?: { cacheable?: boolean; priority?: Priority }
   ): ComputeHandle<ComputeResults[K]>
   // 캐시에 있으면 바로 준다(요청·대기 없음).
   peek<K extends ComputeRequest['kind']>(
@@ -76,6 +93,7 @@ export class ComputeCancelled extends Error {
 }
 
 interface Waiter {
+  priority: Priority
   resolve: (result: ComputeResult) => void
   reject: (error: Error) => void
 }
@@ -86,11 +104,20 @@ interface Job {
   size: number
   request: ComputeRequest
   cacheable: boolean
+  priority: Priority
+  enqueuedAt: number
+  startedAt: number
+  startedPriority: Priority
+  order: number
+  yields: number
+  resumeFrom?: number
   retried: boolean
   waiters: Set<Waiter>
 }
 
 interface ClientDeps {
+  now?: () => number
+  timings?: (timing: ComputeJobTiming) => void
   docMaxChars?: number
   createWorker: (lane: Lane) => WorkerLike
   onError?: (error: unknown) => void
@@ -138,7 +165,10 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   let running: Job | null = null
   let worker: WorkerLike | null = null
   let failures = 0
+  const now = deps.now ?? (() => performance.now())
   let nextId = 1
+  // 취소된 커서는 다음 전송에 함께 정리한다. 문서가 먼저 닫히면 워커가 즉시 해제한다.
+  const discard: number[] = []
 
   const blocked = (): boolean => failures >= failureLimit
 
@@ -183,11 +213,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   function collectDocuments(): void {
     for (const [key, doc] of documents) {
       if (doc.leases > 0) continue
-      if (
-        [...jobs.values()].some(
-          ({ request }) => request.kind === 'markdown' && docKey(request.doc) === key
-        )
-      )
+      if ([...jobs.values()].some(({ request }) => 'doc' in request && docKey(request.doc) === key))
         continue
       documents.delete(key)
       if (doc.available) reserved -= doc.text.length
@@ -252,14 +278,24 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     // 생성 실패는 `fail` 이 이미 이 요청을 실패시키고 다음으로 넘어갔다.
     if (!target || running !== job) return
     try {
-      if (job.request.kind === 'markdown') {
+      if ('doc' in job.request) {
         const doc = documents.get(docKey(job.request.doc))!
         if (!doc.sent) {
           target.postMessage({ type: 'doc.open', ref: doc.ref, text: doc.text })
           doc.sent = true
         }
       }
-      target.postMessage({ ...job.request, id: job.id })
+      if (deps.timings) {
+        job.startedPriority = job.priority
+        job.startedAt = now()
+      }
+      target.postMessage({
+        ...job.request,
+        id: job.id,
+        ...(job.resumeFrom !== undefined && { resumeFrom: job.resumeFrom }),
+        ...(discard.length > 0 && { discard: discard.splice(0) })
+      })
+      job.resumeFrom = undefined
     } catch (error) {
       fail(error)
     }
@@ -271,15 +307,37 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     if (!response || !running || response.id !== running.id) return
     const job = running
     running = null
-    if (response.ok) {
+    deps.timings?.({
+      kind: job.request.kind,
+      lane,
+      priority: job.startedPriority,
+      yields: job.yields,
+      key: job.key,
+      enqueuedAt: job.enqueuedAt,
+      startedAt: job.startedAt,
+      endedAt: now()
+    })
+    if (response.ok === true) {
       failures = 0
       if (job.cacheable) writeCache(job.key, response.result, response.size)
       settle(job, { result: response.result })
-    } else if (
-      response.error === 'unknown-doc' &&
-      !job.retried &&
-      job.request.kind === 'markdown'
-    ) {
+    } else if (response.ok === 'continue') {
+      if (job.request.kind !== 'tokens') {
+        running = job
+        fail(new Error('unexpected continuation'))
+        return
+      }
+      failures = 0
+      if (job.waiters.size) {
+        job.resumeFrom = job.id
+        job.id = nextId++
+        job.yields++
+        enqueue(job)
+      } else {
+        discard.push(job.id)
+        settle(job, { error: new ComputeCancelled() })
+      }
+    } else if (response.error === 'unknown-doc' && !job.retried && 'doc' in job.request) {
       job.retried = true
       documents.get(docKey(job.request.doc))!.sent = false
       enqueue(job)
@@ -291,24 +349,54 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   }
 
   function enqueue(job: Job): void {
-    // 크기 오름차순, 같으면 먼저 온 것 뒤에.
+    if (deps.timings) job.enqueuedAt = now()
+    insert(job)
+  }
+
+  function compare(a: Job, b: Job): number {
+    return (
+      Number(a.priority === 'background') - Number(b.priority === 'background') ||
+      a.yields - b.yields ||
+      a.size - b.size ||
+      a.order - b.order
+    )
+  }
+
+  function insert(job: Job): void {
     let at = queue.length
-    while (at > 0 && queue[at - 1].size > job.size) at -= 1
+    while (at > 0 && compare(queue[at - 1], job) > 0) at--
     queue.splice(at, 0, job)
+  }
+
+  function refreshPriority(job: Job): void {
+    const priority = [...job.waiters].some((waiter) => waiter.priority === 'visible')
+      ? 'visible'
+      : 'background'
+    if (job.priority === priority) return
+    job.priority = priority
+    const at = queue.indexOf(job)
+    if (at >= 0) {
+      queue.splice(at, 1)
+      insert(job)
+    }
   }
 
   function cancel(job: Job, waiter: Waiter): void {
     if (!job.waiters.delete(waiter)) return
     waiter.reject(new ComputeCancelled())
-    if (job.waiters.size > 0) return
+    if (job.waiters.size > 0) {
+      refreshPriority(job)
+      return
+    }
     const queuedAt = queue.indexOf(job)
     if (queuedAt >= 0) {
+      if (job.resumeFrom !== undefined) discard.push(job.resumeFrom)
       queue.splice(queuedAt, 1)
       jobs.delete(job.key)
       collectDocuments()
       return
     }
-    if (running !== job || queue.length === 0 || job.request.kind === 'markdown') return
+    if (running !== job || queue.length === 0 || 'doc' in job.request) return
     // 실행 중이고 뒤에 기다리는 요청이 있다 — 워커를 바꿔 대기열을 잇는다.
     jobs.delete(job.key)
     running = null
@@ -359,24 +447,39 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       return readCache(requestKey(request)) as never
     },
     request(request, options) {
+      const input: ComputeRequest = request
+      if (input.kind === 'tokens') {
+        const { start, end } = input
+        if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start)
+          return settledHandle(Promise.reject(Error('range-invalid')))
+        if (end - start > TOKENS_RANGE_MAX_LINES)
+          return settledHandle(Promise.reject(Error('range-too-large')))
+      }
       if ('doc' in request && !documents.get(docKey(request.doc))?.available)
-        return { promise: Promise.reject(new Error('doc-unavailable')), cancel: () => {} }
+        return settledHandle(Promise.reject(new Error('doc-unavailable')))
 
       const key = requestKey(request)
       const cached = options?.cacheable === false ? undefined : readCache(key)
-      if (cached) return { promise: Promise.resolve(cached as never), cancel: () => {} }
+      if (cached) return settledHandle(Promise.resolve(cached as never))
       if (blocked()) {
-        return { promise: Promise.reject(new Error('compute worker failed')), cancel: () => {} }
+        return settledHandle(Promise.reject(new Error('compute worker failed')))
       }
       let job = jobs.get(key)
       const isNew = !job
       if (!job) {
+        const id = nextId++
         job = {
-          id: nextId++,
+          id,
           key,
           size: requestSize(request),
           request,
           cacheable: options?.cacheable !== false,
+          order: id,
+          priority: options?.priority ?? 'visible',
+          startedPriority: options?.priority ?? 'visible',
+          startedAt: 0,
+          enqueuedAt: 0,
+          yields: 0,
           retried: false,
           waiters: new Set()
         }
@@ -385,14 +488,23 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       const owner = job
       let waiter!: Waiter
       const promise = new Promise<ComputeResult>((resolve, reject) => {
-        waiter = { resolve, reject }
+        waiter = { resolve, reject, priority: options?.priority ?? 'visible' }
       })
       owner.waiters.add(waiter)
+      refreshPriority(owner)
       if (isNew) {
         enqueue(owner)
         pump()
       }
-      return { promise: promise as Promise<never>, cancel: () => cancel(owner, waiter) }
+      return {
+        promise: promise as Promise<never>,
+        cancel: () => cancel(owner, waiter),
+        setPriority(priority) {
+          if (!owner.waiters.has(waiter)) return
+          waiter.priority = priority
+          refreshPriority(owner)
+        }
+      }
     }
   }
 }
