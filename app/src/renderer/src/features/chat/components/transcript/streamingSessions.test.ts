@@ -110,7 +110,7 @@ it.each(
               resolve({ hast: { type: 'root', children: [{ type: 'text', value: text }] } })
           })
         )
-        return { promise: promise as Promise<never>, cancel: vi.fn() }
+        return { promise: promise as Promise<never>, setPriority: vi.fn(), cancel: vi.fn() }
       }
     }
     setComputeClient(client)
