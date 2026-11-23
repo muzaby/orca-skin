@@ -261,6 +261,9 @@ function keys(screen: string): string[] {
 Object.assign(window, {
   probe: {
     line: (s: string, i: number) => !!line(s, i),
+    coloredLine: (s: string, i: number) => !!line(s, i)?.querySelector('span[style*="color"]'),
+    markdownReady: (s: string, i: number) =>
+      line(s, i)?.tagName === 'H2' && !panel(s).querySelector('[data-md-block-pending]'),
     point,
     keys,
     outerKeys(s: string) {

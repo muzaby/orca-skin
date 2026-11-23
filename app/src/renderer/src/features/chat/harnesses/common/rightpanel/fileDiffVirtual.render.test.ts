@@ -9,11 +9,12 @@ import {
   useTestVirtualRows
 } from '../../../../../shared/ui/virtual/virtualView.testfixture'
 import { DEFAULT_DIFF_VIEW } from '../../../reducer/chatReducer'
-import { patchLinesToDiffLines } from '../../../lib/diffPatchLines'
+import * as patch from '../../../lib/diffPatchLines'
 import { FakeNode } from '../../../../../shared/ui/renderHarness.testfixture'
 import * as model from '../../../../../shared/compute/diffView'
 const state = vi.hoisted(() => ({
   id: 0,
+  scrollToIndex: vi.fn(),
   lists: [] as { shouldAdjustScrollPositionOnItemSizeChange?: () => boolean }[]
 }))
 vi.mock('react', async (original) => {
@@ -33,7 +34,7 @@ vi.mock('../../../../../shared/ui/virtual/useVirtualRows', () => ({
     const list = {
       ...useTestVirtualRows(mode === 'hidden' ? 0 : count),
       measurementsCache: [],
-      scrollToIndex: vi.fn(),
+      scrollToIndex: state.scrollToIndex,
       shouldAdjustScrollPositionOnItemSizeChange: undefined as (() => boolean) | undefined
     }
     state.lists.push(list)
@@ -68,8 +69,10 @@ it('v4 split view emits stable pair keys within the same mount bound', () => {
     'pair:-1:3'
   ])
 })
-it('v9 renderer model is reused for local updates and worker size opens no local model', () => {
+it('v9 renderer model is reused for local updates and a large file builds once in the worker', async () => {
   const spy = vi.spyOn(model, 'buildDiffView')
+  const convert = vi.spyOn(patch, 'patchLinesToDiffLines')
+  const open = vi.spyOn(fake.client, 'openDocument')
   try {
     const file = addedFile(5000)
     renderGit([file])
@@ -84,26 +87,67 @@ it('v9 renderer model is reused for local updates and worker size opens no local
       renderGit([file], { draft })
     }
     expect(spy).toHaveBeenCalledTimes(1)
-    renderGit([addedFile(50000)])
+    expect(convert).toHaveBeenCalledTimes(1)
+    const { createWorkerState } = await import('../../../../../shared/compute/worker/state')
+    const run = createWorkerState()
+    const large = addedFile(50000)
+    renderGit([large])
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(fake.requests.some((req) => req.kind === 'diffView')).toBe(true)
+    expect(convert).toHaveBeenCalledTimes(1)
+    const [ref, content] = open.mock.calls.at(-1)!
+    await run({ type: 'doc.open', ref, ...content })
+    let served = 0
+    const flush = async (): Promise<void> => {
+      while (served < fake.requests.length) {
+        const request = fake.requests[served++]
+        if (fake.cancelled.includes(request)) continue
+        const response = await run({ ...request, id: served })
+        if (response?.ok !== true) throw Error('worker did not return the requested window')
+        fake.resolveNext(response.result)
+        await settle()
+      }
+    }
+    await flush()
+    visible.first = 49000
+    renderGit([large])
+    await flush()
+    expect(dom.body.textContent).toContain('line 49000')
+    expect(spy).toHaveBeenCalledTimes(2)
+    expect(convert).toHaveBeenCalledTimes(1)
   } finally {
+    open.mockRestore()
+    convert.mockRestore()
     spy.mockRestore()
   }
 })
-it('v10 wrap disables minimum width and unwrapped width survives scrolling', () => {
-  const f = addedFile(501)
-  const width = (): unknown =>
-    (dom.query('[data-virtual-git]')!.props.style as { minWidth?: string }).minWidth
-  renderGit([f], { view: { ...DEFAULT_DIFF_VIEW, wrapLines: false } })
-  const first = width()
-  expect(first).toContain('ch')
-  visible.first = 497
-  renderGit([f], { view: { ...DEFAULT_DIFF_VIEW, wrapLines: false } })
-  expect(width()).toBe(first)
-  renderGit([f], { view: { ...DEFAULT_DIFF_VIEW, wrapLines: true } })
-  expect(width()).toBeUndefined()
-})
+it.each([501, 5001])(
+  'v10 width includes an unmounted wide line and stays fixed while scrolling at %i rows',
+  async (count) => {
+    const file = addedFile(count)
+    file.lines[250].text = '\t' + '界'.repeat(50)
+    const built = model.buildDiffView(patch.patchLinesToDiffLines(file.lines), false)
+    let served = 0
+    async function render(wrapLines: boolean): Promise<void> {
+      renderGit([file], { view: { ...DEFAULT_DIFF_VIEW, wrapLines } })
+      while (served < fake.requests.length) {
+        const r = fake.requests[served++]
+        if (fake.cancelled.includes(r)) continue
+        if (r.kind !== 'diffView') throw Error('expected diff window')
+        fake.resolveNext(model.diffViewRows(built, r.options, r.start, r.end))
+        await settle()
+      }
+    }
+    const width = (): unknown =>
+      (dom.query('[data-virtual-git]')!.props.style as { minWidth?: string }).minWidth
+    await render(false)
+    expect(width()).toBe('calc(108ch + 5em)')
+    visible.first = count - 4
+    await render(false)
+    expect(width()).toBe('calc(108ch + 5em)')
+    await render(true)
+    expect(width()).toBeUndefined()
+  }
+)
 
 it('sc3 file virtualizer delegates row size scroll correction to the panel', () => {
   state.lists.length = 0
@@ -119,7 +163,7 @@ it.each([501, 5001])(
     file.lines[1] = { type: 'added', text: 'prefix blue suffix', oldLine: null, newLine: 1 }
     renderGit([file], { view: { ...DEFAULT_DIFF_VIEW, highlightWords: true } })
     if (count > 5000) {
-      const built = model.buildDiffView(patchLinesToDiffLines(file.lines), false)
+      const built = model.buildDiffView(patch.patchLinesToDiffLines(file.lines), false)
       for (let i = 0; i < 2; i++) {
         const r = fake.requests[i]
         if (r.kind !== 'diffView') throw Error('expected row request')
@@ -145,7 +189,7 @@ it.each([
     file.lines = file.lines.map((line, i) =>
       i === 40 ? line : { ...line, type: 'unchanged', oldLine: i + 1 }
     )
-    const built = model.buildDiffView(patchLinesToDiffLines(file.lines), false)
+    const built = model.buildDiffView(patch.patchLinesToDiffLines(file.lines), false)
     const query = FakeNode.prototype.querySelectorAll
     const selectors = vi.spyOn(FakeNode.prototype, 'querySelectorAll').mockImplementation(function (
       this: FakeNode,
@@ -230,6 +274,15 @@ it.each([
       const anchor = gapRow.parent!.children[gapRow.parent!.children.indexOf(gapRow) + 1]
       const key = anchor.getAttribute('data-window-row')!
       const owner = dom.query('[data-diff-scroll-owner]')!
+      let scrollTop = owner.scrollTop
+      const write = vi.fn((value: number) => {
+        scrollTop = value
+      })
+      Object.defineProperty(owner, 'scrollTop', {
+        configurable: true,
+        get: () => scrollTop,
+        set: write
+      })
       const before = anchor.getBoundingClientRect().top
       dom.act(() => (gap.props.onClick as () => void)())
       await flushRows()
@@ -238,6 +291,14 @@ it.each([
       const after = dom.query('[data-window-row="' + key + '"]')!
       expect(owner.scrollTop).toBeGreaterThan(0)
       expect(Math.abs(after.getBoundingClientRect().top - before)).toBeLessThanOrEqual(1)
+      expect(write).toHaveBeenCalledTimes(1)
+      write.mockClear()
+      const down = dom.query('[data-diff-gap-down]')!
+      dom.act(() => (down.props.onClick as () => void)())
+      await flushRows()
+      schedule()
+      dom.act(() => frame())
+      expect(write).not.toHaveBeenCalled()
       if (wrap)
         expect({
           hasInput: !!input,
@@ -256,42 +317,118 @@ it.each([
   }
 )
 
-it('v6w locates an offscreen requirement before requesting its pinned worker row and revealing it once', async () => {
-  const file = addedFile(50000)
-  const lines = patchLinesToDiffLines(file.lines)
-  const pin = createDiffRequirementItem({
-    id: 'far',
-    sessionId: 's',
-    base: { kind: 'none' },
-    filePath: file.path,
-    lines,
-    lineIndex: 49000,
-    comment: 'far',
-    createdAt: 1
-  })
+it.each([false, true])(
+  'v6w locates and reveals the 49000th worker row once (hidden %s)',
+  async (hidden) => {
+    const file = addedFile(50000)
+    if (hidden)
+      file.lines = file.lines.map((line, index) =>
+        index === 0 ? line : { ...line, type: 'unchanged', oldLine: index + 1 }
+      )
+    state.scrollToIndex.mockClear()
+    const lines = patch.patchLinesToDiffLines(file.lines)
+    const pin = createDiffRequirementItem({
+      id: 'far',
+      sessionId: 's',
+      base: { kind: 'none' },
+      filePath: file.path,
+      lines,
+      lineIndex: 49000,
+      comment: 'far',
+      createdAt: 1
+    })
+    const built = model.buildDiffView(lines, false)
+    vi.stubGlobal('CSS', { escape: (s: string) => s })
+    const reveal = vi.fn()
+    Object.assign(FakeNode.prototype, { scrollIntoView: reveal })
+    try {
+      renderGit([file], { requirements: [pin], activeRequirementId: pin.id })
+      for (let i = 0; i < fake.requests.length; i++) {
+        const r = fake.requests[i]
+        if (fake.cancelled.includes(r)) continue
+        if (r.kind === 'diffLocate')
+          fake.resolveNext(model.diffViewLocate(built, r.options, r.anchors))
+        else if (r.kind === 'diffView')
+          fake.resolveNext(model.diffViewRows(built, r.options, r.start, r.end))
+        else throw Error('unexpected ' + r.kind)
+        await settle()
+      }
+      const locate = fake.requests.findIndex((r) => r.kind === 'diffLocate')
+      expect(locate).toBeGreaterThanOrEqual(0)
+      const requested = fake.requests.filter((r) => r.kind === 'diffView')
+      const options = requested.at(-1)!.options
+      const row = model.diffViewLocate(built, options, [
+        { oldLine: hidden ? 49001 : null, newLine: 49001 }
+      ]).rowIndex[0]
+      if (hidden) expect(options.expansions).toContainEqual([48997, 49004])
+      expect(row).toBeGreaterThan(0)
+      expect(
+        fake.requests.findIndex((r) => r.kind === 'diffView' && r.start === row)
+      ).toBeGreaterThan(locate)
+      expect(state.scrollToIndex).toHaveBeenCalledWith(row, { align: 'center' })
+      expect(dom.query('[data-diff-requirement-marker="far"]')).not.toBeNull()
+      expect(reveal).toHaveBeenCalledOnce()
+    } finally {
+      Reflect.deleteProperty(FakeNode.prototype, 'scrollIntoView')
+    }
+  }
+)
+
+it('v7w/v12 worker draft submits its bounded context with the full-file anchor and releases its document on collapse', async () => {
+  const file = addedFile(5001)
+  file.lines[0] = { ...file.lines[0], type: 'unchanged', oldLine: 1 }
+  const lines = patch.patchLinesToDiffLines(file.lines)
   const built = model.buildDiffView(lines, false)
-  vi.stubGlobal('CSS', { escape: (s: string) => s })
-  const reveal = vi.fn()
-  Object.assign(FakeNode.prototype, { scrollIntoView: reveal })
+  const index = 4500
+  const draft = {
+    key: JSON.stringify([file.path, null, index + 1]),
+    filePath: file.path,
+    oldLine: null,
+    newLine: index + 1,
+    body: 'comment'
+  }
+  const make = (
+    input: Pick<
+      Parameters<typeof createDiffRequirementItem>[0],
+      'lines' | 'lineIndex' | 'before' | 'comment'
+    >
+  ): unknown =>
+    createDiffRequirementItem({
+      ...input,
+      id: 'item',
+      base: { kind: 'none' },
+      sessionId: 's',
+      filePath: file.path,
+      createdAt: 1
+    }).anchor
+  const add = vi.fn()
+  const open = vi.spyOn(fake.client, 'openDocument')
+  const release = vi.fn()
+  open.mockImplementation((ref) => ({ ref, available: true, release, onAvailable: () => () => {} }))
   try {
-    renderGit([file], { requirements: [pin], activeRequirementId: pin.id })
+    renderGit([file], { draft, onAddRequirement: add })
     for (let i = 0; i < fake.requests.length; i++) {
       const r = fake.requests[i]
-      if (r.kind === 'diffLocate')
-        fake.resolveNext(model.diffViewLocate(built, r.options, r.anchors))
-      else if (r.kind === 'diffView')
+      if (fake.cancelled.includes(r)) continue
+      if (r.kind === 'diffView')
         fake.resolveNext(model.diffViewRows(built, r.options, r.start, r.end))
-      else throw Error('unexpected ' + r.kind)
+      else if (r.kind === 'diffLocate')
+        fake.resolveNext(model.diffViewLocate(built, r.options, r.anchors))
+      else if (r.kind === 'diffContext') fake.resolveNext(model.diffViewContext(built, r.lineIndex))
+      else throw Error(r.kind)
       await settle()
     }
-    const locate = fake.requests.findIndex((r) => r.kind === 'diffLocate')
-    expect(locate).toBeGreaterThanOrEqual(0)
-    expect(
-      fake.requests.findIndex((r) => r.kind === 'diffView' && r.start === 49000)
-    ).toBeGreaterThan(locate)
-    expect(dom.query('[data-diff-requirement-marker="far"]')).not.toBeNull()
-    expect(reveal).toHaveBeenCalledOnce()
+    const submit = dom.query('[data-diff-requirement-draft-submit]')!
+    dom.act(() => (submit.props.onClick as () => void)())
+    expect(add).toHaveBeenCalledOnce()
+    expect(add.mock.calls[0][0].lines).toHaveLength(7)
+    expect(make(add.mock.calls[0][0])).toEqual(
+      make({ lines, lineIndex: index, comment: draft.body })
+    )
+    expect(release).not.toHaveBeenCalled()
+    renderGit([file], { expandedFiles: new Set() })
+    expect(release).toHaveBeenCalledTimes(1)
   } finally {
-    Reflect.deleteProperty(FakeNode.prototype, 'scrollIntoView')
+    open.mockRestore()
   }
 })

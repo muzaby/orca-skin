@@ -2,6 +2,8 @@ import { createElement } from 'react'
 import { it, expect, vi } from 'vitest'
 import { FileBody } from './FileBody'
 import { copyText } from '../toolCopyText'
+import { createWorkerState } from '../../../../../../shared/compute/worker/state'
+import { stripLineNumberGutter } from '../../../../../../shared/compute/gutter'
 import { requestKey } from '../../../../../../shared/compute/protocol'
 import { dom, fake, settle } from '../../../../../../shared/ui/virtual/virtualView.testfixture'
 vi.mock('react', async (original) => ({
@@ -43,9 +45,11 @@ it.each([
   'rd1/rd2 choose local or worker gutter transform for %i rows and %i characters',
   async (rows, size) => {
     const call = read(input(rows, size))
+    const run = createWorkerState(() => 0)
     dom.render(createElement(FileBody, { call }))
+    const stripped = stripLineNumberGutter(call.result.output)
     if (rows === 400) {
-      expect(dom.query('[data-small]')!.textContent.startsWith('line0\nline1')).toBe(true)
+      expect(dom.query('[data-small]')!.textContent).toBe(stripped)
       expect(fake.requests).toHaveLength(0)
       return
     }
@@ -54,19 +58,28 @@ it.each([
         kind: 'codeView',
         source: { view: { transform: 'stripGutter' } }
       })
-      fake.resolveNext({
-        lines: ['line0', 'line1', 'line2', 'line3'],
-        lineCount: rows,
-        widthColumns: 100,
-        textChars: size,
-        charsBefore: 0
-      })
+      const request = fake.requests[0]
+      if (request.kind !== 'codeView' || !('view' in request.source))
+        throw Error('missing Read window')
+      await run({ type: 'doc.open', ref: request.source.view.doc, text: call.result.output })
+      const result = await run({ ...request, id: 1 })
+      if (result?.ok !== true) throw Error('missing worker lines')
+      fake.resolveNext(result.result)
       await settle()
     }
     expect(dom.query('[data-virtual-text]')!.textContent).toBe('line0')
     const token = fake.requests.find((req) => req.kind === 'tokens')!
     expect(token).toMatchObject({ view: { transform: 'stripGutter' } })
     expect(requestKey(token)).toContain('|stripGutter')
+    if (token.kind !== 'tokens' || !('view' in token)) throw Error('missing Read token window')
+    await run({ type: 'doc.open', ref: token.view.doc, text: call.result.output })
+    const tokens = await run({ ...token, id: 2 })
+    if (tokens?.ok !== true) throw Error('missing worker tokens')
+    fake.resolveNext(tokens.result)
+    await settle()
+    const rendered = dom.queryAll('[data-virtual-text]')
+    expect(rendered.map((row) => row.textContent)).toEqual(stripped.split('\n', 4))
+    expect(rendered.every((row) => row.children.some((span) => span.props.style))).toBe(true)
   }
 )
 it('rd3 read display excludes gutter and header copy preserves full numbered source', () => {

@@ -16,14 +16,13 @@ export function usePanelSelection(
     gesture.current = gestureReducer(gesture.current, event)
     setSuppressed(isSuppressed(gesture.current))
   }, [])
-  const [key, setKey] = useState(documentKey)
-  if (key !== documentKey) {
-    setKey(documentKey)
-    setSuppressed(false)
-  }
   useLayoutEffect(() => {
-    gesture.current = 'idle'
-    inside.current = false
+    // Layout cleanups run before the replacement document's child mount effects.
+    return () => {
+      gesture.current = 'idle'
+      inside.current = false
+      setSuppressed(false)
+    }
   }, [documentKey])
   const contains = useCallback(
     (selection: Selection | null | undefined): boolean =>

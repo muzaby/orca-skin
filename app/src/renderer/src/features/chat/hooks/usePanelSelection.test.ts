@@ -74,7 +74,7 @@ function mount() {
     expect(suppressed()).toBe(true)
     expect(removed).toHaveBeenCalledTimes(1)
   }
-  return { inside, down, suppressed, cancel, removed, render, select, own, other }
+  return { selection, inside, down, suppressed, cancel, removed, render, select, own, other }
 }
 it('ps1 empty selection', () => {
   const v = mount()
@@ -154,4 +154,55 @@ it('ps12 edited content at same keys keeps selection', () => {
   v.inside()
   v.render([0, 1], 'a', 'edited')
   expect(v.removed).toHaveBeenCalledTimes(0)
+})
+
+it('ps9b document replacement and child row additions clean up the old drag in the same commit', () => {
+  const v = mount()
+  v.cancel()
+  v.render([5, 6, 7], 'b')
+  expect(v.suppressed()).toBe(false)
+  v.inside()
+  expect(v.removed).toHaveBeenCalledTimes(1)
+  expect(v.selection.rangeCount).toBe(1)
+})
+it('ps9c switching documents clears remembered selection ownership', () => {
+  const v = mount()
+  v.inside()
+  v.render([0, 1], 'b')
+  v.selection.setBaseAndExtent(v.own(), 0, v.own(), 0)
+  v.render([1, 2], 'b')
+  expect(v.removed).not.toHaveBeenCalled()
+})
+it('ps13 a collapsed endpoint still belongs to the recorded selection', () => {
+  const v = mount()
+  v.inside()
+  v.selection.setBaseAndExtent(v.own(), 0, v.own(), 0)
+  v.render([1, 2])
+  expect(v.removed).toHaveBeenCalledOnce()
+  expect(v.selection.rangeCount).toBe(0)
+})
+it('ps14 a fresh caret alone does not claim the panel', () => {
+  const v = mount()
+  v.select(v.own(), 0, v.own(), 0)
+  v.render([1, 2])
+  expect(v.removed).not.toHaveBeenCalled()
+  expect(v.selection.rangeCount).toBe(1)
+})
+it('ps15 dragging without a recorded selection suppresses the gesture on a new row', () => {
+  const v = mount()
+  v.down()
+  v.render([1, 2])
+  expect(v.suppressed()).toBe(true)
+})
+it('ps16 an inside selection is recognized before selectionchange', () => {
+  const v = mount()
+  v.selection.setBaseAndExtent(v.own(), 0, v.own(), 1)
+  v.render([1, 2])
+  expect(v.removed).toHaveBeenCalledOnce()
+})
+it('ps17 the anchor alone can belong to this panel', () => {
+  const v = mount()
+  v.select(v.own(), 0, v.other(), 1)
+  v.render([1, 2])
+  expect(v.removed).toHaveBeenCalledOnce()
 })

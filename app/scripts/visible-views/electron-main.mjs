@@ -137,9 +137,21 @@ async function main() {
       const start = scenario === 'c5' ? 3 : 1,
         end = scenario === 'c5' ? 7 : 5
       const expected = (await marker(s, row)).slice(start, end)
+      if (s === 'artifact-markdown')
+        await until(() => probe('markdownReady', s, row), s + ' mounted Markdown blocks')
+      else if (s !== 'transcript-work')
+        await until(() => probe('coloredLine', s, row), s + ' source tokens')
       await drag(s, [row, end], [row, start])
+      const selectionBefore = await read('getSelection().toString()')
       clipboard.writeText('unchanged')
-      return { screen: s, scenario, ...geometry, expected, clipboard: await copy() }
+      return {
+        screen: s,
+        scenario,
+        ...geometry,
+        expected,
+        selectionBefore,
+        clipboard: await copy()
+      }
     }
     const c1 = await partial('c1', 1)
     if (s.startsWith('transcript')) {
@@ -164,6 +176,27 @@ async function main() {
         'draft'
       )
       await read("document.querySelector('textarea').focus()")
+      const draftGeometry = () =>
+        read(`(() => {
+        const input = document.querySelector('[data-diff-requirement-draft] textarea')
+        const row = input.closest('[data-window-row]')
+        const next = row.nextElementSibling
+        return next && { height: row.offsetHeight, gap: next.offsetTop - row.offsetTop,
+          focused: input === document.activeElement }
+      })()`)
+      await until(async () => {
+        const g = await draftGeometry()
+        return g && g.focused && Math.abs(g.gap - g.height) <= 1
+      }, 'initial measured draft row')
+      const before = await draftGeometry()
+      await read(`(() => {
+        const input = document.querySelector('[data-diff-requirement-draft] textarea')
+        input.style.minHeight = (input.offsetHeight + 64) + 'px'
+      })()`)
+      await until(async () => {
+        const g = await draftGeometry()
+        return g && g.focused && g.height >= before.height + 60 && Math.abs(g.gap - g.height) <= 1
+      }, 'resized draft moves the next row')
       await probe('scroll', s, -1)
       await until(
         async () =>
@@ -185,7 +218,8 @@ async function main() {
   for (const [s, other] of [pair, [...pair].reverse()]) {
     await probe('scroll', s, 0)
     await probe('scroll', other, 0)
-    await delay(250)
+    // Token arrival replaces the text nodes a native drag needs as endpoints.
+    await until(() => probe('coloredLine', s, 2), s + ' c4 source tokens')
     await drag(s, [2, 5], [2, 1])
     const selectionBefore = await probe('select', s),
       keysBefore = await probe('keys', other)

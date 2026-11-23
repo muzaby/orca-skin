@@ -55,25 +55,52 @@ it.each(['cs2a object', 'cs2b text', 'cs2c task', 'cs2d text array'])(
       : kind.includes('object')
         ? Array.from({ length: 5000 }, () => text.slice(0, 999))
         : text
-    const result = { isError: false, output },
+    const result = {
+        isError: false,
+        output,
+        structuredOutput: kind.includes('task')
+          ? { items: Array.from({ length: 500 }, (_, i) => i) }
+          : undefined
+      },
       call = {
         name: kind.includes('task') ? 'TaskUpdate' : 'Fixture',
         toolUseId: 'job',
         input: {},
         result
       }
+    const map =
+      kind.includes('array') && Array.isArray(output) ? vi.spyOn(output, 'map') : undefined
+    const presentation = vi.spyOn(work, 'workToolPresentation')
+    const links = vi.spyOn(work, 'workSearchResults')
+    const stringify = vi.spyOn(JSON, 'stringify')
+    const parse = vi.spyOn(JSON, 'parse')
     const derive = vi.spyOn(work, 'workToolPayload'),
       build = vi.spyOn(index, 'buildCodeIndex')
     try {
       dom.render(createElement(WorkToolBody, { call }))
+      const payloadCalls = (): number[] => [
+        stringify.mock.calls.filter(([value]) => value === output).length,
+        parse.mock.calls.filter(([value]) => typeof value === 'string' && value.length > 1000000)
+          .length
+      ]
+      expect(payloadCalls()).toEqual([kind.includes('object') ? 1 : 0, 0])
       const before = derive.mock.calls.length,
         requests = fake.requests.length
       for (let i = 0; i < 10; i++) dom.render(createElement(WorkToolBody, { call: { ...call } }))
+      if (map) expect(map).toHaveBeenCalledTimes(1)
+      expect(presentation).toHaveBeenCalledTimes(1)
+      expect(links).toHaveBeenCalledTimes(1)
+      expect(payloadCalls()).toEqual([kind.includes('object') ? 1 : 0, 0])
       expect(derive.mock.calls.length).toBe(before)
       expect(fake.requests.length).toBe(requests)
       expect(build).not.toHaveBeenCalled()
       expect(fake.requests.some((req) => req.kind === 'codeView')).toBe(true)
     } finally {
+      map?.mockRestore()
+      stringify.mockRestore()
+      parse.mockRestore()
+      presentation.mockRestore()
+      links.mockRestore()
       derive.mockRestore()
       build.mockRestore()
     }
@@ -164,5 +191,33 @@ it('cs5 collapsed Read acquires no lease and performs no gutter work', () => {
     expect(fake.requests).toHaveLength(0)
   } finally {
     strip.mockRestore()
+  }
+})
+
+it('cs2 small multiline JSON is classified and indexed once, and replacing the result updates both', () => {
+  const output = JSON.stringify(
+    Array.from({ length: 500 }, (_, i) => i),
+    null,
+    2
+  )
+  const call = { name: 'Fixture', toolUseId: 'job', input: {}, result: { isError: false, output } }
+  const parse = vi.spyOn(JSON, 'parse')
+  const build = vi.spyOn(index, 'buildCodeIndex')
+  try {
+    for (let i = 0; i < 11; i++) dom.render(createElement(WorkToolBody, { call: { ...call } }))
+    expect(parse.mock.calls.filter(([text]) => text === output)).toHaveLength(1)
+    expect(build.mock.calls.filter(([text]) => text === output)).toHaveLength(1)
+    const replacement = output.replace('499', '999')
+    dom.render(
+      createElement(WorkToolBody, {
+        call: { ...call, result: { isError: true, output: replacement } }
+      })
+    )
+    expect(parse.mock.calls.filter(([text]) => text === replacement)).toHaveLength(1)
+    expect(build.mock.calls.filter(([text]) => text === replacement)).toHaveLength(1)
+    expect(dom.query('[aria-label="chat.workTool.error"]')).not.toBeNull()
+  } finally {
+    parse.mockRestore()
+    build.mockRestore()
   }
 })

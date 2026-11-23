@@ -1,3 +1,8 @@
+import {
+  createDiffRequirementItem,
+  diffRequirementMatchesLine
+} from '../harnesses/common/rightpanel/diffRequirements'
+import { diffTokensRequest } from './diffSyntax'
 import { describe, expect, it } from 'vitest'
 import { buildCodeIndex, codeWindow } from '../../../shared/compute/codeView'
 import { hunksToDiffLines } from '../../../shared/compute/diffModel'
@@ -187,4 +192,80 @@ it.each([
       )
     )
   expect(structure(nodes)).toEqual(structure(whole.hast.children))
+})
+
+it('ri1–ri4/lc1/ax1–ax3 compare indexed positions and both token axes with the legacy presentation', () => {
+  const lines = hunksToDiffLines([
+    { value: 'context\n'.repeat(15) },
+    { value: 'old\n', removed: true },
+    { value: 'new\n', added: true },
+    { value: 'tail\n' }
+  ])
+  const model = buildDiffView(lines, false)
+  const anchor = createDiffRequirementItem({
+    id: 'a',
+    sessionId: 's',
+    base: { kind: 'none' },
+    filePath: 'a.ts',
+    lines,
+    lineIndex: 0,
+    comment: '',
+    createdAt: 1
+  })
+  const numbers = [null, -1, ...lines.map((l) => l.lineNo)]
+  for (const layout of ['inline', 'side-by-side'] as const) {
+    const options = { layout, expansions: [], highlightWords: false, ignoreWhitespace: false }
+    const rows = diffViewRows(model, options, 0, lines.length + 1).rows
+    const anchors = numbers.flatMap((oldLine) => numbers.map((newLine) => ({ oldLine, newLine })))
+    const lineIndex = anchors.map((position) =>
+      lines.findIndex((line) =>
+        diffRequirementMatchesLine(
+          { ...anchor, anchor: { ...anchor.anchor, ...position } },
+          'a.ts',
+          line
+        )
+      )
+    )
+    const rowIndex = lineIndex.map((i) =>
+      rows.findIndex((row) =>
+        row.kind === 'line'
+          ? row.sourceIndex === i
+          : row.kind === 'pair' && (row.left?.sourceIndex === i || row.right?.sourceIndex === i)
+      )
+    )
+    expect(diffViewLocate(model, options, anchors)).toEqual({ lineIndex, rowIndex })
+  }
+  const legacy = diffTokensRequest(lines, 'a.ts', 'github-light')!
+  for (const [axis, text] of [
+    [model.oldAxis, legacy.oldText],
+    [model.newAxis, legacy.newText]
+  ] as const) {
+    const mapped: string[] = []
+    lines.forEach((line, i) => {
+      if (axis[i] >= 0) mapped[axis[i]] = line.text
+    })
+    expect(mapped.join('\n')).toBe(text)
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const make = (
+      input: typeof lines,
+      lineIndex: number,
+      before?: { old: number | null; new: number | null }
+    ): unknown =>
+      createDiffRequirementItem({
+        id: 'item',
+        sessionId: 's',
+        base: { kind: 'none' },
+        filePath: 'a.ts',
+        lines: input,
+        lineIndex,
+        before,
+        comment: 'sample',
+        createdAt: 1
+      }).anchor
+    const ctx = diffViewContext(model, i)
+    expect(make(ctx.lines, ctx.offset, { old: ctx.oldBefore, new: ctx.newBefore })).toEqual(
+      make(lines, i)
+    )
+  }
 })

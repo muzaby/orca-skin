@@ -10,15 +10,18 @@ function grid() {
         scenario,
         expected: 'row',
         clipboard: scenario === 'c2' ? 'unchanged' : 'row',
-        crossExpected: 'cross',
-        crossClipboard: 'cross',
+        ...(screen.startsWith('transcript-') &&
+          scenario === 'c1' && { crossExpected: 'cross', crossClipboard: 'cross' }),
         reachedFirst: true,
         reachedLast: true,
         mounted: 30,
         keysBefore: ['a', 'b'],
         keysAfter: ['a', 'b', 'c'],
-        outerBefore: ['message'],
-        outerAfter: ['message'],
+        ...(screen.startsWith('transcript-') &&
+          scenario === 'c2' && {
+            outerBefore: ['message', 'next'],
+            outerAfter: ['message', 'next']
+          }),
         endpointsConnected: true,
         selectionBefore: 'row',
         selectionAfter: scenario === 'c2' ? '' : 'row'
@@ -52,6 +55,49 @@ for (const [name, scenario, change] of [
       change
     )
     assert.equal(judgeVisibleViews(records).failures.length, 1)
+  })
+}
+for (const [name, screen, scenario, change] of [
+  ['vv4b missing baseline keys', 'git-inline', 'c2', { keysBefore: [] }],
+  ['vv6b no original selection', 'git-inline', 'c2', { selectionBefore: '' }],
+  ['vv8b empty copy text', 'git-inline', 'c1', { expected: '', clipboard: '' }],
+  ['vv9b zero rows', 'git-inline', 'c5', { mounted: 0 }],
+  ['vv9c missing row count', 'git-inline', 'c5', { mounted: undefined }],
+  ['vv9c noninteger row count', 'git-inline', 'c5', { mounted: 1.5 }],
+  [
+    'vv10b no selection to isolate',
+    'git-inline',
+    'c4',
+    { selectionBefore: '', selectionAfter: '', clipboard: '' }
+  ],
+  ['vv12 replaced outer key', 'transcript-file', 'c2', { outerAfter: ['message', 'other'] }],
+  ['vv12 reordered outer keys', 'transcript-file', 'c2', { outerAfter: ['next', 'message'] }],
+  ['vv12 added outer key', 'transcript-file', 'c2', { outerAfter: ['message', 'next', 'other'] }],
+  ['vv12b missing outer baseline', 'transcript-file', 'c2', { outerBefore: undefined }],
+  ['vv12b empty outer baseline', 'transcript-file', 'c2', { outerBefore: [], outerAfter: [] }],
+  ['vv12 missing outer result', 'transcript-file', 'c2', { outerAfter: undefined }],
+  ['vv13 cross-panel copy mismatch', 'transcript-file', 'c1', { crossClipboard: 'other' }],
+  [
+    'vv13b missing cross-selection text',
+    'transcript-file',
+    'c1',
+    { crossExpected: undefined, crossClipboard: undefined }
+  ],
+  ['vv14 no new key in other panel', 'git-inline', 'c4', { keysAfter: ['a', 'b'] }],
+  ['vv15 first row unreachable', 'git-inline', 'c1', { reachedFirst: false }],
+  ['vv15b last row unreachable', 'git-inline', 'c1', { reachedLast: false }],
+  ['vv16 clipboard alone differs', 'git-inline', 'c4', { clipboard: 'other' }]
+]) {
+  test(name, () => {
+    const records = grid()
+    Object.assign(
+      records.find((r) => r.screen === screen && r.scenario === scenario),
+      change
+    )
+    assert.deepEqual(judgeVisibleViews(records), {
+      verdict: false,
+      failures: [{ screen, scenario, reason: scenario + ' evidence' }]
+    })
   })
 }
 test('vv11 exit codes and launcher arguments', async () => {

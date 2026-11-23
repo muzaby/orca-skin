@@ -58,12 +58,17 @@ function Payload({
 export function WorkToolBody({ call }: { call: ToolCall }): React.JSX.Element {
   const { tr } = useI18n()
   const scrollElement = useRef<HTMLDivElement>(null)
-  const failed = useMemo(() => workToolPresentation(call).status === 'failed', [call])
-  const links = useMemo(() => workSearchResults(call), [call])
+  const { name, input, result, toolUseId } = call
+  const { failed, links } = useMemo(() => {
+    const source = { name, input, result, toolUseId }
+    return {
+      failed: workToolPresentation(source).status === 'failed',
+      links: workSearchResults(source)
+    }
+  }, [name, input, result, toolUseId])
   const taskTool = isTaskListToolName(call.name)
   // Task 도구의 모델용 receipt와 UI용 구조화 결과는 다른 정보다. 의미 표시는 기존
   // TaskToolBody가 맡고, 원문 disclosure에는 둘 다 남긴다.
-  const result = call.result
   const requestPayload = useMemo(() => workToolPayload(call.input), [call.input])
   const responsePayload = useMemo(
     () =>
