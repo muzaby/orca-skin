@@ -4,7 +4,9 @@
 > 입력: [0325 plan §6-C C 행 · §6-D](../0325-ui-responsiveness-followup/plan.md) · 0325 첨부 [`input/0324-agent-requests.ko.md`](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md)(요청서 — 본문의 `T08`~`T33`) · [`input/0324-audit.ko.md`](../0325-ui-responsiveness-followup/input/0324-audit.ko.md)(감사) · [0326 plan §10 B9](../0326-transcript-incremental-model/plan.md)(스트리밍 꼬리 — "워커는 단계 C") · **PR #643 소유자 검토(2026-11-20) — rev 2 의 입력**(§4-A 항목별 판정) · **PR #643 소유자 후속 검토 2건(2026-11-20) — rev 3 의 입력**(§4-B 항목별 판정).
 > 측정 수치는 실제 소스 함수 재측정이다 — M1~M13 은 V1 세션, M13b·M14~M21 은 rev 2 세션, M22~M25 는 rev 3 세션(§8). 측정 스크립트는 저장소에 두지 않았다 — 같은 입력을 구현 턴의 K1~K12(WU-10)가 다시 잰다.
 
-## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사)
+## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀)
+
+ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님).
 
 상태는 plan/READY다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
@@ -29,7 +31,204 @@
 | MD-05 ↔ UT-05 / VP-34 · EP-10 | 추가·교체·제거만·동일 키 갱신과 선택 위치(내부·외부)로 판정 함수를 검증한다. 추가 판정을 크기 비교로 바꾸거나 제거만으로도 참이 되게 바꾸면 테스트가 실패해야 한다. |
 | VP-50 회귀 · AC29·30 · S-C8 · K12 | 0326 AT-07을 verify에서 회귀 실행한다. 새 화면은 실제 Electron 마우스·키 입력과 클립보드로 AC15·35를 검증한다. 취소 사례는 실제 새 행 키 관측을 증거로 남긴다. S-C8 Windows에는 정상 복사·취소·재선택·패널 격리 결과를 기록한다. K12 조각 탐색과 복사 전용 50ms 합격 판정은 폐기한다. 나머지 K 측정 및 전체 UI 응답성 검증은 승계한다. |
 
-## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체)
+### ΔV2 · 꼬리 표시 전환의 스크롤·세션 회귀
+
+판정: 제품 범위는 넓히지 않고 검증을 보탠다. 꼬리 표시가 바뀌는 순간과 세션 전환에서 0326의 하단 추적·읽기 위치·비활성 세션 누적이 유지되는지를 AC37~AC39로 잠근다. 새 제품 코드는 꼬리 표시 표지 `data-markdown-tail` 하나다(EP-13 ⑧).
+
+| 항목 | 값 |
+|---|---|
+| 입력 | PR #640 소유자 댓글(2026-11-23 · 검토 기준 `322b19bd`) — "0327 구현 인계 — transcript 스트리밍 Markdown과 스크롤 회귀 검증" |
+| V mode | `Delta V` — 기준 `V1 rev 3 + ΔV1`(구현·verify 0회) |
+| 이번 V revision | `ΔV2` — 설계 커밋 `(ΔV2 설계 — 검증자 기입)` |
+| 유효 V | `V1 rev 3 + ΔV1 + ΔV2` |
+| 변경이 시작되는 수준 | R(R-05 CHANGED) → SD-07 NEW · MD-06 CHANGED · MD-15 NEW · 0326 INHERITED 회귀 3 |
+| 줄 참조 트리 | `322b19bd` app 트리(이번 세션 `rg` 실측) |
+| 신규 의존성 | 0 — 실측 하네스는 이미 devDependency 인 Electron·Vite 와 0326 하네스 틀을 쓴다 |
+
+#### ΔV2 Decision Ledger
+
+| ID | 결정 | 근거(원문) | 출처 | 상태 | 관계 |
+|---|---|---|---|---|---|
+| D-053 | 꼬리 표시가 바뀌는 순간(창 파싱 → 4,001자 진입 원문 → 워커 결과 반영 → 50,001자 원문 → 블록 확정 → 턴 완료)과 세션 전환에서 0326의 하단 추적·읽기 위치·비활성 세션 누적을 유지한다. 합격 기준은 화면의 본문과 스크롤이고 글자별 읽기 위치 저장 기능은 만들지 않는다 | "plan에 추가할 내용은 표시 방식이 바뀌는 순간에도 0326의 스크롤 동작이 유지되는지 확인하는 회귀 시나리오입니다" · "합격 기준은 사용자가 보는 본문과 스크롤입니다. 글자별 읽기 위치를 새로 저장하는 기능은 추가할 필요가 없습니다." | PR #640 소유자 댓글 | ACTIVE | D-035 검증 보완 · 0326 D-045·D-056 승계 |
+| D-054 | 꼬리 경로의 판정 입력은 표시할 꼬리(열린 펜스가 아닌 미완성 꼬리)의 길이 하나다. 한 번에 받은 조각 크기·턴 전체 길이·확정 블록 길이는 쓰지 않는다 — ≤ 4,000 창 파싱 · 4,001~50,000 워커 · ≥ 50,001 요청 없이 원문 | "한 번에 수신한 조각의 크기와 한 턴 전체 길이는 워커 전환 기준에서 제외합니다." · "4,000자 이하는 기존 렌더러 파싱, 4,001~50,000자는 Markdown 워커 파싱, 50,001자부터는 새 파싱 요청 없이 해당 꼬리를 원문으로 표시합니다." | 같은 댓글 | ACTIVE | D-035 보완(대체 아님) · D-019·D-033 수치 그대로 |
+| D-055 | 블록 확정·세션 전환 뒤 도착한 꼬리 결과는 현재 꼬리의 접두일 때만 표시한다. 이전 문장이 두 번 보이거나 다른 세션 화면에 보이면 실패다 | "결과가 현재 꼬리의 접두와 일치할 때만 해당 결과와 남은 원문을 함께 표시합니다. 블록 확정·세션 전환 뒤 늦은 결과가 이전 문장을 중복 표시하거나 다른 세션에 나타나면 실패입니다." | 같은 댓글 | ACTIVE | EP-13 ④⑤ 입력 확장 |
+
+갱신 메모(ΔV2):
+
+- 기존 ACTIVE 결정은 전부 유지한다 — SUPERSEDED 0 · OPEN 0. 댓글이 사용자에게 다시 물을 선택지를 남기지 않았다(아래 대조 표 전 행이 일치 또는 입력 보탬).
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-053 ↔ AC37·AC38·AC39(하단 거리·문장 위치·표지 횟수·요청 수만 단언하고 위치 저장을 요구하지 않음) · D-054 ↔ AC26 s11·s12 · D-055 ↔ AC39 bg3 · AC26 s14·s15 · D-035 ↔ AC26(문장 변경 없음) · D-052 ↔ ΔV2(선택을 만들지 않음 — U1 은 휠만 쓴다).
+- 같은 대상 여러 절 대조: 임계 — D-019 "4,000" · D-033 "꼬리 > 50,000자는 원문" · D-035 "꼬리 > 4,000자만" · EP-13 ① `tail.length > MARKDOWN_WORKER_MIN_CHARS` · ⑥ `tail.length > MARKDOWN_BLOCK_MAX_CHARS` · D-054 "4,001~50,000 워커" · AC37 단계 `4,001`·`50,001` — 모두 같은 경계다.
+
+#### 댓글 ↔ plan·코드 대조
+
+| 댓글 문장 | 대조(plan · `322b19bd` 코드) | 판정 |
+|---|---|---|
+| 비활성 세션에 조각이 와도 활성 transcript 본문은 갱신되지 않는다 | `chatStore.test.ts:350-372` 활성 엔트리 identity 불변 단언 · 꼬리 원문 공급자 `useLiveText`(`chatStore.ts:2524`)·`useLiveTextFor`(`:2777`) 둘 다 `s.sessions[s.activeKey]` | 일치 — 화면까지 잇는 증거가 없다 → AC39 |
+| 증분 스캐너로 확정 블록·꼬리 분리 · 열린 펜스 전용 뷰 | `StreamingMarkdown.tsx` `advanceStableBlocks` · `StreamingFence` · EP-13 ① | 일치 |
+| 조각 크기·턴 전체 길이는 판정에서 제외 | EP-13 ① 술어는 `tail.length` — AC26 입력(s1~s10)에 꼬리 길이를 전체 길이·조각 크기와 가르는 입력이 없다 | 입력 보탬 — D-054 · s11·s12 |
+| 공통 viewport 가 하단 추적·스크롤 보정을 소유 | 쓰기 함수 `writeScrollTop` 하나(0326 D-045) · 하단 추적은 하네스 설정 — Claude `useScrollAnchor.ts:103-106` · OpenCode `ScrollController.tsx:174-185` · TanStack 보정 끔 `TranscriptViewport.tsx:439` | 일치 — EP-26 ③~⑦ 이 회귀 자리 |
+| 4,000/4,001/50,000/50,001 · 노드 예산 원문 · 산출물은 문서 전체 길이 | D-019 · D-033 · D-045 "꼬리 결과도 같다" · EP-13 ①⑥ | 일치 |
+| 실행 1 + 최신 대기 1 · 접두 일치 · 블록 확정/세션 전환 뒤 늦은 결과 | D-035 · EP-13 ③④⑤ — 확정 뒤·세션 전환 뒤 입력이 s1~s10 에 없다 | 입력 보탬 — D-055 · s14·s15·bg3 |
+| 턴 완료 뒤 완료 메시지 경로 | D-035 · AC26 s9 | 일치 |
+
+#### 조사 결과 (`322b19bd`)
+
+| 대상 | 검색 / 위치 | N | 의미 |
+|---|---|---|---|
+| Claude 하단 추적 | `rg -n "new ResizeObserver\(" …/claude/transcript/useScrollAnchor.ts` | 1 (`:103`) | 내용 높이가 바뀔 때마다 `shouldFollowGrowth`(pin + 생성 중)면 `writeScrollTop(el, el.scrollHeight)` — store 변경 없이 오는 워커 결과 높이도 따른다 |
+| OpenCode 하단 추적 | `…/opencode/transcript/ScrollController.tsx` | 1 (`:185`, 콜백 `:174-183`) | 다음 프레임에 `state.pinned` 면 `writeTop(el.scrollHeight)` — 관측은 프레임 2개 뒤여야 한다 |
+| 위로 읽는 위치 | `TranscriptViewport.tsx:439` · `:381-418` | — | TanStack 크기 보정 끔 · 화면 위에서 시작한 행의 크기 변화는 앵커 문자로 복원. 꼬리는 앵커 문자 아래라 복원 쓰기 0 이 기대값이다 |
+| 세션 전환 | `liveBlockKey(sessionKey)` `claudeBlocks.ts:926`·`:1033` · `remountTranscriptBySession` | Work 만 true(`claude/presentation.ts:19`) · Code `:37`·OpenCode `opencode/presentation.ts:8` false | Code·OpenCode 는 transcript 를 다시 마운트하지 않는다. Claude 라이브 행 key 에 세션 키가 있어 세션마다 새 꼬리 인스턴스다 |
+| 블록 확정 | `markdownBlocks.ts` 경계 — 빈 줄 뒤 비공백 줄에서 앞 줄·새 줄 모두 목록·들여쓰기가 아닐 때 | — | 목록 꼬리는 뒤에 문단이 와도 확정되지 않는다 → 회귀 fixture 는 빈 줄 없는 긴 문단 |
+| 실측 하네스 틀 | `scripts/check-transcript-selection.mjs` — Vite 빌드 `worker: { format: 'es' }` · production `TranscriptView` · `sendInputEvent` | 0326 verify r4~r7 `xvfb-run` exit 0(Electron 39.8.10 · linux) | 실제 Markdown 레인 워커와 실제 layout 을 같은 틀로 잴 수 있다 |
+
+#### ΔV2 Acceptance Criteria
+
+| R | AT / AC | 동작 기준 | 검증 수단 — 무엇을 단언하는가 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-05 | AT-05 / AC37 | **하단을 따라가며 봄.** 세 화면(Claude Code · Claude Work · OpenCode)에서 생성 중 하단의 사용자. 한 미확정 꼬리(빈 줄 없는 문단)가 4,000 → 4,001자(원문 진입 → 워커 결과 반영) → 50,000자(워커 결과) → 50,001자(원문) → 블록 확정 → delta 3개를 지나는 동안 매 전환 뒤 하단 거리 ≤ 1px(0326 D-109 ⑤) · 마지막 delta 표지가 화면 안 · 보낸 줄 표지가 본문에 한 번씩 | AT `check-transcript-streaming.mjs` P1 — 화면 3 × 3회 · 실제 Markdown 레인 워커 · 실제 layout(아래 하네스 계약) | delta → 활성 세션 live → 라이브 행 → `StreamingMarkdown` → `WorkerMarkdownTail` → 행 높이 → 하단 추적 쓰기 |
+| R-05 | AT-05 / AC38 | **위로 올려 확정 문단을 읽음.** 같은 입력을 재생하되 실제 휠로 올려 같은 답변의 확정 문단 문장이 화면 맨 위, 꼬리 전체가 화면 아래에 있다. 매 전환 전후와 그 뒤 delta 3개 뒤에 그 문장의 화면 위치 차 ≤ 1px(0326 AC20·D-109 ⑤) — 하단 추적이 저절로 켜지지 않는다. 줄 표지 규칙은 AC37 과 같다 | AT 같은 하네스 U1 | 같은 경로 → 행 높이 → pin 아님: 하단 추적 쓰기 0 · TanStack 보정 끔 · 앵커 복원 쓰기 0 |
+| R-05 | AT-05 / AC39 | **A를 보는 동안 B에 답변 도착.** 세 화면에서 B 의 delta(꼬리 4,001자 이상 포함)·완료는 B 엔트리에 누적되고, 그동안 `markdown` 요청 0 · 창 Markdown 파싱 0 · A 엔트리 identity 와 A 화면 텍스트 불변. 생성 중 B 로 돌아가면 B 최신 꼬리(보낸 줄 표지 한 번씩 · 마지막 표지 포함 · A 표지 0)가 원문 → 워커 결과로 보인다. 완료 뒤 돌아가면 완료 경로 렌더(꼬리 표지 없음)다. 전환 순간 실행 중이던 A 꼬리 결과가 늦게 와도 B 화면의 A 표지 0 | IT `streamingSessions.test.ts` bg1~bg4 — production store · 세 화면 `TranscriptView` · 가짜 계산 클라이언트 · `react-markdown` default spy | `ingestChatEvent(B)` → B 엔트리 · 활성 선택자 → A 화면 · 전환 → B 라이브 행 → 꼬리 |
+| R-05 | AT-05 / AC26 (ΔV2 보탬) | V1 rev 3 문장 그대로 + 입력: 판정은 꼬리 길이만 쓴다(D-054) · 표지 세 값(EP-13 ⑧) · 확정 뒤 늦은 결과는 줄을 두 번 보이지 않는다(D-055) | `WorkerMarkdownTail.test.ts` s11~s15(EP-13 아래 표) | V1 rev 3 그대로 |
+
+AC 검증 주의(ΔV2):
+
+- 사람 실기 0이다. 위치·하단 거리는 에이전트가 띄울 수 있는 실제 Chromium(Electron)에서 잰다(0326 verify r4~r7 선례). Electron 바이너리가 없으면 exit 3 `환경 없음`이고 AC37·AC38 은 미완료로 남는다(PASS 아님).
+- 음성 단언은 양성과 짝짓는다 — bg1 의 요청 0 은 B 로 돌아간 뒤 같은 꼬리의 `markdown` 요청 ≥ 1 과, U1 의 이동 0 은 같은 화면 P1 의 하단 추적과 등록 변이 V2-2~V2-4 red 로 방향을 확인한다.
+- "전환 뒤" 관측 시점은 그 단계 커밋 뒤 animation frame 2개다 — OpenCode 하단 추적이 다음 프레임에 쓴다(`ScrollController.tsx:175-179`).
+
+#### ΔV2 Node registry
+
+| Node | 레벨 | 계약 / 본문 절 | provenance | 기준선 출처 / 대체 node |
+|---|---|---|---|---|
+| R-05 | R | 스트리밍 꼬리 — AC26·AC27 + AC37~AC39 | CHANGED | V1 rev 3 R-05 |
+| AT-05 | AT | 위 AC 묶음 | CHANGED | V1 rev 3 AT-05 |
+| SD-07 | SD | 꼬리 표시 전환 × 스크롤 소유자 × 세션 — 창 파싱 → 원문(진입) → 워커 반영 → 원문(50,001 · `tooLarge`) → 블록 확정 → 완료 경로 / 비활성 누적 → 복귀 → 늦은 결과 | NEW | — |
+| ST-07 | ST | SD-07 종단 증거 | NEW | — |
+| MD-06 | MD | 꼬리 상태 + 판정 입력 = 꼬리 길이(D-054) · 표시 표지(EP-13 ⑧) · 확정 뒤 늦은 결과(D-055) | CHANGED | V1 rev 3 MD-06 |
+| UT-06 | UT | MD-06 국소 증거 | CHANGED | V1 rev 3 UT-06 |
+| MD-15 | MD | 실측 판정기 — 기록 격자·단계·허용치·종료 코드 fail-closed(EP-27) | NEW | — |
+| UT-15 | UT | MD-15 국소 증거 | NEW | — |
+| MD-0326-PIN | MD | 0326 하단 추적 정책 p1·p2/p6·p9 | INHERITED | `0326:V1 rev 7` MD-11 — `pin.test.ts` 3건 |
+| MD-0326-ANCHOR | MD | 0326 위쪽 변위 앵커 a1~a12 | INHERITED | `0326:V1 rev 7` MD-12 — `anchor.test.ts` 10건 |
+| R-0326-BG | R | 비활성 세션 누적 · 활성 엔트리 불변 | INHERITED | `chatStore.test.ts:'비활성 세션의 이벤트는 그 엔트리에 백그라운드 누적되고 활성 엔트리는 불변'`(`322b19bd` 트리) |
+
+SUPERSEDED 0 — pair 이관 해당 없음. VP-46(열린 펜스)·VP-47(transcript 단일 뷰포트)은 V1 rev 3 행 그대로 REGRESSION 이고, 꼬리 경로가 같은 뷰포트를 지나므로 ΔV2 뒤에도 다시 실행한다.
+
+#### ΔV2 Pair registry
+
+| Pair | left ↔ right | requiredness | production path `start → edges → end` | 직접 evidence oracle (자리별 좌표) | 선택적 적대 증거 | §10 강제 지점 전수 |
+|---|---|---|---|---|---|---|
+| VP-05 | R-05 ↔ AT-05 | REQUIRED (ΔV2 CHANGED) | delta → 활성 세션 live → `StreamingMarkdown` → 임계(꼬리 길이) → `WorkerMarkdownTail`(원문 → hast · 원문 최종) → 행 높이 → 하단 추적 \| 위치 유지 · 완료 → 완료 경로 | V1 rev 3 좌표 + AC37 = AT P1 · AC38 = AT U1 · AC39 = IT bg1~bg4 · AC26 = s11~s15 | required — V1 rev 3 두 변이 + 임계 입력을 `source.length` 로 바꾸는 변이(s11 red) | EP-13 (8) · EP-26 (9) 공유 |
+| VP-52 | SD-07 ↔ ST-07 | REQUIRED (ΔV2 NEW) | 위 경로 + 세션 전환(`activeKey` 바뀜 → 라이브 행 key 바뀜 → 새 꼬리 인스턴스) · 블록 확정(꼬리 시작 이동) | EP-26 자리별 좌표(아래 표) · EP-13 ④⑤ s14·s15·bg3 | required — 등록 변이 V2-1~V2-6(아래) — 이동 0·요청 0 주장의 방향 확인 | EP-26 (9) · EP-13 ④⑤ |
+| VP-35 | MD-06 ↔ UT-06 | REQUIRED (ΔV2 CHANGED) | `StreamingMarkdown` 임계 · `WorkerMarkdownTail` 상태·표지 | V1 rev 3 좌표 + s11~s15 | VP-05 와 같음 + 표지 `final` 분기를 `raw` 로 바꾸는 변이(s13d red) | EP-13 (8) |
+| VP-56 | MD-15 ↔ UT-15 | REQUIRED (ΔV2 NEW) | 원자료 기록 → `judgeStreamingRuns` → `stepShapeFailures`·`pinStepFailures`·`unpinStepFailures` → 판정 · `main` 종료 코드 | `check-transcript-streaming.test.mjs` ks1~ks9 | required — 허용치 `≤ 1` 을 `≤ 2` 로 바꾸는 변이(ks3·ks4 red) · 빠진 기록 검사 제거(ks2 red) | EP-27 (5) |
+| VP-53 | MD-0326-PIN ↔ UT | REGRESSION | `pinPolicy` | `pin.test.ts` 3건 | not selected — VP-52 가 꼬리 경로에서 고른다 | — |
+| VP-54 | MD-0326-ANCHOR ↔ UT | REGRESSION | `captureAnchor` → `restoreAnchor` | `anchor.test.ts` 10건 | not selected — 위쪽 변위 복원은 꼬리 입력이 부르지 않는다(EP-26 실패 의미) | — |
+| VP-55 | R-0326-BG ↔ AT | REGRESSION | `ingestChatEvent(bg)` → bg 엔트리 | `chatStore.test.ts` 위 1건 | not selected — bg1 이 화면까지 잇는다 | — |
+
+등록 변이(VP-52 — 자리 고정):
+
+| ID | 자리 | 종류 · 바꾼 내용 | 기대 red |
+|---|---|---|---|
+| V2-1 | EP-26 ④ `useScrollAnchor.ts:105` | 제거 · `writeScrollTop(el, el.scrollHeight)` | P1 claude-code·claude-work(`parsed@4001` 부터) |
+| V2-2 | EP-26 ⑤ `ScrollController.tsx:179` | 뒤집기 · `if (state.pinned)` → 늘 참 | U1 opencode-code |
+| V2-3 | EP-26 ⑥ `pin.ts:69` | 제거 · `if (!state.pinned) return false` | U1 claude-code·claude-work |
+| V2-4 | EP-26 ⑦ `TranscriptViewport.tsx:439` | 다른 값 · `() => false` → `() => true` | U1 세 화면 |
+| V2-5 | EP-26 ③ `WorkerMarkdownTail` 뿌리 | 다른 값 · 뿌리에 `max-h-[384px] overflow-auto` | P1 세 화면(마지막 표지 화면 밖) |
+| V2-6 | EP-13 ④ | 제거 · 접두 검사(`tail.startsWith(parsed.text)`) | s14·s15(줄 표지 2회) · bg3(B 화면에 A 표지) |
+
+#### ΔV2 §10 강제 지점
+
+**EP-13 보탬**(V1 rev 3 행에 더한다 · 자리 7 → 8):
+
+| 자리 | 규칙(분기) | 직접 oracle 좌표 — 분기마다 입력 |
+|---|---|---|
+| ① (D-054 보탬) | 판정 입력 = 열린 펜스가 아닌 꼬리 길이. 조각 크기·`source.length`·확정 블록 길이를 쓰지 않는다 | s6(꼬리 4,000 → `Markdown`) · s11(전체 60,000 · 꼬리 3,999 → `Markdown` · 요청 0) · s12a(한 delta 10,000자가 블록을 확정해 꼬리 2,000 → 요청 0) · s12b(한 delta 로 만든 꼬리 4,001 → `WorkerMarkdownTail` · 요청 1 = 50자 delta 로 만든 같은 꼬리의 표지·요청 수) |
+| ④⑤ (D-055 보탬) | 블록 확정 뒤 늦은 결과는 새 꼬리의 접두일 때만 쓴다 | s14(꼬리 10,000 결과 실행 중 → 확정 뒤 새 꼬리 ≤ 4,000 → `WorkerMarkdownTail` 언마운트 → 늦은 결과 → 줄 표지 한 번씩) · s15(확정 뒤 새 꼬리 5,000 → 같은 자리 인스턴스 → 이전 결과 → 새 꼬리 원문만 · 표지 `raw` → 새 결과 → `parsed`) · bg3(세션 전환) |
+| ⑧ (신규) | 뿌리 요소 `data-markdown-tail` = `raw`(결과 없음 · 접두 아닌 결과) · `parsed`(접두 결과 hast + 나머지 원문) · `final`(꼬리 > 50,000 · 결과 `tooLarge`) | s13a(결과 전 → `raw`) · s13b(접두 결과 → `parsed`) · s13c(접두 아닌 결과 → `raw`) · s13d(50,001자 → `final` · 요청 0) · s13e(`tooLarge` → `final`) |
+
+EP-13 검색 명령은 V1 rev 3 명령의 술어에 `|data-markdown-tail` 을 더한다(구현 뒤 자리 8).
+
+**EP-26 · SD-07 / VP-52 — 꼬리 전환 × 스크롤 소유자 × 세션** — 자리 9. 0326 코드 자리는 고치지 않는다. 0327 꼬리 전환이 그 자리를 지나므로 이 pair 의 분모에 넣고 ST-07 좌표로 닫는다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 |
+|---|---|---|---|
+| ① | `chatStore.ts:2523-2525` `useLiveText` | Claude 라이브 행 원문 = 활성 세션 live text | bg1(claude-code·claude-work — B delta 동안 A 화면 텍스트 불변 · 요청 0) · bg2(B 복귀 → B 표지만) |
+| ② | `chatStore.ts:2776-2778` `useLiveTextFor` | OpenCode 라이브 행 원문 = 활성 세션 live text(`enabled` 참) | bg1·bg2(opencode-code) |
+| ③ | `WorkerMarkdownTail` 뿌리(`data-markdown-tail` 줄) | 흐름 배치 — 자기 스크롤·높이 상한이 없어 꼬리가 자라면 라이브 행이 자란다 | P1 `parsed@4001`·`final@50001` 의 마지막 표지 화면 안 |
+| ④ | `useScrollAnchor.ts:100-107` 내용 RO | `shouldFollowGrowth` 참 → `writeScrollTop(el, el.scrollHeight)` · 거짓 → 쓰기 0 | P1(claude 두 화면 — `parsed@4001` 은 store 변경 없는 높이 변화) · U1(같은 두 화면) |
+| ⑤ | `ScrollController.tsx:174-185` RO `resize` | `state.pinned` → 다음 프레임 `writeTop(el.scrollHeight)` · 아니면 쓰기 0 | P1 · U1(opencode-code) |
+| ⑥ | `pin.ts:68-71` `shouldFollowGrowth` | pin 아님 → false · Claude pin + 생성 중 → true | U1 · P1(claude 두 화면) |
+| ⑦ | `TranscriptViewport.tsx:439` | 화면 위에서 시작한 라이브 행이 커져도 TanStack 보정 쓰기 0 | U1 세 화면(전제 `rowTopAbove`) |
+| ⑧ | `AssistantSegment.tsx:41` `case 'text'` | 완료 메시지 = 완료 경로 `<Markdown>` | bg4(claude-code·claude-work) |
+| ⑨ | `opencode/transcript/Text.tsx:22` `streaming ?` | 생성 중 → `StreamingMarkdown` · 완료 → `Markdown` | P1(opencode — 생성 중) · bg4(opencode — 완료) |
+
+- 자리 검색 명령(`app/` · bash): `rg -n "useChatStore\(\(s\) => (\(enabled \? )?s\.sessions\[s\.activeKey\]\.live\.text\b|shouldFollowGrowth\(state, generating\) \{|^\s+virtualizer\.shouldAdjustScrollPositionOnItemSizeChange = |case 'text':|streaming \?" src/renderer/src/features/chat/{store/chatStore.ts,lib/transcript/viewport/pin.ts,components/transcript/TranscriptViewport.tsx,harnesses/claude/transcript/AssistantSegment.tsx,harnesses/opencode/transcript/Text.tsx}; rg -n "new ResizeObserver\(" src/renderer/src/features/chat/harnesses/{claude/transcript/useScrollAnchor.ts,opencode/transcript/ScrollController.tsx}; rg -n "data-markdown-tail" src/renderer/src/features/chat/components/markdown --glob '!*.test.*'` → `322b19bd` 8줄(①②④~⑨) + 구현 뒤 ③ 1줄 = 9.
+- 넓은 후보에서 뺀 줄(이유): `TranscriptViewport.tsx:592` 머리 자리 RO(꼬리 변화가 닿지 않음) · `useScrollAnchor.ts:94`·`:148`·`ScrollController.tsx:74`·`:115`(맨 아래로 버튼·진입 배치 — 꼬리 전환이 부르지 않음) · `TranscriptViewport.tsx:381-418` 앵커 복원 — 꼬리는 앵커 문자 아래라 복원 쓰기 0 이 기대값이고 복원을 지워도 U1 관측이 같다. 위쪽 변위 복원은 VP-54 가 잠근다.
+- 실패 의미: ④~⑦ 이 빠지면 워커 결과처럼 store 변경 없이 오는 높이 변화에서 하단을 놓치거나(P1) 위로 읽는 사람의 문장이 꼬리 증가만큼 밀린다(U1). ①② 가 비활성 세션을 읽으면 A 화면에 B 글이 보이고 B delta 마다 요청이 생긴다. ⑧⑨ 가 꼬리 경로로 바뀌면 완료 뒤에도 원문 표시·요청이 남는다.
+- 선언 경계 B25: U1 은 꼬리 전체가 화면 아래인 입력만 판정한다. 꼬리 일부가 화면 안에 보이는 unpin 상태와, 꼬리가 줄어 문서 끝이 화면 안으로 올라와 브라우저가 `scrollTop` 을 줄이는 경우는 다루지 않는다(보호 주장 없음).
+- 선언 경계 B26: Claude 사고 본문 꼬리(`ReasoningBlock.tsx:38`)도 같은 `StreamingMarkdown` 을 지나지만 AC37~AC39 입력은 답변 본문뿐이다.
+
+**EP-27 · MD-15 / VP-56 — 실측 판정기** — 자리 5. 이름은 계약이다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 |
+|---|---|---|---|
+| ① | `judgeStreamingRuns` 격자 | 화면 3 × {P1, U1} × 3회 — 모르는 기록 `reason: 'unknown record'` · 빠진 기록 `reason: 'missing record'` | ks1(통과 격자) · ks2(빠진 기록) |
+| ② | `stepShapeFailures` 단계 | 단계 순서·꼬리 길이(4,000 · 4,001 · 4,001 · 50,000 · 50,001)·표지 기대(`null` · `raw` · `parsed` · `parsed` · `final` · `null`) 불일치 → 실패 | ks6(`parsed` 미관측) · ks7(꼬리 4,002) |
+| ③ | `pinStepFailures` P1 | 하단 거리 ≤ 1 · 마지막 표지 화면 안 · 표지 1회 | ks3(하단 거리 1.5) · ks5(표지 2회) |
+| ④ | `unpinStepFailures` U1 | `|offset − offset₀| ≤ 1`(`after` 포함) · 전제 `tailBelow`·`rowTopAbove` 참 | ks4(offset 1.5) · ks8(전제 거짓) |
+| ⑤ | `main` 종료 코드 | 바이너리 없음 → `reason: '환경 없음'` exit 3 · 실행 실패 → exit 1 | ks9(둘 다) |
+
+- 자리 검색 명령(`app/`): `rg -n "^export (async )?function (judgeStreamingRuns|stepShapeFailures|pinStepFailures|unpinStepFailures|main)\b|reason: '(unknown record|missing record|환경 없음)'" scripts/check-transcript-streaming.mjs` → 구현 뒤 8줄 — ① 정의 + 두 사유 줄 · ②③④ 정의 각 1 · ⑤ 정의 + `환경 없음` 줄.
+- 실패 의미: 판정기가 느슨하면 나쁜 기록이 통과한다. 모르는 형태는 실패로 막는다(fail-closed) — 놓친 단계는 거짓 통과가 아니라 보이는 실패가 된다.
+
+#### ΔV2 실측 하네스 계약 (AC37·AC38)
+
+| 항목 | 계약 |
+|---|---|
+| 실행 | `cd app && xvfb-run -a node scripts/check-transcript-streaming.mjs` — exit 0 통과 · 1 판정 실패·하네스 오류·실행 실패 · 3 Electron 바이너리 없음. CI 단계에 넣지 않는 verify 실행 도구다(0326 D-107 과 같음) |
+| 재사용 | `check-transcript-selection.mjs` 의 `resolveElectron`·`serveProbe`·`runElectron` 을 probe 경로만 바꿔 쓴다(공용 모듈 추출 가능). 새 probe `scripts/transcript-streaming/probe.tsx` 는 production `TranscriptView`·store·`ingestChatEvent`·실제 계산 클라이언트(Markdown 레인 워커)를 쓴다. 창은 0326 probe 와 같은 900 × 560px |
+| fixture | 생성 중 세션에 text delta 로 답변을 넣는다. 답변 = 확정 문단 C01~C40(문단마다 3줄 · 줄마다 고유 표지 `Cnn-k`) + 빈 줄 + 꼬리 문단(빈 줄 없는 줄 · 줄마다 고유 표지 `T00001`… · 줄 ≈ 80자). 확정 delta = `\n\n` + `F0001 …\n`. 꼬리 길이는 probe 가 production `advanceStableBlocks` 로 계산해 기록한다 |
+| 단계(순서 고정) | `sync@4000` → `enter@4001`(표지 `raw`) → `parsed@4001` → `parsed@50000` → `final@50001` → `finalized`(표지 없음 · 확정 블록 +1) → `after`(F 줄 delta 3개 뒤) |
+| 관측 시점 | 단계 커밋 뒤 animation frame 2개. `parsed@…` 는 표지가 `parsed` 가 될 때까지 프레임마다 확인하고 5초를 넘으면 그 칸 `error: 'no worker result'` |
+| P1 측정 | 매 단계 하단 거리 `scrollHeight − clientHeight − scrollTop` · 마지막 표지 rect 가 스크롤 요소 rect 안(±0.5px) · 보낸 표지마다 라이브 행(`[data-block-key]`) 텍스트(`[data-transcript-chrome]` 제외)의 출현 수 |
+| U1 측정 | `sync@4000` 에서 실제 휠(`sendInputEvent` mouseWheel)로 올려 꼬리 뿌리 위끝 ≥ 스크롤 요소 아래끝 + 1px(`tailBelow`) · 라이브 행 위끝 < 스크롤 요소 위끝(`rowTopAbove`)인 위치에 멈춘다. 화면 위끝 아래 첫 `C` 표지를 기준 문장으로 정하고 매 단계 `offset` = 표지 rect top − 스크롤 요소 rect top |
+| 원자료 | 기록마다 `{screen, scenario, run, steps[{step, tailLength, view, bottomDistance?, latestVisible?, offset?, missing[], duplicated[]}], preconditions?, error?}` 을 stdout JSON 으로 내고 판정기(EP-27)가 다시 계산한다 |
+
+#### ΔV2 구현 설계 · 파일
+
+| 변경/신규 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `features/chat/components/markdown/WorkerMarkdownTail.tsx`(신규 — V1 rev 3) | 꼬리 | + EP-13 ⑧ 표지. 뿌리는 흐름 배치(EP-26 ③) | s13 |
+| `features/chat/components/markdown/WorkerMarkdownTail.test.ts` | 꼬리 UT | + s11~s15 | 가짜 계산 클라이언트(`fakeClient.testfixture`) · `react-markdown` spy |
+| `features/chat/components/transcript/streamingSessions.test.ts`(신규) | AC39 IT | bg1~bg4 — production `useChatStore`·`ingestChatEvent` · 세 화면 `TranscriptView`(`TranscriptViewport.harness.test.ts` 의 production 하네스 조립) · 가짜 계산 클라이언트(요청 수·늦은 응답 제어) · `react-markdown` default spy | 렌더 하네스 |
+| `app/scripts/check-transcript-streaming.mjs`(신규) · `.test.mjs`(신규) · `scripts/transcript-streaming/probe.tsx`(신규) | AC37·AC38 실측 · 판정기 | 위 하네스 계약 · EP-27 | ks1~ks9(순수 판정 · 주입 `MAIN_DEPS`) |
+| `app/AGENTS.md` | 스크립트 목록 | `check-transcript-selection.mjs` 항목 옆에 새 verify 실행 도구 한 줄 | `check-doc-inventory.mjs --check` |
+
+- 테스트 소스 규칙: 새 테스트 파일은 `[test-pools]`·예산 가드 위반 0 이어야 한다(§7-A 운영 gate). `streamingSessions.test.ts` 는 자식 프로세스·SQLite 를 쓰지 않는 unit 이다.
+- 생산 코드 변경은 `WorkerMarkdownTail` 표지와 흐름 배치뿐이다. EP-26 의 0326 자리를 고쳐야 AC37~AC39 가 통과하면 그것은 0326 결함의 현재 결함 발견이다 — 구현자는 고치고 `[구현자 기입] 놓친 잠재 문제`에 적는다.
+
+#### ΔV2 운영 gate (§7-A 표에 더한다)
+
+| Gate | 이번 변경 산출물에 적용되는 이유 | 증거 / 명령 | 실패 범위 |
+|---|---|---|---|
+| 꼬리 전환 실측 | AC37·AC38 | `cd app && xvfb-run -a node scripts/check-transcript-streaming.mjs` → exit 0 · 원자료 JSON 을 verify `evidence/` 에 둔다 | exit 1 · exit 3 은 그 AC 미완료(환경 없음으로 보고 — PASS 아님) |
+| 0326 선택 실측 회귀 | 꼬리 경로가 같은 transcript 를 지난다(ΔV1 VP-50 행과 같음) | `xvfb-run -a node scripts/check-transcript-selection.mjs` → exit 0 | 같음 |
+
+#### ΔV2 READY self-review (관측)
+
+- Decision: D-053~D-055 ACTIVE · 원문 인용 · SUPERSEDED 0 · OPEN 0 — 위 Ledger.
+- 조건절 재해석 없음: "글자별 읽기 위치를 새로 저장하는 기능은 추가할 필요가 없습니다" → 저장 기능 0, 위치 단언만(AC38).
+- V: Delta V(기준 V1 rev 3 + ΔV1) · NEW·CHANGED 왼쪽 노드 R-05·SD-07·MD-06·MD-15 ↔ REQUIRED VP-05·VP-52·VP-35·VP-56 · 영향받은 INHERITED VP-53~55 + VP-46·VP-47 REGRESSION · NOT_REQUIRED 0.
+- 분모: EP-26 검색 `322b19bd` 8줄 실측 + 구현 뒤 1 · EP-13 7 → 8 · EP-27 구현 뒤 8줄(자리 5).
+- 규칙 칸 ↔ 입력 칸: EP-13 ①(꼬리 ≤ 4,000 · 전체 > 4,000 · 큰 조각 확정 · 큰 조각 꼬리) ↔ s6·s11·s12a·s12b · ⑧(다섯 분기) ↔ s13a~e · EP-26 ④⑤⑥(pin · pin 아님) ↔ P1·U1 · ⑨(생성 중 · 완료) ↔ P1·bg4 · EP-27 ①~⑤ ↔ ks1~ks9.
+- 방향: "쓰여야 한다"(하단 추적) 자리는 쓰기를 지우는 V2-1 이, "쓰지 않는다"(unpin) 자리는 늘 쓰게 바꾸는 V2-2~V2-4 가 red 여야 한다.
+- 수치 계약 런타임: ±1px 는 실제 Chromium 에서 잰다 · 사람 실기로 미룬 것 0.
+- 선언 경계: B25·B26(측정한 보호 주장 없음). 열린 입력 집합(판정기)은 fail-closed(EP-27 ①②).
+- 후보 표 겹침: 0327 행(D-026 완료 블록 · D-039 펜스 가상화)은 완료 경로를 바꾸지 않는다 — ΔV2 는 완료 경로를 회귀로만 본다(EP-26 ⑧⑨).
+
+## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더한다)
 
 ## 메타
 
