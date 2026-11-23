@@ -1,0 +1,71 @@
+# V3 독립 변이 (ΔV7 · EP-1~7·12·18·23·25)
+id	결과	exit	요약
+E2-C1	red	1	vitest 5 failed | 378 passed (383)
+E2-C2	red	1	vitest 1 failed | 382 passed (383)
+E2-C3	red	1	vitest 3 failed | 380 passed (383)
+E2-C4	red	1	vitest 1 failed | 382 passed (383)
+E2-C5	red	1	vitest 1 failed | 382 passed (383)
+E2-C6	red	1	vitest 2 failed | 381 passed (383)
+E2-C7	red	1	vitest 1 failed | 382 passed (383)
+E2-C8	red	timeout	(출력 없음)
+E4-C9	red	1	vitest 2 failed | 381 passed (383)
+E4-C10	red	1	vitest 3 failed | 380 passed (383)
+E4-C11	red	1	vitest 1 failed | 382 passed (383)
+E4-C13	green	0	vitest 383 passed (383)
+E4-C25	red	1	vitest 1 failed | 382 passed (383)
+E2-C26	red	1	vitest 1 failed | 382 passed (383)
+E3-C14	red	1	vitest 2 failed | 381 passed (383)
+E3-C15	red	1	vitest 4 failed | 379 passed (383)
+E3-C16	red	1	vitest 2 failed | 381 passed (383)
+E3-C17	red	1	vitest 1 failed | 382 passed (383)
+E23-C18	green	0	vitest 383 passed (383)
+E25-C19	red	1	vitest 2 failed | 381 passed (383)
+E1-C21	red	1	vitest 1 failed | 382 passed (383)
+E1-C22	red	1	vitest 1 failed | 382 passed (383)
+E1-C23	red	1	vitest 1 failed | 382 passed (383)
+E1-C24	red	1	vitest 1 failed | 382 passed (383)
+# 원복 확인: 모든 파일 원문 그대로
+E6-D1	red	1	vitest 4 failed | 738 passed (742)
+E7-D2	green	0	vitest 742 passed (742)
+E7-D3	green	0	vitest 742 passed (742)
+E7-D4	green	0	vitest 742 passed (742)
+E7-D5	red	1	vitest 4 failed | 738 passed (742)
+E7-D6	red	1	vitest 1 failed | 741 passed (742)
+E7-D7	red	1	vitest 1 failed | 741 passed (742)
+E7-D8	red	1	vitest 1 failed | 741 passed (742)
+E7-D9	red	1	vitest 5 failed | 737 passed (742)
+E6-D10	green	0	vitest 742 passed (742)
+E7-D11	red	1	vitest 1 failed | 741 passed (742)
+E7-D12	green	0	vitest 742 passed (742)
+E18-D13	red	1	vitest 1 failed | 741 passed (742)
+# 원복 확인: 모든 파일 원문 그대로
+E12-K1	red	1	vitest 5 failed | 988 passed (993)
+E12-K2	red	1	vitest 5 failed | 988 passed (993)
+E12-K3	red	1	vitest 6 failed | 987 passed (993)
+E12-K4	red	1	vitest 6 failed | 987 passed (993)
+E12-K5	red	1	vitest 10 failed | 983 passed (993)
+E12-K7	red	1	vitest 19 failed | 974 passed (993)
+E12-K8	red	1	vitest 9 failed | 984 passed (993)
+E12-K9	red	1	vitest 6 failed | 987 passed (993)
+E12-K10	red	1	vitest 5 failed | 988 passed (993)
+E12-K11	red	1	vitest 7 failed | 986 passed (993)
+# 원복 확인: 모든 파일 원문 그대로
+# V3 독립 변이 — ΔV7 자리(usePanelSelection · FileDiffSection ⑤ · check-visible-views)
+V3-M1	red	1	vitest 2 failed | 23 passed (25)
+V3-M2	red	1	vitest 2 failed | 23 passed (25)
+V3-M3	red	1	vitest 1 failed | 24 passed (25)
+V3-M4	red	1	vitest 3 failed | 22 passed (25)
+V3-M5	green	0	vitest 25 passed (25)
+V3-M7	green	0	vitest 22 passed (22)
+V3-M9	red	1	node --test fail 2 · vv12 replaced outer key; vv12 reordered outer keys
+V3-M10	red	1	node --test fail 1 · vv12 added outer key
+V3-M11	red	1	node --test fail 1 · vv12b empty outer baseline
+V3-M12	red	1	node --test fail 1 · vv12 missing outer result
+V3-M13	red	1	node --test fail 1 · vv13b missing cross-selection text
+V3-M14	red	1	node --test fail 31 · vv1 complete grid
+V3-M15	red	1	node --test fail 31 · vv1 complete grid
+V3-M16	red	1	node --test fail 31 · vv1 complete grid
+V3-M17	red	1	node --test fail 1 · vv4b missing baseline keys
+V3-M18	green	0	node --test fail 0
+V3-M19	red	1	node --test fail 1 · vv10b no selection to isolate
+# 원복 확인: 모든 파일 원문 그대로

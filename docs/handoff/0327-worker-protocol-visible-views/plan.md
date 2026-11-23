@@ -8,7 +8,7 @@
 
 ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다. ΔV7은 ΔV6 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-30 ⑤·⑫·⑮ · 신설 ⑯ · EP-31 ②③④ · AC15·AC40 · VP-26·14·59)만 대체한다.
 
-현재 상태는 impl/IMPL_DONE(ΔV7 · r3)이며 다음 주체는 독립 검증자다. K1~K5·I1의 구현자 재현과 남은 AC30 실측은 [r3 구현 보고](#구현자-기입-r3)에 기록했다. r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 verify/FAIL(verify 3 · 라운드 4)이며 다음 주체는 Claude(`handoff-review` — verify 3회째 PASS 아님)이고 그 뒤 구현자(r4)다. verify 3이 K1~K5·I1을 닫고 V1 rev 3 자리 sweep에서 이행 결함 L1~L4를 열었다([verify.md §V3-11](verify.md)). r3에서 K1~K5·I1을 구현했다([r3 구현 보고](#구현자-기입-r3)). r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -2122,25 +2122,29 @@ agent(Git patch · 도구 이벤트) / data(산출물 미리보기) ──(현�
 
 ## [검증자 기입] 파생 이슈
 
-verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md).
+verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md). verify 3회째(FAIL) — [verify.md §V3-11](verify.md).
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
-| I1 | plan 지정 oracle 좌표 부재 — 24 AC(파일 `protocol.keys`·`useWindowTokens`·`fileDiffVirtual.render`·`useDiffRowTokens`·`markdownDocumentBlocks`·`cardSyncCaps` 등 · 케이스 라벨 d1~d9·bg0~bg3) | VP-01·02·04·10·12·13·15·20~25·31·33·35·36·38·39·48·49·51 · AC 검증 수단 칸 | plan 좌표를 만들거나, 같은 단언을 둔 기존 테스트를 자리별 좌표 표로 대응시킨다 | 이행 | BLOCKING | closed (r3 자기확인) · h10·h11 · VP48-b · r3 pair 표와 변이 원장. AC30 장비 실측은 verify에 인계 |
+| I1 | plan 지정 oracle 좌표 부재 — 24 AC(파일 `protocol.keys`·`useWindowTokens`·`fileDiffVirtual.render`·`useDiffRowTokens`·`markdownDocumentBlocks`·`cardSyncCaps` 등 · 케이스 라벨 d1~d9·bg0~bg3) | VP-01·02·04·10·12·13·15·20~25·31·33·35·36·38·39·48·49·51 · AC 검증 수단 칸 | plan 좌표를 만들거나, 같은 단언을 둔 기존 테스트를 자리별 좌표 표로 대응시킨다 | 이행 | BLOCKING | closed — verify 3: VP48-a·b·c·touch red(h10·h11·h12). V1 rev 3 자리 sweep 의 결함은 L1~L4 로 새로 연다 |
 | I2 | ~~VP-57 등록 변이에서 bg4 OpenCode green~~ — 철회: 검증자 변이가 6번째 인자(`live`)에 심겼다. 5번째 인자(`streaming`) 변이 V57-1r 은 ob1 · bg4a · bg4b red | VP-57 | — | — | — | withdrawn |
 | I3 | `rowMount.ts:7` 추가 판정을 크기 비교·제거만 참으로 바꾸거나 `:9` 알림을 지워도 vitest·`check-visible-views` green | VP-34 · ΔV1 MD-05 · VP-50 "취소 사례는 실제 새 행 키 관측" | 판정 함수 UT(추가·교체·제거만·동일 키) + 선택 끝이 마운트된 채 새 키가 들어오는 Electron 사례 | 이행 | BLOCKING | closed — verify 2: W1·W2·W3 vitest red · W3e Electron 7화면 c2 red |
 | I4 | r1.5 `[구현자 기입]` 에 강제 지점 전수 표·놓친 잠재 문제·sweep 검산 줄 없음 | `handoff-impl` 최소 계약 | 다음 impl 턴이 일곱 필드를 채운다 | 이행 | BLOCKING | closed — verify 2: r2 일곱 필드 |
 | H1 | `check-visible-views.mjs` — root `--no-sandbox` 미적용 · 바이너리 부재 exit 3 없음 · 판정부 단위 테스트 없음 · 운영 gate 표 밖 | ΔV1 AC15·35 Electron 판정 도구 | 설계자가 채택(운영 gate·종료 코드 계약에 넣음) 또는 경계 선언 | 확장 | PLAN_GAP → 채택(ΔV6 D-062 · AC40 · EP-31) | closed — verify 2: root exit 0 · vv 12케이스 |
-| K1 | EP-30 ⑤ Git 행 ID 생산자(`FileDiffSection.tsx:451`)를 지워도 po1·AT c2 `git-*` green — 같은 본문 `:395` `useVirtualRows`(④)가 같은 커밋에 알림 | VP-26 · VP-09 · EP-30 ⑤ | ④ 알림 없이 행 ID 만 새로 마운트되는 입력(워커 창 행 도착 등)으로 ⑤ 를 가르거나 동치를 보인다 | 이행 | BLOCKING | closed (r3 자기확인) · po6 · S5 |
-| K2 | EP-30 ⑫ 분기 입력 누락 — 드래그 중·기록 없음(S12a) · 기록 있음·선택 밖(S12b) · 기록 없음·선택 안(S12c) · anchor 만 안(S12i) | VP-14 · EP-30 ⑫ 규칙 칸 | 규칙 칸 분기마다 ps 입력을 더한다 | 이행 | BLOCKING | closed (r3 자기확인) · ps13~ps17 · S12a~f·i·j |
-| K3 | EP-30 ⑮ 셋째 항(안쪽 기록 초기화) 제거 green | VP-14 · EP-30 ⑮ | ps9 에 그 항을 가르는 입력 | 이행 | BLOCKING | closed (r3 자기확인) · ps9c · S15c |
-| K4 | EP-31 ③ 첫·끝 행 도달 · ④ c4 클립보드 항 입력 없음(J3f·J3l·J4c) | VP-59 · EP-31 ③④ | vv 입력 추가 | 이행 | BLOCKING | closed (r3 자기확인) · vv4b~vv16 · J2o·J3f·l·x·J4c·k |
+| K1 | EP-30 ⑤ Git 행 ID 생산자(`FileDiffSection.tsx:451`)를 지워도 po1·AT c2 `git-*` green — 같은 본문 `:395` `useVirtualRows`(④)가 같은 커밋에 알림 | VP-26 · VP-09 · EP-30 ⑤ | ④ 알림 없이 행 ID 만 새로 마운트되는 입력(워커 창 행 도착 등)으로 ⑤ 를 가르거나 동치를 보인다 | 이행 | BLOCKING | closed — verify 3: po6 · S5 red 재현 |
+| K2 | EP-30 ⑫ 분기 입력 누락 — 드래그 중·기록 없음(S12a) · 기록 있음·선택 밖(S12b) · 기록 없음·선택 안(S12c) · anchor 만 안(S12i) | VP-14 · EP-30 ⑫ 규칙 칸 | 규칙 칸 분기마다 ps 입력을 더한다 | 이행 | BLOCKING | closed — verify 3: S12a·b·c·i·e·j red 재현 |
+| K3 | EP-30 ⑮ 셋째 항(안쪽 기록 초기화) 제거 green | VP-14 · EP-30 ⑮ | ps9 에 그 항을 가르는 입력 | 이행 | BLOCKING | closed — verify 3: S15c · V3-M1·M2 red |
+| K4 | EP-31 ③ 첫·끝 행 도달 · ④ c4 클립보드 항 입력 없음(J3f·J3l·J4c) | VP-59 · EP-31 ③④ | vv 입력 추가 | 이행 | BLOCKING | closed — verify 3: J2o·J3f·J3l·J3x·J4c·J4k red · V3-M9~M19 |
 | X1 | 접힌·빈 선택 처리 항(`usePanelSelection.ts:31`·`:61` `isCollapsed` · `:62` notify 안쪽 기록 리셋) 제거 green | ⑫ 밖 | 설계자 채택 또는 경계 선언 | 확장 | PLAN_GAP → `:61`·`:31` 채택(ΔV7 D-066 · ps13·ps14) · `:62` 경계 B33 | adopted · boundary |
 | X2 | 판정기 transcript c2 바깥 행 키 고정 검사(`check-visible-views.mjs:33-38`) 입력 없음 | EP-31 ② 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv12·vv12b) | adopted |
 | X3 | 판정기 transcript c1 교차 복사 항(`:54-56`) 입력 없음 | EP-31 ③ 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv13·vv13b) | adopted |
 | X4 | 판정기 c4 B 새 키 항(`:61`) 입력 없음 | EP-31 ④ 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv14) | adopted |
 | X5 | 판정기 중복 기록 거부(`:74`) 입력 없음 | EP-31 ① 밖 | 같음 | 확장 | PLAN_GAP → 경계 B34(중복 기록도 각각 판정 · v2 원자료 중복 0) | boundary |
-| K5 | 억제 중 문서 키 변경과 새 행 키 마운트가 같은 커밋이면 전환 뒤에도 억제가 남는다(ΔV7 P1 — Electron 실측) — `usePanelSelection.ts:24-27` 초기화가 자식 `useMountedRows` 효과 뒤에 돈다 | VP-14 · EP-30 ⑮ · D-052 · D-065 — 출처: ΔV7 설계 조사(현재 결함) | 정리를 자식 알림보다 먼저(0326 정리 함수 형태) · ps9b | 현재 | BLOCKING | open |
+| K5 | 억제 중 문서 키 변경과 새 행 키 마운트가 같은 커밋이면 전환 뒤에도 억제가 남는다(ΔV7 P1 — Electron 실측) — `usePanelSelection.ts:24-27` 초기화가 자식 `useMountedRows` 효과 뒤에 돈다 | VP-14 · EP-30 ⑮ · D-052 · D-065 — 출처: ΔV7 설계 조사(현재 결함) | 정리를 자식 알림보다 먼저(0326 정리 함수 형태) · ps9b | 현재 | BLOCKING | closed — verify 3: ps9b(D65 · V3-M3) red · 실제 Chromium 프로브 전환 뒤 `suppressed` yes → no |
+| L1 | 작업 크기가 EP-4 ① 산식과 다르다 — `requestSize`(`protocol.ts:220-238`)에 평균 줄 길이가 없다(tokens·diffView·codeView = 줄 수 · diffContext = 7). q2 는 `highlight` 만 대조한다 | VP-36 · EP-4 ① · D-030 · AC5 | 산식대로 크기를 계산하고 종류마다 크기 순서를 가르는 q 입력 | 이행 | BLOCKING | open |
+| L2 | `diffView.ts:199` `options.highlightWords &&` 제거 green | VP-30 · EP-6 ② · AC8 | 단어 강조 끔 → `wordSpan` null 을 단언하는 입력 | 이행 | BLOCKING | open |
+| L3 | `diffView.ts:87` old 축 색인의 `added` 제외 제거 green | VP-31 · EP-7 ① · AC17 | 추가 줄 뒤 삭제 줄의 축 색인·토큰을 단언하는 입력 | 이행 | BLOCKING | open |
+| L4 | `diffView.ts:92` 증감 수 `removed++` 제거 green | VP-31 · EP-7 ① | 모델 요약 증감 수를 단언하는 입력 | 이행 | BLOCKING | open |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)
