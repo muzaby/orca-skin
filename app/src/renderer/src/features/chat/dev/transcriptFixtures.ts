@@ -1,3 +1,5 @@
+import { setComputeDiagnostics } from '../../../shared/compute/diagnostics'
+import type { ComputeJobTiming } from '../../../shared/compute/client'
 import { diagnosticViewports, type ViewportDiagnostics } from './transcriptViewportDiagnostics'
 /**
  * Deterministic transcript fixture generator & diagnostic dev-menu bridge (WU-14 · EP-17 ⑧).
@@ -140,7 +142,107 @@ function toLoadedMessages(messages: readonly Message[]): LoadedMessage[] {
   }))
 }
 
+type ToolFixtureCard =
+  'write' | 'edit' | 'multiedit' | 'read' | 'work' | 'file' | 'edit-rewrite' | 'read-long'
+function toolFixture(kind: FixtureKind, card: ToolFixtureCard, count: number): GeneratedFixture {
+  if (!Number.isInteger(count) || count <= 0) throw Error('Expected a positive line count')
+  const messages = makeTurnMessages(kind, 1, 4),
+    id = 'fx-visible',
+    file_path = 'src/example.ts'
+  const rows = Array.from({ length: count }, (_, i) => 'export const value' + i + ' = ' + i)
+  const text = rows.join('\n')
+  let args: Record<string, unknown> = { file_path },
+    result: unknown = 'done',
+    name: string = card
+  switch (card) {
+    case 'write':
+      name = 'Write'
+      args = { file_path, content: text }
+      break
+    case 'edit':
+    case 'edit-rewrite':
+      name = 'Edit'
+      args = {
+        file_path,
+        old_string: text,
+        new_string:
+          card === 'edit-rewrite'
+            ? rows.map((l) => '// ' + l).join('\n')
+            : text.replace('value0', 'changed0')
+      }
+      break
+    case 'multiedit':
+      name = 'MultiEdit'
+      args = {
+        file_path,
+        edits: Array.from({ length: 50 }, (_, i) => ({
+          old_string: text,
+          new_string: text.replace('value0', 'changed' + i)
+        }))
+      }
+      break
+    case 'read':
+    case 'read-long':
+      name = 'Read'
+      result = rows
+        .map((_, i) => String(i + 1) + '\t' + 'x'.repeat(card === 'read' ? 2000 : 5000))
+        .join('\n')
+      break
+    case 'work':
+      name = 'Task'
+      args = { prompt: rows }
+      result = { output: rows }
+      break
+    case 'file':
+      name = 'apply_patch'
+      result = {
+        files: [
+          {
+            filePath: file_path,
+            relativePath: file_path,
+            type: 'update',
+            diff:
+              '--- a/example.ts\n+++ b/example.ts\n@@ -0,0 +1,' +
+              count +
+              ' @@\n' +
+              rows.map((l) => '+' + l).join('\n')
+          }
+        ]
+      }
+      break
+  }
+  const parts: AppMessagePart[] = [
+    { type: 'tool_call', toolRunId: id, toolName: name, args },
+    {
+      type: 'tool_result',
+      toolRunId: id,
+      result,
+      isError: false,
+      ...(card === 'file' ? { structuredOutput: result } : {})
+    }
+  ]
+  const assistant = messages[1]
+  messages[1] = {
+    ...assistant,
+    parts: [
+      ...assistant.parts.filter(
+        (p) => p.type === 'response_boundary' && p.boundary.phase === 'begin'
+      ),
+      ...parts,
+      ...assistant.parts.filter((p) => p.type === 'response_boundary' && p.boundary.phase === 'end')
+    ]
+  }
+  return { kind, allMessages: messages, loadedMessages: messages, remainingPrefixTurns: [] }
+}
 export interface DiagnosticDevApi {
+  loadToolCardFixture(
+    kind: FixtureKind,
+    card: ToolFixtureCard,
+    lines: number
+  ): { loadedTurns: number; remainingTurns: number }
+  startComputeTimings(): void
+  finishComputeTimings(): { jobs: ComputeJobTiming[]; paints: { key: string; at: number }[] }
+
   loadFixture(
     kind: FixtureKind | 'long' | 'answer-5000',
     options: FixtureOptions
@@ -160,48 +262,67 @@ let activeFixture: GeneratedFixture | null = null
 let activeNextTurn = 0
 let fixtureSessionKey: string | null = null
 export function createDiagnosticDevApi(): DiagnosticDevApi {
-  return {
-    loadFixture(kind, options) {
-      const state = useChatStore.getState()
-      const key = state.activeKey
-      const entry = state.sessions[key]
-      if (!entry) throw new Error('Open a chat before loading a transcript fixture')
-      const screen =
-        entry.session.backend === 'opencode'
-          ? 'opencode'
-          : entry.session.agentKind === 'work'
-            ? 'claude-work'
-            : 'claude-code'
-      const fixtureKind = kind === 'long' || kind === 'answer-5000' ? screen : kind
-      activeFixture = generateTranscriptFixture(
-        fixtureKind,
-        options,
-        kind === 'answer-5000' ? kind : 'long'
-      )
-      activeNextTurn = activeFixture.allMessages.length / 2
-      fixtureSessionKey = key
-      const session = chatReducer(entry.session, {
-        type: 'LOAD_SESSION',
-        session: {
-          id: entry.session.sessionId ?? key,
-          title: 'Transcript fixture',
-          agentKind: entry.session.agentKind,
-          backend: entry.session.backend ?? 'claude',
-          messages: toLoadedMessages(activeFixture.loadedMessages)
-        },
-        complete: activeFixture.remainingPrefixTurns.length === 0
-      })
-      useChatStore.setState({
-        entryIntent: { sessionKey: key, cause: 'open', seq: (state.entryIntent?.seq ?? 0) + 1 },
-        sessions: {
-          ...state.sessions,
-          [key]: { ...entry, session, live: { text: '', reasoning: '', reasoningVisible: false } }
-        }
-      })
-      return {
-        loadedTurns: activeFixture.loadedMessages.length / 2,
-        remainingTurns: activeFixture.remainingPrefixTurns.length
+  const jobs: ComputeJobTiming[] = [],
+    paints: { key: string; at: number }[] = []
+  function load(
+    kind: FixtureKind | 'long' | 'answer-5000',
+    options: FixtureOptions,
+    fixture?: GeneratedFixture
+  ): { loadedTurns: number; remainingTurns: number } {
+    const state = useChatStore.getState()
+    const key = state.activeKey
+    const entry = state.sessions[key]
+    if (!entry) throw new Error('Open a chat before loading a transcript fixture')
+    const screen =
+      entry.session.backend === 'opencode'
+        ? 'opencode'
+        : entry.session.agentKind === 'work'
+          ? 'claude-work'
+          : 'claude-code'
+    const fixtureKind = kind === 'long' || kind === 'answer-5000' ? screen : kind
+    activeFixture =
+      fixture ??
+      generateTranscriptFixture(fixtureKind, options, kind === 'answer-5000' ? kind : 'long')
+    activeNextTurn = activeFixture.allMessages.length / 2
+    fixtureSessionKey = key
+    const session = chatReducer(entry.session, {
+      type: 'LOAD_SESSION',
+      session: {
+        id: entry.session.sessionId ?? key,
+        title: 'Transcript fixture',
+        agentKind: entry.session.agentKind,
+        backend: entry.session.backend ?? 'claude',
+        messages: toLoadedMessages(activeFixture.loadedMessages)
+      },
+      complete: activeFixture.remainingPrefixTurns.length === 0
+    })
+    useChatStore.setState({
+      entryIntent: { sessionKey: key, cause: 'open', seq: (state.entryIntent?.seq ?? 0) + 1 },
+      sessions: {
+        ...state.sessions,
+        [key]: { ...entry, session, live: { text: '', reasoning: '', reasoningVisible: false } }
       }
+    })
+    return {
+      loadedTurns: activeFixture.loadedMessages.length / 2,
+      remainingTurns: activeFixture.remainingPrefixTurns.length
+    }
+  }
+  return {
+    loadFixture: load,
+    loadToolCardFixture: (kind, card, count) =>
+      load(kind, { turns: 1 }, toolFixture(kind, card, count)),
+    startComputeTimings() {
+      jobs.length = 0
+      paints.length = 0
+      setComputeDiagnostics({
+        job: (t) => jobs.push(t),
+        paint: (key, at) => paints.push({ key, at })
+      })
+    },
+    finishComputeTimings() {
+      setComputeDiagnostics(undefined)
+      return { jobs: [...jobs], paints: [...paints] }
     },
     appendFixtureTurn() {
       if (useChatStore.getState().activeKey !== fixtureSessionKey) return

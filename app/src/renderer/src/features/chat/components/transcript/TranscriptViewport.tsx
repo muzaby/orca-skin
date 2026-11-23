@@ -8,6 +8,7 @@
  * - Selection and copy are the browser default; a newly mounted row cancels a transcript
  *   selection and a cancelled drag stays unselected until release (EP-17 · ΔV2 D-102 · D-103).
  */
+import { VirtualRowMountContext } from '../../../../shared/ui/virtual/rowMount'
 import {
   createContext,
   useCallback,
@@ -328,7 +329,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     if (!el || !anchor || isPinnedRef.current?.()) return
     const snap = snapshotRef.current
     const nextTop = restoreAnchor(el, anchor, () => {
-      const blocks = el.querySelectorAll<HTMLElement>('[data-index]')
+      const blocks = el.querySelectorAll<HTMLElement>('[data-block-key]')
       return Array.from(blocks, (element) => {
         const block = snap.blockAt(Number(element.getAttribute('data-index')))
         return {
@@ -458,13 +459,22 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     setSuppressed(isSuppressed(next))
   }, [])
 
+  const cancelNestedSelection = useCallback((): void => {
+    const place = selectionPlace()
+    if (place === 'none' || place === 'outside') return
+    document.getSelection?.()?.removeAllRanges()
+    selectionInsideRef.current = false
+    setSelectedKeys(null)
+    dispatchGesture({ type: 'cancel' })
+  }, [selectionPlace, dispatchGesture])
+
   // Selection display — read the rows the native selection spans. A cancelled drag keeps
   // re-clearing any selection Chromium extends inside the viewport until release (D-103).
   useEffect(() => {
     if (!virtualized || typeof document === 'undefined') return
     const rowKey = (node: Node | null): string | null => {
       const el = node && (node.nodeType === 1 ? (node as Element) : node.parentElement)
-      return el?.closest?.('[data-index]')?.getAttribute('data-block-key') ?? null
+      return el?.closest?.('[data-block-key]')?.getAttribute('data-block-key') ?? null
     }
     const onSelectionChange = (): void => {
       const root = viewportRef.current
@@ -691,71 +701,73 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   renderedKeysRef.current = virtualItems.map((vi) => snapshot.keyAt(vi.index))
 
   return (
-    <TranscriptRevealContext.Provider value={reveal}>
-      <div
-        ref={viewportRef}
-        data-transcript-viewport=""
-        data-selection-suppressed={suppressed ? '' : undefined}
-        onPointerDown={(event) => dispatchGesture({ type: 'pointerdown', button: event.button })}
-        className={suppressed ? 'w-full select-none' : 'w-full'}
-      >
-        <div ref={headerRef} data-transcript-header="">
-          {header}
+    <VirtualRowMountContext.Provider value={cancelNestedSelection}>
+      <TranscriptRevealContext.Provider value={reveal}>
+        <div
+          ref={viewportRef}
+          data-transcript-viewport=""
+          data-selection-suppressed={suppressed ? '' : undefined}
+          onPointerDown={(event) => dispatchGesture({ type: 'pointerdown', button: event.button })}
+          className={suppressed ? 'w-full select-none' : 'w-full'}
+        >
+          <div ref={headerRef} data-transcript-header="">
+            {header}
+          </div>
+          {virtualized ? (
+            <div className="relative w-full" style={{ height: blocksTotalHeight }}>
+              {virtualItems.map((vi) => {
+                const block = snapshot.blockAt(vi.index)
+                const selected =
+                  selectionRange !== null &&
+                  vi.index >= selectionRange[0] &&
+                  vi.index <= selectionRange[1]
+                const extraClass = itemClassName?.(block, vi.index) ?? ''
+                return (
+                  <div
+                    key={block.key}
+                    ref={virtualizer.measureElement}
+                    data-index={vi.index}
+                    data-block-key={block.key}
+                    data-message-id={block.messageId}
+                    data-part-key={
+                      hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
+                    }
+                    className={`absolute top-0 left-0 w-full ${extraClass}`}
+                    style={{ transform: `translateY(${vi.start}px)` }}
+                  >
+                    {renderBlock(block, vi.index, selected)}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="flex w-full flex-col">
+              {Array.from({ length: snapshot.count }, (_, index) => {
+                const block = snapshot.blockAt(index)
+                const extraClass = itemClassName?.(block, index) ?? ''
+                return (
+                  <div
+                    key={block.key}
+                    data-index={index}
+                    data-block-key={block.key}
+                    data-message-id={block.messageId}
+                    data-part-key={
+                      hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
+                    }
+                    className={`w-full ${extraClass}`}
+                  >
+                    {renderBlock(block, index, false)}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {reserveSpacerPx > 0 && (
+            <div data-reserve-spacer="" aria-hidden="true" style={{ height: reserveSpacerPx }} />
+          )}
+          {footer}
         </div>
-        {virtualized ? (
-          <div className="relative w-full" style={{ height: blocksTotalHeight }}>
-            {virtualItems.map((vi) => {
-              const block = snapshot.blockAt(vi.index)
-              const selected =
-                selectionRange !== null &&
-                vi.index >= selectionRange[0] &&
-                vi.index <= selectionRange[1]
-              const extraClass = itemClassName?.(block, vi.index) ?? ''
-              return (
-                <div
-                  key={block.key}
-                  ref={virtualizer.measureElement}
-                  data-index={vi.index}
-                  data-block-key={block.key}
-                  data-message-id={block.messageId}
-                  data-part-key={
-                    hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
-                  }
-                  className={`absolute top-0 left-0 w-full ${extraClass}`}
-                  style={{ transform: `translateY(${vi.start}px)` }}
-                >
-                  {renderBlock(block, vi.index, selected)}
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="flex w-full flex-col">
-            {Array.from({ length: snapshot.count }, (_, index) => {
-              const block = snapshot.blockAt(index)
-              const extraClass = itemClassName?.(block, index) ?? ''
-              return (
-                <div
-                  key={block.key}
-                  data-index={index}
-                  data-block-key={block.key}
-                  data-message-id={block.messageId}
-                  data-part-key={
-                    hasPartMarkers?.(block) ? undefined : (block.partKeys?.[0] ?? block.key)
-                  }
-                  className={`w-full ${extraClass}`}
-                >
-                  {renderBlock(block, index, false)}
-                </div>
-              )
-            })}
-          </div>
-        )}
-        {reserveSpacerPx > 0 && (
-          <div data-reserve-spacer="" aria-hidden="true" style={{ height: reserveSpacerPx }} />
-        )}
-        {footer}
-      </div>
-    </TranscriptRevealContext.Provider>
+      </TranscriptRevealContext.Provider>
+    </VirtualRowMountContext.Provider>
   )
 }

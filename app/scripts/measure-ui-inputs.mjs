@@ -27,6 +27,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { deflateSync } from 'node:zlib'
 
+import { visibleModules, visibleInputs, measureVisible } from './visible-views/measure.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const APP = resolve(HERE, '..')
 
@@ -354,13 +355,15 @@ export function measurementCases(modules) {
 }
 
 // `--src` 트리의 소스만 번들해 불러온다 — 없는 모듈 파일은 빈 모듈이다(0325 EP-10 ④).
-export async function loadTree(tree) {
+export async function loadTree(tree, selected) {
   const { build } = await import('esbuild')
   const work = mkdtempSync(join(tmpdir(), 'measure-ui-inputs-'))
   try {
-    const sources = existsSync(join(tree, SOURCE_MODULES.claudeBlocks))
-      ? SOURCE_MODULES
-      : { ...SOURCE_MODULES, ...priorTranscriptModules }
+    const sources =
+      selected ??
+      (existsSync(join(tree, SOURCE_MODULES.claudeBlocks))
+        ? SOURCE_MODULES
+        : { ...SOURCE_MODULES, ...priorTranscriptModules })
     const entry = Object.entries(sources)
       .map(([name, file]) => {
         const path = join(tree, file)
@@ -369,13 +372,24 @@ export async function loadTree(tree) {
           : `export const ${name} = {}`
       })
       .join('\n')
-    writeFileSync(join(work, 'entry.mjs'), entry)
+    const hastPath = join(tree, 'src/renderer/src/shared/ui/markdown/MarkdownHast.tsx')
+    const ssr =
+      selected && existsSync(hastPath)
+        ? [
+            "import {createElement} from 'react'",
+            "import {renderToStaticMarkup} from 'react-dom/server.browser'",
+            'import {MarkdownHast} from ' + JSON.stringify(hastPath),
+            'export const renderHast=(hast,source)=>renderToStaticMarkup(createElement(MarkdownHast,{hast,source}))'
+          ].join('\n')
+        : ''
+    writeFileSync(join(work, 'entry.mjs'), entry + '\n' + ssr)
     const outfile = join(work, 'bundle.mjs')
     await build({
       entryPoints: [join(work, 'entry.mjs')],
       outfile,
       bundle: true,
       platform: 'node',
+      jsx: 'automatic',
       format: 'esm',
       logLevel: 'silent',
       nodePaths: [join(APP, 'node_modules')]
@@ -882,12 +896,20 @@ async function measureTree(tree) {
       result: measureCase(item.run, { prepare: item.prepare })
     })
   )
+  const k = await measureVisible(
+    await loadTree(tree, visibleModules),
+    addedPatchLines(),
+    addedPatchText(990044, 5000)
+  )
   const j10 = await measureJ10Virtualizer()
   const lines = [
     `| 입력 | 내용 | 중앙값 / 최대 (예열 ${WARMUP_RUNS} 뒤 ${MEASURED_RUNS}회) |`,
     '|---|---|---|',
     ...rows.map((row) => `| ${row.id} | ${row.input} | ${formatCell(row.result)} |`),
-    ...formatJ10Rows(j10)
+    ...formatJ10Rows(j10),
+    ...k.map(
+      (row) => `| ${row.id} | ${row.name} | ${formatCell(row.result)} (시도 ${row.attempts ?? 0}) |`
+    )
   ]
   process.stdout.write(
     `트리: ${tree}\nNode ${process.version} · ${process.platform}/${process.arch}\n\n${lines.join('\n')}\n`
@@ -895,7 +917,7 @@ async function measureTree(tree) {
 }
 
 function writeInputs(folder) {
-  for (const [name, bytes] of Object.entries(inputFiles())) {
+  for (const [name, bytes] of Object.entries({ ...inputFiles(), ...visibleInputs() })) {
     if (name.startsWith('git-50000/')) continue
     mkdirSync(folder, { recursive: true })
     writeFileSync(join(folder, name), bytes)
@@ -914,12 +936,34 @@ function writeInputs(folder) {
   git('add', 'generated.ts')
   git('commit', '-q', '-m', 'empty')
   writeFileSync(join(repo, 'generated.ts'), inputFiles()['git-50000/generated.ts'])
+  const many = join(folder, 'git-200-files')
+  mkdirSync(many, { recursive: true })
+  const gitMany = (...args) =>
+    execFileSync(
+      'git',
+      ['-c', 'user.name=measure', '-c', 'user.email=measure@example.invalid', ...args],
+      { cwd: many, stdio: 'ignore' }
+    )
+  gitMany('init', '-q')
+  for (let i = 0; i < 200; i++) writeFileSync(join(many, 'file-' + i + '.ts'), '')
+  gitMany('add', '.')
+  gitMany('commit', '-q', '-m', 'empty files')
+  for (let i = 0; i < 200; i++) writeFileSync(join(many, 'file-' + i + '.ts'), gitFileContent(401))
   process.stdout.write(`재현 입력을 썼다: ${folder}\n`)
 }
 
 async function main(argv) {
   const flag = argv[0]
   const value = argv[1]
+  if (flag === '--visible' && value) {
+    const rows = await measureVisible(
+      await loadTree(resolve(value), visibleModules),
+      addedPatchLines(),
+      addedPatchText(990044, 5000)
+    )
+    process.stdout.write(JSON.stringify(rows, null, 2) + '\n')
+    return
+  }
   if (flag === '--src' && value) return measureTree(resolve(value))
   if (flag === '--write-inputs' && value) return writeInputs(resolve(value))
   process.stderr.write(

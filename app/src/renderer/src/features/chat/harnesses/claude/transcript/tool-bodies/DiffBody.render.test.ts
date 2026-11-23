@@ -9,11 +9,11 @@ import type { ToolCall } from '../../../../reducer/chatReducer'
 
 // 토큰 유무를 케이스마다 바꾼다 — shiki 로드는 effect 라 정적 렌더에서는 돌지 않는다.
 let tokensOn = false
-vi.mock('../../../../hooks/useDiffSyntax', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../../hooks/useDiffSyntax')>()
+vi.mock('../../../../hooks/useSmallDiffSyntax', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../hooks/useSmallDiffSyntax')>()
   return {
     ...actual,
-    useDiffSyntax: (lines: readonly DiffLine[]) =>
+    useSmallDiffSyntax: (lines: readonly DiffLine[]) =>
       new Map(
         tokensOn
           ? lines.map((line) => [

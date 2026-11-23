@@ -124,3 +124,43 @@ it('unknown-doc은 한 번만 다시 열고 레인 오류 뒤에는 새 워커�
   await retry.promise
   lease.release()
 })
+
+it('opens both sides once, replaces cancelled pair computation and reopens on the new worker', async () => {
+  const { client, ports } = harness()
+  const left = client.openDocument(ref('left'), { text: 'a' }, 'compute')
+  const right = client.openDocument(ref('right'), { text: 'b' }, 'compute')
+  const source = { kind: 'pair' as const, old: left.ref, new: right.ref }
+  const options = {
+    layout: 'inline' as const,
+    ignoreWhitespace: false,
+    highlightWords: false,
+    expansions: []
+  }
+  const running = client.request({ kind: 'diffView', source, options, start: 0, end: 1 })
+  const reject = expect(running.promise).rejects.toThrow()
+  const queued = client.request({
+    kind: 'diffLocate',
+    source,
+    options,
+    anchors: [{ oldLine: 1, newLine: null }]
+  })
+  const first = ports.get('compute')!
+  expect(first.messages.map((m) => ('type' in m ? m.type : m.kind))).toEqual([
+    'doc.open',
+    'doc.open',
+    'diffView'
+  ])
+  running.cancel()
+  await reject
+  const second = ports.get('compute')!
+  expect(first.terminate).toHaveBeenCalledTimes(1)
+  expect(second.messages.map((m) => ('type' in m ? m.type : m.kind))).toEqual([
+    'doc.open',
+    'doc.open',
+    'diffLocate'
+  ])
+  second.reply()
+  await queued.promise
+  left.release()
+  right.release()
+})

@@ -5,13 +5,13 @@ import {
   type WireRequest,
   type WireResponse
 } from '../protocol'
-import { parseMarkdown } from './markdown'
+import { markdownBlock, type MarkdownDocument } from './markdown'
 
-const documents = new Map<string, string>()
+const documents = new Map<string, MarkdownDocument>()
 self.onmessage = ({ data }: MessageEvent<WireRequest | WireControl>) => {
   if ('type' in data) {
     const key = docKey(data.ref)
-    if (data.type === 'doc.open') documents.set(key, data.text)
+    if (data.type === 'doc.open') documents.set(key, { text: data.text })
     else documents.delete(key)
     return
   }
@@ -20,7 +20,7 @@ self.onmessage = ({ data }: MessageEvent<WireRequest | WireControl>) => {
     if (data.kind !== 'markdown') throw new Error('wrong-lane')
     const text = documents.get(docKey(data.doc))
     if (text === undefined) throw new Error('unknown-doc')
-    const result = parseMarkdown(text.slice(data.start, data.end))
+    const result = markdownBlock(text, data)
     response = { id: data.id, ok: true, result, size: resultSize(result) }
   } catch (error) {
     response = {

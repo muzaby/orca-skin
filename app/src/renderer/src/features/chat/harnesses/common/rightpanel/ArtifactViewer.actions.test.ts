@@ -10,6 +10,10 @@ const h = vi.hoisted(() => ({
   ri: 0,
   save: vi.fn()
 }))
+vi.mock('../../../hooks/usePanelSelection', () => ({
+  usePanelSelection: () => ({ notify: () => {}, suppressed: false, onPointerDown: () => {} })
+}))
+
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
   useState: (value: unknown) => {

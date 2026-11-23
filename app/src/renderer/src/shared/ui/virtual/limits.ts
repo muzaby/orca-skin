@@ -1,0 +1,4 @@
+export const VIRTUAL_BODY_MIN_LINES = 400
+export const VIRTUAL_BODY_MAX_HEIGHT_CLASS = 'max-h-[384px]'
+export const VIRTUAL_OVERSCAN = 20
+export const VIRTUAL_ROW_ESTIMATE_PX = 20

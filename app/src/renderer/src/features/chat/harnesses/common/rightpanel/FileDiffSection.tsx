@@ -1,5 +1,31 @@
+import { useDiffAxes, type DiffAxes } from '../../../hooks/useDiffAxes'
+import { DiffScrollAnchorContext } from '../../../hooks/useDiffScrollCoordinator'
+import { useMountedRows } from '../../../../../shared/ui/virtual/rowMount'
+import { useDiffAnchor, useDiffContext } from '../../../hooks/useDiffAnchor'
+import { useDiffViewWindow } from '../../../hooks/useDiffViewWindow'
+import { useWindowTokens } from '../../../hooks/useWindowTokens'
+import { extToLang } from '../../../lib/lang'
+import { buildDiffView, type DiffCell } from '../../../../../shared/compute/diffView'
+import {
+  packLines,
+  type DiffOptions,
+  type DiffSourceRef
+} from '../../../../../shared/compute/diffSource'
+import { useComputeDocument } from '../../../../../shared/compute/useComputeDocument'
+import {
+  DIFF_MODEL_SYNC_MAX_LINES,
+  DIFF_MODEL_SYNC_MAX_CHARS,
+  TOKENS_RANGE_MAX_LINES
+} from '../../../../../shared/compute/limits'
+import { useVirtualRows } from '../../../../../shared/ui/virtual/useVirtualRows'
+import {
+  VIRTUAL_BODY_MIN_LINES,
+  VIRTUAL_ROW_ESTIMATE_PX
+} from '../../../../../shared/ui/virtual/limits'
 import {
   Fragment,
+  createContext,
+  useId,
   useCallback,
   useContext,
   useEffect,
@@ -29,7 +55,8 @@ import {
 import { patchLinesToDiffLines } from '../../../lib/diffPatchLines'
 import { planUpwardExpansionCompensation } from '../../../lib/diffViewport'
 import { lineAxisLabel, lineNumberLabel, type DiffLine } from '../../../lib/diffLines'
-import { DiffSyntaxContext, useDiffSyntax } from '../../../hooks/useDiffSyntax'
+import { useSmallDiffSyntax } from '../../../hooks/useSmallDiffSyntax'
+import { DiffSyntaxContext } from '../../../hooks/useDiffSyntax'
 import { syntaxText } from '../transcript/diffSyntaxText'
 import type { DiffRequirementDraft, DiffViewOptions } from '../../../reducer/chatReducer'
 import { diffRequirementLineKey, diffRequirementMatchesLine } from './diffRequirements'
@@ -42,6 +69,7 @@ export const CONTEXT_EXPAND_STEP = 20
 const INITIAL_CONTEXT = 3
 
 // 줄마다 만들던 빈 배열을 하나로 접는다 — 요구사항 없는 파일이 일반적인 상태다.
+const EMPTY_RANGES: DiffOptions['expansions'] = []
 const NO_REQUIREMENTS: readonly DiffRequirementItem[] = Object.freeze([])
 
 export interface FileDiffSectionProps {
@@ -60,6 +88,7 @@ export interface FileDiffSectionProps {
   onOpenFile: (path: string) => void
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
+    before?: { old: number | null; new: number | null }
     lines: readonly DiffLine[]
     lineIndex: number
     comment: string
@@ -115,8 +144,64 @@ export function FileDiffSection({
 }: FileDiffSectionProps): React.JSX.Element {
   const { tr } = useI18n()
   const { parent, name } = splitPath(section.path)
+  const sectionRef = useRef<HTMLElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const [height, setHeight] = useState(0)
+  const [near, setNear] = useState(typeof IntersectionObserver === 'undefined')
+  useEffect(() => {
+    const element = sectionRef.current
+    if (!element || collapsed || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (bodyRef.current) setHeight(bodyRef.current.offsetHeight)
+        setNear(entry.isIntersecting)
+      },
+      { root: scrollOwnerRef.current, rootMargin: '100% 0px' }
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [collapsed, scrollOwnerRef])
+  const [expanded, setExpanded] = useState<{
+    lines: readonly GitDiffPatchLine[]
+    ignoreWhitespace: boolean
+    value: DiffOptions['expansions']
+  } | null>(null)
+  const patchLines = section.patch?.lines
+  const expansions =
+    expanded?.lines === patchLines && expanded?.ignoreWhitespace === view.ignoreWhitespace
+      ? expanded.value
+      : EMPTY_RANGES
+  const setExpansions = useCallback<
+    React.Dispatch<React.SetStateAction<DiffOptions['expansions']>>
+  >(
+    (next) => {
+      if (!patchLines) return
+      setExpanded((previous) => {
+        const value =
+          previous?.lines === patchLines && previous.ignoreWhitespace === view.ignoreWhitespace
+            ? previous.value
+            : EMPTY_RANGES
+        return {
+          lines: patchLines,
+          ignoreWhitespace: view.ignoreWhitespace,
+          value: typeof next === 'function' ? next(value) : next
+        }
+      })
+    },
+    [patchLines, view.ignoreWhitespace]
+  )
+  const pinned =
+    draft?.filePath === section.path ||
+    requirements.some(
+      (item) => item.id === activeRequirementId && item.anchor.filePath === section.path
+    )
+  const [openedGeneration, setOpenedGeneration] = useState<typeof section.patch>(null)
+  const open =
+    !!section.patch && !collapsed && (near || pinned || openedGeneration === section.patch)
+  if (open && openedGeneration !== section.patch) setOpenedGeneration(section.patch)
+  if (collapsed && openedGeneration) setOpenedGeneration(null)
   return (
-    <section data-diff-file={section.path} className="relative min-w-0">
+    <section ref={sectionRef} data-diff-file={section.path} className="relative min-w-0">
       {/* 0211 ΔV6 실측 5행 — 참조의 파일 헤더는 폭 전체를 채우는 밴드다(`#f2f2f2`). 배경이
           없으면 접힌 헤더들이 본문과 같은 평면이라 파일 경계가 읽히지 않는다. */}
       <div
@@ -177,23 +262,361 @@ export function FileDiffSection({
           <p className="px-p5 pb-p3 text-footnote text-ink3">
             {tr('chat.rightpanel.diffFileTooLarge')}
           </p>
+        ) : open ? (
+          <div ref={bodyRef}>
+            <GitBody
+              near={near}
+              lastHeight={height}
+              expansions={expansions}
+              setExpansions={setExpansions}
+              key={`${section.path}:${view.ignoreWhitespace}`}
+              filePath={section.path}
+              lines={section.patch.lines}
+              view={view}
+              requirements={requirements}
+              draft={draft}
+              selection={{ activeRequirementId, selectionVersion, onSelectRequirement }}
+              scrollOwnerRef={scrollOwnerRef}
+              tailSpacerRef={tailSpacerRef}
+              onDraftChange={onDraftChange}
+              onAddRequirement={onAddRequirement}
+              onRemoveRequirement={onRemoveRequirement}
+            />
+          </div>
         ) : (
-          <FileDiffBody
-            key={`${section.path}:${view.ignoreWhitespace}`}
-            filePath={section.path}
-            lines={section.patch.lines}
-            view={view}
-            requirements={requirements}
-            draft={draft}
-            selection={{ activeRequirementId, selectionVersion, onSelectRequirement }}
-            scrollOwnerRef={scrollOwnerRef}
-            tailSpacerRef={tailSpacerRef}
-            onDraftChange={onDraftChange}
-            onAddRequirement={onAddRequirement}
-            onRemoveRequirement={onRemoveRequirement}
+          <div
+            aria-busy="true"
+            data-diff-placeholder=""
+            style={{
+              height:
+                height ||
+                20 *
+                  Math.max(
+                    1,
+                    Math.min(section.patch.lines.length, 7 * (section.added + section.removed) + 1)
+                  )
+            }}
           />
         ))}
     </section>
+  )
+}
+
+type GitBodyProps = Parameters<typeof FileDiffBody>[0] & {
+  near: boolean
+  lastHeight: number
+  expansions: DiffOptions['expansions']
+  setExpansions: React.Dispatch<React.SetStateAction<DiffOptions['expansions']>>
+}
+function GitBody(props: GitBodyProps): React.JSX.Element {
+  const large = useMemo(() => {
+    if (props.lines.length > VIRTUAL_BODY_MIN_LINES) return true
+    let chars = 0
+    return props.lines.some((line) => (chars += line.text.length) > DIFF_MODEL_SYNC_MAX_CHARS)
+  }, [props.lines])
+  return large ? (
+    <WindowedGitBody {...props} />
+  ) : (
+    <FileDiffBody
+      {...props}
+      active={props.near || !!props.draft || !!props.selection.activeRequirementId}
+    />
+  )
+}
+
+interface WindowSyntax {
+  axes: DiffAxes | null
+  priority: import('../../../../../shared/compute/client').Priority
+  cells: DiffCell[]
+  source: DiffSourceRef
+  options: DiffOptions
+  lang: string | undefined
+  ready: boolean
+}
+const WindowSyntaxContext = createContext<WindowSyntax | null>(null)
+
+function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
+  const { filePath, lines, view, scrollOwnerRef, tailSpacerRef } = props
+  const id = useId()
+  const packed = useMemo(() => packLines(lines), [lines])
+  const doc = useComputeDocument(id, packed.text, 'compute', lines, packed.lines)
+  const source = useMemo<DiffSourceRef>(() => ({ kind: 'lines', doc: doc.ref }), [doc.ref])
+  const model = useMemo(
+    () =>
+      lines.length <= DIFF_MODEL_SYNC_MAX_LINES && packed.text.length <= DIFF_MODEL_SYNC_MAX_CHARS
+        ? buildDiffView(patchLinesToDiffLines(lines), view.ignoreWhitespace)
+        : null,
+    [lines, packed, view.ignoreWhitespace]
+  )
+  const axes = useDiffAxes(model)
+  const { expansions, setExpansions } = props
+  const options = useMemo<DiffOptions>(
+    () => ({
+      layout: view.layout,
+      highlightWords: view.highlightWords,
+      ignoreWhitespace: view.ignoreWhitespace,
+      expansions
+    }),
+    [view.layout, view.highlightWords, view.ignoreWhitespace, expansions]
+  )
+  const selected = props.requirements.find(
+    (item) =>
+      item.located &&
+      item.id === props.selection.activeRequirementId &&
+      item.anchor.filePath === filePath
+  )
+  const draft = props.draft?.filePath === filePath ? props.draft : null
+  const selectedAt = useDiffAnchor(source, options, model, selected?.anchor ?? null, doc.ready)
+  const draftAt = useDiffAnchor(source, options, model, draft, doc.ready)
+  const draftLine = draftAt?.lineIndex[0] ?? -1
+  const context = useDiffContext(source, view.ignoreWhitespace, model, draftLine, doc.ready)
+  useEffect(() => {
+    const hidden = [selectedAt, draftAt].filter(
+      (at) =>
+        at &&
+        at.rowIndex[0] === -1 &&
+        at.lineIndex[0] >= 0 &&
+        !expansions.some(([a, b]) => a <= at.lineIndex[0] && at.lineIndex[0] < b)
+    )
+    if (hidden.length)
+      setExpansions((old) => [
+        ...old,
+        ...hidden.map((at) => [Math.max(0, at!.lineIndex[0] - 3), at!.lineIndex[0] + 4] as const)
+      ])
+  }, [selectedAt, draftAt, expansions, setExpansions])
+  const initial = useDiffViewWindow(source, options, model, 0, 1, doc.ready)
+  const root = useRef<HTMLDivElement>(null)
+  const rowCount = initial?.summary.rowCount ?? 0
+  const list = useVirtualRows(
+    rowCount,
+    root,
+    scrollOwnerRef,
+    !props.near ? 'hidden' : rowCount <= VIRTUAL_BODY_MIN_LINES ? 'all' : undefined
+  )
+  const items = list.getVirtualItems()
+  const start = items[0]?.index ?? 0,
+    end = (items.at(-1)?.index ?? -1) + 1
+  const data = useDiffViewWindow(source, options, model, start, end, doc.ready)
+  const draftRow = draftAt?.rowIndex[0] ?? -1
+  const selectedRow = selectedAt?.rowIndex[0] ?? -1
+  const pinnedDraft = useDiffViewWindow(
+    source,
+    options,
+    model,
+    Math.max(0, draftRow),
+    Math.max(0, draftRow + 1),
+    doc.ready && draftRow >= 0
+  )
+  const pinnedSelection = useDiffViewWindow(
+    source,
+    options,
+    model,
+    Math.max(0, selectedRow),
+    Math.max(0, selectedRow + 1),
+    doc.ready && selectedRow >= 0
+  )
+  const pins = [...new Set([draftRow, selectedRow])].filter(
+    (i) => i >= 0 && (i < start || i >= end)
+  )
+  const renderItems = pins.length
+    ? [
+        ...items,
+        ...pins.map((index) => ({
+          index,
+          start: list.measurementsCache[index]?.start ?? index * VIRTUAL_ROW_ESTIMATE_PX
+        }))
+      ].sort((a, b) => a.index - b.index)
+    : items
+  const rowAt = (
+    index: number
+  ): import('../../../../../shared/compute/diffView').DiffViewRow | undefined =>
+    (index === draftRow ? pinnedDraft?.rows[0] : undefined) ??
+    (index === selectedRow ? pinnedSelection?.rows[0] : undefined) ??
+    data?.rows[index - start]
+  useMountedRows(
+    renderItems.flatMap((item) => {
+      const row = rowAt(item.index)
+      return row ? [row.id] : []
+    })
+  )
+  const seen = useRef('')
+  const navigation = JSON.stringify([
+    selected?.id,
+    props.selection.selectionVersion,
+    source,
+    view.layout
+  ])
+  useEffect(() => {
+    if (!selected || selectedRow < 0 || seen.current === navigation) return
+    if (revealDiffRequirement(scrollOwnerRef.current, selected.id)) seen.current = navigation
+    else list.scrollToIndex(selectedRow, { align: 'center' })
+  }, [selected, selectedRow, list, navigation, scrollOwnerRef, data])
+  const rememberAnchor = useContext(DiffScrollAnchorContext)
+  useLayoutEffect(() => {
+    if (!rememberAnchor) return
+    // TanStack exposes this scroll policy as an imperative instance callback.
+    // eslint-disable-next-line react-hooks/immutability
+    list.shouldAdjustScrollPositionOnItemSizeChange = () => false
+    return () => {
+      delete list.shouldAdjustScrollPositionOnItemSizeChange
+    }
+  }, [list, rememberAnchor])
+  const preserve = useRef<{ id: string; top: number; previous: DiffOptions } | null>(null)
+  useLayoutEffect(() => {
+    const correction = preserve.current,
+      owner = scrollOwnerRef.current,
+      tail = tailSpacerRef.current
+    if (!correction || !owner || !tail || !data || correction.previous === options) return
+    const anchor = root.current?.querySelector<HTMLElement>(
+      '[data-window-row="' + correction.id + '"]'
+    )
+    if (!anchor) return
+    const result = planUpwardExpansionCompensation({
+      scrollTop: owner.scrollTop,
+      scrollHeight: owner.scrollHeight,
+      clientHeight: owner.clientHeight,
+      anchorDelta: anchor.getBoundingClientRect().top - correction.top,
+      tailSpacerHeight: parseFloat(tail.style.height) || 0
+    })
+    tail.style.height = result.tailSpacerHeight + 'px'
+    owner.scrollTop = result.scrollTop
+    preserve.current = null
+  }, [data, options, scrollOwnerRef, tailSpacerRef])
+  const expand = (id: string, dir: GapDirection): void => {
+    const gap = data?.rows.find((row) => row.kind === 'gap' && row.id === id)
+    if (gap?.kind !== 'gap') return
+    if (dir === 'up') {
+      const anchor = root.current?.querySelector<HTMLElement>(
+        '[data-window-row="' + id + '"]'
+      )?.nextElementSibling
+      const key = anchor?.getAttribute('data-window-row')
+      if (anchor instanceof HTMLElement && rememberAnchor) rememberAnchor(anchor)
+      else if (anchor && key)
+        preserve.current = { id: key, top: anchor.getBoundingClientRect().top, previous: options }
+    }
+    const range: readonly [number, number] =
+      dir === 'up'
+        ? [Math.max(gap.start, gap.end - CONTEXT_EXPAND_STEP), gap.end]
+        : [gap.start, Math.min(gap.end, gap.start + CONTEXT_EXPAND_STEP)]
+    setExpansions((previous) => [...previous, range])
+  }
+  const wrapClass = view.wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
+  if (!model && (doc.unavailable || initial === null || data === null))
+    return <FileDiffBody {...props} />
+  return (
+    <div
+      data-diff-file-body={filePath}
+      className={view.wrapLines ? 'pb-p2' : 'overflow-x-auto pb-p2'}
+    >
+      <div
+        ref={root}
+        data-virtual-git=""
+        aria-busy={!initial || undefined}
+        style={{
+          position: 'relative',
+          height:
+            !props.near && props.lastHeight
+              ? props.lastHeight
+              : initial
+                ? list.getTotalSize()
+                : VIRTUAL_ROW_ESTIMATE_PX,
+          minWidth:
+            !view.wrapLines && initial
+              ? 'calc(' + initial.summary.widthColumns + 'ch + 5em)'
+              : undefined
+        }}
+      >
+        {renderItems.map((item) => {
+          const row = rowAt(item.index)
+          if (!row) return null
+          const cells =
+            row.kind === 'gap'
+              ? []
+              : row.kind === 'line'
+                ? [row]
+                : [row.left, row.right].filter((c): c is DiffCell => !!c)
+          const lineRows = cells
+            .filter((c, i) => i === 0 || c.sourceIndex !== cells[i - 1].sourceIndex)
+            .map((c): DiffHunkLineRow => ({
+              kind: 'line',
+              id: `line:${c.sourceIndex}`,
+              sourceIndex: c.sourceIndex,
+              line: c.line
+            }))
+          return (
+            <div
+              key={row.id}
+              data-window-row={row.id}
+              ref={list.measureElement}
+              data-index={item.index}
+              style={{
+                position: 'absolute',
+                width: '100%',
+                top: item.start - list.options.scrollMargin
+              }}
+            >
+              <WindowSyntaxContext.Provider
+                value={{
+                  source,
+                  axes,
+                  options,
+                  cells,
+                  lang: extToLang(filePath),
+                  ready: doc.ready,
+                  priority:
+                    list.range &&
+                    item.index >= list.range.startIndex &&
+                    item.index <= list.range.endIndex
+                      ? 'visible'
+                      : 'background'
+                }}
+              >
+                {row.kind === 'pair' ? (
+                  <SideBySideBody
+                    {...props}
+                    rows={lineRows}
+                    wrapClass={wrapClass}
+                    onExpand={expand}
+                  />
+                ) : (
+                  <table
+                    data-diff-inline
+                    className="w-full border-collapse font-mono text-footnote"
+                  >
+                    <colgroup>
+                      <col className="w-[calc(4ch+16px)]" />
+                      <col className="w-[12px]" />
+                      <col />
+                    </colgroup>
+                    <tbody>
+                      {row.kind === 'gap' ? (
+                        <GapRow row={row} colSpan={3} onExpand={expand} />
+                      ) : (
+                        <InlineLineRow
+                          {...props}
+                          lines={context?.lines ?? []}
+                          draftIndex={context?.offset}
+                          draft={context ? draft : null}
+                          onAddRequirement={(input) =>
+                            props.onAddRequirement?.({
+                              ...input,
+                              before: context && { old: context.oldBefore, new: context.newBefore }
+                            })
+                          }
+                          row={lineRows[0]}
+                          counterpart={null}
+                          wrapClass={wrapClass}
+                        />
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </WindowSyntaxContext.Provider>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -211,6 +634,8 @@ interface RequirementSelection {
 
 function FileDiffBody({
   filePath,
+  active = true,
+  lastHeight = 0,
   lines,
   view,
   requirements,
@@ -222,6 +647,8 @@ function FileDiffBody({
   onAddRequirement,
   onRemoveRequirement
 }: {
+  active?: boolean
+  lastHeight?: number
   filePath: string
   lines: readonly GitDiffPatchLine[]
   view: DiffViewOptions
@@ -232,6 +659,7 @@ function FileDiffBody({
   tailSpacerRef: React.RefObject<HTMLDivElement | null>
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
+    before?: { old: number | null; new: number | null }
     lines: readonly DiffLine[]
     lineIndex: number
     comment: string
@@ -246,7 +674,7 @@ function FileDiffBody({
   const initialHunks = useMemo(() => buildDiffHunks(diffLines, INITIAL_CONTEXT), [diffLines])
   const [expandedHunks, setHunks] = useState<DiffHunkState>(initialHunks)
   const hunks = expandedHunks.lines === diffLines ? expandedHunks : initialHunks
-  const syntax = useDiffSyntax(diffLines, filePath)
+  const syntax = useSmallDiffSyntax(diffLines, filePath)
   const pending = useRef<PendingCompensation | null>(null)
   const selectedRequirement = requirements.find(
     (item) =>
@@ -351,6 +779,7 @@ function FileDiffBody({
     [hunks, scrollOwnerRef]
   )
 
+  if (!active) return <div data-diff-placeholder="" style={{ height: lastHeight }} />
   const wrapClass = view.wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
   const body =
     view.layout === 'side-by-side' ? (
@@ -459,6 +888,56 @@ function LineText({
   highlight: boolean
   axis?: 'old' | 'new'
 }): React.JSX.Element {
+  const window = useContext(WindowSyntaxContext)
+  if (window)
+    return <WindowLineText window={window} line={line} axis={axis} wrapClass={wrapClass} />
+  return <LegacyLineText {...{ line, axis, highlight, wrapClass, counterpart }} />
+}
+function WindowLineText({
+  window,
+  line,
+  axis,
+  wrapClass
+}: {
+  window: WindowSyntax
+  line: DiffLine
+  axis: 'old' | 'new'
+  wrapClass: string
+}): React.JSX.Element {
+  const cell = window.cells.find((c) => c.line === line)!
+  const pos = axis === 'old' ? cell.oldAxis : cell.newAxis
+  const start = Math.floor(pos / TOKENS_RANGE_MAX_LINES) * TOKENS_RANGE_MAX_LINES
+  const source = useMemo(
+    () =>
+      window.axes
+        ? { doc: window.axes[axis] }
+        : {
+            axis: { source: window.source, ignoreWhitespace: window.options.ignoreWhitespace, axis }
+          },
+    [window.source, window.axes, window.options.ignoreWhitespace, axis]
+  )
+  const parts = useWindowTokens(
+    source,
+    window.lang,
+    start,
+    window.priority,
+    window.axes?.ready ?? window.ready
+  )?.[pos - start]
+  return (
+    <DiffTextContent
+      {...{ line, wrapClass }}
+      tokens={parts?.map((t) => t.content).join('') === line.text ? parts : undefined}
+      span={cell.wordSpan}
+    />
+  )
+}
+function LegacyLineText({
+  line,
+  axis,
+  highlight,
+  wrapClass,
+  counterpart
+}: Required<Parameters<typeof LineText>[0]>): React.JSX.Element {
   const tokens = useContext(DiffSyntaxContext).get(line)?.[axis]
   const span =
     highlight && counterpart && (line.type === 'added' || line.type === 'removed')
@@ -467,6 +946,19 @@ function LineText({
           line.type === 'removed' ? counterpart.text : line.text
         )[line.type === 'removed' ? 'old' : 'new']
       : null
+  return <DiffTextContent {...{ line, tokens, span, wrapClass }} />
+}
+function DiffTextContent({
+  line,
+  tokens,
+  span,
+  wrapClass
+}: {
+  line: DiffLine
+  tokens: readonly import('shiki').ThemedToken[] | undefined
+  span: DiffCell['wordSpan']
+  wrapClass: string
+}): React.JSX.Element {
   if (!span || span.end <= span.start)
     return (
       <pre className={`m-0 ${wrapClass} text-footnote text-ink`}>{syntaxText(line, tokens)}</pre>
@@ -510,6 +1002,7 @@ function InlineBody({
   onExpand: (id: string, direction: GapDirection) => void
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
+    before?: { old: number | null; new: number | null }
     lines: readonly DiffLine[]
     lineIndex: number
     comment: string
@@ -553,6 +1046,7 @@ function InlineBody({
 
 function InlineLineRow({
   row,
+  draftIndex,
   counterpart,
   lines,
   filePath,
@@ -565,6 +1059,7 @@ function InlineLineRow({
   onAddRequirement,
   onRemoveRequirement
 }: {
+  draftIndex?: number
   counterpart: DiffLine | null
   row: DiffHunkLineRow
   lines: readonly DiffLine[]
@@ -576,6 +1071,7 @@ function InlineLineRow({
   selection: RequirementSelection
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
+    before?: { old: number | null; new: number | null }
     lines: readonly DiffLine[]
     lineIndex: number
     comment: string
@@ -641,7 +1137,7 @@ function InlineLineRow({
           colSpan={3}
           draft={lineDraft}
           lines={lines}
-          lineIndex={row.sourceIndex}
+          lineIndex={draftIndex ?? row.sourceIndex}
           onDraftChange={onDraftChange}
           onAddRequirement={onAddRequirement}
         />
@@ -780,6 +1276,7 @@ function DiffRequirementDraftRow({
   lineIndex: number
   onDraftChange?: (draft: DiffRequirementDraft | null) => void
   onAddRequirement?: (input: {
+    before?: { old: number | null; new: number | null }
     lines: readonly DiffLine[]
     lineIndex: number
     comment: string

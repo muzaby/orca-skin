@@ -9,14 +9,14 @@ import {
 } from './client'
 import { createWorkerState } from './worker/state'
 import type { TokensRequest, WireRequest, WireControl } from './protocol'
-const range: TokensRequest = {
+const range = {
   kind: 'tokens',
   doc: { id: 'a', revision: 1 },
   lang: 'typescript',
   theme: 'github-light',
   start: 0,
   end: 101
-}
+} satisfies TokensRequest
 function setup(
   count = 101,
   timing?: { now(): number; timings?(entry: ComputeJobTiming): void }
