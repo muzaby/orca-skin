@@ -4,11 +4,11 @@
 > 입력: [0325 plan §6-C C 행 · §6-D](../0325-ui-responsiveness-followup/plan.md) · 0325 첨부 [`input/0324-agent-requests.ko.md`](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md)(요청서 — 본문의 `T08`~`T33`) · [`input/0324-audit.ko.md`](../0325-ui-responsiveness-followup/input/0324-audit.ko.md)(감사) · [0326 plan §10 B9](../0326-transcript-incremental-model/plan.md)(스트리밍 꼬리 — "워커는 단계 C") · **PR #643 소유자 검토(2026-11-20) — rev 2 의 입력**(§4-A 항목별 판정) · **PR #643 소유자 후속 검토 2건(2026-11-20) — rev 3 의 입력**(§4-B 항목별 판정).
 > 측정 수치는 실제 소스 함수 재측정이다 — M1~M13 은 V1 세션, M13b·M14~M21 은 rev 2 세션, M22~M25 는 rev 3 세션(§8). 측정 스크립트는 저장소에 두지 않았다 — 같은 입력을 구현 턴의 K1~K12(WU-10)가 다시 잰다.
 
-## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료) + ΔV5 (G3 · 마지막 토큰 작업의 완료 응답) + ΔV6 (H1 채택 · 선택 취소 경로의 자리 고정)
+## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료) + ΔV5 (G3 · 마지막 토큰 작업의 완료 응답) + ΔV6 (H1 채택 · 선택 취소 경로의 자리 고정) + ΔV7 (verify 2 확장 판정 · 선택 판정 입력 고정 · 문서 전환 커밋)
 
-ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다.
+ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다. ΔV7은 ΔV6 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-30 ⑤·⑫·⑮ · 신설 ⑯ · EP-31 ②③④ · AC15·AC40 · VP-26·14·59)만 대체한다.
 
-현재 상태는 impl/IMPL_DONE(ΔV6 · 라운드 2)이며 다음 주체는 독립 검증자다. H1·I3의 선택 취소 경로와 판정기를 구현했다. I1의 입증 범위와 남은 항목은 아래 r2 구현 보고에 기록했다([verify.md](verify.md)). r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 plan/READY(ΔV7 · 라운드 3)이며 다음 주체는 구현자(r3)다. verify 2의 확장 후보 X1~X5를 판정하고 K1~K4의 입력과 현재 결함 K5(문서 전환 커밋 뒤 억제)를 §10에 고정했다. r3는 K1~K5와 I1 잔여를 닫는다([verify.md §V2-11](verify.md)). r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -690,7 +690,142 @@ AC 검증 주의(ΔV6):
 - 수치 계약 런타임: 마운트 행 < 150 · 클립보드 문자열은 실제 Electron 에서 잰다 · 사람 실기로 미룬 것 0.
 - 조사 대조: `probe.tsx:46-50` 이 소유자 재구현 · `check-transcript-selection.mjs:103-104` 에 root `--no-sandbox` 있음 · 가짜 선택 `viewportSelection.testfixture.ts:25`·`:119`·`:140` 있음 · `TranscriptViewport` `renderBlock` prop `:111` 있음.
 
-## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다 · ΔV5 는 AC4·EP-3 ③ 의 마지막 작업 규칙을 보탠다 · ΔV6 는 선택 취소 pair·§10 과 AT 도구를 고정한다)
+### ΔV7 · verify 2 확장 판정 · 선택 판정 입력 고정 · 문서 전환 커밋
+
+판정: verify 2(RETURN_TO_PLAN)의 확장 후보 X1~X5 를 항목마다 채택(X1 두 항 · X2 · X3 · X4)하거나 경계로 선언(X1 셋째 항 · X5)한다. 설계 조사에서 재현한 현재 결함 K5(문서 전환 커밋 뒤 억제가 남음)를 EP-30 ⑮ 의 입력으로 고정한다. **이 턴이 열거 원문을 늘릴 수 있는 마지막 턴이다**(verify 2회째 뒤 — plan 동결). 제품 동작(D-052)은 그대로다.
+
+| 항목 | 값 |
+|---|---|
+| 입력 | verify 2 [§V2-11](verify.md) X1~X5 · K1~K4 · 이 턴의 실측 P1~P4(아래) |
+| 출처 | X1(두 항)·X2·X3·X4 = 확장 채택(verify 2회째 뒤 — 창 안 마지막) · K5 = 현재 결함(P1 재현) · ps13~ps17·ps9b·ps9c·po6·vv12~vv16 = plan 내부 정합(규칙 칸 ↔ 입력 칸 1:1 — verify 2 K1~K4 의 입력 칸이 규칙 칸보다 좁았다) |
+| V mode | `Delta V` — 기준 `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6` |
+| 이번 V revision | `ΔV7` — 설계 커밋 `(ΔV7 설계 — 검증자 기입)` |
+| 유효 V | `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
+| 라운드 | 3 — verify 2회. 다음 impl 턴은 `r3`. 다음 verify 는 3회째(창 밖) — 이후 확장 후보는 후보 표로 간다 |
+| 줄 참조 트리 | `56f0ca03` app 트리(이번 세션 `rg` 실측) |
+| r3 가 함께 닫는 것 | verify 2 K1~K4 · I1 잔여(V1 rev 3 pair `SELF_BLOCKED` · 자기보고 ⚠️ 15 · `handler.test.ts` h10·h11) — plan 변경 없음 |
+
+#### ΔV7 실측 (이 턴 · Electron 39.8.10 · 실제 react-dom · 저장소 밖 일회성 프로브)
+
+| # | 시나리오 | 관측 | 쓰는 곳 |
+|---|---|---|---|
+| P1 | `usePanelSelection` 소유 화면에서 pointerdown → 선택 → 새 키(억제) → **문서 키 변경과 새 키 마운트가 같은 커밋** | 전환 뒤 `suppressed = yes` — 다음 포인터 이벤트까지 억제가 남는다. 같은 입력을 가짜 hooks 하네스로 재도 `suppressed=true` | K5 · D-065 · ps9b |
+| P2 | 같은 흐름에서 문서 키만 바꾸고 행 키는 그대로(ps9 형태) | `suppressed = no` — ps9 는 P1 을 재지 않는다 | ps9b 가 필요한 이유 |
+| P3 | `getSelection().removeAllRanges()` | 비어 있지 않은 선택 → `selectionchange` 1회 · 빈 선택 → 0회 | B33 |
+| P4 | 선택 두 끝의 노드를 DOM 에서 제거 | 선택이 **접힌 채 남는다**(`isCollapsed` true · `rangeCount` 1 · 앵커는 제거된 노드의 부모) · `selectionchange` 0회 | D-066 · ⑫ "안쪽 기록" 분기 · ps13 · B32 |
+
+- 원인(P1): `usePanelSelection.ts:24-27` 의 초기화가 레이아웃 효과 **본문**이라 같은 커밋의 자식 `useMountedRows` 레이아웃 효과(`rowMount.ts:6-10`)가 먼저 돌아 이전 제스처(`suppressed`)로 `cancel` 을 보낸다. 0326 의 같은 정리는 레이아웃 효과 **정리 함수**(`TranscriptViewport.tsx:259-265`)라 자식 create 전에 돈다.
+
+#### ΔV7 Decision Ledger
+
+| ID | 결정 | 근거 | 출처 | 상태 | 관계 |
+|---|---|---|---|---|---|
+| D-065 | 문서 전환 커밋에서 새 문서의 행 마운트 알림은 이전 문서의 제스처·억제·안쪽 기록으로 판정하지 않는다 — 그 커밋 뒤 억제 0 · 제스처 idle · 안쪽 기록 없음 | D-052 "세션·패널 문서 전환 시 이전 제스처와 억제를 정리한다" · P1 | 현재 결함(P1) | ACTIVE | D-052 의 전환 시점 해석 · EP-30 ⑮ |
+| D-066 | 이번 커밋이 선택 끝 노드를 지워 선택이 접혔으면(안쪽 기록 있음) 그 접힌 선택도 해제한다. 기록 없이 화면 안에 접힌 선택(캐럿)만 있으면 선택 없음과 같다 | D-052 "비어 있지 않은 선택의 어느 한 끝" · P4 — Chromium 은 접힌 선택을 남기고 `selectionchange` 를 내지 않아, 남은 캐럿에서 Shift 확장하면 새 행을 포함한 선택이 되살아난다 | 확장 채택(X1 두 항) | ACTIVE | EP-30 ⑫·⑯ |
+| D-067 | 판정기는 transcript c2 의 바깥 행 키 고정 · transcript c1 의 본문 → 카드 교차 복사 · c4 의 다른 패널 새 키를 판정 항으로 갖는다 | AC35 c1·c2 "본문 문단에서 카드 행까지" · "바깥 행 키가 고정된 채" · ΔV6 하네스 계약 c4 "B 스크롤로 B 새 키" — 이 항이 없으면 c4 는 B 에 새 키가 없어도 저절로 통과한다 | 확장 채택(X2·X3·X4) | ACTIVE | EP-31 ②③④ · AC40 |
+
+갱신 메모(ΔV7):
+
+- 결정 단위 SUPERSEDED 0 · OPEN 0. D-052·D-062~D-064 문장 변경 0.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-065 ↔ AC15 c6(ps9b) · D-066 ↔ AC15 c2 의 ST 입력(ps13·ps14) · D-067 ↔ AC40(vv12~vv14). D-052 "제거만 일어난 커밋에는 취소하지 않는다" ↔ rm3·ps11 유지 · "다른 패널의 마운트로 현재 선택을 지우지 않는다" ↔ ps3·c4·vv14 유지.
+- 같은 대상 여러 절 대조: 문서 전환 정리 — D-052 · ΔV6 EP-30 ⑮ · ΔV7 ⑮ 가 같은 세 항(억제 · 제스처 · 안쪽 기록)을 말하고 ΔV7 은 시점(전환 커밋)만 더한다. 0326 `TranscriptViewport.tsx:259-265` 는 EP-30 밖(VP-47·VP-50) — 바꾸지 않는다.
+
+#### ΔV7 확장 후보 판정 (verify 2 X1~X5)
+
+| # | 후보 | 판정 | 근거 / 열거 위치 |
+|---|---|---|---|
+| X1-a | `usePanelSelection.ts:61` `selection?.isCollapsed \|\|` — 기록이 있으면 접힌 선택도 해제 | **채택** | D-066 · P4 · EP-30 ⑫ 규칙 칸 · ps13 |
+| X1-b | `:31` `!selection.isCollapsed &&` — 접힌 선택은 이 화면 선택이 아니다 | **채택** | D-066 · EP-30 ⑯(신설) · ps14 |
+| X1-c | `:62` notify 의 안쪽 기록 리셋 | **경계 B33** | P3 — 비어 있지 않은 선택을 지우면 Chromium 이 `selectionchange` 를 내 `:39` 가 기록을 다시 계산한다. 빈 선택은 지울 범위가 없다 |
+| X2 | 판정기 transcript c2 바깥 행 키 고정(`check-visible-views.mjs:33-38`) | **채택** | D-067 · EP-31 ② 다섯째 항 · vv12·vv12b |
+| X3 | 판정기 transcript c1 교차 복사(`:54-56`) | **채택** | D-067 · EP-31 ③ 넷째 항 · vv13·vv13b |
+| X4 | 판정기 c4 다른 패널 새 키(`:61`) | **채택** | D-067 · EP-31 ④ 셋째 항 · vv14 |
+| X5 | 판정기 중복 기록 거부(`:74` `seen.has`) | **경계 B34** | 중복 기록도 각각 판정돼 거짓 통과를 만들지 않는다(빠진 기록은 ① 이 따로 막는다). 트리 형태 0 — v2 실측 원자료 23기록 · (화면, 시나리오) 쌍 23 고유 |
+
+#### ΔV7 대체표
+
+| 대상 행 | ΔV7 유효 행 |
+|---|---|
+| ΔV6 EP-30 ⑤ · ⑫ · ⑮ 행과 자리 검색 명령 | 아래 EP-30(ΔV7) 대체 행 · 신설 ⑯ · 검색 명령 |
+| ΔV6 EP-31 ② · ③ · ④ 행 | 아래 EP-31(ΔV7) 대체 행 |
+| ΔV6 AC15 · AC40 의 "검증 수단"·동작 기준 | 아래 AC15·AC40(ΔV7) |
+| ΔV6 V 변경 VP-26 · VP-14 · VP-59 행의 직접 oracle · 적대 증거 | 아래 ΔV7 V 변경 |
+
+#### ΔV7 Acceptance Criteria
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-09 | AT-09 / AC15 (ΔV7) | ΔV6 AC15 의 c1·c2·c4·c5 그대로 + c6 문서 전환 커밋(새 행 키 포함) 뒤 억제가 남지 않고, 새 문서에서 만든 선택은 이전 제스처로 해제되지 않는다(D-065). 끝 노드가 지워져 접힌 선택은 해제하고, 기록 없는 캐럿만 있으면 유지한다(D-066) | AT `check-visible-views` 화면 `git-*`·`artifact-*` · IT po1~po6 · ST ps1~ps17·ps9b·ps9c · UT rm1~rm8 | ΔV6 AC15 와 같다 |
+| R-09 | AT-09 / AC40 (ΔV7) | AT 판정 도구는 원자료를 다시 계산해 판정한다 — 격자 밖·빠진 기록 · c2 증거 4항(transcript 는 바깥 행 키 고정을 더한 5항) · c1·c5 복사·마운트 상한·첫·끝 도달(transcript c1 은 교차 복사 포함) · c4 선택·클립보드·다른 패널 새 키 중 하나라도 어긋나면 실패. 종료 코드 · root 실행은 ΔV6 와 같다 | UT `check-visible-views.test.mjs` vv1~vv16 · vv4b · vv6b · vv8b · vv9b · vv9c · vv10b · vv12b · vv13b · vv15b | ΔV6 AC40 과 같다 |
+
+- AC35 는 ΔV6 행 그대로다 — 판정기 쪽 강화(D-067)는 AC40 이 맡는다.
+
+#### ΔV7 §10 강제 지점
+
+**EP-30 (ΔV7)** — 자리 16(ΔV6 15 + ⑯). 아래 네 행만 ΔV6 표를 대체·신설하고 ①~④ · ⑥~⑪ · ⑬ · ⑭ 는 ΔV6 그대로다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 — 분기마다 입력 |
+|---|---|---|---|
+| ⑤ | `rightpanel/FileDiffSection.tsx:451` 생산자 | Git 본문 마운트 키 = 그린 행의 `row.id` — 행이 없는 가상 항목은 그리지 않으므로(`if (!row) return null`) 워커 창 응답이 늦게 도착해 **가상 항목 집합은 그대로인 채** 행이 새로 그려지는 커밋과, 창 밖 고정 행(초안·선택 핀)이 그려지는 커밋의 알림은 이 자리만 낸다 | po1 · AT c2 `git-*` · **po6** — production `DiffReview`(5,001행 파일 · 워커 경로 · `fakeClient.testfixture.ts` 응답 보류 · production `useVirtualRows`) → 가상 항목 마운트 → 소유 요소에 선택 + `selectionchange` → 창 응답 `resolveNext` → 새 `row.id` 마운트 → `rangeCount` 0 |
+| ⑫ | `features/chat/hooks/usePanelSelection.ts:58-64` 판정 | 유지 = 제스처 idle **그리고** 안쪽 기록 없음 **그리고** 이 화면 선택 없음(⑯). 셋 중 하나라도 아니면 진행 — 접힌 선택이거나 이 화면 선택이면 범위 해제(D-066) · 안쪽 기록 초기화 · 제스처 `cancel`(드래그 중이면 억제) | ps1(선택 없음 → 0) · ps2(두 끝 안 → 1) · ps3(형제 패널 → 0) · ps10 · ps11 · ps12 · **ps13**(안쪽 기록 있음 → `selectionchange` 없이 선택을 그 화면 안 접힌 선택으로 바꿈 → 새 키 → 해제 1) · **ps15**(pointerdown · 선택 없음 → 새 키 → 억제) · **ps16**(`selectionchange` 없이 선택을 두 끝 안으로 둠 · idle → 새 키 → 해제 1) |
+| ⑮ | `usePanelSelection.ts:19-27` 문서 전환 | 문서 키가 바뀌는 커밋에서 그 커밋의 자식 마운트 알림보다 먼저 — 억제 해제 · 제스처 idle · 안쪽 기록 초기화(세 항 · D-065) | ps9(억제 중 문서 키만 변경 → 억제 0 · 새 선택 → 해제 0) · **ps9b**(억제 중 문서 키 변경과 새 키 `[5,6,7]` 를 같은 커밋 → 억제 0 · 이어 새 선택 → 해제 0) · **ps9c**(두 끝 안 선택 기록 → 같은 키로 문서 키만 변경 → `selectionchange` 없이 선택을 접힌 선택으로 바꿈 → 새 키 → 해제 0) |
+| ⑯ | `usePanelSelection.ts:28-35` 이 화면 선택 판정(`contains`) | 비어 있지 않은 선택 **그리고**(anchor 가 이 화면 안 **또는** focus 가 이 화면 안) — 접힌 선택 · 선택 없음 · 두 끝 밖은 거짓 | ps2(두 끝 안) · ps4(anchor 밖 · focus 안 → 1) · **ps17**(anchor 안 · focus 형제 패널 → 1) · **ps14**(기록 없이 이 화면 안 캐럿만 · `selectionchange` 를 낸 뒤 · idle → 새 키 → 해제 0) · ps3(두 끝 밖 → 0) |
+
+- 자리 검색 명령(`app/`): `rg -n "keys\.some\(\(key\) => !previous\.current\.has\(key\)\)|previous\.current = new Set\(keys\)|if \(added\) notify\?\.\(\)|^\s+useMountedRows\(|VirtualRowMountContext\.Provider value=|const cancelNestedSelection = useCallback|const notify = useCallback|if \(inside\.current && isSuppressed\(gesture\.current\)\)|document\.addEventListener\('pointerup'|\}, \[documentKey\]\)|onPointerDown=\{nativeSelection\.onPointerDown\}|const contains = useCallback" src/renderer/src/shared/ui/virtual src/renderer/src/features/chat/hooks/usePanelSelection.ts src/renderer/src/features/chat/components/transcript/TranscriptViewport.tsx src/renderer/src/features/chat/harnesses/common/rightpanel --glob '!*.test.*'` → `56f0ca03` 17줄 = 자리 16 + 뺀 1(`TranscriptViewport.tsx:509`). ΔV6 술어의 `if \(key !== documentKey\)` 는 `\}, \[documentKey\]\)` 로 바꿨다 — K5 를 고치며 렌더 단계 검사가 사라져도 ⑮ 자리가 남는다.
+- 등록 변이(ΔV7 추가): ⑤ 생산자 제거(po6 red) · ⑮ 정리를 자식 알림 뒤로 되돌림 — 현재 형태(레이아웃 효과 본문)(ps9b red) · ⑫ `!inside.current` 항 제거(ps13 red) · ⑯ `anchorNode` 항 제거(ps17 red). ΔV6 등록 변이는 그대로이고, ΔV6 의 "⑫ `contains` 의 `focusNode` 항 제거(ps4 red)" 는 자리만 ⑯ 으로 옮긴다.
+- IT seam(po6): `panelSelectionOwners.test.ts` 의 조립에 `useComputeDocument` 준비 완료와 `shared/compute/fakeClient.testfixture.ts` 를 더한다(`fileDiffVirtual.render.test.ts` v11 이 같은 5,001행 워커 경로 seam 을 쓴다). `useVirtualRows` 는 mock 하지 않는다 — ④ 가 같은 실행에서 돌아야 ⑤ 만의 알림을 가른다.
+- ST seam(ps13·ps16·ps9c): `selectionchange` 없이 선택을 바꾸는 입력은 가짜 선택 `viewportSelection.testfixture.ts` 의 `setBaseAndExtent` 를 리스너 호출 없이 쓴다(P4 의 Chromium 동작을 흉내 낸다).
+- 실패 의미: ⑤ 가 빠지면 워커 응답이 늦은 큰 Git 파일에서 선택이 새로 그려진 행을 포함한 채 남는다 · ⑫ 의 기록 항이 빠지면 지워진 행이 남긴 캐럿에서 Shift 확장이 되살아난다 · ⑮ 가 자식 알림 뒤면 문서 전환 뒤 억제가 다음 포인터 이벤트까지 남는다(산출물은 `user-select: none` 유지).
+- 선언 경계 B32: 문서 전환 커밋에서 **이전 문서 선택**을 해제하는지는 계약이 아니다 — 이전 행이 언마운트되면 Chromium 은 선택을 접어 복사할 텍스트가 없다(P4).
+- 선언 경계 B33: notify 뒤 안쪽 기록 리셋(`usePanelSelection.ts:62`)은 계약이 아니다 — 비어 있지 않은 선택의 범위 해제는 `selectionchange` 1회를 내 `:39` 가 기록을 다시 계산한다(P3). 빈 선택은 지울 범위가 없다.
+
+**EP-31 (ΔV7)** — 자리 6 그대로. 아래 세 행만 ΔV6 표를 대체한다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 |
+|---|---|---|---|
+| ② | `cancelFailures` c2 | `keysBefore` 비어 있지 않음 ∧ `keysAfter∖keysBefore` ≥ 1 ∧ `endpointsConnected` ∧ `selectionBefore` 비어 있지 않음 ∧ `selectionAfter === ''` ∧ `clipboard === 'unchanged'` — 항마다 + transcript 화면은 `outerBefore` 비어 있지 않음 ∧ `outerAfter` 와 길이·순서까지 같음(D-067). git·artifact 화면은 바깥 키를 보지 않는다 | vv4(차집합 0) · **vv4b**(`keysBefore` 빈 배열 → 실패) · vv5 · **vv6b**(`selectionBefore` 빈 값 → 실패) · vv6 · vv7 · **vv12**(transcript c2 `outerAfter` 한 키 다름 → 실패) · **vv12b**(transcript c2 `outerBefore` 없음 → 실패) · vv1(git·artifact c2 기록에 바깥 키 없음 → 통과) |
+| ③ | `copyFailures` c1·c5 | `expected` 비어 있지 않음 ∧ `clipboard === expected` · 마운트 행은 정수 ∧ 1 이상 ∧ 150 미만 · `reachedFirst` · `reachedLast` · transcript c1 은 `crossExpected` 비어 있지 않음 ∧ `crossClipboard === crossExpected` — 항마다 | vv8 · **vv8b**(`expected` 빈 값 → 실패) · vv9(150) · **vv9b**(마운트 0 → 실패) · **vv9c**(마운트 없음 → 실패) · **vv15**(`reachedFirst` 거짓 → 실패) · **vv15b**(`reachedLast` 거짓 → 실패) · **vv13**(transcript c1 `crossClipboard` 다름 → 실패) · **vv13b**(transcript c1 `crossExpected` 없음 → 실패) · vv1(git·artifact c1 에 교차 기록 없음 → 통과) |
+| ④ | `isolationFailures` c4 | 다른 패널 `keysAfter∖keysBefore` ≥ 1 ∧ `selectionBefore` 비어 있지 않음 ∧ `selectionAfter === selectionBefore` ∧ `clipboard === selectionBefore` — 항마다 | vv10(선택 사라짐) · **vv10b**(`selectionBefore` 빈 값 → 실패) · **vv16**(선택은 같고 클립보드만 다름 → 실패) · **vv14**(다른 패널 새 키 0 → 실패) |
+
+- 등록 변이(ΔV7 추가): ② transcript 바깥 키 항 제거(vv12 red) · ④ 새 키 항 제거(vv14 red). ΔV6 등록 변이 3 은 그대로다.
+- 선언 경계 B34: 중복 기록 거부(`check-visible-views.mjs:74` `seen.has`)는 계약이 아니다 — 중복도 각각 판정돼 거짓 통과를 만들지 않는다. 트리 형태 0(v2 원자료 23기록 · 쌍 23 고유).
+
+#### ΔV7 V 변경
+
+| Node / pair | provenance · requiredness | production path | 직접 oracle | 선택 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| AR-07 / IT-07 · VP-26 | CHANGED(ΔV7 — ⑤ 입력) · REQUIRED | ΔV6 와 같다 | tn1~tn4 · po1~po6 | ΔV6 4종 + ⑤ 생산자 제거(po6) | EP-30 ④~⑪ |
+| SD-05 / ST-05 · VP-14 | CHANGED(ΔV7 — ⑫⑮ 규칙 · ⑯ 신설) · REQUIRED | ΔV6 경로 + 문서 전환 커밋(D-065) · 끝 노드 제거로 접힌 선택(D-066) | ps1~ps17 · ps9b · ps9c | ΔV6 4종 + ⑮ 정리 순서(ps9b) · ⑫ 기록 항(ps13) · ⑯ `anchorNode`(ps17) | EP-30 ⑫~⑯ |
+| MD-17 / UT-17 · VP-59 | CHANGED(ΔV7 — ②③④ 항) · REQUIRED | ΔV6 와 같다 | vv1~vv16 · vv4b · vv6b · vv8b · vv9b · vv9c · vv10b · vv12b · vv13b · vv15b | ΔV6 3종 + 바깥 키(vv12) · c4 새 키(vv14) | EP-31 (6) |
+| MD-05 · VP-34 · R-09 · VP-09 · VP-50 | 변경 없음(ΔV6) | — | — | — | — |
+
+- SUPERSEDED 노드 0 — 증거 이관 없음.
+
+#### ΔV7 구현 설계 · 파일
+
+| 변경 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `features/chat/hooks/usePanelSelection.ts` | ⑮ (K5) | 문서 전환 정리를 같은 커밋의 자식 레이아웃 효과보다 먼저 돌게 한다 — 0326 `TranscriptViewport.tsx:259-265` 처럼 `[documentKey]` 레이아웃 효과의 **정리 함수**에서 제스처 idle · 안쪽 기록 초기화 · 억제 해제를 한다(D-052 "기존 0326 … 제스처 상태 전이를 공용화하거나 재사용"). 다른 방법도 되지만 ps9b·ps9 를 함께 통과해야 한다 | ps9 · ps9b · ps9c |
+| `features/chat/hooks/usePanelSelection.test.ts` | VP-14 | ps9b · ps9c · ps13~ps17 | `viewportSelection.testfixture.ts` |
+| `harnesses/common/rightpanel/panelSelectionOwners.test.ts` | VP-26 | po6 | `fakeClient.testfixture.ts` · production `useVirtualRows` |
+| `app/scripts/check-visible-views.test.mjs` | VP-59 | vv12~vv16 · vv4b · vv6b · vv8b · vv9b · vv9c · vv10b · vv12b · vv13b · vv15b | — |
+
+- 생산 코드 변경은 `usePanelSelection.ts` ⑮ 하나다(K5). `check-visible-views.mjs` 의 판정 항은 이미 있다 — 테스트 입력만 더한다. 위 oracle 이 다른 생산 결함을 드러내면 고치고 `[구현자 기입] 놓친 잠재 문제` 에 적는다.
+- 테스트 소스 규칙: 새·수정 테스트는 unit 풀 — 자식 프로세스·SQLite·실제 git 0, `[test-pools]`·예산 가드 위반 0.
+- 운영 gate 변경 없음 — ΔV6 의 `check-visible-views` 행과 §7-A 표를 승계한다.
+
+#### ΔV7 READY self-review (관측)
+
+- Decision: D-065~D-067 ACTIVE · SUPERSEDED 0 · OPEN 0. D-052 문장 변경 0.
+- 확장 창: X1~X5 를 이 턴에 전부 판정(채택 5 · 경계 2 — X1 은 세 항으로 나눴다). 다음 verify 는 3회째(창 밖)이고 이 턴 뒤 새 열거 항목은 출처(현재 결함 · plan 내부 정합 · 사용자 결정)가 있어야 한다.
+- V: CHANGED 왼쪽 노드 AR-07 · SD-05 · MD-17 ↔ REQUIRED VP-26 · VP-14 · VP-59. SUPERSEDED 0.
+- 분모: EP-30 검색 `56f0ca03` 17줄 실측 − 뺀 1 = 16 · EP-31 9줄(자리 6) 그대로.
+- 규칙 칸 ↔ 입력 칸: ⑫(기록 없음·선택 없음·idle → 유지 · 기록 있음 → 진행 · 드래그 → 억제 · 이 화면 선택 → 해제 · 접힌 선택 → 해제) ↔ ps1·ps13·ps15·ps16·ps2 · ⑮ 세 항 + 같은 커밋 ↔ ps9·ps9b·ps9c · ⑯(비어 있지 않음 · anchor · focus · 둘 다 밖) ↔ ps14·ps17·ps4·ps3 · ⑤(늦은 행 도착) ↔ po6 · EP-31 ② 항 ↔ vv4·vv4b·vv5·vv6·vv6b·vv7·vv12·vv12b(바깥 키 없는 화면 → vv1) · ③ 항 ↔ vv8·vv8b·vv9·vv9b·vv9c·vv13·vv13b·vv15·vv15b(교차 없는 화면 → vv1) · ④ 항 ↔ vv10·vv10b·vv14·vv16.
+- 방향: "해제한다" 자리는 항 제거 변이(ps13·ps16·ps17·po6)가, "유지한다" 자리는 과해제 변이(ps14 — `isCollapsed` 항 제거 · ps9c — 기록 리셋 제거)가 red 여야 한다.
+- 수치 계약 런타임: 새 수치 0. P1·P3·P4 는 실제 Chromium 관측이다 — 사람 실기로 미룬 것 0.
+- 조사 대조: `FileDiffSection.tsx` 행 없음 `return null` 실재 · `fakeClient.testfixture.ts` `resolveNext` 실재 · `fileDiffVirtual.render.test.ts` v11 5,001행 워커 경로 실재 · `TranscriptViewport.tsx:259-265` 정리 함수 실재.
+
+## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다 · ΔV5 는 AC4·EP-3 ③ 의 마지막 작업 규칙을 보탠다 · ΔV6 는 선택 취소 pair·§10 과 AT 도구를 고정한다 · ΔV7 은 그 일부 행을 대체한다)
 
 ## 메타
 
@@ -2000,11 +2135,12 @@ verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md)
 | K2 | EP-30 ⑫ 분기 입력 누락 — 드래그 중·기록 없음(S12a) · 기록 있음·선택 밖(S12b) · 기록 없음·선택 안(S12c) · anchor 만 안(S12i) | VP-14 · EP-30 ⑫ 규칙 칸 | 규칙 칸 분기마다 ps 입력을 더한다 | 이행 | BLOCKING | open |
 | K3 | EP-30 ⑮ 셋째 항(안쪽 기록 초기화) 제거 green | VP-14 · EP-30 ⑮ | ps9 에 그 항을 가르는 입력 | 이행 | BLOCKING | open |
 | K4 | EP-31 ③ 첫·끝 행 도달 · ④ c4 클립보드 항 입력 없음(J3f·J3l·J4c) | VP-59 · EP-31 ③④ | vv 입력 추가 | 이행 | BLOCKING | open |
-| X1 | 접힌·빈 선택 처리 항(`usePanelSelection.ts:31`·`:61` `isCollapsed` · `:62` notify 안쪽 기록 리셋) 제거 green | ⑫ 밖 | 설계자 채택 또는 경계 선언 | 확장 | PLAN_GAP | open |
-| X2 | 판정기 transcript c2 바깥 행 키 고정 검사(`check-visible-views.mjs:33-38`) 입력 없음 | EP-31 ② 밖 | 같음 | 확장 | PLAN_GAP | open |
-| X3 | 판정기 transcript c1 교차 복사 항(`:54-56`) 입력 없음 | EP-31 ③ 밖 | 같음 | 확장 | PLAN_GAP | open |
-| X4 | 판정기 c4 B 새 키 항(`:61`) 입력 없음 | EP-31 ④ 밖 | 같음 | 확장 | PLAN_GAP | open |
-| X5 | 판정기 중복 기록 거부(`:74`) 입력 없음 | EP-31 ① 밖 | 같음 | 확장 | PLAN_GAP | open |
+| X1 | 접힌·빈 선택 처리 항(`usePanelSelection.ts:31`·`:61` `isCollapsed` · `:62` notify 안쪽 기록 리셋) 제거 green | ⑫ 밖 | 설계자 채택 또는 경계 선언 | 확장 | PLAN_GAP → `:61`·`:31` 채택(ΔV7 D-066 · ps13·ps14) · `:62` 경계 B33 | adopted · boundary |
+| X2 | 판정기 transcript c2 바깥 행 키 고정 검사(`check-visible-views.mjs:33-38`) 입력 없음 | EP-31 ② 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv12·vv12b) | adopted |
+| X3 | 판정기 transcript c1 교차 복사 항(`:54-56`) 입력 없음 | EP-31 ③ 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv13·vv13b) | adopted |
+| X4 | 판정기 c4 B 새 키 항(`:61`) 입력 없음 | EP-31 ④ 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv14) | adopted |
+| X5 | 판정기 중복 기록 거부(`:74`) 입력 없음 | EP-31 ① 밖 | 같음 | 확장 | PLAN_GAP → 경계 B34(중복 기록도 각각 판정 · v2 원자료 중복 0) | boundary |
+| K5 | 억제 중 문서 키 변경과 새 행 키 마운트가 같은 커밋이면 전환 뒤에도 억제가 남는다(ΔV7 P1 — Electron 실측) — `usePanelSelection.ts:24-27` 초기화가 자식 `useMountedRows` 효과 뒤에 돈다 | VP-14 · EP-30 ⑮ · D-052 · D-065 — 출처: ΔV7 설계 조사(현재 결함) | 정리를 자식 알림보다 먼저(0326 정리 함수 형태) · ps9b | 현재 | BLOCKING | open |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)
