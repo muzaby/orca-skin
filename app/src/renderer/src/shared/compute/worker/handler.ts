@@ -1,6 +1,7 @@
 // 워커의 요청 처리 (0324 AR-01) — 요청 하나를 받아 결과 하나를 낸다. `self` 를 보지 않는 순수
 // 함수라 vitest 가 그대로 부른다. 배선은 `compute.worker.ts` 가 한다.
 
+import { TOKENIZE_MAX_LINE_CHARS, TOKENIZE_LINE_TIME_LIMIT_MS } from '../limits'
 import { diffLines } from 'diff'
 import { hunksToDiffLines } from '../diffModel'
 import {
@@ -15,10 +16,17 @@ import { getHighlighter } from './highlighter'
 
 export async function compute(request: ComputeRequest): Promise<ComputeResult> {
   switch (request.kind) {
+    case 'markdown':
+      throw new Error('wrong-lane')
     case 'highlight': {
       const highlighter = await getHighlighter()
       return {
-        html: highlighter.codeToHtml(request.code, { lang: request.lang, theme: request.theme })
+        html: highlighter.codeToHtml(request.code, {
+          lang: request.lang,
+          theme: request.theme,
+          tokenizeMaxLineLength: TOKENIZE_MAX_LINE_CHARS,
+          tokenizeTimeLimit: TOKENIZE_LINE_TIME_LIMIT_MS
+        })
       }
     }
     case 'diffTokens': {
@@ -26,7 +34,12 @@ export async function compute(request: ComputeRequest): Promise<ComputeResult> {
       const rows = (text: string | null): TokenRows | null =>
         text === null
           ? null
-          : highlighter.codeToTokens(text, { lang: request.lang, theme: request.theme }).tokens
+          : highlighter.codeToTokens(text, {
+              lang: request.lang,
+              theme: request.theme,
+              tokenizeMaxLineLength: TOKENIZE_MAX_LINE_CHARS,
+              tokenizeTimeLimit: TOKENIZE_LINE_TIME_LIMIT_MS
+            }).tokens
       return { old: rows(request.oldText), new: rows(request.newText) }
     }
     case 'diffLines':

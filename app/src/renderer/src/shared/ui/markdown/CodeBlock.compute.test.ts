@@ -16,6 +16,7 @@ import { setComputeClient } from '../../compute/client'
 import { fakeComputeClient, type FakeCompute } from '../../compute/fakeClient.testfixture'
 import { HIGHLIGHT_MAX_CHARS } from '../../compute/limits'
 import { installFakeDom, type FakeDom, type FakeNode } from '../renderHarness.testfixture'
+import * as themeStore from './themeStore'
 import { CodeBlock } from './CodeBlock'
 import { MarkdownStreamingContext } from './streamingContext'
 
@@ -52,9 +53,11 @@ const innerHtml = (): string | undefined =>
 describe('CodeBlock — 계산 워커 강조', () => {
   it('cb1: 같은 코드로 열 번 다시 그려도 줄 번호는 한 번만 계산한다', () => {
     const code = 'first\nsecond\n'
+    const theme = vi.spyOn(themeStore, 'getThemeSnapshot')
     const split = vi.spyOn(String.prototype, 'split')
     try {
       for (let pass = 0; pass <= 10; pass++) {
+        theme.mockReturnValue(pass % 2 ? 'github-dark' : 'github-light')
         dom.render(
           createElement(CodeBlock, {
             code,
@@ -72,6 +75,7 @@ describe('CodeBlock — 계산 워커 강조', () => {
       expect(pre()?.textContent).toBe('1new')
     } finally {
       split.mockRestore()
+      theme.mockRestore()
     }
   })
 

@@ -19,3 +19,10 @@ export const COMPUTE_RESULT_ELEMENT_CHARS = 36
 export const COMPOSER_DECORATION_MAX_CHARS = 20_000
 // 워커가 연속으로 이만큼 실패하면 창이 닫힐 때까지 워커를 만들지 않는다.
 export const COMPUTE_FAILURE_LIMIT = 3
+
+export const MARKDOWN_WORKER_MIN_CHARS = 4_000
+export const MARKDOWN_BLOCK_MAX_CHARS = 50_000
+export const MARKDOWN_HAST_MAX_NODES = 20_000
+export const COMPUTE_DOC_MAX_CHARS = 32_000_000
+export const TOKENIZE_MAX_LINE_CHARS = 20_000
+export const TOKENIZE_LINE_TIME_LIMIT_MS = 50

@@ -6,6 +6,8 @@ import {
   type MarkdownSourcePart,
   type MarkedText
 } from '../../../../shared/ui/markdown/sourceParts'
+import { WorkerMarkdownTail } from './WorkerMarkdownTail'
+import { MARKDOWN_WORKER_MIN_CHARS } from '../../../../shared/compute/limits'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { MarkdownStreamingContext } from '../../../../shared/ui/markdown/streamingContext'
 import { MARKDOWN_TYPOGRAPHY } from '../../../../shared/ui/markdown/typography'
@@ -85,6 +87,8 @@ export const StreamingMarkdown = memo(function StreamingMarkdown({
         <MarkdownStreamingContext.Provider value={true}>
           {openFence ? (
             <StreamingFence fence={openFence} className={className} markedText={fenceParts} />
+          ) : tail.length > MARKDOWN_WORKER_MIN_CHARS ? (
+            <WorkerMarkdownTail tail={tail} parts={tailParts} className={className} />
           ) : (
             <Markdown source={tail} sourceParts={tailParts} className={className} />
           )}

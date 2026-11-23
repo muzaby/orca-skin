@@ -244,7 +244,7 @@ export const SYNC_REGISTRY = [
 export const ALLOWED = {
   // (b) 계산 라이브러리 — 워커 구역은 전부, `inline.ts` 는 `diff` 만.
   b: {
-    modules: ['shiki', 'diff'],
+    modules: ['shiki', 'diff', 'unified', 'remark-parse', 'remark-rehype'],
     anyModule: [`${RENDERER}shared/compute/worker/`],
     byModule: { diff: [`${RENDERER}shared/compute/inline.ts`] }
   },
