@@ -1,0 +1,84 @@
+# verify 2 mutation runs (mutate.py TSV) — spec: EP-30·EP-31 등록·sweep (vitest/node), Electron AT, 하한 ④·VP-48
+## vitest·node (spec.jsonl)
+id	결과	exit	요약
+W1	red (기대 일치)	1	vitest 5 failed | 24 passed (29)
+W2	red (기대 일치)	1	vitest 3 failed | 26 passed (29)
+R2	red (기대 일치)	1	vitest 12 failed | 17 passed (29)
+W3	red (기대 일치)	1	vitest 18 failed | 11 passed (29)
+N6	red (기대 일치)	1	vitest 2 failed | 27 passed (29)
+N8	red (기대 일치)	1	vitest 2 failed | 27 passed (29)
+N10	red (기대 일치)	1	vitest 2 failed | 27 passed (29)
+R7	red (기대 일치)	1	vitest 2 failed | 27 passed (29)
+R12f	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+R13	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+R14u	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+R14c	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+R14b	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+R15	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S4	red (기대 일치)	1	vitest 2 failed | 27 passed (29)
+S5	green (기대 red)	0	vitest 29 passed (29)
+S9	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S11	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S7a	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S7b	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S7c	red (기대 일치)	1	vitest 2 failed | 27 passed (29)
+S7d	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S7e	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S12a	green (기대 red)	0	vitest 29 passed (29)
+S12b	green (기대 red)	0	vitest 29 passed (29)
+S12c	green (기대 red)	0	vitest 29 passed (29)
+S12d	red (기대 일치)	1	vitest 12 failed | 17 passed (29)
+S12e	green (기대 red)	0	vitest 29 passed (29)
+S12f	red (기대 일치)	1	vitest 12 failed | 17 passed (29)
+S12g	green (기대 red)	0	vitest 29 passed (29)
+S12h	red (기대 일치)	1	vitest 7 failed | 22 passed (29)
+S12i	green (기대 red)	0	vitest 29 passed (29)
+S12j	green (기대 red)	0	vitest 29 passed (29)
+S13b	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S15b	red (기대 일치)	1	vitest 1 failed | 28 passed (29)
+S15c	green (기대 red)	0	vitest 29 passed (29)
+S14s	green (기대 일치)	0	vitest 29 passed (29)
+J2k	red (기대 일치)	1	node --test fail 1 · vv4 no added key
+J2c	red (기대 일치)	1	node --test fail 1 · vv5 disconnected endpoints
+J1m	red (기대 일치)	1	node --test fail 2 · vv2 missing record; vv11 exit codes and launcher arguments
+J1u	red (기대 일치)	1	node --test fail 1 · vv3 unknown record
+J2s	red (기대 일치)	1	node --test fail 1 · vv6 surviving selection
+J2p	red (기대 일치)	1	node --test fail 1 · vv7 clipboard overwritten
+J2o	green (기대 red)	0	node --test fail 0
+J3e	red (기대 일치)	1	node --test fail 2 · vv8 copy mismatch; vv9 fresh copy mismatch
+J3m	red (기대 일치)	1	node --test fail 1 · vv9 oversized mount
+J3f	green (기대 red)	0	node --test fail 0
+J3l	green (기대 red)	0	node --test fail 0
+J3x	green (기대 red)	0	node --test fail 0
+J4s	red (기대 일치)	1	node --test fail 1 · vv10 other panel clears selection
+J4c	green (기대 red)	0	node --test fail 0
+J4k	green (기대 red)	0	node --test fail 0
+J5e	red (기대 일치)	1	node --test fail 1 · vv11 exit codes and launcher arguments
+J5x	green (기대 red)	0	node --test fail 0
+J6	red (기대 일치)	1	node --test fail 1 · vv11 exit codes and launcher arguments
+J1d	green (기대 red)	0	node --test fail 0
+# 원복 확인: 모든 파일 원문 그대로
+## Electron check-visible-views (spec-e.jsonl)
+id	결과	exit	요약
+W1e	green (기대 red)	0	(출력 없음)
+W2e	green (기대 red)	0	(출력 없음)
+W3e	red (기대 일치)	1	(출력 없음)
+N6e	red (기대 일치)	1	(출력 없음)
+N8e	red (기대 일치)	1	(출력 없음)
+N10e	red (기대 일치)	1	(출력 없음)
+S5e	green (기대 red)	0	(출력 없음)
+# 원복 확인: 모든 파일 원문 그대로
+## 하한 ④ · VP-48 (spec-4.jsonl)
+id	결과	exit	요약
+V57-1r	red (기대 일치)	1	vitest 3 failed | 36 passed (39)
+V57-2	red (기대 일치)	1	vitest 1 failed | 38 passed (39)
+Y3	red (기대 일치)	1	vitest 2 failed | 37 passed (39)
+Y4	red (기대 일치)	1	vitest 3 failed | 36 passed (39)
+V2-6	red (기대 일치)	1	vitest 2 failed | 12 passed (14)
+Y5	red (기대 일치)	1	vitest 2 failed | 12 passed (14)
+Y6	red (기대 일치)	1	vitest 3 failed | 11 passed (14)
+Y7	red (기대 일치)	1	vitest 2 failed | 12 passed (14)
+VP48-a	red (기대 일치)	1	vitest 2 failed | 37 passed (39)
+VP48-b	green (기대 red)	0	vitest 39 passed (39)
+VP48-c	red (기대 일치)	1	vitest 1 failed | 38 passed (39)
+# 원복 확인: 모든 파일 원문 그대로
