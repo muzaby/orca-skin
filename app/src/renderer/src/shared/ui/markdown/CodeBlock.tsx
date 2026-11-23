@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { CopyIconButton } from '../CopyIconButton'
 import { useI18n } from '../../i18n'
 import { MarkdownStreamingContext } from './streamingContext'
@@ -27,6 +27,22 @@ const LINE_NUMBER_CLASSES =
   '[&_.line]:before:content-[counter(line)] [&_.line]:before:[counter-increment:line] ' +
   '[&_.line]:before:mr-4 [&_.line]:before:inline-block [&_.line]:before:w-6 ' +
   '[&_.line]:before:text-right [&_.line]:before:text-ink3 [&_.line]:before:select-none'
+
+function PlainLineNumbers({ code }: { code: string }): React.JSX.Element {
+  const numbers = useMemo(
+    () => Array.from({ length: code.split('\n').length }, (_, index) => index + 1).join('\n'),
+    [code]
+  )
+  return (
+    <span
+      aria-hidden="true"
+      data-transcript-chrome=""
+      className="mr-4 shrink-0 select-none text-right text-ink3"
+    >
+      {numbers}
+    </span>
+  )
+}
 
 /** 구문 강조는 계산 워커가 한다(0324) — 응답 전에는 plain pre, 응답 후 HTML 로 교체한다.
  *  입력이 바뀌면 이전 결과는 stale 로 보고 다시 원문을 그린다. */
@@ -96,15 +112,7 @@ export function CodeBlock({
     <div className={`${shell} ${embedded ? '' : 'bg-t1'}`}>
       {showHeader && header}
       <pre className={`m-0 overflow-auto p-3 text-code text-t9 ${showLineNumbers ? 'flex' : ''}`}>
-        {showLineNumbers && (
-          <span
-            aria-hidden="true"
-            data-transcript-chrome=""
-            className="mr-4 shrink-0 select-none text-right text-ink3"
-          >
-            {Array.from({ length: code.split('\n').length }, (_, index) => index + 1).join('\n')}
-          </span>
-        )}
+        {showLineNumbers && <PlainLineNumbers code={code} />}
         <code>
           {markedText?.length
             ? markedText.map((run) => (
