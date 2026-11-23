@@ -51,7 +51,7 @@ it('동일 원천의 revision은 재사용하고 다른 객체에 새 번호를 
   expect(revisionOf({})).toBeGreaterThan(first)
   expect(revisionOf(source)).toBe(first)
 })
-it('첫 작업 직전에 한 번 열고, 마지막 작업 뒤에 닫으며 비캐시 꼬리는 재요청한다', async () => {
+it('d2/d7 첫 작업 직전에 한 번 열고, 마지막 작업 뒤에 닫으며 비캐시 꼬리는 재요청한다', async () => {
   const { client, ports } = harness()
   const doc = ref('a')
   const lease = client.openDocument(doc, { text: 'abc' }, 'markdown')
@@ -80,7 +80,7 @@ it('첫 작업 직전에 한 번 열고, 마지막 작업 뒤에 닫으며 비�
     { type: 'doc.close', ref: doc }
   ])
 })
-it('문서 용량 회복은 구독마다 한 번 알리고 이미 해제한 임차는 건너뛴다', async () => {
+it('d8 문서 용량 회복은 구독마다 한 번 알리고 이미 해제한 임차는 건너뛴다', async () => {
   const { client, ports } = harness(3)
   const a = client.openDocument(ref('a'), { text: 'abc' }, 'markdown')
   const b = client.openDocument(ref('b'), { text: 'def' }, 'markdown')
@@ -104,7 +104,7 @@ it('문서 용량 회복은 구독마다 한 번 알리고 이미 해제한 임�
   expect(client.peek(markdown(b.ref))).toEqual({ tooLarge: true })
   b.release()
 })
-it('unknown-doc은 한 번만 다시 열고 레인 오류 뒤에는 새 워커에 원문을 다시 보낸다', async () => {
+it('d3/d9 unknown-doc은 한 번만 다시 열고 레인 오류 뒤에는 새 워커에 원문을 다시 보낸다', async () => {
   const { client, ports } = harness()
   const lease = client.openDocument(ref('a'), { text: 'abc' }, 'markdown')
   const work = client.request(markdown(lease.ref))
@@ -163,4 +163,61 @@ it('opens both sides once, replaces cancelled pair computation and reopens on th
   await queued.promise
   left.release()
   right.release()
+})
+
+it('d1 repeated range uses the cached result, new revision sends new work', async () => {
+  const { client, ports } = harness(),
+    doc = ref('file')
+  const lease = client.openDocument(doc, { text: 'abc' }, 'markdown'),
+    req = markdown(doc)
+  const a = client.request(req),
+    port = ports.get('markdown')!
+  port.reply()
+  await a.promise
+  const before = port.messages.length
+  await client.request(req).promise
+  expect(port.messages).toHaveLength(before)
+  const next = { ...doc, revision: 2 },
+    second = client.openDocument(next, { text: 'xyz' }, 'markdown'),
+    job = client.request(markdown(next))
+  expect(port.messages.slice(before)).toMatchObject([
+    { type: 'doc.open', ref: next },
+    { kind: 'markdown', doc: next }
+  ])
+  port.reply()
+  await job.promise
+  lease.release()
+  second.release()
+})
+it('d4 real worker deletes closed document and reopens new content', async () => {
+  const { createWorkerState } = await import('./worker/state'),
+    run = createWorkerState(),
+    doc = ref('doc'),
+    req = { kind: 'codeView' as const, id: 1, source: { doc }, start: 0, end: 1 }
+  for (const text of ['first', 'second']) {
+    await run({ type: 'doc.open', ref: doc, text })
+    expect(await run(req)).toMatchObject({ ok: true, result: { lines: [text] } })
+    await run({ type: 'doc.close', ref: doc })
+    expect(await run(req)).toMatchObject({ ok: false, error: 'unknown-doc' })
+  }
+})
+it('d5 unregistered document is rejected before worker creation', async () => {
+  const { client, ports } = harness()
+  await expect(client.request(markdown(ref('missing'))).promise).rejects.toThrow('doc-unavailable')
+  expect(ports.size).toBe(0)
+})
+it('d6 last lease sends exactly one close after the completed job', async () => {
+  const { client, ports } = harness(),
+    doc = ref('doc'),
+    one = client.openDocument(doc, { text: 'abc' }, 'markdown'),
+    two = client.openDocument(doc, { text: 'abc' }, 'markdown')
+  const job = client.request(markdown(doc))
+  const port = ports.get('markdown')!
+  port.reply()
+  await job.promise
+  one.release()
+  expect(port.messages).toHaveLength(2)
+  two.release()
+  two.release()
+  expect(port.messages.slice(2)).toEqual([{ type: 'doc.close', ref: doc }])
 })

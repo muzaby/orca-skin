@@ -8,7 +8,7 @@
 
 ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다.
 
-현재 상태는 plan/READY(ΔV6 · 라운드 2)다 — verify 1(RETURN_TO_PLAN)의 H1 을 채택하고 선택 취소 경로 EP-30 을 고정했다. r2 는 ΔV6 와 verify 1 I1·I3·I4 를 닫는다([verify.md](verify.md)). r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 impl/IMPL_DONE(ΔV6 · 라운드 2)이며 다음 주체는 독립 검증자다. H1·I3의 선택 취소 경로와 판정기를 구현했다. I1의 입증 범위와 남은 항목은 아래 r2 구현 보고에 기록했다([verify.md](verify.md)). r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.3은 ΔV4의 완료 표시를 구현했다. r1.2(부분 구현)가 올린 PLAN_GAP G2(OpenCode 의 메시지 완료와 턴 종료 사이 표시)를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. D-003의 착수 선행조건을 충족했다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -2216,3 +2216,201 @@ K2의 마지막 실행에서 49,800번째 줄에 도달한 토큰 작업은 73�
 | 저장소 가드 | UI 계산 경계, 문서, 제품명, 테스트 시간 예산 통과. 마이그레이션 소유자 검사를 통과했고 이전 버전 태그가 없어 append-only 비교는 건너뛰었다. |
 | 전체 자동 검사 | Vitest 1,100파일. 테스트 10,485개 통과, 22개 실패, expected fail 1개, skip 11개. 실패 22개의 이름은 기존 Linux 기준선과 양방향 차집합 0개였다. 기존 미처리 거부 1개도 재현됐다. Node 스크립트 1,066개 통과. |
 | 수정 테스트의 격리 | 변경 또는 추가한 Vitest 파일 8개는 unit 풀이다. 새 테스트에는 외부 실행 파일·실제 Git 저장소·개별 시간 제한을 사용하지 않는다. 실제 Electron·Git 호출은 별도 진단 스크립트에서 실행한다. |
+
+## [구현자 기입] r2
+
+### [구현자 기입] 설계 리뷰
+
+기준은 ΔV6 설계 커밋 `1e9f5524`와 verify 1 정정 `a6ee4d52`이다. I2 철회를 반영했다. I3의 실패는 선택 양끝이 DOM에서 사라지는 것만으로도 c2가 성공할 수 있었다는 점이다. H1에 따라 실제 일곱 화면에서 새 키의 차집합, 같은 두 텍스트 노드의 연결, 선택 문자열, 시스템 클립보드를 함께 기록했다.
+
+OpenCode의 문자열 패치는 AC9·EP-18 ①의 200,000자 기준을 적용했다. D-027의 일반적인 줄 상한 설명과 달랐던 기존 동작은 `dv1`에서 짧은 줄 100,000개로 구분한다. Git과 구조화 패치의 줄 배열은 원문 5,000줄과 200,000자를 함께 적용한다. Windows AC30은 사용자 결정에 따라 verify에서 검토한다.
+
+### [구현자 기입] 강제 지점 전수 (§10 대조)
+
+기존 EP의 자리 번호는 §10과 Δ 적용표를 따른다. 아래에서 지정 변이까지 다시 실행한 신규 pair는 VP-34·26·14·09·59다. 다른 행의 테스트 좌표는 I1 추적용이다. 전체 pair의 선택 적대 증거를 재현하지 않은 곳은 SELF_BLOCKED로 인계한다.
+
+| pair | §10이 적은 지점 | 이번 턴 강제 위치·관측 | 남긴 곳 |
+|---|---|---|---|
+| VP-36·VP-06 | EP-1 §10 10자리 | 요청 키 pk1~pk6 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-10·VP-20 | EP-2 §10 10자리 | 문서 d1~d9 · 처리기 h9 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-32·VP-11 | EP-3 §10 7자리 | 토큰 t1~t8 · wt1~wt5 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-36·VP-11 | EP-4 §10 8자리 | 큐 q1~q13 · 진단 fx2 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-21 | EP-5 §10 15자리 | 원천 ID rt3·rt4 · Work wk3·wk4 · Read rd2 | SELF_BLOCKED · 모든 소비자 ID 변이 |
+| VP-30 | EP-6 §10 2자리 | cp1·cp2와 양 경로 v11 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-31·VP-39·VP-01 | EP-7 §10 5자리 | sb1·cx1·p1~p3와 v4·v9~v11 | SELF_BLOCKED · 모델 전체 등록 변이 |
+| VP-22·VP-38 | EP-8 §10 12자리 | v1~v4 · dt1~dt3 · ea1~ea3 | SELF_BLOCKED · 스크롤 위치 통합 |
+| VP-12 | EP-9 §10 8자리 | v5·v5b·v5w ±1px, v6·v6w 이동, v7·v7b·v7c 핀 | SELF_BLOCKED · 숨은 줄 드러내기 교차 입력 |
+| VP-34 | EP-10 §10 7자리 | D-064 SUPERSEDED | ΔV6 EP-30으로 이관 |
+| VP-02 | EP-11 §10 6자리 | lb1~lb5 · dt1~dt5 · rd1~rd3 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-04·VP-23·VP-33·VP-13 | EP-12 §10 13자리 | mb1~mb11 · m1~m7 · f1·f3·f3b | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-05·VP-35 | EP-13 §10 7자리 | s1~s15 · bg0~bg4 | SELF_BLOCKED · 꼬리 pair 전체 등록 변이 |
+| VP-08·VP-24 | EP-14 §10 6자리 | UI 경계 가드 · 번들 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-37·VP-03 | EP-15 §10 2자리 | CodeBlock 기존 줄 번호 회귀 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-21·VP-01·VP-03 | EP-16 §10 7자리 | wt1~wt5 · rt1~rt8 · x1~x7 | SELF_BLOCKED · 테마 교체·먼 핀 실측 범위 |
+| VP-25 | EP-17 §10 6자리 | l1·l2 · h9 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-31·VP-01 | EP-18 §10 4자리 | dv1~dv4 · v9 | SELF_BLOCKED · 실패 UI와 원천별 pair 대조 |
+| VP-12·VP-01 | EP-19 §10 6자리 | ea1~ea3 · 먼 파일 초안 핀 | SELF_BLOCKED · 가시 창 크기 실측 대조 |
+| VP-26·VP-14 | EP-20 §10 10자리 | D-064 SUPERSEDED | ΔV6 EP-30으로 이관 |
+| VP-49 | EP-21 §10 6자리 | cs1~cs6와 cs2a~d·cs3b | SELF_BLOCKED · 단계별 개별 호출 횟수 |
+| VP-15 | EP-22 §10 4자리 | wk1~wk4 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-48 | EP-23 §10 5자리 | h10~h13 · 문서 해제 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-12 | EP-24 §10 4자리 | sc1~sc2 · fileDiffVirtual의 sc3 | SELF_BLOCKED · 아래쪽 펼침의 스크롤 쓰기 횟수 |
+| VP-51 | EP-25 §10 5자리 | rd1~rd3 · h13 | SELF_BLOCKED · pair 전체 독립 대조 |
+| VP-52 | EP-26 ①~⑩ | bg0~bg4b 및 세 화면 P1/U1 18기록 | 원자료를 verify에서 대조 |
+| VP-56 | EP-27 ①~⑥ | streaming 판정기와 Electron P1/U1 18건 | r1 검증 결론 승계 |
+| VP-57 | EP-28 ①~④ | ob1~ob6와 bg4a·bg4b | verify 1 정정 승계 |
+
+EP-29는 유효 설계에 정의되지 않았다. ΔV6의 자리 검색은 EP-30 16줄(0326 바깥 목록 1줄 제외) 및 EP-31 9줄을 반환했다.
+
+| pair 상태 | §10이 적은 지점 | 직접 좌표·관측 | 남긴 곳 |
+|---|---|---|---|
+| VP-34 SELF_PASS | EP-30 1 | rm1~rm5·rm7 추가·교체·순서 | — |
+| VP-34 SELF_PASS | EP-30 2 | rm8 기준 갱신 | — |
+| VP-34 SELF_PASS | EP-30 3 | rm1·rm6 공급 없는 알림 | — |
+| VP-26 SELF_PASS | EP-30 4 | po4 공통 가상 목록 · c2 | — |
+| VP-26 SELF_PASS | EP-30 5 | po1 Git 마운트 · c2 | — |
+| VP-26 SELF_PASS | EP-30 6 | tn1 transcript 공급 · c2 | — |
+| VP-26 SELF_PASS | EP-30 7 | tn1~tn4 위치와 표시 | — |
+| VP-26 SELF_PASS | EP-30 8 | po1·po2 Git 공급 | — |
+| VP-26 SELF_PASS | EP-30 9 | po3 Git pointerdown | — |
+| VP-26 SELF_PASS | EP-30 10 | po4 산출물 공급 | — |
+| VP-26 SELF_PASS | EP-30 11 | po5 산출물 pointerdown | — |
+| VP-14 SELF_PASS | EP-30 12 | ps1~ps4·ps10~ps12 선택 위치·버튼·키 | — |
+| VP-14 SELF_PASS | EP-30 13 | ps5 억제 중 재해제 | — |
+| VP-14 SELF_PASS | EP-30 14 | ps6~ps8 pointerup·pointercancel·blur | — |
+| VP-14 SELF_PASS | EP-30 15 | ps9 문서 변경 | — |
+| VP-09 SELF_PASS | EP-30 ④⑤⑥⑧⑩ | Electron c1·c2·c5 각 7건, c4 두 방향 | — |
+| VP-59 SELF_PASS | EP-31 1 | vv1~vv3 격자 | — |
+| VP-59 SELF_PASS | EP-31 2 | vv4~vv7 취소 4조건 | — |
+| VP-59 SELF_PASS | EP-31 3 | vv8·vv9 복사와 150행 | — |
+| VP-59 SELF_PASS | EP-31 4 | vv10 다른 패널 | — |
+| VP-59 SELF_PASS | EP-31 5 | vv11 종료 코드 0·1·3 | — |
+| VP-59 SELF_PASS | EP-31 6 | vv11 실행 인자와 공용 runElectron | — |
+
+### [구현자 기입] 이번 라운드 수정의 잠금
+
+| 변이·sweep | 실행기 | 실패한 좌표 |
+|---|---|---|
+| W1 | vitest | rm2, rm5 |
+| W2 | vitest | ps11, rm3, rm8 |
+| baseline | vitest | rm3, rm4, rm7, rm8 |
+| W3 | vitest | ps2, ps4, ps5, ps6, ps7, ps8, ps9, ps10, rm1, rm2, rm5, rm8, tn1, tn4, po1, po3, po4, po5 |
+| transcript | vitest | tn1, tn4 |
+| git | vitest | po1, po3 |
+| artifact | vitest | po4, po5 |
+| outside | vitest | tn2 |
+| focus | vitest | ps4 |
+| clear | vitest | ps5 |
+| up | vitest | ps6 |
+| cancel | vitest | ps7 |
+| blur | vitest | ps8 |
+| reset | vitest | ps9 |
+| W3 | Electron | git-inline/c2, git-split/c2, artifact-code/c2, artifact-markdown/c2, transcript-file/c2, transcript-diff/c2, transcript-work/c2 |
+| transcript | Electron | transcript-file/c2, transcript-diff/c2, transcript-work/c2 |
+| git | Electron | git-inline/c2, git-split/c2 |
+| artifact | Electron | artifact-code/c2, artifact-markdown/c2 |
+| key | node --test | vv4 |
+| connected | node --test | vv5 |
+| missing | node --test | vv2, vv11 |
+
+| 원자료 완전성 | 기본 격자 − 실측 격자 | 누락 0 · 중복/미등록 0 |
+| 패널 격리 | c4 두 방향 | 다른 패널에 새 키가 생겨도 기존 문자열과 클립보드 일치 |
+| 엔드포인트 | c2 7개 화면 | 원래 양끝 연결 유지 · 선택 비움 · 클립보드 센티널 보존 |
+| 제스처 재시작 | c5 7개 화면 | 주 버튼 해제 뒤 새 범위의 원문과 복사 결과 일치 |
+
+선택 경로 단위 변이 14 · 동일 변이의 실기 실행 4 · 판정기 변이 3 · 정상 입력 sweep 4 = 표 25행. [실측 원자료](evidence/r2-visible-views.json) · [변이별 실패 테스트](evidence/r2-mutations.tsv)
+
+추가로 I1의 계산 경로와 이번 수정에 변이 20개를 적용했다. 최초 실행에서 18개를 검출했다. `wt4`에 이미 그려진 토큰의 키가 바뀌는 입력을, `v9`에 초안 본문을 10번 편집하는 입력을 더했다. 다시 실행하자 누락 2개도 실패했다. 원본 코드에서 해당 두 스위트의 20케이스가 통과했다. 최종 검출 집합과 입력은 아래 기록에 있다. [추가 변이 20개·22회 실행](evidence/r2-mutational-checks.tsv)
+
+### [구현자 기입] Product/UX 파생 검토
+
+워커가 다음 행 범위를 보내기 전에 Git 선택 양끝이 사라지는 고장을 재현했다. 같은 원천과 같은 보기 옵션에서 겹치는 행을 유지한다. 원천 revision이나 보기 옵션을 바꾸면 이전 행을 버린다. 단위 테스트는 대기·오류·옵션 전환을 구별하고 c2는 실제 텍스트 노드의 연결을 검사한다.
+
+표 조각은 앞 조각을 반영한 뒤 다음 조각을 요청한다. 중간 응답이 노드 예산을 넘으면 원문으로 전환한다. 닫힌 OpenCode 파일의 본문 파생·문서 임차를 건너뛴다. Work 요청/응답, 산출물, Git 파일은 도메인 ID와 원천 revision을 사용한다. 진단 세션은 요청 키마다 첫 반영 시각을 한 번 남긴다.
+
+### [구현자 기입] 놓친 잠재 문제 + 대응
+
+실기 도구가 현재 보이는 텍스트에서 스크롤 부모를 매번 찾으면 먼 위치로 이동하는 도중 행 응답을 기다릴 때 주인을 잃었다. 카드 목록의 실제 스크롤 컨테이너를 사용해 23건을 다시 측정했다. Git 비동기 원천과 보기 옵션이 달라질 때 발생할 수 있는 오래된 행 혼입은 `pending source/options change cannot reuse stale rows`로 검사한다.
+
+### [구현자 기입] 구현 보고
+
+| AC | 자기 확인 근거 | 상태 |
+|---|---|---|
+| AC1 | pk1~pk6 요청 키 | ✅ |
+| AC2 | d1~d9 문서 임차·재전송 | ✅ |
+| AC3 | wt1~wt5 · t1~t8, 전체 경계 대조 잔여 | ⚠️ |
+| AC4 | t5 · q4, verify 1 통과 | ✅ |
+| AC5 | q1~q3·wt1~wt5·dv3, 혼합 창은 visible이고 순수 overscan 창은 background | ✅ |
+| AC6 | q5~q7·q10 취소 | ✅ |
+| AC7 | wt4 revision·테마·창에서 늦은 결과 및 이전에 커밋된 결과를 검사. m5·d7·d9 재실행 | ✅ |
+| AC8 | cp1·cp2와 로컬·워커 v11 | ✅ |
+| AC9 | dv1·v9·h12, 전체 모델 수명 잔여 | ⚠️ |
+| AC10 | ea1~ea3, 200파일 먼 초안 핀·재방문 | ✅ |
+| AC11 | v4·sb1 나란히 짝과 키 | ✅ |
+| AC12 | v5·v5b·v5w 로컬·워커에서 위쪽 펼침 뒤 ±1px 및 초안 초점. 아래쪽 보정 쓰기 횟수 대조 잔여 | ⚠️ |
+| AC13 | v6·v6w 49,000행 위치 요청 뒤 해당 창 요청과 한 번의 이동. 숨은 줄 드러내기 교차 입력 잔여 | ⚠️ |
+| AC14 | v7·v7b·v7c, 워커 초안 앵커·실제 크기 대조 잔여 | ⚠️ |
+| AC15 | c1·c2·c4·c5 우측 4화면 · 등록 변이 | ✅ |
+| AC16 | p1~p3·v10, 워커 폭 대조 잔여 | ⚠️ |
+| AC17 | rt1~rt8, 50,000줄 먼 핀·테마 행렬 잔여 | ⚠️ |
+| AC18 | dt1~dt5 및 lb1, 50,000줄 OpenCode | ✅ |
+| AC19 | rd1~rd3·lb2~lb4, 네 경로 토큰 색 대조 잔여 | ⚠️ |
+| AC20 | lb5·rt6, 실제 헤더와 축 전체 대조 잔여 | ⚠️ |
+| AC21 | cb1 줄 번호 split 1회. 테마를 메모 의존성에 추가하면 실패 | ✅ |
+| AC22 | x1~x7, 공유 원천 재마운트 대조 잔여 | ⚠️ |
+| AC23 | m1~m7, Markdown 표 조각·후속 원문 전환 | ✅ |
+| AC24 | mb1~mb11 · f1/f3/f3b, 전체 fidelity 행렬 잔여 | ⚠️ |
+| AC25 | 기존 산출물 테스트와 verify 1 | ✅ |
+| AC26 | s1~s15, s9에서 완료 AssistantSegment와 Markdown의 요소·텍스트 재귀 대조 | ✅ |
+| AC27 | s6 4,000자와 기존 StreamingMarkdown.fence. 경계를 >=로 바꾸면 s6 실패 | ✅ |
+| AC28 | UI 경계 가드 · 기존 verify 1 | ✅ |
+| AC29 | 양 트리 39개 입력. r2 수치 39개, 기준 수치 9개·함수 없음 30개, 기타 0개. 재현 파일 생성 | ✅ |
+| AC30 | 사용자가 verify 단계에서 Windows 동일 기기 실측 검토 | ⚠️ |
+| AC31 | l1·l2 · h9 분리, 모든 자원/지연 축 대조 잔여 | ⚠️ |
+| AC32 | cs1~cs6·cs2a~d·cs3b, 모든 단계별 호출 분해 잔여 | ⚠️ |
+| AC33 | wk1~wk4 Work 스크롤·요청 임차·응답 revision | ✅ |
+| AC34 | sc1~sc3 및 v5·v5b·v5w, 아래쪽 펼침 교차 입력 잔여 | ⚠️ |
+| AC35 | c1·c2·c4·c5 transcript 3화면 · 바깥 행 키 고정 | ✅ |
+| AC36 | q11~q13에서 쌍 diff 점유 90·강조 대기 80. fx2에서 같은 키의 후속 paint 제거 | ✅ |
+| AC37 | 세 화면 Electron P1 · 18개 중 9건 | ✅ |
+| AC38 | 세 화면 Electron U1 · 18개 중 9건 | ✅ |
+| AC39 | bg0~bg4b · verify 1 정정 VP-52/57 | ✅ |
+| AC40 | vv1~vv11 · 정상 23건 · 판정기 변이 3개 | ✅ |
+
+✅ 25 · ⚠️ 15 · ❌ 0 = 40. 분모는 ΔV6의 AC40 신설로 39에서 40이 되었다. 구현 상태는 partial이다. I3·H1의 등록 변이는 재현했고 I1은 위 표의 잔여 대조를 포함한다.
+
+verify 1 I1에서 지목한 파일·케이스의 현재 좌표는 아래와 같다. 각 행의 AC 판정에는 위 표의 잔여 입력을 적용한다.
+
+| I1의 AC 묶음 | 재실행할 파일과 입력 |
+|---|---|
+| 1 | `protocol.keys.test.ts` pk1~pk6 |
+| 2·6·39 | `client.documents.test.ts` d1~d9, `client.queue.test.ts` q5~q7, `streamingSessions.test.ts` bg0~bg3 단언과 bg4a/b |
+| 3·5·7 | `useWindowTokens.test.ts` wt1~wt5, `client.queue.test.ts` q1~q3, `VirtualMarkdownView.test.ts` m5, `useDiffView.test.ts` dv3 |
+| 8~14·16 | `fileDiffVirtual.render.test.ts` v1~v5w·v6w·v9~v11, `fileDiffExpandAll.render.test.ts` ea1~ea3·v7 계열, `useDiffView.test.ts` dv1~dv4, `worker/handler.test.ts` h12, `diffView.test.ts` sb1·cx1·p1~p3 |
+| 17·20 | `useDiffRowTokens.test.ts` rt1~rt5·rt7·rt8, `DiffTable.virtual.test.ts` rt6 |
+| 18·19·20 | `DiffTable.virtual.test.ts` dt1~dt5, `longToolBody.render.test.ts` lb1~lb5, `readBody.test.ts` rd1~rd3 |
+| 22·23 | `VirtualCodeView.test.ts` x1~x7, `VirtualMarkdownView.test.ts` m1~m7 |
+| 24·31 | `markdownDocumentBlocks.test.ts` mb1~mb11, `MarkdownHast.fidelity.test.ts` f1·f3·f3b, `client.lanes.test.ts` l1·l2, `worker/handler.test.ts` h9 |
+| 26·27 | `WorkerMarkdownTail.test.ts` s1~s10, 기존 s11~s15 |
+| 32·33·34·36 | `cardSyncCaps.test.ts` cs1~cs6, `workToolBody.virtual.test.ts` wk1~wk4, `diffScrollCoordinator.test.ts` sc1·sc2, Git 통합 sc3, `client.queue.test.ts` q11~q13, `transcriptFixtures.test.ts` fx2 |
+
+I1의 교차 좌표는 파일명과 구현 경로가 다른 경우까지 포함한다. sc3은 실제 Git 파일 목록을 렌더하는 `fileDiffVirtual.render.test.ts`, rt6은 실제 쌍 diff를 렌더하는 `DiffTable.virtual.test.ts`, v6은 요구사항을 고른 생산 Git 렌더를 쓰는 `useDiffRowTokens.test.ts`에 있다. v5·v5b·v5w 및 v6w는 Git 통합 렌더에서 실행했다. v7b·v7c는 200개 파일 중 120번째의 초안 입력과 행 위치를 관측하는 `fileDiffExpandAll.render.test.ts`에 있다. v8의 복사용 핀·직렬화는 D-064에서 폐기했고 해당 선택 동작은 EP-30으로 이관했다.
+
+K 함수 측정은 r2의 39행에서 예열 1회와 표본 9회씩을 얻었다. 기준으로 쓴 `322b19bd:app/src`와 0326 verify 7 커밋 `7c241d19:app/src`의 Git 트리 ID는 모두 `0c00c903105328d96b6b4fea92f59a1b86a0ca5c`다. 양쪽 모두 같은 Linux 환경의 `--visible` 경로로 실행했다. 동시에 다른 게이트가 실행돼 절대 시간은 그 부하까지 포함한다. [Linux 함수 측정](evidence/r2-linux-measurements.json)
+
+기준 실행에서 K8 32,000자 JavaScript 한 줄의 중앙값은 96356.87ms, r2는 0.03ms였다. 소스 트리의 함수가 없는 기준 입력 30개는 측정 도구가 `N/A(함수 없음)`으로 반환했다. `--write-inputs`로 5MiB 코드, Markdown 표, 각주, Work payload, Git 200파일 및 50,000줄 저장소를 생성했다.
+
+| 최종 운영 게이트 | 관측 |
+|---|---|
+| 유형·번들 | Node·web·test 타입 검사 통과, Electron 번들 생성, 데이터·에이전트 호스트 및 preload smoke 통과 |
+| 소스 가드 | UI 스레드·제품명·문서·테스트 예산 통과. 마이그레이션 36+2개 소유권 통과, 저장소에 이전 버전 태그가 없어 append-only 비교 생략 |
+| ESLint | 오류 0 · 경고 12 |
+| 변경 테스트 | 변경·추가한 Vitest 29파일 240케이스 통과. Node 스크립트 테스트 1파일 변경. 변경 테스트 소스의 외부 실행 파일·수동 시간 제한 추가 0 |
+| 전체 자동 검사 | Vitest 1,121파일 중 1,108 통과·9 실패·4 skip. 10,662케이스 통과·22 실패·1 expected fail·11 skip. Node 스크립트 1,078케이스 통과 |
+| 기존 실패 | 22개 실패명의 기준선과 양방향 차집합 0. 기존 Claude 플러그인 미처리 거부 1건도 같은 메시지. 전체 게이트는 실패로 기록 |
+
+[실행 명령·실패 이름과 기준선](evidence/r2-gates.txt)
+
+### [구현자 기입] Review Signals
+
+r2에서 verify 1 I3의 거짓 통과를 재현했다. EP-30·EP-31이 추가된 뒤 새 키 추가 판정, 공급자 제거, 클립보드 판정 제거가 각각 다른 실패를 냈다. I4는 같은 턴의 자리·변이·자기 판정을 이 절에서 대응한다. Linux에서는 실측 도구를 실행할 수 있었고 AC30의 동일 Windows 기기 비교는 verify 소관이다.

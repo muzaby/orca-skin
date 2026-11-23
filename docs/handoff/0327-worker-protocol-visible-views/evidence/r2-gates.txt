@@ -1,0 +1,80 @@
+app/ · Linux · Node ABI for Vitest and smoke-hosts; DISPLAY=:88 for Electron.
+
+npm run typecheck: typecheck:node, typecheck:web, typecheck:test completed
+
+eslint --cache ./src ./scripts: ✖ 12 problems (0 errors, 12 warnings)
+
+[test-budgets] 18 real-git suites ok · all budget sites scaled
+check-ui-thread: OK
+[product-naming] OK — 2627파일 · 허용 7항목
+[migrations] sync ok: src/main/infra/db/migrations — 36 migrations
+[migrations] sync ok: src/main/features/plugins/mail/migrations — 2 migrations
+[migrations] no-copies ok: scanned 2370 source files, 3 list owners
+[migrations] no previous v* tag — append-only check skipped (first release)
+
+[doc-inventory] generated doc ok (9 items, 125 channels)
+[doc-inventory] prose ok: no inventory counts restated in current-state docs
+[doc-inventory] links ok: every relative markdown link resolves
+
+electron-vite build: ✓ built in 33.14s
+
+[smoke-hosts] agent early oo:extensions:catalog: ok
+[smoke-hosts] data oo:settings:get: ok
+[smoke-hosts] data oo:session:list: ok
+[smoke-hosts] agent oo:backend:list: ok
+[smoke-hosts] agent oo:agent:list: ok
+[smoke-hosts] agent oo:settings:get: error — No handler registered for 'oo:settings:get'
+[smoke-hosts] OK — 데이터 → 에이전트 기동 · 피어 · 창 포트 요청 · 에이전트 → 데이터 종료
+
+smoke-preload: OK — require 는 electron 뿐 · 다리 `ooBridge` 노출(키 7)
+
+node --test scripts/*.test.mjs
+ℹ tests 1078
+ℹ suites 74
+ℹ pass 1078
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 57591.284947
+
+vitest run (changed test files)
+ Test Files  29 passed (29)
+      Tests  240 passed (240)
+   Start at  12:29:27
+   Duration  14.21s (transform 7.16s, setup 1.83s, import 14.62s, tests 17.22s, environment 3ms)
+
+vitest run (all files)
+ Test Files  9 failed | 1108 passed | 4 skipped (1121)
+      Tests  22 failed | 10662 passed | 1 expected fail | 11 skipped (10696)
+     Errors  1 error
+   Start at  12:27:41
+   Duration  233.67s (transform 48.81s, setup 37.43s, import 190.52s, tests 290.40s, environment 124ms)
+
+Linux baseline: same failures in both directions, same unhandled rejection in claude/native-resources.test.ts.
+ FAIL  |io| src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > keeps one process for A/B, waits for native completion, and fences same-directory reacquisition
+ FAIL  |io| src/main/adapters/opencode/v1/adapter.instances.test.ts > Owned server, directory lifecycle and actual SDK composition > retires failed cleanup without killing B and reports only a safe error before new generation startup
+ FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > exposes runtime-native watch files and applies external project choices only after idle reconciliation
+ FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > pins deployed MCP files for same-cwd peers and reloads until the final owner closes
+ FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > preserves externally selected plugin states across follow-up turns, new adapters and cold resumes over provider defaults
+ FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > reconciles plugin choices through the actual adapter while preserving provider flags
+ FAIL  |unit| src/main/adapters/claude/adapter.native-plugins.test.ts > reports a reconciled plugin revision as applied but not a later external edit
+ FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > applies session-only inline flags and reloads actual plugin state while preserving sibling flags
+ FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > commits a plugin choice only after verified reload and restores flags and commands when persistence fails
+ FAIL  |unit| src/main/adapters/claude/native-resources.test.ts > waits for durable persistence and serializes subsequent plugin mutations
+ FAIL  |unit| src/main/adapters/claude/project-reconciliation.test.ts > projects native plugin flag false during external reconciliation
+ FAIL  |unit| src/main/adapters/claude/project-reconciliation.test.ts > shows external selection with actual status immediately, waits for idle, and never saves it back
+ FAIL  |unit| src/main/adapters/opencode/v1/adapter.persistent.test.ts > exposes native resources from the live channel client and its directory without mutations
+ FAIL  |unit| src/main/adapters/opencode/v1/adapter.test.ts > OpenCode adapter with the real installed SDK and injected HTTP/SSE transport > subscribes before sending, scopes the turn and leaves admission to the runtime
+ FAIL  |unit| src/main/app/composer-catalog.test.ts > does not start a native server after caller cancellation or session scope change during preparation
+ FAIL  |unit| src/main/app/composer-catalog.test.ts > prepares draft and saved directory with the same production settings and env resolution as turns
+ FAIL  |unit| src/main/app/composer-catalog.test.ts > preserves the acquire failure stage through the registered catalog handler
+ FAIL  |unit| src/main/app/composer-catalog.test.ts > preserves the configuration failure stage through the registered catalog handler
+ FAIL  |unit| src/main/app/composer-catalog.test.ts > returns prepared plugin and agent parts through IPC before blocked MCP/models without a session
+ FAIL  |unit| src/main/app/composer-catalog.test.ts > wires the public handler through the production resolver and returns its shutdown cleanup
+ FAIL  |unit| src/main/app/composer-preparation-service.test.ts > shares targets across catalog resources and warmup through the production assembly
+ FAIL  |unit| src/main/app/handlers/session-resources.claude-assembly.test.ts > reconciles external plugin selections and publishes the final state through the real watcher
+
+Unhandled Rejection: 이 플러그인은 프로젝트별 제어를 지원하지 않습니다.
+
+check-visible-views: 23/23; check-transcript-selection: 90/90; check-transcript-streaming: 18/18.

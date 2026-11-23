@@ -1,7 +1,7 @@
 // 클라이언트 ↔ 워커 메시지 계약 (0324 VP-10) — 요청 3종을 실제 처리 함수에 넣고, 응답을
 // 클라이언트의 파서(`parseResponse`)로 읽는다. 워커 프로세스만 빼고 같은 경로다.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { diffLinesWithinCap } from '../inline'
 import { parseResponse, resultSize, type ComputeRequest, type WireResponse } from '../protocol'
 import { handleMessage } from './handler'
@@ -102,4 +102,93 @@ describe('parseResponse', () => {
     { id: 1, ok: true },
     { id: 1, ok: false }
   ])('형식이 아닌 값 %j 은 null 이다', (raw) => expect(parseResponse(raw)).toBeNull())
+})
+
+it('h9 passes line length and time budgets to Shiki', async () => {
+  const { getHighlighter } = await import('./highlighter')
+  const highlighter = await getHighlighter(),
+    spy = vi.spyOn(highlighter, 'codeToHtml')
+  try {
+    await roundTrip({
+      kind: 'highlight',
+      code: 'x'.repeat(32000),
+      lang: 'javascript',
+      theme: 'github-light'
+    })
+    expect(spy).toHaveBeenCalledWith(
+      'x'.repeat(32000),
+      expect.objectContaining({ tokenizeMaxLineLength: 20000, tokenizeTimeLimit: 50 })
+    )
+  } finally {
+    spy.mockRestore()
+  }
+})
+it('h12 eight warm models survive reverse traversal and rebuild on eviction or replacement', async () => {
+  const { createWorkerState } = await import('./state'),
+    diff = await import('../diffView'),
+    spy = vi.spyOn(diff, 'buildDiffView')
+  let run = createWorkerState()
+  const doc = (i: number): { id: string; revision: number } => ({ id: 'fixture' + i, revision: 1 })
+  const open = (i: number): Promise<WireResponse | undefined> =>
+    run({
+      type: 'doc.open',
+      ref: doc(i),
+      text: '+row',
+      lines: { oldLine: Int32Array.of(-1), newLine: Int32Array.of(1) }
+    })
+  const query = (i: number): Promise<WireResponse | undefined> =>
+    run({
+      id: i,
+      kind: 'diffView',
+      source: { kind: 'lines', doc: doc(i) },
+      options: { layout: 'inline', expansions: [], highlightWords: false, ignoreWhitespace: false },
+      start: 0,
+      end: 1
+    })
+  try {
+    for (let i = 1; i <= 9; i++) {
+      await open(i)
+      await query(i)
+    }
+    expect(spy).toHaveBeenCalledTimes(9)
+    for (let i = 9; i >= 2; i--) await query(i)
+    expect(spy).toHaveBeenCalledTimes(9)
+    await query(1)
+    expect(spy).toHaveBeenCalledTimes(10)
+    run = createWorkerState()
+    expect(await query(1)).toMatchObject({ ok: false, error: 'unknown-doc' })
+    await open(1)
+    await query(1)
+    expect(spy).toHaveBeenCalledTimes(11)
+  } finally {
+    spy.mockRestore()
+  }
+})
+it('h13 stripped view supplies identical visible rows and Shiki colors and closes with source', async () => {
+  const { createWorkerState } = await import('./state'),
+    { getHighlighter } = await import('./highlighter'),
+    run = createWorkerState(),
+    doc = { id: 'read', revision: 1 },
+    view = { doc, transform: 'stripGutter' as const },
+    options = { lang: 'typescript', theme: 'github-dark' as const }
+  const code = 'const n = 1\nreturn n',
+    text = '1\tconst n = 1\n2\treturn n'
+  await run({ type: 'doc.open', ref: doc, text })
+  const req = { kind: 'codeView' as const, id: 1, source: { view }, start: 0, end: 2 }
+  expect(await run(req)).toMatchObject({ ok: true, result: { lines: code.split('\n') } })
+  const response = await run({ id: 2, kind: 'tokens', view, ...options, start: 0, end: 2 })
+  if (
+    !response ||
+    response.ok !== true ||
+    !('rows' in response.result) ||
+    'summary' in response.result
+  )
+    throw Error('missing token rows')
+  const colors = (rows: { content: string; color?: string }[][]): (string | undefined)[][][] =>
+    rows.map((row) => row.map(({ content, color }) => [content, color]))
+  expect(colors(response.result.rows)).toEqual(
+    colors((await getHighlighter()).codeToTokens(code, options).tokens)
+  )
+  await run({ type: 'doc.close', ref: doc })
+  expect(await run(req)).toMatchObject({ ok: false, error: 'unknown-doc' })
 })

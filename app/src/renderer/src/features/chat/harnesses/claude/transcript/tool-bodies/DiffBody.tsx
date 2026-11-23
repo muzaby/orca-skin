@@ -1,7 +1,4 @@
-import {
-  DIFF_MODEL_SYNC_MAX_LINES,
-  DIFF_MODEL_SYNC_MAX_CHARS
-} from '../../../../../../shared/compute/limits'
+import { diffViewPath } from '../../../../../../shared/compute/diffViewPath'
 import { useMemo } from 'react'
 import { stringify } from '../../../../format'
 import { DiffTable, PairDiffTable, StructuredDiffTable } from '../../../common/transcript/DiffTable'
@@ -60,12 +57,7 @@ export function buildBlocks(call: ToolCall): DiffBlock[] {
     readFileEditStructuredPatch(call.editPreview)
   if (hunks) {
     const raw = fileEditPatchLines(hunks)
-    let chars = 0
-    if (
-      raw.length > DIFF_MODEL_SYNC_MAX_LINES ||
-      raw.some((line) => (chars += line.text.length) > DIFF_MODEL_SYNC_MAX_CHARS)
-    )
-      return [{ raw }]
+    if (diffViewPath(raw) === 'worker') return [{ raw }]
     return [{ lines: patchLinesToDiffLines(raw) }]
   }
   return buildPairBlocks(call)

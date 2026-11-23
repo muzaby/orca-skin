@@ -18,10 +18,12 @@ import { TaskToolBody } from './tool-bodies/TaskToolBody'
 function Payload({
   payload,
   documentId,
+  revisionSource,
   scrollElement,
   error = false
 }: {
   scrollElement: RefObject<HTMLDivElement | null>
+  revisionSource?: object
   documentId: string
   payload: WorkToolPayload
   error?: boolean
@@ -40,7 +42,7 @@ function Payload({
       ) : large ? (
         <VirtualCodeView
           documentId={documentId}
-          revisionSource={payload}
+          revisionSource={revisionSource ?? payload}
           code={payload.text}
           lang={payload.language}
           scrollElement={scrollElement}
@@ -84,7 +86,10 @@ export function WorkToolBody({ call }: { call: ToolCall }): React.JSX.Element {
           <h4 className="px-3 pt-2 font-medium text-ink3">{tr('chat.workTool.request')}</h4>
           <Payload
             scrollElement={scrollElement}
-            documentId={call.toolUseId + ':work:request'}
+            revisionSource={
+              typeof call.input === 'object' && call.input !== null ? call.input : undefined
+            }
+            documentId={'tool:' + call.toolUseId + ':work:request'}
             payload={requestPayload}
           />
         </section>
@@ -135,7 +140,8 @@ export function WorkToolBody({ call }: { call: ToolCall }): React.JSX.Element {
               </summary>
               <Payload
                 scrollElement={scrollElement}
-                documentId={call.toolUseId + ':work:response'}
+                revisionSource={call.result}
+                documentId={'tool:' + call.toolUseId + ':work:response'}
                 payload={responsePayload}
                 error={failed}
               />
@@ -143,7 +149,8 @@ export function WorkToolBody({ call }: { call: ToolCall }): React.JSX.Element {
           ) : (
             <Payload
               scrollElement={scrollElement}
-              documentId={call.toolUseId + ':work:response'}
+              revisionSource={call.result}
+              documentId={'tool:' + call.toolUseId + ':work:response'}
               payload={responsePayload}
               error={failed}
             />

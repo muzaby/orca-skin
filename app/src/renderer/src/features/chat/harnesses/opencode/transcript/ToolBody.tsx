@@ -1,3 +1,4 @@
+import { diffViewPath } from '../../../../../shared/compute/diffViewPath'
 import { useMemo, useState } from 'react'
 import { useI18n } from '../../../../../shared/i18n'
 import { CopyIconButton } from '../../../../../shared/ui/CopyIconButton'
@@ -8,11 +9,6 @@ import { OpenCodeIcon } from '../Icon'
 import { useToolDisclosure } from './viewState'
 import { fileDiffSource, fileName } from './filePresentation'
 import { diffLinesWithinCap } from '../../../../../shared/compute/inline'
-import {
-  DIFF_MODEL_SYNC_MAX_CHARS,
-  DIFF_MODEL_SYNC_MAX_LINES
-} from '../../../../../shared/compute/limits'
-import { countLinesUpTo } from '../../../../../shared/compute/diffModel'
 
 export function OutputPanel({
   text,
@@ -74,21 +70,17 @@ function FilePanel({
   const { tr } = useI18n()
   const [open, setOpen] = useToolDisclosure(disclosureKey, true)
   const source = useMemo(() => {
+    if (!open || write) return null
     const patch = file.patch ?? ''
-    if (
-      file.before == null &&
-      file.after == null &&
-      (patch.length > DIFF_MODEL_SYNC_MAX_CHARS ||
-        countLinesUpTo(patch, DIFF_MODEL_SYNC_MAX_LINES) > DIFF_MODEL_SYNC_MAX_LINES)
-    )
+    if (file.before == null && file.after == null && diffViewPath(patch) === 'worker')
       return { kind: 'patch' as const, patch }
     return fileDiffSource(file)
-  }, [file])
+  }, [file, open, write])
   const lines = useMemo(
     () =>
-      source.kind === 'lines'
+      source?.kind === 'lines'
         ? source.lines
-        : source.kind === 'pair'
+        : source?.kind === 'pair'
           ? diffLinesWithinCap(source.before, source.after)
           : null,
     [source]
@@ -114,6 +106,11 @@ function FilePanel({
           : null,
     [lines, source, stats]
   )
+  const [savedCounts, setSavedCounts] = useState<{
+    file: OpenCodeFileView
+    counts: typeof counts
+  } | null>(null)
+  const headerCounts = counts ?? (savedCounts?.file === file ? savedCounts.counts : null)
   const fallback = <OutputPanel text={file.patch ?? file.after ?? ''} label={file.path} />
   return (
     <details
@@ -124,6 +121,7 @@ function FilePanel({
       <summary
         onClick={(event) => {
           event.preventDefault()
+          if (open) setSavedCounts({ file, counts })
           setOpen((value) => !value)
         }}
         className="sticky top-[var(--oc-sticky-top)] z-10 flex min-h-[36px] cursor-pointer list-none items-center gap-[8px] rounded-[8px] bg-oc-surface px-[12px] py-[8px] text-[calc(13px*var(--transcript-text-scale,1))] leading-[20px] text-oc-ink outline-none ring-focus"
@@ -132,21 +130,23 @@ function FilePanel({
         <span className="min-w-0 flex-1 truncate" title={file.path}>
           {fileName(file.path)}
         </span>
-        {!write && counts && (counts.added + counts.removed > 0 || !!lines?.length) && (
-          <span className="shrink-0 font-mono">
-            <span className="text-oc-good">+{counts.added}</span>{' '}
-            <span className="text-oc-bad">−{counts.removed}</span>
-          </span>
-        )}
+        {!write &&
+          headerCounts &&
+          (headerCounts.added + headerCounts.removed > 0 || !!lines?.length) && (
+            <span className="shrink-0 font-mono">
+              <span className="text-oc-good">+{headerCounts.added}</span>{' '}
+              <span className="text-oc-bad">−{headerCounts.removed}</span>
+            </span>
+          )}
         <OpenCodeIcon
           name="chevron-down"
           size={14}
           className="-rotate-90 text-oc-faint group-open/oc-file:rotate-0"
         />
       </summary>
-      {write ? (
+      {!open ? null : write ? (
         <OutputPanel text={file.after ?? file.patch ?? ''} label={file.path} />
-      ) : !lines && source.kind === 'pair' ? (
+      ) : !lines && source?.kind === 'pair' ? (
         <PairDiffTable
           before={source.before}
           after={source.after}
@@ -155,7 +155,7 @@ function FilePanel({
           onSummary={onSummary}
           fallback={fallback}
         />
-      ) : source.kind === 'patch' ? (
+      ) : source?.kind === 'patch' ? (
         <PatchDiffTable
           patch={source.patch}
           filePath={file.path}
@@ -164,7 +164,12 @@ function FilePanel({
           fallback={fallback}
         />
       ) : lines && lines.length > 400 ? (
-        <DiffTable lines={lines} filePath={file.path} appearance={diffAppearance} />
+        <DiffTable
+          lines={lines}
+          patchSource={source?.kind === 'lines' ? file.patch : undefined}
+          filePath={file.path}
+          appearance={diffAppearance}
+        />
       ) : lines && lines.length > 0 ? (
         <div
           className="max-h-[384px] overflow-auto border-t border-oc-border"

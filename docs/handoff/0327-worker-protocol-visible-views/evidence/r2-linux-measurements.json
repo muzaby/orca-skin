@@ -1,0 +1,671 @@
+{
+  "tree": "r2",
+  "command": "node scripts/measure-ui-inputs.mjs --visible .",
+  "concurrentGates": true,
+  "samples": [
+    {
+      "id": "K1",
+      "name": "5000 diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 18.65633700000012,
+        "max": 46.15361400000006
+      }
+    },
+    {
+      "id": "K1",
+      "name": "5001 diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 19.99795999999992,
+        "max": 28.269078000000036
+      }
+    },
+    {
+      "id": "K1",
+      "name": "50000 diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 105.09483099999989,
+        "max": 221.10719199999994
+      }
+    },
+    {
+      "id": "K2",
+      "name": "tokens 0",
+      "attempts": 10,
+      "result": {
+        "median": 26.556231000000025,
+        "max": 67.80886400000009
+      },
+      "jobs": 1,
+      "maxJobMs": 33.09756000000016
+    },
+    {
+      "id": "K2",
+      "name": "tokens 49800",
+      "attempts": 10,
+      "result": {
+        "median": 6392.837532000005,
+        "max": 7832.925288999999
+      },
+      "jobs": 149,
+      "maxJobMs": 117.33410400000867
+    },
+    {
+      "id": "K3",
+      "name": "1MB markdown, first 30 blocks",
+      "attempts": 10,
+      "result": {
+        "median": 64.48000499999034,
+        "max": 94.73641000001226
+      },
+      "blocks": {
+        "chunks": 30,
+        "raw": 0,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 10.287186000001384,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K4",
+      "name": "loose list 4000",
+      "attempts": 10,
+      "result": {
+        "median": 175.40575900000113,
+        "max": 492.4796889999998
+      }
+    },
+    {
+      "id": "K4",
+      "name": "loose list 20000",
+      "attempts": 10,
+      "result": {
+        "median": 471.14384699999937,
+        "max": 778.508124999993
+      }
+    },
+    {
+      "id": "K4",
+      "name": "loose list 50000",
+      "attempts": 10,
+      "result": {
+        "median": 4223.8953829999955,
+        "max": 4752.387013
+      }
+    },
+    {
+      "id": "K5",
+      "name": "5MiB code index and first 200 rows",
+      "attempts": 10,
+      "result": {
+        "median": 119.68703699999605,
+        "max": 167.22109700000146
+      }
+    },
+    {
+      "id": "K6",
+      "name": "200 file paths",
+      "attempts": 10,
+      "result": {
+        "median": 0.1442069999902742,
+        "max": 29.441227000002982
+      }
+    },
+    {
+      "id": "K7",
+      "name": "990044-char patch",
+      "attempts": 10,
+      "result": {
+        "median": 2.3092929999984335,
+        "max": 5.407292000003508
+      }
+    },
+    {
+      "id": "K8",
+      "name": "typescript",
+      "attempts": 10,
+      "result": {
+        "median": 359.8922140000068,
+        "max": 526.7553029999981
+      }
+    },
+    {
+      "id": "K8",
+      "name": "javascript",
+      "attempts": 10,
+      "result": {
+        "median": 0.03304000000935048,
+        "max": 0.07049499999266118
+      }
+    },
+    {
+      "id": "K9",
+      "name": "javascript 5000",
+      "attempts": 10,
+      "result": {
+        "median": 4007.0852000000014,
+        "max": 7894.938393999997
+      },
+      "jobs": 1,
+      "maxJobMs": 2400.452607000014
+    },
+    {
+      "id": "K9",
+      "name": "javascript 20000",
+      "attempts": 10,
+      "result": {
+        "median": 0.01611399999819696,
+        "max": 0.3184590000018943
+      },
+      "jobs": 1,
+      "maxJobMs": 0.008712999988347292
+    },
+    {
+      "id": "K9",
+      "name": "javascript 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.1940619999950286,
+        "max": 3.248135000001639
+      },
+      "jobs": 1,
+      "maxJobMs": 0.10485699999844655
+    },
+    {
+      "id": "K9",
+      "name": "json 1000002",
+      "attempts": 10,
+      "result": {
+        "median": 0.17235900001833215,
+        "max": 0.536407000006875
+      },
+      "jobs": 1,
+      "maxJobMs": 0.09926899999845773
+    },
+    {
+      "id": "K10",
+      "name": "boundary 0",
+      "attempts": 10,
+      "result": {
+        "median": 252.37499500002014,
+        "max": 960.100008999987
+      },
+      "blocks": {
+        "chunks": 8,
+        "raw": 0,
+        "nodes": 19368,
+        "wireBytes": 1912680,
+        "maxChunkMs": 51.57300200001919,
+        "renderMs": 159.5967740000051
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 1",
+      "attempts": 10,
+      "result": {
+        "median": 0.24645000000600703,
+        "max": 4.479877999983728
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 0,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 2",
+      "attempts": 10,
+      "result": {
+        "median": 0.0007210000185295939,
+        "max": 0.005658999987645075
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 0,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 3",
+      "attempts": 10,
+      "result": {
+        "median": 198.6214120000077,
+        "max": 381.5661189999955
+      },
+      "blocks": {
+        "chunks": 13,
+        "raw": 0,
+        "nodes": 2673,
+        "wireBytes": 869579,
+        "maxChunkMs": 24.942957999999635,
+        "renderMs": 45.33460000003106
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 4",
+      "attempts": 10,
+      "result": {
+        "median": 967.518974000006,
+        "max": 1403.5254990000103
+      },
+      "blocks": {
+        "chunks": 11,
+        "raw": 0,
+        "nodes": 32382,
+        "wireBytes": 3467803,
+        "maxChunkMs": 127.33578500000294,
+        "renderMs": 351.03189799995744
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 5",
+      "attempts": 10,
+      "result": {
+        "median": 0.02462700000614859,
+        "max": 0.04336499999044463
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 0,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K10",
+      "name": "boundary 6",
+      "attempts": 10,
+      "result": {
+        "median": 867.5706770000106,
+        "max": 1195.6302929999947
+      },
+      "blocks": {
+        "chunks": 0,
+        "raw": 1,
+        "nodes": 0,
+        "wireBytes": 0,
+        "maxChunkMs": 741.9218690000125,
+        "renderMs": 0
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Read 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.9180909999995492,
+        "max": 1.8759420000133105
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work string 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.00894299999345094,
+        "max": 0.03489300000364892
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work object 1000000",
+      "attempts": 10,
+      "result": {
+        "median": 1.8379540000169072,
+        "max": 22.579911999986507
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Read 5000000",
+      "attempts": 10,
+      "result": {
+        "median": 7.581352999986848,
+        "max": 8.553736000001663
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work string 5000000",
+      "attempts": 10,
+      "result": {
+        "median": 0.0003809999907389283,
+        "max": 0.0038260000001173466
+      }
+    },
+    {
+      "id": "K11",
+      "name": "Work object 5000000",
+      "attempts": 10,
+      "result": {
+        "median": 18.19799100002274,
+        "max": 45.121987000020454
+      }
+    },
+    {
+      "id": "K11",
+      "name": "50000 patch lines",
+      "attempts": 10,
+      "result": {
+        "median": 6.031271999992896,
+        "max": 8.20822600001702
+      }
+    },
+    {
+      "id": "K13",
+      "name": "50000 pair diff rows",
+      "attempts": 10,
+      "result": {
+        "median": 111.54766599999857,
+        "max": 202.8707080000022
+      }
+    },
+    {
+      "id": "K13",
+      "name": "pair 2000 + 2000",
+      "attempts": 10,
+      "result": {
+        "median": 941.5966180000105,
+        "max": 1754.4843549999932
+      }
+    },
+    {
+      "id": "K13",
+      "name": "pair 5000 + 5000",
+      "attempts": 10,
+      "result": {
+        "median": 3955.0358429999906,
+        "max": 5434.256630000018
+      }
+    },
+    {
+      "id": "K13",
+      "name": "pair 50000 + 50000",
+      "attempts": 10,
+      "result": {
+        "median": 67.3927299999923,
+        "max": 106.31950999997207
+      }
+    },
+    {
+      "id": "K13",
+      "name": "50000 model only",
+      "attempts": 10,
+      "result": {
+        "median": 18.016394999984186,
+        "max": 32.21311000001151
+      }
+    },
+    {
+      "id": "K13",
+      "name": "5MiB codeView",
+      "attempts": 10,
+      "result": {
+        "median": 36.573090000019874,
+        "max": 56.55589400001918
+      }
+    },
+    {
+      "id": "K13",
+      "name": "32000-char highlight",
+      "attempts": 10,
+      "result": {
+        "median": 104.34040100002312,
+        "max": 378.80130400002236
+      }
+    }
+  ],
+  "baseline": {
+    "commit": "322b19bd",
+    "sourceTree": "0c00c903105328d96b6b4fea92f59a1b86a0ca5c",
+    "samples": [
+      {
+        "id": "K1",
+        "name": "5000 diff rows",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K1",
+        "name": "5001 diff rows",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K1",
+        "name": "50000 diff rows",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K2",
+        "name": "tokens 0",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K2",
+        "name": "tokens 49800",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K3",
+        "name": "1MB markdown, first 30 blocks",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K4",
+        "name": "loose list 4000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K4",
+        "name": "loose list 20000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K4",
+        "name": "loose list 50000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K5",
+        "name": "5MiB code index and first 200 rows",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K6",
+        "name": "200 file paths",
+        "attempts": 10,
+        "result": {
+          "median": 0.7895280000000184,
+          "max": 4.102131999999983
+        }
+      },
+      {
+        "id": "K7",
+        "name": "990044-char patch",
+        "attempts": 10,
+        "result": {
+          "median": 10.752516999999898,
+          "max": 32.409586999999874
+        }
+      },
+      {
+        "id": "K8",
+        "name": "typescript",
+        "attempts": 10,
+        "result": {
+          "median": 230.63555300000007,
+          "max": 295.43734399999994
+        }
+      },
+      {
+        "id": "K8",
+        "name": "javascript",
+        "attempts": 10,
+        "result": {
+          "median": 96356.86839900003,
+          "max": 139639.735314
+        }
+      },
+      {
+        "id": "K9",
+        "name": "javascript 5000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K9",
+        "name": "javascript 20000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K9",
+        "name": "javascript 1000000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K9",
+        "name": "json 1000002",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 0",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 1",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 2",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 3",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 4",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 5",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K10",
+        "name": "boundary 6",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K11",
+        "name": "Read 1000000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K11",
+        "name": "Work string 1000000",
+        "attempts": 10,
+        "result": {
+          "median": 0.006379999918863177,
+          "max": 0.04721099999733269
+        }
+      },
+      {
+        "id": "K11",
+        "name": "Work object 1000000",
+        "attempts": 10,
+        "result": {
+          "median": 4.457163000013679,
+          "max": 5.465980000095442
+        }
+      },
+      {
+        "id": "K11",
+        "name": "Read 5000000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K11",
+        "name": "Work string 5000000",
+        "attempts": 10,
+        "result": {
+          "median": 0.005858999909833074,
+          "max": 0.012888999888673425
+        }
+      },
+      {
+        "id": "K11",
+        "name": "Work object 5000000",
+        "attempts": 10,
+        "result": {
+          "median": 23.508582999929786,
+          "max": 25.204644000157714
+        }
+      },
+      {
+        "id": "K11",
+        "name": "50000 patch lines",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "50000 pair diff rows",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "pair 2000 + 2000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "pair 5000 + 5000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "pair 50000 + 50000",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "50000 model only",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "5MiB codeView",
+        "result": "N/A(함수 없음)"
+      },
+      {
+        "id": "K13",
+        "name": "32000-char highlight",
+        "attempts": 10,
+        "result": {
+          "median": 81.44429100002162,
+          "max": 114.70700699998997
+        }
+      }
+    ]
+  }
+}

@@ -207,3 +207,107 @@ it('q13 skips timing clock reads without a sink', async () => {
   expect(now).not.toHaveBeenCalled()
   lease.release()
 })
+function highlight(code: string): {
+  kind: 'highlight'
+  lang: string
+  theme: 'github-light'
+  code: string
+} {
+  return { kind: 'highlight' as const, lang: 'typescript', theme: 'github-light' as const, code }
+}
+it.each([
+  ['q1 visible before background', 'visible', 'background', 'aaaa', 'b', 'aaaa'],
+  ['q2 smaller first', 'visible', 'visible', 'aaaa', 'b', 'b'],
+  ['q3 FIFO tie', 'visible', 'visible', 'a', 'b', 'a']
+] as const)('%s', async (_, firstRank, secondRank, a, b, expected) => {
+  const h = setup()
+  const head = h.client.request(highlight('head')),
+    first = h.client.request(highlight(a), { priority: firstRank }),
+    second = h.client.request(highlight(b), { priority: secondRank })
+  await h.advance()
+  expect(h.messages[1]).toMatchObject({ code: expected })
+  await h.advance()
+  await h.advance()
+  await Promise.all([head.promise, first.promise, second.promise])
+  h.lease.release()
+})
+it('q5 cancelling the last queued waiter skips transmission', async () => {
+  const h = setup(),
+    head = h.client.request(highlight('head')),
+    pending = h.client.request(highlight('queued'))
+  pending.cancel()
+  await expect(pending.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  await h.advance()
+  await head.promise
+  expect(h.messages).toHaveLength(1)
+  h.lease.release()
+})
+it('q6 cancelled running highlight completes and caches before waiting work', async () => {
+  const h = setup(),
+    req = highlight('head'),
+    head = h.client.request(req),
+    pending = h.client.request(highlight('queued'))
+  head.cancel()
+  await expect(head.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  expect(h.messages).toHaveLength(1)
+  await h.advance()
+  expect(h.client.peek(req)).toBeDefined()
+  await h.advance()
+  await pending.promise
+  h.lease.release()
+})
+it('q7 shared job preserves the remaining waiter', async () => {
+  const h = setup(),
+    req = highlight('head'),
+    a = h.client.request(req),
+    b = h.client.request(req)
+  a.cancel()
+  await expect(a.promise).rejects.toBeInstanceOf(ComputeCancelled)
+  await h.advance()
+  expect((await b.promise).html).toContain('shiki')
+  expect(h.messages).toHaveLength(1)
+  h.lease.release()
+})
+it.each([true, false])('q9 changes priority while queued (promoted %s)', async (promote) => {
+  const h = setup(),
+    head = h.client.request(highlight('head')),
+    a = h.client.request(highlight('longer'), { priority: promote ? 'background' : 'visible' }),
+    b = h.client.request(highlight('b'), { priority: 'background' })
+  a.setPriority(promote ? 'visible' : 'background')
+  await h.advance()
+  expect(h.messages[1]).toMatchObject({ code: promote ? 'longer' : 'b' })
+  await h.advance()
+  await h.advance()
+  await Promise.all([head.promise, a.promise, b.promise])
+  h.lease.release()
+})
+it('q11 waiting highlight starts exactly when the running pair returns', async () => {
+  let time = 0
+  const entries: ComputeJobTiming[] = []
+  const h = setup(3, { now: () => time, timings: (entry) => entries.push(entry) })
+  const next = h.client.openDocument({ id: 'b', revision: 1 }, { text: 'replacement' }, 'compute')
+  const pair = h.client.request({
+    kind: 'diffView',
+    source: { kind: 'pair', old: h.lease.ref, new: next.ref },
+    options: { layout: 'inline', highlightWords: false, ignoreWhitespace: false, expansions: [] },
+    start: 0,
+    end: 3
+  })
+  time = 10
+  const ui = h.client.request(highlight('example'))
+  expect(h.messages.filter((m) => 'kind' in m).map((m) => m.kind)).toEqual(['diffView'])
+  time = 90
+  await h.advance()
+  expect(h.messages.at(-1)).toMatchObject({ kind: 'highlight' })
+  time = 94
+  await h.advance()
+  await Promise.all([ui.promise, pair.promise])
+  expect(entries.map((e) => [e.kind, e.startedAt - e.enqueuedAt, e.endedAt - e.startedAt])).toEqual(
+    [
+      ['diffView', 0, 90],
+      ['highlight', 80, 4]
+    ]
+  )
+  next.release()
+  h.lease.release()
+})

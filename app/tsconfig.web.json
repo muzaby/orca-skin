@@ -8,6 +8,7 @@
     "src/shared/**/*",
     "scripts/transcript-selection/probe.tsx",
     "scripts/transcript-streaming/probe.tsx",
+    "scripts/visible-views/probe.tsx",
     "scripts/fixtures/opencode-ui/main.tsx",
     "scripts/fixtures/opencode-ui/native.ts",
     "scripts/fixtures/opencode-ui/scenarios.ts"
