@@ -528,7 +528,7 @@ export function createOpenCodeBlockModel(
           ownerMsgId,
           partKeys,
           gap,
-          active && index === segments.length - 1,
+          isLiveSeg,
           isLiveSeg,
           sourceParts,
           (prior) => prior.kind === 'text' && prior.text === seg.text,

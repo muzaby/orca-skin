@@ -9,6 +9,7 @@ import {
   useState
 } from 'react'
 import type { DiffRequirementItem, GitDiffPatchLine } from '../../../../../../../shared/ipc'
+import { buildCounterparts } from '../../../../../shared/compute/diffView'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { useI18n } from '../../../../../shared/i18n'
 import {
@@ -484,30 +485,6 @@ function LineText({
   )
 }
 
-/** 연속된 removed/added 묶음에서 k 번째끼리 짝지어 단어 강조의 상대를 찾는다. */
-function counterpartOf(lines: readonly DiffLine[], sourceIndex: number): DiffLine | null {
-  const line = lines[sourceIndex]
-  if (!line || line.type === 'unchanged') return null
-  if (line.type === 'removed') {
-    let start = sourceIndex
-    while (start > 0 && lines[start - 1]?.type === 'removed') start -= 1
-    let end = sourceIndex
-    while (end + 1 < lines.length && lines[end + 1]?.type === 'removed') end += 1
-    const offset = sourceIndex - start
-    const candidate = lines[end + 1 + offset]
-    return candidate?.type === 'added' && lines[end + 1]?.type === 'added' ? candidate : null
-  }
-  let start = sourceIndex
-  while (start > 0 && lines[start - 1]?.type === 'added') start -= 1
-  const offset = sourceIndex - start
-  const removedEnd = start - 1
-  if (lines[removedEnd]?.type !== 'removed') return null
-  let removedStart = removedEnd
-  while (removedStart > 0 && lines[removedStart - 1]?.type === 'removed') removedStart -= 1
-  const candidate = lines[removedStart + offset]
-  return candidate?.type === 'removed' ? candidate : null
-}
-
 function InlineBody({
   rows,
   lines,
@@ -539,6 +516,7 @@ function InlineBody({
   }) => void
   onRemoveRequirement?: (id: string) => void
 }): React.JSX.Element {
+  const counterparts = useMemo(() => buildCounterparts(lines), [lines])
   return (
     <table data-diff-inline className="w-full border-collapse font-mono text-footnote">
       <colgroup>
@@ -554,6 +532,7 @@ function InlineBody({
             <InlineLineRow
               key={row.id}
               row={row}
+              counterpart={lines[counterparts[row.sourceIndex]] ?? null}
               lines={lines}
               filePath={filePath}
               wrapClass={wrapClass}
@@ -574,6 +553,7 @@ function InlineBody({
 
 function InlineLineRow({
   row,
+  counterpart,
   lines,
   filePath,
   wrapClass,
@@ -585,6 +565,7 @@ function InlineLineRow({
   onAddRequirement,
   onRemoveRequirement
 }: {
+  counterpart: DiffLine | null
   row: DiffHunkLineRow
   lines: readonly DiffLine[]
   filePath: string
@@ -649,7 +630,7 @@ function InlineLineRow({
         <td className="px-[8px] align-top">
           <LineText
             line={row.line}
-            counterpart={counterpartOf(lines, row.sourceIndex)}
+            counterpart={counterpart}
             wrapClass={wrapClass}
             highlight={view.highlightWords}
           />
