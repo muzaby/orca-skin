@@ -38,3 +38,46 @@ export function parseMarkdown(source: string): ComputeResults['markdown'] {
   }
   return { hast }
 }
+
+export interface MarkdownDocument {
+  text: string
+  definitions?: Map<string, string>
+}
+export function markdownBlock(
+  doc: MarkdownDocument,
+  request: import('../protocol').MarkdownRequest
+): ComputeResults['markdown'] {
+  const { start, end, table } = request
+  const source = table
+    ? doc.text.slice(start, table.headerEnd) + doc.text.slice(...table.rows)
+    : doc.text.slice(start, end)
+  if (!source.includes('[') || (start === 0 && end === doc.text.length && !table))
+    return parseMarkdown(source)
+  if (!doc.definitions) {
+    const defs = new Map<string, string>()
+    let fence: string | undefined
+    for (const line of doc.text.split('\n')) {
+      const marker = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1]
+      if (marker && !fence) {
+        fence = marker
+        continue
+      }
+      if (fence) {
+        if (marker && marker.startsWith(fence) && line.trim() === marker) fence = undefined
+        continue
+      }
+      const match = /^ {0,3}\[([^\]^]+)\]:\s*\S.*$/.exec(line)
+      if (match) {
+        const key = match[1].trim().replace(/\s+/g, ' ').toLowerCase()
+        if (!defs.has(key)) defs.set(key, line)
+      }
+    }
+    doc.definitions = defs
+  }
+  const references = new Set<string>()
+  for (const match of source.matchAll(/\[([^\]\n]+)\]/g)) {
+    const def = doc.definitions.get(match[1].trim().replace(/\s+/g, ' ').toLowerCase())
+    if (def) references.add(def)
+  }
+  return parseMarkdown(references.size ? source + '\n\n' + [...references].join('\n') : source)
+}

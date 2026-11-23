@@ -1,3 +1,4 @@
+import { BODY_SYNC_MAX_CHARS } from '../../../shared/compute/limits'
 import type { MessageKey } from '../../../shared/i18n'
 import type { IconName } from '../../../shared/ui/Icon'
 import type { ToolCall } from '../reducer/chatReducer'
@@ -165,7 +166,8 @@ export function workToolPayload(value: unknown): WorkToolPayload {
   if (typeof content === 'string')
     return {
       text: content,
-      language: readJson(content) === undefined ? 'text' : 'json'
+      language:
+        content.length <= BODY_SYNC_MAX_CHARS && readJson(content) !== undefined ? 'json' : 'text'
     }
   try {
     return { text: JSON.stringify(content, null, 2) ?? '', language: 'json' }

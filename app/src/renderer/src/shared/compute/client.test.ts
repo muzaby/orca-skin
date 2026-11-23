@@ -266,23 +266,18 @@ describe('취소 (AC11)', () => {
     expect(queued.state.error).toBeInstanceOf(ComputeCancelled)
   })
 
-  it('실행 중 요청이 취소되고 대기 요청이 있으면 워커를 끝내고 새 워커에 대기 요청을 보낸다', async () => {
+  it('실행 중 highlight 취소는 문서와 워커를 보존하고 다음 작업을 이어 간다', async () => {
     const h = harness()
     const run = track(h.client.request(hl('run')))
     const queued = track(h.client.request(hl('queued')))
-    const first = h.last()
     run.cancel()
-    expect(first.terminated).toBe(1)
-    expect(h.workers).toHaveLength(2)
-    expect(h.last().posted.map(codeOf)).toEqual(['queued'])
-    // 끝낸 워커의 늦은 응답은 어디에도 반영되지 않는다.
-    first.onmessage?.({ data: { id: first.posted[0].id, ok: true, result: html('<late>') } })
+    expect(h.workers).toHaveLength(1)
+    h.last().reply(html('<late>'))
+    expect(h.last().posted.map(codeOf)).toEqual(['run', 'queued'])
     h.last().reply(html('<q>'))
     await flush()
     expect(run.state.error).toBeInstanceOf(ComputeCancelled)
-    expect(run.state.value).toBeUndefined()
     expect(queued.state.value).toEqual({ html: '<q>' })
-    expect(h.client.peek(hl('run'))).toBeUndefined()
   })
 
   it('실행 중 요청이 취소돼도 대기 요청이 없으면 워커를 두고, 늦은 응답은 캐시에만 들어간다', async () => {
@@ -304,7 +299,7 @@ describe('취소 (AC11)', () => {
     track(h.client.request(hl('queued')))
     run.cancel()
     run.cancel()
-    expect(h.workers).toHaveLength(2)
+    expect(h.workers).toHaveLength(1)
   })
 })
 

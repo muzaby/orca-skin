@@ -2,6 +2,15 @@
 
 import type { Root } from 'hast'
 import type { ThemedToken } from 'shiki'
+import {
+  diffSourceKey,
+  diffSourceDocs,
+  type DiffSourceRef,
+  type AxisRef,
+  type LineNumbers,
+  type DiffOptions
+} from './diffSource'
+import type { diffViewRows, diffViewContext, diffViewLocate } from './diffView'
 import type { DiffLine } from './diffModel'
 import { COMPUTE_RESULT_ELEMENT_CHARS } from './limits'
 
@@ -35,32 +44,96 @@ export interface DocRef {
   revision: number
 }
 export type Lane = 'compute' | 'markdown'
+export interface TableChunk {
+  headerEnd: number
+  rows: readonly [number, number]
+}
 export interface MarkdownRequest {
+  table?: TableChunk
   kind: 'markdown'
   doc: DocRef
   start: number
   end: number
 }
-export interface TokensRequest {
-  kind: 'tokens'
+export interface ViewRef {
   doc: DocRef
+  transform: 'stripGutter'
+}
+export type CodeSource = { doc: DocRef } | { view: ViewRef }
+export interface CodeViewRequest {
+  kind: 'codeView'
+  source: CodeSource
+  start: number
+  end: number
+}
+export type TokenSource = CodeSource | { axis: AxisRef }
+export type TokensRequest = TokenSource & {
+  kind: 'tokens'
   lang: string
   theme: ComputeTheme
   start: number
   end: number
 }
 export type WireControl =
-  { type: 'doc.open'; ref: DocRef; text: string } | { type: 'doc.close'; ref: DocRef }
+  | { type: 'doc.open'; ref: DocRef; text: string; lines?: LineNumbers }
+  | { type: 'doc.close'; ref: DocRef }
 export const docKey = (ref: DocRef): string => `${ref.id}@${ref.revision}`
 export function laneOf(kind: ComputeRequest['kind']): Lane {
   return kind === 'markdown' ? 'markdown' : 'compute'
 }
 export type ComputeRequest =
-  HighlightRequest | DiffTokensRequest | DiffLinesRequest | MarkdownRequest | TokensRequest
+  | HighlightRequest
+  | DiffTokensRequest
+  | DiffLinesRequest
+  | MarkdownRequest
+  | TokensRequest
+  | CodeViewRequest
+  | { kind: 'diffView'; source: DiffSourceRef; options: DiffOptions; start: number; end: number }
+  | {
+      kind: 'diffLocate'
+      source: DiffSourceRef
+      options: DiffOptions
+      anchors: readonly { oldLine: number | null; newLine: number | null }[]
+    }
+  | { kind: 'diffContext'; source: DiffSourceRef; ignoreWhitespace: boolean; lineIndex: number }
 
 export type TokenRows = ThemedToken[][]
 
+export const sourceDoc = (source: CodeSource): DocRef =>
+  'doc' in source ? source.doc : source.view.doc
+export const sourceKey = (source: CodeSource): string =>
+  'doc' in source ? docKey(source.doc) : docKey(source.view.doc) + '|' + source.view.transform
+export const tokenSourceKey = (s: TokenSource): string =>
+  'axis' in s
+    ? [diffSourceKey(s.axis.source), s.axis.ignoreWhitespace ? 'w' : 'k', s.axis.axis].join('|')
+    : sourceKey(s)
+export function requestDocs(request: ComputeRequest): DocRef[] {
+  switch (request.kind) {
+    case 'tokens':
+      return 'axis' in request ? diffSourceDocs(request.axis.source) : [sourceDoc(request)]
+    case 'diffView':
+    case 'diffLocate':
+    case 'diffContext':
+      return diffSourceDocs(request.source)
+    case 'codeView':
+      return [sourceDoc(request.source)]
+    case 'markdown':
+      return [request.doc]
+    default:
+      return []
+  }
+}
 export interface ComputeResults {
+  diffView: ReturnType<typeof diffViewRows>
+  diffLocate: ReturnType<typeof diffViewLocate>
+  diffContext: ReturnType<typeof diffViewContext>
+  codeView: {
+    lineCount: number
+    widthColumns: number
+    textChars: number
+    charsBefore: number
+    lines: string[]
+  }
   tokens: { rows: TokenRows }
   markdown: { hast: Root } | { tooLarge: true }
   highlight: { html: string }
@@ -86,14 +159,46 @@ export function requestKey(request: ComputeRequest): string {
     case 'tokens':
       return [
         'tokens',
-        docKey(request.doc),
+        tokenSourceKey(request),
         request.lang,
         request.theme,
         request.start,
         request.end
       ].join(SEP)
+    case 'diffContext':
+      return [
+        request.kind,
+        diffSourceKey(request.source),
+        Number(request.ignoreWhitespace),
+        request.lineIndex
+      ].join(SEP)
+    case 'diffView':
+    case 'diffLocate': {
+      const { layout, ignoreWhitespace, highlightWords, expansions } = request.options
+      const tail =
+        request.kind === 'diffView'
+          ? [request.start, request.end]
+          : [request.anchors.map((a) => (a.oldLine ?? '-') + ':' + (a.newLine ?? '-')).join(',')]
+      return [
+        request.kind,
+        diffSourceKey(request.source),
+        layout,
+        Number(ignoreWhitespace),
+        Number(highlightWords),
+        expansions.map(([a, b]) => a + ':' + b).join(','),
+        ...tail
+      ].join(SEP)
+    }
+    case 'codeView':
+      return ['codeView', sourceKey(request.source), request.start, request.end].join(SEP)
     case 'markdown':
-      return ['markdown', docKey(request.doc), request.start, request.end].join(SEP)
+      return [
+        'markdown',
+        docKey(request.doc),
+        request.start,
+        request.end,
+        ...(request.table ? [request.table.headerEnd, ...request.table.rows] : [])
+      ].join(SEP)
     case 'highlight':
       return ['highlight', request.lang, request.theme, request.code].join(SEP)
     case 'diffTokens':
@@ -114,6 +219,12 @@ export function requestKey(request: ComputeRequest): string {
 // 대기 순서를 정하는 입력 크기(문자 수).
 export function requestSize(request: ComputeRequest): number {
   switch (request.kind) {
+    case 'diffContext':
+      return 7
+    case 'diffLocate':
+      return request.anchors.length * 16
+    case 'diffView':
+    case 'codeView':
     case 'tokens':
     case 'markdown':
       return request.end - request.start
@@ -138,6 +249,10 @@ const rowsSize = (rows: TokenRows | null): number =>
 // 캐시 상한에 세는 결과 크기(문자 수) — 결과 문자 + 줄·행·토큰 객체마다 `COMPUTE_RESULT_ELEMENT_CHARS`
 // (html 은 문자만). 빈 줄만 내는 거대 결과도 비용이 0 이 아니다(0325 D-038 · §8 X5). 워커가 센다.
 export function resultSize(result: ComputeResult): number {
+  if ('summary' in result) return JSON.stringify(result).length
+  if ('rowIndex' in result) return result.rowIndex.length * 8
+  if ('lineCount' in result)
+    return result.lines.reduce((sum, line) => sum + COMPUTE_RESULT_ELEMENT_CHARS + line.length, 0)
   if ('rows' in result) return rowsSize(result.rows)
   if ('tooLarge' in result) return 1
   if ('hast' in result) return JSON.stringify(result.hast).length

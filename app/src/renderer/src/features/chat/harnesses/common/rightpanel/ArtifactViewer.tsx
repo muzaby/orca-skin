@@ -1,3 +1,5 @@
+import { VirtualRowMountContext } from '../../../../../shared/ui/virtual/rowMount'
+import { usePanelSelection } from '../../../hooks/usePanelSelection'
 import { useEffect, useRef } from 'react'
 import { Button } from '../../../../../shared/ui/Button'
 import { PanelCloseButton, PanelExpandButton } from '../../../../../shared/ui/PanelControls'
@@ -19,9 +21,14 @@ export function ArtifactViewer({
   selection: ArtifactViewerSelection
 }): React.JSX.Element {
   const { tr } = useI18n()
+  const bodyRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const { action, copied, copy, download } = useArtifactViewerActions(selection)
   const { artifact, result, loading, mode, expanded } = selection
+  const nativeSelection = usePanelSelection(
+    bodyRef,
+    JSON.stringify([artifact.publicationId, selection.request, mode])
+  )
   const ready = result?.state === 'ready' ? result : null
   const image = ready?.format === 'image' || artifact.kind === 'image'
   const binary = artifact.kind === 'file'
@@ -122,37 +129,44 @@ export function ArtifactViewer({
           />
         </div>
       </div>
-      <div
-        data-artifact-viewer-body=""
-        className={`min-h-0 flex-1 ${ready?.format === 'html' && mode === 'preview' ? 'overflow-hidden' : 'overflow-auto'}`}
-      >
-        {loading ? (
-          <div
-            role="status"
-            className="flex h-full items-center justify-center gap-2 p-6 text-footnote text-ink3"
-          >
-            <Icon name="doc" size={18} />
-            {tr('chat.artifactViewer.loading')}
-          </div>
-        ) : unsupported ? (
-          // 형식 미지원만 본문에 남는다 — 접근 불가 사유는 readSelection 이 toast 로 알리고 뷰어를 닫는다.
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-7 py-8 text-center">
-            <Icon name="doc" size={32} className="text-ink3" />
-            <p role="status" className="text-footnote text-ink2">
-              {tr(previewFailureKey(result.reason))}
-            </p>
-          </div>
-        ) : (
-          ready && (
-            <ArtifactPreviewContent
-              key={`${artifact.publicationId}:${selection.request}`}
-              result={ready}
-              mode={mode}
-              title={artifact.title}
-            />
-          )
-        )}
-      </div>
+      <VirtualRowMountContext.Provider value={nativeSelection.notify}>
+        <div
+          onPointerDown={nativeSelection.onPointerDown}
+          data-selection-suppressed={nativeSelection.suppressed ? '' : undefined}
+          style={{ userSelect: nativeSelection.suppressed ? 'none' : undefined }}
+          ref={bodyRef}
+          data-artifact-viewer-body=""
+          className={`min-h-0 flex-1 ${ready?.format === 'html' && mode === 'preview' ? 'overflow-hidden' : 'overflow-auto'}`}
+        >
+          {loading ? (
+            <div
+              role="status"
+              className="flex h-full items-center justify-center gap-2 p-6 text-footnote text-ink3"
+            >
+              <Icon name="doc" size={18} />
+              {tr('chat.artifactViewer.loading')}
+            </div>
+          ) : unsupported ? (
+            // 형식 미지원만 본문에 남는다 — 접근 불가 사유는 readSelection 이 toast 로 알리고 뷰어를 닫는다.
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-7 py-8 text-center">
+              <Icon name="doc" size={32} className="text-ink3" />
+              <p role="status" className="text-footnote text-ink2">
+                {tr(previewFailureKey(result.reason))}
+              </p>
+            </div>
+          ) : (
+            ready && (
+              <ArtifactPreviewContent
+                key={`${artifact.publicationId}:${selection.request}`}
+                scrollElement={bodyRef}
+                result={ready}
+                mode={mode}
+                title={artifact.title}
+              />
+            )
+          )}
+        </div>
+      </VirtualRowMountContext.Provider>
     </section>
   )
 }

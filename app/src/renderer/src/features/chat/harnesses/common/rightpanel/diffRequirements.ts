@@ -10,7 +10,9 @@ const CONTEXT_LINE_LIMIT = 200
 const CONTEXT_LINE_COUNT = 3
 const COMMENT_LIMIT = 2000
 
+type Before = { old: number | null; new: number | null }
 export interface CreateDiffRequirementInput {
+  before?: Before
   id: string
   sessionId: string
   base: GitDiffBase
@@ -76,7 +78,8 @@ function rangeStart(
   lines: readonly DiffLine[],
   start: number,
   end: number,
-  axis: 'old' | 'new'
+  axis: 'old' | 'new',
+  before?: Before
 ): number {
   for (let i = start; i < end; i += 1) {
     const value = axis === 'old' ? lines[i].oldLine : lines[i].newLine
@@ -86,7 +89,8 @@ function rangeStart(
     const value = axis === 'old' ? lines[i].oldLine : lines[i].newLine
     if (value != null) return value + 1
   }
-  return 0
+  const previous = before?.[axis]
+  return previous == null ? 0 : previous + 1
 }
 
 function rangeCount(
@@ -103,11 +107,11 @@ function rangeCount(
   return count
 }
 
-function hunkHeader(lines: readonly DiffLine[], lineIndex: number): string {
+function hunkHeader(lines: readonly DiffLine[], lineIndex: number, before?: Before): string {
   const start = Math.max(0, lineIndex - CONTEXT_LINE_COUNT)
   const end = Math.min(lines.length, lineIndex + CONTEXT_LINE_COUNT + 1)
-  const oldStart = rangeStart(lines, start, end, 'old')
-  const newStart = rangeStart(lines, start, end, 'new')
+  const oldStart = rangeStart(lines, start, end, 'old', before)
+  const newStart = rangeStart(lines, start, end, 'new', before)
   const oldCount = rangeCount(lines, start, end, 'old')
   const newCount = rangeCount(lines, start, end, 'new')
   return `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`
@@ -116,7 +120,8 @@ function hunkHeader(lines: readonly DiffLine[], lineIndex: number): string {
 function withLinePosition(
   anchor: DiffRequirementAnchor,
   lines: readonly DiffLine[],
-  lineIndex: number
+  lineIndex: number,
+  before?: Before
 ): DiffRequirementAnchor {
   const line = lines[lineIndex]
   return {
@@ -125,7 +130,7 @@ function withLinePosition(
     filePath: anchor.filePath,
     oldLine: line.oldLine,
     newLine: line.newLine,
-    hunkHeader: hunkHeader(lines, lineIndex),
+    hunkHeader: hunkHeader(lines, lineIndex, before),
     contextBefore: contextBefore(lines, lineIndex),
     contextAfter: contextAfter(lines, lineIndex),
     comment: anchor.comment,
@@ -166,7 +171,8 @@ export function createDiffRequirementItem(input: CreateDiffRequirementInput): Di
         createdAt: input.createdAt
       },
       input.lines,
-      input.lineIndex
+      input.lineIndex,
+      input.before
     ),
     located: true
   }

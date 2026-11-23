@@ -519,3 +519,8 @@
     opacity: 1;
   }
 }
+
+[data-selection-suppressed],
+[data-selection-suppressed] * {
+  user-select: none !important;
+}

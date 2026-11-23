@@ -22,7 +22,7 @@ vi.mock('react', async (original) => ({
   useContext: () => context.state
 }))
 vi.mock('../../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
-vi.mock('../../../hooks/useDiffSyntax', () => ({ useDiffSyntax: () => new Map() }))
+vi.mock('../../../hooks/useSmallDiffSyntax', () => ({ useSmallDiffSyntax: () => new Map() }))
 let dom: FakeDom
 const copy = vi.fn(async () => {})
 const nodes = (root: FakeNode): FakeNode[] => [root, ...root.children.flatMap(nodes)]

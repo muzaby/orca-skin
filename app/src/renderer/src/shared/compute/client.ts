@@ -1,3 +1,5 @@
+import { computeDiagnostics } from './diagnostics'
+import type { LineNumbers } from './diffSource'
 // 계산 클라이언트 (0324 MD-01 · SD-01). UI 스레드에서 계산을 하지 않고 워커에 요청한다 —
 // 워커가 실패해도 여기서 같은 계산을 대신 돌리지 않는다(D-009): 요청은 실패로 끝나고 소비자가
 // 원문을 유지한다.
@@ -17,12 +19,15 @@ import { rendererLog } from '../logging'
 import {
   COMPUTE_DOC_MAX_CHARS,
   TOKENS_RANGE_MAX_LINES,
+  CODE_VIEW_WINDOW_MAX_LINES,
+  DIFF_VIEW_WINDOW_MAX_ROWS,
   COMPUTE_CACHE_MAX_CHARS,
   COMPUTE_CACHE_MAX_ENTRIES,
   COMPUTE_FAILURE_LIMIT
 } from './limits'
 import {
   docKey,
+  requestDocs,
   laneOf,
   type Lane,
   type DocRef,
@@ -74,7 +79,11 @@ export interface DocumentLease {
 }
 
 export interface ComputeClient {
-  openDocument(ref: DocRef, payload: { text: string }, lane: Lane): DocumentLease
+  openDocument(
+    ref: DocRef,
+    payload: { text: string; lines?: LineNumbers },
+    lane: Lane
+  ): DocumentLease
   request<K extends ComputeRequest['kind']>(
     request: Extract<ComputeRequest, { kind: K }>,
     options?: { cacheable?: boolean; priority?: Priority }
@@ -143,6 +152,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     {
       ref: DocRef
       text: string
+      lines?: LineNumbers
       leases: number
       available: boolean
       sent: boolean
@@ -213,7 +223,11 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   function collectDocuments(): void {
     for (const [key, doc] of documents) {
       if (doc.leases > 0) continue
-      if ([...jobs.values()].some(({ request }) => 'doc' in request && docKey(request.doc) === key))
+      if (
+        [...jobs.values()].some(({ request }) => {
+          return requestDocs(request).some((ref) => docKey(ref) === key)
+        })
+      )
         continue
       documents.delete(key)
       if (doc.available) reserved -= doc.text.length
@@ -278,10 +292,15 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     // 생성 실패는 `fail` 이 이미 이 요청을 실패시키고 다음으로 넘어갔다.
     if (!target || running !== job) return
     try {
-      if ('doc' in job.request) {
-        const doc = documents.get(docKey(job.request.doc))!
+      for (const ref of requestDocs(job.request)) {
+        const doc = documents.get(docKey(ref))!
         if (!doc.sent) {
-          target.postMessage({ type: 'doc.open', ref: doc.ref, text: doc.text })
+          target.postMessage({
+            type: 'doc.open',
+            ref: doc.ref,
+            text: doc.text,
+            ...(doc.lines && { lines: doc.lines })
+          })
           doc.sent = true
         }
       }
@@ -337,9 +356,13 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
         discard.push(job.id)
         settle(job, { error: new ComputeCancelled() })
       }
-    } else if (response.error === 'unknown-doc' && !job.retried && 'doc' in job.request) {
+    } else if (
+      response.error === 'unknown-doc' &&
+      !job.retried &&
+      requestDocs(job.request).length
+    ) {
       job.retried = true
-      documents.get(docKey(job.request.doc))!.sent = false
+      for (const ref of requestDocs(job.request)) documents.get(docKey(ref))!.sent = false
       enqueue(job)
     } else {
       // 요청 하나의 계산 오류(문법 미지원 등)는 워커 실패가 아니다.
@@ -396,7 +419,12 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       collectDocuments()
       return
     }
-    if (running !== job || queue.length === 0 || 'doc' in job.request) return
+    if (
+      running !== job ||
+      queue.length === 0 ||
+      !(job.request.kind === 'diffView' && job.request.source.kind === 'pair')
+    )
+      return
     // 실행 중이고 뒤에 기다리는 요청이 있다 — 워커를 바꿔 대기열을 잇는다.
     jobs.delete(job.key)
     running = null
@@ -410,7 +438,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       let entry = documents.get(key)
       if (!entry) {
         const available = reserved + payload.text.length <= capacity
-        entry = { ref, text: payload.text, available, sent: false, leases: 0, listeners: new Set() }
+        entry = { ref, ...payload, available, sent: false, leases: 0, listeners: new Set() }
         if (available) reserved += payload.text.length
         documents.set(key, entry)
       }
@@ -448,14 +476,21 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
     },
     request(request, options) {
       const input: ComputeRequest = request
-      if (input.kind === 'tokens') {
+      if (input.kind === 'tokens' || input.kind === 'codeView' || input.kind === 'diffView') {
         const { start, end } = input
         if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start)
           return settledHandle(Promise.reject(Error('range-invalid')))
-        if (end - start > TOKENS_RANGE_MAX_LINES)
+        if (
+          end - start >
+          (input.kind === 'tokens'
+            ? TOKENS_RANGE_MAX_LINES
+            : input.kind === 'diffView'
+              ? DIFF_VIEW_WINDOW_MAX_ROWS
+              : CODE_VIEW_WINDOW_MAX_LINES)
+        )
           return settledHandle(Promise.reject(Error('range-too-large')))
       }
-      if ('doc' in request && !documents.get(docKey(request.doc))?.available)
+      if (requestDocs(input).some((ref) => !documents.get(docKey(ref))?.available))
         return settledHandle(Promise.reject(new Error('doc-unavailable')))
 
       const key = requestKey(request)
@@ -514,6 +549,9 @@ let shared: ComputeClient | null = null
 // 창마다 하나 — 첫 요청에 워커를 만든다.
 export function computeClient(): ComputeClient {
   shared ??= createComputeClient({
+    get timings() {
+      return computeDiagnostics()?.job
+    },
     createWorker: (lane) =>
       lane === 'markdown'
         ? (new Worker(new URL('./worker/markdown.worker.ts', import.meta.url), {

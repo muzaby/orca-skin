@@ -1,3 +1,9 @@
+import {
+  DiffScrollAnchorContext,
+  useDiffScrollCoordinator
+} from '../../../hooks/useDiffScrollCoordinator'
+import { usePanelSelection } from '../../../hooks/usePanelSelection'
+import { VirtualRowMountContext } from '../../../../../shared/ui/virtual/rowMount'
 import { useCallback, useMemo, useRef } from 'react'
 import type {
   DiffRequirementItem,
@@ -86,6 +92,8 @@ export function DiffReview({
   const { tr } = useI18n()
   const internalOwnerRef = useRef<HTMLDivElement>(null)
   const tailSpacerRef = useRef<HTMLDivElement>(null)
+  const rememberAnchor = useDiffScrollCoordinator(internalOwnerRef, tailSpacerRef)
+  const nativeSelection = usePanelSelection(internalOwnerRef, JSON.stringify(comparison))
   // 요구사항 draft 는 키 입력마다 store 를 갱신하므로 이 컴포넌트는 타이핑 중 계속 리렌더된다.
   // 파생을 메모하지 않으면 `sections` 참조가 매번 새로 나고, 그것을 deps 로 쓰는 하류
   // `ChangedNavigationSidebar` 의 트리 재구축 메모가 **영구히 미스**한다. 무효화 축은 `patch`
@@ -114,75 +122,83 @@ export function DiffReview({
           onPickComparison={onPickComparison}
         />
       )}
-      <div
-        ref={internalOwnerRef}
-        data-diff-scroll-owner
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto"
-      >
-        {error ? (
-          <div data-diff-error className="px-p5 py-p4 text-footnote text-t6">
-            <p>{tr('chat.rightpanel.diffLoadFailed')}</p>
-            <button type="button" onClick={onRefresh} className="mt-2 text-selected underline">
-              {tr('chat.rightpanel.diffRefresh')}
-            </button>
-          </div>
-        ) : !hasRequest ? (
-          <p data-diff-not-synced className="px-p5 py-p4 text-footnote text-t6">
-            {tr('chat.rightpanel.diffNotSynced')}
-          </p>
-        ) : patch === null ? (
-          <p data-diff-loading className="px-p5 py-p4 text-footnote text-t6">
-            {tr('chat.rightpanel.diffFileLoading')}
-          </p>
-        ) : !patch.isRepo ? (
-          <p className="px-p5 py-p4 text-footnote text-t6">{tr('chat.rightpanel.diffNotRepo')}</p>
-        ) : patch.unavailable ? (
-          <p className="px-p5 py-p4 text-footnote text-t6">
-            {tr('chat.rightpanel.diffPatchUnavailable')}
-          </p>
-        ) : sections.length === 0 ? (
+      <DiffScrollAnchorContext.Provider value={rememberAnchor}>
+        <VirtualRowMountContext.Provider value={nativeSelection.notify}>
           <div
-            data-diff-empty
-            className="flex h-full items-center justify-center px-p5 py-p4 text-center text-footnote text-t6"
+            onPointerDown={nativeSelection.onPointerDown}
+            data-selection-suppressed={nativeSelection.suppressed ? '' : undefined}
+            ref={internalOwnerRef}
+            data-diff-scroll-owner
+            className="min-h-0 min-w-0 flex-1 overflow-y-auto"
           >
-            {tr('chat.rightpanel.diffEmpty')}
+            {error ? (
+              <div data-diff-error className="px-p5 py-p4 text-footnote text-t6">
+                <p>{tr('chat.rightpanel.diffLoadFailed')}</p>
+                <button type="button" onClick={onRefresh} className="mt-2 text-selected underline">
+                  {tr('chat.rightpanel.diffRefresh')}
+                </button>
+              </div>
+            ) : !hasRequest ? (
+              <p data-diff-not-synced className="px-p5 py-p4 text-footnote text-t6">
+                {tr('chat.rightpanel.diffNotSynced')}
+              </p>
+            ) : patch === null ? (
+              <p data-diff-loading className="px-p5 py-p4 text-footnote text-t6">
+                {tr('chat.rightpanel.diffFileLoading')}
+              </p>
+            ) : !patch.isRepo ? (
+              <p className="px-p5 py-p4 text-footnote text-t6">
+                {tr('chat.rightpanel.diffNotRepo')}
+              </p>
+            ) : patch.unavailable ? (
+              <p className="px-p5 py-p4 text-footnote text-t6">
+                {tr('chat.rightpanel.diffPatchUnavailable')}
+              </p>
+            ) : sections.length === 0 ? (
+              <div
+                data-diff-empty
+                className="flex h-full items-center justify-center px-p5 py-p4 text-center text-footnote text-t6"
+              >
+                {tr('chat.rightpanel.diffEmpty')}
+              </div>
+            ) : (
+              <>
+                {patch.contextLimited && (
+                  <p className="px-p5 py-p2 text-footnote text-ink3">
+                    {tr('chat.rightpanel.diffContextLimited')}
+                  </p>
+                )}
+                {sections.map((section) => (
+                  <FileDiffSection
+                    key={section.path}
+                    section={section}
+                    collapsed={!expandedFiles.has(section.path)}
+                    view={view}
+                    requirements={requirements}
+                    draft={draft}
+                    activeRequirementId={activeRequirementId}
+                    selectionVersion={selectionVersion}
+                    onSelectRequirement={onSelectRequirement}
+                    scrollOwnerRef={internalOwnerRef}
+                    tailSpacerRef={tailSpacerRef}
+                    onToggleCollapsed={onToggleExpanded}
+                    onOpenFile={onOpenFile}
+                    onDraftChange={onDraftChange}
+                    onAddRequirement={onAddRequirement}
+                    onRemoveRequirement={onRemoveRequirement}
+                  />
+                ))}
+                {patch.filesTruncated && (
+                  <p className="px-p5 py-p3 text-footnote text-ink3">
+                    {tr('chat.rightpanel.diffSessionFilesTruncated')}
+                  </p>
+                )}
+              </>
+            )}
+            <div ref={tailSpacerRef} aria-hidden="true" className="pointer-events-none shrink-0" />
           </div>
-        ) : (
-          <>
-            {patch.contextLimited && (
-              <p className="px-p5 py-p2 text-footnote text-ink3">
-                {tr('chat.rightpanel.diffContextLimited')}
-              </p>
-            )}
-            {sections.map((section) => (
-              <FileDiffSection
-                key={section.path}
-                section={section}
-                collapsed={!expandedFiles.has(section.path)}
-                view={view}
-                requirements={requirements}
-                draft={draft}
-                activeRequirementId={activeRequirementId}
-                selectionVersion={selectionVersion}
-                onSelectRequirement={onSelectRequirement}
-                scrollOwnerRef={internalOwnerRef}
-                tailSpacerRef={tailSpacerRef}
-                onToggleCollapsed={onToggleExpanded}
-                onOpenFile={onOpenFile}
-                onDraftChange={onDraftChange}
-                onAddRequirement={onAddRequirement}
-                onRemoveRequirement={onRemoveRequirement}
-              />
-            ))}
-            {patch.filesTruncated && (
-              <p className="px-p5 py-p3 text-footnote text-ink3">
-                {tr('chat.rightpanel.diffSessionFilesTruncated')}
-              </p>
-            )}
-          </>
-        )}
-        <div ref={tailSpacerRef} aria-hidden="true" className="pointer-events-none shrink-0" />
-      </div>
+        </VirtualRowMountContext.Provider>
+      </DiffScrollAnchorContext.Provider>
     </div>
   )
 }

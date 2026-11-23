@@ -6,11 +6,11 @@ import type { DiffLine } from '../../../lib/diffLines'
 import { DEFAULT_DIFF_VIEW } from '../../../reducer/chatReducer'
 import { FileDiffSection } from './FileDiffSection'
 
-vi.mock('../../../hooks/useDiffSyntax', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../hooks/useDiffSyntax')>()
+vi.mock('../../../hooks/useSmallDiffSyntax', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../hooks/useSmallDiffSyntax')>()
   return {
     ...actual,
-    useDiffSyntax: (lines: readonly DiffLine[]) =>
+    useSmallDiffSyntax: (lines: readonly DiffLine[]) =>
       new Map(
         lines.map((line) => [
           line,
