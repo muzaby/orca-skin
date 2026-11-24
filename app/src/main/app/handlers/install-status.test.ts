@@ -68,4 +68,12 @@ describe('installation status forwarding', () => {
       vi.useRealTimers()
     }
   })
+
+  it('preserves each Unicode scalar across multiple full batches', async () => {
+    const log = '🐬'.repeat(12_300)
+    const sent: InstallStatus[] = []
+    await forwardInstallStatus(statuses({ step: 'installing', log }), (item) => sent.push(item))
+    expect(sent.map((item) => item.log).join('')).toBe(log)
+    expect(sent.map((item) => Buffer.byteLength(item.log!))).toEqual([16_384, 16_384, 16_384, 48])
+  })
 })

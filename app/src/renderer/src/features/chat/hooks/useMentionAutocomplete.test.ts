@@ -169,6 +169,32 @@ beforeEach(() => {
 afterEach(unmount)
 
 describe('mention autocomplete path listing ownership', () => {
+  it('refreshes on focus and data reconnection and resets off-menu tokens when cwd changes', async () => {
+    const events = new EventTarget()
+    vi.stubGlobal('addEventListener', events.addEventListener.bind(events))
+    vi.stubGlobal('removeEventListener', events.removeEventListener.bind(events))
+    try {
+      h.list.mockResolvedValue(Array.from({ length: 10 }, (_, i) => file('file' + i)))
+      render('@file')
+      await flush()
+      const listing = render('@file')
+      expect(listing.validFilePaths.has('file9')).toBe(true)
+      expect(fileNames(listing)).toHaveLength(8)
+      h.list.mockResolvedValue([file('file-focused')])
+      events.dispatchEvent(new Event('focus'))
+      await flush()
+      expect(fileNames(render('@file'))).toEqual(['file-focused'])
+      h.list.mockResolvedValue([file('file-reconnected')])
+      h.onHostLifecycle.mock.calls.at(-1)![0]({ host: 'data' })
+      await flush()
+      expect(fileNames(render('@file'))).toEqual(['file-reconnected'])
+      h.list.mockReturnValue(deferred().promise)
+      expect(render('@file', '/other').validFilePaths.size).toBe(0)
+    } finally {
+      unmount()
+      vi.unstubAllGlobals()
+    }
+  })
   it('keeps one pending listing across prefix/caret changes and filters its result using the current token', async () => {
     const request = deferred()
     h.list.mockReturnValue(request.promise)

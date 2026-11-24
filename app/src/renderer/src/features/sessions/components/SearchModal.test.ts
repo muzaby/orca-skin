@@ -114,6 +114,17 @@ describe('actual search modal before and after responsibility relocation', () =>
     expect(h.states[1]).toEqual([hit('b')])
   })
 
+  it('opens the highlighted result and discards the old selection immediately on edit', () => {
+    h.states = ['query', [hit('a'), hit('b')], 0]
+    const press = (key: string): void => input().props.onKeyDown!({ key, preventDefault: vi.fn() })
+    press('ArrowDown')
+    press('Enter')
+    expect(h.navigate).toHaveBeenCalledExactlyOnceWith('b')
+    input().props.onChange!({ target: { value: 'different' } })
+    press('Enter')
+    expect(h.navigate).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps arrow selection, navigation-before-close and escaped snippet output', () => {
     h.states = ['query', [hit('a'), hit('b')], 0]
     const preventDefault = vi.fn()

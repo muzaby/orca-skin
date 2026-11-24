@@ -1,0 +1,386 @@
+{
+  "interactions": {
+    "env": true,
+    "electron": "39.8.10",
+    "composer": [
+      {
+        "source": "dialog",
+        "accepted": 5,
+        "previews": 2,
+        "sameTask": true,
+        "reads": 5,
+        "cancelled": 2,
+        "followup": true
+      },
+      {
+        "source": "drag_drop",
+        "accepted": 5,
+        "previews": 2,
+        "sameTask": true,
+        "reads": 5,
+        "cancelled": 2,
+        "followup": true
+      },
+      {
+        "source": "clipboard",
+        "accepted": 5,
+        "previews": 2,
+        "sameTask": true,
+        "reads": 0,
+        "cancelled": 2,
+        "followup": true
+      }
+    ],
+    "inputs": [
+      {
+        "kind": "settings",
+        "empty": 37.296875,
+        "heights": [
+          {
+            "size": 2000,
+            "height": 174,
+            "paintUpperBoundMs": 22.800000000745058
+          },
+          {
+            "size": 20000,
+            "height": 174,
+            "paintUpperBoundMs": 333.70000000000005
+          }
+        ],
+        "short": 37.296875,
+        "wide": 37.296875,
+        "narrow": 78.890625
+      },
+      {
+        "kind": "comment",
+        "empty": 43.5,
+        "heights": [
+          {
+            "size": 2000,
+            "height": 174,
+            "paintUpperBoundMs": 30.90000000149007
+          },
+          {
+            "size": 20000,
+            "height": 174,
+            "paintUpperBoundMs": 231.5999999999999
+          }
+        ],
+        "short": 43.5,
+        "wide": 43.5,
+        "narrow": 76.34375
+      }
+    ],
+    "catalogSelection": {
+      "height": 83,
+      "outside": "outside-list",
+      "replaced": "replacement",
+      "last": "item-299"
+    },
+    "commentIndex": {
+      "revisions": 2,
+      "duplicateQuotes": 2,
+      "reverseSelection": true,
+      "overlayExcluded": true
+    },
+    "provider": {
+      "characters": 307845,
+      "edits": [
+        {
+          "characters": 307845,
+          "commitMs": 9.200000001117587,
+          "paintMs": 179.39999999999998
+        },
+        {
+          "characters": 21,
+          "commitMs": 2.600000001490116,
+          "paintMs": 13.399999999999977
+        },
+        {
+          "characters": 307845,
+          "commitMs": 5.800000000745058,
+          "paintMs": 109.79999999999995
+        }
+      ],
+      "storedCharacters": 307845,
+      "obsoleteDiscarded": true,
+      "errorPosition": [
+        3,
+        3
+      ]
+    },
+    "resources": {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 47.600000001490116,
+      "paintMs": 5.799999998882413,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    "verdict": true
+  },
+  "geometry": {
+    "env": true,
+    "electron": "39.8.10",
+    "geometry": {
+      "paragraphs": 2000,
+      "comments": 129,
+      "rectReads": 47,
+      "rectReadsAfterResize": 46,
+      "openedLast": true,
+      "lastVisible": true,
+      "tookFocus": true,
+      "savedSelection": "reference",
+      "burstRectReads": 46,
+      "initialScroll": 0,
+      "initialFirstTop": 31.65625,
+      "initialViewport": [
+        0,
+        470,
+        532
+      ]
+    },
+    "verdict": true
+  },
+  "overlap": {
+    "env": true,
+    "electron": "39.8.10",
+    "overlap": {
+      "thumbnails": 5,
+      "pendingAtScroll": 5,
+      "pendingAtDelta": 5,
+      "scrollTop": 49985,
+      "latestPresent": true,
+      "paintAfterDeltaMs": 127.59999999962747
+    },
+    "verdict": true
+  },
+  "data": {
+    "composer": [
+      {
+        "reopened": {
+          "files": 5,
+          "previews": 2,
+          "commitMs": 3.399999998509884,
+          "paintMs": 23.90000000037253
+        },
+        "source": "dialog",
+        "accepted": 5,
+        "previews": 2,
+        "sameTask": true,
+        "reads": 5,
+        "cancelled": 2,
+        "followup": true
+      },
+      {
+        "reopened": {
+          "files": 5,
+          "previews": 2,
+          "commitMs": 1.8999999985098839,
+          "paintMs": 9.400000000372529
+        },
+        "source": "drag_drop",
+        "accepted": 5,
+        "previews": 2,
+        "sameTask": true,
+        "reads": 5,
+        "cancelled": 2,
+        "followup": true
+      },
+      {
+        "reopened": {
+          "files": 5,
+          "previews": 2,
+          "commitMs": 1.299999998882413,
+          "paintMs": 24.40000000037253
+        },
+        "source": "clipboard",
+        "accepted": 5,
+        "previews": 2,
+        "sameTask": true,
+        "reads": 0,
+        "cancelled": 2,
+        "followup": true
+      }
+    ],
+    "catalog": {
+      "duplicates": [
+        "duplicate-a",
+        "duplicate-b"
+      ],
+      "selected": "duplicate-b",
+      "removed": "session-9952",
+      "replacement": "session-9951"
+    },
+    "folders": [
+      {
+        "op": "create",
+        "name": "entry-one",
+        "elapsedMs": 67.60000000149012
+      },
+      {
+        "op": "rename",
+        "name": "entry-two",
+        "elapsedMs": 48
+      },
+      {
+        "op": "delete",
+        "name": "",
+        "elapsedMs": 53.59999999962747
+      },
+      {
+        "op": "replace",
+        "name": "entry-three",
+        "elapsedMs": 47.79999999888241
+      }
+    ],
+    "search": [
+      {
+        "q": "orchard",
+        "sessionId": "session-1",
+        "messageId": 1,
+        "snippet": "<mark>orchard</mark> sole-specific search body for first message"
+      },
+      {
+        "q": "tide",
+        "sessionId": "session-2",
+        "messageId": 2,
+        "snippet": "<mark>tide</mark> distinct second message snippet"
+      }
+    ],
+    "usage": [
+      {
+        "range": "7d",
+        "period": 90,
+        "days": 7,
+        "buckets": 7,
+        "paintedBars": 1,
+        "dataMs": 0.16930699999966237,
+        "roundTripMs": 40.79999999888241,
+        "deriveMs": 0,
+        "firstCommitMs": 10,
+        "paintMs": 53.90000000037253,
+        "total": 10,
+        "modelTokens": 21,
+        "tooltip": "6월 30일10$0.00"
+      },
+      {
+        "range": "30d",
+        "period": 90,
+        "days": 30,
+        "buckets": 30,
+        "paintedBars": 1,
+        "dataMs": 0.0514299999999821,
+        "roundTripMs": 8,
+        "deriveMs": 0.2000000011175871,
+        "firstCommitMs": 16.299999998882413,
+        "paintMs": 24,
+        "total": 10,
+        "modelTokens": 21,
+        "tooltip": "6월 30일10$0.00"
+      },
+      {
+        "range": "all",
+        "period": 90,
+        "days": 90,
+        "buckets": 90,
+        "paintedBars": 2,
+        "dataMs": 0.5882389999997031,
+        "roundTripMs": 10.599999999627471,
+        "deriveMs": 0.09999999962747097,
+        "firstCommitMs": 5,
+        "paintMs": 27.5,
+        "total": 23,
+        "modelTokens": 21,
+        "tooltip": "6월 30일10$0.00"
+      },
+      {
+        "range": "all",
+        "period": 91,
+        "days": 91,
+        "buckets": 14,
+        "paintedBars": 2,
+        "dataMs": 0.024597999999969034,
+        "roundTripMs": 6.300000000745058,
+        "deriveMs": 1.900000000372529,
+        "firstCommitMs": 4.300000000745058,
+        "paintMs": 16,
+        "total": 23,
+        "modelTokens": 21,
+        "tooltip": "6월 29일10$0.00"
+      },
+      {
+        "range": "all",
+        "period": 800,
+        "days": 730,
+        "buckets": 105,
+        "paintedBars": 1,
+        "dataMs": 0.04423899999983405,
+        "roundTripMs": 5.799999998882413,
+        "deriveMs": 10.5,
+        "firstCommitMs": 8.899999998509884,
+        "paintMs": 55.5,
+        "total": 23,
+        "modelTokens": 21,
+        "tooltip": "6월 29일10$0.00"
+      }
+    ],
+    "schedule": {
+      "runs": 20,
+      "bytes": 65536,
+      "session": "session-1"
+    },
+    "sha": "feaf9771acba7c851f99321df55e956e88aa158f",
+    "baseline": false,
+    "environment": "linux-electron",
+    "electron": "39.8.10",
+    "sourceDiff": "b7bb3f2fb9b6915291e6c8eaea45239ff127a207d97f2ba97322e8b145d04814",
+    "env": true,
+    "verdict": true
+  },
+  "installer": {
+    "env": true,
+    "electron": "39.8.10",
+    "install": [
+      {
+        "source": "ClaudeAdapter.install",
+        "generation": 1,
+        "bytes": 0,
+        "batches": 0,
+        "terminal": 1,
+        "completions": 1
+      },
+      {
+        "source": "diagnostic",
+        "generation": 2,
+        "bytes": 164455,
+        "batches": 13,
+        "terminal": 1,
+        "completions": 1
+      },
+      {
+        "source": "diagnostic",
+        "generation": 3,
+        "bytes": 164455,
+        "batches": 13,
+        "terminal": 1,
+        "completions": 2
+      }
+    ],
+    "verdict": true
+  },
+  "overlapConcurrentCI": {
+    "env": true,
+    "electron": "39.8.10",
+    "overlap": {
+      "thumbnails": 5,
+      "pendingAtScroll": 5,
+      "pendingAtDelta": 5,
+      "scrollTop": 50007,
+      "latestPresent": true,
+      "paintAfterDeltaMs": 602.5
+    },
+    "verdict": true
+  }
+}

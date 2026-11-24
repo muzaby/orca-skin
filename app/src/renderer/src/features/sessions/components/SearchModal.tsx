@@ -33,8 +33,7 @@ export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.
   const panelRef = useRef<HTMLDivElement>(null)
   const reqSeqRef = useRef(0)
 
-  // 입력어 변경 → debounce → IPC. 빈 입력일 땐 IPC skip; 렌더 측에서 query 가
-  // empty 면 "검색어를 입력하세요" 분기로 가니 hits 잔존값은 화면에 노출되지 않는다.
+  // 검색어가 바뀌면 기존 선택을 비우고 최신 요청의 결과만 표시한다.
   useEffect(() => {
     const trimmed = query.trim()
     if (trimmed === '') return
@@ -108,7 +107,12 @@ export function SearchModal({ onClose, onChoose }: SearchModalProps): React.JSX.
             id="search-modal-input"
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              reqSeqRef.current++
+              setHits(null)
+              setSelectedIdx(0)
+              setQuery(e.target.value)
+            }}
             onKeyDown={onInputKey}
             placeholder={tr('search.placeholder')}
             autoFocus

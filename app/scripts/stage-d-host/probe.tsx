@@ -1,3 +1,4 @@
+import { measureDataFlows } from './view-flows'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { useRef, type ReactNode } from 'react'
@@ -439,4 +440,10 @@ async function measure(
   }
 }
 
-Object.assign(window, { measureHostQueries: measure })
+Object.assign(window, {
+  measureHostQueries: measure,
+  measureDataFlows: async (cwd: string, usageRuns = 0) => {
+    await connected
+    return measureDataFlows(cwd, data, nav, usageRuns)
+  }
+})

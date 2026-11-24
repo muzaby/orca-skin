@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { PROVIDER_OPTIONS, providerOption } from '../../harnesses/claude/providerCatalog'
 
 describe('validateSettingsJson', () => {
+  it('locates the missing comma in a multi-line edit', () => {
+    expect(validateSettingsJson('{\n  "a": 1\n  "b": 2\n}')).toEqual({
+      ok: false,
+      errorKey: 'engine.validation.jsonSyntaxAt',
+      params: { line: 3, col: 3 }
+    })
+  })
   it('빈 입력은 거부', () => {
     const r = validateSettingsJson('   ')
     expect(r.ok).toBe(false)

@@ -1,6 +1,6 @@
 import { useCallback, useRef, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { VirtualRowMountContext } from './rowMount'
-import { usePanelSelection } from './usePanelSelection'
+import { usePanelSelection, VIRTUAL_SELECTION_SCOPE } from './usePanelSelection'
 import { useRowScrollAnchor } from './useRowScrollAnchor'
 import { useVirtualRows } from './useVirtualRows'
 
@@ -21,10 +21,11 @@ interface CatalogListProps<Item> {
 }
 
 export function VirtualCatalogList<Item>(props: CatalogListProps<Item>): React.JSX.Element {
-  const selection = usePanelSelection(props.owner, props.documentKey)
+  const root = useRef<HTMLUListElement>(null)
+  const selection = usePanelSelection(props.owner, props.documentKey, root)
   return (
     <VirtualRowMountContext.Provider value={selection.notify}>
-      <CatalogWindow {...props} onPointerDown={selection.onPointerDown} />
+      <CatalogWindow {...props} root={root} onPointerDown={selection.onPointerDown} />
     </VirtualRowMountContext.Provider>
   )
 }
@@ -35,18 +36,26 @@ function CatalogWindow<Item>({
   keyOf,
   documentKey,
   renderRow,
+  root,
   onPointerDown
 }: CatalogListProps<Item> & {
+  root: RefObject<HTMLUListElement | null>
   onPointerDown: (event: { button: number }) => void
 }): React.JSX.Element {
-  const root = useRef<HTMLUListElement>(null)
   const getItemKey = useCallback((index: number) => keyOf(items[index]), [items, keyOf])
   const list = useVirtualRows(items.length, root, owner, undefined, getItemKey, estimateCatalogRow)
   useRowScrollAnchor(list, owner, items, documentKey, keyOf)
   return (
     <ul
       ref={root}
-      onPointerDown={onPointerDown}
+      data-virtual-selection-scope=""
+      onPointerDown={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest(VIRTUAL_SELECTION_SCOPE) === event.currentTarget
+        )
+          onPointerDown(event)
+      }}
       className="relative m-0 list-none p-0"
       style={{ height: list.getTotalSize() }}
     >

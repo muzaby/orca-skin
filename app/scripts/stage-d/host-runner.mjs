@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { runElectron, serveProbe } from '../check-transcript-selection.mjs'
 import { hostDecision, rendererDecision, summarize } from './measurement.mjs'
 
-export async function runHostMeasurements(electron, baseline) {
+export async function runHostMeasurements(electron, baseline, flows = false) {
   const root = resolve(import.meta.dirname, '../..')
   const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
   if (baseline && !sha.startsWith('c7d2adf2')) throw Error('Baseline requires source c7d2adf2')
@@ -70,10 +70,42 @@ export async function runHostMeasurements(electron, baseline) {
       electron,
       probe.origin,
       'stage-d-host',
-      [JSON.stringify({ bundle, baseline, sha })],
+      [JSON.stringify({ bundle, baseline, sha, flows })],
       runs
     )
     if (result.error) return { env: true, verdict: false, ...result }
+    if (flows === 'usage')
+      return {
+        ...result,
+        sourceDiff,
+        env: true,
+        verdict:
+          result.samples?.length === runs &&
+          result.samples.every(
+            (sample) =>
+              sample.length === 5 &&
+              sample.every((row) => row.modelTokens === 21 && row.paintedBars > 0)
+          )
+      }
+    if (flows)
+      return {
+        ...result,
+        sourceDiff,
+        env: true,
+        verdict:
+          result.usage?.length === 5 &&
+          result.search?.length === 2 &&
+          result.folders?.length === 4 &&
+          result.schedule?.bytes === 65536 &&
+          result.composer?.length === 3 &&
+          result.composer.every(
+            (row) =>
+              row.sameTask &&
+              row.followup &&
+              row.reopened?.files === 5 &&
+              row.reopened.previews === 2
+          )
+      }
     const measurements = result.measurements.map((entry) => ({
       ...entry,
       stats: summarize(entry.samples),

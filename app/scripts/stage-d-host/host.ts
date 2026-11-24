@@ -14,8 +14,11 @@ import { registerProjectHandlers } from '../../src/main/app/handlers/project'
 import { registerArtifactHandlers } from '../../src/main/app/handlers/artifacts'
 import { registerScheduledTaskHandlers } from '../../src/main/app/handlers/scheduled-tasks'
 import { CHANNELS } from '../../src/shared/ipc'
+import { SettingsSchema } from '../../src/shared/protocol'
+import { extraChannels, registerDataFlows } from './data-flows'
 
 const cwd = process.argv[2]
+const flows = process.argv[3] === 'flows'
 const parent = (process as typeof process & { parentPort: ParentPort }).parentPort
 const database = new Database(':memory:')
 database.pragma('foreign_keys = ON')
@@ -87,6 +90,7 @@ database.transaction(() => {
       finishedAt: index + 1,
       status: index % 4 ? 'success' : 'error',
       output,
+      ...(flows && { sessionId: 'session-1' }),
       outputTruncated: true
     })
   }
@@ -98,6 +102,7 @@ setIpcTransport({
   ...transport,
   handle(channel, listener) {
     if (!allowed.has(channel)) return
+    if (flows) return transport.handle(channel, listener)
     transport.handle(channel, async (event, payload) => {
       const started = performance.now()
       const value = await listener(event, payload)
@@ -114,8 +119,19 @@ setIpcTransport({
   }
 })
 const getCwd = (): string => cwd
+if (flows) {
+  for (const channel of extraChannels) allowed.add(channel)
+  registerDataFlows(transport, db, database, cwd)
+}
 registerFilesHandlers({ db, getCwd })
-registerSessionHandlers({ db, getCwd, settings: { getAll: unavailable, patch: unavailable } })
+registerSessionHandlers({
+  db,
+  getCwd,
+  settings: {
+    getAll: () => SettingsSchema.parse({}),
+    patch: unavailable
+  }
+})
 registerProjectHandlers({ db })
 registerArtifactHandlers(
   {
@@ -133,7 +149,7 @@ registerArtifactHandlers(
 registerScheduledTaskHandlers(
   new ScheduledTaskService({
     store: db.scheduledTasks,
-    projects: db,
+    projects: (id) => db.getProject(id) ?? undefined,
     runner: {
       fire: unavailable,
       isRunning: () => false,

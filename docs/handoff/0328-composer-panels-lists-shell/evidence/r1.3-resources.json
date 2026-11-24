@@ -1,0 +1,170 @@
+{
+  "electron": "39.8.10",
+  "baselineCommit": "c7d2adf2",
+  "baseline": [
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 573.2999999988824,
+      "paintMs": 1541.2000000011176,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 319.19999999925494,
+      "paintMs": 1099.4000000003725,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 410.80000000074506,
+      "paintMs": 1383.4000000003725,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 382.90000000037253,
+      "paintMs": 1395.5999999996275,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 397,
+      "paintMs": 1604.7000000011176,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 226.30000000074506,
+      "paintMs": 1027.4000000003725,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 245.2000000011176,
+      "paintMs": 967.5999999996275,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 227.59999999962747,
+      "paintMs": 1069.9000000003725,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 9000,
+      "commitMs": 278.6000000014901,
+      "paintMs": 1203.0999999996275,
+      "last": "m8",
+      "resource": "resource-9999"
+    }
+  ],
+  "applied": [
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 24.40000000037253,
+      "paintMs": 4.5,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 25.200000001117587,
+      "paintMs": 20.799999998882413,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 18.700000001117587,
+      "paintMs": 6.299999998882413,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 22.199999999254942,
+      "paintMs": 3.800000000745058,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 22.59999999962747,
+      "paintMs": 7.300000000745058,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 30.300000000745058,
+      "paintMs": 4.099999999627471,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 18.700000001117587,
+      "paintMs": 4.199999999254942,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 51.29999999888241,
+      "paintMs": 8.200000001117587,
+      "last": "m8",
+      "resource": "resource-9999"
+    },
+    {
+      "input": 10000,
+      "matched": 9000,
+      "mounted": 30,
+      "commitMs": 24.40000000037253,
+      "paintMs": 8.799999998882413,
+      "last": "m8",
+      "resource": "resource-9999"
+    }
+  ]
+}

@@ -1,13 +1,14 @@
 import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../../shared/ipc'
-import { formatDateMedium, useI18n } from '../../../../shared/i18n'
+import { useI18n } from '../../../../shared/i18n'
 import { CatalogListRow } from '../../../../shared/ui/CatalogListRow'
 import { Icon } from '../../../../shared/ui/Icon'
 import type { CatalogTab } from '../../lib/catalogSelection'
-import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
+import { mcpRowMeta } from '../../lib/catalogRows'
 import { providerRowMeta } from '../../lib/providerRows'
-import { orderMcpServers, orderProviders, orderSkills } from '../../lib/catalogOrder'
+import { orderMcpServers, orderProviders } from '../../lib/catalogOrder'
 import { providerPresentation } from '../../lib/providerPresentation'
-import { Fragment } from 'react'
+import { Fragment, useMemo, type RefObject } from 'react'
+import { SkillCatalogList } from './SkillCatalogList'
 import {
   extensionSourceLabels,
   harnessSourceTitle,
@@ -21,6 +22,7 @@ import { CatalogToggle } from './CatalogToggle'
 
 export function CustomizeList({
   tab,
+  owner,
   skills,
   mcpServers,
   providers,
@@ -35,6 +37,7 @@ export function CustomizeList({
   onSelect
 }: {
   tab: CatalogTab
+  owner?: RefObject<HTMLDivElement | null>
   skills: SkillInfo[]
   mcpServers: McpServer[]
   providers: ProviderInfo[]
@@ -50,11 +53,15 @@ export function CustomizeList({
   onSelect: (id: string, origin: HTMLButtonElement) => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
-  const visibleSkills = skills.filter(
-    (skill) =>
-      !isNativePluginSkillSource(skill.sourceId) &&
-      (skillSourceAllowed(skill.sourceId, 'claude') ||
-        skillSourceAllowed(skill.sourceId, 'opencode'))
+  const visibleSkills = useMemo(
+    () =>
+      skills.filter(
+        (skill) =>
+          !isNativePluginSkillSource(skill.sourceId) &&
+          (skillSourceAllowed(skill.sourceId, 'claude') ||
+            skillSourceAllowed(skill.sourceId, 'opencode'))
+      ),
+    [skills]
   )
   const rows = tab === 'skills' ? visibleSkills : tab === 'mcp' ? mcpServers : providers
   const nativeRows = nativeMcp
@@ -79,99 +86,63 @@ export function CustomizeList({
       </div>
     )
 
-  const nativeList =
-    tab !== 'skills' &&
-    nativeRows.map(({ backend, resource }, index) => (
-      <Fragment key={`${backend}:${resource.id}`}>
-        {nativeRows[index - 1]?.backend !== backend && (
-          <SourceHeading
-            spaced={index > 0 || rows.length > 0}
-            source={backend}
-            label={harnessSourceTitle(backend)}
-          />
-        )}
-        <CatalogListRow
-          data-extensions-row={`${backend}:${resource.id}`}
-          openProps={{
-            disabled: resource.canOpen === false,
-            onClick: () => onNativeMcp?.(backend, resource)
-          }}
-          icon={
-            <Icon name={resource.kind === 'mcp' ? 'mcp' : 'doc'} size={20} className="text-ink3" />
-          }
-          title={
-            <span
-              className={`truncate ${resource.canToggle ? '' : 'text-ink3'}`}
-              title={resource.name}
-            >
-              {resource.name}
-            </span>
-          }
-          trailing={
-            <span className="text-caption text-ink3">
-              {tr(`chat.nativeResources.${resource.status}`)}
-            </span>
-          }
-          actions={
-            <CatalogToggle
-              name={resource.name}
-              enabled={resource.enabled}
-              canToggle={resource.canToggle}
-              locked={nativeLocked?.has(backend) ?? false}
-              onToggle={() => onNativeToggle?.(backend, resource)}
-            />
-          }
+  if (tab === 'skills')
+    return (
+      <SkillCatalogList
+        owner={owner}
+        skills={visibleSkills}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onSkillToggle={onSkillToggle}
+      />
+    )
+
+  const nativeList = nativeRows.map(({ backend, resource }, index) => (
+    <Fragment key={`${backend}:${resource.id}`}>
+      {nativeRows[index - 1]?.backend !== backend && (
+        <SourceHeading
+          spaced={index > 0 || rows.length > 0}
+          source={backend}
+          label={harnessSourceTitle(backend)}
         />
-      </Fragment>
-    ))
+      )}
+      <CatalogListRow
+        data-extensions-row={`${backend}:${resource.id}`}
+        openProps={{
+          disabled: resource.canOpen === false,
+          onClick: () => onNativeMcp?.(backend, resource)
+        }}
+        icon={
+          <Icon name={resource.kind === 'mcp' ? 'mcp' : 'doc'} size={20} className="text-ink3" />
+        }
+        title={
+          <span
+            className={`truncate ${resource.canToggle ? '' : 'text-ink3'}`}
+            title={resource.name}
+          >
+            {resource.name}
+          </span>
+        }
+        trailing={
+          <span className="text-caption text-ink3">
+            {tr(`chat.nativeResources.${resource.status}`)}
+          </span>
+        }
+        actions={
+          <CatalogToggle
+            name={resource.name}
+            enabled={resource.enabled}
+            canToggle={resource.canToggle}
+            locked={nativeLocked?.has(backend) ?? false}
+            onToggle={() => onNativeToggle?.(backend, resource)}
+          />
+        }
+      />
+    </Fragment>
+  ))
 
   return (
     <ul className="@container/catalog m-0 list-none divide-y divide-border p-0">
-      {tab === 'skills' &&
-        orderSkills(visibleSkills).map((skill, index, ordered) => {
-          const meta = skillRowMeta(skill)
-          const id = `${skill.sourceId}/${skill.name}`
-          return (
-            <Fragment key={id}>
-              {ordered[index - 1]?.sourceId !== skill.sourceId && (
-                <SourceHeading
-                  spaced={index > 0}
-                  source={skill.sourceId}
-                  label={extensionSourceLabels[skill.sourceId]}
-                />
-              )}
-              <CatalogListRow
-                key={id}
-                data-extensions-row={id}
-                selected={selectedId === id}
-                openProps={{ onClick: (event) => onSelect(id, event.currentTarget) }}
-                icon={<Icon name="doc" size={20} className="shrink-0 text-ink3" />}
-                title={
-                  <span className="truncate" title={skill.name}>
-                    {skill.name}
-                  </span>
-                }
-                trailing={
-                  <span className="hidden shrink-0 text-caption text-ink3 @[560px]/catalog:block">
-                    {meta.updatedAtMs === null
-                      ? tr('common.unknown')
-                      : formatDateMedium(meta.updatedAtMs, locale)}
-                  </span>
-                }
-                actions={
-                  skill.canToggle ? (
-                    <CatalogToggle
-                      name={skill.name}
-                      enabled={skill.enabled}
-                      canToggle={skill.canToggle}
-                      onToggle={() => onSkillToggle?.(skill)}
-                    />
-                  ) : undefined
-                }
-              />
-            </Fragment>
-          )
-        })}
       {tab === 'mcp' && mcpServers.length > 0 && (
         <SourceHeading source="orcinus-orca" label={extensionSourceLabels['orcinus-orca']} />
       )}
