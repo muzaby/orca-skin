@@ -1,30 +1,9 @@
 import { expect, it, vi } from 'vitest'
-import { createComputeClient, type ComputeClient, type WorkerLike } from './client'
+import { portHarness as harness } from './clientPort.testfixture'
+import * as protocol from './protocol'
 import { revisionOf } from './documents'
-import type { MarkdownRequest, DocRef, Lane, WireControl, WireRequest } from './protocol'
+import type { MarkdownRequest, DocRef } from './protocol'
 
-class Port implements WorkerLike {
-  messages: (WireControl | WireRequest)[] = []
-  onmessage: WorkerLike['onmessage'] = null
-  onerror: WorkerLike['onerror'] = null
-  onmessageerror: WorkerLike['onmessageerror'] = null
-  terminate = vi.fn()
-  postMessage(message: WireControl | WireRequest): void {
-    this.messages.push(message)
-  }
-  reply(error?: string): void {
-    const work = this.messages
-      .slice()
-      .reverse()
-      .find((m) => 'id' in m)
-    if (!work || !('id' in work)) throw Error('no active request')
-    this.onmessage?.({
-      data: error
-        ? { id: work.id, ok: false, error }
-        : { id: work.id, ok: true, result: { tooLarge: true }, size: 1 }
-    })
-  }
-}
 const ref = (id: string): DocRef => ({ id, revision: 1 })
 const markdown = (doc: DocRef, end = 3): MarkdownRequest => ({
   kind: 'markdown' as const,
@@ -32,19 +11,6 @@ const markdown = (doc: DocRef, end = 3): MarkdownRequest => ({
   start: 0,
   end
 })
-function harness(capacity = 10): { client: ComputeClient; ports: Map<Lane, Port> } {
-  const ports = new Map<Lane, Port>()
-  const client = createComputeClient({
-    docMaxChars: capacity,
-    onError: vi.fn(),
-    createWorker(lane) {
-      const port = new Port()
-      ports.set(lane, port)
-      return port
-    }
-  })
-  return { client, ports }
-}
 it('동일 원천의 revision은 재사용하고 다른 객체에 새 번호를 준다', () => {
   const source = {}
   const first = revisionOf(source)
@@ -253,4 +219,45 @@ it('d4 routes real worker token continuations through the client and preserves t
   expect(result.rows.map((row) => row.map((token) => token.content).join(''))).toEqual(lines)
   lease.release()
   expect(port.messages.at(-1)).toEqual({ type: 'doc.close', ref: doc })
+})
+
+it('d11 uses the registered prefix sample for dispatch, including empty documents and repeated leases', async () => {
+  const { client, ports } = harness(2_000_000)
+  const prefix = 'x'.repeat(65_536)
+  const x = client.openDocument(
+    ref('x'),
+    { text: prefix + '\n123456789'.repeat(100_000) },
+    'compute'
+  )
+  const y = client.openDocument(ref('y'), { text: ('y'.repeat(999) + '\n').repeat(100) }, 'compute')
+  const empty = client.openDocument(ref('empty'), { text: '' }, 'compute')
+  const duplicate = client.openDocument(x.ref, { text: 'different' }, 'compute')
+  const tokens = {
+    kind: 'tokens' as const,
+    lang: 'ts',
+    theme: 'github-dark' as const,
+    start: 0,
+    end: 1
+  }
+  const sizing = vi.spyOn(protocol, 'requestSize')
+  try {
+    const jobs = [empty, x, y].map((lease) => client.request({ ...tokens, doc: lease.ref }))
+    const port = ports.get('compute')!
+    const lengthOf = sizing.mock.calls[0][1]
+    expect(lengthOf(empty.ref)).toEqual({ chars: 0, lines: 1 })
+    const sample = lengthOf(x.ref)
+    expect(sample).toEqual({ chars: 65_536, lines: 1 })
+    for (const [, registeredSample] of sizing.mock.calls)
+      expect(registeredSample(x.ref)).toBe(sample)
+    expect(lengthOf(y.ref)).toEqual({ chars: 65_536, lines: 66 })
+    port.reply()
+    expect(port.messages.at(-1)).toMatchObject({ kind: 'tokens', doc: y.ref })
+    port.reply()
+    expect(port.messages.at(-1)).toMatchObject({ kind: 'tokens', doc: x.ref })
+    port.reply()
+    await Promise.all(jobs.map((job) => job.promise))
+  } finally {
+    sizing.mockRestore()
+    for (const lease of [duplicate, empty, y, x]) lease.release()
+  }
 })

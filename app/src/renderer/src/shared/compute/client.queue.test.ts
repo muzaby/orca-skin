@@ -7,6 +7,8 @@ import {
   type DocumentLease,
   type WorkerLike
 } from './client'
+import { portHarness } from './clientPort.testfixture'
+import * as protocol from './protocol'
 import { createWorkerState } from './worker/state'
 import type { TokensRequest, WireRequest, WireControl } from './protocol'
 const range = {
@@ -310,4 +312,87 @@ it('q11 waiting highlight starts exactly when the running pair returns', async (
   )
   next.release()
   h.lease.release()
+})
+
+it('q14 dispatches the shorter average line first for identical token windows', async () => {
+  const { client, ports } = portHarness(2_000)
+  const long = client.openDocument(
+    { id: 'long', revision: 1 },
+    { text: 'x'.repeat(1_000) },
+    'compute'
+  )
+  const short = client.openDocument(
+    { id: 'short', revision: 1 },
+    { text: 'x'.repeat(10) },
+    'compute'
+  )
+  const head = client.request(highlight('head'))
+  const jobs = [long, short].map((lease) => client.request({ ...range, doc: lease.ref, end: 200 }))
+  const port = ports.get('compute')!
+  for (const lease of [short, long]) {
+    port.reply()
+    expect(port.messages.at(-1)).toMatchObject({ kind: 'tokens', doc: lease.ref })
+  }
+  port.reply()
+  await Promise.all([head.promise, ...jobs.map((job) => job.promise)])
+  short.release()
+  long.release()
+})
+
+it('q14b sizes mixed work in characters and dispatches each lane independently', async () => {
+  const { client, ports } = portHarness(60_000)
+  const long = client.openDocument(
+    { id: 'long', revision: 1 },
+    { text: 'x'.repeat(1_000) },
+    'compute'
+  )
+  const short = client.openDocument(
+    { id: 'short', revision: 1 },
+    { text: 'x'.repeat(10) },
+    'compute'
+  )
+  const markdown = client.openDocument(
+    { id: 'md', revision: 1 },
+    { text: 'm'.repeat(50_000) },
+    'markdown'
+  )
+  const head = client.request(highlight('head'))
+  const sizing = vi.spyOn(protocol, 'requestSize')
+  try {
+    const jobs = [
+      client.request({ ...range, doc: long.ref, end: 200 }),
+      client.request({ kind: 'markdown', doc: markdown.ref, start: 0, end: 50_000 }),
+      client.request(highlight('z'.repeat(5_000))),
+      client.request({ kind: 'codeView', source: { doc: short.ref }, start: 0, end: 300 })
+    ]
+    expect(sizing.mock.results.map((r) => r.value)).toEqual([200_000, 50_000, 5_000, 3_000])
+    const compute = ports.get('compute')!
+    expect(compute.messages.at(-1)).toMatchObject({ code: 'head' })
+    const md = ports.get('markdown')!
+    expect(md.messages.at(-1)).toMatchObject({ kind: 'markdown' })
+    md.reply()
+    for (const kind of ['codeView', 'highlight', 'tokens']) {
+      compute.reply()
+      expect(compute.messages.at(-1)).toMatchObject({ kind })
+    }
+    compute.reply()
+    await Promise.all([head.promise, ...jobs.map((job) => job.promise)])
+  } finally {
+    sizing.mockRestore()
+    for (const lease of [long, short, markdown]) lease.release()
+  }
+})
+
+it('q1 default priority outranks a shorter explicit background job', async () => {
+  const { client, ports } = portHarness()
+  const head = client.request(highlight('head'))
+  const background = client.request(highlight('b'), { priority: 'background' })
+  const visible = client.request(highlight('default visible'))
+  const port = ports.get('compute')!
+  port.reply()
+  expect(port.messages.at(-1)).toMatchObject({ code: 'default visible' })
+  port.reply()
+  expect(port.messages.at(-1)).toMatchObject({ code: 'b' })
+  port.reply()
+  await Promise.all([head.promise, background.promise, visible.promise])
 })

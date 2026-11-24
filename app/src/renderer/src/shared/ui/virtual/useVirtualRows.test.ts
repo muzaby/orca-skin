@@ -48,3 +48,37 @@ it.each([
     else expect(rows[0]).toBe(0)
   }
 })
+
+it('measures the list origin in its scroll owner before and after resize', () => {
+  let top = 120
+  let notify = (): void => {}
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        notify = callback
+      }
+      observe = vi.fn()
+      disconnect = vi.fn()
+    }
+  )
+  const owner = {
+    current: {
+      getBoundingClientRect: () => ({ top: 30 }),
+      scrollTop: 60,
+      clientTop: 2,
+      children: []
+    } as unknown as HTMLDivElement
+  }
+  const root = { current: { getBoundingClientRect: () => ({ top }) } as unknown as HTMLDivElement }
+  let margin = 0
+  function Probe(): null {
+    margin = useVirtualRows(10, root, owner).options.scrollMargin
+    return null
+  }
+  dom.render(createElement(Probe))
+  expect(margin).toBe(148)
+  top += 17
+  dom.act(notify)
+  expect(margin).toBe(165)
+})

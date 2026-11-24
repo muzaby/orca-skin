@@ -49,6 +49,16 @@ it('wk2 request and response share their scroll owner', () => {
   const v = mount()
   v.render(true)
   expect(dom.queryAll('[data-virtual-code]')).toHaveLength(2)
+  for (const list of dom.queryAll('[data-virtual-code]')) {
+    for (
+      let wrapper = list.parentElement;
+      wrapper && wrapper !== v.owner();
+      wrapper = wrapper.parentElement
+    )
+      expect(String(wrapper.props.className)).not.toMatch(
+        /(?:^|\s)(?:max-h-|overflow-(?:auto|scroll))/
+      )
+  }
   expect(observations.owners.every((ref) => ref.current === (v.owner() as unknown))).toBe(true)
 })
 it('wk3 response arrival retains the request lease and scroll position', () => {

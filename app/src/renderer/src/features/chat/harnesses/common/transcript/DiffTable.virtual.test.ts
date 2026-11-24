@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { expect, it, vi } from 'vitest'
 import { ToolBody } from '../../opencode/transcript/ToolBody'
+import { DiffBody } from '../../claude/transcript/tool-bodies/DiffBody'
 import { DiffTable, PairDiffTable } from './DiffTable'
 import { buildDiffView, diffViewRows } from '../../../../../shared/compute/diffView'
 import { hunksToDiffLines } from '../../../../../shared/compute/diffModel'
@@ -89,7 +90,11 @@ it('dt3 OpenCode 50000-row patch uses one vertically bounded scroll owner', asyn
     todos: [],
     files: [{ path: 'a.ts', patch: '@@ -0,0 +1,50000 @@\n' + '+added\n'.repeat(50000) }]
   }
+  const register = vi.spyOn(fake.client, 'openDocument')
   dom.render(createElement(ToolBody, { view }))
+  expect(register.mock.calls[0][1].text === view.files[0].patch, 'registered initial patch').toBe(
+    true
+  )
   fake.resolveNext({
     summary: {
       rowCount: 50000,
@@ -109,6 +114,25 @@ it('dt3 OpenCode 50000-row patch uses one vertically bounded scroll owner', asyn
   for (let parent = body.parentElement; parent; parent = parent.parentElement)
     if (String(parent.props.className).includes('overflow-auto')) count++
   expect(count).toBe(1)
+  expect(dom.body.textContent).toContain('+50000')
+  const updated = {
+    ...view,
+    files: [{ ...view.files[0], patch: view.files[0].patch.replaceAll('+added', '+changed') }]
+  }
+  dom.render(createElement(ToolBody, { view: updated }))
+  expect(
+    register.mock.calls.at(-1)?.[1].text === updated.files[0].patch,
+    'registered updated patch'
+  ).toBe(true)
+  const summary = dom.query('[data-component="opencode-file-diff"]')!.children[0]
+  vi.useFakeTimers()
+  try {
+    dom.click(summary)
+  } finally {
+    vi.useRealTimers()
+  }
+  expect(dom.query('[data-virtual-diff]')).toBeNull()
+  expect(dom.body.textContent).not.toContain('+changed')
 })
 
 it('rt6 pair rows tokenize against their original old and new documents', async () => {
@@ -138,5 +162,39 @@ it('rt6 pair rows tokenize against their original old and new documents', async 
     .filter((r) => r.kind === 'tokens')
     .map((r) => ('doc' in r ? r.doc : null))
   expect(docs).toEqual([req.source.old, req.source.new])
-  expect(open.mock.calls).toHaveLength(2)
+  expect(open.mock.calls.map(([ref, payload]) => [ref, payload.text])).toEqual([
+    [req.source.old, 'before'],
+    [req.source.new, 'after']
+  ])
+})
+
+it('opens the complete numbered document for a large structured Edit result', () => {
+  const lines = Array.from({ length: 5_001 }, (_, i) => '+change ' + i)
+  const open = vi.spyOn(fake.client, 'openDocument')
+  dom.render(
+    createElement(DiffBody, {
+      call: {
+        toolUseId: 'edit',
+        name: 'Edit',
+        input: { file_path: 'change.ts' },
+        result: {
+          isError: false,
+          output: 'ok',
+          structuredOutput: {
+            structuredPatch: [
+              { oldStart: 0, oldLines: 0, newStart: 1, newLines: lines.length, lines }
+            ]
+          }
+        }
+      }
+    })
+  )
+  const req = fake.requests[0]
+  if (req?.kind !== 'diffView' || req.source.kind !== 'lines')
+    throw Error('expected structured diff')
+  const [ref, payload, lane] = open.mock.calls[0]
+  expect(ref).toEqual(req.source.doc)
+  expect(lane).toBe('compute')
+  expect(payload.text).toBe(lines.join('\n'))
+  expect(payload.lines?.newLine.at(-1)).toBe(5_001)
 })

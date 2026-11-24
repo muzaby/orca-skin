@@ -18,6 +18,7 @@ import type { LineNumbers } from './diffSource'
 import { rendererLog } from '../logging'
 import {
   COMPUTE_DOC_MAX_CHARS,
+  COMPUTE_SIZE_SAMPLE_CHARS,
   TOKENS_RANGE_MAX_LINES,
   CODE_VIEW_WINDOW_MAX_LINES,
   DIFF_VIEW_WINDOW_MAX_ROWS,
@@ -31,6 +32,7 @@ import {
   laneOf,
   type Lane,
   type DocRef,
+  type DocumentSample,
   type WireControl,
   parseResponse,
   requestKey,
@@ -146,6 +148,15 @@ export function createComputeClient(deps: ClientDeps): ComputeClient {
   }
 }
 
+function sampleDocument(text: string): DocumentSample {
+  const chars = Math.min(text.length, COMPUTE_SIZE_SAMPLE_CHARS)
+  let lines = 1
+  for (let i = 0; i < chars; i++) {
+    if (text.charCodeAt(i) === 10) lines++
+  }
+  return { chars, lines }
+}
+
 function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
   const documents = new Map<
     string,
@@ -153,6 +164,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       ref: DocRef
       text: string
       lines?: LineNumbers
+      sample: DocumentSample
       leases: number
       available: boolean
       sent: boolean
@@ -438,7 +450,15 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
       let entry = documents.get(key)
       if (!entry) {
         const available = reserved + payload.text.length <= capacity
-        entry = { ref, ...payload, available, sent: false, leases: 0, listeners: new Set() }
+        entry = {
+          ref,
+          ...payload,
+          sample: sampleDocument(payload.text),
+          available,
+          sent: false,
+          leases: 0,
+          listeners: new Set()
+        }
         if (available) reserved += payload.text.length
         documents.set(key, entry)
       }
@@ -506,7 +526,7 @@ function createLane(deps: ClientDeps, lane: Lane): ComputeClient {
         job = {
           id,
           key,
-          size: requestSize(request),
+          size: requestSize(request, (ref) => documents.get(docKey(ref))!.sample),
           request,
           cacheable: options?.cacheable !== false,
           order: id,

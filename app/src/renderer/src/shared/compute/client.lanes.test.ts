@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createComputeClient, type WorkerLike } from './client'
+import { computeClient, setComputeClient, createComputeClient, type WorkerLike } from './client'
 import type { Lane, WireControl, WireRequest } from './protocol'
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- 테스트 하네스의 반환형은 조립한 fixture에서 추론한다.
 function harness() {
@@ -43,6 +43,7 @@ it('l1 compute dispatches before markdown returns', async () => {
     lease = h.client.openDocument(doc, { text: 'text' }, 'markdown')
   const slow = h.client.request({ kind: 'markdown', doc, start: 0, end: 4 }),
     fast = h.client.request({ kind: 'highlight', code: 'a', lang: 'ts', theme: 'github-light' })
+  expect(h.messages.compute.at(-1)).toMatchObject({ kind: 'highlight' })
   h.finish('compute')
   expect(await fast.promise).toEqual({ html: 'ok' })
   h.finish('markdown')
@@ -66,3 +67,77 @@ it('l2 each lane has its own document capacity and worker failure state', async 
   one.release()
   two.release()
 })
+
+it('starts each lane with its own module worker entry', async () => {
+  const starts: [string, WorkerOptions][] = []
+  vi.stubGlobal(
+    'Worker',
+    class {
+      constructor(url: URL, options: WorkerOptions) {
+        starts.push([url.pathname, options])
+      }
+      postMessage(message: WireControl | WireRequest): void {
+        if ('id' in message)
+          queueMicrotask(() =>
+            this.onmessage?.({ data: { id: message.id, ok: true, result: {}, size: 0 } })
+          )
+      }
+      onmessage: WorkerLike['onmessage'] = null
+    }
+  )
+  try {
+    const client = computeClient()
+    const doc = { id: 'md', revision: 1 }
+    const lease = client.openDocument(doc, { text: 'x' }, 'markdown')
+    const jobs = [
+      client.request({ kind: 'markdown', doc, start: 0, end: 1 }),
+      client.request({ kind: 'highlight', code: 'x', lang: 'ts', theme: 'github-light' })
+    ]
+    await Promise.all(jobs.map((j) => j.promise))
+    expect(starts.map(([path, options]) => [path.split('/').at(-1), options])).toEqual([
+      ['markdown.worker.ts', { name: 'markdown', type: 'module' }],
+      ['compute.worker.ts', { name: 'compute', type: 'module' }]
+    ])
+    lease.release()
+  } finally {
+    setComputeClient(null)
+    vi.unstubAllGlobals()
+  }
+})
+
+it.each(['compute', 'markdown'] as const)(
+  'the %s worker entry processes a request against its opened document',
+  async (lane) => {
+    const reply = vi.fn<(response: unknown) => void>()
+    const scope = {
+      onmessage: null as ((event: { data: WireRequest | WireControl }) => void) | null,
+      postMessage: reply
+    }
+    vi.stubGlobal('self', scope)
+    try {
+      if (lane === 'compute') await import('./worker/compute.worker')
+      else await import('./worker/markdown.worker')
+      const doc = { id: 'entry', revision: 1 }
+      scope.onmessage!({ data: { type: 'doc.open', ref: doc, text: 'first\nsecond' } })
+      const request: WireRequest =
+        lane === 'compute'
+          ? { kind: 'codeView', source: { doc }, start: 1, end: 2, id: 7 }
+          : { kind: 'markdown', doc, start: 0, end: 5, id: 7 }
+      scope.onmessage!({ data: request })
+      await Promise.resolve()
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 7,
+          ok: true,
+          result: expect.objectContaining(
+            lane === 'compute'
+              ? { lines: ['second'] }
+              : { hast: expect.objectContaining({ type: 'root' }) }
+          )
+        })
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  }
+)

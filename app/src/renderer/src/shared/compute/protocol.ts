@@ -216,16 +216,33 @@ export function requestKey(request: ComputeRequest): string {
   }
 }
 
+export interface DocumentSample {
+  chars: number
+  lines: number
+}
+
 // 대기 순서를 정하는 입력 크기(문자 수).
-export function requestSize(request: ComputeRequest): number {
+export function requestSize(
+  request: ComputeRequest,
+  lengthOf: (ref: DocRef) => DocumentSample
+): number {
   switch (request.kind) {
     case 'diffContext':
-      return 7
-    case 'diffLocate':
-      return request.anchors.length * 16
     case 'diffView':
     case 'codeView':
-    case 'tokens':
+    case 'tokens': {
+      let chars = 0
+      let lines = 0
+      for (const ref of requestDocs(request)) {
+        const sample = lengthOf(ref)
+        chars += sample.chars
+        lines += sample.lines
+      }
+      const rows = request.kind === 'diffContext' ? 7 : request.end - request.start
+      return rows * (chars / lines)
+    }
+    case 'diffLocate':
+      return request.anchors.length * 16
     case 'markdown':
       return request.end - request.start
     case 'highlight':

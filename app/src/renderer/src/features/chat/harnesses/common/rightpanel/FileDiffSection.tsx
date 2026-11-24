@@ -39,6 +39,7 @@ import {
 } from 'react'
 import type { DiffRequirementItem, GitDiffPatchLine } from '../../../../../../../shared/ipc'
 import { buildCounterparts } from '../../../../../shared/compute/diffView'
+import { DiffLinesStatus } from '../transcript/DiffLinesStatus'
 import { Icon } from '../../../../../shared/ui/Icon'
 import { useI18n } from '../../../../../shared/i18n'
 import {
@@ -341,6 +342,7 @@ interface WindowSyntax {
 const WindowSyntaxContext = createContext<WindowSyntax | null>(null)
 
 function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
+  const { tr } = useI18n()
   const { filePath, lines, view, scrollOwnerRef, tailSpacerRef } = props
   const id = 'git:' + filePath
   const packed = useMemo(() => packLines(lines), [lines])
@@ -516,8 +518,12 @@ function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
     setExpansions((previous) => [...previous, range])
   }
   const wrapClass = view.wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre'
-  if (!model && (doc.unavailable || initial === null || data === null))
-    return <FileDiffBody {...props} />
+  if (!model && (initial === null || data === null))
+    return (
+      <p role="status" className="px-p5 py-p4 text-footnote text-t6">
+        {tr('chat.rightpanel.diffLoadFailed')}
+      </p>
+    )
   return (
     <div
       data-diff-file-body={filePath}
@@ -541,6 +547,7 @@ function WindowedGitBody(props: GitBodyProps): React.JSX.Element {
               : undefined
         }}
       >
+        {!model && initial === undefined && <DiffLinesStatus />}
         {renderItems.map((item) => {
           const row = rowAt(item.index)
           if (!row) return null

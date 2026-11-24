@@ -432,3 +432,65 @@ it('v7w/v12 worker draft submits its bounded context with the full-file anchor a
     open.mockRestore()
   }
 })
+
+it.each(['summary', 'window'] as const)(
+  'shows a worker %s failure without rebuilding a large Git patch on the UI thread',
+  async (failure) => {
+    const file = addedFile(5001)
+    const convert = vi.spyOn(patch, 'patchLinesToDiffLines')
+    try {
+      renderGit([file])
+      expect(dom.body.textContent).toContain('chat.toolMeta.diffLoading')
+      if (failure === 'window') {
+        fake.resolveNext({
+          summary: {
+            rowCount: 5001,
+            lineCount: 5001,
+            added: 5001,
+            removed: 0,
+            widthColumns: 12,
+            textChars: 100_000
+          },
+          rows: [],
+          charsBefore: 0
+        })
+        await settle()
+      }
+      fake.rejectNext()
+      await settle()
+      expect(dom.body.textContent).toContain('chat.rightpanel.diffLoadFailed')
+      expect(convert).not.toHaveBeenCalled()
+      renderGit([{ ...file, lines: file.lines.slice() }])
+      expect(dom.body.textContent).toContain('chat.toolMeta.diffLoading')
+      expect(dom.body.textContent).not.toContain('chat.rightpanel.diffLoadFailed')
+    } finally {
+      convert.mockRestore()
+    }
+  }
+)
+
+it('waits for document capacity before requesting a large Git model', async () => {
+  let available = false
+  let notify = (): void => {}
+  const register = vi.spyOn(fake.client, 'openDocument').mockImplementation((ref) => ({
+    ref,
+    get available() {
+      return available
+    },
+    onAvailable(callback) {
+      notify = callback
+      return () => {}
+    },
+    release: vi.fn()
+  }))
+  try {
+    renderGit([addedFile(5001)])
+    expect(dom.body.textContent).toContain('chat.toolMeta.diffLoading')
+    expect(fake.requests).toHaveLength(0)
+    available = true
+    dom.act(notify)
+    expect(fake.requests[0]).toMatchObject({ kind: 'diffView', start: 0, end: 1 })
+  } finally {
+    register.mockRestore()
+  }
+})

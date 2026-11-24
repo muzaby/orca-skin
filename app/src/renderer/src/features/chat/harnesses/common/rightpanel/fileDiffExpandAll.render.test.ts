@@ -105,3 +105,17 @@ it('v7/v7b/v7c/ea3 a draft pins just its row in the distant file among 200 expan
   expect(file.querySelector('[data-diff-requirement-draft-input]')).not.toBeNull()
   expect(dom.queryAll('[data-window-row]')).toHaveLength(5)
 })
+
+it('reserves estimated height before opening and measured height when the file leaves view', () => {
+  const seen = proximity()
+  const file = addedFile(501)
+  file.added = 2
+  file.removed = 1
+  renderGit([file])
+  expect(dom.query('[data-diff-placeholder]')!.props.style).toMatchObject({ height: 440 })
+  dom.act(() => seen.get(file.path)!(true))
+  const wrapper = dom.query('[data-diff-file-body]')!.parentElement!
+  Object.defineProperty(wrapper, 'offsetHeight', { value: 317 })
+  dom.act(() => seen.get(file.path)!(false))
+  expect(dom.query('[data-virtual-git]')!.props.style).toMatchObject({ height: 317 })
+})
