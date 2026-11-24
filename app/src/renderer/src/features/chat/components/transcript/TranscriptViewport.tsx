@@ -8,6 +8,16 @@
  * - Selection and copy are the browser default; a newly mounted row cancels a transcript
  *   selection and a cancelled drag stays unselected until release (EP-17 · ΔV2 D-102 · D-103).
  */
+import {
+  HistoryGesture,
+  type HistoryDirection,
+  type TranscriptHistoryControls
+} from '../../lib/transcript/historyGesture'
+import {
+  nestedScrollConsumes,
+  canConsumeScroll
+} from '../../lib/transcript/viewport/scrollGeometry'
+import { HistoryEdge } from './HistoryEdge'
 import { VirtualRowMountContext } from '../../../../shared/ui/virtual/rowMount'
 import {
   createContext,
@@ -115,6 +125,8 @@ export interface TranscriptViewportProps<Block extends ViewportBlockBase> {
   readonly sizeCache?: Map<string, number>
   /** When true, computes Claude 0008 reserveGap from the last block with `reserveTarget: true`. */
   readonly enableReserveGap?: boolean
+  /** Controls exist only for a view opened with partial history. */
+  readonly history?: TranscriptHistoryControls
   /** Optional header slot rendered above virtualized blocks (EP-12 ① · a9 · a10). */
   readonly header?: ReactNode
   /** Non-virtualized tail slot (pending steer, pending indicator, error banner, etc. — EP-11 ⑥). */
@@ -169,6 +181,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
   sizeCache: externalSizeCache,
   enableReserveGap = false,
   header,
+  history,
   footer,
   isPinned,
   anchorKey,
@@ -180,6 +193,10 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     isVirtualizationEnabled
   )
 
+  const historyEnabled = history !== undefined
+  const historyRef = useRef(history)
+  historyRef.current = history
+  const [pulling, setPulling] = useState<HistoryDirection | null>(null)
   const internalSizes = useRef(new Map<string, number>())
   const sizeCache = externalSizeCache ?? internalSizes.current
   const prevSnapshotRef = useRef(snapshot)
@@ -261,6 +278,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
     return () => {
       gestureRef.current = 'idle'
       setSuppressed(false)
+      setPulling(null)
     }
   }, [sessionKey])
 
@@ -560,22 +578,77 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         pendingRestoreRafRef.current = null
       }
     }
+    const gesture = new HistoryGesture()
+    let pullFrame: number | undefined
+    const request = (direction: HistoryDirection, target: EventTarget | null): boolean => {
+      const controls = historyRef.current
+      if (
+        !controls ||
+        !controls[direction] ||
+        controls[direction] === 'end' ||
+        controls[direction] === 'loading'
+      )
+        return false
+      const delta = direction === 'before' ? -1 : 1
+      if (
+        canConsumeScroll(
+          { top: el.scrollTop, height: el.scrollHeight, viewport: el.clientHeight },
+          delta
+        ) ||
+        nestedScrollConsumes(target, el, delta)
+      )
+        return false
+      if (!controls.request(direction)) return false
+      if (pullFrame !== undefined) cancelAnimationFrame(pullFrame)
+      setPulling(direction)
+      pullFrame = requestAnimationFrame(() => {
+        pullFrame = requestAnimationFrame(() => {
+          pullFrame = undefined
+          setPulling(null)
+        })
+      })
+      return true
+    }
+    const onWheel = (event: WheelEvent): void => {
+      const input = gesture.wheel(event.deltaY, event.timeStamp, (direction) =>
+        request(direction, event.target)
+      )
+      if (input !== 'consumedPull') cancel()
+      // After a prepend the same finger motion could now scroll into the new rows.
+      // Keep propagation for the harness's independent unpin listener.
+      if (input !== 'userInput') event.preventDefault()
+    }
+    const interrupt = (): void => {
+      gesture.interrupt()
+      cancel()
+    }
     const onKeyDownCancel = (event: Event): void => {
       const key = (event as KeyboardEvent).key
-      if (SCROLL_CANCEL_KEYS.has(key)) cancel()
+      if (!SCROLL_CANCEL_KEYS.has(key)) return
+      interrupt()
+      if ((event as KeyboardEvent).repeat) return
+      const direction =
+        key === 'PageUp' || key === 'Home'
+          ? 'before'
+          : key === 'PageDown' || key === 'End'
+            ? 'after'
+            : undefined
+      if (direction && request(direction, event.target)) event.preventDefault()
     }
     const onScroll = (): void => {
       if (selfWritingScrollRef.current) return
       const adjustedTop = adjustedScrollTopRef.current
       adjustedScrollTopRef.current = null
       if (adjustedTop !== null && Math.abs(el.scrollTop - adjustedTop) <= 0.5) return
+      gesture.userScroll()
       cancel()
       if (!interruptedAnchorLayout.current && !isPinnedRef.current?.()) {
         restingAnchorRef.current = captureAnchor(el)
       }
     }
-    el.addEventListener('wheel', cancel, { passive: true })
-    el.addEventListener('pointerdown', cancel, { passive: true })
+    const wheelListener = historyEnabled ? onWheel : cancel
+    el.addEventListener('wheel', wheelListener, { passive: !historyEnabled })
+    el.addEventListener('pointerdown', interrupt, { passive: true })
     el.addEventListener('keydown', onKeyDownCancel)
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => {
@@ -583,8 +656,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         cancelAnimationFrame(settleFrame.current)
         settleFrame.current = null
       }
-      el.removeEventListener('wheel', cancel)
-      el.removeEventListener('pointerdown', cancel)
+      if (pullFrame !== undefined) cancelAnimationFrame(pullFrame)
+      el.removeEventListener('wheel', wheelListener)
+      el.removeEventListener('pointerdown', interrupt)
       el.removeEventListener('keydown', onKeyDownCancel)
       el.removeEventListener('scroll', onScroll)
       if (pendingRestoreRafRef.current !== null && typeof cancelAnimationFrame === 'function') {
@@ -592,7 +666,7 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         pendingRestoreRafRef.current = null
       }
     }
-  }, [anchorController, scrollRef, settleInterruptedLayout])
+  }, [anchorController, historyEnabled, scrollRef, sessionKey, settleInterruptedLayout])
 
   // Observe header slot height changes for top-displacement anchor restoration (EP-12 ① · a9 · a10)
   useEffect(() => {
@@ -712,6 +786,9 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
         >
           <div ref={headerRef} data-transcript-header="">
             {header}
+            {history && (
+              <HistoryEdge direction="before" history={history} pulling={pulling === 'before'} />
+            )}
           </div>
           {virtualized ? (
             <div className="relative w-full" style={{ height: blocksTotalHeight }}>
@@ -765,7 +842,11 @@ export function TranscriptViewport<Block extends ViewportBlockBase>({
           {reserveSpacerPx > 0 && (
             <div data-reserve-spacer="" aria-hidden="true" style={{ height: reserveSpacerPx }} />
           )}
-          {footer}
+          {history?.after ? (
+            <HistoryEdge direction="after" history={history} pulling={pulling === 'after'} />
+          ) : (
+            footer
+          )}
         </div>
       </TranscriptRevealContext.Provider>
     </VirtualRowMountContext.Provider>

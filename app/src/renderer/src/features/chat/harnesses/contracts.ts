@@ -1,3 +1,4 @@
+import type { TranscriptHistoryControls } from '../lib/transcript/historyGesture'
 import type { ComponentType, ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react'
 import type { AgentKind } from '../../../../../shared/agent-kind'
 import type { AgentEnvironment, Backend, ClassifiedError } from '../../../../../shared/ipc'
@@ -32,6 +33,7 @@ export interface AgentPresentation {
 }
 
 export interface TranscriptViewProps {
+  history?: TranscriptHistoryControls
   backend?: Backend | null
   agentKind: AgentKind
   messages: Message[]
