@@ -2222,7 +2222,7 @@ agent(Git patch · 도구 이벤트) / data(산출물 미리보기) ──(현�
 
 ## [검증자 기입] 파생 이슈
 
-verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md). verify 3회째(FAIL) — [verify.md §V3-11](verify.md).
+verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md). verify 3회째(FAIL) — [verify.md §V3-11](verify.md). verify 4회째(FAIL) — [verify.md §V4-11](verify.md).
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
@@ -2241,10 +2241,13 @@ verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md)
 | X4 | 판정기 c4 B 새 키 항(`:61`) 입력 없음 | EP-31 ④ 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv14) | adopted |
 | X5 | 판정기 중복 기록 거부(`:74`) 입력 없음 | EP-31 ① 밖 | 같음 | 확장 | PLAN_GAP → 경계 B34(중복 기록도 각각 판정 · v2 원자료 중복 0) | boundary |
 | K5 | 억제 중 문서 키 변경과 새 행 키 마운트가 같은 커밋이면 전환 뒤에도 억제가 남는다(ΔV7 P1 — Electron 실측) — `usePanelSelection.ts:24-27` 초기화가 자식 `useMountedRows` 효과 뒤에 돈다 | VP-14 · EP-30 ⑮ · D-052 · D-065 — 출처: ΔV7 설계 조사(현재 결함) | 정리를 자식 알림보다 먼저(0326 정리 함수 형태) · ps9b | 현재 | BLOCKING | closed — verify 3: ps9b(D65 · V3-M3) red · 실제 Chromium 프로브 전환 뒤 `suppressed` yes → no |
-| L1 | 작업 크기가 EP-4 ① 산식과 다르다 — `requestSize`(`protocol.ts:220-238`)에 평균 줄 길이가 없다(tokens·diffView·codeView = 줄 수 · diffContext = 7). q2 는 `highlight` 만 대조한다 | VP-36 · EP-4 ① · D-030 · AC5 | 산식대로 크기를 계산하고 종류마다 크기 순서를 가르는 q 입력 — 평균 줄 길이의 대상·방법은 ΔV8 D-068(pk7·pk7b·pk7c · q14·q14b · d11) | 이행 | BLOCKING | closed (r4 자기확인 · pk7~pk7c · q14·q14b · d11) |
-| L2 | `diffView.ts:199` `options.highlightWords &&` 제거 green | VP-30 · EP-6 ② · AC8 | 단어 강조 끔 → `wordSpan` null 을 단언하는 입력 | 이행 | BLOCKING | closed (r4 자기확인 · E6-D10 red) |
-| L3 | `diffView.ts:87` old 축 색인의 `added` 제외 제거 green | VP-31 · EP-7 ① · AC17 | 추가 줄 뒤 삭제 줄의 축 색인·토큰을 단언하는 입력 | 이행 | BLOCKING | closed (r4 자기확인 · E7-D2 red) |
-| L4 | `diffView.ts:92` 증감 수 `removed++` 제거 green | VP-31 · EP-7 ① | 모델 요약 증감 수를 단언하는 입력 | 이행 | BLOCKING | closed (r4 자기확인 · E7-D4 red) |
+| L1 | 작업 크기가 EP-4 ① 산식과 다르다 — `requestSize`(`protocol.ts:220-238`)에 평균 줄 길이가 없다(tokens·diffView·codeView = 줄 수 · diffContext = 7). q2 는 `highlight` 만 대조한다 | VP-36 · EP-4 ① · D-030 · AC5 | 산식대로 크기를 계산하고 종류마다 크기 순서를 가르는 q 입력 — 평균 줄 길이의 대상·방법은 ΔV8 D-068(pk7·pk7b·pk7c · q14·q14b · d11) | 이행 | BLOCKING | closed — verify 4: ΔV8 ①a·①b·①c 변이 13/14 red(V4-A4 동치) · 등록 변이 V4-B1 red |
+| L2 | `diffView.ts:199` `options.highlightWords &&` 제거 green | VP-30 · EP-6 ② · AC8 | 단어 강조 끔 → `wordSpan` null 을 단언하는 입력 | 이행 | BLOCKING | closed — verify 4: RE6-D10 red |
+| L3 | `diffView.ts:87` old 축 색인의 `added` 제외 제거 green | VP-31 · EP-7 ① · AC17 | 추가 줄 뒤 삭제 줄의 축 색인·토큰을 단언하는 입력 | 이행 | BLOCKING | closed — verify 4: RE7-D2 red |
+| L4 | `diffView.ts:92` 증감 수 `removed++` 제거 green | VP-31 · EP-7 ① | 모델 요약 증감 수를 단언하는 입력 | 이행 | BLOCKING | closed — verify 4: RE7-D4 red |
+| M1 | 응답 Payload `scrollElement` 를 details 분기(`WorkToolBody.tsx:147` — 링크·Task 결과)에서 빈 ref 로 바꿔도 green — wk1~wk4 가 그 분기를 실행하지 않는다 | VP-15 · EP-22 ② · AC33 | 링크 또는 Task 결과 입력으로 details 분기의 스크롤 요소를 단언한다 | 이행 | BLOCKING | open |
+| M2 | 같은 분기 응답 문서 id(`:149`)를 `:work:request` 로 바꿔도 green | VP-15·VP-21 · EP-22 ③ · EP-5 ⑨ · AC33 | 같은 입력에서 응답 문서 id·revision 을 단언한다 | 이행 | BLOCKING | open |
+| M3 | 산출물 코드 모드(`ArtifactPreviewContent.tsx:96`)의 revision 원천을 렌더마다 새 객체로 바꿔도 green — 원장은 Markdown 분기(`:113`)만 심었다 | VP-21 · EP-5 ⑮ · AC22 | 400줄 초과 코드 산출물의 재렌더에서 문서 재등록 0 을 단언한다 | 이행 | BLOCKING | open |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)

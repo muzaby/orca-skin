@@ -2,6 +2,150 @@
 
 > 절차 정본은 [`handoff-verify/SKILL.md`](../../../.agents/skills/handoff-verify/SKILL.md). 구현 보고·`Criteria-Met`은 대조 출발점으로만 썼고, 아래 관측은 모두 이번 턴에 재현했다.
 
+## 판정 (verify 4회째)
+
+**FAIL** — 이행 결함 3건(M1~M3)이 `BLOCKING`이다. 셋 다 §10 자리 검색 출력에 있는 줄인데, 그 자리의 코드가 두 분기로 나뉘어 oracle이 한 분기만 실행한다. `PLAN_GAP`은 없다.
+
+- 닫힌 것: L1~L4. L1은 ΔV8 ①a·①b·①c 변이 13/14 red(V4-A4는 동치), L2~L4 인용 변이(E6-D10 · E7-D2 · E7-D4)는 red다.
+- ⑦ 전수 잔여(verify 3 메타의 EP-5·8·9·11·15·16·19·21·22·24): 구현자 원장 241행을 다시 돌려 기록과 241/241 일치했다(자리 대표 158/158 포함) → 자리 단위 잔여 0.
+- 합계 재측정: ✅ 37 · ⚠️ 1 · ❌ 2 = 40(§V4-5). 자기보고 `Criteria-Met: 39/40`과 다르다.
+- 이번 변경 범위의 gate는 통과했다. vitest 실패 393건은 verify 3과 같은 SQLite ABI 기준선이다(§V4-9). verify 4회째라 review 발동 대상이 아니다 → 다음 주체 Codex(r5).
+
+### V4 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `6a3574d4..f92d624a` — 구현 `f92d624a`(r4). 생산 코드 4파일(`protocol.ts` · `client.ts` · `limits.ts` · `FileDiffSection.tsx`) · 테스트 16파일 · evidence 5파일 |
+| 구현 전 plan 기준 | `6a3574d4`(ΔV8) |
+| 유효 V | `V1 rev 3 + ΔV1 + … + ΔV7 + ΔV8` |
+| 라운드 | 4 → 판정 뒤 5 |
+| 확장 창 | verify 4회째 — 창 밖. ΔV8 새 열거 항목(①a·①b·①c · pk7·pk7b·pk7c · q14·q14b · d11 · 등록 변이 · B35)의 출처는 plan 내부 정합(L1) — 출처 없는 항목 0. 사용자 요구 변경 ΔV 없음 |
+| 독립 축(⑥) | 3축 · 시도 25 — ΔV8 산식의 뒤집기·합 → 마지막 문서·개행 문자·표본 크기·표본 원천 맞바꿈 · `FileDiffSection` 용량 대기 ↔ 실패 맞바꿈 · **§10 자리 검색 출력의 줄 단위 sweep**(EP-5 전 줄 · EP-22 전 줄 · 원장 원문이 파일에 두 번 이상 나오는 자리의 나머지 출현) |
+| 열거 sweep(⑦) | ΔV8 대체·신설 항목 전수(V4-A·B·C) + 이번 diff가 닿은 이전 `잡음` 행(④ — verify 3 E1·E2·E4·E6·E7 재실행) + 직전 실패(L1~L4) + verify 3 전수 잔여(원장 241행 재실행). 잔여 0 |
+| 못 본 것 | EP-8·9·11·15·16·19·21·24 검색 출력의 줄 단위 sweep(자리 단위는 원장 재실행으로 닫음 — 줄 단위는 독립 축이라 잔여로 세지 않는다) · AC30 Windows 실기 |
+| 발견 분류 | 이행 3(M1~M3) · 현재 0 · 확장 2(후보 표) · 동치 2 · 비귀속 2 |
+| 구현 주체·문맥 | 구현 codex · 설계자 = 검증자(Claude) |
+
+### V4-0. 기준선 · plan validity
+
+- 구현 커밋이 바꾼 `plan.md` hunk: `:11`(상태 줄) · 파생 이슈 표 L1~L4 상태 칸 · `[구현자 기입] r4` 추가. AC·Decision·V 행 변경 0 → 원 기준으로 채점. 상태 칸 `closed (r4 자기확인)`은 이번 판정으로 바꿨다.
+- ΔV8 자리 검색 ⑴ → 46줄(`dd0528ae` 44 + import `:21` + 표본 `:152`) · ⑵ → 2줄(`protocol.ts:225` · `limits.ts:26`). ①a·①b·①c 각 1, 차집합 0.
+- q14b 의 기대 문장 "markdown 이 먼저"는 레인이 달라(D-034) 순서로 관측되지 않는다. 테스트는 크기 값 `[200_000, 50_000, 5_000, 3_000]`을 직접 단언해 규칙 칸(①a markdown = `end − start`)을 잠근다(V4-A1 red) — 판정 영향 없음.
+
+### V4-1. 구현 결과 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| `chars / lines` 가 0 으로 나눌 수 있는가 | 없음 | 표본 줄 수는 1부터 센다(`client.ts:153`) · `requestDocs` 는 네 종류에서 항상 문서 ≥ 1(`protocol.ts:110-124` · `diffSource.ts:24`) |
+| `documents.get(...)!` 가 빈 값일 수 있는가 | 없음 | `doc-unavailable` 검사(`client.ts:513-514`)가 같은 `requestDocs` 로 먼저 돈다 · 동기 실행 |
+| 표본 비용 | 상한 지킴 | 루프는 `min(length, 65_536)`까지 · 등록부 새 항목에서만(`client.ts:452`) |
+| `FileDiffSection` 이 `doc.unavailable` 폴백(창에서 전체 계산)을 지웠다 | 계약과 맞음 | B12 "Git 은 대기 표시" · §5 실패 문구 · 단일 패치는 `PATCH_MAX_BUFFER` 16MiB 라 문서 상한 32M자를 넘지 않아 영구 대기가 없다 |
+| A 대신 B | 없음 | D-068 표본·합 ÷ 합이 그대로다(pk7b · V4-A5) |
+
+### V4-2. 역방향 탐색
+
+생산 코드 새 export `DocumentSample`(소비처 `client.ts`) · `sampleDocument`(파일 내부) — 미배선 0. `DiffLinesStatus` import 는 `FileDiffSection.tsx:550` 이 소비한다.
+
+### V4-4. 고장 이력
+
+원장 재실행: [`r4-mutations.jsonl`](evidence/r4-mutations.jsonl) 241행을 임시 워크트리 3곳에서 `mutate.py`로 다시 돌렸다 — red 238 · green 3(E7-D3 동치 · E7-D12 Y5 · V3-M7 Y2), 기록 `expect`와 241/241 일치([`v4-ledger-rerun.tsv`](evidence/v4-ledger-rerun.tsv)). 아래는 이번 턴의 새 변이다([`v4-mutations.spec.jsonl`](evidence/v4-mutations.spec.jsonl) · [`v4-mutations.tsv`](evidence/v4-mutations.tsv)).
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|
+| V4-A1 · A2 | `protocol.ts:242` | 제거 · 뒤집기 | 평균 곱 제거 · `lines / chars` | 잡음 | pk7 · q14 외 6 | ①⑦ · ⑥ | — |
+| V4-A3 · A6 · A7 | `:241` · `:245` · `:230` | 다른 값 · 제거 | diffContext 7 → 1 · diffLocate ×16 제거 · diffContext 를 평균 분기 밖으로 | 잡음 3/3 | pk7 | ⑦ | — |
+| V4-A4 | `:241` | 제거 | diffContext 분기 → `end − start \|\| 7` | 못 잡음 | — | ⑥ | 동치(diffContext 는 `NaN \|\| 7` = 7) · 빈 창(`start = end`)만 0 → 7×평균 — 확장(Y7) |
+| V4-A5 | `:238-239` | 다른 값 | 합 → 마지막 문서만 | 잡음 | pk7b | ⑥ | — |
+| V4-B1~B5 | `client.ts:152-156` · `:456` | 제거·다른 값·고정값 | 표본 상한 제거(등록 변이) · 줄 수 0부터 · `\r` · 표본 1,024 · 표본 고정 | 잡음 5/5 | d11 · q14 | ①⑦⑥ | — |
+| V4-C1 · C2 | `client.ts:529` | 고정값 · 맞바꿈 | `lengthOf` 고정 · 문서 끝 65,536자 표본 | 잡음 2/2 | q14 · d11 | ⑦⑥ | — |
+| V4-Q1 · Q2 | `client.ts:395` | 제거 · 뒤집기 | 크기 항 | 잡음 2/2 | q 계열 | ④ | — |
+| V4-F1~F3 | `FileDiffSection.tsx:521` · `:550` | 제거 | 행 창 실패 항 · 첫 응답 실패 항 · 대기 표시 | 잡음 3/3 | fileDiffVirtual.render | ⑦(EP-18 ④) | — |
+| V4-F4 | `:521` | 맞바꿈 | 용량 대기(`doc.unavailable`)를 실패 문구로 | 잡음 | fileDiffVirtual.render | ⑥ | — |
+| RE1-C21~C24 · RE2-C1~C8·C26 · RE4-C9~C11·C25 | `protocol.ts` · `client.ts` | verify 3 원문 | 키 · 문서 수명 · 대기열 | 잡음 17/17(C8 시간 초과 — verify 3 과 같은 재전송 무한) | d · cs · q · pk | ④ | — |
+| RE6-D10 · RE7-D2 · RE7-D4 | `diffView.ts:199` · `:87` · `:92` | verify 3 원문 | L2 · L3 · L4 | **잡음**(직전 못 잡음) | diffView | ②③ | L2~L4 닫힘 |
+| RE6-D1 · RE7-D5~D9 · D11 | `diffView.ts` | verify 3 원문 | 짝 · 축·폭·펼침 등 | 잡음 7/7 | diffView · v | ④ | — |
+| RE7-D3 | `diffView.ts:90` | 제거 | new 위치 색인 첫 일치 | 못 잡음 | — | ③ | 동치(verify 3 근거 그대로) |
+| V4-E1~E3 | `DiffTable.tsx:207` · `:357` · `useSmallDiffSyntax.ts:24` | 고정값 | revision 원천 → `{}` | 잡음 3/3 | dt · v · rt | ⑥(EP-5 줄 단위) | — |
+| V4-E4 · E5 · E6 | `useDiffAxes.ts:40` · `:48` · `:45` | 고정값 · 맞바꿈 | 축 old·new revision → `{}` · new id ↔ old | 잡음 3/3 | ax · rt | ⑥ | — |
+| V4-W3 | `WorkToolBody.tsx:157` | 맞바꿈 | 일반 분기 응답 revision → `call.input` | 잡음 | wk4 | ⑥ | — |
+| **V4-W1** | `WorkToolBody.tsx:147` | 다른 값 | details 분기 응답 Payload `scrollElement` → 빈 ref | **못 잡음** | — | ⑥ | 이행(M1) |
+| **V4-W2** | `WorkToolBody.tsx:149` | 맞바꿈 | details 분기 응답 문서 id `:work:response` → `:work:request` | **못 잡음** | — | ⑥ | 이행(M2) |
+| **V4-W4** | `ArtifactPreviewContent.tsx:96` | 고정값 | 코드 모드 `VirtualCodeView` revision `result` → `{}`(렌더마다 새 객체) | **못 잡음** | — | ⑥ | 이행(M3) |
+| V4-W5 | `WorkToolBody.tsx:45` | 고정값 | Payload revision 폴백 `?? payload` → `?? {}` | 못 잡음 | — | ⑥ | 확장(Y6) |
+
+- 원복: 매 실행 뒤 "모든 파일 원문 그대로" · 워크트리 5곳 `git status` 변화 0 · 작업 트리 미사용.
+
+### V4-5. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거 |
+|---|---|---|---|
+| VP-36 MD-08 ↔ UT-07 | UT | PASS | ΔV8 등록 변이 V4-B1(d11) red · ①a·①b·①c 변이 13/14 red(A4 동치) · pk7·pk7b·pk7c·q14·q14b·d11 실재 · 원장 EP-1·EP-4 20행 red |
+| VP-30 MD-01 ↔ UT-01 · VP-31 MD-02 ↔ UT-02 | UT | PASS | RE6-D10 · RE7-D2 · RE7-D4 red · 원장 EP-6·7 행 red |
+| VP-11 SD-02 ↔ ST-02 · VP-06 R-06 ↔ AT-06 (REGRESSION) | ST · AT | PASS | V4-Q1·Q2 red · 원장 q·t·wt·fx 행 red |
+| VP-01 | AT | PASS | 원장 EP-6·7·8 ⑦⑧·16·18·19·24 행 red · V4-F1~F4 red |
+| VP-15 SD-06 ↔ ST-06 | ST | **PAIR_FAIL** | M1 · M2 — EP-22 ②③ 의 details 분기 줄이 wk1~wk4 실행 구간 밖 |
+| VP-21 AR-02 ↔ IT-02 | IT | **PAIR_FAIL** | M2(EP-5 ⑨) · M3(EP-5 ⑮ 코드 모드) |
+| VP-02 · VP-03 | AT | BLOCKED_BY:VP-15 · VP-21 | AC33 · AC22 |
+| VP-09 · VP-14 · VP-26 · VP-34 · VP-59 · VP-50 · VP-52 | 전 레벨 | PASS | `check-visible-views` 23 · `check-transcript-selection` 90 · `check-transcript-streaming` 18기록 verdict true · 원장 행 red |
+| 나머지 REQUIRED·REGRESSION | 전 레벨 | PASS | 원장 241/241 재현(자리 대표 158) |
+
+| 결과 | AC |
+|---|---|
+| ❌ 2 | AC33(M1·M2) · AC22(M3) |
+| ⚠️ 1 | AC30(Windows 사람 실기 — 사용자가 verify 단계로 지정, 이 환경 불가) |
+| ✅ 37 | 나머지 — AC5·AC8·AC17 은 L1~L4 닫힘, AC10·AC18~21·AC32·AC34 는 원장 재실행으로 자리 전수 확인 |
+
+- 합계 `37 + 1 + 2 = 40`. 자기보고 `39/40`(trailer `f92d624a` · r4 구현 보고) — 불일치.
+
+### V4-9. 게이트 재실행 (검증 트리 `f92d624a`)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| 가드 5종 | PASS | append-only · doc-inventory `--check` · product-naming(2,629파일) · test-budgets(18 real-git) · ui-thread — 전부 exit 0 |
+| `npm run lint` | PASS | 0 errors · 12 warnings — 경고 파일 9개 중 r4 변경 파일 0 · 실행 뒤 `git status` 변화 0 |
+| `npm run typecheck` | PASS | exit 0 |
+| `vitest run`(필터 없음) | 기준선 | 1,122 파일 · 10,750 테스트 · 통과 10,226 · 실패 393 · skip 130. 실패 파일은 전부 `src/main/**` + `settlement.integration.test.ts` — `NODE_MODULE_VERSION` 서명 80건. verify 3 과 같은 393 · r4 의 `src/main` 변경 0파일 |
+| Unhandled Rejection 1 | 비귀속 | `src/main/adapters/claude/native-resources.test.ts` — r4 변경 밖 |
+| `node --test scripts/*.test.mjs` | PASS | 1,097 통과 · 실패 0 |
+| `electron-vite build` · `smoke-preload` | PASS | exit 0 · `require 는 electron 뿐 · ooBridge 키 7` |
+| `smoke-hosts` | 환경 | 데이터 호스트 종료 코드 1 — SQLite ABI(N1 승계) |
+| `check-visible-views`(운영 gate) | PASS | `xvfb-run` · exit 0 · 23기록 verdict true · Electron 39.8.10 — [`v4-check-visible-views.json`](evidence/v4-check-visible-views.json) |
+| `check-transcript-selection` · `check-transcript-streaming` | PASS | exit 0 · 90 · 18기록 verdict true |
+
+### V4-10. Repository operation checks
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| trailer 파싱 | PASS | `f92d624a` 6키 · `6a3574d4` 5키 반환 |
+| `[구현자 기입] r4` 일곱 필드 | PASS | 설계 리뷰 · 강제 지점 전수 · 이번 라운드 수정의 잠금(검산 `158 + 8 + 4 + 49 + 22 = 241`) · Product/UX · 놓친 잠재 문제 · 구현 보고 · Review Signals |
+| 강제 지점 표 | 불일치 | VP-15·VP-21 을 `SELF_PASS` 로 적었지만 EP-22 ②③ · EP-5 ⑨⑮ 의 details·코드 모드 줄은 원장에 없다 |
+| 대상 커밋 좌표 | 기입 | INDEX `(ΔV8 설계 — 검증자 기입)` → `6a3574d4` · `(r4 구현 — 검증자 기입)` → `f92d624a`(`git cat-file -t` commit). `origin/main` 조상 아님(PR 미병합) |
+
+### V4-11. 발견 분류
+
+| # | 발견 | 분류 | 근거(인용·재현) | disposition |
+|---|---|---|---|---|
+| M1 | 응답 Payload 의 `scrollElement` 를 details 분기(`WorkToolBody.tsx:147` — 링크·Task 결과)에서 빈 ref 로 바꿔도 green. wk1~wk4 는 링크·Task 입력이 없어 그 분기를 실행하지 않는다 | 이행 | EP-22 ② "응답 `Payload` 의 `VirtualCodeView scrollElement`(같은 컨테이너)" · 자리 검색 출력 `:147` · V4-W1 | BLOCKING |
+| M2 | 같은 분기의 응답 문서 id(`:149`)를 `:work:request` 로 바꿔도 green — 결과 도착 때 요청 문서까지 바뀌는 실패 의미 | 이행 | EP-22 ③ "응답 `…:work:response` + `call.result`" · EP-5 ⑨ · 자리 검색 출력 `:149` · V4-W2 | BLOCKING |
+| M3 | 산출물 코드 모드(`ArtifactPreviewContent.tsx:96`, 400줄 초과)의 revision 원천을 렌더마다 새 객체로 바꿔도 green. 원장 ep5.15 는 Markdown 분기(`:113`)만 심었다 | 이행 | EP-5 ⑮ "`ArtifactPreviewContent` → `result`" · 실패 의미 "렌더마다 새 객체를 원천으로 주면 다시 렌더마다 새 문서" · 자리 검색 출력 `:96` · V4-W4 | BLOCKING |
+| Y6 | Payload revision 폴백(`WorkToolBody.tsx:45` `?? payload`)을 `{}` 로 바꿔도 green — 요청 입력이 객체가 아닐 때만 쓰인다 | 확장 | V4-W5 · EP-5 ⑧ 은 `call.input` 만 적고 폴백을 열거하지 않는다 | NEXT_HANDOFF(확장) |
+| Y7 | 빈 창(`start = end`)의 크기 — diffContext 분기를 `end − start \|\| 7` 로 바꾸면 빈 창만 0 → 7×평균 | 확장 | V4-A4 · ①a 규칙 칸에 빈 창 입력이 없다 | NEXT_HANDOFF(확장) |
+| N1 | `smoke-hosts` SQLite ABI | 비귀속 | 환경 서명 · `src/main` 변경 0 | NON_BLOCKING |
+| N2 | `native-resources.test.ts` Unhandled Rejection | 비귀속 | r4 변경 밖 `src/main` | NON_BLOCKING |
+
+- r5 지침(불변식): §10 자리 검색 출력의 **모든 줄**이 그 자리의 직접 oracle 실행 구간 안에 있어야 한다(10-B "출력의 모든 줄은 그 행의 자리"). 자리 대표 변이 1개는 그 줄들 중 하나만 잰다 — 분기마다 코드가 따로 있는 자리는 줄마다 변이를 심는다.
+
+### V4 Review Signals — 사실만
+
+- 이전 라운드와 비슷한 증상: verify 3 L2~L4 는 자리 문장의 항, 이번 M1~M3 은 같은 자리의 다른 분기 줄이다 — 두 번 다 자리당 대표 변이 1개가 그 자리 전체를 잰다고 셌다.
+- 관련 지침: §공통 V "좌표가 닫는 자리는 그 테스트의 실행 구간 안의 자리뿐" · 10-B "출력의 모든 줄은 그 행의 자리".
+- 반복 환경 한계: Electron ABI ↔ Node ABI 동시 불가(SQLite 393 · smoke-hosts) · Windows 실기(AC30).
+- 독립 축(⑥) 발견: 3축 25시도 중 이행 3 · 확장 2. 이행 3건은 모두 줄 단위 sweep 축에서 나왔다.
+
+---
+
+## verify 3회째 (원문 보존)
+
 ## 판정 (verify 3회째)
 
 **FAIL** — 이행 결함 4건(L1~L4)이 `BLOCKING`이다. 모두 V1 rev 3 §10 자리 문장의 항을 인용할 수 있는 결함이다. 그중 L1은 코드가 계약과 다르게 동작한다(작업 크기). `PLAN_GAP`은 없다. 확장 창 밖이라 확장 후보 5건은 새 handoff 후보 표로 보냈다.
