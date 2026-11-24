@@ -3601,3 +3601,79 @@ DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. refere
 - "계약이 적은 항"의 경계(블록 안 어떤 문장이 자리 문장의 항을 구현하는가)는 구현자가 읽어 나눈다 — 검증자 ⑦이 같은 방법으로 다시 세는 것이 방어다.
 - 실패 이유의 판독은 oracle 출력에 이유가 남을 때만 된다 — 이유가 없는 oracle은 좌표 단독 실행으로 판정한다.
 - Gemini CLI·Antigravity의 skill 로더·기본 컨텍스트 파일 동작은 이 컨테이너에서 확인하지 않았다(E) — 지침은 도구 설정에서 `AGENTS.md`를 읽게 하고 `SKILL.md`를 직접 읽으라고만 요구한다.
+
+# review round 48 — 0327 (verify 3회째 FAIL): ⑦ 전수 잔여의 이월과 구현자 sweep의 `S/N`
+
+**발동/모드**: `docs/handoff/AGENTS.md §라운드` — 0327 verify 3회째 `FAIL`(`650cf73d`) 뒤 r4 착수 전 의무 review. 검증자가 "`handoff-review`를 바로 진행할까요?"라고 묻자 사용자가 `/handoff-review`를 실행 → **APPLY**(2026-11-24).
+
+## 분류
+
+| # | 발견 | 사례 | 조치 |
+|---|---|---|---|
+| 1 | verify 1이 V1 rev 3 §10 자리(EP-1~EP-25)를 plan 좌표 부재를 이유로 부분 sweep하고 "다음 verify가 잇는다"고 적었다. verify 2는 `SELF_BLOCKED`를 이유로 돌리지 않았고, ⑦ "이후" 범위(diff · Delta V 새 항목 · 직전 실패)에 그 잔여가 없었다. verify 3에서야 L2~L4(EP-6 ② · EP-7 ① 항 제거 green)가 나왔고 L1(EP-4 ① 크기 산식)도 같은 회차에 나왔다 | 0327 verify 1~3 · P66 · P12 | **A** — P66은 1회째 전수를 요구하지만 미완으로 끝난 회차의 잔여를 누가 언제 돌리는지 정하지 않았다. 글자대로 따르면 verify 2·3의 범위에서 빠진다. ⑦ 범위에 "앞 verify가 남긴 전수 잔여"를 더하고, 잔여가 남은 verify는 PASS하지 않으며(FAIL·RETURN_TO_PLAN만 넘길 수 있음) 좌표 부재는 미룰 이유가 아니라고 적었다. 새 causal class **P70** · P66 개정 메모 |
+| 2 | r3가 pair마다 `SELF_PASS`를 적었지만 V1 rev 3 원장은 pair당 1~6행이었다. 검산 `87 · 11 · 12 · 34 = 144`는 행 합계라 분모 대비가 드러나지 않았다 | 0327 r1~r3 · P40 · P41 | **A** — "sweep S는 열거 항목 수와 같아야 한다"는 2026-11-20 `plan.template.md`에만 있었고 impl SKILL·AGENTS 최소 계약에는 없었다(0327 plan은 그보다 먼저 써서 문장이 없다). impl §3·§9 · AGENTS ⑦ 행·§단계별 절차 2 · template에 `S/N`과 남긴 항목을 두고, 남긴 항목이 있는 pair는 `SELF_PASS`로 적지 않게 했다. verify §4 "다시 센다"에 `S/N`을 더했다 |
+| 3 | verify 3이 r3 `[구현자 기입]` 일곱 필드를 PASS로 적었다. 강제 지점 표는 EP 단위 테스트 목록이었고 pair마다 §10 자리 `N/M`과 `남긴 곳`이 없었다 | 0327 verify 3 · P52 | **B** — verify §9 "강제 지점 표는 그 pair의 §10 자리 전부와 `남긴 곳`을 담아야 한다(0262 r3)"가 이미 요구했다. 지침 변경 없음. 판정은 FAIL이라 결과가 같고, verify 4가 §9와 새 `S/N`으로 다시 센다 |
+| 4 | L1 — `requestSize`에 평균 줄 길이가 r1부터 없었다 | 0327 r1 | **F** — 계약(EP-4 ①)은 충분했다. 놓친 이유는 #1(규칙 칸 분기 입력을 1회째 전수로 보지 않음)이다 |
+| 5 | Y1~Y5 — 창 밖 확장 후보 | 0327 verify 3 | 실패 아님 — 정상 경로(후보 표) |
+| 6 | SQLite ABI 393 · `smoke-hosts` · AC30 Windows 실기 | 환경 | **E** — 기록만 |
+
+**verify 분류 대조(§2)**: L1은 EP-4 ① 산식 인용 + 코드 `lengthOf` 0건이라 이행 `BLOCKING`이 맞다. L2~L4는 자리 문장 항 인용("`highlightWords` 일 때" · "old 는 added 제외" · "증감 수")이 되는 `못 잡음`이라 이행이 맞다. Y1(⑫ else 분기)은 "이면 해제"의 반대를 읽으려면 해석이 필요해 확장이 맞고, Y2~Y5도 인용할 원문이 없다. E7-D3 동치(`newLine` 유일) · V3-M18 동치(fail-closed)도 맞다. 거짓 PASS 방향 왜곡 0 · FAIL inflation 0. #3은 verify 3이 놓친 이행 결함(필드 접힘)이지만 판정에 영향이 없다.
+
+## Tier
+
+**Tier 1.** 하한 ⑦의 실행 범위(검증자 이후 회차) · PASS 조건 · 구현자 `SELF_PASS` 조건 · CLOSED 이관 내용이 바뀐다.
+
+## 6-A Operational Instruction Delta
+
+기준 `867ab06b`. `instruction_delta.py --base HEAD --prose --pool docs/handoff/AGENTS.md`(대상 6파일 — handoff AGENTS · verify · impl · review SKILL · 두 template) 후보 **0**.
+
+word-diff 지운 단어 전수:
+
+| 파일 | 지운 단어 | 판정 |
+|---|---|---|
+| verify SKILL | `` `Criteria-Met`과 `` · `` `N/M`은 `` | REPLACE(확장) — "`Criteria-Met` · 강제 지점 `N/M` · sweep `S/N`은" |
+| verify SKILL | `PASS다.` | REPLACE(확장) — PASS 조건에 ⑥ 존재 · ⑦ 잔여 0을 더했다(⑥은 §4에 이미 있던 조건을 옮겨 적음) |
+| verify SKILL · AGENTS §라운드 | `행을` ×2 | REPLACE(확장) — CLOSED 이관에 "⑦ 전수 잔여"를 더한 문장 연장 |
+| verify template | `실패)` ×2 | REPLACE(확장) — 범위에 "앞 verify 전수 잔여" |
+| AGENTS ⑦ 행 · §단계별 절차 3 | `전수,` · `항목.` | REPLACE(확장) — `S/N` 괄호 · 잔여 문장 연장 |
+| impl SKILL | `남긴다.` · `적는다.` | REPLACE(확장) — sweep 결과 문장 · 검산 문장 연장 |
+| review SKILL | `` 잡음` `` · `§4` | REPLACE(확장) — 지표 행에 `S/N`·전수 잔여 · verify 메타 |
+| plan template | `sweep S는` · `수와` · `한다.` · `§9).` | REPLACE — "S는 N과 같아야 한다(IMPL_DONE 전 전수)"를 유지하고 `S/N` 표기 · 남긴 항목 · `SELF_PASS` 조건을 더했다 |
+
+상태 사본: INDEX 0327 행 다음 주체 `handoff-review → codex r4` → `Codex (구현 r4)` · 0327 plan 상태 줄 — REPLACE(상태, review 완료에 따른 보드 갱신).
+
+KEEP 외 DELETE 0 · MOVE 0 · 설명 없이 사라진 gate·command·reference 0. reference·script 이동 0 → inbound `N`/`M/M` 대상 없음. heading 변경 0.
+
+## 6-B Historical Failure Regression
+
+- **70 P 전수**(`rg -c '^## P[0-9]+'` 70 — P70 신규) · 변경 후 **COVERED 70** / PARTIAL 0 / GAP 0 / OBSOLETE 0. 방어 문장 삭제 0(6-A)이라 round 47의 COVERED 69가 그대로다.
+- 바뀐 P: **P66** 강화(잔여 이월 · `S/N` — 개정 메모) · **P70** 신규.
+- **P12**(조사 가능한 것을 불가로 선언): 강화 — ⑦에서 "plan 좌표가 없다는 것은 미룰 이유가 아니다"가 같은 꼴을 막는다. **P39 · P40 · P41**(자기보고 재현 · 합계 · 도구가 정의한 전수): 유지·강화 — `S/N`은 합계가 아니라 분모 대비이고 남긴 항목은 차집합이다. **P52**(분모를 §10 항목으로 셈): 유지 — `N`은 "§10 자리 검색 · pair path · 규칙 칸에서 센 수"로 자리 단위다. **P60**(열린 분모): 유지 — 잔여는 ⑦ 범위(열거 원문)에서 남긴 항목만이라 일반 hunk가 분모가 되지 않는다. **P64 · P66**(창 · 전수): 잔여 sweep의 `못 잡음`도 같은 분류를 받는다 — 창 밖이면 확장은 후보 표, 인용이 되면 이행. **P65**(⑥ 구현 주체 무관): 유지 — PASS 조건에 ⑥ 존재를 함께 적었다. **P67 · P69**: 유지.
+- P1~P11 · P13~P38 · P42~P51 · P53~P59 · P61~P63 · P68: 방어 지점 불변(이번 변경이 닿지 않음).
+
+| historical anchor | 변경 전 | 변경 후 | 판정 |
+|---|---|---|---|
+| 0327 verify 1(부분 sweep · RTP) | "다음 verify가 잇는다" — 규칙 밖 메모 | 남긴 항목을 메타에 목록으로 · RTP라 이월 허용 | 다음 주체 있음 |
+| 0327 verify 2(`SELF_BLOCKED` 이유로 미실행 · RTP) | 범위 밖이라 미실행 | 잔여가 ⑦ 범위 — 돌려야 함 → L2~L4가 verify 2(창 안)에서 나옴 | 발견 시점 verify 3 → 2 |
+| 0327 verify 3(부분 · FAIL) | 같은 부분 sweep | FAIL이라 이월 허용 · 잔여 목록 필요 | 판정 같음(FAIL) |
+| 0327 r3 `SELF_PASS`(pair당 1~6행) | 검산 행 합계만 | `S/N` < 1이면 `SELF_PASS` 불가 → `SELF_BLOCKED`·남긴 항목 | 거짓 자기 PASS 0 |
+| 0259 r1~r5(P66) | 1회째 전수 | 같음(전수를 마친 회차는 잔여 0) | 같음 |
+| 0262 r4~r8(P60) | 창 안 `PLAN_GAP` · 창 밖 후보 표 | 같음 — 잔여는 열거 원문 안 | inflation 0 |
+
+- **시나리오 replay**: 1회째 부분 sweep + 다른 막는 발견 0 → PASS 불가이고 넘길 수도 없음 → 같은 verify에서 마저 돌린다(상태 없는 판정 0) / 부분 sweep + FAIL·RTP → 잔여 목록과 함께 이월, 다음 verify가 범위로 읽음(다음 주체 있음) / 창 경계를 넘은 잔여 sweep의 `못 잡음` — 인용되면 이행 `BLOCKING`, 아니면 후보 표(inflation 0) / 9회째 CLOSED에 잔여 남음 → 종료 이관 목록으로 / 구현자가 `S/N` < 1로 IMPL_DONE → 해당 pair `SELF_BLOCKED`, verify가 같은 분모를 다시 셈 / 사용자 요구 변경 ΔV · 후보 표 승격 · §8 정정 경로 불변. 같은 축 무한 반복 0.
+
+## 6-C Cross-document Consistency
+
+- 검증자 ⑦ 이후 범위(직전 실패 + 앞 verify 전수 잔여) · 잔여 남은 verify PASS 불가: AGENTS ⑦ 행 · §단계별 절차 3 · verify ⑦ 행·bullet · verify §11 PASS · `verify.template.md` 메타 ⑦ 행·§4 — 같다.
+- 구현자 `S/N` · 남긴 항목이 있는 pair는 `SELF_PASS` 아님: AGENTS ⑦ 행 · §단계별 절차 2 · impl §3·§9 · `plan.template.md` 분모 검산 · verify §4 "다시 센다" — 같다. "S는 N과 같아야 한다(IMPL_DONE 전 전수)"는 AGENTS ⑦ 행 "구현자는 IMPL_DONE 전 전수"와 같다.
+- CLOSED 종료 이관에 ⑦ 전수 잔여: AGENTS §라운드 · verify §11 · `verify.template.md` — 같다. AGENTS §INDEX.md 운영(후보 표 1행)은 내용 목록을 적지 않아 충돌 없음.
+- root `AGENTS.md`·`docs/git-template.md`: ⑦·`SELF_PASS`를 다루지 않음(`rg` 0건) — 갱신 대상 없음. SKILL frontmatter description: verify("열거 항목 sweep") · impl("열거 항목 sweep으로 자기 잠금") — 본문과 충돌 없음. 새 `AGENTS.md` 0 · `app/AGENTS.md`·`ci.yml` 명령 불변. `node scripts/check-doc-inventory.mjs --check` ok · `check-product-naming` OK.
+
+## 전환 (§8)
+
+0327 verify 3회째의 판정과 다음 주체는 새 규칙에서도 같다 — L1~L4는 이행 `BLOCKING`, Y1~Y5는 창 밖 후보 표, ⑦ 잔여가 있지만 FAIL이라 이월할 수 있다. 정정 절은 쓰지 않았다. verify 3 메타는 잔여를 EP 단위로 적었다. verify 4는 V1 rev 3 §10 자리 전체에서 v3가 돌린 47건([`v3-mutations.spec.jsonl`](../../../../docs/handoff/0327-worker-protocol-visible-views/evidence/v3-mutations.spec.jsonl)의 `E*` 행)을 뺀 나머지를 잔여로 읽는다. INDEX 0327 행 다음 주체를 `handoff-review` → 구현 r4(Codex)로 갱신했다. r4 구현은 V1 rev 3 §10 자리 sweep을 `S/N`으로 적는다.
+
+## 남은 한계
+
+- 열거 항목 수 `N`은 구현자가 §10 자리 검색 · pair path · 규칙 칸에서 센다. 검증자가 같은 분모를 다시 세는 것이 방어다(P41).
+- 큰 V(자리 약 176)에서 한 verify 안에 전수를 마치는 비용은 지침으로 줄지 않는다. 잔여 이월은 비용을 회차로 나누되 PASS 전에는 0이어야 한다.

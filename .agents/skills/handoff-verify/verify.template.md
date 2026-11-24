@@ -20,7 +20,7 @@
 | 상태 | PASS / FAIL / RETURN_TO_PLAN / CLOSED |
 | 확장 창 | verify N회째 — 창 안(1·2회째) / 창 밖 · 창이 다시 열린 노드(사용자 요구 변경 ΔV): 없음 / … |
 | 독립 축(⑥) | 축 이름·시도 수 — 구현 주체와 무관하게 최소 1개. 만들 수 없었으면 그 사실(PASS 불가) |
-| 열거 sweep(⑦) | 범위(1회째 전수 / diff 범위 + 직전 실패) · 항목 N · 못 잡음 M |
+| 열거 sweep(⑦) | 범위(1회째 전수 / diff 범위 + 직전 실패 + 앞 verify 전수 잔여) · 항목 N · 못 잡음 M · 남긴 전수 잔여: 0 / 항목 목록(0이 아니면 PASS 불가 — 다음 verify로 넘어감) |
 | 발견 분류 | 이행 a · 현재 b · 확장 c(막음 c1 / 후보 표 c2) · 경계 d · 비귀속 e |
 | 구현 주체·문맥 | 기록만 — 판정에 쓰지 않는다 · 설계자 = 검증자면 plan validity가 자기 설계 감사임을 적는다 |
 
@@ -105,7 +105,7 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - **직전 `못 잡음`·`동치` 재실행(③)** — 후보 표·`경계` 행 제외: N행 → 결과 나란히
 - **이전 라운드 대조(④)** — diff가 닿은 행(공용 설정이 바뀌었으면 전부) 재실행: 지난 라운드 red 중 이번 green 0건 / N건 → 덮개 회귀 finding · 원문이 옮겨 간 행은 재앵커 행(원 ID → 옮긴 자리)과 원문 줄이 운반하는 것의 분류를 함께
 - **독립 축(⑥)** — 구현 보고·등록 목록에 없던 축 N건(어떤 축인지와 결과) · 창 안이면 가정 입력·형태 변이 포함, 창 밖이면 열거 원문 유도·현재 결함 우선
-- **열거 sweep(⑦)** — `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` · 범위 …(이후 회차: diff가 닿은 항목 · 이번 Delta V가 새로 열거하거나 바꾼 항목 · 직전 실패) · 항목 N · 못 잡음 M · 기본 변이는 항목 하나만 지움(더 넓은 등록 변이로 갈음한 행 0) · 규칙 칸 분기·여러 항 §10 자리 문장의 항은 그것을 구현한 diff 자리 변이 K개(인용한 분기·항 · 동치 · 확장)
+- **열거 sweep(⑦)** — `python3 .agents/skills/handoff-verify/scripts/mutate.py <spec> --cwd app` · 범위 …(이후 회차: diff가 닿은 항목 · 이번 Delta V가 새로 열거하거나 바꾼 항목 · 직전 실패 · 앞 verify가 남긴 전수 잔여) · 항목 N · 못 잡음 M · 기본 변이는 항목 하나만 지움(더 넓은 등록 변이로 갈음한 행 0) · 규칙 칸 분기·여러 항 §10 자리 문장의 항은 그것을 구현한 diff 자리 변이 K개(인용한 분기·항 · 동치 · 확장)
 - **`잡음`의 실패 이유** — 좌표마다 실패 이유가 그 변이의 실수인지 확인 · 상태를 공유하는 좌표를 묶어 돌린 행은 좌표 하나씩 다시 돌린 결과로 적음: 해당 없음 / …
 
 **고장 이력** — 이번 verify가 시도한 고장 전부. 종류는 제거·빈 값·다른 값·맞바꿈·뒤집기·고정값·호출 대체 중 하나이고, 하한(①~⑦) 밖의 자리·방식은 재량이다(`docs/handoff/AGENTS.md §고장 내 보기`).
@@ -278,7 +278,7 @@ $ ./node_modules/.bin/vitest run <relevant-suite>
 - 상태: PASS / FAIL / RETURN_TO_PLAN / CLOSED(이 handoff의 verify 9회째, PASS 아님)
 - verify 횟수: N회째 — 확장 창 안/밖 (3·6회째 PASS가 아니면 다음 재구현 전 handoff-review · 9회째면 종료)
 - 후보 표로 간 확장 후보: 없음 / N건(INDEX `## 새 handoff 후보` 행)
-- 종료 이관 목록(CLOSED일 때만): 남은 BLOCKING · PLAN_GAP · 고장 이력 `못 잡음` → 새 handoff 후보
+- 종료 이관 목록(CLOSED일 때만): 남은 BLOCKING · PLAN_GAP · 고장 이력 `못 잡음` · ⑦ 전수 잔여 → 새 handoff 후보
 - pair 결과: REQUIRED/REGRESSION PASS N · root PAIR_FAIL M · BLOCKED_BY K
 - PLAN_GAP: 없음 / root gap … → 영향 pair …
 - Product/UX 및 ACTIVE Decision 충족: …
