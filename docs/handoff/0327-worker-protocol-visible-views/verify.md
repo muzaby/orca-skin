@@ -2,6 +2,134 @@
 
 > 절차 정본은 [`handoff-verify/SKILL.md`](../../../.agents/skills/handoff-verify/SKILL.md). 구현 보고·`Criteria-Met`은 대조 출발점으로만 썼고, 아래 관측은 모두 이번 턴에 재현했다.
 
+## 판정 (verify 5회째)
+
+**PASS(기계 범위)** — 이행·현재 결함 0 · `PLAN_GAP` 0. M1~M3 의 인용 변이 V4-W1·W2·W4 가 red 다. 독립 축에서 못 잡은 5건은 모두 확장 후보이고, verify 5회째(창 밖)라 새 handoff 후보 표로 보낸다.
+
+- 원장 재실행: r5 원장 111/111 red · r4 원장 중 r5 가 고친 oracle 파일 행 62/62 red · verify 4 F 행 4/4 red. 쓰인 oracle 명령 40개는 깨끗한 트리에서 모두 green 이다.
+- 합계 재측정: ✅ 39 · ⚠️ 1(AC30 Windows 실기) · ❌ 0 = 40 — 자기보고 `39/40` 과 같다.
+- gate 전부 PASS. vitest 실패 393건은 verify 4 와 같은 SQLite ABI 기준선이다(§V5-9). 남은 것: AC30 Windows 사람 실기.
+
+### V5 메타
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋/range | `f0e5f1ad..a1d1b49c` — 구현 `a1d1b49c`(r5). 생산 코드 0파일 · 테스트 6파일(신설 1) · evidence 2 · plan `[구현자 기입] r5` |
+| 구현 전 plan 기준 | `6a3574d4`(ΔV8) — 이후 규범 행 변경 0 |
+| 유효 V | `V1 rev 3 + ΔV1 + … + ΔV8`(verify 4 와 같음) |
+| 라운드 | 5 — PASS 로 종료 |
+| 확장 창 | verify 5회째 — 창 밖. 새 ΔV 없음 · 사용자 요구 변경 없음 |
+| 독립 축(⑥) | 3축 · 시도 9(X1~X9) — 작은 diff 동기 구문의 창→행 대응·축 맞바꿈(X1~X3) · Work details 분기의 오류 표시·revision 원천·분기 조건 양쪽 항(X5·X6·X8·X9) · 산출물 code/md id 맞바꿈과 `large` 메모 의존성(X4·X7) |
+| 열거 sweep(⑦) | diff 가 닿은 항목(r5 원장 111 — EP-5·22 검색 31줄 전부 포함) · 직전 실패 M1~M3 · verify 4 전수 잔여 0 → 잔여 0 |
+| 못 본 것 | AC30 Windows 실기 |
+| 발견 분류 | 이행 0 · 현재 0 · 확장 4(Y8~Y11 · 후보 표) · 동치 2(③ 재확인) · 비귀속 2(N1·N2 승계) |
+| 구현 주체·문맥 | 구현 codex · 설계자 = 검증자(Claude) |
+
+### V5-0. 기준선 · plan validity
+
+- 구현 커밋의 `plan.md` hunk: `:11` 상태 줄 · 파생 이슈 M1~M3 상태 칸 · `[구현자 기입] r5` 추가. AC·Decision·V·§10 변경 0 → ΔV8 기준으로 채점.
+- EP-5 검색 → 23줄, EP-22 검색 → 8줄(합 31 · 고유 28줄). r5 원장 `searchHits` 와 양방향 차집합 0.
+
+### V5-1. 구현 결과 비판적 검토
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| 생산 코드 변경 | 없음 | `git diff --stat f0e5f1ad..a1d1b49c -- app/src` 의 비테스트 파일 0 |
+| 바꾼 테스트가 옛 단언을 잃었는가 | 없음 | wk3 의 Fixture 순서 단언 · wk4 의 10회 재렌더 동일성 유지. 이 파일을 oracle 로 쓰는 r4 원장 행 62/62 red |
+| r5 fixture 가 `isError: true` → `false` 로 바뀜 | 덮개 회귀 없음 | 오류 색은 lb4(`longToolBody.render.test.ts`)가 잡는다. details 분기 오류 색 공백은 X5(Y10) |
+| 산출물 테스트가 production 조립을 지나는가 | 지남 | `ArtifactViewer` 를 마운트 → `ArtifactPreviewContent` → `VirtualCodeView`/`VirtualMarkdownView` → `fake.client.openDocument` |
+
+### V5-2. 역방향 탐색
+
+생산 코드 변경 0 → 새 export·소비처 없음. 새 테스트 파일 `ArtifactPreviewContent.virtual.test.ts` 는 production `ArtifactViewer` 를 import 한다(로컬 재구현 아님).
+
+### V5-4. 고장 이력
+
+[`v5-mutations.spec.jsonl`](evidence/v5-mutations.spec.jsonl) · [`v5-mutations.tsv`](evidence/v5-mutations.tsv). 임시 워크트리 3곳에서 `mutate.py` 로 돌렸고 매 실행 "모든 파일 원문 그대로" · 작업 트리 `git status` 변화 0.
+
+| ID | `파일:줄` | 종류 | 바꾼 내용 | 결과 | 잡은 테스트 | 하한 | 분류 |
+|---|---|---|---|---|---|---|---|
+| R5-V4-W1 | `WorkToolBody.tsx:147` | 다른 값 | details 응답 `scrollElement` → 빈 ref | **잡음**(직전 못 잡음) | wk2 TaskUpdate·WebSearch | ② | M1 닫힘 |
+| R5-V4-W2 | `:149` | 맞바꿈 | details 응답 id → `:work:request` | **잡음**(직전 못 잡음) | wk3·wk4 | ② | M2 닫힘 |
+| R5-V4-W4 | `ArtifactPreviewContent.tsx:96` | 고정값 | 코드 모드 revision → `{}` | **잡음**(직전 못 잡음) | 산출물 markdown code · text preview | ② | M3 닫힘 |
+| R5-* 나머지 108 | EP-5·8·11·15·16·18·19·21·22·24 자리 | r5 원장 | 자리·분기·검색 줄 | 잡음 108/108 | 원장 `failedTest` | ①⑦ | — |
+| R4-* 62 | r5 가 고친 oracle 파일(wk·dt·lb·rt·fileDiffVirtual)을 쓰는 r4 원장 행 | r4 원장 | — | 잡음 62/62 | 원장 기록 | ④ | 덮개 회귀 0 |
+| V4-F1~F4 | `FileDiffSection.tsx:521` · `:550` | 제거 · 맞바꿈 | verify 4 원문 | 잡음 4/4 | fileDiffVirtual.render | ④ | — |
+| RE-E7-D3 · RE-V4-A4 | `diffView.ts:90` · `protocol.ts:241` | verify 3·4 원문 | — | 못 잡음 | — | ③ | 동치 유지(근거 V3·V4 그대로) |
+| X4 | `ArtifactPreviewContent.tsx:97` | 맞바꿈 | 코드 id `code:artifact:` → `md:` | 잡음 | 산출물 markdown code · text preview | ⑤⑥ | — |
+| X6 | `WorkToolBody.tsx:148` | 다른 값 | details revision `call.result` → `responsePayload` | 잡음 | wk4 TaskUpdate·WebSearch | ⑥ | — |
+| X8 · X9 | `:141` | 제거 | 분기 조건 `links.length > 0 \|\|` 항 · `\|\| taskTool` 항 | 잡음 2/2 | wk2 WebSearch · wk2 TaskUpdate 외 | ⑥ | — |
+| **X1** | `useSmallDiffSyntax.ts:38` | 제거 | 창 안 위치 `i % 200` → `i` | 못 잡음 | — | ⑥ | 확장(Y8) |
+| **X2** | `:38` | 고정값 | 두 번째 창 → 항상 첫 창 | 못 잡음 | — | ⑥ | 확장(Y8) |
+| **X3** | `:45-46` | 맞바꿈 | old·new 축의 제외 종류 `added` ↔ `removed` | 못 잡음 | — | ⑤⑥ | 확장(Y9) |
+| **X5** | `WorkToolBody.tsx:151` | 고정값 | details 응답 `error={failed}` → `false` | 못 잡음 | — | ⑥ | 확장(Y10) |
+| **X7** | `ArtifactPreviewContent.tsx:84` | 제거 | `large` 메모 의존성의 `isCode` | 못 잡음 | — | ⑥ | 확장(Y11) |
+
+- X1~X9 oracle(`features/chat` + `shared`, 3,983 테스트)은 깨끗한 트리에서도 `settlement.integration.test.ts` 5건이 SQLite ABI 로 실패한다. 첫 실행의 "5 failed" 는 기준선이었으므로 그 파일을 빼고(3,978) 다시 돌렸다. 그 oracle 의 `${PIPESTATUS[0]}` 가 sh 에서 해석되지 않아 결과 열은 쓰지 않고 실패 수로 판정했다. X4·X6·X8·X9 는 bash 좁은 oracle 로 다시 돌려 실패 테스트 이름을 확인했다.
+
+### V5-5. V-pair closeout
+
+| Pair | 레벨 | 결과 | 직접 증거 |
+|---|---|---|---|
+| VP-15 SD-06 ↔ ST-06 | ST | PASS | EP-22 검색 8줄 전부 원장 행 red — `:147` V4-W1 · `:149` V4-W2 · `:156` ep22.2 · `:158` ep5.9-response · `:48` VP15-owner · `:86` work-height · `:93` ep22.1 · `:97` ep22.3 |
+| VP-21 AR-02 ↔ IT-02 | IT | PASS | EP-5 검색 23줄 원장 행 red(`:96` V4-W4 · `:113` ep5.15 포함) · X4·X6 red |
+| VP-02 · VP-03 | AT | PASS | AC33 wk1~wk4(3 경우씩) · AC22 산출물 실제 패널 3 경우 |
+| VP-36 · VP-30 · VP-31 · VP-11 · VP-06 · VP-01 | 전 레벨 | PASS | 이번 변경 밖 — verify 4 좌표 그대로(생산 코드 변경 0). 이 중 r5 가 고친 oracle 파일의 행은 R4·V4-F 재실행 red |
+| VP-09 · VP-14 · VP-26 · VP-34 · VP-59 · VP-50 · VP-52 | 전 레벨 | PASS | `check-visible-views` 23 · `check-transcript-selection` 90 · `check-transcript-streaming` 18기록 verdict true |
+| VP-07 | AT | PASS(기계 범위) | AC29 Linux 함수 측정 — AC30 Windows 동일 장비 비교는 사람 실기 |
+
+| 결과 | AC |
+|---|---|
+| ✅ 39 | AC33 · AC22 는 M1~M3 닫힘으로 ✅ · 나머지 verify 4 판정 유지 |
+| ⚠️ 1 | AC30(Windows 사람 실기 — 사용자가 verify 단계로 지정, 이 환경 불가) |
+
+- 합계 `39 + 1 + 0 = 40`. 자기보고 `39/40`(trailer `a1d1b49c` · r5 구현 보고) — 일치.
+
+### V5-9. 게이트 재실행 (검증 트리 `a1d1b49c`)
+
+| Gate | 결과 | 관측 |
+|---|---|---|
+| 가드 5종 | PASS | append-only · doc-inventory `--check` · product-naming(2,630파일) · test-budgets(18 real-git) · ui-thread — 전부 exit 0 |
+| `npm run lint` | PASS | 0 errors · 12 warnings(verify 4 와 같은 9파일 · r5 변경 파일 0) · 실행 뒤 `git status` 변화 0 |
+| `npm run typecheck` | PASS | exit 0 |
+| `vitest run`(필터 없음) | 기준선 | 1,123 파일 · 10,763 테스트 · 통과 10,239 · 실패 393 · skip 130. 실패 55파일 = `src/main/**` 54 + `settlement.integration.test.ts` · `NODE_MODULE_VERSION` 서명 80. verify 4 와 같은 393 · r5 변경 파일과 교집합 0 |
+| Unhandled Rejection 1 | 비귀속 | `native-resources.test.ts`(N2 승계) |
+| `node --test scripts/*.test.mjs` | PASS | 1,097 통과 · 실패 0 |
+| `electron-vite build` · `smoke-preload` | PASS | exit 0 · `require 는 electron 뿐 · ooBridge 키 7` |
+| `smoke-hosts` | 환경 | 실행하지 않음 — SQLite ABI(N1 승계) · 생산 코드 변경 0 |
+| `check-visible-views`(운영 gate) | PASS | `xvfb-run` · exit 0 · 23기록 verdict true · Electron 39.8.10 — [`v5-check-visible-views.json`](evidence/v5-check-visible-views.json) |
+| `check-transcript-selection` · `check-transcript-streaming` | PASS | exit 0 · 90 · 18기록 verdict true |
+
+### V5-10. Repository operation checks
+
+| 검사 | 판정 | 근거 |
+|---|---|---|
+| trailer 파싱 | PASS | `a1d1b49c` 6키 반환 |
+| `[구현자 기입] r5` 일곱 필드 | PASS | 설계 리뷰 · 강제 지점 전수 · 이번 라운드 수정의 잠금(검산 `9 + 3 + 34 + 34 + 31 = 111`) · Product/UX · 놓친 잠재 문제 · 구현 보고 · Review Signals |
+| 테스트 소스 규칙 | PASS | 변경 6파일 `classifyTestSource` → unit · test-budgets 가드 exit 0 |
+| 대상 커밋 좌표 | 기입 | INDEX `(r5 구현 — 검증자 기입)` → `a1d1b49c`(`git cat-file -t` commit). PR 브랜치 해시 — `origin/main` 조상 아님(미병합) |
+
+### V5-11. 발견 분류
+
+| # | 발견 | 분류 | 근거(인용·재현) | disposition |
+|---|---|---|---|---|
+| Y8 | 작은 diff 동기 구문(≤ 400줄)의 두 번째 창 결과를 행에 대응하는 항(`useSmallDiffSyntax.ts:38`)을 틀려도 green — 200~400번째 줄 색이 빠진다 | 확장 | X1 · X2. EP-16 검색 줄 `:26`·`:27`(창 요청)은 code-first/second-window 로 잠겼고, 창→행 대응은 ④ 가 `useDiffRowTokens` 만 적는다 | NEXT_HANDOFF(확장) |
+| Y9 | 같은 훅의 old·new 축 제외 종류를 맞바꿔도 green | 확장 | X3. EP-5 ⑤ 계약은 id·revision 이고 축 내용은 열거하지 않는다 | NEXT_HANDOFF(확장) |
+| Y10 | Work details 분기 응답의 오류 표시(`WorkToolBody.tsx:151`)를 꺼도 green | 확장 | X5. AC19 "Work 오류 색 동일" 은 분기를 열거하지 않는다 — details 분기를 덮는지는 해석이 필요하다. 일반 분기는 lb4 가 잠금 | NEXT_HANDOFF(확장) |
+| Y11 | 산출물 `large` 메모 의존성에서 `isCode` 를 빼도 green — 같은 내용으로 미리보기 → 코드 전환 시 401줄 이상도 `CodeBlock` | 확장 | X7. 테스트는 모드를 고정해 마운트한다. 모드 전환은 AC22 행동 기준에 없다 | NEXT_HANDOFF(확장) |
+| N1 | `smoke-hosts` SQLite ABI | 비귀속 | 환경 서명 · `src/main` 변경 0 | NON_BLOCKING |
+| N2 | `native-resources.test.ts` Unhandled Rejection | 비귀속 | r5 변경 밖 `src/main` | NON_BLOCKING |
+
+### V5 Review Signals — 사실만
+
+- 이전 라운드와 같은 증상: 없음 — M1~M3 은 인용 변이 red 로 닫혔다.
+- 반복 환경 한계: Electron ABI ↔ Node ABI 동시 불가(SQLite 393 · smoke-hosts) · Windows 실기(AC30). 넓은 oracle 의 기준선 실패 5건이 첫 독립 축 실행에서 "red" 로 보였다 — 깨끗한 트리 실행으로 가렸다.
+- 독립 축(⑥) 발견: 3축 9시도 중 잡음 4 · 확장 4건(5시도).
+
+---
+
+## verify 4회째 (원문 보존)
+
 ## 판정 (verify 4회째)
 
 **FAIL** — 이행 결함 3건(M1~M3)이 `BLOCKING`이다. 셋 다 §10 자리 검색 출력에 있는 줄인데, 그 자리의 코드가 두 분기로 나뉘어 oracle이 한 분기만 실행한다. `PLAN_GAP`은 없다.
