@@ -8,7 +8,7 @@
 
 ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다. ΔV7은 ΔV6 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-30 ⑤·⑫·⑮ · 신설 ⑯ · EP-31 ②③④ · AC15·AC40 · VP-26·14·59)만 대체한다. ΔV8은 ΔV7 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-4 ① · EP-4 검색 명령 · AC5 · VP-36)만 대체한다.
 
-현재 상태는 impl/IMPL_DONE(ΔV8 · 라운드 5)이며 다음 주체는 검증자(verify 5)다. r5는 verify 4의 M1~M3을 보완했다([r5 구현 보고](#구현자-기입-r5)). r4는 L1~L4와 Git 모델 대기·실패 표시를 보완했다. verify 3이 K1~K5·I1을 닫고 V1 rev 3 자리 sweep에서 이행 결함 L1~L4를 열었다([verify.md §V3-11](verify.md)). r3에서 K1~K5·I1을 구현했다([r3 구현 보고](#구현자-기입-r3)). r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 verify/PASS(ΔV8 · 라운드 5 · 기계 범위)이며 남은 것은 AC30 Windows 사람 실기다([verify.md §V5](verify.md)). r5는 verify 4의 M1~M3을 보완했다([r5 구현 보고](#구현자-기입-r5)). r4는 L1~L4와 Git 모델 대기·실패 표시를 보완했다. verify 3이 K1~K5·I1을 닫고 V1 rev 3 자리 sweep에서 이행 결함 L1~L4를 열었다([verify.md §V3-11](verify.md)). r3에서 K1~K5·I1을 구현했다([r3 구현 보고](#구현자-기입-r3)). r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -2222,7 +2222,7 @@ agent(Git patch · 도구 이벤트) / data(산출물 미리보기) ──(현�
 
 ## [검증자 기입] 파생 이슈
 
-verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md). verify 3회째(FAIL) — [verify.md §V3-11](verify.md). verify 4회째(FAIL) — [verify.md §V4-11](verify.md).
+verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md). verify 2회째(RETURN_TO_PLAN) — [verify.md §V2-11](verify.md). verify 3회째(FAIL) — [verify.md §V3-11](verify.md). verify 4회째(FAIL) — [verify.md §V4-11](verify.md). verify 5회째(PASS · 기계 범위) — [verify.md §V5-11](verify.md).
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |
 |---|---|---|---|---|---|---|
@@ -2245,9 +2245,9 @@ verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md)
 | L2 | `diffView.ts:199` `options.highlightWords &&` 제거 green | VP-30 · EP-6 ② · AC8 | 단어 강조 끔 → `wordSpan` null 을 단언하는 입력 | 이행 | BLOCKING | closed — verify 4: RE6-D10 red |
 | L3 | `diffView.ts:87` old 축 색인의 `added` 제외 제거 green | VP-31 · EP-7 ① · AC17 | 추가 줄 뒤 삭제 줄의 축 색인·토큰을 단언하는 입력 | 이행 | BLOCKING | closed — verify 4: RE7-D2 red |
 | L4 | `diffView.ts:92` 증감 수 `removed++` 제거 green | VP-31 · EP-7 ① | 모델 요약 증감 수를 단언하는 입력 | 이행 | BLOCKING | closed — verify 4: RE7-D4 red |
-| M1 | 응답 Payload `scrollElement` 를 details 분기(`WorkToolBody.tsx:147` — 링크·Task 결과)에서 빈 ref 로 바꿔도 green — wk1~wk4 가 그 분기를 실행하지 않는다 | VP-15 · EP-22 ② · AC33 | 링크 또는 Task 결과 입력으로 details 분기의 스크롤 요소를 단언한다 | 이행 | BLOCKING | closed (r5 자기확인) |
-| M2 | 같은 분기 응답 문서 id(`:149`)를 `:work:request` 로 바꿔도 green | VP-15·VP-21 · EP-22 ③ · EP-5 ⑨ · AC33 | 같은 입력에서 응답 문서 id·revision 을 단언한다 | 이행 | BLOCKING | closed (r5 자기확인) |
-| M3 | 산출물 코드 모드(`ArtifactPreviewContent.tsx:96`)의 revision 원천을 렌더마다 새 객체로 바꿔도 green — 원장은 Markdown 분기(`:113`)만 심었다 | VP-21 · EP-5 ⑮ · AC22 | 400줄 초과 코드 산출물의 재렌더에서 문서 재등록 0 을 단언한다 | 이행 | BLOCKING | closed (r5 자기확인) |
+| M1 | 응답 Payload `scrollElement` 를 details 분기(`WorkToolBody.tsx:147` — 링크·Task 결과)에서 빈 ref 로 바꿔도 green — wk1~wk4 가 그 분기를 실행하지 않는다 | VP-15 · EP-22 ② · AC33 | 링크 또는 Task 결과 입력으로 details 분기의 스크롤 요소를 단언한다 | 이행 | BLOCKING | closed — verify 5: V4-W1 red |
+| M2 | 같은 분기 응답 문서 id(`:149`)를 `:work:request` 로 바꿔도 green | VP-15·VP-21 · EP-22 ③ · EP-5 ⑨ · AC33 | 같은 입력에서 응답 문서 id·revision 을 단언한다 | 이행 | BLOCKING | closed — verify 5: V4-W2 red |
+| M3 | 산출물 코드 모드(`ArtifactPreviewContent.tsx:96`)의 revision 원천을 렌더마다 새 객체로 바꿔도 green — 원장은 Markdown 분기(`:113`)만 심었다 | VP-21 · EP-5 ⑮ · AC22 | 400줄 초과 코드 산출물의 재렌더에서 문서 재등록 0 을 단언한다 | 이행 | BLOCKING | closed — verify 5: V4-W4 red |
 
 
 ## [구현자 기입] 설계 리뷰 (r1.3)
