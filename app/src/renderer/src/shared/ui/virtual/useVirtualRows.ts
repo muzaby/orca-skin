@@ -6,9 +6,11 @@ import { VIRTUAL_OVERSCAN, VIRTUAL_ROW_ESTIMATE_PX } from './limits'
 // The Work request and response can share a scroller but have different offsets.
 export function useVirtualRows(
   count: number,
-  root: RefObject<HTMLDivElement | null>,
+  root: RefObject<HTMLElement | null>,
   owner: RefObject<HTMLDivElement | null>,
-  mode?: 'all' | 'hidden'
+  mode?: 'all' | 'hidden',
+  getItemKey?: (index: number) => string | number | bigint,
+  estimateSize: (index: number) => number = () => VIRTUAL_ROW_ESTIMATE_PX
 ): Virtualizer<HTMLDivElement, Element> {
   const [margin, setMargin] = useState(0)
   useLayoutEffect(() => {
@@ -31,6 +33,7 @@ export function useVirtualRows(
   }, [root, owner, count])
   const list = useVirtualizer<HTMLDivElement, Element>({
     count,
+    ...(getItemKey && { getItemKey }),
     rangeExtractor:
       mode === 'all'
         ? () => Array.from({ length: count }, (_, i) => i)
@@ -38,7 +41,7 @@ export function useVirtualRows(
           ? () => []
           : defaultRangeExtractor,
     getScrollElement: () => owner.current,
-    estimateSize: () => VIRTUAL_ROW_ESTIMATE_PX,
+    estimateSize,
     overscan: VIRTUAL_OVERSCAN,
     scrollMargin: margin
   })

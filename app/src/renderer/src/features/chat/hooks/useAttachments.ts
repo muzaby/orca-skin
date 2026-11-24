@@ -1,22 +1,20 @@
+import { useLayoutEffect, useRef, useState, type ClipboardEvent } from 'react'
 import { reportError } from '../../../shared/errors'
-import { useRef, useState, type ClipboardEvent } from 'react'
 import { fileApi } from '../../../shared/api/ipc'
-import { downscaleDataUrl } from '../lib/imageThumb'
-import { buildAttachmentViews as buildViews } from '../lib/attachmentViews'
+import { computeClient } from '../../../shared/compute/client'
+import { imagePixelCount } from '../../../shared/compute/imageHeader'
+import { attachmentView, type DraftAttachment } from '../lib/attachmentThumbs'
 import type { AttachmentView, ComposerAttachment } from '../../../../../shared/ipc'
 
-// 컴포저의 첨부 lifecycle(다이얼로그/DnD/붙여넣기 3경로 수집 · 미리보기 · 제거 · 전송용 뷰 빌드)를
-// 한곳에 가둔다. 컴포저는 입력 합성에 집중하고, 첨부 상태/핸들러는 이 훅이 소유한다(AGENTS.md §5 분해).
 export interface UseAttachments {
-  attachments: ComposerAttachment[]
-  attachmentPreviews: Record<string, string>
+  chips: readonly DraftAttachment[]
+  snapshot: () => { items: ComposerAttachment[]; views: AttachmentView[] }
   draggingAttachment: boolean
   setDraggingAttachment: (dragging: boolean) => void
   pickAttachments: () => Promise<void>
-  removeAttachment: (index: number) => void
-  addDroppedFiles: (files: FileList) => Promise<void>
+  removeAttachment: (id: string) => void
+  addDroppedFiles: (files: FileList) => void
   onPaste: (event: ClipboardEvent<HTMLDivElement>) => void
-  buildAttachmentViews: (items: ComposerAttachment[]) => Promise<AttachmentView[]>
   resetIfUnchanged: (expected: ComposerAttachment[]) => boolean
 }
 
@@ -32,98 +30,133 @@ function readFileAsBase64(file: File): Promise<string> {
   })
 }
 
-export function useAttachments(): UseAttachments {
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
-  const attachmentsRef = useRef(attachments)
-  const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
+export function useAttachments(sessionKey: string | null): UseAttachments {
+  const [chips, setChips] = useState<DraftAttachment[]>([])
+  const drafts = useRef<DraftAttachment[]>([])
+  const items = useRef<ComposerAttachment[]>([])
+  const lifetime = useRef({ generation: 0 })
+  const jobs = useRef(new Map<string, { cancel(): void }>())
   const [draggingAttachment, setDraggingAttachment] = useState(false)
 
-  // React state와 async submit이 읽는 ref는 반드시 같은 배열 identity를 가리켜야 한다.
-  // 한쪽만 새 배열로 바뀌면 resetIfUnchanged가 사용자 변경으로 오판해 draft clear까지 막는다.
-  const commitAttachments = (next: ComposerAttachment[]): void => {
-    attachmentsRef.current = next
-    setAttachments(next)
+  useLayoutEffect(() => {
+    const active = lifetime.current
+    const pending = jobs.current
+    active.generation++
+    if (drafts.current.length === 0) setChips(drafts.current)
+    return () => {
+      active.generation++
+      for (const job of pending.values()) job.cancel()
+      pending.clear()
+      drafts.current = []
+      items.current = []
+    }
+  }, [sessionKey])
+
+  function commit(next: DraftAttachment[]): void {
+    drafts.current = next
+    items.current = next.map((item) => item.source)
+    setChips(next)
   }
 
-  const addAttachments = async (items: ComposerAttachment[]): Promise<void> => {
-    const startIndex = attachmentsRef.current.length
-    const nextAttachments = [...attachmentsRef.current, ...items]
-    commitAttachments(nextAttachments)
-    const previews: Record<string, string> = {}
-    await Promise.all(
-      items.map(async (att, offset) => {
-        if (!att.mimeType.startsWith('image/')) return
-        const key = `${att.name}-${startIndex + offset}`
-        if (att.kind === 'inline') previews[key] = `data:${att.mimeType};base64,${att.data}`
-        else {
-          const result = await fileApi.readAttachment(att.path).catch(() => null)
-          if (result) previews[key] = `data:${result.mimeType};base64,${result.data}`
-        }
-      })
+  async function prepareThumbnail({ id, source }: DraftAttachment): Promise<void> {
+    const alive = (): boolean => drafts.current.some((item) => item.id === id)
+    let thumbnail: string | null = null
+    try {
+      const input = source.kind === 'inline' ? source : await fileApi.readAttachment(source.path)
+      if (!alive()) return
+      const handle = computeClient().request(
+        {
+          kind: 'imageThumb',
+          attachmentId: id,
+          mimeType: input.mimeType,
+          data: input.data,
+          // Only a bounded header sample is read for queue ordering. The worker checks
+          // the header again before it decodes the image.
+          pixels: imagePixelCount(input.mimeType, input.data) ?? 0
+        },
+        { priority: 'background', cacheable: false }
+      )
+      jobs.current.set(id, handle)
+      thumbnail = (await handle.promise).thumbnail
+    } catch {
+      // Reads, decoding, and worker cancellation may leave the attachment without a preview.
+    } finally {
+      jobs.current.delete(id)
+    }
+    if (!alive()) return
+    const next = drafts.current.map<DraftAttachment>((item) =>
+      item.id === id
+        ? {
+            ...item,
+            thumbnail: thumbnail ? { state: 'ready', dataUrl: thumbnail } : { state: 'unavailable' }
+          }
+        : item
     )
-    if (Object.keys(previews).length > 0) {
-      setAttachmentPreviews((current) => ({ ...current, ...previews }))
+    drafts.current = next
+    setChips(next)
+  }
+
+  function addAttachments(sources: ComposerAttachment[]): void {
+    if (!sources.length) return
+    const added = sources.map<DraftAttachment>((source) => ({
+      id: crypto.randomUUID(),
+      source,
+      thumbnail: { state: source.mimeType.startsWith('image/') ? 'pending' : 'unavailable' }
+    }))
+    commit([...drafts.current, ...added])
+    for (const item of added) {
+      if (item.thumbnail.state === 'pending') void prepareThumbnail(item)
     }
   }
 
-  const pickAttachments = async (): Promise<void> => {
-    const picked = await fileApi.pickAttachments().catch((error) => {
+  async function pickAttachments(): Promise<void> {
+    const { generation } = lifetime.current
+    try {
+      const picked = await fileApi.pickAttachments()
+      if (generation !== lifetime.current.generation) return
+      addAttachments(picked.map((file) => ({ ...file, kind: 'path', sourceKind: 'dialog' })))
+    } catch (error) {
+      if (generation !== lifetime.current.generation) return
       reportError({
         event: 'chat.attachment.pick-failed',
         scope: 'chat',
         title: 'attachFailed',
-        error: error
+        error
       })
-      return []
-    })
-    await addAttachments(
-      picked.map((p) => ({
-        kind: 'path' as const,
-        path: p.path,
-        name: p.name,
-        mimeType: p.mimeType,
-        sizeBytes: p.sizeBytes,
-        sourceKind: 'dialog' as const
-      }))
-    )
+    }
   }
 
-  const removeAttachment = (index: number): void => {
-    const removed = attachmentsRef.current[index]
-    const nextAttachments = attachmentsRef.current.filter((_, current) => current !== index)
-    commitAttachments(nextAttachments)
-    setAttachmentPreviews((current) => {
-      const next = { ...current }
-      delete next[`${removed?.name ?? ''}-${index}`]
-      return next
-    })
+  function removeAttachment(id: string): void {
+    if (!drafts.current.some((item) => item.id === id)) return
+    commit(drafts.current.filter((item) => item.id !== id))
+    jobs.current.get(id)?.cancel()
   }
 
-  const addDroppedFiles = async (files: FileList): Promise<void> => {
+  function addDroppedFiles(files: FileList): void {
     const next: ComposerAttachment[] = []
     for (const file of Array.from(files)) {
       const path = fileApi.pathForFile(file)
-      if (path) {
-        next.push({
-          kind: 'path',
-          path,
-          name: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-          sourceKind: 'drag_drop'
-        })
-      }
+      if (!path) continue
+      next.push({
+        kind: 'path',
+        path,
+        name: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        sizeBytes: file.size,
+        sourceKind: 'drag_drop'
+      })
     }
-    await addAttachments(next)
+    addAttachments(next)
   }
 
-  const onPaste = (event: ClipboardEvent<HTMLDivElement>): void => {
+  function onPaste(event: ClipboardEvent<HTMLDivElement>): void {
     const files = Array.from(event.clipboardData.files).filter((file) =>
       file.type.startsWith('image/')
     )
-    if (files.length === 0) return
+    if (!files.length) return
     event.preventDefault()
-    void Promise.all(
+    const { generation } = lifetime.current
+    void Promise.allSettled(
       files.map(async (file): Promise<ComposerAttachment> => ({
         kind: 'inline',
         data: await readFileAsBase64(file),
@@ -132,39 +165,31 @@ export function useAttachments(): UseAttachments {
         sizeBytes: file.size,
         sourceKind: 'clipboard'
       }))
-    ).then(addAttachments)
+    ).then((results) => {
+      if (generation !== lifetime.current.generation) return
+      addAttachments(
+        results.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []))
+      )
+    })
   }
 
-  // 전송 시 영속·렌더용 첨부 뷰를 만든다 — 이미지는 다운스케일 썸네일로 줄여 DB/트랜스크립트에
-  // 가볍게 남긴다. 실패한 썸네일은 미리보기 없이 보내고 동시 수는 2 다(`lib/attachmentViews`, 0325 EP-9 ⑤).
-  const buildAttachmentViews = (items: ComposerAttachment[]): Promise<AttachmentView[]> =>
-    buildViews(items, {
-      readAttachment: (path) => fileApi.readAttachment(path),
-      downscale: downscaleDataUrl,
-      newId: () => crypto.randomUUID()
-    })
-
-  // attachment view 생성은 비동기다. 그 사이 새 첨부가 추가/제거됐다면 전송 당시 배열만
-  // 지운다는 보장이 없으므로 clear를 거부한다. controller가 draft revision과 함께 검사해
-  // text+attachments를 하나의 submit snapshot처럼 다룬다. 배열 identity 가 optimistic
-  // concurrency token — 전송 시점 그대로일 때만 비운다.
-  const resetIfUnchanged = (expected: ComposerAttachment[]): boolean => {
-    if (attachmentsRef.current !== expected) return false
-    commitAttachments([])
-    setAttachmentPreviews({})
+  function resetIfUnchanged(expected: ComposerAttachment[]): boolean {
+    if (items.current !== expected) return false
+    const previous = drafts.current
+    commit([])
+    for (const { id } of previous) jobs.current.get(id)?.cancel()
     return true
   }
 
   return {
-    attachments,
-    attachmentPreviews,
+    chips,
+    snapshot: () => ({ items: items.current, views: drafts.current.map(attachmentView) }),
     draggingAttachment,
     setDraggingAttachment,
     pickAttachments,
     removeAttachment,
     addDroppedFiles,
     onPaste,
-    buildAttachmentViews,
     resetIfUnchanged
   }
 }

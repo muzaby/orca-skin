@@ -1,6 +1,6 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ComponentPropsWithRef, ReactNode } from 'react'
 
-interface CatalogListRowProps extends Omit<HTMLAttributes<HTMLLIElement>, 'title'> {
+interface CatalogListRowProps extends Omit<ComponentPropsWithRef<'li'>, 'title'> {
   icon: ReactNode
   title: ReactNode
   detail?: ReactNode

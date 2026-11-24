@@ -1,0 +1,30 @@
+{
+  "environment": "linux-electron",
+  "electron": "39.8.10",
+  "requests": 1000,
+  "p95Ms": 4.048532000000023,
+  "maxMs": 84.31307800000002,
+  "deepLinkRendered": true,
+  "inherited": {
+    "locale": "en",
+    "bounds": {
+      "x": 5,
+      "y": 15,
+      "width": 760,
+      "height": 580
+    }
+  },
+  "inheritMs": 6.031739000000016,
+  "saveMs": 0.4590869999997267,
+  "restored": {
+    "locale": "en",
+    "bounds": {
+      "x": 37,
+      "y": 15,
+      "width": 760,
+      "height": 580
+    }
+  },
+  "flushMaxMs": 0.2675540000000183,
+  "tail": 1000
+}

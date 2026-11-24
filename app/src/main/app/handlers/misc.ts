@@ -19,6 +19,7 @@ import { setWireSink } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOoConfig } from '../../infra/config/oo-config'
+import { forwardInstallStatus } from './install-status'
 import { prepareConfiguredHarnessInput } from '../harnesses/prepare-input'
 
 type MiscHandlerContext = Pick<AgentContext, 'registry' | 'debugMock' | 'harness'>
@@ -96,9 +97,9 @@ export function registerMiscHandlers(ctx: MiscHandlerContext): void {
       })
       return
     }
-    for await (const st of adapter.install()) {
-      sendInstallStatus(event.sender, st)
-    }
+    await forwardInstallStatus(adapter.install(), (status) =>
+      sendInstallStatus(event.sender, status)
+    )
     await ctx.registry.refreshInstallState(req.backend)
   })
 

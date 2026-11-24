@@ -42,6 +42,8 @@ import type {
   EngineUserSettingsResult,
   EngineWriteResult,
   FileEntry,
+  FileFolderChanged,
+  FileFolderObservation,
   GitBranchList,
   GitCheckoutRequest,
   GitCheckoutResult,
@@ -206,7 +208,10 @@ export const skillApi = {
 }
 
 export const fileApi = {
-  list: (cwd: string, relDir: string): Promise<FileEntry[]> => window.oo.files.list(cwd, relDir),
+  list: (cwd: string, relDir: string, observation?: FileFolderObservation): Promise<FileEntry[]> =>
+    window.oo.files.list(cwd, relDir, observation),
+  onFolderChanged: (handler: (change: FileFolderChanged) => void): (() => void) =>
+    window.oo.files.onFolderChanged(handler),
   pickAttachments: (): Promise<PickedAttachment[]> => window.oo.files.pickAttachments(),
   pickDirectory: (): Promise<string | null> => window.oo.files.pickDirectory(),
   openPath: (req: OpenPathRequest): Promise<void> => window.oo.files.openPath(req),

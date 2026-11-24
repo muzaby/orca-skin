@@ -132,17 +132,16 @@ export function ComposerInputController({
   }, [])
 
   const {
-    attachments,
-    attachmentPreviews,
+    chips: draftAttachments,
+    snapshot: attachmentSnapshot,
     draggingAttachment,
     setDraggingAttachment,
     pickAttachments,
     removeAttachment,
     addDroppedFiles,
     onPaste,
-    buildAttachmentViews,
     resetIfUnchanged: resetAttachmentsIfUnchanged
-  } = useAttachments()
+  } = useAttachments(diffRequirementSnapshot.sessionKey)
   const availableSkills = useSkills()
   const surfaceRef = useRef<ComposerInputSurfaceHandle>(null)
   const surfaceWrapRef = useRef<HTMLDivElement>(null)
@@ -233,7 +232,8 @@ export function ComposerInputController({
     active ? cwd : null,
     active,
     includeManagedMcp && managedMcpAvailability === 'bindings',
-    observedPlugins
+    observedPlugins,
+    sessionId
   )
   const skillOpen = active && derivedCurrent && autocomplete.open
   const mentionOpen = active && derivedCurrent && mentionAutocomplete.open
@@ -303,12 +303,12 @@ export function ComposerInputController({
     const submittedRequirements = diffRequirementSnapshot
     if (compositionActive() || submitted.text.trim() === '' || steerBlocked) return
     presentation.onInputIntent?.()
-    const items = attachments
-    void submitComposerInput({
+    const { items, views } = attachmentSnapshot()
+    submitComposerInput({
       submitted,
       submittedRequirements,
       items,
-      buildAttachmentViews,
+      views,
       onSend,
       compositionActive,
       currentDraft: () => snapshotRef.current,
@@ -362,7 +362,7 @@ export function ComposerInputController({
             event.preventDefault()
             setDraggingAttachment(false)
             presentation.onInputIntent?.()
-            void addDroppedFiles(event.dataTransfer.files)
+            addDroppedFiles(event.dataTransfer.files)
           }}
         >
           <div
@@ -371,11 +371,7 @@ export function ComposerInputController({
             data-state={draggingAttachment ? 'drag-over' : undefined}
             title={tr('chat.composer.backendTitle', { label: backendLabel })}
           >
-            <AttachmentTray
-              attachments={attachments}
-              previews={attachmentPreviews}
-              onRemove={removeAttachment}
-            />
+            <AttachmentTray attachments={draftAttachments} onRemove={removeAttachment} />
             {requirementTray}
             <div className="flex items-end gap-2">
               <div

@@ -43,7 +43,7 @@ export interface DocRef {
   id: string
   revision: number
 }
-export type Lane = 'compute' | 'markdown'
+export type Lane = 'compute' | 'markdown' | 'image'
 export interface TableChunk {
   headerEnd: number
   rows: readonly [number, number]
@@ -79,9 +79,20 @@ export type WireControl =
   | { type: 'doc.close'; ref: DocRef }
 export const docKey = (ref: DocRef): string => `${ref.id}@${ref.revision}`
 export function laneOf(kind: ComputeRequest['kind']): Lane {
-  return kind === 'markdown' ? 'markdown' : 'compute'
+  if (kind === 'markdown') return 'markdown'
+  if (kind === 'imageThumb') return 'image'
+  return 'compute'
 }
+export interface ImageThumbRequest {
+  kind: 'imageThumb'
+  attachmentId: string
+  mimeType: string
+  data: string
+  pixels: number
+}
+
 export type ComputeRequest =
+  | ImageThumbRequest
   | HighlightRequest
   | DiffTokensRequest
   | DiffLinesRequest
@@ -124,6 +135,7 @@ export function requestDocs(request: ComputeRequest): DocRef[] {
   }
 }
 export interface ComputeResults {
+  imageThumb: { thumbnail: string | null }
   diffView: ReturnType<typeof diffViewRows>
   diffLocate: ReturnType<typeof diffViewLocate>
   diffContext: ReturnType<typeof diffViewContext>
@@ -156,6 +168,8 @@ const SEP = '\u0000'
 // 같은 `(종류, 언어, 테마, 내용)` 은 같은 키다.
 export function requestKey(request: ComputeRequest): string {
   switch (request.kind) {
+    case 'imageThumb':
+      return ['imageThumb', request.attachmentId].join(SEP)
     case 'tokens':
       return [
         'tokens',
@@ -227,6 +241,8 @@ export function requestSize(
   lengthOf: (ref: DocRef) => DocumentSample
 ): number {
   switch (request.kind) {
+    case 'imageThumb':
+      return request.pixels
     case 'diffContext':
     case 'diffView':
     case 'codeView':
@@ -266,6 +282,7 @@ const rowsSize = (rows: TokenRows | null): number =>
 // 캐시 상한에 세는 결과 크기(문자 수) — 결과 문자 + 줄·행·토큰 객체마다 `COMPUTE_RESULT_ELEMENT_CHARS`
 // (html 은 문자만). 빈 줄만 내는 거대 결과도 비용이 0 이 아니다(0325 D-038 · §8 X5). 워커가 센다.
 export function resultSize(result: ComputeResult): number {
+  if ('thumbnail' in result) return result.thumbnail?.length ?? 0
   if ('summary' in result) return JSON.stringify(result).length
   if ('rowIndex' in result) return result.rowIndex.length * 8
   if ('lineCount' in result)

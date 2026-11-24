@@ -138,13 +138,15 @@ interface ClientDeps {
 }
 
 export function createComputeClient(deps: ClientDeps): ComputeClient {
-  const compute = createLane(deps, 'compute')
-  const markdown = createLane(deps, 'markdown')
-  const select = (lane: Lane): ComputeClient => (lane === 'markdown' ? markdown : compute)
+  const lanes: Record<Lane, ComputeClient> = {
+    compute: createLane(deps, 'compute'),
+    markdown: createLane(deps, 'markdown'),
+    image: createLane(deps, 'image')
+  }
   return {
-    openDocument: (ref, payload, lane) => select(lane).openDocument(ref, payload, lane),
-    request: (request, options) => select(laneOf(request.kind)).request(request, options),
-    peek: (request) => select(laneOf(request.kind)).peek(request)
+    openDocument: (ref, payload, lane) => lanes[lane].openDocument(ref, payload, lane),
+    request: (request, options) => lanes[laneOf(request.kind)].request(request, options),
+    peek: (request) => lanes[laneOf(request.kind)].peek(request)
   }
 }
 
@@ -572,16 +574,25 @@ export function computeClient(): ComputeClient {
     get timings() {
       return computeDiagnostics()?.job
     },
-    createWorker: (lane) =>
-      lane === 'markdown'
-        ? (new Worker(new URL('./worker/markdown.worker.ts', import.meta.url), {
+    createWorker: (lane) => {
+      switch (lane) {
+        case 'markdown':
+          return new Worker(new URL('./worker/markdown.worker.ts', import.meta.url), {
             type: 'module',
-            name: 'markdown'
-          }) as unknown as WorkerLike)
-        : (new Worker(new URL('./worker/compute.worker.ts', import.meta.url), {
+            name: lane
+          }) as unknown as WorkerLike
+        case 'image':
+          return new Worker(new URL('./worker/image.worker.ts', import.meta.url), {
             type: 'module',
-            name: 'compute'
-          }) as unknown as WorkerLike)
+            name: lane
+          }) as unknown as WorkerLike
+        case 'compute':
+          return new Worker(new URL('./worker/compute.worker.ts', import.meta.url), {
+            type: 'module',
+            name: lane
+          }) as unknown as WorkerLike
+      }
+    }
   })
   return shared
 }

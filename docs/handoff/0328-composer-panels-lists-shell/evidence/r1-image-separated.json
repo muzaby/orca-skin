@@ -1,0 +1,127 @@
+{
+  "env": true,
+  "environment": "linux-electron",
+  "electron": "39.8.10",
+  "fixture": "S-D2 worker overlap",
+  "width": 4032,
+  "height": 3024,
+  "images": 5,
+  "label": "diagnostic",
+  "records": [
+    {
+      "imageTimesMs": [
+        129.40000000002328,
+        72.80000000004657,
+        66.09999999997672,
+        75.90000000002328,
+        76.59999999997672
+      ],
+      "visibleComputeWaitMs": 0.10000000009313226,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        132.29999999993015,
+        84.40000000002328,
+        81.20000000006985,
+        76.40000000002328,
+        85.69999999995343
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        121.09999999997672,
+        82.59999999997672,
+        67.80000000004657,
+        72.30000000004657,
+        69.59999999997672
+      ],
+      "visibleComputeWaitMs": 0.19999999995343387,
+      "markdownWaitMs": 0.10000000009313226,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        119.69999999995343,
+        65.80000000004657,
+        65.29999999993015,
+        66.90000000002328,
+        74.5
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        80,
+        68.19999999995343,
+        70.90000000002328,
+        73.09999999997672,
+        76.80000000004657
+      ],
+      "visibleComputeWaitMs": 0.30000000004656613,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        104.59999999997672,
+        74.09999999997672,
+        67.69999999995343,
+        89.70000000006985,
+        87
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        87.10000000009313,
+        81.59999999997672,
+        69.5,
+        71.59999999997672,
+        74.69999999995343
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        95.40000000002328,
+        76.80000000004657,
+        71.19999999995343,
+        70.30000000004657,
+        67.09999999997672
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        80.59999999997672,
+        78.30000000004657,
+        71.59999999997672,
+        84.40000000002328,
+        73.80000000004657
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    }
+  ],
+  "budget": 50,
+  "decision": {
+    "p95": 121.09999999997672,
+    "max": 132.29999999993015,
+    "lane": "image"
+  },
+  "verdict": true
+}

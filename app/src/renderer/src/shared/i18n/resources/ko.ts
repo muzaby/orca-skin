@@ -413,6 +413,7 @@ export const ko = {
       statusSkipped: '건너뜀',
       exitCode: '종료 코드 {{code}}',
       openSession: '대화 열기',
+      output: '실행 출력',
       truncated: '출력이 길어 마지막 부분만 표시합니다.',
       errors: {
         project_missing: '프로젝트 없음',

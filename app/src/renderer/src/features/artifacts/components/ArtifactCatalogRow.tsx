@@ -6,8 +6,10 @@ import { Icon } from '../../../shared/ui/Icon'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { CatalogListRow } from '../../../shared/ui/CatalogListRow'
+import type { CatalogRowPosition } from '../../../shared/ui/virtual/VirtualCatalogList'
 
 interface ArtifactCatalogRowProps {
+  position?: CatalogRowPosition
   item: ArtifactCatalogItem
   busy: boolean
   selected: boolean
@@ -17,6 +19,7 @@ interface ArtifactCatalogRowProps {
 }
 
 export function ArtifactCatalogRow({
+  position,
   item,
   busy,
   selected,
@@ -42,6 +45,7 @@ export function ArtifactCatalogRow({
   }
   return (
     <CatalogListRow
+      {...position}
       data-artifact-catalog-row={item.publicationId}
       selected={selected}
       openProps={{

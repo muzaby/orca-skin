@@ -1,0 +1,29 @@
+{
+  "env": true,
+  "environment": "linux-electron",
+  "electron": "39.8.10",
+  "catalogs": [
+    {
+      "id": "artifacts",
+      "inputRows": 10000,
+      "mountedRows": 10000,
+      "renderCommitMs": 17836.40000000014,
+      "paintUpperBoundMs": 29047.90000000014
+    },
+    {
+      "id": "projects",
+      "inputRows": 100,
+      "mountedRows": 100,
+      "renderCommitMs": 60.39999999990687,
+      "paintUpperBoundMs": 136.69999999995343
+    },
+    {
+      "id": "schedule-history",
+      "inputRows": 20,
+      "mountedRows": 20,
+      "renderCommitMs": 7.199999999953434,
+      "paintUpperBoundMs": 947
+    }
+  ],
+  "verdict": true
+}

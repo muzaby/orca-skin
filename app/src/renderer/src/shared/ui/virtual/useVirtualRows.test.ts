@@ -82,3 +82,23 @@ it('measures the list origin in its scroll owner before and after resize', () =>
   dom.act(notify)
   expect(margin).toBe(165)
 })
+
+it('uses stable row IDs after insertion, deletion and same-length replacement', () => {
+  state.offset = 0
+  const owner: RefObject<HTMLDivElement | null> = { current: null }
+  let ids = ['second', 'third', 'fourth']
+  let keys: (string | number | bigint)[] = []
+  function Probe(): React.JSX.Element {
+    const list = useVirtualRows(ids.length, owner, owner, 'all', (index) => ids[index])
+    keys = list.getVirtualItems().map((item) => item.key)
+    return createElement('div', { ref: owner })
+  }
+  dom.render(createElement(Probe))
+  expect(keys).toEqual(ids)
+  ids = ['first', 'second', 'third']
+  dom.render(createElement(Probe))
+  expect(keys).toEqual(['first', 'second', 'third'])
+  ids = ['second', 'third']
+  dom.render(createElement(Probe))
+  expect(keys).toEqual(['second', 'third'])
+})

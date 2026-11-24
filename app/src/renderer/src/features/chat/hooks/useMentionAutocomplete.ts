@@ -1,7 +1,7 @@
 import { reportError } from '../../../shared/errors'
 import { useEffect, useMemo, useState } from 'react'
 import type { FileEntry, ProviderInfo } from '../../../../../shared/ipc'
-import { fileApi, providerApi } from '../../../shared/api/ipc'
+import { fileApi, hostApi, providerApi } from '../../../shared/api/ipc'
 import { useTokenAutocompleteState } from './useTokenAutocompleteState'
 import {
   flattenMentionGroups,
@@ -40,15 +40,18 @@ export function useMentionAutocomplete(
   cwd: string | null,
   active: boolean,
   includePlugins = true,
-  observedPlugins: readonly PluginMention[] = []
+  observedPlugins: readonly PluginMention[] = [],
+  sessionId?: string | null
 ): UseMentionAutocomplete {
   const token = useMemo(() => parseMentionToken(text, caret), [text, caret])
   const [providers, setProviders] = useState<ProviderInfo[]>([])
   const [entriesByDir, setEntriesByDir] = useState<Map<string, FileEntry[]>>(new Map())
-  const [cachedCwd, setCachedCwd] = useState(cwd)
+  const [owner] = useState(() => crypto.randomUUID())
+  const scope = JSON.stringify([cwd, sessionId])
+  const [cachedScope, setCachedScope] = useState(scope)
 
-  if (cwd !== cachedCwd) {
-    setCachedCwd(cwd)
+  if (scope !== cachedScope) {
+    setCachedScope(scope)
     setEntriesByDir(new Map())
   }
 
@@ -91,39 +94,6 @@ export function useMentionAutocomplete(
   }, [entriesByDir])
 
   const queryDir = token?.dirPath ?? null
-  useEffect(() => {
-    if (!active || !cwd || queryDir === null || entriesByDir.has(queryDir)) return
-    const dir = queryDir
-    let cancelled = false
-    void fileApi
-      .list(cwd, dir)
-      .then((entries) => {
-        if (cancelled) return
-        setEntriesByDir((previous) => {
-          const next = new Map(previous)
-          next.set(dir, entries)
-          return next
-        })
-      })
-      .catch((error) => {
-        if (cancelled) return
-        reportError({
-          event: 'chat.mention.entries-failed',
-          scope: 'chat',
-          title: 'loadFailed',
-          error: error
-        })
-        setEntriesByDir((previous) => {
-          const next = new Map(previous)
-          next.set(dir, [])
-          return next
-        })
-      })
-    return (): void => {
-      cancelled = true
-    }
-  }, [active, cwd, entriesByDir, queryDir])
-
   const visibleProviders = useMemo(
     () =>
       active && includePlugins ? providers.filter((provider) => provider.status === 'valid') : [],
@@ -148,14 +118,100 @@ export function useMentionAutocomplete(
   )
   const suggestions = useMemo(() => flattenMentionGroups(groups), [groups])
   const partial = token?.partial ?? null
-  const { activeIndex, setActiveIndex, dismissed, close } = useTokenAutocompleteState(
-    partial,
-    suggestions.length
-  )
+  const {
+    activeIndex: fallbackIndex,
+    setActiveIndex: setFallbackIndex,
+    dismissed,
+    close
+  } = useTokenAutocompleteState(partial, suggestions.length)
   const pluginOpen = token !== null && !token.quoted && token.dirPath === '' && plugins.length > 0
   const pathOpen = token !== null && cwd !== null
   const open = active && token !== null && !dismissed && (pluginOpen || pathOpen)
   const loading = active && cwd !== null && token !== null && !entriesByDir.has(token.dirPath)
+  const [selected, setSelected] = useState<{ scope: string; partial: string; id: string } | null>(
+    null
+  )
+  if (selected && (selected.scope !== scope || selected.partial !== partial || !open)) {
+    setSelected(null)
+  }
+  const suggestionId = (item: MentionSuggestion): string =>
+    item.kind === 'file' ? JSON.stringify([item.entry.name, item.entry.isDirectory]) : item.id
+  const selectedIndex =
+    selected && selected.scope === scope && selected.partial === partial
+      ? suggestions.findIndex((item) => suggestionId(item) === selected.id)
+      : -1
+
+  useEffect(() => {
+    if (!open || cwd === null || queryDir === null) return
+    const dir = queryDir
+    let cancelled = false
+    let reading = false
+    let pending = false
+    let failed = false
+    const store = (entries: FileEntry[]): void => {
+      if (cancelled) return
+      setEntriesByDir((previous) => {
+        const old = previous.get(dir)
+        if (
+          old?.length === entries.length &&
+          old.every(
+            (entry, index) =>
+              entry.name === entries[index].name && entry.isDirectory === entries[index].isDirectory
+          )
+        )
+          return previous
+        return new Map(previous).set(dir, entries)
+      })
+    }
+    const refresh = async (): Promise<void> => {
+      if (cancelled) return
+      if (reading) {
+        pending = true
+        return
+      }
+      reading = true
+      try {
+        store(await fileApi.list(cwd, dir, { owner, active: true }))
+        failed = false
+      } catch (error) {
+        if (!cancelled && !failed) {
+          reportError({
+            event: 'chat.mention.entries-failed',
+            scope: 'chat',
+            title: 'loadFailed',
+            error
+          })
+        }
+        failed = true
+        store([])
+      } finally {
+        reading = false
+        if (pending) {
+          pending = false
+          void refresh()
+        }
+      }
+    }
+    const offFolder = fileApi.onFolderChanged((change) => {
+      if (change.cwd === cwd && change.relDir === dir) void refresh()
+    })
+    const offHost = hostApi.onLifecycle(({ host }) => {
+      if (host === 'data') void refresh()
+    })
+    const onFocus = (): void => {
+      void refresh()
+    }
+    globalThis.addEventListener?.('focus', onFocus)
+    void refresh()
+    return (): void => {
+      cancelled = true
+      offFolder()
+      offHost()
+      globalThis.removeEventListener?.('focus', onFocus)
+      void fileApi.list(cwd, dir, { owner, active: false }).catch(() => {})
+    }
+  }, [open, cwd, queryDir, owner, sessionId])
+
   const allPlugins = useMemo(
     () => mergePluginMentions(pluginMentionCandidates(visibleProviders), observedPlugins),
     [visibleProviders, observedPlugins]
@@ -169,8 +225,12 @@ export function useMentionAutocomplete(
     dirPath: token?.dirPath ?? '',
     groups,
     suggestions,
-    activeIndex,
-    setActiveIndex,
+    activeIndex: selectedIndex >= 0 ? selectedIndex : fallbackIndex,
+    setActiveIndex: (index) => {
+      const item = suggestions[index]
+      setFallbackIndex(index)
+      setSelected(item && partial !== null ? { scope, partial, id: suggestionId(item) } : null)
+    },
     tokenStart: token?.tokenStart ?? -1,
     quoted: token?.quoted ?? false,
     hasClosingQuote: token?.quoted === true && text[caret] === '"',

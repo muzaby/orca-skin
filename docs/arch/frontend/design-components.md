@@ -62,6 +62,7 @@ Orcinus orca 공통 토큰이 기본이다. stage·개발 전용 표면은 아�
 | [shared/ui/Button.tsx](../../../app/src/renderer/src/shared/ui/Button.tsx) — `Button` | variant·size·busy·pressed·dropdown props 사용. primary=중립 반전, danger=rust; 배경 span·isolate 유지. |
 | [shared/ui/CascadeMenu.tsx](../../../app/src/renderer/src/shared/ui/CascadeMenu.tsx) — `CascadeMenu`, `CascadeBody` | MenuItem 표면·계단식 submenu·키보드·초점·viewport 배치를 재사용한다. heading은 MenuTitle로 렌더하며 키보드 탐색에서 건너뛴다. disabled submenu는 회색이며 확장하지 않는다. 선택적 status 공은 제목 왼쪽의 수동 상태 표시다. 오른쪽 secondary는 주 액션과 독립된 클릭/Enter/Space 스위치이며 처리 중에는 원형 손잡이 내부 spinner와 해당 제어의 중복 입력 방지를 적용한다. 다른 항목은 계속 사용한다. |
 | [shared/ui/CatalogListRow.tsx](../../../app/src/renderer/src/shared/ui/CatalogListRow.tsx) — `CatalogListRow` | 아이콘→제목·메타→행 동작 위계. 선택/hover를 구별하고 제목과 동작 버튼을 중첩하지 않는다. |
+| [shared/ui/virtual/VirtualCatalogList.tsx](../../../app/src/renderer/src/shared/ui/virtual/VirtualCatalogList.tsx) — `VirtualCatalogList` | 큰 프로젝트·산출물 목록의 가시 행을 표시한다. 스크롤 위치와 가시 행의 측정값은 항목 ID를 기준으로 연결한다. |
 | [shared/ui/CatalogSearch.tsx](../../../app/src/renderer/src/shared/ui/CatalogSearch.tsx) — `CatalogSearch` | 검색 열기·입력·닫기·초점 복귀를 공통 형태로 유지한다. |
 | [shared/ui/CatalogTabs.tsx](../../../app/src/renderer/src/shared/ui/CatalogTabs.tsx) — `CatalogTabs` | 선택 탭 표면·방향키·Home/End·ARIA 연결을 유지한다. |
 | [shared/ui/ConfirmDialogHost.tsx](../../../app/src/renderer/src/shared/ui/ConfirmDialogHost.tsx) — `ConfirmDialogHost` | 전역 확인 요청을 Modal·ModalActions로 표시한다. feature별 확인창 복제를 피한다. 취소 버튼·Esc·배경 클릭과 다른 요청에 의한 교체는 요청의 선택 `onCancel`로 알린다. |
@@ -331,6 +332,7 @@ Provider와 registry는 시각 컴포넌트 선택/수명 책임만 갖는다. �
 |---|---|
 | [features/backend/harnesses/claude/components/AuthExpiredModal.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/AuthExpiredModal.tsx) — `AuthExpiredModal` | 인증 만료 안내·재로그인 다음 동작을 전역 modal 슬롯 규약에 맞춘다. |
 | [features/backend/harnesses/claude/components/InstallerDialog.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/InstallerDialog.tsx) — `InstallerDialog` | 설치 진행·로그·명령 복사·실패 복구를 같은 dialog 안에 배치한다. |
+| [features/backend/harnesses/claude/components/InstallLog.tsx](../../../app/src/renderer/src/features/backend/harnesses/claude/components/InstallLog.tsx) — `InstallLog` | 설치 출력은 읽는 위치 주변에 표시한다. 로그의 끝에서 읽을 때 새 출력을 따른다. |
 | [features/engine/common/components/AgentEnvironmentView.tsx](../../../app/src/renderer/src/features/engine/common/components/AgentEnvironmentView.tsx) — `AgentEnvironmentView` | 엔진/모델 목록·추가·설정 진입을 카탈로그/상세 위계로 표시한다. 카드는 Claude → OpenCode → 그 밖 순서(`app/src/shared/harness.ts`의 `orderAgentEnvironments`, 같은 하네스 안은 입력 순서)다. 추가 메뉴의 Claude/OpenCode 라벨 왼쪽에는 각 공식 컬러 마크를 정렬한다. |
 | [features/engine/common/components/EngineCard.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineCard.tsx) — `EngineCard` | 제목 왼쪽에 지원 하네스의 공식 컬러 로고를 배치하며 엔진명·하네스·연결 상태·모델·동작의 위계를 유지한다. |
 | [features/engine/common/components/EngineFormModal.tsx](../../../app/src/renderer/src/features/engine/common/components/EngineFormModal.tsx) — `EngineFormModal` | 단일 화면 엔진 폼. Modal 입력·label·인증/불러오기·저장 상태를 재사용한다. |

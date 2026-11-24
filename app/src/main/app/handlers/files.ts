@@ -24,6 +24,7 @@ import {
   SUPPORTED_IMAGE_MIME_TYPES
 } from '../../features/chat/attachments'
 import { listDir } from '../../features/chat/scan'
+import { createFolderObservations } from '../../features/chat/folder-observations'
 import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import type { RouterContext } from '../context'
@@ -89,11 +90,20 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     }
   }
 
+  const observeFolder = createFolderObservations((sender, change) =>
+    sender.send(CHANNELS.filesFolderChanged, change)
+  )
   handle(
     CHANNELS.filesList,
     ListFilesRequestSchema,
     { fallback: [] as FileEntry[] },
-    (req): Promise<FileEntry[]> => listDir(req.cwd, req.relDir)
+    async (req, { sender }): Promise<FileEntry[]> => {
+      if (req.observation) {
+        await observeFolder(sender, req)
+        if (!req.observation.active || sender.isClosed()) return []
+      }
+      return listDir(req.cwd, req.relDir)
+    }
   )
 
   handlePlain(CHANNELS.filesPickAttachments, async (): Promise<PickedAttachment[]> => {
