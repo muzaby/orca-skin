@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react'
+import { editInput } from './domInput'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { ComposerInputController } from '@renderer/features/chat/harnesses/common/composer/ComposerInputController'
@@ -71,7 +73,15 @@ export async function measureComposerFlow(
     }
   })
   const text = '첨부 보내기'
-  const render = (draft: string): void =>
+  type Send = ComponentProps<typeof ComposerInputController>['onSend']
+  const record: Send = (value, items, views) => {
+    if (value !== text) throw Error('draft mismatch')
+    sends++
+    original = items
+    saved = views
+    return accepted
+  }
+  const render = (draft: string, session = 'stage-d', onSend: Send = record): void =>
     flushSync(() =>
       root.render(
         <ComposerInputController
@@ -84,16 +94,10 @@ export async function measureComposerFlow(
           toolApprovalPending={false}
           cwd={null}
           initialDraft={draft}
-          onSend={(value, items, views) => {
-            if (value !== text) throw Error('draft mismatch')
-            sends++
-            original = items
-            saved = views
-            return accepted
-          }}
+          onSend={onSend}
           diffRequirementSnapshot={{
-            sessionKey: 'stage-d',
-            sessionId: 'stage-d',
+            sessionKey: session,
+            sessionId: session,
             ids: [],
             revision: 0,
             anchors: []
@@ -199,13 +203,54 @@ export async function measureComposerFlow(
       Number(compute.requests.length) === 6 &&
       host.querySelectorAll('button[aria-label*="later.png"]').length === 1
     if (!survived) throw Error('late input replaced the new draft')
+    const sourceReads = reads.length - 1
+    drop(['second.png'])
+    await frame()
+    compute.resolveNext({ thumbnail: marker + 'Yw==' })
+    flushSync(() => editInput(area, '세션 전환 중 편집한 초안'))
+    await frame()
+    let received = false
+    render('후속 초안', 'session-b', (value, items, views) => {
+      received =
+        value === '세션 전환 중 편집한 초안' &&
+        items.length === 2 &&
+        views.length === 2 &&
+        ['later.png', 'second.png'].every((name, index) => {
+          const item = items[index]
+          return (
+            item.kind === 'path' &&
+            item.path === '/' + name &&
+            item.name === name &&
+            views[index].name === name &&
+            views[index].previewDataUrl === marker + ['Yw==', 'ZA=='][index]
+          )
+        })
+      return true
+    })
+    const chip = (name: string): Element | null => host.querySelector('[title="' + name + '"]')
+    if (
+      area.value !== '세션 전환 중 편집한 초안' ||
+      !chip('second.png') ||
+      chip('later.png')?.querySelector('img')?.getAttribute('src') !== marker + 'Yw==' ||
+      chip('second.png')?.querySelector('img') ||
+      compute.cancelled.length !== 2
+    )
+      throw Error('session switch lost the draft or its thumbnail jobs')
+    compute.resolveNext({ thumbnail: marker + 'ZA==' })
+    await frame()
+    if (chip('second.png')?.querySelector('img')?.getAttribute('src') !== marker + 'ZA==')
+      throw Error('late preview missing from second chip')
+    flushSync(() => send.click())
+    if (!received || area.value.length || chip('later.png') || chip('second.png'))
+      throw Error('new session did not receive and clear the attachment draft')
     return {
       ...(onReopen && { reopened: await onReopen(saved) }),
       source,
       accepted: 5,
       previews: 2,
       sameTask,
-      reads: reads.length - 1,
+      reads: sourceReads,
+      sessionSwitch: received,
       cancelled: 2,
       followup: survived
     }

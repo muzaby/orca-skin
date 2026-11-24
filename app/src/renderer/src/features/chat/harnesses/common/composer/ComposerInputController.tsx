@@ -141,7 +141,7 @@ export function ComposerInputController({
     addDroppedFiles,
     onPaste,
     resetIfUnchanged: resetAttachmentsIfUnchanged
-  } = useAttachments(diffRequirementSnapshot.sessionKey)
+  } = useAttachments()
   const availableSkills = useSkills()
   const surfaceRef = useRef<ComposerInputSurfaceHandle>(null)
   const surfaceWrapRef = useRef<HTMLDivElement>(null)

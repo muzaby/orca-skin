@@ -1,0 +1,77 @@
+ID	판정	exit	직접 관측
+V-I8-pending	red	1	renders only the prepared thumbnail as an image for inline attachment chips
+V-I8-unavailable	red	1	renders only the prepared thumbnail as an image for inline attachment chips
+EP2-ready-chip	red	1	renders only the prepared thumbnail as an image for inline attachment chips
+V-V2-index	red	1	keys log fragments by execution generation and starting offset across append and restart
+V-V2-generation	red	1	keys log fragments by execution generation and starting offset across append and restart
+V-V2-offset	red	1	keys log fragments by execution generation and starting offset across append and restart
+V-V1	red	1	gives the virtualizer the project IDs in visible order
+V-V4	red	1	uses the artifact file ID even when artifacts share a session and publication
+V-V5	red	1	uses each scheduled task ID for virtual measurement
+V-V3	red	1	keys the sidebar window by session ID
+VL-history	red	1	keeps each bounded history row keyed by its run when a newer run is inserted
+V-I4	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+V-I12	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+V-I13	red	1	mention autocomplete path listing ownership > coalesces invalidations during a read and keeps the selected file after an insertion
+D013-session-reset	red	1	session switch lost the draft or its thumbnail jobs
+D013-send-session	red	1	new session did not receive and clear the attachment draft
+EP2-id	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+EP2-kind	red	1	composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+WL-background	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+EP2-cache	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+EP2-map-ready	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+EP2-remove	red	1	composer attachment preview lifecycle > keeps same-name attachment identities and their pending jobs across session changes
+EP2-reset	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+EP2-unmount	red	1	composer attachment preview lifecycle > keeps same-name attachment identities and their pending jobs across session changes
+EP2-answer-id	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+Q20-target	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+Q20-close	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+Q20-recover	red	1	open composer file menu through data IPC > rebinds an active watch when the folder is replaced
+Q20-rename	red	1	open composer file menu through data IPC > rebinds an active watch when the folder is replaced
+Q20-identity	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+Q20-release	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+Q20-resubscribe	red	1	open composer file menu through data IPC > keeps other owners on explicit release and closes all owners with the port
+Q20-tracking	red	1	rechecks a renamed directory by identity, reopens it once, and detaches all owners
+EP2-draft-generation	red	1	late input replaced the new draft
+EP2-intake-dialog	red	1	submission mismatch · dialog
+EP2-intake-drop	red	1	submission mismatch · drag_drop
+EP2-intake-clipboard	red	1	submission mismatch · clipboard
+EP2-inline-content	red	1	submission mismatch · clipboard
+EP2-clipboard-order	red	1	submission mismatch · clipboard
+EP2-distinct-source	red	1	submission mismatch · clipboard
+EP2-reset-after-source	red	1	submission mismatch · dialog
+EP3-UTF16	red	1	reverse element selection
+EP3-node-offset	red	1	local text offset
+EP3-element-offset	red	1	reverse element selection
+EP3-reverse	red	1	stored UTF-16 range
+EP3-selection-quote	red	1	reverse element selection
+EP3-viewport	red	1	offscreen range measured
+EP3-rebuild	red	1	reverse element selection
+EP3-outside	red	1	external anchor entered selection
+EP9-settings	red	1	settings did not shrink {"empty":37.296875,"short":37.296875,"heights":[{"size":2000,"height":37.296875,"paintUpperBoundMs":30.59999999999991},{"size":20000,"height":37.296875,"paintUpperBoundMs":800.9000000022352}]}
+EP9-comment	red	1	comment anchor did not flip
+EP9-ime	red	1	comment submitted during composition
+EP9-placement	red	1	comment anchor did not flip
+EP9-resize	red	1	panel resize did not reposition comment
+EP2-old-paste	red	1	composer attachment preview lifecycle > discards an older clipboard read even when the next draft has its own pictures
+EP2-reset-generation	red	1	composer attachment preview lifecycle > discards an older clipboard read even when the next draft has its own pictures
+EP2-stale-source	red	1	composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+EP2-stale-result	red	1	composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+Q20-cwd	red	1	mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd changes
+Q20-read	red	1	mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd changes
+Q20-change	red	1	mention autocomplete path listing ownership > coalesces invalidations during a read and keeps the selected file after an insertion
+Q20-focus	red	1	mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd changes
+Q20-reconnect	red	1	mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd changes
+Q20-all-valid	red	1	mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd changes
+Q20-cache	red	1	mention autocomplete path listing ownership > replaces directory/cwd owners and excludes both previous owners late results
+EP2-preview-swap	red	1	composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+EP2-view-name	red	1	composer attachment preview lifecycle > keeps same-name attachment identities and their pending jobs across session changes
+VL-resource-limit	red	1	mounted = 9000
+EP5-last-skill	red	1	resource selection
+EP5-current	red	1	late import replaced edit
+EP5-save-json	red	1	incorrect provider save
+VL-catalog-scope	red	1	catalog cleared sibling selection
+VL-catalog-key	red	1	catalog row position after insert/delete
+D013-session-reset-unit	red	1	sends the shared draft and both completed previews to the session active at submit
+D013-send-session-unit	red	1	sends the shared draft and both completed previews to the session active at submit
+D013-interactions-verdict	red	1	sessionSwitch = [False, False, False]

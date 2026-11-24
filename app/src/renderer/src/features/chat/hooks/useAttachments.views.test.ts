@@ -11,12 +11,12 @@ vi.mock('react', async (original) => ({
 }))
 
 const hook = { value: undefined as unknown as UseAttachments }
-function Probe({ session = 'session' }: { session?: string }): null {
-  const value = useAttachments(session)
+function Probe({ session = 'session' }: { session?: string }): React.JSX.Element {
+  const value = useAttachments()
   useLayoutEffect(() => {
     hook.value = value
   })
-  return null
+  return createElement('span', null, session)
 }
 
 afterEach(() => {
@@ -146,7 +146,7 @@ describe('composer attachment preview lifecycle', () => {
     }
   })
 
-  it('does not move a preview to a same-name attachment or retain jobs across session changes', async () => {
+  it('keeps same-name attachment identities and their pending jobs across session changes', async () => {
     const { dom, compute } = mount()
     try {
       await hook.value.pickAttachments()
@@ -167,14 +167,18 @@ describe('composer attachment preview lifecycle', () => {
       expect(replacement?.id).not.toBe(removed.id)
       expect(replacement?.previewDataUrl).toBeUndefined()
       dom.render(createElement(Probe, { session: 'different' }))
-      expect(hook.value.snapshot()).toEqual({ items: [], views: [] })
-      expect(compute.cancelled).toEqual([
-        compute.requests[0],
-        compute.requests[2],
-        compute.requests[3]
-      ])
+      expect(hook.value.snapshot()).toEqual(current)
+      expect(compute.cancelled).toEqual([compute.requests[0]])
+      compute.resolveNext({ thumbnail: 'data:image/jpeg;base64,REPLACEMENT' })
+      await Promise.resolve()
+      expect(hook.value.snapshot().views.find((view) => view.id === replacement?.id)).toEqual({
+        ...replacement,
+        previewDataUrl: 'data:image/jpeg;base64,REPLACEMENT'
+      })
+      expect(hook.value.snapshot().views[0].previewDataUrl).toBe('data:image/jpeg;base64,SURVIVOR')
     } finally {
       dom.unmount()
     }
+    expect(compute.cancelled).toEqual([compute.requests[0], compute.requests[3]])
   })
 })
