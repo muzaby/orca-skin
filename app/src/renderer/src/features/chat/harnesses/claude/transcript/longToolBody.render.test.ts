@@ -64,7 +64,9 @@ it.each([400, 401])('lb2/lb3 Read uses the line boundary at %i rows', (count) =>
       }
     })
   )
-  expect(!!dom.query('[data-virtual-code]')).toBe(count > 400)
+  const list = dom.query('[data-virtual-code]')
+  expect(!!list).toBe(count > 400)
+  if (count === 401) expect(list?.parentElement?.props.className).toContain('max-h-[384px]')
   expect(dom.body.textContent).toContain('row 0')
 })
 it('lb4 long Work error retains its style and the response window', () => {

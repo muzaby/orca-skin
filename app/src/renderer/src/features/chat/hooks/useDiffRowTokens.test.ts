@@ -47,6 +47,25 @@ it('rt1/rt2 adjacent mounted rows share a 200-line axis window', () => {
   expect(keys()).toHaveLength(1)
   expect(fake.requests.find((r) => r.kind === 'tokens')).toMatchObject({ start: 0, end: 200 })
 })
+it.each([200, 201, 400])('requests the visible token windows of a %i-row inline diff', (count) => {
+  const open = vi.spyOn(fake.client, 'openDocument')
+  const file = addedFile(count, 'code.ts')
+  renderGit([file])
+  const text = file.lines.map((line) => line.text).join('\n')
+  const axis = open.mock.calls.find(([, document]) => document.text === text)?.[0]
+  expect(axis).toBeDefined()
+  const starts = count === 200 ? [0] : [0, 200]
+  expect(fake.requests.filter((r) => r.kind === 'tokens')).toEqual(
+    starts.map((start) => ({
+      kind: 'tokens',
+      doc: axis,
+      lang: 'typescript',
+      theme: state.theme,
+      start,
+      end: start + 200
+    }))
+  )
+})
 it('rt3 same patch retains token keys after collapse and reopening', () => {
   const file = addedFile(501, 'code.ts')
   renderGit([file])
@@ -58,11 +77,20 @@ it('rt3 same patch retains token keys after collapse and reopening', () => {
 })
 it('rt4 whitespace option distinguishes the axis document', () => {
   const file = addedFile(501, 'code.ts')
+  const open = vi.spyOn(fake.client, 'openDocument')
   renderGit([file])
   renderGit([file], {
     view: { ...DEFAULT_DIFF_VIEW, ignoreWhitespace: !DEFAULT_DIFF_VIEW.ignoreWhitespace }
   })
   expect(keys()).toHaveLength(2)
+  const axes = open.mock.calls.filter(([ref]) => ref.id !== 'git:code.ts')
+  const text = file.lines.map((line) => line.text).join('\n')
+  expect(axes.map(([ref, doc]) => [ref.id, doc.text])).toEqual([
+    ['git:code.ts:old:k', ''],
+    ['git:code.ts:new:k', text],
+    ['git:code.ts:old:w', ''],
+    ['git:code.ts:new:w', text]
+  ])
 })
 it('rt5 tokens for other source text leave the visible line intact', async () => {
   renderGit([addedFile(501, 'code.ts')])
