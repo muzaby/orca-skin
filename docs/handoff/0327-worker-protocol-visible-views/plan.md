@@ -4,11 +4,11 @@
 > 입력: [0325 plan §6-C C 행 · §6-D](../0325-ui-responsiveness-followup/plan.md) · 0325 첨부 [`input/0324-agent-requests.ko.md`](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md)(요청서 — 본문의 `T08`~`T33`) · [`input/0324-audit.ko.md`](../0325-ui-responsiveness-followup/input/0324-audit.ko.md)(감사) · [0326 plan §10 B9](../0326-transcript-incremental-model/plan.md)(스트리밍 꼬리 — "워커는 단계 C") · **PR #643 소유자 검토(2026-11-20) — rev 2 의 입력**(§4-A 항목별 판정) · **PR #643 소유자 후속 검토 2건(2026-11-20) — rev 3 의 입력**(§4-B 항목별 판정).
 > 측정 수치는 실제 소스 함수 재측정이다 — M1~M13 은 V1 세션, M13b·M14~M21 은 rev 2 세션, M22~M25 는 rev 3 세션(§8). 측정 스크립트는 저장소에 두지 않았다 — 같은 입력을 구현 턴의 K1~K12(WU-10)가 다시 잰다.
 
-## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료) + ΔV5 (G3 · 마지막 토큰 작업의 완료 응답) + ΔV6 (H1 채택 · 선택 취소 경로의 자리 고정) + ΔV7 (verify 2 확장 판정 · 선택 판정 입력 고정 · 문서 전환 커밋)
+## 유효 설계 — V1 rev 3 + ΔV1 (선택과 복사) + ΔV2 (꼬리 전환 회귀) + ΔV3 (G1 · 관측 시점 · 세션 귀속) + ΔV4 (G2 · 메시지 완료와 턴 종료) + ΔV5 (G3 · 마지막 토큰 작업의 완료 응답) + ΔV6 (H1 채택 · 선택 취소 경로의 자리 고정) + ΔV7 (verify 2 확장 판정 · 선택 판정 입력 고정 · 문서 전환 커밋) + ΔV8 (L1 · 작업 크기의 평균 줄 길이)
 
-ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다. ΔV7은 ΔV6 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-30 ⑤·⑫·⑮ · 신설 ⑯ · EP-31 ②③④ · AC15·AC40 · VP-26·14·59)만 대체한다.
+ΔV2는 ΔV1 적용표 바로 아래 절에 있고 V1 rev 3·ΔV1의 해당 행에 더한다(대체 아님). ΔV3는 ΔV2 바로 아래 절에 있고 그 절의 대체표에 적은 ΔV2 행만 대체한다. ΔV4는 ΔV3 바로 아래 절에 있고 그 절의 대체표에 적은 행만 대체한다. ΔV5는 ΔV4 바로 아래 절에 있고 AC4·D-031·EP-3 ③의 마지막 작업 규칙만 대체한다. ΔV6는 ΔV5 바로 아래 절에 있고 그 절의 대체표에 적은 행(VP-09·14·26·34 · EP-10·EP-20 · AC15·AC35 · ΔV1 VP-50 행의 AT 도구 문장)만 대체한다. ΔV7은 ΔV6 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-30 ⑤·⑫·⑮ · 신설 ⑯ · EP-31 ②③④ · AC15·AC40 · VP-26·14·59)만 대체한다. ΔV8은 ΔV7 바로 아래 절에 있고 그 절의 대체표에 적은 행(EP-4 ① · EP-4 검색 명령 · AC5 · VP-36)만 대체한다.
 
-현재 상태는 verify/FAIL(verify 3 · 라운드 4)이며 다음 주체는 구현자(r4)다(verify 3회째 PASS 아님 → review round 48 완료). verify 3이 K1~K5·I1을 닫고 V1 rev 3 자리 sweep에서 이행 결함 L1~L4를 열었다([verify.md §V3-11](verify.md)). r3에서 K1~K5·I1을 구현했다([r3 구현 보고](#구현자-기입-r3)). r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
+현재 상태는 plan/READY(ΔV8 · 라운드 4)이며 다음 주체는 구현자(r4)다. verify 3 FAIL(L1~L4) 뒤 review round 48을 마쳤고, ΔV8이 L1 산식의 "평균 줄 길이"를 고정했다. r4는 L1~L4를 닫고 V1 rev 3 §10 자리 sweep을 `S/N`으로 적는다. verify 3이 K1~K5·I1을 닫고 V1 rev 3 자리 sweep에서 이행 결함 L1~L4를 열었다([verify.md §V3-11](verify.md)). r3에서 K1~K5·I1을 구현했다([r3 구현 보고](#구현자-기입-r3)). r2에서 H1·I3의 선택 취소 경로와 판정기를 구현했다. r1.4에서 ΔV5의 마지막 작업 완료와 양보 뒤 재개를 구현했다. r1.3(부분 구현)이 올린 PLAN_GAP G3(AC4 t5 양보 횟수 ↔ EP-3 ③)를 ΔV5로 정정했다. r1.2(부분 구현)가 올린 PLAN_GAP G2를 PR #652 소유자 댓글에 따라 ΔV4로 정정했다. r1이 올린 G1은 ΔV3가 정정했다. 기준은 PR #640의 `13502bc6`, 0326 verify r7의 기계 PASS 구현은 `7244c0c`다. 0326 AC33 Windows 실기는 별도로 남아 있다.
 
 ### D-052 · 선택과 복사의 소유자
 
@@ -825,7 +825,107 @@ AC 검증 주의(ΔV6):
 - 수치 계약 런타임: 새 수치 0. P1·P3·P4 는 실제 Chromium 관측이다 — 사람 실기로 미룬 것 0.
 - 조사 대조: `FileDiffSection.tsx` 행 없음 `return null` 실재 · `fakeClient.testfixture.ts` `resolveNext` 실재 · `fileDiffVirtual.render.test.ts` v11 5,001행 워커 경로 실재 · `TranscriptViewport.tsx:259-265` 정리 함수 실재.
 
-## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다 · ΔV5 는 AC4·EP-3 ③ 의 마지막 작업 규칙을 보탠다 · ΔV6 는 선택 취소 pair·§10 과 AT 도구를 고정한다 · ΔV7 은 그 일부 행을 대체한다)
+### ΔV8 · L1 — 작업 크기의 평균 줄 길이를 고정한다
+
+판정: verify 3 L1(EP-4 ① 크기 산식 위반)은 `FAIL`(이행 `BLOCKING`) 그대로다. 다만 산식의 항 "평균 줄 길이"가 **무엇의 평균이고 어떻게 세는지** plan 어디에도 없다. 파생 축·보기 원천은 클라이언트에 텍스트가 없고, 문서 전체의 개행을 UI 스레드에서 세면 32M자 문서에서 최대 313ms가 멈춘다(P5). 그래서 r4가 계약을 발명하지 않도록 그 항만 고정한다. 제품 동작(D-030 순서)은 그대로다.
+
+| 항목 | 값 |
+|---|---|
+| 입력 | verify 3 [§V3-11](verify.md) L1 · 이 턴의 실측 P5 |
+| 출처 | plan 내부 정합 — EP-4 ① "평균 줄 길이"의 대상·계산 방법 미정의 · `lengthOf` 형 미정의 · 원래 검색이 `client.ts`만 봐 정의 자리(`protocol.ts`)가 범위 밖. plan 동결 뒤라 출처가 있는 항목만 더한다 |
+| V mode | `Delta V` — 기준 `V1 rev 3 + ΔV1 + ΔV2 + ΔV3 + ΔV4 + ΔV5 + ΔV6 + ΔV7` |
+| 이번 V revision | `ΔV8` — 설계 커밋 `(ΔV8 설계 — 검증자 기입)` |
+| 유효 V | `V1 rev 3 + ΔV1 + … + ΔV7 + ΔV8` |
+| 라운드 | 4 — verify 3회. 다음 impl 턴은 `r4`. 다음 verify는 4회째(창 밖) |
+| 줄 참조 트리 | `dd0528ae` app 트리 |
+| r4가 함께 닫는 것 | verify 3 L2~L4 — 규칙이 이미 명확해 plan 변경 없음(입력만 더함). review round 48에 따라 V1 rev 3 §10 자리 sweep을 `S/N`으로 적는다 |
+
+#### ΔV8 실측 (이 턴 · Electron 39.8.10 Chromium · 5회 중앙값 · 저장소 밖 일회성 페이지)
+
+| # | 입력 | 줄 수 세기(`indexOf('\n')` 반복) | 쓰는 곳 |
+|---|---|---|---|
+| P5a | 32,000,000자 · 전부 개행 | 312.9ms | D-068 표본 상한 |
+| P5b | 30,000,000자 · 3자 줄 | 101.6ms | 같음 |
+| P5c | 32,000,000자 · 80자 줄 | 5.3ms | 같음 |
+| P5d | 65,536자 표본(3자 줄) | 0.22ms | 표본 비용 |
+
+- 같은 입력의 Node v22 값은 300.7 · 109.3 · 7.5 · 0.21ms다. 문서 상한은 `COMPUTE_DOC_MAX_CHARS` 32,000,000자(`limits.ts:26`).
+
+#### ΔV8 Decision Ledger
+
+| ID | 결정 | 근거 | 출처 | 상태 | 관계 |
+|---|---|---|---|---|---|
+| D-068 | 작업 크기의 평균 줄 길이 = 요청의 원천 문서(`requestDocs` — 파생 축·보기는 그 원천 문서) 표본의 `Σ 표본 문자 수 ÷ Σ 표본 줄 수`다. 표본은 문서 앞 `COMPUTE_SIZE_SAMPLE_CHARS`(65,536)자이고 줄 수 = 표본 안 개행 수 + 1이다. 클라이언트가 문서를 등록할 때 문서마다 1회 계산해 등록부에 둔다 | D-030 "크기 오름차순" · EP-4 ① 산식 · 크기는 같은 등급·같은 양보 횟수 안 순서 기준일 뿐이라 추정으로 충분하다 · 전체 세기는 UI 스레드 최대 313ms(P5a) | plan 내부 정합(L1) | ACTIVE | EP-4 ① 의 "평균 줄 길이" 해석 · D-030 |
+
+갱신 메모(ΔV8):
+
+- 결정 단위 SUPERSEDED 0 · OPEN 0. D-030 문장 변경 0.
+- `ACTIVE 결정 ↔ AC` 대조: 충돌 0 — D-068 ↔ AC5(ΔV8) · D-030 ↔ AC5 순서 문장 유지.
+- 같은 대상 여러 절 대조: 작업 크기 — D-030 · EP-4 ① · §10-A `protocol.ts` 행(`requestSize(request, lengthOf)`) · AC5가 같은 산식을 가리키고 ΔV8은 `lengthOf`의 형과 표본만 더한다. diffLocate(앵커 × 16)·markdown(`end − start`)·highlight(현행 `code.length`)는 평균 줄 길이를 쓰지 않아 바뀌지 않는다.
+
+#### ΔV8 대체표
+
+| 대상 행 | ΔV8 유효 행 |
+|---|---|
+| V1 rev 3 EP-4 ① 자리 문장과 EP-4 자리 검색 명령 | 아래 EP-4 ①a·①b·①c(ΔV8) · 검색 명령 — EP-4 자리 8 → 10 |
+| V1 rev 3 AC5 의 동작 기준·검증 수단 | 아래 AC5(ΔV8) |
+| V1 rev 3 VP-36 의 직접 oracle · 선택 적대 증거 | 아래 ΔV8 V 변경 |
+
+#### ΔV8 Acceptance Criteria
+
+| R | AT / AC | 동작 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|---|
+| R-06 | AT-06 / AC5 (ΔV8) | V1 rev 3 AC5 그대로 + 같은 등급·같은 양보 횟수의 순서를 정하는 크기는 EP-4 ① 산식이다 — tokens·diffView·codeView = 범위 줄(행) 수 × 평균 줄 길이 · diffContext = 7 × 평균 줄 길이 · diffLocate = 앵커 수 × 16 · markdown = `end − start` · highlight = 코드 길이. 평균 줄 길이는 D-068 표본이다 | UT `protocol.keys.test.ts` pk7·pk7b·pk7c · `client.queue.test.ts` q1~q3·q9·q14·q14b · `client.documents.test.ts` d11 · IT `useWindowTokens.test.ts` wt2·wt5 | V1 rev 3 AC5 와 같다 + `openDocument` → 등록부 표본 → `request` → `requestSize(request, lengthOf)` → `enqueue` |
+
+#### ΔV8 §10 강제 지점
+
+**EP-4 (ΔV8)** — 자리 10(V1 rev 3 8 − ① + ①a·①b·①c). ②~⑧은 V1 rev 3 그대로다.
+
+| # | 자리 | 규칙(분기) | 직접 oracle 좌표 — 분기마다 입력 |
+|---|---|---|---|
+| ①a | `shared/compute/protocol.ts` `requestSize(request, lengthOf)` 정의 | `lengthOf(ref) → { chars, lines }`(등록부 표본). 평균 = `Σ chars ÷ Σ lines`(요청의 `requestDocs` 전부). tokens·diffView·codeView = `(end − start) × 평균` · diffContext = `7 × 평균` · diffLocate = 앵커 수 × 16 · markdown = `end − start` · highlight = `code.length` | **pk7**(한 문서 `{ chars: 1,000, lines: 10 }` → tokens `[0,200)` 20,000 · diffView `[0,50)` 5,000 · codeView `[0,300)` 30,000 · diffContext 700 · diffLocate 앵커 3 → 48 · markdown `[0,5,000)` 5,000 · highlight `'abc'` 3 — 종류마다 다른 값) · **pk7b**(쌍 원천 `{100, 10}` + `{9,900, 90}` → 평균 100 · 평균의 평균 60 과 구별) · **pk7c**(축 원천 tokens → 그 diff 원천 문서 표본 · 보기 원천 tokens·codeView → 원천 문서 표본) |
+| ①b | `shared/compute/client.ts` 문서 등록(`openDocument`)의 표본 계산 | 등록부에 새 항목을 만들 때 1회 · 문서 앞 `COMPUTE_SIZE_SAMPLE_CHARS`자만 센다 · 줄 수 = 표본 개행 수 + 1 · 빈 문서는 `{ 0, 1 }` | **d11**(문서 X = 앞 65,536자 개행 0 + 뒤 10자 줄 100,000개 → 표본 평균 65,536 · 문서 Y = 1,000자 줄 100개 → 평균 1,000 · 같은 등급·같은 범위 tokens 두 개를 X 먼저 요청 → Y 가 먼저 실행. 표본 상한이 없으면 X 평균 ≈ 10.6 이라 X 가 먼저) |
+| ①c | `client.ts` `request` 의 `size: requestSize(request, lengthOf)` 호출 | `lengthOf` = 등록부 표본을 읽는다(다시 세지 않음) | **q14**(같은 등급·양보 0 · 같은 범위 tokens 두 개 · 평균 10 문서와 평균 1,000 문서 · 평균 1,000 쪽을 먼저 요청 → 평균 10 쪽이 먼저 실행) · **q14b**(markdown `[0,50,000)` = 50,000 과 평균 1,000 문서 tokens `[0,200)` = 200,000 → markdown 이 먼저 · codeView 평균 10 `[0,300)` = 3,000 과 highlight 5,000자 → codeView 가 먼저) |
+
+- 자리 검색 명령(`app/` — V1 rev 3 EP-4 명령을 대체, 두 줄): ⑴ `rg -n "priority|yields|'continue'|isJsdiffJob\(|function enqueue|requestSize\(|setPriority|'range-too-large'|'range-invalid'|enqueuedAt|startedAt|endedAt|timings|COMPUTE_SIZE_SAMPLE_CHARS" src/renderer/src/shared/compute/client.ts` ⑵ `rg -n "export function requestSize\(|COMPUTE_SIZE_SAMPLE_CHARS" src/renderer/src/shared/compute/protocol.ts src/renderer/src/shared/compute/limits.ts`. ⑴은 V1 rev 3 명령에 상수 이름만 더했다. ⑵를 따로 둔 것은 `protocol.ts`에 `'continue'`를 쓰는 EP-2 자리(`:151` 형 · `:281` `parseResponse`)가 있어 ⑴의 술어로 넓히면 EP-4 밖 줄이 섞이기 때문이다. 출력의 모든 줄은 EP-4 자리이거나 형 선언·import·상수 정의 줄이다. 구현 뒤 ①a(⑵ `protocol.ts` 정의 1) · ①b(⑴ `client.ts` 표본 계산 1) · ①c(⑴ `client.ts` 호출 1)가 각각 잡혀야 한다.
+- 등록 변이(ΔV8 선택 적대 증거): ①b 표본 상한 제거 — 문서 전체를 센다(d11 red). 선택 이유: 상한은 UI 스레드 비용의 잠금이라, 지워도 대부분 입력에서 순서가 같다. 앞뒤 줄 길이가 다른 문서에서만 관측된다.
+- 실패 의미: 평균 줄 길이 곱이 빠지면 같은 등급에서 긴 줄 문서의 작업이 짧은 작업 앞에 서 화면 안 첫 paint가 늦어진다 · 표본 상한이 빠지면 32M자 문서를 등록할 때 UI 스레드가 최대 313ms 멈춘다(P5a) · 축·보기 원천이 원천 문서 표본을 쓰지 않으면 클라이언트에 없는 텍스트를 찾는다.
+- 선언 경계 B35: 표본 밖 줄 길이가 표본과 다른 문서의 크기 오차는 계약이 아니다 — 크기는 같은 등급·같은 양보 횟수 안의 순서 기준이다. 측정: P5d(표본 비용) · d11(표본만 본다).
+
+#### ΔV8 V 변경
+
+| Node / pair | provenance · requiredness | production path | 직접 oracle | 선택 적대 증거 | §10 |
+|---|---|---|---|---|---|
+| MD-08 / UT-07 · VP-36 | CHANGED(ΔV8 — EP-4 ① 대상·방법) · REQUIRED | V1 rev 3 + `openDocument` 표본 → `requestSize(request, lengthOf)` | pk1~pk7 · pk7b · pk7c · q1~q14 · q14b · q8b · d11 | V1 rev 3 5종 + ①b 표본 상한 제거(d11) | EP-1 (10) · EP-4 (10) |
+| SD-02 / ST-02 · VP-11 | INHERITED · REGRESSION — 크기 값이 바뀌어 같은 양보 횟수의 순서가 달라질 수 있다 | V1 rev 3 그대로 | V1 rev 3 그대로(q4·q9·q11·q12·q13 · t5·t6 · fx2) | V1 rev 3 그대로 | EP-3 ③ · EP-4 ③⑥⑧ |
+| R-06 / AT-06 · VP-06 | INHERITED · REGRESSION | V1 rev 3 그대로 | AC1~AC7·AC31·AC36 좌표(AC5 는 ΔV8) | not selected | EP-1~EP-4·EP-17 공유 |
+
+- SUPERSEDED 노드 0 — 증거 이관 없음.
+
+#### ΔV8 구현 설계 · 파일
+
+| 변경 파일 | 책임 | 변경 내용 | 테스트 seam |
+|---|---|---|---|
+| `shared/compute/limits.ts` | 상수 | `COMPUTE_SIZE_SAMPLE_CHARS = 65_536` | — |
+| `shared/compute/protocol.ts` | ①a | `requestSize(request, lengthOf: (ref: DocRef) => { chars: number; lines: number })` — 위 산식 · 여러 문서는 합 ÷ 합 | `protocol.keys.test.ts` pk7·pk7b·pk7c(가짜 `lengthOf`) |
+| `shared/compute/client.ts` | ①b·①c | 등록부 항목에 `sample: { chars, lines }` — 새 항목을 만들 때 1회 · `request` 가 `lengthOf = (ref) => documents.get(docKey(ref))!.sample` 로 크기를 계산한다. `doc-unavailable` 검사(`:493`)가 먼저라 등록부에 없는 문서는 여기 오지 않는다 | `client.queue.test.ts` q14·q14b · `client.documents.test.ts` d11(fake worker · production 등록부) |
+
+- 생산 코드 변경은 위 세 파일이다. L2~L4(`diffView.ts:199`·`:87`·`:92`)는 규칙이 이미 있어 r4가 입력만 더한다 — `highlightWords` 끔 → `wordSpan` null · 추가 줄 뒤 삭제 줄의 축 색인·토큰 · 모델 요약 증감 수.
+- 테스트 소스 규칙: 새·수정 테스트는 unit 풀 — 자식 프로세스·SQLite·실제 git 0, `[test-pools]`·예산 가드 위반 0.
+- 운영 gate 변경 없음 — ΔV6의 `check-visible-views` 행과 §7-A 표를 승계한다.
+
+#### ΔV8 READY self-review (관측)
+
+- Decision: D-068 ACTIVE · SUPERSEDED 0 · OPEN 0. D-030 문장 변경 0.
+- 확장 창: 창 밖(verify 3회 뒤). 새 열거 항목(①a·①b·①c · pk7·pk7b·pk7c · q14·q14b · d11 · 등록 변이 · B35)의 출처는 전부 plan 내부 정합(L1 — 산식 항 미정의 · 정의 자리가 검색 범위 밖)이다. 확장 후보 채택 0.
+- V: CHANGED 왼쪽 노드 MD-08 ↔ REQUIRED VP-36 · 영향받은 INHERITED SD-02·R-06 ↔ REGRESSION VP-11·VP-06. SUPERSEDED 0.
+- 분모: EP-4 자리 8 → 10. `dd0528ae` 실측 — ⑴ `client.ts` 44줄(V1 rev 3 명령과 같은 출력 · ①c 는 `:509`) · ⑵ 1줄(①a `protocol.ts:220`). ①b 는 구현 전이라 없다 — 구현 뒤 ⑴에 표본 계산 줄 1과 상수 import 줄 1, ⑵에 상수 정의 줄 1이 더해져야 한다.
+- 규칙 칸 ↔ 입력 칸: ①a 종류 7 + 여러 문서 합 + 파생 원천 ↔ pk7(7종 서로 다른 값) · pk7b · pk7c · ①b 표본 상한 · 줄 수 · 빈 문서 ↔ d11 · d11 의 빈 문서 단언(구현자가 더함 — 규칙 칸을 따른다) · ①c 등록부 읽기 ↔ q14·q14b.
+- 방향: "곱한다" 자리는 곱 제거 변이(pk7·q14), "표본만 센다" 자리는 상한 제거 변이(d11)가 red 여야 한다.
+- 수치 계약 런타임: 표본 비용·전체 세기 비용은 Electron Chromium 실측(P5)이다. 사람 실기로 미룬 것 0.
+- 조사 대조: `requestSize` 정의 `protocol.ts:220-238`(`lengthOf` 인자 없음) · 호출 `client.ts:509` · `doc-unavailable` 검사 `client.ts:493` · 등록부 생성 `client.ts:439-442`(`if (!entry)` — 새 항목만) · `requestDocs` 축 원천 → `diffSourceDocs`(`protocol.ts:113`) 실재.
+
+## 기준본 V1 rev 3 (선택·복사 규정은 위 ΔV1으로 대체 · 꼬리 전환 회귀는 위 ΔV2가 더하고 ΔV3·ΔV4 가 일부를 대체한다 · ΔV5 는 AC4·EP-3 ③ 의 마지막 작업 규칙을 보탠다 · ΔV6 는 선택 취소 pair·§10 과 AT 도구를 고정한다 · ΔV7 은 그 일부 행을 대체한다 · ΔV8 은 EP-4 ① 과 AC5 를 대체한다)
 
 ## 메타
 
@@ -2141,7 +2241,7 @@ verify 1회째(RETURN_TO_PLAN) — 상세·재현은 [verify.md §11](verify.md)
 | X4 | 판정기 c4 B 새 키 항(`:61`) 입력 없음 | EP-31 ④ 밖 | 같음 | 확장 | PLAN_GAP → 채택(ΔV7 D-067 · vv14) | adopted |
 | X5 | 판정기 중복 기록 거부(`:74`) 입력 없음 | EP-31 ① 밖 | 같음 | 확장 | PLAN_GAP → 경계 B34(중복 기록도 각각 판정 · v2 원자료 중복 0) | boundary |
 | K5 | 억제 중 문서 키 변경과 새 행 키 마운트가 같은 커밋이면 전환 뒤에도 억제가 남는다(ΔV7 P1 — Electron 실측) — `usePanelSelection.ts:24-27` 초기화가 자식 `useMountedRows` 효과 뒤에 돈다 | VP-14 · EP-30 ⑮ · D-052 · D-065 — 출처: ΔV7 설계 조사(현재 결함) | 정리를 자식 알림보다 먼저(0326 정리 함수 형태) · ps9b | 현재 | BLOCKING | closed — verify 3: ps9b(D65 · V3-M3) red · 실제 Chromium 프로브 전환 뒤 `suppressed` yes → no |
-| L1 | 작업 크기가 EP-4 ① 산식과 다르다 — `requestSize`(`protocol.ts:220-238`)에 평균 줄 길이가 없다(tokens·diffView·codeView = 줄 수 · diffContext = 7). q2 는 `highlight` 만 대조한다 | VP-36 · EP-4 ① · D-030 · AC5 | 산식대로 크기를 계산하고 종류마다 크기 순서를 가르는 q 입력 | 이행 | BLOCKING | open |
+| L1 | 작업 크기가 EP-4 ① 산식과 다르다 — `requestSize`(`protocol.ts:220-238`)에 평균 줄 길이가 없다(tokens·diffView·codeView = 줄 수 · diffContext = 7). q2 는 `highlight` 만 대조한다 | VP-36 · EP-4 ① · D-030 · AC5 | 산식대로 크기를 계산하고 종류마다 크기 순서를 가르는 q 입력 — 평균 줄 길이의 대상·방법은 ΔV8 D-068(pk7·pk7b·pk7c · q14·q14b · d11) | 이행 | BLOCKING | open |
 | L2 | `diffView.ts:199` `options.highlightWords &&` 제거 green | VP-30 · EP-6 ② · AC8 | 단어 강조 끔 → `wordSpan` null 을 단언하는 입력 | 이행 | BLOCKING | open |
 | L3 | `diffView.ts:87` old 축 색인의 `added` 제외 제거 green | VP-31 · EP-7 ① · AC17 | 추가 줄 뒤 삭제 줄의 축 색인·토큰을 단언하는 입력 | 이행 | BLOCKING | open |
 | L4 | `diffView.ts:92` 증감 수 `removed++` 제거 green | VP-31 · EP-7 ① | 모델 요약 증감 수를 단언하는 입력 | 이행 | BLOCKING | open |
