@@ -4,6 +4,7 @@ import type { ClientRef } from '../../infra/ipc/transport'
 import { folderPath, resolveFolder } from './scan'
 
 const CHANGE_DELAY_MS = 40
+const IDENTITY_CHECK_MS = 1_000
 const RECOVERY_START_MS = 1_000
 const RECOVERY_MAX_MS = 5_000
 
@@ -19,6 +20,7 @@ interface WatchedFolder {
   subscribers: Set<Subscriber>
   watcher?: FSWatcher
   opening?: Promise<void>
+  identityTimer?: NodeJS.Timeout
   timer?: NodeJS.Timeout
   retryMs: number
   revision: number
@@ -34,7 +36,11 @@ async function readIdentity(cwd: string, path: string): Promise<string> {
 
 export function createFolderObservations(
   send: (sender: ClientRef, change: FileFolderChanged) => void,
-  deps = { readIdentity, watch }
+  deps: { readIdentity: typeof readIdentity; watch: typeof watch; checkSilentMoves?: boolean } = {
+    readIdentity,
+    watch,
+    checkSilentMoves: process.platform === 'win32'
+  }
 ): (sender: ClientRef, request: ListFilesRequest) => Promise<void> {
   const folders = new Map<string, WatchedFolder>()
   const owners = new Map<
@@ -64,10 +70,16 @@ export function createFolderObservations(
     }
   }
 
-  function recover(folder: WatchedFolder): void {
+  function stopWatching(folder: WatchedFolder): void {
+    clearTimeout(folder.identityTimer)
+    folder.identityTimer = undefined
     const watcher = folder.watcher
     folder.watcher = undefined
     watcher?.close()
+  }
+
+  function recover(folder: WatchedFolder): void {
+    stopWatching(folder)
     clearTimeout(folder.timer)
     folder.timer = undefined
     schedule(folder, folder.retryMs, () => {
@@ -89,16 +101,10 @@ export function createFolderObservations(
           schedule(folder, CHANGE_DELAY_MS, () => {
             if (folder.checkIdentity) {
               folder.checkIdentity = false
-              void deps.readIdentity(folder.cwd, folder.path).then(
-                (current) => {
-                  if (folder.watcher === watcher && current !== identity) recover(folder)
-                },
-                () => {
-                  if (folder.watcher === watcher) recover(folder)
-                }
-              )
-            }
-            notify(folder)
+              void verifyIdentity().then(() => {
+                if (folder.watcher === watcher) notify(folder)
+              })
+            } else notify(folder)
           })
         })
         folder.watcher = watcher
@@ -108,6 +114,21 @@ export function createFolderObservations(
           recover(folder)
           notify(folder)
         }
+        async function verifyIdentity(): Promise<void> {
+          const current = await deps.readIdentity(folder.cwd, folder.path).catch(() => null)
+          if (current !== identity) lost()
+        }
+
+        // Windows can keep watching the moved directory without reporting its rename.
+        // Check only the subscribed path's identity. An unchanged path sends no IPC.
+        function scheduleIdentityCheck(): void {
+          folder.identityTimer = setTimeout(async () => {
+            await verifyIdentity()
+            if (folder.watcher === watcher) scheduleIdentityCheck()
+          }, IDENTITY_CHECK_MS)
+          folder.identityTimer.unref()
+        }
+        if (deps.checkSilentMoves) scheduleIdentityCheck()
         watcher.on('error', lost)
         watcher.on('close', lost)
       })
@@ -131,9 +152,7 @@ export function createFolderObservations(
     if (folder.subscribers.size) return
     folders.delete(folder.key)
     clearTimeout(folder.timer)
-    const watcher = folder.watcher
-    folder.watcher = undefined
-    watcher?.close()
+    stopWatching(folder)
   }
 
   return async (sender, { cwd, relDir, observation }) => {
