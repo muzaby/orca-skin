@@ -21,8 +21,8 @@ interface Site {
 export const sites: Site[] = [
   {
     file: 'features/chat/store/chatStore.ts',
-    ordinal: 13,
-    line: 2240,
+    ordinal: 14,
+    line: 2560,
     disposition: 'TOAST',
     id: 'T-boot-cwd',
     event: 'chat.cwd.load-failed',
@@ -443,6 +443,7 @@ export const sites: Site[] = [
     line: 1652,
     disposition: 'CONSUMED'
   },
+  { file: 'features/chat/store/chatStore.ts', ordinal: 13, line: 2363, disposition: 'CONSUMED' },
   { file: 'features/chat/store/chatStore.ts', ordinal: 11, line: 1767, disposition: 'CONSUMED' },
   {
     file: 'features/chat/store/chatStore.ts',

@@ -91,7 +91,7 @@ export function useScrollAnchor({
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
-    writeScrollTop(el, el.scrollHeight)
+    writeScrollTop(el, el.scrollHeight, undefined, 'claude')
     pinnedRef.current = true
     setShowJump(false)
   }, [])
@@ -102,7 +102,7 @@ export function useScrollAnchor({
     if (!content || !el) return
     const ro = new ResizeObserver(() => {
       if (!claudePin.shouldFollowGrowth({ pinned: pinnedRef.current }, inflightRef.current)) return
-      writeScrollTop(el, el.scrollHeight)
+      writeScrollTop(el, el.scrollHeight, undefined, 'claude')
     })
     ro.observe(content)
     return () => ro.disconnect()
@@ -135,7 +135,7 @@ export function useScrollAnchor({
       setShowJump(false)
       if (el.scrollHeight - el.clientHeight - el.scrollTop > 1) {
         programmaticRef.current = true
-        writeScrollTop(el, el.scrollHeight, 'smooth')
+        writeScrollTop(el, el.scrollHeight, 'smooth', 'claude')
       }
       return
     }
@@ -145,7 +145,7 @@ export function useScrollAnchor({
       intent?.cause ?? (firstLayout || firstLoadedHistory || sessionSwapped ? 'resume' : 'sync')
     if (entryPolicy(cause, 'claude').action === 'scroll-bottom') {
       pinnedRef.current = true
-      writeScrollTop(el, el.scrollHeight)
+      writeScrollTop(el, el.scrollHeight, undefined, 'claude')
       setShowJump(false)
     }
   }, [messages, sessionId, sendCount, inflight])

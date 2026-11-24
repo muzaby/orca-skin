@@ -142,7 +142,7 @@ export function resolveElectron() {
 }
 
 /** Bundles the probe and serves it. `close` stops the server and removes the bundle. */
-export async function serveProbe(probeDirectory = 'transcript-selection') {
+export async function serveProbe(probeDirectory = 'transcript-selection', define = {}) {
   let server
   let dist
   const close = async () => {
@@ -169,6 +169,7 @@ export async function serveProbe(probeDirectory = 'transcript-selection') {
     }
     await build({
       ...config,
+      define,
       worker: { format: 'es', plugins: () => [markdownWorkerBuild()] },
       esbuild: { jsx: 'automatic' },
       resolve: { alias: { '@renderer': join(root, 'src/renderer/src') } },

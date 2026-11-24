@@ -1,0 +1,146 @@
+{
+  "glyph": {
+    "exit": 1,
+    "failures": [
+      {
+        "run": 0,
+        "screen": "claude-code",
+        "scenario": "top"
+      },
+      {
+        "run": 0,
+        "screen": "claude-code",
+        "scenario": "middle"
+      },
+      {
+        "run": 0,
+        "screen": "claude-work",
+        "scenario": "top"
+      },
+      {
+        "run": 0,
+        "screen": "claude-work",
+        "scenario": "middle"
+      },
+      {
+        "run": 0,
+        "screen": "opencode-code",
+        "scenario": "top"
+      },
+      {
+        "run": 0,
+        "screen": "opencode-code",
+        "scenario": "middle"
+      }
+    ],
+    "maximumShift": {
+      "claude-code": {
+        "top": 9.265625,
+        "middle": 26.265625
+      },
+      "claude-work": {
+        "top": 9.265625,
+        "middle": 26.265625
+      },
+      "opencode-code": {
+        "top": 8.390625,
+        "middle": 18.390625
+      }
+    },
+    "unitExit": 1,
+    "unit": "er/src/features/chat/lib/transcript/viewport/anchor.test.ts (16 tests | 6 failed) 72ms\n     × captures the glyph top when the caret is outside the part or inside text (text) 43ms\n     × captures the glyph top when the caret is outside the part or inside text (header) 3ms\n     × captures the glyph top when the caret is outside the part or inside text (non-text) 2ms\n     × a11 distinguishes glyph bounds from empty range geometry (+0, 15) 2ms\n     × a11 distinguishes glyph bounds from empty range geometry (18, +0) 2ms\n     × a7/a11/a12 restores the glyph under the caret when an earlier visible part overlaps it 3ms\n\n Test Files  1 failed (1)\n      Tests  6 failed | 10 passed (16)\n   Start at  23:42:59\n   Duration  557ms (transform 177ms, setup 97ms, import 110ms, tests 72ms, environment 0ms)\n\n"
+  },
+  "firstMeasure": {
+    "exit": 1,
+    "failures": [
+      {
+        "run": 0,
+        "screen": "claude-code",
+        "scenario": "firstMeasurement"
+      },
+      {
+        "run": 0,
+        "screen": "claude-work",
+        "scenario": "firstMeasurement"
+      },
+      {
+        "run": 0,
+        "screen": "opencode-code",
+        "scenario": "firstMeasurement"
+      }
+    ],
+    "maximumShift": {
+      "claude-code": {
+        "firstMeasurement": 0.265625
+      },
+      "claude-work": {
+        "firstMeasurement": 0.265625
+      },
+      "opencode-code": {
+        "firstMeasurement": 0.390625
+      }
+    }
+  },
+  "owner": {
+    "exit": 1,
+    "failures": [
+      {
+        "run": 0,
+        "screen": "claude-code",
+        "scenario": "ownership"
+      },
+      {
+        "run": 0,
+        "screen": "claude-work",
+        "scenario": "ownership"
+      },
+      {
+        "run": 0,
+        "screen": "opencode-code",
+        "scenario": "ownership"
+      }
+    ],
+    "maximumShift": {
+      "claude-code": {
+        "ownership": 291.734375
+      },
+      "claude-work": {
+        "ownership": 291.734375
+      },
+      "opencode-code": {
+        "ownership": 281.609375
+      }
+    }
+  },
+  "default": {
+    "exit": 1,
+    "failures": [
+      {
+        "run": 0,
+        "screen": "claude-code",
+        "scenario": "inertia"
+      },
+      {
+        "run": 0,
+        "screen": "claude-work",
+        "scenario": "inertia"
+      },
+      {
+        "run": 0,
+        "screen": "opencode-code",
+        "scenario": "inertia"
+      }
+    ],
+    "maximumShift": {
+      "claude-code": {
+        "inertia": 215.734375
+      },
+      "claude-work": {
+        "inertia": 231.734375
+      },
+      "opencode-code": {
+        "inertia": 215.609375
+      }
+    }
+  }
+}

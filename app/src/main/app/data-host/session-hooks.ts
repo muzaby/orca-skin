@@ -23,7 +23,9 @@ export interface SessionHooksDeps {
 // 에이전트 호스트가 없을 때의 활동 상태.
 export const IDLE_ACTIVITY = { busy: false } as unknown as ChatActivitySnapshot
 
-export function createSessionHooks(deps: SessionHooksDeps): Required<SessionDisposeHooks> {
+export function createSessionHooks(
+  deps: SessionHooksDeps
+): Required<Omit<SessionDisposeHooks, 'historyIndex'>> {
   const { link, db } = deps
   const isBusy = (sessionId: string): Promise<boolean> =>
     link.request('sessionBusy', sessionId).catch(() => false)

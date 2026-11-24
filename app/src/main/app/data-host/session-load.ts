@@ -19,6 +19,13 @@ import {
   type SessionLoadReply,
   type SessionRefreshReply
 } from '../../../shared/data-host'
+import {
+  HISTORY_PAGE_BYTES,
+  HistoryPageRequestSchema,
+  type HistoryPageReply
+} from '../../../shared/history-page'
+import { HistoryIndex } from '../../features/history/turn-index'
+import { readHistoryPage } from '../../features/history/history-page'
 import { LoadSessionRequestSchema } from '../../../shared/protocol'
 import type { NativeSyncResult } from '../../features/history/native-sync'
 import { loadSession } from '../../features/history/reader'
@@ -35,6 +42,7 @@ export interface SessionLoadHooks {
   getActivity?: (sessionId: string) => ChatActivitySnapshot | Promise<ChatActivitySnapshot>
   refreshHistory?: (sessionId: string) => Promise<NativeSyncResult | undefined>
   // 조각 사이의 양보 — 테스트가 바꿔 끼운다.
+  historyIndex?: HistoryIndex
   yieldTurn?: () => Promise<void>
 }
 
@@ -95,6 +103,50 @@ export function registerSessionLoadHandlers(
     }
   }
 
+  const index = hooks.historyIndex ?? new HistoryIndex(ctx.db)
+  handle(
+    CHANNELS.sessionHistoryPage,
+    HistoryPageRequestSchema,
+    {
+      fallback: {
+        status: 'invalid' as const,
+        sessionId: '',
+        requestId: 0,
+        openGeneration: 0
+      }
+    },
+    async (req, event): Promise<HistoryPageReply> => {
+      const client = event.sender
+      const active = sending.get(client.id) ?? new Set<number>()
+      sending.set(client.id, active)
+      active.add(req.requestId)
+      const echo = {
+        sessionId: req.sessionId,
+        requestId: req.requestId,
+        openGeneration: req.openGeneration
+      }
+      try {
+        const job = await index.prepare(req.sessionId)
+        if (client.isClosed() || !active.has(req.requestId)) return { ...echo, status: 'cancelled' }
+        if (!job) return { ...echo, status: 'missing' }
+        const reply = readHistoryPage(ctx, req, job.generation, job.prepared)
+        if (reply.status === 'ok' && hooks.getActivity && req.kind === 'latest') {
+          reply.session.activity = await hooks.getActivity(req.sessionId)
+          if (Buffer.byteLength(JSON.stringify(reply)) > HISTORY_PAGE_BYTES)
+            return { ...echo, status: 'unavailable' }
+        }
+        return client.isClosed() || !active.has(req.requestId)
+          ? { ...echo, status: 'cancelled' }
+          : reply
+      } catch {
+        return { ...echo, status: 'unavailable' }
+      } finally {
+        active.delete(req.requestId)
+        if (!active.size) sending.delete(client.id)
+      }
+    }
+  )
+
   on(CHANNELS.sessionLoadCancel, SessionLoadCancelSchema, ({ requestId }, event) => {
     sending.get(event.sender.id)?.delete(requestId)
   })
@@ -123,6 +175,30 @@ export function registerSessionLoadHandlers(
       if (sync.status === 'busy') return { status: 'busy' }
       if (sync.status !== 'ready')
         return { status: sync.status, message: sync.message ?? '원본 대화를 확인할 수 없습니다.' }
+      if (req.openGeneration !== undefined && req.requestId !== undefined) {
+        const job = await index.prepare(req.sessionId)
+        if (!job) return { status: 'missing', message: '목록에서 제거된 대화입니다.' }
+        const reply = readHistoryPage(
+          ctx,
+          {
+            kind: 'latest',
+            sessionId: req.sessionId,
+            requestId: req.requestId,
+            openGeneration: req.openGeneration
+          },
+          job.generation,
+          job.prepared
+        )
+        if (reply.status !== 'ok')
+          return { status: 'unavailable', message: '원본 대화를 확인할 수 없습니다.' }
+        const session = await withActivity(reply.session)
+        if (
+          Buffer.byteLength(JSON.stringify({ status: 'updated', session })) + 64 >
+          HISTORY_PAGE_BYTES
+        )
+          return { status: 'unavailable', message: '대화 메타데이터가 너무 큽니다.' }
+        return { status: 'updated', session }
+      }
       const session = loadSession(
         ctx.db,
         req.sessionId,

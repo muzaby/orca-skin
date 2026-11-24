@@ -246,6 +246,7 @@ function reanchoredRequirements(
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
 // tool_call/tool_result 는 toolRunId 로 페어링해 렌더한다.
 export interface Message {
+  deferredBody?: LoadedMessage['deferredBody']
   id: string
   role: 'user' | 'assistant'
   createdAt: number
@@ -965,6 +966,7 @@ function appendOwnedArtifact(
 
 function fromLoadedMessage(message: LoadedMessage): Message {
   return {
+    ...(message.deferredBody ? { deferredBody: message.deferredBody } : {}),
     id: message.id,
     role: message.role,
     createdAt: message.createdAt,

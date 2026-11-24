@@ -222,6 +222,7 @@ export function registerFilesHandlers(ctx: FilesHandlerContext): void {
     (req): SearchHit[] => {
       const rows = ctx.db.searchMessages(req.q, req.limit ?? 30)
       return rows.map((r) => ({
+        ...(r.locator ? { locator: r.locator } : {}),
         messageId: r.message_id,
         sessionId: r.session_id,
         sessionTitle: r.session_title,

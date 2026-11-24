@@ -1,3 +1,8 @@
+import { writeScrollTop } from '@renderer/features/chat/components/transcript/TranscriptViewport'
+import {
+  observeScrollWrites,
+  type ScrollTrace
+} from '@renderer/features/chat/lib/transcript/viewport/scrollCorrection'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import type { LoadedMessage } from '../../src/shared/ipc'
@@ -60,6 +65,9 @@ style.textContent =
 document.head.appendChild(style)
 await chatActions.loadSession(id)
 const root = createRoot(document.querySelector('#root')!)
+const scenario = new URLSearchParams(location.search).get('scenario')
+const writes: ScrollTrace[] = []
+let growth: { initial: number; final: number; at: number } | undefined
 let requests = 0
 let edge: HistoryEdgeState = 'ready'
 function request(direction: string): boolean {
@@ -167,6 +175,7 @@ async function sampleCorrection(): Promise<Sample[]> {
 }
 const wheels: {
   at: number
+  timestamp: number
   delta: number
   prevented: boolean
   trusted: boolean
@@ -177,6 +186,7 @@ window.addEventListener(
   (e) => {
     wheels.push({
       at: performance.now(),
+      timestamp: e.timeStamp,
       delta: e.deltaY,
       prevented: e.defaultPrevented,
       trusted: e.isTrusted,
@@ -185,6 +195,11 @@ window.addEventListener(
   },
   { passive: true }
 )
+async function waitForRequest(): Promise<void> {
+  for (let i = 0; requests === 0 && i < 60; i++) await frame()
+  if (requests !== 1 || edge !== 'loading')
+    throw Error('Expected one pending request, got ' + requests + ' ' + edge)
+}
 Object.assign(window, {
   historyProbe: {
     async prepare() {
@@ -193,6 +208,7 @@ Object.assign(window, {
       scroller().scrollTop = 0
       await settle()
       reading = visibleLine()
+      observeScrollWrites(scroller(), (event) => writes.push(event))
       const bounds = scroller().getBoundingClientRect()
       return {
         x: Math.round(bounds.left + bounds.width / 2),
@@ -201,15 +217,21 @@ Object.assign(window, {
       }
     },
     async middle() {
+      await waitForRequest()
       scroller().scrollTop = 216
       await settle()
       reading = visibleLine()
     },
     async commit() {
-      if (requests !== 1 || edge !== 'loading')
-        throw Error('Expected one pending request, got ' + requests + ' ' + edge)
+      await waitForRequest()
       await frame()
       const before = snapshot()
+      const deferred = document.createElement('style')
+      if (scenario === 'firstMeasurement') {
+        deferred.textContent =
+          '[data-index][data-message-id="u:1"], [data-index]:has([data-part-key="u:1:user"]){display:none!important}'
+        document.head.appendChild(deferred)
+      }
       flushSync(() => {
         chatActions.prependHistory(id, turn(1, 5), { reachedStart: true })
         edge = 'end'
@@ -218,7 +240,24 @@ Object.assign(window, {
       if (useChatStore.getState().sessions[id].session.messages[0].id !== 'u:1')
         throw Error('Page rejected')
       const commitAt = performance.now()
-      layouts = sampleCorrection()
+      if (scenario === 'ownership') {
+        writeScrollTop(scroller(), scroller().scrollTop + 17, undefined, backend)
+      }
+      layouts = (async () => {
+        if (scenario === 'lateHeight' || scenario === 'firstMeasurement') {
+          await frame()
+          const row = Array.from(scroller().querySelectorAll<HTMLElement>('[data-index]')).find(
+            (el) => el.textContent?.includes('Question 1 — fixture line')
+          )
+          if (!row) throw Error('Missing prepended row')
+          const initial = row.getBoundingClientRect().height
+          deferred.remove()
+          if (scenario === 'lateHeight')
+            row.style.paddingBottom = parseFloat(getComputedStyle(row).paddingBottom) + 40 + 'px'
+          growth = { initial, final: row.getBoundingClientRect().height, at: performance.now() }
+        }
+        return sampleCorrection()
+      })()
       return { before, commitAt }
     },
     async states() {
@@ -235,7 +274,7 @@ Object.assign(window, {
     },
     async result() {
       await settle(8)
-      return { after: snapshot(), wheels, requests, layouts: await layouts }
+      return { after: snapshot(), wheels, requests, layouts: await layouts, writes, growth }
     }
   }
 })
