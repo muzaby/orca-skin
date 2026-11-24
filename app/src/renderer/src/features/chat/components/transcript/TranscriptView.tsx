@@ -1,3 +1,5 @@
+import { useHistoryControls } from '../../hooks/useHistoryControls'
+import { useActiveSessionKey } from '../../store/chatStore'
 import { TranscriptRuntimeProvider } from '../../harnesses/common/transcript/TranscriptRuntime'
 import { assistantRuntime } from '../../harnesses/registries/assistant'
 import { memo } from 'react'
@@ -9,12 +11,14 @@ const transcriptTextScaleClassName = '[--transcript-text-scale:var(--chat-text-s
 export const TranscriptView = memo(function TranscriptView(
   props: TranscriptViewProps
 ): React.JSX.Element {
+  const history = useHistoryControls(useActiveSessionKey())
   const { Timeline } = transcriptHarness(props.backend)
   const showAutomaticFeeds = useAutomaticFeedVisibility()
   return (
     <TranscriptRuntimeProvider value={assistantRuntime(props.backend)}>
       <Timeline
         {...props}
+        history={props.history ?? history}
         textScaleClassName={transcriptTextScaleClassName}
         showAutomaticFeeds={showAutomaticFeeds}
       />

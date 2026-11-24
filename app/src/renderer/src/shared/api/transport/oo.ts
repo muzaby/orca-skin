@@ -188,6 +188,7 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
     subscribe: (channel, handler) => subscribe(channel, handler),
     channels: {
       load: CHANNELS.sessionLoad,
+      page: CHANNELS.sessionHistoryPage,
       refresh: CHANNELS.sessionRefresh,
       chunk: CHANNELS.sessionLoadChunk,
       cancel: CHANNELS.sessionLoadCancel
@@ -364,6 +365,7 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
         sessionLoads.refresh(sessionId),
       load: (sessionId: string): Promise<LoadedSession | null> => sessionLoads.load(sessionId),
       cancelLoad: (sessionId: string): void => sessionLoads.cancelLoad(sessionId),
+      page: sessionLoads.page,
       delete: (sessionId: string): Promise<DeleteSessionResult> =>
         invoke(CHANNELS.sessionDelete, { sessionId }),
       rename: (sessionId: string, title: string): Promise<void> =>

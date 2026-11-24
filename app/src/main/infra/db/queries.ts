@@ -1,3 +1,4 @@
+import { HistoryIndexQueries } from './history-index-queries'
 import type Database from 'better-sqlite3'
 import { DEFAULT_AGENT_KIND } from '../../../shared/agent-kind'
 import { isAbsolutePath } from '../../../shared/absolute-path'
@@ -31,6 +32,7 @@ import { isWithinDir } from '../config/paths'
 import { getLogger } from '../log/registry'
 
 export class DbQueries {
+  readonly historyIndex: HistoryIndexQueries
   readonly usage: UsageQueries
   readonly artifacts: ArtifactQueries
   readonly background: BackgroundTaskQueries
@@ -103,6 +105,7 @@ export class DbQueries {
 
   constructor(db: Database.Database) {
     this.db = db
+    this.historyIndex = new HistoryIndexQueries(db)
     this.insertSessionStmt = db.prepare(`
       INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd, extra_dirs, baseline_oid, baseline_ref, agent_kind)
       VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd, @extraDirs, @baselineOid, @baselineRef, @agentKind)
@@ -818,7 +821,15 @@ export class DbQueries {
     const fts = toFtsMatch(rawQuery)
     if (!fts) return []
     const local = this.searchMessagesStmt.all({ query: fts, limit }) as SearchHitRow[]
-    return [...this.nativeHistory.search(fts, limit), ...local].slice(0, limit)
+    return [...this.nativeHistory.search(fts, limit), ...local].slice(0, limit).map((row) => {
+      const recovery = row.native_id && /^orcinus-orca-recovery:(\d+)$/.exec(row.native_id)
+      const locator = this.historyIndex.locator(
+        row.session_id,
+        recovery ? 'archive' : row.native_id ? 'native' : 'local',
+        recovery ? recovery[1] : (row.native_id ?? String(row.message_id))
+      )
+      return { ...row, locator }
+    })
   }
 }
 

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { HistoryIndex } from '../../src/main/features/history/turn-index'
 import { CHANNELS } from '../../src/shared/ipc'
 import { ClientToHostSchema } from '../../src/shared/host-protocol'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -10,7 +11,7 @@ import { migrationRecorder, readAppliedMigrations } from '../../src/main/infra/d
 import { DbQueries } from '../../src/main/infra/db/queries'
 import { setIpcTransport } from '../../src/main/infra/ipc/transport'
 
-const [fixture, migrations, size] = process.argv.slice(2)
+const [fixture, migrations, size, mode] = process.argv.slice(2)
 const file = join(fixture, 'old.db')
 const sessions = size === 'long' ? 200 : 20
 const targetMessages = size === 'long' ? 100000 : 100
@@ -56,15 +57,32 @@ seed.transaction(() => {
 seed.close()
 
 const db = new Database(file)
+db.pragma('foreign_keys = ON')
+db.pragma('synchronous = NORMAL')
+const oldDisk = diskBytes()
+if (mode === 'projection') {
+  for (const name of readdirSync(migrations)
+    .filter((name) => /^\d{4}_.*\.sql$/.test(name) && name >= '0037')
+    .sort()) {
+    db.transaction(() => {
+      db.exec(readFileSync(join(migrations, name), 'utf8'))
+      migrationRecorder(db)(name.slice(0, -4))
+    })()
+  }
+}
 const queries = new DbQueries(db)
+const index = mode === 'projection' ? new HistoryIndex(queries) : undefined
+let backgroundStarted = false
 const transport = createPortTransport()
 setIpcTransport(transport)
-registerSessionLoadHandlers({ db: queries, getCwd: () => fixture })
+registerSessionLoadHandlers({ db: queries, getCwd: () => fixture }, { historyIndex: index })
 const getSnapshot = queries.nativeHistory.get.bind(queries.nativeHistory)
 const payloads: string[] = []
+let backgroundPayloadBytes = 0
 queries.nativeHistory.get = (id) => {
   const row = getSnapshot(id)
-  if (row) payloads.push(row.payload_json)
+  if (row && id === 'session-0') payloads.push(row.payload_json)
+  else if (row) backgroundPayloadBytes += Buffer.byteLength(row.payload_json)
   return row
 }
 // Size the load envelopes after the timed operation. The store can start refresh two
@@ -75,12 +93,22 @@ function diskBytes(): { db: number; wal: number } {
   const wal = file + '-wal'
   return { db: statSync(file).size, wal: existsSync(wal) ? statSync(wal).size : 0 }
 }
-const before = diskBytes()
+let before = oldDisk
+let prepared: unknown
+let readBodyBytes = 0
+const parts = queries.historyIndex.parts.bind(queries.historyIndex)
+queries.historyIndex.parts = (id, gen, h) => {
+  readBodyBytes += h.part_count ? h.body_bytes : 0
+  return parts(id, gen, h)
+}
 parent.on('message', ({ data, ports }) => {
   if (data === 'metrics') {
     const after = diskBytes()
     parent.postMessage({
       sessions,
+      prepared,
+      readBodyBytes,
+      backgroundPayloadBytes,
       before,
       after,
       readerPayloadBytes: payloads.reduce(
@@ -94,7 +122,13 @@ parent.on('message', ({ data, ports }) => {
       ),
       replyFrames: frames.length
     })
-    db.close()
+    before = after
+    frames.length = 0
+    payloads.length = 0
+    loadRequest = undefined
+    prepared = undefined
+    readBodyBytes = 0
+    backgroundPayloadBytes = 0
     return
   }
   const port = wrapPort(ports[0])
@@ -107,19 +141,27 @@ parent.on('message', ({ data, ports }) => {
           if (
             input.success &&
             input.data.kind === 'invoke' &&
-            input.data.channel === CHANNELS.sessionLoad
+            (input.data.channel === CHANNELS.sessionLoad ||
+              input.data.channel === CHANNELS.sessionHistoryPage)
           ) {
             loadRequest = { id: input.data.id, bytes: Buffer.byteLength(JSON.stringify(message)) }
           }
           listener(message)
+          if (index && loadRequest && !backgroundStarted) {
+            backgroundStarted = true
+            index.startBackground()
+          }
         })
       },
       post(frame) {
         if (
           (frame.kind === 'result' && frame.id === loadRequest?.id) ||
           (frame.kind === 'event' && frame.channel === CHANNELS.sessionLoadChunk)
-        )
+        ) {
           frames.push(frame)
+          if (frame.kind === 'result' && frame.ok)
+            prepared = (frame.value as { prepared?: unknown } | null)?.prepared
+        }
         port.post(frame)
       }
     },

@@ -87,6 +87,7 @@ export const CHANNELS = {
   sessionCwd: 'oo:session:cwd',
   sessionList: 'oo:session:list',
   sessionLoad: 'oo:session:load',
+  sessionHistoryPage: 'oo:session:history-page',
   sessionRefresh: 'oo:session:refresh',
   sessionLoadChunk: 'oo:session:load-chunk',
   sessionLoadCancel: 'oo:session:load-cancel',
@@ -1647,6 +1648,7 @@ export function subagentNoticePart(ev: {
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {
+  deferredBody?: import('./history-page').HistoryBodyRef
   id: string
   role: 'user' | 'assistant'
   parts: AppMessagePart[]
@@ -1660,6 +1662,7 @@ export type RefreshSessionResult =
   | { status: 'missing' | 'unavailable' | 'migration-required'; message: string }
 
 export interface LoadedSession {
+  history?: import('./history-page').HistoryWindow
   id: string
   backend: Backend
   agentKind: AgentKind
@@ -1791,6 +1794,7 @@ export interface SearchMessagesRequest {
 }
 
 export interface SearchHit {
+  locator?: import('./history-page').HistoryLocator
   messageId: number
   sessionId: string
   sessionTitle: string | null

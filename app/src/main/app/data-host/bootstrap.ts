@@ -91,6 +91,7 @@ import { registerMcpHandlers } from '../handlers/mcp'
 import { registerProjectHandlers } from '../handlers/project'
 import { registerConnectionHandlers } from '../handlers/providers'
 import { registerScheduledTaskHandlers } from '../handlers/scheduled-tasks'
+import { HistoryIndex } from '../../features/history/turn-index'
 import { registerSessionHandlers } from '../handlers/session'
 import { registerSettingsHandlers, registerSettingsReadHandler } from '../handlers/settings'
 import { registerSkillsHandlers } from '../handlers/skills'
@@ -746,14 +747,17 @@ export class DataBootstrap implements HostAssembly {
     }
     // 실행 상태는 에이전트 호스트에 묻는다. 없으면 쉬는 상태다(AC19′ · AC43 — 띄우지 않는다).
     // 원본 읽기는 에이전트 호스트(하네스 어댑터), 기록은 여기다(F4 · EP-21: 없으면 띄운다).
-    registerSessionHandlers(
-      ctx,
-      createSessionHooks({
+    const historyIndex = new HistoryIndex(db)
+    historyIndex.startBackground()
+    this.stops.push(() => historyIndex.stop())
+    registerSessionHandlers(ctx, {
+      historyIndex,
+      ...createSessionHooks({
         link,
         db,
         forgetSession: (sessionId) => this.receiver?.forgetSession(sessionId)
       })
-    )
+    })
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)
     registerBootHandlers(ctx)

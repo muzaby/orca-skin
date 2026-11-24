@@ -68,6 +68,7 @@ export const CHANNEL_OWNER = {
   sessionCwd: 'data',
   sessionList: 'data',
   sessionLoad: 'data',
+  sessionHistoryPage: 'data',
   sessionRefresh: 'data',
   sessionLoadChunk: 'data',
   sessionLoadCancel: 'data',

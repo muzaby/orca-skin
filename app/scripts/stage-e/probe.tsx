@@ -11,6 +11,7 @@ import { emptyBackgroundState } from '../../src/shared/background-task'
 import appCss from '@renderer/styles/app.css?inline'
 
 const id = 'session-0'
+const isBaseline = new URLSearchParams(window.location.search).get('phase') === 'baseline'
 const data = createHostPortClient({ host: 'data', requestConnect: () => undefined })
 const connected = new Promise<void>((resolve) => {
   function receive(event: MessageEvent): void {
@@ -34,6 +35,7 @@ const session = createSessionLoadClient({
   subscribe: data.on,
   channels: {
     load: CHANNELS.sessionLoad,
+    page: isBaseline ? undefined : CHANNELS.sessionHistoryPage,
     refresh: CHANNELS.sessionRefresh,
     chunk: CHANNELS.sessionLoadChunk,
     cancel: CHANNELS.sessionLoadCancel
@@ -41,7 +43,7 @@ const session = createSessionLoadClient({
 })
 Object.assign(window, {
   oo: {
-    session,
+    session: isBaseline ? session : { ...session, load: session.loadLatest },
     settings: { set: async () => ({}) },
     chat: { backgroundState: async () => emptyBackgroundState() }
   }
@@ -99,7 +101,21 @@ Object.assign(window, {
   async measureHistoryOpen() {
     await connected
     document.querySelector('button')!.click()
-    await open
+    let loadingFrameMs: number | null = null
+    let loadingFrame = 0
+    function observeLoading(): void {
+      if (useChatStore.getState().sessions[id]?.session.loadingSession) {
+        const viewport = document.querySelector('[data-behavior="virtualizable"]')
+        if (viewport?.textContent?.trim()) loadingFrameMs = performance.now() - started
+        else loadingFrame = requestAnimationFrame(observeLoading)
+      }
+    }
+    loadingFrame = requestAnimationFrame(observeLoading)
+    try {
+      await open
+    } finally {
+      cancelAnimationFrame(loadingFrame)
+    }
     const receivedMessages = useChatStore.getState().sessions[id]?.session.messages.length
     if (!receivedMessages) throw Error('No messages committed by loadSession')
     for (let i = 0; i < 300; i++) {
@@ -118,6 +134,7 @@ Object.assign(window, {
         await frame()
         return {
           receivedMessages,
+          loadingFrameMs,
           visible: true,
           firstBodyId,
           clickToBodyFrameMs: performance.now() - started

@@ -54,7 +54,7 @@ export function OpenCodeScrollController({
     (top: number) => {
       const el = scrollRef.current
       if (!el) return
-      writeScrollTop(el, top)
+      writeScrollTop(el, top, undefined, 'opencode')
       automaticTop.current = el.scrollTop
       lastTop.current = el.scrollTop
       state.setTop(el.scrollTop)

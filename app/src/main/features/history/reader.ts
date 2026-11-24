@@ -1,3 +1,6 @@
+import { localRowMessageId, orphanMessageId } from '../../../shared/message-id'
+import type { LoadedMessage } from '../../../shared/ipc'
+import type { HistoryMessageHeader } from '../../infra/db/types'
 import { parseAgentKind } from '../../../shared/agent-kind'
 import { parseStoredExtraDirectories } from '../../../shared/extra-directories'
 import type { LoadedSession } from '../../../shared/protocol'
@@ -14,30 +17,67 @@ export function loadSession(
   getCwd: (projectId?: string | null) => string,
   refreshedSnapshot?: NativeHistorySnapshot
 ): LoadedSession | null {
-  // 세션의 모든 파트를 메시지 순서(message_idx) → 파트 순서(part_idx)로 조회해 재구성.
-  const recovery = db.nativeHistory?.recovery?.(sessionId)
-  const partRows = db
-    .loadParts(sessionId)
-    .filter((row) => !recovery || row.message_id > recovery.local_frontier)
-  const meta = db.getSessionById(sessionId)
+  const projection = readHistorySource(db, sessionId, refreshedSnapshot)
+  const meta = loadSessionMetadata(db, sessionId, getCwd)
   if (!meta) return null
+  return {
+    ...meta,
+    messages: projection.messages,
+    ...(projection.nativeSync ? { nativeSync: projection.nativeSync } : {})
+  }
+}
+
+export type SourceAlias = { source: 'local' | 'native' | 'archive'; identity: string }
+export interface HistorySource {
+  messages: LoadedMessage[]
+  aliases: Map<string, SourceAlias[]>
+  sourceBytes: number
+  nativeSync?: LoadedSession['nativeSync']
+}
+
+export function readHistorySource(
+  db: DbQueries,
+  sessionId: string,
+  refreshedSnapshot?: NativeHistorySnapshot,
+  headers?: HistoryMessageHeader[]
+): HistorySource {
+  const recovery = db.nativeHistory?.recovery?.(sessionId)
+  const loadedRows = db.loadParts(sessionId)
+  const rows = recovery
+    ? loadedRows.filter((row) => row.message_id > recovery.local_frontier)
+    : loadedRows
+  const localHeaders = headers?.filter(
+    (row) => !recovery || row.message_id > recovery.local_frontier
+  )
   const stored = db.nativeHistory?.get(sessionId)
-  let messages = localMessages(partRows)
+  const aliases = new Map<string, SourceAlias[]>()
+  const alias = (key: string, source: SourceAlias['source'], identity: string): void => {
+    const list = aliases.get(key)
+    if (list) list.push({ source, identity })
+    else aliases.set(key, [{ source, identity }])
+  }
   let nativeSync: LoadedSession['nativeSync']
+  let messages: LoadedMessage[]
   if (stored) {
     try {
       const snapshot =
         refreshedSnapshot ?? (JSON.parse(stored.payload_json) as NativeHistorySnapshot)
-      const projected = projectNativeHistory(
+      const projection = projectNativeHistory(
         snapshot,
-        partRows,
+        rows,
         db.nativeHistory.bindings(sessionId),
-        stored.local_frontier
+        stored.local_frontier,
+        localHeaders
       )
-      messages = projected.messages
+      messages = projection.messages
+      if (headers)
+        snapshot.messages.forEach((message, i) => {
+          for (const key of new Set([message.id, ...(message.sourceIds ?? [])]))
+            alias(messages[i].id, 'native', key)
+        })
       nativeSync = {
         status: 'ready',
-        ...(projected.orphaned
+        ...(projection.orphaned
           ? {
               message:
                 '원본 메시지에 연결할 수 없는 이전 Orcinus orca 부가 기록을 대화 끝에 보존했습니다.'
@@ -45,13 +85,39 @@ export function loadSession(
           : {})
       }
     } catch {
+      messages = localMessages(rows, localHeaders)
       nativeSync = {
         status: 'unavailable',
         message: '저장된 원본 이력을 읽을 수 없어 Orcinus orca 보관 기록을 표시합니다.'
       }
     }
+  } else messages = localMessages(rows, localHeaders)
+  if (localHeaders) {
+    const keys = new Set(messages.map((m) => m.id))
+    for (const row of localHeaders) {
+      const key = row.message_key ?? localRowMessageId(row.message_id)
+      if (keys.has(key)) alias(key, 'local', String(row.message_id))
+      else if (keys.has(orphanMessageId(key)))
+        alias(orphanMessageId(key), 'local', String(row.message_id))
+    }
   }
+  const archive = recoveryArchive(recovery)
+  if (headers && recovery) archive.forEach((m, i) => alias(m.id, 'archive', String(i)))
+  const sourceBytes = headers
+    ? Buffer.byteLength(stored?.payload_json ?? '') +
+      Buffer.byteLength(recovery?.archive_json ?? '') +
+      loadedRows.reduce((sum, row) => sum + Buffer.byteLength(row.payload_json), 0)
+    : 0
+  return { messages: [...archive, ...messages], aliases, sourceBytes, nativeSync }
+}
 
+export function loadSessionMetadata(
+  db: DbQueries,
+  sessionId: string,
+  getCwd: (projectId?: string | null) => string
+): Omit<LoadedSession, 'messages'> | null {
+  const meta = db.getSessionById(sessionId)
+  if (!meta) return null
   // 세션 마지막 턴 사용량 → 컨텍스트 도넛/패널 복원(세션 수명 동안 표시).
   const usage = db.usage.getLatestTurnUsage(sessionId)
   const lastTelemetry = usage ? usageRowToTelemetry(usage.turn, usage.modelUsage) : undefined
@@ -83,8 +149,6 @@ export function loadSession(
     backend: meta.backend,
     agentKind: parseAgentKind(meta.agent_kind),
     title: meta.title,
-    messages: [...recoveryArchive(recovery), ...messages],
-    ...(nativeSync ? { nativeSync } : {}),
     providerKey: meta.provider_key,
     modelFamily: meta.last_model ?? lastTelemetry?.model ?? null,
     projectId: meta.project_id,

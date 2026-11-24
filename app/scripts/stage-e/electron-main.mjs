@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const [origin, options] = process.argv.slice(-3)
-const { bundle, size, root } = JSON.parse(options)
+const { bundle, size, root, isBaseline } = JSON.parse(options)
 const fixture = await mkdtemp(join(tmpdir(), 'oo-stage-e-'))
 app.setPath('userData', fixture)
 app.whenReady().then(async () => {
@@ -23,7 +23,12 @@ app.whenReady().then(async () => {
     })
     host = utilityProcess.fork(
       bundle,
-      [fixture, join(root, 'src/main/infra/db/migrations'), size],
+      [
+        fixture,
+        join(root, 'src/main/infra/db/migrations'),
+        size,
+        isBaseline ? 'baseline' : 'projection'
+      ],
       {
         stdio: 'pipe'
       }
@@ -47,25 +52,32 @@ app.whenReady().then(async () => {
         preload: fileURLToPath(new URL('./preload.cjs', import.meta.url))
       }
     })
-    await checked(window.loadURL(origin))
-    const { port1, port2 } = new MessageChannelMain()
-    host.postMessage('connect', [port1])
-    window.webContents.postMessage('stage-e-port', null, [port2])
-    const result = await checked(
-      window.webContents.executeJavaScript('window.measureHistoryOpen()')
-    )
-    const response = once(host, 'message')
-    host.postMessage('metrics')
-    const [metrics] = await checked(response)
+    const open = async () => {
+      await checked(
+        window.loadURL(origin + (isBaseline ? '/?phase=baseline' : '/?phase=projection'))
+      )
+      const { port1, port2 } = new MessageChannelMain()
+      host.postMessage('connect', [port1])
+      window.webContents.postMessage('stage-e-port', null, [port2])
+      const result = await checked(
+        window.webContents.executeJavaScript('window.measureHistoryOpen()')
+      )
+      const response = once(host, 'message')
+      host.postMessage('metrics')
+      const [metrics] = await checked(response)
+      return { ...result, ...metrics }
+    }
+    const result = await open()
+    const warm = isBaseline ? undefined : await open()
     const anchor =
-      size === 'small'
+      isBaseline && size === 'small'
         ? await checked(window.webContents.executeJavaScript('window.baselineAnchor()'))
         : undefined
     console.log(
       'OO_RESULT ' +
         JSON.stringify({
           ...result,
-          ...metrics,
+          warm,
           anchor,
           platform: process.platform,
           electron: process.versions.electron

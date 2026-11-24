@@ -17,7 +17,7 @@ export interface AnchorTarget {
   readonly blockIndex: number
   readonly partIndex: number
   readonly charOffset: number
-  /** Distance from the viewport's top edge (wrapperTop - viewportTop) at capture time. */
+  /** Distance from the viewport top to the captured character (or the part top for non-text). */
   readonly viewportOffsetPx: number
 }
 
@@ -83,7 +83,6 @@ export function captureAnchor(
   const vpTop = vpRect.top
   const partElements = scrollEl.querySelectorAll('[data-part-key]')
   let targetEl: HTMLElement | null = null
-  let targetTop = Infinity
 
   for (let i = 0; i < partElements.length; i++) {
     const el = partElements[i] as HTMLElement
@@ -91,14 +90,12 @@ export function captureAnchor(
     // First part overlapping or below viewport top edge
     if (rect.bottom > vpTop) {
       targetEl = el
-      targetTop = rect.top
       break
     }
   }
   if (!targetEl) return null
 
   let charOffset = 0
-  let anchorScreenTop = targetTop
 
   let resolvedCaret = caretPoint
   if (
@@ -132,12 +129,10 @@ export function captureAnchor(
     const caretPart = element?.closest?.<HTMLElement>('[data-part-key]')
     if (caretPart && scrollEl.contains(caretPart)) {
       targetEl = caretPart
-      anchorScreenTop = caretPart.getBoundingClientRect().top
     }
   }
   if (resolvedCaret && targetEl.contains(resolvedCaret.node)) {
     charOffset = partTextOffset(targetEl, resolvedCaret.node, resolvedCaret.offset)
-    anchorScreenTop = measureCharTop(targetEl, charOffset)
   }
 
   const partKey = targetEl.getAttribute('data-part-key') ?? ''
@@ -173,7 +168,7 @@ export function captureAnchor(
     blockIndex: Number(blockEl?.getAttribute('data-index') ?? 0),
     partIndex: precedingParts.size,
     charOffset,
-    viewportOffsetPx: anchorScreenTop - vpTop
+    viewportOffsetPx: measureCharTop(targetEl, charOffset) - vpTop
   }
 }
 

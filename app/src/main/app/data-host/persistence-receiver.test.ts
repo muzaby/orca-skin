@@ -39,7 +39,15 @@ function dump(raw: Database.Database): Record<string, unknown[]> {
     )
     .all() as Array<{ name: string }>
   return Object.fromEntries(
-    tables.map(({ name }) => [name, raw.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all()])
+    tables.map(({ name }) => {
+      const primary = raw.pragma(`table_info("${name}")`) as Array<{ name: string; pk: number }>
+      const columns = primary
+        .filter((column) => column.pk)
+        .sort((a, b) => a.pk - b.pk)
+        .map((column) => '"' + column.name.replaceAll('"', '""') + '"')
+      const order = columns.length ? columns.join(',') : 'rowid'
+      return [name, raw.prepare(`SELECT * FROM "${name}" ORDER BY ${order}`).all()]
+    })
   )
 }
 

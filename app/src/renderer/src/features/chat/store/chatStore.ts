@@ -1,3 +1,4 @@
+import type { HistoryWindow, HistoryPageReply } from '../../../../../shared/history-page'
 import { clearDisclosures, setDisclosureActiveSession } from './disclosureStore'
 import { transcriptIndexFor } from '../lib/transcriptIndex'
 import type { BackgroundSessionState } from '../../../../../shared/background-task'
@@ -144,7 +145,14 @@ export interface SubagentMetaState {
   startedAtMs?: number
 }
 
+interface SessionPaging extends HistoryWindow {
+  openGeneration: number
+  beforeState?: 'loading' | 'error'
+}
+let historyOpenGeneration = 0
+
 export interface SessionEntry {
+  history?: SessionPaging
   clientKey?: string
   draftGeneration?: number
   cwdSelected?: boolean
@@ -401,7 +409,22 @@ function dispatchTo(key: string, action: ChatAction): void {
     })
   }
   patchEntry(key, (entry) => {
-    const session = withoutDeletedProject(chatReducer(entry.session, action))
+    let session = withoutDeletedProject(chatReducer(entry.session, action))
+    if (action.type === 'LOAD_SESSION') {
+      const window = action.session.history
+      if (window && !window.before)
+        session = chatReducer(session, {
+          type: 'PREPEND_HISTORY',
+          messages: [],
+          reachedStart: true,
+          diagnostic: action.diagnostic
+        })
+      return {
+        ...entry,
+        session,
+        history: window ? { ...window, openGeneration: ++historyOpenGeneration } : undefined
+      }
+    }
     return session === entry.session ? entry : { ...entry, session }
   })
 }
@@ -1884,6 +1907,12 @@ async function loadSession(
   )
     return
   coalescer.flush()
+  if (s.activeKey !== sessionId && s.sessions[s.activeKey]?.history) {
+    sessionApi.cancelLoad(s.activeKey)
+    patchEntry(s.activeKey, (entry) =>
+      entry.history ? { ...entry, history: { ...entry.history, beforeState: undefined } } : entry
+    )
+  }
   s = getState()
   const switchingActive = !options.revalidate && s.activeKey !== sessionId
   const nextIntent: EntryIntent | null = switchingActive
@@ -2286,7 +2315,63 @@ function prependHistory(
   })
 }
 
+function readPrevious(key: string, automatic = false): boolean {
+  const state = getState()
+  const history = state.sessions[key]?.history
+  const edge = history?.before
+  if (
+    !history ||
+    !edge ||
+    key !== state.activeKey ||
+    history.beforeState === 'loading' ||
+    (automatic && (edge.kind !== 'withinTurn' || history.beforeState === 'error'))
+  )
+    return false
+  const beforeState = 'loading' as const
+  const loading = { ...history, beforeState }
+  patchEntry(key, (entry) => ({ ...entry, history: loading }))
+  const query =
+    edge.kind === 'withinTurn'
+      ? { kind: 'withinTurn' as const, direction: 'before' as const }
+      : { kind: 'earlierTurn' as const }
+  void sessionApi
+    .page({ ...query, sessionId: key, openGeneration: history.openGeneration, cursor: edge.cursor })
+    .then((reply: HistoryPageReply) => {
+      patchEntry(key, (entry) => {
+        if (entry.history !== loading) return entry
+        if (reply.status !== 'ok' || reply.session.history.generation !== history.generation)
+          return { ...entry, history: { ...history, beforeState: 'error' } }
+        let rejected = false
+        const session = chatReducer(entry.session, {
+          type: 'PREPEND_HISTORY',
+          messages: reply.session.messages,
+          reachedStart: !reply.session.history.before,
+          diagnostic: (event, count) => {
+            if (event === 'prependRejected') rejected = true
+            transcriptDiagnostic(event, count)
+          }
+        })
+        return rejected
+          ? { ...entry, history: { ...history, beforeState: 'error' } }
+          : {
+              ...entry,
+              session,
+              history: { ...history, before: reply.session.history.before, beforeState: undefined }
+            }
+      })
+    })
+    .catch(() =>
+      patchEntry(key, (entry) =>
+        entry.history === loading
+          ? { ...entry, history: { ...history, beforeState: 'error' } }
+          : entry
+      )
+    )
+  return true
+}
+
 export const chatActions = {
+  readPrevious,
   prependHistory,
   setOpenCodeTodoCollapsed: (collapsed: boolean): void =>
     dispatchActive({ type: 'SET_OPENCODE_TODO_COLLAPSED', collapsed }),

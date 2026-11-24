@@ -72,8 +72,9 @@ export class NativeHistoryQueries {
       WHERE session_id=? AND accepted=0`),
       acceptRecovery: db.prepare(`UPDATE native_session_recovery SET accepted=1, fresh_start=0
       WHERE session_id=? AND prompt_id=?`),
-      observe: db.prepare(`SELECT total_changes() AS version,
-      COALESCE((SELECT MAX(id) FROM messages WHERE session_id = ?), 0) AS frontier`),
+      observe:
+        db.prepare(`SELECT (SELECT revision FROM history_source_clock WHERE singleton=1) AS version,
+      COALESCE((SELECT MAX(id) FROM messages WHERE session_id = @sessionId), 0) AS frontier`),
       get: db.prepare(
         'SELECT payload_json, cursor_json, local_frontier, synced_at FROM native_history_snapshots WHERE session_id = ?'
       ),
@@ -102,7 +103,8 @@ export class NativeHistoryQueries {
         (session_id, native_id, role, created_at, content) VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(session_id, native_id) DO UPDATE SET role=excluded.role, created_at=excluded.created_at, content=excluded.content
         WHERE native_history_messages.role IS NOT excluded.role OR native_history_messages.created_at IS NOT excluded.created_at OR native_history_messages.content IS NOT excluded.content`),
-      search: db.prepare(`SELECT -m.id AS message_id, m.session_id, m.role, m.created_at,
+      search:
+        db.prepare(`SELECT -m.id AS message_id, m.native_id, m.session_id, m.role, m.created_at,
         s.title AS session_title,
         snippet(native_history_fts, 0, '<mark>', '</mark>', '…', 24) AS snippet
       FROM native_history_fts
@@ -163,7 +165,7 @@ export class NativeHistoryQueries {
   }
 
   observe(sessionId: string): { version: number; frontier: number } {
-    return this.statements.observe.get(sessionId) as { version: number; frontier: number }
+    return this.statements.observe.get({ sessionId }) as { version: number; frontier: number }
   }
 
   get(sessionId: string): NativeSnapshotRow | undefined {

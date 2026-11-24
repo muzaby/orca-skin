@@ -1,0 +1,198 @@
+{
+  "thresholdMs": 3729,
+  "referenceMs": 1864.6,
+  "baselineReproduction": {
+    "small": {
+      "env": true,
+      "phase": "baseline",
+      "baseline": "7db1c7ce",
+      "oldDb": "small",
+      "receivedMessages": 100,
+      "loadingFrameMs": 44.799999999813735,
+      "visible": true,
+      "firstBodyId": "n:native-98",
+      "clickToBodyFrameMs": 165.79999999981374,
+      "sessions": 20,
+      "before": {
+        "db": 782336,
+        "wal": 0
+      },
+      "after": {
+        "db": 782336,
+        "wal": 20632
+      },
+      "readerPayloadBytes": 10434,
+      "requestJsonBytes": 102,
+      "replyJsonBytes": 11015,
+      "replyFrames": 2,
+      "anchor": {
+        "headerPx": 35,
+        "resizeOnly": {
+          "partKey": "n:native-0:user",
+          "scrollTopBefore": 0,
+          "scrollTopAfter": 9,
+          "lineTopBefore": 27.1875,
+          "lineTopAfter": 53.1875,
+          "deltaPx": 26
+        },
+        "resizeWithWheel": {
+          "partKey": "n:native-0:user",
+          "scrollTopBefore": 0,
+          "scrollTopAfter": 0,
+          "wheelGapMs": 34.700000000186265,
+          "lineTopBefore": 27.1875,
+          "lineTopAfter": 62.1875,
+          "deltaPx": 35
+        }
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    },
+    "long": {
+      "env": true,
+      "phase": "baseline",
+      "baseline": "7db1c7ce",
+      "oldDb": "long",
+      "receivedMessages": 100000,
+      "loadingFrameMs": 37.39999999944121,
+      "visible": true,
+      "firstBodyId": "n:native-99998",
+      "clickToBodyFrameMs": 2195,
+      "sessions": 200,
+      "before": {
+        "db": 28631040,
+        "wal": 0
+      },
+      "after": {
+        "db": 39956480,
+        "wal": 11412432
+      },
+      "readerPayloadBytes": 11316684,
+      "requestJsonBytes": 102,
+      "replyJsonBytes": 11536663,
+      "replyFrames": 201,
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    }
+  },
+  "projection": {
+    "small": {
+      "env": true,
+      "phase": "projection",
+      "baseline": "7db1c7ce",
+      "oldDb": "small",
+      "receivedMessages": 2,
+      "loadingFrameMs": 35.40000000037253,
+      "visible": true,
+      "firstBodyId": "n:native-98",
+      "clickToBodyFrameMs": 106,
+      "sessions": 20,
+      "prepared": {
+        "queuedMs": 2.6525519999999005,
+        "buildMs": 6.426892000000066,
+        "sourceBytes": 10434
+      },
+      "readBodyBytes": 90,
+      "backgroundPayloadBytes": 198246,
+      "before": {
+        "db": 782336,
+        "wal": 0
+      },
+      "after": {
+        "db": 782336,
+        "wal": 3662712
+      },
+      "readerPayloadBytes": 10434,
+      "requestJsonBytes": 145,
+      "replyJsonBytes": 897,
+      "replyFrames": 1,
+      "warm": {
+        "receivedMessages": 2,
+        "loadingFrameMs": null,
+        "visible": true,
+        "firstBodyId": "n:native-98",
+        "clickToBodyFrameMs": 19.200000000186265,
+        "sessions": 20,
+        "readBodyBytes": 90,
+        "backgroundPayloadBytes": 0,
+        "before": {
+          "db": 782336,
+          "wal": 3662712
+        },
+        "after": {
+          "db": 782336,
+          "wal": 3662712
+        },
+        "readerPayloadBytes": 0,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 806,
+        "replyFrames": 1
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    },
+    "long": {
+      "env": true,
+      "phase": "projection",
+      "baseline": "7db1c7ce",
+      "oldDb": "long",
+      "receivedMessages": 2,
+      "loadingFrameMs": 41,
+      "visible": true,
+      "firstBodyId": "n:native-99998",
+      "clickToBodyFrameMs": 2200.0999999996275,
+      "sessions": 200,
+      "prepared": {
+        "queuedMs": 4.2538110000000415,
+        "buildMs": 2086.073261,
+        "sourceBytes": 11316684
+      },
+      "readBodyBytes": 96,
+      "backgroundPayloadBytes": 271284,
+      "before": {
+        "db": 28631040,
+        "wal": 0
+      },
+      "after": {
+        "db": 82784256,
+        "wal": 5063512
+      },
+      "readerPayloadBytes": 11316684,
+      "requestJsonBytes": 145,
+      "replyJsonBytes": 920,
+      "replyFrames": 1,
+      "warm": {
+        "receivedMessages": 2,
+        "loadingFrameMs": 6,
+        "visible": true,
+        "firstBodyId": "n:native-99998",
+        "clickToBodyFrameMs": 33,
+        "sessions": 200,
+        "readBodyBytes": 96,
+        "backgroundPayloadBytes": 396492,
+        "before": {
+          "db": 82784256,
+          "wal": 5063512
+        },
+        "after": {
+          "db": 85045248,
+          "wal": 5063512
+        },
+        "readerPayloadBytes": 0,
+        "requestJsonBytes": 145,
+        "replyJsonBytes": 832,
+        "replyFrames": 1
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "latencyGate": {
+        "limitMs": 3729,
+        "pass": true
+      },
+      "verdict": true
+    }
+  }
+}

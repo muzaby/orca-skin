@@ -237,6 +237,8 @@ export const concurrencyApi = {
 }
 
 export const sessionApi = {
+  page: (query: import('../../../../shared/history-page').HistoryQuery) =>
+    window.oo.session.page(query),
   globalExtensions: (backend: Backend): Promise<NativeResources> =>
     window.oo.session.globalExtensions(backend),
   setGlobalExtension: (

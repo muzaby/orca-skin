@@ -21,7 +21,7 @@ const head = (id: string, chunks: number, messages: number): ChunkedSession => (
 })
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function setup() {
+function setup(paged = false) {
   const calls: Array<{ channel: string; payload: { sessionId: string; requestId: number } }> = []
   const replies = new Map<number, (value: unknown) => void>()
   const sent: Array<[string, unknown]> = []
@@ -38,7 +38,7 @@ function setup() {
       onChunk = handler
       return () => {}
     },
-    channels: CHANNELS
+    channels: paged ? { ...CHANNELS, page: 'history-page' } : CHANNELS
   })
   return {
     client,
@@ -180,5 +180,50 @@ describe('세션 본문 조립', () => {
     h.reply(1, head('a', 1, 1))
     void second.then(spy)
     expect((await second)?.messages).toEqual([message('둘째')])
+  })
+})
+
+describe('bounded history page replies', () => {
+  const ok = {
+    status: 'ok',
+    requestId: 0,
+    openGeneration: 0,
+    sessionId: 's',
+    session: {
+      id: 's',
+      backend: 'claude',
+      agentKind: 'code',
+      title: null,
+      complete: false,
+      history: { generation: 'gen' },
+      messages: [message('tail')]
+    }
+  }
+  it('accepts one matching page and keeps refresh on the bounded path', async () => {
+    const port = setup(true)
+    const first = port.client.loadLatest('s')
+    expect(port.calls[0]).toEqual({
+      channel: 'history-page',
+      payload: { sessionId: 's', kind: 'latest', openGeneration: 0, requestId: 0 }
+    })
+    port.reply(0, ok)
+    expect(await first).toEqual(ok.session)
+    const refresh = port.client.refresh('s')
+    expect(port.calls[1].payload).toMatchObject({ requestId: 1, openGeneration: 1 })
+    port.reply(1, { status: 'unchanged' })
+    expect(await refresh).toEqual({ status: 'unchanged' })
+  })
+  it.each([
+    { sessionId: 'other' },
+    { requestId: 71 },
+    { openGeneration: 72 },
+    { status: 'unknown' },
+    { session: { ...ok.session, messages: [message('tail'), message('tail')] } },
+    { session: { ...ok.session, messages: [], history: null } }
+  ])('rejects mismatched or incomplete replies %j', async (patch) => {
+    const port = setup(true)
+    const first = port.client.loadLatest('s')
+    port.reply(0, { ...ok, ...patch })
+    await expect(first).rejects.toThrow('Mismatched history reply')
   })
 })

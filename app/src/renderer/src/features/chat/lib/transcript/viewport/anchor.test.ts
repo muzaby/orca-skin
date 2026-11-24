@@ -91,6 +91,39 @@ function makeEl(
 }
 
 describe('viewport/textOffset & anchor (EP-12 · a1~a12)', () => {
+  it.each(['text', 'header', 'non-text'] as const)(
+    'captures the glyph top when the caret is outside the part or inside text (%s)',
+    (place) => {
+      const text = makeText('reading line')
+      const header = makeEl({ 'data-transcript-header': '' })
+      const icon = makeEl({})
+      const part = makeEl({ 'data-part-key': 'reading' }, [text], { top: 110, height: 34 })
+      const viewport = makeEl({}, [header, icon, part], { top: 100, height: 200 })
+      viewport.scrollTop = 75
+      vi.stubGlobal('document', {
+        createRange: () => ({
+          setStart: vi.fn(),
+          setEnd: vi.fn(),
+          getBoundingClientRect: () => ({ top: 119, height: 16 })
+        })
+      })
+      try {
+        const el = viewport as unknown as HTMLElement
+        const node = place === 'text' ? text : place === 'header' ? header : icon
+        const controller = createAnchorController()
+        const captured = controller.captureAnchor(el, { node: node as unknown as Node, offset: 3 })!
+        expect(captured).toMatchObject({
+          partKey: 'reading',
+          charOffset: place === 'text' ? 3 : 0,
+          viewportOffsetPx: 19
+        })
+        expect(restoreAnchor(el, captured)).toBe(viewport.scrollTop)
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    }
+  )
+
   it('a1 ignores a part ending exactly at the top and a caret from another viewport', () => {
     const past = makeEl({ 'data-part-key': 'past' }, [], { top: 50, height: 50 })
     const first = makeEl({ 'data-part-key': 'first' }, [], { top: 100, height: 20 })
