@@ -5,9 +5,20 @@ import {
   type GestureEvent,
   type GestureState
 } from './selectionGuard'
+
+export const VIRTUAL_SELECTION_SCOPE = '[data-virtual-selection-scope]'
+
+function ownsEndpoint(scope: HTMLElement, node: Node | null): boolean {
+  if (!node || !scope.contains(node)) return false
+  const element = node.nodeType === 1 ? (node as Element) : node.parentElement
+  const nearest = element?.closest(VIRTUAL_SELECTION_SCOPE)
+  return !nearest || nearest === scope
+}
+
 export function usePanelSelection(
   root: RefObject<HTMLElement | null>,
-  documentKey: string
+  documentKey: string,
+  scope = root
 ): { notify: () => void; suppressed: boolean; onPointerDown: (event: { button: number }) => void } {
   const gesture = useRef<GestureState>('idle')
   const inside = useRef(false)
@@ -28,9 +39,10 @@ export function usePanelSelection(
     (selection: Selection | null | undefined): boolean =>
       !!selection &&
       !selection.isCollapsed &&
-      !!root.current &&
-      (root.current.contains(selection.anchorNode) || root.current.contains(selection.focusNode)),
-    [root]
+      !!scope.current &&
+      (ownsEndpoint(scope.current, selection.anchorNode) ||
+        ownsEndpoint(scope.current, selection.focusNode)),
+    [scope]
   )
   useEffect(() => {
     const changed = (): void => {

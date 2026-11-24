@@ -1,13 +1,7 @@
-import {
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  type CSSProperties,
-  type ReactNode,
-  type RefObject
-} from 'react'
+import { useCallback, useRef, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { VirtualRowMountContext } from './rowMount'
 import { usePanelSelection } from './usePanelSelection'
+import { useRowScrollAnchor } from './useRowScrollAnchor'
 import { useVirtualRows } from './useVirtualRows'
 
 export interface CatalogRowPosition {
@@ -48,32 +42,7 @@ function CatalogWindow<Item>({
   const root = useRef<HTMLUListElement>(null)
   const getItemKey = useCallback((index: number) => keyOf(items[index]), [items, keyOf])
   const list = useVirtualRows(items.length, root, owner, undefined, getItemKey, estimateCatalogRow)
-  const anchor = useRef<{
-    items: readonly Item[]
-    documentKey: string
-    key: string
-    offset: number
-  } | null>(null)
-  useLayoutEffect(() => {
-    const scroll = owner.current
-    if (!scroll) return
-    const previous = anchor.current
-    if (previous && previous.items !== items && previous.documentKey === documentKey) {
-      const index = items.findIndex((item) => keyOf(item) === previous.key)
-      const target = index < 0 ? undefined : list.getOffsetForIndex(index, 'start')
-      if (target) list.scrollToOffset(target[0] + previous.offset)
-    }
-    const capture = (): void => {
-      const row = list.getVirtualItemForOffset(scroll.scrollTop)
-      anchor.current =
-        row && typeof row.key === 'string'
-          ? { items, documentKey, key: row.key, offset: scroll.scrollTop - row.start }
-          : null
-    }
-    capture()
-    scroll.addEventListener('scroll', capture)
-    return () => scroll.removeEventListener('scroll', capture)
-  }, [items, owner, list, documentKey, keyOf])
+  useRowScrollAnchor(list, owner, items, documentKey, keyOf)
   return (
     <ul
       ref={root}

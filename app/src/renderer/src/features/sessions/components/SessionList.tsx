@@ -4,6 +4,7 @@ import type { SessionListItem } from '../../../../../shared/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { isPinnedSession } from '../lib/sessionPlacement'
 import { useNavSections } from '../hooks/useNavSections'
+import { SidebarRows } from './SidebarRows'
 import type { RecentSessions } from '../lib/navSections'
 
 // 미물질화 draft nav 행(0064 r4 fork/handoff + 0065 활성 '새 대화'). chat feature 의
@@ -70,19 +71,23 @@ export const SessionListView = memo(function SessionListView({
           renameable={false}
         />
       ))}
-      {sessions.map((s) => (
-        <SessionRow
-          key={s.id}
-          session={s}
-          appearance={agentAppearance(s.agentKind)}
-          isActive={s.id === currentSessionId}
-          onSelect={onSelect}
-          onDelete={onDelete}
-          onRename={onRename}
-          onTogglePin={onTogglePin}
-          pinned={isPinnedSession(s)}
-        />
-      ))}
+      <SidebarRows
+        items={sessions}
+        documentKey="recent-sessions"
+        renderRow={(s) => (
+          <SessionRow
+            key={s.id}
+            session={s}
+            appearance={agentAppearance(s.agentKind)}
+            isActive={s.id === currentSessionId}
+            onSelect={onSelect}
+            onDelete={onDelete}
+            onRename={onRename}
+            onTogglePin={onTogglePin}
+            pinned={isPinnedSession(s)}
+          />
+        )}
+      />
     </>
   )
 })

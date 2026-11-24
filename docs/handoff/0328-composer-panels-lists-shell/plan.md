@@ -583,6 +583,98 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 
 ---
 
+## [구현자 기입] 설계 리뷰 (r1.2)
+
+- **타당한 부분** 같은 상호작용에서 T1+T2와 T3+T4+T5를 각각 계산했다. C1·C2는 별도 열로 기록했다.
+- **이견 / 현실성 문제** r1의 R-H 단위 지적은 rev 5로 해소됐다. 기준의 일곱 조회는 R-H가 꺼졌고, 창 및 셸 비용은 따로 관측했다.
+- **열거 차이** §10의 14개 술어를 다시 실행했다. 같은 어휘에 걸리는 타입·주석도 포함한 원시 검색 결과다. [검색 좌표와 개수](evidence/r1.2-sweep.tsv)
+- **착수 대조** 원격 추적 브랜치로 리베이스했다. 기준 `c7d2adf2`의 앱 소스를 독립 worktree에서 실행했다. [전후 측정](evidence/r1.2-measurements.md)
+
+## [구현자 기입] 강제 지점 전수 (§10 대조) (r1.2)
+
+| V pair / 강제 지점 | §10이 적은 지점 | 자기확인 | 이번 실행의 직접 관측 | 남긴 곳 |
+|---|---|---|---|---|
+| VP-01·13·16·22 / Q20 | ①~⑦ | `SELF_BLOCKED` | S-D1 제품 파일 핸들러→창 포트→`MentionAutocomplete`, 2만 항목·DOM 8행. R-H 끔으로 ⑦ 자리 0. | ①~⑥의 모든 카탈로그·토큰·watch 재연결 조합 |
+| VP-02a·02b·14·17·20·24·26·28 / EP2·WL | EP2 ①~⑥ · WL ①~④ · EP11 ①~④ | `SELF_BLOCKED` | `ComposerInputController`, `useAttachments.views`, `client.lanes`, `client.queue`, 헤더 oracle 및 r1 Electron 원본. | 실제 입력 3종→원본 저장/재열기, 독립 레인 오류/취소 전 조합 |
+| VP-03·09·15·21 / EP3·EP9 | EP3 ①~⑥ · EP9 ①~③ | `SELF_BLOCKED` | r1 계획 문단/댓글·입력 높이 Electron 증거 및 `planComments` 단위 경로. | 전후 동일 선택/본문 교체 재생, Windows IME |
+| VP-04·13·16·22 / Q28 | ①~④ | `SELF_BLOCKED` | 제품 data 응답과 59행 사이드바, `session-1` 클릭 결과. `SearchModal.test.ts`의 지연 응답·검색 이동·스니펫. | DB 고정·삭제와 창, 검색어 2개 및 메시지 ID를 한 재생에서 연결 |
+| VP-05·07·13·16·22 / EP5·EP7 | EP5 ①~③ · EP7 ①~③ | `SELF_BLOCKED` | r1 기존 codec과 일·주 집계 기록, 전체 Vitest의 폼·차트 테스트. | 동일 입력 전후의 실제 폼, 카탈로그, 차트 DOM·포인터·paint 및 데이터 집계 |
+| VP-06·13·16·22 / Q30 | ①~③ | `SELF_BLOCKED` | 50개 저장·20개 전송, 100개 목록의 DOM 26행, `task-0` 상세. `RunHistoryPanel.interaction.test.ts`의 전환 시 응답 격리. | 보관 출력과 실행 ID·절단을 실제 전달부터 열기까지 연결 |
+| VP-08·18·23 / EP8 | ①~④ | `SELF_BLOCKED` | `install-status.test.ts`에서 실제 Claude 완료 1건·로그 0건, 분할 출력이 terminal보다 앞섰다. r1 진단 대화상자 기록. | 실제 handler·포트·구독·archive가 통하는 전체 재생 |
+| VP-10 / EP10 | ①~③ | `SELF_PASS` | `--shell`에서 존재 CSS·누락 CSS·SPA·루트 각각 250건 본문·MIME, BrowserWindow에서 deep link DOM 확인. | Windows 설치본은 0330 |
+| VP-11 / EP11 | ①~④ | `SELF_PASS` | 레거시 언어·위치 복구, 정상 창 close 뒤 재개방, 실제 최소·최대 상태의 위치 보존, 회전·쓰기 거부·장애·종료 JSONL. | Windows 설치본은 0330 |
+| VP-19·24 / EP10·EP11·EP2 | EP10 ①~③ · EP11 ①~④ · EP2 ①~⑥(VP-24) | `SELF_BLOCKED` | Linux 창 모드와 파일 동작 및 r1 첨부 파일 표시 회귀. | 호스트와 함께 설치 앱 재시작, 첨부 원본 재열기 |
+| VP-12·25 / EP12 | ①~④ | `SELF_BLOCKED` | `--host` 및 `--compare` 기본 조합, 판정 함수 실측·누락·환경·출처 단언, 0330 링크. | S-D 전체 전후 구간, 프레임 누락 및 미측정 사례 |
+| VP-27·29·30 / VL | ①~④ | `SELF_BLOCKED` | `useVirtualRows` 행 ID, `rowMount` 같은 행 수의 새 ID, `usePanelSelection` 공용 owner 안 형제·중첩 목록 보존. | 실제 DOM에서 높이 유지, 삭제·삽입과 드래그 후 모든 목록의 합성 oracle |
+
+## [구현자 기입] 이번 라운드 수정의 잠금 (r1.2)
+
+| 종류 | 대상 | 단일 변이·직접 oracle | 관측 |
+|---|---|---|---|
+| 새 oracle | R-H 창 비교 | 창 시간 비교 제거, `R-H uses elapsed host and window time` | `on`과 `off` 불일치 |
+| 새 oracle | R-H 조사 경계 | `≥`를 `>`로 교체, 동일 테스트 | 50ms 경계 불일치 |
+| 새 oracle | R-H 단위 | 창 합에 DOM 행 수 추가, 동일 테스트 | 큰 행 수에서 판정 불일치 |
+| 새 oracle | EP12 구간 | T2 필수 조건 제거, `missing timing makes R-H and host-related R-R unavailable` | 누락을 검출 |
+| 새 oracle | R-R task | T5를 동기 작업 판정에 넣음, `R-R uses task duration and synchronous processing` | 프레임 대기 단독 입력 불일치 |
+| 새 oracle | EP12 출처 | 실제/진단 출처 비교 제거, `comparison checks build provenance` | 비교가 잘못 허용됨 |
+| 인용 변이 | VL 행 키 | `getItemKey` 연결 제거, `uses stable row IDs` | 문자열 ID가 인덱스로 바뀜 |
+| 인용 변이 | VL 선택 범위 | 목록 root를 스크롤 owner로 교체, `a newly mounted row only cancels the selection in its own list` | 형제 선택도 지워짐 |
+| 새 oracle | VL 중첩 | 최인접 목록 확인 제거, 동일 테스트 | 중첩 목록의 선택도 지워짐 |
+| 새 oracle | EP11 손상 | 상태 파일 `clearInvalidConfig` 비활성화, `--shell` | `SyntaxError` 및 진단 실패 |
+
+선택 증거 0 · 인용 변이 2 · 새 oracle 8 · 별도 전수 sweep 0 = 표 10행. 이 표는 실제 수행한 교체 기록이다. 두 셸 pair의 직접 시나리오 결과는 측정 원본에 있다. 행마다 요구된 변이의 전수 실행은 남아 있다. [검사 결과](evidence/r1.2-gates.md)
+
+## [구현자 기입] Product/UX 파생 검토 (r1.2)
+
+| 질문 | 판정 | 후속 |
+|---|---|---|
+| 새로 만든 사용자 대면 문구·상태에 소비자가 있는가 | 기존 예약 행과 상세 창을 재사용했다. | 마지막 예약 상세를 실제 DOM ID로 확인. |
+| seam을 만들려고 production을 재배치했다면 정리 코드가 보던 변수가 여전히 그 스코프에 있는가 | 행 선택과 스크롤 소유자는 각각 DOM ref로 전달된다. | 형제와 중첩 목록의 선택을 별도로 관측. |
+| 이번에 만든 실패 경로가 Part I 상태 전이표의 어느 행인가 | 셸 상태 파일이 읽히지 않을 때 레거시 언어·위치를 승계한다. | 손상 파일의 전후 실제 값을 확인. |
+| 실패가 화면에서 아무 일도 안 일어남으로 보이지 않는가 | 기본 한국어·좌표 없음, 레거시 승계, 자체 상태 복원 순서가 확인됐다. | 최소·최대 창은 기존 좌표를 보존했다. 로그 쓰기 거부는 실패 transport를 비활성화하고 한 번 기록했다. |
+| 늦게 도착한 응답이 화면을 되돌리지 않는가 | 기존 예약·검색 응답 격리 oracle을 재실행했다. | 포트 기반 두 입력의 같은 재생은 잔여. |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (r1.2)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 파일 JSON 구문 오류가 자체 데이터 검증 이전에 예외를 일으켰다. | 셸 상태 store에 손상 복구 옵션을 적용했다. | S-D10b 기준 `SyntaxError`, 적용 `en/x=5`. |
+| 2 | 공용 스크롤 owner로 선택 소유권을 판단하면 형제·중첩 목록의 선택을 지운다. | 가상 목록 범위와 가장 가까운 목록 경계를 사용한다. | `usePanelSelection.test.ts`에서 세 소유권 및 단일 변이. |
+| 3 | 산출물 DOM 가시화 이후 기존 IPC 비용이 중앙값 50ms를 넘는다. | §19 기준 판정을 보존하고 적용 값과 응답 크기를 남겼다. | S-D4 산출물 행, 적용 호스트·포트 중앙값 79.0ms. |
+
+### 설계 대비 명시적 차이
+
+| 축 | 대체물에만 있는 실패 모드 | 재확인한 AC·§10 행 / 관측 |
+|---|---|---|
+| 만료 | 적용 목록에서 작은 목록으로 바뀌면 가상 row가 교체된다. | VL. 기존 같은 ID의 측정값 전수 재생은 잔여. |
+| 공유 | 같은 sidebar scroller에서 부모·자식 목록이 함께 움직인다. | VL ④. 형제·중첩 범위 보존과 자기 범위 취소. |
+| 재진입 | 뷰포트 밖 마지막 행이 DOM에 없다가 스크롤 뒤 나타난다. | Q28·Q30. 실제 마지막 ID의 클릭과 상세 DOM. |
+| 다른 무효화 축 | 레거시 기준과 현재 저장 좌표가 다르다. | EP11 ①②. 일반 close 및 자체 상태 손상에서 결과가 각각 `x=37`, `x=5`. |
+
+## [구현자 기입] 구현 보고 (r1.2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 사이드바·예약 가상 행, 선택 범위, 셸 상태 복구, data host/창 및 셸 측정, 관련 단위 테스트와 인계 문서 |
+| 실행 명령 | `--host [--baseline]` · `--compare` · `--shell [--baseline]` · 통합 Vitest/스크립트 · lint/typecheck · CI 소스 가드 · 호스트/프리로드 smoke |
+| **관측한 게이트 산출** | [r1.2 게이트](evidence/r1.2-gates.md) |
+| **추가·수정 테스트의 subtree 규칙** | [r1.2 게이트](evidence/r1.2-gates.md) |
+| V-pair 자기확인 | 위 강제 지점 표와 [전후 실측](evidence/r1.2-measurements.md) |
+| 강제 지점 전수 | 14개 검색 술어 재실행, 선택한 단일 변이 10건 관측. 전체 자리와 변이의 연결은 잔여. |
+| **AC 자기보고** | ✅ AC10·AC11. ⚠️ AC1·2a·2b·3~9·12~14. AC2a의 즉시 초안 정리·초점은 단위 시험에서 확인했다. 미리보기를 보류한 이미지 5개와 같은 창 재생은 잔여다. |
+| **합계 검산** | ✅ 2 · ⚠️ 13 · ❌ 0 = 총 15 |
+| 블로커 / 역질문 | Windows 설치본·IME·창 모드는 0330 인계. Linux 전후 전수 스윕 및 전체 경로 관측 잔여. 새 설계 결정을 요구하는 항목 없음. |
+| 대상 커밋 | `(r1.2 구현 — 좌표는 INDEX)` |
+
+## [구현자 기입] Review Signals — 사실만 (r1.2)
+
+- **이번에 닫은 불변식이 이전 라운드와 같은 축인가** 단위 누락은 rev 5에서 정의됐고 이번 턴은 실제 호스트·포트·창으로 재생했다.
+- **그것을 막았어야 할 plan 지침·AC가 있었는가, 있었다면 왜 안 걸렸는가** AC11의 손상 JSON은 기존 상태 테스트에서 레거시 JSON 예외로만 재생됐고 실제 셸 store의 생성 경계는 관측하지 않았다.
+- **반복해서 부딪히는 환경 한계** Linux 실행의 Windows 경로 의존 테스트, Windows 설치본의 창 모드와 IME 미측정.
+- **현재 라운드·impl 턴** `r1.2`
+
+---
+
 ## [검증자 기입] 파생 이슈
 
 | # | 이슈 | 출처 pair / 계약·gate | 대응 방향 | 발견 분류 | disposition | 상태 |

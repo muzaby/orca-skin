@@ -62,7 +62,7 @@
 | [0325 AC19 §19](../0325-ui-responsiveness-followup/plan.md) | `ee8ac81` ↔ A의 기계 PASS 빌드, S1~S8, F1~F5·I1~I9의 진단/설치/Windows 함수 재측정 세 벌. 기록 완결은 0325가 판정한다. |
 | [0326 AC33 §19](../0326-transcript-incremental-model/plan.md) | B 기계 PASS 뒤 직전 ↔ B. S1~S9 및 S7d를 원문 빌드 매트릭스대로 한다. S3~S5·S7d는 진단 fixture 행, S7은 유효 응답 3회까지 최대 6회. J 계수·함수 표는 순수 측정으로 보존한다. |
 | [0327 AC30 §19](../0327-worker-protocol-visible-views/plan.md) | B 기계 PASS ↔ C 구현. 0327 V1 rev 3 + ΔV1의 S-C0~S-C9, F5~F9·K1~K11·K13. 설치·진단 빌드 기록 완결 여부를 C에 남긴다. |
-| [0328 §19](../0328-composer-panels-lists-shell/plan.md) | S-D1~S-D10. 특히 S-D2 즉시 전송, S-D3 계획 폭 드래그, S-D8 설치 로그, S-D10 셸. S-D8 폭주 진단 생산자와 실제 설치 terminal 이벤트를 구별한다. |
+| [0328 §19](../0328-composer-panels-lists-shell/plan.md) | S-D1~S-D10. 특히 S-D2 즉시 전송, S-D3 계획 폭 드래그, S-D8 설치 로그, S-D10 셸. S-D8 폭주 진단 생산자와 실제 설치 terminal 이벤트를 구별한다. [Linux 원본과 Windows 재현 항목](../0328-composer-panels-lists-shell/evidence/r1.2-measurements.md) |
 | [0329 §19](../0329-turn-history-paging/plan.md) | S-E1 최근 턴 첫 paint, S-E2 이전 턴 당김·앵커·재시도, S-E3 live와 세션 재전환, S-E4 큰 본문·턴 내부 연속 조각, S-E5 상단 검색 결과 선택→대상 메시지 표시·행 강조, 세션 전체 작업·다른 미로딩 소비자·전체 복구. 실행한 E revision과 적용한 소비자별 결정을 함께 적는다. |
 
 제품 수정, 새 SLA 선정, 원소유자의 기계 PASS 선언은 해당 결정권자에게 귀속한다. W는 원자료 수집·재현·검산과 통합 빌드에서 되돌아온 결함의 식별을 맡는다.

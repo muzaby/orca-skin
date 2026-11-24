@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { InstallStatus } from '../../../shared/ipc'
+import { ClaudeAdapter } from '../../adapters/claude/adapter'
 import { forwardInstallStatus } from './install-status'
 
 async function* statuses(...records: InstallStatus[]): AsyncGenerator<InstallStatus> {
@@ -8,6 +9,12 @@ async function* statuses(...records: InstallStatus[]): AsyncGenerator<InstallSta
 }
 
 describe('installation status forwarding', () => {
+  it('forwards one terminal event and zero log batches from the Claude installer', async () => {
+    const sent: InstallStatus[] = []
+    await forwardInstallStatus(new ClaudeAdapter().install(), (item) => sent.push(item))
+    expect(sent).toEqual([{ step: 'complete', done: true }])
+  })
+
   it('keeps exact output across chunk boundaries and flushes it before terminal', async () => {
     const long = 'a'.repeat(16 * 1024 - 2) + '🐬' + '끝'.repeat(22_000)
     const sent: InstallStatus[] = []
