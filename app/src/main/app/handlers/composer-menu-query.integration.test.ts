@@ -85,11 +85,11 @@ describe('open composer file menu through data IPC', () => {
     const sender = windowClient(1)
     expect(await list(cwd, sender, 'active')).toEqual([])
     await rename(folder, join(cwd, 'moved'))
-    await vi.waitFor(() => expect(sender.sent.length).toBeGreaterThan(0))
+    await vi.waitFor(() => expect(sender.sent.length).toBeGreaterThan(0), { timeout: 3000 })
     const previous = sender.sent.length
     await mkdir(folder)
     await writeFile(join(folder, 'new.txt'), '')
-    await vi.waitFor(() => expect(sender.sent.length).toBeGreaterThan(previous))
+    await vi.waitFor(() => expect(sender.sent.length).toBeGreaterThan(previous), { timeout: 3000 })
     expect(await list(cwd, sender, 'active')).toEqual([{ name: 'new.txt', isDirectory: false }])
     const recovered = sender.sent.length
     await writeFile(join(folder, 'later.txt'), '')

@@ -51,3 +51,61 @@ it('rechecks a renamed directory by identity, reopens it once, and detaches all 
   expect(b.watchers()).toBe(0)
   expect(vi.getTimerCount()).toBe(0)
 })
+
+it('recovers a silently moved folder and stops checking when the last owner closes', async () => {
+  vi.useFakeTimers()
+  const readIdentity = vi.fn(async () => 'original')
+  const changes = vi.fn()
+  const watchDir = vi.fn(() => Object.assign(new EventEmitter(), { close: vi.fn() }))
+  const deps = {
+    readIdentity,
+    watch: watchDir as unknown as typeof watch,
+    checkSilentMoves: true
+  }
+  const observe = createFolderObservations(changes, deps)
+  const sender = fakeClient(1)
+  await observe(sender, {
+    cwd: '/workspace',
+    relDir: 'active',
+    observation: { owner: 'menu', active: true }
+  })
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(changes).not.toHaveBeenCalled()
+  readIdentity.mockRejectedValueOnce(new Error('ENOENT'))
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(changes).toHaveBeenCalledTimes(1)
+  expect(watchDir.mock.results[0].value.close).toHaveBeenCalledOnce()
+  readIdentity.mockResolvedValue('replacement')
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(watchDir).toHaveBeenCalledTimes(2)
+  expect(changes).toHaveBeenCalledTimes(2)
+  // A move and recreation can both finish between checks.
+  readIdentity.mockResolvedValue('second replacement')
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(changes).toHaveBeenCalledTimes(3)
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(watchDir).toHaveBeenCalledTimes(3)
+  let finish!: (identity: string) => void
+  readIdentity.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      })
+  )
+  await vi.advanceTimersByTimeAsync(1000)
+  sender.close()
+  finish('stale')
+  await vi.advanceTimersByTimeAsync(5000)
+  expect(changes).toHaveBeenCalledTimes(4)
+  expect(vi.getTimerCount()).toBe(0)
+
+  const next = fakeClient(2)
+  await observe(next, {
+    cwd: '/workspace',
+    relDir: 'active',
+    observation: { owner: 'menu', active: true }
+  })
+  expect(vi.getTimerCount()).toBe(1)
+  next.close()
+  expect(vi.getTimerCount()).toBe(0)
+})
