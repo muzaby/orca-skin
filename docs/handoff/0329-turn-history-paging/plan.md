@@ -762,7 +762,7 @@ r1.2는 기능 구현부터 이어 간다. WU-0의 측정 장치(`measure-stage-
 |---|---|
 | 변경 파일 | renderer 공통 viewport·HistoryEdge·제스처·스크롤 판정, Claude·OpenCode Timeline, 한·영 카탈로그, `check-transcript-history.mjs`·진단 진입점, 제스처 테스트, web 타입 검사 목록, app 가이드, 증거, INDEX |
 | 실행 명령 | `xvfb-run -a node scripts/check-transcript-history.mjs`, CI 가드, ESLint, typecheck, Vitest, `node --test scripts/*.test.mjs`, electron-vite 빌드 및 host·preload smoke |
-| 관측한 게이트 산출 | Q4b′ 18개 중 12개 실패. 제스처·뷰포트·두 하네스·타이포 관련 63파일 505건 및 Node 스크립트 1,104건 통과. 문서·마이그레이션·제품명·테스트 예산·UI 스레드 가드, 타입 검사, 번들·호스트·preload 스모크 통과. ESLint 오류 0·기존 경고 12. Linux 전체 Vitest에서 실패한 9파일을 기준 커밋에서 다시 실행해 같은 22건 및 미처리 rejection 1건을 재현했다. 전체 실행의 최종 집계는 별도 대조한다. |
+| 관측한 게이트 산출 | Q4b′ 18개 중 12개 실패. 제스처·뷰포트·두 하네스·타이포 관련 63파일 505건 및 Node 스크립트 1,104건 통과. 문서·마이그레이션·제품명·테스트 예산·UI 스레드 가드, 타입 검사, 번들·호스트·preload 스모크 통과. ESLint 오류 0·기존 경고 12. Linux 전체 Vitest는 1,136파일 중 1,123 통과·9 실패·4 생략, 10,751건 통과·22건 실패·예상 실패 1·생략 11이었다. 기준 커밋에서 9파일(107건)을 재실행해 실패한 테스트명 22개의 양방향 차집합이 비었고 같은 native-resources 테스트의 미처리 rejection 1건도 재현됐다. |
 | 추가·수정 테스트의 subtree 규칙 | 변경된 Vitest 파일 1개. 가짜 시각을 값으로 전달하는 unit 4건. 실시간 대기·파일시스템·exe 호출 0 |
 | V-pair 자기확인 | SELF_PASS 0 / SELF_BLOCKED 16 |
 | 강제 지점 전수 | 0/54. 부분 실행은 위 표에 기록 |
