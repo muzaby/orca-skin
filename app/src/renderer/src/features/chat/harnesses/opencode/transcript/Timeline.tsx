@@ -33,6 +33,7 @@ const policy = transcriptPresentation('code', 'opencode')
 const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 
 export const OpenCodeTimeline = memo(function OpenCodeTimeline({
+  history,
   messages,
   showAutomaticFeeds,
   inflight,
@@ -135,6 +136,7 @@ export const OpenCodeTimeline = memo(function OpenCodeTimeline({
             sizeCache={state.sizes}
             anchorKey={state.anchor?.key}
             footer={footer}
+            history={history}
             hasPartMarkers={(block) =>
               block.kind === 'user' ||
               (block.kind === 'segment' &&

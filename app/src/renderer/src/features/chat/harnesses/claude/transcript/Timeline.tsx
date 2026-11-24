@@ -32,6 +32,7 @@ const gaps = { 0: '', 8: 'pt-[8px]', 16: 'pt-[16px]', 24: 'pt-[24px]' } as const
 export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
   agentKind,
   backend = 'claude',
+  history,
   messages,
   pendingSteer,
   onRestoreSteerDraft,
@@ -136,6 +137,7 @@ export const ClaudeTranscriptView = memo(function ClaudeTranscriptView({
           estimateSizePx={140}
           enableReserveGap={anchored}
           footer={footer}
+          history={history}
           hasPartMarkers={(block) =>
             block.kind === 'user' ||
             block.kind === 'activity' ||

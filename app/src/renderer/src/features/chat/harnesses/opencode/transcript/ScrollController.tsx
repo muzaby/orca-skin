@@ -1,15 +1,11 @@
+import { nestedScrollConsumes } from '../../../lib/transcript/viewport/scrollGeometry'
 import { writeScrollTop } from '../../../components/transcript/TranscriptViewport'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ScrollAnchor } from '../../common/transcript/scrollTypes'
 import { entryPolicy } from '../../../lib/transcript/viewport/entry'
 import { consumeEntryIntent } from '../../../store/chatStore'
 import { TimelineScrollContext, type TimelineScroll } from './scrollContext'
-import {
-  canConsumeScroll,
-  isTimelineBottom,
-  nextTimelinePin,
-  shouldShowTimelineJump
-} from './scrollPolicy'
+import { isTimelineBottom, nextTimelinePin, shouldShowTimelineJump } from './scrollPolicy'
 import { timelineViewState } from './viewState'
 const geometry = (el: HTMLDivElement): { top: number; height: number; viewport: number } => ({
   top: el.scrollTop,
@@ -116,35 +112,19 @@ export function OpenCodeScrollController({
     } else if (placement.action === 'restore-saved') {
       writeTop(placement.saved.scrollTop)
     }
-    const nested = (target: EventTarget | null, direction = 0): boolean => {
-      if (!(target instanceof Element)) return false
-      // Markdown code fences are shared with Claude and need no harness-specific
-      // DOM changes. Respect their own vertical scroll region as well.
-      for (let node: Element | null = target; node && node !== el; node = node.parentElement) {
-        if (
-          canConsumeScroll(
-            { top: node.scrollTop, height: node.scrollHeight, viewport: node.clientHeight },
-            direction
-          ) &&
-          /auto|scroll/.test(getComputedStyle(node).overflowY)
-        )
-          return true
-      }
-      return false
-    }
     const unpin = (): void => {
       state.setPinned(false)
       capture()
     }
     const wheel = (event: WheelEvent): void => {
-      if (nested(event.target, event.deltaY)) return
+      if (nestedScrollConsumes(event.target, el, event.deltaY)) return
       gestureUntil.current = Date.now() + 250
       if (event.deltaY < 0) unpin()
     }
     const key = (event: KeyboardEvent): void => {
       const upward =
         ['ArrowUp', 'PageUp', 'Home'].includes(event.key) || (event.key === ' ' && event.shiftKey)
-      if (nested(event.target, upward ? -1 : 1)) return
+      if (nestedScrollConsumes(event.target, el, upward ? -1 : 1)) return
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
         gestureUntil.current = Date.now() + 250
         if (
@@ -155,7 +135,7 @@ export function OpenCodeScrollController({
       }
     }
     const down = (event: PointerEvent): void => {
-      if (nested(event.target)) return
+      if (nestedScrollConsumes(event.target, el)) return
       capture()
       held.current = true
     }

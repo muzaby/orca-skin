@@ -891,6 +891,13 @@ export const en: typeof ko = {
       roleUser: 'User'
     },
     transcript: {
+      historyEnd: 'End of conversation',
+      historyStart: 'Start of conversation',
+      historyPull: 'Loading previous messages',
+      historyRetry: 'Retry',
+      historyBefore: 'Show previous messages',
+      historyAfter: 'Show next messages',
+      historyLatest: 'Back to latest',
       reasoning: 'Reasoning',
       incompleteResponse: 'The response was not completed',
       showMore: 'Show more',

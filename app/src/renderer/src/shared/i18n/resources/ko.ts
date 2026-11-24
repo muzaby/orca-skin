@@ -898,6 +898,13 @@ export const ko = {
       roleUser: '사용자'
     },
     transcript: {
+      historyEnd: '대화 끝',
+      historyStart: '대화 시작',
+      historyPull: '이전 부분 불러오기',
+      historyRetry: '다시 시도',
+      historyBefore: '이전 부분 보기',
+      historyAfter: '다음 부분 보기',
+      historyLatest: '최신 대화로',
       reasoning: '사고 과정',
       incompleteResponse: '응답이 완료되지 않았습니다',
       showMore: '더 보기',

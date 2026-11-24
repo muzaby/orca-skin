@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const [origin, options] = process.argv.slice(-3)
 const { bundle, size, root } = JSON.parse(options)
-const fixture = await mkdtemp(join(tmpdir(), 'orca-stage-e-'))
+const fixture = await mkdtemp(join(tmpdir(), 'oo-stage-e-'))
 app.setPath('userData', fixture)
 app.whenReady().then(async () => {
   let host
