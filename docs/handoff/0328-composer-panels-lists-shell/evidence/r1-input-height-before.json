@@ -1,0 +1,273 @@
+{
+  "env": true,
+  "environment": "linux-electron",
+  "electron": "39.8.10",
+  "fixture": "S-D2 worker overlap",
+  "width": 4032,
+  "height": 3024,
+  "images": 5,
+  "label": "diagnostic",
+  "records": [
+    {
+      "imageTimesMs": [
+        86.80000000004657,
+        72.39999999990687,
+        72.5,
+        66.5,
+        63.89999999990687
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0.2000000000698492,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        87.20000000006985,
+        68.39999999990687,
+        64.70000000006985,
+        63.90000000002328,
+        96.5
+      ],
+      "visibleComputeWaitMs": 0.19999999995343387,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        72.80000000004657,
+        73,
+        72.79999999993015,
+        64.70000000006985,
+        69.29999999993015
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        69.09999999997672,
+        66.30000000004657,
+        64.70000000006985,
+        67.89999999990687,
+        71.09999999997672
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        86.5,
+        72.40000000002328,
+        71.30000000004657,
+        70.5,
+        67.29999999993015
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        95.90000000002328,
+        80.19999999995343,
+        67.30000000004657,
+        71.90000000002328,
+        82.90000000002328
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        94.19999999995343,
+        76.59999999997672,
+        92.5,
+        75.5,
+        93.90000000002328
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.09999999997671694,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        97.5,
+        101.69999999995343,
+        129.59999999997672,
+        83.10000000009313,
+        82.39999999990687
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        83.40000000002328,
+        88.90000000002328,
+        78.90000000002328,
+        184.40000000002328,
+        65.59999999997672
+      ],
+      "visibleComputeWaitMs": 0.09999999997671694,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    }
+  ],
+  "heightRecords": [
+    {
+      "run": 1,
+      "characters": 2000,
+      "commitMs": 10.20000000006985,
+      "paintUpperBoundMs": 32.19999999999982,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 1,
+      "characters": 20000,
+      "commitMs": 167.29999999993015,
+      "paintUpperBoundMs": 183.1999999999298,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 2,
+      "characters": 2000,
+      "commitMs": 33,
+      "paintUpperBoundMs": 48.40000000002328,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 2,
+      "characters": 20000,
+      "commitMs": 214.19999999995343,
+      "paintUpperBoundMs": 233.29999999997654,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 3,
+      "characters": 2000,
+      "commitMs": 8.29999999993015,
+      "paintUpperBoundMs": 32.7999999999538,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 3,
+      "characters": 20000,
+      "commitMs": 220.09999999997672,
+      "paintUpperBoundMs": 233.30000000000018,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 4,
+      "characters": 2000,
+      "commitMs": 5.100000000093132,
+      "paintUpperBoundMs": 32.6000000000231,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 4,
+      "characters": 20000,
+      "commitMs": 209.90000000002328,
+      "paintUpperBoundMs": 216.49999999995362,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 5,
+      "characters": 2000,
+      "commitMs": 6.400000000023283,
+      "paintUpperBoundMs": 32.00000000002365,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 5,
+      "characters": 20000,
+      "commitMs": 146.59999999997672,
+      "paintUpperBoundMs": 164.49999999992997,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 6,
+      "characters": 2000,
+      "commitMs": 7.799999999930151,
+      "paintUpperBoundMs": 32.79999999993015,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 6,
+      "characters": 20000,
+      "commitMs": 145.40000000002328,
+      "paintUpperBoundMs": 149.6000000000231,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 7,
+      "characters": 2000,
+      "commitMs": 7.5,
+      "paintUpperBoundMs": 32.600000000000364,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 7,
+      "characters": 20000,
+      "commitMs": 143.09999999997672,
+      "paintUpperBoundMs": 149.39999999999964,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 8,
+      "characters": 2000,
+      "commitMs": 6.699999999953434,
+      "paintUpperBoundMs": 32.39999999995325,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 8,
+      "characters": 20000,
+      "commitMs": 182.59999999997672,
+      "paintUpperBoundMs": 199.89999999993051,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 9,
+      "characters": 2000,
+      "commitMs": 5,
+      "paintUpperBoundMs": 32.30000000002292,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 9,
+      "characters": 20000,
+      "commitMs": 171.89999999990687,
+      "paintUpperBoundMs": 182.39999999993051,
+      "height": 174,
+      "fieldSizing": true
+    }
+  ],
+  "budget": 50,
+  "decision": {
+    "p95": 101.69999999995343,
+    "max": 184.40000000002328,
+    "lane": "image"
+  },
+  "verdict": true
+}

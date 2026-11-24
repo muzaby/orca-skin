@@ -1,26 +1,24 @@
-import type { ComposerAttachment } from '../../../../../../../shared/ipc'
+import type { DraftAttachment } from '../../../lib/attachmentThumbs'
 import { AttachmentChip } from './AttachmentChip'
 
 interface AttachmentTrayProps {
-  attachments: ComposerAttachment[]
-  previews: Record<string, string>
-  onRemove: (index: number) => void
+  attachments: readonly DraftAttachment[]
+  onRemove: (id: string) => void
 }
 
 export function AttachmentTray({
   attachments,
-  previews,
   onRemove
 }: AttachmentTrayProps): React.JSX.Element | null {
   if (attachments.length === 0) return null
   return (
     <div className="mb-2 flex flex-wrap gap-2">
-      {attachments.map((attachment, index) => (
+      {attachments.map(({ id, source, thumbnail }) => (
         <AttachmentChip
-          key={`${attachment.name}-${index}`}
-          attachment={attachment}
-          previewUrl={previews[`${attachment.name}-${index}`]}
-          onRemove={() => onRemove(index)}
+          key={id}
+          attachment={source}
+          previewUrl={thumbnail.state === 'ready' ? thumbnail.dataUrl : undefined}
+          onRemove={() => onRemove(id)}
         />
       ))}
     </div>

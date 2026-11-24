@@ -65,6 +65,8 @@ import {
   type EngineUserSettingsResult,
   type EngineWriteResult,
   type FileEntry,
+  type FileFolderChanged,
+  type FileFolderObservation,
   type GitBranchList,
   type GitCheckoutRequest,
   type GitCheckoutResult,
@@ -296,8 +298,14 @@ export function createOo({ bridge, hosts, onHostLifecycle }: OoTransport) {
         invoke(CHANNELS.artifactTrash, req)
     },
     files: {
-      list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
-        invoke(CHANNELS.filesList, { cwd, relDir }),
+      list: (
+        cwd: string,
+        relDir: string,
+        observation?: FileFolderObservation
+      ): Promise<FileEntry[]> =>
+        invoke(CHANNELS.filesList, { cwd, relDir, ...(observation && { observation }) }),
+      onFolderChanged: (handler: (change: FileFolderChanged) => void): (() => void) =>
+        subscribe(CHANNELS.filesFolderChanged, handler),
       pickAttachments: (): Promise<PickedAttachment[]> => invoke(CHANNELS.filesPickAttachments),
       pickDirectory: (): Promise<string | null> => invoke(CHANNELS.filesPickDirectory),
       openPath: (req: OpenPathRequest): Promise<void> => invoke(CHANNELS.filesOpenPath, req),

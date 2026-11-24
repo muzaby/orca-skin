@@ -60,6 +60,7 @@ export const CHANNELS = {
   skillsShowInFolder: 'oo:skills:showInFolder',
   skillsRemove: 'oo:skills:remove',
   filesList: 'oo:files:list',
+  filesFolderChanged: 'oo:files:folder-changed',
   filesPickAttachments: 'oo:files:pickAttachments',
   filesPickDirectory: 'oo:files:pickDirectory',
   filesOpenPath: 'oo:files:openPath',
@@ -1259,6 +1260,18 @@ export interface SkillTargetRequest {
 export interface ListFilesRequest {
   cwd: string
   relDir: string
+  observation?: FileFolderObservation
+}
+
+export interface FileFolderObservation {
+  owner: string
+  active: boolean
+}
+
+export interface FileFolderChanged {
+  cwd: string
+  relDir: string
+  revision: number
 }
 
 export interface FileEntry {

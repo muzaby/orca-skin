@@ -16,6 +16,11 @@ import {
   useArtifactCatalogStore,
   type ArtifactCatalogTab
 } from '../store/artifactCatalogStore'
+import { CATALOG_VIRTUALIZE_AFTER } from '../../../shared/ui/virtual/limits'
+import {
+  VirtualCatalogList,
+  type CatalogRowPosition
+} from '../../../shared/ui/virtual/VirtualCatalogList'
 import { ArtifactCatalogRow } from './ArtifactCatalogRow'
 
 export interface ArtifactsViewProps {
@@ -45,6 +50,8 @@ export function ArtifactsView({
   const [query, setQuery] = useState('')
   const search = useCatalogSearch(() => setQuery(''))
   const id = useId()
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  const listScroller = useMemo(() => ({ current: scroller }), [scroller])
   const visible = useMemo(() => filterArtifactCatalog(items, tab, query), [items, tab, query])
   useEffect(() => {
     void refreshArtifactCatalog()
@@ -67,6 +74,23 @@ export function ArtifactsView({
       }
     })
   }
+  const renderRow = (
+    item: ArtifactCatalogItem,
+    position?: CatalogRowPosition
+  ): React.JSX.Element => (
+    <ArtifactCatalogRow
+      key={item.artifactFileId}
+      position={position}
+      item={item}
+      busy={!!busy[item.artifactFileId]}
+      selected={selectedFileId === item.artifactFileId}
+      onOpen={onOpen}
+      onPin={(entry) => {
+        void setCatalogArtifactPinned(entry, !entry.pinned)
+      }}
+      onDelete={deleteItem}
+    />
+  )
   return (
     <section
       data-artifact-catalog=""
@@ -74,6 +98,7 @@ export function ArtifactsView({
       className="relative flex min-h-0 min-w-0 flex-1 pb-2 pr-2"
     >
       <div
+        ref={setScroller}
         inert={viewerExpanded}
         data-artifact-catalog-list=""
         className="@container/catalog min-h-0 min-w-0 flex-1 overflow-y-auto"
@@ -150,21 +175,17 @@ export function ArtifactsView({
                   )}
                 </p>
               </div>
+            ) : visible.length > CATALOG_VIRTUALIZE_AFTER ? (
+              <VirtualCatalogList
+                items={visible}
+                owner={listScroller}
+                documentKey={JSON.stringify([tab, query])}
+                keyOf={artifactRowKey}
+                renderRow={renderRow}
+              />
             ) : (
               <ul className="m-0 list-none divide-y divide-border p-0">
-                {visible.map((item) => (
-                  <ArtifactCatalogRow
-                    key={item.artifactFileId}
-                    item={item}
-                    busy={!!busy[item.artifactFileId]}
-                    selected={selectedFileId === item.artifactFileId}
-                    onOpen={onOpen}
-                    onPin={(entry) => {
-                      void setCatalogArtifactPinned(entry, !entry.pinned)
-                    }}
-                    onDelete={deleteItem}
-                  />
-                ))}
+                {visible.map((item) => renderRow(item))}
               </ul>
             )}
           </div>
@@ -186,4 +207,8 @@ export function ArtifactsView({
       )}
     </section>
   )
+}
+
+function artifactRowKey(item: ArtifactCatalogItem): string {
+  return item.artifactFileId
 }

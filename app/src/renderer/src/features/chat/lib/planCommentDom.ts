@@ -1,10 +1,3 @@
-// 계획 본문(마크다운 렌더 DOM) 위에서 텍스트 선택 ↔ 오프셋 ↔ DOM Range ↔ 화면 rect 를
-// 매핑하는 헬퍼. 순수 함수 아님(브라우저 DOM 의존) — 시각 검증으로 갈음(AGENTS.md 규칙 4).
-//
-// 오프셋 일관성: 선택→오프셋은 `Range.toString().length`(컨테이너 시작~경계의 텍스트 길이),
-// 오프셋→Range 는 텍스트 노드 길이 누적으로 복원한다. 두 척도는 동일(텍스트 노드 data 길이의
-// 합 = pre-range toString 길이)하므로 왕복이 안정적이다.
-
 export interface PlanSelectionOffsets {
   start: number
   end: number
@@ -18,112 +11,131 @@ export interface OverlayRect {
   height: number
 }
 
-// 현재 Selection 을 컨테이너 textContent 기준 오프셋으로 변환. collapsed/공백/컨테이너 밖
-// 선택은 null.
-export function offsetsFromSelection(
-  container: HTMLElement,
-  selection: Selection
-): PlanSelectionOffsets | null {
-  if (selection.rangeCount === 0 || selection.isCollapsed) return null
-  const range = selection.getRangeAt(0)
-  if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
-    return null
-  }
-  const quote = range.toString()
-  if (quote.trim() === '') return null
-  const pre = range.cloneRange()
-  pre.selectNodeContents(container)
-  pre.setEnd(range.startContainer, range.startOffset)
-  const start = pre.toString().length
-  return { start, end: start + quote.length, quote }
+interface IndexedText {
+  node: Text
+  start: number
+  end: number
 }
 
-// 오프셋 → 텍스트 노드 + 로컬 offset. 경계(노드 끝)는 다음 검색에서 자연히 흡수된다.
-function locate(container: HTMLElement, target: number): { node: Text; offset: number } | null {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
-  let acc = 0
-  let last: Text | null = null
-  let node = walker.nextNode() as Text | null
-  while (node) {
-    const len = node.data.length
-    if (target <= acc + len) return { node, offset: target - acc }
-    acc += len
-    last = node
-    node = walker.nextNode() as Text | null
-  }
-  if (last && target === acc) return { node: last, offset: last.data.length }
-  return null
+interface TextBlock {
+  element: Element
+  start: number
+  end: number
 }
 
-// 오프셋 구간 → DOM Range 복원. 매핑 실패(본문 변경 등)면 null.
-export function rangeFromOffsets(container: HTMLElement, start: number, end: number): Range | null {
-  const a = locate(container, start)
-  const b = locate(container, end)
-  if (!a || !b) return null
-  const range = document.createRange()
-  try {
-    range.setStart(a.node, a.offset)
-    range.setEnd(b.node, b.offset)
-  } catch {
-    return null
-  }
-  return range
+export interface PlanCommentIndex {
+  text: string
+  blocks: readonly TextBlock[]
+  selection(selection: Selection): PlanSelectionOffsets | null
+  range(start: number, end: number): Range | null
+  rects(start: number, end: number, origin: DOMRect, visible: readonly TextBlock[]): OverlayRect[]
 }
 
-// Range 의 클라이언트 rect 들을 스크롤 컨테이너 콘텐츠 기준 좌표로 변환(절대배치 오버레이용).
-// 콘텐츠 좌표라 스크롤 위치와 무관하게 안정적이다(오버레이가 콘텐츠와 함께 스크롤).
+const BLOCK_ELEMENTS = 'p,li,pre,td,th,h1,h2,h3,h4,h5,h6,dt,dd'
 
-function rectToOverlay(r: DOMRect, container: HTMLElement, cRect: DOMRect): OverlayRect | null {
-  if (r.width <= 0 || r.height <= 0) return null
-  return {
-    top: r.top - cRect.top + container.scrollTop,
-    left: r.left - cRect.left + container.scrollLeft,
-    width: r.width,
-    height: r.height
-  }
-}
-
-function textNodeRectsForRange(range: Range): DOMRect[] {
-  const common = range.commonAncestorContainer
-  const root = common.nodeType === Node.TEXT_NODE ? (common.parentNode ?? common) : common
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!node.textContent || node.textContent.trim() === '') return NodeFilter.FILTER_REJECT
-      try {
-        return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
-      } catch {
-        return NodeFilter.FILTER_REJECT
+// The text and DOM boundaries use UTF-16 offsets, matching Range and String.slice.
+export function createPlanCommentIndex(root: HTMLElement): PlanCommentIndex {
+  const spans = new WeakMap<Node, { start: number; end: number }>()
+  const entries: IndexedText[] = []
+  const blocks: TextBlock[] = []
+  const chunks: string[] = []
+  let offset = 0
+  function visit(node: Node, block: Element): void {
+    const start = offset
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches(BLOCK_ELEMENTS)) {
+      block = node as Element
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node as Text
+      offset += text.length
+      if (offset > start) {
+        entries.push({ node: text, start, end: offset })
+        chunks.push(text.data)
+        const previous = blocks.at(-1)
+        if (previous?.element === block) previous.end = offset
+        else blocks.push({ element: block, start, end: offset })
       }
+    } else {
+      for (const child of node.childNodes) visit(child, block)
     }
-  })
-
-  const rects: DOMRect[] = []
-  let node = walker.nextNode() as Text | null
-  while (node) {
-    const start = node === range.startContainer ? range.startOffset : 0
-    const end = node === range.endContainer ? range.endOffset : node.data.length
-    const selected = node.data.slice(start, end)
-    if (start < end && selected.trim() !== '') {
-      const leading = selected.search(/\S/)
-      const trailing = selected.length - selected.trimEnd().length
-      const textRange = document.createRange()
-      textRange.setStart(node, start + Math.max(leading, 0))
-      textRange.setEnd(node, end - trailing)
-      rects.push(...Array.from(textRange.getClientRects()))
-      textRange.detach()
-    }
-    node = walker.nextNode() as Text | null
+    spans.set(node, { start, end: offset })
   }
-  return rects
-}
+  visit(root, root)
+  const text = chunks.join('')
 
-// Range 의 클라이언트 rect 들을 스크롤 컨테이너 콘텐츠 기준 좌표로 변환(절대배치 오버레이용).
-// 콘텐츠 좌표라 스크롤 위치와 무관하게 안정적이다(오버레이가 콘텐츠와 함께 스크롤).
-// 텍스트 노드별 부분 Range 로 측정해 줄 끝/블록 공백까지 칠해지는 브라우저 line-box rect 를 피한다.
-export function rectsForRange(range: Range, container: HTMLElement): OverlayRect[] {
-  const cRect = container.getBoundingClientRect()
-  const rects = textNodeRectsForRange(range)
-  return rects
-    .map((r) => rectToOverlay(r, container, cRect))
-    .filter((r): r is OverlayRect => r != null)
+  function offsetOf(node: Node, local: number): number | null {
+    const span = spans.get(node)
+    if (!span) return null
+    if (node.nodeType === Node.TEXT_NODE) return span.start + local
+    const child = node.childNodes.item(local)
+    return child ? (spans.get(child)?.start ?? null) : span.end
+  }
+
+  function firstAfter(position: number): number {
+    let low = 0
+    let high = entries.length
+    while (low < high) {
+      const mid = (low + high) >>> 1
+      if (entries[mid].end <= position) low = mid + 1
+      else high = mid
+    }
+    return low
+  }
+
+  return {
+    text,
+    blocks,
+    selection(selection) {
+      if (!selection.rangeCount || selection.isCollapsed) return null
+      const range = selection.getRangeAt(0)
+      const start = offsetOf(range.startContainer, range.startOffset)
+      const end = offsetOf(range.endContainer, range.endOffset)
+      if (start === null || end === null || start >= end) return null
+      const quote = text.slice(start, end)
+      return quote.trim() ? { start, end, quote } : null
+    },
+    range(start, end) {
+      if (start < 0 || start >= end || end > text.length) return null
+      const first = entries[firstAfter(start)]
+      const last = entries[firstAfter(end - 1)]
+      if (!first || !last) return null
+      const range = root.ownerDocument.createRange()
+      range.setStart(first.node, start - first.start)
+      range.setEnd(last.node, end - last.start)
+      return range
+    },
+    rects(start, end, origin, visible) {
+      if (start < 0 || start >= end || end > text.length) return []
+      const rects: OverlayRect[] = []
+      const range = root.ownerDocument.createRange()
+      for (const block of visible) {
+        const from = Math.max(block.start, start)
+        const to = Math.min(block.end, end)
+        if (from >= to) continue
+        for (
+          let index = firstAfter(from);
+          index < entries.length && entries[index].start < to;
+          index++
+        ) {
+          const entry = entries[index]
+          const begin = Math.max(from, entry.start)
+          const segment = text.slice(begin, Math.min(to, entry.end))
+          if (!segment.trim()) continue
+          range.setStart(entry.node, begin - entry.start + segment.search(/\S/))
+          range.setEnd(entry.node, begin - entry.start + segment.trimEnd().length)
+          for (const rect of range.getClientRects()) {
+            if (rect.width > 0 && rect.height > 0) {
+              rects.push({
+                top: rect.top - origin.top,
+                left: rect.left - origin.left,
+                width: rect.width,
+                height: rect.height
+              })
+            }
+          }
+        }
+      }
+      return rects
+    }
+  }
 }

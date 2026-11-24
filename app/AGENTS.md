@@ -162,6 +162,7 @@ Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일
 - `check-transcript-selection.mjs` — **transcript 선택·복사 실기 판정** (verify 실행 도구 — CI 단계에 넣지 않는다, 0326). 이미 devDependency 인 Electron 으로 세 화면(production `TranscriptView`)을 띄우고 `webContents.sendInputEvent` 의 실제 드래그·휠·키와 Electron `clipboard` 로 브라우저 기본 복사와 행 마운트 시 선택 취소를 판정한다(성능은 판정하지 않고 취소 시간만 기록). Electron 바이너리가 없으면 exit 3(`환경 없음`), 바이너리가 있는데 실행이 실패하면 exit 1. Linux 에서는 디스플레이가 필요하다(`xvfb-run -a node scripts/check-transcript-selection.mjs`). 순수 판정부는 `check-transcript-selection.test.mjs`.
 - `check-visible-views.mjs` — Git·산출물·transcript 7개 화면에서 선택·복사를 검증한다. Linux 실행은 `xvfb-run -a node scripts/check-visible-views.mjs`이며 통과 0, 실행·판정 실패 1, Electron 바이너리 없음 3을 반환한다.
 - `check-transcript-streaming.mjs`는 Electron에서 세 transcript 화면의 긴 Markdown 꼬리를 재생한다. 하단 추적과 위로 스크롤한 읽기 위치를 단계마다 측정한다. `xvfb-run -a node scripts/check-transcript-streaming.mjs`의 JSON에 단계별 실측값이 남는다. 종료 코드 0은 통과, 1은 실행 또는 판정 실패, 3은 Electron 바이너리 부재다.
+- `measure-stage-d.mjs` — 0328 Electron 진단. `xvfb-run -a node scripts/measure-stage-d.mjs`는 이미지 작업 대기·계획 댓글·설치 로그·입력 높이를 재생한다. `--catalogs`는 프로젝트·산출물 목록과 예약 이력의 DOM 비용을 센다. 검증된 진단의 종료 코드는 0, 실행·판정 실패는 1, Electron 바이너리 부재는 3이다.
 - `validate-dist.mjs` — 릴리스 산출물(installer/latest.yml/blockmap) sha512 재계산 검증.
 - `analyze-composer-input-trace.mjs` — Composer 입력 트레이스 분석 (0145 진단 도구).
 

@@ -290,7 +290,13 @@ export const DebugMockPatchSchema = z
 
 export const ListFilesRequestSchema = z.object({
   cwd: z.string().min(1),
-  relDir: z.string()
+  relDir: z.string(),
+  observation: z
+    .object({
+      owner: z.string().min(1).max(256),
+      active: z.boolean()
+    })
+    .optional()
 })
 
 export const OpenContextFileRequestSchema = z.object({

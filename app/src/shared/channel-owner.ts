@@ -47,6 +47,7 @@ export const CHANNEL_OWNER = {
   skillsShowInFolder: 'data',
   skillsRemove: 'data',
   filesList: 'data',
+  filesFolderChanged: 'data',
   filesPickAttachments: 'data',
   filesPickDirectory: 'data',
   filesOpenPath: 'data',

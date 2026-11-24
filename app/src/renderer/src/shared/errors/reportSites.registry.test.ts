@@ -307,9 +307,6 @@ export const sites: Site[] = [
     event: 'chat.attachment.pick-failed',
     title: 'attachFailed'
   },
-  // 0325 EP-9 — 전송 첨부 뷰의 경로 읽기 실패·썸네일 실패는 미리보기 없이 보낸다(보고하지 않는다).
-  { file: 'features/chat/lib/attachmentViews.ts', ordinal: 0, line: 23, disposition: 'EXCLUDE' },
-  { file: 'features/chat/lib/attachmentViews.ts', ordinal: 1, line: 44, disposition: 'EXCLUDE' },
   { file: 'features/chat/hooks/useDiffSyntax.ts', ordinal: 0, line: 36, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/hooks/useDirectoryPicker.ts',
@@ -336,9 +333,13 @@ export const sites: Site[] = [
     event: 'chat.mention.entries-failed',
     title: 'loadFailed'
   },
-  { file: 'features/chat/lib/imageThumb.ts', ordinal: 0, line: 32, disposition: 'EXCLUDE' },
-  { file: 'features/chat/lib/planCommentDom.ts', ordinal: 0, line: 67, disposition: 'EXCLUDE' },
-  { file: 'features/chat/lib/planCommentDom.ts', ordinal: 1, line: 94, disposition: 'EXCLUDE' },
+  {
+    file: 'features/chat/hooks/useMentionAutocomplete.ts',
+    ordinal: 2,
+    line: 211,
+    disposition: 'EXCLUDE'
+  },
+  { file: 'shared/compute/imageHeader.ts', ordinal: 0, line: 172, disposition: 'EXCLUDE' },
   { file: 'features/chat/lib/transcriptIndex.ts', ordinal: 0, line: 284, disposition: 'EXCLUDE' },
   {
     file: 'features/chat/lib/workToolPresentation.ts',
@@ -755,8 +756,7 @@ function silentMatches(file: string, text: string): string[] {
 }
 function expectedSilent(): string[] {
   return [
-    'features/chat/hooks/useAttachments.ts:0',
-    'features/chat/lib/attachmentViews.ts:0',
+    'features/chat/hooks/useMentionAutocomplete.ts:2',
     'features/chat/hooks/useDiffSyntax.ts:0',
     'features/chat/lib/nativeResourceState.ts:0',
     'features/chat/lib/nativeResourceState.ts:1',

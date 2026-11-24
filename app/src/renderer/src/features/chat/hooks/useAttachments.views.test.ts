@@ -1,10 +1,8 @@
-// 컴포저 훅의 전송 첨부 뷰 배선 (0325 EP-9 ⑤ · VP-29). 훅의 `buildAttachmentViews` 가 production 의존
-// (경로 읽기 · `downscaleDataUrl` · id)으로 `lib/attachmentViews` 에 위임하는지 본다.
 import { createElement, useLayoutEffect } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ComposerAttachment } from '../../../../../shared/ipc'
 import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
-import { installFakeCanvas } from '../lib/imageThumb.testfixture'
+import { fakeComputeClient } from '../../../shared/compute/fakeClient.testfixture'
+import { setComputeClient } from '../../../shared/compute/client'
 import { useAttachments, type UseAttachments } from './useAttachments'
 
 vi.mock('react', async (original) => ({
@@ -12,69 +10,113 @@ vi.mock('react', async (original) => ({
   ...(await import('../../../shared/ui/renderHarness.testfixture')).fakeHooks
 }))
 
-afterEach(() => vi.unstubAllGlobals())
-
 const hook = { value: undefined as unknown as UseAttachments }
-function Probe(): null {
-  const value = useAttachments()
+function Probe({ session = 'session' }: { session?: string }): null {
+  const value = useAttachments(session)
   useLayoutEffect(() => {
     hook.value = value
   })
   return null
 }
 
-function mount(readAttachment: (path: string) => Promise<unknown>): () => void {
+afterEach(() => {
+  setComputeClient(null)
+  vi.unstubAllGlobals()
+})
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- 테스트 fixture 반환값 추론.
+function mount() {
+  const compute = fakeComputeClient()
+  const request = vi.spyOn(compute.client, 'request')
+  setComputeClient(compute.client)
   const dom = installFakeDom({ innerWidth: 800, innerHeight: 600 })
-  Object.assign(window, { oo: { files: { readAttachment } } })
-  dom.render(createElement(Probe))
-  return () => dom.unmount()
+  const readAttachment = vi.fn(async (path: string) => {
+    if (path.includes('unreadable')) throw Error('unreadable')
+    return {
+      mimeType: 'image/png',
+      data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jR2sAAAAASUVORK5CYII='
+    }
+  })
+  const pickAttachments = vi.fn(async () => [
+    { name: 'a.png', path: '/tmp/a.png', mimeType: 'image/png', sizeBytes: 10 },
+    { name: 'a.png', path: '/tmp/b.png', mimeType: 'image/png', sizeBytes: 11 },
+    { name: 'unreadable.png', path: '/tmp/unreadable.png', mimeType: 'image/png', sizeBytes: 12 },
+    { name: 'notes.txt', path: '/tmp/notes.txt', mimeType: 'text/plain', sizeBytes: 13 }
+  ])
+  Object.assign(window, { oo: { files: { readAttachment, pickAttachments } } })
+  dom.render(createElement(Probe, {}))
+  return { dom, compute, request, readAttachment }
 }
 
-describe('useAttachments.buildAttachmentViews', () => {
-  it('inline·경로 이미지 모두 production 썸네일로 미리보기를 단다', async () => {
-    const readAttachment = vi.fn(async () => ({ mimeType: 'image/png', data: 'READ' }))
-    const unmount = mount(readAttachment)
-    installFakeCanvas({})
-    const items: ComposerAttachment[] = [
-      {
-        kind: 'inline',
-        data: 'DATA',
-        name: 'a.png',
-        mimeType: 'image/png',
-        sizeBytes: 3,
-        sourceKind: 'clipboard'
-      },
-      {
-        kind: 'path',
-        path: '/tmp/b.png',
-        name: 'b.png',
-        mimeType: 'image/png'
-      } as ComposerAttachment
-    ]
-    const views = await hook.value.buildAttachmentViews(items)
-    unmount()
-    expect(readAttachment).toHaveBeenCalledExactlyOnceWith('/tmp/b.png')
-    expect(views.map((view) => view.previewDataUrl)).toEqual([
-      'data:image/jpeg;base64,THUMB',
-      'data:image/jpeg;base64,THUMB'
-    ])
-    expect(new Set(views.map((view) => view.id)).size).toBe(2)
+describe('composer attachment preview lifecycle', () => {
+  it('reads each image source once and snapshots only prepared results without waiting', async () => {
+    const { dom, compute, request, readAttachment } = mount()
+    try {
+      await hook.value.pickAttachments()
+      await Promise.resolve()
+      expect(readAttachment.mock.calls.map(([path]) => path)).toEqual([
+        '/tmp/a.png',
+        '/tmp/b.png',
+        '/tmp/unreadable.png'
+      ])
+      expect(request.mock.calls).toHaveLength(2)
+      expect(request.mock.calls[0]).toEqual([
+        expect.objectContaining({ kind: 'imageThumb', data: expect.any(String), pixels: 1 }),
+        { priority: 'background', cacheable: false }
+      ])
+      compute.resolveNext({ thumbnail: 'data:image/jpeg;base64,ONE' })
+      await Promise.resolve()
+      const { items, views } = hook.value.snapshot()
+      expect(items.map((item) => item.name)).toEqual([
+        'a.png',
+        'a.png',
+        'unreadable.png',
+        'notes.txt'
+      ])
+      expect(views.map((view) => view.previewDataUrl)).toEqual([
+        'data:image/jpeg;base64,ONE',
+        undefined,
+        undefined,
+        undefined
+      ])
+      expect(new Set(views.map((view) => view.id)).size).toBe(4)
+      expect(hook.value.resetIfUnchanged(items)).toBe(true)
+      expect(hook.value.snapshot()).toEqual({ items: [], views: [] })
+      expect(compute.cancelled).toEqual([compute.requests[1]])
+    } finally {
+      dom.unmount()
+    }
   })
 
-  it('썸네일이 실패하면 미리보기 없이 뷰를 만든다', async () => {
-    const unmount = mount(async () => null)
-    installFakeCanvas({ load: false })
-    const views = await hook.value.buildAttachmentViews([
-      {
-        kind: 'inline',
-        data: 'DATA',
-        name: 'a.png',
-        mimeType: 'image/png',
-        sourceKind: 'clipboard'
-      }
-    ])
-    unmount()
-    expect(views).toHaveLength(1)
-    expect('previewDataUrl' in views[0]).toBe(false)
+  it('does not move a preview to a same-name attachment or retain jobs across session changes', async () => {
+    const { dom, compute } = mount()
+    try {
+      await hook.value.pickAttachments()
+      const [removed, surviving] = hook.value.snapshot().views
+      hook.value.removeAttachment(removed.id)
+      compute.resolveNext({ thumbnail: 'data:image/jpeg;base64,SURVIVOR' })
+      await Promise.resolve()
+      expect(hook.value.snapshot().views[0]).toEqual({
+        ...surviving,
+        previewDataUrl: 'data:image/jpeg;base64,SURVIVOR'
+      })
+      await hook.value.pickAttachments()
+      const current = hook.value.snapshot()
+      const replacement = current.views.find(
+        (view) => view.name === 'a.png' && view.id !== surviving.id
+      )
+      expect(replacement?.id).toBeDefined()
+      expect(replacement?.id).not.toBe(removed.id)
+      expect(replacement?.previewDataUrl).toBeUndefined()
+      dom.render(createElement(Probe, { session: 'different' }))
+      expect(hook.value.snapshot()).toEqual({ items: [], views: [] })
+      expect(compute.cancelled).toEqual([
+        compute.requests[0],
+        compute.requests[2],
+        compute.requests[3]
+      ])
+    } finally {
+      dom.unmount()
+    }
   })
 })

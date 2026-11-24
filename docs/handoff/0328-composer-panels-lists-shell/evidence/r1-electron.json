@@ -1,0 +1,462 @@
+{
+  "env": true,
+  "environment": "linux-electron",
+  "electron": "39.8.10",
+  "fixture": "S-D2 worker overlap",
+  "width": 4032,
+  "height": 3024,
+  "images": 5,
+  "label": "diagnostic",
+  "records": [
+    {
+      "imageTimesMs": [
+        90.5,
+        151.0999999998603,
+        73.60000000009313,
+        68,
+        68.19999999995343
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0.10000000009313226,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        87.39999999990687,
+        76.39999999990687,
+        78,
+        72.60000000009313,
+        79.9000000001397
+      ],
+      "visibleComputeWaitMs": 0.5,
+      "markdownWaitMs": 0.10000000009313226,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        88.5,
+        69.0999999998603,
+        70,
+        71.10000000009313,
+        69.69999999995343
+      ],
+      "visibleComputeWaitMs": 0.10000000009313226,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        84.5999999998603,
+        65.10000000009313,
+        66.39999999990687,
+        65.30000000004657,
+        69.39999999990687
+      ],
+      "visibleComputeWaitMs": 0.30000000004656613,
+      "markdownWaitMs": 0.09999999986030161,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        83.19999999995343,
+        137.9000000001397,
+        154.19999999995343,
+        154.80000000004657,
+        153
+      ],
+      "visibleComputeWaitMs": 0.09999999986030161,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        131.20000000018626,
+        67.89999999990687,
+        83.80000000004657,
+        149.69999999995343,
+        107.69999999995343
+      ],
+      "visibleComputeWaitMs": 0,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        77.4000000001397,
+        69.39999999990687,
+        84.69999999995343,
+        102.10000000009313,
+        106
+      ],
+      "visibleComputeWaitMs": 0.30000000004656613,
+      "markdownWaitMs": 0,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        161.19999999995343,
+        159.39999999990687,
+        95.39999999990687,
+        86.80000000004657,
+        99.19999999995343
+      ],
+      "visibleComputeWaitMs": 0.39999999990686774,
+      "markdownWaitMs": 0.10000000009313226,
+      "renderedThumbnails": 5
+    },
+    {
+      "imageTimesMs": [
+        89.30000000004657,
+        72.60000000009313,
+        79,
+        77,
+        70.5999999998603
+      ],
+      "visibleComputeWaitMs": 0.09999999986030161,
+      "markdownWaitMs": 0.10000000009313226,
+      "renderedThumbnails": 5
+    }
+  ],
+  "heightRecords": [
+    {
+      "run": 1,
+      "characters": 2000,
+      "commitMs": 0.30000000004656613,
+      "paintUpperBoundMs": 32.7000000000462,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 1,
+      "characters": 20000,
+      "commitMs": 0.5999999998603016,
+      "paintUpperBoundMs": 267.0000000000464,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 2,
+      "characters": 2000,
+      "commitMs": 0.2999999998137355,
+      "paintUpperBoundMs": 32.5,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 2,
+      "characters": 20000,
+      "commitMs": 0.19999999995343387,
+      "paintUpperBoundMs": 400.2000000001399,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 3,
+      "characters": 2000,
+      "commitMs": 0.4000000001396984,
+      "paintUpperBoundMs": 32.40000000018608,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 3,
+      "characters": 20000,
+      "commitMs": 0.5,
+      "paintUpperBoundMs": 534.0000000000473,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 4,
+      "characters": 2000,
+      "commitMs": 0.09999999986030161,
+      "paintUpperBoundMs": 32.600000000000364,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 4,
+      "characters": 20000,
+      "commitMs": 0.30000000004656613,
+      "paintUpperBoundMs": 216.5000000000473,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 5,
+      "characters": 2000,
+      "commitMs": 0.19999999995343387,
+      "paintUpperBoundMs": 32.800000000046566,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 5,
+      "characters": 20000,
+      "commitMs": 0.20000000018626451,
+      "paintUpperBoundMs": 216.80000000018663,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 6,
+      "characters": 2000,
+      "commitMs": 0.09999999986030161,
+      "paintUpperBoundMs": 32.7000000000462,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 6,
+      "characters": 20000,
+      "commitMs": 0.30000000004656613,
+      "paintUpperBoundMs": 266.30000000009386,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 7,
+      "characters": 2000,
+      "commitMs": 0.10000000009313226,
+      "paintUpperBoundMs": 32.4000000001397,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 7,
+      "characters": 20000,
+      "commitMs": 0.19999999995343387,
+      "paintUpperBoundMs": 249.4000000001397,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 8,
+      "characters": 2000,
+      "commitMs": 0.10000000009313226,
+      "paintUpperBoundMs": 33.1000000001859,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 8,
+      "characters": 20000,
+      "commitMs": 0.30000000004656613,
+      "paintUpperBoundMs": 250.00000000009277,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 9,
+      "characters": 2000,
+      "commitMs": 0.09999999986030161,
+      "paintUpperBoundMs": 32.100000000000364,
+      "height": 174,
+      "fieldSizing": true
+    },
+    {
+      "run": 9,
+      "characters": 20000,
+      "commitMs": 0.09999999986030161,
+      "paintUpperBoundMs": 232.30000000004657,
+      "height": 174,
+      "fieldSizing": true
+    }
+  ],
+  "planGeometry": {
+    "paragraphs": 2000,
+    "comments": 128,
+    "rectReads": 1,
+    "rectReadsAfterResize": 1,
+    "openedLast": true,
+    "lastVisible": true,
+    "tookFocus": true,
+    "initialScroll": 0,
+    "initialFirstTop": 31.65625,
+    "initialViewport": [
+      0,
+      470,
+      532
+    ]
+  },
+  "installLog": {
+    "label": "diagnostic",
+    "inputRows": 10000,
+    "mountedRows": 30,
+    "readingPositionPreserved": true,
+    "followsTail": true,
+    "finalOutputPresent": true,
+    "completions": 1
+  },
+  "calculations": [
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 3.2999999998137355,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 3.800000000046566,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 3.199999999953434,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 3.9000000001396984,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 4.5,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 4.300000000046566,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 3.7999999998137355,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 5.100000000093132,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-settings-json",
+      "inputSize": 347851,
+      "durationMs": 5,
+      "resultSize": 1
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 10.399999999906868,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 9.5,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 9.100000000093132,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 6.5,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 8.800000000046566,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 5.800000000046566,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 6.099999999860302,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 13.100000000093132,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D5-provider-import",
+      "inputSize": 347851,
+      "durationMs": 11.399999999906868,
+      "resultSize": 10000
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 4,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 2.1000000000931323,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 2.0999999998603016,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 1.6000000000931323,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 1.1999999999534339,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 1.1999999999534339,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 1.6000000000931323,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 2.199999999953434,
+      "resultSize": 105
+    },
+    {
+      "id": "S-D7-usage-aggregation",
+      "inputSize": 730,
+      "durationMs": 3.199999999953434,
+      "resultSize": 105
+    }
+  ],
+  "budget": 50,
+  "decision": {
+    "p95": 154.80000000004657,
+    "max": 161.19999999995343,
+    "lane": "image"
+  },
+  "verdict": true
+}

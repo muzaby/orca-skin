@@ -408,6 +408,7 @@ export const en: typeof ko = {
       statusSkipped: 'Skipped',
       exitCode: 'Exit code {{code}}',
       openSession: 'Open conversation',
+      output: 'Run output',
       truncated: 'Output was long; only the end is shown.',
       errors: {
         project_missing: 'Project not found',

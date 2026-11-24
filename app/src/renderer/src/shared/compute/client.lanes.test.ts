@@ -5,7 +5,8 @@ import type { Lane, WireControl, WireRequest } from './protocol'
 function harness() {
   const messages = {
     compute: [] as (WireControl | WireRequest)[],
-    markdown: [] as (WireControl | WireRequest)[]
+    markdown: [] as (WireControl | WireRequest)[],
+    image: [] as (WireControl | WireRequest)[]
   }
   const ports = new Map<Lane, WorkerLike>()
   const client = createComputeClient({
@@ -30,7 +31,12 @@ function harness() {
       data: {
         id: msg.id,
         ok: true,
-        result: lane === 'markdown' ? { tooLarge: true } : { html: 'ok' },
+        result:
+          lane === 'markdown'
+            ? { tooLarge: true }
+            : lane === 'image'
+              ? { thumbnail: 'jpg' }
+              : { html: 'ok' },
         size: 1
       }
     })
@@ -91,12 +97,20 @@ it('starts each lane with its own module worker entry', async () => {
     const lease = client.openDocument(doc, { text: 'x' }, 'markdown')
     const jobs = [
       client.request({ kind: 'markdown', doc, start: 0, end: 1 }),
-      client.request({ kind: 'highlight', code: 'x', lang: 'ts', theme: 'github-light' })
+      client.request({ kind: 'highlight', code: 'x', lang: 'ts', theme: 'github-light' }),
+      client.request({
+        kind: 'imageThumb',
+        attachmentId: 'a',
+        data: 'a',
+        pixels: 1,
+        mimeType: 'image/png'
+      })
     ]
     await Promise.all(jobs.map((j) => j.promise))
     expect(starts.map(([path, options]) => [path.split('/').at(-1), options])).toEqual([
       ['markdown.worker.ts', { name: 'markdown', type: 'module' }],
-      ['compute.worker.ts', { name: 'compute', type: 'module' }]
+      ['compute.worker.ts', { name: 'compute', type: 'module' }],
+      ['image.worker.ts', { name: 'image', type: 'module' }]
     ])
     lease.release()
   } finally {
@@ -141,3 +155,30 @@ it.each(['compute', 'markdown'] as const)(
     }
   }
 )
+
+it('frees the image lane on worker failure without blocking a visible compute job', async () => {
+  const h = harness()
+  const first = h.client.request(
+    { kind: 'imageThumb', attachmentId: 'first', mimeType: 'image/png', data: 'a', pixels: 12 },
+    { priority: 'background', cacheable: false }
+  )
+  const second = h.client.request(
+    { kind: 'imageThumb', attachmentId: 'second', mimeType: 'image/png', data: 'b', pixels: 2 },
+    { priority: 'background', cacheable: false }
+  )
+  const visible = h.client.request({
+    kind: 'highlight',
+    code: 'a',
+    lang: 'ts',
+    theme: 'github-light'
+  })
+  expect(h.messages.image).toHaveLength(1)
+  expect(h.messages.compute).toHaveLength(1)
+  h.ports.get('image')!.onmessageerror?.({ message: 'bad clone' })
+  await expect(first.promise).rejects.toThrow()
+  expect(h.messages.image.at(-1)).toMatchObject({ attachmentId: 'second' })
+  h.finish('image')
+  h.finish('compute')
+  await expect(second.promise).resolves.toEqual({ thumbnail: 'jpg' })
+  await expect(visible.promise).resolves.toEqual({ html: 'ok' })
+})
