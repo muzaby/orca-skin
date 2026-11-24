@@ -1,0 +1,123 @@
+{
+  "sourceCommit": "7db1c7cefcdd3ef6d7f44cadbb9e6dc10fde76e6",
+  "runs": [
+    {
+      "env": true,
+      "phase": "baseline",
+      "baseline": "7db1c7ce",
+      "oldDb": "small",
+      "receivedMessages": 100,
+      "visible": true,
+      "firstBodyId": "n:native-98",
+      "clickToBodyFrameMs": 140.19999999995343,
+      "sessions": 20,
+      "before": {
+        "db": 782336,
+        "wal": 0
+      },
+      "after": {
+        "db": 782336,
+        "wal": 20632
+      },
+      "readerPayloadBytes": 10434,
+      "requestJsonBytes": 102,
+      "replyJsonBytes": 11017,
+      "replyFrames": 2,
+      "anchor": {
+        "headerPx": 35,
+        "resizeOnly": {
+          "partKey": "n:native-0:user",
+          "scrollTopBefore": 0,
+          "scrollTopAfter": 9,
+          "lineTopBefore": 27.1875,
+          "lineTopAfter": 53.1875,
+          "deltaPx": 26
+        },
+        "resizeWithWheel": {
+          "partKey": "n:native-0:user",
+          "scrollTopBefore": 0,
+          "scrollTopAfter": 0,
+          "wheelGapMs": 34.59999999997672,
+          "lineTopBefore": 27.1875,
+          "lineTopAfter": 62.1875,
+          "deltaPx": 35
+        }
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    },
+    {
+      "env": true,
+      "phase": "baseline",
+      "baseline": "7db1c7ce",
+      "oldDb": "long",
+      "receivedMessages": 100000,
+      "visible": true,
+      "firstBodyId": "n:native-99998",
+      "clickToBodyFrameMs": 1864.5999999999767,
+      "sessions": 200,
+      "before": {
+        "db": 28631040,
+        "wal": 0
+      },
+      "after": {
+        "db": 39956480,
+        "wal": 11412432
+      },
+      "readerPayloadBytes": 11316684,
+      "requestJsonBytes": 102,
+      "replyJsonBytes": 11536665,
+      "replyFrames": 201,
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    },
+    {
+      "env": true,
+      "phase": "baseline",
+      "baseline": "7db1c7ce",
+      "oldDb": "small",
+      "receivedMessages": 100,
+      "visible": true,
+      "firstBodyId": "n:native-98",
+      "clickToBodyFrameMs": 123.40000000002328,
+      "sessions": 20,
+      "before": {
+        "db": 782336,
+        "wal": 0
+      },
+      "after": {
+        "db": 782336,
+        "wal": 20632
+      },
+      "readerPayloadBytes": 10434,
+      "requestJsonBytes": 102,
+      "replyJsonBytes": 11017,
+      "replyFrames": 2,
+      "anchor": {
+        "headerPx": 35,
+        "resizeOnly": {
+          "partKey": "n:native-0:user",
+          "scrollTopBefore": 0,
+          "scrollTopAfter": 9,
+          "lineTopBefore": 27.1875,
+          "lineTopAfter": 53.1875,
+          "deltaPx": 26
+        },
+        "resizeWithWheel": {
+          "partKey": "n:native-0:user",
+          "scrollTopBefore": 0,
+          "scrollTopAfter": 0,
+          "wheelGapMs": 34.5,
+          "lineTopBefore": 27.1875,
+          "lineTopAfter": 62.1875,
+          "deltaPx": 35
+        }
+      },
+      "platform": "linux",
+      "electron": "39.8.10",
+      "verdict": true
+    }
+  ]
+}
