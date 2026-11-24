@@ -1,0 +1,225 @@
+종류	ID	근거 변이	관측	직접 oracle 결과
+선택 증거	VP-01	Q20-focus	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+선택 증거	VP-02a	EP2-draft-generation	red	late input replaced the new draft
+선택 증거	VP-02b	EP2-distinct-source	red	submission mismatch
+선택 증거	VP-03	EP3-body-ref	red	replaced Markdown selection did not open
+선택 증거	VP-04	Q28-hit-id	red	|io| src/main/infra/db/queries.test.ts > returns the selected local message ID and its surrounding snippet for each query
+선택 증거	VP-05	EP5-save-json	red	incorrect provider save
+선택 증거	VP-06	Q30-details	red	|unit| src/renderer/src/features/schedules/components/runHistory.render.test.ts > RunHistory > keeps a large stored tail out of the collapsed run DOM
+선택 증거	VP-07	EP7-cap	red	|unit| src/shared/usage/stats.test.ts > fillDailySeries > 전체 범위가 캡을 넘으면 최근 MAX_FILLED_DAYS 로 자른다
+선택 증거	VP-08	EP8-restart	red	previous archive mounted on restart
+선택 증거	VP-09	EP9-resize	red	panel resize did not reposition comment
+선택 증거	VP-10	EP10-asset	red	기존 CSS 본문 비교에서 Asset mismatch: asset
+선택 증거	VP-11	EP11-bounds	red	|unit| src/main/app/shell/shell-state.test.ts > ShellState > 셸 상태 파일이 없으면 기존 설정 파일의 창 위치와 언어를 이어받아 자기 파일에만 쓴다
+선택 증거	VP-12	EP12-T3	red	R-H uses elapsed host and window time without adding byte and row counts
+선택 증거	VP-13	Q28-revision	red	|unit| src/renderer/src/features/sessions/components/SearchModal.test.ts > actual search modal before and after responsibility relocation > preserves debounce, empty-query skip and out-of-order respon
+선택 증거	VP-14	EP2-map-ready	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+선택 증거	VP-15	EP3-coalesce	red	visible range frame coalescing
+선택 증거	VP-16	Q20-change	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > coalesces invalidations during a read and keeps the selected file after an in
+선택 증거	VP-17	EP2-stale-result	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+선택 증거	VP-18	EP8-host	red	install deadline terminal
+선택 증거	VP-19	EP10-root	red	기본 URL 조회에서 net::ERR_UNEXPECTED
+선택 증거	VP-20	EP2-decode-gate	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+선택 증거	VP-21	EP3-reverse	red	stored UTF-16 range
+선택 증거	VP-22	EP5-syntax	red	|unit| src/renderer/src/features/engine/common/lib/providerCatalog.test.ts > validateSettingsJson > locates the missing comma in a multi-line edit
+선택 증거	VP-23	EP8-unicode	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > preserves each Unicode scalar across multiple full batches
+선택 증거	VP-24	EP2-reject	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > keeps everything when the send is rejected
+선택 증거	VP-25	EP12-source	red	comparison checks build provenance, input size and actual/diagnostic producer identity
+선택 증거	VP-26	WL-message-error	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > discards broken image workers and rejects queued and new jobs at the failure limit
+선택 증거	VP-27	VL-id	red	|unit| src/renderer/src/shared/ui/virtual/useVirtualRows.test.ts > uses stable row IDs after insertion, deletion and same-length replacement
+선택 증거	VP-28	WL-lane-image	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > starts each lane with its own module worker entry
+선택 증거	VP-29	VL-catalog-key	red	catalog row position after insert/delete
+선택 증거	VP-30	VL-catalog-scope	red	catalog cleared sibling selection
+새 oracle	EP2-stale-source	EP2-stale-source	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+새 oracle	EP2-reset-generation	EP2-reset-generation	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > discards an older clipboard read even when the next draft has its own pictures
+새 oracle	Q20-all-valid	Q20-all-valid	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+새 oracle	Q28-selected	Q28-selected	red	|unit| src/renderer/src/features/sessions/components/SearchModal.test.ts > actual search modal before and after responsibility relocation > opens the highlighted result and discards the old selection
+새 oracle	EP3-visible	EP3-visible	red	measured offscreen paragraphs 2000
+새 oracle	EP8-restart	EP8-restart	red	previous archive mounted on restart
+새 oracle	EP9-resize	EP9-resize	red	panel resize did not reposition comment
+새 oracle	EP5-last-skill	EP5-last-skill	red	resource selection
+새 oracle	VL-catalog-scope	VL-catalog-scope	red	catalog cleared sibling selection
+새 oracle	VL-catalog-key	VL-catalog-key	red	catalog row position after insert/delete
+sweep	EP2-png	EP2-png	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-jpeg	EP2-jpeg	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-gif	EP2-gif	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-vp8	EP2-vp8	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-vp8l	EP2-vp8l	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-vp8x	EP2-vp8x	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-pixel-limit	EP2-pixel-limit	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-header-cap	EP2-header-cap	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > rejects a JPEG whose dimensions are beyond the header inspection limit
+sweep	EP2-gif-budget	EP2-gif-budget	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-zero-width	EP2-zero-width	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-decode-gate	EP2-decode-gate	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > checks MIME, bounded dimensions and the GIF first frame before decode
+sweep	EP2-256	EP2-256	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > closes the bitmap after JPEG encoding succeeds or fails
+sweep	EP2-release	EP2-release	red	|unit| src/renderer/src/shared/compute/worker/imageHeader.test.ts > closes the bitmap after JPEG encoding succeeds or fails
+sweep	EP2-id	EP2-id	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-kind	EP2-kind	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+sweep	WL-background	WL-background	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-cache	EP2-cache	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-map-ready	EP2-map-ready	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-remove	EP2-remove	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > does not move a preview to a same-name attachment or retain jobs across session chang
+sweep	EP2-reset	EP2-reset	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-unmount	EP2-unmount	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > does not move a preview to a same-name attachment or retain jobs across session chang
+sweep	EP2-answer-id	EP2-answer-id	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-ime	EP2-ime	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > does not start a send during IME composition
+sweep	EP2-reject	EP2-reject	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > keeps everything when the send is rejected
+sweep	EP2-draft	EP2-draft	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > preserves a draft changed by the synchronous send callback
+sweep	EP2-drift	EP2-drift	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > preserves text and requirements when the attachment snapsh
+sweep	EP2-focus	EP2-focus	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > clears requirements, attachments and text and focuses in t
+sweep	EP2-order	EP2-order	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/composerSubmit.test.ts > sends each original in order and uses only thumbnails ready at the instant of submission
+sweep	EP2-same-task	EP2-same-task	red	|unit| src/renderer/src/features/chat/harnesses/common/composer/ComposerInputController.test.ts > ComposerInputController submit clear gate > clears requirements, attachments and text and focuses in t
+sweep	EP8-size	EP8-size	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > keeps exact output across chunk boundaries and flushes it before terminal
+sweep	EP8-timer	EP8-timer	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > delivers a partial batch while the producer waits
+sweep	EP8-progress	EP8-progress	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > keeps exact output across chunk boundaries and flushes it before terminal
+sweep	EP8-archive	EP8-archive	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > keeps exact output across chunk boundaries and flushes it before terminal
+sweep	EP8-flush	EP8-flush	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > keeps exact output across chunk boundaries and flushes it before terminal
+sweep	EP8-terminal	EP8-terminal	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > forwards one terminal event and zero log batches from the Claude installer
+sweep	EP8-unicode	EP8-unicode	red	|unit| src/main/app/handlers/install-status.test.ts > installation status forwarding > preserves each Unicode scalar across multiple full batches
+sweep	EP8-log-offset	EP8-log-offset	red	|unit| src/renderer/src/features/backend/harnesses/claude/components/installLogArchive.test.ts > reconstructs output exactly and bounds the visual rows of a long line
+sweep	EP8-chunk	EP8-chunk	red	|unit| src/renderer/src/features/backend/harnesses/claude/components/installLogArchive.test.ts > reconstructs output exactly and bounds the visual rows of a long line
+sweep	EP8-tail	EP8-tail	red	|unit| src/renderer/src/features/backend/harnesses/claude/components/installLogArchive.test.ts > reconstructs output exactly and bounds the visual rows of a long line
+sweep	EP8-row-cap	EP8-row-cap	red	|unit| src/renderer/src/features/backend/harnesses/claude/components/installLogArchive.test.ts > reconstructs output exactly and bounds the visual rows of a long line
+sweep	EP12-host-total	EP12-host-total	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-window-total	EP12-window-total	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-boundary	EP12-boundary	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-host-compare	EP12-host-compare	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-RR-frame	EP12-RR-frame	red	R-R uses task duration and synchronous processing, independent of RAF wait
+sweep	EP12-RR-task	EP12-RR-task	red	R-R uses task duration and synchronous processing, independent of RAF wait
+sweep	EP12-RR-sync	EP12-RR-sync	red	R-R uses task duration and synchronous processing, independent of RAF wait
+sweep	EP12-missing	EP12-missing	red	missing timing makes R-H and host-related R-R unavailable
+sweep	EP12-build	EP12-build	red	comparison checks build provenance, input size and actual/diagnostic producer identity
+sweep	EP12-input	EP12-input	red	comparison checks build provenance, input size and actual/diagnostic producer identity
+sweep	EP12-source	EP12-source	red	comparison checks build provenance, input size and actual/diagnostic producer identity
+sweep	Q20-target	Q20-target	red	|unit| src/main/features/chat/folder-observations.test.ts > rechecks a renamed directory by identity, reopens it once, and detaches all owners
+sweep	Q20-close	Q20-close	red	|unit| src/main/features/chat/folder-observations.test.ts > rechecks a renamed directory by identity, reopens it once, and detaches all owners
+sweep	Q20-recover	Q20-recover	red	|unit| src/main/app/handlers/composer-menu-query.integration.test.ts > open composer file menu through data IPC > rebinds an active watch when the folder is replaced
+sweep	Q20-rename	Q20-rename	red	|unit| src/main/app/handlers/composer-menu-query.integration.test.ts > open composer file menu through data IPC > rebinds an active watch when the folder is replaced
+sweep	Q20-identity	Q20-identity	red	|unit| src/main/features/chat/folder-observations.test.ts > rechecks a renamed directory by identity, reopens it once, and detaches all owners
+sweep	Q20-release	Q20-release	red	|unit| src/main/features/chat/folder-observations.test.ts > rechecks a renamed directory by identity, reopens it once, and detaches all owners
+sweep	Q20-resubscribe	Q20-resubscribe	red	|unit| src/main/app/handlers/composer-menu-query.integration.test.ts > open composer file menu through data IPC > keeps other owners on explicit release and closes all owners with the port
+sweep	Q20-tracking	Q20-tracking	red	|unit| src/main/features/chat/folder-observations.test.ts > rechecks a renamed directory by identity, reopens it once, and detaches all owners
+sweep	WL-worker-error	WL-worker-error	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > discards broken image workers and rejects queued and new jobs at the failure limit
+sweep	WL-message-error	WL-message-error	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > discards broken image workers and rejects queued and new jobs at the failure limit
+sweep	WL-queued-cancel	WL-queued-cancel	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > releases image slots on completion, decode error and queued or running cancellation
+sweep	WL-sizes	WL-sizes	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > releases image slots on completion, decode error and queued or running cancellation
+sweep	WL-priority-sort	WL-priority-sort	red	|unit| src/renderer/src/shared/compute/client.queue.test.ts > q9 reorders a shared queued request when its highest priority changes: promote
+sweep	WL-order	WL-order	red	|unit| src/renderer/src/shared/compute/client.queue.test.ts > q3 FIFO tie
+sweep	WL-yields	WL-yields	red	|unit| src/renderer/src/shared/compute/client.queue.test.ts > q4 dispatches fresh visible work before a yielded range and resumes with a new id
+sweep	WL-timing	WL-timing	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > releases image slots on completion, decode error and queued or running cancellation
+sweep	WL-queued-start	WL-queued-start	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > frees the image lane on worker failure without blocking a visible compute job
+sweep	Q30-scope	Q30-scope	red	|unit| src/renderer/src/features/schedules/components/RunHistoryPanel.interaction.test.ts > hides prior task results during loading and ignores a late previous revision
+sweep	Q20-suggest	Q20-suggest	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-hidden	Q20-hidden	red	|unit| src/renderer/src/features/chat/lib/mentionAutocomplete.test.ts > mention autocomplete parsing and projection > root plain은 경로 그룹을 먼저, Plugin 그룹을 뒤에 둔다
+sweep	Q20-prefix	Q20-prefix	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-directory	Q20-directory	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > replaces directory/cwd owners and excludes both previous owners late results
+sweep	Q20-flatten	Q20-flatten	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	EP5-empty-json	EP5-empty-json	red	|unit| src/renderer/src/features/engine/common/lib/providerCatalog.test.ts > validateSettingsJson > 빈 입력은 거부
+sweep	EP5-syntax	EP5-syntax	red	|unit| src/renderer/src/features/engine/common/lib/providerCatalog.test.ts > validateSettingsJson > locates the missing comma in a multi-line edit
+sweep	EP5-name	EP5-name	red	|unit| src/renderer/src/features/engine/common/lib/providerCatalog.test.ts > validateProviderName > 빈 값 거부
+sweep	EP5-import-filter	EP5-import-filter	red	|unit| src/renderer/src/features/engine/harnesses/opencode/v1/customProvider.test.ts > OpenCode custom provider config > imports only visible fields and serializes a fresh document owned by the select
+sweep	EP5-model-name	EP5-model-name	red	|unit| src/renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts > OpenCode provider form through production engine router > imports compatible provider fields and submits o
+sweep	EP5-import-id	EP5-import-id	red	|unit| src/renderer/src/features/engine/harnesses/opencode/ProviderForm.interaction.test.ts > OpenCode provider form through production engine router > imports compatible provider fields and submits o
+sweep	EP5-save-validation	EP5-save-validation	red	|unit| src/renderer/src/features/engine/harnesses/opencode/v1/customProvider.test.ts > OpenCode custom provider config > rejects empty/invalid identifiers and URLs, duplicate models and case-insensiti
+sweep	Q30-open	Q30-open	red	|unit| src/renderer/src/features/schedules/components/RunHistoryPanel.interaction.test.ts > opens the session linked to the chosen run
+sweep	Q30-truncated	Q30-truncated	red	|unit| src/renderer/src/features/schedules/components/runHistory.render.test.ts > RunHistory > 잘린 출력은 그 사실을 알린다
+sweep	Q30-short	Q30-short	red	|unit| src/renderer/src/features/schedules/components/RunHistoryPanel.interaction.test.ts > hides prior task results during loading and ignores a late previous revision
+sweep	Q30-empty	Q30-empty	red	|unit| src/renderer/src/features/schedules/components/runHistory.render.test.ts > RunHistory > 프롬프트 실행은 대화 열기를 보이고 출력 영역이 없다
+sweep	Q30-details	Q30-details	red	|unit| src/renderer/src/features/schedules/components/runHistory.render.test.ts > RunHistory > keeps a large stored tail out of the collapsed run DOM
+sweep	Q30-order	Q30-order	red	|io| src/main/infra/db/scheduled-task-queries.test.ts > ScheduledTaskQueries > 실행을 시작·종결하고 최신순으로 돌려준다
+sweep	Q30-limit	Q30-limit	red	|io| src/main/infra/db/scheduled-task-queries.test.ts > ScheduledTaskQueries > 실행을 시작·종결하고 최신순으로 돌려준다
+sweep	Q30-retain	Q30-retain	red	|io| src/main/infra/db/scheduled-task-queries.test.ts > ScheduledTaskQueries > 작업당 이력은 보존 상한까지만 남고 최신이 유지된다
+sweep	Q30-task	Q30-task	red	|io| src/main/infra/db/scheduled-task-queries.test.ts > ScheduledTaskQueries > 실행을 시작·종결하고 최신순으로 돌려준다
+sweep	Q28-pin	Q28-pin	red	|io| src/main/infra/db/queries.test.ts > DbQueries pinned (0129) > 세션 고정 토글이 pinned_at 을 시각/null 로 왕복한다
+sweep	Q28-project-pin	Q28-project-pin	red	|io| src/main/infra/db/queries.test.ts > DbQueries pinned (0129) > 프로젝트 고정 토글이 pinned_at 을 시각/null 로 왕복한다
+sweep	Q28-snippet	Q28-snippet	red	|io| src/main/infra/db/queries.test.ts > returns the selected local message ID and its surrounding snippet for each query
+sweep	Q28-hit-id	Q28-hit-id	red	|io| src/main/infra/db/queries.test.ts > returns the selected local message ID and its surrounding snippet for each query
+sweep	Q28-hit-snippet	Q28-hit-snippet	red	|unit| src/renderer/src/features/sessions/components/SearchModal.test.ts > actual search modal before and after responsibility relocation > keeps arrow selection, navigation-before-close and escaped s
+sweep	EP7-days	EP7-days	red	|unit| src/shared/usage/stats.test.ts > rangeSince > 7d = 오늘 포함 7일(로컬 자정)
+sweep	EP7-total	EP7-total	red	|unit| src/shared/usage/stats.test.ts > totalTokens > 4종 토큰을 전부 합산한다
+sweep	EP7-cap	EP7-cap	red	|unit| src/shared/usage/stats.test.ts > fillDailySeries > 전체 범위가 캡을 넘으면 최근 MAX_FILLED_DAYS 로 자른다
+sweep	EP7-future	EP7-future	red	|unit| src/shared/usage/stats.test.ts > ignores a future-only series when displaying all recorded days
+sweep	EP7-tooltip	EP7-tooltip	red	|unit| src/renderer/src/features/settings/components/usageTooltip.render.test.ts > 일별 토큰 차트 툴팁 (AT-28) > 날짜·토큰·비용만 남고 안내 줄이 없다
+sweep	EP11-own	EP11-own	red	|unit| src/main/app/shell/shell-state.test.ts > ShellState > 셸 상태 파일에 값이 있으면 그 값을 쓰고 기존 설정 파일을 읽지 않는다
+sweep	EP11-legacy	EP11-legacy	red	|unit| src/main/app/shell/shell-state.test.ts > ShellState > 셸 상태 파일이 없으면 기존 설정 파일의 창 위치와 언어를 이어받아 자기 파일에만 쓴다
+sweep	EP11-bounds	EP11-bounds	red	|unit| src/main/app/shell/shell-state.test.ts > ShellState > 셸 상태 파일이 없으면 기존 설정 파일의 창 위치와 언어를 이어받아 자기 파일에만 쓴다
+sweep	EP11-locale	EP11-locale	red	|unit| src/main/app/shell/shell-state.test.ts > ShellState > 셸 상태 파일이 없으면 기존 설정 파일의 창 위치와 언어를 이어받아 자기 파일에만 쓴다
+sweep	EP11-window-close	EP11-window-close	red	|unit| src/main/app/shell/shell-state.test.ts > ShellState > 창 위치 저장은 창 위치만 바꾼다
+sweep	EP11-close	EP11-close	red	|unit| src/main/infra/log/file-transport.test.ts > FileTransport > close() 가 잔여 버퍼를 flush 한다
+sweep	EP11-rotate	EP11-rotate	red	|unit| src/main/infra/log/file-transport.test.ts > FileTransport > maxBytes 초과 시 base → .1 로 시프트하고 새 파일에 이어쓴다
+sweep	EP11-period	EP11-period	red	|unit| src/main/infra/log/file-transport.test.ts > arms flush only for buffered writes and clears the timer on explicit flush and close
+sweep	VL-id	VL-id	red	|unit| src/renderer/src/shared/ui/virtual/useVirtualRows.test.ts > uses stable row IDs after insertion, deletion and same-length replacement
+sweep	VL-mount	VL-mount	red	|unit| src/renderer/src/shared/ui/virtual/useVirtualRows.test.ts > uses stable row IDs after insertion, deletion and same-length replacement
+sweep	VL-nested	VL-nested	red	|unit| src/renderer/src/features/chat/hooks/usePanelSelection.test.ts > a newly mounted row only cancels the selection in its own list within a shared scroller
+sweep	EP2-draft-generation	EP2-draft-generation	red	late input replaced the new draft
+sweep	EP2-intake-dialog	EP2-intake-dialog	red	submission mismatch
+sweep	EP2-intake-drop	EP2-intake-drop	red	submission mismatch
+sweep	EP2-intake-clipboard	EP2-intake-clipboard	red	submission mismatch
+sweep	EP2-inline-content	EP2-inline-content	red	submission mismatch
+sweep	EP2-clipboard-order	EP2-clipboard-order	red	submission mismatch
+sweep	EP2-distinct-source	EP2-distinct-source	red	submission mismatch
+sweep	EP2-reset-after-source	EP2-reset-after-source	red	submission mismatch
+sweep	EP3-UTF16	EP3-UTF16	red	reverse element selection
+sweep	EP3-node-offset	EP3-node-offset	red	local text offset
+sweep	EP3-element-offset	EP3-element-offset	red	reverse element selection
+sweep	EP3-reverse	EP3-reverse	red	stored UTF-16 range
+sweep	EP3-selection-quote	EP3-selection-quote	red	reverse element selection
+sweep	EP3-viewport	EP3-viewport	red	offscreen range measured
+sweep	EP3-rebuild	EP3-rebuild	red	reverse element selection
+sweep	EP3-outside	EP3-outside	red	external anchor entered selection
+sweep	EP9-settings	EP9-settings	red	settings did not shrink
+sweep	EP9-comment	EP9-comment	red	comment anchor did not flip
+sweep	EP9-ime	EP9-ime	red	comment submitted during composition
+sweep	EP9-placement	EP9-placement	red	comment anchor did not flip
+sweep	EP9-resize	EP9-resize	red	panel resize did not reposition comment
+sweep	EP8-start	EP8-start	red	install deadline terminal
+sweep	EP8-store	EP8-store	red	reading position lost
+sweep	EP8-fail	EP8-fail	red	installer output 2
+sweep	EP8-restart	EP8-restart	red	previous archive mounted on restart
+sweep	EP8-complete	EP8-complete	red	installer output 2
+sweep	EP8-host	EP8-host	red	install deadline terminal
+sweep	EP10-root	EP10-root	red	기본 URL 조회에서 net::ERR_UNEXPECTED
+sweep	EP10-asset	EP10-asset	red	기존 CSS 본문 비교에서 Asset mismatch: asset
+sweep	EP10-fetch	EP10-fetch	red	자산 요청에서 net::ERR_FILE_NOT_FOUND
+sweep	WL-lane-image	WL-lane-image	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > starts each lane with its own module worker entry
+sweep	WL-pixels	WL-pixels	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > releases image slots on completion, decode error and queued or running cancellation
+sweep	WL-fail-limit	WL-fail-limit	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > discards broken image workers and rejects queued and new jobs at the failure limit
+sweep	WL-retire	WL-retire	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > discards broken image workers and rejects queued and new jobs at the failure limit
+sweep	WL-success	WL-success	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > frees the image lane on worker failure without blocking a visible compute job
+sweep	WL-next	WL-next	red	|unit| src/renderer/src/shared/compute/client.lanes.test.ts > discards broken image workers and rejects queued and new jobs at the failure limit
+sweep	EP2-old-paste	EP2-old-paste	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > discards an older clipboard read even when the next draft has its own pictures
+sweep	EP2-reset-generation	EP2-reset-generation	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > discards an older clipboard read even when the next draft has its own pictures
+sweep	EP2-stale-source	EP2-stale-source	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+sweep	EP2-stale-result	EP2-stale-result	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > drops a late source read before scheduling and a cancelled result before publishing
+sweep	Q20-cwd	Q20-cwd	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-read	Q20-read	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-change	Q20-change	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > coalesces invalidations during a read and keeps the selected file after an in
+sweep	Q20-focus	Q20-focus	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-reconnect	Q20-reconnect	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-all-valid	Q20-all-valid	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > refreshes on focus and data reconnection and resets off-menu tokens when cwd
+sweep	Q20-cache	Q20-cache	red	|unit| src/renderer/src/features/chat/hooks/useMentionAutocomplete.test.ts > mention autocomplete path listing ownership > replaces directory/cwd owners and excludes both previous owners late results
+sweep	EP2-preview-swap	EP2-preview-swap	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > reads each image source once and snapshots only prepared results without waiting
+sweep	EP2-view-name	EP2-view-name	red	|unit| src/renderer/src/features/chat/hooks/useAttachments.views.test.ts > composer attachment preview lifecycle > does not move a preview to a same-name attachment or retain jobs across session chang
+sweep	Q20-symlink	Q20-symlink	green	실제 Dirent의 file-link·dir-link 모두 isFile=false, isDirectory=false. 다음 유형 필터가 두 링크를 제외한다.
+sweep	Q28-revision	Q28-revision	red	|unit| src/renderer/src/features/sessions/components/SearchModal.test.ts > actual search modal before and after responsibility relocation > preserves debounce, empty-query skip and out-of-order respon
+sweep	Q28-selected	Q28-selected	red	|unit| src/renderer/src/features/sessions/components/SearchModal.test.ts > actual search modal before and after responsibility relocation > opens the highlighted result and discards the old selection
+sweep	EP12-T4	EP12-T4	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-T3	EP12-T3	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-time-vs-count	EP12-time-vs-count	red	R-H uses elapsed host and window time without adding byte and row counts
+sweep	EP12-T2-unmeasured	EP12-T2-unmeasured	red	missing timing makes R-H and host-related R-R unavailable
+sweep	EP3-same-markdown	EP3-same-markdown	red	replaced Markdown selection did not open
+sweep	EP3-coalesce	EP3-coalesce	red	visible range frame coalescing
+sweep	EP3-scroll	EP3-scroll	red	openedLast=false, lastVisible=false, tookFocus=false
+sweep	EP3-visible	EP3-visible	red	measured offscreen paragraphs 2000
+sweep	EP3-rect	EP3-rect	red	visible range frame coalescing
+sweep	EP3-reveal	EP3-reveal	red	visible range frame coalescing
+sweep	EP3-body-ref	EP3-body-ref	red	replaced Markdown selection did not open
+sweep	EP3-overlay-ref	EP3-overlay-ref	red	replaced Markdown selection did not open
+sweep	EP3-transient	EP3-transient	red	replaced Markdown selection did not open
+sweep	EP3-selection-edge	EP3-selection-edge	red	replaced Markdown selection did not open
+sweep	VL-resource-limit	VL-resource-limit	red	직접 화면 표본 mounted=9000, 요구 mounted<200
+sweep	EP5-last-skill	EP5-last-skill	red	resource selection
+sweep	EP5-current	EP5-current	red	late import replaced edit
+sweep	EP5-save-json	EP5-save-json	red	incorrect provider save
+sweep	VL-catalog-scope	VL-catalog-scope	red	catalog cleared sibling selection
+sweep	VL-catalog-key	VL-catalog-key	red	catalog row position after insert/delete

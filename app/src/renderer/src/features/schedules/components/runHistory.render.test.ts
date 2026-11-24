@@ -27,6 +27,12 @@ const render = (runs: ScheduledRun[] | null): string =>
   renderToStaticMarkup(createElement(RunHistory, { runs, onOpenSession: () => undefined }))
 
 describe('RunHistory', () => {
+  it('keeps a large stored tail out of the collapsed run DOM', () => {
+    const output = 'saved-tail'.repeat(7000)
+    const html = render([run({ output, outputTruncated: true })])
+    expect(html).toContain('<details')
+    expect(html).not.toContain('saved-tail')
+  })
   it('불러오는 중과 빈 이력을 구별한다', () => {
     expect(render(null)).toContain('불러오는 중…')
     expect(render([])).toContain('아직 실행한 적이 없습니다.')

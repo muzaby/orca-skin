@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const [origin, options, runs] = process.argv.slice(-3)
-const { bundle, sha, baseline } = JSON.parse(options)
+const { bundle, sha, baseline, flows } = JSON.parse(options)
 const fixture = mkdtempSync(join(tmpdir(), 'oo-stage-d-host-'))
 app.setPath('userData', fixture)
 
@@ -47,7 +47,7 @@ app.whenReady().then(async () => {
         })
       )
     }
-    host = utilityProcess.fork(bundle, [cwd], { stdio: 'pipe' })
+    host = utilityProcess.fork(bundle, [cwd, flows ? 'flows' : 'measure'], { stdio: 'pipe' })
     host.stderr?.on('data', (chunk) => {
       hostError = (hostError + chunk).slice(-3000)
     })
@@ -73,7 +73,9 @@ app.whenReady().then(async () => {
     await connected
     window.webContents.postMessage('stage-d-port', null, [port2])
     const result = await window.webContents.executeJavaScript(
-      `window.measureHostQueries(${JSON.stringify(cwd)}, ${Number(runs)})`
+      flows
+        ? `window.measureDataFlows(${JSON.stringify(cwd)}, ${flows === 'usage' ? Number(runs) : 0})`
+        : `window.measureHostQueries(${JSON.stringify(cwd)}, ${Number(runs)})`
     )
     console.log(
       'OO_RESULT ' +

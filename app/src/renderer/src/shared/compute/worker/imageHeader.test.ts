@@ -139,3 +139,12 @@ it('closes the bitmap after JPEG encoding succeeds or fails', async () => {
   await expect(imageThumbnail('image/png', data)).rejects.toThrow('encode error')
   expect(close).toHaveBeenCalledTimes(2)
 })
+
+it('rejects a JPEG whose dimensions are beyond the header inspection limit', async () => {
+  const segment = '\xff\xe1\xff\xff' + 'x'.repeat(65_533)
+  const data = btoa('\xff\xd8' + segment.repeat(4) + atob(jpeg()).slice(2))
+  const decode = vi.fn()
+  vi.stubGlobal('createImageBitmap', decode)
+  expect(await imageThumbnail('image/jpeg', data)).toBeNull()
+  expect(decode).not.toHaveBeenCalled()
+})

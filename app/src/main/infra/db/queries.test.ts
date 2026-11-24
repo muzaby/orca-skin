@@ -20,6 +20,28 @@ function insertSession(db: Database.Database, id = 's1'): void {
   ).run(id)
 }
 
+it('returns the selected local message ID and its surrounding snippet for each query', () => {
+  const db = dbWithMigrations()
+  try {
+    insertSession(db)
+    const queries = new DbQueries(db)
+    for (const term of ['orchard', 'tide']) {
+      const id = queries.appendMessage({
+        sessionId: 's1',
+        role: 'user',
+        content: 'before ' + term + ' after',
+        createdAt: 1
+      })
+      expect(queries.searchMessages(term)).toMatchObject([
+        { message_id: id, session_id: 's1', snippet: 'before <mark>' + term + '</mark> after' }
+      ])
+    }
+    expect(queries.searchMessages('absent')).toEqual([])
+  } finally {
+    db.close()
+  }
+})
+
 it('keeps non-null message keys unique within each session and loads each stored key', () => {
   const db = dbWithMigrations()
   try {

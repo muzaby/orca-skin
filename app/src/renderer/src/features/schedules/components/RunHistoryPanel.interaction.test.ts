@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { expect, it, vi } from 'vitest'
 import type { ScheduledRun } from '../../../../../shared/scheduled-tasks'
 import { installFakeDom } from '../../../shared/ui/renderHarness.testfixture'
-import { RunHistoryPanel } from './RunHistory'
+import { RunHistory, RunHistoryPanel } from './RunHistory'
 
 vi.mock('react', async (original) => ({
   ...(await original<typeof import('react')>()),
@@ -67,5 +67,26 @@ it('hides prior task results during loading and ignores a late previous revision
   } finally {
     dom.unmount()
     vi.unstubAllGlobals()
+  }
+})
+
+it('opens the session linked to the chosen run', () => {
+  vi.useFakeTimers()
+  const dom = installFakeDom({ innerWidth: 800, innerHeight: 600 })
+  const open = vi.fn()
+  try {
+    dom.render(
+      createElement(RunHistory, {
+        runs: [{ ...run('task', 12), sessionId: 'linked-session' }],
+        onOpenSession: open
+      })
+    )
+    const button = dom.query('[type="button"]')!
+    dom.click(button)
+    expect(open).toHaveBeenCalledExactlyOnceWith('linked-session')
+  } finally {
+    dom.unmount()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
   }
 })

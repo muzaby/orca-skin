@@ -3,6 +3,7 @@ import { expect, it, vi } from 'vitest'
 import { Virtualizer, type VirtualizerOptions } from '@tanstack/virtual-core'
 import { dom } from './virtualView.testfixture'
 import { useVirtualRows } from './useVirtualRows'
+import { VirtualRowMountContext } from './rowMount'
 
 const state = vi.hoisted(() => ({ offset: 0 }))
 vi.mock('react', async (original) => ({
@@ -93,11 +94,19 @@ it('uses stable row IDs after insertion, deletion and same-length replacement', 
     keys = list.getVirtualItems().map((item) => item.key)
     return createElement('div', { ref: owner })
   }
-  dom.render(createElement(Probe))
+  const notify = vi.fn()
+  const render = (): void => {
+    dom.render(
+      createElement(VirtualRowMountContext.Provider, { value: notify }, createElement(Probe))
+    )
+  }
+  render()
   expect(keys).toEqual(ids)
+  notify.mockClear()
   ids = ['first', 'second', 'third']
-  dom.render(createElement(Probe))
+  render()
   expect(keys).toEqual(['first', 'second', 'third'])
+  expect(notify).toHaveBeenCalledOnce()
   ids = ['second', 'third']
   dom.render(createElement(Probe))
   expect(keys).toEqual(['second', 'third'])

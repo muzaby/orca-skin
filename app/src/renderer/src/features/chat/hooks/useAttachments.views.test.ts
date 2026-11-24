@@ -49,6 +49,64 @@ function mount() {
 }
 
 describe('composer attachment preview lifecycle', () => {
+  it('discards an older clipboard read even when the next draft has its own pictures', async () => {
+    const { dom } = mount()
+    let finish!: () => void
+    vi.stubGlobal(
+      'FileReader',
+      class {
+        result = 'data:image/png;base64,cGFzdGU='
+        onload?: () => void
+        readAsDataURL(): void {
+          finish = () => this.onload?.()
+        }
+      }
+    )
+    try {
+      const event = {
+        preventDefault: vi.fn(),
+        clipboardData: { files: [new File(['old'], 'old.png', { type: 'image/png' })] }
+      }
+      hook.value.onPaste(event as unknown as Parameters<UseAttachments['onPaste']>[0])
+      expect(event.preventDefault).toHaveBeenCalledOnce()
+      expect(hook.value.resetIfUnchanged(hook.value.snapshot().items)).toBe(true)
+      await hook.value.pickAttachments()
+      const next = hook.value.snapshot()
+      finish()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(hook.value.snapshot()).toEqual(next)
+    } finally {
+      dom.unmount()
+    }
+  })
+
+  it('drops a late source read before scheduling and a cancelled result before publishing', async () => {
+    const { dom, readAttachment, request } = mount()
+    let finish!: (value: { mimeType: string; data: string }) => void
+    readAttachment.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    try {
+      await hook.value.pickAttachments()
+      const [reading, scheduled] = hook.value.snapshot().views
+      expect(request).toHaveBeenCalledTimes(1)
+      hook.value.removeAttachment(reading.id)
+      hook.value.removeAttachment(scheduled.id)
+      dom.render(createElement(Probe, {}))
+      const chips = hook.value.chips
+      finish({ mimeType: 'image/png', data: 'AAAA' })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      dom.render(createElement(Probe, {}))
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(hook.value.chips).toBe(chips)
+    } finally {
+      dom.unmount()
+    }
+  })
+
   it('reads each image source once and snapshots only prepared results without waiting', async () => {
     const { dom, compute, request, readAttachment } = mount()
     try {

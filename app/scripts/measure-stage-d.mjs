@@ -1,8 +1,10 @@
 import { runHostMeasurements } from './stage-d/host-runner.mjs'
 import { runShellMeasurements } from './stage-d/shell-runner.mjs'
+import { runInstallFlow } from './stage-d/install-runner.mjs'
 import { compatibleRun } from './stage-d/measurement.mjs'
 import { readFile } from 'node:fs/promises'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { execFileSync } from 'node:child_process'
 import {
   resolveElectron,
   runElectron,
@@ -34,10 +36,77 @@ export async function main(scenario = 'image', baseline = false) {
   let probe
   try {
     if (scenario === 'host') return await runHostMeasurements(electron, baseline)
+    if (scenario === 'usage') return await runHostMeasurements(electron, baseline, 'usage')
+    if (scenario === 'data-flows') return await runHostMeasurements(electron, baseline, true)
     if (scenario === 'shell') return await runShellMeasurements(electron, baseline)
-    probe = await serveProbe('stage-d')
+    if (scenario === 'installer') return await runInstallFlow(electron)
+    const panelComparison = scenario === 'resources' || scenario === 'panel-timings'
+    let stamp
+    if (panelComparison) {
+      const cwd = fileURLToPath(new URL('..', import.meta.url))
+      const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+      const sha = git('rev-parse', 'HEAD')
+      if (baseline && (!sha.startsWith('c7d2adf2') || git('status', '--porcelain', '--', 'src')))
+        throw Error('Baseline requires clean c7d2adf2 application sources')
+      stamp = { baseline, sha, environment: 'linux-electron' }
+    }
+    probe = await serveProbe(baseline && panelComparison ? 'stage-d-baseline' : 'stage-d')
     const runs = scenario === 'catalogs' ? 1 : 9
     const result = await runElectron(electron, probe.origin, 'stage-d', [scenario], runs)
+    if (scenario === 'panel-timings')
+      return {
+        env: true,
+        ...result,
+        ...stamp,
+        verdict:
+          !result.error &&
+          result.samples?.length === runs &&
+          result.samples.every(
+            ({ geometry, provider }) =>
+              geometry.paragraphs === 2000 &&
+              geometry.comments === 129 &&
+              provider.storedCharacters === 307845 &&
+              (baseline || provider.obsoleteDiscarded)
+          )
+      }
+    if (scenario === 'resources')
+      return {
+        env: true,
+        ...result,
+        ...stamp,
+        verdict:
+          !result.error &&
+          result.samples?.length === runs &&
+          result.samples.every(
+            (sample) =>
+              sample.mounted > 0 &&
+              (baseline || sample.mounted < 200) &&
+              sample.last === 'm8' &&
+              sample.resource === 'resource-9999'
+          )
+      }
+    if (scenario === 'geometry')
+      return {
+        env: true,
+        ...result,
+        verdict:
+          !result.error &&
+          result.geometry?.openedLast &&
+          result.geometry.tookFocus &&
+          result.geometry.lastVisible
+      }
+    if (scenario === 'overlap')
+      return { env: true, ...result, verdict: !result.error && result.overlap?.thumbnails === 5 }
+    if (scenario === 'interactions') {
+      return {
+        env: true,
+        ...result,
+        verdict:
+          !result.error &&
+          result.composer?.length === 3 &&
+          (baseline || result.resources.mounted < 200)
+      }
+    }
     if (scenario === 'catalogs') {
       return {
         env: true,
@@ -87,13 +156,20 @@ export async function main(scenario = 'image', baseline = false) {
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   const compare = process.argv.indexOf('--compare')
-  const scenario = process.argv.includes('--host')
-    ? 'host'
-    : process.argv.includes('--shell')
-      ? 'shell'
-      : process.argv.includes('--catalogs')
-        ? 'catalogs'
-        : 'image'
+  const scenario =
+    [
+      'host',
+      'data-flows',
+      'usage',
+      'shell',
+      'catalogs',
+      'installer',
+      'geometry',
+      'interactions',
+      'resources',
+      'panel-timings',
+      'overlap'
+    ].find((name) => process.argv.includes('--' + name)) ?? 'image'
   const result =
     compare < 0
       ? await main(scenario, process.argv.includes('--baseline'))

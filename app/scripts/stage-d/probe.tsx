@@ -1,6 +1,14 @@
+import { measurePanelTimings } from './panelTimings'
+import { measureCatalogSelection } from './catalogSelection'
+import { measureComposerFlow } from './composerFlow'
+import { measureResources } from './resourceFlow'
 import { measureCalculations } from './calculations'
+import { measureStreamOverlap } from './streamOverlap'
+import { measureProviderFlow } from './providerFlow'
+import { measureCommentIndex, measurePanelInputs } from './panelInputs'
 import { measureCatalogs } from './catalogs'
 import { measureInstallLog } from './installLog'
+import { measureInstallFlow } from './installFlow'
 import { measurePlanGeometry } from './planGeometry'
 import { measureHeight } from './inputHeight'
 import { computeClient, type ComputeJobTiming } from '@renderer/shared/compute/client'
@@ -106,6 +114,15 @@ async function measure(
   return { records, budget: UI_TASK_BUDGET_MS }
 }
 Object.assign(window, {
+  measurePanelTimings,
+  measureCatalogSelection,
+  measureResources,
+  measureStreamOverlap,
+  measureProviderFlow,
+  measureInstallFlow,
+  measurePanelInputs,
+  measureCommentIndex,
+  measureComposerFlow,
   measureImageOverlap: measure,
   measureHeight,
   measurePlanGeometry,

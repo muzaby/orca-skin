@@ -175,6 +175,7 @@ export function useAttachments(sessionKey: string | null): UseAttachments {
 
   function resetIfUnchanged(expected: ComposerAttachment[]): boolean {
     if (items.current !== expected) return false
+    lifetime.current.generation++
     const previous = drafts.current
     commit([])
     for (const { id } of previous) jobs.current.get(id)?.cancel()
