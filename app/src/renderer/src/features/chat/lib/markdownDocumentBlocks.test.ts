@@ -76,3 +76,8 @@ it('mb11 applies row, cell and character budgets independently', () => {
   for (const s of [table(501, 1, 1), table(1, 1, 50001)])
     expect(markdownDocumentBlocks(s)[0].raw).toBe(true)
 })
+
+it('mb2 keeps a following indented paragraph in the same worker block', () => {
+  const source = 'one\n\n item'
+  expect(texts(source)).toEqual([source])
+})

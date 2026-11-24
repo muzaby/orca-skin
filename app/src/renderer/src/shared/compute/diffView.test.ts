@@ -1,4 +1,6 @@
 import { expect, it } from 'vitest'
+import { packLines } from './diffSource'
+import { createWorkerState } from './worker/state'
 import { buildDiffHunks, expandGap, revealDiffHunkLine } from './diffHunks'
 import type { DiffLine } from './diffModel'
 import { hunksToDiffLines } from './diffModel'
@@ -188,4 +190,74 @@ it('hx1 replays 1000 seeded sequences of gap expansion and hidden-line reveals',
       }
     }
   }
+})
+
+it('returns word spans only when highlighting is enabled on paired changes', () => {
+  const model = buildDiffView(
+    hunksToDiffLines([
+      { value: 'keep old\n', removed: true },
+      { value: 'keep newer\n', added: true }
+    ]),
+    false
+  )
+  for (const highlightWords of [false, true]) {
+    const old = highlightWords ? { start: 5, end: 8 } : null
+    const replacement = highlightWords ? { start: 5, end: 10 } : null
+    expect(diffViewRows(model, { ...inline, highlightWords }, 0, 2).rows).toMatchObject([
+      { wordSpan: old },
+      { wordSpan: replacement }
+    ])
+    expect(
+      diffViewRows(model, { ...inline, highlightWords, layout: 'side-by-side' }, 0, 1).rows
+    ).toMatchObject([{ left: { wordSpan: old }, right: { wordSpan: replacement } }])
+  }
+})
+
+it('indexes old and new rows independently and reports asymmetric change counts for every window', () => {
+  const model = buildDiffView(
+    hunksToDiffLines([
+      { value: 'added first\n', added: true },
+      { value: 'shared\n' },
+      { value: 'old one\nold two\n', removed: true }
+    ]),
+    false
+  )
+  const result = diffViewRows(model, inline, 0, 4)
+  expect(result.rows).toMatchObject([
+    { oldAxis: -1, newAxis: 0 },
+    { oldAxis: 0, newAxis: 1 },
+    { oldAxis: 1, newAxis: -1 },
+    { oldAxis: 2, newAxis: -1 }
+  ])
+  expect(diffViewRows(model, inline, 1, 2).summary).toMatchObject({ added: 1, removed: 2 })
+})
+
+it('uses the deleted row after an insertion to select its old-axis tokens', async () => {
+  const lines = hunksToDiffLines([
+    { value: 'inserted\n', added: true },
+    { value: 'shared\n' },
+    { value: 'const removed = 1\n', removed: true },
+    { value: 'last\n' }
+  ])
+  const doc = { id: 'mixed.ts', revision: 1 }
+  const source = { kind: 'lines' as const, doc }
+  const run = createWorkerState(() => 0)
+  await run({ type: 'doc.open', ref: doc, ...packLines(lines) })
+  const result = diffViewRows(buildDiffView(lines, false), inline, 2, 3)
+  const row = result.rows[0]
+  if (row.kind !== 'line') throw Error('expected a deleted line')
+  const response = await run({
+    id: 1,
+    kind: 'tokens',
+    axis: { source, axis: 'old', ignoreWhitespace: false },
+    start: row.oldAxis,
+    end: row.oldAxis + 1,
+    lang: 'typescript',
+    theme: 'github-light'
+  })
+  if (response?.ok !== true || !('rows' in response.result) || 'summary' in response.result)
+    throw Error('expected token rows')
+  expect(
+    response.result.rows.map((tokens) => tokens.map((token) => token.content).join(''))
+  ).toEqual(['const removed = 1'])
 })

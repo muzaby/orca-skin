@@ -111,3 +111,12 @@ it('sc2 restoring the placeholder height keeps the visible row within one pixel'
   v.frame()
   expect(Math.abs(v.row.getBoundingClientRect().top - before)).toBeLessThanOrEqual(1)
 })
+
+it('schedules a correction from a resize with no accompanying DOM mutation', () => {
+  const v = fixture()
+  v.shift(17)
+  v.resize()
+  expect(v.raf).toHaveBeenCalledOnce()
+  v.frame()
+  expect(v.write).toHaveBeenCalledTimes(1)
+})

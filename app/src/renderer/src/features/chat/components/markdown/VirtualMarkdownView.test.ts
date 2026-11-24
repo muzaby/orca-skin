@@ -10,6 +10,9 @@ vi.mock('../../../../shared/ui/virtual/useVirtualRows', async () => ({
   useVirtualRows: (await import('../../../../shared/ui/virtual/virtualView.testfixture'))
     .useTestVirtualRows
 }))
+import { ArtifactPreviewContent } from '../../harnesses/common/rightpanel/ArtifactPreviewContent'
+import { revisionOf } from '../../../../shared/compute/documents'
+vi.mock('../../../../shared/i18n', () => ({ useI18n: () => ({ tr: (key: string) => key }) }))
 import { VirtualMarkdownView } from './VirtualMarkdownView'
 import { setComputeClient } from '../../../../shared/compute/client'
 const source = Array.from({ length: 1500 }, (_, i) => '# Heading ' + i).join('\n\n')
@@ -101,4 +104,27 @@ it('m7 later oversized chunk removes previously rendered table rows and stops fu
   await settle()
   expect(dom.query('[data-md-block-raw]')!.textContent).toBe(source)
   expect(fake.requests).toHaveLength(2)
+})
+
+it('opens an artifact Markdown document under the publication and result revision', () => {
+  const result = {
+    state: 'ready' as const,
+    format: 'markdown' as const,
+    content: source,
+    mimeType: 'text/markdown'
+  }
+  const open = vi.spyOn(fake.client, 'openDocument')
+  dom.render(
+    createElement(ArtifactPreviewContent, {
+      result,
+      mode: 'preview',
+      title: 'Report',
+      publicationId: 'report'
+    })
+  )
+  expect(open).toHaveBeenCalledWith(
+    { id: 'md:report', revision: revisionOf(result) },
+    { text: source, lines: undefined },
+    'markdown'
+  )
 })

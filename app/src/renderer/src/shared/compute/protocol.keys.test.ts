@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { requestKey, type ComputeRequest, type TokensRequest } from './protocol'
+import { requestKey, requestSize, type ComputeRequest, type TokensRequest } from './protocol'
 import type { DiffOptions, DiffSourceRef } from './diffSource'
 const doc = { id: 'fixture', revision: 12 }
 const source: DiffSourceRef = { kind: 'patch', doc }
@@ -89,5 +89,75 @@ it('pk6 preserves anchor order, duplicates, missing sides and view transform', (
   distinct(
     { kind: 'codeView', source: { view }, start: 0, end: 2 },
     { kind: 'codeView', source: { doc }, start: 0, end: 2 }
+  )
+})
+
+it('pk7 sizes each work kind in characters, counting only the requested window', () => {
+  const inputs: [ComputeRequest, number][] = [
+    [{ ...tokens, start: 3, end: 203 }, 20_000],
+    [{ kind: 'diffView', source, options, start: 11, end: 61 }, 5_000],
+    [{ kind: 'codeView', source: { doc }, start: 1, end: 301 }, 30_000],
+    [{ kind: 'diffContext', source, ignoreWhitespace: false, lineIndex: 18 }, 700],
+    [
+      {
+        kind: 'diffLocate',
+        source,
+        options,
+        anchors: [1, 2, 3].map((oldLine) => ({ oldLine, newLine: null }))
+      },
+      48
+    ],
+    [{ kind: 'markdown', doc, start: 7, end: 5_007 }, 5_000],
+    [{ kind: 'highlight', code: 'abc', lang: 'ts', theme: 'github-light' }, 3]
+  ]
+  for (const [request, expected] of inputs) {
+    expect(
+      requestSize(request, () => ({ chars: 1000, lines: 10 })),
+      request.kind
+    ).toBe(expected)
+  }
+})
+
+it('pk7b weights paired documents by sampled lines', () => {
+  const other = { id: 'other', revision: 4 }
+  const pair = { kind: 'pair' as const, old: doc, new: other }
+  expect(
+    requestSize({ kind: 'diffView', source: pair, options, start: 4, end: 6 }, (ref) =>
+      ref === doc ? { chars: 100, lines: 10 } : { chars: 9900, lines: 90 }
+    )
+  ).toBe(200)
+})
+
+it('pk7c resolves derived token axes and stripped views back to their source samples', () => {
+  const view = { doc, transform: 'stripGutter' as const }
+  const axis = { source, axis: 'old' as const, ignoreWhitespace: false }
+  const window = { start: 2, end: 5 }
+  const tokenOptions = {
+    kind: 'tokens' as const,
+    lang: tokens.lang,
+    theme: tokens.theme,
+    ...window
+  }
+  for (const input of [
+    { ...tokenOptions, axis },
+    { ...tokenOptions, view },
+    { kind: 'codeView' as const, source: { view }, ...window }
+  ]) {
+    expect(
+      requestSize(input, (ref) => {
+        expect(ref).toBe(doc)
+        return { chars: 7, lines: 2 }
+      })
+    ).toBe(10.5)
+  }
+})
+
+it('pk3 separates context windows by anchor, source revision and whitespace policy', () => {
+  const context = { kind: 'diffContext' as const, source, ignoreWhitespace: false, lineIndex: 6 }
+  distinct(
+    context,
+    { ...context, lineIndex: 7 },
+    { ...context, ignoreWhitespace: true },
+    { ...context, source: { kind: 'patch', doc: { ...doc, revision: 13 } } }
   )
 })

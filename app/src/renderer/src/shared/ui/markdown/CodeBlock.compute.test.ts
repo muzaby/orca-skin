@@ -170,3 +170,16 @@ describe('CodeBlock — 계산 워커 강조', () => {
     expect(innerHtml()).toBe('<pre>cached</pre>')
   })
 })
+
+it('keeps the CSS line counter on highlighted code only when line numbers are requested', async () => {
+  const code = 'const x = 1'
+  const show = (showLineNumbers: boolean): void =>
+    dom.render(createElement(CodeBlock, { code, lang: 'typescript', showLineNumbers }))
+  show(true)
+  compute.resolveNext({ html: '<pre class="shiki">colored</pre>' })
+  await settle()
+  expect(injected()?.props.className).toContain('counter-reset:line')
+  show(false)
+  expect(injected()).toBeDefined()
+  expect(injected()?.props.className).toBeUndefined()
+})
