@@ -1,16 +1,16 @@
 # 0328 · 컴포저·패널·목록·셸 응답성 (단계 D)
 
-**DRAFT · Baseline V1 rev 3.** 첨부·댓글·입력 높이·설치 로그·셸과 목록 화면의 작업 및 검증 단위를 작성했다. 측정 결과에 따라 T20·T28·T30의 공개 조회 계약을 추가할 수 있는지 D-004에서 사용자 결정을 받는다.
+**READY · Baseline V1 rev 4.** PR #640 0328 피드백을 반영했다. 기준 트리를 `c7d2adf2`로 재대조하고(§8-A) 단계 경계(D-008), T21 송신 시점(D-009)·워커 배치(D-010), 댓글·가상 목록 측정(D-011), WU1 구간 측정(D-012)을 확정했다. D-004는 사용자가 화면별 조건부 허용으로 정했다(D-004a~d).
 
 ## 메타
 
 | 항목 | 값 |
 |---|---|
 | slug / 날짜 | `0328-composer-panels-lists-shell` / 2026-11-20 |
-| 기준 트리 | `62125eaa` (0326 r2 verify FAIL, 0327 V1 plan READY). 착수 시 영향받는 파일과 채널의 변경만 재대조 |
-| V mode / 기준 V / 이번·유효 revision | Baseline V / 없음 / V1 rev 3 초안. 0325의 A·0327의 C는 별도 V |
-| 다음 주체 | 사용자(D-004 선택). 선택이 정해지면 설계자가 해당 조회 계약과 Q20 변경 전달 배선을 잠근다. 비기능 구현 담당은 0325 §6-C 기준 Claude. T21의 공통 워커 변경은 C와 조율 |
-| 입력 | [0325 계획 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [원 요청서 T20~T33와 셸](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [실행 위치 감사](../0325-ui-responsiveness-followup/input/0324-audit.ko.md) · [0327 공통 워커 계약](../0327-worker-protocol-visible-views/plan.md) |
+| 기준 트리 | `c7d2adf2` — PR #640 head(0326 verify 7 PASS · 0327 verify 5 PASS 기계 범위). rev 1~3의 `62125eaa`는 공유 브랜치에 없어 좌표가 아니다(§8-A A1) |
+| V mode / 기준 V / 이번·유효 revision | Baseline V / 없음 / V1 rev 4 (READY). 0325 A·0326 B·0327 C는 별도 V이고 여기서는 그 AC를 REGRESSION pair(VP-24·VP-26·VP-27)로만 다시 닫는다 |
+| 다음 주체 | 구현자(Codex — 0327 선례, 사용자가 바꿀 수 있다). WU1 구간 측정과 기존 동작 회귀 테스트부터 시작한다(PR #640). 측정에 따른 분기는 §19 분기 규칙 R-H·R-W·R-R이 정하고 설계자 턴 없이 적용한다 |
+| 입력 | [0325 계획 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [원 요청서 T20~T33와 셸](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [실행 위치 감사](../0325-ui-responsiveness-followup/input/0324-audit.ko.md) · [0327 공통 워커 계약](../0327-worker-protocol-visible-views/plan.md) · [PR #640 0328 피드백](https://github.com/muzaby/orca-skin/pull/640#issuecomment-7122563525) |
 
 # Part I · 제품 및 사용 흐름
 
@@ -24,7 +24,8 @@
 |---|---|---|
 | 사용자 | 0327 구현 전에 0328 D·0329 E·0330 W를 별도 계획으로 작성. 현재와 변경 후를 사용자 시나리오로 설명. 단계 D의 제품 레퍼런스는 VS Code | 이번 대화 |
 | 승계 | D가 맡는 아홉 T행과 셸 세 항목. T21 작업 수·실패 폴백은 A에서 완료. 조건부 이주는 입력 크기·실측으로 판정 | 0325 §6-C·D, D-012·D-019·D-029·D-041·D-043 |
-| 설계 제안 | 상한 초과 경로만 채택하는 조회·전송 방식과 테스트 입력. 기기별 최종 허용치는 0330에서 사용자 판정 | §3 D-004, §19 |
+| 설계 제안 | 상한 초과 경로만 채택하는 조회·전송 방식과 테스트 입력. 기기별 최종 허용치는 0330에서 사용자 판정 | §3 D-004a~d, §19 |
+| 사용자(PR #640) | 기준선 재대조·단계 경계, T21 송신 시점과 워커 계약, T24 댓글·가상 목록, D-004 화면별 조건부 (가), WU1 구간 측정·Windows 인계 여섯 항목. D-004 하위 결정 넷과 미준비 썸네일 처리는 이번 대화에서 사용자가 권고안을 골랐다 | [PR #640 댓글](https://github.com/muzaby/orca-skin/pull/640#issuecomment-7122563525), 이번 대화 |
 
 ## 3. 결정 기록
 
@@ -33,10 +34,23 @@
 | D-001 | D 전체를 이 handoff에 두고 구현·Windows 최종 판정은 각 소유 단계에 둔다 | 사용자 확정, 0325 §6-C | ACTIVE |
 | D-002 | 전송 스냅숏의 원본·순서와 최근 편집을 보존한다. 크기 검사 후 워커가 축소·인코딩하고 실패한 첨부는 파일 표시로 남긴다 | T21, 0325 D-012·D-041 | ACTIVE |
 | D-003 | DOM 위치·댓글 선택·읽는 중인 스크롤은 창이 소유한다. 설치 전체 출력은 기존 실행의 수명 안에 보존한다 | T24·T32·T33 | ACTIVE |
-| D-004 | **결정 요청**. T20·T28·T30에서 §19 측정이 원인을 확인한 경우 (가) 기존 호출과 전체 열람을 유지하면서 제한된 추가 조회를 사용(추천), (나) 기존 공개 계약으로 국한해 창에서 가시화를 개선하고, 여전히 초과하면 해당 항목만 재설계. 가·나의 사용자 흐름은 §5 | 0325 D-029, 요청서, 설계자의 선택지 | **OPEN** |
+| D-004 | ~~결정 요청 — T20·T28·T30에서 (가) 제한된 추가 조회 / (나) 기존 공개 계약 안의 창 가시화~~ | 0325 D-029, 요청서, 설계자의 선택지 | SUPERSEDED → D-004a~d |
+| D-004a | T20 열린 메뉴의 외부 생성·삭제·이름 변경 반영은 필수다. 변경 전달은 data→창 **폴더 변경 통지 채널**(활성 폴더 revision 무효화만 알림)로 한다. 기존 `files.list` 1초 재조회 폴백은 쓰지 않는다 | “통지 채널 허용 (권고)” · PR #640 “T20의 열린 메뉴에서 외부 생성·삭제·이름 변경 반영은 필수” | ACTIVE |
+| D-004b | T20 후보 prefix/limit 조회는 **WU1이 호스트 조회·IPC 전송을 병목으로 보인 경우에만** 추가한다(§19 R-H). 기존 전체 목록 조회·9번째 이후 유효 파일 장식은 그대로 둔다 | “측정 조건부 허용 (권고)” | ACTIVE |
+| D-004c | Q28 페이지 조회는 “DB·전송이 병목일 때만” 적용한다. DOM만 비싸면 렌더러에서 해결하고 기존 조회·정렬·선택 ID·전체 열람을 보존한다 | “둘 다 조건부 허용 (권고)” · PR #640 | ACTIVE |
+| D-004d | Q30 목록/상세 분리는 “숨은 실행 출력 읽기·전송이 병목일 때만” 적용한다. 보존 조건은 D-004c와 같다 | “둘 다 조건부 허용 (권고)” · PR #640 | ACTIVE |
 | D-005 | T29·T31·T33와 셸의 측정 우선 항목은 §19 입력과 구간별 비용으로 유지·수정을 기록한다. 0327은 테마 재강조, D는 입력 높이를 맡는다 | 0325 D-019·D-043, 0327 D-016 | ACTIVE |
 | D-006 | 제안 예산은 §14에 둔다. 성능 측정·진단 fixture에는 본문·경로·기밀 설정값을 수집하지 않는다 | 설계자, 실행 모델의 계측 계약 | ACTIVE |
 | D-007 | 단계 D의 제품 레퍼런스는 VS Code다. 파일 후보는 현재 폴더를 열어 둔 채 외부에서 생성·이름 변경·삭제해도 갱신한다. 입력 높이·대량 목록·설치 로그는 §8의 대응 동작을 참조한다 | “D는 vscode를 레퍼런스로 따를 것” · 사용자 보고, VS Code 1.100.0 소스(§8) | ACTIVE |
+| D-008 | 단계 경계 — 0325의 첨부 원본·실패 처리, 0326의 세션·transcript, 0327의 Markdown·diff·가시 행을 승계(REGRESSION)한다. 0328은 컴포저·패널·목록 상호작용, 검색 결과 메시지 도착·강조는 0329, 장비별 최종 판정은 0330이 맡는다 | PR #640 “기준선·단계 경계” | ACTIVE |
+| D-009 | T21 송신 — ‘다음 입력 가능’과 ‘원본 송신 시작’을 나눈다. “썸네일 완료를 기다리지 않고 전송 시점의 원본을 순서대로 보내며 미리보기는 준비된 것만 사용”한다. 전송 순간 미준비 이미지는 버블·DB(재시작 후 포함)에 썸네일 없이 파일로 남는다(0325 D-012 확장) | PR #640 권고 · “준비된 것만 사용 (권고)” | ACTIVE |
+| D-010 | 워커 배치 — 이미지 썸네일은 0327 compute·markdown 레인의 요청 세대·취소·우선순위(0327 D-008·D-016·D-024) 위에 둔다. base64 문자열 복제로 보내고, 원본 송신은 워커와 독립이며, 픽셀 검사 후 decode하고 레인 슬롯을 모든 종료 경로에서 해제한다. 전용 `image` 레인 여부는 §19 R-W 겹침 측정으로 정한다. JSON은 기존 codec을 쓰고 최신 편집 revision만 폼에 반영한다 | PR #640 “T21 이미지·T29 대형 JSON의 워커” | ACTIVE |
+| D-011 | 댓글·가상 목록 — 계획 본문 ref와 오버레이 ref를 나누고 본문 revision별 UTF-16 색인·가시 주석만 잰다. 화면 밖 댓글은 문단 이동 뒤 잰다. 0327 가상 행을 쓰는 목록·로그는 실제 스크롤 컨테이너·안정 행 ID·마운트 시 드래그 선택 취소 범위를 §10 VL 표로 고정한다. 저장 댓글 인용과 일시 브라우저 선택은 따로 검증한다 | PR #640 “T24 댓글·목록 가상화” | ACTIVE |
+| D-012 | WU1은 같은 입력으로 호스트 조회·IPC 바이트·워커 대기·DOM 행·React commit·첫 paint를 나눠 재고 항목별 유지/변경 근거를 남긴다. 실제 설치 로그와 진단 폭주는 따로 적는다. “50ms·160ms는 원인 조사 기준”이고 Windows 전용 결과는 AC12·0330 인계 항목이며 0327 AC30은 WU1 착수 조건이 아니다 | PR #640 “기계 검증·Windows 인계” | ACTIVE |
+
+rev 4 변경 근거 · PR #640 0328 피드백과 이번 대화의 사용자 답(D-004a~d · D-009 미준비 썸네일)을 반영했다. 바뀐 규범 행은 D-004a~d·D-008~D-012, AC1·AC2a·AC2b·AC3~AC6·AC12·AC13·AC14, VP-14·16·17·20·21·24, VP-02를 나눈 VP-02a·02b와 신규 VP-26·27·28·29·30, §10 Q20·EP2·EP3·EP5·EP12·VL·WL이다.
+
+**ACTIVE 결정 ↔ AC 대조 (rev 4)**: 충돌 0. D-004a→AC1 · D-004b→AC1·R-H · D-004c→AC4 · D-004d→AC6 · D-008→VP-24·26·27 · D-009→AC2a·AC2b · D-010→AC13·AC5 · D-011→AC3·AC14 · D-012→AC12. D-002 “크기 검사 후 워커가 축소·인코딩”은 D-010과 같은 방향이고 D-009가 송신 시점만 정한다.
 
 rev 3 변경 근거 · D-007→AC1·AC3·AC4·AC6·AC8·AC9. 제품 레퍼런스 지정과 T20 파일 최신성은 이번 결정에 따른다. DB/카탈로그의 반환 범위를 바꾸는 D-004와 W의 장비별 허용치는 각 소유 단계에 남는다.
 
@@ -54,64 +68,83 @@ V1 대조 결과 · D-001→AC12, D-002→AC2, D-003→AC3·8·9, D-005→AC5·7
 
 | 사용자 시나리오 | 현재(AS-IS) | 제안(TO-BE) / 조건부 대안 |
 |---|---|---|
-| **메뉴**. 파일 2만 개가 있는 폴더에서 `@src`를 입력하고 두 번째 후보를 선택한다 | 디렉터리 목록을 받은 창이 접두사·숨김 규칙을 적용해 파일 최대 8개를 띄운다. 슬래시·플러그인·모델은 서로 다른 후보 집합을 쓴다 | (가) 초과 시 목록 소유자가 같은 순서의 제한 결과를 주고 같은 키로 선택한다. (나) 창에서 같은 후보를 일찍 찾아도 첫 전체 목록 전송은 남는다. 목록 밖에서 직접 붙여넣은 유효 파일·선택 모델의 장식은 두 안 모두 보존 |
-| **새 파일**. `@new` 목록을 열어 두고 외부에서 `new-file.txt`와 `new-dir/`를 만든 뒤 파일 이름을 바꾸고 폴더를 삭제한다 | 처음 읽은 폴더 이름이 창에 남는다. 입력을 다시 열어도 새 이름이 빠지고 삭제된 이름이 계속 보일 수 있다 | VS Code 탐색기의 변경 처리 방식을 따라 data가 활성 폴더의 변화를 감지해 목록을 다시 읽는다. 이름이 바뀌면 새 이름으로, 지우면 후보에서 사라진다. 같은 목록에서 연속 타이핑하는 동안에는 이미 확보한 후보를 필터한다 |
-| **이미지**. 5장을 붙이고 바로 전송한 뒤 다음 메시지를 입력한다 | 창이 첨부 원본에서 썸네일을 만들고 전송 승인 후 초안 revision을 검사한다. 선택 직후 미리보기는 별도로 원본을 읽는다 | 워커가 픽셀 예산 안에서 작은 미리보기를 준비한다. 전송 시점의 원본 5장은 같은 순서로 도착하고 실패 이미지만 파일로 보인다. 이전 요청의 완료는 새 초안을 비우지 않는다 |
+| **메뉴**. 파일 2만 개가 있는 폴더에서 `@src`를 입력하고 두 번째 후보를 선택한다 | 디렉터리 목록을 받은 창이 접두사·숨김 규칙을 적용해 파일 최대 8개를 띄운다. 슬래시·플러그인·모델은 서로 다른 후보 집합을 쓴다 | 기본은 기존 전체 목록 + 창 필터다. 큰 폴더의 목록 전송이 병목으로 측정되면 목록 소유자가 같은 순서의 prefix·8개 결과를 주고 같은 키로 선택한다(D-004b). 목록 밖에서 직접 붙여넣은 유효 파일·선택 모델의 장식은 보존 |
+| **새 파일**. `@new` 목록을 열어 두고 외부에서 `new-file.txt`와 `new-dir/`를 만든 뒤 파일 이름을 바꾸고 폴더를 삭제한다 | 처음 읽은 폴더 이름이 창에 남는다. 입력을 다시 열어도 새 이름이 빠지고 삭제된 이름이 계속 보일 수 있다 | VS Code 탐색기 방식대로 data가 활성 폴더의 변화를 감지하고 창에 “다시 읽어라” 통지를 보낸다(D-004a). 창은 같은 질의를 다시 읽어 새 이름을 보이고 지운 이름을 뺀다. 연속 타이핑 중에는 확보한 후보를 필터한다 |
+| **이미지**. 5장을 붙이고 바로 전송한 뒤 다음 메시지를 입력한다 | 창이 전송을 누른 뒤 원본을 다시 읽어 썸네일 5장을 만들고 나서야 송신한다(`composerSubmit.ts:42-43`). 그동안 입력창은 비지 않는다. 선택 직후 칩 미리보기는 원본 전체 data URL이다 | 첨부 직후 워커가 픽셀 예산 안에서 썸네일을 만들어 칩에 보인다. 전송을 누르면 썸네일을 기다리지 않고 원본 5장이 같은 순서로 송신을 시작하고 입력창이 비어 다음 입력을 받는다. 그때 준비된 썸네일만 버블에 붙고 미준비·실패 이미지는 재시작 뒤에도 파일로 보인다(D-009) |
 | **계획 댓글**. 긴 계획에서 두 문단에 걸쳐 코멘트를 달고 폭을 끈 다음, 목록에서 화면 밖 댓글을 다시 연다 | 폭이 바뀔 때마다 모든 댓글을 문서 처음부터 찾아 rect를 읽는다 | 본문 revision에 묶은 오프셋 색인으로 같은 인용을 찾고 가시 부분만 프레임당 한 번 잰다. 목록 선택은 원 위치로 스크롤한 뒤 해당 댓글을 연다 |
-| **탐색·카탈로그**. 고정한 세션과 최근 세션을 보다가 프로젝트를 고정하고 산출물을 두 단어로 검색한다 | 창이 전체 목록에서 고정 섹션·순서와 일치 결과를 만든다. 본문 검색은 별도 150ms 지연·최대 30건 | (가) 초과 시 data가 같은 정렬·필터를 페이지로 반환한다. 고정 변경 뒤 선택한 ID와 위치를 보존하고 다음 페이지에서 나머지를 읽는다. (나) 화면의 행만 그려도 전체 목록 이동·정렬은 남는다 |
-| **설정**. 스킬·MCP·모델 목록을 바꾸고 공급자 JSON을 붙여넣는다 | 창에서 정렬·폼 파싱을 진행한다 | 계산이 예산 안이면 유지한다. 초과한 큰 JSON은 워커로 검증해 마지막 입력의 유효한 결과만 같은 폼에 채운다. 작은 입력, 엔진 선택과 오류 설명을 보존 |
-| **예약**. 실행 이력을 열고 실패한 실행의 긴 로그를 읽는다 | 최근 실행 최대 20건의 저장 출력을 함께 싣고 각 출력 전체를 `pre`로 그린다 | (가) 초과 시 현재 화면에는 상태·짧은 끝부분을 보이고 선택한 실행만 보관된 출력을 읽는다. (나) 같은 전체 응답을 쓰되 상세 DOM을 늦게 만든다. 양쪽 모두 저장 때 잘린 앞부분은 절단 표시가 남는다 |
+| **탐색·카탈로그**. 고정한 세션과 최근 세션을 보다가 프로젝트를 고정하고 산출물을 두 단어로 검색한다 | 창이 전체 목록에서 고정 섹션·순서와 일치 결과를 만든다. 본문 검색은 별도 150ms 지연·최대 30건 | 화면의 행만 그린다(§10 VL — 같은 스크롤 위치·선택 ID 유지). DB·전송이 병목으로 측정된 화면만 data가 같은 정렬·필터를 페이지로 반환하고, 고정 변경 뒤에도 선택 ID와 위치를 보존한다(D-004c) |
+| **설정**. 스킬·MCP·모델 목록을 바꾸고 공급자 JSON을 붙여넣거나 가져온다 | 창에서 정렬, 입력마다 settings JSON 전체 파싱(`EngineFormModal.tsx:80`), 가져오기 codec 실행(`ProviderForm.tsx:173`) | 계산이 예산 안이면 유지한다. 초과하면 같은 codec을 워커에서 실행하고 마지막 편집 revision의 결과만 같은 폼에 채운다. 작은 입력, 엔진 선택과 오류 설명을 보존 |
+| **예약**. 실행 이력을 열고 실패한 실행의 긴 로그를 읽는다 | 최근 실행 최대 20건의 저장 출력을 함께 싣고 각 출력 전체를 `pre`로 그린다 | 기본은 같은 전체 응답에서 상세 DOM을 늦게 만든다. 숨은 출력의 DB 읽기·전송이 병목으로 측정되면 목록에는 상태·짧은 끝부분만 싣고 선택한 실행만 출력을 읽는다(D-004d). 저장 때 잘린 앞부분은 절단 표시가 남는다 |
 | **차트·로그·입력 높이** | 기간 전환은 창에서 일/주 집계 후 차트를 그리고, 설치 출력은 올 때마다 맨 아래로 이동한다. 긴 입력도 값마다 높이를 읽는다 | 차트는 실제 병목 구간만 바꾸고 포인터·총계를 보존한다. 설치 로그에서 위로 읽던 문장은 유지하고 하단으로 돌아가면 새 출력을 따른다. 보이는 입력은 폭·최신 값에 맞춰 커지고 숨은 입력은 다시 보일 때 갱신한다 |
 | **셸**. 앱을 열고 자산을 읽고 창을 닫았다가 다시 연다 | 확장자가 있는 경로는 동기 파일 확인을 거친다. 최초 설정 승계·종료 시 위치 저장·정상 주기 및 장애 로그 쓰기 주체는 각각 다르다 | 비용이 확인된 작업을 먼저 줄인다. SPA 직접 진입, 누락 자산의 기존 fallback, 이전 창 위치·언어, 종료 직전까지 기록된 로그를 그대로 복원한다 |
 
-**전이.** 입력·페이지·JSON 요청은 세션/폼/작업과 세대를 함께 갖고 로딩→결과·빈 결과·기존 오류 표시로 간다. 뒤늦은 이전 응답·닫힌 팝오버의 응답은 폐기하고, 실패 뒤 같은 현재 입력으로 재시도한다. 첨부 썸네일 실패는 해당 썸네일만 생략한다. 설치 종료는 마지막 출력 → done/error → 버튼 상태 순서를 지킨다.
+**전이.** 입력·페이지·JSON 요청은 세션/폼/작업과 세대를 함께 갖고 로딩→결과·빈 결과·기존 오류 표시로 간다. 뒤늦은 이전 응답·닫힌 팝오버의 응답은 폐기하고, 실패 뒤 같은 현재 입력으로 재시도한다. 설치 종료는 마지막 출력 → done/error → 버튼 상태 순서를 지킨다.
+
+**첨부 썸네일 상태.** 첨부마다 `준비 중 → 준비됨 | 없음` 하나를 갖는다. 실패·형식 불명·예산 초과·워커 차단은 `없음`이고 칩은 파일로 보인다. 전송이 수락되면 그 순간 `준비됨`만 버블로 가고 `준비 중` 작업은 취소된다. 전송이 거부되면 초안·첨부·작업이 그대로 남는다.
 
 ## 6. 범위와 단계 경계
 
-T20 메뉴, T21 잔여, T24 댓글, T28 목록, T29 설정, T30 예약 목록·이력, T31 사용량, T32 설치 로그, T33 입력 높이와 S-D10의 셸 세 항목을 맡는다. T28은 상단 본문 검색의 결과·순서·스니펫과 일반 대화 목록의 선택 동작을 보존한다. 검색 결과를 선택한 뒤 해당 메시지 주변을 읽고 화면에서 그 행을 잠시 강조하는 동작은 E가 맡는다. T27 산출물 **본문**, T33 테마는 C의 범위다. [0329 AC6·S-E5](../0329-turn-history-paging/plan.md)
+T20 메뉴, T21 잔여, T24 댓글, T28 목록, T29 설정, T30 예약 목록·이력, T31 사용량, T32 설치 로그, T33 입력 높이와 S-D10의 셸 세 항목을 맡는다. T28은 상단 본문 검색의 결과·순서·스니펫과 일반 대화 목록의 선택 동작을 보존한다. T27 산출물 **본문**, T33 테마는 C의 범위다.
+
+| 경계 (D-008) | 0328이 하는 일 | 다른 단계가 소유 |
+|---|---|---|
+| 0325 A · 첨부 | 썸네일 생성 위치·시점, 송신 시점(D-009·D-010) | 원본 송신·실패 시 파일 표시·동시 작업 ≤2(0325 D-012·D-041·AC17·AC18) → VP-24 회귀 |
+| 0326 B · 세션·transcript | 즉시 송신이 만든 사용자 버블이 기존 순서·하단 추적으로 들어가는지 | 세션 저장소·뷰포트·선택 가드(0326) → VP-26 회귀 |
+| 0327 C · 워커·가시 행 | 이미지·JSON 작업 배치, 목록·로그의 가상 행 재사용(행 ID 인자 추가) | 레인·대기열·취소(0327 D-008·D-016·D-024), Markdown·diff·가시 행 → VP-27 회귀 |
+| 0329 E · 검색 결과 | 상단 검색의 결과·순서·스니펫과 선택 ID를 S-D4에 기록 | 결과를 누른 뒤 메시지 도착·행 강조 → [0329 AC6·S-E5](../0329-turn-history-paging/plan.md) |
+| 0330 W · 장비 판정 | Windows 전용 결과를 AC12 인계 항목으로 표시 | 목표 장비·허용치·최종 판정 → [0330](../0330-windows-responsiveness-verdict/plan.md) |
 
 0320의 `ScheduleTaskModal.save` 중복 저장과 `shell-runner`의 프로세스 종료 조건은 조회 전용 T30 경로에 없다. 0327의 완료된 대형 Markdown 블록 후보·0326의 승인 순서 후보는 이 계획에서 승격하지 않는다. D에서 0327의 공유 워커를 쓰는 지점만 실제 규약과 대조한다.
 
 ## 7. 요구와 인수 기준 (R ↔ AT)
 
-ID n의 R-n·AT-n은 같은 행을 가리킨다. 조건부 이주는 진단 입력과 분기 근거를 남긴다. 기준 안인 화면은 동작과 실측을 기록한 뒤 종결할 수 있다.
+ID n의 R-n·AT-n은 같은 행을 가리킨다(AC2a·AC2b는 R-02a·R-02b). 조건부 이주는 진단 입력과 분기 근거(§19 R-H·R-W·R-R)를 남긴다. 기준 안인 화면은 동작과 실측을 기록한 뒤 종결할 수 있다.
 
 | AC | 행동 기준 | 검증 입력 → 관측 / 실제 경로 |
 |---|---|---|
-| AC1 | 열린 메뉴에서 생성/삭제/이름 변경을 반영하고, 재방문·감시 중단 후에는 디스크와 재대조한다. 키보드·초점·앵커와 완성 파일 토큰의 유효성을 보존 | S-D1. 대/소문자·숨김 점·따옴표 경로·늦은 prefix·후보 밖 파일·슬래시·plugin·모델 → 실제 메뉴의 ID/순서·토큰·커서. §10 Q20 |
-| AC2 | 선택·놓기·붙이기 후 즉시 전송해도 원본/뷰 순서·최근 수정 보존. 미리보기 작업은 §14 예산 이내 | S-D2. 서로 다른 이미지 5장·오류·한도 경계·같은 이름 교체·IME·전송 거부 → 컴포저 송신 인자와 전송 후 표시/포커스. EP2 |
-| AC3 | 인용의 UTF-16 시작·끝과 클릭 위치를 보존. 같은 프레임의 폭 변화는 한 번, 화면 밖 주석 rect는 읽지 않음 | S-D3. 문단·링크·이모지·동일 인용 2곳, 생성·취소·편집·원문 교체 → 실제 선택/버튼/편집 팝오버. EP3 |
-| AC4 | 프로젝트·세션·고정 목록·전역 산출물 필터·순서·검색 선택이 유지됨 | S-D4. 결과 경계에서 고정 전환·삭제·중복 제목·두 단어 검색·이전 쿼리 지연 → 페이지 결합 ID와 전건 기준 일치. Q28 |
-| AC5 | 큰 설정·카탈로그에서 정렬·선택·폼 오류·마지막 편집 보존 | S-D5. 유효/깨진 JSON·지원/미지원 npm·늦은 결과·빈 목록 → 저장 전 폼 값/오류와 원래 순서, 비밀값 로그 부재. EP5 |
-| AC6 | 예약 목록·실행 이력·보관 출력·절단·실행 버튼의 기존 의미 보존 | S-D6. 없음·성공·실패·건너뜀·출력 없음·동명 작업·상세 전환 → 표시한 실행 ID, 보관된 끝부분 및 절단 상태가 DB와 일치. Q30 |
+| AC1 | 열린 메뉴가 외부 생성/삭제/이름 변경을 data 통지(D-004a)로 반영하고, 재방문·감시 중단 후에는 디스크와 재대조한다. 키보드·초점·앵커와 완성 파일 토큰의 유효성을 보존. prefix/limit 조회는 R-H가 켠 경우에만 있고 결과 순서·장식이 전체 목록 경로와 같다 | S-D1. 대/소문자·숨김 점·따옴표 경로·늦은 prefix·후보 밖 파일·슬래시·plugin·모델 → 실제 메뉴의 ID/순서·토큰·커서. §10 Q20 F1~F6 |
+| AC2a | **다음 입력 가능** — 전송이 수락되면 같은 입력 처리 안에서 초안·첨부가 비고 초점이 입력창으로 돌아온다. 썸네일 작업이 보류돼 있어도 기다리지 않는다. 거부·IME 조합 중에는 초안·첨부를 보존 | S-D2. 미리보기 응답을 보류한 워커로 5장 즉시 전송 → 같은 task의 초안 revision·첨부 수·초점, 이어 친 후속 초안이 늦은 썸네일 응답 뒤에도 남는가. EP2 ⑤ |
+| AC2b | **원본 송신 시작** — 전송 시점의 원본(경로/inline)이 입력 순서대로 `onSend`에 한 번 들어가고, 뷰에는 그 순간 `준비됨` 썸네일만 붙는다. `준비 중`·`없음`은 미리보기 없는 파일 뷰이며 저장 뒤 다시 열어도 같다(D-009) | S-D2. 준비됨 2·준비 중 2·실패 1, 같은 이름 교체, 거부 → `onSend` 인자 원본 bytes/ID·순서, 뷰의 `previewDataUrl` 유무, 저장된 첨부 파트. EP2 ⑤⑥ |
+| AC3 | 인용의 UTF-16 시작·끝과 클릭 위치를 보존. 같은 프레임의 폭 변화는 한 번, 화면 밖 주석 rect는 읽지 않음. 오버레이·팝오버 텍스트는 본문 offset에 섞이지 않는다. 저장 댓글 인용과 일시 브라우저 선택을 따로 보존 | S-D3. 문단·링크·이모지·동일 인용 2곳, 생성·취소·편집·원문 교체, 화면 밖 댓글 열기 → 실제 선택/버튼/편집 팝오버. EP3 |
+| AC4 | 프로젝트·세션·고정 목록·전역 산출물 필터·순서·검색 선택이 유지됨. 페이지 조회는 R-H가 그 화면에 켠 경우에만 있다(D-004c) | S-D4. 결과 경계에서 고정 전환·삭제·중복 제목·두 단어 검색·이전 쿼리 지연 → 화면 ID 순서와 전건 기준 일치(페이지면 결합 ID). Q28·VL |
+| AC5 | 큰 설정·카탈로그에서 정렬·선택·폼 오류·마지막 편집 보존. settings JSON 입력 검증과 가져오기는 기존 codec 결과와 같고 마지막 편집 revision만 폼에 반영 | S-D5. 유효/깨진 JSON·지원/미지원 npm·늦은 결과·빈 목록·연속 입력 → 저장 전 폼 값/오류와 원래 순서, 비밀값 로그 부재. EP5 |
+| AC6 | 예약 목록·실행 이력·보관 출력·절단·실행 버튼의 기존 의미 보존. 목록/상세 분리는 R-H가 켠 경우에만 있다(D-004d) | S-D6. 없음·성공·실패·건너뜀·출력 없음·동명 작업·상세 전환 → 표시한 실행 ID, 보관된 끝부분 및 절단 상태가 DB와 일치. Q30·VL |
 | AC7 | 기간/모델 총계, 일·주 단위, 포인터 값을 유지하고 첫 commit과 paint를 분리 | S-D7. 자료 없음, 7일·30일·전체 90/91일·730일 이전 자료 → 제품 화면 합계와 차트 자료. EP7 |
 | AC8 | 로그 폭주 때 읽던 위치, 종료·오류 순서와 실행 중 전체 출력을 보존 | S-D8. 줄 경계 없는 큰 조각·분할 줄·빈 log·오류+done·재시작 → archive 연결값·화면 tail·첫 이벤트/마지막 이벤트 순서. EP8 |
 | AC9 | 가시 입력은 최신 내용과 폭에 맞고 숨김→표시 뒤에 복원. 선택·한글 조합·팝오버 위치 유지 | S-D9. 긴 줄·삭제로 축소·연쇄 수정·폭 변경·숨김·언마운트 → 높이·포커스·측정 횟수. EP9 |
 | AC10 | 기존 자산과 deep link·누락 경로가 동일 콘텐츠를 연다. 비용 초과 시 동기 존재 확인을 정상 요청에서 제거 | S-D10a. 존재 CSS, 누락 CSS, 확장자 없는 경로, 루트 → protocol.handle 결과의 본문/형식. EP10 |
 | AC11 | 레거시 언어·위치 승계, 창 닫기 복원과 종료·장애 기록 보존 | S-D10b/c. 낡은 키·없음·손상·일반/최소/최대 창·주기 flush 중 quit/fatal → 재시작 값과 실제 로그의 순서·개수. EP11 |
-| AC12 | 항목별 입력·전후 빌드·비용·처리 결론과 미측정을 분리하고 W로 전달 | S-D1~10 전부. §19 trace/재현 규약 → 결과표, 사람 실기. 작동하지 않는 실제 생산자(T32)는 진단표와 나누어 기록 |
+| AC12 | 항목별 입력·전후 빌드와 여섯 구간(호스트 조회·IPC 바이트·워커 대기·DOM 행·React commit·첫 paint), 유지/변경 결론과 근거 규칙(R-H·R-W·R-R), 미측정을 분리한다. Windows 전용 결과는 0330 인계 항목으로 표시 | S-D1~10 전부. §19 측정 규약 → 결과표 `measure-stage-d` 산출, 사람 실기. 실제 설치 로그(terminal-only)와 진단 폭주는 다른 표. EP12 |
+| AC13 | 이미지 썸네일 작업이 다른 가시 작업을 R-W 기준 이상 막지 않는다. 작업은 헤더 치수로 픽셀을 검사한 뒤에만 decode하고, 성공·실패·취소·워커 오류 모든 경로에서 레인 슬롯을 돌려준다. 원본 송신은 작업 상태와 무관 | S-D2 겹침(큰 이미지 × 답변 스트리밍 × Git 스크롤) → visible 작업 대기, 예산 초과·손상 헤더의 decode 0, 종료 경로별 다음 작업 시작. WL·EP2 ②③ |
+| AC14 | 가상 행을 쓰는 목록·로그는 실제 스크롤 컨테이너 기준으로 창을 계산하고, 행 삽입·삭제 뒤에도 같은 행 ID에 같은 높이·선택 상태가 붙는다. 새 행이 마운트되면 그 목록 안의 진행 중 드래그 선택만 취소한다 | S-D4·S-D6·S-D8. 맨 위 고정 추가·경계 행 삭제·로그 앞부분 스크롤 중 드래그 → 화면 ID 순서, 측정 높이 대응, 목록 밖 선택 보존. §10 VL |
 
 ## 7-A. Baseline V · 노드와 검증쌍
 
-R-01~12/AT-01~12는 §7 각 행, 해당 VP-01~12는 모두 NEW/REQUIRED다. 그 행의 실제 진입점·입력·판정은 §7, 자리와 테스트 좌표는 §10의 같은 AC 행, 실기 조합은 §19의 같은 시나리오다. AC12는 실행 측정 기록 자체를 대상으로 한다.
+R-n/AT-n ↔ VP-n(n = 1·3~12)은 §7 각 행이고 모두 NEW/REQUIRED다. AC2a ↔ VP-02a, AC2b ↔ VP-02b, AC13 ↔ VP-28, AC14 ↔ VP-29다. 그 행의 실제 진입점·입력·판정은 §7, 자리와 테스트 좌표는 §10의 같은 AC 행, 실기 조합은 §19의 같은 시나리오다. AC12는 실행 측정 기록 자체를 대상으로 한다.
 
 | Pair | 노드(좌↔우) / 출처 | requiredness | 실제 경로 / 직접 증거 / 강제 지점 |
 |---|---|---|---|
+| VP-02a·02b | R-02a·R-02b ↔ AT-02a·AT-02b · NEW (rev 4 분리) | REQUIRED | 전송 키/버튼 → `submit` → `onSend`(원본·준비된 뷰) → 수락 → 초안 clear·초점. EP2 ⑤⑥ |
 | VP-13 | SD-01 ↔ ST-01 · NEW | REQUIRED | 사용자 입력·전환 → 요청 세대 → 응답·취소 → 선택 또는 오류. §10 Q20·Q28·Q30·EP5 |
-| VP-14 | SD-02 ↔ ST-02 · NEW | REQUIRED | 사진 선택·paste/drop → 전송·동시 편집 → 수락/거부 → 버블/초안. EP2 전 자리 |
+| VP-14 | SD-02 ↔ ST-02 · NEW (rev 4 갱신) | REQUIRED | 사진 선택·paste/drop → 워커 썸네일(칩) → 즉시 전송(준비된 뷰만) → 수락/거부 → 버블/초안 → 세션 재열기. EP2 전 자리 |
 | VP-15 | SD-03 ↔ ST-03 · NEW | REQUIRED | 댓글 선택/폭·스크롤 변경 → 가시 측정 → 클릭·편집 / 긴 설정 입력 → 높이 조절. EP3·EP9 |
-| VP-16 | AR-01 ↔ IT-01 · NEW | REQUIRED | data·agent 소유 조회 → 포트 → 메뉴/목록·예약/차트 UI, 구 호출도 실행. Q20·Q28·Q30·EP5·EP7 |
-| VP-17 | AR-02 ↔ IT-02 · NEW | REQUIRED | 첨부별 원본 → 실제 워커 요청·응답 → 첨부 뷰·컴포저. EP2 |
+| VP-16 | AR-01 ↔ IT-01 · NEW (rev 4 갱신) | REQUIRED | data·agent 소유 조회·폴더 변경 통지(D-004a) → 포트 → 메뉴/목록·예약/차트 UI, 구 호출도 실행. Q20·Q28·Q30·EP5·EP7 |
+| VP-17 | AR-02 ↔ IT-02 · NEW (rev 4 갱신) | REQUIRED | 첨부별 원본 → base64 문자열 → 실제 워커 레인 요청·응답 → 첨부 썸네일 상태 → 칩·송신 뷰. EP2 ②~④·WL |
 | VP-18 | AR-03 ↔ IT-03 · NEW | REQUIRED | 설치 어댑터 → agent 상태 전송 → R 구독 → 로그 화면·최종 상태. EP8 |
 | VP-19 | AR-04 ↔ IT-04 · NEW | REQUIRED | 셸 요청·기동·창 닫기·flush → 실제 파일 → 다시 열기. EP10·EP11 |
-| VP-20 | MD-01 ↔ UT-01 · NEW | REQUIRED | 형식별 치수/픽셀 합 → 축소 또는 썸네일 없음. EP2 ②③ |
-| VP-21 | MD-02 ↔ UT-02 · NEW | REQUIRED | UTF-16 경계·revision/가시 범위 → 인용/rect/측정 예약. EP3, EP9 |
+| VP-20 | MD-01 ↔ UT-01 · NEW (rev 4 갱신) | REQUIRED | 형식별 헤더 치수/픽셀 → decode 또는 `없음` → 레인 슬롯 해제. EP2 ②③·WL ③ |
+| VP-21 | MD-02 ↔ UT-02 · NEW (rev 4 갱신) | REQUIRED | 본문 ref·UTF-16 경계·revision/가시 범위 → 인용/rect/측정 예약. EP3, EP9 |
 | VP-22 | MD-03 ↔ UT-03 · NEW | REQUIRED | 질의·정렬·cursor·변경 ID·세대 → limit과 결과, JSON→폼, 일/주 경계. Q20·Q28·Q30·EP5·EP7 |
 | VP-23 | MD-04 ↔ UT-04 · NEW | REQUIRED | 출력 조각 → archive/tail/terminal + 스크롤 anchor, 재시작. EP8 |
-| VP-24 | SD-04 ↔ ST-04 · INHERITED (0325 AC17·AC18, 0324 셸 상태) | REGRESSION | 원본 전송/썸네일 실패·셸 재실행 시 승계값 복원. EP2·EP11 |
-| VP-25 | AR-05 ↔ IT-05 · NEW | REQUIRED | 시나리오 입력 → 실제 앱/진단 빌드의 이벤트 구간 → S-D 기록·W 인계. EP12 |
+| VP-24 | SD-04 ↔ ST-04 · INHERITED (0325 AC17·AC18·D-012·D-041, 0324 셸 상태) | REGRESSION | 원본 전송/썸네일 실패 → 파일 뷰, 동시 작업 ≤2, 원본 data URL 대체 금지 · 셸 재실행 시 승계값 복원. EP2·EP11. 기대 변경은 §10 EP2 아래 표 |
+| VP-25 | AR-05 ↔ IT-05 · NEW | REQUIRED | 시나리오 입력 → 실제 앱/진단 빌드의 여섯 구간 → S-D 기록·R-H/R-W/R-R 판정 → W 인계. EP12 |
+| VP-26 | SD-05 ↔ ST-05 · INHERITED (0326 세션 저장소·transcript 뷰포트) | REGRESSION | 즉시 송신 → 낙관적 사용자 버블(첨부 파트) → `message.committed` → 하단 추적/읽던 위치 → 비활성 세션 격리. `chatReducer.parts.test.ts` ‘커밋 user 메시지의 attachmentViews 가 attachment 파트로 들어간다’·‘attachmentViews 가 없으면 attachment 파트가 생기지 않는다’ · `chatStore.test.ts` ‘비활성 세션의 이벤트는 그 엔트리에 백그라운드 누적되고 활성 엔트리는 불변’ · `TranscriptViewport.prepend.test.ts` ‘replays latest turn, bottom placement …’ + EP2 ⑥ |
+| VP-27 | AR-06 ↔ IT-06 · INHERITED (0327 레인·대기열·가시 행·패널 선택) | REGRESSION | 요청 → 레인별 실행 1·우선순위·실행 중 취소 비종료 → 가시 행 마운트 알림 → 선택 취소. `client.lanes.test.ts` l1·l2 · `client.queue.test.ts` q1·q5·q6·q7 · `useVirtualRows.test.ts` · `rowMount.test.ts` · `usePanelSelection.test.ts` ps1~ps17. 이 파일들이 green이고 기존 호출부(키 인자 없음)의 동작이 같아야 한다 |
+| VP-28 | R-13 ↔ AT-13 · NEW | REQUIRED | 첨부 → 레인 배치(R-W) → 픽셀 검사 → decode/거절 → 슬롯 해제 → 다음 작업. WL·EP2 ②③ |
+| VP-29 | R-14 ↔ AT-14 · NEW | REQUIRED | 목록 데이터 → 실제 스크롤 컨테이너 → 행 ID 키 창 → 마운트 알림 → 그 목록 안 선택 취소. §10 VL |
+| VP-30 | MD-05 ↔ UT-05 · NEW | REQUIRED | `useVirtualRows`의 행 ID 키 선택(인자 있음/없음) → 측정 캐시·`useMountedRows` 키. VL ①② |
 
-오라클이 배선이나 횟수를 확인하는 EP2(창 인코더 호출·픽셀 예산), EP3·EP9(가시성), EP8(종료 전 flush), EP12(실제/진단 표식)는 §10에 명시한 자리 변이를 추가한다. 그 밖의 쌍은 서로 다른 관측값을 비교하는 직접 행동 시험과 저장소의 열거 sweep을 사용한다. `git diff --check`, 문서 링크·표·보드·커밋 trailer 및 이후 구현의 subtree/통합 gate는 §19에 둔다.
+오라클이 배선이나 횟수를 확인하는 EP2(픽셀 검사 위치·준비된 뷰만), EP3·EP9(가시성), EP8(종료 전 flush), EP12(실제/진단 표식), WL(레인 배치), VL(행 키)은 §10에 명시한 자리 변이를 추가한다. 그 밖의 쌍은 서로 다른 관측값을 비교하는 직접 행동 시험과 저장소의 열거 sweep을 사용한다. `git diff --check`, 문서 링크·표·보드·커밋 trailer 및 이후 구현의 subtree/통합 gate는 §19에 둔다.
 
 # Part II · 기술 설계
 
@@ -131,6 +164,27 @@ R-01~12/AT-01~12는 §7 각 행, 해당 VP-01~12는 모두 NEW/REQUIRED다. 그 
 | T32 · `main/app/handlers/misc.ts:88`, `main/adapters/claude/adapter.ts:410`, `InstallerDialog.tsx` | agent `installStart`가 어댑터 결과를 `installStatus`로 전달. Claude 실·mock은 각각 완료만, OpenCode는 실패 종료만 반환. 창은 log마다 문자열 누적·scrollHeight 후 강제 하단 이동 |
 | T33 · `shared/ui/AutoGrowTextarea.tsx:29`, `PlanCommentPopover.tsx:60` (renderer) | `style.height='auto'` 뒤 `scrollHeight`로 높이를 다시 쓰는 입력 구현은 두 곳. 일반 설정 사용처와 댓글 팝오버. 포커스·닫기·IME를 보존 |
 | 셸 · `main/index.ts:194,244,481`, `app/shell/shell-state{,-file}.ts`, `infra/log/file-transport.ts:66` (main) | 자산 경로에서 existsSync. 레거시 설정은 자체 유효 기록이 없을 때 읽고 언어·위치 일부라도 유효할 때 승계. 일반 창 close에서 위치 저장. 평상시 flush 타이머(500ms), shutdown/fatal의 즉시 flush를 구분 |
+
+### 8-A. 기준선 재대조 (rev 4 · `c7d2adf2`)
+
+**위 표의 사실은 `c7d2adf2`에서 유지된다.** rev 3 설계 커밋의 부모 `3271121`부터 D 영향 파일은 바뀌지 않았고 인용 줄도 그대로다. 아래는 PR #640 항목을 닫으려고 새로 확인한 사실이다.
+
+| ID | 대상 / 검색 | N | 의미 |
+|---|---|---|---|
+| A1 | `git cat-file -t 62125eaa` (`origin/main` depth 300 · PR 브랜치 depth 451 fetch 후) | fatal | rev 1~3 기준 좌표는 공유 브랜치에 없다. 설계 커밋 `c72bcaf`의 부모는 `3271121` |
+| A2 | `git diff --numstat 3271121 HEAD -- <§18 D 영향 파일>` | 43파일 중 0 변경 | 0327 구현은 D 파일을 건드리지 않았다. 0327 변경 106파일은 compute·diff·가상 행이다 |
+| A3 | §8 인용 줄 12곳(`misc.ts:88` · `adapter.ts:410` · `AutoGrowTextarea.tsx:29` · `PlanCommentPopover.tsx:60` · `index.ts:194,244,481` · `file-transport.ts:66` · `customProvider.ts:23` · `ComposerInputController.tsx:230–235` · `ipc.ts:62` · `files.ts:93–96`) | 12/12 일치 | 줄 번호 갱신 불필요 |
+| A4 | `composerSubmit.ts:42-43` | 1 | `await buildAttachmentViews(items)` 뒤에 `onSend` — 썸네일 5장이 끝나야 송신·초안 clear |
+| A5 | `main/features/chat/attachments.ts:169-176` · `chat-turn/send.ts:135-138` | 2 | 송신 때 창이 준 `previewDataUrl`을 저장 뷰로 복사한다. 송신 뒤 미리보기를 보강하는 경로는 없다(D-009 근거) |
+| A6 | `useAttachments.ts:51-60` · `:93-97` | 2 | 칩 미리보기 키가 `${name}-${index}`이고 값은 원본 전체 data URL. path 원본은 첨부 때 한 번, 송신 때 `attachmentViews.ts:22`에서 또 읽는다 |
+| A7 | `shared/compute/protocol.ts:46,81-83` · `client.ts:391-397` · `client.ts:47` | 3 | 레인은 `compute`·`markdown` 둘, 레인마다 실행 1. 대기열은 우선순위→양보→크기→도착 순이며 선점이 없다. `postMessage`에 전송 목록 인자가 없다 |
+| A8 | 0327 D-024 · `client.queue.test.ts` q6 | 1 | 실행 중 취소는 워커를 끝내지 않는다(jsdiff `diffView` 제외). compute 레인의 긴 decode는 뒤의 visible Git 작업을 그 시간만큼 세운다 |
+| A9 | `shared/ui/virtual/useVirtualRows.ts:32-45` · `rowMount.ts` · `FileDiffSection.tsx:453` | 3 | `useVirtualizer`에 `getItemKey`가 없어 키·측정 캐시가 인덱스다. Git 패널은 `useMountedRows(row.id)`를 따로 부른다 |
+| A10 | D 목록 스크롤 컨테이너 `rg -n 'overflow-y-auto\|overflow-auto'` | 6 | `app/Sidebar.tsx:156`(고정 세션·고정 프로젝트·최근 세 섹션 공유) · `ProjectsScreen.tsx:59` · `ArtifactsView.tsx:79` · `SchedulesScreen.tsx:111` · `RunHistory.tsx:98`(실행별 `pre`) · `InstallerDialog.tsx:88`(+ `:44` 강제 하단) |
+| A11 | `PlanTileContent.tsx:169-185` · `planCommentDom.ts:43` | 2 | `contentRef`가 Markdown 본문·오버레이·팝오버를 함께 감싸고 TreeWalker가 그 전체 텍스트를 걷는다 |
+| A12 | `EngineFormModal.tsx:80` · `ProviderForm.tsx:162-186` | 2 | settings JSON은 입력마다 `validateSettingsJson` 전체 파싱, 가져오기는 `importRevision`으로 늦은 결과를 버린다 |
+| A13 | `node -e` 2만 개 `{name:'file-N',isDirectory:false}` JSON 길이 | 828,891 | 1초 재조회 폴백이면 메뉴가 열린 동안 매초 이만큼 전송(D-004a 근거) |
+| A14 | §10 술어 원시 적중 재실행 | 표 아래 | EP3 73/23 · EP9 43/17은 0327의 `useDiffScrollCoordinator`·`useVirtualRows`·`FileDiffSection` 추가분이며 D 자리가 아니다. EP11 45/11 · EP12 18/10은 `3271121`과 같고 rev 3 수치는 A1 기준이라 재현 불가 |
 
 ### 측정 방법과 값
 
@@ -166,8 +220,10 @@ Linux Node v24.19.0, 실제 소스 entry를 esbuild CJS로 번들해 호출. M1�
 
 | 대상 | 현재 → 변경 후보 | 경계 |
 |---|---|---|
-| 조회 | R 전체 목록 → R 필터/마운트 → data/agent의 제한된 조회(승인·측정 시) 또는 같은 응답·가시 행만 렌더 | `shared/channel-owner.ts`에서 data는 파일·관리/DB, agent는 native 상태. 기존 전건 소비자는 기존 경로 |
-| 첨부 | DOM 이미지 디코드 → worker가 입력 형식과 픽셀 예산을 점검하고 작은 JPEG 반환 → R 표시/송신 | OS 대화상자 main, 파일 읽기 data, 원본 첨부의 실제 검증·전송은 기존 agent. D는 표시 사본 변경 |
+| 조회 | R 전체 목록 → R 필터/마운트 → 같은 응답·가시 행만 렌더가 기본. R-H가 켠 화면만 data/agent의 제한된 조회(D-004b~d). T20 파일 후보는 data 폴더 변경 통지(D-004a) | `shared/channel-owner.ts`에서 data는 파일·관리/DB, agent는 native 상태. 기존 전건 소비자는 기존 경로 |
+| 첨부 | 송신 때 DOM canvas 디코드 → 첨부 때 워커 레인이 헤더·픽셀을 점검하고 작은 JPEG 반환 → R 칩 표시, 송신은 준비된 썸네일만 동기 사용 | OS 대화상자 main, 파일 읽기 data, 원본 첨부의 실제 검증·전송은 기존 agent. D는 표시 사본과 송신 시점만 변경 |
+| 워커 레인 | compute·markdown 두 레인(0327) → 이미지 작업을 compute 레인 `background` 또는 신규 `image` 레인(R-W) · JSON 작업은 compute 레인(R-R이 켤 때) | `new Worker(`는 `shared/compute/client.ts`에서만(`check-ui-thread` 규칙 (i)). 레인 규칙은 0327 D-008·D-016·D-024 그대로 |
+| 가상 목록 | 전체 행 DOM → `useVirtualRows`(실제 스크롤 컨테이너·행 ID 키) + 목록별 `VirtualRowMountContext` | `shared/ui/virtual`은 shared 레이어 — 도메인 키 규칙은 호출하는 feature가 넘긴다 |
 | 주석·높이 | 반복 DOM 탐색 → 본문 색인 + 가시 위치 확인/측정 예약 → 선택 복원 | text node·Range·textarea의 소유자는 R. 배율·레이아웃·폰트는 브라우저에서 관측 |
 | 설치 | 어댑터 → agent 묶음 → 기존 상태 채널 → 분할 로그 archive·가시 창/최종 상태 | 설치 진행 중 출력은 해당 실행/다이얼로그 수명 안에 보존. 진단용 로그 파일에 복제하지 않는다 |
 | 셸 | protocol, 창·로그 개별 수명주기 → 구간별 비용·조건부 비동기 개선 | main 내부. 호스트 승계·종료 순서/파일 권한·포트 소유자 보존 |
@@ -178,50 +234,68 @@ Linux Node v24.19.0, 실제 소스 entry를 esbuild CJS로 번들해 호출. M1�
 
 | 지점 · 검색 술어 | 계약을 운반하는 자리(번호순) | 직접 oracle · 구별 입력과 관측 |
 |---|---|---|
-| Q20 · `filesList\|nativeResources\|composerCatalog\|validFilePaths\|Menu\|Autocomplete` | ① data 파일/관리 질의 및 agent native 카탈로그 ② 포트·캐시(cwd·디렉터리·하네스·세대·query key) ③ 메뉴 소비자(파일/스킬/플러그인/모델) ④ 전체 유효 ID 장식·확정 토큰 ⑤ 활성 폴더 watcher→무효화·재조회 ⑥ 구독 종료/복구→포트·창 수명 정리 | 신규 `composer-menu-query.integration.test.ts` + S-D1. 임시 디렉터리와 실제 카탈로그로 ①②, `@src`·`@.s`·따옴표·빈 prefix·슬래시·모델 재조회로 ③④. 9번째 유효 파일 장식·모델 선택과 순서, ⑤⑥의 열린 창 변경/기한 만료/재접속 결과는 아래 F1~F5에서 단언 |
-| EP2 · `AttachmentView\|attachmentPreviews\|readAttachment\|image/\|compositionActive` | ① 대화상자·drop·paste→초안별 첨부 ID/표시 요청 ② path/inline 소스→작업 수·픽셀 예산→워커 ③ 성공/실패→256px 이하 JPEG 또는 파일 표시 ④ submit snapshot·원본/뷰 순서→onSend→승인/거부·revision 검사 및 clear | 신규 `attachmentWorker.integration.test.ts`(실 worker), `ComposerInputController.test.ts` 보강, S-D2. ① 같은 이름 A/B 삭제·재추가, ② 형식별 정상·치수 누락·예산 ±1·동시 5장, ③ 거절·worker 오류, ④ IME/초안 교체·거부. 원본 bytes/ID·표시·최대 동시 픽셀 관측. 예산 확인을 decode 뒤로 이동하거나 성공/실패 응답 교환 시 검출 |
-| EP3 · `contentRef\|contentKey\|offsetsFromSelection\|rangeFromOffsets\|rectsForRange\|ResizeObserver` | ① Markdown 전용 본문 revision→Text 색인 ② 선택→offset/quote 및 역방향 Range ③ 가시 문단+댓글→프레임 예약/rect ④ 활성 댓글 이동→재측정→팝오버/초점 | 신규 `planCommentGeometry.browser.test.ts`(진단 브라우저 케이스), S-D3. 본문·overlay를 구분하고 새 DOM/같은 문자열·이모지·역방향·경계·빈 주석·다른 폭을 준다. offscreen Range 측정 추가, 동일 인용 두 곳 교환, rAF 병합 제거가 각각 red |
+| Q20 · `filesList\|nativeResources\|composerCatalog\|validFilePaths\|Menu\|Autocomplete` | ① data 파일/관리 질의 및 agent native 카탈로그 ② 포트·캐시(cwd·디렉터리·하네스·세대·query key) ③ 메뉴 소비자(파일/스킬/플러그인/모델) ④ 전체 유효 ID 장식·확정 토큰 ⑤ 활성 폴더 watcher→**폴더 변경 통지(D-004a)**→창 무효화·재조회 ⑥ 구독 종료/복구→포트·창 수명 정리 ⑦ prefix/limit 조회 — R-H가 켰을 때만(D-004b), 켜지 않으면 자리 0 + R-H 기록 | 신규 `composer-menu-query.integration.test.ts` + S-D1. 임시 디렉터리와 실제 카탈로그로 ①②, `@src`·`@.s`·따옴표·빈 prefix·슬래시·모델 재조회로 ③④. 9번째 유효 파일 장식·모델 선택과 순서, ⑤⑥의 열린 창 변경/구독 해제/재접속은 아래 F1~F6. ⑦은 같은 입력에서 전체 목록 경로와 후보 ID·순서·장식이 같은가 |
+| EP2 · `AttachmentView\|attachmentPreviews\|readAttachment\|image/\|compositionActive` | ① 대화상자·drop·paste→**첨부 수명 ID**(같은 이름·위치라도 추가마다 새 ID) ② 소스(path는 첨부 때 1회 읽기·inline은 보유 base64)→base64 문자열 복제→이미지 작업(WL 레인, `background`, `cacheable:false`, 키=첨부 ID). 비이미지·읽기 실패는 요청 없이 `없음` ③ 워커: 헤더 ≤256 KiB 치수→양의 정수·`w×h ≤ 16,777,216`일 때만 decode→긴 변 256 JPEG. 형식 불명·치수 없음·초과·decode/encode 오류는 `없음` ④ 응답→살아 있는 첨부 ID에만 `준비됨/없음` 기록→칩(원본 data URL 금지) ⑤ submit: 조합 중·빈 텍스트·steer 차단은 송신 안 함. 아니면 같은 task에서 원본 순서 그대로 `onSend`, 뷰에는 `준비됨`만 `previewDataUrl` → 수락이면 같은 task에서 첨부·초안 clear·초점, 거부면 보존 ⑥ 수락 뒤·제거·언마운트→그 첨부의 `준비 중` 작업 취소, 늦은 응답은 버림. 저장 뷰는 송신 순간 그대로(A5) | `attachmentThumbs.test.ts`(신규 순수 — ①④⑤ 상태·뷰), `worker/imageHeader.test.ts`(신규 — ③ 바이트 fixture), `ComposerInputController.test.ts` 보강(가짜 compute client로 응답 보류 — ⑤⑥), `gate:xvfb-run -a node scripts/measure-stage-d.mjs`의 S-D2 단계(실 워커 decode ③). 분기 입력은 아래 EP2 입력 표 |
+| EP3 · `contentRef\|contentKey\|offsetsFromSelection\|rangeFromOffsets\|rectsForRange\|ResizeObserver` | ① **본문 ref = Markdown 래퍼만**, 오버레이·팝오버는 별도 ref(A11) ② 본문 revision(내용·DOM 교체)→Text 노드 색인(누적 UTF-16 end·node→offset) ③ **저장 댓글** `{start,end}`→색인 이분 탐색→역방향 Range ④ **일시 브라우저 선택**→offset/quote(element 경계는 자식 offset으로 환산)→draft ⑤ 가시 문단∩댓글→프레임당 1회 rect, 화면 밖 0 ⑥ 화면 밖 활성 댓글→문단 이동→다음 프레임 측정→팝오버/초점 | 신규 `planCommentGeometry.browser.test.ts`(진단 브라우저 케이스) + `planCommentIndex.test.ts`(색인 순수), S-D3. ① 오버레이·팝오버에 텍스트가 있을 때 본문 끝 선택 ② 같은 문자열의 새 DOM ③ 저장 댓글만 있는 재열기 ④ 선택만 있고 저장 0 · 링크·이모지·역방향 ⑤ 다른 폭·빈 주석 ⑥ 2,000문단 끝 댓글 열기. 본문/오버레이 ref 맞바꿈, offscreen Range 측정 추가, 동일 인용 두 곳 교환, rAF 병합 제거가 각각 red |
 | Q28 · `sessionList\|projectList\|artifactCatalog\|setPinned\|searchMessages\|navSections` | ① data DB 필터/안정 정렬·고정 변경 ② 응답/변경 ID→공유 store ③ nav 섹션·프로젝트 화면·전역 산출물 목록의 가시 선택 ④ 별도 본문 검색→선택 ID/스니펫 | 신규 `catalog-page.integration.test.ts` + S-D4. 임시 DB에서 같은 제목·날짜, 고정 전환, 경계행 삭제, 2검색어·상충 요청, 빈 페이지. 전건 정렬 기준과 ID 순서·중복·선택 ID를 비교 |
-| EP5 · `importedProviders\|CustomizeList\|EngineModelList\|extensionCatalog` | ① 관리·native 자원 조회→정렬/필터/선택 ② 편집 revision→형식 검증 ③ 결과/오류→현재 폼→사용자 저장 | 신규 `provider-import-flow.test.ts` + S-D5. 정상·지원 안 하는 npm·문법 오류·느린 이전 입력·비밀 표식 입력에서 실제 폼 모델, 마지막 선택·로그 필드를 관측 |
+| EP5 · `importedProviders\|validateSettingsJson\|CustomizeList\|EngineModelList\|extensionCatalog` | ① 관리·native 자원 조회→정렬/필터/선택 ② 편집 revision→형식 검증 — settings JSON 입력(`EngineFormModal.tsx:80`)·가져오기(`ProviderForm.tsx:173`) ③ 결과/오류→현재 폼→사용자 저장. R-R이 워커를 켜면 ②는 같은 codec 함수를 compute 레인에서 실행하고 요청에 편집 revision을 실어 최신 revision 결과만 ③으로 보낸다 | 신규 `provider-import-flow.test.ts` + S-D5. 정상·지원 안 하는 npm·문법 오류(줄·열 위치)·느린 이전 입력·연속 입력 3회·비밀 표식 입력에서 실제 폼 모델·오류 키, 마지막 선택·로그 필드를 관측. 워커 경로와 창 경로의 결과가 같은 입력에서 같은가 |
 | Q30 · `scheduledTask\|listRuns\|outputTruncated\|RunHistory` | ① data 목록/최근 실행·해당 task/run의 보관된 출력 ② 포트→조회 revision·순서 ③ 목록/상세 출력과 절단 표시·다른 session 열기 | 신규 `schedule-history-page.integration.test.ts` + S-D6. 출력 '', 짧음, 65,536바이트·절단 true, 타 task id, 사라진 run, 재탐색. DB 실데이터→DOM/동작으로 비교 |
 | EP7 · `usageStats\|fillDailySeries\|aggregateWeekly\|TokensPerDayChart` | ① data 질의·원 집계 ② chart 기간/주 파생 ③ 기간 UI·총합·모델·tooltip paint | `UsageTab.chart.test.ts` 보강 + S-D7. 비연속 날짜·0일·90/91일·730일·과거 합계·누락 모델, DB 원본/표시값 대조. 일 10 토큰과 모델 21 토큰 등 서로 다른 지표 사용 |
 | EP8 · `installStart\|installStatus\|InstallStatus\|adapter.install\|installApi.onStatus` | ① agent의 어댑터 스트림→버퍼 ② flush→기존 타깃 포트·done/error ③ installApi 구독→조각 archive/최근 행 ④ 읽는 위치/하단/재시작·완료 콜백 | 신규 `installer-status-flow.integration.test.ts`, S-D8. 가짜 어댑터만 주입, 실제 handler/포트/구독/대화상자 통과. 중간 줄바꿈·65KiB 무개행·두 run·error+done. archive 원문, tail, anchor와 terminal 사건 수 비교. terminal 앞 flush 제거·마지막 조각 순서 교환 시 red |
 | EP9 · `scrollHeight\|AutoGrowTextarea\|PlanCommentPopover` | ① 일반 설정 textarea·② 계획 댓글 textarea의 값/폭/가시성→높이 ③ 댓글 overlay의 anchor→팝오버 배치 | 신규 `auto-height.browser.test.ts` + S-D9. 0→20,000자→2자, 숨김→폭 변경→표시, IME 조합·언마운트. 실제 박스 높이·커서/scrollTop 확인. 숨은 노드 측정, 표시 시 무효화 제거를 각각 검출 |
 | EP10 · `protocol.handle\|RENDERER_DIST\|pathToFileURL` | ① app URL 경로 해석·기존 root ② 파일 유무→자산/SPA fallback ③ net.fetch→실창 응답 | 신규 `app-protocol.fixture.test.ts` + S-D10a. 고유 내용의 실제 파일/없는 확장자 파일/SPA route/루트, 기존 URL 정책과 응답 본문 비교. 디스크 경계 목을 두지 않는다 |
 | EP11 · `windowBounds\|readLegacySettings\|mirrorUiLocale\|flushLogSync\|flushSync\|closeLog` | ① 자체/legacy 읽기→언어·위치 승계 ② 창 close→유효 위치 저장·재시작 ③ file transport 정상 주기·회전→파일 ④ main의 장애/종료→flush·close | 기존 `shell-state.test.ts`, `shell-state-file.cwd.test.ts`, `file-transport.test.ts` 보강 + S-D10b/c. 전용 임시 userData, 정상/최소/최대 창, 불량 JSON, 쓰기 거부, 장애와 quit 직전 다른 순번의 마지막 행. 세대별 실제 파일과 순서 대조 |
-| EP12 · `perf.stall\|UI_TASK_BUDGET_MS\|STALL_SEVERE_MS` | ① S-D 입력·설치본/진단 빌드·실제/주입 라벨 ② host·R·worker trace→표 ③ §19 인계표→W에서 같은 사례 조회 | 신규 진단 `measure-stage-d.test.mjs` + W 인계표. build ID·입력 크기를 바꾸거나 terminal-only와 주입 폭주 라벨을 맞바꿔 비교 불가가 드러나는지 확인 |
+| EP12 · `perf.stall\|UI_TASK_BUDGET_MS\|STALL_SEVERE_MS` | ① S-D 입력·설치본/진단 빌드·실제/주입 라벨 ② 여섯 구간 기록 — 호스트 조회(ms) · IPC 바이트와 창 수신 task(ms) · 워커 대기(`ComputeJobTiming` startedAt−enqueuedAt) · DOM 행 수 · React commit(ms) · 첫 paint(ms) ③ 구간→R-H/R-W/R-R 판정과 `유지/변경` 근거 ④ §19 인계표(Windows 전용 표시)→W에서 같은 사례 조회 | 신규 진단 `scripts/measure-stage-d.mjs`(Electron, exit 0/1/3 — `check-transcript-streaming.mjs` 선례) + 순수 판정 `scripts/measure-stage-d.test.mjs`. build ID·입력 크기를 바꾸거나, terminal-only와 주입 폭주 라벨을 맞바꾸거나, 구간 하나를 빼면 판정·비교 불가가 드러나는지 확인 |
+| WL · `laneOf\|Lane\b\|createWorker\|imageThumb` | ① 이미지 작업 kind→레인 선택: R-W가 “분리”면 신규 `image` 레인(세 번째 워커, `client.ts`에서만 생성), “유지”면 compute 레인 `background` ② 레인 규칙은 0327 그대로 — 레인마다 실행 1, 우선순위→양보→크기(픽셀 수)→도착 ③ 슬롯 해제: 성공 · 오류 · 대기 중 취소(미전송) · 실행 중 취소(D-024: 끝날 때 결과 버림) · 워커 `error`/`messageerror`(워커 폐기) · 연속 실패 한도(즉시 `없음`) ④ 진단 timings에 lane·priority 기록 | `client.lanes.test.ts`·`client.queue.test.ts` 보강(가짜 워커). ① “분리”: 이미지 실행 중 visible `tokens` 요청이 즉시 compute 워커로 나간다 / “유지”: 이미지가 visible 요청보다 뒤에 선다 ③ 여섯 종료 경로마다 다음 이미지 작업이 시작되고 실행 중 개수 ≤1. 이미지 kind를 markdown 레인으로 맞바꿈·`background` 제거가 각각 red |
+| VL · `useVirtualRows\|useMountedRows\|VirtualRowMountContext\|usePanelSelection` | ① `useVirtualRows`의 선택적 행 ID 키 인자 → `getItemKey`와 `useMountedRows` 키. 인자가 없으면 현행 인덱스(0327 호출부 4곳 불변 — VP-27) ② 목록별 실제 스크롤 컨테이너: `Sidebar.tsx:156`(세 섹션 공유 — root≠owner) · `ProjectsScreen.tsx:59` · `ArtifactsView.tsx:79` · `SchedulesScreen.tsx:111` · `RunHistory.tsx:98` · `InstallerDialog.tsx:88` ③ 행 ID: `session.id` · `project.id` · `artifactFileId` · `task.id` · `run.id` · 로그 조각 = 실행 세대+시작 offset ④ 드래그 선택 취소 범위: 목록마다 `usePanelSelection(②의 컨테이너, 목록 종류+필터/쿼리 또는 실행 세대)`의 `notify`를 `VirtualRowMountContext`로 공급 | `useVirtualRows.test.ts`·`rowMount.test.ts` 보강 + 목록별 `*.virtual.test.ts`(신규). ①은 인자 있음/없음 둘 다 · 맨 위 삽입 뒤 같은 ID의 측정 높이 · 같은 개수에서 ID만 바뀐 교체 ③④는 드래그 중 새 행 마운트 → 그 목록 안 선택 취소 / 목록 밖(transcript·다른 목록) 선택 보존. R-R이 가상화를 켜지 않은 ② 자리는 “유지 + 측정값”으로 닫는다. 키 인자 무시·Provider root 맞바꿈이 각각 red |
 
-기준 트리에서 위 술어를 각각 실행한 원시 적중(줄/파일)은 Q20 639/88, EP2 131/31, EP3 69/21, Q28 94/34, EP5 15/11, Q30 38/14, EP7 18/9, EP8 25/9, EP9 41/15, EP10 10/2, EP11 49/12, EP12 19/11다. 타입·다른 화면을 포함한 검색량이며 검증할 자리는 표의 번호로 식별한다.
+**EP2 입력 표 — 규칙 칸 분기마다 입력.**
+
+| 자리 | 분기 | 구별 입력 → 관측 |
+|---|---|---|
+| ① | 같은 이름 재추가 | A·B(같은 이름) 추가 → A 제거 → A′ 재추가: 세 ID가 서로 다르고 B의 썸네일이 A′ 칩에 붙지 않는다 |
+| ② | path 성공 / path 읽기 실패 / inline / 비이미지 | 각 1건: 요청 1·0(`없음`)·1·0, 원본 송신 인자는 네 건 모두 그대로 |
+| ③ | PNG·JPEG(SOF)·GIF·WebP(VP8/VP8L/VP8X) 정상 / 치수 없음 / 16,777,216px(허용)·16,777,217px(거절) / 본문 손상 / 인코딩 실패 | 정상 4 → `준비됨`, 나머지 → `없음`, 거절 계열의 decode 호출 0 |
+| ④ | 제거 뒤 응답 / 송신 뒤 응답 / 두 응답 역순 도착 | 기록 0 · 기록 0 · 각 ID에 자기 결과 |
+| ⑤ | 조합 중 / 준비됨2·준비 중2·없음1 / 거부 / 수락 | 송신 0 · 뷰 5개 중 미리보기 2 · 초안·첨부 보존 · 같은 task에 clear·초점(응답 보류 중) |
+| ⑥ | 수락 뒤 보류 응답 해소 / 언마운트 | 취소 2건, 새 초안·새 첨부 불변 · 남은 작업 0 |
+
+등록 변이(EP2): ③ 픽셀 검사를 decode 뒤로 이동 · ⑤ `onSend` 전에 `준비 중` 작업을 기다리게 되돌림 · ⑤ `준비 중`에 원본 data URL을 미리보기로 넣음 · ④ `준비됨/없음` 결과 맞바꿈 · ⑥ 취소 제거.
+
+**VP-24 기대 변경.** `composerSubmit.test.ts` ‘sends the original attachment array even when a thumbnail fails’·t10, `attachmentViews.test.ts` t1·t5·t6·t8, `imageThumb.test.ts` t9, `useAttachments.views.test.ts` 두 케이스는 송신 때 만들던 썸네일을 첨부 때 워커로 옮긴 위치에서 같은 의미(실패=파일 뷰, 원본 그대로, 동시 ≤2 → 레인 실행 1, 원본 data URL 금지)로 다시 단언한다. `ComposerInputController.test.ts`의 ‘does not clear requirements when async attachment conversion finishes after draft drift’·‘…attachments drift during async submit’은 송신 전 await가 사라져 그 경쟁이 없어지므로 “응답 보류 중 수락 → 즉시 clear, 늦은 응답이 후속 초안을 바꾸지 않음”으로 기대를 바꾼다.
+
+`c7d2adf2`에서 위 술어를 각각 실행한 원시 적중(줄/파일)은 Q20 639/88, EP2 131/31, EP3 73/23, Q28 94/34, EP5 18/13(rev 4 술어 추가 전 15/11), Q30 38/14, EP7 18/9, EP8 25/9, EP9 43/17, EP10 10/2, EP11 45/11, EP12 18/10, WL 22/7, VL 30/10이다(§8-A A14). 타입·다른 화면을 포함한 검색량이며 검증할 자리는 표의 번호로 식별한다.
 
 ### Q20 파일 최신성 · 열린 폴더의 감시와 복구
 
-**목록 자동 갱신은 두 Q20 선택에 공통이다.** data는 `cwd + 상대 디렉터리` 직속 항목을 비재귀 감시한다. 창은 활성 메뉴·폴더·세대 하나의 후보만 반영한다. 파일 내용만 바뀌어 이름·종류가 같으면 현재 선택과 스크롤 위치를 유지한다.
+**목록 자동 갱신은 폴더 변경 통지로 한다(D-004a).** data는 `cwd + 상대 디렉터리` 직속 항목을 비재귀 감시한다. 창은 활성 메뉴·폴더·세대 하나의 후보만 반영한다. 파일 내용만 바뀌어 이름·종류가 같으면 현재 선택과 스크롤 위치를 유지한다.
 
 1. 메뉴를 열면 읽을 수 있는 현재 디렉터리 범위를 확인하고 감시를 붙인 뒤 첫 목록을 읽는다. 같은 위치의 여러 소비자는 하나의 감시 핸들을 공유한다. 목록을 읽는 중 사건이 오면 현재 읽기가 끝난 뒤 한 번 더 읽어서 처음 읽기와 구독 사이의 누락을 없앤다.
 2. 변경 사건은 다시 읽으라는 신호다. 연속 사건을 묶고 동시에 한 번만 읽는다. rename의 old/new 순서나 OS가 준 파일명에 의존하지 않고 정렬한 새 디렉터리 이름·종류와 대조한다. 창은 현재 generation의 결과를 원자 교체하고 흩어진 과거 응답은 버린다.
 3. 다시 열기·폴더 재진입·포커스 복귀·포트 재연결에서 디스크를 다시 확인한다. 감시 오류·경로 삭제/재생성 때는 활성 디렉터리만 제한 간격으로 재조회하고 감시 등록을 재시도한다. 새 감시가 정상화되면 복구용 타이머를 멈춘다. IPC 오류와 정상인 빈 디렉터리는 다음 갱신을 가로막지 않는다.
 4. 다른 폴더·세션으로 이동, 메뉴 닫기·unmount, 창 포트 종료에 소비권을 해제한다. 마지막 소유자가 사라지면 watcher·타이머·대기 작업을 해제한다. 닫힌 이전 창/폴더의 늦은 결과는 새 선택과 `validFilePaths`를 덮을 수 없다.
 
-**현재 포트와 설계 선택.** 기준 트리의 `oo:files:list`는 단발 요청이다(`shared/ipc.ts:62`, `handlers/files.ts:93–96`). 기존 `fingerprint-watch.ts`는 지정 파일을 폴링하며 이 메뉴의 폴더 이벤트 구독은 없다. 다음 두 배선에서 실시간 후보 갱신과 조회 트래픽을 각각 검증한다.
+**현재 포트와 설계 선택.** 기준 트리의 `oo:files:list`는 단발 요청이다(`shared/ipc.ts:62`, `handlers/files.ts:93–96`). 기존 `fingerprint-watch.ts`는 지정 파일을 폴링하며 이 메뉴의 폴더 이벤트 구독은 없다. 채택한 배선은 아래 “통지 채널”이고 1초 재조회 폴백은 쓰지 않는다(D-004a · A13).
 
-| 선택 | 변경 전달·정리 | 계측 |
+| 배선 | 변경 전달·정리 | 계측 |
 |---|---|---|
-| 추가 프로토콜 허용 시 | data가 활성 창에 디렉터리 revision 무효화만 알리는 구독/해제 설계안. 포트는 기존 `sender.onClosed` 수명에 결합한다. R은 통지 후 현 query를 다시 읽는다. 작은 결과용 prefix/limit 질의 채택 여부는 D-004에서 따로 정한다 | 파일명이 없는 사건·중복·창 두 개·마지막 구독 해제. raw 사건 수, 실제 재조회 횟수·응답 bytes |
-| 기존 공개 API만 유지 시 | 메뉴가 열려 있는 동안만 R이 기존 `files.list`로 주기적으로 최신 스냅숏을 확인한다(설계값 1초, 동시 요청 최대 1개). data는 요청자별 사용 기한을 갱신하고 비재귀 watcher로 이름 집합을 무효화한다. 닫으면 R은 즉시 중지하고 host는 포트 종료 또는 마지막 요청 3초 후 감시 해제 | 키 입력 수와 독립적인 읽기, 대형 폴더의 반복 전송량·cache-hit 비용. 초과는 숨기지 않고 §19의 조회 분기에 귀속 |
+| **통지 채널 (채택)** | 요청에 `observation { owner, active }`를 실어 감시를 등록하고 data가 그 창에만 `{ cwd, relDir, revision }` 무효화를 보낸다 — 파일명은 싣지 않는다. 선례는 `sessionNativeResources`의 observation·`sender.onClosed` 정리·`sender.send`(`handlers/session-resources.ts:152-179`). `active:false`·창 닫힘·폴더 이동이 해제다. R은 통지 후 현 query를 다시 읽는다 | 파일명이 없는 사건·중복·창 두 개·마지막 구독 해제. raw 사건 수, 통지 수, 실제 재조회 횟수·응답 bytes |
+| ~~기존 공개 API만 유지~~ | 1초 `files.list` 재조회 — D-004a로 채택하지 않음 | — |
 
 감시 오류 시 재시도는 한 폴더에 타이머 하나, 초기 1초부터 최대 5초까지로 제한한다(Orca 설계값). 변경한 디렉터리 밖은 탐색하지 않는다. 화면이 재개되면 최신 응답으로 원본 목록을 교체한다. 제한된 8개 응답만으로 다른 파일의 삭제를 추론하지 않는다.
 
 | 직접 oracle | 입력 → 관측 |
 |---|---|
-| F1 · 열린 메뉴 | 실제 임시 디렉터리에서 파일·폴더 생성→rename→삭제. 메뉴를 계속 연 상태로 기대 후보와 `validFilePaths` 차집합 ∅, 선택한 생존 ID 보존. 파일 감시 없는 폴백도 가상 시계로 동일 동작 확인 |
+| F1 · 열린 메뉴 | 실제 임시 디렉터리에서 파일·폴더 생성→rename→삭제. 메뉴를 계속 연 상태로 기대 후보와 `validFilePaths` 차집합 ∅, 선택한 생존 ID 보존. 통지 1회당 재조회 ≤1, 통지 없이는 재조회 0 |
 | F2 · 읽기 경합 | 최초 읽기 중 mutation, 연속 rename·중복·파일명 없는 신호, 원래 읽기가 늦게 해소되는 순서를 결정적으로 주입. 진행 중 읽기 ≤1, 갱신 완료 후 실제 `listDir`와 동일 |
 | F3 · 장애 복구 | watcher 오류, 활성 폴더 삭제→동일 경로 재생성, 창 blur 중 변화→focus, read 실패→성공. 현재 목록과 재결합, 복구 뒤 타이머 정리. OS 사건 지연이 있는 실기와 가상 시계 단언을 분리 |
-| F4 · 수명 | 창 둘이 같은 폴더 열기→한 창 닫기→다른 창 이동/포트 종료. 감시 핸들 공유·마지막 소비권 해제/기한 만료·이전 폴더 늦은 응답 격리. heartbeat 방식은 닫은 창의 추가 IPC 0 |
-| F5 · 캐시와 필터 | 같은 메뉴에서 접두사/커서만 연속 변경한 경우 진행 중 조회를 공유. 점파일·symlink·8개 상한·9번째 유효 파일·다른 cwd·실패 후 다시 열기. D-004(가)는 받은 결과로 새 prefix를 충족할 수 없는 경우만 제한 질의 추가 |
+| F4 · 수명 | 창 둘이 같은 폴더 열기→한 창 닫기→다른 창 이동/포트 종료. 감시 핸들 공유·마지막 소비권 해제·이전 폴더 늦은 응답 격리. 닫은 창으로 가는 통지 0 |
+| F5 · 캐시와 필터 | 같은 메뉴에서 접두사/커서만 연속 변경한 경우 진행 중 조회를 공유. 점파일·symlink·8개 상한·9번째 유효 파일·다른 cwd·실패 후 다시 열기. R-H가 prefix/limit을 켠 경우에만 받은 결과로 새 prefix를 충족할 수 없을 때 제한 질의 추가 |
+| F6 · 통지 계약 | `active:false` 요청 → 그 owner만 해제, 같은 창의 다른 owner 유지 · 창 닫힘(`onClosed`) → 그 창 owner 전부 해제 · 다른 창 폴더 변경 → 이 창에 통지 0 · 통지 payload에 파일명 0. 통지 송신을 지우거나 대상 창을 broadcast로 바꾸면 red |
 
-기존 `useMentionAutocomplete.test.ts`의 prefix/caret 단일 요청은 유지하고, 빈 목록을 다시 열 때까지 영구 캐시하던 기대값은 변경한다. 휘발성 OS 타이밍만으로 PASS하지 않는다. F2~F4는 주입한 감시·시계·해제 사건으로 재생하고 F1은 실제 host/port/React 경로도 재생한다.
+기존 `useMentionAutocomplete.test.ts`의 prefix/caret 단일 요청은 유지하고, 빈 목록을 다시 열 때까지 영구 캐시하던 기대값은 변경한다. 휘발성 OS 타이밍만으로 PASS하지 않는다. F2~F4·F6은 주입한 감시·시계·해제 사건으로 재생하고 F1은 실제 host/port/React 경로도 재생한다.
 
-**Q20·Q28·Q30 계약 시안**. D-004(가)를 고른 뒤 기존 채널은 호환 경로로 둔다. 요청자는 필드와 어휘를 기존 소유자의 조회 의미에 맞춘다. 포트 재연결은 기존 등록·검증 경로를 재사용하며, 오래된 요청이 현재 선택을 덮어쓰지 않는다.
+**Q20·Q28·Q30 조건부 조회 계약**. §19 R-H가 그 화면에 켰을 때만 아래 조회를 추가하고 기존 채널은 호환 경로로 둔다(D-004b~d). 요청자는 필드와 어휘를 기존 소유자의 조회 의미에 맞춘다. 포트 재연결은 기존 등록·검증 경로를 재사용하며, 오래된 요청이 현재 선택을 덮어쓰지 않는다.
 
 | 조회 | 요청/응답 요지 | 비교 기준과 예외 |
 |---|---|---|
@@ -229,27 +303,29 @@ Linux Node v24.19.0, 실제 소스 entry를 esbuild CJS로 번들해 호출. M1�
 | Q28 | 종류·기존 검색 조건·필터·범위·opaque cursor·limit(제안 50행). 응답 items·stable ID·nextCursor. 서버 정렬 키와 동률 ID 사용, 고정·삭제는 해당 범위 revision을 무효화 | 쿼리/범위가 다른 cursor나 기한 만료 revision은 첫 페이지 재요청. 선택한 ID 보존, 삭제 시 기존 선택 해제. 변경 ID를 기존 notification에 추가해야 하면 구 소비자 허용 형태를 유지 |
 | Q30 | 작업/실행 목록 요청과 `taskId + runId` 상세를 분리. 기존 최신 20회 범위 유지. 예시 발췌는 보관 tail의 마지막 1 KiB(UTF-8 경계), 저장 절단과 표시 발췌 여부를 분리 | 전체 열기는 DB에 남은 해당 실행의 출력까지만. 보존기간 만료는 기존 없음/재조회, 다른 task의 run은 미발견 처리. 목록 조회에서 숨은 전체 output의 DB 읽기·IPC 전송을 별도 계측 |
 
-D-004(나)를 고르면 Q행 ①은 현행 조회 계약으로 시험하고, ②③은 창의 가시 영역·로컬 필터와 세대 격리를 시험한다. Q20 파일 최신성은 기존 API 배선의 F1~F5로 확인한다. 상한 초과 비용이 ①에 남으면 해당 AC에 잔여값을 기록하고 설계자에게 돌린다. 비슷한 응답이란 이유로 외부 계약을 바꾸지 않는다.
+R-H가 켜지 않은 화면은 Q행 ①을 현행 조회 계약으로 시험하고, ②③은 창의 가시 영역(VL)·로컬 필터와 세대 격리를 시험한다. Q20 파일 최신성은 화면과 무관하게 통지 채널의 F1~F6으로 확인한다. R-H가 켰는데도 상한 초과 비용이 ①에 남으면 해당 AC에 잔여값을 기록하고 설계자에게 돌린다.
 
 ## 11. 구현 설계와 순서
 
 | 단위 | 구현 지점과 절차 | 실험·잠금 |
 |---|---|---|
-| WU1 · 기준선 | S-D 스크립트에 fixture 입력 크기, 익명 ID, 시간/바이트/행 수 계측을 작성. 0325와 같은 설치본/진단 빌드 구분 | D 이전 빌드와 적용 후 빌드에 같은 입력을 재생. 실제 생산자가 없는 T32 부하만 진단 adapter |
-| WU2 · T21 | `useAttachments`의 선택 미리보기와 전송용 산출을 구분. 배열 위치 기반 표시 key를 첨부 수명에 묶은 내부 ID로 옮긴다. 파일별 원본·송신 어휘는 유지. 워커에서 확인한 치수로 decode 예산을 예약한 뒤 JPEG 생성 | PNG IHDR, JPEG SOF, GIF 논리 화면/첫 frame, WebP VP8/VP8L/VP8X 캔버스와 첫 frame 치수 확인. 0327의 요청 ID·세대/취소·오래된 응답 폐기·우선순위 규약을 재사용. 이미지 결과는 장기 compute 캐시에 남기지 않는다 |
-| WU3 · T24 | `PlanTileContent`가 본문 DOM과 오버레이 DOM의 ref를 구분. Markdown text node와 누적 UTF-16 end, node→offset을 revision/실제 DOM 교체별 구성. element 경계 선택도 자식 offset으로 환산. 이분 탐색으로 역방향 Range 구성 | scroll 컨테이너와 viewport의 교집합을 감시하고 문단별 가시 offset 범위를 유지. 주석과 겹친 가시 텍스트만 rect를 읽는다. 선택된 화면 밖 댓글은 먼저 해당 문단으로 이동한 뒤 rAF에서 측정 |
-| WU4 · T20·T28·T30 | §19에서 전송·필터·마운트를 분리 후 D-004의 분기로 진행. (가)는 §10 Q행 계약과 실제 소유 프로세스/라우팅/기존 호출/문서를 한 변경으로 맞춘다. (나)는 기존 전체 질의를 유지하고 가시화/캐시와 Q20의 활성 폴더 재확인을 구현 | 한 행의 DB/sort 비용이 낮고 DOM mount가 비싸면 그 화면에서 host 변경을 생략. 호스트 이주 조건은 §19에 기록 |
-| WU5 · T29·T31 | 설정 목록 소유자의 정렬 결과 재사용, 동일 모델 보존. 큰 JSON 검증만 초과하면 현재 codec의 import 규칙을 worker가 실행. 차트는 집계 자체가 초과할 때만 data에서 같은 day/week series를 만든다 | JSON 파서와 사용자 값 검증을 중복 구현하지 않는다. 모델 key·결측일·시간대·통화·주 시작을 기존 `stats.ts` 테스트와 독립 자료 양쪽으로 비교 |
-| WU6 · T32 | 작업별 agent 로그 병합. 같은 step·progress의 연속 log만 묶고, 다른 상태/오류/완료 전 flush. R은 실행별 원문 조각·줄 offset을 담고 화면에는 읽는 위치 주변만 표현. 실행 중 archive의 앞부분도 스크롤로 접근 가능 | 메시지 모양은 기존 InstallStatus. 전체 보존을 위해 한 번에 문자열 재조립·출력하지 않는다. 분할된 줄·매우 긴 줄은 시각 조각으로 나누고 원문 순서 유지 |
+| WU1 · 기준선 (지금 착수) | `scripts/measure-stage-d.mjs`에 S-D1~10 fixture 입력 크기, 익명 ID, 여섯 구간(EP12 ②) 계측을 작성. 0325와 같은 설치본/진단 빌드 구분. 기존 동작 회귀 테스트(VP-24·26·27 좌표 + EP2 기대 변경 전 단언)를 먼저 고정한다 | D 이전 빌드와 적용 후 빌드에 같은 입력을 재생. S-D2 겹침(R-W)과 S-D1·4·6 구간(R-H)을 먼저 잰다. 실제 생산자가 없는 T32 부하만 진단 adapter, 실제 설치 로그는 별표. 0327 AC30 Windows 실측은 착수 조건이 아니다(D-012) |
+| WU2 · T21 | `useAttachments`가 첨부 수명 ID와 썸네일 상태(`준비 중/준비됨/없음`)를 갖고, 첨부 때 path를 한 번 읽어 base64 문자열로 이미지 작업을 요청한다. `submitComposerInput`은 await 없이 원본 순서·준비된 뷰로 `onSend`를 부르고 같은 task에서 clear한다. 칩은 썸네일만 쓰고 원본 data URL을 들지 않는다 | 워커는 PNG IHDR, JPEG SOF, GIF 논리 화면/첫 frame, WebP VP8/VP8L/VP8X 치수를 헤더 ≤256 KiB에서 읽고 픽셀 검사 뒤 decode한다. 레인은 R-W 결과대로 WL. 결과는 `cacheable:false`, `ImageBitmap.close()`. EP2 입력 표 전부 |
+| WU3 · T24 | `PlanTileContent`가 본문 래퍼 ref와 오버레이·팝오버 ref를 나눈다(A11). Markdown text node와 누적 UTF-16 end, node→offset을 revision/실제 DOM 교체별 구성. element 경계 선택도 자식 offset으로 환산. 이분 탐색으로 역방향 Range 구성 | scroll 컨테이너와 viewport의 교집합을 감시하고 문단별 가시 offset 범위를 유지. 주석과 겹친 가시 텍스트만 rect를 읽는다. 선택된 화면 밖 댓글은 먼저 해당 문단으로 이동한 뒤 rAF에서 측정. 저장 댓글·일시 선택을 따로 시험 |
+| WU4 · T20·T28·T30 | T20 폴더 변경 통지(D-004a)를 먼저 구현한다. 그 뒤 §19에서 전송·필터·마운트를 분리해 R-H가 켠 화면만 §10 Q행 조회를 소유 프로세스/라우팅/기존 호출/문서와 한 변경으로 맞춘다. 나머지 화면은 기존 전체 질의 + VL 가시화 | 한 행의 DB/sort 비용이 낮고 DOM mount가 비싸면 그 화면에서 host 변경을 생략(R-R). 화면별 판정과 측정값은 §19 결과표에 남긴다 |
+| WU5 · T29·T31 | 설정 목록 소유자의 정렬 결과 재사용, 동일 모델 보존. R-R이 JSON을 켜면 `validateSettingsJson`·`importedProviders`를 compute 레인에서 그대로 실행하고 편집 revision이 최신인 결과만 폼에 반영한다. 차트는 집계 자체가 초과할 때만 data에서 같은 day/week series를 만든다 | JSON 파서와 사용자 값 검증을 중복 구현하지 않는다(codec 파일은 type import만 있어 워커에서 그대로 실행 가능 — `customProvider.ts:1-2`). 모델 key·결측일·시간대·통화·주 시작을 기존 `stats.ts` 테스트와 독립 자료 양쪽으로 비교 |
+| WU6 · T32 | 작업별 agent 로그 병합. 같은 step·progress의 연속 log만 묶고, 다른 상태/오류/완료 전 flush. R은 실행별 원문 조각·줄 offset을 담고 화면에는 읽는 위치 주변만 표현(VL — 컨테이너 `InstallerDialog.tsx:88`, 행 ID = 실행 세대+시작 offset). 실행 중 archive의 앞부분도 스크롤로 접근 가능 | 메시지 모양은 기존 InstallStatus. 전체 보존을 위해 한 번에 문자열 재조립·출력하지 않는다. 분할된 줄·매우 긴 줄은 시각 조각으로 나누고 원문 순서 유지 |
 | WU7 · T33·셸 | T33는 가시 두 입력의 CSS 기반 자연 높이(`field-sizing: content` 지원과 CSS 상한 실제 확인) 또는 visibility+폭·값 기반 단일 프레임 측정. 셸 자산은 실제 비용 확인 뒤 비동기 파일 조회 또는 빌드 자산 색인 선택. 레거시/창 닫기/종료는 독립 trace | CI의 Electron 버전에서 직접 렌더. CSS 경로로도 긴 입력 paint가 비싸면 §19에 분리 보고. 주기 쓰기만 원인일 때 로그 순서와 fatal flush를 유지하는 단일 writer 설계로 한정 |
 
 **테스트 seam.** 날짜·정렬·cursor·로그 분할·픽셀 예산은 순수 모듈로 두어 `electron`이나 DB를 import하지 않고 경계값을 재생한다. 브라우저 진단 코드는 실제 worker와 실제 DOM/resize/scroll/IME를 통과시킨다. main 파일 복구는 실제 임시 디렉터리와 실제 파일 배선을 사용하고 데이터·실제 사용자 홈을 분리한다.
 
 ## 12. 종단 영향
 
-파일 후보 감시는 data의 비재귀 watcher, 창별 수명은 host port의 `onClosed`, UI는 활성 메뉴에 둔다. 새 감시 통지·구독을 선택한 경우 해당 타입·소유자·정리 및 문서를 같은 변경에 포함한다.
+파일 후보 감시는 data의 비재귀 watcher, 창별 수명은 host port의 `onClosed`, UI는 활성 메뉴에 둔다. 폴더 변경 통지(D-004a)의 타입·소유자(`data`)·정리 및 문서를 같은 변경에 포함한다.
 
-등록 지점은 `shared/ipc.ts`, `shared/protocol.ts`, `shared/channel-owner.ts`, data/agent handler와 `renderer/src/shared/api/{transport/oo,ipc}.ts`다. D-004(가)의 새 공개 조회 승인 시 입력 Zod, 반환 타입, 라우터, 허용 포트, 취소/재연결, 구 호출 회귀를 서로 같은 채널로 시험하고 [IPC 정본](../../IPC_CONTRACT.md)을 같이 고친다. DB 스키마·기존 파일 형식·하네스 원본 전송은 현행 유지가 설계 기준이다.
+등록 지점은 `shared/ipc.ts`(CHANNELS), `shared/protocol.ts`(Zod), `shared/channel-owner.ts`, data handler(`handlers/files.ts`), `renderer/src/shared/api/{transport/oo,ipc}.ts`(구독 — `oo.ts:334` 선례)다. 통지 채널과 R-H가 켠 조회는 입력 Zod, 반환 타입, 라우터, 허용 포트, 취소/재연결, 구 호출 회귀를 같은 채널로 시험하고 [IPC 정본](../../IPC_CONTRACT.md)을 같이 고친다. DB 스키마·기존 파일 형식·하네스 원본 전송·저장 첨부 뷰 형식은 현행 유지가 설계 기준이다.
+
+계산 워커 쪽 등록 지점은 `renderer/src/shared/compute/{protocol,client,limits}.ts`와 `worker/` 진입점이다. 이미지 kind 추가·`image` 레인(R-W 분리 시)은 0327 레인 테스트(VP-27)를 그대로 통과해야 하고, 새 워커 생성은 `client.ts` 한 곳이다(`check-ui-thread` 규칙 (i)). `useVirtualRows`의 키 인자는 선택적이라 0327 호출부 4곳(`VirtualMarkdownView`·`VirtualCodeView`·`DiffTable`·`FileDiffSection`)은 바뀌지 않는다.
 
 T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하며 engine 선택·저장 소유자는 현재 경로를 쓴다. 팝오버·진행 상태는 소유자별 구독을 해제하고 컴포넌트나 preload 초기화를 앞당기지 않는다. 셸 종료 경로의 watcher·재시작·자산 lookup 실패는 프로토콜·트레이·로거의 기존 초기화 순서에서 실험한다.
 
@@ -257,7 +333,7 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 
 | 시점 | 처리 |
 |---|---|
-| 첨부 제거·붙여넣기 경쟁·세션 전환 | 선택·전송에 서로 다른 생명주기 토큰을 쓰고 제거한 표시 결과는 폐기. 전송 스냅숏은 소유 세션·입력 순서를 유지. worker 실패·시간 초과·미지원 디코더는 attachment view에 미리보기 없이 settle. bitmap·blob URL·예약 픽셀·대기 슬롯 해제 |
+| 첨부 제거·붙여넣기 경쟁·세션 전환 | 첨부 수명 ID마다 작업 하나. 제거·수락된 송신·언마운트가 그 작업을 취소하고 늦은 응답은 버린다. 전송 스냅숏은 소유 세션·입력 순서를 유지하고 송신은 작업을 기다리지 않는다(D-009). worker 실패·미지원 디코더·연속 실패 차단은 `없음`으로 settle. 워커 안 bitmap·OffscreenCanvas 해제, 레인 슬롯은 WL ③ 여섯 경로에서 해제 |
 | 페이지/설정 재요청 | cwd·프로젝트·정렬/필터·세대가 같은 결과만 사용. 실패/빈 결과/재시도 상태는 분리한다. 예전 전체 조회 응답은 기존 자료를 읽는 구 호출에서만 사용 |
 | 계획 교체·숨김·주석 삭제 | 오래된 observer와 예약 frame 취소. 본문 교체 후 텍스트/offset이 맞지 않는 주석은 클릭 rect를 만들지 않는다. 선택/활성 ID는 기존 저장 의미를 따름 |
 | 설치 재시작·다이얼로그 닫힘 | agent는 terminal 전 마지막 조각을 내보냄. 완료 콜백은 성공일 때 once. 구독 해제와 실행 세대 갱신으로 지난 실행 결과 폐기. 진행 중 닫기 금지와 기존 수동 설치 안내 보존 |
@@ -265,19 +341,27 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 
 ## 14. 수치와 비용 경계
 
-- **이미지**. 설계용 예산은 워커당 원본 16,777,216 픽셀 이하, 창 단위 활성 ≤2건·합계 ≤25,165,824 픽셀이다. F4 두 장은 24,385,536픽셀이다. 원본 RGBA 환산 상한 약 96 MiB와 JPEG 결과는 디코더의 모든 임시 메모리 사용을 합한 값과 구분한다. 너비/높이 양의 정수, `width <= floor(remainingPixels/height)` 검사 후에만 예약한다.
-- JPEG 등 가변 헤더는 워커에서 최대 256 KiB까지 읽는다. canvas/첫 frame 크기 검증 불가, 포맷 불일치, 초과는 **디코드 전 썸네일만 생략**한다. 실제 전송의 32 MiB·지원 MIME 검증은 기존 경로가 담당한다. 초안 표시에도 원본 data URL을 img로 바로 주지 않아 예산 우회를 막는다. 파일 이름·MIME·원본 내용을 첨부 스냅숏에 유지하며 실제 전송 가능 여부는 기존 전송기가 판정한다.
+- **이미지**. 작업당 원본 16,777,216 픽셀 이하. 레인마다 실행이 1이라(0327 D-016) 창 단위 활성 decode는 이미지 작업을 맡은 레인 하나에서 ≤1건·≤16,777,216픽셀이고, 0325의 “동시 ≤2”를 지킨다. 원본 RGBA 환산 상한 약 64 MiB와 JPEG 결과는 디코더의 모든 임시 메모리 사용을 합한 값과 구분한다. 너비/높이 양의 정수, `width <= floor(16,777,216/height)` 검사 후에만 decode한다.
+- **전송 방식**. 창은 base64 문자열을 그대로 요청에 복제한다(`WorkerLike.postMessage`에 전송 목록 없음 — A7). 창에서 base64를 bytes로 풀어 ArrayBuffer를 넘기는 방식은 UI 스레드에서 원본 크기만큼 디코딩하므로 쓰지 않는다. 문자열은 불변이라 원본 송신 경로(path는 main이 다시 읽고 inline은 같은 문자열)가 워커 때문에 비거나 늦어지지 않는다.
+- JPEG 등 가변 헤더는 워커에서 최대 256 KiB까지 읽는다. canvas/첫 frame 크기 검증 불가, 포맷 불일치, 초과는 **디코드 전 썸네일만 생략**한다. 실제 전송의 32 MiB·지원 MIME 검증은 기존 경로가 담당한다. 칩 표시에도 원본 data URL을 img로 주지 않아 예산 우회를 막는다. 파일 이름·MIME·원본 내용을 첨부 스냅숏에 유지하며 실제 전송 가능 여부는 기존 전송기가 판정한다.
 - **댓글**. 본문 revision별 text node 색인 O(N), offset 조회 O(log N), 재배치 때 실제 가시 텍스트와 겹치는 주석만 rect 측정. 긴 단일 주석도 화면 밖 문단까지 범위 전체를 순회하지 않는다. 같은 프레임에 observer·scroll·resize 통지가 여러 번 와도 측정 한 세트.
 - **로그**. agent flush 제안은 16ms 또는 16 KiB 중 먼저 도달한 시점. 터미널 상태는 즉시 flush, 긴 단일 조각은 문자 경계로 분할. 창의 표시 예산은 200줄 또는 32 Ki UTF-16 단위 중 먼저 닿는 상한이고 긴 한 줄 안에서도 영역을 옮길 수 있다. 전체 보관 메모리는 실행 중 원문 크기에 비례하며 다음 실행/다이얼로그 수명 종료에 해제한다.
 - **조건부 화면**. 기계 oracle은 ID·순서·필드·바이트/픽셀·DOM 수를 확인한다. §19의 Windows 실기에서 단일 동기 작업이 50ms 초과 또는 160ms 이상 정지를 보이면 실행 층에 귀속하고 원인 경로를 고친다. 그보다 작아도 끊기는 입력은 commit·layout/paint·연속 누락 원인을 남긴다. 이 값은 `shared/perf-budget.ts`의 조사 경계이고 W의 기기별 합격선을 대신하지 않는다.
 
 ## 15. 외부 포트와 문서
 
-§10 Q행의 추가 질의는 사용자 승인과 실제 측정에서 필요가 확인된 채널만 확정한다. 외부 하네스 API, 디스크에 남기는 새 로그, 새 패키지 도입은 이 안에 들어가지 않는다. 브라우저에 포함된 API는 대상 Electron의 [Canvas 및 OffscreenCanvas 사양](https://html.spec.whatwg.org/multipage/canvas.html)과 실제 worker decode/encode 결과를 대조한다. 워커 초기화 실패 시 해당 요청은 파일 표시로 끝난다.
+§10 Q행의 추가 질의는 사용자 승인 범위(D-004b~d) 안에서 R-H가 필요를 확인한 채널만 확정한다. 폴더 변경 통지(D-004a)는 확정 채널이다. 외부 하네스 API, 디스크에 남기는 새 로그, 새 패키지 도입은 이 안에 들어가지 않는다. 브라우저에 포함된 API는 대상 Electron의 [Canvas 및 OffscreenCanvas 사양](https://html.spec.whatwg.org/multipage/canvas.html)과 실제 worker decode/encode 결과를 대조한다. 워커 초기화 실패 시 해당 요청은 파일 표시로 끝난다.
 
 ## 16. 기존 결정
 
-0325 AC17·18의 실패 처리와 동시 작업 상한을 지키고, A의 AC19 기준선은 A 결과에 남긴다. 0327 D-008·D-024의 요청 세대와 실행 중 취소 정책을 이미지 작업에 맞춰 연동하되 C 코드/설계와 공유 파일이 바뀐 경우 그 지점만 최신 구현에 대조한다. 0326의 B 고정 위치·이력 소비와 E의 세션 페이지 도입은 D와 독립 검증한다. [실행 모델](../../arch/execution-model.md)과 main/renderer 계층 경계는 적용 상태다.
+| 출처 | 결정·계약 | 0328에서의 처리 |
+|---|---|---|
+| 0325 | D-012 썸네일 실패=미리보기 없음·원본 대체 금지 · D-041 예외 경계 · AC17·AC18 동시 ≤2 | 유지(VP-24). D-009가 “전송 시점 미준비”를 D-012의 `없음`에 더한다. AC19 기준선은 A 결과에 남긴다 |
+| 0326 | 세션 저장소의 비활성 세션 격리 · transcript 뷰포트 하단 추적·읽던 위치 · 선택 가드(`selectionGuard`) | 유지(VP-26). 목록의 선택 취소는 0326 가드를 쓰는 `usePanelSelection`을 그대로 쓴다 |
+| 0327 | D-008 공통 워커 요청 규약 · D-016 레인 실행 1 · D-024 실행 중 취소 비종료 · D-035 스트리밍 꼬리 markdown 레인 · 가상 행·패널 선택 | 유지(VP-27). 이미지는 markdown 레인에 두지 않는다(스트리밍 꼬리와 경합). compute 레인이면 D-024 때문에 decode가 visible 작업을 세우므로 R-W가 판정 |
+| 0329·0330 | 검색 결과 도착·강조(0329 D-013) · 장비별 판정(0330 W-004) | 비범위(D-008). S-D4 결과·Windows 원본을 인계 |
+
+[실행 모델](../../arch/execution-model.md)과 main/renderer 계층 경계는 적용 상태다.
 
 ## 17. 리스크와 검증 경계
 
@@ -286,6 +370,8 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 | 모델/플러그인 검색의 단순 prefix화로 선택되던 항목이 사라짐 | 기존 종류별 검색·정렬과 전건 멤버십의 기대값을 독립 계산. 특히 9번째 후보 밖 완성 토큰과 직접 선택된 모델을 비교 |
 | 긴 주석이나 큰 입력의 DOM 비용이 같은 프레임에 집중 | 본문 선두/끝, 범위 전체 주석과 여러 폭/배율 시험. M9는 CSS 레이아웃 분리값, 설치본의 입력→paint는 S-D9에서 측정 |
 | 이미지 header만 작은 다중 프레임, worker 장애 또는 긴 decode | 물리 크기·첫 표시 frame 크기·컨테이너 일관성을 확인할 수 있는 형식만 썸네일 생성. 작업 종료/예산 회수·원본 송신을 테스트. 변환 대기와 UI 점유를 따로 기록 |
+| 이미지 decode가 같은 레인의 Git 가시 작업을 세움 | 대기열에 선점이 없고 실행 중 취소가 워커를 끝내지 않는다(A7·A8). R-W 겹침 측정으로 레인을 정한다 |
+| 빨리 보낸 이미지가 썸네일 없이 남음 | 사용자가 수용한 결과다(D-009). S-D2에 “전송 시점 준비 수 / 전체”를 기록해 0330에서 빈도를 본다 |
 | 종료 시 비동기 쓰기 순서가 바뀌어 로그/상태가 사라짐 | 실제 파일에 다른 순번을 써 주기 직전·쓰기 중·close/장애 순서를 검증. 보장이 어려우면 종료/fatal의 현행 동기 경로 유지 |
 | 조건부 측정 오인 | SSR로는 paint·레이아웃을 판단할 수 없다. T32 생산 로그 없음과 진단 부하, 소유 호스트 시간과 창 시간을 나누어 기록 |
 
@@ -293,38 +379,58 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 
 | 범위 | 기준 트리에서 대조할 모듈 / 구현 때 갱신할 산출물 |
 |---|---|
-| 컴포저·워커 | `features/chat/hooks/{useAttachments,useMentionAutocomplete,useSkillAutocomplete}.ts`, `chat/lib/{attachmentViews,imageThumb,mentionAutocomplete}.ts`, common/composer의 `ComposerInputController.tsx`·`composerSubmit.ts`, `renderer/src/shared/compute` |
+| 컴포저·워커 | `features/chat/hooks/{useAttachments,useMentionAutocomplete,useSkillAutocomplete}.ts`, `chat/lib/{attachmentViews,imageThumb,mentionAutocomplete}.ts`, common/composer의 `ComposerInputController.tsx`·`composerSubmit.ts`, `renderer/src/shared/compute/{protocol,client,limits}.ts`·`worker/`, 메인 `main/features/chat/attachments.ts`(저장 뷰 — 변경 없음, 회귀 대조만) |
 | 계획·입력 | `PlanTileContent.tsx`, `PlanCommentOverlay.tsx`, `PlanCommentPopover.tsx`, `usePlanCommentSelection.ts`, `planCommentDom.ts`, `AutoGrowTextarea.tsx`, `GeneralTab.tsx` |
-| 목록·설정·예약·차트 | 세션 `navSections.ts`·`SearchModal.tsx`, 프로젝트 `ProjectsScreen.tsx`, 산출물 `ArtifactsView.tsx`·`artifactCatalogStore.ts`, `CustomizeList.tsx`, `EngineModelList.tsx`, `customProvider.ts`, `SchedulesScreen.tsx`·`RunHistory.tsx`, `UsageTab.tsx`·`TokensPerDayChart.tsx`, 관련 기존 data/agent handler |
+| 목록·설정·예약·차트 | 세션 `navSections.ts`·`SearchModal.tsx`·`SessionList.tsx`·`PinnedSection.tsx`·`PinnedProjectsSection.tsx`와 `app/Sidebar.tsx`, 프로젝트 `ProjectsScreen.tsx`, 산출물 `ArtifactsView.tsx`·`artifactCatalogStore.ts`, `CustomizeList.tsx`, `EngineModelList.tsx`, `customProvider.ts`·`ProviderForm.tsx`·`EngineFormModal.tsx`·`providerCatalog.ts`, `SchedulesScreen.tsx`·`RunHistory.tsx`, `UsageTab.tsx`·`TokensPerDayChart.tsx`, 관련 기존 data/agent handler |
+| 가상 행 | `shared/ui/virtual/{useVirtualRows,rowMount}.ts`, `features/chat/hooks/usePanelSelection.ts`(재사용 — 변경 없음 목표) |
 | 설치·셸 | `main/app/handlers/misc.ts`, `main/infra/ipc/send.ts`, `InstallerDialog.tsx`, `main/index.ts`, `main/app/shell/shell-state{,-file}.ts`, `main/infra/log/{index,log-manager,file-transport}.ts` |
-| 계약·문서 | §12 공유 타입·라우팅, 변경한 경우 `docs/IPC_CONTRACT.md`와 관련 현재 아키텍처. 구현자 보고·측정 요약은 이 계획 및 검증 문서, 디스패치 상태는 [INDEX](../INDEX.md) |
+| 파일 후보 통지 | `main/app/handlers/files.ts`, `main/features/chat/scan.ts`, `shared/{ipc,protocol,channel-owner}.ts`, `renderer/src/shared/api/transport/oo.ts` |
+| 계약·문서 | §12 공유 타입·라우팅, `docs/IPC_CONTRACT.md`(폴더 변경 통지는 확정, R-H 조회는 켠 경우)와 관련 현재 아키텍처, 측정 스크립트 `app/scripts/measure-stage-d{,.test}.mjs`와 `app/AGENTS.md` 스크립트 목록. 구현자 보고·측정 요약은 이 계획 및 검증 문서, 디스패치 상태는 [INDEX](../INDEX.md) |
 
 ## 19. 게이트와 Windows 재현표
 
 **설계**. 상대링크·Markdown 표·섹션·T행·보드 승격과 trailer를 확인한다. **구현**. `app/AGENTS.md` 기준 lint·typecheck, 새 테스트의 예산·호스트 격리, migration·inventory·naming·test-budget·process-boundary 가드, 필터 없는 vitest와 scripts 테스트, host boot/preload smoke를 CI 단계와 맞춘다. **검증**. §10 각 자리에서 직접 oracle과 등록 변이를 재생하고, 실제 저장 파일·UI 결과를 독립 비교한다.
 
-**실기 공통**. [0325 §19](../0325-ui-responsiveness-followup/plan.md)의 동일 장비·주사율·배율·설치본/진단 빌드, 반복과 프레임 판정 규약을 사용한다. 동일 시나리오를 D 변경 전 마지막 기준과 D 적용 빌드에서 재생한다. 기준 SHA·장비·fixture·크기·반복별 입력/첫 paint·p95/최대·50ms 초과 작업·160ms 이상 정지·연속 프레임 누락·호스트 응답·React commit·layout/paint를 남긴다.
+**측정 공통**. 기계 측정은 에이전트가 띄우는 Electron(`xvfb-run -a node scripts/measure-stage-d.mjs`)에서 하고, 사람 실기는 [0325 §19](../0325-ui-responsiveness-followup/plan.md)의 동일 장비·주사율·배율·설치본/진단 빌드, 반복과 프레임 판정 규약을 쓴다. 동일 시나리오를 D 변경 전 마지막 기준(`c7d2adf2`)과 D 적용 빌드에서 재생한다. 행마다 기준 SHA·환경(`linux-electron` 기계 / `windows-설치본` 사람)·fixture·크기·반복별 여섯 구간(EP12 ②)·p95/최대·50ms 초과 작업·160ms 이상 정지·연속 프레임 누락을 남긴다. `windows-설치본` 행과 Windows에서만 재현되는 항목(S-D9 IME, S-D10 창·자산)은 “0330 인계”로 표시한다.
 
 | ID | 재현 입력과 조작 | 구간과 결과 |
 |---|---|---|
-| S-D1 | 파일 2만 개, 숨김 포함. 열린 메뉴에서 생성·삭제·rename 확인, 감시 폴더 재생성·포커스 복귀·닫기 후 재개·하위 디렉터리 왕복, `@src` 연속 입력→Enter. 슬래시·plugin·모델 키보드 선택과 9번째 직접 토큰 장식 | 감시 수·갱신 지연·조회 횟수·포트 전송량 → R 필터 → 팝오버 paint·초점. §10 F1~F5 |
-| S-D2 | 0325 F4 5장을 dialog/drop/paste로 각각 추가→즉시 전송. 전송 중 새 초안 입력·첨부 제거; 픽셀 경계·손상 1장 추가 | 선택 preview와 송신 preview의 source read·활성 픽셀/작업·decode/encode·버블 paint, 원본 순서·초안 |
+| S-D1 | 파일 2만 개, 숨김 포함. 열린 메뉴에서 생성·삭제·rename 확인, 감시 폴더 재생성·포커스 복귀·닫기 후 재개·하위 디렉터리 왕복, `@src` 연속 입력→Enter. 슬래시·plugin·모델 키보드 선택과 9번째 직접 토큰 장식 | 감시 수·갱신 지연·조회 횟수·포트 전송량 → R 필터 → 팝오버 paint·초점. §10 F1~F6 |
+| S-D2 | 0325 F4 5장을 dialog/drop/paste로 각각 추가→즉시 전송. (a) 미리보기 응답을 보류한 채 5장 즉시 전송·거부·후속 초안 편집 (b) 전송 중 새 초안 입력·첨부 제거 (c) 픽셀 경계·손상 1장 추가 (d) **겹침** — 큰 이미지 5장 처리 중 답변 스트리밍(0327 `check-transcript-streaming` 꼬리)과 Git diff 스크롤을 동시에 재생 | 첨부→칩 썸네일 시간, source read 수(첨부당 1), 전송→`onSend`·초안 clear·초점까지(같은 task), 전송 시점 준비 수/전체, 원본 순서, 이미지 작업 시간·visible 작업 대기(레인별)·decode 거절 수, 버블 paint |
 | S-D3 | M3 2,000단락·128댓글에 같은 인용 2곳·본문 전체 댓글 추가. 폭 600→360→600px 드래그, 마지막 댓글을 목록에서 열기 | 색인 횟수/노드, 프레임별 rect 조회와 가시 ID, 선택 quote·실제 팝오버 위치 |
 | S-D4 | M4 세션, 100프로젝트·1만 산출물. 고정/해제·페이지 경계 삭제·두 검색어의 결과 순서와 스니펫 선택 | DB조회·IPC bytes·DOM 행·정렬/선택·원래 본문 검색 상한. 선택한 결과의 세션·메시지를 기록해 0329 S-E5의 도착 행과 대조 |
-| S-D5 | M5 JSON, 문법 오류/미지원 npm, 같은 입력창에서 교정, 1만 자원 목록 필터·모델 선택 | parse·폼 commit·필터·최종 저장 값. 시간·크기만 기록 |
+| S-D5 | M5 JSON(307,845자)을 settings 입력창에 붙여넣고 연속 3회 편집, 같은 JSON 가져오기, 문법 오류/미지원 npm, 같은 입력창에서 교정, 1만 자원 목록 필터·모델 선택 | 입력마다 검증 task·가져오기 codec task·폼 commit·필터·최종 저장 값. 시간·크기만 기록 |
 | S-D6 | 50회 이력을 가진 예약, 최근 20회 × 저장 tail 64KiB, 절단/빈/실패·다른 예약 지연 응답 | 목록·상세 DB 읽기와 IPC bytes·DOM·열린 run·저장 절단 표시 |
 | S-D7 | 7·30·90·91·730일, 비어 있는 날과 730일 이전 내역 포함. 첫 표시·기간 변경·포인터 이동 | data 합산·R 파생·첫 commit·paint·도움말·표 합계 분리 |
 | S-D8 | 실제 Claude 설치 진입(현재 terminal-only)과 **진단 어댑터**의 1만 줄(순번 0…9999)·65KiB 무개행·분할 줄·오류/완료를 각각 재생. 중간을 읽다 마지막으로 이동 | agent 원문/묶음 수·R commit·scrollTop/첫 가시 ID·terminal 전 마지막 출력. 운영 로그 수가 0인 실험은 진단 폭주 수치로 대체하지 않는다 |
 | S-D9 | 일반 설정·댓글 입력에서 한글 2천·2만 자 붙여넣기·조합·삭제·폭 드래그·가림→다시 표시 | 입력→paint·실측 프레임/횟수·커서·보이는 마지막 줄·팝오버 위치 |
 | S-D10a/b/c | a 자산 1,000요청(존재·누락·SPA 각각 구분). b 자체 상태 있음·없음/손상·최초 승계, 일반창/최소/최대 close→재실행. c 정상 주기·회전 경계·우아한 종료·격리된 진단 프로세스의 fatal | a main 조회/응답 분포·fallback, b 읽기/쓰기·재시작 언어/위치, c flush 소요·순번 보존을 **각각** 기록 |
 
-**분기 판정**. S-D1/4/6은 변경 전 trace에서 어떤 구간이 시간 예산을 썼는지 먼저 확인한다. 호스트 조회가 필요한 항목만 승인된 D-004(가)로 진행하고, R 렌더만 비싸면 가시화로 제한한다. T29·31·33 및 셸도 경량 입력과 최대 입력을 같은 구성으로 비교해 `항목 / 입력 크기 / 측정값과 구간 / 유지·변경 / 잔여`를 남긴다. 준비되지 않은 Windows 결과는 미측정으로 적고 [0330 Windows 판정](../0330-windows-responsiveness-verdict/plan.md)에 원본 기록을 인계한다.
+**분기 판정 규칙.** 기준은 `UI_TASK_BUDGET_MS`(50ms) — PR #640대로 원인 조사 기준이지 합격선이 아니다. 판정은 변경 전 빌드의 `linux-electron` 최대 입력 행으로 하고, 결과표 `항목 / 입력 크기 / 여섯 구간 / 규칙 / 유지·변경 / 잔여`에 남긴다. 설계자 턴 없이 구현자가 적용한다.
+
+| 규칙 | 대상 | 켜는 조건 | 켜면 | 아니면 |
+|---|---|---|---|---|
+| R-H 호스트 | S-D1(T20 prefix/limit) · S-D4(Q28) · S-D6(Q30) | 호스트 조회 + 창 수신 task 합 ≥ 50ms이고, 그 합이 DOM 행·React commit·첫 paint 합보다 크다 | 그 화면만 §10 Q행 조회(D-004b~d) | 현행 조회 + R-R |
+| R-W 워커 | S-D2 (d) | compute 레인 `background`에 둔 이미지 작업 1건 p95 ≥ 50ms — 선점이 없어 visible 작업이 그만큼 기다린다(A7·A8) | 신규 `image` 레인 | compute 레인 `background` |
+| R-R 렌더러·셸 | S-D3~S-D9의 창 작업 · R-H가 꺼진 S-D1/4/6 · S-D10의 main 작업 | task 하나(필터·JSON 파싱·React commit·layout/paint, 셸은 main 루프 작업) ≥ 50ms | 그 구간만 고친다 — 목록은 VL, JSON은 EP5 워커, 댓글·높이는 EP3·EP9, 셸은 EP10·EP11 | 유지 + 측정값 |
+
+준비되지 않은 Windows 결과는 미측정으로 적고 [0330 Windows 판정](../0330-windows-responsiveness-verdict/plan.md)에 원본 기록을 인계한다. 0327 AC30 Windows 실측은 WU1 착수 조건이 아니다(D-012).
 
 ## READY self-review
 
-- 계약 출처·제품 흐름·예외·AS-IS/TO-BE·기준 측정·9개 T행/셸 3항목·12개 AC를 대조했다. §3의 ACTIVE와 §7의 연결 및 D-004의 두 시나리오는 §5에 있다.
-- V1 rev 3 초안은 4레벨·25쌍·§10 자리별 입력과 관측·구현/검증 기입란을 제공한다. Windows 결과 및 실제 구현 완료 수치 기입은 각 후속 턴의 책임이다.
-- **READY 전 남은 결정은 D-004**다. 사용자가 가/나 또는 화면별 조합을 고르면 해당 Q행에 선택을 기록한다. 파일 후보는 §10의 감시·재조회 배선과 새 공개 통지 허용 여부까지 명시하고 사이트 목록·직접 oracle을 대조한 뒤 보드 상태를 갱신한다.
+**rev 4 = READY.** OPEN 결정 0(D-004 → D-004a~d 사용자 결정). 아래는 이번 턴에 대조한 관측이다.
+
+| 검사 | 관측 |
+|---|---|
+| ACTIVE 결정 ↔ AC | 충돌 0 — §3 rev 4 대조 줄(D-004a~d·D-008~D-012 → AC·VP) |
+| PR #640 여섯 항목 → 규범 행 | 기준선·경계 → 메타·§6 표·§8-A·D-008 / T21 송신 → D-009·AC2a·AC2b·EP2 ⑤⑥ / 워커 → D-010·AC13·WL·§14·R-W / T24·가상 목록 → D-011·AC3·AC14·EP3·VL / D-004 → D-004a~d·Q20 F6·R-H / WU1·Windows → D-012·AC12·EP12·§19 측정 공통 |
+| AC 수 · pair 수 | AC 15행(AC1·AC2a·AC2b·AC3~AC14). pair 31 = R 15 · SD 5 · AR 6 · MD 5. NEW/REQUIRED 28 · INHERITED/REGRESSION 3(VP-24·26·27) |
+| NEW 왼쪽 노드 ↔ §10 | VP-02a·02b→EP2 ⑤⑥ · VP-28→WL·EP2 ②③ · VP-29→VL · VP-30→VL ①② · 나머지는 rev 3 행 유지 |
+| 규칙 칸 ↔ 입력 칸 | EP2는 자리 ①~⑥의 분기를 EP2 입력 표로 1:1 대응. WL ①③·VL ①④·F6은 같은 칸에 분기별 입력을 둔다 |
+| 기존 테스트 인용 | `client.lanes.test.ts` l1·l2 · `client.queue.test.ts` q1·q5·q6·q7 · `usePanelSelection.test.ts` ps1~ps17 · `chatReducer.parts.test.ts` 두 케이스 · `chatStore.test.ts`:350 · `TranscriptViewport.prepend.test.ts`:156 · `composerSubmit.test.ts` 두 케이스 · `attachmentViews.test.ts` t1·t5·t6·t8 — `rg -n "^\s*(it\|test)\("`로 실재 확인 |
+| 문서 앵커 | 0327 D-008·D-016·D-024·D-035, 0325 D-012·D-041·D-029·D-043, 0329 D-013, 0330 W-004 — 각 plan에서 `grep`으로 실재 확인 |
+| 선언 경계 | 기계 판정은 `linux-electron`이고 Windows 수치는 0330(§19). 미준비 썸네일은 버블·DB에서 파일 표시가 계약이며 늦은 보강은 범위 밖(D-009). R-H·R-R이 켜지 않은 화면의 조회·DOM은 현행 + 측정값으로 닫는다 |
+| 운영 gate | 설계 턴은 Markdown 표·상대 링크·INDEX·trailer. 구현 턴은 `app/AGENTS.md` 로컬 확인 전 단계 + `measure-stage-d` 실행(§19) |
 
 ---
 
@@ -337,7 +443,7 @@ T29는 기존 renderer에서 사용하는 v1 codec만 워커 경계로 전달하
 - 동의 / 그대로 진행: …
 - 이견 / 현실성 문제: …
 - ACTIVE Decision과 충돌하는 설계 발견: …
-- 착수 대조 — D-004 확정안과 §10, C 워커·B/E 공유 표면 및 §18의 기준 트리 차이: …
+- 착수 대조 — D-004a~d와 R-H·R-W·R-R 판정 결과, §10, C 워커·B/E 공유 표면 및 §18의 기준 트리(`c7d2adf2`) 차이: …
 
 ## [구현자 기입] 강제 지점 전수 (§10 대조)
 
