@@ -13,6 +13,8 @@ export function openShellState(userDataDir: string): ShellState {
   const store = new Store<Record<string, unknown>>({
     name: `${PRODUCT_SLUG}-shell-state`,
     cwd: userDataDir,
+    // 손상된 셸 스냅샷은 유효한 레거시 설정을 이어받을 수 있게 빈 상태로 읽는다.
+    clearInvalidConfig: true,
     defaults: {}
   })
   return new ShellState(

@@ -20,14 +20,17 @@ function Rows({ keys, caption }: { keys: number[]; caption: string }): React.Rea
 function Panel({
   keys,
   doc,
-  caption
+  caption,
+  scoped
 }: {
   keys: number[]
   doc: string
   caption: string
+  scoped: boolean
 }): React.ReactElement {
   const root = useRef<HTMLDivElement>(null)
-  const guard = usePanelSelection(root, doc)
+  const list = useRef<HTMLDivElement>(null)
+  const guard = usePanelSelection(root, doc, scoped ? list : undefined)
   return createElement(
     'main',
     null,
@@ -41,21 +44,29 @@ function Panel({
         'data-suppressed': guard.suppressed ? 'yes' : 'no'
       },
       createElement(
-        VirtualRowMountContext.Provider,
-        { value: guard.notify },
-        createElement(Rows, { keys, caption })
-      )
+        'div',
+        // eslint-disable-next-line react-hooks/refs -- React attaches this host ref during commit.
+        { ref: list, ...(scoped && { 'data-virtual-selection-scope': '' }) },
+        createElement(
+          VirtualRowMountContext.Provider,
+          { value: guard.notify },
+          createElement(Rows, { keys, caption })
+        ),
+        scoped &&
+          createElement('div', { 'data-virtual-selection-scope': '', 'data-nested': '' }, 'child')
+      ),
+      createElement('span', { 'data-shared-owner-sibling': '' }, 'neighbor')
     ),
     createElement('aside', { 'data-other': '' }, 'other')
   )
 }
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- 테스트 하네스의 반환형은 조립한 fixture에서 추론한다.
-function mount() {
+function mount(scoped = false) {
   dom = installFakeDom({ innerWidth: 1200, innerHeight: 800 })
   const { select, selection } = installViewportSelection(dom)
   const removed = vi.spyOn(selection, 'removeAllRanges')
   const render = (keys = [0, 1], doc = 'a', caption = 'row'): void =>
-    dom.render(createElement(Panel, { keys, doc, caption }))
+    dom.render(createElement(Panel, { keys, doc, caption, scoped }))
   render()
   const own = (): import('../../../shared/ui/renderHarness.testfixture').FakeNode =>
       dom.query('[data-row]')!,
@@ -205,4 +216,24 @@ it('ps17 the anchor alone can belong to this panel', () => {
   v.select(v.own(), 0, v.other(), 1)
   v.render([1, 2])
   expect(v.removed).toHaveBeenCalledOnce()
+})
+
+it('a newly mounted row only cancels the selection in its own list within a shared scroller', () => {
+  const v = mount(true)
+  const neighbor = dom.query('[data-shared-owner-sibling]')!
+  v.select(neighbor, 0, neighbor, 2)
+  v.render([1, 2])
+  expect(v.removed).not.toHaveBeenCalled()
+  expect(v.selection.rangeCount).toBe(1)
+
+  const nested = dom.query('[data-nested]')!
+  v.select(nested, 0, nested, 2)
+  v.render([2, 3])
+  expect(v.removed).not.toHaveBeenCalled()
+  expect(v.selection.rangeCount).toBe(1)
+
+  v.inside()
+  v.render([3, 4])
+  expect(v.removed).toHaveBeenCalledOnce()
+  expect(v.selection.rangeCount).toBe(0)
 })

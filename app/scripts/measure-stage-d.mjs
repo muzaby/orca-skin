@@ -1,3 +1,7 @@
+import { runHostMeasurements } from './stage-d/host-runner.mjs'
+import { runShellMeasurements } from './stage-d/shell-runner.mjs'
+import { compatibleRun } from './stage-d/measurement.mjs'
+import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import {
   resolveElectron,
@@ -20,7 +24,7 @@ export function imageLane(records, budget) {
   return { p95, max: durations.at(-1), lane: p95 >= budget ? 'image' : 'compute' }
 }
 
-export async function main(scenario = 'image') {
+export async function main(scenario = 'image', baseline = false) {
   let electron
   try {
     electron = resolveElectron()
@@ -29,6 +33,8 @@ export async function main(scenario = 'image') {
   }
   let probe
   try {
+    if (scenario === 'host') return await runHostMeasurements(electron, baseline)
+    if (scenario === 'shell') return await runShellMeasurements(electron, baseline)
     probe = await serveProbe('stage-d')
     const runs = scenario === 'catalogs' ? 1 : 9
     const result = await runElectron(electron, probe.origin, 'stage-d', [scenario], runs)
@@ -80,7 +86,45 @@ export async function main(scenario = 'image') {
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  const result = await main(process.argv[2] === '--catalogs' ? 'catalogs' : 'image')
+  const compare = process.argv.indexOf('--compare')
+  const scenario = process.argv.includes('--host')
+    ? 'host'
+    : process.argv.includes('--shell')
+      ? 'shell'
+      : process.argv.includes('--catalogs')
+        ? 'catalogs'
+        : 'image'
+  const result =
+    compare < 0
+      ? await main(scenario, process.argv.includes('--baseline'))
+      : await compareEvidence(process.argv.slice(compare + 1))
   console.log(JSON.stringify(result, null, 2))
   process.exitCode = selectionExitCode(result)
+}
+
+async function compareEvidence(paths) {
+  try {
+    if (paths.length !== 2) throw Error('--compare requires baseline and applied JSON paths')
+    const [before, after] = await Promise.all(
+      paths.map(async (path) => JSON.parse(await readFile(path, 'utf8')))
+    )
+    if (!before.verdict || !after.verdict || !compatibleRun(before, after))
+      throw Error('Incompatible or incomplete host measurements')
+    return {
+      env: true,
+      verdict: true,
+      measurements: before.measurements.map(({ id, size, host, renderer }, index) => ({
+        id,
+        size,
+        host,
+        renderer,
+        applied: {
+          host: after.measurements[index].host,
+          renderer: after.measurements[index].renderer
+        }
+      }))
+    }
+  } catch (error) {
+    return { env: true, verdict: false, error: String(error) }
+  }
 }

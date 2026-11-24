@@ -3,6 +3,7 @@ import { CollapsibleSection } from '../../../shared/ui/SidebarSection'
 import { useI18n } from '../../../shared/i18n'
 import { SessionRow, type AgentAppearanceResolver } from './SessionRow'
 import { useNavSections } from '../hooks/useNavSections'
+import { SidebarRows } from './SidebarRows'
 import type { PinnedSessions } from '../lib/navSections'
 
 export interface PinnedSectionViewProps {
@@ -41,19 +42,23 @@ export const PinnedSectionView = memo(function PinnedSectionView({
       dataContext="pinned"
     >
       {children}
-      {sessions.map((s) => (
-        <SessionRow
-          key={s.id}
-          session={s}
-          appearance={agentAppearance(s.agentKind)}
-          isActive={s.id === currentSessionId}
-          onSelect={onSelectSession}
-          onDelete={onDeleteSession}
-          onRename={onRenameSession}
-          onTogglePin={onTogglePinSession}
-          pinned
-        />
-      ))}
+      <SidebarRows
+        items={sessions}
+        documentKey="pinned-sessions"
+        renderRow={(s) => (
+          <SessionRow
+            key={s.id}
+            session={s}
+            appearance={agentAppearance(s.agentKind)}
+            isActive={s.id === currentSessionId}
+            onSelect={onSelectSession}
+            onDelete={onDeleteSession}
+            onRename={onRenameSession}
+            onTogglePin={onTogglePinSession}
+            pinned
+          />
+        )}
+      />
     </CollapsibleSection>
   )
 })
