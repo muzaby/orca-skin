@@ -1,6 +1,6 @@
 # 0329 · 단계 E — 세션 이력을 턴 단위로 읽기
 
-**READY (V1 rev 5).** PR #640 0329 보완 요청(2026-11-24)을 반영했다 — 검색 보기의 양방향 읽기(D-015), 당김·읽기 위치·드래그 선택 기대값(D-016), 초안 보존 회귀(D-017), 구 DB 첫 열기 측정과 집계(D-018). 사용자가 시나리오 설명(§5-B·§5-C) 뒤 큰 한 턴은 유휴 자동 채움(D-009), 다른 우측 패널은 세션 전체 기준(D-012)으로 결정했다.
+**READY (V1 rev 5 + ΔV1).** ΔV1(§20)은 r1 WU-0이 반송한 상단 앵커 결함을 정정했다 — 머리 상태는 고정 높이 슬롯 안에서만 바뀌고(D-019), 이전 턴 요청을 시작한 제스처의 후속 wheel은 그 보정을 취소하지 않는다(D-020). rev 5는 PR #640 0329 보완 요청(2026-11-24)을 반영했다 — 검색 보기의 양방향 읽기(D-015), 당김·읽기 위치·드래그 선택 기대값(D-016), 초안 보존 회귀(D-017), 구 DB 첫 열기 측정과 집계(D-018). 사용자가 시나리오 설명(§5-B·§5-C) 뒤 큰 한 턴은 유휴 자동 채움(D-009), 다른 우측 패널은 세션 전체 기준(D-012)으로 결정했다.
 
 ## 메타
 
@@ -8,9 +8,9 @@
 |---|---|
 | slug / 작성 | `0329-turn-history-paging` · Codex(설계 역할) 2026-11-20 rev 1~4 · Claude Code rev 5 2026-11-24 |
 | 입력 | [0325 §6-C·D](../0325-ui-responsiveness-followup/plan.md) · [T01 요청 원문](../0325-ui-responsiveness-followup/input/0324-agent-requests.ko.md) · [0326 V1 rev 7 §6-E](../0326-transcript-incremental-model/plan.md) · PR #640 코멘트 “0329 이력 페이징 · 구현 전 plan 보완 요청”(2026-11-24, 기준 `7db1c7ce`) |
-| 상태 / V | plan/DRAFT · WU-0에서 앵커 기준선 차이를 재현해 설계 재검토 · Baseline V · 기준 V 없음 · 이번/유효 V1 rev 5(rev 1~4 초안을 대체) |
+| 상태 / V | plan/READY · Baseline V V1 rev 5 + Delta V ΔV1(§20 — r1 WU-0 PLAN_GAP 정정) · 기준 V 없음 · 유효 V = V1 rev 5 + ΔV1 |
 | 조사 기준 | rev 5: `codex-handoff-0326-plan-gap`의 `7db1c7ce`(PR #640 head) — 0326 verify 7 PASS · 0327 verify 5 PASS · 0328 verify 2 PASS(모두 기계 범위). rev 1~4의 `62125eaa` 관측은 §8 rev 5 표로 재대조했다. |
-| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. D-009·D-012 결정 뒤 WU-0을 실행했다. §19 1에 따른 인계 사유와 재개 조건은 아래 구현자 설계 리뷰에 있다. |
+| 착수 | 0326~0328이 기계 PASS라 E의 선행 계약은 확정됐다. r1이 WU-0을 실행하고 §19 1에 따라 앵커 기준선 차이로 반송했다(`[구현자 기입] 설계 리뷰 (r1)`). ΔV1이 그 PLAN_GAP을 닫아 다음 구현 턴(r1.2)은 기능 구현부터 이어 간다. |
 
 # Part I — 제품과 사용자 동작
 
@@ -54,6 +54,8 @@
 | D-016 | ACTIVE | 상단 위 입력은 머리에 당김 표시 → 스피너를 보이고, 성공 뒤 읽던 글줄은 ±1px 안이다. 관성 포함 한 제스처는 한 요청이다. 가상 행 교체 중 드래그는 0326 D-103(새 행 마운트가 transcript 선택을 취소하고 놓을 때까지 비선택)을 따른다. 근거: PR #640 “AC3·AC4에 읽기 위치와 드래그 선택의 기대값을 따로 적어 주세요”. | AC3·4 · EP4 ⑤⑥ · Q4b |
 | D-017 | ACTIVE | 0328 D-013(세션을 바꿔도 컴포저 텍스트·첨부·썸네일 작업 유지, 전송은 그때 활성 세션으로)을 E의 늦은 응답 경로에서 회귀 조건으로 잠근다. 근거: PR #640 “0328 D-013을 AC4의 회귀 조건으로 연결해 주세요”. | AC4 · EP5 ⑥ · Q5b |
 | D-018 | ACTIVE | 투영이 없는 세션은 출판 전까지 data가 최근 활동 순 배경 색인과 요청 세션 우선 색인으로 준비한다. 미준비 세션의 첫 클릭은 별도 기록(AC11)하고 AC1 통과로 집계하지 않는다. 색인 진행 위치를 저장해 중단 뒤 이어서 한다. 근거: PR #640 “최초 클릭이 전량 변환을 기다린 경우를 AC1 통과로 집계하지 않습니다” + §14. | AC1·9·11 · EP9 · Q9b·Q10 |
+| D-019 | ACTIVE | (ΔV1, 설계자 — r1 WU-0 근거) 부분 이력으로 연 보기의 머리 슬롯은 고정 높이다. 대기·당김·스피너·재시도와 이력 시작 표식은 그 높이 안에서만 바뀌어, 상태 전환이 읽던 글줄을 밀지 않는다. 근거: 상단에서 머리 35px 증가 뒤 글줄 +26px(`evidence/wu0-baseline.json` 2/2). | AC3′ · EP4′ ③ · Q4b′ |
+| D-020 | ACTIVE | (ΔV1, 설계자 — r1 WU-0 근거) 0326 EP-12 a8 “사용자 입력은 대기 중 앵커 보정을 취소한다”를 유지하되, 이전 턴 요청을 시작한 위 제스처의 후속 wheel(같은 방향·간격 < `HISTORY_GESTURE_GAP_MS`)은 취소하지 않는다. 새 제스처·방향 전환·pointerdown·스크롤 키·사용자 스크롤 이동은 0326대로 취소한다. 근거: 같은 플릭의 두 번째 wheel(34.6 ms 뒤)이 보정을 지워 글줄 +35px. | AC3′ · EP4′ ⑥ · Q4′·Q4b′ |
 
 갱신 메모 — V1 초안. D-001~004·006~008은 각 행의 AC와 대조했다. 부모 0325 D-023의 상단 제스처·스피너·재시도는 0326에서 구체화됐고, 소비자 범위 결정은 남아 있다.
 
@@ -66,6 +68,8 @@ rev 4에서 D-013 ↔ AC6·10, D-014 ↔ AC1·4·6~8로 대조했다. 결과 식
 rev 5 — PR #640 항목 → 규범 행. 양방향 조회 → D-015·AC6·§10 검색 보기 3행·EP6 ⑦⑧·Q6e. 당김·읽기 위치·드래그 → D-016·AC3·AC4·EP4 ⑤⑥·Q4b. 초안 회귀 → D-017·AC4·EP5 ⑥·Q5b. 구 DB 첫 클릭 → D-018·AC11·EP9·Q9b·Q10·§14·§17. 기준선 갱신 → 메타·§8 rev 5 표. D-009 → 자동안(AC2·AC3·§10 한 턴과 조각·EP3 ⑤), D-012 → 세션 전체(AC7·§10 패널 요약·EP7·Q7·WU-1).
 
 **ACTIVE 결정 ↔ AC 대조 (rev 5)**: 충돌 0. D-013 “행 단위 이동·강조” ↔ AC6(양방향 추가 뒤에도 행 단위) 일치. D-014 “일반 열기 보존” ↔ AC6 “검색 보기 합류 뒤 일반 보기 규칙” 일치. D-003 “위 방향 한 조작에 한 번” ↔ AC3 “관성 포함 한 제스처 = 한 요청” 일치(제스처 경계만 구체화). D-004 “복구는 전체 archive” ↔ AC11 “미색인 열기도 복구 경로 비접촉” 일치. D-018 “미색인 첫 클릭은 AC1 아님” ↔ AC1 집계 문장 일치.
+
+ΔV1 — r1 WU-0 PLAN_GAP 정정(§20). D-019·D-020 신설, AC3 → AC3′, §10 머리 행 → 머리 슬롯·제스처 분류 2행, 하단 슬롯 행 → footer 조립 포함 행, EP4 → EP4′, Q4·Q4b → Q4′·Q4b′, §8 rev 5 머리 슬롯 행 정정. **ACTIVE 결정 ↔ AC 대조 (ΔV1)**: 충돌 0. D-016 “±1px·한 제스처 한 요청” ↔ AC3′ 일치(측정 자리를 상단·후속 wheel까지 넓힘). D-020 ↔ 0326 EP-12 a8: 새 제스처 취소는 그대로라 0326 ‘respects %s’ 13 cause는 기대 불변(VP-06). D-015 하단 슬롯 ↔ Timeline footer 조립(§20 D) 일치.
 
 ## 4. 현재 요구 검토
 
@@ -195,7 +199,7 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 |---|---|---|---|
 | R-01 / AT-01 | AC1 | 같은 최신 턴에 과거 1·100·10,000턴을 붙여도 첫 실제 본문의 조회·전송·검증량은 §14 예산 안. 준비된 첫 응답 1회 적용. 투영이 클릭 전에 출판된 세션만 AC1로 집계하고, 미준비 세션 첫 클릭은 AC11로만 기록한다(D-018). | 일반 열기 → data → 창 커밋, Q1·Q2. 실제 읽은 payload·UI dispatch 계수. |
 | R-01 / AT-01 | AC2 | 빈 세션·빈 parts 20만 메시지·한 턴 다수 메시지·다중바이트 거대 본문에서 첫 묶음 상한을 지키고 끝까지 복원한 ID·role·parts가 기준과 같다. 큰 턴의 잔여는 첫 본문 commit 뒤에만 같은 턴 안에서 유휴 1묶음씩 채워지고(D-009) 이전 턴 요청은 0이다. | 페이지/유휴 채움/본문 버튼 → 실 DB → 뷰포트, Q1·Q3·Q4. |
-| R-02 / AT-02 | AC3 | **요청**: 관성 포함 한 제스처·버튼 한 번당 같은 턴 다음 묶음 또는 이전 턴 1회. 반복·동시 입력 1회, 스피너 제거·머리 높이 변화 뒤 자동 요청 0. 실패 후 같은 커서 재시도, 끝·짧은 세션은 §5대로. **읽기 위치**: 당김 표시·스피너 등장·앞삽입·스피너 제거 각 commit 뒤 당기기 시작한 part의 글줄 이동 ≤1px(Chromium 실측). | 세 하네스 일반 열기 → 실 제스처 → 머리·DOM, Q4·Q4b. |
+| R-02 / AT-02 | AC3 | **ΔV1에서 AC3′(§20 D)로 대체.** **요청**: 관성 포함 한 제스처·버튼 한 번당 같은 턴 다음 묶음 또는 이전 턴 1회. 반복·동시 입력 1회, 스피너 제거·머리 높이 변화 뒤 자동 요청 0. 실패 후 같은 커서 재시도, 끝·짧은 세션은 §5대로. **읽기 위치**: 당김 표시·스피너 등장·앞삽입·스피너 제거 각 commit 뒤 당기기 시작한 part의 글줄 이동 ≤1px(Chromium 실측). | 세 하네스 일반 열기 → 실 제스처 → 머리·DOM, Q4·Q4b. |
 | R-02 / AT-02 | AC4 | 조회 중 live, refresh, 전환·삭제·재연결을 교차해도 현재 세션 본문·활동이 보존되고 늦은 응답 0회 반영. **드래그 선택**: transcript 안 드래그 중 앞삽입·유휴 채움으로 새 행이 마운트되면 선택이 풀리고 놓을 때까지 비선택, 컴포저 등 밖의 선택은 유지(0326 D-103). 드래그 중 상단 자동 스크롤은 요청 0. **초안**: A의 글·첨부 → 검색으로 B → A의 이전 턴 응답·썸네일 완료 지연 도착에도 B 본문·위치·초안 유지, 전송은 B로 1회(D-017). | store → 포트 → reducer/화면·컴포저, Q2·Q5·Q5b·Q4b. |
 | R-02 / AT-02 | AC5 | 이전 턴의 늦은 결과·publication이 본문과 어느 순서로 와도 소유·값·순서·개수가 동일. 오류·중복 페이지로 커서와 끝 표식이 진행하지 않는다. | 실제 writer+store → LOAD/PREPEND → 도구·산출물 행, Q5. |
 | R-03 / AT-03 | AC6 | 선택한 hit의 세션과 메시지가 세 하네스에서 실제 화면에 보이고 2초간 행을 식별한다. 클릭·Enter 모두 같은 locator를 보낸다. 대상 묶음을 먼저 연 뒤 위·아래 끝 입력 한 번에 한 묶음씩(같은 턴 잔여 → 이전/다음 턴) 읽고, 위 끝은 이력 시작 표식, 아래 끝은 최신 이력 합류로 끝난다(D-015). 차가운 캐시·가시/비가시 캐시, 같은 세션 재선택·늦은 이전 검색 응답·위치 소실·복귀에서 §5·§10대로 동작한다. | FTS 결과 → 클릭/Enter → host 위치 확인·제한 조회 → 라우트 → 실제 행 마운트·스크롤·일시 표지 → 양방향 읽기·합류·복귀, Q6a~e. |
@@ -212,23 +216,23 @@ Work 세션 S에서 정규 작업을 만들거나 갱신하면 S의 작업 ID로
 | Pair | 노드 ↔ 검증 | 등급 | production path / §10 자리 | 직접 관측 |
 |---|---|---|---|---|
 | VP-01 | R-01 ↔ AT-01 | REQUIRED | 열기/버튼/유휴 채움 → 투영 저장소 → bounded reply → 화면 · EP1·2·3 · 미준비 열기 EP9 | Q1·2·3·9·9b·10 |
-| VP-02 | R-02 ↔ AT-02 | REQUIRED | 일반 진입 → 머리 입력(제스처·당김) → 포트 → reducer → DOM·선택 / 늦은 응답 ↔ 컴포저 초안 · EP2·4·5 | Q2·4·4b·5·5b |
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | (ΔV1 §20 C로 대체) 일반 진입 → 머리 입력(제스처·당김) → 포트 → reducer → DOM·선택 / 늦은 응답 ↔ 컴포저 초안 · EP2·4·5 | Q2·4·4b·5·5b |
 | VP-03 | R-03 ↔ AT-03 | REQUIRED | 패널/검색(양방향·합류)/복구/분기 → 읽기 권위 → 결과 · EP6·7·8 | Q6a~e·7·8, S-E1~5 |
 | VP-04 | SD-01 ↔ ST-01 | REQUIRED | 최신 → (같은 턴 유휴 채움) → 이전 → 이력 끝, 거대 본문 · EP2·3·4 | Q1~4 |
 | VP-05 | SD-02 ↔ ST-02 | REQUIRED | 부분 이력 → 소비자 행동 → 세션 요약 표시 또는 복구 · EP6~8 | Q6~8 |
-| VP-06 | SD-03 ↔ ST-03 | REGRESSION | 0326 고정 ID·보류/순서·pin → 실제 생산자 페이지 / 0324 원자 교체 · EP2·4·5 | Q2·4·5 |
+| VP-06 | SD-03 ↔ ST-03 | REGRESSION | (ΔV1 §20 C로 대체) 0326 고정 ID·보류/순서·pin → 실제 생산자 페이지 / 0324 원자 교체 · EP2·4·5 | Q2·4·5 |
 | VP-07 | AR-01 ↔ IT-01 | REQUIRED | 기존 DB·writer·native 갱신 → 투영 → 조회 포트 · EP1·2 | Q1·2·9 |
 | VP-08 | AR-02 ↔ IT-02 | REQUIRED | session/page/body → data handler → 창 transport → store/본문 열기 · EP2·3·5 | Q2·3·5 |
 | VP-09 | AR-03 ↔ IT-03 | REQUIRED | FTS hit → data 식별·범위조회(target/earlier/later) → 라우트/창 행 ‖ 세션 패널 요약 → §5-C 패널 · EP6·7 | Q6a~e·7 |
 | VP-10 | AR-04 ↔ IT-04 | REQUIRED | 분기 초안·실행 복구 → data 전체 archive → 저장/agent · EP8 | Q8 |
 | VP-11 | MD-01 ↔ UT-01 | REQUIRED | 정렬된 경계·body 길이 → 선택 범위/커서 · EP1·3 | Q1·3 |
-| VP-12 | MD-02 ↔ UT-02 | REQUIRED | 요청 세대·입력 방향·끝/오류·진단 → 단일 상태 전이 · EP4·5 | Q4·5 |
+| VP-12 | MD-02 ↔ UT-02 | REQUIRED | (ΔV1 §20 C로 대체) 요청 세대·입력 방향·끝/오류·진단 → 단일 상태 전이 · EP4·5 | Q4·5 |
 | VP-13 | SD-04 ↔ ST-04 | REQUIRED | 결과 선택(동일/다른 세션) → 제한 문맥 → 가시 행 → 강조 → 위/아래 끝 읽기 → 이력 시작 또는 최신 합류 / 최신 복귀·취소 · EP6 | Q6b·d·e, S-E5 |
 | VP-14 | MD-03 ↔ UT-03 | REQUIRED | 위치 식별자/세대 → 정확한 키로 재해소, 대상 묶음 배치·양방향 커서, 탐색 번호·가시성·시간 → 일시 표지 · EP6 | Q6a·c |
 | VP-15 | SD-05 ↔ ST-05 | REQUIRED | upgrade → 배경 색인(최근 순) ‖ 열기 → 우선 색인 → 출판 → 첫 본문, 중단 → 재기동 → 저장 위치 재개 · EP9 | Q9b·Q10, S-E1 |
-| VP-16 | MD-04 ↔ UT-04 | REQUIRED | wheel/키/버튼 → 제스처 경계·방향 → 요청 1회 / 첫 commit → 유휴 → 같은 턴 1묶음 → 입력 중 보류·전환 정지 · EP3 ⑤·EP4 ⑤ | Q4 |
+| VP-16 | MD-04 ↔ UT-04 | REQUIRED | (ΔV1 §20 C로 대체) wheel/키/버튼 → 제스처 경계·방향 → 요청 1회 / 첫 commit → 유휴 → 같은 턴 1묶음 → 입력 중 보류·전환 정지 · EP3 ⑤·EP4 ⑤ | Q4 |
 
-Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 변이로 증거 감도를 확인한다. rev 5 선택 변이: Q4b는 머리 높이 변화의 앵커 복원 제거(±1px 감도), Q4는 제스처 간격 판정 제거(관성 요청 수 감도), Q5b는 송신 대상 맞바꿈(A↔B), Q7은 요약의 제거·스냅샷 처리 제거, Q9b는 진행 위치 저장 제거·출판 포인터 선행 교체다. 자리는 §10 EP 칸에 적었다. 다른 pair는 실제 출력·선택·저장 재조회로 비교한다. 구현자는 `app/AGENTS.md`의 CI 대응 명령과 §19의 소스·메시지 버스 검사를 기록한다.
+Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 변이로 증거 감도를 확인한다. rev 5 선택 변이(Q4·Q4b 몫은 ΔV1 EP4′ 선택 변이로 대체): Q4b는 머리 높이 변화의 앵커 복원 제거(±1px 감도), Q4는 제스처 간격 판정 제거(관성 요청 수 감도), Q5b는 송신 대상 맞바꿈(A↔B), Q7은 요약의 제거·스냅샷 처리 제거, Q9b는 진행 위치 저장 제거·출판 포인터 선행 교체다. 자리는 §10 EP 칸에 적었다. 다른 pair는 실제 출력·선택·저장 재조회로 비교한다. 구현자는 `app/AGENTS.md`의 CI 대응 명령과 §19의 소스·메시지 버스 검사를 기록한다.
 
 # Part II — 기술 설계
 
@@ -259,7 +263,7 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | 완전성 | `chatStore.ts:1952` `complete: session.complete ?? true` | 1 | 0326 D-074 전달 경로가 있고 data는 아직 전체를 준다. |
 | 진입 원인 | `lib/transcript/viewport/entry.ts:5` `EntryCause` | 3 | `open`·`resume`·`sync`. 검색 원인은 없다(D-013 신설). |
 | 선택 취소 | `shared/ui/virtual/selectionGuard.ts:25` · `TranscriptViewport.tsx:443,519` | 1 규칙 | `inside`·`dragging`에서 새 행 키 → 취소, 취소된 드래그는 pointerup까지 `suppressed`. |
-| 머리 슬롯 | `TranscriptViewport.tsx:118`(`header`) · `:597` ResizeObserver | 1 | 머리 높이 변화의 앵커 복원이 있다(D-016 재사용). 하단 슬롯·위 입력 처리기는 없다(`wheel`은 `:577` 앵커 취소만). |
+| 머리 슬롯 | `TranscriptViewport.tsx:118`(`header`) · `:597` ResizeObserver | 1 | **ΔV1 정정(§20 A)**: 상단에서 머리 높이 변화 보정은 부분만 되고 wheel이 취소한다 — 재사용 전제 폐기. `footer` prop(`:121`)과 하네스 위 wheel 처리기(pin 해제)는 이미 있다. |
 | 검색 선택 | `SearchModal.tsx:70-75` · `OverlayLayer.tsx:64` · `useChatRouteSync.ts:63` | 3 | 세션 ID만 전달, 같은 활성 세션이면 즉시 반환. |
 | 패널 파생 | `rg -n "useTranscriptView\(" renderer/src/features/chat -g '!*.test.*'` | 13 | 비 store 호출 자리. 소비자 묶음은 §5-C 표. |
 | 컴포저 초안 | 0328 plan D-013 · `harnesses/common/composer/ComposerInputController.tsx` | 1 | 세션 전환에도 초안·첨부·작업 유지, 송신은 그때 활성 세션(0328 verify 2 PASS). |
@@ -334,8 +338,8 @@ Q1·Q2의 과거 데이터 접근 0, Q9의 출판 원자성은 §10의 선택 �
 | 검색 보기 (D-015) | 목표가 세션 엔트리의 최신 연속 이력에 없으면 창은 `searchView{sessionKey, navigationId, generation, messages, before, after}`를 세션 엔트리와 따로 둔다. 세션 엔트리는 live·보류·활동을 계속 받고 검색 보기에는 live append 0. 뷰포트는 검색 보기가 있으면 그것을, 없으면 세션 메시지를 그린다. cold 검색 열기는 target 응답의 세션 메타로 엔트리를 빈 메시지·`complete:false`로 LOAD한 뒤 검색 보기를 연다. |
 | 양방향 커서·끝 | `target`·`earlierTurn`·`laterTurn`·`withinTurn` 응답은 `before`·`after`를 각각 `{kind:'withinTurn'\|'earlierTurn'\|'laterTurn', cursor}` 또는 끝 표식으로 준다. before 끝 = 투영 첫 메시지 포함(`reachedStart`), after 끝 = 출판 세대 마지막 메시지 포함(`reachedLatest`). 창은 방향마다 단일 flight·오류·재시도를 따로 갖고 한 방향 실패가 다른 방향을 막지 않는다. 다른 `navigationId`의 응답은 적용 0. |
 | 최신 합류 | `reachedLatest`를 적용하면 창은 검색 보기 메시지를 `prependHistory(sessionKey, view.messages, {reachedStart: before 끝})`로 세션 엔트리에 넘긴다 — 0326 겹침 검사가 검색 보기 꼬리와 세션 머리의 같은 ID를 자른다. 결과가 `applied`·`duplicate`면 검색 보기를 지우고 읽던 행 앵커를 유지하며 before 커서가 엔트리의 이전 커서가 된다. `rejected`면 검색 보기를 유지하고 ‘최신 대화로’만 제공한다. |
-| 하단 슬롯·아래 입력 | 검색 보기에만 하단 슬롯(대기·스피너·재시도·‘다음 부분 보기’·‘최신 대화로’)을 둔다. 아래 입력 = scrollTop이 최대일 때 deltaY>0 wheel, 하단에서 End/PageDown, 버튼. 아래에 붙여도 읽던 글줄은 그대로이고 하단 고정으로 바뀌지 않는다. ‘최신 대화로’는 엔트리에 최신 묶음이 없으면 `latest`를 요청해 LOAD한 뒤 하단 고정으로 간다. |
-| 제스처 경계·당김 표시 (D-016) | 한 제스처 = 같은 방향 wheel 이벤트 열에서 이웃 간격이 `HISTORY_GESTURE_GAP_MS`(정수 ms, 100~400, 기본 200) 미만인 구간. 제스처당 요청 ≤1이며 응답 뒤에도 같은 제스처의 남은 관성은 요청하지 않는다. 방향 전환·간격 초과는 새 제스처, 키·버튼은 각 1회. 위 입력 순간 머리가 당김 표시(감소된 모션이면 정적)로, 요청 시작 시 같은 자리 스피너로 바뀐다. 머리 높이 변화·앞삽입·스피너 제거는 `TranscriptViewport.tsx:597` 앵커 복원을 지나 글줄 이동 ≤1px. 드래그 자동 스크롤(wheel 아님)은 입력이 아니다. |
+| 하단 슬롯·아래 입력 | **ΔV1에서 ‘하단 슬롯·아래 입력′’(§20 D)으로 대체.** 검색 보기에만 하단 슬롯(대기·스피너·재시도·‘다음 부분 보기’·‘최신 대화로’)을 둔다. 아래 입력 = scrollTop이 최대일 때 deltaY>0 wheel, 하단에서 End/PageDown, 버튼. 아래에 붙여도 읽던 글줄은 그대로이고 하단 고정으로 바뀌지 않는다. ‘최신 대화로’는 엔트리에 최신 묶음이 없으면 `latest`를 요청해 LOAD한 뒤 하단 고정으로 간다. |
+| 제스처 경계·당김 표시 (D-016) | **ΔV1에서 ‘머리 슬롯 (D-019)’·‘제스처 분류와 보정 취소 (D-016·D-020)’(§20 D)로 대체.** 한 제스처 = 같은 방향 wheel 이벤트 열에서 이웃 간격이 `HISTORY_GESTURE_GAP_MS`(정수 ms, 100~400, 기본 200) 미만인 구간. 제스처당 요청 ≤1이며 응답 뒤에도 같은 제스처의 남은 관성은 요청하지 않는다. 방향 전환·간격 초과는 새 제스처, 키·버튼은 각 1회. 위 입력 순간 머리가 당김 표시(감소된 모션이면 정적)로, 요청 시작 시 같은 자리 스피너로 바뀐다. 머리 높이 변화·앞삽입·스피너 제거는 `TranscriptViewport.tsx:597` 앵커 복원을 지나 글줄 이동 ≤1px. 드래그 자동 스크롤(wheel 아님)은 입력이 아니다. |
 | 드래그 선택 | 앞삽입·유휴 채움·아래 붙임으로 새 행이 마운트될 때 `shouldCancelSelection`(0326 D-103)을 그대로 쓴다 — transcript 안 선택·드래그면 취소, 취소된 드래그는 pointerup까지 비선택, 밖의 선택은 유지. E는 이 규칙을 우회하는 마운트 경로를 만들지 않는다(가상 행 마운트는 공통 뷰포트 한 곳). |
 | 초안·송신 대상 (D-017) | 페이지·target·유휴 채움·합류 응답의 적용은 세션 엔트리·검색 보기만 바꾸고 컴포저 상태(텍스트·첨부·썸네일 작업)에 dispatch 0. 송신 대상은 0328 D-013대로 송신 순간의 활성 세션이다. 검색으로 세션이 바뀌어도 컴포저를 언마운트·초기화하지 않는다. |
 | 세션 패널 요약 (D-010·D-012) | data가 세션별로 작업(`readTaskToolObservation` 규칙)·서브에이전트(목록·설명·모델·결과 요약)·OpenCode 에이전트/프로세스(명령·상태·출력 길이·잘림)·컨텍스트 소스(경로·모드)를 투영과 같은 출판 경계에서 유지하고 기준점(출판 순번)을 함께 준다. 응답은 종류별 keyset 페이지·전체 개수·끝이고 자식 메시지·프로세스 출력·작업 상세는 `panelDetail(itemKey)`로 따로 받는다. 창 표시 = 요약 상태에 기준점 이후 창 메시지를 같은 fold로 이어 적용한 값. 정본 비교는 같은 세션 전체 메시지에 현재 `transcriptIndex` 파생을 돌린 결과다. |
@@ -350,7 +354,7 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 | EP1 · `loadParts\|payload_json\|archive_json\|local_frontier\|message_key\|turnStart\|isTurnStart` | ① local 쓰기·교체·빈 메시지 ② native replace/binding/sidecar·고아 ③ archive prepare·이전 버전 변환 ④ publish·롤백·삭제 ⑤ stable key와 턴 시작에 의한 seek | ①②③⑤ Q1, ②③④⑤ Q9. 전량 읽고 slice하는 변이를 ⑤에 넣어 Q1의 read 계수가 red인지 본다. 출판 포인터를 먼저 바꾸는 변이를 ④에 넣어 중간 세대 노출을 검출한다. |
 | EP2 · `sessionLoad\|sessionRefresh\|loadSession\|loadParts\|requestId\|reachedStart` | ① 일반/재접속/refresh 창 호출 ② 채널 route·스키마·세션 검사 ③ 예산 내 data reader·sender ④ 응답 검사/조립 ⑤ LOAD·끝 표식의 단일 공개 | 전 자리 Q2, data 결과는 Q1과 대조. ① 갱신과 ③ 최신 조회에 full reader를 각각 넣어 분기별로 과거 읽기 검출. 중복·조각 유실·재정렬·횟수 부조화 입력은 부분 적용 0. |
 | EP3 · `parts\|payload_json\|message_id\|projectionGeneration\|moreInTurn\|bodyRef\|requestIdleCallback\|idleFill` | ① 본문 길이·분할 저장 ② 한도 초과 시 ref 또는 같은 턴 커서 발급 ③ sender의 범위·소유 확인 ④ 창 제어·수신→원 ID 내용 결합 ⑤ 유휴 채움 예약: 첫 commit 뒤에만 · 같은 턴 한정 · 입력 중 보류 · 직전 요청 완료 대기 · 오류 정지 · 전환/닫기 해제 | ①② Q1·Q3, ③④ Q3, ⑤ Q4(UT-04). 정상 경계·1 초과·빈 part·비 ASCII·중간 취소·offset 초과·세대 교차·재시도 입력. ⑤ 분기 입력: commit 전 유휴 · 잔여 3묶음 턴 · 입력 중 유휴 · 응답 대기 중 유휴 · 오류 뒤 유휴 · 전환 뒤 유휴 · 잔여 끝 뒤 유휴(이전 턴 요청 0). 승인 전이나 다른 세션의 본문·로컬 파일 경로 노출 금지. |
-| EP4 · `entryIntent\|scrollTop\|header\|footer\|wheel\|scrollHeight\|reachedStart\|gesture\|shouldCancelSelection` | ① 세 화면 진입 intent→하단 ② 공통 상단 입력·짧은 턴 ③ 요청 상태→머리 당김 표시/스피너/닫기/재시도 ④ 앵커 캡처→크기 변경→단일 위치 복원 ⑤ 제스처 경계(간격·방향·키·버튼) → 요청 ≤1 ⑥ 새 행 마운트 → 선택 취소 규칙 승계 | ①~⑤ Q4, ③④⑤⑥ Q4b(Chromium). 클릭 없이 상단이 보이기만 함·위/아래·중복 wheel·관성 열(16ms 간격 30개)·간격 초과 두 번·방향 전환·짧은 턴·끝/오류를 구별. Q4b 선택 변이: ④의 머리 높이 복원 제거 → 글줄 >1px red, ⑤의 간격 판정 제거 → 관성 요청 >1 red. |
+| EP4 · `entryIntent\|scrollTop\|header\|footer\|wheel\|scrollHeight\|reachedStart\|gesture\|shouldCancelSelection` | **ΔV1에서 EP4′(§20 E)로 대체.** ① 세 화면 진입 intent→하단 ② 공통 상단 입력·짧은 턴 ③ 요청 상태→머리 당김 표시/스피너/닫기/재시도 ④ 앵커 캡처→크기 변경→단일 위치 복원 ⑤ 제스처 경계(간격·방향·키·버튼) → 요청 ≤1 ⑥ 새 행 마운트 → 선택 취소 규칙 승계 | ①~⑤ Q4, ③④⑤⑥ Q4b(Chromium). 클릭 없이 상단이 보이기만 함·위/아래·중복 wheel·관성 열(16ms 간격 30개)·간격 초과 두 번·방향 전환·짧은 턴·끝/오류를 구별. Q4b 선택 변이: ④의 머리 높이 복원 제거 → 글줄 >1px red, ⑤의 간격 판정 제거 → 관성 요청 >1 red. |
 | EP5 · `sessionLoads\|dropSession\|cancelLoad\|PREPEND_HISTORY\|LOAD_SESSION\|heldPatches\|heldOutputs\|prependRejected\|onSend\|activeKey` | ① store 요청 세대/중복 억제 ② 세션 닫기·delete·재접속 취소 ③ 응답의 세대/커서 재검사 ④ reducer 검증 및 보류 병합 ⑤ 성공일 때만 커서/끝 commit ⑥ 응답 적용 ↔ 컴포저 초안 비접촉, 송신 대상 = 송신 순간 활성 세션 | ①~⑤ Q5, ②③ Q2, ⑥ Q5b. A→B→A, old-first/new-first, 삭제, out-of-order, owner result·출력 양 순서, stale/error/empty/중복/전체중복뒤틀림을 교차. Q5b 선택 변이: 송신 대상을 늦은 응답의 세션 키로 맞바꿈 → red. |
 | EP6 · `searchMessages\|SearchHit\|SearchModal\|onChoose\|entryIntent\|messageId\|anchorKey\|scrollTop\|searchView\|laterTurn\|reachedLatest\|navigationId` | ① FTS→세션·출처 locator ② 선택(클릭·Enter)→고유 탐색·라우트(같은 세션 포함) ③ data 정체성/세대·캐시 확인→목표 묶음/실패 ④ 메시지→하네스별 행·마운트 ⑤ 단일 스크롤 쓰기→가시·포커스·행 표시 ⑥ 취소·2초 종료·복귀 ⑦ 검색 보기 방향별 커서·위/아래 입력·하단 슬롯 ⑧ `reachedLatest` → 세션 엔트리 합류(applied/duplicate/rejected) | ①③ Q6a·b, ②④⑤⑥ Q6c·d, ⑦⑧ Q6e. 타 세션·숫자 재사용·비가시 캐시·연속 선택·늦은 이전 navigationId 응답·사용자 선행 조작·일반 열기를 분리한다. ⑧ 분기 입력: 엔트리 최신 묶음 있음 · 엔트리 빈 메시지(cold) · 엔트리에 live 꼬리 · 세대 교체로 rejected. |
 | EP7 · `useTranscriptView\|useTaskBoard\|useTaskContext\|readTaskToolObservation\|subagentTasks\|sessionPanelModel\|taskContextSources\|panelSummary\|startHandoff\|openCodeTodoTurnStartIndex\|historyComplete` | ① 관측→세션 패널 요약 4종(작업·서브에이전트·OpenCode 에이전트/프로세스·컨텍스트 소스) ② 요약+기준점 이후 창 메시지 fold → 패널 목록 ③ 항목 상세 요청 ④ 실시간 권위(실행 중·취소) ⑤ 인계 버튼과 action 양쪽 ⑥ 현재 턴 TODO 위치 ⑦ 준비 중·실패·빈 목록 표시 | ①②③ Q7은 미로딩 17·41턴, 세션별 ID 충돌, 완료·제거·스냅샷·중복 재생, 기준점 앞뒤 경계 관측을 §5-C 패널마다 단언한다. ④~⑥ Q7은 active 호스트·stale 상세·현재 TODO, ⑦은 세 상태를 본다. Q7 선택 변이: ①의 removed/snapshot 처리 제거 → 독립 전량 파생과 불일치 red. |
@@ -364,8 +368,8 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 | Q1 · `main/features/history/turn-page.db.test.ts` ‘local/native/archive/empty latest’ | 실제 SQLite migration·writer·native replace·복구 저장 후 reader 호출. 1/100/10,000턴·중복 시각·선두 assistant·연속 user·빈 parts·같은 호출 결과·bound/orphan 각 예상 키/role/parts와 비교. 전체 열거 기준은 기존 full reader와 독립 고정 리터럴(빈 parts 포함). SQLite 반환·payload 페이지 접근·전송 바이트 수 계수. |
 | Q2 · `main/app/data-host/history-port.integration.test.ts` ‘open/refresh/reconnect commit’ 및 `renderer/src/features/chat/store/history-open.integration.test.ts` 동명 | data handler와 창 전송 클라이언트를 실제 request/reply 모양으로 연결. 다른 세션/세대, 누락·중복·뒤집힌 분할, busy/unchanged/updated/missing/unavailable, cache+live 첫 응답 후 두 프레임 refresh 주입. 첫 유효 본문 공개 횟수·순서·cache·요청 수와 실제 frame/envelope 크기 기록. |
 | Q3 · `main/app/data-host/history-body.integration.test.ts` ‘bounded range’ 및 `renderer/src/features/chat/components/transcript/TranscriptViewport.body.test.ts` ‘same id open’ | 한도 정확히/1초과·emoji가 경계에 걸린 4MiB 본문·2천 part 한 메시지·빈 parts 20만 메시지 단일 턴. 실제 bodyRef를 열어 첫·중간·끝·stale·타세션·취소 후 재시도. 합친 bytes/hash·원본 ID·내용, bounded 표지 수·읽은 DB bytes, 같은 턴 나머지 후 첫 turn 경계까지 비교. |
-| Q4 · `renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts` ‘three harnesses’ 및 `renderer/src/features/chat/lib/transcript/historyGesture.test.ts` ‘gesture and idle fill’ | Code/Work/OpenCode 진입, 1/100턴에 같은 이전 턴 추가. 실제 viewport header·scroll writer를 통해 짧음/길음·위·아래·키보드 버튼·실패/재시도/끝·중복 제스처를 재생. 순수 UT는 가짜 시계로 관성 열(16ms×30)·간격 초과 두 번·방향 전환 → 요청 수, EP3 ⑤ 분기 입력 7개 → 유휴 요청 수·대상 커서. request tuple, 표지·pin·머리 상태, 예약 해제 관측. |
-| Q4b · `gate:xvfb-run -a node scripts/check-transcript-history.mjs`(신규 Electron 판정, `check-transcript-selection.mjs` 방식) | production `TranscriptView` 세 화면을 Electron에 띄우고 `webContents.sendInputEvent`로 휠 한 칸·관성 열·키·드래그를 보낸다. 당김 표시·스피너·앞삽입·스피너 제거·아래 붙임 각 commit 뒤 기준 글줄 `getBoundingClientRect().top` 차 ≤1px, 관성 열 요청 1회, 드래그 중 앞삽입 → 선택 0·pointerup 전 재선택 0, 컴포저 선택 유지, 드래그 자동 스크롤 요청 0. 통과 0·실패 1·Electron 없음 3. |
+| Q4 · **ΔV1에서 Q4′(§20 E)로 대체** · `renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts` ‘three harnesses’ 및 `renderer/src/features/chat/lib/transcript/historyGesture.test.ts` ‘gesture and idle fill’ | Code/Work/OpenCode 진입, 1/100턴에 같은 이전 턴 추가. 실제 viewport header·scroll writer를 통해 짧음/길음·위·아래·키보드 버튼·실패/재시도/끝·중복 제스처를 재생. 순수 UT는 가짜 시계로 관성 열(16ms×30)·간격 초과 두 번·방향 전환 → 요청 수, EP3 ⑤ 분기 입력 7개 → 유휴 요청 수·대상 커서. request tuple, 표지·pin·머리 상태, 예약 해제 관측. |
+| Q4b · **ΔV1에서 Q4b′(§20 E)로 대체** · `gate:xvfb-run -a node scripts/check-transcript-history.mjs`(신규 Electron 판정, `check-transcript-selection.mjs` 방식) | production `TranscriptView` 세 화면을 Electron에 띄우고 `webContents.sendInputEvent`로 휠 한 칸·관성 열·키·드래그를 보낸다. 당김 표시·스피너·앞삽입·스피너 제거·아래 붙임 각 commit 뒤 기준 글줄 `getBoundingClientRect().top` 차 ≤1px, 관성 열 요청 1회, 드래그 중 앞삽입 → 선택 0·pointerup 전 재선택 0, 컴포저 선택 유지, 드래그 자동 스크롤 요청 0. 통과 0·실패 1·Electron 없음 3. |
 | Q5 · `renderer/src/features/chat/store/history-races.test.ts` ‘generation/overlap/held’ | S1 옛/새 세대, S2, 다른 cursor, live A·B·toolRunId·서로 다른 publication 두 건. 실제 store/reducer에서 응답·이벤트 두 순서와 invalid/empty/reachedStart·reconnect/삭제를 재생. 화면과 백그라운드 항목별 순서·끝·진단/미적용·spinner를 함께 관측. |
 | Q5b · `renderer/src/features/chat/store/history-draft.integration.test.ts` ‘late page and thumbnail keep draft for active send’ | 실제 chatStore·`ComposerInputController`·0328 가짜 compute client. A에서 글·이미지 첨부 → 검색 target으로 B → A의 `earlierTurn` 응답과 썸네일 완료를 그 뒤에 전달 → 전송. B 메시지·검색 보기 위치 불변, 컴포저 글·첨부 ID·썸네일 상태 유지, `onSend` 1회·세션 B·A 0회. |
 | Q6a · UT/DB `main/features/history/turn-page.db.test.ts` ‘hit identity and bounded window’ | 실제 migration·FTS·투영의 local/native alias+local 소유·archive·고아·같은 snippet/시각을 구분한다. 다른 세션·숫자 재사용·새 archive의 같은 순번은 거부. 같은 원본 ID의 본문만 바뀌면 그 메시지로 이동한다(행 단위 계약). 소실은 실패이며 비슷한 글에 연결하지 않는다. |
@@ -393,7 +397,7 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 10. WU-1의 세션 투영·턴 범위·출처 식별자가 준비된 뒤 FTS 결과에 locator를 싣고 결과 한 건 선택에 `target` 조회를 연결한다. 대상 메시지가 거대 턴 가운데이면 그 메시지가 반드시 포함되는 묶음을 만들고 앞·뒤에 읽을 것이 있는지 별도로 알려 준다. 최신 세대의 캐시에 있으면 검증과 재사용만 수행한다.
 11. `SearchModal.goto → OverlayLayer → route intent → chatStore → TranscriptViewport`로 검색 선택을 전달한다. 클릭과 Enter가 같은 `goto(hit)`로 locator를 넘긴다. 일반 URL·활성 세션 비교와 별개로 탐색 번호를 소비해 동일 세션 재선택도 처리한다. 현재 가시 행·세션·탐색 번호가 일치한 경우만 강조하고, timer 만료·언마운트 때 표지와 listener를 정리한다.
 12. chatStore에 세션별 `searchView`를 두고(§10 검색 보기) 방향별 flight·오류·커서를 둔다. `earlierTurn`·`laterTurn`·`withinTurn` 응답은 검색 보기 앞·뒤에만 붙이고, `reachedLatest`는 `prependHistory` 결과(§11 7의 반환)로 합류를 판정한다. 공통 뷰포트에 하단 슬롯과 아래 입력을 더하되 머리와 같은 상태 표시 모듈을 쓴다.
-13. 제스처 경계와 유휴 채움 예약은 React 밖 순수 모듈(`lib/transcript/historyGesture.ts`)에 두고 뷰포트가 wheel·키·버튼·commit·전환 이벤트를 넣는다(Q4 UT 진입점). 요청은 store 액션 하나로만 나간다. 당김 표시·스피너는 기존 `header` 슬롯 안에서 바뀌어 `TranscriptViewport.tsx:597` 복원을 재사용한다.
+13. 제스처 경계와 유휴 채움 예약은 React 밖 순수 모듈(`lib/transcript/historyGesture.ts`)에 두고 뷰포트가 wheel·키·버튼·commit·전환 이벤트를 넣는다(Q4 UT 진입점). 요청은 store 액션 하나로만 나간다. ΔV1: 당김 표시·스피너는 고정 높이 머리 슬롯 안에서 바뀌어 보정 자체가 필요 없고, 같은 분류기가 앵커 보정 취소 여부도 정한다(§20 D — rev 5의 “`:597` 복원 재사용” 문장 대체).
 14. 컴포저는 바꾸지 않는다. Q5b가 E의 응답 적용 경로와 0328 송신 경로의 비접촉을 잠근다(D-017).
 
 ## 12. 생산자·소비자와 기존 호출자
@@ -429,7 +433,7 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 | 첫 paint 전 | 일반 열기에서 page 응답 1개·실제 본문 commit 1회. 세션 제어 메타(제목 등)도 envelope의 UTF-8 예산에 포함한다. 과대 가변 메타는 참조·유효한 축약 표시 후 별도 조회. DB 본문 인출/직렬화/검증·reducer 방문·wire bytes를 독립 계수하고 동일 최신 턴에 과거 payload 읽기 0을 확인한다. |
 | 검색 클릭부터 첫 표시 | data에서 캐시 검증+세대 변경 시 안정 출처 재해소 1회 이내. cold/부재면 목표를 담는 §14 예산의 응답 ≤1묶음, 확인된 캐시면 본문 재전송 0. 최신/중간의 무관 턴 본문 읽기 0. 측정 구간은 클릭→locator 전달→DB seek→응답 bytes→창 반영→올바른 행의 첫 가시 paint이다. 이후 위/아래 끝 입력은 조작당 응답 ≤1묶음이고 합류는 추가 요청 0(이미 받은 메시지를 넘긴다). |
 | 유휴 채움 (D-009) | 묶음당 위 1회 응답 한도. 한 턴의 자동 읽기 총량은 그 턴 전체이며 원천 상한이 없다 — 묶음 수 = max(⌈메시지/128⌉, ⌈part/256⌉, ⌈bytes/256 KiB⌉). AC2의 20만 빈 메시지 단일 턴은 1,563묶음, 600메시지·900part 턴은 5묶음이다. 유휴 콜백 1회에 1묶음, 직전 commit 전 다음 요청 0, 사용자 입력 중 0. |
-| 제스처 경계 | `HISTORY_GESTURE_GAP_MS` 기본 200 ms(100~400). Linux Chromium의 Q4b 관성 열로 요청 1회를 확인하고, Windows 정밀 터치패드·휠 값은 S-E2가 기록해 0330에 넘긴다. |
+| 제스처 경계 | ΔV1: 보정 취소 분류에도 같은 값을 쓴다(D-020). OpenCode `ScrollController.tsx:141`의 250 ms `gestureUntil`(pin 판정)은 별개 창이며 바꾸지 않는다. `HISTORY_GESTURE_GAP_MS` 기본 200 ms(100~400). Linux Chromium의 Q4b 관성 열로 요청 1회를 확인하고, Windows 정밀 터치패드·휠 값은 S-E2가 기록해 0330에 넘긴다. |
 | 패널 요약 | 종류별 페이지는 위 1회 응답 한도와 같은 256 KiB·항목 128 이내, 상세는 항목 1개 요청. 첫 화면 패널은 첫 페이지 1개만 요청하고 나머지는 패널 스크롤에서 keyset으로 읽는다. 요약 갱신은 쓰기 트랜잭션당 바뀐 항목만 upsert한다. |
 | 입력 증가 | §8 분모에 동일한 최신 턴을 붙여 1/100/10,000턴 변화를 본다. 1턴에 20만 빈 메시지면 첫 요청은 ≤128개. 4MiB 한 part면 본문 열기 전 payload 읽기 0, 이후 실제 조각 수·원문과 일치 여부를 비교. B 앞삽입 비용은 1턴·100턴에 각각 1턴을 추가해 기존 방문·할당과 프레임을 기록한다. |
 | 구 DB의 첫 실행 (D-018) | 단일 `payload_json/archive_json`에는 과거 전체를 한번도 해석하지 않고 정확한 안정 키·소유·전후 턴을 제공할 색인이 없다. 그래서 미출판 세션 첫 클릭의 data 쪽 비용은 그 세션 원본 전량 해석 + 투영 쓰기다(1회). wire·창 쪽은 그 클릭에도 위 1회 응답 한도를 지킨다. Q10이 작은 DB·긴 DB의 색인 전/중/후 변환 시간·DB/WAL 증가·읽은 과거 본문 bytes·IPC bytes·클릭→첫 본문과 재기동 재개를 기록한다. 준비 중 화면·스피너·빈 틀은 성공 paint가 아니며, 미출판 세션 첫 클릭은 AC1에 넣지 않고 AC11로만 적는다. |
@@ -498,11 +502,74 @@ rev 5 기준 트리(`7db1c7ce`)에서 각 술어의 출현은 EP1 120줄/29파�
 
 S-E1~S-E5 원시 기록과 각 AC 결과를 0330 W에 연결한다. E의 확정된 행동·크기 경계를 위반했으면 해당 E AC를 다시 연다. 목표 장비의 프로파일별 절대 성능 허용치 결정은 [0330 보드 행](../INDEX.md)에서 추적한다.
 
+## 20. ΔV1 — r1 WU-0 PLAN_GAP 정정 (2026-11-24)
+
+**판정: PLAN_GAP 타당 → 정정 뒤 READY.** r1(`53c63ce9`, `Status: blocked`)이 §19 1에 따라 기능 구현 전에 반송했다. 원인은 plan이다 — §10 rev 5가 상단의 머리 높이 변화 보정을 기존 ResizeObserver(`TranscriptViewport.tsx:597`)에 맡겼고, §8 rev 5가 기존 footer·위 wheel 처리기를 없다고 적었다. 기능 코드는 아직 없어 ΔV1은 설계 행만 바꾼다.
+
+### 20-A. 반송 근거 대조
+
+| 지적 | 판정 | 관측 |
+|---|---|---|
+| 상단에서 머리 35px 증가 뒤 글줄 +26px | 재현 기록 확인 | `evidence/wu0-baseline.json` runs[0]·[2] `anchor.resizeOnly`: scrollTop 0→9, 글줄 27.19→53.19, 2/2 |
+| 머리 변경 통지 직후 같은 플릭의 두 번째 wheel → +35px | 원인 코드 확인 | `TranscriptViewport.tsx:577` wheel → `cancel()`(`:548`)이 `pendingRestoreRafRef`의 예약 복원을 지운다(`:558-561`). 기록 `resizeWithWheel` 간격 34.6/34.5 ms |
+| 0326 계약: 사용자 입력은 대기 보정을 취소 | 유지 대상 | `TranscriptViewport.prepend.test.ts:564` ‘coalesces above-viewport changes and respects %s’ 13 cause(`wheel`·`header-wheel`·`key`·`pointer`·`scroll` 포함) — 이 턴 재실행 13/13 통과 |
+| `footer`는 이미 있다 | 타당 — §8 rev 5 정정 | `TranscriptViewport.tsx:121` `footer` prop · `claude/transcript/Timeline.tsx:88,138` · `opencode/transcript/Timeline.tsx:88,137`(대기 steer·실행·오류) |
+| 위 wheel은 하네스 pin 해제에 쓰인다 | 타당 — 설계 입력 | `claude/transcript/useScrollAnchor.ts:70-82`(`claudePin.onUserInput`) · `opencode/transcript/ScrollController.tsx:139-142`(`nested` 제외, `gestureUntil` 250 ms, `deltaY<0` unpin) |
+| 구 DB 기준선(현행 전량 열기) | 기록 — §17 게이트 기준값 | small 140.2·123.4 ms · long 1,864.6 ms, reader 11,316,684 B, 응답 11,536,665 B·201 frame, DB +11,325,440 B·WAL +11,412,432 B(Linux Electron 39.8.10) |
+
+§17의 “미출판 첫 클릭이 현행 전량 열기의 2배” 게이트는 같은 장비·같은 긴 DB에서 3,729 ms(= 2 × 1,864.6)다.
+
+### 20-B. Decision
+
+D-019(고정 높이 머리 슬롯)·D-020(보정 취소 분류)을 §3에 더했다. D-016은 바꾸지 않는다 — ±1px과 한 제스처 한 요청은 그대로이고 메커니즘만 바뀐다.
+
+### 20-C. Delta V
+
+| 노드 | provenance | 변경 |
+|---|---|---|
+| R-02 | CHANGED | AC3 → AC3′. 읽기 위치 측정 자리에 상단(scrollTop 0)·같은 제스처 후속 wheel·머리 상태 전환·새 제스처 취소를 넣는다. |
+| MD-02 | CHANGED | 머리 상태(대기·당김·스피너·재시도·끝 표식)는 고정 높이 슬롯 안 전환(D-019). |
+| MD-04 | CHANGED | 제스처 분류기가 요청 시작과 앵커 보정 취소 여부를 함께 정한다(D-020). |
+| SD-03 | INHERITED | 0326 사용자 입력 취소 계약. 새 제스처에서 기대 불변. |
+
+| Pair | 노드 ↔ 검증 | 등급 | production path · §10 자리 | 직접 관측 |
+|---|---|---|---|---|
+| VP-02 | R-02 ↔ AT-02 | REQUIRED | 일반 진입 → 하네스 wheel(pin 해제) ‖ 뷰포트 분류기 → 요청 → 앞삽입 commit → 앵커 복원 → DOM · EP4′·EP5 | Q4′·Q4b′·Q5·Q5b |
+| VP-06 | SD-03 ↔ ST-03 | REGRESSION | rev 5 경로 + 0326 대기 보정 취소 · EP4′ ⑥ | rev 5 관측 + `TranscriptViewport.prepend.test.ts:564` 13 cause 기대 불변 |
+| VP-12 | MD-02 ↔ UT-02 | REQUIRED | 요청 상태 → 고정 높이 머리 슬롯 표시 → 끝 표식 · EP4′ ③ · EP5 | Q4′(슬롯 상태)·Q4b′(높이 차) |
+| VP-16 | MD-04 ↔ UT-04 | REQUIRED | wheel/key/pointer/scroll → 분류(`consumedPull`·`userInput`) → 요청 ≤1 · 보정 유지/취소 / 유휴 채움 · EP3 ⑤·EP4′ ⑤⑥ | Q4′ |
+
+rev 5의 VP-02·06·12·16 행은 위 행으로 대체한다. 나머지 pair는 rev 5 그대로다.
+
+### 20-D. 대체 계약 행
+
+| 대체 대상 → 새 행 | 규칙 |
+|---|---|
+| §7 AC3 → **AC3′** | **요청**: AC3과 같다(관성 포함 한 제스처·버튼 한 번당 같은 턴 다음 묶음 또는 이전 턴 1회, 스피너 제거·머리 변화 뒤 자동 요청 0, 실패 재시도·끝·짧은 세션). **읽기 위치**: 앞삽입 commit 직전 프레임과 보정이 끝난 프레임 사이에 당기기 시작한 part의 글줄 이동 ≤1px — 상단(scrollTop 0, 머리 슬롯 보임)과 중간 위치 각각, commit과 보정 사이에 같은 제스처의 후속 wheel이 오는 경우 포함. 머리 상태 전환만으로 글줄 이동 ≤1px. 보정 중 새 제스처(방향 전환·간격 초과·pointerdown·스크롤 키)는 0326대로 보정을 취소하고 사용자 입력을 따른다. Chromium 실측. 검증 Q4′·Q4b′, 도달 경로: 세 하네스 일반 열기 → 실 제스처 → 머리·DOM. |
+| §10 ‘제스처 경계·당김 표시’ → **머리 슬롯 (D-019)** | 부분 이력으로 연 보기(`historyComplete=false`)의 머리 슬롯은 고정 높이 `HISTORY_HEAD_HEIGHT`(디자인 토큰 한 줄, 상태와 무관)를 갖는다. 대기·당김·스피너·재시도·실패 문구는 그 안에서 transform·opacity로만 바뀐다(감소된 모션이면 정적). 이력 시작에 닿으면 같은 높이의 ‘대화 시작’ 표식으로 바뀐다(빈 마지막 페이지도 같음). 처음부터 완전한 이력으로 연 보기는 슬롯 0(현행). 머리 슬롯의 기존 소비자(EP-12 a9·a10)는 지금처럼 ResizeObserver 보정을 쓴다. |
+| §10 ‘제스처 경계·당김 표시’ → **제스처 분류와 보정 취소 (D-016·D-020)** | 뷰포트의 wheel·key·pointer·사용자 scroll은 순수 분류기(`lib/transcript/historyGesture.ts`) 한 곳을 지난다. 한 제스처 = 같은 방향 wheel 열에서 이웃 간격 < `HISTORY_GESTURE_GAP_MS`(정수 ms, 100~400, 기본 200). `consumedPull` = 이전 턴 요청을 시작한 제스처의 후속 wheel — 대기 보정을 유지하고 새 요청 0. 그 밖(`userInput`)은 0326대로 `cancel()`. 요청은 상단(scrollTop ≤ 0.5)에서 위 방향 새 제스처일 때만 시작하고, 대상이 위로 더 스크롤할 수 있는 중첩 스크롤 영역 안이면 시작하지 않는다(OpenCode `nested`와 같은 판정을 공용화). 하네스 pin 해제는 그대로 실행되고 분류는 그 결과에 의존하지 않는다. 드래그 자동 스크롤(wheel 아님)은 입력이 아니다. |
+| §10 ‘하단 슬롯·아래 입력’ → **하단 슬롯·아래 입력′** | rev 5 규칙에 더해: 검색 보기 동안 공통 뷰포트 `footer`(`TranscriptViewport.tsx:121`)에는 검색 하단 슬롯만 넣는다. Timeline의 대기 steer·실행·오류 footer는 최신 보기에 속해 검색 보기 동안 숨기고 합류·‘최신 대화로’ 뒤 다시 보인다. 컴포저의 실행 표시·중지는 그대로다. 아래 입력도 같은 분류기를 쓴다(방향만 반대). 아래 붙임은 앵커 이동이 없어 보정 대상이 아니다. |
+
+### 20-E. 대체 강제 지점·좌표
+
+| EP / 검색 술어 | 강제 지점(왼쪽부터) | 대응 oracle · 실패 의미 |
+|---|---|---|
+| EP4′ · `entryIntent\|scrollTop\|header\|footer\|wheel\|scrollHeight\|reachedStart\|gesture\|shouldCancelSelection\|onUserInput\|nested\|cancelAnchor` | ① 세 화면 진입 intent→하단 ② 상단 입력 판정(상단·짧은 턴·중첩 스크롤 제외) ③ 고정 높이 머리 슬롯 상태 전환·끝 표식 ④ 앞삽입 commit 앵커 캡처→복원(상단·중간) ⑤ 제스처 경계 → 요청 ≤1 ⑥ 보정 취소 분류(`consumedPull`만 유지) ⑦ 새 행 마운트 → 선택 취소 승계 ⑧ 하네스 pin 해제와 공존(Claude·OpenCode) ⑨ 검색 보기 footer 조립(live footer 숨김·복귀) | ①②⑤⑥⑧ Q4′, ③④⑥⑦⑨ Q4b′, 0326 회귀는 VP-06. 분기 입력 — ②: 상단 아님 · 상단 · 짧은 턴 · 위로 더 갈 수 있는 중첩 코드 블록 안 · 맨 위인 중첩 블록 안. ③: 대기→당김→스피너→재시도→대기, 스피너→끝 표식(빈 마지막 페이지 포함). ⑥: commit 뒤 35 ms 같은 제스처 wheel · 간격 초과 wheel · 방향 전환 wheel · pointerdown · PageUp · 사용자 scroll 7px — 첫 입력만 보정 유지. 선택 변이: ⑥ 분류 제거(모든 wheel 취소) → Q4b′ 후속 wheel 사례 red(WU-0 기준 +35px) · ③ 스피너 상태에만 높이 추가 → Q4b′ red · ⑥ 방향 전환까지 유지로 넓힘 → Q4′ ‘new gesture cancels’ red. |
+
+| 좌표 | 재현 입력 → 직접 관측 |
+|---|---|
+| Q4′ · `renderer/src/features/chat/components/transcript/TranscriptViewport.history-pull.test.ts` ‘three harnesses’ + `renderer/src/features/chat/lib/transcript/historyGesture.test.ts` ‘gesture, cancel class and idle fill’ | rev 5 Q4 입력 전부 + EP4′ ②⑥ 분기 입력 → 분류 결과·요청 수·`cancelAnchor` 호출 여부. Claude·OpenCode pin 해제가 같은 위 wheel에서 여전히 일어나는지. 슬롯 상태 표시(대기·당김·스피너·재시도·끝)와 슬롯 높이 값 불변. |
+| Q4b′ · `gate:xvfb-run -a node scripts/check-transcript-history.mjs` | r1의 `scripts/stage-e/baseline-anchor.ts`처럼 실제 `HarnessScrollController → TranscriptView → TranscriptViewport`를 세 하네스로 띄운다. (a) 상단 앞삽입 (b) (a) + commit 뒤 35 ms 같은 제스처 wheel (c) 중간 위치 앞삽입 (d) 상단 관성 열 16 ms × 30 (e) 머리 상태 전환만 (f) 보정 중 방향 전환 wheel. (a)~(e)는 보정이 끝난 프레임 글줄 이동 ≤1px·(d) 요청 1회, (f)는 보정 취소 관측. 드래그 선택·검색 보기 footer·아래 붙임은 rev 5 Q4b 입력 그대로. 통과 0·실패 1·Electron 없음 3. |
+
+### 20-F. 구현 재개 조건
+
+r1.2는 기능 구현부터 이어 간다. WU-0의 측정 장치(`measure-stage-e.mjs`·`stage-e/`)는 Q10·Q4b′의 기반으로 쓴다. Q4b′가 (a)·(b)에서 1px을 넘으면 r1.2는 그 수치를 남기고 PLAN_GAP으로 돌린다.
+
 ## READY self-review
 
 | 점검 | 결과 |
 |---|---|
-| 결정 | **READY**. Ledger ACTIVE 15 · SUPERSEDED 3 · OPEN 0(`grep -c '\| OPEN \|'` = 0). D-009 자동안·D-012 전체는 사용자 원문 인용, D-015~D-018은 PR #640 원문 인용. 조건절 “같은 턴 안에서만”(D-009)·“전체를 기준”(D-012)을 §5·§10·AC에 그대로 옮겼다. |
+| 결정 | **READY (V1 rev 5 + ΔV1)**. Ledger ACTIVE 17 · SUPERSEDED 3 · OPEN 0(`grep -c '\| OPEN \|'` = 0). D-009 자동안·D-012 전체는 사용자 원문 인용, D-015~D-018은 PR #640 원문 인용. 조건절 “같은 턴 안에서만”(D-009)·“전체를 기준”(D-012)을 §5·§10·AC에 그대로 옮겼다. |
 | ACTIVE ↔ AC | 갱신 메모 rev 5에 충돌 0으로 적었다. D-009 ↔ AC2·AC3, D-012 ↔ AC7, D-015 ↔ AC6, D-016 ↔ AC3·AC4, D-017 ↔ AC4, D-018 ↔ AC1·AC11. |
 | 근거 | §8 rev 5 표 — 줄 번호를 `7db1c7ce`로 재대조, 기존 스위트 7파일·128건 재실행 통과. PR #640 지적 4건을 §4 표에서 재현(`laterTurn` 0건 등). 0328 D-013·0326 D-103 앵커 실재 확인. |
 | V | VP-01~16. NEW SD-05→VP-15, MD-04→VP-16, CHANGED R-01~03·SD-01·02·04·AR-03·MD-03은 기존 pair 경로·oracle을 고쳤다. INHERITED SD-03은 VP-06 REGRESSION. AC 11개, 25 이하. |
@@ -512,7 +579,8 @@ S-E1~S-E5 원시 기록과 각 AC 결과를 0330 W에 연결한다. E의 확정�
 | worst-case | 유휴 채움 = 그 턴 전체, 20만 빈 메시지 턴 1,563묶음(§14 · §17). 패널 요약·검색 양방향은 조작당 ≤1묶음. |
 | one-way door | `oo:` 채널과 `IPC_CONTRACT.md`(§15), append-only migration(§11 2), 진행 위치 저장 형식(§10 미색인 세션 열기). |
 | 운영 gate | §19 3의 `ci.yml` 대응 명령 + Q4b·Q10 `gate:`(Electron 없으면 exit 3 미실행). 신규 스크립트는 `app/AGENTS.md` 목록 갱신. |
-| 남은 위험 | 미출판 첫 클릭이 현행 전량 열기의 2배를 넘으면 PLAN_GAP(§17). 20만 메시지급 턴의 자동 채움 상한이 필요하면 사용자 결정. |
+| 남은 위험 | 미출판 첫 클릭이 현행 전량 열기의 2배(긴 DB Linux 기준 3,729 ms, §20 A)를 넘으면 PLAN_GAP(§17). 20만 메시지급 턴의 자동 채움 상한이 필요하면 사용자 결정. |
+| ΔV1 | r1 반송 근거 6건을 §20 A에서 코드·원시 기록으로 대조했다. CHANGED R-02·MD-02·MD-04는 VP-02·12·16 REQUIRED, INHERITED SD-03은 VP-06 REGRESSION(0326 ‘respects %s’ 13/13 재실행 통과). EP4′ 분기 입력 ② 5 · ③ 2열 · ⑥ 6, 선택 변이 3. 대체한 rev 5 행마다 ‘ΔV1에서 … 대체’ 표시를 달았다. |
 
 ---
 
